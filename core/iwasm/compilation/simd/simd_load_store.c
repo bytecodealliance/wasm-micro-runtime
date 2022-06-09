@@ -13,12 +13,10 @@
 /* data_length in bytes */
 static LLVMValueRef
 simd_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx, uint32 align,
-          uint32 offset, uint32 data_length, LLVMTypeRef ptr_type)
+          uint32 offset, uint32 data_length, LLVMTypeRef ptr_type,
+          LLVMTypeRef data_type)
 {
     LLVMValueRef maddr, data;
-#if LLVM_VERSION_MAJOR >= 15
-    LLVMTypeRef data_type = LLVMGetElementType(ptr_type);
-#endif
 
     if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset,
                                             data_length))) {
@@ -49,7 +47,7 @@ aot_compile_simd_v128_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMValueRef result;
 
     if (!(result = simd_load(comp_ctx, func_ctx, align, offset, 16,
-                             V128_PTR_TYPE))) {
+                             V128_PTR_TYPE, V128_TYPE))) {
         return false;
     }
 
@@ -76,7 +74,7 @@ aot_compile_simd_load_extend(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         LLVMVectorType(INT16_TYPE, 4), LLVMVectorType(INT16_TYPE, 4),
         LLVMVectorType(I32_TYPE, 2),   LLVMVectorType(I32_TYPE, 2),
     };
-    LLVMTypeRef sub_vector_type;
+    LLVMTypeRef sub_vector_type, sub_vector_ptr_type;
 
     bh_assert(opcode_index < 6);
 
@@ -84,13 +82,13 @@ aot_compile_simd_load_extend(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     /* to vector ptr type */
     if (!sub_vector_type
-        || !(sub_vector_type = LLVMPointerType(sub_vector_type, 0))) {
+        || !(sub_vector_ptr_type = LLVMPointerType(sub_vector_type, 0))) {
         HANDLE_FAILURE("LLVMPointerType");
         return false;
     }
 
     if (!(sub_vector = simd_load(comp_ctx, func_ctx, align, offset, 8,
-                                 sub_vector_type))) {
+                                 sub_vector_ptr_type, sub_vector_type))) {
         return false;
     }
 
@@ -120,6 +118,8 @@ aot_compile_simd_load_splat(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMValueRef element, result;
     LLVMTypeRef element_ptr_types[] = { INT8_PTR_TYPE, INT16_PTR_TYPE,
                                         INT32_PTR_TYPE, INT64_PTR_TYPE };
+    LLVMTypeRef element_data_types[] = { INT8_TYPE, INT16_TYPE, I32_TYPE,
+                                         I64_TYPE };
     uint32 data_lengths[] = { 1, 2, 4, 8 };
     LLVMValueRef undefs[] = {
         LLVM_CONST(i8x16_undef),
@@ -138,7 +138,8 @@ aot_compile_simd_load_splat(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     if (!(element = simd_load(comp_ctx, func_ctx, align, offset,
                               data_lengths[opcode_index],
-                              element_ptr_types[opcode_index]))) {
+                              element_ptr_types[opcode_index],
+                              element_data_types[opcode_index]))) {
         return false;
     }
 
@@ -169,6 +170,8 @@ aot_compile_simd_load_lane(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     uint32 data_lengths[] = { 1, 2, 4, 8 };
     LLVMTypeRef element_ptr_types[] = { INT8_PTR_TYPE, INT16_PTR_TYPE,
                                         INT32_PTR_TYPE, INT64_PTR_TYPE };
+    LLVMTypeRef element_data_types[] = { INT8_TYPE, INT16_TYPE, I32_TYPE,
+                                         I64_TYPE };
     LLVMTypeRef vector_types[] = { V128_i8x16_TYPE, V128_i16x8_TYPE,
                                    V128_i32x4_TYPE, V128_i64x2_TYPE };
     LLVMValueRef lane = simd_lane_id_to_llvm_value(comp_ctx, lane_id);
@@ -182,7 +185,8 @@ aot_compile_simd_load_lane(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     if (!(element = simd_load(comp_ctx, func_ctx, align, offset,
                               data_lengths[opcode_index],
-                              element_ptr_types[opcode_index]))) {
+                              element_ptr_types[opcode_index],
+                              element_data_types[opcode_index]))) {
         return false;
     }
 
@@ -203,6 +207,7 @@ aot_compile_simd_load_zero(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     uint32 opcode_index = opcode - SIMD_v128_load32_zero;
     uint32 data_lengths[] = { 4, 8 };
     LLVMTypeRef element_ptr_types[] = { INT32_PTR_TYPE, INT64_PTR_TYPE };
+    LLVMTypeRef element_data_types[] = { I32_TYPE, I64_TYPE };
     LLVMValueRef zero[] = {
         LLVM_CONST(i32x4_vec_zero),
         LLVM_CONST(i64x2_vec_zero),
@@ -222,7 +227,8 @@ aot_compile_simd_load_zero(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     if (!(element = simd_load(comp_ctx, func_ctx, align, offset,
                               data_lengths[opcode_index],
-                              element_ptr_types[opcode_index]))) {
+                              element_ptr_types[opcode_index],
+                              element_data_types[opcode_index]))) {
         return false;
     }
 
