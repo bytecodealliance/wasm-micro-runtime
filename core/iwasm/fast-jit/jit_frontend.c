@@ -1423,9 +1423,8 @@ jit_compile_func(JitCompContext *cc)
 
             case WASM_OP_MEMORY_SIZE:
                 read_leb_uint32(frame_ip, frame_ip_end, mem_idx);
-                if (!jit_compile_op_memory_size(cc))
+                if (!jit_compile_op_memory_size(cc, mem_idx))
                     return false;
-                (void)mem_idx;
                 break;
 
             case WASM_OP_MEMORY_GROW:

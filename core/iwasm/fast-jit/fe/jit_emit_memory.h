@@ -44,7 +44,7 @@ bool
 jit_compile_op_f64_store(JitCompContext *cc, uint32 align, uint32 offset);
 
 bool
-jit_compile_op_memory_size(JitCompContext *cc);
+jit_compile_op_memory_size(JitCompContext *cc, uint32 mem_idx);
 
 bool
 jit_compile_op_memory_grow(JitCompContext *cc, uint32 mem_idx);

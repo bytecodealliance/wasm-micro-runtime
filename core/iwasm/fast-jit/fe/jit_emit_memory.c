@@ -468,8 +468,20 @@ fail:
 }
 
 bool
-jit_compile_op_memory_size(JitCompContext *cc)
+jit_compile_op_memory_size(JitCompContext *cc, uint32 mem_idx)
 {
+    JitReg mem_inst, res;
+
+    mem_inst = get_memory_inst_reg(cc->jit_frame, mem_idx);
+
+    res = jit_cc_new_reg_I32(cc);
+    GEN_INSN(LDI32, res, mem_inst,
+             NEW_CONST(I32, offsetof(WASMMemoryInstance, cur_page_count)));
+
+    PUSH_I32(res);
+
+    return true;
+fail:
     return false;
 }
 
