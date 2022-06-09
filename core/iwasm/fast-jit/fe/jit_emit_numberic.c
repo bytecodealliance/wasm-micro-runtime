@@ -1573,11 +1573,39 @@ jit_compile_op_f64_arithmetic(JitCompContext *cc, FloatArithmetic arith_op)
 bool
 jit_compile_op_f32_copysign(JitCompContext *cc)
 {
+    JitReg res;
+    JitReg args[2] = { 0 };
+
+    POP_F32(args[1]);
+    POP_F32(args[0]);
+
+    res = jit_cc_new_reg_F32(cc);
+    if (!jit_emit_callnative(cc, copysignf, res, args, 2))
+        goto fail;
+
+    PUSH_F32(res);
+
+    return true;
+fail:
     return false;
 }
 
 bool
 jit_compile_op_f64_copysign(JitCompContext *cc)
 {
+    JitReg res;
+    JitReg args[2] = { 0 };
+
+    POP_F64(args[1]);
+    POP_F64(args[0]);
+
+    res = jit_cc_new_reg_F64(cc);
+    if (!jit_emit_callnative(cc, copysign, res, args, 2))
+        goto fail;
+
+    PUSH_F64(res);
+
+    return true;
+fail:
     return false;
 }
