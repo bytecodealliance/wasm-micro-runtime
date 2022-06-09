@@ -2641,7 +2641,12 @@ apply_func_passes(AOTCompContext *comp_ctx)
         LLVMAddLoopVectorizePass(pass_mgr);
         LLVMAddSLPVectorizePass(pass_mgr);
         LLVMAddLoopRotatePass(pass_mgr);
+#if LLVM_VERSION_MAJOR < 15
         LLVMAddLoopUnswitchPass(pass_mgr);
+        /* Binding disabled in LLVM 15, don't add the pass util we can either
+           add a binding to SimpleLoopUnswitchPass, or add it to
+           aot_llvm_extra.cpp */
+#endif
         LLVMAddInstructionCombiningPass(pass_mgr);
         LLVMAddCFGSimplificationPass(pass_mgr);
         if (!comp_ctx->enable_thread_mgr) {
