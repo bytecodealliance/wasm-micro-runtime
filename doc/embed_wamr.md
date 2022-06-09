@@ -111,7 +111,7 @@ There are several ways to call WASM function:
 1. Function call with parameters in an array of 32 bits elements and size:
 
 ```c
-  unit32 argv[2];
+  uint32 argv[2];
 
   /* arguments are always transferred in 32-bit element */
   argv[0] = 8;
@@ -130,11 +130,11 @@ There are several ways to call WASM function:
 The parameters are transferred in an array of 32 bits elements. For parameters that occupy 4 or fewer bytes, each parameter can be a single array element. For parameters in types like double or int64, each parameter will take two array elements. The function return value will be sent back in the first one or two elements of the array according to the value type. See the sample code below:
 
 ```c
-  unit32 argv[6];
+  uint32 argv[6];
   char arg1 = 'a';
   int arg2 = 10;
   double arg3 = 1.0;
-  int 64 arg4 = 100;
+  int64 arg4 = 100;
   double ret;
 
   argv[0] = arg1;
@@ -162,7 +162,7 @@ The parameters are transferred in an array of 32 bits elements. For parameters t
 2. Function call with results and arguments both in `wasm_val_t` struct and size:
 
 ```c
-  unit32 num_args = 1, num_results = 1;
+  uint32 num_args = 1, num_results = 1;
   wasm_val_t args[1], results[1];
 
   /* set the argument type and value */
@@ -183,7 +183,7 @@ The parameters are transferred in an array of 32 bits elements. For parameters t
 3. Function call with variant argument support:
 
 ```c
-  unit32 num_args = 1, num_results = 1;
+  uint32 num_args = 1, num_results = 1;
   wasm_val_t results[1];
 
   /* call the WASM function */
@@ -240,7 +240,7 @@ uint32_t buffer_for_wasm;
 
 buffer_for_wasm = wasm_runtime_module_malloc(module_inst, 100, &buffer);
 if (buffer_for_wasm != 0) {
-    unit32 argv[2];
+    uint32 argv[2];
     strncpy(buffer, "hello", 100); /* use native address for accessing in runtime */
     argv[0] = buffer_for_wasm;     /* pass the buffer address for WASM space */
     argv[1] = 100;                 /* the size of buffer */
