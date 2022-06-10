@@ -3343,6 +3343,6 @@ aot_get_custom_section(AOTModule *module, const char *name, uint32 *len)
         section = section->next;
     }
 
-    return false;
+    return NULL;
 }
 #endif /* end of WASM_ENABLE_LOAD_CUSTOM_SECTION */

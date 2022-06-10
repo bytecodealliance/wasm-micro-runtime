@@ -1304,7 +1304,7 @@ get_custom_sections_size(AOTCompContext *comp_ctx, AOTCompData *comp_data)
         size = align_uint(size, 4);
         /* section id + section size + sub section id */
         size += (uint32)sizeof(uint32) * 3;
-        /* section name, null terminated string */
+        /* section name and len */
         size += get_string_size(comp_ctx, section_name);
         /* section content */
         size += length;

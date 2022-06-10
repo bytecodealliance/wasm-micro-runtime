@@ -1060,7 +1060,8 @@ wasm_runtime_dump_call_stack(wasm_exec_env_t exec_env);
  * @param name name of the custom section
  * @param len return the length of the content if found
  *
- * @return Custom section content (including the name) if found, NULL otherwise
+ * @return Custom section content (not including the name length
+ *         and name string) if found, NULL otherwise
  */
 WASM_RUNTIME_API_EXTERN const uint8_t *
 wasm_runtime_get_custom_section(wasm_module_t const module_comm,
