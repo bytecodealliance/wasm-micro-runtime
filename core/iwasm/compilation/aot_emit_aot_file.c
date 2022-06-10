@@ -1942,7 +1942,6 @@ aot_emit_custom_sections(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
                          AOTCompData *comp_data, AOTCompContext *comp_ctx)
 {
     uint32 offset = *p_offset, i;
-    bool emitted = false;
 
     for (i = 0; i < comp_ctx->custom_sections_count; i++) {
         const char *section_name = comp_ctx->custom_sections_wp[i];
@@ -1954,11 +1953,6 @@ aot_emit_custom_sections(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
         if (!content) {
             /* Warning has been reported during calculating size */
             continue;
-        }
-
-        if (!emitted) {
-            emitted = true;
-            *p_offset = offset = align_uint(offset, 4);
         }
 
         offset = align_uint(offset, 4);

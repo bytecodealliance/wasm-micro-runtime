@@ -3315,7 +3315,7 @@ aot_get_custom_section(const AOTModule *module, const char *name, uint32 *len)
     WASMCustomSection *section = module->custom_section_list;
 
     while (section) {
-        if (strcmp(section->name_addr, name)) {
+        if (strcmp(section->name_addr, name) == 0) {
             if (len) {
                 *len = section->content_len;
             }
