@@ -98,7 +98,7 @@ app_instance_func(wasm_module_inst_t module_inst, const char *func_name)
 static char **
 split_string(char *str, int *count)
 {
-    char **res = NULL;
+    char **res = NULL, **res1;
     char *p;
     int idx = 0;
 
@@ -106,16 +106,18 @@ split_string(char *str, int *count)
     do {
         p = strtok(str, " ");
         str = NULL;
-        res = (char **)realloc(res, sizeof(char *) * (uint32)(idx + 1));
+        res1 = res;
+        res = (char **)realloc(res1, sizeof(char *) * (uint32)(idx + 1));
         if (res == NULL) {
+            free(res1);
             return NULL;
         }
         res[idx++] = p;
     } while (p);
 
     /**
-     * since the function name,
-     * res[0] might be contains a '\' to indicate a space
+     * Due to the function name,
+     * res[0] might contain a '\' to indicate a space
      * func\name -> func name
      */
     p = strchr(res[0], '\\');

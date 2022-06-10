@@ -878,7 +878,7 @@ static uint32
 get_name_section_size(AOTCompData *comp_data);
 
 static uint32
-get_custom_sections_size(AOTCompData *comp_data);
+get_custom_sections_size(AOTCompContext *comp_ctx, AOTCompData *comp_data);
 
 static uint32
 get_aot_file_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
@@ -942,10 +942,10 @@ get_aot_file_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
                      get_name_section_size(comp_data));
     }
 
-    if (comp_data->custom_sections_to_emit) {
+    if (comp_ctx->custom_sections_wp) {
         /* custom sections */
         size = align_uint(size, 4);
-        size += get_custom_sections_size(comp_data);
+        size += get_custom_sections_size(comp_ctx, comp_data);
     }
 
     return size;
@@ -1284,17 +1284,30 @@ fail:
 }
 
 static uint32
-get_custom_sections_size(AOTCompData *comp_data)
+get_custom_sections_size(AOTCompContext *comp_ctx, AOTCompData *comp_data)
 {
-    uint32 size = 0;
-    WASMSection *section = comp_data->custom_sections_to_emit;
+    uint32 size = 0, i;
 
-    while (section) {
+    for (i = 0; i < comp_ctx->custom_sections_count; i++) {
+        const char *section_name = comp_ctx->custom_sections_wp[i];
+        const uint8 *content = NULL;
+        uint32 length = 0;
+
+        content = wasm_loader_get_custom_section(comp_data->wasm_module,
+                                                 section_name, &length);
+        if (!content) {
+            LOG_WARNING("Can't find custom section [%s], ignore it",
+                        section_name);
+            continue;
+        }
+
         size = align_uint(size, 4);
         /* section id + section size + sub section id */
         size += (uint32)sizeof(uint32) * 3;
-        size += section->section_body_size;
-        section = section->next;
+        /* section name, null terminated string */
+        size += get_string_size(comp_ctx, section_name);
+        /* section content */
+        size += length;
     }
 
     return size;
@@ -1927,23 +1940,32 @@ static bool
 aot_emit_custom_sections(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
                          AOTCompData *comp_data, AOTCompContext *comp_ctx)
 {
-    WASMSection *section = comp_data->custom_sections_to_emit;
-    uint32 offset = *p_offset;
+    uint32 offset = *p_offset, i;
 
     *p_offset = offset = align_uint(offset, 4);
 
-    while (section) {
-        offset = align_uint(offset, 4);
+    for (i = 0; i < comp_ctx->custom_sections_count; i++) {
+        const char *section_name = comp_ctx->custom_sections_wp[i];
+        const uint8 *content = NULL;
+        uint32 length = 0;
 
+        content = wasm_loader_get_custom_section(comp_data->wasm_module,
+                                                 section_name, &length);
+        if (!content) {
+            /* Warning has been reported during calculating size */
+            continue;
+        }
+
+        offset = align_uint(offset, 4);
         EMIT_U32(AOT_SECTION_TYPE_CUSTOM);
         /* sub section id + content */
-        EMIT_U32(sizeof(uint32) * 1 + section->section_body_size);
+        EMIT_U32(sizeof(uint32) * 1 + get_string_size(comp_ctx, section_name)
+                 + length);
         EMIT_U32(AOT_CUSTOM_SECTION_RAW);
-        bh_memcpy_s((uint8 *)(buf + offset), (uint32)(buf_end - buf),
-                    section->section_body, (uint32)section->section_body_size);
-        offset += section->section_body_size;
-
-        section = section->next;
+        EMIT_STR(section_name);
+        bh_memcpy_s((uint8 *)(buf + offset), (uint32)(buf_end - buf), content,
+                    length);
+        offset += length;
     }
 
     *p_offset = offset;

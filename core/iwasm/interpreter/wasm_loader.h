@@ -74,7 +74,7 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                             uint8 **p_end_addr);
 
 void
-wasm_loader_destroy_sections(WASMSection *section_list);
+wasm_loader_destroy_custom_sections(WASMCustomSection *section_list);
 
 #ifdef __cplusplus
 }

@@ -2811,7 +2811,6 @@ load_user_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                   uint32 error_buf_size)
 {
     const uint8 *p = buf, *p_end = buf_end;
-    const uint8 *p_orig = p;
     char section_name[32];
     uint32 name_len, buffer_len;
 
@@ -2856,16 +2855,17 @@ load_user_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
 
 #if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
     {
-        WASMSection *section =
-            loader_malloc(sizeof(WASMSection), error_buf, error_buf_size);
+        WASMCustomSection *section =
+            loader_malloc(sizeof(WASMCustomSection), error_buf, error_buf_size);
 
         if (!section) {
             return false;
         }
 
-        section->section_type = SECTION_TYPE_USER;
-        section->section_body = (uint8 *)p_orig;
-        section->section_body_size = p_end - p;
+        section->name_addr = (char *)p;
+        section->name_len = name_len;
+        section->content_addr = (uint8 *)(p + name_len);
+        section->content_len = p_end - p - name_len;
 
         section->next = module->custom_section_list;
         module->custom_section_list = section;
@@ -2875,7 +2875,6 @@ load_user_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
 #endif
 
     LOG_VERBOSE("Ignore custom section [%s].", section_name);
-    (void)p_orig;
 
     return true;
 fail:
@@ -3789,7 +3788,7 @@ wasm_loader_unload(WASMModule *module)
 #endif
 
 #if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
-    destroy_sections(module->custom_section_list);
+    wasm_loader_destroy_custom_sections(module->custom_section_list);
 #endif
 
     wasm_runtime_free(module);
@@ -6488,25 +6487,15 @@ const uint8 *
 wasm_loader_get_custom_section(WASMModule *module, const char *name,
                                uint32 *len)
 {
-    WASMSection *section = module->custom_section_list;
+    WASMCustomSection *section = module->custom_section_list;
 
     while (section) {
-        uint64 res64;
-        uint32 name_len;
-        uint8 *p = section->section_body;
-
-        if (!read_leb((uint8 **)&p,
-                      section->section_body + section->section_body_size, 32,
-                      false, &res64, NULL, 0)) {
-            continue;
-        }
-        name_len = (uint32)res64;
-
-        if ((name_len == strlen(name)) && (memcmp(p, name, name_len) == 0)) {
+        if ((section->name_len == strlen(name))
+            && (memcmp(section->name_addr, name, section->name_len) == 0)) {
             if (len) {
-                *len = section->section_body_size;
+                *len = section->content_len;
             }
-            return section->section_body;
+            return section->content_addr;
         }
 
         section = section->next;
@@ -6514,13 +6503,18 @@ wasm_loader_get_custom_section(WASMModule *module, const char *name,
 
     return false;
 }
-#endif /* end of WASM_ENABLE_LOAD_CUSTOM_SECTION */
 
 void
-wasm_loader_destroy_sections(WASMSection *section_list)
+wasm_loader_destroy_custom_sections(WASMCustomSection *section_list)
 {
-    destroy_sections(section_list);
+    WASMCustomSection *section = section_list, *next;
+    while (section) {
+        next = section->next;
+        wasm_runtime_free(section);
+        section = next;
+    }
 }
+#endif /* end of WASM_ENABLE_LOAD_CUSTOM_SECTION */
 
 static bool
 wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,

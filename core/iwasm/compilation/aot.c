@@ -4,7 +4,7 @@
  */
 
 #include "aot.h"
-#include "wasm_loader.h"
+#include "../interpreter/wasm_loader.h"
 
 static char aot_error[128];
 
@@ -590,10 +590,6 @@ aot_destroy_comp_data(AOTCompData *comp_data)
 
     if (comp_data->aot_name_section_buf)
         wasm_runtime_free(comp_data->aot_name_section_buf);
-
-    if (comp_data->custom_sections_to_emit) {
-        wasm_loader_destroy_sections(comp_data->custom_sections_to_emit);
-    }
 
     wasm_runtime_free(comp_data);
 }

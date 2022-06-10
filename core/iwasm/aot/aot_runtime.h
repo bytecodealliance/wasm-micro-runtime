@@ -270,7 +270,7 @@ typedef struct AOTModule {
     uint32 aux_func_name_count;
 #endif
 #if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
-    wasm_section_t *custom_section_list;
+    WASMCustomSection *custom_section_list;
 #endif
 } AOTModule;
 
