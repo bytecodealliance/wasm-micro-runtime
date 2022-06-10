@@ -37,7 +37,7 @@
 extern "C" {
 #endif
 
-#if LLVM_VERSION_MAJOR < 15
+#if LLVM_VERSION_MAJOR < 14
 #define LLVMBuildLoad2(builder, type, value, name) \
     LLVMBuildLoad(builder, value, name)
 

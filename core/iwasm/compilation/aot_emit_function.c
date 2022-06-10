@@ -881,7 +881,7 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
     }
     else {
-#if LLVM_VERSION_MAJOR >= 15
+#if LLVM_VERSION_MAJOR >= 14
         LLVMTypeRef llvm_func_type;
 #endif
         bool recursive_call =
@@ -950,7 +950,7 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             && !check_stack_boundary(comp_ctx, func_ctx, callee_cell_num))
             goto fail;
 
-#if LLVM_VERSION_MAJOR >= 15
+#if LLVM_VERSION_MAJOR >= 14
         llvm_func_type = func_ctxes[func_idx - import_func_count]->func_type;
 #endif
 

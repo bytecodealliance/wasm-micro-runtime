@@ -2557,7 +2557,7 @@ __call_llvm_intrinsic(const AOTCompContext *comp_ctx,
         }
     }
 
-#if LLVM_VERSION_MAJOR >= 15
+#if LLVM_VERSION_MAJOR >= 14
     func_type =
         LLVMFunctionType(ret_type, param_types, (uint32)param_count, false);
 #endif
