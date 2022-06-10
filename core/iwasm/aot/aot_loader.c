@@ -681,10 +681,7 @@ load_custom_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
 #if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
         case AOT_CUSTOM_SECTION_RAW:
         {
-            const uint8 *p_orig = p;
-            char section_name_buf[32];
             const char *section_name;
-            uint32 name_len, buffer_len;
             WASMCustomSection *section;
 
             if (p >= p_end) {
@@ -694,20 +691,6 @@ load_custom_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
 
             read_string(p, p_end, section_name);
 
-            name_len = p - p_orig;
-
-            buffer_len = sizeof(section_name_buf);
-            memset(section_name_buf, 0, buffer_len);
-            if (name_len < buffer_len) {
-                bh_memcpy_s(section_name_buf, buffer_len, section_name,
-                            name_len);
-            }
-            else {
-                bh_memcpy_s(section_name_buf, buffer_len, section_name,
-                            buffer_len - 4);
-                memset(section_name_buf + buffer_len - 4, '.', 3);
-            }
-
             section = loader_malloc(sizeof(WASMCustomSection), error_buf,
                                     error_buf_size);
             if (!section) {
@@ -715,13 +698,13 @@ load_custom_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
             }
 
             section->name_addr = (char *)section_name;
-            section->name_len = name_len;
+            section->name_len = strlen(section_name);
             section->content_addr = (uint8 *)p;
             section->content_len = p_end - p;
 
             section->next = module->custom_section_list;
             module->custom_section_list = section;
-            LOG_VERBOSE("Load custom section [%s] success.", section_name_buf);
+            LOG_VERBOSE("Load custom section [%s] success.", section_name);
             break;
         }
 #endif /* end of WASM_ENABLE_LOAD_CUSTOM_SECTION != 0 */
@@ -3327,13 +3310,12 @@ aot_get_plt_table_size()
 
 #if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
 const uint8 *
-aot_get_custom_section(AOTModule *module, const char *name, uint32 *len)
+aot_get_custom_section(const AOTModule *module, const char *name, uint32 *len)
 {
     WASMCustomSection *section = module->custom_section_list;
 
     while (section) {
-        if ((section->name_len == strlen(name))
-            && (memcmp(section->name_addr, name, section->name_len) == 0)) {
+        if (strcmp(section->name_addr, name)) {
             if (len) {
                 *len = section->content_len;
             }

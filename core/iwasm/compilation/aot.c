@@ -4,7 +4,6 @@
  */
 
 #include "aot.h"
-#include "../interpreter/wasm_loader.h"
 
 static char aot_error[128];
 

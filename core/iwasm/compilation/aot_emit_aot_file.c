@@ -885,6 +885,7 @@ get_aot_file_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
                   AOTObjectData *obj_data)
 {
     uint32 size = 0;
+    uint32 size_custom_section = 0;
 
     /* aot file header */
     size += get_file_header_size();
@@ -942,10 +943,10 @@ get_aot_file_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
                      get_name_section_size(comp_data));
     }
 
-    if (comp_ctx->custom_sections_wp) {
-        /* custom sections */
+    size_custom_section = get_custom_sections_size(comp_ctx, comp_data);
+    if (size_custom_section > 0) {
         size = align_uint(size, 4);
-        size += get_custom_sections_size(comp_ctx, comp_data);
+        size += size_custom_section;
     }
 
     return size;
@@ -1941,8 +1942,7 @@ aot_emit_custom_sections(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
                          AOTCompData *comp_data, AOTCompContext *comp_ctx)
 {
     uint32 offset = *p_offset, i;
-
-    *p_offset = offset = align_uint(offset, 4);
+    bool emitted = false;
 
     for (i = 0; i < comp_ctx->custom_sections_count; i++) {
         const char *section_name = comp_ctx->custom_sections_wp[i];
@@ -1954,6 +1954,11 @@ aot_emit_custom_sections(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
         if (!content) {
             /* Warning has been reported during calculating size */
             continue;
+        }
+
+        if (!emitted) {
+            emitted = true;
+            *p_offset = offset = align_uint(offset, 4);
         }
 
         offset = align_uint(offset, 4);

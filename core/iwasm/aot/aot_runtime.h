@@ -738,7 +738,7 @@ void
 aot_dump_perf_profiling(const AOTModuleInstance *module_inst);
 
 const uint8 *
-aot_get_custom_section(AOTModule *module, const char *name, uint32 *len);
+aot_get_custom_section(const AOTModule *module, const char *name, uint32 *len);
 
 #ifdef __cplusplus
 } /* end of extern "C" */
