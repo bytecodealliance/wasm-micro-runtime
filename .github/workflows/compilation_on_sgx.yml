@@ -139,6 +139,7 @@ jobs:
             # "-DWAMR_BUILD_SIMD=1",
             "-DWAMR_BUILD_TAIL_CALL=1",
             "-DWAMR_DISABLE_HW_BOUND_CHECK=1",
+            "-DWAMR_BUILD_LOAD_CUSTOM_SECTION=1",
           ]
         os: [ubuntu-20.04]
         platform: [linux-sgx]
@@ -160,7 +161,7 @@ jobs:
       - name: install SGX SDK and necessary libraries
         if: ${{ matrix.light == 'green' }}
         run: |
-          mkdir -p /opt/intel 
+          mkdir -p /opt/intel
           cd /opt/intel
           wget https://download.01.org/intel-sgx/sgx-linux/2.15/distro/ubuntu20.04-server/sgx_linux_x64_sdk_2.15.100.3.bin
           chmod +x sgx_linux_x64_sdk_2.15.100.3.bin
@@ -256,7 +257,7 @@ jobs:
       - name: install SGX SDK and necessary libraries
         if: ${{ matrix.light == 'green' }}
         run: |
-          mkdir -p /opt/intel 
+          mkdir -p /opt/intel
           cd /opt/intel
           wget https://download.01.org/intel-sgx/sgx-linux/2.15/distro/ubuntu20.04-server/sgx_linux_x64_sdk_2.15.100.3.bin
           chmod +x sgx_linux_x64_sdk_2.15.100.3.bin
@@ -347,7 +348,7 @@ jobs:
       - name: install SGX SDK and necessary libraries
         if: ${{ matrix.light == 'green' }}
         run: |
-          mkdir -p /opt/intel 
+          mkdir -p /opt/intel
           cd /opt/intel
           wget https://download.01.org/intel-sgx/sgx-linux/2.15/distro/ubuntu20.04-server/sgx_linux_x64_sdk_2.15.100.3.bin
           chmod +x sgx_linux_x64_sdk_2.15.100.3.bin
@@ -444,7 +445,7 @@ jobs:
       - name: install SGX SDK and necessary libraries
         if: ${{ matrix.light == 'green' }}
         run: |
-          mkdir -p /opt/intel 
+          mkdir -p /opt/intel
           cd /opt/intel
           wget https://download.01.org/intel-sgx/sgx-linux/2.15/distro/ubuntu20.04-server/sgx_linux_x64_sdk_2.15.100.3.bin
           chmod +x sgx_linux_x64_sdk_2.15.100.3.bin

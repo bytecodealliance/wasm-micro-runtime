@@ -148,6 +148,15 @@ Currently we only profile the memory consumption of module, module_instance and 
 - **WAMR_BUILD_DEBUG_INTERP**=1/0, default to 0 if not set
 > Note: There are some other setup required by source debugging, please refer to [source_debugging.md](./source_debugging.md) for more details.
 
+#### **Enable load wasm custom sections**
+- **WAMR_BUILD_LOAD_CUSTOM_SECTION**=1/0, default to disable if not set
+
+> Note: By default, the custom sections are ignored. If the embedder wants to get custom sections from `wasm_module_t`, then `WAMR_BUILD_LOAD_CUSTOM_SECTION` should be enabled, and then `wasm_runtime_get_custom_section` can be used to get a custom section by name.
+
+> Note: If `WAMR_BUILD_CUSTOM_NAME_SECTION` is enabled, then the `custom name section` will be treated as a special section and consumed by the runtime, not available to the embedder.
+
+> For AoT file, must use `--emit-custom-sections` to specify which sections need to be emitted into AoT file, otherwise all custom sections (except custom name section) will be ignored.
+
 **Combination of configurations:**
 
 We can combine the configurations. For example, if we want to disable interpreter, enable AOT and WASI, we can run command:
@@ -546,13 +555,13 @@ WAMR is intergrated with NuttX, just enable the WAMR in Kconfig option (Applicat
 
 ESP-IDF
 -------------------------
-WAMR integrates with ESP-IDF both for the XTENSA and RISC-V chips (esp32x and esp32c3 respectively). 
+WAMR integrates with ESP-IDF both for the XTENSA and RISC-V chips (esp32x and esp32c3 respectively).
 
 In order to use this, you need at least version 4.3.1 of ESP-IDF.
 If you don't have it installed, follow the instructions [here](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/#get-started-get-prerequisites).
 ESP-IDF also installs the toolchains needed for compiling WAMR and ESP-IDF.
 A small demonstration of how to use WAMR and ESP-IDF can be found under [product_mini](/product-mini/platforms/esp-idf).
-The demo builds WAMR for ESP-IDF and runs a small wasm program. 
+The demo builds WAMR for ESP-IDF and runs a small wasm program.
 In order to run it for your specific Espressif chip, edit the ['build_and_run.sh'](/product-mini/platforms/esp-idf/build_and_run.sh) file and put the correct toolchain file (see #Cross-compilation) and `IDF_TARGET`.
 Before compiling it is also necessary to call ESP-IDF's `export.sh` script to bring all compile time relevant information in scope.
 
