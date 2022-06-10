@@ -3014,7 +3014,6 @@ alu_r_imm_to_r_f32(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
     mov_imm_to_m(a, cache, imm, 4);
 
     mov_r_to_r_f32(a, reg_no_dst, reg_no1_src);
-
     return alu_r_m_float(a, op, reg_no_dst, cache, true);
 }
 
@@ -3033,40 +3032,52 @@ static bool
 alu_r_r_to_r_f32(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
                  int32 reg_no1_src, int32 reg_no2_src)
 {
+    bool store_result = false;
+
+    /**
+     * - op r0,r0,r1. do nothing since instructions always store results in
+     *   the first register
+     *
+     * - op r1,r0,r1. use FREE_REG to cache and replace r0, and then store
+     *   results in r1
+     *
+     * - op r0,r1,r2. use r0 to cache and replace r1, and accept the result
+     *   naturally
+     **/
+    if (reg_no_dst == reg_no2_src) {
+        store_result = true;
+        reg_no_dst = REG_F32_FREE_IDX;
+    }
+    mov_r_to_r_f32(a, reg_no_dst, reg_no1_src);
+
     switch (op) {
         case ADD:
         {
-            mov_r_to_r_f32(a, reg_no_dst, reg_no1_src);
             a.addss(regs_float[reg_no_dst], regs_float[reg_no2_src]);
             break;
         }
         case SUB:
         {
-            mov_r_to_r_f32(a, reg_no_dst, reg_no1_src);
             a.subss(regs_float[reg_no_dst], regs_float[reg_no2_src]);
             break;
         }
         case MUL:
         {
-            mov_r_to_r_f32(a, reg_no_dst, reg_no1_src);
             a.mulss(regs_float[reg_no_dst], regs_float[reg_no2_src]);
             break;
         }
         case DIV_S:
         {
-            mov_r_to_r_f32(a, reg_no_dst, reg_no1_src);
             a.divss(regs_float[reg_no_dst], regs_float[reg_no2_src]);
             break;
         }
         case MAX:
         {
-            mov_r_to_r_f32(a, reg_no_dst, reg_no1_src);
             a.maxss(regs_float[reg_no_dst], regs_float[reg_no2_src]);
             break;
         }
         case MIN:
         {
-            mov_r_to_r_f32(a, reg_no_dst, reg_no1_src);
             a.minss(regs_float[reg_no_dst], regs_float[reg_no2_src]);
             break;
         }
@@ -3076,6 +3087,10 @@ alu_r_r_to_r_f32(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
             return false;
         }
     }
+
+    if (store_result)
+        mov_r_to_r_f32(a, reg_no2_src, REG_F32_FREE_IDX);
+
     return true;
 }
 
@@ -3188,7 +3203,6 @@ alu_r_imm_to_r_f64(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
     mov_imm_to_m(a, cache, imm, 8);
 
     mov_r_to_r_f64(a, reg_no_dst, reg_no1_src);
-
     return alu_r_m_float(a, op, reg_no_dst, cache, false);
 }
 
@@ -3207,40 +3221,52 @@ static bool
 alu_r_r_to_r_f64(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
                  int32 reg_no1_src, int32 reg_no2_src)
 {
+    bool store_result = false;
+
+    /**
+     * - op r0,r0,r1. do nothing since instructions always store results in
+     *   the first register
+     *
+     * - op r1,r0,r1. use FREE_REG to cache and replace r0, and then store
+     *   results in r1
+     *
+     * - op r0,r1,r2. use r0 to cache and replace r1, and accept the result
+     *   naturally
+     **/
+    if (reg_no_dst == reg_no2_src) {
+        store_result = true;
+        reg_no_dst = REG_F64_FREE_IDX;
+    }
+    mov_r_to_r_f64(a, reg_no_dst, reg_no1_src);
+
     switch (op) {
         case ADD:
         {
-            mov_r_to_r_f64(a, reg_no_dst, reg_no1_src);
             a.addsd(regs_float[reg_no_dst], regs_float[reg_no2_src]);
             break;
         }
         case SUB:
         {
-            mov_r_to_r_f64(a, reg_no_dst, reg_no1_src);
             a.subsd(regs_float[reg_no_dst], regs_float[reg_no2_src]);
             break;
         }
         case MUL:
         {
-            mov_r_to_r_f64(a, reg_no_dst, reg_no1_src);
             a.mulsd(regs_float[reg_no_dst], regs_float[reg_no2_src]);
             break;
         }
         case DIV_S:
         {
-            mov_r_to_r_f64(a, reg_no_dst, reg_no1_src);
             a.divsd(regs_float[reg_no_dst], regs_float[reg_no2_src]);
             break;
         }
         case MAX:
         {
-            mov_r_to_r_f64(a, reg_no_dst, reg_no1_src);
             a.maxsd(regs_float[reg_no_dst], regs_float[reg_no2_src]);
             break;
         }
         case MIN:
         {
-            mov_r_to_r_f64(a, reg_no_dst, reg_no1_src);
             a.minsd(regs_float[reg_no_dst], regs_float[reg_no2_src]);
             break;
         }
@@ -3250,6 +3276,10 @@ alu_r_r_to_r_f64(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
             return false;
         }
     }
+
+    if (store_result)
+        mov_r_to_r_f64(a, reg_no2_src, REG_F64_FREE_IDX);
+
     return true;
 }
 

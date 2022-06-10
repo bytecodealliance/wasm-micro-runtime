@@ -1379,9 +1379,11 @@ compile_op_float_math(JitCompContext *cc, FloatMath math_op, bool is_f32)
 
     switch (math_op) {
         case FLOAT_ABS:
+            /* TODO: andps 0x7fffffffffffffff */
             func = is_f32 ? (void *)fabsf : (void *)fabs;
             break;
         case FLOAT_NEG:
+            /* TODO: xorps 0x8000000000000000 */
             func = is_f32 ? (void *)negf : (void *)neg;
             break;
         case FLOAT_CEIL:
