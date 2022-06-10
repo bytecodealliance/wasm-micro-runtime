@@ -556,7 +556,7 @@ create_func_type_indexes(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     }
 
     func_ctx->func_type_indexes =
-        LLVMBuildLoad2(comp_ctx->builder, OPQ_PTR_TYPE,
+        LLVMBuildLoad2(comp_ctx->builder, INT32_PTR_TYPE,
                        func_ctx->func_type_indexes, "func_type_indexes");
     if (!func_ctx->func_type_indexes) {
         aot_set_last_error("llvm build load failed.");
@@ -702,7 +702,7 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
         goto fail;
     }
 
-    if (!(func_ctx->argv_buf = LLVMBuildLoad2(comp_ctx->builder, OPQ_PTR_TYPE,
+    if (!(func_ctx->argv_buf = LLVMBuildLoad2(comp_ctx->builder, INT32_PTR_TYPE,
                                               argv_buf_addr, "argv_buf"))) {
         aot_set_last_error("llvm build load failed");
         goto fail;
