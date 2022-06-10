@@ -658,6 +658,11 @@ wasm_runtime_get_native_addr_range(WASMModuleInstanceCommon *module_inst,
                                    uint8 **p_native_start_addr,
                                    uint8 **p_native_end_addr);
 
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN const uint8 *
+wasm_runtime_get_custom_section(WASMModuleCommon *const module_comm,
+                                const char *name, uint32 *len);
+
 uint32
 wasm_runtime_get_temp_ret(WASMModuleInstanceCommon *module_inst);
 

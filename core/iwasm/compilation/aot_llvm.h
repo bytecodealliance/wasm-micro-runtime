@@ -348,6 +348,8 @@ typedef struct AOTCompContext {
     /* Function contexts */
     AOTFuncContext **func_ctxes;
     uint32 func_ctx_count;
+    char **custom_sections_wp;
+    uint32 custom_sections_count;
 } AOTCompContext;
 
 enum {
@@ -378,6 +380,8 @@ typedef struct AOTCompOption {
     uint32 size_level;
     uint32 output_format;
     uint32 bounds_checks;
+    char **custom_sections;
+    uint32 custom_sections_count;
 } AOTCompOption, *aot_comp_option_t;
 
 AOTCompContext *

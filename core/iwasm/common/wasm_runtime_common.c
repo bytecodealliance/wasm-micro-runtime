@@ -2843,6 +2843,24 @@ wasm_exec_env_get_module(WASMExecEnv *exec_env)
     return NULL;
 }
 
+#if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
+const uint8 *
+wasm_runtime_get_custom_section(WASMModuleCommon *const module_comm,
+                                const char *name, uint32 *len)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module_comm->module_type == Wasm_Module_Bytecode)
+        return wasm_loader_get_custom_section((WASMModule *)module_comm, name,
+                                              len);
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (module_comm->module_type == Wasm_Module_AoT)
+        return aot_get_custom_section((AOTModule *)module_comm, name, len);
+#endif
+    return NULL;
+}
+#endif /* end of WASM_ENABLE_LOAD_CUSTOM_SECTION != 0 */
+
 static union {
     int a;
     char b;

@@ -1587,6 +1587,9 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
     comp_ctx->opt_level = option->opt_level;
     comp_ctx->size_level = option->size_level;
 
+    comp_ctx->custom_sections_wp = option->custom_sections;
+    comp_ctx->custom_sections_count = option->custom_sections_count;
+
     if (option->is_jit_mode) {
         char *triple_jit = NULL;
 
