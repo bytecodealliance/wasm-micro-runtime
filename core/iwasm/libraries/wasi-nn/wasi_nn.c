@@ -13,22 +13,7 @@
 std::unique_ptr<tflite::Interpreter> interpreter = NULL;
 std::unique_ptr<tflite::FlatBufferModel> model =NULL;
 
-//Load model functions 
-
-int main()
-{
-    char* f=read_file("ssd_tflite");
-
-    uint8_t *builder = (uint8_t*) f;
-
-    uint8_t *builder_array[1] = { builder };
-
-    load(builder_array, 1);
-
-    load(model builder, graph_encoding encoding)
-}
-
-
+º
 void load(graph_builder_array builder, graph_encoding encoding)
 {
     model = tflite::FlatBufferModel::BuildFromBuffer(builder[0]);
