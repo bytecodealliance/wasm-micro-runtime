@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include "wasi_nn.h"
 
 int
 intToStr(int x, char *str, int str_len, int digit);
@@ -21,6 +22,7 @@ calculate_native(int32_t n, int32_t func1, int32_t func2);
 float
 generate_float(int iteration, double seed1, float seed2)
 {
+    load(NULL, 0);
     float ret;
 
     printf("calling into WASM function: %s\n", __FUNCTION__);
