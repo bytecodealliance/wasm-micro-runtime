@@ -1,9 +1,7 @@
-# Copyright (C) 2019 Intel Corporation.  All rights reserved.
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+set (WASI_NN_DIR ${CMAKE_CURRENT_LIST_DIR})
 
-cmake_minimum_required (VERSION 2.8...3.16)
+add_definitions (-DWASM_ENABLE_WASI_NN=1)
 
-project(wasi_nn)
+file (GLOB_RECURSE source_all ${WASI_NN_DIR}/*.c)
 
-add_library(${PROJECT_NAME} STATIC ${CMAKE_CURRENT_LIST_DIR}/wasi_nn.c)
-target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_LIST_DIR})
+set (LIBC_WASI_NN_SOURCE ${source_all})
