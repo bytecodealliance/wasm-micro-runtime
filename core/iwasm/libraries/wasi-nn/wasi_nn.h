@@ -12,12 +12,7 @@ typedef uint32_t buffer_size;
 
 typedef uint32_t graph_execution_context;
 
-typedef enum {
-    success = 0,
-    invalid_argument,
-    missing_memory,
-    busy
-} nn_erno; 
+typedef enum { success = 0, invalid_argument, missing_memory, busy } nn_erno;
 
 typedef uint32_t *tensor_dimensions;
 
@@ -45,8 +40,10 @@ load(graph_builder_array builder, graph_encoding encoding);
 void
 init_execution_context();
 
-void
-set_input();
+uint32_t
+set_input(graph_execution_context context, uint32_t index,
+          uint32_t *input_tensor_size, uint32_t input_tensor_type,
+          uint32_t *input_tensor);
 
 void
 compute();

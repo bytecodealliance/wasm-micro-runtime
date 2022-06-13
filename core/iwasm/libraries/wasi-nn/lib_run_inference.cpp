@@ -44,14 +44,20 @@ _load(graph_builder_array builder, graph_encoding encoding)
     return success;
 }
 
-
-uint32_t set_input()
+uint32_t
+_set_input(tensor input_tensor)
 {
+    auto *input = interpreter->typed_input_tensor<float>(0);
 
-    for (int i=0 ;  i<input_tensor.size()  ;  i++  )
-  	{
-    	input[i]=  input_tensor[i];
-  	}
+    for (int i = 0; i < input_tensor.dimensions[0]; i++) {
+        input[i] = (float)input_tensor.data[i];
+    }
 
+    if (input == nullptr) {
+        return invalid_argument;
+    }
 
+    else {
+        return success;
+    }
 }

@@ -12,6 +12,9 @@ extern "C" {
 uint32_t
 _load(graph_builder_array builder, graph_encoding encoding);
 
+uint32_t
+_set_input(tensor input_tensor);
+
 #ifdef __cplusplus
 }
 #endif

@@ -46,16 +46,35 @@ void
 wasi_nn_init_execution_context()
 {}
 
-void wasi_nn_set_input(wasm_exec_env_t exec_env ,graph_execution_context context, uint32_t index, tensor tensor)
+uint32_t
+wasi_nn_set_input(
+    wasm_exec_env_t exec_env, graph_execution_context context, uint32_t index,
+    uint32_t *input_tensor_size, uint32_t input_tensor_type,
+    uint32_t *input_tensor) // Replaced struct by values inside of
+                            // it as WASMR does not support structs
 {
     printf("Inside wasi_nn_set_input!\n\n");
 
-    // interpreter->AllocateTensors();
+    wasm_module_inst_t instance = wasm_runtime_get_module_inst(exec_env);
+    tensor_data data =
+        (tensor_data)wasm_runtime_addr_app_to_native(instance, input_tensor);
+    tensor_dimensions dimensions =
+        (tensor_dimensions)wasm_runtime_addr_app_to_native(instance,
+                                                           input_tensor_size);
+
+    tensor_type type = (tensor_type)wasm_runtime_addr_app_to_native(
+        instance, input_tensor_type);
+
+    tensor tensor_struct = { .dimensions = dimensions,
+                             .type = type,
+                             .data = data };
+
+    return _set_input(tensor_struct);
 }
 
-
-void wasi_nn_compute()
-{
+void
+wasi_nn_compute()
+{}
 
 void
 wasi_nn_get_output()
@@ -68,6 +87,7 @@ wasi_nn_get_output()
 
 static NativeSymbol native_symbols_wasi_nn[] = {
     REG_NATIVE_FUNC(load, "(ii)i"),
+    REG_NATIVE_FUNC(set_input, "(ii*i*)i"),
 };
 
 uint32_t
