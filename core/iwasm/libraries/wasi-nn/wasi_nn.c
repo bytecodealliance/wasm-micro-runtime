@@ -1,5 +1,5 @@
 #include "wasi_nn.h"
-
+#include <stdio.h>
 #include <assert.h>
 #include <errno.h>
 #include <string.h>
@@ -7,25 +7,35 @@
 
 #include "wasm_export.h"
 
-// #include <tensorflow/lite/interpreter.h>
-// #include <tensorflow/lite/kernels/register.h>
-// #include <tensorflow/lite/model.h>
-// #include <tensorflow/lite/optional_debug_tools.h> 
+#include "lib_run_inference.hpp"
 
-// std::unique_ptr<tflite::Interpreter> interpreter = NULL;
-// std::unique_ptr<tflite::FlatBufferModel> model = NULL;
+/**
+ * @brief loader of tensorflow
+ * 
+ * @param builder array of 2 pointers: first its the buffer, second its the size 
+ */
+void load_tensorflow(wasm_module_inst_t instance, graph_builder_array builder) {
+    printf("Loading tensorflow...\n");
+    for (int i = 0; i < 2; ++i)
+        builder[i] = (graph_builder) wasm_runtime_addr_app_to_native(instance, builder[i]);
+}
 
-void wasi_nn_load(wasm_exec_env_t exec_env, graph_builder_array builder, graph_encoding encoding)
+uint32_t wasi_nn_load(wasm_exec_env_t exec_env, uint32_t builder, uint32_t encoding)
 {
-    // tflite::ErrorReporter *error_reporter;
-    // model = tflite::FlatBufferModel::BuildFromBuffer(
-    //     (const char *)builder[0],
-    //     1000, // TODO: find how to pass buffer size
-    //     error_reporter
-    // );
-    // tflite::ops::builtin::BuiltinOpResolver resolver;
-	// tflite::InterpreterBuilder(*model, resolver)(&interpreter);
     printf("Inside wasi_nn_load!\n\n");
+    wasm_module_inst_t instance = wasm_runtime_get_module_inst(exec_env);
+    graph_builder_array buf = (graph_builder_array) wasm_runtime_addr_app_to_native(instance, builder);
+    load_return res;
+    switch ((graph_encoding) encoding) {
+        case openvino:
+            return invalid_argument;
+        case tensorflow:
+            load_tensorflow(instance, buf);
+            break;
+        case onnx:
+            return invalid_argument;
+    }
+    return _load(buf, (graph_encoding) encoding);
 }
 
 void wasi_nn_init_execution_context()
@@ -54,7 +64,7 @@ void wasi_nn_get_output()
 /* clang-format on */
 
 static NativeSymbol native_symbols_wasi_nn[] = {
-    REG_NATIVE_FUNC(load, "(ii)"),
+    REG_NATIVE_FUNC(load, "(ii)i"),
 };
 
 uint32_t

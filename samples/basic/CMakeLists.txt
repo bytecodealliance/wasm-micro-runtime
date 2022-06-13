@@ -84,5 +84,6 @@ add_executable (basic src/main.c src/native_impl.c ${UNCOMMON_SHARED_SOURCE})
 if (APPLE)
   target_link_libraries (basic vmlib -lm -ldl -lpthread)
 else ()
-  target_link_libraries (basic vmlib -lm -ldl -lpthread -lrt)
+# TODO: add this in the vmlib. Otherwise, it will only work in the samples/basic
+  target_link_libraries (basic vmlib -lm -ldl -lpthread -lrt tensorflow-lite)
 endif ()

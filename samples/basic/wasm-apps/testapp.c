@@ -22,7 +22,12 @@ calculate_native(int32_t n, int32_t func1, int32_t func2);
 float
 generate_float(int iteration, double seed1, float seed2)
 {
-    load(NULL, 0);
+    char *buf = strdup("test_message");
+    uint32_t *size = malloc(sizeof(uint32_t));
+    *size = 4096;
+    graph_builder_array arr[] = {(graph_builder)buf, (graph_builder)size};
+
+    load(arr, 1);
     float ret;
 
     printf("calling into WASM function: %s\n", __FUNCTION__);
