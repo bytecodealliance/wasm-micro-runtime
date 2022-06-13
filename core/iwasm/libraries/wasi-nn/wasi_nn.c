@@ -25,7 +25,6 @@ uint32_t wasi_nn_load(wasm_exec_env_t exec_env, uint32_t builder, uint32_t encod
     printf("Inside wasi_nn_load!\n\n");
     wasm_module_inst_t instance = wasm_runtime_get_module_inst(exec_env);
     graph_builder_array buf = (graph_builder_array) wasm_runtime_addr_app_to_native(instance, builder);
-    load_return res;
     switch ((graph_encoding) encoding) {
         case openvino:
             return invalid_argument;

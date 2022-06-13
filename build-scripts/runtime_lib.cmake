@@ -96,7 +96,8 @@ if (WAMR_BUILD_WASI_NN EQUAL 1)
                     RESULT_VARIABLE TENSORFLOW_RESULT
     )
     set(TENSORFLOW_SOURCE_DIR "/root/src/tflite/tensorflow_src")
-
+    include_directories (${CMAKE_CURRENT_BINARY_DIR}/flatbuffers/include)
+    include_directories (${TENSORFLOW_SOURCE_DIR})
     add_subdirectory(
         "${TENSORFLOW_SOURCE_DIR}/tensorflow/lite"
         "${CMAKE_CURRENT_BINARY_DIR}/tensorflow-lite" EXCLUDE_FROM_ALL)
