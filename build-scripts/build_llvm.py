@@ -132,21 +132,21 @@ def build_llvm(llvm_dir, platform, backends, projects):
 def repackage_llvm(llvm_dir):
     build_dir = llvm_dir.joinpath("./build").resolve()
 
-    packs = [f for f in build_dir.glob("LLVM-15*.tar.gz")]
+    packs = [f for f in build_dir.glob("LLVM-14*.tar.gz")]
     if len(packs) > 1:
-        raise Exception("Find more than one LLVM-15*.tar.gz")
+        raise Exception("Find more than one LLVM-14*.tar.gz")
 
     if not packs:
         return
 
     llvm_package = packs[0].name
-    # mv build/LLVM-15.0.0*.gz .
+    # mv build/LLVM-14.0.0*.gz .
     shutil.move(str(build_dir.joinpath(llvm_package).resolve()), str(llvm_dir))
     # rm -r build
     shutil.rmtree(str(build_dir))
     # mkdir build
     build_dir.mkdir()
-    # tar xf ./LLVM-15.0.0-*.tar.gz --strip-components=1 --directory=build
+    # tar xf ./LLVM-14.0.0-*.tar.gz --strip-components=1 --directory=build
     CMD = f"tar xf {llvm_dir.joinpath(llvm_package).resolve()} --strip-components=1 --directory={build_dir}"
     subprocess.check_call(shlex.split(CMD), cwd=llvm_dir)
 
@@ -203,7 +203,7 @@ def main():
     llvm_repo_and_branch = {
         "arc": {
             "repo": "https://github.com/llvm/llvm-project.git",
-            "branch": "main",
+            "branch": "release/14.x",
         },
         "xtensa": {
             "repo": "https://github.com/espressif/llvm-project.git",
@@ -211,7 +211,7 @@ def main():
         },
         "default": {
             "repo": "https://github.com/llvm/llvm-project.git",
-            "branch": "main",
+            "branch": "release/14.x",
         },
     }
 
