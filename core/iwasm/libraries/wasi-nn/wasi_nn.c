@@ -11,21 +11,26 @@
 
 /**
  * @brief loader of tensorflow
- * 
- * @param builder array of 2 pointers: first its the buffer, second its the size 
+ *
+ * @param builder array of 2 pointers: first its the buffer, second its the size
  */
-void load_tensorflow(wasm_module_inst_t instance, graph_builder_array builder) {
+void
+load_tensorflow(wasm_module_inst_t instance, graph_builder_array builder)
+{
     printf("Loading tensorflow...\n");
     for (int i = 0; i < 2; ++i)
-        builder[i] = (graph_builder) wasm_runtime_addr_app_to_native(instance, builder[i]);
+        builder[i] = (graph_builder)wasm_runtime_addr_app_to_native(instance,
+                                                                    builder[i]);
 }
 
-uint32_t wasi_nn_load(wasm_exec_env_t exec_env, uint32_t builder, uint32_t encoding)
+uint32_t
+wasi_nn_load(wasm_exec_env_t exec_env, uint32_t builder, uint32_t encoding)
 {
     printf("Inside wasi_nn_load!\n\n");
     wasm_module_inst_t instance = wasm_runtime_get_module_inst(exec_env);
-    graph_builder_array buf = (graph_builder_array) wasm_runtime_addr_app_to_native(instance, builder);
-    switch ((graph_encoding) encoding) {
+    graph_builder_array buf =
+        (graph_builder_array)wasm_runtime_addr_app_to_native(instance, builder);
+    switch ((graph_encoding)encoding) {
         case openvino:
             return invalid_argument;
         case tensorflow:
@@ -34,28 +39,26 @@ uint32_t wasi_nn_load(wasm_exec_env_t exec_env, uint32_t builder, uint32_t encod
         case onnx:
             return invalid_argument;
     }
-    return _load(buf, (graph_encoding) encoding);
+    return _load(buf, (graph_encoding)encoding);
 }
 
-void wasi_nn_init_execution_context()
-{
+void
+wasi_nn_init_execution_context()
+{}
 
-}
-
-void wasi_nn_set_input()
+void
+wasi_nn_set_input()
 {
     // interpreter->AllocateTensors();
 }
 
-void wasi_nn_compute()
-{
+void
+wasi_nn_compute()
+{}
 
-}
-
-void wasi_nn_get_output()
-{
-
-}
+void
+wasi_nn_get_output()
+{}
 
 /* clang-format off */
 #define REG_NATIVE_FUNC(func_name, signature) \

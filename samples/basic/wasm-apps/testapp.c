@@ -25,7 +25,7 @@ generate_float(int iteration, double seed1, float seed2)
     char *buf = strdup("test_message");
     uint32_t *size = malloc(sizeof(uint32_t));
     *size = 4096;
-    graph_builder_array arr[] = {(graph_builder)buf, (graph_builder)size};
+    graph_builder_array arr[] = { (graph_builder)buf, (graph_builder)size };
 
     load(arr, 1);
     float ret;
