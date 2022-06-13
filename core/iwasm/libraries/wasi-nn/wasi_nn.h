@@ -50,7 +50,7 @@ typedef enum {
     tpu
 } execution_target;
 
-void load(graph_builder_array builder, graph_encoding encoding);
+uint32_t load(graph_builder_array builder, graph_encoding encoding);
 
 void init_execution_context();
 

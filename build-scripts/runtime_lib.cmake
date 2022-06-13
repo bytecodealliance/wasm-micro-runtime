@@ -80,6 +80,11 @@ if (WAMR_BUILD_WASI_NN EQUAL 1)
     execute_process(COMMAND ${WAMR_ROOT_DIR}/build-scripts/install_tensorflow.sh
                     RESULT_VARIABLE TENSORFLOW_RESULT
     )
+    set(TENSORFLOW_SOURCE_DIR "/root/src/tflite/tensorflow_src")
+
+    add_subdirectory(
+        "${TENSORFLOW_SOURCE_DIR}/tensorflow/lite"
+        "${CMAKE_CURRENT_BINARY_DIR}/tensorflow-lite" EXCLUDE_FROM_ALL)
     include (${IWASM_DIR}/libraries/wasi-nn/wasi_nn.cmake)
 endif ()
 
