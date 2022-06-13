@@ -11,7 +11,7 @@
 typedef uint32_t buffer_size;
 
 typedef enum {
-    suces = 0,
+    success = 0,
     invalid_argument,
     missing_memory,
     busy
