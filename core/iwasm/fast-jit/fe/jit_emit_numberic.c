@@ -512,7 +512,7 @@ compile_int_div_no_check(JitCompContext *cc, IntArithmetic arith_op,
         case INT_DIV_S:
         case INT_DIV_U:
         {
-            JitInsn *insn = NULL;
+            JitInsn *insn = NULL, *insn1 = NULL;
 
             if (is_i32) {
                 GEN_INSN(MOV, eax_hreg, left);
@@ -520,8 +520,6 @@ compile_int_div_no_check(JitCompContext *cc, IntArithmetic arith_op,
                     insn = GEN_INSN(DIV_S, eax_hreg, eax_hreg, right);
                 else
                     insn = GEN_INSN(DIV_U, eax_hreg, eax_hreg, right);
-
-                res = eax_hreg;
             }
             else {
                 GEN_INSN(MOV, rax_hreg, left);
@@ -529,18 +527,29 @@ compile_int_div_no_check(JitCompContext *cc, IntArithmetic arith_op,
                     insn = GEN_INSN(DIV_S, rax_hreg, rax_hreg, right);
                 else
                     insn = GEN_INSN(DIV_U, rax_hreg, rax_hreg, right);
-
-                res = rax_hreg;
             }
 
             jit_lock_reg_in_insn(cc, insn, eax_hreg);
             jit_lock_reg_in_insn(cc, insn, edx_hreg);
+
+            if (is_i32) {
+                res = jit_cc_new_reg_I32(cc);
+                insn1 = jit_insn_new_MOV(res, eax_hreg);
+            }
+            else {
+                res = jit_cc_new_reg_I64(cc);
+                insn1 = jit_insn_new_MOV(res, rax_hreg);
+            }
+
+            if (insn && insn1) {
+                jit_insn_insert_after(insn, insn1);
+            }
             break;
         }
         case INT_REM_S:
         case INT_REM_U:
         {
-            JitInsn *insn = NULL;
+            JitInsn *insn = NULL, *insn1 = NULL;
 
             if (is_i32) {
                 GEN_INSN(MOV, eax_hreg, left);
@@ -548,8 +557,6 @@ compile_int_div_no_check(JitCompContext *cc, IntArithmetic arith_op,
                     insn = GEN_INSN(REM_S, edx_hreg, eax_hreg, right);
                 else
                     insn = GEN_INSN(REM_U, edx_hreg, eax_hreg, right);
-
-                res = edx_hreg;
             }
             else {
                 GEN_INSN(MOV, rax_hreg, left);
@@ -557,12 +564,23 @@ compile_int_div_no_check(JitCompContext *cc, IntArithmetic arith_op,
                     insn = GEN_INSN(REM_S, rdx_hreg, rax_hreg, right);
                 else
                     insn = GEN_INSN(REM_U, rdx_hreg, rax_hreg, right);
-
-                res = rdx_hreg;
             }
 
             jit_lock_reg_in_insn(cc, insn, eax_hreg);
             jit_lock_reg_in_insn(cc, insn, edx_hreg);
+
+            if (is_i32) {
+                res = jit_cc_new_reg_I32(cc);
+                insn1 = jit_insn_new_MOV(res, edx_hreg);
+            }
+            else {
+                res = jit_cc_new_reg_I64(cc);
+                insn1 = jit_insn_new_MOV(res, rdx_hreg);
+            }
+
+            if (insn && insn1) {
+                jit_insn_insert_after(insn, insn1);
+            }
             break;
         }
 #else

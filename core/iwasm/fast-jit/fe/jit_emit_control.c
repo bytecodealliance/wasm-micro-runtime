@@ -899,6 +899,7 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
     SET_BUILDER_POS(if_basic_block);
     SET_BB_BEGIN_BCIP(if_basic_block, *p_frame_ip - 1);
 
+    clear_values(cc->jit_frame);
     if (!handle_op_br(cc, br_depth, p_frame_ip))
         goto fail;
 
