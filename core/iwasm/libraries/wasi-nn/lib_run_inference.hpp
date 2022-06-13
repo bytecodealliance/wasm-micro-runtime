@@ -9,7 +9,7 @@
 extern "C" {
 #endif
 
-uint32_t _load(graph_builder_array builder, graph_encoding encoding);
+uint32_t _load(graph_builder_array builder,  graph_encoding encoding);
 
 #ifdef __cplusplus
 }
