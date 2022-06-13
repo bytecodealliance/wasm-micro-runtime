@@ -43,3 +43,15 @@ _load(graph_builder_array builder, graph_encoding encoding)
 
     return success;
 }
+
+
+uint32_t set_input()
+{
+
+    for (int i=0 ;  i<input_tensor.size()  ;  i++  )
+  	{
+    	input[i]=  input_tensor[i];
+  	}
+
+
+}

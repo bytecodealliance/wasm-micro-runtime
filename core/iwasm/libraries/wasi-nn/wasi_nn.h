@@ -10,7 +10,14 @@
 
 typedef uint32_t buffer_size;
 
-typedef enum { success = 0, invalid_argument, missing_memory, busy } nn_erno;
+typedef uint32_t graph_execution_context;
+
+typedef enum {
+    success = 0,
+    invalid_argument,
+    missing_memory,
+    busy
+} nn_erno; 
 
 typedef uint32_t *tensor_dimensions;
 

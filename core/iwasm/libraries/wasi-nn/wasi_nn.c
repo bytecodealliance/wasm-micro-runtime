@@ -46,15 +46,16 @@ void
 wasi_nn_init_execution_context()
 {}
 
-void
-wasi_nn_set_input()
+void wasi_nn_set_input(wasm_exec_env_t exec_env ,graph_execution_context context, uint32_t index, tensor tensor)
 {
+    printf("Inside wasi_nn_set_input!\n\n");
+
     // interpreter->AllocateTensors();
 }
 
-void
-wasi_nn_compute()
-{}
+
+void wasi_nn_compute()
+{
 
 void
 wasi_nn_get_output()
