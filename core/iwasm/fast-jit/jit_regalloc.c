@@ -6,6 +6,10 @@
 #include "jit_utils.h"
 #include "jit_compiler.h"
 
+#if BH_DEBUG != 0
+#define VREG_DEF_SANITIZER
+#endif
+
 /**
  * A uint16 stack for storing distances of occurrences of virtual
  * registers.
@@ -350,6 +354,43 @@ is_alloc_candidate(JitCompContext *cc, JitReg reg)
             && (!jit_cc_is_hreg(cc, reg) || !jit_cc_is_hreg_fixed(cc, reg)));
 }
 
+#ifdef VREG_DEF_SANITIZER
+static void
+check_vreg_definition(RegallocContext *rc, JitInsn *insn)
+{
+    JitRegVec regvec = jit_insn_opnd_regs(insn);
+    unsigned i;
+    JitReg *regp;
+    unsigned first_use = jit_insn_opnd_first_use(insn);
+    JitReg reg_defined;
+
+    /* check if there is the definition of an vr before its references */
+    JIT_REG_VEC_FOREACH(regvec, i, regp)
+    {
+        VirtualReg *vr = NULL;
+
+        if (!is_alloc_candidate(rc->cc, *regp))
+            continue;
+
+        /*a strong assumption that there is only on defined reg*/
+        if (i < first_use) {
+            reg_defined = *regp;
+            continue;
+        }
+
+        /**
+         * both definition and references are in one instruction,
+         * like MOV i3,i3
+         **/
+        if (reg_defined == *regp)
+            continue;
+
+        vr = rc_get_vr(rc, *regp);
+        bh_assert(vr->distances);
+    }
+}
+#endif
+
 /**
  * Collect distances from the beginning of basic block of all occurrences of
  * each virtual register.
@@ -370,6 +411,10 @@ collect_distances(RegallocContext *rc, JitBasicBlock *basic_block)
         JitRegVec regvec = jit_insn_opnd_regs(insn);
         unsigned i;
         JitReg *regp;
+
+#ifdef VREG_DEF_SANITIZER
+        check_vreg_definition(rc, insn);
+#endif
 
         /* NOTE: the distance may be pushed more than once if the
            virtual register occurs multiple times in the
