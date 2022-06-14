@@ -1,5 +1,5 @@
-#ifndef LIB_RUN_INFERENCE_HPP
-#define LIB_RUN_INFERENCE_HPP
+#ifndef WASI_NN_TENSORFLOW_HPP
+#define WASI_NN_TENSORFLOW_HPP
 
 #include <stdio.h>
 

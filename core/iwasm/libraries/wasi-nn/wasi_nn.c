@@ -7,7 +7,7 @@
 
 #include "wasm_export.h"
 
-#include "lib_run_inference.hpp"
+#include "wasi_nn_tensorflow.hpp"
 
 /**
  * @brief loader of tensorflow

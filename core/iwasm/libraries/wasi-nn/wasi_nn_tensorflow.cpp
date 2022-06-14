@@ -1,4 +1,4 @@
-#include "lib_run_inference.hpp"
+#include "wasi_nn_tensorflow.hpp"
 
 #include <tensorflow/lite/interpreter.h>
 #include <tensorflow/lite/kernels/register.h>
@@ -28,7 +28,7 @@ _load(graph_builder_array builder, graph_encoding encoding)
 
     if (model == nullptr) {
         printf("failure: null model \n");
-        return invalid_argument;
+        return missing_memory;
     }
 
     // Build the interpreter with the InterpreterBuilder.
@@ -38,7 +38,7 @@ _load(graph_builder_array builder, graph_encoding encoding)
 
     if (interpreter == nullptr) {
         printf("failure: null interpreter \n");
-        return invalid_argument;
+        return missing_memory;
     }
 
     return success;
@@ -49,8 +49,14 @@ _set_input(tensor input_tensor)
 {
     auto *input = interpreter->typed_input_tensor<float>(0);
 
+    if (input == nullptr) {
+        return missing_memory;
+    }
+
     for (int i = 0; i < input_tensor.dimensions[0]; i++) {
         input[i] = (float)input_tensor.data[i];
     }
+
     return success;
+    
 }
