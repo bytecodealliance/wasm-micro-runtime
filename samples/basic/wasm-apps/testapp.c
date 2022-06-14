@@ -30,6 +30,8 @@ generate_float(int iteration, double seed1, float seed2)
     load(arr, 1);
     float ret;
 
+    set_input(0, 0, size, 3, arr);
+
     printf("calling into WASM function: %s\n", __FUNCTION__);
 
     for (int i = 0; i < iteration; i++) {
