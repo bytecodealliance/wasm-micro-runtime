@@ -52,12 +52,5 @@ _set_input(tensor input_tensor)
     for (int i = 0; i < input_tensor.dimensions[0]; i++) {
         input[i] = (float)input_tensor.data[i];
     }
-
-    if (input == nullptr) {
-        return invalid_argument;
-    }
-
-    else {
-        return success;
-    }
+    return success;
 }
