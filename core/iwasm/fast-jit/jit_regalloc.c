@@ -358,17 +358,31 @@ is_alloc_candidate(JitCompContext *cc, JitReg reg)
 static void
 check_vreg_definition(RegallocContext *rc, JitInsn *insn)
 {
-    unsigned j;
     JitRegVec regvec = jit_insn_opnd_regs(insn);
-    unsigned first_use = jit_insn_opnd_first_use(insn);
+    unsigned i;
     JitReg *regp;
+    unsigned first_use = jit_insn_opnd_first_use(insn);
+    JitReg reg_defined;
 
     /* check if there is the definition of an vr before its references */
-    JIT_REG_VEC_FOREACH_USE(regvec, j, regp, first_use)
+    JIT_REG_VEC_FOREACH(regvec, i, regp)
     {
         VirtualReg *vr = NULL;
 
         if (!is_alloc_candidate(rc->cc, *regp))
+            continue;
+
+        /*a strong assumption that there is only on defined reg*/
+        if (i < first_use) {
+            reg_defined = *regp;
+            continue;
+        }
+
+        /**
+         * both definition and references are in one instruction,
+         * like MOV i3,i3
+         **/
+        if (reg_defined == *regp)
             continue;
 
         vr = rc_get_vr(rc, *regp);
