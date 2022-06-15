@@ -3788,7 +3788,7 @@ wasm_loader_unload(WASMModule *module)
 #endif
 
 #if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
-    wasm_loader_destroy_custom_sections(module->custom_section_list);
+    wasm_runtime_destroy_custom_sections(module->custom_section_list);
 #endif
 
     wasm_runtime_free(module);
@@ -6503,18 +6503,7 @@ wasm_loader_get_custom_section(WASMModule *module, const char *name,
 
     return false;
 }
-
-void
-wasm_loader_destroy_custom_sections(WASMCustomSection *section_list)
-{
-    WASMCustomSection *section = section_list, *next;
-    while (section) {
-        next = section->next;
-        wasm_runtime_free(section);
-        section = next;
-    }
-}
-#endif /* end of WASM_ENABLE_LOAD_CUSTOM_SECTION */
+#endif
 
 static bool
 wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,

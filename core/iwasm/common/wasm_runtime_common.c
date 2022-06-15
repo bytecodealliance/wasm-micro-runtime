@@ -4905,3 +4905,16 @@ wasm_runtime_show_app_heap_corrupted_prompt()
               "compiled by asc, please add --exportRuntime to "
               "export the runtime helpers.");
 }
+
+#if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
+void
+wasm_runtime_destroy_custom_sections(WASMCustomSection *section_list)
+{
+    WASMCustomSection *section = section_list, *next;
+    while (section) {
+        next = section->next;
+        wasm_runtime_free(section);
+        section = next;
+    }
+}
+#endif /* end of WASM_ENABLE_LOAD_CUSTOM_SECTION */
