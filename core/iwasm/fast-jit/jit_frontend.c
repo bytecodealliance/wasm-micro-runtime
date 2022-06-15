@@ -1823,32 +1823,35 @@ jit_compile_func(JitCompContext *cc)
 #if WASM_ENABLE_BULK_MEMORY != 0
                     case WASM_OP_MEMORY_INIT:
                     {
-                        uint32 seg_index;
-                        read_leb_uint32(frame_ip, frame_ip_end, seg_index);
-                        frame_ip++;
-                        if (!jit_compile_op_memory_init(cc, seg_index))
+                        uint32 seg_idx = 0;
+                        read_leb_uint32(frame_ip, frame_ip_end, seg_idx);
+                        read_leb_uint32(frame_ip, frame_ip_end, mem_idx);
+                        if (!jit_compile_op_memory_init(cc, mem_idx, seg_idx))
                             return false;
                         break;
                     }
                     case WASM_OP_DATA_DROP:
                     {
-                        uint32 seg_index;
-                        read_leb_uint32(frame_ip, frame_ip_end, seg_index);
-                        if (!jit_compile_op_data_drop(cc, seg_index))
+                        uint32 seg_idx;
+                        read_leb_uint32(frame_ip, frame_ip_end, seg_idx);
+                        if (!jit_compile_op_data_drop(cc, seg_idx))
                             return false;
                         break;
                     }
                     case WASM_OP_MEMORY_COPY:
                     {
-                        frame_ip += 2;
-                        if (!jit_compile_op_memory_copy(cc))
+                        uint32 src_mem_idx, dst_mem_idx;
+                        read_leb_uint32(frame_ip, frame_ip_end, src_mem_idx);
+                        read_leb_uint32(frame_ip, frame_ip_end, dst_mem_idx);
+                        if (!jit_compile_op_memory_copy(cc, src_mem_idx,
+                                                        dst_mem_idx))
                             return false;
                         break;
                     }
                     case WASM_OP_MEMORY_FILL:
                     {
-                        frame_ip++;
-                        if (!jit_compile_op_memory_fill(cc))
+                        read_leb_uint32(frame_ip, frame_ip_end, mem_idx);
+                        if (!jit_compile_op_memory_fill(cc, mem_idx))
                             return false;
                         break;
                     }

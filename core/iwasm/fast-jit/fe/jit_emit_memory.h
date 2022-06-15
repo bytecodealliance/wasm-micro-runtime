@@ -51,16 +51,17 @@ jit_compile_op_memory_grow(JitCompContext *cc, uint32 mem_idx);
 
 #if WASM_ENABLE_BULK_MEMORY != 0
 bool
-jit_compile_op_memory_init(JitCompContext *cc, uint32 seg_index);
+jit_compile_op_memory_init(JitCompContext *cc, uint32 mem_idx, uint32 seg_idx);
 
 bool
-jit_compile_op_data_drop(JitCompContext *cc, uint32 seg_index);
+jit_compile_op_data_drop(JitCompContext *cc, uint32 seg_idx);
 
 bool
-jit_compile_op_memory_copy(JitCompContext *cc);
+jit_compile_op_memory_copy(JitCompContext *cc, uint32 src_mem_idx,
+                           uint32 dst_mem_idx);
 
 bool
-jit_compile_op_memory_fill(JitCompContext *cc);
+jit_compile_op_memory_fill(JitCompContext *cc, uint32 mem_idx);
 #endif
 
 #if WASM_ENABLE_SHARED_MEMORY != 0

@@ -510,7 +510,7 @@ jit_compile_op_memory_grow(JitCompContext *cc, uint32 mem_idx)
     /* Convert bool to uint32 */
     GEN_INSN(AND, grow_res, grow_res, NEW_CONST(I32, 0xFF));
 
-    /* Check if enlarge memory success */
+    /* return different values according to memory.grow result */
     res = jit_cc_new_reg_I32(cc);
     GEN_INSN(CMP, cc->cmp_reg, grow_res, NEW_CONST(I32, 0));
     GEN_INSN(SELECTNE, res, cc->cmp_reg, prev_page_count,
@@ -526,27 +526,204 @@ fail:
 }
 
 #if WASM_ENABLE_BULK_MEMORY != 0
-bool
-jit_compile_op_memory_init(JitCompContext *cc, uint32 seg_index)
+static int
+wasm_init_memory(WASMModuleInstance *inst, uint32 mem_idx, uint32 seg_idx,
+                 uint32 len, uint32 mem_offset, uint32 data_offset)
 {
+    WASMMemoryInstance *mem_inst;
+    WASMDataSeg *data_segment;
+    uint32 mem_size;
+    uint8 *mem_addr, *data_addr;
+
+    /* if d + n > the length of mem.data */
+    mem_inst = inst->memories[mem_idx];
+    mem_size = mem_inst->cur_page_count * mem_inst->num_bytes_per_page;
+    if (mem_size < mem_offset || mem_size - mem_offset < len)
+        goto out_of_bounds;
+
+    /* if s + n > the length of data.data */
+    bh_assert(seg_idx < inst->module->data_seg_count);
+    data_segment = inst->module->data_segments[seg_idx];
+    if (data_segment->data_length < data_offset
+        || data_segment->data_length - data_offset < len)
+        goto out_of_bounds;
+
+    mem_addr = mem_inst->memory_data + mem_offset;
+    data_addr = data_segment->data + data_offset;
+    bh_memcpy_s(mem_addr, mem_size - mem_offset, data_addr, len);
+
+    return 0;
+out_of_bounds:
+    wasm_set_exception(inst, "out of bounds memory access");
+    return -1;
+}
+
+bool
+jit_compile_op_memory_init(JitCompContext *cc, uint32 mem_idx, uint32 seg_idx)
+{
+    JitReg len, mem_offset, data_offset, res;
+    JitReg args[6] = { 0 };
+
+    POP_I32(len);
+    POP_I32(data_offset);
+    POP_I32(mem_offset);
+
+    res = jit_cc_new_reg_I32(cc);
+    args[0] = get_module_inst_reg(cc->jit_frame);
+    args[1] = NEW_CONST(I32, mem_idx);
+    args[2] = NEW_CONST(I32, seg_idx);
+    args[3] = len;
+    args[4] = mem_offset;
+    args[5] = data_offset;
+
+    if (!jit_emit_callnative(cc, wasm_init_memory, res, args,
+                             sizeof(args) / sizeof(args[0])))
+        goto fail;
+
+    GEN_INSN(CMP, cc->cmp_reg, res, NEW_CONST(I32, 0));
+    if (!jit_emit_exception(cc, EXCE_ALREADY_THROWN, JIT_OP_BLTS, cc->cmp_reg,
+                            NULL))
+        goto fail;
+
+    return true;
+fail:
     return false;
 }
 
 bool
-jit_compile_op_data_drop(JitCompContext *cc, uint32 seg_index)
+jit_compile_op_data_drop(JitCompContext *cc, uint32 seg_idx)
 {
-    return false;
+    JitReg module = get_module_reg(cc->jit_frame);
+    JitReg data_segments = jit_cc_new_reg_ptr(cc);
+    JitReg data_segment = jit_cc_new_reg_ptr(cc);
+
+    GEN_INSN(LDPTR, data_segments, module,
+             NEW_CONST(I32, offsetof(WASMModule, data_segments)));
+    GEN_INSN(LDPTR, data_segment, data_segments,
+             NEW_CONST(I32, seg_idx * sizeof(WASMDataSeg *)));
+    GEN_INSN(STI32, NEW_CONST(I32, 0), data_segment,
+             NEW_CONST(I32, offsetof(WASMDataSeg, data_length)));
+
+    return true;
+}
+
+static int
+wasm_copy_memory(WASMModuleInstance *inst, uint32 src_mem_idx,
+                 uint32 dst_mem_idx, uint32 len, uint32 src_offset,
+                 uint32 dst_offset)
+{
+    WASMMemoryInstance *src_mem, *dst_mem;
+    uint32 src_mem_size, dst_mem_size;
+    uint8 *src_addr, *dst_addr;
+
+    src_mem = inst->memories[src_mem_idx];
+    dst_mem = inst->memories[dst_mem_idx];
+    src_mem_size = src_mem->cur_page_count * src_mem->num_bytes_per_page;
+    dst_mem_size = dst_mem->cur_page_count * dst_mem->num_bytes_per_page;
+
+    /* if s + n > the length of mem.data */
+    if (src_mem_size < src_offset || src_mem_size - src_offset < len)
+        goto out_of_bounds;
+
+    /* if d + n > the length of mem.data */
+    if (dst_mem_size < dst_offset || dst_mem_size - dst_offset < len)
+        goto out_of_bounds;
+
+    src_addr = src_mem->memory_data + src_offset;
+    dst_addr = dst_mem->memory_data + dst_offset;
+    /* allowing the destination and source to overlap */
+    bh_memmove_s(dst_addr, dst_mem_size - dst_offset, src_addr, len);
+
+    return 0;
+out_of_bounds:
+    wasm_set_exception(inst, "out of bounds memory access");
+    return -1;
 }
 
 bool
-jit_compile_op_memory_copy(JitCompContext *cc)
+jit_compile_op_memory_copy(JitCompContext *cc, uint32 src_mem_idx,
+                           uint32 dst_mem_idx)
 {
+    JitReg len, src, dst, res;
+    JitReg args[6] = { 0 };
+
+    POP_I32(len);
+    POP_I32(src);
+    POP_I32(dst);
+
+    res = jit_cc_new_reg_I32(cc);
+    args[0] = get_module_inst_reg(cc->jit_frame);
+    args[1] = NEW_CONST(I32, src_mem_idx);
+    args[2] = NEW_CONST(I32, dst_mem_idx);
+    args[3] = len;
+    args[4] = src;
+    args[5] = dst;
+
+    if (!jit_emit_callnative(cc, wasm_copy_memory, res, args,
+                             sizeof(args) / sizeof(args[0])))
+        goto fail;
+
+    GEN_INSN(CMP, cc->cmp_reg, res, NEW_CONST(I32, 0));
+    if (!jit_emit_exception(cc, EXCE_ALREADY_THROWN, JIT_OP_BLTS, cc->cmp_reg,
+                            NULL))
+        goto fail;
+
+    return true;
+fail:
     return false;
 }
 
-bool
-jit_compile_op_memory_fill(JitCompContext *cc)
+static int
+wasm_fill_memory(WASMModuleInstance *inst, uint32 mem_idx, uint32 len,
+                 uint32 val, uint32 dst)
 {
+    WASMMemoryInstance *mem_inst;
+    uint32 mem_size;
+    uint8 *dst_addr;
+
+    mem_inst = inst->memories[mem_idx];
+    mem_size = mem_inst->cur_page_count * mem_inst->num_bytes_per_page;
+
+    if (mem_size < dst || mem_size - dst < len)
+        goto out_of_bounds;
+
+    dst_addr = mem_inst->memory_data + dst;
+    memset(dst_addr, val, len);
+
+    return 0;
+out_of_bounds:
+    wasm_set_exception(inst, "out of bounds memory access");
+    return -1;
+}
+
+bool
+jit_compile_op_memory_fill(JitCompContext *cc, uint32 mem_idx)
+{
+    JitReg res, len, val, dst;
+    JitReg args[5] = { 0 };
+
+    POP_I32(len);
+    POP_I32(val);
+    POP_I32(dst);
+
+    res = jit_cc_new_reg_I32(cc);
+    args[0] = get_module_inst_reg(cc->jit_frame);
+    args[1] = NEW_CONST(I32, mem_idx);
+    args[2] = len;
+    args[3] = val;
+    args[4] = dst;
+
+    if (!jit_emit_callnative(cc, wasm_fill_memory, res, args,
+                             sizeof(args) / sizeof(args[0])))
+        goto fail;
+
+    GEN_INSN(CMP, cc->cmp_reg, res, NEW_CONST(I32, 0));
+    if (!jit_emit_exception(cc, EXCE_ALREADY_THROWN, JIT_OP_BLTS, cc->cmp_reg,
+                            NULL))
+        goto fail;
+
+    return true;
+fail:
     return false;
 }
 #endif
