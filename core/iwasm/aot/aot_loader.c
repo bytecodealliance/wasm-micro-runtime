@@ -14,7 +14,7 @@
 #include "../compilation/aot_llvm.h"
 #endif
 
-#if (WASM_ENABLE_JIT != 0) || (WASM_ENABLE_LOAD_CUSTOM_SECTION != 0)
+#if (WASM_ENABLE_JIT != 0)
 #include "../interpreter/wasm_loader.h"
 #endif
 

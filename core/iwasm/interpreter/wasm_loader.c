@@ -6504,18 +6504,6 @@ wasm_loader_get_custom_section(WASMModule *module, const char *name,
     return false;
 }
 
-void
-wasm_loader_destroy_custom_sections(WASMCustomSection *section_list)
-{
-    WASMCustomSection *section = section_list, *next;
-    while (section) {
-        next = section->next;
-        wasm_runtime_free(section);
-        section = next;
-    }
-}
-#endif /* end of WASM_ENABLE_LOAD_CUSTOM_SECTION */
-
 static bool
 wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
                              uint32 cur_func_idx, char *error_buf,
