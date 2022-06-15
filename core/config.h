@@ -168,6 +168,11 @@
 #define WASM_ENABLE_DEBUG_AOT 0
 #endif
 
+/* Custom sections */
+#ifndef WASM_ENABLE_LOAD_CUSTOM_SECTION
+#define WASM_ENABLE_LOAD_CUSTOM_SECTION 0
+#endif
+
 /* WASM log system */
 #ifndef WASM_ENABLE_LOG
 #define WASM_ENABLE_LOG 1

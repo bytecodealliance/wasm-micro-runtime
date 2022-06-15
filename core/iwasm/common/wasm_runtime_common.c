@@ -1274,10 +1274,6 @@ val_type_to_val_kind(uint8 value_type)
         case VALUE_TYPE_EXTERNREF:
             return WASM_ANYREF;
         default:
-#if WASM_ENABLE_GC != 0
-            if (wasm_is_type_reftype(value_type))
-                return WASM_ANYREF;
-#endif
             bh_assert(0);
             return 0;
     }
@@ -2846,6 +2842,24 @@ wasm_exec_env_get_module(WASMExecEnv *exec_env)
 #endif
     return NULL;
 }
+
+#if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
+const uint8 *
+wasm_runtime_get_custom_section(WASMModuleCommon *const module_comm,
+                                const char *name, uint32 *len)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module_comm->module_type == Wasm_Module_Bytecode)
+        return wasm_loader_get_custom_section((WASMModule *)module_comm, name,
+                                              len);
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (module_comm->module_type == Wasm_Module_AoT)
+        return aot_get_custom_section((AOTModule *)module_comm, name, len);
+#endif
+    return NULL;
+}
+#endif /* end of WASM_ENABLE_LOAD_CUSTOM_SECTION != 0 */
 
 static union {
     int a;
@@ -4891,3 +4905,16 @@ wasm_runtime_show_app_heap_corrupted_prompt()
               "compiled by asc, please add --exportRuntime to "
               "export the runtime helpers.");
 }
+
+#if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
+void
+wasm_runtime_destroy_custom_sections(WASMCustomSection *section_list)
+{
+    WASMCustomSection *section = section_list, *next;
+    while (section) {
+        next = section->next;
+        wasm_runtime_free(section);
+        section = next;
+    }
+}
+#endif /* end of WASM_ENABLE_LOAD_CUSTOM_SECTION */

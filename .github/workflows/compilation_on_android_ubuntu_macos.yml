@@ -214,6 +214,7 @@ jobs:
             "-DWAMR_BUILD_SIMD=1",
             "-DWAMR_BUILD_TAIL_CALL=1",
             "-DWAMR_DISABLE_HW_BOUND_CHECK=1",
+            "-DWAMR_BUILD_LOAD_CUSTOM_SECTION=1",
           ]
         os: [ubuntu-18.04, ubuntu-20.04, macos-latest]
         platform: [android, linux, darwin]
