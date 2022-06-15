@@ -6503,6 +6503,7 @@ wasm_loader_get_custom_section(WASMModule *module, const char *name,
 
     return false;
 }
+#endif
 
 static bool
 wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,

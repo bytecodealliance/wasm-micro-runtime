@@ -12,9 +12,6 @@
 #include "../compilation/aot.h"
 #if WASM_ENABLE_JIT != 0
 #include "../compilation/aot_llvm.h"
-#endif
-
-#if (WASM_ENABLE_JIT != 0)
 #include "../interpreter/wasm_loader.h"
 #endif
 
