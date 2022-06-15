@@ -12,9 +12,6 @@
 #include "../compilation/aot.h"
 #if WASM_ENABLE_JIT != 0
 #include "../compilation/aot_llvm.h"
-#endif
-
-#if (WASM_ENABLE_JIT != 0) || (WASM_ENABLE_LOAD_CUSTOM_SECTION != 0)
 #include "../interpreter/wasm_loader.h"
 #endif
 
@@ -3296,7 +3293,7 @@ aot_unload(AOTModule *module)
 #endif
 
 #if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
-    wasm_loader_destroy_custom_sections(module->custom_section_list);
+    wasm_runtime_destroy_custom_sections(module->custom_section_list);
 #endif
 
     wasm_runtime_free(module);

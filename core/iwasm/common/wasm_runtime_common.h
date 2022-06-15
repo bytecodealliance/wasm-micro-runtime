@@ -884,6 +884,11 @@ wasm_runtime_invoke_c_api_native(WASMModuleInstanceCommon *module_inst,
 void
 wasm_runtime_show_app_heap_corrupted_prompt();
 
+#if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
+void
+wasm_runtime_destroy_custom_sections(WASMCustomSection *section_list);
+#endif
+
 #ifdef __cplusplus
 }
 #endif
