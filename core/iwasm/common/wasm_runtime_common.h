@@ -886,7 +886,7 @@ wasm_runtime_show_app_heap_corrupted_prompt();
 
 #if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
 void
-wasm_loader_destroy_custom_sections(WASMCustomSection *section_list);
+wasm_runtime_destroy_custom_sections(WASMCustomSection *section_list);
 #endif
 
 #ifdef __cplusplus
