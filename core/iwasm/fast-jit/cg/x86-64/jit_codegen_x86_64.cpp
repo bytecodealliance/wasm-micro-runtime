@@ -325,7 +325,6 @@ jmp_from_label_to_label(x86::Assembler &a, bh_list *jmp_info_list,
  * @param jmp_info_list the jmp info list
  * @param label_src the index of src label
  * @param op the opcode of condition operation
- * @param reg_no the no of register which contains the compare results
  * @param r1 the label info when condition is met
  * @param r2 the label info when condition is unmet, do nonthing if VOID
  * @param is_last_insn if current insn is the last insn of current block
@@ -335,7 +334,7 @@ jmp_from_label_to_label(x86::Assembler &a, bh_list *jmp_info_list,
 static bool
 cmp_r_and_jmp_label(JitCompContext *cc, x86::Assembler &a,
                     bh_list *jmp_info_list, int32 label_src, COND_OP op,
-                    int32 reg_no, JitReg r1, JitReg r2, bool is_last_insn)
+                    JitReg r1, JitReg r2, bool is_last_insn)
 {
     Imm imm(INT32_MAX);
     JmpInfo *node;
@@ -819,7 +818,7 @@ ld_r_from_base_imm_offset_r(x86::Assembler &a, uint32 bytes_dst,
                             uint32 kind_dst, bool is_signed, int32 reg_no_dst,
                             int32 base, int32 reg_no_offset)
 {
-    x86::Mem m(regs_i64[reg_no_dst], base, bytes_dst);
+    x86::Mem m(regs_i64[reg_no_offset], base, bytes_dst);
     return mov_m_to_r(a, bytes_dst, kind_dst, is_signed, reg_no_dst, m);
 }
 
@@ -2149,7 +2148,11 @@ neg_r_to_r_i64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 static bool
 neg_imm_to_r_f32(x86::Assembler &a, int32 reg_no, float data)
 {
+    bh_assert(0);
     return false;
+    (void)a;
+    (void)reg_no;
+    (void)data;
 }
 
 /**
@@ -2164,7 +2167,11 @@ neg_imm_to_r_f32(x86::Assembler &a, int32 reg_no, float data)
 static bool
 neg_r_to_r_f32(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 {
+    bh_assert(0);
     return false;
+    (void)a;
+    (void)reg_no_dst;
+    (void)reg_no_src;
 }
 
 /**
@@ -2179,7 +2186,11 @@ neg_r_to_r_f32(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 static bool
 neg_imm_to_r_f64(x86::Assembler &a, int32 reg_no, double data)
 {
+    bh_assert(0);
     return false;
+    (void)a;
+    (void)reg_no;
+    (void)data;
 }
 
 /**
@@ -2194,7 +2205,11 @@ neg_imm_to_r_f64(x86::Assembler &a, int32 reg_no, double data)
 static bool
 neg_r_to_r_f64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 {
+    bh_assert(0);
     return false;
+    (void)a;
+    (void)reg_no_dst;
+    (void)reg_no_src;
 }
 
 static COND_OP
@@ -3727,6 +3742,11 @@ shift_imm_r_to_r_i32(x86::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
     /* Should have been optimized by previous lower */
     bh_assert(0);
     return false;
+    (void)a;
+    (void)op;
+    (void)reg_no_dst;
+    (void)data1_src;
+    (void)reg_no2_src;
 }
 
 /**
@@ -3919,6 +3939,11 @@ shift_imm_r_to_r_i64(x86::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
     /* Should have been optimized by previous lower */
     bh_assert(0);
     return false;
+    (void)a;
+    (void)op;
+    (void)reg_no_dst;
+    (void)data1_src;
+    (void)reg_no2_src;
 }
 
 /**
@@ -4056,6 +4081,7 @@ cmp_imm_imm_to_r_i32(x86::Assembler &a, int32 reg_no_dst, int32 data1_src,
     imm.setValue(data2_src);
     a.cmp(regs_i32[REG_I32_FREE_IDX], imm);
     return true;
+    (void)reg_no_dst;
 }
 
 /**
@@ -4077,6 +4103,7 @@ cmp_imm_r_to_r_i32(x86::Assembler &a, int32 reg_no_dst, int32 data1_src,
     a.mov(regs_i32[REG_I32_FREE_IDX], imm);
     a.cmp(regs_i32[REG_I32_FREE_IDX], regs_i32[reg_no2_src]);
     return true;
+    (void)reg_no_dst;
 }
 
 /**
@@ -4097,6 +4124,7 @@ cmp_r_imm_to_r_i32(x86::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
     Imm imm(data2_src);
     a.cmp(regs_i32[reg_no1_src], imm);
     return true;
+    (void)reg_no_dst;
 }
 
 /**
@@ -4116,6 +4144,7 @@ cmp_r_r_to_r_i32(x86::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
 {
     a.cmp(regs_i32[reg_no1_src], regs_i32[reg_no2_src]);
     return true;
+    (void)reg_no_dst;
 }
 
 /**
@@ -4138,6 +4167,7 @@ cmp_imm_imm_to_r_i64(x86::Assembler &a, int32 reg_no_dst, int32 data1_src,
     imm.setValue(data2_src);
     a.cmp(regs_i64[REG_I64_FREE_IDX], imm);
     return true;
+    (void)reg_no_dst;
 }
 
 /**
@@ -4159,6 +4189,7 @@ cmp_imm_r_to_r_i64(x86::Assembler &a, int32 reg_no_dst, int64 data1_src,
     a.mov(regs_i64[REG_I64_FREE_IDX], imm);
     a.cmp(regs_i64[REG_I64_FREE_IDX], regs_i64[reg_no2_src]);
     return true;
+    (void)reg_no_dst;
 }
 
 /**
@@ -4187,6 +4218,7 @@ cmp_r_imm_to_r_i64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
         a.cmp(regs_i64[reg_no1_src], regs_i64[REG_I64_FREE_IDX]);
     }
     return true;
+    (void)reg_no_dst;
 }
 
 /**
@@ -4206,6 +4238,7 @@ cmp_r_r_to_r_i64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
 {
     a.cmp(regs_i64[reg_no1_src], regs_i64[reg_no2_src]);
     return true;
+    (void)reg_no_dst;
 }
 
 /**
@@ -4225,6 +4258,7 @@ cmp_r_r_to_r_f32(x86::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
 {
     a.comiss(regs_float[reg_no1_src], regs_float[reg_no2_src]);
     return true;
+    (void)reg_no_dst;
 }
 
 /**
@@ -4242,9 +4276,13 @@ static bool
 cmp_imm_imm_to_r_f32(x86::Assembler &a, int32 reg_no_dst, float data1_src,
                      float data2_src)
 {
-    /* should resolve it in frontend */
+    /* should have been optimized in the frontend */
     bh_assert(0);
     return false;
+    (void)a;
+    (void)reg_no_dst;
+    (void)data1_src;
+    (void)data2_src;
 }
 
 /**
@@ -4265,6 +4303,7 @@ cmp_imm_r_to_r_f32(x86::Assembler &a, int32 reg_no_dst, float data1_src,
     mov_imm_to_r_f32(a, REG_F32_FREE_IDX, data1_src);
     a.comiss(regs_float[REG_F32_FREE_IDX], regs_float[reg_no2_src]);
     return true;
+    (void)reg_no_dst;
 }
 
 /**
@@ -4285,6 +4324,7 @@ cmp_r_imm_to_r_f32(x86::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
     mov_imm_to_r_f32(a, REG_F32_FREE_IDX, data2_src);
     a.comiss(regs_float[reg_no1_src], regs_float[REG_F32_FREE_IDX]);
     return true;
+    (void)reg_no_dst;
 }
 
 /**
@@ -4304,6 +4344,7 @@ cmp_r_r_to_r_f64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
 {
     a.comisd(regs_float[reg_no1_src], regs_float[reg_no2_src]);
     return true;
+    (void)reg_no_dst;
 }
 
 /**
@@ -4321,9 +4362,13 @@ static bool
 cmp_imm_imm_to_r_f64(x86::Assembler &a, int32 reg_no_dst, double data1_src,
                      double data2_src)
 {
-    /* should resolve it in frontend */
+    /* should have been optimized in the frontend */
     bh_assert(0);
     return false;
+    (void)a;
+    (void)reg_no_dst;
+    (void)data1_src;
+    (void)data2_src;
 }
 
 /**
@@ -4344,6 +4389,7 @@ cmp_imm_r_to_r_f64(x86::Assembler &a, int32 reg_no_dst, double data1_src,
     mov_imm_to_r_f64(a, REG_F64_FREE_IDX, data1_src);
     a.comisd(regs_float[REG_F64_FREE_IDX], regs_float[reg_no2_src]);
     return true;
+    (void)reg_no_dst;
 }
 
 /**
@@ -4364,6 +4410,7 @@ cmp_r_imm_to_r_f64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
     mov_imm_to_r_f64(a, REG_F64_FREE_IDX, data2_src);
     a.comisd(regs_float[reg_no1_src], regs_float[REG_F64_FREE_IDX]);
     return true;
+    (void)reg_no_dst;
 }
 
 /**
@@ -4933,7 +4980,6 @@ bitcount_r_to_r_i64(x86::Assembler &a, BITCOUNT_OP op, int32 reg_no_dst,
 #define BITCOUNT_R_R(kind, Type, type, op)                              \
     do {                                                                \
         int32 reg_no_dst;                                               \
-        bool _ret = false;                                              \
                                                                         \
         CHECK_EQKIND(r0, r1);                                           \
         CHECK_NCONST(r1);                                               \
@@ -5066,15 +5112,14 @@ fail:
  *
  * @param cc the compiler context
  * @param a the assembler to emit the code
- * @param reg_no the no of register which contains cmp flags of cmp result
  * @param op the condition opcode to jmp
  * @param offset the relative offset to jmp when the contidtion meeted
  *
  * @return return the next address of native code after encoded
  */
 static bool
-cmp_r_and_jmp_relative(JitCompContext *cc, x86::Assembler &a, int32 reg_no,
-                       COND_OP op, int32 offset)
+cmp_r_and_jmp_relative(JitCompContext *cc, x86::Assembler &a, COND_OP op,
+                       int32 offset)
 {
     Imm target(INT32_MAX);
     char *stream = (char *)a.code()->sectionById(0)->buffer().data()
@@ -5219,8 +5264,7 @@ lower_select(JitCompContext *cc, x86::Assembler &a, COND_OP op, JitReg r0,
     }
 
     if (r3 && r0 != r3) {
-        if (!cmp_r_and_jmp_relative(cc, a, jit_reg_no(r1), op,
-                                    (int32)size_mov2))
+        if (!cmp_r_and_jmp_relative(cc, a, op, (int32)size_mov2))
             return false;
         a.embedDataArray(TypeId::kInt8, stream_mov2, size_mov2);
     }
@@ -5269,7 +5313,7 @@ lower_branch(JitCompContext *cc, x86::Assembler &a, bh_list *jmp_info_list,
              int32 label_src, COND_OP op, JitReg r0, JitReg r1, JitReg r2,
              bool is_last_insn)
 {
-    int32 reg_no, label_dst;
+    int32 label_dst;
 
     CHECK_NCONST(r0);
     CHECK_KIND(r0, JIT_REG_KIND_I32);
@@ -5287,9 +5331,8 @@ lower_branch(JitCompContext *cc, x86::Assembler &a, bh_list *jmp_info_list,
         op = not_cond(op);
     }
 
-    reg_no = jit_reg_no(r0);
-    if (!cmp_r_and_jmp_label(cc, a, jmp_info_list, label_src, op, reg_no, r1,
-                             r2, is_last_insn))
+    if (!cmp_r_and_jmp_label(cc, a, jmp_info_list, label_src, op, r1, r2,
+                             is_last_insn))
         GOTO_FAIL;
 
     return true;
@@ -5444,15 +5487,12 @@ fail:
  *
  * @param cc the compiler context
  * @param a the assembler to emit the code
- * @param jmp_info_list the jmp info list
- * @param label_src the index of src label
  * @param insn current insn info
  *
  * @return true if success, false if failed
  */
 static bool
-lower_callnative(JitCompContext *cc, x86::Assembler &a, bh_list *jmp_info_list,
-                 int32 label_src, JitInsn *insn)
+lower_callnative(JitCompContext *cc, x86::Assembler &a, JitInsn *insn)
 {
     void (*func_ptr)(void);
     JitReg ret_reg, func_reg, arg_reg;
@@ -5460,10 +5500,7 @@ lower_callnative(JitCompContext *cc, x86::Assembler &a, bh_list *jmp_info_list,
     uint8 regs_arg_idx[] = { REG_RDI_IDX, REG_RSI_IDX, REG_RDX_IDX,
                              REG_RCX_IDX, REG_R8_IDX,  REG_R9_IDX };
     Imm imm;
-    JmpInfo *node;
     uint32 i, opnd_num;
-    int32 i32;
-    int64 i64;
     uint8 integer_reg_index = 0;
     uint8 floatpoint_reg_index = 0;
 
@@ -5548,9 +5585,9 @@ lower_callnative(JitCompContext *cc, x86::Assembler &a, bh_list *jmp_info_list,
                    && jit_reg_no(ret_reg) == REG_EAX_IDX)
                   || (jit_reg_kind(ret_reg) == JIT_REG_KIND_I64
                       && jit_reg_no(ret_reg) == REG_RAX_IDX)
-                  || (jit_reg_kind(ret_reg) == JIT_REG_KIND_F32
-                      || jit_reg_kind(ret_reg) == JIT_REG_KIND_F64
-                             && jit_reg_no(ret_reg) == 0));
+                  || ((jit_reg_kind(ret_reg) == JIT_REG_KIND_F32
+                       || jit_reg_kind(ret_reg) == JIT_REG_KIND_F64)
+                      && jit_reg_no(ret_reg) == 0));
     }
 
     return true;
@@ -5603,8 +5640,7 @@ fail:
 }
 
 static bool
-lower_returnbc(JitCompContext *cc, x86::Assembler &a, int32 label_src,
-               JitInsn *insn)
+lower_returnbc(JitCompContext *cc, x86::Assembler &a, JitInsn *insn)
 {
     JitReg ecx_hreg = jit_reg_new(JIT_REG_KIND_I32, REG_ECX_IDX);
     JitReg rcx_hreg = jit_reg_new(JIT_REG_KIND_I64, REG_RCX_IDX);
@@ -5687,7 +5723,7 @@ static void
 patch_jmp_info_list(JitCompContext *cc, bh_list *jmp_info_list)
 {
     JmpInfo *jmp_info, *jmp_info_next;
-    JitReg reg_src, reg_dst;
+    JitReg reg_dst;
     char *stream;
 
     jmp_info = (JmpInfo *)bh_list_first_elem(jmp_info_list);
@@ -5695,7 +5731,6 @@ patch_jmp_info_list(JitCompContext *cc, bh_list *jmp_info_list)
     while (jmp_info) {
         jmp_info_next = (JmpInfo *)bh_list_elem_next(jmp_info);
 
-        reg_src = jit_reg_new(JIT_REG_KIND_L32, jmp_info->label_src);
         stream = (char *)cc->jitted_addr_begin + jmp_info->offset;
 
         if (jmp_info->type == JMP_DST_LABEL) {
@@ -5893,7 +5928,7 @@ jit_codegen_gen_native(JitCompContext *cc)
     JitReg r0, r1, r2, r3;
     JmpInfo jmp_info_head;
     bh_list *jmp_info_list = (bh_list *)&jmp_info_head;
-    uint32 label_index, label_num, i, j;
+    uint32 label_index, label_num, i;
     uint32 *label_offsets = NULL, code_size;
 #if CODEGEN_DUMP != 0
     uint32 code_offset = 0;
@@ -6324,8 +6359,7 @@ jit_codegen_gen_native(JitCompContext *cc)
                 }
 
                 case JIT_OP_CALLNATIVE:
-                    if (!lower_callnative(cc, a, jmp_info_list, label_index,
-                                          insn))
+                    if (!lower_callnative(cc, a, insn))
                         GOTO_FAIL;
                     break;
 
@@ -6335,7 +6369,7 @@ jit_codegen_gen_native(JitCompContext *cc)
                     break;
 
                 case JIT_OP_RETURNBC:
-                    if (!lower_returnbc(cc, a, label_index, insn))
+                    if (!lower_returnbc(cc, a, insn))
                         GOTO_FAIL;
                     break;
 
@@ -6424,12 +6458,15 @@ fail:
 bool
 jit_codegen_lower(JitCompContext *cc)
 {
+    (void)cc;
     return true;
 }
 
 void
 jit_codegen_free_native(JitCompContext *cc)
-{}
+{
+    (void)cc;
+}
 
 void
 jit_codegen_dump_native(void *begin_addr, void *end_addr)
