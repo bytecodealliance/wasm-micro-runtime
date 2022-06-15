@@ -3958,7 +3958,7 @@ shift_r_imm_to_r_i64(x86::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
         }
         case ROTL:
         {
-            a.ror(regs_i64[reg_no_dst], imm);
+            a.rol(regs_i64[reg_no_dst], imm);
             break;
         }
         case ROTR:

@@ -167,6 +167,8 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
                                  3)) {
             return false;
         }
+        /* Convert bool to uint32 */
+        GEN_INSN(AND, native_ret, native_ret, NEW_CONST(I32, 0xFF));
 
         /* Check whether there is exception thrown */
         GEN_INSN(CMP, cc->cmp_reg, native_ret, NEW_CONST(I32, 0));
@@ -339,6 +341,8 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
     if (!jit_emit_callnative(cc, jit_call_indirect, native_ret, arg_regs, 6)) {
         return false;
     }
+    /* Convert bool to uint32 */
+    GEN_INSN(AND, native_ret, native_ret, NEW_CONST(I32, 0xFF));
 
     /* Check whether there is exception thrown */
     GEN_INSN(CMP, cc->cmp_reg, native_ret, NEW_CONST(I32, 0));
