@@ -22,7 +22,7 @@ typedef struct UintStack {
     uint32 top;
 
     /* Elements of the vector.  */
-    uint16 elem[1];
+    uint32 elem[1];
 } UintStack;
 
 static bool
@@ -423,6 +423,11 @@ collect_distances(RegallocContext *rc, JitBasicBlock *basic_block)
         if (is_alloc_candidate(rc->cc, *regp))
             if (!uint_stack_push(&(rc_get_vr(rc, *regp))->distances, distance))
                 return -1;
+
+        /* Integer overflow check, normally it won't happen, but
+           we had better add the check here */
+        if (distance >= INT32_MAX)
+            return -1;
 
         distance++;
     }

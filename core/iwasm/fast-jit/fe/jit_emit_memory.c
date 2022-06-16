@@ -507,6 +507,8 @@ jit_compile_op_memory_grow(JitCompContext *cc, uint32 mem_idx)
     if (!jit_emit_callnative(cc, wasm_enlarge_memory, grow_res, args, 2)) {
         goto fail;
     }
+    /* Convert bool to uint32 */
+    GEN_INSN(AND, grow_res, grow_res, NEW_CONST(I32, 0xFF));
 
     /* Check if enlarge memory success */
     res = jit_cc_new_reg_I32(cc);

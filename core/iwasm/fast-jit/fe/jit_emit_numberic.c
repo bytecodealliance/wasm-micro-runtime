@@ -1050,10 +1050,14 @@ do_i64_const_shru(int64 lhs, int64 rhs)
     return (uint64)lhs >> rhs;
 }
 
+typedef enum { SHL, SHRS, SHRU, ROTL, ROTR } SHIFT_OP;
+
 static JitReg
-compile_int_shift_modulo(JitCompContext *cc, JitReg rhs, bool is_i32)
+compile_int_shift_modulo(JitCompContext *cc, JitReg rhs, bool is_i32,
+                         SHIFT_OP op)
 {
     JitReg res;
+
     if (jit_reg_is_const(rhs)) {
         if (is_i32) {
             int32 val = jit_cc_get_const_I32(cc, rhs);
@@ -1067,7 +1071,12 @@ compile_int_shift_modulo(JitCompContext *cc, JitReg rhs, bool is_i32)
         }
     }
     else {
-        if (is_i32) {
+        if (op == ROTL || op == ROTR) {
+            /* No need to generate AND insn as the result
+               is same for rotate shift */
+            res = rhs;
+        }
+        else if (is_i32) {
             res = jit_cc_new_reg_I32(cc);
             GEN_INSN(AND, res, rhs, NEW_CONST(I32, 0x1f));
         }
@@ -1076,6 +1085,7 @@ compile_int_shift_modulo(JitCompContext *cc, JitReg rhs, bool is_i32)
             GEN_INSN(AND, res, rhs, NEW_CONST(I64, 0x3f));
         }
     }
+
     return res;
 }
 
@@ -1101,7 +1111,7 @@ compile_int_shl(JitCompContext *cc, JitReg left, JitReg right, bool is_i32)
     JitInsn *insn = NULL;
 #endif
 
-    right = compile_int_shift_modulo(cc, right, is_i32);
+    right = compile_int_shift_modulo(cc, right, is_i32, SHL);
 
     res = CHECK_AND_PROCESS_INT_CONSTS(cc, left, right, is_i32, shl);
     if (res)
@@ -1132,7 +1142,7 @@ compile_int_shrs(JitCompContext *cc, JitReg left, JitReg right, bool is_i32)
     JitInsn *insn = NULL;
 #endif
 
-    right = compile_int_shift_modulo(cc, right, is_i32);
+    right = compile_int_shift_modulo(cc, right, is_i32, SHRS);
 
     res = CHECK_AND_PROCESS_INT_CONSTS(cc, left, right, is_i32, shrs);
     if (res)
@@ -1163,7 +1173,7 @@ compile_int_shru(JitCompContext *cc, JitReg left, JitReg right, bool is_i32)
     JitInsn *insn = NULL;
 #endif
 
-    right = compile_int_shift_modulo(cc, right, is_i32);
+    right = compile_int_shift_modulo(cc, right, is_i32, SHRU);
 
     res = CHECK_AND_PROCESS_INT_CONSTS(cc, left, right, is_i32, shru);
     if (res)
@@ -1225,7 +1235,7 @@ compile_int_rotl(JitCompContext *cc, JitReg left, JitReg right, bool is_i32)
     JitInsn *insn = NULL;
 #endif
 
-    right = compile_int_shift_modulo(cc, right, is_i32);
+    right = compile_int_shift_modulo(cc, right, is_i32, ROTL);
 
     res = CHECK_AND_PROCESS_INT_CONSTS(cc, left, right, is_i32, rotl);
     if (res)
@@ -1287,7 +1297,7 @@ compile_int_rotr(JitCompContext *cc, JitReg left, JitReg right, bool is_i32)
     JitInsn *insn = NULL;
 #endif
 
-    right = compile_int_shift_modulo(cc, right, is_i32);
+    right = compile_int_shift_modulo(cc, right, is_i32, ROTR);
 
     res = CHECK_AND_PROCESS_INT_CONSTS(cc, left, right, is_i32, rotr);
     if (res)

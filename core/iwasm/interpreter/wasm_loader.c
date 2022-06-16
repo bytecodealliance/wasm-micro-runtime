@@ -3261,9 +3261,10 @@ load_from_sections(WASMModule *module, WASMSection *sections,
 #if WASM_ENABLE_FAST_JIT != 0
     calculate_global_data_offset(module);
 
-    if (!(module->fast_jit_func_ptrs =
-              loader_malloc(sizeof(void *) * module->function_count, error_buf,
-                            error_buf_size))) {
+    if (module->function_count
+        && !(module->fast_jit_func_ptrs =
+                 loader_malloc(sizeof(void *) * module->function_count,
+                               error_buf, error_buf_size))) {
         return false;
     }
     if (!jit_compiler_compile_all(module)) {
