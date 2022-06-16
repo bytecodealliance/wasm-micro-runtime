@@ -149,11 +149,11 @@ GET_U64_FROM_ADDR(uint32 *addr)
 #define read_uint32(p, p_end, res) TEMPLATE_READ(p, p_end, res, uint32)
 #define read_uint64(p, p_end, res) TEMPLATE_READ(p, p_end, res, uint64)
 
-#define read_byte_array(p, p_end, addr, len)  \
-    do {                                      \
-        CHECK_BUF(p, p_end, len);             \
-        bh_memcpy_s(addr, p_end - p, p, len); \
-        p += len;                             \
+#define read_byte_array(p, p_end, addr, len) \
+    do {                                     \
+        CHECK_BUF(p, p_end, len);            \
+        bh_memcpy_s(addr, len, p, len);      \
+        p += len;                            \
     } while (0)
 
 #define read_string(p, p_end, str)                                \
