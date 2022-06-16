@@ -5476,7 +5476,7 @@ re_scan:
                              > loader_ctx->start_dynamic_offset)
                             && (*(loader_ctx->frame_offset)
                                 < loader_ctx->max_dynamic_offset))
-                            loader_ctx->dynamic_offset--;
+                            loader_ctx->dynamic_offset -= 2;
 #endif
                     }
                     else {
