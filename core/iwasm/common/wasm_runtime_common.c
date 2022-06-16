@@ -1245,6 +1245,8 @@ wasm_func_get_param_count(WASMFunctionInstanceCommon *const func_inst,
 {
     WASMType *type =
         wasm_runtime_get_function_type(func_inst, module_inst->module_type);
+    bh_assert(type);
+
     return type->param_count;
 }
 
@@ -1254,6 +1256,8 @@ wasm_func_get_result_count(WASMFunctionInstanceCommon *const func_inst,
 {
     WASMType *type =
         wasm_runtime_get_function_type(func_inst, module_inst->module_type);
+    bh_assert(type);
+
     return type->result_count;
 }
 
@@ -1288,6 +1292,8 @@ wasm_func_get_param_types(WASMFunctionInstanceCommon *const func_inst,
         wasm_runtime_get_function_type(func_inst, module_inst->module_type);
     uint32 i;
 
+    bh_assert(type);
+
     for (i = 0; i < type->param_count; i++) {
         param_types[i] = val_type_to_val_kind(type->types[i]);
     }
@@ -1301,6 +1307,8 @@ wasm_func_get_result_types(WASMFunctionInstanceCommon *const func_inst,
     WASMType *type =
         wasm_runtime_get_function_type(func_inst, module_inst->module_type);
     uint32 i;
+
+    bh_assert(type);
 
     for (i = 0; i < type->result_count; i++) {
         result_types[i] =

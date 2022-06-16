@@ -152,7 +152,7 @@ GET_U64_FROM_ADDR(uint32 *addr)
 #define read_byte_array(p, p_end, addr, len) \
     do {                                     \
         CHECK_BUF(p, p_end, len);            \
-        memcpy(addr, p, len);                \
+        bh_memcpy_s(addr, len, p, len);      \
         p += len;                            \
     } while (0)
 
@@ -1847,7 +1847,7 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
                 return false;
             }
         }
-        memcpy(symbol, relocation->symbol_name, symbol_len);
+        bh_memcpy_s(symbol, symbol_len, relocation->symbol_name, symbol_len);
         symbol[symbol_len] = '\0';
 
         if (!strncmp(symbol, AOT_FUNC_PREFIX, strlen(AOT_FUNC_PREFIX))) {
