@@ -6552,6 +6552,16 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
     }
 
 #if WASM_ENABLE_FAST_INTERP != 0
+    /* For the first traverse, the initial value of preserved_local_offset has
+     * not been determined, we use the INT16_MAX to represent that a slot has
+     * been copied to preserve space. For second traverse, this field will be
+     * set to the appropriate value in wasm_loader_ctx_reinit.
+     * This is for Issue #1230,
+     * https://github.com/bytecodealliance/wasm-micro-runtime/issues/1230, the
+     * drop opcodes need to know which slots are preserved, so those slots will
+     * not be treated as dynamically allocated slots */
+    loader_ctx->preserved_local_offset = INT16_MAX;
+
 re_scan:
     if (loader_ctx->code_compiled_size > 0) {
         if (!wasm_loader_ctx_reinit(loader_ctx)) {
@@ -7209,8 +7219,10 @@ re_scan:
 #if WASM_ENABLE_FAST_INTERP != 0
                         skip_label();
                         loader_ctx->frame_offset--;
-                        if (*(loader_ctx->frame_offset)
-                            > loader_ctx->start_dynamic_offset)
+                        if ((*(loader_ctx->frame_offset)
+                             > loader_ctx->start_dynamic_offset)
+                            && (*(loader_ctx->frame_offset)
+                                < loader_ctx->max_dynamic_offset))
                             loader_ctx->dynamic_offset--;
 #endif
                     }
@@ -7223,8 +7235,10 @@ re_scan:
 #if WASM_ENABLE_FAST_INTERP != 0
                         skip_label();
                         loader_ctx->frame_offset -= 2;
-                        if (*(loader_ctx->frame_offset)
-                            > loader_ctx->start_dynamic_offset)
+                        if ((*(loader_ctx->frame_offset)
+                             > loader_ctx->start_dynamic_offset)
+                            && (*(loader_ctx->frame_offset)
+                                < loader_ctx->max_dynamic_offset))
                             loader_ctx->dynamic_offset -= 2;
 #endif
                     }
