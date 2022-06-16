@@ -374,6 +374,8 @@ send_thread_stop_status(WASMGDBServer *server, uint32 status, korp_tid tid)
 
     exec_env = wasm_debug_instance_get_current_env(
         (WASMDebugInstance *)server->thread->debug_instance);
+    bh_assert(exec_env);
+
     exception =
         wasm_runtime_get_exception(wasm_runtime_get_module_inst(exec_env));
     if (exception) {

@@ -485,7 +485,7 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
                             u.ieee.ieee_little_endian.negative = 1;
                         else
                             u.ieee.ieee_big_endian.negative = 1;
-                        memcpy(&f32, &u.f, sizeof(float));
+                        bh_memcpy_s(&f32, sizeof(float), &u.f, sizeof(float));
                     }
                     if (endptr[0] == ':') {
                         uint32 sig;
@@ -496,10 +496,11 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
                             u.ieee.ieee_little_endian.mantissa = sig;
                         else
                             u.ieee.ieee_big_endian.mantissa = sig;
-                        memcpy(&f32, &u.f, sizeof(float));
+                        bh_memcpy_s(&f32, sizeof(float), &u.f, sizeof(float));
                     }
                 }
-                memcpy(&argv1[p++], &f32, sizeof(float));
+                bh_memcpy_s(&argv1[p], total_size - p, &f32, sizeof(float));
+                p++;
                 break;
             }
             case VALUE_TYPE_F64:
@@ -517,7 +518,8 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
                             ud.ieee.ieee_little_endian.negative = 1;
                         else
                             ud.ieee.ieee_big_endian.negative = 1;
-                        memcpy(&u.val, &ud.d, sizeof(double));
+                        bh_memcpy_s(&u.val, sizeof(double), &ud.d,
+                                    sizeof(double));
                     }
                     if (endptr[0] == ':') {
                         uint64 sig;
@@ -532,7 +534,8 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
                             ud.ieee.ieee_big_endian.mantissa0 = sig >> 32;
                             ud.ieee.ieee_big_endian.mantissa1 = (uint32)sig;
                         }
-                        memcpy(&u.val, &ud.d, sizeof(double));
+                        bh_memcpy_s(&u.val, sizeof(double), &ud.d,
+                                    sizeof(double));
                     }
                 }
                 argv1[p++] = u.parts[0];
