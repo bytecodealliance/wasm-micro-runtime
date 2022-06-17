@@ -4,6 +4,9 @@
 cmake_minimum_required(VERSION 3.0)
 project(native_lib)
 
+set(CMAKE_C_COMPILER_WORKS 1)
+set(CMAKE_CXX_COMPILER_WORKS 1)
+
 ################ runtime settings  ##############
 string (TOLOWER ${CMAKE_HOST_SYSTEM_NAME} WAMR_BUILD_PLATFORM)
 if (APPLE)

@@ -5,7 +5,8 @@
 
 readonly CURRENT_PATH=$(dirname "$(realpath "$0")")
 readonly ROOT=$(realpath "${CURRENT_PATH}/..")
-readonly VARIANT=$(lsb_release -c | awk '{print $2}')
+# readonly VARIANT=$(lsb_release -c | awk '{print $2}')
+readonly VARIANT="karoo"
 
 docker build \
     --memory=4G --cpu-quota=50000 \

@@ -5,6 +5,9 @@ cmake_minimum_required (VERSION 2.8)
 
 project (simple)
 
+set(CMAKE_C_COMPILER_WORKS 1)
+set(CMAKE_CXX_COMPILER_WORKS 1)
+
 ################  wamr runtime settings  ################
 message(STATUS "WAMR_BUILD_SDK_PROFILE=${WAMR_BUILD_SDK_PROFILE}")
 

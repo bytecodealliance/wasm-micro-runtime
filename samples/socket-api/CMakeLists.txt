@@ -4,6 +4,9 @@
 cmake_minimum_required(VERSION 2.8...3.18)
 project(socket_api_sample)
 
+set(CMAKE_C_COMPILER_WORKS 1)
+set(CMAKE_CXX_COMPILER_WORKS 1)
+
 #######################################
 ## Detect toolchain
 #######################################

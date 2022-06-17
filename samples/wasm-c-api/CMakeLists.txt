@@ -3,6 +3,9 @@
 
 cmake_minimum_required (VERSION 2.8)
 
+set(CMAKE_C_COMPILER_WORKS 1)
+set(CMAKE_CXX_COMPILER_WORKS 1)
+
 if (NOT WAMR_BUILD_PLATFORM STREQUAL "windows")
   project(c-api)
 else()
