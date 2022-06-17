@@ -1287,6 +1287,7 @@ fail:
 static uint32
 get_custom_sections_size(AOTCompContext *comp_ctx, AOTCompData *comp_data)
 {
+#if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
     uint32 size = 0, i;
 
     for (i = 0; i < comp_ctx->custom_sections_count; i++) {
@@ -1312,6 +1313,9 @@ get_custom_sections_size(AOTCompContext *comp_ctx, AOTCompData *comp_data)
     }
 
     return size;
+#else
+    return 0;
+#endif
 }
 
 static bool
@@ -1941,6 +1945,7 @@ static bool
 aot_emit_custom_sections(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
                          AOTCompData *comp_data, AOTCompContext *comp_ctx)
 {
+#if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
     uint32 offset = *p_offset, i;
 
     for (i = 0; i < comp_ctx->custom_sections_count; i++) {
@@ -1968,6 +1973,7 @@ aot_emit_custom_sections(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     }
 
     *p_offset = offset;
+#endif
 
     return true;
 }
