@@ -2997,7 +2997,7 @@ aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name)
                 return false;
             }
 
-            snprintf(cmd, sizeof(cmd), "%s %s -c -o %s %s",
+            snprintf(cmd, sizeof(cmd), "%s %s -o %s %s",
                      comp_ctx->external_asm_compiler,
                      comp_ctx->asm_compiler_flags ? comp_ctx->asm_compiler_flags
                                                   : "-O3 -c",
