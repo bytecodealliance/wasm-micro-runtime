@@ -15,7 +15,9 @@
 extern "C" {
 #endif
 
+#ifndef AOT_FUNC_PREFIX
 #define AOT_FUNC_PREFIX "aot_func#"
+#endif
 
 typedef InitializerExpression AOTInitExpr;
 typedef WASMType AOTFuncType;
