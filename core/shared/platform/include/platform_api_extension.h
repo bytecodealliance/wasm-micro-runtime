@@ -108,6 +108,12 @@ void
 os_thread_env_destroy();
 
 /**
+ * Whether the thread environment is initialized
+ */
+bool
+os_thread_env_inited();
+
+/**
  * Suspend execution of the calling thread for (at least)
  * usec microseconds
  *

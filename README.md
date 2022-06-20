@@ -19,6 +19,8 @@ Getting started
 ==================
 - [Build iwasm VM core](./doc/build_wamr.md) on [Linux](./doc/build_wamr.md#linux), [SGX](./doc/linux_sgx.md), [MacOS](./doc/build_wamr.md#macos) and [Windows](./doc/build_wamr.md#windows), and [Build wamrc AOT compiler](./README.md#build-wamrc-aot-compiler)
 - [Embed WAMR into host applications](./doc/embed_wamr.md)
+  - [Embed into C/C++](./doc/embed_wamr.md), [Embed into Python](./language-bindings/python), [Embed into Go](./language-bindings/go)
+
 - [Register native APIs for WASM applications](./doc/export_native_api.md)
 - [Build WASM applications](./doc/build_wasm_app.md)
 - [Port WAMR to a new platform](./doc/port_wamr.md)

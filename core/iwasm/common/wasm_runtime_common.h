@@ -472,6 +472,28 @@ wasm_runtime_get_function_type(const WASMFunctionInstanceCommon *function,
                                uint32 module_type);
 
 /* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN uint32
+wasm_func_get_param_count(WASMFunctionInstanceCommon *const func_inst,
+                          WASMModuleInstanceCommon *const module_inst);
+
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN uint32
+wasm_func_get_result_count(WASMFunctionInstanceCommon *const func_inst,
+                           WASMModuleInstanceCommon *const module_inst);
+
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN void
+wasm_func_get_param_types(WASMFunctionInstanceCommon *const func_inst,
+                          WASMModuleInstanceCommon *const module_inst,
+                          wasm_valkind_t *param_types);
+
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN void
+wasm_func_get_result_types(WASMFunctionInstanceCommon *const func_inst,
+                           WASMModuleInstanceCommon *const module_inst,
+                           wasm_valkind_t *result_types);
+
+/* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN WASMExecEnv *
 wasm_runtime_create_exec_env(WASMModuleInstanceCommon *module_inst,
                              uint32 stack_size);
@@ -635,6 +657,11 @@ wasm_runtime_get_native_addr_range(WASMModuleInstanceCommon *module_inst,
                                    uint8 *native_ptr,
                                    uint8 **p_native_start_addr,
                                    uint8 **p_native_end_addr);
+
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN const uint8 *
+wasm_runtime_get_custom_section(WASMModuleCommon *const module_comm,
+                                const char *name, uint32 *len);
 
 uint32
 wasm_runtime_get_temp_ret(WASMModuleInstanceCommon *module_inst);
@@ -856,6 +883,11 @@ wasm_runtime_invoke_c_api_native(WASMModuleInstanceCommon *module_inst,
 
 void
 wasm_runtime_show_app_heap_corrupted_prompt();
+
+#if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
+void
+wasm_runtime_destroy_custom_sections(WASMCustomSection *section_list);
+#endif
 
 #ifdef __cplusplus
 }

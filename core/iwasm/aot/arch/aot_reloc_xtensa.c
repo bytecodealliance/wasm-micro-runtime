@@ -22,6 +22,26 @@ void __modsi3();
 
 void __divdi3();
 
+void __udivdi3();
+void __unorddf2();
+void __adddf3();
+void __eqdf2();
+void __muldf3();
+void __gedf2();
+void __ledf2();
+void __fixunsdfsi();
+void __floatunsidf();
+void __subdf3();
+void __nedf2();
+void __fixdfsi();
+void __moddi3();
+void __extendsfdf2();
+void __truncdfsf2();
+void __gtdf2();
+void __umoddi3();
+void __floatdidf();
+void __divsf3();
+
 static SymbolMap target_sym_map[] = {
     REG_COMMON_SYMBOLS
 
@@ -40,6 +60,28 @@ static SymbolMap target_sym_map[] = {
 
     REG_SYM(__modsi3),
     REG_SYM(__divdi3),
+
+    REG_SYM(__udivdi3),
+    REG_SYM(__unorddf2),
+    REG_SYM(__adddf3),
+    REG_SYM(__eqdf2),
+    REG_SYM(__muldf3),
+    REG_SYM(__gedf2),
+    REG_SYM(__ledf2),
+    REG_SYM(__fixunsdfsi),
+    REG_SYM(__floatunsidf),
+    REG_SYM(__subdf3),
+    REG_SYM(__nedf2),
+    REG_SYM(__fixdfsi),
+    REG_SYM(__moddi3),
+    REG_SYM(__extendsfdf2),
+    REG_SYM(__truncdfsf2),
+    REG_SYM(__gtdf2),
+    REG_SYM(__umoddi3),
+    REG_SYM(__floatdidf),
+    REG_SYM(__divsf3),
+    REG_SYM(sqrt),
+    REG_SYM(sqrtf),
 };
 /* clang-format on */
 

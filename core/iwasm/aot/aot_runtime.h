@@ -50,6 +50,7 @@ typedef enum AOTSectionType {
 } AOTSectionType;
 
 typedef enum AOTCustomSectionType {
+    AOT_CUSTOM_SECTION_RAW = 0,
     AOT_CUSTOM_SECTION_NATIVE_SYMBOL = 1,
     AOT_CUSTOM_SECTION_ACCESS_CONTROL = 2,
     AOT_CUSTOM_SECTION_NAME = 3,
@@ -267,6 +268,9 @@ typedef struct AOTModule {
     const char **aux_func_names;
     uint32 *aux_func_indexes;
     uint32 aux_func_name_count;
+#endif
+#if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
+    WASMCustomSection *custom_section_list;
 #endif
 } AOTModule;
 
@@ -732,6 +736,9 @@ aot_dump_call_stack(WASMExecEnv *exec_env);
 
 void
 aot_dump_perf_profiling(const AOTModuleInstance *module_inst);
+
+const uint8 *
+aot_get_custom_section(const AOTModule *module, const char *name, uint32 *len);
 
 #ifdef __cplusplus
 } /* end of extern "C" */
