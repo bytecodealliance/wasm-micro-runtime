@@ -2693,6 +2693,7 @@ aot_obj_data_create(AOTCompContext *comp_ctx)
 
     bh_print_time("Begin to emit object file");
     if (comp_ctx->external_llc_compiler || comp_ctx->external_asm_compiler) {
+#if !(defined(_WIN32) || defined(_WIN32_))
         /* Generate a temp file name */
         int ret;
         char obj_file_name[64];
@@ -2720,6 +2721,7 @@ aot_obj_data_create(AOTCompContext *comp_ctx)
             aot_set_last_error("create mem buffer with file failed.");
             goto fail;
         }
+#endif /* end of !(defined(_WIN32) || defined(_WIN32_)) */
     }
     else if (!strncmp(LLVMGetTargetName(target), "arc", 3)) {
 #if defined(_WIN32) || defined(_WIN32_)
