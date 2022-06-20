@@ -2886,6 +2886,7 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
     return true;
 }
 
+#if !(defined(_WIN32) || defined(_WIN32_))
 char *
 aot_generate_tempfile_name(const char *prefix, const char *extension,
                            char *buffer, uint32 len)
@@ -2913,6 +2914,7 @@ aot_generate_tempfile_name(const char *prefix, const char *extension,
     snprintf(buffer + name_len, len - name_len, ".%s", extension);
     return buffer;
 }
+#endif /* end of !(defined(_WIN32) || defined(_WIN32_)) */
 
 #if WASM_ENABLE_LAZY_JIT == 0
 bool
@@ -2943,6 +2945,7 @@ aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name)
 
     bh_print_time("Begin to emit object file");
 
+#if !(defined(_WIN32) || defined(_WIN32_))
     if (comp_ctx->external_llc_compiler || comp_ctx->external_asm_compiler) {
         char cmd[1024];
         int ret;
@@ -3017,6 +3020,7 @@ aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name)
 
         return true;
     }
+#endif /* end of !(defined(_WIN32) || defined(_WIN32_)) */
 
     if (!strncmp(LLVMGetTargetName(target), "arc", 3))
         /* Emit to assmelby file instead for arc target
