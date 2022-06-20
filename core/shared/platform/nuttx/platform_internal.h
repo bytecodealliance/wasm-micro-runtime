@@ -68,6 +68,13 @@ typedef pthread_t korp_thread;
 #define O_NOFOLLOW 0
 #endif
 
+#undef CONFIG_HAS_ISATTY
+#ifdef CONFIG_SERIAL_TERMIOS
+#define CONFIG_HAS_ISATTY 1
+#else
+#define CONFIG_HAS_ISATTY 0
+#endif
+
 /*
  * NuttX doesn't have openat family.
  */

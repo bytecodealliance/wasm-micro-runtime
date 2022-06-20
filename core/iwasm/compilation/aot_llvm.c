@@ -1660,6 +1660,51 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
         opt_level = option->opt_level;
         size_level = option->size_level;
 
+        /* verify external llc compiler */
+        comp_ctx->external_llc_compiler = getenv("WAMRC_LLC_COMPILER");
+        if (comp_ctx->external_llc_compiler) {
+#if defined(_WIN32) || defined(_WIN32_)
+            comp_ctx->external_llc_compiler = NULL;
+            LOG_WARNING("External LLC compiler not supported on Windows.");
+#else
+            if (access(comp_ctx->external_llc_compiler, X_OK) != 0) {
+                LOG_WARNING("WAMRC_LLC_COMPILER [%s] not found, fallback to "
+                            "default pipeline",
+                            comp_ctx->external_llc_compiler);
+                comp_ctx->external_llc_compiler = NULL;
+            }
+            else {
+                comp_ctx->llc_compiler_flags = getenv("WAMRC_LLC_FLAGS");
+                LOG_VERBOSE("Using external LLC compiler [%s]",
+                            comp_ctx->external_llc_compiler);
+            }
+#endif
+        }
+
+        /* verify external asm compiler */
+        if (!comp_ctx->external_llc_compiler) {
+            comp_ctx->external_asm_compiler = getenv("WAMRC_ASM_COMPILER");
+            if (comp_ctx->external_asm_compiler) {
+#if defined(_WIN32) || defined(_WIN32_)
+                comp_ctx->external_asm_compiler = NULL;
+                LOG_WARNING("External ASM compiler not supported on Windows.");
+#else
+                if (access(comp_ctx->external_asm_compiler, X_OK) != 0) {
+                    LOG_WARNING(
+                        "WAMRC_ASM_COMPILER [%s] not found, fallback to "
+                        "default pipeline",
+                        comp_ctx->external_asm_compiler);
+                    comp_ctx->external_asm_compiler = NULL;
+                }
+                else {
+                    comp_ctx->asm_compiler_flags = getenv("WAMRC_ASM_FLAGS");
+                    LOG_VERBOSE("Using external ASM compiler [%s]",
+                                comp_ctx->external_asm_compiler);
+                }
+#endif
+            }
+        }
+
         if (arch) {
             /* Add default sub-arch if not specified */
             if (!strcmp(arch, "arm"))

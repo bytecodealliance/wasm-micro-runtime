@@ -41,6 +41,10 @@ if (WAMR_BUILD_LLVM_LEGACY_PM EQUAL 1)
   add_definitions(-DWASM_ENABLE_LLVM_LEGACY_PM=1)
 endif()
 
+if (DEFINED WAMR_BUILD_AOT_FUNC_PREFIX)
+  add_definitions(-DAOT_FUNC_PREFIX="${WAMR_BUILD_AOT_FUNC_PREFIX}")
+endif ()
+
 # Set WAMR_BUILD_TARGET, currently values supported:
 # "X86_64", "AMD_64", "X86_32", "ARM_32", "MIPS_32", "XTENSA_32"
 if (NOT WAMR_BUILD_TARGET)
