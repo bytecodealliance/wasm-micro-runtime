@@ -128,6 +128,9 @@ wasm_debug_set_engine_active(bool active);
 bool
 wasm_debug_get_engine_active(void);
 
+WASMExecEnv *
+wasm_debug_instance_get_current_env(WASMDebugInstance *instance);
+
 uint64
 wasm_debug_instance_get_pid(WASMDebugInstance *instance);
 

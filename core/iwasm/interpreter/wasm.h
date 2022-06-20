@@ -335,6 +335,19 @@ typedef struct WASMFastOPCodeNode {
 } WASMFastOPCodeNode;
 #endif
 
+#if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
+typedef struct WASMCustomSection {
+    struct WASMCustomSection *next;
+    /* Start address of the section name */
+    char *name_addr;
+    /* Length of the section name decoded from leb */
+    uint32 name_len;
+    /* Start address of the content (name len and name skipped) */
+    uint8 *content_addr;
+    uint32 content_len;
+} WASMCustomSection;
+#endif
+
 struct WASMModule {
     /* Module type, for module loaded from WASM bytecode binary,
        this field is Wasm_Module_Bytecode;
@@ -452,6 +465,10 @@ struct WASMModule {
 #if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
     const uint8 *name_section_buf;
     const uint8 *name_section_buf_end;
+#endif
+
+#if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
+    WASMCustomSection *custom_section_list;
 #endif
 };
 

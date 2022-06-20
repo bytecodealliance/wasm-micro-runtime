@@ -13,6 +13,7 @@
 #define R_ARC_32_ME 27
 
 /* clang-format off */
+#ifndef __CCAC__
 void __st_r13_to_r15();
 void __st_r13_to_r16();
 void __st_r13_to_r17();
@@ -41,29 +42,86 @@ void __divdf3();
 void __divdi3();
 void __divsf3();
 void __divsi3();
-void __eqsf2();
 void __extendsfdf2();
 void __fixdfsi();
 void __floatsidf();
 void __floatsisf();
-void __gedf2();
-void __gtdf2();
-void __ledf2();
-void __lesf2();
-void __ltdf2();
 void __muldf3();
 void __mulsf3();
 void __subdf3();
 void __subsf3();
 void __truncdfsf2();
+#else
+void __ac_push_13_to_13();
+void __ac_push_13_to_14();
+void __ac_push_13_to_15();
+void __ac_push_13_to_16();
+void __ac_push_13_to_17();
+void __ac_push_13_to_18();
+void __ac_push_13_to_19();
+void __ac_push_13_to_20();
+void __ac_push_13_to_21();
+void __ac_push_13_to_22();
+void __ac_push_13_to_23();
+void __ac_push_13_to_24();
+void __ac_push_13_to_25();
+void __ac_push_13_to_26();
+void __ac_push_none();
+void __ac_pop_13_to_26();
+void __ac_pop_13_to_26v();
+void __ac_pop_13_to_25();
+void __ac_pop_13_to_25v();
+void __ac_pop_13_to_24();
+void __ac_pop_13_to_24v();
+void __ac_pop_13_to_23();
+void __ac_pop_13_to_23v();
+void __ac_pop_13_to_22();
+void __ac_pop_13_to_22v();
+void __ac_pop_13_to_21();
+void __ac_pop_13_to_21v();
+void __ac_pop_13_to_20();
+void __ac_pop_13_to_20v();
+void __ac_pop_13_to_19();
+void __ac_pop_13_to_19v();
+void __ac_pop_13_to_18();
+void __ac_pop_13_to_18v();
+void __ac_pop_13_to_17();
+void __ac_pop_13_to_17v();
+void __ac_pop_13_to_16();
+void __ac_pop_13_to_16v();
+void __ac_pop_13_to_15();
+void __ac_pop_13_to_15v();
+void __ac_pop_13_to_14();
+void __ac_pop_13_to_14v();
+void __ac_pop_13_to_13();
+void __ac_pop_13_to_13v();
+void __ac_pop_none();
+void __ac_pop_nonev();
+void __eqdf2();
+void __nedf2();
+void __ltsf2();
+void __nesf2();
+void __gesf2();
+void __gtsf2();
+void __unordsf2();
+void __truncdfhf2();
+void __truncsfhf2();
+#endif /* end of __CCAC__ */
+
+void __ledf2();
+void __ltdf2();
+void __gedf2();
+void __gtdf2();
+void __eqsf2();
+void __lesf2();
 void __unorddf2();
 /* clang-format on */
 
 static SymbolMap target_sym_map[] = {
     /* clang-format off */
     REG_COMMON_SYMBOLS
+#ifndef __CCAC__
     REG_SYM(__st_r13_to_r15),
-    /* clang-format on */
     REG_SYM(__st_r13_to_r16),
     REG_SYM(__st_r13_to_r17),
     REG_SYM(__st_r13_to_r18),
@@ -91,22 +149,80 @@ static SymbolMap target_sym_map[] = {
     REG_SYM(__divdi3),
     REG_SYM(__divsf3),
     REG_SYM(__divsi3),
-    REG_SYM(__eqsf2),
     REG_SYM(__extendsfdf2),
     REG_SYM(__fixdfsi),
     REG_SYM(__floatsidf),
     REG_SYM(__floatsisf),
-    REG_SYM(__gedf2),
-    REG_SYM(__gtdf2),
-    REG_SYM(__ledf2),
-    REG_SYM(__lesf2),
-    REG_SYM(__ltdf2),
     REG_SYM(__muldf3),
     REG_SYM(__mulsf3),
     REG_SYM(__subdf3),
     REG_SYM(__subsf3),
     REG_SYM(__truncdfsf2),
+#else
+    REG_SYM(__ac_push_13_to_13),
+    REG_SYM(__ac_push_13_to_14),
+    REG_SYM(__ac_push_13_to_15),
+    REG_SYM(__ac_push_13_to_16),
+    REG_SYM(__ac_push_13_to_17),
+    REG_SYM(__ac_push_13_to_18),
+    REG_SYM(__ac_push_13_to_19),
+    REG_SYM(__ac_push_13_to_20),
+    REG_SYM(__ac_push_13_to_21),
+    REG_SYM(__ac_push_13_to_22),
+    REG_SYM(__ac_push_13_to_23),
+    REG_SYM(__ac_push_13_to_24),
+    REG_SYM(__ac_push_13_to_25),
+    REG_SYM(__ac_push_13_to_26),
+    REG_SYM(__ac_push_none),
+    REG_SYM(__ac_pop_13_to_26),
+    REG_SYM(__ac_pop_13_to_26v),
+    REG_SYM(__ac_pop_13_to_25),
+    REG_SYM(__ac_pop_13_to_25v),
+    REG_SYM(__ac_pop_13_to_24),
+    REG_SYM(__ac_pop_13_to_24v),
+    REG_SYM(__ac_pop_13_to_23),
+    REG_SYM(__ac_pop_13_to_23v),
+    REG_SYM(__ac_pop_13_to_22),
+    REG_SYM(__ac_pop_13_to_22v),
+    REG_SYM(__ac_pop_13_to_21),
+    REG_SYM(__ac_pop_13_to_21v),
+    REG_SYM(__ac_pop_13_to_20),
+    REG_SYM(__ac_pop_13_to_20v),
+    REG_SYM(__ac_pop_13_to_19),
+    REG_SYM(__ac_pop_13_to_19v),
+    REG_SYM(__ac_pop_13_to_18),
+    REG_SYM(__ac_pop_13_to_18v),
+    REG_SYM(__ac_pop_13_to_17),
+    REG_SYM(__ac_pop_13_to_17v),
+    REG_SYM(__ac_pop_13_to_16),
+    REG_SYM(__ac_pop_13_to_16v),
+    REG_SYM(__ac_pop_13_to_15),
+    REG_SYM(__ac_pop_13_to_15v),
+    REG_SYM(__ac_pop_13_to_14),
+    REG_SYM(__ac_pop_13_to_14v),
+    REG_SYM(__ac_pop_13_to_13),
+    REG_SYM(__ac_pop_13_to_13v),
+    REG_SYM(__ac_pop_none),
+    REG_SYM(__ac_pop_nonev),
+    REG_SYM(__eqdf2),
+    REG_SYM(__nedf2),
+    REG_SYM(__ltsf2),
+    REG_SYM(__nesf2),
+    REG_SYM(__gesf2),
+    REG_SYM(__gtsf2),
+    REG_SYM(__unordsf2),
+    REG_SYM(__truncdfhf2),
+    REG_SYM(__truncsfhf2),
+#endif /* end of __CCAC__ */
+
+    REG_SYM(__ledf2),
+    REG_SYM(__ltdf2),
+    REG_SYM(__gedf2),
+    REG_SYM(__gtdf2),
+    REG_SYM(__eqsf2),
+    REG_SYM(__lesf2),
     REG_SYM(__unorddf2),
+    /* clang-format on */
 };
 
 static void
@@ -168,6 +284,45 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
                  int32 symbol_index, char *error_buf, uint32 error_buf_size)
 {
     switch (reloc_type) {
+        case R_ARC_S25H_PCREL:
+        {
+            uint32 insn = LOAD_I32(target_section_addr + reloc_offset);
+            int32 addend, value;
+            uintptr_t S, P;
+            intptr_t A;
+
+            CHECK_RELOC_OFFSET(sizeof(void *));
+
+            /* Convert from middle endian */
+            insn = middle_endian_convert(insn);
+
+            addend = ((insn << 28) >> 28) << 10;
+            /* Extract the next 10 bits from Position 6 to 15 in insn */
+            addend |= ((insn << 16) >> 22);
+            addend = addend << 10;
+            /* Extract the remaining 10 bits from Position 17 to 26 in insn */
+            addend |= ((insn << 5) >> 22);
+            /* Fill in 1 bits to get the 25 bit Offset Value */
+            addend = addend << 1;
+
+            /* (S + A) - P */
+            S = (uintptr_t)(uint8 *)symbol_addr;
+            A = (intptr_t)reloc_addend;
+            P = (uintptr_t)(target_section_addr + reloc_offset);
+            P &= (uintptr_t)~1;
+            value = (int32)(S + A + addend - P);
+
+            insn = insn & 0xf8010030;
+            insn |= ((((value >> 1) & 0x3ff) << 17)
+                     | (((value >> 1) & 0xffc00) >> 3)
+                     | (((value >> 1) & 0xf00000) >> 19));
+
+            /* Convert to middle endian */
+            insn = middle_endian_convert(insn);
+
+            STORE_U32(target_section_addr + reloc_offset, insn);
+            break;
+        }
         case R_ARC_S25W_PCREL:
         {
             uint32 insn = LOAD_I32(target_section_addr + reloc_offset);
