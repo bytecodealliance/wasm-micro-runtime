@@ -14,6 +14,7 @@
 #include "../compilation/aot_llvm.h"
 #include "../interpreter/wasm_loader.h"
 #endif
+
 #if WASM_ENABLE_DEBUG_AOT != 0
 #include "debug/elf_parser.h"
 #include "debug/jit_debug.h"
@@ -151,7 +152,7 @@ GET_U64_FROM_ADDR(uint32 *addr)
 #define read_byte_array(p, p_end, addr, len) \
     do {                                     \
         CHECK_BUF(p, p_end, len);            \
-        memcpy(addr, p, len);                \
+        bh_memcpy_s(addr, len, p, len);      \
         p += len;                            \
     } while (0)
 
@@ -674,6 +675,36 @@ load_custom_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
                                    error_buf, error_buf_size))
                 goto fail;
             break;
+#if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
+        case AOT_CUSTOM_SECTION_RAW:
+        {
+            const char *section_name;
+            WASMCustomSection *section;
+
+            if (p >= p_end) {
+                set_error_buf(error_buf, error_buf_size, "unexpected end");
+                goto fail;
+            }
+
+            read_string(p, p_end, section_name);
+
+            section = loader_malloc(sizeof(WASMCustomSection), error_buf,
+                                    error_buf_size);
+            if (!section) {
+                goto fail;
+            }
+
+            section->name_addr = (char *)section_name;
+            section->name_len = strlen(section_name);
+            section->content_addr = (uint8 *)p;
+            section->content_len = p_end - p;
+
+            section->next = module->custom_section_list;
+            module->custom_section_list = section;
+            LOG_VERBOSE("Load custom section [%s] success.", section_name);
+            break;
+        }
+#endif /* end of WASM_ENABLE_LOAD_CUSTOM_SECTION != 0 */
         default:
             break;
     }
@@ -1816,7 +1847,7 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
                 return false;
             }
         }
-        memcpy(symbol, relocation->symbol_name, symbol_len);
+        bh_memcpy_s(symbol, symbol_len, relocation->symbol_name, symbol_len);
         symbol[symbol_len] = '\0';
 
         if (!strncmp(symbol, AOT_FUNC_PREFIX, strlen(AOT_FUNC_PREFIX))) {
@@ -3261,6 +3292,10 @@ aot_unload(AOTModule *module)
     }
 #endif
 
+#if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
+    wasm_runtime_destroy_custom_sections(module->custom_section_list);
+#endif
+
     wasm_runtime_free(module);
 }
 
@@ -3269,3 +3304,24 @@ aot_get_plt_table_size()
 {
     return get_plt_table_size();
 }
+
+#if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
+const uint8 *
+aot_get_custom_section(const AOTModule *module, const char *name, uint32 *len)
+{
+    WASMCustomSection *section = module->custom_section_list;
+
+    while (section) {
+        if (strcmp(section->name_addr, name) == 0) {
+            if (len) {
+                *len = section->content_len;
+            }
+            return section->content_addr;
+        }
+
+        section = section->next;
+    }
+
+    return NULL;
+}
+#endif /* end of WASM_ENABLE_LOAD_CUSTOM_SECTION */

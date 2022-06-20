@@ -878,10 +878,14 @@ static uint32
 get_name_section_size(AOTCompData *comp_data);
 
 static uint32
+get_custom_sections_size(AOTCompContext *comp_ctx, AOTCompData *comp_data);
+
+static uint32
 get_aot_file_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
                   AOTObjectData *obj_data)
 {
     uint32 size = 0;
+    uint32 size_custom_section = 0;
 
     /* aot file header */
     size += get_file_header_size();
@@ -937,6 +941,12 @@ get_aot_file_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
         size += (uint32)sizeof(uint32) * 3;
         size += (comp_data->aot_name_section_size =
                      get_name_section_size(comp_data));
+    }
+
+    size_custom_section = get_custom_sections_size(comp_ctx, comp_data);
+    if (size_custom_section > 0) {
+        size = align_uint(size, 4);
+        size += size_custom_section;
     }
 
     return size;
@@ -1272,6 +1282,40 @@ get_name_section_size(AOTCompData *comp_data)
     return offset;
 fail:
     return 0;
+}
+
+static uint32
+get_custom_sections_size(AOTCompContext *comp_ctx, AOTCompData *comp_data)
+{
+#if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
+    uint32 size = 0, i;
+
+    for (i = 0; i < comp_ctx->custom_sections_count; i++) {
+        const char *section_name = comp_ctx->custom_sections_wp[i];
+        const uint8 *content = NULL;
+        uint32 length = 0;
+
+        content = wasm_loader_get_custom_section(comp_data->wasm_module,
+                                                 section_name, &length);
+        if (!content) {
+            LOG_WARNING("Can't find custom section [%s], ignore it",
+                        section_name);
+            continue;
+        }
+
+        size = align_uint(size, 4);
+        /* section id + section size + sub section id */
+        size += (uint32)sizeof(uint32) * 3;
+        /* section name and len */
+        size += get_string_size(comp_ctx, section_name);
+        /* section content */
+        size += length;
+    }
+
+    return size;
+#else
+    return 0;
+#endif
 }
 
 static bool
@@ -1893,6 +1937,43 @@ aot_emit_name_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
 
         *p_offset = offset;
     }
+
+    return true;
+}
+
+static bool
+aot_emit_custom_sections(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
+                         AOTCompData *comp_data, AOTCompContext *comp_ctx)
+{
+#if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
+    uint32 offset = *p_offset, i;
+
+    for (i = 0; i < comp_ctx->custom_sections_count; i++) {
+        const char *section_name = comp_ctx->custom_sections_wp[i];
+        const uint8 *content = NULL;
+        uint32 length = 0;
+
+        content = wasm_loader_get_custom_section(comp_data->wasm_module,
+                                                 section_name, &length);
+        if (!content) {
+            /* Warning has been reported during calculating size */
+            continue;
+        }
+
+        offset = align_uint(offset, 4);
+        EMIT_U32(AOT_SECTION_TYPE_CUSTOM);
+        /* sub section id + content */
+        EMIT_U32(sizeof(uint32) * 1 + get_string_size(comp_ctx, section_name)
+                 + length);
+        EMIT_U32(AOT_CUSTOM_SECTION_RAW);
+        EMIT_STR(section_name);
+        bh_memcpy_s((uint8 *)(buf + offset), (uint32)(buf_end - buf), content,
+                    length);
+        offset += length;
+    }
+
+    *p_offset = offset;
+#endif
 
     return true;
 }
@@ -2611,8 +2692,41 @@ aot_obj_data_create(AOTCompContext *comp_ctx)
     memset(obj_data, 0, sizeof(AOTObjectData));
 
     bh_print_time("Begin to emit object file");
+    if (comp_ctx->external_llc_compiler || comp_ctx->external_asm_compiler) {
+#if defined(_WIN32) || defined(_WIN32_)
+        aot_set_last_error("external toolchain not supported on Windows");
+        goto fail;
+#else
+        /* Generate a temp file name */
+        int ret;
+        char obj_file_name[64];
 
-    if (!strncmp(LLVMGetTargetName(target), "arc", 3)) {
+        if (!aot_generate_tempfile_name("wamrc-obj", "o", obj_file_name,
+                                        sizeof(obj_file_name))) {
+            goto fail;
+        }
+
+        if (!aot_emit_object_file(comp_ctx, obj_file_name)) {
+            goto fail;
+        }
+
+        /* create memory buffer from object file */
+        ret = LLVMCreateMemoryBufferWithContentsOfFile(
+            obj_file_name, &obj_data->mem_buf, &err);
+        /* remove temp object file */
+        unlink(obj_file_name);
+
+        if (ret != 0) {
+            if (err) {
+                LLVMDisposeMessage(err);
+                err = NULL;
+            }
+            aot_set_last_error("create mem buffer with file failed.");
+            goto fail;
+        }
+#endif /* end of defined(_WIN32) || defined(_WIN32_) */
+    }
+    else if (!strncmp(LLVMGetTargetName(target), "arc", 3)) {
 #if defined(_WIN32) || defined(_WIN32_)
         aot_set_last_error("emit object file on Windows is unsupported.");
         goto fail;
@@ -2751,7 +2865,9 @@ aot_emit_aot_file_buf(AOTCompContext *comp_ctx, AOTCompData *comp_data,
         || !aot_emit_relocation_section(buf, buf_end, &offset, comp_ctx,
                                         comp_data, obj_data)
         || !aot_emit_native_symbol(buf, buf_end, &offset, comp_ctx)
-        || !aot_emit_name_section(buf, buf_end, &offset, comp_data, comp_ctx))
+        || !aot_emit_name_section(buf, buf_end, &offset, comp_data, comp_ctx)
+        || !aot_emit_custom_sections(buf, buf_end, &offset, comp_data,
+                                     comp_ctx))
         goto fail2;
 
 #if 0

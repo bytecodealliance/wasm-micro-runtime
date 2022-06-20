@@ -28,6 +28,7 @@
 #include "sgx_time.h"
 #include "sgx_socket.h"
 #include "sgx_signal.h"
+#include "sgx_trts.h"
 
 #ifdef __cplusplus
 extern "C" {
