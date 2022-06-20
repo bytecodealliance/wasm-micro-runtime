@@ -1091,7 +1091,7 @@ static float
 freebsd_fminf(float x, float y)
 {
     if (is_little_endian()) {
-        IEEEf2bits_L u[2];
+        IEEEf2bits_L u[2] = { 0 };
 
         u[0].f = x;
         u[1].f = y;
@@ -1107,7 +1107,7 @@ freebsd_fminf(float x, float y)
             return (u[u[1].bits.sign].f);
     }
     else {
-        IEEEf2bits_B u[2];
+        IEEEf2bits_B u[2] = { 0 };
 
         u[0].f = x;
         u[1].f = y;
@@ -1130,7 +1130,7 @@ static float
 freebsd_fmaxf(float x, float y)
 {
     if (is_little_endian()) {
-        IEEEf2bits_L u[2];
+        IEEEf2bits_L u[2] = { 0 };
 
         u[0].f = x;
         u[1].f = y;
@@ -1146,7 +1146,7 @@ freebsd_fmaxf(float x, float y)
             return (u[u[0].bits.sign].f);
     }
     else {
-        IEEEf2bits_B u[2];
+        IEEEf2bits_B u[2] = { 0 };
 
         u[0].f = x;
         u[1].f = y;

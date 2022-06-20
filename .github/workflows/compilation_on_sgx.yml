@@ -1,7 +1,7 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-name: CI on SGX
+name: compilation on SGX
 
 on:
   # will be triggered on PR events
@@ -47,7 +47,7 @@ jobs:
         os: [ubuntu-20.04]
     steps:
       - name: Cancel Workflow Action
-        uses: styfle/cancel-workflow-action@0.6.0
+        uses: styfle/cancel-workflow-action@0.9.1
         with:
           access_token: ${{ github.token }}
 
@@ -87,12 +87,12 @@ jobs:
 
       - name: checkout
         if: ${{ matrix.light == 'green' }}
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Cache LLVM libraries
         id: cache_llvm
         if: ${{ matrix.light == 'green' }}
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: |
             ./core/deps/llvm/build/bin
@@ -103,24 +103,24 @@ jobs:
           key: ${{ matrix.os }}-${{ env.LLVM_CACHE_SUFFIX }}
 
       - name: Build llvm and clang from source
-        id: build_llvm_ubuntu
+        id: build_llvm
         if: ${{ matrix.light == 'green' && steps.cache_llvm.outputs.cache-hit != 'true' }}
         run: /usr/bin/env python3 ./build_llvm.py --arch X86 WebAssembly --project clang lldb
         working-directory: build-scripts
 
   build_iwasm:
-    needs: [build_llvm_libraries, check_repo]
+    needs: [check_repo]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         make_options_run_mode: [
             # Running mode
+            $AOT_BUILD_OPTIONS,
             $CLASSIC_INTERP_BUILD_OPTIONS,
             $FAST_INTERP_BUILD_OPTIONS,
             # doesn't support
             # $LAZY_JIT_BUILD_OPTIONS,
             # $MC_JIT_BUILD_OPTIONS,
-            $AOT_BUILD_OPTIONS,
           ]
         make_options_feature: [
             # Features
@@ -130,6 +130,7 @@ jobs:
             # "-DWAMR_BUILD_DEBUG_INTERP=1",
             "-DWAMR_BUILD_DUMP_CALL_STACK=1",
             "-DWAMR_BUILD_LIB_PTHREAD=1",
+            "-DWAMR_BUILD_LOAD_CUSTOM_SECTION=1",
             "-DWAMR_BUILD_MINI_LOADER=1",
             "-DWAMR_BUILD_MEMORY_PROFILING=1",
             "-DWAMR_BUILD_MULTI_MODULE=1",
@@ -160,7 +161,7 @@ jobs:
       - name: install SGX SDK and necessary libraries
         if: ${{ matrix.light == 'green' }}
         run: |
-          mkdir -p /opt/intel 
+          mkdir -p /opt/intel
           cd /opt/intel
           wget https://download.01.org/intel-sgx/sgx-linux/2.15/distro/ubuntu20.04-server/sgx_linux_x64_sdk_2.15.100.3.bin
           chmod +x sgx_linux_x64_sdk_2.15.100.3.bin
@@ -173,12 +174,51 @@ jobs:
 
       - name: checkout
         if: ${{ matrix.light == 'green' }}
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
+
+      - name: Build iwasm
+        if: ${{ matrix.light == 'green' }}
+        run: |
+          mkdir build && cd build
+          cmake .. ${{ matrix.make_options_run_mode }} ${{ matrix.make_options_feature }}
+          cmake --build . --config Release --parallel 4
+        working-directory: product-mini/platforms/${{ matrix.platform }}
+
+  build_wamrc:
+    needs: [build_llvm_libraries, check_repo]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-20.04]
+        include:
+          - os: ubuntu-20.04
+            light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_2004 }}
+    steps:
+      - name: light status
+        run: echo "matrix.os=${{ matrix.os }}, light=${{ matrix.light }}"
+
+      - name: install SGX SDK and necessary libraries
+        if: ${{ matrix.light == 'green' }}
+        run: |
+          mkdir -p /opt/intel
+          cd /opt/intel
+          wget https://download.01.org/intel-sgx/sgx-linux/2.15/distro/ubuntu20.04-server/sgx_linux_x64_sdk_2.15.100.3.bin
+          chmod +x sgx_linux_x64_sdk_2.15.100.3.bin
+          echo 'yes' | ./sgx_linux_x64_sdk_2.15.100.3.bin
+          echo 'deb [arch=amd64] https://download.01.org/intel-sgx/sgx_repo/ubuntu focal main' | sudo tee /etc/apt/sources.list.d/intel-sgx.list
+          wget -qO - https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key | sudo apt-key add -
+          sudo apt update
+          sudo apt install -y libsgx-launch libsgx-urts
+          source /opt/intel/sgxsdk/environment
+
+      - name: checkout
+        if: ${{ matrix.light == 'green' }}
+        uses: actions/checkout@v3
 
       - name: Get LLVM libraries
         id: cache_llvm
         if: ${{ matrix.light == 'green' }}
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: |
             ./core/deps/llvm/build/bin
@@ -192,16 +232,16 @@ jobs:
         if: ${{ matrix.light == 'green' && steps.cache_llvm.outputs.cache-hit != 'true' }}
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
 
-      - name: Build iwasm
+      - name: Build wamrc
         if: ${{ matrix.light == 'green' }}
         run: |
           mkdir build && cd build
-          cmake .. ${{ matrix.make_options_run_mode }} ${{ matrix.make_options_feature }}
+          cmake ..
           cmake --build . --config Release --parallel 4
-        working-directory: product-mini/platforms/${{ matrix.platform }}
+        working-directory: wamr-compiler
 
   build_samples_wasm_c_api:
-    needs: [build_iwasm, build_llvm_libraries, check_repo]
+    needs: [build_iwasm, check_repo]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -226,24 +266,7 @@ jobs:
 
       - name: checkout
         if: ${{ matrix.light == 'green' }}
-        uses: actions/checkout@v2
-
-      - name: Get LLVM libraries
-        id: cache_llvm
-        if: ${{ matrix.light == 'green' }}
-        uses: actions/cache@v2
-        with:
-          path: |
-            ./core/deps/llvm/build/bin
-            ./core/deps/llvm/build/include
-            ./core/deps/llvm/build/lib
-            ./core/deps/llvm/build/libexec
-            ./core/deps/llvm/build/share
-          key: ${{ matrix.os }}-${{ env.LLVM_CACHE_SUFFIX }}
-
-      - name: Quit if cache miss
-        if: ${{ matrix.light == 'green' && steps.cache_llvm.outputs.cache-hit != 'true' }}
-        run: echo "::error::can not get prebuilt llvm libraries" && exit 1
+        uses: actions/checkout@v3
 
       - name: download and install wabt
         if: ${{ matrix.light == 'green' }}
@@ -256,7 +279,7 @@ jobs:
       - name: install SGX SDK and necessary libraries
         if: ${{ matrix.light == 'green' }}
         run: |
-          mkdir -p /opt/intel 
+          mkdir -p /opt/intel
           cd /opt/intel
           wget https://download.01.org/intel-sgx/sgx-linux/2.15/distro/ubuntu20.04-server/sgx_linux_x64_sdk_2.15.100.3.bin
           chmod +x sgx_linux_x64_sdk_2.15.100.3.bin
@@ -266,14 +289,6 @@ jobs:
           sudo apt update
           sudo apt install -y libsgx-launch libsgx-urts
           source /opt/intel/sgxsdk/environment
-
-      - name: Build wamrc
-        if: ${{ matrix.light == 'green' }}
-        run: |
-          mkdir build && cd build
-          cmake ..
-          cmake --build . --config Release --parallel 4
-        working-directory: wamr-compiler
 
       - name: Build Sample [wasm-c-api]
         if: ${{ matrix.light == 'green' }}
@@ -294,7 +309,7 @@ jobs:
         working-directory: samples/wasm-c-api
 
   build_samples_others:
-    needs: [build_iwasm, build_llvm_libraries, check_repo]
+    needs: [build_iwasm, check_repo]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -309,24 +324,7 @@ jobs:
 
       - name: checkout
         if: ${{ matrix.light == 'green' }}
-        uses: actions/checkout@v2
-
-      - name: Get LLVM libraries
-        id: cache_llvm
-        if: ${{ matrix.light == 'green' }}
-        uses: actions/cache@v2
-        with:
-          path: |
-            ./core/deps/llvm/build/bin
-            ./core/deps/llvm/build/include
-            ./core/deps/llvm/build/lib
-            ./core/deps/llvm/build/libexec
-            ./core/deps/llvm/build/share
-          key: ${{ matrix.os }}-${{ env.LLVM_CACHE_SUFFIX }}
-
-      - name: Quit if cache miss
-        if: ${{ matrix.light == 'green' && steps.cache_llvm.outputs.cache-hit != 'true' }}
-        run: echo "::error::can not get prebuilt llvm libraries" && exit 1
+        uses: actions/checkout@v3
 
       - name: download and install wasi-sdk
         if: ${{ matrix.light == 'green' }}
@@ -347,7 +345,7 @@ jobs:
       - name: install SGX SDK and necessary libraries
         if: ${{ matrix.light == 'green' }}
         run: |
-          mkdir -p /opt/intel 
+          mkdir -p /opt/intel
           cd /opt/intel
           wget https://download.01.org/intel-sgx/sgx-linux/2.15/distro/ubuntu20.04-server/sgx_linux_x64_sdk_2.15.100.3.bin
           chmod +x sgx_linux_x64_sdk_2.15.100.3.bin
@@ -357,14 +355,6 @@ jobs:
           sudo apt update
           sudo apt install -y libsgx-launch libsgx-urts
           source /opt/intel/sgxsdk/environment
-
-      - name: Build wamrc
-        if: ${{ matrix.light == 'green' }}
-        run: |
-          mkdir build && cd build
-          cmake ..
-          cmake --build . --config Release --parallel 4
-        working-directory: wamr-compiler
 
       - name: Build Sample [basic]
         if: ${{ matrix.light == 'green' }}
@@ -410,7 +400,7 @@ jobs:
           ./hello
 
   spec_test_default:
-    needs: [build_iwasm, build_llvm_libraries, check_repo]
+    needs: [build_iwasm, build_llvm_libraries, build_wamrc, check_repo]
     runs-on: ubuntu-20.04
     strategy:
       matrix:
@@ -422,12 +412,12 @@ jobs:
     steps:
       - name: checkout
         if: ${{ matrix.light == 'green' }}
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Get LLVM libraries
         if: ${{ matrix.light == 'green' }}
         id: cache_llvm
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: |
             ./core/deps/llvm/build/bin
@@ -437,6 +427,10 @@ jobs:
             ./core/deps/llvm/build/share
           key: ubuntu-20.04-${{ env.LLVM_CACHE_SUFFIX }}
 
+      - name: Quit if cache miss
+        if: ${{ matrix.light == 'green' && steps.cache_llvm.outputs.cache-hit != 'true' }}
+        run: echo "::error::can not get prebuilt llvm libraries" && exit 1
+
       - name: install Ninja
         if: ${{ matrix.light == 'green' }}
         run: sudo apt install -y ninja-build
@@ -444,7 +438,7 @@ jobs:
       - name: install SGX SDK and necessary libraries
         if: ${{ matrix.light == 'green' }}
         run: |
-          mkdir -p /opt/intel 
+          mkdir -p /opt/intel
           cd /opt/intel
           wget https://download.01.org/intel-sgx/sgx-linux/2.15/distro/ubuntu20.04-server/sgx_linux_x64_sdk_2.15.100.3.bin
           chmod +x sgx_linux_x64_sdk_2.15.100.3.bin

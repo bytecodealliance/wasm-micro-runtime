@@ -330,6 +330,36 @@ Examples: wamrc -o test.aot test.wasm
           wamrc --target=i386 --format=object -o test.o test.wasm
 ```
 
+## AoT compilation with 3rd-party toolchains
+
+`wamrc` uses LLVM to compile wasm bytecode to AoT file, this works for most of the architectures, but there may be circumstances where you want to use 3rd-party toolchains to take over some steps of the compilation pipeline, e.g.
+
+1. The upstream LLVM doesn't support generating object file for your CPU architecture (such as ARC), then we may need some other assembler to do such things.
+2. You may get some other LLVM-based toolchains which may have better optimizations for the specific target, then you may want your toolchain to take over all optimization steps.
+
+`wamrc` provides two environment variables to achieve these:
+- `WAMRC_LLC_COMPILER`
+
+  When specified, `wamrc` will emit the optimized LLVM-IR (.bc) to a file, and invoke `$WAMRC_LLC_COMPILER` with ` -c -O3 ` to generate the object file.
+
+  Optionally, you can use environment variable `WAMRC_LLC_FLAGS` to overwrite the default flags.
+
+- `WAMRC_ASM_COMPILER`
+
+  When specified, `wamrc` will emit the text based assembly file (.s), and invoke `$WAMRC_ASM_COMPILER` with ` -c -O3 ` to generate the object file.
+
+  Optionally, you can use environment variable `WAMRC_ASM_FLAGS` to overwrite the default flags.
+
+### Usage example
+``` bash
+WAMRC_LLC_COMPILER=<path/to/your/compiler/driver> ./wamrc -o test.aot test.wasm
+```
+
+> Note: `wamrc` will verify whether the specified file exists and executable. If verification failed, `wamrc` will report a warning and fallback to normal pipeline. Since the verification is based on file, you **must specify the absolute path to the binary** even if it's in `$PATH`
+
+> Note: `WAMRC_LLC_COMPILER` has higher priority than `WAMRC_ASM_COMPILER`, if `WAMRC_LLC_COMPILER` is set and verified, then `WAMRC_ASM_COMPILER` will be ignored.
+
+> Note: the `LLC` and `ASM` in the env name just means this compiler will be used to compile the `LLVM IR file`/`assembly file` to object file, usually passing the compiler driver is the simplest way. (e.g. for LLVM toolchain, you don't need to pass `/usr/bin/llc`, using `/usr/bin/clang` is OK)
 
 Run WASM app in WAMR mini product build
 =======================================
