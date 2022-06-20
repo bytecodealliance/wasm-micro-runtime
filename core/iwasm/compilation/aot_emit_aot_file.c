@@ -2692,8 +2692,41 @@ aot_obj_data_create(AOTCompContext *comp_ctx)
     memset(obj_data, 0, sizeof(AOTObjectData));
 
     bh_print_time("Begin to emit object file");
+    if (comp_ctx->external_llc_compiler || comp_ctx->external_asm_compiler) {
+#if defined(_WIN32) || defined(_WIN32_)
+        aot_set_last_error("external toolchain not supported on Windows");
+        goto fail;
+#else
+        /* Generate a temp file name */
+        int ret;
+        char obj_file_name[64];
 
-    if (!strncmp(LLVMGetTargetName(target), "arc", 3)) {
+        if (!aot_generate_tempfile_name("wamrc-obj", "o", obj_file_name,
+                                        sizeof(obj_file_name))) {
+            goto fail;
+        }
+
+        if (!aot_emit_object_file(comp_ctx, obj_file_name)) {
+            goto fail;
+        }
+
+        /* create memory buffer from object file */
+        ret = LLVMCreateMemoryBufferWithContentsOfFile(
+            obj_file_name, &obj_data->mem_buf, &err);
+        /* remove temp object file */
+        unlink(obj_file_name);
+
+        if (ret != 0) {
+            if (err) {
+                LLVMDisposeMessage(err);
+                err = NULL;
+            }
+            aot_set_last_error("create mem buffer with file failed.");
+            goto fail;
+        }
+#endif /* end of defined(_WIN32) || defined(_WIN32_) */
+    }
+    else if (!strncmp(LLVMGetTargetName(target), "arc", 3)) {
 #if defined(_WIN32) || defined(_WIN32_)
         aot_set_last_error("emit object file on Windows is unsupported.");
         goto fail;
