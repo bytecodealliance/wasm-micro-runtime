@@ -8,15 +8,20 @@
 #include "pthread.h"
 #include "lua.h"
 #include "wasm.h"
+//#include "/usr/local/include/lauxlib.h"
+//#include "/usr/local/include/lualib.h"
+#include "/usr/local/include/lua.hpp"
 
 int
 main(int argc, char *argv[])
 {
+    lua_State* L= luaL_newstate();
+
     init_wasm();
 
     init_lua();
 
-    call_lua_function();
+    call_lua_function(L);
 
     call_wasm_function();
 
