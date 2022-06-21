@@ -72,13 +72,45 @@ wasi_nn_set_input(
     return _set_input(tensor_struct);
 }
 
-void
-wasi_nn_compute()
-{}
+uint32_t
+wasi_nn_get_output(wasm_exec_env_t exec_env, graph_execution_context context, uint32_t index, uint32_t *input_tensor_size, uint32_t input_tensor_type,
+    uint32_t *input_tensor)
+{
+    wasm_module_inst_t instance = wasm_runtime_get_module_inst(exec_env);
 
-void
-wasi_nn_get_output()
-{}
+    uint32_t w_index = wasm_runtime_addr_app_to_native(instance, index);
+
+    graph_execution_context graph_context = wasm_runtime_addr_app_to_native(instance, context);
+
+     tensor_data data =
+        (tensor_data)wasm_runtime_addr_app_to_native(instance, input_tensor);
+    tensor_dimensions dimensions =
+        (tensor_dimensions)wasm_runtime_addr_app_to_native(instance,
+                                                           input_tensor_size);
+
+    tensor_type type = (tensor_type)wasm_runtime_addr_app_to_native(
+        instance, input_tensor_type);
+
+    tensor tensor_struct = { .dimensions = dimensions,
+                            .type = type,
+                            .data = data };
+
+    return _get_output(graph_context, w_index ,tensor_struct);
+
+}
+
+uint32_t
+wasi_nn_compute(wasm_exec_env_t exec_env , graph_execution_context context)
+{
+
+    wasm_module_inst_t instance = wasm_runtime_get_module_inst(exec_env);
+
+    graph_execution_context context = wasm_runtime_addr_app_to_native(instance, context);
+
+    return _compute(_compute(context));
+}
+
+
 
 /* clang-format off */
 #define REG_NATIVE_FUNC(func_name, signature) \

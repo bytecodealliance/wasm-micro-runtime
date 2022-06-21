@@ -60,3 +60,21 @@ _set_input(tensor input_tensor)
     return success;
     
 }
+
+
+uint32_t _compute( graph_execution_context context ){
+
+	interpreter->Invoke();
+
+    return success;
+}
+
+
+uint32_t _get_output(graph_execution_context context, uint32_t index, tensor tensor){
+
+    auto* output = interpreter->typed_output_tensor<float>(0);
+
+    
+
+    return success;
+}
