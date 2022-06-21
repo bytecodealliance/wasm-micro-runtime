@@ -60,8 +60,9 @@ set(WAMR_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/../..)
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 
 add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
-################################################
 
+################ Lua application #################
+find_package(Lua REQUIRED)
 
 ################ wasm application ################
 add_subdirectory(wasm-apps)
@@ -72,9 +73,9 @@ include_directories(include)
 
 set (RUNTIME_SOURCE_ALL
     ${CMAKE_CURRENT_LIST_DIR}/src/main.c
-    ${CMAKE_CURRENT_LIST_DIR}/src/lua.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/luaModule.c
     ${CMAKE_CURRENT_LIST_DIR}/src/wasm.c
     ${UNCOMMON_SHARED_SOURCE}
 )
 add_executable (comparison ${RUNTIME_SOURCE_ALL})
-target_link_libraries(comparison vmlib -lpthread -lm)
+target_link_libraries(comparison vmlib -lpthread -lm ${LUA_LIBRARIES})

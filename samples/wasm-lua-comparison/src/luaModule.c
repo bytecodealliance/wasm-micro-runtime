@@ -1,7 +1,11 @@
-#include "lua.h"
-//#include "/usr/local/include/lauxlib.h"
-//#include "/usr/local/include/lualib.h"
-#include "/usr/local/include/lua.hpp"
+
+
+#include <stdio.h>
+#include <stdlib.h>
+
+#include <lua.h>
+#include <lualib.h>
+#include <lauxlib.h>
 
 #define THREAD_NUM 10
 

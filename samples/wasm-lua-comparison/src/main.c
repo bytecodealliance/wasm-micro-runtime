@@ -3,14 +3,20 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#include <stdio.h>
+#include <stdlib.h>
+
 #include "wasm_export.h"
 #include "bh_read_file.h"
 #include "pthread.h"
+
+// Include Lua Library
 #include "lua.h"
+#include <lualib.h>
+#include <lauxlib.h>
+
+#include "luaModule.h"
 #include "wasm.h"
-//#include "/usr/local/include/lauxlib.h"
-//#include "/usr/local/include/lualib.h"
-#include "/usr/local/include/lua.hpp"
 
 int
 main(int argc, char *argv[])
