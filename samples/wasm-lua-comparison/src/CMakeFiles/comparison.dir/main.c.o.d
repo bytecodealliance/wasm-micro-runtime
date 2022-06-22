@@ -1,45 +1,18 @@
 CMakeFiles/comparison.dir/main.c.o: \
  /home/szadys/wasm-micro-runtime/samples/wasm-lua-comparison/src/main.c \
- /usr/include/stdc-predef.h \
- /home/szadys/wasm-micro-runtime/samples/wasm-lua-comparison/../../core/iwasm/include/wasm_export.h \
- /usr/lib/gcc/x86_64-linux-gnu/9/include/stdint.h /usr/include/stdint.h \
+ /usr/include/stdc-predef.h /usr/include/stdio.h \
  /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
  /usr/include/features.h /usr/include/x86_64-linux-gnu/sys/cdefs.h \
  /usr/include/x86_64-linux-gnu/bits/wordsize.h \
  /usr/include/x86_64-linux-gnu/bits/long-double.h \
  /usr/include/x86_64-linux-gnu/gnu/stubs.h \
  /usr/include/x86_64-linux-gnu/gnu/stubs-64.h \
+ /usr/lib/gcc/x86_64-linux-gnu/9/include/stddef.h \
+ /usr/lib/gcc/x86_64-linux-gnu/9/include/stdarg.h \
  /usr/include/x86_64-linux-gnu/bits/types.h \
  /usr/include/x86_64-linux-gnu/bits/timesize.h \
  /usr/include/x86_64-linux-gnu/bits/typesizes.h \
  /usr/include/x86_64-linux-gnu/bits/time64.h \
- /usr/include/x86_64-linux-gnu/bits/wchar.h \
- /usr/include/x86_64-linux-gnu/bits/stdint-intn.h \
- /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h \
- /usr/lib/gcc/x86_64-linux-gnu/9/include/stdbool.h \
- /home/szadys/wasm-micro-runtime/samples/wasm-lua-comparison/../../core/iwasm/include/lib_export.h \
- /home/szadys/wasm-micro-runtime/core/shared/utils/uncommon/bh_read_file.h \
- /home/szadys/wasm-micro-runtime/core/shared/utils/bh_platform.h \
- /home/szadys/wasm-micro-runtime/core/shared/utils/../platform/include/platform_common.h \
- /home/szadys/wasm-micro-runtime/core/shared/platform/linux/platform_internal.h \
- /usr/include/inttypes.h /usr/include/assert.h /usr/include/time.h \
- /usr/lib/gcc/x86_64-linux-gnu/9/include/stddef.h \
- /usr/include/x86_64-linux-gnu/bits/time.h \
- /usr/include/x86_64-linux-gnu/bits/types/clock_t.h \
- /usr/include/x86_64-linux-gnu/bits/types/time_t.h \
- /usr/include/x86_64-linux-gnu/bits/types/struct_tm.h \
- /usr/include/x86_64-linux-gnu/bits/types/struct_timespec.h \
- /usr/include/x86_64-linux-gnu/bits/endian.h \
- /usr/include/x86_64-linux-gnu/bits/endianness.h \
- /usr/include/x86_64-linux-gnu/bits/types/clockid_t.h \
- /usr/include/x86_64-linux-gnu/bits/types/timer_t.h \
- /usr/include/x86_64-linux-gnu/bits/types/struct_itimerspec.h \
- /usr/include/x86_64-linux-gnu/bits/types/locale_t.h \
- /usr/include/x86_64-linux-gnu/bits/types/__locale_t.h \
- /usr/include/string.h /usr/include/strings.h \
- /usr/include/x86_64-linux-gnu/bits/strings_fortified.h \
- /usr/include/x86_64-linux-gnu/bits/string_fortified.h \
- /usr/include/stdio.h /usr/lib/gcc/x86_64-linux-gnu/9/include/stdarg.h \
  /usr/include/x86_64-linux-gnu/bits/types/__fpos_t.h \
  /usr/include/x86_64-linux-gnu/bits/types/__mbstate_t.h \
  /usr/include/x86_64-linux-gnu/bits/types/__fpos64_t.h \
@@ -54,7 +27,14 @@ CMakeFiles/comparison.dir/main.c.o: \
  /usr/include/x86_64-linux-gnu/bits/waitstatus.h \
  /usr/include/x86_64-linux-gnu/bits/floatn.h \
  /usr/include/x86_64-linux-gnu/bits/floatn-common.h \
- /usr/include/x86_64-linux-gnu/sys/types.h /usr/include/endian.h \
+ /usr/include/x86_64-linux-gnu/sys/types.h \
+ /usr/include/x86_64-linux-gnu/bits/types/clock_t.h \
+ /usr/include/x86_64-linux-gnu/bits/types/clockid_t.h \
+ /usr/include/x86_64-linux-gnu/bits/types/time_t.h \
+ /usr/include/x86_64-linux-gnu/bits/types/timer_t.h \
+ /usr/include/x86_64-linux-gnu/bits/stdint-intn.h /usr/include/endian.h \
+ /usr/include/x86_64-linux-gnu/bits/endian.h \
+ /usr/include/x86_64-linux-gnu/bits/endianness.h \
  /usr/include/x86_64-linux-gnu/bits/byteswap.h \
  /usr/include/x86_64-linux-gnu/bits/uintn-identity.h \
  /usr/include/x86_64-linux-gnu/sys/select.h \
@@ -62,6 +42,7 @@ CMakeFiles/comparison.dir/main.c.o: \
  /usr/include/x86_64-linux-gnu/bits/types/sigset_t.h \
  /usr/include/x86_64-linux-gnu/bits/types/__sigset_t.h \
  /usr/include/x86_64-linux-gnu/bits/types/struct_timeval.h \
+ /usr/include/x86_64-linux-gnu/bits/types/struct_timespec.h \
  /usr/include/x86_64-linux-gnu/bits/select2.h \
  /usr/include/x86_64-linux-gnu/bits/pthreadtypes.h \
  /usr/include/x86_64-linux-gnu/bits/thread-shared-types.h \
@@ -70,8 +51,27 @@ CMakeFiles/comparison.dir/main.c.o: \
  /usr/include/x86_64-linux-gnu/bits/struct_rwlock.h /usr/include/alloca.h \
  /usr/include/x86_64-linux-gnu/bits/stdlib-bsearch.h \
  /usr/include/x86_64-linux-gnu/bits/stdlib-float.h \
- /usr/include/x86_64-linux-gnu/bits/stdlib.h /usr/include/math.h \
- /usr/include/x86_64-linux-gnu/bits/math-vector.h \
+ /usr/include/x86_64-linux-gnu/bits/stdlib.h \
+ /home/szadys/wasm-micro-runtime/samples/wasm-lua-comparison/../../core/iwasm/include/wasm_export.h \
+ /usr/lib/gcc/x86_64-linux-gnu/9/include/stdint.h /usr/include/stdint.h \
+ /usr/include/x86_64-linux-gnu/bits/wchar.h \
+ /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h \
+ /usr/lib/gcc/x86_64-linux-gnu/9/include/stdbool.h \
+ /home/szadys/wasm-micro-runtime/samples/wasm-lua-comparison/../../core/iwasm/include/lib_export.h \
+ /home/szadys/wasm-micro-runtime/core/shared/utils/uncommon/bh_read_file.h \
+ /home/szadys/wasm-micro-runtime/core/shared/utils/bh_platform.h \
+ /home/szadys/wasm-micro-runtime/core/shared/utils/../platform/include/platform_common.h \
+ /home/szadys/wasm-micro-runtime/core/shared/platform/linux/platform_internal.h \
+ /usr/include/inttypes.h /usr/include/assert.h /usr/include/time.h \
+ /usr/include/x86_64-linux-gnu/bits/time.h \
+ /usr/include/x86_64-linux-gnu/bits/types/struct_tm.h \
+ /usr/include/x86_64-linux-gnu/bits/types/struct_itimerspec.h \
+ /usr/include/x86_64-linux-gnu/bits/types/locale_t.h \
+ /usr/include/x86_64-linux-gnu/bits/types/__locale_t.h \
+ /usr/include/string.h /usr/include/strings.h \
+ /usr/include/x86_64-linux-gnu/bits/strings_fortified.h \
+ /usr/include/x86_64-linux-gnu/bits/string_fortified.h \
+ /usr/include/math.h /usr/include/x86_64-linux-gnu/bits/math-vector.h \
  /usr/include/x86_64-linux-gnu/bits/libm-simd-decl-stubs.h \
  /usr/include/x86_64-linux-gnu/bits/flt-eval-method.h \
  /usr/include/x86_64-linux-gnu/bits/fp-logb.h \
@@ -182,10 +182,10 @@ CMakeFiles/comparison.dir/main.c.o: \
  /home/szadys/wasm-micro-runtime/core/shared/utils/bh_queue.h \
  /home/szadys/wasm-micro-runtime/core/shared/utils/bh_vector.h \
  /home/szadys/wasm-micro-runtime/core/shared/utils/runtime_timer.h \
- /home/szadys/wasm-micro-runtime/samples/wasm-lua-comparison/include/lua.h \
+ /usr/local/include/lua.h /usr/local/include/luaconf.h \
+ /usr/local/include/lualib.h /usr/local/include/lua.h \
+ /usr/local/include/lauxlib.h \
+ /home/szadys/wasm-micro-runtime/samples/wasm-lua-comparison/include/luaModule.h \
  /home/szadys/wasm-micro-runtime/core/iwasm/interpreter/wasm.h \
  /home/szadys/wasm-micro-runtime/core/shared/utils/bh_hashmap.h \
- /home/szadys/wasm-micro-runtime/core/shared/utils/bh_assert.h \
- /usr/local/include/lua.hpp /usr/local/include/lua.h \
- /usr/local/include/luaconf.h /usr/local/include/lualib.h \
- /usr/local/include/lauxlib.h
+ /home/szadys/wasm-micro-runtime/core/shared/utils/bh_assert.h

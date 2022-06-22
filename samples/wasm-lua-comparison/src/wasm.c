@@ -1,6 +1,7 @@
 #include "wasm.h" 
 #include "wasm_export.h"
 #include "bh_read_file.h"
+#include <time.h>
 
 #define THREAD_NUM 10
 
@@ -88,6 +89,8 @@ void deInit_wasm()
  */
 void call_wasm_function()
 {
+    clock_t start_t, stop_t;
+    double total_t;
     printf("%s\n", __FUNCTION__);
     wasm_argv[0] = 0;
     wasm_argv[1] = THREAD_NUM * 10;
@@ -95,9 +98,13 @@ void call_wasm_function()
     /*
      * Execute the wasm function in current thread, get the expect result
      */
+    start_t= clock();
     if (!wasm_runtime_call_wasm(exec_env, func, 2, wasm_argv)) {
         printf("%s\n", wasm_runtime_get_exception(wasm_module_inst));
     }
+    stop_t= clock();
     printf("expect result: %d\n", wasm_argv[0]);
+    total_t=(double)(stop_t-start_t)/ CLOCKS_PER_SEC;
+    printf("Total time = %f\n", total_t);
 
 }

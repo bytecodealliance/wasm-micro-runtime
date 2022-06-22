@@ -10,7 +10,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/home/szadys/wasm-micro-runtime/core/shared/utils/uncommon/bh_getopt.c" "CMakeFiles/comparison.dir/home/szadys/wasm-micro-runtime/core/shared/utils/uncommon/bh_getopt.c.o" "gcc" "CMakeFiles/comparison.dir/home/szadys/wasm-micro-runtime/core/shared/utils/uncommon/bh_getopt.c.o.d"
   "/home/szadys/wasm-micro-runtime/core/shared/utils/uncommon/bh_read_file.c" "CMakeFiles/comparison.dir/home/szadys/wasm-micro-runtime/core/shared/utils/uncommon/bh_read_file.c.o" "gcc" "CMakeFiles/comparison.dir/home/szadys/wasm-micro-runtime/core/shared/utils/uncommon/bh_read_file.c.o.d"
-  "/home/szadys/wasm-micro-runtime/samples/wasm-lua-comparison/src/lua.c" "CMakeFiles/comparison.dir/lua.c.o" "gcc" "CMakeFiles/comparison.dir/lua.c.o.d"
+  "/home/szadys/wasm-micro-runtime/samples/wasm-lua-comparison/src/luaModule.c" "CMakeFiles/comparison.dir/luaModule.c.o" "gcc" "CMakeFiles/comparison.dir/luaModule.c.o.d"
   "/home/szadys/wasm-micro-runtime/samples/wasm-lua-comparison/src/main.c" "CMakeFiles/comparison.dir/main.c.o" "gcc" "CMakeFiles/comparison.dir/main.c.o.d"
   "/home/szadys/wasm-micro-runtime/samples/wasm-lua-comparison/src/wasm.c" "CMakeFiles/comparison.dir/wasm.c.o" "gcc" "CMakeFiles/comparison.dir/wasm.c.o.d"
   )

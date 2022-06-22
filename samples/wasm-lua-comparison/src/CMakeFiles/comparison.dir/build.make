@@ -83,19 +83,19 @@ CMakeFiles/comparison.dir/main.c.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling C source to assembly CMakeFiles/comparison.dir/main.c.s"
 	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /home/szadys/wasm-micro-runtime/samples/wasm-lua-comparison/src/main.c -o CMakeFiles/comparison.dir/main.c.s
 
-CMakeFiles/comparison.dir/lua.c.o: CMakeFiles/comparison.dir/flags.make
-CMakeFiles/comparison.dir/lua.c.o: lua.c
-CMakeFiles/comparison.dir/lua.c.o: CMakeFiles/comparison.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/szadys/wasm-micro-runtime/samples/wasm-lua-comparison/src/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building C object CMakeFiles/comparison.dir/lua.c.o"
-	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/comparison.dir/lua.c.o -MF CMakeFiles/comparison.dir/lua.c.o.d -o CMakeFiles/comparison.dir/lua.c.o -c /home/szadys/wasm-micro-runtime/samples/wasm-lua-comparison/src/lua.c
+CMakeFiles/comparison.dir/luaModule.c.o: CMakeFiles/comparison.dir/flags.make
+CMakeFiles/comparison.dir/luaModule.c.o: luaModule.c
+CMakeFiles/comparison.dir/luaModule.c.o: CMakeFiles/comparison.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/szadys/wasm-micro-runtime/samples/wasm-lua-comparison/src/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building C object CMakeFiles/comparison.dir/luaModule.c.o"
+	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/comparison.dir/luaModule.c.o -MF CMakeFiles/comparison.dir/luaModule.c.o.d -o CMakeFiles/comparison.dir/luaModule.c.o -c /home/szadys/wasm-micro-runtime/samples/wasm-lua-comparison/src/luaModule.c
 
-CMakeFiles/comparison.dir/lua.c.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing C source to CMakeFiles/comparison.dir/lua.c.i"
-	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /home/szadys/wasm-micro-runtime/samples/wasm-lua-comparison/src/lua.c > CMakeFiles/comparison.dir/lua.c.i
+CMakeFiles/comparison.dir/luaModule.c.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing C source to CMakeFiles/comparison.dir/luaModule.c.i"
+	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /home/szadys/wasm-micro-runtime/samples/wasm-lua-comparison/src/luaModule.c > CMakeFiles/comparison.dir/luaModule.c.i
 
-CMakeFiles/comparison.dir/lua.c.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling C source to assembly CMakeFiles/comparison.dir/lua.c.s"
-	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /home/szadys/wasm-micro-runtime/samples/wasm-lua-comparison/src/lua.c -o CMakeFiles/comparison.dir/lua.c.s
+CMakeFiles/comparison.dir/luaModule.c.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling C source to assembly CMakeFiles/comparison.dir/luaModule.c.s"
+	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /home/szadys/wasm-micro-runtime/samples/wasm-lua-comparison/src/luaModule.c -o CMakeFiles/comparison.dir/luaModule.c.s
 
 CMakeFiles/comparison.dir/wasm.c.o: CMakeFiles/comparison.dir/flags.make
 CMakeFiles/comparison.dir/wasm.c.o: wasm.c
@@ -142,7 +142,7 @@ CMakeFiles/comparison.dir/home/szadys/wasm-micro-runtime/core/shared/utils/uncom
 # Object files for target comparison
 comparison_OBJECTS = \
 "CMakeFiles/comparison.dir/main.c.o" \
-"CMakeFiles/comparison.dir/lua.c.o" \
+"CMakeFiles/comparison.dir/luaModule.c.o" \
 "CMakeFiles/comparison.dir/wasm.c.o" \
 "CMakeFiles/comparison.dir/home/szadys/wasm-micro-runtime/core/shared/utils/uncommon/bh_getopt.c.o" \
 "CMakeFiles/comparison.dir/home/szadys/wasm-micro-runtime/core/shared/utils/uncommon/bh_read_file.c.o"
@@ -151,12 +151,14 @@ comparison_OBJECTS = \
 comparison_EXTERNAL_OBJECTS =
 
 comparison: CMakeFiles/comparison.dir/main.c.o
-comparison: CMakeFiles/comparison.dir/lua.c.o
+comparison: CMakeFiles/comparison.dir/luaModule.c.o
 comparison: CMakeFiles/comparison.dir/wasm.c.o
 comparison: CMakeFiles/comparison.dir/home/szadys/wasm-micro-runtime/core/shared/utils/uncommon/bh_getopt.c.o
 comparison: CMakeFiles/comparison.dir/home/szadys/wasm-micro-runtime/core/shared/utils/uncommon/bh_read_file.c.o
 comparison: CMakeFiles/comparison.dir/build.make
 comparison: libvmlib.a
+comparison: /usr/local/lib/liblua.a
+comparison: /usr/lib/x86_64-linux-gnu/libm.so
 comparison: CMakeFiles/comparison.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/szadys/wasm-micro-runtime/samples/wasm-lua-comparison/src/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Linking C executable comparison"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/comparison.dir/link.txt --verbose=$(VERBOSE)
