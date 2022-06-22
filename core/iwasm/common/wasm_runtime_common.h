@@ -404,6 +404,7 @@ typedef struct wasm_frame_t {
     uint32 module_offset;
     uint32 func_index;
     uint32 func_offset;
+    const char *func_name_wp;
 } WASMCApiFrame;
 
 /* See wasm_export.h for description */

@@ -4534,14 +4534,55 @@ wasm_runtime_dump_call_stack(WASMExecEnv *exec_env)
         wasm_exec_env_get_module_inst(exec_env);
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode) {
-        wasm_interp_dump_call_stack(exec_env);
+        wasm_interp_dump_call_stack(exec_env, true, NULL, 0);
     }
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT) {
-        aot_dump_call_stack(exec_env);
+        aot_dump_call_stack(exec_env, true, NULL, 0);
     }
 #endif
+}
+
+uint32_t
+wasm_runtime_get_call_stack_buf_size(wasm_exec_env_t exec_env)
+{
+    WASMModuleInstanceCommon *module_inst =
+        wasm_exec_env_get_module_inst(exec_env);
+
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        return wasm_interp_dump_call_stack(exec_env, false, NULL, 0);
+    }
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        return aot_dump_call_stack(exec_env, false, NULL, 0);
+    }
+#endif
+
+    return 0;
+}
+
+uint32_t
+wasm_runtime_dump_call_stack_to_buf(wasm_exec_env_t exec_env, char *buf,
+                                    uint32_t len)
+{
+    WASMModuleInstanceCommon *module_inst =
+        wasm_exec_env_get_module_inst(exec_env);
+
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        return wasm_interp_dump_call_stack(exec_env, false, buf, len);
+    }
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        return aot_dump_call_stack(exec_env, false, buf, len);
+    }
+#endif
+
+    return 0;
 }
 #endif /* end of WASM_ENABLE_DUMP_CALL_STACK */
 

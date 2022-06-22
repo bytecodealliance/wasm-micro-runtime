@@ -432,8 +432,25 @@ wasm_get_table_inst(const WASMModuleInstance *module_inst, const uint32 tbl_idx)
 }
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
-void
-wasm_interp_dump_call_stack(struct WASMExecEnv *exec_env);
+bool
+wasm_interp_create_call_stack(struct WASMExecEnv *exec_env);
+
+/**
+ * @brief dump wasm call stack or get the size
+ *
+ * @param exec_env the execution environment
+ * @param print print to stdout
+ * @param buf buffer to store the dumped content
+ * @param len length of the buffer
+ *
+ * @return when print is true, return the bytes printed out to stdout; when
+ * print is false and buf is NULL, return the size required to store the
+ * callstack content; when print is false and buf is not NULL, return the size
+ * dumped to the buffer
+ */
+uint32
+wasm_interp_dump_call_stack(struct WASMExecEnv *exec_env, bool print, char *buf,
+                            uint32 len);
 #endif
 
 const uint8 *
