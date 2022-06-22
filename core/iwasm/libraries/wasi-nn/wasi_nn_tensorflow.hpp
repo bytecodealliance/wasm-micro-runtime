@@ -15,6 +15,12 @@ _load(graph_builder_array builder, graph_encoding encoding);
 uint32_t
 _set_input(tensor input_tensor);
 
+uint32_t _get_output(graph_execution_context context, uint32_t index, tensor * tensor);
+
+uint32_t
+_compute( graph_execution_context context );
+
+
 #ifdef __cplusplus
 }
 #endif
