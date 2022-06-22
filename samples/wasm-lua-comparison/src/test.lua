@@ -12,12 +12,12 @@
  function sum(start, length)
     local sum =0
     print(start)
-for x=0,10000000 do 
-    for x=start,(start+length) do
+    for x=0,10000000 do 
+    for x=start,(start+length-1) do
         sum = sum + x;
     end
     
-end
+    end
 return sum
 end
 --  print(sum(1))

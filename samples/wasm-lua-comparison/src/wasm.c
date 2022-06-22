@@ -92,8 +92,8 @@ void call_wasm_function()
     clock_t start_t, stop_t;
     double total_t;
     printf("%s\n", __FUNCTION__);
-    wasm_argv[0] = 0;
-    wasm_argv[1] = THREAD_NUM * 10;
+    wasm_argv[0] = 2;
+    wasm_argv[1] = 3;
 
     /*
      * Execute the wasm function in current thread, get the expect result
