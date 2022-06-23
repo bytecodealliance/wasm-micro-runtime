@@ -289,36 +289,41 @@ wasm_array_obj_get_elem(WASMArrayObjectRef array_obj, uint32 elem_idx,
 }
 
 WASMFuncObjectRef
-wasm_func_obj_new(void *heap_handle, WASMRttObjectRef rtt_obj, uint32 func_idx)
+wasm_func_obj_new(void *heap_handle, WASMRttObjectRef rtt_obj,
+                  uint32 func_idx_bound, uint32 param_count_bound)
 {
     WASMFuncObjectRef func_obj;
-    WASMFuncType *func_type;
     uint64 total_size;
 
     bh_assert(rtt_obj->type_flag == WASM_TYPE_FUNC);
 
-    func_type = (WASMFuncType *)rtt_obj->defined_type;
-
-    total_size =
-        offsetof(WASMFuncObject, param_data) + func_type->total_param_size;
+    total_size = offsetof(WASMFuncObject, params_bound)
+                 + (uint64)sizeof(WASMValue) * param_count_bound;
     if (!(func_obj = gc_obj_malloc(heap_handle, total_size))) {
         return NULL;
     }
 
     func_obj->header = (WASMObjectHeader)rtt_obj;
-    func_obj->func_idx = func_idx;
+    func_obj->func_idx_bound = func_idx_bound;
+    func_obj->param_count_bound = param_count_bound;
     return func_obj;
 }
 
 void
-wasm_func_obj_set_param(WASMFuncObjectRef func_obj, uint32 param_idx,
-                        WASMValue *value)
-{}
+wasm_func_obj_set_param_bound(WASMFuncObjectRef func_obj, uint32 param_idx,
+                              WASMValue *value)
+{
+    bh_assert(param_idx < func_obj->param_count_bound);
+    bh_memcpy_s(func_obj->params_bound + param_idx, sizeof(WASMValue), value,
+                sizeof(WASMValue));
+}
 
 WASMValue *
-wasm_func_obj_get_param(const WASMFuncObjectRef func_obj, uint32 param_idx)
+wasm_func_obj_get_param_bound(const WASMFuncObjectRef func_obj,
+                              uint32 param_idx)
 {
-    return NULL;
+    bh_assert(param_idx < func_obj->param_count_bound);
+    return func_obj->params_bound + param_idx;
 }
 
 WASMExternrefObjectRef
@@ -386,13 +391,16 @@ wasm_object_get_ref_list(WASMObjectRef obj, bool *p_is_compact_mode,
 
     rtt_obj = (WASMRttObjectRef)wasm_object_header(obj);
 
-    if ((obj->header & WASM_OBJ_EXTERNREF_OBJ_FLAG)
-        || rtt_obj->defined_type->type_flag == WASM_TYPE_FUNC) {
+    if (obj->header & WASM_OBJ_EXTERNREF_OBJ_FLAG) {
         /* externref object or function object */
         *p_is_compact_mode = false;
         *p_ref_num = 0;
         *p_ref_list = NULL;
         return true;
+    }
+    else if (rtt_obj->defined_type->type_flag == WASM_TYPE_FUNC) {
+        /* TODO */
+        return false;
     }
     else if (rtt_obj->defined_type->type_flag == WASM_TYPE_STRUCT) {
         /* struct object */

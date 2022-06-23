@@ -433,7 +433,9 @@ wasm_enlarge_table(WASMModuleInstance *module_inst, uint32 table_idx,
 #if WASM_ENABLE_GC != 0
 void *
 wasm_create_func_obj(WASMModuleInstance *module_inst, uint32 func_idx,
-                     bool throw_exce, char *error_buf, uint32 error_buf_size);
+                     bool use_same_func_type,
+                     const WASMFuncType *func_type_to_bind, bool throw_exce,
+                     char *error_buf, uint32 error_buf_size);
 
 bool
 wasm_traverse_gc_rootset(WASMExecEnv *exec_env, void *heap);

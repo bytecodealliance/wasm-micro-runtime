@@ -26,6 +26,16 @@ wasm_dump_array_type(const WASMArrayType *type);
 
 /* Operations of function type */
 
+/* Whether a group of value types is subtype of
+   another group of value types */
+bool
+wasm_value_types_is_subtype_of(const uint8 *types1,
+                               const WASMRefTypeMap *ref_type_maps1,
+                               const uint8 *types2,
+                               const WASMRefTypeMap *ref_type_maps2,
+                               uint32 value_type_count,
+                               const WASMTypePtr *types, uint32 type_count);
+
 /* Whether two function types are equal */
 bool
 wasm_func_type_equal(const WASMFuncType *type1, const WASMFuncType *type2,

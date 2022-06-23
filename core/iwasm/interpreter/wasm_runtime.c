@@ -1166,12 +1166,15 @@ check_linked_symbol(WASMModuleInstance *module_inst, char *error_buf,
 #if WASM_ENABLE_GC != 0
 void *
 wasm_create_func_obj(WASMModuleInstance *module_inst, uint32 func_idx,
-                     bool throw_exce, char *error_buf, uint32 error_buf_size)
+                     bool use_same_func_type,
+                     const WASMFuncType *func_type_to_bind, bool throw_exce,
+                     char *error_buf, uint32 error_buf_size)
 {
     WASMRttObjectRef rtt_obj;
     WASMFuncObjectRef func_obj;
     WASMFunctionInstance *func_inst;
-    WASMType *func_type;
+    WASMFuncType *func_type;
+    uint32 param_count_bound = 0;
 
     if (throw_exce) {
         error_buf = module_inst->cur_exception;
@@ -1185,18 +1188,27 @@ wasm_create_func_obj(WASMModuleInstance *module_inst, uint32 func_idx,
     }
 
     func_inst = &module_inst->functions[func_idx];
-    func_type = (WASMType *)(func_inst->is_import_func
-                                 ? func_inst->u.func_import->func_type
-                                 : func_inst->u.func->func_type);
+    func_type = func_inst->is_import_func ? func_inst->u.func_import->func_type
+                                          : func_inst->u.func->func_type;
+
+    if (use_same_func_type) {
+        func_type_to_bind = func_type;
+    }
+    else {
+        bh_assert(func_type->param_count >= func_type_to_bind->param_count);
+        param_count_bound =
+            func_type->param_count - func_type_to_bind->param_count;
+    }
 
     if (!(rtt_obj = wasm_rtt_obj_new(module_inst->module->rtt_obj_set, NULL,
-                                     func_type, func_type->type_idx))) {
+                                     (WASMType *)func_type_to_bind,
+                                     func_type->type_idx))) {
         set_error_buf(error_buf, error_buf_size, "create rtt object failed");
         return NULL;
     }
 
     if (!(func_obj = wasm_func_obj_new(module_inst->gc_heap_handle, rtt_obj,
-                                       func_idx))) {
+                                       func_idx, param_count_bound))) {
         set_error_buf(error_buf, error_buf_size, "create func object failed");
         return NULL;
     }
@@ -1472,7 +1484,8 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
                         if ((uint32)global->initial_value.i32 != UINT32_MAX) {
                             if (!(func_obj = wasm_create_func_obj(
                                       module_inst, global->initial_value.i32,
-                                      false, error_buf, error_buf_size)))
+                                      true, NULL, false, error_buf,
+                                      error_buf_size)))
                                 goto fail;
                         }
                         STORE_PTR((void **)global_data, func_obj);
@@ -1711,9 +1724,9 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
             uint32 func_idx = table_seg->func_indexes[j];
             /* UINT32_MAX indicates that it is an null reference */
             if (func_idx != UINT32_MAX) {
-                if (!(func_obj =
-                          wasm_create_func_obj(module_inst, func_idx, false,
-                                               error_buf, error_buf_size))) {
+                if (!(func_obj = wasm_create_func_obj(
+                          module_inst, func_idx, true, NULL, false, error_buf,
+                          error_buf_size))) {
                     goto fail;
                 }
                 *((void **)table_data + table_seg->base_offset.u.i32 + j) =
@@ -2533,7 +2546,8 @@ wasm_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 tbl_elem_idx,
 #if WASM_ENABLE_GC == 0
     func_idx = tbl_elem_val;
 #else
-    func_idx = ((WASMFuncObjectRef)tbl_elem_val)->func_idx;
+    func_idx =
+        wasm_func_obj_get_func_idx_bound((WASMFuncObjectRef)tbl_elem_val);
 #endif
 
     /**

@@ -189,6 +189,35 @@ wasm_dump_array_type(const WASMArrayType *type)
     os_printf("\n");
 }
 
+bool
+wasm_value_types_is_subtype_of(const uint8 *types1,
+                               const WASMRefTypeMap *ref_type_maps1,
+                               const uint8 *types2,
+                               const WASMRefTypeMap *ref_type_maps2,
+                               uint32 value_type_count,
+                               const WASMTypePtr *types, uint32 type_count)
+{
+    uint32 i;
+    WASMRefType *ref_type1, *ref_type2;
+
+    for (i = 0; i < value_type_count; i++) {
+        ref_type1 = ref_type2 = NULL;
+        if (wasm_is_type_multi_byte_type(types1[i])) {
+            ref_type1 = ref_type_maps1->ref_type;
+            ref_type_maps1++;
+        }
+        if (wasm_is_type_multi_byte_type(types2[i])) {
+            ref_type2 = ref_type_maps2->ref_type;
+            ref_type_maps2++;
+        }
+        if (!wasm_reftype_is_subtype_of(types1[i], ref_type1, types2[i],
+                                        ref_type2, types, type_count)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 typedef struct TypeIdxNode {
     uint32 type_idx1;
     uint32 type_idx2;

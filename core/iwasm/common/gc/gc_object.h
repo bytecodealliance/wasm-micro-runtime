@@ -93,10 +93,11 @@ typedef struct WASMArrayObject {
 
 /* Representation of WASM function objects */
 typedef struct WASMFuncObject {
-    /* must be pointer of WASMRttObject of array type */
+    /* must be pointer of WASMRttObject of func type */
     WASMObjectHeader header;
-    uint32 func_idx;
-    uint8 *param_data[1];
+    uint32 func_idx_bound;
+    uint32 param_count_bound;
+    WASMValue params_bound[1];
 } WASMFuncObject, *WASMFuncObjectRef;
 
 inline static WASMObjectHeader
@@ -223,14 +224,37 @@ wasm_array_obj_elem_addr(const WASMArrayObjectRef array_obj, uint32 elem_idx)
 }
 
 WASMFuncObjectRef
-wasm_func_obj_new(void *heap_handle, WASMRttObjectRef rtt_obj, uint32 func_idx);
+wasm_func_obj_new(void *heap_handle, WASMRttObjectRef rtt_obj,
+                  uint32 func_idx_bound, uint32 param_count_bound);
 
 void
-wasm_func_obj_set_param(WASMFuncObjectRef func_obj, uint32 param_idx,
-                        WASMValue *value);
+wasm_func_obj_set_param_bound(WASMFuncObjectRef func_obj, uint32 param_idx,
+                              WASMValue *value);
 
 WASMValue *
-wasm_func_obj_get_param(const WASMFuncObjectRef func_obj, uint32 param_idx);
+wasm_func_obj_get_param_bound(const WASMFuncObjectRef func_obj,
+                              uint32 param_idx);
+
+inline static uint32
+wasm_func_obj_get_func_idx_bound(const WASMFuncObjectRef func_obj)
+{
+    return func_obj->func_idx_bound;
+}
+
+inline static uint32
+wasm_func_obj_get_param_count_bound(const WASMFuncObjectRef func_obj)
+{
+    return func_obj->param_count_bound;
+}
+
+inline static WASMFuncType *
+wasm_func_obj_get_func_type(const WASMFuncObjectRef func_obj)
+{
+    WASMRttObjectRef rtt_obj =
+        (WASMRttObjectRef)wasm_object_header((WASMObjectRef)func_obj);
+    bh_assert(rtt_obj->type_flag == WASM_TYPE_FUNC);
+    return (WASMFuncType *)rtt_obj->defined_type;
+}
 
 WASMExternrefObjectRef
 wasm_externref_obj_new(void *heap_handle, void *foreign_obj);

@@ -338,8 +338,6 @@ typedef struct WASMFuncType {
     uint16 ret_cell_num;
 
 #if WASM_ENABLE_GC != 0
-    uint16 *param_offsets;
-    uint16 total_param_size;
     uint16 ref_type_map_count;
     WASMRefTypeMap *ref_type_maps;
     WASMRefTypeMap *result_ref_type_maps;
