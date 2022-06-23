@@ -3106,6 +3106,7 @@ aot_dump_call_stack(WASMExecEnv *exec_env, bool print, char *buf, uint32 len)
 
     while (n < total_frames) {
         WASMCApiFrame frame = { 0 };
+        uint32 line_length, i;
 
         if (!bh_vector_get(module_inst->frames.ptr, n, &frame)) {
             return 0;
@@ -3113,12 +3114,21 @@ aot_dump_call_stack(WASMExecEnv *exec_env, bool print, char *buf, uint32 len)
 
         /* function name not exported, print number instead */
         if (frame.func_name_wp == NULL) {
-            snprintf(line_buf, sizeof(line_buf), "#%02d $f%d\n", n,
-                     frame.func_index);
+            line_length = snprintf(line_buf, sizeof(line_buf), "#%02d $f%d\n",
+                                   n, frame.func_index);
         }
         else {
-            snprintf(line_buf, sizeof(line_buf), "#%02d %s\n", n,
-                     frame.func_name_wp);
+            line_length = snprintf(line_buf, sizeof(line_buf), "#%02d %s\n", n,
+                                   frame.func_name_wp);
+        }
+
+        if (line_length >= sizeof(line_buf)) {
+            uint32 line_buffer_len = sizeof(line_buf);
+            /* If line too long, ensure the last character is '\n' */
+            for (i = line_buffer_len - 5; i < line_buffer_len - 2; i++) {
+                line_buf[i] = '.';
+            }
+            line_buf[line_buffer_len - 2] = '\n';
         }
 
         PRINT_OR_DUMP();
