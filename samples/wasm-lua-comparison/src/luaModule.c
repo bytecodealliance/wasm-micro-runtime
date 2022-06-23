@@ -45,5 +45,5 @@ void call_lua_function(lua_State* L)
     lua_pop(L,1);
     printf("sum: %d\n", sum);
     total_t=(double)(stop_t-start_t)/ CLOCKS_PER_SEC;
-    printf("Total time = %f\n", total_t);
+    printf("Lua Total time = %f\n", total_t);
 }

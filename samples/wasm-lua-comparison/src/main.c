@@ -18,6 +18,11 @@
 #include "luaModule.h"
 #include "wasm.h"
 
+struct arg_struct {
+        int arg1;
+        int arg2;
+};
+
 int
 main(int argc, char *argv[])
 {
@@ -38,9 +43,34 @@ main(int argc, char *argv[])
     stop_t= clock();
     printf("C sum: %d\n", test);
     total_t=(double)(stop_t-start_t)/ CLOCKS_PER_SEC;
-    printf("Total time = %f\n", total_t);
+    printf("Native total time = %f\n\n", total_t);
 
-    return 0;
+    printf("Starting thread example \n");
+    pthread_t thread1, thread2, thread3;
+    int  iret1, iret2, iret3;
+    struct arg_struct args;
+    args.arg1 = 2;
+    args.arg2 = 3;
+     
+    /* Create independent threads each of which will execute function */
+
+     iret1 = pthread_create( &thread1, NULL, call_wasm_function, NULL);
+     iret2 = pthread_create( &thread2, NULL, call_lua_function, L);
+     iret3 = pthread_create( &thread3, NULL, sum, (void*) &args);
+     /* Wait till threads are complete before main continues. Unless we  */
+     /* wait we run the risk of executing an exit which will terminate   */
+     /* the process and all threads before the threads have completed.   */
+
+     pthread_join( thread1, NULL);
+     pthread_join( thread2, NULL); 
+     start_t= clock();
+     pthread_join( thread3, NULL);
+     stop_t= clock();
+     printf("C sum: %d\n", test);
+     total_t=(double)(stop_t-start_t)/ CLOCKS_PER_SEC;
+     printf("Native Thread Total time = %f\n", total_t);
+     wasm_thread_function();
+    exit(0);
 }
 
 int sum(int start, int length)

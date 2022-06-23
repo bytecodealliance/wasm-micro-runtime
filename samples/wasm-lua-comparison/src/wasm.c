@@ -20,10 +20,11 @@ wasm_exec_env_t exec_env = NULL;
 RuntimeInitArgs init_args;
 ThreadArgs thread_arg[THREAD_NUM];
 pthread_t tid[THREAD_NUM];
-wasm_thread_t wasm_tid[THREAD_NUM];
-uint32 result[THREAD_NUM], sum;
+wasm_thread_t wasm_tid;
+uint32 result, sum;
 wasm_function_inst_t func;
 char error_buf[128] = { 0 };
+pthread_t wasm_thread;
 
 void init_wasm()
 {
@@ -35,7 +36,6 @@ void init_wasm()
     init_args.mem_alloc_option.allocator.realloc_func = realloc;
     init_args.mem_alloc_option.allocator.free_func = free;
     init_args.max_thread_num = THREAD_NUM;
-    
 
     /* initialize runtime environment */
     if (!wasm_runtime_full_init(&init_args)) {
@@ -68,7 +68,6 @@ void init_wasm()
         printf("failed to create exec_env\n");
         return -1;
     }
-
     func = wasm_runtime_lookup_function(wasm_module_inst, "sum", NULL);
     if (!func) {
         printf("failed to lookup function sum");
@@ -105,6 +104,23 @@ void call_wasm_function()
     stop_t= clock();
     printf("expect result: %d\n", wasm_argv[0]);
     total_t=(double)(stop_t-start_t)/ CLOCKS_PER_SEC;
-    printf("Total time = %f\n", total_t);
-
+    printf("WASM Total time = %f\n", total_t);
+    return NULL;
 }
+
+void wasm_thread_function()
+{
+    clock_t start_t, stop_t;
+    double total_t;
+    wasm_runtime_spawn_thread(exec_env,&wasm_tid, call_wasm_function, NULL);
+    start_t= clock();
+    wasm_runtime_join_thread(wasm_tid, NULL);
+    stop_t= clock();
+    total_t=(double)(stop_t-start_t)/ CLOCKS_PER_SEC;
+    printf("WASM Thread Total time = %f\n", total_t);
+}
+// void thread_function(){
+//     char *message = "WASM thread";
+//     //printf("test /n");
+//     pthread_create(&wasm_thread, NULL, call_wasm_function, (void*) message);
+// }

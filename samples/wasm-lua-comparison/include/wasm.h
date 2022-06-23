@@ -10,4 +10,6 @@ void call_wasm_function();
 
 void deInit_wasm();
 
+void thread_function();
+
 #endif
