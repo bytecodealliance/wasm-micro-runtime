@@ -246,6 +246,36 @@ typedef enum { CLZ, CTZ, POPCNT } BITCOUNT_OP;
 /* Condition opcode */
 typedef enum { EQ, NE, GTS, GES, LTS, LES, GTU, GEU, LTU, LEU } COND_OP;
 
+typedef union _cast_float_to_integer {
+    float f;
+    uint32 i;
+} cast_float_to_integer;
+
+typedef union _cast_double_to_integer {
+    double d;
+    uint64 i;
+} cast_double_to_integer;
+
+static uint32
+local_log2(uint32 data)
+{
+    uint32 ret = 0;
+    while (data >>= 1) {
+        ret++;
+    }
+    return ret;
+}
+
+static uint64
+local_log2l(uint64 data)
+{
+    uint64 ret = 0;
+    while (data >>= 1) {
+        ret++;
+    }
+    return ret;
+}
+
 /* Jmp type */
 typedef enum JmpType {
     JMP_DST_LABEL,     /* jmp to dst label */
@@ -1157,7 +1187,8 @@ static bool
 mov_imm_to_r_f32(x86::Assembler &a, int32 reg_no, float data)
 {
     /* imm -> gp -> xmm */
-    Imm imm(*(uint32 *)&data);
+    cast_float_to_integer v = { .f = data };
+    Imm imm(v.i);
     a.mov(regs_i32[REG_I32_FREE_IDX], imm);
     a.movd(regs_float[reg_no], regs_i32[REG_I32_FREE_IDX]);
     return true;
@@ -1193,7 +1224,8 @@ mov_r_to_r_f32(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 static bool
 mov_imm_to_r_f64(x86::Assembler &a, int32 reg_no, double data)
 {
-    Imm imm(*(uint64 *)&data);
+    cast_double_to_integer v = { .d = data };
+    Imm imm(v.i);
     a.mov(regs_i64[REG_I32_FREE_IDX], imm);
     /* REG_I32_FREE_IDX == REG_I64_FREE_IDX */
     a.movq(regs_float[reg_no], regs_i64[REG_I64_FREE_IDX]);
@@ -2266,19 +2298,10 @@ alu_r_r_imm_i32(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
             else if (data == 1) {
                 mov_r_to_r(a, JIT_REG_KIND_I32, reg_no_dst, reg_no_src);
             }
-            else if (data == 2) {
+            else if (data > 0 && (data & (data - 1)) == 0x0) {
                 mov_r_to_r(a, JIT_REG_KIND_I32, reg_no_dst, reg_no_src);
-                imm.setValue(1);
-                a.shl(regs_i32[reg_no_dst], imm);
-            }
-            else if (data == 4) {
-                mov_r_to_r(a, JIT_REG_KIND_I32, reg_no_dst, reg_no_src);
-                imm.setValue(2);
-                a.shl(regs_i32[reg_no_dst], imm);
-            }
-            else if (data == 8) {
-                mov_r_to_r(a, JIT_REG_KIND_I32, reg_no_dst, reg_no_src);
-                imm.setValue(3);
+                data = (int32)local_log2(data);
+                imm.setValue(data);
                 a.shl(regs_i32[reg_no_dst], imm);
             }
             else {
@@ -2540,122 +2563,6 @@ alu_r_r_to_r_i32(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
 }
 
 /**
- * Encode int64 alu operation of reg and data, and save result to reg
- *
- * @param a the assembler to emit the code
- * @param op the opcode of ALU operation
- * @param reg_no the no of register, as first operand, and save result
- * @param data the immediate data, as the second operand
- *
- * @return true if success, false otherwise
- */
-static bool
-alu_r_r_imm_i64(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
-                int32 reg_no_src, int64 data)
-{
-    Imm imm(data);
-
-    switch (op) {
-        case ADD:
-            mov_r_to_r(a, JIT_REG_KIND_I64, reg_no_dst, reg_no_src);
-            if (data == 1)
-                a.inc(regs_i64[reg_no_dst]);
-            else if (data == -1)
-                a.dec(regs_i64[reg_no_dst]);
-            else if (data != 0) {
-                if (data >= INT32_MIN && data <= INT32_MAX) {
-                    imm.setValue((int32)data);
-                    a.add(regs_i64[reg_no_dst], imm);
-                }
-                else {
-                    a.mov(regs_i64[REG_I64_FREE_IDX], imm);
-                    a.add(regs_i64[reg_no_dst], regs_i64[REG_I64_FREE_IDX]);
-                }
-            }
-            break;
-        case SUB:
-            mov_r_to_r(a, JIT_REG_KIND_I64, reg_no_dst, reg_no_src);
-            if (data == -1)
-                a.inc(regs_i64[reg_no_dst]);
-            else if (data == 1)
-                a.dec(regs_i64[reg_no_dst]);
-            else if (data != 0) {
-                if (data >= INT32_MIN && data <= INT32_MAX) {
-                    imm.setValue((int32)data);
-                    a.sub(regs_i64[reg_no_dst], imm);
-                }
-                else {
-                    a.mov(regs_i64[REG_I64_FREE_IDX], imm);
-                    a.sub(regs_i64[reg_no_dst], regs_i64[REG_I64_FREE_IDX]);
-                }
-            }
-            break;
-        case MUL:
-            if (data == 0)
-                a.xor_(regs_i64[reg_no_dst], regs_i64[reg_no_dst]);
-            else if (data == -1) {
-                mov_r_to_r(a, JIT_REG_KIND_I64, reg_no_dst, reg_no_src);
-                a.neg(regs_i64[reg_no_dst]);
-            }
-            else if (data == 1) {
-                mov_r_to_r(a, JIT_REG_KIND_I64, reg_no_dst, reg_no_src);
-            }
-            else if (data == 2) {
-                mov_r_to_r(a, JIT_REG_KIND_I64, reg_no_dst, reg_no_src);
-                imm.setValue(1);
-                a.shl(regs_i64[reg_no_dst], imm);
-            }
-            else if (data == 4) {
-                mov_r_to_r(a, JIT_REG_KIND_I64, reg_no_dst, reg_no_src);
-                imm.setValue(2);
-                a.shl(regs_i64[reg_no_dst], imm);
-            }
-            else if (data == 8) {
-                mov_r_to_r(a, JIT_REG_KIND_I64, reg_no_dst, reg_no_src);
-                imm.setValue(3);
-                a.shl(regs_i64[reg_no_dst], imm);
-            }
-            else {
-                a.imul(regs_i64[reg_no_dst], regs_i64[reg_no_src], imm);
-            }
-            break;
-        case DIV_S:
-        case REM_S:
-            bh_assert(reg_no_src == REG_RAX_IDX);
-            if (op == DIV_S) {
-                bh_assert(reg_no_dst == REG_RAX_IDX);
-            }
-            else {
-                bh_assert(reg_no_dst == REG_RDX_IDX);
-            }
-            a.mov(regs_i64[REG_I64_FREE_IDX], imm);
-            /* signed extend rax to rdx:rax */
-            a.cqo();
-            a.idiv(regs_i64[REG_I64_FREE_IDX]);
-            break;
-        case DIV_U:
-        case REM_U:
-            bh_assert(reg_no_src == REG_RAX_IDX);
-            if (op == DIV_U) {
-                bh_assert(reg_no_dst == REG_RAX_IDX);
-            }
-            else {
-                bh_assert(reg_no_dst == REG_RDX_IDX);
-            }
-            a.mov(regs_i64[REG_I64_FREE_IDX], imm);
-            /* unsigned extend rax to rdx:rax */
-            a.xor_(regs_i64[REG_RDX_IDX], regs_i64[REG_RDX_IDX]);
-            a.div(regs_i64[REG_I64_FREE_IDX]);
-            break;
-        default:
-            bh_assert(0);
-            break;
-    }
-
-    return true;
-}
-
-/**
  * Encode int64 alu operation of reg and reg, and save result to reg
  *
  * @param a the assembler to emit the code
@@ -2721,6 +2628,122 @@ alu_r_r_r_i64(x86::Assembler &a, ALU_OP op, int32 reg_no_dst, int32 reg_no1_src,
             /* unsigned extend rax to rdx:rax */
             a.xor_(regs_i64[REG_RDX_IDX], regs_i64[REG_RDX_IDX]);
             a.div(regs_i64[reg_no2_src]);
+            break;
+        default:
+            bh_assert(0);
+            break;
+    }
+
+    return true;
+}
+
+/**
+ * Encode int64 alu operation of reg and data, and save result to reg
+ *
+ * @param a the assembler to emit the code
+ * @param op the opcode of ALU operation
+ * @param reg_no the no of register, as first operand, and save result
+ * @param data the immediate data, as the second operand
+ *
+ * @return true if success, false otherwise
+ */
+static bool
+alu_r_r_imm_i64(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
+                int32 reg_no_src, int64 data)
+{
+    Imm imm(data);
+
+    switch (op) {
+        case ADD:
+            mov_r_to_r(a, JIT_REG_KIND_I64, reg_no_dst, reg_no_src);
+            if (data == 1)
+                a.inc(regs_i64[reg_no_dst]);
+            else if (data == -1)
+                a.dec(regs_i64[reg_no_dst]);
+            else if (data != 0) {
+                if (data >= INT32_MIN && data <= INT32_MAX) {
+                    imm.setValue((int32)data);
+                    a.add(regs_i64[reg_no_dst], imm);
+                }
+                else {
+                    a.mov(regs_i64[REG_I64_FREE_IDX], imm);
+                    a.add(regs_i64[reg_no_dst], regs_i64[REG_I64_FREE_IDX]);
+                }
+            }
+            break;
+        case SUB:
+            mov_r_to_r(a, JIT_REG_KIND_I64, reg_no_dst, reg_no_src);
+            if (data == -1)
+                a.inc(regs_i64[reg_no_dst]);
+            else if (data == 1)
+                a.dec(regs_i64[reg_no_dst]);
+            else if (data != 0) {
+                if (data >= INT32_MIN && data <= INT32_MAX) {
+                    imm.setValue((int32)data);
+                    a.sub(regs_i64[reg_no_dst], imm);
+                }
+                else {
+                    a.mov(regs_i64[REG_I64_FREE_IDX], imm);
+                    a.sub(regs_i64[reg_no_dst], regs_i64[REG_I64_FREE_IDX]);
+                }
+            }
+            break;
+        case MUL:
+            if (data == 0)
+                a.xor_(regs_i64[reg_no_dst], regs_i64[reg_no_dst]);
+            else if (data == -1) {
+                mov_r_to_r(a, JIT_REG_KIND_I64, reg_no_dst, reg_no_src);
+                a.neg(regs_i64[reg_no_dst]);
+            }
+            else if (data == 1) {
+                mov_r_to_r(a, JIT_REG_KIND_I64, reg_no_dst, reg_no_src);
+            }
+            else if (data > 0 && (data & (data - 1)) == 0x0) {
+                mov_r_to_r(a, JIT_REG_KIND_I64, reg_no_dst, reg_no_src);
+                data = (int64)local_log2l(data);
+                imm.setValue(data);
+                a.shl(regs_i64[reg_no_dst], imm);
+            }
+            else if (INT32_MIN <= data && data <= INT32_MAX) {
+                a.imul(regs_i64[reg_no_dst], regs_i64[reg_no_src], imm);
+            }
+            else {
+                mov_imm_to_r_i64(
+                    a, reg_no_dst == reg_no_src ? REG_I64_FREE_IDX : reg_no_dst,
+                    data);
+                alu_r_r_r_i64(a, op, reg_no_dst,
+                              reg_no_dst == reg_no_src ? REG_I64_FREE_IDX
+                                                       : reg_no_dst,
+                              reg_no_src);
+            }
+            break;
+        case DIV_S:
+        case REM_S:
+            bh_assert(reg_no_src == REG_RAX_IDX);
+            if (op == DIV_S) {
+                bh_assert(reg_no_dst == REG_RAX_IDX);
+            }
+            else {
+                bh_assert(reg_no_dst == REG_RDX_IDX);
+            }
+            a.mov(regs_i64[REG_I64_FREE_IDX], imm);
+            /* signed extend rax to rdx:rax */
+            a.cqo();
+            a.idiv(regs_i64[REG_I64_FREE_IDX]);
+            break;
+        case DIV_U:
+        case REM_U:
+            bh_assert(reg_no_src == REG_RAX_IDX);
+            if (op == DIV_U) {
+                bh_assert(reg_no_dst == REG_RAX_IDX);
+            }
+            else {
+                bh_assert(reg_no_dst == REG_RDX_IDX);
+            }
+            a.mov(regs_i64[REG_I64_FREE_IDX], imm);
+            /* unsigned extend rax to rdx:rax */
+            a.xor_(regs_i64[REG_RDX_IDX], regs_i64[REG_RDX_IDX]);
+            a.div(regs_i64[REG_I64_FREE_IDX]);
             break;
         default:
             bh_assert(0);
@@ -3025,7 +3048,8 @@ alu_r_imm_to_r_f32(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
     /* imm -> m32 */
     x86::Mem cache = x86::dword_ptr(regs_i64[hreg_info->exec_env_hreg_index],
                                     offsetof(WASMExecEnv, jit_cache));
-    Imm imm(*(uint32 *)&data2_src);
+    cast_float_to_integer v = { .f = data2_src };
+    Imm imm(v.i);
     mov_imm_to_m(a, cache, imm, 4);
 
     mov_r_to_r_f32(a, reg_no_dst, reg_no1_src);
@@ -3214,7 +3238,8 @@ alu_r_imm_to_r_f64(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
     /* imm -> m64 */
     x86::Mem cache = x86::qword_ptr(regs_i64[hreg_info->exec_env_hreg_index],
                                     offsetof(WASMExecEnv, jit_cache));
-    Imm imm(*(uint64 *)&data2_src);
+    cast_double_to_integer v = { .d = data2_src };
+    Imm imm(v.i);
     mov_imm_to_m(a, cache, imm, 8);
 
     mov_r_to_r_f64(a, reg_no_dst, reg_no1_src);
@@ -3822,7 +3847,8 @@ shift_r_r_to_r_i32(x86::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
                    int32 reg_no1_src, int32 reg_no2_src)
 {
     /* should be CL */
-    bh_assert(reg_no2_src == REG_ECX_IDX);
+    if (reg_no2_src != REG_ECX_IDX)
+        return false;
 
     mov_r_to_r_i32(a, reg_no_dst, reg_no1_src);
 
@@ -4019,7 +4045,8 @@ shift_r_r_to_r_i64(x86::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
                    int32 reg_no1_src, int32 reg_no2_src)
 {
     /* should be CL */
-    bh_assert(reg_no2_src == REG_ECX_IDX);
+    if (reg_no2_src != REG_ECX_IDX)
+        return false;
 
     mov_r_to_r_i64(a, reg_no_dst, reg_no1_src);
 
@@ -5845,7 +5872,8 @@ cast_r_i64_to_r_f64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 static bool
 cast_imm_f32_to_r_i32(x86::Assembler &a, int32 reg_no, float data)
 {
-    return mov_imm_to_r_i32(a, reg_no, *(uint32 *)&data);
+    cast_float_to_integer v = { .f = data };
+    return mov_imm_to_r_i32(a, reg_no, v.i);
 }
 
 /**
@@ -5876,7 +5904,8 @@ cast_r_f32_to_r_i32(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 static bool
 cast_imm_f64_to_r_i64(x86::Assembler &a, int32 reg_no, double data)
 {
-    return mov_imm_to_r_i64(a, reg_no, *(uint64 *)&data);
+    cast_double_to_integer v = { .d = data };
+    return mov_imm_to_r_i64(a, reg_no, v.i);
 }
 
 /**
@@ -6475,6 +6504,9 @@ jit_codegen_dump_native(void *begin_addr, void *end_addr)
     os_printf("\n");
     dump_native((char *)begin_addr, (char *)end_addr - (char *)begin_addr);
     os_printf("\n");
+#else
+    (void)begin_addr;
+    (void)end_addr;
 #endif
 }
 

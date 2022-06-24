@@ -310,25 +310,60 @@ get_mem_bound_check_16bytes_reg(JitFrame *frame, uint32 mem_idx)
 JitReg
 get_tables_reg(JitFrame *frame)
 {
-    return 0;
+    JitCompContext *cc = frame->cc;
+    JitReg inst_reg = get_module_inst_reg(frame);
+
+    if (!frame->tables_reg) {
+        frame->tables_reg = cc->tables_reg;
+        GEN_INSN(LDPTR, frame->tables_reg, inst_reg,
+                 NEW_CONST(I32, offsetof(WASMModuleInstance, tables)));
+    }
+    return frame->tables_reg;
 }
 
 JitReg
-get_table_inst_reg(JitFrame *frame, uint32 table_idx)
+get_table_inst_reg(JitFrame *frame, uint32 tbl_idx)
 {
-    return 0;
+    JitCompContext *cc = frame->cc;
+    JitReg tables_reg = get_tables_reg(frame);
+
+    if (!frame->table_regs[tbl_idx].table_inst) {
+        frame->table_regs[tbl_idx].table_inst =
+            cc->table_regs[tbl_idx].table_inst;
+        GEN_INSN(LDPTR, frame->table_regs[tbl_idx].table_inst, tables_reg,
+                 NEW_CONST(I32, sizeof(WASMTableInstance *) * tbl_idx));
+    }
+    return frame->table_regs[tbl_idx].table_inst;
 }
 
 JitReg
-get_table_data_reg(JitFrame *frame, uint32 table_idx)
+get_table_data_reg(JitFrame *frame, uint32 tbl_idx)
 {
-    return 0;
+    JitCompContext *cc = frame->cc;
+    JitReg table_reg = get_table_inst_reg(frame, tbl_idx);
+
+    if (!frame->table_regs[tbl_idx].table_data) {
+        frame->table_regs[tbl_idx].table_data =
+            cc->table_regs[tbl_idx].table_data;
+        GEN_INSN(ADD, frame->table_regs[tbl_idx].table_data, table_reg,
+                 NEW_CONST(I64, offsetof(WASMTableInstance, base_addr)));
+    }
+    return frame->table_regs[tbl_idx].table_data;
 }
 
 JitReg
-get_table_cur_size_reg(JitFrame *frame, uint32 table_idx)
+get_table_cur_size_reg(JitFrame *frame, uint32 tbl_idx)
 {
-    return 0;
+    JitCompContext *cc = frame->cc;
+    JitReg table_reg = get_table_inst_reg(frame, tbl_idx);
+
+    if (!frame->table_regs[tbl_idx].table_cur_size) {
+        frame->table_regs[tbl_idx].table_cur_size =
+            cc->table_regs[tbl_idx].table_cur_size;
+        GEN_INSN(LDI32, frame->table_regs[tbl_idx].table_cur_size, table_reg,
+                 NEW_CONST(I32, offsetof(WASMTableInstance, cur_size)));
+    }
+    return frame->table_regs[tbl_idx].table_cur_size;
 }
 
 void
@@ -1253,14 +1288,10 @@ jit_compile_func(JitCompContext *cc)
             }
             case WASM_OP_REF_NULL:
             {
-                uint32 type;
-
-                read_leb_uint32(frame_ip, frame_ip_end, type);
-
-                if (!jit_compile_op_ref_null(cc))
+                uint32 ref_type;
+                read_leb_uint32(frame_ip, frame_ip_end, ref_type);
+                if (!jit_compile_op_ref_null(cc, ref_type))
                     return false;
-
-                (void)type;
                 break;
             }
             case WASM_OP_REF_IS_NULL:

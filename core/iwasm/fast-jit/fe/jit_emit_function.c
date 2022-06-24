@@ -365,23 +365,43 @@ fail:
     return false;
 }
 
+#if WASM_ENABLE_REF_TYPES != 0
 bool
-jit_compile_op_ref_null(JitCompContext *cc)
+jit_compile_op_ref_null(JitCompContext *cc, uint32 ref_type)
 {
+    PUSH_I32(NEW_CONST(I32, NULL_REF));
+    (void)ref_type;
+    return true;
+fail:
     return false;
 }
 
 bool
 jit_compile_op_ref_is_null(JitCompContext *cc)
 {
+    JitReg ref, res;
+
+    POP_I32(ref);
+
+    GEN_INSN(CMP, cc->cmp_reg, ref, NEW_CONST(I32, NULL_REF));
+    res = jit_cc_new_reg_I32(cc);
+    GEN_INSN(SELECTEQ, res, cc->cmp_reg, NEW_CONST(I32, 1), NEW_CONST(I32, 0));
+    PUSH_I32(res);
+
+    return true;
+fail:
     return false;
 }
 
 bool
 jit_compile_op_ref_func(JitCompContext *cc, uint32 func_idx)
 {
+    PUSH_I32(NEW_CONST(I32, func_idx));
+    return true;
+fail:
     return false;
 }
+#endif
 
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
 bool

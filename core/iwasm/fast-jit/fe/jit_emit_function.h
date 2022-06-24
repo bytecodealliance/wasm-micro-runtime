@@ -20,7 +20,7 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
                              uint32 tbl_idx);
 
 bool
-jit_compile_op_ref_null(JitCompContext *cc);
+jit_compile_op_ref_null(JitCompContext *cc, uint32 ref_type);
 
 bool
 jit_compile_op_ref_is_null(JitCompContext *cc);
