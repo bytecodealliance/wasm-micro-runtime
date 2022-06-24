@@ -4568,7 +4568,7 @@ wasm_runtime_dump_call_stack(WASMExecEnv *exec_env)
 #endif
 }
 
-uint32_t
+uint32
 wasm_runtime_get_call_stack_buf_size(wasm_exec_env_t exec_env)
 {
     WASMModuleInstanceCommon *module_inst =
@@ -4588,9 +4588,9 @@ wasm_runtime_get_call_stack_buf_size(wasm_exec_env_t exec_env)
     return 0;
 }
 
-uint32_t
+uint32
 wasm_runtime_dump_call_stack_to_buf(wasm_exec_env_t exec_env, char *buf,
-                                    uint32_t len)
+                                    uint32 len)
 {
     WASMModuleInstanceCommon *module_inst =
         wasm_exec_env_get_module_inst(exec_env);
