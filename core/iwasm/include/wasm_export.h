@@ -1076,7 +1076,7 @@ wasm_runtime_get_call_stack_buf_size(wasm_exec_env_t exec_env);
  * @param len length of the buffer
  *
  * @return bytes dumped to the buffer, including the terminating null
- *         byte ('\0'), 0 means error and buf may remain untouched
+ *         byte ('\0'), 0 means error and data in buf may be invalid
  */
 WASM_RUNTIME_API_EXTERN uint32_t
 wasm_runtime_dump_call_stack_to_buf(wasm_exec_env_t exec_env, char *buf,

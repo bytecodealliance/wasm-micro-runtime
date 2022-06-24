@@ -4527,6 +4527,30 @@ wasm_externref_retain(uint32 externref_idx)
 #endif /* end of WASM_ENABLE_REF_TYPES */
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
+uint32
+wasm_runtime_dump_line_buf_impl(const char *line_buf, bool dump_or_print,
+                                char **buf, uint32 *len)
+{
+    if (dump_or_print) {
+        return (uint32)os_printf("%s", line_buf);
+    }
+    else if (*buf) {
+        uint32 dump_len;
+
+        dump_len = snprintf(*buf, *len, "%s", line_buf);
+        if (dump_len >= *len) {
+            dump_len = *len;
+        }
+
+        *len = *len - dump_len;
+        *buf = *buf + dump_len;
+        return dump_len;
+    }
+    else {
+        return strlen(line_buf);
+    }
+}
+
 void
 wasm_runtime_dump_call_stack(WASMExecEnv *exec_env)
 {

@@ -804,6 +804,28 @@ void
 wasm_externref_cleanup(WASMModuleInstanceCommon *module_inst);
 #endif /* end of WASM_ENABLE_REF_TYPES */
 
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
+/**
+ * @brief Internal implementation for dumping or printing callstack line
+ *
+ * @note if dump_or_print is true, then print to stdout directly
+ *       if dump_or_print is false, but *buf is NULL, then return the length of
+ *       the line
+ *       if dump_or_print is false, and *buf is not NULL, then dump content to the
+ *       memory pointed by *buf, and adjust *buf and *len according to actual bytes
+ *       dumped, and return the actual dumped length
+ *
+ * @param line_buf current line to dump or print
+ * @param dump_or_print whether to print to stdout or dump to buf
+ * @param buf [INOUT] pointer to the buffer
+ * @param len [INOUT] pointer to remaining length
+ * @return bytes printed to stdout or dumped to buf
+ */
+uint32
+wasm_runtime_dump_line_buf_impl(const char *line_buf, bool dump_or_print,
+                                char **buf, uint32 *len);
+#endif /* end of WASM_ENABLE_DUMP_CALL_STACK != 0 */
+
 /* Get module of the current exec_env */
 WASMModuleCommon *
 wasm_exec_env_get_module(WASMExecEnv *exec_env);

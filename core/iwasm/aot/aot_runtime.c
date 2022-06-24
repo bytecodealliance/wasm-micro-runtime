@@ -3063,24 +3063,13 @@ aot_create_call_stack(struct WASMExecEnv *exec_env)
     return true;
 }
 
-#define PRINT_OR_DUMP()                                                \
-    do {                                                               \
-        if (print) {                                                   \
-            os_printf("%s", line_buf);                                 \
-        }                                                              \
-        else if (buf) {                                                \
-            uint32 remain_len = len - total_len;                       \
-            uint32 string_len =                                        \
-                snprintf(buf + total_len, remain_len, "%s", line_buf); \
-            if (string_len >= remain_len) {                            \
-                /* Buffer full */                                      \
-                return len;                                            \
-            }                                                          \
-            total_len += string_len;                                   \
-        }                                                              \
-        else {                                                         \
-            total_len += strlen(line_buf);                             \
-        }                                                              \
+#define PRINT_OR_DUMP()                                                   \
+    do {                                                                  \
+        total_len +=                                                      \
+            wasm_runtime_dump_line_buf_impl(line_buf, print, &buf, &len); \
+        if ((!print) && buf && (len == 0)) {                              \
+            return total_len;                                             \
+        }                                                                 \
     } while (0)
 
 uint32
