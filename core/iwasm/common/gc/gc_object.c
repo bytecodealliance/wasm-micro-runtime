@@ -290,15 +290,24 @@ wasm_array_obj_get_elem(WASMArrayObjectRef array_obj, uint32 elem_idx,
 
 WASMFuncObjectRef
 wasm_func_obj_new(void *heap_handle, WASMRttObjectRef rtt_obj,
-                  uint32 func_idx_bound, uint32 param_count_bound)
+                  const WASMFuncType *func_type_bound, uint32 func_idx_bound,
+                  uint32 param_count_bound)
 {
     WASMFuncObjectRef func_obj;
     uint64 total_size;
+    uint32 ref_param_count = 0, offset = 0, i;
+    uint16 *reference_table;
 
     bh_assert(rtt_obj->type_flag == WASM_TYPE_FUNC);
 
+    for (i = 0; i < param_count_bound; i++) {
+        if (wasm_is_type_reftype(func_type_bound->types[i]))
+            ref_param_count++;
+    }
+
     total_size = offsetof(WASMFuncObject, params_bound)
-                 + (uint64)sizeof(WASMValue) * param_count_bound;
+                 + (uint64)sizeof(WASMValue) * param_count_bound
+                 + (uint64)sizeof(uint16) * (ref_param_count + 1);
     if (!(func_obj = gc_obj_malloc(heap_handle, total_size))) {
         return NULL;
     }
@@ -306,6 +315,18 @@ wasm_func_obj_new(void *heap_handle, WASMRttObjectRef rtt_obj,
     func_obj->header = (WASMObjectHeader)rtt_obj;
     func_obj->func_idx_bound = func_idx_bound;
     func_obj->param_count_bound = param_count_bound;
+    func_obj->reference_table = reference_table =
+        (uint16 *)((uint8 *)func_obj + offsetof(WASMFuncObject, params_bound)
+                   + sizeof(WASMValue) * param_count_bound);
+
+    *reference_table++ = (uint16)ref_param_count;
+    offset = (uint16)offsetof(WASMFuncObject, params_bound);
+    for (i = 0; i < param_count_bound; i++) {
+        if (wasm_is_type_reftype(func_type_bound->types[i])) {
+            *reference_table++ = (uint16)offset;
+            offset += (uint16)sizeof(WASMValue);
+        }
+    }
     return func_obj;
 }
 
@@ -399,8 +420,12 @@ wasm_object_get_ref_list(WASMObjectRef obj, bool *p_is_compact_mode,
         return true;
     }
     else if (rtt_obj->defined_type->type_flag == WASM_TYPE_FUNC) {
-        /* TODO */
-        return false;
+        /* function object */
+        WASMFuncObjectRef func_obj = (WASMFuncObjectRef)obj;
+        *p_is_compact_mode = false;
+        *p_ref_num = *func_obj->reference_table;
+        *p_ref_list = func_obj->reference_table + 1;
+        return true;
     }
     else if (rtt_obj->defined_type->type_flag == WASM_TYPE_STRUCT) {
         /* struct object */

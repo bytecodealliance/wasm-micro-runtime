@@ -97,6 +97,10 @@ typedef struct WASMFuncObject {
     WASMObjectHeader header;
     uint32 func_idx_bound;
     uint32 param_count_bound;
+    /* Offsets of reference params that need to be traced
+       during GC. The first element of the table is the
+       number of such offsets. */
+    uint16 *reference_table;
     WASMValue params_bound[1];
 } WASMFuncObject, *WASMFuncObjectRef;
 
@@ -225,7 +229,8 @@ wasm_array_obj_elem_addr(const WASMArrayObjectRef array_obj, uint32 elem_idx)
 
 WASMFuncObjectRef
 wasm_func_obj_new(void *heap_handle, WASMRttObjectRef rtt_obj,
-                  uint32 func_idx_bound, uint32 param_count_bound);
+                  const WASMFuncType *func_type_bound, uint32 func_idx_bound,
+                  uint32 param_count_bound);
 
 void
 wasm_func_obj_set_param_bound(WASMFuncObjectRef func_obj, uint32 param_idx,

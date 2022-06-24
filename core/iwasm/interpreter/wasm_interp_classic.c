@@ -1773,7 +1773,11 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 func_type_dst =
                     (WASMFuncType *)module->module->types[type_index];
 
-                func_obj_old = POP_REF();
+                SYNC_ALL_TO_FRAME();
+
+                /* Don't POP_REF() here to let the object be tracable
+                   during GC when creating func object below */
+                func_obj_old = GET_REF_FROM_ADDR(frame_sp - REF_CELL_NUM);
                 if (!func_obj_old) {
                     wasm_set_exception(module, "null function object");
                     goto got_exception;
@@ -1793,6 +1797,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                                func_type_dst, true, NULL, 0))) {
                     goto got_exception;
                 }
+
+                /* Pop object after the func object is created */
+                (void)POP_REF();
 
                 param_count_bound =
                     wasm_func_obj_get_param_count_bound(func_obj_old);

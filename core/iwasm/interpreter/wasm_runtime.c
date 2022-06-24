@@ -1207,8 +1207,9 @@ wasm_create_func_obj(WASMModuleInstance *module_inst, uint32 func_idx,
         return NULL;
     }
 
-    if (!(func_obj = wasm_func_obj_new(module_inst->gc_heap_handle, rtt_obj,
-                                       func_idx, param_count_bound))) {
+    if (!(func_obj =
+              wasm_func_obj_new(module_inst->gc_heap_handle, rtt_obj, func_type,
+                                func_idx, param_count_bound))) {
         set_error_buf(error_buf, error_buf_size, "create func object failed");
         return NULL;
     }

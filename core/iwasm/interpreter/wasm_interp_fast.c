@@ -393,14 +393,24 @@ init_frame_refs(uint8 *frame_ref, uint32 cell_num, WASMFunctionInstance *func)
     (opnd_off = GET_OFFSET(), CLEAR_FRAME_REF(opnd_off), \
      GET_REF_FROM_ADDR(frame_lp + opnd_off))
 
+#if WASM_ENABLE_GC != 0
+#define SYNC_FRAME_REF() frame->frame_ref = frame_ref
+#define UPDATE_FRAME_REF() frame_ref = frame->frame_ref
+#else
+#define SYNC_FRAME_REF() (void)0
+#define UPDATE_FRAME_REF() (void)0
+#endif
+
 #define SYNC_ALL_TO_FRAME()   \
     do {                      \
         frame->ip = frame_ip; \
+        SYNC_FRAME_REF();     \
     } while (0)
 
 #define UPDATE_ALL_FROM_FRAME() \
     do {                        \
         frame_ip = frame->ip;   \
+        UPDATE_FRAME_REF();     \
     } while (0)
 
 #if WASM_ENABLE_LABELS_AS_VALUES != 0
@@ -1103,12 +1113,12 @@ wasm_interp_dump_op_count()
     for (i = 0; i < WASM_OP_IMPDEP; i++)
         total_count += opcode_table[i].count;
 
-    printf("total opcode count: %ld\n", total_count);
+    os_printf("total opcode count: %ld\n", total_count);
     for (i = 0; i < WASM_OP_IMPDEP; i++)
         if (opcode_table[i].count > 0)
-            printf("\t\t%s count:\t\t%ld,\t\t%.2f%%\n", opcode_table[i].name,
-                   opcode_table[i].count,
-                   opcode_table[i].count * 100.0f / total_count);
+            os_printf("\t\t%s count:\t\t%ld,\t\t%.2f%%\n", opcode_table[i].name,
+                      opcode_table[i].count,
+                      opcode_table[i].count * 100.0f / total_count);
 }
 #endif
 
@@ -1601,6 +1611,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #if WASM_ENABLE_GC == 0
                 PUSH_I32(func_idx);
 #else
+                SYNC_ALL_TO_FRAME();
                 if (!(gc_obj = wasm_create_func_obj(module, func_idx, true,
                                                     NULL, true, NULL, 0))) {
                     goto got_exception;
@@ -1654,7 +1665,11 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 type_idx = read_uint32(frame_ip);
                 func_type_dst = (WASMFuncType *)module->module->types[type_idx];
 
-                func_obj_old = POP_REF();
+                SYNC_ALL_TO_FRAME();
+
+                opnd_off = GET_OFFSET();
+                func_obj_old = GET_REF_FROM_ADDR(frame_lp + opnd_off);
+
                 if (!func_obj_old) {
                     wasm_set_exception(module, "null function object");
                     goto got_exception;
@@ -1778,6 +1793,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         type_idx = read_uint32(frame_ip);
                         struct_type =
                             (WASMStructType *)module->module->types[type_idx];
+
+                        SYNC_ALL_TO_FRAME();
 
                         rtt_obj = POP_REF();
                         struct_obj = wasm_struct_obj_new(module->gc_heap_handle,
@@ -1935,6 +1952,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                 array_elem.i64 = POP_I64();
                             }
                         }
+
+                        SYNC_ALL_TO_FRAME();
 
                         array_obj =
                             wasm_array_obj_new(module->gc_heap_handle, rtt_obj,
@@ -3975,6 +3994,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                 + s,
                             (uint32)(n * sizeof(uint32)));
 #else
+                        SYNC_ALL_TO_FRAME();
+
                         table_elems =
                             (table_elem_type_t *)tbl_inst->base_addr + d;
                         func_indexes = module->module->table_segments[elem_idx]
