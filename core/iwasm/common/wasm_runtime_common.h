@@ -808,12 +808,12 @@ wasm_externref_cleanup(WASMModuleInstanceCommon *module_inst);
 /**
  * @brief Internal implementation for dumping or printing callstack line
  *
- * @note if dump_or_print is true, then print to stdout directly
- *       if dump_or_print is false, but *buf is NULL, then return the length of
- *       the line
- *       if dump_or_print is false, and *buf is not NULL, then dump content to the
- *       memory pointed by *buf, and adjust *buf and *len according to actual bytes
- *       dumped, and return the actual dumped length
+ * @note if dump_or_print is true, then print to stdout directly;
+ * if dump_or_print is false, but *buf is NULL, then return the length of the
+ * line;
+ * if dump_or_print is false, and *buf is not NULL, then dump content to
+ * the memory pointed by *buf, and adjust *buf and *len according to actual
+ * bytes dumped, and return the actual dumped length
  *
  * @param line_buf current line to dump or print
  * @param dump_or_print whether to print to stdout or dump to buf
