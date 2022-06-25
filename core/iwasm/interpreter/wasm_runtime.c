@@ -2485,8 +2485,8 @@ wasm_get_module_inst_mem_consumption(const WASMModuleInstance *module_inst,
                  || (WASM_ENABLE_MEMORY_TRACING != 0) */
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
-void
-wasm_interp_dump_call_stack(struct WASMExecEnv *exec_env)
+bool
+wasm_interp_create_call_stack(struct WASMExecEnv *exec_env)
 {
     WASMModuleInstance *module_inst =
         (WASMModuleInstance *)wasm_exec_env_get_module_inst(exec_env);
@@ -2507,12 +2507,12 @@ wasm_interp_dump_call_stack(struct WASMExecEnv *exec_env)
     if (!bh_vector_destroy(module_inst->frames)
         || !bh_vector_init(module_inst->frames, n, sizeof(WASMCApiFrame),
                            false)) {
-        return;
+        return false;
     }
 
     cur_frame = first_frame;
     n = 0;
-    os_printf("\n");
+
     while (cur_frame) {
         WASMCApiFrame frame = { 0 };
         WASMFunctionInstance *func_inst = cur_frame->function;
@@ -2560,20 +2560,86 @@ wasm_interp_dump_call_stack(struct WASMExecEnv *exec_env)
             }
         }
 
-        /* function name not exported, print number instead */
-        if (func_name == NULL) {
-            os_printf("#%02d $f%d \n", n, func_inst - module_inst->functions);
-        }
-        else {
-            os_printf("#%02d %s \n", n, func_name);
-        }
+        frame.func_name_wp = func_name;
 
-        /* keep print */
-        bh_vector_append(module_inst->frames, &frame);
+        if (!bh_vector_append(module_inst->frames, &frame)) {
+            bh_vector_destroy(module_inst->frames);
+            return false;
+        }
 
         cur_frame = cur_frame->prev_frame;
         n++;
     }
-    os_printf("\n");
+
+    return true;
+}
+
+#define PRINT_OR_DUMP()                                                   \
+    do {                                                                  \
+        total_len +=                                                      \
+            wasm_runtime_dump_line_buf_impl(line_buf, print, &buf, &len); \
+        if ((!print) && buf && (len == 0)) {                              \
+            return total_len;                                             \
+        }                                                                 \
+    } while (0)
+
+uint32
+wasm_interp_dump_call_stack(struct WASMExecEnv *exec_env, bool print, char *buf,
+                            uint32 len)
+{
+    WASMModuleInstance *module_inst =
+        (WASMModuleInstance *)wasm_exec_env_get_module_inst(exec_env);
+    uint32 n = 0, total_len = 0, total_frames;
+    /* reserve 256 bytes for line buffer, any line longer than 256 bytes
+     * will be truncated */
+    char line_buf[256];
+
+    if (!module_inst->frames) {
+        return 0;
+    }
+
+    total_frames = bh_vector_size(module_inst->frames);
+    if (total_frames == 0) {
+        return 0;
+    }
+
+    snprintf(line_buf, sizeof(line_buf), "\n");
+    PRINT_OR_DUMP();
+
+    while (n < total_frames) {
+        WASMCApiFrame frame = { 0 };
+        uint32 line_length, i;
+
+        if (!bh_vector_get(module_inst->frames, n, &frame)) {
+            return 0;
+        }
+
+        /* function name not exported, print number instead */
+        if (frame.func_name_wp == NULL) {
+            line_length = snprintf(line_buf, sizeof(line_buf), "#%02d $f%d\n",
+                                   n, frame.func_index);
+        }
+        else {
+            line_length = snprintf(line_buf, sizeof(line_buf), "#%02d %s\n", n,
+                                   frame.func_name_wp);
+        }
+
+        if (line_length >= sizeof(line_buf)) {
+            uint32 line_buffer_len = sizeof(line_buf);
+            /* If line too long, ensure the last character is '\n' */
+            for (i = line_buffer_len - 5; i < line_buffer_len - 2; i++) {
+                line_buf[i] = '.';
+            }
+            line_buf[line_buffer_len - 2] = '\n';
+        }
+
+        PRINT_OR_DUMP();
+
+        n++;
+    }
+    snprintf(line_buf, sizeof(line_buf), "\n");
+    PRINT_OR_DUMP();
+
+    return total_len + 1;
 }
 #endif /* end of WASM_ENABLE_DUMP_CALL_STACK */
