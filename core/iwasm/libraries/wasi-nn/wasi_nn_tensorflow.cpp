@@ -8,6 +8,8 @@
 
 enum Idx { GRAPH = 0, GRAPH_SIZE = 1 };
 
+#define DIM_SIZE 4
+
 std::unique_ptr<tflite::Interpreter> interpreter = NULL;
 std::unique_ptr<tflite::FlatBufferModel> model = NULL;
 
@@ -47,34 +49,43 @@ _load(graph_builder_array builder, graph_encoding encoding)
 uint32_t
 _set_input(tensor input_tensor)
 {
-    auto *input = interpreter->typed_input_tensor<float>(0);
+    auto *input = interpreter->typed_input_tensor<uint8_t>(0);
 
     if (input == nullptr) {
         return missing_memory;
     }
 
-    for (int i = 0; i < input_tensor.dimensions[0]; i++) {
-        input[i] = (float)input_tensor.data[i];
+    // Recomputes the dimensions each time, not optimal but have to follow witx
+    // for now
+
+    int max_size = 0;
+
+    for (int i = 0; i < DIM_SIZE; i++) {
+        max_size *= input_tensor.dimensions[i];
+    }
+
+    for (int i = 0; i < max_size; i++) {
+        input[i] = input_tensor.data[i];
     }
 
     return success;
-    
 }
 
+uint32_t
+_compute(graph_execution_context context)
+{
 
-uint32_t _compute( graph_execution_context context ){
-
-	interpreter->Invoke();
+    interpreter->Invoke();
 
     return success;
 }
 
+uint32_t
+_get_output(graph_execution_context context, uint32_t index,
+            uint8_t *out_tensor)
+{
 
-uint32_t _get_output(graph_execution_context context, uint32_t index, tensor * tensor){
-
-    auto* output = interpreter->typed_output_tensor<float>(0);
-
-    tensor->data= (tensor_data) output;
+    out_tensor = interpreter->typed_output_tensor<uint8_t>(0);
 
     return success;
 }

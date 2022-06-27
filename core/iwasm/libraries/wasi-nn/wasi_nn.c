@@ -24,6 +24,18 @@ load_tensorflow(wasm_module_inst_t instance, graph_builder_array builder)
 }
 
 uint32_t
+flatten_dimensions(uint32_t *dim)
+{
+    uint32_t res = 0;
+
+    for (int i = 0; i < DIM_SIZE; i++) {
+        res *= dim[i];
+    }
+
+    return res;
+}
+
+uint32_t
 wasi_nn_load(wasm_exec_env_t exec_env, uint32_t builder, uint32_t encoding)
 {
     printf("Inside wasi_nn_load!\n\n");
@@ -47,70 +59,54 @@ wasi_nn_init_execution_context()
 {}
 
 uint32_t
-wasi_nn_set_input(
-    wasm_exec_env_t exec_env, graph_execution_context context, uint32_t index,
-    uint32_t *input_tensor_size, uint32_t input_tensor_type,
-    uint32_t *input_tensor) // Replaced struct by values inside of
-                            // it as WASMR does not support structs
+wasi_nn_set_input(wasm_exec_env_t exec_env, graph_execution_context context,
+                  uint32_t index, uint32_t *input_tensor_size,
+                  uint32_t input_tensor_type,
+                  uint8_t *input_tensor) // Replaced struct by values inside of
+                                         // it as WASMR does not support structs
 {
-    printf("Inside wasi_nn_set_input!\n\n");
-
     wasm_module_inst_t instance = wasm_runtime_get_module_inst(exec_env);
-    tensor_data data =
-        (tensor_data)wasm_runtime_addr_app_to_native(instance, input_tensor);
+
+    wasm_runtime_validate_app_addr(instance, input_tensor_size,
+                                   DIM_SIZE * sizeof(uint32_t));
+
     tensor_dimensions dimensions =
         (tensor_dimensions)wasm_runtime_addr_app_to_native(instance,
                                                            input_tensor_size);
 
-    tensor_type type = (tensor_type)wasm_runtime_addr_app_to_native(
-        instance, input_tensor_type);
+    wasm_runtime_validate_app_addr(instance, input_tensor,
+                                   flatten_dimensions(dimensions)
+                                       * sizeof(uint8_t));
+
+    tensor_data data =
+        (tensor_data)wasm_runtime_addr_app_to_native(instance, input_tensor);
 
     tensor tensor_struct = { .dimensions = dimensions,
-                             .type = type,
+                             .type = input_tensor_type,
                              .data = data };
 
     return _set_input(tensor_struct);
 }
 
 uint32_t
-wasi_nn_get_output(wasm_exec_env_t exec_env, graph_execution_context context, uint32_t index, uint32_t *input_tensor_size, uint32_t input_tensor_type,
-    uint32_t *input_tensor)
+wasi_nn_get_output(wasm_exec_env_t exec_env, graph_execution_context context,
+                   uint32_t index, uint8_t *out_buffer,
+                   buffer_size out_buffer_max_size)
 {
     wasm_module_inst_t instance = wasm_runtime_get_module_inst(exec_env);
 
-    uint32_t w_index = wasm_runtime_addr_app_to_native(instance, index);
+    _get_output(context, index, out_buffer);
 
-    graph_execution_context graph_context = wasm_runtime_addr_app_to_native(instance, context);
-
-     tensor_data data =
-        (tensor_data)wasm_runtime_addr_app_to_native(instance, input_tensor);
-    tensor_dimensions dimensions =
-        (tensor_dimensions)wasm_runtime_addr_app_to_native(instance,
-                                                           input_tensor_size);
-
-    tensor_type type = (tensor_type)wasm_runtime_addr_app_to_native(
-        instance, input_tensor_type);
-
-    tensor tensor_struct = { .dimensions = dimensions,
-                            .type = type,
-                            .data = data };
-
-    return _get_output(graph_context, w_index ,&tensor_struct);
-
+    return success;
 }
 
 uint32_t
-wasi_nn_compute(wasm_exec_env_t exec_env , graph_execution_context context)
+wasi_nn_compute(wasm_exec_env_t exec_env, graph_execution_context context)
 {
-
     wasm_module_inst_t instance = wasm_runtime_get_module_inst(exec_env);
-
-    graph_execution_context context = wasm_runtime_addr_app_to_native(instance, context);
 
     return _compute(context);
 }
-
-
 
 /* clang-format off */
 #define REG_NATIVE_FUNC(func_name, signature) \
@@ -118,10 +114,8 @@ wasi_nn_compute(wasm_exec_env_t exec_env , graph_execution_context context)
 /* clang-format on */
 
 static NativeSymbol native_symbols_wasi_nn[] = {
-    REG_NATIVE_FUNC(load, "(ii)i"),
-    REG_NATIVE_FUNC(set_input, "(ii*i*)i"),
-    REG_NATIVE_FUNC(get_output, "(ii*ii*i)i" ),
-    REG_NATIVE_FUNC(compute, "(i)i")
+    REG_NATIVE_FUNC(load, "(ii)i"), REG_NATIVE_FUNC(set_input, "(iiiii)i"),
+    REG_NATIVE_FUNC(get_output, "(ii*~)i"), REG_NATIVE_FUNC(compute, "(i)i")
 };
 
 uint32_t

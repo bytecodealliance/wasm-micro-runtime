@@ -7,6 +7,7 @@
  * Following definition from:
  * https://github.com/WebAssembly/wasi-nn/blob/c557b2e9f84b6630f13b3185b43607f0388343b2/phases/ephemeral/witx/wasi_ephemeral_nn.witx
  */
+#define DIM_SIZE 4
 
 typedef uint32_t buffer_size;
 
@@ -43,12 +44,13 @@ init_execution_context();
 uint32_t
 set_input(graph_execution_context context, uint32_t index,
           uint32_t *input_tensor_size, uint32_t input_tensor_type,
-          uint32_t *input_tensor);
+          uint8_t *input_tensor);
 
 void
 compute();
 
-void
-get_output();
+uint32_t
+get_output(graph_execution_context context, uint32_t index, uint8_t *out_buffer,
+           buffer_size out_buffer_max_size);
 
 #endif
