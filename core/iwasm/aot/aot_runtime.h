@@ -731,8 +731,24 @@ aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index);
 void
 aot_free_frame(WASMExecEnv *exec_env);
 
-void
-aot_dump_call_stack(WASMExecEnv *exec_env);
+bool
+aot_create_call_stack(struct WASMExecEnv *exec_env);
+
+/**
+ * @brief Dump wasm call stack or get the size
+ *
+ * @param exec_env the execution environment
+ * @param print whether to print to stdout or not
+ * @param buf buffer to store the dumped content
+ * @param len length of the buffer
+ *
+ * @return when print is true, return the bytes printed out to stdout; when
+ * print is false and buf is NULL, return the size required to store the
+ * callstack content; when print is false and buf is not NULL, return the size
+ * dumped to the buffer, 0 means error and data in buf may be invalid
+ */
+uint32
+aot_dump_call_stack(WASMExecEnv *exec_env, bool print, char *buf, uint32 len);
 
 void
 aot_dump_perf_profiling(const AOTModuleInstance *module_inst);

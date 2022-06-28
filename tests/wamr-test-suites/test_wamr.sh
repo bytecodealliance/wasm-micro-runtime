@@ -275,12 +275,12 @@ function spec_test()
 
     # update basic test cases
     echo "update spec test cases"
-    git fetch origin master
+    git fetch origin main
     # restore from XX_ignore_cases.patch
     # resotre branch
-    git checkout -B master
-    # [spec] Fix instruction table (#1402) Thu Dec 2 17:21:54 2021 +0100
-    git reset --hard 2460ad02b51fb5ed5824f44de287a8638b19a5f8
+    git checkout -B main
+    # [spec] Update note on module initialization trapping (#1493)
+    git reset --hard 044d0d2e77bdcbe891f7e0b9dd2ac01d56435f0b
     git apply ../../spec-test-script/ignore_cases.patch
     if [[ ${ENABLE_SIMD} == 1 ]]; then
         git apply ../../spec-test-script/simd_ignore_cases.patch
@@ -295,8 +295,8 @@ function spec_test()
 
         # fetch spec for threads proposal
         git fetch threads
-        # [interpreter] Threading (#179) Fri Aug 6 18:02:59 2021 +0200
-        git reset --hard 0d115b494d640eb0c1c352941fd14ca0bad926d3
+        # Fix error in Web embedding desc for atomic.notify (#185)
+        git reset --hard 85b562cd6805947876ec5e8b975ab0127c55a0a2
         git checkout threads/main
 
         git apply ../../spec-test-script/thread_proposal_ignore_cases.patch
@@ -321,16 +321,16 @@ function spec_test()
                     exit 1
                     ;;
             esac
-            if [ ! -f /tmp/wabt-1.0.24-${WABT_PLATFORM}.tar.gz ]; then
+            if [ ! -f /tmp/wabt-1.0.29-${WABT_PLATFORM}.tar.gz ]; then
                 wget \
-                    https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-${WABT_PLATFORM}.tar.gz \
+                    https://github.com/WebAssembly/wabt/releases/download/1.0.29/wabt-1.0.29-${WABT_PLATFORM}.tar.gz \
                     -P /tmp
             fi
 
             cd /tmp \
-            && tar zxf wabt-1.0.24-${WABT_PLATFORM}.tar.gz \
+            && tar zxf wabt-1.0.29-${WABT_PLATFORM}.tar.gz \
             && mkdir -p ${WORK_DIR}/wabt/out/gcc/Release/ \
-            && install wabt-1.0.24/bin/wa* ${WORK_DIR}/wabt/out/gcc/Release/ \
+            && install wabt-1.0.29/bin/wa* ${WORK_DIR}/wabt/out/gcc/Release/ \
             && cd -
         fi
     else
