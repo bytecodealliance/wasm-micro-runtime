@@ -1,8 +1,8 @@
 diff --git a/test/core/binary.wast b/test/core/binary.wast
-index c6f9755..a479212 100644
+index 891aad3..07356a3 100644
 --- a/test/core/binary.wast
 +++ b/test/core/binary.wast
-@@ -161,7 +161,7 @@
+@@ -206,7 +206,7 @@
  )
  
  ;; Type section with signed LEB128 encoded type
@@ -11,7 +11,7 @@ index c6f9755..a479212 100644
    (module binary
      "\00asm" "\01\00\00\00"
      "\01"                     ;; Type section id
-@@ -171,7 +171,7 @@
+@@ -216,7 +216,7 @@
      "\00\00"
    )
    "integer representation too long"
@@ -20,7 +20,7 @@ index c6f9755..a479212 100644
  
  ;; Unsigned LEB128 must not be overlong
  (assert_malformed
-@@ -1582,7 +1582,7 @@
+@@ -1683,7 +1683,7 @@
  )
  
  ;; 2 elem segment declared, 1 given
@@ -29,7 +29,7 @@ index c6f9755..a479212 100644
    (module binary
      "\00asm" "\01\00\00\00"
      "\01\04\01"                             ;; type section
-@@ -1595,7 +1595,7 @@
+@@ -1696,7 +1696,7 @@
      ;; "\00\41\00\0b\01\00"                 ;; elem 1 (missed)
    )
    "unexpected end"
@@ -38,6 +38,24 @@ index c6f9755..a479212 100644
  
  ;; 2 elem segment declared, 1.5 given
  (assert_malformed
+@@ -1813,7 +1813,7 @@
+ )
+ 
+ ;; 1 br_table target declared, 2 given
+-(assert_malformed
++(;assert_malformed
+   (module binary
+     "\00asm" "\01\00\00\00"
+     "\01\04\01"                             ;; type section
+@@ -1832,7 +1832,7 @@
+     "\0b\0b\0b"                             ;; end
+   )
+   "unexpected end"
+-)
++;)
+ 
+ ;; Start section
+ (module binary
 diff --git a/test/core/data.wast b/test/core/data.wast
 index 4f339be..0b5b3e6 100644
 --- a/test/core/data.wast
@@ -93,26 +111,10 @@ index 4f339be..0b5b3e6 100644
  
  ;; Invalid offsets
 diff --git a/test/core/elem.wast b/test/core/elem.wast
-index 575ecef..204b748 100644
+index 575ecef..6eecab9 100644
 --- a/test/core/elem.wast
 +++ b/test/core/elem.wast
-@@ -467,6 +467,7 @@
-   "type mismatch"
- )
- 
-+(; not supported by wat2wasm
- (assert_invalid
-   (module
-     (table 1 funcref)
-@@ -507,6 +508,7 @@
-   )
-   "constant expression required"
- )
-+;)
- 
- ;; Two elements target the same slot
- 
-@@ -571,9 +573,11 @@
+@@ -571,9 +571,11 @@
    (func $const-i32-d (type $out-i32) (i32.const 68))
  )
  
@@ -124,7 +126,7 @@ index 575ecef..204b748 100644
  
  (module $module3
    (type $out-i32 (func (result i32)))
-@@ -584,6 +588,8 @@
+@@ -584,6 +586,8 @@
    (func $const-i32-f (type $out-i32) (i32.const 70))
  )
  
@@ -785,7 +787,7 @@ index 0b2d26f..bdab6a0 100644
    (table $t1 30 30 funcref)
    (elem (table $t1) (i32.const 2) func 3 1 4 1)
 diff --git a/test/core/unreached-valid.wast b/test/core/unreached-valid.wast
-index 0025217..07d2788 100644
+index b7ebabf..4f2abfb 100644
 --- a/test/core/unreached-valid.wast
 +++ b/test/core/unreached-valid.wast
 @@ -46,6 +46,7 @@
@@ -796,9 +798,8 @@ index 0025217..07d2788 100644
  (module
    (func (export "meet-bottom")
      (block (result f64)
-@@ -59,4 +60,5 @@
-     (drop)
-   )
+@@ -61,3 +62,4 @@
  )
-+;)
  
+ (assert_trap (invoke "meet-bottom") "unreachable")
++;)
