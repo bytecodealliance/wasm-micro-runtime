@@ -38,6 +38,20 @@
 extern "C" {
 #endif
 
+#if LLVM_VERSION_MAJOR < 14
+#define LLVMBuildLoad2(builder, type, value, name) \
+    LLVMBuildLoad(builder, value, name)
+
+#define LLVMBuildCall2(builder, type, func, args, num_args, name) \
+    LLVMBuildCall(builder, func, args, num_args, name)
+
+#define LLVMBuildInBoundsGEP2(builder, type, ptr, indices, num_indices, name) \
+    LLVMBuildInBoundsGEP(builder, ptr, indices, num_indices, name)
+#else
+/* Opaque pointer type */
+#define OPQ_PTR_TYPE INT8_PTR_TYPE
+#endif
+
 /**
  * Value in the WASM operation stack, each stack element
  * is an LLVM value
