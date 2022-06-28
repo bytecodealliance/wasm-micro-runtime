@@ -1491,8 +1491,8 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
     if (stack_size == 0)
         stack_size = DEFAULT_WASM_STACK_SIZE;
 #if WASM_ENABLE_SPEC_TEST != 0
-    if (stack_size < 48 * 1024)
-        stack_size = 48 * 1024;
+    if (stack_size < 128 * 1024)
+        stack_size = 128 * 1024;
 #endif
     module_inst->default_wasm_stack_size = stack_size;
 
