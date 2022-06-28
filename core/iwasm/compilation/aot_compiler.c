@@ -2699,8 +2699,10 @@ apply_lto_passes(AOTCompContext *comp_ctx)
     LLVMPassManagerBuilderSetOptLevel(pass_mgr_builder, comp_ctx->opt_level);
     LLVMPassManagerBuilderPopulateModulePassManager(pass_mgr_builder,
                                                     common_pass_mgr);
+#if LLVM_VERSION_MAJOR < 15
     LLVMPassManagerBuilderPopulateLTOPassManager(pass_mgr_builder,
                                                  common_pass_mgr, true, true);
+#endif
 
 #if WASM_ENABLE_LAZY_JIT == 0
     LLVMRunPassManager(common_pass_mgr, comp_ctx->module);

@@ -2171,6 +2171,15 @@ load_export_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
 
         export = module->exports;
         for (i = 0; i < export_count; i++, export ++) {
+#if WASM_ENABLE_THREAD_MGR == 0
+            if (p == p_end) {
+                /* export section with inconsistent count:
+                   n export declared, but less than n given */
+                set_error_buf(error_buf, error_buf_size,
+                              "length out of bounds");
+                return false;
+            }
+#endif
             read_leb_uint32(p, p_end, str_len);
             CHECK_BUF(p, p_end, str_len);
 
@@ -9319,8 +9328,15 @@ re_scan:
     }
 
     if (loader_ctx->csp_num > 0) {
-        set_error_buf(error_buf, error_buf_size,
-                      "function body must end with END opcode");
+        if (cur_func_idx < module->function_count - 1)
+            /* Function with missing end marker (between two functions) */
+            set_error_buf(error_buf, error_buf_size, "END opcode expected");
+        else
+            /* Function with missing end marker
+               (at EOF or end of code sections) */
+            set_error_buf(error_buf, error_buf_size,
+                          "unexpected end of section or function, "
+                          "or section size mismatch");
         goto fail;
     }
 
