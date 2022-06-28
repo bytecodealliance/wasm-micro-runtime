@@ -20,7 +20,7 @@ extern "C" {
 typedef struct WASMDebugInstance WASMDebugInstance;
 #endif
 
-typedef struct WASMCluster {
+struct WASMCluster {
     struct WASMCluster *next;
 
     korp_mutex lock;
@@ -37,7 +37,7 @@ typedef struct WASMCluster {
 #if WASM_ENABLE_DEBUG_INTERP != 0
     WASMDebugInstance *debug_inst;
 #endif
-} WASMCluster;
+};
 
 void
 wasm_cluster_set_max_thread_num(uint32 num);
@@ -151,11 +151,11 @@ wasm_cluster_spread_custom_data(WASMModuleInstanceCommon *module_inst,
 #define IS_WAMR_STOP_SIG(signo) \
     ((signo) == WAMR_SIG_STOP || (signo) == WAMR_SIG_TRAP)
 
-typedef struct WASMCurrentEnvStatus {
+struct WASMCurrentEnvStatus {
     uint64 signal_flag : 32;
     uint64 step_count : 16;
     uint64 running_status : 16;
-} WASMCurrentEnvStatus;
+};
 
 WASMCurrentEnvStatus *
 wasm_cluster_create_exenv_status();
