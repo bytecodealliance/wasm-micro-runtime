@@ -72,7 +72,8 @@ aot_compile_op_f32_const(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             aot_set_last_error("llvm build bitcast failed.");
             return false;
         }
-        if (!(value = LLVMBuildLoad(comp_ctx->builder, alloca, ""))) {
+        if (!(value =
+                  LLVMBuildLoad2(comp_ctx->builder, F32_TYPE, alloca, ""))) {
             aot_set_last_error("llvm build load failed.");
             return false;
         }
@@ -127,7 +128,8 @@ aot_compile_op_f64_const(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             aot_set_last_error("llvm build bitcast failed.");
             return false;
         }
-        if (!(value = LLVMBuildLoad(comp_ctx->builder, alloca, ""))) {
+        if (!(value =
+                  LLVMBuildLoad2(comp_ctx->builder, F64_TYPE, alloca, ""))) {
             aot_set_last_error("llvm build load failed.");
             return false;
         }
