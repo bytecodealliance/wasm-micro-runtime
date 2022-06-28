@@ -919,6 +919,7 @@ wasm_runtime_get_function_attachment(wasm_exec_env_t exec_env);
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_user_data(wasm_exec_env_t exec_env, void *user_data);
+
 /**
  * Get the user data within execution environment.
  *
@@ -963,7 +964,7 @@ WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_max_thread_num(uint32_t num);
 
 /**
- * spawn a new exec_env, the spawned exec_env
+ * Spawn a new exec_env, the spawned exec_env
  *   can be used in other threads
  *
  * @param num the original exec_env
@@ -982,7 +983,7 @@ WASM_RUNTIME_API_EXTERN void
 wasm_runtime_destroy_spawned_exec_env(wasm_exec_env_t exec_env);
 
 /**
- * spawn a thread from the given exec_env
+ * Spawn a thread from the given exec_env
  *
  * @param exec_env the original exec_env
  * @param tid thread id to be returned to the caller
@@ -996,7 +997,7 @@ wasm_runtime_spawn_thread(wasm_exec_env_t exec_env, wasm_thread_t *tid,
                           wasm_thread_callback_t callback, void *arg);
 
 /**
- * waits a spawned thread to terminate
+ * Waits a spawned thread to terminate
  *
  * @param tid thread id
  * @param retval if not NULL, output the return value of the thread
@@ -1046,12 +1047,40 @@ WASM_RUNTIME_API_EXTERN bool
 wasm_externref_retain(uint32_t externref_idx);
 
 /**
- * dump the call stack
+ * Dump the call stack to stdout
  *
  * @param exec_env the execution environment
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_dump_call_stack(wasm_exec_env_t exec_env);
+
+/**
+ * Get the size required to store the call stack contents, including
+ * the space for terminating null byte ('\0')
+ *
+ * @param exec_env the execution environment
+ *
+ * @return size required to store the contents, 0 means error
+ */
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_runtime_get_call_stack_buf_size(wasm_exec_env_t exec_env);
+
+/**
+ * Dump the call stack to buffer.
+ *
+ * @note this function is not thread-safe, please only use this API
+ *       when the exec_env is not executing
+ *
+ * @param exec_env the execution environment
+ * @param buf buffer to store the dumped content
+ * @param len length of the buffer
+ *
+ * @return bytes dumped to the buffer, including the terminating null
+ *         byte ('\0'), 0 means error and data in buf may be invalid
+ */
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_runtime_dump_call_stack_to_buf(wasm_exec_env_t exec_env, char *buf,
+                                    uint32_t len);
 
 /**
  * Get a custom section by name

@@ -677,9 +677,9 @@ check_suspend_flags(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     /* Offset of suspend_flags */
     offset = I32_FIVE;
 
-    if (!(terminate_addr =
-              LLVMBuildInBoundsGEP(comp_ctx->builder, func_ctx->exec_env,
-                                   &offset, 1, "terminate_addr"))) {
+    if (!(terminate_addr = LLVMBuildInBoundsGEP2(
+              comp_ctx->builder, OPQ_PTR_TYPE, func_ctx->exec_env, &offset, 1,
+              "terminate_addr"))) {
         aot_set_last_error("llvm build in bounds gep failed");
         return false;
     }
@@ -690,8 +690,9 @@ check_suspend_flags(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
         return false;
     }
 
-    if (!(terminate_flags = LLVMBuildLoad(comp_ctx->builder, terminate_addr,
-                                          "terminate_flags"))) {
+    if (!(terminate_flags =
+              LLVMBuildLoad2(comp_ctx->builder, I32_TYPE, terminate_addr,
+                             "terminate_flags"))) {
         aot_set_last_error("llvm build bit cast failed");
         return false;
     }

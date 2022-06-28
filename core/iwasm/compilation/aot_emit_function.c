@@ -57,8 +57,8 @@ check_exception_thrown(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 
     /* Load the first byte of aot_module_inst->cur_exception, and check
        whether it is '\0'. If yes, no exception was thrown. */
-    if (!(value = LLVMBuildLoad(comp_ctx->builder, func_ctx->cur_exception,
-                                "exce_value"))
+    if (!(value = LLVMBuildLoad2(comp_ctx->builder, INT8_TYPE,
+                                 func_ctx->cur_exception, "exce_value"))
         || !(cmp = LLVMBuildICmp(comp_ctx->builder, LLVMIntEQ, value, I8_ZERO,
                                  "cmp"))) {
         aot_set_last_error("llvm build icmp failed.");
@@ -207,8 +207,9 @@ call_aot_invoke_native_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
 
         snprintf(buf, sizeof(buf), "%s%d", "elem", i);
-        if (!(elem_ptr = LLVMBuildInBoundsGEP(
-                  comp_ctx->builder, func_ctx->argv_buf, &elem_idx, 1, buf))
+        if (!(elem_ptr =
+                  LLVMBuildInBoundsGEP2(comp_ctx->builder, I32_TYPE,
+                                        func_ctx->argv_buf, &elem_idx, 1, buf))
             || !(elem_ptr = LLVMBuildBitCast(comp_ctx->builder, elem_ptr,
                                              elem_ptr_type, buf))) {
             aot_set_last_error("llvm build bit cast failed.");
@@ -236,8 +237,8 @@ call_aot_invoke_native_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     /* call aot_invoke_native() function */
-    if (!(res = LLVMBuildCall(comp_ctx->builder, func, func_param_values, 4,
-                              "res"))) {
+    if (!(res = LLVMBuildCall2(comp_ctx->builder, func_type, func,
+                               func_param_values, 4, "res"))) {
         aot_set_last_error("llvm build call failed.");
         return false;
     }
@@ -255,8 +256,8 @@ call_aot_invoke_native_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             aot_set_last_error("llvm build bit cast failed.");
             return false;
         }
-        if (!(*p_value_ret =
-                  LLVMBuildLoad(comp_ctx->builder, value_ret, "value_ret"))) {
+        if (!(*p_value_ret = LLVMBuildLoad2(comp_ctx->builder, ret_type,
+                                            value_ret, "value_ret"))) {
             aot_set_last_error("llvm build load failed.");
             return false;
         }
@@ -299,14 +300,15 @@ lookup_orcjit_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMPositionBuilderAtEnd(comp_ctx->builder, block_curr);
 
     /* Load function pointer */
-    if (!(func_ptr =
-              LLVMBuildInBoundsGEP(comp_ctx->builder, func_ctx->func_ptrs,
-                                   &func_idx, 1, "func_ptr_tmp"))) {
+    if (!(func_ptr = LLVMBuildInBoundsGEP2(comp_ctx->builder, OPQ_PTR_TYPE,
+                                           func_ctx->func_ptrs, &func_idx, 1,
+                                           "func_ptr_tmp"))) {
         aot_set_last_error("llvm build inbounds gep failed.");
         return false;
     }
 
-    if (!(func = LLVMBuildLoad(comp_ctx->builder, func_ptr, "func_ptr"))) {
+    if (!(func = LLVMBuildLoad2(comp_ctx->builder, OPQ_PTR_TYPE, func_ptr,
+                                "func_ptr"))) {
         aot_set_last_error("llvm build load failed.");
         return false;
     }
@@ -364,8 +366,8 @@ lookup_orcjit_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     /* Call the function */
-    if (!(func = LLVMBuildCall(comp_ctx->builder, func, param_values, 3,
-                               "call_orcjit_lookup"))) {
+    if (!(func = LLVMBuildCall2(comp_ctx->builder, func_type, func,
+                                param_values, 3, "call_orcjit_lookup"))) {
         aot_set_last_error("LLVM build call failed.");
         return false;
     }
@@ -410,8 +412,9 @@ call_aot_alloc_frame_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     param_values[0] = func_ctx->exec_env;
     param_values[1] = func_idx;
 
-    if (!(ret_value = LLVMBuildCall(comp_ctx->builder, func, param_values, 2,
-                                    "call_aot_alloc_frame"))) {
+    if (!(ret_value =
+              LLVMBuildCall2(comp_ctx->builder, func_type, func, param_values,
+                             2, "call_aot_alloc_frame"))) {
         aot_set_last_error("llvm build call failed.");
         return false;
     }
@@ -462,8 +465,8 @@ call_aot_free_frame_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 
     param_values[0] = func_ctx->exec_env;
 
-    if (!(ret_value = LLVMBuildCall(comp_ctx->builder, func, param_values, 1,
-                                    "call_aot_free_frame"))) {
+    if (!(ret_value = LLVMBuildCall2(comp_ctx->builder, func_type, func,
+                                     param_values, 1, "call_aot_free_frame"))) {
         aot_set_last_error("llvm build call failed.");
         return false;
     }
@@ -488,8 +491,8 @@ check_stack_boundary(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         return false;
     }
 
-    if (!(stack_bound = LLVMBuildInBoundsGEP(
-              comp_ctx->builder, func_ctx->native_stack_bound,
+    if (!(stack_bound = LLVMBuildInBoundsGEP2(
+              comp_ctx->builder, INT8_TYPE, func_ctx->native_stack_bound,
               &callee_local_size, 1, "stack_bound"))) {
         aot_set_last_error("llvm build inbound gep failed.");
         return false;
@@ -603,8 +606,8 @@ check_app_addr_and_convert(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     /* call aot_check_app_addr_and_convert() function */
-    if (!(res = LLVMBuildCall(comp_ctx->builder, func, func_param_values, 5,
-                              "res"))) {
+    if (!(res = LLVMBuildCall2(comp_ctx->builder, func_type, func,
+                               func_param_values, 5, "res"))) {
         aot_set_last_error("llvm build call failed.");
         return false;
     }
@@ -614,8 +617,9 @@ check_app_addr_and_convert(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         return false;
     }
 
-    if (!(*p_native_addr_converted = LLVMBuildLoad(
-              comp_ctx->builder, native_addr_ptr, "native_addr"))) {
+    if (!(*p_native_addr_converted =
+              LLVMBuildLoad2(comp_ctx->builder, OPQ_PTR_TYPE, native_addr_ptr,
+                             "native_addr"))) {
         aot_set_last_error("llvm build load failed.");
         return false;
     }
@@ -734,9 +738,9 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             }
 
             snprintf(buf, sizeof(buf), "ext_ret%d_ptr", i);
-            if (!(ext_ret_ptr = LLVMBuildInBoundsGEP(comp_ctx->builder,
-                                                     func_ctx->argv_buf,
-                                                     &ext_ret_idx, 1, buf))) {
+            if (!(ext_ret_ptr = LLVMBuildInBoundsGEP2(
+                      comp_ctx->builder, I32_TYPE, func_ctx->argv_buf,
+                      &ext_ret_idx, 1, buf))) {
                 aot_set_last_error("llvm build GEP failed.");
                 goto fail;
             }
@@ -841,15 +845,15 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             }
 
             /* Load function pointer */
-            if (!(func_ptr = LLVMBuildInBoundsGEP(
-                      comp_ctx->builder, func_ctx->func_ptrs, &import_func_idx,
-                      1, "native_func_ptr_tmp"))) {
+            if (!(func_ptr = LLVMBuildInBoundsGEP2(
+                      comp_ctx->builder, OPQ_PTR_TYPE, func_ctx->func_ptrs,
+                      &import_func_idx, 1, "native_func_ptr_tmp"))) {
                 aot_set_last_error("llvm build inbounds gep failed.");
                 goto fail;
             }
 
-            if (!(func_ptr = LLVMBuildLoad(comp_ctx->builder, func_ptr,
-                                           "native_func_ptr"))) {
+            if (!(func_ptr = LLVMBuildLoad2(comp_ctx->builder, OPQ_PTR_TYPE,
+                                            func_ptr, "native_func_ptr"))) {
                 aot_set_last_error("llvm build load failed.");
                 goto fail;
             }
@@ -861,8 +865,8 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             }
 
             /* Call the function */
-            if (!(value_ret = LLVMBuildCall(
-                      comp_ctx->builder, func, param_values,
+            if (!(value_ret = LLVMBuildCall2(
+                      comp_ctx->builder, native_func_type, func, param_values,
                       (uint32)param_count + 1 + ext_ret_count,
                       (func_type->result_count > 0 ? "call" : "")))) {
                 aot_set_last_error("LLVM build call failed.");
@@ -877,6 +881,9 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
     }
     else {
+#if LLVM_VERSION_MAJOR >= 14
+        LLVMTypeRef llvm_func_type;
+#endif
         bool recursive_call =
             (func_ctx == func_ctxes[func_idx - import_func_count]) ? true
                                                                    : false;
@@ -943,11 +950,15 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             && !check_stack_boundary(comp_ctx, func_ctx, callee_cell_num))
             goto fail;
 
+#if LLVM_VERSION_MAJOR >= 14
+        llvm_func_type = func_ctxes[func_idx - import_func_count]->func_type;
+#endif
+
         /* Call the function */
-        if (!(value_ret =
-                  LLVMBuildCall(comp_ctx->builder, func, param_values,
-                                (uint32)param_count + 1 + ext_ret_count,
-                                (func_type->result_count > 0 ? "call" : "")))) {
+        if (!(value_ret = LLVMBuildCall2(
+                  comp_ctx->builder, llvm_func_type, func, param_values,
+                  (uint32)param_count + 1 + ext_ret_count,
+                  (func_type->result_count > 0 ? "call" : "")))) {
             aot_set_last_error("LLVM build call failed.");
             goto fail;
         }
@@ -972,9 +983,9 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         /* Load extra result from its address and push to stack */
         for (i = 0; i < ext_ret_count; i++) {
             snprintf(buf, sizeof(buf), "func%d_ext_ret%d", func_idx, i);
-            if (!(ext_ret =
-                      LLVMBuildLoad(comp_ctx->builder,
-                                    param_values[1 + param_count + i], buf))) {
+            if (!(ext_ret = LLVMBuildLoad2(
+                      comp_ctx->builder, TO_LLVM_TYPE(ext_ret_types[i]),
+                      param_values[1 + param_count + i], buf))) {
                 aot_set_last_error("llvm build load failed.");
                 goto fail;
             }
@@ -1084,8 +1095,9 @@ call_aot_call_indirect_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
 
         snprintf(buf, sizeof(buf), "%s%d", "elem", i);
-        if (!(elem_ptr = LLVMBuildInBoundsGEP(
-                  comp_ctx->builder, func_ctx->argv_buf, &elem_idx, 1, buf))
+        if (!(elem_ptr =
+                  LLVMBuildInBoundsGEP2(comp_ctx->builder, I32_TYPE,
+                                        func_ctx->argv_buf, &elem_idx, 1, buf))
             || !(elem_ptr = LLVMBuildBitCast(comp_ctx->builder, elem_ptr,
                                              elem_ptr_type, buf))) {
             aot_set_last_error("llvm build bit cast failed.");
@@ -1114,8 +1126,8 @@ call_aot_call_indirect_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     /* call aot_call_indirect() function */
-    if (!(res = LLVMBuildCall(comp_ctx->builder, func, func_param_values, 5,
-                              "res"))) {
+    if (!(res = LLVMBuildCall2(comp_ctx->builder, func_type, func,
+                               func_param_values, 5, "res"))) {
         aot_set_last_error("llvm build call failed.");
         return false;
     }
@@ -1131,8 +1143,9 @@ call_aot_call_indirect_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
 
         snprintf(buf, sizeof(buf), "argv_ret%d", i);
-        if (!(ret_ptr = LLVMBuildInBoundsGEP(
-                  comp_ctx->builder, func_ctx->argv_buf, &ret_idx, 1, buf))
+        if (!(ret_ptr =
+                  LLVMBuildInBoundsGEP2(comp_ctx->builder, I32_TYPE,
+                                        func_ctx->argv_buf, &ret_idx, 1, buf))
             || !(ret_ptr = LLVMBuildBitCast(comp_ctx->builder, ret_ptr,
                                             ret_ptr_type, buf))) {
             aot_set_last_error("llvm build GEP or bit cast failed.");
@@ -1140,7 +1153,8 @@ call_aot_call_indirect_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
 
         snprintf(buf, sizeof(buf), "ret%d", i);
-        if (!(value_rets[i] = LLVMBuildLoad(comp_ctx->builder, ret_ptr, buf))) {
+        if (!(value_rets[i] =
+                  LLVMBuildLoad2(comp_ctx->builder, ret_type, ret_ptr, buf))) {
             aot_set_last_error("llvm build load failed.");
             return false;
         }
@@ -1208,8 +1222,9 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
-    if (!(table_size_const = LLVMBuildGEP(comp_ctx->builder, func_ctx->aot_inst,
-                                          &offset, 1, "cur_size_i8p"))) {
+    if (!(table_size_const = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,
+                                                   func_ctx->aot_inst, &offset,
+                                                   1, "cur_size_i8p"))) {
         HANDLE_FAILURE("LLVMBuildGEP");
         goto fail;
     }
@@ -1221,8 +1236,8 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
-    if (!(table_size_const =
-              LLVMBuildLoad(comp_ctx->builder, table_size_const, "cur_size"))) {
+    if (!(table_size_const = LLVMBuildLoad2(comp_ctx->builder, I32_TYPE,
+                                            table_size_const, "cur_size"))) {
         HANDLE_FAILURE("LLVMBuildLoad");
         goto fail;
     }
@@ -1255,8 +1270,9 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
-    if (!(table_elem = LLVMBuildGEP(comp_ctx->builder, func_ctx->aot_inst,
-                                    &offset, 1, "table_elem_i8p"))) {
+    if (!(table_elem = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,
+                                             func_ctx->aot_inst, &offset, 1,
+                                             "table_elem_i8p"))) {
         aot_set_last_error("llvm build add failed.");
         goto fail;
     }
@@ -1268,14 +1284,15 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     /* Load function index */
-    if (!(table_elem = LLVMBuildGEP(comp_ctx->builder, table_elem, &elem_idx, 1,
-                                    "table_elem"))) {
+    if (!(table_elem =
+              LLVMBuildInBoundsGEP2(comp_ctx->builder, I32_TYPE, table_elem,
+                                    &elem_idx, 1, "table_elem"))) {
         HANDLE_FAILURE("LLVMBuildNUWAdd");
         goto fail;
     }
 
-    if (!(func_idx =
-              LLVMBuildLoad(comp_ctx->builder, table_elem, "func_idx"))) {
+    if (!(func_idx = LLVMBuildLoad2(comp_ctx->builder, I32_TYPE, table_elem,
+                                    "func_idx"))) {
         aot_set_last_error("llvm build load failed.");
         goto fail;
     }
@@ -1302,15 +1319,15 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
 
     /* Load function type index */
-    if (!(ftype_idx_ptr = LLVMBuildInBoundsGEP(
-              comp_ctx->builder, func_ctx->func_type_indexes, &func_idx, 1,
-              "ftype_idx_ptr"))) {
+    if (!(ftype_idx_ptr = LLVMBuildInBoundsGEP2(
+              comp_ctx->builder, I32_TYPE, func_ctx->func_type_indexes,
+              &func_idx, 1, "ftype_idx_ptr"))) {
         aot_set_last_error("llvm build inbounds gep failed.");
         goto fail;
     }
 
-    if (!(ftype_idx =
-              LLVMBuildLoad(comp_ctx->builder, ftype_idx_ptr, "ftype_idx"))) {
+    if (!(ftype_idx = LLVMBuildLoad2(comp_ctx->builder, I32_TYPE, ftype_idx_ptr,
+                                     "ftype_idx"))) {
         aot_set_last_error("llvm build load failed.");
         goto fail;
     }
@@ -1399,9 +1416,9 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         CHECK_LLVM_CONST(ext_ret_offset);
 
         snprintf(buf, sizeof(buf), "ext_ret%d_ptr", i - 1);
-        if (!(ext_ret_ptr =
-                  LLVMBuildInBoundsGEP(comp_ctx->builder, func_ctx->argv_buf,
-                                       &ext_ret_offset, 1, buf))) {
+        if (!(ext_ret_ptr = LLVMBuildInBoundsGEP2(comp_ctx->builder, I32_TYPE,
+                                                  func_ctx->argv_buf,
+                                                  &ext_ret_offset, 1, buf))) {
             aot_set_last_error("llvm build GEP failed.");
             goto fail;
         }
@@ -1553,14 +1570,15 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
 #if WASM_ENABLE_LAZY_JIT == 0
     /* Load function pointer */
-    if (!(func_ptr =
-              LLVMBuildInBoundsGEP(comp_ctx->builder, func_ctx->func_ptrs,
-                                   &func_idx, 1, "func_ptr_tmp"))) {
+    if (!(func_ptr = LLVMBuildInBoundsGEP2(comp_ctx->builder, OPQ_PTR_TYPE,
+                                           func_ctx->func_ptrs, &func_idx, 1,
+                                           "func_ptr_tmp"))) {
         aot_set_last_error("llvm build inbounds gep failed.");
         goto fail;
     }
 
-    if (!(func_ptr = LLVMBuildLoad(comp_ctx->builder, func_ptr, "func_ptr"))) {
+    if (!(func_ptr = LLVMBuildLoad2(comp_ctx->builder, OPQ_PTR_TYPE, func_ptr,
+                                    "func_ptr"))) {
         aot_set_last_error("llvm build load failed.");
         goto fail;
     }
@@ -1584,9 +1602,9 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
-    if (!(value_ret = LLVMBuildCall(comp_ctx->builder, func, param_values,
-                                    total_param_count,
-                                    func_result_count > 0 ? "ret" : ""))) {
+    if (!(value_ret = LLVMBuildCall2(comp_ctx->builder, llvm_func_type, func,
+                                     param_values, total_param_count,
+                                     func_result_count > 0 ? "ret" : ""))) {
         aot_set_last_error("llvm build call failed.");
         goto fail;
     }
@@ -1603,10 +1621,11 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
         /* Load extra result from its address and push to stack */
         for (i = 1; i < func_result_count; i++) {
+            ret_type = TO_LLVM_TYPE(func_type->types[func_param_count + i]);
             snprintf(buf, sizeof(buf), "ext_ret%d", i - 1);
-            if (!(ext_ret =
-                      LLVMBuildLoad(comp_ctx->builder,
-                                    param_values[func_param_count + i], buf))) {
+            if (!(ext_ret = LLVMBuildLoad2(comp_ctx->builder, ret_type,
+                                           param_values[func_param_count + i],
+                                           buf))) {
                 aot_set_last_error("llvm build load failed.");
                 goto fail;
             }

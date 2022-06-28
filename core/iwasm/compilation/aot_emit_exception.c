@@ -96,7 +96,8 @@ aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         /* Call the aot_set_exception_with_id() function */
         param_values[0] = func_ctx->aot_inst;
         param_values[1] = func_ctx->exception_id_phi;
-        if (!LLVMBuildCall(comp_ctx->builder, func, param_values, 2, "")) {
+        if (!LLVMBuildCall2(comp_ctx->builder, func_type, func, param_values, 2,
+                            "")) {
             aot_set_last_error("llvm build call failed.");
             return false;
         }
