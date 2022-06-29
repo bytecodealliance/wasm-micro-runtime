@@ -13,6 +13,7 @@
 extern "C" {
 #endif
 
+#if WASM_ENABLE_REF_TYPES != 0
 bool
 jit_compile_op_elem_drop(JitCompContext *cc, uint32 tbl_seg_idx);
 
@@ -38,6 +39,7 @@ jit_compile_op_table_grow(JitCompContext *cc, uint32 tbl_idx);
 
 bool
 jit_compile_op_table_fill(JitCompContext *cc, uint32 tbl_idx);
+#endif
 
 #ifdef __cplusplus
 } /* end of extern "C" */
