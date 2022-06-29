@@ -182,7 +182,7 @@ mkdirat(int fd, const char *path, mode_t mode)
 ssize_t
 readlinkat(int fd, const char *path, char *buf, size_t bufsize)
 {
-    errno = ENOSYS;
+    errno = EINVAL;
     return -1;
 }
 
