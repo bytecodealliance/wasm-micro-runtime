@@ -19,8 +19,8 @@ struct packet_handler_elem {
 #define DEL_HANDLER(r, h) [r] = { .request = r, .handler = h }
 
 static struct packet_handler_elem packet_handler_table[255] = {
-    DEL_HANDLER('Q', handle_generay_set),
-    DEL_HANDLER('q', handle_generay_query),
+    DEL_HANDLER('Q', handle_general_set),
+    DEL_HANDLER('q', handle_general_query),
     DEL_HANDLER('v', handle_v_packet),
     DEL_HANDLER('?', handle_threadstop_request),
     DEL_HANDLER('H', handle_set_current_thread),
