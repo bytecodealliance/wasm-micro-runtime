@@ -217,7 +217,7 @@ wasm_debug_instance_get_current_object_name(WASMDebugInstance *instance,
 
 uint64
 wasm_debug_instance_mmap(WASMDebugInstance *instance, uint32 size,
-                         int32 map_port);
+                         int32 map_prot);
 
 bool
 wasm_debug_instance_ummap(WASMDebugInstance *instance, uint64 addr);
