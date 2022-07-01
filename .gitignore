@@ -11,6 +11,7 @@
 core/deps/**
 core/shared/mem-alloc/tlsf
 core/app-framework/wgl
+**/core.*
 
 wamr-sdk/out/
 wamr-sdk/runtime/build_runtime_sdk/

@@ -34,7 +34,7 @@ void call_lua_function(lua_State* L)
     double total_t;
     printf("%s\n", __FUNCTION__);
     luaL_openlibs(L);
-    luaL_dofile(L, "test.lua");
+    luaL_dofile(L, "../lua-script/test.lua");
     lua_getglobal(L, "sum");
     lua_pushnumber(L,2);
     lua_pushnumber(L,3);
