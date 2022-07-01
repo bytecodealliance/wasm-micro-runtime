@@ -119,8 +119,3 @@ void wasm_thread_function()
     total_t=(double)(stop_t-start_t)/ CLOCKS_PER_SEC;
     printf("WASM Thread Total time = %f\n", total_t);
 }
-// void thread_function(){
-//     char *message = "WASM thread";
-//     //printf("test /n");
-//     pthread_create(&wasm_thread, NULL, call_wasm_function, (void*) message);
-// }
