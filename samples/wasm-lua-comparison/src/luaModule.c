@@ -35,11 +35,10 @@ void call_lua_function(lua_State* L)
     printf("%s\n", __FUNCTION__);
     luaL_openlibs(L);
     luaL_dofile(L, "../lua-script/test.lua");
-    lua_getglobal(L, "sum");
-    lua_pushnumber(L,2);
-    lua_pushnumber(L,3);
+    lua_getglobal(L, "power");
+    lua_pushnumber(L,1000000000);
     start_t= clock();
-    lua_call(L,2,1);
+    lua_call(L,1,1);
     stop_t= clock();
     int sum = (int)lua_tointeger(L,-1);
     lua_pop(L,1);

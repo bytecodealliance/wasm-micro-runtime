@@ -1,23 +1,7 @@
--- function fib(n)
---     if n == 1 or n == 2 then
---        return 1,1
---     end
---     prev, prevPrev = fib(n-1)
---     return prev+prevPrev, prev
---  end
-
---  print(fib(5))
---  print(fib(10))
-
- function sum(start, length)
-    local sum =0
-    print(start)
-    for x=0,9999999 do 
-    for x=start,(start+length-1) do
-        sum = sum + x;
+function power(n)
+    local start=7
+    for x=0,(n-1) do
+        start=start*(start+1)
     end
-    
-    end
-return sum
+    return start
 end
---  print(sum(1))

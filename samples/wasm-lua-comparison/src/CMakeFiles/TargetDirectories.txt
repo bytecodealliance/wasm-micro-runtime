@@ -1,0 +1,7 @@
+/home/szadys/wasm-micro-runtime/samples/wasm-lua-comparison/src/CMakeFiles/vmlib.dir
+/home/szadys/wasm-micro-runtime/samples/wasm-lua-comparison/src/CMakeFiles/comparison.dir
+/home/szadys/wasm-micro-runtime/samples/wasm-lua-comparison/src/CMakeFiles/edit_cache.dir
+/home/szadys/wasm-micro-runtime/samples/wasm-lua-comparison/src/CMakeFiles/rebuild_cache.dir
+/home/szadys/wasm-micro-runtime/samples/wasm-lua-comparison/src/wasm-apps/CMakeFiles/test.wasm.dir
+/home/szadys/wasm-micro-runtime/samples/wasm-lua-comparison/src/wasm-apps/CMakeFiles/edit_cache.dir
+/home/szadys/wasm-micro-runtime/samples/wasm-lua-comparison/src/wasm-apps/CMakeFiles/rebuild_cache.dir

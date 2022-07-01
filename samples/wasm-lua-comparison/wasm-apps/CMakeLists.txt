@@ -28,7 +28,7 @@ set (DEFINED_SYMBOLS
 
 set (CMAKE_EXE_LINKER_FLAGS
     "-Wl,--shared-memory,--max-memory=131072,       \
-    -Wl,--no-entry,--strip-all,--export=sum,        \
+    -Wl,--no-entry,--strip-all,--export=power,        \
     -Wl,--export=__heap_base,--export=__data_end    \
     -Wl,--export=__wasm_call_ctors  \
     -Wl,--allow-undefined-file=${DEFINED_SYMBOLS}"

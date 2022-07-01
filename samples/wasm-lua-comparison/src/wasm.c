@@ -68,7 +68,7 @@ void init_wasm()
         printf("failed to create exec_env\n");
         return -1;
     }
-    func = wasm_runtime_lookup_function(wasm_module_inst, "sum", NULL);
+    func = wasm_runtime_lookup_function(wasm_module_inst, "power", NULL);
     if (!func) {
         printf("failed to lookup function sum");
         return -1;
@@ -91,7 +91,7 @@ void call_wasm_function()
     clock_t start_t, stop_t;
     double total_t;
     printf("%s\n", __FUNCTION__);
-    wasm_argv[0] = 2;
+    wasm_argv[0] = 1000000000;
     wasm_argv[1] = 3;
 
     /*

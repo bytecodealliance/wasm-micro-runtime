@@ -3,16 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-
-int
-sum(int start, int length)
-{
-    int sum = 0, i, j;
-
-    for(j=0; j<10000000; j++){
-        for (i = start; i < start + length; i++) {
-            sum += i;
-        }
-    }
-    return sum;
+int power(int n){
+	int start=7;
+	for(int i=0;i<n;i++){
+		start=start*(start+1);
+	}
+	return start;
 }
