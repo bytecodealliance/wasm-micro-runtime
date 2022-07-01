@@ -278,8 +278,10 @@ local_log2l(uint64 data)
 
 /* Jmp type */
 typedef enum JmpType {
-    JMP_DST_LABEL,     /* jmp to dst label */
-    JMP_END_OF_CALLBC, /* jmp to end of CALLBC */
+    JMP_DST_LABEL_REL,     /* jmp to dst label with relative addr */
+    JMP_DST_LABEL_ABS,     /* jmp to dst label with absolute addr */
+    JMP_END_OF_CALLBC,     /* jmp to end of CALLBC */
+    JMP_LOOKUPSWITCH_BASE, /* LookupSwitch table base addr */
 } JmpType;
 
 /**
@@ -336,7 +338,7 @@ jmp_from_label_to_label(x86::Assembler &a, bh_list *jmp_info_list,
     if (!node)
         return false;
 
-    node->type = JMP_DST_LABEL;
+    node->type = JMP_DST_LABEL_REL;
     node->label_src = label_src;
     node->dst_info.label_dst = label_dst;
     node->offset = a.code()->sectionById(0)->buffer().size() + 2;
@@ -373,7 +375,7 @@ cmp_r_and_jmp_label(JitCompContext *cc, x86::Assembler &a,
     if (!node)
         return false;
 
-    node->type = JMP_DST_LABEL;
+    node->type = JMP_DST_LABEL_REL;
     node->label_src = label_src;
     node->dst_info.label_dst = jit_reg_no(r1);
     node->offset = a.code()->sectionById(0)->buffer().size() + 2;
@@ -5432,33 +5434,96 @@ lookupswitch_r(JitCompContext *cc, x86::Assembler &a, bh_list *jmp_info_list,
 {
     JmpInfo *node;
     Imm imm;
+    x86::Mem m;
     uint32 i;
-    int32 label_dst;
+    int32 label_dst = 0;
+    char *stream;
 
-    for (i = 0; i < opnd->match_pairs_num; i++) {
-        imm.setValue(opnd->match_pairs[i].value);
-        a.cmp(regs_i32[reg_no], imm);
+    if (opnd->match_pairs_num < 5) {
+        /* For small count of branches, it is better to compare
+           the key with branch value and jump one by one */
+        for (i = 0; i < opnd->match_pairs_num; i++) {
+            imm.setValue(opnd->match_pairs[i].value);
+            a.cmp(regs_i32[reg_no], imm);
 
-        label_dst = jit_reg_no(opnd->match_pairs[i].target);
-        imm.setValue(label_dst);
+            node = (JmpInfo *)jit_malloc(sizeof(JmpInfo));
+            if (!node)
+                GOTO_FAIL;
+
+            node->type = JMP_DST_LABEL_REL;
+            node->label_src = label_src;
+            node->dst_info.label_dst = jit_reg_no(opnd->match_pairs[i].target);
+            node->offset = a.code()->sectionById(0)->buffer().size() + 2;
+            bh_list_insert(jmp_info_list, node);
+
+            imm.setValue(INT32_MAX);
+            a.je(imm);
+            a.nop();
+        }
+
+        if (opnd->default_target) {
+            label_dst = jit_reg_no(opnd->default_target);
+            if (!(is_last_insn
+                  && label_is_neighboring(cc, label_src, label_dst)))
+                JMP_TO_LABEL(label_dst, label_src);
+        }
+    }
+    else {
+        /* For bigger count of branches, use indirect jump */
+        /* unsigned extend to rsi */
+        a.mov(regs_i32[REG_I32_FREE_IDX], regs_i32[reg_no]);
+        imm.setValue(opnd->match_pairs_num);
+        a.cmp(regs_i64[REG_I64_FREE_IDX], imm);
+
+        /* Jump to default label if rsi >= br_count */
+        stream = (char *)a.code()->sectionById(0)->buffer().data()
+                 + a.code()->sectionById(0)->buffer().size();
+        imm.setValue(INT32_MAX);
+        a.jb(imm);
+        *(uint32 *)(stream + 2) = 6;
+
+        node = (JmpInfo *)jit_calloc(sizeof(JmpInfo));
+        if (!node)
+            goto fail;
+
+        node->type = JMP_DST_LABEL_REL;
+        node->label_src = label_src;
+        node->dst_info.label_dst = jit_reg_no(opnd->default_target);
+        node->offset = a.code()->sectionById(0)->buffer().size() + 2;
+        bh_list_insert(jmp_info_list, node);
+
+        imm.setValue(INT32_MAX);
+        a.jmp(imm);
 
         node = (JmpInfo *)jit_malloc(sizeof(JmpInfo));
         if (!node)
             GOTO_FAIL;
 
-        node->type = JMP_DST_LABEL;
-        node->label_src = label_src;
-        node->dst_info.label_dst = label_dst;
+        node->type = JMP_LOOKUPSWITCH_BASE;
         node->offset = a.code()->sectionById(0)->buffer().size() + 2;
         bh_list_insert(jmp_info_list, node);
 
-        a.je(imm);
-    }
+        /* LookupSwitch table base addr */
+        imm.setValue(INT64_MAX);
+        a.mov(regs_i64[reg_no], imm);
 
-    if (opnd->default_target) {
-        label_dst = jit_reg_no(opnd->default_target);
-        if (!(is_last_insn && label_is_neighboring(cc, label_src, label_dst)))
-            JMP_TO_LABEL(label_dst, label_src);
+        /* jmp *(base_addr + rsi * 8) */
+        m = x86::ptr(regs_i64[reg_no], regs_i64[REG_I64_FREE_IDX], 3);
+        a.jmp(m);
+
+        /* Store each dst label absolute address */
+        for (i = 0; i < opnd->match_pairs_num; i++) {
+            node = (JmpInfo *)jit_malloc(sizeof(JmpInfo));
+            if (!node)
+                GOTO_FAIL;
+
+            node->type = JMP_DST_LABEL_ABS;
+            node->dst_info.label_dst = jit_reg_no(opnd->match_pairs[i].target);
+            node->offset = a.code()->sectionById(0)->buffer().size();
+            bh_list_insert(jmp_info_list, node);
+
+            a.embedUInt64(UINT64_MAX);
+        }
     }
 
     return true;
@@ -5760,7 +5825,8 @@ patch_jmp_info_list(JitCompContext *cc, bh_list *jmp_info_list)
 
         stream = (char *)cc->jitted_addr_begin + jmp_info->offset;
 
-        if (jmp_info->type == JMP_DST_LABEL) {
+        if (jmp_info->type == JMP_DST_LABEL_REL) {
+            /* Jmp with relative address */
             reg_dst =
                 jit_reg_new(JIT_REG_KIND_L32, jmp_info->dst_info.label_dst);
             *(int32 *)stream =
@@ -5768,9 +5834,20 @@ patch_jmp_info_list(JitCompContext *cc, bh_list *jmp_info_list)
                         - (uintptr_t)stream)
                 - 4;
         }
+        else if (jmp_info->type == JMP_DST_LABEL_ABS) {
+            /* Jmp with absolute address */
+            reg_dst =
+                jit_reg_new(JIT_REG_KIND_L32, jmp_info->dst_info.label_dst);
+            *(uintptr_t *)stream =
+                (uintptr_t)*jit_annl_jitted_addr(cc, reg_dst);
+        }
         else if (jmp_info->type == JMP_END_OF_CALLBC) {
             /* 7 is the size of mov and jmp instruction */
             *(uintptr_t *)stream = (uintptr_t)stream + sizeof(uintptr_t) + 7;
+        }
+        else if (jmp_info->type == JMP_LOOKUPSWITCH_BASE) {
+            /* 11 is the size of 8-byte addr and 3-byte jmp instruction */
+            *(uintptr_t *)stream = (uintptr_t)stream + 11;
         }
 
         jmp_info = jmp_info_next;
