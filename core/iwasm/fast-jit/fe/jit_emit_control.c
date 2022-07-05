@@ -165,8 +165,39 @@ fail:
 }
 
 static bool
+jit_reg_is_i32_const(JitCompContext *cc, JitReg reg, int32 val)
+{
+    return (jit_reg_kind(reg) == JIT_REG_KIND_I32 && jit_reg_is_const(reg)
+            && jit_cc_get_const_I32(cc, reg) == val)
+               ? true
+               : false;
+}
+
+/**
+ * get the last two insns:
+ *     CMP cmp_reg, r0, r1
+ *     SELECTcc r2, cmp_reg, 1, 0
+ */
+static void
+get_last_cmp_and_selectcc(JitCompContext *cc, JitReg cond, JitInsn **p_insn_cmp,
+                          JitInsn **p_insn_select)
+{
+    JitInsn *insn = jit_basic_block_last_insn(cc->cur_basic_block);
+
+    if (insn && insn->prev && insn->prev->opcode == JIT_OP_CMP
+        && insn->opcode >= JIT_OP_SELECTEQ && insn->opcode <= JIT_OP_SELECTLEU
+        && *jit_insn_opnd(insn, 0) == cond
+        && jit_reg_is_i32_const(cc, *jit_insn_opnd(insn, 2), 1)
+        && jit_reg_is_i32_const(cc, *jit_insn_opnd(insn, 3), 0)) {
+        *p_insn_cmp = insn->prev;
+        *p_insn_select = insn;
+    }
+}
+
+static bool
 push_jit_block_to_stack_and_pass_params(JitCompContext *cc, JitBlock *block,
-                                        JitBasicBlock *basic_block, JitReg cond)
+                                        JitBasicBlock *basic_block, JitReg cond,
+                                        bool merge_cmp_and_if)
 {
     JitFrame *jit_frame = cc->jit_frame;
     JitValue *value_list_head = NULL, *value_list_end = NULL, *jit_value;
@@ -205,6 +236,12 @@ push_jit_block_to_stack_and_pass_params(JitCompContext *cc, JitBlock *block,
         /* Continue to translate current block */
     }
     else {
+        JitInsn *insn_select = NULL, *insn_cmp = NULL;
+
+        if (merge_cmp_and_if) {
+            get_last_cmp_and_selectcc(cc, cond, &insn_cmp, &insn_select);
+        }
+
         /* Commit register values to locals and stacks */
         gen_commit_values(jit_frame, jit_frame->lp, jit_frame->sp);
 
@@ -227,11 +264,26 @@ push_jit_block_to_stack_and_pass_params(JitCompContext *cc, JitBlock *block,
         }
         else {
             /* IF block with condition br insn */
-            if (!GEN_INSN(CMP, cc->cmp_reg, cond, NEW_CONST(I32, 0))
-                || !(insn = GEN_INSN(BNE, cc->cmp_reg,
-                                     jit_basic_block_label(basic_block), 0))) {
-                jit_set_last_error(cc, "generate cond br failed");
-                goto fail;
+            if (insn_select && insn_cmp) {
+                /* Change `CMP + SELECTcc` into `CMP + Bcc` */
+                if (!(insn = GEN_INSN(BEQ, cc->cmp_reg,
+                                      jit_basic_block_label(basic_block), 0))) {
+                    jit_set_last_error(cc, "generate cond br failed");
+                    goto fail;
+                }
+                insn->opcode =
+                    JIT_OP_BEQ + (insn_select->opcode - JIT_OP_SELECTEQ);
+                jit_insn_unlink(insn_select);
+                jit_insn_delete(insn_select);
+            }
+            else {
+                if (!GEN_INSN(CMP, cc->cmp_reg, cond, NEW_CONST(I32, 0))
+                    || !(insn =
+                             GEN_INSN(BNE, cc->cmp_reg,
+                                      jit_basic_block_label(basic_block), 0))) {
+                    jit_set_last_error(cc, "generate cond br failed");
+                    goto fail;
+                }
             }
 
             /* Don't create else basic block or end basic block now, just
@@ -449,7 +501,9 @@ handle_op_end(JitCompContext *cc, uint8 **p_frame_ip, bool is_block_polymorphic)
         incoming_insn = block->incoming_insns_for_end_bb;
         while (incoming_insn) {
             insn = incoming_insn->insn;
-            bh_assert(insn->opcode == JIT_OP_JMP || insn->opcode == JIT_OP_BNE);
+            bh_assert(
+                insn->opcode == JIT_OP_JMP
+                || (insn->opcode >= JIT_OP_BEQ && insn->opcode <= JIT_OP_BLEU));
             *(jit_insn_opnd(insn, incoming_insn->opnd_idx)) =
                 jit_basic_block_label(block->basic_block_end);
             incoming_insn = incoming_insn->next;
@@ -601,7 +655,7 @@ bool
 jit_compile_op_block(JitCompContext *cc, uint8 **p_frame_ip,
                      uint8 *frame_ip_end, uint32 label_type, uint32 param_count,
                      uint8 *param_types, uint32 result_count,
-                     uint8 *result_types)
+                     uint8 *result_types, bool merge_cmp_and_if)
 {
     BlockAddr block_addr_cache[BLOCK_ADDR_CACHE_SIZE][BLOCK_ADDR_CONFLICT_SIZE];
     JitBlock *block;
@@ -656,8 +710,8 @@ jit_compile_op_block(JitCompContext *cc, uint8 **p_frame_ip,
     if (label_type == LABEL_TYPE_BLOCK) {
         /* Push the new jit block to block stack and continue to
            translate current basic block */
-        if (!push_jit_block_to_stack_and_pass_params(cc, block,
-                                                     cc->cur_basic_block, 0))
+        if (!push_jit_block_to_stack_and_pass_params(
+                cc, block, cc->cur_basic_block, 0, false))
             goto fail;
     }
     else if (label_type == LABEL_TYPE_LOOP) {
@@ -667,7 +721,7 @@ jit_compile_op_block(JitCompContext *cc, uint8 **p_frame_ip,
         /* Push the new jit block to block stack and continue to
            translate the new basic block */
         if (!push_jit_block_to_stack_and_pass_params(
-                cc, block, block->basic_block_entry, 0))
+                cc, block, block->basic_block_entry, 0, false))
             goto fail;
     }
     else if (label_type == LABEL_TYPE_IF) {
@@ -682,7 +736,8 @@ jit_compile_op_block(JitCompContext *cc, uint8 **p_frame_ip,
             SET_BB_BEGIN_BCIP(block->basic_block_entry, *p_frame_ip);
 
             if (!push_jit_block_to_stack_and_pass_params(
-                    cc, block, block->basic_block_entry, value))
+                    cc, block, block->basic_block_entry, value,
+                    merge_cmp_and_if))
                 goto fail;
         }
         else {
@@ -691,7 +746,7 @@ jit_compile_op_block(JitCompContext *cc, uint8 **p_frame_ip,
                    BASIC_BLOCK if cannot be reached, we treat it same as
                    LABEL_TYPE_BLOCK and start to translate if branch */
                 if (!push_jit_block_to_stack_and_pass_params(
-                        cc, block, cc->cur_basic_block, 0))
+                        cc, block, cc->cur_basic_block, 0, false))
                     goto fail;
             }
             else {
@@ -700,7 +755,7 @@ jit_compile_op_block(JitCompContext *cc, uint8 **p_frame_ip,
                        BASIC_BLOCK if cannot be reached, we treat it same as
                        LABEL_TYPE_BLOCK and start to translate else branch */
                     if (!push_jit_block_to_stack_and_pass_params(
-                            cc, block, cc->cur_basic_block, 0))
+                            cc, block, cc->cur_basic_block, 0, false))
                         goto fail;
                     *p_frame_ip = else_addr + 1;
                 }
@@ -833,14 +888,15 @@ jit_compile_op_br(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
 }
 
 bool
-jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
+jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth,
+                     bool merge_cmp_and_br_if, uint8 **p_frame_ip)
 {
     JitFrame *jit_frame;
     JitBlock *block_dst;
     JitReg cond;
     JitBasicBlock *cur_basic_block, *if_basic_block = NULL;
     JitValueSlot *frame_sp_src;
-    JitInsn *insn;
+    JitInsn *insn, *insn_select = NULL, *insn_cmp = NULL;
 
     if (!(block_dst = get_target_block(cc, br_depth))) {
         return false;
@@ -848,6 +904,10 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
 
     /* append IF to current basic block */
     POP_I32(cond);
+
+    if (merge_cmp_and_br_if) {
+        get_last_cmp_and_selectcc(cc, cond, &insn_cmp, &insn_select);
+    }
 
     jit_frame = cc->jit_frame;
     cur_basic_block = cc->cur_basic_block;
@@ -864,19 +924,25 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
                                            block_dst->result_count);
     }
 
+    if (!(insn_select && insn_cmp)) {
+        if (!GEN_INSN(CMP, cc->cmp_reg, cond, NEW_CONST(I32, 0))) {
+            jit_set_last_error(cc, "generate cmp insn failed");
+            goto fail;
+        }
+    }
+
     if (block_dst->frame_sp_begin == frame_sp_src) {
         if (block_dst->label_type == LABEL_TYPE_LOOP) {
-            if (!GEN_INSN(CMP, cc->cmp_reg, cond, NEW_CONST(I32, 0))
-                || !GEN_INSN(
-                    BNE, cc->cmp_reg,
-                    jit_basic_block_label(block_dst->basic_block_entry), 0)) {
+            if (!(insn = GEN_INSN(
+                      BNE, cc->cmp_reg,
+                      jit_basic_block_label(block_dst->basic_block_entry),
+                      0))) {
                 jit_set_last_error(cc, "generate bne insn failed");
                 goto fail;
             }
         }
         else {
-            if (!GEN_INSN(CMP, cc->cmp_reg, cond, NEW_CONST(I32, 0))
-                || !(insn = GEN_INSN(BNE, cc->cmp_reg, 0, 0))) {
+            if (!(insn = GEN_INSN(BNE, cc->cmp_reg, 0, 0))) {
                 jit_set_last_error(cc, "generate bne insn failed");
                 goto fail;
             }
@@ -885,15 +951,26 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
                 goto fail;
             }
         }
+        if (insn_select && insn_cmp) {
+            /* Change `CMP + SELECTcc` into `CMP + Bcc` */
+            insn->opcode = JIT_OP_BEQ + (insn_select->opcode - JIT_OP_SELECTEQ);
+            jit_insn_unlink(insn_select);
+            jit_insn_delete(insn_select);
+        }
         return true;
     }
 
     CREATE_BASIC_BLOCK(if_basic_block);
-    if (!GEN_INSN(CMP, cc->cmp_reg, cond, NEW_CONST(I32, 0))
-        || !GEN_INSN(BNE, cc->cmp_reg, jit_basic_block_label(if_basic_block),
-                     0)) {
+    if (!(insn = GEN_INSN(BNE, cc->cmp_reg,
+                          jit_basic_block_label(if_basic_block), 0))) {
         jit_set_last_error(cc, "generate bne insn failed");
         goto fail;
+    }
+    if (insn_select && insn_cmp) {
+        /* Change `CMP + SELECTcc` into `CMP + Bcc` */
+        insn->opcode = JIT_OP_BEQ + (insn_select->opcode - JIT_OP_SELECTEQ);
+        jit_insn_unlink(insn_select);
+        jit_insn_delete(insn_select);
     }
 
     SET_BUILDER_POS(if_basic_block);
