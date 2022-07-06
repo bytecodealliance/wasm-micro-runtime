@@ -17,6 +17,8 @@ import struct
 import math
 import traceback
 
+from tty_runner import TTYRunner
+
 IS_PY_3 = sys.version_info[0] == 3
 
 test_aot = False
@@ -54,6 +56,10 @@ if platform.system().find("CYGWIN_NT") >= 0:
 else:
     sep = "\r\n"
 rundir = None
+
+def create_a_runner(cmd, no_pty=False):
+    # return TTYRunner(cmd) if sys.platform == "darwin" else Runner(cmd, no_pty)
+    return TTYRunner(cmd)
 
 class Runner():
     def __init__(self, args, no_pty=False):
@@ -148,7 +154,8 @@ class Runner():
                 self.stdout.close()
             self.stdin = None
             self.stdout = None
-            sys.exc_clear()
+            if not IS_PY_3:
+                sys.exc_clear()
 
 def assert_prompt(runner, prompts, timeout, is_need_execute_result):
     # Wait for the initial prompt
@@ -233,6 +240,9 @@ PY_SKIP_TESTS = (
         # endianness
         '.const 0x1.fff' )
 
+# TODO: replace it with shlex.shlex.
+# we should not check malformed in this script, and should leave it to
+# the wast2wasm program or the interpter
 def read_forms(string):
     forms = []
     form = ""
@@ -619,8 +629,8 @@ def value_comparison(out, expected):
     if not expected:
         return False
 
-    assert(':' in out), "out should be in a form likes numbers:type, but {}".format(out)
-    assert(':' in expected), "expected should be in a form likes numbers:type, but {}".format(expected)
+    assert(':' in out), "out should be in a form likes numbers:type, but {}".format(out.encode('utf-8'))
+    assert(':' in expected), "expected should be in a form likes numbers:type, but {}".format(expected.encode('utf-8'))
 
     if 'v128' in out:
         return vector_value_comparison(out, expected)
@@ -635,8 +645,10 @@ def test_assert(r, opts, mode, cmd, expected):
     log("Testing(%s) %s = %s" % (mode, cmd, expected))
 
     out = invoke(r, opts, cmd)
-    outs = [''] + out.split('\n')[1:]
-    out = outs[-1]
+    print("==> {}".format(out.encode("utf-8")))
+    if '\n' in out:
+        outs = [''] + out.split('\n')[1:]
+        out = outs[-1]
 
     if mode=='trap':
         o = re.sub('^Exception: ', '', out)
@@ -896,7 +908,8 @@ def skip_test(form, skip_list):
 
 def compile_wast_to_wasm(form, wast_tempfile, wasm_tempfile, opts):
     log("Writing WAST module to '%s'" % wast_tempfile)
-    file(wast_tempfile, 'w').write(form)
+    with open(wast_tempfile, 'w') as f:
+        f.write(form)
     log("Compiling WASM to '%s'" % wasm_tempfile)
 
     # default arguments
@@ -966,7 +979,7 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r):
     else:
         if (r != None):
             r.cleanup()
-        r = Runner(cmd, no_pty=opts.no_pty)
+        r = create_a_runner(cmd, opts.no_pty)
         return r
 
 def run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r):
@@ -986,7 +999,7 @@ def run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r):
     log("Running: %s" % " ".join(cmd))
     if (r != None):
         r.cleanup()
-    r = Runner(cmd, no_pty=opts.no_pty)
+    r = create_a_runner(cmd, opts.no_pty)
     return r
 
 def create_tmpfiles(wast_name):
@@ -1122,11 +1135,24 @@ if __name__ == "__main__":
                     # workaround: spec test changes error message to "malformed" while iwasm still use "invalid"
                     error_msg = m.group(2).replace("malformed", "invalid")
                     log("Testing(malformed)")
-                    f = file(wasm_tempfile, 'w')
+                    f = open(wasm_tempfile, 'wb' if IS_PY_3 else "w")
+                    # f = open(wasm_tempfile, 'w')
                     s = m.group(1)
+                    print("==>s: {}".format(s))
                     while s:
                         res = re.match("[^\"]*\"([^\"]*)\"(.*)", s, re.DOTALL)
-                        f.write(res.group(1).replace("\\", "\\x").decode("string_escape"))
+                        binary_module = res.group(1)
+
+                        print("==>1. SZ:{} binary_module: \"{}\"".format(len(binary_module), binary_module))
+                        if IS_PY_3:
+                            binary_module = binary_module.replace("\\", "\\x").encode("raw_unicode_escape").decode("unicode_escape")
+                            binary_module = binary_module.encode("latin-1")
+                        else:
+                            binary_module = binary_module.replace("\\", "\\x").decode("string_escape")
+                        print("==>2. SZ:{} binary_module: \"{}\"".format(len(binary_module), repr(binary_module)))
+
+                        sz = f.write(binary_module)
+                        print("==>3. SZ:{} ".format(sz))
                         s = res.group(2)
                     f.close()
 
@@ -1150,6 +1176,7 @@ if __name__ == "__main__":
                         cmd = [opts.interpreter, "--heap-size=0", "--repl", wasm_tempfile]
                     log("Running: %s" % " ".join(cmd))
                     output = subprocess.check_output(cmd)
+                    output = output.decode('utf-8')
 
                     if (error_msg == "unexpected end of section or function") \
                        and output.endswith("unexpected end\n"):
@@ -1275,7 +1302,7 @@ if __name__ == "__main__":
                 raise Exception("unrecognized form '%s...'" % form[0:40])
     except Exception as e:
         traceback.print_exc()
-        print("THE FINAL EXCEPTION IS {}".format(e))
+        print("THE FINAL EXCEPTION IS: \"{}\:".format(e))
         ret_code = 101
     else:
         ret_code = 0
