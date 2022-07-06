@@ -448,31 +448,53 @@ mask_signals(int how)
     pthread_sigmask(how, &set, NULL);
 }
 
-__attribute__((noreturn)) static void
+static os_thread_local_attribute struct sigaction prev_sig_act_SIGSEGV;
+static os_thread_local_attribute struct sigaction prev_sig_act_SIGBUS;
+
+static void
 signal_callback(int sig_num, siginfo_t *sig_info, void *sig_ucontext)
 {
     void *sig_addr = sig_info->si_addr;
+    struct sigaction *prev_sig_act = NULL;
 
     mask_signals(SIG_BLOCK);
 
+    /* Try to handle signal with the registered signal handler */
     if (signal_handler && (sig_num == SIGSEGV || sig_num == SIGBUS)) {
         signal_handler(sig_addr);
     }
 
-    /* signal unhandled */
-    switch (sig_num) {
-        case SIGSEGV:
-            os_printf("unhandled SIGSEGV, si_addr: %p\n", sig_addr);
-            break;
-        case SIGBUS:
-            os_printf("unhandled SIGBUS, si_addr: %p\n", sig_addr);
-            break;
-        default:
-            os_printf("unhandle signal %d, si_addr: %p\n", sig_num, sig_addr);
-            break;
-    }
+    if (sig_num == SIGSEGV)
+        prev_sig_act = &prev_sig_act_SIGSEGV;
+    else if (sig_num == SIGBUS)
+        prev_sig_act = &prev_sig_act_SIGBUS;
 
-    abort();
+    /* Forward the signal to next handler if found */
+    if (prev_sig_act && (prev_sig_act->sa_flags & SA_SIGINFO)) {
+        prev_sig_act->sa_sigaction(sig_num, sig_info, sig_ucontext);
+    }
+    else if (prev_sig_act
+             && ((void *)prev_sig_act->sa_sigaction == SIG_DFL
+                 || (void *)prev_sig_act->sa_sigaction == SIG_IGN)) {
+        sigaction(sig_num, prev_sig_act, NULL);
+    }
+    /* Output signal info and then crash if signal is unhandled */
+    else {
+        switch (sig_num) {
+            case SIGSEGV:
+                os_printf("unhandled SIGSEGV, si_addr: %p\n", sig_addr);
+                break;
+            case SIGBUS:
+                os_printf("unhandled SIGBUS, si_addr: %p\n", sig_addr);
+                break;
+            default:
+                os_printf("unhandle signal %d, si_addr: %p\n", sig_num,
+                          sig_addr);
+                break;
+        }
+
+        abort();
+    }
 }
 
 int
@@ -508,12 +530,15 @@ os_thread_signal_init(os_signal_handler handler)
         goto fail2;
     }
 
+    memset(&prev_sig_act_SIGSEGV, 0, sizeof(struct sigaction));
+    memset(&prev_sig_act_SIGBUS, 0, sizeof(struct sigaction));
+
     /* Install signal hanlder */
     sig_act.sa_sigaction = signal_callback;
     sig_act.sa_flags = SA_SIGINFO | SA_ONSTACK | SA_NODEFER;
     sigemptyset(&sig_act.sa_mask);
-    if (sigaction(SIGSEGV, &sig_act, NULL) != 0
-        || sigaction(SIGBUS, &sig_act, NULL) != 0) {
+    if (sigaction(SIGSEGV, &sig_act, &prev_sig_act_SIGSEGV) != 0
+        || sigaction(SIGBUS, &sig_act, &prev_sig_act_SIGBUS) != 0) {
         os_printf("Failed to register signal handler\n");
         goto fail3;
     }
