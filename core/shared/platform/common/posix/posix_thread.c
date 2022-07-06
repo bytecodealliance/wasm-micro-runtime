@@ -448,8 +448,8 @@ mask_signals(int how)
     pthread_sigmask(how, &set, NULL);
 }
 
-static struct sigaction prev_sig_act_SIGSEGV;
-static struct sigaction prev_sig_act_SIGBUS;
+static os_thread_local_attribute struct sigaction prev_sig_act_SIGSEGV;
+static os_thread_local_attribute struct sigaction prev_sig_act_SIGBUS;
 
 static void
 signal_callback(int sig_num, siginfo_t *sig_info, void *sig_ucontext)
