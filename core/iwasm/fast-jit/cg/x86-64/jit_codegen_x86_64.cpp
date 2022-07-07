@@ -5653,8 +5653,8 @@ lower_callbc(JitCompContext *cc, x86::Assembler &a, bh_list *jmp_info_list,
 {
     JmpInfo *node;
     Imm imm;
-    JitReg ecx_hreg = jit_reg_new(JIT_REG_KIND_I32, REG_ECX_IDX);
-    JitReg rcx_hreg = jit_reg_new(JIT_REG_KIND_I64, REG_RCX_IDX);
+    JitReg edx_hreg = jit_reg_new(JIT_REG_KIND_I32, REG_EDX_IDX);
+    JitReg rdx_hreg = jit_reg_new(JIT_REG_KIND_I64, REG_RDX_IDX);
     JitReg xmm0_f32_hreg = jit_reg_new(JIT_REG_KIND_F32, 0);
     JitReg xmm0_f64_hreg = jit_reg_new(JIT_REG_KIND_F64, 0);
     JitReg ret_reg = *(jit_insn_opnd (insn, 0));
@@ -5685,10 +5685,10 @@ lower_callbc(JitCompContext *cc, x86::Assembler &a, bh_list *jmp_info_list,
     if (ret_reg) {
         switch (jit_reg_kind(ret_reg)) {
             case JIT_REG_KIND_I32:
-                src_reg = ecx_hreg;
+                src_reg = edx_hreg;
                 break;
             case JIT_REG_KIND_I64:
-                src_reg = rcx_hreg;
+                src_reg = rdx_hreg;
                 break;
             case JIT_REG_KIND_F32:
                 src_reg = xmm0_f32_hreg;
@@ -5712,8 +5712,8 @@ fail:
 static bool
 lower_returnbc(JitCompContext *cc, x86::Assembler &a, JitInsn *insn)
 {
-    JitReg ecx_hreg = jit_reg_new(JIT_REG_KIND_I32, REG_ECX_IDX);
-    JitReg rcx_hreg = jit_reg_new(JIT_REG_KIND_I64, REG_RCX_IDX);
+    JitReg edx_hreg = jit_reg_new(JIT_REG_KIND_I32, REG_EDX_IDX);
+    JitReg rdx_hreg = jit_reg_new(JIT_REG_KIND_I64, REG_RDX_IDX);
     JitReg xmm0_f32_hreg = jit_reg_new(JIT_REG_KIND_F32, 0);
     JitReg xmm0_f64_hreg = jit_reg_new(JIT_REG_KIND_F64, 0);
     JitReg act_reg = *(jit_insn_opnd(insn, 0));
@@ -5729,10 +5729,10 @@ lower_returnbc(JitCompContext *cc, x86::Assembler &a, JitInsn *insn)
     if (ret_reg) {
         switch (jit_reg_kind(ret_reg)) {
             case JIT_REG_KIND_I32:
-                dst_reg = ecx_hreg;
+                dst_reg = edx_hreg;
                 break;
             case JIT_REG_KIND_I64:
-                dst_reg = rcx_hreg;
+                dst_reg = rdx_hreg;
                 break;
             case JIT_REG_KIND_F32:
                 dst_reg = xmm0_f32_hreg;
@@ -6625,7 +6625,7 @@ jit_codegen_init()
     /* info->out.ret.ival[0, 1] = rcx */
     {
         x86::Mem m(x86::rsi, 8);
-        a.mov(m, x86::rcx);
+        a.mov(m, x86::rdx);
     }
     /* info->out.ret.fval[0, 1] = xmm0 */
     {
