@@ -5653,7 +5653,13 @@ lower_callbc(JitCompContext *cc, x86::Assembler &a, bh_list *jmp_info_list,
 {
     JmpInfo *node;
     Imm imm;
+    JitReg ecx_hreg = jit_reg_new(JIT_REG_KIND_I32, REG_ECX_IDX);
+    JitReg rcx_hreg = jit_reg_new(JIT_REG_KIND_I64, REG_RCX_IDX);
+    JitReg xmm0_f32_hreg = jit_reg_new(JIT_REG_KIND_F32, 0);
+    JitReg xmm0_f64_hreg = jit_reg_new(JIT_REG_KIND_F64, 0);
+    JitReg ret_reg = *(jit_insn_opnd (insn, 0));
     JitReg func_reg = *(jit_insn_opnd(insn, 2));
+    JitReg src_reg;
 
     /* Load return_jitted_addr from stack */
     x86::Mem m(x86::rbp, cc->jitted_return_address_offset);
@@ -5675,6 +5681,29 @@ lower_callbc(JitCompContext *cc, x86::Assembler &a, bh_list *jmp_info_list,
     a.mov(regs_i64[REG_I64_FREE_IDX], imm);
     a.mov(m, regs_i64[REG_I64_FREE_IDX]);
     a.jmp(regs_i64[jit_reg_no(func_reg)]);
+
+    if (ret_reg) {
+        switch (jit_reg_kind(ret_reg)) {
+            case JIT_REG_KIND_I32:
+                src_reg = ecx_hreg;
+                break;
+            case JIT_REG_KIND_I64:
+                src_reg = rcx_hreg;
+                break;
+            case JIT_REG_KIND_F32:
+                src_reg = xmm0_f32_hreg;
+                break;
+            case JIT_REG_KIND_F64:
+                src_reg = xmm0_f64_hreg;
+                break;
+            default:
+                bh_assert(0);
+                return false;
+        }
+
+        if (!lower_mov(cc, a, ret_reg, src_reg))
+            return false;
+    }
     return true;
 fail:
     return false;
@@ -5685,8 +5714,11 @@ lower_returnbc(JitCompContext *cc, x86::Assembler &a, JitInsn *insn)
 {
     JitReg ecx_hreg = jit_reg_new(JIT_REG_KIND_I32, REG_ECX_IDX);
     JitReg rcx_hreg = jit_reg_new(JIT_REG_KIND_I64, REG_RCX_IDX);
+    JitReg xmm0_f32_hreg = jit_reg_new(JIT_REG_KIND_F32, 0);
+    JitReg xmm0_f64_hreg = jit_reg_new(JIT_REG_KIND_F64, 0);
     JitReg act_reg = *(jit_insn_opnd(insn, 0));
     JitReg ret_reg = *(jit_insn_opnd(insn, 1));
+    JitReg dst_reg;
     int32 act;
 
     CHECK_CONST(act_reg);
@@ -5695,25 +5727,25 @@ lower_returnbc(JitCompContext *cc, x86::Assembler &a, JitInsn *insn)
     act = jit_cc_get_const_I32(cc, act_reg);
 
     if (ret_reg) {
-        if (jit_reg_is_kind(I32, ret_reg)) {
-            if (!lower_mov(cc, a, ecx_hreg, ret_reg))
+        switch (jit_reg_kind(ret_reg)) {
+            case JIT_REG_KIND_I32:
+                dst_reg = ecx_hreg;
+                break;
+            case JIT_REG_KIND_I64:
+                dst_reg = rcx_hreg;
+                break;
+            case JIT_REG_KIND_F32:
+                dst_reg = xmm0_f32_hreg;
+                break;
+            case JIT_REG_KIND_F64:
+                dst_reg = xmm0_f64_hreg;
+                break;
+            default:
+                bh_assert(0);
                 return false;
         }
-        else if (jit_reg_is_kind(I64, ret_reg)) {
-            if (!lower_mov(cc, a, rcx_hreg, ret_reg))
-                return false;
-        }
-        else if (jit_reg_is_kind(F32, ret_reg)) {
-            /* TODO */
+        if (!lower_mov(cc, a, dst_reg, ret_reg))
             return false;
-        }
-        else if (jit_reg_is_kind(F64, ret_reg)) {
-            /* TODO */
-            return false;
-        }
-        else {
-            return false;
-        }
     }
 
     {
@@ -6594,6 +6626,11 @@ jit_codegen_init()
     {
         x86::Mem m(x86::rsi, 8);
         a.mov(m, x86::rcx);
+    }
+    /* info->out.ret.fval[0, 1] = xmm0 */
+    {
+        x86::Mem m(x86::rsi, 16);
+        a.movsd(m, x86::xmm0);
     }
 
     /* pop callee-save registers */
