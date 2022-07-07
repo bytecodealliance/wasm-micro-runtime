@@ -339,7 +339,7 @@ fail:
 }
 
 /**
- * Check whether the gien register is an allocation candidate, which
+ * Check whether the given register is an allocation candidate, which
  * must be a variable register that is not fixed hard register.
  *
  * @param cc the compilation context
@@ -359,10 +359,8 @@ static void
 check_vreg_definition(RegallocContext *rc, JitInsn *insn)
 {
     JitRegVec regvec = jit_insn_opnd_regs(insn);
-    unsigned i;
-    JitReg *regp;
-    unsigned first_use = jit_insn_opnd_first_use(insn);
-    JitReg reg_defined;
+    JitReg *regp, reg_defined = 0;
+    unsigned i, first_use = jit_insn_opnd_first_use(insn);
 
     /* check if there is the definition of an vr before its references */
     JIT_REG_VEC_FOREACH(regvec, i, regp)
@@ -372,7 +370,7 @@ check_vreg_definition(RegallocContext *rc, JitInsn *insn)
         if (!is_alloc_candidate(rc->cc, *regp))
             continue;
 
-        /*a strong assumption that there is only on defined reg*/
+        /* a strong assumption that there is only one defined reg */
         if (i < first_use) {
             reg_defined = *regp;
             continue;
@@ -380,8 +378,8 @@ check_vreg_definition(RegallocContext *rc, JitInsn *insn)
 
         /**
          * both definition and references are in one instruction,
-         * like MOV i3,i3
-         **/
+         * like MOV i3, i3
+         */
         if (reg_defined == *regp)
             continue;
 
