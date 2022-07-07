@@ -30,12 +30,18 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  # For building
   AOT_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_LAZY_JIT=0"
   CLASSIC_INTERP_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=0 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_LAZY_JIT=0"
   FAST_INTERP_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=0 -DWAMR_BUILD_FAST_INTERP=1 -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_LAZY_JIT=0"
   LAZY_JIT_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=1"
   MC_JIT_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=0"
   LLVM_CACHE_SUFFIX: "build-llvm_libraries_ex"
+  # For spec Test
+  DEFAULT_TEST_OPTIONS: "-s spec"
+  MULTI_MODULES_TEST_OPTIONS: "-s spec -M"
+  SIMD_TEST_OPTIONS: "-s spec -S"
+  THREADS_TEST_OPTIONS: "-s spec -p"
 
 jobs:
   # Cancel any in-flight jobs for the same PR/branch so there's only one active
@@ -391,3 +397,28 @@ jobs:
           cmake ..
           cmake --build . --config Release --parallel 4
           ./hello
+
+  spec_test_default:
+    if: ${{ endsWith(github.repository, 'wasm-micro-runtime') }}
+    needs: [build_iwasm, check_repo]
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        running_mode: ["classic-interp", "fast-interp"]
+        test_option:
+          [
+            $DEFAULT_TEST_OPTIONS,
+            $MULTI_MODULES_TEST_OPTIONS,
+            $SIMD_TEST_OPTIONS,
+            $THREADS_TEST_OPTIONS,
+          ]
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+
+      - name: install Ninja
+        run: brew install ninja
+
+      - name: run spec tests
+        run: ./test_wamr.sh ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
+        working-directory: ./tests/wamr-test-suites

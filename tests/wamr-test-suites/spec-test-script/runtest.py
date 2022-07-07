@@ -58,8 +58,7 @@ else:
 rundir = None
 
 def create_a_runner(cmd, no_pty=False):
-    # return TTYRunner(cmd) if sys.platform == "darwin" else Runner(cmd, no_pty)
-    return TTYRunner(cmd)
+    return TTYRunner(cmd) if sys.platform == "darwin" else Runner(cmd, no_pty)
 
 class Runner():
     def __init__(self, args, no_pty=False):
@@ -322,7 +321,7 @@ def get_module_exp_from_assert(string):
 
 def string_to_unsigned(number_in_string, lane_type):
     if not lane_type in ['i8x16', 'i16x8', 'i32x4', 'i64x2']:
-        raise Exception("invalid value {} and type {} and lane_type {}".format(numbers, type, lane_type))
+        raise Exception("invalid value {} and type {} and lane_type {}".format(number_in_string, type, lane_type))
 
     number = int(number_in_string, 16) if '0x' in number_in_string else int(number_in_string)
 
@@ -472,7 +471,7 @@ def int2int64(i):
 
 
 def num_repr(i):
-    if isinstance(i, int) or isinstance(i, long):
+    if isinstance(i, int):
         return re.sub("L$", "", hex(i))
     else:
         return "%.16g" % i
@@ -645,7 +644,6 @@ def test_assert(r, opts, mode, cmd, expected):
     log("Testing(%s) %s = %s" % (mode, cmd, expected))
 
     out = invoke(r, opts, cmd)
-    print("==> {}".format(out.encode("utf-8")))
     if '\n' in out:
         outs = [''] + out.split('\n')[1:]
         out = outs[-1]
@@ -1138,21 +1136,17 @@ if __name__ == "__main__":
                     f = open(wasm_tempfile, 'wb' if IS_PY_3 else "w")
                     # f = open(wasm_tempfile, 'w')
                     s = m.group(1)
-                    print("==>s: {}".format(s))
                     while s:
                         res = re.match("[^\"]*\"([^\"]*)\"(.*)", s, re.DOTALL)
                         binary_module = res.group(1)
 
-                        print("==>1. SZ:{} binary_module: \"{}\"".format(len(binary_module), binary_module))
                         if IS_PY_3:
                             binary_module = binary_module.replace("\\", "\\x").encode("raw_unicode_escape").decode("unicode_escape")
                             binary_module = binary_module.encode("latin-1")
                         else:
                             binary_module = binary_module.replace("\\", "\\x").decode("string_escape")
-                        print("==>2. SZ:{} binary_module: \"{}\"".format(len(binary_module), repr(binary_module)))
 
                         sz = f.write(binary_module)
-                        print("==>3. SZ:{} ".format(sz))
                         s = res.group(2)
                     f.close()
 
