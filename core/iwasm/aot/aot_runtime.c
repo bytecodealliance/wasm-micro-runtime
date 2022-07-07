@@ -525,7 +525,8 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
         os_munmap(mapped_mem, map_size);
         return NULL;
     }
-    memset(p, 0, (uint32)total_size);
+    /* Newly allocated pages are filled with zero by the OS, we don't fill it
+     * again here */
 #endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
     memory_inst->module_type = Wasm_Module_AoT;
