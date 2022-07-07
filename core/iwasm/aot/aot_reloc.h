@@ -106,6 +106,7 @@ typedef struct {
     REG_SYM(aot_intrinsic_f32_to_f64),    \
     REG_SYM(aot_intrinsic_f32_cmp),       \
     REG_SYM(aot_intrinsic_f64_cmp),       \
+    REG_SYM(aot_intrinsic_i64_div_s),     \
 
 #define REG_COMMON_SYMBOLS                \
     REG_SYM(aot_set_exception_with_id),   \
