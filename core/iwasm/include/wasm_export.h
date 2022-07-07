@@ -301,6 +301,12 @@ wasm_runtime_find_module_registered(const char *module_name);
  * WASM binary data when interpreter or JIT is enabled, or AOT binary data
  * when AOT is enabled. If it is AOT binary data, it must be 4-byte aligned.
  *
+ * Note: In case of AOT XIP modules, the runtime doesn't make modifications
+ * to the buffer. (Except the "Known issues" mentioned in doc/xip.md.)
+ * Otherwise, the runtime can make modifications to the buffer for its
+ * internal purposes. Thus, in general, it isn't safe to create multiple
+ * modules from a single buffer.
+ *
  * @param buf the byte buffer which contains the WASM/AOT binary data,
  *        note that the byte buffer must be writable since runtime may
  *        change its content for footprint and performance purpose, and
