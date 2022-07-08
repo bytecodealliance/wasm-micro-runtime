@@ -5453,7 +5453,7 @@ lookupswitch_r(JitCompContext *cc, x86::Assembler &a, bh_list *jmp_info_list,
     int32 label_dst = 0;
     char *stream;
 
-    if (opnd->match_pairs_num < 5) {
+    if (opnd->match_pairs_num < 10) {
         /* For small count of branches, it is better to compare
            the key with branch value and jump one by one */
         for (i = 0; i < opnd->match_pairs_num; i++) {
@@ -5472,7 +5472,6 @@ lookupswitch_r(JitCompContext *cc, x86::Assembler &a, bh_list *jmp_info_list,
 
             imm.setValue(INT32_MAX);
             a.je(imm);
-            a.nop();
         }
 
         if (opnd->default_target) {
