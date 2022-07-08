@@ -383,7 +383,7 @@ cmp_r_and_jmp_label(JitCompContext *cc, x86::Assembler &a,
 
     bool fp_cmp = cc->last_cmp_on_fp;
 
-    bh_assert(!fp_cmp || (fp_cmp && (op == GES)));
+    bh_assert(!fp_cmp || (fp_cmp && (op == GTS || op == GES)));
 
     switch (op) {
         case EQ:
@@ -398,7 +398,10 @@ cmp_r_and_jmp_label(JitCompContext *cc, x86::Assembler &a,
         }
         case GTS:
         {
-            a.jg(imm);
+            if (fp_cmp)
+                a.ja(imm);
+            else
+                a.jg(imm);
             break;
         }
         case LES:
@@ -5151,8 +5154,7 @@ cmp_r_and_jmp_relative(JitCompContext *cc, x86::Assembler &a, COND_OP op,
                        int32 offset)
 {
     Imm target(INT32_MAX);
-    char *stream = (char *)a.code()->sectionById(0)->buffer().data()
-                   + a.code()->sectionById(0)->buffer().size();
+    char *stream;
     bool fp_cmp = cc->last_cmp_on_fp;
 
     bh_assert(!fp_cmp || (fp_cmp && (op == GTS || op == GES)));
@@ -5225,8 +5227,14 @@ cmp_r_and_jmp_relative(JitCompContext *cc, x86::Assembler &a, COND_OP op,
         }
     }
 
-    /* The offset written by asmjit is always 0, we patch it again */
-    *(int32 *)(stream + 2) = offset;
+    JitErrorHandler *err_handler = (JitErrorHandler *)a.code()->errorHandler();
+
+    if (!err_handler->err) {
+        /* The offset written by asmjit is always 0, we patch it again */
+        stream = (char *)a.code()->sectionById(0)->buffer().data()
+                 + a.code()->sectionById(0)->buffer().size() - 6;
+        *(int32 *)(stream + 2) = offset;
+    }
     return true;
 }
 
@@ -5304,24 +5312,30 @@ fail:
 }
 
 /* jmp to dst label */
-#define JMP_TO_LABEL(label_dst, label_src)                                   \
-    do {                                                                     \
-        if (label_is_ahead(cc, label_dst, label_src)) {                      \
-            char *stream = (char *)a.code()->sectionById(0)->buffer().data() \
-                           + a.code()->sectionById(0)->buffer().size();      \
-            int32 _offset = label_offsets[label_dst]                         \
-                            - a.code()->sectionById(0)->buffer().size();     \
-            Imm imm(INT32_MAX);                                              \
-            a.jmp(imm);                                                      \
-            /* The offset written by asmjit is always 0, we patch it again,  \
-               6 is the size of jmp instruciton */                           \
-            *(int32 *)(stream + 2) = _offset - 6;                            \
-        }                                                                    \
-        else {                                                               \
-            if (!jmp_from_label_to_label(a, jmp_info_list, label_dst,        \
-                                         label_src))                         \
-                GOTO_FAIL;                                                   \
-        }                                                                    \
+#define JMP_TO_LABEL(label_dst, label_src)                                 \
+    do {                                                                   \
+        if (label_is_ahead(cc, label_dst, label_src)) {                    \
+            JitErrorHandler *err_handler =                                 \
+                (JitErrorHandler *)a.code()->errorHandler();               \
+            int32 _offset;                                                 \
+            char *stream;                                                  \
+            Imm imm(INT32_MAX);                                            \
+            a.jmp(imm);                                                    \
+            if (!err_handler->err) {                                       \
+                /* The offset written by asmjit is always 0, we patch it   \
+                   again, 6 is the size of jmp instruciton */              \
+                stream = (char *)a.code()->sectionById(0)->buffer().data() \
+                         + a.code()->sectionById(0)->buffer().size() - 6;  \
+                _offset = label_offsets[label_dst]                         \
+                          - a.code()->sectionById(0)->buffer().size();     \
+                *(int32 *)(stream + 2) = _offset;                          \
+            }                                                              \
+        }                                                                  \
+        else {                                                             \
+            if (!jmp_from_label_to_label(a, jmp_info_list, label_dst,      \
+                                         label_src))                       \
+                GOTO_FAIL;                                                 \
+        }                                                                  \
     } while (0)
 
 /**
