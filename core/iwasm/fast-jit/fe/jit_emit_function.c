@@ -66,8 +66,7 @@ fail:
 
 /* Push results */
 static bool
-post_return(JitCompContext *cc, const WASMType *func_type,
-            JitReg first_res)
+post_return(JitCompContext *cc, const WASMType *func_type, JitReg first_res)
 {
     uint32 i, n;
     JitReg value;
@@ -98,7 +97,7 @@ post_return(JitCompContext *cc, const WASMType *func_type,
                     value = first_res;
                 }
                 else {
-                   value = jit_cc_new_reg_I64(cc);
+                    value = jit_cc_new_reg_I64(cc);
                     GEN_INSN(LDI64, value, cc->fp_reg,
                              NEW_CONST(I32, offset_of_local(n)));
                 }
@@ -124,7 +123,7 @@ post_return(JitCompContext *cc, const WASMType *func_type,
                     value = first_res;
                 }
                 else {
-                   value = jit_cc_new_reg_F64(cc);
+                    value = jit_cc_new_reg_F64(cc);
                     GEN_INSN(LDF64, value, cc->fp_reg,
                              NEW_CONST(I32, offset_of_local(n)));
                 }

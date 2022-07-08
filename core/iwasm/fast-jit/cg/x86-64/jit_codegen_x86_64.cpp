@@ -5657,7 +5657,7 @@ lower_callbc(JitCompContext *cc, x86::Assembler &a, bh_list *jmp_info_list,
     JitReg rdx_hreg = jit_reg_new(JIT_REG_KIND_I64, REG_RDX_IDX);
     JitReg xmm0_f32_hreg = jit_reg_new(JIT_REG_KIND_F32, 0);
     JitReg xmm0_f64_hreg = jit_reg_new(JIT_REG_KIND_F64, 0);
-    JitReg ret_reg = *(jit_insn_opnd (insn, 0));
+    JitReg ret_reg = *(jit_insn_opnd(insn, 0));
     JitReg func_reg = *(jit_insn_opnd(insn, 2));
     JitReg src_reg;
 

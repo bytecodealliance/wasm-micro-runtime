@@ -3846,8 +3846,9 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
         JitGlobals *jit_globals = jit_compiler_get_jit_globals();
         JitInterpSwitchInfo info;
         WASMType *func_type = function->u.func->func_type;
-        uint8 type = func_type->result_count ?
-            func_type->types[func_type->param_count] : VALUE_TYPE_VOID;
+        uint8 type = func_type->result_count
+                         ? func_type->types[func_type->param_count]
+                         : VALUE_TYPE_VOID;
 
 #if WASM_ENABLE_REF_TYPES != 0
         if (type == VALUE_TYPE_EXTERNREF || type == VALUE_TYPE_FUNCREF)
@@ -3863,18 +3864,24 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
         if (func_type->result_count) {
             switch (type) {
                 case VALUE_TYPE_I32:
-                    *(frame->sp - function->ret_cell_num) = info.out.ret.ival[0];
+                    *(frame->sp - function->ret_cell_num) =
+                        info.out.ret.ival[0];
                     break;
                 case VALUE_TYPE_I64:
-                    *(frame->sp - function->ret_cell_num) = info.out.ret.ival[0];
-                    *(frame->sp - function->ret_cell_num + 1) = info.out.ret.ival[1];
+                    *(frame->sp - function->ret_cell_num) =
+                        info.out.ret.ival[0];
+                    *(frame->sp - function->ret_cell_num + 1) =
+                        info.out.ret.ival[1];
                     break;
                 case VALUE_TYPE_F32:
-                    *(frame->sp - function->ret_cell_num) = info.out.ret.fval[0];
+                    *(frame->sp - function->ret_cell_num) =
+                        info.out.ret.fval[0];
                     break;
                 case VALUE_TYPE_F64:
-                    *(frame->sp - function->ret_cell_num) = info.out.ret.fval[0];
-                    *(frame->sp - function->ret_cell_num + 1) = info.out.ret.fval[1];
+                    *(frame->sp - function->ret_cell_num) =
+                        info.out.ret.fval[0];
+                    *(frame->sp - function->ret_cell_num + 1) =
+                        info.out.ret.fval[1];
                     break;
                 default:
                     bh_assert(0);

@@ -338,8 +338,8 @@ copy_block_arities(JitCompContext *cc, JitReg dst_frame_sp, uint8 *dst_types,
                 if (i == 0 && p_first_res_reg)
                     *p_first_res_reg = value;
                 else
-                   GEN_INSN(STI32, value, dst_frame_sp,
-                            NEW_CONST(I32, offset_dst * 4));
+                    GEN_INSN(STI32, value, dst_frame_sp,
+                             NEW_CONST(I32, offset_dst * 4));
                 offset_src++;
                 offset_dst++;
                 break;
