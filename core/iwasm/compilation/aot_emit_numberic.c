@@ -691,8 +691,7 @@ compile_int_rot(AOTCompContext *comp_ctx, LLVMValueRef left, LLVMValueRef right,
     char *name = is_rotl ? "rotl" : "rotr";
 
     /* right is 0 */
-    if (LLVMIsConstant(right)
-        && (uint64)LLVMConstIntGetZExtValue(right) == 0) {
+    if (LLVMIsConstant(right) && (uint64)LLVMConstIntGetZExtValue(right) == 0) {
         return left;
     }
 
