@@ -155,7 +155,7 @@ def test_case(
         CMD,
         bufsize=1,
         stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
         universal_newlines=True,
     ) as p:
         try:
