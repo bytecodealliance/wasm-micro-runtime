@@ -1590,6 +1590,7 @@ aot_create_exec_env_and_call_function(AOTModuleInstance *module_inst,
                                       uint32 argv[])
 {
     WASMExecEnv *exec_env = NULL, *existing_exec_env = NULL;
+    WASMModuleInstanceCommon *prev_module_inst;
     bool ret;
 
 #if defined(OS_ENABLE_HW_BOUND_CHECK)
@@ -1608,7 +1609,20 @@ aot_create_exec_env_and_call_function(AOTModuleInstance *module_inst,
         }
     }
 
+    /**
+     * Backup the exec_env's module instance and then set it to current module
+     * instance, since in some cases, a wasm instance might call another with
+     * the help of host functions, which leads to recursive callings between
+     * host embedder and aot functions, and all the instances in the recursive
+     * call chain share the same exec_env.
+     */
+    prev_module_inst = exec_env->module_inst;
+    exec_env->module_inst = (WASMModuleInstanceCommon *)module_inst;
+
     ret = aot_call_function(exec_env, func, argc, argv);
+
+    /* Restore the module instance */
+    exec_env->module_inst = prev_module_inst;
 
     /* don't destroy the exec_env if it's searched from the cluster */
     if (!existing_exec_env)
