@@ -858,6 +858,9 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
     WASMFunctionImport *func_import = cur_func->u.func_import;
     uint8 *ip = prev_frame->ip;
     char buf[128];
+    WASMExecEnv *sub_module_exec_env = NULL;
+    uint32 aux_stack_origin_boundary = 0;
+    uint32 aux_stack_origin_bottom = 0;
 
     if (!sub_func_inst) {
         snprintf(buf, sizeof(buf),
@@ -867,20 +870,38 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
         return;
     }
 
+    /* Switch exec_env but keep using the same one by replacing necessary
+     * variables */
+    sub_module_exec_env = wasm_runtime_get_exec_env_singleton(
+        (WASMModuleInstanceCommon *)sub_module_inst);
+    if (!sub_module_exec_env) {
+        wasm_set_exception(module_inst, "create singleton exec_env failed");
+        return;
+    }
+
+    /* - module_inst */
+    exec_env->module_inst = (WASMModuleInstanceCommon *)sub_module_inst;
+    /* - aux_stack_boundary */
+    aux_stack_origin_boundary = exec_env->aux_stack_boundary.boundary;
+    exec_env->aux_stack_boundary.boundary =
+        sub_module_exec_env->aux_stack_boundary.boundary;
+    /* - aux_stack_bottom */
+    aux_stack_origin_bottom = exec_env->aux_stack_bottom.bottom;
+    exec_env->aux_stack_bottom.bottom =
+        sub_module_exec_env->aux_stack_bottom.bottom;
+
     /* set ip NULL to make call_func_bytecode return after executing
        this function */
     prev_frame->ip = NULL;
-
-    /* replace exec_env's module_inst with sub_module_inst so we can
-       call it */
-    exec_env->module_inst = (WASMModuleInstanceCommon *)sub_module_inst;
 
     /* call function of sub-module*/
     wasm_interp_call_func_bytecode(sub_module_inst, exec_env, sub_func_inst,
                                    prev_frame);
 
-    /* restore ip and module_inst */
+    /* restore ip and other replaced */
     prev_frame->ip = ip;
+    exec_env->aux_stack_boundary.boundary = aux_stack_origin_boundary;
+    exec_env->aux_stack_bottom.bottom = aux_stack_origin_bottom;
     exec_env->module_inst = (WASMModuleInstanceCommon *)module_inst;
 
     /* transfer exception if it is thrown */
