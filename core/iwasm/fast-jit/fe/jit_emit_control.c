@@ -315,7 +315,7 @@ fail:
 
 static void
 copy_block_arities(JitCompContext *cc, JitReg dst_frame_sp, uint8 *dst_types,
-                   uint32 dst_type_count)
+                   uint32 dst_type_count, JitReg *p_first_res_reg)
 {
     JitFrame *jit_frame;
     uint32 offset_src, offset_dst, i;
@@ -335,29 +335,41 @@ copy_block_arities(JitCompContext *cc, JitReg dst_frame_sp, uint8 *dst_types,
             case VALUE_TYPE_FUNCREF:
 #endif
                 value = gen_load_i32(jit_frame, offset_src);
-                GEN_INSN(STI32, value, dst_frame_sp,
-                         NEW_CONST(I32, offset_dst * 4));
+                if (i == 0 && p_first_res_reg)
+                    *p_first_res_reg = value;
+                else
+                    GEN_INSN(STI32, value, dst_frame_sp,
+                             NEW_CONST(I32, offset_dst * 4));
                 offset_src++;
                 offset_dst++;
                 break;
             case VALUE_TYPE_I64:
                 value = gen_load_i64(jit_frame, offset_src);
-                GEN_INSN(STI64, value, dst_frame_sp,
-                         NEW_CONST(I32, offset_dst * 4));
+                if (i == 0 && p_first_res_reg)
+                    *p_first_res_reg = value;
+                else
+                    GEN_INSN(STI64, value, dst_frame_sp,
+                             NEW_CONST(I32, offset_dst * 4));
                 offset_src += 2;
                 offset_dst += 2;
                 break;
             case VALUE_TYPE_F32:
                 value = gen_load_f32(jit_frame, offset_src);
-                GEN_INSN(STF32, value, dst_frame_sp,
-                         NEW_CONST(I32, offset_dst * 4));
+                if (i == 0 && p_first_res_reg)
+                    *p_first_res_reg = value;
+                else
+                    GEN_INSN(STF32, value, dst_frame_sp,
+                             NEW_CONST(I32, offset_dst * 4));
                 offset_src++;
                 offset_dst++;
                 break;
             case VALUE_TYPE_F64:
                 value = gen_load_f64(jit_frame, offset_src);
-                GEN_INSN(STF64, value, dst_frame_sp,
-                         NEW_CONST(I32, offset_dst * 4));
+                if (i == 0 && p_first_res_reg)
+                    *p_first_res_reg = value;
+                else
+                    GEN_INSN(STF64, value, dst_frame_sp,
+                             NEW_CONST(I32, offset_dst * 4));
                 offset_src += 2;
                 offset_dst += 2;
                 break;
@@ -372,6 +384,7 @@ static void
 handle_func_return(JitCompContext *cc, JitBlock *block)
 {
     JitReg prev_frame, prev_frame_sp;
+    JitReg ret_reg = 0;
 
     prev_frame = jit_cc_new_reg_ptr(cc);
     prev_frame_sp = jit_cc_new_reg_ptr(cc);
@@ -387,7 +400,7 @@ handle_func_return(JitCompContext *cc, JitBlock *block)
             wasm_get_cell_num(block->result_types, block->result_count);
 
         copy_block_arities(cc, prev_frame_sp, block->result_types,
-                           block->result_count);
+                           block->result_count, &ret_reg);
         /* prev_frame->sp += cell_num */
         GEN_INSN(ADD, prev_frame_sp, prev_frame_sp,
                  NEW_CONST(PTR, cell_num * 4));
@@ -406,7 +419,7 @@ handle_func_return(JitCompContext *cc, JitBlock *block)
     /* fp_reg = prev_frame */
     GEN_INSN(MOV, cc->fp_reg, prev_frame);
     /* return 0 */
-    GEN_INSN(RETURNBC, NEW_CONST(I32, JIT_INTERP_ACTION_NORMAL), 0, 0);
+    GEN_INSN(RETURNBC, NEW_CONST(I32, JIT_INTERP_ACTION_NORMAL), ret_reg, 0);
 }
 
 /**
@@ -883,7 +896,7 @@ handle_op_br(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
         if (copy_arities) {
             /* Dest block is Loop block, copy loop parameters */
             copy_block_arities(cc, frame_sp_dst, block_dst->param_types,
-                               block_dst->param_count);
+                               block_dst->param_count, NULL);
         }
 
         clear_values(jit_frame);
@@ -896,7 +909,7 @@ handle_op_br(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
         if (copy_arities) {
             /* Dest block is Block/If/Function block, copy block results */
             copy_block_arities(cc, frame_sp_dst, block_dst->result_types,
-                               block_dst->result_count);
+                               block_dst->result_count, NULL);
         }
 
         clear_values(jit_frame);

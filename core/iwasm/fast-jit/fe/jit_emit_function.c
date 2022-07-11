@@ -66,7 +66,7 @@ fail:
 
 /* Push results */
 static bool
-post_return(JitCompContext *cc, const WASMType *func_type)
+post_return(JitCompContext *cc, const WASMType *func_type, JitReg first_res)
 {
     uint32 i, n;
     JitReg value;
@@ -79,30 +79,54 @@ post_return(JitCompContext *cc, const WASMType *func_type)
             case VALUE_TYPE_EXTERNREF:
             case VALUE_TYPE_FUNCREF:
 #endif
-                value = jit_cc_new_reg_I32(cc);
-                GEN_INSN(LDI32, value, cc->fp_reg,
-                         NEW_CONST(I32, offset_of_local(n)));
+                if (i == 0 && first_res) {
+                    bh_assert(jit_reg_kind(first_res) == JIT_REG_KIND_I32);
+                    value = first_res;
+                }
+                else {
+                    value = jit_cc_new_reg_I32(cc);
+                    GEN_INSN(LDI32, value, cc->fp_reg,
+                             NEW_CONST(I32, offset_of_local(n)));
+                }
                 PUSH_I32(value);
                 n++;
                 break;
             case VALUE_TYPE_I64:
-                value = jit_cc_new_reg_I64(cc);
-                GEN_INSN(LDI64, value, cc->fp_reg,
-                         NEW_CONST(I32, offset_of_local(n)));
+                if (i == 0 && first_res) {
+                    bh_assert(jit_reg_kind(first_res) == JIT_REG_KIND_I64);
+                    value = first_res;
+                }
+                else {
+                    value = jit_cc_new_reg_I64(cc);
+                    GEN_INSN(LDI64, value, cc->fp_reg,
+                             NEW_CONST(I32, offset_of_local(n)));
+                }
                 PUSH_I64(value);
                 n += 2;
                 break;
             case VALUE_TYPE_F32:
-                value = jit_cc_new_reg_F32(cc);
-                GEN_INSN(LDF32, value, cc->fp_reg,
-                         NEW_CONST(I32, offset_of_local(n)));
+                if (i == 0 && first_res) {
+                    bh_assert(jit_reg_kind(first_res) == JIT_REG_KIND_F32);
+                    value = first_res;
+                }
+                else {
+                    value = jit_cc_new_reg_F32(cc);
+                    GEN_INSN(LDF32, value, cc->fp_reg,
+                             NEW_CONST(I32, offset_of_local(n)));
+                }
                 PUSH_F32(value);
                 n++;
                 break;
             case VALUE_TYPE_F64:
-                value = jit_cc_new_reg_F64(cc);
-                GEN_INSN(LDF64, value, cc->fp_reg,
-                         NEW_CONST(I32, offset_of_local(n)));
+                if (i == 0 && first_res) {
+                    bh_assert(jit_reg_kind(first_res) == JIT_REG_KIND_F64);
+                    value = first_res;
+                }
+                else {
+                    value = jit_cc_new_reg_F64(cc);
+                    GEN_INSN(LDF64, value, cc->fp_reg,
+                             NEW_CONST(I32, offset_of_local(n)));
+                }
                 PUSH_F64(value);
                 n += 2;
                 break;
@@ -176,6 +200,10 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
                                 cc->cmp_reg, NULL)) {
             return false;
         }
+
+        if (!post_return(cc, func_type, 0)) {
+            goto fail;
+        }
     }
     else {
         JitReg res = 0;
@@ -187,44 +215,28 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
                 case VALUE_TYPE_EXTERNREF:
                 case VALUE_TYPE_FUNCREF:
 #endif
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-                    res = jit_codegen_get_hreg_by_name("eax");
-#else
                     res = jit_cc_new_reg_I32(cc);
-#endif
                     break;
                 case VALUE_TYPE_I64:
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-                    res = jit_codegen_get_hreg_by_name("rax");
-#else
                     res = jit_cc_new_reg_I64(cc);
-#endif
                     break;
                 case VALUE_TYPE_F32:
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-                    res = jit_codegen_get_hreg_by_name("xmm0");
-#else
                     res = jit_cc_new_reg_F32(cc);
-#endif
                     break;
                 case VALUE_TYPE_F64:
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-                    res = jit_codegen_get_hreg_by_name("xmm0_f64");
-#else
                     res = jit_cc_new_reg_F64(cc);
-#endif
                     break;
                 default:
                     bh_assert(0);
-                    break;
+                    goto fail;
             }
         }
 
         GEN_INSN(CALLBC, res, 0, jitted_code);
-    }
 
-    if (!post_return(cc, func_type)) {
-        goto fail;
+        if (!post_return(cc, func_type, res)) {
+            goto fail;
+        }
     }
 
     /* Clear part of memory regs and table regs as their values
