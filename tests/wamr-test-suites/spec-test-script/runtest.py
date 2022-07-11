@@ -1274,7 +1274,7 @@ if __name__ == "__main__":
             else:
                 raise Exception("unrecognized form '%s...'" % form[0:40])
     except Exception as e:
-        traceback.print_exc()
+        traceback.print_exc(file=sys.stdout)
         print("THE FINAL EXCEPTION IS {}".format(e))
         ret_code = 101
     else:
