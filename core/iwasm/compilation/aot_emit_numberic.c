@@ -690,6 +690,12 @@ compile_int_rot(AOTCompContext *comp_ctx, LLVMValueRef left, LLVMValueRef right,
     LLVMValueRef bits_minus_shift_count, res, tmp_l, tmp_r;
     char *name = is_rotl ? "rotl" : "rotr";
 
+    /* right is 0 */
+    if (LLVMIsConstant(right)
+        && (uint64)LLVMConstIntGetZExtValue(right) == 0) {
+        return left;
+    }
+
     SHIFT_COUNT_MASK;
 
     /* Calculate (bits - shif_count) */
