@@ -3270,7 +3270,19 @@ compare_address(const struct addr_pool *addr_pool_entry, const char *addr)
         return false;
     }
 
-    uint32 mask = addr_pool_entry->mask;
+    const uint32 max_mask_value = 32;
+    /* no support for invalid mask values */
+    if (addr_pool_entry->mask > max_mask_value) {
+        return false;
+    }
+
+    /* convert mask number into 32-bit mask value, i.e. mask /24 will be
+    converted to 4294967040 (binary: 11111111 11111111 11111111 00000000) */
+    uint32 mask = 0;
+    for (int i = 0; i < addr_pool_entry->mask; i++) {
+        mask |= 1 << (max_mask_value - 1 - i);
+    }
+
     uint32 first_address = address & mask;
     uint32 last_address = address | (~mask);
     return first_address <= target && target <= last_address;
