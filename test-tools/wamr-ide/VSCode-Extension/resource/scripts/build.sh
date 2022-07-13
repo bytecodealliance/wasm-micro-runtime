@@ -3,14 +3,11 @@
 
 #!/bin/bash
 
-AoT_Binary_Name=$1
-Host_OS=$2
-
 docker run --name=wasm-toolchain-ctr \
-                -it -v $(pwd):$(pwd) \
-                -w $(pwd) \
+                -it -v "$(pwd)":/mnt \
+                --env=PROJ_PATH="$(pwd)" \
                 wasm-toolchain:1.0  \
-                /bin/bash -c "/root/build_wasm.sh $AoT_Binary_Name $Host_OS"
+                /bin/bash -c "./build_wasm.sh $1"
 
 docker stop wasm-toolchain-ctr>/dev/null
 docker rm wasm-toolchain-ctr>/dev/null

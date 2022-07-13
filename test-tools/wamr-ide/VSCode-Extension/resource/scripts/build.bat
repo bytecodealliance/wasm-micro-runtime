@@ -2,14 +2,13 @@
 @REM SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 @echo off
-set AoT_Binary_Name=%1
-set Host_OS=%2
 
 @REM start a container, mount current project path to container/mnt
 docker run --name=wasm-toolchain-ctr ^
-                -it -v %cd%:/mnt ^
+                -it -v "%cd%":/mnt ^
+                --env=PROJ_PATH="%cd%" ^
                 wasm-toolchain:1.0  ^
-                /bin/bash -c "./build_wasm.sh %AoT_Binary_Name% %Host_OS%"
+                /bin/bash -c "./build_wasm.sh %1"
 
 @REM stop and remove wasm-toolchain-ctr container
 docker stop wasm-toolchain-ctr>nul 2>nul

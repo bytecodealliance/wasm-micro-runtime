@@ -11,6 +11,8 @@ set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -Wno-unused-command-line-argument " CACH
 
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -z stack-size=${STACK_SIZE}")
 
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fdebug-prefix-map=/mnt='$ENV{PROJ_PATH}'")
+
 set (CMAKE_EXE_LINKER_FLAGS
     "${CMAKE_EXE_LINKER_FLAGS} -Wl,--initial-memory=${INIT_MEM_SIZE},--max-memory=${MAX_MEM_SIZE},")
 
