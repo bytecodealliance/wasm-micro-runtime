@@ -7,15 +7,15 @@ import * as vscode from 'vscode';
 import * as os from 'os';
 
 export class WasmDebugConfigurationProvider
-    implements vscode.DebugConfigurationProvider {
+    implements vscode.DebugConfigurationProvider
+{
     constructor() {}
 
     /* default port set as 1234 */
     private port = 1234;
     private hostPath!: string;
-    private providerPromise:
-        | Thenable<vscode.DebugConfiguration>
-        | undefined = undefined;
+    private providerPromise: Thenable<vscode.DebugConfiguration> | undefined =
+        undefined;
 
     private wasmDebugConfig!: vscode.DebugConfiguration;
 
@@ -53,7 +53,7 @@ export class WasmDebugConfigurationProvider
                 ['stopOnEntry']: true,
                 ['attachCommands']: [
                     'process connect -p wasm connect://127.0.0.1:' + port + '',
-                ]
+                ],
                 /* we use current project folder as docker container
                  * work directory, so the build dir info in drawf is the
                  * same with the host and we don't need to set up source

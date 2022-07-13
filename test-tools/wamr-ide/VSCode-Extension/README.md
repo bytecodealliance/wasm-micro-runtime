@@ -21,5 +21,14 @@ File -> Open Folder -> select `VSCode_Extension`
 # Code Format
 
 `prettier` is recommended and `.prettierrc.json` has been provided in workspace.
-More details and usage guidance please refer
-[prettier](https://prettier.io/docs/en/install.html)
+More details and usage guidance please refer [prettier](https://prettier.io/docs/en/install.html)
+
+You can run following commands in current extension directory to check and apply
+```shell
+# install prettier firstly
+npm install --save-dev prettier
+# check format
+npm run prettier-format-check
+# apply
+npm run prettier-format-apply
+```
