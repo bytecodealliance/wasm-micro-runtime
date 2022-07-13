@@ -85,7 +85,6 @@ export async function activate(context: vscode.ExtensionContext) {
 
     vscode.tasks.registerTaskProvider('wasm', wasmTaskProvider);
 
-    /* set current project directory */
     if (vscode.workspace.workspaceFolders?.[0]) {
         if (OS_PLATFORM === 'win32') {
             currentPrjDir = vscode.workspace.workspaceFolders?.[0].uri
@@ -114,6 +113,48 @@ export async function activate(context: vscode.ExtensionContext) {
                     'ext.isWasmProject',
                     true
                 );
+                if (
+                    vscode.workspace
+                        .getConfiguration()
+                        .has('C_Cpp.default.systemIncludePath')
+                ) {
+                    let newIncludeInCppArr: string[] | undefined | null;
+
+                    newIncludeInCppArr = vscode.workspace
+                        .getConfiguration()
+                        .get('C_Cpp.default.systemIncludePath');
+
+                    let LibcBuiltinHeaderPath = path.join(
+                        extensionPath,
+                        'resource/wamr-sdk/libc-builtin-sysroot/include'
+                    );
+
+                    if (newIncludeInCppArr !== undefined) {
+                        /* in case the configuration has not been set up, push directly */
+                        if (newIncludeInCppArr === null) {
+                            newIncludeInCppArr = new Array();
+                            newIncludeInCppArr.push(LibcBuiltinHeaderPath);
+                        } else {
+                            /* if the configuration has been set up, check the condition */
+                            if (
+                                /* include libc-builtin-sysroot */
+                                newIncludeInCppArr.indexOf(
+                                    LibcBuiltinHeaderPath
+                                ) < 0
+                            ) {
+                                newIncludeInCppArr.push(LibcBuiltinHeaderPath);
+                            }
+                        }
+
+                        vscode.workspace
+                            .getConfiguration()
+                            .update(
+                                'C_Cpp.default.systemIncludePath',
+                                newIncludeInCppArr,
+                                vscode.ConfigurationTarget.Workspace
+                            );
+                    }
+                }
             }
         }
     }
@@ -144,6 +185,13 @@ export async function activate(context: vscode.ExtensionContext) {
         }
     }
 
+    /* write into config file if the BUILD_ARGS are default values */
+    writeIntoConfigFile(
+        includePathArr,
+        excludeFileArr,
+        TargetConfigPanel.BUILD_ARGS
+    );
+
     let disposableNewProj = vscode.commands.registerCommand(
         'wamride.newProject',
         () => {
@@ -154,16 +202,36 @@ export async function activate(context: vscode.ExtensionContext) {
                 .get('WAMR-IDE.configWorkspace');
 
             /* if user has not set up workspace yet, prompt to set up */
-            if (
-                curWorkspace === '' ||
-                curWorkspace === undefined ||
-                !CheckIfDirectoryExist(curWorkspace as string)
-            ) {
+            if (curWorkspace === '' || curWorkspace === undefined) {
                 vscode.window
                     .showWarningMessage(
-                        'Please correctly setup your workspace firstly.',
+                        'Please setup your workspace firstly.',
                         _ok,
                         _cancle
+                    )
+                    .then(item => {
+                        if (item === _ok) {
+                            vscode.commands.executeCommand(
+                                'wamride.changeWorkspace'
+                            );
+                        } else {
+                            return;
+                        }
+                    });
+            } else if (!CheckIfDirectoryExist(curWorkspace as string)) {
+                vscode.window
+                    .showWarningMessage(
+                        'Invalid workspace:',
+                        {
+                            modal: true,
+                            detail:
+                                '' +
+                                vscode.workspace
+                                    .getConfiguration()
+                                    .get('WAMR-IDE.configWorkspace') +
+                                '',
+                        },
+                        _ok
                     )
                     .then(item => {
                         if (item === _ok) {
@@ -247,16 +315,45 @@ export async function activate(context: vscode.ExtensionContext) {
                     'Destroy: Wasm-Container-Before-Build'
                 )
                 .then(() => {
-                    let disposable = vscode.tasks.onDidEndTask(t => {
+                    let disposable = vscode.tasks.onDidEndTaskProcess(t => {
                         if (
                             t.execution.task.name ===
                             'Wasm-Container-Before-Build'
                         ) {
+                            if (t.exitCode !== 0) {
+                                disposable.dispose();
+                                return;
+                            }
+
                             /* execute the build task */
-                            vscode.commands.executeCommand(
-                                'workbench.action.tasks.runTask',
-                                'Build: Wasm'
-                            );
+                            vscode.commands
+                                .executeCommand(
+                                    'workbench.action.tasks.runTask',
+                                    'Build: Wasm'
+                                )
+                                .then(() => {
+                                    /* destroy the wasm-toolchain-ctr after building */
+                                    let disposable_aft =
+                                        vscode.tasks.onDidEndTask(a => {
+                                            if (
+                                                a.execution.task.name ===
+                                                    'Wasm' &&
+                                                a.execution.task.source ===
+                                                    'Build'
+                                            ) {
+                                                vscode.commands
+                                                    .executeCommand(
+                                                        'workbench.action.tasks.runTask',
+                                                        'Destroy: Wasm-Container-After-Build'
+                                                    )
+                                                    .then(() => {
+                                                        /* dispose the event after this building process
+                                                         */
+                                                        disposable_aft.dispose();
+                                                    });
+                                            }
+                                        });
+                                });
                             /* dispose the event after this building process */
                             disposable.dispose();
                         }
@@ -268,6 +365,15 @@ export async function activate(context: vscode.ExtensionContext) {
     let disposableDebug = vscode.commands.registerCommand(
         'wamride.debug',
         () => {
+            /* refuse to debug if build process failed */
+            if (!checkIfBuildSuccess()) {
+                vscode.window.showErrorMessage('Debug failed', {
+                    modal: true,
+                    detail: 'Can not find WASM binary, please build WASM firstly.',
+                });
+                return;
+            }
+
             /* show debug view */
             vscode.commands.executeCommand('workbench.view.debug');
 
@@ -332,21 +438,56 @@ export async function activate(context: vscode.ExtensionContext) {
         }
     );
     let disposableRun = vscode.commands.registerCommand('wamride.run', () => {
+        /* refuse to debug if build process failed */
+        if (!checkIfBuildSuccess()) {
+            vscode.window.showErrorMessage('Debug failed', {
+                modal: true,
+                detail: 'Can not find WASM binary, please build WASM firstly.',
+            });
+            return;
+        }
         vscode.commands
             .executeCommand(
                 'workbench.action.tasks.runTask',
                 'Destroy: Wasm-Container-Before-Run'
             )
             .then(() => {
-                let dispose_bfr = vscode.tasks.onDidEndTask(e => {
+                let dispose_bfr = vscode.tasks.onDidEndTaskProcess(e => {
                     if (e.execution.task.name === 'Wasm-Container-Before-Run') {
-                        /* make sure that run wasm task will be executed after destroy
-                         * task finish */
-                        vscode.commands.executeCommand(
-                            'workbench.action.tasks.runTask',
-                            'Run: Wasm'
-                        );
+                        /* make sure that run wasm task will be executed after destroy task finish */
+                        vscode.commands
+                            .executeCommand(
+                                'workbench.action.tasks.runTask',
+                                'Run: Wasm'
+                            )
+                            .then(() => {
+                                if (e.exitCode !== 0) {
+                                    dispose_bfr.dispose();
+                                    return;
+                                }
 
+                                let disposable_aft = vscode.tasks.onDidEndTask(
+                                    a => {
+                                        if (
+                                            a.execution.task.name === 'Wasm' &&
+                                            a.execution.task.source === 'Run'
+                                        ) {
+                                            vscode.commands.executeCommand(
+                                                'workbench.action.tasks.runTask',
+                                                'Destroy: Wasm-Container-After-Run'
+                                            );
+
+                                            /* execute the task to kill the terminal */
+                                            vscode.commands.executeCommand(
+                                                'workbench.action.terminal.kill',
+                                                'Run: Wasm'
+                                            );
+
+                                            disposable_aft.dispose();
+                                        }
+                                    }
+                                );
+                            });
                         dispose_bfr.dispose();
                     }
                 });
@@ -417,23 +558,45 @@ export async function activate(context: vscode.ExtensionContext) {
     let disposableOpenFolder = vscode.commands.registerCommand(
         'wamride.openFolder',
         () => {
+            /* get projects list under current workspace */
             let _ok = 'Set up now';
             let _cancle = 'Maybe later';
+            let _create = 'Create now';
             let curWorkspace = vscode.workspace
                 .getConfiguration()
                 .get('WAMR-IDE.configWorkspace') as string;
 
             /* if user has not set up workspace yet, prompt to set up */
-            if (
-                curWorkspace === '' ||
-                curWorkspace === undefined ||
-                !CheckIfDirectoryExist(curWorkspace as string)
-            ) {
+            if (curWorkspace === '' || curWorkspace === undefined) {
                 vscode.window
                     .showWarningMessage(
-                        'Please correctly setup your workspace firstly.',
+                        'Please setup your workspace firstly.',
                         _ok,
                         _cancle
+                    )
+                    .then(item => {
+                        if (item === _ok) {
+                            vscode.commands.executeCommand(
+                                'wamride.changeWorkspace'
+                            );
+                        } else {
+                            return;
+                        }
+                    });
+            } else if (!CheckIfDirectoryExist(curWorkspace as string)) {
+                vscode.window
+                    .showWarningMessage(
+                        'Invalid workspace:',
+                        {
+                            modal: true,
+                            detail:
+                                '' +
+                                vscode.workspace
+                                    .getConfiguration()
+                                    .get('WAMR-IDE.configWorkspace') +
+                                '',
+                        },
+                        _ok
                     )
                     .then(item => {
                         if (item === _ok) {
@@ -453,7 +616,7 @@ export async function activate(context: vscode.ExtensionContext) {
                     });
                 } catch (err) {
                     vscode.window.showErrorMessage(
-                        'Read from current workspace failed, please check.'
+                        'Read projects from current workspace failed.'
                     );
                 }
 
@@ -462,27 +625,52 @@ export async function activate(context: vscode.ExtensionContext) {
                         .filter(dirent => dirent.isDirectory())
                         .map(dirent => dirent.name);
 
-                    vscode.window
-                        .showQuickPick(directoryArr, {
-                            title: 'Select project',
-                            placeHolder: 'Please select project',
-                        })
-                        .then(option => {
-                            if (!option) {
-                                return;
-                            }
+                    let projFilesArr = directoryArr.filter(obj => {
+                        if (checkIfWasmProj(path.join(curWorkspace, obj))) {
+                            return true;
+                        }
+                    });
 
-                            let _path = curWorkspace.concat(
-                                OS_PLATFORM === 'win32'
-                                    ? '\\'
-                                    : OS_PLATFORM === 'linux'
-                                    ? '/'
-                                    : '',
-                                option
-                            );
+                    if (projFilesArr.length === 0) {
+                        vscode.window
+                            .showWarningMessage(
+                                'Current workspace is empty, please create your project firstly.',
+                                _create,
+                                _cancle
+                            )
+                            .then(item => {
+                                if (item === _create) {
+                                    vscode.commands.executeCommand(
+                                        'wamride.newProject'
+                                    );
+                                } else {
+                                    return;
+                                }
+                            });
+                    } else {
+                        vscode.window
+                            .showQuickPick(projFilesArr, {
+                                title: 'Select project',
+                                placeHolder: 'Please select project',
+                            })
+                            .then(option => {
+                                if (!option) {
+                                    return;
+                                }
 
-                            openWindoWithSituation(vscode.Uri.file(_path));
-                        });
+                                let _path = curWorkspace.concat(
+                                    OS_PLATFORM === 'win32'
+                                        ? '\\'
+                                        : OS_PLATFORM === 'linux'
+                                        ? '/'
+                                        : '',
+                                    option
+                                );
+
+                                /* open the selected wasm project */
+                                openWindoWithSituation(vscode.Uri.file(_path));
+                            });
+                    }
                 }
             }
         }
@@ -537,11 +725,15 @@ export function writeIntoConfigFile(
     excludeFileArr: string[],
     buildArgs?: BuildArgs
 ) {
-    let jsonStr = JSON.stringify({
-        include_paths: includePathArr,
-        exclude_files: excludeFileArr,
-        build_args: buildArgs ? buildArgs : '{}',
-    });
+    let jsonStr = JSON.stringify(
+        {
+            include_paths: includePathArr,
+            exclude_files: excludeFileArr,
+            build_args: buildArgs ? buildArgs : '{}',
+        },
+        null,
+        '\t'
+    );
 
     let prjConfigDir = path.join(currentPrjDir, '.wamr');
     let configFilePath = path.join(prjConfigDir, 'compilation_config.json');
@@ -692,5 +884,46 @@ function getAllSrcFiles(_path: string) {
         return files;
     } catch (error) {
         vscode.window.showErrorMessage(error as string);
+    }
+}
+
+function checkIfBuildSuccess(): Boolean {
+    try {
+        let wasmExist = false;
+        const entries = fileSystem.readdirSync(
+            path.join(currentPrjDir, 'build'),
+            {
+                withFileTypes: true,
+            }
+        );
+
+        entries.map(e => {
+            if (e.name.match('(.wasm)$')) {
+                wasmExist = true;
+            }
+        });
+
+        return wasmExist;
+    } catch {
+        return false;
+    }
+}
+
+function checkIfWasmProj(_path: string): Boolean {
+    try {
+        let isWasmProj = false;
+        const entries = fileSystem.readdirSync(_path, {
+            withFileTypes: true,
+        });
+
+        entries.map(e => {
+            if (e.isDirectory() && e.name === '.wamr') {
+                isWasmProj = true;
+            }
+        });
+
+        return isWasmProj;
+    } catch {
+        return false;
     }
 }
