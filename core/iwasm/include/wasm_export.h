@@ -540,6 +540,21 @@ WASM_RUNTIME_API_EXTERN wasm_module_inst_t
 wasm_runtime_get_module_inst(wasm_exec_env_t exec_env);
 
 /**
+ * Set WASM module instance of execution environment
+ * Caution:
+ *   normally the module instance is bound with the execution
+ *   environment one by one, if multiple module instances want
+ *   to share to the same execution environment, developer should
+ *   be responsible for the backup and restore of module instance
+ *
+ * @param exec_env the execution environment
+ * @param module_inst the WASM module instance to set
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_set_module_inst(wasm_exec_env_t exec_env,
+                             const wasm_module_inst_t module_inst);
+
+/**
  * Call the given WASM function of a WASM module instance with
  * arguments (bytecode and AoT).
  *
