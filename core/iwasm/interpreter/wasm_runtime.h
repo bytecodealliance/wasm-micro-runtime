@@ -391,7 +391,7 @@ void
 wasm_signal_handler(WASMSignalInfo *sig_info);
 #else
 LONG
-wasm_exception_handler(WASMSignalInfo *sig_info)
+wasm_exception_handler(WASMSignalInfo *sig_info);
 #endif
 #endif
 

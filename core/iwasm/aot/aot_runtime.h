@@ -689,7 +689,7 @@ void
 aot_signal_handler(WASMSignalInfo *sig_info);
 #else
 LONG
-aot_exception_handler(WASMSignalInfo *sig_info)
+aot_exception_handler(WASMSignalInfo *sig_info);
 #endif
 #endif
 

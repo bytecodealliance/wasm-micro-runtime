@@ -318,11 +318,7 @@ memory_instantiate(WASMModuleInstance *module_inst, uint32 num_bytes_per_page,
                     MMAP_PROT_READ | MMAP_PROT_WRITE)
         != 0) {
         set_error_buf(error_buf, error_buf_size, "mprotect memory failed");
-#ifdef BH_PLATFORM_WINDOWS
-        os_mem_decommit(p, total_size);
-#endif
-        os_munmap(mapped_mem, map_size);
-        goto fail1;
+        goto fail2;
     }
     /* Newly allocated pages are filled with zero by the OS, we don't fill it
      * again here */
@@ -386,7 +382,7 @@ fail2:
         wasm_runtime_free(memory->memory_data);
 #else
 #ifdef BH_PLATFORM_WINDOWS
-    os_mem_decommit(mapped_mem, memory->memory_data_size);
+    os_mem_decommit(mapped_mem, memory_data_size);
 #endif
     os_munmap(mapped_mem, map_size);
 #endif
@@ -1849,7 +1845,7 @@ wasm_signal_handler(WASMSignalInfo *sig_info)
 }
 #else  /* else of BH_PLATFORM_WINDOWS */
 LONG
-aot_exception_handler(WASMSignalInfo *sig_info)
+wasm_exception_handler(WASMSignalInfo *sig_info)
 {
     WASMExecEnv *exec_env_tls = sig_info->exec_env_tls;
     EXCEPTION_POINTERS *exce_info = sig_info->exce_info;
@@ -1882,7 +1878,7 @@ aot_exception_handler(WASMSignalInfo *sig_info)
                     wasm_set_exception(module_inst,
                                        "out of bounds memory access");
                     /* Skip current instruction */
-                    exce_info->ContextRecord->Rip++;
+                    /* TODO decode current instruction */
                     return EXCEPTION_CONTINUE_EXECUTION;
                 }
             }

@@ -152,14 +152,16 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
     sig_info.exce_info = exce_info;
     if (exec_env_tls) {
         module_inst = exec_env_tls->module_inst;
+#if WASM_ENABLE_INTERP != 0
+        if (module_inst->module_type == Wasm_Module_Bytecode)
+            return wasm_exception_handler(&sig_info);
+#endif
 #if WASM_ENABLE_AOT != 0
         if (module_inst->module_type == Wasm_Module_AoT)
             return aot_exception_handler(&sig_info);
 #endif
-#if WASM_ENABLE_INTERP != 0
-            /* TODO */
-#endif
     }
+    return EXCEPTION_CONTINUE_SEARCH;
 }
 #endif
 
@@ -172,7 +174,7 @@ runtime_signal_init()
     if (os_thread_signal_init() != 0)
         return false;
 
-    if (!AddVectoredExceptionHandler(1, aot_exception_handler)) {
+    if (!AddVectoredExceptionHandler(1, runtime_exception_handler)) {
         os_thread_signal_destroy();
         return false;
     }
