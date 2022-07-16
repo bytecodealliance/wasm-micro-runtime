@@ -1878,8 +1878,7 @@ wasm_exception_handler(WASMSignalInfo *sig_info)
                     wasm_set_exception(module_inst,
                                        "out of bounds memory access");
                     /* Skip current instruction */
-                    /* TODO decode current instruction */
-                    return EXCEPTION_CONTINUE_EXECUTION;
+                    return EXCEPTION_CONTINUE_SEARCH;
                 }
             }
         }
@@ -1889,7 +1888,7 @@ wasm_exception_handler(WASMSignalInfo *sig_info)
                whether the exception is thrown and return to runtime, and
                the damaged stack will be recovered by _resetstkoflw(). */
             wasm_set_exception(module_inst, "native stack overflow");
-            return EXCEPTION_CONTINUE_EXECUTION;
+            return EXCEPTION_CONTINUE_SEARCH;
         }
     }
 
@@ -1940,8 +1939,17 @@ call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
 
     wasm_runtime_set_exec_env_tls(exec_env);
     if (os_setjmp(jmpbuf_node.jmpbuf) == 0) {
+#ifndef BH_PLATFORM_WINDOWS
         wasm_interp_call_wasm(module_inst, exec_env, function, argc, argv);
-#ifdef BH_PLATFORM_WINDOWS
+#else
+        __try {
+            wasm_interp_call_wasm(module_inst, exec_env, function, argc, argv);
+        }
+        __except (wasm_get_exception(module_inst)
+                  ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) {
+            /* exception was thrown in wasm_exception_handler */
+            ret = false;
+        }
         if ((exce = wasm_get_exception(module_inst))
             && strstr(exce, "native stack overflow")) {
             /* After a stack overflow, the stack was left
