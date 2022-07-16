@@ -407,6 +407,23 @@ typedef struct wasm_frame_t {
     const char *func_name_wp;
 } WASMCApiFrame;
 
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+typedef struct WASMSignalInfo {
+    WASMExecEnv *exec_env_tls;
+#ifndef BH_PLATFORM_WINDOWS
+    void *sig_addr;
+#else
+    EXCEPTION_POINTERS *exce_info;
+#endif
+} WASMSignalInfo;
+
+void
+wasm_runtime_set_exec_env_tls(WASMExecEnv *exec_env);
+
+WASMExecEnv *
+wasm_runtime_get_exec_env_tls(void);
+#endif
+
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_init(void);
