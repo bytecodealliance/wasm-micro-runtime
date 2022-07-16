@@ -1944,9 +1944,9 @@ call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
 #else
         __try {
             wasm_interp_call_wasm(module_inst, exec_env, function, argc, argv);
-        }
-        __except (wasm_get_exception(module_inst)
-                  ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) {
+        } __except (wasm_get_exception(module_inst)
+                        ? EXCEPTION_EXECUTE_HANDLER
+                        : EXCEPTION_CONTINUE_SEARCH) {
             /* exception was thrown in wasm_exception_handler */
             ret = false;
         }
