@@ -654,6 +654,10 @@ functions_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         function++;
     }
 
+#if WASM_ENABLE_FAST_JIT != 0
+    module_inst->fast_jit_func_ptrs = module->fast_jit_func_ptrs;
+#endif
+
     bh_assert((uint32)(function - functions) == function_count);
     (void)module_inst;
     return functions;

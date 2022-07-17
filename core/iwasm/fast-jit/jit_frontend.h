@@ -212,10 +212,7 @@ JitReg
 get_module_inst_reg(JitFrame *frame);
 
 JitReg
-get_module_reg(JitFrame *frame);
-
-JitReg
-get_func_ptrs_reg(JitFrame *frame);
+get_fast_jit_func_ptrs_reg(JitFrame *frame);
 
 JitReg
 get_global_data_reg(JitFrame *frame);

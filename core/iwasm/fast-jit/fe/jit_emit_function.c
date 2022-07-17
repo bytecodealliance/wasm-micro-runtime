@@ -153,15 +153,15 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
     WASMType *func_type;
     JitFrame *jit_frame = cc->jit_frame;
     JitReg native_ret;
-    JitReg func_ptrs, jitted_code = 0;
+    JitReg fast_jit_func_ptrs, jitted_code = 0;
     uint32 jitted_func_idx;
 
     if (func_idx >= wasm_module->import_function_count) {
-        func_ptrs = get_func_ptrs_reg(jit_frame);
+        fast_jit_func_ptrs = get_fast_jit_func_ptrs_reg(jit_frame);
         jitted_code = jit_cc_new_reg_ptr(cc);
         /* jitted_code = func_ptrs[func_idx - import_function_count] */
         jitted_func_idx = func_idx - wasm_module->import_function_count;
-        GEN_INSN(LDPTR, jitted_code, func_ptrs,
+        GEN_INSN(LDPTR, jitted_code, fast_jit_func_ptrs,
                  NEW_CONST(I32, (uint32)sizeof(void *) * jitted_func_idx));
     }
 

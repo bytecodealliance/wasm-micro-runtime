@@ -56,31 +56,18 @@ get_module_inst_reg(JitFrame *frame)
 }
 
 JitReg
-get_module_reg(JitFrame *frame)
+get_fast_jit_func_ptrs_reg(JitFrame *frame)
 {
     JitCompContext *cc = frame->cc;
     JitReg module_inst_reg = get_module_inst_reg(frame);
 
-    if (!frame->module_reg) {
-        frame->module_reg = cc->module_reg;
-        GEN_INSN(LDPTR, frame->module_reg, module_inst_reg,
-                 NEW_CONST(I32, offsetof(WASMModuleInstance, module)));
+    if (!frame->fast_jit_func_ptrs_reg) {
+        frame->fast_jit_func_ptrs_reg = cc->fast_jit_func_ptrs_reg;
+        GEN_INSN(
+            LDPTR, frame->fast_jit_func_ptrs_reg, module_inst_reg,
+            NEW_CONST(I32, offsetof(WASMModuleInstance, fast_jit_func_ptrs)));
     }
-    return frame->module_reg;
-}
-
-JitReg
-get_func_ptrs_reg(JitFrame *frame)
-{
-    JitCompContext *cc = frame->cc;
-    JitReg module_reg = get_module_reg(frame);
-
-    if (!frame->func_ptrs_reg) {
-        frame->func_ptrs_reg = cc->func_ptrs_reg;
-        GEN_INSN(LDPTR, frame->func_ptrs_reg, module_reg,
-                 NEW_CONST(I32, offsetof(WASMModule, fast_jit_func_ptrs)));
-    }
-    return frame->func_ptrs_reg;
+    return frame->fast_jit_func_ptrs_reg;
 }
 
 JitReg
@@ -373,8 +360,7 @@ clear_fixed_virtual_regs(JitFrame *frame)
     uint32 count, i;
 
     frame->module_inst_reg = 0;
-    frame->module_reg = 0;
-    frame->func_ptrs_reg = 0;
+    frame->fast_jit_func_ptrs_reg = 0;
     frame->global_data_reg = 0;
     frame->aux_stack_bound_reg = 0;
     frame->aux_stack_bottom_reg = 0;
@@ -569,8 +555,7 @@ create_fixed_virtual_regs(JitCompContext *cc)
     uint32 i, count;
 
     cc->module_inst_reg = jit_cc_new_reg_ptr(cc);
-    cc->module_reg = jit_cc_new_reg_ptr(cc);
-    cc->func_ptrs_reg = jit_cc_new_reg_ptr(cc);
+    cc->fast_jit_func_ptrs_reg = jit_cc_new_reg_ptr(cc);
     cc->global_data_reg = jit_cc_new_reg_ptr(cc);
     cc->aux_stack_bound_reg = jit_cc_new_reg_I32(cc);
     cc->aux_stack_bottom_reg = jit_cc_new_reg_I32(cc);

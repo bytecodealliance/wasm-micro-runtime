@@ -183,6 +183,10 @@ struct WASMModuleInstance {
 
     /* Array of function pointers to import functions */
     void **import_func_ptrs;
+#if WASM_ENABLE_FAST_JIT != 0
+    /* point to JITed functions */
+    void **fast_jit_func_ptrs;
+#endif
 
     WASMMemoryInstance **memories;
     WASMTableInstance **tables;
