@@ -256,6 +256,10 @@ struct WASMModuleInstanceCommon *
 wasm_exec_env_get_module_inst(WASMExecEnv *exec_env);
 
 void
+wasm_exec_env_set_module_inst(
+    WASMExecEnv *exec_env, struct WASMModuleInstanceCommon *const module_inst);
+
+void
 wasm_exec_env_set_thread_info(WASMExecEnv *exec_env);
 
 #if WASM_ENABLE_THREAD_MGR != 0
