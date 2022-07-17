@@ -408,6 +408,7 @@ typedef struct wasm_frame_t {
 } WASMCApiFrame;
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
+/* Signal info passing to interp/aot signal handler */
 typedef struct WASMSignalInfo {
     WASMExecEnv *exec_env_tls;
 #ifndef BH_PLATFORM_WINDOWS
@@ -417,9 +418,11 @@ typedef struct WASMSignalInfo {
 #endif
 } WASMSignalInfo;
 
+/* Set exec_env of thread local storage */
 void
 wasm_runtime_set_exec_env_tls(WASMExecEnv *exec_env);
 
+/* Get exec_env of thread local storage */
 WASMExecEnv *
 wasm_runtime_get_exec_env_tls(void);
 #endif

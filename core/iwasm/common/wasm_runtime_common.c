@@ -118,6 +118,9 @@ runtime_malloc(uint64 size, WASMModuleInstanceCommon *module_inst,
 }
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
+/* The exec_env of thread local storage, set before calling function
+   and used in signal handler, as we cannot get it from the argument
+   of signal handler */
 static os_thread_local_attribute WASMExecEnv *exec_env_tls = NULL;
 
 #ifndef BH_PLATFORM_WINDOWS
@@ -163,7 +166,7 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
     }
     return EXCEPTION_CONTINUE_SEARCH;
 }
-#endif
+#endif /* end of BH_PLATFORM_WINDOWS */
 
 static bool
 runtime_signal_init()
