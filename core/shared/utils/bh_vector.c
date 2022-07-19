@@ -42,8 +42,8 @@ extend_vector(Vector *vector, size_t length)
         return false;
     }
 
-    bh_memcpy_s(data, vector->size_elem * length, vector->data,
-                vector->size_elem * vector->max_elems);
+    bh_memcpy_s(data, (uint32)(vector->size_elem * length), vector->data,
+                (uint32)(vector->size_elem * vector->max_elems));
     BH_FREE(vector->data);
 
     vector->data = data;
@@ -110,8 +110,8 @@ bh_vector_set(Vector *vector, uint32 index, const void *elem_buf)
 
     if (vector->lock)
         os_mutex_lock(vector->lock);
-    bh_memcpy_s(vector->data + vector->size_elem * index, vector->size_elem,
-                elem_buf, vector->size_elem);
+    bh_memcpy_s(vector->data + vector->size_elem * index,
+                (uint32)vector->size_elem, elem_buf, (uint32)vector->size_elem);
     if (vector->lock)
         os_mutex_unlock(vector->lock);
     return true;
@@ -132,8 +132,9 @@ bh_vector_get(Vector *vector, uint32 index, void *elem_buf)
 
     if (vector->lock)
         os_mutex_lock(vector->lock);
-    bh_memcpy_s(elem_buf, vector->size_elem,
-                vector->data + vector->size_elem * index, vector->size_elem);
+    bh_memcpy_s(elem_buf, (uint32)vector->size_elem,
+                vector->data + vector->size_elem * index,
+                (uint32)vector->size_elem);
     if (vector->lock)
         os_mutex_unlock(vector->lock);
     return true;
@@ -166,12 +167,13 @@ bh_vector_insert(Vector *vector, uint32 index, const void *elem_buf)
 
     p = vector->data + vector->size_elem * vector->num_elems;
     for (i = vector->num_elems - 1; i > index; i--) {
-        bh_memcpy_s(p, vector->size_elem, p - vector->size_elem,
-                    vector->size_elem);
+        bh_memcpy_s(p, (uint32)vector->size_elem, p - vector->size_elem,
+                    (uint32)vector->size_elem);
         p -= vector->size_elem;
     }
 
-    bh_memcpy_s(p, vector->size_elem, elem_buf, vector->size_elem);
+    bh_memcpy_s(p, (uint32)vector->size_elem, elem_buf,
+                (uint32)vector->size_elem);
     vector->num_elems++;
     ret = true;
 
@@ -202,7 +204,7 @@ bh_vector_append(Vector *vector, const void *elem_buf)
     }
 
     bh_memcpy_s(vector->data + vector->size_elem * vector->num_elems,
-                vector->size_elem, elem_buf, vector->size_elem);
+                (uint32)vector->size_elem, elem_buf, (uint32)vector->size_elem);
     vector->num_elems++;
     ret = true;
 
@@ -234,12 +236,13 @@ bh_vector_remove(Vector *vector, uint32 index, void *old_elem_buf)
     p = vector->data + vector->size_elem * index;
 
     if (old_elem_buf) {
-        bh_memcpy_s(old_elem_buf, vector->size_elem, p, vector->size_elem);
+        bh_memcpy_s(old_elem_buf, (uint32)vector->size_elem, p,
+                    (uint32)vector->size_elem);
     }
 
     for (i = index; i < vector->num_elems - 1; i++) {
-        bh_memcpy_s(p, vector->size_elem, p + vector->size_elem,
-                    vector->size_elem);
+        bh_memcpy_s(p, (uint32)vector->size_elem, p + vector->size_elem,
+                    (uint32)vector->size_elem);
         p += vector->size_elem;
     }
 
