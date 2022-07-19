@@ -75,11 +75,11 @@
         "viewsWelcome": [
             {
                 "view": "wamride.views.welcome",
-                "contents": "[ Project Management ]\n[$(project)New project](command:wamride.newProject)\n[$(files)Open project](command:wamride.openFolder)\n[$(book)Change workspace](command:wamride.changeWorkspace)\n[$(pencil)Configuration](command:wamride.targetConfig)"
+                "contents": "[ WAMR IDE ]\n[$(project)New project](command:wamride.newProject)\n[$(files)Open project](command:wamride.openFolder)\n[$(book)Change workspace](command:wamride.changeWorkspace)\n[$(pencil)Configuration](command:wamride.targetConfig)"
             },
             {
                 "view": "wamride.views.welcome",
-                "contents": "[ Execution Management ]\n[$(gear)Build](command:wamride.build)\n[$(run)Run](command:wamride.run)\n[$(debug-alt) Debug](command:wamride.debug)",
+                "contents": "[ Current Project ]\n[$(gear)Build](command:wamride.build)\n[$(run)Run](command:wamride.run)\n[$(debug-alt) Debug](command:wamride.debug)",
                 "enablement": "ext.isWasmProject"
             }
         ],

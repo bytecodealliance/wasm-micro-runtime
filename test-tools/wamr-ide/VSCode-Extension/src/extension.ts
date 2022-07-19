@@ -282,25 +282,27 @@ export async function activate(context: vscode.ExtensionContext) {
                 });
 
             /* update workspace value to vscode global settings */
-            await vscode.workspace
-                .getConfiguration()
-                .update(
-                    'WAMR-IDE.configWorkspace',
-                    Workspace.trim(),
-                    vscode.ConfigurationTarget.Global
-                )
-                .then(
-                    success => {
-                        vscode.window.showInformationMessage(
-                            'Workspace has been set up successfully!'
-                        );
-                    },
-                    error => {
-                        vscode.window.showErrorMessage(
-                            'Set up Workspace failed!'
-                        );
-                    }
-                );
+            if (Workspace !== '' && Workspace !== undefined) {
+                await vscode.workspace
+                    .getConfiguration()
+                    .update(
+                        'WAMR-IDE.configWorkspace',
+                        Workspace.trim(),
+                        vscode.ConfigurationTarget.Global
+                    )
+                    .then(
+                        success => {
+                            vscode.window.showInformationMessage(
+                                'Workspace has been set up successfully!'
+                            );
+                        },
+                        error => {
+                            vscode.window.showErrorMessage(
+                                'Set up Workspace failed!'
+                            );
+                        }
+                    );
+            }
         }
     );
 
