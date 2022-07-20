@@ -179,6 +179,13 @@ wasm_exec_env_get_module_inst(WASMExecEnv *exec_env)
 }
 
 void
+wasm_exec_env_set_module_inst(WASMExecEnv *exec_env,
+                              WASMModuleInstanceCommon *const module_inst)
+{
+    exec_env->module_inst = module_inst;
+}
+
+void
 wasm_exec_env_set_thread_info(WASMExecEnv *exec_env)
 {
     exec_env->handle = os_self_thread();
