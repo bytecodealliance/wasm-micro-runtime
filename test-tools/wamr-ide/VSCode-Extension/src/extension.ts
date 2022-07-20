@@ -493,28 +493,6 @@ export async function activate(context: vscode.ExtensionContext) {
                                     dispose_bfr.dispose();
                                     return;
                                 }
-
-                                let disposable_aft = vscode.tasks.onDidEndTask(
-                                    a => {
-                                        if (
-                                            a.execution.task.name === 'Wasm' &&
-                                            a.execution.task.source === 'Run'
-                                        ) {
-                                            vscode.commands.executeCommand(
-                                                'workbench.action.tasks.runTask',
-                                                'Destroy: Wasm-Container-After-Run'
-                                            );
-
-                                            /* execute the task to kill the terminal */
-                                            vscode.commands.executeCommand(
-                                                'workbench.action.terminal.kill',
-                                                'Run: Wasm'
-                                            );
-
-                                            disposable_aft.dispose();
-                                        }
-                                    }
-                                );
                             });
                         dispose_bfr.dispose();
                     }
