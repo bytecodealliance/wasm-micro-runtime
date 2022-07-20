@@ -50,7 +50,6 @@ static JitGlobals jit_globals = {
 #else
     .passes = compiler_passes_with_dump,
 #endif
-    .code_cache_size = 10 * 1024 * 1024,
     .return_to_interp_from_jitted = NULL
 };
 /* clang-format on */
@@ -76,10 +75,16 @@ apply_compiler_passes(JitCompContext *cc)
 }
 
 bool
-jit_compiler_init()
+jit_compiler_init(const JitCompOptions *options)
 {
-    /* TODO: get code cache size with global configs */
-    if (!jit_code_cache_init(jit_globals.code_cache_size))
+    uint32 code_cache_size = options->code_cache_size > 0
+                                 ? options->code_cache_size
+                                 : FAST_JIT_DEFAULT_CODE_CACHE_SIZE;
+
+    LOG_VERBOSE("JIT: compiler init with code cache size: %u\n",
+                code_cache_size);
+
+    if (!jit_code_cache_init(code_cache_size))
         return false;
 
     if (!jit_codegen_init())

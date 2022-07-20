@@ -120,6 +120,10 @@ runtime_malloc(uint64 size, WASMModuleInstanceCommon *module_inst,
     return mem;
 }
 
+#if WASM_ENABLE_FAST_JIT != 0
+static JitCompOptions jit_options = { 0 };
+#endif
+
 static bool
 wasm_runtime_env_init()
 {
@@ -172,7 +176,7 @@ wasm_runtime_env_init()
 #endif
 
 #if WASM_ENABLE_FAST_JIT != 0
-    if (!jit_compiler_init()) {
+    if (!jit_compiler_init(&jit_options)) {
         goto fail9;
     }
 #endif
@@ -294,6 +298,10 @@ wasm_runtime_full_init(RuntimeInitArgs *init_args)
     if (!wasm_runtime_memory_init(init_args->mem_alloc_type,
                                   &init_args->mem_alloc_option))
         return false;
+
+#if WASM_ENABLE_FAST_JIT != 0
+    jit_options.code_cache_size = init_args->fast_jit_code_cache_size;
+#endif
 
     if (!wasm_runtime_env_init()) {
         wasm_runtime_memory_destroy();

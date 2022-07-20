@@ -17,13 +17,11 @@ extern "C" {
 typedef struct JitGlobals {
     /* Compiler pass sequence, the last element must be 0 */
     const uint8 *passes;
-    /* Code cache size.  */
-    uint32 code_cache_size;
     char *return_to_interp_from_jitted;
 } JitGlobals;
 
 /**
- * Actions the interpreter should do when JITed code returns to
+ * Actions the interpreter should do when jitted code returns to
  * interpreter.
  */
 typedef enum JitInterpAction {
@@ -33,14 +31,14 @@ typedef enum JitInterpAction {
 } JitInterpAction;
 
 /**
- * Information exchanged between JITed code and interpreter.
+ * Information exchanged between jitted code and interpreter.
  */
 typedef struct JitInterpSwitchInfo {
-    /* Points to the frame that is passed to JITed code and the frame
-       that is returned from JITed code */
+    /* Points to the frame that is passed to jitted code and the frame
+       that is returned from jitted code */
     void *frame;
 
-    /* Output values from JITed code of different actions */
+    /* Output values from jitted code of different actions */
     union {
         /* IP and SP offsets for NORMAL */
         struct {
@@ -48,14 +46,14 @@ typedef struct JitInterpSwitchInfo {
             int32 sp;
         } normal;
 
-        /* Function called from JITed code for CALL */
+        /* Function called from jitted code for CALL */
         struct {
             void *function;
         } call;
 
         /* Returned integer and/or floating point values for RETURN. This
-           is also used to pass return values from interpreter to JITed
-           code if the caller is in JITed code and the callee is in
+           is also used to pass return values from interpreter to jitted
+           code if the caller is in jitted code and the callee is in
            interpreter. */
         struct {
             uint32 ival[2];
@@ -65,8 +63,14 @@ typedef struct JitInterpSwitchInfo {
     } out;
 } JitInterpSwitchInfo;
 
+/* Jit compiler options */
+typedef struct JitCompOptions {
+    uint32 code_cache_size;
+    uint32 opt_level;
+} JitCompOptions;
+
 bool
-jit_compiler_init();
+jit_compiler_init(const JitCompOptions *option);
 
 void
 jit_compiler_destroy();
