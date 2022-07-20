@@ -36,19 +36,11 @@ newgrp - docker << REST
 
 # 2. build wasm-debug-server docker image
 cd ${DIR_ROOT}/WASM-Debug-Server/Docker
-docker build --build-arg http_proxy=http://child-prc.intel.com:913 \
-             --build-arg https_proxy=http://child-prc.intel.com:913 \
-             --build-arg ftp_proxy=http://child-prc.intel.com:913 \
-             --build-arg socks_proxy=http://child-prc.intel.com:913 \
-             -t wasm-debug-server:1.0 .
+docker build -t wasm-debug-server:1.0 .
 
 # 3. build wasm-toolchain docker image
 cd ${DIR_ROOT}/WASM-Toolchain/Docker
 docker pull ubuntu:20.04
-docker build --build-arg http_proxy=http://child-prc.intel.com:913 \
-             --build-arg https_proxy=http://child-prc.intel.com:913 \
-             --build-arg ftp_proxy=http://child-prc.intel.com:913 \
-             --build-arg socks_proxy=http://child-prc.intel.com:913 \
-             -t wasm-toolchain:1.0 .
+docker build -t wasm-toolchain:1.0 .
 
 REST
