@@ -114,6 +114,9 @@ sendmsg(int sockfd, const struct msghdr *msg, int flags);
 
 int
 socket(int domain, int type, int protocol);
+
+int
+getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
 #endif
 
 /**
@@ -141,16 +144,15 @@ __wasi_sock_accept(__wasi_fd_t fd, __wasi_fd_t *fd_new)
  * either IP4 or IP6.
  */
 int32_t
-__imported_wasi_snapshot_preview1_sock_addr_local(int32_t arg0, int32_t arg1,
-                                                  int32_t arg2)
+__imported_wasi_snapshot_preview1_sock_addr_local(int32_t arg0, int32_t arg1)
     __attribute__((__import_module__("wasi_snapshot_preview1"),
                    __import_name__("sock_addr_local")));
 
 static inline __wasi_errno_t
-__wasi_sock_addr_local(__wasi_fd_t fd, uint8_t *buf, __wasi_size_t buf_len)
+__wasi_sock_addr_local(__wasi_fd_t fd, __wasi_addr_t *addr)
 {
     return (__wasi_errno_t)__imported_wasi_snapshot_preview1_sock_addr_local(
-        (int32_t)fd, (int32_t)buf, (int32_t)buf_len);
+        (int32_t)fd, (int32_t)addr);
 }
 
 /**

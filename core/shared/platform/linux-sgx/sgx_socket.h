@@ -95,6 +95,9 @@ struct sockaddr {
     char sa_data[14];             /* Address data.  */
 };
 
+uint32_t
+ntohl(uint32_t value);
+
 int
 socket(int domain, int type, int protocol);
 

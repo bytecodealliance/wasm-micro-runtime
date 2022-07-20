@@ -105,7 +105,7 @@ htonl(uint32 value)
     return value;
 }
 
-static uint32
+uint32
 ntohl(uint32 value)
 {
     return htonl(value);
@@ -626,6 +626,15 @@ os_socket_addr_resolve(const char *host, const char *service,
                        uint8_t *hint_is_tcp, uint8_t *hint_is_ipv4,
                        bh_addr_info_t *addr_info, size_t addr_info_size,
                        size_t *max_info_size)
+{
+    errno = ENOSYS;
+
+    return BHT_ERROR;
+}
+
+int
+os_socket_addr_local(bh_socket_t socket, uint8_t *buf, size_t buflen,
+                     uint16_t *port, uint8_t *is_ipv4)
 {
     errno = ENOSYS;
 
