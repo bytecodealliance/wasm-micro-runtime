@@ -23,6 +23,7 @@ let wasmTaskProvider: WasmTaskProvider;
 let wasmDebugConfigProvider: WasmDebugConfigurationProvider;
 var currentPrjDir = '';
 var extensionPath = '';
+var isWasmProject = false;
 
 export async function activate(context: vscode.ExtensionContext) {
     var OS_PLATFORM = '',
@@ -108,10 +109,11 @@ export async function activate(context: vscode.ExtensionContext) {
                 );
 
             if (wamrFolder.length !== 0) {
+                isWasmProject = true;
                 vscode.commands.executeCommand(
                     'setContext',
                     'ext.isWasmProject',
-                    true
+                    isWasmProject
                 );
                 if (
                     vscode.workspace
@@ -309,6 +311,14 @@ export async function activate(context: vscode.ExtensionContext) {
     let disposableBuild = vscode.commands.registerCommand(
         'wamride.build',
         () => {
+            if (!isWasmProject) {
+                vscode.window.showErrorMessage('Build failed', {
+                    modal: true,
+                    detail: 'Current project is not wasm project, please open wasm project and try again.',
+                });
+                return;
+            }
+
             generateCMakeFile(includePathArr, excludeFileArr);
             /* destroy the wasm-toolchain-ctr if it exists */
             vscode.commands
@@ -367,6 +377,14 @@ export async function activate(context: vscode.ExtensionContext) {
     let disposableDebug = vscode.commands.registerCommand(
         'wamride.debug',
         () => {
+            if (!isWasmProject) {
+                vscode.window.showErrorMessage('debug failed', {
+                    modal: true,
+                    detail: 'Current project is not wasm project, please open wasm project and try again.',
+                });
+                return;
+            }
+
             /* refuse to debug if build process failed */
             if (!checkIfBuildSuccess()) {
                 vscode.window.showErrorMessage('Debug failed', {
@@ -440,6 +458,14 @@ export async function activate(context: vscode.ExtensionContext) {
         }
     );
     let disposableRun = vscode.commands.registerCommand('wamride.run', () => {
+        if (!isWasmProject) {
+            vscode.window.showErrorMessage('run failed', {
+                modal: true,
+                detail: 'Current project is not wasm project, please open wasm project and try again.',
+            });
+            return;
+        }
+
         /* refuse to debug if build process failed */
         if (!checkIfBuildSuccess()) {
             vscode.window.showErrorMessage('Debug failed', {
