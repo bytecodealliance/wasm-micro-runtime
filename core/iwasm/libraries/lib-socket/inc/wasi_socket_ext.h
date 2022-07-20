@@ -59,6 +59,18 @@ typedef struct __wasi_addr_t {
 
 typedef enum { INET4 = 0, INET6 } __wasi_address_family_t;
 
+typedef struct __wasi_addr_info_t {
+    __wasi_addr_t addr;
+    __wasi_sock_type_t type;
+} __wasi_addr_info_t;
+
+typedef struct __wasi_addr_info_hints_t {
+    __wasi_sock_type_t type;
+    __wasi_address_family_t family;
+    // this is to workaround lack of optional parameters
+    uint8_t hints_enabled;
+} __wasi_addr_info_hints_t;
+
 #ifdef __wasi__
 /**
  * Reimplement below POSIX APIs with __wasi_sock_XXX functions.
@@ -149,30 +161,37 @@ __wasi_sock_addr_remote(__wasi_fd_t fd, uint8_t *buf, __wasi_size_t buf_len)
 }
 
 /**
- * Resolves a hostname and a port to one or more IP addresses. Port is optional
- * and you can pass 0 (zero) in most cases, it is used a hint for protocol.
+ * Resolve a hostname and a service to one or more IP addresses. Service is
+ * optional and you can pass empty string in most cases, it is used as a hint
+ * for protocol.
  *
  * Note: This is similar to `getaddrinfo` in POSIX
  *
  * When successful, the contents of the output buffer consist of a sequence of
- * IPv4 and/or IPv6 addresses. Each address entry consists of a addr_t object.
+ * IPv4 and/or IPv6 addresses. Each address entry consists of a wasi_addr_t
+ * object.
  *
- * This function fills the output buffer as much as possible, potentially
- * truncating the last address entry. It is advisable that the buffer is
+ * This function fills the output buffer as much as possible, truncating the
+ * entries that didn't fit into the buffer. A number of available addresses
+ * will be returned through the last parameter.
  */
 int32_t
-__imported_wasi_snapshot_preview1_addr_resolve(int32_t arg0, int32_t arg1,
-                                               int32_t arg2, int32_t arg3,
-                                               int32_t arg4)
+__imported_wasi_snapshot_preview1_sock_addr_resolve(int32_t arg0, int32_t arg1,
+                                                    int32_t arg2, int32_t arg3,
+                                                    int32_t arg4, int32_t arg5)
     __attribute__((__import_module__("wasi_snapshot_preview1"),
-                   __import_name__("addr_resolve")));
+                   __import_name__("sock_addr_resolve")));
 
 static inline __wasi_errno_t
-__wasi_addr_resolve(__wasi_fd_t fd, const char *host, __wasi_ip_port_t port,
-                    uint8_t *buf, __wasi_size_t size)
+__wasi_sock_addr_resolve(const char *host, const char *service,
+                         __wasi_addr_info_hints_t *hints,
+                         __wasi_addr_info_t *addr_info,
+                         __wasi_size_t addr_info_size,
+                         __wasi_size_t *max_info_size)
 {
-    return (__wasi_errno_t)__imported_wasi_snapshot_preview1_addr_resolve(
-        (int32_t)fd, (int32_t)host, (int32_t)port, (int32_t)buf, (int32_t)size);
+    return (__wasi_errno_t)__imported_wasi_snapshot_preview1_sock_addr_resolve(
+        (int32_t)host, (int32_t)service, (int32_t)hints, (int32_t)addr_info,
+        (int32_t)addr_info_size, (int32_t)max_info_size);
 }
 
 /**

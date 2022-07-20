@@ -339,6 +339,41 @@ os_socket_shutdown(bh_socket_t socket);
 int
 os_socket_inet_network(const char *cp, uint32 *out);
 
+typedef struct {
+    uint8_t addr[16];
+    uint16_t port;
+    uint8_t is_ipv4;
+    uint8_t is_tcp;
+} bh_addr_info_t;
+
+/**
+ * Resolve a host a hostname and a service to one or more IP addresses
+ *
+ * @param host a host to resolve
+ *
+ * @param service a service to find a port for
+ *
+ * @param hint_is_tcp an optional flag that determines a preferred socket type
+ (TCP or UDP).
+ *
+ * @param hint_is_ipv4 an optional flag that determines a preferred address
+ family (IPv4 or IPv6)
+ *
+ * @param addr_info a buffer for resolved addresses
+ *
+ * @param addr_info_size a size of the buffer for resolved addresses
+
+ * @param max_info_size a maximum number of addresses available (can be bigger
+ or smaller than buffer size)
+
+ * @return On success, the function returns 0; otherwise, it returns -1
+ */
+int
+os_socket_addr_resolve(const char *host, const char *service,
+                       uint8_t *hint_is_tcp, uint8_t *hint_is_ipv4,
+                       bh_addr_info_t *addr_info, size_t addr_info_size,
+                       size_t *max_info_size);
+
 #ifdef __cplusplus
 }
 #endif

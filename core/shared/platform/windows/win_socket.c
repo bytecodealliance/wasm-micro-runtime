@@ -162,3 +162,14 @@ os_socket_inet_network(const char *cp, uint32 *out)
     *out = inet_addr(cp);
     return BHT_OK;
 }
+
+int
+os_socket_addr_resolve(const char *host, const char *service,
+                       uint8_t *hint_is_tcp, uint8_t *hint_is_ipv4,
+                       bh_addr_info_t *addr_info, size_t addr_info_size,
+                       size_t *max_info_size)
+{
+    errno = ENOSYS;
+
+    return BHT_ERROR;
+}

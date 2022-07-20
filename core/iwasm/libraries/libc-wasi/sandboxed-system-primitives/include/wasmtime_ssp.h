@@ -598,6 +598,18 @@ typedef struct __wasi_addr_t {
 
 typedef enum { INET4 = 0, INET6 } __wasi_address_family_t;
 
+typedef struct __wasi_addr_info_t {
+    __wasi_addr_t addr;
+    __wasi_sock_type_t type;
+} __wasi_addr_info_t;
+
+typedef struct __wasi_addr_info_hints_t {
+   __wasi_sock_type_t type;
+   __wasi_address_family_t family;
+   // this is to workaround lack of optional parameters
+   uint8_t hints_enabled;
+} __wasi_addr_info_hints_t;
+
 #if defined(WASMTIME_SSP_WASI_API)
 #define WASMTIME_SSP_SYSCALL_NAME(name) \
     asm("__wasi_" #name)
@@ -1021,6 +1033,16 @@ wasi_ssp_sock_bind(
     struct fd_table *curfds, struct addr_pool *addr_pool,
 #endif
     __wasi_fd_t fd, __wasi_addr_t *addr
+) __attribute__((__warn_unused_result__));
+
+__wasi_errno_t
+wasi_ssp_sock_addr_resolve(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    const char *host, const char* service,
+    __wasi_addr_info_hints_t *hints, __wasi_addr_info_t *addr_info,
+    __wasi_size_t addr_info_size, __wasi_size_t *max_info_size
 ) __attribute__((__warn_unused_result__));
 
 __wasi_errno_t

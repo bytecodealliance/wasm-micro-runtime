@@ -7,6 +7,7 @@
 #include "platform_api_extension.h"
 
 #include <arpa/inet.h>
+#include <netdb.h>
 
 static void
 textual_addr_to_sockaddr(const char *textual, int port, struct sockaddr_in *out)
@@ -174,5 +175,102 @@ os_socket_inet_network(const char *cp, uint32 *out)
 
     /* Note: ntohl(INADDR_NONE) == INADDR_NONE */
     *out = ntohl(inet_addr(cp));
+    return BHT_OK;
+}
+
+static int
+getaddrinfo_error_to_errno(int error)
+{
+    switch (error) {
+        case EAI_AGAIN:
+            return EAGAIN;
+        case EAI_FAIL:
+            return EFAULT;
+        case EAI_MEMORY:
+            return ENOMEM;
+        case EAI_SYSTEM:
+            return errno;
+        default:
+            return EINVAL;
+    }
+}
+
+static int
+is_addrinfo_supported(struct addrinfo *info)
+{
+    return
+        // Allow only IPv4 and IPv6
+        (info->ai_family == AF_INET || info->ai_family == AF_INET6)
+        // Allow only UDP and TCP
+        && (info->ai_socktype == SOCK_DGRAM || info->ai_socktype == SOCK_STREAM)
+        && (info->ai_protocol == IPPROTO_TCP
+            || info->ai_protocol == IPPROTO_UDP);
+}
+
+int
+os_socket_addr_resolve(const char *host, const char *service,
+                       uint8_t *hint_is_tcp, uint8_t *hint_is_ipv4,
+                       bh_addr_info_t *addr_info, size_t addr_info_size,
+                       size_t *max_info_size)
+{
+    struct addrinfo hints = { 0 }, *res, *result;
+    int hints_enabled = hint_is_tcp || hint_is_ipv4;
+    int ret;
+    size_t pos = 0;
+
+    if (hints_enabled) {
+        if (hint_is_ipv4) {
+            hints.ai_family = *hint_is_ipv4 ? PF_INET : PF_INET6;
+        }
+        if (hint_is_tcp) {
+            hints.ai_socktype = *hint_is_tcp ? SOCK_STREAM : SOCK_DGRAM;
+        }
+    }
+
+    ret = getaddrinfo(host, service, hints_enabled ? &hints : NULL, &result);
+    if (ret != BHT_OK) {
+        errno = getaddrinfo_error_to_errno(ret);
+        return BHT_ERROR;
+    }
+
+    res = result;
+    while (res) {
+        if (addr_info_size > pos) {
+            if (!is_addrinfo_supported(res)) {
+                res = res->ai_next;
+                continue;
+            }
+
+            if (res->ai_family == AF_INET) {
+                struct sockaddr_in *addr_in =
+                    (struct sockaddr_in *)res->ai_addr;
+
+                addr_info[pos].port = addr_in->sin_port;
+                addr_info[pos].is_ipv4 = 1;
+                memcpy(addr_info[pos].addr, &addr_in->sin_addr,
+                       sizeof(addr_in->sin_addr));
+            }
+            else {
+                struct sockaddr_in6 *addr_in =
+                    (struct sockaddr_in6 *)res->ai_addr;
+
+                addr_info[pos].port = addr_in->sin6_port;
+                addr_info[pos].is_ipv4 = 0;
+                for (int i = 0; i < 8; i++) {
+                    ((uint16 *)addr_info[pos].addr)[i] =
+                        ntohs(((uint16_t *)&addr_in->sin6_addr)[i]);
+                }
+            }
+
+            addr_info[pos].is_tcp = res->ai_socktype == SOCK_STREAM;
+        }
+
+        pos++;
+        res = res->ai_next;
+    }
+
+    *max_info_size = pos;
+    freeaddrinfo(result);
+
     return BHT_OK;
 }

@@ -199,6 +199,35 @@ convert_clockid(__wasi_clockid_t in, clockid_t *out)
     }
 }
 
+// Converts an IPv4 binary address object to WASI address.
+static void
+ipv4_addr_to_wasi_addr(uint32_t addr, __wasi_ip_port_t port, __wasi_addr_t *out)
+{
+    out->kind = IPv4;
+    out->addr.ip4.port = port;
+    out->addr.ip4.addr.n3 = (addr & 0xFF000000) >> 24;
+    out->addr.ip4.addr.n2 = (addr & 0x00FF0000) >> 16;
+    out->addr.ip4.addr.n1 = (addr & 0x0000FF00) >> 8;
+    out->addr.ip4.addr.n0 = (addr & 0x000000FF);
+}
+
+// Converts an IPv6 binary address object to WASI address object.
+static void
+ipv6_addr_to_wasi_addr(uint16_t addr[8], __wasi_ip_port_t port,
+                       __wasi_addr_t *out)
+{
+    out->kind = IPv6;
+    out->addr.ip6.port = port;
+    out->addr.ip6.addr.n0 = addr[0];
+    out->addr.ip6.addr.n1 = addr[1];
+    out->addr.ip6.addr.n2 = addr[2];
+    out->addr.ip6.addr.n3 = addr[3];
+    out->addr.ip6.addr.h0 = addr[4];
+    out->addr.ip6.addr.h1 = addr[5];
+    out->addr.ip6.addr.h2 = addr[6];
+    out->addr.ip6.addr.h3 = addr[7];
+}
+
 __wasi_errno_t
 wasmtime_ssp_clock_res_get(__wasi_clockid_t clock_id,
                            __wasi_timestamp_t *resolution)
@@ -2912,6 +2941,56 @@ wasi_ssp_sock_bind(
         return convert_errno(errno);
     }
 
+    return __WASI_ESUCCESS;
+}
+
+__wasi_errno_t
+wasi_ssp_sock_addr_resolve(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    const char *host, const char *service, __wasi_addr_info_hints_t *hints,
+    __wasi_addr_info_t *addr_info, __wasi_size_t addr_info_size,
+    __wasi_size_t *max_info_size)
+{
+    bh_addr_info_t *wamr_addr_info =
+        wasm_runtime_malloc(addr_info_size * sizeof(bh_addr_info_t));
+    uint8_t hints_is_ipv4 = hints->family == INET4;
+    uint8_t hints_is_tcp = hints->type == SOCKET_STREAM;
+    size_t _max_info_size;
+    size_t actual_info_size;
+
+    if (!wamr_addr_info) {
+        return __WASI_ENOMEM;
+    }
+
+    int ret = os_socket_addr_resolve(
+        host, service, hints->hints_enabled ? &hints_is_tcp : NULL,
+        hints->hints_enabled ? &hints_is_ipv4 : NULL, wamr_addr_info,
+        addr_info_size, &_max_info_size);
+
+    if (ret != BHT_OK) {
+        wasm_runtime_free(wamr_addr_info);
+        return convert_errno(errno);
+    }
+
+    *max_info_size = _max_info_size;
+    actual_info_size =
+        addr_info_size < *max_info_size ? addr_info_size : *max_info_size;
+
+    for (size_t i = 0; i < actual_info_size; i++) {
+        addr_info[i].type = wamr_addr_info[i].is_tcp ? SOCK_STREAM : SOCK_DGRAM;
+        if (wamr_addr_info[i].is_ipv4) {
+            ipv4_addr_to_wasi_addr(*(uint32_t *)wamr_addr_info[i].addr,
+                                   wamr_addr_info[i].port, &addr_info[i].addr);
+        }
+        else {
+            ipv6_addr_to_wasi_addr((uint16_t *)wamr_addr_info[i].addr,
+                                   wamr_addr_info[i].port, &addr_info[i].addr);
+        }
+    }
+
+    wasm_runtime_free(wamr_addr_info);
     return __WASI_ESUCCESS;
 }
 

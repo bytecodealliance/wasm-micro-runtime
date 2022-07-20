@@ -4,6 +4,7 @@
  */
 
 #include "platform_api_vmcore.h"
+#include "platform_api_extension.h"
 
 #ifndef SGX_DISABLE_WASI
 
@@ -618,6 +619,17 @@ int
 os_socket_shutdown(bh_socket_t socket)
 {
     return shutdown(socket, O_RDWR);
+}
+
+int
+os_socket_addr_resolve(const char *host, const char *service,
+                       uint8_t *hint_is_tcp, uint8_t *hint_is_ipv4,
+                       bh_addr_info_t *addr_info, size_t addr_info_size,
+                       size_t *max_info_size)
+{
+    errno = ENOSYS;
+
+    return BHT_ERROR;
 }
 
 #endif
