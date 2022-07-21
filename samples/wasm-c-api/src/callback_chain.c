@@ -25,7 +25,7 @@ call_wasm_function(uint32_t export_id, const wasm_val_vec_t *args,
 #define FUNCTION_TYPE_NIL_I32 wasm_functype_new_0_1(wasm_valtype_new_i32())
 // (i32, i32) -> nil
 #define FUNCTION_TYPE_I32X2_NIL \
-    wasm_functype_new_1_1(wasm_valtype_new_i32(), wasm_valtype_new_i32())
+    wasm_functype_new_2_0(wasm_valtype_new_i32(), wasm_valtype_new_i32())
 
 /* IMPORT FUNCTION LIST */
 #define IMPORT_FUNCTION_LIST(V)            \

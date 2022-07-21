@@ -499,7 +499,8 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
                         bh_memcpy_s(&f32, sizeof(float), &u.f, sizeof(float));
                     }
                 }
-                bh_memcpy_s(&argv1[p], total_size - p, &f32, sizeof(float));
+                bh_memcpy_s(&argv1[p], (uint32)total_size - p, &f32,
+                            (uint32)sizeof(float));
                 p++;
                 break;
             }
