@@ -57,6 +57,25 @@ typedef struct __wasi_addr_t {
     } addr;
 } __wasi_addr_t;
 
+typedef enum { __WASI_SOCK_OPT_LEVEL_SOL_SOCKET = 0 } __wasi_sock_opt_level_t;
+
+typedef enum {
+    __WASI_SOCK_OPT_SO_REUSEADDR = 0,
+    __WASI_SOCK_OPT_SO_TYPE = 1,
+    __WASI_SOCK_OPT_SO_ERROR = 2,
+    __WASI_SOCK_OPT_SO_DONTROUTE = 3,
+    __WASI_SOCK_OPT_SO_BROADCAST = 4,
+    __WASI_SOCK_OPT_SO_SNDBUF = 5,
+    __WASI_SOCK_OPT_SO_RCVBUF = 6,
+    __WASI_SOCK_OPT_SO_KEEPALIVE = 7,
+    __WASI_SOCK_OPT_SO_OOBINLINE = 8,
+    __WASI_SOCK_OPT_SO_LINGER = 9,
+    __WASI_SOCK_OPT_SO_RCVLOWAT = 10,
+    __WASI_SOCK_OPT_SO_RCVTIMEO = 11,
+    __WASI_SOCK_OPT_SO_SNDTIMEO = 12,
+    __WASI_SOCK_OPT_SO_ACCEPTCONN = 13,
+} __wasi_sock_opt_so_t;
+
 typedef enum { INET4 = 0, INET6 } __wasi_address_family_t;
 
 #ifdef __wasi__
@@ -67,6 +86,39 @@ typedef enum { INET4 = 0, INET6 } __wasi_address_family_t;
  * <sys/socket.h>
  * <sys/types.h>
  */
+
+// Types copied from wasi-libc project
+// They are currently not available for WASI,
+// see https://github.com/WebAssembly/wasi-libc/issues/304
+#define SO_DEBUG 1
+#define SO_REUSEADDR 2
+// SO_TYPE is already defined in WASI headers
+// #define SO_TYPE         3
+#define SO_ERROR 4
+#define SO_DONTROUTE 5
+#define SO_BROADCAST 6
+#define SO_SNDBUF 7
+#define SO_RCVBUF 8
+#define SO_KEEPALIVE 9
+#define SO_OOBINLINE 10
+#define SO_NO_CHECK 11
+#define SO_PRIORITY 12
+#define SO_LINGER 13
+#define SO_BSDCOMPAT 14
+#define SO_REUSEPORT 15
+#define SO_PASSCRED 16
+#define SO_PEERCRED 17
+#define SO_RCVLOWAT 18
+#define SO_SNDLOWAT 19
+#define SO_ACCEPTCONN 30
+#define SO_PEERSEC 31
+#define SO_SNDBUFFORCE 32
+#define SO_RCVBUFFORCE 33
+#define SO_PROTOCOL 38
+#define SO_DOMAIN 39
+
+#define SO_RCVTIMEO 66
+#define SO_SNDTIMEO 67
 
 int
 accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
@@ -88,6 +140,13 @@ sendmsg(int sockfd, const struct msghdr *msg, int flags);
 
 int
 socket(int domain, int type, int protocol);
+
+int
+getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optlen);
+
+int
+setsockopt(int sockfd, int level, int optname, const void *optval,
+           socklen_t optlen);
 #endif
 
 /**
@@ -223,6 +282,51 @@ __wasi_sock_connect(__wasi_fd_t fd, __wasi_addr_t *addr)
     return (__wasi_errno_t)__imported_wasi_snapshot_preview1_sock_connect(
         (int32_t)fd, (int32_t)addr);
 }
+
+/**
+ * Retrieve the socket option
+ * Note: This is similar to `getsockopt` in POSIX
+ */
+
+int32_t
+__imported_wasi_snapshot_preview1_sock_getsockopt(int32_t arg0, int32_t arg1,
+                                                  int32_t arg2, int32_t arg3,
+                                                  int32_t arg4)
+    __attribute__((__import_module__("wasi_snapshot_preview1"),
+                   __import_name__("sock_getsockopt")));
+
+static inline __wasi_errno_t
+__wasi_sock_getsockopt(__wasi_fd_t fd, __wasi_sock_opt_level_t level,
+                       __wasi_sock_opt_so_t option, void *value,
+                       __wasi_size_t *len)
+{
+    return (__wasi_errno_t)__imported_wasi_snapshot_preview1_sock_getsockopt(
+        (int32_t)fd, (int32_t)level, (uint32_t)option, (uint32_t)value,
+        (uint32_t)len);
+}
+
+/**
+ * Sets the socket option
+ * Note: This is similar to `setsockopt` in POSIX
+ */
+
+int32_t
+__imported_wasi_snapshot_preview1_sock_setsockopt(int32_t arg0, int32_t arg1,
+                                                  int32_t arg2, int32_t arg3,
+                                                  int32_t arg4)
+    __attribute__((__import_module__("wasi_snapshot_preview1"),
+                   __import_name__("sock_setsockopt")));
+
+static inline __wasi_errno_t
+__wasi_sock_setsockopt(__wasi_fd_t fd, __wasi_sock_opt_level_t level,
+                       __wasi_sock_opt_so_t option, const void *value,
+                       __wasi_size_t len)
+{
+    return (__wasi_errno_t)__imported_wasi_snapshot_preview1_sock_setsockopt(
+        (int32_t)fd, (int32_t)level, (uint32_t)option, (uint32_t)value,
+        (uint32_t)len);
+}
+
 /**
  * Retrieve the size of the receive buffer
  * Note: This is similar to `getsockopt` in POSIX for SO_RCVBUF

@@ -161,6 +161,52 @@ convert_errno(int error)
     return errors[error];
 }
 
+static __wasi_errno_t
+convert_wasi_sock_opt_to_sockopt(__wasi_sock_opt_so_t wasi_optname,
+                                 int *optname)
+{
+    switch (wasi_optname) {
+#define X(v)                  \
+    case __WASI_SOCK_OPT_##v: \
+        *optname = v;         \
+        break;
+        X(SO_REUSEADDR)
+        X(SO_TYPE)
+        X(SO_ERROR)
+        X(SO_DONTROUTE)
+        X(SO_BROADCAST)
+        X(SO_SNDBUF)
+        X(SO_RCVBUF)
+        X(SO_KEEPALIVE)
+        X(SO_OOBINLINE)
+        X(SO_LINGER)
+        X(SO_RCVLOWAT)
+        X(SO_RCVTIMEO)
+        X(SO_SNDTIMEO)
+        X(SO_ACCEPTCONN)
+        default:
+            return __WASI_EINVAL;
+    }
+#undef X
+
+    return __WASI_ESUCCESS;
+}
+
+static __wasi_errno_t
+convert_wasi_sock_level_to_socklevel(__wasi_sock_opt_level_t wasi_level,
+                                     int *level)
+{
+    switch (wasi_level) {
+        case __WASI_SOCK_OPT_LEVEL_SOL_SOCKET:
+            *level = SOL_SOCKET;
+            break;
+        default:
+            return __WASI_EINVAL;
+    }
+
+    return __WASI_ESUCCESS;
+}
+
 // Converts a POSIX timespec to a CloudABI timestamp.
 static __wasi_timestamp_t
 convert_timespec(const struct timespec *ts)
@@ -3018,6 +3064,83 @@ wasi_ssp_sock_open(
                                max_inheriting, sockfd);
     if (error != __WASI_ESUCCESS) {
         return error;
+    }
+
+    return __WASI_ESUCCESS;
+}
+
+__wasi_errno_t
+wasi_ssp_sock_getsockopt(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t fd, __wasi_sock_opt_level_t level, __wasi_sock_opt_so_t option,
+    void *value, socklen_t *len)
+{
+    struct fd_object *fo;
+    int ret;
+    __wasi_errno_t error;
+    int sockopt, socklevel;
+
+    error = convert_wasi_sock_opt_to_sockopt(option, &sockopt);
+
+    if (error != __WASI_ESUCCESS) {
+        return error;
+    }
+
+    error = convert_wasi_sock_level_to_socklevel(level, &socklevel);
+    if (error != __WASI_ESUCCESS) {
+        return error;
+    }
+
+    error = fd_object_get(curfds, &fo, fd, __WASI_RIGHT_FD_READ, 0);
+    if (error != __WASI_ESUCCESS) {
+        return error;
+    }
+
+    ret = getsockopt(fd_number(fo), socklevel, sockopt, value, len);
+    fd_object_release(fo);
+
+    if (ret < 0) {
+        return convert_errno(errno);
+    }
+
+    return __WASI_ESUCCESS;
+}
+
+__wasi_errno_t
+wasi_ssp_sock_setsockopt(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t fd, __wasi_sock_opt_level_t level, __wasi_sock_opt_so_t option,
+    const void *value, socklen_t len)
+{
+    struct fd_object *fo;
+    int ret;
+    __wasi_errno_t error;
+    int sockopt, socklevel;
+
+    error = convert_wasi_sock_opt_to_sockopt(option, &sockopt);
+
+    if (error != __WASI_ESUCCESS) {
+        return error;
+    }
+
+    error = convert_wasi_sock_level_to_socklevel(level, &socklevel);
+    if (error != __WASI_ESUCCESS) {
+        return error;
+    }
+
+    error = fd_object_get(curfds, &fo, fd, __WASI_RIGHT_FD_READ, 0);
+    if (error != __WASI_ESUCCESS) {
+        return error;
+    }
+    ret = setsockopt(fd_number(fo), socklevel, sockopt, value, len);
+    fd_object_release(fo);
+
+    if (ret < 0) {
+        return convert_errno(errno);
     }
 
     return __WASI_ESUCCESS;

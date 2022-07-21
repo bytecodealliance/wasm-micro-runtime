@@ -1145,6 +1145,40 @@ wasi_sock_open(wasm_exec_env_t exec_env, wasi_fd_t poolfd,
     return wasi_ssp_sock_open(curfds, poolfd, af, socktype, sockfd);
 }
 
+static __wasi_errno_t
+wasi_sock_getsockopt(wasm_exec_env_t exec_env, wasi_fd_t fd,
+                     __wasi_sock_opt_level_t level, __wasi_sock_opt_so_t option,
+                     void *value, socklen_t *len)
+{
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
+    wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
+    struct fd_table *curfds = NULL;
+
+    if (!wasi_ctx)
+        return __WASI_EACCES;
+
+    curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
+
+    return wasi_ssp_sock_getsockopt(curfds, fd, level, option, value, len);
+}
+
+static __wasi_errno_t
+wasi_sock_setsockopt(wasm_exec_env_t exec_env, wasi_fd_t fd,
+                     __wasi_sock_opt_level_t level, __wasi_sock_opt_so_t option,
+                     const void *value, socklen_t len)
+{
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
+    wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
+    struct fd_table *curfds = NULL;
+
+    if (!wasi_ctx)
+        return __WASI_EACCES;
+
+    curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
+
+    return wasi_ssp_sock_setsockopt(curfds, fd, level, option, value, len);
+}
+
 static wasi_errno_t
 wasi_sock_set_recv_buf_size(wasm_exec_env_t exec_env, wasi_fd_t fd,
                             wasi_size_t size)
@@ -1394,6 +1428,8 @@ static NativeSymbol native_symbols_libc_wasi[] = {
     REG_NATIVE_FUNC(sock_bind, "(i*)i"),
     REG_NATIVE_FUNC(sock_close, "(i)i"),
     REG_NATIVE_FUNC(sock_connect, "(i*)i"),
+    REG_NATIVE_FUNC(sock_getsockopt, "(iii**)i"),
+    REG_NATIVE_FUNC(sock_setsockopt, "(iii*i)i"),
     REG_NATIVE_FUNC(sock_get_recv_buf_size, "(i*)i"),
     REG_NATIVE_FUNC(sock_get_reuse_addr, "(i*)i"),
     REG_NATIVE_FUNC(sock_get_reuse_port, "(i*)i"),

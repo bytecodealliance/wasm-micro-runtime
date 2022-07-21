@@ -18,6 +18,50 @@
         return -1;                       \
     }
 
+static int
+sockopt_to_wasi_sockopt(int optname, __wasi_sock_opt_so_t *wasi_optname)
+{
+    switch (optname) {
+#define X(v)                                 \
+    case v:                                  \
+        *wasi_optname = __WASI_SOCK_OPT_##v; \
+        break;
+        X(SO_REUSEADDR)
+        X(SO_TYPE)
+        X(SO_ERROR)
+        X(SO_DONTROUTE)
+        X(SO_BROADCAST)
+        X(SO_SNDBUF)
+        X(SO_RCVBUF)
+        X(SO_KEEPALIVE)
+        X(SO_OOBINLINE)
+        X(SO_LINGER)
+        X(SO_RCVLOWAT)
+        X(SO_RCVTIMEO)
+        X(SO_SNDTIMEO)
+        X(SO_ACCEPTCONN)
+        default:
+            return __WASI_ERRNO_INVAL;
+    }
+#undef X
+
+    return __WASI_ERRNO_SUCCESS;
+}
+
+static int
+sockopt_level_to_wasi_level(int level, __wasi_sock_opt_level_t *wasi_level)
+{
+    switch (level) {
+        case SOL_SOCKET:
+            *wasi_level = __WASI_SOCK_OPT_LEVEL_SOL_SOCKET;
+            break;
+        default:
+            return __WASI_ERRNO_INVAL;
+    }
+
+    return __WASI_ERRNO_SUCCESS;
+}
+
 /* addr_num and port are in network order */
 static void
 ipv4_addr_to_wasi_addr(uint32_t addr_num, uint16_t port, __wasi_addr_t *out)
@@ -255,4 +299,49 @@ socket(int domain, int type, int protocol)
     HANDLE_ERROR(error)
 
     return sockfd;
+}
+
+int
+getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optlen)
+{
+    __wasi_errno_t error;
+    __wasi_size_t wasi_optlen = *optlen;
+    __wasi_sock_opt_so_t wasi_optname;
+    __wasi_sock_opt_level_t wasi_level;
+
+    error = sockopt_to_wasi_sockopt(optname, &wasi_optname);
+    HANDLE_ERROR(error);
+
+    error = sockopt_level_to_wasi_level(level, &wasi_level);
+    HANDLE_ERROR(error);
+
+    error = __wasi_sock_getsockopt(sockfd, wasi_level, wasi_optname, optval,
+                                   &wasi_optlen);
+    printf("ee %d\n", error);
+    HANDLE_ERROR(error);
+
+    *optlen = wasi_optlen;
+
+    return __WASI_ERRNO_SUCCESS;
+}
+
+int
+setsockopt(int sockfd, int level, int optname, const void *optval,
+           socklen_t optlen)
+{
+    __wasi_errno_t error;
+    __wasi_sock_opt_so_t wasi_optname;
+    __wasi_sock_opt_level_t wasi_level;
+
+    error = sockopt_to_wasi_sockopt(optname, &wasi_optname);
+    HANDLE_ERROR(error);
+
+    error = sockopt_level_to_wasi_level(level, &wasi_level);
+    HANDLE_ERROR(error);
+
+    error = __wasi_sock_setsockopt(sockfd, wasi_level, wasi_optname, optval,
+                                   optlen);
+    HANDLE_ERROR(error);
+
+    return __WASI_ERRNO_SUCCESS;
 }

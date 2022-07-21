@@ -295,6 +295,25 @@ typedef uint8_t __wasi_signal_t;
 #define __WASI_SIGPWR    (29)
 #define __WASI_SIGSYS    (30)
 
+typedef enum { __WASI_SOCK_OPT_LEVEL_SOL_SOCKET = 0 } __wasi_sock_opt_level_t;
+
+typedef enum {
+    __WASI_SOCK_OPT_SO_REUSEADDR = 0,
+    __WASI_SOCK_OPT_SO_TYPE,
+    __WASI_SOCK_OPT_SO_ERROR,
+    __WASI_SOCK_OPT_SO_DONTROUTE,
+    __WASI_SOCK_OPT_SO_BROADCAST,
+    __WASI_SOCK_OPT_SO_SNDBUF,
+    __WASI_SOCK_OPT_SO_RCVBUF,
+    __WASI_SOCK_OPT_SO_KEEPALIVE,
+    __WASI_SOCK_OPT_SO_OOBINLINE,
+    __WASI_SOCK_OPT_SO_LINGER,
+    __WASI_SOCK_OPT_SO_RCVLOWAT,
+    __WASI_SOCK_OPT_SO_RCVTIMEO,
+    __WASI_SOCK_OPT_SO_SNDTIMEO,
+    __WASI_SOCK_OPT_SO_ACCEPTCONN,
+} __wasi_sock_opt_so_t;
+
 typedef uint16_t __wasi_subclockflags_t;
 #define __WASI_SUBSCRIPTION_CLOCK_ABSTIME (0x0001)
 
@@ -1013,6 +1032,26 @@ wasi_ssp_sock_open(
 #endif
     __wasi_fd_t poolfd, __wasi_address_family_t af, __wasi_sock_type_t socktype,
     __wasi_fd_t *sockfd
+) __attribute__((__warn_unused_result__));
+
+__wasi_errno_t
+wasi_ssp_sock_getsockopt(
+    #if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t fd, __wasi_sock_opt_level_t level,
+    __wasi_sock_opt_so_t option, void *value,
+    __wasi_size_t *len
+) __attribute__((__warn_unused_result__));
+
+__wasi_errno_t
+wasi_ssp_sock_setsockopt(
+    #if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t fd, __wasi_sock_opt_level_t level,
+    __wasi_sock_opt_so_t option, const void *value,
+    __wasi_size_t len
 ) __attribute__((__warn_unused_result__));
 
 __wasi_errno_t
