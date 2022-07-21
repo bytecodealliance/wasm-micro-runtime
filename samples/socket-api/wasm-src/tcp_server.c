@@ -49,6 +49,7 @@ main(int argc, char *argv[])
     unsigned connections = 0;
     pthread_t workers[WORKER_NUM] = { 0 };
     int client_sock_fds[WORKER_NUM] = { 0 };
+    char ip_string[16];
 
     printf("[Server] Create socket\n");
     socket_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -84,7 +85,11 @@ main(int argc, char *argv[])
             break;
         }
 
-        printf("[Server] Client connected\n");
+        inet_ntop(AF_INET, &addr.sin_addr, ip_string,
+                  sizeof(ip_string) / sizeof(ip_string[0]));
+
+        printf("[Server] Client connected (%s:%d)\n", ip_string,
+               ntohs(addr.sin_port));
         if (pthread_create(&workers[connections], NULL, run,
                            &client_sock_fds[connections])) {
             perror("Create a worker thread failed");

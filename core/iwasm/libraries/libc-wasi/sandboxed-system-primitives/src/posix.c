@@ -2918,16 +2918,34 @@ wasi_ssp_sock_addr_remote(
 #if !defined(WASMTIME_SSP_STATIC_CURFDS)
     struct fd_table *curfds,
 #endif
-    __wasi_fd_t fd, uint8 *buf, __wasi_size_t buf_len)
+    __wasi_fd_t fd, __wasi_addr_t *addr)
 {
     struct fd_object *fo;
+    uint8 buf[16];
+    __wasi_ip_port_t port;
+    uint8 is_ipv4;
+    int ret;
+
     __wasi_errno_t error =
-        fd_object_get(curfds, &fo, fd, __WASI_RIGHT_SOCK_ADDR_REMOTE, 0);
+        fd_object_get(curfds, &fo, fd, __WASI_RIGHT_SOCK_ADDR_LOCAL, 0);
     if (error != __WASI_ESUCCESS)
         return error;
 
+    ret = os_socket_addr_remote(fd_number(fo), buf,
+                                sizeof(buf) / sizeof(buf[0]), &port, &is_ipv4);
     fd_object_release(fo);
-    return __WASI_ENOSYS;
+    if (ret != BHT_OK) {
+        return convert_errno(errno);
+    }
+
+    if (is_ipv4) {
+        ipv4_addr_to_wasi_addr(*(uint32_t *)buf, port, addr);
+    }
+    else {
+        ipv6_addr_to_wasi_addr((uint16 *)buf, port, addr);
+    }
+
+    return __WASI_ESUCCESS;
 }
 
 __wasi_errno_t
