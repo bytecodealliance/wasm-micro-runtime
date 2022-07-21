@@ -50,7 +50,7 @@ typedef struct WASMDebugExecutionMemory {
     uint32 current_pos;
 } WASMDebugExecutionMemory;
 
-typedef struct WASMDebugInstance {
+struct WASMDebugInstance {
     struct WASMDebugInstance *next;
     WASMDebugControlThread *control_thread;
     bh_list break_point_list;
@@ -71,7 +71,7 @@ typedef struct WASMDebugInstance {
      * during creating debug instance, and use a simple bump pointer allocator
      * to serve lldb's memory request */
     WASMDebugExecutionMemory exec_mem_info;
-} WASMDebugInstance;
+};
 
 typedef enum WASMDebugEventKind {
     BREAK_POINT_ADD,
@@ -217,7 +217,7 @@ wasm_debug_instance_get_current_object_name(WASMDebugInstance *instance,
 
 uint64
 wasm_debug_instance_mmap(WASMDebugInstance *instance, uint32 size,
-                         int32 map_port);
+                         int32 map_prot);
 
 bool
 wasm_debug_instance_ummap(WASMDebugInstance *instance, uint64 addr);

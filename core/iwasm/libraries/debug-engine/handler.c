@@ -33,7 +33,7 @@ handle_interrupt(WASMGDBServer *server)
 }
 
 void
-handle_generay_set(WASMGDBServer *server, char *payload)
+handle_general_set(WASMGDBServer *server, char *payload)
 {
     const char *name;
     char *args;
@@ -141,7 +141,7 @@ process_wasm_global(WASMGDBServer *server, char *args)
 }
 
 void
-handle_generay_query(WASMGDBServer *server, char *payload)
+handle_general_query(WASMGDBServer *server, char *payload)
 {
     const char *name;
     char *args;
@@ -179,7 +179,7 @@ handle_generay_query(WASMGDBServer *server, char *payload)
         name = args;
 
         if (!args) {
-            LOG_ERROR("payload parse error during handle_generay_query");
+            LOG_ERROR("payload parse error during handle_general_query");
             return;
         }
 
@@ -669,7 +669,7 @@ handle_malloc(WASMGDBServer *server, char *payload)
 {
     char *args;
     uint64 addr, size;
-    int32 map_port = MMAP_PROT_NONE;
+    int32 map_prot = MMAP_PROT_NONE;
 
     args = strstr(payload, ",");
     if (args) {
@@ -687,19 +687,19 @@ handle_malloc(WASMGDBServer *server, char *payload)
     if (size > 0) {
         while (*args) {
             if (*args == 'r') {
-                map_port |= MMAP_PROT_READ;
+                map_prot |= MMAP_PROT_READ;
             }
             if (*args == 'w') {
-                map_port |= MMAP_PROT_WRITE;
+                map_prot |= MMAP_PROT_WRITE;
             }
             if (*args == 'x') {
-                map_port |= MMAP_PROT_EXEC;
+                map_prot |= MMAP_PROT_EXEC;
             }
             args++;
         }
         addr = wasm_debug_instance_mmap(
             (WASMDebugInstance *)server->thread->debug_instance, size,
-            map_port);
+            map_prot);
         if (addr) {
             snprintf(tmpbuf, sizeof(tmpbuf), "%" PRIx64, addr);
         }

@@ -508,6 +508,11 @@ WASM_RUNTIME_API_EXTERN WASMModuleInstanceCommon *
 wasm_runtime_get_module_inst(WASMExecEnv *exec_env);
 
 /* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_set_module_inst(WASMExecEnv *exec_env,
+                             WASMModuleInstanceCommon *const module_inst);
+
+/* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN void *
 wasm_runtime_get_function_attachment(WASMExecEnv *exec_env);
 
