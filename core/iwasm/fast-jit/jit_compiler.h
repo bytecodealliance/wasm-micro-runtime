@@ -112,14 +112,6 @@ jit_pass_update_cfg(JitCompContext *cc);
 bool
 jit_pass_frontend(JitCompContext *cc);
 
-#if 0
-/**
- * Convert MIR to LIR.
- */
-bool
-jit_pass_lower_fe(JitCompContext *cc);
-#endif
-
 /**
  * Lower unsupported operations into supported ones.
  */

@@ -123,7 +123,7 @@ check_and_seek(JitCompContext *cc, JitReg addr, uint32 offset, uint32 bytes)
     uint32 mem_idx = 0;
 
     /* ---------- check ---------- */
-    /* 1. shortcut if the memory size is 0*/
+    /* 1. shortcut if the memory size is 0 */
     if (0 == cc->cur_wasm_module->memories[mem_idx].init_page_count) {
         JitReg memory_inst, cur_mem_page_count;
 

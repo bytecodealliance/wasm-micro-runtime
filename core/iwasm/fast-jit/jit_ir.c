@@ -10,12 +10,7 @@
 /**
  * Operand kinds of instructions.
  */
-enum {
-    JIT_OPND_KIND_Reg,
-    JIT_OPND_KIND_VReg,
-    JIT_OPND_KIND_TableSwitch,
-    JIT_OPND_KIND_LookupSwitch
-};
+enum { JIT_OPND_KIND_Reg, JIT_OPND_KIND_VReg, JIT_OPND_KIND_LookupSwitch };
 
 /**
  * Operand kind of each instruction.
@@ -156,25 +151,6 @@ _jit_insn_new_VReg_2(JitOpcode opc, JitReg r0, JitReg r1, int n)
 }
 
 JitInsn *
-_jit_insn_new_TableSwitch_1(JitOpcode opc, JitReg value, int32 low, int32 high)
-{
-    JitOpndTableSwitch *opnd = NULL;
-    JitInsn *insn =
-        jit_calloc(offsetof(JitInsn, _opnd._opnd_TableSwitch.targets)
-                   + sizeof(opnd->targets[0]) * (high - low + 1));
-
-    if (insn) {
-        insn->opcode = opc;
-        opnd = jit_insn_opndts(insn);
-        opnd->value = value;
-        opnd->low_value = low;
-        opnd->high_value = high;
-    }
-
-    return insn;
-}
-
-JitInsn *
 _jit_insn_new_LookupSwitch_1(JitOpcode opc, JitReg value, uint32 num)
 {
     JitOpndLookupSwitch *opnd = NULL;
@@ -272,7 +248,6 @@ JitRegVec
 jit_insn_opnd_regs(JitInsn *insn)
 {
     JitRegVec vec;
-    JitOpndTableSwitch *ts;
     JitOpndLookupSwitch *ls;
 
     vec._stride = 1;
@@ -286,12 +261,6 @@ jit_insn_opnd_regs(JitInsn *insn)
         case JIT_OPND_KIND_VReg:
             vec.num = jit_insn_opndv_num(insn);
             vec._base = jit_insn_opndv(insn, 0);
-            break;
-
-        case JIT_OPND_KIND_TableSwitch:
-            ts = jit_insn_opndts(insn);
-            vec.num = ts->high_value - ts->low_value + 3;
-            vec._base = &ts->value;
             break;
 
         case JIT_OPND_KIND_LookupSwitch:
@@ -935,168 +904,6 @@ _jit_cc_set_insn_uid_for_new_insn(JitCompContext *cc, JitInsn *insn)
     return NULL;
 }
 
-#if 0
-static JitReg
-normalize_insn(JitCompContext *cc, JitInsn **pinsn)
-{
-#if 0
-    JitInsn *insn = *pinsn;
-    JitReg opnd1;
-
-    /* TODO: impelement the rest part.  See gen_array_addr.  */
-
-    switch (insn->opcode) {
-    case JIT_OP_I32TOI1:
-      opnd1 = *(jit_insn_opnd (insn, 1));
-      if (jit_reg_is_const (opnd1))
-        return jit_cc_new_const_I32 (cc, (int8)jit_cc_get_const_I32 (cc, opnd1));
-      break;
-
-    case JIT_OP_I32TOU1:
-      opnd1 = *(jit_insn_opnd (insn, 1));
-      if (jit_reg_is_const (opnd1))
-        return jit_cc_new_const_I32 (cc, (uint8)jit_cc_get_const_I32 (cc, opnd1));
-      break;
-
-    case JIT_OP_I32TOI2:
-      opnd1 = *(jit_insn_opnd (insn, 1));
-      if (jit_reg_is_const (opnd1))
-        return jit_cc_new_const_I32 (cc, (int16)jit_cc_get_const_I32 (cc, opnd1));
-      break;
-
-    case JIT_OP_I32TOU2:
-      opnd1 = *(jit_insn_opnd (insn, 1));
-      if (jit_reg_is_const (opnd1))
-        return jit_cc_new_const_I32 (cc, (uint16)jit_cc_get_const_I32 (cc, opnd1));
-      break;
-
-    case JIT_OP_I32TOI64:
-      break;
-
-    case JIT_OP_U4TOI64:
-      break;
-
-    case JIT_OP_I64TOI32:
-      break;
-
-    case JIT_OP_NEG:
-      break;
-
-    case JIT_OP_NOT:
-      break;
-
-    case JIT_OP_ADD:
-      break;
-
-    case JIT_OP_SUB:
-      break;
-
-    case JIT_OP_MUL:
-      break;
-
-    case JIT_OP_DIV:
-      break;
-
-    case JIT_OP_REM:
-      break;
-
-    case JIT_OP_SHL:
-      break;
-
-    case JIT_OP_SHRS:
-      break;
-
-    case JIT_OP_SHRU:
-      break;
-
-    case JIT_OP_OR:
-      break;
-
-    case JIT_OP_XOR:
-      break;
-
-    case JIT_OP_AND:
-      break;
-
-    case JIT_OP_CMP:
-      break;
-    }
-#endif
-
-    return 0;
-}
-
-JitInsn *
-_jit_cc_new_insn_norm(JitCompContext *cc, JitReg *result, JitInsn *insn)
-{
-    if (!insn)
-    /* Creation of insn failed (due to OOM).  */
-    {
-        *result = 0;
-        return NULL;
-    }
-
-    /* Try to normalize the instruction first.  */
-    if ((*result = normalize_insn(cc, &insn)))
-    /* It's folded to a constant, don't add the insn to cc.  */
-    {
-        bh_assert(jit_reg_is_const(*result));
-        jit_insn_delete(insn);
-        return NULL;
-    }
-
-    /* Try to find the existing equivalent instructions.  */
-    if (jit_anni_is_enabled__hash_link(cc)) {
-        unsigned slot = jit_insn_hash(insn) % cc->_insn_hash_table._size;
-        JitInsn **entry = &cc->_insn_hash_table._table[slot];
-        JitInsn *insn1;
-
-        for (insn1 = *entry; insn1; insn1 = *(jit_anni__hash_link(cc, insn1)))
-            if (jit_insn_equal(insn, insn1))
-            /* Found, don't add the insn to cc.  */
-            {
-                JitRegVec vec = jit_insn_opnd_regs(insn1);
-                *result = *(jit_reg_vec_at(&vec, 0));
-                bh_assert(*result);
-                jit_insn_delete(insn);
-                return insn1;
-            }
-
-        if ((insn = _jit_cc_set_insn_uid_for_new_insn(cc, insn)))
-        /* Add insn to the linked list of the hash table entry.  */
-        {
-            *(jit_anni__hash_link(cc, insn)) = *entry;
-            *entry = insn;
-        }
-    }
-    else
-        insn = _jit_cc_set_insn_uid_for_new_insn(cc, insn);
-
-    return insn;
-}
-
-JitInsn *
-_gen_insn_norm_1(JitCompContext *cc, JitBasicBlock *block, unsigned kind,
-                 JitReg *result, JitInsn *insn)
-{
-    if (!*result && insn) {
-        JitRegVec vec = jit_insn_opnd_regs(insn);
-        JitReg *lhs = jit_reg_vec_at(&vec, 0);
-
-        if (!*lhs)
-            *lhs = jit_cc_new_reg(cc, kind);
-
-        *result = *lhs;
-        jit_basic_block_append_insn(block, insn);
-        *(jit_annr_def_insn(cc, *lhs)) = insn;
-
-        return insn;
-    }
-
-    return NULL;
-}
-#endif
-
 JitReg
 jit_cc_new_reg(JitCompContext *cc, unsigned kind)
 {
@@ -1543,13 +1350,6 @@ _jit_insn_check_opnd_access_VReg(const JitInsn *insn, unsigned n)
     unsigned opcode = insn->opcode;
     return (insn_opnd_kind[opcode] == JIT_OPND_KIND_VReg
             && n < insn->_opnd._opnd_VReg._reg_num);
-}
-
-bool
-_jit_insn_check_opnd_access_TableSwitch(const JitInsn *insn)
-{
-    unsigned opcode = insn->opcode;
-    return (insn_opnd_kind[opcode] == JIT_OPND_KIND_TableSwitch);
 }
 
 bool
