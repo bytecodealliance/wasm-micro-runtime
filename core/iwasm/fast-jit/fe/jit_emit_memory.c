@@ -118,7 +118,7 @@ fail:
 static JitReg
 check_and_seek(JitCompContext *cc, JitReg addr, uint32 offset, uint32 bytes)
 {
-    JitReg memory_boundary, offset1, memory_data, maddr;
+    JitReg memory_boundary, offset1;
     /* the default memory */
     uint32 mem_idx = 0;
 
@@ -156,12 +156,7 @@ check_and_seek(JitCompContext *cc, JitReg addr, uint32 offset, uint32 bytes)
         goto fail;
 #endif
 
-    /* ---------- seek ---------- */
-    memory_data = get_memory_data_reg(cc->jit_frame, mem_idx);
-    maddr = jit_cc_new_reg_ptr(cc);
-    GEN_INSN(ADD, maddr, memory_data, offset1);
-
-    return maddr;
+    return offset1;
 fail:
     return 0;
 }
@@ -170,44 +165,46 @@ bool
 jit_compile_op_i32_load(JitCompContext *cc, uint32 align, uint32 offset,
                         uint32 bytes, bool sign, bool atomic)
 {
-    JitReg addr, maddr, value;
+    JitReg addr, offset1, value, memory_data;
 
     POP_I32(addr);
 
-    maddr = check_and_seek(cc, addr, offset, bytes);
-    if (!maddr) {
+    offset1 = check_and_seek(cc, addr, offset, bytes);
+    if (!offset1) {
         goto fail;
     }
+
+    memory_data = get_memory_data_reg(cc->jit_frame, 0);
 
     value = jit_cc_new_reg_I32(cc);
     switch (bytes) {
         case 1:
         {
             if (sign) {
-                GEN_INSN(LDI8, value, maddr, NEW_CONST(I32, 0));
+                GEN_INSN(LDI8, value, memory_data, offset1);
             }
             else {
-                GEN_INSN(LDU8, value, maddr, NEW_CONST(I32, 0));
+                GEN_INSN(LDU8, value, memory_data, offset1);
             }
             break;
         }
         case 2:
         {
             if (sign) {
-                GEN_INSN(LDI16, value, maddr, NEW_CONST(I32, 0));
+                GEN_INSN(LDI16, value, memory_data, offset1);
             }
             else {
-                GEN_INSN(LDU16, value, maddr, NEW_CONST(I32, 0));
+                GEN_INSN(LDU16, value, memory_data, offset1);
             }
             break;
         }
         case 4:
         {
             if (sign) {
-                GEN_INSN(LDI32, value, maddr, NEW_CONST(I32, 0));
+                GEN_INSN(LDI32, value, memory_data, offset1);
             }
             else {
-                GEN_INSN(LDU32, value, maddr, NEW_CONST(I32, 0));
+                GEN_INSN(LDU32, value, memory_data, offset1);
             }
             break;
         }
@@ -228,54 +225,56 @@ bool
 jit_compile_op_i64_load(JitCompContext *cc, uint32 align, uint32 offset,
                         uint32 bytes, bool sign, bool atomic)
 {
-    JitReg addr, maddr, value;
+    JitReg addr, offset1, value, memory_data;
 
     POP_I32(addr);
 
-    maddr = check_and_seek(cc, addr, offset, bytes);
-    if (!maddr) {
+    offset1 = check_and_seek(cc, addr, offset, bytes);
+    if (!offset1) {
         goto fail;
     }
+
+    memory_data = get_memory_data_reg(cc->jit_frame, 0);
 
     value = jit_cc_new_reg_I64(cc);
     switch (bytes) {
         case 1:
         {
             if (sign) {
-                GEN_INSN(LDI8, value, maddr, NEW_CONST(I32, 0));
+                GEN_INSN(LDI8, value, memory_data, offset1);
             }
             else {
-                GEN_INSN(LDU8, value, maddr, NEW_CONST(I32, 0));
+                GEN_INSN(LDU8, value, memory_data, offset1);
             }
             break;
         }
         case 2:
         {
             if (sign) {
-                GEN_INSN(LDI16, value, maddr, NEW_CONST(I32, 0));
+                GEN_INSN(LDI16, value, memory_data, offset1);
             }
             else {
-                GEN_INSN(LDU16, value, maddr, NEW_CONST(I32, 0));
+                GEN_INSN(LDU16, value, memory_data, offset1);
             }
             break;
         }
         case 4:
         {
             if (sign) {
-                GEN_INSN(LDI32, value, maddr, NEW_CONST(I32, 0));
+                GEN_INSN(LDI32, value, memory_data, offset1);
             }
             else {
-                GEN_INSN(LDU32, value, maddr, NEW_CONST(I32, 0));
+                GEN_INSN(LDU32, value, memory_data, offset1);
             }
             break;
         }
         case 8:
         {
             if (sign) {
-                GEN_INSN(LDI64, value, maddr, NEW_CONST(I32, 0));
+                GEN_INSN(LDI64, value, memory_data, offset1);
             }
             else {
-                GEN_INSN(LDU64, value, maddr, NEW_CONST(I32, 0));
+                GEN_INSN(LDU64, value, memory_data, offset1);
             }
             break;
         }
@@ -295,17 +294,19 @@ fail:
 bool
 jit_compile_op_f32_load(JitCompContext *cc, uint32 align, uint32 offset)
 {
-    JitReg addr, maddr, value;
+    JitReg addr, offset1, value, memory_data;
 
     POP_I32(addr);
 
-    maddr = check_and_seek(cc, addr, offset, 4);
-    if (!maddr) {
+    offset1 = check_and_seek(cc, addr, offset, 4);
+    if (!offset1) {
         goto fail;
     }
 
+    memory_data = get_memory_data_reg(cc->jit_frame, 0);
+
     value = jit_cc_new_reg_F32(cc);
-    GEN_INSN(LDF32, value, maddr, NEW_CONST(I32, 0));
+    GEN_INSN(LDF32, value, memory_data, offset1);
 
     PUSH_F32(value);
     return true;
@@ -316,17 +317,19 @@ fail:
 bool
 jit_compile_op_f64_load(JitCompContext *cc, uint32 align, uint32 offset)
 {
-    JitReg addr, maddr, value;
+    JitReg addr, offset1, value, memory_data;
 
     POP_I32(addr);
 
-    maddr = check_and_seek(cc, addr, offset, 8);
-    if (!maddr) {
+    offset1 = check_and_seek(cc, addr, offset, 8);
+    if (!offset1) {
         goto fail;
     }
 
+    memory_data = get_memory_data_reg(cc->jit_frame, 0);
+
     value = jit_cc_new_reg_F64(cc);
-    GEN_INSN(LDF64, value, maddr, NEW_CONST(I32, 0));
+    GEN_INSN(LDF64, value, memory_data, offset1);
 
     PUSH_F64(value);
     return true;
@@ -338,30 +341,32 @@ bool
 jit_compile_op_i32_store(JitCompContext *cc, uint32 align, uint32 offset,
                          uint32 bytes, bool atomic)
 {
-    JitReg value, addr, maddr;
+    JitReg value, addr, offset1, memory_data;
 
     POP_I32(value);
     POP_I32(addr);
 
-    maddr = check_and_seek(cc, addr, offset, bytes);
-    if (!maddr) {
+    offset1 = check_and_seek(cc, addr, offset, bytes);
+    if (!offset1) {
         goto fail;
     }
+
+    memory_data = get_memory_data_reg(cc->jit_frame, 0);
 
     switch (bytes) {
         case 1:
         {
-            GEN_INSN(STI8, value, maddr, NEW_CONST(I32, 0));
+            GEN_INSN(STI8, value, memory_data, offset1);
             break;
         }
         case 2:
         {
-            GEN_INSN(STI16, value, maddr, NEW_CONST(I32, 0));
+            GEN_INSN(STI16, value, memory_data, offset1);
             break;
         }
         case 4:
         {
-            GEN_INSN(STI32, value, maddr, NEW_CONST(I32, 0));
+            GEN_INSN(STI32, value, memory_data, offset1);
             break;
         }
         default:
@@ -380,13 +385,13 @@ bool
 jit_compile_op_i64_store(JitCompContext *cc, uint32 align, uint32 offset,
                          uint32 bytes, bool atomic)
 {
-    JitReg value, addr, maddr;
+    JitReg value, addr, offset1, memory_data;
 
     POP_I64(value);
     POP_I32(addr);
 
-    maddr = check_and_seek(cc, addr, offset, bytes);
-    if (!maddr) {
+    offset1 = check_and_seek(cc, addr, offset, bytes);
+    if (!offset1) {
         goto fail;
     }
 
@@ -394,25 +399,27 @@ jit_compile_op_i64_store(JitCompContext *cc, uint32 align, uint32 offset,
         value = NEW_CONST(I32, (int32)jit_cc_get_const_I64(cc, value));
     }
 
+    memory_data = get_memory_data_reg(cc->jit_frame, 0);
+
     switch (bytes) {
         case 1:
         {
-            GEN_INSN(STI8, value, maddr, NEW_CONST(I32, 0));
+            GEN_INSN(STI8, value, memory_data, offset1);
             break;
         }
         case 2:
         {
-            GEN_INSN(STI16, value, maddr, NEW_CONST(I32, 0));
+            GEN_INSN(STI16, value, memory_data, offset1);
             break;
         }
         case 4:
         {
-            GEN_INSN(STI32, value, maddr, NEW_CONST(I32, 0));
+            GEN_INSN(STI32, value, memory_data, offset1);
             break;
         }
         case 8:
         {
-            GEN_INSN(STI64, value, maddr, NEW_CONST(I32, 0));
+            GEN_INSN(STI64, value, memory_data, offset1);
             break;
         }
         default:
@@ -430,17 +437,19 @@ fail:
 bool
 jit_compile_op_f32_store(JitCompContext *cc, uint32 align, uint32 offset)
 {
-    JitReg value, addr, maddr;
+    JitReg value, addr, offset1, memory_data;
 
     POP_F32(value);
     POP_I32(addr);
 
-    maddr = check_and_seek(cc, addr, offset, 4);
-    if (!maddr) {
+    offset1 = check_and_seek(cc, addr, offset, 4);
+    if (!offset1) {
         goto fail;
     }
 
-    GEN_INSN(STF32, value, maddr, NEW_CONST(I32, 0));
+    memory_data = get_memory_data_reg(cc->jit_frame, 0);
+
+    GEN_INSN(STF32, value, memory_data, offset1);
 
     return true;
 fail:
@@ -450,17 +459,19 @@ fail:
 bool
 jit_compile_op_f64_store(JitCompContext *cc, uint32 align, uint32 offset)
 {
-    JitReg value, addr, maddr;
+    JitReg value, addr, offset1, memory_data;
 
     POP_F64(value);
     POP_I32(addr);
 
-    maddr = check_and_seek(cc, addr, offset, 8);
-    if (!maddr) {
+    offset1 = check_and_seek(cc, addr, offset, 8);
+    if (!offset1) {
         goto fail;
     }
 
-    GEN_INSN(STF64, value, maddr, NEW_CONST(I32, 0));
+    memory_data = get_memory_data_reg(cc->jit_frame, 0);
+
+    GEN_INSN(STF64, value, memory_data, offset1);
 
     return true;
 fail:
