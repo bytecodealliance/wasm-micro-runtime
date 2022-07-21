@@ -11,17 +11,21 @@ extern "C" {
 #endif
 
 #ifndef NULL
-#  define NULL ((void*) 0)
+#define NULL ((void *)0)
 #endif
 
 typedef unsigned long size_t;
 
-int printf(const char *format, ...);
-int putchar(int c);
-int snprintf(char *str, size_t size, const char *format, ...);
-int sprintf(char *str, const char *format, ...);
-int puts(char *string);
-
+int
+printf(const char *format, ...);
+int
+putchar(int c);
+int
+snprintf(char *str, size_t size, const char *format, ...);
+int
+sprintf(char *str, const char *format, ...);
+int
+puts(char *string);
 
 #ifdef __cplusplus
 }
