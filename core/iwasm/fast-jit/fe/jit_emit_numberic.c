@@ -422,7 +422,17 @@ DEF_UNI_INT_CONST_OPS(mul)
     return 0;
 }
 
-DEF_BI_INT_CONST_OPS(mul, *)
+static int32
+do_i32_const_mul(int32 lhs, int32 rhs)
+{
+    return (int32)((uint64)lhs * (uint64)rhs);
+}
+
+static int64
+do_i64_const_mul(int64 lhs, int64 rhs)
+{
+    return (int64)((uint64)lhs * (uint64)rhs);
+}
 
 static JitReg
 compile_int_mul(JitCompContext *cc, JitReg left, JitReg right, bool is_i32)

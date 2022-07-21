@@ -139,6 +139,9 @@ typedef struct RuntimeInitArgs {
     char ip_addr[128];
     int platform_port;
     int instance_port;
+
+    /* Fast JIT code cache size */
+    uint32_t fast_jit_code_cache_size;
 } RuntimeInitArgs;
 
 #ifndef WASM_VALKIND_T_DEFINED
