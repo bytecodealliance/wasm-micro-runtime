@@ -89,27 +89,6 @@ jit_dump_insn_VReg(JitCompContext *cc, JitInsn *insn, unsigned opnd_num)
     os_printf("\n");
 }
 
-#if 0
-static void
-jit_dump_insn_TableSwitch(JitCompContext *cc, JitInsn *insn, unsigned opnd_num)
-{
-    int i;
-    JitOpndTableSwitch *opnd = jit_insn_opndts(insn);
-
-    os_printf(" ");
-    jit_dump_reg(cc, opnd->value);
-    os_printf("\n%16s: ", "default");
-    jit_dump_reg(cc, opnd->default_target);
-    os_printf("\n");
-
-    for (i = opnd->low_value; i <= opnd->high_value; i++) {
-        os_printf("%18d: ", i);
-        jit_dump_reg(cc, opnd->targets[i - opnd->low_value]);
-        os_printf("\n");
-    }
-}
-#endif
-
 static void
 jit_dump_insn_LookupSwitch(JitCompContext *cc, JitInsn *insn, unsigned opnd_num)
 {

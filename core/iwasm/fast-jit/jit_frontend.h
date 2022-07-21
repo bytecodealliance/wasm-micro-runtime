@@ -163,41 +163,6 @@ JitBlock *
 jit_frontend_gen_leaving_block(JitCompContext *cc, void *bcip,
                                unsigned sp_offset);
 
-#if 0
-/**
- * Print the qualified name of the given function.
- *
- * @param function the function whose name to be printed
- */
-void
-jit_frontend_print_function_name(void *function);
-
-/**
- * Get the full name of the function.  If the input buffer lengh
- * is less than the actual function name length, the function will
- * simply return the actuall length and won't write to the buffer.
- *
- * @param function pointer to a function
- * @param buf buffer for the returned name
- * @param buf_len lengh of the buffer
- *
- * @return actual length of the name
- */
-unsigned
-jit_frontend_get_function_name(void *function, char *buf, unsigned buf_len);
-
-/**
- * Convert the bcip in the given function to an internal offset.
- *
- * @param function function containing the bcip
- * @param bcip bytecode instruction pointer
- *
- * @return converted offset of the bcip
- */
-unsigned
-jit_frontend_bcip_to_offset(void *function, void *bcip);
-#endif
-
 /**
  * Lower the IR of the given compilation context.
  *

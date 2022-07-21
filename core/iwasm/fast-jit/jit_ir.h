@@ -285,22 +285,6 @@ typedef struct JitOpndVReg {
 } JitOpndVReg;
 
 /**
- * Operand of tableswitch instruction.
- */
-typedef struct JitOpndTableSwitch {
-    int32 low_value;  /* lowest value of the table */
-    int32 high_value; /* highest value of the table */
-    /* NOTE: distance between JitReg operands must be the same (see
-       jit_insn_opnd_regs). */
-    JitReg value; /* the value to be compared */
-    /* NOTE: offset between adjacent targets must be sizeof (targets[0])
-       (see implementation of jit_block_succs), so the default_target
-       field must be here. */
-    JitReg default_target; /* default target BB */
-    JitReg targets[1];     /* jump target BBs */
-} JitOpndTableSwitch;
-
-/**
  * Operand of lookupswitch instruction.
  */
 typedef struct JitOpndLookupSwitch {
@@ -343,9 +327,6 @@ typedef struct JitInsn {
         /* For instructions with variable-number register operand(s). */
         JitOpndVReg _opnd_VReg;
 
-        /* For tableswitch instruction. */
-        JitOpndTableSwitch _opnd_TableSwitch;
-
         /* For lookupswitch instruction. */
         JitOpndLookupSwitch _opnd_LookupSwitch;
     } _opnd;
@@ -381,8 +362,6 @@ _jit_insn_new_VReg_1(JitOpcode opc, JitReg r0, int n);
 JitInsn *
 _jit_insn_new_VReg_2(JitOpcode opc, JitReg r0, JitReg r1, int n);
 JitInsn *
-_jit_insn_new_TableSwitch_1(JitOpcode opc, JitReg value, int32 low, int32 high);
-JitInsn *
 _jit_insn_new_LookupSwitch_1(JitOpcode opc, JitReg value, uint32 num);
 
 /*
@@ -403,8 +382,6 @@ _jit_insn_new_LookupSwitch_1(JitOpcode opc, JitReg value, uint32 num);
 #define ARG_LIST_VReg_1 r0, n
 #define ARG_DECL_VReg_2 JitReg r0, JitReg r1, int n
 #define ARG_LIST_VReg_2 r0, r1, n
-#define ARG_DECL_TableSwitch_1 JitReg value, int32 low, int32 high
-#define ARG_LIST_TableSwitch_1 value, low, high
 #define ARG_DECL_LookupSwitch_1 JitReg value, uint32 num
 #define ARG_LIST_LookupSwitch_1 value, num
 #define INSN(NAME, OPND_KIND, OPND_NUM, FIRST_USE)             \
@@ -430,8 +407,6 @@ _jit_insn_new_LookupSwitch_1(JitOpcode opc, JitReg value, uint32 num);
 #undef ARG_LIST_VReg_1
 #undef ARG_DECL_VReg_2
 #undef ARG_LIST_VReg_2
-#undef ARG_DECL_TableSwitch_1
-#undef ARG_LIST_TableSwitch_1
 #undef ARG_DECL_LookupSwitch_1
 #undef ARG_LIST_LookupSwitch_1
 
@@ -460,8 +435,6 @@ bool
 _jit_insn_check_opnd_access_Reg(const JitInsn *insn, unsigned n);
 bool
 _jit_insn_check_opnd_access_VReg(const JitInsn *insn, unsigned n);
-bool
-_jit_insn_check_opnd_access_TableSwitch(const JitInsn *insn);
 bool
 _jit_insn_check_opnd_access_LookupSwitch(const JitInsn *insn);
 
@@ -510,21 +483,6 @@ jit_insn_opndv_num(const JitInsn *insn)
 {
     bh_assert(_jit_insn_check_opnd_access_VReg(insn, 0));
     return insn->_opnd._opnd_VReg._reg_num;
-}
-
-/**
- * Get the pointer to the TableSwitch operand of the given
- * instruction. The instruction format must be TableSwitch.
- *
- * @param insn a TableSwitch format instruction
- *
- * @return pointer to the operand
- */
-static inline JitOpndTableSwitch *
-jit_insn_opndts(JitInsn *insn)
-{
-    bh_assert(_jit_insn_check_opnd_access_TableSwitch(insn));
-    return &insn->_opnd._opnd_TableSwitch;
 }
 
 /**
@@ -1632,39 +1590,6 @@ _gen_insn(JitCompContext *cc, JitInsn *insn)
  * Generate and append an instruction to the current block.
  */
 #define GEN_INSN(...) _gen_insn(cc, jit_cc_new_insn(cc, __VA_ARGS__))
-
-#if 0
-/**
- * Helper function for GEN_INSN_NORM_1
- *
- * @param cc compilation context
- * @param block the current block
- * @param kind kind fo the result register
- * @param result points to the returned result register
- * @param insn the instruction
- *
- * @return the new instruction if inserted, NULL otherwise
- */
-JitInsn *
-_gen_insn_norm_1(JitCompContext *cc, JitBasicBlock *block, unsigned kind,
-                 JitReg *result, JitInsn *insn);
-
-/**
- * Helper macro for GEN_INSN_NORM
- */
-#define GEN_INSN_NORM_1(Kind, result, ...)                   \
-    _gen_insn_norm_1(cc, cc->cur_basic_block, Kind, &result, \
-                     jit_cc_new_insn_norm(cc, &result, __VA_ARGS__))
-
-/**
- * Generate and append a normalized instruction to the current block.
- *
- * @param Type type of the result
- * @param result result of the normalized instruction
- */
-#define GEN_INSN_NORM(Type, result, ...) \
-    GEN_INSN_NORM_1(JIT_REG_KIND_##Type, result, __VA_ARGS__)
-#endif
 
 /**
  * Create a constant register without relocation info.

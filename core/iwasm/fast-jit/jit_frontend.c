@@ -717,14 +717,6 @@ jit_pass_frontend(JitCompContext *cc)
     return true;
 }
 
-#if 0
-bool
-jit_pass_lower_fe(JitCompContext *cc)
-{
-    return true;
-}
-#endif
-
 static JitFrame *
 init_func_translation(JitCompContext *cc)
 {

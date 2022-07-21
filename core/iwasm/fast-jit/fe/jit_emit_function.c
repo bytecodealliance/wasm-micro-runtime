@@ -255,7 +255,7 @@ fail:
 static JitReg
 pack_argv(JitCompContext *cc)
 {
-    /* reuse the stack of the next frame*/
+    /* reuse the stack of the next frame */
     uint32 stack_base;
     JitReg argv;
 
@@ -271,7 +271,7 @@ unpack_argv(JitCompContext *cc, const WASMType *func_type, JitReg argv)
     uint32 i, offset_by_cell = 0;
     JitReg value;
 
-    /* push results in argv to stack*/
+    /* push results in argv to stack */
     for (i = 0; i < func_type->result_count; i++) {
         switch (func_type->types[func_type->param_count + i]) {
             case VALUE_TYPE_I32:
