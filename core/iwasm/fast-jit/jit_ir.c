@@ -247,7 +247,8 @@ jit_insn_equal(JitInsn *insn1, JitInsn *insn2)
 JitRegVec
 jit_insn_opnd_regs(JitInsn *insn)
 {
-    JitRegVec vec;
+    JitRegVec vec = { 0 };
+    JitOpndTableSwitch *ts;
     JitOpndLookupSwitch *ls;
 
     vec._stride = 1;
