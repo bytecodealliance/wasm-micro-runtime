@@ -7,13 +7,6 @@ import * as vscode from 'vscode';
 import * as os from 'os';
 import { TargetConfigPanel } from './view/TargetConfigPanel';
 
-interface WasmTaskDefinition extends vscode.TaskDefinition {
-    /**
-     * The build flavor.
-     */
-    flavor: string;
-}
-
 export interface OwnShellOption {
     cmd: string;
     options: vscode.ShellExecutionOptions;
@@ -33,181 +26,184 @@ export class WasmTaskProvider implements vscode.TaskProvider {
     private wasmPromise: Thenable<vscode.Task[]> | undefined = undefined;
 
     public provideTasks(): Thenable<vscode.Task[]> | undefined {
-        /* target name is used for generated aot target */
-        let targetName =
-            TargetConfigPanel.BUILD_ARGS.output_file_name.split('.')[0];
+        if (!this.wasmPromise) {
+            /* target name is used for generated aot target */
+            let targetName =
+                TargetConfigPanel.BUILD_ARGS.output_file_name.split('.')[0];
 
-        if (os.platform() === 'linux' || os.platform() === 'win32') {
-            /* build */
-            this.buildShellOption = {
-                cmd:
-                    os.platform() === 'linux'
-                        ? 'bash'
-                        : (this._script.get('buildScript') as string),
-                options: {
-                    executable: this._script.get('buildScript'),
-                    shellArgs: [targetName, os.platform()],
-                },
-            };
+            if (os.platform() === 'linux' || os.platform() === 'win32') {
+                /* build */
+                this.buildShellOption = {
+                    cmd:
+                        os.platform() === 'linux'
+                            ? 'bash'
+                            : (this._script.get('buildScript') as string),
+                    options: {
+                        executable: this._script.get('buildScript'),
+                        shellArgs: [targetName, os.platform()],
+                    },
+                };
 
-            /* debug */
-            this.debugShellOption = {
-                cmd:
-                    os.platform() === 'linux'
-                        ? 'bash'
-                        : (this._script.get('debugScript') as string),
-                options: {
-                    executable: this._script.get('debugScript'),
-                    shellArgs: [targetName],
-                },
-            };
+                /* debug */
+                this.debugShellOption = {
+                    cmd:
+                        os.platform() === 'linux'
+                            ? 'bash'
+                            : (this._script.get('debugScript') as string),
+                    options: {
+                        executable: this._script.get('debugScript'),
+                        shellArgs: [targetName],
+                    },
+                };
 
-            /* run */
-            this.runShellOption = {
-                cmd:
-                    os.platform() === 'linux'
-                        ? 'bash'
-                        : (this._script.get('runScript') as string),
-                options: {
-                    executable: this._script.get('runScript'),
-                    shellArgs: [targetName],
-                },
-            };
+                /* run */
+                this.runShellOption = {
+                    cmd:
+                        os.platform() === 'linux'
+                            ? 'bash'
+                            : (this._script.get('runScript') as string),
+                    options: {
+                        executable: this._script.get('runScript'),
+                        shellArgs: [targetName],
+                    },
+                };
 
-            /* destroy */
-            /* run */
-            this.destroyShellOption = {
-                cmd:
-                    os.platform() === 'linux'
-                        ? 'bash'
-                        : (this._script.get('destroyScript') as string),
-                options: {
-                    executable: this._script.get('destroyScript'),
-                    shellArgs: [targetName],
-                },
-            };
-        } else {
-            this.buildShellOption = {
-                cmd: "echo 'os platform is not supported yet'",
-                options: {},
-            };
+                /* destroy */
+                /* run */
+                this.destroyShellOption = {
+                    cmd:
+                        os.platform() === 'linux'
+                            ? 'bash'
+                            : (this._script.get('destroyScript') as string),
+                    options: {
+                        executable: this._script.get('destroyScript'),
+                        shellArgs: [targetName],
+                    },
+                };
+            } else {
+                this.buildShellOption = {
+                    cmd: "echo 'os platform is not supported yet'",
+                    options: {},
+                };
 
-            this.debugShellOption = {
-                cmd: "echo 'os platform is not supported yet'",
-                options: {},
-            };
+                this.debugShellOption = {
+                    cmd: "echo 'os platform is not supported yet'",
+                    options: {},
+                };
 
-            this.runShellOption = {
-                cmd: "echo 'os platform is not supported yet'",
-                options: {},
-            };
+                this.runShellOption = {
+                    cmd: "echo 'os platform is not supported yet'",
+                    options: {},
+                };
 
-            this.destroyShellOption = {
-                cmd: "echo 'os platform is not supported yet'",
-                options: {},
-            };
+                this.destroyShellOption = {
+                    cmd: "echo 'os platform is not supported yet'",
+                    options: {},
+                };
+            }
+
+            this.wasmPromise = Promise.resolve([
+                new vscode.Task(
+                    { type: 'wasm' },
+                    vscode.TaskScope.Workspace,
+                    'Wasm',
+                    this._type.get('Build') as string,
+                    new vscode.ShellExecution(
+                        this.buildShellOption.cmd,
+                        this.buildShellOption.options
+                    )
+                ),
+
+                new vscode.Task(
+                    { type: 'wasm' },
+                    vscode.TaskScope.Workspace,
+                    'Wasm',
+                    this._type.get('Run') as string,
+                    new vscode.ShellExecution(
+                        this.runShellOption.cmd,
+                        this.runShellOption.options
+                    )
+                ),
+
+                new vscode.Task(
+                    { type: 'wasm' },
+                    vscode.TaskScope.Workspace,
+                    'Wasm',
+                    this._type.get('Debug') as string,
+                    new vscode.ShellExecution(
+                        this.debugShellOption.cmd,
+                        this.debugShellOption.options
+                    )
+                ),
+
+                new vscode.Task(
+                    { type: 'wasm' },
+                    vscode.TaskScope.Workspace,
+                    'Wasm-Container-Before-Build',
+                    this._type.get('Destroy') as string,
+                    new vscode.ShellExecution(
+                        this.destroyShellOption.cmd,
+                        this.destroyShellOption.options
+                    )
+                ),
+
+                new vscode.Task(
+                    { type: 'wasm' },
+                    vscode.TaskScope.Workspace,
+                    'Wasm-Container-Before-Debug',
+                    this._type.get('Destroy') as string,
+                    new vscode.ShellExecution(
+                        this.destroyShellOption.cmd,
+                        this.destroyShellOption.options
+                    )
+                ),
+
+                new vscode.Task(
+                    { type: 'wasm' },
+                    vscode.TaskScope.Workspace,
+                    'Wasm-Container-Before-Run',
+                    this._type.get('Destroy') as string,
+                    new vscode.ShellExecution(
+                        this.destroyShellOption.cmd,
+                        this.destroyShellOption.options
+                    )
+                ),
+
+                new vscode.Task(
+                    { type: 'wasm' },
+                    vscode.TaskScope.Workspace,
+                    'Wasm-Container-After-Build',
+                    this._type.get('Destroy') as string,
+                    new vscode.ShellExecution(
+                        this.destroyShellOption.cmd,
+                        this.destroyShellOption.options
+                    )
+                ),
+
+                new vscode.Task(
+                    { type: 'wasm' },
+                    vscode.TaskScope.Workspace,
+                    'Wasm-Container-After-Debug',
+                    this._type.get('Destroy') as string,
+                    new vscode.ShellExecution(
+                        this.destroyShellOption.cmd,
+                        this.destroyShellOption.options
+                    )
+                ),
+
+                new vscode.Task(
+                    { type: 'wasm' },
+                    vscode.TaskScope.Workspace,
+                    'Wasm-Container-After-Run',
+                    this._type.get('Destroy') as string,
+                    new vscode.ShellExecution(
+                        this.destroyShellOption.cmd,
+                        this.destroyShellOption.options
+                    )
+                ),
+            ]);
         }
 
-        this.wasmPromise = Promise.resolve([
-            new vscode.Task(
-                { type: 'wasm' },
-                vscode.TaskScope.Workspace,
-                'Wasm',
-                this._type.get('Build') as string,
-                new vscode.ShellExecution(
-                    this.buildShellOption.cmd,
-                    this.buildShellOption.options
-                )
-            ),
-
-            new vscode.Task(
-                { type: 'wasm' },
-                vscode.TaskScope.Workspace,
-                'Wasm',
-                this._type.get('Run') as string,
-                new vscode.ShellExecution(
-                    this.runShellOption.cmd,
-                    this.runShellOption.options
-                )
-            ),
-
-            new vscode.Task(
-                { type: 'wasm' },
-                vscode.TaskScope.Workspace,
-                'Wasm',
-                this._type.get('Debug') as string,
-                new vscode.ShellExecution(
-                    this.debugShellOption.cmd,
-                    this.debugShellOption.options
-                )
-            ),
-
-            new vscode.Task(
-                { type: 'wasm' },
-                vscode.TaskScope.Workspace,
-                'Wasm-Container-Before-Build',
-                this._type.get('Destroy') as string,
-                new vscode.ShellExecution(
-                    this.destroyShellOption.cmd,
-                    this.destroyShellOption.options
-                )
-            ),
-
-            new vscode.Task(
-                { type: 'wasm' },
-                vscode.TaskScope.Workspace,
-                'Wasm-Container-Before-Debug',
-                this._type.get('Destroy') as string,
-                new vscode.ShellExecution(
-                    this.destroyShellOption.cmd,
-                    this.destroyShellOption.options
-                )
-            ),
-
-            new vscode.Task(
-                { type: 'wasm' },
-                vscode.TaskScope.Workspace,
-                'Wasm-Container-Before-Run',
-                this._type.get('Destroy') as string,
-                new vscode.ShellExecution(
-                    this.destroyShellOption.cmd,
-                    this.destroyShellOption.options
-                )
-            ),
-
-            new vscode.Task(
-                { type: 'wasm' },
-                vscode.TaskScope.Workspace,
-                'Wasm-Container-After-Build',
-                this._type.get('Destroy') as string,
-                new vscode.ShellExecution(
-                    this.destroyShellOption.cmd,
-                    this.destroyShellOption.options
-                )
-            ),
-
-            new vscode.Task(
-                { type: 'wasm' },
-                vscode.TaskScope.Workspace,
-                'Wasm-Container-After-Debug',
-                this._type.get('Destroy') as string,
-                new vscode.ShellExecution(
-                    this.destroyShellOption.cmd,
-                    this.destroyShellOption.options
-                )
-            ),
-
-            new vscode.Task(
-                { type: 'wasm' },
-                vscode.TaskScope.Workspace,
-                'Wasm-Container-After-Run',
-                this._type.get('Destroy') as string,
-                new vscode.ShellExecution(
-                    this.destroyShellOption.cmd,
-                    this.destroyShellOption.options
-                )
-            ),
-        ]);
         return this.wasmPromise;
     }
 

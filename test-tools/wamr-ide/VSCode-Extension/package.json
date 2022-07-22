@@ -208,6 +208,11 @@
                     }
                 }
             }
+        ],
+        "taskDefinitions": [
+            {
+                "type": "wasm"
+            }
         ]
     },
     "scripts": {
