@@ -26,3 +26,5 @@ tests/wamr-test-suites/workspace
 !/test-tools/wamr-ide/VSCode-Extension/.vscode
 
 samples/socket-api/wasm-src/inc/pthread.h
+
+**/__pycache__

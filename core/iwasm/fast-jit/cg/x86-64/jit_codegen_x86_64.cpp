@@ -137,7 +137,7 @@ jit_codegen_interp_jitted_glue(void *exec_env, JitInterpSwitchInfo *info,
 #define CHECK_CONST(reg0) (void)0
 #define CHECK_NCONST(reg0) (void)0
 #define CHECK_KIND(reg0, type) (void)0
-
+#define ASSERT_REG_NO(reg) (void)0
 #else
 
 /* Check if two register's kind is equal */
@@ -184,6 +184,42 @@ jit_codegen_interp_jitted_glue(void *exec_env, JitInterpSwitchInfo *info,
             jit_dump_reg(cc, reg0);                             \
             GOTO_FAIL;                                          \
         }                                                       \
+    } while (0)
+
+#define ASSERT_I32_REG_NO(no) \
+    bh_assert(no >= 0 && (uint32)no < sizeof(regs_i32) / sizeof(regs_i32[0]))
+
+#define ASSERT_I64_REG_NO(no) \
+    bh_assert(no >= 0 && (uint32)no < sizeof(regs_i64) / sizeof(regs_i64[0]))
+
+#define ASSERT_F32_REG_NO(no) \
+    bh_assert(no >= 0         \
+              && (uint32)no < sizeof(regs_float) / sizeof(regs_float[0]))
+
+#define ASSERT_F64_REG_NO(no) \
+    bh_assert(no >= 0         \
+              && (uint32)no < sizeof(regs_float) / sizeof(regs_float[0]))
+
+/* Check if a register number is valid */
+#define ASSERT_REG_NO(reg)                    \
+    do {                                      \
+        int k = jit_reg_kind(reg);            \
+        int no = jit_reg_no(reg);             \
+                                              \
+        if (!jit_reg_is_const(reg)) {         \
+            if (k == JIT_REG_KIND_I32) {      \
+                ASSERT_I32_REG_NO(no);        \
+            }                                 \
+            else if (k == JIT_REG_KIND_I64) { \
+                ASSERT_I64_REG_NO(no);        \
+            }                                 \
+            else if (k == JIT_REG_KIND_F32) { \
+                ASSERT_F32_REG_NO(no);        \
+            }                                 \
+            else if (k == JIT_REG_KIND_F64) { \
+                ASSERT_F64_REG_NO(no);        \
+            }                                 \
+        }                                     \
     } while (0)
 
 #endif /* end of CODEGEN_CHECK_ARGS == 0 */
@@ -2186,10 +2222,10 @@ static bool
 neg_imm_to_r_f32(x86::Assembler &a, int32 reg_no, float data)
 {
     bh_assert(0);
-    return false;
     (void)a;
     (void)reg_no;
     (void)data;
+    return false;
 }
 
 /**
@@ -2205,10 +2241,10 @@ static bool
 neg_r_to_r_f32(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 {
     bh_assert(0);
-    return false;
     (void)a;
     (void)reg_no_dst;
     (void)reg_no_src;
+    return false;
 }
 
 /**
@@ -2224,10 +2260,10 @@ static bool
 neg_imm_to_r_f64(x86::Assembler &a, int32 reg_no, double data)
 {
     bh_assert(0);
-    return false;
     (void)a;
     (void)reg_no;
     (void)data;
+    return false;
 }
 
 /**
@@ -2243,10 +2279,10 @@ static bool
 neg_r_to_r_f64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 {
     bh_assert(0);
-    return false;
     (void)a;
     (void)reg_no_dst;
     (void)reg_no_src;
+    return false;
 }
 
 static COND_OP
@@ -3771,12 +3807,12 @@ shift_imm_r_to_r_i32(x86::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
 {
     /* Should have been optimized by previous lower */
     bh_assert(0);
-    return false;
     (void)a;
     (void)op;
     (void)reg_no_dst;
     (void)data1_src;
     (void)reg_no2_src;
+    return false;
 }
 
 /**
@@ -3969,12 +4005,12 @@ shift_imm_r_to_r_i64(x86::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
 {
     /* Should have been optimized by previous lower */
     bh_assert(0);
-    return false;
     (void)a;
     (void)op;
     (void)reg_no_dst;
     (void)data1_src;
     (void)reg_no2_src;
+    return false;
 }
 
 /**
@@ -4112,8 +4148,8 @@ cmp_imm_imm_to_r_i32(x86::Assembler &a, int32 reg_no_dst, int32 data1_src,
     a.mov(regs_i32[REG_I32_FREE_IDX], imm);
     imm.setValue(data2_src);
     a.cmp(regs_i32[REG_I32_FREE_IDX], imm);
-    return true;
     (void)reg_no_dst;
+    return true;
 }
 
 /**
@@ -4134,8 +4170,8 @@ cmp_imm_r_to_r_i32(x86::Assembler &a, int32 reg_no_dst, int32 data1_src,
     Imm imm(data1_src);
     a.mov(regs_i32[REG_I32_FREE_IDX], imm);
     a.cmp(regs_i32[REG_I32_FREE_IDX], regs_i32[reg_no2_src]);
-    return true;
     (void)reg_no_dst;
+    return true;
 }
 
 /**
@@ -4155,8 +4191,8 @@ cmp_r_imm_to_r_i32(x86::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
 {
     Imm imm(data2_src);
     a.cmp(regs_i32[reg_no1_src], imm);
-    return true;
     (void)reg_no_dst;
+    return true;
 }
 
 /**
@@ -4175,8 +4211,8 @@ cmp_r_r_to_r_i32(x86::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
                  int32 reg_no2_src)
 {
     a.cmp(regs_i32[reg_no1_src], regs_i32[reg_no2_src]);
-    return true;
     (void)reg_no_dst;
+    return true;
 }
 
 /**
@@ -4198,8 +4234,8 @@ cmp_imm_imm_to_r_i64(x86::Assembler &a, int32 reg_no_dst, int32 data1_src,
     a.mov(regs_i64[REG_I64_FREE_IDX], imm);
     imm.setValue(data2_src);
     a.cmp(regs_i64[REG_I64_FREE_IDX], imm);
-    return true;
     (void)reg_no_dst;
+    return true;
 }
 
 /**
@@ -4220,8 +4256,8 @@ cmp_imm_r_to_r_i64(x86::Assembler &a, int32 reg_no_dst, int64 data1_src,
     Imm imm(data1_src);
     a.mov(regs_i64[REG_I64_FREE_IDX], imm);
     a.cmp(regs_i64[REG_I64_FREE_IDX], regs_i64[reg_no2_src]);
-    return true;
     (void)reg_no_dst;
+    return true;
 }
 
 /**
@@ -4249,8 +4285,8 @@ cmp_r_imm_to_r_i64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
         a.mov(regs_i64[REG_I64_FREE_IDX], imm);
         a.cmp(regs_i64[reg_no1_src], regs_i64[REG_I64_FREE_IDX]);
     }
-    return true;
     (void)reg_no_dst;
+    return true;
 }
 
 /**
@@ -4269,8 +4305,8 @@ cmp_r_r_to_r_i64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
                  int32 reg_no2_src)
 {
     a.cmp(regs_i64[reg_no1_src], regs_i64[reg_no2_src]);
-    return true;
     (void)reg_no_dst;
+    return true;
 }
 
 /**
@@ -4289,8 +4325,8 @@ cmp_r_r_to_r_f32(x86::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
                  int32 reg_no2_src)
 {
     a.comiss(regs_float[reg_no1_src], regs_float[reg_no2_src]);
-    return true;
     (void)reg_no_dst;
+    return true;
 }
 
 /**
@@ -4310,11 +4346,11 @@ cmp_imm_imm_to_r_f32(x86::Assembler &a, int32 reg_no_dst, float data1_src,
 {
     /* should have been optimized in the frontend */
     bh_assert(0);
-    return false;
     (void)a;
     (void)reg_no_dst;
     (void)data1_src;
     (void)data2_src;
+    return false;
 }
 
 /**
@@ -4334,8 +4370,8 @@ cmp_imm_r_to_r_f32(x86::Assembler &a, int32 reg_no_dst, float data1_src,
 {
     mov_imm_to_r_f32(a, REG_F32_FREE_IDX, data1_src);
     a.comiss(regs_float[REG_F32_FREE_IDX], regs_float[reg_no2_src]);
-    return true;
     (void)reg_no_dst;
+    return true;
 }
 
 /**
@@ -4355,8 +4391,8 @@ cmp_r_imm_to_r_f32(x86::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
 {
     mov_imm_to_r_f32(a, REG_F32_FREE_IDX, data2_src);
     a.comiss(regs_float[reg_no1_src], regs_float[REG_F32_FREE_IDX]);
-    return true;
     (void)reg_no_dst;
+    return true;
 }
 
 /**
@@ -4375,8 +4411,8 @@ cmp_r_r_to_r_f64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
                  int32 reg_no2_src)
 {
     a.comisd(regs_float[reg_no1_src], regs_float[reg_no2_src]);
-    return true;
     (void)reg_no_dst;
+    return true;
 }
 
 /**
@@ -4396,11 +4432,11 @@ cmp_imm_imm_to_r_f64(x86::Assembler &a, int32 reg_no_dst, double data1_src,
 {
     /* should have been optimized in the frontend */
     bh_assert(0);
-    return false;
     (void)a;
     (void)reg_no_dst;
     (void)data1_src;
     (void)data2_src;
+    return false;
 }
 
 /**
@@ -4420,8 +4456,8 @@ cmp_imm_r_to_r_f64(x86::Assembler &a, int32 reg_no_dst, double data1_src,
 {
     mov_imm_to_r_f64(a, REG_F64_FREE_IDX, data1_src);
     a.comisd(regs_float[REG_F64_FREE_IDX], regs_float[reg_no2_src]);
-    return true;
     (void)reg_no_dst;
+    return true;
 }
 
 /**
@@ -4441,8 +4477,8 @@ cmp_r_imm_to_r_f64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
 {
     mov_imm_to_r_f64(a, REG_F64_FREE_IDX, data2_src);
     a.comisd(regs_float[reg_no1_src], regs_float[REG_F64_FREE_IDX]);
-    return true;
     (void)reg_no_dst;
+    return true;
 }
 
 /**
@@ -4469,6 +4505,10 @@ cmp_r_imm_to_r_f64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
         else {                                                                \
             CHECK_KIND(r2, JIT_REG_KIND_I64);                                 \
         }                                                                     \
+                                                                              \
+        ASSERT_REG_NO(r0);                                                    \
+        ASSERT_REG_NO(r1);                                                    \
+        ASSERT_REG_NO(r2);                                                    \
                                                                               \
         reg_no_dst = jit_reg_no(r0);                                          \
         if (jit_reg_is_const(r1))                                             \
@@ -4522,6 +4562,10 @@ cmp_r_imm_to_r_f64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
         else {                                                                 \
             CHECK_KIND(r2, JIT_REG_KIND_I64);                                  \
         }                                                                      \
+                                                                               \
+        ASSERT_REG_NO(r0);                                                     \
+        ASSERT_REG_NO(r1);                                                     \
+        ASSERT_REG_NO(r2);                                                     \
                                                                                \
         if (jit_reg_is_const(r0))                                              \
             data_src = jit_cc_get_const_##kind(cc, r0);                        \
@@ -4581,6 +4625,10 @@ cmp_r_imm_to_r_f64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
     do {                                                                 \
         bool _ret = false;                                               \
         CHECK_EQKIND(r0, r1);                                            \
+                                                                         \
+        ASSERT_REG_NO(r0);                                               \
+        ASSERT_REG_NO(r1);                                               \
+                                                                         \
         if (jit_reg_is_const(r1)) {                                      \
             Type data = jit_cc_get_const_##kind(cc, r1);                 \
             _ret = mov_imm_to_r_##type(a, jit_reg_no(r0), data);         \
@@ -4637,6 +4685,10 @@ fail:
     do {                                                                 \
         bool _ret = false;                                               \
         CHECK_EQKIND(r0, r1);                                            \
+                                                                         \
+        ASSERT_REG_NO(r0);                                               \
+        ASSERT_REG_NO(r1);                                               \
+                                                                         \
         if (jit_reg_is_const(r1)) {                                      \
             Type data = jit_cc_get_const_##kind(cc, r1);                 \
             _ret = neg_imm_to_r_##type(a, jit_reg_no(r0), data);         \
@@ -4697,6 +4749,10 @@ fail:
         bool _ret = false;                                                   \
         CHECK_KIND(r0, JIT_REG_KIND_##kind0);                                \
         CHECK_KIND(r1, JIT_REG_KIND_##kind1);                                \
+                                                                             \
+        ASSERT_REG_NO(r0);                                                   \
+        ASSERT_REG_NO(r1);                                                   \
+                                                                             \
         if (jit_reg_is_const(r1)) {                                          \
             Type1 data = jit_cc_get_const_##kind1(cc, r1);                   \
             _ret =                                                           \
@@ -4726,6 +4782,10 @@ fail:
         CHECK_EQKIND(r0, r2);                                                 \
         memset(&data1, 0, sizeof(Type));                                      \
         memset(&data2, 0, sizeof(Type));                                      \
+                                                                              \
+        ASSERT_REG_NO(r0);                                                    \
+        ASSERT_REG_NO(r1);                                                    \
+        ASSERT_REG_NO(r2);                                                    \
                                                                               \
         reg_no_dst = jit_reg_no(r0);                                          \
         if (jit_reg_is_const(r1))                                             \
@@ -4808,6 +4868,10 @@ fail:
         memset(&data1, 0, sizeof(Type));                                      \
         memset(&data2, 0, sizeof(Type));                                      \
                                                                               \
+        ASSERT_REG_NO(r0);                                                    \
+        ASSERT_REG_NO(r1);                                                    \
+        ASSERT_REG_NO(r2);                                                    \
+                                                                              \
         reg_no_dst = jit_reg_no(r0);                                          \
         if (jit_reg_is_const(r1))                                             \
             data1 = jit_cc_get_const_##kind(cc, r1);                          \
@@ -4882,6 +4946,10 @@ fail:
         CHECK_KIND(r2, JIT_REG_KIND_##kind);                                  \
         memset(&data1, 0, sizeof(Type));                                      \
         memset(&data2, 0, sizeof(Type));                                      \
+                                                                              \
+        ASSERT_REG_NO(r0);                                                    \
+        ASSERT_REG_NO(r1);                                                    \
+        ASSERT_REG_NO(r2);                                                    \
                                                                               \
         reg_no_dst = jit_reg_no(r0);                                          \
         if (jit_reg_is_const(r1))                                             \
@@ -5015,6 +5083,8 @@ bitcount_r_to_r_i64(x86::Assembler &a, BITCOUNT_OP op, int32 reg_no_dst,
                                                                         \
         CHECK_EQKIND(r0, r1);                                           \
         CHECK_NCONST(r1);                                               \
+        ASSERT_REG_NO(r0);                                              \
+        ASSERT_REG_NO(r1);                                              \
                                                                         \
         reg_no_dst = jit_reg_no(r0);                                    \
         if (!bitcount_r_to_r_##type(a, op, reg_no_dst, jit_reg_no(r1))) \
@@ -5070,6 +5140,10 @@ fail:
         CHECK_EQKIND(r1, r2);                                                \
         memset(&data1, 0, sizeof(Type));                                     \
         memset(&data2, 0, sizeof(Type));                                     \
+                                                                             \
+        ASSERT_REG_NO(r0);                                                   \
+        ASSERT_REG_NO(r1);                                                   \
+        ASSERT_REG_NO(r2);                                                   \
                                                                              \
         reg_no_dst = jit_reg_no(r0);                                         \
         if (jit_reg_is_const(r1))                                            \
@@ -5362,6 +5436,8 @@ lower_branch(JitCompContext *cc, x86::Assembler &a, bh_list *jmp_info_list,
     CHECK_KIND(r0, JIT_REG_KIND_I32);
     CHECK_KIND(r1, JIT_REG_KIND_L32);
 
+    ASSERT_REG_NO(r0);
+
     label_dst = jit_reg_no(r1);
     if (label_dst < (int32)jit_cc_label_num(cc) - 1 && is_last_insn
         && label_is_neighboring(cc, label_src, label_dst)
@@ -5577,6 +5653,7 @@ lower_lookupswitch(JitCompContext *cc, x86::Assembler &a,
     }
     else {
         reg_no = jit_reg_no(r0);
+        ASSERT_I32_REG_NO(reg_no);
         if (!lookupswitch_r(cc, a, jmp_info_list, label_offsets, label_src,
                             reg_no, opnd, is_last_insn))
             GOTO_FAIL;
@@ -5626,50 +5703,56 @@ lower_callnative(JitCompContext *cc, x86::Assembler &a, JitInsn *insn)
         switch (jit_reg_kind(arg_reg)) {
             case JIT_REG_KIND_I32:
             {
+                int reg_no = regs_arg_idx[integer_reg_index++];
+                ASSERT_I32_REG_NO(reg_no);
                 if (jit_reg_is_const(arg_reg)) {
-                    mov_imm_to_r_i64(a, regs_arg_idx[integer_reg_index++],
+                    mov_imm_to_r_i64(a, reg_no,
                                      (int64)jit_cc_get_const_I32(cc, arg_reg));
                 }
                 else {
-                    extend_r32_to_r64(a, regs_arg_idx[integer_reg_index++],
-                                      jit_reg_no(arg_reg), true);
+                    extend_r32_to_r64(a, reg_no, jit_reg_no(arg_reg), true);
                 }
                 break;
             }
             case JIT_REG_KIND_I64:
             {
+                int reg_no = regs_arg_idx[integer_reg_index++];
+                ASSERT_I64_REG_NO(reg_no);
                 if (jit_reg_is_const(arg_reg)) {
-                    mov_imm_to_r_i64(a, regs_arg_idx[integer_reg_index++],
+                    mov_imm_to_r_i64(a, reg_no,
                                      jit_cc_get_const_I64(cc, arg_reg));
                 }
                 else {
-                    mov_r_to_r_i64(a, regs_arg_idx[integer_reg_index++],
-                                   jit_reg_no(arg_reg));
+                    mov_r_to_r_i64(a, reg_no, jit_reg_no(arg_reg));
                 }
                 break;
             }
             case JIT_REG_KIND_F32:
             {
+                ASSERT_F32_REG_NO(floatpoint_reg_index);
                 if (jit_reg_is_const(arg_reg)) {
-                    mov_imm_to_r_f32(a, floatpoint_reg_index++,
+                    mov_imm_to_r_f32(a, floatpoint_reg_index,
                                      jit_cc_get_const_F32(cc, arg_reg));
                 }
                 else {
-                    mov_r_to_r_f32(a, floatpoint_reg_index++,
+                    mov_r_to_r_f32(a, floatpoint_reg_index,
                                    jit_reg_no(arg_reg));
                 }
+                floatpoint_reg_index++;
                 break;
             }
             case JIT_REG_KIND_F64:
             {
+                ASSERT_F32_REG_NO(floatpoint_reg_index);
                 if (jit_reg_is_const(arg_reg)) {
-                    mov_imm_to_r_f64(a, floatpoint_reg_index++,
+                    mov_imm_to_r_f64(a, floatpoint_reg_index,
                                      jit_cc_get_const_F64(cc, arg_reg));
                 }
                 else {
-                    mov_r_to_r_f64(a, floatpoint_reg_index++,
+                    mov_r_to_r_f64(a, floatpoint_reg_index,
                                    jit_reg_no(arg_reg));
                 }
+                floatpoint_reg_index++;
                 break;
             }
             default:
@@ -5729,6 +5812,7 @@ lower_callbc(JitCompContext *cc, x86::Assembler &a, bh_list *jmp_info_list,
     x86::Mem m(x86::rbp, cc->jitted_return_address_offset);
 
     CHECK_KIND(func_reg, JIT_REG_KIND_I64);
+    ASSERT_I64_REG_NO(jit_reg_no(func_reg));
 
     node = (JmpInfo *)jit_malloc(sizeof(JmpInfo));
     if (!node)
@@ -6060,6 +6144,10 @@ cast_r_f64_to_r_i64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
         bool _ret = false;                                                   \
         CHECK_KIND(r0, JIT_REG_KIND_##kind0);                                \
         CHECK_KIND(r1, JIT_REG_KIND_##kind1);                                \
+                                                                             \
+        ASSERT_REG_NO(r0);                                                   \
+        ASSERT_REG_NO(r1);                                                   \
+                                                                             \
         if (jit_reg_is_const(r1)) {                                          \
             Type1 data = jit_cc_get_const_##kind1(cc, r1);                   \
             _ret = cast_imm_##type1##_to_r_##type0(a, jit_reg_no(r0), data); \
