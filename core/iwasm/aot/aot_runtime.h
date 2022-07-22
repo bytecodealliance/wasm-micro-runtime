@@ -684,11 +684,13 @@ aot_get_aux_stack(WASMExecEnv *exec_env, uint32 *start_offset, uint32 *size);
 #endif
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
-bool
-aot_signal_init();
-
+#ifndef BH_PLATFORM_WINDOWS
 void
-aot_signal_destroy();
+aot_signal_handler(WASMSignalInfo *sig_info);
+#else
+LONG
+aot_exception_handler(WASMSignalInfo *sig_info);
+#endif
 #endif
 
 void
