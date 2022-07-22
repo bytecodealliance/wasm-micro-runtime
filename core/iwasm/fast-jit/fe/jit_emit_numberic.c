@@ -1473,9 +1473,9 @@ jit_compile_op_f64_math(JitCompContext *cc, FloatMath math_op)
 static float32
 local_minf(float32 f1, float32 f2)
 {
-    if (isnanf(f1))
+    if (isnan(f1))
         return f1;
-    if (isnanf(f2))
+    if (isnan(f2))
         return f2;
 
     return fminf(f1, f2);
@@ -1495,9 +1495,9 @@ local_min(float64 f1, float64 f2)
 static float32
 local_maxf(float32 f1, float32 f2)
 {
-    if (isnanf(f1))
+    if (isnan(f1))
         return f1;
-    if (isnanf(f2))
+    if (isnan(f2))
         return f2;
 
     return fmaxf(f1, f2);

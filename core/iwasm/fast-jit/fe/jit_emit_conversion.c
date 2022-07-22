@@ -45,7 +45,7 @@ local_isnan(double x)
 static int
 local_isnanf(float x)
 {
-    return isnanf(x);
+    return isnan(x);
 }
 
 #define RETURN_IF_NANF(fp)  \
