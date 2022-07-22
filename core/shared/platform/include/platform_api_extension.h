@@ -412,17 +412,29 @@ os_socket_close(bh_socket_t socket);
 int
 os_socket_shutdown(bh_socket_t socket);
 
+typedef union {
+    uint32 ipv4;
+    uint16 ipv6[8];
+    uint8_t data[0];
+} bh_inet_network_output_t;
+
 /**
  * converts cp into a number in host byte order suitable for use as
  * an Internet network address
  *
- * @param cp a string in IPv4 numbers-and-dots notation
+ * @param is_ipv4 a flag that indicates whether the string is an IPv4 or
+ * IPv6 address
  *
- * @return On success, the converted address is  returned.
+ * @param cp a string in IPv4 numbers-and-dots notation or IPv6
+ * numbers-and-colons notation
+ *
+ * @param out an output buffer to store binary address
+ *
+ * @return On success, the function returns 0.
  * If the input is invalid, -1 is returned
  */
 int
-os_socket_inet_network(const char *cp, uint32 *out);
+os_socket_inet_network(bool is_ipv4, const char *cp, bh_inet_network_output_t *out);
 
 typedef struct {
     uint8_t addr[16];

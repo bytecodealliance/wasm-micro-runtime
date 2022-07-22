@@ -3017,7 +3017,7 @@ wasi_ssp_sock_addr_resolve(
         addr_info_size < *max_info_size ? addr_info_size : *max_info_size;
 
     for (size_t i = 0; i < actual_info_size; i++) {
-        addr_info[i].type = wamr_addr_info[i].is_tcp ? SOCK_STREAM : SOCK_DGRAM;
+        addr_info[i].type = wamr_addr_info[i].is_tcp ? SOCKET_STREAM : SOCKET_DGRAM;
         if (wamr_addr_info[i].is_ipv4) {
             ipv4_addr_to_wasi_addr(*(uint32_t *)wamr_addr_info[i].addr,
                                    wamr_addr_info[i].port, &addr_info[i].addr);
@@ -3337,9 +3337,8 @@ fd_prestats_destroy(struct fd_prestats *pt)
 bool
 addr_pool_init(struct addr_pool *addr_pool)
 {
-    addr_pool->next = NULL;
-    addr_pool->addr = 0;
-    addr_pool->mask = 0;
+    memset(addr_pool, 0, sizeof(*addr_pool));
+
     return true;
 }
 
@@ -3348,6 +3347,7 @@ addr_pool_insert(struct addr_pool *addr_pool, const char *addr, uint8 mask)
 {
     struct addr_pool *cur = addr_pool;
     struct addr_pool *next;
+    bh_inet_network_output_t target;
 
     if (!addr_pool) {
         return false;
@@ -3359,9 +3359,17 @@ addr_pool_insert(struct addr_pool *addr_pool, const char *addr, uint8 mask)
 
     next->next = NULL;
     next->mask = mask;
-    if (os_socket_inet_network(addr, &next->addr) != BHT_OK) {
-        wasm_runtime_free(next);
-        return false;
+    if (os_socket_inet_network(true, addr, &target) != BHT_OK) {
+        // If parsing IPv4 fails, try IPv6
+        if (os_socket_inet_network(false, addr, &target) != BHT_OK) {
+            wasm_runtime_free(next);
+            return false;
+        }
+        next->type = IPv6;
+        bh_memcpy_s(next->addr.ip6, sizeof(next->addr.ip6), target.ipv6, sizeof(target.ipv6));
+    } else {
+        next->type = IPv4;
+        next->addr.ip4 = target.ipv4;
     }
 
     /* attach with */
@@ -3372,47 +3380,111 @@ addr_pool_insert(struct addr_pool *addr_pool, const char *addr, uint8 mask)
     return true;
 }
 
-static bool
-compare_address(const struct addr_pool *addr_pool_entry, const char *addr)
+static inline size_t
+min(size_t a, size_t b)
 {
-    /* host order */
-    uint32 target;
-    uint32 address = addr_pool_entry->addr;
-    /* 0.0.0.0 means any address */
-    if (0 == address) {
+    return a > b ? b : a;
+}
+
+
+static void
+init_address_mask(uint8_t *buf, size_t buflen, size_t mask)
+{
+    size_t element_size = sizeof(uint8_t) * 8;
+
+    for (size_t i = 0; i < buflen; i++)
+    {
+        if (mask <= i * element_size)
+        {
+            buf[i] = 0;
+        }
+        else
+        {
+            size_t offset = min(mask - i * element_size, element_size);
+            buf[i] = (~0u) << (element_size - offset);
+        }
+    }
+}
+
+/* target must be in network byte order */
+static bool
+compare_address(const struct addr_pool *addr_pool_entry, bh_inet_network_output_t *target)
+{
+    uint8_t maskbuf[16] = {0};
+    uint8_t basebuf[16] = {0};
+    size_t addr_size;
+    uint8_t max_addr_mask;
+
+    if (addr_pool_entry->type == IPv4) {
+        uint32_t addr_ip4 = htonl(addr_pool_entry->addr.ip4);
+        memcpy(basebuf, &addr_ip4, sizeof(addr_ip4));
+        addr_size = 4;
+    }
+    else {
+        uint16_t partial_addr_ip6;
+        for (int i = 0; i < 8; i++) {
+            partial_addr_ip6 = htons(addr_pool_entry->addr.ip6[i]);
+            memcpy(&basebuf[i*2], &partial_addr_ip6, sizeof(partial_addr_ip6));
+        }
+        addr_size = 16;
+    }
+    max_addr_mask = addr_size * 8;
+
+    /* IPv4 0.0.0.0 or IPv6 :: means any address */
+    if (basebuf[0] == 0 && !memcmp(basebuf, basebuf + 1, addr_size - 1))
+    {
         return true;
     }
 
-    if (os_socket_inet_network(addr, &target) != BHT_OK) {
+    /* No support for invalid mask value */
+    if (addr_pool_entry->mask > max_addr_mask)
+    {
         return false;
     }
 
-    const uint32 max_mask_value = 32;
-    /* no support for invalid mask values */
-    if (addr_pool_entry->mask > max_mask_value) {
-        return false;
+    init_address_mask(maskbuf, addr_size, addr_pool_entry->mask);
+
+    for (size_t i = 0; i < addr_size; i++)
+    {
+        uint8_t addr_mask = target->data[i] & maskbuf[i];
+        uint8_t range_mask = basebuf[i] & maskbuf[i];
+        if (addr_mask != range_mask)
+        {
+            return false;
+        }
     }
 
-    /* convert mask number into 32-bit mask value, i.e. mask /24 will be
-    converted to 4294967040 (binary: 11111111 11111111 11111111 00000000) */
-    uint32 mask = 0;
-    for (int i = 0; i < addr_pool_entry->mask; i++) {
-        mask |= 1 << (max_mask_value - 1 - i);
-    }
-
-    uint32 first_address = address & mask;
-    uint32 last_address = address | (~mask);
-    return first_address <= target && target <= last_address;
+    return true;
 }
 
 bool
 addr_pool_search(struct addr_pool *addr_pool, const char *addr)
 {
     struct addr_pool *cur = addr_pool->next;
+    bh_inet_network_output_t target;
+    __wasi_addr_type_t addr_type;
+
+    if (os_socket_inet_network(true, addr, &target) != BHT_OK) {
+        size_t i;
+
+        if (os_socket_inet_network(false, addr, &target) != BHT_OK) {
+            return false;
+        }
+        addr_type = IPv6;
+        for (i = 0; i < sizeof(target.ipv6) / sizeof(target.ipv6[0]); i++) {
+            target.ipv6[i] = htons(target.ipv6[i]);
+        }
+    }
+    else {
+        addr_type = IPv4;
+        target.ipv4 = htonl(target.ipv4);
+    }
 
     while (cur) {
-        if (compare_address(cur, addr))
+        if (cur->type == addr_type && compare_address(cur, &target)) {
             return true;
+        }
+
         cur = cur->next;
     }
 

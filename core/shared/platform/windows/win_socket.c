@@ -154,12 +154,27 @@ os_socket_shutdown(bh_socket_t socket)
 }
 
 int
-os_socket_inet_network(const char *cp, uint32 *out)
+os_socket_inet_network(bool is_ipv4, const char *cp, bh_inet_network_output_t *out)
 {
     if (!cp)
         return BHT_ERROR;
 
-    *out = inet_addr(cp);
+    if (is_ipv4) {
+        if (inet_pton(AF_INET, cp, &out->ipv4) != 1) {
+            return BHT_ERROR;
+        }
+        /* Note: ntohl(INADDR_NONE) == INADDR_NONE */
+        out->ipv4 = ntohl(out->ipv4);
+    }
+    else {
+        if (inet_pton(AF_INET6, cp, out->ipv6) != 1) {
+            return BHT_ERROR;
+        }
+        for (int i = 0; i < 8; i++) {
+            out->ipv6[i] = ntohs(out->ipv6[i]);
+        }
+    }
+
     return BHT_OK;
 }
 
