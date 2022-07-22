@@ -117,6 +117,96 @@ runtime_malloc(uint64 size, WASMModuleInstanceCommon *module_inst,
     return mem;
 }
 
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+/* The exec_env of thread local storage, set before calling function
+   and used in signal handler, as we cannot get it from the argument
+   of signal handler */
+static os_thread_local_attribute WASMExecEnv *exec_env_tls = NULL;
+
+#ifndef BH_PLATFORM_WINDOWS
+static void
+runtime_signal_handler(void *sig_addr)
+{
+    WASMModuleInstanceCommon *module_inst;
+    WASMSignalInfo sig_info;
+
+    sig_info.exec_env_tls = exec_env_tls;
+    sig_info.sig_addr = sig_addr;
+    if (exec_env_tls) {
+        module_inst = exec_env_tls->module_inst;
+#if WASM_ENABLE_INTERP != 0
+        if (module_inst->module_type == Wasm_Module_Bytecode)
+            wasm_signal_handler(&sig_info);
+#endif
+#if WASM_ENABLE_AOT != 0
+        if (module_inst->module_type == Wasm_Module_AoT)
+            aot_signal_handler(&sig_info);
+#endif
+    }
+}
+#else
+static LONG
+runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
+{
+    WASMModuleInstanceCommon *module_inst;
+    WASMSignalInfo sig_info;
+
+    sig_info.exec_env_tls = exec_env_tls;
+    sig_info.exce_info = exce_info;
+    if (exec_env_tls) {
+        module_inst = exec_env_tls->module_inst;
+#if WASM_ENABLE_INTERP != 0
+        if (module_inst->module_type == Wasm_Module_Bytecode)
+            return wasm_exception_handler(&sig_info);
+#endif
+#if WASM_ENABLE_AOT != 0
+        if (module_inst->module_type == Wasm_Module_AoT)
+            return aot_exception_handler(&sig_info);
+#endif
+    }
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+#endif /* end of BH_PLATFORM_WINDOWS */
+
+static bool
+runtime_signal_init()
+{
+#ifndef BH_PLATFORM_WINDOWS
+    return os_thread_signal_init(runtime_signal_handler) == 0 ? true : false;
+#else
+    if (os_thread_signal_init() != 0)
+        return false;
+
+    if (!AddVectoredExceptionHandler(1, runtime_exception_handler)) {
+        os_thread_signal_destroy();
+        return false;
+    }
+#endif
+    return true;
+}
+
+static void
+runtime_signal_destroy()
+{
+#ifdef BH_PLATFORM_WINDOWS
+    RemoveVectoredExceptionHandler(aot_exception_handler);
+#endif
+    os_thread_signal_destroy();
+}
+
+void
+wasm_runtime_set_exec_env_tls(WASMExecEnv *exec_env)
+{
+    exec_env_tls = exec_env;
+}
+
+WASMExecEnv *
+wasm_runtime_get_exec_env_tls()
+{
+    return exec_env_tls;
+}
+#endif /* end of OS_ENABLE_HW_BOUND_CHECK */
+
 static bool
 wasm_runtime_env_init()
 {
@@ -149,12 +239,13 @@ wasm_runtime_env_init()
     }
 #endif
 
-#if WASM_ENABLE_AOT != 0
 #ifdef OS_ENABLE_HW_BOUND_CHECK
-    if (!aot_signal_init()) {
+    if (!runtime_signal_init()) {
         goto fail6;
     }
 #endif
+
+#if WASM_ENABLE_AOT != 0
 #if WASM_ENABLE_DEBUG_AOT != 0
     if (!jit_debug_engine_init()) {
         goto fail7;
@@ -178,10 +269,10 @@ fail8:
     jit_debug_engine_destroy();
 fail7:
 #endif
-#ifdef OS_ENABLE_HW_BOUND_CHECK
-    aot_signal_destroy();
-fail6:
 #endif
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    runtime_signal_destroy();
+fail6:
 #endif
 #if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_THREAD_MGR != 0)
     thread_manager_destroy();
@@ -238,9 +329,10 @@ wasm_runtime_destroy()
 #if WASM_ENABLE_DEBUG_AOT != 0
     jit_debug_engine_destroy();
 #endif
-#ifdef OS_ENABLE_HW_BOUND_CHECK
-    aot_signal_destroy();
 #endif
+
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    runtime_signal_destroy();
 #endif
 
     /* runtime env destroy */
@@ -953,26 +1045,23 @@ wasm_runtime_init_thread_env(void)
         return false;
 #endif
 
-#if WASM_ENABLE_AOT != 0
 #ifdef OS_ENABLE_HW_BOUND_CHECK
-    if (!aot_signal_init()) {
+    if (!runtime_signal_init()) {
 #ifdef BH_PLATFORM_WINDOWS
         os_thread_env_destroy();
 #endif
         return false;
     }
 #endif
-#endif
+
     return true;
 }
 
 void
 wasm_runtime_destroy_thread_env(void)
 {
-#if WASM_ENABLE_AOT != 0
 #ifdef OS_ENABLE_HW_BOUND_CHECK
-    aot_signal_destroy();
-#endif
+    runtime_signal_destroy();
 #endif
 
 #ifdef BH_PLATFORM_WINDOWS

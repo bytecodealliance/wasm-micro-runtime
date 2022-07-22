@@ -18,6 +18,7 @@ typedef int64 CellType_I64;
 typedef float32 CellType_F32;
 typedef float64 CellType_F64;
 
+#ifndef OS_ENABLE_HW_BOUND_CHECK
 #define CHECK_MEMORY_OVERFLOW(bytes)                             \
     do {                                                         \
         uint64 offset1 = (uint64)offset + (uint64)addr;          \
@@ -39,6 +40,18 @@ typedef float64 CellType_F64;
         else                                            \
             goto out_of_bounds;                         \
     } while (0)
+#else
+#define CHECK_MEMORY_OVERFLOW(bytes)                    \
+    do {                                                \
+        uint64 offset1 = (uint64)offset + (uint64)addr; \
+        maddr = memory->memory_data + offset1;          \
+    } while (0)
+
+#define CHECK_BULK_MEMORY_OVERFLOW(start, bytes, maddr) \
+    do {                                                \
+        maddr = memory->memory_data + (uint32)(start);  \
+    } while (0)
+#endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
 #define CHECK_ATOMIC_MEMORY_ACCESS(align)          \
     do {                                           \
@@ -1080,10 +1093,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                WASMInterpFrame *prev_frame)
 {
     WASMMemoryInstance *memory = module->default_memory;
+#ifndef OS_ENABLE_HW_BOUND_CHECK
     uint32 num_bytes_per_page = memory ? memory->num_bytes_per_page : 0;
-    uint8 *global_data = module->global_data;
     uint32 linear_mem_size =
         memory ? num_bytes_per_page * memory->cur_page_count : 0;
+#endif
+    uint8 *global_data = module->global_data;
     WASMGlobalInstance *globals = module->globals, *global;
     uint8 opcode_IMPDEP = WASM_OP_IMPDEP;
     WASMInterpFrame *frame = NULL;
@@ -1797,8 +1812,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     frame_lp[addr_ret] = prev_page_count;
                     /* update memory instance ptr and memory size */
                     memory = module->default_memory;
+#ifndef OS_ENABLE_HW_BOUND_CHECK
                     linear_mem_size =
                         num_bytes_per_page * memory->cur_page_count;
+#endif
                 }
 
                 (void)reserved;
@@ -2907,11 +2924,16 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         seg_len = (uint64)module->module->data_segments[segment]
                                       ->data_length;
                         data = module->module->data_segments[segment]->data;
+#ifndef OS_ENABLE_HW_BOUND_CHECK
                         if (offset + bytes > seg_len)
                             goto out_of_bounds;
 
                         bh_memcpy_s(maddr, linear_mem_size - addr,
                                     data + offset, (uint32)bytes);
+#else
+                        bh_memcpy_s(maddr, (uint32)bytes, data + offset,
+                                    (uint32)bytes);
+#endif
                         break;
                     }
                     case WASM_OP_DATA_DROP:
@@ -2937,8 +2959,11 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         CHECK_BULK_MEMORY_OVERFLOW(dst, len, mdst);
 
                         /* allowing the destination and source to overlap */
+#ifndef OS_ENABLE_HW_BOUND_CHECK
                         bh_memmove_s(mdst, linear_mem_size - dst, msrc, len);
-
+#else
+                        bh_memmove_s(mdst, len, msrc, len);
+#endif
                         break;
                     }
                     case WASM_OP_MEMORY_FILL:
@@ -3694,8 +3719,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
             /* update memory instance ptr and memory size */
             memory = module->default_memory;
+#ifndef OS_ENABLE_HW_BOUND_CHECK
             if (memory)
                 linear_mem_size = num_bytes_per_page * memory->cur_page_count;
+#endif
             if (wasm_get_exception(module))
                 goto got_exception;
         }
@@ -3761,8 +3788,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         goto got_exception;
 #endif
 
+#ifndef OS_ENABLE_HW_BOUND_CHECK
     out_of_bounds:
         wasm_set_exception(module, "out of bounds memory access");
+#endif
 
     got_exception:
         SYNC_ALL_TO_FRAME();
@@ -3813,11 +3842,13 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
     }
     argc = function->param_cell_num;
 
+#ifndef OS_ENABLE_HW_BOUND_CHECK
     if ((uint8 *)&prev_frame < exec_env->native_stack_boundary) {
         wasm_set_exception((WASMModuleInstance *)exec_env->module_inst,
                            "native stack overflow");
         return;
     }
+#endif
 
     if (!(frame =
               ALLOC_FRAME(exec_env, frame_size, (WASMInterpFrame *)prev_frame)))
