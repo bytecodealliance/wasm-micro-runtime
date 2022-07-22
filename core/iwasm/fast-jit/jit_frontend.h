@@ -9,7 +9,11 @@
 #include "jit_utils.h"
 #include "jit_ir.h"
 #include "../interpreter/wasm_interp.h"
+#if WASM_ENABLE_AOT != 0
+#include "../aot/aot_runtime.h"
+#endif
 
+#if WASM_ENABLE_AOT == 0
 typedef enum IntCond {
     INT_EQZ = 0,
     INT_EQ,
@@ -33,6 +37,10 @@ typedef enum FloatCond {
     FLOAT_GE,
     FLOAT_UNO
 } FloatCond;
+#else
+#define IntCond AOTIntCond
+#define FloatCond AOTFloatCond
+#endif
 
 typedef enum IntArithmetic {
     INT_ADD = 0,
@@ -97,25 +105,25 @@ typedef enum FloatArithmetic {
 } FloatArithmetic;
 
 typedef enum JitExceptionID {
-    EXCE_UNREACHABLE = 0,
-    EXCE_OUT_OF_MEMORY,
-    EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS,
-    EXCE_INTEGER_OVERFLOW,
-    EXCE_INTEGER_DIVIDE_BY_ZERO,
-    EXCE_INVALID_CONVERSION_TO_INTEGER,
-    EXCE_INVALID_FUNCTION_TYPE_INDEX,
-    EXCE_INVALID_FUNCTION_INDEX,
-    EXCE_UNDEFINED_ELEMENT,
-    EXCE_UNINITIALIZED_ELEMENT,
-    EXCE_CALL_UNLINKED_IMPORT_FUNC,
-    EXCE_NATIVE_STACK_OVERFLOW,
-    EXCE_UNALIGNED_ATOMIC,
-    EXCE_AUX_STACK_OVERFLOW,
-    EXCE_AUX_STACK_UNDERFLOW,
-    EXCE_OUT_OF_BOUNDS_TABLE_ACCESS,
-    EXCE_OPERAND_STACK_OVERFLOW,
-    EXCE_ALREADY_THROWN,
-    EXCE_NUM,
+    JIT_EXCE_UNREACHABLE = 0,
+    JIT_EXCE_OUT_OF_MEMORY,
+    JIT_EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS,
+    JIT_EXCE_INTEGER_OVERFLOW,
+    JIT_EXCE_INTEGER_DIVIDE_BY_ZERO,
+    JIT_EXCE_INVALID_CONVERSION_TO_INTEGER,
+    JIT_EXCE_INVALID_FUNCTION_TYPE_INDEX,
+    JIT_EXCE_INVALID_FUNCTION_INDEX,
+    JIT_EXCE_UNDEFINED_ELEMENT,
+    JIT_EXCE_UNINITIALIZED_ELEMENT,
+    JIT_EXCE_CALL_UNLINKED_IMPORT_FUNC,
+    JIT_EXCE_NATIVE_STACK_OVERFLOW,
+    JIT_EXCE_UNALIGNED_ATOMIC,
+    JIT_EXCE_AUX_STACK_OVERFLOW,
+    JIT_EXCE_AUX_STACK_UNDERFLOW,
+    JIT_EXCE_OUT_OF_BOUNDS_TABLE_ACCESS,
+    JIT_EXCE_OPERAND_STACK_OVERFLOW,
+    JIT_EXCE_ALREADY_THROWN,
+    JIT_EXCE_NUM,
 } JitExceptionID;
 
 /**
@@ -175,6 +183,9 @@ jit_frontend_lower(JitCompContext *cc);
 
 JitReg
 get_module_inst_reg(JitFrame *frame);
+
+JitReg
+get_module_reg(JitFrame *frame);
 
 JitReg
 get_fast_jit_func_ptrs_reg(JitFrame *frame);
