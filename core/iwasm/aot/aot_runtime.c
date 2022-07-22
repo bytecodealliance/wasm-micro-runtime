@@ -518,7 +518,7 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 #endif
 
     if (os_mprotect(p, total_size, MMAP_PROT_READ | MMAP_PROT_WRITE) != 0) {
-        set_error_buf(error_buf, error_buf_size, "mprotec memory failed");
+        set_error_buf(error_buf, error_buf_size, "mprotect memory failed");
 #ifdef BH_PLATFORM_WINDOWS
         os_mem_decommit(p, total_size);
 #endif
@@ -1186,12 +1186,12 @@ aot_lookup_function(const AOTModuleInstance *module_inst, const char *name,
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
 
-static os_thread_local_attribute WASMExecEnv *aot_exec_env = NULL;
-
 #ifndef BH_PLATFORM_WINDOWS
-static void
-aot_signal_handler(void *sig_addr)
+void
+aot_signal_handler(WASMSignalInfo *sig_info)
 {
+    WASMExecEnv *exec_env_tls = sig_info->exec_env_tls;
+    void *sig_addr = sig_info->sig_addr;
     AOTModuleInstance *module_inst;
     AOTMemoryInstance *memory_inst;
     WASMJmpBuf *jmpbuf_node;
@@ -1202,10 +1202,10 @@ aot_signal_handler(void *sig_addr)
     uint32 guard_page_count = STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT;
 
     /* Check whether current thread is running aot function */
-    if (aot_exec_env && aot_exec_env->handle == os_self_thread()
-        && (jmpbuf_node = aot_exec_env->jmpbuf_stack_top)) {
+    if (exec_env_tls && exec_env_tls->handle == os_self_thread()
+        && (jmpbuf_node = exec_env_tls->jmpbuf_stack_top)) {
         /* Get mapped mem info of current instance */
-        module_inst = (AOTModuleInstance *)aot_exec_env->module_inst;
+        module_inst = (AOTModuleInstance *)exec_env_tls->module_inst;
         /* Get the default memory instance */
         memory_inst = aot_get_default_memory(module_inst);
         if (memory_inst) {
@@ -1222,7 +1222,7 @@ aot_signal_handler(void *sig_addr)
             && (mapped_mem_start_addr <= (uint8 *)sig_addr
                 && (uint8 *)sig_addr < mapped_mem_end_addr)) {
             /* The address which causes segmentation fault is inside
-               aot instance's guard regions */
+               the memory instance's guard regions */
             aot_set_exception_with_id(module_inst,
                                       EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS);
             os_longjmp(jmpbuf_node->jmpbuf, 1);
@@ -1238,9 +1238,11 @@ aot_signal_handler(void *sig_addr)
     }
 }
 #else  /* else of BH_PLATFORM_WINDOWS */
-static LONG
-aot_exception_handler(EXCEPTION_POINTERS *exce_info)
+LONG
+aot_exception_handler(WASMSignalInfo *sig_info)
 {
+    WASMExecEnv *exec_env_tls = sig_info->exec_env_tls;
+    EXCEPTION_POINTERS *exce_info = sig_info->exce_info;
     PEXCEPTION_RECORD ExceptionRecord = exce_info->ExceptionRecord;
     uint8 *sig_addr = (uint8 *)ExceptionRecord->ExceptionInformation[1];
     AOTModuleInstance *module_inst;
@@ -1250,9 +1252,9 @@ aot_exception_handler(EXCEPTION_POINTERS *exce_info)
     uint8 *mapped_mem_end_addr = NULL;
     uint32 page_size = os_getpagesize();
 
-    if (aot_exec_env && aot_exec_env->handle == os_self_thread()
-        && (jmpbuf_node = aot_exec_env->jmpbuf_stack_top)) {
-        module_inst = (AOTModuleInstance *)aot_exec_env->module_inst;
+    if (exec_env_tls && exec_env_tls->handle == os_self_thread()
+        && (jmpbuf_node = exec_env_tls->jmpbuf_stack_top)) {
+        module_inst = (AOTModuleInstance *)exec_env_tls->module_inst;
         if (ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
             /* Get the default memory instance */
             memory_inst = aot_get_default_memory(module_inst);
@@ -1293,32 +1295,6 @@ aot_exception_handler(EXCEPTION_POINTERS *exce_info)
 }
 #endif /* end of BH_PLATFORM_WINDOWS */
 
-bool
-aot_signal_init()
-{
-#ifndef BH_PLATFORM_WINDOWS
-    return os_thread_signal_init(aot_signal_handler) == 0 ? true : false;
-#else
-    if (os_thread_signal_init() != 0)
-        return false;
-
-    if (!AddVectoredExceptionHandler(1, aot_exception_handler)) {
-        os_thread_signal_destroy();
-        return false;
-    }
-#endif
-    return true;
-}
-
-void
-aot_signal_destroy()
-{
-#ifdef BH_PLATFORM_WINDOWS
-    RemoveVectoredExceptionHandler(aot_exception_handler);
-#endif
-    os_thread_signal_destroy();
-}
-
 static bool
 invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
                                   const WASMType *func_type,
@@ -1326,7 +1302,7 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
                                   uint32 *argv, uint32 argc, uint32 *argv_ret)
 {
     AOTModuleInstance *module_inst = (AOTModuleInstance *)exec_env->module_inst;
-    WASMExecEnv **p_aot_exec_env = &aot_exec_env;
+    WASMExecEnv *exec_env_tls = wasm_runtime_get_exec_env_tls();
     WASMJmpBuf jmpbuf_node = { 0 }, *jmpbuf_node_pop;
     uint32 page_size = os_getpagesize();
     uint32 guard_page_count = STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT;
@@ -1348,7 +1324,7 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
         return false;
     }
 
-    if (aot_exec_env && (aot_exec_env != exec_env)) {
+    if (exec_env_tls && (exec_env_tls != exec_env)) {
         aot_set_exception(module_inst, "invalid exec env");
         return false;
     }
@@ -1360,7 +1336,7 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
 
     wasm_exec_env_push_jmpbuf(exec_env, &jmpbuf_node);
 
-    aot_exec_env = exec_env;
+    wasm_runtime_set_exec_env_tls(exec_env);
     if (os_setjmp(jmpbuf_node.jmpbuf) == 0) {
         /* Quick call with func_ptr if the function signature is simple */
         if (!signature && param_count == 1 && types[0] == VALUE_TYPE_I32) {
@@ -1406,7 +1382,7 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
     jmpbuf_node_pop = wasm_exec_env_pop_jmpbuf(exec_env);
     bh_assert(&jmpbuf_node == jmpbuf_node_pop);
     if (!exec_env->jmpbuf_stack_top) {
-        *p_aot_exec_env = NULL;
+        wasm_runtime_set_exec_env_tls(NULL);
     }
     if (!ret) {
         os_sigreturn();
@@ -1594,7 +1570,7 @@ aot_create_exec_env_and_call_function(AOTModuleInstance *module_inst,
     bool ret;
 
 #if defined(OS_ENABLE_HW_BOUND_CHECK)
-    existing_exec_env = exec_env = aot_exec_env;
+    existing_exec_env = exec_env = wasm_runtime_get_exec_env_tls();
 #elif WASM_ENABLE_THREAD_MGR != 0
     existing_exec_env = exec_env =
         wasm_clusters_search_exec_env((WASMModuleInstanceCommon *)module_inst);
@@ -1611,7 +1587,7 @@ aot_create_exec_env_and_call_function(AOTModuleInstance *module_inst,
 
     ret = aot_call_function(exec_env, func, argc, argv);
 
-    /* don't destroy the exec_env if it's searched from the cluster */
+    /* don't destroy the exec_env if it isn't created in this function */
     if (!existing_exec_env)
         wasm_exec_env_destroy(exec_env);
 
@@ -1707,6 +1683,9 @@ execute_malloc_function(AOTModuleInstance *module_inst,
                         AOTFunctionInstance *retain_func, uint32 size,
                         uint32 *p_result)
 {
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    WASMExecEnv *exec_env_tls = wasm_runtime_get_exec_env_tls();
+#endif
     uint32 argv[2], argc;
     bool ret;
 
@@ -1718,13 +1697,13 @@ execute_malloc_function(AOTModuleInstance *module_inst,
     }
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
-    if (aot_exec_env != NULL) {
-        bh_assert(aot_exec_env->module_inst
+    if (exec_env_tls != NULL) {
+        bh_assert(exec_env_tls->module_inst
                   == (WASMModuleInstanceCommon *)module_inst);
-        ret = aot_call_function(aot_exec_env, malloc_func, argc, argv);
+        ret = aot_call_function(exec_env_tls, malloc_func, argc, argv);
 
         if (retain_func && ret) {
-            ret = aot_call_function(aot_exec_env, retain_func, 1, argv);
+            ret = aot_call_function(exec_env_tls, retain_func, 1, argv);
         }
     }
     else
@@ -1748,14 +1727,17 @@ static bool
 execute_free_function(AOTModuleInstance *module_inst,
                       AOTFunctionInstance *free_func, uint32 offset)
 {
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    WASMExecEnv *exec_env_tls = wasm_runtime_get_exec_env_tls();
+#endif
     uint32 argv[2];
 
     argv[0] = offset;
 #ifdef OS_ENABLE_HW_BOUND_CHECK
-    if (aot_exec_env != NULL) {
-        bh_assert(aot_exec_env->module_inst
+    if (exec_env_tls != NULL) {
+        bh_assert(exec_env_tls->module_inst
                   == (WASMModuleInstanceCommon *)module_inst);
-        return aot_call_function(aot_exec_env, free_func, 1, argv);
+        return aot_call_function(exec_env_tls, free_func, 1, argv);
     }
     else
 #endif
@@ -2197,8 +2179,8 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
         return false;
     }
 
-    memset(memory_inst->memory_data_end.ptr, 0,
-           num_bytes_per_page * inc_page_count);
+    /* The increased pages are filled with zero by the OS when os_mmap,
+       no need to memset it again here */
 
     memory_inst->cur_page_count = total_page_count;
     memory_inst->memory_data_size = (uint32)total_size;

@@ -385,6 +385,16 @@ bool
 wasm_get_aux_stack(WASMExecEnv *exec_env, uint32 *start_offset, uint32 *size);
 #endif
 
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+#ifndef BH_PLATFORM_WINDOWS
+void
+wasm_signal_handler(WASMSignalInfo *sig_info);
+#else
+LONG
+wasm_exception_handler(WASMSignalInfo *sig_info);
+#endif
+#endif
+
 void
 wasm_get_module_mem_consumption(const WASMModule *module,
                                 WASMModuleMemConsumption *mem_conspn);
