@@ -220,6 +220,7 @@ jit_codegen_interp_jitted_glue(void *exec_env, JitInterpSwitchInfo *info,
                 ASSERT_F64_REG_NO(no);        \
             }                                 \
         }                                     \
+        (void)no;                             \
     } while (0)
 
 #endif /* end of CODEGEN_CHECK_ARGS == 0 */

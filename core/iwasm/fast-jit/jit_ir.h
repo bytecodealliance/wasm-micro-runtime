@@ -907,6 +907,8 @@ typedef struct JitFrame {
 
     /* WASM module instance */
     JitReg module_inst_reg;
+    /* WASM module */
+    JitReg module_reg;
     /* module_inst->fast_jit_func_ptrs */
     JitReg fast_jit_func_ptrs_reg;
     /* Base address of global data */
@@ -1023,6 +1025,8 @@ typedef struct JitCompContext {
 
     /* WASM module instance */
     JitReg module_inst_reg;
+    /* WASM module */
+    JitReg module_reg;
     /* module_inst->fast_jit_func_ptrs */
     JitReg fast_jit_func_ptrs_reg;
     /* Base address of global data */

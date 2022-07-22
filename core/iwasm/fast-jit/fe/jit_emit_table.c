@@ -37,8 +37,8 @@ jit_compile_op_table_get(JitCompContext *cc, uint32 tbl_idx)
     /* if (elem_idx >= tbl_sz) goto exception; */
     tbl_sz = get_table_cur_size_reg(cc->jit_frame, tbl_idx);
     GEN_INSN(CMP, cc->cmp_reg, elem_idx, tbl_sz);
-    if (!jit_emit_exception(cc, EXCE_OUT_OF_BOUNDS_TABLE_ACCESS, JIT_OP_BGEU,
-                            cc->cmp_reg, NULL))
+    if (!jit_emit_exception(cc, JIT_EXCE_OUT_OF_BOUNDS_TABLE_ACCESS,
+                            JIT_OP_BGEU, cc->cmp_reg, NULL))
         goto fail;
 
     elem_idx_long = jit_cc_new_reg_I64(cc);
@@ -68,8 +68,8 @@ jit_compile_op_table_set(JitCompContext *cc, uint32 tbl_idx)
     /* if (elem_idx >= tbl_sz) goto exception; */
     tbl_sz = get_table_cur_size_reg(cc->jit_frame, tbl_idx);
     GEN_INSN(CMP, cc->cmp_reg, elem_idx, tbl_sz);
-    if (!jit_emit_exception(cc, EXCE_OUT_OF_BOUNDS_TABLE_ACCESS, JIT_OP_BGEU,
-                            cc->cmp_reg, NULL))
+    if (!jit_emit_exception(cc, JIT_EXCE_OUT_OF_BOUNDS_TABLE_ACCESS,
+                            JIT_OP_BGEU, cc->cmp_reg, NULL))
         goto fail;
 
     elem_idx_long = jit_cc_new_reg_I64(cc);
@@ -140,8 +140,8 @@ jit_compile_op_table_init(JitCompContext *cc, uint32 tbl_idx,
         goto fail;
 
     GEN_INSN(CMP, cc->cmp_reg, res, NEW_CONST(I32, 0));
-    if (!jit_emit_exception(cc, EXCE_ALREADY_THROWN, JIT_OP_BLTS, cc->cmp_reg,
-                            NULL))
+    if (!jit_emit_exception(cc, JIT_EXCE_ALREADY_THROWN, JIT_OP_BLTS,
+                            cc->cmp_reg, NULL))
         goto fail;
 
     return true;
@@ -204,8 +204,8 @@ jit_compile_op_table_copy(JitCompContext *cc, uint32 src_tbl_idx,
         goto fail;
 
     GEN_INSN(CMP, cc->cmp_reg, res, NEW_CONST(I32, 0));
-    if (!jit_emit_exception(cc, EXCE_ALREADY_THROWN, JIT_OP_BLTS, cc->cmp_reg,
-                            NULL))
+    if (!jit_emit_exception(cc, JIT_EXCE_ALREADY_THROWN, JIT_OP_BLTS,
+                            cc->cmp_reg, NULL))
         goto fail;
 
     return true;
@@ -307,8 +307,8 @@ jit_compile_op_table_fill(JitCompContext *cc, uint32 tbl_idx)
         goto fail;
 
     GEN_INSN(CMP, cc->cmp_reg, res, NEW_CONST(I32, 0));
-    if (!jit_emit_exception(cc, EXCE_ALREADY_THROWN, JIT_OP_BLTS, cc->cmp_reg,
-                            NULL))
+    if (!jit_emit_exception(cc, JIT_EXCE_ALREADY_THROWN, JIT_OP_BLTS,
+                            cc->cmp_reg, NULL))
         goto fail;
 
     return true;

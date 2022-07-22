@@ -557,6 +557,7 @@ spill_vreg(RegallocContext *rc, JitReg vreg, JitInsn *cur_insn)
             break;
         default:
             bh_assert(0);
+            return NULL;
     }
 
     if (insn)

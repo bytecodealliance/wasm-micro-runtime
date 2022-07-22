@@ -11,9 +11,15 @@ After installing the dependencies, build the source code:
 ``` Bash
 source <SGX_SDK dir>/environment
 cd product-mini/platforms/linux-sgx/
-mkdir build
-cd build
+mkdir build && cd build
 cmake ..
+make
+```
+
+By default the `fast interpreter` and `AOT` is enabled. If to enable `Fast JIT`, run:
+```Bash
+mkdir build && cd build
+cmake .. -DWAMR_BUILD_FAST_JIT=1
 make
 ```
 

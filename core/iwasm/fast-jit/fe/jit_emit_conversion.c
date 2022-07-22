@@ -36,14 +36,26 @@
 #define FP_TO_INT_SAT(f_ty, i_ty, f_nm, i_nm) \
     static i_ty i_nm##_trunc_##f_nm##_sat(f_ty fp)
 
-#define RETURN_IF_NANF(fp) \
-    if (isnanf(fp)) {      \
-        return 0;          \
+static int
+local_isnan(double x)
+{
+    return isnan(x);
+}
+
+static int
+local_isnanf(float x)
+{
+    return isnan(x);
+}
+
+#define RETURN_IF_NANF(fp)  \
+    if (local_isnanf(fp)) { \
+        return 0;           \
     }
 
-#define RETURN_IF_NAN(fp) \
-    if (isnan(fp)) {      \
-        return 0;         \
+#define RETURN_IF_NAN(fp)  \
+    if (local_isnan(fp)) { \
+        return 0;          \
     }
 
 #define RETURN_IF_INF(fp, i_min, i_max) \
@@ -182,26 +194,26 @@ jit_compile_check_value_range(JitCompContext *cc, JitReg value, JitReg min_fp,
 
     /* If value is NaN, throw exception */
     if (JIT_REG_KIND_F32 == kind)
-        emit_ret = jit_emit_callnative(cc, isnanf, nan_ret, &value, 1);
+        emit_ret = jit_emit_callnative(cc, local_isnanf, nan_ret, &value, 1);
     else
-        emit_ret = jit_emit_callnative(cc, isnan, nan_ret, &value, 1);
+        emit_ret = jit_emit_callnative(cc, local_isnan, nan_ret, &value, 1);
     if (!emit_ret)
         goto fail;
 
     GEN_INSN(CMP, cc->cmp_reg, nan_ret, NEW_CONST(I32, 1));
-    if (!jit_emit_exception(cc, EXCE_INVALID_CONVERSION_TO_INTEGER, JIT_OP_BEQ,
-                            cc->cmp_reg, NULL))
+    if (!jit_emit_exception(cc, JIT_EXCE_INVALID_CONVERSION_TO_INTEGER,
+                            JIT_OP_BEQ, cc->cmp_reg, NULL))
         goto fail;
 
     /* If value is out of integer range, throw exception */
     GEN_INSN(CMP, cc->cmp_reg, min_fp, value);
-    if (!jit_emit_exception(cc, EXCE_INTEGER_OVERFLOW, JIT_OP_BGES, cc->cmp_reg,
-                            NULL))
+    if (!jit_emit_exception(cc, JIT_EXCE_INTEGER_OVERFLOW, JIT_OP_BGES,
+                            cc->cmp_reg, NULL))
         goto fail;
 
     GEN_INSN(CMP, cc->cmp_reg, value, max_fp);
-    if (!jit_emit_exception(cc, EXCE_INTEGER_OVERFLOW, JIT_OP_BGES, cc->cmp_reg,
-                            NULL))
+    if (!jit_emit_exception(cc, JIT_EXCE_INTEGER_OVERFLOW, JIT_OP_BGES,
+                            cc->cmp_reg, NULL))
         goto fail;
 
     return true;

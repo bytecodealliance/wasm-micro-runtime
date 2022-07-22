@@ -649,7 +649,7 @@ compile_int_div(JitCompContext *cc, IntArithmetic arith_op, bool is_i32,
             case 0:
             {
                 /* Directly throw exception if divided by zero */
-                if (!(jit_emit_exception(cc, EXCE_INTEGER_DIVIDE_BY_ZERO,
+                if (!(jit_emit_exception(cc, JIT_EXCE_INTEGER_DIVIDE_BY_ZERO,
                                          JIT_OP_JMP, 0, NULL)))
                     goto fail;
 
@@ -683,7 +683,7 @@ compile_int_div(JitCompContext *cc, IntArithmetic arith_op, bool is_i32,
 
                     /* Throw integer overflow exception if left is
                        INT32_MIN or INT64_MIN */
-                    if (!(jit_emit_exception(cc, EXCE_INTEGER_OVERFLOW,
+                    if (!(jit_emit_exception(cc, JIT_EXCE_INTEGER_OVERFLOW,
                                              JIT_OP_BEQ, cc->cmp_reg, NULL)))
                         goto fail;
 
@@ -723,8 +723,8 @@ compile_int_div(JitCompContext *cc, IntArithmetic arith_op, bool is_i32,
         GEN_INSN(CMP, cc->cmp_reg, right,
                  is_i32 ? NEW_CONST(I32, 0) : NEW_CONST(I64, 0));
         /* Throw integer divided by zero exception if right is zero */
-        if (!(jit_emit_exception(cc, EXCE_INTEGER_DIVIDE_BY_ZERO, JIT_OP_BEQ,
-                                 cc->cmp_reg, NULL)))
+        if (!(jit_emit_exception(cc, JIT_EXCE_INTEGER_DIVIDE_BY_ZERO,
+                                 JIT_OP_BEQ, cc->cmp_reg, NULL)))
             goto fail;
 
         switch (arith_op) {
@@ -744,8 +744,8 @@ compile_int_div(JitCompContext *cc, IntArithmetic arith_op, bool is_i32,
                 GEN_INSN(CMP, cc->cmp_reg, cmp1, NEW_CONST(I32, 1));
                 /* Throw integer overflow exception if left is INT32_MIN or
                    INT64_MIN, and right is -1 */
-                if (!(jit_emit_exception(cc, EXCE_INTEGER_OVERFLOW, JIT_OP_BEQ,
-                                         cc->cmp_reg, NULL)))
+                if (!(jit_emit_exception(cc, JIT_EXCE_INTEGER_OVERFLOW,
+                                         JIT_OP_BEQ, cc->cmp_reg, NULL)))
                     goto fail;
 
                 /* Build default div and rem */
@@ -1473,9 +1473,9 @@ jit_compile_op_f64_math(JitCompContext *cc, FloatMath math_op)
 static float32
 local_minf(float32 f1, float32 f2)
 {
-    if (isnanf(f1))
+    if (isnan(f1))
         return f1;
-    if (isnanf(f2))
+    if (isnan(f2))
         return f2;
 
     return fminf(f1, f2);
@@ -1495,9 +1495,9 @@ local_min(float64 f1, float64 f2)
 static float32
 local_maxf(float32 f1, float32 f2)
 {
-    if (isnanf(f1))
+    if (isnan(f1))
         return f1;
-    if (isnanf(f2))
+    if (isnan(f2))
         return f2;
 
     return fmaxf(f1, f2);

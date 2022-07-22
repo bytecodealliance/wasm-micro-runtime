@@ -12,10 +12,18 @@ include_directories (${IWASM_FAST_JIT_DIR})
 
 if (WAMR_BUILD_TARGET STREQUAL "X86_64" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
     include(FetchContent)
-    FetchContent_Declare(
-        asmjit
-        GIT_REPOSITORY https://github.com/asmjit/asmjit.git
-    )
+    if (NOT WAMR_BUILD_PLATFORM STREQUAL "linux-sgx")
+        FetchContent_Declare(
+            asmjit
+            GIT_REPOSITORY https://github.com/asmjit/asmjit.git
+        )
+    else ()
+        FetchContent_Declare(
+            asmjit
+            GIT_REPOSITORY https://github.com/asmjit/asmjit.git
+            PATCH_COMMAND  git apply ${IWASM_FAST_JIT_DIR}/asmjit_sgx_patch.diff
+        )
+    endif ()
     FetchContent_GetProperties(asmjit)
     if (NOT asmjit_POPULATED)
         message ("-- Fetching asmjit ..")
