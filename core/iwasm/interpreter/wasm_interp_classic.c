@@ -1887,8 +1887,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 frame_sp -= 2;
                 addr = POP_I32();
                 CHECK_MEMORY_OVERFLOW(8);
-                STORE_U32(maddr, frame_sp[1]);
-                STORE_U32(maddr + 4, frame_sp[2]);
+                PUT_I64_TO_ADDR((uint32 *)maddr,
+                                GET_I64_FROM_ADDR(frame_sp + 1));
                 (void)flags;
                 HANDLE_OP_END();
             }
@@ -3473,8 +3473,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             CHECK_BULK_MEMORY_OVERFLOW(addr + offset, 8, maddr);
                             CHECK_ATOMIC_MEMORY_ACCESS();
                             os_mutex_lock(&memory->mem_lock);
-                            STORE_U32(maddr, frame_sp[1]);
-                            STORE_U32(maddr + 4, frame_sp[2]);
+                            PUT_I64_TO_ADDR((uint32 *)maddr,
+                                            GET_I64_FROM_ADDR(frame_sp + 1));
                             os_mutex_unlock(&memory->mem_lock);
                         }
                         break;
