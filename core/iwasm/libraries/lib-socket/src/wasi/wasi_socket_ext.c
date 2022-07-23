@@ -22,12 +22,13 @@
 static void
 ipv4_addr_to_wasi_addr(uint32_t addr_num, uint16_t port, __wasi_addr_t *out)
 {
+    addr_num = ntohl(addr_num);
     out->kind = IPv4;
     out->addr.ip4.port = ntohs(port);
-    out->addr.ip4.addr.n3 = (addr_num & 0xFF000000) >> 24;
-    out->addr.ip4.addr.n2 = (addr_num & 0x00FF0000) >> 16;
-    out->addr.ip4.addr.n1 = (addr_num & 0x0000FF00) >> 8;
-    out->addr.ip4.addr.n0 = (addr_num & 0x000000FF);
+    out->addr.ip4.addr.n0 = (addr_num & 0xFF000000) >> 24;
+    out->addr.ip4.addr.n1 = (addr_num & 0x00FF0000) >> 16;
+    out->addr.ip4.addr.n2 = (addr_num & 0x0000FF00) >> 8;
+    out->addr.ip4.addr.n3 = (addr_num & 0x000000FF);
 }
 
 static __wasi_errno_t
@@ -57,6 +58,7 @@ static __wasi_errno_t
 sock_addr_remote(__wasi_fd_t fd, struct sockaddr *sock_addr, socklen_t *addrlen)
 {
     __wasi_addr_t wasi_addr = { 0 };
+    uint32_t s_addr;
     __wasi_errno_t error;
 
     error =
@@ -68,11 +70,13 @@ sock_addr_remote(__wasi_fd_t fd, struct sockaddr *sock_addr, socklen_t *addrlen)
     if (IPv4 == wasi_addr.kind) {
         struct sockaddr_in sock_addr_in = { 0 };
 
+        s_addr = (wasi_addr.addr.ip4.addr.n0 << 24)
+                 | (wasi_addr.addr.ip4.addr.n1 << 16)
+                 | (wasi_addr.addr.ip4.addr.n2 << 8)
+                 | wasi_addr.addr.ip4.addr.n3;
+
         sock_addr_in.sin_family = AF_INET;
-        sock_addr_in.sin_addr.s_addr = (wasi_addr.addr.ip4.addr.n3 << 24)
-                                       | (wasi_addr.addr.ip4.addr.n2 << 16)
-                                       | (wasi_addr.addr.ip4.addr.n1 << 8)
-                                       | wasi_addr.addr.ip4.addr.n0;
+        sock_addr_in.sin_addr.s_addr = htonl(s_addr);
         sock_addr_in.sin_port = htons(wasi_addr.addr.ip4.port);
         memcpy(sock_addr, &sock_addr_in, sizeof(sock_addr_in));
 
