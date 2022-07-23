@@ -130,8 +130,19 @@ memories_deinstantiate(WASMModuleInstance *module_inst,
                     wasm_runtime_free(memories[i]->heap_handle);
                     memories[i]->heap_handle = NULL;
                 }
-                if (memories[i]->memory_data)
+                if (memories[i]->memory_data) {
+#ifndef OS_ENABLE_HW_BOUND_CHECK
                     wasm_runtime_free(memories[i]->memory_data);
+#else
+#ifdef BH_PLATFORM_WINDOWS
+                    os_mem_decommit(memories[i]->memory_data,
+                                    memories[i]->num_bytes_per_page
+                                        * memories[i]->cur_page_count);
+#endif
+                    os_munmap((uint8 *)memories[i]->memory_data,
+                              8 * (uint64)BH_GB);
+#endif
+                }
                 wasm_runtime_free(memories[i]);
             }
         }
@@ -153,6 +164,11 @@ memory_instantiate(WASMModuleInstance *module_inst, uint32 num_bytes_per_page,
     uint32 inc_page_count, aux_heap_base, global_idx;
     uint32 bytes_of_last_page, bytes_to_page_end;
     uint8 *global_addr;
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    uint8 *mapped_mem;
+    uint64 map_size = 8 * (uint64)BH_GB;
+    uint64 page_size = os_getpagesize();
+#endif
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
     bool is_shared_memory = flags & 0x02 ? true : false;
@@ -268,11 +284,45 @@ memory_instantiate(WASMModuleInstance *module_inst, uint32 num_bytes_per_page,
         return NULL;
     }
 
+#ifndef OS_ENABLE_HW_BOUND_CHECK
     if (memory_data_size > 0
         && !(memory->memory_data =
                  runtime_malloc(memory_data_size, error_buf, error_buf_size))) {
         goto fail1;
     }
+#else
+    memory_data_size = (memory_data_size + page_size - 1) & ~(page_size - 1);
+
+    /* Totally 8G is mapped, the opcode load/store address range is 0 to 8G:
+     *   ea = i + memarg.offset
+     * both i and memarg.offset are u32 in range 0 to 4G
+     * so the range of ea is 0 to 8G
+     */
+    if (memory_data_size >= UINT32_MAX
+        || !(memory->memory_data = mapped_mem =
+                 os_mmap(NULL, map_size, MMAP_PROT_NONE, MMAP_MAP_NONE))) {
+        set_error_buf(error_buf, error_buf_size, "mmap memory failed");
+        goto fail1;
+    }
+
+#ifdef BH_PLATFORM_WINDOWS
+    if (!os_mem_commit(mapped_mem, memory_data_size,
+                       MMAP_PROT_READ | MMAP_PROT_WRITE)) {
+        set_error_buf(error_buf, error_buf_size, "commit memory failed");
+        os_munmap(mapped_mem, map_size);
+        goto fail1;
+    }
+#endif
+
+    if (os_mprotect(mapped_mem, memory_data_size,
+                    MMAP_PROT_READ | MMAP_PROT_WRITE)
+        != 0) {
+        set_error_buf(error_buf, error_buf_size, "mprotect memory failed");
+        goto fail2;
+    }
+    /* Newly allocated pages are filled with zero by the OS, we don't fill it
+     * again here */
+#endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
     memory->module_type = Wasm_Module_Bytecode;
     memory->num_bytes_per_page = num_bytes_per_page;
@@ -327,8 +377,15 @@ fail3:
     if (heap_size > 0)
         wasm_runtime_free(memory->heap_handle);
 fail2:
+#ifndef OS_ENABLE_HW_BOUND_CHECK
     if (memory->memory_data)
         wasm_runtime_free(memory->memory_data);
+#else
+#ifdef BH_PLATFORM_WINDOWS
+    os_mem_decommit(mapped_mem, memory_data_size);
+#endif
+    os_munmap(mapped_mem, map_size);
+#endif
 fail1:
     wasm_runtime_free(memory);
     return NULL;
@@ -949,6 +1006,9 @@ execute_malloc_function(WASMModuleInstance *module_inst,
                         WASMFunctionInstance *retain_func, uint32 size,
                         uint32 *p_result)
 {
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    WASMExecEnv *exec_env_tls = wasm_runtime_get_exec_env_tls();
+#endif
     uint32 argv[2], argc;
     bool ret;
 
@@ -967,12 +1027,26 @@ execute_malloc_function(WASMModuleInstance *module_inst,
         argc = 2;
     }
 
-    ret = wasm_create_exec_env_and_call_function(module_inst, malloc_func, argc,
-                                                 argv, false);
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    if (exec_env_tls != NULL) {
+        bh_assert(exec_env_tls->module_inst
+                  == (WASMModuleInstanceCommon *)module_inst);
+        ret = wasm_call_function(exec_env_tls, malloc_func, argc, argv);
 
-    if (retain_func && ret) {
-        ret = wasm_create_exec_env_and_call_function(module_inst, retain_func,
-                                                     1, argv, false);
+        if (retain_func && ret) {
+            ret = wasm_call_function(exec_env_tls, retain_func, 1, argv);
+        }
+    }
+    else
+#endif
+    {
+        ret = wasm_create_exec_env_and_call_function(module_inst, malloc_func,
+                                                     argc, argv, false);
+
+        if (retain_func && ret) {
+            ret = wasm_create_exec_env_and_call_function(
+                module_inst, retain_func, 1, argv, false);
+        }
     }
 
     if (ret)
@@ -984,11 +1058,24 @@ static bool
 execute_free_function(WASMModuleInstance *module_inst,
                       WASMFunctionInstance *free_func, uint32 offset)
 {
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    WASMExecEnv *exec_env_tls = wasm_runtime_get_exec_env_tls();
+#endif
     uint32 argv[2];
 
     argv[0] = offset;
-    return wasm_create_exec_env_and_call_function(module_inst, free_func, 1,
-                                                  argv, false);
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    if (exec_env_tls != NULL) {
+        bh_assert(exec_env_tls->module_inst
+                  == (WASMModuleInstanceCommon *)module_inst);
+        return wasm_call_function(exec_env_tls, free_func, 1, argv);
+    }
+    else
+#endif
+    {
+        return wasm_create_exec_env_and_call_function(module_inst, free_func, 1,
+                                                      argv, false);
+    }
 }
 
 #if WASM_ENABLE_MULTI_MODULE != 0
@@ -1704,6 +1791,195 @@ clear_wasi_proc_exit_exception(WASMModuleInstance *module_inst)
 #endif
 }
 
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+
+#ifndef BH_PLATFORM_WINDOWS
+void
+wasm_signal_handler(WASMSignalInfo *sig_info)
+{
+    WASMExecEnv *exec_env_tls = sig_info->exec_env_tls;
+    void *sig_addr = sig_info->sig_addr;
+    WASMModuleInstance *module_inst;
+    WASMMemoryInstance *memory_inst;
+    WASMJmpBuf *jmpbuf_node;
+    uint8 *mapped_mem_start_addr = NULL;
+    uint8 *mapped_mem_end_addr = NULL;
+    uint8 *stack_min_addr;
+    uint32 page_size;
+    uint32 guard_page_count = STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT;
+
+    /* Check whether current thread is running wasm function */
+    if (exec_env_tls && exec_env_tls->handle == os_self_thread()
+        && (jmpbuf_node = exec_env_tls->jmpbuf_stack_top)) {
+        /* Get mapped mem info of current instance */
+        module_inst = (WASMModuleInstance *)exec_env_tls->module_inst;
+        /* Get the default memory instance */
+        memory_inst = module_inst->default_memory;
+        if (memory_inst) {
+            mapped_mem_start_addr = (uint8 *)memory_inst->memory_data;
+            mapped_mem_end_addr =
+                (uint8 *)memory_inst->memory_data + 8 * (uint64)BH_GB;
+        }
+
+        /* Get stack info of current thread */
+        page_size = os_getpagesize();
+        stack_min_addr = os_thread_get_stack_boundary();
+
+        if (memory_inst
+            && (mapped_mem_start_addr <= (uint8 *)sig_addr
+                && (uint8 *)sig_addr < mapped_mem_end_addr)) {
+            /* The address which causes segmentation fault is inside
+               the memory instance's guard regions */
+            wasm_set_exception(module_inst, "out of bounds memory access");
+            os_longjmp(jmpbuf_node->jmpbuf, 1);
+        }
+        else if (stack_min_addr - page_size <= (uint8 *)sig_addr
+                 && (uint8 *)sig_addr
+                        < stack_min_addr + page_size * guard_page_count) {
+            /* The address which causes segmentation fault is inside
+               native thread's guard page */
+            wasm_set_exception(module_inst, "native stack overflow");
+            os_longjmp(jmpbuf_node->jmpbuf, 1);
+        }
+    }
+}
+#else  /* else of BH_PLATFORM_WINDOWS */
+LONG
+wasm_exception_handler(WASMSignalInfo *sig_info)
+{
+    WASMExecEnv *exec_env_tls = sig_info->exec_env_tls;
+    EXCEPTION_POINTERS *exce_info = sig_info->exce_info;
+    PEXCEPTION_RECORD ExceptionRecord = exce_info->ExceptionRecord;
+    uint8 *sig_addr = (uint8 *)ExceptionRecord->ExceptionInformation[1];
+    WASMModuleInstance *module_inst;
+    WASMMemoryInstance *memory_inst;
+    WASMJmpBuf *jmpbuf_node;
+    uint8 *mapped_mem_start_addr = NULL;
+    uint8 *mapped_mem_end_addr = NULL;
+    uint32 page_size = os_getpagesize();
+
+    if (exec_env_tls && exec_env_tls->handle == os_self_thread()
+        && (jmpbuf_node = exec_env_tls->jmpbuf_stack_top)) {
+        module_inst = (WASMModuleInstance *)exec_env_tls->module_inst;
+        if (ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
+            /* Get the default memory instance */
+            memory_inst = module_inst->default_memory;
+            if (memory_inst) {
+                mapped_mem_start_addr = (uint8 *)memory_inst->memory_data;
+                mapped_mem_end_addr =
+                    (uint8 *)memory_inst->memory_data + 8 * (uint64)BH_GB;
+                if (mapped_mem_start_addr <= (uint8 *)sig_addr
+                    && (uint8 *)sig_addr < mapped_mem_end_addr) {
+                    /* The address which causes segmentation fault is inside
+                       the memory instance's guard regions.
+                       Set exception and let the wasm func continue to run, when
+                       the wasm func returns, the caller will check whether the
+                       exception is thrown and return to runtime. */
+                    wasm_set_exception(module_inst,
+                                       "out of bounds memory access");
+                    /* Skip current instruction */
+                    return EXCEPTION_CONTINUE_SEARCH;
+                }
+            }
+        }
+        else if (ExceptionRecord->ExceptionCode == EXCEPTION_STACK_OVERFLOW) {
+            /* Set stack overflow exception and let the wasm func continue
+               to run, when the wasm func returns, the caller will check
+               whether the exception is thrown and return to runtime, and
+               the damaged stack will be recovered by _resetstkoflw(). */
+            wasm_set_exception(module_inst, "native stack overflow");
+            return EXCEPTION_CONTINUE_SEARCH;
+        }
+    }
+
+    os_printf("Unhandled exception thrown:  exception code: 0x%lx, "
+              "exception address: %p, exception information: %p\n",
+              ExceptionRecord->ExceptionCode, ExceptionRecord->ExceptionAddress,
+              sig_addr);
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+#endif /* end of BH_PLATFORM_WINDOWS */
+
+static void
+call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
+                              WASMExecEnv *exec_env,
+                              WASMFunctionInstance *function, unsigned argc,
+                              uint32 argv[])
+{
+    WASMExecEnv *exec_env_tls = wasm_runtime_get_exec_env_tls();
+    WASMJmpBuf jmpbuf_node = { 0 }, *jmpbuf_node_pop;
+    uint32 page_size = os_getpagesize();
+    uint32 guard_page_count = STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT;
+#ifdef BH_PLATFORM_WINDOWS
+    const char *exce;
+    int result;
+#endif
+    bool ret = true;
+
+    /* Check native stack overflow firstly to ensure we have enough
+       native stack to run the following codes before actually calling
+       the aot function in invokeNative function. */
+    if ((uint8 *)&exec_env_tls < exec_env->native_stack_boundary
+                                     + page_size * (guard_page_count + 1)) {
+        wasm_set_exception(module_inst, "native stack overflow");
+        return;
+    }
+
+    if (exec_env_tls && (exec_env_tls != exec_env)) {
+        wasm_set_exception(module_inst, "invalid exec env");
+        return;
+    }
+
+    if (!os_thread_signal_inited()) {
+        wasm_set_exception(module_inst, "thread signal env not inited");
+        return;
+    }
+
+    wasm_exec_env_push_jmpbuf(exec_env, &jmpbuf_node);
+
+    wasm_runtime_set_exec_env_tls(exec_env);
+    if (os_setjmp(jmpbuf_node.jmpbuf) == 0) {
+#ifndef BH_PLATFORM_WINDOWS
+        wasm_interp_call_wasm(module_inst, exec_env, function, argc, argv);
+#else
+        __try {
+            wasm_interp_call_wasm(module_inst, exec_env, function, argc, argv);
+        } __except (wasm_get_exception(module_inst)
+                        ? EXCEPTION_EXECUTE_HANDLER
+                        : EXCEPTION_CONTINUE_SEARCH) {
+            /* exception was thrown in wasm_exception_handler */
+            ret = false;
+        }
+        if ((exce = wasm_get_exception(module_inst))
+            && strstr(exce, "native stack overflow")) {
+            /* After a stack overflow, the stack was left
+               in a damaged state, let the CRT repair it */
+            result = _resetstkoflw();
+            bh_assert(result != 0);
+        }
+#endif
+    }
+    else {
+        /* Exception has been set in signal handler before calling longjmp */
+        ret = false;
+    }
+
+    jmpbuf_node_pop = wasm_exec_env_pop_jmpbuf(exec_env);
+    bh_assert(&jmpbuf_node == jmpbuf_node_pop);
+    if (!exec_env->jmpbuf_stack_top) {
+        wasm_runtime_set_exec_env_tls(NULL);
+    }
+    if (!ret) {
+        os_sigreturn();
+        os_signal_unmask();
+    }
+    (void)jmpbuf_node_pop;
+}
+#define interp_call_wasm call_wasm_with_hw_bound_check
+#else
+#define interp_call_wasm wasm_interp_call_wasm
+#endif
+
 bool
 wasm_call_function(WASMExecEnv *exec_env, WASMFunctionInstance *function,
                    unsigned argc, uint32 argv[])
@@ -1714,7 +1990,7 @@ wasm_call_function(WASMExecEnv *exec_env, WASMFunctionInstance *function,
     /* set thread handle and stack boundary */
     wasm_exec_env_set_thread_info(exec_env);
 
-    wasm_interp_call_wasm(module_inst, exec_env, function, argc, argv);
+    interp_call_wasm(module_inst, exec_env, function, argc, argv);
     (void)clear_wasi_proc_exit_exception(module_inst);
     return !wasm_get_exception(module_inst) ? true : false;
 }
@@ -1725,15 +2001,17 @@ wasm_create_exec_env_and_call_function(WASMModuleInstance *module_inst,
                                        unsigned argc, uint32 argv[],
                                        bool enable_debug)
 {
-    WASMExecEnv *exec_env;
+    WASMExecEnv *exec_env, *existing_exec_env = NULL;
     bool ret;
 
-#if WASM_ENABLE_THREAD_MGR != 0
-    WASMExecEnv *existing_exec_env = NULL;
-
-    if (!(existing_exec_env = exec_env = wasm_clusters_search_exec_env(
-              (WASMModuleInstanceCommon *)module_inst))) {
+#if defined(OS_ENABLE_HW_BOUND_CHECK)
+    existing_exec_env = exec_env = wasm_runtime_get_exec_env_tls();
+#elif WASM_ENABLE_THREAD_MGR != 0
+    existing_exec_env = exec_env =
+        wasm_clusters_search_exec_env((WASMModuleInstanceCommon *)module_inst);
 #endif
+
+    if (!existing_exec_env) {
         if (!(exec_env =
                   wasm_exec_env_create((WASMModuleInstanceCommon *)module_inst,
                                        module_inst->default_wasm_stack_size))) {
@@ -1742,20 +2020,18 @@ wasm_create_exec_env_and_call_function(WASMModuleInstance *module_inst,
         }
 
 #if WASM_ENABLE_THREAD_MGR != 0
-        if (enable_debug) {
 #if WASM_ENABLE_DEBUG_INTERP != 0
+        if (enable_debug) {
             wasm_runtime_start_debug_instance(exec_env);
-#endif
         }
-    }
 #endif
+#endif
+    }
 
     ret = wasm_call_function(exec_env, func, argc, argv);
 
-#if WASM_ENABLE_THREAD_MGR != 0
-    /* don't destroy the exec_env if it's searched from the cluster */
+    /* don't destroy the exec_env if it isn't created in this function */
     if (!existing_exec_env)
-#endif
         wasm_exec_env_destroy(exec_env);
 
     return ret;
@@ -2111,6 +2387,7 @@ wasm_get_native_addr_range(WASMModuleInstance *module_inst, uint8 *native_ptr,
     return false;
 }
 
+#ifndef OS_ENABLE_HW_BOUND_CHECK
 bool
 wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
 {
@@ -2195,6 +2472,57 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
 
     return ret;
 }
+#else
+bool
+wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
+{
+    WASMMemoryInstance *memory = module->default_memory;
+    uint32 num_bytes_per_page, total_page_count;
+
+    if (!memory)
+        return false;
+
+    total_page_count = inc_page_count + memory->cur_page_count;
+
+    if (inc_page_count <= 0)
+        /* No need to enlarge memory */
+        return true;
+
+    if (total_page_count < memory->cur_page_count /* integer overflow */
+        || total_page_count > memory->max_page_count) {
+        return false;
+    }
+
+    num_bytes_per_page = memory->num_bytes_per_page;
+
+#ifdef BH_PLATFORM_WINDOWS
+    if (!os_mem_commit(memory->memory_data_end,
+                       num_bytes_per_page * inc_page_count,
+                       MMAP_PROT_READ | MMAP_PROT_WRITE)) {
+        return false;
+    }
+#endif
+
+    if (os_mprotect(memory->memory_data_end,
+                    num_bytes_per_page * inc_page_count,
+                    MMAP_PROT_READ | MMAP_PROT_WRITE)
+        != 0) {
+#ifdef BH_PLATFORM_WINDOWS
+        os_mem_decommit(memory->memory_data_end,
+                        num_bytes_per_page * inc_page_count);
+#endif
+        return false;
+    }
+
+    /* The increased pages are filled with zero by the OS when os_mmap,
+       no need to memset it again here */
+
+    memory->cur_page_count = total_page_count;
+    memory->memory_data_end =
+        memory->memory_data + num_bytes_per_page * total_page_count;
+    return true;
+}
+#endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
 #if WASM_ENABLE_REF_TYPES != 0
 bool
@@ -2279,7 +2607,7 @@ wasm_call_indirect(WASMExecEnv *exec_env, uint32_t tbl_idx,
 
     function_inst = module_inst->functions + function_indices;
 
-    wasm_interp_call_wasm(module_inst, exec_env, function_inst, argc, argv);
+    interp_call_wasm(module_inst, exec_env, function_inst, argc, argv);
 
     (void)clear_wasi_proc_exit_exception(module_inst);
     return !wasm_get_exception(module_inst) ? true : false;
@@ -2415,9 +2743,6 @@ wasm_get_module_mem_consumption(const WASMModule *module,
     mem_conspn->total_size += mem_conspn->table_segs_size;
     mem_conspn->total_size += mem_conspn->data_segs_size;
     mem_conspn->total_size += mem_conspn->const_strs_size;
-#if WASM_ENABLE_AOT != 0
-    mem_conspn->total_size += mem_conspn->aot_code_size;
-#endif
 }
 
 void

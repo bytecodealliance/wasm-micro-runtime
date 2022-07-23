@@ -18,10 +18,10 @@ void
 handle_interrupt(WASMGDBServer *server);
 
 void
-handle_generay_set(WASMGDBServer *server, char *payload);
+handle_general_set(WASMGDBServer *server, char *payload);
 
 void
-handle_generay_query(WASMGDBServer *server, char *payload);
+handle_general_query(WASMGDBServer *server, char *payload);
 
 void
 handle_v_packet(WASMGDBServer *server, char *payload);

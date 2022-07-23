@@ -186,6 +186,9 @@ wasi_environ_get(wasm_exec_env_t exec_env, uint32 *environ_offsets,
     if (err)
         return err;
 
+    if (environ_count == 0)
+        return 0;
+
     total_size = sizeof(int32) * ((uint64)environ_count + 1);
     if (total_size >= UINT32_MAX
         || !validate_native_addr(environ_offsets, (uint32)total_size)

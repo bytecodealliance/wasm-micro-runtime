@@ -692,6 +692,10 @@ compile_int_rot(AOTCompContext *comp_ctx, LLVMValueRef left, LLVMValueRef right,
 
     SHIFT_COUNT_MASK;
 
+    /* rotl/rotr with 0 */
+    if (IS_CONST_ZERO(right))
+        return left;
+
     /* Calculate (bits - shif_count) */
     LLVM_BUILD_OP(Sub, is_i32 ? I32_32 : I64_64, right, bits_minus_shift_count,
                   "bits_minus_shift_count", NULL);

@@ -937,12 +937,18 @@ wasm_cluster_spread_custom_data(WASMModuleInstanceCommon *module_inst,
                                 void *custom_data)
 {
     WASMExecEnv *exec_env = wasm_clusters_search_exec_env(module_inst);
-    WASMCluster *cluster = NULL;
-    bh_assert(exec_env);
 
-    cluster = wasm_exec_env_get_cluster(exec_env);
-    bh_assert(cluster);
+    if (exec_env == NULL) {
+        /* Maybe threads have not been started yet. */
+        wasm_runtime_set_custom_data_internal(module_inst, custom_data);
+    }
+    else {
+        WASMCluster *cluster;
 
-    traverse_list(&cluster->exec_env_list, set_custom_data_visitor,
-                  custom_data);
+        cluster = wasm_exec_env_get_cluster(exec_env);
+        bh_assert(cluster);
+
+        traverse_list(&cluster->exec_env_list, set_custom_data_visitor,
+                      custom_data);
+    }
 }

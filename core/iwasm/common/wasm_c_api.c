@@ -669,6 +669,48 @@ wasm_functype_results(const wasm_functype_t *func_type)
     return func_type->results;
 }
 
+static bool
+cmp_val_kind_with_val_type(wasm_valkind_t v_k, uint8 v_t)
+{
+    return (v_k == WASM_I32 && v_t == VALUE_TYPE_I32)
+           || (v_k == WASM_I64 && v_t == VALUE_TYPE_I64)
+           || (v_k == WASM_F32 && v_t == VALUE_TYPE_F32)
+           || (v_k == WASM_F64 && v_t == VALUE_TYPE_F64)
+           || (v_k == WASM_ANYREF && v_t == VALUE_TYPE_EXTERNREF)
+           || (v_k == WASM_FUNCREF && v_t == VALUE_TYPE_FUNCREF);
+}
+
+/*
+ *to compare a function type of wasm-c-api with a function type of wasm_runtime
+ */
+static bool
+wasm_functype_same_internal(const wasm_functype_t *type,
+                            const WASMType *type_intl)
+{
+    uint32 i = 0;
+
+    if (!type || !type_intl || type->params->num_elems != type_intl->param_count
+        || type->results->num_elems != type_intl->result_count)
+        return false;
+
+    for (i = 0; i < type->params->num_elems; i++) {
+        wasm_valtype_t *v_t = type->params->data[i];
+        if (!cmp_val_kind_with_val_type(wasm_valtype_kind(v_t),
+                                        type_intl->types[i]))
+            return false;
+    }
+
+    for (i = 0; i < type->results->num_elems; i++) {
+        wasm_valtype_t *v_t = type->results->data[i];
+        if (!cmp_val_kind_with_val_type(
+                wasm_valtype_kind(v_t),
+                type_intl->types[i + type->params->num_elems]))
+            return false;
+    }
+
+    return true;
+}
+
 wasm_globaltype_t *
 wasm_globaltype_new(own wasm_valtype_t *val_type, wasm_mutability_t mut)
 {
@@ -3812,6 +3854,11 @@ interp_link_func(const wasm_instance_t *inst, const WASMModule *module_interp,
     imported_func_interp = module_interp->import_functions + func_idx_rt;
     bh_assert(imported_func_interp);
 
+    /* type comparison */
+    if (!wasm_functype_same_internal(
+            import->type, imported_func_interp->u.function.func_type))
+        return false;
+
     imported_func_interp->u.function.call_conv_wasm_c_api = true;
     imported_func_interp->u.function.wasm_c_api_with_env = import->with_env;
     if (import->with_env) {
@@ -3840,25 +3887,25 @@ interp_link_global(const WASMModule *module_interp, uint16 global_idx_rt,
     imported_global_interp = module_interp->import_globals + global_idx_rt;
     bh_assert(imported_global_interp);
 
+    if (!cmp_val_kind_with_val_type(wasm_valtype_kind(import->type->val_type),
+                                    imported_global_interp->u.global.type))
+        return false;
+
     /* set init value */
     switch (wasm_valtype_kind(import->type->val_type)) {
         case WASM_I32:
-            bh_assert(VALUE_TYPE_I32 == imported_global_interp->u.global.type);
             imported_global_interp->u.global.global_data_linked.i32 =
                 import->init->of.i32;
             break;
         case WASM_I64:
-            bh_assert(VALUE_TYPE_I64 == imported_global_interp->u.global.type);
             imported_global_interp->u.global.global_data_linked.i64 =
                 import->init->of.i64;
             break;
         case WASM_F32:
-            bh_assert(VALUE_TYPE_F32 == imported_global_interp->u.global.type);
             imported_global_interp->u.global.global_data_linked.f32 =
                 import->init->of.f32;
             break;
         case WASM_F64:
-            bh_assert(VALUE_TYPE_F64 == imported_global_interp->u.global.type);
             imported_global_interp->u.global.global_data_linked.f64 =
                 import->init->of.f64;
             break;
@@ -3888,20 +3935,22 @@ interp_link(const wasm_instance_t *inst, const WASMModule *module_interp,
         switch (import_rt->kind) {
             case IMPORT_KIND_FUNC:
             {
-                if (!interp_link_func(inst, module_interp, import_func_i++,
+                if (!interp_link_func(inst, module_interp, import_func_i,
                                       wasm_extern_as_func(import))) {
+                    LOG_WARNING("link #%d function failed", import_func_i);
                     goto failed;
                 }
-
+                import_func_i++;
                 break;
             }
             case IMPORT_KIND_GLOBAL:
             {
-                if (!interp_link_global(module_interp, import_global_i++,
+                if (!interp_link_global(module_interp, import_global_i,
                                         wasm_extern_as_global(import))) {
+                    LOG_WARNING("link #%d global failed", import_global_i);
                     goto failed;
                 }
-
+                import_global_i++;
                 break;
             }
             case IMPORT_KIND_MEMORY:
@@ -4021,6 +4070,10 @@ aot_link_func(const wasm_instance_t *inst, const AOTModule *module_aot,
     import_aot_func = module_aot->import_funcs + import_func_idx_rt;
     bh_assert(import_aot_func);
 
+    /* type comparison */
+    if (!wasm_functype_same_internal(import->type, import_aot_func->func_type))
+        return false;
+
     import_aot_func->call_conv_wasm_c_api = true;
     import_aot_func->wasm_c_api_with_env = import->with_env;
     if (import->with_env) {
@@ -4051,21 +4104,21 @@ aot_link_global(const AOTModule *module_aot, uint16 global_idx_rt,
     val_type = wasm_globaltype_content(import->type);
     bh_assert(val_type);
 
+    if (!cmp_val_kind_with_val_type(wasm_valtype_kind(val_type),
+                                    import_aot_global->type))
+        return false;
+
     switch (wasm_valtype_kind(val_type)) {
         case WASM_I32:
-            bh_assert(VALUE_TYPE_I32 == import_aot_global->type);
             import_aot_global->global_data_linked.i32 = import->init->of.i32;
             break;
         case WASM_I64:
-            bh_assert(VALUE_TYPE_I64 == import_aot_global->type);
             import_aot_global->global_data_linked.i64 = import->init->of.i64;
             break;
         case WASM_F32:
-            bh_assert(VALUE_TYPE_F32 == import_aot_global->type);
             import_aot_global->global_data_linked.f32 = import->init->of.f32;
             break;
         case WASM_F64:
-            bh_assert(VALUE_TYPE_F64 == import_aot_global->type);
             import_aot_global->global_data_linked.f64 = import->init->of.f64;
             break;
         default:
@@ -4103,17 +4156,21 @@ aot_link(const wasm_instance_t *inst, const AOTModule *module_aot,
             case WASM_EXTERN_FUNC:
                 bh_assert(import_func_i < module_aot->import_func_count);
                 func = wasm_extern_as_func((wasm_extern_t *)import);
-                if (!aot_link_func(inst, module_aot, import_func_i++, func)) {
+                if (!aot_link_func(inst, module_aot, import_func_i, func)) {
+                    LOG_WARNING("link #%d function failed", import_func_i);
                     goto failed;
                 }
+                import_func_i++;
 
                 break;
             case WASM_EXTERN_GLOBAL:
                 bh_assert(import_global_i < module_aot->import_global_count);
                 global = wasm_extern_as_global((wasm_extern_t *)import);
-                if (!aot_link_global(module_aot, import_global_i++, global)) {
+                if (!aot_link_global(module_aot, import_global_i, global)) {
+                    LOG_WARNING("link #%d global failed", import_global_i);
                     goto failed;
                 }
+                import_global_i++;
 
                 break;
             case WASM_EXTERN_MEMORY:
