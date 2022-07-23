@@ -1022,9 +1022,13 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 {
     WASMMemoryInstance *memory = module->default_memory;
     uint8 *global_data = module->global_data;
+#if !defined(OS_ENABLE_HW_BOUND_CHECK) \
+    || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 \
+    || WASM_ENABLE_BULK_MEMORY != 0
     uint32 num_bytes_per_page = memory ? memory->num_bytes_per_page : 0;
     uint32 linear_mem_size =
         memory ? num_bytes_per_page * memory->cur_page_count : 0;
+#endif
     WASMType **wasm_types = module->module->types;
     WASMGlobalInstance *globals = module->globals, *global;
     uint8 opcode_IMPDEP = WASM_OP_IMPDEP;
@@ -1974,8 +1978,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     PUSH_I32(prev_page_count);
                     /* update memory instance ptr and memory size */
                     memory = module->default_memory;
+#if !defined(OS_ENABLE_HW_BOUND_CHECK) \
+    || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 \
+    || WASM_ENABLE_BULK_MEMORY != 0
                     linear_mem_size =
                         num_bytes_per_page * memory->cur_page_count;
+#endif
                 }
 
                 (void)reserved;
@@ -3716,8 +3724,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
             /* update memory instance ptr and memory size */
             memory = module->default_memory;
+#if !defined(OS_ENABLE_HW_BOUND_CHECK) \
+    || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 \
+    || WASM_ENABLE_BULK_MEMORY != 0
             if (memory)
                 linear_mem_size = num_bytes_per_page * memory->cur_page_count;
+#endif
             if (wasm_get_exception(module))
                 goto got_exception;
         }
@@ -3794,8 +3806,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         goto got_exception;
 #endif
 
+#if !defined(OS_ENABLE_HW_BOUND_CHECK) \
+    || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 \
+    || WASM_ENABLE_BULK_MEMORY != 0
     out_of_bounds:
         wasm_set_exception(module, "out of bounds memory access");
+#endif
 
     got_exception:
 #if WASM_ENABLE_DEBUG_INTERP != 0
