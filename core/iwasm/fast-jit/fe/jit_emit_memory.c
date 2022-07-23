@@ -10,6 +10,7 @@
 #include "../jit_codegen.h"
 #include "../../interpreter/wasm_runtime.h"
 
+#ifndef OS_ENABLE_HW_BOUND_CHECK
 static JitReg
 get_memory_boundary(JitCompContext *cc, uint32 mem_idx, uint32 bytes)
 {
@@ -57,6 +58,7 @@ get_memory_boundary(JitCompContext *cc, uint32 mem_idx, uint32 bytes)
 fail:
     return 0;
 }
+#endif
 
 #if UINTPTR_MAX == UINT64_MAX
 static JitReg
@@ -73,16 +75,20 @@ check_and_seek_on_64bit_platform(JitCompContext *cc, JitReg addr, JitReg offset,
     offset1 = jit_cc_new_reg_I64(cc);
     GEN_INSN(ADD, offset1, offset, long_addr);
 
+#ifndef OS_ENABLE_HW_BOUND_CHECK
     /* if (offset1 > memory_boundary) goto EXCEPTION */
     GEN_INSN(CMP, cc->cmp_reg, offset1, memory_boundary);
     if (!jit_emit_exception(cc, JIT_EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS,
                             JIT_OP_BGTU, cc->cmp_reg, NULL)) {
         goto fail;
     }
+#endif
 
     return offset1;
+#ifndef OS_ENABLE_HW_BOUND_CHECK
 fail:
     return 0;
+#endif
 }
 #else
 static JitReg
@@ -102,12 +108,14 @@ check_and_seek_on_32bit_platform(JitCompContext *cc, JitReg addr, JitReg offset,
         goto fail;
     }
 
+#ifndef OS_ENABLE_HW_BOUND_CHECK
     /* if (offset1 > memory_boundary) goto EXCEPTION */
     GEN_INSN(CMP, cc->cmp_reg, offset1, memory_boundary);
     if (!jit_emit_exception(cc, JIT_EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS,
                             JIT_OP_BGTU, cc->cmp_reg, NULL)) {
         goto fail;
     }
+#endif
 
     return offset1;
 fail:
@@ -118,10 +126,13 @@ fail:
 static JitReg
 check_and_seek(JitCompContext *cc, JitReg addr, uint32 offset, uint32 bytes)
 {
-    JitReg memory_boundary, offset1;
+    JitReg memory_boundary = 0, offset1;
+#ifndef OS_ENABLE_HW_BOUND_CHECK
     /* the default memory */
     uint32 mem_idx = 0;
+#endif
 
+#ifndef OS_ENABLE_HW_BOUND_CHECK
     /* ---------- check ---------- */
     /* 1. shortcut if the memory size is 0 */
     if (0 == cc->cur_wasm_module->memories[mem_idx].init_page_count) {
@@ -143,6 +154,7 @@ check_and_seek(JitCompContext *cc, JitReg addr, uint32 offset, uint32 bytes)
     memory_boundary = get_memory_boundary(cc, mem_idx, bytes);
     if (!memory_boundary)
         goto fail;
+#endif
 
 #if UINTPTR_MAX == UINT64_MAX
     offset1 = check_and_seek_on_64bit_platform(cc, addr, NEW_CONST(I64, offset),
