@@ -189,7 +189,7 @@ static void
 runtime_signal_destroy()
 {
 #ifdef BH_PLATFORM_WINDOWS
-    RemoveVectoredExceptionHandler(aot_exception_handler);
+    RemoveVectoredExceptionHandler(runtime_exception_handler);
 #endif
     os_thread_signal_destroy();
 }
