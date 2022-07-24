@@ -756,6 +756,8 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     if (func_idx < import_func_count) {
+        bool call_native_from_runtime = false;
+
         if (!(import_func_idx = I32_CONST(func_idx))) {
             aot_set_last_error("llvm build inbounds gep failed.");
             goto fail;
@@ -806,6 +808,11 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                     param_values[j] = native_addr;
                 }
             }
+            else if (func_type->types[i] == VALUE_TYPE_I32) {
+                /* Has unclear i32 type, which might be converted to a pointer,
+                   we need to call it from runtime */
+                call_native_from_runtime = true;
+            }
         }
 
         if (func_type->result_count) {
@@ -817,7 +824,7 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             ret_type = VOID_TYPE;
         }
 
-        if (!signature) {
+        if (call_native_from_runtime) {
             /* call aot_invoke_native() */
             if (!call_aot_invoke_native_func(
                     comp_ctx, func_ctx, import_func_idx, func_type,

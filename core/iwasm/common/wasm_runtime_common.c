@@ -1789,10 +1789,11 @@ wasm_runtime_call_wasm_a(WASMExecEnv *exec_env,
                          uint32 num_results, wasm_val_t results[],
                          uint32 num_args, wasm_val_t args[])
 {
-    uint32 argc, *argv, cell_num, total_size, module_type;
+    uint32 argc, argv_buf[16] = { 0 }, *argv = argv_buf, cell_num, module_type;
 #if WASM_ENABLE_REF_TYPES != 0
     uint32 i, param_size_in_double_world = 0, result_size_in_double_world = 0;
 #endif
+    uint64 total_size;
     WASMType *type;
     bool ret = false;
 
@@ -1836,11 +1837,11 @@ wasm_runtime_call_wasm_a(WASMExecEnv *exec_env,
     }
 
     total_size = sizeof(uint32) * (uint64)(cell_num > 2 ? cell_num : 2);
-    if (!(argv = runtime_malloc((uint32)total_size, exec_env->module_inst, NULL,
-                                0))) {
-        wasm_runtime_set_exception(exec_env->module_inst,
-                                   "allocate memory failed");
-        goto fail1;
+    if (total_size > sizeof(argv_buf)) {
+        if (!(argv =
+                  runtime_malloc(total_size, exec_env->module_inst, NULL, 0))) {
+            goto fail1;
+        }
     }
 
     parse_args_to_uint32_array(type, args, argv);
@@ -1850,7 +1851,8 @@ wasm_runtime_call_wasm_a(WASMExecEnv *exec_env,
     parse_uint32_array_to_results(type, argv, results);
 
 fail2:
-    wasm_runtime_free(argv);
+    if (argv != argv_buf)
+        wasm_runtime_free(argv);
 fail1:
     return ret;
 }
@@ -1861,9 +1863,10 @@ wasm_runtime_call_wasm_v(WASMExecEnv *exec_env,
                          uint32 num_results, wasm_val_t results[],
                          uint32 num_args, ...)
 {
-    wasm_val_t *args = NULL;
+    wasm_val_t args_buf[8] = { 0 }, *args = args_buf;
     WASMType *type = NULL;
     bool ret = false;
+    uint64 total_size;
     uint32 i = 0, module_type;
     va_list vargs;
 
@@ -1881,11 +1884,13 @@ wasm_runtime_call_wasm_v(WASMExecEnv *exec_env,
                   "function declaration.");
         goto fail1;
     }
-    if (!(args =
-              runtime_malloc(sizeof(wasm_val_t) * num_args, NULL, NULL, 0))) {
-        wasm_runtime_set_exception(exec_env->module_inst,
-                                   "allocate memory failed");
-        goto fail1;
+
+    total_size = sizeof(wasm_val_t) * (uint64)num_args;
+    if (total_size > sizeof(args_buf)) {
+        if (!(args =
+                  runtime_malloc(total_size, exec_env->module_inst, NULL, 0))) {
+            goto fail1;
+        }
     }
 
     va_start(vargs, num_args);
@@ -1927,9 +1932,11 @@ wasm_runtime_call_wasm_v(WASMExecEnv *exec_env,
         }
     }
     va_end(vargs);
+
     ret = wasm_runtime_call_wasm_a(exec_env, function, num_results, results,
                                    num_args, args);
-    wasm_runtime_free(args);
+    if (args != args_buf)
+        wasm_runtime_free(args);
 
 fail1:
     return ret;
