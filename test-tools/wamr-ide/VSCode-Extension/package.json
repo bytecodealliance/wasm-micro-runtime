@@ -3,7 +3,7 @@
     "publisher": "wamr",
     "displayName": "WAMR-IDE",
     "description": "An Integrated Development Environment for WASM",
-    "version": "0.0.1",
+    "version": "1.0.0",
     "engines": {
         "vscode": "^1.59.0"
     },
@@ -75,11 +75,11 @@
         "viewsWelcome": [
             {
                 "view": "wamride.views.welcome",
-                "contents": "[ WAMR IDE ]\n[$(project)New project](command:wamride.newProject)\n[$(files)Open project](command:wamride.openFolder)\n[$(book)Change workspace](command:wamride.changeWorkspace)\n[$(pencil)Configuration](command:wamride.targetConfig)"
+                "contents": "[ WAMR IDE ]\n[$(project)New project](command:wamride.newProject)\n[$(files)Open project](command:wamride.openFolder)\n[$(book)Change workspace](command:wamride.changeWorkspace)"
             },
             {
                 "view": "wamride.views.welcome",
-                "contents": "[ Current Project ]\n[$(gear)Build](command:wamride.build)\n[$(run)Run](command:wamride.run)\n[$(debug-alt) Debug](command:wamride.debug)",
+                "contents": "[ Current Project ]\n[$(pencil)Configuration](command:wamride.targetConfig)\n[$(gear)Build](command:wamride.build)\n[$(run)Run](command:wamride.run)\n[$(debug-alt) Debug](command:wamride.debug)",
                 "enablement": "ext.isWasmProject"
             }
         ],
