@@ -38,6 +38,7 @@
 typedef thread_t korp_thread;
 typedef kernel_pid_t korp_tid;
 typedef mutex_t korp_mutex;
+typedef unsigned int korp_sem;
 
 /* typedef sema_t korp_sem; */
 

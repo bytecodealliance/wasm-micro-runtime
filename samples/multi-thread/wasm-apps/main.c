@@ -5,9 +5,11 @@
 
 #include <stdio.h>
 #include <pthread.h>
+#include <semaphore.h>
 
 static pthread_mutex_t mutex;
 static pthread_cond_t cond;
+static sem_t *sem;
 
 static void *
 thread(void *arg)
@@ -24,6 +26,7 @@ thread(void *arg)
 
     pthread_cond_signal(&cond);
     pthread_mutex_unlock(&mutex);
+    sem_post(sem);
 
     printf("thread exit \n");
 
@@ -45,6 +48,11 @@ main(int argc, char *argv[])
         goto fail1;
     }
 
+    if (!(sem = sem_open("testsem", 0100 | 02))) {
+        printf("Failed to open sem. %p\n", sem);
+        goto fail1;
+    }
+
     pthread_mutex_lock(&mutex);
     if (pthread_create(&tid, NULL, thread, &num) != 0) {
         printf("Failed to create thread.\n");
@@ -56,6 +64,10 @@ main(int argc, char *argv[])
     pthread_mutex_unlock(&mutex);
     printf("cond wait success.\n");
 
+    if (0 == sem_wait(sem)) {
+        printf("sem wait success.\n");
+    }
+
     if (pthread_join(tid, NULL) != 0) {
         printf("Failed to join thread.\n");
     }
@@ -63,6 +75,8 @@ main(int argc, char *argv[])
     ret = 0;
 
 fail2:
+    sem_close(sem);
+    sem_unlink("testsem");
     pthread_cond_destroy(&cond);
 fail1:
     pthread_mutex_destroy(&mutex);

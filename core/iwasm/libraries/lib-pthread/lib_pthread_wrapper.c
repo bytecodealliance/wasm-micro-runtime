@@ -54,6 +54,7 @@ enum {
     T_THREAD,
     T_MUTEX,
     T_COND,
+    T_SEM,
 };
 
 enum thread_status_t {
@@ -71,6 +72,11 @@ enum mutex_status_t {
 enum cond_status_t {
     COND_CREATED,
     COND_DESTROYED,
+};
+
+enum sem_status_t {
+    SEM_CREATED,
+    SEM_DESTROYED,
 };
 
 typedef struct ThreadKeyValueNode {
@@ -111,6 +117,7 @@ typedef struct ThreadInfoNode {
         korp_tid thread;
         korp_mutex *mutex;
         korp_cond *cond;
+        korp_sem *sem;
         /* A copy of the thread return value */
         void *ret;
     } u;
@@ -125,9 +132,34 @@ typedef struct {
     wasm_module_inst_t module_inst;
 } ThreadRoutineArgs;
 
+typedef struct {
+    uint32 handle;
+    ThreadInfoNode *node;
+} SemCallbackArgs;
+
 static bh_list cluster_info_list;
+static HashMap *sem_info_map;
 static korp_mutex thread_global_lock;
 static uint32 handle_id = 1;
+
+/*
+ * djb2
+ * uses xor: hash(i) = hash(i - 1) * 33 ^ str[i]; the magic of number 33 (why it
+ * works better than many other constants, prime or not) has never been
+ * adequately explained.
+ */
+
+uint32
+sem_name_hash(unsigned char *str)
+{
+    uint32 hash = 5381;
+    int c;
+
+    while ((c = *str++))
+        hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+
+    return hash;
+}
 
 static void
 lib_pthread_destroy_callback(WASMCluster *cluster);
@@ -172,6 +204,11 @@ lib_pthread_init()
     bh_list_init(&cluster_info_list);
     if (!wasm_cluster_register_destroy_callback(lib_pthread_destroy_callback)) {
         os_mutex_destroy(&thread_global_lock);
+        return false;
+    }
+    if (!(sem_info_map = bh_hash_map_create(32, true, (HashFunc)sem_name_hash,
+                                            thread_handle_equal, NULL,
+                                            thread_info_destroy))) {
         return false;
     }
     return true;
@@ -1085,6 +1122,169 @@ posix_memalign_wrapper(wasm_exec_env_t exec_env, void **memptr, int32 align,
     return 0;
 }
 
+#ifdef WASM_ENABLE_LIB_PTHREAD_SEMAPHORE
+
+static int32
+sem_open_wrapper(wasm_exec_env_t exec_env, const char *name, int32 oflags)
+{
+    korp_sem *psem = NULL;
+    ThreadInfoNode *info_node = NULL;
+
+    /**
+     * For RTOS, global semaphore map is safety for share the same semaphore
+     * between task/pthread.
+     * For Unix like system, it's dedicate for multiple processes.
+     */
+
+    if ((info_node = bh_hash_map_find(sem_info_map, (void *)name))) {
+        return info_node->handle;
+    }
+
+    if (!(psem = os_sem_open(name, oflags))) {
+        goto fail1;
+    }
+
+    if (!(info_node = wasm_runtime_malloc(sizeof(ThreadInfoNode))))
+        goto fail2;
+
+    memset(info_node, 0, sizeof(ThreadInfoNode));
+    info_node->exec_env = exec_env;
+    info_node->handle = allocate_handle();
+    info_node->type = T_SEM;
+    info_node->u.sem = psem;
+    info_node->status = SEM_CREATED;
+
+    if (!append_thread_info_node(info_node))
+        goto fail3;
+
+    if (!bh_hash_map_insert(sem_info_map, (void *)name, info_node)) {
+        goto fail3;
+    }
+
+    return info_node->handle;
+
+fail3:
+    delete_thread_info_node(info_node);
+fail2:
+    os_sem_unlink(name);
+fail1:
+    return -1;
+}
+
+void
+sem_fetch_cb(void *key, void *value, void *user_data)
+{
+    (void)key;
+    SemCallbackArgs *args = user_data;
+    ThreadInfoNode *info_node = value;
+    if (args->handle == info_node->handle) {
+        args->node = info_node;
+    }
+}
+
+static int32
+sem_close_wrapper(wasm_exec_env_t exec_env, uint32 sem)
+{
+    (void)exec_env;
+    SemCallbackArgs args = { sem, NULL };
+
+    bh_hash_map_traverse(sem_info_map, sem_fetch_cb, &args);
+
+    if (args.node) {
+        return os_sem_close(args.node->u.sem);
+    }
+
+    return -1;
+}
+
+static int32
+sem_wait_wrapper(wasm_exec_env_t exec_env, uint32 sem)
+{
+    (void)exec_env;
+    SemCallbackArgs args = { sem, NULL };
+
+    bh_hash_map_traverse(sem_info_map, sem_fetch_cb, &args);
+
+    if (args.node) {
+        return os_sem_wait(args.node->u.sem);
+    }
+
+    return -1;
+}
+
+static int32
+sem_trywait_wrapper(wasm_exec_env_t exec_env, uint32 sem)
+{
+    (void)exec_env;
+    SemCallbackArgs args = { sem, NULL };
+
+    bh_hash_map_traverse(sem_info_map, sem_fetch_cb, &args);
+
+    if (args.node) {
+        return os_sem_trywait(args.node->u.sem);
+    }
+
+    return -1;
+}
+
+static int32
+sem_post_wrapper(wasm_exec_env_t exec_env, uint32 sem)
+{
+    (void)exec_env;
+    SemCallbackArgs args = { sem, NULL };
+
+    bh_hash_map_traverse(sem_info_map, sem_fetch_cb, &args);
+
+    if (args.node) {
+        return os_sem_post(args.node->u.sem);
+    }
+
+    return -1;
+}
+
+static int32
+sem_getval_wrapper(wasm_exec_env_t exec_env, uint32 sem, int32 *sval)
+{
+    int32 ret = -1;
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
+
+    (void)exec_env;
+    SemCallbackArgs args = { sem, NULL };
+
+    if (validate_app_addr((uint32)sval, sizeof(int32))) {
+
+        bh_hash_map_traverse(sem_info_map, sem_fetch_cb, &args);
+
+        if (args.node) {
+            ret = os_sem_getvalue(args.node->u.sem,
+                                  addr_app_to_native((uint32)sval));
+        }
+    }
+    return ret;
+}
+
+static int32
+sem_unlink_wrapper(wasm_exec_env_t exec_env, const char *name)
+{
+    (void)exec_env;
+    int32 ret_val;
+
+    ThreadInfoNode *info_node = bh_hash_map_find(sem_info_map, (void *)name);
+    if (!info_node || info_node->type != T_SEM)
+        return -1;
+
+    ret_val = os_sem_unlink(name);
+
+    if (ret_val == 0) {
+        bh_hash_map_remove(sem_info_map, (void *)name, NULL, NULL);
+        info_node->status = MUTEX_DESTROYED;
+        delete_thread_info_node(info_node);
+    }
+    return ret_val;
+}
+
+#endif
+
 /* clang-format off */
 #define REG_NATIVE_FUNC(func_name, signature) \
     { #func_name, func_name##_wrapper, signature, NULL }
@@ -1113,6 +1313,15 @@ static NativeSymbol native_symbols_lib_pthread[] = {
     REG_NATIVE_FUNC(pthread_getspecific, "(i)i"),
     REG_NATIVE_FUNC(pthread_key_delete, "(i)i"),
     REG_NATIVE_FUNC(posix_memalign, "(*ii)i"),
+#ifdef WASM_ENABLE_LIB_PTHREAD_SEMAPHORE
+    REG_NATIVE_FUNC(sem_open, "($i)i"),
+    REG_NATIVE_FUNC(sem_close, "(i)i"),
+    REG_NATIVE_FUNC(sem_wait, "(i)i"),
+    REG_NATIVE_FUNC(sem_trywait, "(i)i"),
+    REG_NATIVE_FUNC(sem_post, "(i)i"),
+    REG_NATIVE_FUNC(sem_getval, "(i*)i"),
+    REG_NATIVE_FUNC(sem_unlink, "($)i"),
+#endif
 };
 
 uint32
