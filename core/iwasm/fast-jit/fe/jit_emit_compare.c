@@ -89,8 +89,7 @@ jit_compile_op_compare_integer(JitCompContext *cc, IntCond cond, bool is64Bit)
             GEN_INSN(SELECTGES, res, cc->cmp_reg, const_one, const_zero);
             break;
         }
-        default:
-        case INT_GE_U:
+        default: /* INT_GE_U */
         {
             GEN_INSN(SELECTGEU, res, cc->cmp_reg, const_one, const_zero);
             break;
