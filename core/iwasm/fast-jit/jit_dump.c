@@ -204,7 +204,7 @@ dump_func_name(JitCompContext *cc)
     WASMModule *module = cc->cur_wasm_module;
 
 #if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
-    func_name = func->field_name;
+    func_name = cc->cur_wasm_func->field_name;
 #endif
 
     /* if custom name section is not generated,

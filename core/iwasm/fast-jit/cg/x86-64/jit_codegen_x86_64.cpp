@@ -137,7 +137,7 @@ jit_codegen_interp_jitted_glue(void *exec_env, JitInterpSwitchInfo *info,
 #define CHECK_CONST(reg0) (void)0
 #define CHECK_NCONST(reg0) (void)0
 #define CHECK_KIND(reg0, type) (void)0
-#define ASSERT_REG_NO(reg) (void)0
+#define CHECK_REG_NO(no, kind) (void)0
 #else
 
 /* Check if two register's kind is equal */
@@ -186,41 +186,43 @@ jit_codegen_interp_jitted_glue(void *exec_env, JitInterpSwitchInfo *info,
         }                                                       \
     } while (0)
 
-#define ASSERT_I32_REG_NO(no) \
-    bh_assert(no >= 0 && (uint32)no < sizeof(regs_i32) / sizeof(regs_i32[0]))
+#define CHECK_I32_REG_NO(no)                                      \
+    do {                                                          \
+        if ((uint32)no >= sizeof(regs_i32) / sizeof(regs_i32[0])) \
+            GOTO_FAIL;                                            \
+    } while (0)
 
-#define ASSERT_I64_REG_NO(no) \
-    bh_assert(no >= 0 && (uint32)no < sizeof(regs_i64) / sizeof(regs_i64[0]))
+#define CHECK_I64_REG_NO(no)                                      \
+    do {                                                          \
+        if ((uint32)no >= sizeof(regs_i64) / sizeof(regs_i64[0])) \
+            GOTO_FAIL;                                            \
+    } while (0)
 
-#define ASSERT_F32_REG_NO(no) \
-    bh_assert(no >= 0         \
-              && (uint32)no < sizeof(regs_float) / sizeof(regs_float[0]))
+#define CHECK_F32_REG_NO(no)                                          \
+    do {                                                              \
+        if ((uint32)no >= sizeof(regs_float) / sizeof(regs_float[0])) \
+            GOTO_FAIL;                                                \
+    } while (0)
 
-#define ASSERT_F64_REG_NO(no) \
-    bh_assert(no >= 0         \
-              && (uint32)no < sizeof(regs_float) / sizeof(regs_float[0]))
+#define CHECK_F64_REG_NO(no)                                          \
+    do {                                                              \
+        if ((uint32)no >= sizeof(regs_float) / sizeof(regs_float[0])) \
+            GOTO_FAIL;                                                \
+    } while (0)
 
 /* Check if a register number is valid */
-#define ASSERT_REG_NO(reg)                    \
-    do {                                      \
-        int k = jit_reg_kind(reg);            \
-        int no = jit_reg_no(reg);             \
-                                              \
-        if (!jit_reg_is_const(reg)) {         \
-            if (k == JIT_REG_KIND_I32) {      \
-                ASSERT_I32_REG_NO(no);        \
-            }                                 \
-            else if (k == JIT_REG_KIND_I64) { \
-                ASSERT_I64_REG_NO(no);        \
-            }                                 \
-            else if (k == JIT_REG_KIND_F32) { \
-                ASSERT_F32_REG_NO(no);        \
-            }                                 \
-            else if (k == JIT_REG_KIND_F64) { \
-                ASSERT_F64_REG_NO(no);        \
-            }                                 \
-        }                                     \
-        (void)no;                             \
+#define CHECK_REG_NO(no, kind)                                           \
+    do {                                                                 \
+        if (kind == JIT_REG_KIND_I32 || kind == JIT_REG_KIND_I64) {      \
+            CHECK_I32_REG_NO(no);                                        \
+            CHECK_I64_REG_NO(no);                                        \
+        }                                                                \
+        else if (kind == JIT_REG_KIND_F32 || kind == JIT_REG_KIND_F64) { \
+            CHECK_F32_REG_NO(no);                                        \
+            CHECK_F64_REG_NO(no);                                        \
+        }                                                                \
+        else                                                             \
+            GOTO_FAIL;                                                   \
     } while (0)
 
 #endif /* end of CODEGEN_CHECK_ARGS == 0 */
@@ -4490,7 +4492,7 @@ cmp_r_imm_to_r_f64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
  */
 #define LD_R_R_R(kind, bytes_dst, is_signed)                                  \
     do {                                                                      \
-        int32 reg_no_dst;                                                     \
+        int32 reg_no_dst = 0, reg_no_base = 0, reg_no_offset = 0;             \
         int32 base = 0, offset = 0;                                           \
         bool _ret = false;                                                    \
                                                                               \
@@ -4507,15 +4509,20 @@ cmp_r_imm_to_r_f64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
             CHECK_KIND(r2, JIT_REG_KIND_I64);                                 \
         }                                                                     \
                                                                               \
-        ASSERT_REG_NO(r0);                                                    \
-        ASSERT_REG_NO(r1);                                                    \
-        ASSERT_REG_NO(r2);                                                    \
-                                                                              \
         reg_no_dst = jit_reg_no(r0);                                          \
+        CHECK_REG_NO(reg_no_dst, jit_reg_kind(r0));                           \
         if (jit_reg_is_const(r1))                                             \
             base = jit_cc_get_const_I32(cc, r1);                              \
+        else {                                                                \
+            reg_no_base = jit_reg_no(r1);                                     \
+            CHECK_REG_NO(reg_no_base, jit_reg_kind(r1));                      \
+        }                                                                     \
         if (jit_reg_is_const(r2))                                             \
             offset = jit_cc_get_const_I32(cc, r2);                            \
+        else {                                                                \
+            reg_no_offset = jit_reg_no(r2);                                   \
+            CHECK_REG_NO(reg_no_offset, jit_reg_kind(r2));                    \
+        }                                                                     \
                                                                               \
         if (jit_reg_is_const(r1)) {                                           \
             if (jit_reg_is_const(r2))                                         \
@@ -4525,16 +4532,16 @@ cmp_r_imm_to_r_f64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
             else                                                              \
                 _ret = ld_r_from_base_imm_offset_r(                           \
                     a, bytes_dst, JIT_REG_KIND_##kind, is_signed, reg_no_dst, \
-                    base, jit_reg_no(r2));                                    \
+                    base, reg_no_offset);                                     \
         }                                                                     \
         else if (jit_reg_is_const(r2))                                        \
             _ret = ld_r_from_base_r_offset_imm(                               \
                 a, bytes_dst, JIT_REG_KIND_##kind, is_signed, reg_no_dst,     \
-                jit_reg_no(r1), offset);                                      \
+                reg_no_base, offset);                                         \
         else                                                                  \
             _ret = ld_r_from_base_r_offset_r(                                 \
                 a, bytes_dst, JIT_REG_KIND_##kind, is_signed, reg_no_dst,     \
-                jit_reg_no(r1), jit_reg_no(r2));                              \
+                reg_no_base, reg_no_offset);                                  \
         if (!_ret)                                                            \
             GOTO_FAIL;                                                        \
     } while (0)
@@ -4544,75 +4551,81 @@ cmp_r_imm_to_r_f64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
  * @param kind the data kind, such as I32, I64, F32 and F64
  * @param bytes_dst the byte number of dst data
  */
-#define ST_R_R_R(kind, type, bytes_dst)                                        \
-    do {                                                                       \
-        type data_src = 0;                                                     \
-        int32 reg_no_src = 0;                                                  \
-        int32 base = 0, offset = 0;                                            \
-        bool _ret = false;                                                     \
-                                                                               \
-        if (jit_reg_is_const(r1)) {                                            \
-            CHECK_KIND(r1, JIT_REG_KIND_I32);                                  \
-        }                                                                      \
-        else {                                                                 \
-            CHECK_KIND(r1, JIT_REG_KIND_I64);                                  \
-        }                                                                      \
-        if (jit_reg_is_const(r2)) {                                            \
-            CHECK_KIND(r2, JIT_REG_KIND_I32);                                  \
-        }                                                                      \
-        else {                                                                 \
-            CHECK_KIND(r2, JIT_REG_KIND_I64);                                  \
-        }                                                                      \
-                                                                               \
-        ASSERT_REG_NO(r0);                                                     \
-        ASSERT_REG_NO(r1);                                                     \
-        ASSERT_REG_NO(r2);                                                     \
-                                                                               \
-        if (jit_reg_is_const(r0))                                              \
-            data_src = jit_cc_get_const_##kind(cc, r0);                        \
-        else                                                                   \
-            reg_no_src = jit_reg_no(r0);                                       \
-        if (jit_reg_is_const(r1))                                              \
-            base = jit_cc_get_const_I32(cc, r1);                               \
-        if (jit_reg_is_const(r2))                                              \
-            offset = jit_cc_get_const_I32(cc, r2);                             \
-                                                                               \
-        if (jit_reg_is_const(r0)) {                                            \
-            if (jit_reg_is_const(r1)) {                                        \
-                if (jit_reg_is_const(r2))                                      \
-                    _ret = st_imm_to_base_imm_offset_imm(                      \
-                        a, bytes_dst, &data_src, base, offset);                \
-                else                                                           \
-                    _ret = st_imm_to_base_imm_offset_r(                        \
-                        a, bytes_dst, &data_src, base, jit_reg_no(r2));        \
-            }                                                                  \
-            else if (jit_reg_is_const(r2))                                     \
-                _ret = st_imm_to_base_r_offset_imm(a, bytes_dst, &data_src,    \
-                                                   jit_reg_no(r1), offset);    \
-            else                                                               \
-                _ret = st_imm_to_base_r_offset_r(                              \
-                    a, bytes_dst, &data_src, jit_reg_no(r1), jit_reg_no(r2));  \
-        }                                                                      \
-        else if (jit_reg_is_const(r1)) {                                       \
-            if (jit_reg_is_const(r2))                                          \
-                _ret = st_r_to_base_imm_offset_imm(a, bytes_dst,               \
-                                                   JIT_REG_KIND_##kind,        \
-                                                   reg_no_src, base, offset);  \
-            else                                                               \
-                _ret = st_r_to_base_imm_offset_r(                              \
-                    a, bytes_dst, JIT_REG_KIND_##kind, reg_no_src, base,       \
-                    jit_reg_no(r2));                                           \
-        }                                                                      \
-        else if (jit_reg_is_const(r2))                                         \
-            _ret =                                                             \
-                st_r_to_base_r_offset_imm(a, bytes_dst, JIT_REG_KIND_##kind,   \
-                                          reg_no_src, jit_reg_no(r1), offset); \
-        else                                                                   \
-            _ret = st_r_to_base_r_offset_r(a, bytes_dst, JIT_REG_KIND_##kind,  \
-                                           reg_no_src, jit_reg_no(r1),         \
-                                           jit_reg_no(r2));                    \
-        if (!_ret)                                                             \
-            GOTO_FAIL;                                                         \
+#define ST_R_R_R(kind, type, bytes_dst)                                       \
+    do {                                                                      \
+        type data_src = 0;                                                    \
+        int32 reg_no_src = 0, reg_no_base = 0, reg_no_offset = 0;             \
+        int32 base = 0, offset = 0;                                           \
+        bool _ret = false;                                                    \
+                                                                              \
+        if (jit_reg_is_const(r1)) {                                           \
+            CHECK_KIND(r1, JIT_REG_KIND_I32);                                 \
+        }                                                                     \
+        else {                                                                \
+            CHECK_KIND(r1, JIT_REG_KIND_I64);                                 \
+        }                                                                     \
+        if (jit_reg_is_const(r2)) {                                           \
+            CHECK_KIND(r2, JIT_REG_KIND_I32);                                 \
+        }                                                                     \
+        else {                                                                \
+            CHECK_KIND(r2, JIT_REG_KIND_I64);                                 \
+        }                                                                     \
+                                                                              \
+        if (jit_reg_is_const(r0))                                             \
+            data_src = jit_cc_get_const_##kind(cc, r0);                       \
+        else {                                                                \
+            reg_no_src = jit_reg_no(r0);                                      \
+            CHECK_REG_NO(reg_no_src, jit_reg_kind(r0));                       \
+        }                                                                     \
+        if (jit_reg_is_const(r1))                                             \
+            base = jit_cc_get_const_I32(cc, r1);                              \
+        else {                                                                \
+            reg_no_base = jit_reg_no(r1);                                     \
+            CHECK_REG_NO(reg_no_base, jit_reg_kind(r1));                      \
+        }                                                                     \
+        if (jit_reg_is_const(r2))                                             \
+            offset = jit_cc_get_const_I32(cc, r2);                            \
+        else {                                                                \
+            reg_no_offset = jit_reg_no(r2);                                   \
+            CHECK_REG_NO(reg_no_offset, jit_reg_kind(r2));                    \
+        }                                                                     \
+                                                                              \
+        if (jit_reg_is_const(r0)) {                                           \
+            if (jit_reg_is_const(r1)) {                                       \
+                if (jit_reg_is_const(r2))                                     \
+                    _ret = st_imm_to_base_imm_offset_imm(                     \
+                        a, bytes_dst, &data_src, base, offset);               \
+                else                                                          \
+                    _ret = st_imm_to_base_imm_offset_r(                       \
+                        a, bytes_dst, &data_src, base, reg_no_offset);        \
+            }                                                                 \
+            else if (jit_reg_is_const(r2))                                    \
+                _ret = st_imm_to_base_r_offset_imm(a, bytes_dst, &data_src,   \
+                                                   reg_no_base, offset);      \
+            else                                                              \
+                _ret = st_imm_to_base_r_offset_r(a, bytes_dst, &data_src,     \
+                                                 reg_no_base, reg_no_offset); \
+        }                                                                     \
+        else if (jit_reg_is_const(r1)) {                                      \
+            if (jit_reg_is_const(r2))                                         \
+                _ret = st_r_to_base_imm_offset_imm(a, bytes_dst,              \
+                                                   JIT_REG_KIND_##kind,       \
+                                                   reg_no_src, base, offset); \
+            else                                                              \
+                _ret = st_r_to_base_imm_offset_r(                             \
+                    a, bytes_dst, JIT_REG_KIND_##kind, reg_no_src, base,      \
+                    reg_no_offset);                                           \
+        }                                                                     \
+        else if (jit_reg_is_const(r2))                                        \
+            _ret =                                                            \
+                st_r_to_base_r_offset_imm(a, bytes_dst, JIT_REG_KIND_##kind,  \
+                                          reg_no_src, reg_no_base, offset);   \
+        else                                                                  \
+            _ret = st_r_to_base_r_offset_r(a, bytes_dst, JIT_REG_KIND_##kind, \
+                                           reg_no_src, reg_no_base,           \
+                                           reg_no_offset);                    \
+        if (!_ret)                                                            \
+            GOTO_FAIL;                                                        \
     } while (0)
 
 /**
@@ -4622,22 +4635,27 @@ cmp_r_imm_to_r_f64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
  * @param type the abbreviation of data type, such as i32, i64, f32, and f64
  * @param bytes_dst the byte number of dst data
  */
-#define MOV_R_R(kind, Type, type)                                        \
-    do {                                                                 \
-        bool _ret = false;                                               \
-        CHECK_EQKIND(r0, r1);                                            \
-                                                                         \
-        ASSERT_REG_NO(r0);                                               \
-        ASSERT_REG_NO(r1);                                               \
-                                                                         \
-        if (jit_reg_is_const(r1)) {                                      \
-            Type data = jit_cc_get_const_##kind(cc, r1);                 \
-            _ret = mov_imm_to_r_##type(a, jit_reg_no(r0), data);         \
-        }                                                                \
-        else                                                             \
-            _ret = mov_r_to_r_##type(a, jit_reg_no(r0), jit_reg_no(r1)); \
-        if (!_ret)                                                       \
-            GOTO_FAIL;                                                   \
+#define MOV_R_R(kind, Type, type)                                \
+    do {                                                         \
+        bool _ret = false;                                       \
+        int32 reg_no_dst = 0, reg_no_src = 0;                    \
+        CHECK_EQKIND(r0, r1);                                    \
+                                                                 \
+        CHECK_NCONST(r0);                                        \
+        reg_no_dst = jit_reg_no(r0);                             \
+        CHECK_REG_NO(reg_no_dst, jit_reg_kind(r0));              \
+                                                                 \
+        if (jit_reg_is_const(r1)) {                              \
+            Type data = jit_cc_get_const_##kind(cc, r1);         \
+            _ret = mov_imm_to_r_##type(a, reg_no_dst, data);     \
+        }                                                        \
+        else {                                                   \
+            reg_no_src = jit_reg_no(r1);                         \
+            CHECK_REG_NO(reg_no_src, jit_reg_kind(r1));          \
+            _ret = mov_r_to_r_##type(a, reg_no_dst, reg_no_src); \
+        }                                                        \
+        if (!_ret)                                               \
+            GOTO_FAIL;                                           \
     } while (0)
 
 /**
@@ -4682,22 +4700,27 @@ fail:
  * @param Type the data type, such as int32, int64, float32, and float64
  * @param type the abbreviation of data type, such as i32, i64, f32, and f64
  */
-#define NEG_R_R(kind, Type, type)                                        \
-    do {                                                                 \
-        bool _ret = false;                                               \
-        CHECK_EQKIND(r0, r1);                                            \
-                                                                         \
-        ASSERT_REG_NO(r0);                                               \
-        ASSERT_REG_NO(r1);                                               \
-                                                                         \
-        if (jit_reg_is_const(r1)) {                                      \
-            Type data = jit_cc_get_const_##kind(cc, r1);                 \
-            _ret = neg_imm_to_r_##type(a, jit_reg_no(r0), data);         \
-        }                                                                \
-        else                                                             \
-            _ret = neg_r_to_r_##type(a, jit_reg_no(r0), jit_reg_no(r1)); \
-        if (!_ret)                                                       \
-            GOTO_FAIL;                                                   \
+#define NEG_R_R(kind, Type, type)                                \
+    do {                                                         \
+        bool _ret = false;                                       \
+        int32 reg_no_dst = 0, reg_no_src = 0;                    \
+        CHECK_EQKIND(r0, r1);                                    \
+                                                                 \
+        CHECK_NCONST(r0);                                        \
+        reg_no_dst = jit_reg_no(r0);                             \
+        CHECK_REG_NO(reg_no_dst, jit_reg_kind(r0));              \
+                                                                 \
+        if (jit_reg_is_const(r1)) {                              \
+            Type data = jit_cc_get_const_##kind(cc, r1);         \
+            _ret = neg_imm_to_r_##type(a, reg_no_dst, data);     \
+        }                                                        \
+        else {                                                   \
+            reg_no_src = jit_reg_no(r1);                         \
+            CHECK_REG_NO(reg_no_src, jit_reg_kind(r1));          \
+            _ret = neg_r_to_r_##type(a, reg_no_dst, reg_no_src); \
+        }                                                        \
+        if (!_ret)                                               \
+            GOTO_FAIL;                                           \
     } while (0)
 
 /**
@@ -4748,20 +4771,24 @@ fail:
 #define CONVERT_R_R(kind0, kind1, type0, type1, Type1)                       \
     do {                                                                     \
         bool _ret = false;                                                   \
+        int32 reg_no_dst = 0, reg_no_src = 0;                                \
         CHECK_KIND(r0, JIT_REG_KIND_##kind0);                                \
         CHECK_KIND(r1, JIT_REG_KIND_##kind1);                                \
                                                                              \
-        ASSERT_REG_NO(r0);                                                   \
-        ASSERT_REG_NO(r1);                                                   \
+        CHECK_NCONST(r0);                                                    \
+        reg_no_dst = jit_reg_no(r0);                                         \
+        CHECK_REG_NO(reg_no_dst, jit_reg_kind(r0));                          \
                                                                              \
         if (jit_reg_is_const(r1)) {                                          \
             Type1 data = jit_cc_get_const_##kind1(cc, r1);                   \
-            _ret =                                                           \
-                convert_imm_##type1##_to_r_##type0(a, jit_reg_no(r0), data); \
+            _ret = convert_imm_##type1##_to_r_##type0(a, reg_no_dst, data);  \
         }                                                                    \
-        else                                                                 \
-            _ret = convert_r_##type1##_to_r_##type0(a, jit_reg_no(r0),       \
-                                                    jit_reg_no(r1));         \
+        else {                                                               \
+            reg_no_src = jit_reg_no(r1);                                     \
+            CHECK_REG_NO(reg_no_src, jit_reg_kind(r1));                      \
+            _ret =                                                           \
+                convert_r_##type1##_to_r_##type0(a, reg_no_dst, reg_no_src); \
+        }                                                                    \
         if (!_ret)                                                           \
             GOTO_FAIL;                                                       \
     } while (0)
@@ -4776,7 +4803,7 @@ fail:
 #define ALU_R_R_R(kind, Type, type, op)                                       \
     do {                                                                      \
         Type data1, data2;                                                    \
-        int32 reg_no_dst;                                                     \
+        int32 reg_no_dst = 0, reg_no_src1 = 0, reg_no_src2 = 0;               \
         bool _ret = false;                                                    \
                                                                               \
         CHECK_EQKIND(r0, r1);                                                 \
@@ -4784,15 +4811,20 @@ fail:
         memset(&data1, 0, sizeof(Type));                                      \
         memset(&data2, 0, sizeof(Type));                                      \
                                                                               \
-        ASSERT_REG_NO(r0);                                                    \
-        ASSERT_REG_NO(r1);                                                    \
-        ASSERT_REG_NO(r2);                                                    \
-                                                                              \
         reg_no_dst = jit_reg_no(r0);                                          \
+        CHECK_REG_NO(reg_no_dst, jit_reg_kind(r0));                           \
         if (jit_reg_is_const(r1))                                             \
             data1 = jit_cc_get_const_##kind(cc, r1);                          \
+        else {                                                                \
+            reg_no_src1 = jit_reg_no(r1);                                     \
+            CHECK_REG_NO(reg_no_src1, jit_reg_kind(r1));                      \
+        }                                                                     \
         if (jit_reg_is_const(r2))                                             \
             data2 = jit_cc_get_const_##kind(cc, r2);                          \
+        else {                                                                \
+            reg_no_src2 = jit_reg_no(r2);                                     \
+            CHECK_REG_NO(reg_no_src2, jit_reg_kind(r2));                      \
+        }                                                                     \
                                                                               \
         if (jit_reg_is_const(r1)) {                                           \
             if (jit_reg_is_const(r2))                                         \
@@ -4800,14 +4832,14 @@ fail:
                     alu_imm_imm_to_r_##type(a, op, reg_no_dst, data1, data2); \
             else                                                              \
                 _ret = alu_imm_r_to_r_##type(a, op, reg_no_dst, data1,        \
-                                             jit_reg_no(r2));                 \
+                                             reg_no_src2);                    \
         }                                                                     \
         else if (jit_reg_is_const(r2))                                        \
-            _ret = alu_r_imm_to_r_##type(a, op, reg_no_dst, jit_reg_no(r1),   \
-                                         data2);                              \
+            _ret =                                                            \
+                alu_r_imm_to_r_##type(a, op, reg_no_dst, reg_no_src1, data2); \
         else                                                                  \
-            _ret = alu_r_r_to_r_##type(a, op, reg_no_dst, jit_reg_no(r1),     \
-                                       jit_reg_no(r2));                       \
+            _ret = alu_r_r_to_r_##type(a, op, reg_no_dst, reg_no_src1,        \
+                                       reg_no_src2);                          \
         if (!_ret)                                                            \
             GOTO_FAIL;                                                        \
     } while (0)
@@ -4861,7 +4893,7 @@ fail:
 #define BIT_R_R_R(kind, Type, type, op)                                       \
     do {                                                                      \
         Type data1, data2;                                                    \
-        int32 reg_no_dst;                                                     \
+        int32 reg_no_dst = 0, reg_no_src1 = 0, reg_no_src2 = 0;               \
         bool _ret = false;                                                    \
                                                                               \
         CHECK_EQKIND(r0, r1);                                                 \
@@ -4869,15 +4901,20 @@ fail:
         memset(&data1, 0, sizeof(Type));                                      \
         memset(&data2, 0, sizeof(Type));                                      \
                                                                               \
-        ASSERT_REG_NO(r0);                                                    \
-        ASSERT_REG_NO(r1);                                                    \
-        ASSERT_REG_NO(r2);                                                    \
-                                                                              \
         reg_no_dst = jit_reg_no(r0);                                          \
+        CHECK_REG_NO(reg_no_dst, jit_reg_kind(r0));                           \
         if (jit_reg_is_const(r1))                                             \
             data1 = jit_cc_get_const_##kind(cc, r1);                          \
+        else {                                                                \
+            reg_no_src1 = jit_reg_no(r1);                                     \
+            CHECK_REG_NO(reg_no_src1, jit_reg_kind(r1));                      \
+        }                                                                     \
         if (jit_reg_is_const(r2))                                             \
             data2 = jit_cc_get_const_##kind(cc, r2);                          \
+        else {                                                                \
+            reg_no_src2 = jit_reg_no(r2);                                     \
+            CHECK_REG_NO(reg_no_src2, jit_reg_kind(r2));                      \
+        }                                                                     \
                                                                               \
         if (jit_reg_is_const(r1)) {                                           \
             if (jit_reg_is_const(r2))                                         \
@@ -4885,14 +4922,14 @@ fail:
                     bit_imm_imm_to_r_##type(a, op, reg_no_dst, data1, data2); \
             else                                                              \
                 _ret = bit_imm_r_to_r_##type(a, op, reg_no_dst, data1,        \
-                                             jit_reg_no(r2));                 \
+                                             reg_no_src2);                    \
         }                                                                     \
         else if (jit_reg_is_const(r2))                                        \
-            _ret = bit_r_imm_to_r_##type(a, op, reg_no_dst, jit_reg_no(r1),   \
-                                         data2);                              \
+            _ret =                                                            \
+                bit_r_imm_to_r_##type(a, op, reg_no_dst, reg_no_src1, data2); \
         else                                                                  \
-            _ret = bit_r_r_to_r_##type(a, op, reg_no_dst, jit_reg_no(r1),     \
-                                       jit_reg_no(r2));                       \
+            _ret = bit_r_r_to_r_##type(a, op, reg_no_dst, reg_no_src1,        \
+                                       reg_no_src2);                          \
         if (!_ret)                                                            \
             GOTO_FAIL;                                                        \
     } while (0)
@@ -4937,43 +4974,48 @@ fail:
  * @param type the abbreviation of data type, such as i32, i64
  * @param op the opcode of shift operation
  */
-#define SHIFT_R_R_R(kind, Type, type, op)                                     \
-    do {                                                                      \
-        Type data1, data2;                                                    \
-        int32 reg_no_dst;                                                     \
-        bool _ret = false;                                                    \
-                                                                              \
-        CHECK_EQKIND(r0, r1);                                                 \
-        CHECK_KIND(r2, JIT_REG_KIND_##kind);                                  \
-        memset(&data1, 0, sizeof(Type));                                      \
-        memset(&data2, 0, sizeof(Type));                                      \
-                                                                              \
-        ASSERT_REG_NO(r0);                                                    \
-        ASSERT_REG_NO(r1);                                                    \
-        ASSERT_REG_NO(r2);                                                    \
-                                                                              \
-        reg_no_dst = jit_reg_no(r0);                                          \
-        if (jit_reg_is_const(r1))                                             \
-            data1 = jit_cc_get_const_##kind(cc, r1);                          \
-        if (jit_reg_is_const(r2))                                             \
-            data2 = jit_cc_get_const_##kind(cc, r2);                          \
-                                                                              \
-        if (jit_reg_is_const(r1)) {                                           \
-            if (jit_reg_is_const(r2))                                         \
-                _ret = shift_imm_imm_to_r_##type(a, op, reg_no_dst, data1,    \
-                                                 data2);                      \
-            else                                                              \
-                _ret = shift_imm_r_to_r_##type(a, op, reg_no_dst, data1,      \
-                                               jit_reg_no(r2));               \
-        }                                                                     \
-        else if (jit_reg_is_const(r2))                                        \
-            _ret = shift_r_imm_to_r_##type(a, op, reg_no_dst, jit_reg_no(r1), \
-                                           data2);                            \
-        else                                                                  \
-            _ret = shift_r_r_to_r_##type(a, op, reg_no_dst, jit_reg_no(r1),   \
-                                         jit_reg_no(r2));                     \
-        if (!_ret)                                                            \
-            GOTO_FAIL;                                                        \
+#define SHIFT_R_R_R(kind, Type, type, op)                                  \
+    do {                                                                   \
+        Type data1, data2;                                                 \
+        int32 reg_no_dst = 0, reg_no_src1 = 0, reg_no_src2 = 0;            \
+        bool _ret = false;                                                 \
+                                                                           \
+        CHECK_EQKIND(r0, r1);                                              \
+        CHECK_KIND(r2, JIT_REG_KIND_##kind);                               \
+        memset(&data1, 0, sizeof(Type));                                   \
+        memset(&data2, 0, sizeof(Type));                                   \
+                                                                           \
+        reg_no_dst = jit_reg_no(r0);                                       \
+        CHECK_REG_NO(reg_no_dst, jit_reg_kind(r0));                        \
+        if (jit_reg_is_const(r1))                                          \
+            data1 = jit_cc_get_const_##kind(cc, r1);                       \
+        else {                                                             \
+            reg_no_src1 = jit_reg_no(r1);                                  \
+            CHECK_REG_NO(reg_no_src1, jit_reg_kind(r1));                   \
+        }                                                                  \
+        if (jit_reg_is_const(r2))                                          \
+            data2 = jit_cc_get_const_##kind(cc, r2);                       \
+        else {                                                             \
+            reg_no_src2 = jit_reg_no(r2);                                  \
+            CHECK_REG_NO(reg_no_src2, jit_reg_kind(r2));                   \
+        }                                                                  \
+                                                                           \
+        if (jit_reg_is_const(r1)) {                                        \
+            if (jit_reg_is_const(r2))                                      \
+                _ret = shift_imm_imm_to_r_##type(a, op, reg_no_dst, data1, \
+                                                 data2);                   \
+            else                                                           \
+                _ret = shift_imm_r_to_r_##type(a, op, reg_no_dst, data1,   \
+                                               reg_no_src2);               \
+        }                                                                  \
+        else if (jit_reg_is_const(r2))                                     \
+            _ret = shift_r_imm_to_r_##type(a, op, reg_no_dst, reg_no_src1, \
+                                           data2);                         \
+        else                                                               \
+            _ret = shift_r_r_to_r_##type(a, op, reg_no_dst, reg_no_src1,   \
+                                         reg_no_src2);                     \
+        if (!_ret)                                                         \
+            GOTO_FAIL;                                                     \
     } while (0)
 
 /**
@@ -5078,18 +5120,20 @@ bitcount_r_to_r_i64(x86::Assembler &a, BITCOUNT_OP op, int32 reg_no_dst,
  * @param type the abbreviation of data type, such as i32, i64
  * @param op the opcode of bit operation
  */
-#define BITCOUNT_R_R(kind, Type, type, op)                              \
-    do {                                                                \
-        int32 reg_no_dst;                                               \
-                                                                        \
-        CHECK_EQKIND(r0, r1);                                           \
-        CHECK_NCONST(r1);                                               \
-        ASSERT_REG_NO(r0);                                              \
-        ASSERT_REG_NO(r1);                                              \
-                                                                        \
-        reg_no_dst = jit_reg_no(r0);                                    \
-        if (!bitcount_r_to_r_##type(a, op, reg_no_dst, jit_reg_no(r1))) \
-            GOTO_FAIL;                                                  \
+#define BITCOUNT_R_R(kind, Type, type, op)                          \
+    do {                                                            \
+        int32 reg_no_dst = 0, reg_no_src = 0;                       \
+                                                                    \
+        CHECK_EQKIND(r0, r1);                                       \
+        CHECK_NCONST(r0);                                           \
+        CHECK_NCONST(r1);                                           \
+                                                                    \
+        reg_no_dst = jit_reg_no(r0);                                \
+        CHECK_REG_NO(reg_no_dst, jit_reg_kind(r0));                 \
+        reg_no_src = jit_reg_no(r1);                                \
+        CHECK_REG_NO(reg_no_src, jit_reg_kind(r1));                 \
+        if (!bitcount_r_to_r_##type(a, op, reg_no_dst, reg_no_src)) \
+            GOTO_FAIL;                                              \
     } while (0)
 
 /**
@@ -5130,43 +5174,47 @@ fail:
  * @param Type the data type, such as int32, int64, float32, and float64
  * @param type the abbreviation of data type, such as i32, i64, f32, and f64
  */
-#define CMP_R_R_R(kind, Type, type)                                          \
-    do {                                                                     \
-        Type data1, data2;                                                   \
-        int32 reg_no_dst;                                                    \
-        bool _ret = false;                                                   \
-                                                                             \
-        CHECK_KIND(r0, JIT_REG_KIND_I32);                                    \
-        CHECK_KIND(r1, JIT_REG_KIND_##kind);                                 \
-        CHECK_EQKIND(r1, r2);                                                \
-        memset(&data1, 0, sizeof(Type));                                     \
-        memset(&data2, 0, sizeof(Type));                                     \
-                                                                             \
-        ASSERT_REG_NO(r0);                                                   \
-        ASSERT_REG_NO(r1);                                                   \
-        ASSERT_REG_NO(r2);                                                   \
-                                                                             \
-        reg_no_dst = jit_reg_no(r0);                                         \
-        if (jit_reg_is_const(r1))                                            \
-            data1 = jit_cc_get_const_##kind(cc, r1);                         \
-        if (jit_reg_is_const(r2))                                            \
-            data2 = jit_cc_get_const_##kind(cc, r2);                         \
-                                                                             \
-        if (jit_reg_is_const(r1)) {                                          \
-            if (jit_reg_is_const(r2))                                        \
-                _ret = cmp_imm_imm_to_r_##type(a, reg_no_dst, data1, data2); \
-            else                                                             \
-                _ret = cmp_imm_r_to_r_##type(a, reg_no_dst, data1,           \
-                                             jit_reg_no(r2));                \
-        }                                                                    \
-        else if (jit_reg_is_const(r2))                                       \
-            _ret =                                                           \
-                cmp_r_imm_to_r_##type(a, reg_no_dst, jit_reg_no(r1), data2); \
-        else                                                                 \
-            _ret = cmp_r_r_to_r_##type(a, reg_no_dst, jit_reg_no(r1),        \
-                                       jit_reg_no(r2));                      \
-        if (!_ret)                                                           \
-            GOTO_FAIL;                                                       \
+#define CMP_R_R_R(kind, Type, type)                                           \
+    do {                                                                      \
+        Type data1, data2;                                                    \
+        int32 reg_no_dst = 0, reg_no_src1 = 0, reg_no_src2 = 0;               \
+        bool _ret = false;                                                    \
+                                                                              \
+        CHECK_KIND(r0, JIT_REG_KIND_I32);                                     \
+        CHECK_KIND(r1, JIT_REG_KIND_##kind);                                  \
+        CHECK_EQKIND(r1, r2);                                                 \
+        memset(&data1, 0, sizeof(Type));                                      \
+        memset(&data2, 0, sizeof(Type));                                      \
+                                                                              \
+        reg_no_dst = jit_reg_no(r0);                                          \
+        CHECK_REG_NO(reg_no_dst, jit_reg_kind(r0));                           \
+        if (jit_reg_is_const(r1))                                             \
+            data1 = jit_cc_get_const_##kind(cc, r1);                          \
+        else {                                                                \
+            reg_no_src1 = jit_reg_no(r1);                                     \
+            CHECK_REG_NO(reg_no_src1, jit_reg_kind(r1));                      \
+        }                                                                     \
+        if (jit_reg_is_const(r2))                                             \
+            data2 = jit_cc_get_const_##kind(cc, r2);                          \
+        else {                                                                \
+            reg_no_src2 = jit_reg_no(r2);                                     \
+            CHECK_REG_NO(reg_no_src2, jit_reg_kind(r2));                      \
+        }                                                                     \
+                                                                              \
+        if (jit_reg_is_const(r1)) {                                           \
+            if (jit_reg_is_const(r2))                                         \
+                _ret = cmp_imm_imm_to_r_##type(a, reg_no_dst, data1, data2);  \
+            else                                                              \
+                _ret =                                                        \
+                    cmp_imm_r_to_r_##type(a, reg_no_dst, data1, reg_no_src2); \
+        }                                                                     \
+        else if (jit_reg_is_const(r2))                                        \
+            _ret = cmp_r_imm_to_r_##type(a, reg_no_dst, reg_no_src1, data2);  \
+        else                                                                  \
+            _ret =                                                            \
+                cmp_r_r_to_r_##type(a, reg_no_dst, reg_no_src1, reg_no_src2); \
+        if (!_ret)                                                            \
+            GOTO_FAIL;                                                        \
     } while (0)
 
 /**
@@ -5437,7 +5485,7 @@ lower_branch(JitCompContext *cc, x86::Assembler &a, bh_list *jmp_info_list,
     CHECK_KIND(r0, JIT_REG_KIND_I32);
     CHECK_KIND(r1, JIT_REG_KIND_L32);
 
-    ASSERT_REG_NO(r0);
+    CHECK_REG_NO(jit_reg_no(r0), jit_reg_kind(r0));
 
     label_dst = jit_reg_no(r1);
     if (label_dst < (int32)jit_cc_label_num(cc) - 1 && is_last_insn
@@ -5654,7 +5702,7 @@ lower_lookupswitch(JitCompContext *cc, x86::Assembler &a,
     }
     else {
         reg_no = jit_reg_no(r0);
-        ASSERT_I32_REG_NO(reg_no);
+        CHECK_I32_REG_NO(reg_no);
         if (!lookupswitch_r(cc, a, jmp_info_list, label_offsets, label_src,
                             reg_no, opnd, is_last_insn))
             GOTO_FAIL;
@@ -5684,8 +5732,7 @@ lower_callnative(JitCompContext *cc, x86::Assembler &a, JitInsn *insn)
                              REG_RCX_IDX, REG_R8_IDX,  REG_R9_IDX };
     Imm imm;
     uint32 i, opnd_num;
-    uint8 integer_reg_index = 0;
-    uint8 floatpoint_reg_index = 0;
+    int32 integer_reg_index = 0, floatpoint_reg_index = 0;
 
     ret_reg = *(jit_insn_opndv(insn, 0));
     func_reg = *(jit_insn_opndv(insn, 1));
@@ -5704,54 +5751,60 @@ lower_callnative(JitCompContext *cc, x86::Assembler &a, JitInsn *insn)
         switch (jit_reg_kind(arg_reg)) {
             case JIT_REG_KIND_I32:
             {
-                int reg_no = regs_arg_idx[integer_reg_index++];
-                ASSERT_I32_REG_NO(reg_no);
+                int32 reg_no = regs_arg_idx[integer_reg_index++];
+                CHECK_I64_REG_NO(reg_no);
                 if (jit_reg_is_const(arg_reg)) {
                     mov_imm_to_r_i64(a, reg_no,
                                      (int64)jit_cc_get_const_I32(cc, arg_reg));
                 }
                 else {
-                    extend_r32_to_r64(a, reg_no, jit_reg_no(arg_reg), true);
+                    int32 arg_reg_no = jit_reg_no(arg_reg);
+                    CHECK_I32_REG_NO(arg_reg_no);
+                    extend_r32_to_r64(a, reg_no, arg_reg_no, true);
                 }
                 break;
             }
             case JIT_REG_KIND_I64:
             {
-                int reg_no = regs_arg_idx[integer_reg_index++];
-                ASSERT_I64_REG_NO(reg_no);
+                int32 reg_no = regs_arg_idx[integer_reg_index++];
+                CHECK_I64_REG_NO(reg_no);
                 if (jit_reg_is_const(arg_reg)) {
                     mov_imm_to_r_i64(a, reg_no,
                                      jit_cc_get_const_I64(cc, arg_reg));
                 }
                 else {
-                    mov_r_to_r_i64(a, reg_no, jit_reg_no(arg_reg));
+                    int32 arg_reg_no = jit_reg_no(arg_reg);
+                    CHECK_I64_REG_NO(arg_reg_no);
+                    mov_r_to_r_i64(a, reg_no, arg_reg_no);
                 }
                 break;
             }
             case JIT_REG_KIND_F32:
             {
-                ASSERT_F32_REG_NO(floatpoint_reg_index);
+                CHECK_F32_REG_NO((int32)floatpoint_reg_index);
                 if (jit_reg_is_const(arg_reg)) {
                     mov_imm_to_r_f32(a, floatpoint_reg_index,
                                      jit_cc_get_const_F32(cc, arg_reg));
                 }
                 else {
-                    mov_r_to_r_f32(a, floatpoint_reg_index,
-                                   jit_reg_no(arg_reg));
+                    int32 arg_reg_no = jit_reg_no(arg_reg);
+                    CHECK_F32_REG_NO(arg_reg_no);
+                    mov_r_to_r_f32(a, floatpoint_reg_index, arg_reg_no);
                 }
                 floatpoint_reg_index++;
                 break;
             }
             case JIT_REG_KIND_F64:
             {
-                ASSERT_F32_REG_NO(floatpoint_reg_index);
+                CHECK_F64_REG_NO((int32)floatpoint_reg_index);
                 if (jit_reg_is_const(arg_reg)) {
                     mov_imm_to_r_f64(a, floatpoint_reg_index,
                                      jit_cc_get_const_F64(cc, arg_reg));
                 }
                 else {
-                    mov_r_to_r_f64(a, floatpoint_reg_index,
-                                   jit_reg_no(arg_reg));
+                    int32 arg_reg_no = jit_reg_no(arg_reg);
+                    CHECK_F64_REG_NO(arg_reg_no);
+                    mov_r_to_r_f64(a, floatpoint_reg_index, arg_reg_no);
                 }
                 floatpoint_reg_index++;
                 break;
@@ -5808,12 +5861,14 @@ lower_callbc(JitCompContext *cc, x86::Assembler &a, bh_list *jmp_info_list,
     JitReg ret_reg = *(jit_insn_opnd(insn, 0));
     JitReg func_reg = *(jit_insn_opnd(insn, 2));
     JitReg src_reg;
+    int32 func_reg_no;
 
     /* Load return_jitted_addr from stack */
     x86::Mem m(x86::rbp, cc->jitted_return_address_offset);
 
     CHECK_KIND(func_reg, JIT_REG_KIND_I64);
-    ASSERT_I64_REG_NO(jit_reg_no(func_reg));
+    func_reg_no = jit_reg_no(func_reg);
+    CHECK_I64_REG_NO(func_reg_no);
 
     node = (JmpInfo *)jit_malloc(sizeof(JmpInfo));
     if (!node)
@@ -5829,7 +5884,7 @@ lower_callbc(JitCompContext *cc, x86::Assembler &a, bh_list *jmp_info_list,
     imm.setValue(INT64_MAX);
     a.mov(regs_i64[REG_I64_FREE_IDX], imm);
     a.mov(m, regs_i64[REG_I64_FREE_IDX]);
-    a.jmp(regs_i64[jit_reg_no(func_reg)]);
+    a.jmp(regs_i64[func_reg_no]);
 
     if (ret_reg) {
         switch (jit_reg_kind(ret_reg)) {
@@ -6143,19 +6198,21 @@ cast_r_f64_to_r_i64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 #define CAST_R_R(kind0, kind1, type0, type1, Type1)                          \
     do {                                                                     \
         bool _ret = false;                                                   \
+        int32 reg_no_dst = 0, reg_no_src = 0;                                \
         CHECK_KIND(r0, JIT_REG_KIND_##kind0);                                \
         CHECK_KIND(r1, JIT_REG_KIND_##kind1);                                \
                                                                              \
-        ASSERT_REG_NO(r0);                                                   \
-        ASSERT_REG_NO(r1);                                                   \
-                                                                             \
+        reg_no_dst = jit_reg_no(r0);                                         \
+        CHECK_REG_NO(reg_no_dst, JIT_REG_KIND_##kind0);                      \
         if (jit_reg_is_const(r1)) {                                          \
             Type1 data = jit_cc_get_const_##kind1(cc, r1);                   \
-            _ret = cast_imm_##type1##_to_r_##type0(a, jit_reg_no(r0), data); \
+            _ret = cast_imm_##type1##_to_r_##type0(a, reg_no_dst, data);     \
         }                                                                    \
-        else                                                                 \
-            _ret = cast_r_##type1##_to_r_##type0(a, jit_reg_no(r0),          \
-                                                 jit_reg_no(r1));            \
+        else {                                                               \
+            reg_no_src = jit_reg_no(r1);                                     \
+            CHECK_REG_NO(reg_no_src, JIT_REG_KIND_##kind1);                  \
+            _ret = cast_r_##type1##_to_r_##type0(a, reg_no_dst, reg_no_src); \
+        }                                                                    \
         if (!_ret)                                                           \
             GOTO_FAIL;                                                       \
     } while (0)
