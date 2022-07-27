@@ -1988,6 +1988,7 @@ load_from_sections(WASMModule *module, WASMSection *sections,
 
     module->malloc_function = (uint32)-1;
     module->free_function = (uint32)-1;
+    module->retain_function = (uint32)-1;
 
     /* Resolve malloc/free function exported by wasm module */
     export = module->exports;
