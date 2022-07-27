@@ -278,6 +278,9 @@ jobs:
         if: (matrix.light == 'green') && (endsWith(matrix.make_options_run_mode, '_JIT_BUILD_OPTIONS')) && (steps.cache_llvm.outputs.cache-hit != 'true')
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
 
+      - name: Setup Android NDK
+        if: ${{ matrix.platform == 'android' }}
+        run: echo "ANDROID_NDK_ROOT=$ANDROID_NDK_LATEST_HOME" >> $GITHUB_ENV
       - name: Build iwasm
         if: ${{ matrix.light == 'green' }}
         run: |

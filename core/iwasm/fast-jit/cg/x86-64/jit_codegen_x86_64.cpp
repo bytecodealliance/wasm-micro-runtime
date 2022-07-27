@@ -186,30 +186,28 @@ jit_codegen_interp_jitted_glue(void *exec_env, JitInterpSwitchInfo *info,
         }                                                       \
     } while (0)
 
-#define CHECK_I32_REG_NO(no)                                                   \
-    do {                                                                       \
-        if (!(no >= 0 && (uint32)no < sizeof(regs_i32) / sizeof(regs_i32[0]))) \
-            GOTO_FAIL;                                                         \
+#define CHECK_I32_REG_NO(no)                                      \
+    do {                                                          \
+        if ((uint32)no >= sizeof(regs_i32) / sizeof(regs_i32[0])) \
+            GOTO_FAIL;                                            \
     } while (0)
 
-#define CHECK_I64_REG_NO(no)                                                   \
-    do {                                                                       \
-        if (!(no >= 0 && (uint32)no < sizeof(regs_i64) / sizeof(regs_i64[0]))) \
-            GOTO_FAIL;                                                         \
+#define CHECK_I64_REG_NO(no)                                      \
+    do {                                                          \
+        if ((uint32)no >= sizeof(regs_i64) / sizeof(regs_i64[0])) \
+            GOTO_FAIL;                                            \
     } while (0)
 
-#define CHECK_F32_REG_NO(no)                                               \
-    do {                                                                   \
-        if (!(no >= 0                                                      \
-              && (uint32)no < sizeof(regs_float) / sizeof(regs_float[0]))) \
-            GOTO_FAIL;                                                     \
+#define CHECK_F32_REG_NO(no)                                          \
+    do {                                                              \
+        if ((uint32)no >= sizeof(regs_float) / sizeof(regs_float[0])) \
+            GOTO_FAIL;                                                \
     } while (0)
 
-#define CHECK_F64_REG_NO(no)                                               \
-    do {                                                                   \
-        if (!(no >= 0                                                      \
-              && (uint32)no < sizeof(regs_float) / sizeof(regs_float[0]))) \
-            GOTO_FAIL;                                                     \
+#define CHECK_F64_REG_NO(no)                                          \
+    do {                                                              \
+        if ((uint32)no >= sizeof(regs_float) / sizeof(regs_float[0])) \
+            GOTO_FAIL;                                                \
     } while (0)
 
 /* Check if a register number is valid */
@@ -5734,8 +5732,7 @@ lower_callnative(JitCompContext *cc, x86::Assembler &a, JitInsn *insn)
                              REG_RCX_IDX, REG_R8_IDX,  REG_R9_IDX };
     Imm imm;
     uint32 i, opnd_num;
-    uint8 integer_reg_index = 0;
-    uint8 floatpoint_reg_index = 0;
+    int32 integer_reg_index = 0, floatpoint_reg_index = 0;
 
     ret_reg = *(jit_insn_opndv(insn, 0));
     func_reg = *(jit_insn_opndv(insn, 1));
