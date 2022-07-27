@@ -527,13 +527,13 @@ able to generate a shared library support Android platform.
 - look for a command named *sdkmanager* and download below components. version numbers might need to check and pick others
    - "build-tools;29.0.3"
    - "cmake;3.10.2.4988404"
-   - "ndk;21.0.6113669"
+   - "ndk;latest"
    - "patcher;v4"
    - "platform-tools"
    - "platforms;android-29"
 - add bin/ of the downloaded cmake to $PATH
-- export ANDROID_SDK_HOME=/the/path/of/downloaded/sdk/
-- export ANDROID_NDK_HOME=/the/path/of/downloaded/sdk/ndk/
+- export ANDROID_HOME=/the/path/of/downloaded/sdk/
+- export ANDROID_NDK_LATEST_HOME=/the/path/of/downloaded/sdk/ndk/2x.xxx/
 - ready to go
 
 Use such commands, you are able to compile with default configurations. Any compiling requirement should be satisfied by modifying product-mini/platforms/android/CMakeList.txt. For example, chaning ${WAMR_BUILD_TARGET} in CMakeList could get different libraries support different ABIs.
