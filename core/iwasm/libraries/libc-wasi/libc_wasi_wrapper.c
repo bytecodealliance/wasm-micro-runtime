@@ -1041,10 +1041,23 @@ wasi_sock_addr_remote(wasm_exec_env_t exec_env, wasi_fd_t fd, uint8 *buf,
 }
 
 static wasi_errno_t
-wasi_sock_addr_resolve(wasm_exec_env_t exec_env, wasi_fd_t fd, const char *host,
-                       wasi_ip_port_t port, uint8 *buf, wasi_size_t size)
+wasi_sock_addr_resolve(wasm_exec_env_t exec_env, const char *host,
+                       const char *service, __wasi_addr_info_hints_t *hints,
+                       __wasi_addr_info_t *addr_info,
+                       __wasi_size_t addr_info_size,
+                       __wasi_size_t *max_info_size)
 {
-    return __WASI_ENOSYS;
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
+    wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
+    struct fd_table *curfds = NULL;
+
+    if (!wasi_ctx)
+        return __WASI_EACCES;
+
+    curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
+
+    return wasi_ssp_sock_addr_resolve(curfds, host, service, hints, addr_info,
+                                      addr_info_size, max_info_size);
 }
 
 static wasi_errno_t
@@ -1390,7 +1403,7 @@ static NativeSymbol native_symbols_libc_wasi[] = {
     REG_NATIVE_FUNC(sock_accept, "(i*)i"),
     REG_NATIVE_FUNC(sock_addr_local, "(i*i)i"),
     REG_NATIVE_FUNC(sock_addr_remote, "(i*i)i"),
-    REG_NATIVE_FUNC(sock_addr_resolve, "(i*i*i)i"),
+    REG_NATIVE_FUNC(sock_addr_resolve, "($$**i*)i"),
     REG_NATIVE_FUNC(sock_bind, "(i*)i"),
     REG_NATIVE_FUNC(sock_close, "(i)i"),
     REG_NATIVE_FUNC(sock_connect, "(i*)i"),
