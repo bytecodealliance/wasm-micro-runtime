@@ -61,6 +61,8 @@ $ ./build_docker_image.sh
 
 Sometimes building the Docker images may fail due to bad network conditions. If the `wasm-toolchain` and `wasm-debug-server` images do not exist after building, please build them manually. Fix the proxy setting if needed and execute the following command to build docker images.
 
+![docker-engine-config](./Media/docker_config.jpg)
+
 > Note: please correctly replace example proxy address with your own before you run manually.
 
 ```xml
