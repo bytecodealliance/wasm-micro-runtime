@@ -187,13 +187,6 @@ export async function activate(context: vscode.ExtensionContext) {
         }
     }
 
-    /* write into config file if the BUILD_ARGS are default values */
-    writeIntoConfigFile(
-        includePathArr,
-        excludeFileArr,
-        TargetConfigPanel.BUILD_ARGS
-    );
-
     let disposableNewProj = vscode.commands.registerCommand(
         'wamride.newProject',
         () => {
