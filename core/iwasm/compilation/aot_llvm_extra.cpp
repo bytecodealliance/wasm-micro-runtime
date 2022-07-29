@@ -67,6 +67,9 @@ void
 aot_add_expand_memory_op_pass(LLVMPassManagerRef pass);
 
 void
+aot_add_simple_loop_unswitch_pass(LLVMPassManagerRef pass);
+
+void
 aot_func_disable_tce(LLVMValueRef func);
 
 void
@@ -256,6 +259,12 @@ void
 aot_add_expand_memory_op_pass(LLVMPassManagerRef pass)
 {
     unwrap(pass)->add(new ExpandMemoryOpPass());
+}
+
+void
+aot_add_simple_loop_unswitch_pass(LLVMPassManagerRef pass)
+{
+    unwrap(pass)->add(createSimpleLoopUnswitchLegacyPass());
 }
 
 bool

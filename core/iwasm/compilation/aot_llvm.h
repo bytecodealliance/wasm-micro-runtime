@@ -500,6 +500,9 @@ void
 aot_add_expand_memory_op_pass(LLVMPassManagerRef pass);
 
 void
+aot_add_simple_loop_unswitch_pass(LLVMPassManagerRef pass);
+
+void
 aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx);
 
 #if WASM_ENABLE_LAZY_JIT != 0
