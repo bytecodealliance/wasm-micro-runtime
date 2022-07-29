@@ -60,9 +60,7 @@ os_socket_bind(bh_socket_t socket, const char *host, int *port)
         goto fail;
     }
 
-    addr.sin_addr.s_addr = inet_addr(host);
-    addr.sin_port = htons(*port);
-    addr.sin_family = AF_INET;
+    textual_addr_to_sockaddr(host, *port, &addr);
 
     ret = bind(socket, (struct sockaddr *)&addr, sizeof(addr));
     if (ret < 0) {

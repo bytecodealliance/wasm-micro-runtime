@@ -20,7 +20,12 @@ typedef uint16_t __wasi_ip_port_t;
 
 typedef enum { IPv4 = 0, IPv6 } __wasi_addr_type_t;
 
-/* n0.n1.n2.n3 */
+/*
+ n0.n1.n2.n3
+ Example:
+  IP Address: 127.0.0.1
+  Structure: {n0: 127, n1: 0, n2: 0, n3: 1}
+*/
 typedef struct __wasi_addr_ip4_t {
     uint8_t n0;
     uint8_t n1;
@@ -30,9 +35,18 @@ typedef struct __wasi_addr_ip4_t {
 
 typedef struct __wasi_addr_ip4_port_t {
     __wasi_addr_ip4_t addr;
-    __wasi_ip_port_t port;
+    __wasi_ip_port_t port; /* host byte order */
 } __wasi_addr_ip4_port_t;
 
+/*
+ n0:n1:n2:n3:h0:h1:h2:h3, each 16bit value uses host byte order
+ Example (little-endian system)
+  IP Address fe80::3ba2:893b:4be0:e3dd
+  Structure: {
+    n0: 0xfe80, n1:0x0, n2: 0x0, n3: 0x0,
+    h0: 0x3ba2, h1: 0x893b, h2: 0x4be0, h3: 0xe3dd
+  }
+*/
 typedef struct __wasi_addr_ip6_t {
     uint16_t n0;
     uint16_t n1;
@@ -46,7 +60,7 @@ typedef struct __wasi_addr_ip6_t {
 
 typedef struct __wasi_addr_ip6_port_t {
     __wasi_addr_ip6_t addr;
-    __wasi_ip_port_t port;
+    __wasi_ip_port_t port; /* host byte order */
 } __wasi_addr_ip6_port_t;
 
 typedef struct __wasi_addr_t {
