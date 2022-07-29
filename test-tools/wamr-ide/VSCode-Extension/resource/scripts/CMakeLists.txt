@@ -7,25 +7,18 @@ project(Main)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/project.cmake)
 
-set (CMAKE_SYSROOT /opt/wamr-sdk/app/libc-builtin-sysroot)
-
-set (CMAKE_C_FLAGS " -nostdlib -g -Wno-unused-command-line-argument " CACHE INTERNAL "")
-
-set (CMAKE_CXX_FLAGS " -nostdlib -g" CACHE INTERNAL "")
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -Wno-unused-command-line-argument " CACHE INTERNAL "")
 
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -z stack-size=${STACK_SIZE}")
 
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fdebug-prefix-map=/mnt='$ENV{PROJ_PATH}'")
+
 set (CMAKE_EXE_LINKER_FLAGS
-    "-Wl,--initial-memory=${INIT_MEM_SIZE},--max-memory=${MAX_MEM_SIZE}, \
-     -Wl,--no-entry,")
+    "${CMAKE_EXE_LINKER_FLAGS} -Wl,--initial-memory=${INIT_MEM_SIZE},--max-memory=${MAX_MEM_SIZE},")
 
 set (CMAKE_EXE_LINKER_FLAGS
     "${CMAKE_EXE_LINKER_FLAGS} \
      ${EXPORTED_SYMBOLS},")
-
-set (CMAKE_EXE_LINKER_FLAGS
-    "${CMAKE_EXE_LINKER_FLAGS} \
-    -Wl,--allow-undefined-file=${CMAKE_SYSROOT}/share/defined-symbols.txt" CACHE INTERNAL "")
 
 set (SRC_LIST
     ${PROJECT_SRC_LIST})
@@ -37,4 +30,3 @@ set (HEADER_LIST
 include_directories(${HEADER_LIST})
 
 add_executable (${OUTPUT_FILE_NAME} ${SRC_LIST})
-

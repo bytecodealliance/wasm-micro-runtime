@@ -6,7 +6,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import * as os from 'os';
 import { readFromConfigFile, writeIntoConfigFile } from '../extension';
 import { getUri } from '../utilities/getUri';
 
@@ -151,26 +150,6 @@ export class TargetConfigPanel {
             'configbuildtarget.js',
         ]);
 
-        /* get config build target values and set into webview page */
-        let configData, buildArgObj;
-        let _output_file_name,
-            _init_memory_size,
-            _max_memory_size,
-            _stack_size,
-            _exported_symbols;
-
-        if (readFromConfigFile() !== '') {
-            configData = JSON.parse(readFromConfigFile());
-            buildArgObj = configData['build_args'];
-            if (buildArgObj !== undefined) {
-                _output_file_name = buildArgObj['output_file_name'];
-                _init_memory_size = buildArgObj['init_memory_size'];
-                _max_memory_size = buildArgObj['max_memory_size'];
-                _stack_size = buildArgObj['stack_size'];
-                _exported_symbols = buildArgObj['exported_symbols'];
-            }
-        }
-
         const resourcePath = path.join(extensionUri.fsPath, templatePath);
         let html = fs.readFileSync(resourcePath, 'utf-8');
         html = html
@@ -179,23 +158,23 @@ export class TargetConfigPanel {
             .replace(/(\${styleUri})/, styleUri.toString())
             .replace(
                 /(\${output_file_val})/,
-                _output_file_name === undefined ? '' : _output_file_name
+                TargetConfigPanel.BUILD_ARGS.output_file_name
             )
             .replace(
                 /(\${initial_mem_size_val})/,
-                _init_memory_size === undefined ? '' : _init_memory_size
+                TargetConfigPanel.BUILD_ARGS.init_memory_size
             )
             .replace(
                 /(\${max_mem_size_val})/,
-                _max_memory_size === undefined ? '' : _max_memory_size
+                TargetConfigPanel.BUILD_ARGS.max_memory_size
             )
             .replace(
                 /(\${stack_size_val})/,
-                _stack_size === undefined ? '' : _stack_size
+                TargetConfigPanel.BUILD_ARGS.stack_size
             )
             .replace(
                 /(\${exported_symbols_val})/,
-                _exported_symbols === undefined ? '' : _exported_symbols
+                TargetConfigPanel.BUILD_ARGS.exported_symbols
             );
 
         return html;

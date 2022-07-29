@@ -81,3 +81,16 @@ export function WriteIntoFileAsync(
         return;
     }
 }
+
+export function CheckIfDirectoryExist(path: string): boolean {
+    try {
+        if (fileSystem.existsSync(path)) {
+            return true;
+        } else {
+            return false;
+        }
+    } catch (err) {
+        vscode.window.showErrorMessage(err as string);
+        return false;
+    }
+}
