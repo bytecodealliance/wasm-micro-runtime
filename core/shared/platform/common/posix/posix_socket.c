@@ -272,3 +272,52 @@ os_socket_addr_resolve(const char *host, const char *service,
 
     return BHT_OK;
 }
+
+int
+os_socket_addr_local(bh_socket_t socket, uint8_t *buf, size_t buflen,
+                     uint16_t *port, uint8_t *is_ipv4)
+{
+    struct sockaddr_storage addr_storage = { 0 };
+    socklen_t addr_len = sizeof(addr_storage);
+    int ret;
+
+    assert(buf);
+    assert(is_ipv4);
+    assert(port);
+
+    ret = getsockname(socket, (struct sockaddr *)&addr_storage, &addr_len);
+
+    if (ret != BHT_OK) {
+        return BHT_ERROR;
+    }
+
+    switch (addr_storage.ss_family) {
+        case AF_INET:
+        {
+            struct sockaddr_in *addr_in = (struct sockaddr_in *)&addr_storage;
+
+            assert(buflen >= sizeof(addr_in->sin_addr));
+            *port = ntohs(addr_in->sin_port);
+            memcpy(buf, &addr_in->sin_addr, sizeof(addr_in->sin_addr));
+            *is_ipv4 = true;
+            break;
+        }
+        case AF_INET6:
+        {
+            struct sockaddr_in6 *addr_in = (struct sockaddr_in6 *)&addr_storage;
+            assert(buflen >= sizeof(addr_in->sin6_addr));
+            *port = ntohs(addr_in->sin6_port);
+
+            for (int i = 0; i < 8; i++) {
+                ((uint16_t *)buf)[i] =
+                    ntohs(((uint16_t *)&addr_in->sin6_addr)[i]);
+            }
+            *is_ipv4 = false;
+            break;
+        }
+        default:
+            return BHT_ERROR;
+    }
+
+    return BHT_OK;
+}

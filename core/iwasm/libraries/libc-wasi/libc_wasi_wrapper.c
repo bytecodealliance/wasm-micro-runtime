@@ -1009,8 +1009,8 @@ wasi_sock_accept(wasm_exec_env_t exec_env, wasi_fd_t fd, wasi_fd_t *fd_new)
 }
 
 static wasi_errno_t
-wasi_sock_addr_local(wasm_exec_env_t exec_env, wasi_fd_t fd, uint8 *buf,
-                     wasi_size_t buf_len)
+wasi_sock_addr_local(wasm_exec_env_t exec_env, wasi_fd_t fd,
+                     __wasi_addr_t *addr)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
@@ -1019,9 +1019,12 @@ wasi_sock_addr_local(wasm_exec_env_t exec_env, wasi_fd_t fd, uint8 *buf,
     if (!wasi_ctx)
         return __WASI_EACCES;
 
+    if (!validate_native_addr(addr, sizeof(__wasi_addr_t)))
+        return __WASI_EINVAL;
+
     curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
 
-    return wasi_ssp_sock_addr_local(curfds, fd, buf, buf_len);
+    return wasi_ssp_sock_addr_local(curfds, fd, addr);
 }
 
 static wasi_errno_t
@@ -1401,7 +1404,7 @@ static NativeSymbol native_symbols_libc_wasi[] = {
     REG_NATIVE_FUNC(proc_raise, "(i)i"),
     REG_NATIVE_FUNC(random_get, "(*~)i"),
     REG_NATIVE_FUNC(sock_accept, "(i*)i"),
-    REG_NATIVE_FUNC(sock_addr_local, "(i*i)i"),
+    REG_NATIVE_FUNC(sock_addr_local, "(i*)i"),
     REG_NATIVE_FUNC(sock_addr_remote, "(i*i)i"),
     REG_NATIVE_FUNC(sock_addr_resolve, "($$**i*)i"),
     REG_NATIVE_FUNC(sock_bind, "(i*)i"),

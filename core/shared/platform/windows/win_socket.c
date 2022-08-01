@@ -173,3 +173,12 @@ os_socket_addr_resolve(const char *host, const char *service,
 
     return BHT_ERROR;
 }
+
+int
+os_socket_addr_local(bh_socket_t socket, uint8_t *buf, size_t buflen,
+                     uint16_t *port, uint8_t *is_ipv4)
+{
+    errno = ENOSYS;
+
+    return BHT_ERROR;
+}

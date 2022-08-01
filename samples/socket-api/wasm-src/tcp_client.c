@@ -19,7 +19,10 @@ main(int argc, char *argv[])
 {
     int socket_fd, ret, total_size = 0;
     char buffer[1024] = { 0 };
+    char ip_string[16] = { 0 };
     struct sockaddr_in server_address = { 0 };
+    struct sockaddr_in local_address = { 0 };
+    socklen_t len;
 
     printf("[Client] Create socket\n");
     socket_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -41,6 +44,20 @@ main(int argc, char *argv[])
         close(socket_fd);
         return EXIT_FAILURE;
     }
+
+    len = sizeof(local_address);
+    ret = getsockname(socket_fd, (struct sockaddr *)&local_address, &len);
+    if (ret == -1) {
+        perror("Failed to retrieve socket address");
+        close(socket_fd);
+        return EXIT_FAILURE;
+    }
+
+    inet_ntop(AF_INET, &local_address.sin_addr, ip_string,
+              sizeof(ip_string) / sizeof(ip_string[0]));
+
+    printf("[Client] Local address is: %s:%d\n", ip_string,
+           ntohs(local_address.sin_port));
 
     printf("[Client] Client receive\n");
     while (1) {
