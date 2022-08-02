@@ -454,7 +454,7 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        test_option: [$DEFAULT_TEST_OPTIONS, $SIMD_TEST_OPTIONS]
+        test_option: [$DEFAULT_TEST_OPTIONS]
     steps:
       - name: checkout
         uses: actions/checkout@v3
@@ -488,7 +488,13 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        test_option: [$MULTI_MODULES_TEST_OPTIONS, $THREADS_TEST_OPTIONS]
+        running_mode: ["classic-interp", "fast-interp", "jit", "aot"]
+        test_option:
+          [
+            $MULTI_MODULES_TEST_OPTIONS,
+            $SIMD_TEST_OPTIONS,
+            $THREADS_TEST_OPTIONS,
+          ]
     steps:
       - name: checkout
         uses: actions/checkout@v3
@@ -513,7 +519,7 @@ jobs:
         run: sudo apt install -y ninja-build
 
       - name: run spec tests
-        run: ./test_wamr.sh ${{ matrix.test_option }}
+        run: ./test_wamr.sh ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
         working-directory: ./tests/wamr-test-suites
 
   spec_test_x86_32:
@@ -522,6 +528,7 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
+        running_mode: ["classic-interp", "fast-interp", "jit", "aot"]
         test_option: [$DEFAULT_TEST_OPTIONS, $THREADS_TEST_OPTIONS]
     steps:
       - name: checkout
@@ -553,5 +560,5 @@ jobs:
           sudo apt install -y g++-multilib lib32gcc-9-dev ninja-build
 
       - name: run spec tests
-        run: ./test_wamr.sh ${{ env.X86_32_TARGET_TEST_OPTIONS }} ${{ matrix.test_option }}
+        run: ./test_wamr.sh ${{ env.X86_32_TARGET_TEST_OPTIONS }} ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
         working-directory: ./tests/wamr-test-suites

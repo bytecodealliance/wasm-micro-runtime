@@ -11,6 +11,10 @@
 #include "wasm_runtime.h"
 #include "../common/wasm_native.h"
 #include "../common/wasm_memory.h"
+#if WASM_ENABLE_FAST_JIT != 0
+#include "../fast-jit/jit_compiler.h"
+#include "../fast-jit/jit_codecache.h"
+#endif
 
 /* Read a value of given type from the address pointed to by the given
    pointer and increase the pointer to the position just after the
@@ -2139,6 +2143,18 @@ load_from_sections(WASMModule *module, WASMSection *sections,
         }
     }
 
+#if WASM_ENABLE_FAST_JIT != 0
+    if (!(module->fast_jit_func_ptrs =
+              loader_malloc(sizeof(void *) * module->function_count, error_buf,
+                            error_buf_size))) {
+        return false;
+    }
+    if (!jit_compiler_compile_all(module)) {
+        set_error_buf(error_buf, error_buf_size, "fast jit compilation failed");
+        return false;
+    }
+#endif
+
 #if WASM_ENABLE_MEMORY_TRACING != 0
     wasm_runtime_dump_module_mem_consumption(module);
 #endif
@@ -2356,6 +2372,11 @@ wasm_loader_load(uint8 *buf, uint32 size, char *error_buf,
         return NULL;
     }
 
+#if WASM_ENABLE_FAST_JIT != 0
+    module->load_addr = (uint8 *)buf;
+    module->load_size = size;
+#endif
+
     if (!load(buf, size, module, error_buf, error_buf_size)) {
         goto fail;
     }
@@ -2450,6 +2471,16 @@ wasm_loader_unload(WASMModule *module)
             wasm_runtime_free(node);
             node = node_next;
         }
+    }
+#endif
+
+#if WASM_ENABLE_FAST_JIT != 0
+    if (module->fast_jit_func_ptrs) {
+        for (i = 0; i < module->function_count; i++) {
+            if (module->fast_jit_func_ptrs[i])
+                jit_code_cache_free(module->fast_jit_func_ptrs[i]);
+        }
+        wasm_runtime_free(module->fast_jit_func_ptrs);
     }
 #endif
 
@@ -5778,7 +5809,8 @@ re_scan:
                 operand_offset = local_offset;
                 PUSH_OFFSET_TYPE(local_type);
 #else
-#if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
+#if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0) \
+    && (WASM_ENABLE_FAST_JIT == 0)
                 if (local_offset < 0x80) {
                     *p_org++ = EXT_OP_GET_LOCAL_FAST;
                     if (is_32bit_type(local_type))
@@ -5838,7 +5870,8 @@ re_scan:
                     POP_OFFSET_TYPE(local_type);
                 }
 #else
-#if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
+#if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0) \
+    && (WASM_ENABLE_FAST_JIT == 0)
                 if (local_offset < 0x80) {
                     *p_org++ = EXT_OP_SET_LOCAL_FAST;
                     if (is_32bit_type(local_type))
@@ -5894,7 +5927,8 @@ re_scan:
                              *(loader_ctx->frame_offset
                                - wasm_value_type_cell_num(local_type)));
 #else
-#if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
+#if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0) \
+    && (WASM_ENABLE_FAST_JIT == 0)
                 if (local_offset < 0x80) {
                     *p_org++ = EXT_OP_TEE_LOCAL_FAST;
                     if (is_32bit_type(local_type))

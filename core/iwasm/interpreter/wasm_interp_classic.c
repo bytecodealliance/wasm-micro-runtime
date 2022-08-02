@@ -16,6 +16,9 @@
 #include "../libraries/thread-mgr/thread_manager.h"
 #include "../libraries/debug-engine/debug_engine.h"
 #endif
+#if WASM_ENABLE_FAST_JIT != 0
+#include "../fast-jit/jit_compiler.h"
+#endif
 
 typedef int32 CellType_I32;
 typedef int64 CellType_I64;
@@ -854,6 +857,20 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
     FREE_FRAME(exec_env, frame);
     wasm_exec_env_set_cur_frame(exec_env, prev_frame);
 }
+
+#if WASM_ENABLE_FAST_JIT != 0
+bool
+jit_invoke_native(WASMExecEnv *exec_env, uint32 func_idx,
+                  WASMInterpFrame *prev_frame)
+{
+    WASMModuleInstance *module_inst =
+        (WASMModuleInstance *)exec_env->module_inst;
+    WASMFunctionInstance *cur_func = module_inst->functions + func_idx;
+
+    wasm_interp_call_func_native(module_inst, exec_env, cur_func, prev_frame);
+    return wasm_get_exception(module_inst) ? false : true;
+}
+#endif
 
 #if WASM_ENABLE_MULTI_MODULE != 0
 static void
@@ -3897,7 +3914,56 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
         }
     }
     else {
+#if WASM_ENABLE_FAST_JIT == 0
         wasm_interp_call_func_bytecode(module_inst, exec_env, function, frame);
+#else
+        JitGlobals *jit_globals = jit_compiler_get_jit_globals();
+        JitInterpSwitchInfo info;
+        WASMType *func_type = function->u.func->func_type;
+        uint8 type = func_type->result_count
+                         ? func_type->types[func_type->param_count]
+                         : VALUE_TYPE_VOID;
+
+#if WASM_ENABLE_REF_TYPES != 0
+        if (type == VALUE_TYPE_EXTERNREF || type == VALUE_TYPE_FUNCREF)
+            type = VALUE_TYPE_I32;
+#endif
+
+        info.out.ret.last_return_type = type;
+        info.frame = frame;
+        frame->jitted_return_addr =
+            (uint8 *)jit_globals->return_to_interp_from_jitted;
+        jit_interp_switch_to_jitted(exec_env, &info,
+                                    function->u.func->fast_jit_jitted_code);
+        if (func_type->result_count) {
+            switch (type) {
+                case VALUE_TYPE_I32:
+                    *(frame->sp - function->ret_cell_num) =
+                        info.out.ret.ival[0];
+                    break;
+                case VALUE_TYPE_I64:
+                    *(frame->sp - function->ret_cell_num) =
+                        info.out.ret.ival[0];
+                    *(frame->sp - function->ret_cell_num + 1) =
+                        info.out.ret.ival[1];
+                    break;
+                case VALUE_TYPE_F32:
+                    *(frame->sp - function->ret_cell_num) =
+                        info.out.ret.fval[0];
+                    break;
+                case VALUE_TYPE_F64:
+                    *(frame->sp - function->ret_cell_num) =
+                        info.out.ret.fval[0];
+                    *(frame->sp - function->ret_cell_num + 1) =
+                        info.out.ret.fval[1];
+                    break;
+                default:
+                    bh_assert(0);
+                    break;
+            }
+        }
+        (void)wasm_interp_call_func_bytecode;
+#endif
     }
 
     /* Output the return value to the caller */

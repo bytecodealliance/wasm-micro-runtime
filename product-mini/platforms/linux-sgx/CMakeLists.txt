@@ -44,6 +44,11 @@ if (NOT DEFINED WAMR_BUILD_JIT)
   set (WAMR_BUILD_JIT 0)
 endif ()
 
+if (NOT DEFINED WAMR_BUILD_FAST_JIT)
+  # Disable Fast JIT by default
+  set (WAMR_BUILD_FAST_JIT 0)
+endif ()
+
 if (NOT DEFINED WAMR_BUILD_LIBC_BUILTIN)
   # Enable libc builtin support by default
   set (WAMR_BUILD_LIBC_BUILTIN 1)

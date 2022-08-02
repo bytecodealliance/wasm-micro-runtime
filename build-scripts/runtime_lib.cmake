@@ -50,7 +50,11 @@ if (NOT DEFINED WAMR_BUILD_TARGET)
 endif ()
 
 ################ optional according to settings ################
-if (WAMR_BUILD_INTERP EQUAL 1 OR WAMR_BUILD_JIT EQUAL 1)
+if (WAMR_BUILD_INTERP EQUAL 1 OR WAMR_BUILD_JIT EQUAL 1
+    OR WAMR_BUILD_FAST_JIT EQUAL 1)
+    if (WAMR_BUILD_FAST_JIT EQUAL 1)
+        set (WAMR_BUILD_FAST_INTERP 0)
+    endif ()
     include (${IWASM_DIR}/interpreter/iwasm_interp.cmake)
 endif ()
 
@@ -59,6 +63,10 @@ if (WAMR_BUILD_AOT EQUAL 1)
     if (WAMR_BUILD_JIT EQUAL 1)
         include (${IWASM_DIR}/compilation/iwasm_compl.cmake)
     endif ()
+endif ()
+
+if (NOT WAMR_BUILD_JIT EQUAL 1 AND WAMR_BUILD_FAST_JIT EQUAL 1)
+    include (${IWASM_DIR}/fast-jit/iwasm_fast_jit.cmake)
 endif ()
 
 if (WAMR_BUILD_APP_FRAMEWORK EQUAL 1)
@@ -139,6 +147,7 @@ set (source_all
     ${IWASM_INTERP_SOURCE}
     ${IWASM_AOT_SOURCE}
     ${IWASM_COMPL_SOURCE}
+    ${IWASM_FAST_JIT_SOURCE}
     ${WASM_APP_LIB_SOURCE_ALL}
     ${NATIVE_INTERFACE_SOURCE}
     ${APP_MGR_SOURCE}
