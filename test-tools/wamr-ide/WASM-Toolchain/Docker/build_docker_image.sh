@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 #!/bin/bash
-docker build -t wasm-debug-server:1.0 .
+docker pull gcc:9.3.0
+docker pull ubuntu:20.04
+docker build -t wasm-toolchain:1.0 .
 
 # delete intermediate docker image
-sudo docker image prune -f
+docker image prune -f

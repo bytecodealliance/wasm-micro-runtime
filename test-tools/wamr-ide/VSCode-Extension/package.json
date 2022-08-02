@@ -1,9 +1,12 @@
 {
     "name": "wamride",
     "publisher": "wamr",
+    "repository": {
+        "url": "https://github.com/bytecodealliance/wasm-micro-runtime/tree/main/test-tools/wamr-ide"
+    },
     "displayName": "WAMR-IDE",
     "description": "An Integrated Development Environment for WASM",
-    "version": "0.0.1",
+    "version": "1.0.0",
     "engines": {
         "vscode": "^1.59.0"
     },
@@ -75,11 +78,11 @@
         "viewsWelcome": [
             {
                 "view": "wamride.views.welcome",
-                "contents": "[ Project Management ]\n[$(project)New project](command:wamride.newProject)\n[$(files)Open project](command:wamride.openFolder)\n[$(book)Change workspace](command:wamride.changeWorkspace)\n[$(pencil)Configuration](command:wamride.targetConfig)"
+                "contents": "[ WAMR IDE ]\n[$(project)New project](command:wamride.newProject)\n[$(files)Open project](command:wamride.openFolder)\n[$(book)Change workspace](command:wamride.changeWorkspace)"
             },
             {
                 "view": "wamride.views.welcome",
-                "contents": "[ Execution Management ]\n[$(gear)Build](command:wamride.build)\n[$(run)Run](command:wamride.run)\n[$(debug-alt) Debug](command:wamride.debug)",
+                "contents": "[ Current Project ]\n[$(pencil)Configuration](command:wamride.targetConfig)\n[$(gear)Build](command:wamride.build)\n[$(run)Run](command:wamride.run)\n[$(debug-alt) Debug](command:wamride.debug)",
                 "enablement": "ext.isWasmProject"
             }
         ],
@@ -208,6 +211,11 @@
                     }
                 }
             }
+        ],
+        "taskDefinitions": [
+            {
+                "type": "wasm"
+            }
         ]
     },
     "scripts": {
@@ -216,7 +224,9 @@
         "watch": "tsc -watch -p ./",
         "pretest": "npm run compile && npm run lint",
         "lint": "eslint src --ext ts",
-        "test": "node ./out/test/runTest.js"
+        "test": "node ./out/test/runTest.js",
+        "prettier-format-check": "prettier --config .prettierrc.json 'src/**/*.ts' --check",
+        "prettier-format-apply": "prettier --config .prettierrc.json 'src/**/*.ts' --write"
     },
     "devDependencies": {
         "@types/glob": "^7.1.3",

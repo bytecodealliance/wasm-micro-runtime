@@ -5,4 +5,4 @@
 docker build -t wasm-debug-server:1.0 .
 
 @REM delete intermediate docker image
-sudo docker image prune -f
+docker image prune -f
