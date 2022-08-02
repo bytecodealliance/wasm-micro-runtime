@@ -45,6 +45,25 @@ os_mutex_init(korp_mutex *mutex)
 }
 
 int
+os_recursive_mutex_init(korp_mutex *mutex)
+{
+    int ret;
+
+    pthread_mutexattr_t mattr;
+
+    assert(mutex);
+    ret = pthread_mutexattr_init(&mattr);
+    if (ret)
+        return BHT_ERROR;
+
+    pthread_mutexattr_settype(&mattr, PTHREAD_MUTEX_RECURSIVE);
+    ret = pthread_mutex_init(mutex, &mattr);
+    pthread_mutexattr_destroy(&mattr);
+
+    return ret == 0 ? BHT_OK : BHT_ERROR;
+}
+
+int
 os_mutex_destroy(korp_mutex *mutex)
 {
     return pthread_mutex_destroy(mutex);
@@ -205,4 +224,10 @@ int
 os_cond_signal(korp_cond *cond)
 {
     return pthread_cond_signal(cond);
+}
+
+int
+os_cond_broadcast(korp_cond *cond)
+{
+    return pthread_cond_broadcast(cond);
 }
