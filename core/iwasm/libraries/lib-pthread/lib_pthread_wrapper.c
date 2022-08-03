@@ -197,11 +197,13 @@ lib_pthread_init()
         os_mutex_destroy(&thread_global_lock);
         return false;
     }
+#if WASM_ENABLE_LIB_PTHREAD_SEMAPHORE != 0
     if (!(sem_info_map = bh_hash_map_create(
               32, true, (HashFunc)wasm_string_hash,
               (KeyEqualFunc)wasm_string_equal, NULL, thread_info_destroy))) {
         return false;
     }
+#endif
     return true;
 }
 
