@@ -177,10 +177,12 @@ thread_info_destroy(void *node)
             os_cond_destroy(info_node->u.cond);
         wasm_runtime_free(info_node->u.cond);
     }
+#if WASM_ENABLE_LIB_PTHREAD_SEMAPHORE != 0
     else if (info_node->type == T_SEM) {
         if (info_node->status != SEM_DESTROYED)
             os_sem_close(info_node->u.sem);
     }
+#endif
     wasm_runtime_free(info_node);
     os_mutex_unlock(&thread_global_lock);
 }
