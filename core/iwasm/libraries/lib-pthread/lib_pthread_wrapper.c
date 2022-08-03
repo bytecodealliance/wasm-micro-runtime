@@ -117,7 +117,9 @@ typedef struct ThreadInfoNode {
         korp_tid thread;
         korp_mutex *mutex;
         korp_cond *cond;
+#if WASM_ENABLE_LIB_PTHREAD_SEMAPHORE != 0
         korp_sem *sem;
+#endif
         /* A copy of the thread return value */
         void *ret;
     } u;
@@ -138,28 +140,11 @@ typedef struct {
 } SemCallbackArgs;
 
 static bh_list cluster_info_list;
+#if WASM_ENABLE_LIB_PTHREAD_SEMAPHORE != 0
 static HashMap *sem_info_map;
+#endif
 static korp_mutex thread_global_lock;
 static uint32 handle_id = 1;
-
-/*
- * djb2
- * uses xor: hash(i) = hash(i - 1) * 33 ^ str[i]; the magic of number 33 (why it
- * works better than many other constants, prime or not) has never been
- * adequately explained.
- */
-
-uint32
-sem_name_hash(unsigned char *str)
-{
-    uint32 hash = 5381;
-    int c;
-
-    while ((c = *str++))
-        hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
-
-    return hash;
-}
 
 static void
 lib_pthread_destroy_callback(WASMCluster *cluster);
@@ -192,6 +177,10 @@ thread_info_destroy(void *node)
             os_cond_destroy(info_node->u.cond);
         wasm_runtime_free(info_node->u.cond);
     }
+    else if (info_node->type == T_SEM) {
+        if (info_node->status != SEM_DESTROYED)
+            os_sem_close(info_node->u.sem);
+    }
     wasm_runtime_free(info_node);
     os_mutex_unlock(&thread_global_lock);
 }
@@ -206,9 +195,9 @@ lib_pthread_init()
         os_mutex_destroy(&thread_global_lock);
         return false;
     }
-    if (!(sem_info_map = bh_hash_map_create(32, true, (HashFunc)sem_name_hash,
-                                            thread_handle_equal, NULL,
-                                            thread_info_destroy))) {
+    if (!(sem_info_map = bh_hash_map_create(
+              32, true, (HashFunc)wasm_string_hash,
+              (KeyEqualFunc)wasm_string_equal, NULL, thread_info_destroy))) {
         return false;
     }
     return true;
@@ -1122,7 +1111,7 @@ posix_memalign_wrapper(wasm_exec_env_t exec_env, void **memptr, int32 align,
     return 0;
 }
 
-#ifdef WASM_ENABLE_LIB_PTHREAD_SEMAPHORE
+#if WASM_ENABLE_LIB_PTHREAD_SEMAPHORE != 0
 
 static int32
 sem_open_wrapper(wasm_exec_env_t exec_env, const char *name, int32 oflags)
@@ -1166,7 +1155,7 @@ sem_open_wrapper(wasm_exec_env_t exec_env, const char *name, int32 oflags)
 fail3:
     delete_thread_info_node(info_node);
 fail2:
-    os_sem_unlink(name);
+    os_sem_close(psem);
 fail1:
     return -1;
 }
@@ -1243,7 +1232,7 @@ sem_post_wrapper(wasm_exec_env_t exec_env, uint32 sem)
 }
 
 static int32
-sem_getval_wrapper(wasm_exec_env_t exec_env, uint32 sem, int32 *sval)
+sem_getvalue_wrapper(wasm_exec_env_t exec_env, uint32 sem, int32 *sval)
 {
     int32 ret = -1;
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
@@ -1313,13 +1302,13 @@ static NativeSymbol native_symbols_lib_pthread[] = {
     REG_NATIVE_FUNC(pthread_getspecific, "(i)i"),
     REG_NATIVE_FUNC(pthread_key_delete, "(i)i"),
     REG_NATIVE_FUNC(posix_memalign, "(*ii)i"),
-#ifdef WASM_ENABLE_LIB_PTHREAD_SEMAPHORE
+#if WASM_ENABLE_LIB_PTHREAD_SEMAPHORE != 0
     REG_NATIVE_FUNC(sem_open, "($i)i"),
     REG_NATIVE_FUNC(sem_close, "(i)i"),
     REG_NATIVE_FUNC(sem_wait, "(i)i"),
     REG_NATIVE_FUNC(sem_trywait, "(i)i"),
     REG_NATIVE_FUNC(sem_post, "(i)i"),
-    REG_NATIVE_FUNC(sem_getval, "(i*)i"),
+    REG_NATIVE_FUNC(sem_getvalue, "(i*)i"),
     REG_NATIVE_FUNC(sem_unlink, "($)i"),
 #endif
 };
