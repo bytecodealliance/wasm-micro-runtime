@@ -204,6 +204,10 @@ typedef struct WASMGlobalImport {
     WASMModule *import_module;
     WASMGlobal *import_global_linked;
 #endif
+#if WASM_ENABLE_FAST_JIT != 0
+    /* The data offset of current global in global data */
+    uint32 data_offset;
+#endif
 } WASMGlobalImport;
 
 typedef struct WASMImport {
@@ -254,12 +258,19 @@ struct WASMFunction {
     uint8 *consts;
     uint32 const_cell_num;
 #endif
+#if WASM_ENABLE_FAST_JIT != 0
+    void *fast_jit_jitted_code;
+#endif
 };
 
 struct WASMGlobal {
     uint8 type;
     bool is_mutable;
     InitializerExpression init_expr;
+#if WASM_ENABLE_FAST_JIT != 0
+    /* The data offset of current global in global data */
+    uint32 data_offset;
+#endif
 };
 
 typedef struct WASMExport {
@@ -443,9 +454,12 @@ struct WASMModule {
 #if WASM_ENABLE_DEBUG_INTERP != 0 || WASM_ENABLE_DEBUG_AOT != 0
     bh_list fast_opcode_list;
     uint8 *buf_code;
+    uint64 buf_code_size;
+#endif
+#if WASM_ENABLE_DEBUG_INTERP != 0 || WASM_ENABLE_DEBUG_AOT != 0 \
+    || WASM_ENABLE_FAST_JIT != 0
     uint8 *load_addr;
     uint64 load_size;
-    uint64 buf_code_size;
 #endif
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
@@ -469,6 +483,11 @@ struct WASMModule {
 
 #if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
     WASMCustomSection *custom_section_list;
+#endif
+
+#if WASM_ENABLE_FAST_JIT != 0
+    /* point to JITed functions */
+    void **fast_jit_func_ptrs;
 #endif
 };
 
@@ -612,6 +631,7 @@ wasm_get_smallest_type_idx(WASMType **types, uint32 type_count,
         if (wasm_type_equal(types[cur_type_idx], types[i]))
             return i;
     }
+    (void)type_count;
     return cur_type_idx;
 }
 

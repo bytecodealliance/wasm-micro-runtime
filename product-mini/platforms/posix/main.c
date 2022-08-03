@@ -34,6 +34,10 @@ print_help()
 #endif
     printf("  --stack-size=n         Set maximum stack size in bytes, default is 16 KB\n");
     printf("  --heap-size=n          Set maximum heap size in bytes, default is 16 KB\n");
+#if WASM_ENABLE_FAST_JIT != 0
+    printf("  --jit-codecache-size=n Set fast jit maximum code cache size in bytes,\n");
+    printf("                         default is %u KB\n", FAST_JIT_DEFAULT_CODE_CACHE_SIZE / 1024);
+#endif
     printf("  --repl                 Start a very simple REPL (read-eval-print-loop) mode\n"
            "                         that runs commands in the form of \"FUNC ARG...\"\n");
 #if WASM_ENABLE_LIBC_WASI != 0
@@ -295,6 +299,9 @@ main(int argc, char *argv[])
     uint8 *wasm_file_buf = NULL;
     uint32 wasm_file_size;
     uint32 stack_size = 16 * 1024, heap_size = 16 * 1024;
+#if WASM_ENABLE_FAST_JIT != 0
+    uint32 jit_code_cache_size = FAST_JIT_DEFAULT_CODE_CACHE_SIZE;
+#endif
     wasm_module_t wasm_module = NULL;
     wasm_module_inst_t wasm_module_inst = NULL;
     RuntimeInitArgs init_args;
@@ -354,6 +361,13 @@ main(int argc, char *argv[])
                 return print_help();
             heap_size = atoi(argv[0] + 12);
         }
+#if WASM_ENABLE_FAST_JIT != 0
+        else if (!strncmp(argv[0], "--jit-codecache-size=", 21)) {
+            if (argv[0][21] == '\0')
+                return print_help();
+            jit_code_cache_size = atoi(argv[0] + 21);
+        }
+#endif
 #if WASM_ENABLE_LIBC_WASI != 0
         else if (!strncmp(argv[0], "--dir=", 6)) {
             if (argv[0][6] == '\0')
@@ -469,6 +483,10 @@ main(int argc, char *argv[])
     init_args.mem_alloc_option.allocator.malloc_func = malloc;
     init_args.mem_alloc_option.allocator.realloc_func = realloc;
     init_args.mem_alloc_option.allocator.free_func = free;
+#endif
+
+#if WASM_ENABLE_FAST_JIT != 0
+    init_args.fast_jit_code_cache_size = jit_code_cache_size;
 #endif
 
 #if WASM_ENABLE_DEBUG_INTERP != 0

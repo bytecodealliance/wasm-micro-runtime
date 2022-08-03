@@ -8,7 +8,7 @@
 function DEBUG() {
   [[ -n $(env | grep "\<DEBUG\>") ]] && $@
 }
-DEBUG set -xEevuo pipefail
+DEBUG set -xv pipefail
 
 function help()
 {
@@ -16,7 +16,7 @@ function help()
     echo "-c clean previous test results, not start test"
     echo "-s {suite_name} test only one suite (spec)"
     echo "-m set compile target of iwasm(x86_64\x86_32\armv7_vfp\thumbv7_vfp\riscv64_lp64d\riscv64_lp64)"
-    echo "-t set compile type of iwasm(classic-interp\fast-interp\jit\aot)"
+    echo "-t set compile type of iwasm(classic-interp\fast-interp\jit\aot\fast-jit)"
     echo "-M enable multi module feature"
     echo "-p enable multi thread feature"
     echo "-S enable SIMD feature"
@@ -29,7 +29,7 @@ function help()
 OPT_PARSED=""
 WABT_BINARY_RELEASE="NO"
 #default type
-TYPE=("classic-interp" "fast-interp" "jit" "aot")
+TYPE=("classic-interp" "fast-interp" "jit" "aot" "fast-jit")
 #default target
 TARGET="X86_64"
 ENABLE_MULTI_MODULE=0
@@ -80,7 +80,7 @@ do
         t)
         echo "set compile type of wamr " ${OPTARG}
         if [[ ${OPTARG} != "classic-interp" && ${OPTARG} != "fast-interp" \
-            && ${OPTARG} != "jit" && ${OPTARG} != "aot" ]]; then
+            && ${OPTARG} != "jit" && ${OPTARG} != "aot" && ${OPTARG} != "fast-jit" ]]; then
             echo "*----- please varify a type of compile when using -t! -----*"
             help
             exit 1
@@ -186,11 +186,19 @@ readonly AOT_COMPILE_FLAGS="\
     -DWAMR_BUILD_SPEC_TEST=1 \
     -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
 
+readonly FAST_JIT_COMPILE_FLAGS="\
+    -DWAMR_BUILD_TARGET=${TARGET} \
+    -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_INTERP=0 \
+    -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=0 \
+    -DWAMR_BUILD_FAST_JIT=1 \
+    -DWAMR_BUILD_SPEC_TEST=1"
+
 readonly COMPILE_FLAGS=(
         "${CLASSIC_INTERP_COMPILE_FLAGS}"
         "${FAST_INTERP_COMPILE_FLAGS}"
         "${JIT_COMPILE_FLAGS}"
         "${AOT_COMPILE_FLAGS}"
+        "${FAST_JIT_COMPILE_FLAGS}"
     )
 
 # TODO: with libiwasm.so only
@@ -609,6 +617,16 @@ function trigger()
                 collect_coverage aot
             ;;
 
+            "fast-jit")
+                echo "work in fast-jit mode"
+                # jit
+                BUILD_FLAGS="$FAST_JIT_COMPILE_FLAGS $EXTRA_COMPILE_FLAGS"
+                build_iwasm_with_cfg $BUILD_FLAGS
+                for suite in "${TEST_CASE_ARR[@]}"; do
+                    $suite"_test" fast-jit
+                done
+            ;;
+
             *)
             echo "unexpected mode, do nothing"
             ;;
@@ -627,6 +645,6 @@ else
 fi
 
 echo -e "\033[32mTest finish. Reports are under ${REPORT_DIR} \033[0m"
-DEBUG set +xEevuo pipefail
+DEBUG set +xv pipefail
 echo "TEST SUCCESSFUL"
 exit 0

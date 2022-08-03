@@ -3,12 +3,11 @@
 
 #!/bin/bash
 
-target_name=$1
-
 docker run -it --name=wasm-debug-server-ctr \
-           -v $(pwd):/mnt \
+           -v "$(pwd)":/mnt \
            -p 1234:1234 \
            wasm-debug-server:1.0 \
-           /bin/bash -c "./debug.sh ${target_name}"
+           /bin/bash -c "./debug.sh $1"
 
-docker stop wasm-debug-server-ctr && docker rm wasm-debug-server-ctr
+docker stop wasm-debug-server-ctr>/dev/null
+docker rm wasm-debug-server-ctr>/dev/null

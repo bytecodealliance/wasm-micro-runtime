@@ -84,6 +84,17 @@ typedef struct WASMExecEnv {
     void **native_symbol;
 #endif
 
+#if WASM_ENABLE_FAST_JIT != 0
+    /**
+     * Cache for
+     * - jit native operations in 32-bit target which hasn't 64-bit
+     *   int/float registers, mainly for the operations of double and int64,
+     *   such as F64TOI64, F32TOI64, I64 MUL/REM, and so on.
+     * - SSE instructions.
+     **/
+    uint64 jit_cache[2];
+#endif
+
 #if WASM_ENABLE_THREAD_MGR != 0
     /* thread return value */
     void *thread_ret_value;

@@ -27,6 +27,9 @@
 #if WASM_ENABLE_SHARED_MEMORY != 0
 #include "wasm_shared_memory.h"
 #endif
+#if WASM_ENABLE_FAST_JIT != 0
+#include "../fast-jit/jit_compiler.h"
+#endif
 #include "../common/wasm_c_api_internal.h"
 
 /**
@@ -116,6 +119,10 @@ runtime_malloc(uint64 size, WASMModuleInstanceCommon *module_inst,
     memset(mem, 0, (uint32)size);
     return mem;
 }
+
+#if WASM_ENABLE_FAST_JIT != 0
+static JitCompOptions jit_options = { 0 };
+#endif
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
 /* The exec_env of thread local storage, set before calling function
@@ -259,8 +266,20 @@ wasm_runtime_env_init()
     }
 #endif
 
+#if WASM_ENABLE_FAST_JIT != 0
+    if (!jit_compiler_init(&jit_options)) {
+        goto fail9;
+    }
+#endif
+
     return true;
 
+#if WASM_ENABLE_FAST_JIT != 0
+fail9:
+#if WASM_ENABLE_REF_TYPES != 0
+    wasm_externref_map_destroy();
+#endif
+#endif
 #if WASM_ENABLE_REF_TYPES != 0
 fail8:
 #endif
@@ -321,6 +340,10 @@ wasm_runtime_init()
 void
 wasm_runtime_destroy()
 {
+#if WASM_ENABLE_FAST_JIT != 0
+    jit_compiler_destroy();
+#endif
+
 #if WASM_ENABLE_REF_TYPES != 0
     wasm_externref_map_destroy();
 #endif
@@ -367,6 +390,10 @@ wasm_runtime_full_init(RuntimeInitArgs *init_args)
     if (!wasm_runtime_memory_init(init_args->mem_alloc_type,
                                   &init_args->mem_alloc_option))
         return false;
+
+#if WASM_ENABLE_FAST_JIT != 0
+    jit_options.code_cache_size = init_args->fast_jit_code_cache_size;
+#endif
 
     if (!wasm_runtime_env_init()) {
         wasm_runtime_memory_destroy();
