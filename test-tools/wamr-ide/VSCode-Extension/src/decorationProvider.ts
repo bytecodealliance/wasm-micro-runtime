@@ -51,7 +51,7 @@ export class DecorationProvider implements vscode.FileDecorationProvider {
         currentPrjDir =
             os.platform() === 'win32'
                 ? (vscode.workspace.workspaceFolders?.[0].uri.fsPath as string)
-                : os.platform() === 'linux'
+                : os.platform() === 'linux' || os.platform() === 'darwin'
                 ? (currentPrjDir = vscode.workspace.workspaceFolders?.[0].uri
                       .path as string)
                 : '';

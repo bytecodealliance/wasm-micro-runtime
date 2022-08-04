@@ -58,7 +58,7 @@ export async function activate(context: vscode.ExtensionContext) {
         runScript = scriptPrefix.concat('run.bat');
         debugScript = scriptPrefix.concat('boot_debugger_server.bat');
         destroyScript = scriptPrefix.concat('destroy.bat');
-    } else if (OS_PLATFORM === 'linux') {
+    } else if (OS_PLATFORM === 'linux' || OS_PLATFORM === 'darwin') {
         buildScript = scriptPrefix.concat('build.sh');
         runScript = scriptPrefix.concat('run.sh');
         debugScript = scriptPrefix.concat('boot_debugger_server.sh');
@@ -90,7 +90,7 @@ export async function activate(context: vscode.ExtensionContext) {
         if (OS_PLATFORM === 'win32') {
             currentPrjDir = vscode.workspace.workspaceFolders?.[0].uri
                 .fsPath as string;
-        } else if (OS_PLATFORM === 'linux') {
+        } else if (OS_PLATFORM === 'linux' || OS_PLATFORM === 'darwin') {
             currentPrjDir = vscode.workspace.workspaceFolders?.[0].uri
                 .path as string;
         }
@@ -660,7 +660,7 @@ export async function activate(context: vscode.ExtensionContext) {
                                 let _path = curWorkspace.concat(
                                     OS_PLATFORM === 'win32'
                                         ? '\\'
-                                        : OS_PLATFORM === 'linux'
+                                        : OS_PLATFORM === 'linux' || OS_PLATFORM === 'darwin'
                                         ? '/'
                                         : '',
                                     option
