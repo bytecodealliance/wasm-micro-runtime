@@ -67,14 +67,14 @@ Sometimes building the Docker images may fail due to bad network conditions. If 
 
 ```xml
 $ cd .\docker_images\wasm-debug-server
-$ docker build --no-cache --build-arg http_proxy=http://proxy-example.com:1234
---build-arg https_proxy=http://proxy-example.com:1234 -t wasm-debug-server:1.0 .
+$ docker build --no-cache --build-arg http_proxy=http://proxy.example.com:1234
+--build-arg https_proxy=http://proxy.example.com:1234 -t wasm-debug-server:1.0 .
 ```
 
 ```xml
 $ cd .\docker_images\wasm-toolchain
-$ docker build --no-cache --build-arg http_proxy=http://proxy-example.com:1234
---build-arg https_proxy=http://proxy-example.com:1234 -t wasm-toolchain:1.0 .
+$ docker build --no-cache --build-arg http_proxy=http://proxy.example.com:1234
+--build-arg https_proxy=http://proxy.example.com:1234 -t wasm-toolchain:1.0 .
 ```
 
 #### If you encounter the problem `failed to solve with frontend dockerfile.v0: failed to create LLB definition`, please config your docker desktop
