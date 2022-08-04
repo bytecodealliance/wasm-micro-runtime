@@ -19,15 +19,13 @@ echo "Prepare to clean up the docker containers..."
 
 if test ! -z "$(docker ps -a | grep wasm-toolchain-ctr)"; then
     echo "Stopping and removing wasm-toolchain-ctr container..."
-    docker stop wasm-toolchain-ctr>/dev/null
-    docker rm wasm-toolchain-ctr>/dev/null
+    docker rm -f wasm-toolchain-ctr>/dev/null
     echo "Done."
 fi
 
 if test ! -z "$(docker ps -a | grep wasm-debug-server-ctr)"; then
     echo "Stopping and removing wasm-debug-server-ctr container..."
-    docker stop wasm-debug-server-ctr>/dev/null
-    docker rm wasm-debug-server-ctr>/dev/null
+    docker rm -f wasm-debug-server-ctr>/dev/null
     echo "Done."
 fi
 

@@ -22,16 +22,14 @@ echo "Prepare to clean up the docker containers..."
 call docker inspect wasm-toolchain-ctr>nul 2>nul
 IF %ERRORLEVEL% EQU 0 (
     echo "Stopping and removing wasm-toolchain-ctr container..."
-    docker stop wasm-toolchain-ctr>nul 2>nul
-    docker rm wasm-toolchain-ctr>nul 2>nul
+    docker rm -f wasm-toolchain-ctr>nul 2>nul
     echo "Done."
 )
 
 call docker inspect wasm-debug-server-ctr>nul 2>nul
 IF %ERRORLEVEL% EQU 0 (
     echo "Stopping and removing wasm-debug-server-ctr container..."
-    docker stop wasm-debug-server-ctr>nul 2>nul
-    docker rm wasm-debug-server-ctr>nul 2>nul
+    docker rm -f wasm-debug-server-ctr>nul 2>nul
     echo "Done."
 )
 
