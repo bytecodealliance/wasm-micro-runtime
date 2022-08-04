@@ -89,6 +89,14 @@ $ docker build --no-cache --build-arg http_proxy=http://proxy.example.com:1234
 
 `wamride-1.0.0.vsix` can be packaged by [`npm vsce`](https://code.visualstudio.com/api/working-with-extensions/publishing-extension).
 
+```shell
+$ npm install -g vsce
+$ cd VSCode-Extension
+$ rm -rf node_modules
+$ npm install
+$ vsce package
+```
+
 > Note that patched `lldb` should be built and put into the `VSCode-Extension/resource/debug` folder before your package or extension debug process if you want to enable `source debugging` feature. Please follow this [instruction](../../doc/source_debugging.md#debugging-with-interpreter) to build `lldb`.
 >
 > **You can also debug the extension directly follow this [instruction](./VSCode-Extension/README.md) without packing the extension.**
