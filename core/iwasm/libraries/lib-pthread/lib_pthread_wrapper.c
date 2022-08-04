@@ -5,6 +5,7 @@
 
 #include "bh_common.h"
 #include "bh_log.h"
+#include "platform_api_extension.h"
 #include "wasm_export.h"
 #include "../interpreter/wasm.h"
 #include "../common/wasm_runtime_common.h"
@@ -1125,9 +1126,9 @@ sem_open_wrapper(wasm_exec_env_t exec_env, const char *name, int32 oflags)
     ThreadInfoNode *info_node = NULL;
 
     /**
-     * For RTOS, global semaphore map is safety for share the same semaphore
+     * For RTOS, global semaphore map is safe for share the same semaphore
      * between task/pthread.
-     * For Unix like system, it's dedicate for multiple processes.
+     * For Unix like system, it's dedicated for multiple processes.
      */
 
     if ((info_node = bh_hash_map_find(sem_info_map, (void *)name))) {
@@ -1148,12 +1149,16 @@ sem_open_wrapper(wasm_exec_env_t exec_env, const char *name, int32 oflags)
     info_node->u.sem = psem;
     info_node->status = SEM_CREATED;
 
-    if (!append_thread_info_node(info_node))
-        goto fail3;
+    if (!(info_node = wasm_runtime_malloc(sizeof(ThreadInfoNode))))
+        goto fail2;
 
-    if (!bh_hash_map_insert(sem_info_map, (void *)name, info_node)) {
-        goto fail3;
+    if (!append_thread_info_node(info_node)) {
+        wasm_runtime_free(info_node);
+        goto fail2;
     }
+
+    if (!bh_hash_map_insert(sem_info_map, (void *)name, info_node))
+        goto fail3; // only goto fail3 when append thread info node success
 
     return info_node->handle;
 
@@ -1249,7 +1254,7 @@ sem_getvalue_wrapper(wasm_exec_env_t exec_env, uint32 sem, int32 *sval)
     (void)exec_env;
     SemCallbackArgs args = { sem, NULL };
 
-    if (validate_app_addr((uint32)sval, sizeof(int32))) {
+    if (validate_native_addr((uint32)sval, sizeof(int32))) {
 
         bh_hash_map_traverse(sem_info_map, sem_fetch_cb, &args);
 
@@ -1271,11 +1276,14 @@ sem_unlink_wrapper(wasm_exec_env_t exec_env, const char *name)
     if (!info_node || info_node->type != T_SEM)
         return -1;
 
+    if (info_node->status != SEM_CLOSED)
+        os_sem_close(info_node->u.sem);
+
     ret_val = os_sem_unlink(name);
 
     if (ret_val == 0) {
         bh_hash_map_remove(sem_info_map, (void *)name, NULL, NULL);
-        info_node->status = MUTEX_DESTROYED;
+        info_node->status = SEM_DESTROYED;
         delete_thread_info_node(info_node);
     }
     return ret_val;

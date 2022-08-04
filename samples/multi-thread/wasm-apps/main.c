@@ -56,7 +56,7 @@ main(int argc, char *argv[])
     pthread_mutex_lock(&mutex);
     if (pthread_create(&tid, NULL, thread, &num) != 0) {
         printf("Failed to create thread.\n");
-        goto fail2;
+        goto fail3;
     }
 
     printf("cond wait start\n");
@@ -74,9 +74,10 @@ main(int argc, char *argv[])
 
     ret = 0;
 
-fail2:
+fail3:
     sem_close(sem);
     sem_unlink("testsem");
+fail2:
     pthread_cond_destroy(&cond);
 fail1:
     pthread_mutex_destroy(&mutex);
