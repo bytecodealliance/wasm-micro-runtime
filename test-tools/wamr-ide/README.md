@@ -113,7 +113,7 @@ select `wamride-1.0.0.vsix` which you have packed on your host.
 
 When you click `New project` button, the extension will pop up a message box at the bottom right of the screen as following:
 
-![set-up-workspace-message](./Media/set-up-workspace-message.png "set up workspace message box")
+![set-up-workspace-message](./Media/set_up_workspace_message.png "set up workspace message box")
 
 You can click `Set up now` and select the target folder to create project workspace, or you click `Maybe later` to close the message box.
 
