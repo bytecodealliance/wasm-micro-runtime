@@ -76,6 +76,7 @@ enum cond_status_t {
 
 enum sem_status_t {
     SEM_CREATED,
+    SEM_CLOSED,
     SEM_DESTROYED,
 };
 
@@ -1170,7 +1171,7 @@ sem_fetch_cb(void *key, void *value, void *user_data)
     (void)key;
     SemCallbackArgs *args = user_data;
     ThreadInfoNode *info_node = value;
-    if (args->handle == info_node->handle) {
+    if (args->handle == info_node->handle && info_node->status == SEM_CREATED) {
         args->node = info_node;
     }
 }
@@ -1179,15 +1180,19 @@ static int32
 sem_close_wrapper(wasm_exec_env_t exec_env, uint32 sem)
 {
     (void)exec_env;
+    int ret = -1;
     SemCallbackArgs args = { sem, NULL };
 
     bh_hash_map_traverse(sem_info_map, sem_fetch_cb, &args);
 
     if (args.node) {
-        return os_sem_close(args.node->u.sem);
+        ret = os_sem_close(args.node->u.sem);
+        if (ret == 0) {
+            args.node->status = SEM_CLOSED;
+        }
     }
 
-    return -1;
+    return ret;
 }
 
 static int32
