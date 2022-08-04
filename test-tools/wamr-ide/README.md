@@ -33,14 +33,14 @@ The WAMR-IDE is an Integrated Development Environment to develop WebAssembly app
 
 #### 3. Build docker images
 
-We have 2 docker images which should be built or loaded on your host, `wasm-toolchain` and `wasm-debug-server`. To build these 2 images, please enter the `WASM_Source_Debug_Server/Docker` & `WASM_Toolchain/Docker`, then execute the `build_docker_image` script respectively.
+We have 2 docker images which should be built or loaded on your host, `wasm-toolchain` and `wasm-debug-server`. To build these 2 images, please enter the `WASM-Debug-Server/Docker` & `WASM-Toolchain/Docker`, then execute the `build_docker_image` script respectively.
 
 Windows (powershell):
 
 ```batch
 $ cd .\WASM-Toolchain\Docker
 $ ./build_docker_image.bat
-$ cd .\WASM-Source-Debug-Server\Docker
+$ cd .\WASM-Debug-Server\Docker
 $ ./build_docker_image.bat
 ```
 
@@ -89,9 +89,9 @@ $ docker build --no-cache --build-arg http_proxy=http://proxy-example.com:1234
 
 `wamride-1.0.0.vsix` can be packaged by [`npm vsce`](https://code.visualstudio.com/api/working-with-extensions/publishing-extension).
 
-> Note that patched `lldb` should be built and put into the `VSCode_Extension/resource/debug` folder before your package or extension debug process if you want to enable `source debugging` feature. Please follow this [instruction](../../doc/source_debugging.md#debugging-with-interpreter) to build `lldb`.
+> Note that patched `lldb` should be built and put into the `VSCode-Extension/resource/debug` folder before your package or extension debug process if you want to enable `source debugging` feature. Please follow this [instruction](../../doc/source_debugging.md#debugging-with-interpreter) to build `lldb`.
 >
-> **You can also debug the extension directly follow this [instruction](./VSCode_Extension/README.md) without packing the extension.**
+> **You can also debug the extension directly follow this [instruction](./VSCode-Extension/README.md) without packing the extension.**
 
 #### 5. Install extension from vsix
 
