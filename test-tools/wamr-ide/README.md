@@ -97,8 +97,11 @@ $ npm install
 $ vsce package
 ```
 
-> Note that patched `lldb` should be built and put into the `VSCode-Extension/resource/debug` folder before your package or extension debug process if you want to enable `source debugging` feature. Please follow this [instruction](../../doc/source_debugging.md#debugging-with-interpreter) to build `lldb`.
->
+Note that patched `lldb` should be built and put into the `VSCode-Extension/resource/debug` folder before your package or extension debug process if you want to enable `source debugging` feature.
+Please follow this [instruction](../../doc/source_debugging.md#debugging-with-interpreter) to build `lldb`.
+Please follow this [instruction](./VSCode-Extension/resource/debug/README.md)
+to copy the binaries.
+
 > **You can also debug the extension directly follow this [instruction](./VSCode-Extension/README.md) without packing the extension.**
 
 #### 5. Install extension from vsix
