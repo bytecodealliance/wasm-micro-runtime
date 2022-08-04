@@ -800,9 +800,10 @@ is_targeting_soft_float(AOTCompContext *comp_ctx, bool is_f32)
      * so user must specify '--cpu-features=+soft-float' to wamrc if the target
      * doesn't have or enable FPU on arm, x86 or mips. */
     if (is_target_arm(comp_ctx) || is_target_x86(comp_ctx)
-        || is_target_mips(comp_ctx))
+        || is_target_mips(comp_ctx)) {
         ret = strstr(feature_string, "+soft-float") ? true : false;
-    else if (is_target_xtensa(comp_ctx))
+    }
+    else if (is_target_xtensa(comp_ctx)) {
         /* Note:
          * 1. The Floating-Point Coprocessor Option of xtensa only support
          * single-precision floating-point operations, so must use soft-float
@@ -811,7 +812,11 @@ is_targeting_soft_float(AOTCompContext *comp_ctx, bool is_f32)
          * so user must specify '--cpu-features=-fp' to wamrc if the target
          * doesn't have or enable Floating-Point Coprocessor Option on xtensa.
          */
-        ret = (!is_f32 || strstr(feature_string, "-fp")) ? true : false;
+        if (comp_ctx->disable_llvm_intrinsics)
+            ret = false;
+        else
+            ret = (!is_f32 || strstr(feature_string, "-fp")) ? true : false;
+    }
     else if (is_target_riscv(comp_ctx)) {
         /*
          * Note: Use builtin intrinsics since hardware float operation
@@ -823,8 +828,9 @@ is_targeting_soft_float(AOTCompContext *comp_ctx, bool is_f32)
         else
             ret = !strstr(feature_string, "+d") ? true : false;
     }
-    else
+    else {
         ret = true;
+    }
 
     LLVMDisposeMessage(feature_string);
     return ret;

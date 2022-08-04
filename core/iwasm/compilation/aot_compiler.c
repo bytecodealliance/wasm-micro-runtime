@@ -2742,8 +2742,9 @@ aot_require_lower_switch_pass(AOTCompContext *comp_ctx)
 {
     bool ret = false;
 
-    /* IR switch/case will cause .rodata relocation on riscv */
-    if (!strncmp(comp_ctx->target_arch, "riscv", 5)) {
+    /* IR switch/case will cause .rodata relocation on riscv/xtensa */
+    if (!strncmp(comp_ctx->target_arch, "riscv", 5)
+        || !strncmp(comp_ctx->target_arch, "xtensa", 6)) {
         ret = true;
     }
 
