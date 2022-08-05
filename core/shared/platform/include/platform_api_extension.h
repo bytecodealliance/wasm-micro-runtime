@@ -198,7 +198,7 @@ os_cond_broadcast(korp_cond *cond);
 /**
  * Creates a new POSIX-like semaphore or opens an existing
  * semaphore.  The semaphore is identified by name.  For details of
- * the construction of name, please refer to 
+ * the construction of name, please refer to
  * https://man7.org/linux/man-pages/man3/sem_open.3.html.
  *
  * @param name semaphore name
