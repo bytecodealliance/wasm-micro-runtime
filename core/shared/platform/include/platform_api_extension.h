@@ -196,14 +196,15 @@ int
 os_cond_broadcast(korp_cond *cond);
 
 /**
- * Creates a new POSIX semaphore or opens an existing
+ * Creates a new POSIX-like semaphore or opens an existing
  * semaphore.  The semaphore is identified by name.  For details of
- * the construction of name
+ * the construction of name, please refer to 
+ * https://man7.org/linux/man-pages/man3/sem_open.3.html.
  *
  * @param name semaphore name
  * @param oflasg specifies flags that control the operation of the call
  *
- * @return 0 if success
+ * @return korp_sem * if success, NULL otherwise
  */
 korp_sem *
 os_sem_open(const char *name, int oflags);
