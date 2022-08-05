@@ -50,7 +50,7 @@ main(int argc, char *argv[])
 
     if (!(sem = sem_open("testsem", 0100 | 02))) {
         printf("Failed to open sem. %p\n", sem);
-        goto fail1;
+        goto fail2;
     }
 
     pthread_mutex_lock(&mutex);

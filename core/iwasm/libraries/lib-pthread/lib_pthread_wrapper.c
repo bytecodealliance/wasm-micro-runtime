@@ -1149,16 +1149,13 @@ sem_open_wrapper(wasm_exec_env_t exec_env, const char *name, int32 oflags)
     info_node->u.sem = psem;
     info_node->status = SEM_CREATED;
 
-    if (!(info_node = wasm_runtime_malloc(sizeof(ThreadInfoNode))))
-        goto fail2;
-
     if (!append_thread_info_node(info_node)) {
         wasm_runtime_free(info_node);
         goto fail2;
     }
 
     if (!bh_hash_map_insert(sem_info_map, (void *)name, info_node))
-        goto fail3; // only goto fail3 when append thread info node success
+        goto fail3;
 
     return info_node->handle;
 
