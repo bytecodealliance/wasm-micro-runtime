@@ -17,7 +17,7 @@ typedef unsigned int sem_t;
 /* Semaphore APIs */
 
 sem_t *
-sem_open(const char *name, int oflag);
+sem_open(const char *name, int oflag, int mode, int val);
 
 int
 sem_wait(sem_t *sem);

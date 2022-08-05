@@ -48,8 +48,9 @@ main(int argc, char *argv[])
         goto fail1;
     }
 
-    // O_CREAT on linux (glibc)
-    if (!(sem = sem_open("testsem", 0100))) {
+    // O_CREAT and S_IRGRPS_IRGRP | S_IWGRP on linux (glibc), initial value is 0
+
+    if (!(sem = sem_open("tessstsem", 0100, 0x10 | 0x20, 0))) {
         printf("Failed to open sem. %p\n", sem);
         goto fail2;
     }
@@ -57,6 +58,7 @@ main(int argc, char *argv[])
     pthread_mutex_lock(&mutex);
     if (pthread_create(&tid, NULL, thread, &num) != 0) {
         printf("Failed to create thread.\n");
+        pthread_mutex_unlock(&mutex);
         goto fail3;
     }
 
@@ -80,7 +82,7 @@ main(int argc, char *argv[])
 
 fail3:
     sem_close(sem);
-    sem_unlink("testsem");
+    sem_unlink("tessstsem");
 fail2:
     pthread_cond_destroy(&cond);
 fail1:

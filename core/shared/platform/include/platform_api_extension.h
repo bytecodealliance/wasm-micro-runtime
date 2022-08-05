@@ -203,11 +203,13 @@ os_cond_broadcast(korp_cond *cond);
  *
  * @param name semaphore name
  * @param oflasg specifies flags that control the operation of the call
+ * @param mode permission flags
+ * @param val initial value of the named semaphore.
  *
  * @return korp_sem * if success, NULL otherwise
  */
 korp_sem *
-os_sem_open(const char *name, int oflags);
+os_sem_open(const char *name, int oflags, int mode, int val);
 
 /**
  * Closes the named semaphore referred to by sem,

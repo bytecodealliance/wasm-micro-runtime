@@ -196,9 +196,9 @@ os_cond_wait(korp_cond *cond, korp_mutex *mutex)
 }
 
 korp_sem *
-os_sem_open(const char *name, int oflags)
+os_sem_open(const char *name, int oflags, int mode, int val)
 {
-    return sem_open(name, oflags);
+    return sem_open(name, oflags, mode, val);
 }
 
 int

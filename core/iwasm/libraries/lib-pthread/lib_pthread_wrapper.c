@@ -203,6 +203,7 @@ lib_pthread_init()
     if (!(sem_info_map = bh_hash_map_create(
               32, true, (HashFunc)wasm_string_hash,
               (KeyEqualFunc)wasm_string_equal, NULL, thread_info_destroy))) {
+        os_mutex_destroy(&thread_global_lock);
         return false;
     }
 #endif
@@ -1120,7 +1121,8 @@ posix_memalign_wrapper(wasm_exec_env_t exec_env, void **memptr, int32 align,
 #if WASM_ENABLE_LIB_PTHREAD_SEMAPHORE != 0
 
 static int32
-sem_open_wrapper(wasm_exec_env_t exec_env, const char *name, int32 oflags)
+sem_open_wrapper(wasm_exec_env_t exec_env, const char *name, int32 oflags,
+                 int32 mode, int32 val)
 {
     korp_sem *psem = NULL;
     ThreadInfoNode *info_node = NULL;
@@ -1135,7 +1137,7 @@ sem_open_wrapper(wasm_exec_env_t exec_env, const char *name, int32 oflags)
         return info_node->handle;
     }
 
-    if (!(psem = os_sem_open(name, oflags))) {
+    if (!(psem = os_sem_open(name, oflags, mode, val))) {
         goto fail1;
     }
 
@@ -1251,13 +1253,12 @@ sem_getvalue_wrapper(wasm_exec_env_t exec_env, uint32 sem, int32 *sval)
     (void)exec_env;
     SemCallbackArgs args = { sem, NULL };
 
-    if (validate_native_addr((uint32)sval, sizeof(int32))) {
+    if (validate_native_addr(sval, sizeof(int32))) {
 
         bh_hash_map_traverse(sem_info_map, sem_fetch_cb, &args);
 
         if (args.node) {
-            ret = os_sem_getvalue(args.node->u.sem,
-                                  addr_app_to_native((uint32)sval));
+            ret = os_sem_getvalue(args.node->u.sem, sval);
         }
     }
     return ret;
@@ -1273,8 +1274,12 @@ sem_unlink_wrapper(wasm_exec_env_t exec_env, const char *name)
     if (!info_node || info_node->type != T_SEM)
         return -1;
 
-    if (info_node->status != SEM_CLOSED)
-        os_sem_close(info_node->u.sem);
+    if (info_node->status != SEM_CLOSED) {
+        ret_val = os_sem_close(info_node->u.sem);
+        if (ret_val != 0) {
+            return ret_val;
+        }
+    }
 
     ret_val = os_sem_unlink(name);
 
@@ -1317,7 +1322,7 @@ static NativeSymbol native_symbols_lib_pthread[] = {
     REG_NATIVE_FUNC(pthread_key_delete, "(i)i"),
     REG_NATIVE_FUNC(posix_memalign, "(*ii)i"),
 #if WASM_ENABLE_LIB_PTHREAD_SEMAPHORE != 0
-    REG_NATIVE_FUNC(sem_open, "($i)i"),
+    REG_NATIVE_FUNC(sem_open, "($iii)i"),
     REG_NATIVE_FUNC(sem_close, "(i)i"),
     REG_NATIVE_FUNC(sem_wait, "(i)i"),
     REG_NATIVE_FUNC(sem_trywait, "(i)i"),
