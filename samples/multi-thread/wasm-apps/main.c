@@ -65,7 +65,10 @@ main(int argc, char *argv[])
     pthread_mutex_unlock(&mutex);
     printf("cond wait success.\n");
 
-    if (0 == sem_wait(sem)) {
+    if (sem_wait(sem) != 0) {
+        printf("Failed to wait sem.\n");
+    }
+    else {
         printf("sem wait success.\n");
     }
 
