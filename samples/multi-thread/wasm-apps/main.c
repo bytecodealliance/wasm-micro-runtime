@@ -48,7 +48,8 @@ main(int argc, char *argv[])
         goto fail1;
     }
 
-    if (!(sem = sem_open("testsem", 0100 | 02))) {
+    // O_CREAT on linux (glibc)
+    if (!(sem = sem_open("testsem", 0100))) {
         printf("Failed to open sem. %p\n", sem);
         goto fail2;
     }
