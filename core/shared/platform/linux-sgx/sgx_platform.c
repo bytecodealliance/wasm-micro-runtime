@@ -60,16 +60,18 @@ os_set_print_function(os_print_function_t pf)
 int
 os_printf(const char *message, ...)
 {
+    int bytes_written = 0;
+
     if (print_function != NULL) {
         char msg[FIXED_BUFFER_SIZE] = { '\0' };
         va_list ap;
         va_start(ap, message);
-        vsnprintf(msg, FIXED_BUFFER_SIZE, message, ap);
+        bytes_written += vsnprintf(msg, FIXED_BUFFER_SIZE, message, ap);
         va_end(ap);
         print_function(msg);
     }
 
-    return 0;
+    return bytes_written;
 }
 
 int
