@@ -1986,6 +1986,15 @@ call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
         ret = false;
     }
 
+    if (wasm_get_exception(module_inst)) {
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
+        if (wasm_interp_create_call_stack(exec_env)) {
+            wasm_interp_dump_call_stack(exec_env, true, NULL, 0);
+        }
+#endif
+        wasm_interp_restore_wasm_frame(exec_env);
+    }
+
     jmpbuf_node_pop = wasm_exec_env_pop_jmpbuf(exec_env);
     bh_assert(&jmpbuf_node == jmpbuf_node_pop);
     if (!exec_env->jmpbuf_stack_top) {
@@ -2014,16 +2023,7 @@ wasm_call_function(WASMExecEnv *exec_env, WASMFunctionInstance *function,
 
     interp_call_wasm(module_inst, exec_env, function, argc, argv);
     (void)clear_wasi_proc_exit_exception(module_inst);
-    if (!wasm_get_exception(module_inst)) {
-        return true;
-    }
-
-#if WASM_ENABLE_DUMP_CALL_STACK != 0
-    if (wasm_interp_create_call_stack(exec_env)) {
-        wasm_interp_dump_call_stack(exec_env, true, NULL, 0);
-    }
-#endif
-    return false;
+    return !wasm_get_exception(module_inst) ? true : false;
 }
 
 bool
@@ -2672,18 +2672,9 @@ call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 elem_idx,
     interp_call_wasm(module_inst, exec_env, func_inst, argc, argv);
 
     (void)clear_wasi_proc_exit_exception(module_inst);
-
-    if (!wasm_get_exception(module_inst)) {
-        return true;
-    }
+    return !wasm_get_exception(module_inst) ? true : false;
 
 got_exception:
-#if WASM_ENABLE_DUMP_CALL_STACK != 0
-    if (wasm_interp_create_call_stack(exec_env)) {
-        wasm_interp_dump_call_stack(exec_env, true, NULL, 0);
-    }
-#endif
-
     return false;
 }
 

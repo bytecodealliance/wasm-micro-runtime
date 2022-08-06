@@ -493,6 +493,18 @@ const uint8 *
 wasm_loader_get_custom_section(WASMModule *module, const char *name,
                                uint32 *len);
 
+/**
+ * @brief Restore the wasm stack frame to the last native frame or the begging
+ * of the whole stack
+ * @note e.g. for stack "begin --> interp --> interp", it will back to the
+ * "begin", for stack "begin --> interp --> native --> interp", it will become
+ * "begin --> interp --> native"
+ *
+ * @param exec_env the execution environment
+ */
+void
+wasm_interp_restore_wasm_frame(WASMExecEnv *exec_env);
+
 #ifdef __cplusplus
 }
 #endif

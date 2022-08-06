@@ -781,6 +781,27 @@ FREE_FRAME(WASMExecEnv *exec_env, WASMInterpFrame *frame)
     wasm_exec_env_free_wasm_frame(exec_env, frame);
 }
 
+void
+wasm_interp_restore_wasm_frame(WASMExecEnv *exec_env)
+{
+    WASMInterpFrame *cur_frame, *prev_frame;
+
+    cur_frame = wasm_exec_env_get_cur_frame(exec_env);
+    while (cur_frame) {
+        prev_frame = cur_frame->prev_frame;
+        cur_frame = prev_frame;
+
+        if (cur_frame->ip) {
+            /* FREE_FRAME just set the wasm_stack.s.top pointer, we only need to
+             * call it once */
+            FREE_FRAME(exec_env, cur_frame);
+            break;
+        }
+    }
+
+    wasm_exec_env_set_cur_frame(exec_env, cur_frame);
+}
+
 static void
 wasm_interp_call_func_native(WASMModuleInstance *module_inst,
                              WASMExecEnv *exec_env,
@@ -3973,6 +3994,11 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
         }
     }
     else {
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
+        if (wasm_interp_create_call_stack(exec_env)) {
+            wasm_interp_dump_call_stack(exec_env, true, NULL, 0);
+        }
+#endif
         LOG_DEBUG("meet an exception %s", wasm_get_exception(module_inst));
     }
 
