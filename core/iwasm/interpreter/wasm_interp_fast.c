@@ -853,14 +853,13 @@ wasm_interp_restore_wasm_frame(WASMExecEnv *exec_env)
     cur_frame = wasm_exec_env_get_cur_frame(exec_env);
     while (cur_frame) {
         prev_frame = cur_frame->prev_frame;
-        cur_frame = prev_frame;
-
         if (cur_frame->ip) {
             /* FREE_FRAME just set the wasm_stack.s.top pointer, we only need to
              * call it once */
             FREE_FRAME(exec_env, cur_frame);
             break;
         }
+        cur_frame = prev_frame;
     }
 
     wasm_exec_env_set_cur_frame(exec_env, cur_frame);
