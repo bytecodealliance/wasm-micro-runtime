@@ -5769,8 +5769,7 @@ re_scan:
                         if (table_seg->elem_type == VALUE_TYPE_FUNCREF
                             && wasm_elem_is_declarative(table_seg->mode)) {
                             for (j = 0; j < table_seg->function_count; j++) {
-                                if (table_seg->func_indexes[j]
-                                    == func_idx) {
+                                if (table_seg->func_indexes[j] == func_idx) {
                                     func_declared = true;
                                     break;
                                 }
