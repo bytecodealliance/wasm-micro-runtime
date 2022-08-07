@@ -6915,11 +6915,12 @@ re_scan:
                     loader_ctx->frame_csp->end_addr = p - 1;
                 }
                 else {
-                    /* end of function block, function will return,
-                       ignore the following bytecodes */
-                    p = p_end;
-
-                    continue;
+                    /* end of function block, function will return */
+                    if (p < p_end) {
+                        set_error_buf(error_buf, error_buf_size,
+                                      "section size mismatch");
+                        goto fail;
+                    }
                 }
 
                 break;

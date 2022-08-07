@@ -5188,11 +5188,8 @@ re_scan:
                     loader_ctx->frame_csp->end_addr = p - 1;
                 }
                 else {
-                    /* end of function block, function will return,
-                       ignore the following bytecodes */
-                    p = p_end;
-
-                    continue;
+                    /* end of function block, function will return */
+                    bh_assert(p == p_end);
                 }
 
                 break;
