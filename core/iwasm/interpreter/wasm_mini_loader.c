@@ -509,12 +509,12 @@ load_memory_import(const uint8 **p_buf, const uint8 *buf_end,
                    char *error_buf, uint32 error_buf_size)
 {
     const uint8 *p = *p_buf, *p_end = buf_end;
-    uint32 pool_size = wasm_runtime_memory_pool_size();
 #if WASM_ENABLE_APP_FRAMEWORK != 0
+    uint32 pool_size = wasm_runtime_memory_pool_size();
     uint32 max_page_count = pool_size * APP_MEMORY_MAX_GLOBAL_HEAP_PERCENT
                             / DEFAULT_NUM_BYTES_PER_PAGE;
 #else
-    uint32 max_page_count = pool_size / DEFAULT_NUM_BYTES_PER_PAGE;
+    uint32 max_page_count = DEFAULT_MAX_PAGES;
 #endif /* WASM_ENABLE_APP_FRAMEWORK */
     uint32 declare_max_page_count_flag = 0;
     uint32 declare_init_page_count = 0;
@@ -522,12 +522,12 @@ load_memory_import(const uint8 **p_buf, const uint8 *buf_end,
 
     read_leb_uint32(p, p_end, declare_max_page_count_flag);
     read_leb_uint32(p, p_end, declare_init_page_count);
-    bh_assert(declare_init_page_count <= 65536);
+    bh_assert(declare_init_page_count <= DEFAULT_MAX_PAGES);
 
     if (declare_max_page_count_flag & 1) {
         read_leb_uint32(p, p_end, declare_max_page_count);
         bh_assert(declare_init_page_count <= declare_max_page_count);
-        bh_assert(declare_max_page_count <= 65536);
+        bh_assert(declare_max_page_count <= DEFAULT_MAX_PAGES);
         if (declare_max_page_count > max_page_count) {
             declare_max_page_count = max_page_count;
         }
@@ -644,12 +644,12 @@ load_memory(const uint8 **p_buf, const uint8 *buf_end, WASMMemory *memory,
 #endif
 
     read_leb_uint32(p, p_end, memory->init_page_count);
-    bh_assert(memory->init_page_count <= 65536);
+    bh_assert(memory->init_page_count <= DEFAULT_MAX_PAGES);
 
     if (memory->flags & 1) {
         read_leb_uint32(p, p_end, memory->max_page_count);
         bh_assert(memory->init_page_count <= memory->max_page_count);
-        bh_assert(memory->max_page_count <= 65536);
+        bh_assert(memory->max_page_count <= DEFAULT_MAX_PAGES);
         if (memory->max_page_count > max_page_count)
             memory->max_page_count = max_page_count;
     }
@@ -2128,15 +2128,15 @@ load_from_sections(WASMModule *module, WASMSection *sections,
 
         if (module->import_memory_count) {
             memory_import = &module->import_memories[0].u.memory;
-            /* Memory init page count cannot be larger than 65536, we don't
-               check integer overflow again. */
+            /* Memory init page count cannot be larger than DEFAULT_MAX_PAGES,
+               we don't check integer overflow again. */
             memory_import->num_bytes_per_page *= memory_import->init_page_count;
             memory_import->init_page_count = memory_import->max_page_count = 1;
         }
 
         if (module->memory_count) {
-            /* Memory init page count cannot be larger than 65536, we don't
-               check integer overflow again. */
+            /* Memory init page count cannot be larger than DEFAULT_MAX_PAGES,
+               we don't check integer overflow again. */
             memory = &module->memories[0];
             memory->num_bytes_per_page *= memory->init_page_count;
             memory->init_page_count = memory->max_page_count = 1;

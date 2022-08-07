@@ -464,13 +464,13 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
         }
         init_page_count += inc_page_count;
         max_page_count += inc_page_count;
-        if (init_page_count > 65536) {
+        if (init_page_count > DEFAULT_MAX_PAGES) {
             set_error_buf(error_buf, error_buf_size,
                           "memory size must be at most 65536 pages (4GiB)");
             return NULL;
         }
-        if (max_page_count > 65536)
-            max_page_count = 65536;
+        if (max_page_count > DEFAULT_MAX_PAGES)
+            max_page_count = DEFAULT_MAX_PAGES;
     }
 
     LOG_VERBOSE("Memory instantiate:");
