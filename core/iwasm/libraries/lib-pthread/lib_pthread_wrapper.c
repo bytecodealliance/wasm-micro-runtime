@@ -5,7 +5,6 @@
 
 #include "bh_common.h"
 #include "bh_log.h"
-#include "platform_api_extension.h"
 #include "wasm_export.h"
 #include "../interpreter/wasm.h"
 #include "../common/wasm_runtime_common.h"
