@@ -86,6 +86,11 @@ elseif (WAMR_BUILD_LIBC_WASI EQUAL 1)
     include (${IWASM_DIR}/libraries/libc-wasi/libc_wasi.cmake)
 endif ()
 
+if (WAMR_BUILD_LIB_PTHREAD_SEMAPHORE EQUAL 1)
+    # Enable the dependent feature if lib pthread semaphore is enabled
+    set (WAMR_BUILD_LIB_PTHREAD 1)
+endif ()
+
 if (WAMR_BUILD_LIB_PTHREAD EQUAL 1)
     include (${IWASM_DIR}/libraries/lib-pthread/lib_pthread.cmake)
     # Enable the dependent feature if lib pthread is enabled

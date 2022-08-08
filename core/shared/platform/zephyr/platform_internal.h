@@ -49,6 +49,7 @@
 typedef struct k_thread korp_thread;
 typedef korp_thread *korp_tid;
 typedef struct k_mutex korp_mutex;
+typedef unsigned int korp_sem;
 
 struct os_thread_wait_node;
 typedef struct os_thread_wait_node *os_thread_wait_list;
