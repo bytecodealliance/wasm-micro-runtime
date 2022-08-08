@@ -393,6 +393,25 @@ int
 os_socket_addr_local(bh_socket_t socket, uint8_t *buf, size_t buflen,
                      uint16_t *port, uint8_t *is_ipv4);
 
+/**
+ * Returns an binary address and a port of the remote socket
+ *
+ * @param socket the remote socket
+ *
+ * @param buf buffer to store the address
+ *
+ * @param buflen length of the buf buffer
+ *
+ * @param port a buffer for storing socket's port
+ *
+ * @param is_ipv4 a buffer for storing information about the address family
+ *
+ * @return On success, returns 0; otherwise, it returns -1.
+ */
+int
+os_socket_addr_remote(bh_socket_t socket, uint8_t *buf, size_t buflen,
+                      uint16_t *port, uint8_t *is_ipv4);
+
 #ifdef __cplusplus
 }
 #endif

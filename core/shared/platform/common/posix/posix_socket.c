@@ -273,28 +273,18 @@ os_socket_addr_resolve(const char *host, const char *service,
     return BHT_OK;
 }
 
-int
-os_socket_addr_local(bh_socket_t socket, uint8_t *buf, size_t buflen,
-                     uint16_t *port, uint8_t *is_ipv4)
+static int
+os_socket_convert_sockaddr(struct sockaddr *addr, uint8_t *buf, size_t buflen,
+                           uint16_t *port, uint8_t *is_ipv4)
 {
-    struct sockaddr_storage addr_storage = { 0 };
-    socklen_t addr_len = sizeof(addr_storage);
-    int ret;
-
     assert(buf);
     assert(is_ipv4);
     assert(port);
 
-    ret = getsockname(socket, (struct sockaddr *)&addr_storage, &addr_len);
-
-    if (ret != BHT_OK) {
-        return BHT_ERROR;
-    }
-
-    switch (addr_storage.ss_family) {
+    switch (addr->sa_family) {
         case AF_INET:
         {
-            struct sockaddr_in *addr_in = (struct sockaddr_in *)&addr_storage;
+            struct sockaddr_in *addr_in = (struct sockaddr_in *)addr;
 
             assert(buflen >= sizeof(addr_in->sin_addr));
             *port = ntohs(addr_in->sin_port);
@@ -304,7 +294,7 @@ os_socket_addr_local(bh_socket_t socket, uint8_t *buf, size_t buflen,
         }
         case AF_INET6:
         {
-            struct sockaddr_in6 *addr_in = (struct sockaddr_in6 *)&addr_storage;
+            struct sockaddr_in6 *addr_in = (struct sockaddr_in6 *)addr;
             assert(buflen >= sizeof(addr_in->sin6_addr));
             *port = ntohs(addr_in->sin6_port);
 
@@ -320,4 +310,40 @@ os_socket_addr_local(bh_socket_t socket, uint8_t *buf, size_t buflen,
     }
 
     return BHT_OK;
+}
+
+int
+os_socket_addr_local(bh_socket_t socket, uint8_t *buf, size_t buflen,
+                     uint16_t *port, uint8_t *is_ipv4)
+{
+    struct sockaddr_storage addr_storage = { 0 };
+    socklen_t addr_len = sizeof(addr_storage);
+    int ret;
+
+    ret = getsockname(socket, (struct sockaddr *)&addr_storage, &addr_len);
+
+    if (ret != BHT_OK) {
+        return BHT_ERROR;
+    }
+
+    return os_socket_convert_sockaddr((struct sockaddr *)&addr_storage, buf,
+                                      buflen, port, is_ipv4);
+}
+
+int
+os_socket_addr_remote(bh_socket_t socket, uint8_t *buf, size_t buflen,
+                      uint16_t *port, uint8_t *is_ipv4)
+{
+    struct sockaddr_storage addr_storage = { 0 };
+    socklen_t addr_len = sizeof(addr_storage);
+    int ret;
+
+    ret = getpeername(socket, (struct sockaddr *)&addr_storage, &addr_len);
+
+    if (ret != BHT_OK) {
+        return BHT_ERROR;
+    }
+
+    return os_socket_convert_sockaddr((struct sockaddr *)&addr_storage, buf,
+                                      buflen, port, is_ipv4);
 }

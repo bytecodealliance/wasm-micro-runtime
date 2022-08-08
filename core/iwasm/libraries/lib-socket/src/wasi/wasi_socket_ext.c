@@ -64,10 +64,10 @@ wasi_addr_to_sockaddr(const __wasi_addr_t *wasi_addr,
             struct sockaddr_in sock_addr_in = { 0 };
             uint32_t s_addr;
 
-            s_addr = (wasi_addr.addr.ip4.addr.n0 << 24)
-                     | (wasi_addr.addr.ip4.addr.n1 << 16)
-                     | (wasi_addr.addr.ip4.addr.n2 << 8)
-                     | wasi_addr.addr.ip4.addr.n3;
+            s_addr = (wasi_addr->addr.ip4.addr.n0 << 24)
+                     | (wasi_addr->addr.ip4.addr.n1 << 16)
+                     | (wasi_addr->addr.ip4.addr.n2 << 8)
+                     | wasi_addr->addr.ip4.addr.n3;
 
             sock_addr_in.sin_family = AF_INET;
             sock_addr_in.sin_addr.s_addr = htonl(s_addr);
@@ -86,22 +86,6 @@ wasi_addr_to_sockaddr(const __wasi_addr_t *wasi_addr,
     return __WASI_ERRNO_SUCCESS;
 }
 
-static __wasi_errno_t
-sock_addr_remote(__wasi_fd_t fd, struct sockaddr *sock_addr, socklen_t *addrlen)
-{
-    __wasi_addr_t wasi_addr = { 0 };
-    uint32_t s_addr;
-    __wasi_errno_t error;
-
-    error =
-        __wasi_sock_addr_remote(fd, (uint8_t *)&wasi_addr, sizeof(wasi_addr));
-    if (__WASI_ERRNO_SUCCESS != error) {
-        return error;
-    }
-
-    return wasi_addr_to_sockaddr(&wasi_addr, sock_addr, addrlen);
-}
-
 int
 accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 {
@@ -112,9 +96,8 @@ accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
     error = __wasi_sock_accept(sockfd, &new_sockfd);
     HANDLE_ERROR(error)
 
-    // error = sock_addr_remote(new_sockfd, addr, addrlen);
-    // HANDLE_ERROR(error)
-    *addrlen = 0;
+    error = getpeername(new_sockfd, addr, addrlen);
+    HANDLE_ERROR(error)
 
     return new_sockfd;
 }
@@ -277,6 +260,21 @@ getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
     __wasi_errno_t error;
 
     error = __wasi_sock_addr_local(sockfd, &wasi_addr);
+    HANDLE_ERROR(error)
+
+    error = wasi_addr_to_sockaddr(&wasi_addr, addr, addrlen);
+    HANDLE_ERROR(error)
+
+    return __WASI_ERRNO_SUCCESS;
+}
+
+int
+getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
+{
+    __wasi_addr_t wasi_addr = { 0 };
+    __wasi_errno_t error;
+
+    error = __wasi_sock_addr_remote(sockfd, &wasi_addr);
     HANDLE_ERROR(error)
 
     error = wasi_addr_to_sockaddr(&wasi_addr, addr, addrlen);
