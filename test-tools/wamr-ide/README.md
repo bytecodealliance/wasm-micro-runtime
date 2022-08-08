@@ -45,9 +45,9 @@ Windows (powershell):
 
 ```batch
 $ cd .\WASM-Toolchain\Docker
-$ ./build_docker_image.bat
+$ .\build_docker_image.bat
 $ cd .\WASM-Debug-Server\Docker
-$ ./build_docker_image.bat
+$ .\build_docker_image.bat
 ```
 
 Linux:
