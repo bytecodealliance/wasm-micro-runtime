@@ -213,7 +213,7 @@ lib_pthread_init()
 void
 lib_pthread_destroy()
 {
-    
+
 #if WASM_ENABLE_LIB_PTHREAD_SEMAPHORE != 0
     bh_hash_map_destroy(sem_info_map);
 #endif
