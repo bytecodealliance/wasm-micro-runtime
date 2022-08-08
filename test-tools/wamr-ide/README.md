@@ -14,6 +14,12 @@ The WAMR-IDE is an Integrated Development Environment to develop WebAssembly app
 
 ## How to setup WAMR IDE
 
+Note: Please ensure that the scripts under `resource` directories have
+execution permission. While on git they have x bits, you might have dropped
+them eg. by copying them from Windows.
+Similarly, do not drop execution permission when copying `lldb` binaries
+under `resource/debug/bin`.
+
 #### 1. Install `VSCode` on host.
 
 - make sure the version of [vscode](https://code.visualstudio.com/Download) you installed is at least _1.59.0_
