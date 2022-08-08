@@ -8,4 +8,6 @@
      /llvm/build-lldb/lib/liblldb.so.13 # move this file to resource/debug/lib/
     ```
 
+Note: For macOS, the library is named like `liblldb.13.0.1.dylib`.
+
 ### Then you can start the extension and run the execute source debugging by clicking the `debug` button in the extension panel.

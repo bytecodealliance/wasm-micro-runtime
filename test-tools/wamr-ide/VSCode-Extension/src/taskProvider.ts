@@ -31,11 +31,11 @@ export class WasmTaskProvider implements vscode.TaskProvider {
             let targetName =
                 TargetConfigPanel.BUILD_ARGS.output_file_name.split('.')[0];
 
-            if (os.platform() === 'linux' || os.platform() === 'win32') {
+            if (os.platform() === 'linux' || os.platform() === 'darwin' || os.platform() === 'win32') {
                 /* build */
                 this.buildShellOption = {
                     cmd:
-                        os.platform() === 'linux'
+                        os.platform() === 'linux' || os.platform() === 'darwin'
                             ? 'bash'
                             : (this._script.get('buildScript') as string),
                     options: {
@@ -47,7 +47,7 @@ export class WasmTaskProvider implements vscode.TaskProvider {
                 /* debug */
                 this.debugShellOption = {
                     cmd:
-                        os.platform() === 'linux'
+                        os.platform() === 'linux' || os.platform() === 'darwin'
                             ? 'bash'
                             : (this._script.get('debugScript') as string),
                     options: {
@@ -59,7 +59,7 @@ export class WasmTaskProvider implements vscode.TaskProvider {
                 /* run */
                 this.runShellOption = {
                     cmd:
-                        os.platform() === 'linux'
+                        os.platform() === 'linux' || os.platform() === 'darwin'
                             ? 'bash'
                             : (this._script.get('runScript') as string),
                     options: {
@@ -72,7 +72,7 @@ export class WasmTaskProvider implements vscode.TaskProvider {
                 /* run */
                 this.destroyShellOption = {
                     cmd:
-                        os.platform() === 'linux'
+                        os.platform() === 'linux' || os.platform() === 'darwin'
                             ? 'bash'
                             : (this._script.get('destroyScript') as string),
                     options: {
