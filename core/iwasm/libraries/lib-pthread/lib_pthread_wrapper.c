@@ -213,6 +213,10 @@ lib_pthread_init()
 void
 lib_pthread_destroy()
 {
+    
+#if WASM_ENABLE_LIB_PTHREAD_SEMAPHORE != 0
+    bh_hash_map_destroy(sem_info_map);
+#endif
     os_mutex_destroy(&thread_global_lock);
 }
 
@@ -1151,18 +1155,13 @@ sem_open_wrapper(wasm_exec_env_t exec_env, const char *name, int32 oflags,
     info_node->u.sem = psem;
     info_node->status = SEM_CREATED;
 
-    if (!append_thread_info_node(info_node)) {
-        wasm_runtime_free(info_node);
-        goto fail2;
-    }
-
     if (!bh_hash_map_insert(sem_info_map, (void *)name, info_node))
         goto fail3;
 
     return info_node->handle;
 
 fail3:
-    delete_thread_info_node(info_node);
+    thread_info_destroy(info_node);
 fail2:
     os_sem_close(psem);
 fail1:
