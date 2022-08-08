@@ -5188,14 +5188,10 @@ re_scan:
                     loader_ctx->frame_csp->end_addr = p - 1;
                 }
                 else {
-                    /* end of function block, function will return,
-                       ignore the following bytecodes */
-                    p = p_end;
-
-                    continue;
+                    /* end of function block, function will return */
+                    bh_assert(p == p_end);
                 }
 
-                SET_CUR_BLOCK_STACK_POLYMORPHIC_STATE(false);
                 break;
             }
 
@@ -5763,7 +5759,7 @@ re_scan:
                     goto fail;
                 }
 
-                if (func_idx == cur_func_idx) {
+                if (func_idx == cur_func_idx + module->import_function_count) {
                     WASMTableSeg *table_seg = module->table_segments;
                     bool func_declared = false;
                     uint32 j;
@@ -5773,8 +5769,7 @@ re_scan:
                         if (table_seg->elem_type == VALUE_TYPE_FUNCREF
                             && wasm_elem_is_declarative(table_seg->mode)) {
                             for (j = 0; j < table_seg->function_count; j++) {
-                                if (table_seg->func_indexes[j]
-                                    == cur_func_idx) {
+                                if (table_seg->func_indexes[j] == func_idx) {
                                     func_declared = true;
                                     break;
                                 }
