@@ -220,7 +220,6 @@ os_sem_open(const char *name, int oflags, int mode, int val);
  *
  * @return 0 if success
  */
-
 int
 os_sem_close(korp_sem *sem);
 
@@ -235,7 +234,6 @@ os_sem_close(korp_sem *sem);
  *
  * @return 0 if success
  */
-
 int
 os_sem_wait(korp_sem *sem);
 
@@ -246,7 +244,6 @@ os_sem_wait(korp_sem *sem);
  *
  * @return 0 if success
  */
-
 int
 os_sem_trywait(korp_sem *sem);
 
@@ -258,7 +255,6 @@ os_sem_trywait(korp_sem *sem);
  *
  * @return 0 if success
  */
-
 int
 os_sem_post(korp_sem *sem);
 
@@ -268,7 +264,6 @@ os_sem_post(korp_sem *sem);
  *
  * @return 0 if success
  */
-
 int
 os_sem_getvalue(korp_sem *sem, int *sval);
 
