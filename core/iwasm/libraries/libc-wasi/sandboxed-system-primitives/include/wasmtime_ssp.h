@@ -1063,6 +1063,70 @@ wasi_ssp_sock_connect(
 ) __attribute__((__warn_unused_result__));
 
 __wasi_errno_t
+wasi_ssp_sock_get_recv_buf_size(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t fd, __wasi_size_t *size
+) __attribute__((__warn_unused_result__));
+
+__wasi_errno_t
+wasi_ssp_sock_get_reuse_addr(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t fd, uint8_t *reuse
+) __attribute__((__warn_unused_result__));
+
+__wasi_errno_t
+wasi_ssp_sock_get_reuse_port(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t fd, uint8_t *reuse
+) __attribute__((__warn_unused_result__));
+
+__wasi_errno_t
+wasi_ssp_sock_get_send_buf_size(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t fd, __wasi_size_t *size
+) __attribute__((__warn_unused_result__));
+
+__wasi_errno_t
+wasi_ssp_sock_set_recv_buf_size(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t fd, __wasi_size_t size
+) __attribute__((__warn_unused_result__));
+
+__wasi_errno_t
+wasi_ssp_sock_set_reuse_addr(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t fd, uint8_t reuse
+) __attribute__((__warn_unused_result__));
+
+__wasi_errno_t
+wasi_ssp_sock_set_reuse_port(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t fd, uint8_t reuse
+) __attribute__((__warn_unused_result__));
+
+__wasi_errno_t
+wasi_ssp_sock_set_send_buf_size(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t fd, __wasi_size_t size
+) __attribute__((__warn_unused_result__));
+
+__wasi_errno_t
 wasi_ssp_sock_listen(
 #if !defined(WASMTIME_SSP_STATIC_CURFDS)
     struct fd_table *curfds,
