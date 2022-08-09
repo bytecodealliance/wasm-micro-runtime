@@ -3006,6 +3006,17 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
             goto fail3;
         }
     }
+#if defined(BH_PLATFORM_WINDOWS)
+    /**
+     * "LLVM ERROR: IMAGE_REL_AMD64_ADDR32NB relocation requires
+     * an ordered section layout" might be reported in Windows, if
+     * the backend thread compilations are conducted afer the linear
+     * memory is os_mmaped. Apply eager compilation for Windows.
+     */
+    for (i = 0; i < WASM_LAZY_JIT_COMPILE_THREAD_NUM; i++) {
+        os_thread_join(orcjit_threads[i], NULL);
+    }
+#endif
 #else
     /* Resolve function addresses */
     bh_assert(comp_ctx->exec_engine);
@@ -3136,6 +3147,8 @@ aot_convert_wasm_module(WASMModule *wasm_module, char *error_buf,
     }
 
     option.is_jit_mode = true;
+    option.opt_level = 3;
+    option.size_level = 3;
 #if WASM_ENABLE_BULK_MEMORY != 0
     option.enable_bulk_memory = true;
 #endif
