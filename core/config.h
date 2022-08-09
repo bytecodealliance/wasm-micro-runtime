@@ -341,6 +341,10 @@
 #define APP_THREAD_STACK_SIZE_MAX (8 * 1024 * 1024)
 #endif
 
+#ifndef WASM_STACK_GUARD_SIZE
+#define WASM_STACK_GUARD_SIZE 0
+#endif
+
 /* Reserved bytes to the native thread stack boundary, throw native
    stack overflow exception if the guard boudary is reached */
 #ifndef RESERVED_BYTES_TO_NATIVE_STACK_BOUNDARY

@@ -638,7 +638,12 @@ os_thread_get_stack_boundary()
 
     /* 4 pages are set unaccessible by system, we reserved
        one more page at least for safety */
+#if WASM_STACK_GUARD_SIZE == 0
     thread_stack_boundary = (uint8 *)(uintptr_t)low_limit + page_size * 5;
+#else
+    thread_stack_boundary =
+        (uint8 *)(uintptr_t)low_limit + page_size * 4 + WASM_STACK_GUARD_SIZE;
+#endif
     return thread_stack_boundary;
 }
 

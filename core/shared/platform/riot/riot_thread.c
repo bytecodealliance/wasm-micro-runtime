@@ -425,7 +425,7 @@ os_thread_get_stack_boundary()
 {
 #if defined(DEVELHELP) || defined(SCHED_TEST_STACK) \
     || defined(MODULE_MPU_STACK_GUARD)
-    return (uint8 *)thread_get_active()->stack_start;
+    return (uint8 *)thread_get_active()->stack_start + WASM_STACK_GUARD_SIZE;
 #else
     return NULL;
 #endif

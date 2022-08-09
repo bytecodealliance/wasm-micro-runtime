@@ -569,7 +569,7 @@ os_thread_get_stack_boundary()
 {
 #if defined(CONFIG_THREAD_STACK_INFO)
     korp_tid thread = k_current_get();
-    return (uint8 *)thread->stack_info.start;
+    return (uint8 *)thread->stack_info.start + WASM_STACK_GUARD_SIZE;
 #else
     return NULL;
 #endif
