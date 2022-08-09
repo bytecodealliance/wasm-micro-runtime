@@ -2032,7 +2032,7 @@ wasm_create_exec_env_and_call_function(WASMModuleInstance *module_inst,
                                        unsigned argc, uint32 argv[],
                                        bool enable_debug)
 {
-    WASMExecEnv *exec_env, *existing_exec_env = NULL;
+    WASMExecEnv *exec_env = NULL, *existing_exec_env = NULL;
     bool ret;
 
 #if defined(OS_ENABLE_HW_BOUND_CHECK)
