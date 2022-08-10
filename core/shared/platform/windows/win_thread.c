@@ -306,7 +306,7 @@ os_thread_join(korp_tid thread, void **p_retval)
     if (thread_data->thread_exited) {
         /* Thread has exited */
         if (p_retval)
-           *p_retval = thread_data->thread_retval;
+            *p_retval = thread_data->thread_retval;
         os_mutex_unlock(&thread_data->wait_lock);
         return BHT_OK;
     }
