@@ -48,9 +48,6 @@ static bool is_thread_sys_inited = false;
 /* Thread data of supervisor thread */
 static os_thread_data supervisor_thread_data;
 
-/* Thread data list */
-static os_thread_data *thread_data_list;
-
 /* Thread data list lock */
 static korp_mutex thread_data_list_lock;
 
@@ -100,7 +97,6 @@ os_thread_sys_init()
     if (!TlsSetValue(thread_data_key, &supervisor_thread_data))
         goto fail4;
 
-    thread_data_list = NULL;
     if (os_mutex_init(&thread_data_list_lock) != BHT_OK)
         goto fail5;
 
@@ -131,7 +127,7 @@ os_thread_sys_destroy()
     if (is_thread_sys_inited) {
         os_thread_data *thread_data, *thread_data_next;
 
-        thread_data = thread_data_list;
+        thread_data = supervisor_thread_data.next;
         while (thread_data) {
             thread_data_next = thread_data->next;
 
@@ -255,12 +251,8 @@ os_thread_create_with_prio(korp_tid *p_tid, thread_start_routine_t start,
 
     /* Add thread data into thread data list */
     os_mutex_lock(&thread_data_list_lock);
-    if (!thread_data_list)
-        thread_data_list = thread_data;
-    else {
-        thread_data->next = thread_data_list;
-        thread_data_list = thread_data;
-    }
+    thread_data->next = supervisor_thread_data.next;
+    supervisor_thread_data.next = thread_data;
     os_mutex_unlock(&thread_data_list_lock);
 
     /* Wait for the thread routine to set thread_data's tid
