@@ -294,6 +294,7 @@ static char global_heap_buf[10 * 1024 * 1024] = { 0 };
 int
 main(int argc, char *argv[])
 {
+    int32 ret = 1;
     char *wasm_file = NULL;
     const char *func_name = NULL;
     uint8 *wasm_file_buf = NULL;
@@ -336,8 +337,7 @@ main(int argc, char *argv[])
         if (!strcmp(argv[0], "-f") || !strcmp(argv[0], "--function")) {
             argc--, argv++;
             if (argc < 2) {
-                print_help();
-                return 0;
+                return print_help();
             }
             func_name = argv[0];
         }
@@ -570,6 +570,8 @@ main(int argc, char *argv[])
     else
         app_instance_main(wasm_module_inst);
 
+    ret = 0;
+
     /* destroy the module instance */
     wasm_runtime_deinstantiate(wasm_module_inst);
 
@@ -594,5 +596,5 @@ fail1:
 
     /* destroy runtime environment */
     wasm_runtime_destroy();
-    return 0;
+    return ret;
 }
