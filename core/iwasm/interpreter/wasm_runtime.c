@@ -167,7 +167,6 @@ memory_instantiate(WASMModuleInstance *module_inst, uint32 num_bytes_per_page,
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     uint8 *mapped_mem;
     uint64 map_size = 8 * (uint64)BH_GB;
-    uint64 page_size = os_getpagesize();
 #endif
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
@@ -208,7 +207,7 @@ memory_instantiate(WASMModuleInstance *module_inst, uint32 num_bytes_per_page,
         num_bytes_per_page += heap_size;
         if (num_bytes_per_page < heap_size) {
             set_error_buf(error_buf, error_buf_size,
-                          "memory size must be at most 65536 pages (4GiB)");
+                          "failed to insert app heap into linear memory");
             return NULL;
         }
     }
@@ -256,13 +255,17 @@ memory_instantiate(WASMModuleInstance *module_inst, uint32 num_bytes_per_page,
         }
         init_page_count += inc_page_count;
         max_page_count += inc_page_count;
-        if (init_page_count > 65536) {
+        if (init_page_count > DEFAULT_MAX_PAGES) {
             set_error_buf(error_buf, error_buf_size,
-                          "memory size must be at most 65536 pages (4GiB)");
+                          "failed to insert app heap into linear memory");
             return NULL;
         }
-        if (max_page_count > 65536)
-            max_page_count = 65536;
+        else if (init_page_count == DEFAULT_MAX_PAGES) {
+            num_bytes_per_page = UINT32_MAX;
+            init_page_count = max_page_count = 1;
+        }
+        if (max_page_count > DEFAULT_MAX_PAGES)
+            max_page_count = DEFAULT_MAX_PAGES;
     }
 
     LOG_VERBOSE("Memory instantiate:");
@@ -277,6 +280,7 @@ memory_instantiate(WASMModuleInstance *module_inst, uint32 num_bytes_per_page,
         memory_data_size = (uint64)num_bytes_per_page * max_page_count;
     }
 #endif
+    bh_assert(memory_data_size <= UINT32_MAX);
 
     /* Allocate memory space, addr data and global data */
     if (!(memory = runtime_malloc((uint64)sizeof(WASMMemoryInstance), error_buf,
@@ -291,15 +295,12 @@ memory_instantiate(WASMModuleInstance *module_inst, uint32 num_bytes_per_page,
         goto fail1;
     }
 #else
-    memory_data_size = (memory_data_size + page_size - 1) & ~(page_size - 1);
-
     /* Totally 8G is mapped, the opcode load/store address range is 0 to 8G:
      *   ea = i + memarg.offset
      * both i and memarg.offset are u32 in range 0 to 4G
      * so the range of ea is 0 to 8G
      */
-    if (memory_data_size >= UINT32_MAX
-        || !(memory->memory_data = mapped_mem =
+    if (!(memory->memory_data = mapped_mem =
                  os_mmap(NULL, map_size, MMAP_PROT_NONE, MMAP_MAP_NONE))) {
         set_error_buf(error_buf, error_buf_size, "mmap memory failed");
         goto fail1;
@@ -2529,6 +2530,7 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
     if (!memory)
         return false;
 
+    num_bytes_per_page = memory->num_bytes_per_page;
     total_page_count = inc_page_count + memory->cur_page_count;
 
     if (inc_page_count <= 0)
@@ -2536,11 +2538,10 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
         return true;
 
     if (total_page_count < memory->cur_page_count /* integer overflow */
-        || total_page_count > memory->max_page_count) {
+        || total_page_count > memory->max_page_count
+        || (uint64)num_bytes_per_page * total_page_count >= UINT32_MAX) {
         return false;
     }
-
-    num_bytes_per_page = memory->num_bytes_per_page;
 
 #ifdef BH_PLATFORM_WINDOWS
     if (!os_mem_commit(memory->memory_data_end,

@@ -155,6 +155,8 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             comp_ctx->comp_data->memories[0].num_bytes_per_page;
         uint32 init_page_count =
             comp_ctx->comp_data->memories[0].mem_init_page_count;
+        uint32 max_page_count =
+            comp_ctx->comp_data->memories[0].mem_max_page_count;
         uint64 mem_data_size = (uint64)num_bytes_per_page * init_page_count;
 
         if (mem_offset + bytes <= mem_data_size) {
@@ -168,6 +170,24 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 goto fail;
             }
             return maddr;
+        }
+        else if (init_page_count == max_page_count /* ungrowable */
+                 && (mem_offset >= mem_data_size
+                     || mem_offset + bytes > mem_data_size)) {
+            /* The memory size is fixed and the address to access
+               is out of range, throw exception directly */
+            BUILD_ICMP(LLVMIntEQ, I32_ONE, I32_ONE, cmp, "cmp");
+            ADD_BASIC_BLOCK(check_succ, "check_mem_succ");
+            LLVMMoveBasicBlockAfter(check_succ, block_curr);
+
+            if (!aot_emit_exception(comp_ctx, func_ctx,
+                                    EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS, true, cmp,
+                                    check_succ)) {
+                goto fail;
+            }
+
+            SET_BUILD_POS(check_succ);
+            return mem_base_addr;
         }
     }
 

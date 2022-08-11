@@ -375,7 +375,6 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     uint8 *mapped_mem;
     uint64 map_size = 8 * (uint64)BH_GB;
-    uint64 page_size = os_getpagesize();
 #endif
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
@@ -417,7 +416,7 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
         num_bytes_per_page += heap_size;
         if (num_bytes_per_page < heap_size) {
             set_error_buf(error_buf, error_buf_size,
-                          "memory size must be at most 65536 pages (4GiB)");
+                          "failed to insert app heap into linear memory");
             return NULL;
         }
     }
@@ -464,13 +463,18 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
         }
         init_page_count += inc_page_count;
         max_page_count += inc_page_count;
-        if (init_page_count > 65536) {
-            set_error_buf(error_buf, error_buf_size,
-                          "memory size must be at most 65536 pages (4GiB)");
+        if (init_page_count > DEFAULT_MAX_PAGES) {
+            set_error_buf_v(error_buf, error_buf_size,
+                            "failed to insert app heap into linear memory",
+                            DEFAULT_MAX_PAGES);
             return NULL;
         }
-        if (max_page_count > 65536)
-            max_page_count = 65536;
+        else if (init_page_count == DEFAULT_MAX_PAGES) {
+            num_bytes_per_page = UINT32_MAX;
+            init_page_count = max_page_count = 1;
+        }
+        if (max_page_count > DEFAULT_MAX_PAGES)
+            max_page_count = DEFAULT_MAX_PAGES;
     }
 
     LOG_VERBOSE("Memory instantiate:");
@@ -487,6 +491,7 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
         total_size = (uint64)num_bytes_per_page * max_page_count;
     }
 #endif
+    bh_assert(total_size <= UINT32_MAX);
 
 #ifndef OS_ENABLE_HW_BOUND_CHECK
     /* Allocate memory */
@@ -495,16 +500,13 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
         return NULL;
     }
 #else
-    total_size = (total_size + page_size - 1) & ~(page_size - 1);
-
     /* Totally 8G is mapped, the opcode load/store address range is 0 to 8G:
      *   ea = i + memarg.offset
      * both i and memarg.offset are u32 in range 0 to 4G
      * so the range of ea is 0 to 8G
      */
-    if (total_size >= UINT32_MAX
-        || !(p = mapped_mem =
-                 os_mmap(NULL, map_size, MMAP_PROT_NONE, MMAP_MAP_NONE))) {
+    if (!(p = mapped_mem =
+             os_mmap(NULL, map_size, MMAP_PROT_NONE, MMAP_MAP_NONE))) {
         set_error_buf(error_buf, error_buf_size, "mmap memory failed");
         return NULL;
     }
@@ -2156,7 +2158,8 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
         return true;
 
     if (total_page_count < cur_page_count /* integer overflow */
-        || total_page_count > max_page_count) {
+        || total_page_count > max_page_count
+        || total_size >= UINT32_MAX) {
         return false;
     }
 

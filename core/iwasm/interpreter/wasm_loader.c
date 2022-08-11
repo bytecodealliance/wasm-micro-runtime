@@ -1237,7 +1237,7 @@ fail:
 static bool
 check_memory_init_size(uint32 init_size, char *error_buf, uint32 error_buf_size)
 {
-    if (init_size > 65536) {
+    if (init_size > DEFAULT_MAX_PAGES) {
         set_error_buf(error_buf, error_buf_size,
                       "memory size must be at most 65536 pages (4GiB)");
         return false;
@@ -1255,7 +1255,7 @@ check_memory_max_size(uint32 init_size, uint32 max_size, char *error_buf,
         return false;
     }
 
-    if (max_size > 65536) {
+    if (max_size > DEFAULT_MAX_PAGES) {
         set_error_buf(error_buf, error_buf_size,
                       "memory size must be at most 65536 pages (4GiB)");
         return false;
@@ -1270,12 +1270,12 @@ load_memory_import(const uint8 **p_buf, const uint8 *buf_end,
                    char *error_buf, uint32 error_buf_size)
 {
     const uint8 *p = *p_buf, *p_end = buf_end;
-    uint32 pool_size = wasm_runtime_memory_pool_size();
 #if WASM_ENABLE_APP_FRAMEWORK != 0
+    uint32 pool_size = wasm_runtime_memory_pool_size();
     uint32 max_page_count = pool_size * APP_MEMORY_MAX_GLOBAL_HEAP_PERCENT
                             / DEFAULT_NUM_BYTES_PER_PAGE;
 #else
-    uint32 max_page_count = pool_size / DEFAULT_NUM_BYTES_PER_PAGE;
+    uint32 max_page_count = DEFAULT_MAX_PAGES;
 #endif /* WASM_ENABLE_APP_FRAMEWORK */
     uint32 declare_max_page_count_flag = 0;
     uint32 declare_init_page_count = 0;
@@ -3288,16 +3288,18 @@ load_from_sections(WASMModule *module, WASMSection *sections,
 #if WASM_ENABLE_MULTI_MODULE == 0
         if (module->import_memory_count) {
             memory_import = &module->import_memories[0].u.memory;
-            /* Memory init page count cannot be larger than 65536, we don't
-               check integer overflow again. */
-            memory_import->num_bytes_per_page *= memory_import->init_page_count;
+            if (memory_import->init_page_count < DEFAULT_MAX_PAGES)
+                memory_import->num_bytes_per_page *= memory_import->init_page_count;
+            else
+                memory_import->num_bytes_per_page = UINT32_MAX;
             memory_import->init_page_count = memory_import->max_page_count = 1;
         }
         if (module->memory_count) {
-            /* Memory init page count cannot be larger than 65536, we don't
-               check integer overflow again. */
             memory = &module->memories[0];
-            memory->num_bytes_per_page *= memory->init_page_count;
+            if (memory->init_page_count < DEFAULT_MAX_PAGES)
+                memory->num_bytes_per_page *= memory->init_page_count;
+            else
+                memory->num_bytes_per_page = UINT32_MAX;
             memory->init_page_count = memory->max_page_count = 1;
         }
 #endif
