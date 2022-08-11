@@ -509,7 +509,7 @@ compile_int_div(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                                 param_types, 2, left, right);
                         }
                         else {
-                            LLVM_BUILD_OP(SRem, left, right, res, "rem_u",
+                            LLVM_BUILD_OP(URem, left, right, res, "rem_u",
                                           false);
                         }
                         break;
