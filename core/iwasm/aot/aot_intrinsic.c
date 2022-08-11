@@ -658,6 +658,19 @@ aot_intrinsic_fill_capability_flags(AOTCompContext *comp_ctx)
         add_f64_common_intrinsics(comp_ctx);
         add_common_float_integer_convertion(comp_ctx);
     }
+    else if (!strncmp(comp_ctx->target_arch, "xtensa", 6)) {
+        /*
+         * Note: Use builtin intrinsics since hardware float operation
+         * will cause rodata relocation
+         */
+        add_f32_common_intrinsics(comp_ctx);
+        add_f64_common_intrinsics(comp_ctx);
+        add_common_float_integer_convertion(comp_ctx);
+        add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_CONST);
+        add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F64_CONST);
+        add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I32_CONST);
+        add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I64_CONST);
+    }
     else {
         /*
          * Use constant value table by default
