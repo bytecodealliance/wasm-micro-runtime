@@ -2663,10 +2663,11 @@ call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 elem_idx,
         else
             cur_func_type = func_inst->u.func->func_type;
 
-        if (!wasm_type_equal(cur_type, cur_func_type)) {
+        if (cur_type != cur_func_type) {
             wasm_set_exception(module_inst, "indirect call type mismatch");
             goto got_exception;
         }
+
     }
 
     interp_call_wasm(module_inst, exec_env, func_inst, argc, argv);
