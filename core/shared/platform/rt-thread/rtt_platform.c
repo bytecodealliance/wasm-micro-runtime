@@ -131,7 +131,7 @@ uint8 *
 os_thread_get_stack_boundary(void)
 {
     rt_thread_t tid = rt_thread_self();
-    return tid->stack_addr + WASM_STACK_GUARD_SIZE;
+    return tid->stack_addr;
 }
 
 int

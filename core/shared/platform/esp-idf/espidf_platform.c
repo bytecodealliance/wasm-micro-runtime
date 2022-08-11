@@ -47,7 +47,7 @@ os_thread_get_stack_boundary(void)
 #if defined(CONFIG_FREERTOS_USE_TRACE_FACILITY)
     TaskStatus_t pxTaskStatus;
     vTaskGetInfo(xTaskGetCurrentTaskHandle(), &pxTaskStatus, pdTRUE, eInvalid);
-    return pxTaskStatus.pxStackBase + WASM_STACK_GUARD_SIZE;
+    return pxTaskStatus.pxStackBase;
 #else // !defined(CONFIG_FREERTOS_USE_TRACE_FACILITY)
     return NULL;
 #endif

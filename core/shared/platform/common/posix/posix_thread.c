@@ -369,9 +369,6 @@ os_thread_get_stack_boundary()
     if (pthread_getattr_np(self, &attr) == 0) {
         pthread_attr_getstack(&attr, (void **)&addr, &stack_size);
         pthread_attr_getguardsize(&attr, &guard_size);
-
-        guard_size += WASM_STACK_GUARD_SIZE;
-
         pthread_attr_destroy(&attr);
         if (stack_size > max_stack_size)
             addr = addr + stack_size - max_stack_size;
@@ -384,10 +381,6 @@ os_thread_get_stack_boundary()
 #elif defined(__APPLE__) || defined(__NuttX__)
     if ((addr = (uint8 *)pthread_get_stackaddr_np(self))) {
         stack_size = pthread_get_stacksize_np(self);
-
-        if (page_size < WASM_STACK_GUARD_SIZE) {
-            page_size = WASM_STACK_GUARD_SIZE;
-        }
 
         /**
          * Check whether stack_addr is the base or end of the stack,
