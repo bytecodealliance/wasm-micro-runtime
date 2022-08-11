@@ -5076,6 +5076,10 @@ fail:
 static bool
 wasm_loader_ctx_reinit(WASMLoaderContext *ctx)
 {
+    /* Reserve more sizeof(void *) bytes, if the last opcode will be dropped, it
+     * will touch this space before actually dropped */
+    ctx->code_compiled_size += sizeof(void *);
+
     if (!(ctx->p_code_compiled =
               loader_malloc(ctx->code_compiled_size, NULL, 0)))
         return false;
