@@ -3136,6 +3136,8 @@ aot_convert_wasm_module(WASMModule *wasm_module, char *error_buf,
     }
 
     option.is_jit_mode = true;
+    option.opt_level = 3;
+    option.size_level = 3;
 #if WASM_ENABLE_BULK_MEMORY != 0
     option.enable_bulk_memory = true;
 #endif
