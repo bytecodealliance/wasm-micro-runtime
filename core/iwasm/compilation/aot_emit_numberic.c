@@ -465,8 +465,9 @@ compile_int_div(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                         if (comp_ctx->disable_llvm_intrinsics && !is_i32
                             && aot_intrinsic_check_capability(comp_ctx,
                                                               "i64.div_s")) {
-                            res = aot_call_llvm_intrinsic(comp_ctx, func_ctx,
-                            "i64.div_s", param_types[0], param_types, 2, left, right);
+                            res = aot_call_llvm_intrinsic(
+                                comp_ctx, func_ctx, "i64.div_s", param_types[0],
+                                param_types, 2, left, right);
                         }
                         else {
                             LLVM_BUILD_OP(SDiv, left, right, res, "div_s",
