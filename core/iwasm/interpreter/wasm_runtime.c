@@ -301,7 +301,7 @@ memory_instantiate(WASMModuleInstance *module_inst, uint32 num_bytes_per_page,
      * so the range of ea is 0 to 8G
      */
     if (!(memory->memory_data = mapped_mem =
-                 os_mmap(NULL, map_size, MMAP_PROT_NONE, MMAP_MAP_NONE))) {
+              os_mmap(NULL, map_size, MMAP_PROT_NONE, MMAP_MAP_NONE))) {
         set_error_buf(error_buf, error_buf_size, "mmap memory failed");
         goto fail1;
     }

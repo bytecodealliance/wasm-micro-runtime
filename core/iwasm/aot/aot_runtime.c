@@ -506,7 +506,7 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
      * so the range of ea is 0 to 8G
      */
     if (!(p = mapped_mem =
-             os_mmap(NULL, map_size, MMAP_PROT_NONE, MMAP_MAP_NONE))) {
+              os_mmap(NULL, map_size, MMAP_PROT_NONE, MMAP_MAP_NONE))) {
         set_error_buf(error_buf, error_buf_size, "mmap memory failed");
         return NULL;
     }
@@ -2158,8 +2158,7 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
         return true;
 
     if (total_page_count < cur_page_count /* integer overflow */
-        || total_page_count > max_page_count
-        || total_size >= UINT32_MAX) {
+        || total_page_count > max_page_count || total_size >= UINT32_MAX) {
         return false;
     }
 

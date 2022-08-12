@@ -3289,7 +3289,8 @@ load_from_sections(WASMModule *module, WASMSection *sections,
         if (module->import_memory_count) {
             memory_import = &module->import_memories[0].u.memory;
             if (memory_import->init_page_count < DEFAULT_MAX_PAGES)
-                memory_import->num_bytes_per_page *= memory_import->init_page_count;
+                memory_import->num_bytes_per_page *=
+                    memory_import->init_page_count;
             else
                 memory_import->num_bytes_per_page = UINT32_MAX;
             memory_import->init_page_count = memory_import->max_page_count = 1;
