@@ -294,6 +294,7 @@ static char global_heap_buf[10 * 1024 * 1024] = { 0 };
 int
 main(int argc, char *argv[])
 {
+    int32 ret = -1;
     char *wasm_file = NULL;
     const char *func_name = NULL;
     uint8 *wasm_file_buf = NULL;
@@ -336,8 +337,7 @@ main(int argc, char *argv[])
         if (!strcmp(argv[0], "-f") || !strcmp(argv[0], "--function")) {
             argc--, argv++;
             if (argc < 2) {
-                print_help();
-                return 0;
+                return print_help();
             }
             func_name = argv[0];
         }
@@ -375,7 +375,7 @@ main(int argc, char *argv[])
             if (dir_list_size >= sizeof(dir_list) / sizeof(char *)) {
                 printf("Only allow max dir number %d\n",
                        (int)(sizeof(dir_list) / sizeof(char *)));
-                return -1;
+                return 1;
             }
             dir_list[dir_list_size++] = argv[0] + 6;
         }
@@ -387,7 +387,7 @@ main(int argc, char *argv[])
             if (env_list_size >= sizeof(env_list) / sizeof(char *)) {
                 printf("Only allow max env number %d\n",
                        (int)(sizeof(env_list) / sizeof(char *)));
-                return -1;
+                return 1;
             }
             tmp_env = argv[0] + 6;
             if (validate_env_str(tmp_env))
@@ -412,7 +412,7 @@ main(int argc, char *argv[])
                 if (addr_pool_size >= sizeof(addr_pool) / sizeof(char *)) {
                     printf("Only allow max address number %d\n",
                            (int)(sizeof(addr_pool) / sizeof(char *)));
-                    return -1;
+                    return 1;
                 }
 
                 addr_pool[addr_pool_size++] = token;
@@ -427,7 +427,7 @@ main(int argc, char *argv[])
             if (native_lib_count >= sizeof(native_lib_list) / sizeof(char *)) {
                 printf("Only allow max native lib number %d\n",
                        (int)(sizeof(native_lib_list) / sizeof(char *)));
-                return -1;
+                return 1;
             }
             native_lib_list[native_lib_count++] = argv[0] + 13;
         }
@@ -570,6 +570,8 @@ main(int argc, char *argv[])
     else
         app_instance_main(wasm_module_inst);
 
+    ret = 0;
+
     /* destroy the module instance */
     wasm_runtime_deinstantiate(wasm_module_inst);
 
@@ -594,5 +596,11 @@ fail1:
 
     /* destroy runtime environment */
     wasm_runtime_destroy();
+
+#if WASM_ENABLE_SPEC_TEST != 0
+    (void)ret;
     return 0;
+#else
+    return ret;
+#endif
 }
