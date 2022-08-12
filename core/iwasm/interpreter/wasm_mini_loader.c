@@ -414,7 +414,7 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
 
             /* If there is already a same type created, use it instead */
             for (j = 0; j < i; ++j) {
-                if (wasm_type_equal(type, j])) {
+                if (wasm_type_equal(type, j)) {
                     destroy_wasm_type(type);
                     module->types[i] = module->types[j];
                     module->types[j]->ref_count++;
