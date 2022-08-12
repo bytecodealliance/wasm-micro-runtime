@@ -583,7 +583,7 @@ set_wasi_args(void *wasm_module, const char **dir_list, uint32_t dir_list_size,
 int
 main(int argc, char *argv[])
 {
-    int32 ret = -1;
+    int32_t ret = -1;
     char *wasm_file = NULL;
     const char *func_name = NULL;
     uint8_t *wasm_file_buf = NULL;
