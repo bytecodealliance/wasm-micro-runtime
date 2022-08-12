@@ -773,6 +773,7 @@ fail1:
     destroy_runtime();
 
 #if WASM_ENABLE_SPEC_TEST != 0
+    (void)ret;
     return 0;
 #else
     return ret;
