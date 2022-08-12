@@ -6497,7 +6497,7 @@ re_scan:
                         break;
                     case WASM_OP_MEMORY_COPY:
                         /* both src and dst memory index should be 0 */
-                        bh_assert(*(int16 *)p != 0x0000);
+                        bh_assert(*(int16 *)p == 0x0000);
                         p += 2;
 
                         bh_assert(module->import_memory_count
