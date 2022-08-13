@@ -14,6 +14,12 @@ The WAMR-IDE is an Integrated Development Environment to develop WebAssembly app
 
 ## How to setup WAMR IDE
 
+Note: Please ensure that the scripts under `resource` directories have
+execution permission. While on git they have x bits, you might have dropped
+them eg. by copying them from Windows.
+Similarly, do not drop execution permission when copying `lldb` binaries
+under `resource/debug/bin`.
+
 #### 1. Install `VSCode` on host.
 
 - make sure the version of [vscode](https://code.visualstudio.com/Download) you installed is at least _1.59.0_
@@ -33,15 +39,15 @@ The WAMR-IDE is an Integrated Development Environment to develop WebAssembly app
 
 #### 3. Build docker images
 
-We have 2 docker images which should be built or loaded on your host, `wasm-toolchain` and `wasm-debug-server`. To build these 2 images, please enter the `WASM_Source_Debug_Server/Docker` & `WASM_Toolchain/Docker`, then execute the `build_docker_image` script respectively.
+We have 2 docker images which should be built or loaded on your host, `wasm-toolchain` and `wasm-debug-server`. To build these 2 images, please enter the `WASM-Debug-Server/Docker` & `WASM-Toolchain/Docker`, then execute the `build_docker_image` script respectively.
 
 Windows (powershell):
 
 ```batch
 $ cd .\WASM-Toolchain\Docker
-$ ./build_docker_image.bat
-$ cd .\WASM-Source-Debug-Server\Docker
-$ ./build_docker_image.bat
+$ .\build_docker_image.bat
+$ cd .\WASM-Debug-Server\Docker
+$ .\build_docker_image.bat
 ```
 
 Linux:
@@ -67,14 +73,14 @@ Sometimes building the Docker images may fail due to bad network conditions. If 
 
 ```xml
 $ cd .\docker_images\wasm-debug-server
-$ docker build --no-cache --build-arg http_proxy=http://proxy-example.com:1234
---build-arg https_proxy=http://proxy-example.com:1234 -t wasm-debug-server:1.0 .
+$ docker build --no-cache --build-arg http_proxy=http://proxy.example.com:1234
+--build-arg https_proxy=http://proxy.example.com:1234 -t wasm-debug-server:1.0 .
 ```
 
 ```xml
 $ cd .\docker_images\wasm-toolchain
-$ docker build --no-cache --build-arg http_proxy=http://proxy-example.com:1234
---build-arg https_proxy=http://proxy-example.com:1234 -t wasm-toolchain:1.0 .
+$ docker build --no-cache --build-arg http_proxy=http://proxy.example.com:1234
+--build-arg https_proxy=http://proxy.example.com:1234 -t wasm-toolchain:1.0 .
 ```
 
 #### If you encounter the problem `failed to solve with frontend dockerfile.v0: failed to create LLB definition`, please config your docker desktop
@@ -89,9 +95,20 @@ $ docker build --no-cache --build-arg http_proxy=http://proxy-example.com:1234
 
 `wamride-1.0.0.vsix` can be packaged by [`npm vsce`](https://code.visualstudio.com/api/working-with-extensions/publishing-extension).
 
-> Note that patched `lldb` should be built and put into the `VSCode_Extension/resource/debug` folder before your package or extension debug process if you want to enable `source debugging` feature. Please follow this [instruction](../../doc/source_debugging.md#debugging-with-interpreter) to build `lldb`.
->
-> **You can also debug the extension directly follow this [instruction](./VSCode_Extension/README.md) without packing the extension.**
+```shell
+$ npm install -g vsce
+$ cd VSCode-Extension
+$ rm -rf node_modules
+$ npm install
+$ vsce package
+```
+
+Note that patched `lldb` should be built and put into the `VSCode-Extension/resource/debug` folder before your package or extension debug process if you want to enable `source debugging` feature.
+Please follow this [instruction](../../doc/source_debugging.md#debugging-with-interpreter) to build `lldb`.
+Please follow this [instruction](./VSCode-Extension/resource/debug/README.md)
+to copy the binaries.
+
+> **You can also debug the extension directly follow this [instruction](./VSCode-Extension/README.md) without packing the extension.**
 
 #### 5. Install extension from vsix
 
@@ -113,7 +130,7 @@ select `wamride-1.0.0.vsix` which you have packed on your host.
 
 When you click `New project` button, the extension will pop up a message box at the bottom right of the screen as following:
 
-![set-up-workspace-message](./Media/set-up-workspace-message.png "set up workspace message box")
+![set-up-workspace-message](./Media/set_up_workspace_message.png "set up workspace message box")
 
 You can click `Set up now` and select the target folder to create project workspace, or you click `Maybe later` to close the message box.
 

@@ -2731,6 +2731,18 @@ aot_load_const_from_table(AOTCompContext *comp_ctx, LLVMValueRef base,
     int32 index;
 
     switch (value_type) {
+        case VALUE_TYPE_I32:
+            /* Store the raw int bits of i32 const as a hex string */
+            snprintf(buf, sizeof(buf), "i32#%08" PRIX32, value->i32);
+            const_ptr_type = INT32_PTR_TYPE;
+            const_type = I32_TYPE;
+            break;
+        case VALUE_TYPE_I64:
+            /* Store the raw int bits of i64 const as a hex string */
+            snprintf(buf, sizeof(buf), "i64#%016" PRIX64, value->i64);
+            const_ptr_type = INT64_PTR_TYPE;
+            const_type = I64_TYPE;
+            break;
         case VALUE_TYPE_F32:
             /* Store the raw int bits of f32 const as a hex string */
             snprintf(buf, sizeof(buf), "f32#%08" PRIX32, value->i32);

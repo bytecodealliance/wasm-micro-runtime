@@ -36,6 +36,7 @@ typedef pthread_t korp_tid;
 typedef pthread_mutex_t korp_mutex;
 typedef pthread_cond_t korp_cond;
 typedef pthread_t korp_thread;
+typedef unsigned int korp_sem;
 
 #define BH_APPLET_PRESERVED_STACK_SIZE (2 * BH_KB)
 

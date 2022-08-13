@@ -58,6 +58,7 @@ extern "C" {
 #define AOT_INTRINSIC_FLAG_F32_TO_F64   AOT_INTRINSIC_FLAG(0, 24)
 #define AOT_INTRINSIC_FLAG_F32_CMP      AOT_INTRINSIC_FLAG(0, 25)
 #define AOT_INTRINSIC_FLAG_F32_CONST    AOT_INTRINSIC_FLAG(0, 26)
+#define AOT_INTRINSIC_FLAG_I32_CONST    AOT_INTRINSIC_FLAG(0, 27)
 
 #define AOT_INTRINSIC_FLAG_F64_FADD     AOT_INTRINSIC_FLAG(1, 0)
 #define AOT_INTRINSIC_FLAG_F64_FSUB     AOT_INTRINSIC_FLAG(1, 1)
@@ -86,6 +87,12 @@ extern "C" {
 #define AOT_INTRINSIC_FLAG_F64_TO_F32   AOT_INTRINSIC_FLAG(1, 24)
 #define AOT_INTRINSIC_FLAG_F64_CMP      AOT_INTRINSIC_FLAG(1, 25)
 #define AOT_INTRINSIC_FLAG_F64_CONST    AOT_INTRINSIC_FLAG(1, 26)
+#define AOT_INTRINSIC_FLAG_I64_CONST    AOT_INTRINSIC_FLAG(1, 27)
+#define AOT_INTRINSIC_FLAG_I64_DIV_S    AOT_INTRINSIC_FLAG(1, 28)
+#define AOT_INTRINSIC_FLAG_I64_DIV_U    AOT_INTRINSIC_FLAG(1, 29)
+#define AOT_INTRINSIC_FLAG_I64_REM_S    AOT_INTRINSIC_FLAG(1, 30)
+#define AOT_INTRINSIC_FLAG_I64_REM_U    AOT_INTRINSIC_FLAG(1, 31)
+
 /* clang-format on */
 
 float32
@@ -243,6 +250,18 @@ aot_intrinsic_f32_cmp(AOTFloatCond cond, float32 lhs, float32 rhs);
 
 int32
 aot_intrinsic_f64_cmp(AOTFloatCond cond, float64 lhs, float64 rhs);
+
+int64
+aot_intrinsic_i64_div_s(int64 l, int64 r);
+
+uint64
+aot_intrinsic_i64_div_u(uint64 l, uint64 r);
+
+int64
+aot_intrinsic_i64_rem_s(int64 l, int64 r);
+
+uint64
+aot_intrinsic_i64_rem_u(uint64 l, uint64 r);
 
 const char *
 aot_intrinsic_get_symbol(const char *llvm_intrinsic);

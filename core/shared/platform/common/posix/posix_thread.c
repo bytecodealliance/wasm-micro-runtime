@@ -195,6 +195,48 @@ os_cond_wait(korp_cond *cond, korp_mutex *mutex)
     return BHT_OK;
 }
 
+korp_sem *
+os_sem_open(const char *name, int oflags, int mode, int val)
+{
+    return sem_open(name, oflags, mode, val);
+}
+
+int
+os_sem_close(korp_sem *sem)
+{
+    return sem_close(sem);
+}
+
+int
+os_sem_wait(korp_sem *sem)
+{
+    return sem_wait(sem);
+}
+
+int
+os_sem_trywait(korp_sem *sem)
+{
+    return sem_trywait(sem);
+}
+
+int
+os_sem_post(korp_sem *sem)
+{
+    return sem_post(sem);
+}
+
+int
+os_sem_getvalue(korp_sem *sem, int *sval)
+{
+    return sem_getvalue(sem, sval);
+}
+
+int
+os_sem_unlink(const char *name)
+{
+    return sem_unlink(name);
+}
+
 static void
 msec_nsec_to_abstime(struct timespec *ts, uint64 usec)
 {

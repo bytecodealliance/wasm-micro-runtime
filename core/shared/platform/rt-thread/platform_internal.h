@@ -36,6 +36,7 @@ typedef rt_thread_t korp_tid;
 typedef struct rt_mutex korp_mutex;
 typedef struct rt_thread korp_cond;
 typedef struct rt_thread korp_thread;
+typedef unsigned int korp_sem;
 
 typedef rt_uint8_t uint8_t;
 typedef rt_int8_t int8_t;

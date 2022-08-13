@@ -1986,6 +1986,15 @@ call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
         ret = false;
     }
 
+    if (wasm_get_exception(module_inst)) {
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
+        if (wasm_interp_create_call_stack(exec_env)) {
+            wasm_interp_dump_call_stack(exec_env, true, NULL, 0);
+        }
+#endif
+        wasm_interp_restore_wasm_frame(exec_env);
+    }
+
     jmpbuf_node_pop = wasm_exec_env_pop_jmpbuf(exec_env);
     bh_assert(&jmpbuf_node == jmpbuf_node_pop);
     if (!exec_env->jmpbuf_stack_top) {
@@ -2023,7 +2032,7 @@ wasm_create_exec_env_and_call_function(WASMModuleInstance *module_inst,
                                        unsigned argc, uint32 argv[],
                                        bool enable_debug)
 {
-    WASMExecEnv *exec_env, *existing_exec_env = NULL;
+    WASMExecEnv *exec_env = NULL, *existing_exec_env = NULL;
     bool ret;
 
 #if defined(OS_ENABLE_HW_BOUND_CHECK)
