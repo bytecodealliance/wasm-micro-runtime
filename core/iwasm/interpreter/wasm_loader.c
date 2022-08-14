@@ -1500,12 +1500,12 @@ load_memory(const uint8 **p_buf, const uint8 *buf_end, WASMMemory *memory,
             char *error_buf, uint32 error_buf_size)
 {
     const uint8 *p = *p_buf, *p_end = buf_end, *p_org;
-    uint32 pool_size = wasm_runtime_memory_pool_size();
 #if WASM_ENABLE_APP_FRAMEWORK != 0
+    uint32 pool_size = wasm_runtime_memory_pool_size();
     uint32 max_page_count = pool_size * APP_MEMORY_MAX_GLOBAL_HEAP_PERCENT
                             / DEFAULT_NUM_BYTES_PER_PAGE;
 #else
-    uint32 max_page_count = pool_size / DEFAULT_NUM_BYTES_PER_PAGE;
+    uint32 max_page_count = DEFAULT_MAX_PAGES;
 #endif
 
     p_org = p;
