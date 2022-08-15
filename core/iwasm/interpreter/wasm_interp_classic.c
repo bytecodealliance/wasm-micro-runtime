@@ -1423,7 +1423,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 if (cur_type != cur_func_type) {
                     wasm_set_exception(module, "indirect call type mismatch");
                     goto got_exception;
-                } 
+                }
 
 #if WASM_ENABLE_TAIL_CALL != 0
                 if (opcode == WASM_OP_RETURN_CALL_INDIRECT)

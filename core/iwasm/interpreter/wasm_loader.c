@@ -626,7 +626,7 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             }
             type->param_cell_num = (uint16)param_cell_num;
             type->ret_cell_num = (uint16)ret_cell_num;
-            
+
             /* If there is already a same type created, use it instead */
             for (j = 0; j < i; j++) {
                 if (wasm_type_equal(type, module->types[j])) {
