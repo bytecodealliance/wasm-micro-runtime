@@ -17,6 +17,6 @@ enclave {
 
     untrusted {
         /* define OCALLs here. */
-        void ocall_print([in, string]const char* str);
+        int ocall_print([in, string]const char* str);
     };
 };
