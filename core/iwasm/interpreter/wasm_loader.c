@@ -6644,7 +6644,7 @@ re_scan:
         }
         p = func->code;
         func->code_compiled = loader_ctx->p_code_compiled;
-        func->code_compiled_size = loader_ctx->code_compiled_peak_size;
+        func->code_compiled_size = loader_ctx->code_compiled_size;
     }
 #endif
 
