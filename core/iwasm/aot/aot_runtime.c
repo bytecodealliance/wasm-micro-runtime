@@ -412,7 +412,7 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
     if (init_page_count == max_page_count && init_page_count == 1) {
         /* If only one page and at most one page, we just append
            the app heap to the end of linear memory, enlarge the
-           num_bytes_per_page, and don't change the page count*/
+           num_bytes_per_page, and don't change the page count */
         heap_offset = num_bytes_per_page;
         num_bytes_per_page += heap_size;
         if (num_bytes_per_page < heap_size) {
@@ -422,8 +422,16 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
         }
     }
     else if (heap_size > 0) {
-        if (module->aux_heap_base_global_index != (uint32)-1
-            && module->aux_heap_base < num_bytes_per_page * init_page_count) {
+        if (init_page_count == max_page_count && init_page_count == 0) {
+            /* If the memory data size is always 0, we resize it to
+               one page for app heap */
+            num_bytes_per_page = heap_size;
+            heap_offset = 0;
+            inc_page_count = 1;
+        }
+        else if (module->aux_heap_base_global_index != (uint32)-1
+                 && module->aux_heap_base
+                        < num_bytes_per_page * init_page_count) {
             /* Insert app heap before __heap_base */
             aux_heap_base = module->aux_heap_base;
             bytes_of_last_page = aux_heap_base % num_bytes_per_page;
@@ -534,15 +542,18 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
      * again here */
 #endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
+    if (total_size > UINT32_MAX)
+        total_size = UINT32_MAX;
+
     memory_inst->module_type = Wasm_Module_AoT;
     memory_inst->num_bytes_per_page = num_bytes_per_page;
     memory_inst->cur_page_count = init_page_count;
     memory_inst->max_page_count = max_page_count;
+    memory_inst->memory_data_size = (uint32)total_size;
 
     /* Init memory info */
     memory_inst->memory_data.ptr = p;
     memory_inst->memory_data_end.ptr = p + (uint32)total_size;
-    memory_inst->memory_data_size = (uint32)total_size;
 
     /* Initialize heap info */
     memory_inst->heap_data.ptr = p + heap_offset;
@@ -566,21 +577,19 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
     }
 
     if (total_size > 0) {
-        if (sizeof(uintptr_t) == sizeof(uint64)) {
-            memory_inst->mem_bound_check_1byte.u64 = total_size - 1;
-            memory_inst->mem_bound_check_2bytes.u64 = total_size - 2;
-            memory_inst->mem_bound_check_4bytes.u64 = total_size - 4;
-            memory_inst->mem_bound_check_8bytes.u64 = total_size - 8;
-            memory_inst->mem_bound_check_16bytes.u64 = total_size - 16;
-        }
-        else {
-            memory_inst->mem_bound_check_1byte.u32[0] = (uint32)total_size - 1;
-            memory_inst->mem_bound_check_2bytes.u32[0] = (uint32)total_size - 2;
-            memory_inst->mem_bound_check_4bytes.u32[0] = (uint32)total_size - 4;
-            memory_inst->mem_bound_check_8bytes.u32[0] = (uint32)total_size - 8;
-            memory_inst->mem_bound_check_16bytes.u32[0] =
-                (uint32)total_size - 16;
-        }
+#if UINTPTR_MAX == UINT64_MAX
+        memory_inst->mem_bound_check_1byte.u64 = total_size - 1;
+        memory_inst->mem_bound_check_2bytes.u64 = total_size - 2;
+        memory_inst->mem_bound_check_4bytes.u64 = total_size - 4;
+        memory_inst->mem_bound_check_8bytes.u64 = total_size - 8;
+        memory_inst->mem_bound_check_16bytes.u64 = total_size - 16;
+#else
+        memory_inst->mem_bound_check_1byte.u32[0] = (uint32)total_size - 1;
+        memory_inst->mem_bound_check_2bytes.u32[0] = (uint32)total_size - 2;
+        memory_inst->mem_bound_check_4bytes.u32[0] = (uint32)total_size - 4;
+        memory_inst->mem_bound_check_8bytes.u32[0] = (uint32)total_size - 8;
+        memory_inst->mem_bound_check_16bytes.u32[0] = (uint32)total_size - 16;
+#endif
     }
 
 #if WASM_ENABLE_SHARED_MEMORY != 0

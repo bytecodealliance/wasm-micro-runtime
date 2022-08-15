@@ -3293,7 +3293,13 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                     memory_import->init_page_count;
             else
                 memory_import->num_bytes_per_page = UINT32_MAX;
-            memory_import->init_page_count = memory_import->max_page_count = 1;
+
+            if (memory_import->init_page_count > 0)
+                memory_import->init_page_count = memory_import->max_page_count =
+                    1;
+            else
+                memory_import->init_page_count = memory_import->max_page_count =
+                    0;
         }
         if (module->memory_count) {
             memory = &module->memories[0];
@@ -3301,7 +3307,11 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                 memory->num_bytes_per_page *= memory->init_page_count;
             else
                 memory->num_bytes_per_page = UINT32_MAX;
-            memory->init_page_count = memory->max_page_count = 1;
+
+            if (memory->init_page_count > 0)
+                memory->init_page_count = memory->max_page_count = 1;
+            else
+                memory->init_page_count = memory->max_page_count = 0;
         }
 #endif
     }

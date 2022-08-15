@@ -203,7 +203,7 @@ memory_instantiate(WASMModuleInstance *module_inst, uint32 num_bytes_per_page,
     if (init_page_count == max_page_count && init_page_count == 1) {
         /* If only one page and at most one page, we just append
            the app heap to the end of linear memory, enlarge the
-           num_bytes_per_page, and don't change the page count*/
+           num_bytes_per_page, and don't change the page count */
         heap_offset = num_bytes_per_page;
         num_bytes_per_page += heap_size;
         if (num_bytes_per_page < heap_size) {
@@ -213,8 +213,16 @@ memory_instantiate(WASMModuleInstance *module_inst, uint32 num_bytes_per_page,
         }
     }
     else if (heap_size > 0) {
-        if (module->aux_heap_base_global_index != (uint32)-1
-            && module->aux_heap_base < num_bytes_per_page * init_page_count) {
+        if (init_page_count == max_page_count && init_page_count == 0) {
+            /* If the memory data size is always 0, we resize it to
+               one page for app heap */
+            num_bytes_per_page = heap_size;
+            heap_offset = 0;
+            inc_page_count = 1;
+        }
+        else if (module->aux_heap_base_global_index != (uint32)-1
+                 && module->aux_heap_base
+                        < num_bytes_per_page * init_page_count) {
             /* Insert app heap before __heap_base */
             aux_heap_base = module->aux_heap_base;
             bytes_of_last_page = aux_heap_base % num_bytes_per_page;
@@ -328,17 +336,18 @@ memory_instantiate(WASMModuleInstance *module_inst, uint32 num_bytes_per_page,
      * again here */
 #endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
+    if (memory_data_size > UINT32_MAX)
+        memory_data_size = (uint32)memory_data_size;
+
     memory->module_type = Wasm_Module_Bytecode;
     memory->num_bytes_per_page = num_bytes_per_page;
     memory->cur_page_count = init_page_count;
     memory->max_page_count = max_page_count;
+    memory->mem_data_size = (uint32)memory_data_size;
 
     memory->heap_data = memory->memory_data + heap_offset;
     memory->heap_data_end = memory->heap_data + heap_size;
-    if (memory_data_size <= UINT32_MAX)
-        memory->memory_data_end = memory->memory_data + memory_data_size;
-    else
-        memory->memory_data_end = memory->memory_data + UINT32_MAX;
+    memory->memory_data_end = memory->memory_data + (uint32)memory_data_size;
 
     /* Initialize heap */
     if (heap_size > 0) {
@@ -2443,7 +2452,7 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
     heap_size = (uint32)(memory->heap_data_end - memory->heap_data);
 
     memory_data_old = memory->memory_data;
-    total_size_old = (uint32)(memory->memory_data_end - memory_data_old);
+    total_size_old = memory->mem_data_size;
 
     num_bytes_per_page = memory->num_bytes_per_page;
     cur_page_count = memory->cur_page_count;
@@ -2517,6 +2526,7 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
     memory->num_bytes_per_page = num_bytes_per_page;
     memory->cur_page_count = total_page_count;
     memory->max_page_count = max_page_count;
+    memory->mem_data_size = (uint32)total_size_new;
 
     memory->memory_data = memory_data_new;
     memory->memory_data_end = memory_data_new + (uint32)total_size_new;
