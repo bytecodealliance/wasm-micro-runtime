@@ -3038,6 +3038,10 @@ typedef struct WASMLoaderContext {
     uint8 *p_code_compiled;
     uint8 *p_code_compiled_end;
     uint32 code_compiled_size;
+    /* If the last opcode will be dropped, the peak memory usage will be larger
+     * than the final code_compiled_size, we record the peak size to ensure
+     * there will not be invalid memory access during second traverse */
+    uint32 code_compiled_peak_size;
 #endif
 } WASMLoaderContext;
 
@@ -3530,9 +3534,10 @@ static bool
 wasm_loader_ctx_reinit(WASMLoaderContext *ctx)
 {
     if (!(ctx->p_code_compiled =
-              loader_malloc(ctx->code_compiled_size, NULL, 0)))
+              loader_malloc(ctx->code_compiled_peak_size, NULL, 0)))
         return false;
-    ctx->p_code_compiled_end = ctx->p_code_compiled + ctx->code_compiled_size;
+    ctx->p_code_compiled_end =
+        ctx->p_code_compiled + ctx->code_compiled_peak_size;
 
     /* clean up frame ref */
     memset(ctx->frame_ref_bottom, 0, ctx->frame_ref_size);
@@ -3558,6 +3563,15 @@ wasm_loader_ctx_reinit(WASMLoaderContext *ctx)
 }
 
 static void
+increase_compiled_code_space(WASMLoaderContext *ctx, int32 size)
+{
+    ctx->code_compiled_size += size;
+    if (ctx->code_compiled_size >= ctx->code_compiled_peak_size) {
+        ctx->code_compiled_peak_size = ctx->code_compiled_size;
+    }
+}
+
+static void
 wasm_loader_emit_const(WASMLoaderContext *ctx, void *value, bool is_32_bit)
 {
     uint32 size = is_32_bit ? sizeof(uint32) : sizeof(uint64);
@@ -3575,7 +3589,7 @@ wasm_loader_emit_const(WASMLoaderContext *ctx, void *value, bool is_32_bit)
 #if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
         bh_assert((ctx->code_compiled_size & 1) == 0);
 #endif
-        ctx->code_compiled_size += size;
+        increase_compiled_code_space(ctx, size);
     }
 }
 
@@ -3593,7 +3607,7 @@ wasm_loader_emit_uint32(WASMLoaderContext *ctx, uint32 value)
 #if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
         bh_assert((ctx->code_compiled_size & 1) == 0);
 #endif
-        ctx->code_compiled_size += sizeof(uint32);
+        increase_compiled_code_space(ctx, sizeof(uint32));
     }
 }
 
@@ -3611,7 +3625,7 @@ wasm_loader_emit_int16(WASMLoaderContext *ctx, int16 value)
 #if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
         bh_assert((ctx->code_compiled_size & 1) == 0);
 #endif
-        ctx->code_compiled_size += sizeof(int16);
+        increase_compiled_code_space(ctx, sizeof(uint16));
     }
 }
 
@@ -3627,9 +3641,9 @@ wasm_loader_emit_uint8(WASMLoaderContext *ctx, uint8 value)
 #endif
     }
     else {
-        ctx->code_compiled_size += sizeof(uint8);
+        increase_compiled_code_space(ctx, sizeof(uint8));
 #if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
-        ctx->code_compiled_size++;
+        increase_compiled_code_space(ctx, sizeof(uint8));
         bh_assert((ctx->code_compiled_size & 1) == 0);
 #endif
     }
@@ -3649,7 +3663,7 @@ wasm_loader_emit_ptr(WASMLoaderContext *ctx, void *value)
 #if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
         bh_assert((ctx->code_compiled_size & 1) == 0);
 #endif
-        ctx->code_compiled_size += sizeof(void *);
+        increase_compiled_code_space(ctx, sizeof(void *));
     }
 }
 
