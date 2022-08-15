@@ -34,7 +34,7 @@ struct WASMMemoryInstance {
     /* Maximum page count */
     uint32 max_page_count;
     /* Memory data size */
-    uint32 mem_data_size;
+    uint32 memory_data_size;
 
     /**
      * Memory data begin address, Note:

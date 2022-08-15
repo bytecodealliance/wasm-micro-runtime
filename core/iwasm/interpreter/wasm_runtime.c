@@ -343,7 +343,7 @@ memory_instantiate(WASMModuleInstance *module_inst, uint32 num_bytes_per_page,
     memory->num_bytes_per_page = num_bytes_per_page;
     memory->cur_page_count = init_page_count;
     memory->max_page_count = max_page_count;
-    memory->mem_data_size = (uint32)memory_data_size;
+    memory->memory_data_size = (uint32)memory_data_size;
 
     memory->heap_data = memory->memory_data + heap_offset;
     memory->heap_data_end = memory->heap_data + heap_size;
@@ -2452,7 +2452,7 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
     heap_size = (uint32)(memory->heap_data_end - memory->heap_data);
 
     memory_data_old = memory->memory_data;
-    total_size_old = memory->mem_data_size;
+    total_size_old = memory->memory_data_size;
 
     num_bytes_per_page = memory->num_bytes_per_page;
     cur_page_count = memory->cur_page_count;
@@ -2526,7 +2526,7 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
     memory->num_bytes_per_page = num_bytes_per_page;
     memory->cur_page_count = total_page_count;
     memory->max_page_count = max_page_count;
-    memory->mem_data_size = (uint32)total_size_new;
+    memory->memory_data_size = (uint32)total_size_new;
 
     memory->memory_data = memory_data_new;
     memory->memory_data_end = memory_data_new + (uint32)total_size_new;
@@ -2610,6 +2610,7 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
     memory->num_bytes_per_page = num_bytes_per_page;
     memory->cur_page_count = total_page_count;
     memory->max_page_count = max_page_count;
+    memory->memory_data_size = (uint32)total_size_new;
     memory->memory_data_end = memory->memory_data + (uint32)total_size_new;
 
 #if WASM_ENABLE_FAST_JIT != 0
