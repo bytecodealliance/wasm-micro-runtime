@@ -616,7 +616,6 @@ wasm_type_equal(const WASMType *type1, const WASMType *type2)
     if (type1 == type2) {
         return true;
     }
-    
     return (type1->param_count == type2->param_count
             && type1->result_count == type2->result_count
             && memcmp(type1->types, type2->types,
@@ -636,7 +635,6 @@ wasm_get_smallest_type_idx(WASMType **types, uint32 type_count,
         if (wasm_type_equal(types[cur_type_idx], types[i]))
             return i;
     }
-
     (void)type_count;
     return cur_type_idx;
 }

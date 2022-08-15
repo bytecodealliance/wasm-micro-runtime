@@ -415,7 +415,6 @@ const_str_list_insert(const uint8 *str, uint32 len, WASMModule *module,
     return node->str;
 }
 
-
 static void
 destroy_wasm_type(WASMType *type)
 {
@@ -429,7 +428,6 @@ destroy_wasm_type(WASMType *type)
     /* Free the type */
     wasm_runtime_free(type);
 }
-
 
 static bool
 load_init_expr(const uint8 **p_buf, const uint8 *buf_end,

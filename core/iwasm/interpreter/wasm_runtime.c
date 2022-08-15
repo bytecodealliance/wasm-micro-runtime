@@ -2667,7 +2667,6 @@ call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 elem_idx,
             wasm_set_exception(module_inst, "indirect call type mismatch");
             goto got_exception;
         }
-
     }
 
     interp_call_wasm(module_inst, exec_env, func_inst, argc, argv);
