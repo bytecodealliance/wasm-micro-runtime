@@ -417,7 +417,8 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
         num_bytes_per_page += heap_size;
         if (num_bytes_per_page < heap_size) {
             set_error_buf(error_buf, error_buf_size,
-                          "failed to insert app heap into linear memory");
+                          "failed to insert app heap into linear memory, "
+                          "try using `--heap_size=0` option");
             return NULL;
         }
     }
@@ -473,9 +474,9 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
         init_page_count += inc_page_count;
         max_page_count += inc_page_count;
         if (init_page_count > DEFAULT_MAX_PAGES) {
-            set_error_buf_v(error_buf, error_buf_size,
-                            "failed to insert app heap into linear memory",
-                            DEFAULT_MAX_PAGES);
+            set_error_buf(error_buf, error_buf_size,
+                          "failed to insert app heap into linear memory, "
+                          "try using `--heap_size=0` option");
             return NULL;
         }
         else if (init_page_count == DEFAULT_MAX_PAGES) {
