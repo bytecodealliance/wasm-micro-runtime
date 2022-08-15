@@ -415,6 +415,7 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                 if (wasm_type_equal(type, j)) {
                     destroy_wasm_type(type);
                     module->types[i] = module->types[j];
+                    bh_assert(module->types[j]->ref_count != UINT16_MAX);
                     module->types[j]->ref_count++;
                     break;
                 }
