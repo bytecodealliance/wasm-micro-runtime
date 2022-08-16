@@ -1,7 +1,7 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-name: compilation on android, ubuntu-18.04, ubuntu-20.04
+name: compilation on android, ubuntu-20.04, ubuntu-22.04
 
 on:
   # will be triggered on PR events
@@ -52,7 +52,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-18.04, ubuntu-20.04]
+        os: [ubuntu-20.04, ubuntu-22.04]
     steps:
       - name: Cancel Workflow Action
         uses: styfle/cancel-workflow-action@0.9.1
@@ -67,14 +67,14 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-18.04, ubuntu-20.04]
+        os: [ubuntu-20.04, ubuntu-22.04]
     outputs:
-      traffic_light_on_ubuntu_1804: ${{ steps.do_check_on_ubuntu_1804.outputs.light }}
       traffic_light_on_ubuntu_2004: ${{ steps.do_check_on_ubuntu_2004.outputs.light }}
+      traffic_light_on_ubuntu_2204: ${{ steps.do_check_on_ubuntu_2204.outputs.light }}
     steps:
-      - name: do_check_on_ubuntu_1804
-        id: do_check_on_ubuntu_1804
-        if: ${{ matrix.os == 'ubuntu-18.04' }}
+      - name: do_check_on_ubuntu_2004
+        id: do_check_on_ubuntu_2004
+        if: ${{ matrix.os == 'ubuntu-20.04' }}
         run: |
           if [[ ${{ github.repository }} == */wasm-micro-runtime ]]; then
             echo "::set-output name=light::green"
@@ -82,9 +82,9 @@ jobs:
             echo "::set-output name=light::red"
           fi
 
-      - name: do_check_on_ubuntu_2004
-        id: do_check_on_ubuntu_2004
-        if: ${{ matrix.os == 'ubuntu-20.04' }}
+      - name: do_check_on_ubuntu_2204
+        id: do_check_on_ubuntu_2204
+        if: ${{ matrix.os == 'ubuntu-22.04' }}
         run: |
           if [[ ${{ github.repository }} == */wasm-micro-runtime ]]; then
             echo "::set-output name=light::green"
@@ -97,12 +97,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-18.04, ubuntu-20.04]
+        os: [ubuntu-20.04, ubuntu-22.04]
         include:
-          - os: ubuntu-18.04
-            light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_1804 }}
           - os: ubuntu-20.04
             light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_2004 }}
+          - os: ubuntu-22.04
+            light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_2204 }}
     steps:
       - name: light status
         run: echo "matrix.os=${{ matrix.os }}, light=${{ matrix.light }}"
@@ -135,12 +135,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-18.04, ubuntu-20.04]
+        os: [ubuntu-20.04, ubuntu-22.04]
         include:
-          - os: ubuntu-18.04
-            light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_1804 }}
           - os: ubuntu-20.04
             light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_2004 }}
+          - os: ubuntu-22.04
+            light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_2204 }}
     steps:
       - name: light status
         run: echo "matrix.os=${{ matrix.os }}, light=${{ matrix.light }}"
@@ -204,7 +204,7 @@ jobs:
             "-DWAMR_BUILD_TAIL_CALL=1",
             "-DWAMR_DISABLE_HW_BOUND_CHECK=1",
           ]
-        os: [ubuntu-18.04, ubuntu-20.04]
+        os: [ubuntu-20.04, ubuntu-22.04]
         platform: [android, linux]
         exclude:
           # uncompatiable feature and platform
@@ -248,10 +248,10 @@ jobs:
           - make_options_run_mode: $MC_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"
         include:
-          - os: ubuntu-18.04
-            light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_1804 }}
           - os: ubuntu-20.04
             light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_2004 }}
+          - os: ubuntu-22.04
+            light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_2204 }}
     steps:
       - name: light status
         run: echo "matrix.os=${{ matrix.os }}, light=${{ matrix.light }}"
@@ -299,14 +299,14 @@ jobs:
             $MC_JIT_BUILD_OPTIONS,
             $AOT_BUILD_OPTIONS,
           ]
-        os: [ubuntu-18.04, ubuntu-20.04]
+        os: [ubuntu-20.04, ubuntu-22.04]
         include:
-          - os: ubuntu-18.04
-            light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_1804 }}
-            wasi_sdk_release: https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz
-            wabt_release: https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-ubuntu.tar.gz
           - os: ubuntu-20.04
             light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_2004 }}
+            wasi_sdk_release: https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz
+            wabt_release: https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-ubuntu.tar.gz
+          - os: ubuntu-22.04
+            light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_2204 }}
             wasi_sdk_release: https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz
             wabt_release: https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-ubuntu.tar.gz
     steps:
@@ -374,12 +374,12 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-18.04
-            light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_1804 }}
-            wasi_sdk_release: https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz
-            wabt_release: https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-ubuntu.tar.gz
           - os: ubuntu-20.04
             light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_2004 }}
+            wasi_sdk_release: https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz
+            wabt_release: https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-ubuntu.tar.gz
+          - os: ubuntu-22.04
+            light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_2204 }}
             wasi_sdk_release: https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz
             wabt_release: https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-ubuntu.tar.gz
     steps:

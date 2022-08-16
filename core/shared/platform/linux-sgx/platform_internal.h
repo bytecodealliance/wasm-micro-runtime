@@ -52,7 +52,7 @@ typedef pthread_mutex_t korp_mutex;
 typedef pthread_cond_t korp_cond;
 typedef unsigned int korp_sem;
 
-typedef void (*os_print_function_t)(const char *message);
+typedef int (*os_print_function_t)(const char *message);
 void
 os_set_print_function(os_print_function_t pf);
 
