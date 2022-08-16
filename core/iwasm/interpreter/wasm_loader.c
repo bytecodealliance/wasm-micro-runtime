@@ -425,7 +425,6 @@ destroy_wasm_type(WASMType *type)
         return;
     }
 
-    /* Free the type */
     wasm_runtime_free(type);
 }
 
