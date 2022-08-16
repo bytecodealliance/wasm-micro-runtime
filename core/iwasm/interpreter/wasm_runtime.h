@@ -218,9 +218,6 @@ struct WASMModuleInstance {
 
     WASMExecEnv *exec_env_singleton;
 
-    uint32 temp_ret;
-    uint32 llvm_stack;
-
     /* Default WASM stack size of threads of this Module instance. */
     uint32 default_wasm_stack_size;
 

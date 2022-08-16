@@ -373,19 +373,15 @@ typedef struct AOTModuleInstance {
     AOTPointer wasi_ctx;
     /* function performance profiling info list */
     AOTPointer func_perf_profilings;
+    /* stack frames, used in call stack dump and perf profiling */
+    AOTPointer frames;
 
     AOTPointer exec_env_singleton;
 
-    /* others */
-    uint32 temp_ret;
-    uint32 llvm_stack;
     uint32 default_wasm_stack_size;
 
-    uint32 _padding;
-    /* store stacktrace information */
-    AOTPointer frames;
     /* reserved */
-    uint32 reserved[6];
+    uint32 reserved[9];
 
     /*
      * +------------------------------+ <-- memories.ptr

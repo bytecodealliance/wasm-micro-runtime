@@ -17,18 +17,6 @@ void
 wasm_runtime_set_exception(wasm_module_inst_t module, const char *exception);
 
 uint32
-wasm_runtime_get_temp_ret(wasm_module_inst_t module);
-
-void
-wasm_runtime_set_temp_ret(wasm_module_inst_t module, uint32 temp_ret);
-
-uint32
-wasm_runtime_get_llvm_stack(wasm_module_inst_t module);
-
-void
-wasm_runtime_set_llvm_stack(wasm_module_inst_t module, uint32 llvm_stack);
-
-uint32
 wasm_runtime_module_realloc(wasm_module_inst_t module, uint32 ptr, uint32 size,
                             void **p_native_addr);
 
@@ -841,87 +829,6 @@ isalnum_wrapper(wasm_exec_env_t exec_env, int32 c)
     return isalnum(c);
 }
 
-static void
-setTempRet0_wrapper(wasm_exec_env_t exec_env, uint32 temp_ret)
-{
-    wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    wasm_runtime_set_temp_ret(module_inst, temp_ret);
-}
-
-static uint32
-getTempRet0_wrapper(wasm_exec_env_t exec_env)
-{
-    wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    return wasm_runtime_get_temp_ret(module_inst);
-}
-
-static uint32
-llvm_bswap_i16_wrapper(wasm_exec_env_t exec_env, uint32 data)
-{
-    return (data & 0xFFFF0000) | ((data & 0xFF) << 8) | ((data & 0xFF00) >> 8);
-}
-
-static uint32
-llvm_bswap_i32_wrapper(wasm_exec_env_t exec_env, uint32 data)
-{
-    return ((data & 0xFF) << 24) | ((data & 0xFF00) << 8)
-           | ((data & 0xFF0000) >> 8) | ((data & 0xFF000000) >> 24);
-}
-
-static uint32
-bitshift64Lshr_wrapper(wasm_exec_env_t exec_env, uint32 uint64_part0,
-                       uint32 uint64_part1, uint32 bits)
-{
-    wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    union {
-        uint64 value;
-        uint32 parts[2];
-    } u;
-
-    u.parts[0] = uint64_part0;
-    u.parts[1] = uint64_part1;
-
-    u.value >>= bits;
-    /* return low 32bit and save high 32bit to temp ret */
-    wasm_runtime_set_temp_ret(module_inst, (uint32)(u.value >> 32));
-    return (uint32)u.value;
-}
-
-static uint32
-bitshift64Shl_wrapper(wasm_exec_env_t exec_env, uint32 int64_part0,
-                      uint32 int64_part1, uint32 bits)
-{
-    wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    union {
-        int64 value;
-        uint32 parts[2];
-    } u;
-
-    u.parts[0] = int64_part0;
-    u.parts[1] = int64_part1;
-
-    u.value <<= bits;
-    /* return low 32bit and save high 32bit to temp ret */
-    wasm_runtime_set_temp_ret(module_inst, (uint32)(u.value >> 32));
-    return (uint32)u.value;
-}
-
-static void
-llvm_stackrestore_wrapper(wasm_exec_env_t exec_env, uint32 llvm_stack)
-{
-    wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    os_printf("_llvm_stackrestore called!\n");
-    wasm_runtime_set_llvm_stack(module_inst, llvm_stack);
-}
-
-static uint32
-llvm_stacksave_wrapper(wasm_exec_env_t exec_env)
-{
-    wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    os_printf("_llvm_stacksave called!\n");
-    return wasm_runtime_get_llvm_stack(module_inst);
-}
-
 static uint32
 emscripten_memcpy_big_wrapper(wasm_exec_env_t exec_env, void *dst,
                               const void *src, uint32 size)
@@ -1108,14 +1015,6 @@ static NativeSymbol native_symbols_libc_builtin[] = {
     REG_NATIVE_FUNC(tolower, "(i)i"),
     REG_NATIVE_FUNC(toupper, "(i)i"),
     REG_NATIVE_FUNC(isalnum, "(i)i"),
-    REG_NATIVE_FUNC(setTempRet0, "(i)"),
-    REG_NATIVE_FUNC(getTempRet0, "()i"),
-    REG_NATIVE_FUNC(llvm_bswap_i16, "(i)i"),
-    REG_NATIVE_FUNC(llvm_bswap_i32, "(i)i"),
-    REG_NATIVE_FUNC(bitshift64Lshr, "(iii)i"),
-    REG_NATIVE_FUNC(bitshift64Shl, "(iii)i"),
-    REG_NATIVE_FUNC(llvm_stackrestore, "(i)"),
-    REG_NATIVE_FUNC(llvm_stacksave, "()i"),
     REG_NATIVE_FUNC(emscripten_memcpy_big, "(**~)i"),
     REG_NATIVE_FUNC(abort, "(i)"),
     REG_NATIVE_FUNC(abortStackOverflow, "(i)"),
