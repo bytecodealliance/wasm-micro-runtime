@@ -1316,7 +1316,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 val = GET_OPERAND(uint32, I32, 0);
                 frame_ip += 2;
 
-                if (val < 0 || val >= (int32)tbl_inst->cur_size) {
+                if ((uint32)val >= tbl_inst->cur_size) {
                     wasm_set_exception(module, "undefined element");
                     goto got_exception;
                 }
