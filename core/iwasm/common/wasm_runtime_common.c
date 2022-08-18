@@ -31,6 +31,7 @@
 #include "../fast-jit/jit_compiler.h"
 #endif
 #include "../common/wasm_c_api_internal.h"
+#include "../../version.h"
 
 /**
  * For runtime build, BH_MALLOC/BH_FREE should be defined as
@@ -5055,3 +5056,11 @@ wasm_runtime_destroy_custom_sections(WASMCustomSection *section_list)
     }
 }
 #endif /* end of WASM_ENABLE_LOAD_CUSTOM_SECTION */
+
+void
+wasm_runtime_get_version(uint32_t *major, uint32_t *minor, uint32_t *patch)
+{
+    *major = WAMR_VERSION_MAJOR;
+    *minor = WAMR_VERSION_MINOR;
+    *patch = WAMR_VERSION_PATCH;
+}

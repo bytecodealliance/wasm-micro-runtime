@@ -1137,6 +1137,12 @@ WASM_RUNTIME_API_EXTERN const uint8_t *
 wasm_runtime_get_custom_section(wasm_module_t const module_comm,
                                 const char *name, uint32_t *len);
 
+
+/**
+ * Get WAMR semantic version
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_get_version(uint32_t *major, uint32_t *minor, uint32_t *patch);
 /* clang-format on */
 
 #ifdef __cplusplus
