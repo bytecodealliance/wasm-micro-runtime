@@ -854,7 +854,7 @@ globals_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
     (void)module_inst;
     return globals;
 fail:
-    globals_deinstantiate(globals);
+    wasm_runtime_free(globals);
     return NULL;
 }
 
