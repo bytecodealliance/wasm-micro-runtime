@@ -1,10 +1,11 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-cmake_minimum_required (VERSION 2.8)
+cmake_minimum_required (VERSION 2.9)
 
 project (iwasm)
-# set (CMAKE_VERBOSE_MAKEFILE 1)
+
+set (CMAKE_VERBOSE_MAKEFILE OFF)
 
 set (WAMR_BUILD_PLATFORM "linux")
 
@@ -73,7 +74,7 @@ if (NOT DEFINED WAMR_BUILD_FAST_INTERP)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_MULTI_MODULE)
-  # Disable multiple module by default
+  # Disable multiple modules by default
   set (WAMR_BUILD_MULTI_MODULE 0)
 endif ()
 
