@@ -1391,7 +1391,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 tbl_inst = wasm_get_table_inst(module, tbl_idx);
 
                 val = POP_I32();
-                if (val < 0 || val >= (int32)tbl_inst->cur_size) {
+                if ((uint32)val >= tbl_inst->cur_size) {
                     wasm_set_exception(module, "undefined element");
                     goto got_exception;
                 }
@@ -1419,10 +1419,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     cur_func_type = cur_func->u.func_import->func_type;
                 else
                     cur_func_type = cur_func->u.func->func_type;
-                if (!wasm_type_equal(cur_type, cur_func_type)) {
+
+                if (cur_type != cur_func_type) {
                     wasm_set_exception(module, "indirect call type mismatch");
                     goto got_exception;
                 }
+
 #if WASM_ENABLE_TAIL_CALL != 0
                 if (opcode == WASM_OP_RETURN_CALL_INDIRECT)
                     goto call_func_from_return_call;
