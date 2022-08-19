@@ -323,16 +323,21 @@ LLVMOrcJITTargetMachineBuilderCreateFromTargetMachine(LLVMTargetMachineRef TM)
 
 DEFINE_SIMPLE_CONVERSION_FUNCTIONS(LLJITBuilder, LLVMOrcLLJITBuilderRef)
 
-void
-LLVMOrcLLJITBuilderSetNumCompileThreads(LLVMOrcLLJITBuilderRef orcjit_builder,
-                                        unsigned num_compile_threads)
-{
-    unwrap(orcjit_builder)->setNumCompileThreads(num_compile_threads);
-}
+// void
+// LLVMOrcLLJITBuilderSetNumCompileThreads(LLVMOrcLLJITBuilderRef orcjit_builder,
+//                                         unsigned num_compile_threads)
+// {
+//     unwrap(orcjit_builder)->setNumCompileThreads(num_compile_threads);
+// }
 
 void *
-aot_lookup_orcjit_func(LLVMOrcLLJITRef orc_lazyjit, void *module_inst,
-                       uint32 func_idx)
+aot_lookup_orcjit_func(
+#if WASM_ENABLE_LAZY_JIT != 0
+    LLVMOrcLLLazyJITRef orcjit,
+#else
+    LLVMOrcLLJITRef orcjit,
+#endif
+    void *module_inst, uint32 func_idx)
 {
     char func_name[32], buf[128], *err_msg = NULL;
     LLVMErrorRef error;
@@ -352,7 +357,13 @@ aot_lookup_orcjit_func(LLVMOrcLLJITRef orc_lazyjit, void *module_inst,
 
     snprintf(func_name, sizeof(func_name), "%s%d", AOT_FUNC_PREFIX,
              func_idx - aot_module->import_func_count);
-    if ((error = LLVMOrcLLJITLookup(orc_lazyjit, &func_addr, func_name))) {
+    if ((error =
+#if WASM_ENABLE_LAZY_JIT != 0
+             LLVMOrcLLLazyJITLookup(orcjit, &func_addr, func_name)
+#else
+             LLVMOrcLLJITLookup(orcjit, &func_addr, func_name)
+#endif
+             )) {
         err_msg = LLVMGetErrorMessage(error);
         snprintf(buf, sizeof(buf), "failed to lookup orcjit function: %s",
                  err_msg);

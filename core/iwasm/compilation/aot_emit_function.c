@@ -346,7 +346,7 @@ lookup_orcjit_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         return false;
     }
 
-    param_values[0] = I64_CONST((uintptr_t)comp_ctx->orc_lazyjit);
+    param_values[0] = I64_CONST((uintptr_t)comp_ctx->orcjit);
     if (!param_values[0]) {
         aot_set_last_error("llvm build const failed.");
         return false;
@@ -390,7 +390,7 @@ lookup_orcjit_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     *p_func = phi;
     return true;
 }
-#endif
+#endif /* WASM_ENABLE_MCJIT == 0 */
 
 #if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
 static bool

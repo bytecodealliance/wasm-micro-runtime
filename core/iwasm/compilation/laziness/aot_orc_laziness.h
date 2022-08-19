@@ -17,6 +17,10 @@ LLVM_C_EXTERN_C_BEGIN
 typedef struct LLVMOrcOpaqueLLLazyJITBuilder *LLVMOrcLLLazyJITBuilderRef;
 typedef struct LLVMOrcOpaqueLLLazyJIT *LLVMOrcLLLazyJITRef;
 
+void
+LLVMOrcLLJITBuilderSetNumCompileThreads(LLVMOrcLLJITBuilderRef Builder,
+                                        unsigned NumCompileThreads);
+
 /**
  * Create an LLVMOrcLLJITBuilder.
  *
@@ -33,6 +37,10 @@ LLVMOrcCreateLLLazyJITBuilder(void);
  */
 void
 LLVMOrcDisposeLLLazyJITBuilder(LLVMOrcLLLazyJITBuilderRef Builder);
+
+void
+LLVMOrcLLLazyJITBuilderSetNumCompileThreads(LLVMOrcLLLazyJITBuilderRef Builder,
+                                            unsigned NumCompileThreads);
 
 /**
  * Create an LLJIT instance from an LLJITBuilder.

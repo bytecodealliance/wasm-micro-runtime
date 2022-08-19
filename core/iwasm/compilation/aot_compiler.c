@@ -2578,8 +2578,13 @@ veriy_module(AOTCompContext *comp_ctx)
     char *msg = NULL;
     bool ret;
 
+    ret = LLVMVerifyModule(
 #if WASM_ENABLE_MCJIT != 0
-    ret = LLVMVerifyModule(comp_ctx->module, LLVMPrintMessageAction, &msg);
+        comp_ctx->module,
+#else
+        comp_ctx->modules[0],
+#endif
+        LLVMPrintMessageAction, &msg);
     if (!ret && msg) {
         if (msg[0] != '\0') {
             aot_set_last_error(msg);
@@ -2588,22 +2593,6 @@ veriy_module(AOTCompContext *comp_ctx)
         }
         LLVMDisposeMessage(msg);
     }
-#else
-    uint32 i;
-
-    for (i = 0; i < comp_ctx->func_ctx_count; i++) {
-        ret = LLVMVerifyModule(comp_ctx->modules[i], LLVMPrintMessageAction,
-                               &msg);
-        if (!ret && msg) {
-            if (msg[0] != '\0') {
-                aot_set_last_error(msg);
-                LLVMDisposeMessage(msg);
-                return false;
-            }
-            LLVMDisposeMessage(msg);
-        }
-    }
-#endif
 
     return true;
 }
@@ -2787,6 +2776,7 @@ apply_passes_for_indirect_mode(AOTCompContext *comp_ctx)
 bool
 aot_compile_wasm(AOTCompContext *comp_ctx)
 {
+    LOG_VERBOSE("AOT_COMPILE_WASM");
     uint32 i;
 #if WASM_ENABLE_MCJIT == 0
     LLVMErrorRef err;
@@ -2814,13 +2804,15 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
         return false;
     }
 
+#if WASM_ENABLE_MCJIT == 0
     if (comp_ctx->optimize) {
         if (comp_ctx->is_jit_mode) {
-            /* Only run func passes for JIT mode */
-            bh_print_time("Begin to run func optimization passes");
-            if (!apply_func_passes(comp_ctx)) {
-                return false;
-            }
+            /*TODO:*/
+            // /* Only run func passes for JIT mode */
+            // bh_print_time("Begin to run func optimization passes");
+            // if (!apply_func_passes(comp_ctx)) {
+            //     return false;
+            // }
         }
         else {
 #if WASM_ENABLE_LLVM_LEGACY_PM == 0 && LLVM_VERSION_MAJOR >= 12
@@ -2852,44 +2844,54 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
             }
         }
     }
+#endif /* WASM_ENABLE_MCJIT */
 
 #if WASM_ENABLE_MCJIT == 0
-    orc_main_dylib = LLVMOrcLLJITGetMainJITDylib(comp_ctx->orc_lazyjit);
+    orc_main_dylib =
+#if WASM_ENABLE_LAZY_JIT != 0
+        LLVMOrcLLLazyJITGetMainJITDylib(comp_ctx->orcjit);
+#else
+        LLVMOrcLLJITGetMainJITDylib(comp_ctx->orcjit);
+#endif
     if (!orc_main_dylib) {
         aot_set_last_error("failed to get orc jit main dynmaic library");
         return false;
     }
 
-    for (i = 0; i < comp_ctx->func_ctx_count; i++) {
-        orc_thread_safe_module = LLVMOrcCreateNewThreadSafeModule(
-            comp_ctx->modules[i], comp_ctx->orc_thread_safe_context);
-        if (!orc_thread_safe_module) {
-            aot_set_last_error("failed to create thread safe module");
-            return false;
-        }
-
-        if ((err = LLVMOrcLLJITAddLLVMIRModule(comp_ctx->orc_lazyjit,
-                                               orc_main_dylib,
-                                               orc_thread_safe_module))) {
-            /* If adding the ThreadSafeModule fails then we need to clean it up
-               by ourselves, otherwise the orc jit will manage the memory. */
-            LLVMOrcDisposeThreadSafeModule(orc_thread_safe_module);
-            aot_handle_llvm_errmsg("failed to addIRModule", err);
-            return false;
-        }
+    LOG_VERBOSE("Craete ThreadSafeModule");
+    orc_thread_safe_module = LLVMOrcCreateNewThreadSafeModule(
+        comp_ctx->modules[0], comp_ctx->orc_thread_safe_context);
+    if (!orc_thread_safe_module) {
+        aot_set_last_error("failed to create thread safe module");
+        return false;
     }
-#endif
 
-#if 0
+    LOG_VERBOSE("Add LLVMIRModule");
+    if ((err =
+#if WASM_ENABLE_LAZY_JIT != 0
+             LLVMOrcLLLazyJITAddLLVMIRModule(comp_ctx->orcjit, orc_main_dylib,
+                                             orc_thread_safe_module)
+#else
+             LLVMOrcLLJITAddLLVMIRModule(comp_ctx->orcjit, orc_main_dylib,
+                                         orc_thread_safe_module)
+#endif
+             )) {
+        /* If adding the ThreadSafeModule fails then we need to clean it up
+           by ourselves, otherwise the orc jit will manage the memory. */
+        LLVMOrcDisposeThreadSafeModule(orc_thread_safe_module);
+        aot_handle_llvm_errmsg("failed to addIRModule", err);
+        return false;
+    }
+#endif /* WASM_ENABLE_MCJIT == 0 */
+
+#ifndef NDEBUG
+    LOG_VERBOSE("Dump the LLVM Module");
 #if WASM_ENABLE_MCJIT != 0
     LLVMDumpModule(comp_ctx->module);
 #else
-    for (i = 0; i < comp_ctx->func_ctx_count; i++) {
-        LLVMDumpModule(comp_ctx->modules[i]);
-        os_printf("\n");
-    }
-#endif
-#endif
+    LLVMDumpModule(comp_ctx->modules[0]);
+#endif /* WASM_ENABLE_MCJIT != 0 */
+#endif /* NDEBUG */
     return true;
 }
 

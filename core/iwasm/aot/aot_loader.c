@@ -2858,7 +2858,7 @@ orcjit_thread_callback(void *arg)
          i += thread_arg->group_stride) {
         if (!module->func_ptrs[i]) {
             snprintf(func_name, sizeof(func_name), "%s%d", AOT_FUNC_PREFIX, i);
-            if ((error = LLVMOrcLLJITLookup(comp_ctx->orc_lazyjit, &func_addr,
+            if ((error = LLVMOrcLLJITLookup(comp_ctx->orcjit, &func_addr,
                                             func_name))) {
                 char *err_msg = LLVMGetErrorMessage(error);
                 os_printf("failed to compile orc jit function: %s", err_msg);
@@ -2885,7 +2885,7 @@ orcjit_thread_callback(void *arg)
         }
         if (!module->func_ptrs[i]) {
             snprintf(func_name, sizeof(func_name), "%s%d", AOT_FUNC_PREFIX, i);
-            if ((error = LLVMOrcLLJITLookup(comp_ctx->orc_lazyjit, &func_addr,
+            if ((error = LLVMOrcLLJITLookup(comp_ctx->orcjit, &func_addr,
                                             func_name))) {
                 char *err_msg = LLVMGetErrorMessage(error);
                 os_printf("failed to compile orc jit function: %s", err_msg);
@@ -2909,7 +2909,7 @@ orcjit_stop_compile_threads()
         os_thread_join(orcjit_threads[i], NULL);
     }
 }
-#endif
+#endif /* #if WASM_ENABLE_MCJIT == 0 */
 
 static AOTModule *
 aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
@@ -2982,6 +2982,7 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
         goto fail2;
     }
 
+    /*TODO: fill in module->func_ptrs[i] with the jitted function address*/
 #if WASM_ENABLE_MCJIT == 0
     /* Create threads to compile the wasm functions */
     for (i = 0; i < WASM_LAZY_JIT_COMPILE_THREAD_NUM; i++) {
@@ -3048,7 +3049,7 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
                 snprintf(func_name, sizeof(func_name), "%s%d", AOT_FUNC_PREFIX,
                          comp_data->start_func_index
                              - module->import_func_count);
-                if ((error = LLVMOrcLLJITLookup(comp_ctx->orc_lazyjit,
+                if ((error = LLVMOrcLLJITLookup(comp_ctx->orcjit,
                                                 &func_addr, func_name))) {
                     char *err_msg = LLVMGetErrorMessage(error);
                     set_error_buf_v(error_buf, error_buf_size,

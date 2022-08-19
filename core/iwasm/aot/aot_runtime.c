@@ -1436,7 +1436,7 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
     if (!function->u.func.func_ptr) {
         AOTModule *aot_module = (AOTModule *)module_inst->aot_module.ptr;
         if (!(function->u.func.func_ptr =
-                  aot_lookup_orcjit_func(aot_module->comp_ctx->orc_lazyjit,
+                    aot_lookup_orcjit_func(aot_module->comp_ctx->orcjit,
                                          module_inst, function->func_index))) {
             return false;
         }
@@ -2329,7 +2329,7 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
 #if WASM_ENABLE_MCJIT == 0
     if (func_idx >= aot_module->import_func_count && !func_ptrs[func_idx]) {
         if (!(func_ptr = aot_lookup_orcjit_func(
-                  aot_module->comp_ctx->orc_lazyjit, module_inst, func_idx))) {
+                  aot_module->comp_ctx->orcjit, module_inst, func_idx))) {
             return false;
         }
     }

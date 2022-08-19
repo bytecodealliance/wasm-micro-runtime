@@ -89,7 +89,6 @@ if (WAMR_BUILD_JIT EQUAL 1)
     if (NOT DEFINED WAMR_BUILD_LAZY_JIT)
       # Enable Lazy JIT by default
       set (WAMR_BUILD_LAZY_JIT 1)
-      message(STATUS "CHK1")
     endif ()
 
     if (NOT WAMR_BUILD_MCJIT EQUAL 1)

@@ -26,10 +26,13 @@
 #include "llvm-c/Support.h"
 #include "llvm-c/Initialization.h"
 #include "llvm-c/TargetMachine.h"
+#if WASM_ENABLE_LAZY_JIT != 0
+#include "laziness/aot_orc_laziness.h"
+#endif
 #if LLVM_VERSION_MAJOR >= 12
 #include "llvm-c/LLJIT.h"
 #endif
-#endif
+#endif /* WASM_ENABLE_MCJIT == 0 */
 #if WASM_ENABLE_DEBUG_AOT != 0
 #include "llvm-c/DebugInfo.h"
 #endif
@@ -292,12 +295,17 @@ typedef struct AOTCompContext {
 
     /* LLVM execution engine required by JIT */
 #if WASM_ENABLE_MCJIT == 0
-    LLVMOrcLLJITRef orc_lazyjit;
+#if WASM_ENABLE_LAZY_JIT != 0
+    LLVMOrcLLLazyJITRef orcjit;
+#else
+    LLVMOrcLLJITRef orcjit;
+#endif
     LLVMOrcMaterializationUnitRef orc_material_unit;
     LLVMOrcLazyCallThroughManagerRef orc_call_through_mgr;
     LLVMOrcIndirectStubsManagerRef orc_indirect_stub_mgr;
     LLVMOrcCSymbolAliasMapPairs orc_symbol_map_pairs;
     LLVMOrcThreadSafeContextRef orc_thread_safe_context;
+    /*TODO: all functions in one module*/
     /* Each aot function has its own module */
     LLVMModuleRef *modules;
 #else
@@ -517,8 +525,13 @@ void
 aot_handle_llvm_errmsg(const char *string, LLVMErrorRef err);
 
 void *
-aot_lookup_orcjit_func(LLVMOrcLLJITRef orc_lazyjit, void *module_inst,
-                       uint32 func_idx);
+aot_lookup_orcjit_func(
+#if WASM_ENABLE_LAZY_JIT != 0
+    LLVMOrcLLLazyJITRef orcjit,
+#else
+    LLVMOrcLLJITRef orcjit,
+#endif
+    void *module_inst, uint32 func_idx);
 #endif
 
 #ifdef __cplusplus

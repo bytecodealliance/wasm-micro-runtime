@@ -87,8 +87,16 @@ DEFINE_SIMPLE_CONVERSION_FUNCTIONS(OrcV2CAPIHelper::PoolEntry,
 DEFINE_SIMPLE_CONVERSION_FUNCTIONS(SymbolStringPool, LLVMOrcSymbolStringPoolRef)
 DEFINE_SIMPLE_CONVERSION_FUNCTIONS(ThreadSafeModule, LLVMOrcThreadSafeModuleRef)
 
+DEFINE_SIMPLE_CONVERSION_FUNCTIONS(LLJITBuilder, LLVMOrcLLJITBuilderRef)
 DEFINE_SIMPLE_CONVERSION_FUNCTIONS(LLLazyJITBuilder, LLVMOrcLLLazyJITBuilderRef)
 DEFINE_SIMPLE_CONVERSION_FUNCTIONS(LLLazyJIT, LLVMOrcLLLazyJITRef)
+
+void
+LLVMOrcLLJITBuilderSetNumCompileThreads(LLVMOrcLLJITBuilderRef Builder,
+                                        unsigned NumCompileThreads)
+{
+    unwrap(Builder)->setNumCompileThreads(NumCompileThreads);
+}
 
 LLVMOrcLLLazyJITBuilderRef
 LLVMOrcCreateLLLazyJITBuilder(void)
@@ -100,6 +108,13 @@ void
 LLVMOrcDisposeLLLazyJITBuilder(LLVMOrcLLLazyJITBuilderRef Builder)
 {
     delete unwrap(Builder);
+}
+
+void
+LLVMOrcLLLazyJITBuilderSetNumCompileThreads(LLVMOrcLLLazyJITBuilderRef Builder,
+                                            unsigned NumCompileThreads)
+{
+    unwrap(Builder)->setNumCompileThreads(NumCompileThreads);
 }
 
 LLVMErrorRef
