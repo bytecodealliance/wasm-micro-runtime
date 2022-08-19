@@ -43,6 +43,17 @@ os_mmap(void *hint, size_t size, int prot, int flags)
         /* integer overflow */
         return NULL;
 
+#if WASM_ENABLE_JIT != 0
+    /**
+     * Allocate memory at the highest possible address if the
+     * request size is large, or LLVM JIT might report error:
+     * IMAGE_REL_AMD64_ADDR32NB relocation requires an ordered
+     * section layout.
+     */
+    if (request_size > 10 * BH_MB)
+        alloc_type |= MEM_TOP_DOWN;
+#endif
+
     protect = access_to_win32_flags(prot);
     if (protect != PAGE_NOACCESS) {
         alloc_type |= MEM_COMMIT;

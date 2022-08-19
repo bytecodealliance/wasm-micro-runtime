@@ -158,6 +158,10 @@ Currently we only profile the memory consumption of module, module_instance and 
 
 > For AoT file, must use `--emit-custom-sections` to specify which sections need to be emitted into AoT file, otherwise all custom sections (except custom name section) will be ignored.
 
+### **Stack guard size**
+- **WAMR_BUILD_STACK_GUARD_SIZE**=n, default to N/A if not set.
+> Note: By default, the stack guard size is 1K (1024) or 24K (if uvwasi enabled).
+
 **Combination of configurations:**
 
 We can combine the configurations. For example, if we want to disable interpreter, enable AOT and WASI, we can run command:
@@ -580,8 +584,8 @@ In order to use this, you need at least version 4.3.1 of ESP-IDF.
 If you don't have it installed, follow the instructions [here](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/#get-started-get-prerequisites).
 ESP-IDF also installs the toolchains needed for compiling WAMR and ESP-IDF.
 A small demonstration of how to use WAMR and ESP-IDF can be found under [product_mini](/product-mini/platforms/esp-idf).
-The demo builds WAMR for ESP-IDF and runs a small wasm program.
-In order to run it for your specific Espressif chip, edit the ['build_and_run.sh'](/product-mini/platforms/esp-idf/build_and_run.sh) file and put the correct toolchain file (see #Cross-compilation) and `IDF_TARGET`.
+The demo builds WAMR for ESP-IDF and runs a small wasm program. 
+In order to run it for your specific Espressif chip, edit the [build_and_run.sh](/product-mini/platforms/esp-idf/build_and_run.sh) file and put the correct toolchain file (see #Cross-compilation) and `IDF_TARGET`.
 Before compiling it is also necessary to call ESP-IDF's `export.sh` script to bring all compile time relevant information in scope.
 
 Docker

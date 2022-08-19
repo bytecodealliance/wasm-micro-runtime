@@ -2206,28 +2206,6 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
 #endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
 bool
-aot_is_wasm_type_equal(AOTModuleInstance *module_inst, uint32 type1_idx,
-                       uint32 type2_idx)
-{
-    WASMType *type1, *type2;
-    AOTModule *module = (AOTModule *)module_inst->aot_module.ptr;
-
-    if (type1_idx >= module->func_type_count
-        || type2_idx >= module->func_type_count) {
-        aot_set_exception(module_inst, "type index out of bounds");
-        return false;
-    }
-
-    if (type1_idx == type2_idx)
-        return true;
-
-    type1 = module->func_types[type1_idx];
-    type2 = module->func_types[type2_idx];
-
-    return wasm_type_equal(type1, type2);
-}
-
-bool
 aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
                   uint32 *argv)
 {

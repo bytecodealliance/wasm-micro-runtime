@@ -592,7 +592,8 @@ wasm_runtime_call_indirect(WASMExecEnv *exec_env, uint32 element_indices,
 bool
 wasm_runtime_create_exec_env_singleton(WASMModuleInstanceCommon *module_inst);
 
-WASMExecEnv *
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN WASMExecEnv *
 wasm_runtime_get_exec_env_singleton(WASMModuleInstanceCommon *module_inst);
 
 /* See wasm_export.h for description */
@@ -688,20 +689,6 @@ wasm_runtime_get_native_addr_range(WASMModuleInstanceCommon *module_inst,
 WASM_RUNTIME_API_EXTERN const uint8 *
 wasm_runtime_get_custom_section(WASMModuleCommon *const module_comm,
                                 const char *name, uint32 *len);
-
-uint32
-wasm_runtime_get_temp_ret(WASMModuleInstanceCommon *module_inst);
-
-void
-wasm_runtime_set_temp_ret(WASMModuleInstanceCommon *module_inst,
-                          uint32 temp_ret);
-
-uint32
-wasm_runtime_get_llvm_stack(WASMModuleInstanceCommon *module_inst);
-
-void
-wasm_runtime_set_llvm_stack(WASMModuleInstanceCommon *module_inst,
-                            uint32 llvm_stack);
 
 #if WASM_ENABLE_MULTI_MODULE != 0
 WASM_RUNTIME_API_EXTERN void

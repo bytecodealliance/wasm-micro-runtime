@@ -787,13 +787,13 @@ globals_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
             if (!(global->import_module_inst = get_sub_module_inst(
                       module_inst, global_import->import_module))) {
                 set_error_buf(error_buf, error_buf_size, "unknown global");
-                return NULL;
+                goto fail;
             }
 
             if (!(global->import_global_inst = wasm_lookup_global(
                       global->import_module_inst, global_import->field_name))) {
                 set_error_buf(error_buf, error_buf_size, "unknown global");
-                return NULL;
+                goto fail;
             }
 
             /* The linked global instance has been initialized, we
@@ -829,7 +829,7 @@ globals_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         if (init_expr->init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL) {
             if (!check_global_init_expr(module, init_expr->u.global_index,
                                         error_buf, error_buf_size)) {
-                return NULL;
+                goto fail;
             }
 
             bh_memcpy_s(
@@ -853,6 +853,9 @@ globals_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
     *p_global_data_size = global_data_offset;
     (void)module_inst;
     return globals;
+fail:
+    wasm_runtime_free(globals);
+    return NULL;
 }
 
 /**
@@ -1986,6 +1989,15 @@ call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
         ret = false;
     }
 
+    if (wasm_get_exception(module_inst)) {
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
+        if (wasm_interp_create_call_stack(exec_env)) {
+            wasm_interp_dump_call_stack(exec_env, true, NULL, 0);
+        }
+#endif
+        wasm_interp_restore_wasm_frame(exec_env);
+    }
+
     jmpbuf_node_pop = wasm_exec_env_pop_jmpbuf(exec_env);
     bh_assert(&jmpbuf_node == jmpbuf_node_pop);
     if (!exec_env->jmpbuf_stack_top) {
@@ -2023,7 +2035,7 @@ wasm_create_exec_env_and_call_function(WASMModuleInstance *module_inst,
                                        unsigned argc, uint32 argv[],
                                        bool enable_debug)
 {
-    WASMExecEnv *exec_env, *existing_exec_env = NULL;
+    WASMExecEnv *exec_env = NULL, *existing_exec_env = NULL;
     bool ret;
 
 #if defined(OS_ENABLE_HW_BOUND_CHECK)
@@ -2654,7 +2666,7 @@ call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 elem_idx,
         else
             cur_func_type = func_inst->u.func->func_type;
 
-        if (!wasm_type_equal(cur_type, cur_func_type)) {
+        if (cur_type != cur_func_type) {
             wasm_set_exception(module_inst, "indirect call type mismatch");
             goto got_exception;
         }

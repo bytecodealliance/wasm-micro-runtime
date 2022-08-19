@@ -10,8 +10,23 @@ bool
 aot_compile_op_i32_const(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                          int32 i32_const)
 {
-    LLVMValueRef value = I32_CONST((uint32)i32_const);
-    CHECK_LLVM_CONST(value);
+    LLVMValueRef value;
+
+    if (comp_ctx->is_indirect_mode
+        && aot_intrinsic_check_capability(comp_ctx, "i32.const")) {
+        WASMValue wasm_value;
+        wasm_value.i32 = i32_const;
+        value = aot_load_const_from_table(comp_ctx, func_ctx->native_symbol,
+                                          &wasm_value, VALUE_TYPE_I32);
+        if (!value) {
+            return false;
+        }
+    }
+    else {
+        value = I32_CONST((uint32)i32_const);
+        CHECK_LLVM_CONST(value);
+    }
+
     PUSH_I32(value);
     return true;
 fail:
@@ -22,8 +37,23 @@ bool
 aot_compile_op_i64_const(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                          int64 i64_const)
 {
-    LLVMValueRef value = I64_CONST((uint64)i64_const);
-    CHECK_LLVM_CONST(value);
+    LLVMValueRef value;
+
+    if (comp_ctx->is_indirect_mode
+        && aot_intrinsic_check_capability(comp_ctx, "i64.const")) {
+        WASMValue wasm_value;
+        wasm_value.i64 = i64_const;
+        value = aot_load_const_from_table(comp_ctx, func_ctx->native_symbol,
+                                          &wasm_value, VALUE_TYPE_I64);
+        if (!value) {
+            return false;
+        }
+    }
+    else {
+        value = I64_CONST((uint64)i64_const);
+        CHECK_LLVM_CONST(value);
+    }
+
     PUSH_I64(value);
     return true;
 fail:

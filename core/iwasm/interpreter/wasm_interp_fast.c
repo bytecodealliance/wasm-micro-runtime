@@ -845,6 +845,26 @@ FREE_FRAME(WASMExecEnv *exec_env, WASMInterpFrame *frame)
     wasm_exec_env_free_wasm_frame(exec_env, frame);
 }
 
+void
+wasm_interp_restore_wasm_frame(WASMExecEnv *exec_env)
+{
+    WASMInterpFrame *cur_frame, *prev_frame;
+
+    cur_frame = wasm_exec_env_get_cur_frame(exec_env);
+    while (cur_frame) {
+        prev_frame = cur_frame->prev_frame;
+        if (cur_frame->ip) {
+            /* FREE_FRAME just set the wasm_stack.s.top pointer, we only need to
+             * call it once */
+            FREE_FRAME(exec_env, cur_frame);
+            break;
+        }
+        cur_frame = prev_frame;
+    }
+
+    wasm_exec_env_set_cur_frame(exec_env, cur_frame);
+}
+
 static void
 wasm_interp_call_func_native(WASMModuleInstance *module_inst,
                              WASMExecEnv *exec_env,
@@ -1296,7 +1316,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 val = GET_OPERAND(uint32, I32, 0);
                 frame_ip += 2;
 
-                if (val < 0 || val >= (int32)tbl_inst->cur_size) {
+                if ((uint32)val >= tbl_inst->cur_size) {
                     wasm_set_exception(module, "undefined element");
                     goto got_exception;
                 }
@@ -1324,10 +1344,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     cur_func_type = cur_func->u.func_import->func_type;
                 else
                     cur_func_type = cur_func->u.func->func_type;
-                if (!wasm_type_equal(cur_type, cur_func_type)) {
+
+                if (cur_type != cur_func_type) {
                     wasm_set_exception(module, "indirect call type mismatch");
                     goto got_exception;
                 }
+
 #if WASM_ENABLE_TAIL_CALL != 0
                 if (opcode == WASM_OP_RETURN_CALL_INDIRECT)
                     goto call_func_from_return_call;
@@ -3925,6 +3947,7 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
             wasm_interp_dump_call_stack(exec_env, true, NULL, 0);
         }
 #endif
+        LOG_DEBUG("meet an exception %s", wasm_get_exception(module_inst));
     }
 
     wasm_exec_env_set_cur_frame(exec_env, prev_frame);

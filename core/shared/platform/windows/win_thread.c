@@ -37,12 +37,19 @@ typedef struct os_thread_data {
     korp_mutex wait_lock;
     /* Waiting list of other threads who are joining this thread */
     os_thread_wait_list thread_wait_list;
+    /* Whether the thread has exited */
+    bool thread_exited;
+    /* Thread return value */
+    void *thread_retval;
 } os_thread_data;
 
 static bool is_thread_sys_inited = false;
 
 /* Thread data of supervisor thread */
 static os_thread_data supervisor_thread_data;
+
+/* Thread data list lock */
+static korp_mutex thread_data_list_lock;
 
 /* Thread data key */
 static DWORD thread_data_key;
@@ -90,7 +97,10 @@ os_thread_sys_init()
     if (!TlsSetValue(thread_data_key, &supervisor_thread_data))
         goto fail4;
 
-    if ((module = GetModuleHandle((LPSTR) "kernel32"))) {
+    if (os_mutex_init(&thread_data_list_lock) != BHT_OK)
+        goto fail5;
+
+    if ((module = GetModuleHandle((LPCTSTR) "kernel32"))) {
         *(void **)&GetCurrentThreadStackLimits_Kernel32 =
             GetProcAddress(module, "GetCurrentThreadStackLimits");
     }
@@ -98,6 +108,8 @@ os_thread_sys_init()
     is_thread_sys_inited = true;
     return BHT_OK;
 
+fail5:
+    TlsSetValue(thread_data_key, NULL);
 fail4:
     os_cond_destroy(&supervisor_thread_data.wait_cond);
 fail3:
@@ -113,6 +125,22 @@ void
 os_thread_sys_destroy()
 {
     if (is_thread_sys_inited) {
+        os_thread_data *thread_data, *thread_data_next;
+
+        thread_data = supervisor_thread_data.next;
+        while (thread_data) {
+            thread_data_next = thread_data->next;
+
+            /* Destroy resources of thread data */
+            os_cond_destroy(&thread_data->wait_cond);
+            os_sem_destroy(&thread_data->wait_node.sem);
+            os_mutex_destroy(&thread_data->wait_lock);
+            BH_FREE(thread_data);
+
+            thread_data = thread_data_next;
+        }
+
+        os_mutex_destroy(&thread_data_list_lock);
         os_cond_destroy(&supervisor_thread_data.wait_cond);
         os_mutex_destroy(&supervisor_thread_data.wait_lock);
         os_sem_destroy(&supervisor_thread_data.wait_node.sem);
@@ -148,13 +176,10 @@ os_thread_cleanup(void *retval)
         }
         thread_data->thread_wait_list = NULL;
     }
+    /* Set thread status and thread return value */
+    thread_data->thread_exited = true;
+    thread_data->thread_retval = retval;
     os_mutex_unlock(&thread_data->wait_lock);
-
-    /* Destroy resources */
-    os_cond_destroy(&thread_data->wait_cond);
-    os_sem_destroy(&thread_data->wait_node.sem);
-    os_mutex_destroy(&thread_data->wait_lock);
-    BH_FREE(thread_data);
 }
 
 static unsigned __stdcall os_thread_wrapper(void *arg)
@@ -224,6 +249,13 @@ os_thread_create_with_prio(korp_tid *p_tid, thread_start_routine_t start,
         os_mutex_unlock(&parent->wait_lock);
         goto fail4;
     }
+
+    /* Add thread data into thread data list */
+    os_mutex_lock(&thread_data_list_lock);
+    thread_data->next = supervisor_thread_data.next;
+    supervisor_thread_data.next = thread_data;
+    os_mutex_unlock(&thread_data_list_lock);
+
     /* Wait for the thread routine to set thread_data's tid
        and add thread_data to thread data list */
     os_cond_wait(&parent->wait_cond, &parent->wait_lock);
@@ -271,6 +303,16 @@ os_thread_join(korp_tid thread, void **p_retval)
     bh_assert(thread_data);
 
     os_mutex_lock(&thread_data->wait_lock);
+
+    if (thread_data->thread_exited) {
+        /* Thread has exited */
+        if (p_retval)
+            *p_retval = thread_data->thread_retval;
+        os_mutex_unlock(&thread_data->wait_lock);
+        return BHT_OK;
+    }
+
+    /* Thread is running */
     if (!thread_data->thread_wait_list)
         thread_data->thread_wait_list = &curr_thread_data->wait_node;
     else {
@@ -280,6 +322,7 @@ os_thread_join(korp_tid thread, void **p_retval)
             p = p->next;
         p->next = &curr_thread_data->wait_node;
     }
+
     os_mutex_unlock(&thread_data->wait_lock);
 
     /* Wait the sem */

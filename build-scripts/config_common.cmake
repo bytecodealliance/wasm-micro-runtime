@@ -116,6 +116,24 @@ else ()
   unset (LLVM_AVAILABLE_LIBS)
 endif ()
 
+########################################
+## semantic version information
+
+if (NOT DEFINED WAMR_VERSION_MAJOR)
+  set (WAMR_VERSION_MAJOR 1)
+endif ()
+
+if (NOT DEFINED WAMR_VERSION_MINOR)
+  set (WAMR_VERSION_MINOR 0)
+endif ()
+
+if (NOT DEFINED WAMR_VERSION_PATCH)
+  set (WAMR_VERSION_PATCH 0)
+endif ()
+
+configure_file(${WAMR_ROOT_DIR}/core/version.h.in ${WAMR_ROOT_DIR}/core/version.h @ONLY)
+########################################
+
 message ("-- Build Configurations:")
 message ("     Build as target ${WAMR_BUILD_TARGET}")
 message ("     CMAKE_BUILD_TYPE " ${CMAKE_BUILD_TYPE})
@@ -191,6 +209,9 @@ endif ()
 if (WAMR_BUILD_LIB_PTHREAD EQUAL 1)
   message ("     Lib pthread enabled")
 endif ()
+if (WAMR_BUILD_LIB_PTHREAD_SEMAPHORE EQUAL 1)
+  message ("     Lib pthread semaphore enabled")
+endif ()
 if (WAMR_BUILD_LIBC_EMCC EQUAL 1)
   message ("     Libc emcc enabled")
 endif ()
@@ -258,4 +279,8 @@ endif ()
 if (WAMR_BUILD_LOAD_CUSTOM_SECTION EQUAL 1)
     add_definitions (-DWASM_ENABLE_LOAD_CUSTOM_SECTION=1)
     message ("     Load custom section enabled")
+endif ()
+if (WAMR_BUILD_STACK_GUARD_SIZE GREATER 0)
+    add_definitions (-DWASM_STACK_GUARD_SIZE=${WAMR_BUILD_STACK_GUARD_SIZE})
+    message ("     Custom stack guard size: " ${WAMR_BUILD_STACK_GUARD_SIZE})
 endif ()

@@ -33,7 +33,7 @@ export class WasmDebugConfigurationProvider
         this.port = port;
         this.hostPath = hostPath;
         /* linux and windows has different debug configuration */
-        if (os.platform() === 'win32') {
+        if (os.platform() === 'win32' || os.platform() === 'darwin') {
             this.wasmDebugConfig = {
                 type: 'wamr-debug',
                 name: 'Attach',

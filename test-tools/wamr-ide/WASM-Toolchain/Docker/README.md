@@ -3,7 +3,6 @@
 -   Linux
 
     ```shell
-    chmod +x resource/*
     ./build_docker_image.sh
     ```
 

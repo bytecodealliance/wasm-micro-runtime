@@ -7,8 +7,6 @@
 #include "platform_api_extension.h"
 #include "sgx_rsrv_mem_mngr.h"
 
-#define FIXED_BUFFER_SIZE (1 << 9)
-
 static os_print_function_t print_function = NULL;
 
 int
@@ -57,31 +55,37 @@ os_set_print_function(os_print_function_t pf)
     print_function = pf;
 }
 
+#define FIXED_BUFFER_SIZE 4096
+
 int
 os_printf(const char *message, ...)
 {
+    int bytes_written = 0;
+
     if (print_function != NULL) {
         char msg[FIXED_BUFFER_SIZE] = { '\0' };
         va_list ap;
         va_start(ap, message);
         vsnprintf(msg, FIXED_BUFFER_SIZE, message, ap);
         va_end(ap);
-        print_function(msg);
+        bytes_written += print_function(msg);
     }
 
-    return 0;
+    return bytes_written;
 }
 
 int
 os_vprintf(const char *format, va_list arg)
 {
+    int bytes_written = 0;
+
     if (print_function != NULL) {
         char msg[FIXED_BUFFER_SIZE] = { '\0' };
         vsnprintf(msg, FIXED_BUFFER_SIZE, format, arg);
-        print_function(msg);
+        bytes_written += print_function(msg);
     }
 
-    return 0;
+    return bytes_written;
 }
 
 char *

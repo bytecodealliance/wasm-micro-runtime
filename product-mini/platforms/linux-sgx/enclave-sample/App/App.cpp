@@ -40,10 +40,10 @@ pal_get_enclave_id(void)
     return g_eid;
 }
 
-void
+int
 ocall_print(const char *str)
 {
-    printf("%s", str);
+    return printf("%s", str);
 }
 
 static char *
@@ -232,6 +232,7 @@ print_help()
     printf("                         for example:\n");
     printf("                           --addr-pool=1.2.3.4/15,2.3.4.5/16\n");
     printf("  --max-threads=n        Set maximum thread number per cluster, default is 4\n");
+    printf("  --version              Show version information\n");
     return 1;
 }
 /* clang-format on */
@@ -292,6 +293,7 @@ typedef enum EcallCmd {
     CMD_DESTROY_RUNTIME,      /* wasm_runtime_destroy() */
     CMD_SET_WASI_ARGS,        /* wasm_runtime_set_wasi_args() */
     CMD_SET_LOG_LEVEL,        /* bh_log_set_verbose_level() */
+    CMD_GET_VERSION,          /* wasm_runtime_get_version() */
 } EcallCmd;
 
 static void
@@ -580,9 +582,27 @@ set_wasi_args(void *wasm_module, const char **dir_list, uint32_t dir_list_size,
     return (bool)ecall_args[0];
 }
 
+static void
+get_version(uint64_t *major, uint64_t *minor, uint64_t *patch)
+{
+    uint64_t ecall_args[3] = { 0 };
+
+    if (SGX_SUCCESS
+        != ecall_handle_command(g_eid, CMD_GET_VERSION, (uint8_t *)ecall_args,
+                                sizeof(ecall_args))) {
+        printf("Call ecall_handle_command() failed.\n");
+        return;
+    }
+
+    *major = ecall_args[0];
+    *minor = ecall_args[1];
+    *patch = ecall_args[2];
+}
+
 int
 main(int argc, char *argv[])
 {
+    int32_t ret = -1;
     char *wasm_file = NULL;
     const char *func_name = NULL;
     uint8_t *wasm_file_buf = NULL;
@@ -622,8 +642,7 @@ main(int argc, char *argv[])
         if (!strcmp(argv[0], "-f") || !strcmp(argv[0], "--function")) {
             argc--, argv++;
             if (argc < 2) {
-                print_help();
-                return 0;
+                return print_help();
             }
             func_name = argv[0];
         }
@@ -651,7 +670,7 @@ main(int argc, char *argv[])
             if (dir_list_size >= sizeof(dir_list) / sizeof(char *)) {
                 printf("Only allow max dir number %d\n",
                        (int)(sizeof(dir_list) / sizeof(char *)));
-                return -1;
+                return 1;
             }
             dir_list[dir_list_size++] = argv[0] + 6;
         }
@@ -663,7 +682,7 @@ main(int argc, char *argv[])
             if (env_list_size >= sizeof(env_list) / sizeof(char *)) {
                 printf("Only allow max env number %d\n",
                        (int)(sizeof(env_list) / sizeof(char *)));
-                return -1;
+                return 1;
             }
             tmp_env = argv[0] + 6;
             if (validate_env_str(tmp_env))
@@ -688,7 +707,7 @@ main(int argc, char *argv[])
                 if (addr_pool_size >= sizeof(addr_pool) / sizeof(char *)) {
                     printf("Only allow max address number %d\n",
                            (int)(sizeof(addr_pool) / sizeof(char *)));
-                    return -1;
+                    return 1;
                 }
 
                 addr_pool[addr_pool_size++] = token;
@@ -699,6 +718,12 @@ main(int argc, char *argv[])
             if (argv[0][14] == '\0')
                 return print_help();
             max_thread_num = atoi(argv[0] + 14);
+        }
+        else if (!strncmp(argv[0], "--version", 9)) {
+            uint64_t major = 0, minor = 0, patch = 0;
+            get_version(&major, &minor, &patch);
+            printf("iwasm %lu.%lu.%lu\n", major, minor, patch);
+            return 0;
         }
         else
             return print_help();
@@ -755,6 +780,8 @@ main(int argc, char *argv[])
     else
         app_instance_main(wasm_module_inst, argc, argv);
 
+    ret = 0;
+
     /* Deinstantiate module */
     deinstantiate_module(wasm_module_inst);
 
@@ -770,7 +797,12 @@ fail1:
     /* Destroy runtime environment */
     destroy_runtime();
 
+#if WASM_ENABLE_SPEC_TEST != 0
+    (void)ret;
     return 0;
+#else
+    return ret;
+#endif
 }
 
 int
