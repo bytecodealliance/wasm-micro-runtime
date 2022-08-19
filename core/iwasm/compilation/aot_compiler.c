@@ -2578,7 +2578,7 @@ veriy_module(AOTCompContext *comp_ctx)
     char *msg = NULL;
     bool ret;
 
-#if WASM_ENABLE_LAZY_JIT == 0
+#if WASM_ENABLE_MCJIT != 0
     ret = LLVMVerifyModule(comp_ctx->module, LLVMPrintMessageAction, &msg);
     if (!ret && msg) {
         if (msg[0] != '\0') {
@@ -2614,7 +2614,7 @@ apply_func_passes(AOTCompContext *comp_ctx)
     LLVMPassManagerRef pass_mgr;
     uint32 i;
 
-#if WASM_ENABLE_LAZY_JIT == 0
+#if WASM_ENABLE_MCJIT != 0
     pass_mgr = LLVMCreateFunctionPassManagerForModule(comp_ctx->module);
 #else
     pass_mgr = LLVMCreatePassManager();
@@ -2658,7 +2658,7 @@ apply_func_passes(AOTCompContext *comp_ctx)
         }
     }
 
-#if WASM_ENABLE_LAZY_JIT == 0
+#if WASM_ENABLE_MCJIT != 0
     LLVMInitializeFunctionPassManager(pass_mgr);
     for (i = 0; i < comp_ctx->func_ctx_count; i++) {
         LLVMRunFunctionPassManager(pass_mgr, comp_ctx->func_ctxes[i]->func);
@@ -2680,7 +2680,7 @@ apply_lto_passes(AOTCompContext *comp_ctx)
 {
     LLVMPassManagerRef common_pass_mgr;
     LLVMPassManagerBuilderRef pass_mgr_builder;
-#if WASM_ENABLE_LAZY_JIT != 0
+#if WASM_ENABLE_MCJIT == 0
     uint32 i;
 #endif
 
@@ -2703,7 +2703,7 @@ apply_lto_passes(AOTCompContext *comp_ctx)
                                                  common_pass_mgr, true, true);
 #endif
 
-#if WASM_ENABLE_LAZY_JIT == 0
+#if WASM_ENABLE_MCJIT != 0
     LLVMRunPassManager(common_pass_mgr, comp_ctx->module);
 #else
     for (i = 0; i < comp_ctx->func_ctx_count; i++) {
@@ -2755,7 +2755,7 @@ static bool
 apply_passes_for_indirect_mode(AOTCompContext *comp_ctx)
 {
     LLVMPassManagerRef common_pass_mgr;
-#if WASM_ENABLE_LAZY_JIT != 0
+#if WASM_ENABLE_MCJIT == 0
     uint32 i;
 #endif
 
@@ -2772,7 +2772,7 @@ apply_passes_for_indirect_mode(AOTCompContext *comp_ctx)
     if (aot_require_lower_switch_pass(comp_ctx))
         LLVMAddLowerSwitchPass(common_pass_mgr);
 
-#if WASM_ENABLE_LAZY_JIT == 0
+#if WASM_ENABLE_MCJIT != 0
     LLVMRunPassManager(common_pass_mgr, comp_ctx->module);
 #else
     for (i = 0; i < comp_ctx->func_ctx_count; i++) {
@@ -2788,7 +2788,7 @@ bool
 aot_compile_wasm(AOTCompContext *comp_ctx)
 {
     uint32 i;
-#if WASM_ENABLE_LAZY_JIT != 0
+#if WASM_ENABLE_MCJIT == 0
     LLVMErrorRef err;
     LLVMOrcJITDylibRef orc_main_dylib;
     LLVMOrcThreadSafeModuleRef orc_thread_safe_module;
@@ -2853,7 +2853,7 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
         }
     }
 
-#if WASM_ENABLE_LAZY_JIT != 0
+#if WASM_ENABLE_MCJIT == 0
     orc_main_dylib = LLVMOrcLLJITGetMainJITDylib(comp_ctx->orc_lazyjit);
     if (!orc_main_dylib) {
         aot_set_last_error("failed to get orc jit main dynmaic library");
@@ -2881,7 +2881,7 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
 #endif
 
 #if 0
-#if WASM_ENABLE_LAZY_JIT == 0
+#if WASM_ENABLE_MCJIT != 0
     LLVMDumpModule(comp_ctx->module);
 #else
     for (i = 0; i < comp_ctx->func_ctx_count; i++) {
@@ -2923,7 +2923,7 @@ aot_generate_tempfile_name(const char *prefix, const char *extension,
 }
 #endif /* end of !(defined(_WIN32) || defined(_WIN32_)) */
 
-#if WASM_ENABLE_LAZY_JIT == 0
+#if WASM_ENABLE_MCJIT != 0
 bool
 aot_emit_llvm_file(AOTCompContext *comp_ctx, const char *file_name)
 {
@@ -3047,4 +3047,4 @@ aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name)
 
     return true;
 }
-#endif /* end of WASM_ENABLE_LAZY_JIT == 0 */
+#endif /* end of WASM_ENABLE_MCJIT != 0 */

@@ -987,7 +987,7 @@ aot_compile_op_memory_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     if (!(dst_addr = check_bulk_memory_overflow(comp_ctx, func_ctx, dst, len)))
         return false;
 
-#if WASM_ENABLE_LAZY_JIT != 0
+#if WASM_ENABLE_MCJIT == 0
     call_aot_memmove = true;
 #endif
     if (comp_ctx->is_indirect_mode)
@@ -996,7 +996,7 @@ aot_compile_op_memory_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     if (call_aot_memmove) {
         LLVMTypeRef param_types[3], ret_type, func_type, func_ptr_type;
         LLVMValueRef func, params[3];
-#if WASM_ENABLE_LAZY_JIT == 0
+#if WASM_ENABLE_MCJIT != 0
         int32 func_idx;
 #endif
 
@@ -1015,7 +1015,7 @@ aot_compile_op_memory_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
             return false;
         }
 
-#if WASM_ENABLE_LAZY_JIT == 0
+#if WASM_ENABLE_MCJIT != 0
         func_idx = aot_get_native_symbol_index(comp_ctx, "memmove");
         if (func_idx < 0) {
             return false;

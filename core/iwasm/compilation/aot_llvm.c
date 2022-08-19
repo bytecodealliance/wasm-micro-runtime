@@ -637,7 +637,7 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
     memset(func_ctx, 0, (uint32)size);
     func_ctx->aot_func = func;
 
-#if WASM_ENABLE_LAZY_JIT == 0
+#if WASM_ENABLE_MCJIT != 0
     func_ctx->module = comp_ctx->module;
 #else
     func_ctx->module = comp_ctx->modules[func_index];
@@ -1244,7 +1244,7 @@ WAMRCreateMCJITCompilerForModule(LLVMExecutionEngineRef *OutJIT,
 void
 LLVMAddPromoteMemoryToRegisterPass(LLVMPassManagerRef PM);
 
-#if WASM_ENABLE_LAZY_JIT != 0
+#if WASM_ENABLE_MCJIT == 0
 void
 aot_handle_llvm_errmsg(const char *string, LLVMErrorRef err)
 {
@@ -1453,13 +1453,13 @@ fail:
         LLVMDisposeMessage(llvm_triple);
     return false;
 }
-#endif /* WASM_ENABLE_LAZY_JIT != 0 */
+#endif /* WASM_ENABLE_MCJIT == 0 */
 
 AOTCompContext *
 aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
 {
     AOTCompContext *comp_ctx, *ret = NULL;
-#if WASM_ENABLE_LAZY_JIT == 0
+#if WASM_ENABLE_MCJIT != 0
     struct LLVMMCJITCompilerOptions jit_options;
 #endif
     LLVMTargetRef target;
@@ -1474,7 +1474,7 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
     LLVMTargetDataRef target_data_ref;
 
     /* Initialize LLVM environment */
-#if WASM_ENABLE_LAZY_JIT != 0
+#if WASM_ENABLE_MCJIT == 0
     LLVMInitializeCore(LLVMGetGlobalPassRegistry());
     LLVMInitializeNativeTarget();
     LLVMInitializeNativeAsmPrinter();
@@ -1497,7 +1497,7 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
     comp_ctx->comp_data = comp_data;
 
     /* Create LLVM context, module and builder */
-#if WASM_ENABLE_LAZY_JIT != 0
+#if WASM_ENABLE_MCJIT == 0
     comp_ctx->orc_thread_safe_context = LLVMOrcCreateNewThreadSafeContext();
     if (!comp_ctx->orc_thread_safe_context) {
         aot_set_last_error("create LLVM ThreadSafeContext failed.");
@@ -1524,7 +1524,7 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
         goto fail;
     }
 
-#if WASM_ENABLE_LAZY_JIT == 0
+#if WASM_ENABLE_MCJIT != 0
     if (!(comp_ctx->module = LLVMModuleCreateWithNameInContext(
               "WASM Module", comp_ctx->context))) {
         aot_set_last_error("create LLVM module failed.");
@@ -1558,7 +1558,7 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
         goto fail;
     }
 
-#if WASM_ENABLE_DEBUG_AOT != 0 && WASM_ENABLE_LAZY_JIT == 0
+#if WASM_ENABLE_DEBUG_AOT != 0 && WASM_ENABLE_MCJIT != 0
     if (!(comp_ctx->debug_builder = LLVMCreateDIBuilder(comp_ctx->module))) {
         aot_set_last_error("create LLVM Debug Infor builder failed.");
         goto fail;
@@ -1619,7 +1619,7 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
 
         comp_ctx->is_jit_mode = true;
 
-#if WASM_ENABLE_LAZY_JIT != 0
+#if WASM_ENABLE_MCJIT == 0
         /* Create LLJIT Instance */
         if (!orc_lazyjit_create(comp_ctx, comp_data->func_count)) {
             goto fail;
@@ -1652,7 +1652,7 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
         comp_ctx->enable_bound_check = false;
 #endif
 
-#if WASM_ENABLE_LAZY_JIT != 0
+#if WASM_ENABLE_MCJIT == 0
         if (!(triple_jit =
                   (char *)LLVMOrcLLJITGetTripleString(comp_ctx->orc_lazyjit))) {
             aot_set_last_error("can not get triple from the target machine");
@@ -1933,7 +1933,7 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
                 aot_set_last_error("create metadata string failed.");
                 goto fail;
             }
-#if WASM_ENABLE_LAZY_JIT == 0
+#if WASM_ENABLE_MCJIT != 0
             LLVMAddModuleFlag(comp_ctx->module, LLVMModuleFlagBehaviorError,
                               "target-abi", strlen("target-abi"),
                               meta_target_abi);
@@ -2051,7 +2051,7 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
             goto fail;
         }
 
-#if WASM_ENABLE_LAZY_JIT == 0
+#if WASM_ENABLE_MCJIT != 0
         LLVMSetTarget(comp_ctx->module, triple_norm);
 #endif
     }
@@ -2162,7 +2162,7 @@ aot_destroy_comp_context(AOTCompContext *comp_ctx)
     if (!comp_ctx)
         return;
 
-#if WASM_ENABLE_LAZY_JIT != 0
+#if WASM_ENABLE_MCJIT == 0
     if (comp_ctx->orc_symbol_map_pairs)
         wasm_runtime_free(comp_ctx->orc_symbol_map_pairs);
 

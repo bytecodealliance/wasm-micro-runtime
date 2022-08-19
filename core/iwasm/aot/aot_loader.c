@@ -2827,7 +2827,7 @@ aot_load_from_aot_file(const uint8 *buf, uint32 size, char *error_buf,
 }
 
 #if WASM_ENABLE_JIT != 0
-#if WASM_ENABLE_LAZY_JIT != 0
+#if WASM_ENABLE_MCJIT == 0
 /* Orc JIT thread arguments */
 typedef struct OrcJitThreadArg {
     AOTCompData *comp_data;
@@ -2982,7 +2982,7 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
         goto fail2;
     }
 
-#if WASM_ENABLE_LAZY_JIT != 0
+#if WASM_ENABLE_MCJIT == 0
     /* Create threads to compile the wasm functions */
     for (i = 0; i < WASM_LAZY_JIT_COMPILE_THREAD_NUM; i++) {
         orcjit_thread_args[i].comp_data = comp_data;
@@ -3018,7 +3018,7 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
             goto fail3;
         }
     }
-#endif /* WASM_ENABLE_LAZY_JIT != 0 */
+#endif /* WASM_ENABLE_MCJIT == 0 */
 
     /* Allocation memory for function type indexes */
     size = (uint64)module->func_count * sizeof(uint32);
@@ -3039,7 +3039,7 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
                   < module->import_func_count + module->func_count);
         /* TODO: fix issue that start func cannot be import func */
         if (comp_data->start_func_index >= module->import_func_count) {
-#if WASM_ENABLE_LAZY_JIT != 0
+#if WASM_ENABLE_MCJIT == 0
             if (!module->func_ptrs[comp_data->start_func_index
                                    - module->import_func_count]) {
                 LLVMErrorRef error;
@@ -3095,14 +3095,14 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
 
     return module;
 
-#if WASM_ENABLE_LAZY_JIT != 0
+#if WASM_ENABLE_MCJIT == 0
 fail5:
     if (module->func_type_indexes)
         wasm_runtime_free(module->func_type_indexes);
 #endif
 
 fail4:
-#if WASM_ENABLE_LAZY_JIT != 0
+#if WASM_ENABLE_MCJIT == 0
     /* Terminate all threads before free module->func_ptrs */
     orcjit_stop_compile_threads();
 #endif
@@ -3193,7 +3193,7 @@ void
 aot_unload(AOTModule *module)
 {
 #if WASM_ENABLE_JIT != 0
-#if WASM_ENABLE_LAZY_JIT != 0
+#if WASM_ENABLE_MCJIT == 0
     orcjit_stop_compile_threads();
 #endif
 

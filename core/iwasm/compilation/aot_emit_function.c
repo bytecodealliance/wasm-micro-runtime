@@ -267,7 +267,7 @@ call_aot_invoke_native_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     return true;
 }
 
-#if WASM_ENABLE_LAZY_JIT != 0
+#if WASM_ENABLE_MCJIT == 0
 static bool
 lookup_orcjit_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                    LLVMValueRef func_idx, LLVMValueRef *p_func)
@@ -903,7 +903,7 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             }
         }
         else {
-#if WASM_ENABLE_LAZY_JIT == 0
+#if WASM_ENABLE_MCJIT != 0
             func = func_ctxes[func_idx - import_func_count]->func;
 #else
             if (func_ctxes[func_idx - import_func_count] == func_ctx) {
@@ -1568,7 +1568,7 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                                      + 16))
         goto fail;
 
-#if WASM_ENABLE_LAZY_JIT == 0
+#if WASM_ENABLE_MCJIT != 0
     /* Load function pointer */
     if (!(func_ptr = LLVMBuildInBoundsGEP2(comp_ctx->builder, OPQ_PTR_TYPE,
                                            func_ctx->func_ptrs, &func_idx, 1,

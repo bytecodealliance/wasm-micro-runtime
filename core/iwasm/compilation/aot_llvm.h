@@ -20,7 +20,7 @@
 #include "llvm-c/Transforms/Vectorize.h"
 #include "llvm-c/Transforms/PassManagerBuilder.h"
 
-#if WASM_ENABLE_LAZY_JIT != 0
+#if WASM_ENABLE_MCJIT == 0
 #include "llvm-c/Orc.h"
 #include "llvm-c/Error.h"
 #include "llvm-c/Support.h"
@@ -270,7 +270,7 @@ typedef struct AOTCompContext {
 
     /* LLVM variables required to emit LLVM IR */
     LLVMContextRef context;
-#if WASM_ENABLE_LAZY_JIT == 0
+#if WASM_ENABLE_MCJIT != 0
     /* Create one module only for non LAZY JIT mode,
        for LAZY JIT mode, modules are created, each
        aot function has its own module */
@@ -291,7 +291,7 @@ typedef struct AOTCompContext {
     uint64 flags[8];
 
     /* LLVM execution engine required by JIT */
-#if WASM_ENABLE_LAZY_JIT != 0
+#if WASM_ENABLE_MCJIT == 0
     LLVMOrcLLJITRef orc_lazyjit;
     LLVMOrcMaterializationUnitRef orc_material_unit;
     LLVMOrcLazyCallThroughManagerRef orc_call_through_mgr;
@@ -505,7 +505,7 @@ aot_add_simple_loop_unswitch_pass(LLVMPassManagerRef pass);
 void
 aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx);
 
-#if WASM_ENABLE_LAZY_JIT != 0
+#if WASM_ENABLE_MCJIT == 0
 LLVMOrcJITTargetMachineBuilderRef
 LLVMOrcJITTargetMachineBuilderCreateFromTargetMachine(LLVMTargetMachineRef TM);
 

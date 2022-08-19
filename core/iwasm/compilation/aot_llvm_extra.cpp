@@ -43,7 +43,7 @@
 #include <llvm/Analysis/AliasAnalysis.h>
 #endif
 #include <cstring>
-#if WASM_ENABLE_LAZY_JIT != 0
+#if WASM_ENABLE_MCJIT == 0
 #include "../aot/aot_runtime.h"
 #endif
 
@@ -308,7 +308,7 @@ aot_check_simd_compatibility(const char *arch_c_str, const char *cpu_c_str)
 #endif /* WASM_ENABLE_SIMD */
 }
 
-#if WASM_ENABLE_LAZY_JIT != 0
+#if WASM_ENABLE_MCJIT == 0
 
 #if LLVM_VERSION_MAJOR < 12
 LLVMOrcJITTargetMachineBuilderRef
@@ -363,7 +363,7 @@ aot_lookup_orcjit_func(LLVMOrcLLJITRef orc_lazyjit, void *module_inst,
     func_ptrs[func_idx] = (void *)func_addr;
     return (void *)func_addr;
 }
-#endif /* end of WASM_ENABLE_LAZY_JIT != 0 */
+#endif /* end of WASM_ENABLE_MCJIT == 0 */
 
 void
 aot_func_disable_tce(LLVMValueRef func)
@@ -512,7 +512,7 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx)
         }
     }
 
-#if WASM_ENABLE_LAZY_JIT == 0
+#if WASM_ENABLE_MCJIT != 0
     M = unwrap(comp_ctx->module);
     MPM.run(*M, MAM);
 #else
