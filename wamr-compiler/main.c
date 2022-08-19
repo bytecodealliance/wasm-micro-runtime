@@ -63,6 +63,7 @@ print_help()
     printf("                            multiple names, e.g.\n");
     printf("                                --emit-custom-sections=section1,section2,sectionN\n");
     printf("  -v=n                      Set log verbose level (0 to 5, default is 2), larger with more log\n");
+    printf("  --version                 Show version information\n");
     printf("Examples: wamrc -o test.aot test.wasm\n");
     printf("          wamrc --target=i386 -o test.aot test.wasm\n");
     printf("          wamrc --target=i386 --format=object -o test.o test.wasm\n");
@@ -267,6 +268,12 @@ main(int argc, char *argv[])
             }
 
             option.custom_sections_count = len;
+        }
+        else if (!strncmp(argv[0], "--version", 9)) {
+            uint32 major, minor, patch;
+            wasm_runtime_get_version(&major, &minor, &patch);
+            printf("wamrc %u.%u.%u\n", major, minor, patch);
+            return 0;
         }
         else
             PRINT_HELP_AND_EXIT();

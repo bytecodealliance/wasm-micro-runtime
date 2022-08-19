@@ -232,6 +232,7 @@ print_help()
     printf("                         for example:\n");
     printf("                           --addr-pool=1.2.3.4/15,2.3.4.5/16\n");
     printf("  --max-threads=n        Set maximum thread number per cluster, default is 4\n");
+    printf("  --version              Show version information\n");
     return 1;
 }
 /* clang-format on */
@@ -292,6 +293,7 @@ typedef enum EcallCmd {
     CMD_DESTROY_RUNTIME,      /* wasm_runtime_destroy() */
     CMD_SET_WASI_ARGS,        /* wasm_runtime_set_wasi_args() */
     CMD_SET_LOG_LEVEL,        /* bh_log_set_verbose_level() */
+    CMD_GET_VERSION,          /* wasm_runtime_get_version() */
 } EcallCmd;
 
 static void
@@ -580,6 +582,23 @@ set_wasi_args(void *wasm_module, const char **dir_list, uint32_t dir_list_size,
     return (bool)ecall_args[0];
 }
 
+static void
+get_version(uint64_t *major, uint64_t *minor, uint64_t *patch)
+{
+    uint64_t ecall_args[3] = { 0 };
+
+    if (SGX_SUCCESS
+        != ecall_handle_command(g_eid, CMD_GET_VERSION, (uint8_t *)ecall_args,
+                                sizeof(ecall_args))) {
+        printf("Call ecall_handle_command() failed.\n");
+        return;
+    }
+
+    *major = ecall_args[0];
+    *minor = ecall_args[1];
+    *patch = ecall_args[2];
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -699,6 +718,12 @@ main(int argc, char *argv[])
             if (argv[0][14] == '\0')
                 return print_help();
             max_thread_num = atoi(argv[0] + 14);
+        }
+        else if (!strncmp(argv[0], "--version", 9)) {
+            uint64_t major = 0, minor = 0, patch = 0;
+            get_version(&major, &minor, &patch);
+            printf("iwasm %lu.%lu.%lu\n", major, minor, patch);
+            return 0;
         }
         else
             return print_help();
