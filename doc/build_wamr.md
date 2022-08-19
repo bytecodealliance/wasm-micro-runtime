@@ -41,7 +41,8 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 
 - **WAMR_BUILD_AOT**=1/0, enable AOT or not, default to enable if not set
 - **WAMR_BUILD_JIT**=1/0, enable LLVM JIT or not, default to disable if not set
-- **WAMR_BUILD_LAZY_JIT**=1/0, whether to use Lazy JIT mode or not when *WAMR_BUILD_JIT* is set, default to enable if not set
+- **WAMR_BUILD_MCJIT**=1/0, whether to use MCJIT(enable) or ORCJIT(disable) when *WAMR_BUILD_JIT* is set, default to disable if not set
+- **WAMR_BUILD_LAZY_JIT**=1/0, whether to use the lazy compilation or not when *WAMR_BUILD_JIT* is set, default to enable if not set. MCJIT doesn't support the lazy compilation.
 - **WAMR_BUILD_FAST_JIT**=1/0, enable Fast JIT or not, default to disable if not set
 
 #### **Configure LIBC**
@@ -246,7 +247,7 @@ wamrc -o <AOT file> <WASM file>
 iwasm <AOT file>
 ```
 
-(4) To enable the `LLVM Lazy JIT` mode, firstly we should build LLVM library:
+(4) To enable the LLVM ORCJIT with the lazy compilation, firstly we should build LLVM library:
 ``` Bash
 cd product-mini/platforms/linux/
 ./build_llvm.sh     (The llvm source code is cloned under <wamr_root_dir>/core/deps/llvm and auto built)
@@ -259,10 +260,17 @@ cmake .. -DWAMR_BUILD_JIT=1
 make
 ```
 
-(5) Or disable `LLVM Lazy JIT` and enable `LLVM MC JIT` instead:
+(5) Or use the LLVM ORCJIT with the eagle compilation:
 ```Bash
 mkdir build && cd build
 cmake .. -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=0
+make
+```
+
+(6) Or use the LLVM MCJIT with the eagle compilation:
+```Bash
+mkdir build && cd build
+cmake .. -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_MCJIT=1
 make
 ```
 
@@ -584,7 +592,7 @@ In order to use this, you need at least version 4.3.1 of ESP-IDF.
 If you don't have it installed, follow the instructions [here](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/#get-started-get-prerequisites).
 ESP-IDF also installs the toolchains needed for compiling WAMR and ESP-IDF.
 A small demonstration of how to use WAMR and ESP-IDF can be found under [product_mini](/product-mini/platforms/esp-idf).
-The demo builds WAMR for ESP-IDF and runs a small wasm program. 
+The demo builds WAMR for ESP-IDF and runs a small wasm program.
 In order to run it for your specific Espressif chip, edit the [build_and_run.sh](/product-mini/platforms/esp-idf/build_and_run.sh) file and put the correct toolchain file (see #Cross-compilation) and `IDF_TARGET`.
 Before compiling it is also necessary to call ESP-IDF's `export.sh` script to bring all compile time relevant information in scope.
 
