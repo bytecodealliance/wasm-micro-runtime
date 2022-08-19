@@ -506,8 +506,16 @@ wasm_runtime_is_xip_file(const uint8 *buf, uint32 size)
 uint32
 wasm_runtime_start_debug_instance(WASMExecEnv *exec_env)
 {
+    WASMModuleInstanceCommon *module_inst =
+        wasm_runtime_get_module_inst(exec_env);
     WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
+    bh_assert(module_inst);
     bh_assert(cluster);
+
+    if (module_inst->module_type != Wasm_Module_Bytecode) {
+        LOG_WARNING("Attempt to create a debug instance for an AOT module");
+        return 0;
+    }
 
     if (cluster->debug_inst) {
         LOG_WARNING("Cluster already bind to a debug instance");
