@@ -1971,28 +1971,6 @@ fail1:
 }
 
 bool
-wasm_runtime_create_exec_env_and_call_wasm(
-    WASMModuleInstanceCommon *module_inst, WASMFunctionInstanceCommon *function,
-    uint32 argc, uint32 argv[])
-{
-    bool ret = false;
-
-#if WASM_ENABLE_INTERP != 0
-    if (module_inst->module_type == Wasm_Module_Bytecode)
-        ret = wasm_create_exec_env_and_call_function(
-            (WASMModuleInstance *)module_inst, (WASMFunctionInstance *)function,
-            argc, argv, true);
-#endif
-#if WASM_ENABLE_AOT != 0
-    if (module_inst->module_type == Wasm_Module_AoT)
-        ret = aot_create_exec_env_and_call_function(
-            (AOTModuleInstance *)module_inst, (AOTFunctionInstance *)function,
-            argc, argv);
-#endif
-    return ret;
-}
-
-bool
 wasm_runtime_create_exec_env_singleton(WASMModuleInstanceCommon *module_inst)
 {
 #if WASM_ENABLE_INTERP != 0
