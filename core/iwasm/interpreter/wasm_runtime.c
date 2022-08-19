@@ -787,13 +787,13 @@ globals_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
             if (!(global->import_module_inst = get_sub_module_inst(
                       module_inst, global_import->import_module))) {
                 set_error_buf(error_buf, error_buf_size, "unknown global");
-                return NULL;
+                goto fail;
             }
 
             if (!(global->import_global_inst = wasm_lookup_global(
                       global->import_module_inst, global_import->field_name))) {
                 set_error_buf(error_buf, error_buf_size, "unknown global");
-                return NULL;
+                goto fail;
             }
 
             /* The linked global instance has been initialized, we
@@ -829,7 +829,7 @@ globals_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         if (init_expr->init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL) {
             if (!check_global_init_expr(module, init_expr->u.global_index,
                                         error_buf, error_buf_size)) {
-                return NULL;
+                goto fail;
             }
 
             bh_memcpy_s(
@@ -853,6 +853,9 @@ globals_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
     *p_global_data_size = global_data_offset;
     (void)module_inst;
     return globals;
+fail:
+    wasm_runtime_free(globals);
+    return NULL;
 }
 
 /**
@@ -2663,7 +2666,7 @@ call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 elem_idx,
         else
             cur_func_type = func_inst->u.func->func_type;
 
-        if (!wasm_type_equal(cur_type, cur_func_type)) {
+        if (cur_type != cur_func_type) {
             wasm_set_exception(module_inst, "indirect call type mismatch");
             goto got_exception;
         }

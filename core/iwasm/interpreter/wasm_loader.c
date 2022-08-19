@@ -415,6 +415,19 @@ const_str_list_insert(const uint8 *str, uint32 len, WASMModule *module,
     return node->str;
 }
 
+static void
+destroy_wasm_type(WASMType *type)
+{
+    if (type->ref_count > 1) {
+        /* The type is referenced by other types
+           of current wasm module */
+        type->ref_count--;
+        return;
+    }
+
+    wasm_runtime_free(type);
+}
+
 static bool
 load_init_expr(const uint8 **p_buf, const uint8 *buf_end,
                InitializerExpression *init_expr, uint8 type, char *error_buf,
@@ -582,6 +595,7 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             }
 
             /* Resolve param types and result types */
+            type->ref_count = 1;
             type->param_count = (uint16)param_count;
             type->result_count = (uint16)result_count;
             for (j = 0; j < param_count; j++) {
@@ -611,6 +625,21 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             }
             type->param_cell_num = (uint16)param_cell_num;
             type->ret_cell_num = (uint16)ret_cell_num;
+
+            /* If there is already a same type created, use it instead */
+            for (j = 0; j < i; j++) {
+                if (wasm_type_equal(type, module->types[j])) {
+                    if (module->types[j]->ref_count == UINT16_MAX) {
+                        set_error_buf(error_buf, error_buf_size,
+                                      "wasm type's ref count too large");
+                        return false;
+                    }
+                    destroy_wasm_type(type);
+                    module->types[i] = module->types[j];
+                    module->types[j]->ref_count++;
+                    break;
+                }
+            }
         }
     }
 
@@ -3729,7 +3758,7 @@ wasm_loader_unload(WASMModule *module)
     if (module->types) {
         for (i = 0; i < module->type_count; i++) {
             if (module->types[i])
-                wasm_runtime_free(module->types[i]);
+                destroy_wasm_type(module->types[i]);
         }
         wasm_runtime_free(module->types);
     }

@@ -122,6 +122,7 @@ typedef struct WASMType {
     uint16 result_count;
     uint16 param_cell_num;
     uint16 ret_cell_num;
+    uint16 ref_count;
     /* types of params and results */
     uint8 types[1];
 } WASMType;
@@ -612,6 +613,9 @@ wasm_value_type_cell_num_outside(uint8 value_type)
 inline static bool
 wasm_type_equal(const WASMType *type1, const WASMType *type2)
 {
+    if (type1 == type2) {
+        return true;
+    }
     return (type1->param_count == type2->param_count
             && type1->result_count == type2->result_count
             && memcmp(type1->types, type2->types,

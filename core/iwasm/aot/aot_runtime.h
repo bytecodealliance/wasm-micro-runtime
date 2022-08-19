@@ -633,9 +633,6 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count);
  *
  * @return true if equal, false otherwise
  */
-bool
-aot_is_wasm_type_equal(AOTModuleInstance *module_inst, uint32 type1_idx,
-                       uint32 type2_idx);
 
 /**
  * Invoke native function from aot code
