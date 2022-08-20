@@ -158,6 +158,10 @@ Currently we only profile the memory consumption of module, module_instance and 
 
 > For AoT file, must use `--emit-custom-sections` to specify which sections need to be emitted into AoT file, otherwise all custom sections (except custom name section) will be ignored.
 
+### **Stack guard size**
+- **WAMR_BUILD_STACK_GUARD_SIZE**=n, default to N/A if not set.
+> Note: By default, the stack guard size is 1K (1024) or 24K (if uvwasi enabled).
+
 **Combination of configurations:**
 
 We can combine the configurations. For example, if we want to disable interpreter, enable AOT and WASI, we can run command:

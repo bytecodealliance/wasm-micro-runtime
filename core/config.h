@@ -343,12 +343,12 @@
 
 /* Reserved bytes to the native thread stack boundary, throw native
    stack overflow exception if the guard boudary is reached */
-#ifndef RESERVED_BYTES_TO_NATIVE_STACK_BOUNDARY
+#ifndef WASM_STACK_GUARD_SIZE
 #if WASM_ENABLE_UVWASI != 0
 /* UVWASI requires larger native stack */
-#define RESERVED_BYTES_TO_NATIVE_STACK_BOUNDARY (4096 * 6)
+#define WASM_STACK_GUARD_SIZE (4096 * 6)
 #else
-#define RESERVED_BYTES_TO_NATIVE_STACK_BOUNDARY (1024)
+#define WASM_STACK_GUARD_SIZE (1024)
 #endif
 #endif
 

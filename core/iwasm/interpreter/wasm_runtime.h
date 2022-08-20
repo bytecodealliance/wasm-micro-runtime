@@ -223,9 +223,6 @@ struct WASMModuleInstance {
 
     WASMExecEnv *exec_env_singleton;
 
-    uint32 temp_ret;
-    uint32 llvm_stack;
-
     /* Default WASM stack size of threads of this Module instance. */
     uint32 default_wasm_stack_size;
 
@@ -342,8 +339,7 @@ wasm_call_function(WASMExecEnv *exec_env, WASMFunctionInstance *function,
 bool
 wasm_create_exec_env_and_call_function(WASMModuleInstance *module_inst,
                                        WASMFunctionInstance *function,
-                                       unsigned argc, uint32 argv[],
-                                       bool enable_debug);
+                                       unsigned argc, uint32 argv[]);
 
 bool
 wasm_create_exec_env_singleton(WASMModuleInstance *module_inst);

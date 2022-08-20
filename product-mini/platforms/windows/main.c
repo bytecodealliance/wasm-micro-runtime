@@ -50,6 +50,7 @@ print_help()
     printf("  -g=ip:port             Set the debug sever address, default is debug disabled\n");
     printf("                           if port is 0, then a random port will be used\n");
 #endif
+    printf("  --version              Show version information\n");
     return 1;
 }
 /* clang-format on */
@@ -223,6 +224,7 @@ moudle_destroyer(uint8 *buffer, uint32 size)
 int
 main(int argc, char *argv[])
 {
+    int32 ret = -1;
     char *wasm_file = NULL;
     const char *func_name = NULL;
     uint8 *wasm_file_buf = NULL;
@@ -254,8 +256,7 @@ main(int argc, char *argv[])
         if (!strcmp(argv[0], "-f") || !strcmp(argv[0], "--function")) {
             argc--, argv++;
             if (argc < 2) {
-                print_help();
-                return 0;
+                return print_help();
             }
             func_name = argv[0];
         }
@@ -286,7 +287,7 @@ main(int argc, char *argv[])
             if (dir_list_size >= sizeof(dir_list) / sizeof(char *)) {
                 printf("Only allow max dir number %d\n",
                        (int)(sizeof(dir_list) / sizeof(char *)));
-                return -1;
+                return 1;
             }
             dir_list[dir_list_size++] = argv[0] + 6;
         }
@@ -298,7 +299,7 @@ main(int argc, char *argv[])
             if (env_list_size >= sizeof(env_list) / sizeof(char *)) {
                 printf("Only allow max env number %d\n",
                        (int)(sizeof(env_list) / sizeof(char *)));
-                return -1;
+                return 1;
             }
             tmp_env = argv[0] + 6;
             if (validate_env_str(tmp_env))
@@ -339,6 +340,12 @@ main(int argc, char *argv[])
             ip_addr = argv[0] + 3;
         }
 #endif
+        else if (!strncmp(argv[0], "--version", 9)) {
+            uint32 major, minor, patch;
+            wasm_runtime_get_version(&major, &minor, &patch);
+            printf("iwasm %u.%u.%u\n", major, minor, patch);
+            return 0;
+        }
         else
             return print_help();
     }
@@ -437,6 +444,8 @@ main(int argc, char *argv[])
     else
         app_instance_main(wasm_module_inst);
 
+    ret = 0;
+
     /* destroy the module instance */
     wasm_runtime_deinstantiate(wasm_module_inst);
 
@@ -454,5 +463,11 @@ fail2:
 fail1:
     /* destroy runtime environment */
     wasm_runtime_destroy();
+
+#if WASM_ENABLE_SPEC_TEST != 0
+    (void)ret;
     return 0;
+#else
+    return ret;
+#endif
 }

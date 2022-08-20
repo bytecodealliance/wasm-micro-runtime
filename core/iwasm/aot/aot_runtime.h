@@ -373,19 +373,15 @@ typedef struct AOTModuleInstance {
     AOTPointer wasi_ctx;
     /* function performance profiling info list */
     AOTPointer func_perf_profilings;
+    /* stack frames, used in call stack dump and perf profiling */
+    AOTPointer frames;
 
     AOTPointer exec_env_singleton;
 
-    /* others */
-    uint32 temp_ret;
-    uint32 llvm_stack;
     uint32 default_wasm_stack_size;
 
-    uint32 _padding;
-    /* store stacktrace information */
-    AOTPointer frames;
     /* reserved */
-    uint32 reserved[6];
+    uint32 reserved[9];
 
     /*
      * +------------------------------+ <-- memories.ptr
@@ -627,19 +623,6 @@ aot_get_native_addr_range(AOTModuleInstance *module_inst, uint8 *native_ptr,
 
 bool
 aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count);
-
-/**
- * Compare whether two wasm types are equal according to the indexs
- *
- * @param module_inst the AOT module instance
- * @param type1_idx index of the first wasm type
- * @param type2_idx index of the second wasm type
- *
- * @return true if equal, false otherwise
- */
-bool
-aot_is_wasm_type_equal(AOTModuleInstance *module_inst, uint32 type1_idx,
-                       uint32 type2_idx);
 
 /**
  * Invoke native function from aot code

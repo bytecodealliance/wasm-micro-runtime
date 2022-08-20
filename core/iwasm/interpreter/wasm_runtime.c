@@ -805,13 +805,13 @@ globals_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
             if (!(global->import_module_inst = get_sub_module_inst(
                       module_inst, global_import->import_module))) {
                 set_error_buf(error_buf, error_buf_size, "unknown global");
-                return NULL;
+                goto fail;
             }
 
             if (!(global->import_global_inst = wasm_lookup_global(
                       global->import_module_inst, global_import->field_name))) {
                 set_error_buf(error_buf, error_buf_size, "unknown global");
-                return NULL;
+                goto fail;
             }
 
             /* The linked global instance has been initialized, we
@@ -847,7 +847,7 @@ globals_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         if (init_expr->init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL) {
             if (!check_global_init_expr(module, init_expr->u.global_index,
                                         error_buf, error_buf_size)) {
-                return NULL;
+                goto fail;
             }
 
             bh_memcpy_s(
@@ -871,6 +871,9 @@ globals_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
     *p_global_data_size = global_data_offset;
     (void)module_inst;
     return globals;
+fail:
+    wasm_runtime_free(globals);
+    return NULL;
 }
 
 /**
@@ -992,7 +995,7 @@ execute_post_inst_function(WASMModuleInstance *module_inst)
         return true;
 
     return wasm_create_exec_env_and_call_function(module_inst, post_inst_func,
-                                                  0, NULL, false);
+                                                  0, NULL);
 }
 
 #if WASM_ENABLE_BULK_MEMORY != 0
@@ -1021,7 +1024,7 @@ execute_memory_init_function(WASMModuleInstance *module_inst)
         return true;
 
     return wasm_create_exec_env_and_call_function(module_inst, memory_init_func,
-                                                  0, NULL, false);
+                                                  0, NULL);
 }
 #endif
 
@@ -1036,8 +1039,7 @@ execute_start_function(WASMModuleInstance *module_inst)
     bh_assert(!func->is_import_func && func->param_cell_num == 0
               && func->ret_cell_num == 0);
 
-    return wasm_create_exec_env_and_call_function(module_inst, func, 0, NULL,
-                                                  false);
+    return wasm_create_exec_env_and_call_function(module_inst, func, 0, NULL);
 }
 
 static bool
@@ -1081,11 +1083,11 @@ execute_malloc_function(WASMModuleInstance *module_inst,
 #endif
     {
         ret = wasm_create_exec_env_and_call_function(module_inst, malloc_func,
-                                                     argc, argv, false);
+                                                     argc, argv);
 
         if (retain_func && ret) {
-            ret = wasm_create_exec_env_and_call_function(
-                module_inst, retain_func, 1, argv, false);
+            ret = wasm_create_exec_env_and_call_function(module_inst,
+                                                         retain_func, 1, argv);
         }
     }
 
@@ -1114,7 +1116,7 @@ execute_free_function(WASMModuleInstance *module_inst,
 #endif
     {
         return wasm_create_exec_env_and_call_function(module_inst, free_func, 1,
-                                                      argv, false);
+                                                      argv);
     }
 }
 
@@ -1174,7 +1176,7 @@ sub_module_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
                 wasm_lookup_function(sub_module_inst, "_initialize", NULL);
             if (initialize
                 && !wasm_create_exec_env_and_call_function(
-                    sub_module_inst, initialize, 0, NULL, false)) {
+                    sub_module_inst, initialize, 0, NULL)) {
                 set_error_buf(error_buf, error_buf_size,
                               "Call _initialize failed ");
                 goto failed;
@@ -2047,8 +2049,7 @@ wasm_call_function(WASMExecEnv *exec_env, WASMFunctionInstance *function,
 bool
 wasm_create_exec_env_and_call_function(WASMModuleInstance *module_inst,
                                        WASMFunctionInstance *func,
-                                       unsigned argc, uint32 argv[],
-                                       bool enable_debug)
+                                       unsigned argc, uint32 argv[])
 {
     WASMExecEnv *exec_env = NULL, *existing_exec_env = NULL;
     bool ret;
@@ -2067,14 +2068,6 @@ wasm_create_exec_env_and_call_function(WASMModuleInstance *module_inst,
             wasm_set_exception(module_inst, "allocate memory failed");
             return false;
         }
-
-#if WASM_ENABLE_THREAD_MGR != 0
-#if WASM_ENABLE_DEBUG_INTERP != 0
-        if (enable_debug) {
-            wasm_runtime_start_debug_instance(exec_env);
-        }
-#endif
-#endif
     }
 
     ret = wasm_call_function(exec_env, func, argc, argv);
@@ -2719,7 +2712,7 @@ call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 elem_idx,
         else
             cur_func_type = func_inst->u.func->func_type;
 
-        if (!wasm_type_equal(cur_type, cur_func_type)) {
+        if (cur_type != cur_func_type) {
             wasm_set_exception(module_inst, "indirect call type mismatch");
             goto got_exception;
         }

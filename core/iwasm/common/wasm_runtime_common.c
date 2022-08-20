@@ -31,6 +31,7 @@
 #include "../fast-jit/jit_compiler.h"
 #endif
 #include "../common/wasm_c_api_internal.h"
+#include "../../version.h"
 
 /**
  * For runtime build, BH_MALLOC/BH_FREE should be defined as
@@ -505,8 +506,16 @@ wasm_runtime_is_xip_file(const uint8 *buf, uint32 size)
 uint32
 wasm_runtime_start_debug_instance(WASMExecEnv *exec_env)
 {
+    WASMModuleInstanceCommon *module_inst =
+        wasm_runtime_get_module_inst(exec_env);
     WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
+    bh_assert(module_inst);
     bh_assert(cluster);
+
+    if (module_inst->module_type != Wasm_Module_Bytecode) {
+        LOG_WARNING("Attempt to create a debug instance for an AOT module");
+        return 0;
+    }
 
     if (cluster->debug_inst) {
         LOG_WARNING("Cluster already bind to a debug instance");
@@ -1970,28 +1979,6 @@ fail1:
 }
 
 bool
-wasm_runtime_create_exec_env_and_call_wasm(
-    WASMModuleInstanceCommon *module_inst, WASMFunctionInstanceCommon *function,
-    uint32 argc, uint32 argv[])
-{
-    bool ret = false;
-
-#if WASM_ENABLE_INTERP != 0
-    if (module_inst->module_type == Wasm_Module_Bytecode)
-        ret = wasm_create_exec_env_and_call_function(
-            (WASMModuleInstance *)module_inst, (WASMFunctionInstance *)function,
-            argc, argv, true);
-#endif
-#if WASM_ENABLE_AOT != 0
-    if (module_inst->module_type == Wasm_Module_AoT)
-        ret = aot_create_exec_env_and_call_function(
-            (AOTModuleInstance *)module_inst, (AOTFunctionInstance *)function,
-            argc, argv);
-#endif
-    return ret;
-}
-
-bool
 wasm_runtime_create_exec_env_singleton(WASMModuleInstanceCommon *module_inst)
 {
 #if WASM_ENABLE_INTERP != 0
@@ -2312,70 +2299,6 @@ wasm_runtime_get_native_addr_range(WASMModuleInstanceCommon *module_inst,
                                          p_native_end_addr);
 #endif
     return false;
-}
-
-uint32
-wasm_runtime_get_temp_ret(WASMModuleInstanceCommon *module_inst)
-{
-#if WASM_ENABLE_INTERP != 0
-    if (module_inst->module_type == Wasm_Module_Bytecode)
-        return ((WASMModuleInstance *)module_inst)->temp_ret;
-#endif
-#if WASM_ENABLE_AOT != 0
-    if (module_inst->module_type == Wasm_Module_AoT)
-        return ((AOTModuleInstance *)module_inst)->temp_ret;
-#endif
-    return 0;
-}
-
-void
-wasm_runtime_set_temp_ret(WASMModuleInstanceCommon *module_inst,
-                          uint32 temp_ret)
-{
-#if WASM_ENABLE_INTERP != 0
-    if (module_inst->module_type == Wasm_Module_Bytecode) {
-        ((WASMModuleInstance *)module_inst)->temp_ret = temp_ret;
-        return;
-    }
-#endif
-#if WASM_ENABLE_AOT != 0
-    if (module_inst->module_type == Wasm_Module_AoT) {
-        ((AOTModuleInstance *)module_inst)->temp_ret = temp_ret;
-        return;
-    }
-#endif
-}
-
-uint32
-wasm_runtime_get_llvm_stack(WASMModuleInstanceCommon *module_inst)
-{
-#if WASM_ENABLE_INTERP != 0
-    if (module_inst->module_type == Wasm_Module_Bytecode)
-        return ((WASMModuleInstance *)module_inst)->llvm_stack;
-#endif
-#if WASM_ENABLE_AOT != 0
-    if (module_inst->module_type == Wasm_Module_AoT)
-        return ((AOTModuleInstance *)module_inst)->llvm_stack;
-#endif
-    return 0;
-}
-
-void
-wasm_runtime_set_llvm_stack(WASMModuleInstanceCommon *module_inst,
-                            uint32 llvm_stack)
-{
-#if WASM_ENABLE_INTERP != 0
-    if (module_inst->module_type == Wasm_Module_Bytecode) {
-        ((WASMModuleInstance *)module_inst)->llvm_stack = llvm_stack;
-        return;
-    }
-#endif
-#if WASM_ENABLE_AOT != 0
-    if (module_inst->module_type == Wasm_Module_AoT) {
-        ((AOTModuleInstance *)module_inst)->llvm_stack = llvm_stack;
-        return;
-    }
-#endif
 }
 
 bool
@@ -5119,3 +5042,11 @@ wasm_runtime_destroy_custom_sections(WASMCustomSection *section_list)
     }
 }
 #endif /* end of WASM_ENABLE_LOAD_CUSTOM_SECTION */
+
+void
+wasm_runtime_get_version(uint32_t *major, uint32_t *minor, uint32_t *patch)
+{
+    *major = WAMR_VERSION_MAJOR;
+    *minor = WAMR_VERSION_MINOR;
+    *patch = WAMR_VERSION_PATCH;
+}
