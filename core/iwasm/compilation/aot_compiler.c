@@ -2643,9 +2643,8 @@ apply_func_passes(AOTCompContext *comp_ctx)
         LLVMAddLoopRotatePass(pass_mgr);
 #if LLVM_VERSION_MAJOR < 15
         LLVMAddLoopUnswitchPass(pass_mgr);
-        /* Binding disabled in LLVM 15, don't add the pass util we can either
-           add a binding to SimpleLoopUnswitchPass, or add it to
-           aot_llvm_extra.cpp */
+#else
+        aot_add_simple_loop_unswitch_pass(pass_mgr);
 #endif
         LLVMAddInstructionCombiningPass(pass_mgr);
         LLVMAddCFGSimplificationPass(pass_mgr);
@@ -2743,8 +2742,9 @@ aot_require_lower_switch_pass(AOTCompContext *comp_ctx)
 {
     bool ret = false;
 
-    /* IR switch/case will cause .rodata relocation on riscv */
-    if (!strncmp(comp_ctx->target_arch, "riscv", 5)) {
+    /* IR switch/case will cause .rodata relocation on riscv/xtensa */
+    if (!strncmp(comp_ctx->target_arch, "riscv", 5)
+        || !strncmp(comp_ctx->target_arch, "xtensa", 6)) {
         ret = true;
     }
 

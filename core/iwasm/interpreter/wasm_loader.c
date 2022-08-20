@@ -14,6 +14,10 @@
 #if WASM_ENABLE_DEBUG_INTERP != 0
 #include "../libraries/debug-engine/debug_engine.h"
 #endif
+#if WASM_ENABLE_FAST_JIT != 0
+#include "../fast-jit/jit_compiler.h"
+#include "../fast-jit/jit_codecache.h"
+#endif
 
 /* Read a value of given type from the address pointed to by the given
    pointer and increase the pointer to the position just after the
@@ -411,6 +415,19 @@ const_str_list_insert(const uint8 *str, uint32 len, WASMModule *module,
     return node->str;
 }
 
+static void
+destroy_wasm_type(WASMType *type)
+{
+    if (type->ref_count > 1) {
+        /* The type is referenced by other types
+           of current wasm module */
+        type->ref_count--;
+        return;
+    }
+
+    wasm_runtime_free(type);
+}
+
 static bool
 load_init_expr(const uint8 **p_buf, const uint8 *buf_end,
                InitializerExpression *init_expr, uint8 type, char *error_buf,
@@ -578,6 +595,7 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             }
 
             /* Resolve param types and result types */
+            type->ref_count = 1;
             type->param_count = (uint16)param_count;
             type->result_count = (uint16)result_count;
             for (j = 0; j < param_count; j++) {
@@ -607,6 +625,21 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             }
             type->param_cell_num = (uint16)param_cell_num;
             type->ret_cell_num = (uint16)ret_cell_num;
+
+            /* If there is already a same type created, use it instead */
+            for (j = 0; j < i; j++) {
+                if (wasm_type_equal(type, module->types[j])) {
+                    if (module->types[j]->ref_count == UINT16_MAX) {
+                        set_error_buf(error_buf, error_buf_size,
+                                      "wasm type's ref count too large");
+                        return false;
+                    }
+                    destroy_wasm_type(type);
+                    module->types[i] = module->types[j];
+                    module->types[j]->ref_count++;
+                    break;
+                }
+            }
         }
     }
 
@@ -2890,6 +2923,28 @@ fail:
     return false;
 }
 
+#if WASM_ENABLE_FAST_JIT != 0
+static void
+calculate_global_data_offset(WASMModule *module)
+{
+    uint32 i, data_offset;
+
+    data_offset = 0;
+    for (i = 0; i < module->import_global_count; i++) {
+        WASMGlobalImport *import_global =
+            &((module->import_globals + i)->u.global);
+        import_global->data_offset = data_offset;
+        data_offset += wasm_value_type_size(import_global->type);
+    }
+
+    for (i = 0; i < module->global_count; i++) {
+        WASMGlobal *global = module->globals + i;
+        global->data_offset = data_offset;
+        data_offset += wasm_value_type_size(global->type);
+    }
+}
+#endif
+
 static bool
 wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
                              uint32 cur_func_idx, char *error_buf,
@@ -3277,6 +3332,21 @@ load_from_sections(WASMModule *module, WASMSection *sections,
 #endif
     }
 
+#if WASM_ENABLE_FAST_JIT != 0
+    calculate_global_data_offset(module);
+
+    if (module->function_count
+        && !(module->fast_jit_func_ptrs =
+                 loader_malloc(sizeof(void *) * module->function_count,
+                               error_buf, error_buf_size))) {
+        return false;
+    }
+    if (!jit_compiler_compile_all(module)) {
+        set_error_buf(error_buf, error_buf_size, "fast jit compilation failed");
+        return false;
+    }
+#endif
+
 #if WASM_ENABLE_MEMORY_TRACING != 0
     wasm_runtime_dump_module_mem_consumption((WASMModuleCommon *)module);
 #endif
@@ -3652,7 +3722,7 @@ wasm_loader_load(uint8 *buf, uint32 size,
         return NULL;
     }
 
-#if WASM_ENABLE_DEBUG_INTERP != 0
+#if WASM_ENABLE_DEBUG_INTERP != 0 || WASM_ENABLE_FAST_JIT != 0
     module->load_addr = (uint8 *)buf;
     module->load_size = size;
 #endif
@@ -3688,7 +3758,7 @@ wasm_loader_unload(WASMModule *module)
     if (module->types) {
         for (i = 0; i < module->type_count; i++) {
             if (module->types[i])
-                wasm_runtime_free(module->types[i]);
+                destroy_wasm_type(module->types[i]);
         }
         wasm_runtime_free(module->types);
     }
@@ -3798,6 +3868,16 @@ wasm_loader_unload(WASMModule *module)
 
 #if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
     wasm_runtime_destroy_custom_sections(module->custom_section_list);
+#endif
+
+#if WASM_ENABLE_FAST_JIT != 0
+    if (module->fast_jit_func_ptrs) {
+        for (i = 0; i < module->function_count; i++) {
+            if (module->fast_jit_func_ptrs[i])
+                jit_code_cache_free(module->fast_jit_func_ptrs[i]);
+        }
+        wasm_runtime_free(module->fast_jit_func_ptrs);
+    }
 #endif
 
     wasm_runtime_free(module);
@@ -4482,6 +4562,10 @@ typedef struct WASMLoaderContext {
     uint8 *p_code_compiled;
     uint8 *p_code_compiled_end;
     uint32 code_compiled_size;
+    /* If the last opcode will be dropped, the peak memory usage will be larger
+     * than the final code_compiled_size, we record the peak size to ensure
+     * there will not be invalid memory access during second traverse */
+    uint32 code_compiled_peak_size;
 #endif
 } WASMLoaderContext;
 
@@ -5026,9 +5110,10 @@ static bool
 wasm_loader_ctx_reinit(WASMLoaderContext *ctx)
 {
     if (!(ctx->p_code_compiled =
-              loader_malloc(ctx->code_compiled_size, NULL, 0)))
+              loader_malloc(ctx->code_compiled_peak_size, NULL, 0)))
         return false;
-    ctx->p_code_compiled_end = ctx->p_code_compiled + ctx->code_compiled_size;
+    ctx->p_code_compiled_end =
+        ctx->p_code_compiled + ctx->code_compiled_peak_size;
 
     /* clean up frame ref */
     memset(ctx->frame_ref_bottom, 0, ctx->frame_ref_size);
@@ -5054,6 +5139,15 @@ wasm_loader_ctx_reinit(WASMLoaderContext *ctx)
 }
 
 static void
+increase_compiled_code_space(WASMLoaderContext *ctx, int32 size)
+{
+    ctx->code_compiled_size += size;
+    if (ctx->code_compiled_size >= ctx->code_compiled_peak_size) {
+        ctx->code_compiled_peak_size = ctx->code_compiled_size;
+    }
+}
+
+static void
 wasm_loader_emit_const(WASMLoaderContext *ctx, void *value, bool is_32_bit)
 {
     uint32 size = is_32_bit ? sizeof(uint32) : sizeof(uint64);
@@ -5071,7 +5165,7 @@ wasm_loader_emit_const(WASMLoaderContext *ctx, void *value, bool is_32_bit)
 #if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
         bh_assert((ctx->code_compiled_size & 1) == 0);
 #endif
-        ctx->code_compiled_size += size;
+        increase_compiled_code_space(ctx, size);
     }
 }
 
@@ -5089,7 +5183,7 @@ wasm_loader_emit_uint32(WASMLoaderContext *ctx, uint32 value)
 #if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
         bh_assert((ctx->code_compiled_size & 1) == 0);
 #endif
-        ctx->code_compiled_size += sizeof(uint32);
+        increase_compiled_code_space(ctx, sizeof(uint32));
     }
 }
 
@@ -5107,7 +5201,7 @@ wasm_loader_emit_int16(WASMLoaderContext *ctx, int16 value)
 #if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
         bh_assert((ctx->code_compiled_size & 1) == 0);
 #endif
-        ctx->code_compiled_size += sizeof(int16);
+        increase_compiled_code_space(ctx, sizeof(uint16));
     }
 }
 
@@ -5123,9 +5217,9 @@ wasm_loader_emit_uint8(WASMLoaderContext *ctx, uint8 value)
 #endif
     }
     else {
-        ctx->code_compiled_size += sizeof(uint8);
+        increase_compiled_code_space(ctx, sizeof(uint8));
 #if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
-        ctx->code_compiled_size++;
+        increase_compiled_code_space(ctx, sizeof(uint8));
         bh_assert((ctx->code_compiled_size & 1) == 0);
 #endif
     }
@@ -5145,7 +5239,7 @@ wasm_loader_emit_ptr(WASMLoaderContext *ctx, void *value)
 #if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
         bh_assert((ctx->code_compiled_size & 1) == 0);
 #endif
-        ctx->code_compiled_size += sizeof(void *);
+        increase_compiled_code_space(ctx, sizeof(void *));
     }
 }
 
@@ -6864,14 +6958,14 @@ re_scan:
                     loader_ctx->frame_csp->end_addr = p - 1;
                 }
                 else {
-                    /* end of function block, function will return,
-                       ignore the following bytecodes */
-                    p = p_end;
-
-                    continue;
+                    /* end of function block, function will return */
+                    if (p < p_end) {
+                        set_error_buf(error_buf, error_buf_size,
+                                      "section size mismatch");
+                        goto fail;
+                    }
                 }
 
-                SET_CUR_BLOCK_STACK_POLYMORPHIC_STATE(false);
                 break;
             }
 
@@ -7537,7 +7631,7 @@ re_scan:
                     goto fail;
                 }
 
-                if (func_idx == cur_func_idx) {
+                if (func_idx == cur_func_idx + module->import_function_count) {
                     WASMTableSeg *table_seg = module->table_segments;
                     bool func_declared = false;
                     uint32 j;
@@ -7547,8 +7641,7 @@ re_scan:
                         if (table_seg->elem_type == VALUE_TYPE_FUNCREF
                             && wasm_elem_is_declarative(table_seg->mode)) {
                             for (j = 0; j < table_seg->function_count; j++) {
-                                if (table_seg->func_indexes[j]
-                                    == cur_func_idx) {
+                                if (table_seg->func_indexes[j] == func_idx) {
                                     func_declared = true;
                                     break;
                                 }
@@ -7584,7 +7677,7 @@ re_scan:
                 PUSH_OFFSET_TYPE(local_type);
 #else
 #if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0) \
-    && (WASM_ENABLE_DEBUG_INTERP == 0)
+    && (WASM_ENABLE_FAST_JIT == 0) && (WASM_ENABLE_DEBUG_INTERP == 0)
                 if (local_offset < 0x80) {
                     *p_org++ = EXT_OP_GET_LOCAL_FAST;
                     if (is_32bit_type(local_type)) {
@@ -7648,7 +7741,7 @@ re_scan:
                 }
 #else
 #if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0) \
-    && (WASM_ENABLE_DEBUG_INTERP == 0)
+    && (WASM_ENABLE_FAST_JIT == 0) && (WASM_ENABLE_DEBUG_INTERP == 0)
                 if (local_offset < 0x80) {
                     *p_org++ = EXT_OP_SET_LOCAL_FAST;
                     if (is_32bit_type(local_type)) {
@@ -7708,7 +7801,7 @@ re_scan:
                                - wasm_value_type_cell_num(local_type)));
 #else
 #if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0) \
-    && (WASM_ENABLE_DEBUG_INTERP == 0)
+    && (WASM_ENABLE_FAST_JIT == 0) && (WASM_ENABLE_DEBUG_INTERP == 0)
                 if (local_offset < 0x80) {
                     *p_org++ = EXT_OP_TEE_LOCAL_FAST;
                     if (is_32bit_type(local_type)) {

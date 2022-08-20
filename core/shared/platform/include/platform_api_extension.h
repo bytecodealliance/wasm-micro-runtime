@@ -195,6 +195,91 @@ os_cond_signal(korp_cond *cond);
 int
 os_cond_broadcast(korp_cond *cond);
 
+/**
+ * Creates a new POSIX-like semaphore or opens an existing
+ * semaphore.  The semaphore is identified by name.  For details of
+ * the construction of name, please refer to
+ * https://man7.org/linux/man-pages/man3/sem_open.3.html.
+ *
+ * @param name semaphore name
+ * @param oflasg specifies flags that control the operation of the call
+ * @param mode permission flags
+ * @param val initial value of the named semaphore.
+ *
+ * @return korp_sem * if success, NULL otherwise
+ */
+korp_sem *
+os_sem_open(const char *name, int oflags, int mode, int val);
+
+/**
+ * Closes the named semaphore referred to by sem,
+ * allowing any resources that the system has allocated to the
+ * calling process for this semaphore to be freed.
+ *
+ * @param sem
+ *
+ * @return 0 if success
+ */
+int
+os_sem_close(korp_sem *sem);
+
+/**
+ * Decrements (locks) the semaphore pointed to by sem.
+ * If the semaphore's value is greater than zero, then the decrement
+ * proceeds, and the function returns, immediately.  If the
+ * semaphore currently has the value zero, then the call blocks
+ * until either it becomes possible to perform the decrement (i.e.,
+ * the semaphore value rises above zero), or a signal handler
+ * interrupts the call.
+ *
+ * @return 0 if success
+ */
+int
+os_sem_wait(korp_sem *sem);
+
+/**
+ * Is the same as sem_wait(), except that if the
+ * decrement cannot be immediately performed, then call returns an
+ * error (errno set to EAGAIN) instead of blocking.
+ *
+ * @return 0 if success
+ */
+int
+os_sem_trywait(korp_sem *sem);
+
+/**
+ * Increments (unlocks) the semaphore pointed to by sem.
+ * If the semaphore's value consequently becomes greater than zero,
+ * then another process or thread blocked in a sem_wait(3) call will
+ * be woken up and proceed to lock the semaphore.
+ *
+ * @return 0 if success
+ */
+int
+os_sem_post(korp_sem *sem);
+
+/**
+ * Places the current value of the semaphore pointed
+ * to sem into the integer pointed to by sval.
+ *
+ * @return 0 if success
+ */
+int
+os_sem_getvalue(korp_sem *sem, int *sval);
+
+/**
+ * Remove the named semaphore referred to by name.
+ * The semaphore name is removed immediately.  The semaphore is
+ * destroyed once all other processes that have the semaphore open
+ * close it.
+ *
+ * @param name semaphore name
+ *
+ * @return 0 if success
+ */
+int
+os_sem_unlink(const char *name);
+
 /****************************************************
  *                     Section 2                    *
  *                   Socket support                 *

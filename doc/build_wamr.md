@@ -29,19 +29,20 @@ The script `runtime_lib.cmake` defines a number of variables for configuring the
 cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 ```
 
-#### **Configure interpreter**
+#### **Configure interpreters**
 
 - **WAMR_BUILD_INTERP**=1/0: enable or disable WASM interpreter
 
 - **WAMR_BUILD_FAST_INTERP**=1/0: build fast (default) or classic WASM interpreter.
 
-  NOTE: the fast interpreter runs ~2X faster than classic interpreter, but consumes about 2X memory to hold the WASM bytecode code.
+  NOTE: the fast interpreter runs ~2X faster than classic interpreter, but consumes about 2X memory to hold the pre-compiled code.
 
-#### **Configure AOT and JIT**
+#### **Configure AOT and JITs**
 
-- **WAMR_BUILD_AOT**=1/0, default to enable if not set
-- **WAMR_BUILD_JIT**=1/0, default to disable if not set
+- **WAMR_BUILD_AOT**=1/0, enable AOT or not, default to enable if not set
+- **WAMR_BUILD_JIT**=1/0, enable LLVM JIT or not, default to disable if not set
 - **WAMR_BUILD_LAZY_JIT**=1/0, whether to use Lazy JIT mode or not when *WAMR_BUILD_JIT* is set, default to enable if not set
+- **WAMR_BUILD_FAST_JIT**=1/0, enable Fast JIT or not, default to disable if not set
 
 #### **Configure LIBC**
 
@@ -157,6 +158,10 @@ Currently we only profile the memory consumption of module, module_instance and 
 
 > For AoT file, must use `--emit-custom-sections` to specify which sections need to be emitted into AoT file, otherwise all custom sections (except custom name section) will be ignored.
 
+### **Stack guard size**
+- **WAMR_BUILD_STACK_GUARD_SIZE**=n, default to N/A if not set.
+> Note: By default, the stack guard size is 1K (1024) or 24K (if uvwasi enabled).
+
 **Combination of configurations:**
 
 We can combine the configurations. For example, if we want to disable interpreter, enable AOT and WASI, we can run command:
@@ -206,8 +211,7 @@ sudo dnf install glibc-devel.i686
 After installing dependencies, build the source code:
 ``` Bash
 cd product-mini/platforms/linux/
-mkdir build
-cd build
+mkdir build && cd build
 cmake ..
 make
 # iwasm is generated under current directory
@@ -216,30 +220,49 @@ make
 By default in Linux, the `fast interpreter`, `AOT` and `Libc WASI` are enabled, and JIT is disabled.
 And the build target is set to X86_64 or X86_32 depending on the platform's bitwidth.
 
-To run a wasm file with interpreter mode:
+There are total 6 running modes supported: fast interpreter, classi interpreter, AOT, LLVM Lazy JIT, LLVM MC JIT and Fast JIT.
+
+(1) To run a wasm file with `fast interpreter` mode - build iwasm with default build and then:
 ```Bash
 iwasm <wasm file>
 ```
-To run an AOT file, firstly please refer to [Build wamrc AOT compiler](../README.md#build-wamrc-aot-compiler) to build wamrc, and then:
+Or
+```Bash
+mkdir build && cd build
+cmake .. -DWAMR_BUILD_INTERP=1
+make
+```
+
+(2) To disable `fast interpreter` and enable `classic interpreter` instead:
+``` Bash
+mkdir build && cd build
+cmake .. -DWAMR_BUILD_FAST_INTERP=0
+make
+```
+
+(3) To run an AOT file, firstly please refer to [Build wamrc AOT compiler](../README.md#build-wamrc-aot-compiler) to build wamrc, and then:
 ```Bash
 wamrc -o <AOT file> <WASM file>
 iwasm <AOT file>
 ```
 
-To enable the `JIT` mode, firstly we should build LLVM:
-
+(4) To enable the `LLVM Lazy JIT` mode, firstly we should build LLVM library:
 ``` Bash
 cd product-mini/platforms/linux/
 ./build_llvm.sh     (The llvm source code is cloned under <wamr_root_dir>/core/deps/llvm and auto built)
 ```
 
-Then pass argument `-DWAMR_BUILD_JIT=1` to cmake to enable WASM JIT:
-
+Then pass argument `-DWAMR_BUILD_JIT=1` to cmake to enable LLVM Lazy JIT:
 ``` Bash
-mkdir build
-cd build
+mkdir build && cd build
 cmake .. -DWAMR_BUILD_JIT=1
-# or "cmake .. -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=0" to disable LLVM Lazy JIT and enable LLVM MC JIT
+make
+```
+
+(5) Or disable `LLVM Lazy JIT` and enable `LLVM MC JIT` instead:
+```Bash
+mkdir build && cd build
+cmake .. -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=0
 make
 ```
 
@@ -248,13 +271,13 @@ by creating threads to compile the WASM functions parallely, and for the main th
 module will not be compiled until they are firstly called and haven't been compiled by the compilation threads.
 To disable it and enable LLVM MC JIT instead, please pass argument `-DWAMR_BUILD_LAZY_JIT=0` to cmake.
 
-To disable `fast interpreter` and enable `classic interpreter` instead:
+(6) To enable the `Fast JIT` mode:
 ``` Bash
-mkdir build
-cd build
-cmake .. -DWAMR_BUILD_FAST_INTERP=0
+mkdir build && cd build
+cmake .. -DWAMR_BUILD_FAST_JIT=1
 make
 ```
+The Fast JIT is a lightweight JIT engine with quick startup, small footprint and good portability, and gains ~50% performance of AOT.
 
 Linux SGX (Intel Software Guard Extension)
 -------------------------
@@ -561,8 +584,8 @@ In order to use this, you need at least version 4.3.1 of ESP-IDF.
 If you don't have it installed, follow the instructions [here](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/#get-started-get-prerequisites).
 ESP-IDF also installs the toolchains needed for compiling WAMR and ESP-IDF.
 A small demonstration of how to use WAMR and ESP-IDF can be found under [product_mini](/product-mini/platforms/esp-idf).
-The demo builds WAMR for ESP-IDF and runs a small wasm program.
-In order to run it for your specific Espressif chip, edit the ['build_and_run.sh'](/product-mini/platforms/esp-idf/build_and_run.sh) file and put the correct toolchain file (see #Cross-compilation) and `IDF_TARGET`.
+The demo builds WAMR for ESP-IDF and runs a small wasm program. 
+In order to run it for your specific Espressif chip, edit the [build_and_run.sh](/product-mini/platforms/esp-idf/build_and_run.sh) file and put the correct toolchain file (see #Cross-compilation) and `IDF_TARGET`.
 Before compiling it is also necessary to call ESP-IDF's `export.sh` script to bring all compile time relevant information in scope.
 
 Docker

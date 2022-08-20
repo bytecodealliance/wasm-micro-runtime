@@ -73,6 +73,7 @@ wasm_exec_env_create_internal(struct WASMModuleInstanceCommon *module_inst,
 #if WASM_ENABLE_MEMORY_TRACING != 0
     wasm_runtime_dump_exec_env_mem_consumption(exec_env);
 #endif
+
     return exec_env;
 
 #if WASM_ENABLE_THREAD_MGR != 0
@@ -188,9 +189,10 @@ wasm_exec_env_set_module_inst(WASMExecEnv *exec_env,
 void
 wasm_exec_env_set_thread_info(WASMExecEnv *exec_env)
 {
+    uint8 *stack_boundary = os_thread_get_stack_boundary();
     exec_env->handle = os_self_thread();
-    exec_env->native_stack_boundary = os_thread_get_stack_boundary()
-                                      + RESERVED_BYTES_TO_NATIVE_STACK_BOUNDARY;
+    exec_env->native_stack_boundary =
+        stack_boundary ? stack_boundary + WASM_STACK_GUARD_SIZE : NULL;
 }
 
 #if WASM_ENABLE_THREAD_MGR != 0

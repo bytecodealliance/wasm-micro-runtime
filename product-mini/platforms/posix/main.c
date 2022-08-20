@@ -34,6 +34,10 @@ print_help()
 #endif
     printf("  --stack-size=n         Set maximum stack size in bytes, default is 16 KB\n");
     printf("  --heap-size=n          Set maximum heap size in bytes, default is 16 KB\n");
+#if WASM_ENABLE_FAST_JIT != 0
+    printf("  --jit-codecache-size=n Set fast jit maximum code cache size in bytes,\n");
+    printf("                         default is %u KB\n", FAST_JIT_DEFAULT_CODE_CACHE_SIZE / 1024);
+#endif
     printf("  --repl                 Start a very simple REPL (read-eval-print-loop) mode\n"
            "                         that runs commands in the form of \"FUNC ARG...\"\n");
 #if WASM_ENABLE_LIBC_WASI != 0
@@ -64,6 +68,7 @@ print_help()
     printf("  -g=ip:port             Set the debug sever address, default is debug disabled\n");
     printf("                           if port is 0, then a random port will be used\n");
 #endif
+    printf("  --version              Show version information\n");
     return 1;
 }
 /* clang-format on */
@@ -290,11 +295,15 @@ static char global_heap_buf[10 * 1024 * 1024] = { 0 };
 int
 main(int argc, char *argv[])
 {
+    int32 ret = -1;
     char *wasm_file = NULL;
     const char *func_name = NULL;
     uint8 *wasm_file_buf = NULL;
     uint32 wasm_file_size;
     uint32 stack_size = 16 * 1024, heap_size = 16 * 1024;
+#if WASM_ENABLE_FAST_JIT != 0
+    uint32 jit_code_cache_size = FAST_JIT_DEFAULT_CODE_CACHE_SIZE;
+#endif
     wasm_module_t wasm_module = NULL;
     wasm_module_inst_t wasm_module_inst = NULL;
     RuntimeInitArgs init_args;
@@ -329,8 +338,7 @@ main(int argc, char *argv[])
         if (!strcmp(argv[0], "-f") || !strcmp(argv[0], "--function")) {
             argc--, argv++;
             if (argc < 2) {
-                print_help();
-                return 0;
+                return print_help();
             }
             func_name = argv[0];
         }
@@ -354,6 +362,13 @@ main(int argc, char *argv[])
                 return print_help();
             heap_size = atoi(argv[0] + 12);
         }
+#if WASM_ENABLE_FAST_JIT != 0
+        else if (!strncmp(argv[0], "--jit-codecache-size=", 21)) {
+            if (argv[0][21] == '\0')
+                return print_help();
+            jit_code_cache_size = atoi(argv[0] + 21);
+        }
+#endif
 #if WASM_ENABLE_LIBC_WASI != 0
         else if (!strncmp(argv[0], "--dir=", 6)) {
             if (argv[0][6] == '\0')
@@ -361,7 +376,7 @@ main(int argc, char *argv[])
             if (dir_list_size >= sizeof(dir_list) / sizeof(char *)) {
                 printf("Only allow max dir number %d\n",
                        (int)(sizeof(dir_list) / sizeof(char *)));
-                return -1;
+                return 1;
             }
             dir_list[dir_list_size++] = argv[0] + 6;
         }
@@ -373,7 +388,7 @@ main(int argc, char *argv[])
             if (env_list_size >= sizeof(env_list) / sizeof(char *)) {
                 printf("Only allow max env number %d\n",
                        (int)(sizeof(env_list) / sizeof(char *)));
-                return -1;
+                return 1;
             }
             tmp_env = argv[0] + 6;
             if (validate_env_str(tmp_env))
@@ -398,7 +413,7 @@ main(int argc, char *argv[])
                 if (addr_pool_size >= sizeof(addr_pool) / sizeof(char *)) {
                     printf("Only allow max address number %d\n",
                            (int)(sizeof(addr_pool) / sizeof(char *)));
-                    return -1;
+                    return 1;
                 }
 
                 addr_pool[addr_pool_size++] = token;
@@ -413,7 +428,7 @@ main(int argc, char *argv[])
             if (native_lib_count >= sizeof(native_lib_list) / sizeof(char *)) {
                 printf("Only allow max native lib number %d\n",
                        (int)(sizeof(native_lib_list) / sizeof(char *)));
-                return -1;
+                return 1;
             }
             native_lib_list[native_lib_count++] = argv[0] + 13;
         }
@@ -447,6 +462,12 @@ main(int argc, char *argv[])
             ip_addr = argv[0] + 3;
         }
 #endif
+        else if (!strncmp(argv[0], "--version", 9)) {
+            uint32 major, minor, patch;
+            wasm_runtime_get_version(&major, &minor, &patch);
+            printf("iwasm %u.%u.%u\n", major, minor, patch);
+            return 0;
+        }
         else
             return print_help();
     }
@@ -469,6 +490,10 @@ main(int argc, char *argv[])
     init_args.mem_alloc_option.allocator.malloc_func = malloc;
     init_args.mem_alloc_option.allocator.realloc_func = realloc;
     init_args.mem_alloc_option.allocator.free_func = free;
+#endif
+
+#if WASM_ENABLE_FAST_JIT != 0
+    init_args.fast_jit_code_cache_size = jit_code_cache_size;
 #endif
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
@@ -552,6 +577,8 @@ main(int argc, char *argv[])
     else
         app_instance_main(wasm_module_inst);
 
+    ret = 0;
+
     /* destroy the module instance */
     wasm_runtime_deinstantiate(wasm_module_inst);
 
@@ -576,5 +603,11 @@ fail1:
 
     /* destroy runtime environment */
     wasm_runtime_destroy();
+
+#if WASM_ENABLE_SPEC_TEST != 0
+    (void)ret;
     return 0;
+#else
+    return ret;
+#endif
 }

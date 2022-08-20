@@ -3955,9 +3955,8 @@ interp_link(const wasm_instance_t *inst, const WASMModule *module_interp,
             }
             case IMPORT_KIND_MEMORY:
             case IMPORT_KIND_TABLE:
-                ASSERT_NOT_IMPLEMENTED();
-                break;
             default:
+                ASSERT_NOT_IMPLEMENTED();
                 LOG_WARNING("%s meets unsupported kind: %d", __FUNCTION__,
                             import_rt->kind);
                 goto failed;
@@ -4175,9 +4174,8 @@ aot_link(const wasm_instance_t *inst, const AOTModule *module_aot,
                 break;
             case WASM_EXTERN_MEMORY:
             case WASM_EXTERN_TABLE:
-                ASSERT_NOT_IMPLEMENTED();
-                break;
             default:
+                ASSERT_NOT_IMPLEMENTED();
                 goto failed;
         }
     }

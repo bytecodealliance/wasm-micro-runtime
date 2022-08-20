@@ -52,6 +52,22 @@ struct WASMMemoryInstance {
        Note: when memory is re-allocated, the heap data and memory data
              must be copied to new memory also. */
     uint8 *memory_data;
+
+#if WASM_ENABLE_FAST_JIT != 0
+#if UINTPTR_MAX == UINT64_MAX
+    uint64 mem_bound_check_1byte;
+    uint64 mem_bound_check_2bytes;
+    uint64 mem_bound_check_4bytes;
+    uint64 mem_bound_check_8bytes;
+    uint64 mem_bound_check_16bytes;
+#else
+    uint32 mem_bound_check_1byte;
+    uint32 mem_bound_check_2bytes;
+    uint32 mem_bound_check_4bytes;
+    uint32 mem_bound_check_8bytes;
+    uint32 mem_bound_check_16bytes;
+#endif
+#endif
 };
 
 struct WASMTableInstance {
@@ -167,6 +183,10 @@ struct WASMModuleInstance {
 
     /* Array of function pointers to import functions */
     void **import_func_ptrs;
+#if WASM_ENABLE_FAST_JIT != 0
+    /* point to JITed functions */
+    void **fast_jit_func_ptrs;
+#endif
 
     WASMMemoryInstance **memories;
     WASMTableInstance **tables;
@@ -197,9 +217,6 @@ struct WASMModuleInstance {
 #endif
 
     WASMExecEnv *exec_env_singleton;
-
-    uint32 temp_ret;
-    uint32 llvm_stack;
 
     /* Default WASM stack size of threads of this Module instance. */
     uint32 default_wasm_stack_size;
@@ -280,7 +297,7 @@ wasm_load(uint8 *buf, uint32 size, char *error_buf, uint32 error_buf_size);
 
 WASMModule *
 wasm_load_from_sections(WASMSection *section_list, char *error_buf,
-                        uint32_t error_buf_size);
+                        uint32 error_buf_size);
 
 void
 wasm_unload(WASMModule *module);
@@ -317,8 +334,7 @@ wasm_call_function(WASMExecEnv *exec_env, WASMFunctionInstance *function,
 bool
 wasm_create_exec_env_and_call_function(WASMModuleInstance *module_inst,
                                        WASMFunctionInstance *function,
-                                       unsigned argc, uint32 argv[],
-                                       bool enable_debug);
+                                       unsigned argc, uint32 argv[]);
 
 bool
 wasm_create_exec_env_singleton(WASMModuleInstance *module_inst);
@@ -366,16 +382,22 @@ wasm_get_app_addr_range(WASMModuleInstance *module_inst, uint32 app_offset,
                         uint32 *p_app_start_offset, uint32 *p_app_end_offset);
 
 bool
-wasm_get_native_addr_range(WASMModuleInstance *module_inst, uint8_t *native_ptr,
-                           uint8_t **p_native_start_addr,
-                           uint8_t **p_native_end_addr);
+wasm_get_native_addr_range(WASMModuleInstance *module_inst, uint8 *native_ptr,
+                           uint8 **p_native_start_addr,
+                           uint8 **p_native_end_addr);
 
 bool
 wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count);
 
 bool
-wasm_call_indirect(WASMExecEnv *exec_env, uint32_t tbl_idx,
-                   uint32_t element_indices, uint32_t argc, uint32_t argv[]);
+wasm_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 elem_idx,
+                   uint32 argc, uint32 argv[]);
+
+#if WASM_ENABLE_FAST_JIT != 0
+bool
+jit_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 elem_idx,
+                  uint32 type_idx, uint32 argc, uint32 argv[]);
+#endif
 
 #if WASM_ENABLE_THREAD_MGR != 0
 bool
