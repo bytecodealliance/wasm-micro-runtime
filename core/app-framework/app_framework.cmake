@@ -33,6 +33,10 @@ function (add_module_native arg)
         ${APP_FRAMEWORK_ROOT_DIR}/${ARGV0}/native/*.h
         ${APP_FRAMEWORK_ROOT_DIR}/${ARGV0}/native/*.inl
     )
+
+    LIST (APPEND WASM_APP_LIBS_DIR ${APP_FRAMEWORK_ROOT_DIR}/${ARGV0}/native)
+    set (WASM_APP_LIBS_DIR ${WASM_APP_LIBS_DIR} PARENT_SCOPE)
+
     LIST (APPEND RUNTIME_LIB_HEADER_LIST ${header})
     set (RUNTIME_LIB_HEADER_LIST ${RUNTIME_LIB_HEADER_LIST} PARENT_SCOPE)
 

@@ -13,6 +13,8 @@ WAMR project reused some components from other open source project:
 - **WebAssembly debugging patch for LLDB**: for extending the ability of LLDB to support wasm debugging
 - **libuv**: for the WASI Libc with uvwasi implementation
 - **uvwasi**: for the WASI Libc with uvwasi implementation
+- **asmjit**: for the Fast JIT x86-64 codegen implementation
+- **zydis**: for the Fast JIT x86-64 codegen implementation
 
 The WAMR fast interpreter is a clean room development. We would acknowledge the inspirations by [WASM3](https://github.com/wasm3/wasm3) open source project for the approach of pre-calculated oprand stack location.
 
@@ -29,6 +31,8 @@ The WAMR fast interpreter is a clean room development. We would acknowledge the 
 | WebAssembly debugging patch for LLDB | unspecified | unspecified | https://reviews.llvm.org/D78801 | |
 | libuv | v1.42.0 | v1.44.1 | https://github.com/libuv/libuv | https://www.cvedetails.com/vendor/15402/Libuv-Project.html |
 | uvwasi | unspecified | v0.0.12 | https://github.com/nodejs/uvwasi | |
+| asmjit | unspecified | unspecified | https://github.com/asmjit/asmjit | |
+| zydis | unspecified | e14a07895136182a5b53e181eec3b1c6e0b434de | https://github.com/zyantific/zydis | |
 
 ## Licenses
 
@@ -79,3 +83,9 @@ The WAMR fast interpreter is a clean room development. We would acknowledge the 
 
 ### uvwasi
 [LICENSE](./core/iwasm/libraries/libc-uvwasi/LICENSE_UVWASI)
+
+### asmjit
+[LICENSE](./core/iwasm/fast-jit/cg/LICENSE_ASMJIT)
+
+### zydis
+[LICENSE](./core/iwasm/fast-jit/cg/LICENSE_ZYDIS)

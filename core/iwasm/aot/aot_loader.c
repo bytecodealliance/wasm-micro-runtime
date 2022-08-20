@@ -482,7 +482,7 @@ load_native_symbol_section(const uint8 *buf, const uint8 *buf_end,
 
         for (i = cnt - 1; i >= 0; i--) {
             read_string(p, p_end, symbol);
-            if (!strncmp(symbol, "f32#", 4)) {
+            if (!strncmp(symbol, "f32#", 4) || !strncmp(symbol, "i32#", 4)) {
                 uint32 u32;
                 /* Resolve the raw int bits of f32 const */
                 if (!str2uint32(symbol + 4, &u32)) {
@@ -492,7 +492,8 @@ load_native_symbol_section(const uint8 *buf, const uint8 *buf_end,
                 }
                 *(uint32 *)(&module->native_symbol_list[i]) = u32;
             }
-            else if (!strncmp(symbol, "f64#", 4)) {
+            else if (!strncmp(symbol, "f64#", 4)
+                     || !strncmp(symbol, "i64#", 4)) {
                 uint64 u64;
                 /* Resolve the raw int bits of f64 const */
                 if (!str2uint64(symbol + 4, &u64)) {
@@ -3135,6 +3136,8 @@ aot_convert_wasm_module(WASMModule *wasm_module, char *error_buf,
     }
 
     option.is_jit_mode = true;
+    option.opt_level = 3;
+    option.size_level = 3;
 #if WASM_ENABLE_BULK_MEMORY != 0
     option.enable_bulk_memory = true;
 #endif

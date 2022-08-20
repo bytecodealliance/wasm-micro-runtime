@@ -94,6 +94,18 @@
 #define WASM_ENABLE_LAZY_JIT 0
 #endif
 
+#ifndef WASM_ENABLE_FAST_JIT
+#define WASM_ENABLE_FAST_JIT 0
+#endif
+
+#ifndef WASM_ENABLE_FAST_JIT_DUMP
+#define WASM_ENABLE_FAST_JIT_DUMP 0
+#endif
+
+#ifndef FAST_JIT_DEFAULT_CODE_CACHE_SIZE
+#define FAST_JIT_DEFAULT_CODE_CACHE_SIZE 10 * 1024 * 1024
+#endif
+
 #ifndef WASM_ENABLE_WAMR_COMPILER
 #define WASM_ENABLE_WAMR_COMPILER 0
 #endif
@@ -125,6 +137,10 @@
 
 #ifndef WASM_ENABLE_LIB_PTHREAD
 #define WASM_ENABLE_LIB_PTHREAD 0
+#endif
+
+#ifndef WASM_ENABLE_LIB_PTHREAD_SEMAPHORE
+#define WASM_ENABLE_LIB_PTHREAD_SEMAPHORE 0
 #endif
 
 #ifndef WASM_ENABLE_BASE_LIB
@@ -327,12 +343,12 @@
 
 /* Reserved bytes to the native thread stack boundary, throw native
    stack overflow exception if the guard boudary is reached */
-#ifndef RESERVED_BYTES_TO_NATIVE_STACK_BOUNDARY
+#ifndef WASM_STACK_GUARD_SIZE
 #if WASM_ENABLE_UVWASI != 0
 /* UVWASI requires larger native stack */
-#define RESERVED_BYTES_TO_NATIVE_STACK_BOUNDARY (4096 * 6)
+#define WASM_STACK_GUARD_SIZE (4096 * 6)
 #else
-#define RESERVED_BYTES_TO_NATIVE_STACK_BOUNDARY (1024)
+#define WASM_STACK_GUARD_SIZE (1024)
 #endif
 #endif
 

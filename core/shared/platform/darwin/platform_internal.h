@@ -56,6 +56,7 @@ typedef pthread_t korp_tid;
 typedef pthread_mutex_t korp_mutex;
 typedef pthread_cond_t korp_cond;
 typedef pthread_t korp_thread;
+typedef sem_t korp_sem;
 
 #define os_thread_local_attribute __thread
 

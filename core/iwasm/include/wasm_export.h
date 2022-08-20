@@ -139,6 +139,9 @@ typedef struct RuntimeInitArgs {
     char ip_addr[128];
     int platform_port;
     int instance_port;
+
+    /* Fast JIT code cache size */
+    uint32_t fast_jit_code_cache_size;
 } RuntimeInitArgs;
 
 #ifndef WASM_VALKIND_T_DEFINED
@@ -300,6 +303,12 @@ wasm_runtime_find_module_registered(const char *module_name);
  * Load a WASM module from a specified byte buffer. The byte buffer can be
  * WASM binary data when interpreter or JIT is enabled, or AOT binary data
  * when AOT is enabled. If it is AOT binary data, it must be 4-byte aligned.
+ *
+ * Note: In case of AOT XIP modules, the runtime doesn't make modifications
+ * to the buffer. (Except the "Known issues" mentioned in doc/xip.md.)
+ * Otherwise, the runtime can make modifications to the buffer for its
+ * internal purposes. Thus, in general, it isn't safe to create multiple
+ * modules from a single buffer.
  *
  * @param buf the byte buffer which contains the WASM/AOT binary data,
  *        note that the byte buffer must be writable since runtime may
@@ -477,6 +486,23 @@ WASM_RUNTIME_API_EXTERN void
 wasm_runtime_destroy_exec_env(wasm_exec_env_t exec_env);
 
 /**
+ * Get the singleton execution environment for the instance.
+ *
+ * Note: The singleton execution environment is the execution
+ * environment used internally by the runtime for the API functions
+ * like wasm_application_execute_main, which don't take explicit
+ * execution environment. It's associated to the corresponding
+ * module instance and managed by the runtime. The API user should
+ * not destroy it with wasm_runtime_destroy_exec_env.
+ *
+ * @param module_inst the module instance
+ *
+ * @return exec_env the execution environment to destroy
+ */
+WASM_RUNTIME_API_EXTERN wasm_exec_env_t
+wasm_runtime_get_exec_env_singleton(wasm_module_inst_t module_inst);
+
+/**
  * Start debug instance based on given execution environment.
  * Note:
  *   The debug instance will be destroyed during destroying the
@@ -532,6 +558,21 @@ wasm_runtime_thread_env_inited(void);
  */
 WASM_RUNTIME_API_EXTERN wasm_module_inst_t
 wasm_runtime_get_module_inst(wasm_exec_env_t exec_env);
+
+/**
+ * Set WASM module instance of execution environment
+ * Caution:
+ *   normally the module instance is bound with the execution
+ *   environment one by one, if multiple module instances want
+ *   to share to the same execution environment, developer should
+ *   be responsible for the backup and restore of module instance
+ *
+ * @param exec_env the execution environment
+ * @param module_inst the WASM module instance to set
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_set_module_inst(wasm_exec_env_t exec_env,
+                             const wasm_module_inst_t module_inst);
 
 /**
  * Call the given WASM function of a WASM module instance with
@@ -1096,6 +1137,12 @@ WASM_RUNTIME_API_EXTERN const uint8_t *
 wasm_runtime_get_custom_section(wasm_module_t const module_comm,
                                 const char *name, uint32_t *len);
 
+
+/**
+ * Get WAMR semantic version
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_get_version(uint32_t *major, uint32_t *minor, uint32_t *patch);
 /* clang-format on */
 
 #ifdef __cplusplus

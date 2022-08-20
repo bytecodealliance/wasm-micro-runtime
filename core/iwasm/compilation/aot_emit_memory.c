@@ -97,7 +97,19 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     is_target_64bit = (comp_ctx->pointer_size == sizeof(uint64)) ? true : false;
 
-    CHECK_LLVM_CONST(offset_const);
+    if (comp_ctx->is_indirect_mode
+        && aot_intrinsic_check_capability(comp_ctx, "i32.const")) {
+        WASMValue wasm_value;
+        wasm_value.i32 = offset;
+        offset_const = aot_load_const_from_table(
+            comp_ctx, func_ctx->native_symbol, &wasm_value, VALUE_TYPE_I32);
+        if (!offset_const) {
+            return NULL;
+        }
+    }
+    else {
+        CHECK_LLVM_CONST(offset_const);
+    }
 
     /* Get memory base address and memory data size */
     if (func_ctx->mem_space_unchanged

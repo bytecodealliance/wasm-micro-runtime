@@ -61,8 +61,14 @@ static const aot_intrinsic g_intrinsic_mapping[] = {
     { "f64_promote_f32", "aot_intrinsic_f32_to_f64", AOT_INTRINSIC_FLAG_F32_TO_F64 },
     { "f32_cmp", "aot_intrinsic_f32_cmp", AOT_INTRINSIC_FLAG_F32_CMP },
     { "f64_cmp", "aot_intrinsic_f64_cmp", AOT_INTRINSIC_FLAG_F64_CMP },
-    { "f32.const", NULL, AOT_INTRINSIC_FLAG_F32_CONST},
-    { "f64.const", NULL, AOT_INTRINSIC_FLAG_F64_CONST},
+    { "i32.const", NULL, AOT_INTRINSIC_FLAG_I32_CONST },
+    { "i64.const", NULL, AOT_INTRINSIC_FLAG_I64_CONST },
+    { "f32.const", NULL, AOT_INTRINSIC_FLAG_F32_CONST },
+    { "f64.const", NULL, AOT_INTRINSIC_FLAG_F64_CONST },
+    { "i64.div_s", "aot_intrinsic_i64_div_s", AOT_INTRINSIC_FLAG_I64_DIV_S},
+    { "i64.div_u", "aot_intrinsic_i64_div_u", AOT_INTRINSIC_FLAG_I64_DIV_U},
+    { "i64.rem_s", "aot_intrinsic_i64_rem_s", AOT_INTRINSIC_FLAG_I64_REM_S},
+    { "i64.rem_u", "aot_intrinsic_i64_rem_u", AOT_INTRINSIC_FLAG_I64_REM_U},
 };
 /* clang-format on */
 
@@ -485,6 +491,30 @@ aot_intrinsic_f64_cmp(AOTFloatCond cond, float64 lhs, float64 rhs)
     return 0;
 }
 
+int64
+aot_intrinsic_i64_div_s(int64 l, int64 r)
+{
+    return l / r;
+}
+
+uint64
+aot_intrinsic_i64_div_u(uint64 l, uint64 r)
+{
+    return l / r;
+}
+
+int64
+aot_intrinsic_i64_rem_s(int64 l, int64 r)
+{
+    return l % r;
+}
+
+uint64
+aot_intrinsic_i64_rem_u(uint64 l, uint64 r)
+{
+    return l % r;
+}
+
 const char *
 aot_intrinsic_get_symbol(const char *llvm_intrinsic)
 {
@@ -510,6 +540,15 @@ add_intrinsic_capability(AOTCompContext *comp_ctx, uint64 flag)
         bh_log(BH_LOG_LEVEL_WARNING, __FILE__, __LINE__,
                "intrinsic exceeds max limit.");
     }
+}
+
+static void
+add_i64_common_intrinsics(AOTCompContext *comp_ctx)
+{
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I64_DIV_S);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I64_DIV_U);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I64_REM_S);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I64_REM_U);
 }
 
 static void
@@ -618,6 +657,22 @@ aot_intrinsic_fill_capability_flags(AOTCompContext *comp_ctx)
         add_f32_common_intrinsics(comp_ctx);
         add_f64_common_intrinsics(comp_ctx);
         add_common_float_integer_convertion(comp_ctx);
+    }
+    else if (!strncmp(comp_ctx->target_arch, "riscv32", 7)) {
+        add_i64_common_intrinsics(comp_ctx);
+    }
+    else if (!strncmp(comp_ctx->target_arch, "xtensa", 6)) {
+        /*
+         * Note: Use builtin intrinsics since hardware float operation
+         * will cause rodata relocation
+         */
+        add_f32_common_intrinsics(comp_ctx);
+        add_f64_common_intrinsics(comp_ctx);
+        add_common_float_integer_convertion(comp_ctx);
+        add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_CONST);
+        add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F64_CONST);
+        add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I32_CONST);
+        add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I64_CONST);
     }
     else {
         /*

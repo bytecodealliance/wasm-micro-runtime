@@ -2,12 +2,8 @@
 @REM SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 @echo off
-set target_name=%1
 
-docker run -it --name=wasm-executor-ctr ^
+docker run --rm -it --name=wasm-debug-server-ctr ^
            -v "%cd%":/mnt ^
            wasm-debug-server:1.0 ^
-           /bin/bash -c "./run.sh %target_name%"
-
-@REM stop and remove wasm-executor-ctr
-docker stop wasm-executor-ctr && docker rm wasm-executor-ctr
+           /bin/bash -c "./run.sh %1"

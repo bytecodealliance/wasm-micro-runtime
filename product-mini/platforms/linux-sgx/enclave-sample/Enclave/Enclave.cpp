@@ -13,14 +13,19 @@
 #include "bh_platform.h"
 
 extern "C" {
-typedef void (*os_print_function_t)(const char *message);
+typedef int (*os_print_function_t)(const char *message);
 extern void
 os_set_print_function(os_print_function_t pf);
 
-void
+int
 enclave_print(const char *message)
 {
-    ocall_print(message);
+    int bytes_written = 0;
+
+    if (SGX_SUCCESS != ocall_print(&bytes_written, message))
+        return 0;
+
+    return bytes_written;
 }
 }
 
@@ -39,6 +44,7 @@ typedef enum EcallCmd {
     CMD_DESTROY_RUNTIME,      /* wasm_runtime_destroy() */
     CMD_SET_WASI_ARGS,        /* wasm_runtime_set_wasi_args() */
     CMD_SET_LOG_LEVEL,        /* bh_log_set_verbose_level() */
+    CMD_GET_VERSION,          /* wasm_runtime_get_version() */
 } EcallCmd;
 
 typedef struct EnclaveModule {
@@ -517,6 +523,18 @@ handle_cmd_set_wasi_args(uint64 *args, int32 argc)
 }
 #endif /* end of SGX_DISABLE_WASI */
 
+static void
+handle_cmd_get_version(uint64 *args, uint32 argc)
+{
+    uint32 major, minor, patch;
+    bh_assert(argc == 3);
+
+    wasm_runtime_get_version(&major, &minor, &patch);
+    args[0] = major;
+    args[1] = minor;
+    args[2] = patch;
+}
+
 void
 ecall_handle_command(unsigned cmd, unsigned char *cmd_buf,
                      unsigned cmd_buf_size)
@@ -564,6 +582,9 @@ ecall_handle_command(unsigned cmd, unsigned char *cmd_buf,
         case CMD_SET_LOG_LEVEL:
             handle_cmd_set_log_level(args, argc);
             break;
+        case CMD_GET_VERSION:
+            handle_cmd_get_version(args, argc);
+            break;
         default:
             LOG_ERROR("Unknown command %d\n", cmd);
             break;
@@ -589,16 +610,16 @@ ecall_iwasm_main(uint8_t *wasm_file_buf, uint32_t wasm_file_size)
 
     /* initialize runtime environment */
     if (!wasm_runtime_full_init(&init_args)) {
-        ocall_print("Init runtime environment failed.");
-        ocall_print("\n");
+        enclave_print("Init runtime environment failed.");
+        enclave_print("\n");
         return;
     }
 
     /* load WASM module */
     if (!(wasm_module = wasm_runtime_load(wasm_file_buf, wasm_file_size,
                                           error_buf, sizeof(error_buf)))) {
-        ocall_print(error_buf);
-        ocall_print("\n");
+        enclave_print(error_buf);
+        enclave_print("\n");
         goto fail1;
     }
 
@@ -606,16 +627,16 @@ ecall_iwasm_main(uint8_t *wasm_file_buf, uint32_t wasm_file_size)
     if (!(wasm_module_inst =
               wasm_runtime_instantiate(wasm_module, 16 * 1024, 16 * 1024,
                                        error_buf, sizeof(error_buf)))) {
-        ocall_print(error_buf);
-        ocall_print("\n");
+        enclave_print(error_buf);
+        enclave_print("\n");
         goto fail2;
     }
 
     /* execute the main function of wasm app */
     wasm_application_execute_main(wasm_module_inst, 0, NULL);
     if ((exception = wasm_runtime_get_exception(wasm_module_inst))) {
-        ocall_print(exception);
-        ocall_print("\n");
+        enclave_print(exception);
+        enclave_print("\n");
     }
 
     /* destroy the module instance */

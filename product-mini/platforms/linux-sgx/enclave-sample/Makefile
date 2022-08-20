@@ -64,6 +64,12 @@ else
 	App_C_Flags += -DNDEBUG -UEDEBUG -UDEBUG
 endif
 
+ifeq ($(SPEC_TEST), 1)
+	App_C_Flags += -DWASM_ENABLE_SPEC_TEST=1
+else
+	App_C_Flags += -DWASM_ENABLE_SPEC_TEST=0
+endif
+
 App_Cpp_Flags := $(App_C_Flags) -std=c++11
 App_Link_Flags := $(SGX_COMMON_CFLAGS) libvmlib_untrusted.a -L$(SGX_LIBRARY_PATH) -l$(Urts_Library_Name) -lpthread
 

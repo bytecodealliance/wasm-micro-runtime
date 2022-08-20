@@ -1,10 +1,11 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-cmake_minimum_required (VERSION 2.8)
+cmake_minimum_required (VERSION 2.9)
 
 project (iwasm)
-# set (CMAKE_VERBOSE_MAKEFILE 1)
+
+set (CMAKE_VERBOSE_MAKEFILE OFF)
 
 set (WAMR_BUILD_PLATFORM "linux")
 
@@ -52,6 +53,11 @@ if (NOT DEFINED WAMR_BUILD_JIT)
   set (WAMR_BUILD_JIT 0)
 endif ()
 
+if (NOT DEFINED WAMR_BUILD_FAST_JIT)
+  # Disable Fast JIT by default
+  set (WAMR_BUILD_FAST_JIT 0)
+endif ()
+
 if (NOT DEFINED WAMR_BUILD_LIBC_BUILTIN)
   # Enable libc builtin support by default
   set (WAMR_BUILD_LIBC_BUILTIN 1)
@@ -68,7 +74,7 @@ if (NOT DEFINED WAMR_BUILD_FAST_INTERP)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_MULTI_MODULE)
-  # Enable multiple modules
+  # Disable multiple modules by default
   set (WAMR_BUILD_MULTI_MODULE 0)
 endif ()
 
@@ -105,6 +111,7 @@ endif ()
 
 if (COLLECT_CODE_COVERAGE EQUAL 1)
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-arcs -ftest-coverage")
+  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage")
 endif ()
 
 set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../..)
@@ -117,14 +124,20 @@ set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections -pie -f
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security -Wshadow")
 # set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wconversion -Wsign-conversion")
 
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wformat -Wformat-security -Wno-unused")
+
 if (WAMR_BUILD_TARGET MATCHES "X86_.*" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
   if (NOT (CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*Clang"))
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mindirect-branch-register")
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mindirect-branch-register")
     # UNDEFINED BEHAVIOR, refer to https://en.cppreference.com/w/cpp/language/ub
     if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WAMR_BUILD_JIT EQUAL 1)
       set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=undefined \
                                           -fno-sanitize=bounds,bounds-strict,alignment \
                                           -fno-sanitize-recover")
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=undefined \
+                                              -fno-sanitize=bounds,bounds-strict,alignment \
+                                              -fno-sanitize-recover")
     endif()
   else ()
     # UNDEFINED BEHAVIOR, refer to https://en.cppreference.com/w/cpp/language/ub
@@ -132,6 +145,9 @@ if (WAMR_BUILD_TARGET MATCHES "X86_.*" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
       set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=undefined \
                                           -fno-sanitize=bounds,alignment \
                                           -fno-sanitize-recover")
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=undefined \
+                                              -fno-sanitize=bounds,alignment \
+                                              -fno-sanitize-recover")
     endif()
   endif ()
 endif ()
