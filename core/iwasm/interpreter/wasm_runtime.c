@@ -109,8 +109,11 @@ memories_deinstantiate(WASMModuleInstance *module_inst,
         for (i = 0; i < count; i++) {
             if (memories[i]) {
 #if WASM_ENABLE_MULTI_MODULE != 0
-                if (i < module_inst->module->import_memory_count)
+                WASMModule *module = module_inst->module;
+                if (i < module->import_memory_count
+                    && module->import_memories[i].u.memory.import_module) {
                     continue;
+                }
 #endif
 #if WASM_ENABLE_SHARED_MEMORY != 0
                 if (memories[i]->is_shared) {
