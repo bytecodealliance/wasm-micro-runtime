@@ -506,8 +506,16 @@ wasm_runtime_is_xip_file(const uint8 *buf, uint32 size)
 uint32
 wasm_runtime_start_debug_instance(WASMExecEnv *exec_env)
 {
+    WASMModuleInstanceCommon *module_inst =
+        wasm_runtime_get_module_inst(exec_env);
     WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
+    bh_assert(module_inst);
     bh_assert(cluster);
+
+    if (module_inst->module_type != Wasm_Module_Bytecode) {
+        LOG_WARNING("Attempt to create a debug instance for an AOT module");
+        return 0;
+    }
 
     if (cluster->debug_inst) {
         LOG_WARNING("Cluster already bind to a debug instance");
@@ -1967,28 +1975,6 @@ wasm_runtime_call_wasm_v(WASMExecEnv *exec_env,
         wasm_runtime_free(args);
 
 fail1:
-    return ret;
-}
-
-bool
-wasm_runtime_create_exec_env_and_call_wasm(
-    WASMModuleInstanceCommon *module_inst, WASMFunctionInstanceCommon *function,
-    uint32 argc, uint32 argv[])
-{
-    bool ret = false;
-
-#if WASM_ENABLE_INTERP != 0
-    if (module_inst->module_type == Wasm_Module_Bytecode)
-        ret = wasm_create_exec_env_and_call_function(
-            (WASMModuleInstance *)module_inst, (WASMFunctionInstance *)function,
-            argc, argv, true);
-#endif
-#if WASM_ENABLE_AOT != 0
-    if (module_inst->module_type == Wasm_Module_AoT)
-        ret = aot_create_exec_env_and_call_function(
-            (AOTModuleInstance *)module_inst, (AOTFunctionInstance *)function,
-            argc, argv);
-#endif
     return ret;
 }
 
