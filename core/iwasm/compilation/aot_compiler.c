@@ -2600,52 +2600,10 @@ veriy_module(AOTCompContext *comp_ctx)
 static bool
 apply_func_passes(AOTCompContext *comp_ctx)
 {
-    LLVMPassManagerRef pass_mgr;
+    LLVMPassManagerRef pass_mgr = comp_ctx->pass_mgr;
     uint32 i;
 
-#if WASM_ENABLE_MCJIT != 0
-    pass_mgr = LLVMCreateFunctionPassManagerForModule(comp_ctx->module);
-#else
-    pass_mgr = LLVMCreatePassManager();
-#endif
-
-    if (!pass_mgr) {
-        aot_set_last_error("create LLVM pass manager failed.");
-        return false;
-    }
-
-    LLVMAddPromoteMemoryToRegisterPass(pass_mgr);
-    LLVMAddInstructionCombiningPass(pass_mgr);
-    LLVMAddCFGSimplificationPass(pass_mgr);
-    LLVMAddJumpThreadingPass(pass_mgr);
-#if LLVM_VERSION_MAJOR < 12
-    LLVMAddConstantPropagationPass(pass_mgr);
-#endif
-    LLVMAddIndVarSimplifyPass(pass_mgr);
-
-    if (!comp_ctx->is_jit_mode) {
-        /* Put Vectorize passes before GVN/LICM passes as the former
-           might gain more performance improvement and the latter might
-           break the optimizations for the former */
-        LLVMAddLoopVectorizePass(pass_mgr);
-        LLVMAddSLPVectorizePass(pass_mgr);
-        LLVMAddLoopRotatePass(pass_mgr);
-#if LLVM_VERSION_MAJOR < 15
-        LLVMAddLoopUnswitchPass(pass_mgr);
-#else
-        aot_add_simple_loop_unswitch_pass(pass_mgr);
-#endif
-        LLVMAddInstructionCombiningPass(pass_mgr);
-        LLVMAddCFGSimplificationPass(pass_mgr);
-        if (!comp_ctx->enable_thread_mgr) {
-            /* These two passes may destroy the volatile semantics,
-               disable them when building as multi-thread mode */
-            LLVMAddGVNPass(pass_mgr);
-            LLVMAddLICMPass(pass_mgr);
-            LLVMAddInstructionCombiningPass(pass_mgr);
-            LLVMAddCFGSimplificationPass(pass_mgr);
-        }
-    }
+    bh_assert(pass_mgr && "LLVMPassManagerRef should not be NULL");
 
 #if WASM_ENABLE_MCJIT != 0
     LLVMInitializeFunctionPassManager(pass_mgr);

@@ -3049,8 +3049,8 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
                 snprintf(func_name, sizeof(func_name), "%s%d", AOT_FUNC_PREFIX,
                          comp_data->start_func_index
                              - module->import_func_count);
-                if ((error = LLVMOrcLLJITLookup(comp_ctx->orcjit,
-                                                &func_addr, func_name))) {
+                if ((error = LLVMOrcLLJITLookup(comp_ctx->orcjit, &func_addr,
+                                                func_name))) {
                     char *err_msg = LLVMGetErrorMessage(error);
                     set_error_buf_v(error_buf, error_buf_size,
                                     "failed to compile orc jit function: %s",

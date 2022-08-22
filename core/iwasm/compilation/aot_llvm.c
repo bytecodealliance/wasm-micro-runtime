@@ -1256,12 +1256,78 @@ aot_handle_llvm_errmsg(const char *string, LLVMErrorRef err)
     LLVMDisposeErrorMessage(err_msg);
 }
 
+static bool
+initialize_func_passes(AOTCompContext *comp_ctx)
+{
+    LLVMPassManagerRef pass_mgr;
+
+#if WASM_ENABLE_MCJIT != 0
+    pass_mgr = LLVMCreateFunctionPassManagerForModule(comp_ctx->module);
+#else
+    pass_mgr = LLVMCreatePassManager();
+#endif
+    if (!pass_mgr) {
+        aot_set_last_error("create LLVM pass manager failed.");
+        return false;
+    }
+
+    LLVMAddPromoteMemoryToRegisterPass(pass_mgr);
+    LLVMAddInstructionCombiningPass(pass_mgr);
+    LLVMAddCFGSimplificationPass(pass_mgr);
+    LLVMAddJumpThreadingPass(pass_mgr);
+#if LLVM_VERSION_MAJOR < 12
+    LLVMAddConstantPropagationPass(pass_mgr);
+#endif
+    LLVMAddIndVarSimplifyPass(pass_mgr);
+
+    if (!comp_ctx->is_jit_mode) {
+        /* Put Vectorize passes before GVN/LICM passes as the former
+           might gain more performance improvement and the latter might
+           break the optimizations for the former */
+        LLVMAddLoopVectorizePass(pass_mgr);
+        LLVMAddSLPVectorizePass(pass_mgr);
+        LLVMAddLoopRotatePass(pass_mgr);
+#if LLVM_VERSION_MAJOR < 15
+        LLVMAddLoopUnswitchPass(pass_mgr);
+#else
+        aot_add_simple_loop_unswitch_pass(pass_mgr);
+#endif
+        LLVMAddInstructionCombiningPass(pass_mgr);
+        LLVMAddCFGSimplificationPass(pass_mgr);
+
+        if (!comp_ctx->enable_thread_mgr) {
+            /* These two passes may destroy the volatile semantics,
+               disable them when building as multi-thread mode */
+            LLVMAddGVNPass(pass_mgr);
+            LLVMAddLICMPass(pass_mgr);
+            LLVMAddInstructionCombiningPass(pass_mgr);
+            LLVMAddCFGSimplificationPass(pass_mgr);
+        }
+    }
+
+    comp_ctx->pass_mgr = pass_mgr;
+    return true;
+}
+
 static LLVMErrorRef
 trace_ir_transform(void *ctx, LLVMModuleRef module)
 {
-    size_t len = 0;
-    const char *module_name = LLVMGetSourceFileName(module, &len);
-    LOG_VERBOSE("--> IRTransfer: %s", module_name);
+    AOTCompContext *comp_ctx = (AOTCompContext *)ctx;
+    LLVMPassManagerRef pass_mgr;
+    bh_assert(comp_ctx && "AOTCompContext from ctx should not be NULL");
+
+    pass_mgr = comp_ctx->pass_mgr;
+    bh_assert(pass_mgr
+              && "LLVMPassManagerRef from AOTCompContext should not be NULL");
+
+    LOG_VERBOSE("--> Do IR Optimization");
+
+    LLVMRunPassManager(pass_mgr, module);
+
+#ifndef NDEBUG
+    LLVMDumpModule(module);
+#endif
+
     return LLVMErrorSuccess;
 }
 
@@ -1377,8 +1443,7 @@ orc_lazyjit_create(AOTCompContext *comp_ctx, uint32 func_count)
                                     sizeof(comp_ctx->target_arch));
     }
 
-#ifndef NDEBUG
-    /* Add debug information when starting to compile LLVMModuleRef */
+    /* Add function passes */
     {
 #if WASM_ENABLE_LAZY_JIT != 0
         LLVMOrcIRTransformLayerRef tl =
@@ -1386,9 +1451,8 @@ orc_lazyjit_create(AOTCompContext *comp_ctx, uint32 func_count)
 #else
         LLVMOrcIRTransformLayerRef tl = LLVMOrcLLJITGetIRTransformLayer(orcjit);
 #endif
-        LLVMOrcIRTransformLayerSetTransform(tl, *transform, NULL);
+        LLVMOrcIRTransformLayerSetTransform(tl, *transform, comp_ctx);
     }
-#endif
 
     /* Reexports */
     if (func_count > 0) {
@@ -1668,6 +1732,11 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
 #if WASM_ENABLE_MCJIT == 0
         /* Create LLJIT Instance */
         if (!orc_lazyjit_create(comp_ctx, comp_data->func_count)) {
+            goto fail;
+        }
+
+        /* Create LLVMPassManagerRef */
+        if (!initialize_func_passes(comp_ctx)) {
             goto fail;
         }
         (void)triple_jit;
@@ -2226,6 +2295,8 @@ aot_destroy_comp_context(AOTCompContext *comp_ctx)
         LLVMOrcDisposeLLJIT(comp_ctx->orcjit);
 #endif
 
+    if (comp_ctx->pass_mgr)
+        LLVMDisposePassManager(comp_ctx->pass_mgr);
 
     if (comp_ctx->modules)
         wasm_runtime_free(comp_ctx->modules);

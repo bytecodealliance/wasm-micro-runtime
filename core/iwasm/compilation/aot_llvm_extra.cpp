@@ -324,7 +324,8 @@ LLVMOrcJITTargetMachineBuilderCreateFromTargetMachine(LLVMTargetMachineRef TM)
 DEFINE_SIMPLE_CONVERSION_FUNCTIONS(LLJITBuilder, LLVMOrcLLJITBuilderRef)
 
 // void
-// LLVMOrcLLJITBuilderSetNumCompileThreads(LLVMOrcLLJITBuilderRef orcjit_builder,
+// LLVMOrcLLJITBuilderSetNumCompileThreads(LLVMOrcLLJITBuilderRef
+// orcjit_builder,
 //                                         unsigned num_compile_threads)
 // {
 //     unwrap(orcjit_builder)->setNumCompileThreads(num_compile_threads);
