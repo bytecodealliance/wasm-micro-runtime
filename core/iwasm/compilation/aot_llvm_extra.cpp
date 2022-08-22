@@ -345,7 +345,7 @@ aot_lookup_orcjit_func(
     LLVMOrcJITTargetAddress func_addr = 0;
     AOTModuleInstance *aot_inst = (AOTModuleInstance *)module_inst;
     AOTModule *aot_module = (AOTModule *)aot_inst->aot_module.ptr;
-    void **func_ptrs = (void **)aot_inst->func_ptrs.ptr;
+    void **func_ptrs = (void **)aot_module->func_ptrs;
 
     /**
      * No need to lock the func_ptr[func_idx] here as it is basic
@@ -524,16 +524,7 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx)
         }
     }
 
-#if WASM_ENABLE_MCJIT != 0
     M = unwrap(comp_ctx->module);
     MPM.run(*M, MAM);
-#else
-    uint32 i;
-
-    for (i = 0; i < comp_ctx->func_ctx_count; i++) {
-        M = unwrap(comp_ctx->modules[i]);
-        MPM.run(*M, MAM);
-    }
-#endif
 }
 #endif /* end of LLVM_VERSION_MAJOR >= 12 */

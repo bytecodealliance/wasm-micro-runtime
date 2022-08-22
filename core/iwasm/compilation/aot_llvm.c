@@ -8,6 +8,7 @@
 #include "aot_emit_exception.h"
 #include "../aot/aot_runtime.h"
 #include "../aot/aot_intrinsic.h"
+#include "bh_log.h"
 #include "laziness/aot_orc_laziness.h"
 #include "llvm-c/Error.h"
 #include "llvm-c/Orc.h"
@@ -640,11 +641,7 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
     memset(func_ctx, 0, (uint32)size);
     func_ctx->aot_func = func;
 
-#if WASM_ENABLE_MCJIT != 0
     func_ctx->module = comp_ctx->module;
-#else
-    func_ctx->module = comp_ctx->modules[0];
-#endif
 
     /* Add LLVM function */
     if (!(func_ctx->func =
@@ -1271,6 +1268,7 @@ initialize_func_passes(AOTCompContext *comp_ctx)
         return false;
     }
 
+    comp_ctx->pass_mgr = pass_mgr;
     LLVMAddPromoteMemoryToRegisterPass(pass_mgr);
     LLVMAddInstructionCombiningPass(pass_mgr);
     LLVMAddCFGSimplificationPass(pass_mgr);
@@ -1305,12 +1303,11 @@ initialize_func_passes(AOTCompContext *comp_ctx)
         }
     }
 
-    comp_ctx->pass_mgr = pass_mgr;
     return true;
 }
 
 static LLVMErrorRef
-trace_ir_transform(void *ctx, LLVMModuleRef module)
+run_func_pass(void *ctx, LLVMModuleRef module)
 {
     AOTCompContext *comp_ctx = (AOTCompContext *)ctx;
     LLVMPassManagerRef pass_mgr;
@@ -1321,7 +1318,6 @@ trace_ir_transform(void *ctx, LLVMModuleRef module)
               && "LLVMPassManagerRef from AOTCompContext should not be NULL");
 
     LOG_VERBOSE("--> Do IR Optimization");
-
     LLVMRunPassManager(pass_mgr, module);
 
 #ifndef NDEBUG
@@ -1336,12 +1332,11 @@ transform(void *ctx, LLVMOrcThreadSafeModuleRef *module,
           LLVMOrcMaterializationResponsibilityRef mr)
 {
     (void)mr;
-    return LLVMOrcThreadSafeModuleWithModuleDo(*module, trace_ir_transform,
-                                               ctx);
+    return LLVMOrcThreadSafeModuleWithModuleDo(*module, run_func_pass, ctx);
 }
 
 static bool
-orc_lazyjit_create(AOTCompContext *comp_ctx, uint32 func_count)
+orc_jit_create(AOTCompContext *comp_ctx, uint32 func_count)
 {
     char *cpu = NULL;
     char *features = NULL;
@@ -1640,28 +1635,11 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
         goto fail;
     }
 
-    /*TODO */
-#if WASM_ENABLE_MCJIT != 0
     if (!(comp_ctx->module = LLVMModuleCreateWithNameInContext(
               "WASM Module", comp_ctx->context))) {
         aot_set_last_error("create LLVM module failed.");
         goto fail;
     }
-#else
-    if (!(comp_ctx->modules = wasm_runtime_malloc(sizeof(LLVMModuleRef)))) {
-        aot_set_last_error("allocate memory failed.");
-        goto fail;
-    }
-    memset(comp_ctx->modules, 0, sizeof(LLVMModuleRef));
-    /* Create individual modules for each aot function, note:
-       different from non LAZY JIT mode, no need to dispose them,
-       they will be disposed when the thread safe context is disposed */
-    if (!(comp_ctx->modules[0] = LLVMModuleCreateWithNameInContext(
-              "WASM Module", comp_ctx->context))) {
-        aot_set_last_error("create LLVM module failed.");
-        goto fail;
-    }
-#endif
 
     if (BH_LIST_ERROR == bh_list_init(&comp_ctx->native_symbols)) {
         goto fail;
@@ -1730,8 +1708,8 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
         comp_ctx->is_jit_mode = true;
 
 #if WASM_ENABLE_MCJIT == 0
-        /* Create LLJIT Instance */
-        if (!orc_lazyjit_create(comp_ctx, comp_data->func_count)) {
+        /* Create LLJIT/LLLazyJIT Instance */
+        if (!orc_jit_create(comp_ctx, comp_data->func_count)) {
             goto fail;
         }
 
@@ -2036,17 +2014,9 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
                 aot_set_last_error("create metadata string failed.");
                 goto fail;
             }
-#if WASM_ENABLE_MCJIT != 0
             LLVMAddModuleFlag(comp_ctx->module, LLVMModuleFlagBehaviorError,
                               "target-abi", strlen("target-abi"),
                               meta_target_abi);
-#else
-            for (i = 0; i < comp_data->func_count; i++) {
-                LLVMAddModuleFlag(comp_ctx->modules[i],
-                                  LLVMModuleFlagBehaviorError, "target-abi",
-                                  strlen("target-abi"), meta_target_abi);
-            }
-#endif
 
             if (!strcmp(abi, "lp64d") || !strcmp(abi, "ilp32d")) {
                 if (features) {
@@ -2298,12 +2268,8 @@ aot_destroy_comp_context(AOTCompContext *comp_ctx)
     if (comp_ctx->pass_mgr)
         LLVMDisposePassManager(comp_ctx->pass_mgr);
 
-    if (comp_ctx->modules)
-        wasm_runtime_free(comp_ctx->modules);
-
-    /* Note: don't dispose comp_ctx->context and comp_ctx->modules[i] as
+    /* Note: don't dispose comp_ctx->context and comp_ctx->module as
        they are disposed when disposing the thread safe context */
-
     LLVMShutdown();
 #else
     if (comp_ctx->target_machine && !comp_ctx->is_jit_mode)

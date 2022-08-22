@@ -2578,13 +2578,7 @@ veriy_module(AOTCompContext *comp_ctx)
     char *msg = NULL;
     bool ret;
 
-    ret = LLVMVerifyModule(
-#if WASM_ENABLE_MCJIT != 0
-        comp_ctx->module,
-#else
-        comp_ctx->modules[0],
-#endif
-        LLVMPrintMessageAction, &msg);
+    ret = LLVMVerifyModule(comp_ctx->module, LLVMPrintMessageAction, &msg);
     if (!ret && msg) {
         if (msg[0] != '\0') {
             aot_set_last_error(msg);
@@ -2597,29 +2591,25 @@ veriy_module(AOTCompContext *comp_ctx)
     return true;
 }
 
+#if WASM_ENABLE_MCJIT != 0
 static bool
 apply_func_passes(AOTCompContext *comp_ctx)
 {
     LLVMPassManagerRef pass_mgr = comp_ctx->pass_mgr;
     uint32 i;
 
-    bh_assert(pass_mgr && "LLVMPassManagerRef should not be NULL");
+    bh_assert(pass_mgr
+              && "LLVMPassManagerRef from AOTCompContext should not be NULL");
 
-#if WASM_ENABLE_MCJIT != 0
     LLVMInitializeFunctionPassManager(pass_mgr);
     for (i = 0; i < comp_ctx->func_ctx_count; i++) {
         LLVMRunFunctionPassManager(pass_mgr, comp_ctx->func_ctxes[i]->func);
     }
     LLVMFinalizeFunctionPassManager(pass_mgr);
-#else
-    for (i = 0; i < comp_ctx->func_ctx_count; i++) {
-        LLVMRunPassManager(pass_mgr, comp_ctx->modules[i]);
-    }
-#endif
 
-    LLVMDisposePassManager(pass_mgr);
     return true;
 }
+#endif
 
 #if WASM_ENABLE_LLVM_LEGACY_PM != 0 || LLVM_VERSION_MAJOR < 12
 static bool
@@ -2650,13 +2640,7 @@ apply_lto_passes(AOTCompContext *comp_ctx)
                                                  common_pass_mgr, true, true);
 #endif
 
-#if WASM_ENABLE_MCJIT != 0
     LLVMRunPassManager(common_pass_mgr, comp_ctx->module);
-#else
-    for (i = 0; i < comp_ctx->func_ctx_count; i++) {
-        LLVMRunPassManager(common_pass_mgr, comp_ctx->modules[i]);
-    }
-#endif
 
     LLVMDisposePassManager(common_pass_mgr);
     LLVMPassManagerBuilderDispose(pass_mgr_builder);
@@ -2702,9 +2686,6 @@ static bool
 apply_passes_for_indirect_mode(AOTCompContext *comp_ctx)
 {
     LLVMPassManagerRef common_pass_mgr;
-#if WASM_ENABLE_MCJIT == 0
-    uint32 i;
-#endif
 
     if (!(common_pass_mgr = LLVMCreatePassManager())) {
         aot_set_last_error("create pass manager failed");
@@ -2719,13 +2700,7 @@ apply_passes_for_indirect_mode(AOTCompContext *comp_ctx)
     if (aot_require_lower_switch_pass(comp_ctx))
         LLVMAddLowerSwitchPass(common_pass_mgr);
 
-#if WASM_ENABLE_MCJIT != 0
     LLVMRunPassManager(common_pass_mgr, comp_ctx->module);
-#else
-    for (i = 0; i < comp_ctx->func_ctx_count; i++) {
-        LLVMRunPassManager(common_pass_mgr, comp_ctx->modules[i]);
-    }
-#endif
 
     LLVMDisposePassManager(common_pass_mgr);
     return true;
@@ -2765,12 +2740,7 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
 #if WASM_ENABLE_MCJIT == 0
     if (comp_ctx->optimize) {
         if (comp_ctx->is_jit_mode) {
-            /*TODO:*/
-            // /* Only run func passes for JIT mode */
-            // bh_print_time("Begin to run func optimization passes");
-            // if (!apply_func_passes(comp_ctx)) {
-            //     return false;
-            // }
+            /* will run all function passes on IRTransformLayer */
         }
         else {
 #if WASM_ENABLE_LLVM_LEGACY_PM == 0 && LLVM_VERSION_MAJOR >= 12
@@ -2818,7 +2788,7 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
 
     LOG_VERBOSE("Craete ThreadSafeModule");
     orc_thread_safe_module = LLVMOrcCreateNewThreadSafeModule(
-        comp_ctx->modules[0], comp_ctx->orc_thread_safe_context);
+        comp_ctx->module, comp_ctx->orc_thread_safe_context);
     if (!orc_thread_safe_module) {
         aot_set_last_error("failed to create thread safe module");
         return false;
@@ -2844,11 +2814,7 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
 
 #ifndef NDEBUG
     LOG_VERBOSE("Dump the LLVM Module");
-#if WASM_ENABLE_MCJIT != 0
     LLVMDumpModule(comp_ctx->module);
-#else
-    LLVMDumpModule(comp_ctx->modules[0]);
-#endif /* WASM_ENABLE_MCJIT != 0 */
 #endif /* NDEBUG */
     return true;
 }

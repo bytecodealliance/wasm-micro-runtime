@@ -1432,6 +1432,7 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
     }
     argc = func_type->param_cell_num;
 
+#if WASM_ENABLE_JIT != 0
 #if WASM_ENABLE_MCJIT == 0
     if (!function->u.func.func_ptr) {
         AOTModule *aot_module = (AOTModule *)module_inst->aot_module.ptr;
@@ -1441,6 +1442,7 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
             return false;
         }
     }
+#endif
 #endif
 
     /* set thread handle and stack boundary */
@@ -2326,6 +2328,7 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
     func_type_idx = func_type_indexes[func_idx];
     func_type = aot_module->func_types[func_type_idx];
 
+#if WASM_ENABLE_JIT != 0
 #if WASM_ENABLE_MCJIT == 0
     if (func_idx >= aot_module->import_func_count && !func_ptrs[func_idx]) {
         if (!(func_ptr = aot_lookup_orcjit_func(aot_module->comp_ctx->orcjit,
@@ -2333,6 +2336,7 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
             return false;
         }
     }
+#endif
 #endif
 
     if (!(func_ptr = func_ptrs[func_idx])) {

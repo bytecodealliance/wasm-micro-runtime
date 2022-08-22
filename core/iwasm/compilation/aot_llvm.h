@@ -273,12 +273,8 @@ typedef struct AOTCompContext {
 
     /* LLVM variables required to emit LLVM IR */
     LLVMContextRef context;
-#if WASM_ENABLE_MCJIT != 0
-    /* Create one module only for non LAZY JIT mode,
-       for LAZY JIT mode, modules are created, each
-       aot function has its own module */
+    /* one LLVMModule maps to one .wasm module */
     LLVMModuleRef module;
-#endif
     LLVMBuilderRef builder;
 #if WASM_ENABLE_DEBUG_AOT
     LLVMDIBuilderRef debug_builder;
@@ -305,9 +301,9 @@ typedef struct AOTCompContext {
     LLVMOrcIndirectStubsManagerRef orc_indirect_stub_mgr;
     LLVMOrcCSymbolAliasMapPairs orc_symbol_map_pairs;
     LLVMOrcThreadSafeContextRef orc_thread_safe_context;
-    /*TODO: all functions in one module*/
-    /* Each aot function has its own module */
-    LLVMModuleRef *modules;
+    // /*TODO: all functions in one module*/
+    // /* Each aot function has its own module */
+    // LLVMModuleRef *modules;
     LLVMPassManagerRef pass_mgr;
 #else
     LLVMExecutionEngineRef exec_engine;
