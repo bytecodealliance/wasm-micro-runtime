@@ -2680,10 +2680,8 @@ got_exception:
 
 
 /**
- * 
  * Check whether the app address and the buf is inside the linear memory,
  * and convert the app address into native address
- * add by liujia
  */
 bool jit_check_app_and_convert(WASMModuleInstance *module_inst, bool is_str,
                                uint32 app_buf_addr, uint32 app_buf_size,
