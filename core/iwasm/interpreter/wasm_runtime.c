@@ -206,18 +206,27 @@ memory_instantiate(WASMModuleInstance *module_inst, uint32 num_bytes_per_page,
     if (init_page_count == max_page_count && init_page_count == 1) {
         /* If only one page and at most one page, we just append
            the app heap to the end of linear memory, enlarge the
-           num_bytes_per_page, and don't change the page count*/
+           num_bytes_per_page, and don't change the page count */
         heap_offset = num_bytes_per_page;
         num_bytes_per_page += heap_size;
         if (num_bytes_per_page < heap_size) {
             set_error_buf(error_buf, error_buf_size,
-                          "memory size must be at most 65536 pages (4GiB)");
+                          "failed to insert app heap into linear memory, "
+                          "try using `--heap_size=0` option");
             return NULL;
         }
     }
     else if (heap_size > 0) {
-        if (module->aux_heap_base_global_index != (uint32)-1
-            && module->aux_heap_base < num_bytes_per_page * init_page_count) {
+        if (init_page_count == max_page_count && init_page_count == 0) {
+            /* If the memory data size is always 0, we resize it to
+               one page for app heap */
+            num_bytes_per_page = heap_size;
+            heap_offset = 0;
+            inc_page_count = 1;
+        }
+        else if (module->aux_heap_base_global_index != (uint32)-1
+                 && module->aux_heap_base
+                        < num_bytes_per_page * init_page_count) {
             /* Insert app heap before __heap_base */
             aux_heap_base = module->aux_heap_base;
             bytes_of_last_page = aux_heap_base % num_bytes_per_page;
@@ -259,13 +268,18 @@ memory_instantiate(WASMModuleInstance *module_inst, uint32 num_bytes_per_page,
         }
         init_page_count += inc_page_count;
         max_page_count += inc_page_count;
-        if (init_page_count > 65536) {
+        if (init_page_count > DEFAULT_MAX_PAGES) {
             set_error_buf(error_buf, error_buf_size,
-                          "memory size must be at most 65536 pages (4GiB)");
+                          "failed to insert app heap into linear memory, "
+                          "try using `--heap_size=0` option");
             return NULL;
         }
-        if (max_page_count > 65536)
-            max_page_count = 65536;
+        else if (init_page_count == DEFAULT_MAX_PAGES) {
+            num_bytes_per_page = UINT32_MAX;
+            init_page_count = max_page_count = 1;
+        }
+        if (max_page_count > DEFAULT_MAX_PAGES)
+            max_page_count = DEFAULT_MAX_PAGES;
     }
 
     LOG_VERBOSE("Memory instantiate:");
@@ -280,6 +294,7 @@ memory_instantiate(WASMModuleInstance *module_inst, uint32 num_bytes_per_page,
         memory_data_size = (uint64)num_bytes_per_page * max_page_count;
     }
 #endif
+    bh_assert(memory_data_size <= 4 * (uint64)BH_GB);
 
     /* Allocate memory space, addr data and global data */
     if (!(memory = runtime_malloc((uint64)sizeof(WASMMemoryInstance), error_buf,
@@ -301,9 +316,8 @@ memory_instantiate(WASMModuleInstance *module_inst, uint32 num_bytes_per_page,
      * both i and memarg.offset are u32 in range 0 to 4G
      * so the range of ea is 0 to 8G
      */
-    if (memory_data_size >= UINT32_MAX
-        || !(memory->memory_data = mapped_mem =
-                 os_mmap(NULL, map_size, MMAP_PROT_NONE, MMAP_MAP_NONE))) {
+    if (!(memory->memory_data = mapped_mem =
+              os_mmap(NULL, map_size, MMAP_PROT_NONE, MMAP_MAP_NONE))) {
         set_error_buf(error_buf, error_buf_size, "mmap memory failed");
         goto fail1;
     }
@@ -327,10 +341,14 @@ memory_instantiate(WASMModuleInstance *module_inst, uint32 num_bytes_per_page,
      * again here */
 #endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
+    if (memory_data_size > UINT32_MAX)
+        memory_data_size = (uint32)memory_data_size;
+
     memory->module_type = Wasm_Module_Bytecode;
     memory->num_bytes_per_page = num_bytes_per_page;
     memory->cur_page_count = init_page_count;
     memory->max_page_count = max_page_count;
+    memory->memory_data_size = (uint32)memory_data_size;
 
     memory->heap_data = memory->memory_data + heap_offset;
     memory->heap_data_end = memory->heap_data + heap_size;
@@ -2419,39 +2437,49 @@ bool
 wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
 {
     WASMMemoryInstance *memory = module->default_memory;
-    uint8 *new_memory_data, *memory_data, *heap_data_old;
-    uint32 heap_size, total_size_old, total_page_count;
-    uint64 total_size;
+    uint8 *memory_data_old, *memory_data_new, *heap_data_old;
+    uint32 num_bytes_per_page, heap_size, total_size_old;
+    uint32 cur_page_count, max_page_count, total_page_count;
+    uint64 total_size_new;
     bool ret = true;
 
     if (!memory)
         return false;
 
-    memory_data = memory->memory_data;
-    heap_size = (uint32)(memory->heap_data_end - memory->heap_data);
-    total_size_old = (uint32)(memory->memory_data_end - memory_data);
-    total_page_count = inc_page_count + memory->cur_page_count;
-    total_size = memory->num_bytes_per_page * (uint64)total_page_count;
     heap_data_old = memory->heap_data;
+    heap_size = (uint32)(memory->heap_data_end - memory->heap_data);
+
+    memory_data_old = memory->memory_data;
+    total_size_old = memory->memory_data_size;
+
+    num_bytes_per_page = memory->num_bytes_per_page;
+    cur_page_count = memory->cur_page_count;
+    max_page_count = memory->max_page_count;
+    total_page_count = inc_page_count + cur_page_count;
+    total_size_new = num_bytes_per_page * (uint64)total_page_count;
 
     if (inc_page_count <= 0)
         /* No need to enlarge memory */
         return true;
 
-    if (total_page_count < memory->cur_page_count /* integer overflow */
-        || total_page_count > memory->max_page_count) {
+    if (total_page_count < cur_page_count /* integer overflow */
+        || total_page_count > max_page_count) {
         return false;
     }
 
-    if (total_size >= UINT32_MAX) {
-        return false;
+    bh_assert(total_size_new <= 4 * (uint64)BH_GB);
+    if (total_size_new > UINT32_MAX) {
+        /* Resize to 1 page with size 4G-1 */
+        num_bytes_per_page = UINT32_MAX;
+        total_page_count = max_page_count = 1;
+        total_size_new = UINT32_MAX;
     }
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (memory->is_shared) {
-        /* For shared memory, we have reserved the maximum spaces during
-            instantiate, only change the cur_page_count here */
+        memory->num_bytes_per_page = UINT32_MAX;
         memory->cur_page_count = total_page_count;
+        memory->max_page_count = max_page_count;
         return true;
     }
 #endif
@@ -2463,25 +2491,25 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
         }
     }
 
-    if (!(new_memory_data =
-              wasm_runtime_realloc(memory_data, (uint32)total_size))) {
-        if (!(new_memory_data = wasm_runtime_malloc((uint32)total_size))) {
+    if (!(memory_data_new =
+              wasm_runtime_realloc(memory_data_old, (uint32)total_size_new))) {
+        if (!(memory_data_new = wasm_runtime_malloc((uint32)total_size_new))) {
             return false;
         }
-        if (memory_data) {
-            bh_memcpy_s(new_memory_data, (uint32)total_size, memory_data,
-                        total_size_old);
-            wasm_runtime_free(memory_data);
+        if (memory_data_old) {
+            bh_memcpy_s(memory_data_new, (uint32)total_size_new,
+                        memory_data_old, total_size_old);
+            wasm_runtime_free(memory_data_old);
         }
     }
 
-    memset(new_memory_data + total_size_old, 0,
-           (uint32)total_size - total_size_old);
+    memset(memory_data_new + total_size_old, 0,
+           (uint32)total_size_new - total_size_old);
 
     if (heap_size > 0) {
         if (mem_allocator_migrate(memory->heap_handle,
                                   (char *)heap_data_old
-                                      + (new_memory_data - memory_data),
+                                      + (memory_data_new - memory_data_old),
                                   heap_size)
             != 0) {
             /* Don't return here as memory->memory_data is obsolete and
@@ -2490,26 +2518,30 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
         }
     }
 
-    memory->memory_data = new_memory_data;
-    memory->cur_page_count = total_page_count;
-    memory->heap_data = new_memory_data + (heap_data_old - memory_data);
+    memory->heap_data = memory_data_new + (heap_data_old - memory_data_old);
     memory->heap_data_end = memory->heap_data + heap_size;
-    memory->memory_data_end =
-        memory->memory_data + memory->num_bytes_per_page * total_page_count;
+
+    memory->num_bytes_per_page = num_bytes_per_page;
+    memory->cur_page_count = total_page_count;
+    memory->max_page_count = max_page_count;
+    memory->memory_data_size = (uint32)total_size_new;
+
+    memory->memory_data = memory_data_new;
+    memory->memory_data_end = memory_data_new + (uint32)total_size_new;
 
 #if WASM_ENABLE_FAST_JIT != 0
 #if UINTPTR_MAX == UINT64_MAX
-    memory->mem_bound_check_1byte = total_size - 1;
-    memory->mem_bound_check_2bytes = total_size - 2;
-    memory->mem_bound_check_4bytes = total_size - 4;
-    memory->mem_bound_check_8bytes = total_size - 8;
-    memory->mem_bound_check_16bytes = total_size - 16;
+    memory->mem_bound_check_1byte = total_size_new - 1;
+    memory->mem_bound_check_2bytes = total_size_new - 2;
+    memory->mem_bound_check_4bytes = total_size_new - 4;
+    memory->mem_bound_check_8bytes = total_size_new - 8;
+    memory->mem_bound_check_16bytes = total_size_new - 16;
 #else
-    memory->mem_bound_check_1byte = (uint32)total_size - 1;
-    memory->mem_bound_check_2bytes = (uint32)total_size - 2;
-    memory->mem_bound_check_4bytes = (uint32)total_size - 4;
-    memory->mem_bound_check_8bytes = (uint32)total_size - 8;
-    memory->mem_bound_check_16bytes = (uint32)total_size - 16;
+    memory->mem_bound_check_1byte = (uint32)total_size_new - 1;
+    memory->mem_bound_check_2bytes = (uint32)total_size_new - 2;
+    memory->mem_bound_check_4bytes = (uint32)total_size_new - 4;
+    memory->mem_bound_check_8bytes = (uint32)total_size_new - 8;
+    memory->mem_bound_check_16bytes = (uint32)total_size_new - 16;
 #endif
 #endif
 
@@ -2520,39 +2552,52 @@ bool
 wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
 {
     WASMMemoryInstance *memory = module->default_memory;
-    uint32 num_bytes_per_page, total_page_count;
+    uint32 num_bytes_per_page, total_size_old;
+    uint32 cur_page_count, max_page_count, total_page_count;
+    uint64 total_size_new;
 
     if (!memory)
         return false;
 
-    total_page_count = inc_page_count + memory->cur_page_count;
+    num_bytes_per_page = memory->num_bytes_per_page;
+    cur_page_count = memory->cur_page_count;
+    max_page_count = memory->max_page_count;
+    total_size_old = num_bytes_per_page * cur_page_count;
+    total_page_count = inc_page_count + cur_page_count;
+    total_size_new = num_bytes_per_page * (uint64)total_page_count;
 
     if (inc_page_count <= 0)
         /* No need to enlarge memory */
         return true;
 
-    if (total_page_count < memory->cur_page_count /* integer overflow */
-        || total_page_count > memory->max_page_count) {
+    if (total_page_count < cur_page_count /* integer overflow */
+        || total_page_count > max_page_count) {
         return false;
     }
 
-    num_bytes_per_page = memory->num_bytes_per_page;
+    bh_assert(total_size_new <= 4 * (uint64)BH_GB);
+    if (total_size_new > UINT32_MAX) {
+        /* Resize to 1 page with size 4G-1 */
+        num_bytes_per_page = UINT32_MAX;
+        total_page_count = max_page_count = 1;
+        total_size_new = UINT32_MAX;
+    }
 
 #ifdef BH_PLATFORM_WINDOWS
     if (!os_mem_commit(memory->memory_data_end,
-                       num_bytes_per_page * inc_page_count,
+                       (uint32)total_size_new - total_size_old,
                        MMAP_PROT_READ | MMAP_PROT_WRITE)) {
         return false;
     }
 #endif
 
     if (os_mprotect(memory->memory_data_end,
-                    num_bytes_per_page * inc_page_count,
+                    (uint32)total_size_new - total_size_old,
                     MMAP_PROT_READ | MMAP_PROT_WRITE)
         != 0) {
 #ifdef BH_PLATFORM_WINDOWS
         os_mem_decommit(memory->memory_data_end,
-                        num_bytes_per_page * inc_page_count);
+                        (uint32)total_size_new - total_size_old);
 #endif
         return false;
     }
@@ -2560,9 +2605,20 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
     /* The increased pages are filled with zero by the OS when os_mmap,
        no need to memset it again here */
 
+    memory->num_bytes_per_page = num_bytes_per_page;
     memory->cur_page_count = total_page_count;
-    memory->memory_data_end =
-        memory->memory_data + num_bytes_per_page * total_page_count;
+    memory->max_page_count = max_page_count;
+    memory->memory_data_size = (uint32)total_size_new;
+    memory->memory_data_end = memory->memory_data + (uint32)total_size_new;
+
+#if WASM_ENABLE_FAST_JIT != 0
+    memory->mem_bound_check_1byte = total_size_new - 1;
+    memory->mem_bound_check_2bytes = total_size_new - 2;
+    memory->mem_bound_check_4bytes = total_size_new - 4;
+    memory->mem_bound_check_8bytes = total_size_new - 8;
+    memory->mem_bound_check_16bytes = total_size_new - 16;
+#endif
+
     return true;
 }
 #endif /* end of OS_ENABLE_HW_BOUND_CHECK */
