@@ -2,6 +2,8 @@
  * Copyright (C) 2019 Intel Corporation.  All rights reserved.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
+#include "tcp_utils.h"
+
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <pthread.h>
@@ -41,27 +43,49 @@ run(void *arg)
     return NULL;
 }
 
+static void
+init_sockaddr_inet(struct sockaddr_in *addr)
+{
+    /* 0.0.0.0:1234 */
+    addr->sin_family = AF_INET;
+    addr->sin_port = htons(1234);
+    addr->sin_addr.s_addr = htonl(INADDR_ANY);
+}
+
+static void
+init_sockaddr_inet6(struct sockaddr_in6 *addr)
+{
+    /* [::]:1234 */
+    addr->sin6_family = AF_INET6;
+    addr->sin6_port = htons(1234);
+    addr->sin6_addr = in6addr_any;
+}
+
 int
 main(int argc, char *argv[])
 {
-    int socket_fd = -1, addrlen = 0;
-    struct sockaddr_in addr = { 0 };
+    int socket_fd = -1, addrlen = 0, af;
+    struct sockaddr_storage addr = { 0 };
     unsigned connections = 0;
     pthread_t workers[WORKER_NUM] = { 0 };
     int client_sock_fds[WORKER_NUM] = { 0 };
-    char ip_string[16];
+    char ip_string[64];
+
+    if (argc > 1 && strcmp(argv[1], "inet6") == 0) {
+        af = AF_INET6;
+        init_sockaddr_inet6((struct sockaddr_in6 *)&addr);
+    }
+    else {
+        af = AF_INET;
+        init_sockaddr_inet((struct sockaddr_in *)&addr);
+    }
 
     printf("[Server] Create socket\n");
-    socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+    socket_fd = socket(af, SOCK_STREAM, 0);
     if (socket_fd < 0) {
         perror("Create socket failed");
         goto fail;
     }
-
-    /* 0.0.0.0:1234 */
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(1234);
-    addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
     printf("[Server] Bind socket\n");
     addrlen = sizeof(addr);
@@ -85,11 +109,14 @@ main(int argc, char *argv[])
             break;
         }
 
-        inet_ntop(AF_INET, &addr.sin_addr, ip_string,
-                  sizeof(ip_string) / sizeof(ip_string[0]));
+        if (sockaddr_to_string((struct sockaddr *)&addr, ip_string,
+                               sizeof(ip_string) / sizeof(ip_string[0]))
+            != 0) {
+            printf("[Server] failed to parse client address\n");
+            goto fail;
+        }
 
-        printf("[Server] Client connected (%s:%d)\n", ip_string,
-               ntohs(addr.sin_port));
+        printf("[Server] Client connected (%s)\n", ip_string);
         if (pthread_create(&workers[connections], NULL, run,
                            &client_sock_fds[connections])) {
             perror("Create a worker thread failed");

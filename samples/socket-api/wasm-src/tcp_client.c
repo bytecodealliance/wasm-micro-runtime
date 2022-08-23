@@ -2,6 +2,7 @@
  * Copyright (C) 2019 Intel Corporation.  All rights reserved.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
+#include "tcp_utils.h"
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -14,27 +15,49 @@
 #include <wasi_socket_ext.h>
 #endif
 
+static void
+init_sockaddr_inet(struct sockaddr_in *addr)
+{
+    /* 127.0.0.1:1234 */
+    addr->sin_family = AF_INET;
+    addr->sin_port = htons(1234);
+    addr->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+}
+
+static void
+init_sockaddr_inet6(struct sockaddr_in6 *addr)
+{
+    /* [::1]:1234 */
+    addr->sin6_family = AF_INET6;
+    addr->sin6_port = htons(1234);
+    addr->sin6_addr = in6addr_loopback;
+}
+
 int
 main(int argc, char *argv[])
 {
-    int socket_fd, ret, total_size = 0;
+    int socket_fd, ret, total_size = 0, af;
     char buffer[1024] = { 0 };
-    char ip_string[16] = { 0 };
-    struct sockaddr_in server_address = { 0 };
-    struct sockaddr_in local_address = { 0 };
+    char ip_string[64] = { 0 };
     socklen_t len;
+    struct sockaddr_storage server_address = { 0 };
+    struct sockaddr_storage local_address = { 0 };
+
+    if (argc > 1 && strcmp(argv[1], "inet6") == 0) {
+        af = AF_INET6;
+        init_sockaddr_inet6((struct sockaddr_in6 *)&server_address);
+    }
+    else {
+        af = AF_INET;
+        init_sockaddr_inet((struct sockaddr_in *)&server_address);
+    }
 
     printf("[Client] Create socket\n");
-    socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+    socket_fd = socket(af, SOCK_STREAM, 0);
     if (socket_fd == -1) {
         perror("Create socket failed");
         return EXIT_FAILURE;
     }
-
-    /* 127.0.0.1:1234 */
-    server_address.sin_family = AF_INET;
-    server_address.sin_port = htons(1234);
-    server_address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 
     printf("[Client] Connect socket\n");
     if (connect(socket_fd, (struct sockaddr *)&server_address,
@@ -53,11 +76,15 @@ main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    inet_ntop(AF_INET, &local_address.sin_addr, ip_string,
-              sizeof(ip_string) / sizeof(ip_string[0]));
+    if (sockaddr_to_string((struct sockaddr *)&local_address, ip_string,
+                           sizeof(ip_string) / sizeof(ip_string[0]))
+        != 0) {
+        printf("[Client] failed to parse local address\n");
+        close(socket_fd);
+        return EXIT_FAILURE;
+    }
 
-    printf("[Client] Local address is: %s:%d\n", ip_string,
-           ntohs(local_address.sin_port));
+    printf("[Client] Local address is: %s\n", ip_string);
 
     printf("[Client] Client receive\n");
     while (1) {
