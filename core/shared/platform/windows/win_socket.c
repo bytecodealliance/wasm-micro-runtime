@@ -37,17 +37,27 @@ deinit_winsock()
 }
 
 int
-os_socket_create(bh_socket_t *sock, int tcp_or_udp)
+os_socket_create(bh_socket_t *sock, bool is_ipv4, int tcp_or_udp)
 {
+    int af;
+
     if (!sock) {
         return BHT_ERROR;
     }
 
+    if (is_ipv4) {
+        af = AF_INET;
+    }
+    else {
+        errno = ENOSYS;
+        return BHT_ERROR;
+    }
+
     if (1 == tcp_or_udp) {
-        *sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        *sock = socket(af, SOCK_STREAM, IPPROTO_TCP);
     }
     else if (0 == tcp_or_udp) {
-        *sock = socket(AF_INET, SOCK_DGRAM, 0);
+        *sock = socket(af, SOCK_DGRAM, 0);
     }
 
     return (*sock == -1) ? BHT_ERROR : BHT_OK;
@@ -154,7 +164,8 @@ os_socket_shutdown(bh_socket_t socket)
 }
 
 int
-os_socket_inet_network(bool is_ipv4, const char *cp, bh_inet_network_output_t *out)
+os_socket_inet_network(bool is_ipv4, const char *cp,
+                       bh_inet_network_output_t *out)
 {
     if (!cp)
         return BHT_ERROR;

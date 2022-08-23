@@ -567,21 +567,30 @@ os_socket_connect(bh_socket_t socket, const char *addr, int port)
 }
 
 int
-os_socket_create(bh_socket_t *sock, int tcp_or_udp)
+os_socket_create(bh_socket_t *sock, bool is_ipv4, int tcp_or_udp)
 {
+    int af;
+
     if (!sock) {
         return BHT_ERROR;
     }
 
+    if (is_ipv4) {
+        af = AF_INET;
+    }
+    else {
+        errno = ENOSYS;
+        return BHT_ERROR;
+    }
+
     if (1 == tcp_or_udp) {
-        if (ocall_socket(sock, AF_INET, SOCK_STREAM, IPPROTO_TCP)
-            != SGX_SUCCESS) {
+        if (ocall_socket(sock, af, SOCK_STREAM, IPPROTO_TCP) != SGX_SUCCESS) {
             TRACE_OCALL_FAIL();
             return -1;
         }
     }
     else if (0 == tcp_or_udp) {
-        if (ocall_socket(sock, AF_INET, SOCK_DGRAM, 0) != SGX_SUCCESS) {
+        if (ocall_socket(sock, af, SOCK_DGRAM, 0) != SGX_SUCCESS) {
             TRACE_OCALL_FAIL();
             return -1;
         }
@@ -596,7 +605,8 @@ os_socket_create(bh_socket_t *sock, int tcp_or_udp)
 }
 
 int
-os_socket_inet_network(bool is_ipv4, const char *cp, bh_inet_network_output_t *out)
+os_socket_inet_network(bool is_ipv4, const char *cp,
+                       bh_inet_network_output_t *out)
 {
     if (!cp)
         return BHT_ERROR;

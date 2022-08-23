@@ -2948,6 +2948,35 @@ wasi_ssp_sock_addr_remote(
     return __WASI_ESUCCESS;
 }
 
+static bool
+wasi_addr_to_string(__wasi_addr_t *addr, char *buf, size_t buflen)
+{
+    if (addr->kind == IPv4) {
+        const char *format = "%u.%u.%u.%u";
+
+        assert(buflen >= 16);
+
+        snprintf(buf, buflen, format, addr->addr.ip4.addr.n0,
+                 addr->addr.ip4.addr.n1, addr->addr.ip4.addr.n2,
+                 addr->addr.ip4.addr.n3);
+
+        return true;
+    }
+    else if (addr->kind == IPv6) {
+        const char *format = "%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x";
+        __wasi_addr_ip6_t ipv6 = addr->addr.ip6.addr;
+
+        assert(buflen >= 40);
+
+        snprintf(buf, buflen, format, ipv6.n0, ipv6.n1, ipv6.n2, ipv6.n3,
+                 ipv6.h0, ipv6.h1, ipv6.h2, ipv6.h3);
+
+        return true;
+    }
+
+    return false;
+}
+
 __wasi_errno_t
 wasi_ssp_sock_bind(
 #if !defined(WASMTIME_SSP_STATIC_CURFDS)
@@ -2955,15 +2984,15 @@ wasi_ssp_sock_bind(
 #endif
     __wasi_fd_t fd, __wasi_addr_t *addr)
 {
-    char buf[24] = { 0 };
-    const char *format = "%u.%u.%u.%u";
+    char buf[48] = { 0 };
     struct fd_object *fo;
     __wasi_errno_t error;
-    int port = addr->addr.ip4.port;
+    int port = addr->kind == IPv4 ? addr->addr.ip4.port : addr->addr.ip6.port;
     int ret;
 
-    snprintf(buf, 24, format, addr->addr.ip4.addr.n0, addr->addr.ip4.addr.n1,
-             addr->addr.ip4.addr.n2, addr->addr.ip4.addr.n3);
+    if (!wasi_addr_to_string(addr, buf, sizeof(buf))) {
+        return __WASI_EPROTONOSUPPORT;
+    }
 
     if (!addr_pool_search(addr_pool, buf)) {
         return __WASI_EACCES;
@@ -3017,7 +3046,8 @@ wasi_ssp_sock_addr_resolve(
         addr_info_size < *max_info_size ? addr_info_size : *max_info_size;
 
     for (size_t i = 0; i < actual_info_size; i++) {
-        addr_info[i].type = wamr_addr_info[i].is_tcp ? SOCKET_STREAM : SOCKET_DGRAM;
+        addr_info[i].type =
+            wamr_addr_info[i].is_tcp ? SOCKET_STREAM : SOCKET_DGRAM;
         if (wamr_addr_info[i].is_ipv4) {
             ipv4_addr_to_wasi_addr(*(uint32_t *)wamr_addr_info[i].addr,
                                    wamr_addr_info[i].port, &addr_info[i].addr);
@@ -3039,14 +3069,14 @@ wasi_ssp_sock_connect(
 #endif
     __wasi_fd_t fd, __wasi_addr_t *addr)
 {
-    char buf[24] = { 0 };
-    const char *format = "%u.%u.%u.%u";
+    char buf[48] = { 0 };
     struct fd_object *fo;
     __wasi_errno_t error;
     int ret;
 
-    snprintf(buf, 24, format, addr->addr.ip4.addr.n0, addr->addr.ip4.addr.n1,
-             addr->addr.ip4.addr.n2, addr->addr.ip4.addr.n3);
+    if (!wasi_addr_to_string(addr, buf, sizeof(buf))) {
+        return __WASI_EPROTONOSUPPORT;
+    }
 
     if (!addr_pool_search(addr_pool, buf)) {
         return __WASI_EACCES;
@@ -3056,7 +3086,9 @@ wasi_ssp_sock_connect(
     if (error != __WASI_ESUCCESS)
         return error;
 
-    ret = os_socket_connect(fd_number(fo), buf, addr->addr.ip4.port);
+    ret = os_socket_connect(fd_number(fo), buf,
+                            addr->kind == IPv4 ? addr->addr.ip4.port
+                                               : addr->addr.ip6.port);
     fd_object_release(fo);
     if (BHT_OK != ret) {
         return convert_errno(errno);
@@ -3098,6 +3130,7 @@ wasi_ssp_sock_open(
 {
     bh_socket_t sock;
     int tcp_or_udp = 0;
+    bool is_ipv4 = 0;
     int ret;
     __wasi_filetype_t wasi_type;
     __wasi_rights_t max_base, max_inheriting;
@@ -3105,13 +3138,10 @@ wasi_ssp_sock_open(
 
     (void)poolfd;
 
-    if (INET4 != af) {
-        return __WASI_EAFNOSUPPORT;
-    }
-
     tcp_or_udp = SOCKET_DGRAM == socktype ? 0 : 1;
+    is_ipv4 = af == INET6 ? 0 : 1;
 
-    ret = os_socket_create(&sock, tcp_or_udp);
+    ret = os_socket_create(&sock, is_ipv4, tcp_or_udp);
     if (BHT_OK != ret) {
         return convert_errno(errno);
     }
@@ -3359,6 +3389,7 @@ addr_pool_insert(struct addr_pool *addr_pool, const char *addr, uint8 mask)
 
     next->next = NULL;
     next->mask = mask;
+
     if (os_socket_inet_network(true, addr, &target) != BHT_OK) {
         // If parsing IPv4 fails, try IPv6
         if (os_socket_inet_network(false, addr, &target) != BHT_OK) {
@@ -3366,8 +3397,10 @@ addr_pool_insert(struct addr_pool *addr_pool, const char *addr, uint8 mask)
             return false;
         }
         next->type = IPv6;
-        bh_memcpy_s(next->addr.ip6, sizeof(next->addr.ip6), target.ipv6, sizeof(target.ipv6));
-    } else {
+        bh_memcpy_s(next->addr.ip6, sizeof(next->addr.ip6), target.ipv6,
+                    sizeof(target.ipv6));
+    }
+    else {
         next->type = IPv4;
         next->addr.ip4 = target.ipv4;
     }
@@ -3386,20 +3419,16 @@ min(size_t a, size_t b)
     return a > b ? b : a;
 }
 
-
 static void
 init_address_mask(uint8_t *buf, size_t buflen, size_t mask)
 {
     size_t element_size = sizeof(uint8_t) * 8;
 
-    for (size_t i = 0; i < buflen; i++)
-    {
-        if (mask <= i * element_size)
-        {
+    for (size_t i = 0; i < buflen; i++) {
+        if (mask <= i * element_size) {
             buf[i] = 0;
         }
-        else
-        {
+        else {
             size_t offset = min(mask - i * element_size, element_size);
             buf[i] = (~0u) << (element_size - offset);
         }
@@ -3408,48 +3437,47 @@ init_address_mask(uint8_t *buf, size_t buflen, size_t mask)
 
 /* target must be in network byte order */
 static bool
-compare_address(const struct addr_pool *addr_pool_entry, bh_inet_network_output_t *target)
+compare_address(const struct addr_pool *addr_pool_entry,
+                bh_inet_network_output_t *target)
 {
-    uint8_t maskbuf[16] = {0};
-    uint8_t basebuf[16] = {0};
+    uint8_t maskbuf[16] = { 0 };
+    uint8_t basebuf[16] = { 0 };
     size_t addr_size;
     uint8_t max_addr_mask;
 
     if (addr_pool_entry->type == IPv4) {
         uint32_t addr_ip4 = htonl(addr_pool_entry->addr.ip4);
-        memcpy(basebuf, &addr_ip4, sizeof(addr_ip4));
+        bh_memcpy_s(basebuf, sizeof(addr_ip4), &addr_ip4, sizeof(addr_ip4));
         addr_size = 4;
     }
     else {
         uint16_t partial_addr_ip6;
         for (int i = 0; i < 8; i++) {
             partial_addr_ip6 = htons(addr_pool_entry->addr.ip6[i]);
-            memcpy(&basebuf[i*2], &partial_addr_ip6, sizeof(partial_addr_ip6));
+            bh_memcpy_s(&basebuf[i * sizeof(partial_addr_ip6)],
+                        sizeof(partial_addr_ip6), &partial_addr_ip6,
+                        sizeof(partial_addr_ip6));
         }
         addr_size = 16;
     }
     max_addr_mask = addr_size * 8;
 
     /* IPv4 0.0.0.0 or IPv6 :: means any address */
-    if (basebuf[0] == 0 && !memcmp(basebuf, basebuf + 1, addr_size - 1))
-    {
+    if (basebuf[0] == 0 && !memcmp(basebuf, basebuf + 1, addr_size - 1)) {
         return true;
     }
 
     /* No support for invalid mask value */
-    if (addr_pool_entry->mask > max_addr_mask)
-    {
+    if (addr_pool_entry->mask > max_addr_mask) {
         return false;
     }
 
     init_address_mask(maskbuf, addr_size, addr_pool_entry->mask);
 
-    for (size_t i = 0; i < addr_size; i++)
-    {
+    for (size_t i = 0; i < addr_size; i++) {
         uint8_t addr_mask = target->data[i] & maskbuf[i];
         uint8_t range_mask = basebuf[i] & maskbuf[i];
-        if (addr_mask != range_mask)
-        {
+        if (addr_mask != range_mask) {
             return false;
         }
     }

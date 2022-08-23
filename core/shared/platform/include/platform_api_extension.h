@@ -296,12 +296,13 @@ os_sem_unlink(const char *name);
  * Create a socket
  *
  * @param sock [OUTPUT] the pointer of socket
+ * @param is_ipv4 true for IPv4, false for IPv6
  * @param tcp_or_udp 1 for tcp, 0 for udp
  *
  * @return 0 if success, -1 otherwise
  */
 int
-os_socket_create(bh_socket_t *sock, int tcp_or_udp);
+os_socket_create(bh_socket_t *sock, bool is_ipv4, int tcp_or_udp);
 
 /**
  * Assign the address and port to the socket
@@ -434,7 +435,8 @@ typedef union {
  * If the input is invalid, -1 is returned
  */
 int
-os_socket_inet_network(bool is_ipv4, const char *cp, bh_inet_network_output_t *out);
+os_socket_inet_network(bool is_ipv4, const char *cp,
+                       bh_inet_network_output_t *out);
 
 typedef struct {
     uint8_t addr[16];
