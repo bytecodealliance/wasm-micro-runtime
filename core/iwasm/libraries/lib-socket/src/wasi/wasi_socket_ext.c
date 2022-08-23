@@ -317,3 +317,156 @@ getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 
     return __WASI_ERRNO_SUCCESS;
 }
+
+struct aibuf {
+    struct addrinfo ai;
+    union sa {
+        struct sockaddr_in sin;
+        struct sockaddr_in6 sin6;
+    } sa;
+};
+
+static __wasi_errno_t
+addrinfo_hints_to_wasi_hints(const struct addrinfo *hints,
+                             __wasi_addr_info_hints_t *wasi_hints)
+{
+    if (hints) {
+        wasi_hints->hints_enabled = 1;
+
+        switch (hints->ai_family) {
+            case AF_INET:
+                wasi_hints->family = INET4;
+                break;
+            case AF_INET6:
+                wasi_hints->family = INET6;
+                break;
+            default:
+                return __WASI_ERRNO_AFNOSUPPORT;
+        }
+        switch (hints->ai_socktype) {
+            case SOCK_STREAM:
+                wasi_hints->type = SOCKET_STREAM;
+                break;
+            case SOCK_DGRAM:
+                wasi_hints->type = SOCKET_DGRAM;
+                break;
+            default:
+                return __WASI_ERRNO_NOTSUP;
+        }
+
+        if (hints->ai_protocol != 0) {
+            return __WASI_ERRNO_NOTSUP;
+        }
+
+        if (hints->ai_flags != 0) {
+            return __WASI_ERRNO_NOTSUP;
+        }
+    }
+    else {
+        wasi_hints->hints_enabled = 0;
+    }
+
+    return __WASI_ERRNO_SUCCESS;
+}
+
+static __wasi_errno_t
+wasi_addr_info_to_addr_info(const __wasi_addr_info_t *addr_info,
+                            struct addrinfo *ai)
+{
+    ai->ai_socktype =
+        addr_info->type == SOCKET_DGRAM ? SOCK_DGRAM : SOCK_STREAM;
+    ai->ai_protocol = 0;
+    ai->ai_canonname = NULL;
+
+    if (addr_info->addr.kind == IPv4) {
+        ai->ai_family = AF_INET;
+        ai->ai_addrlen = sizeof(struct sockaddr_in);
+    }
+    else {
+        ai->ai_family = AF_INET6;
+        ai->ai_addrlen = sizeof(struct sockaddr_in6);
+    }
+
+    return wasi_addr_to_sockaddr(&addr_info->addr, ai->ai_addr,
+                                 &ai->ai_addrlen); // TODO err handling
+}
+
+int
+getaddrinfo(const char *node, const char *service, const struct addrinfo *hints,
+            struct addrinfo **res)
+{
+    __wasi_addr_info_hints_t wasi_hints;
+    __wasi_addr_info_t *addr_info = NULL;
+    __wasi_size_t addr_info_size, i;
+    __wasi_size_t max_info_size = 16;
+    __wasi_errno_t error;
+    struct aibuf *aibuf_res;
+
+    error = addrinfo_hints_to_wasi_hints(hints, &wasi_hints);
+    HANDLE_ERROR(error)
+
+    do {
+        if (addr_info)
+            free(addr_info);
+
+        addr_info_size = max_info_size;
+        addr_info = (__wasi_addr_info_t *)malloc(addr_info_size
+                                                 * sizeof(__wasi_addr_info_t));
+
+        if (!addr_info) {
+            HANDLE_ERROR(__WASI_ERRNO_NOMEM)
+        }
+
+        error = __wasi_sock_addr_resolve(node, service == NULL ? "" : service,
+                                         &wasi_hints, addr_info, addr_info_size,
+                                         &max_info_size);
+        if (error != __WASI_ERRNO_SUCCESS) {
+            free(addr_info);
+            HANDLE_ERROR(error);
+        }
+    } while (max_info_size > addr_info_size);
+
+    if (addr_info_size == 0) {
+        free(addr_info);
+        *res = NULL;
+        return __WASI_ERRNO_SUCCESS;
+    }
+
+    aibuf_res = calloc(1, addr_info_size * sizeof(struct aibuf));
+    if (!aibuf_res) {
+        free(addr_info);
+        HANDLE_ERROR(__WASI_ERRNO_NOMEM)
+    }
+
+    *res = &aibuf_res[0].ai;
+
+    if (addr_info_size) {
+        addr_info_size = max_info_size;
+    }
+
+    for (i = 0; i < addr_info_size; i++) {
+        struct addrinfo *ai = &aibuf_res[i].ai;
+        ai->ai_addr = (struct sockaddr *)&aibuf_res[i].sa;
+
+        error = wasi_addr_info_to_addr_info(&addr_info[i], ai);
+        if (error != __WASI_ERRNO_SUCCESS) {
+            free(addr_info);
+            free(aibuf_res);
+            HANDLE_ERROR(error)
+        }
+        ai->ai_next = i == addr_info_size - 1 ? NULL : &aibuf_res[i + 1].ai;
+    }
+
+    free(addr_info);
+
+    return __WASI_ERRNO_SUCCESS;
+}
+
+void
+freeaddrinfo(struct addrinfo *res)
+{
+    /* res is a pointer to a first field in the first element
+     * of aibuf array allocated in getaddrinfo, therefore this call
+     * frees the memory of the entire array. */
+    free(res);
+}

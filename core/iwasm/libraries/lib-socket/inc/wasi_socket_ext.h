@@ -94,6 +94,17 @@ typedef struct __wasi_addr_info_hints_t {
  * <sys/types.h>
  */
 
+struct addrinfo {
+    int ai_flags;             /* Input flags.  */
+    int ai_family;            /* Protocol family for socket.  */
+    int ai_socktype;          /* Socket type.  */
+    int ai_protocol;          /* Protocol for socket.  */
+    socklen_t ai_addrlen;     /* Length of socket address.  */
+    struct sockaddr *ai_addr; /* Socket address for socket.  */
+    char *ai_canonname;       /* Canonical name for service location.  */
+    struct addrinfo *ai_next; /* Pointer to next in list.  */
+};
+
 int
 accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
 
@@ -120,6 +131,13 @@ getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
 
 int
 getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
+
+int
+getaddrinfo(const char *node, const char *service, const struct addrinfo *hints,
+            struct addrinfo **res);
+
+void
+freeaddrinfo(struct addrinfo *res);
 #endif
 
 /**

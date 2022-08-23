@@ -100,6 +100,8 @@ add_executable(tcp_client ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src/tcp_client.c)
 add_executable(send_recv ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src/send_recv.c)
 target_link_libraries(send_recv pthread)
 
+add_executable(addr_resolve ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src/addr_resolve.c)
+
 ############################################
 ## Build iwasm with wasi and pthread support
 ############################################
