@@ -2747,7 +2747,7 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
             /* Run llvm new pass manager for AOT compiler if llvm
                legacy pass manager isn't used */
             bh_print_time("Begin to run llvm optimization passes");
-            aot_apply_llvm_new_pass_manager(comp_ctx);
+            // aot_apply_llvm_new_pass_manager(comp_ctx);
 #else
             /* Run func passes and lto passes for AOT compiler if llvm
                legacy pass manager is used */

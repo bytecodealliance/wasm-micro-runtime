@@ -12,6 +12,7 @@
 #include "laziness/aot_orc_laziness.h"
 #include "llvm-c/Error.h"
 #include "llvm-c/Orc.h"
+#include "llvm-c/Transforms/Utils.h"
 
 #if WASM_ENABLE_DEBUG_AOT != 0
 #include "debug/dwarf_extractor.h"
@@ -1235,15 +1236,6 @@ get_target_arch_from_triple(const char *triple, char *arch_buf, uint32 buf_size)
     bh_assert(*triple == '-' || *triple == '\0');
 }
 
-LLVMBool
-WAMRCreateMCJITCompilerForModule(LLVMExecutionEngineRef *OutJIT,
-                                 LLVMModuleRef M,
-                                 struct LLVMMCJITCompilerOptions *Options,
-                                 size_t SizeOfOptions, char **OutError);
-
-void
-LLVMAddPromoteMemoryToRegisterPass(LLVMPassManagerRef PM);
-
 #if WASM_ENABLE_MCJIT == 0
 void
 aot_handle_llvm_errmsg(const char *string, LLVMErrorRef err)
@@ -1253,6 +1245,7 @@ aot_handle_llvm_errmsg(const char *string, LLVMErrorRef err)
     LLVMDisposeErrorMessage(err_msg);
 }
 
+#if LLVM_VERSION_MAJOR < 12
 static bool
 initialize_func_passes(AOTCompContext *comp_ctx)
 {
@@ -1305,20 +1298,23 @@ initialize_func_passes(AOTCompContext *comp_ctx)
 
     return true;
 }
+#endif /* LLVM_VERSION_MAJOR < 12 */
 
 static LLVMErrorRef
 run_func_pass(void *ctx, LLVMModuleRef module)
 {
     AOTCompContext *comp_ctx = (AOTCompContext *)ctx;
-    LLVMPassManagerRef pass_mgr;
     bh_assert(comp_ctx && "AOTCompContext from ctx should not be NULL");
 
-    pass_mgr = comp_ctx->pass_mgr;
-    bh_assert(pass_mgr
-              && "LLVMPassManagerRef from AOTCompContext should not be NULL");
-
     LOG_VERBOSE("--> Do IR Optimization");
-    LLVMRunPassManager(pass_mgr, module);
+
+#if LLVM_VERSION_MAJOR < 12
+    bh_assert(comp_ctx->pass_mgr
+              && "LLVMPassManagerRef from AOTCompContext should not be NULL");
+    LLVMRunPassManager(comp_ctx->pass_mgr, module);
+#else
+    aot_apply_llvm_new_pass_manager(comp_ctx, module);
+#endif
 
 #ifndef NDEBUG
     LLVMDumpModule(module);
@@ -1693,8 +1689,13 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
     if (option->disable_llvm_intrinsics)
         comp_ctx->disable_llvm_intrinsics = true;
 
+#if WASM_ENABLE_SPEC_TEST != 0
+    /* always disable LTO during the spec test*/
+    comp_ctx->disable_llvm_lto = true;
+#else
     if (option->disable_llvm_lto)
         comp_ctx->disable_llvm_lto = true;
+#endif
 
     comp_ctx->opt_level = option->opt_level;
     comp_ctx->size_level = option->size_level;
@@ -1713,10 +1714,13 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
             goto fail;
         }
 
+#if LLVM_VERSION_MAJOR < 12
         /* Create LLVMPassManagerRef */
         if (!initialize_func_passes(comp_ctx)) {
             goto fail;
         }
+#endif
+
         (void)triple_jit;
 #else
         /* Create LLVM execution engine */
@@ -2265,8 +2269,10 @@ aot_destroy_comp_context(AOTCompContext *comp_ctx)
         LLVMOrcDisposeLLJIT(comp_ctx->orcjit);
 #endif
 
+#if LLVM_VERSION_MAJOR < 12
     if (comp_ctx->pass_mgr)
         LLVMDisposePassManager(comp_ctx->pass_mgr);
+#endif
 
     /* Note: don't dispose comp_ctx->context and comp_ctx->module as
        they are disposed when disposing the thread safe context */

@@ -19,6 +19,7 @@
 #include "llvm-c/Transforms/Scalar.h"
 #include "llvm-c/Transforms/Vectorize.h"
 #include "llvm-c/Transforms/PassManagerBuilder.h"
+#include "llvm-c/Transforms/PassBuilder.h"
 
 #if WASM_ENABLE_MCJIT == 0
 #include "llvm-c/Orc.h"
@@ -507,8 +508,18 @@ aot_add_expand_memory_op_pass(LLVMPassManagerRef pass);
 void
 aot_add_simple_loop_unswitch_pass(LLVMPassManagerRef pass);
 
+#if WASM_ENABLE_MCJIT == 0
+LLVMBool
+WAMRCreateMCJITCompilerForModule(LLVMExecutionEngineRef *OutJIT,
+                                 LLVMModuleRef M,
+                                 struct LLVMMCJITCompilerOptions *Options,
+                                 size_t SizeOfOptions, char **OutError);
+#endif
+
+#if LLVM_VERSION_MAJOR >= 12
 void
-aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx);
+aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module);
+#endif
 
 #if WASM_ENABLE_MCJIT == 0
 LLVMOrcJITTargetMachineBuilderRef

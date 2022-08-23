@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#include "llvm/IR/PassManager.h"
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/ADT/Twine.h>
 #include <llvm/ADT/Triple.h>
@@ -54,11 +55,13 @@ using namespace llvm::orc;
 
 extern "C" {
 
+#if WASM_ENABLE_MCJIT == 0
 LLVMBool
 WAMRCreateMCJITCompilerForModule(LLVMExecutionEngineRef *OutJIT,
                                  LLVMModuleRef M,
                                  LLVMMCJITCompilerOptions *PassedOptions,
                                  size_t SizeOfPassedOptions, char **OutError);
+#endif
 
 bool
 aot_check_simd_compatibility(const char *arch_c_str, const char *cpu_c_str);
@@ -69,19 +72,13 @@ aot_add_expand_memory_op_pass(LLVMPassManagerRef pass);
 void
 aot_add_simple_loop_unswitch_pass(LLVMPassManagerRef pass);
 
+#if LLVM_VERSION_MAJOR >= 12
 void
-aot_func_disable_tce(LLVMValueRef func);
-
-void
-aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx);
+aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module);
+#endif
 }
 
-static TargetMachine *
-unwrap(LLVMTargetMachineRef P)
-{
-    return reinterpret_cast<TargetMachine *>(P);
-}
-
+#if WASM_ENABLE_MCJIT == 0
 LLVMBool
 WAMRCreateMCJITCompilerForModule(LLVMExecutionEngineRef *OutJIT,
                                  LLVMModuleRef M,
@@ -157,6 +154,7 @@ WAMRCreateMCJITCompilerForModule(LLVMExecutionEngineRef *OutJIT,
     *OutError = strdup(Error.c_str());
     return 1;
 }
+#endif
 
 class ExpandMemoryOpPass : public llvm::ModulePass
 {
@@ -258,13 +256,15 @@ ExpandMemoryOpPass::runOnModule(Module &M)
 void
 aot_add_expand_memory_op_pass(LLVMPassManagerRef pass)
 {
-    unwrap(pass)->add(new ExpandMemoryOpPass());
+    reinterpret_cast<legacy::PassManager *>(pass)->add(
+        new ExpandMemoryOpPass());
 }
 
 void
 aot_add_simple_loop_unswitch_pass(LLVMPassManagerRef pass)
 {
-    unwrap(pass)->add(createSimpleLoopUnswitchLegacyPass());
+    reinterpret_cast<legacy::PassManager *>(pass)->add(
+        createSimpleLoopUnswitchLegacyPass());
 }
 
 bool
@@ -321,16 +321,6 @@ LLVMOrcJITTargetMachineBuilderCreateFromTargetMachine(LLVMTargetMachineRef TM)
 }
 #endif
 
-DEFINE_SIMPLE_CONVERSION_FUNCTIONS(LLJITBuilder, LLVMOrcLLJITBuilderRef)
-
-// void
-// LLVMOrcLLJITBuilderSetNumCompileThreads(LLVMOrcLLJITBuilderRef
-// orcjit_builder,
-//                                         unsigned num_compile_threads)
-// {
-//     unwrap(orcjit_builder)->setNumCompileThreads(num_compile_threads);
-// }
-
 void *
 aot_lookup_orcjit_func(
 #if WASM_ENABLE_LAZY_JIT != 0
@@ -377,30 +367,15 @@ aot_lookup_orcjit_func(
 }
 #endif /* end of WASM_ENABLE_MCJIT == 0 */
 
-void
-aot_func_disable_tce(LLVMValueRef func)
-{
-    Function *F = unwrap<Function>(func);
-    auto Attrs = F->getAttributes();
-
-#if LLVM_VERSION_MAJOR <= 13
-    Attrs = Attrs.addAttribute(F->getContext(), AttributeList::FunctionIndex,
-                               "disable-tail-calls", "true");
-#else
-    Attrs =
-        Attrs.addAttributeAtIndex(F->getContext(), AttributeList::FunctionIndex,
-                                  "disable-tail-calls", "true");
-#endif
-    F->setAttributes(Attrs);
-}
-
 #if LLVM_VERSION_MAJOR >= 12
 void
-aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx)
+aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
 {
-    Module *M;
-    TargetMachine *TM = unwrap(comp_ctx->target_machine);
-    bool disable_llvm_lto = false;
+    assert(comp_ctx && "comp_ctx should not be NULL");
+
+    TargetMachine *TM =
+        reinterpret_cast<TargetMachine *>(comp_ctx->target_machine);
+    assert(TM && "TargetMachine of AOTCompContext should not be NULL");
 
     LoopAnalysisManager LAM;
     FunctionAnalysisManager FAM;
@@ -434,8 +409,6 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx)
     PB.registerFunctionAnalyses(FAM);
     PB.registerLoopAnalyses(LAM);
     PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
-
-    ModulePassManager MPM;
 
 #if LLVM_VERSION_MAJOR <= 13
     PassBuilder::OptimizationLevel OL;
@@ -475,25 +448,11 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx)
     }
 #endif /* end of LLVM_VERSION_MAJOR */
 
-    if (comp_ctx->disable_llvm_lto) {
-        disable_llvm_lto = true;
-    }
-#if WASM_ENABLE_SPEC_TEST != 0
-    disable_llvm_lto = true;
-#endif
-
-    if (disable_llvm_lto) {
-        uint32 i;
-
-        for (i = 0; i < comp_ctx->func_ctx_count; i++) {
-            aot_func_disable_tce(comp_ctx->func_ctxes[i]->func);
-        }
-    }
-
+    ModulePassManager MPM;
     if (comp_ctx->is_jit_mode) {
-        /* Apply normal pipeline for JIT mode, without
-           Vectorize related passes, without LTO */
-        MPM.addPass(PB.buildPerModuleDefaultPipeline(OL));
+        FunctionPassManager FPM = PB.buildFunctionSimplificationPipeline(
+            OL, ThinOrFullLTOPhase::None);
+        MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
     }
     else {
         FunctionPassManager FPM;
@@ -511,7 +470,7 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx)
 
         MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
 
-        if (!disable_llvm_lto) {
+        if (!comp_ctx->disable_llvm_lto) {
             /* Apply LTO for AOT mode */
 #if LLVM_VERSION_MAJOR < 14
             MPM.addPass(PB.buildLTODefaultPipeline(OL, NULL));
@@ -524,7 +483,13 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx)
         }
     }
 
-    M = unwrap(comp_ctx->module);
+    Module *M = reinterpret_cast<Module *>(module);
+    if (comp_ctx->disable_llvm_lto) {
+        for (Function &F : *M) {
+            F.addFnAttr("disable-tail-calls", "true");
+        }
+    }
+
     MPM.run(*M, MAM);
 }
 #endif /* end of LLVM_VERSION_MAJOR >= 12 */
