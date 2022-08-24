@@ -188,7 +188,13 @@ JitReg
 get_module_reg(JitFrame *frame);
 
 JitReg
+get_import_func_ptrs_reg(JitFrame *frame);
+
+JitReg
 get_fast_jit_func_ptrs_reg(JitFrame *frame);
+
+JitReg
+get_func_type_indexes_reg(JitFrame *frame);
 
 JitReg
 get_global_data_reg(JitFrame *frame);
