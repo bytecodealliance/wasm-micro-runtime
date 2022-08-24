@@ -191,6 +191,7 @@ struct WASMModuleInstance {
 #if WASM_ENABLE_FAST_JIT != 0
     /* point to JITed functions */
     void **fast_jit_func_ptrs;
+    uint32 *func_type_indexes;
 #endif
 
     WASMMemoryInstance **memories;

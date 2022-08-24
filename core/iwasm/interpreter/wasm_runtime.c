@@ -1262,6 +1262,47 @@ check_linked_symbol(WASMModuleInstance *module_inst, char *error_buf,
     return true;
 }
 
+#if WASM_ENABLE_FAST_JIT != 0
+static uint32
+get_smallest_type_idx(WASMModule *module, WASMType *func_type)
+{
+    uint32 i;
+
+    for (i = 0; i < module->type_count; i++) {
+        if (func_type == module->types[i])
+            return i;
+    }
+
+    bh_assert(0);
+    return -1;
+}
+
+static bool
+init_func_type_indexes(WASMModuleInstance *module_inst, char *error_buf,
+                       uint32 error_buf_size)
+{
+    uint32 i;
+    uint64 total_size = (uint64)sizeof(uint32) * module_inst->function_count;
+
+    /* Allocate memory */
+    if (!(module_inst->func_type_indexes =
+              runtime_malloc(total_size, error_buf, error_buf_size))) {
+        return false;
+    }
+
+    for (i = 0; i < module_inst->function_count; i++) {
+        WASMFunctionInstance *func_inst = module_inst->functions + i;
+        WASMType *func_type = func_inst->is_import_func
+                                  ? func_inst->u.func_import->func_type
+                                  : func_inst->u.func->func_type;
+        module_inst->func_type_indexes[i] =
+            get_smallest_type_idx(module_inst->module, func_type);
+    }
+
+    return true;
+}
+#endif
+
 /**
  * Instantiate module
  */
@@ -1384,6 +1425,10 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
             && !(module_inst->export_globals = export_globals_instantiate(
                      module, module_inst, module_inst->export_glob_count,
                      error_buf, error_buf_size)))
+#endif
+#if WASM_ENABLE_FAST_JIT != 0
+        || (module_inst->function_count > 0
+            && !init_func_type_indexes(module_inst, error_buf, error_buf_size))
 #endif
     ) {
         goto fail;
@@ -1711,6 +1756,11 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
 {
     if (!module_inst)
         return;
+
+#if WASM_ENABLE_FAST_JIT != 0
+    if (module_inst->func_type_indexes)
+        wasm_runtime_free(module_inst->func_type_indexes);
+#endif
 
 #if WASM_ENABLE_MULTI_MODULE != 0
     sub_module_deinstantiate(module_inst);
@@ -2181,27 +2231,11 @@ wasm_module_malloc(WASMModuleInstance *module_inst, uint32 size,
         addr = mem_allocator_malloc(memory->heap_handle, size);
     }
     else if (module_inst->malloc_function && module_inst->free_function) {
-#if WASM_ENABLE_DEBUG_INTERP != 0
-        /* TODO: obviously, we can not create debug instance for
-         * module malloc here, so, just disable the engine here,
-         * it is strange, but we now are lack of ways to indicate
-         * which calls should not be debugged. And we have other
-         * execute_xxx_function may need to be taken care of
-         */
-        bool active = wasm_debug_get_engine_active();
-        wasm_debug_set_engine_active(false);
-#endif
         if (!execute_malloc_function(module_inst, module_inst->malloc_function,
                                      module_inst->retain_function, size,
                                      &offset)) {
-#if WASM_ENABLE_DEBUG_INTERP != 0
-            wasm_debug_set_engine_active(active);
-#endif
             return 0;
         }
-#if WASM_ENABLE_DEBUG_INTERP != 0
-        wasm_debug_set_engine_active(active);
-#endif
         /* If we use app's malloc function,
            the default memory may be changed while memory growing */
         memory = module_inst->default_memory;
@@ -2280,17 +2314,7 @@ wasm_module_free(WASMModuleInstance *module_inst, uint32 ptr)
         else if (module_inst->malloc_function && module_inst->free_function
                  && memory->memory_data <= addr
                  && addr < memory->memory_data_end) {
-#if WASM_ENABLE_DEBUG_INTERP != 0
-            /*TODO: obviously, we can not create debug instance for module
-            malloc here, so, just disable the engine here, it is strange. the
-            wasm's call should be marshed to its own thread */
-            bool active = wasm_debug_get_engine_active();
-            wasm_debug_set_engine_active(false);
-#endif
             execute_free_function(module_inst, module_inst->free_function, ptr);
-#if WASM_ENABLE_DEBUG_INTERP != 0
-            wasm_debug_set_engine_active(active);
-#endif
         }
     }
 }
