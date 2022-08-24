@@ -50,6 +50,7 @@ print_help()
     printf("  -g=ip:port             Set the debug sever address, default is debug disabled\n");
     printf("                           if port is 0, then a random port will be used\n");
 #endif
+    printf("  --version              Show version information\n");
     return 1;
 }
 /* clang-format on */
@@ -339,6 +340,12 @@ main(int argc, char *argv[])
             ip_addr = argv[0] + 3;
         }
 #endif
+        else if (!strncmp(argv[0], "--version", 9)) {
+            uint32 major, minor, patch;
+            wasm_runtime_get_version(&major, &minor, &patch);
+            printf("iwasm %u.%u.%u\n", major, minor, patch);
+            return 0;
+        }
         else
             return print_help();
     }

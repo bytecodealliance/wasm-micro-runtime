@@ -592,7 +592,8 @@ wasm_runtime_call_indirect(WASMExecEnv *exec_env, uint32 element_indices,
 bool
 wasm_runtime_create_exec_env_singleton(WASMModuleInstanceCommon *module_inst);
 
-WASMExecEnv *
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN WASMExecEnv *
 wasm_runtime_get_exec_env_singleton(WASMModuleInstanceCommon *module_inst);
 
 /* See wasm_export.h for description */

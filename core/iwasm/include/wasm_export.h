@@ -486,6 +486,23 @@ WASM_RUNTIME_API_EXTERN void
 wasm_runtime_destroy_exec_env(wasm_exec_env_t exec_env);
 
 /**
+ * Get the singleton execution environment for the instance.
+ *
+ * Note: The singleton execution environment is the execution
+ * environment used internally by the runtime for the API functions
+ * like wasm_application_execute_main, which don't take explicit
+ * execution environment. It's associated to the corresponding
+ * module instance and managed by the runtime. The API user should
+ * not destroy it with wasm_runtime_destroy_exec_env.
+ *
+ * @param module_inst the module instance
+ *
+ * @return exec_env the execution environment to destroy
+ */
+WASM_RUNTIME_API_EXTERN wasm_exec_env_t
+wasm_runtime_get_exec_env_singleton(wasm_module_inst_t module_inst);
+
+/**
  * Start debug instance based on given execution environment.
  * Note:
  *   The debug instance will be destroyed during destroying the
@@ -1120,6 +1137,12 @@ WASM_RUNTIME_API_EXTERN const uint8_t *
 wasm_runtime_get_custom_section(wasm_module_t const module_comm,
                                 const char *name, uint32_t *len);
 
+
+/**
+ * Get WAMR semantic version
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_get_version(uint32_t *major, uint32_t *minor, uint32_t *patch);
 /* clang-format on */
 
 #ifdef __cplusplus
