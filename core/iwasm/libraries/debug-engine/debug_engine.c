@@ -17,7 +17,6 @@ typedef struct WASMDebugEngine {
     struct WASMDebugEngine *next;
     WASMDebugControlThread *control_thread;
     char ip_addr[128];
-    int32 platform_port;
     int32 process_base_port;
     bh_list debug_instance_list;
     korp_mutex instance_list_lock;
@@ -290,7 +289,7 @@ wasm_debug_engine_destroy()
 }
 
 bool
-wasm_debug_engine_init(char *ip_addr, int32 platform_port, int32 process_port)
+wasm_debug_engine_init(char *ip_addr, int32 process_port)
 {
     if (wasm_debug_handler_init() != 0) {
         return false;
@@ -302,8 +301,6 @@ wasm_debug_engine_init(char *ip_addr, int32 platform_port, int32 process_port)
 
     if (g_debug_engine) {
         process_port -= 1;
-        g_debug_engine->platform_port =
-            platform_port > 0 ? platform_port : 1234;
         g_debug_engine->process_base_port =
             (process_port > 0) ? process_port : 0;
         if (ip_addr)

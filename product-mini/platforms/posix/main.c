@@ -329,7 +329,6 @@ main(int argc, char *argv[])
 #endif
 #if WASM_ENABLE_DEBUG_INTERP != 0
     char *ip_addr = NULL;
-    /* int platform_port = 0; */
     int instance_port = 0;
 #endif
 
@@ -497,7 +496,6 @@ main(int argc, char *argv[])
 #endif
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
-    init_args.platform_port = 0;
     init_args.instance_port = instance_port;
     if (ip_addr)
         strcpy(init_args.ip_addr, ip_addr);
