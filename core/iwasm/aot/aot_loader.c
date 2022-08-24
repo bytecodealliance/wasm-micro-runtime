@@ -10,7 +10,6 @@
 #include "../common/wasm_runtime_common.h"
 #include "../common/wasm_native.h"
 #include "../compilation/aot.h"
-#include "llvm-c/Error.h"
 #if WASM_ENABLE_JIT != 0
 #include "../compilation/aot_llvm.h"
 #include "../interpreter/wasm_loader.h"
@@ -2915,19 +2914,20 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
     /* get function reexportted addresses */
     for (i = 0; i < comp_data->func_count; i++) {
         LLVMErrorRef err;
+        LLVMOrcExecutorAddress symbol_addr;
         snprintf(func_name, sizeof(func_name), "%s%d", AOT_FUNC_PREFIX, i);
 #if WASM_ENABLE_LAZY_JIT
-        err = LLVMOrcLLLazyJITLookup(comp_ctx->orcjit,
-                                     (void *)&module->func_ptrs[i], func_name);
+        err = LLVMOrcLLLazyJITLookup(comp_ctx->orcjit, &symbol_addr, func_name);
 #else
-        err = LLVMOrcLLJITLookup(comp_ctx->orcjit, &module->func_ptrs[i],
-                                 func_name);
+        err = LLVMOrcLLJITLookup(comp_ctx->orcjit, &symbol_addr, func_name);
 #endif
+
         if (err != LLVMErrorSuccess) {
             set_error_buf(error_buf, error_buf_size,
                           "get function address failed");
             goto fail3;
         }
+        module->func_ptrs[i] = (void *)symbol_addr;
     }
 #endif /* WASM_ENABLE_MCJIT != 0 */
 

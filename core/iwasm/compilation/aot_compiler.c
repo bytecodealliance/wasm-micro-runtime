@@ -30,6 +30,7 @@
 #include "simd/simd_sat_int_arith.h"
 #include "../aot/aot_runtime.h"
 #include "../interpreter/wasm_opcode.h"
+#include "llvm-c/Error.h"
 #include <errno.h>
 
 #if WASM_ENABLE_DEBUG_AOT != 0
@@ -2795,19 +2796,19 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
     }
 
     LOG_VERBOSE("Add LLVMIRModule");
-    if ((err =
+    err =
 #if WASM_ENABLE_LAZY_JIT != 0
-             LLVMOrcLLLazyJITAddLLVMIRModule(comp_ctx->orcjit, orc_main_dylib,
-                                             orc_thread_safe_module)
+        LLVMOrcLLLazyJITAddLLVMIRModule(comp_ctx->orcjit, orc_main_dylib,
+                                        orc_thread_safe_module);
 #else
-             LLVMOrcLLJITAddLLVMIRModule(comp_ctx->orcjit, orc_main_dylib,
-                                         orc_thread_safe_module)
+        LLVMOrcLLJITAddLLVMIRModule(comp_ctx->orcjit, orc_main_dylib,
+                                    orc_thread_safe_module);
 #endif
-             )) {
+    if (err != LLVMErrorSuccess) {
+        aot_handle_llvm_errmsg("failed to AddIRModule", err);
         /* If adding the ThreadSafeModule fails then we need to clean it up
            by ourselves, otherwise the orc jit will manage the memory. */
         LLVMOrcDisposeThreadSafeModule(orc_thread_safe_module);
-        aot_handle_llvm_errmsg("failed to addIRModule", err);
         return false;
     }
 #endif /* WASM_ENABLE_MCJIT == 0 */
@@ -2849,7 +2850,6 @@ aot_generate_tempfile_name(const char *prefix, const char *extension,
 }
 #endif /* end of !(defined(_WIN32) || defined(_WIN32_)) */
 
-#if WASM_ENABLE_MCJIT != 0
 bool
 aot_emit_llvm_file(AOTCompContext *comp_ctx, const char *file_name)
 {
@@ -2973,4 +2973,3 @@ aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name)
 
     return true;
 }
-#endif /* end of WASM_ENABLE_MCJIT != 0 */

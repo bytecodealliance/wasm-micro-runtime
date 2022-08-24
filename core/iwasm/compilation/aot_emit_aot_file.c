@@ -6,8 +6,6 @@
 #include "aot_compiler.h"
 #include "../aot/aot_runtime.h"
 
-#if WASM_ENABLE_MCJIT != 0
-
 #define PUT_U64_TO_ADDR(addr, value)        \
     do {                                    \
         union {                             \
@@ -2928,4 +2926,3 @@ fail1:
 
     return ret;
 }
-#endif /* end of WASM_ENABLE_MCJIT != 0 */

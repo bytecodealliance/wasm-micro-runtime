@@ -1332,11 +1332,79 @@ transform(void *ctx, LLVMOrcThreadSafeModuleRef *module,
 }
 
 static bool
-orc_jit_create(AOTCompContext *comp_ctx, uint32 func_count)
+create_target_machine_detect_host(AOTCompContext *comp_ctx)
 {
     char *cpu = NULL;
     char *features = NULL;
-    const char *llvm_triple = NULL;
+    LLVMErrorRef err;
+    char *triple = NULL;
+    LLVMTargetRef llvm_targetref = NULL;
+    char *err_msg = NULL;
+    bool ret = false;
+
+    cpu = LLVMGetHostCPUName();
+    if (cpu == NULL) {
+        aot_set_last_error("failed to get host cpu information.");
+        goto quit;
+    }
+
+    features = LLVMGetHostCPUFeatures();
+    if (features == NULL) {
+        aot_set_last_error("failed to get host cpu features.");
+        goto free_cpu;
+    }
+
+    LOG_VERBOSE("LLVM ORCJIT detected CPU \"%s\", with features \"%s\"\n", cpu,
+                features);
+
+    err = LLVMOrcJITTargetMachineBuilderDetectHost(
+        &comp_ctx->target_machine_builder);
+    if (err != LLVMErrorSuccess) {
+        aot_handle_llvm_errmsg("failed to create TargetMachineBuilder", err);
+        goto free_features;
+    }
+
+    triple = LLVMOrcJITTargetMachineBuilderGetTargetTriple(
+        comp_ctx->target_machine_builder);
+    if (triple == NULL) {
+        aot_set_last_error("failed to get default target triple.");
+        goto free_features;
+    }
+
+    if (LLVMGetTargetFromTriple(triple, &llvm_targetref, &err_msg) != 0) {
+        aot_set_last_error_v("failed to get llvm target from triple %s.",
+                             err_msg);
+        LLVMDisposeMessage(err_msg);
+        goto free_triple;
+    }
+
+    comp_ctx->target_machine = LLVMCreateTargetMachine(
+        llvm_targetref, triple, cpu, features, LLVMCodeGenLevelDefault,
+        LLVMRelocDefault, LLVMCodeModelJITDefault);
+    if (!comp_ctx->target_machine) {
+        aot_set_last_error("failed to create target machine.");
+        goto free_triple;
+    }
+
+    /* Save target arch */
+    get_target_arch_from_triple(triple, comp_ctx->target_arch,
+                                sizeof(comp_ctx->target_arch));
+
+    ret = true;
+
+free_triple:
+    LLVMDisposeMessage(triple);
+free_features:
+    LLVMDisposeMessage(features);
+free_cpu:
+    LLVMDisposeMessage(cpu);
+quit:
+    return ret;
+}
+
+static bool
+orc_jit_create(AOTCompContext *comp_ctx, uint32 func_count)
+{
     LLVMErrorRef err;
 #if WASM_ENABLE_LAZY_JIT != 0
     LLVMOrcLLLazyJITRef orcjit = NULL;
@@ -1344,23 +1412,6 @@ orc_jit_create(AOTCompContext *comp_ctx, uint32 func_count)
     LLVMOrcLLJITRef orcjit = NULL;
 #endif
     bool ret = false;
-
-    {
-        cpu = LLVMGetHostCPUName();
-        if (cpu == NULL) {
-            aot_set_last_error("failed to get host cpu information.");
-            goto quit;
-        }
-
-        features = LLVMGetHostCPUFeatures();
-        if (features == NULL) {
-            aot_set_last_error("failed to get host cpu features.");
-            goto free_cpu_str;
-        }
-
-        LOG_VERBOSE("LLVM ORCJIT detected CPU \"%s\", with features \"%s\"\n",
-                    cpu, features);
-    }
 
     /* Set up a JIT instance */
     {
@@ -1370,71 +1421,44 @@ orc_jit_create(AOTCompContext *comp_ctx, uint32 func_count)
         LLVMOrcLLJITBuilderRef builder = LLVMOrcCreateLLJITBuilder();
 #endif
         if (builder == NULL) {
-            aot_set_last_error("failed to create jit builder.");
-            goto free_cpu_features;
+            aot_set_last_error("quited to create jit builder.");
+            goto quit;
         }
 
         /*TODO: core_num*/
+        bh_assert(
+            comp_ctx->target_machine_builder
+            && "LLVMOrcJITTargetMachineBuilderRef of AOTCompContext should "
+               "not be null");
 #if WASM_ENABLE_LAZY_JIT != 0
         LLVMOrcLLLazyJITBuilderSetNumCompileThreads(
-            builder, WASM_LAZY_JIT_COMPILE_THREAD_NUM);
+            builder, WASM_ORC_JIT_COMPILE_THREAD_NUM);
+        LLVMOrcLLLazyJITBuilderSetJITTargetMachineBuilder(
+            builder, comp_ctx->target_machine_builder);
         err = LLVMOrcCreateLLLazyJIT(&orcjit, builder);
 #else
+        LLVMOrcLLJITBuilderSetJITTargetMachineBuilder(
+            builder, comp_ctx->target_machine_builder);
         LLVMOrcLLJITBuilderSetNumCompileThreads(
-            builder, WASM_LAZY_JIT_COMPILE_THREAD_NUM);
+            builder, WASM_ORC_JIT_COMPILE_THREAD_NUM);
         err = LLVMOrcCreateLLJIT(&orcjit, builder);
 #endif
+        /* pass ownership of LLVMOrcJITTargetMachineBuilderRef to
+         * LLVMOrcLLJITBuilderRef */
+        comp_ctx->target_machine_builder = NULL;
         if (err != LLVMErrorSuccess) {
-            aot_handle_llvm_errmsg("failed to create llvm lazy orcjit instance",
+            aot_handle_llvm_errmsg("quited to create llvm lazy orcjit instance",
                                    err);
 #if WASM_ENABLE_LAZY_JIT != 0
             LLVMOrcDisposeLLLazyJITBuilder(builder);
 #else
             LLVMOrcDisposeLLJITBuilder(builder);
 #endif
-            goto free_cpu_features;
+            goto quit;
         }
-
-        comp_ctx->orcjit = orcjit;
     }
 
-    /* Create a TargetMachine from JIT by detecting host */
-    {
-        LLVMTargetRef llvm_targetref = NULL;
-        char *err_msg = NULL;
-
-#if WASM_ENABLE_LAZY_JIT != 0
-        llvm_triple = LLVMOrcLLLazyJITGetTripleString(orcjit);
-#else
-        llvm_triple = LLVMOrcLLJITGetTripleString(orcjit);
-#endif
-        if (llvm_triple == NULL) {
-            aot_set_last_error("failed to get default target triple.");
-            goto free_jit;
-        }
-
-        if (LLVMGetTargetFromTriple(llvm_triple, &llvm_targetref, &err_msg)
-            != 0) {
-            aot_set_last_error_v("failed to get llvm target from triple %s.",
-                                 err_msg);
-            LLVMDisposeMessage(err_msg);
-            goto free_jit;
-        }
-
-        comp_ctx->target_machine = LLVMCreateTargetMachine(
-            llvm_targetref, llvm_triple, cpu, features, LLVMCodeGenLevelDefault,
-            LLVMRelocDefault, LLVMCodeModelJITDefault);
-        if (!comp_ctx->target_machine) {
-            aot_set_last_error("failed to create target machine.");
-            goto free_jit;
-        }
-
-        /* Save target arch */
-        get_target_arch_from_triple(llvm_triple, comp_ctx->target_arch,
-                                    sizeof(comp_ctx->target_arch));
-    }
-
-    /* Add function passes */
+    /* bind pass manager with IRTransformLayer */
     {
 #if WASM_ENABLE_LAZY_JIT != 0
         LLVMOrcIRTransformLayerRef tl =
@@ -1445,118 +1469,9 @@ orc_jit_create(AOTCompContext *comp_ctx, uint32 func_count)
         LLVMOrcIRTransformLayerSetTransform(tl, *transform, comp_ctx);
     }
 
-    /* Reexports */
-    if (func_count > 0) {
-        LLVMOrcExecutionSessionRef orc_execution_session = NULL;
-        LLVMOrcLazyCallThroughManagerRef orc_call_through_mgr = NULL;
-        LLVMOrcIndirectStubsManagerRef orc_indirect_stub_mgr = NULL;
-        LLVMOrcCSymbolAliasMapPair *orc_symbol_map_pairs = NULL;
-        LLVMOrcJITDylibRef main_jd = NULL;
-        LLVMOrcMaterializationUnitRef orc_material_unit = NULL;
-        uint32 i = 0;
+    comp_ctx->orcjit = orcjit;
+    ret = true;
 
-#if WASM_ENABLE_LAZY_JIT != 0
-        orc_execution_session = LLVMOrcLLLazyJITGetExecutionSession(orcjit);
-#else
-        orc_execution_session = LLVMOrcLLJITGetExecutionSession(orcjit);
-#endif
-        if (!orc_execution_session) {
-            aot_set_last_error("failed to get orc execution session");
-            goto free_jit;
-        }
-
-        err = LLVMOrcCreateLocalLazyCallThroughManager(
-            llvm_triple, orc_execution_session, 0, &orc_call_through_mgr);
-        if (err) {
-            aot_handle_llvm_errmsg("failed to create orc call through manager",
-                                   err);
-            goto free_jit;
-        }
-
-        orc_indirect_stub_mgr =
-            LLVMOrcCreateLocalIndirectStubsManager(llvm_triple);
-        if (!orc_indirect_stub_mgr) {
-            aot_set_last_error("failed to create orc indirect stub manager");
-            goto free_lctm;
-        }
-
-        if (!(orc_symbol_map_pairs = wasm_runtime_malloc(
-                  sizeof(LLVMOrcCSymbolAliasMapPair) * func_count))) {
-            aot_set_last_error("failed to allocate memory");
-            goto free_ism;
-        }
-        memset(orc_symbol_map_pairs, 0,
-               sizeof(LLVMOrcCSymbolAliasMapPair) * func_count);
-
-        for (i = 0; i < func_count; i++) {
-            char func_name[32] = { 0 };
-            snprintf(func_name, sizeof(func_name), "orcjit_%s%d",
-                     AOT_FUNC_PREFIX, i);
-            orc_symbol_map_pairs[i].Name =
-                LLVMOrcExecutionSessionIntern(orc_execution_session, func_name);
-            snprintf(func_name, sizeof(func_name), "%s%d", AOT_FUNC_PREFIX, i);
-            orc_symbol_map_pairs[i].Entry.Name =
-                LLVMOrcExecutionSessionIntern(orc_execution_session, func_name);
-            orc_symbol_map_pairs[i].Entry.Flags.GenericFlags =
-                LLVMJITSymbolGenericFlagsExported
-                | LLVMJITSymbolGenericFlagsCallable;
-            orc_symbol_map_pairs[i].Entry.Flags.TargetFlags =
-                LLVMJITSymbolGenericFlagsExported
-                | LLVMJITSymbolGenericFlagsCallable;
-
-            if (!orc_symbol_map_pairs[i].Name
-                || !orc_symbol_map_pairs[i].Entry.Name) {
-                aot_set_last_error("failed to allocate memory");
-                goto free_sym_map;
-            }
-        }
-
-#if WASM_ENABLE_LAZY_JIT != 0
-        main_jd = LLVMOrcLLLazyJITGetMainJITDylib(orcjit);
-#else
-        main_jd = LLVMOrcLLJITGetMainJITDylib(orcjit);
-#endif
-
-        orc_material_unit =
-            LLVMOrcLazyReexports(orc_call_through_mgr, orc_indirect_stub_mgr,
-                                 main_jd, orc_symbol_map_pairs, func_count);
-        if (!orc_material_unit) {
-            aot_set_last_error("failed to orc re-exports");
-            goto free_sym_map;
-        }
-
-        comp_ctx->orc_material_unit = orc_material_unit;
-        comp_ctx->orc_symbol_map_pairs = orc_symbol_map_pairs;
-        comp_ctx->orc_call_through_mgr = orc_call_through_mgr;
-        comp_ctx->orc_indirect_stub_mgr = orc_indirect_stub_mgr;
-
-        ret = true;
-        LLVMDisposeMessage(features);
-        LLVMDisposeMessage(cpu);
-        goto quit;
-
-    free_sym_map:
-        wasm_runtime_free(orc_symbol_map_pairs);
-    free_ism:
-        LLVMOrcDisposeIndirectStubsManager(orc_indirect_stub_mgr);
-    free_lctm:
-        LLVMOrcDisposeLazyCallThroughManager(orc_call_through_mgr);
-    }
-    else {
-        ret = true;
-        goto quit;
-    }
-
-free_jit:
-#if WASM_ENABLE_LAZY_JIT != 0
-    LLVMOrcDisposeLLLazyJIT(orcjit);
-#else
-    LLVMOrcDisposeLLJIT(orcjit);
-#endif
-free_cpu_features:
-    LLVMDisposeMessage(features);
-free_cpu_str:
-    LLVMDisposeMessage(cpu);
 quit:
     return ret;
 }
@@ -1570,8 +1485,8 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
     struct LLVMMCJITCompilerOptions jit_options;
 #endif
     LLVMTargetRef target;
-    char *triple = NULL, *triple_norm, *arch, *abi;
-    char *cpu = NULL, *features, buf[128];
+    char *triple = NULL, *triple_norm = NULL, *arch = NULL, *abi = NULL;
+    char *cpu = NULL, *features = NULL, buf[128] = { 0 };
     char *triple_norm_new = NULL, *cpu_new = NULL;
     char *err = NULL;
     const char *fp_round = "round.tonearest", *fp_exce = "fpexcept.strict";
@@ -1665,36 +1580,20 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
     }
 #endif
 
-    if (option->enable_bulk_memory)
-        comp_ctx->enable_bulk_memory = true;
-
-    if (option->enable_thread_mgr)
-        comp_ctx->enable_thread_mgr = true;
-
-    if (option->enable_tail_call)
-        comp_ctx->enable_tail_call = true;
-
-    if (option->enable_ref_types)
-        comp_ctx->enable_ref_types = true;
-
-    if (option->enable_aux_stack_frame)
-        comp_ctx->enable_aux_stack_frame = true;
-
-    if (option->enable_aux_stack_check)
-        comp_ctx->enable_aux_stack_check = true;
-
-    if (option->is_indirect_mode)
-        comp_ctx->is_indirect_mode = true;
-
-    if (option->disable_llvm_intrinsics)
-        comp_ctx->disable_llvm_intrinsics = true;
+    comp_ctx->enable_bulk_memory = option->enable_bulk_memory;
+    comp_ctx->enable_thread_mgr = option->enable_thread_mgr;
+    comp_ctx->enable_tail_call = option->enable_tail_call;
+    comp_ctx->enable_ref_types = option->enable_ref_types;
+    comp_ctx->enable_aux_stack_frame = option->enable_aux_stack_frame;
+    comp_ctx->enable_aux_stack_check = option->enable_aux_stack_check;
+    comp_ctx->is_indirect_mode = option->is_indirect_mode;
+    comp_ctx->disable_llvm_intrinsics = option->disable_llvm_intrinsics;
 
 #if WASM_ENABLE_SPEC_TEST != 0
     /* always disable LTO during the spec test*/
     comp_ctx->disable_llvm_lto = true;
 #else
-    if (option->disable_llvm_lto)
-        comp_ctx->disable_llvm_lto = true;
+    comp_ctx->disable_llvm_lto = option->disable_llvm_lto;
 #endif
 
     comp_ctx->opt_level = option->opt_level;
@@ -1703,26 +1602,17 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
     comp_ctx->custom_sections_wp = option->custom_sections;
     comp_ctx->custom_sections_count = option->custom_sections_count;
 
+    /* Create LLVM target machine */
     if (option->is_jit_mode) {
-        char *triple_jit = NULL;
-
         comp_ctx->is_jit_mode = true;
 
 #if WASM_ENABLE_MCJIT == 0
-        /* Create LLJIT/LLLazyJIT Instance */
-        if (!orc_jit_create(comp_ctx, comp_data->func_count)) {
+        /* and OrcJITTargetMachineBuilder */
+        if (!create_target_machine_detect_host(comp_ctx))
             goto fail;
-        }
-
-#if LLVM_VERSION_MAJOR < 12
-        /* Create LLVMPassManagerRef */
-        if (!initialize_func_passes(comp_ctx)) {
-            goto fail;
-        }
-#endif
-
-        (void)triple_jit;
 #else
+        /* and MCJIT */
+        char *triple_jit = NULL;
         /* Create LLVM execution engine */
         LLVMInitializeMCJITCompilerOptions(&jit_options, sizeof(jit_options));
         jit_options.OptLevel = LLVMCodeGenLevelAggressive;
@@ -1761,7 +1651,6 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
 #endif
     }
     else {
-        /* Create LLVM target machine */
         arch = option->target_arch;
         abi = option->target_abi;
         cpu = option->target_cpu;
@@ -1900,11 +1789,11 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
             }
 
             /**
-             * Set <vendor>-<sys> according to abi to generate the object file
-             * with the correct file format which might be different from the
-             * default object file format of the host, e.g., generating AOT file
-             * for Windows/MacOS under Linux host, or generating AOT file for
-             * Linux/MacOS under Windows host.
+             * Set <vendor>-<sys> according to abi to generate the object
+             * file with the correct file format which might be different
+             * from the default object file format of the host, e.g.,
+             * generating AOT file for Windows/MacOS under Linux host, or
+             * generating AOT file for Linux/MacOS under Windows host.
              */
             if (!strcmp(abi, "msvc")) {
                 if (!strcmp(arch1, "i386"))
@@ -2128,12 +2017,39 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
             goto fail;
         }
 
-#if WASM_ENABLE_MCJIT != 0
-        LLVMSetTarget(comp_ctx->module, triple_norm);
+#if WASM_ENABLE_MCJIT == 0
+        /* Create the OrcJITTargetMachineBuilder */
+        {
+            /* Workaround: This operation takes ownership of the given
+             * TargetMachine and destroys it before returing
+             */
+            LLVMTargetMachineRef t_m =
+                LLVMCreateTargetMachine(target, triple_norm, cpu, features,
+                                        opt_level, LLVMRelocStatic, code_model);
+            comp_ctx->target_machine_builder =
+                LLVMOrcJITTargetMachineBuilderCreateFromTargetMachine(t_m);
+            if (!comp_ctx->target_machine_builder) {
+                aot_set_last_error("create LLVMTargetMachineRef failed.");
+                goto fail;
+            }
+        }
 #endif
     }
 
-    if (option->enable_simd && strcmp(comp_ctx->target_arch, "x86_64") != 0
+#if WASM_ENABLE_MCJIT == 0
+    /* Create LLJIT/LLLazyJIT Instance */
+    if (!orc_jit_create(comp_ctx, comp_data->func_count))
+        goto fail;
+
+#if LLVM_VERSION_MAJOR < 12
+    /* Create LLVMPassManagerRef */
+    if (!initialize_func_passes(comp_ctx)) {
+        goto fail;
+    }
+#endif
+#endif
+
+    if (option->enable_simd && strncmp(comp_ctx->target_arch, "x86_64", 6) != 0
         && strncmp(comp_ctx->target_arch, "aarch64", 7) != 0) {
         /* Disable simd if it isn't supported by target arch */
         option->enable_simd = false;
@@ -2239,28 +2155,16 @@ aot_destroy_comp_context(AOTCompContext *comp_ctx)
     if (!comp_ctx)
         return;
 
-#if WASM_ENABLE_MCJIT == 0
-    /* dispose of their ThreadSafeContext as soon as they no longer */
-    if (comp_ctx->orc_thread_safe_context)
-        LLVMOrcDisposeThreadSafeContext(comp_ctx->orc_thread_safe_context);
-
-    if (comp_ctx->orc_symbol_map_pairs)
-        wasm_runtime_free(comp_ctx->orc_symbol_map_pairs);
-
-    if (comp_ctx->orc_call_through_mgr)
-        LLVMOrcDisposeLazyCallThroughManager(comp_ctx->orc_call_through_mgr);
-
-    if (comp_ctx->orc_indirect_stub_mgr)
-        LLVMOrcDisposeIndirectStubsManager(comp_ctx->orc_indirect_stub_mgr);
-
-    if (comp_ctx->orc_material_unit)
-        LLVMOrcDisposeMaterializationUnit(comp_ctx->orc_material_unit);
-
     if (comp_ctx->target_machine)
         LLVMDisposeTargetMachine(comp_ctx->target_machine);
 
     if (comp_ctx->builder)
         LLVMDisposeBuilder(comp_ctx->builder);
+
+#if WASM_ENABLE_MCJIT == 0
+    /* dispose of their ThreadSafeContext as soon as they no longer */
+    if (comp_ctx->orc_thread_safe_context)
+        LLVMOrcDisposeThreadSafeContext(comp_ctx->orc_thread_safe_context);
 
     if (comp_ctx->orcjit)
 #if WASM_ENABLE_LAZY_JIT
@@ -2278,12 +2182,6 @@ aot_destroy_comp_context(AOTCompContext *comp_ctx)
        they are disposed when disposing the thread safe context */
     LLVMShutdown();
 #else
-    if (comp_ctx->target_machine && !comp_ctx->is_jit_mode)
-        LLVMDisposeTargetMachine(comp_ctx->target_machine);
-
-    if (comp_ctx->builder)
-        LLVMDisposeBuilder(comp_ctx->builder);
-
     if (comp_ctx->exec_engine) {
         LLVMDisposeExecutionEngine(comp_ctx->exec_engine);
         /* The LLVM module is freed when disposing execution engine,
@@ -2359,7 +2257,8 @@ aot_get_native_symbol_index(AOTCompContext *comp_ctx, const char *symbol)
         sym = bh_list_elem_next(sym);
     }
 
-    /* Given symbol is not exist in list, then we alloc a new index for it */
+    /* Given symbol is not exist in list, then we alloc a new index for it
+     */
 
     if (idx < 0) {
         if (comp_ctx->pointer_size == sizeof(uint32)
@@ -2508,7 +2407,7 @@ aot_checked_addr_list_add(AOTFuncContext *func_ctx, uint32 local_idx,
     if (!(node = wasm_runtime_malloc(sizeof(AOTCheckedAddr)))) {
         aot_set_last_error("allocate memory failed.");
         return false;
-    }
+    };
 
     node->local_idx = local_idx;
     node->offset = offset;

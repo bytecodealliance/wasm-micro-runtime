@@ -39,6 +39,10 @@ void
 LLVMOrcDisposeLLLazyJITBuilder(LLVMOrcLLLazyJITBuilderRef Builder);
 
 void
+LLVMOrcLLLazyJITBuilderSetJITTargetMachineBuilder(
+    LLVMOrcLLLazyJITBuilderRef Builder, LLVMOrcJITTargetMachineBuilderRef JTMP);
+
+void
 LLVMOrcLLLazyJITBuilderSetNumCompileThreads(LLVMOrcLLLazyJITBuilderRef Builder,
                                             unsigned NumCompileThreads);
 

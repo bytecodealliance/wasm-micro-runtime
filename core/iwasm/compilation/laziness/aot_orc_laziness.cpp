@@ -9,6 +9,7 @@
 #include "llvm/ExecutionEngine/Orc/ObjectTransformLayer.h"
 #include "llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h"
 #include "llvm/ExecutionEngine/SectionMemoryManager.h"
+#include "llvm/Support/CBindingWrapping.h"
 
 #include "aot_orc_laziness.h"
 
@@ -82,6 +83,8 @@ class OrcV2CAPIHelper
 DEFINE_SIMPLE_CONVERSION_FUNCTIONS(ExecutionSession, LLVMOrcExecutionSessionRef)
 DEFINE_SIMPLE_CONVERSION_FUNCTIONS(IRTransformLayer, LLVMOrcIRTransformLayerRef)
 DEFINE_SIMPLE_CONVERSION_FUNCTIONS(JITDylib, LLVMOrcJITDylibRef)
+DEFINE_SIMPLE_CONVERSION_FUNCTIONS(JITTargetMachineBuilder,
+                                   LLVMOrcJITTargetMachineBuilderRef)
 DEFINE_SIMPLE_CONVERSION_FUNCTIONS(OrcV2CAPIHelper::PoolEntry,
                                    LLVMOrcSymbolStringPoolEntryRef)
 DEFINE_SIMPLE_CONVERSION_FUNCTIONS(SymbolStringPool, LLVMOrcSymbolStringPoolRef)
@@ -115,6 +118,13 @@ LLVMOrcLLLazyJITBuilderSetNumCompileThreads(LLVMOrcLLLazyJITBuilderRef Builder,
                                             unsigned NumCompileThreads)
 {
     unwrap(Builder)->setNumCompileThreads(NumCompileThreads);
+}
+
+void
+LLVMOrcLLLazyJITBuilderSetJITTargetMachineBuilder(
+    LLVMOrcLLLazyJITBuilderRef Builder, LLVMOrcJITTargetMachineBuilderRef JTMP)
+{
+    unwrap(Builder)->setJITTargetMachineBuilder(*unwrap(JTMP));
 }
 
 LLVMErrorRef

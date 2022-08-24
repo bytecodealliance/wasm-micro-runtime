@@ -118,6 +118,7 @@ typedef struct {
     REG_SYM(aot_enlarge_memory),          \
     REG_SYM(aot_set_exception),           \
     REG_SYM(aot_check_app_addr_and_convert),\
+    REG_SYM(aot_memmove),          \
     { "memset", (void*)aot_memset },      \
     { "memmove", (void*)aot_memmove },    \
     { "memcpy", (void*)aot_memmove },     \

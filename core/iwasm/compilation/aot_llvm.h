@@ -306,6 +306,7 @@ typedef struct AOTCompContext {
     // /* Each aot function has its own module */
     // LLVMModuleRef *modules;
     LLVMPassManagerRef pass_mgr;
+    LLVMOrcJITTargetMachineBuilderRef target_machine_builder;
 #else
     LLVMExecutionEngineRef exec_engine;
 #endif
