@@ -42,5 +42,5 @@ ExternalProject_Add(bwa
                        -DCMAKE_SYSROOT=${WASI_SDK_HOME}/share/wasi-sysroot
                        ${CMAKE_CURRENT_SOURCE_DIR}/bwa
   BUILD_COMMAND  make bwa_wasm_opt
-  INSTALL_COMMAND ${CMAKE_COMMAND} -E copy ./bwa.opt.wasm ${CMAKE_CURRENT_SOURCE_DIR}/build/bwa.wasm
+  INSTALL_COMMAND ${CMAKE_COMMAND} -E copy ./bwa.opt.wasm ${CMAKE_BINARY_DIR}/bwa.wasm
 )
