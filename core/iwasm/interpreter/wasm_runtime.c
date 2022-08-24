@@ -2181,27 +2181,11 @@ wasm_module_malloc(WASMModuleInstance *module_inst, uint32 size,
         addr = mem_allocator_malloc(memory->heap_handle, size);
     }
     else if (module_inst->malloc_function && module_inst->free_function) {
-#if WASM_ENABLE_DEBUG_INTERP != 0
-        /* TODO: obviously, we can not create debug instance for
-         * module malloc here, so, just disable the engine here,
-         * it is strange, but we now are lack of ways to indicate
-         * which calls should not be debugged. And we have other
-         * execute_xxx_function may need to be taken care of
-         */
-        bool active = wasm_debug_get_engine_active();
-        wasm_debug_set_engine_active(false);
-#endif
         if (!execute_malloc_function(module_inst, module_inst->malloc_function,
                                      module_inst->retain_function, size,
                                      &offset)) {
-#if WASM_ENABLE_DEBUG_INTERP != 0
-            wasm_debug_set_engine_active(active);
-#endif
             return 0;
         }
-#if WASM_ENABLE_DEBUG_INTERP != 0
-        wasm_debug_set_engine_active(active);
-#endif
         /* If we use app's malloc function,
            the default memory may be changed while memory growing */
         memory = module_inst->default_memory;
@@ -2280,17 +2264,7 @@ wasm_module_free(WASMModuleInstance *module_inst, uint32 ptr)
         else if (module_inst->malloc_function && module_inst->free_function
                  && memory->memory_data <= addr
                  && addr < memory->memory_data_end) {
-#if WASM_ENABLE_DEBUG_INTERP != 0
-            /*TODO: obviously, we can not create debug instance for module
-            malloc here, so, just disable the engine here, it is strange. the
-            wasm's call should be marshed to its own thread */
-            bool active = wasm_debug_get_engine_active();
-            wasm_debug_set_engine_active(false);
-#endif
             execute_free_function(module_inst, module_inst->free_function, ptr);
-#if WASM_ENABLE_DEBUG_INTERP != 0
-            wasm_debug_set_engine_active(active);
-#endif
         }
     }
 }
