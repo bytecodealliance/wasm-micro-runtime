@@ -435,6 +435,23 @@ main(int argc, char *argv[])
         goto fail3;
     }
 
+#if WASM_ENABLE_DEBUG_INTERP != 0
+    if (ip_addr != NULL) {
+        wasm_exec_env_t exec_env =
+            wasm_runtime_get_exec_env_singleton(wasm_module_inst);
+        uint32_t debug_port;
+        if (exec_env == NULL) {
+            printf("%s\n", wasm_runtime_get_exception(wasm_module_inst));
+            goto fail4;
+        }
+        debug_port = wasm_runtime_start_debug_instance(exec_env);
+        if (debug_port == 0) {
+            printf("Failed to start debug instance\n");
+            goto fail4;
+        }
+    }
+#endif
+
     if (is_repl_mode)
         app_instance_repl(wasm_module_inst);
     else if (func_name)
@@ -444,6 +461,9 @@ main(int argc, char *argv[])
 
     ret = 0;
 
+#if WASM_ENABLE_DEBUG_INTERP != 0
+fail4:
+#endif
     /* destroy the module instance */
     wasm_runtime_deinstantiate(wasm_module_inst);
 
