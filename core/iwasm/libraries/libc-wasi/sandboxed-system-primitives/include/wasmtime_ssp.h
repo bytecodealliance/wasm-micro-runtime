@@ -1038,7 +1038,7 @@ wasi_ssp_sock_bind(
 __wasi_errno_t
 wasi_ssp_sock_addr_resolve(
 #if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
+    struct fd_table *curfds, char **ns_lookup_list,
 #endif
     const char *host, const char* service,
     __wasi_addr_info_hints_t *hints, __wasi_addr_info_t *addr_info,

@@ -161,6 +161,31 @@ convert_errno(int error)
     return errors[error];
 }
 
+static bool
+ns_lookup_list_search(char **list, const char *host)
+{
+    size_t host_len = strlen(host), suffix_len;
+
+    while (*list) {
+        if (*list[0] == '*') {
+            suffix_len = strlen(*list) - 1;
+            if (suffix_len <= host_len
+                && strncmp(host + host_len - suffix_len, *list + 1, suffix_len)
+                       == 0) {
+                return true;
+            }
+        }
+        else {
+            if (strcmp(*list, host) == 0) {
+                return true;
+            }
+        }
+        list++;
+    }
+
+    return false;
+}
+
 // Converts a POSIX timespec to a CloudABI timestamp.
 static __wasi_timestamp_t
 convert_timespec(const struct timespec *ts)
@@ -3014,7 +3039,7 @@ wasi_ssp_sock_bind(
 __wasi_errno_t
 wasi_ssp_sock_addr_resolve(
 #if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
+    struct fd_table *curfds, char **ns_lookup_list,
 #endif
     const char *host, const char *service, __wasi_addr_info_hints_t *hints,
     __wasi_addr_info_t *addr_info, __wasi_size_t addr_info_size,
@@ -3026,6 +3051,10 @@ wasi_ssp_sock_addr_resolve(
     uint8_t hints_is_tcp = hints->type == SOCKET_STREAM;
     size_t _max_info_size;
     size_t actual_info_size;
+
+    if (!ns_lookup_list_search(ns_lookup_list, host)) {
+        return __WASI_EACCES;
+    }
 
     if (!wamr_addr_info) {
         return __WASI_ENOMEM;
