@@ -352,7 +352,7 @@ os_socket_convert_sockaddr(struct sockaddr *addr, uint8_t *buf, size_t buflen,
 }
 
 int
-os_socket_set_send_timeout(bh_socket_t socket, uint64 timeout_us) 
+os_socket_set_send_timeout(bh_socket_t socket, uint64 timeout_us)
 {
     struct timeval tv;
     tv.tv_sec = timeout_us / 1000000UL;
@@ -364,7 +364,7 @@ os_socket_set_send_timeout(bh_socket_t socket, uint64 timeout_us)
 }
 
 int
-os_socket_get_send_timeout(bh_socket_t socket, uint64 *timeout_us) 
+os_socket_get_send_timeout(bh_socket_t socket, uint64 *timeout_us)
 {
     struct timeval tv;
     socklen_t tv_len = sizeof(tv);
@@ -376,7 +376,7 @@ os_socket_get_send_timeout(bh_socket_t socket, uint64 *timeout_us)
 }
 
 int
-os_socket_set_recv_timeout(bh_socket_t socket, uint64 timeout_us) 
+os_socket_set_recv_timeout(bh_socket_t socket, uint64 timeout_us)
 {
     struct timeval tv;
     tv.tv_sec = timeout_us / 1000000UL;
@@ -388,7 +388,7 @@ os_socket_set_recv_timeout(bh_socket_t socket, uint64 timeout_us)
 }
 
 int
-os_socket_get_recv_timeout(bh_socket_t socket, uint64 *timeout_us) 
+os_socket_get_recv_timeout(bh_socket_t socket, uint64 *timeout_us)
 {
     struct timeval tv;
     socklen_t tv_len = sizeof(tv);

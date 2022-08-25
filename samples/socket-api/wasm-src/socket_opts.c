@@ -6,7 +6,14 @@
 #include <wasi_socket_ext.h>
 #endif
 
-#define OPTION_ASSERT(A, B, OPTION) if (A == B) { printf("%s is expected\n", OPTION); } else { printf("%s is unexpected\n", OPTION); return EXIT_FAILURE; }
+#define OPTION_ASSERT(A, B, OPTION)           \
+    if (A == B) {                             \
+        printf("%s is expected\n", OPTION);   \
+    }                                         \
+    else {                                    \
+        printf("%s is unexpected\n", OPTION); \
+        return EXIT_FAILURE;                  \
+    }
 
 int
 main(int argc, char *argv[])

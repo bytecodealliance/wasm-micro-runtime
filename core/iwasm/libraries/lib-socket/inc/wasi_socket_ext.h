@@ -473,8 +473,8 @@ static inline __wasi_errno_t
 __wasi_sock_get_recv_timeout(__wasi_fd_t fd, uint64_t *timeout_us)
 {
     return (__wasi_errno_t)
-        __imported_wasi_snapshot_preview1_sock_get_recv_timeout((int32_t)fd, 
-                                                                (int32_t)timeout_us);
+        __imported_wasi_snapshot_preview1_sock_get_recv_timeout(
+            (int32_t)fd, (int32_t)timeout_us);
 }
 
 int32_t
@@ -487,8 +487,8 @@ static inline __wasi_errno_t
 __wasi_sock_set_recv_timeout(__wasi_fd_t fd, uint64_t *timeout_us)
 {
     return (__wasi_errno_t)
-        __imported_wasi_snapshot_preview1_sock_set_recv_timeout((int32_t)fd,
-                                                                (int32_t)timeout_us);
+        __imported_wasi_snapshot_preview1_sock_set_recv_timeout(
+            (int32_t)fd, (int32_t)timeout_us);
 }
 
 int32_t
@@ -501,8 +501,8 @@ static inline __wasi_errno_t
 __wasi_sock_get_send_timeout(__wasi_fd_t fd, uint64_t *timeout_us)
 {
     return (__wasi_errno_t)
-        __imported_wasi_snapshot_preview1_sock_get_send_timeout((int32_t)fd, 
-                                                                (int32_t)timeout_us);
+        __imported_wasi_snapshot_preview1_sock_get_send_timeout(
+            (int32_t)fd, (int32_t)timeout_us);
 }
 
 int32_t
@@ -515,8 +515,8 @@ static inline __wasi_errno_t
 __wasi_sock_set_send_timeout(__wasi_fd_t fd, uint64_t *timeout_us)
 {
     return (__wasi_errno_t)
-        __imported_wasi_snapshot_preview1_sock_set_send_timeout((int32_t)fd,
-                                                                (int32_t)timeout_us);
+        __imported_wasi_snapshot_preview1_sock_set_send_timeout(
+            (int32_t)fd, (int32_t)timeout_us);
 }
 
 /**
