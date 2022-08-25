@@ -2407,6 +2407,60 @@ wasm_func_new_basic(wasm_store_t *store, const wasm_functype_t *type,
 }
 
 static wasm_func_t *
+wasm_func_new_with_symbol_basic(wasm_store_t *store,
+                                const wasm_functype_t *type,
+                                wasm_func_callback_t func_callback,
+                                const char *module_name, const char *func_name)
+{
+    wasm_func_t *func = NULL;
+
+    if (!type) {
+        goto failed;
+    }
+
+    if (!(func = malloc_internal(sizeof(wasm_func_t)))) {
+        goto failed;
+    }
+
+    func->store = store;
+    func->kind = WASM_EXTERN_FUNC;
+    func->func_idx_rt = (uint16)-1;
+    func->with_env = false;
+    func->u.cb = func_callback;
+    func->module_name = NULL;
+    func->name = NULL;
+
+    /* take symbol */
+    if (module_name != NULL) {
+        func->module_name = malloc_internal(sizeof(wasm_name_t));
+        if (func->module_name == NULL) {
+            goto failed;
+        }
+        wasm_name_new_from_string_nt(func->module_name, module_name);
+        if (strcmp(func->module_name->data, module_name)) {
+            goto failed;
+        }
+    }
+
+    if (func_name != NULL) {
+        func->name = malloc_internal(sizeof(wasm_name_t));
+        if (func->name == NULL) {
+            goto failed;
+        }
+        wasm_name_new_from_string_nt(func->name, func_name);
+        if (strcmp(func->name->data, func_name)) {
+            goto failed;
+        }
+    }
+
+    if (!(func->type = wasm_functype_copy(type))) {
+        goto failed;
+    }
+
+    RETURN_OBJ(func, wasm_func_delete)
+}
+
+static wasm_func_t *
 wasm_func_new_with_env_basic(wasm_store_t *store, const wasm_functype_t *type,
                              wasm_func_callback_with_env_t callback, void *env,
                              void (*finalizer)(void *))
@@ -2436,6 +2490,64 @@ wasm_func_new_with_env_basic(wasm_store_t *store, const wasm_functype_t *type,
     RETURN_OBJ(func, wasm_func_delete)
 }
 
+static wasm_func_t *
+wasm_func_new_with_env_symbol_basic(wasm_store_t *store,
+                                    const wasm_functype_t *type,
+                                    wasm_func_callback_with_env_t callback,
+                                    void *env, void (*finalizer)(void *),
+                                    const char *module_name,
+                                    const char *func_name)
+{
+    wasm_func_t *func = NULL;
+
+    if (!type) {
+        goto failed;
+    }
+
+    if (!(func = malloc_internal(sizeof(wasm_func_t)))) {
+        goto failed;
+    }
+
+    func->store = store;
+    func->kind = WASM_EXTERN_FUNC;
+    func->func_idx_rt = (uint16)-1;
+    func->with_env = true;
+    func->u.cb_env.cb = callback;
+    func->u.cb_env.env = env;
+    func->u.cb_env.finalizer = finalizer;
+    func->module_name = NULL;
+    func->name = NULL;
+
+    /* take symbol */
+    if (module_name != NULL) {
+        func->module_name = malloc_internal(sizeof(wasm_name_t));
+        if (func->module_name == NULL) {
+            goto failed;
+        }
+        wasm_name_new_from_string_nt(func->module_name, module_name);
+        if (strcmp(func->module_name->data, module_name)) {
+            goto failed;
+        }
+    }
+
+    if (func_name != NULL) {
+        func->name = malloc_internal(sizeof(wasm_name_t));
+        if (func->name == NULL) {
+            goto failed;
+        }
+        wasm_name_new_from_string_nt(func->name, func_name);
+        if (strcmp(func->name->data, func_name)) {
+            goto failed;
+        }
+    }
+
+    if (!(func->type = wasm_functype_copy(type))) {
+        goto failed;
+    }
+
+    RETURN_OBJ(func, wasm_func_delete)
+}
+
 wasm_func_t *
 wasm_func_new(wasm_store_t *store, const wasm_functype_t *type,
               wasm_func_callback_t callback)
@@ -2457,6 +2569,33 @@ wasm_func_new_with_env(wasm_store_t *store, const wasm_functype_t *type,
         return NULL;
     }
     return wasm_func_new_with_env_basic(store, type, callback, env, finalizer);
+}
+
+wasm_func_t *
+wasm_func_new_with_symbol(wasm_store_t *store, const wasm_functype_t *type,
+                          wasm_func_callback_t callback,
+                          const char *module_name, const char *func_name)
+{
+    bh_assert(singleton_engine);
+    if (!callback) {
+        return NULL;
+    }
+    return wasm_func_new_with_symbol_basic(store, type, callback, module_name,
+                                           func_name);
+}
+
+wasm_func_t *
+wasm_func_new_with_env_symbol(wasm_store_t *store, const wasm_functype_t *type,
+                              wasm_func_callback_with_env_t callback, void *env,
+                              void (*finalizer)(void *),
+                              const char *module_name, const char *func_name)
+{
+    bh_assert(singleton_engine);
+    if (!callback) {
+        return NULL;
+    }
+    return wasm_func_new_with_env_symbol_basic(
+        store, type, callback, env, finalizer, module_name, func_name);
 }
 
 wasm_func_t *
@@ -2554,6 +2693,17 @@ wasm_func_delete(wasm_func_t *func)
             func->u.cb_env.finalizer = NULL;
             func->u.cb_env.env = NULL;
         }
+    }
+
+    if (func->module_name) {
+        wasm_name_delete(func->module_name);
+        wasm_runtime_free(func->module_name);
+        func->module_name = NULL;
+    }
+    if (func->name) {
+        wasm_name_delete(func->name);
+        wasm_runtime_free(func->name);
+        func->name = NULL;
     }
 
     DELETE_HOST_INFO(func)
@@ -3854,6 +4004,27 @@ interp_link_func(const wasm_instance_t *inst, const WASMModule *module_interp,
     imported_func_interp = module_interp->import_functions + func_idx_rt;
     bh_assert(imported_func_interp);
 
+    /* symbol comparsion */
+    if (import->module_name != NULL && import->name != NULL) {
+        char *module_name = imported_func_interp->u.names.module_name;
+        char *func_name = imported_func_interp->u.names.field_name;
+        char *import_func_module = import->module_name->data;
+        char *import_func_name = import->name->data;
+        if (module_name == NULL || strlen(module_name) == 0) {
+            if (import_func_module != NULL && strlen(import_func_module) != 0) {
+                return false;
+            }
+        }
+        else {
+            if (strncmp(module_name, import_func_module, strlen(module_name))) {
+                return false;
+            }
+            if (strncmp(func_name, import_func_name, strlen(func_name))) {
+                return false;
+            }
+        }
+    }
+
     /* type comparison */
     if (!wasm_functype_same_internal(
             import->type, imported_func_interp->u.function.func_type))
@@ -3920,7 +4091,7 @@ interp_link_global(const WASMModule *module_interp, uint16 global_idx_rt,
 
 static uint32
 interp_link(const wasm_instance_t *inst, const WASMModule *module_interp,
-            wasm_extern_t *imports[])
+            wasm_extern_t *imports[], size_t num_imports)
 {
     uint32 i = 0;
     uint32 import_func_i = 0;
@@ -3935,11 +4106,22 @@ interp_link(const wasm_instance_t *inst, const WASMModule *module_interp,
         switch (import_rt->kind) {
             case IMPORT_KIND_FUNC:
             {
-                if (!interp_link_func(inst, module_interp, import_func_i,
-                                      wasm_extern_as_func(import))) {
+                bool found = false;
+                for (int j = 0; j < (int)num_imports; j++) {
+                    wasm_extern_t *candidate = imports[j];
+                    wasm_func_t *candidate_func =
+                        wasm_extern_as_func(candidate);
+                    if (interp_link_func(inst, module_interp, import_func_i,
+                                         candidate_func)) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
                     LOG_WARNING("link #%d function failed", import_func_i);
                     goto failed;
                 }
+
                 import_func_i++;
                 break;
             }
@@ -4068,6 +4250,27 @@ aot_link_func(const wasm_instance_t *inst, const AOTModule *module_aot,
 
     import_aot_func = module_aot->import_funcs + import_func_idx_rt;
     bh_assert(import_aot_func);
+
+    /* symbol comparsion */
+    if (import->module_name != NULL && import->name != NULL) {
+        char *module_name = import_aot_func->module_name;
+        char *func_name = import_aot_func->func_name;
+        char *import_func_module = import->module_name->data;
+        char *import_func_name = import->name->data;
+        if (module_name == NULL || strlen(module_name) == 0) {
+            if (import_func_module != NULL && strlen(import_func_module) != 0) {
+                return false;
+            }
+        }
+        else {
+            if (strncmp(module_name, import_func_module, strlen(module_name))) {
+                return false;
+            }
+            if (strncmp(func_name, import_func_name, strlen(func_name))) {
+                return false;
+            }
+        }
+    }
 
     /* type comparison */
     if (!wasm_functype_same_internal(import->type, import_aot_func->func_type))
@@ -4320,9 +4523,9 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
             import_count = MODULE_INTERP(module)->import_count;
 
             if (import_count) {
-                uint32 actual_link_import_count =
-                    interp_link(instance, MODULE_INTERP(module),
-                                (wasm_extern_t **)imports->data);
+                uint32 actual_link_import_count = interp_link(
+                    instance, MODULE_INTERP(module),
+                    (wasm_extern_t **)imports->data, imports->num_elems);
                 /* make sure a complete import list */
                 if ((int32)import_count < 0
                     || import_count != actual_link_import_count) {

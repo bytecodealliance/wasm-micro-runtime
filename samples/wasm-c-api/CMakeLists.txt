@@ -125,6 +125,7 @@ set(MM_UTIL src/utils/multi_module_utils.c)
 set(EXAMPLES
   callback
   callback_chain
+  callback_with_symbol
   empty_imports
   global
   hello

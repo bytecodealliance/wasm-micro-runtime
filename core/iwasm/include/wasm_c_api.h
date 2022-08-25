@@ -480,6 +480,12 @@ WASM_API_EXTERN own wasm_func_t* wasm_func_new_with_env(
   wasm_store_t*, const wasm_functype_t* type, wasm_func_callback_with_env_t,
   void* env, void (*finalizer)(void*));
 
+WASM_API_EXTERN own wasm_func_t* wasm_func_new_with_symbol(
+  wasm_store_t*, const wasm_functype_t*, wasm_func_callback_t, const char*, const char*);
+WASM_API_EXTERN own wasm_func_t* wasm_func_new_with_env_symbol(
+  wasm_store_t*, const wasm_functype_t* type, wasm_func_callback_with_env_t,
+  void* env, void (*finalizer)(void*), const char*, const char*);
+
 WASM_API_EXTERN own wasm_functype_t* wasm_func_type(const wasm_func_t*);
 WASM_API_EXTERN size_t wasm_func_param_arity(const wasm_func_t*);
 WASM_API_EXTERN size_t wasm_func_result_arity(const wasm_func_t*);
