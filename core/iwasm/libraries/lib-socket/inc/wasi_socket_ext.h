@@ -463,6 +463,62 @@ __wasi_sock_set_send_buf_size(__wasi_fd_t fd)
         __imported_wasi_snapshot_preview1_sock_set_send_buf_size((int32_t)fd);
 }
 
+int32_t
+__imported_wasi_snapshot_preview1_sock_get_recv_timeout(int32_t arg0,
+                                                        int32_t arg1)
+    __attribute__((__import_module__("wasi_snapshot_preview1"),
+                   __import_name__("sock_get_recv_timeout")));
+
+static inline __wasi_errno_t
+__wasi_sock_get_recv_timeout(__wasi_fd_t fd, uint64_t *timeout_us)
+{
+    return (__wasi_errno_t)
+        __imported_wasi_snapshot_preview1_sock_get_recv_timeout((int32_t)fd, 
+                                                                (int32_t)timeout_us);
+}
+
+int32_t
+__imported_wasi_snapshot_preview1_sock_set_recv_timeout(int32_t arg0,
+                                                        int32_t arg1)
+    __attribute__((__import_module__("wasi_snapshot_preview1"),
+                   __import_name__("sock_set_recv_timeout")));
+
+static inline __wasi_errno_t
+__wasi_sock_set_recv_timeout(__wasi_fd_t fd, uint64_t *timeout_us)
+{
+    return (__wasi_errno_t)
+        __imported_wasi_snapshot_preview1_sock_set_recv_timeout((int32_t)fd,
+                                                                (int32_t)timeout_us);
+}
+
+int32_t
+__imported_wasi_snapshot_preview1_sock_get_send_timeout(int32_t arg0,
+                                                        int32_t arg1)
+    __attribute__((__import_module__("wasi_snapshot_preview1"),
+                   __import_name__("sock_get_send_timeout")));
+
+static inline __wasi_errno_t
+__wasi_sock_get_send_timeout(__wasi_fd_t fd, uint64_t *timeout_us)
+{
+    return (__wasi_errno_t)
+        __imported_wasi_snapshot_preview1_sock_get_send_timeout((int32_t)fd, 
+                                                                (int32_t)timeout_us);
+}
+
+int32_t
+__imported_wasi_snapshot_preview1_sock_set_send_timeout(int32_t arg0,
+                                                        int32_t arg1)
+    __attribute__((__import_module__("wasi_snapshot_preview1"),
+                   __import_name__("sock_set_send_timeout")));
+
+static inline __wasi_errno_t
+__wasi_sock_set_send_timeout(__wasi_fd_t fd, uint64_t *timeout_us)
+{
+    return (__wasi_errno_t)
+        __imported_wasi_snapshot_preview1_sock_set_send_timeout((int32_t)fd,
+                                                                (int32_t)timeout_us);
+}
+
 /**
  * TODO: modify recv() and send()
  * since don't want to re-compile the wasi-libc,
