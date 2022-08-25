@@ -82,7 +82,7 @@ control_thread_routine(void *arg)
     control_thread->port =
         (g_debug_engine->process_base_port == 0)
             ? 0
-            : g_debug_engine->process_base_port + debug_inst->id;
+            : g_debug_engine->process_base_port + debug_inst->id - 1;
 
     LOG_WARNING("control thread of debug object %p start\n", debug_inst);
 
@@ -290,7 +290,6 @@ wasm_debug_engine_init(char *ip_addr, int32 process_port)
     }
 
     if (g_debug_engine) {
-        process_port -= 1;
         g_debug_engine->process_base_port =
             (process_port > 0) ? process_port : 0;
         if (ip_addr)
