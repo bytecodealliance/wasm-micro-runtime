@@ -263,16 +263,6 @@ wasm_debug_engine_create()
     /* reset current instance id */
     current_instance_id = 1;
 
-    /* TODO: support Wasm platform in LLDB */
-    /*
-    engine->control_thread =
-        wasm_debug_control_thread_create((WASMDebugObject *)engine);
-    engine->control_thread->debug_engine = (WASMDebugObject *)engine;
-    engine->control_thread->debug_instance = NULL;
-    sprintf(engine->control_thread->ip_addr, "127.0.0.1");
-    engine->control_thread->port = 1234;
-    */
-
     bh_list_init(&engine->debug_instance_list);
     return engine;
 }
