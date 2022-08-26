@@ -137,7 +137,7 @@ typedef struct RuntimeInitArgs {
     /* Debug settings, only used when
        WASM_ENABLE_DEBUG_INTERP != 0 */
     char ip_addr[128];
-    int platform_port;
+    int unused; /* was platform_port */
     int instance_port;
 
     /* Fast JIT code cache size */
@@ -516,8 +516,17 @@ wasm_runtime_get_exec_env_singleton(wasm_module_inst_t module_inst);
  *   they are sharing the same cluster with the main exec_env.
  *
  * @param exec_env the execution environment to start debug instance
+ * @param port     the port for the debug server to listen on.
+ *                 0 means automatic assignment.
+ *                 -1 means to use the global setting in RuntimeInitArgs.
  *
  * @return debug port if success, 0 otherwise.
+ */
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_runtime_start_debug_instance_with_port(wasm_exec_env_t exec_env, int32_t port);
+
+/**
+ * Same as wasm_runtime_start_debug_instance_with_port(env, -1).
  */
 WASM_RUNTIME_API_EXTERN uint32_t
 wasm_runtime_start_debug_instance(wasm_exec_env_t exec_env);

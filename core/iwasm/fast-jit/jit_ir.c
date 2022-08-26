@@ -474,8 +474,10 @@ jit_cc_destroy(JitCompContext *cc)
     }
 
     /* Release entry and exit blocks.  */
-    jit_basic_block_delete(jit_cc_entry_basic_block(cc));
-    jit_basic_block_delete(jit_cc_exit_basic_block(cc));
+    if (0 != cc->entry_label)
+        jit_basic_block_delete(jit_cc_entry_basic_block(cc));
+    if (0 != cc->exit_label)
+        jit_basic_block_delete(jit_cc_exit_basic_block(cc));
 
     /* clang-format off */
     /* Release blocks and instructions.  */
