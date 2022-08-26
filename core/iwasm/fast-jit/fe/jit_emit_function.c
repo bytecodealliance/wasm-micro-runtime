@@ -176,9 +176,8 @@ jit_compile_op_call_draft(JitCompContext *cc, uint32 func_idx, bool tail_call)
         JitReg import_func_ptrs = get_import_func_ptrs_reg(jit_frame);
         JitReg native_func = jit_cc_new_reg_ptr(cc);
 
-        GEN_INSN(LDPTR, native_func, import_func_ptrs, NEW_CONST(
-            I32, (uint32)sizeof(void *) * func_idx
-        ));
+        GEN_INSN(LDPTR, native_func, import_func_ptrs,
+                 NEW_CONST(I32, (uint32)sizeof(void *) * func_idx));
 
         for (int i = 0; i < func_type->param_count; i++) {
             if (signature) {
@@ -190,7 +189,6 @@ jit_compile_op_call_draft(JitCompContext *cc, uint32 func_idx, bool tail_call)
                 }
             }
         }
-
     }
     else {
         func = wasm_module

@@ -2754,12 +2754,11 @@ got_exception:
     return false;
 }
 
-
 /**
  * Check whether the app address and the buf is inside the linear memory,
  * and convert the app address into native address
  */
-bool 
+bool
 jit_check_app_addr_and_convert(WASMModuleInstance *module_inst, bool is_str,
                                uint32 app_buf_addr, uint32 app_buf_size,
                                void **p_native_addr)
@@ -2791,7 +2790,7 @@ jit_check_app_addr_and_convert(WASMModuleInstance *module_inst, bool is_str,
         /* The whole string must be in the linear memory */
         str = (const char *)native_addr;
         str_end = (const char *)memory_inst->memory_data_end;
-        while (str < str_end && *str!= '\0')
+        while (str < str_end && *str != '\0')
             str++;
         if (str == str_end)
             goto fail;
