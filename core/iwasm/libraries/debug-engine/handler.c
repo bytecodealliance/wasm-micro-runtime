@@ -20,6 +20,7 @@ wasm_debug_handler_init()
     int ret;
     tmpbuf = wasm_runtime_malloc(MAX_PACKET_SIZE);
     if (tmpbuf == NULL) {
+        LOG_ERROR("debug-engine: Packet buffer allocation failure");
         return BHT_ERROR;
     }
     ret = os_mutex_init(&tmpbuf_lock);
