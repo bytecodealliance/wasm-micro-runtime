@@ -79,10 +79,12 @@ control_thread_routine(void *arg)
     control_thread->debug_instance = debug_inst;
     bh_strcpy_s(control_thread->ip_addr, sizeof(control_thread->ip_addr),
                 g_debug_engine->ip_addr);
-    control_thread->port =
-        (g_debug_engine->process_base_port == 0)
-            ? 0
-            : g_debug_engine->process_base_port + debug_inst->id - 1;
+    if (control_thread->port == -1) {
+        control_thread->port =
+            (g_debug_engine->process_base_port == 0)
+                ? 0
+                : g_debug_engine->process_base_port + debug_inst->id - 1;
+    }
 
     LOG_WARNING("control thread of debug object %p start\n", debug_inst);
 
@@ -91,6 +93,7 @@ control_thread_routine(void *arg)
 
     if (!control_thread->server) {
         LOG_ERROR("Failed to create debug server\n");
+        control_thread->port = 0;
         os_cond_signal(&debug_inst->wait_cond);
         os_mutex_unlock(&debug_inst->wait_lock);
         return NULL;
@@ -176,7 +179,7 @@ control_thread_routine(void *arg)
 }
 
 static WASMDebugControlThread *
-wasm_debug_control_thread_create(WASMDebugInstance *debug_instance)
+wasm_debug_control_thread_create(WASMDebugInstance *debug_instance, int32 port)
 {
     WASMDebugControlThread *control_thread;
 
@@ -186,6 +189,7 @@ wasm_debug_control_thread_create(WASMDebugInstance *debug_instance)
         return NULL;
     }
     memset(control_thread, 0, sizeof(WASMDebugControlThread));
+    control_thread->port = port;
 
     if (os_mutex_init(&control_thread->wait_lock) != 0)
         goto fail;
@@ -309,7 +313,7 @@ wasm_debug_engine_init(char *ip_addr, int32 process_port)
 /* A debug Instance is a debug "process" in gdb remote protocol
    and bound to a runtime cluster */
 WASMDebugInstance *
-wasm_debug_instance_create(WASMCluster *cluster)
+wasm_debug_instance_create(WASMCluster *cluster, int32 port)
 {
     WASMDebugInstance *instance;
     WASMExecEnv *exec_env = NULL;
@@ -359,7 +363,7 @@ wasm_debug_instance_create(WASMCluster *cluster)
     }
     instance->exec_mem_info.current_pos = instance->exec_mem_info.start_offset;
 
-    if (!wasm_debug_control_thread_create(instance)) {
+    if (!wasm_debug_control_thread_create(instance, port)) {
         LOG_ERROR("WASM Debug Engine error: failed to create control thread");
         goto fail3;
     }
