@@ -200,7 +200,7 @@ wasm_debug_control_thread_create(WASMDebugInstance *debug_instance, int32 port)
 
     if (0
         != os_thread_create(&control_thread->tid, control_thread_routine,
-                            debug_instance, APP_THREAD_STACK_SIZE_MAX)) {
+                            debug_instance, APP_THREAD_STACK_SIZE_DEFAULT)) {
         os_mutex_unlock(&debug_instance->wait_lock);
         goto fail1;
     }
