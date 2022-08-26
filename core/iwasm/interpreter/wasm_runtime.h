@@ -400,9 +400,9 @@ wasm_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 elem_idx,
                    uint32 argc, uint32 argv[]);
 
 bool 
-jit_check_app_and_convert(WASMModuleInstance *module_inst, bool is_str,
-                          uint32 app_buf_addr, uint32 app_buf_size,
-                          void **p_native_addr);
+jit_check_app_addr_and_convert(WASMModuleInstance *module_inst, bool is_str,
+                               uint32 app_buf_addr, uint32 app_buf_size,
+                               void **p_native_addr);
 
 #if WASM_ENABLE_FAST_JIT != 0
 bool

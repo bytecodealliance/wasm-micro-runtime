@@ -2759,9 +2759,9 @@ got_exception:
  * Check whether the app address and the buf is inside the linear memory,
  * and convert the app address into native address
  */
-bool jit_check_app_and_convert(WASMModuleInstance *module_inst, bool is_str,
-                               uint32 app_buf_addr, uint32 app_buf_size,
-                               void **p_native_addr)
+bool jit_check_app_addr_and_convert(WASMModuleInstance *module_inst, bool is_str,
+                                    uint32 app_buf_addr, uint32 app_buf_size,
+                                    void **p_native_addr)
 {
     WASMMemoryInstance *memory_inst = module_inst->default_memory;
     uint8 *native_addr;
@@ -2775,12 +2775,12 @@ bool jit_check_app_and_convert(WASMModuleInstance *module_inst, bool is_str,
     /* No need to check the app_offset and buf_size if memory access
        boundary check with hardware trap is enabled */
 #ifndef OS_ENABLE_HW_BOUND_CHECK
-    if (app_buf_addr >= memory_inst->cur_page_count) {
+    if (app_buf_addr >= memory_inst->memory_data_size) {
         goto fail;
     }
 
     if (!is_str) {
-        if (app_buf_size > memory_inst->cur_page_count - app_buf_addr) {
+        if (app_buf_size > memory_inst->memory_data_size - app_buf_addr) {
             goto fail;
         }
     }
@@ -2797,7 +2797,7 @@ bool jit_check_app_and_convert(WASMModuleInstance *module_inst, bool is_str,
     }
 #endif
 
-    *p_native_addr = (void *)native_addrl
+    *p_native_addr = (void *)native_addr;
     return true;
 fail:
     wasm_set_exception(module_inst, "out of bounds memory access");
