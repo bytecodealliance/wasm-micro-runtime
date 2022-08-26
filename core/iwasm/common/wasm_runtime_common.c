@@ -408,7 +408,6 @@ wasm_runtime_full_init(RuntimeInitArgs *init_args)
 #if WASM_ENABLE_DEBUG_INTERP != 0
     if (strlen(init_args->ip_addr))
         if (!wasm_debug_engine_init(init_args->ip_addr,
-                                    init_args->platform_port,
                                     init_args->instance_port)) {
             wasm_runtime_destroy();
             return false;

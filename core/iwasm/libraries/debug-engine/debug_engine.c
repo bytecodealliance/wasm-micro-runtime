@@ -17,11 +17,9 @@ typedef struct WASMDebugEngine {
     struct WASMDebugEngine *next;
     WASMDebugControlThread *control_thread;
     char ip_addr[128];
-    int32 platform_port;
     int32 process_base_port;
     bh_list debug_instance_list;
     korp_mutex instance_list_lock;
-    bool active;
 } WASMDebugEngine;
 
 void
@@ -84,7 +82,7 @@ control_thread_routine(void *arg)
     control_thread->port =
         (g_debug_engine->process_base_port == 0)
             ? 0
-            : g_debug_engine->process_base_port + debug_inst->id;
+            : g_debug_engine->process_base_port + debug_inst->id - 1;
 
     LOG_WARNING("control thread of debug object %p start\n", debug_inst);
 
@@ -265,16 +263,6 @@ wasm_debug_engine_create()
     /* reset current instance id */
     current_instance_id = 1;
 
-    /* TODO: support Wasm platform in LLDB */
-    /*
-    engine->control_thread =
-        wasm_debug_control_thread_create((WASMDebugObject *)engine);
-    engine->control_thread->debug_engine = (WASMDebugObject *)engine;
-    engine->control_thread->debug_instance = NULL;
-    sprintf(engine->control_thread->ip_addr, "127.0.0.1");
-    engine->control_thread->port = 1234;
-    */
-
     bh_list_init(&engine->debug_instance_list);
     return engine;
 }
@@ -291,7 +279,7 @@ wasm_debug_engine_destroy()
 }
 
 bool
-wasm_debug_engine_init(char *ip_addr, int32 platform_port, int32 process_port)
+wasm_debug_engine_init(char *ip_addr, int32 process_port)
 {
     if (wasm_debug_handler_init() != 0) {
         return false;
@@ -302,9 +290,6 @@ wasm_debug_engine_init(char *ip_addr, int32 platform_port, int32 process_port)
     }
 
     if (g_debug_engine) {
-        process_port -= 1;
-        g_debug_engine->platform_port =
-            platform_port > 0 ? platform_port : 1234;
         g_debug_engine->process_base_port =
             (process_port > 0) ? process_port : 0;
         if (ip_addr)
@@ -313,30 +298,12 @@ wasm_debug_engine_init(char *ip_addr, int32 platform_port, int32 process_port)
         else
             snprintf(g_debug_engine->ip_addr, sizeof(g_debug_engine->ip_addr),
                      "%s", "127.0.0.1");
-        g_debug_engine->active = true;
     }
     else {
         wasm_debug_handler_deinit();
     }
 
     return g_debug_engine != NULL ? true : false;
-}
-
-void
-wasm_debug_set_engine_active(bool active)
-{
-    if (g_debug_engine) {
-        g_debug_engine->active = active;
-    }
-}
-
-bool
-wasm_debug_get_engine_active(void)
-{
-    if (g_debug_engine) {
-        return g_debug_engine->active;
-    }
-    return false;
 }
 
 /* A debug Instance is a debug "process" in gdb remote protocol
@@ -348,7 +315,7 @@ wasm_debug_instance_create(WASMCluster *cluster)
     WASMExecEnv *exec_env = NULL;
     wasm_module_inst_t module_inst = NULL;
 
-    if (!g_debug_engine || !g_debug_engine->active) {
+    if (!g_debug_engine) {
         return NULL;
     }
 
