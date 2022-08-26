@@ -10,10 +10,16 @@
 #include "utils.h"
 #include "wasm_runtime.h"
 
+/*
+ * Note: A moderate MAX_PACKET_SIZE is ok because
+ * LLDB queries our buffer size (via qSupported PacketSize)
+ * and limits packet sizes accordingly.
+ */
+
 #if defined(DEBUG_MAX_PACKET_SIZE)
 #define MAX_PACKET_SIZE DEBUG_MAX_PACKET_SIZE
 #else
-#define MAX_PACKET_SIZE (0x20000)
+#define MAX_PACKET_SIZE (4096)
 #endif
 
 /*
