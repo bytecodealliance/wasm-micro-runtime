@@ -507,7 +507,7 @@ wasm_runtime_is_xip_file(const uint8 *buf, uint32 size)
 
 #if (WASM_ENABLE_THREAD_MGR != 0) && (WASM_ENABLE_DEBUG_INTERP != 0)
 uint32
-wasm_runtime_start_debug_instance(WASMExecEnv *exec_env)
+wasm_runtime_start_debug_instance_with_port(WASMExecEnv *exec_env, int32_t port)
 {
     WASMModuleInstanceCommon *module_inst =
         wasm_runtime_get_module_inst(exec_env);
@@ -525,11 +525,17 @@ wasm_runtime_start_debug_instance(WASMExecEnv *exec_env)
         return cluster->debug_inst->control_thread->port;
     }
 
-    if (wasm_debug_instance_create(cluster)) {
+    if (wasm_debug_instance_create(cluster, port)) {
         return cluster->debug_inst->control_thread->port;
     }
 
     return 0;
+}
+
+uint32
+wasm_runtime_start_debug_instance(WASMExecEnv *exec_env)
+{
+    return wasm_runtime_start_debug_instance_with_port(exec_env, -1);
 }
 #endif
 
