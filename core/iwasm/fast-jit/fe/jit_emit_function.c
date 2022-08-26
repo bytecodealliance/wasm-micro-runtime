@@ -145,6 +145,105 @@ fail:
 }
 
 bool
+jit_compile_op_call_draft(JitCompContext *cc, uint32 func_idx, bool tail_call)
+{
+    WASMModule *wasm_module = cc->cur_wasm_module;
+    WASMFunctionImport *func_import;
+    WASMFunction *func;
+    WASMType *func_type;
+    JitFrame *jit_frame = cc->jit_frame;
+    JitReg native_ret;
+    JitReg fast_jit_func_ptrs, jitted_code = 0;
+    uint32 jitted_func_idx;
+
+    /* new var */
+    const char *signature = NULL;
+
+    if (func_idx >= wasm_module->import_function_count) {
+        fast_jit_func_ptrs = get_fast_jit_func_ptrs_reg(jit_frame);
+        jitted_code = jit_cc_new_reg_ptr(cc);
+        /* jitted_code = func_ptrs[func_idx - import_function_count] */
+        jitted_func_idx = func_idx - wasm_module->import_function_count;
+        GEN_INSN(LDPTR, jitted_code, fast_jit_func_ptrs,
+                 NEW_CONST(I32, (uint32)sizeof(void *) * jitted_func_idx));
+    }
+
+    if (func_idx < wasm_module->import_function_count) {
+        func_import = &wasm_module->import_functions[func_idx].u.function;
+        func_type = func_import->func_type;
+        signature = func_import->signature;
+
+        JitReg import_func_ptrs = get_import_func_ptrs_reg(jit_frame);
+        JitReg native_func = jit_cc_new_reg_ptr(cc);
+
+        GEN_INSN(LDPTR, native_func, import_func_ptrs, NEW_CONST(
+            I32, (uint32)sizeof(void *) * func_idx
+        ));
+
+        for (int i = 0; i < func_type->param_count; i++) {
+            if (signature) {
+                if (signature[i + 1] == '*' || signature[i + 1] == '$') {
+                    /*invoke the jit check_app_addr_and_convert */
+                }
+                else {
+                    /* call native func directly*/
+                }
+            }
+        }
+
+    }
+    else {
+        func = wasm_module
+                   ->functions[func_idx - wasm_module->import_function_count];
+        func_type = func->func_type;
+
+        JitReg res = 0;
+
+        if (func_type->result_count > 0) {
+            switch (func_type->types[func_type->param_count]) {
+                case VALUE_TYPE_I32:
+#if WASM_ENABLE_REF_TYPES != 0
+                case VALUE_TYPE_EXTERNREF:
+                case VALUE_TYPE_FUNCREF:
+#endif
+                    res = jit_cc_new_reg_I32(cc);
+                    break;
+                case VALUE_TYPE_I64:
+                    res = jit_cc_new_reg_I64(cc);
+                    break;
+                case VALUE_TYPE_F32:
+                    res = jit_cc_new_reg_F32(cc);
+                    break;
+                case VALUE_TYPE_F64:
+                    res = jit_cc_new_reg_F64(cc);
+                    break;
+                default:
+                    bh_assert(0);
+                    goto fail;
+            }
+        }
+
+        GEN_INSN(CALLBC, res, 0, jitted_code);
+
+        if (!post_return(cc, func_type, res)) {
+            goto fail;
+        }
+    }
+
+    /* Clear part of memory regs and table regs as their values
+       may be changed in the function call */
+    if (cc->cur_wasm_module->possible_memory_grow)
+        clear_memory_regs(jit_frame);
+    clear_table_regs(jit_frame);
+
+    /* Ignore tail call currently */
+    (void)tail_call;
+    return true;
+fail:
+    return false;
+}
+
+bool
 jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
 {
     WASMModule *wasm_module = cc->cur_wasm_module;

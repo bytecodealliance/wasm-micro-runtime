@@ -13,6 +13,9 @@ extern "C" {
 #endif
 
 bool
+jit_compile_op_call_draft(JitCompContext *cc, uint32 func_idx, bool tail_call);
+
+bool
 jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call);
 
 bool
