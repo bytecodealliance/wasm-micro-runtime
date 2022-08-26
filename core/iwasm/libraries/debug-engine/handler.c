@@ -11,18 +11,31 @@
 #include "wasm_runtime.h"
 
 #define MAX_PACKET_SIZE (0x20000)
-static char tmpbuf[MAX_PACKET_SIZE];
+static char *tmpbuf;
 static korp_mutex tmpbuf_lock;
 
 int
 wasm_debug_handler_init()
 {
-    return os_mutex_init(&tmpbuf_lock);
+    int ret;
+    tmpbuf = wasm_runtime_malloc(MAX_PACKET_SIZE);
+    if (tmpbuf == NULL) {
+        LOG_ERROR("debug-engine: Packet buffer allocation failure");
+        return BHT_ERROR;
+    }
+    ret = os_mutex_init(&tmpbuf_lock);
+    if (ret != BHT_OK) {
+        wasm_runtime_free(tmpbuf);
+        tmpbuf = NULL;
+    }
+    return ret;
 }
 
 void
 wasm_debug_handler_deinit()
 {
+    wasm_runtime_free(tmpbuf);
+    tmpbuf = NULL;
     os_mutex_destroy(&tmpbuf_lock);
 }
 
@@ -78,12 +91,12 @@ process_xfer(WASMGDBServer *server, const char *name, char *args)
         char objname[128];
         wasm_debug_instance_get_current_object_name(
             (WASMDebugInstance *)server->thread->debug_instance, objname, 128);
-        snprintf(tmpbuf, sizeof(tmpbuf),
+        snprintf(tmpbuf, MAX_PACKET_SIZE,
                  "l<library-list><library name=\"%s\"><section "
                  "address=\"0x%" PRIx64 "\"/></library></library-list>",
                  objname, addr);
 #else
-        snprintf(tmpbuf, sizeof(tmpbuf),
+        snprintf(tmpbuf, MAX_PACKET_SIZE,
                  "l<library-list><library name=\"%s\"><section "
                  "address=\"0x%" PRIx64 "\"/></library></library-list>",
                  "nobody.wasm", addr);
@@ -103,7 +116,7 @@ process_wasm_local(WASMGDBServer *server, char *args)
     bool ret;
 
     os_mutex_lock(&tmpbuf_lock);
-    snprintf(tmpbuf, sizeof(tmpbuf), "E01");
+    snprintf(tmpbuf, MAX_PACKET_SIZE, "E01");
     if (sscanf(args, "%" PRId32 ";%" PRId32, &frame_index, &local_index) == 2) {
         ret = wasm_debug_instance_get_local(
             (WASMDebugInstance *)server->thread->debug_instance, frame_index,
@@ -126,7 +139,7 @@ process_wasm_global(WASMGDBServer *server, char *args)
     bool ret;
 
     os_mutex_lock(&tmpbuf_lock);
-    snprintf(tmpbuf, sizeof(tmpbuf), "E01");
+    snprintf(tmpbuf, MAX_PACKET_SIZE, "E01");
     if (sscanf(args, "%" PRId32 ";%" PRId32, &frame_index, &global_index)
         == 2) {
         ret = wasm_debug_instance_get_global(
@@ -161,14 +174,14 @@ handle_general_query(WASMGDBServer *server, char *payload)
             (WASMDebugInstance *)server->thread->debug_instance);
 
         os_mutex_lock(&tmpbuf_lock);
-        snprintf(tmpbuf, sizeof(tmpbuf), "QCp%" PRIx64 ".%" PRIx64 "", pid,
+        snprintf(tmpbuf, MAX_PACKET_SIZE, "QCp%" PRIx64 ".%" PRIx64 "", pid,
                  tid);
         write_packet(server, tmpbuf);
         os_mutex_unlock(&tmpbuf_lock);
     }
     if (!strcmp(name, "Supported")) {
         os_mutex_lock(&tmpbuf_lock);
-        snprintf(tmpbuf, sizeof(tmpbuf),
+        snprintf(tmpbuf, MAX_PACKET_SIZE,
                  "qXfer:libraries:read+;PacketSize=%" PRIx32 ";",
                  MAX_PACKET_SIZE);
         write_packet(server, tmpbuf);
@@ -196,7 +209,7 @@ handle_general_query(WASMGDBServer *server, char *payload)
                 strlen("wasm32-wamr-wasi-wasm"));
 
         os_mutex_lock(&tmpbuf_lock);
-        snprintf(tmpbuf, sizeof(tmpbuf),
+        snprintf(tmpbuf, MAX_PACKET_SIZE,
                  "vendor:wamr;ostype:wasi;arch:wasm32;"
                  "triple:%s;endian:little;ptrsize:4;",
                  triple);
@@ -227,7 +240,7 @@ handle_general_query(WASMGDBServer *server, char *payload)
                 strlen("wasm32-wamr-wasi-wasm"));
 
         os_mutex_lock(&tmpbuf_lock);
-        snprintf(tmpbuf, sizeof(tmpbuf),
+        snprintf(tmpbuf, MAX_PACKET_SIZE,
                  "pid:%" PRIx64 ";parent-pid:%" PRIx64
                  ";vendor:wamr;ostype:wasi;arch:wasm32;"
                  "triple:%s;endian:little;ptrsize:4;",
@@ -238,7 +251,7 @@ handle_general_query(WASMGDBServer *server, char *payload)
     if (!strcmp(name, "RegisterInfo0")) {
         os_mutex_lock(&tmpbuf_lock);
         snprintf(
-            tmpbuf, sizeof(tmpbuf),
+            tmpbuf, MAX_PACKET_SIZE,
             "name:pc;alt-name:pc;bitsize:64;offset:0;encoding:uint;format:hex;"
             "set:General Purpose Registers;gcc:16;dwarf:16;generic:pc;");
         write_packet(server, tmpbuf);
@@ -260,7 +273,7 @@ handle_general_query(WASMGDBServer *server, char *payload)
             mem2hex(mem_info->name, name_buf, strlen(mem_info->name));
 
             os_mutex_lock(&tmpbuf_lock);
-            snprintf(tmpbuf, sizeof(tmpbuf),
+            snprintf(tmpbuf, MAX_PACKET_SIZE,
                      "start:%" PRIx64 ";size:%" PRIx64
                      ";permissions:%s;name:%s;",
                      (uint64)mem_info->start, mem_info->size,
@@ -339,7 +352,7 @@ send_thread_stop_status(WASMGDBServer *server, uint32 status, korp_tid tid)
 
     if (status == 0) {
         os_mutex_lock(&tmpbuf_lock);
-        snprintf(tmpbuf, sizeof(tmpbuf), "W%02x", status);
+        snprintf(tmpbuf, MAX_PACKET_SIZE, "W%02x", status);
         write_packet(server, tmpbuf);
         os_mutex_unlock(&tmpbuf_lock);
         return;
@@ -355,16 +368,16 @@ send_thread_stop_status(WASMGDBServer *server, uint32 status, korp_tid tid)
 
     os_mutex_lock(&tmpbuf_lock);
     // TODO: how name a wasm thread?
-    len += snprintf(tmpbuf, sizeof(tmpbuf), "T%02xthread:%" PRIx64 ";name:%s;",
+    len += snprintf(tmpbuf, MAX_PACKET_SIZE, "T%02xthread:%" PRIx64 ";name:%s;",
                     gdb_status, (uint64)(uintptr_t)tid, "nobody");
     if (tids_count > 0) {
-        len += snprintf(tmpbuf + len, sizeof(tmpbuf) - len, "threads:");
+        len += snprintf(tmpbuf + len, MAX_PACKET_SIZE - len, "threads:");
         while (i < tids_count) {
             if (i == tids_count - 1)
-                len += snprintf(tmpbuf + len, sizeof(tmpbuf) - len,
+                len += snprintf(tmpbuf + len, MAX_PACKET_SIZE - len,
                                 "%" PRIx64 ";", (uint64)(uintptr_t)tids[i]);
             else
-                len += snprintf(tmpbuf + len, sizeof(tmpbuf) - len,
+                len += snprintf(tmpbuf + len, MAX_PACKET_SIZE - len,
                                 "%" PRIx64 ",", (uint64)(uintptr_t)tids[i]);
             i++;
         }
@@ -383,29 +396,29 @@ send_thread_stop_status(WASMGDBServer *server, uint32 status, korp_tid tid)
          * correctly processed by LLDB */
         uint32 exception_len = strlen(exception);
         len +=
-            snprintf(tmpbuf + len, sizeof(tmpbuf) - len,
+            snprintf(tmpbuf + len, MAX_PACKET_SIZE - len,
                      "thread-pcs:%" PRIx64 ";00:%s;reason:%s;description:", pc,
                      pc_string, "exception");
         /* The description should be encoded as HEX */
         for (i = 0; i < exception_len; i++) {
-            len += snprintf(tmpbuf + len, sizeof(tmpbuf) - len, "%02x",
+            len += snprintf(tmpbuf + len, MAX_PACKET_SIZE - len, "%02x",
                             exception[i]);
         }
-        len += snprintf(tmpbuf + len, sizeof(tmpbuf) - len, ";");
+        len += snprintf(tmpbuf + len, MAX_PACKET_SIZE - len, ";");
     }
     else {
         if (status == WAMR_SIG_TRAP) {
-            len += snprintf(tmpbuf + len, sizeof(tmpbuf) - len,
+            len += snprintf(tmpbuf + len, MAX_PACKET_SIZE - len,
                             "thread-pcs:%" PRIx64 ";00:%s;reason:%s;", pc,
                             pc_string, "breakpoint");
         }
         else if (status == WAMR_SIG_SINGSTEP) {
-            len += snprintf(tmpbuf + len, sizeof(tmpbuf) - len,
+            len += snprintf(tmpbuf + len, MAX_PACKET_SIZE - len,
                             "thread-pcs:%" PRIx64 ";00:%s;reason:%s;", pc,
                             pc_string, "trace");
         }
         else if (status > 0) {
-            len += snprintf(tmpbuf + len, sizeof(tmpbuf) - len,
+            len += snprintf(tmpbuf + len, MAX_PACKET_SIZE - len,
                             "thread-pcs:%" PRIx64 ";00:%s;reason:%s;", pc,
                             pc_string, "signal");
         }
@@ -551,7 +564,7 @@ handle_get_read_memory(WASMGDBServer *server, char *payload)
     bool ret;
 
     os_mutex_lock(&tmpbuf_lock);
-    snprintf(tmpbuf, sizeof(tmpbuf), "%s", "");
+    snprintf(tmpbuf, MAX_PACKET_SIZE, "%s", "");
     if (sscanf(payload, "%" SCNx64 ",%" SCNx64, &maddr, &mlen) == 2) {
         char *buff;
 
@@ -585,7 +598,7 @@ handle_get_write_memory(WASMGDBServer *server, char *payload)
     bool ret;
 
     os_mutex_lock(&tmpbuf_lock);
-    snprintf(tmpbuf, sizeof(tmpbuf), "%s", "");
+    snprintf(tmpbuf, MAX_PACKET_SIZE, "%s", "");
     if (sscanf(payload, "%" SCNx64 ",%" SCNx64 ":%n", &maddr, &mlen, &offset)
         == 2) {
         payload += offset;
@@ -599,7 +612,7 @@ handle_get_write_memory(WASMGDBServer *server, char *payload)
                 (WASMDebugInstance *)server->thread->debug_instance, maddr,
                 buff, &mlen);
             if (ret) {
-                snprintf(tmpbuf, sizeof(tmpbuf), "%s", "OK");
+                snprintf(tmpbuf, MAX_PACKET_SIZE, "%s", "OK");
             }
             wasm_runtime_free(buff);
         }
@@ -681,7 +694,7 @@ handle_malloc(WASMGDBServer *server, char *payload)
     }
 
     os_mutex_lock(&tmpbuf_lock);
-    snprintf(tmpbuf, sizeof(tmpbuf), "%s", "E03");
+    snprintf(tmpbuf, MAX_PACKET_SIZE, "%s", "E03");
 
     size = strtoll(payload, NULL, 16);
     if (size > 0) {
@@ -701,7 +714,7 @@ handle_malloc(WASMGDBServer *server, char *payload)
             (WASMDebugInstance *)server->thread->debug_instance, size,
             map_prot);
         if (addr) {
-            snprintf(tmpbuf, sizeof(tmpbuf), "%" PRIx64, addr);
+            snprintf(tmpbuf, MAX_PACKET_SIZE, "%" PRIx64, addr);
         }
     }
     write_packet(server, tmpbuf);
@@ -715,13 +728,13 @@ handle_free(WASMGDBServer *server, char *payload)
     bool ret;
 
     os_mutex_lock(&tmpbuf_lock);
-    snprintf(tmpbuf, sizeof(tmpbuf), "%s", "E03");
+    snprintf(tmpbuf, MAX_PACKET_SIZE, "%s", "E03");
     addr = strtoll(payload, NULL, 16);
 
     ret = wasm_debug_instance_ummap(
         (WASMDebugInstance *)server->thread->debug_instance, addr);
     if (ret) {
-        snprintf(tmpbuf, sizeof(tmpbuf), "%s", "OK");
+        snprintf(tmpbuf, MAX_PACKET_SIZE, "%s", "OK");
     }
 
     write_packet(server, tmpbuf);
