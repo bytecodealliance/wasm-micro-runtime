@@ -71,6 +71,21 @@ get_module_reg(JitFrame *frame)
 }
 
 JitReg
+get_import_func_ptrs_reg(JitFrame *frame)
+{
+    JitCompContext *cc = frame->cc;
+    JitReg module_inst_reg = get_module_inst_reg(frame);
+
+    if (!frame->import_func_ptrs_reg) {
+        frame->import_func_ptrs_reg = cc->import_func_ptrs_reg;
+        GEN_INSN(
+            LDPTR, frame->import_func_ptrs_reg, module_inst_reg,
+            NEW_CONST(I32, offsetof(WASMModuleInstance, import_func_ptrs)));
+    }
+    return frame->import_func_ptrs_reg;
+}
+
+JitReg
 get_fast_jit_func_ptrs_reg(JitFrame *frame)
 {
     JitCompContext *cc = frame->cc;
@@ -83,6 +98,21 @@ get_fast_jit_func_ptrs_reg(JitFrame *frame)
             NEW_CONST(I32, offsetof(WASMModuleInstance, fast_jit_func_ptrs)));
     }
     return frame->fast_jit_func_ptrs_reg;
+}
+
+JitReg
+get_func_type_indexes_reg(JitFrame *frame)
+{
+    JitCompContext *cc = frame->cc;
+    JitReg module_inst_reg = get_module_inst_reg(frame);
+
+    if (!frame->func_type_indexes_reg) {
+        frame->func_type_indexes_reg = cc->func_type_indexes_reg;
+        GEN_INSN(
+            LDPTR, frame->func_type_indexes_reg, module_inst_reg,
+            NEW_CONST(I32, offsetof(WASMModuleInstance, func_type_indexes)));
+    }
+    return frame->func_type_indexes_reg;
 }
 
 JitReg
@@ -376,7 +406,9 @@ clear_fixed_virtual_regs(JitFrame *frame)
 
     frame->module_inst_reg = 0;
     frame->module_reg = 0;
+    frame->import_func_ptrs_reg = 0;
     frame->fast_jit_func_ptrs_reg = 0;
+    frame->func_type_indexes_reg = 0;
     frame->global_data_reg = 0;
     frame->aux_stack_bound_reg = 0;
     frame->aux_stack_bottom_reg = 0;
@@ -572,7 +604,9 @@ create_fixed_virtual_regs(JitCompContext *cc)
 
     cc->module_inst_reg = jit_cc_new_reg_ptr(cc);
     cc->module_reg = jit_cc_new_reg_ptr(cc);
+    cc->import_func_ptrs_reg = jit_cc_new_reg_ptr(cc);
     cc->fast_jit_func_ptrs_reg = jit_cc_new_reg_ptr(cc);
+    cc->func_type_indexes_reg = jit_cc_new_reg_ptr(cc);
     cc->global_data_reg = jit_cc_new_reg_ptr(cc);
     cc->aux_stack_bound_reg = jit_cc_new_reg_I32(cc);
     cc->aux_stack_bottom_reg = jit_cc_new_reg_I32(cc);

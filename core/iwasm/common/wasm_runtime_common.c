@@ -341,10 +341,6 @@ wasm_runtime_init()
 void
 wasm_runtime_destroy()
 {
-#if WASM_ENABLE_FAST_JIT != 0
-    jit_compiler_destroy();
-#endif
-
 #if WASM_ENABLE_REF_TYPES != 0
     wasm_externref_map_destroy();
 #endif
@@ -366,6 +362,14 @@ wasm_runtime_destroy()
 
     wasm_runtime_destroy_registered_module_list();
     os_mutex_destroy(&registered_module_list_lock);
+#endif
+
+#if WASM_ENABLE_FAST_JIT != 0
+    /* Destroy Fast-JIT compiler after destroying the modules
+     * loaded by multi-module feature, since the Fast JIT's
+     * code cache allocator may be used by these modules.
+     */
+    jit_compiler_destroy();
 #endif
 
 #if WASM_ENABLE_SHARED_MEMORY
@@ -404,7 +408,6 @@ wasm_runtime_full_init(RuntimeInitArgs *init_args)
 #if WASM_ENABLE_DEBUG_INTERP != 0
     if (strlen(init_args->ip_addr))
         if (!wasm_debug_engine_init(init_args->ip_addr,
-                                    init_args->platform_port,
                                     init_args->instance_port)) {
             wasm_runtime_destroy();
             return false;
