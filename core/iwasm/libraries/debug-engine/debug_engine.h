@@ -117,7 +117,7 @@ WASMDebugInstance *
 wasm_exec_env_get_instance(WASMExecEnv *exec_env);
 
 bool
-wasm_debug_engine_init(char *ip_addr, int32 platform_port, int32 process_port);
+wasm_debug_engine_init(char *ip_addr, int32 process_port);
 
 void
 wasm_debug_engine_destroy();

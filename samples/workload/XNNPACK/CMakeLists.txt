@@ -90,5 +90,5 @@ ExternalProject_Add(xnnpack
                        //:f32_sqrt_ulp_eval.wasm
     INSTALL_COMMAND ${CMAKE_COMMAND} -E copy_directory
                       ${CMAKE_CURRENT_SOURCE_DIR}/xnnpack/bazel-out/wasm-opt/bin/
-                      ${CMAKE_CURRENT_SOURCE_DIR}/build/wasm-opt
+                      ${CMAKE_BINARY_DIR}/wasm-opt
 )

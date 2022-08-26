@@ -135,11 +135,11 @@ ExternalProject_Add(WASM_MODULE
                        -S ${CMAKE_CURRENT_SOURCE_DIR}/wasm-apps
   BUILD_COMMAND      ${CMAKE_COMMAND} --build .
   INSTALL_COMMAND    ${CMAKE_COMMAND} -E copy
-                       ./mA.wasm ${CMAKE_CURRENT_SOURCE_DIR}/build/
-                       ./mB.wasm ${CMAKE_CURRENT_SOURCE_DIR}/build/
-                       ./mC.wasm ${CMAKE_CURRENT_SOURCE_DIR}/build/
-                       ./mD.wasm ${CMAKE_CURRENT_SOURCE_DIR}/build/
-                       ./mE.wasm ${CMAKE_CURRENT_SOURCE_DIR}/build/
+                       ./mA.wasm ${CMAKE_BINARY_DIR}
+                       ./mB.wasm ${CMAKE_BINARY_DIR}
+                       ./mC.wasm ${CMAKE_BINARY_DIR}
+                       ./mD.wasm ${CMAKE_BINARY_DIR}
+                       ./mE.wasm ${CMAKE_BINARY_DIR}
 )
 
 ################ NATIVE
