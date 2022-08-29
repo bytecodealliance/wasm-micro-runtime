@@ -6,6 +6,7 @@
 #include "wasm_runtime_common.h"
 #include "bh_platform.h"
 #include "mem_alloc.h"
+#include "ems/ems_gc.h"
 
 typedef enum Memory_Mode {
     MEMORY_MODE_UNKNOWN = 0,
@@ -166,4 +167,14 @@ void
 wasm_runtime_free(void *ptr)
 {
     wasm_runtime_free_internal(ptr);
+}
+
+bool
+wasm_runtime_get_mem_alloc_info(mem_alloc_info_t *mem_alloc_info)
+{
+    if (memory_mode == MEMORY_MODE_POOL) {
+        return mem_allocator_get_alloc_info(pool_allocator, mem_alloc_info);
+        return true;
+    }
+    return false;
 }
