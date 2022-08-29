@@ -154,32 +154,26 @@ jit_compile_op_call_draft(JitCompContext *cc, uint32 func_idx, bool tail_call)
     JitFrame *jit_frame = cc->jit_frame;
     JitReg native_ret;
     JitReg fast_jit_func_ptrs, jitted_code = 0;
+    JitReg import_func_ptrs, native_func;
     uint32 jitted_func_idx;
 
     /* new var */
     const char *signature = NULL;
-
-    if (func_idx >= wasm_module->import_function_count) {
-        fast_jit_func_ptrs = get_fast_jit_func_ptrs_reg(jit_frame);
-        jitted_code = jit_cc_new_reg_ptr(cc);
-        /* jitted_code = func_ptrs[func_idx - import_function_count] */
-        jitted_func_idx = func_idx - wasm_module->import_function_count;
-        GEN_INSN(LDPTR, jitted_code, fast_jit_func_ptrs,
-                 NEW_CONST(I32, (uint32)sizeof(void *) * jitted_func_idx));
-    }
+    JitReg res = 0;
+    int32 i = 0;
 
     if (func_idx < wasm_module->import_function_count) {
+        import_func_ptrs = get_import_func_ptrs_reg(jit_frame);
+        native_func = jit_cc_new_reg_ptr(cc);
+
         func_import = &wasm_module->import_functions[func_idx].u.function;
         func_type = func_import->func_type;
         signature = func_import->signature;
 
-        JitReg import_func_ptrs = get_import_func_ptrs_reg(jit_frame);
-        JitReg native_func = jit_cc_new_reg_ptr(cc);
-
         GEN_INSN(LDPTR, native_func, import_func_ptrs,
                  NEW_CONST(I32, (uint32)sizeof(void *) * func_idx));
 
-        for (int i = 0; i < func_type->param_count; i++) {
+        for (i = 0; i < func_type->param_count; i++) {
             if (signature) {
                 if (signature[i + 1] == '*' || signature[i + 1] == '$') {
                     /*invoke the jit check_app_addr_and_convert */
@@ -191,11 +185,18 @@ jit_compile_op_call_draft(JitCompContext *cc, uint32 func_idx, bool tail_call)
         }
     }
     else {
+        fast_jit_func_ptrs = get_fast_jit_func_ptrs_reg(jit_frame);
+        jitted_code = jit_cc_new_reg_ptr(cc);
+        /* jitted_code = func_ptrs[func_idx - import_function_count] */
+        jitted_func_idx = func_idx - wasm_module->import_function_count;
+        GEN_INSN(LDPTR, jitted_code, fast_jit_func_ptrs,
+                 NEW_CONST(I32, (uint32)sizeof(void *) * jitted_func_idx));
+
+        /* add pre_call */
+
         func = wasm_module
                    ->functions[func_idx - wasm_module->import_function_count];
         func_type = func->func_type;
-
-        JitReg res = 0;
 
         if (func_type->result_count > 0) {
             switch (func_type->types[func_type->param_count]) {
