@@ -144,6 +144,19 @@ fail:
     return false;
 }
 
+static bool
+check_app_addr_and_convert_draft(JitCompContext *cc, WASMFunction *func_ctx,
+                                 bool is_str_arg, JitReg app_addr,
+                                 JitReg buf_size,
+                                 JitReg *p_native_addr_converted)
+{
+    /* build an instruction to call jit_check_app_addr_and_convert */
+
+    /* get the p_native_addr_converted */
+
+    return true;
+}
+
 bool
 jit_compile_op_call_draft(JitCompContext *cc, uint32 func_idx, bool tail_call)
 {
@@ -160,7 +173,9 @@ jit_compile_op_call_draft(JitCompContext *cc, uint32 func_idx, bool tail_call)
     /* new var */
     const char *signature = NULL;
     JitReg res = 0;
-    int32 i = 0;
+    int32 i, j = 0;
+    uint8 *param_types;
+    uint64 total_size;
 
     if (func_idx < wasm_module->import_function_count) {
         import_func_ptrs = get_import_func_ptrs_reg(jit_frame);
@@ -173,15 +188,60 @@ jit_compile_op_call_draft(JitCompContext *cc, uint32 func_idx, bool tail_call)
         GEN_INSN(LDPTR, native_func, import_func_ptrs,
                  NEW_CONST(I32, (uint32)sizeof(void *) * func_idx));
 
+        /* Initialize parameter types */
+        total_size = sizeof(uint8) * (uint64)(func_type->param_count + 1);
+        if (total_size >= UINT32_MAX
+            || !(param_types = wasm_runtime_malloc((uint32)total_size))) {
+            /* exception */
+            goto fail;
+        }
+
+        j = 0;
+
         for (i = 0; i < func_type->param_count; i++) {
             if (signature) {
+                JitReg native_addr, native_addr_size;
+                /* param type check and convert */
+                /* from wasm_runtime_common.c, we can know the type are*/
+                /* VALUE_TYPE_I32 */
+                /* VALUE_TYPE_I64 */
+                /* VALUE_TYPE_F32 */
+                /* VALUE_TYPE_F64 */
                 if (signature[i + 1] == '*' || signature[i + 1] == '$') {
-                    /*invoke the jit check_app_addr_and_convert */
+                    /*param_types=TO_LLVM_TYPE(func_type->types[i])*/
+                    param_types[j]
                 }
-                else {
-                    /* call native func directly*/
+                if (signature[i + 1] == '*') {
+                    /*invoke the jit check_app_addr_and_convert */
+                    if (signature[i + 2] == '~')
+                        // native_addr_size = NULL; /*wait for writing*/
+                        else
+                            // native_addr_size = NULL; /*wait for writing*/
+                            if (!check_app_addr_and_convert_draft(
+                                    cc, func, false, NULL, native_addr_size,
+                                    &native_addr))
+                        {
+                            goto fail;
+                        }
+                    /*param_value*/
+                }
+                else if (signature[i + 1] == '$') {
+                    native_addr_size = NULL; /*wait for writing*/
+                    if (!check_app_addr_and_convert_draft(cc, func, true, NULL,
+                                                          native_addr_size,
+                                                          &native_addr)) {
+                        goto fail;
+                    }
+                    /*param_values = native_addr;*/
                 }
             }
+        }
+
+        if (!signature) {
+        }
+        else {
+            /* call native func directly*/
+            GEN_INSN(CALLBC, res, 0, native_func);
         }
     }
     else {
@@ -192,7 +252,9 @@ jit_compile_op_call_draft(JitCompContext *cc, uint32 func_idx, bool tail_call)
         GEN_INSN(LDPTR, jitted_code, fast_jit_func_ptrs,
                  NEW_CONST(I32, (uint32)sizeof(void *) * jitted_func_idx));
 
-        /* add pre_call */
+        if (!pre_call(cc, func_type)) {
+            goto fail;
+        }
 
         func = wasm_module
                    ->functions[func_idx - wasm_module->import_function_count];
