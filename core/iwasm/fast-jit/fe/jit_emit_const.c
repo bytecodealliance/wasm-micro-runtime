@@ -10,6 +10,9 @@ bool
 jit_compile_op_i32_const(JitCompContext *cc, int32 i32_const)
 {
     JitReg value = NEW_CONST(I32, i32_const);
+    if (jit_get_last_error(cc)) {
+        goto fail;
+    }
     PUSH_I32(value);
     return true;
 fail:
