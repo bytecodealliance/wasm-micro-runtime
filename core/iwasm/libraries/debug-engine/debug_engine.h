@@ -108,7 +108,7 @@ void
 on_thread_stop_event(WASMDebugInstance *debug_inst, WASMExecEnv *exec_env);
 
 WASMDebugInstance *
-wasm_debug_instance_create(WASMCluster *cluster);
+wasm_debug_instance_create(WASMCluster *cluster, int32 port);
 
 void
 wasm_debug_instance_destroy(WASMCluster *cluster);
