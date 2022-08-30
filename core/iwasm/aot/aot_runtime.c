@@ -114,7 +114,7 @@ init_global_data(uint8 *global_data, uint8 type, WASMValue *initial_value)
             break;
 #if WASM_ENABLE_SIMD != 0
         case VALUE_TYPE_V128:
-            bh_memcpy_s(global_data, sizeof(V128), &initial_value->i64,
+            bh_memcpy_s(global_data, sizeof(V128), &initial_value->v128,
                         sizeof(V128));
             break;
 #endif
@@ -219,12 +219,13 @@ table_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
         if (i < module->import_table_count) {
             AOTImportTable *import_table = module->import_tables + i;
             tbl_inst->cur_size = import_table->table_init_size;
-            tbl_inst->max_size = aot_get_imp_tbl_data_slots(import_table);
+            tbl_inst->max_size =
+                aot_get_imp_tbl_data_slots(import_table, false);
         }
         else {
             AOTTable *table = module->tables + (i - module->import_table_count);
             tbl_inst->cur_size = table->table_init_size;
-            tbl_inst->max_size = aot_get_tbl_data_slots(table);
+            tbl_inst->max_size = aot_get_tbl_data_slots(table, false);
         }
 
         tbl_inst = aot_next_tbl_inst(tbl_inst);
@@ -879,10 +880,10 @@ create_exports(AOTModuleInstance *module_inst, AOTModule *module,
                 module_inst->export_global_count++;
                 break;
             case EXPORT_KIND_TABLE:
-                module_inst->export_tab_count++;
+                module_inst->export_table_count++;
                 break;
             case EXPORT_KIND_MEMORY:
-                module_inst->export_mem_count++;
+                module_inst->export_memory_count++;
                 break;
             default:
                 return false;
@@ -995,15 +996,16 @@ aot_instantiate(AOTModule *module, bool is_sub_inst, uint32 stack_size,
      */
     for (i = 0; i != module->import_table_count; ++i) {
         table_size += offsetof(AOTTableInstance, data);
-        table_size +=
-            (uint64)sizeof(uint32)
-            * (uint64)aot_get_imp_tbl_data_slots(module->import_tables + i);
+        table_size += (uint64)sizeof(uint32)
+                      * (uint64)aot_get_imp_tbl_data_slots(
+                          module->import_tables + i, false);
     }
 
     for (i = 0; i != module->table_count; ++i) {
         table_size += offsetof(AOTTableInstance, data);
-        table_size += (uint64)sizeof(uint32)
-                      * (uint64)aot_get_tbl_data_slots(module->tables + i);
+        table_size +=
+            (uint64)sizeof(uint32)
+            * (uint64)aot_get_tbl_data_slots(module->tables + i, false);
     }
     total_size += table_size;
 
@@ -1432,17 +1434,6 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
     }
     argc = func_type->param_cell_num;
 
-#if WASM_ENABLE_LAZY_JIT != 0
-    if (!function->u.func.func_ptr) {
-        AOTModule *aot_module = (AOTModule *)module_inst->aot_module.ptr;
-        if (!(function->u.func.func_ptr =
-                  aot_lookup_orcjit_func(aot_module->comp_ctx->orc_lazyjit,
-                                         module_inst, function->func_index))) {
-            return false;
-        }
-    }
-#endif
-
     /* set thread handle and stack boundary */
     wasm_exec_env_set_thread_info(exec_env);
 
@@ -1483,7 +1474,8 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
 
 #if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
         if (!aot_alloc_frame(exec_env, function->func_index)) {
-            wasm_runtime_free(argv1);
+            if (argv1 != argv1_buf)
+                wasm_runtime_free(argv1);
             return false;
         }
 #endif
@@ -1492,9 +1484,6 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
                                      func_type, NULL, NULL, argv1, argc, argv);
 
         if (!ret || aot_get_exception(module_inst)) {
-            if (argv1 != argv1_buf)
-                wasm_runtime_free(argv1);
-
             if (clear_wasi_proc_exit_exception(module_inst))
                 ret = true;
             else
@@ -1512,8 +1501,11 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
 #if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
         aot_free_frame(exec_env);
 #endif
-        if (!ret)
+        if (!ret) {
+            if (argv1 != argv1_buf)
+                wasm_runtime_free(argv1);
             return ret;
+        }
 
         /* Get extra result values */
         switch (func_type->types[func_type->param_count]) {
@@ -1542,9 +1534,9 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
             argv1 + argc + sizeof(void *) / sizeof(uint32) * ext_ret_count;
         bh_memcpy_s(argv_ret, sizeof(uint32) * cell_num, ext_rets,
                     sizeof(uint32) * cell_num);
+
         if (argv1 != argv1_buf)
             wasm_runtime_free(argv1);
-
         return true;
     }
     else {
@@ -2326,15 +2318,6 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
     func_type_idx = func_type_indexes[func_idx];
     func_type = aot_module->func_types[func_type_idx];
 
-#if WASM_ENABLE_LAZY_JIT != 0
-    if (func_idx >= aot_module->import_func_count && !func_ptrs[func_idx]) {
-        if (!(func_ptr = aot_lookup_orcjit_func(
-                  aot_module->comp_ctx->orc_lazyjit, module_inst, func_idx))) {
-            return false;
-        }
-    }
-#endif
-
     if (!(func_ptr = func_ptrs[func_idx])) {
         bh_assert(func_idx < aot_module->import_func_count);
         import_func = aot_module->import_funcs + func_idx;
@@ -2520,17 +2503,8 @@ aot_memory_init(AOTModuleInstance *module_inst, uint32 seg_index, uint32 offset,
     uint64 seg_len = 0;
 
     aot_module = (AOTModule *)module_inst->aot_module.ptr;
-    if (aot_module->is_jit_mode) {
-#if WASM_ENABLE_JIT != 0
-        seg_len =
-            aot_module->wasm_module->data_segments[seg_index]->data_length;
-        data = aot_module->wasm_module->data_segments[seg_index]->data;
-#endif
-    }
-    else {
-        seg_len = aot_module->mem_init_data_list[seg_index]->byte_count;
-        data = aot_module->mem_init_data_list[seg_index]->bytes;
-    }
+    seg_len = aot_module->mem_init_data_list[seg_index]->byte_count;
+    data = aot_module->mem_init_data_list[seg_index]->bytes;
 
     if (!aot_validate_app_addr(module_inst, dst, len))
         return false;
@@ -2551,18 +2525,9 @@ aot_data_drop(AOTModuleInstance *module_inst, uint32 seg_index)
 {
     AOTModule *aot_module = (AOTModule *)(module_inst->aot_module.ptr);
 
-    if (aot_module->is_jit_mode) {
-#if WASM_ENABLE_JIT != 0
-        aot_module->wasm_module->data_segments[seg_index]->data_length = 0;
-        /* Currently we can't free the dropped data segment
-            as they are stored in wasm bytecode */
-#endif
-    }
-    else {
-        aot_module->mem_init_data_list[seg_index]->byte_count = 0;
-        /* Currently we can't free the dropped data segment
-            as the mem_init_data_count is a continuous array */
-    }
+    aot_module->mem_init_data_list[seg_index]->byte_count = 0;
+    /* Currently we can't free the dropped data segment
+       as the mem_init_data_count is a continuous array */
     return true;
 }
 #endif /* WASM_ENABLE_BULK_MEMORY */

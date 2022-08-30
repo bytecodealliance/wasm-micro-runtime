@@ -918,22 +918,7 @@ wasm_runtime_load(uint8 *buf, uint32 size, char *error_buf,
     WASMModuleCommon *module_common = NULL;
 
     if (get_package_type(buf, size) == Wasm_Module_Bytecode) {
-#if WASM_ENABLE_AOT != 0 && WASM_ENABLE_JIT != 0
-        AOTModule *aot_module;
-        WASMModule *module = wasm_load(buf, size, error_buf, error_buf_size);
-        if (!module)
-            return NULL;
-
-        if (!(aot_module =
-                  aot_convert_wasm_module(module, error_buf, error_buf_size))) {
-            wasm_unload(module);
-            return NULL;
-        }
-
-        module_common = (WASMModuleCommon *)aot_module;
-        return register_module_with_null_name(module_common, error_buf,
-                                              error_buf_size);
-#elif WASM_ENABLE_INTERP != 0
+#if WASM_ENABLE_INTERP != 0
         module_common =
             (WASMModuleCommon *)wasm_load(buf, size, error_buf, error_buf_size);
         return register_module_with_null_name(module_common, error_buf,
@@ -4482,14 +4467,23 @@ interp_mark_all_externrefs(WASMModuleInstance *module_inst)
     }
 
     for (i = 0; i < module_inst->table_count; i++) {
+        uint8 elem_type = 0;
+        uint32 init_size, max_size;
+
         table = wasm_get_table_inst(module_inst, i);
-        if (table->elem_type == VALUE_TYPE_EXTERNREF) {
+        (void)wasm_runtime_get_table_inst_elem_type(
+            (WASMModuleInstanceCommon *)module_inst, i, &elem_type, &init_size,
+            &max_size);
+
+        if (elem_type == VALUE_TYPE_EXTERNREF) {
             table_data = (uint32 *)table->base_addr;
             for (j = 0; j < table->cur_size; j++) {
                 externref_idx = table_data[j];
                 mark_externref(externref_idx);
             }
         }
+        (void)init_size;
+        (void)max_size;
     }
 }
 #endif
@@ -4671,6 +4665,82 @@ wasm_runtime_dump_call_stack_to_buf(wasm_exec_env_t exec_env, char *buf,
 #endif /* end of WASM_ENABLE_DUMP_CALL_STACK */
 
 bool
+wasm_runtime_get_table_elem_type(const WASMModuleCommon *module_comm,
+                                 uint32 table_idx, uint8 *out_elem_type,
+                                 uint32 *out_min_size, uint32 *out_max_size)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module_comm->module_type == Wasm_Module_Bytecode) {
+        WASMModule *module = (WASMModule *)module_comm;
+
+        if (table_idx < module->import_table_count) {
+            WASMTableImport *import_table =
+                &((module->import_tables + table_idx)->u.table);
+            *out_elem_type = import_table->elem_type;
+            *out_min_size = import_table->init_size;
+            *out_max_size = import_table->max_size;
+        }
+        else {
+            WASMTable *table =
+                module->tables + (table_idx - module->import_table_count);
+            *out_elem_type = table->elem_type;
+            *out_min_size = table->init_size;
+            *out_max_size = table->max_size;
+        }
+        return true;
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module_comm->module_type == Wasm_Module_AoT) {
+        AOTModule *module = (AOTModule *)module_comm;
+
+        if (table_idx < module->import_table_count) {
+            AOTImportTable *import_table = module->import_tables + table_idx;
+            *out_elem_type = VALUE_TYPE_FUNCREF;
+            *out_min_size = import_table->table_init_size;
+            *out_max_size = import_table->table_max_size;
+        }
+        else {
+            AOTTable *table =
+                module->tables + (table_idx - module->import_table_count);
+            *out_elem_type = table->elem_type;
+            *out_min_size = table->table_init_size;
+            *out_max_size = table->table_max_size;
+        }
+        return true;
+    }
+#endif
+
+    return false;
+}
+
+bool
+wasm_runtime_get_table_inst_elem_type(
+    const WASMModuleInstanceCommon *module_inst_comm, uint32 table_idx,
+    uint8 *out_elem_type, uint32 *out_min_size, uint32 *out_max_size)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst_comm->module_type == Wasm_Module_Bytecode) {
+        WASMModuleInstance *module_inst =
+            (WASMModuleInstance *)module_inst_comm;
+        return wasm_runtime_get_table_elem_type(
+            (WASMModuleCommon *)module_inst->module, table_idx, out_elem_type,
+            out_min_size, out_max_size);
+    }
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (module_inst_comm->module_type == Wasm_Module_AoT) {
+        AOTModuleInstance *module_inst = (AOTModuleInstance *)module_inst_comm;
+        return wasm_runtime_get_table_elem_type(
+            (WASMModuleCommon *)module_inst->aot_module.ptr, table_idx,
+            out_elem_type, out_min_size, out_max_size);
+    }
+#endif
+    return false;
+}
+
+bool
 wasm_runtime_get_export_func_type(const WASMModuleCommon *module_comm,
                                   const WASMExport *export, WASMType **out)
 {
@@ -4810,50 +4880,8 @@ wasm_runtime_get_export_table_type(const WASMModuleCommon *module_comm,
                                    uint8 *out_elem_type, uint32 *out_min_size,
                                    uint32 *out_max_size)
 {
-#if WASM_ENABLE_INTERP != 0
-    if (module_comm->module_type == Wasm_Module_Bytecode) {
-        WASMModule *module = (WASMModule *)module_comm;
-
-        if (export->index < module->import_table_count) {
-            WASMTableImport *import_table =
-                &((module->import_tables + export->index)->u.table);
-            *out_elem_type = import_table->elem_type;
-            *out_min_size = import_table->init_size;
-            *out_max_size = import_table->max_size;
-        }
-        else {
-            WASMTable *table =
-                module->tables + (export->index - module->import_table_count);
-            *out_elem_type = table->elem_type;
-            *out_min_size = table->init_size;
-            *out_max_size = table->max_size;
-        }
-        return true;
-    }
-#endif
-
-#if WASM_ENABLE_AOT != 0
-    if (module_comm->module_type == Wasm_Module_AoT) {
-        AOTModule *module = (AOTModule *)module_comm;
-
-        if (export->index < module->import_table_count) {
-            AOTImportTable *import_table =
-                module->import_tables + export->index;
-            *out_elem_type = VALUE_TYPE_FUNCREF;
-            *out_min_size = import_table->table_init_size;
-            *out_max_size = import_table->table_max_size;
-        }
-        else {
-            AOTTable *table =
-                module->tables + (export->index - module->import_table_count);
-            *out_elem_type = table->elem_type;
-            *out_min_size = table->table_init_size;
-            *out_max_size = table->table_max_size;
-        }
-        return true;
-    }
-#endif
-    return false;
+    return wasm_runtime_get_table_elem_type(
+        module_comm, export->index, out_elem_type, out_min_size, out_max_size);
 }
 
 static inline bool
