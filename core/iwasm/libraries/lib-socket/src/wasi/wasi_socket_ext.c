@@ -59,7 +59,7 @@ sockaddr_to_wasi_addr(const struct sockaddr *sock_addr, socklen_t addrlen,
             ((struct sockaddr_in *)sock_addr)->sin_port, wasi_addr);
     }
     else if (AF_INET6 == sock_addr->sa_family) {
-        assert(sizeof(struct sockaddr_in6) <= addrlen);
+        assert(sizeof(struct sockaddr_in6) == addrlen);
         ipv6_addr_to_wasi_addr(
             (uint16_t *)((struct sockaddr_in6 *)sock_addr)->sin6_addr.s6_addr,
             ((struct sockaddr_in6 *)sock_addr)->sin6_port, wasi_addr);

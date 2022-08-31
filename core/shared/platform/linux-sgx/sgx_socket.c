@@ -567,7 +567,7 @@ os_socket_connect(bh_socket_t socket, const char *addr, int port)
 }
 
 int
-os_socket_create(bh_socket_t *sock, bool is_ipv4, int tcp_or_udp)
+os_socket_create(bh_socket_t *sock, bool is_ipv4, bool is_tcp)
 {
     int af;
 
@@ -583,13 +583,13 @@ os_socket_create(bh_socket_t *sock, bool is_ipv4, int tcp_or_udp)
         return BHT_ERROR;
     }
 
-    if (1 == tcp_or_udp) {
+    if (is_tcp) {
         if (ocall_socket(sock, af, SOCK_STREAM, IPPROTO_TCP) != SGX_SUCCESS) {
             TRACE_OCALL_FAIL();
             return -1;
         }
     }
-    else if (0 == tcp_or_udp) {
+    else {
         if (ocall_socket(sock, af, SOCK_DGRAM, 0) != SGX_SUCCESS) {
             TRACE_OCALL_FAIL();
             return -1;

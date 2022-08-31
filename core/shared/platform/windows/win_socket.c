@@ -37,7 +37,7 @@ deinit_winsock()
 }
 
 int
-os_socket_create(bh_socket_t *sock, bool is_ipv4, int tcp_or_udp)
+os_socket_create(bh_socket_t *sock, bool is_ipv4, bool is_tcp)
 {
     int af;
 
@@ -53,10 +53,10 @@ os_socket_create(bh_socket_t *sock, bool is_ipv4, int tcp_or_udp)
         return BHT_ERROR;
     }
 
-    if (1 == tcp_or_udp) {
+    if (is_tcp) {
         *sock = socket(af, SOCK_STREAM, IPPROTO_TCP);
     }
-    else if (0 == tcp_or_udp) {
+    else {
         *sock = socket(af, SOCK_DGRAM, 0);
     }
 

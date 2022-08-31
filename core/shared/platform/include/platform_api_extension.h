@@ -297,12 +297,12 @@ os_sem_unlink(const char *name);
  *
  * @param sock [OUTPUT] the pointer of socket
  * @param is_ipv4 true for IPv4, false for IPv6
- * @param tcp_or_udp 1 for tcp, 0 for udp
+ * @param is_tcp true for tcp, false for udp
  *
  * @return 0 if success, -1 otherwise
  */
 int
-os_socket_create(bh_socket_t *sock, bool is_ipv4, int tcp_or_udp);
+os_socket_create(bh_socket_t *sock, bool is_ipv4, bool is_tcp);
 
 /**
  * Assign the address and port to the socket

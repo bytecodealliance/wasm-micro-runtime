@@ -3129,8 +3129,8 @@ wasi_ssp_sock_open(
     __wasi_fd_t *sockfd)
 {
     bh_socket_t sock;
-    int tcp_or_udp = 0;
-    bool is_ipv4 = 0;
+    bool is_tcp = SOCKET_DGRAM == socktype ? false : true;
+    bool is_ipv4 = INET6 ? false : true;
     int ret;
     __wasi_filetype_t wasi_type;
     __wasi_rights_t max_base, max_inheriting;
@@ -3138,10 +3138,7 @@ wasi_ssp_sock_open(
 
     (void)poolfd;
 
-    tcp_or_udp = SOCKET_DGRAM == socktype ? 0 : 1;
-    is_ipv4 = af == INET6 ? 0 : 1;
-
-    ret = os_socket_create(&sock, is_ipv4, tcp_or_udp);
+    ret = os_socket_create(&sock, is_ipv4, is_tcp);
     if (BHT_OK != ret) {
         return convert_errno(errno);
     }

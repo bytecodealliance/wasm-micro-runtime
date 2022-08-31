@@ -35,7 +35,7 @@ textual_addr_to_sockaddr(const char *textual, int port, struct sockaddr *out)
 }
 
 int
-os_socket_create(bh_socket_t *sock, bool is_ipv4, int tcp_or_udp)
+os_socket_create(bh_socket_t *sock, bool is_ipv4, bool is_tcp)
 {
     int af = is_ipv4 ? AF_INET : AF_INET6;
 
@@ -43,10 +43,10 @@ os_socket_create(bh_socket_t *sock, bool is_ipv4, int tcp_or_udp)
         return BHT_ERROR;
     }
 
-    if (1 == tcp_or_udp) {
+    if (is_tcp) {
         *sock = socket(af, SOCK_STREAM, IPPROTO_TCP);
     }
-    else if (0 == tcp_or_udp) {
+    else {
         *sock = socket(af, SOCK_DGRAM, 0);
     }
 
