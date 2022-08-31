@@ -237,7 +237,7 @@ WASM_RUNTIME_API_EXTERN void
 wasm_runtime_free(void *ptr);
 
 /*
- * Get memory info, only pool mode supported now.
+ * Get memory info, only pool mode is supported now.
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_get_mem_alloc_info(mem_alloc_info_t *mem_alloc_info);
