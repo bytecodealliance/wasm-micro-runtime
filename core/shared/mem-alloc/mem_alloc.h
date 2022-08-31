@@ -45,6 +45,9 @@ mem_allocator_migrate(mem_allocator_t allocator, char *pool_buf_new,
 bool
 mem_allocator_is_heap_corrupted(mem_allocator_t allocator);
 
+bool
+mem_allocator_get_alloc_info(mem_allocator_t allocator, void *mem_alloc_info);
+
 #ifdef __cplusplus
 }
 #endif

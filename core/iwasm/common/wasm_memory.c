@@ -167,3 +167,12 @@ wasm_runtime_free(void *ptr)
 {
     wasm_runtime_free_internal(ptr);
 }
+
+bool
+wasm_runtime_get_mem_alloc_info(mem_alloc_info_t *mem_alloc_info)
+{
+    if (memory_mode == MEMORY_MODE_POOL) {
+        return mem_allocator_get_alloc_info(pool_allocator, mem_alloc_info);
+    }
+    return false;
+}
