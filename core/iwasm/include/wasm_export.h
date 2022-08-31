@@ -123,9 +123,9 @@ typedef union MemAllocOption {
 
 /* Memory pool info  */
 typedef struct mem_alloc_info_t {
-        uint32_t total_size;
-        uint32_t total_free_size;
-        uint32_t highmark_size;
+    uint32_t total_size;
+    uint32_t total_free_size;
+    uint32_t highmark_size;
 } mem_alloc_info_t;
 
 /* WASM runtime initialize arguments */
