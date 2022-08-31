@@ -1483,7 +1483,8 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
 
 #if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
         if (!aot_alloc_frame(exec_env, function->func_index)) {
-            wasm_runtime_free(argv1);
+            if (argv1 != argv1_buf)
+                wasm_runtime_free(argv1);
             return false;
         }
 #endif
@@ -1492,9 +1493,6 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
                                      func_type, NULL, NULL, argv1, argc, argv);
 
         if (!ret || aot_get_exception(module_inst)) {
-            if (argv1 != argv1_buf)
-                wasm_runtime_free(argv1);
-
             if (clear_wasi_proc_exit_exception(module_inst))
                 ret = true;
             else
@@ -1512,8 +1510,11 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
 #if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
         aot_free_frame(exec_env);
 #endif
-        if (!ret)
+        if (!ret) {
+            if (argv1 != argv1_buf)
+                wasm_runtime_free(argv1);
             return ret;
+        }
 
         /* Get extra result values */
         switch (func_type->types[func_type->param_count]) {
@@ -1542,9 +1543,9 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
             argv1 + argc + sizeof(void *) / sizeof(uint32) * ext_ret_count;
         bh_memcpy_s(argv_ret, sizeof(uint32) * cell_num, ext_rets,
                     sizeof(uint32) * cell_num);
+
         if (argv1 != argv1_buf)
             wasm_runtime_free(argv1);
-
         return true;
     }
     else {
