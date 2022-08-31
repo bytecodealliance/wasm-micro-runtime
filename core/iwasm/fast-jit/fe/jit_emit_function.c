@@ -335,6 +335,56 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
 
     POP_I32(elem_idx);
 
+    // check elem_idx
+
+    JitFrame *jit_frame = cc->jit_frame;
+    // get module instance
+    JitReg module_inst = get_module_inst_reg(jit_frame);
+    // get table_instance
+    JitReg table_inst = get_table_inst_reg(jit_frame, tbl_idx);
+    // get table_cur_size 
+    JitReg tbl_size = get_table_cur_size_reg(jit_frame, tbl_idx);
+    // tbl_sz = get_table_cur_size_reg(cc->jit_frame, tbl_idx);
+    GEN_INSN(CMP, cc->cmp_reg, elem_idx, tbl_size);
+    if (!jit_emit_exception(cc, JIT_EXCE_UNDEFINED_ELEMENT,
+                            JIT_OP_BGEU, cc->cmp_reg, NULL))
+        goto fail;
+    
+
+    // TODO: get func_idx and check if -1 or out of bounder
+    
+    // get func_idx
+    JitReg elem_idx_long = jit_cc_new_reg_I64(cc);
+    GEN_INSN(I32TOI64, elem_idx_long, elem_idx);
+
+    JitReg offset = jit_cc_new_reg_I64(cc);
+    GEN_INSN(MUL, offset, elem_idx_long, NEW_CONST(I64, sizeof(uint32)));
+
+    JitReg func_idx = jit_cc_new_reg_I32(cc);
+    JitReg tbl_data = get_table_data_reg(jit_frame, tbl_idx);
+    GEN_INSN(LDI32, func_idx, tbl_data, NEW_CONST(I32, offset));
+    
+    // // CMP func_idx with -1
+
+    GEN_INSN(CMP, cc->cmp_reg, func_idx, NEW_CONST(I32, -1));
+    if (!jit_emit_exception(cc, JIT_EXCE_INVALID_FUNCTION_INDEX,
+                            JIT_OP_BEQ, cc->cmp_reg, NULL))
+        goto fail;
+    
+    // get func_max_idx
+    JitReg fast_jit_func_ptrs_reg = get_fast_jit_func_ptrs_reg(jit_frame);
+    JitReg func_max_idx = jit_cc_new_reg_I32(cc);
+    // JitReg offset1 = jit_cc_new_reg_I64(cc);
+
+    GEN_INSN(LDI32, func_max_idx, fast_jit_func_ptrs_reg, 
+                NEW_CONST(I32, (uint32)sizeof(void *) * cc->cur_wasm_module->function_count));
+    // CMP func_idx with func_max_idx
+    GEN_INSN(CMP, cc->cmp_reg, func_idx, func_max_idx);
+    if (!jit_emit_exception(cc, JIT_EXCE_INVALID_FUNCTION_INDEX,
+                            JIT_OP_BGEU, cc->cmp_reg, NULL))
+        goto fail;
+
+
     func_type = cc->cur_wasm_module->types[type_idx];
     if (!pre_call(cc, func_type)) {
         goto fail;
