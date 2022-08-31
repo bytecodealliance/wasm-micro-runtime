@@ -297,7 +297,8 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
     bh_assert(argc >= 0);
     LOG_DEBUG("call a function \"%s\" with %d arguments", name, argc);
 
-    if (!(target_func = wasm_runtime_lookup_function(module_inst, name, NULL))) {
+    if (!(target_func =
+              wasm_runtime_lookup_function(module_inst, name, NULL))) {
         snprintf(buf, sizeof(buf), "lookup function %s failed", name);
         wasm_runtime_set_exception(module_inst, buf);
         goto fail;
