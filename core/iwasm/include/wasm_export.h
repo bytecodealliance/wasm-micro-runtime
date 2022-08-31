@@ -121,6 +121,13 @@ typedef union MemAllocOption {
 } MemAllocOption;
 #endif
 
+/* Memory pool info  */
+typedef struct mem_alloc_info_t {
+        uint32_t total_size;
+        uint32_t total_free_size;
+        uint32_t highmark_size;
+} mem_alloc_info_t;
+
 /* WASM runtime initialize arguments */
 typedef struct RuntimeInitArgs {
     mem_alloc_type_t mem_alloc_type;
@@ -228,6 +235,12 @@ wasm_runtime_realloc(void *ptr, unsigned int size);
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_free(void *ptr);
+
+/*
+ * Get memory info, only pool mode is supported now.
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_get_mem_alloc_info(mem_alloc_info_t *mem_alloc_info);
 
 /**
  * Get the package type of a buffer.
