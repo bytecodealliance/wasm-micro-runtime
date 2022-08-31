@@ -11,7 +11,7 @@
 #include "wasm_opcode.h"
 #include "wasm_runtime.h"
 
-static uint8 break_instr[] = { DEBUG_OP_BREAK };
+static const uint8 break_instr[] = { DEBUG_OP_BREAK };
 
 typedef struct WASMDebugEngine {
     struct WASMDebugEngine *next;

@@ -147,6 +147,19 @@ CSRCS += wasm_loader.c
 endif
 endif
 
+ifeq ($(CONFIG_INTERPRETERS_WAMR_DEBUG_INTERP),y)
+# Note: INTERPRETERS_WAMR_CLASSIC/INTERPRETERS_WAMR_THREAD_MGR
+# dependencies are already handled in NuttX apps Kconfig
+CFLAGS += -DWASM_ENABLE_DEBUG_INTERP=1
+CFLAGS += -I$(IWASM_ROOT)/libraries/debug-engine
+CSRCS += debug_engine.c
+CSRCS += gdbserver.c
+CSRCS += handler.c
+CSRCS += packets.c
+CSRCS += utils.c
+VPATH += $(IWASM_ROOT)/libraries/debug-engine
+endif
+
 ifeq ($(CONFIG_INTERPRETERS_WAMR_STACK_GUARD_SIZE),)
 CFLAGS += -DWASM_STACK_GUARD_SIZE=0
 else
