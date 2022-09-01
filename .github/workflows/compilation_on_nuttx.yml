@@ -45,6 +45,7 @@ jobs:
         nuttx_board_config : [
           "stm32f4discovery:nsh",
           "nucleo-h743zi:nsh",
+          "sabre-6quad:nsh",
         ]
         wamr_config_option: [
           "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_AOT=y\\nCONFIG_INTERPRETERS_WAMR_FAST=y\\nCONFIG_INTERPRETERS_WAMR_LIBC_BUILTIN=y\\n",
