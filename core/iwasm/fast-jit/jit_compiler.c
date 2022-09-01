@@ -64,7 +64,7 @@ apply_compiler_passes(JitCompContext *cc)
         cc->cur_pass_no = p - jit_globals.passes;
         bh_assert(*p < COMPILER_PASS_NUM);
 
-        if (!compiler_passes[*p].run(cc)) {
+        if (!compiler_passes[*p].run(cc) || jit_get_last_error(cc)) {
             LOG_VERBOSE("JIT: compilation failed at pass[%td] = %s\n",
                         p - jit_globals.passes, compiler_passes[*p].name);
             return false;

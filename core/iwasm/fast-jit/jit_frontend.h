@@ -513,6 +513,8 @@ set_local_f64(JitFrame *frame, int n, JitReg val)
 
 #define PUSH(jit_value, value_type)                        \
     do {                                                   \
+        if (!jit_value)                                    \
+            goto fail;                                     \
         if (!jit_cc_push_value(cc, value_type, jit_value)) \
             goto fail;                                     \
     } while (0)
