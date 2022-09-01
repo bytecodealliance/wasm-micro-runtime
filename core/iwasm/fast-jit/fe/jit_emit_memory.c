@@ -296,9 +296,7 @@ jit_compile_op_i64_load(JitCompContext *cc, uint32 align, uint32 offset,
             goto fail;
         }
     }
-    if (jit_get_last_error(cc)) {
-        return false;
-    }
+
     PUSH_I64(value);
     return true;
 fail:
