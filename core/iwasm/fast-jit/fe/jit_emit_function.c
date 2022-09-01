@@ -378,7 +378,7 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
     GEN_INSN(LDI32, func_count_reg, module_inst, 
                 NEW_CONST(I32, offsetof(WASMModuleInstance, function_count)));
     
-    // CMP func_idx with func_max_idx
+    // CMP func_idx with func_count_reg
     GEN_INSN(CMP, cc->cmp_reg, func_idx, func_count_reg);
     if (!jit_emit_exception(cc, JIT_EXCE_INVALID_FUNCTION_INDEX,
                             JIT_OP_BGTU, cc->cmp_reg, NULL))
