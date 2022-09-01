@@ -48,9 +48,8 @@ print_help()
     printf("                            thread-mgr will be enabled automatically\n");
     printf("  --enable-tail-call        Enable the post-MVP tail call feature\n");
     printf("  --disable-simd            Disable the post-MVP 128-bit SIMD feature:\n");
-    printf("                              currently 128-bit SIMD is only supported for x86-64 target,\n");
-    printf("                              and by default it is enabled in x86-64 target and disabled\n");
-    printf("                              in other targets\n");
+    printf("                              currently 128-bit SIMD is supported for x86-64 and aarch64 targets,\n");
+    printf("                              and by default it is enabled in them and disabled in other targets\n");
     printf("  --disable-ref-types       Disable the MVP reference types feature\n");
     printf("  --disable-aux-stack-check Disable auxiliary stack overflow/underflow check\n");
     printf("  --enable-dump-call-stack  Enable stack trace feature\n");

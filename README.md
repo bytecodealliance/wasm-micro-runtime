@@ -45,6 +45,7 @@ iwasm VM core
 - [WAMR-IDE (Experimental)](./test-tools/wamr-ide) to develop WebAssembly applications with build, run and debug support, ref to [document](./test-tools/wamr-ide)
 - [XIP (Execution In Place) support](./doc/xip.md), ref to [document](./doc/xip.md)
 - [Berkeley/Posix Socket support](./doc/socket_api.md), ref to [document](./doc/socket_api.md) and [sample](./samples/socket-api)
+- Language bindings: [Go](./language-bindings/go/README.md), [Python](./language-bindings/python/README.md)
 
 ### WASM post-MVP features
 - [wasm-c-api](https://github.com/WebAssembly/wasm-c-api), ref to [document](doc/wasm_c_api.md) and [sample](samples/wasm-c-api)
