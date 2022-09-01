@@ -365,17 +365,16 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
     JitReg tbl_data = get_table_data_reg(jit_frame, tbl_idx);
     GEN_INSN(LDI32, func_idx, tbl_data, offset);
     
-    // // CMP func_idx with -1
+    // CMP func_idx with -1
 
     GEN_INSN(CMP, cc->cmp_reg, func_idx, NEW_CONST(I32, -1));
     if (!jit_emit_exception(cc, JIT_EXCE_INVALID_FUNCTION_INDEX,
                             JIT_OP_BEQ, cc->cmp_reg, NULL))
         goto fail;
     
-    // // TODO:get func_count_reg
+    // // get func_count_reg
     JitReg fast_jit_func_ptrs_reg = get_fast_jit_func_ptrs_reg(jit_frame);
     JitReg func_count_reg = jit_cc_new_reg_I32(cc);
-    // JitReg offset1 = jit_cc_new_reg_I64(cc);
     GEN_INSN(LDI32, func_count_reg, module_inst, 
                 NEW_CONST(I32, offsetof(WASMModuleInstance, function_count)));
     
