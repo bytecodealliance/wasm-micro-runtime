@@ -46,6 +46,12 @@ jobs:
           "stm32f4discovery:nsh",
           "nucleo-h743zi:nsh",
         ]
+        wamr_config_option: [
+          "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_AOT=y\\nCONFIG_INTERPRETERS_WAMR_FAST=y\\nCONFIG_INTERPRETERS_WAMR_LIBC_BUILTIN=y\\n",
+          "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_AOT=y\\nCONFIG_INTERPRETERS_WAMR_FAST=y\\n",
+          "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_AOT=y\\nCONFIG_INTERPRETERS_WAMR_LIBC_BUILTIN=y\\n",
+          "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_AOT=y\\n",
+        ]
 
     steps:
       - name: Install Toolchains
@@ -70,7 +76,7 @@ jobs:
           path: apps/interpreters/wamr/wamr
 
       - name: Enable WAMR for NuttX
-        run: find nuttx/boards -name defconfig | xargs sed -i '$a\CONFIG_EOL_IS_CR=y\n\CONFIG_INTERPRETERS_WAMR=y\nCONFIG_INTERPRETERS_WAMR_AOT=y\nCONFIG_INTERPRETERS_WAMR_FAST=y\nCONFIG_INTERPRETERS_WAMR_LIBC_BUILTIN=y\n'
+        run: find nuttx/boards -name defconfig | xargs sed -i '$a\CONFIG_EOL_IS_CR=y\n${{ matrix.wamr_config_option }}'
 
       - name: Build
         run: |
