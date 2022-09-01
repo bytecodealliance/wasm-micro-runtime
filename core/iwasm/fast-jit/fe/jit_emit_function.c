@@ -360,9 +360,10 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
     JitReg offset = jit_cc_new_reg_I64(cc);
     GEN_INSN(MUL, offset, elem_idx_long, NEW_CONST(I64, sizeof(uint32)));
 
+    // TODO: BUG here
     JitReg func_idx = jit_cc_new_reg_I32(cc);
     JitReg tbl_data = get_table_data_reg(jit_frame, tbl_idx);
-    GEN_INSN(LDI32, func_idx, tbl_data, NEW_CONST(I32, offset));
+    GEN_INSN(LDI32, func_idx, tbl_data, offset);
     
     // // CMP func_idx with -1
 
@@ -371,19 +372,18 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
                             JIT_OP_BEQ, cc->cmp_reg, NULL))
         goto fail;
     
-    // get func_max_idx
+    // // TODO:get func_count_reg
     JitReg fast_jit_func_ptrs_reg = get_fast_jit_func_ptrs_reg(jit_frame);
-    JitReg func_max_idx = jit_cc_new_reg_I32(cc);
+    JitReg func_count_reg = jit_cc_new_reg_I32(cc);
     // JitReg offset1 = jit_cc_new_reg_I64(cc);
-
-    GEN_INSN(LDI32, func_max_idx, fast_jit_func_ptrs_reg, 
-                NEW_CONST(I32, (uint32)sizeof(void *) * cc->cur_wasm_module->function_count));
+    GEN_INSN(LDI32, func_count_reg, module_inst, 
+                NEW_CONST(I32, offsetof(WASMModuleInstance, function_count)));
+    
     // CMP func_idx with func_max_idx
-    GEN_INSN(CMP, cc->cmp_reg, func_idx, func_max_idx);
+    GEN_INSN(CMP, cc->cmp_reg, func_idx, func_count_reg);
     if (!jit_emit_exception(cc, JIT_EXCE_INVALID_FUNCTION_INDEX,
-                            JIT_OP_BGEU, cc->cmp_reg, NULL))
+                            JIT_OP_BGTU, cc->cmp_reg, NULL))
         goto fail;
-
 
     func_type = cc->cur_wasm_module->types[type_idx];
     if (!pre_call(cc, func_type)) {
