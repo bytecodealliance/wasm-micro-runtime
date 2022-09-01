@@ -285,11 +285,7 @@ moudle_destroyer(uint8 *buffer, uint32 size)
 #endif /* WASM_ENABLE_MULTI_MODULE */
 
 #if WASM_ENABLE_GLOBAL_HEAP_POOL != 0
-#ifdef __NuttX__
-static char global_heap_buf[WASM_GLOBAL_HEAP_SIZE * BH_KB] = { 0 };
-#else
-static char global_heap_buf[10 * 1024 * 1024] = { 0 };
-#endif
+static char global_heap_buf[WASM_GLOBAL_HEAP_SIZE] = { 0 };
 #endif
 
 int

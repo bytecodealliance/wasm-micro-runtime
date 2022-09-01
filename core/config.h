@@ -272,6 +272,26 @@
 #define BH_ENABLE_GC_VERIFY 0
 #endif
 
+/* Enable global heap pool if heap verification is enabled */
+#if BH_ENABLE_GC_VERIFY != 0
+#define WASM_ENABLE_GLOBAL_HEAP_POOL 1
+#endif
+
+/* Global heap pool */
+#ifndef WASM_ENABLE_GLOBAL_HEAP_POOL
+#define WASM_ENABLE_GLOBAL_HEAP_POOL 0
+#endif
+
+/* Global heap pool size in bytes */
+#ifndef WASM_GLOBAL_HEAP_SIZE
+#if WASM_ENABLE_SPEC_TEST != 0
+/* Spec test requires more heap pool size */
+#define WASM_GLOBAL_HEAP_SIZE (300 * 1024 * 1024)
+#else
+#define WASM_GLOBAL_HEAP_SIZE (10 * 1024 * 1024)
+#endif
+#endif
+
 /* Max app number of all modules */
 #define MAX_APP_INSTALLATIONS 3
 
