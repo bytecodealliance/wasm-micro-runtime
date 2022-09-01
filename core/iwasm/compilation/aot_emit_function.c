@@ -267,7 +267,7 @@ call_aot_invoke_native_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     return true;
 }
 
-#if WASM_ENABLE_LAZY_JIT != 0
+/*TODO: maybe no need to do that*/
 static bool
 lookup_orcjit_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                    LLVMValueRef func_idx, LLVMValueRef *p_func)
@@ -346,7 +346,7 @@ lookup_orcjit_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         return false;
     }
 
-    param_values[0] = I64_CONST((uintptr_t)comp_ctx->orc_lazyjit);
+    param_values[0] = I64_CONST((uintptr_t)comp_ctx->orc_jit);
     if (!param_values[0]) {
         aot_set_last_error("llvm build const failed.");
         return false;
@@ -390,7 +390,6 @@ lookup_orcjit_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     *p_func = phi;
     return true;
 }
-#endif
 
 #if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
 static bool
@@ -903,9 +902,6 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             }
         }
         else {
-#if WASM_ENABLE_LAZY_JIT == 0
-            func = func_ctxes[func_idx - import_func_count]->func;
-#else
             if (func_ctxes[func_idx - import_func_count] == func_ctx) {
                 /* recursive call */
                 func = func_ctx->func;
@@ -939,7 +935,6 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                     goto fail;
                 }
             }
-#endif
         }
 
         aot_func = func_ctxes[func_idx - import_func_count]->aot_func;
@@ -1568,26 +1563,10 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                                      + 16))
         goto fail;
 
-#if WASM_ENABLE_LAZY_JIT == 0
-    /* Load function pointer */
-    if (!(func_ptr = LLVMBuildInBoundsGEP2(comp_ctx->builder, OPQ_PTR_TYPE,
-                                           func_ctx->func_ptrs, &func_idx, 1,
-                                           "func_ptr_tmp"))) {
-        aot_set_last_error("llvm build inbounds gep failed.");
-        goto fail;
-    }
-
-    if (!(func_ptr = LLVMBuildLoad2(comp_ctx->builder, OPQ_PTR_TYPE, func_ptr,
-                                    "func_ptr"))) {
-        aot_set_last_error("llvm build load failed.");
-        goto fail;
-    }
-#else
     /* For LAZY JIT, each function belongs to its own module,
        we call aot_lookup_orcjit_func to get the func pointer */
     if (!lookup_orcjit_func(comp_ctx, func_ctx, func_idx, &func_ptr))
         goto fail;
-#endif
 
     if (!(llvm_func_type =
               LLVMFunctionType(ret_type, param_types, total_param_count, false))
