@@ -37,17 +37,27 @@ deinit_winsock()
 }
 
 int
-os_socket_create(bh_socket_t *sock, int tcp_or_udp)
+os_socket_create(bh_socket_t *sock, bool is_ipv4, bool is_tcp)
 {
+    int af;
+
     if (!sock) {
         return BHT_ERROR;
     }
 
-    if (1 == tcp_or_udp) {
-        *sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (is_ipv4) {
+        af = AF_INET;
     }
-    else if (0 == tcp_or_udp) {
-        *sock = socket(AF_INET, SOCK_DGRAM, 0);
+    else {
+        errno = ENOSYS;
+        return BHT_ERROR;
+    }
+
+    if (is_tcp) {
+        *sock = socket(af, SOCK_STREAM, IPPROTO_TCP);
+    }
+    else {
+        *sock = socket(af, SOCK_DGRAM, 0);
     }
 
     return (*sock == -1) ? BHT_ERROR : BHT_OK;
@@ -154,12 +164,28 @@ os_socket_shutdown(bh_socket_t socket)
 }
 
 int
-os_socket_inet_network(const char *cp, uint32 *out)
+os_socket_inet_network(bool is_ipv4, const char *cp,
+                       bh_inet_network_output_t *out)
 {
     if (!cp)
         return BHT_ERROR;
 
-    *out = inet_addr(cp);
+    if (is_ipv4) {
+        if (inet_pton(AF_INET, cp, &out->ipv4) != 1) {
+            return BHT_ERROR;
+        }
+        /* Note: ntohl(INADDR_NONE) == INADDR_NONE */
+        out->ipv4 = ntohl(out->ipv4);
+    }
+    else {
+        if (inet_pton(AF_INET6, cp, out->ipv6) != 1) {
+            return BHT_ERROR;
+        }
+        for (int i = 0; i < 8; i++) {
+            out->ipv6[i] = ntohs(out->ipv6[i]);
+        }
+    }
+
     return BHT_OK;
 }
 

@@ -92,7 +92,7 @@ swap16(uint8 *pData)
     *(pData + 1) = value;
 }
 
-static uint32
+uint32
 htonl(uint32 value)
 {
     uint32 ret;
@@ -111,7 +111,7 @@ ntohl(uint32 value)
     return htonl(value);
 }
 
-static uint16
+uint16
 htons(uint16 value)
 {
     uint16 ret;
@@ -132,57 +132,96 @@ ntohs(uint16 value)
 
 /* Coming from musl, under MIT license */
 static int
-__inet_aton(const char *s0, struct in_addr *dest)
+hexval(unsigned c)
 {
-    const char *s = s0;
-    unsigned char *d = (void *)dest;
-    unsigned long a[4] = { 0 };
-    char *z;
-    int i;
-
-    for (i = 0; i < 4; i++) {
-        a[i] = strtoul(s, &z, 0);
-        if (z == s || (*z && *z != '.') || !isdigit(*s))
-            return 0;
-        if (!*z)
-            break;
-        s = z + 1;
-    }
-    if (i == 4)
-        return 0;
-    switch (i) {
-        case 0:
-            a[1] = a[0] & 0xffffff;
-            a[0] >>= 24;
-        case 1:
-            a[2] = a[1] & 0xffff;
-            a[1] >>= 16;
-        case 2:
-            a[3] = a[2] & 0xff;
-            a[2] >>= 8;
-    }
-    for (i = 0; i < 4; i++) {
-        if (a[i] > 255)
-            return 0;
-        d[i] = a[i];
-    }
-    return 1;
+    if (c - '0' < 10)
+        return c - '0';
+    c |= 32;
+    if (c - 'a' < 6)
+        return c - 'a' + 10;
+    return -1;
 }
 
 /* Coming from musl, under MIT license */
 static int
-inet_addr(const char *p)
+inet_pton(int af, const char *restrict s, void *restrict a0)
 {
-    struct in_addr a;
-    if (!__inet_aton(p, &a))
+    uint16_t ip[8];
+    unsigned char *a = a0;
+    int i, j, v, d, brk = -1, need_v4 = 0;
+
+    if (af == AF_INET) {
+        for (i = 0; i < 4; i++) {
+            for (v = j = 0; j < 3 && isdigit(s[j]); j++)
+                v = 10 * v + s[j] - '0';
+            if (j == 0 || (j > 1 && s[0] == '0') || v > 255)
+                return 0;
+            a[i] = v;
+            if (s[j] == 0 && i == 3)
+                return 1;
+            if (s[j] != '.')
+                return 0;
+            s += j + 1;
+        }
+        return 0;
+    }
+    else if (af != AF_INET6) {
+        errno = EAFNOSUPPORT;
         return -1;
-    return a.s_addr;
+    }
+
+    if (*s == ':' && *++s != ':')
+        return 0;
+
+    for (i = 0;; i++) {
+        if (s[0] == ':' && brk < 0) {
+            brk = i;
+            ip[i & 7] = 0;
+            if (!*++s)
+                break;
+            if (i == 7)
+                return 0;
+            continue;
+        }
+        for (v = j = 0; j < 4 && (d = hexval(s[j])) >= 0; j++)
+            v = 16 * v + d;
+        if (j == 0)
+            return 0;
+        ip[i & 7] = v;
+        if (!s[j] && (brk >= 0 || i == 7))
+            break;
+        if (i == 7)
+            return 0;
+        if (s[j] != ':') {
+            if (s[j] != '.' || (i < 6 && brk < 0))
+                return 0;
+            need_v4 = 1;
+            i++;
+            break;
+        }
+        s += j + 1;
+    }
+    if (brk >= 0) {
+        memmove(ip + brk + 7 - i, ip + brk, 2 * (i + 1 - brk));
+        for (j = 0; j < 7 - i; j++)
+            ip[brk + j] = 0;
+    }
+    for (j = 0; j < 8; j++) {
+        *a++ = ip[j] >> 8;
+        *a++ = ip[j];
+    }
+    if (need_v4 && inet_pton(AF_INET, (void *)s, a - 4) <= 0)
+        return 0;
+    return 1;
 }
 
 static int
-inet_network(const char *p)
+inet_addr(const char *p)
 {
-    return ntohl(inet_addr(p));
+    struct in_addr a;
+    if (!inet_pton(AF_INET, p, &a))
+        return -1;
+    return a.s_addr;
 }
 /** In-enclave implementation of POSIX functions end **/
 
@@ -528,21 +567,30 @@ os_socket_connect(bh_socket_t socket, const char *addr, int port)
 }
 
 int
-os_socket_create(bh_socket_t *sock, int tcp_or_udp)
+os_socket_create(bh_socket_t *sock, bool is_ipv4, bool is_tcp)
 {
+    int af;
+
     if (!sock) {
         return BHT_ERROR;
     }
 
-    if (1 == tcp_or_udp) {
-        if (ocall_socket(sock, AF_INET, SOCK_STREAM, IPPROTO_TCP)
-            != SGX_SUCCESS) {
+    if (is_ipv4) {
+        af = AF_INET;
+    }
+    else {
+        errno = ENOSYS;
+        return BHT_ERROR;
+    }
+
+    if (is_tcp) {
+        if (ocall_socket(sock, af, SOCK_STREAM, IPPROTO_TCP) != SGX_SUCCESS) {
             TRACE_OCALL_FAIL();
             return -1;
         }
     }
-    else if (0 == tcp_or_udp) {
-        if (ocall_socket(sock, AF_INET, SOCK_DGRAM, 0) != SGX_SUCCESS) {
+    else {
+        if (ocall_socket(sock, af, SOCK_DGRAM, 0) != SGX_SUCCESS) {
             TRACE_OCALL_FAIL();
             return -1;
         }
@@ -557,12 +605,27 @@ os_socket_create(bh_socket_t *sock, int tcp_or_udp)
 }
 
 int
-os_socket_inet_network(const char *cp, uint32 *out)
+os_socket_inet_network(bool is_ipv4, const char *cp,
+                       bh_inet_network_output_t *out)
 {
     if (!cp)
         return BHT_ERROR;
 
-    *out = inet_network(cp);
+    if (is_ipv4) {
+        if (inet_pton(AF_INET, cp, &out->ipv4) != 1) {
+            return BHT_ERROR;
+        }
+        /* Note: ntohl(INADDR_NONE) == INADDR_NONE */
+        out->ipv4 = ntohl(out->ipv4);
+    }
+    else {
+        if (inet_pton(AF_INET6, cp, out->ipv6) != 1) {
+            return BHT_ERROR;
+        }
+        for (int i = 0; i < 8; i++) {
+            out->ipv6[i] = ntohs(out->ipv6[i]);
+        }
+    }
 
     return BHT_OK;
 }

@@ -31,21 +31,38 @@ ipv4_addr_to_wasi_addr(uint32_t addr_num, uint16_t port, __wasi_addr_t *out)
     out->addr.ip4.addr.n3 = (addr_num & 0x000000FF);
 }
 
+static void
+ipv6_addr_to_wasi_addr(uint16_t *addr, uint16_t port, __wasi_addr_t *out)
+{
+    out->kind = IPv6;
+    out->addr.ip6.port = ntohs(port);
+    out->addr.ip6.addr.n0 = ntohs(addr[0]);
+    out->addr.ip6.addr.n1 = ntohs(addr[1]);
+    out->addr.ip6.addr.n2 = ntohs(addr[2]);
+    out->addr.ip6.addr.n3 = ntohs(addr[3]);
+    out->addr.ip6.addr.h0 = ntohs(addr[4]);
+    out->addr.ip6.addr.h1 = ntohs(addr[5]);
+    out->addr.ip6.addr.h2 = ntohs(addr[6]);
+    out->addr.ip6.addr.h3 = ntohs(addr[7]);
+}
+
 static __wasi_errno_t
 sockaddr_to_wasi_addr(const struct sockaddr *sock_addr, socklen_t addrlen,
                       __wasi_addr_t *wasi_addr)
 {
     __wasi_errno_t ret = __WASI_ERRNO_SUCCESS;
     if (AF_INET == sock_addr->sa_family) {
-        assert(sizeof(struct sockaddr_in) == addrlen);
+        assert(sizeof(struct sockaddr_in) <= addrlen);
 
         ipv4_addr_to_wasi_addr(
             ((struct sockaddr_in *)sock_addr)->sin_addr.s_addr,
             ((struct sockaddr_in *)sock_addr)->sin_port, wasi_addr);
     }
     else if (AF_INET6 == sock_addr->sa_family) {
-        // TODO: IPV6
-        ret = __WASI_ERRNO_AFNOSUPPORT;
+        assert(sizeof(struct sockaddr_in6) == addrlen);
+        ipv6_addr_to_wasi_addr(
+            (uint16_t *)((struct sockaddr_in6 *)sock_addr)->sin6_addr.s6_addr,
+            ((struct sockaddr_in6 *)sock_addr)->sin6_port, wasi_addr);
     }
     else {
         ret = __WASI_ERRNO_AFNOSUPPORT;
@@ -78,8 +95,26 @@ wasi_addr_to_sockaddr(const __wasi_addr_t *wasi_addr,
             break;
         }
         case IPv6:
-            // TODO: IPV6
-            return __WASI_ERRNO_AFNOSUPPORT;
+        {
+            struct sockaddr_in6 sock_addr_in6 = { 0 };
+            uint16_t *addr_buf = (uint16_t *)sock_addr_in6.sin6_addr.s6_addr;
+
+            addr_buf[0] = htons(wasi_addr->addr.ip6.addr.n0);
+            addr_buf[1] = htons(wasi_addr->addr.ip6.addr.n1);
+            addr_buf[2] = htons(wasi_addr->addr.ip6.addr.n2);
+            addr_buf[3] = htons(wasi_addr->addr.ip6.addr.n3);
+            addr_buf[4] = htons(wasi_addr->addr.ip6.addr.h0);
+            addr_buf[5] = htons(wasi_addr->addr.ip6.addr.h1);
+            addr_buf[6] = htons(wasi_addr->addr.ip6.addr.h2);
+            addr_buf[7] = htons(wasi_addr->addr.ip6.addr.h3);
+
+            sock_addr_in6.sin6_family = AF_INET6;
+            sock_addr_in6.sin6_port = htons(wasi_addr->addr.ip6.port);
+            memcpy(sock_addr, &sock_addr_in6, sizeof(sock_addr_in6));
+
+            *addrlen = sizeof(sock_addr_in6);
+            break;
+        }
         default:
             return __WASI_ERRNO_AFNOSUPPORT;
     }

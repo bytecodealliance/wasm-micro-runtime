@@ -9,28 +9,45 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
-static void
-textual_addr_to_sockaddr(const char *textual, int port, struct sockaddr_in *out)
+static bool
+textual_addr_to_sockaddr(const char *textual, int port, struct sockaddr *out)
 {
+    struct sockaddr_in *v4;
+    struct sockaddr_in6 *v6;
+
     assert(textual);
 
-    out->sin_family = AF_INET;
-    out->sin_port = htons(port);
-    out->sin_addr.s_addr = inet_addr(textual);
+    v4 = (struct sockaddr_in *)out;
+    if (inet_pton(AF_INET, textual, &v4->sin_addr.s_addr) == 1) {
+        v4->sin_family = AF_INET;
+        v4->sin_port = htons(port);
+        return true;
+    }
+
+    v6 = (struct sockaddr_in6 *)out;
+    if (inet_pton(AF_INET6, textual, &v6->sin6_addr.s6_addr) == 1) {
+        v6->sin6_family = AF_INET6;
+        v6->sin6_port = htons(port);
+        return true;
+    }
+
+    return false;
 }
 
 int
-os_socket_create(bh_socket_t *sock, int tcp_or_udp)
+os_socket_create(bh_socket_t *sock, bool is_ipv4, bool is_tcp)
 {
+    int af = is_ipv4 ? AF_INET : AF_INET6;
+
     if (!sock) {
         return BHT_ERROR;
     }
 
-    if (1 == tcp_or_udp) {
-        *sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (is_tcp) {
+        *sock = socket(af, SOCK_STREAM, IPPROTO_TCP);
     }
-    else if (0 == tcp_or_udp) {
-        *sock = socket(AF_INET, SOCK_DGRAM, 0);
+    else {
+        *sock = socket(af, SOCK_DGRAM, 0);
     }
 
     return (*sock == -1) ? BHT_ERROR : BHT_OK;
@@ -39,7 +56,7 @@ os_socket_create(bh_socket_t *sock, int tcp_or_udp)
 int
 os_socket_bind(bh_socket_t socket, const char *host, int *port)
 {
-    struct sockaddr_in addr;
+    struct sockaddr_storage addr;
     struct linger ling;
     socklen_t socklen;
     int ret;
@@ -60,7 +77,9 @@ os_socket_bind(bh_socket_t socket, const char *host, int *port)
         goto fail;
     }
 
-    textual_addr_to_sockaddr(host, *port, &addr);
+    if (!textual_addr_to_sockaddr(host, *port, (struct sockaddr *)&addr)) {
+        goto fail;
+    }
 
     ret = bind(socket, (struct sockaddr *)&addr, sizeof(addr));
     if (ret < 0) {
@@ -72,7 +91,9 @@ os_socket_bind(bh_socket_t socket, const char *host, int *port)
         goto fail;
     }
 
-    *port = ntohs(addr.sin_port);
+    *port = ntohs(addr.ss_family == AF_INET
+                      ? ((struct sockaddr_in *)&addr)->sin_port
+                      : ((struct sockaddr_in6 *)&addr)->sin6_port);
 
     return BHT_OK;
 
@@ -113,7 +134,7 @@ os_socket_accept(bh_socket_t server_sock, bh_socket_t *sock, void *addr,
     struct sockaddr addr_tmp;
     unsigned int len = sizeof(struct sockaddr);
 
-    *sock = accept(server_sock, (struct sockaddr *)&addr_tmp, &len);
+    *sock = accept(server_sock, &addr_tmp, &len);
 
     if (*sock < 0) {
         return BHT_ERROR;
@@ -125,11 +146,13 @@ os_socket_accept(bh_socket_t server_sock, bh_socket_t *sock, void *addr,
 int
 os_socket_connect(bh_socket_t socket, const char *addr, int port)
 {
-    struct sockaddr_in addr_in = { 0 };
-    socklen_t addr_len = sizeof(struct sockaddr_in);
+    struct sockaddr_storage addr_in = { 0 };
+    socklen_t addr_len = sizeof(struct sockaddr_storage);
     int ret = 0;
 
-    textual_addr_to_sockaddr(addr, port, &addr_in);
+    if (!textual_addr_to_sockaddr(addr, port, (struct sockaddr *)&addr_in)) {
+        return BHT_ERROR;
+    }
 
     ret = connect(socket, (struct sockaddr *)&addr_in, addr_len);
     if (ret == -1) {
@@ -166,13 +189,28 @@ os_socket_shutdown(bh_socket_t socket)
 }
 
 int
-os_socket_inet_network(const char *cp, uint32 *out)
+os_socket_inet_network(bool is_ipv4, const char *cp,
+                       bh_inet_network_output_t *out)
 {
     if (!cp)
         return BHT_ERROR;
 
-    /* Note: ntohl(INADDR_NONE) == INADDR_NONE */
-    *out = ntohl(inet_addr(cp));
+    if (is_ipv4) {
+        if (inet_pton(AF_INET, cp, &out->ipv4) != 1) {
+            return BHT_ERROR;
+        }
+        /* Note: ntohl(INADDR_NONE) == INADDR_NONE */
+        out->ipv4 = ntohl(out->ipv4);
+    }
+    else {
+        if (inet_pton(AF_INET6, cp, out->ipv6) != 1) {
+            return BHT_ERROR;
+        }
+        for (int i = 0; i < 8; i++) {
+            out->ipv6[i] = ntohs(out->ipv6[i]);
+        }
+    }
+
     return BHT_OK;
 }
 

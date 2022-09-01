@@ -59,7 +59,7 @@ wasm_create_gdbserver(const char *host, int32 *port)
 
     memset(server->receive_ctx, 0, sizeof(rsp_recv_context_t));
 
-    if (0 != os_socket_create(&listen_fd, 1)) {
+    if (0 != os_socket_create(&listen_fd, true, true)) {
         LOG_ERROR("wasm gdb server error: create socket failed");
         goto fail;
     }

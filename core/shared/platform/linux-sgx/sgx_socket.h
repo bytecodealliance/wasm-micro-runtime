@@ -47,6 +47,7 @@ extern "C" {
 
 /* Address families.  */
 #define AF_INET 2 /* IP protocol family.  */
+#define AF_INET6 10 /* IP version 6.  */
 
 /* Standard well-defined IP protocols.  */
 #define IPPROTO_TCP 6 /* Transmission Control Protocol.  */
@@ -97,6 +98,12 @@ struct sockaddr {
 
 uint32_t
 ntohl(uint32_t value);
+
+uint32_t
+htonl(uint32_t value);
+
+uint16_t
+htons(uint16_t value);
 
 int
 socket(int domain, int type, int protocol);
