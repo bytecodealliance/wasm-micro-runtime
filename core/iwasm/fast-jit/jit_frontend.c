@@ -707,9 +707,6 @@ form_and_translate_func(JitCompContext *cc)
                 JitReg module_inst_reg = jit_cc_new_reg_ptr(cc);
                 GEN_INSN(LDPTR, module_inst_reg, cc->exec_env_reg,
                          NEW_CONST(I32, offsetof(WASMExecEnv, module_inst)));
-                if (jit_get_last_error(cc)) {
-                    return false;
-                }
                 insn = GEN_INSN(
                     CALLNATIVE, 0,
                     NEW_CONST(PTR, (uintptr_t)jit_set_exception_with_id), 2);
@@ -734,6 +731,9 @@ form_and_translate_func(JitCompContext *cc)
                 *(jit_annl_end_bcip(cc, cc->exit_label)) =
                     cc->cur_wasm_module->load_addr;
 
+    if (jit_get_last_error(cc)) {
+        return false;
+    }
     return true;
 }
 

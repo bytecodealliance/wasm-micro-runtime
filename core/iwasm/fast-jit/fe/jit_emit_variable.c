@@ -61,9 +61,7 @@ jit_compile_op_get_local(JitCompContext *cc, uint32 local_idx)
             bh_assert(0);
             break;
     }
-    if (jit_get_last_error(cc)) {
-        goto fail;
-    }
+
     PUSH(value, local_type);
     return true;
 fail:

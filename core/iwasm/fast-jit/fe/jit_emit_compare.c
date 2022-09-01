@@ -96,10 +96,6 @@ jit_compile_op_compare_integer(JitCompContext *cc, IntCond cond, bool is64Bit)
         }
     }
 
-    if (jit_get_last_error(cc)) {
-        goto fail;
-    }
-
     PUSH_I32(res);
     return true;
 fail:
