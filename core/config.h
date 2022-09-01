@@ -135,6 +135,10 @@
 #define WASM_ENABLE_LIBC_EMCC 0
 #endif
 
+#ifndef WASM_ENABLE_LIB_RATS
+#define WASM_ENABLE_LIB_RATS 0
+#endif
+
 #ifndef WASM_ENABLE_LIB_PTHREAD
 #define WASM_ENABLE_LIB_PTHREAD 0
 #endif
