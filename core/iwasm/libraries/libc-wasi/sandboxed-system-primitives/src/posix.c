@@ -3403,7 +3403,7 @@ addr_pool_insert(struct addr_pool *addr_pool, const char *addr, uint8 mask)
 {
     struct addr_pool *cur = addr_pool;
     struct addr_pool *next;
-    bh_inet_network_output_t target;
+    bh_ip_addr_buffer_t target;
 
     if (!addr_pool) {
         return false;
@@ -3464,7 +3464,7 @@ init_address_mask(uint8_t *buf, size_t buflen, size_t mask)
 /* target must be in network byte order */
 static bool
 compare_address(const struct addr_pool *addr_pool_entry,
-                bh_inet_network_output_t *target)
+                bh_ip_addr_buffer_t *target)
 {
     uint8_t maskbuf[16] = { 0 };
     uint8_t basebuf[16] = { 0 };
@@ -3515,7 +3515,7 @@ bool
 addr_pool_search(struct addr_pool *addr_pool, const char *addr)
 {
     struct addr_pool *cur = addr_pool->next;
-    bh_inet_network_output_t target;
+    bh_ip_addr_buffer_t target;
     __wasi_addr_type_t addr_type;
 
     if (os_socket_inet_network(true, addr, &target) != BHT_OK) {

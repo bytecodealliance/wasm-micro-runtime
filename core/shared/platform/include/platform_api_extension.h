@@ -417,7 +417,7 @@ typedef union {
     uint32 ipv4;
     uint16 ipv6[8];
     uint8_t data[0];
-} bh_inet_network_output_t;
+} bh_ip_addr_buffer_t;
 
 /**
  * converts cp into a number in host byte order suitable for use as
@@ -436,7 +436,7 @@ typedef union {
  */
 int
 os_socket_inet_network(bool is_ipv4, const char *cp,
-                       bh_inet_network_output_t *out);
+                       bh_ip_addr_buffer_t *out);
 
 typedef struct {
     uint8_t addr[16];

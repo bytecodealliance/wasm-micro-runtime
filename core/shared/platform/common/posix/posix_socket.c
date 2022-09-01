@@ -190,7 +190,7 @@ os_socket_shutdown(bh_socket_t socket)
 
 int
 os_socket_inet_network(bool is_ipv4, const char *cp,
-                       bh_inet_network_output_t *out)
+                       bh_ip_addr_buffer_t *out)
 {
     if (!cp)
         return BHT_ERROR;
