@@ -69,6 +69,13 @@ mem_allocator_is_heap_corrupted(mem_allocator_t allocator)
     return gc_is_heap_corrupted((gc_handle_t)allocator);
 }
 
+bool
+mem_allocator_get_alloc_info(mem_allocator_t allocator, void *mem_alloc_info)
+{
+    gc_heap_stats((gc_handle_t)allocator, mem_alloc_info, 3);
+    return true;
+}
+
 #else /* else of DEFAULT_MEM_ALLOCATOR */
 
 #include "tlsf/tlsf.h"

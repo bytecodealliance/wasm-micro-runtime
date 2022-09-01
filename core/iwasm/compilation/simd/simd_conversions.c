@@ -135,9 +135,9 @@ simd_integer_narrow_common(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         LLVM_CONST(i32_fourteen), LLVM_CONST(i32_fifteen),
     };
 
-    if (!(trunc_type[0] == LLVMVectorType(INT8_TYPE, 8))
-        || !(trunc_type[1] == LLVMVectorType(INT16_TYPE, 4))
-        || !(trunc_type[2] == LLVMVectorType(I32_TYPE, 2))) {
+    if (!(trunc_type[0] = LLVMVectorType(INT8_TYPE, 8))
+        || !(trunc_type[1] = LLVMVectorType(INT16_TYPE, 4))
+        || !(trunc_type[2] = LLVMVectorType(I32_TYPE, 2))) {
         HANDLE_FAILURE("LLVMVectorType");
         return false;
     }
