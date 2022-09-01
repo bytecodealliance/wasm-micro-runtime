@@ -233,112 +233,9 @@ wasm_application_execute_main(WASMModuleInstanceCommon *module_inst, int32 argc,
     return (ret && !wasm_runtime_get_exception(module_inst)) ? true : false;
 }
 
-#if WASM_ENABLE_MULTI_MODULE != 0
-static WASMModuleInstance *
-get_sub_module_inst(const WASMModuleInstance *parent_module_inst,
-                    const char *sub_module_name)
-{
-    WASMSubModInstNode *node =
-        bh_list_first_elem(parent_module_inst->sub_module_inst_list);
-
-    while (node && strcmp(node->module_name, sub_module_name)) {
-        node = bh_list_elem_next(node);
-    }
-    return node ? node->module_inst : NULL;
-}
-
-static bool
-parse_function_name(char *orig_function_name, char **p_module_name,
-                    char **p_function_name)
-{
-    if (orig_function_name[0] != '$') {
-        *p_module_name = NULL;
-        *p_function_name = orig_function_name;
-        return true;
-    }
-
-    /**
-     * $module_name$function_name\0
-     *  ===>
-     * module_name\0function_name\0
-     *  ===>
-     * module_name
-     * function_name
-     */
-    char *p1 = orig_function_name;
-    char *p2 = strchr(p1 + 1, '$');
-    if (!p2) {
-        LOG_DEBUG("can not parse the incoming function name");
-        return false;
-    }
-
-    *p_module_name = p1 + 1;
-    *p2 = '\0';
-    *p_function_name = p2 + 1;
-    return strlen(*p_module_name) && strlen(*p_function_name);
-}
-#endif
-
 /**
  * Implementation of wasm_application_execute_func()
  */
-
-static bool
-resolve_function(WASMModuleInstanceCommon *module_inst, const char *name,
-                 WASMFunctionInstanceCommon **out_func,
-                 WASMModuleInstanceCommon **out_module_inst)
-{
-    WASMFunctionInstanceCommon *target_func = NULL;
-    WASMModuleInstanceCommon *target_inst = NULL;
-
-#if WASM_ENABLE_MULTI_MODULE != 0
-    char *function_name = NULL;
-    char *orig_name = NULL;
-    char *sub_module_name = NULL;
-    uint32 length = (uint32)(strlen(name) + 1);
-
-    orig_name = runtime_malloc(sizeof(char) * length, NULL, NULL, 0);
-    if (!orig_name) {
-        goto LEAVE;
-    }
-
-    strncpy(orig_name, name, length);
-
-    if (!parse_function_name(orig_name, &sub_module_name, &function_name)) {
-        goto LEAVE;
-    }
-
-    LOG_DEBUG("%s -> %s and %s", name, sub_module_name, function_name);
-
-    if (sub_module_name) {
-        target_inst = (WASMModuleInstanceCommon *)get_sub_module_inst(
-            (WASMModuleInstance *)module_inst, sub_module_name);
-        if (!target_inst) {
-            LOG_DEBUG("can not find a sub module named %s", sub_module_name);
-            goto LEAVE;
-        }
-    }
-    else {
-        target_inst = module_inst;
-    }
-#else
-    const char *function_name = name;
-    target_inst = module_inst;
-#endif
-
-    target_func =
-        wasm_runtime_lookup_function(target_inst, function_name, NULL);
-
-#if WASM_ENABLE_MULTI_MODULE != 0
-LEAVE:
-    if (orig_name)
-        wasm_runtime_free(orig_name);
-#endif
-
-    *out_func = target_func;
-    *out_module_inst = target_inst;
-    return target_func;
-}
 
 union ieee754_float {
     float f;
@@ -386,7 +283,6 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
              int32 argc, char *argv[])
 {
     WASMFunctionInstanceCommon *target_func;
-    WASMModuleInstanceCommon *target_inst;
     WASMType *type = NULL;
     WASMExecEnv *exec_env = NULL;
     uint32 argc1, *argv1 = NULL, cell_num = 0, j, k = 0;
@@ -401,13 +297,14 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
     bh_assert(argc >= 0);
     LOG_DEBUG("call a function \"%s\" with %d arguments", name, argc);
 
-    if (!resolve_function(module_inst, name, &target_func, &target_inst)) {
+    if (!(target_func =
+              wasm_runtime_lookup_function(module_inst, name, NULL))) {
         snprintf(buf, sizeof(buf), "lookup function %s failed", name);
         wasm_runtime_set_exception(module_inst, buf);
         goto fail;
     }
 
-    module_type = target_inst->module_type;
+    module_type = module_inst->module_type;
     type = wasm_runtime_get_function_type(target_func, module_type);
 
     if (!type) {
@@ -439,7 +336,7 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
 #endif
 
     total_size = sizeof(uint32) * (uint64)(cell_num > 2 ? cell_num : 2);
-    if ((!(argv1 = runtime_malloc((uint32)total_size, target_inst, NULL, 0)))) {
+    if ((!(argv1 = runtime_malloc((uint32)total_size, module_inst, NULL, 0)))) {
         goto fail;
     }
 

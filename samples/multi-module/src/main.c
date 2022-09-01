@@ -122,22 +122,6 @@ main()
         "call \"C5\", it will be failed since it is a export function, ===> ");
     wasm_application_execute_func(module_inst, "C5", 0, args);
 
-    /* call functions of mB */
-    printf("call \"mB.B1\", it will return 0x15:i32, ===> ");
-    wasm_application_execute_func(module_inst, "$mB$B1", 0, args);
-    printf("call \"mB.B2\", it will call A1() of mA and return 0xb:i32, ===> ");
-    wasm_application_execute_func(module_inst, "$mB$B2", 0, args);
-    printf("call \"mB.B3\", it will be failed since it is a export function, "
-           "===> ");
-    wasm_application_execute_func(module_inst, "$mB$B3", 0, args);
-
-    /* call functions of mA */
-    printf("call \"mA.A1\", it will return 0xb:i32, ===>");
-    wasm_application_execute_func(module_inst, "$mA$A1", 0, args);
-    printf("call \"mA.A2\", it will be failed since it is a export function, "
-           "===> ");
-    wasm_application_execute_func(module_inst, "$mA$A2", 0, args);
-    printf("----------------------------------------\n\n");
     ret = true;
 
     printf("- wasm_runtime_deinstantiate\n");
