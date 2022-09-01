@@ -722,7 +722,8 @@ main(int argc, char *argv[])
         else if (!strncmp(argv[0], "--version", 9)) {
             uint64_t major = 0, minor = 0, patch = 0;
             get_version(&major, &minor, &patch);
-            printf("iwasm %lu.%lu.%lu\n", major, minor, patch);
+            printf("iwasm %" PRIu64 ".%" PRIu64 ".%" PRIu64 "\n", major, minor,
+                   patch);
             return 0;
         }
         else
