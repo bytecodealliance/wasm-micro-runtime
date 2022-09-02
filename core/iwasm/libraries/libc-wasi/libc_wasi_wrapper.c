@@ -1137,6 +1137,9 @@ wasi_sock_get_recv_timeout(wasm_exec_env_t exec_env, wasi_fd_t fd,
     if (!wasi_ctx)
         return __WASI_EACCES;
 
+    if (!validate_native_addr(timeout_us, sizeof(uint64_t)))
+        return __WASI_EINVAL;
+
     curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
 
     return wasmtime_ssp_sock_get_recv_timeout(curfds, fd, timeout_us);
@@ -1171,6 +1174,9 @@ wasi_sock_get_send_timeout(wasm_exec_env_t exec_env, wasi_fd_t fd,
 
     if (!wasi_ctx)
         return __WASI_EACCES;
+
+    if (!validate_native_addr(timeout_us, sizeof(uint64_t)))
+        return __WASI_EINVAL;
 
     curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
 
@@ -1218,7 +1224,7 @@ wasi_sock_set_recv_buf_size(wasm_exec_env_t exec_env, wasi_fd_t fd,
 
 static wasi_errno_t
 wasi_sock_set_recv_timeout(wasm_exec_env_t exec_env, wasi_fd_t fd,
-                           uint64_t *timeout_us)
+                           uint64_t timeout_us)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
@@ -1229,7 +1235,7 @@ wasi_sock_set_recv_timeout(wasm_exec_env_t exec_env, wasi_fd_t fd,
 
     curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
 
-    return wasmtime_ssp_sock_set_recv_timeout(curfds, fd, *timeout_us);
+    return wasmtime_ssp_sock_set_recv_timeout(curfds, fd, timeout_us);
 }
 
 static wasi_errno_t
@@ -1253,7 +1259,7 @@ wasi_sock_set_send_buf_size(wasm_exec_env_t exec_env, wasi_fd_t fd,
 
 static wasi_errno_t
 wasi_sock_set_send_timeout(wasm_exec_env_t exec_env, wasi_fd_t fd,
-                           uint64_t *timeout_us)
+                           uint64_t timeout_us)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
@@ -1264,7 +1270,7 @@ wasi_sock_set_send_timeout(wasm_exec_env_t exec_env, wasi_fd_t fd,
 
     curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
 
-    return wasmtime_ssp_sock_set_send_timeout(curfds, fd, *timeout_us);
+    return wasmtime_ssp_sock_set_send_timeout(curfds, fd, timeout_us);
 }
 
 static wasi_errno_t
@@ -1501,11 +1507,11 @@ static NativeSymbol native_symbols_libc_wasi[] = {
     REG_NATIVE_FUNC(sock_recv, "(i*ii**)i"),
     REG_NATIVE_FUNC(sock_send, "(i*ii*)i"),
     REG_NATIVE_FUNC(sock_set_recv_buf_size, "(ii)i"),
-    REG_NATIVE_FUNC(sock_set_recv_timeout, "(i*)i"),
+    REG_NATIVE_FUNC(sock_set_recv_timeout, "(iI)i"),
     REG_NATIVE_FUNC(sock_set_reuse_addr, "(ii)i"),
     REG_NATIVE_FUNC(sock_set_reuse_port, "(ii)i"),
     REG_NATIVE_FUNC(sock_set_send_buf_size, "(ii)i"),
-    REG_NATIVE_FUNC(sock_set_send_timeout, "(i*)i"),
+    REG_NATIVE_FUNC(sock_set_send_timeout, "(iI)i"),
     REG_NATIVE_FUNC(sock_shutdown, "(ii)i"),
     REG_NATIVE_FUNC(sched_yield, "()i"),
 };
