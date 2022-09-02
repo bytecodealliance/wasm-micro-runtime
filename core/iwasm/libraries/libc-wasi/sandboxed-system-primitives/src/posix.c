@@ -3130,7 +3130,7 @@ wasi_ssp_sock_open(
 {
     bh_socket_t sock;
     bool is_tcp = SOCKET_DGRAM == socktype ? false : true;
-    bool is_ipv4 = INET6 ? false : true;
+    bool is_ipv4 = INET6 == af ? false : true;
     int ret;
     __wasi_filetype_t wasi_type;
     __wasi_rights_t max_base, max_inheriting;
