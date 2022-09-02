@@ -1089,7 +1089,7 @@ __wasi_errno_t wasmtime_ssp_sock_send_to(
     const void *buf,
     size_t buf_len,
     __wasi_siflags_t si_flags,
-    __wasi_addr_t *dest_addr,
+    const __wasi_addr_t *dest_addr,
     size_t *sent_len
 ) WASMTIME_SSP_SYSCALL_NAME(sock_send_to) __attribute__((__warn_unused_result__));
 

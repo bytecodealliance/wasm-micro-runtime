@@ -2,7 +2,7 @@
  * Copyright (C) 2019 Intel Corporation.  All rights reserved.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
-#include "tcp_utils.h"
+#include "socket_utils.h"
 
 #include <arpa/inet.h>
 #include <netinet/in.h>

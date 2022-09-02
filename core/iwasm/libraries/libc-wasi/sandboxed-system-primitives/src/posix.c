@@ -2974,7 +2974,7 @@ wasi_ssp_sock_addr_remote(
 }
 
 static bool
-wasi_addr_to_string(__wasi_addr_t *addr, char *buf, size_t buflen)
+wasi_addr_to_string(const __wasi_addr_t *addr, char *buf, size_t buflen)
 {
     if (addr->kind == IPv4) {
         const char *format = "%u.%u.%u.%u";
@@ -3280,7 +3280,7 @@ wasmtime_ssp_sock_send_to(
     struct fd_table *curfds, struct addr_pool *addr_pool,
 #endif
     __wasi_fd_t sock, const void *buf, size_t buf_len,
-    __wasi_siflags_t si_flags, __wasi_addr_t *dest_addr, size_t *sent_len)
+    __wasi_siflags_t si_flags, const __wasi_addr_t *dest_addr, size_t *sent_len)
 {
     char addr_buf[48] = { 0 };
     struct fd_object *fo;

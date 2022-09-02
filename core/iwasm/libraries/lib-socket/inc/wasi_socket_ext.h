@@ -275,7 +275,7 @@ __imported_wasi_snapshot_preview1_sock_send_to(int32_t arg0, int32_t arg1,
 static inline __wasi_errno_t
 __wasi_sock_send_to(__wasi_fd_t fd, const __wasi_ciovec_t *si_data,
                     uint32_t si_data_len, __wasi_siflags_t si_flags,
-                    __wasi_addr_t *dest_addr, uint32_t *so_data_len)
+                    const __wasi_addr_t *dest_addr, uint32_t *so_data_len)
 {
     return (__wasi_errno_t)__imported_wasi_snapshot_preview1_sock_send_to(
         (int32_t)fd, (int32_t)si_data, (int32_t)si_data_len, (int32_t)si_flags,

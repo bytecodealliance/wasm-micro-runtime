@@ -1373,7 +1373,6 @@ convert_iovec_app_to_buffer(wasm_module_inst_t module_inst,
         || !validate_native_addr((void *)si_data, (uint32)total_size))
         return __WASI_EINVAL;
 
-    /* gather and send */
     for (total_size = 0, i = 0; i < si_data_len; i++, si_data++) {
         total_size += si_data->buf_len;
     }
@@ -1444,7 +1443,7 @@ wasi_sock_send(wasm_exec_env_t exec_env, wasi_fd_t sock,
 static wasi_errno_t
 wasi_sock_send_to(wasm_exec_env_t exec_env, wasi_fd_t sock,
                   const iovec_app_t *si_data, uint32 si_data_len,
-                  wasi_siflags_t si_flags, __wasi_addr_t *dest_addr,
+                  wasi_siflags_t si_flags, const __wasi_addr_t *dest_addr,
                   uint32 *so_data_len)
 {
     /**
