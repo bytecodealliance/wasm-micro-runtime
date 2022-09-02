@@ -252,6 +252,34 @@ sendmsg(int sockfd, const struct msghdr *msg, int flags)
     return so_datalen;
 }
 
+ssize_t
+sendto(int sockfd, const void *buf, size_t len, int flags,
+       const struct sockaddr *dest_addr, socklen_t addrlen)
+{
+    // Prepare input parameters.
+    __wasi_ciovec_t iov = { .buf = buf, .buf_len = len };
+    uint32_t so_datalen = 0;
+    __wasi_addr_t wasi_addr;
+    __wasi_errno_t error;
+    size_t si_data_len = 1;
+    __wasi_siflags_t si_flags = 0;
+
+    // This implementation does not support any flags.
+    if (flags != 0) {
+        HANDLE_ERROR(__WASI_ERRNO_NOPROTOOPT)
+    }
+
+    error = sockaddr_to_wasi_addr(dest_addr, addrlen, &wasi_addr);
+    HANDLE_ERROR(error);
+
+    // Perform system call.
+    error = __wasi_sock_send_to(sockfd, &iov, si_data_len, si_flags, &wasi_addr,
+                                &so_datalen);
+    HANDLE_ERROR(error)
+
+    return so_datalen;
+}
+
 int
 socket(int domain, int type, int protocol)
 {

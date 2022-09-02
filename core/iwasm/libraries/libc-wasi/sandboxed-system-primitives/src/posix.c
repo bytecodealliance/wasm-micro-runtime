@@ -3248,6 +3248,71 @@ wasmtime_ssp_sock_send(
     return __WASI_ESUCCESS;
 }
 
+static void
+wasi_addr_to_bh_sockaddr(const __wasi_addr_t *wasi_addr,
+                         bh_sockaddr_t *sockaddr)
+{
+    if (wasi_addr->kind == IPv4) {
+        sockaddr->addr_bufer.ipv4 = (wasi_addr->addr.ip4.addr.n0 << 24)
+                                    | (wasi_addr->addr.ip4.addr.n1 << 16)
+                                    | (wasi_addr->addr.ip4.addr.n2 << 8)
+                                    | wasi_addr->addr.ip4.addr.n3;
+        sockaddr->is_ipv4 = true;
+        sockaddr->port = wasi_addr->addr.ip4.port;
+    }
+    else {
+        sockaddr->addr_bufer.ipv6[0] = wasi_addr->addr.ip6.addr.n0;
+        sockaddr->addr_bufer.ipv6[1] = wasi_addr->addr.ip6.addr.n1;
+        sockaddr->addr_bufer.ipv6[2] = wasi_addr->addr.ip6.addr.n2;
+        sockaddr->addr_bufer.ipv6[3] = wasi_addr->addr.ip6.addr.n3;
+        sockaddr->addr_bufer.ipv6[4] = wasi_addr->addr.ip6.addr.h0;
+        sockaddr->addr_bufer.ipv6[5] = wasi_addr->addr.ip6.addr.h1;
+        sockaddr->addr_bufer.ipv6[6] = wasi_addr->addr.ip6.addr.h2;
+        sockaddr->addr_bufer.ipv6[7] = wasi_addr->addr.ip6.addr.h3;
+        sockaddr->is_ipv4 = false;
+        sockaddr->port = wasi_addr->addr.ip6.port;
+    }
+}
+
+__wasi_errno_t
+wasmtime_ssp_sock_send_to(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds, struct addr_pool *addr_pool,
+#endif
+    __wasi_fd_t sock, const void *buf, size_t buf_len,
+    __wasi_siflags_t si_flags, __wasi_addr_t *dest_addr, size_t *sent_len)
+{
+    char addr_buf[48] = { 0 };
+    struct fd_object *fo;
+    __wasi_errno_t error;
+    int ret;
+    bh_sockaddr_t sockaddr;
+
+    if (!wasi_addr_to_string(dest_addr, addr_buf, sizeof(addr_buf))) {
+        return __WASI_EPROTONOSUPPORT;
+    }
+
+    if (!addr_pool_search(addr_pool, addr_buf)) {
+        return __WASI_EACCES;
+    }
+
+    error = fd_object_get(curfds, &fo, sock, __WASI_RIGHT_FD_WRITE, 0);
+    if (error != 0) {
+        return error;
+    }
+
+    wasi_addr_to_bh_sockaddr(dest_addr, &sockaddr);
+
+    ret = os_socket_send_to(fd_number(fo), buf, buf_len, 0, &sockaddr);
+    fd_object_release(fo);
+    if (-1 == ret) {
+        return convert_errno(errno);
+    }
+
+    *sent_len = (size_t)ret;
+    return __WASI_ESUCCESS;
+}
+
 __wasi_errno_t
 wasmtime_ssp_sock_shutdown(
 #if !defined(WASMTIME_SSP_STATIC_CURFDS)

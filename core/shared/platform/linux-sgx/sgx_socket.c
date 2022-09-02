@@ -605,8 +605,7 @@ os_socket_create(bh_socket_t *sock, bool is_ipv4, bool is_tcp)
 }
 
 int
-os_socket_inet_network(bool is_ipv4, const char *cp,
-                       bh_ip_addr_buffer_t *out)
+os_socket_inet_network(bool is_ipv4, const char *cp, bh_ip_addr_buffer_t *out)
 {
     if (!cp)
         return BHT_ERROR;
@@ -676,6 +675,15 @@ os_socket_send(bh_socket_t socket, const void *buf, unsigned int len)
         errno = get_errno();
 
     return ret;
+}
+
+int
+os_socket_send_to(bh_socket_t socket, const void *buf, unsigned int len,
+                  int flags, bh_sockaddr_t *dest_addr)
+{
+    errno = ENOSYS;
+
+    return BHT_ERROR;
 }
 
 int

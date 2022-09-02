@@ -292,6 +292,18 @@ os_sem_unlink(const char *name);
  * need to implement these APIs
  */
 
+typedef union {
+    uint32 ipv4;
+    uint16 ipv6[8];
+    uint8 data[0];
+} bh_ip_addr_buffer_t;
+
+typedef struct {
+    bh_ip_addr_buffer_t addr_bufer;
+    uint16 port;
+    bool is_ipv4;
+} bh_sockaddr_t;
+
 /**
  * Create a socket
  *
@@ -394,6 +406,21 @@ int
 os_socket_send(bh_socket_t socket, const void *buf, unsigned int len);
 
 /**
+ * Blocking send message on a socket to the target address
+ *
+ * @param socket the socket to send message
+ * @param buf the buffer of data to be sent
+ * @param len length of the buffer
+ * @param flags control the operation
+ * @param dest_addr target address
+ *
+ * @return number of bytes sent if success, -1 otherwise
+ */
+int
+os_socket_send_to(bh_socket_t socket, const void *buf, unsigned int len,
+                  int flags, bh_sockaddr_t *dest_addr);
+
+/**
  * Close a socket
  *
  * @param socket the socket to be closed
@@ -413,12 +440,6 @@ os_socket_close(bh_socket_t socket);
 int
 os_socket_shutdown(bh_socket_t socket);
 
-typedef union {
-    uint32 ipv4;
-    uint16 ipv6[8];
-    uint8_t data[0];
-} bh_ip_addr_buffer_t;
-
 /**
  * converts cp into a number in host byte order suitable for use as
  * an Internet network address
@@ -435,8 +456,7 @@ typedef union {
  * If the input is invalid, -1 is returned
  */
 int
-os_socket_inet_network(bool is_ipv4, const char *cp,
-                       bh_ip_addr_buffer_t *out);
+os_socket_inet_network(bool is_ipv4, const char *cp, bh_ip_addr_buffer_t *out);
 
 typedef struct {
     uint8_t addr[16];

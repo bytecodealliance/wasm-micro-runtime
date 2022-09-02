@@ -1354,36 +1354,22 @@ fail:
 }
 
 static wasi_errno_t
-wasi_sock_send(wasm_exec_env_t exec_env, wasi_fd_t sock,
-               const iovec_app_t *si_data, uint32 si_data_len,
-               wasi_siflags_t si_flags, uint32 *so_data_len)
+convert_iovec_app_to_buffer(wasm_module_inst_t module_inst,
+                            const iovec_app_t *si_data, uint32 si_data_len,
+                            uint8 **buf_ptr, uint64 *buf_len)
 {
-    /**
-     * si_data_len is the length of a list of iovec_app_t, which head is
-     * si_data. so_data_len is the number of bytes sent
-     **/
-    wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
-    struct fd_table *curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
     uint64 total_size = 0;
     uint32 i;
     const iovec_app_t *si_data_orig = si_data;
     uint8 *buf = NULL;
     uint8 *buf_begin = NULL;
-    wasi_errno_t err;
-    size_t send_bytes = 0;
-
-    if (!wasi_ctx) {
-        return __WASI_EINVAL;
-    }
 
     if (si_data_len == 0) {
         return __WASI_EINVAL;
     }
 
     total_size = sizeof(iovec_app_t) * (uint64)si_data_len;
-    if (!validate_native_addr(so_data_len, sizeof(uint32))
-        || total_size >= UINT32_MAX
+    if (total_size >= UINT32_MAX
         || !validate_native_addr((void *)si_data, (uint32)total_size))
         return __WASI_EINVAL;
 
@@ -1402,8 +1388,8 @@ wasi_sock_send(wasm_exec_env_t exec_env, wasi_fd_t sock,
         char *native_addr;
 
         if (!validate_app_addr(si_data->buf_offset, si_data->buf_len)) {
-            err = __WASI_EINVAL;
-            goto fail;
+            wasm_runtime_free(buf_begin);
+            return __WASI_EINVAL;
         }
 
         native_addr = (char *)addr_app_to_native(si_data->buf_offset);
@@ -1411,15 +1397,88 @@ wasi_sock_send(wasm_exec_env_t exec_env, wasi_fd_t sock,
         buf += si_data->buf_len;
     }
 
+    *buf_len = total_size;
+    *buf_ptr = buf_begin;
+
+    return __WASI_ESUCCESS;
+}
+
+static wasi_errno_t
+wasi_sock_send(wasm_exec_env_t exec_env, wasi_fd_t sock,
+               const iovec_app_t *si_data, uint32 si_data_len,
+               wasi_siflags_t si_flags, uint32 *so_data_len)
+{
+    /**
+     * si_data_len is the length of a list of iovec_app_t, which head is
+     * si_data. so_data_len is the number of bytes sent
+     **/
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
+    wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
+    struct fd_table *curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
+    uint64 buf_size = 0;
+    uint8 *buf = NULL;
+    wasi_errno_t err;
+    size_t send_bytes = 0;
+
+    if (!wasi_ctx) {
+        return __WASI_EINVAL;
+    }
+
+    if (!validate_native_addr(so_data_len, sizeof(uint32)))
+        return __WASI_EINVAL;
+
+    err = convert_iovec_app_to_buffer(module_inst, si_data, si_data_len, &buf,
+                                      &buf_size);
+    if (err != __WASI_ESUCCESS)
+        return err;
+
     *so_data_len = 0;
-    err = wasmtime_ssp_sock_send(curfds, sock, buf_begin, total_size,
-                                 &send_bytes);
+    err = wasmtime_ssp_sock_send(curfds, sock, buf, buf_size, &send_bytes);
     *so_data_len = (uint32)send_bytes;
 
-fail:
-    if (buf_begin) {
-        wasm_runtime_free(buf_begin);
+    wasm_runtime_free(buf);
+
+    return err;
+}
+
+static wasi_errno_t
+wasi_sock_send_to(wasm_exec_env_t exec_env, wasi_fd_t sock,
+                  const iovec_app_t *si_data, uint32 si_data_len,
+                  wasi_siflags_t si_flags, __wasi_addr_t *dest_addr,
+                  uint32 *so_data_len)
+{
+    /**
+     * si_data_len is the length of a list of iovec_app_t, which head is
+     * si_data. so_data_len is the number of bytes sent
+     **/
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
+    wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
+    struct fd_table *curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
+    uint64 buf_size = 0;
+    uint8 *buf = NULL;
+    wasi_errno_t err;
+    size_t send_bytes = 0;
+    struct addr_pool *addr_pool = wasi_ctx_get_addr_pool(module_inst, wasi_ctx);
+
+    if (!wasi_ctx) {
+        return __WASI_EINVAL;
     }
+
+    if (!validate_native_addr(so_data_len, sizeof(uint32)))
+        return __WASI_EINVAL;
+
+    err = convert_iovec_app_to_buffer(module_inst, si_data, si_data_len, &buf,
+                                      &buf_size);
+    if (err != __WASI_ESUCCESS)
+        return err;
+
+    *so_data_len = 0;
+    err = wasmtime_ssp_sock_send_to(curfds, addr_pool, sock, buf, buf_size,
+                                    si_flags, dest_addr, &send_bytes);
+    *so_data_len = (uint32)send_bytes;
+
+    wasm_runtime_free(buf);
+
     return err;
 }
 
@@ -1506,6 +1565,7 @@ static NativeSymbol native_symbols_libc_wasi[] = {
     REG_NATIVE_FUNC(sock_open, "(iii*)i"),
     REG_NATIVE_FUNC(sock_recv, "(i*ii**)i"),
     REG_NATIVE_FUNC(sock_send, "(i*ii*)i"),
+    REG_NATIVE_FUNC(sock_send_to, "(i*ii**)i"),
     REG_NATIVE_FUNC(sock_set_recv_buf_size, "(ii)i"),
     REG_NATIVE_FUNC(sock_set_recv_timeout, "(iI)i"),
     REG_NATIVE_FUNC(sock_set_reuse_addr, "(ii)i"),

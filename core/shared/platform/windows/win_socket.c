@@ -150,6 +150,15 @@ os_socket_send(bh_socket_t socket, const void *buf, unsigned int len)
 }
 
 int
+os_socket_send_to(bh_socket_t socket, const void *buf, unsigned int len,
+                  int flags, bh_sockaddr_t *dest_addr)
+{
+    errno = ENOSYS;
+
+    return BHT_ERROR;
+}
+
+int
 os_socket_close(bh_socket_t socket)
 {
     closesocket(socket);
@@ -164,8 +173,7 @@ os_socket_shutdown(bh_socket_t socket)
 }
 
 int
-os_socket_inet_network(bool is_ipv4, const char *cp,
-                       bh_ip_addr_buffer_t *out)
+os_socket_inet_network(bool is_ipv4, const char *cp, bh_ip_addr_buffer_t *out)
 {
     if (!cp)
         return BHT_ERROR;
