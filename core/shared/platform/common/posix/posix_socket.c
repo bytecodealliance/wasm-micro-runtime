@@ -256,14 +256,15 @@ os_socket_addr_resolve(const char *host, const char *service,
 
     if (hints_enabled) {
         if (hint_is_ipv4) {
-            hints.ai_family = *hint_is_ipv4 ? PF_INET : PF_INET6;
+            hints.ai_family = *hint_is_ipv4 ? AF_INET : AF_INET6;
         }
         if (hint_is_tcp) {
             hints.ai_socktype = *hint_is_tcp ? SOCK_STREAM : SOCK_DGRAM;
         }
     }
 
-    ret = getaddrinfo(host, service, hints_enabled ? &hints : NULL, &result);
+    ret = getaddrinfo(host, strlen(service) == 0 ? NULL : service,
+                      hints_enabled ? &hints : NULL, &result);
     if (ret != BHT_OK) {
         errno = getaddrinfo_error_to_errno(ret);
         return BHT_ERROR;
