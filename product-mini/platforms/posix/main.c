@@ -26,49 +26,54 @@ print_help()
 {
     printf("Usage: iwasm [-options] wasm_file [args...]\n");
     printf("options:\n");
-    printf("  -f|--function name     Specify a function name of the module to run rather\n"
-           "                         than main\n");
+    printf("  -f|--function name       Specify a function name of the module to run rather\n"
+           "                           than main\n");
 #if WASM_ENABLE_LOG != 0
-    printf("  -v=n                   Set log verbose level (0 to 5, default is 2) larger\n"
-           "                         level with more log\n");
+    printf("  -v=n                     Set log verbose level (0 to 5, default is 2) larger\n"
+           "                           level with more log\n");
 #endif
-    printf("  --stack-size=n         Set maximum stack size in bytes, default is 16 KB\n");
-    printf("  --heap-size=n          Set maximum heap size in bytes, default is 16 KB\n");
+    printf("  --stack-size=n           Set maximum stack size in bytes, default is 16 KB\n");
+    printf("  --heap-size=n            Set maximum heap size in bytes, default is 16 KB\n");
 #if WASM_ENABLE_FAST_JIT != 0
-    printf("  --jit-codecache-size=n Set fast jit maximum code cache size in bytes,\n");
-    printf("                         default is %u KB\n", FAST_JIT_DEFAULT_CODE_CACHE_SIZE / 1024);
+    printf("  --jit-codecache-size=n   Set fast jit maximum code cache size in bytes,\n");
+    printf("                           default is %u KB\n", FAST_JIT_DEFAULT_CODE_CACHE_SIZE / 1024);
 #endif
-    printf("  --repl                 Start a very simple REPL (read-eval-print-loop) mode\n"
-           "                         that runs commands in the form of \"FUNC ARG...\"\n");
+    printf("  --repl                   Start a very simple REPL (read-eval-print-loop) mode\n"
+           "                           that runs commands in the form of \"FUNC ARG...\"\n");
 #if WASM_ENABLE_LIBC_WASI != 0
-    printf("  --env=<env>            Pass wasi environment variables with \"key=value\"\n");
-    printf("                         to the program, for example:\n");
-    printf("                           --env=\"key1=value1\" --env=\"key2=value2\"\n");
-    printf("  --dir=<dir>            Grant wasi access to the given host directories\n");
-    printf("                         to the program, for example:\n");
-    printf("                           --dir=<dir1> --dir=<dir2>\n");
-    printf("  --addr-pool=<addrs>    Grant wasi access to the given network addresses in\n");
-    printf("                         CIRD notation to the program, seperated with ',',\n");
-    printf("                         for example:\n");
-    printf("                           --addr-pool=1.2.3.4/15,2.3.4.5/16\n");
+    printf("  --env=<env>              Pass wasi environment variables with \"key=value\"\n");
+    printf("                           to the program, for example:\n");
+    printf("                             --env=\"key1=value1\" --env=\"key2=value2\"\n");
+    printf("  --dir=<dir>              Grant wasi access to the given host directories\n");
+    printf("                           to the program, for example:\n");
+    printf("                             --dir=<dir1> --dir=<dir2>\n");
+    printf("  --addr-pool=<addrs>      Grant wasi access to the given network addresses in\n");
+    printf("                           CIRD notation to the program, seperated with ',',\n");
+    printf("                           for example:\n");
+    printf("                             --addr-pool=1.2.3.4/15,2.3.4.5/16\n");
+    printf("  --allow-resolve=<domain> Allow the lookup of the specific domain name or domain\n");
+    printf("                           name suffixes using a wildcard, for example:\n");
+    printf("                           --allow-resolve=example.com # allow the lookup of the specific domain\n");
+    printf("                           --allow-resolve=*.example.com # allow the lookup of all subdomains\n");
+    printf("                           --allow-resolve=* # allow any lookup\n");
 #endif
 #if BH_HAS_DLFCN
-    printf("  --native-lib=<lib>     Register native libraries to the WASM module, which\n");
-    printf("                         are shared object (.so) files, for example:\n");
-    printf("                           --native-lib=test1.so --native-lib=test2.so\n");
+    printf("  --native-lib=<lib>       Register native libraries to the WASM module, which\n");
+    printf("                           are shared object (.so) files, for example:\n");
+    printf("                             --native-lib=test1.so --native-lib=test2.so\n");
 #endif
 #if WASM_ENABLE_MULTI_MODULE != 0
-    printf("  --module-path=<path>   Indicate a module search path. default is current\n"
-           "                         directory('./')\n");
+    printf("  --module-path=<path>     Indicate a module search path. default is current\n"
+           "                           directory('./')\n");
 #endif
 #if WASM_ENABLE_LIB_PTHREAD != 0
-    printf("  --max-threads=n        Set maximum thread number per cluster, default is 4\n");
+    printf("  --max-threads=n          Set maximum thread number per cluster, default is 4\n");
 #endif
 #if WASM_ENABLE_DEBUG_INTERP != 0
-    printf("  -g=ip:port             Set the debug sever address, default is debug disabled\n");
-    printf("                           if port is 0, then a random port will be used\n");
+    printf("  -g=ip:port               Set the debug sever address, default is debug disabled\n");
+    printf("                             if port is 0, then a random port will be used\n");
 #endif
-    printf("  --version              Show version information\n");
+    printf("  --version                Show version information\n");
     return 1;
 }
 /* clang-format on */
@@ -320,6 +325,8 @@ main(int argc, char *argv[])
     uint32 env_list_size = 0;
     const char *addr_pool[8] = { NULL };
     uint32 addr_pool_size = 0;
+    const char *ns_lookup_pool[8] = { NULL };
+    uint32 ns_lookup_pool_size = 0;
 #endif
 #if BH_HAS_DLFCN
     const char *native_lib_list[8] = { NULL };
@@ -419,6 +426,18 @@ main(int argc, char *argv[])
                 addr_pool[addr_pool_size++] = token;
                 token = strtok(NULL, ";");
             }
+        }
+        else if (!strncmp(argv[0], "--allow-resolve=", 16)) {
+            if (argv[0][16] == '\0')
+                return print_help();
+            if (ns_lookup_pool_size
+                >= sizeof(ns_lookup_pool) / sizeof(ns_lookup_pool[0])) {
+                printf(
+                    "Only allow max ns lookup number %d\n",
+                    (int)(sizeof(ns_lookup_pool) / sizeof(ns_lookup_pool[0])));
+                return 1;
+            }
+            ns_lookup_pool[ns_lookup_pool_size++] = argv[0] + 16;
         }
 #endif /* WASM_ENABLE_LIBC_WASI */
 #if BH_HAS_DLFCN
@@ -560,6 +579,8 @@ main(int argc, char *argv[])
                                env_list, env_list_size, argv, argc);
 
     wasm_runtime_set_wasi_addr_pool(wasm_module, addr_pool, addr_pool_size);
+    wasm_runtime_set_wasi_ns_lookup_pool(wasm_module, ns_lookup_pool,
+                                         ns_lookup_pool_size);
 #endif
 
     /* instantiate the module */

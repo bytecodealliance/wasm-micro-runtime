@@ -51,6 +51,8 @@ typedef struct WASIContext {
     struct fd_prestats *prestats;
     struct argv_environ_values *argv_environ;
     struct addr_pool *addr_pool;
+    char *ns_lookup_buf;
+    char **ns_lookup_list;
     char *argv_buf;
     char **argv_list;
     char *env_buf;
@@ -90,6 +92,14 @@ wasi_ctx_get_addr_pool(wasm_module_inst_t module_inst, wasi_ctx_t wasi_ctx)
     if (!wasi_ctx)
         return NULL;
     return wasi_ctx->addr_pool;
+}
+
+static inline char **
+wasi_ctx_get_ns_lookup_list(wasi_ctx_t wasi_ctx)
+{
+    if (!wasi_ctx)
+        return NULL;
+    return wasi_ctx->ns_lookup_list;
 }
 
 static wasi_errno_t
@@ -1056,14 +1066,17 @@ wasi_sock_addr_resolve(wasm_exec_env_t exec_env, const char *host,
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
+    char **ns_lookup_list = NULL;
 
     if (!wasi_ctx)
         return __WASI_EACCES;
 
     curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
+    ns_lookup_list = wasi_ctx_get_ns_lookup_list(wasi_ctx);
 
-    return wasi_ssp_sock_addr_resolve(curfds, host, service, hints, addr_info,
-                                      addr_info_size, max_info_size);
+    return wasi_ssp_sock_addr_resolve(curfds, ns_lookup_list, host, service,
+                                      hints, addr_info, addr_info_size,
+                                      max_info_size);
 }
 
 static wasi_errno_t
