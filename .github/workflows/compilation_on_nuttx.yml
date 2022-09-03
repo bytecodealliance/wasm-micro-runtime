@@ -44,21 +44,21 @@ jobs:
       matrix:
         nuttx_board_config : [
           # x64
-          "sim:nsh",
+          "boards/sim/sim/sim/configs/nsh",
           # cortex-m0
-          "raspberrypi-pico:nsh",
+          "boards/arm/rp2040/raspberrypi-pico/configs/nsh",
           # cortex-m4
-          "stm32f4discovery:nsh",
+          "boards/arm/stm32/stm32f4discovery/configs/nsh",
           # cortex-m7
-          "nucleo-h743zi:nsh",
+          "boards/arm/stm32h7/nucleo-h743zi/configs/nsh",
           # cortex-a9
-          "sabre-6quad:nsh",
+          "boards/arm/imx6/sabre-6quad/configs/nsh",
           # riscv32imac
-          "rv-virt:nsh",
+          "boards/risc-v/qemu-rv/rv-virt/configs/nsh",
           # riscv64imac
-          "rv-virt:nsh64",
+          "boards/risc-v/qemu-rv/rv-virt/configs/nsh64",
           # riscv64gc
-          "maix-bit:nsh",
+          "boards/risc-v/k210/maix-bit/configs/nsh",
         ]
         wamr_config_option: [
           "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_AOT=y\\nCONFIG_INTERPRETERS_WAMR_FAST=y\\nCONFIG_INTERPRETERS_WAMR_LIBC_BUILTIN=y\\n",
@@ -71,8 +71,16 @@ jobs:
         ]
 
     steps:
-      - name: Install Toolchains
-        run: sudo apt install -y gcc-arm-none-eabi gcc-riscv64-unknown-elf kconfig-frontends-nox genromfs
+      - name: Install Utilities
+        run: sudo apt install -y kconfig-frontends-nox genromfs
+
+      - name: Install ARM Compilers
+        if: contains(${{ matrix.nuttx_board_config }}, 'arm')
+        run: sudo apt install -y gcc-arm-none-eabi
+
+      - name: Install RISC-V Compilers
+        if: contains(${{ matrix.nuttx_board_config }}, 'risc-v')
+        run: sudo apt install -y gcc-riscv64-unknown-elf
 
       - name: Checkout NuttX
         uses: actions/checkout@v3
