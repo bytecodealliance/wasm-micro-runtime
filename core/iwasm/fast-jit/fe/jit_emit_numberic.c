@@ -625,6 +625,7 @@ compile_int_div_no_check(JitCompContext *cc, IntArithmetic arith_op,
     return true;
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
 fail_generate_insn:
+    jit_set_last_error(cc, "generate insn failed");
     jit_free(insn1);
 #endif
 fail:
