@@ -25,10 +25,10 @@ mem_allocator_create_with_struct_and_pool(void *struct_buf,
                                         pool_buf, pool_buf_size);
 }
 
-void
+int
 mem_allocator_destroy(mem_allocator_t allocator)
 {
-    gc_destroy_with_pool((gc_handle_t)allocator);
+    return gc_destroy_with_pool((gc_handle_t)allocator);
 }
 
 uint32
@@ -67,6 +67,13 @@ bool
 mem_allocator_is_heap_corrupted(mem_allocator_t allocator)
 {
     return gc_is_heap_corrupted((gc_handle_t)allocator);
+}
+
+bool
+mem_allocator_get_alloc_info(mem_allocator_t allocator, void *mem_alloc_info)
+{
+    gc_heap_stats((gc_handle_t)allocator, mem_alloc_info, 3);
+    return true;
 }
 
 #else /* else of DEFAULT_MEM_ALLOCATOR */

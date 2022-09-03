@@ -342,7 +342,8 @@ main(int argc, char *argv[])
         else if (!strncmp(argv[0], "--version", 9)) {
             uint32 major, minor, patch;
             wasm_runtime_get_version(&major, &minor, &patch);
-            printf("iwasm %u.%u.%u\n", major, minor, patch);
+            printf("iwasm %" PRIu32 ".%" PRIu32 ".%" PRIu32 "\n", major, minor,
+                   patch);
             return 0;
         }
         else

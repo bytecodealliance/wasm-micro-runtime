@@ -1,0 +1,86 @@
+# Copyright (C) 2019 Intel Corporation.  All rights reserved.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+name: compilation on nuttx
+
+on:
+  # will be triggered on PR events
+  pull_request:
+    paths-ignore:
+      - "assembly-script/**"
+      - "ci/**"
+      - "doc/**"
+      - "test-tools/**"
+  # will be triggered on push events
+  push:
+    paths-ignore:
+      - "assembly-script/**"
+      - "ci/**"
+      - "doc/**"
+      - "test-tools/**"
+  # allow to be triggered manually
+  workflow_dispatch:
+
+# Cancel any in-flight jobs for the same PR/branch so there's only one active
+# at a time
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Cancel any in-flight jobs for the same PR/branch so there's only one active
+  # at a time
+  cancel_previous:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Cancel Workflow Action
+        uses: styfle/cancel-workflow-action@0.9.1
+        with:
+          access_token: ${{ github.token }}  
+
+  build_iwasm_on_nuttx:
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        nuttx_board_config : [
+          "stm32f4discovery:nsh",
+          "nucleo-h743zi:nsh",
+          "sabre-6quad:nsh",
+        ]
+        wamr_config_option: [
+          "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_AOT=y\\nCONFIG_INTERPRETERS_WAMR_FAST=y\\nCONFIG_INTERPRETERS_WAMR_LIBC_BUILTIN=y\\n",
+          "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_AOT=y\\nCONFIG_INTERPRETERS_WAMR_FAST=y\\n",
+          "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_AOT=y\\nCONFIG_INTERPRETERS_WAMR_LIBC_BUILTIN=y\\n",
+          "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_AOT=y\\n",
+        ]
+
+    steps:
+      - name: Install Toolchains
+        run: sudo apt install -y gcc-arm-none-eabi kconfig-frontends-nox genromfs
+
+      - name: Checkout NuttX
+        uses: actions/checkout@v3
+        with:
+          repository: apache/incubator-nuttx
+          path: nuttx
+
+      - name: Checkout NuttX Apps
+        uses: actions/checkout@v3
+        with:
+          repository: apache/incubator-nuttx-apps
+          path: apps
+
+      - name: Checkout WAMR
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ github.repository }}
+          path: apps/interpreters/wamr/wamr
+
+      - name: Enable WAMR for NuttX
+        run: find nuttx/boards -name defconfig | xargs sed -i '$a\CONFIG_EOL_IS_CR=y\n${{ matrix.wamr_config_option }}'
+
+      - name: Build
+        run: |
+          cd nuttx
+          tools/configure.sh ${{ matrix.nuttx_board_config }}
+          make -j$(nproc)

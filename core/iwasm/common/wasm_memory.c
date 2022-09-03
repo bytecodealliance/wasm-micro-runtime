@@ -75,8 +75,17 @@ wasm_runtime_memory_init(mem_alloc_type_t mem_alloc_type,
 void
 wasm_runtime_memory_destroy()
 {
-    if (memory_mode == MEMORY_MODE_POOL)
-        mem_allocator_destroy(pool_allocator);
+    if (memory_mode == MEMORY_MODE_POOL) {
+#if BH_ENABLE_GC_VERIFY == 0
+        (void)mem_allocator_destroy(pool_allocator);
+#else
+        int ret = mem_allocator_destroy(pool_allocator);
+        if (ret != 0) {
+            /* Memory leak detected */
+            exit(-1);
+        }
+#endif
+    }
     memory_mode = MEMORY_MODE_UNKNOWN;
 }
 
@@ -166,4 +175,13 @@ void
 wasm_runtime_free(void *ptr)
 {
     wasm_runtime_free_internal(ptr);
+}
+
+bool
+wasm_runtime_get_mem_alloc_info(mem_alloc_info_t *mem_alloc_info)
+{
+    if (memory_mode == MEMORY_MODE_POOL) {
+        return mem_allocator_get_alloc_info(pool_allocator, mem_alloc_info);
+    }
+    return false;
 }
