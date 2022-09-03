@@ -210,6 +210,38 @@ os_socket_addr_local(bh_socket_t socket, uint8_t *buf, size_t buflen,
 }
 
 int
+os_socket_set_send_timeout(bh_socket_t socket, uint64 timeout_us)
+{
+    errno = ENOSYS;
+
+    return BHT_ERROR;
+}
+
+int
+os_socket_get_send_timeout(bh_socket_t socket, uint64 *timeout_us)
+{
+    errno = ENOSYS;
+
+    return BHT_ERROR;
+}
+
+int
+os_socket_set_recv_timeout(bh_socket_t socket, uint64 timeout_us)
+{
+    errno = ENOSYS;
+
+    return BHT_ERROR;
+}
+
+int
+os_socket_get_recv_timeout(bh_socket_t socket, uint64 *timeout_us)
+{
+    errno = ENOSYS;
+
+    return BHT_ERROR;
+}
+
+int
 os_socket_addr_remote(bh_socket_t socket, uint8_t *buf, size_t buflen,
                       uint16_t *port, uint8_t *is_ipv4)
 {

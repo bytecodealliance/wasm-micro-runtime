@@ -82,4 +82,17 @@ Data:
   And mourns for us
 ```
 
+`socket_opts.wasm` shows an example of getting and setting various supported socket options
+```bash
+$ ./iwasm ./socket_opts.wasm
+```
+
+The output is:
+```bash
+[Client] Create socket
+recv_timeout is expected
+send_timeout is expected
+[Client] Close socket
+```
+
 Refer to [socket api document](../../doc/socket_api.md) for more details.

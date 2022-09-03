@@ -511,6 +511,50 @@ int
 os_socket_addr_remote(bh_socket_t socket, uint8_t *buf, size_t buflen,
                       uint16_t *port, uint8_t *is_ipv4);
 
+/**
+ * Set the send timeout until reporting an error
+ *
+ * @param socket the socket to set
+ * @param time_us microseconds until timeout
+ *
+ * @return 0 if success, -1 otherwise
+ */
+int
+os_socket_set_send_timeout(bh_socket_t socket, uint64 timeout_us);
+
+/**
+ * Get the send timeout until reporting an error
+ *
+ * @param socket the socket to set
+ * @param time_us the returned microseconds until timeout
+ *
+ * @return 0 if success, -1 otherwise
+ */
+int
+os_socket_get_send_timeout(bh_socket_t socket, uint64 *timeout_us);
+
+/**
+ * Set the recv timeout until reporting an error
+ *
+ * @param socket the socket to set
+ * @param time_us microseconds until timeout
+ *
+ * @return 0 if success, -1 otherwise
+ */
+int
+os_socket_set_recv_timeout(bh_socket_t socket, uint64 timeout_us);
+
+/**
+ * Get the recv timeout until reporting an error
+ *
+ * @param socket the socket to set
+ * @param time_us the returned microseconds until timeout
+ *
+ * @return 0 if success, -1 otherwise
+ */
+int
+os_socket_get_recv_timeout(bh_socket_t socket, uint64 *timeout_us);
+
 #ifdef __cplusplus
 }
 #endif

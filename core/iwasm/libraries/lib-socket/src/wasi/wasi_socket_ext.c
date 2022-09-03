@@ -470,3 +470,92 @@ freeaddrinfo(struct addrinfo *res)
      * frees the memory of the entire array. */
     free(res);
 }
+
+struct timeval
+time_us_to_timeval(uint64_t time_us)
+{
+    struct timeval tv;
+    tv.tv_sec = time_us / 1000000UL;
+    tv.tv_usec = time_us % 1000000UL;
+    return tv;
+}
+
+uint64_t
+timeval_to_time_us(struct timeval tv)
+{
+    return (tv.tv_sec * 1000000UL) + tv.tv_usec;
+}
+
+int
+get_sol_socket_option(int sockfd, int optname, void *__restrict optval,
+                      socklen_t *__restrict optlen)
+{
+    __wasi_errno_t error;
+    uint64_t timeout_us;
+
+    switch (optname) {
+        case SO_RCVTIMEO:
+            assert(*optlen == sizeof(struct timeval));
+            error = __wasi_sock_get_recv_timeout(sockfd, &timeout_us);
+            HANDLE_ERROR(error);
+            *(struct timeval *)optval = time_us_to_timeval(timeout_us);
+            return error;
+        case SO_SNDTIMEO:
+            assert(*optlen == sizeof(struct timeval));
+            error = __wasi_sock_get_send_timeout(sockfd, &timeout_us);
+            HANDLE_ERROR(error);
+            *(struct timeval *)optval = time_us_to_timeval(timeout_us);
+            return error;
+    }
+
+    HANDLE_ERROR(__WASI_ERRNO_NOTSUP);
+}
+
+int
+getsockopt(int sockfd, int level, int optname, void *__restrict optval,
+           socklen_t *__restrict optlen)
+{
+    switch (level) {
+        case SOL_SOCKET:
+            return get_sol_socket_option(sockfd, optname, optval, optlen);
+    }
+
+    HANDLE_ERROR(__WASI_ERRNO_NOTSUP);
+}
+
+int
+set_sol_socket_option(int sockfd, int optname, const void *optval,
+                      socklen_t optlen)
+{
+    __wasi_errno_t error;
+    uint64_t timeout_us;
+
+    switch (optname) {
+        case SO_RCVTIMEO:
+            assert(optlen == sizeof(struct timeval));
+            timeout_us = timeval_to_time_us(*(struct timeval *)optval);
+            error = __wasi_sock_set_recv_timeout(sockfd, timeout_us);
+            HANDLE_ERROR(error);
+            return error;
+        case SO_SNDTIMEO:
+            assert(optlen == sizeof(struct timeval));
+            timeout_us = timeval_to_time_us(*(struct timeval *)optval);
+            error = __wasi_sock_set_send_timeout(sockfd, timeout_us);
+            HANDLE_ERROR(error);
+            return error;
+    }
+
+    HANDLE_ERROR(__WASI_ERRNO_NOTSUP);
+}
+
+int
+setsockopt(int sockfd, int level, int optname, const void *optval,
+           socklen_t optlen)
+{
+    switch (level) {
+        case SOL_SOCKET:
+            return set_sol_socket_option(sockfd, optname, optval, optlen);
+    }
+
+    HANDLE_ERROR(__WASI_ERRNO_NOTSUP);
+}

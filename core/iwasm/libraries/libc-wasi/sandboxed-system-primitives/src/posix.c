@@ -3556,3 +3556,37 @@ addr_pool_destroy(struct addr_pool *addr_pool)
         cur = next;
     }
 }
+
+#ifndef WASMTIME_SSP_STATIC_CURFDS
+#define WASMTIME_SSP_PASSTHROUGH_FD_TABLE struct fd_table *curfds,
+#else
+#define WASMTIME_SSP_PASSTHROUGH_FD_TABLE
+#endif
+
+// Defines a function that passes through the socket option to the OS
+// implementation
+#define WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(FUNC_NAME, OPTION_TYPE) \
+    __wasi_errno_t wasmtime_ssp_sock_##FUNC_NAME(                      \
+        WASMTIME_SSP_PASSTHROUGH_FD_TABLE __wasi_fd_t sock,            \
+        OPTION_TYPE option)                                            \
+    {                                                                  \
+        struct fd_object *fo;                                          \
+        __wasi_errno_t error;                                          \
+        int ret;                                                       \
+        error = fd_object_get(curfds, &fo, sock, 0, 0);                \
+        if (error != 0)                                                \
+            return error;                                              \
+        ret = os_socket_##FUNC_NAME(fd_number(fo), option);            \
+        fd_object_release(fo);                                         \
+        if (BHT_OK != ret)                                             \
+            return convert_errno(errno);                               \
+        return __WASI_ESUCCESS;                                        \
+    }
+
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(set_send_timeout, uint64)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(get_send_timeout, uint64 *)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(set_recv_timeout, uint64)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(get_recv_timeout, uint64 *)
+
+#undef WASMTIME_SSP_PASSTHROUGH_FD_TABLE
+#undef WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION

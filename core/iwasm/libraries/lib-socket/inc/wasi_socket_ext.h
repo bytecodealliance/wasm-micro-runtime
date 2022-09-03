@@ -94,6 +94,9 @@ typedef struct __wasi_addr_info_hints_t {
  * <sys/types.h>
  */
 
+#define SO_RCVTIMEO 20
+#define SO_SNDTIMEO 21
+
 struct addrinfo {
     int ai_flags;             /* Input flags.  */
     int ai_family;            /* Protocol family for socket.  */
@@ -131,6 +134,14 @@ getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
 
 int
 getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
+
+int
+getsockopt(int sockfd, int level, int optname, void *__restrict optval,
+           socklen_t *__restrict optlen);
+
+int
+setsockopt(int sockfd, int level, int optname, const void *optval,
+           socklen_t optlen);
 
 int
 getaddrinfo(const char *node, const char *service, const struct addrinfo *hints,
@@ -461,6 +472,62 @@ __wasi_sock_set_send_buf_size(__wasi_fd_t fd)
 {
     return (__wasi_errno_t)
         __imported_wasi_snapshot_preview1_sock_set_send_buf_size((int32_t)fd);
+}
+
+int32_t
+__imported_wasi_snapshot_preview1_sock_get_recv_timeout(int32_t arg0,
+                                                        int32_t arg1)
+    __attribute__((__import_module__("wasi_snapshot_preview1"),
+                   __import_name__("sock_get_recv_timeout")));
+
+static inline __wasi_errno_t
+__wasi_sock_get_recv_timeout(__wasi_fd_t fd, uint64_t *timeout_us)
+{
+    return (__wasi_errno_t)
+        __imported_wasi_snapshot_preview1_sock_get_recv_timeout(
+            (int32_t)fd, (int32_t)timeout_us);
+}
+
+int32_t
+__imported_wasi_snapshot_preview1_sock_set_recv_timeout(int32_t arg0,
+                                                        int64_t arg1)
+    __attribute__((__import_module__("wasi_snapshot_preview1"),
+                   __import_name__("sock_set_recv_timeout")));
+
+static inline __wasi_errno_t
+__wasi_sock_set_recv_timeout(__wasi_fd_t fd, uint64_t timeout_us)
+{
+    return (__wasi_errno_t)
+        __imported_wasi_snapshot_preview1_sock_set_recv_timeout(
+            (int32_t)fd, (int64_t)timeout_us);
+}
+
+int32_t
+__imported_wasi_snapshot_preview1_sock_get_send_timeout(int32_t arg0,
+                                                        int32_t arg1)
+    __attribute__((__import_module__("wasi_snapshot_preview1"),
+                   __import_name__("sock_get_send_timeout")));
+
+static inline __wasi_errno_t
+__wasi_sock_get_send_timeout(__wasi_fd_t fd, uint64_t *timeout_us)
+{
+    return (__wasi_errno_t)
+        __imported_wasi_snapshot_preview1_sock_get_send_timeout(
+            (int32_t)fd, (int32_t)timeout_us);
+}
+
+int32_t
+__imported_wasi_snapshot_preview1_sock_set_send_timeout(int32_t arg0,
+                                                        int64_t arg1)
+    __attribute__((__import_module__("wasi_snapshot_preview1"),
+                   __import_name__("sock_set_send_timeout")));
+
+static inline __wasi_errno_t
+__wasi_sock_set_send_timeout(__wasi_fd_t fd, uint64_t timeout_us)
+{
+    return (__wasi_errno_t)
+        __imported_wasi_snapshot_preview1_sock_set_send_timeout(
+            (int32_t)fd, (int64_t)timeout_us);
 }
 
 /**
