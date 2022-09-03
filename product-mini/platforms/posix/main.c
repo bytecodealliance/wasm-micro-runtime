@@ -285,11 +285,7 @@ moudle_destroyer(uint8 *buffer, uint32 size)
 #endif /* WASM_ENABLE_MULTI_MODULE */
 
 #if WASM_ENABLE_GLOBAL_HEAP_POOL != 0
-#ifdef __NuttX__
-static char global_heap_buf[WASM_GLOBAL_HEAP_SIZE * BH_KB] = { 0 };
-#else
-static char global_heap_buf[10 * 1024 * 1024] = { 0 };
-#endif
+static char global_heap_buf[WASM_GLOBAL_HEAP_SIZE] = { 0 };
 #endif
 
 int
@@ -464,7 +460,8 @@ main(int argc, char *argv[])
         else if (!strncmp(argv[0], "--version", 9)) {
             uint32 major, minor, patch;
             wasm_runtime_get_version(&major, &minor, &patch);
-            printf("iwasm %u.%u.%u\n", major, minor, patch);
+            printf("iwasm %" PRIu32 ".%" PRIu32 ".%" PRIu32 "\n", major, minor,
+                   patch);
             return 0;
         }
         else
