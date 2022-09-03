@@ -554,6 +554,9 @@ compile_int_div_no_check(JitCompContext *cc, IntArithmetic arith_op,
             if (insn && insn1) {
                 jit_insn_insert_after(insn, insn1);
             }
+            else {
+                goto fail_generate_insn;
+            }
             break;
         }
         case INT_REM_S:
@@ -591,6 +594,9 @@ compile_int_div_no_check(JitCompContext *cc, IntArithmetic arith_op,
             if (insn && insn1) {
                 jit_insn_insert_after(insn, insn1);
             }
+            else {
+                goto fail_generate_insn;
+            }
             break;
         }
 #else
@@ -617,6 +623,8 @@ compile_int_div_no_check(JitCompContext *cc, IntArithmetic arith_op,
     else
         PUSH_I64(res);
     return true;
+fail_generate_insn:
+    jit_free(insn1);
 fail:
     return false;
 }
