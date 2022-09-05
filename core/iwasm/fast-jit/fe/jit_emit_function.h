@@ -13,13 +13,11 @@ extern "C" {
 #endif
 
 static bool
-check_app_addr_and_convert_draft(JitCompContext *cc, WASMFunction *func_ctx,
-                                 bool is_str_arg, JitReg app_addr,
-                                 JitReg buf_size,
-                                 JitReg *p_native_addr_converted);
+pre_load(JitCompContext *cc, uint32 *argvs, const WASMType *func_type);
 
-bool
-jit_compile_op_call_draft(JitCompContext *cc, uint32 func_idx, bool tail_call);
+// bool
+// jit_compile_op_call_draft(JitCompContext *cc, uint32 func_idx, bool
+// tail_call);
 
 bool
 jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call);
