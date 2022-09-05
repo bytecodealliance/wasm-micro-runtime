@@ -137,7 +137,7 @@ typedef struct RuntimeInitArgs {
     /* Debug settings, only used when
        WASM_ENABLE_DEBUG_INTERP != 0 */
     char ip_addr[128];
-    int platform_port;
+    int unused; /* was platform_port */
     int instance_port;
 
     /* Fast JIT code cache size */
