@@ -1,8 +1,7 @@
 /*
- * Copyright (C) 2019 Intel Corporation.  All rights reserved.
+ * Copyright (C) 2022 Amazon.com Inc. or its affiliates. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
-#include "socket_utils.h"
 
 #include <arpa/inet.h>
 #include <stdio.h>
@@ -36,8 +35,10 @@ int
 main(int argc, char *argv[])
 {
     int socket_fd, ret, af;
+    char buffer[1024] = { 0 };
     socklen_t serverlen;
     struct sockaddr_storage server_address = { 0 };
+    const char *message = "Hello from client";
 
     if (argc > 1 && strcmp(argv[1], "inet6") == 0) {
         af = AF_INET6;
@@ -58,11 +59,21 @@ main(int argc, char *argv[])
     }
 
     printf("[Client] Client send\n");
-    ret = sendto(socket_fd, "test", strlen("test"), 0, (struct sockaddr *)&server_address, serverlen);
+    ret = sendto(socket_fd, message, strlen(message), 0,
+                 (struct sockaddr *)&server_address, serverlen);
     if (ret < 0) {
         close(socket_fd);
         perror("Send failed");
         return EXIT_FAILURE;
+    }
+
+    printf("[Client] Client receive\n");
+    serverlen = sizeof(server_address);
+    ret = recvfrom(socket_fd, buffer, sizeof(buffer), 0,
+                   (struct sockaddr *)&server_address, &serverlen);
+
+    if (ret > 0) {
+        printf("[Client] Buffer recieved: %s\n", buffer);
     }
 
     close(socket_fd);

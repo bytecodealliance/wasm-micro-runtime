@@ -257,9 +257,12 @@ bh_sockaddr_to_wasi_addr(const bh_sockaddr_t *sockaddr,
     if (sockaddr->is_ipv4) {
         wasi_addr->kind = IPv4;
         wasi_addr->addr.ip4.port = sockaddr->port;
-        wasi_addr->addr.ip4.addr.n0 = (sockaddr->addr_bufer.ipv4 & 0xFF000000) >> 24;
-        wasi_addr->addr.ip4.addr.n1 = (sockaddr->addr_bufer.ipv4 & 0x00FF0000) >> 16;
-        wasi_addr->addr.ip4.addr.n2 = (sockaddr->addr_bufer.ipv4 & 0x0000FF00) >> 8;
+        wasi_addr->addr.ip4.addr.n0 =
+            (sockaddr->addr_bufer.ipv4 & 0xFF000000) >> 24;
+        wasi_addr->addr.ip4.addr.n1 =
+            (sockaddr->addr_bufer.ipv4 & 0x00FF0000) >> 16;
+        wasi_addr->addr.ip4.addr.n2 =
+            (sockaddr->addr_bufer.ipv4 & 0x0000FF00) >> 8;
         wasi_addr->addr.ip4.addr.n3 = (sockaddr->addr_bufer.ipv4 & 0x000000FF);
     }
     else {
