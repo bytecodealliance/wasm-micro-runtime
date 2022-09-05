@@ -108,8 +108,11 @@ process_xfer(WASMGDBServer *server, const char *name, char *args)
         os_mutex_lock(&tmpbuf_lock);
 #if WASM_ENABLE_LIBC_WASI != 0
         char objname[128];
-        wasm_debug_instance_get_current_object_name(
-            (WASMDebugInstance *)server->thread->debug_instance, objname, 128);
+        if (!wasm_debug_instance_get_current_object_name(
+                (WASMDebugInstance *)server->thread->debug_instance, objname,
+                128)) {
+            objname[0] = 0; /* use an empty string */
+        }
         snprintf(tmpbuf, MAX_PACKET_SIZE,
                  "l<library-list><library name=\"%s\"><section "
                  "address=\"0x%" PRIx64 "\"/></library></library-list>",
