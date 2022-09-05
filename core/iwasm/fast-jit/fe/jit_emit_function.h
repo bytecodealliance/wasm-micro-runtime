@@ -12,6 +12,9 @@
 extern "C" {
 #endif
 
+// static bool
+// pre_load(JitCompContext *cc, JitReg *argvs, const WASMType *func_type);
+
 bool
 jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call);
 
