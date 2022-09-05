@@ -704,8 +704,7 @@ os_socket_addr_resolve(const char *host, const char *service,
 }
 
 int
-os_socket_addr_local(bh_socket_t socket, uint8_t *buf, size_t buflen,
-                     uint16_t *port, uint8_t *is_ipv4)
+os_socket_addr_local(bh_socket_t socket, bh_sockaddr_t *sockaddr)
 {
     errno = ENOSYS;
 
@@ -713,8 +712,7 @@ os_socket_addr_local(bh_socket_t socket, uint8_t *buf, size_t buflen,
 }
 
 int
-os_socket_addr_remote(bh_socket_t socket, uint8_t *buf, size_t buflen,
-                      uint16_t *port, uint8_t *is_ipv4)
+os_socket_addr_remote(bh_socket_t socket, bh_sockaddr_t *sockaddr)
 {
     errno = ENOSYS;
 

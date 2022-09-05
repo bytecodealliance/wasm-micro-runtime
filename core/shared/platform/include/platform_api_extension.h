@@ -459,9 +459,7 @@ int
 os_socket_inet_network(bool is_ipv4, const char *cp, bh_ip_addr_buffer_t *out);
 
 typedef struct {
-    uint8_t addr[16];
-    uint16_t port;
-    uint8_t is_ipv4;
+    bh_sockaddr_t sockaddr;
     uint8_t is_tcp;
 } bh_addr_info_t;
 
@@ -498,38 +496,24 @@ os_socket_addr_resolve(const char *host, const char *service,
  *
  * @param socket the local socket
  *
- * @param buf buffer to store the address
- *
- * @param buflen length of the buf buffer
- *
- * @param port a buffer for storing socket's port
- *
- * @param is_ipv4 a buffer for storing information about the address family
+ * @param sockaddr a buffer for storing the address
  *
  * @return On success, returns 0; otherwise, it returns -1.
  */
 int
-os_socket_addr_local(bh_socket_t socket, uint8_t *buf, size_t buflen,
-                     uint16_t *port, uint8_t *is_ipv4);
+os_socket_addr_local(bh_socket_t socket, bh_sockaddr_t *sockaddr);
 
 /**
  * Returns an binary address and a port of the remote socket
  *
  * @param socket the remote socket
  *
- * @param buf buffer to store the address
- *
- * @param buflen length of the buf buffer
- *
- * @param port a buffer for storing socket's port
- *
- * @param is_ipv4 a buffer for storing information about the address family
+ * @param sockaddr a buffer for storing the address
  *
  * @return On success, returns 0; otherwise, it returns -1.
  */
 int
-os_socket_addr_remote(bh_socket_t socket, uint8_t *buf, size_t buflen,
-                      uint16_t *port, uint8_t *is_ipv4);
+os_socket_addr_remote(bh_socket_t socket, bh_sockaddr_t *sockaddr);
 
 /**
  * Set the send timeout until reporting an error

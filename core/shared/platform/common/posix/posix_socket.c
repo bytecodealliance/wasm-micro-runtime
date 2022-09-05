@@ -62,6 +62,47 @@ bh_sockaddr_to_sockaddr(const bh_sockaddr_t *bh_sockaddr,
     }
 }
 
+static int
+sockaddr_to_bh_sockaddr(const struct sockaddr *sockaddr, socklen_t socklen,
+                        bh_sockaddr_t *bh_sockaddr)
+{
+    switch (sockaddr->sa_family) {
+        case AF_INET:
+        {
+            struct sockaddr_in *addr = (struct sockaddr_in *)sockaddr;
+
+            assert(socklen >= sizeof(struct sockaddr_in));
+
+            bh_sockaddr->port = ntohs(addr->sin_port);
+            bh_sockaddr->addr_bufer.ipv4 = ntohl(addr->sin_addr.s_addr);
+            bh_sockaddr->is_ipv4 = true;
+            return BHT_OK;
+        }
+        case AF_INET6:
+        {
+            struct sockaddr_in6 *addr = (struct sockaddr_in6 *)sockaddr;
+            size_t i;
+
+            assert(socklen >= sizeof(struct sockaddr_in6));
+
+            bh_sockaddr->port = ntohs(addr->sin6_port);
+
+            for (i = 0; i < sizeof(bh_sockaddr->addr_bufer.ipv6)
+                                / sizeof(bh_sockaddr->addr_bufer.ipv6[0]);
+                 i++) {
+                bh_sockaddr->addr_bufer.ipv6[i] =
+                    ntohs(addr->sin6_addr.__in6_u.__u6_addr16[i]);
+            }
+
+            bh_sockaddr->is_ipv4 = false;
+            return BHT_OK;
+        }
+        default:
+            errno = EAFNOSUPPORT;
+            return BHT_ERROR;
+    }
+}
+
 int
 os_socket_create(bh_socket_t *sock, bool is_ipv4, bool is_tcp)
 {
@@ -318,26 +359,8 @@ os_socket_addr_resolve(const char *host, const char *service,
                 continue;
             }
 
-            if (res->ai_family == AF_INET) {
-                struct sockaddr_in *addr_in =
-                    (struct sockaddr_in *)res->ai_addr;
-
-                addr_info[pos].port = addr_in->sin_port;
-                addr_info[pos].is_ipv4 = 1;
-                memcpy(addr_info[pos].addr, &addr_in->sin_addr,
-                       sizeof(addr_in->sin_addr));
-            }
-            else {
-                struct sockaddr_in6 *addr_in =
-                    (struct sockaddr_in6 *)res->ai_addr;
-
-                addr_info[pos].port = addr_in->sin6_port;
-                addr_info[pos].is_ipv4 = 0;
-                for (int i = 0; i < 8; i++) {
-                    ((uint16 *)addr_info[pos].addr)[i] =
-                        ntohs(((uint16_t *)&addr_in->sin6_addr)[i]);
-                }
-            }
+            sockaddr_to_bh_sockaddr(res->ai_addr, sizeof(struct sockaddr_in),
+                                    &addr_info[pos].sockaddr);
 
             addr_info[pos].is_tcp = res->ai_socktype == SOCK_STREAM;
         }
@@ -348,45 +371,6 @@ os_socket_addr_resolve(const char *host, const char *service,
 
     *max_info_size = pos;
     freeaddrinfo(result);
-
-    return BHT_OK;
-}
-
-static int
-os_socket_convert_sockaddr(struct sockaddr *addr, uint8_t *buf, size_t buflen,
-                           uint16_t *port, uint8_t *is_ipv4)
-{
-    assert(buf);
-    assert(is_ipv4);
-    assert(port);
-
-    switch (addr->sa_family) {
-        case AF_INET:
-        {
-            struct sockaddr_in *addr_in = (struct sockaddr_in *)addr;
-
-            assert(buflen >= sizeof(addr_in->sin_addr));
-            *port = ntohs(addr_in->sin_port);
-            memcpy(buf, &addr_in->sin_addr, sizeof(addr_in->sin_addr));
-            *is_ipv4 = true;
-            break;
-        }
-        case AF_INET6:
-        {
-            struct sockaddr_in6 *addr_in = (struct sockaddr_in6 *)addr;
-            assert(buflen >= sizeof(addr_in->sin6_addr));
-            *port = ntohs(addr_in->sin6_port);
-
-            for (int i = 0; i < 8; i++) {
-                ((uint16_t *)buf)[i] =
-                    ntohs(((uint16_t *)&addr_in->sin6_addr)[i]);
-            }
-            *is_ipv4 = false;
-            break;
-        }
-        default:
-            return BHT_ERROR;
-    }
 
     return BHT_OK;
 }
@@ -440,8 +424,7 @@ os_socket_get_recv_timeout(bh_socket_t socket, uint64 *timeout_us)
 }
 
 int
-os_socket_addr_local(bh_socket_t socket, uint8_t *buf, size_t buflen,
-                     uint16_t *port, uint8_t *is_ipv4)
+os_socket_addr_local(bh_socket_t socket, bh_sockaddr_t *sockaddr)
 {
     struct sockaddr_storage addr_storage = { 0 };
     socklen_t addr_len = sizeof(addr_storage);
@@ -453,13 +436,12 @@ os_socket_addr_local(bh_socket_t socket, uint8_t *buf, size_t buflen,
         return BHT_ERROR;
     }
 
-    return os_socket_convert_sockaddr((struct sockaddr *)&addr_storage, buf,
-                                      buflen, port, is_ipv4);
+    return sockaddr_to_bh_sockaddr((struct sockaddr *)&addr_storage, addr_len,
+                                   sockaddr);
 }
 
 int
-os_socket_addr_remote(bh_socket_t socket, uint8_t *buf, size_t buflen,
-                      uint16_t *port, uint8_t *is_ipv4)
+os_socket_addr_remote(bh_socket_t socket, bh_sockaddr_t *sockaddr)
 {
     struct sockaddr_storage addr_storage = { 0 };
     socklen_t addr_len = sizeof(addr_storage);
@@ -471,6 +453,6 @@ os_socket_addr_remote(bh_socket_t socket, uint8_t *buf, size_t buflen,
         return BHT_ERROR;
     }
 
-    return os_socket_convert_sockaddr((struct sockaddr *)&addr_storage, buf,
-                                      buflen, port, is_ipv4);
+    return sockaddr_to_bh_sockaddr((struct sockaddr *)&addr_storage, addr_len,
+                                   sockaddr);
 }
