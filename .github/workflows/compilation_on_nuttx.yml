@@ -43,20 +43,44 @@ jobs:
     strategy:
       matrix:
         nuttx_board_config : [
-          "stm32f4discovery:nsh",
-          "nucleo-h743zi:nsh",
-          "sabre-6quad:nsh",
+          # x64
+          "boards/sim/sim/sim/configs/nsh",
+          # cortex-m0
+          "boards/arm/rp2040/raspberrypi-pico/configs/nsh",
+          # cortex-m4
+          "boards/arm/stm32/stm32f4discovery/configs/nsh",
+          # cortex-m7
+          "boards/arm/stm32h7/nucleo-h743zi/configs/nsh",
+          # cortex-a9
+          "boards/arm/imx6/sabre-6quad/configs/nsh",
+          # riscv32imac
+          "boards/risc-v/qemu-rv/rv-virt/configs/nsh",
+          # riscv64imac
+          "boards/risc-v/qemu-rv/rv-virt/configs/nsh64",
+          # riscv64gc
+          "boards/risc-v/k210/maix-bit/configs/nsh",
         ]
         wamr_config_option: [
           "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_AOT=y\\nCONFIG_INTERPRETERS_WAMR_FAST=y\\nCONFIG_INTERPRETERS_WAMR_LIBC_BUILTIN=y\\n",
           "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_AOT=y\\nCONFIG_INTERPRETERS_WAMR_FAST=y\\n",
+          "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_AOT=y\\nCONFIG_INTERPRETERS_WAMR_CLASSIC=y\\n",
           "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_AOT=y\\nCONFIG_INTERPRETERS_WAMR_LIBC_BUILTIN=y\\n",
           "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_AOT=y\\n",
+          "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_FAST=y\\n",
+          "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_CLASSIC=y\\n",
         ]
 
     steps:
-      - name: Install Toolchains
-        run: sudo apt install -y gcc-arm-none-eabi kconfig-frontends-nox genromfs
+      - name: Install Utilities
+        run: sudo apt install -y kconfig-frontends-nox genromfs
+
+      - name: Install ARM Compilers
+        if: ${{ contains(matrix.nuttx_board_config, 'arm') }}
+        run: sudo apt install -y gcc-arm-none-eabi
+
+      - name: Install RISC-V Compilers
+        if: ${{ contains(matrix.nuttx_board_config, 'risc-v') }}
+        run: sudo apt install -y gcc-riscv64-unknown-elf
 
       - name: Checkout NuttX
         uses: actions/checkout@v3
@@ -77,7 +101,10 @@ jobs:
           path: apps/interpreters/wamr/wamr
 
       - name: Enable WAMR for NuttX
-        run: find nuttx/boards -name defconfig | xargs sed -i '$a\CONFIG_EOL_IS_CR=y\n${{ matrix.wamr_config_option }}'
+        run: | 
+          find nuttx/boards -name defconfig | xargs sed -i '$a\CONFIG_EOL_IS_CR=y\n${{ matrix.wamr_config_option }}'
+          find nuttx/boards/sim -name defconfig | xargs sed -i '$a\CONFIG_LIBM=y\n'
+          find nuttx/boards/risc-v -name defconfig | xargs sed -i '$a\CONFIG_LIBM=y\n'
 
       - name: Build
         run: |
