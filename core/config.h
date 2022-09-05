@@ -282,6 +282,10 @@
 #define WASM_ENABLE_GLOBAL_HEAP_POOL 0
 #endif
 
+#ifndef WASM_ENABLE_SPEC_TEST
+#define WASM_ENABLE_SPEC_TEST 0
+#endif
+
 /* Global heap pool size in bytes */
 #ifndef WASM_GLOBAL_HEAP_SIZE
 #if WASM_ENABLE_SPEC_TEST != 0
@@ -382,10 +386,6 @@
 #define BLOCK_ADDR_CACHE_SIZE 64
 #endif
 #define BLOCK_ADDR_CONFLICT_SIZE 2
-
-#ifndef WASM_ENABLE_SPEC_TEST
-#define WASM_ENABLE_SPEC_TEST 0
-#endif
 
 /* Default max thread num per cluster. Can be overwrite by
     wasm_runtime_set_max_thread_num */
