@@ -3202,8 +3202,23 @@ wasmtime_ssp_sock_recv(
 #endif
     __wasi_fd_t sock, void *buf, size_t buf_len, size_t *recv_len)
 {
+    __wasi_addr_t src_addr;
+
+    return wasmtime_ssp_sock_recv_from(curfds, sock, buf, buf_len, 0, &src_addr,
+                                       recv_len);
+}
+
+__wasi_errno_t
+wasmtime_ssp_sock_recv_from(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t sock, void *buf, size_t buf_len, __wasi_riflags_t ri_flags,
+    __wasi_addr_t *src_addr, size_t *recv_len)
+{
     struct fd_object *fo;
     __wasi_errno_t error;
+    bh_sockaddr_t sockaddr;
     int ret;
 
     error = fd_object_get(curfds, &fo, sock, __WASI_RIGHT_FD_READ, 0);
@@ -3211,11 +3226,13 @@ wasmtime_ssp_sock_recv(
         return error;
     }
 
-    ret = os_socket_recv(fd_number(fo), buf, buf_len);
+    ret = os_socket_recv_from(fd_number(fo), buf, buf_len, 0, &sockaddr);
     fd_object_release(fo);
     if (-1 == ret) {
         return convert_errno(errno);
     }
+
+    bh_sockaddr_to_wasi_addr(&sockaddr, src_addr);
 
     *recv_len = (size_t)ret;
     return __WASI_ESUCCESS;

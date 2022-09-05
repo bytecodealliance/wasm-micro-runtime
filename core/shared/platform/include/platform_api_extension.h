@@ -394,6 +394,22 @@ int
 os_socket_recv(bh_socket_t socket, void *buf, unsigned int len);
 
 /**
+ * Blocking receive message from a socket.
+ *
+ * @param socket the socket to send message
+ * @param buf the buffer to store the data
+ * @param len length of the buffer, this API does not guarantee that
+ *            [len] bytes are received
+ * @param flags control the operation
+ * @param src_addr source address
+ *
+ * @return number of bytes sent if success, -1 otherwise
+ */
+int
+os_socket_recv_from(bh_socket_t socket, void *buf, unsigned int len, int flags,
+                    bh_sockaddr_t *src_addr);
+
+/**
  * Blocking send message on a socket
  *
  * @param socket the socket to send message
@@ -418,7 +434,7 @@ os_socket_send(bh_socket_t socket, const void *buf, unsigned int len);
  */
 int
 os_socket_send_to(bh_socket_t socket, const void *buf, unsigned int len,
-                  int flags, bh_sockaddr_t *dest_addr);
+                  int flags, const bh_sockaddr_t *dest_addr);
 
 /**
  * Close a socket

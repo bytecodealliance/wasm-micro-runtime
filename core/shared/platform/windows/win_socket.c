@@ -144,6 +144,15 @@ os_socket_recv(bh_socket_t socket, void *buf, unsigned int len)
 }
 
 int
+os_socket_recv_from(bh_socket_t socket, void *buf, unsigned int len, int flags,
+                    bh_sockaddr_t *src_addr)
+{
+    errno = ENOSYS;
+
+    return BHT_ERROR;
+}
+
+int
 os_socket_send(bh_socket_t socket, const void *buf, unsigned int len)
 {
     return send(socket, buf, len, 0);
@@ -151,7 +160,7 @@ os_socket_send(bh_socket_t socket, const void *buf, unsigned int len)
 
 int
 os_socket_send_to(bh_socket_t socket, const void *buf, unsigned int len,
-                  int flags, bh_sockaddr_t *dest_addr)
+                  int flags, const bh_sockaddr_t *dest_addr)
 {
     errno = ENOSYS;
 

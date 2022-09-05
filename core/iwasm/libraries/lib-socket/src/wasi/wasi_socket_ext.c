@@ -280,6 +280,38 @@ sendto(int sockfd, const void *buf, size_t len, int flags,
     return so_datalen;
 }
 
+ssize_t
+recvfrom(int sockfd, void *buf, size_t len, int flags,
+         struct sockaddr *src_addr, socklen_t *addrlen)
+{
+    // Prepare input parameters.
+    __wasi_ciovec_t iov = { .buf = buf, .buf_len = len };
+    uint32_t so_datalen = 0;
+    __wasi_addr_t wasi_addr;
+    __wasi_errno_t error;
+    size_t si_data_len = 1;
+    __wasi_siflags_t si_flags = 0;
+
+    // This implementation does not support any flags.
+    if (flags != 0) {
+        HANDLE_ERROR(__WASI_ERRNO_NOPROTOOPT)
+    }
+
+    if (!src_addr) {
+        return recv(sockfd, buf, len, flags);
+    }
+
+    // Perform system call.
+    error = __wasi_sock_recv_from(sockfd, &iov, si_data_len, si_flags,
+                                  &wasi_addr, &so_datalen);
+    HANDLE_ERROR(error);
+
+    error = wasi_addr_to_sockaddr(&wasi_addr, src_addr, addrlen);
+    HANDLE_ERROR(error);
+
+    return so_datalen;
+}
+
 int
 socket(int domain, int type, int protocol)
 {

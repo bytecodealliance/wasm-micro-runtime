@@ -130,6 +130,10 @@ ssize_t
 sendto(int sockfd, const void *buf, size_t len, int flags,
        const struct sockaddr *dest_addr, socklen_t addrlen);
 
+ssize_t
+recvfrom(int sockfd, void *buf, size_t len, int flags,
+         struct sockaddr *src_addr, socklen_t *addrlen);
+
 int
 socket(int domain, int type, int protocol);
 
@@ -280,6 +284,27 @@ __wasi_sock_send_to(__wasi_fd_t fd, const __wasi_ciovec_t *si_data,
     return (__wasi_errno_t)__imported_wasi_snapshot_preview1_sock_send_to(
         (int32_t)fd, (int32_t)si_data, (int32_t)si_data_len, (int32_t)si_flags,
         (uint32_t)dest_addr, (uint32_t)so_data_len);
+}
+
+/**
+ * Receives data from a socket
+ * Note: This is similar to `recvfrom` in POSIX
+ */
+int32_t
+__imported_wasi_snapshot_preview1_sock_recv_from(int32_t arg0, int32_t arg1,
+                                                 int32_t arg2, int32_t arg3,
+                                                 int32_t arg4, int32_t arg5)
+    __attribute__((__import_module__("wasi_snapshot_preview1"),
+                   __import_name__("sock_recv_from")));
+
+static inline __wasi_errno_t
+__wasi_sock_recv_from(__wasi_fd_t fd, __wasi_ciovec_t *ri_data,
+                      uint32_t ri_data_len, __wasi_riflags_t ri_flags,
+                      __wasi_addr_t *src_addr, uint32_t *ro_data_len)
+{
+    return (__wasi_errno_t)__imported_wasi_snapshot_preview1_sock_recv_from(
+        (int32_t)fd, (int32_t)ri_data, (int32_t)ri_data_len, (int32_t)ri_flags,
+        (uint32_t)src_addr, (uint32_t)ro_data_len);
 }
 
 /**
