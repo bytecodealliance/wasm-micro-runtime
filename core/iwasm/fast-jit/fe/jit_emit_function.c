@@ -160,7 +160,7 @@ check_app_addr_and_convert_draft(JitCompContext *cc, WASMFunction *func_ctx,
 static bool
 pre_load(JitCompContext *cc, JitReg *argvs, const WASMType *func_type)
 {
-    /* need to modify */
+    /* need to modify, in ba_fast_jit branch*/
     JitReg value;
     uint32 i, outs_off;
     // JitReg argv;
