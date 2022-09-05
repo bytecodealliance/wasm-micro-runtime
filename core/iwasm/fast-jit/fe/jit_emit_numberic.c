@@ -540,7 +540,6 @@ compile_int_div_no_check(JitCompContext *cc, IntArithmetic arith_op,
             }
 
             if (!insn) {
-                jit_set_last_error(cc, "generate insn failed");
                 goto fail;
             }
             if (!jit_lock_reg_in_insn(cc, insn, eax_hreg)
@@ -586,7 +585,6 @@ compile_int_div_no_check(JitCompContext *cc, IntArithmetic arith_op,
             }
 
             if (!insn) {
-                jit_set_last_error(cc, "generate insn failed");
                 goto fail;
             }
             if (!jit_lock_reg_in_insn(cc, insn, eax_hreg)
