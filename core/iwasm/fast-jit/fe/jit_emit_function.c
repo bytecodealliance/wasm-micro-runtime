@@ -17,6 +17,7 @@ jit_invoke_native(WASMExecEnv *exec_env, uint32 func_idx,
 static bool
 pre_call(JitCompContext *cc, const WASMType *func_type)
 {
+    /*test*/
     JitReg value;
     uint32 i, outs_off;
     /* Prepare parameters for the function to call */
