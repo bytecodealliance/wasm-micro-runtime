@@ -285,6 +285,13 @@ aot_func_disable_tce(LLVMValueRef func)
     F->setAttributes(Attrs);
 }
 
+#ifndef NDEBUG
+// #define DEBUG_PASS
+#undef DEBUG_PASS
+#else
+#undef DEBUG_PASS
+#endif
+
 void
 aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
 {
@@ -294,7 +301,7 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
     PTO.SLPVectorization = true;
     PTO.LoopUnrolling = true;
 
-#ifndef NDEBUG
+#ifdef DEBUG_PASS
     PassInstrumentationCallbacks PIC;
     PassBuilder PB(TM, PTO, None, &PIC);
 #else
@@ -321,7 +328,7 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
     AAManager AA = PB.buildDefaultAAPipeline();
     FAM.registerPass([&] { return std::move(AA); });
 
-#ifndef NDEBUG
+#ifdef DEBUG_PASS
     StandardInstrumentations SI(true, false);
     SI.registerCallbacks(PIC, &FAM);
 #endif
