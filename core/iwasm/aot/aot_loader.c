@@ -2898,14 +2898,22 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
     }
 
     /* fill in func_ptrs[] */
+    LOG_VERBOSE("to fill in func_ptrs ...");
+#if WASM_ENABLE_LAZY_JIT == 0
     bh_print_time("Begin to do eager compilation...");
+#endif
     for (i = 0; i < module->func_count; i++) {
         LLVMErrorRef error;
         LLVMOrcJITTargetAddress func_addr;
         char func_name[32] = { 0 };
 
         snprintf(func_name, sizeof(func_name), "%s%d", AOT_FUNC_PREFIX, i);
+#if WASM_ENABLE_LAZY_JIT != 0
+        error =
+            LLVMOrcLLLazyJITLookup(comp_ctx->orc_jit, &func_addr, func_name);
+#else
         error = LLVMOrcLLJITLookup(comp_ctx->orc_jit, &func_addr, func_name);
+#endif
         if (error != LLVMErrorSuccess) {
             char *err_msg = LLVMGetErrorMessage(error);
             set_error_buf_v(error_buf, error_buf_size,
@@ -2944,8 +2952,13 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
                 snprintf(func_name, sizeof(func_name), "%s%d", AOT_FUNC_PREFIX,
                          comp_data->start_func_index
                              - module->import_func_count);
+#if WASM_ENABLE_LAZY_JIT != 0
+                if ((error = LLVMOrcLLLazyJITLookup(comp_ctx->orc_jit,
+                                                    &func_addr, func_name))) {
+#else
                 if ((error = LLVMOrcLLJITLookup(comp_ctx->orc_jit, &func_addr,
                                                 func_name))) {
+#endif
                     char *err_msg = LLVMGetErrorMessage(error);
                     set_error_buf_v(error_buf, error_buf_size,
                                     "failed to compile orc jit function: %s",
