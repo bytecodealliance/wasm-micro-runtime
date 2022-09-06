@@ -1294,7 +1294,7 @@ compile_int_rotl(JitCompContext *cc, JitReg left, JitReg right, bool is_i32)
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
     GEN_INSN(MOV, is_i32 ? ecx_hreg : rcx_hreg, right);
     insn = GEN_INSN(ROTL, res, left, is_i32 ? ecx_hreg : rcx_hreg);
-    if (jit_get_last_error(cc) || jit_lock_reg_in_insn(cc, insn, ecx_hreg)) {
+    if (jit_get_last_error(cc) || !jit_lock_reg_in_insn(cc, insn, ecx_hreg)) {
         goto fail;
     }
 #else
