@@ -62,8 +62,9 @@ sockaddr_to_bh_sockaddr(const struct sockaddr *sockaddr, socklen_t socklen,
             for (i = 0; i < sizeof(bh_sockaddr->addr_bufer.ipv6)
                                 / sizeof(bh_sockaddr->addr_bufer.ipv6[0]);
                  i++) {
-                bh_sockaddr->addr_bufer.ipv6[i] =
-                    ntohs(addr->sin6_addr.__in6_u.__u6_addr16[i]);
+                uint16 part_addr = addr->sin6_addr.s6_addr[i * 2]
+                                   | (addr->sin6_addr.s6_addr[i * 2 + 1] << 8);
+                bh_sockaddr->addr_bufer.ipv6[i] = ntohs(part_addr);
             }
 
             bh_sockaddr->is_ipv4 = false;
@@ -95,8 +96,9 @@ bh_sockaddr_to_sockaddr(const bh_sockaddr_t *bh_sockaddr,
         for (i = 0; i < sizeof(bh_sockaddr->addr_bufer.ipv6)
                             / sizeof(bh_sockaddr->addr_bufer.ipv6[0]);
              i++) {
-            addr->sin6_addr.__in6_u.__u6_addr16[i] =
-                htons(bh_sockaddr->addr_bufer.ipv6[i]);
+            uint16 part_addr = htons(bh_sockaddr->addr_bufer.ipv6[i]);
+            addr->sin6_addr.s6_addr[i * 2] = 0xff & part_addr;
+            addr->sin6_addr.s6_addr[i * 2 + 1] = (0xff00 & part_addr) >> 8;
         }
 
         *socklen = sizeof(*addr);

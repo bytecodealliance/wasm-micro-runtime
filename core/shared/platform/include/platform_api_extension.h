@@ -295,7 +295,7 @@ os_sem_unlink(const char *name);
 typedef union {
     uint32 ipv4;
     uint16 ipv6[8];
-    uint8 data[0];
+    uint8 data[1];
 } bh_ip_addr_buffer_t;
 
 typedef struct {
