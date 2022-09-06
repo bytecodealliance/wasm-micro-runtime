@@ -330,10 +330,13 @@ bool
 jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
                              uint32 tbl_idx)
 {
+    WASMModule *wasm_module = cc->cur_wasm_module;
     JitReg elem_idx, native_ret, argv, arg_regs[6];
     JitFrame *jit_frame = cc->jit_frame;
     JitReg module_inst, tbl_size, elem_idx_long, offset;
     JitReg func_idx, tbl_data, func_count_reg;
+    JitReg func_type_indexes, func_type_idx, fast_jit_func_ptrs;
+    JitReg offset1_i32, offset1, func_type_idx1;
     WASMType *func_type;
 
     POP_I32(elem_idx);
@@ -348,21 +351,19 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
         goto fail;
 
     /* check func_idx */
-    elem_idx_long = jit_cc_new_reg_I64(cc);
-    GEN_INSN(I32TOI64, elem_idx_long, elem_idx);
-
-    offset = jit_cc_new_reg_I64(cc);
-    GEN_INSN(MUL, offset, elem_idx_long, NEW_CONST(I64, sizeof(uint32)));
-    
+    if (UINTPTR_MAX == UINT64_MAX) {
+        JitReg offset_i32 = jit_cc_new_reg_I32(cc);
+        offset = jit_cc_new_reg_I64(cc);
+        GEN_INSN(SHL, offset_i32, elem_idx, NEW_CONST(I32, 2));
+        GEN_INSN(I32TOI64, offset, offset_i32);
+    }
+    else {
+        offset = jit_cc_new_reg_I32(cc);
+        GEN_INSN(SHL, offset, elem_idx, NEW_CONST(I32, 2));
+    }
     func_idx = jit_cc_new_reg_I32(cc);
     tbl_data = get_table_data_reg(jit_frame, tbl_idx);
     GEN_INSN(LDI32, func_idx, tbl_data, offset);
-    // offset = jit_cc_new_reg_I32(cc);
-    // func_idx = jit_cc_new_reg_I32(cc);
-    // tbl_data = get_table_data_reg(jit_frame, tbl_idx);
-
-    // GEN_INSN(SHL, offset, elem_idx, 2);
-    // GEN_INSN(LDI32, func_idx, tbl_data, offset);
 
     GEN_INSN(CMP, cc->cmp_reg, func_idx, NEW_CONST(I32, -1));
     if (!jit_emit_exception(cc, JIT_EXCE_UNINITIALIZED_ELEMENT, JIT_OP_BEQ,
@@ -375,6 +376,24 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
 
     GEN_INSN(CMP, cc->cmp_reg, func_idx, func_count_reg);
     if (!jit_emit_exception(cc, JIT_EXCE_INVALID_FUNCTION_INDEX, JIT_OP_BGTU,
+                            cc->cmp_reg, NULL))
+        goto fail;
+
+    /* check func_type */
+    /* get func_type from func_type_index */
+    offset1_i32 = jit_cc_new_reg_I32(cc);
+    offset1 = jit_cc_new_reg_I64(cc);
+    GEN_INSN(SHL, offset1_i32, func_idx, NEW_CONST(I32, 2));
+    GEN_INSN(I32TOI64, offset1, offset1_i32);
+
+    func_type_indexes = get_func_type_indexes_reg(jit_frame);
+    func_type_idx = jit_cc_new_reg_I32(cc);
+    GEN_INSN(LDI32, func_type_idx, func_type_indexes, offset1);
+
+    type_idx = wasm_get_smallest_type_idx(wasm_module->types, wasm_module->type_count, type_idx);
+    func_type_idx1 = NEW_CONST(I32, type_idx);
+    GEN_INSN(CMP, cc->cmp_reg, func_type_idx, func_type_idx1);
+    if (!jit_emit_exception(cc, JIT_EXCE_INVALID_FUNCTION_TYPE_INDEX, JIT_OP_BNE,
                             cc->cmp_reg, NULL))
         goto fail;
 
