@@ -907,34 +907,37 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 func = func_ctx->func;
             }
             else {
-                LLVMTypeRef func_ptr_type;
-                LLVMValueRef func_idx_const = I32_CONST(func_idx);
-
-                if (!func_idx_const) {
-                    aot_set_last_error("llvm build const failed.");
-                    goto fail;
-                }
-
-                /* For LAZY JIT, each function belongs to its own module,
-                   we call aot_lookup_orcjit_func to get the func pointer */
-                if (!lookup_orcjit_func(comp_ctx, func_ctx, func_idx_const,
-                                        &func)) {
-                    goto fail;
-                }
-
-                if (!(func_ptr_type = LLVMPointerType(
-                          func_ctxes[func_idx - import_func_count]->func_type,
-                          0))) {
-                    aot_set_last_error("construct func ptr type failed.");
-                    goto fail;
-                }
-
-                if (!(func = LLVMBuildBitCast(comp_ctx->builder, func,
-                                              func_ptr_type, "aot_func"))) {
-                    aot_set_last_error("llvm bit cast failed.");
-                    goto fail;
-                }
+                func = func_ctxes[func_idx - import_func_count]->func;
             }
+            // else {
+            //     LLVMTypeRef func_ptr_type;
+            //     LLVMValueRef func_idx_const = I32_CONST(func_idx);
+
+            //     if (!func_idx_const) {
+            //         aot_set_last_error("llvm build const failed.");
+            //         goto fail;
+            //     }
+
+            //     /* For LAZY JIT, each function belongs to its own module,
+            //        we call aot_lookup_orcjit_func to get the func pointer */
+            //     if (!lookup_orcjit_func(comp_ctx, func_ctx, func_idx_const,
+            //                             &func)) {
+            //         goto fail;
+            //     }
+
+            //     if (!(func_ptr_type = LLVMPointerType(
+            //               func_ctxes[func_idx -
+            //               import_func_count]->func_type, 0))) {
+            //         aot_set_last_error("construct func ptr type failed.");
+            //         goto fail;
+            //     }
+
+            //     if (!(func = LLVMBuildBitCast(comp_ctx->builder, func,
+            //                                   func_ptr_type, "aot_func"))) {
+            //         aot_set_last_error("llvm bit cast failed.");
+            //         goto fail;
+            //     }
+            // }
         }
 
         aot_func = func_ctxes[func_idx - import_func_count]->aot_func;
@@ -1563,10 +1566,24 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                                      + 16))
         goto fail;
 
-    /* For LAZY JIT, each function belongs to its own module,
-       we call aot_lookup_orcjit_func to get the func pointer */
-    if (!lookup_orcjit_func(comp_ctx, func_ctx, func_idx, &func_ptr))
+    /* Load function pointer */
+    if (!(func_ptr = LLVMBuildInBoundsGEP2(comp_ctx->builder, OPQ_PTR_TYPE,
+                                           func_ctx->func_ptrs, &func_idx, 1,
+                                           "func_ptr_tmp"))) {
+        aot_set_last_error("llvm build inbounds gep failed.");
         goto fail;
+    }
+
+    if (!(func_ptr = LLVMBuildLoad2(comp_ctx->builder, OPQ_PTR_TYPE, func_ptr,
+                                    "func_ptr"))) {
+        aot_set_last_error("llvm build load failed.");
+        goto fail;
+    }
+
+    // /* For LAZY JIT, each function belongs to its own module,
+    //    we call aot_lookup_orcjit_func to get the func pointer */
+    // if (!lookup_orcjit_func(comp_ctx, func_ctx, func_idx, &func_ptr))
+    //     goto fail;
 
     if (!(llvm_func_type =
               LLVMFunctionType(ret_type, param_types, total_param_count, false))

@@ -40,9 +40,12 @@
 #include <llvm/Transforms/Scalar/GVN.h>
 #include <llvm/Passes/PassBuilder.h>
 #include <llvm/Analysis/TargetLibraryInfo.h>
+#if LLVM_VERSION_MAJOR >= 12
+#include <llvm/Analysis/AliasAnalysis.h>
+#endif
+
 #include <cstring>
 #include "../aot/aot_runtime.h"
-
 #include "aot_llvm.h"
 
 using namespace llvm;
@@ -307,11 +310,6 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
     FunctionAnalysisManager FAM;
     CGSCCAnalysisManager CGAM;
     ModuleAnalysisManager MAM;
-    PB.registerFunctionAnalyses(FAM);
-    PB.registerLoopAnalyses(LAM);
-    PB.registerModuleAnalyses(MAM);
-    PB.registerCGSCCAnalyses(CGAM);
-    PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
 
     // Register the target library analysis directly and give it a
     // customized preset TLI.
@@ -319,10 +317,20 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
         new TargetLibraryInfoImpl(Triple(TM->getTargetTriple())));
     FAM.registerPass([&] { return TargetLibraryAnalysis(*TLII); });
 
+    // Register the AA manager first so that our version is the one used.
+    AAManager AA = PB.buildDefaultAAPipeline();
+    FAM.registerPass([&] { return std::move(AA); });
+
 #ifndef NDEBUG
     StandardInstrumentations SI(true, false);
     SI.registerCallbacks(PIC, &FAM);
 #endif
+
+    PB.registerFunctionAnalyses(FAM);
+    PB.registerLoopAnalyses(LAM);
+    PB.registerModuleAnalyses(MAM);
+    PB.registerCGSCCAnalyses(CGAM);
+    PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
 
 #if LLVM_VERSION_MAJOR <= 13
     PassBuilder::OptimizationLevel OL;
