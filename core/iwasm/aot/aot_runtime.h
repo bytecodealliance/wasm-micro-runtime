@@ -10,9 +10,6 @@
 #include "../common/wasm_runtime_common.h"
 #include "../interpreter/wasm_runtime.h"
 #include "../compilation/aot.h"
-#if WASM_ENABLE_JIT != 0
-#include "../compilation/aot_llvm.h"
-#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -171,7 +168,7 @@ typedef struct AOTModule {
 
     /* function info */
     uint32 func_count;
-    /* point to AOTed/JITed functions */
+    /* point to AOTed functions */
     void **func_ptrs;
     /* function type indexes */
     uint32 *func_type_indexes;
@@ -182,24 +179,24 @@ typedef struct AOTModule {
 
     /* start function index, -1 denotes no start function */
     uint32 start_func_index;
-    /* start function, point to AOTed/JITed function */
+    /* start function, point to AOTed function */
     void *start_function;
 
     uint32 malloc_func_index;
     uint32 free_func_index;
     uint32 retain_func_index;
 
-    /* AOTed code, NULL for JIT mode */
+    /* AOTed code */
     void *code;
     uint32 code_size;
 
-    /* literal for AOTed code, NULL for JIT mode */
+    /* literal for AOTed code */
     uint8 *literal;
     uint32 literal_size;
 
 #if defined(BH_PLATFORM_WINDOWS)
     /* extra plt data area for __ymm, __xmm and __real constants
-       in Windows platform, NULL for JIT mode */
+       in Windows platform */
     uint8 *extra_plt_data;
     uint32 extra_plt_data_size;
     uint32 ymm_plt_count;
@@ -217,7 +214,7 @@ typedef struct AOTModule {
 #endif
 
     /* data sections in AOT object file, including .data, .rodata
-     * and .rodata.cstN. NULL for JIT mode. */
+       and .rodata.cstN. */
     AOTObjectDataSection *data_sections;
     uint32 data_section_count;
 
@@ -244,17 +241,8 @@ typedef struct AOTModule {
     /* auxiliary stack size resolved */
     uint32 aux_stack_size;
 
-    /* is jit mode or not */
-    bool is_jit_mode;
-
     /* is indirect mode or not */
     bool is_indirect_mode;
-
-#if WASM_ENABLE_JIT != 0
-    WASMModule *wasm_module;
-    AOTCompContext *comp_ctx;
-    AOTCompData *comp_data;
-#endif
 
 #if WASM_ENABLE_LIBC_WASI != 0
     WASIArguments wasi_args;
@@ -278,11 +266,6 @@ typedef union {
     uint64 _make_it_8_bytes_;
     void *ptr;
 } AOTPointer;
-
-typedef union {
-    uint64 u64;
-    uint32 u32[2];
-} MemBound;
 
 typedef struct AOTMemoryInstance {
     uint32 module_type;
@@ -355,8 +338,8 @@ typedef struct AOTModuleInstance {
     /* export info */
     uint32 export_func_count;
     uint32 export_global_count;
-    uint32 export_mem_count;
-    uint32 export_tab_count;
+    uint32 export_memory_count;
+    uint32 export_table_count;
     AOTPointer export_funcs;
     AOTPointer export_globals;
     AOTPointer export_memories;
@@ -364,6 +347,7 @@ typedef struct AOTModuleInstance {
 
     /* The exception buffer for current thread. */
     char cur_exception[128];
+
     /* The custom data that can be set/get by
      * wasm_runtime_set_custom_data/wasm_runtime_get_custom_data */
     AOTPointer custom_data;
@@ -461,21 +445,6 @@ aot_load_from_aot_file(const uint8 *buf, uint32 size, char *error_buf,
 AOTModule *
 aot_load_from_sections(AOTSection *section_list, char *error_buf,
                        uint32 error_buf_size);
-
-#if WASM_ENABLE_JIT != 0
-/**
- * Convert WASM module to AOT module
- *
- * @param wasm_module the WASM module to convert
- * @param error_buf output of the error info
- * @param error_buf_size the size of the error string
- *
- * @return return AOT module loaded, NULL if failed
- */
-AOTModule *
-aot_convert_wasm_module(WASMModule *wasm_module, char *error_buf,
-                        uint32 error_buf_size);
-#endif
 
 /**
  * Unload a AOT module.

@@ -13,6 +13,24 @@
 #include "debug/dwarf_extractor.h"
 #endif
 
+#if WASM_ENABLE_JIT != 0
+bh_static_assert(sizeof(WASMMemoryInstance) == sizeof(AOTMemoryInstance));
+bh_static_assert(offsetof(WASMTableInstance, base_addr)
+                 == offsetof(AOTTableInstance, data));
+bh_static_assert(offsetof(WASMModuleInstance, memories)
+                 == offsetof(AOTModuleInstance, memories));
+bh_static_assert(offsetof(WASMModuleInstance, global_data)
+                 == offsetof(AOTModuleInstance, global_data));
+bh_static_assert(offsetof(WASMModuleInstance, tables)
+                 == offsetof(AOTModuleInstance, tables));
+bh_static_assert(offsetof(WASMModuleInstance, func_ptrs)
+                 == offsetof(AOTModuleInstance, func_ptrs));
+bh_static_assert(offsetof(WASMModuleInstance, func_type_indexes)
+                 == offsetof(AOTModuleInstance, func_type_indexes));
+bh_static_assert(offsetof(WASMModuleInstance, cur_exception)
+                 == offsetof(AOTModuleInstance, cur_exception));
+#endif
+
 LLVMTypeRef
 wasm_type_to_llvm_type(AOTLLVMTypes *llvm_types, uint8 wasm_type)
 {
@@ -292,7 +310,16 @@ create_memory_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     else
 #endif
     {
-        offset = I32_CONST(offsetof(AOTModuleInstance, global_table_data)
+        uint32 offset_of_global_table_data;
+
+        if (comp_ctx->is_jit_mode)
+            offset_of_global_table_data =
+                offsetof(WASMModuleInstance, global_table_data);
+        else
+            offset_of_global_table_data =
+                offsetof(AOTModuleInstance, global_table_data);
+
+        offset = I32_CONST(offset_of_global_table_data
                            + offsetof(AOTMemoryInstance, memory_data.ptr));
         if (!(func_ctx->mem_info[0].mem_base_addr = LLVMBuildInBoundsGEP2(
                   comp_ctx->builder, INT8_TYPE, func_ctx->aot_inst, &offset, 1,
@@ -300,7 +327,7 @@ create_memory_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             aot_set_last_error("llvm build in bounds gep failed");
             return false;
         }
-        offset = I32_CONST(offsetof(AOTModuleInstance, global_table_data)
+        offset = I32_CONST(offset_of_global_table_data
                            + offsetof(AOTMemoryInstance, cur_page_count));
         if (!(func_ctx->mem_info[0].mem_cur_page_count_addr =
                   LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,
@@ -309,7 +336,7 @@ create_memory_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             aot_set_last_error("llvm build in bounds gep failed");
             return false;
         }
-        offset = I32_CONST(offsetof(AOTModuleInstance, global_table_data)
+        offset = I32_CONST(offset_of_global_table_data
                            + offsetof(AOTMemoryInstance, memory_data_size));
         if (!(func_ctx->mem_info[0].mem_data_size_addr = LLVMBuildInBoundsGEP2(
                   comp_ctx->builder, INT8_TYPE, func_ctx->aot_inst, &offset, 1,

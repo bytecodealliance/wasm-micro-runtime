@@ -4,7 +4,7 @@
  */
 
 #include "aot_emit_const.h"
-#include "aot_intrinsic.h"
+#include "../aot/aot_intrinsic.h"
 
 bool
 aot_compile_op_i32_const(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,

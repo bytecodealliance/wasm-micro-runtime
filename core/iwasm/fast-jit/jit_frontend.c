@@ -20,29 +20,6 @@
 #include "../interpreter/wasm_opcode.h"
 #include "../common/wasm_exec_env.h"
 
-/* clang-format off */
-static const char *jit_exception_msgs[] = {
-    "unreachable",                    /* JIT_EXCE_UNREACHABLE */
-    "allocate memory failed",         /* JIT_EXCE_OUT_OF_MEMORY */
-    "out of bounds memory access",    /* JIT_EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS */
-    "integer overflow",               /* JIT_EXCE_INTEGER_OVERFLOW */
-    "integer divide by zero",         /* JIT_EXCE_INTEGER_DIVIDE_BY_ZERO */
-    "invalid conversion to integer",  /* JIT_EXCE_INVALID_CONVERSION_TO_INTEGER */
-    "indirect call type mismatch",    /* JIT_EXCE_INVALID_FUNCTION_TYPE_INDEX */
-    "invalid function index",         /* JIT_EXCE_INVALID_FUNCTION_INDEX */
-    "undefined element",              /* JIT_EXCE_UNDEFINED_ELEMENT */
-    "uninitialized element",          /* JIT_EXCE_UNINITIALIZED_ELEMENT */
-    "failed to call unlinked import function", /* JIT_EXCE_CALL_UNLINKED_IMPORT_FUNC */
-    "native stack overflow",          /* JIT_EXCE_NATIVE_STACK_OVERFLOW */
-    "unaligned atomic",               /* JIT_EXCE_UNALIGNED_ATOMIC */
-    "wasm auxiliary stack overflow",  /* JIT_EXCE_AUX_STACK_OVERFLOW */
-    "wasm auxiliary stack underflow", /* JIT_EXCE_AUX_STACK_UNDERFLOW */
-    "out of bounds table access",     /* JIT_EXCE_OUT_OF_BOUNDS_TABLE_ACCESS */
-    "wasm operand stack overflow",    /* JIT_EXCE_OPERAND_STACK_OVERFLOW */
-    "",                               /* JIT_EXCE_ALREADY_THROWN */
-};
-/* clang-format on */
-
 JitReg
 get_module_inst_reg(JitFrame *frame)
 {
@@ -584,15 +561,6 @@ gen_commit_sp_ip(JitFrame *frame)
         frame->committed_ip = frame->ip;
     }
 #endif
-}
-
-static void
-jit_set_exception_with_id(WASMModuleInstance *module_inst, uint32 id)
-{
-    if (id < JIT_EXCE_NUM)
-        wasm_set_exception(module_inst, jit_exception_msgs[id]);
-    else
-        wasm_set_exception(module_inst, "unknown exception");
 }
 
 static bool

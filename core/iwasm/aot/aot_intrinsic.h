@@ -7,7 +7,7 @@
 #define _AOT_INTRINSIC_H
 
 #include "aot_runtime.h"
-#if WASM_ENABLE_WAMR_COMPILER != 0
+#if WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_JIT != 0
 #include "aot_llvm.h"
 #endif
 

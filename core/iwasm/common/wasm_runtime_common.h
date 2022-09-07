@@ -896,6 +896,16 @@ void
 wasm_runtime_dump_exec_env_mem_consumption(const WASMExecEnv *exec_env);
 
 bool
+wasm_runtime_get_table_elem_type(const WASMModuleCommon *module_comm,
+                                 uint32 table_idx, uint8 *out_elem_type,
+                                 uint32 *out_min_size, uint32 *out_max_size);
+
+bool
+wasm_runtime_get_table_inst_elem_type(
+    const WASMModuleInstanceCommon *module_inst_comm, uint32 table_idx,
+    uint8 *out_elem_type, uint32 *out_min_size, uint32 *out_max_size);
+
+bool
 wasm_runtime_get_export_func_type(const WASMModuleCommon *module_comm,
                                   const WASMExport *export_, WASMType **out);
 

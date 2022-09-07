@@ -4,6 +4,7 @@
  */
 
 #include "aot_emit_exception.h"
+#include "../interpreter/wasm_runtime.h"
 #include "../aot/aot_runtime.h"
 
 bool
@@ -57,7 +58,7 @@ aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             }
             /* Create LLVM function with const function pointer */
             if (!(func_const =
-                      I64_CONST((uint64)(uintptr_t)aot_set_exception_with_id))
+                      I64_CONST((uint64)(uintptr_t)jit_set_exception_with_id))
                 || !(func = LLVMConstIntToPtr(func_const, func_ptr_type))) {
                 aot_set_last_error("create LLVM value failed.");
                 return false;

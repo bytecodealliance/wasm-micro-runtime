@@ -3257,7 +3257,6 @@ wasm_table_new_internal(wasm_store_t *store, uint16 table_idx_rt,
     wasm_table_t *table = NULL;
     uint8 val_type_rt = 0;
     uint32 init_size = 0, max_size = 0;
-    bool init_flag = false;
 
     bh_assert(singleton_engine);
 
@@ -3272,46 +3271,12 @@ wasm_table_new_internal(wasm_store_t *store, uint16 table_idx_rt,
     table->store = store;
     table->kind = WASM_EXTERN_TABLE;
 
-#if WASM_ENABLE_INTERP != 0
-    if (inst_comm_rt->module_type == Wasm_Module_Bytecode) {
-        WASMTableInstance *table_interp =
-            ((WASMModuleInstance *)inst_comm_rt)->tables[table_idx_rt];
-        val_type_rt = table_interp->elem_type;
-        init_size = table_interp->cur_size;
-        max_size = table_interp->max_size;
-        init_flag = true;
-    }
-#endif
-
-#if WASM_ENABLE_AOT != 0
-    if (inst_comm_rt->module_type == Wasm_Module_AoT) {
-        AOTModuleInstance *inst_aot = (AOTModuleInstance *)inst_comm_rt;
-        AOTModule *module_aot = (AOTModule *)inst_aot->aot_module.ptr;
-
-        if (table_idx_rt < module_aot->import_table_count) {
-            AOTImportTable *table_aot =
-                module_aot->import_tables + table_idx_rt;
-            val_type_rt = table_aot->elem_type;
-            init_size = table_aot->table_init_size;
-            max_size = table_aot->table_max_size;
-        }
-        else {
-            AOTTable *table_aot =
-                module_aot->tables
-                + (table_idx_rt - module_aot->import_table_count);
-            val_type_rt = table_aot->elem_type;
-            init_size = table_aot->table_init_size;
-            max_size = table_aot->table_max_size;
-        }
-        init_flag = true;
-    }
-#endif
-
-    /*
-     * a wrong combination of module filetype and compilation flags
-     * leads to below branch
-     */
-    if (!init_flag) {
+    if (!wasm_runtime_get_table_inst_elem_type(
+            inst_comm_rt, table_idx_rt, &val_type_rt, &init_size, &max_size)) {
+        /*
+         * a wrong combination of module filetype and compilation flags
+         * leads to below branch
+         */
         goto failed;
     }
 
@@ -4420,8 +4385,9 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
         uint32 export_cnt =
             ((AOTModuleInstance *)instance->inst_comm_rt)->export_func_count
             + ((AOTModuleInstance *)instance->inst_comm_rt)->export_global_count
-            + ((AOTModuleInstance *)instance->inst_comm_rt)->export_tab_count
-            + ((AOTModuleInstance *)instance->inst_comm_rt)->export_mem_count;
+            + ((AOTModuleInstance *)instance->inst_comm_rt)->export_table_count
+            + ((AOTModuleInstance *)instance->inst_comm_rt)
+                  ->export_memory_count;
 
         INIT_VEC(instance->exports, wasm_extern_vec_new_uninitialized,
                  export_cnt);
