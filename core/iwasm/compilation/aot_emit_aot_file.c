@@ -6,8 +6,6 @@
 #include "aot_compiler.h"
 #include "../aot/aot_runtime.h"
 
-#if WASM_ENABLE_LAZY_JIT == 0
-
 #define PUT_U64_TO_ADDR(addr, value)        \
     do {                                    \
         union {                             \
@@ -2794,16 +2792,18 @@ aot_obj_data_create(AOTCompContext *comp_ctx)
         }
 #endif /* end of defined(_WIN32) || defined(_WIN32_) */
     }
-    else if (LLVMTargetMachineEmitToMemoryBuffer(
-                 comp_ctx->target_machine, comp_ctx->module, LLVMObjectFile,
-                 &err, &obj_data->mem_buf)
-             != 0) {
-        if (err) {
-            LLVMDisposeMessage(err);
-            err = NULL;
+    else {
+        if (LLVMTargetMachineEmitToMemoryBuffer(
+                comp_ctx->target_machine, comp_ctx->module, LLVMObjectFile,
+                &err, &obj_data->mem_buf)
+            != 0) {
+            if (err) {
+                LLVMDisposeMessage(err);
+                err = NULL;
+            }
+            aot_set_last_error("llvm emit to memory buffer failed.");
+            goto fail;
         }
-        aot_set_last_error("llvm emit to memory buffer failed.");
-        goto fail;
     }
 
     if (!(obj_data->binary = LLVMCreateBinary(obj_data->mem_buf, NULL, &err))) {
@@ -2928,4 +2928,3 @@ fail1:
 
     return ret;
 }
-#endif /* end of WASM_ENABLE_LAZY_JIT == 0 */

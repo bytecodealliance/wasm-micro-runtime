@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#include "llvm/Passes/StandardInstrumentations.h"
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/ADT/Twine.h>
 #include <llvm/ADT/Triple.h>
@@ -42,23 +43,15 @@
 #if LLVM_VERSION_MAJOR >= 12
 #include <llvm/Analysis/AliasAnalysis.h>
 #endif
-#include <cstring>
-#if WASM_ENABLE_LAZY_JIT != 0
-#include "../aot/aot_runtime.h"
-#endif
 
+#include <cstring>
+#include "../aot/aot_runtime.h"
 #include "aot_llvm.h"
 
 using namespace llvm;
 using namespace llvm::orc;
 
 extern "C" {
-
-LLVMBool
-WAMRCreateMCJITCompilerForModule(LLVMExecutionEngineRef *OutJIT,
-                                 LLVMModuleRef M,
-                                 LLVMMCJITCompilerOptions *PassedOptions,
-                                 size_t SizeOfPassedOptions, char **OutError);
 
 bool
 aot_check_simd_compatibility(const char *arch_c_str, const char *cpu_c_str);
@@ -73,89 +66,13 @@ void
 aot_func_disable_tce(LLVMValueRef func);
 
 void
-aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx);
+aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module);
 }
 
 static TargetMachine *
 unwrap(LLVMTargetMachineRef P)
 {
     return reinterpret_cast<TargetMachine *>(P);
-}
-
-LLVMBool
-WAMRCreateMCJITCompilerForModule(LLVMExecutionEngineRef *OutJIT,
-                                 LLVMModuleRef M,
-                                 LLVMMCJITCompilerOptions *PassedOptions,
-                                 size_t SizeOfPassedOptions, char **OutError)
-{
-    LLVMMCJITCompilerOptions options;
-    // If the user passed a larger sized options struct, then they were compiled
-    // against a newer LLVM. Tell them that something is wrong.
-    if (SizeOfPassedOptions > sizeof(options)) {
-        *OutError = strdup("Refusing to use options struct that is larger than "
-                           "my own; assuming LLVM library mismatch.");
-        return 1;
-    }
-
-    // Defend against the user having an old version of the API by ensuring that
-    // any fields they didn't see are cleared. We must defend against fields
-    // being set to the bitwise equivalent of zero, and assume that this means
-    // "do the default" as if that option hadn't been available.
-    LLVMInitializeMCJITCompilerOptions(&options, sizeof(options));
-    memcpy(&options, PassedOptions, SizeOfPassedOptions);
-
-    TargetOptions targetOptions;
-    targetOptions.EnableFastISel = options.EnableFastISel;
-    std::unique_ptr<Module> Mod(unwrap(M));
-
-    if (Mod) {
-        // Set function attribute "frame-pointer" based on
-        // NoFramePointerElim.
-        for (auto &F : *Mod) {
-            auto Attrs = F.getAttributes();
-            StringRef Value = options.NoFramePointerElim ? "all" : "none";
-#if LLVM_VERSION_MAJOR <= 13
-            Attrs =
-                Attrs.addAttribute(F.getContext(), AttributeList::FunctionIndex,
-                                   "frame-pointer", Value);
-#else
-            Attrs = Attrs.addAttributeAtIndex(F.getContext(),
-                                              AttributeList::FunctionIndex,
-                                              "frame-pointer", Value);
-#endif
-            F.setAttributes(Attrs);
-        }
-    }
-
-    std::string Error;
-    bool JIT;
-    char *host_cpu = LLVMGetHostCPUName();
-
-    if (!host_cpu) {
-        *OutError = NULL;
-        return false;
-    }
-
-    std::string mcpu(host_cpu);
-    LLVMDisposeMessage(host_cpu);
-
-    EngineBuilder builder(std::move(Mod));
-    builder.setEngineKind(EngineKind::JIT)
-        .setErrorStr(&Error)
-        .setMCPU(mcpu)
-        .setOptLevel((CodeGenOpt::Level)options.OptLevel)
-        .setTargetOptions(targetOptions);
-    if (Optional<CodeModel::Model> CM = unwrap(options.CodeModel, JIT))
-        builder.setCodeModel(*CM);
-    if (options.MCJMM)
-        builder.setMCJITMemoryManager(
-            std::unique_ptr<RTDyldMemoryManager>(unwrap(options.MCJMM)));
-    if (ExecutionEngine *JIT = builder.create()) {
-        *OutJIT = wrap(JIT);
-        return 0;
-    }
-    *OutError = strdup(Error.c_str());
-    return 1;
 }
 
 class ExpandMemoryOpPass : public llvm::ModulePass
@@ -308,19 +225,6 @@ aot_check_simd_compatibility(const char *arch_c_str, const char *cpu_c_str)
 #endif /* WASM_ENABLE_SIMD */
 }
 
-#if WASM_ENABLE_LAZY_JIT != 0
-
-#if LLVM_VERSION_MAJOR < 12
-LLVMOrcJITTargetMachineBuilderRef
-LLVMOrcJITTargetMachineBuilderFromTargetMachine(LLVMTargetMachineRef TM);
-
-LLVMOrcJITTargetMachineBuilderRef
-LLVMOrcJITTargetMachineBuilderCreateFromTargetMachine(LLVMTargetMachineRef TM)
-{
-    return LLVMOrcJITTargetMachineBuilderFromTargetMachine(TM);
-}
-#endif
-
 DEFINE_SIMPLE_CONVERSION_FUNCTIONS(LLJITBuilder, LLVMOrcLLJITBuilderRef)
 
 void
@@ -331,7 +235,7 @@ LLVMOrcLLJITBuilderSetNumCompileThreads(LLVMOrcLLJITBuilderRef orcjit_builder,
 }
 
 void *
-aot_lookup_orcjit_func(LLVMOrcLLJITRef orc_lazyjit, void *module_inst,
+aot_lookup_orcjit_func(LLVMOrcLLJITRef orc_jit, void *module_inst,
                        uint32 func_idx)
 {
     char func_name[32], buf[128], *err_msg = NULL;
@@ -352,7 +256,7 @@ aot_lookup_orcjit_func(LLVMOrcLLJITRef orc_lazyjit, void *module_inst,
 
     snprintf(func_name, sizeof(func_name), "%s%d", AOT_FUNC_PREFIX,
              func_idx - aot_module->import_func_count);
-    if ((error = LLVMOrcLLJITLookup(orc_lazyjit, &func_addr, func_name))) {
+    if ((error = LLVMOrcLLJITLookup(orc_jit, &func_addr, func_name))) {
         err_msg = LLVMGetErrorMessage(error);
         snprintf(buf, sizeof(buf), "failed to lookup orcjit function: %s",
                  err_msg);
@@ -363,7 +267,6 @@ aot_lookup_orcjit_func(LLVMOrcLLJITRef orc_lazyjit, void *module_inst,
     func_ptrs[func_idx] = (void *)func_addr;
     return (void *)func_addr;
 }
-#endif /* end of WASM_ENABLE_LAZY_JIT != 0 */
 
 void
 aot_func_disable_tce(LLVMValueRef func)
@@ -382,29 +285,38 @@ aot_func_disable_tce(LLVMValueRef func)
     F->setAttributes(Attrs);
 }
 
-#if LLVM_VERSION_MAJOR >= 12
+#ifndef NDEBUG
+// #define DEBUG_PASS
+#undef DEBUG_PASS
+#else
+#undef DEBUG_PASS
+#endif
+
 void
-aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx)
+aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
 {
-    Module *M;
     TargetMachine *TM = unwrap(comp_ctx->target_machine);
-    bool disable_llvm_lto = false;
-
-    LoopAnalysisManager LAM;
-    FunctionAnalysisManager FAM;
-    CGSCCAnalysisManager CGAM;
-    ModuleAnalysisManager MAM;
-
     PipelineTuningOptions PTO;
     PTO.LoopVectorization = true;
     PTO.SLPVectorization = true;
     PTO.LoopUnrolling = true;
 
+#ifdef DEBUG_PASS
+    PassInstrumentationCallbacks PIC;
+    PassBuilder PB(TM, PTO, None, &PIC);
+#else
 #if LLVM_VERSION_MAJOR == 12
     PassBuilder PB(false, TM, PTO);
 #else
     PassBuilder PB(TM, PTO);
 #endif
+#endif
+
+    // Register all the basic analyses with the managers.
+    LoopAnalysisManager LAM;
+    FunctionAnalysisManager FAM;
+    CGSCCAnalysisManager CGAM;
+    ModuleAnalysisManager MAM;
 
     // Register the target library analysis directly and give it a
     // customized preset TLI.
@@ -416,14 +328,16 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx)
     AAManager AA = PB.buildDefaultAAPipeline();
     FAM.registerPass([&] { return std::move(AA); });
 
-    // Register all the basic analyses with the managers.
-    PB.registerModuleAnalyses(MAM);
-    PB.registerCGSCCAnalyses(CGAM);
+#ifdef DEBUG_PASS
+    StandardInstrumentations SI(true, false);
+    SI.registerCallbacks(PIC, &FAM);
+#endif
+
     PB.registerFunctionAnalyses(FAM);
     PB.registerLoopAnalyses(LAM);
+    PB.registerModuleAnalyses(MAM);
+    PB.registerCGSCCAnalyses(CGAM);
     PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
-
-    ModulePassManager MPM;
 
 #if LLVM_VERSION_MAJOR <= 13
     PassBuilder::OptimizationLevel OL;
@@ -463,25 +377,34 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx)
     }
 #endif /* end of LLVM_VERSION_MAJOR */
 
-    if (comp_ctx->disable_llvm_lto) {
-        disable_llvm_lto = true;
-    }
+    bool disable_llvm_lto = comp_ctx->disable_llvm_lto;
 #if WASM_ENABLE_SPEC_TEST != 0
     disable_llvm_lto = true;
 #endif
 
+    Module *M = reinterpret_cast<Module *>(module);
     if (disable_llvm_lto) {
-        uint32 i;
-
-        for (i = 0; i < comp_ctx->func_ctx_count; i++) {
-            aot_func_disable_tce(comp_ctx->func_ctxes[i]->func);
+        for (Function &F : *M) {
+            F.addFnAttr("disable-tail-calls", "true");
         }
     }
 
+    ModulePassManager MPM;
     if (comp_ctx->is_jit_mode) {
         /* Apply normal pipeline for JIT mode, without
            Vectorize related passes, without LTO */
-        MPM.addPass(PB.buildPerModuleDefaultPipeline(OL));
+        // MPM.addPass(PB.buildPerModuleDefaultPipeline(OL));
+        // MPM.addPass(createModuleToFunctionPassAdaptor(
+        //     PB.buildFunctionSimplificationPipeline(
+        //         PassBuilder::OptimizationLevel::O2,
+        //         ThinOrFullLTOPhase::None)));
+        // MPM.addPass(
+        //     PB.buildO0DefaultPipeline(PassBuilder::OptimizationLevel::O3));
+
+        // const char *Passes = "default<O2>";
+        const char *Passes =
+            "mem2reg,instcombine,simplifycfg,jump-threading,indvars";
+        auto Err = PB.parsePassPipeline(MPM, Passes);
     }
     else {
         FunctionPassManager FPM;
@@ -512,16 +435,5 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx)
         }
     }
 
-#if WASM_ENABLE_LAZY_JIT == 0
-    M = unwrap(comp_ctx->module);
     MPM.run(*M, MAM);
-#else
-    uint32 i;
-
-    for (i = 0; i < comp_ctx->func_ctx_count; i++) {
-        M = unwrap(comp_ctx->modules[i]);
-        MPM.run(*M, MAM);
-    }
-#endif
 }
-#endif /* end of LLVM_VERSION_MAJOR >= 12 */

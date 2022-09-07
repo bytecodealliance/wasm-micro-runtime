@@ -2827,97 +2827,12 @@ aot_load_from_aot_file(const uint8 *buf, uint32 size, char *error_buf,
 }
 
 #if WASM_ENABLE_JIT != 0
-#if WASM_ENABLE_LAZY_JIT != 0
-/* Orc JIT thread arguments */
-typedef struct OrcJitThreadArg {
-    AOTCompData *comp_data;
-    AOTCompContext *comp_ctx;
-    AOTModule *module;
-    int32 group_idx;
-    int32 group_stride;
-} OrcJitThreadArg;
-
-static bool orcjit_stop_compiling = false;
-static korp_tid orcjit_threads[WASM_LAZY_JIT_COMPILE_THREAD_NUM];
-static OrcJitThreadArg orcjit_thread_args[WASM_LAZY_JIT_COMPILE_THREAD_NUM];
-
-static void *
-orcjit_thread_callback(void *arg)
-{
-    LLVMErrorRef error;
-    LLVMOrcJITTargetAddress func_addr = 0;
-    OrcJitThreadArg *thread_arg = (OrcJitThreadArg *)arg;
-    AOTCompData *comp_data = thread_arg->comp_data;
-    AOTCompContext *comp_ctx = thread_arg->comp_ctx;
-    AOTModule *module = thread_arg->module;
-    char func_name[32];
-    int32 i;
-
-    /* Compile wasm functions of this group */
-    for (i = thread_arg->group_idx; i < (int32)comp_data->func_count;
-         i += thread_arg->group_stride) {
-        if (!module->func_ptrs[i]) {
-            snprintf(func_name, sizeof(func_name), "%s%d", AOT_FUNC_PREFIX, i);
-            if ((error = LLVMOrcLLJITLookup(comp_ctx->orc_lazyjit, &func_addr,
-                                            func_name))) {
-                char *err_msg = LLVMGetErrorMessage(error);
-                os_printf("failed to compile orc jit function: %s", err_msg);
-                LLVMDisposeErrorMessage(err_msg);
-                break;
-            }
-            /**
-             * No need to lock the func_ptr[func_idx] here as it is basic
-             * data type, the load/store for it can be finished by one cpu
-             * instruction, and there can be only one cpu instruction
-             * loading/storing at the same time.
-             */
-            module->func_ptrs[i] = (void *)func_addr;
-        }
-        if (orcjit_stop_compiling) {
-            break;
-        }
-    }
-
-    /* Try to compile functions that haven't been compiled by other threads */
-    for (i = (int32)comp_data->func_count - 1; i > 0; i--) {
-        if (orcjit_stop_compiling) {
-            break;
-        }
-        if (!module->func_ptrs[i]) {
-            snprintf(func_name, sizeof(func_name), "%s%d", AOT_FUNC_PREFIX, i);
-            if ((error = LLVMOrcLLJITLookup(comp_ctx->orc_lazyjit, &func_addr,
-                                            func_name))) {
-                char *err_msg = LLVMGetErrorMessage(error);
-                os_printf("failed to compile orc jit function: %s", err_msg);
-                LLVMDisposeErrorMessage(err_msg);
-                break;
-            }
-            module->func_ptrs[i] = (void *)func_addr;
-        }
-    }
-
-    return NULL;
-}
-
-static void
-orcjit_stop_compile_threads()
-{
-    uint32 i;
-
-    orcjit_stop_compiling = true;
-    for (i = 0; i < WASM_LAZY_JIT_COMPILE_THREAD_NUM; i++) {
-        os_thread_join(orcjit_threads[i], NULL);
-    }
-}
-#endif
-
 static AOTModule *
 aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
                         char *error_buf, uint32 error_buf_size)
 {
     uint32 i;
     uint64 size;
-    char func_name[32];
     AOTModule *module;
 
     /* Allocate memory for module */
@@ -2982,50 +2897,31 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
         goto fail2;
     }
 
-#if WASM_ENABLE_LAZY_JIT != 0
-    /* Create threads to compile the wasm functions */
-    for (i = 0; i < WASM_LAZY_JIT_COMPILE_THREAD_NUM; i++) {
-        orcjit_thread_args[i].comp_data = comp_data;
-        orcjit_thread_args[i].comp_ctx = comp_ctx;
-        orcjit_thread_args[i].module = module;
-        orcjit_thread_args[i].group_idx = (int32)i;
-        orcjit_thread_args[i].group_stride = WASM_LAZY_JIT_COMPILE_THREAD_NUM;
-        if (os_thread_create(&orcjit_threads[i], orcjit_thread_callback,
-                             (void *)&orcjit_thread_args[i],
-                             APP_THREAD_STACK_SIZE_DEFAULT)
-            != 0) {
-            uint32 j;
+    /* fill in func_ptrs[] */
+    bh_print_time("Begin to do eager compilation...");
+    for (i = 0; i < module->func_count; i++) {
+        LLVMErrorRef error;
+        LLVMOrcJITTargetAddress func_addr;
+        char func_name[32] = { 0 };
 
-            set_error_buf(error_buf, error_buf_size,
-                          "create orcjit compile thread failed");
-            /* Terminate the threads created */
-            orcjit_stop_compiling = true;
-            for (j = 0; j < i; j++) {
-                os_thread_join(orcjit_threads[j], NULL);
-            }
-            goto fail3;
-        }
-    }
-#else
-    /* Resolve function addresses */
-    bh_assert(comp_ctx->exec_engine);
-    for (i = 0; i < comp_data->func_count; i++) {
         snprintf(func_name, sizeof(func_name), "%s%d", AOT_FUNC_PREFIX, i);
-        if (!(module->func_ptrs[i] = (void *)LLVMGetFunctionAddress(
-                  comp_ctx->exec_engine, func_name))) {
-            set_error_buf(error_buf, error_buf_size,
-                          "get function address failed");
+        error = LLVMOrcLLJITLookup(comp_ctx->orc_jit, &func_addr, func_name);
+        if (error != LLVMErrorSuccess) {
+            char *err_msg = LLVMGetErrorMessage(error);
+            set_error_buf_v(error_buf, error_buf_size,
+                            "failed to compile orc jit function: %s", err_msg);
+            LLVMDisposeErrorMessage(err_msg);
             goto fail3;
         }
+        module->func_ptrs[i] = (void *)func_addr;
     }
-#endif /* WASM_ENABLE_LAZY_JIT != 0 */
 
     /* Allocation memory for function type indexes */
     size = (uint64)module->func_count * sizeof(uint32);
     if (size > 0
         && !(module->func_type_indexes =
                  loader_malloc(size, error_buf, error_buf_size))) {
-        goto fail4;
+        goto fail3;
     }
     for (i = 0; i < comp_data->func_count; i++)
         module->func_type_indexes[i] = comp_data->funcs[i]->func_type_index;
@@ -3039,29 +2935,28 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
                   < module->import_func_count + module->func_count);
         /* TODO: fix issue that start func cannot be import func */
         if (comp_data->start_func_index >= module->import_func_count) {
-#if WASM_ENABLE_LAZY_JIT != 0
             if (!module->func_ptrs[comp_data->start_func_index
                                    - module->import_func_count]) {
                 LLVMErrorRef error;
                 LLVMOrcJITTargetAddress func_addr = 0;
+                char func_name[32];
 
                 snprintf(func_name, sizeof(func_name), "%s%d", AOT_FUNC_PREFIX,
                          comp_data->start_func_index
                              - module->import_func_count);
-                if ((error = LLVMOrcLLJITLookup(comp_ctx->orc_lazyjit,
-                                                &func_addr, func_name))) {
+                if ((error = LLVMOrcLLJITLookup(comp_ctx->orc_jit, &func_addr,
+                                                func_name))) {
                     char *err_msg = LLVMGetErrorMessage(error);
                     set_error_buf_v(error_buf, error_buf_size,
                                     "failed to compile orc jit function: %s",
                                     err_msg);
                     LLVMDisposeErrorMessage(err_msg);
-                    goto fail5;
+                    goto fail4;
                 }
                 module->func_ptrs[comp_data->start_func_index
                                   - module->import_func_count] =
                     (void *)func_addr;
             }
-#endif
             module->start_function =
                 module->func_ptrs[comp_data->start_func_index
                                   - module->import_func_count];
@@ -3095,17 +2990,10 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
 
     return module;
 
-#if WASM_ENABLE_LAZY_JIT != 0
-fail5:
+fail4:
     if (module->func_type_indexes)
         wasm_runtime_free(module->func_type_indexes);
-#endif
 
-fail4:
-#if WASM_ENABLE_LAZY_JIT != 0
-    /* Terminate all threads before free module->func_ptrs */
-    orcjit_stop_compile_threads();
-#endif
 fail3:
     if (module->func_ptrs)
         wasm_runtime_free(module->func_ptrs);
@@ -3193,10 +3081,6 @@ void
 aot_unload(AOTModule *module)
 {
 #if WASM_ENABLE_JIT != 0
-#if WASM_ENABLE_LAZY_JIT != 0
-    orcjit_stop_compile_threads();
-#endif
-
     if (module->comp_data)
         aot_destroy_comp_data(module->comp_data);
 

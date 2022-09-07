@@ -20,16 +20,12 @@
 #include "llvm-c/Transforms/Vectorize.h"
 #include "llvm-c/Transforms/PassManagerBuilder.h"
 
-#if WASM_ENABLE_LAZY_JIT != 0
 #include "llvm-c/Orc.h"
 #include "llvm-c/Error.h"
 #include "llvm-c/Support.h"
 #include "llvm-c/Initialization.h"
 #include "llvm-c/TargetMachine.h"
-#if LLVM_VERSION_MAJOR >= 12
 #include "llvm-c/LLJIT.h"
-#endif
-#endif
 #if WASM_ENABLE_DEBUG_AOT != 0
 #include "llvm-c/DebugInfo.h"
 #endif
@@ -270,12 +266,6 @@ typedef struct AOTCompContext {
 
     /* LLVM variables required to emit LLVM IR */
     LLVMContextRef context;
-#if WASM_ENABLE_LAZY_JIT == 0
-    /* Create one module only for non LAZY JIT mode,
-       for LAZY JIT mode, modules are created, each
-       aot function has its own module */
-    LLVMModuleRef module;
-#endif
     LLVMBuilderRef builder;
 #if WASM_ENABLE_DEBUG_AOT
     LLVMDIBuilderRef debug_builder;
@@ -291,18 +281,14 @@ typedef struct AOTCompContext {
     uint64 flags[8];
 
     /* LLVM execution engine required by JIT */
-#if WASM_ENABLE_LAZY_JIT != 0
-    LLVMOrcLLJITRef orc_lazyjit;
+    LLVMOrcLLJITRef orc_jit;
     LLVMOrcMaterializationUnitRef orc_material_unit;
     LLVMOrcLazyCallThroughManagerRef orc_call_through_mgr;
     LLVMOrcIndirectStubsManagerRef orc_indirect_stub_mgr;
     LLVMOrcCSymbolAliasMapPairs orc_symbol_map_pairs;
     LLVMOrcThreadSafeContextRef orc_thread_safe_context;
     /* Each aot function has its own module */
-    LLVMModuleRef *modules;
-#else
-    LLVMExecutionEngineRef exec_engine;
-#endif
+    LLVMModuleRef module;
 
     bool is_jit_mode;
 
@@ -361,6 +347,7 @@ typedef struct AOTCompContext {
     AOTLLVMConsts llvm_consts;
 
     /* Function contexts */
+    /* TODO: */
     AOTFuncContext **func_ctxes;
     uint32 func_ctx_count;
     char **custom_sections_wp;
@@ -503,9 +490,8 @@ void
 aot_add_simple_loop_unswitch_pass(LLVMPassManagerRef pass);
 
 void
-aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx);
+aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module);
 
-#if WASM_ENABLE_LAZY_JIT != 0
 LLVMOrcJITTargetMachineBuilderRef
 LLVMOrcJITTargetMachineBuilderCreateFromTargetMachine(LLVMTargetMachineRef TM);
 
@@ -517,9 +503,8 @@ void
 aot_handle_llvm_errmsg(const char *string, LLVMErrorRef err);
 
 void *
-aot_lookup_orcjit_func(LLVMOrcLLJITRef orc_lazyjit, void *module_inst,
+aot_lookup_orcjit_func(LLVMOrcLLJITRef orc_jit, void *module_inst,
                        uint32 func_idx);
-#endif
 
 #ifdef __cplusplus
 } /* end of extern "C" */

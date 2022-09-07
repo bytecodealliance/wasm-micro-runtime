@@ -220,7 +220,7 @@ make
 By default in Linux, the `fast interpreter`, `AOT` and `Libc WASI` are enabled, and JIT is disabled.
 And the build target is set to X86_64 or X86_32 depending on the platform's bitwidth.
 
-There are total 6 running modes supported: fast interpreter, classi interpreter, AOT, LLVM Lazy JIT, LLVM MC JIT and Fast JIT.
+There are total 5 running modes supported: fast interpreter, classi interpreter, AOT, LLVM Lazy JIT, and Fast JIT.
 
 (1) To run a wasm file with `fast interpreter` mode - build iwasm with default build and then:
 ```Bash
@@ -259,17 +259,9 @@ cmake .. -DWAMR_BUILD_JIT=1
 make
 ```
 
-(5) Or disable `LLVM Lazy JIT` and enable `LLVM MC JIT` instead:
-```Bash
-mkdir build && cd build
-cmake .. -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=0
-make
-```
-
 By default, the LLVM Orc Lazy JIT is enabled to speedup the lanuching process and reduce the JIT compilation time
 by creating threads to compile the WASM functions parallely, and for the main thread, the functions in the
 module will not be compiled until they are firstly called and haven't been compiled by the compilation threads.
-To disable it and enable LLVM MC JIT instead, please pass argument `-DWAMR_BUILD_LAZY_JIT=0` to cmake.
 
 (6) To enable the `Fast JIT` mode:
 ``` Bash
@@ -584,7 +576,7 @@ In order to use this, you need at least version 4.3.1 of ESP-IDF.
 If you don't have it installed, follow the instructions [here](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/#get-started-get-prerequisites).
 ESP-IDF also installs the toolchains needed for compiling WAMR and ESP-IDF.
 A small demonstration of how to use WAMR and ESP-IDF can be found under [product_mini](/product-mini/platforms/esp-idf).
-The demo builds WAMR for ESP-IDF and runs a small wasm program. 
+The demo builds WAMR for ESP-IDF and runs a small wasm program.
 In order to run it for your specific Espressif chip, edit the [build_and_run.sh](/product-mini/platforms/esp-idf/build_and_run.sh) file and put the correct toolchain file (see #Cross-compilation) and `IDF_TARGET`.
 Before compiling it is also necessary to call ESP-IDF's `export.sh` script to bring all compile time relevant information in scope.
 
