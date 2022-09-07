@@ -3645,6 +3645,118 @@ WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(set_send_timeout, uint64)
 WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(get_send_timeout, uint64 *)
 WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(set_recv_timeout, uint64)
 WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(get_recv_timeout, uint64 *)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(set_send_buf_size, size_t)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(get_send_buf_size, size_t *)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(set_recv_buf_size, size_t)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(get_recv_buf_size, size_t *)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(set_keep_alive, uint8)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(get_keep_alive, uint8 *)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(set_reuse_addr, uint8)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(get_reuse_addr, uint8 *)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(set_reuse_port, uint8)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(get_reuse_port, uint8 *)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(set_tcp_keep_idle, uint32)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(get_tcp_keep_idle, uint32 *)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(set_tcp_keep_intvl, uint32)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(get_tcp_keep_intvl, uint32 *)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(set_tcp_fastopen_connect, uint8)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(get_tcp_fastopen_connect, uint8 *)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(set_ip_multicast_loop, uint8)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(get_ip_multicast_loop, uint8 *)
 
 #undef WASMTIME_SSP_PASSTHROUGH_FD_TABLE
 #undef WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION
+
+__wasi_errno_t
+wasmtime_ssp_sock_set_linger(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t sock, __wasi_bh_linger *wasi_linger_opts)
+{
+    struct fd_object *fo;
+    __wasi_errno_t error;
+    int ret;
+    bh_linger bh_linger_opts = { wasi_linger_opts->l_onoff,
+                                 wasi_linger_opts->l_linger_s };
+    error = fd_object_get(curfds, &fo, sock, 0, 0);
+    if (error != 0)
+        return error;
+
+    ret = os_socket_set_linger(fd_number(fo), &bh_linger_opts);
+    fd_object_release(fo);
+    if (BHT_OK != ret)
+        return convert_errno(errno);
+    return __WASI_ESUCCESS;
+}
+
+__wasi_errno_t
+wasmtime_ssp_sock_get_linger(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t sock, __wasi_bh_linger *wasi_linger_opts)
+{
+    struct fd_object *fo;
+    __wasi_errno_t error;
+    int ret;
+    bh_linger bh_linger_opts;
+    error = fd_object_get(curfds, &fo, sock, 0, 0);
+    if (error != 0)
+        return error;
+
+    ret = os_socket_get_linger(fd_number(fo), &bh_linger_opts);
+    fd_object_release(fo);
+    if (BHT_OK != ret)
+        return convert_errno(errno);
+
+    wasi_linger_opts->l_onoff = bh_linger_opts.l_onoff;
+    wasi_linger_opts->l_linger_s = bh_linger_opts.l_linger_s;
+    return __WASI_ESUCCESS;
+}
+
+__wasi_errno_t
+wasmtime_ssp_sock_set_ip_add_membership(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t sock, __wasi_bh_ip_mreq_t *option)
+{
+    struct fd_object *fo;
+    __wasi_errno_t error;
+    int ret;
+    bh_ip_mreq ip_mreq = { { option->imr_multiaddr.s_addr },
+                           { option->imr_interface.s_addr } };
+    error = fd_object_get(curfds, &fo, sock, 0, 0);
+    if (error != 0)
+        return error;
+
+    ret = os_socket_set_ip_add_membership(fd_number(fo), &ip_mreq);
+    fd_object_release(fo);
+    if (BHT_OK != ret)
+        return convert_errno(errno);
+    return __WASI_ESUCCESS;
+}
+
+__wasi_errno_t
+wasmtime_ssp_sock_set_ip_drop_membership(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t sock, __wasi_bh_ip_mreq_t *option)
+{
+    struct fd_object *fo;
+    __wasi_errno_t error;
+    int ret;
+    bh_ip_mreq ip_mreq = { { option->imr_multiaddr.s_addr },
+                           { option->imr_interface.s_addr } };
+    error = fd_object_get(curfds, &fo, sock, 0, 0);
+    if (error != 0)
+        return error;
+
+    ret = os_socket_set_ip_drop_membership(fd_number(fo), &ip_mreq);
+    fd_object_release(fo);
+    if (BHT_OK != ret)
+        return convert_errno(errno);
+    return __WASI_ESUCCESS;
+}

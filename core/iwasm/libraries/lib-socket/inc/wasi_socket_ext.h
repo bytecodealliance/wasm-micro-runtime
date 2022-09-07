@@ -85,6 +85,20 @@ typedef struct __wasi_addr_info_hints_t {
     uint8_t hints_enabled;
 } __wasi_addr_info_hints_t;
 
+typedef struct __wasi_linger {
+    uint8_t l_onoff;
+    uint32_t l_linger_s;
+} __wasi_linger;
+
+typedef struct __wasi_in_addr_t {
+    uint32_t s_addr;
+} __wasi_in_addr_t;
+
+typedef struct __wasi_ip_mreq_t {
+    __wasi_in_addr_t imr_multiaddr;
+    __wasi_in_addr_t imr_interface;
+} __wasi_ip_mreq_t;
+
 #ifdef __wasi__
 /**
  * Reimplement below POSIX APIs with __wasi_sock_XXX functions.
@@ -93,9 +107,22 @@ typedef struct __wasi_addr_info_hints_t {
  * <sys/socket.h>
  * <sys/types.h>
  */
-
+#define SO_REUSEADDR 2
+#define SO_SNDBUF 7
+#define SO_RCVBUF 8
+#define SO_KEEPALIVE 9
+#define SO_LINGER 13
+#define SO_REUSEPORT 15
 #define SO_RCVTIMEO 20
 #define SO_SNDTIMEO 21
+
+#define TCP_KEEPIDLE 4
+#define TCP_KEEPINTVL 5
+#define TCP_FASTOPEN_CONNECT 30
+
+#define IP_MULTICAST_LOOP 34
+#define IP_ADD_MEMBERSHIP 35
+#define IP_DROP_MEMBERSHIP 36
 
 struct addrinfo {
     int ai_flags;             /* Input flags.  */
@@ -386,7 +413,7 @@ __imported_wasi_snapshot_preview1_sock_get_reuse_port(int32_t arg0,
                    __import_name__("sock_get_reuse_port")));
 
 static inline __wasi_errno_t
-__wasi_sock_get_reuse_port(__wasi_fd_t fd, int8_t *reuse)
+__wasi_sock_get_reuse_port(__wasi_fd_t fd, uint8_t *reuse)
 {
     return (__wasi_errno_t)
         __imported_wasi_snapshot_preview1_sock_get_reuse_port((int32_t)fd,
@@ -513,15 +540,17 @@ __wasi_sock_set_reuse_port(__wasi_fd_t fd, uint8_t reuse)
  * Note: This is similar to `setsockopt` in POSIX for SO_SNDBUF
  */
 int32_t
-__imported_wasi_snapshot_preview1_sock_set_send_buf_size(int32_t arg0)
+__imported_wasi_snapshot_preview1_sock_set_send_buf_size(int32_t arg0,
+                                                         int32_t arg1)
     __attribute__((__import_module__("wasi_snapshot_preview1"),
                    __import_name__("sock_set_send_buf_size")));
 
 static inline __wasi_errno_t
-__wasi_sock_set_send_buf_size(__wasi_fd_t fd)
+__wasi_sock_set_send_buf_size(__wasi_fd_t fd, __wasi_size_t buf_len)
 {
     return (__wasi_errno_t)
-        __imported_wasi_snapshot_preview1_sock_set_send_buf_size((int32_t)fd);
+        __imported_wasi_snapshot_preview1_sock_set_send_buf_size(
+            (int32_t)fd, (int32_t)buf_len);
 }
 
 int32_t
@@ -578,6 +607,198 @@ __wasi_sock_set_send_timeout(__wasi_fd_t fd, uint64_t timeout_us)
     return (__wasi_errno_t)
         __imported_wasi_snapshot_preview1_sock_set_send_timeout(
             (int32_t)fd, (int64_t)timeout_us);
+}
+
+int32_t
+__imported_wasi_snapshot_preview1_sock_set_keep_alive(int32_t arg0,
+                                                      int32_t arg1)
+    __attribute__((__import_module__("wasi_snapshot_preview1"),
+                   __import_name__("sock_set_keep_alive")));
+
+static inline __wasi_errno_t
+__wasi_sock_set_keep_alive(__wasi_fd_t fd, uint8_t option)
+{
+    return (__wasi_errno_t)
+        __imported_wasi_snapshot_preview1_sock_set_keep_alive((int32_t)fd,
+                                                              (int32_t)option);
+}
+
+int32_t
+__imported_wasi_snapshot_preview1_sock_get_keep_alive(int32_t arg0,
+                                                      int32_t arg1)
+    __attribute__((__import_module__("wasi_snapshot_preview1"),
+                   __import_name__("sock_get_keep_alive")));
+
+static inline __wasi_errno_t
+__wasi_sock_get_keep_alive(__wasi_fd_t fd, uint8_t *option)
+{
+    return (__wasi_errno_t)
+        __imported_wasi_snapshot_preview1_sock_get_keep_alive((int32_t)fd,
+                                                              (int32_t)option);
+}
+
+int32_t
+__imported_wasi_snapshot_preview1_sock_set_linger(int32_t arg0, int32_t arg1)
+    __attribute__((__import_module__("wasi_snapshot_preview1"),
+                   __import_name__("sock_set_linger")));
+
+static inline __wasi_errno_t
+__wasi_sock_set_linger(__wasi_fd_t fd, __wasi_linger *option)
+{
+    return (__wasi_errno_t)__imported_wasi_snapshot_preview1_sock_set_linger(
+        (int32_t)fd, (int32_t)option);
+}
+
+int32_t
+__imported_wasi_snapshot_preview1_sock_get_linger(int32_t arg0, int32_t arg1)
+    __attribute__((__import_module__("wasi_snapshot_preview1"),
+                   __import_name__("sock_get_linger")));
+
+static inline __wasi_errno_t
+__wasi_sock_get_linger(__wasi_fd_t fd, __wasi_linger *option)
+{
+    return (__wasi_errno_t)__imported_wasi_snapshot_preview1_sock_get_linger(
+        (int32_t)fd, (int32_t)option);
+}
+
+int32_t
+__imported_wasi_snapshot_preview1_sock_set_tcp_keep_idle(int32_t arg0,
+                                                         int32_t arg1)
+    __attribute__((__import_module__("wasi_snapshot_preview1"),
+                   __import_name__("sock_set_tcp_keep_idle")));
+
+static inline __wasi_errno_t
+__wasi_sock_set_tcp_keep_idle(__wasi_fd_t fd, uint32_t time_s)
+{
+    return (__wasi_errno_t)
+        __imported_wasi_snapshot_preview1_sock_set_tcp_keep_idle(
+            (int32_t)fd, (int32_t)time_s);
+}
+
+int32_t
+__imported_wasi_snapshot_preview1_sock_get_tcp_keep_idle(int32_t arg0,
+                                                         int32_t arg1)
+    __attribute__((__import_module__("wasi_snapshot_preview1"),
+                   __import_name__("sock_get_tcp_keep_idle")));
+
+static inline __wasi_errno_t
+__wasi_sock_get_tcp_keep_idle(__wasi_fd_t fd, uint32_t *time_s)
+{
+    return (__wasi_errno_t)
+        __imported_wasi_snapshot_preview1_sock_get_tcp_keep_idle(
+            (int32_t)fd, (int32_t)time_s);
+}
+
+int32_t
+__imported_wasi_snapshot_preview1_sock_set_tcp_keep_intvl(int32_t arg0,
+                                                          int32_t arg1)
+    __attribute__((__import_module__("wasi_snapshot_preview1"),
+                   __import_name__("sock_set_tcp_keep_intvl")));
+
+static inline __wasi_errno_t
+__wasi_sock_set_tcp_keep_intvl(__wasi_fd_t fd, uint32_t time_s)
+{
+    return (__wasi_errno_t)
+        __imported_wasi_snapshot_preview1_sock_set_tcp_keep_intvl(
+            (int32_t)fd, (int32_t)time_s);
+}
+
+int32_t
+__imported_wasi_snapshot_preview1_sock_get_tcp_keep_intvl(int32_t arg0,
+                                                          int32_t arg1)
+    __attribute__((__import_module__("wasi_snapshot_preview1"),
+                   __import_name__("sock_get_tcp_keep_intvl")));
+
+static inline __wasi_errno_t
+__wasi_sock_get_tcp_keep_intvl(__wasi_fd_t fd, uint32_t *time_s)
+{
+    return (__wasi_errno_t)
+        __imported_wasi_snapshot_preview1_sock_get_tcp_keep_intvl(
+            (int32_t)fd, (int32_t)time_s);
+}
+
+int32_t
+__imported_wasi_snapshot_preview1_sock_set_tcp_fastopen_connect(int32_t arg0,
+                                                                int32_t arg1)
+    __attribute__((__import_module__("wasi_snapshot_preview1"),
+                   __import_name__("sock_set_tcp_fastopen_connect")));
+
+static inline __wasi_errno_t
+__wasi_sock_set_tcp_fastopen_connect(__wasi_fd_t fd, uint8_t option)
+{
+    return (__wasi_errno_t)
+        __imported_wasi_snapshot_preview1_sock_set_tcp_fastopen_connect(
+            (int32_t)fd, (int32_t)option);
+}
+
+int32_t
+__imported_wasi_snapshot_preview1_sock_get_tcp_fastopen_connect(int32_t arg0,
+                                                                int32_t arg1)
+    __attribute__((__import_module__("wasi_snapshot_preview1"),
+                   __import_name__("sock_get_tcp_fastopen_connect")));
+
+static inline __wasi_errno_t
+__wasi_sock_get_tcp_fastopen_connect(__wasi_fd_t fd, uint8_t *option)
+{
+    return (__wasi_errno_t)
+        __imported_wasi_snapshot_preview1_sock_get_tcp_fastopen_connect(
+            (int32_t)fd, (int32_t)option);
+}
+
+int32_t
+__imported_wasi_snapshot_preview1_sock_set_ip_multicast_loop(int32_t arg0,
+                                                             int32_t arg1)
+    __attribute__((__import_module__("wasi_snapshot_preview1"),
+                   __import_name__("sock_set_ip_multicast_loop")));
+
+static inline __wasi_errno_t
+__wasi_sock_set_ip_multicast_loop(__wasi_fd_t fd, uint8_t option)
+{
+    return (__wasi_errno_t)
+        __imported_wasi_snapshot_preview1_sock_set_ip_multicast_loop(
+            (int32_t)fd, (int32_t)option);
+}
+
+int32_t
+__imported_wasi_snapshot_preview1_sock_get_ip_multicast_loop(int32_t arg0,
+                                                             int32_t arg1)
+    __attribute__((__import_module__("wasi_snapshot_preview1"),
+                   __import_name__("sock_get_ip_multicast_loop")));
+
+static inline __wasi_errno_t
+__wasi_sock_get_ip_multicast_loop(__wasi_fd_t fd, uint8_t *option)
+{
+    return (__wasi_errno_t)
+        __imported_wasi_snapshot_preview1_sock_get_ip_multicast_loop(
+            (int32_t)fd, (int32_t)option);
+}
+
+int32_t
+__imported_wasi_snapshot_preview1_sock_set_ip_add_membership(int32_t arg0,
+                                                             int32_t arg1)
+    __attribute__((__import_module__("wasi_snapshot_preview1"),
+                   __import_name__("sock_set_ip_add_membership")));
+
+static inline __wasi_errno_t
+__wasi_sock_set_ip_add_membership(__wasi_fd_t fd, __wasi_ip_mreq_t *mreq)
+{
+    return (__wasi_errno_t)
+        __imported_wasi_snapshot_preview1_sock_set_ip_add_membership(
+            (int32_t)fd, (int32_t)mreq);
+}
+
+int32_t
+__imported_wasi_snapshot_preview1_sock_set_ip_drop_membership(int32_t arg0,
+                                                              int32_t arg1)
+    __attribute__((__import_module__("wasi_snapshot_preview1"),
+                   __import_name__("sock_set_ip_drop_membership")));
+
+static inline __wasi_errno_t
+__wasi_sock_set_ip_drop_membership(__wasi_fd_t fd, __wasi_ip_mreq_t *mreq)
+{
+    return (__wasi_errno_t)
+        __imported_wasi_snapshot_preview1_sock_set_ip_drop_membership(
+            (int32_t)fd, (int32_t)mreq);
 }
 
 /**

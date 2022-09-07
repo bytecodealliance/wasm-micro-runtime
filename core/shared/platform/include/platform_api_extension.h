@@ -532,6 +532,73 @@ int
 os_socket_addr_remote(bh_socket_t socket, bh_sockaddr_t *sockaddr);
 
 /**
+ * Set the maximum send buffer size.
+ *
+ * @param socket the socket to set
+ * @param bufsiz requested kernel buffer size
+ *
+ * @return 0 if success, -1 otherwise
+ */
+int
+os_socket_set_send_buf_size(bh_socket_t socket, size_t bufsiz);
+
+/**
+ * Get the maximum send buffer size.
+ *
+ * @param socket the socket to set
+ * @param bufsiz the returned kernel buffer size
+ *
+ * @return 0 if success, -1 otherwise
+ */
+int
+os_socket_get_send_buf_size(bh_socket_t socket, size_t *bufsiz);
+
+/**
+ * Set the maximum receive buffer size.
+ *
+ * @param socket the socket to set
+ * @param bufsiz requested kernel buffer size
+ *
+ * @return 0 if success, -1 otherwise
+ */
+int
+os_socket_set_recv_buf_size(bh_socket_t socket, size_t bufsiz);
+
+/**
+ * Get the maximum receive buffer size.
+ *
+ * @param socket the socket to set
+ * @param bufsiz the returned kernel buffer size
+ *
+ * @return 0 if success, -1 otherwise
+ */
+int
+os_socket_get_recv_buf_size(bh_socket_t socket, size_t *bufsiz);
+
+/**
+ * Enable sending of keep-alive messages on connection-oriented sockets
+ *
+ * @param socket the socket to set the flag
+ * @param enable 1 to enable or 0 to disable
+ *
+ * @return 0 if success, -1 otherwise
+ */
+int
+os_socket_set_keep_alive(bh_socket_t socket, uint8_t enable);
+
+/**
+ * Get if sending of keep-alive messages on connection-oriented sockets is
+ * enabled
+ *
+ * @param socket the socket to check
+ * @param enabled 1 if enabled or 0 if disabled
+ *
+ * @return 0 if success, -1 otherwise
+ */
+int
+os_socket_get_keep_alive(bh_socket_t socket, uint8_t *enabled);
+
+/**
  * Set the send timeout until reporting an error
  *
  * @param socket the socket to set
@@ -575,6 +642,197 @@ os_socket_set_recv_timeout(bh_socket_t socket, uint64 timeout_us);
 int
 os_socket_get_recv_timeout(bh_socket_t socket, uint64 *timeout_us);
 
+/**
+ * Enable re-use of local addresses
+ *
+ * @param socket the socket to set
+ * @param enable 1 to enable or 0 to disable
+ *
+ * @return 0 if success, -1 otherwise
+ */
+int
+os_socket_set_reuse_addr(bh_socket_t socket, uint8_t enable);
+
+/**
+ * Get whether re-use of local addresses is enabled
+ *
+ * @param socket the socket to set
+ * @param enabled 1 for enabled or 0 for disabled
+ *
+ * @return 0 if success, -1 otherwise
+ */
+int
+os_socket_get_reuse_addr(bh_socket_t socket, uint8_t *enabled);
+
+/**
+ * Enable re-use of local ports
+ *
+ * @param socket the socket to set
+ * @param enable 1 to enable or 0 to disable
+ *
+ * @return 0 if success, -1 otherwise
+ */
+int
+os_socket_set_reuse_port(bh_socket_t socket, uint8_t enable);
+
+/**
+ * Get whether re-use of local ports is enabled
+ *
+ * @param socket the socket to set
+ * @param enable 1 for enabled or 0 for disabled
+ *
+ * @return 0 if success, -1 otherwise
+ */
+int
+os_socket_get_reuse_port(bh_socket_t socket, uint8_t *enabled);
+
+typedef struct {
+    uint8_t l_onoff;
+    uint32_t l_linger_s;
+} bh_linger;
+
+/**
+ * Set the linger options for the given socket
+ *
+ * @param socket the socket to set
+ * @param linger_opts linger options to set
+ * @return 0 if success, -1 otherwise
+ */
+int
+os_socket_set_linger(bh_socket_t socket, bh_linger *linger_opts);
+
+/**
+ * Get the linger options for the given socket
+ *
+ * @param socket the socket to get
+ * @param linger_opts the returned linger options for the socket
+ * @return 0 if success, -1 otherwise
+ */
+int
+os_socket_get_linger(bh_socket_t socket, bh_linger *linger_opts);
+
+/**
+ * Set the time the connection needs to remain idle before sending keepalive
+ * probes
+ *
+ * @param socket the socket to set
+ * @param time_s seconds until keepalive probes are sent
+ *
+ * @return 0 if success, -1 otherwise
+ */
+int
+os_socket_set_tcp_keep_idle(bh_socket_t socket, uint32_t time_s);
+
+/**
+ * Gets the time the connection needs to remain idle before sending keepalive
+ * probes
+ *
+ * @param socket the socket to check
+ * @param time_s seconds until keepalive probes are sent
+ *
+ * @return 0 if success, -1 otherwise
+ */
+int
+os_socket_get_tcp_keep_idle(bh_socket_t socket, uint32_t *time_s);
+
+/**
+ * Set the time between individual keepalive probes
+ *
+ * @param socket the socket to set
+ * @param time_us seconds between individual keepalive probes
+ *
+ * @return 0 if success, -1 otherwise
+ */
+int
+os_socket_set_tcp_keep_intvl(bh_socket_t socket, uint32_t time_s);
+
+/**
+ * Get the time between individual keepalive probes
+ *
+ * @param socket the socket to get
+ * @param time_s seconds between individual keepalive probes
+ *
+ * @return 0 if success, -1 otherwise
+ */
+int
+os_socket_get_tcp_keep_intvl(bh_socket_t socket, uint32_t *time_s);
+
+/**
+ * Set use of TCP Fast Open
+ *
+ * @param socket the socket to set
+ * @param enable 1 to enable or 0 to disable
+ *
+ * @return 0 if success, -1 otherwise
+ */
+int
+os_socket_set_tcp_fastopen_connect(bh_socket_t socket, uint8_t enable);
+
+/**
+ * Get whether use of TCP Fast Open is enabled
+ *
+ * @param socket the socket to get
+ * @param enable 1 to enabled or 0 to disabled
+ *
+ * @return 0 if success, -1 otherwise
+ */
+int
+os_socket_get_tcp_fastopen_connect(bh_socket_t socket, uint8_t *enabled);
+
+/**
+ * Set enable or disable IP multicast loopback.
+ *
+ * @param socket the socket to set
+ * @param enable 1 to enable or 0 to disable
+ *
+ * @return 0 if success, -1 otherwise
+ */
+int
+os_socket_set_ip_multicast_loop(bh_socket_t socket, uint8_t enable);
+
+/**
+ * Get enable or disable IP multicast loopback.
+ *
+ * @param socket the socket to check
+ * @param enabled 1 for enabled or 0 for disabled
+ *
+ * @return 0 if success, -1 otherwise
+ */
+int
+os_socket_get_ip_multicast_loop(bh_socket_t socket, uint8_t *enabled);
+
+typedef struct {
+    uint32_t s_addr;
+} bh_in_addr;
+
+struct bh_ip_mreq {
+    bh_in_addr imr_multiaddr;
+    bh_in_addr imr_interface;
+};
+
+typedef struct bh_ip_mreq bh_ip_mreq;
+
+/**
+ * Add membership to a group
+ *
+ * @param socket the socket to set timeout
+ * @param mreq the group multicast address and local interface address
+ *
+ * @return 0 if success, -1 otherwise
+ */
+int
+os_socket_set_ip_add_membership(bh_socket_t socket, bh_ip_mreq *mreq);
+
+/**
+ * Drop membership of a group
+ *
+ * @param socket the socket to set timeout
+ * @param mreq the group multicast address and local interface address
+ *
+ * @return 0 if success, -1 otherwise
+ */
+int
+os_socket_set_ip_drop_membership(bh_socket_t socket, bh_ip_mreq *mreq);
 #ifdef __cplusplus
 }
 #endif

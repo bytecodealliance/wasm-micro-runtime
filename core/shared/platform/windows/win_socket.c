@@ -259,6 +259,221 @@ os_socket_get_recv_timeout(bh_socket_t socket, uint64 *timeout_us)
 
 int
 os_socket_addr_remote(bh_socket_t socket, bh_sockaddr_t *sockaddr)
+    errno = ENOSYS;
+
+    return BHT_ERROR;
+}
+
+int
+os_socket_set_send_buf_size(bh_socket_t socket, size_t bufsiz)
+{
+    errno = ENOSYS;
+
+    return BHT_ERROR;
+}
+
+int
+os_socket_get_send_buf_size(bh_socket_t socket, size_t *bufsiz)
+{
+    errno = ENOSYS;
+
+    return BHT_ERROR;
+}
+
+int
+os_socket_set_recv_buf_size(bh_socket_t socket, size_t bufsiz)
+{
+    errno = ENOSYS;
+
+    return BHT_ERROR;
+}
+
+int
+os_socket_get_recv_buf_size(bh_socket_t socket, size_t *bufsiz)
+{
+    errno = ENOSYS;
+
+    return BHT_ERROR;
+}
+
+int
+os_socket_set_keep_alive(bh_socket_t socket, uint8 enable)
+{
+    errno = ENOSYS;
+
+    return BHT_ERROR;
+}
+
+int
+os_socket_get_keep_alive(bh_socket_t socket, uint8 *enabled)
+{
+    errno = ENOSYS;
+
+    return BHT_ERROR;
+}
+
+int
+os_socket_setsndtimeo(bh_socket_t socket, uint64 timeout_us)
+{
+    errno = ENOSYS;
+
+    return BHT_ERROR;
+}
+
+int
+os_socket_getsndtimeo(bh_socket_t socket, uint64 *timeout_us)
+{
+    errno = ENOSYS;
+
+    return BHT_ERROR;
+}
+
+int
+os_socket_setrecvtimeo(bh_socket_t socket, uint64 timeout_us)
+{
+    errno = ENOSYS;
+
+    return BHT_ERROR;
+}
+
+int
+os_socket_getrecvtimeo(bh_socket_t socket, uint64 *timeout_us)
+{
+    errno = ENOSYS;
+
+    return BHT_ERROR;
+}
+
+int
+os_socket_set_reuse_addr(bh_socket_t socket, uint8 enable)
+{
+    errno = ENOSYS;
+
+    return BHT_ERROR;
+}
+
+int
+os_socket_get_reuse_addr(bh_socket_t socket, uint8 *enabled)
+{
+    errno = ENOSYS;
+
+    return BHT_ERROR;
+}
+
+int
+os_socket_set_reuse_port(bh_socket_t socket, uint8 enable)
+{
+    errno = ENOSYS;
+
+    return BHT_ERROR;
+}
+
+int
+os_socket_get_reuse_port(bh_socket_t socket, uint8 *enabled)
+{
+    errno = ENOSYS;
+
+    return BHT_ERROR;
+}
+
+int
+os_socket_set_linger(bh_socket_t socket, bh_linger *bh_linger_opts)
+{
+    errno = ENOSYS;
+
+    return BHT_ERROR;
+}
+
+int
+os_socket_get_linger(bh_socket_t socket, bh_linger *bh_linger_opts)
+{
+    errno = ENOSYS;
+
+    return BHT_ERROR;
+}
+
+int
+os_socket_set_tcp_keep_idle(bh_socket_t socket, uint32 time_s)
+{
+    errno = ENOSYS;
+
+    return BHT_ERROR;
+}
+
+int
+os_socket_get_tcp_keep_idle(bh_socket_t socket, uint32 *time_s)
+{
+    errno = ENOSYS;
+
+    return BHT_ERROR;
+}
+
+int
+os_socket_set_tcp_keep_intvl(bh_socket_t socket, uint32 time_s)
+{
+    errno = ENOSYS;
+
+    return BHT_ERROR;
+}
+
+int
+os_socket_get_tcp_keep_intvl(bh_socket_t socket, uint32 *time_s)
+{
+    errno = ENOSYS;
+
+    return BHT_ERROR;
+}
+
+int
+os_socket_set_tcp_fastopen_connect(bh_socket_t socket, uint8 enable)
+{
+    errno = ENOSYS;
+
+    return BHT_ERROR;
+}
+
+int
+os_socket_get_tcp_fastopen_connect(bh_socket_t socket, uint8 *enabled)
+{
+    errno = ENOSYS;
+
+    return BHT_ERROR;
+}
+
+int
+os_socket_set_ip_multicast_loop(bh_socket_t socket, uint8 enable)
+{
+    errno = ENOSYS;
+
+    return BHT_ERROR;
+}
+
+int
+os_socket_get_ip_multicast_loop(bh_socket_t socket, uint8 *enabled)
+{
+    errno = ENOSYS;
+
+    return BHT_ERROR;
+}
+
+int
+os_socket_set_ip_add_membership(bh_socket_t socket, bh_ip_mreq *bh_mreq)
+{
+    errno = ENOSYS;
+
+    return BHT_ERROR;
+}
+
+int
+os_socket_set_ip_drop_membership(bh_socket_t socket, bh_ip_mreq *bh_mreq)
+{
+    errno = ENOSYS;
+    return BHT_ERROR;
+}
+
+int
+os_socket_addr_remote(bh_socket_t socket, uint8_t *buf, size_t buflen,
+                      uint16_t *port, uint8_t *is_ipv4)
 {
     errno = ENOSYS;
 

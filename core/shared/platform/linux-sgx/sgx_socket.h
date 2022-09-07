@@ -46,7 +46,7 @@ extern "C" {
 #define SHUT_RDWR 2
 
 /* Address families.  */
-#define AF_INET 2 /* IP protocol family.  */
+#define AF_INET 2   /* IP protocol family.  */
 #define AF_INET6 10 /* IP version 6.  */
 
 /* Standard well-defined IP protocols.  */
