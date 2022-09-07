@@ -30,6 +30,7 @@ typedef aos_task_t korp_thread;
 typedef korp_thread *korp_tid;
 typedef aos_task_t *aos_tid_t;
 typedef aos_mutex_t korp_mutex;
+typedef aos_sem_t korp_sem;
 
 struct os_thread_wait_node;
 typedef struct os_thread_wait_node *os_thread_wait_list;
