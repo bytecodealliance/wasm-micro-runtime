@@ -59,7 +59,7 @@
 }
 
 #ipt_projName,
-#tselect_dropdown,
+#select_dropdown,
 .config_form_body vscode-text-field,
 .config_form_body vscode-text-area {
     width: 100%;

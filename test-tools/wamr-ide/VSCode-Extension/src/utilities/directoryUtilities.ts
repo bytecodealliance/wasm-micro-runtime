@@ -6,6 +6,7 @@
 import fileSystem = require('fs');
 import vscode = require('vscode');
 import path = require('path');
+import os = require('os');
 
 /**
  *
@@ -93,4 +94,25 @@ export function CheckIfDirectoryExist(path: string): boolean {
         vscode.window.showErrorMessage(err as string);
         return false;
     }
+}
+
+export function checkFolderName(folderName: string) {
+    var status = true;
+    let OS_PLATFORM = os.platform();
+    if (folderName.length > 255) {
+        status = false;
+    }
+    let errArr: string[] = [];
+    if (OS_PLATFORM === 'win32') {
+        errArr = ['\\', '/', ':', '?', '*', '"', '|', '<', '>'];
+    } else if (OS_PLATFORM === 'linux') {
+        errArr = ['/'];
+    }
+
+    errArr.forEach(function (str) {
+        if (folderName.indexOf(str) !== -1) {
+            status = false;
+        }
+    });
+    return status;
 }

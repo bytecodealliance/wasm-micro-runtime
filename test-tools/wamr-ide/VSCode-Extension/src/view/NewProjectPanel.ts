@@ -6,7 +6,11 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { CreateDirectory, CopyFiles } from '../utilities/directoryUtilities';
+import {
+    CreateDirectory,
+    CopyFiles,
+    checkFolderName,
+} from '../utilities/directoryUtilities';
 import { getUri } from '../utilities/getUri';
 
 export class NewProjectPanel {
@@ -15,6 +19,7 @@ export class NewProjectPanel {
     private readonly _panel: vscode.WebviewPanel;
     private _disposables: vscode.Disposable[] = [];
 
+    static readonly DIR_PATH_INVALID_ERR: number = -3;
     static readonly USER_INTPUT_ERR: number = -2;
     static readonly DIR_EXSITED_ERR: number = -1;
     static readonly EXCUTION_SUCCESS: number = 0;
@@ -74,6 +79,10 @@ export class NewProjectPanel {
     ): number {
         if (projName === '' || template === '') {
             return NewProjectPanel.USER_INTPUT_ERR;
+        }
+
+        if (!checkFolderName(projName)) {
+            return NewProjectPanel.DIR_PATH_INVALID_ERR;
         }
 
         let ROOT_PATH = path.join(NewProjectPanel.USER_SET_WORKSPACE, projName);
@@ -152,12 +161,14 @@ export class NewProjectPanel {
             message => {
                 switch (message.command) {
                     case 'create_new_project':
+                        let createNewProjectStatus = this._creatNewProject(
+                            message.projectName,
+                            message.template,
+                            extensionUri
+                        );
                         if (
-                            this._creatNewProject(
-                                message.projectName,
-                                message.template,
-                                extensionUri
-                            ) === NewProjectPanel.EXCUTION_SUCCESS
+                            createNewProjectStatus ===
+                            NewProjectPanel.EXCUTION_SUCCESS
                         ) {
                             /* post message to page to inform the project creation has finished */
                             webview.postMessage({
@@ -165,11 +176,8 @@ export class NewProjectPanel {
                                 prjName: message.projectName,
                             });
                         } else if (
-                            this._creatNewProject(
-                                message.projectName,
-                                message.template,
-                                extensionUri
-                            ) === NewProjectPanel.DIR_EXSITED_ERR
+                            createNewProjectStatus ===
+                            NewProjectPanel.DIR_EXSITED_ERR
                         ) {
                             vscode.window.showErrorMessage(
                                 'Project : ' +
@@ -178,14 +186,19 @@ export class NewProjectPanel {
                             );
                             return;
                         } else if (
-                            this._creatNewProject(
-                                message.projectName,
-                                message.template,
-                                extensionUri
-                            ) === NewProjectPanel.USER_INTPUT_ERR
+                            createNewProjectStatus ===
+                            NewProjectPanel.USER_INTPUT_ERR
                         ) {
                             vscode.window.showErrorMessage(
                                 'Please fill chart before your submit!'
+                            );
+                            return;
+                        } else if (
+                            createNewProjectStatus ===
+                            NewProjectPanel.DIR_PATH_INVALID_ERR
+                        ) {
+                            vscode.window.showErrorMessage(
+                                `A file name can't contain any of the following charachters: / \\ : * ? < > | " and length less than 255`
                             );
                             return;
                         }
