@@ -807,7 +807,11 @@ jit_compile_op_block(JitCompContext *cc, uint8 **p_frame_ip,
 
     return true;
 fail:
-    jit_block_destroy(block);
+    /* Only destroy the block if it hasn't been pushed into
+      the block stack, or if will be destroyed again when
+      destroying the block stack */
+    if (jit_block_stack_top(&cc->block_stack) != block)
+        jit_block_destroy(block);
     return false;
 }
 

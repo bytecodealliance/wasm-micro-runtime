@@ -160,10 +160,9 @@ Firstly if libc-builtin (-nostdlib) mode meets the requirements, e.g. there are 
 
 Most of the above methods are also available for libc-wasi mode, besides them, we can export malloc and free functions with `-Wl,--export=malloc -Wl,--export=free` option, so WAMR runtime will disable its app heap and call the malloc/free function exported to allocate/free the memory from/to the heap space managed by libc.
 
-Note: wasm-ld from LLVM 13 and later automatically inserts dtor calls
-for exported funtions. It breaks the malloc/free export mentioned above.
-A workaround: Add `-Wl,--export=__wasm_call_ctors`, which happens to
-prevent the automatic insertions for the current implementation.
+Note: wasm-ld from LLVM 13 and later automatically inserts ctor/dtor calls
+for all exported functions for a command. (vs reactor)
+It breaks the malloc/free exports mentioned above.
 
 ## 3. Build wasm app with pthread support
 

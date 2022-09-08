@@ -625,16 +625,6 @@ bool
 aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count);
 
 /**
- * Compare whether two wasm types are equal according to the indexs
- *
- * @param module_inst the AOT module instance
- * @param type1_idx index of the first wasm type
- * @param type2_idx index of the second wasm type
- *
- * @return true if equal, false otherwise
- */
-
-/**
  * Invoke native function from aot code
  */
 bool

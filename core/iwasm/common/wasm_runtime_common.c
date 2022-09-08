@@ -341,10 +341,6 @@ wasm_runtime_init()
 void
 wasm_runtime_destroy()
 {
-#if WASM_ENABLE_FAST_JIT != 0
-    jit_compiler_destroy();
-#endif
-
 #if WASM_ENABLE_REF_TYPES != 0
     wasm_externref_map_destroy();
 #endif
@@ -366,6 +362,14 @@ wasm_runtime_destroy()
 
     wasm_runtime_destroy_registered_module_list();
     os_mutex_destroy(&registered_module_list_lock);
+#endif
+
+#if WASM_ENABLE_FAST_JIT != 0
+    /* Destroy Fast-JIT compiler after destroying the modules
+     * loaded by multi-module feature, since the Fast JIT's
+     * code cache allocator may be used by these modules.
+     */
+    jit_compiler_destroy();
 #endif
 
 #if WASM_ENABLE_SHARED_MEMORY
@@ -404,7 +408,6 @@ wasm_runtime_full_init(RuntimeInitArgs *init_args)
 #if WASM_ENABLE_DEBUG_INTERP != 0
     if (strlen(init_args->ip_addr))
         if (!wasm_debug_engine_init(init_args->ip_addr,
-                                    init_args->platform_port,
                                     init_args->instance_port)) {
             wasm_runtime_destroy();
             return false;
@@ -504,21 +507,35 @@ wasm_runtime_is_xip_file(const uint8 *buf, uint32 size)
 
 #if (WASM_ENABLE_THREAD_MGR != 0) && (WASM_ENABLE_DEBUG_INTERP != 0)
 uint32
-wasm_runtime_start_debug_instance(WASMExecEnv *exec_env)
+wasm_runtime_start_debug_instance_with_port(WASMExecEnv *exec_env, int32_t port)
 {
+    WASMModuleInstanceCommon *module_inst =
+        wasm_runtime_get_module_inst(exec_env);
     WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
+    bh_assert(module_inst);
     bh_assert(cluster);
+
+    if (module_inst->module_type != Wasm_Module_Bytecode) {
+        LOG_WARNING("Attempt to create a debug instance for an AOT module");
+        return 0;
+    }
 
     if (cluster->debug_inst) {
         LOG_WARNING("Cluster already bind to a debug instance");
         return cluster->debug_inst->control_thread->port;
     }
 
-    if (wasm_debug_instance_create(cluster)) {
+    if (wasm_debug_instance_create(cluster, port)) {
         return cluster->debug_inst->control_thread->port;
     }
 
     return 0;
+}
+
+uint32
+wasm_runtime_start_debug_instance(WASMExecEnv *exec_env)
+{
+    return wasm_runtime_start_debug_instance_with_port(exec_env, -1);
 }
 #endif
 
@@ -1967,28 +1984,6 @@ wasm_runtime_call_wasm_v(WASMExecEnv *exec_env,
         wasm_runtime_free(args);
 
 fail1:
-    return ret;
-}
-
-bool
-wasm_runtime_create_exec_env_and_call_wasm(
-    WASMModuleInstanceCommon *module_inst, WASMFunctionInstanceCommon *function,
-    uint32 argc, uint32 argv[])
-{
-    bool ret = false;
-
-#if WASM_ENABLE_INTERP != 0
-    if (module_inst->module_type == Wasm_Module_Bytecode)
-        ret = wasm_create_exec_env_and_call_function(
-            (WASMModuleInstance *)module_inst, (WASMFunctionInstance *)function,
-            argc, argv, true);
-#endif
-#if WASM_ENABLE_AOT != 0
-    if (module_inst->module_type == Wasm_Module_AoT)
-        ret = aot_create_exec_env_and_call_function(
-            (AOTModuleInstance *)module_inst, (AOTFunctionInstance *)function,
-            argc, argv);
-#endif
     return ret;
 }
 

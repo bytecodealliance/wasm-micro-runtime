@@ -46,14 +46,16 @@ run_as_server(void *arg)
     pthread_mutex_lock(&lock);
     sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
+        pthread_mutex_unlock(&lock);
         perror("Create a socket failed");
-        goto RETURN;
+        return NULL;
     }
 
 #ifndef __wasi__
     if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char *)&on, sizeof(on))) {
+        pthread_mutex_unlock(&lock);
         perror("Setsockopt failed");
-        goto RETURN;
+        goto fail1;
     }
 #endif
 
@@ -64,13 +66,15 @@ run_as_server(void *arg)
 
     addrlen = sizeof(addr);
     if (bind(sock, (struct sockaddr *)&addr, addrlen) < 0) {
+        pthread_mutex_unlock(&lock);
         perror("Bind failed");
-        goto UNLOCK_SHUTDOWN;
+        goto fail1;
     }
 
     if (listen(sock, 0) < 0) {
+        pthread_mutex_unlock(&lock);
         perror("Listen failed");
-        goto UNLOCK_SHUTDOWN;
+        goto fail1;
     }
 
     server_is_ready = true;
@@ -82,25 +86,22 @@ run_as_server(void *arg)
     new_sock = accept(sock, (struct sockaddr *)&addr, (socklen_t *)&addrlen);
     if (new_sock < 0) {
         perror("Accept failed");
-        goto SHUTDOWN;
+        goto fail1;
     }
 
     printf("Start sending. \n");
     send_len = sendmsg(new_sock, &msg, 0);
     if (send_len < 0) {
         perror("Sendmsg failed");
-        goto SHUTDOWN;
+        goto fail2;
     }
     printf("Send %ld bytes successfully!\n", send_len);
 
-SHUTDOWN:
+fail2:
+    close(new_sock);
+fail1:
     shutdown(sock, SHUT_RD);
-    return NULL;
-
-UNLOCK_SHUTDOWN:
-    shutdown(sock, SHUT_RD);
-RETURN:
-    pthread_mutex_unlock(&lock);
+    close(sock);
     return NULL;
 }
 
@@ -125,7 +126,7 @@ run_as_client(void *arg)
     sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
         perror("Create a socket failed");
-        goto RETURN;
+        return NULL;
     }
 
     /* 127.0.0.1:1234 */
@@ -135,14 +136,14 @@ run_as_client(void *arg)
 
     if (connect(sock, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
         perror("Connect failed");
-        goto UNLOCK_SHUTDOWN;
+        goto fail;
     }
 
     printf("Start receiving. \n");
     recv_len = recvmsg(sock, &msg, 0);
     if (recv_len < 0) {
         perror("Recvmsg failed");
-        goto SHUTDOWN;
+        goto fail;
     }
 
     printf("Receive %ld bytes successlly!\n", recv_len);
@@ -155,14 +156,9 @@ run_as_client(void *arg)
         s += strlen(s) + 1;
     }
 
-SHUTDOWN:
+fail:
     shutdown(sock, SHUT_RD);
-    return NULL;
-
-UNLOCK_SHUTDOWN:
-    shutdown(sock, SHUT_RD);
-RETURN:
-    pthread_mutex_unlock(&lock);
+    close(sock);
     return NULL;
 }
 

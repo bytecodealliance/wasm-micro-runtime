@@ -247,7 +247,6 @@ main(int argc, char *argv[])
 #endif
 #if WASM_ENABLE_DEBUG_INTERP != 0
     char *ip_addr = NULL;
-    /* int platform_port = 0; */
     int instance_port = 0;
 #endif
 
@@ -343,7 +342,8 @@ main(int argc, char *argv[])
         else if (!strncmp(argv[0], "--version", 9)) {
             uint32 major, minor, patch;
             wasm_runtime_get_version(&major, &minor, &patch);
-            printf("iwasm %u.%u.%u\n", major, minor, patch);
+            printf("iwasm %" PRIu32 ".%" PRIu32 ".%" PRIu32 "\n", major, minor,
+                   patch);
             return 0;
         }
         else
@@ -371,7 +371,6 @@ main(int argc, char *argv[])
 #endif
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
-    init_args.platform_port = 0;
     init_args.instance_port = instance_port;
     if (ip_addr)
         strcpy(init_args.ip_addr, ip_addr);
@@ -437,6 +436,23 @@ main(int argc, char *argv[])
         goto fail3;
     }
 
+#if WASM_ENABLE_DEBUG_INTERP != 0
+    if (ip_addr != NULL) {
+        wasm_exec_env_t exec_env =
+            wasm_runtime_get_exec_env_singleton(wasm_module_inst);
+        uint32_t debug_port;
+        if (exec_env == NULL) {
+            printf("%s\n", wasm_runtime_get_exception(wasm_module_inst));
+            goto fail4;
+        }
+        debug_port = wasm_runtime_start_debug_instance(exec_env);
+        if (debug_port == 0) {
+            printf("Failed to start debug instance\n");
+            goto fail4;
+        }
+    }
+#endif
+
     if (is_repl_mode)
         app_instance_repl(wasm_module_inst);
     else if (func_name)
@@ -446,6 +462,9 @@ main(int argc, char *argv[])
 
     ret = 0;
 
+#if WASM_ENABLE_DEBUG_INTERP != 0
+fail4:
+#endif
     /* destroy the module instance */
     wasm_runtime_deinstantiate(wasm_module_inst);
 

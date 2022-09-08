@@ -11,17 +11,15 @@
 #include "wasm_opcode.h"
 #include "wasm_runtime.h"
 
-static uint8 break_instr[] = { DEBUG_OP_BREAK };
+static const uint8 break_instr[] = { DEBUG_OP_BREAK };
 
 typedef struct WASMDebugEngine {
     struct WASMDebugEngine *next;
     WASMDebugControlThread *control_thread;
     char ip_addr[128];
-    int32 platform_port;
     int32 process_base_port;
     bh_list debug_instance_list;
     korp_mutex instance_list_lock;
-    bool active;
 } WASMDebugEngine;
 
 void
@@ -81,10 +79,12 @@ control_thread_routine(void *arg)
     control_thread->debug_instance = debug_inst;
     bh_strcpy_s(control_thread->ip_addr, sizeof(control_thread->ip_addr),
                 g_debug_engine->ip_addr);
-    control_thread->port =
-        (g_debug_engine->process_base_port == 0)
-            ? 0
-            : g_debug_engine->process_base_port + debug_inst->id;
+    if (control_thread->port == -1) {
+        control_thread->port =
+            (g_debug_engine->process_base_port == 0)
+                ? 0
+                : g_debug_engine->process_base_port + debug_inst->id - 1;
+    }
 
     LOG_WARNING("control thread of debug object %p start\n", debug_inst);
 
@@ -93,6 +93,7 @@ control_thread_routine(void *arg)
 
     if (!control_thread->server) {
         LOG_ERROR("Failed to create debug server\n");
+        control_thread->port = 0;
         os_cond_signal(&debug_inst->wait_cond);
         os_mutex_unlock(&debug_inst->wait_lock);
         return NULL;
@@ -178,7 +179,7 @@ control_thread_routine(void *arg)
 }
 
 static WASMDebugControlThread *
-wasm_debug_control_thread_create(WASMDebugInstance *debug_instance)
+wasm_debug_control_thread_create(WASMDebugInstance *debug_instance, int32 port)
 {
     WASMDebugControlThread *control_thread;
 
@@ -188,6 +189,7 @@ wasm_debug_control_thread_create(WASMDebugInstance *debug_instance)
         return NULL;
     }
     memset(control_thread, 0, sizeof(WASMDebugControlThread));
+    control_thread->port = port;
 
     if (os_mutex_init(&control_thread->wait_lock) != 0)
         goto fail;
@@ -198,7 +200,7 @@ wasm_debug_control_thread_create(WASMDebugInstance *debug_instance)
 
     if (0
         != os_thread_create(&control_thread->tid, control_thread_routine,
-                            debug_instance, APP_THREAD_STACK_SIZE_MAX)) {
+                            debug_instance, APP_THREAD_STACK_SIZE_DEFAULT)) {
         os_mutex_unlock(&debug_instance->wait_lock);
         goto fail1;
     }
@@ -265,16 +267,6 @@ wasm_debug_engine_create()
     /* reset current instance id */
     current_instance_id = 1;
 
-    /* TODO: support Wasm platform in LLDB */
-    /*
-    engine->control_thread =
-        wasm_debug_control_thread_create((WASMDebugObject *)engine);
-    engine->control_thread->debug_engine = (WASMDebugObject *)engine;
-    engine->control_thread->debug_instance = NULL;
-    sprintf(engine->control_thread->ip_addr, "127.0.0.1");
-    engine->control_thread->port = 1234;
-    */
-
     bh_list_init(&engine->debug_instance_list);
     return engine;
 }
@@ -291,7 +283,7 @@ wasm_debug_engine_destroy()
 }
 
 bool
-wasm_debug_engine_init(char *ip_addr, int32 platform_port, int32 process_port)
+wasm_debug_engine_init(char *ip_addr, int32 process_port)
 {
     if (wasm_debug_handler_init() != 0) {
         return false;
@@ -302,9 +294,6 @@ wasm_debug_engine_init(char *ip_addr, int32 platform_port, int32 process_port)
     }
 
     if (g_debug_engine) {
-        process_port -= 1;
-        g_debug_engine->platform_port =
-            platform_port > 0 ? platform_port : 1234;
         g_debug_engine->process_base_port =
             (process_port > 0) ? process_port : 0;
         if (ip_addr)
@@ -313,7 +302,6 @@ wasm_debug_engine_init(char *ip_addr, int32 platform_port, int32 process_port)
         else
             snprintf(g_debug_engine->ip_addr, sizeof(g_debug_engine->ip_addr),
                      "%s", "127.0.0.1");
-        g_debug_engine->active = true;
     }
     else {
         wasm_debug_handler_deinit();
@@ -322,33 +310,16 @@ wasm_debug_engine_init(char *ip_addr, int32 platform_port, int32 process_port)
     return g_debug_engine != NULL ? true : false;
 }
 
-void
-wasm_debug_set_engine_active(bool active)
-{
-    if (g_debug_engine) {
-        g_debug_engine->active = active;
-    }
-}
-
-bool
-wasm_debug_get_engine_active(void)
-{
-    if (g_debug_engine) {
-        return g_debug_engine->active;
-    }
-    return false;
-}
-
 /* A debug Instance is a debug "process" in gdb remote protocol
    and bound to a runtime cluster */
 WASMDebugInstance *
-wasm_debug_instance_create(WASMCluster *cluster)
+wasm_debug_instance_create(WASMCluster *cluster, int32 port)
 {
     WASMDebugInstance *instance;
     WASMExecEnv *exec_env = NULL;
     wasm_module_inst_t module_inst = NULL;
 
-    if (!g_debug_engine || !g_debug_engine->active) {
+    if (!g_debug_engine) {
         return NULL;
     }
 
@@ -392,7 +363,7 @@ wasm_debug_instance_create(WASMCluster *cluster)
     }
     instance->exec_mem_info.current_pos = instance->exec_mem_info.start_offset;
 
-    if (!wasm_debug_control_thread_create(instance)) {
+    if (!wasm_debug_control_thread_create(instance, port)) {
         LOG_ERROR("WASM Debug Engine error: failed to create control thread");
         goto fail3;
     }

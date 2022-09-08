@@ -23,7 +23,7 @@ mem_allocator_create_with_struct_and_pool(void *struct_buf,
                                           void *pool_buf,
                                           uint32_t pool_buf_size);
 
-void
+int
 mem_allocator_destroy(mem_allocator_t allocator);
 
 uint32
@@ -44,6 +44,9 @@ mem_allocator_migrate(mem_allocator_t allocator, char *pool_buf_new,
 
 bool
 mem_allocator_is_heap_corrupted(mem_allocator_t allocator);
+
+bool
+mem_allocator_get_alloc_info(mem_allocator_t allocator, void *mem_alloc_info);
 
 #ifdef __cplusplus
 }

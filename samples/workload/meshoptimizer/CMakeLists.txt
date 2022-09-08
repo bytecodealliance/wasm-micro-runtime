@@ -26,5 +26,5 @@ ExternalProject_Add(codecbench
                       -DCMAKE_SYSROOT=${WASI_SDK_HOME}/share/wasi-sysroot
                       ${CMAKE_CURRENT_SOURCE_DIR}/meshoptimizer
   BUILD_COMMAND  make codecbench
-  INSTALL_COMMAND ${CMAKE_COMMAND} -E copy ./codecbench.wasm ${CMAKE_CURRENT_SOURCE_DIR}/build/codecbench.wasm
+  INSTALL_COMMAND ${CMAKE_COMMAND} -E copy ./codecbench.wasm ${CMAKE_BINARY_DIR}/codecbench.wasm
 )
