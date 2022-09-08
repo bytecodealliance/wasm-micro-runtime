@@ -331,12 +331,15 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
                              uint32 tbl_idx)
 {
     WASMModule *wasm_module = cc->cur_wasm_module;
+    JitReg wasm_module_reg, import_func_count_reg;
+    JitBasicBlock *block_import, *block_nonimport, *func_return;
     JitReg elem_idx, native_ret, argv, arg_regs[6];
     JitFrame *jit_frame = cc->jit_frame;
     JitReg module_inst, tbl_size, elem_idx_long, offset;
     JitReg func_idx, tbl_data, func_count_reg;
     JitReg func_type_indexes, func_type_idx, fast_jit_func_ptrs;
     JitReg offset1_i32, offset1, func_type_idx1;
+    JitReg import_func_ptrs_reg, fast_jit_func_ptrs_reg, jitted_code_idx, jitted_code;
     WASMType *func_type;
 
     POP_I32(elem_idx);
@@ -397,10 +400,16 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
                             cc->cmp_reg, NULL))
         goto fail;
 
-    func_type = cc->cur_wasm_module->types[type_idx];
+    func_type = wasm_module->types[type_idx];
     if (!pre_call(cc, func_type)) {
         goto fail;
     }
+
+    // get import_func_count
+    wasm_module_reg = get_module_reg(jit_frame);
+    import_func_count_reg = jit_cc_new_reg_I32(cc);
+    GEN_INSN(LDI32, import_func_count_reg, wasm_module_reg,
+             NEW_CONST(I32, offsetof(WASMModule, import_function_count)));
 
     argv = pack_argv(cc);
 
@@ -412,18 +421,96 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
     arg_regs[4] = NEW_CONST(I32, func_type->param_cell_num);
     arg_regs[5] = argv;
 
-    if (!jit_emit_callnative(cc, jit_call_indirect, native_ret, arg_regs, 6)) {
+    // if (!jit_emit_callnative(cc, jit_call_indirect, native_ret, arg_regs, 6)) {
+    //     return false;
+    // }
+
+    // new block_import, block_nonimport, func_return
+    block_import = jit_cc_new_basic_block(cc, 0);
+    block_nonimport = jit_cc_new_basic_block(cc, 0);
+    func_return = jit_cc_new_basic_block(cc, 0);
+
+    /* Commit register values to locals and stacks */
+    gen_commit_values(jit_frame, jit_frame->lp, jit_frame->sp);
+    /* Clear frame values */
+    clear_values(jit_frame);
+
+    // jump to block_import or block_nonimport
+    GEN_INSN(CMP, cc->cmp_reg, func_idx, import_func_count_reg);
+    GEN_INSN(BGEU, cc->cmp_reg, jit_basic_block_label(block_import),
+                        jit_basic_block_label(block_nonimport));
+
+    // block_import
+    cc->cur_basic_block = block_import;
+    // get native func_ptr
+    // import_func = import_func_indexes[func_idx]
+    // 参考func type
+    import_func_ptrs_reg = get_import_func_ptrs_reg(jit_frame);
+    JitReg func_import = jit_cc_new_reg_I32(cc);
+    GEN_INSN(LDPTR, func_import, import_func_ptrs_reg,
+                NEW_CONST(I32, (uint32)sizeof(void *) * func_idx));
+    // call jit_invoke_native
+    if (!jit_emit_callnative(cc, jit_invoke_native, native_ret, arg_regs,
+                                6)) {
         return false;
     }
+    /* check exception */
     /* Convert bool to uint32 */
     GEN_INSN(AND, native_ret, native_ret, NEW_CONST(I32, 0xFF));
-
     /* Check whether there is exception thrown */
     GEN_INSN(CMP, cc->cmp_reg, native_ret, NEW_CONST(I32, 0));
     if (!jit_emit_exception(cc, JIT_EXCE_ALREADY_THROWN, JIT_OP_BEQ,
                             cc->cmp_reg, NULL)) {
         return false;
     }
+    gen_commit_values(jit_frame, jit_frame->lp, jit_frame->sp);
+    clear_values(jit_frame);
+    GEN_INSN(JMP, jit_basic_block_label(func_return));
+
+    /* basic_block non_import */
+    cc->cur_basic_block = block_nonimport;
+    /* get jitted_code */
+    fast_jit_func_ptrs_reg = get_fast_jit_func_ptrs_reg(jit_frame);
+    jitted_code_idx = jit_cc_new_reg_I32(cc);
+    jitted_code = jit_cc_new_reg_I32(cc);
+    
+    GEN_INSN(SUB, jitted_code_idx, func_idx, import_func_count_reg);
+    GEN_INSN(LDPTR, jitted_code, fast_jit_func_ptrs_reg,
+                NEW_CONST(I32, (uint32)sizeof(void *) * jitted_code_idx));
+    // CALLBC
+    JitReg res = 0;
+    if (func_type->result_count > 0) {
+        switch (func_type->types[func_type->param_count]) {
+            case VALUE_TYPE_I32:
+    #if WASM_ENABLE_REF_TYPES != 0
+            case VALUE_TYPE_EXTERNREF:
+            case VALUE_TYPE_FUNCREF:
+    #endif
+                res = jit_cc_new_reg_I32(cc);
+                break;
+            case VALUE_TYPE_I64:
+                res = jit_cc_new_reg_I64(cc);
+                break;
+            case VALUE_TYPE_F32:
+                res = jit_cc_new_reg_F32(cc);
+                break;
+            case VALUE_TYPE_F64:
+                res = jit_cc_new_reg_F64(cc);
+                break;
+            default:
+                bh_assert(0);
+                goto fail;
+        }
+    }
+    GEN_INSN(CALLBC, res, 0, jitted_code);
+    // back to func_return
+    /* commit and clear jit frame, then jump to block func_ret */
+    gen_commit_values(jit_frame, jit_frame->lp, jit_frame->sp);
+    clear_values(jit_frame);
+    GEN_INSN(JMP, jit_basic_block_label(func_return));
+
+    // block func_return
+    cc->cur_basic_block = func_return;
 
     if (!unpack_argv(cc, func_type, argv)) {
         goto fail;
