@@ -5519,7 +5519,6 @@ re_scan:
             }
 
             case WASM_OP_DROP:
-            case WASM_OP_DROP_64:
             {
                 BranchBlock *cur_block = loader_ctx->frame_csp - 1;
                 int32 available_stack_cell =
@@ -5572,7 +5571,6 @@ re_scan:
             }
 
             case WASM_OP_SELECT:
-            case WASM_OP_SELECT_64:
             {
                 uint8 ref_type;
                 BranchBlock *cur_block = loader_ctx->frame_csp - 1;

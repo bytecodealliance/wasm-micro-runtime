@@ -45,7 +45,7 @@ librats_verify_wrapper(wasm_exec_env_t exec_env, const char *evidence_json,
 /* clang-format off */
 #define REG_NATIVE_FUNC(func_name, signature) \
     { #func_name, func_name##_wrapper, signature, NULL }
-/* clang-format off */
+/* clang-format on */
 
 static NativeSymbol native_symbols_lib_rats[] = {
     REG_NATIVE_FUNC(librats_collect, "($)i"),
