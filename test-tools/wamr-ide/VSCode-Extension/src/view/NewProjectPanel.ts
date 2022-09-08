@@ -198,7 +198,7 @@ export class NewProjectPanel {
                             NewProjectPanel.DIR_PATH_INVALID_ERR
                         ) {
                             vscode.window.showErrorMessage(
-                                `A file name can't contain any of the following charachters: / \\ : * ? < > | " and length less than 255`
+                                "A file name can't contain any of the following characters: ' / \\ : * ? < > | ' and the length should be less than 255"
                             );
                             return;
                         }
