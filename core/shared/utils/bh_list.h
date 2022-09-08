@@ -59,7 +59,7 @@ bh_list_init(bh_list *list);
  *                <code>BH_LIST_ERROR</code> if input is invalid or no memory
  * available.
  */
-extern bh_list_status
+bh_list_status
 bh_list_insert(bh_list *list, void *elem);
 
 /**
