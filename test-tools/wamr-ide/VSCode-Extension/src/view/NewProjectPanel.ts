@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as os from 'os';
 import {
     CreateDirectory,
     CopyFiles,
@@ -19,14 +20,11 @@ export class NewProjectPanel {
     private readonly _panel: vscode.WebviewPanel;
     private _disposables: vscode.Disposable[] = [];
 
-    static readonly DIR_PATH_INVALID_ERR: number = -3;
-    static readonly USER_INTPUT_ERR: number = -2;
-    static readonly DIR_EXSITED_ERR: number = -1;
     static readonly EXCUTION_SUCCESS: number = 0;
+    static readonly DIR_EXSITED_ERR: number = -1;
+    static readonly USER_INTPUT_ERR: number = -2;
+    static readonly DIR_PATH_INVALID_ERR: number = -3;
 
-    /**
-     * @param context extension context from extension.ts active func
-     */
     constructor(extensionUri: vscode.Uri, panel: vscode.WebviewPanel) {
         this._panel = panel;
         this._panel.webview.html = this._getHtmlForWebview(
@@ -38,9 +36,6 @@ export class NewProjectPanel {
         this._panel.onDidDispose(this.dispose, null, this._disposables);
     }
 
-    /**
-     * @param context
-     */
     public static render(context: vscode.ExtensionContext) {
         NewProjectPanel.USER_SET_WORKSPACE = vscode.workspace
             .getConfiguration()
@@ -60,7 +55,6 @@ export class NewProjectPanel {
                 }
             );
 
-            /* create new project panel obj */
             NewProjectPanel.currentPanel = new NewProjectPanel(
                 context.extensionUri,
                 panel
@@ -68,10 +62,6 @@ export class NewProjectPanel {
         }
     }
 
-    /**
-     * @param projName project name input by user
-     * @param template
-     */
     private _creatNewProject(
         projName: string,
         template: string,
@@ -88,19 +78,16 @@ export class NewProjectPanel {
         let ROOT_PATH = path.join(NewProjectPanel.USER_SET_WORKSPACE, projName);
         let EXT_PATH = extensionUri.fsPath;
 
-        /* if the direcotry has exsited, then ignore the creation and return */
         if (fs.existsSync(ROOT_PATH)) {
             if (fs.lstatSync(ROOT_PATH).isDirectory()) {
                 return NewProjectPanel.DIR_EXSITED_ERR;
             }
         }
 
-        /* create necessary floders under the project directory */
         CreateDirectory(path.join(ROOT_PATH, '.wamr'));
         CreateDirectory(path.join(ROOT_PATH, 'include'));
         CreateDirectory(path.join(ROOT_PATH, 'src'));
 
-        /* copy scripts files to project_root_path/.wamr */
         CopyFiles(
             path.join(EXT_PATH, 'resource/scripts/CMakeLists.txt'),
             path.join(ROOT_PATH, '.wamr/CMakeLists.txt')
@@ -119,7 +106,6 @@ export class NewProjectPanel {
         extensionUri: vscode.Uri,
         templatePath: string
     ) {
-        /* get toolkit uri */
         const toolkitUri = getUri(webview, extensionUri, [
             'node_modules',
             '@vscode',
@@ -156,7 +142,6 @@ export class NewProjectPanel {
         webview: vscode.Webview,
         extensionUri: vscode.Uri
     ) {
-        // Handle messages from the webview
         webview.onDidReceiveMessage(
             message => {
                 switch (message.command) {
@@ -170,7 +155,6 @@ export class NewProjectPanel {
                             createNewProjectStatus ===
                             NewProjectPanel.EXCUTION_SUCCESS
                         ) {
-                            /* post message to page to inform the project creation has finished */
                             webview.postMessage({
                                 command: 'proj_creation_finish',
                                 prjName: message.projectName,
@@ -197,9 +181,18 @@ export class NewProjectPanel {
                             createNewProjectStatus ===
                             NewProjectPanel.DIR_PATH_INVALID_ERR
                         ) {
-                            vscode.window.showErrorMessage(
-                                "A file name can't contain any of the following characters: ' / \\ : * ? < > | ' and the length should be less than 255"
-                            );
+                            if (os.platform() === 'win32') {
+                                vscode.window.showErrorMessage(
+                                    "A file name can't contain any of the following characters: ' / \\ : * ? < > | ' and the length should be less than 255"
+                                );
+                            } else if (
+                                os.platform() === 'linux' ||
+                                os.platform() === 'darwin'
+                            ) {
+                                vscode.window.showErrorMessage(
+                                    "A file name can't contain following characters: '/' and the length should be less than 255"
+                                );
+                            }
                             return;
                         }
                         return;

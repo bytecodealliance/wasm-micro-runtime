@@ -97,22 +97,24 @@ export function CheckIfDirectoryExist(path: string): boolean {
 }
 
 export function checkFolderName(folderName: string) {
-    var status = true;
-    let OS_PLATFORM = os.platform();
+    let invalidCharacterArr: string[] = [];
+    var valid = true;
+
     if (folderName.length > 255) {
-        status = false;
-    }
-    let errArr: string[] = [];
-    if (OS_PLATFORM === 'win32') {
-        errArr = ['\\', '/', ':', '?', '*', '"', '|', '<', '>'];
-    } else if (OS_PLATFORM === 'linux') {
-        errArr = ['/'];
+        valid = false;
     }
 
-    errArr.forEach(function (str) {
-        if (folderName.indexOf(str) !== -1) {
-            status = false;
+    if (os.platform() === 'win32') {
+        invalidCharacterArr = ['\\', '/', ':', '?', '*', '"', '|', '<', '>'];
+    } else if (os.platform() === 'linux' || os.platform() === 'darwin') {
+        invalidCharacterArr = ['/'];
+    }
+
+    invalidCharacterArr.forEach(function (c) {
+        if (folderName.indexOf(c) !== -1) {
+            valid = false;
         }
     });
-    return status;
+
+    return valid;
 }
