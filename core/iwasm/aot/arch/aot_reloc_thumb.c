@@ -97,8 +97,24 @@ static SymbolMap target_sym_map[] = {
     /* clang-format off */
     REG_COMMON_SYMBOLS
     /* compiler-rt symbols that come from compiler(e.g. gcc) */
+#if __ARM_ARCH != 6
     REG_SYM(__adddf3),
     REG_SYM(__addsf3),
+    REG_SYM(__divdf3),
+    REG_SYM(__extendsfdf2),
+    REG_SYM(__fixdfsi),
+    REG_SYM(__floatsidf),
+    REG_SYM(__floatsisf),
+    REG_SYM(__floatunsidf),
+    REG_SYM(__floatunsisf),
+    REG_SYM(__muldf3),
+    REG_SYM(__mulsf3),
+    REG_SYM(__subdf3),
+    REG_SYM(__subsf3),
+    REG_SYM(__truncdfsf2),
+    REG_SYM(__unorddf2),
+    REG_SYM(__unordsf2),
+#endif
     /* clang-format on */
     REG_SYM(__aeabi_d2iz),
     REG_SYM(__aeabi_d2lz),
@@ -133,26 +149,19 @@ static SymbolMap target_sym_map[] = {
     REG_SYM(__aeabi_uldivmod),
     REG_SYM(__ashldi3),
     REG_SYM(__clzsi2),
-    REG_SYM(__divdf3),
     REG_SYM(__divdi3),
     REG_SYM(__divsi3),
     REG_SYM(__eqdf2),
     REG_SYM(__eqsf2),
-    REG_SYM(__extendsfdf2),
     REG_SYM(__fixdfdi),
-    REG_SYM(__fixdfsi),
     REG_SYM(__fixsfdi),
     REG_SYM(__fixunsdfdi),
     REG_SYM(__fixunsdfsi),
     REG_SYM(__fixunssfdi),
     REG_SYM(__floatdidf),
     REG_SYM(__floatdisf),
-    REG_SYM(__floatsidf),
-    REG_SYM(__floatsisf),
     REG_SYM(__floatundidf),
     REG_SYM(__floatundisf),
-    REG_SYM(__floatunsidf),
-    REG_SYM(__floatunsisf),
     REG_SYM(__gedf2),
     REG_SYM(__gesf2),
     REG_SYM(__gtdf2),
@@ -164,21 +173,14 @@ static SymbolMap target_sym_map[] = {
     REG_SYM(__ltsf2),
     REG_SYM(__moddi3),
     REG_SYM(__modsi3),
-    REG_SYM(__muldf3),
     REG_SYM(__muldi3),
-    REG_SYM(__mulsf3),
     REG_SYM(__nedf2),
     REG_SYM(__nesf2),
-    REG_SYM(__subdf3),
-    REG_SYM(__subsf3),
-    REG_SYM(__truncdfsf2),
     REG_SYM(__udivdi3),
     REG_SYM(__udivmoddi4),
     REG_SYM(__udivsi3),
     REG_SYM(__umoddi3),
     REG_SYM(__umodsi3),
-    REG_SYM(__unorddf2),
-    REG_SYM(__unordsf2),
 };
 
 static void
@@ -375,7 +377,7 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
             if (error_buf != NULL)
                 snprintf(error_buf, error_buf_size,
                          "Load relocation section failed: "
-                         "invalid relocation type %d.",
+                         "invalid relocation type %" PRId32 ".",
                          reloc_type);
             return false;
     }

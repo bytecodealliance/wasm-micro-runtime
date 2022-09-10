@@ -10,7 +10,26 @@
 #include "utils.h"
 #include "wasm_runtime.h"
 
-#define MAX_PACKET_SIZE (0x20000)
+/*
+ * Note: A moderate MAX_PACKET_SIZE is ok because
+ * LLDB queries our buffer size (via qSupported PacketSize)
+ * and limits packet sizes accordingly.
+ */
+
+#if defined(DEBUG_MAX_PACKET_SIZE)
+#define MAX_PACKET_SIZE DEBUG_MAX_PACKET_SIZE
+#else
+#define MAX_PACKET_SIZE (4096)
+#endif
+
+/*
+ * Note: It's assumed that MAX_PACKET_SIZE is reasonably large.
+ * See GetWorkingDir, WasmCallStack, etc.
+ */
+#if MAX_PACKET_SIZE < PATH_MAX || MAX_PACKET_SIZE < (2048 + 1)
+#error MAX_PACKET_SIZE is too small
+#endif
+
 static char *tmpbuf;
 static korp_mutex tmpbuf_lock;
 
@@ -89,8 +108,11 @@ process_xfer(WASMGDBServer *server, const char *name, char *args)
         os_mutex_lock(&tmpbuf_lock);
 #if WASM_ENABLE_LIBC_WASI != 0
         char objname[128];
-        wasm_debug_instance_get_current_object_name(
-            (WASMDebugInstance *)server->thread->debug_instance, objname, 128);
+        if (!wasm_debug_instance_get_current_object_name(
+                (WASMDebugInstance *)server->thread->debug_instance, objname,
+                128)) {
+            objname[0] = 0; /* use an empty string */
+        }
         snprintf(tmpbuf, MAX_PACKET_SIZE,
                  "l<library-list><library name=\"%s\"><section "
                  "address=\"0x%" PRIx64 "\"/></library></library-list>",

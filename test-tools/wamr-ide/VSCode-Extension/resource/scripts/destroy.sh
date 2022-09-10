@@ -3,6 +3,8 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+set -e
+
 docker -v>/dev/null
 if [ $? -ne 0 ]; then
     echo "\nDocker is not installed, please install docker firstly.\n"
