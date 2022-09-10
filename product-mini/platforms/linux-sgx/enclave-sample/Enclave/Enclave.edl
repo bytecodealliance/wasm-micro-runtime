@@ -3,10 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#define LIB_RATS 0
+
 enclave {
     from "sgx_tstdc.edl" import *;
     from "sgx_pthread.edl" import *;
     from "sgx_wamr.edl" import *;
+#if LIB_RATS != 0
+    from "rats.edl" import *;
+#endif
 
     trusted {
         /* define ECALLs here. */

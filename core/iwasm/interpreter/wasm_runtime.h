@@ -26,12 +26,25 @@ struct WASMMemoryInstance {
     uint32 module_type;
     /* Shared memory flag */
     bool is_shared;
+
     /* Number bytes per page */
     uint32 num_bytes_per_page;
     /* Current page count */
     uint32 cur_page_count;
     /* Maximum page count */
     uint32 max_page_count;
+    /* Memory data size */
+    uint32 memory_data_size;
+
+    /**
+     * Memory data begin address, Note:
+     *   the app-heap might be inserted in to the linear memory,
+     *   when memory is re-allocated, the heap data and memory data
+     *   must be copied to new memory also
+     */
+    uint8 *memory_data;
+    /* Memory data end address */
+    uint8 *memory_data_end;
 
     /* Heap data base address */
     uint8 *heap_data;
@@ -44,14 +57,6 @@ struct WASMMemoryInstance {
     /* mutex lock for the memory, used in atomic operation */
     korp_mutex mem_lock;
 #endif
-
-    /* Memory data end address */
-    uint8 *memory_data_end;
-
-    /* Memory data begin address, the layout is: memory data + heap data
-       Note: when memory is re-allocated, the heap data and memory data
-             must be copied to new memory also. */
-    uint8 *memory_data;
 
 #if WASM_ENABLE_FAST_JIT != 0
 #if UINTPTR_MAX == UINT64_MAX
@@ -186,6 +191,7 @@ struct WASMModuleInstance {
 #if WASM_ENABLE_FAST_JIT != 0
     /* point to JITed functions */
     void **fast_jit_func_ptrs;
+    uint32 *func_type_indexes;
 #endif
 
     WASMMemoryInstance **memories;
