@@ -23,7 +23,7 @@ mem_allocator_create_with_struct_and_pool(void *struct_buf,
                                           void *pool_buf,
                                           uint32_t pool_buf_size);
 
-void
+int
 mem_allocator_destroy(mem_allocator_t allocator);
 
 uint32

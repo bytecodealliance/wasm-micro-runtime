@@ -77,6 +77,10 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 - **WAMR_BUILD_LIB_PTHREAD**=1/0, default to disable if not set
 > Note: The dependent feature of lib pthread such as the `shared memory` and `thread manager` will be enabled automatically.
 
+#### **Enable lib-pthread-semaphore**
+- **WAMR_BUILD_LIB_PTHREAD_SEMAPHORE**=1/0, default to disable if not set
+> Note: This feature depends on `lib-pthread`, it will be enabled automatically if this feature is enabled.
+
 #### **Disable boundary check with hardware trap in AOT or JIT mode**
 - **WAMR_DISABLE_HW_BOUND_CHECK**=1/0, default to enable if not set and supported by platform
 > Note: by default only platform linux/darwin/android/vxworks 64-bit will enable boundary check with hardware trap in AOT or JIT mode, and the wamrc tool will generate AOT code without boundary check instructions in all 64-bit targets except SGX to improve performance.
