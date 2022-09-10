@@ -104,7 +104,7 @@ else()
 target_link_libraries (iwasm ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl -landroid -llog)
 endif()
 
-set (distribution_DIR ${CMAKE_CURRENT_SOURCE_DIR}/build/distribution)
+set (distribution_DIR ${CMAKE_BINARY_DIR}/distribution)
 set_target_properties (iwasm PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${distribution_DIR}/wasm/lib")
 
 add_custom_command (TARGET iwasm POST_BUILD

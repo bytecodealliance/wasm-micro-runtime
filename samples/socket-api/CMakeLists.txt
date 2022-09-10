@@ -87,10 +87,10 @@ ExternalProject_Add(wasm-app
                       ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src
   BUILD_COMMAND     ${CMAKE_COMMAND} --build .
   INSTALL_COMMAND   ${CMAKE_COMMAND} -E copy
-                      tcp_client.wasm ${CMAKE_CURRENT_SOURCE_DIR}/build
-                      tcp_server.wasm ${CMAKE_CURRENT_SOURCE_DIR}/build
-                      send_recv.wasm ${CMAKE_CURRENT_SOURCE_DIR}/build
-                      socket_opts.wasm ${CMAKE_CURRENT_SOURCE_DIR}/build
+                      tcp_client.wasm ${CMAKE_BINARY_DIR}
+                      tcp_server.wasm ${CMAKE_BINARY_DIR}
+                      send_recv.wasm ${CMAKE_BINARY_DIR}
+                      socket_opts.wasm ${CMAKE_BINARY_DIR}
 )
 
 add_executable(tcp_server ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src/tcp_server.c)

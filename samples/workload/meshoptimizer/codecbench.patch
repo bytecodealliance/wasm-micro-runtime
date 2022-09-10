@@ -1,10 +1,10 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index f4378ce..9bc104b 100644
+index b13d946..4254003 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -129,3 +129,43 @@ install(FILES
-     ${CMAKE_CURRENT_BINARY_DIR}/meshoptimizerConfig.cmake
+@@ -149,3 +149,43 @@ install(FILES
      ${CMAKE_CURRENT_BINARY_DIR}/meshoptimizerConfigVersion.cmake
+     COMPONENT meshoptimizer
      DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/meshoptimizer)
 +
 +##################################################
@@ -47,10 +47,10 @@ index f4378ce..9bc104b 100644
 +
 +add_dependencies(codecbench.opt codecbench)
 diff --git a/src/vertexcodec.cpp b/src/vertexcodec.cpp
-index 5f3ec20..b79bfad 100644
+index 821c467..b7d30b1 100644
 --- a/src/vertexcodec.cpp
 +++ b/src/vertexcodec.cpp
-@@ -81,13 +81,13 @@
+@@ -83,13 +83,13 @@
  #endif
  
  #ifdef SIMD_WASM
@@ -71,7 +71,7 @@ index 5f3ec20..b79bfad 100644
  #endif
  
  namespace meshopt
-@@ -700,7 +700,7 @@ static v128_t decodeShuffleMask(unsigned char mask0, unsigned char mask1)
+@@ -691,7 +691,7 @@ static v128_t decodeShuffleMask(unsigned char mask0, unsigned char mask1)
  	v128_t sm1 = wasm_v128_load(&kDecodeBytesGroupShuffle[mask1]);
  
  	v128_t sm1off = wasm_v128_load(&kDecodeBytesGroupCount[mask0]);
@@ -80,7 +80,7 @@ index 5f3ec20..b79bfad 100644
  
  	v128_t sm1r = wasm_i8x16_add(sm1, sm1off);
  
-@@ -751,7 +751,7 @@ static const unsigned char* decodeBytesGroupSimd(const unsigned char* data, unsi
+@@ -741,7 +741,7 @@ static const unsigned char* decodeBytesGroupSimd(const unsigned char* data, unsi
  
  		v128_t shuf = decodeShuffleMask(mask0, mask1);
  
@@ -89,7 +89,7 @@ index 5f3ec20..b79bfad 100644
  
  		wasm_v128_store(buffer, result);
  
-@@ -773,7 +773,7 @@ static const unsigned char* decodeBytesGroupSimd(const unsigned char* data, unsi
+@@ -763,7 +763,7 @@ static const unsigned char* decodeBytesGroupSimd(const unsigned char* data, unsi
  
  		v128_t shuf = decodeShuffleMask(mask0, mask1);
  
@@ -99,10 +99,10 @@ index 5f3ec20..b79bfad 100644
  		wasm_v128_store(buffer, result);
  
 diff --git a/src/vertexfilter.cpp b/src/vertexfilter.cpp
-index 023452c..2374cf7 100644
+index 14a73b1..8f4b3c1 100644
 --- a/src/vertexfilter.cpp
 +++ b/src/vertexfilter.cpp
-@@ -56,10 +56,10 @@
+@@ -57,10 +57,10 @@
  #endif
  
  #ifdef SIMD_WASM

@@ -539,8 +539,13 @@ compile_int_div_no_check(JitCompContext *cc, IntArithmetic arith_op,
                     insn = GEN_INSN(DIV_U, rax_hreg, rax_hreg, right);
             }
 
-            jit_lock_reg_in_insn(cc, insn, eax_hreg);
-            jit_lock_reg_in_insn(cc, insn, edx_hreg);
+            if (!insn) {
+                goto fail;
+            }
+            if (!jit_lock_reg_in_insn(cc, insn, eax_hreg)
+                || !jit_lock_reg_in_insn(cc, insn, edx_hreg)) {
+                goto fail;
+            }
 
             if (is_i32) {
                 res = jit_cc_new_reg_I32(cc);
@@ -551,9 +556,12 @@ compile_int_div_no_check(JitCompContext *cc, IntArithmetic arith_op,
                 insn1 = jit_insn_new_MOV(res, rax_hreg);
             }
 
-            if (insn && insn1) {
-                jit_insn_insert_after(insn, insn1);
+            if (!insn1) {
+                jit_set_last_error(cc, "generate insn failed");
+                goto fail;
             }
+
+            jit_insn_insert_after(insn, insn1);
             break;
         }
         case INT_REM_S:
@@ -576,8 +584,13 @@ compile_int_div_no_check(JitCompContext *cc, IntArithmetic arith_op,
                     insn = GEN_INSN(REM_U, rdx_hreg, rax_hreg, right);
             }
 
-            jit_lock_reg_in_insn(cc, insn, eax_hreg);
-            jit_lock_reg_in_insn(cc, insn, edx_hreg);
+            if (!insn) {
+                goto fail;
+            }
+            if (!jit_lock_reg_in_insn(cc, insn, eax_hreg)
+                || !jit_lock_reg_in_insn(cc, insn, edx_hreg)) {
+                goto fail;
+            }
 
             if (is_i32) {
                 res = jit_cc_new_reg_I32(cc);
@@ -588,9 +601,12 @@ compile_int_div_no_check(JitCompContext *cc, IntArithmetic arith_op,
                 insn1 = jit_insn_new_MOV(res, rdx_hreg);
             }
 
-            if (insn && insn1) {
-                jit_insn_insert_after(insn, insn1);
+            if (!insn1) {
+                jit_set_last_error(cc, "generate insn failed");
+                goto fail;
             }
+
+            jit_insn_insert_after(insn, insn1);
             break;
         }
 #else
@@ -1133,13 +1149,20 @@ compile_int_shl(JitCompContext *cc, JitReg left, JitReg right, bool is_i32)
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
     GEN_INSN(MOV, is_i32 ? ecx_hreg : rcx_hreg, right);
     insn = GEN_INSN(SHL, res, left, is_i32 ? ecx_hreg : rcx_hreg);
-    jit_lock_reg_in_insn(cc, insn, ecx_hreg);
+    if (jit_get_last_error(cc) || !jit_lock_reg_in_insn(cc, insn, ecx_hreg)) {
+        goto fail;
+    }
 #else
     GEN_INSN(SHL, res, left, right);
+    if (jit_get_last_error(cc)) {
+        goto fail;
+    }
 #endif
 
 shortcut:
     return res;
+fail:
+    return (JitReg)0;
 }
 
 static JitReg
@@ -1164,13 +1187,20 @@ compile_int_shrs(JitCompContext *cc, JitReg left, JitReg right, bool is_i32)
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
     GEN_INSN(MOV, is_i32 ? ecx_hreg : rcx_hreg, right);
     insn = GEN_INSN(SHRS, res, left, is_i32 ? ecx_hreg : rcx_hreg);
-    jit_lock_reg_in_insn(cc, insn, ecx_hreg);
+    if (jit_get_last_error(cc) || !jit_lock_reg_in_insn(cc, insn, ecx_hreg)) {
+        goto fail;
+    }
 #else
     GEN_INSN(SHRS, res, left, right);
+    if (jit_get_last_error(cc)) {
+        goto fail;
+    }
 #endif
 
 shortcut:
     return res;
+fail:
+    return (JitReg)0;
 }
 
 static JitReg
@@ -1195,13 +1225,20 @@ compile_int_shru(JitCompContext *cc, JitReg left, JitReg right, bool is_i32)
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
     GEN_INSN(MOV, is_i32 ? ecx_hreg : rcx_hreg, right);
     insn = GEN_INSN(SHRU, res, left, is_i32 ? ecx_hreg : rcx_hreg);
-    jit_lock_reg_in_insn(cc, insn, ecx_hreg);
+    if (jit_get_last_error(cc) || !jit_lock_reg_in_insn(cc, insn, ecx_hreg)) {
+        goto fail;
+    }
 #else
     GEN_INSN(SHRU, res, left, right);
+    if (jit_get_last_error(cc)) {
+        goto fail;
+    }
 #endif
 
 shortcut:
     return res;
+fail:
+    return (JitReg)0;
 }
 
 DEF_UNI_INT_CONST_OPS(rotl)
@@ -1257,13 +1294,20 @@ compile_int_rotl(JitCompContext *cc, JitReg left, JitReg right, bool is_i32)
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
     GEN_INSN(MOV, is_i32 ? ecx_hreg : rcx_hreg, right);
     insn = GEN_INSN(ROTL, res, left, is_i32 ? ecx_hreg : rcx_hreg);
-    jit_lock_reg_in_insn(cc, insn, ecx_hreg);
+    if (jit_get_last_error(cc) || !jit_lock_reg_in_insn(cc, insn, ecx_hreg)) {
+        goto fail;
+    }
 #else
     GEN_INSN(ROTL, res, left, right);
+    if (jit_get_last_error(cc)) {
+        goto fail;
+    }
 #endif
 
 shortcut:
     return res;
+fail:
+    return (JitReg)0;
 }
 
 DEF_UNI_INT_CONST_OPS(rotr)
@@ -1319,13 +1363,20 @@ compile_int_rotr(JitCompContext *cc, JitReg left, JitReg right, bool is_i32)
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
     GEN_INSN(MOV, is_i32 ? ecx_hreg : rcx_hreg, right);
     insn = GEN_INSN(ROTR, res, left, is_i32 ? ecx_hreg : rcx_hreg);
-    jit_lock_reg_in_insn(cc, insn, ecx_hreg);
+    if (jit_get_last_error(cc) || !jit_lock_reg_in_insn(cc, insn, ecx_hreg)) {
+        goto fail;
+    }
 #else
     GEN_INSN(ROTR, res, left, right);
+    if (jit_get_last_error(cc)) {
+        goto fail;
+    }
 #endif
 
 shortcut:
     return res;
+fail:
+    return (JitReg)0;
 }
 
 static bool
