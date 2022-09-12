@@ -43,13 +43,16 @@ main(int argc, char *argv[])
 {
     int tcp_socket_fd = 0;
     int udp_socket_fd = 0;
+    int udp_ipv6_socket_fd = 0;
     struct timeval tv;
     socklen_t opt_len;
-    size_t buf_len;
+    int buf_len;
     int result;
     struct linger linger_opt;
     uint32_t time_s;
     struct ip_mreq mcast;
+    struct ipv6_mreq mcast_ipv6;
+    unsigned char ttl;
 
     printf("[Client] Create TCP socket\n");
     tcp_socket_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -61,6 +64,13 @@ main(int argc, char *argv[])
     printf("[Client] Create UDP socket\n");
     udp_socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (udp_socket_fd == -1) {
+        perror("Create socket failed");
+        return EXIT_FAILURE;
+    }
+
+    printf("[Client] Create UDP IPv6 socket\n");
+    udp_ipv6_socket_fd = socket(AF_INET6, SOCK_DGRAM, 0);
+    if (udp_ipv6_socket_fd == -1) {
         perror("Create socket failed");
         return EXIT_FAILURE;
     }
@@ -135,6 +145,14 @@ main(int argc, char *argv[])
     OPTION_ASSERT(linger_opt.l_onoff, 1, "SO_LINGER l_onoff");
     OPTION_ASSERT(linger_opt.l_linger, 10, "SO_LINGER l_linger");
 
+    // SO_BROADCAST
+    OPTION_ASSERT(
+        set_and_get_bool_opt(udp_socket_fd, SOL_SOCKET, SO_BROADCAST, 1), 1,
+        "SO_BROADCAST enabled");
+    OPTION_ASSERT(
+        set_and_get_bool_opt(udp_socket_fd, SOL_SOCKET, SO_BROADCAST, 0), 0,
+        "SO_BROADCAST disabled");
+
     // TCP_KEEPIDLE
     time_s = 16;
     setsockopt(tcp_socket_fd, IPPROTO_TCP, TCP_KEEPIDLE, &time_s,
@@ -161,12 +179,44 @@ main(int argc, char *argv[])
                                        TCP_FASTOPEN_CONNECT, 0),
                   0, "TCP_FASTOPEN_CONNECT disabled");
 
+    // TCP_NODELAY
+    OPTION_ASSERT(
+        set_and_get_bool_opt(tcp_socket_fd, IPPROTO_TCP, TCP_NODELAY, 1), 1,
+        "TCP_NODELAY enabled");
+    OPTION_ASSERT(
+        set_and_get_bool_opt(tcp_socket_fd, IPPROTO_TCP, TCP_NODELAY, 0), 0,
+        "TCP_NODELAY disabled");
+
+    // TCP_QUICKACK
+    OPTION_ASSERT(
+        set_and_get_bool_opt(tcp_socket_fd, IPPROTO_TCP, TCP_QUICKACK, 1), 1,
+        "TCP_QUICKACK enabled");
+    OPTION_ASSERT(
+        set_and_get_bool_opt(tcp_socket_fd, IPPROTO_TCP, TCP_QUICKACK, 0), 0,
+        "TCP_QUICKACK disabled");
+
+    // IP_TTL
+    ttl = 8;
+    setsockopt(tcp_socket_fd, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl));
+    ttl = 0;
+    opt_len = sizeof(ttl);
+    getsockopt(tcp_socket_fd, IPPROTO_IP, IP_TTL, &ttl, &opt_len);
+    OPTION_ASSERT(ttl, 8, "IP_TTL");
+
+    // IPV6_V6ONLY
+    OPTION_ASSERT(
+        set_and_get_bool_opt(udp_ipv6_socket_fd, IPPROTO_IPV6, IPV6_V6ONLY, 1),
+        1, "IPV6_V6ONLY enabled");
+    OPTION_ASSERT(
+        set_and_get_bool_opt(udp_ipv6_socket_fd, IPPROTO_IPV6, IPV6_V6ONLY, 0),
+        0, "IPV6_V6ONLY disabled");
+
     // IP_MULTICAST_LOOP
     OPTION_ASSERT(
-        set_and_get_bool_opt(tcp_socket_fd, IPPROTO_IP, IP_MULTICAST_LOOP, 1),
+        set_and_get_bool_opt(udp_socket_fd, IPPROTO_IP, IP_MULTICAST_LOOP, 1),
         1, "IP_MULTICAST_LOOP enabled");
     OPTION_ASSERT(
-        set_and_get_bool_opt(tcp_socket_fd, IPPROTO_IP, IP_MULTICAST_LOOP, 0),
+        set_and_get_bool_opt(udp_socket_fd, IPPROTO_IP, IP_MULTICAST_LOOP, 0),
         0, "IP_MULTICAST_LOOP disabled");
 
     // IP_ADD_MEMBERSHIP
@@ -180,6 +230,30 @@ main(int argc, char *argv[])
     result = setsockopt(udp_socket_fd, IPPROTO_IP, IP_DROP_MEMBERSHIP, &mcast,
                         sizeof(mcast));
     OPTION_ASSERT(result, 0, "IP_DROP_MEMBERSHIP");
+
+    // IP_MULTICAST_TTL
+    ttl = 8;
+    setsockopt(udp_socket_fd, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(ttl));
+    ttl = 0;
+    opt_len = sizeof(ttl);
+    getsockopt(udp_socket_fd, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, &opt_len);
+    OPTION_ASSERT(ttl, 8, "IP_MULTICAST_TTL");
+
+    // IPV6_MULTICAST_LOOP
+    OPTION_ASSERT(set_and_get_bool_opt(udp_ipv6_socket_fd, IPPROTO_IPV6,
+                                       IPV6_MULTICAST_LOOP, 1),
+                  1, "IPV6_MULTICAST_LOOP enabled");
+    OPTION_ASSERT(set_and_get_bool_opt(udp_ipv6_socket_fd, IPPROTO_IPV6,
+                                       IPV6_MULTICAST_LOOP, 0),
+                  0, "IPV6_MULTICAST_LOOP disabled");
+
+    // IPV6_JOIN_GROUP
+    setsockopt(udp_ipv6_socket_fd, IPPROTO_IPV6, IPV6_JOIN_GROUP, &mcast_ipv6,
+               sizeof(mcast_ipv6));
+
+    // IPV6_LEAVE_GROUP
+    setsockopt(udp_ipv6_socket_fd, IPPROTO_IPV6, IPV6_LEAVE_GROUP, &mcast_ipv6,
+               sizeof(mcast_ipv6));
 
     printf("[Client] Close sockets\n");
     close(tcp_socket_fd);

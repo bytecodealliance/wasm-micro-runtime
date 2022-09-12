@@ -18,6 +18,7 @@
 #ifndef WASMTIME_SSP_H
 #define WASMTIME_SSP_H
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -610,21 +611,6 @@ typedef struct __wasi_addr_info_hints_t {
    uint8_t hints_enabled;
 } __wasi_addr_info_hints_t;
 
-typedef struct __wasi_bh_linger {
-    uint8_t l_onoff;
-    uint32_t l_linger_s;
-} __wasi_bh_linger;
-
-typedef struct __wasi_bh_in_addr_t {
-    uint32_t s_addr;
-} __wasi_bh_in_addr_t;
-
-typedef struct __wasi_bh_ip_mreq_t {
-    __wasi_bh_in_addr_t imr_multiaddr;
-    __wasi_bh_in_addr_t imr_interface;
-} __wasi_bh_ip_mreq_t;
-
-
 #if defined(WASMTIME_SSP_WASI_API)
 #define WASMTIME_SSP_SYSCALL_NAME(name) \
     asm("__wasi_" #name)
@@ -1191,12 +1177,13 @@ __wasi_errno_t wasmtime_ssp_sock_get_recv_buf_size(
     size_t *bufsiz
 ) WASMTIME_SSP_SYSCALL_NAME(sock_get_recv_buf_size) __attribute__((__warn_unused_result__));
 
+
 __wasi_errno_t wasmtime_ssp_sock_set_keep_alive(
 #if !defined(WASMTIME_SSP_STATIC_CURFDS)
     struct fd_table *curfds,
 #endif
     __wasi_fd_t sock,
-    uint8_t enable
+    bool enable
 ) WASMTIME_SSP_SYSCALL_NAME(sock_set_keep_alive) __attribute__((__warn_unused_result__));
 
 __wasi_errno_t wasmtime_ssp_sock_get_keep_alive(
@@ -1204,7 +1191,7 @@ __wasi_errno_t wasmtime_ssp_sock_get_keep_alive(
     struct fd_table *curfds,
 #endif
     __wasi_fd_t sock,
-    uint8_t *enabled 
+    bool *enabled 
 ) WASMTIME_SSP_SYSCALL_NAME(sock_get_keep_alive) __attribute__((__warn_unused_result__));
 
 __wasi_errno_t wasmtime_ssp_sock_set_reuse_addr(
@@ -1212,7 +1199,7 @@ __wasi_errno_t wasmtime_ssp_sock_set_reuse_addr(
     struct fd_table *curfds,
 #endif
     __wasi_fd_t sock,
-    uint8_t enable
+    bool enable
 ) WASMTIME_SSP_SYSCALL_NAME(sock_set_reuse_addr) __attribute__((__warn_unused_result__));
 
 __wasi_errno_t wasmtime_ssp_sock_get_reuse_addr(
@@ -1220,7 +1207,7 @@ __wasi_errno_t wasmtime_ssp_sock_get_reuse_addr(
     struct fd_table *curfds,
 #endif
     __wasi_fd_t sock,
-    uint8_t *enabled 
+    bool *enabled 
 ) WASMTIME_SSP_SYSCALL_NAME(sock_get_reuse_addr) __attribute__((__warn_unused_result__));
 
 __wasi_errno_t wasmtime_ssp_sock_set_reuse_port(
@@ -1228,7 +1215,7 @@ __wasi_errno_t wasmtime_ssp_sock_set_reuse_port(
     struct fd_table *curfds,
 #endif
     __wasi_fd_t sock,
-    uint8_t enable
+    bool enable
 ) WASMTIME_SSP_SYSCALL_NAME(sock_set_reuse_port) __attribute__((__warn_unused_result__));
 
 __wasi_errno_t wasmtime_ssp_sock_get_reuse_port(
@@ -1236,24 +1223,72 @@ __wasi_errno_t wasmtime_ssp_sock_get_reuse_port(
     struct fd_table *curfds,
 #endif
     __wasi_fd_t sock,
-    uint8_t *enabled 
+    bool *enabled 
 ) WASMTIME_SSP_SYSCALL_NAME(sock_get_reuse_port) __attribute__((__warn_unused_result__));
 
 __wasi_errno_t wasmtime_ssp_sock_set_linger(
 #if !defined(WASMTIME_SSP_STATIC_CURFDS)
     struct fd_table *curfds,
 #endif
-    __wasi_fd_t sock,
-    __wasi_bh_linger *linger_opts 
+    __wasi_fd_t sock, 
+    int l_onoff, 
+    int l_linger_s
 ) WASMTIME_SSP_SYSCALL_NAME(sock_set_linger) __attribute__((__warn_unused_result__));
 
 __wasi_errno_t wasmtime_ssp_sock_get_linger(
 #if !defined(WASMTIME_SSP_STATIC_CURFDS)
     struct fd_table *curfds,
 #endif
-    __wasi_fd_t sock,
-    __wasi_bh_linger *linger_opts 
+    __wasi_fd_t sock, int *l_onoff, int *l_linger_s
 ) WASMTIME_SSP_SYSCALL_NAME(sock_get_linger) __attribute__((__warn_unused_result__));
+
+__wasi_errno_t wasmtime_ssp_sock_set_broadcast(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t sock,
+    bool enable
+) WASMTIME_SSP_SYSCALL_NAME(sock_set_broadcast) __attribute__((__warn_unused_result__));
+
+__wasi_errno_t wasmtime_ssp_sock_get_broadcast(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t sock,
+    bool *enabled 
+) WASMTIME_SSP_SYSCALL_NAME(sock_get_broadcast) __attribute__((__warn_unused_result__));
+
+__wasi_errno_t wasmtime_ssp_sock_set_tcp_no_delay(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t sock,
+    bool enable
+) WASMTIME_SSP_SYSCALL_NAME(sock_set_tcp_no_delay) __attribute__((__warn_unused_result__));
+
+__wasi_errno_t wasmtime_ssp_sock_get_tcp_no_delay(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t sock,
+    bool *enabled 
+) WASMTIME_SSP_SYSCALL_NAME(sock_get_tcp_no_delay) __attribute__((__warn_unused_result__));
+
+__wasi_errno_t wasmtime_ssp_sock_set_tcp_quick_ack(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t sock,
+    bool enable
+) WASMTIME_SSP_SYSCALL_NAME(sock_set_tcp_quick_ack) __attribute__((__warn_unused_result__));
+
+__wasi_errno_t wasmtime_ssp_sock_get_tcp_quick_ack(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t sock,
+    bool *enabled 
+) WASMTIME_SSP_SYSCALL_NAME(sock_get_tcp_quick_ack) __attribute__((__warn_unused_result__));
 
 __wasi_errno_t wasmtime_ssp_sock_set_tcp_keep_idle(
 #if !defined(WASMTIME_SSP_STATIC_CURFDS)
@@ -1292,7 +1327,7 @@ __wasi_errno_t wasmtime_ssp_sock_set_tcp_fastopen_connect(
     struct fd_table *curfds,
 #endif
     __wasi_fd_t sock,
-    uint8_t enable
+    bool enable
 ) WASMTIME_SSP_SYSCALL_NAME(sock_set_tcp_fastopen_connect) __attribute__((__warn_unused_result__));
 
 __wasi_errno_t wasmtime_ssp_sock_get_tcp_fastopen_connect(
@@ -1300,7 +1335,7 @@ __wasi_errno_t wasmtime_ssp_sock_get_tcp_fastopen_connect(
     struct fd_table *curfds,
 #endif
     __wasi_fd_t sock,
-    uint8_t *enabled 
+    bool *enabled 
 ) WASMTIME_SSP_SYSCALL_NAME(sock_get_tcp_fastopen_connect) __attribute__((__warn_unused_result__));
 
 __wasi_errno_t wasmtime_ssp_sock_set_ip_multicast_loop(
@@ -1308,7 +1343,7 @@ __wasi_errno_t wasmtime_ssp_sock_set_ip_multicast_loop(
     struct fd_table *curfds,
 #endif
     __wasi_fd_t sock,
-    uint8_t enable
+    bool enable
 ) WASMTIME_SSP_SYSCALL_NAME(sock_set_ip_multicast_loop) __attribute__((__warn_unused_result__));
 
 __wasi_errno_t wasmtime_ssp_sock_get_ip_multicast_loop(
@@ -1316,7 +1351,7 @@ __wasi_errno_t wasmtime_ssp_sock_get_ip_multicast_loop(
     struct fd_table *curfds,
 #endif
     __wasi_fd_t sock,
-    uint8_t *enabled 
+    bool *enabled 
 ) WASMTIME_SSP_SYSCALL_NAME(sock_get_ip_multicast_loop) __attribute__((__warn_unused_result__));
 
 __wasi_errno_t wasmtime_ssp_sock_set_ip_add_membership(
@@ -1324,7 +1359,8 @@ __wasi_errno_t wasmtime_ssp_sock_set_ip_add_membership(
     struct fd_table *curfds,
 #endif
     __wasi_fd_t sock,
-    __wasi_bh_ip_mreq_t *mreq
+    __wasi_addr_ip4_t *imr_multiaddr,
+    __wasi_addr_ip4_t *imr_interface
 ) WASMTIME_SSP_SYSCALL_NAME(sock_set_ip_add_membership) __attribute__((__warn_unused_result__));
 
 __wasi_errno_t wasmtime_ssp_sock_set_ip_drop_membership(
@@ -1332,8 +1368,91 @@ __wasi_errno_t wasmtime_ssp_sock_set_ip_drop_membership(
     struct fd_table *curfds,
 #endif
     __wasi_fd_t sock,
-    __wasi_bh_ip_mreq_t *mreq
+    __wasi_addr_ip4_t *imr_multiaddr,
+    __wasi_addr_ip4_t *imr_interface
 ) WASMTIME_SSP_SYSCALL_NAME(sock_set_ip_drop_membership) __attribute__((__warn_unused_result__));
+
+__wasi_errno_t wasmtime_ssp_sock_set_ip_ttl(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t sock,
+    uint8_t ttl_s
+) WASMTIME_SSP_SYSCALL_NAME(sock_set_ip_ttl) __attribute__((__warn_unused_result__));
+
+__wasi_errno_t wasmtime_ssp_sock_get_ip_ttl(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t sock,
+    uint8_t *ttl_s
+) WASMTIME_SSP_SYSCALL_NAME(sock_get_ip_ttl) __attribute__((__warn_unused_result__));
+
+__wasi_errno_t wasmtime_ssp_sock_set_ip_multicast_ttl(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t sock,
+    uint8_t ttl_s
+) WASMTIME_SSP_SYSCALL_NAME(sock_set_ip_multicast_ttl) __attribute__((__warn_unused_result__));
+
+__wasi_errno_t wasmtime_ssp_sock_get_ip_multicast_ttl(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t sock,
+    uint8_t *ttl_s
+) WASMTIME_SSP_SYSCALL_NAME(sock_get_ip_multicast_ttl) __attribute__((__warn_unused_result__));
+
+__wasi_errno_t wasmtime_ssp_sock_set_ipv6_only(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t sock,
+    bool enable
+) WASMTIME_SSP_SYSCALL_NAME(sock_set_ipv6_only) __attribute__((__warn_unused_result__));
+
+__wasi_errno_t wasmtime_ssp_sock_get_ipv6_only(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t sock,
+    bool *enabled 
+) WASMTIME_SSP_SYSCALL_NAME(sock_get_ipv6_only) __attribute__((__warn_unused_result__));
+
+__wasi_errno_t wasmtime_ssp_sock_set_ipv6_multicast_loop(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t sock,
+    bool enable
+) WASMTIME_SSP_SYSCALL_NAME(sock_set_ipv6_multicast_loop) __attribute__((__warn_unused_result__));
+
+__wasi_errno_t wasmtime_ssp_sock_get_ipv6_multicast_loop(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t sock,
+    bool *enabled 
+) WASMTIME_SSP_SYSCALL_NAME(sock_get_ipv6_multicast_loop) __attribute__((__warn_unused_result__));
+
+__wasi_errno_t wasmtime_ssp_sock_set_ipv6_join_group(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t sock,
+    __wasi_addr_ip6_t *imr_multiaddr,
+    uint32_t imr_interface
+) WASMTIME_SSP_SYSCALL_NAME(sock_set_ipv6_join_group) __attribute__((__warn_unused_result__));
+
+__wasi_errno_t wasmtime_ssp_sock_set_ipv6_leave_group(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t sock,
+    __wasi_addr_ip6_t *imr_multiaddr,
+    uint32_t imr_interface
+) WASMTIME_SSP_SYSCALL_NAME(sock_set_ipv6_leave_group) __attribute__((__warn_unused_result__));
 
 
 __wasi_errno_t wasmtime_ssp_sched_yield(void)

@@ -250,6 +250,15 @@ wasi_addr_to_bh_sockaddr(const __wasi_addr_t *wasi_addr,
     }
 }
 
+// Converts an IPv4 WASI address to IPv4 binary address object
+uint32_t
+wasi_addr_ipv4_to_addr(__wasi_addr_ip4_t *addr)
+{
+    return htonl((addr->n0 << 24) | (addr->n1 << 16) | (addr->n2 << 8)
+                 | addr->n3);
+}
+
+// Converts an IPv6 binary address object to WASI address object.
 static void
 bh_sockaddr_to_wasi_addr(const bh_sockaddr_t *sockaddr,
                          __wasi_addr_t *wasi_addr)
@@ -277,6 +286,19 @@ bh_sockaddr_to_wasi_addr(const bh_sockaddr_t *sockaddr,
         wasi_addr->addr.ip6.addr.h2 = sockaddr->addr_bufer.ipv6[6];
         wasi_addr->addr.ip6.addr.h3 = sockaddr->addr_bufer.ipv6[7];
     }
+}
+
+static void
+wasi_addr_to_ipv6_addr(__wasi_addr_ip6_t *addr, uint16_t *out)
+{
+    out[0] = htons(addr->n0);
+    out[1] = htons(addr->n1);
+    out[2] = htons(addr->n2);
+    out[3] = htons(addr->n3);
+    out[4] = htons(addr->h0);
+    out[5] = htons(addr->h1);
+    out[6] = htons(addr->h2);
+    out[7] = htons(addr->h3);
 }
 
 __wasi_errno_t
@@ -3649,20 +3671,34 @@ WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(set_send_buf_size, size_t)
 WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(get_send_buf_size, size_t *)
 WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(set_recv_buf_size, size_t)
 WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(get_recv_buf_size, size_t *)
-WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(set_keep_alive, uint8)
-WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(get_keep_alive, uint8 *)
-WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(set_reuse_addr, uint8)
-WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(get_reuse_addr, uint8 *)
-WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(set_reuse_port, uint8)
-WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(get_reuse_port, uint8 *)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(set_broadcast, bool)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(get_broadcast, bool *)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(set_keep_alive, bool)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(get_keep_alive, bool *)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(set_reuse_addr, bool)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(get_reuse_addr, bool *)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(set_reuse_port, bool)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(get_reuse_port, bool *)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(set_tcp_no_delay, bool)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(get_tcp_no_delay, bool *)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(set_tcp_quick_ack, bool)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(get_tcp_quick_ack, bool *)
 WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(set_tcp_keep_idle, uint32)
 WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(get_tcp_keep_idle, uint32 *)
 WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(set_tcp_keep_intvl, uint32)
 WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(get_tcp_keep_intvl, uint32 *)
-WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(set_tcp_fastopen_connect, uint8)
-WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(get_tcp_fastopen_connect, uint8 *)
-WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(set_ip_multicast_loop, uint8)
-WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(get_ip_multicast_loop, uint8 *)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(set_tcp_fastopen_connect, bool)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(get_tcp_fastopen_connect, bool *)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(set_ip_multicast_loop, bool)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(get_ip_multicast_loop, bool *)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(set_ip_ttl, uint8_t)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(get_ip_ttl, uint8_t *)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(set_ip_multicast_ttl, uint8_t)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(get_ip_multicast_ttl, uint8_t *)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(set_ipv6_only, bool)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(get_ipv6_only, bool *)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(set_ipv6_multicast_loop, bool)
+WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(get_ipv6_multicast_loop, bool *)
 
 #undef WASMTIME_SSP_PASSTHROUGH_FD_TABLE
 #undef WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION
@@ -3672,18 +3708,16 @@ wasmtime_ssp_sock_set_linger(
 #if !defined(WASMTIME_SSP_STATIC_CURFDS)
     struct fd_table *curfds,
 #endif
-    __wasi_fd_t sock, __wasi_bh_linger *wasi_linger_opts)
+    __wasi_fd_t sock, int l_onoff, int l_linger_s)
 {
     struct fd_object *fo;
     __wasi_errno_t error;
     int ret;
-    bh_linger bh_linger_opts = { wasi_linger_opts->l_onoff,
-                                 wasi_linger_opts->l_linger_s };
     error = fd_object_get(curfds, &fo, sock, 0, 0);
     if (error != 0)
         return error;
 
-    ret = os_socket_set_linger(fd_number(fo), &bh_linger_opts);
+    ret = os_socket_set_linger(fd_number(fo), l_onoff, l_linger_s);
     fd_object_release(fo);
     if (BHT_OK != ret)
         return convert_errno(errno);
@@ -3695,23 +3729,20 @@ wasmtime_ssp_sock_get_linger(
 #if !defined(WASMTIME_SSP_STATIC_CURFDS)
     struct fd_table *curfds,
 #endif
-    __wasi_fd_t sock, __wasi_bh_linger *wasi_linger_opts)
+    __wasi_fd_t sock, int *l_onoff, int *l_linger_s)
 {
     struct fd_object *fo;
     __wasi_errno_t error;
     int ret;
-    bh_linger bh_linger_opts;
     error = fd_object_get(curfds, &fo, sock, 0, 0);
     if (error != 0)
         return error;
 
-    ret = os_socket_get_linger(fd_number(fo), &bh_linger_opts);
+    ret = os_socket_get_linger(fd_number(fo), l_onoff, l_linger_s);
     fd_object_release(fo);
     if (BHT_OK != ret)
         return convert_errno(errno);
 
-    wasi_linger_opts->l_onoff = bh_linger_opts.l_onoff;
-    wasi_linger_opts->l_linger_s = bh_linger_opts.l_linger_s;
     return __WASI_ESUCCESS;
 }
 
@@ -3720,18 +3751,19 @@ wasmtime_ssp_sock_set_ip_add_membership(
 #if !defined(WASMTIME_SSP_STATIC_CURFDS)
     struct fd_table *curfds,
 #endif
-    __wasi_fd_t sock, __wasi_bh_ip_mreq_t *option)
+    __wasi_fd_t sock, __wasi_addr_ip4_t *imr_multiaddr,
+    __wasi_addr_ip4_t *imr_interface)
 {
     struct fd_object *fo;
     __wasi_errno_t error;
     int ret;
-    bh_ip_mreq ip_mreq = { { option->imr_multiaddr.s_addr },
-                           { option->imr_interface.s_addr } };
     error = fd_object_get(curfds, &fo, sock, 0, 0);
     if (error != 0)
         return error;
 
-    ret = os_socket_set_ip_add_membership(fd_number(fo), &ip_mreq);
+    ret = os_socket_set_ip_add_membership(
+        fd_number(fo), wasi_addr_ipv4_to_addr(imr_multiaddr),
+        wasi_addr_ipv4_to_addr(imr_interface));
     fd_object_release(fo);
     if (BHT_OK != ret)
         return convert_errno(errno);
@@ -3743,18 +3775,65 @@ wasmtime_ssp_sock_set_ip_drop_membership(
 #if !defined(WASMTIME_SSP_STATIC_CURFDS)
     struct fd_table *curfds,
 #endif
-    __wasi_fd_t sock, __wasi_bh_ip_mreq_t *option)
+    __wasi_fd_t sock, __wasi_addr_ip4_t *imr_multiaddr,
+    __wasi_addr_ip4_t *imr_interface)
 {
     struct fd_object *fo;
     __wasi_errno_t error;
     int ret;
-    bh_ip_mreq ip_mreq = { { option->imr_multiaddr.s_addr },
-                           { option->imr_interface.s_addr } };
     error = fd_object_get(curfds, &fo, sock, 0, 0);
     if (error != 0)
         return error;
 
-    ret = os_socket_set_ip_drop_membership(fd_number(fo), &ip_mreq);
+    ret = os_socket_set_ip_drop_membership(
+        fd_number(fo), wasi_addr_ipv4_to_addr(imr_multiaddr),
+        wasi_addr_ipv4_to_addr(imr_interface));
+    fd_object_release(fo);
+    if (BHT_OK != ret)
+        return convert_errno(errno);
+    return __WASI_ESUCCESS;
+}
+
+__wasi_errno_t
+wasmtime_ssp_sock_set_ipv6_join_group(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t sock, __wasi_addr_ip6_t *imr_multiaddr, uint32_t imr_interface)
+{
+    struct fd_object *fo;
+    __wasi_errno_t error;
+    int ret;
+    error = fd_object_get(curfds, &fo, sock, 0, 0);
+    if (error != 0)
+        return error;
+
+    uint16_t addr[8];
+    wasi_addr_to_ipv6_addr(imr_multiaddr, addr);
+    ret = os_socket_set_ipv6_join_group(fd_number(fo), addr, imr_interface);
+    fd_object_release(fo);
+    if (BHT_OK != ret)
+        return convert_errno(errno);
+    return __WASI_ESUCCESS;
+}
+
+__wasi_errno_t
+wasmtime_ssp_sock_set_ipv6_leave_group(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t sock, __wasi_addr_ip6_t *imr_multiaddr, uint32_t imr_interface)
+{
+    struct fd_object *fo;
+    __wasi_errno_t error;
+    int ret;
+    error = fd_object_get(curfds, &fo, sock, 0, 0);
+    if (error != 0)
+        return error;
+
+    uint16_t addr[8];
+    wasi_addr_to_ipv6_addr(imr_multiaddr, addr);
+    ret = os_socket_set_ipv6_leave_group(fd_number(fo), addr, imr_interface);
     fd_object_release(fo);
     if (BHT_OK != ret)
         return convert_errno(errno);

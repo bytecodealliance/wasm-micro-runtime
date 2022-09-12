@@ -89,10 +89,44 @@ $ ./iwasm ./socket_opts.wasm
 
 The output is:
 ```bash
-[Client] Create socket
-recv_timeout is expected
-send_timeout is expected
-[Client] Close socket
+[Client] Create TCP socket
+[Client] Create UDP socket
+[Client] Create UDP IPv6 socket
+SO_RCVTIMEO tv_sec is expected
+SO_RCVTIMEO tv_usec is expected
+SO_SNDTIMEO tv_sec is expected
+SO_SNDTIMEO tv_usec is expected
+SO_SNDBUF buf_len is expected
+SO_RCVBUF buf_len is expected
+SO_KEEPALIVE enabled is expected
+SO_KEEPALIVE disabled is expected
+SO_REUSEADDR enabled is expected
+SO_REUSEADDR disabled is expected
+SO_REUSEPORT enabled is expected
+SO_REUSEPORT disabled is expected
+SO_LINGER l_onoff is expected
+SO_LINGER l_linger is expected
+SO_BROADCAST enabled is expected
+SO_BROADCAST disabled is expected
+TCP_KEEPIDLE is expected
+TCP_KEEPINTVL is expected
+TCP_FASTOPEN_CONNECT enabled is expected
+TCP_FASTOPEN_CONNECT disabled is expected
+TCP_NODELAY enabled is expected
+TCP_NODELAY disabled is expected
+TCP_QUICKACK enabled is expected
+TCP_QUICKACK disabled is expected
+IP_TTL is expected
+IPV6_V6ONLY enabled is expected
+IPV6_V6ONLY disabled is expected
+IP_MULTICAST_LOOP enabled is expected
+IP_MULTICAST_LOOP disabled is expected
+IP_ADD_MEMBERSHIP is expected
+IP_DROP_MEMBERSHIP is expected
+IP_MULTICAST_TTL is expected
+IPV6_MULTICAST_LOOP enabled is expected
+IPV6_MULTICAST_LOOP disabled is expected
+[Client] Close sockets
 ```
 
 Refer to [socket api document](../../doc/socket_api.md) for more details.
