@@ -963,6 +963,7 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
 
             read_leb_uint32(p_code, buf_code_end, code_size);
             bh_assert(code_size > 0 && p_code + code_size <= buf_code_end);
+            bh_assert(i < func_count - 1 || p_code + code_size == buf_code_end);
 
             /* Resolve local set count */
             p_code_end = p_code + code_size;

@@ -1893,7 +1893,9 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
 #endif
 
             read_leb_uint32(p_code, buf_code_end, code_size);
-            if (code_size == 0 || p_code + code_size > buf_code_end) {
+            if (code_size == 0 || p_code + code_size > buf_code_end
+                || (i == func_count - 1
+                    && p_code + code_size != buf_code_end)) {
                 set_error_buf(error_buf, error_buf_size,
                               "invalid function code size");
                 return false;
