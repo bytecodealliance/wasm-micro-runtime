@@ -1893,9 +1893,7 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
 #endif
 
             read_leb_uint32(p_code, buf_code_end, code_size);
-            if (code_size == 0 || p_code + code_size > buf_code_end
-                || (i == func_count - 1
-                    && p_code + code_size != buf_code_end)) {
+            if (code_size == 0 || p_code + code_size > buf_code_end) {
                 set_error_buf(error_buf, error_buf_size,
                               "invalid function code size");
                 return false;
@@ -3278,6 +3276,13 @@ load_from_sections(WASMModule *module, WASMSection *sections,
         WASMFunction *func = module->functions[i];
         if (!wasm_loader_prepare_bytecode(module, func, i, error_buf,
                                           error_buf_size)) {
+            return false;
+        }
+
+        if (i == module->function_count - 1
+            && func->code + func->code_size != buf_code_end) {
+            set_error_buf(error_buf, error_buf_size,
+                          "code section size mismatch");
             return false;
         }
     }
