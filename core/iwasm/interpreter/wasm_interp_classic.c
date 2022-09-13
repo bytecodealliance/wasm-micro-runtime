@@ -2604,7 +2604,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             /* numberic instructions of f32 */
             HANDLE_OP(WASM_OP_F32_ABS)
             {
-                DEF_OP_MATH(float32, F32, fabs);
+                DEF_OP_MATH(float32, F32, fabsf);
                 HANDLE_OP_END();
             }
 
@@ -2621,31 +2621,31 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
             HANDLE_OP(WASM_OP_F32_CEIL)
             {
-                DEF_OP_MATH(float32, F32, ceil);
+                DEF_OP_MATH(float32, F32, ceilf);
                 HANDLE_OP_END();
             }
 
             HANDLE_OP(WASM_OP_F32_FLOOR)
             {
-                DEF_OP_MATH(float32, F32, floor);
+                DEF_OP_MATH(float32, F32, floorf);
                 HANDLE_OP_END();
             }
 
             HANDLE_OP(WASM_OP_F32_TRUNC)
             {
-                DEF_OP_MATH(float32, F32, trunc);
+                DEF_OP_MATH(float32, F32, truncf);
                 HANDLE_OP_END();
             }
 
             HANDLE_OP(WASM_OP_F32_NEAREST)
             {
-                DEF_OP_MATH(float32, F32, rint);
+                DEF_OP_MATH(float32, F32, rintf);
                 HANDLE_OP_END();
             }
 
             HANDLE_OP(WASM_OP_F32_SQRT)
             {
-                DEF_OP_MATH(float32, F32, sqrt);
+                DEF_OP_MATH(float32, F32, sqrtf);
                 HANDLE_OP_END();
             }
 
