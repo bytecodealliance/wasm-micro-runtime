@@ -144,6 +144,69 @@ fail:
     return false;
 }
 
+static bool
+pre_load(JitCompContext *cc, JitReg *argvs, const WASMType *func_type)
+{
+    JitReg value;
+    uint32 i;
+
+    /* Prepare parameters for the function to call */
+    for (i = 0; i < func_type->param_count; i++) {
+        switch (func_type->types[func_type->param_count - 1 - i]) {
+            case VALUE_TYPE_I32:
+                POP_I32(value);
+                argvs[func_type->param_count - 1 - i] = value;
+                break;
+            case VALUE_TYPE_I64:
+                POP_I64(value);
+                argvs[func_type->param_count - 1 - i] = value;
+                break;
+            case VALUE_TYPE_F32:
+                POP_F32(value);
+                argvs[func_type->param_count - 1 - i] = value;
+                break;
+            case VALUE_TYPE_F64:
+                POP_F64(value);
+                argvs[func_type->param_count - 1 - i] = value;
+                break;
+            default:
+                bh_assert(0);
+                goto fail;
+        }
+    }
+
+    gen_commit_sp_ip(cc->jit_frame);
+
+    return true;
+fail:
+    return false;
+}
+
+static JitReg
+create_first_res_reg(JitCompContext *cc, const WASMType *func_type)
+{
+    if (func_type->result_count) {
+    switch (func_type->types[func_type->param_count]) {
+            case VALUE_TYPE_I32:
+#if WASM_ENABLE_REF_TYPES != 0
+            case VALUE_TYPE_EXTERNREF:
+            case VALUE_TYPE_FUNCREF:
+#endif
+                return jit_cc_new_reg_I32(cc);
+            case VALUE_TYPE_I64:
+                return jit_cc_new_reg_I64(cc);
+            case VALUE_TYPE_F32:
+                return jit_cc_new_reg_F32(cc);
+            case VALUE_TYPE_F64:
+                return jit_cc_new_reg_F64(cc);
+            default:
+                bh_assert(0);
+                return 0;
+    }
+    }
+    return 0;
+}
+
 bool
 jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
 {
@@ -152,61 +215,127 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
     WASMFunction *func;
     WASMType *func_type;
     JitFrame *jit_frame = cc->jit_frame;
-    JitReg native_ret;
     JitReg fast_jit_func_ptrs, jitted_code = 0;
+    JitReg native_func;
     uint32 jitted_func_idx;
 
-    if (func_idx >= wasm_module->import_function_count) {
+    const char *signature = NULL;
+    JitReg *argvs = NULL; /* store the parameters and results */
+    uint32 i = 0;
+    uint64 total_size;
+    JitReg func_params[5], native_addr, ret, res;
+    JitInsn *insn;
+    bool is_pointer_arg; /* whether call the jit_emit_callnative */
+
+    if (func_idx < wasm_module->import_function_count) {
+        func_import = &wasm_module->import_functions[func_idx].u.function;
+        func_type = func_import->func_type;
+        signature = func_import->signature;
+
+        native_func = NEW_CONST(PTR, (uintptr_t)func_import->func_ptr_linked);
+
+        /* allocate memory for argvs*/
+        total_size = sizeof(JitReg) * (uint64)(func_type->param_count);
+        if (total_size >= UINT32_MAX
+            || !(argvs = jit_malloc((uint32)total_size))) {
+            goto fail;
+        }
+
+        /* invoke the pre_check, store the func params */
+        if (!pre_load(cc, argvs, func_type)) {
+            goto fail;
+        }
+
+        ret = jit_cc_new_reg_I32(cc);
+        func_params[0] = get_module_inst_reg(jit_frame);
+        func_params[4] = native_addr = jit_cc_new_reg_ptr(cc);
+        GEN_INSN(ADD, native_addr, cc->exec_env_reg,
+                 NEW_CONST(PTR, offsetof(WASMExecEnv, jit_cache)));
+
+        for (i = 0; i < func_type->param_count; i++) {
+            is_pointer_arg = false;
+            if (signature) {
+                if (signature[i + 1] == '*') {
+                    /* param is a pointer */
+                    func_params[1] = NEW_CONST(I32, false);
+                    func_params[2] = argvs[i];
+                    if (signature[i + 2] == '~') {
+                        /* pointer with length followed */
+                        func_params[3] = argvs[i + 1];
+                        i++;
+                    }
+                    else {
+                        /* pointer with length followed */
+                        func_params[3] = NEW_CONST(I32, 1);
+                    }
+                    is_pointer_arg = true;
+                }
+                else if (signature[i + 1] == '$') {
+                    func_params[1] = NEW_CONST(I32, true);
+                    func_params[2] = argvs[i];
+                    func_params[3] = NEW_CONST(I32, 1);
+                    is_pointer_arg = true;
+                }
+
+                if (is_pointer_arg) {
+                    if (!jit_emit_callnative(cc, jit_check_app_addr_and_convert,
+                                             ret, func_params, 5)) {
+                        goto fail;
+                    }
+
+                    /* Convert bool to uint32 */
+                    GEN_INSN(AND, ret, ret, NEW_CONST(I32, 0xFF));
+                    /* Check whether there is exception thrown */
+                    GEN_INSN(CMP, cc->cmp_reg, ret, NEW_CONST(I32, 0));
+                    if (!jit_emit_exception(cc, JIT_EXCE_ALREADY_THROWN,
+                                            JIT_OP_BEQ, cc->cmp_reg, NULL)) {
+                        goto fail;
+                    }
+
+                    /* load from func_params[4], store native_addr into argvs*/
+                    argvs[i] = jit_cc_new_reg_ptr(cc);
+                    GEN_INSN(LDPTR, argvs[i], native_addr, NEW_CONST(I32, 0));
+                }
+            }
+        }
+
+        res = create_first_res_reg(cc, func_type);
+
+        /* call native func*/
+        insn =
+            GEN_INSN(CALLNATIVE, res, native_func, func_type->param_count + 1);
+
+        if (!insn)
+            goto fail;
+
+        *(jit_insn_opndv(insn, 2)) = cc->exec_env_reg;
+        for (i = 0; i < func_type->param_count; i++) {
+            *(jit_insn_opndv(insn, i + 3)) = argvs[i];
+        }
+
+        if (!post_return(cc, func_type, res)) {
+            goto fail;
+        }
+    }
+    else {
+        func = wasm_module
+                   ->functions[func_idx - wasm_module->import_function_count];
+        func_type = func->func_type;
+
         fast_jit_func_ptrs = get_fast_jit_func_ptrs_reg(jit_frame);
         jitted_code = jit_cc_new_reg_ptr(cc);
         /* jitted_code = func_ptrs[func_idx - import_function_count] */
         jitted_func_idx = func_idx - wasm_module->import_function_count;
         GEN_INSN(LDPTR, jitted_code, fast_jit_func_ptrs,
                  NEW_CONST(I32, (uint32)sizeof(void *) * jitted_func_idx));
-    }
 
-    if (func_idx < wasm_module->import_function_count) {
-        func_import = &wasm_module->import_functions[func_idx].u.function;
-        func_type = func_import->func_type;
-    }
-    else {
+        if (!pre_call(cc, func_type)) {
+            goto fail;
+        }
+
         func = wasm_module
                    ->functions[func_idx - wasm_module->import_function_count];
         func_type = func->func_type;
-    }
-
-    if (!pre_call(cc, func_type)) {
-        goto fail;
-    }
-
-    if (func_idx < wasm_module->import_function_count) {
-        JitReg arg_regs[3];
-
-        native_ret = jit_cc_new_reg_I32(cc);
-        arg_regs[0] = cc->exec_env_reg;
-        arg_regs[1] = NEW_CONST(I32, func_idx);
-        arg_regs[2] = cc->fp_reg;
-
-        if (!jit_emit_callnative(cc, jit_invoke_native, native_ret, arg_regs,
-                                 3)) {
-            return false;
-        }
-        /* Convert bool to uint32 */
-        GEN_INSN(AND, native_ret, native_ret, NEW_CONST(I32, 0xFF));
-
-        /* Check whether there is exception thrown */
-        GEN_INSN(CMP, cc->cmp_reg, native_ret, NEW_CONST(I32, 0));
-        if (!jit_emit_exception(cc, JIT_EXCE_ALREADY_THROWN, JIT_OP_BEQ,
-                                cc->cmp_reg, NULL)) {
-            return false;
-        }
-
-        if (!post_return(cc, func_type, 0)) {
-            goto fail;
-        }
-    }
-    else {
-        JitReg res = 0;
 
         if (func_type->result_count > 0) {
             switch (func_type->types[func_type->param_count]) {
@@ -232,6 +361,8 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
             }
         }
 
+        res = create_first_res_reg(cc, func_type);
+
         GEN_INSN(CALLBC, res, 0, jitted_code);
 
         if (!post_return(cc, func_type, res)) {
@@ -247,8 +378,15 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
 
     /* Ignore tail call currently */
     (void)tail_call;
+
+    /*free argvs */
+    if (argvs)
+        jit_free(argvs);
     return true;
+
 fail:
+    if (argvs)
+        jit_free(argvs);
     return false;
 }
 

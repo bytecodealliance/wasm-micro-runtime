@@ -2456,6 +2456,54 @@ wasm_get_native_addr_range(WASMModuleInstance *module_inst, uint8 *native_ptr,
     return false;
 }
 
+#if WASM_ENABLE_FAST_JIT != 0
+bool
+jit_check_app_addr_and_convert(WASMModuleInstance *module_inst, bool is_str,
+                               uint32 app_buf_addr, uint32 app_buf_size,
+                               void **p_native_addr)
+{
+    WASMMemoryInstance *memory_inst = module_inst->default_memory;
+    uint8 *native_addr;
+
+    if (!memory_inst) {
+        goto fail;
+    }
+
+    native_addr = memory_inst->memory_data + app_buf_addr;
+
+    /* No need to check the app_offset and buf_size if memory access
+       boundary check with hardware trap is enabled */
+#ifndef OS_ENABLE_HW_BOUND_CHECK
+    if (app_buf_addr >= memory_inst->memory_data_size) {
+        goto fail;
+    }
+
+    if (!is_str) {
+        if (app_buf_size > memory_inst->memory_data_size - app_buf_addr) {
+            goto fail;
+        }
+    }
+    else {
+        const char *str, *str_end;
+
+        /* The whole string must be in the linear memory */
+        str = (const char *)native_addr;
+        str_end = (const char *)memory_inst->memory_data_end;
+        while (str < str_end && *str != '\0')
+            str++;
+        if (str == str_end)
+            goto fail;
+    }
+#endif
+
+    *p_native_addr = (void *)native_addr;
+    return true;
+fail:
+    wasm_set_exception(module_inst, "out of bounds memory access");
+    return false;
+}
+#endif
+
 #ifndef OS_ENABLE_HW_BOUND_CHECK
 bool
 wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
