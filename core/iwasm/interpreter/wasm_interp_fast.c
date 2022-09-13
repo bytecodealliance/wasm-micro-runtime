@@ -189,6 +189,30 @@ popcount64(uint64 u)
     return ret;
 }
 
+static float
+local_copysignf(float x, float y)
+{
+    union {
+        float f;
+        uint32_t i;
+    } ux = { x }, uy = { y };
+    ux.i &= 0x7fffffff;
+    ux.i |= uy.i & 0x80000000;
+    return ux.f;
+}
+
+static double
+local_copysign(double x, double y)
+{
+    union {
+        double f;
+        uint64_t i;
+    } ux = { x }, uy = { y };
+    ux.i &= -1ULL / 2;
+    ux.i |= uy.i & 1ULL << 63;
+    return ux.f;
+}
+
 #if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS != 0
 #define LOAD_U32_WITH_2U16S(addr) (*(uint32 *)(addr))
 #define LOAD_PTR(addr) (*(void **)(addr))
@@ -2525,8 +2549,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                 b = *(float32 *)(frame_lp + GET_OFFSET());
                 a = *(float32 *)(frame_lp + GET_OFFSET());
-                *(float32 *)(frame_lp + GET_OFFSET()) =
-                    (float32)(signbit(b) ? -fabs(a) : fabs(a));
+                *(float32 *)(frame_lp + GET_OFFSET()) = local_copysignf(a, b);
                 HANDLE_OP_END();
             }
 
@@ -2642,7 +2665,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                 b = POP_F64();
                 a = POP_F64();
-                PUSH_F64(signbit(b) ? -fabs(a) : fabs(a));
+                PUSH_F64(local_copysign(a, b));
                 HANDLE_OP_END();
             }
 
