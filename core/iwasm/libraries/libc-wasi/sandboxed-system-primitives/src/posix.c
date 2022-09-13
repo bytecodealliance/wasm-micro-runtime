@@ -224,35 +224,59 @@ convert_clockid(__wasi_clockid_t in, clockid_t *out)
     }
 }
 
-// Converts an IPv4 binary address object to WASI address.
 static void
-ipv4_addr_to_wasi_addr(uint32_t addr, __wasi_ip_port_t port, __wasi_addr_t *out)
+wasi_addr_to_bh_sockaddr(const __wasi_addr_t *wasi_addr,
+                         bh_sockaddr_t *sockaddr)
 {
-    addr = ntohl(addr);
-
-    out->kind = IPv4;
-    out->addr.ip4.port = port;
-    out->addr.ip4.addr.n0 = (addr & 0xFF000000) >> 24;
-    out->addr.ip4.addr.n1 = (addr & 0x00FF0000) >> 16;
-    out->addr.ip4.addr.n2 = (addr & 0x0000FF00) >> 8;
-    out->addr.ip4.addr.n3 = (addr & 0x000000FF);
+    if (wasi_addr->kind == IPv4) {
+        sockaddr->addr_bufer.ipv4 = (wasi_addr->addr.ip4.addr.n0 << 24)
+                                    | (wasi_addr->addr.ip4.addr.n1 << 16)
+                                    | (wasi_addr->addr.ip4.addr.n2 << 8)
+                                    | wasi_addr->addr.ip4.addr.n3;
+        sockaddr->is_ipv4 = true;
+        sockaddr->port = wasi_addr->addr.ip4.port;
+    }
+    else {
+        sockaddr->addr_bufer.ipv6[0] = wasi_addr->addr.ip6.addr.n0;
+        sockaddr->addr_bufer.ipv6[1] = wasi_addr->addr.ip6.addr.n1;
+        sockaddr->addr_bufer.ipv6[2] = wasi_addr->addr.ip6.addr.n2;
+        sockaddr->addr_bufer.ipv6[3] = wasi_addr->addr.ip6.addr.n3;
+        sockaddr->addr_bufer.ipv6[4] = wasi_addr->addr.ip6.addr.h0;
+        sockaddr->addr_bufer.ipv6[5] = wasi_addr->addr.ip6.addr.h1;
+        sockaddr->addr_bufer.ipv6[6] = wasi_addr->addr.ip6.addr.h2;
+        sockaddr->addr_bufer.ipv6[7] = wasi_addr->addr.ip6.addr.h3;
+        sockaddr->is_ipv4 = false;
+        sockaddr->port = wasi_addr->addr.ip6.port;
+    }
 }
 
-// Converts an IPv6 binary address object to WASI address object.
 static void
-ipv6_addr_to_wasi_addr(uint16_t addr[8], __wasi_ip_port_t port,
-                       __wasi_addr_t *out)
+bh_sockaddr_to_wasi_addr(const bh_sockaddr_t *sockaddr,
+                         __wasi_addr_t *wasi_addr)
 {
-    out->kind = IPv6;
-    out->addr.ip6.port = port;
-    out->addr.ip6.addr.n0 = addr[0];
-    out->addr.ip6.addr.n1 = addr[1];
-    out->addr.ip6.addr.n2 = addr[2];
-    out->addr.ip6.addr.n3 = addr[3];
-    out->addr.ip6.addr.h0 = addr[4];
-    out->addr.ip6.addr.h1 = addr[5];
-    out->addr.ip6.addr.h2 = addr[6];
-    out->addr.ip6.addr.h3 = addr[7];
+    if (sockaddr->is_ipv4) {
+        wasi_addr->kind = IPv4;
+        wasi_addr->addr.ip4.port = sockaddr->port;
+        wasi_addr->addr.ip4.addr.n0 =
+            (sockaddr->addr_bufer.ipv4 & 0xFF000000) >> 24;
+        wasi_addr->addr.ip4.addr.n1 =
+            (sockaddr->addr_bufer.ipv4 & 0x00FF0000) >> 16;
+        wasi_addr->addr.ip4.addr.n2 =
+            (sockaddr->addr_bufer.ipv4 & 0x0000FF00) >> 8;
+        wasi_addr->addr.ip4.addr.n3 = (sockaddr->addr_bufer.ipv4 & 0x000000FF);
+    }
+    else {
+        wasi_addr->kind = IPv6;
+        wasi_addr->addr.ip6.port = sockaddr->port;
+        wasi_addr->addr.ip6.addr.n0 = sockaddr->addr_bufer.ipv6[0];
+        wasi_addr->addr.ip6.addr.n1 = sockaddr->addr_bufer.ipv6[1];
+        wasi_addr->addr.ip6.addr.n2 = sockaddr->addr_bufer.ipv6[2];
+        wasi_addr->addr.ip6.addr.n3 = sockaddr->addr_bufer.ipv6[3];
+        wasi_addr->addr.ip6.addr.h0 = sockaddr->addr_bufer.ipv6[4];
+        wasi_addr->addr.ip6.addr.h1 = sockaddr->addr_bufer.ipv6[5];
+        wasi_addr->addr.ip6.addr.h2 = sockaddr->addr_bufer.ipv6[6];
+        wasi_addr->addr.ip6.addr.h3 = sockaddr->addr_bufer.ipv6[7];
+    }
 }
 
 __wasi_errno_t
@@ -2911,9 +2935,7 @@ wasi_ssp_sock_addr_local(
     __wasi_fd_t fd, __wasi_addr_t *addr)
 {
     struct fd_object *fo;
-    uint8 buf[16];
-    __wasi_ip_port_t port;
-    uint8 is_ipv4;
+    bh_sockaddr_t bh_addr;
     int ret;
 
     __wasi_errno_t error =
@@ -2921,19 +2943,13 @@ wasi_ssp_sock_addr_local(
     if (error != __WASI_ESUCCESS)
         return error;
 
-    ret = os_socket_addr_local(fd_number(fo), buf, sizeof(buf) / sizeof(buf[0]),
-                               &port, &is_ipv4);
+    ret = os_socket_addr_local(fd_number(fo), &bh_addr);
     fd_object_release(fo);
     if (ret != BHT_OK) {
         return convert_errno(errno);
     }
 
-    if (is_ipv4) {
-        ipv4_addr_to_wasi_addr(*(uint32_t *)buf, port, addr);
-    }
-    else {
-        ipv6_addr_to_wasi_addr((uint16 *)buf, port, addr);
-    }
+    bh_sockaddr_to_wasi_addr(&bh_addr, addr);
 
     return __WASI_ESUCCESS;
 }
@@ -2946,9 +2962,7 @@ wasi_ssp_sock_addr_remote(
     __wasi_fd_t fd, __wasi_addr_t *addr)
 {
     struct fd_object *fo;
-    uint8 buf[16];
-    __wasi_ip_port_t port;
-    uint8 is_ipv4;
+    bh_sockaddr_t bh_addr;
     int ret;
 
     __wasi_errno_t error =
@@ -2956,25 +2970,19 @@ wasi_ssp_sock_addr_remote(
     if (error != __WASI_ESUCCESS)
         return error;
 
-    ret = os_socket_addr_remote(fd_number(fo), buf,
-                                sizeof(buf) / sizeof(buf[0]), &port, &is_ipv4);
+    ret = os_socket_addr_remote(fd_number(fo), &bh_addr);
     fd_object_release(fo);
     if (ret != BHT_OK) {
         return convert_errno(errno);
     }
 
-    if (is_ipv4) {
-        ipv4_addr_to_wasi_addr(*(uint32_t *)buf, port, addr);
-    }
-    else {
-        ipv6_addr_to_wasi_addr((uint16 *)buf, port, addr);
-    }
+    bh_sockaddr_to_wasi_addr(&bh_addr, addr);
 
     return __WASI_ESUCCESS;
 }
 
 static bool
-wasi_addr_to_string(__wasi_addr_t *addr, char *buf, size_t buflen)
+wasi_addr_to_string(const __wasi_addr_t *addr, char *buf, size_t buflen)
 {
     if (addr->kind == IPv4) {
         const char *format = "%u.%u.%u.%u";
@@ -3077,14 +3085,8 @@ wasi_ssp_sock_addr_resolve(
     for (size_t i = 0; i < actual_info_size; i++) {
         addr_info[i].type =
             wamr_addr_info[i].is_tcp ? SOCKET_STREAM : SOCKET_DGRAM;
-        if (wamr_addr_info[i].is_ipv4) {
-            ipv4_addr_to_wasi_addr(*(uint32_t *)wamr_addr_info[i].addr,
-                                   wamr_addr_info[i].port, &addr_info[i].addr);
-        }
-        else {
-            ipv6_addr_to_wasi_addr((uint16_t *)wamr_addr_info[i].addr,
-                                   wamr_addr_info[i].port, &addr_info[i].addr);
-        }
+        bh_sockaddr_to_wasi_addr(&wamr_addr_info[i].sockaddr,
+                                 &addr_info[i].addr);
     }
 
     wasm_runtime_free(wamr_addr_info);
@@ -3203,8 +3205,23 @@ wasmtime_ssp_sock_recv(
 #endif
     __wasi_fd_t sock, void *buf, size_t buf_len, size_t *recv_len)
 {
+    __wasi_addr_t src_addr;
+
+    return wasmtime_ssp_sock_recv_from(curfds, sock, buf, buf_len, 0, &src_addr,
+                                       recv_len);
+}
+
+__wasi_errno_t
+wasmtime_ssp_sock_recv_from(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t sock, void *buf, size_t buf_len, __wasi_riflags_t ri_flags,
+    __wasi_addr_t *src_addr, size_t *recv_len)
+{
     struct fd_object *fo;
     __wasi_errno_t error;
+    bh_sockaddr_t sockaddr;
     int ret;
 
     error = fd_object_get(curfds, &fo, sock, __WASI_RIGHT_FD_READ, 0);
@@ -3212,11 +3229,13 @@ wasmtime_ssp_sock_recv(
         return error;
     }
 
-    ret = os_socket_recv(fd_number(fo), buf, buf_len);
+    ret = os_socket_recv_from(fd_number(fo), buf, buf_len, 0, &sockaddr);
     fd_object_release(fo);
     if (-1 == ret) {
         return convert_errno(errno);
     }
+
+    bh_sockaddr_to_wasi_addr(&sockaddr, src_addr);
 
     *recv_len = (size_t)ret;
     return __WASI_ESUCCESS;
@@ -3239,6 +3258,45 @@ wasmtime_ssp_sock_send(
     }
 
     ret = os_socket_send(fd_number(fo), buf, buf_len);
+    fd_object_release(fo);
+    if (-1 == ret) {
+        return convert_errno(errno);
+    }
+
+    *sent_len = (size_t)ret;
+    return __WASI_ESUCCESS;
+}
+
+__wasi_errno_t
+wasmtime_ssp_sock_send_to(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds, struct addr_pool *addr_pool,
+#endif
+    __wasi_fd_t sock, const void *buf, size_t buf_len,
+    __wasi_siflags_t si_flags, const __wasi_addr_t *dest_addr, size_t *sent_len)
+{
+    char addr_buf[48] = { 0 };
+    struct fd_object *fo;
+    __wasi_errno_t error;
+    int ret;
+    bh_sockaddr_t sockaddr;
+
+    if (!wasi_addr_to_string(dest_addr, addr_buf, sizeof(addr_buf))) {
+        return __WASI_EPROTONOSUPPORT;
+    }
+
+    if (!addr_pool_search(addr_pool, addr_buf)) {
+        return __WASI_EACCES;
+    }
+
+    error = fd_object_get(curfds, &fo, sock, __WASI_RIGHT_FD_WRITE, 0);
+    if (error != 0) {
+        return error;
+    }
+
+    wasi_addr_to_bh_sockaddr(dest_addr, &sockaddr);
+
+    ret = os_socket_send_to(fd_number(fo), buf, buf_len, 0, &sockaddr);
     fd_object_release(fo);
     if (-1 == ret) {
         return convert_errno(errno);
@@ -3403,7 +3461,7 @@ addr_pool_insert(struct addr_pool *addr_pool, const char *addr, uint8 mask)
 {
     struct addr_pool *cur = addr_pool;
     struct addr_pool *next;
-    bh_inet_network_output_t target;
+    bh_ip_addr_buffer_t target;
 
     if (!addr_pool) {
         return false;
@@ -3464,7 +3522,7 @@ init_address_mask(uint8_t *buf, size_t buflen, size_t mask)
 /* target must be in network byte order */
 static bool
 compare_address(const struct addr_pool *addr_pool_entry,
-                bh_inet_network_output_t *target)
+                bh_ip_addr_buffer_t *target)
 {
     uint8_t maskbuf[16] = { 0 };
     uint8_t basebuf[16] = { 0 };
@@ -3515,7 +3573,7 @@ bool
 addr_pool_search(struct addr_pool *addr_pool, const char *addr)
 {
     struct addr_pool *cur = addr_pool->next;
-    bh_inet_network_output_t target;
+    bh_ip_addr_buffer_t target;
     __wasi_addr_type_t addr_type;
 
     if (os_socket_inet_network(true, addr, &target) != BHT_OK) {

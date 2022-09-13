@@ -292,6 +292,18 @@ os_sem_unlink(const char *name);
  * need to implement these APIs
  */
 
+typedef union {
+    uint32 ipv4;
+    uint16 ipv6[8];
+    uint8 data[1];
+} bh_ip_addr_buffer_t;
+
+typedef struct {
+    bh_ip_addr_buffer_t addr_bufer;
+    uint16 port;
+    bool is_ipv4;
+} bh_sockaddr_t;
+
 /**
  * Create a socket
  *
@@ -382,6 +394,22 @@ int
 os_socket_recv(bh_socket_t socket, void *buf, unsigned int len);
 
 /**
+ * Blocking receive message from a socket.
+ *
+ * @param socket the socket to send message
+ * @param buf the buffer to store the data
+ * @param len length of the buffer, this API does not guarantee that
+ *            [len] bytes are received
+ * @param flags control the operation
+ * @param src_addr source address
+ *
+ * @return number of bytes sent if success, -1 otherwise
+ */
+int
+os_socket_recv_from(bh_socket_t socket, void *buf, unsigned int len, int flags,
+                    bh_sockaddr_t *src_addr);
+
+/**
  * Blocking send message on a socket
  *
  * @param socket the socket to send message
@@ -392,6 +420,21 @@ os_socket_recv(bh_socket_t socket, void *buf, unsigned int len);
  */
 int
 os_socket_send(bh_socket_t socket, const void *buf, unsigned int len);
+
+/**
+ * Blocking send message on a socket to the target address
+ *
+ * @param socket the socket to send message
+ * @param buf the buffer of data to be sent
+ * @param len length of the buffer
+ * @param flags control the operation
+ * @param dest_addr target address
+ *
+ * @return number of bytes sent if success, -1 otherwise
+ */
+int
+os_socket_send_to(bh_socket_t socket, const void *buf, unsigned int len,
+                  int flags, const bh_sockaddr_t *dest_addr);
 
 /**
  * Close a socket
@@ -413,12 +456,6 @@ os_socket_close(bh_socket_t socket);
 int
 os_socket_shutdown(bh_socket_t socket);
 
-typedef union {
-    uint32 ipv4;
-    uint16 ipv6[8];
-    uint8_t data[0];
-} bh_inet_network_output_t;
-
 /**
  * converts cp into a number in host byte order suitable for use as
  * an Internet network address
@@ -435,13 +472,10 @@ typedef union {
  * If the input is invalid, -1 is returned
  */
 int
-os_socket_inet_network(bool is_ipv4, const char *cp,
-                       bh_inet_network_output_t *out);
+os_socket_inet_network(bool is_ipv4, const char *cp, bh_ip_addr_buffer_t *out);
 
 typedef struct {
-    uint8_t addr[16];
-    uint16_t port;
-    uint8_t is_ipv4;
+    bh_sockaddr_t sockaddr;
     uint8_t is_tcp;
 } bh_addr_info_t;
 
@@ -478,38 +512,24 @@ os_socket_addr_resolve(const char *host, const char *service,
  *
  * @param socket the local socket
  *
- * @param buf buffer to store the address
- *
- * @param buflen length of the buf buffer
- *
- * @param port a buffer for storing socket's port
- *
- * @param is_ipv4 a buffer for storing information about the address family
+ * @param sockaddr a buffer for storing the address
  *
  * @return On success, returns 0; otherwise, it returns -1.
  */
 int
-os_socket_addr_local(bh_socket_t socket, uint8_t *buf, size_t buflen,
-                     uint16_t *port, uint8_t *is_ipv4);
+os_socket_addr_local(bh_socket_t socket, bh_sockaddr_t *sockaddr);
 
 /**
  * Returns an binary address and a port of the remote socket
  *
  * @param socket the remote socket
  *
- * @param buf buffer to store the address
- *
- * @param buflen length of the buf buffer
- *
- * @param port a buffer for storing socket's port
- *
- * @param is_ipv4 a buffer for storing information about the address family
+ * @param sockaddr a buffer for storing the address
  *
  * @return On success, returns 0; otherwise, it returns -1.
  */
 int
-os_socket_addr_remote(bh_socket_t socket, uint8_t *buf, size_t buflen,
-                      uint16_t *port, uint8_t *is_ipv4);
+os_socket_addr_remote(bh_socket_t socket, bh_sockaddr_t *sockaddr);
 
 /**
  * Set the send timeout until reporting an error

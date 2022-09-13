@@ -59,7 +59,7 @@ sockaddr_to_wasi_addr(const struct sockaddr *sock_addr, socklen_t addrlen,
             ((struct sockaddr_in *)sock_addr)->sin_port, wasi_addr);
     }
     else if (AF_INET6 == sock_addr->sa_family) {
-        assert(sizeof(struct sockaddr_in6) == addrlen);
+        assert(sizeof(struct sockaddr_in6) <= addrlen);
         ipv6_addr_to_wasi_addr(
             (uint16_t *)((struct sockaddr_in6 *)sock_addr)->sin6_addr.s6_addr,
             ((struct sockaddr_in6 *)sock_addr)->sin6_port, wasi_addr);
@@ -248,6 +248,66 @@ sendmsg(int sockfd, const struct msghdr *msg, int flags)
         __wasi_sock_send(sockfd, si_data, msg->msg_iovlen, 0, &so_datalen);
     free(si_data);
     HANDLE_ERROR(error)
+
+    return so_datalen;
+}
+
+ssize_t
+sendto(int sockfd, const void *buf, size_t len, int flags,
+       const struct sockaddr *dest_addr, socklen_t addrlen)
+{
+    // Prepare input parameters.
+    __wasi_ciovec_t iov = { .buf = buf, .buf_len = len };
+    uint32_t so_datalen = 0;
+    __wasi_addr_t wasi_addr;
+    __wasi_errno_t error;
+    size_t si_data_len = 1;
+    __wasi_siflags_t si_flags = 0;
+
+    // This implementation does not support any flags.
+    if (flags != 0) {
+        HANDLE_ERROR(__WASI_ERRNO_NOPROTOOPT)
+    }
+
+    error = sockaddr_to_wasi_addr(dest_addr, addrlen, &wasi_addr);
+    HANDLE_ERROR(error);
+
+    // Perform system call.
+    error = __wasi_sock_send_to(sockfd, &iov, si_data_len, si_flags, &wasi_addr,
+                                &so_datalen);
+    HANDLE_ERROR(error)
+
+    return so_datalen;
+}
+
+ssize_t
+recvfrom(int sockfd, void *buf, size_t len, int flags,
+         struct sockaddr *src_addr, socklen_t *addrlen)
+{
+    // Prepare input parameters.
+    __wasi_ciovec_t iov = { .buf = buf, .buf_len = len };
+    uint32_t so_datalen = 0;
+    __wasi_addr_t wasi_addr;
+    __wasi_errno_t error;
+    size_t si_data_len = 1;
+    __wasi_siflags_t si_flags = 0;
+
+    // This implementation does not support any flags.
+    if (flags != 0) {
+        HANDLE_ERROR(__WASI_ERRNO_NOPROTOOPT)
+    }
+
+    if (!src_addr) {
+        return recv(sockfd, buf, len, flags);
+    }
+
+    // Perform system call.
+    error = __wasi_sock_recv_from(sockfd, &iov, si_data_len, si_flags,
+                                  &wasi_addr, &so_datalen);
+    HANDLE_ERROR(error);
+
+    error = wasi_addr_to_sockaddr(&wasi_addr, src_addr, addrlen);
+    HANDLE_ERROR(error);
 
     return so_datalen;
 }

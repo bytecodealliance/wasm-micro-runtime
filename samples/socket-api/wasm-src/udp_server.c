@@ -1,16 +1,13 @@
 /*
- * Copyright (C) 2019 Intel Corporation.  All rights reserved.
+ * Copyright (C) 2022 Amazon.com Inc. or its affiliates. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
+
 #include "socket_utils.h"
 
 #include <arpa/inet.h>
-#include <netinet/in.h>
-#include <pthread.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -18,30 +15,7 @@
 #include <wasi_socket_ext.h>
 #endif
 
-#define WORKER_NUM 5
-
-void *
-run(void *arg)
-{
-    const char *message = "Say Hi from the Server\n";
-    int new_socket = *(int *)arg;
-    int i;
-
-    printf("[Server] Communicate with the new connection #%u @ %p ..\n",
-           new_socket, (void *)(uintptr_t)pthread_self());
-
-    for (i = 0; i < 5; i++) {
-        if (send(new_socket, message, strlen(message), 0) < 0) {
-            perror("Send failed");
-            break;
-        }
-    }
-
-    printf("[Server] Shuting down the new connection #%u ..\n", new_socket);
-    shutdown(new_socket, SHUT_RDWR);
-
-    return NULL;
-}
+#define MAX_CONNECTIONS_COUNT 5
 
 static void
 init_sockaddr_inet(struct sockaddr_in *addr)
@@ -64,12 +38,13 @@ init_sockaddr_inet6(struct sockaddr_in6 *addr)
 int
 main(int argc, char *argv[])
 {
-    int socket_fd = -1, addrlen = 0, af;
+    int socket_fd = -1, af;
+    socklen_t addrlen = 0;
     struct sockaddr_storage addr = { 0 };
+    char *reply_message = "Hello from server";
     unsigned connections = 0;
-    pthread_t workers[WORKER_NUM] = { 0 };
-    int client_sock_fds[WORKER_NUM] = { 0 };
     char ip_string[64];
+    char buffer[1024];
 
     if (argc > 1 && strcmp(argv[1], "inet6") == 0) {
         af = AF_INET6;
@@ -81,7 +56,7 @@ main(int argc, char *argv[])
     }
 
     printf("[Server] Create socket\n");
-    socket_fd = socket(af, SOCK_STREAM, 0);
+    socket_fd = socket(af, SOCK_DGRAM, 0);
     if (socket_fd < 0) {
         perror("Create socket failed");
         goto fail;
@@ -94,19 +69,13 @@ main(int argc, char *argv[])
         goto fail;
     }
 
-    printf("[Server] Listening on socket\n");
-    if (listen(socket_fd, 3) < 0) {
-        perror("Listen failed");
-        goto fail;
-    }
-
     printf("[Server] Wait for clients to connect ..\n");
-    while (connections < WORKER_NUM) {
-        client_sock_fds[connections] =
-            accept(socket_fd, (struct sockaddr *)&addr, (socklen_t *)&addrlen);
-        if (client_sock_fds[connections] < 0) {
-            perror("Accept failed");
-            break;
+    while (connections < MAX_CONNECTIONS_COUNT) {
+        int ret = recvfrom(socket_fd, buffer, sizeof(buffer), 0,
+                           (struct sockaddr *)&addr, &addrlen);
+        if (ret < 0) {
+            perror("Read failed");
+            goto fail;
         }
 
         if (sockaddr_to_string((struct sockaddr *)&addr, ip_string,
@@ -116,27 +85,26 @@ main(int argc, char *argv[])
             goto fail;
         }
 
-        printf("[Server] Client connected (%s)\n", ip_string);
-        if (pthread_create(&workers[connections], NULL, run,
-                           &client_sock_fds[connections])) {
-            perror("Create a worker thread failed");
-            shutdown(client_sock_fds[connections], SHUT_RDWR);
+        printf("[Server] received %d bytes from %s: %s\n", ret, ip_string,
+               buffer);
+
+        if (sendto(socket_fd, reply_message, strlen(reply_message), 0,
+                   (struct sockaddr *)&addr, addrlen)
+            < 0) {
+            perror("Send failed");
             break;
         }
 
         connections++;
     }
 
-    if (connections == WORKER_NUM) {
+    if (connections == MAX_CONNECTIONS_COUNT) {
         printf("[Server] Achieve maximum amount of connections\n");
-    }
-
-    for (int i = 0; i < WORKER_NUM; i++) {
-        pthread_join(workers[i], NULL);
     }
 
     printf("[Server] Shuting down ..\n");
     shutdown(socket_fd, SHUT_RDWR);
+    close(socket_fd);
     sleep(3);
     printf("[Server] BYE \n");
     return EXIT_SUCCESS;

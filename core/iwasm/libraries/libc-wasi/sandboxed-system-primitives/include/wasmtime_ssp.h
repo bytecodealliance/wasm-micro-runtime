@@ -1071,6 +1071,18 @@ __wasi_errno_t wasmtime_ssp_sock_recv(
     size_t *recv_len
 ) WASMTIME_SSP_SYSCALL_NAME(sock_recv) __attribute__((__warn_unused_result__));
 
+__wasi_errno_t wasmtime_ssp_sock_recv_from(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t sock,
+    void *buf,
+    size_t buf_len,
+    __wasi_riflags_t ri_flags,
+    __wasi_addr_t *src_addr,
+    size_t *recv_len
+) WASMTIME_SSP_SYSCALL_NAME(sock_recv_from) __attribute__((__warn_unused_result__));
+
 __wasi_errno_t wasmtime_ssp_sock_send(
 #if !defined(WASMTIME_SSP_STATIC_CURFDS)
     struct fd_table *curfds,
@@ -1080,6 +1092,18 @@ __wasi_errno_t wasmtime_ssp_sock_send(
     size_t buf_len,
     size_t *sent_len
 ) WASMTIME_SSP_SYSCALL_NAME(sock_send) __attribute__((__warn_unused_result__));
+
+__wasi_errno_t wasmtime_ssp_sock_send_to(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds, struct addr_pool *addr_pool,
+#endif
+    __wasi_fd_t sock,
+    const void *buf,
+    size_t buf_len,
+    __wasi_siflags_t si_flags,
+    const __wasi_addr_t *dest_addr,
+    size_t *sent_len
+) WASMTIME_SSP_SYSCALL_NAME(sock_send_to) __attribute__((__warn_unused_result__));
 
 __wasi_errno_t wasmtime_ssp_sock_shutdown(
 #if !defined(WASMTIME_SSP_STATIC_CURFDS)
