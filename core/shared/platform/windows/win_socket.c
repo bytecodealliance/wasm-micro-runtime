@@ -259,6 +259,7 @@ os_socket_get_recv_timeout(bh_socket_t socket, uint64 *timeout_us)
 
 int
 os_socket_addr_remote(bh_socket_t socket, bh_sockaddr_t *sockaddr)
+{
     errno = ENOSYS;
 
     return BHT_ERROR;
@@ -297,7 +298,7 @@ os_socket_get_recv_buf_size(bh_socket_t socket, size_t *bufsiz)
 }
 
 int
-os_socket_set_keep_alive(bh_socket_t socket, bool enable)
+os_socket_set_keep_alive(bh_socket_t socket, bool is_enabled)
 {
     errno = ENOSYS;
 
@@ -305,7 +306,7 @@ os_socket_set_keep_alive(bh_socket_t socket, bool enable)
 }
 
 int
-os_socket_get_keep_alive(bh_socket_t socket, bool *enabled)
+os_socket_get_keep_alive(bh_socket_t socket, bool *is_enabled)
 {
     errno = ENOSYS;
 
@@ -313,7 +314,7 @@ os_socket_get_keep_alive(bh_socket_t socket, bool *enabled)
 }
 
 int
-os_socket_set_reuse_addr(bh_socket_t socket, bool enable)
+os_socket_set_reuse_addr(bh_socket_t socket, bool is_enabled)
 {
     errno = ENOSYS;
 
@@ -321,7 +322,7 @@ os_socket_set_reuse_addr(bh_socket_t socket, bool enable)
 }
 
 int
-os_socket_get_reuse_addr(bh_socket_t socket, bool *enabled)
+os_socket_get_reuse_addr(bh_socket_t socket, bool *is_enabled)
 {
     errno = ENOSYS;
 
@@ -329,7 +330,7 @@ os_socket_get_reuse_addr(bh_socket_t socket, bool *enabled)
 }
 
 int
-os_socket_set_reuse_port(bh_socket_t socket, bool enable)
+os_socket_set_reuse_port(bh_socket_t socket, bool is_enabled)
 {
     errno = ENOSYS;
 
@@ -337,7 +338,7 @@ os_socket_set_reuse_port(bh_socket_t socket, bool enable)
 }
 
 int
-os_socket_get_reuse_port(bh_socket_t socket, bool *enabled)
+os_socket_get_reuse_port(bh_socket_t socket, bool *is_enabled)
 {
     errno = ENOSYS;
 
@@ -345,7 +346,7 @@ os_socket_get_reuse_port(bh_socket_t socket, bool *enabled)
 }
 
 int
-os_socket_set_linger(bh_socket_t socket, int l_onoff, int l_linger_s)
+os_socket_set_linger(bh_socket_t socket, bool is_enabled, int linger_s)
 {
     errno = ENOSYS;
 
@@ -353,7 +354,7 @@ os_socket_set_linger(bh_socket_t socket, int l_onoff, int l_linger_s)
 }
 
 int
-os_socket_get_linger(bh_socket_t socket, int *l_onoff, int *l_linger_s)
+os_socket_get_linger(bh_socket_t socket, bool *is_enabled, int *linger_s)
 {
     errno = ENOSYS;
 
@@ -361,7 +362,7 @@ os_socket_get_linger(bh_socket_t socket, int *l_onoff, int *l_linger_s)
 }
 
 int
-os_socket_set_tcp_no_delay(bh_socket_t socket, bool enable)
+os_socket_set_tcp_no_delay(bh_socket_t socket, bool is_enabled)
 {
     errno = ENOSYS;
 
@@ -369,7 +370,7 @@ os_socket_set_tcp_no_delay(bh_socket_t socket, bool enable)
 }
 
 int
-os_socket_get_tcp_no_delay(bh_socket_t socket, bool *enabled)
+os_socket_get_tcp_no_delay(bh_socket_t socket, bool *is_enabled)
 {
     errno = ENOSYS;
 
@@ -377,7 +378,7 @@ os_socket_get_tcp_no_delay(bh_socket_t socket, bool *enabled)
 }
 
 int
-os_socket_set_tcp_quick_ack(bh_socket_t socket, bool enable)
+os_socket_set_tcp_quick_ack(bh_socket_t socket, bool is_enabled)
 {
     errno = ENOSYS;
 
@@ -385,7 +386,7 @@ os_socket_set_tcp_quick_ack(bh_socket_t socket, bool enable)
 }
 
 int
-os_socket_get_tcp_quick_ack(bh_socket_t socket, bool *enabled)
+os_socket_get_tcp_quick_ack(bh_socket_t socket, bool *is_enabled)
 {
     errno = ENOSYS;
 
@@ -425,7 +426,7 @@ os_socket_get_tcp_keep_intvl(bh_socket_t socket, uint32 *time_s)
 }
 
 int
-os_socket_set_tcp_fastopen_connect(bh_socket_t socket, bool enable)
+os_socket_set_tcp_fastopen_connect(bh_socket_t socket, bool is_enabled)
 {
     errno = ENOSYS;
 
@@ -433,7 +434,7 @@ os_socket_set_tcp_fastopen_connect(bh_socket_t socket, bool enable)
 }
 
 int
-os_socket_get_tcp_fastopen_connect(bh_socket_t socket, bool *enabled)
+os_socket_get_tcp_fastopen_connect(bh_socket_t socket, bool *is_enabled)
 {
     errno = ENOSYS;
 
@@ -441,7 +442,7 @@ os_socket_get_tcp_fastopen_connect(bh_socket_t socket, bool *enabled)
 }
 
 int
-os_socket_set_ip_multicast_loop(bh_socket_t socket, bool enable)
+os_socket_set_ip_multicast_loop(bh_socket_t socket, bool ipv6, bool is_enabled)
 {
     errno = ENOSYS;
 
@@ -449,7 +450,7 @@ os_socket_set_ip_multicast_loop(bh_socket_t socket, bool enable)
 }
 
 int
-os_socket_get_ip_multicast_loop(bh_socket_t socket, bool *enabled)
+os_socket_get_ip_multicast_loop(bh_socket_t socket, bool ipv6, bool *is_enabled)
 {
     errno = ENOSYS;
 
@@ -457,8 +458,9 @@ os_socket_get_ip_multicast_loop(bh_socket_t socket, bool *enabled)
 }
 
 int
-os_socket_set_ip_add_membership(bh_socket_t socket, uint32_t imr_multiaddr,
-                                uint32_t imr_interface)
+os_socket_set_ip_add_membership(bh_socket_t socket,
+                                bh_ip_addr_buffer_t *imr_multiaddr,
+                                uint32_t imr_interface, bool is_ipv6)
 {
     errno = ENOSYS;
 
@@ -466,8 +468,9 @@ os_socket_set_ip_add_membership(bh_socket_t socket, uint32_t imr_multiaddr,
 }
 
 int
-os_socket_set_ip_drop_membership(bh_socket_t socket, uint32_t imr_multiaddr,
-                                 uint32_t imr_interface)
+os_socket_set_ip_drop_membership(bh_socket_t socket,
+                                 bh_ip_addr_buffer_t *imr_multiaddr,
+                                 uint32_t imr_interface, bool is_ipv6)
 {
     errno = ENOSYS;
 
@@ -523,7 +526,7 @@ os_socket_get_ipv6_only(bh_socket_t socket, bool *option)
 }
 
 int
-os_socket_set_ipv6_multicast_loop(bh_socket_t socket, bool enable)
+os_socket_set_broadcast(bh_socket_t socket, bool is_enabled)
 {
     errno = ENOSYS;
 
@@ -531,51 +534,8 @@ os_socket_set_ipv6_multicast_loop(bh_socket_t socket, bool enable)
 }
 
 int
-os_socket_get_ipv6_multicast_loop(bh_socket_t socket, bool *enabled)
+os_socket_get_broadcast(bh_socket_t socket, bool *is_enabled)
 {
     errno = ENOSYS;
-
-    return BHT_ERROR;
-}
-
-int
-os_socket_set_ipv6_join_group(bh_socket_t socket, uint16_t imr_multiaddr[8],
-                              uint32_t imr_interface)
-{
-    errno = ENOSYS;
-
-    return BHT_ERROR;
-}
-
-int
-os_socket_set_ipv6_leave_group(bh_socket_t socket, uint16_t imr_multiaddr[8],
-                               uint32_t imr_interface)
-{
-    errno = ENOSYS;
-
-    return BHT_ERROR;
-}
-
-int
-os_socket_set_broadcast(bh_socket_t socket, bool enable)
-{
-    errno = ENOSYS;
-
-    return BHT_ERROR;
-}
-
-int
-os_socket_get_broadcast(bh_socket_t socket, bool *enabled)
-{
-    errno = ENOSYS;
-    return BHT_ERROR;
-}
-
-int
-os_socket_addr_remote(bh_socket_t socket, uint8_t *buf, size_t buflen,
-                      uint16_t *port, uint8_t *is_ipv4)
-{
-    errno = ENOSYS;
-
     return BHT_ERROR;
 }

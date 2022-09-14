@@ -1120,7 +1120,8 @@ wasi_sock_connect(wasm_exec_env_t exec_env, wasi_fd_t fd, wasi_addr_t *addr)
 }
 
 static wasi_errno_t
-wasi_sock_get_broadcast(wasm_exec_env_t exec_env, wasi_fd_t fd, bool *option)
+wasi_sock_get_broadcast(wasm_exec_env_t exec_env, wasi_fd_t fd,
+                        bool *is_enabled)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
@@ -1129,16 +1130,17 @@ wasi_sock_get_broadcast(wasm_exec_env_t exec_env, wasi_fd_t fd, bool *option)
     if (!wasi_ctx)
         return __WASI_EACCES;
 
-    if (!validate_native_addr(option, sizeof(bool)))
+    if (!validate_native_addr(is_enabled, sizeof(bool)))
         return __WASI_EINVAL;
 
     curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
 
-    return wasmtime_ssp_sock_get_broadcast(curfds, fd, option);
+    return wasmtime_ssp_sock_get_broadcast(curfds, fd, is_enabled);
 }
 
 static wasi_errno_t
-wasi_sock_get_keep_alive(wasm_exec_env_t exec_env, wasi_fd_t fd, bool *option)
+wasi_sock_get_keep_alive(wasm_exec_env_t exec_env, wasi_fd_t fd,
+                         bool *is_enabled)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
@@ -1147,17 +1149,17 @@ wasi_sock_get_keep_alive(wasm_exec_env_t exec_env, wasi_fd_t fd, bool *option)
     if (!wasi_ctx)
         return __WASI_EACCES;
 
-    if (!validate_native_addr(option, sizeof(bool)))
+    if (!validate_native_addr(is_enabled, sizeof(bool)))
         return __WASI_EINVAL;
 
     curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
 
-    return wasmtime_ssp_sock_get_keep_alive(curfds, fd, option);
+    return wasmtime_ssp_sock_get_keep_alive(curfds, fd, is_enabled);
 }
 
 static wasi_errno_t
-wasi_sock_get_linger(wasm_exec_env_t exec_env, wasi_fd_t fd, int *l_onoff,
-                     int *l_linger_s)
+wasi_sock_get_linger(wasm_exec_env_t exec_env, wasi_fd_t fd, bool *is_enabled,
+                     int *linger_s)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
@@ -1166,13 +1168,13 @@ wasi_sock_get_linger(wasm_exec_env_t exec_env, wasi_fd_t fd, int *l_onoff,
     if (!wasi_ctx)
         return __WASI_EACCES;
 
-    if (!validate_native_addr(l_onoff, sizeof(int))
-        || !validate_native_addr(l_linger_s, sizeof(int)))
+    if (!validate_native_addr(is_enabled, sizeof(bool))
+        || !validate_native_addr(linger_s, sizeof(int)))
         return __WASI_EINVAL;
 
     curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
 
-    return wasmtime_ssp_sock_get_linger(curfds, fd, l_onoff, l_linger_s);
+    return wasmtime_ssp_sock_get_linger(curfds, fd, is_enabled, linger_s);
 }
 
 static wasi_errno_t
@@ -1214,7 +1216,8 @@ wasi_sock_get_recv_timeout(wasm_exec_env_t exec_env, wasi_fd_t fd,
 }
 
 static wasi_errno_t
-wasi_sock_get_reuse_addr(wasm_exec_env_t exec_env, wasi_fd_t fd, bool *reuse)
+wasi_sock_get_reuse_addr(wasm_exec_env_t exec_env, wasi_fd_t fd,
+                         bool *is_enabled)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
@@ -1223,16 +1226,17 @@ wasi_sock_get_reuse_addr(wasm_exec_env_t exec_env, wasi_fd_t fd, bool *reuse)
     if (!wasi_ctx)
         return __WASI_EACCES;
 
-    if (!validate_native_addr(reuse, sizeof(bool)))
+    if (!validate_native_addr(is_enabled, sizeof(bool)))
         return __WASI_EINVAL;
 
     curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
 
-    return wasmtime_ssp_sock_get_reuse_addr(curfds, fd, reuse);
+    return wasmtime_ssp_sock_get_reuse_addr(curfds, fd, is_enabled);
 }
 
 static wasi_errno_t
-wasi_sock_get_reuse_port(wasm_exec_env_t exec_env, wasi_fd_t fd, bool *reuse)
+wasi_sock_get_reuse_port(wasm_exec_env_t exec_env, wasi_fd_t fd,
+                         bool *is_enabled)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
@@ -1241,12 +1245,12 @@ wasi_sock_get_reuse_port(wasm_exec_env_t exec_env, wasi_fd_t fd, bool *reuse)
     if (!wasi_ctx)
         return __WASI_EACCES;
 
-    if (!validate_native_addr(reuse, sizeof(bool)))
+    if (!validate_native_addr(is_enabled, sizeof(bool)))
         return __WASI_EINVAL;
 
     curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
 
-    return wasmtime_ssp_sock_get_reuse_port(curfds, fd, reuse);
+    return wasmtime_ssp_sock_get_reuse_port(curfds, fd, is_enabled);
 }
 
 static wasi_errno_t
@@ -1289,7 +1293,7 @@ wasi_sock_get_send_timeout(wasm_exec_env_t exec_env, wasi_fd_t fd,
 
 static wasi_errno_t
 wasi_sock_get_tcp_fastopen_connect(wasm_exec_env_t exec_env, wasi_fd_t fd,
-                                   bool *option)
+                                   bool *is_enabled)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
@@ -1298,16 +1302,17 @@ wasi_sock_get_tcp_fastopen_connect(wasm_exec_env_t exec_env, wasi_fd_t fd,
     if (!wasi_ctx)
         return __WASI_EACCES;
 
-    if (!validate_native_addr(option, sizeof(bool)))
+    if (!validate_native_addr(is_enabled, sizeof(bool)))
         return __WASI_EINVAL;
 
     curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
 
-    return wasmtime_ssp_sock_get_tcp_fastopen_connect(curfds, fd, option);
+    return wasmtime_ssp_sock_get_tcp_fastopen_connect(curfds, fd, is_enabled);
 }
 
 static wasi_errno_t
-wasi_sock_get_tcp_no_delay(wasm_exec_env_t exec_env, wasi_fd_t fd, bool *option)
+wasi_sock_get_tcp_no_delay(wasm_exec_env_t exec_env, wasi_fd_t fd,
+                           bool *is_enabled)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
@@ -1316,17 +1321,17 @@ wasi_sock_get_tcp_no_delay(wasm_exec_env_t exec_env, wasi_fd_t fd, bool *option)
     if (!wasi_ctx)
         return __WASI_EACCES;
 
-    if (!validate_native_addr(option, sizeof(bool)))
+    if (!validate_native_addr(is_enabled, sizeof(bool)))
         return __WASI_EINVAL;
 
     curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
 
-    return wasmtime_ssp_sock_get_tcp_no_delay(curfds, fd, option);
+    return wasmtime_ssp_sock_get_tcp_no_delay(curfds, fd, is_enabled);
 }
 
 static wasi_errno_t
 wasi_sock_get_tcp_quick_ack(wasm_exec_env_t exec_env, wasi_fd_t fd,
-                            bool *option)
+                            bool *is_enabled)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
@@ -1335,12 +1340,12 @@ wasi_sock_get_tcp_quick_ack(wasm_exec_env_t exec_env, wasi_fd_t fd,
     if (!wasi_ctx)
         return __WASI_EACCES;
 
-    if (!validate_native_addr(option, sizeof(bool)))
+    if (!validate_native_addr(is_enabled, sizeof(bool)))
         return __WASI_EINVAL;
 
     curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
 
-    return wasmtime_ssp_sock_get_tcp_quick_ack(curfds, fd, option);
+    return wasmtime_ssp_sock_get_tcp_quick_ack(curfds, fd, is_enabled);
 }
 
 static wasi_errno_t
@@ -1383,7 +1388,7 @@ wasi_sock_get_tcp_keep_intvl(wasm_exec_env_t exec_env, wasi_fd_t fd,
 
 static wasi_errno_t
 wasi_sock_get_ip_multicast_loop(wasm_exec_env_t exec_env, wasi_fd_t fd,
-                                bool *option)
+                                bool ipv6, bool *is_enabled)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
@@ -1392,12 +1397,13 @@ wasi_sock_get_ip_multicast_loop(wasm_exec_env_t exec_env, wasi_fd_t fd,
     if (!wasi_ctx)
         return __WASI_EACCES;
 
-    if (!validate_native_addr(option, sizeof(bool)))
+    if (!validate_native_addr(is_enabled, sizeof(bool)))
         return __WASI_EINVAL;
 
     curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
 
-    return wasmtime_ssp_sock_get_ip_multicast_loop(curfds, fd, option);
+    return wasmtime_ssp_sock_get_ip_multicast_loop(curfds, fd, ipv6,
+                                                   is_enabled);
 }
 
 static wasi_errno_t
@@ -1438,7 +1444,8 @@ wasi_sock_get_ip_multicast_ttl(wasm_exec_env_t exec_env, wasi_fd_t fd,
 }
 
 static wasi_errno_t
-wasi_sock_get_ipv6_only(wasm_exec_env_t exec_env, wasi_fd_t fd, bool *option)
+wasi_sock_get_ipv6_only(wasm_exec_env_t exec_env, wasi_fd_t fd,
+                        bool *is_enabled)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
@@ -1447,31 +1454,12 @@ wasi_sock_get_ipv6_only(wasm_exec_env_t exec_env, wasi_fd_t fd, bool *option)
     if (!wasi_ctx)
         return __WASI_EACCES;
 
-    if (!validate_native_addr(option, sizeof(bool)))
+    if (!validate_native_addr(is_enabled, sizeof(bool)))
         return __WASI_EINVAL;
 
     curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
 
-    return wasmtime_ssp_sock_get_ipv6_only(curfds, fd, option);
-}
-
-static wasi_errno_t
-wasi_sock_get_ipv6_multicast_loop(wasm_exec_env_t exec_env, wasi_fd_t fd,
-                                  bool *option)
-{
-    wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
-    struct fd_table *curfds = NULL;
-
-    if (!wasi_ctx)
-        return __WASI_EACCES;
-
-    if (!validate_native_addr(option, sizeof(bool)))
-        return __WASI_EINVAL;
-
-    curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
-
-    return wasmtime_ssp_sock_get_ipv6_multicast_loop(curfds, fd, option);
+    return wasmtime_ssp_sock_get_ipv6_only(curfds, fd, is_enabled);
 }
 
 static wasi_errno_t
@@ -1507,7 +1495,7 @@ wasi_sock_open(wasm_exec_env_t exec_env, wasi_fd_t poolfd,
 }
 
 static wasi_errno_t
-wasi_sock_set_broadcast(wasm_exec_env_t exec_env, wasi_fd_t fd, bool option)
+wasi_sock_set_broadcast(wasm_exec_env_t exec_env, wasi_fd_t fd, bool is_enabled)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
@@ -1518,11 +1506,12 @@ wasi_sock_set_broadcast(wasm_exec_env_t exec_env, wasi_fd_t fd, bool option)
 
     curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
 
-    return wasmtime_ssp_sock_set_broadcast(curfds, fd, option);
+    return wasmtime_ssp_sock_set_broadcast(curfds, fd, is_enabled);
 }
 
 static wasi_errno_t
-wasi_sock_set_keep_alive(wasm_exec_env_t exec_env, wasi_fd_t fd, bool option)
+wasi_sock_set_keep_alive(wasm_exec_env_t exec_env, wasi_fd_t fd,
+                         bool is_enabled)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
@@ -1533,12 +1522,12 @@ wasi_sock_set_keep_alive(wasm_exec_env_t exec_env, wasi_fd_t fd, bool option)
 
     curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
 
-    return wasmtime_ssp_sock_set_keep_alive(curfds, fd, option);
+    return wasmtime_ssp_sock_set_keep_alive(curfds, fd, is_enabled);
 }
 
 static wasi_errno_t
-wasi_sock_set_linger(wasm_exec_env_t exec_env, wasi_fd_t fd, int l_onoff,
-                     int l_linger_s)
+wasi_sock_set_linger(wasm_exec_env_t exec_env, wasi_fd_t fd, bool is_enabled,
+                     int linger_s)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
@@ -1549,7 +1538,7 @@ wasi_sock_set_linger(wasm_exec_env_t exec_env, wasi_fd_t fd, int l_onoff,
 
     curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
 
-    return wasmtime_ssp_sock_set_linger(curfds, fd, l_onoff, l_linger_s);
+    return wasmtime_ssp_sock_set_linger(curfds, fd, is_enabled, linger_s);
 }
 
 static wasi_errno_t
@@ -1584,7 +1573,8 @@ wasi_sock_set_recv_timeout(wasm_exec_env_t exec_env, wasi_fd_t fd,
 }
 
 static wasi_errno_t
-wasi_sock_set_reuse_addr(wasm_exec_env_t exec_env, wasi_fd_t fd, bool reuse)
+wasi_sock_set_reuse_addr(wasm_exec_env_t exec_env, wasi_fd_t fd,
+                         bool is_enabled)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
@@ -1595,11 +1585,12 @@ wasi_sock_set_reuse_addr(wasm_exec_env_t exec_env, wasi_fd_t fd, bool reuse)
 
     curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
 
-    return wasmtime_ssp_sock_set_reuse_addr(curfds, fd, reuse);
+    return wasmtime_ssp_sock_set_reuse_addr(curfds, fd, is_enabled);
 }
 
 static wasi_errno_t
-wasi_sock_set_reuse_port(wasm_exec_env_t exec_env, wasi_fd_t fd, bool reuse)
+wasi_sock_set_reuse_port(wasm_exec_env_t exec_env, wasi_fd_t fd,
+                         bool is_enabled)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
@@ -1610,7 +1601,7 @@ wasi_sock_set_reuse_port(wasm_exec_env_t exec_env, wasi_fd_t fd, bool reuse)
 
     curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
 
-    return wasmtime_ssp_sock_set_reuse_port(curfds, fd, reuse);
+    return wasmtime_ssp_sock_set_reuse_port(curfds, fd, is_enabled);
 }
 
 static wasi_errno_t
@@ -1644,8 +1635,9 @@ wasi_sock_set_send_timeout(wasm_exec_env_t exec_env, wasi_fd_t fd,
     return wasmtime_ssp_sock_set_send_timeout(curfds, fd, timeout_us);
 }
 
+static wasi_errno_t
 wasi_sock_set_tcp_fastopen_connect(wasm_exec_env_t exec_env, wasi_fd_t fd,
-                                   bool option)
+                                   bool is_enabled)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
@@ -1656,11 +1648,12 @@ wasi_sock_set_tcp_fastopen_connect(wasm_exec_env_t exec_env, wasi_fd_t fd,
 
     curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
 
-    return wasmtime_ssp_sock_set_tcp_fastopen_connect(curfds, fd, option);
+    return wasmtime_ssp_sock_set_tcp_fastopen_connect(curfds, fd, is_enabled);
 }
 
 static wasi_errno_t
-wasi_sock_set_tcp_no_delay(wasm_exec_env_t exec_env, wasi_fd_t fd, bool option)
+wasi_sock_set_tcp_no_delay(wasm_exec_env_t exec_env, wasi_fd_t fd,
+                           bool is_enabled)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
@@ -1671,11 +1664,12 @@ wasi_sock_set_tcp_no_delay(wasm_exec_env_t exec_env, wasi_fd_t fd, bool option)
 
     curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
 
-    return wasmtime_ssp_sock_set_tcp_no_delay(curfds, fd, option);
+    return wasmtime_ssp_sock_set_tcp_no_delay(curfds, fd, is_enabled);
 }
 
 static wasi_errno_t
-wasi_sock_set_tcp_quick_ack(wasm_exec_env_t exec_env, wasi_fd_t fd, bool option)
+wasi_sock_set_tcp_quick_ack(wasm_exec_env_t exec_env, wasi_fd_t fd,
+                            bool is_enabled)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
@@ -1686,7 +1680,7 @@ wasi_sock_set_tcp_quick_ack(wasm_exec_env_t exec_env, wasi_fd_t fd, bool option)
 
     curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
 
-    return wasmtime_ssp_sock_set_tcp_quick_ack(curfds, fd, option);
+    return wasmtime_ssp_sock_set_tcp_quick_ack(curfds, fd, is_enabled);
 }
 
 static wasi_errno_t
@@ -1723,7 +1717,7 @@ wasi_sock_set_tcp_keep_intvl(wasm_exec_env_t exec_env, wasi_fd_t fd,
 
 static wasi_errno_t
 wasi_sock_set_ip_multicast_loop(wasm_exec_env_t exec_env, wasi_fd_t fd,
-                                bool option)
+                                bool ipv6, bool is_enabled)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
@@ -1734,13 +1728,14 @@ wasi_sock_set_ip_multicast_loop(wasm_exec_env_t exec_env, wasi_fd_t fd,
 
     curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
 
-    return wasmtime_ssp_sock_set_ip_multicast_loop(curfds, fd, option);
+    return wasmtime_ssp_sock_set_ip_multicast_loop(curfds, fd, ipv6,
+                                                   is_enabled);
 }
 
 static wasi_errno_t
 wasi_sock_set_ip_add_membership(wasm_exec_env_t exec_env, wasi_fd_t fd,
-                                __wasi_addr_ip4_t *imr_multiaddr,
-                                __wasi_addr_ip4_t *imr_interface)
+                                __wasi_addr_ip_t *imr_multiaddr,
+                                uint32_t imr_interface)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
@@ -1749,8 +1744,7 @@ wasi_sock_set_ip_add_membership(wasm_exec_env_t exec_env, wasi_fd_t fd,
     if (!wasi_ctx)
         return __WASI_EACCES;
 
-    if (!validate_native_addr(imr_multiaddr, sizeof(__wasi_addr_ip4_t))
-        || !validate_native_addr(imr_interface, sizeof(__wasi_addr_ip4_t)))
+    if (!validate_native_addr(imr_multiaddr, sizeof(__wasi_addr_ip_t)))
         return __WASI_EINVAL;
 
     curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
@@ -1761,8 +1755,8 @@ wasi_sock_set_ip_add_membership(wasm_exec_env_t exec_env, wasi_fd_t fd,
 
 static wasi_errno_t
 wasi_sock_set_ip_drop_membership(wasm_exec_env_t exec_env, wasi_fd_t fd,
-                                 __wasi_addr_ip4_t *imr_multiaddr,
-                                 __wasi_addr_ip4_t *imr_interface)
+                                 __wasi_addr_ip_t *imr_multiaddr,
+                                 uint32_t imr_interface)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
@@ -1771,8 +1765,7 @@ wasi_sock_set_ip_drop_membership(wasm_exec_env_t exec_env, wasi_fd_t fd,
     if (!wasi_ctx)
         return __WASI_EACCES;
 
-    if (!validate_native_addr(imr_multiaddr, sizeof(__wasi_addr_ip4_t))
-        || !validate_native_addr(imr_interface, sizeof(__wasi_addr_ip4_t)))
+    if (!validate_native_addr(imr_multiaddr, sizeof(__wasi_addr_ip_t)))
         return __WASI_EINVAL;
 
     curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
@@ -1813,7 +1806,7 @@ wasi_sock_set_ip_multicast_ttl(wasm_exec_env_t exec_env, wasi_fd_t fd,
 }
 
 static wasi_errno_t
-wasi_sock_set_ipv6_only(wasm_exec_env_t exec_env, wasi_fd_t fd, bool option)
+wasi_sock_set_ipv6_only(wasm_exec_env_t exec_env, wasi_fd_t fd, bool is_enabled)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
@@ -1824,65 +1817,7 @@ wasi_sock_set_ipv6_only(wasm_exec_env_t exec_env, wasi_fd_t fd, bool option)
 
     curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
 
-    return wasmtime_ssp_sock_set_ipv6_only(curfds, fd, option);
-}
-
-static wasi_errno_t
-wasi_sock_set_ipv6_multicast_loop(wasm_exec_env_t exec_env, wasi_fd_t fd,
-                                  bool option)
-{
-    wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
-    struct fd_table *curfds = NULL;
-
-    if (!wasi_ctx)
-        return __WASI_EACCES;
-
-    curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
-
-    return wasmtime_ssp_sock_set_ipv6_multicast_loop(curfds, fd, option);
-}
-
-static wasi_errno_t
-wasi_sock_set_ipv6_join_group(wasm_exec_env_t exec_env, wasi_fd_t fd,
-                              __wasi_addr_ip6_t *imr_multiaddr,
-                              uint32_t imr_interface)
-{
-    wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
-    struct fd_table *curfds = NULL;
-
-    if (!wasi_ctx)
-        return __WASI_EACCES;
-
-    if (!validate_native_addr(imr_multiaddr, sizeof(__wasi_addr_ip6_t)))
-        return __WASI_EINVAL;
-
-    curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
-
-    return wasmtime_ssp_sock_set_ipv6_join_group(curfds, fd, imr_multiaddr,
-                                                 imr_interface);
-}
-
-static wasi_errno_t
-wasi_sock_set_ipv6_leave_group(wasm_exec_env_t exec_env, wasi_fd_t fd,
-                               __wasi_addr_ip6_t *imr_multiaddr,
-                               uint32_t imr_interface)
-{
-    wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
-    struct fd_table *curfds = NULL;
-
-    if (!wasi_ctx)
-        return __WASI_EACCES;
-
-    if (!validate_native_addr(imr_multiaddr, sizeof(__wasi_addr_ip6_t)))
-        return __WASI_EINVAL;
-
-    curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
-
-    return wasmtime_ssp_sock_set_ipv6_leave_group(curfds, fd, imr_multiaddr,
-                                                  imr_interface);
+    return wasmtime_ssp_sock_set_ipv6_only(curfds, fd, is_enabled);
 }
 
 static wasi_errno_t
@@ -2215,11 +2150,10 @@ static NativeSymbol native_symbols_libc_wasi[] = {
     REG_NATIVE_FUNC(sock_get_tcp_keep_intvl, "(i*)i"),
     REG_NATIVE_FUNC(sock_get_tcp_no_delay, "(i*)i"),
     REG_NATIVE_FUNC(sock_get_tcp_quick_ack, "(i*)i"),
-    REG_NATIVE_FUNC(sock_get_ip_multicast_loop, "(i*)i"),
+    REG_NATIVE_FUNC(sock_get_ip_multicast_loop, "(ii*)i"),
     REG_NATIVE_FUNC(sock_get_ip_multicast_ttl, "(i*)i"),
     REG_NATIVE_FUNC(sock_get_ip_ttl, "(i*)i"),
     REG_NATIVE_FUNC(sock_get_ipv6_only, "(i*)i"),
-    REG_NATIVE_FUNC(sock_get_ipv6_multicast_loop, "(i*)i"),
     REG_NATIVE_FUNC(sock_listen, "(ii)i"),
     REG_NATIVE_FUNC(sock_open, "(iii*)i"),
     REG_NATIVE_FUNC(sock_recv, "(i*ii**)i"),
@@ -2240,15 +2174,12 @@ static NativeSymbol native_symbols_libc_wasi[] = {
     REG_NATIVE_FUNC(sock_set_tcp_keep_intvl, "(ii)i"),
     REG_NATIVE_FUNC(sock_set_tcp_no_delay, "(ii)i"),
     REG_NATIVE_FUNC(sock_set_tcp_quick_ack, "(ii)i"),
-    REG_NATIVE_FUNC(sock_set_ip_multicast_loop, "(ii)i"),
+    REG_NATIVE_FUNC(sock_set_ip_multicast_loop, "(iii)i"),
     REG_NATIVE_FUNC(sock_set_ip_multicast_ttl, "(ii)i"),
-    REG_NATIVE_FUNC(sock_set_ip_add_membership, "(i**)i"),
-    REG_NATIVE_FUNC(sock_set_ip_drop_membership, "(i**)i"),
+    REG_NATIVE_FUNC(sock_set_ip_add_membership, "(i*i)i"),
+    REG_NATIVE_FUNC(sock_set_ip_drop_membership, "(i*i)i"),
     REG_NATIVE_FUNC(sock_set_ip_ttl, "(ii)i"),
     REG_NATIVE_FUNC(sock_set_ipv6_only, "(ii)i"),
-    REG_NATIVE_FUNC(sock_set_ipv6_multicast_loop, "(ii)i"),
-    REG_NATIVE_FUNC(sock_set_ipv6_join_group, "(i*i)i"),
-    REG_NATIVE_FUNC(sock_set_ipv6_leave_group, "(i*i)i"),
     REG_NATIVE_FUNC(sock_shutdown, "(ii)i"),
     REG_NATIVE_FUNC(sched_yield, "()i"),
 };

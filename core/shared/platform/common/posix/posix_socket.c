@@ -402,10 +402,11 @@ os_socket_addr_resolve(const char *host, const char *service,
     return BHT_OK;
 }
 
-int
-os_socket_setbooloption(bh_socket_t socket, int level, int optname, bool enable)
+static int
+os_socket_setbooloption(bh_socket_t socket, int level, int optname,
+                        bool is_enabled)
 {
-    int option = (int)enable;
+    int option = (int)is_enabled;
     if (setsockopt(socket, level, optname, &option, sizeof(option)) != 0) {
         return BHT_ERROR;
     }
@@ -413,18 +414,18 @@ os_socket_setbooloption(bh_socket_t socket, int level, int optname, bool enable)
     return BHT_OK;
 }
 
-int
+static int
 os_socket_getbooloption(bh_socket_t socket, int level, int optname,
-                        bool *enabled)
+                        bool *is_enabled)
 {
-    assert(enabled);
+    assert(is_enabled);
 
     int optval;
     int optval_size = sizeof(optval);
     if (getsockopt(socket, level, optname, &optval, &optval_size) != 0) {
         return BHT_ERROR;
     }
-    *enabled = (bool)optval;
+    *is_enabled = (bool)optval;
     return BHT_OK;
 }
 
@@ -487,45 +488,52 @@ os_socket_get_recv_buf_size(bh_socket_t socket, size_t *bufsiz)
 }
 
 int
-os_socket_set_keep_alive(bh_socket_t socket, bool enable)
+os_socket_set_keep_alive(bh_socket_t socket, bool is_enabled)
 {
-    return os_socket_setbooloption(socket, SOL_SOCKET, SO_KEEPALIVE, enable);
+    return os_socket_setbooloption(socket, SOL_SOCKET, SO_KEEPALIVE,
+                                   is_enabled);
 }
 
 int
-os_socket_get_keep_alive(bh_socket_t socket, bool *enabled)
+os_socket_get_keep_alive(bh_socket_t socket, bool *is_enabled)
 {
-    return os_socket_getbooloption(socket, SOL_SOCKET, SO_KEEPALIVE, enabled);
+    return os_socket_getbooloption(socket, SOL_SOCKET, SO_KEEPALIVE,
+                                   is_enabled);
 }
 
 int
-os_socket_set_reuse_addr(bh_socket_t socket, bool enable)
+os_socket_set_reuse_addr(bh_socket_t socket, bool is_enabled)
 {
-    return os_socket_setbooloption(socket, SOL_SOCKET, SO_REUSEADDR, enable);
+    return os_socket_setbooloption(socket, SOL_SOCKET, SO_REUSEADDR,
+                                   is_enabled);
 }
 
 int
-os_socket_get_reuse_addr(bh_socket_t socket, bool *enabled)
+os_socket_get_reuse_addr(bh_socket_t socket, bool *is_enabled)
 {
-    return os_socket_getbooloption(socket, SOL_SOCKET, SO_REUSEADDR, enabled);
+    return os_socket_getbooloption(socket, SOL_SOCKET, SO_REUSEADDR,
+                                   is_enabled);
 }
 
 int
-os_socket_set_reuse_port(bh_socket_t socket, bool enable)
+os_socket_set_reuse_port(bh_socket_t socket, bool is_enabled)
 {
-    return os_socket_setbooloption(socket, SOL_SOCKET, SO_REUSEPORT, enable);
+    return os_socket_setbooloption(socket, SOL_SOCKET, SO_REUSEPORT,
+                                   is_enabled);
 }
 
 int
-os_socket_get_reuse_port(bh_socket_t socket, bool *enabled)
+os_socket_get_reuse_port(bh_socket_t socket, bool *is_enabled)
 {
-    return os_socket_getbooloption(socket, SOL_SOCKET, SO_REUSEPORT, enabled);
+    return os_socket_getbooloption(socket, SOL_SOCKET, SO_REUSEPORT,
+                                   is_enabled);
 }
 
 int
-os_socket_set_linger(bh_socket_t socket, int l_onoff, int l_linger_s)
+os_socket_set_linger(bh_socket_t socket, bool is_enabled, int linger_s)
 {
-    struct linger linger_opts = { .l_onoff = l_onoff, .l_linger = l_linger_s };
+    struct linger linger_opts = { .l_onoff = (int)is_enabled,
+                                  .l_linger = linger_s };
     if (setsockopt(socket, SOL_SOCKET, SO_LINGER, &linger_opts,
                    sizeof(linger_opts))
         != 0) {
@@ -536,7 +544,7 @@ os_socket_set_linger(bh_socket_t socket, int l_onoff, int l_linger_s)
 }
 
 int
-os_socket_get_linger(bh_socket_t socket, int *l_onoff, int *l_linger_s)
+os_socket_get_linger(bh_socket_t socket, bool *is_enabled, int *linger_s)
 {
     assert(time_s);
 
@@ -547,28 +555,31 @@ os_socket_get_linger(bh_socket_t socket, int *l_onoff, int *l_linger_s)
         != 0) {
         return BHT_ERROR;
     }
-    *l_linger_s = linger_opts.l_linger;
-    *l_onoff = linger_opts.l_onoff;
+    *linger_s = linger_opts.l_linger;
+    *is_enabled = (bool)linger_opts.l_onoff;
     return BHT_OK;
 }
 
 int
-os_socket_set_tcp_no_delay(bh_socket_t socket, bool enable)
+os_socket_set_tcp_no_delay(bh_socket_t socket, bool is_enabled)
 {
-    return os_socket_setbooloption(socket, IPPROTO_TCP, TCP_NODELAY, enable);
+    return os_socket_setbooloption(socket, IPPROTO_TCP, TCP_NODELAY,
+                                   is_enabled);
 }
 
 int
-os_socket_get_tcp_no_delay(bh_socket_t socket, bool *enabled)
+os_socket_get_tcp_no_delay(bh_socket_t socket, bool *is_enabled)
 {
-    return os_socket_getbooloption(socket, IPPROTO_TCP, TCP_NODELAY, enabled);
+    return os_socket_getbooloption(socket, IPPROTO_TCP, TCP_NODELAY,
+                                   is_enabled);
 }
 
 int
-os_socket_set_tcp_quick_ack(bh_socket_t socket, bool enable)
+os_socket_set_tcp_quick_ack(bh_socket_t socket, bool is_enabled)
 {
 #ifdef TCP_QUICKACK
-    return os_socket_setbooloption(socket, IPPROTO_TCP, TCP_QUICKACK, enable);
+    return os_socket_setbooloption(socket, IPPROTO_TCP, TCP_QUICKACK,
+                                   is_enabled);
 #else
     errno = ENOSYS;
 
@@ -577,10 +588,11 @@ os_socket_set_tcp_quick_ack(bh_socket_t socket, bool enable)
 }
 
 int
-os_socket_get_tcp_quick_ack(bh_socket_t socket, bool *enabled)
+os_socket_get_tcp_quick_ack(bh_socket_t socket, bool *is_enabled)
 {
 #ifdef TCP_QUICKACK
-    return os_socket_getbooloption(socket, IPPROTO_TCP, TCP_QUICKACK, enabled);
+    return os_socket_getbooloption(socket, IPPROTO_TCP, TCP_QUICKACK,
+                                   is_enabled);
 #else
     errno = ENOSYS;
 
@@ -680,11 +692,11 @@ os_socket_get_tcp_keep_intvl(bh_socket_t socket, uint32 *time_s)
 }
 
 int
-os_socket_set_tcp_fastopen_connect(bh_socket_t socket, bool enable)
+os_socket_set_tcp_fastopen_connect(bh_socket_t socket, bool is_enabled)
 {
 #ifdef TCP_FASTOPEN_CONNECT
     return os_socket_setbooloption(socket, IPPROTO_TCP, TCP_FASTOPEN_CONNECT,
-                                   enable);
+                                   is_enabled);
 #else
     errno = ENOSYS;
 
@@ -693,11 +705,11 @@ os_socket_set_tcp_fastopen_connect(bh_socket_t socket, bool enable)
 }
 
 int
-os_socket_get_tcp_fastopen_connect(bh_socket_t socket, bool *enabled)
+os_socket_get_tcp_fastopen_connect(bh_socket_t socket, bool *is_enabled)
 {
 #ifdef TCP_FASTOPEN_CONNECT
     return os_socket_getbooloption(socket, IPPROTO_TCP, TCP_FASTOPEN_CONNECT,
-                                   enabled);
+                                   is_enabled);
 #else
     errno = ENOSYS;
 
@@ -706,46 +718,92 @@ os_socket_get_tcp_fastopen_connect(bh_socket_t socket, bool *enabled)
 }
 
 int
-os_socket_set_ip_multicast_loop(bh_socket_t socket, bool enable)
+os_socket_set_ip_multicast_loop(bh_socket_t socket, bool ipv6, bool is_enabled)
 {
-    return os_socket_setbooloption(socket, IPPROTO_IP, IP_MULTICAST_LOOP,
-                                   enable);
+    if (ipv6) {
+        return os_socket_setbooloption(socket, IPPROTO_IPV6,
+                                       IPV6_MULTICAST_LOOP, is_enabled);
+    }
+    else {
+        return os_socket_setbooloption(socket, IPPROTO_IP, IP_MULTICAST_LOOP,
+                                       is_enabled);
+    }
 }
 
 int
-os_socket_get_ip_multicast_loop(bh_socket_t socket, bool *enabled)
+os_socket_get_ip_multicast_loop(bh_socket_t socket, bool ipv6, bool *is_enabled)
 {
-    return os_socket_getbooloption(socket, IPPROTO_IP, IP_MULTICAST_LOOP,
-                                   enabled);
+    if (ipv6) {
+        return os_socket_getbooloption(socket, IPPROTO_IPV6,
+                                       IPV6_MULTICAST_LOOP, is_enabled);
+    }
+    else {
+        return os_socket_getbooloption(socket, IPPROTO_IP, IP_MULTICAST_LOOP,
+                                       is_enabled);
+    }
 }
 
 int
-os_socket_set_ip_add_membership(bh_socket_t socket, uint32_t imr_multiaddr,
-                                uint32_t imr_interface)
+os_socket_set_ip_add_membership(bh_socket_t socket,
+                                bh_ip_addr_buffer_t *imr_multiaddr,
+                                uint32_t imr_interface, bool is_ipv6)
 {
-    assert(mreq);
-    struct ip_mreq mreq;
-    mreq.imr_multiaddr.s_addr = imr_multiaddr;
-    mreq.imr_interface.s_addr = imr_interface;
-    if (setsockopt(socket, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq))
-        != 0) {
-        return BHT_ERROR;
+    assert(imr_multiaddr);
+    if (is_ipv6) {
+        struct ipv6_mreq mreq;
+        for (int i = 0; i < 8; i++) {
+            ((uint16_t *)mreq.ipv6mr_multiaddr.s6_addr)[i] =
+                imr_multiaddr->ipv6[i];
+        }
+        mreq.ipv6mr_interface = imr_interface;
+        if (setsockopt(socket, IPPROTO_IPV6, IPV6_JOIN_GROUP, &mreq,
+                       sizeof(mreq))
+            != 0) {
+            return BHT_ERROR;
+        }
+    }
+    else {
+        struct ip_mreq mreq;
+        mreq.imr_multiaddr.s_addr = imr_multiaddr->ipv4;
+        mreq.imr_interface.s_addr = imr_interface;
+        if (setsockopt(socket, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq,
+                       sizeof(mreq))
+            != 0) {
+            return BHT_ERROR;
+        }
     }
 
     return BHT_OK;
 }
 
 int
-os_socket_set_ip_drop_membership(bh_socket_t socket, uint32_t imr_multiaddr,
-                                 uint32_t imr_interface)
+os_socket_set_ip_drop_membership(bh_socket_t socket,
+                                 bh_ip_addr_buffer_t *imr_multiaddr,
+                                 uint32_t imr_interface, bool is_ipv6)
 {
-    assert(mreq);
-    struct ip_mreq mreq;
-    mreq.imr_multiaddr.s_addr = imr_multiaddr;
-    mreq.imr_interface.s_addr = imr_interface;
-    if (setsockopt(socket, IPPROTO_IP, IP_DROP_MEMBERSHIP, &mreq, sizeof(mreq))
-        != 0) {
-        return BHT_ERROR;
+    assert(imr_multiaddr);
+    if (is_ipv6) {
+        struct ipv6_mreq mreq;
+        for (int i = 0; i < 8; i++) {
+            ((uint16_t *)mreq.ipv6mr_multiaddr.s6_addr)[i] =
+                imr_multiaddr->ipv6[i];
+        }
+        mreq.ipv6mr_interface = imr_interface;
+        if (setsockopt(socket, IPPROTO_IPV6, IPV6_LEAVE_GROUP, &mreq,
+                       sizeof(mreq))
+            != 0) {
+            return BHT_ERROR;
+        }
+    }
+    else {
+        struct ip_mreq mreq;
+        mreq.imr_multiaddr.s_addr = imr_multiaddr->ipv4;
+        mreq.imr_interface.s_addr = imr_interface;
+        if (setsockopt(socket, IPPROTO_IP, IP_DROP_MEMBERSHIP, &mreq,
+                       sizeof(mreq))
+            != 0) {
+            return BHT_ERROR;
+        }
     }
 
     return BHT_OK;
@@ -796,77 +854,31 @@ os_socket_get_ip_multicast_ttl(bh_socket_t socket, uint8_t *ttl_s)
 }
 
 int
-os_socket_set_ipv6_only(bh_socket_t socket, bool enable)
+os_socket_set_ipv6_only(bh_socket_t socket, bool is_enabled)
 {
-    return os_socket_setbooloption(socket, IPPROTO_IPV6, IPV6_V6ONLY, enable);
+    return os_socket_setbooloption(socket, IPPROTO_IPV6, IPV6_V6ONLY,
+                                   is_enabled);
 }
 
 int
-os_socket_get_ipv6_only(bh_socket_t socket, bool *enabled)
+os_socket_get_ipv6_only(bh_socket_t socket, bool *is_enabled)
 {
-    return os_socket_getbooloption(socket, IPPROTO_IPV6, IPV6_V6ONLY, enabled);
+    return os_socket_getbooloption(socket, IPPROTO_IPV6, IPV6_V6ONLY,
+                                   is_enabled);
 }
 
 int
-os_socket_set_broadcast(bh_socket_t socket, bool enable)
+os_socket_set_broadcast(bh_socket_t socket, bool is_enabled)
 {
-    return os_socket_setbooloption(socket, SOL_SOCKET, SO_BROADCAST, enable);
+    return os_socket_setbooloption(socket, SOL_SOCKET, SO_BROADCAST,
+                                   is_enabled);
 }
 
 int
-os_socket_get_broadcast(bh_socket_t socket, bool *enabled)
+os_socket_get_broadcast(bh_socket_t socket, bool *is_enabled)
 {
-    return os_socket_getbooloption(socket, SOL_SOCKET, SO_BROADCAST, enabled);
-}
-
-int
-os_socket_set_ipv6_multicast_loop(bh_socket_t socket, bool enable)
-{
-    return os_socket_setbooloption(socket, IPPROTO_IPV6, IPV6_MULTICAST_LOOP,
-                                   enable);
-}
-
-int
-os_socket_get_ipv6_multicast_loop(bh_socket_t socket, bool *enabled)
-{
-    return os_socket_getbooloption(socket, IPPROTO_IPV6, IPV6_MULTICAST_LOOP,
-                                   enabled);
-}
-
-int
-os_socket_set_ipv6_join_group(bh_socket_t socket, uint16_t imr_multiaddr[8],
-                              uint32_t imr_interface)
-{
-    assert(mreq);
-    struct ipv6_mreq mreq;
-    for (int i = 0; i < 8; i++) {
-        ((uint16_t *)mreq.ipv6mr_multiaddr.s6_addr)[i] = imr_multiaddr[i];
-    }
-    mreq.ipv6mr_interface = imr_interface;
-    if (setsockopt(socket, IPPROTO_IPV6, IPV6_JOIN_GROUP, &mreq, sizeof(mreq))
-        != 0) {
-        return BHT_ERROR;
-    }
-
-    return BHT_OK;
-}
-
-int
-os_socket_set_ipv6_leave_group(bh_socket_t socket, uint16_t imr_multiaddr[8],
-                               uint32_t imr_interface)
-{
-    assert(mreq);
-    struct ipv6_mreq mreq;
-    for (int i = 0; i < 8; i++) {
-        ((uint16_t *)mreq.ipv6mr_multiaddr.s6_addr)[i] = imr_multiaddr[i];
-    }
-    mreq.ipv6mr_interface = imr_interface;
-    if (setsockopt(socket, IPPROTO_IPV6, IPV6_LEAVE_GROUP, &mreq, sizeof(mreq))
-        != 0) {
-        return BHT_ERROR;
-    }
-
-    return BHT_OK;
+    return os_socket_getbooloption(socket, SOL_SOCKET, SO_BROADCAST,
+                                   is_enabled);
 }
 
 int

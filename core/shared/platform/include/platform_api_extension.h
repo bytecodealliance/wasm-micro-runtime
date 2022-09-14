@@ -579,24 +579,24 @@ os_socket_get_recv_buf_size(bh_socket_t socket, size_t *bufsiz);
  * Enable sending of keep-alive messages on connection-oriented sockets
  *
  * @param socket the socket to set the flag
- * @param enable 1 to enable or 0 to disable
+ * @param is_enabled 1 to enable or 0 to disable
  *
  * @return 0 if success, -1 otherwise
  */
 int
-os_socket_set_keep_alive(bh_socket_t socket, bool enable);
+os_socket_set_keep_alive(bh_socket_t socket, bool is_enabled);
 
 /**
  * Get if sending of keep-alive messages on connection-oriented sockets is
  * enabled
  *
  * @param socket the socket to check
- * @param enabled 1 if enabled or 0 if disabled
+ * @param is_enabled 1 if enabled or 0 if disabled
  *
  * @return 0 if success, -1 otherwise
  */
 int
-os_socket_get_keep_alive(bh_socket_t socket, bool *enabled);
+os_socket_get_keep_alive(bh_socket_t socket, bool *is_enabled);
 
 /**
  * Set the send timeout until reporting an error
@@ -646,65 +646,67 @@ os_socket_get_recv_timeout(bh_socket_t socket, uint64 *timeout_us);
  * Enable re-use of local addresses
  *
  * @param socket the socket to set
- * @param enable 1 to enable or 0 to disable
+ * @param is_enabled 1 to enable or 0 to disable
  *
  * @return 0 if success, -1 otherwise
  */
 int
-os_socket_set_reuse_addr(bh_socket_t socket, bool enable);
+os_socket_set_reuse_addr(bh_socket_t socket, bool is_enabled);
 
 /**
  * Get whether re-use of local addresses is enabled
  *
  * @param socket the socket to set
- * @param enabled 1 for enabled or 0 for disabled
+ * @param is_enabled 1 for enabled or 0 for disabled
  *
  * @return 0 if success, -1 otherwise
  */
 int
-os_socket_get_reuse_addr(bh_socket_t socket, bool *enabled);
+os_socket_get_reuse_addr(bh_socket_t socket, bool *is_enabled);
 
 /**
  * Enable re-use of local ports
  *
  * @param socket the socket to set
- * @param enable 1 to enable or 0 to disable
+ * @param is_enabled 1 to enable or 0 to disable
  *
  * @return 0 if success, -1 otherwise
  */
 int
-os_socket_set_reuse_port(bh_socket_t socket, bool enable);
+os_socket_set_reuse_port(bh_socket_t socket, bool is_enabled);
 
 /**
  * Get whether re-use of local ports is enabled
  *
  * @param socket the socket to set
- * @param enable 1 for enabled or 0 for disabled
+ * @param is_enabled 1 for enabled or 0 for disabled
  *
  * @return 0 if success, -1 otherwise
  */
 int
-os_socket_get_reuse_port(bh_socket_t socket, bool *enabled);
+os_socket_get_reuse_port(bh_socket_t socket, bool *is_enabled);
 
 /**
  * Set the linger options for the given socket
  *
  * @param socket the socket to set
- * @param linger_opts linger options to set
+ * @param is_enabled whether linger is enabled
+ * @param linger_s linger time (seconds)
  * @return 0 if success, -1 otherwise
  */
 int
-os_socket_set_linger(bh_socket_t socket, int l_onoff, int l_linger_s);
+os_socket_set_linger(bh_socket_t socket, bool is_enabled, int linger_s);
 
 /**
  * Get the linger options for the given socket
  *
  * @param socket the socket to get
- * @param linger_opts the returned linger options for the socket
+ * @param is_enabled whether linger is enabled
+ * @param linger_s linger time (seconds)
  * @return 0 if success, -1 otherwise
  */
 int
-os_socket_get_linger(bh_socket_t socket, int *l_onoff, int *l_linger_s);
+os_socket_get_linger(bh_socket_t socket, bool *is_enabled, int *linger_s);
 
 /**
  * Set no delay TCP
@@ -713,12 +715,12 @@ os_socket_get_linger(bh_socket_t socket, int *l_onoff, int *l_linger_s);
  * even if there is only a small amount of data
  *
  * @param socket the socket to set the flag
- * @param enable 1 to enable or 0 to disable
+ * @param is_enabled 1 to enable or 0 to disable
  *
  * @return 0 if success, -1 otherwise
  */
 int
-os_socket_set_tcp_no_delay(bh_socket_t socket, bool enable);
+os_socket_set_tcp_no_delay(bh_socket_t socket, bool is_enabled);
 
 /**
  * Get no delay TCP
@@ -727,12 +729,12 @@ os_socket_set_tcp_no_delay(bh_socket_t socket, bool enable);
  * even if there is only a small amount of data
  *
  * @param socket the socket to check
- * @param enabled 1 if enabled or 0 if disabled
+ * @param is_enabled 1 if enabled or 0 if disabled
  *
  * @return 0 if success, -1 otherwise
  */
 int
-os_socket_get_tcp_no_delay(bh_socket_t socket, bool *enabled);
+os_socket_get_tcp_no_delay(bh_socket_t socket, bool *is_enabled);
 
 /**
  * Enable/Disable tcp quickack mode
@@ -740,12 +742,12 @@ os_socket_get_tcp_no_delay(bh_socket_t socket, bool *enabled);
  * accordance to normal TCP operation
  *
  * @param socket the socket to set the flag
- * @param enable 1 to enable or 0 to disable
+ * @param is_enabled 1 to enable or 0 to disable
  *
  * @return 0 if success, -1 otherwise
  */
 int
-os_socket_set_tcp_quick_ack(bh_socket_t socket, bool enable);
+os_socket_set_tcp_quick_ack(bh_socket_t socket, bool is_enabled);
 
 /**
  * Enable/Disable tcp quickack mode
@@ -753,12 +755,12 @@ os_socket_set_tcp_quick_ack(bh_socket_t socket, bool enable);
  * accordance to normal TCP operation
  *
  * @param socket the socket to check
- * @param enabled 1 if enabled or 0 if disabled
+ * @param is_enabled 1 if enabled or 0 if disabled
  *
  * @return 0 if success, -1 otherwise
  */
 int
-os_socket_get_tcp_quick_ack(bh_socket_t socket, bool *enabled);
+os_socket_get_tcp_quick_ack(bh_socket_t socket, bool *is_enabled);
 
 /**
  * Set the time the connection needs to remain idle before sending keepalive
@@ -810,69 +812,78 @@ os_socket_get_tcp_keep_intvl(bh_socket_t socket, uint32_t *time_s);
  * Set use of TCP Fast Open
  *
  * @param socket the socket to set
- * @param enable 1 to enable or 0 to disable
+ * @param is_enabled 1 to enable or 0 to disable
  *
  * @return 0 if success, -1 otherwise
  */
 int
-os_socket_set_tcp_fastopen_connect(bh_socket_t socket, bool enable);
+os_socket_set_tcp_fastopen_connect(bh_socket_t socket, bool is_enabled);
 
 /**
  * Get whether use of TCP Fast Open is enabled
  *
  * @param socket the socket to get
- * @param enable 1 to enabled or 0 to disabled
+ * @param is_enabled 1 to enabled or 0 to disabled
  *
  * @return 0 if success, -1 otherwise
  */
 int
-os_socket_get_tcp_fastopen_connect(bh_socket_t socket, bool *enabled);
+os_socket_get_tcp_fastopen_connect(bh_socket_t socket, bool *is_enabled);
 
 /**
- * Set enable or disable IP multicast loopback.
+ * Set enable or disable IPv4 or IPv6 multicast loopback.
  *
  * @param socket the socket to set
- * @param enable 1 to enable or 0 to disable
+ * @param ipv6 true to set ipv6 loopback or false for ipv4
+ * @param is_enabled 1 to enable or 0 to disable
  *
  * @return 0 if success, -1 otherwise
  */
 int
-os_socket_set_ip_multicast_loop(bh_socket_t socket, bool enable);
+os_socket_set_ip_multicast_loop(bh_socket_t socket, bool ipv6, bool is_enabled);
 
 /**
- * Get enable or disable IP multicast loopback.
+ * Get enable or disable IPv4 or IPv6 multicast loopback.
  *
  * @param socket the socket to check
- * @param enabled 1 for enabled or 0 for disabled
+ * @param ipv6 true to set ipv6 loopback or false for ipv4
+ * @param is_enabled 1 for enabled or 0 for disabled
  *
  * @return 0 if success, -1 otherwise
  */
 int
-os_socket_get_ip_multicast_loop(bh_socket_t socket, bool *enabled);
+os_socket_get_ip_multicast_loop(bh_socket_t socket, bool ipv6,
+                                bool *is_enabled);
 
 /**
  * Add membership to a group
  *
- * @param socket the socket to set timeout
- * @param mreq the group multicast address and local interface address
+ * @param socket the socket to add membership to
+ * @param imr_multiaddr the group multicast address (IPv4 or IPv6)
+ * @param imr_interface the interface to join on
+ * @param is_ipv6 whether the imr_multiaddr is IPv4 or IPv6 (true for IPv6)
  *
  * @return 0 if success, -1 otherwise
  */
 int
-os_socket_set_ip_add_membership(bh_socket_t socket, uint32_t imr_multiaddr,
-                                uint32_t imr_interface);
+os_socket_set_ip_add_membership(bh_socket_t socket,
+                                bh_ip_addr_buffer_t *imr_multiaddr,
+                                uint32_t imr_interface, bool is_ipv6);
 
 /**
  * Drop membership of a group
  *
- * @param socket the socket to set timeout
- * @param mreq the group multicast address and local interface address
+ * @param socket the socket to drop membership to
+ * @param imr_multiaddr the group multicast address (IPv4 or IPv6)
+ * @param imr_interface the interface to join on
+ * @param is_ipv6 whether the imr_multiaddr is IPv4 or IPv6 (true for IPv6)
  *
  * @return 0 if success, -1 otherwise
  */
 int
-os_socket_set_ip_drop_membership(bh_socket_t socket, uint32_t imr_multiaddr,
-                                 uint32_t imr_interface);
+os_socket_set_ip_drop_membership(bh_socket_t socket,
+                                 bh_ip_addr_buffer_t *imr_multiaddr,
+                                 uint32_t imr_interface, bool is_ipv6);
 
 /**
  * Set the current time-to-live field that is
@@ -922,69 +933,23 @@ os_socket_get_ip_multicast_ttl(bh_socket_t socket, uint8_t *ttl_s);
  * Restrict to sending and receiving IPv6 packets only
  *
  * @param socket the socket to set
- * @param enable 1 to enable or 0 to disable
+ * @param is_enabled 1 to enable or 0 to disable
  *
  * @return 0 if success, -1 otherwise
  */
 int
-os_socket_set_ipv6_only(bh_socket_t socket, bool enable);
+os_socket_set_ipv6_only(bh_socket_t socket, bool is_enabled);
 
 /**
  * Get whether only sending and receiving IPv6 packets
  *
  * @param socket the socket to check
- * @param enabled 1 for enabled or 0 for disabled
+ * @param is_enabled 1 for enabled or 0 for disabled
  *
  * @return 0 if success, -1 otherwise
  */
 int
-os_socket_get_ipv6_only(bh_socket_t socket, bool *enabled);
-
-/**
- * Set enable or disable IPv6 multicast loopback.
- *
- * @param socket the socket to set
- * @param enable 1 to enable or 0 to disable
- *
- * @return 0 if success, -1 otherwise
- */
-int
-os_socket_set_ipv6_multicast_loop(bh_socket_t socket, bool enable);
-
-/**
- * Get enable or disable IPv6 multicast loopback.
- *
- * @param socket the socket to check
- * @param enabled 1 for enabled or 0 for disabled
- *
- * @return 0 if success, -1 otherwise
- */
-int
-os_socket_get_ipv6_multicast_loop(bh_socket_t socket, bool *enabled);
-
-/**
- * Join IPv6 multicast group
- *
- * @param socket the socket to set timeout
- * @param mreq the group multicast address and local interface address
- *
- * @return 0 if success, -1 otherwise
- */
-int
-os_socket_set_ipv6_join_group(bh_socket_t socket, uint16_t imr_multiaddr[8],
-                              uint32_t imr_interface);
-
-/**
- * Leave IPv6 multicast group
- *
- * @param socket the socket to set timeout
- * @param mreq the group multicast address and local interface address
- *
- * @return 0 if success, -1 otherwise
- */
-int
-os_socket_set_ipv6_leave_group(bh_socket_t socket, uint16_t imr_multiaddr[8],
-                               uint32_t imr_interface);
+os_socket_get_ipv6_only(bh_socket_t socket, bool *is_enabled);
 
 /**
  * Set whether broadcast is enabled
@@ -992,12 +957,12 @@ os_socket_set_ipv6_leave_group(bh_socket_t socket, uint16_t imr_multiaddr[8],
  * to send packets to a broadcast address.
  *
  * @param socket the socket to set the flag
- * @param enable 1 to enable or 0 to disable
+ * @param is_enabled 1 to enable or 0 to disable
  *
  * @return 0 if success, -1 otherwise
  */
 int
-os_socket_set_broadcast(bh_socket_t socket, bool enable);
+os_socket_set_broadcast(bh_socket_t socket, bool is_enabled);
 
 /**
  * Get whether broadcast is enabled
@@ -1005,12 +970,12 @@ os_socket_set_broadcast(bh_socket_t socket, bool enable);
  * to send packets to a broadcast address.
  *
  * @param socket the socket to check
- * @param enabled 1 if enabled or 0 if disabled
+ * @param is_enabled 1 if enabled or 0 if disabled
  *
  * @return 0 if success, -1 otherwise
  */
 int
-os_socket_get_broadcast(bh_socket_t socket, bool *enabled);
+os_socket_get_broadcast(bh_socket_t socket, bool *is_enabled);
 
 #ifdef __cplusplus
 }
