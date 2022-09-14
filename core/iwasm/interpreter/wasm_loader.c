@@ -7351,7 +7351,7 @@ re_scan:
                     else if (is_64bit_type(*(loader_ctx->frame_ref - 1))) {
                         loader_ctx->frame_ref -= 2;
                         loader_ctx->stack_cell_num -= 2;
-#if (WASM_ENABLE_FAST_INTERP == 0) || (WASM_ENABLE_JIT != 0)
+#if WASM_ENABLE_FAST_INTERP == 0
                         *(p - 1) = WASM_OP_DROP_64;
 #endif
 #if WASM_ENABLE_FAST_INTERP != 0
@@ -7413,7 +7413,7 @@ re_scan:
                             break;
                         case REF_I64_2:
                         case REF_F64_2:
-#if (WASM_ENABLE_FAST_INTERP == 0) || (WASM_ENABLE_JIT != 0)
+#if WASM_ENABLE_FAST_INTERP == 0
                             *(p - 1) = WASM_OP_SELECT_64;
 #endif
 #if WASM_ENABLE_FAST_INTERP != 0
