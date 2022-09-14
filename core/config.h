@@ -276,6 +276,13 @@
 #define BH_ENABLE_GC_VERIFY 0
 #endif
 
+/* Enable buffered printf for builtin libc or not */
+#ifndef BH_BUILTIN_LIBC_BUFFERED_PRINTF
+#define BH_BUILTIN_LIBC_BUFFERED_PRINTF 0
+#define BH_BUILTIN_LIBC_BUFFERED_SIZE 128
+#define BH_BUILTIN_LIBC_BUFFERED_PREFIX
+#endif
+
 /* Enable global heap pool if heap verification is enabled */
 #if BH_ENABLE_GC_VERIFY != 0
 #define WASM_ENABLE_GLOBAL_HEAP_POOL 1

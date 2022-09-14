@@ -345,9 +345,10 @@ sprintf_out(int c, struct str_context *ctx)
     return c;
 }
 
-#ifdef BH_PLATFORM_OPENRTOS
-PRIVILEGED_DATA static char print_buf[128] = { 0 };
-PRIVILEGED_DATA static int print_buf_size = 0;
+#if BH_BUILTIN_LIBC_BUFFERED_PRINTF != 0
+BH_BUILTIN_LIBC_BUFFERED_PREFIX static char
+    print_buf[BH_BUILTIN_LIBC_BUFFERED_SIZE] = { 0 };
+BH_BUILTIN_LIBC_BUFFERED_PREFIX static int print_buf_size = 0;
 
 static int
 printf_out(int c, struct str_context *ctx)
@@ -884,7 +885,8 @@ __cxa_allocate_exception_wrapper(wasm_exec_env_t exec_env, uint32 thrown_size)
 
 static void
 __cxa_begin_catch_wrapper(wasm_exec_env_t exec_env, void *exception_object)
-{}
+{
+}
 
 static void
 __cxa_throw_wrapper(wasm_exec_env_t exec_env, void *thrown_exception,
