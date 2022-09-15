@@ -697,9 +697,6 @@ wasm_cluster_join_thread(WASMExecEnv *exec_env, void **ret_val)
 int32
 wasm_cluster_detach_thread(WASMExecEnv *exec_env)
 {
-    if (exec_env->thread_is_detached)
-        return 0;
-
     int32 ret = 0;
 
     os_mutex_lock(&cluster_list_lock);
@@ -708,7 +705,7 @@ wasm_cluster_detach_thread(WASMExecEnv *exec_env)
         os_mutex_unlock(&cluster_list_lock);
         return 0;
     }
-    if (exec_env->wait_count == 0) {
+    if (exec_env->wait_count == 0 && !exec_env->thread_is_detached) {
         /* Only detach current thread when there is no other thread
            joining it, otherwise let the system resources for the
            thread be released after joining */
