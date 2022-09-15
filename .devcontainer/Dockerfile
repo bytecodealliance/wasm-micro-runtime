@@ -15,7 +15,9 @@ RUN apt-get update \
   libgcc-9-dev lib32gcc-9-dev lsb-release \
   ninja-build ocaml ocamlbuild python2.7 \
   software-properties-common tree tzdata \
-  unzip valgrind vim wget zip --no-install-recommends
+  unzip valgrind vim wget zip --no-install-recommends \
+  && apt-get clean -y \
+  && rm -rf /var/lib/apt/lists/* 
 
 #
 # CMAKE (https://apt.kitware.com/)
@@ -23,15 +25,18 @@ RUN wget --progress=dot:giga -O - https://apt.kitware.com/keys/kitware-archive-l
   && echo 'deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ bionic main' | tee /etc/apt/sources.list.d/kitware.list >/dev/null \
   && apt-get update \
   && rm /usr/share/keyrings/kitware-archive-keyring.gpg \
-  && apt-get install -y kitware-archive-keyring \
-  && apt-get install -y cmake
+  && apt-get install -y kitware-archive-keyring --no-install-recommends \
+  && apt-get install -y cmake --no-install-recommends \
+  && apt-get clean -y \
+  && rm -rf /var/lib/apt/lists/* 
 
 #
 # install emsdk
-RUN cd /opt \
-  && git clone https://github.com/emscripten-core/emsdk.git
-RUN cd /opt/emsdk \
-  && git pull \
+WORKDIR /opt
+RUN git clone https://github.com/emscripten-core/emsdk.git
+
+WORKDIR /opt/emsdk
+RUN  git pull \
   && ./emsdk install 2.0.26 \
   && ./emsdk activate 2.0.26 \
   && echo "source /opt/emsdk/emsdk_env.sh" >> /root/.bashrc
@@ -39,49 +44,54 @@ RUN cd /opt/emsdk \
 #
 # install wasi-sdk
 ARG WASI_SDK_VER=16
-RUN wget -c --progress=dot:giga https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_SDK_VER}/wasi-sdk-${WASI_SDK_VER}.0-linux.tar.gz -P /opt
-RUN tar xf /opt/wasi-sdk-${WASI_SDK_VER}.0-linux.tar.gz -C /opt \
-  && ln -fs /opt/wasi-sdk-${WASI_SDK_VER}.0 /opt/wasi-sdk
-RUN rm /opt/wasi-sdk-${WASI_SDK_VER}.0-linux.tar.gz
+RUN wget -c --progress=dot:giga https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_SDK_VER}/wasi-sdk-${WASI_SDK_VER}.0-linux.tar.gz -P /opt \
+  && tar xf /opt/wasi-sdk-${WASI_SDK_VER}.0-linux.tar.gz -C /opt \
+  && ln -fs /opt/wasi-sdk-${WASI_SDK_VER}.0 /opt/wasi-sdk \
+  && rm /opt/wasi-sdk-${WASI_SDK_VER}.0-linux.tar.gz
 
 #
 #install wabt
 ARG WABT_VER=1.0.29
-RUN wget -c --progress=dot:giga https://github.com/WebAssembly/wabt/releases/download/${WABT_VER}/wabt-${WABT_VER}-ubuntu.tar.gz -P /opt
-RUN tar xf /opt/wabt-${WABT_VER}-ubuntu.tar.gz -C /opt \
-  && ln -fs /opt/wabt-${WABT_VER} /opt/wabt
-RUN rm /opt/wabt-${WABT_VER}-ubuntu.tar.gz
+RUN wget -c --progress=dot:giga https://github.com/WebAssembly/wabt/releases/download/${WABT_VER}/wabt-${WABT_VER}-ubuntu.tar.gz -P /opt \
+  && tar xf /opt/wabt-${WABT_VER}-ubuntu.tar.gz -C /opt \
+  && ln -fs /opt/wabt-${WABT_VER} /opt/wabt \
+  && rm /opt/wabt-${WABT_VER}-ubuntu.tar.gz
 
 #
 # install bazelisk
 ARG BAZELISK_VER=1.12.0
-RUN mkdir /opt/bazelisk
-RUN wget -c --progress=dot:giga https://github.com/bazelbuild/bazelisk/releases/download/v${BAZELISK_VER}/bazelisk-linux-amd64 -P /opt/bazelisk
-RUN chmod a+x /opt/bazelisk/bazelisk-linux-amd64 \
+RUN mkdir /opt/bazelisk \ 
+  && wget -c --progress=dot:giga https://github.com/bazelbuild/bazelisk/releases/download/v${BAZELISK_VER}/bazelisk-linux-amd64 -P /opt/bazelisk \
+  && chmod a+x /opt/bazelisk/bazelisk-linux-amd64 \
   && ln -fs /opt/bazelisk/bazelisk-linux-amd64 /opt/bazelisk/bazel
 
 #
 # install clang+llvm
-RUN cd /etc/apt/apt.conf.d \
-  && touch 99verfiy-peer.conf \
+WORKDIR /etc/apt/apt.conf.d
+RUN touch 99verfiy-peer.conf \
   && echo "Acquire { https::Verify-Peer false }" > 99verfiy-peer.conf
-RUN cd /tmp \
-  && wget --progress=dot:giga https://apt.llvm.org/llvm.sh \
-  && chmod a+x ./llvm.sh
-RUN /tmp/llvm.sh 12 all
-RUN ln -sf /usr/bin/clang-format-12 /usr/bin/clang-format
+
+WORKDIR /tmp 
+RUN wget --progress=dot:giga https://apt.llvm.org/llvm.sh \
+  && chmod a+x ./llvm.sh \
+  && /tmp/llvm.sh 12 all \ 
+  && ln -sf /usr/bin/clang-format-12 /usr/bin/clang-format \
+  && rm -rf /tmp/*
 
 #
 # [Optional]
 
 #
 # Install pip
-RUN apt-get update && apt-get install -y --reinstall python3-venv python3-pip
-RUN python3 -m pip install --no-cache-dir --upgrade pip
+RUN apt-get update \
+  && apt-get install -y --reinstall python3-venv python3-pip --no-install-recommends \
+  && apt-get clean -y \
+  && rm -rf /var/lib/apt/lists/* 
 
 #
 # Install required python packages
-RUN pip3 install --no-cache-dir --user black nose pycparser pylint
+RUN python3 -m pip install --no-cache-dir --upgrade pip \
+  && pip3 install --no-cache-dir --user black nose pycparser pylint
 
 # set path
 ENV PATH "/opt/bazelisk:/opt/clang-llvm/bin:${PATH}"

@@ -7,7 +7,10 @@ ARG DOCKER_UID=1000
 
 ENV DEBIAN_FRONTEND noninteractive
 
-RUN apt-get -qq update && apt install -qq -y python3-pip git wget ninja-build
+RUN apt-get -qq update \
+  && apt-get install -qq -y python3-pip git wget ninja-build --no-install-recommends \ 
+  && apt-get clean -y \
+  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /tmp
 
@@ -15,21 +18,19 @@ RUN mkdir /opt/cmake && wget -q https://github.com/Kitware/CMake/releases/downlo
 
 ENV PATH="/opt/cmake/bin:$PATH"
 
-RUN useradd -m wamr -u ${DOCKER_UID} -G dialout
+RUN useradd -l -m wamr -u ${DOCKER_UID} -G dialout
 
 USER wamr
 
 ENV PATH="/home/wamr/.local/bin:$PATH"
 
-RUN pip3 install --user west
-
-RUN west init ~/zephyrproject && cd ~/zephyrproject && west update && west zephyr-export
-
-RUN pip3 install --user -r ~/zephyrproject/zephyr/scripts/requirements.txt
+RUN pip3 install --user west --no-cache-dir \
+  && west init ~/zephyrproject 
 
 WORKDIR /home/wamr/zephyrproject
-
-RUN west espressif install
+RUN west update && west zephyr-export \
+  && pip3 install --user -r ~/zephyrproject/zephyr/scripts/requirements.txt --no-cache-dir \
+  && west espressif install
 
 ENV ZEPHYR_BASE=/home/wamr/zephyrproject/zephyr
 ENV ESPRESSIF_TOOLCHAIN_PATH=/home/wamr/.espressif/tools/zephyr
