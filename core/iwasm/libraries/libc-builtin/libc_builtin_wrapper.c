@@ -345,7 +345,18 @@ sprintf_out(int c, struct str_context *ctx)
     return c;
 }
 
-#if BH_BUILTIN_LIBC_BUFFERED_PRINTF != 0
+#ifndef BUILTIN_LIBC_BUFFERED_PRINTF
+#define BUILTIN_LIBC_BUFFERED_PRINTF 0
+#endif
+
+#if BUILTIN_LIBC_BUFFERED_PRINTF != 0
+#ifndef BUILTIN_LIBC_BUFFERED_PRINT_SIZE
+#define BUILTIN_LIBC_BUFFERED_PRINT_SIZE 128
+#endif
+#ifndef BUILTIN_LIBC_BUFFERED_PRINT_PREFIX
+#define BUILTIN_LIBC_BUFFERED_PRINT_PREFIX
+#endif
+
 BH_BUILTIN_LIBC_BUFFERED_PREFIX static char
     print_buf[BH_BUILTIN_LIBC_BUFFERED_SIZE] = { 0 };
 BH_BUILTIN_LIBC_BUFFERED_PREFIX static int print_buf_size = 0;
@@ -885,8 +896,7 @@ __cxa_allocate_exception_wrapper(wasm_exec_env_t exec_env, uint32 thrown_size)
 
 static void
 __cxa_begin_catch_wrapper(wasm_exec_env_t exec_env, void *exception_object)
-{
-}
+{}
 
 static void
 __cxa_throw_wrapper(wasm_exec_env_t exec_env, void *thrown_exception,
