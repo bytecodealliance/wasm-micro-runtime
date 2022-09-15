@@ -1841,6 +1841,11 @@ allocate_iovec_app_buffer(wasm_module_inst_t module_inst,
     for (total_size = 0, i = 0; i < data_len; i++, data++) {
         total_size += data->buf_len;
     }
+
+    if (total_size == 0) {
+        return __WASI_EINVAL;
+    }
+
     if (total_size >= UINT32_MAX
         || !(buf_begin = wasm_runtime_malloc((uint32)total_size))) {
         return __WASI_ENOMEM;
@@ -1852,12 +1857,19 @@ allocate_iovec_app_buffer(wasm_module_inst_t module_inst,
     return __WASI_ESUCCESS;
 }
 
+static inline size_t
+min(size_t a, size_t b)
+{
+    return a > b ? b : a;
+}
+
 static wasi_errno_t
 copy_buffer_to_iovec_app(wasm_module_inst_t module_inst, uint8 *buf_begin,
                          uint32 buf_size, iovec_app_t *data, uint32 data_len)
 {
     uint8 *buf = buf_begin;
     uint32 i;
+    uint32 length_to_copy;
 
     for (i = 0; i < data_len; data++, i++) {
         char *native_addr;
@@ -1867,14 +1879,17 @@ copy_buffer_to_iovec_app(wasm_module_inst_t module_inst, uint8 *buf_begin,
         }
 
         if (buf >= buf_begin + buf_size
-            || buf + data->buf_len < buf /* integer overflow */
-            || buf + data->buf_len > buf_begin + buf_size) {
+            || buf + data->buf_len < buf /* integer overflow */) {
             break;
         }
 
+        // If our app buffer size is smaller than the amount to be copied,
+        // only copy the amount in the app buffer
+        length_to_copy = min(data->buf_len, buf_size);
+
         native_addr = (void *)addr_app_to_native(data->buf_offset);
-        bh_memcpy_s(native_addr, data->buf_len, buf, data->buf_len);
-        buf += data->buf_len;
+        bh_memcpy_s(native_addr, length_to_copy, buf, length_to_copy);
+        buf += length_to_copy;
     }
 
     return __WASI_ESUCCESS;

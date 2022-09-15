@@ -91,6 +91,8 @@ ExternalProject_Add(wasm-app
                       tcp_server.wasm ${CMAKE_BINARY_DIR}
                       send_recv.wasm ${CMAKE_BINARY_DIR}
                       socket_opts.wasm ${CMAKE_BINARY_DIR}
+                      udp_client.wasm ${CMAKE_BINARY_DIR}
+                      udp_server.wasm ${CMAKE_BINARY_DIR}
 )
 
 add_executable(tcp_server ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src/tcp_server.c)
