@@ -306,9 +306,11 @@ wasm_engine_new_internal(mem_alloc_type_t type, const MemAllocOption *opts)
         goto failed;
     }
 
-#if BH_DEBUG != 0
+#ifndef NDEBUG
+    /*DEBUG*/
     bh_log_set_verbose_level(5);
 #else
+    /*VERBOSE*/
     bh_log_set_verbose_level(3);
 #endif
 
@@ -2664,6 +2666,7 @@ params_to_argv(const wasm_val_vec_t *params,
     }
 
     if (!params || !params->num_elems || !params->size || !params->data) {
+        LOG_ERROR("the parameter params is invalid");
         return false;
     }
 
@@ -2721,6 +2724,7 @@ argv_to_results(const uint32 *argv, const wasm_valtype_vec_t *result_defs,
     }
 
     if (!results || !results->size || !results->data) {
+        LOG_ERROR("the parameter results is invalid");
         return false;
     }
 
@@ -2847,6 +2851,7 @@ wasm_func_call(const wasm_func_t *func, const wasm_val_vec_t *params,
 
     param_count = wasm_func_param_arity(func);
     result_count = wasm_func_result_arity(func);
+
     alloc_count = (param_count > result_count) ? param_count : result_count;
     if (alloc_count > (size_t)sizeof(argv_buf) / sizeof(uint64)) {
         if (!(argv = malloc_internal(sizeof(uint64) * alloc_count))) {
