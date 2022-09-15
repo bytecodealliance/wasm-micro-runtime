@@ -25,10 +25,7 @@
  * Included Files
  ****************************************************************************/
 
-#include <nuttx/config.h>
-
 #include <stdint.h>
-#include <elf.h>
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -44,7 +41,9 @@
 #define ELF32_R_TYPE(i)   ((i) & 0xff)
 #define ELF32_R_INFO(s,t) (((s)<< 8) | ((t) & 0xff))
 
+#if 0
 #define ELF_R_SYM(i)      ELF32_R_SYM(i)
+#endif
 
 /****************************************************************************
  * Public Type Definitions
@@ -156,6 +155,7 @@ typedef struct
   } d_un;
 } Elf32_Dyn;
 
+#if 0
 typedef Elf32_Addr  Elf_Addr;
 typedef Elf32_Ehdr  Elf_Ehdr;
 typedef Elf32_Rel   Elf_Rel;
@@ -165,5 +165,6 @@ typedef Elf32_Phdr  Elf_Phdr;
 typedef Elf32_Sym   Elf_Sym;
 typedef Elf32_Shdr  Elf_Shdr;
 typedef Elf32_Word  Elf_Word;
+#endif
 
 #endif /* __INCLUDE_ELF32_H */

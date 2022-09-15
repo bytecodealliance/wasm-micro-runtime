@@ -25,19 +25,14 @@
  * Included Files
  ****************************************************************************/
 
-#include <nuttx/config.h>
-
 #include <stdint.h>
 
 #define EI_NIDENT          16     /* Size of e_ident[] */
 
 /* NOTE: elf64.h and elf32.h refer EI_NIDENT defined above */
 
-#ifdef CONFIG_LIBC_ARCH_ELF_64BIT
-#  include <elf64.h>
-#else
-#  include <elf32.h>
-#endif
+#include "elf64.h"
+#include "elf32.h"
 
 /****************************************************************************
  * Pre-processor Definitions

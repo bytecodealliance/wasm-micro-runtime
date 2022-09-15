@@ -25,10 +25,8 @@
  * Included Files
  ****************************************************************************/
 
-#include <nuttx/config.h>
 
 #include <stdint.h>
-#include <elf.h>
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -42,7 +40,9 @@
 #define ELF64_R_TYPE(i)   ((i) & 0xffffffffL)
 #define ELF64_R_INFO(s,t) (((s)<< 32) + ((t) & 0xffffffffL))
 
+#if 0
 #define ELF_R_SYM(i)      ELF64_R_SYM(i)
+#endif
 
 /****************************************************************************
  * Public Type Definitions
@@ -156,6 +156,7 @@ typedef struct
   } d_un;
 } Elf64_Dyn;
 
+#if 0
 typedef Elf64_Addr  Elf_Addr;
 typedef Elf64_Ehdr  Elf_Ehdr;
 typedef Elf64_Rel   Elf_Rel;
@@ -165,5 +166,6 @@ typedef Elf64_Phdr  Elf_Phdr;
 typedef Elf64_Sym   Elf_Sym;
 typedef Elf64_Shdr  Elf_Shdr;
 typedef Elf64_Word  Elf_Word;
+#endif
 
 #endif /* __INCLUDE_ELF64_H */
