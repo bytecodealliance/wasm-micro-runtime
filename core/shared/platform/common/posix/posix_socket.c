@@ -12,7 +12,8 @@
 #include <netinet/in.h>
 
 static bool
-textual_addr_to_sockaddr(const char *textual, int port, struct sockaddr *out)
+textual_addr_to_sockaddr(const char *textual, int port, struct sockaddr *out,
+                         socklen_t *out_len)
 {
     struct sockaddr_in *v4;
     struct sockaddr_in6 *v6;
@@ -23,6 +24,7 @@ textual_addr_to_sockaddr(const char *textual, int port, struct sockaddr *out)
     if (inet_pton(AF_INET, textual, &v4->sin_addr.s_addr) == 1) {
         v4->sin_family = AF_INET;
         v4->sin_port = htons(port);
+        *out_len = sizeof(struct sockaddr_in);
         return true;
     }
 
@@ -30,6 +32,7 @@ textual_addr_to_sockaddr(const char *textual, int port, struct sockaddr *out)
     if (inet_pton(AF_INET6, textual, &v6->sin6_addr.s6_addr) == 1) {
         v6->sin6_family = AF_INET6;
         v6->sin6_port = htons(port);
+        *out_len = sizeof(struct sockaddr_in6);
         return true;
     }
 
@@ -129,7 +132,7 @@ os_socket_create(bh_socket_t *sock, bool is_ipv4, bool is_tcp)
 int
 os_socket_bind(bh_socket_t socket, const char *host, int *port)
 {
-    struct sockaddr_storage addr;
+    struct sockaddr_storage addr = { 0 };
     struct linger ling;
     socklen_t socklen;
     int ret;
@@ -150,11 +153,12 @@ os_socket_bind(bh_socket_t socket, const char *host, int *port)
         goto fail;
     }
 
-    if (!textual_addr_to_sockaddr(host, *port, (struct sockaddr *)&addr)) {
+    if (!textual_addr_to_sockaddr(host, *port, (struct sockaddr *)&addr,
+                                  &socklen)) {
         goto fail;
     }
 
-    ret = bind(socket, (struct sockaddr *)&addr, sizeof(addr));
+    ret = bind(socket, (struct sockaddr *)&addr, socklen);
     if (ret < 0) {
         goto fail;
     }
@@ -220,10 +224,11 @@ int
 os_socket_connect(bh_socket_t socket, const char *addr, int port)
 {
     struct sockaddr_storage addr_in = { 0 };
-    socklen_t addr_len = sizeof(struct sockaddr_storage);
+    socklen_t addr_len;
     int ret = 0;
 
-    if (!textual_addr_to_sockaddr(addr, port, (struct sockaddr *)&addr_in)) {
+    if (!textual_addr_to_sockaddr(addr, port, (struct sockaddr *)&addr_in,
+                                  &addr_len)) {
         return BHT_ERROR;
     }
 
@@ -245,7 +250,7 @@ int
 os_socket_recv_from(bh_socket_t socket, void *buf, unsigned int len, int flags,
                     bh_sockaddr_t *src_addr)
 {
-    struct sockaddr_storage sock_addr = {};
+    struct sockaddr_storage sock_addr = { 0 };
     socklen_t socklen = sizeof(sock_addr);
     int ret;
 
@@ -274,7 +279,7 @@ int
 os_socket_send_to(bh_socket_t socket, const void *buf, unsigned int len,
                   int flags, const bh_sockaddr_t *dest_addr)
 {
-    struct sockaddr_storage sock_addr = {};
+    struct sockaddr_storage sock_addr = { 0 };
     socklen_t socklen = 0;
 
     bh_sockaddr_to_sockaddr(dest_addr, &sock_addr, &socklen);
