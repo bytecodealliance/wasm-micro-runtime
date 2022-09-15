@@ -349,7 +349,6 @@ sprintf_out(int c, struct str_context *ctx)
 #define BUILTIN_LIBC_BUFFERED_PRINTF 0
 #endif
 
-#if BUILTIN_LIBC_BUFFERED_PRINTF != 0
 #ifndef BUILTIN_LIBC_BUFFERED_PRINT_SIZE
 #define BUILTIN_LIBC_BUFFERED_PRINT_SIZE 128
 #endif
@@ -357,9 +356,13 @@ sprintf_out(int c, struct str_context *ctx)
 #define BUILTIN_LIBC_BUFFERED_PRINT_PREFIX
 #endif
 
-BH_BUILTIN_LIBC_BUFFERED_PREFIX static char
-    print_buf[BH_BUILTIN_LIBC_BUFFERED_SIZE] = { 0 };
-BH_BUILTIN_LIBC_BUFFERED_PREFIX static int print_buf_size = 0;
+#if BUILTIN_LIBC_BUFFERED_PRINTF != 0
+
+BUILTIN_LIBC_BUFFERED_PRINT_PREFIX
+static char print_buf[BUILTIN_LIBC_BUFFERED_PRINT_SIZE] = { 0 };
+
+BUILTIN_LIBC_BUFFERED_PRINT_PREFIX
+static int print_buf_size = 0;
 
 static int
 printf_out(int c, struct str_context *ctx)
