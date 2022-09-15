@@ -77,6 +77,10 @@ typedef sem_t korp_sem;
 #define CONFIG_HAS_ISATTY 0
 #endif
 
+#define BUILTIN_LIBC_BUFFERED_PRINTF 1
+#define BUILTIN_LIBC_BUFFERED_PRINT_SIZE 128
+#define BUILTIN_LIBC_BUFFERED_PRINT_PREFIX
+
 /*
  * NuttX doesn't have openat family.
  */
