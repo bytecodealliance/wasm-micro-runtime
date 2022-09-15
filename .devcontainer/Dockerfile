@@ -9,22 +9,22 @@ FROM mcr.microsoft.com/vscode/devcontainers/cpp:0-${VARIANT}
 ARG DEBIAN_FRONTEND=noninteractive
 ENV TZ=Asian/Shanghai
 
-RUN apt update \
-  && apt install -y apt-transport-https apt-utils build-essential \
+RUN apt-get update \
+  && apt-get install -y apt-transport-https apt-utils build-essential \
   ca-certificates curl g++-multilib git gnupg \
   libgcc-9-dev lib32gcc-9-dev lsb-release \
   ninja-build ocaml ocamlbuild python2.7 \
   software-properties-common tree tzdata \
-  unzip valgrind vim wget zip
+  unzip valgrind vim wget zip --no-install-recommends
 
 #
 # CMAKE (https://apt.kitware.com/)
-RUN wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - | tee /usr/share/keyrings/kitware-archive-keyring.gpg > /dev/null \
+RUN wget --progress=dot:giga -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - | tee /usr/share/keyrings/kitware-archive-keyring.gpg > /dev/null \
   && echo 'deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ bionic main' | tee /etc/apt/sources.list.d/kitware.list >/dev/null \
-  && apt update \
+  && apt-get update \
   && rm /usr/share/keyrings/kitware-archive-keyring.gpg \
-  && apt install -y kitware-archive-keyring \
-  && apt install -y cmake
+  && apt-get install -y kitware-archive-keyring \
+  && apt-get install -y cmake
 
 #
 # install emsdk
@@ -39,7 +39,7 @@ RUN cd /opt/emsdk \
 #
 # install wasi-sdk
 ARG WASI_SDK_VER=16
-RUN wget -c https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_SDK_VER}/wasi-sdk-${WASI_SDK_VER}.0-linux.tar.gz -P /opt
+RUN wget -c --progress=dot:giga https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_SDK_VER}/wasi-sdk-${WASI_SDK_VER}.0-linux.tar.gz -P /opt
 RUN tar xf /opt/wasi-sdk-${WASI_SDK_VER}.0-linux.tar.gz -C /opt \
   && ln -fs /opt/wasi-sdk-${WASI_SDK_VER}.0 /opt/wasi-sdk
 RUN rm /opt/wasi-sdk-${WASI_SDK_VER}.0-linux.tar.gz
@@ -47,7 +47,7 @@ RUN rm /opt/wasi-sdk-${WASI_SDK_VER}.0-linux.tar.gz
 #
 #install wabt
 ARG WABT_VER=1.0.29
-RUN wget -c https://github.com/WebAssembly/wabt/releases/download/${WABT_VER}/wabt-${WABT_VER}-ubuntu.tar.gz -P /opt
+RUN wget -c --progress=dot:giga https://github.com/WebAssembly/wabt/releases/download/${WABT_VER}/wabt-${WABT_VER}-ubuntu.tar.gz -P /opt
 RUN tar xf /opt/wabt-${WABT_VER}-ubuntu.tar.gz -C /opt \
   && ln -fs /opt/wabt-${WABT_VER} /opt/wabt
 RUN rm /opt/wabt-${WABT_VER}-ubuntu.tar.gz
@@ -56,7 +56,7 @@ RUN rm /opt/wabt-${WABT_VER}-ubuntu.tar.gz
 # install bazelisk
 ARG BAZELISK_VER=1.12.0
 RUN mkdir /opt/bazelisk
-RUN wget -c https://github.com/bazelbuild/bazelisk/releases/download/v${BAZELISK_VER}/bazelisk-linux-amd64 -P /opt/bazelisk
+RUN wget -c --progress=dot:giga https://github.com/bazelbuild/bazelisk/releases/download/v${BAZELISK_VER}/bazelisk-linux-amd64 -P /opt/bazelisk
 RUN chmod a+x /opt/bazelisk/bazelisk-linux-amd64 \
   && ln -fs /opt/bazelisk/bazelisk-linux-amd64 /opt/bazelisk/bazel
 
@@ -66,7 +66,7 @@ RUN cd /etc/apt/apt.conf.d \
   && touch 99verfiy-peer.conf \
   && echo "Acquire { https::Verify-Peer false }" > 99verfiy-peer.conf
 RUN cd /tmp \
-  && wget https://apt.llvm.org/llvm.sh \
+  && wget --progress=dot:giga https://apt.llvm.org/llvm.sh \
   && chmod a+x ./llvm.sh
 RUN /tmp/llvm.sh 12 all
 RUN ln -sf /usr/bin/clang-format-12 /usr/bin/clang-format
@@ -76,12 +76,12 @@ RUN ln -sf /usr/bin/clang-format-12 /usr/bin/clang-format
 
 #
 # Install pip
-RUN apt update && apt install -y --reinstall python3-venv python3-pip
-RUN python3 -m pip install --upgrade pip
+RUN apt-get update && apt-get install -y --reinstall python3-venv python3-pip
+RUN python3 -m pip install --no-cache-dir --upgrade pip
 
 #
 # Install required python packages
-RUN pip3 install --user black nose pycparser pylint
+RUN pip3 install --no-cache-dir --user black nose pycparser pylint
 
 # set path
 ENV PATH "/opt/bazelisk:/opt/clang-llvm/bin:${PATH}"

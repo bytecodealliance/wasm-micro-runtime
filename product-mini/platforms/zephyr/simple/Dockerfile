@@ -7,7 +7,7 @@ ARG DOCKER_UID=1000
 
 ENV DEBIAN_FRONTEND noninteractive
 
-RUN apt-get -qq update && apt-get -qq dist-upgrade && apt install -qq -y python3-pip git wget ninja-build
+RUN apt-get -qq update && apt install -qq -y python3-pip git wget ninja-build
 
 WORKDIR /tmp
 
