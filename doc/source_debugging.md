@@ -60,7 +60,7 @@ Then you can use lldb commands to debug your applications. Please refer to [lldb
 1. Build lldb (assume you have already built llvm)
 ``` bash
 cd ${WAMR_ROOT}/core/deps/llvm/build
-cmake . -DLLVM_ENABLE_PROJECTS="clang;lldb"
+cmake ../llvm -DLLVM_ENABLE_PROJECTS="clang;lldb" -DLLDB_INCLUDE_TESTS=OFF
 make -j $(nproc)
 ```
 
