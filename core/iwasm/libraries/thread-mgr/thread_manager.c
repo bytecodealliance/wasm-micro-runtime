@@ -697,6 +697,9 @@ wasm_cluster_join_thread(WASMExecEnv *exec_env, void **ret_val)
 int32
 wasm_cluster_detach_thread(WASMExecEnv *exec_env)
 {
+    if (exec_env->thread_is_detached)
+        return 0;
+
     int32 ret = 0;
 
     os_mutex_lock(&cluster_list_lock);
