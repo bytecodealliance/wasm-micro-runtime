@@ -87,12 +87,15 @@ Data:
 $ ./iwasm ./socket_opts.wasm
 ```
 
-The output is:
+The output describes the different socket options that are set & retrieved, like so:
 ```bash
-[Client] Create socket
-recv_timeout is expected
-send_timeout is expected
-[Client] Close socket
+[Client] Create TCP socket
+[Client] Create UDP socket
+[Client] Create UDP IPv6 socket
+SO_RCVTIMEO tv_sec is expected
+SO_RCVTIMEO tv_usec is expected
+...
+[Client] Close sockets
 ```
 
 Refer to [socket api document](../../doc/socket_api.md) for more details.
