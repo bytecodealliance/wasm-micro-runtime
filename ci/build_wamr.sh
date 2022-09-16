@@ -9,7 +9,7 @@ readonly VARIANT=$(lsb_release -c | awk '{print $2}')
 
 docker build \
     --memory=4G --cpu-quota=50000 \
-    -t wamr_dev_${VARIANT}:0.1 -f "${CURRENT_PATH}"/Dockerfile "${CURRENT_PATH}" \
+    -t wamr_dev_${VARIANT}:0.1 -f "${ROOT}"/.devcontainer/Dockerfile "${ROOT}"/.devcontainer \
   && docker run --rm -it \
       --cap-add=SYS_PTRACE \
       --cpus=".5" \

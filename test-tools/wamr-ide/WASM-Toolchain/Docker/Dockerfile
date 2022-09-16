@@ -30,13 +30,14 @@ RUN wget --progress=dot:giga https://github.com/WebAssembly/wasi-sdk/releases/do
     && rm -f wasi-sdk-14.0-linux.tar.gz
 
 ##  - clone wamr repo
-RUN git clone -b main --depth=1 https://github.com/bytecodealliance/wasm-micro-runtime.git \
-    && cd /root/wasm-micro-runtime/wamr-compiler \
-    && ./build_llvm.sh \
-    && cd /root/wasm-micro-runtime/wamr-compiler \
+RUN git clone -b main --depth=1 https://github.com/bytecodealliance/wasm-micro-runtime.git 
+
+WORKDIR /root/wasm-micro-runtime/wamr-compiler
+RUN ./build_llvm.sh \
     && mkdir build \
-    && cd build \
-    && cmake .. \
+
+WORKDIR /root/wasm-micro-runtime/wamr-compiler/build
+RUN cmake .. \
     && make \
     #  - copy the wamrc to /root
     && cp /root/wasm-micro-runtime/wamr-compiler/build/wamrc /root/wamrc \

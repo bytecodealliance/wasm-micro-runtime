@@ -17,7 +17,7 @@ RUN wget --progress=dot:giga https://github.com/Kitware/CMake/releases/download/
 
 ##  -clone wamr-repo and build iwasm
 RUN git clone -b main --depth=1 https://github.com/bytecodealliance/wasm-micro-runtime.git \
-    && mkdir -p /root/wasm-micro-runtime/product-mini/platforms/linux/build \
+    && mkdir -p /root/wasm-micro-runtime/product-mini/platforms/linux/build 
 
 WORKDIR /root/wasm-micro-runtime/product-mini/platforms/linux/build 
 RUN cmake .. -DWAMR_BUILD_DEBUG_INTERP=1 && make \

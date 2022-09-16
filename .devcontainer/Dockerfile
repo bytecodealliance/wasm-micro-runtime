@@ -94,16 +94,11 @@ RUN apt-get update \
 RUN python3 -m pip install --no-cache-dir --upgrade pip \
   && pip3 install --no-cache-dir --user black nose pycparser pylint
 
-# set path
+# set path, PS and clean up
 ENV PATH "/opt/bazelisk:/opt/clang-llvm/bin:${PATH}"
-RUN echo "export PATH=/opt/bazelisk:/opt/clang-llvm/bin:${PATH}" >> /root/.bashrc
-
-#
-# PS
-RUN echo "PS1='\n[ \u@wamr-dev-docker \W ]\n$ '" >> /root/.bashrc
-
-# Clean up
-RUN apt-get autoremove -y \
+RUN echo "export PATH=/opt/bazelisk:/opt/clang-llvm/bin:${PATH}" >> /root/.bashrc \
+  && printf "%s\n" "PS1='\n[ \u@wamr-dev-docker \W ]\n$ '" >> /root/.bashrc \
+  && apt-get autoremove -y \
   && apt-get clean -y \
   && rm -rf /var/lib/apt/lists/* \
   && rm -rf /tmp/*
