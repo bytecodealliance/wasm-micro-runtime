@@ -45,10 +45,12 @@ main(int argc, char *argv[])
 
     if (argc > 1 && strcmp(argv[1], "inet6") == 0) {
         af = AF_INET6;
+        len = sizeof(struct sockaddr_in6);
         init_sockaddr_inet6((struct sockaddr_in6 *)&server_address);
     }
     else {
         af = AF_INET;
+        len = sizeof(struct sockaddr_in);
         init_sockaddr_inet((struct sockaddr_in *)&server_address);
     }
 
@@ -60,9 +62,7 @@ main(int argc, char *argv[])
     }
 
     printf("[Client] Connect socket\n");
-    if (connect(socket_fd, (struct sockaddr *)&server_address,
-                sizeof(server_address))
-        == -1) {
+    if (connect(socket_fd, (struct sockaddr *)&server_address, len) == -1) {
         perror("Connect failed");
         close(socket_fd);
         return EXIT_FAILURE;

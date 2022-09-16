@@ -73,10 +73,12 @@ main(int argc, char *argv[])
 
     if (argc > 1 && strcmp(argv[1], "inet6") == 0) {
         af = AF_INET6;
+        addrlen = sizeof(struct sockaddr_in6);
         init_sockaddr_inet6((struct sockaddr_in6 *)&addr);
     }
     else {
         af = AF_INET;
+        addrlen = sizeof(struct sockaddr_in6);
         init_sockaddr_inet((struct sockaddr_in *)&addr);
     }
 
@@ -88,7 +90,6 @@ main(int argc, char *argv[])
     }
 
     printf("[Server] Bind socket\n");
-    addrlen = sizeof(addr);
     if (bind(socket_fd, (struct sockaddr *)&addr, addrlen) < 0) {
         perror("Bind failed");
         goto fail;
@@ -102,6 +103,7 @@ main(int argc, char *argv[])
 
     printf("[Server] Wait for clients to connect ..\n");
     while (connections < WORKER_NUM) {
+        addrlen = sizeof(struct sockaddr);
         client_sock_fds[connections] =
             accept(socket_fd, (struct sockaddr *)&addr, (socklen_t *)&addrlen);
         if (client_sock_fds[connections] < 0) {
