@@ -1271,7 +1271,7 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     /* load data as i32* */
     if (!(offset = I32_CONST(get_tbl_inst_offset(comp_ctx, func_ctx, tbl_idx)
-                             + offsetof(AOTTableInstance, data)))) {
+                             + offsetof(AOTTableInstance, elems)))) {
         HANDLE_FAILURE("LLVMConstInt");
         goto fail;
     }

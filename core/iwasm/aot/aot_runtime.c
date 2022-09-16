@@ -30,6 +30,15 @@ bh_static_assert(offsetof(WASMExecEnv, aux_stack_bottom)
                  == 7 * sizeof(uintptr_t));
 bh_static_assert(offsetof(WASMExecEnv, native_symbol) == 8 * sizeof(uintptr_t));
 
+bh_static_assert(offsetof(AOTModuleInstance, memories) == 1 * sizeof(uint64));
+bh_static_assert(offsetof(AOTModuleInstance, func_ptrs) == 5 * sizeof(uint64));
+bh_static_assert(offsetof(AOTModuleInstance, func_type_indexes)
+                 == 6 * sizeof(uint64));
+bh_static_assert(offsetof(AOTModuleInstance, cur_exception)
+                 == 13 * sizeof(uint64));
+bh_static_assert(offsetof(AOTModuleInstance, global_table_data)
+                 == 13 * sizeof(uint64) + 128 + 11 * sizeof(uint64));
+
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
 {
@@ -129,14 +138,14 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 {
     uint32 i;
     InitializerExpression *init_expr;
-    uint8 *p = (uint8 *)module_inst->global_data.ptr;
+    uint8 *p = module_inst->global_data;
     AOTImportGlobal *import_global = module->import_globals;
     AOTGlobal *global = module->globals;
 
     /* Initialize import global data */
     for (i = 0; i < module->import_global_count; i++, import_global++) {
         bh_assert(import_global->data_offset
-                  == (uint32)(p - (uint8 *)module_inst->global_data.ptr));
+                  == (uint32)(p - module_inst->global_data));
         init_global_data(p, import_global->type,
                          &import_global->global_data_linked);
         p += import_global->size;
@@ -145,7 +154,7 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
     /* Initialize defined global data */
     for (i = 0; i < module->global_count; i++, global++) {
         bh_assert(global->data_offset
-                  == (uint32)(p - (uint8 *)module_inst->global_data.ptr));
+                  == (uint32)(p - module_inst->global_data));
         init_expr = &global->init_expr;
         switch (init_expr->init_expr_type) {
             case INIT_EXPR_TYPE_GET_GLOBAL:
@@ -177,14 +186,14 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
     }
 
     bh_assert(module_inst->global_data_size
-              == (uint32)(p - (uint8 *)module_inst->global_data.ptr));
+              == (uint32)(p - module_inst->global_data));
     return true;
 }
 
 AOTTableInstance *
 aot_next_tbl_inst(const AOTTableInstance *tbl_inst)
 {
-    uint32 offset = offsetof(AOTTableInstance, data);
+    uint32 offset = offsetof(AOTTableInstance, elems);
     offset += tbl_inst->max_size * sizeof(uint32);
     return (AOTTableInstance *)((uint8 *)tbl_inst + offset);
 }
@@ -193,7 +202,7 @@ static inline AOTTableInstance *
 aot_get_table_inst(const AOTModuleInstance *module_inst, uint32 tbl_idx)
 {
     uint32 i = 0;
-    AOTTableInstance *tbl_inst = (AOTTableInstance *)module_inst->tables.ptr;
+    AOTTableInstance *tbl_inst = (AOTTableInstance *)module_inst->tables;
 
     while (i != tbl_idx) {
         tbl_inst = aot_next_tbl_inst(tbl_inst);
@@ -209,7 +218,7 @@ table_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 {
     uint32 i, global_index, global_data_offset, base_offset, length;
     AOTTableInitData *table_seg;
-    AOTTableInstance *tbl_inst = (AOTTableInstance *)module_inst->tables.ptr;
+    AOTTableInstance *tbl_inst = (AOTTableInstance *)module_inst->tables;
 
     /*
      * treat import table like a local one until we enable module linking
@@ -271,8 +280,8 @@ table_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
                     module->globals[global_index - module->import_global_count]
                         .data_offset;
 
-            base_offset = *(uint32 *)((uint8 *)module_inst->global_data.ptr
-                                      + global_data_offset);
+            base_offset =
+                *(uint32 *)(module_inst->global_data + global_data_offset);
         }
         else
             base_offset = (uint32)table_seg->offset.u.i32;
@@ -307,7 +316,7 @@ table_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
          * Check function index in the current module inst for now.
          * will check the linked table inst owner in future
          */
-        bh_memcpy_s((uint32 *)tbl_inst->data + base_offset,
+        bh_memcpy_s(tbl_inst->elems + base_offset,
                     (tbl_inst->max_size - base_offset) * sizeof(uint32),
                     table_seg->func_indexes, length * sizeof(uint32));
     }
@@ -322,12 +331,12 @@ memories_deinstantiate(AOTModuleInstance *module_inst)
     AOTMemoryInstance *memory_inst;
 
     for (i = 0; i < module_inst->memory_count; i++) {
-        memory_inst = ((AOTMemoryInstance **)module_inst->memories.ptr)[i];
+        memory_inst = module_inst->memories[i];
         if (memory_inst) {
 #if WASM_ENABLE_SHARED_MEMORY != 0
             if (memory_inst->is_shared) {
                 int32 ref_count = shared_memory_dec_reference(
-                    (WASMModuleCommon *)module_inst->aot_module.ptr);
+                    (WASMModuleCommon *)module_inst->module);
                 bh_assert(ref_count >= 0);
 
                 /* if the reference count is not zero,
@@ -336,27 +345,26 @@ memories_deinstantiate(AOTModuleInstance *module_inst)
                     continue;
             }
 #endif
-            if (memory_inst->heap_handle.ptr) {
-                mem_allocator_destroy(memory_inst->heap_handle.ptr);
-                wasm_runtime_free(memory_inst->heap_handle.ptr);
+            if (memory_inst->heap_handle) {
+                mem_allocator_destroy(memory_inst->heap_handle);
+                wasm_runtime_free(memory_inst->heap_handle);
             }
 
-            if (memory_inst->memory_data.ptr) {
+            if (memory_inst->memory_data) {
 #ifndef OS_ENABLE_HW_BOUND_CHECK
-                wasm_runtime_free(memory_inst->memory_data.ptr);
+                wasm_runtime_free(memory_inst->memory_data);
 #else
 #ifdef BH_PLATFORM_WINDOWS
-                os_mem_decommit(memory_inst->memory_data.ptr,
+                os_mem_decommit(memory_inst->memory_data,
                                 memory_inst->num_bytes_per_page
                                     * memory_inst->cur_page_count);
 #endif
-                os_munmap((uint8 *)memory_inst->memory_data.ptr,
-                          8 * (uint64)BH_GB);
+                os_munmap(memory_inst->memory_data, 8 * (uint64)BH_GB);
 #endif
             }
         }
     }
-    wasm_runtime_free(module_inst->memories.ptr);
+    wasm_runtime_free(module_inst->memories);
 }
 
 static AOTMemoryInstance *
@@ -458,7 +466,7 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
             /* Adjust __heap_base global value */
             global_idx = module->aux_heap_base_global_index
                          - module->import_global_count;
-            global_addr = (uint8 *)module_inst->global_data.ptr
+            global_addr = module_inst->global_data
                           + module->globals[global_idx].data_offset;
             *(uint32 *)global_addr = aux_heap_base;
             LOG_VERBOSE("Reset __heap_base global to %u", aux_heap_base);
@@ -554,12 +562,12 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
     memory_inst->memory_data_size = (uint32)total_size;
 
     /* Init memory info */
-    memory_inst->memory_data.ptr = p;
-    memory_inst->memory_data_end.ptr = p + (uint32)total_size;
+    memory_inst->memory_data = p;
+    memory_inst->memory_data_end = p + (uint32)total_size;
 
     /* Initialize heap info */
-    memory_inst->heap_data.ptr = p + heap_offset;
-    memory_inst->heap_data_end.ptr = p + heap_offset + heap_size;
+    memory_inst->heap_data = p + heap_offset;
+    memory_inst->heap_data_end = p + heap_offset + heap_size;
     if (heap_size > 0) {
         uint32 heap_struct_size = mem_allocator_get_heap_struct_size();
 
@@ -568,10 +576,10 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
             goto fail1;
         }
 
-        memory_inst->heap_handle.ptr = heap_handle;
+        memory_inst->heap_handle = heap_handle;
 
         if (!mem_allocator_create_with_struct_and_pool(
-                heap_handle, heap_struct_size, memory_inst->heap_data.ptr,
+                heap_handle, heap_struct_size, memory_inst->heap_data,
                 heap_size)) {
             set_error_buf(error_buf, error_buf_size, "init app heap failed");
             goto fail2;
@@ -611,31 +619,31 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 #if WASM_ENABLE_SHARED_MEMORY != 0
 fail3:
     if (heap_size > 0)
-        mem_allocator_destroy(memory_inst->heap_handle.ptr);
+        mem_allocator_destroy(memory_inst->heap_handle);
 #endif
 fail2:
     if (heap_size > 0)
-        wasm_runtime_free(memory_inst->heap_handle.ptr);
+        wasm_runtime_free(memory_inst->heap_handle);
 fail1:
 #ifndef OS_ENABLE_HW_BOUND_CHECK
-    if (memory_inst->memory_data.ptr)
-        wasm_runtime_free(memory_inst->memory_data.ptr);
+    if (memory_inst->memory_data)
+        wasm_runtime_free(memory_inst->memory_data);
 #else
 #ifdef BH_PLATFORM_WINDOWS
-    if (memory_inst->memory_data.ptr)
+    if (memory_inst->memory_data)
         os_mem_decommit(p, total_size);
 #endif
     os_munmap(mapped_mem, map_size);
 #endif
-    memory_inst->memory_data.ptr = NULL;
+    memory_inst->memory_data = NULL;
     return NULL;
 }
 
 static AOTMemoryInstance *
 aot_get_default_memory(AOTModuleInstance *module_inst)
 {
-    if (module_inst->memories.ptr)
-        return ((AOTMemoryInstance **)module_inst->memories.ptr)[0];
+    if (module_inst->memories)
+        return module_inst->memories[0];
     else
         return NULL;
 }
@@ -651,8 +659,8 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
     uint64 total_size;
 
     module_inst->memory_count = memory_count;
-    total_size = sizeof(AOTPointer) * (uint64)memory_count;
-    if (!(module_inst->memories.ptr =
+    total_size = sizeof(AOTMemoryInstance *) * (uint64)memory_count;
+    if (!(module_inst->memories =
               runtime_malloc(total_size, error_buf, error_buf_size))) {
         return false;
     }
@@ -666,7 +674,7 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
             return false;
         }
 
-        ((AOTMemoryInstance **)module_inst->memories.ptr)[i] = memory_inst;
+        module_inst->memories[i] = memory_inst;
     }
 
     /* Get default memory instance */
@@ -704,15 +712,15 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
                     module->globals[global_index - module->import_global_count]
                         .data_offset;
 
-            base_offset = *(uint32 *)((uint8 *)module_inst->global_data.ptr
-                                      + global_data_offset);
+            base_offset =
+                *(uint32 *)(module_inst->global_data + global_data_offset);
         }
         else {
             base_offset = (uint32)data_seg->offset.u.i32;
         }
 
         /* Copy memory data */
-        bh_assert(memory_inst->memory_data.ptr
+        bh_assert(memory_inst->memory_data
                   || memory_inst->memory_data_size == 0);
 
         /* Check memory data */
@@ -745,8 +753,8 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
             return false;
         }
 
-        if (memory_inst->memory_data.ptr) {
-            bh_memcpy_s((uint8 *)memory_inst->memory_data.ptr + base_offset,
+        if (memory_inst->memory_data) {
+            bh_memcpy_s((uint8 *)memory_inst->memory_data + base_offset,
                         memory_inst->memory_data_size - base_offset,
                         data_seg->bytes, length);
         }
@@ -768,13 +776,13 @@ init_func_ptrs(AOTModuleInstance *module_inst, AOTModule *module,
         return true;
 
     /* Allocate memory */
-    if (!(module_inst->func_ptrs.ptr =
+    if (!(module_inst->func_ptrs =
               runtime_malloc(total_size, error_buf, error_buf_size))) {
         return false;
     }
 
     /* Set import function pointers */
-    func_ptrs = (void **)module_inst->func_ptrs.ptr;
+    func_ptrs = (void **)module_inst->func_ptrs;
     for (i = 0; i < module->import_func_count; i++, func_ptrs++) {
         *func_ptrs = (void *)module->import_funcs[i].func_ptr_linked;
         if (!*func_ptrs) {
@@ -804,13 +812,13 @@ init_func_type_indexes(AOTModuleInstance *module_inst, AOTModule *module,
         return true;
 
     /* Allocate memory */
-    if (!(module_inst->func_type_indexes.ptr =
+    if (!(module_inst->func_type_indexes =
               runtime_malloc(total_size, error_buf, error_buf_size))) {
         return false;
     }
 
     /* Set import function type indexes */
-    func_type_index = (uint32 *)module_inst->func_type_indexes.ptr;
+    func_type_index = module_inst->func_type_indexes;
     for (i = 0; i < module->import_func_count; i++, func_type_index++)
         *func_type_index = module->import_funcs[i].func_type_index;
 
@@ -832,10 +840,10 @@ create_export_funcs(AOTModuleInstance *module_inst, AOTModule *module,
         /* Allocate memory */
         size = sizeof(AOTFunctionInstance)
                * (uint64)module_inst->export_func_count;
-        if (!(module_inst->export_funcs.ptr = export_func =
-                  runtime_malloc(size, error_buf, error_buf_size))) {
+        if (!(export_func = runtime_malloc(size, error_buf, error_buf_size))) {
             return false;
         }
+        module_inst->export_functions = (void *)export_func;
 
         for (i = 0; i < module->export_count; i++) {
             if (exports[i].kind == EXPORT_KIND_FUNC) {
@@ -928,7 +936,7 @@ execute_post_inst_function(AOTModuleInstance *module_inst)
 static bool
 execute_start_function(AOTModuleInstance *module_inst)
 {
-    AOTModule *module = (AOTModule *)module_inst->aot_module.ptr;
+    AOTModule *module = (AOTModule *)module_inst->module;
     WASMExecEnv *exec_env;
     typedef void (*F)(WASMExecEnv *);
     union {
@@ -995,14 +1003,14 @@ aot_instantiate(AOTModule *module, bool is_sub_inst, uint32 stack_size,
      * calculate size of table data
      */
     for (i = 0; i != module->import_table_count; ++i) {
-        table_size += offsetof(AOTTableInstance, data);
+        table_size += offsetof(AOTTableInstance, elems);
         table_size += (uint64)sizeof(uint32)
                       * (uint64)aot_get_imp_tbl_data_slots(
                           module->import_tables + i, false);
     }
 
     for (i = 0; i != module->table_count; ++i) {
-        table_size += offsetof(AOTTableInstance, data);
+        table_size += offsetof(AOTTableInstance, elems);
         table_size +=
             (uint64)sizeof(uint32)
             * (uint64)aot_get_tbl_data_slots(module->tables + i, false);
@@ -1016,22 +1024,22 @@ aot_instantiate(AOTModule *module, bool is_sub_inst, uint32 stack_size,
     }
 
     module_inst->module_type = Wasm_Module_AoT;
-    module_inst->aot_module.ptr = module;
+    module_inst->module = (void *)module;
 
     /* Initialize global info */
     p = (uint8 *)module_inst + module_inst_struct_size
         + module_inst_mem_inst_size;
-    module_inst->global_data.ptr = p;
+    module_inst->global_data = p;
     module_inst->global_data_size = module->global_data_size;
     if (!global_instantiate(module_inst, module, error_buf, error_buf_size))
         goto fail;
 
     /* Initialize table info */
     p += module->global_data_size;
-    module_inst->tables.ptr = p;
+    module_inst->tables = (WASMTableInstance **)p;
     module_inst->table_count = module->table_count + module->import_table_count;
     /* Set all elements to -1 to mark them as uninitialized elements */
-    memset(module_inst->tables.ptr, 0xff, (uint32)table_size);
+    memset(module_inst->tables, 0xff, (uint32)table_size);
     if (!table_instantiate(module_inst, module, error_buf, error_buf_size))
         goto fail;
 
@@ -1078,14 +1086,14 @@ aot_instantiate(AOTModule *module, bool is_sub_inst, uint32 stack_size,
 #if WASM_ENABLE_PERF_PROFILING != 0
     total_size = (uint64)sizeof(AOTFuncPerfProfInfo)
                  * (module->import_func_count + module->func_count);
-    if (!(module_inst->func_perf_profilings.ptr =
+    if (!(module_inst->func_perf_profilings =
               runtime_malloc(total_size, error_buf, error_buf_size))) {
         goto fail;
     }
 #endif
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
-    if (!(module_inst->frames.ptr =
+    if (!(module_inst->frames =
               runtime_malloc(sizeof(Vector), error_buf, error_buf_size))) {
         goto fail;
     }
@@ -1136,7 +1144,7 @@ aot_create_exec_env_singleton(AOTModuleInstance *module_inst)
         wasm_exec_env_create((WASMModuleInstanceCommon *)module_inst,
                              module_inst->default_wasm_stack_size);
     if (exec_env)
-        module_inst->exec_env_singleton.ptr = exec_env;
+        module_inst->exec_env_singleton = exec_env;
 
     return exec_env ? true : false;
 }
@@ -1155,33 +1163,32 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
 #endif
 
 #if WASM_ENABLE_PERF_PROFILING != 0
-    if (module_inst->func_perf_profilings.ptr)
-        wasm_runtime_free(module_inst->func_perf_profilings.ptr);
+    if (module_inst->func_perf_profilings)
+        wasm_runtime_free(module_inst->func_perf_profilings);
 #endif
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
-    if (module_inst->frames.ptr) {
-        bh_vector_destroy(module_inst->frames.ptr);
-        wasm_runtime_free(module_inst->frames.ptr);
-        module_inst->frames.ptr = NULL;
+    if (module_inst->frames) {
+        bh_vector_destroy(module_inst->frames);
+        wasm_runtime_free(module_inst->frames);
+        module_inst->frames = NULL;
     }
 #endif
 
-    if (module_inst->memories.ptr)
+    if (module_inst->memories)
         memories_deinstantiate(module_inst);
 
-    if (module_inst->export_funcs.ptr)
-        wasm_runtime_free(module_inst->export_funcs.ptr);
+    if (module_inst->export_functions)
+        wasm_runtime_free(module_inst->export_functions);
 
-    if (module_inst->func_ptrs.ptr)
-        wasm_runtime_free(module_inst->func_ptrs.ptr);
+    if (module_inst->func_ptrs)
+        wasm_runtime_free(module_inst->func_ptrs);
 
-    if (module_inst->func_type_indexes.ptr)
-        wasm_runtime_free(module_inst->func_type_indexes.ptr);
+    if (module_inst->func_type_indexes)
+        wasm_runtime_free(module_inst->func_type_indexes);
 
-    if (module_inst->exec_env_singleton.ptr)
-        wasm_exec_env_destroy(
-            (WASMExecEnv *)module_inst->exec_env_singleton.ptr);
+    if (module_inst->exec_env_singleton)
+        wasm_exec_env_destroy((WASMExecEnv *)module_inst->exec_env_singleton);
 
     wasm_runtime_free(module_inst);
 }
@@ -1192,7 +1199,7 @@ aot_lookup_function(const AOTModuleInstance *module_inst, const char *name,
 {
     uint32 i;
     AOTFunctionInstance *export_funcs =
-        (AOTFunctionInstance *)module_inst->export_funcs.ptr;
+        (AOTFunctionInstance *)module_inst->export_functions;
 
     for (i = 0; i < module_inst->export_func_count; i++)
         if (!strcmp(export_funcs[i].func_name, name))
@@ -1226,9 +1233,8 @@ aot_signal_handler(WASMSignalInfo *sig_info)
         /* Get the default memory instance */
         memory_inst = aot_get_default_memory(module_inst);
         if (memory_inst) {
-            mapped_mem_start_addr = (uint8 *)memory_inst->memory_data.ptr;
-            mapped_mem_end_addr =
-                (uint8 *)memory_inst->memory_data.ptr + 8 * (uint64)BH_GB;
+            mapped_mem_start_addr = memory_inst->memory_data;
+            mapped_mem_end_addr = memory_inst->memory_data + 8 * (uint64)BH_GB;
         }
 
         /* Get stack info of current thread */
@@ -1276,9 +1282,9 @@ aot_exception_handler(WASMSignalInfo *sig_info)
             /* Get the default memory instance */
             memory_inst = aot_get_default_memory(module_inst);
             if (memory_inst) {
-                mapped_mem_start_addr = (uint8 *)memory_inst->memory_data.ptr;
+                mapped_mem_start_addr = memory_inst->memory_data;
                 mapped_mem_end_addr =
-                    (uint8 *)memory_inst->memory_data.ptr + 8 * (uint64)BH_GB;
+                    memory_inst->memory_data + 8 * (uint64)BH_GB;
                 if (mapped_mem_start_addr <= (uint8 *)sig_addr
                     && (uint8 *)sig_addr < mapped_mem_end_addr) {
                     /* The address which causes segmentation fault is inside
@@ -1759,7 +1765,7 @@ aot_module_malloc(AOTModuleInstance *module_inst, uint32 size,
                   void **p_native_addr)
 {
     AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
-    AOTModule *module = (AOTModule *)module_inst->aot_module.ptr;
+    AOTModule *module = (AOTModule *)module_inst->module;
     uint8 *addr = NULL;
     uint32 offset = 0;
 
@@ -1768,8 +1774,8 @@ aot_module_malloc(AOTModuleInstance *module_inst, uint32 size,
         return 0;
     }
 
-    if (memory_inst->heap_handle.ptr) {
-        addr = mem_allocator_malloc(memory_inst->heap_handle.ptr, size);
+    if (memory_inst->heap_handle) {
+        addr = mem_allocator_malloc(memory_inst->heap_handle, size);
     }
     else if (module->malloc_func_index != (uint32)-1
              && module->free_func_index != (uint32)-1) {
@@ -1797,12 +1803,12 @@ aot_module_malloc(AOTModuleInstance *module_inst, uint32 size,
                                         size, &offset)) {
             return 0;
         }
-        addr = offset ? (uint8 *)memory_inst->memory_data.ptr + offset : NULL;
+        addr = offset ? (uint8 *)memory_inst->memory_data + offset : NULL;
     }
 
     if (!addr) {
-        if (memory_inst->heap_handle.ptr
-            && mem_allocator_is_heap_corrupted(memory_inst->heap_handle.ptr)) {
+        if (memory_inst->heap_handle
+            && mem_allocator_is_heap_corrupted(memory_inst->heap_handle)) {
             wasm_runtime_show_app_heap_corrupted_prompt();
             aot_set_exception(module_inst, "app heap corrupted");
         }
@@ -1813,7 +1819,7 @@ aot_module_malloc(AOTModuleInstance *module_inst, uint32 size,
     }
     if (p_native_addr)
         *p_native_addr = addr;
-    return (uint32)(addr - (uint8 *)memory_inst->memory_data.ptr);
+    return (uint32)(addr - memory_inst->memory_data);
 }
 
 uint32
@@ -1828,17 +1834,17 @@ aot_module_realloc(AOTModuleInstance *module_inst, uint32 ptr, uint32 size,
         return 0;
     }
 
-    if (memory_inst->heap_handle.ptr) {
+    if (memory_inst->heap_handle) {
         addr = mem_allocator_realloc(
-            memory_inst->heap_handle.ptr,
-            ptr ? (uint8 *)memory_inst->memory_data.ptr + ptr : NULL, size);
+            memory_inst->heap_handle,
+            ptr ? memory_inst->memory_data + ptr : NULL, size);
     }
 
     /* Only support realloc in WAMR's app heap */
 
     if (!addr) {
-        if (memory_inst->heap_handle.ptr
-            && mem_allocator_is_heap_corrupted(memory_inst->heap_handle.ptr)) {
+        if (memory_inst->heap_handle
+            && mem_allocator_is_heap_corrupted(memory_inst->heap_handle)) {
             aot_set_exception(module_inst, "app heap corrupted");
         }
         else {
@@ -1849,30 +1855,29 @@ aot_module_realloc(AOTModuleInstance *module_inst, uint32 ptr, uint32 size,
 
     if (p_native_addr)
         *p_native_addr = addr;
-    return (uint32)(addr - (uint8 *)memory_inst->memory_data.ptr);
+    return (uint32)(addr - memory_inst->memory_data);
 }
 
 void
 aot_module_free(AOTModuleInstance *module_inst, uint32 ptr)
 {
     AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
-    AOTModule *module = (AOTModule *)module_inst->aot_module.ptr;
+    AOTModule *module = (AOTModule *)module_inst->module;
 
     if (!memory_inst) {
         return;
     }
 
     if (ptr) {
-        uint8 *addr = (uint8 *)memory_inst->memory_data.ptr + ptr;
-        if (memory_inst->heap_handle.ptr
-            && (uint8 *)memory_inst->heap_data.ptr < addr
-            && addr < (uint8 *)memory_inst->heap_data_end.ptr) {
-            mem_allocator_free(memory_inst->heap_handle.ptr, addr);
+        uint8 *addr = memory_inst->memory_data + ptr;
+        if (memory_inst->heap_handle && memory_inst->heap_data < addr
+            && addr < memory_inst->heap_data_end) {
+            mem_allocator_free(memory_inst->heap_handle, addr);
         }
         else if (module->malloc_func_index != (uint32)-1
                  && module->free_func_index != (uint32)-1
-                 && (uint8 *)memory_inst->memory_data.ptr <= addr
-                 && addr < (uint8 *)memory_inst->memory_data_end.ptr) {
+                 && memory_inst->memory_data <= addr
+                 && addr < memory_inst->memory_data_end) {
             AOTFunctionInstance *free_func;
             char *free_func_name;
 
@@ -1947,8 +1952,8 @@ aot_validate_native_addr(AOTModuleInstance *module_inst, void *native_ptr,
         goto fail;
     }
 
-    if ((uint8 *)memory_inst->memory_data.ptr <= addr
-        && addr + size <= (uint8 *)memory_inst->memory_data_end.ptr)
+    if (memory_inst->memory_data <= addr
+        && addr + size <= memory_inst->memory_data_end)
         return true;
 fail:
     aot_set_exception(module_inst, "out of bounds memory access");
@@ -1965,10 +1970,9 @@ aot_addr_app_to_native(AOTModuleInstance *module_inst, uint32 app_offset)
         return NULL;
     }
 
-    addr = (uint8 *)memory_inst->memory_data.ptr + app_offset;
+    addr = memory_inst->memory_data + app_offset;
 
-    if ((uint8 *)memory_inst->memory_data.ptr <= addr
-        && addr < (uint8 *)memory_inst->memory_data_end.ptr)
+    if (memory_inst->memory_data <= addr && addr < memory_inst->memory_data_end)
         return addr;
     return NULL;
 }
@@ -1983,9 +1987,8 @@ aot_addr_native_to_app(AOTModuleInstance *module_inst, void *native_ptr)
         return 0;
     }
 
-    if ((uint8 *)memory_inst->memory_data.ptr <= addr
-        && addr < (uint8 *)memory_inst->memory_data_end.ptr)
-        return (uint32)(addr - (uint8 *)memory_inst->memory_data.ptr);
+    if (memory_inst->memory_data <= addr && addr < memory_inst->memory_data_end)
+        return (uint32)(addr - memory_inst->memory_data);
     return 0;
 }
 
@@ -2024,12 +2027,12 @@ aot_get_native_addr_range(AOTModuleInstance *module_inst, uint8 *native_ptr,
         return false;
     }
 
-    if ((uint8 *)memory_inst->memory_data.ptr <= addr
-        && addr < (uint8 *)memory_inst->memory_data_end.ptr) {
+    if (memory_inst->memory_data <= addr
+        && addr < memory_inst->memory_data_end) {
         if (p_native_start_addr)
-            *p_native_start_addr = (uint8 *)memory_inst->memory_data.ptr;
+            *p_native_start_addr = memory_inst->memory_data;
         if (p_native_end_addr)
-            *p_native_end_addr = (uint8 *)memory_inst->memory_data_end.ptr;
+            *p_native_end_addr = memory_inst->memory_data_end;
         return true;
     }
     return false;
@@ -2049,13 +2052,11 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
     if (!memory)
         return false;
 
-    heap_data_old = (uint8 *)memory->heap_data.ptr;
-    heap_size = (uint32)((uint8 *)memory->heap_data_end.ptr
-                         - (uint8 *)memory->heap_data.ptr);
+    heap_data_old = memory->heap_data;
+    heap_size = (uint32)(memory->heap_data_end - memory->heap_data);
 
-    memory_data_old = (uint8 *)memory->memory_data.ptr;
-    total_size_old =
-        (uint32)((uint8 *)memory->memory_data_end.ptr - memory_data_old);
+    memory_data_old = memory->memory_data;
+    total_size_old = (uint32)(memory->memory_data_end - memory_data_old);
 
     num_bytes_per_page = memory->num_bytes_per_page;
     cur_page_count = memory->cur_page_count;
@@ -2091,7 +2092,7 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
 #endif
 
     if (heap_size > 0) {
-        if (mem_allocator_is_heap_corrupted(memory->heap_handle.ptr)) {
+        if (mem_allocator_is_heap_corrupted(memory->heap_handle)) {
             wasm_runtime_show_app_heap_corrupted_prompt();
             return false;
         }
@@ -2113,7 +2114,7 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
            (uint32)total_size_new - total_size_old);
 
     if (heap_size > 0) {
-        if (mem_allocator_migrate(memory->heap_handle.ptr,
+        if (mem_allocator_migrate(memory->heap_handle,
                                   (char *)heap_data_old
                                       + (memory_data_new - memory_data_old),
                                   heap_size)
@@ -2124,15 +2125,15 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
         }
     }
 
-    memory->heap_data.ptr = memory_data_new + (heap_data_old - memory_data_old);
-    memory->heap_data_end.ptr = (uint8 *)memory->heap_data.ptr + heap_size;
+    memory->heap_data = memory_data_new + (heap_data_old - memory_data_old);
+    memory->heap_data_end = memory->heap_data + heap_size;
 
     memory->num_bytes_per_page = num_bytes_per_page;
     memory->cur_page_count = total_page_count;
     memory->max_page_count = max_page_count;
 
-    memory->memory_data.ptr = memory_data_new;
-    memory->memory_data_end.ptr = memory_data_new + (uint32)total_size_new;
+    memory->memory_data = memory_data_new;
+    memory->memory_data_end = memory_data_new + (uint32)total_size_new;
     memory->memory_data_size = (uint32)total_size_new;
 
 #if UINTPTR_MAX == UINT64_MAX
@@ -2188,19 +2189,19 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
     }
 
 #ifdef BH_PLATFORM_WINDOWS
-    if (!os_mem_commit(memory->memory_data_end.ptr,
+    if (!os_mem_commit(memory->memory_data_end,
                        (uint32)total_size_new - total_size_old,
                        MMAP_PROT_READ | MMAP_PROT_WRITE)) {
         return false;
     }
 #endif
 
-    if (os_mprotect(memory->memory_data_end.ptr,
+    if (os_mprotect(memory->memory_data_end,
                     (uint32)total_size_new - total_size_old,
                     MMAP_PROT_READ | MMAP_PROT_WRITE)
         != 0) {
 #ifdef BH_PLATFORM_WINDOWS
-        os_mem_decommit(memory->memory_data_end.ptr,
+        os_mem_decommit(memory->memory_data_end,
                         (uint32)total_size_new - total_size_old);
 #endif
         return false;
@@ -2213,8 +2214,7 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
     memory->cur_page_count = total_page_count;
     memory->max_page_count = max_page_count;
     memory->memory_data_size = (uint32)total_size_new;
-    memory->memory_data_end.ptr =
-        (uint8 *)memory->memory_data.ptr + (uint32)total_size_new;
+    memory->memory_data_end = memory->memory_data + (uint32)total_size_new;
 
     memory->mem_bound_check_1byte.u64 = total_size_new - 1;
     memory->mem_bound_check_2bytes.u64 = total_size_new - 2;
@@ -2232,11 +2232,11 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
 {
     AOTModuleInstance *module_inst =
         (AOTModuleInstance *)wasm_runtime_get_module_inst(exec_env);
-    AOTModule *aot_module = (AOTModule *)module_inst->aot_module.ptr;
-    uint32 *func_type_indexes = (uint32 *)module_inst->func_type_indexes.ptr;
+    AOTModule *aot_module = (AOTModule *)module_inst->module;
+    uint32 *func_type_indexes = module_inst->func_type_indexes;
     uint32 func_type_idx = func_type_indexes[func_idx];
     AOTFuncType *func_type = aot_module->func_types[func_type_idx];
-    void **func_ptrs = (void **)module_inst->func_ptrs.ptr;
+    void **func_ptrs = module_inst->func_ptrs;
     void *func_ptr = func_ptrs[func_idx];
     AOTImportFunc *import_func;
     const char *signature;
@@ -2280,11 +2280,11 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
 {
     AOTModuleInstance *module_inst =
         (AOTModuleInstance *)wasm_runtime_get_module_inst(exec_env);
-    AOTModule *aot_module = (AOTModule *)module_inst->aot_module.ptr;
-    uint32 *func_type_indexes = (uint32 *)module_inst->func_type_indexes.ptr;
+    AOTModule *aot_module = (AOTModule *)module_inst->module;
+    uint32 *func_type_indexes = module_inst->func_type_indexes;
     AOTTableInstance *tbl_inst;
     AOTFuncType *func_type;
-    void **func_ptrs = (void **)module_inst->func_ptrs.ptr, *func_ptr;
+    void **func_ptrs = module_inst->func_ptrs, *func_ptr;
     uint32 func_type_idx, func_idx, ext_ret_count;
     AOTImportFunc *import_func;
     const char *signature = NULL;
@@ -2309,8 +2309,8 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
         return false;
     }
 
-    func_idx = ((uint32 *)tbl_inst->data)[table_elem_idx];
-    if (func_idx == (uint32)-1) {
+    func_idx = tbl_inst->elems[table_elem_idx];
+    if (func_idx == NULL_REF) {
         aot_set_exception_with_id(module_inst, EXCE_UNINITIALIZED_ELEMENT);
         return false;
     }
@@ -2445,7 +2445,7 @@ aot_check_app_addr_and_convert(AOTModuleInstance *module_inst, bool is_str,
         goto fail;
     }
 
-    native_addr = (uint8 *)memory_inst->memory_data.ptr + app_buf_addr;
+    native_addr = memory_inst->memory_data + app_buf_addr;
 
     /* No need to check the app_offset and buf_size if memory access
        boundary check with hardware trap is enabled */
@@ -2464,7 +2464,7 @@ aot_check_app_addr_and_convert(AOTModuleInstance *module_inst, bool is_str,
 
         /* The whole string must be in the linear memory */
         str = (const char *)native_addr;
-        str_end = (const char *)memory_inst->memory_data_end.ptr;
+        str_end = (const char *)memory_inst->memory_data_end;
         while (str < str_end && *str != '\0')
             str++;
         if (str == str_end)
@@ -2502,7 +2502,7 @@ aot_memory_init(AOTModuleInstance *module_inst, uint32 seg_index, uint32 offset,
     uint8 *maddr;
     uint64 seg_len = 0;
 
-    aot_module = (AOTModule *)module_inst->aot_module.ptr;
+    aot_module = (AOTModule *)module_inst->module;
     seg_len = aot_module->mem_init_data_list[seg_index]->byte_count;
     data = aot_module->mem_init_data_list[seg_index]->bytes;
 
@@ -2523,7 +2523,7 @@ aot_memory_init(AOTModuleInstance *module_inst, uint32 seg_index, uint32 offset,
 bool
 aot_data_drop(AOTModuleInstance *module_inst, uint32 seg_index)
 {
-    AOTModule *aot_module = (AOTModule *)(module_inst->aot_module.ptr);
+    AOTModule *aot_module = (AOTModule *)module_inst->module;
 
     aot_module->mem_init_data_list[seg_index]->byte_count = 0;
     /* Currently we can't free the dropped data segment
@@ -2537,7 +2537,7 @@ bool
 aot_set_aux_stack(WASMExecEnv *exec_env, uint32 start_offset, uint32 size)
 {
     AOTModuleInstance *module_inst = (AOTModuleInstance *)exec_env->module_inst;
-    AOTModule *module = (AOTModule *)module_inst->aot_module.ptr;
+    AOTModule *module = (AOTModule *)module_inst->module;
 
     uint32 stack_top_idx = module->aux_stack_top_global_index;
     uint32 data_end = module->aux_data_end;
@@ -2553,8 +2553,7 @@ aot_set_aux_stack(WASMExecEnv *exec_env, uint32 start_offset, uint32 size)
         /* The aux stack top is a wasm global,
             set the initial value for the global */
         uint32 global_offset = module->globals[stack_top_idx].data_offset;
-        uint8 *global_addr =
-            (uint8 *)module_inst->global_data.ptr + global_offset;
+        uint8 *global_addr = module_inst->global_data + global_offset;
         *(int32 *)global_addr = start_offset;
 
         /* The aux stack boundary is a constant value,
@@ -2571,7 +2570,7 @@ bool
 aot_get_aux_stack(WASMExecEnv *exec_env, uint32 *start_offset, uint32 *size)
 {
     AOTModuleInstance *module_inst = (AOTModuleInstance *)exec_env->module_inst;
-    AOTModule *module = (AOTModule *)module_inst->aot_module.ptr;
+    AOTModule *module = (AOTModule *)module_inst->module;
 
     /* The aux stack information is resolved in loader
         and store in module */
@@ -2694,22 +2693,21 @@ aot_get_module_inst_mem_consumption(const AOTModuleInstance *module_inst,
     mem_conspn->module_inst_struct_size = sizeof(AOTModuleInstance);
 
     mem_conspn->memories_size =
-        sizeof(AOTPointer) * module_inst->memory_count
+        sizeof(void *) * module_inst->memory_count
         + sizeof(AOTMemoryInstance) * module_inst->memory_count;
     for (i = 0; i < module_inst->memory_count; i++) {
-        AOTMemoryInstance *mem_inst =
-            ((AOTMemoryInstance **)module_inst->memories.ptr)[i];
+        AOTMemoryInstance *mem_inst = module_inst->memories[i];
         mem_conspn->memories_size +=
             mem_inst->num_bytes_per_page * mem_inst->cur_page_count;
-        mem_conspn->app_heap_size = (uint8 *)mem_inst->heap_data_end.ptr
-                                    - (uint8 *)mem_inst->heap_data.ptr;
+        mem_conspn->app_heap_size =
+            mem_inst->heap_data_end - mem_inst->heap_data;
         /* size of app heap structure */
         mem_conspn->memories_size += mem_allocator_get_heap_struct_size();
     }
 
-    tbl_inst = module_inst->tables.ptr;
+    tbl_inst = (AOTTableInstance *)module_inst->tables;
     for (i = 0; i < module_inst->table_count; i++) {
-        mem_conspn->tables_size += offsetof(AOTTableInstance, data);
+        mem_conspn->tables_size += offsetof(AOTTableInstance, elems);
         mem_conspn->tables_size += sizeof(uint32) * tbl_inst->max_size;
         tbl_inst = aot_next_tbl_inst(tbl_inst);
     }
@@ -2717,8 +2715,8 @@ aot_get_module_inst_mem_consumption(const AOTModuleInstance *module_inst,
     /* func_ptrs and func_type_indexes */
     mem_conspn->functions_size =
         (sizeof(void *) + sizeof(uint32))
-        * (((AOTModule *)module_inst->aot_module.ptr)->import_func_count
-           + ((AOTModule *)module_inst->aot_module.ptr)->func_count);
+        * (((AOTModule *)module_inst->module)->import_func_count
+           + ((AOTModule *)module_inst->module)->func_count);
 
     mem_conspn->globals_size = module_inst->global_data_size;
 
@@ -2739,7 +2737,7 @@ aot_get_module_inst_mem_consumption(const AOTModuleInstance *module_inst,
 void
 aot_drop_table_seg(AOTModuleInstance *module_inst, uint32 tbl_seg_idx)
 {
-    AOTModule *module = (AOTModule *)module_inst->aot_module.ptr;
+    AOTModule *module = (AOTModule *)module_inst->module;
     AOTTableInitData *tbl_seg = module->table_init_data_list[tbl_seg_idx];
     tbl_seg->is_dropped = true;
 }
@@ -2751,7 +2749,7 @@ aot_table_init(AOTModuleInstance *module_inst, uint32 tbl_idx,
 {
     AOTTableInstance *tbl_inst;
     AOTTableInitData *tbl_seg;
-    const AOTModule *module = module_inst->aot_module.ptr;
+    const AOTModule *module = (AOTModule *)module_inst->module;
 
     tbl_inst = aot_get_table_inst(module_inst, tbl_idx);
     bh_assert(tbl_inst);
@@ -2779,7 +2777,7 @@ aot_table_init(AOTModuleInstance *module_inst, uint32 tbl_idx,
         return;
     }
 
-    bh_memcpy_s((uint8 *)tbl_inst + offsetof(AOTTableInstance, data)
+    bh_memcpy_s((uint8 *)tbl_inst + offsetof(AOTTableInstance, elems)
                     + dst_offset * sizeof(uint32),
                 (tbl_inst->cur_size - dst_offset) * sizeof(uint32),
                 tbl_seg->func_indexes + src_offset, length * sizeof(uint32));
@@ -2807,10 +2805,10 @@ aot_table_copy(AOTModuleInstance *module_inst, uint32 src_tbl_idx,
     /* if src_offset >= dst_offset, copy from front to back */
     /* if src_offset < dst_offset, copy from back to front */
     /* merge all together */
-    bh_memmove_s((uint8 *)(dst_tbl_inst) + offsetof(AOTTableInstance, data)
+    bh_memmove_s((uint8 *)dst_tbl_inst + offsetof(AOTTableInstance, elems)
                      + dst_offset * sizeof(uint32),
                  (dst_tbl_inst->cur_size - dst_offset) * sizeof(uint32),
-                 (uint8 *)(src_tbl_inst) + offsetof(AOTTableInstance, data)
+                 (uint8 *)src_tbl_inst + offsetof(AOTTableInstance, elems)
                      + src_offset * sizeof(uint32),
                  length * sizeof(uint32));
 }
@@ -2830,7 +2828,7 @@ aot_table_fill(AOTModuleInstance *module_inst, uint32 tbl_idx, uint32 length,
     }
 
     for (; length != 0; data_offset++, length--) {
-        tbl_inst->data[data_offset] = val;
+        tbl_inst->elems[data_offset] = val;
     }
 }
 
@@ -2863,7 +2861,7 @@ aot_table_grow(AOTModuleInstance *module_inst, uint32 tbl_idx,
 
     /* fill in */
     for (i = 0; i < inc_entries; ++i) {
-        tbl_inst->data[tbl_inst->cur_size + i] = init_val;
+        tbl_inst->elems[tbl_inst->cur_size + i] = init_val;
     }
 
     tbl_inst->cur_size = entry_count;
@@ -2900,7 +2898,7 @@ get_func_name_from_index(const AOTModuleInstance *module_inst,
                          uint32 func_index)
 {
     const char *func_name = NULL;
-    AOTModule *module = module_inst->aot_module.ptr;
+    AOTModule *module = (AOTModule *)module_inst->module;
 
 #if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
     if ((func_name =
@@ -2936,8 +2934,7 @@ aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
 #if WASM_ENABLE_PERF_PROFILING != 0
     AOTModuleInstance *module_inst = (AOTModuleInstance *)exec_env->module_inst;
     AOTFuncPerfProfInfo *func_perf_prof =
-        (AOTFuncPerfProfInfo *)module_inst->func_perf_profilings.ptr
-        + func_index;
+        module_inst->func_perf_profilings + func_index;
 #endif
 
     if (!frame) {
@@ -2991,8 +2988,8 @@ aot_create_call_stack(struct WASMExecEnv *exec_env)
     }
 
     /* release previous stack frames and create new ones */
-    if (!bh_vector_destroy(module_inst->frames.ptr)
-        || !bh_vector_init(module_inst->frames.ptr, n, sizeof(WASMCApiFrame),
+    if (!bh_vector_destroy(module_inst->frames)
+        || !bh_vector_init(module_inst->frames, n, sizeof(WASMCApiFrame),
                            false)) {
         return false;
     }
@@ -3007,8 +3004,8 @@ aot_create_call_stack(struct WASMExecEnv *exec_env)
         frame.func_name_wp =
             get_func_name_from_index(module_inst, cur_frame->func_index);
 
-        if (!bh_vector_append(module_inst->frames.ptr, &frame)) {
-            bh_vector_destroy(module_inst->frames.ptr);
+        if (!bh_vector_append(module_inst->frames, &frame)) {
+            bh_vector_destroy(module_inst->frames);
             return false;
         }
 
@@ -3036,11 +3033,11 @@ aot_dump_call_stack(WASMExecEnv *exec_env, bool print, char *buf, uint32 len)
      * will be truncated */
     char line_buf[256];
 
-    if (!module_inst->frames.ptr) {
+    if (!module_inst->frames) {
         return 0;
     }
 
-    total_frames = bh_vector_size(module_inst->frames.ptr);
+    total_frames = bh_vector_size(module_inst->frames);
     if (total_frames == 0) {
         return 0;
     }
@@ -3052,7 +3049,7 @@ aot_dump_call_stack(WASMExecEnv *exec_env, bool print, char *buf, uint32 len)
         WASMCApiFrame frame = { 0 };
         uint32 line_length, i;
 
-        if (!bh_vector_get(module_inst->frames.ptr, n, &frame)) {
+        if (!bh_vector_get(module_inst->frames, n, &frame)) {
             return 0;
         }
 
@@ -3091,8 +3088,8 @@ void
 aot_dump_perf_profiling(const AOTModuleInstance *module_inst)
 {
     AOTFuncPerfProfInfo *perf_prof =
-        (AOTFuncPerfProfInfo *)module_inst->func_perf_profilings.ptr;
-    AOTModule *module = (AOTModule *)module_inst->aot_module.ptr;
+        (AOTFuncPerfProfInfo *)module_inst->func_perf_profilings;
+    AOTModule *module = (AOTModule *)module_inst->module;
     uint32 total_func_count = module->import_func_count + module->func_count, i;
     const char *func_name;
 

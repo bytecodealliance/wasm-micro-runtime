@@ -1226,19 +1226,18 @@ wasm_runtime_dump_mem_consumption(WASMExecEnv *exec_env)
                                              &module_inst_mem_consps);
         wasm_get_module_mem_consumption(wasm_module, &module_mem_consps);
         if (wasm_module_inst->module->aux_stack_top_global_index != (uint32)-1)
-            max_aux_stack_used = wasm_module_inst->max_aux_stack_used;
+            max_aux_stack_used = wasm_module_inst->e->max_aux_stack_used;
     }
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module_inst_common->module_type == Wasm_Module_AoT) {
         AOTModuleInstance *aot_module_inst =
             (AOTModuleInstance *)module_inst_common;
-        AOTModule *aot_module = (AOTModule *)aot_module_inst->aot_module.ptr;
+        AOTModule *aot_module = (AOTModule *)aot_module_inst->module;
         module_common = (WASMModuleCommon *)aot_module;
-        if (aot_module_inst->memories.ptr) {
-            AOTMemoryInstance **memories =
-                (AOTMemoryInstance **)aot_module_inst->memories.ptr;
-            heap_handle = memories[0]->heap_handle.ptr;
+        if (aot_module_inst->memories) {
+            AOTMemoryInstance **memories = aot_module_inst->memories;
+            heap_handle = memories[0]->heap_handle;
         }
         aot_get_module_inst_mem_consumption(aot_module_inst,
                                             &module_inst_mem_consps);
@@ -2000,11 +1999,10 @@ wasm_runtime_get_exec_env_singleton(WASMModuleInstanceCommon *module_inst)
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT) {
-        if (!((AOTModuleInstance *)module_inst)->exec_env_singleton.ptr) {
+        if (!((AOTModuleInstance *)module_inst)->exec_env_singleton) {
             aot_create_exec_env_singleton((AOTModuleInstance *)module_inst);
         }
-        return (WASMExecEnv *)((AOTModuleInstance *)module_inst)
-            ->exec_env_singleton.ptr;
+        return ((AOTModuleInstance *)module_inst)->exec_env_singleton;
     }
 #endif
     return NULL;
@@ -2062,7 +2060,7 @@ wasm_runtime_set_custom_data_internal(WASMModuleInstanceCommon *module_inst,
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT) {
-        ((AOTModuleInstance *)module_inst)->custom_data.ptr = custom_data;
+        ((AOTModuleInstance *)module_inst)->custom_data = custom_data;
         return;
     }
 #endif
@@ -2088,7 +2086,7 @@ wasm_runtime_get_custom_data(WASMModuleInstanceCommon *module_inst)
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT)
-        return ((AOTModuleInstance *)module_inst)->custom_data.ptr;
+        return ((AOTModuleInstance *)module_inst)->custom_data;
 #endif
     return NULL;
 }
@@ -2416,14 +2414,14 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
 
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode
-        && !((WASMModuleInstance *)module_inst)->default_memory)
+        && !((WASMModuleInstance *)module_inst)->e->default_memory)
         return true;
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT
         && !((AOTModuleInstance *)module_inst)
                 ->global_table_data.memory_instances[0]
-                .memory_data.ptr)
+                .memory_data)
         return true;
 #endif
 
@@ -2749,7 +2747,7 @@ wasm_runtime_is_wasi_mode(WASMModuleInstanceCommon *module_inst)
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT
-        && ((AOTModule *)((AOTModuleInstance *)module_inst)->aot_module.ptr)
+        && ((AOTModule *)((AOTModuleInstance *)module_inst)->module)
                ->import_wasi_api)
         return true;
 #endif
@@ -2785,7 +2783,7 @@ wasm_runtime_lookup_wasi_start_function(WASMModuleInstanceCommon *module_inst)
     if (module_inst->module_type == Wasm_Module_AoT) {
         AOTModuleInstance *aot_inst = (AOTModuleInstance *)module_inst;
         AOTFunctionInstance *export_funcs =
-            (AOTFunctionInstance *)aot_inst->export_funcs.ptr;
+            (AOTFunctionInstance *)aot_inst->export_functions;
         for (i = 0; i < aot_inst->export_func_count; i++) {
             if (!strcmp(export_funcs[i].func_name, "_start")) {
                 AOTFuncType *func_type = export_funcs[i].u.func.func_type;
@@ -2861,7 +2859,7 @@ wasm_runtime_get_wasi_ctx(WASMModuleInstanceCommon *module_inst)
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT)
-        return ((AOTModuleInstance *)module_inst)->wasi_ctx.ptr;
+        return ((AOTModuleInstance *)module_inst)->wasi_ctx;
 #endif
     return NULL;
 }
@@ -2876,7 +2874,7 @@ wasm_runtime_set_wasi_ctx(WASMModuleInstanceCommon *module_inst,
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT)
-        ((AOTModuleInstance *)module_inst)->wasi_ctx.ptr = wasi_ctx;
+        ((AOTModuleInstance *)module_inst)->wasi_ctx = wasi_ctx;
 #endif
 }
 #endif /* end of WASM_ENABLE_LIBC_WASI */
@@ -2892,8 +2890,7 @@ wasm_exec_env_get_module(WASMExecEnv *exec_env)
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT)
-        return (WASMModuleCommon *)((AOTModuleInstance *)module_inst)
-            ->aot_module.ptr;
+        return (WASMModuleCommon *)((AOTModuleInstance *)module_inst)->module;
 #endif
     return NULL;
 }
@@ -4458,8 +4455,8 @@ interp_mark_all_externrefs(WASMModuleInstance *module_inst)
     WASMGlobalInstance *global;
     WASMTableInstance *table;
 
-    global = module_inst->globals;
-    for (i = 0; i < module_inst->global_count; i++, global++) {
+    global = module_inst->e->globals;
+    for (i = 0; i < module_inst->e->global_count; i++, global++) {
         if (global->type == VALUE_TYPE_EXTERNREF) {
             externref_idx = *(uint32 *)(global_data + global->data_offset);
             mark_externref(externref_idx);
@@ -4476,7 +4473,7 @@ interp_mark_all_externrefs(WASMModuleInstance *module_inst)
             &max_size);
 
         if (elem_type == VALUE_TYPE_EXTERNREF) {
-            table_data = (uint32 *)table->base_addr;
+            table_data = table->elems;
             for (j = 0; j < table->cur_size; j++) {
                 externref_idx = table_data[j];
                 mark_externref(externref_idx);
@@ -4493,16 +4490,16 @@ static void
 aot_mark_all_externrefs(AOTModuleInstance *module_inst)
 {
     uint32 i = 0, j = 0;
-    const AOTModule *module = (AOTModule *)(module_inst->aot_module.ptr);
+    const AOTModule *module = (AOTModule *)module_inst->module;
     const AOTTable *table = module->tables;
     const AOTGlobal *global = module->globals;
     const AOTTableInstance *table_inst =
-        (AOTTableInstance *)module_inst->tables.ptr;
+        (AOTTableInstance *)module_inst->tables;
 
     for (i = 0; i < module->global_count; i++, global++) {
         if (global->type == VALUE_TYPE_EXTERNREF) {
-            mark_externref(*(uint32 *)((uint8 *)module_inst->global_data.ptr
-                                       + global->data_offset));
+            mark_externref(
+                *(uint32 *)(module_inst->global_data + global->data_offset));
         }
     }
 
@@ -4511,7 +4508,7 @@ aot_mark_all_externrefs(AOTModuleInstance *module_inst)
 
         if ((table + i)->elem_type == VALUE_TYPE_EXTERNREF) {
             while (j < table_inst->cur_size) {
-                mark_externref(table_inst->data[j++]);
+                mark_externref(table_inst->elems[j++]);
             }
         }
     }
@@ -4733,8 +4730,8 @@ wasm_runtime_get_table_inst_elem_type(
     if (module_inst_comm->module_type == Wasm_Module_AoT) {
         AOTModuleInstance *module_inst = (AOTModuleInstance *)module_inst_comm;
         return wasm_runtime_get_table_elem_type(
-            (WASMModuleCommon *)module_inst->aot_module.ptr, table_idx,
-            out_elem_type, out_min_size, out_max_size);
+            (WASMModuleCommon *)module_inst->module, table_idx, out_elem_type,
+            out_min_size, out_max_size);
     }
 #endif
     return false;
