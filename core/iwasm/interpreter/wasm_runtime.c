@@ -1587,17 +1587,23 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
 #endif
 
         /* init vec(funcidx) or vec(expr) */
+#if WASM_ENABLE_REF_TYPES != 0
         bh_assert(
             table_seg->base_offset.init_expr_type == INIT_EXPR_TYPE_I32_CONST
             || table_seg->base_offset.init_expr_type
                    == INIT_EXPR_TYPE_GET_GLOBAL
-#if WASM_ENABLE_REF_TYPES != 0
             || table_seg->base_offset.init_expr_type
                    == INIT_EXPR_TYPE_FUNCREF_CONST
             || table_seg->base_offset.init_expr_type
                    == INIT_EXPR_TYPE_REFNULL_CONST
-#endif
         );
+#else
+        bh_assert(
+            table_seg->base_offset.init_expr_type == INIT_EXPR_TYPE_I32_CONST
+            || table_seg->base_offset.init_expr_type
+                   == INIT_EXPR_TYPE_GET_GLOBAL
+        );
+#endif
 
         if (table_seg->base_offset.init_expr_type
             == INIT_EXPR_TYPE_GET_GLOBAL) {
