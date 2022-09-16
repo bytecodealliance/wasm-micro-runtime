@@ -56,7 +56,7 @@ sockaddr_to_wasi_addr(const struct sockaddr *sock_addr, socklen_t addrlen,
 static __wasi_errno_t
 sock_addr_remote(__wasi_fd_t fd, struct sockaddr *sock_addr, socklen_t *addrlen)
 {
-    __wasi_addr_t wasi_addr = { 0 };
+    __wasi_addr_t wasi_addr {} ;
     __wasi_errno_t error;
 
     error =
@@ -67,6 +67,7 @@ sock_addr_remote(__wasi_fd_t fd, struct sockaddr *sock_addr, socklen_t *addrlen)
 
     if (IPv4 == wasi_addr.kind) {
         struct sockaddr_in sock_addr_in = { 0 };
+
 
         sock_addr_in.sin_family = AF_INET;
         sock_addr_in.sin_addr.s_addr = (wasi_addr.addr.ip4.addr.n3 << 24)
@@ -92,7 +93,7 @@ sock_addr_remote(__wasi_fd_t fd, struct sockaddr *sock_addr, socklen_t *addrlen)
 int
 accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 {
-    __wasi_addr_t wasi_addr = { 0 };
+    __wasi_addr_t wasi_addr {} ;
     __wasi_fd_t new_sockfd;
     __wasi_errno_t error;
 
@@ -109,7 +110,7 @@ accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 int
 bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 {
-    __wasi_addr_t wasi_addr = { 0 };
+    __wasi_addr_t wasi_addr {} ;
     __wasi_errno_t error;
 
     error = sockaddr_to_wasi_addr(addr, addrlen, &wasi_addr);
@@ -124,7 +125,7 @@ bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 int
 connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 {
-    __wasi_addr_t wasi_addr = { 0 };
+    __wasi_addr_t wasi_addr {} ;
     __wasi_errno_t error;
 
     if (NULL == addr) {
@@ -152,7 +153,7 @@ ssize_t
 recvmsg(int sockfd, struct msghdr *msg, int flags)
 {
     // Prepare input parameters.
-    __wasi_iovec_t *ri_data = NULL;
+    __wasi_iovec_t *ri_data ;
     size_t i = 0;
     size_t ro_datalen = 0;
     __wasi_roflags_t ro_flags = 0;
@@ -167,12 +168,12 @@ recvmsg(int sockfd, struct msghdr *msg, int flags)
     }
 
     // __wasi_ciovec_t -> struct iovec
-    if (!(ri_data = malloc(sizeof(__wasi_iovec_t) * msg->msg_iovlen))) {
+    if (!(ri_data = (__wasi_iovec_t *) malloc(sizeof(__wasi_iovec_t) * msg->msg_iovlen))) {
         HANDLE_ERROR(__WASI_ERRNO_NOMEM)
     }
 
     for (i = 0; i < msg->msg_iovlen; i++) {
-        ri_data[i].buf = msg->msg_iov[i].iov_base;
+        ri_data[i].buf = (uint8_t *)msg->msg_iov[i].iov_base;
         ri_data[i].buf_len = msg->msg_iov[i].iov_len;
     }
 
@@ -189,7 +190,7 @@ ssize_t
 sendmsg(int sockfd, const struct msghdr *msg, int flags)
 {
     // Prepare input parameters.
-    __wasi_ciovec_t *si_data = NULL;
+    __wasi_ciovec_t *si_data ;
     size_t so_datalen = 0;
     size_t i = 0;
 
@@ -203,12 +204,12 @@ sendmsg(int sockfd, const struct msghdr *msg, int flags)
     }
 
     // struct iovec -> __wasi_ciovec_t
-    if (!(si_data = malloc(sizeof(__wasi_ciovec_t) * msg->msg_iovlen))) {
+    if (!(si_data = (__wasi_ciovec_t *)malloc(sizeof(__wasi_ciovec_t) * msg->msg_iovlen))) {
         HANDLE_ERROR(__WASI_ERRNO_NOMEM)
     }
 
     for (i = 0; i < msg->msg_iovlen; i++) {
-        si_data[i].buf = msg->msg_iov[i].iov_base;
+        si_data[i].buf = (uint8_t *) msg->msg_iov[i].iov_base;
         si_data[i].buf_len = msg->msg_iov[i].iov_len;
     }
 
