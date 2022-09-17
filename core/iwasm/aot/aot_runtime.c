@@ -244,14 +244,18 @@ table_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
         tbl_inst = aot_get_table_inst(module_inst, table_seg->table_index);
         bh_assert(tbl_inst);
 
+#if WASM_ENABLE_REF_TYPES != 0
         bh_assert(
             table_seg->offset.init_expr_type == INIT_EXPR_TYPE_I32_CONST
             || table_seg->offset.init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL
-#if WASM_ENABLE_REF_TYPES != 0
             || table_seg->offset.init_expr_type == INIT_EXPR_TYPE_FUNCREF_CONST
-            || table_seg->offset.init_expr_type == INIT_EXPR_TYPE_REFNULL_CONST
+            || table_seg->offset.init_expr_type
+                   == INIT_EXPR_TYPE_REFNULL_CONST);
+#else
+        bh_assert(table_seg->offset.init_expr_type == INIT_EXPR_TYPE_I32_CONST
+                  || table_seg->offset.init_expr_type
+                         == INIT_EXPR_TYPE_GET_GLOBAL);
 #endif
-        );
 
         /* Resolve table data base offset */
         if (table_seg->offset.init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL) {
