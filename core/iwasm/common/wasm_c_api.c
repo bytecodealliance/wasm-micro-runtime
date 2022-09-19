@@ -3372,8 +3372,7 @@ wasm_table_get(const wasm_table_t *table, wasm_table_size_t index)
 #if WASM_ENABLE_AOT != 0
     if (table->inst_comm_rt->module_type == Wasm_Module_AoT) {
         AOTModuleInstance *inst_aot = (AOTModuleInstance *)table->inst_comm_rt;
-        AOTTableInstance *table_aot =
-            (AOTTableInstance *)inst_aot->tables + table->table_idx_rt;
+        AOTTableInstance *table_aot = inst_aot->tables[table->table_idx_rt];
         if (index >= table_aot->cur_size) {
             return NULL;
         }
@@ -3447,8 +3446,7 @@ wasm_table_set(wasm_table_t *table, wasm_table_size_t index,
     if (table->inst_comm_rt->module_type == Wasm_Module_AoT) {
         AOTModuleInstance *inst_aot = (AOTModuleInstance *)table->inst_comm_rt;
         AOTModule *module_aot = (AOTModule *)inst_aot->module;
-        AOTTableInstance *table_aot =
-            (AOTTableInstance *)inst_aot->tables + table->table_idx_rt;
+        AOTTableInstance *table_aot = inst_aot->tables[table->table_idx_rt];
 
         if (index >= table_aot->cur_size) {
             return false;

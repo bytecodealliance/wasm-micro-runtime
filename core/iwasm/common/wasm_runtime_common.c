@@ -4493,8 +4493,7 @@ aot_mark_all_externrefs(AOTModuleInstance *module_inst)
     const AOTModule *module = (AOTModule *)module_inst->module;
     const AOTTable *table = module->tables;
     const AOTGlobal *global = module->globals;
-    const AOTTableInstance *table_inst =
-        (AOTTableInstance *)module_inst->tables;
+    const AOTTableInstance *table_inst;
 
     for (i = 0; i < module->global_count; i++, global++) {
         if (global->type == VALUE_TYPE_EXTERNREF) {
@@ -4503,9 +4502,8 @@ aot_mark_all_externrefs(AOTModuleInstance *module_inst)
         }
     }
 
-    for (i = 0; i < module->table_count;
-         i++, table_inst = aot_next_tbl_inst(table_inst)) {
-
+    for (i = 0; i < module->table_count; i++) {
+        table_inst = module_inst->tables[i];
         if ((table + i)->elem_type == VALUE_TYPE_EXTERNREF) {
             while (j < table_inst->cur_size) {
                 mark_externref(table_inst->elems[j++]);
