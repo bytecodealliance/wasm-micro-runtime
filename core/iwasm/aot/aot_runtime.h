@@ -559,9 +559,6 @@ aot_table_grow(AOTModuleInstance *module_inst, uint32 tbl_idx,
                uint32 inc_entries, uint32 init_val);
 #endif
 
-AOTTableInstance *
-aot_next_tbl_inst(const AOTTableInstance *tbl_inst);
-
 bool
 aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index);
 
