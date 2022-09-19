@@ -3,7 +3,13 @@
 
 cmake_minimum_required (VERSION 2.9)
 
-string (TOLOWER ${CMAKE_HOST_SYSTEM_NAME} WAMR_BUILD_PLATFORM)
+if (NOT DEFINED WAMR_BUILD_PLATFORM)
+  if (CMAKE_SYSTEM_NAME)
+    string(TOLOWER ${CMAKE_SYSTEM_NAME} WAMR_BUILD_PLATFORM)
+  else()
+    string(TOLOWER ${CMAKE_HOST_SYSTEM_NAME} WAMR_BUILD_PLATFORM)
+  endif()
+endif()
 
 if (NOT WAMR_BUILD_PLATFORM STREQUAL "windows")
   project (aot-compiler)
@@ -233,15 +239,12 @@ endif()
 # set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mindirect-branch=thunk -mfunction-return=thunk")
 
 if (NOT MSVC)
-  if (NOT (CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*Clang"))
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pie -fPIE -ftrapv -D_FORTIFY_SOURCE=2")
-  else()
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIE -ftrapv -D_FORTIFY_SOURCE=2")
-  endif()
+  add_definitions(-D_FORTIFY_SOURCE=2)
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ftrapv")
 endif()
 
-if (MSVC)
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_WINSOCK_DEPRECATED_NO_WARNINGS")
+if (WIN32)
+  add_definitions(-D_WINSOCK_DEPRECATED_NO_WARNINGS)
 endif()
 
 # message ("-- CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")
@@ -267,7 +270,7 @@ if (NOT MSVC)
   target_link_libraries (wamrc aotclib vmlib LLVMDemangle ${LLVM_AVAILABLE_LIBS} ${lib_ubsan}
                          -lm -lpthread ${lib_lldb} ${UV_A_LIBS})
   if (MINGW)
-      target_link_libraries (wamrc -lssp -lWs2_32)
+      target_link_libraries (wamrc -lssp -lws2_32)
   else()
       target_link_libraries (wamrc -ldl)
   endif()
