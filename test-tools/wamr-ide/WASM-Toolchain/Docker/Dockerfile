@@ -34,7 +34,7 @@ RUN git clone -b main --depth=1 https://github.com/bytecodealliance/wasm-micro-r
 
 WORKDIR /root/wasm-micro-runtime/wamr-compiler
 RUN ./build_llvm.sh \
-    && mkdir build \
+    && mkdir build 
 
 WORKDIR /root/wasm-micro-runtime/wamr-compiler/build
 RUN cmake .. \

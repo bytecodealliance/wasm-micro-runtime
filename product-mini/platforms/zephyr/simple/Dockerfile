@@ -29,8 +29,8 @@ RUN pip3 install --user west --no-cache-dir \
 
 WORKDIR /home/wamr/zephyrproject
 RUN west update && west zephyr-export \
-  && pip3 install --user -r ~/zephyrproject/zephyr/scripts/requirements.txt --no-cache-dir \
-  && west espressif install
+  && pip3 install --user -r ~/zephyrproject/zephyr/scripts/requirements.txt --no-cache-dir
+RUN west espressif install
 
 ENV ZEPHYR_BASE=/home/wamr/zephyrproject/zephyr
 ENV ESPRESSIF_TOOLCHAIN_PATH=/home/wamr/.espressif/tools/zephyr

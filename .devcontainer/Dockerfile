@@ -102,3 +102,7 @@ RUN echo "export PATH=/opt/bazelisk:/opt/clang-llvm/bin:${PATH}" >> /root/.bashr
   && apt-get clean -y \
   && rm -rf /var/lib/apt/lists/* \
   && rm -rf /tmp/*
+
+# set workdir when container run
+VOLUME /workspace
+WORKDIR /workspace
