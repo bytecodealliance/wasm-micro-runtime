@@ -355,7 +355,7 @@ get_table_data_reg(JitFrame *frame, uint32 tbl_idx)
         frame->table_regs[tbl_idx].table_data =
             cc->table_regs[tbl_idx].table_data;
         GEN_INSN(ADD, frame->table_regs[tbl_idx].table_data, table_reg,
-                 NEW_CONST(I64, offsetof(WASMTableInstance, base_addr)));
+                 NEW_CONST(I64, offsetof(WASMTableInstance, elems)));
     }
     return frame->table_regs[tbl_idx].table_data;
 }

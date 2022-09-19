@@ -331,10 +331,8 @@ wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
 #if WASM_ENABLE_AOT != 0
     if (module->module_type == Wasm_Module_AoT) {
         AOTModuleInstance *aot_inst = (AOTModuleInstance *)module;
-        AOTMemoryInstance *aot_memory =
-            ((AOTMemoryInstance **)aot_inst->memories.ptr)[0];
         /* Currently we have only one memory instance */
-        if (!aot_memory->is_shared) {
+        if (!aot_inst->memories[0]->is_shared) {
             wasm_runtime_set_exception(module, "wait on unshared memory");
             return -1;
         }

@@ -78,7 +78,7 @@ struct WASMMemoryInstance {
     DefPointer(void *, heap_handle);
 
 #if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0 \
-    || WASM_ENABLE_WAMR_COMPILER != 0
+    || WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_AOT != 0
     MemBound mem_bound_check_1byte;
     MemBound mem_bound_check_2bytes;
     MemBound mem_bound_check_4bytes;
@@ -92,8 +92,8 @@ struct WASMTableInstance {
     uint32 cur_size;
     /* Maximum size */
     uint32 max_size;
-    /* Base address */
-    uint8 base_addr[1];
+    /* Table elements */
+    uint32 elems[1];
 };
 
 struct WASMGlobalInstance {
@@ -170,6 +170,42 @@ typedef struct WASMExportMemInstance {
     WASMMemoryInstance *memory;
 } WASMExportMemInstance;
 
+/* Extra info of WASM module instance for interpreter/jit mode */
+typedef struct WASMModuleInstanceExtra {
+    WASMGlobalInstance *globals;
+    WASMFunctionInstance *functions;
+
+    uint32 global_count;
+    uint32 function_count;
+
+    WASMMemoryInstance *default_memory;
+    WASMTableInstance *default_table;
+
+    WASMFunctionInstance *start_function;
+    WASMFunctionInstance *malloc_function;
+    WASMFunctionInstance *free_function;
+    WASMFunctionInstance *retain_function;
+
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    /* lock for shared memory atomic operations */
+    korp_mutex mem_lock;
+    bool mem_lock_inited;
+#endif
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+    bh_list sub_module_inst_list_head;
+    bh_list *sub_module_inst_list;
+    /* linked table instances of import table instances */
+    WASMTableInstance **table_insts_linked;
+#endif
+
+#if WASM_ENABLE_MEMORY_PROFILING != 0
+    uint32 max_aux_stack_used;
+#endif
+} WASMModuleInstanceExtra;
+
+struct AOTFuncPerfProfInfo;
+
 struct WASMModuleInstance {
     /* Module instance type, for module instance loaded from
        WASM bytecode binary, this field is Wasm_Module_Bytecode;
@@ -185,22 +221,20 @@ struct WASMModuleInstance {
     uint32 global_data_size;
     uint32 table_count;
     DefPointer(uint8 *, global_data);
+    /* For AOTModuleInstance, it denotes `AOTTableInstance *` */
     DefPointer(WASMTableInstance **, tables);
 
-#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
     /* import func ptrs + llvm jit func ptrs */
     DefPointer(void **, func_ptrs);
-#endif
-#if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0 \
-    || WASM_ENABLE_WAMR_COMPILER != 0
+
     /* function type indexes */
     DefPointer(uint32 *, func_type_indexes);
-#endif
 
     uint32 export_func_count;
     uint32 export_global_count;
     uint32 export_memory_count;
     uint32 export_table_count;
+    /* For AOTModuleInstance, it denotes `AOTFunctionInstance *` */
     DefPointer(WASMExportFuncInstance *, export_functions);
     DefPointer(WASMExportGlobInstance *, export_globals);
     DefPointer(WASMExportMemInstance *, export_memories);
@@ -209,67 +243,41 @@ struct WASMModuleInstance {
     /* The exception buffer of wasm interpreter for current thread. */
     char cur_exception[128];
 
-    WASMModule *module;
+    /* The WASM module or AOT module, for AOTModuleInstance,
+       it denotes `AOTModule *` */
+    DefPointer(WASMModule *, module);
 
-    WASMExecEnv *exec_env_singleton;
-
-    WASMGlobalInstance *globals;
-    WASMFunctionInstance *functions;
-
-    WASMMemoryInstance *default_memory;
-    WASMTableInstance *default_table;
-
-    WASMFunctionInstance *start_function;
-    WASMFunctionInstance *malloc_function;
-    WASMFunctionInstance *free_function;
-    WASMFunctionInstance *retain_function;
-
-    /* Array of function pointers to import functions */
-    void **import_func_ptrs;
-
-    /* The custom data that can be set/get by
-     * wasm_set_custom_data/wasm_get_custom_data */
-    void *custom_data;
+#if WASM_ENABLE_LIBC_WASI
+    /* WASI context */
+    DefPointer(WASIContext *, wasi_ctx);
+#else
+    DefPointer(void *, wasi_ctx);
+#endif
+    DefPointer(WASMExecEnv *, exec_env_singleton);
+    /* Array of function pointers to import functions,
+       not available in AOTModuleInstance */
+    DefPointer(void **, import_func_ptrs);
+    /* Array of function pointers to fast jit functions,
+       not available in AOTModuleInstance */
+    DefPointer(void **, fast_jit_func_ptrs);
+    /* The custom data that can be set/get by wasm_{get|set}_custom_data */
+    DefPointer(void *, custom_data);
+    /* Stack frames, used in call stack dump and perf profiling */
+    DefPointer(Vector *, frames);
+    /* Function performance profiling info list, only available
+       in AOTModuleInstance */
+    DefPointer(struct AOTFuncPerfProfInfo *, func_perf_profilings);
+    /* WASM/AOT module extra info, for AOTModuleInstance,
+       it denotes `AOTModuleInstanceExtra *` */
+    DefPointer(WASMModuleInstanceExtra *, e);
 
     /* Default WASM operand stack size */
     uint32 default_wasm_stack_size;
-    uint32 global_count;
-    uint32 function_count;
-
-#if WASM_ENABLE_LIBC_WASI != 0
-    WASIContext *wasi_ctx;
-#endif
-
-#if WASM_ENABLE_FAST_JIT != 0
-    /* Array of function pointers to fast jit functions */
-    void **fast_jit_func_ptrs;
-#endif
-
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    /* lock for shared memory atomic operations */
-    korp_mutex mem_lock;
-    bool mem_lock_inited;
-#endif
-
-#if WASM_ENABLE_MULTI_MODULE != 0
-    /* TODO: add lock for mutli-thread? */
-    bh_list sub_module_inst_list_head;
-    bh_list *sub_module_inst_list;
-    /* linked table instances of import table instances */
-    WASMTableInstance **table_insts_linked;
-#endif
-
-#if WASM_ENABLE_DUMP_CALL_STACK != 0
-    Vector *frames;
-#endif
-
-#if WASM_ENABLE_MEMORY_PROFILING != 0
-    uint32 max_aux_stack_used;
-#endif
+    uint32 reserved[3];
 
     /*
      * +------------------------------+ <-- memories
-     * | WASMMemoryInstance[1]
+     * | WASMMemoryInstance[mem_count], mem_count is always 1 for LLVM JIT/AOT
      * +------------------------------+ <-- global_data
      * | global data
      * +------------------------------+ <-- tables
@@ -490,8 +498,8 @@ wasm_get_table_inst(const WASMModuleInstance *module_inst, uint32 tbl_idx)
     WASMTableInstance *tbl_inst = module_inst->tables[tbl_idx];
 #if WASM_ENABLE_MULTI_MODULE != 0
     if (tbl_idx < module_inst->module->import_table_count
-        && module_inst->table_insts_linked[tbl_idx]) {
-        tbl_inst = module_inst->table_insts_linked[tbl_idx];
+        && module_inst->e->table_insts_linked[tbl_idx]) {
+        tbl_inst = module_inst->e->table_insts_linked[tbl_idx];
     }
 #endif
     bh_assert(tbl_inst);

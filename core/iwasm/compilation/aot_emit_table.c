@@ -29,7 +29,7 @@ get_tbl_inst_offset(const AOTCompContext *comp_ctx,
     }
 
     while (i < tbl_idx && i < comp_ctx->comp_data->import_table_count) {
-        offset += offsetof(AOTTableInstance, data);
+        offset += offsetof(AOTTableInstance, elems);
         /* avoid loading from current AOTTableInstance */
         offset +=
             sizeof(uint32)
@@ -44,7 +44,7 @@ get_tbl_inst_offset(const AOTCompContext *comp_ctx,
     tbl_idx -= comp_ctx->comp_data->import_table_count;
     i -= comp_ctx->comp_data->import_table_count;
     while (i < tbl_idx && i < comp_ctx->comp_data->table_count) {
-        offset += offsetof(AOTTableInstance, data);
+        offset += offsetof(AOTTableInstance, elems);
         /* avoid loading from current AOTTableInstance */
         offset += sizeof(uint32)
                   * aot_get_tbl_data_slots(tbls + i, comp_ctx->is_jit_mode);
@@ -189,7 +189,7 @@ aot_compile_op_table_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     /* load data as i32* */
     if (!(offset = I32_CONST(get_tbl_inst_offset(comp_ctx, func_ctx, tbl_idx)
-                             + offsetof(AOTTableInstance, data)))) {
+                             + offsetof(AOTTableInstance, elems)))) {
         HANDLE_FAILURE("LLVMConstInt");
         goto fail;
     }
@@ -243,7 +243,7 @@ aot_compile_op_table_set(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     /* load data as i32* */
     if (!(offset = I32_CONST(get_tbl_inst_offset(comp_ctx, func_ctx, tbl_idx)
-                             + offsetof(AOTTableInstance, data)))) {
+                             + offsetof(AOTTableInstance, elems)))) {
         HANDLE_FAILURE("LLVMConstInt");
         goto fail;
     }

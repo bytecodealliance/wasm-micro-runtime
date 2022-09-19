@@ -1655,7 +1655,7 @@ wasm_trap_new_internal(WASMModuleInstanceCommon *inst_comm_rt,
 
 #if WASM_ENABLE_AOT != 0
     if (inst_comm_rt->module_type == Wasm_Module_AoT) {
-        trap->frames = ((AOTModuleInstance *)inst_comm_rt)->frames.ptr;
+        trap->frames = ((AOTModuleInstance *)inst_comm_rt)->frames;
     }
 #endif
 #endif /* WASM_ENABLE_DUMP_CALL_STACK != 0 */
@@ -2482,9 +2482,9 @@ wasm_func_new_internal(wasm_store_t *store, uint16 func_idx_rt,
 #if WASM_ENABLE_INTERP != 0
     if (inst_comm_rt->module_type == Wasm_Module_Bytecode) {
         bh_assert(func_idx_rt
-                  < ((WASMModuleInstance *)inst_comm_rt)->function_count);
+                  < ((WASMModuleInstance *)inst_comm_rt)->e->function_count);
         WASMFunctionInstance *func_interp =
-            ((WASMModuleInstance *)inst_comm_rt)->functions + func_idx_rt;
+            ((WASMModuleInstance *)inst_comm_rt)->e->functions + func_idx_rt;
         type_rt = func_interp->is_import_func
                       ? func_interp->u.func_import->func_type
                       : func_interp->u.func->func_type;
@@ -2496,7 +2496,7 @@ wasm_func_new_internal(wasm_store_t *store, uint16 func_idx_rt,
         /* use same index to trace the function type in AOTFuncType **func_types
          */
         AOTModule *module_aot =
-            ((AOTModuleInstance *)inst_comm_rt)->aot_module.ptr;
+            (AOTModule *)((AOTModuleInstance *)inst_comm_rt)->module;
         if (func_idx_rt < module_aot->import_func_count) {
             type_rt = (module_aot->import_funcs + func_idx_rt)->func_type;
         }
@@ -2748,7 +2748,7 @@ wasm_func_call(const wasm_func_t *func, const wasm_val_vec_t *params,
 
 #if WASM_ENABLE_INTERP != 0
     if (func->inst_comm_rt->module_type == Wasm_Module_Bytecode) {
-        func_comm_rt = ((WASMModuleInstance *)func->inst_comm_rt)->functions
+        func_comm_rt = ((WASMModuleInstance *)func->inst_comm_rt)->e->functions
                        + func->func_idx_rt;
     }
 #endif
@@ -2758,7 +2758,7 @@ wasm_func_call(const wasm_func_t *func, const wasm_val_vec_t *params,
         if (!(func_comm_rt = func->func_comm_rt)) {
             AOTModuleInstance *inst_aot =
                 (AOTModuleInstance *)func->inst_comm_rt;
-            AOTModule *module_aot = (AOTModule *)inst_aot->aot_module.ptr;
+            AOTModule *module_aot = (AOTModule *)inst_aot->module;
             uint32 export_i = 0, export_func_j = 0;
 
             for (; export_i < module_aot->export_count; ++export_i) {
@@ -2766,7 +2766,7 @@ wasm_func_call(const wasm_func_t *func, const wasm_val_vec_t *params,
                 if (export->kind == EXPORT_KIND_FUNC) {
                     if (export->index == func->func_idx_rt) {
                         func_comm_rt =
-                            (AOTFunctionInstance *)inst_aot->export_funcs.ptr
+                            (AOTFunctionInstance *)inst_aot->export_functions
                             + export_func_j;
                         ((wasm_func_t *)func)->func_comm_rt = func_comm_rt;
                         break;
@@ -2968,7 +2968,7 @@ interp_global_set(const WASMModuleInstance *inst_interp, uint16 global_idx_rt,
                   const wasm_val_t *v)
 {
     const WASMGlobalInstance *global_interp =
-        inst_interp->globals + global_idx_rt;
+        inst_interp->e->globals + global_idx_rt;
     uint8 val_type_rt = global_interp->type;
 #if WASM_ENABLE_MULTI_MODULE != 0
     uint8 *data = global_interp->import_global_inst
@@ -2987,7 +2987,7 @@ static bool
 interp_global_get(const WASMModuleInstance *inst_interp, uint16 global_idx_rt,
                   wasm_val_t *out)
 {
-    WASMGlobalInstance *global_interp = inst_interp->globals + global_idx_rt;
+    WASMGlobalInstance *global_interp = inst_interp->e->globals + global_idx_rt;
     uint8 val_type_rt = global_interp->type;
 #if WASM_ENABLE_MULTI_MODULE != 0
     uint8 *data = global_interp->import_global_inst
@@ -3007,7 +3007,7 @@ static bool
 aot_global_set(const AOTModuleInstance *inst_aot, uint16 global_idx_rt,
                const wasm_val_t *v)
 {
-    AOTModule *module_aot = inst_aot->aot_module.ptr;
+    AOTModule *module_aot = (AOTModule *)inst_aot->module;
     uint8 val_type_rt = 0;
     uint32 data_offset = 0;
     void *data = NULL;
@@ -3025,7 +3025,7 @@ aot_global_set(const AOTModuleInstance *inst_aot, uint16 global_idx_rt,
                 .type;
     }
 
-    data = (void *)((uint8 *)inst_aot->global_data.ptr + data_offset);
+    data = (void *)(inst_aot->global_data + data_offset);
     return wasm_val_to_rt_val((WASMModuleInstanceCommon *)inst_aot, val_type_rt,
                               v, data);
 }
@@ -3034,7 +3034,7 @@ static bool
 aot_global_get(const AOTModuleInstance *inst_aot, uint16 global_idx_rt,
                wasm_val_t *out)
 {
-    AOTModule *module_aot = inst_aot->aot_module.ptr;
+    AOTModule *module_aot = (AOTModule *)inst_aot->module;
     uint8 val_type_rt = 0;
     uint32 data_offset = 0;
     uint8 *data = NULL;
@@ -3052,7 +3052,7 @@ aot_global_get(const AOTModuleInstance *inst_aot, uint16 global_idx_rt,
                 .type;
     }
 
-    data = (uint8 *)inst_aot->global_data.ptr + data_offset;
+    data = inst_aot->global_data + data_offset;
     return rt_val_to_wasm_val(data, val_type_rt, out);
 }
 #endif
@@ -3149,7 +3149,7 @@ wasm_global_new_internal(wasm_store_t *store, uint16 global_idx_rt,
 #if WASM_ENABLE_INTERP != 0
     if (inst_comm_rt->module_type == Wasm_Module_Bytecode) {
         WASMGlobalInstance *global_interp =
-            ((WASMModuleInstance *)inst_comm_rt)->globals + global_idx_rt;
+            ((WASMModuleInstance *)inst_comm_rt)->e->globals + global_idx_rt;
         val_type_rt = global_interp->type;
         is_mutable = global_interp->is_mutable;
         init = true;
@@ -3159,7 +3159,7 @@ wasm_global_new_internal(wasm_store_t *store, uint16 global_idx_rt,
 #if WASM_ENABLE_AOT != 0
     if (inst_comm_rt->module_type == Wasm_Module_AoT) {
         AOTModuleInstance *inst_aot = (AOTModuleInstance *)inst_comm_rt;
-        AOTModule *module_aot = inst_aot->aot_module.ptr;
+        AOTModule *module_aot = (AOTModule *)inst_aot->module;
 
         init = true;
 
@@ -3365,7 +3365,7 @@ wasm_table_get(const wasm_table_t *table, wasm_table_size_t index)
         if (index >= table_interp->cur_size) {
             return NULL;
         }
-        ref_idx = ((uint32 *)table_interp->base_addr)[index];
+        ref_idx = table_interp->elems[index];
     }
 #endif
 
@@ -3373,11 +3373,11 @@ wasm_table_get(const wasm_table_t *table, wasm_table_size_t index)
     if (table->inst_comm_rt->module_type == Wasm_Module_AoT) {
         AOTModuleInstance *inst_aot = (AOTModuleInstance *)table->inst_comm_rt;
         AOTTableInstance *table_aot =
-            (AOTTableInstance *)inst_aot->tables.ptr + table->table_idx_rt;
+            (AOTTableInstance *)inst_aot->tables + table->table_idx_rt;
         if (index >= table_aot->cur_size) {
             return NULL;
         }
-        ref_idx = table_aot->data[index];
+        ref_idx = table_aot->elems[index];
     }
 #endif
 
@@ -3437,24 +3437,24 @@ wasm_table_set(wasm_table_t *table, wasm_table_size_t index,
             return false;
         }
 
-        p_ref_idx = ((uint32 *)table_interp->base_addr) + index;
+        p_ref_idx = table_interp->elems + index;
         function_count =
-            ((WASMModuleInstance *)table->inst_comm_rt)->function_count;
+            ((WASMModuleInstance *)table->inst_comm_rt)->e->function_count;
     }
 #endif
 
 #if WASM_ENABLE_AOT != 0
     if (table->inst_comm_rt->module_type == Wasm_Module_AoT) {
         AOTModuleInstance *inst_aot = (AOTModuleInstance *)table->inst_comm_rt;
-        AOTModule *module_aot = (AOTModule *)inst_aot->aot_module.ptr;
+        AOTModule *module_aot = (AOTModule *)inst_aot->module;
         AOTTableInstance *table_aot =
-            (AOTTableInstance *)inst_aot->tables.ptr + table->table_idx_rt;
+            (AOTTableInstance *)inst_aot->tables + table->table_idx_rt;
 
         if (index >= table_aot->cur_size) {
             return false;
         }
 
-        p_ref_idx = table_aot->data + index;
+        p_ref_idx = table_aot->elems + index;
         function_count = module_aot->func_count;
     }
 #endif
@@ -3510,7 +3510,7 @@ wasm_table_size(const wasm_table_t *table)
 #if WASM_ENABLE_AOT != 0
     if (table->inst_comm_rt->module_type == Wasm_Module_AoT) {
         AOTModuleInstance *inst_aot = (AOTModuleInstance *)table->inst_comm_rt;
-        AOTModule *module_aot = (AOTModule *)inst_aot->aot_module.ptr;
+        AOTModule *module_aot = (AOTModule *)inst_aot->module;
 
         if (table->table_idx_rt < module_aot->import_table_count) {
             AOTImportTable *table_aot =
@@ -3625,7 +3625,7 @@ wasm_memory_new_internal(wasm_store_t *store, uint16 memory_idx_rt,
 #if WASM_ENABLE_AOT != 0
     if (inst_comm_rt->module_type == Wasm_Module_AoT) {
         AOTModuleInstance *inst_aot = (AOTModuleInstance *)inst_comm_rt;
-        AOTModule *module_aot = (AOTModule *)(inst_aot->aot_module.ptr);
+        AOTModule *module_aot = (AOTModule *)inst_aot->module;
 
         if (memory_idx_rt < module_aot->import_memory_count) {
             min_pages = module_aot->import_memories->mem_init_page_count;
@@ -3709,8 +3709,8 @@ wasm_memory_data(wasm_memory_t *memory)
         AOTModuleInstance *module_inst = (AOTModuleInstance *)module_inst_comm;
         AOTMemoryInstance *memory_inst =
             ((AOTMemoryInstance **)
-                 module_inst->memories.ptr)[memory->memory_idx_rt];
-        return (byte_t *)memory_inst->memory_data.ptr;
+                 module_inst->memories)[memory->memory_idx_rt];
+        return (byte_t *)memory_inst->memory_data;
     }
 #endif
 
@@ -3746,7 +3746,7 @@ wasm_memory_data_size(const wasm_memory_t *memory)
         AOTModuleInstance *module_inst = (AOTModuleInstance *)module_inst_comm;
         AOTMemoryInstance *memory_inst =
             ((AOTMemoryInstance **)
-                 module_inst->memories.ptr)[memory->memory_idx_rt];
+                 module_inst->memories)[memory->memory_idx_rt];
         return memory_inst->cur_page_count * memory_inst->num_bytes_per_page;
     }
 #endif
@@ -3783,7 +3783,7 @@ wasm_memory_size(const wasm_memory_t *memory)
         AOTModuleInstance *module_inst = (AOTModuleInstance *)module_inst_comm;
         AOTMemoryInstance *memory_inst =
             ((AOTMemoryInstance **)
-                 module_inst->memories.ptr)[memory->memory_idx_rt];
+                 module_inst->memories)[memory->memory_idx_rt];
         return memory_inst->cur_page_count;
     }
 #endif
@@ -4162,7 +4162,7 @@ aot_process_export(wasm_store_t *store, const AOTModuleInstance *inst_aot,
 
     bh_assert(store && inst_aot && externals);
 
-    module_aot = (AOTModule *)inst_aot->aot_module.ptr;
+    module_aot = (AOTModule *)inst_aot->module;
     bh_assert(module_aot);
 
     for (i = 0; i < module_aot->export_count; ++i) {
