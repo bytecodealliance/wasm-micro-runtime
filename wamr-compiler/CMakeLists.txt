@@ -266,8 +266,14 @@ add_library (aotclib ${IWASM_COMPL_SOURCE})
 
 add_executable (wamrc main.c)
 
+if (LLVM_LINK_LLVM_DYLIB)
+  set(WAMRC_LINK_LLVM_LIBS LLVM)
+else()
+  set(WAMRC_LINK_LLVM_LIBS ${LLVM_AVAILABLE_LIBS})
+endif()
+
 if (NOT MSVC)
-  target_link_libraries (wamrc aotclib vmlib LLVMDemangle ${LLVM_AVAILABLE_LIBS} ${lib_ubsan}
+  target_link_libraries (wamrc aotclib vmlib ${WAMRC_LINK_LLVM_LIBS} ${lib_ubsan}
                          -lm -lpthread ${lib_lldb} ${UV_A_LIBS})
   if (MINGW)
       target_link_libraries (wamrc -lssp -lws2_32)
@@ -275,6 +281,6 @@ if (NOT MSVC)
       target_link_libraries (wamrc -ldl)
   endif()
 else()
-  target_link_libraries (wamrc aotclib vmlib  ${lib_lldb} ${LLVM_AVAILABLE_LIBS} ${lib_ubsan}
+  target_link_libraries (wamrc aotclib vmlib  ${lib_lldb} ${WAMRC_LINK_LLVM_LIBS} ${lib_ubsan}
                          ${UV_A_LIBS})
 endif()
