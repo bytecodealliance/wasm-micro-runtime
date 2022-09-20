@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#if WASM_ENABLE_SGX_IPFS
+#if WASM_ENABLE_SGX_IPFS != 0
 
 #include "ssp_config.h"
 #include "bh_platform.h"
