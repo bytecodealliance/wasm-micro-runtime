@@ -51,7 +51,6 @@ OUT_FILE=${i%.*}.wasm
         -Wl,--export=float_to_string \
         -Wl,--export=calculate\
         -Wl,--allow-undefined \
-        -I/home/core/iwasm/libraries/wasi-nn \
         -o ${OUT_DIR}/wasm-apps/${OUT_FILE} ${APP_SRC}
 
 

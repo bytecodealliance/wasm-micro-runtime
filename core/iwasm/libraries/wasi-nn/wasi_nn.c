@@ -54,9 +54,11 @@ wasi_nn_load(wasm_exec_env_t exec_env, uint32_t builder, uint32_t encoding)
     return _load(buf, (graph_encoding)encoding);
 }
 
-void
-wasi_nn_init_execution_context()
-{}
+uint32_t
+wasi_nn_init_execution_context(graph graph)
+{
+    return _init_execution_context(graph);
+}
 
 uint32_t
 wasi_nn_set_input(wasm_exec_env_t exec_env, graph_execution_context context,
@@ -93,9 +95,7 @@ wasi_nn_get_output(wasm_exec_env_t exec_env, graph_execution_context context,
                    uint32_t index, uint8_t *out_buffer,
                    buffer_size out_buffer_max_size)
 {
-    wasm_module_inst_t instance = wasm_runtime_get_module_inst(exec_env);
-
-    _get_output(context, index, out_buffer);
+    _get_output(context, index, out_buffer, out_buffer_max_size);
 
     return success;
 }
@@ -103,6 +103,7 @@ wasi_nn_get_output(wasm_exec_env_t exec_env, graph_execution_context context,
 uint32_t
 wasi_nn_compute(wasm_exec_env_t exec_env, graph_execution_context context)
 {
+
     wasm_module_inst_t instance = wasm_runtime_get_module_inst(exec_env);
 
     return _compute(context);
@@ -115,7 +116,8 @@ wasi_nn_compute(wasm_exec_env_t exec_env, graph_execution_context context)
 
 static NativeSymbol native_symbols_wasi_nn[] = {
     REG_NATIVE_FUNC(load, "(ii)i"), REG_NATIVE_FUNC(set_input, "(iiiii)i"),
-    REG_NATIVE_FUNC(get_output, "(ii*~)i"), REG_NATIVE_FUNC(compute, "(i)i")
+    REG_NATIVE_FUNC(get_output, "(ii*~)i"), REG_NATIVE_FUNC(compute, "(i)i"),
+    REG_NATIVE_FUNC(init_execution_context, "(i)i")
 };
 
 uint32_t

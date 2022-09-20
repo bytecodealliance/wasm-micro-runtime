@@ -1,5 +1,7 @@
 #include "wasi_nn_tensorflow.hpp"
 
+#include <iostream>
+
 #include <tensorflow/lite/interpreter.h>
 #include <tensorflow/lite/kernels/register.h>
 #include <tensorflow/lite/model.h>
@@ -13,6 +15,8 @@ enum Idx { GRAPH = 0, GRAPH_SIZE = 1 };
 std::unique_ptr<tflite::Interpreter> interpreter = NULL;
 std::unique_ptr<tflite::FlatBufferModel> model = NULL;
 
+char *model_pointer = NULL;
+
 uint32_t
 _load(graph_builder_array builder, graph_encoding encoding)
 {
@@ -23,13 +27,16 @@ _load(graph_builder_array builder, graph_encoding encoding)
 
     uint32_t *size = (uint32_t *)builder[Idx::GRAPH_SIZE];
 
+    printf("Size %ld\n", *size);
     tflite::ErrorReporter *error_reporter;
 
+    model_pointer = (char *)malloc(*size);
+    memcpy(model_pointer, (char *)builder[Idx::GRAPH], *size);
     model = tflite::FlatBufferModel::BuildFromBuffer(
         (const char *)builder[Idx::GRAPH], *size, error_reporter);
 
     if (model == nullptr) {
-        printf("failure: null model \n");
+        printf("failure: null model. error reported: %s \n", error_reporter);
         return missing_memory;
     }
 
@@ -49,7 +56,7 @@ _load(graph_builder_array builder, graph_encoding encoding)
 uint32_t
 _set_input(tensor input_tensor)
 {
-    auto *input = interpreter->typed_input_tensor<uint8_t>(0);
+    auto *input = interpreter->typed_input_tensor<float>(0);
 
     if (input == nullptr) {
         return missing_memory;
@@ -58,14 +65,16 @@ _set_input(tensor input_tensor)
     // Recomputes the dimensions each time, not optimal but have to follow witx
     // for now
 
-    int max_size = 0;
+    int max_size = 1;
 
     for (int i = 0; i < DIM_SIZE; i++) {
         max_size *= input_tensor.dimensions[i];
     }
 
+    float *float_input = (float *)input_tensor.data;
+
     for (int i = 0; i < max_size; i++) {
-        input[i] = input_tensor.data[i];
+        input[i] = float_input[i];
     }
 
     return success;
@@ -74,18 +83,59 @@ _set_input(tensor input_tensor)
 uint32_t
 _compute(graph_execution_context context)
 {
-
     interpreter->Invoke();
 
     return success;
 }
 
 uint32_t
-_get_output(graph_execution_context context, uint32_t index,
-            uint8_t *out_tensor)
+_init_execution_context(graph graph)
 {
+    interpreter->AllocateTensors();
+    return success;
+}
 
-    out_tensor = interpreter->typed_output_tensor<uint8_t>(0);
+uint32_t
+_get_output(graph_execution_context context, uint32_t index,
+            uint8_t *out_tensor, buffer_size out_size)
+{
+    printf("out size max_size: %ld \n", out_size);
+
+    int num_output_tensors = interpreter->outputs().size();
+    printf("num tensors : %d \n", num_output_tensors);
+
+    uint32_t elems[num_output_tensors];
+    uint32_t total_elems = 0;
+
+    for (int i = 0; i < num_output_tensors; ++i) {
+        auto tensor = interpreter->output_tensor(i);
+
+        if (tensor == NULL) {
+            printf("missing memory\n");
+            return missing_memory;
+        }
+
+        uint32_t n = 1;
+        for (int j = 0; j < (int)tensor->dims->size; ++j) {
+            n *= (uint32_t)tensor->dims->data[j];
+        }
+        total_elems += n;
+
+        elems[i] = n;
+    }
+
+    int offset = 0;
+    for (int i = 0; i < num_output_tensors; ++i) {
+        int dims = (int)elems[i];
+        assert(offset + dims <= out_size);
+        float *tensor = interpreter->typed_output_tensor<float>(i);
+        for (int j = 0; j < dims; j++) {
+            printf("output : %f \n", tensor[j]);
+        }
+        memcpy(&out_tensor[offset * sizeof(float)], tensor,
+               sizeof(float) * dims);
+        offset += dims;
+    }
 
     return success;
 }

@@ -17,10 +17,13 @@ _set_input(tensor input_tensor);
 
 uint32_t
 _get_output(graph_execution_context context, uint32_t index,
-            uint8_t *out_tensor);
+            uint8_t *out_tensor, buffer_size out_size);
 
 uint32_t
 _compute(graph_execution_context context);
+
+uint32_t
+_init_execution_context(graph graph);
 
 #ifdef __cplusplus
 }

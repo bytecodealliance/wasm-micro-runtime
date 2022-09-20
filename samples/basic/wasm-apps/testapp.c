@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-#include "wasi_nn.h"
 
 int
 intToStr(int x, char *str, int str_len, int digit);
@@ -22,39 +21,15 @@ calculate_native(int32_t n, int32_t func1, int32_t func2);
 float
 generate_float(int iteration, double seed1, float seed2)
 {
-    char *buf = strdup("test_message");
-    uint32_t *size = malloc(sizeof(uint32_t));
-    *size = 4096;
-    graph_builder_array arr[] = { (graph_builder)buf, (graph_builder)size };
+    float ret;
 
-    load(arr, 1);
+    printf("calling into WASM function: %s\n", __FUNCTION__);
 
-    uint32_t *dim = malloc(4 * sizeof(uint32_t));
+    for (int i = 0; i < iteration; i++) {
+        ret += 1.0f / seed1 + seed2;
+    }
 
-    dim[0] = 1;
-    dim[1] = 3;
-    dim[2] = 4;
-    dim[3] = 5;
-
-    uint8_t *input_tensor = malloc(3 * sizeof(uint8_t));
-
-    input_tensor[0] = 3;
-
-    set_input(0, 0, dim, 3, input_tensor);
-
-    uint32_t size_out_buff = 2;
-
-    uint8_t *out = malloc(size_out_buff * sizeof(uint8_t));
-
-    // get_output(0,0, dim, 0, arr, out, size_out_buff );
-
-    get_output(0, 0, out, size_out_buff);
-
-    printf("output is: %d\n", out[0]);
-
-    // printf("output is: %d\n", (uint32_t) out[1]);
-
-    return 0;
+    return ret;
 }
 
 // Converts a floating-point/double number to a string.
