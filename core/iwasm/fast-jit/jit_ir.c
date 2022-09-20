@@ -385,11 +385,11 @@ jit_cc_init(JitCompContext *cc, unsigned htab_size)
         goto fail;
 
     if (!(cc->exce_basic_blocks =
-              jit_calloc(sizeof(JitBasicBlock *) * JIT_EXCE_NUM)))
+              jit_calloc(sizeof(JitBasicBlock *) * EXCE_NUM)))
         goto fail;
 
     if (!(cc->incoming_insns_for_exec_bbs =
-              jit_calloc(sizeof(JitIncomingInsnList) * JIT_EXCE_NUM)))
+              jit_calloc(sizeof(JitIncomingInsnList) * EXCE_NUM)))
         goto fail;
 
     /* Record the entry and exit labels, whose indexes must be 0 and 1
@@ -462,7 +462,7 @@ jit_cc_destroy(JitCompContext *cc)
     jit_free(cc->exce_basic_blocks);
 
     if (cc->incoming_insns_for_exec_bbs) {
-        for (i = 0; i < JIT_EXCE_NUM; i++) {
+        for (i = 0; i < EXCE_NUM; i++) {
             incoming_insn = cc->incoming_insns_for_exec_bbs[i];
             while (incoming_insn) {
                 incoming_insn_next = incoming_insn->next;

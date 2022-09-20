@@ -201,19 +201,19 @@ jit_compile_check_value_range(JitCompContext *cc, JitReg value, JitReg min_fp,
         goto fail;
 
     GEN_INSN(CMP, cc->cmp_reg, nan_ret, NEW_CONST(I32, 1));
-    if (!jit_emit_exception(cc, JIT_EXCE_INVALID_CONVERSION_TO_INTEGER,
-                            JIT_OP_BEQ, cc->cmp_reg, NULL))
+    if (!jit_emit_exception(cc, EXCE_INVALID_CONVERSION_TO_INTEGER, JIT_OP_BEQ,
+                            cc->cmp_reg, NULL))
         goto fail;
 
     /* If value is out of integer range, throw exception */
     GEN_INSN(CMP, cc->cmp_reg, min_fp, value);
-    if (!jit_emit_exception(cc, JIT_EXCE_INTEGER_OVERFLOW, JIT_OP_BGES,
-                            cc->cmp_reg, NULL))
+    if (!jit_emit_exception(cc, EXCE_INTEGER_OVERFLOW, JIT_OP_BGES, cc->cmp_reg,
+                            NULL))
         goto fail;
 
     GEN_INSN(CMP, cc->cmp_reg, value, max_fp);
-    if (!jit_emit_exception(cc, JIT_EXCE_INTEGER_OVERFLOW, JIT_OP_BGES,
-                            cc->cmp_reg, NULL))
+    if (!jit_emit_exception(cc, EXCE_INTEGER_OVERFLOW, JIT_OP_BGES, cc->cmp_reg,
+                            NULL))
         goto fail;
 
     return true;

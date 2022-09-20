@@ -15,26 +15,6 @@
 extern "C" {
 #endif
 
-typedef enum AOTExceptionID {
-    EXCE_UNREACHABLE = 0,
-    EXCE_OUT_OF_MEMORY,
-    EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS,
-    EXCE_INTEGER_OVERFLOW,
-    EXCE_INTEGER_DIVIDE_BY_ZERO,
-    EXCE_INVALID_CONVERSION_TO_INTEGER,
-    EXCE_INVALID_FUNCTION_TYPE_INDEX,
-    EXCE_INVALID_FUNCTION_INDEX,
-    EXCE_UNDEFINED_ELEMENT,
-    EXCE_UNINITIALIZED_ELEMENT,
-    EXCE_CALL_UNLINKED_IMPORT_FUNC,
-    EXCE_NATIVE_STACK_OVERFLOW,
-    EXCE_UNALIGNED_ATOMIC,
-    EXCE_AUX_STACK_OVERFLOW,
-    EXCE_AUX_STACK_UNDERFLOW,
-    EXCE_OUT_OF_BOUNDS_TABLE_ACCESS,
-    EXCE_NUM,
-} AOTExceptionID;
-
 typedef enum AOTSectionType {
     AOT_SECTION_TYPE_TARGET_INFO = 0,
     AOT_SECTION_TYPE_INIT_DATA = 1,
@@ -401,9 +381,6 @@ aot_create_exec_env_and_call_function(AOTModuleInstance *module_inst,
                                       AOTFunctionInstance *function,
                                       unsigned argc, uint32 argv[]);
 
-bool
-aot_create_exec_env_singleton(AOTModuleInstance *module_inst);
-
 /**
  * Set AOT module instance exception with exception string
  *
@@ -427,14 +404,6 @@ aot_set_exception_with_id(AOTModuleInstance *module_inst, uint32 id);
 const char *
 aot_get_exception(AOTModuleInstance *module_inst);
 
-/**
- * Clear exception info of the AOT module instance.
- *
- * @param module_inst the AOT module instance
- */
-void
-aot_clear_exception(AOTModuleInstance *module_inst);
-
 uint32
 aot_module_malloc(AOTModuleInstance *module_inst, uint32 size,
                   void **p_native_addr);
@@ -451,29 +420,6 @@ aot_module_dup_data(AOTModuleInstance *module_inst, const char *src,
                     uint32 size);
 
 bool
-aot_validate_app_addr(AOTModuleInstance *module_inst, uint32 app_offset,
-                      uint32 size);
-
-bool
-aot_validate_native_addr(AOTModuleInstance *module_inst, void *native_ptr,
-                         uint32 size);
-
-void *
-aot_addr_app_to_native(AOTModuleInstance *module_inst, uint32 app_offset);
-
-uint32
-aot_addr_native_to_app(AOTModuleInstance *module_inst, void *native_ptr);
-
-bool
-aot_get_app_addr_range(AOTModuleInstance *module_inst, uint32 app_offset,
-                       uint32 *p_app_start_offset, uint32 *p_app_end_offset);
-
-bool
-aot_get_native_addr_range(AOTModuleInstance *module_inst, uint8 *native_ptr,
-                          uint8 **p_native_start_addr,
-                          uint8 **p_native_end_addr);
-
-bool
 aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count);
 
 /**
@@ -487,6 +433,10 @@ bool
 aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
                   uint32 argc, uint32 *argv);
 
+/**
+ * Check whether the app address and the buf is inside the linear memory,
+ * and convert the app address into native address
+ */
 bool
 aot_check_app_addr_and_convert(AOTModuleInstance *module_inst, bool is_str,
                                uint32 app_buf_addr, uint32 app_buf_size,
