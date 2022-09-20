@@ -337,7 +337,7 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
     JitFrame *jit_frame = cc->jit_frame;
     JitReg module_inst, tbl_size, elem_idx_long, offset;
     JitReg func_import, func_idx, func_idx_i64, tbl_data, func_count_reg;
-    JitReg func_type_indexes, func_type_idx, fast_jit_func_ptrs;
+    JitReg func_type_indexes, func_type_idx, fast_jit_func_ptrs, import_func_offset;
     JitReg offset1_i32, offset1, func_type_idx1;
     JitReg import_func_ptrs_reg, fast_jit_func_ptrs_reg, jitted_code_idx, jitted_code;
     WASMType *func_type;
@@ -439,12 +439,6 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
              NEW_CONST(I32, offsetof(WASMExecEnv, jit_cache) + 4));
 
 
-    // // get import_func_count
-    // wasm_module_reg = get_module_reg(jit_frame);
-    // import_func_count_reg = jit_cc_new_reg_I32(cc);
-    // GEN_INSN(LDI32, import_func_count_reg, wasm_module_reg,
-    //          NEW_CONST(I32, offsetof(WASMModule, import_function_count)));
-
     argv = pack_argv(cc);
 
     native_ret = jit_cc_new_reg_I32(cc);
@@ -460,16 +454,36 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
     // }
 
     import_func_ptrs_reg = get_import_func_ptrs_reg(jit_frame);
-    func_import = jit_cc_new_reg_I32(cc);
-    func_idx_i64 = jit_cc_new_reg_I64(cc);
-    // TODO: I32/2 or I64/3, switch
-    GEN_INSN(SHL, func_idx, func_idx, NEW_CONST(I32, 3));
-    GEN_INSN(I32TOI64, func_idx_i64, func_idx);
-    GEN_INSN(LDPTR, func_import, import_func_ptrs_reg, func_idx_i64);
+    func_import = jit_cc_new_reg_ptr(cc);
+    if (UINTPTR_MAX == UINT64_MAX) {
+        JitReg func_import_offset = jit_cc_new_reg_I32(cc);
+        JitReg func_import_offset_i64 = jit_cc_new_reg_I64(cc);
+        GEN_INSN(SHL, func_import_offset, func_idx, NEW_CONST(I32, 3));
+        GEN_INSN(I32TOI64, func_import_offset_i64, func_import_offset);
+        GEN_INSN(LDPTR, func_import, import_func_ptrs_reg, func_import_offset_i64);
+    } 
+    else {
+        JitReg func_import_offset = jit_cc_new_reg_I32(cc);
+        GEN_INSN(SHL, func_import_offset, func_idx, NEW_CONST(I32, 2));
+        GEN_INSN(LDPTR, func_import, import_func_ptrs_reg, func_import_offset);        
+    }
     if (!jit_emit_callnative(cc, jit_invoke_native, native_ret, arg_regs,
                                 6)) {
         goto fail;
     }
+
+    // import_func_ptrs_reg = get_import_func_ptrs_reg(jit_frame);
+    // func_import = jit_cc_new_reg_I32(cc);
+    // JitReg func_import_offset = jit_cc_new_reg_I32(cc);
+    // JitReg func_import_offset_i64 = jit_cc_new_reg_I64(cc);
+    // // TODO: I32/2 or I64/3, switch
+    // GEN_INSN(SHL, func_import_offset, func_idx, NEW_CONST(I32, 3));
+    // GEN_INSN(I32TOI64, func_import_offset_i64, func_import_offset);
+    // GEN_INSN(LDPTR, func_import, import_func_ptrs_reg, func_import_offset_i64);
+    // if (!jit_emit_callnative(cc, jit_invoke_native, native_ret, arg_regs,
+    //                             6)) {
+    //     goto fail;
+    // }
 
     /* check exception */
     /* Convert bool to uint32 */
@@ -496,15 +510,20 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
     fast_jit_func_ptrs_reg = get_fast_jit_func_ptrs_reg(jit_frame);
     jitted_code_idx = jit_cc_new_reg_I32(cc);
     jitted_code = jit_cc_new_reg_ptr(cc);
-    
     GEN_INSN(SUB, jitted_code_idx, func_idx, 
-            NEW_CONST(I32, cc->cur_wasm_module->import_function_count));
-    JitReg jitted_code_offset = jit_cc_new_reg_I32(cc);
-    //TODO: I32/2 or I64/3
-    GEN_INSN(SHL, jitted_code_offset, jitted_code_idx, NEW_CONST(I32, 3));
-    JitReg jitted_code_offset_64 = jit_cc_new_reg_I64(cc);
-    GEN_INSN(I32TOI64, jitted_code_offset_64, jitted_code_offset);
-    GEN_INSN(LDPTR, jitted_code, fast_jit_func_ptrs, jitted_code_offset_64);
+        NEW_CONST(I32, cc->cur_wasm_module->import_function_count));
+    if (UINTPTR_MAX == UINT64_MAX) {
+        JitReg jitted_code_offset = jit_cc_new_reg_I32(cc);
+        JitReg jitted_code_offset_64 = jit_cc_new_reg_I64(cc);
+        GEN_INSN(SHL, jitted_code_offset, jitted_code_idx, NEW_CONST(I32, 3));
+        GEN_INSN(I32TOI64, jitted_code_offset_64, jitted_code_offset);
+        GEN_INSN(LDPTR, jitted_code, fast_jit_func_ptrs_reg, jitted_code_offset_64);
+    }
+    else {
+        JitReg jitted_code_offset = jit_cc_new_reg_I32(cc);
+        GEN_INSN(SHL, jitted_code_offset, jitted_code_idx, NEW_CONST(I32, 2));
+        GEN_INSN(LDPTR, jitted_code, fast_jit_func_ptrs_reg, jitted_code_offset);  
+    }
     
     JitReg res = 0;
     if (func_type->result_count > 0) {
