@@ -1013,8 +1013,8 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
             local_type_index = 0;
             for (j = 0; j < local_set_count; j++) {
                 read_leb_uint32(p_code, buf_code_end, sub_local_count);
-                bh_assert(sub_local_count
-                          && local_type_index <= UINT32_MAX - sub_local_count
+                /* Note: sub_local_count is allowed to be 0 */
+                bh_assert(local_type_index <= UINT32_MAX - sub_local_count
                           && local_type_index + sub_local_count <= local_count);
 
                 CHECK_BUF(p_code, buf_code_end, 1);
