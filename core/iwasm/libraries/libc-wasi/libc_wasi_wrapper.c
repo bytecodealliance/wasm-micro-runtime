@@ -1841,6 +1841,11 @@ allocate_iovec_app_buffer(wasm_module_inst_t module_inst,
     for (total_size = 0, i = 0; i < data_len; i++, data++) {
         total_size += data->buf_len;
     }
+
+    if (total_size == 0) {
+        return __WASI_EINVAL;
+    }
+
     if (total_size >= UINT32_MAX
         || !(buf_begin = wasm_runtime_malloc((uint32)total_size))) {
         return __WASI_ENOMEM;
@@ -1852,12 +1857,24 @@ allocate_iovec_app_buffer(wasm_module_inst_t module_inst,
     return __WASI_ESUCCESS;
 }
 
+static inline size_t
+min(size_t a, size_t b)
+{
+    return a > b ? b : a;
+}
+
 static wasi_errno_t
 copy_buffer_to_iovec_app(wasm_module_inst_t module_inst, uint8 *buf_begin,
-                         uint32 buf_size, iovec_app_t *data, uint32 data_len)
+                         uint32 buf_size, iovec_app_t *data, uint32 data_len,
+                         uint32 size_to_copy)
 {
     uint8 *buf = buf_begin;
     uint32 i;
+    uint32 size_to_copy_into_iovec;
+
+    if (buf_size < size_to_copy) {
+        return __WASI_EINVAL;
+    }
 
     for (i = 0; i < data_len; data++, i++) {
         char *native_addr;
@@ -1868,13 +1885,23 @@ copy_buffer_to_iovec_app(wasm_module_inst_t module_inst, uint8 *buf_begin,
 
         if (buf >= buf_begin + buf_size
             || buf + data->buf_len < buf /* integer overflow */
-            || buf + data->buf_len > buf_begin + buf_size) {
+            || buf + data->buf_len > buf_begin + buf_size
+            || size_to_copy == 0) {
             break;
         }
 
+        /**
+         * If our app buffer size is smaller than the amount to be copied,
+         * only copy the amount in the app buffer. Otherwise, we fill the iovec
+         * buffer and reduce size to copy on the next iteration
+         */
+        size_to_copy_into_iovec = min(data->buf_len, size_to_copy);
+
         native_addr = (void *)addr_app_to_native(data->buf_offset);
-        bh_memcpy_s(native_addr, data->buf_len, buf, data->buf_len);
-        buf += data->buf_len;
+        bh_memcpy_s(native_addr, size_to_copy_into_iovec, buf,
+                    size_to_copy_into_iovec);
+        buf += size_to_copy_into_iovec;
+        size_to_copy -= size_to_copy_into_iovec;
     }
 
     return __WASI_ESUCCESS;
@@ -1921,8 +1948,8 @@ wasi_sock_recv_from(wasm_exec_env_t exec_env, wasi_fd_t sock,
     }
     *ro_data_len = (uint32)recv_bytes;
 
-    err = copy_buffer_to_iovec_app(module_inst, buf_begin, (uint32)recv_bytes,
-                                   ri_data, ri_data_len);
+    err = copy_buffer_to_iovec_app(module_inst, buf_begin, (uint32)total_size,
+                                   ri_data, ri_data_len, (uint32)recv_bytes);
 
 fail:
     if (buf_begin) {
