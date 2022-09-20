@@ -1876,10 +1876,6 @@ copy_buffer_to_iovec_app(wasm_module_inst_t module_inst, uint8 *buf_begin,
         return __WASI_EINVAL;
     }
 
-    if (size_to_copy == 0) {
-        return __WASI_ESUCCESS;
-    }
-
     for (i = 0; i < data_len; data++, i++) {
         char *native_addr;
 
