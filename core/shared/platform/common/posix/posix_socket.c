@@ -551,7 +551,8 @@ os_socket_set_linger(bh_socket_t socket, bool is_enabled, int linger_s)
 int
 os_socket_get_linger(bh_socket_t socket, bool *is_enabled, int *linger_s)
 {
-    assert(time_s);
+    assert(is_enabled);
+    assert(linger_s);
 
     struct linger linger_opts;
     socklen_t linger_opts_len = sizeof(linger_opts);
