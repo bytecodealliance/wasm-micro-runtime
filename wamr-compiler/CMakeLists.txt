@@ -284,3 +284,5 @@ else()
   target_link_libraries (wamrc aotclib vmlib  ${lib_lldb} ${WAMRC_LINK_LLVM_LIBS} ${lib_ubsan}
                          ${UV_A_LIBS})
 endif()
+
+install (TARGETS wamrc DESTINATION bin)
