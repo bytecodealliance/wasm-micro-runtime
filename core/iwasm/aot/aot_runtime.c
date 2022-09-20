@@ -2917,6 +2917,8 @@ static const char *
 lookup_func_name(const char **func_names, uint32 *func_indexes,
                  uint32 func_index_count, uint32 func_index)
 {
+    if (!func_names || !func_indexes || func_index_count == 0)
+        return NULL;
     int64 low = 0, mid;
     int64 high = func_index_count - 1;
 
