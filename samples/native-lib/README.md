@@ -47,7 +47,7 @@ will be generated.
 
 ```bash
 cd build
-./iwasm --native-lib=libtest_add.so --native-lib=libtest_sqrt.so wasm-app/test.wasm
+./iwasm --native-lib=./libtest_add.so --native-lib=./libtest_sqrt.so wasm-app/test.wasm
 ```
 
 The output is:
