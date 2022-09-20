@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#ifdef WAMR_SGX_IPFS
+#if WASM_ENABLE_SGX_IPFS
 
 #include "ssp_config.h"
 #include "bh_platform.h"
@@ -393,4 +393,4 @@ ipfs_ftruncate(void *sgx_file, off_t len)
     return 0;
 }
 
-#endif /* end of WAMR_SGX_IPFS */
+#endif /* end of WASM_ENABLE_SGX_IPFS */

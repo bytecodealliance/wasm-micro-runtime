@@ -140,7 +140,7 @@ jobs:
             # "-DWAMR_BUILD_SIMD=1",
             "-DWAMR_BUILD_TAIL_CALL=1",
             "-DWAMR_DISABLE_HW_BOUND_CHECK=1",
-            "-DWAMR_SGX_IPFS=1",
+            "-DWAMR_BUILD_SGX_IPFS=1",
           ]
         os: [ubuntu-20.04]
         platform: [linux-sgx]

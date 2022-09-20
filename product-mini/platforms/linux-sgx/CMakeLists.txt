@@ -84,9 +84,9 @@ if (NOT DEFINED WAMR_BUILD_SIMD)
   set (WAMR_BUILD_SIMD 0)
 endif ()
 
-if (NOT DEFINED WAMR_SGX_IPFS)
+if (NOT DEFINED WAMR_BUILD_SGX_IPFS)
   # Disable SGX IPFS by default
-  set (WAMR_SGX_IPFS 0)
+  set (WAMR_BUILD_SGX_IPFS 0)
 endif ()
 
 if (COLLECT_CODE_COVERAGE EQUAL 1)
@@ -123,7 +123,7 @@ else()
     )
 endif()
 
-if (WAMR_SGX_IPFS EQUAL 1)
+if (WAMR_BUILD_SGX_IPFS EQUAL 1)
     execute_process(
         COMMAND bash -c "sed -i -E 's/^#define SGX_IPFS 0/#define SGX_IPFS 1/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Enclave/Enclave.edl"
         OUTPUT_VARIABLE cmdOutput
