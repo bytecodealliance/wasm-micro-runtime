@@ -4917,10 +4917,13 @@ wasm_runtime_invoke_c_api_native(WASMModuleInstanceCommon *module_inst,
     if (trap) {
         if (trap->message->data) {
             /* since trap->message->data does not end with '\0' */
-            char trap_message[128] = { 0 };
-            bh_memcpy_s(trap_message, 127, trap->message->data,
-                        (trap->message->size < 127 ? (uint32)trap->message->size
-                                                   : 127));
+            char trap_message[108] = { 0 };
+            uint32 max_size_to_copy = (uint32)sizeof(trap_message) - 1;
+            uint32 size_to_copy = (trap->message->size < max_size_to_copy)
+                                      ? (uint32)trap->message->size
+                                      : max_size_to_copy;
+            bh_memcpy_s(trap_message, (uint32)sizeof(trap_message),
+                        trap->message->data, size_to_copy);
             wasm_runtime_set_exception(module_inst, trap_message);
         }
         else {
