@@ -93,19 +93,15 @@ Data:
 
 `socket_opts.wasm` shows an example of getting and setting various supported socket options
 ```bash
-$ ./iwasm ./socket_opts.wasm
+$ ./iwasm ./socket_opts.wasm setget
 ```
 
-The output describes the different socket options that are set & retrieved, like so:
-```bash
-[Client] Create TCP socket
-[Client] Create UDP socket
-[Client] Create UDP IPv6 socket
-SO_RCVTIMEO tv_sec is expected
-SO_RCVTIMEO tv_usec is expected
-...
-[Client] Close sockets
-```
+The different examples that are demonstrated in `socket_opts`:
+* `setget` - Sets and gets various socket options supported by WAMR
+    * `./iwasm socket_opts.wasm setget`
+* `timeout_server` & `timeout_client` - Demonstrates a send/recv timeout using the `SO_SNDTIMEO` & `SO_RCVTIMEO` socket options. 
+    * `./iwasm --addr-pool=0.0.0.0/15 socket_opts.wasm timeout_server`
+    * `./iwasm --addr-pool=127.0.0.1/15 --heap-size=10000000 socket_opts.wasm timeout_client`
 
 ### Domain name server resolution
 
