@@ -102,6 +102,9 @@ The different examples that are demonstrated in `socket_opts`:
 * `timeout_server` & `timeout_client` - Demonstrates a send/recv timeout using the `SO_SNDTIMEO` & `SO_RCVTIMEO` socket options. 
     * `./iwasm --addr-pool=0.0.0.0/15 socket_opts.wasm timeout_server`
     * `./iwasm --addr-pool=127.0.0.1/15 --heap-size=10000000 socket_opts.wasm timeout_client`
+* `multicast_client` & `multicast_server` - Demonstrates how to recv multicast datagrams. 
+    * `./iwasm --addr-pool=127.0.0.1/15 --heap-size=10000000 socket_opts.wasm multicast_client`
+    * `./socket_opts.wasm multicast_server` (Only the client is run with WAMR, as sending multicast datagrams is unsupported)
 
 ### Domain name server resolution
 

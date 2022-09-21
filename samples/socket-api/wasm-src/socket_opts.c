@@ -12,6 +12,7 @@
 #include <wasi_socket_ext.h>
 #endif
 
+#define MULTICAST_ADDR 16777440
 #define OPTION_ASSERT(A, B, OPTION)           \
     if (A == B) {                             \
         printf("%s is expected\n", OPTION);   \
@@ -272,7 +273,7 @@ test_set_and_get_opts()
         0, "IP_MULTICAST_LOOP disabled");
 
     // IP_ADD_MEMBERSHIP
-    mcast.imr_multiaddr.s_addr = 16777440;
+    mcast.imr_multiaddr.s_addr = MULTICAST_ADDR;
     mcast.imr_interface.s_addr = htonl(INADDR_ANY);
     result = setsockopt(udp_socket_fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mcast,
                         sizeof(mcast));
@@ -403,6 +404,58 @@ test_send_and_recv_timeout_server()
     return EXIT_SUCCESS;
 }
 
+int 
+test_multicast_client() {
+    struct sockaddr_in localSock;
+    struct ip_mreq group;
+    int sd;
+    int datalen;
+    char databuf[1024];
+    sd = guard(socket(AF_INET, SOCK_DGRAM, 0), "Failed opening socket");
+    guard(set_and_get_bool_opt(sd, SOL_SOCKET, SO_REUSEADDR, 1), "Failed setting SO_REUSEADDR");
+
+    localSock.sin_family = AF_INET;
+    localSock.sin_port = htons(4321);
+    localSock.sin_addr.s_addr = INADDR_ANY;
+
+    guard(bind(sd, (struct sockaddr*)&localSock, sizeof(localSock)), "Failed binding socket");
+
+    group.imr_multiaddr.s_addr = MULTICAST_ADDR;
+    group.imr_interface.s_addr = htonl(INADDR_ANY);
+
+    guard(setsockopt(sd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *)&group, sizeof(group)), "Failed adding multicast group");
+
+    datalen = sizeof(databuf);
+    int result = read(sd, databuf, datalen);
+
+    OPTION_ASSERT((result < 0), 0, "read response");
+
+    printf("Reading datagram message...OK.\n");
+    printf("The message from multicast server is: \"%s\"\n", databuf);
+
+    return EXIT_SUCCESS;
+}
+
+int 
+test_multicast_server() {
+    struct in_addr localInterface;
+    struct sockaddr_in groupSock;
+    int sd;
+    char * databuf = "Test message";
+    int datalen = strlen(databuf);
+    sd = guard(socket(AF_INET, SOCK_DGRAM, 0), "Failed to open socket");
+
+    groupSock.sin_family = AF_INET;
+    groupSock.sin_addr.s_addr = MULTICAST_ADDR;
+    groupSock.sin_port = htons(4321);
+    localInterface.s_addr = htons(INADDR_ANY);
+
+    guard(setsockopt(sd, IPPROTO_IP, IP_MULTICAST_IF, (char *)&localInterface, sizeof(localInterface)), "Failed setting local interface");
+    guard(sendto(sd, databuf, datalen, 0, (struct sockaddr*)&groupSock, sizeof(groupSock)), "Failed sending datagram");
+
+    return EXIT_SUCCESS;
+}
+
 #define RUN_WITH_ARG(ARG, NAME, FUNC) \
     if (strcmp(ARG, NAME) == 0) {     \
         guard(FUNC(), "Failed");      \
@@ -412,11 +465,16 @@ int
 main(int argc, char *argv[])
 {
     if (argc < 2) {
-        printf("Usage: %s <setget|timeout_client|timeout_server>\n", argv[0]);
+        printf("Usage: %s <setget|timeout_client|timeout_server|multicast_client|multicast_server>\n", argv[0]);
         return EXIT_FAILURE;
     }
 
     RUN_WITH_ARG(argv[1], "setget", test_set_and_get_opts)
     RUN_WITH_ARG(argv[1], "timeout_client", test_send_and_recv_timeout_client)
     RUN_WITH_ARG(argv[1], "timeout_server", test_send_and_recv_timeout_server)
+    RUN_WITH_ARG(argv[1], "multicast_client", test_multicast_client)
+    RUN_WITH_ARG(argv[1], "multicast_server", test_multicast_server)
+
+    printf("socket_opts finished\n");
+    return EXIT_SUCCESS;
 }
