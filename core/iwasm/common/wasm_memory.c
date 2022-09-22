@@ -193,15 +193,6 @@ wasm_runtime_get_mem_alloc_info(mem_alloc_info_t *mem_alloc_info)
     return false;
 }
 
-static WASMMemoryInstance *
-get_default_memory(WASMModuleInstance *module_inst)
-{
-    if (module_inst->memories)
-        return module_inst->memories[0];
-    else
-        return NULL;
-}
-
 bool
 wasm_runtime_validate_app_addr(WASMModuleInstanceCommon *module_inst_comm,
                                uint32 app_offset, uint32 size)
@@ -212,7 +203,7 @@ wasm_runtime_validate_app_addr(WASMModuleInstanceCommon *module_inst_comm,
     bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
               || module_inst_comm->module_type == Wasm_Module_AoT);
 
-    memory_inst = get_default_memory(module_inst);
+    memory_inst = wasm_get_default_memory(module_inst);
     if (!memory_inst) {
         goto fail;
     }
@@ -270,7 +261,7 @@ wasm_runtime_validate_native_addr(WASMModuleInstanceCommon *module_inst_comm,
     bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
               || module_inst_comm->module_type == Wasm_Module_AoT);
 
-    memory_inst = get_default_memory(module_inst);
+    memory_inst = wasm_get_default_memory(module_inst);
     if (!memory_inst) {
         goto fail;
     }
@@ -301,7 +292,7 @@ wasm_runtime_addr_app_to_native(WASMModuleInstanceCommon *module_inst_comm,
     bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
               || module_inst_comm->module_type == Wasm_Module_AoT);
 
-    memory_inst = get_default_memory(module_inst);
+    memory_inst = wasm_get_default_memory(module_inst);
     if (!memory_inst) {
         return NULL;
     }
@@ -325,7 +316,7 @@ wasm_runtime_addr_native_to_app(WASMModuleInstanceCommon *module_inst_comm,
     bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
               || module_inst_comm->module_type == Wasm_Module_AoT);
 
-    memory_inst = get_default_memory(module_inst);
+    memory_inst = wasm_get_default_memory(module_inst);
     if (!memory_inst) {
         return 0;
     }
@@ -348,7 +339,7 @@ wasm_runtime_get_app_addr_range(WASMModuleInstanceCommon *module_inst_comm,
     bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
               || module_inst_comm->module_type == Wasm_Module_AoT);
 
-    memory_inst = get_default_memory(module_inst);
+    memory_inst = wasm_get_default_memory(module_inst);
     if (!memory_inst) {
         return false;
     }
@@ -379,7 +370,7 @@ wasm_runtime_get_native_addr_range(WASMModuleInstanceCommon *module_inst_comm,
     bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
               || module_inst_comm->module_type == Wasm_Module_AoT);
 
-    memory_inst = get_default_memory(module_inst);
+    memory_inst = wasm_get_default_memory(module_inst);
     if (!memory_inst) {
         return false;
     }
@@ -401,7 +392,7 @@ wasm_check_app_addr_and_convert(WASMModuleInstance *module_inst, bool is_str,
                                 uint32 app_buf_addr, uint32 app_buf_size,
                                 void **p_native_addr)
 {
-    WASMMemoryInstance *memory_inst = get_default_memory(module_inst);
+    WASMMemoryInstance *memory_inst = wasm_get_default_memory(module_inst);
     uint8 *native_addr;
 
     if (!memory_inst) {
@@ -441,3 +432,203 @@ fail:
     wasm_set_exception(module_inst, "out of bounds memory access");
     return false;
 }
+
+WASMMemoryInstance *
+wasm_get_default_memory(WASMModuleInstance *module_inst)
+{
+    if (module_inst->memories)
+        return module_inst->memories[0];
+    else
+        return NULL;
+}
+
+#ifndef OS_ENABLE_HW_BOUND_CHECK
+bool
+wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
+{
+    WASMMemoryInstance *memory = wasm_get_default_memory(module);
+    uint8 *memory_data_old, *memory_data_new, *heap_data_old;
+    uint32 num_bytes_per_page, heap_size, total_size_old;
+    uint32 cur_page_count, max_page_count, total_page_count;
+    uint64 total_size_new;
+    bool ret = true;
+
+    if (!memory)
+        return false;
+
+    heap_data_old = memory->heap_data;
+    heap_size = (uint32)(memory->heap_data_end - memory->heap_data);
+
+    memory_data_old = memory->memory_data;
+    total_size_old = memory->memory_data_size;
+
+    num_bytes_per_page = memory->num_bytes_per_page;
+    cur_page_count = memory->cur_page_count;
+    max_page_count = memory->max_page_count;
+    total_page_count = inc_page_count + cur_page_count;
+    total_size_new = num_bytes_per_page * (uint64)total_page_count;
+
+    if (inc_page_count <= 0)
+        /* No need to enlarge memory */
+        return true;
+
+    if (total_page_count < cur_page_count /* integer overflow */
+        || total_page_count > max_page_count) {
+        return false;
+    }
+
+    bh_assert(total_size_new <= 4 * (uint64)BH_GB);
+    if (total_size_new > UINT32_MAX) {
+        /* Resize to 1 page with size 4G-1 */
+        num_bytes_per_page = UINT32_MAX;
+        total_page_count = max_page_count = 1;
+        total_size_new = UINT32_MAX;
+    }
+
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    if (memory->is_shared) {
+        memory->num_bytes_per_page = UINT32_MAX;
+        memory->cur_page_count = total_page_count;
+        memory->max_page_count = max_page_count;
+        return true;
+    }
+#endif
+
+    if (heap_size > 0) {
+        if (mem_allocator_is_heap_corrupted(memory->heap_handle)) {
+            wasm_runtime_show_app_heap_corrupted_prompt();
+            return false;
+        }
+    }
+
+    if (!(memory_data_new =
+              wasm_runtime_realloc(memory_data_old, (uint32)total_size_new))) {
+        if (!(memory_data_new = wasm_runtime_malloc((uint32)total_size_new))) {
+            return false;
+        }
+        if (memory_data_old) {
+            bh_memcpy_s(memory_data_new, (uint32)total_size_new,
+                        memory_data_old, total_size_old);
+            wasm_runtime_free(memory_data_old);
+        }
+    }
+
+    memset(memory_data_new + total_size_old, 0,
+           (uint32)total_size_new - total_size_old);
+
+    if (heap_size > 0) {
+        if (mem_allocator_migrate(memory->heap_handle,
+                                  (char *)heap_data_old
+                                      + (memory_data_new - memory_data_old),
+                                  heap_size)
+            != 0) {
+            /* Don't return here as memory->memory_data is obsolete and
+               must be updated to be correctly used later. */
+            ret = false;
+        }
+    }
+
+    memory->heap_data = memory_data_new + (heap_data_old - memory_data_old);
+    memory->heap_data_end = memory->heap_data + heap_size;
+
+    memory->num_bytes_per_page = num_bytes_per_page;
+    memory->cur_page_count = total_page_count;
+    memory->max_page_count = max_page_count;
+    memory->memory_data_size = (uint32)total_size_new;
+
+    memory->memory_data = memory_data_new;
+    memory->memory_data_end = memory_data_new + (uint32)total_size_new;
+
+#if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0
+#if UINTPTR_MAX == UINT64_MAX
+    memory->mem_bound_check_1byte.u64 = total_size_new - 1;
+    memory->mem_bound_check_2bytes.u64 = total_size_new - 2;
+    memory->mem_bound_check_4bytes.u64 = total_size_new - 4;
+    memory->mem_bound_check_8bytes.u64 = total_size_new - 8;
+    memory->mem_bound_check_16bytes.u64 = total_size_new - 16;
+#else
+    memory->mem_bound_check_1byte.u32[0] = (uint32)total_size_new - 1;
+    memory->mem_bound_check_2bytes.u32[0] = (uint32)total_size_new - 2;
+    memory->mem_bound_check_4bytes.u32[0] = (uint32)total_size_new - 4;
+    memory->mem_bound_check_8bytes.u32[0] = (uint32)total_size_new - 8;
+    memory->mem_bound_check_16bytes.u32[0] = (uint32)total_size_new - 16;
+#endif
+#endif
+
+    return ret;
+}
+#else
+bool
+wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
+{
+    WASMMemoryInstance *memory = wasm_get_default_memory(module);
+    uint32 num_bytes_per_page, total_size_old;
+    uint32 cur_page_count, max_page_count, total_page_count;
+    uint64 total_size_new;
+
+    if (!memory)
+        return false;
+
+    num_bytes_per_page = memory->num_bytes_per_page;
+    cur_page_count = memory->cur_page_count;
+    max_page_count = memory->max_page_count;
+    total_size_old = num_bytes_per_page * cur_page_count;
+    total_page_count = inc_page_count + cur_page_count;
+    total_size_new = num_bytes_per_page * (uint64)total_page_count;
+
+    if (inc_page_count <= 0)
+        /* No need to enlarge memory */
+        return true;
+
+    if (total_page_count < cur_page_count /* integer overflow */
+        || total_page_count > max_page_count) {
+        return false;
+    }
+
+    bh_assert(total_size_new <= 4 * (uint64)BH_GB);
+    if (total_size_new > UINT32_MAX) {
+        /* Resize to 1 page with size 4G-1 */
+        num_bytes_per_page = UINT32_MAX;
+        total_page_count = max_page_count = 1;
+        total_size_new = UINT32_MAX;
+    }
+
+#ifdef BH_PLATFORM_WINDOWS
+    if (!os_mem_commit(memory->memory_data_end,
+                       (uint32)total_size_new - total_size_old,
+                       MMAP_PROT_READ | MMAP_PROT_WRITE)) {
+        return false;
+    }
+#endif
+
+    if (os_mprotect(memory->memory_data_end,
+                    (uint32)total_size_new - total_size_old,
+                    MMAP_PROT_READ | MMAP_PROT_WRITE)
+        != 0) {
+#ifdef BH_PLATFORM_WINDOWS
+        os_mem_decommit(memory->memory_data_end,
+                        (uint32)total_size_new - total_size_old);
+#endif
+        return false;
+    }
+
+    /* The increased pages are filled with zero by the OS when os_mmap,
+       no need to memset it again here */
+
+    memory->num_bytes_per_page = num_bytes_per_page;
+    memory->cur_page_count = total_page_count;
+    memory->max_page_count = max_page_count;
+    memory->memory_data_size = (uint32)total_size_new;
+    memory->memory_data_end = memory->memory_data + (uint32)total_size_new;
+
+#if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0
+    memory->mem_bound_check_1byte.u64 = total_size_new - 1;
+    memory->mem_bound_check_2bytes.u64 = total_size_new - 2;
+    memory->mem_bound_check_4bytes.u64 = total_size_new - 4;
+    memory->mem_bound_check_8bytes.u64 = total_size_new - 8;
+    memory->mem_bound_check_16bytes.u64 = total_size_new - 16;
+#endif
+
+    return true;
+}
+#endif /* end of OS_ENABLE_HW_BOUND_CHECK */

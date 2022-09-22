@@ -135,43 +135,117 @@ static os_thread_local_attribute WASMExecEnv *exec_env_tls = NULL;
 static void
 runtime_signal_handler(void *sig_addr)
 {
-    WASMModuleInstanceCommon *module_inst;
-    WASMSignalInfo sig_info;
+    WASMModuleInstance *module_inst;
+    WASMMemoryInstance *memory_inst;
+    WASMJmpBuf *jmpbuf_node;
+    uint8 *mapped_mem_start_addr = NULL;
+    uint8 *mapped_mem_end_addr = NULL;
+    uint8 *stack_min_addr;
+    uint32 page_size;
+    uint32 guard_page_count = STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT;
 
-    sig_info.exec_env_tls = exec_env_tls;
-    sig_info.sig_addr = sig_addr;
-    if (exec_env_tls) {
-        module_inst = exec_env_tls->module_inst;
-#if WASM_ENABLE_INTERP != 0
-        if (module_inst->module_type == Wasm_Module_Bytecode)
-            wasm_signal_handler(&sig_info);
-#endif
-#if WASM_ENABLE_AOT != 0
-        if (module_inst->module_type == Wasm_Module_AoT)
-            aot_signal_handler(&sig_info);
-#endif
+    /* Check whether current thread is running wasm function */
+    if (exec_env_tls && exec_env_tls->handle == os_self_thread()
+        && (jmpbuf_node = exec_env_tls->jmpbuf_stack_top)) {
+        /* Get mapped mem info of current instance */
+        module_inst = (WASMModuleInstance *)exec_env_tls->module_inst;
+        /* Get the default memory instance */
+        memory_inst = wasm_get_default_memory(module_inst);
+        if (memory_inst) {
+            mapped_mem_start_addr = memory_inst->memory_data;
+            mapped_mem_end_addr = memory_inst->memory_data + 8 * (uint64)BH_GB;
+        }
+
+        /* Get stack info of current thread */
+        page_size = os_getpagesize();
+        stack_min_addr = os_thread_get_stack_boundary();
+
+        if (memory_inst
+            && (mapped_mem_start_addr <= (uint8 *)sig_addr
+                && (uint8 *)sig_addr < mapped_mem_end_addr)) {
+            /* The address which causes segmentation fault is inside
+               the memory instance's guard regions */
+            wasm_set_exception(module_inst, "out of bounds memory access");
+            os_longjmp(jmpbuf_node->jmpbuf, 1);
+        }
+        else if (stack_min_addr - page_size <= (uint8 *)sig_addr
+                 && (uint8 *)sig_addr
+                        < stack_min_addr + page_size * guard_page_count) {
+            /* The address which causes segmentation fault is inside
+               native thread's guard page */
+            wasm_set_exception(module_inst, "native stack overflow");
+            os_longjmp(jmpbuf_node->jmpbuf, 1);
+        }
     }
 }
 #else
 static LONG
 runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
 {
-    WASMModuleInstanceCommon *module_inst;
-    WASMSignalInfo sig_info;
+    PEXCEPTION_RECORD ExceptionRecord = exce_info->ExceptionRecord;
+    uint8 *sig_addr = (uint8 *)ExceptionRecord->ExceptionInformation[1];
+    WASMModuleInstance *module_inst;
+    WASMMemoryInstance *memory_inst;
+    WASMJmpBuf *jmpbuf_node;
+    uint8 *mapped_mem_start_addr = NULL;
+    uint8 *mapped_mem_end_addr = NULL;
+    uint32 page_size = os_getpagesize();
 
-    sig_info.exec_env_tls = exec_env_tls;
-    sig_info.exce_info = exce_info;
-    if (exec_env_tls) {
-        module_inst = exec_env_tls->module_inst;
-#if WASM_ENABLE_INTERP != 0
-        if (module_inst->module_type == Wasm_Module_Bytecode)
-            return wasm_exception_handler(&sig_info);
-#endif
-#if WASM_ENABLE_AOT != 0
-        if (module_inst->module_type == Wasm_Module_AoT)
-            return aot_exception_handler(&sig_info);
-#endif
+    if (exec_env_tls && exec_env_tls->handle == os_self_thread()
+        && (jmpbuf_node = exec_env_tls->jmpbuf_stack_top)) {
+        module_inst = (WASMModuleInstance *)exec_env_tls->module_inst;
+        if (ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
+            /* Get the default memory instance */
+            memory_inst = wasm_get_default_memory(module_inst);
+            if (memory_inst) {
+                mapped_mem_start_addr = memory_inst->memory_data;
+                mapped_mem_end_addr =
+                    memory_inst->memory_data + 8 * (uint64)BH_GB;
+                if (mapped_mem_start_addr <= (uint8 *)sig_addr
+                    && (uint8 *)sig_addr < mapped_mem_end_addr) {
+                    /* The address which causes segmentation fault is inside
+                       the memory instance's guard regions.
+                       Set exception and let the wasm func continue to run, when
+                       the wasm func returns, the caller will check whether the
+                       exception is thrown and return to runtime. */
+                    wasm_set_exception(module_inst,
+                                       "out of bounds memory access");
+                    if (module_inst->module_type == Wasm_Module_Bytecode) {
+                        /* Continue to search next exception handler for
+                           interpreter mode as it can be caught by
+                           `__try { .. } __except { .. }` sentences in
+                           wasm_runtime.c */
+                        return EXCEPTION_CONTINUE_SEARCH;
+                    }
+                    else {
+                        /* Skip current instruction and continue to run for
+                           AOT mode. TODO: implement unwind support for AOT
+                           code in Windows platform */
+                        exce_info->ContextRecord->Rip++;
+                        return EXCEPTION_CONTINUE_EXECUTION;
+                    }
+                }
+            }
+        }
+        else if (ExceptionRecord->ExceptionCode == EXCEPTION_STACK_OVERFLOW) {
+            /* Set stack overflow exception and let the wasm func continue
+               to run, when the wasm func returns, the caller will check
+               whether the exception is thrown and return to runtime, and
+               the damaged stack will be recovered by _resetstkoflw(). */
+            wasm_set_exception(module_inst, "native stack overflow");
+            if (module_inst->module_type == Wasm_Module_Bytecode) {
+                return EXCEPTION_CONTINUE_SEARCH;
+            }
+            else {
+                return EXCEPTION_CONTINUE_EXECUTION;
+            }
+        }
     }
+
+    os_printf("Unhandled exception thrown:  exception code: 0x%lx, "
+              "exception address: %p, exception information: %p\n",
+              ExceptionRecord->ExceptionCode, ExceptionRecord->ExceptionAddress,
+              sig_addr);
     return EXCEPTION_CONTINUE_SEARCH;
 }
 #endif /* end of BH_PLATFORM_WINDOWS */
@@ -2188,22 +2262,6 @@ wasm_runtime_module_dup_data(WASMModuleInstanceCommon *module_inst,
     return 0;
 }
 
-bool
-wasm_runtime_enlarge_memory(WASMModuleInstanceCommon *module,
-                            uint32 inc_page_count)
-{
-#if WASM_ENABLE_INTERP != 0
-    if (module->module_type == Wasm_Module_Bytecode)
-        return wasm_enlarge_memory((WASMModuleInstance *)module,
-                                   inc_page_count);
-#endif
-#if WASM_ENABLE_AOT != 0
-    if (module->module_type == Wasm_Module_AoT)
-        return aot_enlarge_memory((AOTModuleInstance *)module, inc_page_count);
-#endif
-    return false;
-}
-
 #if WASM_ENABLE_LIBC_WASI != 0
 
 void
@@ -2306,19 +2364,6 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
     }
 
     wasm_runtime_set_wasi_ctx(module_inst, wasi_ctx);
-
-#if WASM_ENABLE_INTERP != 0
-    if (module_inst->module_type == Wasm_Module_Bytecode
-        && !((WASMModuleInstance *)module_inst)->e->default_memory)
-        return true;
-#endif
-#if WASM_ENABLE_AOT != 0
-    if (module_inst->module_type == Wasm_Module_AoT
-        && !((AOTModuleInstance *)module_inst)
-                ->global_table_data.memory_instances[0]
-                .memory_data)
-        return true;
-#endif
 
     /* process argv[0], trip the path and suffix, only keep the program name */
     for (i = 0; i < argc; i++)
@@ -2746,48 +2791,37 @@ wasm_runtime_destroy_wasi(WASMModuleInstanceCommon *module_inst)
 #endif
 
 WASIContext *
-wasm_runtime_get_wasi_ctx(WASMModuleInstanceCommon *module_inst)
+wasm_runtime_get_wasi_ctx(WASMModuleInstanceCommon *module_inst_comm)
 {
-#if WASM_ENABLE_INTERP != 0
-    if (module_inst->module_type == Wasm_Module_Bytecode)
-        return ((WASMModuleInstance *)module_inst)->wasi_ctx;
-#endif
-#if WASM_ENABLE_AOT != 0
-    if (module_inst->module_type == Wasm_Module_AoT)
-        return ((AOTModuleInstance *)module_inst)->wasi_ctx;
-#endif
-    return NULL;
+    WASMModuleInstance *module_inst = (WASMModuleInstance *)module_inst_comm;
+
+    bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
+              || module_inst_comm->module_type == Wasm_Module_AoT);
+    return module_inst->wasi_ctx;
 }
 
 void
-wasm_runtime_set_wasi_ctx(WASMModuleInstanceCommon *module_inst,
+wasm_runtime_set_wasi_ctx(WASMModuleInstanceCommon *module_inst_comm,
                           WASIContext *wasi_ctx)
 {
-#if WASM_ENABLE_INTERP != 0
-    if (module_inst->module_type == Wasm_Module_Bytecode)
-        ((WASMModuleInstance *)module_inst)->wasi_ctx = wasi_ctx;
-#endif
-#if WASM_ENABLE_AOT != 0
-    if (module_inst->module_type == Wasm_Module_AoT)
-        ((AOTModuleInstance *)module_inst)->wasi_ctx = wasi_ctx;
-#endif
+    WASMModuleInstance *module_inst = (WASMModuleInstance *)module_inst_comm;
+
+    bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
+              || module_inst_comm->module_type == Wasm_Module_AoT);
+    module_inst->wasi_ctx = wasi_ctx;
 }
 #endif /* end of WASM_ENABLE_LIBC_WASI */
 
 WASMModuleCommon *
 wasm_exec_env_get_module(WASMExecEnv *exec_env)
 {
-    WASMModuleInstanceCommon *module_inst =
+    WASMModuleInstanceCommon *module_inst_comm =
         wasm_runtime_get_module_inst(exec_env);
-#if WASM_ENABLE_INTERP != 0
-    if (module_inst->module_type == Wasm_Module_Bytecode)
-        return (WASMModuleCommon *)((WASMModuleInstance *)module_inst)->module;
-#endif
-#if WASM_ENABLE_AOT != 0
-    if (module_inst->module_type == Wasm_Module_AoT)
-        return (WASMModuleCommon *)((AOTModuleInstance *)module_inst)->module;
-#endif
-    return NULL;
+    WASMModuleInstance *module_inst = (WASMModuleInstance *)module_inst_comm;
+
+    bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
+              || module_inst_comm->module_type == Wasm_Module_AoT);
+    return (WASMModuleCommon *)module_inst->module;
 }
 
 #if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0

@@ -200,9 +200,6 @@ typedef struct WASMModuleInstanceExtra {
     uint32 global_count;
     uint32 function_count;
 
-    WASMMemoryInstance *default_memory;
-    WASMTableInstance *default_table;
-
     WASMFunctionInstance *start_function;
     WASMFunctionInstance *malloc_function;
     WASMFunctionInstance *free_function;
@@ -439,8 +436,11 @@ wasm_check_app_addr_and_convert(WASMModuleInstance *module_inst, bool is_str,
                                 uint32 app_buf_addr, uint32 app_buf_size,
                                 void **p_native_addr);
 
+WASMMemoryInstance *
+wasm_get_default_memory(WASMModuleInstance *module_inst);
+
 bool
-wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count);
+wasm_enlarge_memory(WASMModuleInstance *module_inst, uint32 inc_page_count);
 
 bool
 wasm_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 elem_idx,
@@ -452,16 +452,6 @@ wasm_set_aux_stack(WASMExecEnv *exec_env, uint32 start_offset, uint32 size);
 
 bool
 wasm_get_aux_stack(WASMExecEnv *exec_env, uint32 *start_offset, uint32 *size);
-#endif
-
-#ifdef OS_ENABLE_HW_BOUND_CHECK
-#ifndef BH_PLATFORM_WINDOWS
-void
-wasm_signal_handler(WASMSignalInfo *sig_info);
-#else
-LONG
-wasm_exception_handler(WASMSignalInfo *sig_info);
-#endif
 #endif
 
 void

@@ -1057,7 +1057,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                WASMFunctionInstance *cur_func,
                                WASMInterpFrame *prev_frame)
 {
-    WASMMemoryInstance *memory = module->e->default_memory;
+    WASMMemoryInstance *memory = wasm_get_default_memory(module);
     uint8 *global_data = module->global_data;
 #if !defined(OS_ENABLE_HW_BOUND_CHECK)              \
     || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 \
@@ -2015,8 +2015,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 else {
                     /* success, return previous page count */
                     PUSH_I32(prev_page_count);
-                    /* update memory instance ptr and memory size */
-                    memory = module->e->default_memory;
+                    /* update memory size, no need to update memory ptr as
+                       it isn't changed in wasm_enlarge_memory */
 #if !defined(OS_ENABLE_HW_BOUND_CHECK)              \
     || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 \
     || WASM_ENABLE_BULK_MEMORY != 0
@@ -3760,8 +3760,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             cur_func = frame->function;
             UPDATE_ALL_FROM_FRAME();
 
-            /* update memory instance ptr and memory size */
-            memory = module->e->default_memory;
+            /* update memory size, no need to update memory ptr as
+               it isn't changed in wasm_enlarge_memory */
 #if !defined(OS_ENABLE_HW_BOUND_CHECK)              \
     || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 \
     || WASM_ENABLE_BULK_MEMORY != 0

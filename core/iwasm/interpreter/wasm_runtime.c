@@ -1579,9 +1579,6 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
     }
 
     /* Initialize the memory data with data segment section */
-    module_inst->e->default_memory =
-        module_inst->memory_count ? module_inst->memories[0] : NULL;
-
     for (i = 0; i < module->data_seg_count; i++) {
         WASMMemoryInstance *memory = NULL;
         uint8 *memory_data = NULL;
@@ -1664,9 +1661,6 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
     }
 
     /* Initialize the table data with table segment section */
-    module_inst->e->default_table =
-        module_inst->table_count ? module_inst->tables[0] : NULL;
-    /* in case there is no table */
     for (i = 0; module_inst->table_count > 0 && i < module->table_seg_count;
          i++) {
         WASMTableSeg *table_seg = module->table_segments + i;
@@ -2016,113 +2010,6 @@ clear_wasi_proc_exit_exception(WASMModuleInstance *module_inst)
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
 
-#ifndef BH_PLATFORM_WINDOWS
-void
-wasm_signal_handler(WASMSignalInfo *sig_info)
-{
-    WASMExecEnv *exec_env_tls = sig_info->exec_env_tls;
-    void *sig_addr = sig_info->sig_addr;
-    WASMModuleInstance *module_inst;
-    WASMMemoryInstance *memory_inst;
-    WASMJmpBuf *jmpbuf_node;
-    uint8 *mapped_mem_start_addr = NULL;
-    uint8 *mapped_mem_end_addr = NULL;
-    uint8 *stack_min_addr;
-    uint32 page_size;
-    uint32 guard_page_count = STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT;
-
-    /* Check whether current thread is running wasm function */
-    if (exec_env_tls && exec_env_tls->handle == os_self_thread()
-        && (jmpbuf_node = exec_env_tls->jmpbuf_stack_top)) {
-        /* Get mapped mem info of current instance */
-        module_inst = (WASMModuleInstance *)exec_env_tls->module_inst;
-        /* Get the default memory instance */
-        memory_inst = module_inst->e->default_memory;
-        if (memory_inst) {
-            mapped_mem_start_addr = (uint8 *)memory_inst->memory_data;
-            mapped_mem_end_addr =
-                (uint8 *)memory_inst->memory_data + 8 * (uint64)BH_GB;
-        }
-
-        /* Get stack info of current thread */
-        page_size = os_getpagesize();
-        stack_min_addr = os_thread_get_stack_boundary();
-
-        if (memory_inst
-            && (mapped_mem_start_addr <= (uint8 *)sig_addr
-                && (uint8 *)sig_addr < mapped_mem_end_addr)) {
-            /* The address which causes segmentation fault is inside
-               the memory instance's guard regions */
-            wasm_set_exception(module_inst, "out of bounds memory access");
-            os_longjmp(jmpbuf_node->jmpbuf, 1);
-        }
-        else if (stack_min_addr - page_size <= (uint8 *)sig_addr
-                 && (uint8 *)sig_addr
-                        < stack_min_addr + page_size * guard_page_count) {
-            /* The address which causes segmentation fault is inside
-               native thread's guard page */
-            wasm_set_exception(module_inst, "native stack overflow");
-            os_longjmp(jmpbuf_node->jmpbuf, 1);
-        }
-    }
-}
-#else  /* else of BH_PLATFORM_WINDOWS */
-LONG
-wasm_exception_handler(WASMSignalInfo *sig_info)
-{
-    WASMExecEnv *exec_env_tls = sig_info->exec_env_tls;
-    EXCEPTION_POINTERS *exce_info = sig_info->exce_info;
-    PEXCEPTION_RECORD ExceptionRecord = exce_info->ExceptionRecord;
-    uint8 *sig_addr = (uint8 *)ExceptionRecord->ExceptionInformation[1];
-    WASMModuleInstance *module_inst;
-    WASMMemoryInstance *memory_inst;
-    WASMJmpBuf *jmpbuf_node;
-    uint8 *mapped_mem_start_addr = NULL;
-    uint8 *mapped_mem_end_addr = NULL;
-    uint32 page_size = os_getpagesize();
-
-    if (exec_env_tls && exec_env_tls->handle == os_self_thread()
-        && (jmpbuf_node = exec_env_tls->jmpbuf_stack_top)) {
-        module_inst = (WASMModuleInstance *)exec_env_tls->module_inst;
-        if (ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
-            /* Get the default memory instance */
-            memory_inst = module_inst->e->default_memory;
-            if (memory_inst) {
-                mapped_mem_start_addr = (uint8 *)memory_inst->memory_data;
-                mapped_mem_end_addr =
-                    (uint8 *)memory_inst->memory_data + 8 * (uint64)BH_GB;
-                if (mapped_mem_start_addr <= (uint8 *)sig_addr
-                    && (uint8 *)sig_addr < mapped_mem_end_addr) {
-                    /* The address which causes segmentation fault is inside
-                       the memory instance's guard regions.
-                       Set exception and let the wasm func continue to run, when
-                       the wasm func returns, the caller will check whether the
-                       exception is thrown and return to runtime. */
-                    wasm_set_exception(module_inst,
-                                       "out of bounds memory access");
-                    /* Skip current instruction */
-                    return EXCEPTION_CONTINUE_SEARCH;
-                }
-            }
-        }
-        else if (ExceptionRecord->ExceptionCode == EXCEPTION_STACK_OVERFLOW) {
-            /* Set stack overflow exception and let the wasm func continue
-               to run, when the wasm func returns, the caller will check
-               whether the exception is thrown and return to runtime, and
-               the damaged stack will be recovered by _resetstkoflw(). */
-            wasm_set_exception(module_inst, "native stack overflow");
-            return EXCEPTION_CONTINUE_SEARCH;
-        }
-    }
-
-    os_printf("Unhandled exception thrown:  exception code: 0x%lx, "
-              "exception address: %p, exception information: %p\n",
-              ExceptionRecord->ExceptionCode, ExceptionRecord->ExceptionAddress,
-              sig_addr);
-    return EXCEPTION_CONTINUE_SEARCH;
-}
-#endif /* end of BH_PLATFORM_WINDOWS */
-
 static void
 call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
                               WASMExecEnv *exec_env,
@@ -2310,7 +2197,7 @@ uint32
 wasm_module_malloc(WASMModuleInstance *module_inst, uint32 size,
                    void **p_native_addr)
 {
-    WASMMemoryInstance *memory = module_inst->e->default_memory;
+    WASMMemoryInstance *memory = wasm_get_default_memory(module_inst);
     uint8 *addr = NULL;
     uint32 offset = 0;
 
@@ -2330,7 +2217,7 @@ wasm_module_malloc(WASMModuleInstance *module_inst, uint32 size,
         }
         /* If we use app's malloc function,
            the default memory may be changed while memory growing */
-        memory = module_inst->e->default_memory;
+        memory = wasm_get_default_memory(module_inst);
         addr = offset ? memory->memory_data + offset : NULL;
     }
 
@@ -2355,7 +2242,7 @@ uint32
 wasm_module_realloc(WASMModuleInstance *module_inst, uint32 ptr, uint32 size,
                     void **p_native_addr)
 {
-    WASMMemoryInstance *memory = module_inst->e->default_memory;
+    WASMMemoryInstance *memory = wasm_get_default_memory(module_inst);
     uint8 *addr = NULL;
 
     if (!memory) {
@@ -2390,7 +2277,7 @@ void
 wasm_module_free(WASMModuleInstance *module_inst, uint32 ptr)
 {
     if (ptr) {
-        WASMMemoryInstance *memory = module_inst->e->default_memory;
+        WASMMemoryInstance *memory = wasm_get_default_memory(module_inst);
         uint8 *addr;
 
         if (!memory) {
@@ -2426,197 +2313,6 @@ wasm_module_dup_data(WASMModuleInstance *module_inst, const char *src,
     }
     return buffer_offset;
 }
-
-#ifndef OS_ENABLE_HW_BOUND_CHECK
-bool
-wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
-{
-    WASMMemoryInstance *memory = module->e->default_memory;
-    uint8 *memory_data_old, *memory_data_new, *heap_data_old;
-    uint32 num_bytes_per_page, heap_size, total_size_old;
-    uint32 cur_page_count, max_page_count, total_page_count;
-    uint64 total_size_new;
-    bool ret = true;
-
-    if (!memory)
-        return false;
-
-    heap_data_old = memory->heap_data;
-    heap_size = (uint32)(memory->heap_data_end - memory->heap_data);
-
-    memory_data_old = memory->memory_data;
-    total_size_old = memory->memory_data_size;
-
-    num_bytes_per_page = memory->num_bytes_per_page;
-    cur_page_count = memory->cur_page_count;
-    max_page_count = memory->max_page_count;
-    total_page_count = inc_page_count + cur_page_count;
-    total_size_new = num_bytes_per_page * (uint64)total_page_count;
-
-    if (inc_page_count <= 0)
-        /* No need to enlarge memory */
-        return true;
-
-    if (total_page_count < cur_page_count /* integer overflow */
-        || total_page_count > max_page_count) {
-        return false;
-    }
-
-    bh_assert(total_size_new <= 4 * (uint64)BH_GB);
-    if (total_size_new > UINT32_MAX) {
-        /* Resize to 1 page with size 4G-1 */
-        num_bytes_per_page = UINT32_MAX;
-        total_page_count = max_page_count = 1;
-        total_size_new = UINT32_MAX;
-    }
-
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    if (memory->is_shared) {
-        memory->num_bytes_per_page = UINT32_MAX;
-        memory->cur_page_count = total_page_count;
-        memory->max_page_count = max_page_count;
-        return true;
-    }
-#endif
-
-    if (heap_size > 0) {
-        if (mem_allocator_is_heap_corrupted(memory->heap_handle)) {
-            wasm_runtime_show_app_heap_corrupted_prompt();
-            return false;
-        }
-    }
-
-    if (!(memory_data_new =
-              wasm_runtime_realloc(memory_data_old, (uint32)total_size_new))) {
-        if (!(memory_data_new = wasm_runtime_malloc((uint32)total_size_new))) {
-            return false;
-        }
-        if (memory_data_old) {
-            bh_memcpy_s(memory_data_new, (uint32)total_size_new,
-                        memory_data_old, total_size_old);
-            wasm_runtime_free(memory_data_old);
-        }
-    }
-
-    memset(memory_data_new + total_size_old, 0,
-           (uint32)total_size_new - total_size_old);
-
-    if (heap_size > 0) {
-        if (mem_allocator_migrate(memory->heap_handle,
-                                  (char *)heap_data_old
-                                      + (memory_data_new - memory_data_old),
-                                  heap_size)
-            != 0) {
-            /* Don't return here as memory->memory_data is obsolete and
-               must be updated to be correctly used later. */
-            ret = false;
-        }
-    }
-
-    memory->heap_data = memory_data_new + (heap_data_old - memory_data_old);
-    memory->heap_data_end = memory->heap_data + heap_size;
-
-    memory->num_bytes_per_page = num_bytes_per_page;
-    memory->cur_page_count = total_page_count;
-    memory->max_page_count = max_page_count;
-    memory->memory_data_size = (uint32)total_size_new;
-
-    memory->memory_data = memory_data_new;
-    memory->memory_data_end = memory_data_new + (uint32)total_size_new;
-
-#if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0
-#if UINTPTR_MAX == UINT64_MAX
-    memory->mem_bound_check_1byte.u64 = total_size_new - 1;
-    memory->mem_bound_check_2bytes.u64 = total_size_new - 2;
-    memory->mem_bound_check_4bytes.u64 = total_size_new - 4;
-    memory->mem_bound_check_8bytes.u64 = total_size_new - 8;
-    memory->mem_bound_check_16bytes.u64 = total_size_new - 16;
-#else
-    memory->mem_bound_check_1byte.u32[0] = (uint32)total_size_new - 1;
-    memory->mem_bound_check_2bytes.u32[0] = (uint32)total_size_new - 2;
-    memory->mem_bound_check_4bytes.u32[0] = (uint32)total_size_new - 4;
-    memory->mem_bound_check_8bytes.u32[0] = (uint32)total_size_new - 8;
-    memory->mem_bound_check_16bytes.u32[0] = (uint32)total_size_new - 16;
-#endif
-#endif
-
-    return ret;
-}
-#else
-bool
-wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
-{
-    WASMMemoryInstance *memory = module->e->default_memory;
-    uint32 num_bytes_per_page, total_size_old;
-    uint32 cur_page_count, max_page_count, total_page_count;
-    uint64 total_size_new;
-
-    if (!memory)
-        return false;
-
-    num_bytes_per_page = memory->num_bytes_per_page;
-    cur_page_count = memory->cur_page_count;
-    max_page_count = memory->max_page_count;
-    total_size_old = num_bytes_per_page * cur_page_count;
-    total_page_count = inc_page_count + cur_page_count;
-    total_size_new = num_bytes_per_page * (uint64)total_page_count;
-
-    if (inc_page_count <= 0)
-        /* No need to enlarge memory */
-        return true;
-
-    if (total_page_count < cur_page_count /* integer overflow */
-        || total_page_count > max_page_count) {
-        return false;
-    }
-
-    bh_assert(total_size_new <= 4 * (uint64)BH_GB);
-    if (total_size_new > UINT32_MAX) {
-        /* Resize to 1 page with size 4G-1 */
-        num_bytes_per_page = UINT32_MAX;
-        total_page_count = max_page_count = 1;
-        total_size_new = UINT32_MAX;
-    }
-
-#ifdef BH_PLATFORM_WINDOWS
-    if (!os_mem_commit(memory->memory_data_end,
-                       (uint32)total_size_new - total_size_old,
-                       MMAP_PROT_READ | MMAP_PROT_WRITE)) {
-        return false;
-    }
-#endif
-
-    if (os_mprotect(memory->memory_data_end,
-                    (uint32)total_size_new - total_size_old,
-                    MMAP_PROT_READ | MMAP_PROT_WRITE)
-        != 0) {
-#ifdef BH_PLATFORM_WINDOWS
-        os_mem_decommit(memory->memory_data_end,
-                        (uint32)total_size_new - total_size_old);
-#endif
-        return false;
-    }
-
-    /* The increased pages are filled with zero by the OS when os_mmap,
-       no need to memset it again here */
-
-    memory->num_bytes_per_page = num_bytes_per_page;
-    memory->cur_page_count = total_page_count;
-    memory->max_page_count = max_page_count;
-    memory->memory_data_size = (uint32)total_size_new;
-    memory->memory_data_end = memory->memory_data + (uint32)total_size_new;
-
-#if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0
-    memory->mem_bound_check_1byte.u64 = total_size_new - 1;
-    memory->mem_bound_check_2bytes.u64 = total_size_new - 2;
-    memory->mem_bound_check_4bytes.u64 = total_size_new - 4;
-    memory->mem_bound_check_8bytes.u64 = total_size_new - 8;
-    memory->mem_bound_check_16bytes.u64 = total_size_new - 16;
-#endif
-
-    return true;
-}
-#endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
 #if WASM_ENABLE_REF_TYPES != 0
 bool
@@ -3184,7 +2880,7 @@ llvm_jit_memory_init(WASMModuleInstance *module_inst, uint32 seg_index,
     }
 #endif
 
-    memory_inst = module_inst->e->default_memory;
+    memory_inst = wasm_get_default_memory(module_inst);
     module = module_inst->module;
     seg_len = module->data_segments[seg_index]->data_length;
     data = module->data_segments[seg_index]->data;

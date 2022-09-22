@@ -617,7 +617,7 @@ wasm_debug_instance_get_memregion(WASMDebugInstance *instance, uint64 addr)
             break;
         case WasmMemory:
         {
-            memory = module_inst->e->default_memory;
+            memory = wasm_get_default_memory(module_inst);
 
             if (memory) {
                 num_bytes_per_page = memory->num_bytes_per_page;
@@ -715,7 +715,7 @@ wasm_debug_instance_get_linear_mem(WASMDebugInstance *instance, uint64 offset,
         return false;
 
     module_inst = (WASMModuleInstance *)exec_env->module_inst;
-    memory = module_inst->e->default_memory;
+    memory = wasm_get_default_memory(module_inst);
     if (memory) {
         num_bytes_per_page = memory->num_bytes_per_page;
         linear_mem_size = num_bytes_per_page * memory->cur_page_count;
@@ -748,7 +748,7 @@ wasm_debug_instance_set_linear_mem(WASMDebugInstance *instance, uint64 offset,
         return false;
 
     module_inst = (WASMModuleInstance *)exec_env->module_inst;
-    memory = module_inst->e->default_memory;
+    memory = wasm_get_default_memory(module_inst);
     if (memory) {
         num_bytes_per_page = memory->num_bytes_per_page;
         linear_mem_size = num_bytes_per_page * memory->cur_page_count;
