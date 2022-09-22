@@ -487,9 +487,12 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (memory->is_shared) {
-        memory->num_bytes_per_page = UINT32_MAX;
+        memory->num_bytes_per_page = num_bytes_per_page;
         memory->cur_page_count = total_page_count;
         memory->max_page_count = max_page_count;
+        /* No need to update memory->memory_data_size as it is
+           initialized with the maximum memory data size for
+           shared memory */
         return true;
     }
 #endif
@@ -539,7 +542,7 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
     memory->memory_data = memory_data_new;
     memory->memory_data_end = memory_data_new + (uint32)total_size_new;
 
-#if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0
+#if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0 || WASM_ENABLE_AOT != 0
 #if UINTPTR_MAX == UINT64_MAX
     memory->mem_bound_check_1byte.u64 = total_size_new - 1;
     memory->mem_bound_check_2bytes.u64 = total_size_new - 2;
@@ -621,7 +624,7 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
     memory->memory_data_size = (uint32)total_size_new;
     memory->memory_data_end = memory->memory_data + (uint32)total_size_new;
 
-#if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0
+#if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0 || WASM_ENABLE_AOT != 0
     memory->mem_bound_check_1byte.u64 = total_size_new - 1;
     memory->mem_bound_check_2bytes.u64 = total_size_new - 2;
     memory->mem_bound_check_4bytes.u64 = total_size_new - 4;
