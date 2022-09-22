@@ -91,6 +91,9 @@ int
 ipfs_posix_fallocate(int fd, off_t offset, size_t len)
 {
     void *sgx_file = fd2file(fd);
+    if (!sgx_file) {
+        return EBADF;
+    }
 
     // The wrapper for fseek takes care of extending the file if sought beyond
     // the end
@@ -114,6 +117,11 @@ ipfs_read(int fd, const struct iovec *iov, int iovcnt, bool has_offset,
     off_t original_offset = 0;
     void *sgx_file = fd2file(fd);
     size_t read_result, number_of_read_bytes = 0;
+
+    if (!sgx_file) {
+        errno = EBADF;
+        return -1;
+    }
 
     if (has_offset) {
         // Save the current offset, to restore it after the read operation
@@ -167,6 +175,11 @@ ipfs_write(int fd, const struct iovec *iov, int iovcnt, bool has_offset,
     void *sgx_file = fd2file(fd);
     size_t write_result, number_of_written_bytes = 0;
 
+    if (!sgx_file) {
+        errno = EBADF;
+        return -1;
+    }
+
     if (has_offset) {
         // Save the current offset, to restore it after the read operation
         original_offset = (off_t)sgx_ftell(sgx_file);
@@ -215,6 +228,7 @@ ipfs_close(int fd)
 
     if (!bh_hash_map_remove(ipfs_file_list, (void *)(intptr_t)fd, NULL,
                             &sgx_file)) {
+        errno = EBADF;
         return -1;
     }
 
@@ -288,6 +302,12 @@ int
 ipfs_fflush(int fd)
 {
     void *sgx_file = fd2file(fd);
+
+    if (!sgx_file) {
+        errno = EBADF;
+        return EOF;
+    }
+
     int ret = sgx_fflush(sgx_file);
 
     if (ret == 1) {
@@ -303,6 +323,10 @@ ipfs_lseek(int fd, off_t offset, int nwhence)
 {
     off_t new_offset;
     void *sgx_file = fd2file(fd);
+    if (!sgx_file) {
+        errno = EBADF;
+        return -1;
+    }
 
     // Optimization: if the offset is 0 and the whence is SEEK_CUR,
     // this is equivalent of a call to ftell.
@@ -378,6 +402,11 @@ int
 ipfs_ftruncate(int fd, off_t len)
 {
     void *sgx_file = fd2file(fd);
+    if (!sgx_file) {
+        errno = EBADF;
+        return -1;
+    }
+
     off_t original_offset = sgx_ftell(sgx_file);
 
     // Optimization path: if the length is smaller than the offset,
