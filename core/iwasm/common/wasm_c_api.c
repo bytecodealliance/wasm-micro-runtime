@@ -2,16 +2,20 @@
  * Copyright (C) 2019 Intel Corporation.  All rights reserved.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
-
 #include "wasm_c_api_internal.h"
+
+#include "bh_assert.h"
 #include "wasm_memory.h"
-#include "wasm_runtime_common.h"
 #if WASM_ENABLE_INTERP != 0
 #include "wasm_runtime.h"
 #endif
 #if WASM_ENABLE_AOT != 0
 #include "aot_runtime.h"
-#endif
+#if WASM_ENABLE_JIT != 0 && WASM_ENABLE_LAZY_JIT == 0
+#include "aot.h"
+#include "aot_llvm.h"
+#endif /*WASM_ENABLE_JIT != 0 && WASM_ENABLE_LAZY_JIT == 0*/
+#endif /*WASM_ENABLE_AOT != 0*/
 
 #define ASSERT_NOT_IMPLEMENTED() bh_assert(!"not implemented")
 #define UNREACHABLE() bh_assert(!"unreachable")
@@ -2378,6 +2382,61 @@ failed_exporttype_new:
     wasm_exporttype_delete(export_type);
     wasm_exporttype_vec_delete(out);
 }
+
+#if WASM_ENABLE_JIT == 0 || WASM_ENABLE_LAZY_JIT != 0
+void
+wasm_module_serialize(wasm_module_t *module, own wasm_byte_vec_t *out)
+{
+    (void)module;
+    (void)out;
+    LOG_ERROR("only supported serialization in JIT with eager compilation");
+}
+
+own wasm_module_t *
+wasm_module_deserialize(wasm_store_t *module, const wasm_byte_vec_t *binary)
+{
+    (void)module;
+    (void)binary;
+    LOG_ERROR("only supported deserialization in JIT with eager compilation");
+    return NULL;
+}
+#else
+
+extern uint8 *
+aot_emit_aot_file_buf(AOTCompContext *comp_ctx, AOTCompData *comp_data,
+                      uint32 *p_aot_file_size);
+void
+wasm_module_serialize(wasm_module_t *module, own wasm_byte_vec_t *out)
+{
+    wasm_module_ex_t *module_ex;
+    AOTCompContext *comp_ctx;
+    AOTCompData *comp_data;
+    uint8 *aot_file_buf = NULL;
+    uint32 aot_file_size = 0;
+
+    if (!module || !out)
+        return;
+
+    module_ex = module_to_module_ext(module);
+    comp_ctx = ((WASMModule *)(module_ex->module_comm_rt))->comp_ctx;
+    comp_data = ((WASMModule *)(module_ex->module_comm_rt))->comp_data;
+    bh_assert(comp_ctx != NULL && comp_data != NULL);
+
+    aot_file_buf = aot_emit_aot_file_buf(comp_ctx, comp_data, &aot_file_size);
+    if (!aot_file_buf)
+        return;
+
+    wasm_byte_vec_new(out, aot_file_size, (wasm_byte_t *)aot_file_buf);
+    wasm_runtime_free(aot_file_buf);
+    return;
+}
+
+own wasm_module_t *
+wasm_module_deserialize(wasm_store_t *store, const wasm_byte_vec_t *binary)
+{
+    return wasm_module_new(store, binary);
+}
+#endif
 
 static wasm_func_t *
 wasm_func_new_basic(wasm_store_t *store, const wasm_functype_t *type,
