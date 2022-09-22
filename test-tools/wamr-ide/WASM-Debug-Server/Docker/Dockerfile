@@ -8,6 +8,7 @@ WORKDIR /root/
 COPY resource /root/
 
 ##  - download cmake with wget and set up
+# hadolint ignore=DL3008
 RUN wget --progress=dot:giga https://github.com/Kitware/CMake/releases/download/v3.21.1/cmake-3.21.1-linux-x86_64.tar.gz \
     && tar -zxvf cmake-3.21.1-linux-x86_64.tar.gz \
     && rm -f cmake-3.21.1-linux-x86_64.tar.gz \
