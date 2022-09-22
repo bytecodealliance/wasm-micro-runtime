@@ -151,7 +151,7 @@ if (WAMR_BUILD_DEBUG_AOT EQUAL 1)
     include_directories(${LLVM_BUILD_BINARY_DIR}/tools/lldb/include)
   endif()
   link_directories(${LLVM_LIBRARY_DIRS})
-  find_library(lib_lldb NAMES lldb HINTS ${LLVM_LIBRARY_DIRS})
+  find_library(lib_lldb NAMES lldb HINTS ${LLVM_LIBRARY_DIRS} REQUIRED)
   message(STATUS "find lldb ${LLDB_ALL_PLUGINS} in: ${LLVM_LIBRARY_DIRS}")
 endif()
 
