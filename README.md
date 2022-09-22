@@ -25,6 +25,7 @@ Getting started
 - [Build WASM applications](./doc/build_wasm_app.md)
 - [Port WAMR to a new platform](./doc/port_wamr.md)
 - [Benchmarks](./tests/benchmarks) and [Samples](./samples)
+- [VS Code development container](./doc/devcontainer.md)
 
 iwasm VM core
 =========================

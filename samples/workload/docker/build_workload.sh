@@ -13,7 +13,7 @@ readonly VARIANT=$(lsb_release -c | awk '{print $2}')
 docker build \
   --build-arg VARIANT=${VARIANT} \
   --memory 4G --cpu-quota 50000 \
-  -t wamr_dev_${VARIANT}:0.1 -f "${ROOT}"/ci/Dockerfile "${ROOT}"/ci &&
+  -t wamr_dev_${VARIANT}:0.1 -f "${ROOT}"/.devcontainer/Dockerfile "${ROOT}"/.devcontainer &&
   docker run --rm -it \
     --memory 4G \
     --cpus ".5" \
