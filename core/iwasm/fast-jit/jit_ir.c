@@ -382,7 +382,7 @@ jit_cc_init(JitCompContext *cc, unsigned htab_size)
        blocks respectively.  */
     if (!(entry_block = jit_cc_new_basic_block(cc, 0)))
         goto fail;
-    if (!(exit_block = jit_cc_new_basic_block(cc, 0))){
+    if (!(exit_block = jit_cc_new_basic_block(cc, 0))) {
         jit_basic_block_delete(entry_block);
         goto fail;
     }
