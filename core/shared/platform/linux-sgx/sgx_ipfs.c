@@ -16,6 +16,9 @@
 #define SGX_ERROR_FILE_LOWEST_ERROR_ID SGX_ERROR_FILE_BAD_STATUS
 #define SGX_ERROR_FILE_HIGHEST_ERROR_ID SGX_ERROR_FILE_CLOSE_FAILED
 
+// The mapping between file descriptors and IPFS file pointers.
+HashMap *ipfs_file_list;
+
 // Converts an SGX error code to a POSIX error code.
 __wasi_errno_t
 convert_sgx_errno(int error)
@@ -63,12 +66,35 @@ convert_sgx_errno(int error)
     return error;
 }
 
-int
-ipfs_posix_fallocate(void *sgx_file, off_t offset, size_t len)
+static void *
+fd2file(int fd)
 {
+    return bh_hash_map_find(ipfs_file_list, (void *)(intptr_t)fd);
+}
+
+int
+ipfs_init()
+{
+    ipfs_file_list = bh_hash_map_create(32, true, (HashFunc)fd_hash,
+                                        (KeyEqualFunc)fd_equal, NULL, NULL);
+
+    return ipfs_file_list != NULL ? BHT_OK : BHT_ERROR;
+}
+
+void
+ipfs_destroy()
+{
+    bh_hash_map_destroy(ipfs_file_list);
+}
+
+int
+ipfs_posix_fallocate(int fd, off_t offset, size_t len)
+{
+    void *sgx_file = fd2file(fd);
+
     // The wrapper for fseek takes care of extending the file if sought beyond
     // the end
-    if (ipfs_lseek(sgx_file, offset + len, SEEK_CUR) == -1) {
+    if (ipfs_lseek(fd, offset + len, SEEK_CUR) == -1) {
         return errno;
     }
 
@@ -81,10 +107,29 @@ ipfs_posix_fallocate(void *sgx_file, off_t offset, size_t len)
 }
 
 size_t
-ipfs_readv(void *sgx_file, const struct iovec *iov, int iovcnt)
+ipfs_read(int fd, const struct iovec *iov, int iovcnt, bool has_offset,
+          off_t offset)
 {
     int i;
+    off_t original_offset = 0;
+    void *sgx_file = fd2file(fd);
     size_t read_result, number_of_read_bytes = 0;
+
+    if (has_offset) {
+        // Save the current offset, to restore it after the read operation
+        original_offset = (off_t)sgx_ftell(sgx_file);
+
+        if (original_offset == -1) {
+            errno = convert_sgx_errno(sgx_ferror(sgx_file));
+            return -1;
+        }
+
+        // Move to the desired location
+        if (sgx_fseek(sgx_file, offset, SEEK_SET) == -1) {
+            errno = convert_sgx_errno(sgx_ferror(sgx_file));
+            return -1;
+        }
+    }
 
     // For each element in the vector
     for (i = 0; i < iovcnt; i++) {
@@ -102,47 +147,41 @@ ipfs_readv(void *sgx_file, const struct iovec *iov, int iovcnt)
         }
     }
 
+    if (has_offset) {
+        // Restore the position of the cursor
+        if (sgx_fseek(sgx_file, original_offset, SEEK_SET) == -1) {
+            errno = convert_sgx_errno(sgx_ferror(sgx_file));
+            return -1;
+        }
+    }
+
     return number_of_read_bytes;
 }
 
 size_t
-ipfs_pread(void *sgx_file, void *buffer, size_t size, off_t offset)
-{
-    // Save the current offset, to restore it after the read operation
-    off_t original_offset = (off_t)sgx_ftell(sgx_file);
-
-    if (original_offset == -1) {
-        errno = convert_sgx_errno(sgx_ferror(sgx_file));
-        return -1;
-    }
-
-    // Move to the desired location
-    if (sgx_fseek(sgx_file, offset, SEEK_SET) == -1) {
-        errno = convert_sgx_errno(sgx_ferror(sgx_file));
-        return -1;
-    }
-
-    // Store the content of into buffer
-    size_t bytes_read = sgx_fread(buffer, 1, size, sgx_file);
-    if (bytes_read == 0) {
-        errno = convert_sgx_errno(sgx_ferror(sgx_file));
-        return -1;
-    }
-
-    // Restore the position of the cursor
-    if (sgx_fseek(sgx_file, original_offset, SEEK_SET) == -1) {
-        errno = convert_sgx_errno(sgx_ferror(sgx_file));
-        return -1;
-    }
-
-    return bytes_read;
-}
-
-size_t
-ipfs_writev(void *sgx_file, const struct iovec *iov, int iovcnt)
+ipfs_write(int fd, const struct iovec *iov, int iovcnt, bool has_offset,
+           off_t offset)
 {
     int i;
+    off_t original_offset = 0;
+    void *sgx_file = fd2file(fd);
     size_t write_result, number_of_written_bytes = 0;
+
+    if (has_offset) {
+        // Save the current offset, to restore it after the read operation
+        original_offset = (off_t)sgx_ftell(sgx_file);
+
+        if (original_offset == -1) {
+            errno = convert_sgx_errno(sgx_ferror(sgx_file));
+            return -1;
+        }
+
+        // Move to the desired location
+        if (sgx_fseek(sgx_file, offset, SEEK_SET) == -1) {
+            errno = convert_sgx_errno(sgx_ferror(sgx_file));
+            return -1;
+        }
+    }
 
     // For each element in the vector
     for (i = 0; i < iovcnt; i++) {
@@ -158,46 +197,28 @@ ipfs_writev(void *sgx_file, const struct iovec *iov, int iovcnt)
         }
     }
 
+    if (has_offset) {
+        // Restore the position of the cursor
+        if (sgx_fseek(sgx_file, original_offset, SEEK_SET) == -1) {
+            errno = convert_sgx_errno(sgx_ferror(sgx_file));
+            return -1;
+        }
+    }
+
     return number_of_written_bytes;
 }
 
-size_t
-ipfs_pwrite(void *sgx_file, const void *buffer, size_t size, off_t offset)
-{
-    // Save the current offset, to restore it after the read operation
-    off_t original_offset = (off_t)sgx_ftell(sgx_file);
-
-    if (original_offset == -1) {
-        errno = convert_sgx_errno(sgx_ferror(sgx_file));
-        return -1;
-    }
-
-    // Move to the desired location
-    if (sgx_fseek(sgx_file, offset, SEEK_SET) == -1) {
-        errno = convert_sgx_errno(sgx_ferror(sgx_file));
-        return -1;
-    }
-
-    // Write the content of the buffer
-    size_t bytes_written = sgx_fwrite(buffer, 1, size, sgx_file);
-    if (bytes_written == 0) {
-        errno = convert_sgx_errno(sgx_ferror(sgx_file));
-        return -1;
-    }
-
-    // Restore the position of the cursor
-    if (sgx_fseek(sgx_file, original_offset, SEEK_SET) == -1) {
-        errno = convert_sgx_errno(sgx_ferror(sgx_file));
-        return -1;
-    }
-
-    return bytes_written;
-}
-
 int
-ipfs_close(void *sgx_file)
+ipfs_close(int fd)
 {
-    if (!sgx_fclose(sgx_file)) {
+    void *sgx_file;
+
+    if (!bh_hash_map_remove(ipfs_file_list, (void *)(intptr_t)fd, NULL,
+                            &sgx_file)) {
+        return -1;
+    }
+
+    if (sgx_fclose(sgx_file)) {
         errno = convert_sgx_errno(sgx_ferror(sgx_file));
         return -1;
     }
@@ -206,21 +227,17 @@ ipfs_close(void *sgx_file)
 }
 
 void *
-ipfs_fopen(const char *filename, __wasi_rights_t fs_rights_base,
-           __wasi_oflags_t oflags, __wasi_fdflags_t fs_flags)
+ipfs_fopen(int fd, const char *filename, int flags)
 {
     // Mapping back the mode
-    // TODO Refine the rights, based on the POSIX implem.
     const char *mode;
 
-    bool read = (fs_rights_base & __WASI_RIGHT_FD_READ) != 0;
-    bool write = (fs_rights_base & __WASI_RIGHT_FD_WRITE) != 0;
-    bool must_create = (oflags & __WASI_O_CREAT) != 0;
-    bool must_truncate = (oflags & __WASI_O_TRUNC) != 0;
-    bool must_append = (fs_flags & __WASI_FDFLAG_APPEND) != 0;
-    bool read_only = (read & !write) != 0;
-    bool write_only = (!read & write) != 0;
-    bool read_write = (read & write) != 0;
+    bool must_create = (flags & O_CREAT) != 0;
+    bool must_truncate = (flags & O_TRUNC) != 0;
+    bool must_append = (flags & O_APPEND) != 0;
+    bool read_only = (flags & O_ACCMODE) == O_RDONLY;
+    bool write_only = (flags & O_ACCMODE) == O_WRONLY;
+    bool read_write = (flags & O_ACCMODE) == O_RDWR;
 
     // The mapping of the mode are described in the table in the official
     // specifications:
@@ -242,14 +259,13 @@ ipfs_fopen(const char *filename, __wasi_rights_t fs_rights_base,
     else
         mode = NULL;
 
-    // Cannot map the requested access to the SGX PFS
+    // Cannot map the requested access to the SGX IPFS
     if (mode == NULL) {
         errno = __WASI_ENOTCAPABLE;
         return NULL;
     }
 
     // Opening the file
-    os_printf("Opening mode: %s\n", mode);
     void *sgx_file = sgx_fopen_auto_key(filename, mode);
 
     if (sgx_file == NULL) {
@@ -257,12 +273,21 @@ ipfs_fopen(const char *filename, __wasi_rights_t fs_rights_base,
         return NULL;
     }
 
+    if (!bh_hash_map_insert(ipfs_file_list, (void *)(intptr_t)fd, sgx_file)) {
+        errno = __WASI_ECANCELED;
+        sgx_fclose(sgx_file);
+        os_printf("An error occurred while inserting the IPFS file pointer in "
+                  "the map.");
+        return NULL;
+    }
+
     return sgx_file;
 }
 
 int
-ipfs_fflush(void *sgx_file)
+ipfs_fflush(int fd)
 {
+    void *sgx_file = fd2file(fd);
     int ret = sgx_fflush(sgx_file);
 
     if (ret == 1) {
@@ -274,9 +299,24 @@ ipfs_fflush(void *sgx_file)
 }
 
 off_t
-ipfs_lseek(void *sgx_file, off_t offset, int nwhence)
+ipfs_lseek(int fd, off_t offset, int nwhence)
 {
     off_t new_offset;
+    void *sgx_file = fd2file(fd);
+
+    // Optimization: if the offset is 0 and the whence is SEEK_CUR,
+    // this is equivalent of a call to ftell.
+    if (offset == 0 && nwhence == SEEK_CUR) {
+        int64_t ftell_result = (off_t)sgx_ftell(sgx_file);
+
+        if (ftell_result == -1) {
+            errno = convert_sgx_errno(sgx_ferror(sgx_file));
+            return -1;
+        }
+
+        return ftell_result;
+    }
+
     int fseek_result = sgx_fseek(sgx_file, offset, nwhence);
 
     if (fseek_result == 0) {
@@ -332,24 +372,12 @@ ipfs_lseek(void *sgx_file, off_t offset, int nwhence)
     }
 }
 
-off_t
-ipfs_ftell(void *sgx_file)
-{
-    int64_t ftell_result = (off_t)sgx_ftell(sgx_file);
-
-    if (ftell_result == -1) {
-        errno = convert_sgx_errno(sgx_ferror(sgx_file));
-        return -1;
-    }
-
-    return ftell_result;
-}
-
 // The official API does not provide a way to truncate files.
 // Only files extension is supported.
 int
-ipfs_ftruncate(void *sgx_file, off_t len)
+ipfs_ftruncate(int fd, off_t len)
 {
+    void *sgx_file = fd2file(fd);
     off_t original_offset = sgx_ftell(sgx_file);
 
     // Optimization path: if the length is smaller than the offset,

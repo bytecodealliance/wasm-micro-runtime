@@ -6,6 +6,7 @@
 #ifndef _LIBC_WASI_SGX_PFS_H
 #define _LIBC_WASI_SGX_PFS_H
 
+#include "bh_hashmap.h"
 #include "wasmtime_ssp.h"
 
 #ifdef __cplusplus
@@ -13,28 +14,45 @@ extern "C" {
 #endif
 
 int
-ipfs_posix_fallocate(void *sgx_file, off_t offset, size_t len);
-size_t
-ipfs_readv(void *sgx_file, const struct iovec *iov, int iovcnt);
-size_t
-ipfs_pread(void *sgx_file, void *buffer, size_t size, off_t offset);
-size_t
-ipfs_writev(void *sgx_file, const struct iovec *iov, int iovcnt);
-size_t
-ipfs_pwrite(void *sgx_file, const void *buffer, size_t size, off_t offset);
+ipfs_init();
+void
+ipfs_destroy();
 int
-ipfs_close(void *sgx_file);
+ipfs_posix_fallocate(int fd, off_t offset, size_t len);
+size_t
+ipfs_read(int fd, const struct iovec *iov, int iovcnt, bool has_offset,
+          off_t offset);
+size_t
+ipfs_write(int fd, const struct iovec *iov, int iovcnt, bool has_offset,
+           off_t offset);
+int
+ipfs_close(int fd);
 void *
-ipfs_fopen(const char *filename, __wasi_rights_t fs_rights_base,
-           __wasi_oflags_t oflags, __wasi_fdflags_t fs_flags);
+ipfs_fopen(int fd, const char *filename, int flags);
 int
-ipfs_fflush(void *sgx_file);
+ipfs_fflush(int fd);
 off_t
-ipfs_lseek(void *sgx_file, off_t offset, int nwhence);
-off_t
-ipfs_ftell(void *sgx_file);
+ipfs_lseek(int fd, off_t offset, int nwhence);
 int
-ipfs_ftruncate(void *sgx_file, off_t len);
+ipfs_ftruncate(int fd, off_t len);
+
+/**
+ * Whether two file descriptors are equal.
+ */
+inline static bool
+fd_equal(int left, int right)
+{
+    return left == right ? true : false;
+}
+
+/**
+ * Returns the file descriptor as a hash value.
+ */
+inline static uint32
+fd_hash(int fd)
+{
+    return (uint32)fd;
+}
 
 #ifdef __cplusplus
 }
