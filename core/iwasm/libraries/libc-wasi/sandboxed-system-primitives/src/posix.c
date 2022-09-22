@@ -664,7 +664,6 @@ fd_table_insert_fd(struct fd_table *ft, int in, __wasi_filetype_t type,
     }
 
     fo->number = in;
-
     if (type == __WASI_FILETYPE_DIRECTORY) {
         if (!mutex_init(&fo->directory.lock)) {
             fd_object_release(fo);
@@ -968,8 +967,7 @@ wasmtime_ssp_fd_read(
     if (error != 0)
         return error;
 
-    ssize_t len;
-    len = readv(fd_number(fo), (const struct iovec *)iov, (int)iovcnt);
+    ssize_t len = readv(fd_number(fo), (const struct iovec *)iov, (int)iovcnt);
     fd_object_release(fo);
     if (len < 0)
         return convert_errno(errno);
@@ -1064,8 +1062,7 @@ wasmtime_ssp_fd_seek(
     if (error != 0)
         return error;
 
-    off_t ret;
-    ret = lseek(fd_number(fo), offset, nwhence);
+    off_t ret = lseek(fd_number(fo), offset, nwhence);
     fd_object_release(fo);
     if (ret < 0)
         return convert_errno(errno);
@@ -1086,8 +1083,7 @@ wasmtime_ssp_fd_tell(
     if (error != 0)
         return error;
 
-    off_t ret;
-    ret = lseek(fd_number(fo), 0, SEEK_CUR);
+    off_t ret = lseek(fd_number(fo), 0, SEEK_CUR);
     fd_object_release(fo);
     if (ret < 0)
         return convert_errno(errno);
@@ -1245,7 +1241,7 @@ wasmtime_ssp_fd_write(
     if (error != 0)
         return error;
 
-#if !defined(BH_VPRINTF)
+#ifndef BH_VPRINTF
     ssize_t len = writev(fd_number(fo), (const struct iovec *)iov, (int)iovcnt);
 #else
     ssize_t len = 0;
@@ -1267,7 +1263,7 @@ wasmtime_ssp_fd_write(
     else {
         len = writev(fd_number(fo), (const struct iovec *)iov, (int)iovcnt);
     }
-#endif /* end of !defined(BH_VPRINTF) */
+#endif /* end of BH_VPRINTF */
     fd_object_release(fo);
     if (len < 0)
         return convert_errno(errno);
