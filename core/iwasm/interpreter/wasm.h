@@ -321,6 +321,8 @@ typedef struct WASIArguments {
     /* in CIDR noation */
     const char **addr_pool;
     uint32 addr_count;
+    const char **ns_lookup_pool;
+    uint32 ns_lookup_count;
     char **argv;
     uint32 argc;
     int stdio[3];

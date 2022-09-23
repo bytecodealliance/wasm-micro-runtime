@@ -132,3 +132,16 @@ func (self *Module) SetWasiAddrPool(addrPool [][]byte) {
     }
     C.wasm_runtime_set_wasi_addr_pool(self.module, addrPoolPtr, addrPoolSize)
 }
+
+/* Set module's wasi domain lookup pool */
+func(self *Module) SetWasiNsLookupPool(nsLookupPool[][] byte)
+{
+    var nsLookupPoolPtr **C.char
+    var nsLookupPoolSize C.uint
+
+    if (nsLookupPool != nil) {
+        nsLookupPoolPtr = (**C.char)(unsafe.Pointer(&nsLookupPool[0]))
+        nsLookupPoolSize = C.uint(len(nsLookupPool))
+    }
+    C.wasm_runtime_set_wasi_ns_lookup_pool(self.module, nsLookupPoolPtr, nsLookupPoolSize)
+}

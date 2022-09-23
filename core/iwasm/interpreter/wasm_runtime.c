@@ -1701,9 +1701,11 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
                 module->wasi_args.map_dir_list, module->wasi_args.map_dir_count,
                 module->wasi_args.env, module->wasi_args.env_count,
                 module->wasi_args.addr_pool, module->wasi_args.addr_count,
-                module->wasi_args.argv, module->wasi_args.argc,
-                module->wasi_args.stdio[0], module->wasi_args.stdio[1],
-                module->wasi_args.stdio[2], error_buf, error_buf_size)) {
+                module->wasi_args.ns_lookup_pool,
+                module->wasi_args.ns_lookup_count, module->wasi_args.argv,
+                module->wasi_args.argc, module->wasi_args.stdio[0],
+                module->wasi_args.stdio[1], module->wasi_args.stdio[2],
+                error_buf, error_buf_size)) {
             goto fail;
         }
     }
@@ -2505,9 +2507,12 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (memory->is_shared) {
-        memory->num_bytes_per_page = UINT32_MAX;
+        memory->num_bytes_per_page = num_bytes_per_page;
         memory->cur_page_count = total_page_count;
         memory->max_page_count = max_page_count;
+        /* No need to update memory->memory_data_size as it is
+           initialized with the maximum memory data size for
+           shared memory */
         return true;
     }
 #endif

@@ -82,4 +82,20 @@ Data:
   And mourns for us
 ```
 
+`socket_opts.wasm` shows an example of getting and setting various supported socket options
+```bash
+$ ./iwasm ./socket_opts.wasm
+```
+
+The output describes the different socket options that are set & retrieved, like so:
+```bash
+[Client] Create TCP socket
+[Client] Create UDP socket
+[Client] Create UDP IPv6 socket
+SO_RCVTIMEO tv_sec is expected
+SO_RCVTIMEO tv_usec is expected
+...
+[Client] Close sockets
+```
+
 Refer to [socket api document](../../doc/socket_api.md) for more details.
