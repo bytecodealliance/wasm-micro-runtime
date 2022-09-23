@@ -2507,9 +2507,12 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (memory->is_shared) {
-        memory->num_bytes_per_page = UINT32_MAX;
+        memory->num_bytes_per_page = num_bytes_per_page;
         memory->cur_page_count = total_page_count;
         memory->max_page_count = max_page_count;
+        /* No need to update memory->memory_data_size as it is
+           initialized with the maximum memory data size for
+           shared memory */
         return true;
     }
 #endif
