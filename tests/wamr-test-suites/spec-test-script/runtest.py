@@ -2,6 +2,7 @@
 
 from __future__ import print_function
 import os, sys, re
+from pickletools import long1
 import argparse, time
 import signal, atexit, tempfile, subprocess
 
@@ -17,7 +18,12 @@ import struct
 import math
 import traceback
 
-IS_PY_3 = sys.version_info[0] == 3
+try:
+    long
+    IS_PY_3 = False
+except NameError:
+    long = int
+    IS_PY_3 = True
 
 test_aot = False
 # "x86_64", "i386", "aarch64", "armv7" or "thumbv7"
@@ -312,7 +318,7 @@ def get_module_exp_from_assert(string):
 
 def string_to_unsigned(number_in_string, lane_type):
     if not lane_type in ['i8x16', 'i16x8', 'i32x4', 'i64x2']:
-        raise Exception("invalid value {} and type {} and lane_type {}".format(numbers, type, lane_type))
+        raise Exception("invalid value {} and type {} and lane_type {}".format(number_in_string, type, lane_type))
 
     number = int(number_in_string, 16) if '0x' in number_in_string else int(number_in_string)
 
@@ -896,7 +902,7 @@ def skip_test(form, skip_list):
 
 def compile_wast_to_wasm(form, wast_tempfile, wasm_tempfile, opts):
     log("Writing WAST module to '%s'" % wast_tempfile)
-    file(wast_tempfile, 'w').write(form)
+    open(wast_tempfile, 'w').write(form)
     log("Compiling WASM to '%s'" % wasm_tempfile)
 
     # default arguments
@@ -1122,7 +1128,7 @@ if __name__ == "__main__":
                     # workaround: spec test changes error message to "malformed" while iwasm still use "invalid"
                     error_msg = m.group(2).replace("malformed", "invalid")
                     log("Testing(malformed)")
-                    f = file(wasm_tempfile, 'w')
+                    f = open(wasm_tempfile, 'w')
                     s = m.group(1)
                     while s:
                         res = re.match("[^\"]*\"([^\"]*)\"(.*)", s, re.DOTALL)
