@@ -228,12 +228,14 @@ fdopendir(int fd)
     return NULL;
 }
 
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4, 4, 2)
 int
 ftruncate(int fd, off_t length)
 {
     errno = ENOSYS;
     return -1;
 }
+#endif
 
 int
 futimens(int fd, const struct timespec times[2])
