@@ -523,15 +523,25 @@ os_socket_get_reuse_addr(bh_socket_t socket, bool *is_enabled)
 int
 os_socket_set_reuse_port(bh_socket_t socket, bool is_enabled)
 {
+#if defined(SO_REUSEPORT) /* NuttX doesn't have SO_REUSEPORT */
     return os_socket_setbooloption(socket, SOL_SOCKET, SO_REUSEPORT,
                                    is_enabled);
+#else
+    errno = ENOTSUP;
+    return BHT_ERROR;
+#endif /* defined(SO_REUSEPORT) */
 }
 
 int
 os_socket_get_reuse_port(bh_socket_t socket, bool *is_enabled)
 {
+#if defined(SO_REUSEPORT) /* NuttX doesn't have SO_REUSEPORT */
     return os_socket_getbooloption(socket, SOL_SOCKET, SO_REUSEPORT,
                                    is_enabled);
+#else
+    errno = ENOTSUP;
+    return BHT_ERROR;
+#endif /* defined(SO_REUSEPORT) */
 }
 
 int
