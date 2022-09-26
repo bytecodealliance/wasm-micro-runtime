@@ -67,7 +67,8 @@ typedef struct {
  */
 error
 load(graph_builder_array *builder, graph_encoding encoding,
-     execution_target target, graph *graph) __attribute__((import_module("wasi_nn")));
+     execution_target target, graph *graph)
+    __attribute__((import_module("wasi_nn")));
 
 /**
  * @brief Create an execution instance of a loaded graph.
@@ -78,7 +79,8 @@ load(graph_builder_array *builder, graph_encoding encoding,
  * @return error
  */
 error
-init_execution_context(graph graph, graph_execution_context *ctx) __attribute__((import_module("wasi_nn")));
+init_execution_context(graph graph, graph_execution_context *ctx)
+    __attribute__((import_module("wasi_nn")));
 
 /**
  * @brief Define the inputs to use for inference.
@@ -89,7 +91,8 @@ init_execution_context(graph graph, graph_execution_context *ctx) __attribute__(
  * @return error    Execution status.
  */
 error
-set_input(graph_execution_context ctx, uint32_t index, tensor *tensor) __attribute__((import_module("wasi_nn")));
+set_input(graph_execution_context ctx, uint32_t index, tensor *tensor)
+    __attribute__((import_module("wasi_nn")));
 
 /**
  * @brief Compute the inference on the given inputs.

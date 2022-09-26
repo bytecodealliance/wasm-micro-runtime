@@ -9,7 +9,7 @@
 std::unique_ptr<tflite::Interpreter> interpreter = NULL;
 std::unique_ptr<tflite::FlatBufferModel> model = NULL;
 
-char * model_pointer = NULL;
+char *model_pointer = NULL;
 
 error
 _load(graph_builder_array builder, graph_encoding encoding,
@@ -81,8 +81,8 @@ _compute(graph_execution_context ctx)
 }
 
 error
-_get_output(graph_execution_context context, uint32_t index, tensor_data output_tensor,
-            uint32_t *output_tensor_size)
+_get_output(graph_execution_context context, uint32_t index,
+            tensor_data output_tensor, uint32_t *output_tensor_size)
 {
     uint32_t num_output_tensors = interpreter->outputs().size();
     NN_DBG_PRINTF("Output tensor max size (%d), number of tensors (%d)",
@@ -116,7 +116,8 @@ _get_output(graph_execution_context context, uint32_t index, tensor_data output_
         for (int j = 0; j < dims; j++) {
             NN_DBG_PRINTF("output: %f", tensor[j]);
         }
-        memcpy(&output_tensor[offset * sizeof(float)], tensor, sizeof(float) * dims);
+        memcpy(&output_tensor[offset * sizeof(float)], tensor,
+               sizeof(float) * dims);
         offset += dims;
     }
     *output_tensor_size = total_elems;

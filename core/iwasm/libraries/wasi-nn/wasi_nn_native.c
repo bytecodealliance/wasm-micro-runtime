@@ -116,11 +116,12 @@ wasi_nn_set_input(wasm_exec_env_t exec_env, graph_execution_context ctx,
                   index);
     wasm_module_inst_t instance = wasm_runtime_get_module_inst(exec_env);
 
-    if (!wasm_runtime_validate_native_addr(instance, input_tensor, sizeof(tensor_wasm)))
+    if (!wasm_runtime_validate_native_addr(instance, input_tensor,
+                                           sizeof(tensor_wasm)))
         return invalid_argument;
 
-    if (!wasm_runtime_validate_app_addr(instance, input_tensor->dimensions_offset,
-                                        sizeof(uint32_t)))
+    if (!wasm_runtime_validate_app_addr(
+            instance, input_tensor->dimensions_offset, sizeof(uint32_t)))
         return invalid_argument;
 
     tensor_dimensions_wasm *dimensions_w =
@@ -170,7 +171,8 @@ wasi_nn_compute(wasm_exec_env_t exec_env, graph_execution_context ctx)
 
 error
 wasi_nn_get_output(wasm_exec_env_t exec_env, graph_execution_context ctx,
-                   uint32_t index, tensor_data output_tensor, uint32_t *output_tensor_size)
+                   uint32_t index, tensor_data output_tensor,
+                   uint32_t *output_tensor_size)
 {
     NN_DBG_PRINTF("Running wasi_nn_get_output [ctx=%d, index=%d]...", ctx,
                   index);
