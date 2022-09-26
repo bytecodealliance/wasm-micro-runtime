@@ -8,7 +8,7 @@ Enable WASI-NN in the WAMR by spefiying it in the cmake building configuration a
 set (WAMR_BUILD_WASI_NN  1)
 ```
 
-The definition of the functions provided by WASI-NN is in the header file `core/iwasm/libraries/wasi-nn/wasi_nn.h`.
+The definition of the functions provided by WASI-NN is in the header file `core/iwasm/libraries/wasi-nn/wasi_nn_wasm.h`.
 
 By only including this file in your WASM application you will bind WASI-NN into your module.
 
@@ -34,3 +34,7 @@ If all the tests have run properly you will the the following message in the ter
 ```
 Tests: passed!
 ```
+
+# What is missing
+
+# Known issues

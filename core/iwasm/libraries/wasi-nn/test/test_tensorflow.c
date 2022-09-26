@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-
+#include <math.h>
 #include <assert.h>
 #include "wasi_nn.h"
 
@@ -24,9 +24,8 @@ typedef struct {
 } input_info;
 
 void
-my_load(char *model_name)
+wasm_load(char *model_name, graph *graph)
 {
-    printf("loading model\n");
     FILE *pFile = fopen(model_name, "r");
 
     assert(pFile != NULL);
@@ -46,83 +45,81 @@ my_load(char *model_name)
 
     result = fread(buffer, 1, lsize, pFile);
 
-    printf("I copied %ld elements\n", result);
+    graph_builder_array arr;
 
-    uint32_t *size = malloc(sizeof(uint32_t));
-    *size = 85000000;
+    arr.buf = (graph_builder *)malloc(sizeof(graph_builder));
+    arr.size = 1;
 
-    graph_builder_array arr = malloc(sizeof(graph_builder) * 2);
+    arr.buf[0].buf = buffer;
+    arr.buf[0].size = result;
 
-    arr[0] = buffer;
-    arr[1] = (graph_builder)size;
+    load(&arr, tensorflow, cpu, graph);
 
-    load(arr, 1);
-
-    printf("loaded model successfully\n");
     fclose(pFile);
     free(buffer);
-
-    return;
 }
 
 void
-my_input(float *input_tensor, uint32_t *dim)
+wasm_input(float *input_tensor, uint32_t *dim)
 {
-    printf("loading inputs\n");
+    tensor_dimensions dims;
+    dims.size = 4;
+    dims.buf = (uint32_t *)malloc(dims.size * sizeof(uint32_t));
 
-    set_input(0, 0, dim, 3, input_tensor);
+    tensor tensor;
+    tensor.dimensions = &dims;
+    for (int i = 0; i < tensor.dimensions->size; ++i)
+        tensor.dimensions->buf[i] = dim[i];
+    tensor.type = fp32;
+    tensor.data = (uint8_t *)input_tensor;
+    set_input(44, 0, &tensor);
 
-    printf("Success input loaded \n");
+    free(tensor.dimensions->buf);
 }
 
 void
-my_compute(graph_execution_context context)
+wasm_compute(graph_execution_context context)
 {
-    printf("running model \n");
     compute(context);
 }
 
 void
-my_allocate(graph graph)
+wasm_init_execution_context(graph graph)
 {
-    printf("Allocating tensors \n");
-    init_execution_context(graph);
+    graph_execution_context gec;
+    init_execution_context(graph, &gec);
 }
 
 void
-my_output(graph_execution_context context, uint32_t index, float *out_tensor,
-          uint32_t out_size)
+wasm_get_output(graph_execution_context context, uint32_t index,
+                float *out_tensor, uint32_t *out_size)
 {
-    printf("Retrieving output \n");
-    get_output(context, index, out_tensor, out_size);
+    get_output(context, index, (uint8_t *)out_tensor, out_size);
 }
 
 float *
-my_inference(float *input, uint32_t *input_size, int *output_size,
-             char *model_name)
+run_inference(float *input, uint32_t *input_size, uint32_t *output_size,
+              char *model_name)
 {
-    graph graph;
-    printf("end to end  \n");
+    graph graph = 444;
+    wasm_load(model_name, &graph);
 
-    my_load(model_name);
+    wasm_init_execution_context(graph);
 
-    my_allocate(graph);
-
-    my_input(input, input_size);
+    wasm_input(input, input_size);
 
     graph_execution_context context;
-    my_compute(context);
-
-    uint32_t index;
+    wasm_compute(context);
 
     float *out_tensor = (float *)malloc(sizeof(float) * MAX_OUTPUT_TENSOR_SIZE);
 
-    my_output(context, index, out_tensor, MAX_OUTPUT_TENSOR_SIZE);
-
-    printf("finished\n");
-
+    uint32_t index;
+    *output_size = MAX_OUTPUT_TENSOR_SIZE;
+    wasm_get_output(context, index, out_tensor, output_size);
     return out_tensor;
 }
+
+// UTILS
 
 input_info
 create_input(int N, int *dims)
@@ -151,12 +148,12 @@ test_sum()
     int dims[] = { 1, 5, 5, 1 };
     input_info input = create_input(4, dims);
 
-    int output_size = 0;
-    float *output = my_inference(input.input_tensor, input.dim, &output_size,
-                                 "models/sum.tflite");
+    uint32_t output_size = 0;
+    float *output = run_inference(input.input_tensor, input.dim, &output_size,
+                                  "models/sum.tflite");
 
-    // TODO: assert(output_size == 1);
-    assert(abs(output[0] - 300.0) < EPSILON);
+    assert(output_size == 1);
+    assert(fabs(output[0] - 300.0) < EPSILON);
 
     free(input.dim);
     free(input.input_tensor);
@@ -170,13 +167,13 @@ test_max()
     int dims[] = { 1, 5, 5, 1 };
     input_info input = create_input(4, dims);
 
-    int output_size = 0;
-    float *output = my_inference(input.input_tensor, input.dim, &output_size,
-                                 "models/max.tflite");
+    uint32_t output_size = 0;
+    float *output = run_inference(input.input_tensor, input.dim, &output_size,
+                                  "models/max.tflite");
 
-    // TODO: assert(output_size == 1);
-    assert(abs(output[0] - 24.0) < EPSILON);
-    printf("max is: %f\n ", output[0]);
+    assert(output_size == 1);
+    assert(fabs(output[0] - 24.0) < EPSILON);
+    printf("Result: max is %f\n", output[0]);
 
     free(input.dim);
     free(input.input_tensor);
@@ -190,13 +187,13 @@ test_average()
     int dims[] = { 1, 5, 5, 1 };
     input_info input = create_input(4, dims);
 
-    int output_size = 0;
-    float *output = my_inference(input.input_tensor, input.dim, &output_size,
-                                 "models/average.tflite");
+    uint32_t output_size = 0;
+    float *output = run_inference(input.input_tensor, input.dim, &output_size,
+                                  "models/average.tflite");
 
-    // TODO: assert(output_size == 1);
-    assert(abs(output[0] - 12.0) < EPSILON);
-    printf("average is: %f\n ", output[0]);
+    assert(output_size == 1);
+    assert(fabs(output[0] - 12.0) < EPSILON);
+    printf("Result: average is %f\n", output[0]);
 
     free(input.dim);
     free(input.input_tensor);
@@ -210,13 +207,13 @@ test_mult_dimensions()
     int dims[] = { 1, 3, 3, 1 };
     input_info input = create_input(4, dims);
 
-    int output_size = 0;
-    float *output = my_inference(input.input_tensor, input.dim, &output_size,
-                                 "models/mult_dim.tflite");
+    uint32_t output_size = 0;
+    float *output = run_inference(input.input_tensor, input.dim, &output_size,
+                                  "models/mult_dim.tflite");
 
-    // TODO: assert(output_size == 9);
+    assert(output_size == 9);
     for (int i = 0; i < 9; i++)
-        assert(abs(output[i] - i) < EPSILON);
+        assert(fabs(output[i] - i) < EPSILON);
 
     free(input.dim);
     free(input.input_tensor);
@@ -230,17 +227,17 @@ test_mult_outputs()
     int dims[] = { 1, 4, 4, 1 };
     input_info input = create_input(4, dims);
 
-    int output_size = 0;
-    float *output = my_inference(input.input_tensor, input.dim, &output_size,
-                                 "models/mult_out.tflite");
+    uint32_t output_size = 0;
+    float *output = run_inference(input.input_tensor, input.dim, &output_size,
+                                  "models/mult_out.tflite");
 
-    // TODO: assert(output_size == 8);
+    assert(output_size == 8);
     // first tensor check
     for (int i = 0; i < 4; i++)
-        assert(abs(output[i] - (i*4 + 24)) < EPSILON);
+        assert(fabs(output[i] - (i * 4 + 24)) < EPSILON);
     // second tensor check
     for (int i = 0; i < 4; i++)
-        assert(abs(output[i+4] - (i + 6)) < EPSILON);
+        assert(fabs(output[i + 4] - (i + 6)) < EPSILON);
 
     free(input.dim);
     free(input.input_tensor);

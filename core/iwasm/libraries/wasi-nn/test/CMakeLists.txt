@@ -1,9 +1,9 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-cmake_minimum_required (VERSION 2.8)
+cmake_minimum_required (VERSION 3.22)
 
-project (iwasm)
+project (iwasm C CXX)
 
 set (WAMR_BUILD_PLATFORM "linux")
 
@@ -13,6 +13,7 @@ set (WAMR_BUILD_WASI_NN  1)
 set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
 set (CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
 set (CMAKE_C_STANDARD 99)
+set (CMAKE_CXX_STANDARD 11)
 
 # Set WAMR_BUILD_TARGET, currently values supported:
 # "X86_64", "AMD_64", "X86_32", "AARCH64[sub]", "ARM[sub]", "THUMB[sub]",

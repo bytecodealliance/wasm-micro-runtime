@@ -431,7 +431,7 @@ wasm_native_init()
 #if WASM_ENABLE_WASI_NN != 0
     n_native_symbols = get_wasi_nn_export_apis(&native_symbols);
     if (!wasm_native_register_natives(
-            "env", native_symbols, // TODO: check env or wasi_nn tag
+            "wasi_nn", native_symbols,
             n_native_symbols))
         return false;
 #endif
