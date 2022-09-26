@@ -41,6 +41,28 @@ typedef struct WASMGlobalInstance WASMGlobalInstance;
 #define DefPointer(type, field) type field
 #endif
 
+typedef enum WASMExceptionID {
+    EXCE_UNREACHABLE = 0,
+    EXCE_OUT_OF_MEMORY,
+    EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS,
+    EXCE_INTEGER_OVERFLOW,
+    EXCE_INTEGER_DIVIDE_BY_ZERO,
+    EXCE_INVALID_CONVERSION_TO_INTEGER,
+    EXCE_INVALID_FUNCTION_TYPE_INDEX,
+    EXCE_INVALID_FUNCTION_INDEX,
+    EXCE_UNDEFINED_ELEMENT,
+    EXCE_UNINITIALIZED_ELEMENT,
+    EXCE_CALL_UNLINKED_IMPORT_FUNC,
+    EXCE_NATIVE_STACK_OVERFLOW,
+    EXCE_UNALIGNED_ATOMIC,
+    EXCE_AUX_STACK_OVERFLOW,
+    EXCE_AUX_STACK_UNDERFLOW,
+    EXCE_OUT_OF_BOUNDS_TABLE_ACCESS,
+    EXCE_OPERAND_STACK_OVERFLOW,
+    EXCE_ALREADY_THROWN,
+    EXCE_NUM,
+} WASMExceptionID;
+
 typedef union {
     uint64 u64;
     uint32 u32[2];
@@ -178,9 +200,6 @@ typedef struct WASMModuleInstanceExtra {
     uint32 global_count;
     uint32 function_count;
 
-    WASMMemoryInstance *default_memory;
-    WASMTableInstance *default_table;
-
     WASMFunctionInstance *start_function;
     WASMFunctionInstance *malloc_function;
     WASMFunctionInstance *free_function;
@@ -282,6 +301,8 @@ struct WASMModuleInstance {
      * | global data
      * +------------------------------+ <-- tables
      * | WASMTableInstance[table_count]
+     * +------------------------------+ <-- e
+     * | WASMModuleInstanceExtra
      * +------------------------------+
      */
     union {
@@ -384,11 +405,11 @@ wasm_create_exec_env_and_call_function(WASMModuleInstance *module_inst,
                                        WASMFunctionInstance *function,
                                        unsigned argc, uint32 argv[]);
 
-bool
-wasm_create_exec_env_singleton(WASMModuleInstance *module_inst);
-
 void
 wasm_set_exception(WASMModuleInstance *module, const char *exception);
+
+void
+wasm_set_exception_with_id(WASMModuleInstance *module_inst, uint32 id);
 
 const char *
 wasm_get_exception(WASMModuleInstance *module);
@@ -408,34 +429,20 @@ uint32
 wasm_module_dup_data(WASMModuleInstance *module_inst, const char *src,
                      uint32 size);
 
+/**
+ * Check whether the app address and the buf is inside the linear memory,
+ * and convert the app address into native address
+ */
 bool
-wasm_validate_app_addr(WASMModuleInstance *module_inst, uint32 app_offset,
-                       uint32 size);
+wasm_check_app_addr_and_convert(WASMModuleInstance *module_inst, bool is_str,
+                                uint32 app_buf_addr, uint32 app_buf_size,
+                                void **p_native_addr);
 
-bool
-wasm_validate_app_str_addr(WASMModuleInstance *module_inst, uint32 app_offset);
-
-bool
-wasm_validate_native_addr(WASMModuleInstance *module_inst, void *native_ptr,
-                          uint32 size);
-
-void *
-wasm_addr_app_to_native(WASMModuleInstance *module_inst, uint32 app_offset);
-
-uint32
-wasm_addr_native_to_app(WASMModuleInstance *module_inst, void *native_ptr);
+WASMMemoryInstance *
+wasm_get_default_memory(WASMModuleInstance *module_inst);
 
 bool
-wasm_get_app_addr_range(WASMModuleInstance *module_inst, uint32 app_offset,
-                        uint32 *p_app_start_offset, uint32 *p_app_end_offset);
-
-bool
-wasm_get_native_addr_range(WASMModuleInstance *module_inst, uint8 *native_ptr,
-                           uint8 **p_native_start_addr,
-                           uint8 **p_native_end_addr);
-
-bool
-wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count);
+wasm_enlarge_memory(WASMModuleInstance *module_inst, uint32 inc_page_count);
 
 bool
 wasm_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 elem_idx,
@@ -447,16 +454,6 @@ wasm_set_aux_stack(WASMExecEnv *exec_env, uint32 start_offset, uint32 size);
 
 bool
 wasm_get_aux_stack(WASMExecEnv *exec_env, uint32 *start_offset, uint32 *size);
-#endif
-
-#ifdef OS_ENABLE_HW_BOUND_CHECK
-#ifndef BH_PLATFORM_WINDOWS
-void
-wasm_signal_handler(WASMSignalInfo *sig_info);
-#else
-LONG
-wasm_exception_handler(WASMSignalInfo *sig_info);
-#endif
 #endif
 
 void
@@ -534,31 +531,13 @@ wasm_loader_get_custom_section(WASMModule *module, const char *name,
 
 #if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0 \
     || WASM_ENABLE_WAMR_COMPILER != 0
-typedef enum JitExceptionID {
-    JIT_EXCE_UNREACHABLE = 0,
-    JIT_EXCE_OUT_OF_MEMORY,
-    JIT_EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS,
-    JIT_EXCE_INTEGER_OVERFLOW,
-    JIT_EXCE_INTEGER_DIVIDE_BY_ZERO,
-    JIT_EXCE_INVALID_CONVERSION_TO_INTEGER,
-    JIT_EXCE_INVALID_FUNCTION_TYPE_INDEX,
-    JIT_EXCE_INVALID_FUNCTION_INDEX,
-    JIT_EXCE_UNDEFINED_ELEMENT,
-    JIT_EXCE_UNINITIALIZED_ELEMENT,
-    JIT_EXCE_CALL_UNLINKED_IMPORT_FUNC,
-    JIT_EXCE_NATIVE_STACK_OVERFLOW,
-    JIT_EXCE_UNALIGNED_ATOMIC,
-    JIT_EXCE_AUX_STACK_OVERFLOW,
-    JIT_EXCE_AUX_STACK_UNDERFLOW,
-    JIT_EXCE_OUT_OF_BOUNDS_TABLE_ACCESS,
-    JIT_EXCE_OPERAND_STACK_OVERFLOW,
-    JIT_EXCE_ALREADY_THROWN,
-    JIT_EXCE_NUM,
-} JitExceptionID;
-
 void
 jit_set_exception_with_id(WASMModuleInstance *module_inst, uint32 id);
 
+/**
+ * Check whether the app address and the buf is inside the linear memory,
+ * and convert the app address into native address
+ */
 bool
 jit_check_app_addr_and_convert(WASMModuleInstance *module_inst, bool is_str,
                                uint32 app_buf_addr, uint32 app_buf_size,

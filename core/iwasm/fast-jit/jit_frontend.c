@@ -18,6 +18,7 @@
 #include "fe/jit_emit_variable.h"
 #include "../interpreter/wasm_interp.h"
 #include "../interpreter/wasm_opcode.h"
+#include "../interpreter/wasm_runtime.h"
 #include "../common/wasm_exec_env.h"
 
 JitReg
@@ -649,7 +650,7 @@ form_and_translate_func(JitCompContext *cc)
     jit_basic_block_append_insn(jit_cc_entry_basic_block(cc), insn);
 
     /* Patch INSNs jumping to exception basic blocks. */
-    for (i = 0; i < JIT_EXCE_NUM; i++) {
+    for (i = 0; i < EXCE_NUM; i++) {
         incoming_insn = cc->incoming_insns_for_exec_bbs[i];
         if (incoming_insn) {
             if (!(cc->exce_basic_blocks[i] = jit_cc_new_basic_block(cc, 0))) {
@@ -671,7 +672,7 @@ form_and_translate_func(JitCompContext *cc)
                 incoming_insn = incoming_insn_next;
             }
             cc->cur_basic_block = cc->exce_basic_blocks[i];
-            if (i != JIT_EXCE_ALREADY_THROWN) {
+            if (i != EXCE_ALREADY_THROWN) {
                 JitReg module_inst_reg = jit_cc_new_reg_ptr(cc);
                 GEN_INSN(LDPTR, module_inst_reg, cc->exec_env_reg,
                          NEW_CONST(I32, offsetof(WASMExecEnv, module_inst)));
@@ -818,7 +819,7 @@ init_func_translation(JitCompContext *cc)
     GEN_INSN(ADD, frame_boundary, top, NEW_CONST(PTR, frame_size + outs_size));
     /* if frame_boundary > top_boundary, throw stack overflow exception */
     GEN_INSN(CMP, cc->cmp_reg, frame_boundary, top_boundary);
-    if (!jit_emit_exception(cc, JIT_EXCE_OPERAND_STACK_OVERFLOW, JIT_OP_BGTU,
+    if (!jit_emit_exception(cc, EXCE_OPERAND_STACK_OVERFLOW, JIT_OP_BGTU,
                             cc->cmp_reg, NULL)) {
         return NULL;
     }

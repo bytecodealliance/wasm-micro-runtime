@@ -7,6 +7,7 @@
 #include "bh_log.h"
 #include "mem_alloc.h"
 #include "../common/wasm_runtime_common.h"
+#include "../interpreter/wasm_runtime.h"
 #if WASM_ENABLE_SHARED_MEMORY != 0
 #include "../common/wasm_shared_memory.h"
 #endif
@@ -201,8 +202,9 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
     AOTTableInstance *tbl_inst = first_tbl_inst;
 
     total_size = (uint64)sizeof(WASMTableInstance *) * module_inst->table_count;
-    if (!(module_inst->tables =
-              runtime_malloc(total_size, error_buf, error_buf_size))) {
+    if (total_size > 0
+        && !(module_inst->tables =
+                 runtime_malloc(total_size, error_buf, error_buf_size))) {
         return false;
     }
 
@@ -1127,18 +1129,6 @@ fail:
     return NULL;
 }
 
-bool
-aot_create_exec_env_singleton(AOTModuleInstance *module_inst)
-{
-    WASMExecEnv *exec_env =
-        wasm_exec_env_create((WASMModuleInstanceCommon *)module_inst,
-                             module_inst->default_wasm_stack_size);
-    if (exec_env)
-        module_inst->exec_env_singleton = exec_env;
-
-    return exec_env ? true : false;
-}
-
 void
 aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
 {
@@ -1202,114 +1192,6 @@ aot_lookup_function(const AOTModuleInstance *module_inst, const char *name,
 }
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
-
-#ifndef BH_PLATFORM_WINDOWS
-void
-aot_signal_handler(WASMSignalInfo *sig_info)
-{
-    WASMExecEnv *exec_env_tls = sig_info->exec_env_tls;
-    void *sig_addr = sig_info->sig_addr;
-    AOTModuleInstance *module_inst;
-    AOTMemoryInstance *memory_inst;
-    WASMJmpBuf *jmpbuf_node;
-    uint8 *mapped_mem_start_addr = NULL;
-    uint8 *mapped_mem_end_addr = NULL;
-    uint8 *stack_min_addr;
-    uint32 page_size;
-    uint32 guard_page_count = STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT;
-
-    /* Check whether current thread is running aot function */
-    if (exec_env_tls && exec_env_tls->handle == os_self_thread()
-        && (jmpbuf_node = exec_env_tls->jmpbuf_stack_top)) {
-        /* Get mapped mem info of current instance */
-        module_inst = (AOTModuleInstance *)exec_env_tls->module_inst;
-        /* Get the default memory instance */
-        memory_inst = aot_get_default_memory(module_inst);
-        if (memory_inst) {
-            mapped_mem_start_addr = memory_inst->memory_data;
-            mapped_mem_end_addr = memory_inst->memory_data + 8 * (uint64)BH_GB;
-        }
-
-        /* Get stack info of current thread */
-        page_size = os_getpagesize();
-        stack_min_addr = os_thread_get_stack_boundary();
-
-        if (memory_inst
-            && (mapped_mem_start_addr <= (uint8 *)sig_addr
-                && (uint8 *)sig_addr < mapped_mem_end_addr)) {
-            /* The address which causes segmentation fault is inside
-               the memory instance's guard regions */
-            aot_set_exception_with_id(module_inst,
-                                      EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS);
-            os_longjmp(jmpbuf_node->jmpbuf, 1);
-        }
-        else if (stack_min_addr - page_size <= (uint8 *)sig_addr
-                 && (uint8 *)sig_addr
-                        < stack_min_addr + page_size * guard_page_count) {
-            /* The address which causes segmentation fault is inside
-               native thread's guard page */
-            aot_set_exception_with_id(module_inst, EXCE_NATIVE_STACK_OVERFLOW);
-            os_longjmp(jmpbuf_node->jmpbuf, 1);
-        }
-    }
-}
-#else  /* else of BH_PLATFORM_WINDOWS */
-LONG
-aot_exception_handler(WASMSignalInfo *sig_info)
-{
-    WASMExecEnv *exec_env_tls = sig_info->exec_env_tls;
-    EXCEPTION_POINTERS *exce_info = sig_info->exce_info;
-    PEXCEPTION_RECORD ExceptionRecord = exce_info->ExceptionRecord;
-    uint8 *sig_addr = (uint8 *)ExceptionRecord->ExceptionInformation[1];
-    AOTModuleInstance *module_inst;
-    AOTMemoryInstance *memory_inst;
-    WASMJmpBuf *jmpbuf_node;
-    uint8 *mapped_mem_start_addr = NULL;
-    uint8 *mapped_mem_end_addr = NULL;
-    uint32 page_size = os_getpagesize();
-
-    if (exec_env_tls && exec_env_tls->handle == os_self_thread()
-        && (jmpbuf_node = exec_env_tls->jmpbuf_stack_top)) {
-        module_inst = (AOTModuleInstance *)exec_env_tls->module_inst;
-        if (ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
-            /* Get the default memory instance */
-            memory_inst = aot_get_default_memory(module_inst);
-            if (memory_inst) {
-                mapped_mem_start_addr = memory_inst->memory_data;
-                mapped_mem_end_addr =
-                    memory_inst->memory_data + 8 * (uint64)BH_GB;
-                if (mapped_mem_start_addr <= (uint8 *)sig_addr
-                    && (uint8 *)sig_addr < mapped_mem_end_addr) {
-                    /* The address which causes segmentation fault is inside
-                       aot instance's guard regions.
-                       Set exception and let the aot func continue to run, when
-                       the aot func returns, the caller will check whether the
-                       exception is thrown and return to runtime. */
-                    aot_set_exception_with_id(module_inst,
-                                              EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS);
-                    /* Skip current instruction */
-                    exce_info->ContextRecord->Rip++;
-                    return EXCEPTION_CONTINUE_EXECUTION;
-                }
-            }
-        }
-        else if (ExceptionRecord->ExceptionCode == EXCEPTION_STACK_OVERFLOW) {
-            /* Set stack overflow exception and let the aot func continue
-               to run, when the aot func returns, the caller will check
-               whether the exception is thrown and return to runtime, and
-               the damaged stack will be recovered by _resetstkoflw(). */
-            aot_set_exception_with_id(module_inst, EXCE_NATIVE_STACK_OVERFLOW);
-            return EXCEPTION_CONTINUE_EXECUTION;
-        }
-    }
-
-    os_printf("Unhandled exception thrown:  exception code: 0x%lx, "
-              "exception address: %p, exception information: %p\n",
-              ExceptionRecord->ExceptionCode, ExceptionRecord->ExceptionAddress,
-              sig_addr);
-    return EXCEPTION_CONTINUE_SEARCH;
-}
-#endif /* end of BH_PLATFORM_WINDOWS */
 
 static bool
 invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
@@ -1603,84 +1485,19 @@ aot_create_exec_env_and_call_function(AOTModuleInstance *module_inst,
 void
 aot_set_exception(AOTModuleInstance *module_inst, const char *exception)
 {
-    if (exception)
-        snprintf(module_inst->cur_exception, sizeof(module_inst->cur_exception),
-                 "Exception: %s", exception);
-    else
-        module_inst->cur_exception[0] = '\0';
+    wasm_set_exception(module_inst, exception);
 }
 
 void
 aot_set_exception_with_id(AOTModuleInstance *module_inst, uint32 id)
 {
-    switch (id) {
-        case EXCE_UNREACHABLE:
-            aot_set_exception(module_inst, "unreachable");
-            break;
-        case EXCE_OUT_OF_MEMORY:
-            aot_set_exception(module_inst, "allocate memory failed");
-            break;
-        case EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS:
-            aot_set_exception(module_inst, "out of bounds memory access");
-            break;
-        case EXCE_INTEGER_OVERFLOW:
-            aot_set_exception(module_inst, "integer overflow");
-            break;
-        case EXCE_INTEGER_DIVIDE_BY_ZERO:
-            aot_set_exception(module_inst, "integer divide by zero");
-            break;
-        case EXCE_INVALID_CONVERSION_TO_INTEGER:
-            aot_set_exception(module_inst, "invalid conversion to integer");
-            break;
-        case EXCE_INVALID_FUNCTION_TYPE_INDEX:
-            aot_set_exception(module_inst, "indirect call type mismatch");
-            break;
-        case EXCE_INVALID_FUNCTION_INDEX:
-            aot_set_exception(module_inst, "invalid function index");
-            break;
-        case EXCE_UNDEFINED_ELEMENT:
-            aot_set_exception(module_inst, "undefined element");
-            break;
-        case EXCE_UNINITIALIZED_ELEMENT:
-            aot_set_exception(module_inst, "uninitialized element");
-            break;
-        case EXCE_CALL_UNLINKED_IMPORT_FUNC:
-            aot_set_exception(module_inst,
-                              "failed to call unlinked import function");
-            break;
-        case EXCE_NATIVE_STACK_OVERFLOW:
-            aot_set_exception(module_inst, "native stack overflow");
-            break;
-        case EXCE_UNALIGNED_ATOMIC:
-            aot_set_exception(module_inst, "unaligned atomic");
-            break;
-        case EXCE_AUX_STACK_OVERFLOW:
-            aot_set_exception(module_inst, "wasm auxiliary stack overflow");
-            break;
-        case EXCE_AUX_STACK_UNDERFLOW:
-            aot_set_exception(module_inst, "wasm auxiliary stack underflow");
-            break;
-        case EXCE_OUT_OF_BOUNDS_TABLE_ACCESS:
-            aot_set_exception(module_inst, "out of bounds table access");
-            break;
-        default:
-            break;
-    }
+    wasm_set_exception_with_id(module_inst, id);
 }
 
 const char *
 aot_get_exception(AOTModuleInstance *module_inst)
 {
-    if (module_inst->cur_exception[0] == '\0')
-        return NULL;
-    else
-        return module_inst->cur_exception;
-}
-
-void
-aot_clear_exception(AOTModuleInstance *module_inst)
-{
-    module_inst->cur_exception[0] = '\0';
+    return wasm_get_exception(module_inst);
 }
 
 static bool
@@ -1900,324 +1717,18 @@ aot_module_dup_data(AOTModuleInstance *module_inst, const char *src,
         aot_module_malloc(module_inst, size, (void **)&buffer);
 
     if (buffer_offset != 0) {
-        buffer = aot_addr_app_to_native(module_inst, buffer_offset);
+        buffer = wasm_runtime_addr_app_to_native(
+            (WASMModuleInstanceCommon *)module_inst, buffer_offset);
         bh_memcpy_s(buffer, size, src, size);
     }
     return buffer_offset;
 }
 
 bool
-aot_validate_app_addr(AOTModuleInstance *module_inst, uint32 app_offset,
-                      uint32 size)
-{
-    AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
-
-    if (!memory_inst) {
-        goto fail;
-    }
-
-    /* integer overflow check */
-    if (app_offset > UINT32_MAX - size) {
-        goto fail;
-    }
-
-    if (app_offset + size <= memory_inst->memory_data_size) {
-        return true;
-    }
-fail:
-    aot_set_exception(module_inst, "out of bounds memory access");
-    return false;
-}
-
-bool
-aot_validate_native_addr(AOTModuleInstance *module_inst, void *native_ptr,
-                         uint32 size)
-{
-    AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
-    uint8 *addr = (uint8 *)native_ptr;
-
-    if (!memory_inst) {
-        goto fail;
-    }
-
-    /* integer overflow check */
-    if ((uintptr_t)addr > UINTPTR_MAX - size) {
-        goto fail;
-    }
-
-    if (memory_inst->memory_data <= addr
-        && addr + size <= memory_inst->memory_data_end)
-        return true;
-fail:
-    aot_set_exception(module_inst, "out of bounds memory access");
-    return false;
-}
-
-void *
-aot_addr_app_to_native(AOTModuleInstance *module_inst, uint32 app_offset)
-{
-    AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
-    uint8 *addr;
-
-    if (!memory_inst) {
-        return NULL;
-    }
-
-    addr = memory_inst->memory_data + app_offset;
-
-    if (memory_inst->memory_data <= addr && addr < memory_inst->memory_data_end)
-        return addr;
-    return NULL;
-}
-
-uint32
-aot_addr_native_to_app(AOTModuleInstance *module_inst, void *native_ptr)
-{
-    AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
-    uint8 *addr = (uint8 *)native_ptr;
-
-    if (!memory_inst) {
-        return 0;
-    }
-
-    if (memory_inst->memory_data <= addr && addr < memory_inst->memory_data_end)
-        return (uint32)(addr - memory_inst->memory_data);
-    return 0;
-}
-
-bool
-aot_get_app_addr_range(AOTModuleInstance *module_inst, uint32 app_offset,
-                       uint32 *p_app_start_offset, uint32 *p_app_end_offset)
-{
-    AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
-    uint32 memory_data_size;
-
-    if (!memory_inst) {
-        return false;
-    }
-
-    memory_data_size = memory_inst->memory_data_size;
-
-    if (app_offset < memory_data_size) {
-        if (p_app_start_offset)
-            *p_app_start_offset = 0;
-        if (p_app_end_offset)
-            *p_app_end_offset = memory_data_size;
-        return true;
-    }
-    return false;
-}
-
-bool
-aot_get_native_addr_range(AOTModuleInstance *module_inst, uint8 *native_ptr,
-                          uint8 **p_native_start_addr,
-                          uint8 **p_native_end_addr)
-{
-    AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
-    uint8 *addr = (uint8 *)native_ptr;
-
-    if (!memory_inst) {
-        return false;
-    }
-
-    if (memory_inst->memory_data <= addr
-        && addr < memory_inst->memory_data_end) {
-        if (p_native_start_addr)
-            *p_native_start_addr = memory_inst->memory_data;
-        if (p_native_end_addr)
-            *p_native_end_addr = memory_inst->memory_data_end;
-        return true;
-    }
-    return false;
-}
-
-#ifndef OS_ENABLE_HW_BOUND_CHECK
-bool
 aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
 {
-    AOTMemoryInstance *memory = aot_get_default_memory(module_inst);
-    uint8 *memory_data_old, *memory_data_new, *heap_data_old;
-    uint32 num_bytes_per_page, heap_size, total_size_old;
-    uint32 cur_page_count, max_page_count, total_page_count;
-    uint64 total_size_new;
-    bool ret = true;
-
-    if (!memory)
-        return false;
-
-    heap_data_old = memory->heap_data;
-    heap_size = (uint32)(memory->heap_data_end - memory->heap_data);
-
-    memory_data_old = memory->memory_data;
-    total_size_old = (uint32)(memory->memory_data_end - memory_data_old);
-
-    num_bytes_per_page = memory->num_bytes_per_page;
-    cur_page_count = memory->cur_page_count;
-    max_page_count = memory->max_page_count;
-    total_page_count = inc_page_count + cur_page_count;
-    total_size_new = num_bytes_per_page * (uint64)total_page_count;
-
-    if (inc_page_count <= 0)
-        /* No need to enlarge memory */
-        return true;
-
-    if (total_page_count < cur_page_count /* integer overflow */
-        || total_page_count > max_page_count) {
-        return false;
-    }
-
-    bh_assert(total_size_new <= 4 * (uint64)BH_GB);
-    if (total_size_new > UINT32_MAX) {
-        /* Resize to 1 page with size 4G-1 */
-        num_bytes_per_page = UINT32_MAX;
-        total_page_count = max_page_count = 1;
-        total_size_new = UINT32_MAX;
-    }
-
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    if (memory->is_shared) {
-        memory->num_bytes_per_page = UINT32_MAX;
-        memory->cur_page_count = total_page_count;
-        memory->max_page_count = max_page_count;
-        memory->memory_data_size = (uint32)total_size_new;
-        return true;
-    }
-#endif
-
-    if (heap_size > 0) {
-        if (mem_allocator_is_heap_corrupted(memory->heap_handle)) {
-            wasm_runtime_show_app_heap_corrupted_prompt();
-            return false;
-        }
-    }
-
-    if (!(memory_data_new =
-              wasm_runtime_realloc(memory_data_old, (uint32)total_size_new))) {
-        if (!(memory_data_new = wasm_runtime_malloc((uint32)total_size_new))) {
-            return false;
-        }
-        if (memory_data_old) {
-            bh_memcpy_s(memory_data_new, (uint32)total_size_new,
-                        memory_data_old, total_size_old);
-            wasm_runtime_free(memory_data_old);
-        }
-    }
-
-    memset(memory_data_new + total_size_old, 0,
-           (uint32)total_size_new - total_size_old);
-
-    if (heap_size > 0) {
-        if (mem_allocator_migrate(memory->heap_handle,
-                                  (char *)heap_data_old
-                                      + (memory_data_new - memory_data_old),
-                                  heap_size)
-            != 0) {
-            /* Don't return here as memory->memory_data is obsolete and
-               must be updated to be correctly used later. */
-            ret = false;
-        }
-    }
-
-    memory->heap_data = memory_data_new + (heap_data_old - memory_data_old);
-    memory->heap_data_end = memory->heap_data + heap_size;
-
-    memory->num_bytes_per_page = num_bytes_per_page;
-    memory->cur_page_count = total_page_count;
-    memory->max_page_count = max_page_count;
-
-    memory->memory_data = memory_data_new;
-    memory->memory_data_end = memory_data_new + (uint32)total_size_new;
-    memory->memory_data_size = (uint32)total_size_new;
-
-#if UINTPTR_MAX == UINT64_MAX
-    memory->mem_bound_check_1byte.u64 = total_size_new - 1;
-    memory->mem_bound_check_2bytes.u64 = total_size_new - 2;
-    memory->mem_bound_check_4bytes.u64 = total_size_new - 4;
-    memory->mem_bound_check_8bytes.u64 = total_size_new - 8;
-    memory->mem_bound_check_16bytes.u64 = total_size_new - 16;
-#else
-    memory->mem_bound_check_1byte.u32[0] = (uint32)total_size_new - 1;
-    memory->mem_bound_check_2bytes.u32[0] = (uint32)total_size_new - 2;
-    memory->mem_bound_check_4bytes.u32[0] = (uint32)total_size_new - 4;
-    memory->mem_bound_check_8bytes.u32[0] = (uint32)total_size_new - 8;
-    memory->mem_bound_check_16bytes.u32[0] = (uint32)total_size_new - 16;
-#endif
-
-    return ret;
+    return wasm_enlarge_memory(module_inst, inc_page_count);
 }
-#else /* else of OS_ENABLE_HW_BOUND_CHECK */
-bool
-aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
-{
-    AOTMemoryInstance *memory = aot_get_default_memory(module_inst);
-    uint32 num_bytes_per_page, total_size_old;
-    uint32 cur_page_count, max_page_count, total_page_count;
-    uint64 total_size_new;
-
-    if (!memory)
-        return false;
-
-    num_bytes_per_page = memory->num_bytes_per_page;
-    cur_page_count = memory->cur_page_count;
-    max_page_count = memory->max_page_count;
-    total_size_old = num_bytes_per_page * cur_page_count;
-    total_page_count = inc_page_count + cur_page_count;
-    total_size_new = num_bytes_per_page * (uint64)total_page_count;
-
-    if (inc_page_count <= 0)
-        /* No need to enlarge memory */
-        return true;
-
-    if (total_page_count < cur_page_count /* integer overflow */
-        || total_page_count > max_page_count) {
-        return false;
-    }
-
-    bh_assert(total_size_new <= 4 * (uint64)BH_GB);
-    if (total_size_new > UINT32_MAX) {
-        /* Resize to 1 page with size 4G-1 */
-        num_bytes_per_page = UINT32_MAX;
-        total_page_count = max_page_count = 1;
-        total_size_new = UINT32_MAX;
-    }
-
-#ifdef BH_PLATFORM_WINDOWS
-    if (!os_mem_commit(memory->memory_data_end,
-                       (uint32)total_size_new - total_size_old,
-                       MMAP_PROT_READ | MMAP_PROT_WRITE)) {
-        return false;
-    }
-#endif
-
-    if (os_mprotect(memory->memory_data_end,
-                    (uint32)total_size_new - total_size_old,
-                    MMAP_PROT_READ | MMAP_PROT_WRITE)
-        != 0) {
-#ifdef BH_PLATFORM_WINDOWS
-        os_mem_decommit(memory->memory_data_end,
-                        (uint32)total_size_new - total_size_old);
-#endif
-        return false;
-    }
-
-    /* The increased pages are filled with zero by the OS when os_mmap,
-       no need to memset it again here */
-
-    memory->num_bytes_per_page = num_bytes_per_page;
-    memory->cur_page_count = total_page_count;
-    memory->max_page_count = max_page_count;
-    memory->memory_data_size = (uint32)total_size_new;
-    memory->memory_data_end = memory->memory_data + (uint32)total_size_new;
-
-    memory->mem_bound_check_1byte.u64 = total_size_new - 1;
-    memory->mem_bound_check_2bytes.u64 = total_size_new - 2;
-    memory->mem_bound_check_4bytes.u64 = total_size_new - 4;
-    memory->mem_bound_check_8bytes.u64 = total_size_new - 8;
-    memory->mem_bound_check_16bytes.u64 = total_size_new - 16;
-
-    return true;
-}
-#endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
 bool
 aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
@@ -2422,54 +1933,13 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
     }
 }
 
-/**
- * Check whether the app address and the buf is inside the linear memory,
- * and convert the app address into native address
- */
 bool
 aot_check_app_addr_and_convert(AOTModuleInstance *module_inst, bool is_str,
                                uint32 app_buf_addr, uint32 app_buf_size,
                                void **p_native_addr)
 {
-    AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
-    uint8 *native_addr;
-
-    if (!memory_inst) {
-        goto fail;
-    }
-
-    native_addr = memory_inst->memory_data + app_buf_addr;
-
-    /* No need to check the app_offset and buf_size if memory access
-       boundary check with hardware trap is enabled */
-#ifndef OS_ENABLE_HW_BOUND_CHECK
-    if (app_buf_addr >= memory_inst->memory_data_size) {
-        goto fail;
-    }
-
-    if (!is_str) {
-        if (app_buf_size > memory_inst->memory_data_size - app_buf_addr) {
-            goto fail;
-        }
-    }
-    else {
-        const char *str, *str_end;
-
-        /* The whole string must be in the linear memory */
-        str = (const char *)native_addr;
-        str_end = (const char *)memory_inst->memory_data_end;
-        while (str < str_end && *str != '\0')
-            str++;
-        if (str == str_end)
-            goto fail;
-    }
-#endif
-
-    *p_native_addr = (void *)native_addr;
-    return true;
-fail:
-    aot_set_exception(module_inst, "out of bounds memory access");
-    return false;
+    return wasm_check_app_addr_and_convert(module_inst, is_str, app_buf_addr,
+                                           app_buf_size, p_native_addr);
 }
 
 void *
@@ -2499,7 +1969,8 @@ aot_memory_init(AOTModuleInstance *module_inst, uint32 seg_index, uint32 offset,
     seg_len = aot_module->mem_init_data_list[seg_index]->byte_count;
     data = aot_module->mem_init_data_list[seg_index]->bytes;
 
-    if (!aot_validate_app_addr(module_inst, dst, len))
+    if (!wasm_runtime_validate_app_addr((WASMModuleInstanceCommon *)module_inst,
+                                        dst, len))
         return false;
 
     if ((uint64)offset + (uint64)len > seg_len) {
@@ -2507,7 +1978,8 @@ aot_memory_init(AOTModuleInstance *module_inst, uint32 seg_index, uint32 offset,
         return false;
     }
 
-    maddr = aot_addr_app_to_native(module_inst, dst);
+    maddr = wasm_runtime_addr_app_to_native(
+        (WASMModuleInstanceCommon *)module_inst, dst);
 
     bh_memcpy_s(maddr, memory_inst->memory_data_size - dst, data + offset, len);
     return true;
@@ -2698,6 +2170,8 @@ aot_get_module_inst_mem_consumption(const AOTModuleInstance *module_inst,
         mem_conspn->memories_size += mem_allocator_get_heap_struct_size();
     }
 
+    mem_conspn->tables_size +=
+        sizeof(AOTTableInstance *) * module_inst->table_count;
     for (i = 0; i < module_inst->table_count; i++) {
         tbl_inst = module_inst->tables[i];
         mem_conspn->tables_size += offsetof(AOTTableInstance, elems);
