@@ -301,6 +301,8 @@ struct WASMModuleInstance {
      * | global data
      * +------------------------------+ <-- tables
      * | WASMTableInstance[table_count]
+     * +------------------------------+ <-- e
+     * | WASMModuleInstanceExtra
      * +------------------------------+
      */
     union {
