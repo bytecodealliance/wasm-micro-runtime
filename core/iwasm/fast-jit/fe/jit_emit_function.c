@@ -273,21 +273,11 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
     JitBasicBlock *block_import, *block_nonimport, *func_return;
     JitReg elem_idx, native_ret, argv, arg_regs[6];
     JitFrame *jit_frame = cc->jit_frame;
-<<<<<<< HEAD
     JitReg module_inst, tbl_size, offset, offset_i32;
     JitReg func_import, func_idx, tbl_data, func_count_reg;
     JitReg func_type_indexes, func_type_idx, fast_jit_func_ptrs_reg;
     JitReg offset1_i32, offset1, func_type_idx1, res;
     JitReg import_func_ptrs_reg, jitted_code_idx, jitted_code;
-=======
-    JitReg module_inst, tbl_size, elem_idx_long, offset, offset_i32;
-    JitReg func_import, func_idx, func_idx_i64, tbl_data, func_count_reg;
-    JitReg func_type_indexes, func_type_idx, fast_jit_func_ptrs,
-        import_func_offset;
-    JitReg offset1_i32, offset1, func_type_idx1, res;
-    JitReg import_func_ptrs_reg, fast_jit_func_ptrs_reg, jitted_code_idx,
-        jitted_code;
->>>>>>> 62e578acdf31f83f536f1e83528660dbbe15d79a
     WASMType *func_type;
     uint32 n;
 
@@ -420,11 +410,7 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
         GEN_INSN(SHL, func_import_offset, func_idx, NEW_CONST(I32, 2));
         GEN_INSN(LDPTR, func_import, import_func_ptrs_reg, func_import_offset);
     }
-<<<<<<< HEAD
     if (!jit_emit_callnative(cc, jit_call_indirect, native_ret, arg_regs, 6)) {
-=======
-    if (!jit_emit_callnative(cc, jit_invoke_native, native_ret, arg_regs, 6)) {
->>>>>>> 62e578acdf31f83f536f1e83528660dbbe15d79a
         goto fail;
     }
 
