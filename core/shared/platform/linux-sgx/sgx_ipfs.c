@@ -17,10 +17,10 @@
 #define SGX_ERROR_FILE_HIGHEST_ERROR_ID SGX_ERROR_FILE_CLOSE_FAILED
 
 // The mapping between file descriptors and IPFS file pointers.
-HashMap *ipfs_file_list;
+static HashMap *ipfs_file_list;
 
 // Converts an SGX error code to a POSIX error code.
-__wasi_errno_t
+static __wasi_errno_t
 convert_sgx_errno(int error)
 {
     if (error >= SGX_ERROR_FILE_LOWEST_ERROR_ID
