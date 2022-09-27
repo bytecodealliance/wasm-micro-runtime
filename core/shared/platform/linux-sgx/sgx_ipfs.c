@@ -72,11 +72,18 @@ fd2file(int fd)
     return bh_hash_map_find(ipfs_file_list, (void *)(intptr_t)fd);
 }
 
+static void
+ipfs_file_destroy(void *sgx_file)
+{
+    sgx_fclose(sgx_file);
+}
+
 int
 ipfs_init()
 {
-    ipfs_file_list = bh_hash_map_create(32, true, (HashFunc)fd_hash,
-                                        (KeyEqualFunc)fd_equal, NULL, NULL);
+    ipfs_file_list =
+        bh_hash_map_create(32, true, (HashFunc)fd_hash, (KeyEqualFunc)fd_equal,
+                           NULL, (ValueDestroyFunc)ipfs_file_destroy);
 
     return ipfs_file_list != NULL ? BHT_OK : BHT_ERROR;
 }
