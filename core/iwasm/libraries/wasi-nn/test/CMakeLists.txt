@@ -5,8 +5,6 @@ cmake_minimum_required (VERSION 3.22)
 
 project (iwasm C CXX)
 
-set (WAMR_BUILD_PLATFORM "linux")
-
 set (WAMR_BUILD_WASI_NN  1)
 
 # Reset default linker flags
@@ -14,6 +12,10 @@ set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
 set (CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
 set (CMAKE_C_STANDARD 99)
 set (CMAKE_CXX_STANDARD 11)
+
+if (NOT DEFINED WAMR_BUILD_PLATFORM)
+  set (WAMR_BUILD_PLATFORM "linux")
+endif ()
 
 # Set WAMR_BUILD_TARGET, currently values supported:
 # "X86_64", "AMD_64", "X86_32", "AARCH64[sub]", "ARM[sub]", "THUMB[sub]",
@@ -32,7 +34,7 @@ if (NOT DEFINED WAMR_BUILD_TARGET)
   endif ()
 endif ()
 
-if (NOT CMAKE_BUILD_TYPE)
+if (NOT DEFINED CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif ()
 
