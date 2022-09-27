@@ -10,6 +10,7 @@ WORKDIR /root/
 COPY resource /root/
 
 ##  - download cmake with wget and set up
+# hadolint ignore=DL3008
 RUN wget --progress=dot:giga https://github.com/Kitware/CMake/releases/download/v3.21.1/cmake-3.21.1-linux-x86_64.tar.gz \
     && tar -zxvf cmake-3.21.1-linux-x86_64.tar.gz \
     && rm -f cmake-3.21.1-linux-x86_64.tar.gz \
@@ -66,6 +67,7 @@ COPY --from=BASE /root/build_wasm.sh ${HOME_DIR}
 RUN ln -s /opt/cmake/bin/cmake /usr/bin/cmake \
     && ln -s ${HOME_DIR}/wamrc /usr/bin/wamrc
 
+# hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y make --no-install-recommends \
     && apt-get clean -y \
     && rm -rf /var/lib/apt/lists/*

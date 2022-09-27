@@ -9,6 +9,7 @@ FROM mcr.microsoft.com/vscode/devcontainers/cpp:0-${VARIANT}
 ARG DEBIAN_FRONTEND=noninteractive
 ENV TZ=Asian/Shanghai
 
+# hadolint ignore=DL3008
 RUN apt-get update \
   && apt-get install -y apt-transport-https apt-utils build-essential \
   ca-certificates curl g++-multilib git gnupg \
@@ -17,11 +18,12 @@ RUN apt-get update \
   software-properties-common tree tzdata \
   unzip valgrind vim wget zip --no-install-recommends \
   && apt-get clean -y \
-  && rm -rf /var/lib/apt/lists/* 
+  && rm -rf /var/lib/apt/lists/*
 
 #
 # CMAKE (https://apt.kitware.com/)
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+# hadolint ignore=DL3008
 RUN wget --progress=dot:giga -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - | tee /usr/share/keyrings/kitware-archive-keyring.gpg > /dev/null \
   && echo 'deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ bionic main' | tee /etc/apt/sources.list.d/kitware.list >/dev/null \
   && apt-get update \
@@ -84,13 +86,15 @@ RUN wget --progress=dot:giga https://apt.llvm.org/llvm.sh \
 
 #
 # Install pip
+# hadolint ignore=DL3008
 RUN apt-get update \
   && apt-get install -y --reinstall python3-venv python3-pip --no-install-recommends \
   && apt-get clean -y \
-  && rm -rf /var/lib/apt/lists/* 
+  && rm -rf /var/lib/apt/lists/*
 
 #
 # Install required python packages
+# hadolint ignore=DL3013
 RUN python3 -m pip install --no-cache-dir --upgrade pip \
   && pip3 install --no-cache-dir --user black nose pycparser pylint
 
