@@ -59,8 +59,8 @@ typedef struct {
 /**
  * @brief Load an opaque sequence of bytes to use for inference.
  *
- * @param builder   Builder of the model.
- * @param encoding  Type of encoding of the model.
+ * @param builder   Model builder.
+ * @param encoding  Model encoding.
  * @param target    Execution target.
  * @param graph     Graph.
  * @return error    Execution status.
@@ -74,10 +74,9 @@ load(graph_builder_array *builder, graph_encoding encoding,
 /**
  * @brief Create an execution instance of a loaded graph.
  *
- * @param graph                     Initialialize execution context of graph
- * `graph`.
- * @param graph_execution_context   Graph execution context.
- * @return error
+ * @param graph     Graph.
+ * @param ctx       Execution context.
+ * @return error    Execution status.
  */
 error
 init_execution_context(graph graph, graph_execution_context *ctx)
@@ -110,15 +109,19 @@ __attribute__((import_module("wasi_nn")));
 /**
  * @brief Extract the outputs after inference.
  *
- * @param ctx               Execution context.
- * @param index             Index of the output tensor.
- * @param tensor_data       Address
- * @param tensor_data_size  `tensor_data` maximum size.
- * @return error            Execution status.
+ * @param ctx                   Execution context.
+ * @param index                 Output tensor index.
+ * @param output_tensor         Buffer where output tensor with index `index` is
+ * copied.
+ * @param output_tensor_size    Pointer to `output_tensor` maximum size.
+ *                              After the function call it is updated with the
+ * copied number of bytes.
+ * @return error                Execution status.
  */
 error
-get_output(graph_execution_context ctx, uint32_t index, tensor_data data,
-           uint32_t *data_size) __attribute__((export_module("wasi_nn")))
-__attribute__((import_module("wasi_nn")));
+get_output(graph_execution_context ctx, uint32_t index,
+           tensor_data output_tensor, uint32_t *output_tensor_size)
+    __attribute__((export_module("wasi_nn")))
+    __attribute__((import_module("wasi_nn")));
 
 #endif
