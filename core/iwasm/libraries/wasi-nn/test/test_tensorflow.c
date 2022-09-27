@@ -16,6 +16,9 @@
 #define EPSILON 1e-8
 #define MAX_OUTPUT_TENSOR_SIZE 200
 #define MAX_MODEL_SIZE 85000000
+#define MAX_OUTPUT_TENSORS 4
+
+#define GRAPH_EXECUTION_CONTEXT 44
 
 typedef struct {
     float *input_tensor;
@@ -23,7 +26,7 @@ typedef struct {
     uint32_t elements;
 } input_info;
 
-void
+error
 wasm_load(char *model_name, graph *graph)
 {
     FILE *pFile = fopen(model_name, "r");
@@ -33,17 +36,15 @@ wasm_load(char *model_name, graph *graph)
     uint8_t *buffer;
     size_t result;
 
-    int lsize = 85000000;
-
     // allocate memory to contain the whole file:
-    buffer = (uint8_t *)malloc(sizeof(uint8_t) * lsize);
+    buffer = (uint8_t *)malloc(sizeof(uint8_t) * MAX_MODEL_SIZE);
 
     if (buffer == NULL) {
         fputs("Memory error\n", stderr);
         exit(2);
     }
 
-    result = fread(buffer, 1, lsize, pFile);
+    result = fread(buffer, 1, MAX_MODEL_SIZE, pFile);
 
     graph_builder_array arr;
 
@@ -53,13 +54,21 @@ wasm_load(char *model_name, graph *graph)
     arr.buf[0].buf = buffer;
     arr.buf[0].size = result;
 
-    load(&arr, tensorflow, cpu, graph);
+    error err = load(&arr, tensorflow, cpu, graph);
 
     fclose(pFile);
     free(buffer);
+    return err;
 }
 
-void
+error
+wasm_init_execution_context(graph graph)
+{
+    graph_execution_context gec;
+    return init_execution_context(graph, &gec);
+}
+
+error
 wasm_input(float *input_tensor, uint32_t *dim)
 {
     tensor_dimensions dims;
@@ -72,29 +81,23 @@ wasm_input(float *input_tensor, uint32_t *dim)
         tensor.dimensions->buf[i] = dim[i];
     tensor.type = fp32;
     tensor.data = (uint8_t *)input_tensor;
-    set_input(44, 0, &tensor);
+    error err = set_input(44, 0, &tensor);
 
     free(tensor.dimensions->buf);
+    return err;
 }
 
-void
+error
 wasm_compute(graph_execution_context context)
 {
-    compute(context);
+    return compute(context);
 }
 
-void
-wasm_init_execution_context(graph graph)
-{
-    graph_execution_context gec;
-    init_execution_context(graph, &gec);
-}
-
-void
+error
 wasm_get_output(graph_execution_context context, uint32_t index,
                 float *out_tensor, uint32_t *out_size)
 {
-    get_output(context, index, (uint8_t *)out_tensor, out_size);
+    return get_output(context, index, (uint8_t *)out_tensor, out_size);
 }
 
 float *
@@ -113,9 +116,16 @@ run_inference(float *input, uint32_t *input_size, uint32_t *output_size,
 
     float *out_tensor = (float *)malloc(sizeof(float) * MAX_OUTPUT_TENSOR_SIZE);
 
-    uint32_t index;
-    *output_size = MAX_OUTPUT_TENSOR_SIZE;
-    wasm_get_output(context, index, out_tensor, output_size);
+    uint32_t offset = 0;
+    for (int i = 0; i < MAX_OUTPUT_TENSORS; ++i) {
+        *output_size = MAX_OUTPUT_TENSOR_SIZE - *output_size;
+        error err =
+            wasm_get_output(context, i, &out_tensor[offset], output_size);
+        if (err != success)
+            break;
+        offset += *output_size;
+    }
+    *output_size = offset;
     return out_tensor;
 }
 

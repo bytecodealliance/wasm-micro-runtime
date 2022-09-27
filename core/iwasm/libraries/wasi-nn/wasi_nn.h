@@ -68,6 +68,7 @@ typedef struct {
 error
 load(graph_builder_array *builder, graph_encoding encoding,
      execution_target target, graph *graph)
+    __attribute__((export_module("wasi_nn")))
     __attribute__((import_module("wasi_nn")));
 
 /**
@@ -80,6 +81,7 @@ load(graph_builder_array *builder, graph_encoding encoding,
  */
 error
 init_execution_context(graph graph, graph_execution_context *ctx)
+    __attribute__((export_module("wasi_nn")))
     __attribute__((import_module("wasi_nn")));
 
 /**
@@ -92,6 +94,7 @@ init_execution_context(graph graph, graph_execution_context *ctx)
  */
 error
 set_input(graph_execution_context ctx, uint32_t index, tensor *tensor)
+    __attribute__((export_module("wasi_nn")))
     __attribute__((import_module("wasi_nn")));
 
 /**
@@ -101,7 +104,8 @@ set_input(graph_execution_context ctx, uint32_t index, tensor *tensor)
  * @return error    Execution status.
  */
 error
-compute(graph_execution_context ctx) __attribute__((import_module("wasi_nn")));
+compute(graph_execution_context ctx) __attribute__((export_module("wasi_nn")))
+__attribute__((import_module("wasi_nn")));
 
 /**
  * @brief Extract the outputs after inference.
@@ -114,6 +118,7 @@ compute(graph_execution_context ctx) __attribute__((import_module("wasi_nn")));
  */
 error
 get_output(graph_execution_context ctx, uint32_t index, tensor_data data,
-           uint32_t *data_size) __attribute__((import_module("wasi_nn")));
+           uint32_t *data_size) __attribute__((export_module("wasi_nn")))
+__attribute__((import_module("wasi_nn")));
 
 #endif

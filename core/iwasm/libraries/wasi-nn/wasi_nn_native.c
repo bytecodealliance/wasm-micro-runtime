@@ -10,8 +10,7 @@
 #include "wasi_nn_tensorflow.hpp"
 #include "logger.h"
 
-static uint8_t is_initialized;
-static graph_encoding _encoding;
+/* Definition of 'wasi_nn.h' structs in WASM app format (using offset) */
 
 typedef struct {
     uint32_t buf_offset;
@@ -34,13 +33,34 @@ typedef struct {
     uint32_t size;
 } tensor_dimensions_wasm;
 
+/* Global variables */
+
+static uint8_t _is_initialized;
+static graph_encoding _encoding;
+
+/* Utils */
+
+static error
+check_initialized()
+{
+    if (!_is_initialized) {
+        NN_ERR_PRINTF("Model not initialized.");
+        return invalid_argument;
+    }
+    if (_encoding != tensorflow) {
+        NN_ERR_PRINTF("Model encoding is not tensorflow.");
+        return invalid_argument;
+    }
+    return success;
+}
+
 /* WASI-NN implementation */
 
 error
 wasi_nn_load(wasm_exec_env_t exec_env, graph_builder_array_wasm *builder,
              graph_encoding encoding, execution_target target, graph *graph)
 {
-    NN_DBG_PRINTF("Running wasi_nn_load [encoding=%d, target]...", encoding,
+    NN_DBG_PRINTF("Running wasi_nn_load [encoding=%d, target=%d]...", encoding,
                   target);
     wasm_module_inst_t instance = wasm_runtime_get_module_inst(exec_env);
 
@@ -49,30 +69,33 @@ wasi_nn_load(wasm_exec_env_t exec_env, graph_builder_array_wasm *builder,
         return invalid_argument;
 
     if (!wasm_runtime_validate_app_addr(instance, builder->buf_offset,
-                                        builder->size * sizeof(graph_builder)))
+                                        builder->size * sizeof(uint32_t)))
         return invalid_argument;
 
     NN_DBG_PRINTF("Graph builder array contains %d elements", builder->size);
 
-    graph_builder *gb_n =
-        (graph_builder *)malloc(builder->size * sizeof(graph_builder));
-
-    graph_builder_wasm *gb_w =
+    graph_builder_wasm *gb_wasm =
         (graph_builder_wasm *)wasm_runtime_addr_app_to_native(
             instance, builder->buf_offset);
+
+    graph_builder *gb_native =
+        (graph_builder *)malloc(builder->size * sizeof(graph_builder));
+
     for (int i = 0; i < builder->size; ++i) {
-        if (!wasm_runtime_validate_app_addr(instance, gb_w[i].buf_offset,
-                                            gb_w[i].size * sizeof(uint8_t)))
+        if (!wasm_runtime_validate_app_addr(instance, gb_wasm[i].buf_offset,
+                                            gb_wasm[i].size * sizeof(uint8_t)))
             return invalid_argument;
 
-        gb_n[i].buf = (uint8_t *)wasm_runtime_addr_app_to_native(
-            instance, gb_w[i].buf_offset);
-        gb_n[i].size = gb_w[i].size;
+        gb_native[i].buf = (uint8_t *)wasm_runtime_addr_app_to_native(
+            instance, gb_wasm[i].buf_offset);
+        gb_native[i].size = gb_wasm[i].size;
 
-        NN_DBG_PRINTF("Graph builder %d contains %d elements", i, gb_w[i].size);
+        NN_DBG_PRINTF("Graph builder %d contains %d elements", i,
+                      gb_wasm[i].size);
     }
 
-    graph_builder_array gba_n = { .buf = gb_n, .size = builder->size };
+    graph_builder_array gba_native = { .buf = gb_native,
+                                       .size = builder->size };
 
     if (!wasm_runtime_validate_native_addr(instance, graph, sizeof(graph)))
         return invalid_argument;
@@ -81,14 +104,15 @@ wasi_nn_load(wasm_exec_env_t exec_env, graph_builder_array_wasm *builder,
         case tensorflow:
             break;
         default:
+            NN_ERR_PRINTF("Only tensorflow is supported.");
             return invalid_argument;
     }
 
     _encoding = encoding;
-    is_initialized = 1;
+    _is_initialized = 1;
 
-    error res = _load(gba_n, _encoding, target, graph);
-    free(gb_n);
+    error res = tensorflow_load(gba_native, _encoding, target, graph);
+    free(gb_native);
     NN_DBG_PRINTF("wasi_nn_load finished with status %d [graph=%d]", res,
                   *graph);
     return res;
@@ -100,7 +124,10 @@ wasi_nn_init_execution_context(wasm_exec_env_t exec_env, graph graph,
 {
     NN_DBG_PRINTF("Running wasi_nn_init_execution_context [graph=%d]...",
                   graph);
-    error res = _init_execution_context(graph);
+    error res;
+    if (success != (res = check_initialized()))
+        return res;
+    res = tensorflow_init_execution_context(graph);
     *ctx = graph;
     NN_DBG_PRINTF(
         "wasi_nn_init_execution_context finished with status %d [ctx=%d]", res,
@@ -114,6 +141,11 @@ wasi_nn_set_input(wasm_exec_env_t exec_env, graph_execution_context ctx,
 {
     NN_DBG_PRINTF("Running wasi_nn_set_input [ctx=%d, index=%d]...", ctx,
                   index);
+
+    error res;
+    if (success != (res = check_initialized()))
+        return res;
+
     wasm_module_inst_t instance = wasm_runtime_get_module_inst(exec_env);
 
     if (!wasm_runtime_validate_native_addr(instance, input_tensor,
@@ -155,7 +187,7 @@ wasi_nn_set_input(wasm_exec_env_t exec_env, graph_execution_context ctx,
                       .data = (uint8_t *)wasm_runtime_addr_app_to_native(
                           instance, input_tensor->data_offset) };
 
-    error res = _set_input(ctx, index, &tensor);
+    res = tensorflow_set_input(ctx, index, &tensor);
     NN_DBG_PRINTF("wasi_nn_set_input finished with status %d", res);
     return res;
 }
@@ -164,7 +196,11 @@ error
 wasi_nn_compute(wasm_exec_env_t exec_env, graph_execution_context ctx)
 {
     NN_DBG_PRINTF("Running wasi_nn_compute [ctx=%d]...", ctx);
-    error res = _compute(ctx);
+    error res;
+    if (success != (res = check_initialized()))
+        return res;
+
+    res = tensorflow_compute(ctx);
     NN_DBG_PRINTF("wasi_nn_compute finished with status %d", res);
     return res;
 }
@@ -176,13 +212,17 @@ wasi_nn_get_output(wasm_exec_env_t exec_env, graph_execution_context ctx,
 {
     NN_DBG_PRINTF("Running wasi_nn_get_output [ctx=%d, index=%d]...", ctx,
                   index);
-    error res = _get_output(ctx, index, output_tensor, output_tensor_size);
+    error res;
+    if (success != (res = check_initialized()))
+        return res;
+
+    res = tensorflow_get_output(ctx, index, output_tensor, output_tensor_size);
     NN_DBG_PRINTF("wasi_nn_get_output finished with status %d [data_size=%d]",
                   res, *output_tensor_size);
     return res;
 }
 
-/* Register native symbols and utility */
+/* Register WASI-NN in WAMR */
 
 /* clang-format off */
 #define REG_NATIVE_FUNC(func_name, signature) \

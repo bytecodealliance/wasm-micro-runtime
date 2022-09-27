@@ -11,21 +11,22 @@ extern "C" {
 #endif
 
 error
-_load(graph_builder_array builder, graph_encoding encoding,
-      execution_target target, graph *graph);
+tensorflow_load(graph_builder_array builder, graph_encoding encoding,
+                execution_target target, graph *graph);
 
 error
-_init_execution_context(graph graph);
+tensorflow_init_execution_context(graph graph);
 
 error
-_set_input(graph_execution_context ctx, uint32_t index, tensor *t);
+tensorflow_set_input(graph_execution_context ctx, uint32_t index,
+                     tensor *input_tensor);
 
 error
-_compute(graph_execution_context ctx);
+tensorflow_compute(graph_execution_context ctx);
 
 error
-_get_output(graph_execution_context context, uint32_t index, tensor_data data,
-            uint32_t *data_size);
+tensorflow_get_output(graph_execution_context context, uint32_t index,
+                      tensor_data output_tensor, uint32_t *output_tensor_size);
 
 #ifdef __cplusplus
 }
