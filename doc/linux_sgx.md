@@ -200,17 +200,9 @@ SGX Intel Protected File System
 Intel SGX introduced a feature called [Intel Protection File System Library (IPFS)](https://www.intel.com/content/www/us/en/developer/articles/technical/overview-of-intel-protected-file-system-library-using-software-guard-extensions.html) to create, operate and delete files inside the enclave.
 WAMR supports the mapping of IPFS on WASI functions related to file interactions, providing seamless persistence with confidentiality and integrity to the hosted WebAssembly applications in the enclave.
 
-The support of SGX IPFS is an optional feature.
-To opt-in, enable the flag `WAMR_BUILD_SGX_IPFS` in the `CMakeLists.txt`:
-
-```cmake
-if (NOT DEFINED WAMR_BUILD_SGX_IPFS)
-  # Disable SGX IPFS by default
-  set (WAMR_BUILD_SGX_IPFS 1)
-endif ()
-```
-
-Furthermore, the support of IPFS requires the following changes:
+The usage of SGX IPFS is an optional feature.
+To opt-in, the support of IPFS requires the following changes:
+ - set the flag `WAMR_BUILD_SGX_IPFS=1` when running `cmake`,
  - the enclave must be linked with the trusted IPFS library (`-lsgx_tprotected_fs`),
  - the application outside of the enclave must be linked with the untrusted IPFS library (`-lsgx_uprotected_fs`),
  - the EDL file must include the following import statement:
@@ -219,7 +211,7 @@ Furthermore, the support of IPFS requires the following changes:
 from "sgx_tprotected_fs.edl" import *;
 ```
 
-When using the [enclave-sample](../product-mini/platforms/linux-sgx/enclave-sample/) project, compiling with the flag `WAMR_BUILD_SGX_IPFS` in the `CMakeLists.txt` enables these changes automatically.
+When using the [enclave-sample](../product-mini/platforms/linux-sgx/enclave-sample/) project, setting the flag `WAMR_BUILD_SGX_IPFS=1` when running `cmake` enables these changes automatically.
 
 
 ### Verification of SGX IPFS
