@@ -6,6 +6,12 @@ project(wasm-app)
 
 set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../..)
 
+if (APPLE)
+    set (HAVE_FLAG_SEARCH_PATHS_FIRST 0)
+    set (CMAKE_C_LINK_FLAGS "")
+    set (CMAKE_CXX_LINK_FLAGS "")
+endif ()
+
 set (CMAKE_SYSTEM_PROCESSOR wasm32)
 
 if (NOT DEFINED WASI_SDK_DIR)
