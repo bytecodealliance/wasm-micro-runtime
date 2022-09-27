@@ -2007,11 +2007,11 @@ def wasm_instance_new(arg0,arg1,arg2,arg3):
     _wasm_instance_new.argtypes = [POINTER(wasm_store_t),POINTER(wasm_module_t),POINTER(wasm_extern_vec_t),POINTER(POINTER(wasm_trap_t))]
     return _wasm_instance_new(arg0,arg1,arg2,arg3)
 
-def wasm_instance_new_with_args(arg0,arg1,arg2,arg3,arg4,arg5):
+def wasm_instance_new_with_args(arg0,arg1,arg2,arg3,arg4,arg5,arg6,arg7):
     _wasm_instance_new_with_args = libiwasm.wasm_instance_new_with_args
     _wasm_instance_new_with_args.restype = POINTER(wasm_instance_t)
-    _wasm_instance_new_with_args.argtypes = [POINTER(wasm_store_t),POINTER(wasm_module_t),POINTER(wasm_extern_vec_t),POINTER(POINTER(wasm_trap_t)),c_uint32,c_uint32]
-    return _wasm_instance_new_with_args(arg0,arg1,arg2,arg3,arg4,arg5)
+    _wasm_instance_new_with_args.argtypes = [POINTER(wasm_store_t),POINTER(wasm_module_t),POINTER(wasm_extern_vec_t),POINTER(POINTER(wasm_trap_t)),c_uint32,c_uint32, c_char_p, c_uint32]
+    return _wasm_instance_new_with_args(arg0,arg1,arg2,arg3,arg4,arg5,arg6,arg7)
 
 def wasm_instance_exports(arg0,arg1):
     _wasm_instance_exports = libiwasm.wasm_instance_exports
