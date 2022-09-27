@@ -192,10 +192,14 @@ openat(int dirfd, const char *pathname, int flags, ...)
 #if WASM_ENABLE_SGX_IPFS != 0
     // When WAMR uses Intel SGX IPFS to enabled, it opens a second
     // file descriptor to interact with the secure file.
-    // The first fild descriptor opened earlier is used to interact
+    // The first file descriptor opened earlier is used to interact
     // with the metadata of the file (e.g., time, flags, etc.).
+    int ret;
     void *file_ptr = ipfs_fopen(fd, pathname, flags);
     if (file_ptr == NULL) {
+        if (ocall_close(&ret, fd) != SGX_SUCCESS) {
+            TRACE_OCALL_FAIL();
+        }
         return -1;
     }
 #endif
