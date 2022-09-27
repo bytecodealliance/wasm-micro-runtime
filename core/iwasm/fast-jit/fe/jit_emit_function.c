@@ -265,83 +265,19 @@ pack_argv(JitCompContext *cc)
     return argv;
 }
 
-static bool
-unpack_argv(JitCompContext *cc, const WASMType *func_type, JitReg argv)
-{
-    uint32 i, offset_by_cell = 0;
-    JitReg value;
-
-    /* push results in argv to stack */
-    for (i = 0; i < func_type->result_count; i++) {
-        switch (func_type->types[func_type->param_count + i]) {
-            case VALUE_TYPE_I32:
-#if WASM_ENABLE_REF_TYPES != 0
-            case VALUE_TYPE_EXTERNREF:
-            case VALUE_TYPE_FUNCREF:
-#endif
-            {
-                value = jit_cc_new_reg_I32(cc);
-                GEN_INSN(LDI32, value, argv, NEW_CONST(I32, offset_by_cell));
-                PUSH_I32(value);
-                offset_by_cell += 4;
-                break;
-            }
-            case VALUE_TYPE_I64:
-            {
-                value = jit_cc_new_reg_I64(cc);
-                GEN_INSN(LDI64, value, argv, NEW_CONST(I32, offset_by_cell));
-                PUSH_I64(value);
-                offset_by_cell += 8;
-                break;
-            }
-            case VALUE_TYPE_F32:
-            {
-                value = jit_cc_new_reg_F32(cc);
-                GEN_INSN(LDF32, value, argv, NEW_CONST(I32, offset_by_cell));
-                PUSH_F32(value);
-                offset_by_cell += 4;
-                break;
-            }
-            case VALUE_TYPE_F64:
-            {
-                value = jit_cc_new_reg_F64(cc);
-                GEN_INSN(LDF64, value, argv, NEW_CONST(I32, offset_by_cell));
-                PUSH_F64(value);
-                offset_by_cell += 8;
-                break;
-            }
-            default:
-            {
-                bh_assert(0);
-                goto fail;
-            }
-        }
-    }
-
-    /* Update the committed_sp as the callee has updated the frame sp */
-    cc->jit_frame->committed_sp = cc->jit_frame->sp;
-
-    return true;
-fail:
-    return false;
-}
-
 bool
 jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
                              uint32 tbl_idx)
 {
     WASMModule *wasm_module = cc->cur_wasm_module;
-    JitReg wasm_module_reg, import_func_count_reg;
     JitBasicBlock *block_import, *block_nonimport, *func_return;
     JitReg elem_idx, native_ret, argv, arg_regs[6];
     JitFrame *jit_frame = cc->jit_frame;
-    JitReg module_inst, tbl_size, elem_idx_long, offset, offset_i32;
-    JitReg func_import, func_idx, func_idx_i64, tbl_data, func_count_reg;
-    JitReg func_type_indexes, func_type_idx, fast_jit_func_ptrs,
-        import_func_offset;
+    JitReg module_inst, tbl_size, offset, offset_i32;
+    JitReg func_import, func_idx, tbl_data, func_count_reg;
+    JitReg func_type_indexes, func_type_idx, fast_jit_func_ptrs_reg;
     JitReg offset1_i32, offset1, func_type_idx1, res;
-    JitReg import_func_ptrs_reg, fast_jit_func_ptrs_reg, jitted_code_idx,
-        jitted_code;
+    JitReg import_func_ptrs_reg, jitted_code_idx, jitted_code;
     WASMType *func_type;
     uint32 n;
 
@@ -358,7 +294,7 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
 
     /* check func_idx */
     if (UINTPTR_MAX == UINT64_MAX) {
-        JitReg offset_i32 = jit_cc_new_reg_I32(cc);
+        offset_i32 = jit_cc_new_reg_I32(cc);
         offset = jit_cc_new_reg_I64(cc);
         GEN_INSN(SHL, offset_i32, elem_idx, NEW_CONST(I32, 2));
         GEN_INSN(I32TOI64, offset, offset_i32);
@@ -474,7 +410,7 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
         GEN_INSN(SHL, func_import_offset, func_idx, NEW_CONST(I32, 2));
         GEN_INSN(LDPTR, func_import, import_func_ptrs_reg, func_import_offset);
     }
-    if (!jit_emit_callnative(cc, jit_invoke_native, native_ret, arg_regs, 6)) {
+    if (!jit_emit_callnative(cc, jit_call_indirect, native_ret, arg_regs, 6)) {
         goto fail;
     }
 
@@ -486,6 +422,45 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
     if (!jit_emit_exception(cc, JIT_EXCE_ALREADY_THROWN, JIT_OP_BEQ,
                             cc->cmp_reg, NULL)) {
         return false;
+    }
+
+    /* Store res into current frame, so that post_return in
+        block func_return can get the value */
+    n = cc->jit_frame->sp - cc->jit_frame->lp;
+    if (func_type->result_count > 0) {
+        switch (func_type->types[func_type->param_count]) {
+            case VALUE_TYPE_I32:
+#if WASM_ENABLE_REF_TYPES != 0
+            case VALUE_TYPE_EXTERNREF:
+            case VALUE_TYPE_FUNCREF:
+#endif
+                res = jit_cc_new_reg_I32(cc);
+                GEN_INSN(LDI32, res, argv, NEW_CONST(I32, 0));
+                GEN_INSN(STI32, res, cc->fp_reg,
+                         NEW_CONST(I32, offset_of_local(n)));
+                break;
+            case VALUE_TYPE_I64:
+                res = jit_cc_new_reg_I32(cc);
+                GEN_INSN(LDI64, res, argv, NEW_CONST(I32, 0));
+                GEN_INSN(STI64, res, cc->fp_reg,
+                         NEW_CONST(I32, offset_of_local(n)));
+                break;
+            case VALUE_TYPE_F32:
+                res = jit_cc_new_reg_I32(cc);
+                GEN_INSN(LDF32, res, argv, NEW_CONST(I32, 0));
+                GEN_INSN(STF32, res, cc->fp_reg,
+                         NEW_CONST(I32, offset_of_local(n)));
+                break;
+            case VALUE_TYPE_F64:
+                res = jit_cc_new_reg_I32(cc);
+                GEN_INSN(LDF64, res, argv, NEW_CONST(I32, 0));
+                GEN_INSN(STF64, res, cc->fp_reg,
+                         NEW_CONST(I32, offset_of_local(n)));
+                break;
+            default:
+                bh_assert(0);
+                goto fail;
+        }
     }
 
     gen_commit_values(jit_frame, jit_frame->lp, jit_frame->sp);
