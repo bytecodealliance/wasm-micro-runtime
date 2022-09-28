@@ -55,31 +55,10 @@ env:
 
 jobs:
   build_llvm_libraries:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-20.04]
-    steps:
-      - name: checkout
-        uses: actions/checkout@v3
-
-      - name: Cache LLVM libraries
-        id: cache_llvm
-        uses: actions/cache@v3
-        with:
-          path: |
-            ./core/deps/llvm/build/bin
-            ./core/deps/llvm/build/include
-            ./core/deps/llvm/build/lib
-            ./core/deps/llvm/build/libexec
-            ./core/deps/llvm/build/share
-          key: ${{ matrix.os }}-${{ env.LLVM_CACHE_SUFFIX }}
-
-      - name: Build llvm and clang from source
-        id: build_llvm
-        if: steps.cache_llvm.outputs.cache-hit != 'true'
-        run: /usr/bin/env python3 ./build_llvm.py --arch X86 WebAssembly --project clang lldb
-        working-directory: build-scripts
+    uses: ./.github/workflows/_build_llvm_libraries.yml
+    with:
+      runs-on: "['ubuntu-20.04']"
+      build-scripts-option: --project clang lldb
 
   build_iwasm:
     runs-on: ${{ matrix.os }}

@@ -1,0 +1,52 @@
+# CALLED WORKFLOW
+# 1. You can connect up to four levels of workflows.
+# 2. Reusable workflows stored within a private repository can only be used by workflows within the same repository.
+# 3. Any environment variables set in an env context defined at the workflow level in the caller workflow
+#    are not propagated to the called workflow.
+name: Reusable workflow-cancel_previous
+
+on:
+  workflow_call:
+    inputs:
+      runs-on:
+        required: true
+        # can't pass array now, workaround by passing Json string and deserialize later
+        default:  "['ubuntu-20.04', 'ubuntu-22.04']"
+        type: string
+      build-scripts-option: 
+        required: true
+        default: --project clang lldb
+        type: string
+
+jobs:
+  build_llvm_libraries:
+    #if: github.repository == 'bytecodealliance/wasm-micro-runtime'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: ${{ fromJson(inputs.runs-on) }}
+
+    steps:
+      - name: os status
+        run: echo "matrix.os=${{ matrix.os }}"
+
+      - name: checkout
+        uses: actions/checkout@v3
+
+      - name: Cache LLVM libraries
+        id: cache_llvm
+        uses: actions/cache@v3
+        with:
+          path: |
+            ./core/deps/llvm/build/bin
+            ./core/deps/llvm/build/include
+            ./core/deps/llvm/build/lib
+            ./core/deps/llvm/build/libexec
+            ./core/deps/llvm/build/share
+          key: ${{ matrix.os }}-${{ env.LLVM_CACHE_SUFFIX }}
+
+      - name: Build llvm and clang from source
+        id: build_llvm
+        if: ${{ steps.cache_llvm.outputs.cache-hit != 'true' }}
+        run: /usr/bin/env python3 ./build_llvm.py --arch X86 WebAssembly ${{ inputs.build-scripts-option }}
+        working-directory: build-scripts
