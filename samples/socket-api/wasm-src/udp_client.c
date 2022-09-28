@@ -69,10 +69,12 @@ main(int argc, char *argv[])
 
     printf("[Client] Client receive\n");
     serverlen = sizeof(server_address);
-    ret = recvfrom(socket_fd, buffer, sizeof(buffer), 0,
+    /* make sure there is space for the string terminator */
+    ret = recvfrom(socket_fd, buffer, sizeof(buffer) - 1, 0,
                    (struct sockaddr *)&server_address, &serverlen);
 
     if (ret > 0) {
+        buffer[ret] = '\0';
         printf("[Client] Buffer recieved: %s\n", buffer);
     }
 
