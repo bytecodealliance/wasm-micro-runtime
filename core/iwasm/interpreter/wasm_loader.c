@@ -2907,7 +2907,7 @@ load_user_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
         section->name_addr = (char *)p;
         section->name_len = name_len;
         section->content_addr = (uint8 *)(p + name_len);
-        section->content_len = p_end - p - name_len;
+        section->content_len = (uint32)(p_end - p - name_len);
 
         section->next = module->custom_section_list;
         module->custom_section_list = section;
