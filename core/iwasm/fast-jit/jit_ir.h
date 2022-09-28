@@ -917,8 +917,6 @@ typedef struct JitFrame {
     JitReg func_type_indexes_reg;
     /* Base address of global data */
     JitReg global_data_reg;
-    /* module_inst->func_type_indexes */
-    JitReg func_type_indexes_reg;
     /* Boundary of auxiliary stack */
     JitReg aux_stack_bound_reg;
     /* Bottom of auxiliary stack */
