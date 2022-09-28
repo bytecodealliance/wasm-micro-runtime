@@ -108,7 +108,7 @@ void
 on_thread_stop_event(WASMDebugInstance *debug_inst, WASMExecEnv *exec_env);
 
 WASMDebugInstance *
-wasm_debug_instance_create(WASMCluster *cluster);
+wasm_debug_instance_create(WASMCluster *cluster, int32 port);
 
 void
 wasm_debug_instance_destroy(WASMCluster *cluster);
@@ -117,16 +117,10 @@ WASMDebugInstance *
 wasm_exec_env_get_instance(WASMExecEnv *exec_env);
 
 bool
-wasm_debug_engine_init(char *ip_addr, int32 platform_port, int32 process_port);
+wasm_debug_engine_init(char *ip_addr, int32 process_port);
 
 void
 wasm_debug_engine_destroy();
-
-void
-wasm_debug_set_engine_active(bool active);
-
-bool
-wasm_debug_get_engine_active(void);
 
 WASMExecEnv *
 wasm_debug_instance_get_current_env(WASMDebugInstance *instance);

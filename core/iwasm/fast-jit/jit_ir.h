@@ -913,6 +913,8 @@ typedef struct JitFrame {
     JitReg import_func_ptrs_reg;
     /* module_inst->fast_jit_func_ptrs */
     JitReg fast_jit_func_ptrs_reg;
+    /* module_inst->func_type_indexes */
+    JitReg func_type_indexes_reg;
     /* Base address of global data */
     JitReg global_data_reg;
     /* module_inst->func_type_indexes */

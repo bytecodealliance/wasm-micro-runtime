@@ -731,6 +731,9 @@ form_and_translate_func(JitCompContext *cc)
                 *(jit_annl_end_bcip(cc, cc->exit_label)) =
                     cc->cur_wasm_module->load_addr;
 
+    if (jit_get_last_error(cc)) {
+        return false;
+    }
     return true;
 }
 
