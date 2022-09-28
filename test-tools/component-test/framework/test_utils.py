@@ -1,3 +1,4 @@
+from __future__ import print_function
 #
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -52,7 +53,7 @@ def t_process_exists(proc, kill = 0):
             if kill == 0:
                 return True
             else:
-                print "kill [" + proc + "], pid=" + str(pid)
+                print("kill [" + proc + "], pid=" + str(pid))
                 os.kill((pid), 9)
                 ret = True
     return ret
@@ -60,11 +61,11 @@ def t_process_exists(proc, kill = 0):
 def t_copy_files(source_dir, pattern, dest_dir):
     files = os.listdir(source_dir)
     for file in files:
-        if file is '/' or file is '.' or file is '..':
+        if file in ('/', '.', '..'):
             continue
 
-        if pattern == '*' or pattern is '' or files.endswith(pattern):
-            shutil.copy(source_dir+"/"+ file,dest_dir)
+        if pattern in ('*', '') or files.endswith(pattern):
+            shutil.copy(source_dir+"/"+ file, dest_dir)
 
 
 

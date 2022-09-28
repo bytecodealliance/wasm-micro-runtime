@@ -426,7 +426,7 @@ os_socket_getbooloption(bh_socket_t socket, int level, int optname,
     assert(is_enabled);
 
     int optval;
-    int optval_size = sizeof(optval);
+    socklen_t optval_size = sizeof(optval);
     if (getsockopt(socket, level, optname, &optval, &optval_size) != 0) {
         return BHT_ERROR;
     }
@@ -523,15 +523,25 @@ os_socket_get_reuse_addr(bh_socket_t socket, bool *is_enabled)
 int
 os_socket_set_reuse_port(bh_socket_t socket, bool is_enabled)
 {
+#if defined(SO_REUSEPORT) /* NuttX doesn't have SO_REUSEPORT */
     return os_socket_setbooloption(socket, SOL_SOCKET, SO_REUSEPORT,
                                    is_enabled);
+#else
+    errno = ENOTSUP;
+    return BHT_ERROR;
+#endif /* defined(SO_REUSEPORT) */
 }
 
 int
 os_socket_get_reuse_port(bh_socket_t socket, bool *is_enabled)
 {
+#if defined(SO_REUSEPORT) /* NuttX doesn't have SO_REUSEPORT */
     return os_socket_getbooloption(socket, SOL_SOCKET, SO_REUSEPORT,
                                    is_enabled);
+#else
+    errno = ENOTSUP;
+    return BHT_ERROR;
+#endif /* defined(SO_REUSEPORT) */
 }
 
 int

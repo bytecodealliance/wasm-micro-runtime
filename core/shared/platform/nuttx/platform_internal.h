@@ -22,6 +22,7 @@
 #include <unistd.h>
 #include <math.h>
 #include <sys/ioctl.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/mman.h>
