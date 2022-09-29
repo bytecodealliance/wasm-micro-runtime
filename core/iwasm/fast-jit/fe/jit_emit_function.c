@@ -741,7 +741,7 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
 
     /* translate block func_return */
     cc->cur_basic_block = func_return;
-    if (!post_return(cc, func_type, 0)) {
+    if (!post_return(cc, func_type, 0, true)) {
         goto fail;
     }
 
