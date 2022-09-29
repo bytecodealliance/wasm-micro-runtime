@@ -514,7 +514,7 @@ getaddrinfo(const char *node, const char *service, const struct addrinfo *hints,
         return __WASI_ERRNO_SUCCESS;
     }
 
-    aibuf_res = (aibuf *) calloc(1, addr_info_size * sizeof(struct aibuf));
+    aibuf_res = (struct aibuf *) calloc(1, addr_info_size * sizeof(struct aibuf));
     if (!aibuf_res) {
         free(addr_info);
         HANDLE_ERROR(__WASI_ERRNO_NOMEM)
