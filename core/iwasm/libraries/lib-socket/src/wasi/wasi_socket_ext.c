@@ -145,8 +145,9 @@ accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
     error = __wasi_sock_accept(sockfd, 0, &new_sockfd);
     HANDLE_ERROR(error)
 
-    error = getpeername(new_sockfd, addr, addrlen);
-    HANDLE_ERROR(error)
+    if (getpeername(new_sockfd, addr, addrlen) == -1) {
+        return -1;
+    }
 
     return new_sockfd;
 }
@@ -556,7 +557,7 @@ freeaddrinfo(struct addrinfo *res)
     free(res);
 }
 
-struct timeval
+static struct timeval
 time_us_to_timeval(uint64_t time_us)
 {
     struct timeval tv;
@@ -565,13 +566,13 @@ time_us_to_timeval(uint64_t time_us)
     return tv;
 }
 
-uint64_t
+static uint64_t
 timeval_to_time_us(struct timeval tv)
 {
     return (tv.tv_sec * 1000000UL) + tv.tv_usec;
 }
 
-int
+static int
 get_sol_socket_option(int sockfd, int optname, void *__restrict optval,
                       socklen_t *__restrict optlen)
 {
@@ -638,7 +639,7 @@ get_sol_socket_option(int sockfd, int optname, void *__restrict optval,
     }
 }
 
-int
+static int
 get_ipproto_tcp_option(int sockfd, int optname, void *__restrict optval,
                        socklen_t *__restrict optlen)
 {
@@ -677,7 +678,7 @@ get_ipproto_tcp_option(int sockfd, int optname, void *__restrict optval,
     }
 }
 
-int
+static int
 get_ipproto_ip_option(int sockfd, int optname, void *__restrict optval,
                       socklen_t *__restrict optlen)
 {
@@ -707,7 +708,7 @@ get_ipproto_ip_option(int sockfd, int optname, void *__restrict optval,
     }
 }
 
-int
+static int
 get_ipproto_ipv6_option(int sockfd, int optname, void *__restrict optval,
                         socklen_t *__restrict optlen)
 {
@@ -754,7 +755,7 @@ getsockopt(int sockfd, int level, int optname, void *__restrict optval,
     }
 }
 
-int
+static int
 set_sol_socket_option(int sockfd, int optname, const void *optval,
                       socklen_t optlen)
 {
@@ -838,7 +839,7 @@ set_sol_socket_option(int sockfd, int optname, const void *optval,
     }
 }
 
-int
+static int
 set_ipproto_tcp_option(int sockfd, int optname, const void *optval,
                        socklen_t optlen)
 {
@@ -878,7 +879,7 @@ set_ipproto_tcp_option(int sockfd, int optname, const void *optval,
     }
 }
 
-int
+static int
 set_ipproto_ip_option(int sockfd, int optname, const void *optval,
                       socklen_t optlen)
 {
@@ -931,7 +932,7 @@ set_ipproto_ip_option(int sockfd, int optname, const void *optval,
     }
 }
 
-int
+static int
 set_ipproto_ipv6_option(int sockfd, int optname, const void *optval,
                         socklen_t optlen)
 {
