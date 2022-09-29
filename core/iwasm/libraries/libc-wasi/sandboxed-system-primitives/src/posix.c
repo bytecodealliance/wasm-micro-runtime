@@ -2905,7 +2905,7 @@ wasi_ssp_sock_accept(
 #if !defined(WASMTIME_SSP_STATIC_CURFDS)
     struct fd_table *curfds,
 #endif
-    __wasi_fd_t fd, __wasi_fd_t *fd_new)
+    __wasi_fd_t fd, __wasi_fdflags_t flags, __wasi_fd_t *fd_new)
 {
     __wasi_filetype_t wasi_type;
     __wasi_rights_t max_base, max_inheriting;

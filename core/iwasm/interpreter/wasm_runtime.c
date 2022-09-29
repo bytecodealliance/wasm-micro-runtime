@@ -3087,7 +3087,7 @@ wasm_interp_dump_call_stack(struct WASMExecEnv *exec_env, bool print, char *buf,
         return 0;
     }
 
-    total_frames = bh_vector_size(module_inst->frames);
+    total_frames = (uint32)bh_vector_size(module_inst->frames);
     if (total_frames == 0) {
         return 0;
     }
