@@ -140,7 +140,7 @@ accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
     __wasi_fd_t new_sockfd;
     __wasi_errno_t error;
 
-    error = __wasi_sock_accept(sockfd, &new_sockfd);
+    error = __wasi_sock_accept(sockfd, 0, &new_sockfd);
     HANDLE_ERROR(error)
 
     error = getpeername(new_sockfd, addr, addrlen);
