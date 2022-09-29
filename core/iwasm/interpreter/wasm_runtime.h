@@ -392,6 +392,13 @@ wasm_get_native_addr_range(WASMModuleInstance *module_inst, uint8 *native_ptr,
                            uint8 **p_native_start_addr,
                            uint8 **p_native_end_addr);
 
+#if WASM_ENABLE_FAST_JIT != 0
+bool
+jit_check_app_addr_and_convert(WASMModuleInstance *module_inst, bool is_str,
+                               uint32 app_buf_addr, uint32 app_buf_size,
+                               void **p_native_addr);
+#endif
+
 bool
 wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count);
 
