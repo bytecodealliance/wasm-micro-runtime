@@ -90,14 +90,12 @@ jobs:
         with:
           repository: apache/incubator-nuttx
           path: nuttx
-          ref: releases/11.0
 
       - name: Checkout NuttX Apps
         uses: actions/checkout@v3
         with:
           repository: apache/incubator-nuttx-apps
           path: apps
-          ref: releases/11.0
 
       - name: Checkout WAMR
         uses: actions/checkout@v3
