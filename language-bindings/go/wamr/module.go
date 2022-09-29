@@ -134,8 +134,7 @@ func (self *Module) SetWasiAddrPool(addrPool [][]byte) {
 }
 
 /* Set module's wasi domain lookup pool */
-func(self *Module) SetWasiNsLookupPool(nsLookupPool[][] byte)
-{
+func(self *Module) SetWasiNsLookupPool(nsLookupPool [][]byte) {
     var nsLookupPoolPtr **C.char
     var nsLookupPoolSize C.uint
 
