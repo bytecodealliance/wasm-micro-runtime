@@ -3087,7 +3087,7 @@ aot_dump_call_stack(WASMExecEnv *exec_env, bool print, char *buf, uint32 len)
         return 0;
     }
 
-    total_frames = bh_vector_size(module_inst->frames.ptr);
+    total_frames = (uint32)bh_vector_size(module_inst->frames.ptr);
     if (total_frames == 0) {
         return 0;
     }

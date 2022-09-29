@@ -4650,7 +4650,7 @@ wasm_runtime_dump_line_buf_impl(const char *line_buf, bool dump_or_print,
         return dump_len;
     }
     else {
-        return strlen(line_buf);
+        return (uint32)strlen(line_buf);
     }
 }
 
