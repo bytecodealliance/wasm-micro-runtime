@@ -1587,17 +1587,21 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
 #endif
 
         /* init vec(funcidx) or vec(expr) */
-        bh_assert(
-            table_seg->base_offset.init_expr_type == INIT_EXPR_TYPE_I32_CONST
-            || table_seg->base_offset.init_expr_type
-                   == INIT_EXPR_TYPE_GET_GLOBAL
 #if WASM_ENABLE_REF_TYPES != 0
-            || table_seg->base_offset.init_expr_type
-                   == INIT_EXPR_TYPE_FUNCREF_CONST
-            || table_seg->base_offset.init_expr_type
-                   == INIT_EXPR_TYPE_REFNULL_CONST
+        bh_assert(table_seg->base_offset.init_expr_type
+                      == INIT_EXPR_TYPE_I32_CONST
+                  || table_seg->base_offset.init_expr_type
+                         == INIT_EXPR_TYPE_GET_GLOBAL
+                  || table_seg->base_offset.init_expr_type
+                         == INIT_EXPR_TYPE_FUNCREF_CONST
+                  || table_seg->base_offset.init_expr_type
+                         == INIT_EXPR_TYPE_REFNULL_CONST);
+#else
+        bh_assert(table_seg->base_offset.init_expr_type
+                      == INIT_EXPR_TYPE_I32_CONST
+                  || table_seg->base_offset.init_expr_type
+                         == INIT_EXPR_TYPE_GET_GLOBAL);
 #endif
-        );
 
         if (table_seg->base_offset.init_expr_type
             == INIT_EXPR_TYPE_GET_GLOBAL) {
@@ -2503,9 +2507,12 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (memory->is_shared) {
-        memory->num_bytes_per_page = UINT32_MAX;
+        memory->num_bytes_per_page = num_bytes_per_page;
         memory->cur_page_count = total_page_count;
         memory->max_page_count = max_page_count;
+        /* No need to update memory->memory_data_size as it is
+           initialized with the maximum memory data size for
+           shared memory */
         return true;
     }
 #endif
@@ -3080,7 +3087,7 @@ wasm_interp_dump_call_stack(struct WASMExecEnv *exec_env, bool print, char *buf,
         return 0;
     }
 
-    total_frames = bh_vector_size(module_inst->frames);
+    total_frames = (uint32)bh_vector_size(module_inst->frames);
     if (total_frames == 0) {
         return 0;
     }

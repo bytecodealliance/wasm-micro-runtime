@@ -380,9 +380,19 @@ jit_cc_init(JitCompContext *cc, unsigned htab_size)
 
     /* Create entry and exit blocks.  They must be the first two
        blocks respectively.  */
-    if (!(entry_block = jit_cc_new_basic_block(cc, 0))
-        || !(exit_block = jit_cc_new_basic_block(cc, 0)))
+    if (!(entry_block = jit_cc_new_basic_block(cc, 0)))
         goto fail;
+    if (!(exit_block = jit_cc_new_basic_block(cc, 0))) {
+        jit_basic_block_delete(entry_block);
+        goto fail;
+    }
+
+    /* Record the entry and exit labels, whose indexes must be 0 and 1
+       respectively.  */
+    cc->entry_label = jit_basic_block_label(entry_block);
+    cc->exit_label = jit_basic_block_label(exit_block);
+    bh_assert(jit_reg_no(cc->entry_label) == 0
+              && jit_reg_no(cc->exit_label) == 1);
 
     if (!(cc->exce_basic_blocks =
               jit_calloc(sizeof(JitBasicBlock *) * JIT_EXCE_NUM)))
@@ -391,13 +401,6 @@ jit_cc_init(JitCompContext *cc, unsigned htab_size)
     if (!(cc->incoming_insns_for_exec_bbs =
               jit_calloc(sizeof(JitIncomingInsnList) * JIT_EXCE_NUM)))
         goto fail;
-
-    /* Record the entry and exit labels, whose indexes must be 0 and 1
-       respectively.  */
-    cc->entry_label = jit_basic_block_label(entry_block);
-    cc->exit_label = jit_basic_block_label(exit_block);
-    bh_assert(jit_reg_no(cc->entry_label) == 0
-              && jit_reg_no(cc->exit_label) == 1);
 
     cc->hreg_info = jit_codegen_get_hreg_info();
     bh_assert(cc->hreg_info->info[JIT_REG_KIND_I32].num > 3);

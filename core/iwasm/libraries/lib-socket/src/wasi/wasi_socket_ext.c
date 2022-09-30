@@ -6,8 +6,8 @@
 #include <assert.h>
 #include <errno.h>
 #include <netinet/in.h>
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/socket.h>
 #include <wasi/api.h>
 #include <wasi_socket_ext.h>
@@ -136,15 +136,18 @@ wasi_addr_to_sockaddr(const __wasi_addr_t *wasi_addr,
 int
 accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 {
-    __wasi_addr_t wasi_addr = { 0 };
+    __wasi_addr_t wasi_addr;
     __wasi_fd_t new_sockfd;
     __wasi_errno_t error;
 
-    error = __wasi_sock_accept(sockfd, &new_sockfd);
+    memset(&wasi_addr, 0, sizeof(wasi_addr));
+
+    error = __wasi_sock_accept(sockfd, 0, &new_sockfd);
     HANDLE_ERROR(error)
 
-    error = getpeername(new_sockfd, addr, addrlen);
-    HANDLE_ERROR(error)
+    if (getpeername(new_sockfd, addr, addrlen) == -1) {
+        return -1;
+    }
 
     return new_sockfd;
 }
@@ -152,8 +155,10 @@ accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 int
 bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 {
-    __wasi_addr_t wasi_addr = { 0 };
+    __wasi_addr_t wasi_addr;
     __wasi_errno_t error;
+
+    memset(&wasi_addr, 0, sizeof(wasi_addr));
 
     error = sockaddr_to_wasi_addr(addr, addrlen, &wasi_addr);
     HANDLE_ERROR(error)
@@ -167,8 +172,10 @@ bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 int
 connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 {
-    __wasi_addr_t wasi_addr = { 0 };
+    __wasi_addr_t wasi_addr;
     __wasi_errno_t error;
+
+    memset(&wasi_addr, 0, sizeof(wasi_addr));
 
     if (NULL == addr) {
         HANDLE_ERROR(__WASI_ERRNO_INVAL)
@@ -210,12 +217,13 @@ recvmsg(int sockfd, struct msghdr *msg, int flags)
     }
 
     // __wasi_ciovec_t -> struct iovec
-    if (!(ri_data = malloc(sizeof(__wasi_iovec_t) * msg->msg_iovlen))) {
+    if (!(ri_data = (__wasi_iovec_t *)malloc(sizeof(__wasi_iovec_t)
+                                             * msg->msg_iovlen))) {
         HANDLE_ERROR(__WASI_ERRNO_NOMEM)
     }
 
     for (i = 0; i < msg->msg_iovlen; i++) {
-        ri_data[i].buf = msg->msg_iov[i].iov_base;
+        ri_data[i].buf = (uint8_t *)msg->msg_iov[i].iov_base;
         ri_data[i].buf_len = msg->msg_iov[i].iov_len;
     }
 
@@ -246,12 +254,13 @@ sendmsg(int sockfd, const struct msghdr *msg, int flags)
     }
 
     // struct iovec -> __wasi_ciovec_t
-    if (!(si_data = malloc(sizeof(__wasi_ciovec_t) * msg->msg_iovlen))) {
+    if (!(si_data = (__wasi_ciovec_t *)malloc(sizeof(__wasi_ciovec_t)
+                                              * msg->msg_iovlen))) {
         HANDLE_ERROR(__WASI_ERRNO_NOMEM)
     }
 
     for (i = 0; i < msg->msg_iovlen; i++) {
-        si_data[i].buf = msg->msg_iov[i].iov_base;
+        si_data[i].buf = (uint8_t *)msg->msg_iov[i].iov_base;
         si_data[i].buf_len = msg->msg_iov[i].iov_len;
     }
 
@@ -269,7 +278,7 @@ sendto(int sockfd, const void *buf, size_t len, int flags,
        const struct sockaddr *dest_addr, socklen_t addrlen)
 {
     // Prepare input parameters.
-    __wasi_ciovec_t iov = { .buf = buf, .buf_len = len };
+    __wasi_ciovec_t iov = { .buf = (uint8_t *)buf, .buf_len = len };
     uint32_t so_datalen = 0;
     __wasi_addr_t wasi_addr;
     __wasi_errno_t error;
@@ -297,7 +306,7 @@ recvfrom(int sockfd, void *buf, size_t len, int flags,
          struct sockaddr *src_addr, socklen_t *addrlen)
 {
     // Prepare input parameters.
-    __wasi_ciovec_t iov = { .buf = buf, .buf_len = len };
+    __wasi_ciovec_t iov = { .buf = (uint8_t *)buf, .buf_len = len };
     uint32_t so_datalen = 0;
     __wasi_addr_t wasi_addr;
     __wasi_errno_t error;
@@ -363,8 +372,10 @@ socket(int domain, int type, int protocol)
 int
 getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 {
-    __wasi_addr_t wasi_addr = { 0 };
+    __wasi_addr_t wasi_addr;
     __wasi_errno_t error;
+
+    memset(&wasi_addr, 0, sizeof(wasi_addr));
 
     error = __wasi_sock_addr_local(sockfd, &wasi_addr);
     HANDLE_ERROR(error)
@@ -378,8 +389,10 @@ getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 int
 getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 {
-    __wasi_addr_t wasi_addr = { 0 };
+    __wasi_addr_t wasi_addr;
     __wasi_errno_t error;
+
+    memset(&wasi_addr, 0, sizeof(wasi_addr));
 
     error = __wasi_sock_addr_remote(sockfd, &wasi_addr);
     HANDLE_ERROR(error)
@@ -504,7 +517,8 @@ getaddrinfo(const char *node, const char *service, const struct addrinfo *hints,
         return __WASI_ERRNO_SUCCESS;
     }
 
-    aibuf_res = calloc(1, addr_info_size * sizeof(struct aibuf));
+    aibuf_res =
+        (struct aibuf *)calloc(1, addr_info_size * sizeof(struct aibuf));
     if (!aibuf_res) {
         free(addr_info);
         HANDLE_ERROR(__WASI_ERRNO_NOMEM)
@@ -543,7 +557,7 @@ freeaddrinfo(struct addrinfo *res)
     free(res);
 }
 
-struct timeval
+static struct timeval
 time_us_to_timeval(uint64_t time_us)
 {
     struct timeval tv;
@@ -552,13 +566,13 @@ time_us_to_timeval(uint64_t time_us)
     return tv;
 }
 
-uint64_t
+static uint64_t
 timeval_to_time_us(struct timeval tv)
 {
     return (tv.tv_sec * 1000000UL) + tv.tv_usec;
 }
 
-int
+static int
 get_sol_socket_option(int sockfd, int optname, void *__restrict optval,
                       socklen_t *__restrict optlen)
 {
@@ -625,7 +639,7 @@ get_sol_socket_option(int sockfd, int optname, void *__restrict optval,
     }
 }
 
-int
+static int
 get_ipproto_tcp_option(int sockfd, int optname, void *__restrict optval,
                        socklen_t *__restrict optlen)
 {
@@ -664,7 +678,7 @@ get_ipproto_tcp_option(int sockfd, int optname, void *__restrict optval,
     }
 }
 
-int
+static int
 get_ipproto_ip_option(int sockfd, int optname, void *__restrict optval,
                       socklen_t *__restrict optlen)
 {
@@ -694,7 +708,7 @@ get_ipproto_ip_option(int sockfd, int optname, void *__restrict optval,
     }
 }
 
-int
+static int
 get_ipproto_ipv6_option(int sockfd, int optname, void *__restrict optval,
                         socklen_t *__restrict optlen)
 {
@@ -741,7 +755,7 @@ getsockopt(int sockfd, int level, int optname, void *__restrict optval,
     }
 }
 
-int
+static int
 set_sol_socket_option(int sockfd, int optname, const void *optval,
                       socklen_t optlen)
 {
@@ -750,62 +764,82 @@ set_sol_socket_option(int sockfd, int optname, const void *optval,
 
     switch (optname) {
         case SO_RCVTIMEO:
+        {
             assert(optlen == sizeof(struct timeval));
             timeout_us = timeval_to_time_us(*(struct timeval *)optval);
             error = __wasi_sock_set_recv_timeout(sockfd, timeout_us);
             HANDLE_ERROR(error);
             return error;
+        }
         case SO_SNDTIMEO:
+        {
             assert(optlen == sizeof(struct timeval));
             timeout_us = timeval_to_time_us(*(struct timeval *)optval);
             error = __wasi_sock_set_send_timeout(sockfd, timeout_us);
             HANDLE_ERROR(error);
             return error;
+        }
         case SO_SNDBUF:
+        {
             assert(optlen == sizeof(int));
             error = __wasi_sock_set_send_buf_size(sockfd, *(size_t *)optval);
             HANDLE_ERROR(error);
             return error;
+        }
         case SO_RCVBUF:
+        {
             assert(optlen == sizeof(int));
             error = __wasi_sock_set_recv_buf_size(sockfd, *(size_t *)optval);
             HANDLE_ERROR(error);
             return error;
+        }
         case SO_KEEPALIVE:
+        {
             assert(optlen == sizeof(int));
             error = __wasi_sock_set_keep_alive(sockfd, *(bool *)optval);
             HANDLE_ERROR(error);
             return error;
+        }
         case SO_REUSEADDR:
+        {
             assert(optlen == sizeof(int));
             error = __wasi_sock_set_reuse_addr(sockfd, *(bool *)optval);
             HANDLE_ERROR(error);
             return error;
+        }
         case SO_REUSEPORT:
+        {
             assert(optlen == sizeof(int));
             error = __wasi_sock_set_reuse_port(sockfd, *(bool *)optval);
             HANDLE_ERROR(error);
             return error;
+        }
         case SO_LINGER:
+        {
             assert(optlen == sizeof(struct linger));
             struct linger *linger_opt = ((struct linger *)optval);
             error = __wasi_sock_set_linger(sockfd, (bool)linger_opt->l_onoff,
                                            linger_opt->l_linger);
             HANDLE_ERROR(error);
             return error;
+        }
         case SO_BROADCAST:
+        {
             assert(optlen == sizeof(int));
             error = __wasi_sock_set_broadcast(sockfd, *(bool *)optval);
             HANDLE_ERROR(error);
             return error;
+        }
         default:
+        {
             error = __WASI_ERRNO_NOTSUP;
             HANDLE_ERROR(error);
             return error;
+        }
     }
 }
 
-int
+static int
 set_ipproto_tcp_option(int sockfd, int optname, const void *optval,
                        socklen_t optlen)
 {
@@ -845,7 +879,7 @@ set_ipproto_tcp_option(int sockfd, int optname, const void *optval,
     }
 }
 
-int
+static int
 set_ipproto_ip_option(int sockfd, int optname, const void *optval,
                       socklen_t optlen)
 {
@@ -898,7 +932,7 @@ set_ipproto_ip_option(int sockfd, int optname, const void *optval,
     }
 }
 
-int
+static int
 set_ipproto_ipv6_option(int sockfd, int optname, const void *optval,
                         socklen_t optlen)
 {

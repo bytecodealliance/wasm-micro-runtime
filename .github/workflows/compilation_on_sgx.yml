@@ -140,6 +140,7 @@ jobs:
             # "-DWAMR_BUILD_SIMD=1",
             "-DWAMR_BUILD_TAIL_CALL=1",
             "-DWAMR_DISABLE_HW_BOUND_CHECK=1",
+            "-DWAMR_BUILD_SGX_IPFS=1",
           ]
         os: [ubuntu-20.04]
         platform: [linux-sgx]
@@ -362,6 +363,15 @@ jobs:
           cd samples/basic
           ./build.sh
           ./run.sh
+
+      - name: Build Sample [file]
+        if: ${{ matrix.light == 'green' }}
+        run: |
+          cd samples/file
+          mkdir build && cd build
+          cmake ..
+          cmake --build . --config Release --parallel 4
+          ./src/iwasm -f wasm-app/file.wasm -d .
 
       - name: Build Sample [multi-thread]
         if: ${{ matrix.light == 'green' }}

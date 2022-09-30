@@ -43,8 +43,8 @@ main(int argc, char *argv[])
     struct sockaddr_storage addr = { 0 };
     char *reply_message = "Hello from server";
     unsigned connections = 0;
-    char ip_string[64];
-    char buffer[1024];
+    char ip_string[64] = { 0 };
+    char buffer[1024] = { 0 };
 
     if (argc > 1 && strcmp(argv[1], "inet6") == 0) {
         af = AF_INET6;
@@ -73,12 +73,14 @@ main(int argc, char *argv[])
     printf("[Server] Wait for clients to connect ..\n");
     while (connections < MAX_CONNECTIONS_COUNT) {
         addrlen = sizeof(addr);
-        int ret = recvfrom(socket_fd, buffer, sizeof(buffer), 0,
+        /* make sure there is space for the string terminator */
+        int ret = recvfrom(socket_fd, buffer, sizeof(buffer) - 1, 0,
                            (struct sockaddr *)&addr, &addrlen);
         if (ret < 0) {
             perror("Read failed");
             goto fail;
         }
+        buffer[ret] = '\0';
 
         if (sockaddr_to_string((struct sockaddr *)&addr, ip_string,
                                sizeof(ip_string) / sizeof(ip_string[0]))

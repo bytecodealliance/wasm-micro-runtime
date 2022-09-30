@@ -7,6 +7,10 @@
 #include "sgx_error.h"
 #include "sgx_file.h"
 
+#if WASM_ENABLE_SGX_IPFS != 0
+#include "sgx_ipfs.h"
+#endif
+
 #ifndef SGX_DISABLE_WASI
 
 #define TRACE_FUNC() os_printf("undefined %s\n", __FUNCTION__)
@@ -184,6 +188,22 @@ openat(int dirfd, const char *pathname, int flags, ...)
 
     if (fd == -1)
         errno = get_errno();
+
+#if WASM_ENABLE_SGX_IPFS != 0
+    // When WAMR uses Intel SGX IPFS to enabled, it opens a second
+    // file descriptor to interact with the secure file.
+    // The first file descriptor opened earlier is used to interact
+    // with the metadata of the file (e.g., time, flags, etc.).
+    int ret;
+    void *file_ptr = ipfs_fopen(fd, pathname, flags);
+    if (file_ptr == NULL) {
+        if (ocall_close(&ret, fd) != SGX_SUCCESS) {
+            TRACE_OCALL_FAIL();
+        }
+        return -1;
+    }
+#endif
+
     return fd;
 }
 
@@ -191,6 +211,13 @@ int
 close(int fd)
 {
     int ret;
+
+#if WASM_ENABLE_SGX_IPFS != 0
+    // Close the IPFS file pointer in addition of the file descriptor
+    ret = ipfs_close(fd);
+    if (ret == -1)
+        errno = get_errno();
+#endif
 
     if (ocall_close(&ret, fd) != SGX_SUCCESS) {
         TRACE_OCALL_FAIL();
@@ -345,6 +372,12 @@ readv_internal(int fd, const struct iovec *iov, int iovcnt, bool has_offset,
     if (total_size >= UINT32_MAX)
         return -1;
 
+#if WASM_ENABLE_SGX_IPFS != 0
+    if (fd > 2) {
+        return ipfs_read(fd, iov, iovcnt, has_offset, offset);
+    }
+#endif
+
     iov1 = BH_MALLOC((uint32)total_size);
 
     if (iov1 == NULL)
@@ -410,6 +443,12 @@ writev_internal(int fd, const struct iovec *iov, int iovcnt, bool has_offset,
     if (total_size >= UINT32_MAX)
         return -1;
 
+#if WASM_ENABLE_SGX_IPFS != 0
+    if (fd > 2) {
+        return ipfs_write(fd, iov, iovcnt, has_offset, offset);
+    }
+#endif
+
     iov1 = BH_MALLOC((uint32)total_size);
 
     if (iov1 == NULL)
@@ -468,12 +507,18 @@ off_t
 lseek(int fd, off_t offset, int whence)
 {
     off_t ret;
+
+#if WASM_ENABLE_SGX_IPFS != 0
+    ret = ipfs_lseek(fd, offset, whence);
+#else
     if (ocall_lseek(&ret, fd, (long)offset, whence) != SGX_SUCCESS) {
         TRACE_OCALL_FAIL();
         return -1;
     }
     if (ret == -1)
         errno = get_errno();
+#endif
+
     return ret;
 }
 
@@ -482,12 +527,17 @@ ftruncate(int fd, off_t length)
 {
     int ret;
 
+#if WASM_ENABLE_SGX_IPFS != 0
+    ret = ipfs_ftruncate(fd, length);
+#else
     if (ocall_ftruncate(&ret, fd, length) != SGX_SUCCESS) {
         TRACE_OCALL_FAIL();
         return -1;
     }
     if (ret == -1)
         errno = get_errno();
+#endif
+
     return ret;
 }
 
@@ -554,12 +604,17 @@ fsync(int fd)
 {
     int ret;
 
+#if WASM_ENABLE_SGX_IPFS != 0
+    ret = ipfs_fflush(fd);
+#else
     if (ocall_fsync(&ret, fd) != SGX_SUCCESS) {
         TRACE_OCALL_FAIL();
         return -1;
     }
     if (ret == -1)
         errno = get_errno();
+#endif
+
     return ret;
 }
 
@@ -568,12 +623,17 @@ fdatasync(int fd)
 {
     int ret;
 
+#if WASM_ENABLE_SGX_IPFS != 0
+    ret = ipfs_fflush(fd);
+#else
     if (ocall_fdatasync(&ret, fd) != SGX_SUCCESS) {
         TRACE_OCALL_FAIL();
         return -1;
     }
     if (ret == -1)
         errno = get_errno();
+#endif
+
     return ret;
 }
 
@@ -801,10 +861,14 @@ posix_fallocate(int fd, off_t offset, off_t len)
 {
     int ret;
 
+#if WASM_ENABLE_SGX_IPFS != 0
+    ret = ipfs_posix_fallocate(fd, offset, len);
+#else
     if (ocall_posix_fallocate(&ret, fd, offset, len) != SGX_SUCCESS) {
         TRACE_OCALL_FAIL();
         return -1;
     }
+#endif
 
     return ret;
 }

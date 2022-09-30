@@ -8,18 +8,20 @@ WORKDIR /root/
 COPY resource /root/
 
 ##  - download cmake with wget and set up
-RUN wget https://github.com/Kitware/CMake/releases/download/v3.21.1/cmake-3.21.1-linux-x86_64.tar.gz \
+# hadolint ignore=DL3008
+RUN wget --progress=dot:giga https://github.com/Kitware/CMake/releases/download/v3.21.1/cmake-3.21.1-linux-x86_64.tar.gz \
     && tar -zxvf cmake-3.21.1-linux-x86_64.tar.gz \
     && rm -f cmake-3.21.1-linux-x86_64.tar.gz \
     && mv cmake-3.21.1-linux-x86_64 /opt/cmake \
     && ln -s /opt/cmake/bin/cmake /bin/cmake \
-    && apt-get install make
+    && apt-get -y install make --no-install-recommends
 
 ##  -clone wamr-repo and build iwasm
 RUN git clone -b main --depth=1 https://github.com/bytecodealliance/wasm-micro-runtime.git \
-    && cd /root/wasm-micro-runtime/product-mini/platforms/linux \
-    && mkdir build && cd build \
-    && cmake .. -DWAMR_BUILD_DEBUG_INTERP=1 && make \
+    && mkdir -p /root/wasm-micro-runtime/product-mini/platforms/linux/build 
+
+WORKDIR /root/wasm-micro-runtime/product-mini/platforms/linux/build 
+RUN cmake .. -DWAMR_BUILD_DEBUG_INTERP=1 && make \
     && cp /root/wasm-micro-runtime/product-mini/platforms/linux/build/iwasm /root/iwasm \
     && rm -fr /root/wasm-micro-runtime
 

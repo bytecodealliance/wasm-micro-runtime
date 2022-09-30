@@ -9,6 +9,9 @@ SGX_ARCH ?= x64
 SGX_DEBUG ?= 0
 SPEC_TEST ?= 0
 
+# This variable is automatically set by CMakeLists.txt
+SGX_IPFS = 0
+
 VMLIB_BUILD_DIR ?= $(CURDIR)/../build
 LIB_RATS_SRC ?= $(VMLIB_BUILD_DIR)/_deps/librats-build
 LIB_RATS := $(shell if [ -d $(LIB_RATS_SRC) ]; then echo 1; else echo 0; fi)
@@ -106,6 +109,12 @@ else
 	Trts_Library_Name := sgx_trts
 	Service_Library_Name := sgx_tservice
 endif
+
+ifeq ($(SGX_IPFS), 1)
+	Intel_Ipfs_Trusted_Flag = -lsgx_tprotected_fs
+	App_Link_Flags += -lsgx_uprotected_fs
+endif
+
 Crypto_Library_Name := sgx_tcrypto
 
 WAMR_ROOT := $(CURDIR)/../../../../
@@ -139,7 +148,7 @@ endif
 
 Enclave_Cpp_Flags := $(Enclave_C_Flags) -std=c++11 -nostdinc++
 Enclave_Link_Flags := $(SGX_COMMON_CFLAGS) -Wl,--no-undefined -nostdlib -nodefaultlibs -nostartfiles -L$(SGX_LIBRARY_PATH) ${Rats_Lib_Link_Dirs} \
-	-Wl,--whole-archive -l$(Trts_Library_Name) ${Rats_Lib_Link_libs} -Wl,--no-whole-archive \
+	-Wl,--whole-archive -l$(Trts_Library_Name) ${Rats_Lib_Link_libs} $(Intel_Ipfs_Trusted_Flag) -Wl,--no-whole-archive \
 	-Wl,--start-group -lsgx_tstdc -lsgx_tcxx -lsgx_pthread -lsgx_tkey_exchange -l$(Crypto_Library_Name) -l$(Service_Library_Name) -lsgx_dcap_tvl -Wl,--end-group \
 	-Wl,-Bstatic -Wl,-Bsymbolic -Wl,--no-undefined \
 	-Wl,-pie,-eenclave_entry -Wl,--export-dynamic  \
@@ -217,7 +226,6 @@ $(App_Name): App/Enclave_u.o $(App_Cpp_Objects) libvmlib_untrusted.a
 
 
 ######## Enclave Objects ########
-
 Enclave/Enclave_t.c: $(SGX_EDGER8R) Enclave/Enclave.edl librats
 	@cd Enclave && $(SGX_EDGER8R) --trusted ../Enclave/Enclave.edl $(Enclave_Edl_Search_Path)
 	@echo "GEN  =>  $@"

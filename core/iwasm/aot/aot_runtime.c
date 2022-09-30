@@ -244,14 +244,18 @@ table_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
         tbl_inst = aot_get_table_inst(module_inst, table_seg->table_index);
         bh_assert(tbl_inst);
 
+#if WASM_ENABLE_REF_TYPES != 0
         bh_assert(
             table_seg->offset.init_expr_type == INIT_EXPR_TYPE_I32_CONST
             || table_seg->offset.init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL
-#if WASM_ENABLE_REF_TYPES != 0
             || table_seg->offset.init_expr_type == INIT_EXPR_TYPE_FUNCREF_CONST
-            || table_seg->offset.init_expr_type == INIT_EXPR_TYPE_REFNULL_CONST
+            || table_seg->offset.init_expr_type
+                   == INIT_EXPR_TYPE_REFNULL_CONST);
+#else
+        bh_assert(table_seg->offset.init_expr_type == INIT_EXPR_TYPE_I32_CONST
+                  || table_seg->offset.init_expr_type
+                         == INIT_EXPR_TYPE_GET_GLOBAL);
 #endif
-        );
 
         /* Resolve table data base offset */
         if (table_seg->offset.init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL) {
@@ -2093,10 +2097,12 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (memory->is_shared) {
-        memory->num_bytes_per_page = UINT32_MAX;
+        memory->num_bytes_per_page = num_bytes_per_page;
         memory->cur_page_count = total_page_count;
         memory->max_page_count = max_page_count;
-        memory->memory_data_size = (uint32)total_size_new;
+        /* No need to update memory->memory_data_size as it is
+           initialized with the maximum memory data size for
+           shared memory */
         return true;
     }
 #endif
@@ -2918,6 +2924,9 @@ lookup_func_name(const char **func_names, uint32 *func_indexes,
     int64 low = 0, mid;
     int64 high = func_index_count - 1;
 
+    if (!func_names || !func_indexes || func_index_count == 0)
+        return NULL;
+
     while (low <= high) {
         mid = (low + high) / 2;
         if (func_index == func_indexes[mid]) {
@@ -3078,7 +3087,7 @@ aot_dump_call_stack(WASMExecEnv *exec_env, bool print, char *buf, uint32 len)
         return 0;
     }
 
-    total_frames = bh_vector_size(module_inst->frames.ptr);
+    total_frames = (uint32)bh_vector_size(module_inst->frames.ptr);
     if (total_frames == 0) {
         return 0;
     }

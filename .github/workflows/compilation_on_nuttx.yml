@@ -72,7 +72,10 @@ jobs:
 
     steps:
       - name: Install Utilities
-        run: sudo apt install -y kconfig-frontends-nox genromfs
+        run: | 
+          sudo apt install -y kconfig-frontends-nox genromfs
+          pip3 install pyelftools
+          pip3 install cxxfilt
 
       - name: Install ARM Compilers
         if: ${{ contains(matrix.nuttx_board_config, 'arm') }}

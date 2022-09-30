@@ -140,8 +140,10 @@ struct addrinfo {
     struct addrinfo *ai_next; /* Pointer to next in list.  */
 };
 
+#ifndef __WASI_RIGHTS_SOCK_ACCEPT
 int
 accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
+#endif
 
 int
 bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
@@ -192,20 +194,29 @@ freeaddrinfo(struct addrinfo *res);
 #endif
 
 /**
+ * __wasi_sock_accept was introduced in wasi-sdk v15. To
+ * temporarily maintain backward compatibility with the old
+ * wasi-sdk, we explicitly add that implementation here so it works
+ * with older versions of the SDK.
+ */
+#ifndef __WASI_RIGHTS_SOCK_ACCEPT
+/**
  * Accept a connection on a socket
  * Note: This is similar to `accept`
  */
 int32_t
-__imported_wasi_snapshot_preview1_sock_accept(int32_t arg0, int32_t arg1)
+__imported_wasi_snapshot_preview1_sock_accept(int32_t arg0, int32_t arg1,
+                                              int32_t arg2)
     __attribute__((__import_module__("wasi_snapshot_preview1"),
                    __import_name__("sock_accept")));
 
 static inline __wasi_errno_t
-__wasi_sock_accept(__wasi_fd_t fd, __wasi_fd_t *fd_new)
+__wasi_sock_accept(__wasi_fd_t fd, __wasi_fdflags_t flags, __wasi_fd_t *fd_new)
 {
     return (__wasi_errno_t)__imported_wasi_snapshot_preview1_sock_accept(
-        (int32_t)fd, (int32_t)fd_new);
+        (int32_t)fd, (int32_t)flags, (int32_t)fd_new);
 }
+#endif
 
 /**
  * Returns the local address to which the socket is bound.
