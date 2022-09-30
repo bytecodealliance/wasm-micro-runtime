@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#ifndef _ELF_PARSERE_H_
+#ifndef _ELF_PARSER_H_
 #define _ELF_PARSER_H_
 #include <stdbool.h>
 

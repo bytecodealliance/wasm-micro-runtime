@@ -696,9 +696,9 @@ load_custom_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
             }
 
             section->name_addr = (char *)section_name;
-            section->name_len = strlen(section_name);
+            section->name_len = (uint32)strlen(section_name);
             section->content_addr = (uint8 *)p;
-            section->content_len = p_end - p;
+            section->content_len = (uint32)(p_end - p);
 
             section->next = module->custom_section_list;
             module->custom_section_list = section;

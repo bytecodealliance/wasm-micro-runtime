@@ -262,6 +262,9 @@ pack_argv(JitCompContext *cc)
     stack_base = cc->total_frame_size + offsetof(WASMInterpFrame, lp);
     argv = jit_cc_new_reg_ptr(cc);
     GEN_INSN(ADD, argv, cc->fp_reg, NEW_CONST(PTR, stack_base));
+    if (jit_get_last_error(cc)) {
+        return (JitReg)0;
+    }
     return argv;
 }
 
@@ -341,7 +344,9 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
     }
 
     argv = pack_argv(cc);
-
+    if (!argv) {
+        goto fail;
+    }
     native_ret = jit_cc_new_reg_I32(cc);
     arg_regs[0] = cc->exec_env_reg;
     arg_regs[1] = NEW_CONST(I32, tbl_idx);

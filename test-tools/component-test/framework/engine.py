@@ -1,3 +1,4 @@
+from __future__ import print_function
 #
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -28,7 +29,7 @@ def read_cases_from_file(file_path):
         content = f.readlines()
 
     content = [x.strip() for x in content]
-    print content
+    print(content)
     if len(content) == 0:
         return False, None
 

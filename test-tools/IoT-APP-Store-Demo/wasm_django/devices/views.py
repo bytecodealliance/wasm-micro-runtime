@@ -268,6 +268,6 @@ def removeapps(req):
     return render(req, 'appstore.html', {'alist': json.dumps(avaliable_list),'flist': json.dumps(user_file_list)})
 
 # Test
-if __name__ == "__main__":
-    print(device_list[0]['IP'])
-    print(device['IP'])
+# if __name__ == "__main__":
+#    print(device_list[0]['IP'])
+#    print(device['IP'])

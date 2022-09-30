@@ -7,17 +7,31 @@
 #include "platform_api_extension.h"
 #include "sgx_rsrv_mem_mngr.h"
 
+#if WASM_ENABLE_SGX_IPFS != 0
+#include "sgx_ipfs.h"
+#endif
+
 static os_print_function_t print_function = NULL;
 
 int
 bh_platform_init()
 {
-    return 0;
+    int ret = BHT_OK;
+
+#if WASM_ENABLE_SGX_IPFS != 0
+    ret = ipfs_init();
+#endif
+
+    return ret;
 }
 
 void
 bh_platform_destroy()
-{}
+{
+#if WASM_ENABLE_SGX_IPFS != 0
+    ipfs_destroy();
+#endif
+}
 
 void *
 os_malloc(unsigned size)
