@@ -4,6 +4,22 @@ WAMR supports source level debugging based on DWARF (normally used in C/C++/Rust
 
 **The lldb's ability to debug wasm application is based on the patch [Add class WasmProcess for WebAssembly debugging](https://reviews.llvm.org/D78801). Thanks very much to the author @paolosev for such a great work!**
 
+## Example app code
+
+The following `test.c` file is used in this document as example:
+
+```
+#include <stdio.h>
+
+int
+main(void)
+{
+	printf("hello\n");
+
+	return 0;
+}
+```
+
 ## Build wasm application with debug information
 To debug your application, you need to compile them with debug information. You can use `-g` option when compiling the source code if you are using wasi-sdk (also work for emcc and rustc):
 ``` bash
@@ -129,7 +145,7 @@ ${WAMR_ROOT}/wamr-compiler/build/wamrc --opt-level=0 --size-level=0 -o test.aot 
    Current breakpoints:
    1: name = 'main', locations = 2, resolved = 2, hit count = 2
      1.1: where = iwasm`main + 48 at main.c:294:11, address = 0x0000000100001020, resolved, hit count = 1
-     1.2: where = JIT(0x100298004)`main + 12 at hello.c:6:9, address = 0x00000001002980a0, resolved, hit count = 1
+     1.2: where = JIT(0x100298004)`main + 12 at test.c:6:9, address = 0x00000001002980a0, resolved, hit count = 1
 
    (lldb)
    ```
@@ -139,7 +155,7 @@ ${WAMR_ROOT}/wamr-compiler/build/wamrc --opt-level=0 --size-level=0 -o test.aot 
      * The first `main` function, which is in `main.c`, is the main
        function of the iwasm command.
 
-     * The second `main` function, which is in `hello.c`, is the main
+     * The second `main` function, which is in `test.c`, is the main
        function of the AOT-compiled wasm module.
 
    * WAMR AOT debugging uses the GDB JIT loader mechanism to load
