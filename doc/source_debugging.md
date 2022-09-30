@@ -106,7 +106,7 @@ ${WAMR_ROOT}/wamr-compiler/build/wamrc --opt-level=0 --size-level=0 -o test.aot 
    Then you can use lldb commands to debug both wamr runtime and your wasm application in ***current terminal***.
 
    ``` bash
-   % lldb iwasm -- test.aot
+   % ${WAMR_ROOT}/core/deps/llvm/build/bin/lldb ${WAMR_ROOT}/product-mini/platforms/linux/build/iwasm -- test.aot
    (lldb) target create "iwasm"
    Current executable set to 'iwasm' (x86_64).
    (lldb) settings set -- target.run-args  "test.aot"
