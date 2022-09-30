@@ -65,8 +65,8 @@ jobs:
   build_llvm_libraries:
     uses: ./.github/workflows/_build_llvm_libraries.yml
     with:
-      runs-on:   "['ubuntu-20.04', 'ubuntu-22.04']"
-      build-scripts-option: --project clang lldb
+      runs-on: "['ubuntu-20.04', 'ubuntu-22.04']"
+      build-lldb: true
 
   build_wamrc:
     needs: [build_llvm_libraries]
