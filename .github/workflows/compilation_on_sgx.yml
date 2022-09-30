@@ -53,7 +53,6 @@ jobs:
           access_token: ${{ github.token }}
 
   build_llvm_libraries:
-    #if: github.repository == 'bytecodealliance/wasm-micro-runtime'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -81,7 +80,7 @@ jobs:
 
       - name: Build llvm and clang from source
         id: build_llvm
-        if: ${{ steps.cache_llvm.outputs.cache-hit != 'true' }}
+        if: steps.cache_llvm.outputs.cache-hit != 'true'
         run: /usr/bin/env python3 ./build_llvm.py --arch X86 WebAssembly --project clang lldb
         working-directory: build-scripts
 
@@ -198,7 +197,7 @@ jobs:
           key: ${{ matrix.os }}-${{ env.LLVM_CACHE_SUFFIX }}
 
       - name: Quit if cache miss
-        if: ${{ steps.cache_llvm.outputs.cache-hit != 'true' }}
+        if: steps.cache_llvm.outputs.cache-hit != 'true'
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
 
       - name: Build wamrc
@@ -386,7 +385,7 @@ jobs:
           key: ubuntu-20.04-${{ env.LLVM_CACHE_SUFFIX }}
 
       - name: Quit if cache miss
-        if: ${{ steps.cache_llvm.outputs.cache-hit != 'true' }}
+        if: steps.cache_llvm.outputs.cache-hit != 'true'
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
 
       - name: install Ninja

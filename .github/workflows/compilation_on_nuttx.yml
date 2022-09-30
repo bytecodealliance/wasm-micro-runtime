@@ -78,11 +78,11 @@ jobs:
           pip3 install cxxfilt
 
       - name: Install ARM Compilers
-        if: ${{ contains(matrix.nuttx_board_config, 'arm') }}
+        if: contains(matrix.nuttx_board_config, 'arm')
         run: sudo apt install -y gcc-arm-none-eabi
 
       - name: Install RISC-V Compilers
-        if: ${{ contains(matrix.nuttx_board_config, 'risc-v') }}
+        if: contains(matrix.nuttx_board_config, 'risc-v')
         run: sudo apt install -y gcc-riscv64-unknown-elf
 
       - name: Checkout NuttX

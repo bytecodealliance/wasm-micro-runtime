@@ -88,7 +88,7 @@ jobs:
 
       - name: Build llvm and clang from source
         id: build_llvm
-        if: ${{ steps.cache_llvm.outputs.cache-hit != 'true' }}
+        if: steps.cache_llvm.outputs.cache-hit != 'true'
         run: /usr/bin/env python3 ./build_llvm.py --arch X86 WebAssembly --project clang lldb
         working-directory: build-scripts
 
@@ -121,7 +121,7 @@ jobs:
           key: ${{ matrix.os }}-${{ env.LLVM_CACHE_SUFFIX }}
 
       - name: Quit if cache miss
-        if: ${{ steps.cache_llvm.outputs.cache-hit != 'true' }}
+        if: steps.cache_llvm.outputs.cache-hit != 'true'
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
 
       - name: Build wamrc
@@ -429,7 +429,7 @@ jobs:
         working-directory: ./tests/wamr-test-suites
 
   spec_test_extra:
-    if: ${{ endsWith(github.repository, 'wasm-micro-runtime') }}
+    if: endsWith(github.repository, 'wasm-micro-runtime')
     needs: [build_iwasm, build_llvm_libraries, build_wamrc]
     runs-on: ubuntu-20.04
     strategy:
@@ -469,7 +469,7 @@ jobs:
         working-directory: ./tests/wamr-test-suites
 
   spec_test_x86_32:
-    if: ${{ endsWith(github.repository, 'wasm-micro-runtime') }}
+    if: endsWith(github.repository, 'wasm-micro-runtime')
     needs: [build_iwasm, build_llvm_libraries, build_wamrc]
     runs-on: ubuntu-20.04
     strategy:
