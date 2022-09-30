@@ -73,6 +73,12 @@ Then you can use lldb commands to debug your applications. Please refer to [lldb
 
 > Note: AOT debugging is experimental and only a few debugging capabilities are supported.
 
+0. Optionally, build llvm if not done already
+``` bash
+cd ${WAMR_ROOT}/wamr-compiler
+./build_llvm.sh  # (or "./build_llvm_xtensa.sh" to support xtensa target)
+```
+
 1. Build lldb (assume you have already built llvm)
 ``` bash
 cd ${WAMR_ROOT}/core/deps/llvm/build
