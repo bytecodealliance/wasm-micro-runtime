@@ -25,12 +25,12 @@ typedef uint32 (*HashFunc)(const void *key);
 typedef bool (*KeyEqualFunc)(void *key1, void *key2);
 
 /* Key destroy function: to destroy the key, auto called
-   when an hash element is removed. */
+   for each key when the hash map is destroyed. */
 typedef void (*KeyDestroyFunc)(void *key);
 
 /* Value destroy function: to destroy the value, auto called
-   when an hash element is removed. */
-typedef void (*ValueDestroyFunc)(void *key);
+   for each value when the hash map is destroyed. */
+typedef void (*ValueDestroyFunc)(void *value);
 
 /* traverse callback function:
    auto called when traverse every hash element */
@@ -44,10 +44,10 @@ typedef void (*TraverseCallbackFunc)(void *key, void *value, void *user_data);
  * @param hash_func hash function of the key, must be specified
  * @param key_equal_func key equal function, check whether two keys
  *                       are equal, must be specified
- * @param key_destroy_func key destroy function, called when an hash element
- *                         is removed if it is not NULL
- * @param value_destroy_func value destroy function, called when an hash
- *                           element is removed if it is not NULL
+ * @param key_destroy_func key destroy function, called for each key if not NULL
+ *                         when the hash map is destroyed
+ * @param value_destroy_func value destroy function, called for each value if
+ *                           not NULL when the hash map is destroyed
  *
  * @return the hash map created, NULL if failed
  */

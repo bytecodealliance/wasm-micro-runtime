@@ -1,3 +1,4 @@
+from __future__ import print_function
 #
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -12,7 +13,7 @@ logger = None
 
 def api_init_log(log_path):
     global logger
-    print "api_init_log: " + log_path
+    print("api_init_log: " + log_path)
     logger = logging.getLogger(__name__)
 
     logger.setLevel(level = logging.INFO)
@@ -32,7 +33,7 @@ def api_init_log(log_path):
 def api_log(message):
     global logger
     if logger is None:
-        print message
+        print(message)
     else:
         logger.info (message)
     return
@@ -40,7 +41,7 @@ def api_log(message):
 def api_log_error(message):
     global logger
     if logger is None:
-        print message
+        print(message)
     else:
         logger.error (message)
     return
@@ -48,7 +49,7 @@ def api_log_error(message):
 def api_logv(message):
     global logger
     if logger is None:
-        print message
+        print(message)
     else:
         logger.info(message)
     return

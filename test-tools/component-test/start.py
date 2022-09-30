@@ -10,6 +10,7 @@
 It is the entrance of the iagent test framework.
 
 """
+from __future__ import print_function
 
 import argparse
 import datetime
@@ -84,9 +85,9 @@ if __name__ == "__main__":
             help = 'rebuild all test binaries')
     args = parser.parse_args()
 
-    print "------------------------------------------------------------"
-    print "parsing arguments ... ..."
-    print args
+    print("------------------------------------------------------------")
+    print("parsing arguments ... ...")
+    print(args)
 
     '''
     logger = logging.getLogger('coapthon.server.coap')
@@ -95,8 +96,8 @@ if __name__ == "__main__":
     console.setLevel(logging.DEBUG)
     logger.addHandler(console)
     '''
-    print "------------------------------------------------------------"
-    print "preparing wamr binary and test tools ... ..."
+    print("------------------------------------------------------------")
+    print("preparing wamr binary and test tools ... ...")
     os.system("cd ../../samples/simple/ && bash build.sh -p host-interp")
 
     Register_signal_handler()
@@ -124,9 +125,9 @@ if __name__ == "__main__":
     if  binary_path is None:
         binary_path = os.path.abspath(dirname + '/../..')
 
-    print "checking execution binary path: " + binary_path
+    print("checking execution binary path: " + binary_path)
     if not os.path.exists(binary_path):
-        print "The execution binary path was not available. quit..."
+        print("The execution binary path was not available. quit...")
         os._exit(0)
     api_set_value('binary_path', binary_path)
 
@@ -138,11 +139,11 @@ if __name__ == "__main__":
     framework.target_cases = cases_list
     framework.start_run()
 
-    print "\n\n------------------------------------------------------------"
-    print "The run folder is [" + framework.running_folder +"]"
-    print "that's all. bye"
+    print("\n\n------------------------------------------------------------")
+    print("The run folder is [" + framework.running_folder +"]")
+    print("that's all. bye")
 
-    print "kill to quit.."
+    print("kill to quit..")
     t_kill_process_by_name("start.py")
 
     sys.exit(0)

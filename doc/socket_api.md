@@ -64,6 +64,14 @@ should be announced first. Every IP address should be in CIRD notation.
 $ iwasm --addr-pool=1.2.3.4/15,2.3.4.6/16 socket_example.wasm
 ```
 
+_iwasm_ also accepts list of domain names and domain name patterns for the address resolution via an option, `--allow-resolve`, to implement the capability control. Every domain that will be resolved using `sock_addr_resolve` needs to be added to the allowlist first.
+
+```bash
+$ iwasm --allow-resolve=*.example.com --allow-resolve=domain.com
+```
+
+The example above shows how to allow for resolving all `example.com`'s subdomains (e.g. `x.example.com`, `a.b.c.example.com`) and `domain.com` domain.
+
 Refer to [socket api sample](../samples/socket-api) for more details.
 
 ## Intel SGX support

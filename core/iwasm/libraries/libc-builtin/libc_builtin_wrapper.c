@@ -345,9 +345,24 @@ sprintf_out(int c, struct str_context *ctx)
     return c;
 }
 
-#ifdef BH_PLATFORM_OPENRTOS
-PRIVILEGED_DATA static char print_buf[128] = { 0 };
-PRIVILEGED_DATA static int print_buf_size = 0;
+#ifndef BUILTIN_LIBC_BUFFERED_PRINTF
+#define BUILTIN_LIBC_BUFFERED_PRINTF 0
+#endif
+
+#ifndef BUILTIN_LIBC_BUFFERED_PRINT_SIZE
+#define BUILTIN_LIBC_BUFFERED_PRINT_SIZE 128
+#endif
+#ifndef BUILTIN_LIBC_BUFFERED_PRINT_PREFIX
+#define BUILTIN_LIBC_BUFFERED_PRINT_PREFIX
+#endif
+
+#if BUILTIN_LIBC_BUFFERED_PRINTF != 0
+
+BUILTIN_LIBC_BUFFERED_PRINT_PREFIX
+static char print_buf[BUILTIN_LIBC_BUFFERED_PRINT_SIZE] = { 0 };
+
+BUILTIN_LIBC_BUFFERED_PRINT_PREFIX
+static int print_buf_size = 0;
 
 static int
 printf_out(int c, struct str_context *ctx)

@@ -356,6 +356,15 @@ jobs:
           ./build.sh
           ./run.sh
 
+      - name: Build Sample [file]
+        if: ${{ matrix.light == 'green' }}
+        run: |
+          cd samples/file
+          mkdir build && cd build
+          cmake ..
+          cmake --build . --config Release --parallel 4
+          ./src/iwasm -f wasm-app/file.wasm -d .
+
       - name: Build Sample [multi-thread]
         if: ${{ matrix.light == 'green' }}
         run: |

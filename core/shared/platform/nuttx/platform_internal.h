@@ -22,6 +22,7 @@
 #include <unistd.h>
 #include <math.h>
 #include <sys/ioctl.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/mman.h>
@@ -76,6 +77,10 @@ typedef sem_t korp_sem;
 #else
 #define CONFIG_HAS_ISATTY 0
 #endif
+
+#define BUILTIN_LIBC_BUFFERED_PRINTF 1
+#define BUILTIN_LIBC_BUFFERED_PRINT_SIZE 128
+#define BUILTIN_LIBC_BUFFERED_PRINT_PREFIX
 
 /*
  * NuttX doesn't have openat family.
