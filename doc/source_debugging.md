@@ -76,13 +76,13 @@ make -j $(nproc)
 ``` bash
 cd ${WAMR_ROOT}/product-mini/platforms/linux
 mkdir build && cd build
-cmake .. -DWAMR_BUILD_DEBUG_AOT=1
+cmake .. -DCMAKE_BUILD_TYPE:STRING="Debug" -DWAMR_BUILD_DEBUG_AOT=1
 make
 ```
 
 4. Compile wasm module to AOT module
 ``` bash
-wamrc -o test.aot test.wasm
+${WAMR_ROOT}/wamr-compiler/build/wamrc --opt-level=0 --size-level=0 -o test.aot test.wasm
 ```
 
 5. Execute iwasm using lldb
