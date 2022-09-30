@@ -52,7 +52,7 @@ endif ()
 ################ optional according to settings ################
 if (WAMR_BUILD_INTERP EQUAL 1 OR WAMR_BUILD_JIT EQUAL 1
     OR WAMR_BUILD_FAST_JIT EQUAL 1)
-    if (WAMR_BUILD_FAST_JIT EQUAL 1)
+    if (WAMR_BUILD_FAST_JIT EQUAL 1 OR WAMR_BUILD_JIT EQUAL 1)
         set (WAMR_BUILD_FAST_INTERP 0)
     endif ()
     include (${IWASM_DIR}/interpreter/iwasm_interp.cmake)

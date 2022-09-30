@@ -219,7 +219,7 @@ function unit_test()
         make -ki clean | true
         cmake ${compile_flag} ${WORK_DIR}/../../unit && make -j 4
         if [ "$?" != 0 ];then
-            echo -e "\033[31mbuild unit test failed, you may need to change wamr into dev/aot branch and ensure llvm is built \033[0m"
+            echo -e "build unit test failed, you may need to change wamr into dev/aot branch and ensure llvm is built"
             exit 1
         fi
 
@@ -486,7 +486,7 @@ function build_iwasm_with_cfg()
     fi
 
     if [ "$?" != 0 ];then
-        echo -e "\033[31mbuild iwasm failed \033[0m"
+        echo -e "build iwasm failed"
         exit 1
     fi
 }
@@ -644,7 +644,7 @@ else
     # Add more suites here
 fi
 
-echo -e "\033[32mTest finish. Reports are under ${REPORT_DIR} \033[0m"
+echo -e "Test finish. Reports are under ${REPORT_DIR}"
 DEBUG set +xv pipefail
 echo "TEST SUCCESSFUL"
 exit 0

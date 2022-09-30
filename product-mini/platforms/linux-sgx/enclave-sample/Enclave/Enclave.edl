@@ -4,6 +4,7 @@
  */
 
 #define LIB_RATS 0
+#define SGX_IPFS 0
 
 enclave {
     from "sgx_tstdc.edl" import *;
@@ -11,6 +12,9 @@ enclave {
     from "sgx_wamr.edl" import *;
 #if LIB_RATS != 0
     from "rats.edl" import *;
+#endif
+#if SGX_IPFS != 0
+    from "sgx_tprotected_fs.edl" import *;
 #endif
 
     trusted {

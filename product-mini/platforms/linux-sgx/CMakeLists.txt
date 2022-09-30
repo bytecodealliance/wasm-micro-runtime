@@ -84,6 +84,11 @@ if (NOT DEFINED WAMR_BUILD_SIMD)
   set (WAMR_BUILD_SIMD 0)
 endif ()
 
+if (NOT DEFINED WAMR_BUILD_SGX_IPFS)
+  # Disable SGX IPFS by default
+  set (WAMR_BUILD_SGX_IPFS 0)
+endif ()
+
 if (COLLECT_CODE_COVERAGE EQUAL 1)
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-arcs -ftest-coverage")
 endif ()
@@ -114,6 +119,26 @@ if (WAMR_BUILD_LIB_RATS EQUAL 1)
 else()
     execute_process(
         COMMAND bash -c "sed -i -E 's/^#define LIB_RATS 1/#define LIB_RATS 0/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Enclave/Enclave.edl"
+        OUTPUT_VARIABLE cmdOutput
+    )
+endif()
+
+if (WAMR_BUILD_SGX_IPFS EQUAL 1)
+    execute_process(
+        COMMAND bash -c "sed -i -E 's/^#define SGX_IPFS 0/#define SGX_IPFS 1/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Enclave/Enclave.edl"
+        OUTPUT_VARIABLE cmdOutput
+    )
+    execute_process(
+        COMMAND bash -c "sed -i -E 's/^SGX_IPFS = 0/SGX_IPFS = 1/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Makefile"
+        OUTPUT_VARIABLE cmdOutput
+    )
+else()
+    execute_process(
+        COMMAND bash -c "sed -i -E 's/^#define SGX_IPFS 1/#define SGX_IPFS 0/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Enclave/Enclave.edl"
+        OUTPUT_VARIABLE cmdOutput
+    )
+    execute_process(
+        COMMAND bash -c "sed -i -E 's/^SGX_IPFS = 1/SGX_IPFS = 0/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Makefile"
         OUTPUT_VARIABLE cmdOutput
     )
 endif()

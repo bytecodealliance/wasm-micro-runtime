@@ -11,4 +11,4 @@ import sys
 script = (
     pathlib.Path(__file__).parent.joinpath("../build-scripts/build_llvm.py").resolve()
 )
-subprocess.check_call([sys.executable, script.name])
+subprocess.check_call([sys.executable, script])
