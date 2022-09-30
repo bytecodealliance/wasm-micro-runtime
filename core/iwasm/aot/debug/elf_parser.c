@@ -12,7 +12,7 @@
 #include <errno.h>
 #include <stdbool.h>
 
-#include <elf.h>
+#include "elf.h"
 
 #include "aot_runtime.h"
 #include "bh_log.h"

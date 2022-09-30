@@ -248,14 +248,18 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
         tbl_inst = module_inst->tables[table_seg->table_index];
         bh_assert(tbl_inst);
 
+#if WASM_ENABLE_REF_TYPES != 0
         bh_assert(
             table_seg->offset.init_expr_type == INIT_EXPR_TYPE_I32_CONST
             || table_seg->offset.init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL
-#if WASM_ENABLE_REF_TYPES != 0
             || table_seg->offset.init_expr_type == INIT_EXPR_TYPE_FUNCREF_CONST
-            || table_seg->offset.init_expr_type == INIT_EXPR_TYPE_REFNULL_CONST
+            || table_seg->offset.init_expr_type
+                   == INIT_EXPR_TYPE_REFNULL_CONST);
+#else
+        bh_assert(table_seg->offset.init_expr_type == INIT_EXPR_TYPE_I32_CONST
+                  || table_seg->offset.init_expr_type
+                         == INIT_EXPR_TYPE_GET_GLOBAL);
 #endif
-        );
 
         /* Resolve table data base offset */
         if (table_seg->offset.init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL) {
@@ -1059,9 +1063,11 @@ aot_instantiate(AOTModule *module, bool is_sub_inst, uint32 stack_size,
                 module->wasi_args.map_dir_list, module->wasi_args.map_dir_count,
                 module->wasi_args.env, module->wasi_args.env_count,
                 module->wasi_args.addr_pool, module->wasi_args.addr_count,
-                module->wasi_args.argv, module->wasi_args.argc,
-                module->wasi_args.stdio[0], module->wasi_args.stdio[1],
-                module->wasi_args.stdio[2], error_buf, error_buf_size))
+                module->wasi_args.ns_lookup_pool,
+                module->wasi_args.ns_lookup_count, module->wasi_args.argv,
+                module->wasi_args.argc, module->wasi_args.stdio[0],
+                module->wasi_args.stdio[1], module->wasi_args.stdio[2],
+                error_buf, error_buf_size))
             goto fail;
     }
 #endif
@@ -2344,6 +2350,9 @@ lookup_func_name(const char **func_names, uint32 *func_indexes,
     int64 low = 0, mid;
     int64 high = func_index_count - 1;
 
+    if (!func_names || !func_indexes || func_index_count == 0)
+        return NULL;
+
     while (low <= high) {
         mid = (low + high) / 2;
         if (func_index == func_indexes[mid]) {
@@ -2503,7 +2512,7 @@ aot_dump_call_stack(WASMExecEnv *exec_env, bool print, char *buf, uint32 len)
         return 0;
     }
 
-    total_frames = bh_vector_size(module_inst->frames);
+    total_frames = (uint32)bh_vector_size(module_inst->frames);
     if (total_frames == 0) {
         return 0;
     }

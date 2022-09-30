@@ -1,3 +1,4 @@
+from __future__ import print_function
 #
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -66,7 +67,7 @@ class CTestFramework(object):
 
         api_set_root_path(path)
 
-        print "root_path is " + self.root_path
+        print("root_path is " + self.root_path)
 
     def gen_execution_stats(self):
         return '\nTest Execution Summary: '  \
@@ -103,7 +104,7 @@ class CTestFramework(object):
         module_name = 'suites.' + suite + ".cases." + case + ".case"
         try:
             module = my_import(module_name)
-        except Exception, e:
+        except Exception as e:
             report_fail("load case fail: " + str(e))
             api_log_error("load case fail: " + str(e))
             self.load_fails = self.load_fails +1
@@ -112,7 +113,7 @@ class CTestFramework(object):
 
         try:
             case = module.CTestCase(suite_instance)
-        except Exception, e:
+        except Exception as e:
             report_fail("initialize case fail: " + str(e))
             api_log_error("initialize case fail: " + str(e))
             self.load_fails = self.load_fails +1
@@ -122,7 +123,7 @@ class CTestFramework(object):
         try:
             case_description = case.on_get_case_description()
             result, message = case.on_setup_case()
-        except Exception, e:
+        except Exception as e:
             result = False
             message = str(e);
         if not result:
@@ -134,7 +135,7 @@ class CTestFramework(object):
         # call the case execution callaback
         try:
             result, message = case.on_run_case()
-        except Exception, e:
+        except Exception as e:
             result = False
             message = str(e);
         if not result:
@@ -148,7 +149,7 @@ class CTestFramework(object):
         # call the case cleanup callback
         try:
             clean_result, message = case.on_cleanup_case()
-        except Exception, e:
+        except Exception as e:
             clean_result = False
             message = str(e)
 
@@ -166,7 +167,7 @@ class CTestFramework(object):
         module_name = 'suites.' + suite + ".suite_setup"
         try:
             module = my_import(module_name)
-        except Exception, e:
+        except Exception as e:
             report_fail("load suite [" + suite +"] fail: " + str(e))
             self.load_fails = self.load_fails +1
             return False
@@ -174,7 +175,7 @@ class CTestFramework(object):
         try:
             suite_instance = module.CTestSuite(suite, \
                 self.root_path + '/suites/' + suite, running_folder)
-        except Exception, e:
+        except Exception as e:
             report_fail("initialize suite fail: " + str(e))
             self.load_fails = self.load_fails +1
             return False
@@ -187,7 +188,7 @@ class CTestFramework(object):
 
         try:
             result, message = suite_instance.on_suite_setup()
-        except Exception, e:
+        except Exception as e:
             result = False
             message = str(e);
         if not result:
@@ -213,7 +214,7 @@ class CTestFramework(object):
         self.running_suite = ''
         try:
             result, message = suite_instance.on_suite_cleanup()
-        except Exception, e:
+        except Exception as e:
             result = False
             message = str(e);
         if not result:
@@ -224,7 +225,7 @@ class CTestFramework(object):
 
     def start_run(self):
         if self.target_suites is None:
-            print "\n\nstart run: no target suites, exit.."
+            print("\n\nstart run: no target suites, exit..")
             return
 
         cur_time = time.localtime()
@@ -268,7 +269,7 @@ class CTestFramework(object):
         self.report.write(summary);
         self.report.flush()
         self.report.close()
-        print summary
+        print(summary)
 
 
 def report_fail(message, case_description=''):

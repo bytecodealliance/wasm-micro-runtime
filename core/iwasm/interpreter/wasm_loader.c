@@ -1953,8 +1953,8 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
             local_type_index = 0;
             for (j = 0; j < local_set_count; j++) {
                 read_leb_uint32(p_code, buf_code_end, sub_local_count);
-                if (!sub_local_count
-                    || local_type_index > UINT32_MAX - sub_local_count
+                /* Note: sub_local_count is allowed to be 0 */
+                if (local_type_index > UINT32_MAX - sub_local_count
                     || local_type_index + sub_local_count > local_count) {
                     set_error_buf(error_buf, error_buf_size,
                                   "invalid local count");
@@ -2910,7 +2910,7 @@ load_user_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
         section->name_addr = (char *)p;
         section->name_len = name_len;
         section->content_addr = (uint8 *)(p + name_len);
-        section->content_len = p_end - p - name_len;
+        section->content_len = (uint32)(p_end - p - name_len);
 
         section->next = module->custom_section_list;
         module->custom_section_list = section;
@@ -3388,6 +3388,13 @@ load_from_sections(WASMModule *module, WASMSection *sections,
         WASMFunction *func = module->functions[i];
         if (!wasm_loader_prepare_bytecode(module, func, i, error_buf,
                                           error_buf_size)) {
+            return false;
+        }
+
+        if (i == module->function_count - 1
+            && func->code + func->code_size != buf_code_end) {
+            set_error_buf(error_buf, error_buf_size,
+                          "code section size mismatch");
             return false;
         }
     }

@@ -1704,19 +1704,23 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
             continue;
 #endif
 
-        /* init vec(funcidx) or vec(expr) */
-        bh_assert(
-            table_seg->base_offset.init_expr_type == INIT_EXPR_TYPE_I32_CONST
-            || table_seg->base_offset.init_expr_type
-                   == INIT_EXPR_TYPE_GET_GLOBAL
 #if WASM_ENABLE_REF_TYPES != 0
-            || table_seg->base_offset.init_expr_type
-                   == INIT_EXPR_TYPE_FUNCREF_CONST
-            || table_seg->base_offset.init_expr_type
-                   == INIT_EXPR_TYPE_REFNULL_CONST
+        bh_assert(table_seg->base_offset.init_expr_type
+                      == INIT_EXPR_TYPE_I32_CONST
+                  || table_seg->base_offset.init_expr_type
+                         == INIT_EXPR_TYPE_GET_GLOBAL
+                  || table_seg->base_offset.init_expr_type
+                         == INIT_EXPR_TYPE_FUNCREF_CONST
+                  || table_seg->base_offset.init_expr_type
+                         == INIT_EXPR_TYPE_REFNULL_CONST);
+#else
+        bh_assert(table_seg->base_offset.init_expr_type
+                      == INIT_EXPR_TYPE_I32_CONST
+                  || table_seg->base_offset.init_expr_type
+                         == INIT_EXPR_TYPE_GET_GLOBAL);
 #endif
-        );
 
+        /* init vec(funcidx) or vec(expr) */
         if (table_seg->base_offset.init_expr_type
             == INIT_EXPR_TYPE_GET_GLOBAL) {
             if (!check_global_init_expr(module,
@@ -1812,9 +1816,11 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
                 module->wasi_args.map_dir_list, module->wasi_args.map_dir_count,
                 module->wasi_args.env, module->wasi_args.env_count,
                 module->wasi_args.addr_pool, module->wasi_args.addr_count,
-                module->wasi_args.argv, module->wasi_args.argc,
-                module->wasi_args.stdio[0], module->wasi_args.stdio[1],
-                module->wasi_args.stdio[2], error_buf, error_buf_size)) {
+                module->wasi_args.ns_lookup_pool,
+                module->wasi_args.ns_lookup_count, module->wasi_args.argv,
+                module->wasi_args.argc, module->wasi_args.stdio[0],
+                module->wasi_args.stdio[1], module->wasi_args.stdio[2],
+                error_buf, error_buf_size)) {
             goto fail;
         }
     }
@@ -2716,7 +2722,7 @@ wasm_interp_dump_call_stack(struct WASMExecEnv *exec_env, bool print, char *buf,
         return 0;
     }
 
-    total_frames = bh_vector_size(module_inst->frames);
+    total_frames = (uint32)bh_vector_size(module_inst->frames);
     if (total_frames == 0) {
         return 0;
     }
