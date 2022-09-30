@@ -9,6 +9,6 @@
 #ifndef _WAMR_VERSION_H_
 #define _WAMR_VERSION_H_
 #define WAMR_VERSION_MAJOR 1
-#define WAMR_VERSION_MINOR 0
+#define WAMR_VERSION_MINOR 1
 #define WAMR_VERSION_PATCH 0
 #endif
