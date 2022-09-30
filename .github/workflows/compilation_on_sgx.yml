@@ -60,9 +60,6 @@ jobs:
         include:
           - os: ubuntu-20.04
     steps:
-      - name: os status
-        run: echo "matrix.os=${{ matrix.os }}"
-
       - name: checkout
         uses: actions/checkout@v3
 
@@ -130,9 +127,6 @@ jobs:
         include:
           - os: ubuntu-20.04
     steps:
-      - name: os status
-        run: echo "matrix.os=${{ matrix.os }}"
-
       - name: install SGX SDK and necessary libraries
         run: |
           mkdir -p /opt/intel
@@ -165,9 +159,6 @@ jobs:
         include:
           - os: ubuntu-20.04
     steps:
-      - name: os status
-        run: echo "matrix.os=${{ matrix.os }}"
-
       - name: install SGX SDK and necessary libraries
         run: |
           mkdir -p /opt/intel
@@ -227,9 +218,6 @@ jobs:
             wasi_sdk_release: https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz
             wabt_release: https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-ubuntu.tar.gz
     steps:
-      - name: os status
-        run: echo "matrix.os=${{ matrix.os }}"
-
       - name: checkout
         uses: actions/checkout@v3
 
@@ -280,9 +268,6 @@ jobs:
             wasi_sdk_release: https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz
             wabt_release: https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-ubuntu.tar.gz
     steps:
-      - name: os status
-        run: echo "matrix.os=${{ matrix.os }}"
-
       - name: checkout
         uses: actions/checkout@v3
 
