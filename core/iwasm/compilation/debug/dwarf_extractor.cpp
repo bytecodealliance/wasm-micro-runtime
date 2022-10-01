@@ -214,19 +214,6 @@ dwarf_gen_comp_unit_info(AOTCompContext *comp_ctx)
     return comp_unit;
 }
 
-bool
-dwarf_get_func_info(dwar_extractor_handle_t handle, uint64_t offset)
-{
-    dwar_extractor *extractor = TO_EXTACTOR(handle);
-    auto sbaddr = extractor->target.ResolveFileAddress(offset);
-    SBSymbolContext sc(sbaddr.GetSymbolContext(eSymbolContextFunction));
-    if (sc.IsValid()) {
-        SBFunction function(sc.GetFunction());
-        if (function.IsValid()) {
-        }
-    }
-}
-
 static LLVMDWARFTypeEncoding
 lldb_get_basic_type_encoding(BasicType basic_type)
 {

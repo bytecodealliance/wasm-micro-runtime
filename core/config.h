@@ -399,4 +399,8 @@
 #define WASM_ENABLE_REF_TYPES 0
 #endif
 
+#ifndef WASM_ENABLE_SGX_IPFS
+#define WASM_ENABLE_SGX_IPFS 0
+#endif
+
 #endif /* end of _CONFIG_H_ */
