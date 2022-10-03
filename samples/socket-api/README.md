@@ -93,18 +93,76 @@ Data:
 
 `socket_opts.wasm` shows an example of getting and setting various supported socket options
 ```bash
-$ ./iwasm ./socket_opts.wasm setget
+$ ./iwasm socket_opts.wasm
+```
+The output is:
+```bash
+[Client] Create TCP socket
+[Client] Create UDP socket
+[Client] Create UDP IPv6 socket
+setsockopt SO_RCVTIMEO result is expected
+getsockopt SO_RCVTIMEO result is expected
+...
+[Client] Close sockets
 ```
 
-The different examples that are demonstrated in `socket_opts`:
-* `setget` - Sets and gets various socket options supported by WAMR
-    * `./iwasm socket_opts.wasm setget`
-* `timeout_server` & `timeout_client` - Demonstrates a send/recv timeout using the `SO_SNDTIMEO` & `SO_RCVTIMEO` socket options. 
-    * `./iwasm --addr-pool=0.0.0.0/15 socket_opts.wasm timeout_server`
-    * `./iwasm --addr-pool=127.0.0.1/15 --heap-size=10000000 socket_opts.wasm timeout_client`
-* `multicast_client` & `multicast_server` - Demonstrates how to recv multicast datagrams. 
-    * `./iwasm --addr-pool=127.0.0.1/15 --heap-size=10000000 socket_opts.wasm multicast_client`
-    * `./socket_opts.wasm multicast_server` (Only the client is run with WAMR, as sending multicast datagrams is unsupported)
+The `timeout_client.wasm` and `timeout_server.wasm` examples demonstrate socket send and receive timeouts using the socket options. Start the server, then start the client.
+
+```bash
+$ ./iwasm --addr-pool=0.0.0.0/15 timeout_server.wasm
+```
+
+The output is:
+
+```bash
+Wait for client to connect
+Client connected, sleeping for 10s
+Shuting down
+```
+
+```bash
+$ ./iwasm --addr-pool=127.0.0.1/15 --heap-size=10000000 timeout_client.wasm
+```
+
+The output is:
+
+```bash
+Waiting on recv, which should timeout
+recv timeout is expected
+errno EAGAIN is expected
+Waiting on send, which should timeout
+expect partial send transmission is expected
+expected quick send return is expected
+Closing socket 
+```
+
+The `multicast_client` and `multicast_server` examples demonstrate receiving multicast packets in WASM. Start the client and then the server with a multicast IP address and port. 
+
+```bash
+$ ./iwasm --addr-pool=0.0.0.0/0,::/0 multicast_client.wasm <Multicast IP> <Port>
+$ ./iwasm --addr-pool=0.0.0.0/0,::/0 multicast_client.wasm 224.0.0.1
+$ ./iwasm --addr-pool=0.0.0.0/0,::/0 multicast_client.wasm FF02:113D:6FDD:2C17:A643:FFE2:1BD1:3CD2
+```
+
+The output should be
+
+```bash
+Joined multicast group. Waiting for datagram...
+Reading datagram message...OK.
+The message from multicast server is: "Test message"
+```
+
+```bash
+$ ./multicast_server <Multicast IP> <Port>
+$ ./multicast_server 224.0.0.1
+$ ./multicast_server FF02:113D:6FDD:2C17:A643:FFE2:1BD1:3CD2
+```
+
+The output should be
+
+```bash
+Datagram sent
+```
 
 ### Domain name server resolution
 

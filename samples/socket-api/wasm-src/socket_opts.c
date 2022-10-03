@@ -1,7 +1,6 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <netinet/tcp.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -71,9 +70,7 @@ test_set_and_get_opts()
     int result;
     struct linger linger_opt;
     uint32_t time_s;
-    struct ip_mreq mcast;
-    struct ipv6_mreq mcast_ipv6;
-    unsigned char ttl;
+    int ttl;
 
     printf("[Client] Create TCP socket\n");
     tcp_socket_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -133,7 +130,8 @@ test_set_and_get_opts()
     result =
         getsockopt(tcp_socket_fd, SOL_SOCKET, SO_SNDBUF, &buf_len, &opt_len);
     OPTION_ASSERT(result, 0, "getsockopt SO_SNDBUF result")
-    OPTION_ASSERT(buf_len, 16384, "SO_SNDBUF buf_len");
+    OPTION_ASSERT((buf_len == 16384 || buf_len == 8192), 1,
+                  "SO_SNDBUF buf_len");
 
     // SO_RCVBUF
     buf_len = 4096;
@@ -146,7 +144,7 @@ test_set_and_get_opts()
     result =
         getsockopt(tcp_socket_fd, SOL_SOCKET, SO_RCVBUF, &buf_len, &opt_len);
     OPTION_ASSERT(result, 0, "getsockopt SO_RCVBUF result")
-    OPTION_ASSERT(buf_len, 8192, "SO_RCVBUF buf_len");
+    OPTION_ASSERT((buf_len == 8192 || buf_len == 4096), 1, "SO_SNDBUF buf_len");
 
     // SO_KEEPALIVE
     OPTION_ASSERT(
@@ -197,6 +195,7 @@ test_set_and_get_opts()
         "SO_BROADCAST disabled");
 
     // TCP_KEEPIDLE
+#ifdef TCP_KEEPIDLE
     time_s = 16;
     result = setsockopt(tcp_socket_fd, IPPROTO_TCP, TCP_KEEPIDLE, &time_s,
                         sizeof(time_s));
@@ -208,6 +207,7 @@ test_set_and_get_opts()
         getsockopt(tcp_socket_fd, IPPROTO_TCP, TCP_KEEPIDLE, &time_s, &opt_len);
     OPTION_ASSERT(result, 0, "getsockopt TCP_KEEPIDLE result")
     OPTION_ASSERT(time_s, 16, "TCP_KEEPIDLE");
+#endif
 
     // TCP_KEEPINTVL
     time_s = 8;
@@ -223,12 +223,14 @@ test_set_and_get_opts()
     OPTION_ASSERT(time_s, 8, "TCP_KEEPINTVL");
 
     // TCP_FASTOPEN_CONNECT
+#ifdef TCP_FASTOPEN_CONNECT
     OPTION_ASSERT(set_and_get_bool_opt(tcp_socket_fd, IPPROTO_TCP,
                                        TCP_FASTOPEN_CONNECT, 1),
                   1, "TCP_FASTOPEN_CONNECT enabled");
     OPTION_ASSERT(set_and_get_bool_opt(tcp_socket_fd, IPPROTO_TCP,
                                        TCP_FASTOPEN_CONNECT, 0),
                   0, "TCP_FASTOPEN_CONNECT disabled");
+#endif
 
     // TCP_NODELAY
     OPTION_ASSERT(
@@ -239,12 +241,14 @@ test_set_and_get_opts()
         "TCP_NODELAY disabled");
 
     // TCP_QUICKACK
+#ifdef TCP_QUICKACK
     OPTION_ASSERT(
         set_and_get_bool_opt(tcp_socket_fd, IPPROTO_TCP, TCP_QUICKACK, 1), 1,
         "TCP_QUICKACK enabled");
     OPTION_ASSERT(
         set_and_get_bool_opt(tcp_socket_fd, IPPROTO_TCP, TCP_QUICKACK, 0), 0,
         "TCP_QUICKACK disabled");
+#endif
 
     // IP_TTL
     ttl = 8;
@@ -272,18 +276,6 @@ test_set_and_get_opts()
         set_and_get_bool_opt(udp_socket_fd, IPPROTO_IP, IP_MULTICAST_LOOP, 0),
         0, "IP_MULTICAST_LOOP disabled");
 
-    // IP_ADD_MEMBERSHIP
-    mcast.imr_multiaddr.s_addr = MULTICAST_ADDR;
-    mcast.imr_interface.s_addr = htonl(INADDR_ANY);
-    result = setsockopt(udp_socket_fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mcast,
-                        sizeof(mcast));
-    OPTION_ASSERT(result, 0, "IP_ADD_MEMBERSHIP");
-
-    // IP_DROP_MEMBERSHIP
-    result = setsockopt(udp_socket_fd, IPPROTO_IP, IP_DROP_MEMBERSHIP, &mcast,
-                        sizeof(mcast));
-    OPTION_ASSERT(result, 0, "IP_DROP_MEMBERSHIP");
-
     // IP_MULTICAST_TTL
     ttl = 8;
     result = setsockopt(udp_socket_fd, IPPROTO_IP, IP_MULTICAST_TTL, &ttl,
@@ -303,16 +295,6 @@ test_set_and_get_opts()
     OPTION_ASSERT(set_and_get_bool_opt(udp_ipv6_socket_fd, IPPROTO_IPV6,
                                        IPV6_MULTICAST_LOOP, 0),
                   0, "IPV6_MULTICAST_LOOP disabled");
-
-    // IPV6_JOIN_GROUP
-    result = setsockopt(udp_ipv6_socket_fd, IPPROTO_IPV6, IPV6_JOIN_GROUP,
-                        &mcast_ipv6, sizeof(mcast_ipv6));
-    // OPTION_ASSERT(result, 0, "IPV6_JOIN_GROUP");
-
-    // IPV6_LEAVE_GROUP
-    result = setsockopt(udp_ipv6_socket_fd, IPPROTO_IPV6, IPV6_LEAVE_GROUP,
-                        &mcast_ipv6, sizeof(mcast_ipv6));
-    // OPTION_ASSERT(result, 0, "IPV6_LEAVE_GROUP");
 
     printf("[Client] Close sockets\n");
     close(tcp_socket_fd);
@@ -404,26 +386,31 @@ test_send_and_recv_timeout_server()
     return EXIT_SUCCESS;
 }
 
-int 
-test_multicast_client() {
-    struct sockaddr_in localSock;
+int
+test_multicast_client()
+{
+    struct sockaddr_in local_sock;
     struct ip_mreq group;
     int sd;
     int datalen;
     char databuf[1024];
     sd = guard(socket(AF_INET, SOCK_DGRAM, 0), "Failed opening socket");
-    guard(set_and_get_bool_opt(sd, SOL_SOCKET, SO_REUSEADDR, 1), "Failed setting SO_REUSEADDR");
+    guard(set_and_get_bool_opt(sd, SOL_SOCKET, SO_REUSEADDR, 1),
+          "Failed setting SO_REUSEADDR");
 
-    localSock.sin_family = AF_INET;
-    localSock.sin_port = htons(4321);
-    localSock.sin_addr.s_addr = INADDR_ANY;
+    local_sock.sin_family = AF_INET;
+    local_sock.sin_port = htons(4321);
+    local_sock.sin_addr.s_addr = INADDR_ANY;
 
-    guard(bind(sd, (struct sockaddr*)&localSock, sizeof(localSock)), "Failed binding socket");
+    guard(bind(sd, (struct sockaddr *)&local_sock, sizeof(local_sock)),
+          "Failed binding socket");
 
     group.imr_multiaddr.s_addr = MULTICAST_ADDR;
     group.imr_interface.s_addr = htonl(INADDR_ANY);
 
-    guard(setsockopt(sd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *)&group, sizeof(group)), "Failed adding multicast group");
+    guard(setsockopt(sd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *)&group,
+                     sizeof(group)),
+          "Failed adding multicast group");
 
     datalen = sizeof(databuf);
     int result = read(sd, databuf, datalen);
@@ -436,12 +423,13 @@ test_multicast_client() {
     return EXIT_SUCCESS;
 }
 
-int 
-test_multicast_server() {
+int
+test_multicast_server()
+{
     struct in_addr localInterface;
     struct sockaddr_in groupSock;
     int sd;
-    char * databuf = "Test message";
+    char *databuf = "Test message";
     int datalen = strlen(databuf);
     sd = guard(socket(AF_INET, SOCK_DGRAM, 0), "Failed to open socket");
 
@@ -450,8 +438,12 @@ test_multicast_server() {
     groupSock.sin_port = htons(4321);
     localInterface.s_addr = htons(INADDR_ANY);
 
-    guard(setsockopt(sd, IPPROTO_IP, IP_MULTICAST_IF, (char *)&localInterface, sizeof(localInterface)), "Failed setting local interface");
-    guard(sendto(sd, databuf, datalen, 0, (struct sockaddr*)&groupSock, sizeof(groupSock)), "Failed sending datagram");
+    guard(setsockopt(sd, IPPROTO_IP, IP_MULTICAST_IF, (char *)&localInterface,
+                     sizeof(localInterface)),
+          "Failed setting local interface");
+    guard(sendto(sd, databuf, datalen, 0, (struct sockaddr *)&groupSock,
+                 sizeof(groupSock)),
+          "Failed sending datagram");
 
     return EXIT_SUCCESS;
 }
@@ -465,7 +457,10 @@ int
 main(int argc, char *argv[])
 {
     if (argc < 2) {
-        printf("Usage: %s <setget|timeout_client|timeout_server|multicast_client|multicast_server>\n", argv[0]);
+        printf("Usage: %s "
+               "<setget|timeout_client|timeout_server|multicast_client|"
+               "multicast_server>\n",
+               argv[0]);
         return EXIT_FAILURE;
     }
 
