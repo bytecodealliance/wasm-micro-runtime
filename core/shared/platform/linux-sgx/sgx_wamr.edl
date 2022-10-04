@@ -122,7 +122,7 @@ enclave {
         int ocall_bind(int sockfd, [in, size=addrlen]const void *addr,
                  uint32_t addrlen);
         int ocall_connect(int sockfd, [in, size=addrlen]void *addr, uint32_t addrlen);
-        int ocall_getsockname(int sockfd, [in, size=addr_size]void *addr,
+        int ocall_getsockname(int sockfd, [out, size=addr_size]void *addr,
                               [in, out, size=4]uint32_t *addrlen, uint32_t addr_size);
         int ocall_getsockopt(int sockfd, int level, int optname,
                              [out, size=val_buf_size]void *val_buf,
