@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2019 Intel Corporation.  All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+ */
+
 #include "wasi_nn_tensorflow.hpp"
 
 #include <tensorflow/lite/interpreter.h>

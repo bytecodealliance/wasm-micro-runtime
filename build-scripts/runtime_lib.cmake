@@ -95,7 +95,7 @@ if (WAMR_BUILD_WASI_NN EQUAL 1)
     execute_process(COMMAND ${WAMR_ROOT_DIR}/build-scripts/install_tensorflow.sh
                     RESULT_VARIABLE TENSORFLOW_RESULT
     )
-    set(TENSORFLOW_SOURCE_DIR "/root/src/tflite/tensorflow_src")
+    set(TENSORFLOW_SOURCE_DIR "${WAMR_ROOT_DIR}/core/deps/tensorflow-src")
     include_directories (${CMAKE_CURRENT_BINARY_DIR}/flatbuffers/include)
     include_directories (${TENSORFLOW_SOURCE_DIR})
     add_subdirectory(
