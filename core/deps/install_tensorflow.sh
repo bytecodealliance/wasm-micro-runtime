@@ -1,5 +1,5 @@
 CURR_PATH=$(cd $(dirname $0) && pwd -P)
-WAMR_ROOT_DIR=${CURR_PATH}/..
+WAMR_ROOT_DIR=${CURR_PATH}/../..
 
 cd ${WAMR_ROOT_DIR}/core/deps
 
