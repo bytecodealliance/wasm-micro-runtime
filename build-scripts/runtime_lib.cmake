@@ -92,7 +92,7 @@ if (WAMR_BUILD_LIB_PTHREAD_SEMAPHORE EQUAL 1)
 endif ()
 
 if (WAMR_BUILD_WASI_NN EQUAL 1)
-    execute_process(COMMAND ${WAMR_ROOT_DIR}/build-scripts/install_tensorflow.sh
+    execute_process(COMMAND ${WAMR_ROOT_DIR}/core/deps/install_tensorflow.sh
                     RESULT_VARIABLE TENSORFLOW_RESULT
     )
     set(TENSORFLOW_SOURCE_DIR "${WAMR_ROOT_DIR}/core/deps/tensorflow-src")
