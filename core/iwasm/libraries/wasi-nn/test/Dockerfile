@@ -22,7 +22,7 @@ RUN pip3 install -r core/iwasm/libraries/wasi-nn/test/requirements.txt
 
 WORKDIR /home/wamr/core/iwasm/libraries/wasi-nn/test/build
 
-RUN cmake ..
+RUN cmake -DWAMR_BUILD_WASI_NN=1 ..
 RUN make -j $(grep -c ^processor /proc/cpuinfo)
 
 WORKDIR /home/wamr/core/iwasm/libraries/wasi-nn/test

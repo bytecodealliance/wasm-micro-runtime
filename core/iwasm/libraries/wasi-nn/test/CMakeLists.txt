@@ -1,11 +1,9 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-cmake_minimum_required (VERSION 3.22)
+cmake_minimum_required (VERSION 3.21.3)
 
 project (iwasm C CXX)
-
-set (WAMR_BUILD_WASI_NN  1)
 
 # Reset default linker flags
 set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
@@ -120,7 +118,7 @@ add_executable (iwasm ${WAMR_ROOT_DIR}/product-mini/platforms/${WAMR_BUILD_PLATF
 
 install (TARGETS iwasm DESTINATION bin)
 
-target_link_libraries (iwasm vmlib ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} tensorflow-lite -lm -ldl -lpthread)
+target_link_libraries (iwasm vmlib ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} ${TENSORFLOW_LIB} -lm -ldl -lpthread)
 
 add_library (libiwasm SHARED ${WAMR_RUNTIME_LIB_SOURCE})
 
