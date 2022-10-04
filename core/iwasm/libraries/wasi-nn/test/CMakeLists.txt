@@ -115,7 +115,7 @@ if (COLLECT_CODE_COVERAGE EQUAL 1)
   set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage")
 endif ()
 
-set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../..)
+set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../../..)
 
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
