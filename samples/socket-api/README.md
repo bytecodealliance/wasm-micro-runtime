@@ -128,12 +128,8 @@ The output is:
 
 ```bash
 Waiting on recv, which should timeout
-recv timeout is expected
-errno EAGAIN is expected
 Waiting on send, which should timeout
-expect partial send transmission is expected
-expected quick send return is expected
-Closing socket 
+Success. Closing socket 
 ```
 
 The `multicast_client` and `multicast_server` examples demonstrate receiving multicast packets in WASM. Start the client and then the server with a multicast IP address and port. 
