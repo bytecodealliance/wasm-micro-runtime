@@ -271,7 +271,7 @@ sockaddr_to_bh_sockaddr(const struct sockaddr *sockaddr, socklen_t socklen,
     }
 }
 
-static void
+static int
 bh_sockaddr_to_sockaddr(const bh_sockaddr_t *bh_sockaddr,
                         struct sockaddr *sockaddr, socklen_t *socklen)
 {
@@ -281,10 +281,11 @@ bh_sockaddr_to_sockaddr(const bh_sockaddr_t *bh_sockaddr,
         addr->sin_family = AF_INET;
         addr->sin_addr.s_addr = htonl(bh_sockaddr->addr_bufer.ipv4);
         *socklen = sizeof(*addr);
+        return BHT_OK;
     }
     else {
-        *socklen = 0;
         errno = EAFNOSUPPORT;
+        return BHT_ERROR;
     }
 }
 
@@ -702,6 +703,7 @@ os_socket_recv(bh_socket_t socket, void *buf, unsigned int len)
     int ret;
 
     if (ocall_recv(&ret, socket, buf, len, 0) != SGX_SUCCESS) {
+        TRACE_OCALL_FAIL();
         errno = ENOSYS;
         return -1;
     }
@@ -723,16 +725,22 @@ os_socket_recv_from(bh_socket_t socket, void *buf, unsigned int len, int flags,
     if (ocall_recvfrom(&ret, socket, buf, len, flags, &addr, &addr_len,
                        addr_len)
         != SGX_SUCCESS) {
+        TRACE_OCALL_FAIL();
         errno = ENOSYS;
         return -1;
     }
 
     if (ret < 0) {
+        errno = get_errno();
         return ret;
     }
 
     if (src_addr) {
-        sockaddr_to_bh_sockaddr((struct sockaddr *)&addr, addr_len, src_addr);
+        if (sockaddr_to_bh_sockaddr((struct sockaddr *)&addr, addr_len,
+                                    src_addr)
+            == BHT_ERROR) {
+            return -1;
+        }
     }
 
     return ret;
@@ -744,6 +752,7 @@ os_socket_send(bh_socket_t socket, const void *buf, unsigned int len)
     int ret;
 
     if (ocall_send(&ret, socket, buf, len, 0) != SGX_SUCCESS) {
+        TRACE_OCALL_FAIL();
         errno = ENOSYS;
         return -1;
     }
@@ -762,13 +771,21 @@ os_socket_send_to(bh_socket_t socket, const void *buf, unsigned int len,
     socklen_t addr_len;
     ssize_t ret;
 
-    bh_sockaddr_to_sockaddr(dest_addr, (struct sockaddr *)&addr, &addr_len);
+    if (bh_sockaddr_to_sockaddr(dest_addr, (struct sockaddr *)&addr, &addr_len)
+        == BHT_ERROR) {
+        return -1;
+    }
 
     if (ocall_sendto(&ret, socket, buf, len, flags, (struct sockaddr *)&addr,
                      addr_len)
         != SGX_SUCCESS) {
+        TRACE_OCALL_FAIL();
         errno = ENOSYS;
         return -1;
+    }
+
+    if (ret == -1) {
+        errno = get_errno();
     }
 
     return ret;
@@ -813,6 +830,7 @@ os_socket_addr_remote(bh_socket_t socket, bh_sockaddr_t *sockaddr)
     }
 
     if (ret != BHT_OK) {
+        errno = get_errno();
         return BHT_ERROR;
     }
 
