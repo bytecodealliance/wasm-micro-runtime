@@ -6,7 +6,7 @@ The native library should provide `get_native_lib` API for iwasm to return the n
 
 ```C
 static int
-foo_wrapper(wasm_exec_env_t *exec_env, int x, int y)
+foo_wrapper(wasm_exec_env_t exec_env, int x, int y)
 {
     return x + y;
 }
