@@ -735,7 +735,7 @@ os_socket_recv_from(bh_socket_t socket, void *buf, unsigned int len, int flags,
         return ret;
     }
 
-    if (src_addr) {
+    if (src_addr && addr_len > 0) {
         if (sockaddr_to_bh_sockaddr((struct sockaddr *)&addr, addr_len,
                                     src_addr)
             == BHT_ERROR) {
