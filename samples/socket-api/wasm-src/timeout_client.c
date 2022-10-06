@@ -40,56 +40,43 @@ main(int argc, char *argv[])
 
     if ((socket_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
         perror("Create socket failed");
-        free(buffer);
-        return EXIT_FAILURE;
+        goto fail1;
     }
 
     if (setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &bool_opt,
                    sizeof(bool_opt))
         == -1) {
         perror("Failed setting SO_REUSEADDR");
-        close(socket_fd);
-        free(buffer);
-        return EXIT_FAILURE;
+        goto fail2;
     }
 
     if (setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) == -1) {
         perror("Failed setting SO_RCVTIMEO");
-        close(socket_fd);
-        free(buffer);
-        return EXIT_FAILURE;
+        goto fail2;
     }
 
     if (setsockopt(socket_fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv)) == -1) {
         perror("Failed setting SO_SNDTIMEO");
-        close(socket_fd);
-        free(buffer);
-        return EXIT_FAILURE;
+        goto fail2;
     }
 
     if (setsockopt(socket_fd, SOL_SOCKET, SO_SNDBUF, &data_buf_len,
                    sizeof(data_buf_len))
         == -1) {
         perror("Failed setting SO_SNDBUF");
-        close(socket_fd);
-        free(buffer);
-        return EXIT_FAILURE;
+        goto fail2;
     }
 
     if (connect(socket_fd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
         perror("Connect failed");
-        close(socket_fd);
-        free(buffer);
-        return EXIT_FAILURE;
+        goto fail2;
     }
 
     if (getsockopt(socket_fd, SOL_SOCKET, SO_SNDBUF, (void *)&data_buf_len,
                    &opt_len)
         == -1) {
         perror("Failed getting SO_SNDBUF");
-        close(socket_fd);
-        free(buffer);
-        return EXIT_FAILURE;
+        goto fail2;
     }
 
     printf("Waiting on recv, which should timeout\n");
@@ -97,9 +84,7 @@ main(int argc, char *argv[])
 
     if (result != -1 || errno != EAGAIN) {
         perror("Recv did not timeout as expected");
-        close(socket_fd);
-        free(buffer);
-        return EXIT_FAILURE;
+        goto fail2;
     }
 
     printf("Waiting on send, which should timeout\n");
@@ -110,13 +95,17 @@ main(int argc, char *argv[])
     if (result >= data_buf_len
         || snd_start_time.tv_sec != snd_end_time.tv_sec) {
         perror("Send did not timeout as expected");
-        close(socket_fd);
-        free(buffer);
-        return EXIT_FAILURE;
+        goto fail2;
     }
 
     printf("Success. Closing socket \n");
     close(socket_fd);
     free(buffer);
     return EXIT_SUCCESS;
+
+fail2:
+    close(socket_fd);
+fail1:
+    free(buffer);
+    return EXIT_FAILURE;
 }

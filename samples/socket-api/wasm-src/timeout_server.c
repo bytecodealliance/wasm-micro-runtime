@@ -33,28 +33,24 @@ main(int argc, char *argv[])
                    sizeof(bool_opt))
         == -1) {
         perror("Failed setting SO_REUSEADDR");
-        close(socket_fd);
-        return EXIT_FAILURE;
+        goto fail;
     }
 
     if (bind(socket_fd, (struct sockaddr *)&addr, addrlen) == -1) {
         perror("Bind socket failed");
-        close(socket_fd);
-        return EXIT_FAILURE;
+        goto fail;
     }
 
     if (listen(socket_fd, 1) == -1) {
         perror("Listen failed");
-        close(socket_fd);
-        return EXIT_FAILURE;
+        goto fail;
     }
 
     if ((client_socket_fd =
              accept(socket_fd, (struct sockaddr *)&addr, (socklen_t *)&addrlen))
         == -1) {
         perror("Accept failed");
-        close(socket_fd);
-        return EXIT_FAILURE;
+        goto fail;
     }
 
     printf("Client connected, sleeping for 10s\n");
@@ -62,6 +58,12 @@ main(int argc, char *argv[])
 
     printf("Shuting down\n");
     shutdown(client_socket_fd, SHUT_RDWR);
+    close(client_socket_fd);
     shutdown(socket_fd, SHUT_RDWR);
+    close(socket_fd);
     return EXIT_SUCCESS;
+
+fail:
+    close(socket_fd);
+    return EXIT_FAILURE;
 }

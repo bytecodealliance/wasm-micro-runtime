@@ -80,8 +80,7 @@ main(int argc, char *argv[])
     if (setsockopt(sd, SOL_SOCKET, SO_REUSEADDR, &bool_opt, sizeof(bool_opt))
         == -1) {
         perror("Failed setting SO_REUSEADDR");
-        close(sd);
-        return EXIT_FAILURE;
+        goto fail;
     }
 
     if (addr_type == AF_INET) {
@@ -93,8 +92,7 @@ main(int argc, char *argv[])
                        sizeof(ipv4_group))
             == -1) {
             perror("Failed joining IPv4 multicast group");
-            close(sd);
-            return EXIT_FAILURE;
+            goto fail;
         }
     }
     else {
@@ -106,16 +104,14 @@ main(int argc, char *argv[])
                        sizeof(ipv6_group))
             == -1) {
             perror("Failed joining IPv6 multicast group");
-            close(sd);
-            return EXIT_FAILURE;
+            goto fail;
         }
     }
 
     if (bind(sd, (struct sockaddr *)&local_address, sizeof(local_address))
         == -1) {
         perror("Failed binding socket");
-        close(sd);
-        return EXIT_FAILURE;
+        goto fail;
     }
 
     printf("Joined multicast group. Waiting for datagram...\n");
@@ -125,12 +121,15 @@ main(int argc, char *argv[])
 
     if (read_result < 0) {
         perror("Failed binding socket");
-        close(sd);
-        return EXIT_FAILURE;
+        goto fail;
     }
 
     printf("Reading datagram message...OK.\n");
     printf("The message from multicast server is: \"%s\"\n", databuf);
     close(sd);
     return EXIT_SUCCESS;
+
+fail:
+    close(sd);
+    return EXIT_FAILURE;
 }

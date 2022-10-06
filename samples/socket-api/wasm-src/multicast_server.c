@@ -79,8 +79,7 @@ main(int argc, char *argv[])
     if (setsockopt(sd, SOL_SOCKET, SO_REUSEADDR, &bool_opt, sizeof(bool_opt))
         == -1) {
         perror("Failed setting SO_REUSEADDR");
-        close(sd);
-        return EXIT_FAILURE;
+        goto fail;
     }
 
     if (addr_type == AF_INET) {
@@ -89,8 +88,7 @@ main(int argc, char *argv[])
                        (char *)&multicast_interface,
                        sizeof(multicast_interface))) {
             perror("Failed setting local interface");
-            close(sd);
-            return EXIT_FAILURE;
+            goto fail;
         }
         init_sockaddr_inet((struct sockaddr_in *)&addr, multicast_addr_buffer);
     }
@@ -100,8 +98,7 @@ main(int argc, char *argv[])
                        (char *)&multicast_interface,
                        sizeof(multicast_interface))) {
             perror("Failed setting local interface");
-            close(sd);
-            return EXIT_FAILURE;
+            goto fail;
         }
         init_sockaddr_inet6((struct sockaddr_in6 *)&addr,
                             multicast_addr_buffer);
@@ -110,11 +107,14 @@ main(int argc, char *argv[])
     if (sendto(sd, databuf, datalen, 0, (struct sockaddr *)&addr, sizeof(addr))
         == -1) {
         perror("Failed sending datagram");
-        close(sd);
-        return EXIT_FAILURE;
+        goto fail;
     }
 
     printf("Datagram sent\n");
-
+    close(sd);
     return EXIT_SUCCESS;
+
+fail:
+    close(sd);
+    return EXIT_FAILURE;
 }
