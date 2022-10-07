@@ -359,6 +359,13 @@ jobs:
           cmake --build . --config Release --parallel 4
           ./hello
 
+      - name: Build Sample [simple]
+        run: |
+          ./build.sh -p host-interp
+          python3 ./sample_test_run.py $(pwd)/out
+          exit $?
+        working-directory: ./samples/simple
+
   spec_test:
     needs: [build_iwasm, build_llvm_libraries, build_wamrc]
     runs-on: ubuntu-20.04
