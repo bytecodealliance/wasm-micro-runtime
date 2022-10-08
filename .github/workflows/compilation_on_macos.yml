@@ -229,14 +229,8 @@ jobs:
         #$MC_JIT_BUILD_OPTIONS,
         #$AOT_BUILD_OPTIONS,
         os: [macos-latest]
-        wasi_sdk_release:
-          [
-            https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-macos.tar.gz,
-          ]
-        wabt_release:
-          [
-            https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-macos.tar.gz,
-          ]
+        wasi_sdk_release: ["https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-macos.tar.gz"]
+        wabt_release: ["https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-macos.tar.gz"]
     steps:
       - name: checkout
         uses: actions/checkout@v3
@@ -270,14 +264,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        wasi_sdk_release:
-          [
-            https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-macos.tar.gz,
-          ]
-        wabt_release:
-          [
-            https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-macos.tar.gz,
-          ]
+        wasi_sdk_release: ["https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-macos.tar.gz"]
+        wabt_release: ["https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-macos.tar.gz"]
     steps:
       - name: checkout
         uses: actions/checkout@v3
