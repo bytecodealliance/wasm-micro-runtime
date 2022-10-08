@@ -406,6 +406,6 @@ jobs:
         working-directory: ./tests/wamr-test-suites
       
       - name: run spec tests x86_32
-        if: matrix.test_option == "$DEFAULT_TEST_OPTIONS" || matrix.test_option == "$THREADS_TEST_OPTIONS"
+        if: matrix.test_option == env.DEFAULT_TEST_OPTIONS || matrix.test_option == env.THREADS_TEST_OPTIONS
         run: ./test_wamr.sh ${{ env.X86_32_TARGET_TEST_OPTIONS }} ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
         working-directory: ./tests/wamr-test-suites
