@@ -414,7 +414,6 @@ jobs:
         working-directory: ./tests/wamr-test-suites
 
   spec_test_extra:
-    if: endsWith(github.repository, 'wasm-micro-runtime')
     needs: [build_iwasm, build_llvm_libraries, build_wamrc]
     runs-on: ubuntu-20.04
     strategy:
@@ -454,7 +453,6 @@ jobs:
         working-directory: ./tests/wamr-test-suites
 
   spec_test_x86_32:
-    if: endsWith(github.repository, 'wasm-micro-runtime')
     needs: [build_iwasm, build_llvm_libraries, build_wamrc]
     runs-on: ubuntu-20.04
     strategy:
