@@ -359,40 +359,7 @@ jobs:
           cmake --build . --config Release --parallel 4
           ./hello
 
-  spec_test_default:
-    needs: [build_iwasm, build_llvm_libraries, build_wamrc]
-    runs-on: ubuntu-20.04
-    strategy:
-      matrix:
-        test_option: [$DEFAULT_TEST_OPTIONS]
-    steps:
-      - name: checkout
-        uses: actions/checkout@v3
-
-      - name: Get LLVM libraries
-        id: cache_llvm
-        uses: actions/cache@v3
-        with:
-          path: |
-            ./core/deps/llvm/build/bin
-            ./core/deps/llvm/build/include
-            ./core/deps/llvm/build/lib
-            ./core/deps/llvm/build/libexec
-            ./core/deps/llvm/build/share
-          key: ubuntu-20.04-${{ env.LLVM_CACHE_SUFFIX }}
-
-      - name: Quit if cache miss
-        if: steps.cache_llvm.outputs.cache-hit != 'true'
-        run: echo "::error::can not get prebuilt llvm libraries" && exit 1
-
-      - name: install Ninja
-        run: sudo apt install -y ninja-build
-
-      - name: run spec tests
-        run: ./test_wamr.sh ${{ matrix.test_option }}
-        working-directory: ./tests/wamr-test-suites
-
-  spec_test_extra:
+  spec_test_all_in_one:
     needs: [build_iwasm, build_llvm_libraries, build_wamrc]
     runs-on: ubuntu-20.04
     strategy:
@@ -400,44 +367,11 @@ jobs:
         running_mode: ["classic-interp", "fast-interp", "jit", "aot"]
         test_option:
           [
+            $DEFAULT_TEST_OPTIONS,
             $MULTI_MODULES_TEST_OPTIONS,
             $SIMD_TEST_OPTIONS,
             $THREADS_TEST_OPTIONS,
           ]
-    steps:
-      - name: checkout
-        uses: actions/checkout@v3
-
-      - name: Get LLVM libraries
-        id: cache_llvm
-        uses: actions/cache@v3
-        with:
-          path: |
-            ./core/deps/llvm/build/bin
-            ./core/deps/llvm/build/include
-            ./core/deps/llvm/build/lib
-            ./core/deps/llvm/build/libexec
-            ./core/deps/llvm/build/share
-          key: ubuntu-20.04-${{ env.LLVM_CACHE_SUFFIX }}
-
-      - name: Quit if cache miss
-        if: steps.cache_llvm.outputs.cache-hit != 'true'
-        run: echo "::error::can not get prebuilt llvm libraries" && exit 1
-
-      - name: install Ninja
-        run: sudo apt install -y ninja-build
-
-      - name: run spec tests
-        run: ./test_wamr.sh ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
-        working-directory: ./tests/wamr-test-suites
-
-  spec_test_x86_32:
-    needs: [build_iwasm, build_llvm_libraries, build_wamrc]
-    runs-on: ubuntu-20.04
-    strategy:
-      matrix:
-        running_mode: ["classic-interp", "fast-interp", "jit", "aot"]
-        test_option: [$DEFAULT_TEST_OPTIONS, $THREADS_TEST_OPTIONS]
     steps:
       - name: checkout
         uses: actions/checkout@v3
@@ -467,6 +401,10 @@ jobs:
           sudo apt-get update &&
           sudo apt install -y g++-multilib lib32gcc-9-dev ninja-build
 
-      - name: run spec tests
+      - name: run spec tests extra
+        run: ./test_wamr.sh ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
+        working-directory: ./tests/wamr-test-suites
+      
+      - name: run spec tests x86_32
         run: ./test_wamr.sh ${{ env.X86_32_TARGET_TEST_OPTIONS }} ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
         working-directory: ./tests/wamr-test-suites
