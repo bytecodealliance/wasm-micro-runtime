@@ -401,10 +401,11 @@ jobs:
           sudo apt-get update &&
           sudo apt install -y g++-multilib lib32gcc-9-dev ninja-build
 
-      - name: run spec tests extra
+      - name: run spec tests default and extra
         run: ./test_wamr.sh ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
         working-directory: ./tests/wamr-test-suites
       
       - name: run spec tests x86_32
+        if: matrix.test_option == "$DEFAULT_TEST_OPTIONS" || matrix.test_option == "$THREADS_TEST_OPTIONS"
         run: ./test_wamr.sh ${{ env.X86_32_TARGET_TEST_OPTIONS }} ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
         working-directory: ./tests/wamr-test-suites
