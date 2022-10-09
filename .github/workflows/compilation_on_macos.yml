@@ -58,7 +58,7 @@ jobs:
     uses: ./.github/workflows/_build_llvm_libraries.yml
     with:
       runs-on:  "['macos-latest']"
-      build-lldb: false
+      LLVM_CACHE_SUFFIX: ${{env.LLVM_CACHE_SUFFIX}}
 
   build_wamrc:
     needs: [build_llvm_libraries]

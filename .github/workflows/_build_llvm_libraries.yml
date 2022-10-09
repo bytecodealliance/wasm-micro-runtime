@@ -13,10 +13,9 @@ on:
         # can't pass array now, workaround by passing Json string and deserialize later
         default: "['ubuntu-20.04', 'ubuntu-22.04']"
         type: string
-      build-lldb:
+      LLVM_CACHE_SUFFIX:
         required: true
-        default: true
-        type: boolean
+        type: string
 
 jobs:
   build_llvm_libraries:
@@ -39,16 +38,10 @@ jobs:
             ./core/deps/llvm/build/lib
             ./core/deps/llvm/build/libexec
             ./core/deps/llvm/build/share
-          key: ${{ matrix.os }}-${{ env.LLVM_CACHE_SUFFIX }}
+          key: ${{ matrix.os }}-${{ inputs.LLVM_CACHE_SUFFIX }}
 
       - name: Build llvm and clang from source
         id: build_llvm
         if: ${{ steps.cache_llvm.outputs.cache-hit != 'true' }} && ${{ !inputs.build-lldb }}
         run: /usr/bin/env python3 ./build_llvm.py --arch X86 WebAssembly
-        working-directory: build-scripts
-
-      - name: Build llvm and clang from source, and build lldb too
-        id: build_llvm_plus_lldb
-        if: ${{ steps.cache_llvm.outputs.cache-hit != 'true' }} && ${{ inputs.build-lldb }}
-        run: /usr/bin/env python3 ./build_llvm.py --arch X86 WebAssembly --project clang lldb
         working-directory: build-scripts
