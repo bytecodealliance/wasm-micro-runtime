@@ -3,7 +3,7 @@
 # 2. Reusable workflows stored within a private repository can only be used by workflows within the same repository.
 # 3. Any environment variables set in an env context defined at the workflow level in the caller workflow
 #    are not propagated to the called workflow.
-name: Reusable workflow-build-llvm-libraries
+name: Reusable workflow-build_llvm_libraries&build_lldb_if_needed
 
 on:
   workflow_call:
@@ -11,25 +11,21 @@ on:
       runs-on:
         required: true
         # can't pass array now, workaround by passing Json string and deserialize later
-        default:  "['ubuntu-20.04', 'ubuntu-22.04']"
+        default: "['ubuntu-20.04', 'ubuntu-22.04']"
         type: string
-      build-lldb: 
+      build-lldb:
         required: true
         default: true
         type: boolean
 
 jobs:
   build_llvm_libraries:
-    #if: github.repository == 'bytecodealliance/wasm-micro-runtime'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: ${{ fromJson(inputs.runs-on) }}
 
     steps:
-      - name: os status
-        run: echo "matrix.os=${{ matrix.os }}"
-
       - name: checkout
         uses: actions/checkout@v3
 
@@ -49,11 +45,10 @@ jobs:
         id: build_llvm
         if: ${{ steps.cache_llvm.outputs.cache-hit != 'true' }} && ${{ !inputs.build-lldb }}
         run: /usr/bin/env python3 ./build_llvm.py --arch X86 WebAssembly
-        working-directory: build-scripts     
+        working-directory: build-scripts
 
       - name: Build llvm and clang from source, and build lldb too
         id: build_llvm_plus_lldb
         if: ${{ steps.cache_llvm.outputs.cache-hit != 'true' }} && ${{ inputs.build-lldb }}
         run: /usr/bin/env python3 ./build_llvm.py --arch X86 WebAssembly --project clang lldb
         working-directory: build-scripts
-      
