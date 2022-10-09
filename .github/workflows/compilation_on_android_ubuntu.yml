@@ -376,7 +376,9 @@ jobs:
       - name: checkout
         uses: actions/checkout@v3
 
+      #only download llvm libraries in jit and aot mode
       - name: Get LLVM libraries
+        if: matrix.running_mode == "jit" || matrix.running_mode == "aot"
         id: cache_llvm
         uses: actions/cache@v3
         with:
@@ -389,22 +391,27 @@ jobs:
           key: ubuntu-20.04-${{ env.LLVM_CACHE_SUFFIX }}
 
       - name: Quit if cache miss
-        if: steps.cache_llvm.outputs.cache-hit != 'true'
+        if: (matrix.running_mode == "jit" || matrix.running_mode == "aot") && steps.cache_llvm.outputs.cache-hit != 'true'
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
 
-      - name: install Ninja and x32 support libraries
+      - name: install Ninja
+        run: sudo apt install -y ninja-build
+
+      - name: run spec tests default and extra
+        run: ./test_wamr.sh ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
+        working-directory: ./tests/wamr-test-suites
+
+      #only install x32 support libraries when to run x86_32 cases
+      - name: install x32 support libraries
+        if: matrix.test_option == env.DEFAULT_TEST_OPTIONS || matrix.test_option == env.THREADS_TEST_OPTIONS
         run:
           # Add another apt repository as some packages cannot
           # be downloaded with the github default repository
           sudo curl -sSL https://packages.microsoft.com/keys/microsoft.asc | sudo tee /etc/apt/trusted.gpg.d/microsoft.asc &&
           sudo apt-add-repository https://packages.microsoft.com/ubuntu/20.04/prod &&
           sudo apt-get update &&
-          sudo apt install -y g++-multilib lib32gcc-9-dev ninja-build
+          sudo apt install -y g++-multilib lib32gcc-9-dev
 
-      - name: run spec tests default and extra
-        run: ./test_wamr.sh ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
-        working-directory: ./tests/wamr-test-suites
-      
       - name: run spec tests x86_32
         if: matrix.test_option == env.DEFAULT_TEST_OPTIONS || matrix.test_option == env.THREADS_TEST_OPTIONS
         run: ./test_wamr.sh ${{ env.X86_32_TARGET_TEST_OPTIONS }} ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
