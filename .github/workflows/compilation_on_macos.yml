@@ -51,47 +51,17 @@ jobs:
         with:
           access_token: ${{ github.token }}
 
-  # set different traffic lights based on the current repo and the running OS.
-  # according to light colors, the workflow will run different jobs
-  check_repo:
-    needs: cancel_previous
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [macos-latest]
-    outputs:
-      traffic_light: ${{ steps.do_check.outputs.light }}
-    steps:
-      - name: do_check
-        id: do_check
-        if: ${{ matrix.os == 'macos-latest' }}
-        run: |
-          if [[ ${{ github.repository }} == */wasm-micro-runtime ]]; then
-            echo "::set-output name=light::green"
-          else
-            echo "::set-output name=light::red"
-          fi
-
   build_llvm_libraries:
-    needs: check_repo
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [macos-latest]
-        include:
-          - os: macos-latest
-            light: ${{ needs.check_repo.outputs.traffic_light }}
     steps:
-      - name: light status
-        run: echo "matrix.os=${{ matrix.os }}, light=${{ matrix.light }}"
-
       - name: checkout
-        if: ${{ matrix.light == 'green' }}
         uses: actions/checkout@v3
 
       - name: Cache LLVM libraries
         id: cache_llvm
-        if: ${{ matrix.light == 'green' }}
         uses: actions/cache@v3
         with:
           path: |
@@ -104,30 +74,22 @@ jobs:
 
       - name: Build llvm and clang from source
         id: build_llvm
-        if: ${{ matrix.light == 'green' && steps.cache_llvm.outputs.cache-hit != 'true' }}
+        if: steps.cache_llvm.outputs.cache-hit != 'true'
         run: /usr/bin/env python3 ./build_llvm.py --arch X86 WebAssembly
         working-directory: build-scripts
 
   build_wamrc:
-    needs: [build_llvm_libraries, check_repo]
+    needs: [build_llvm_libraries]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [macos-latest]
-        include:
-          - os: macos-latest
-            light: ${{ needs.check_repo.outputs.traffic_light }}
     steps:
-      - name: light status
-        run: echo "matrix.os=${{ matrix.os }}, light=${{ matrix.light }}"
-
       - name: checkout
-        if: ${{ matrix.light == 'green' }}
         uses: actions/checkout@v3
 
       - name: Get LLVM libraries
         id: cache_llvm
-        if: ${{ matrix.light == 'green' }}
         uses: actions/cache@v3
         with:
           path: |
@@ -139,11 +101,10 @@ jobs:
           key: ${{ matrix.os }}-${{ env.LLVM_CACHE_SUFFIX }}
 
       - name: Quit if cache miss
-        if: ${{ matrix.light == 'green' && steps.cache_llvm.outputs.cache-hit != 'true' }}
+        if: steps.cache_llvm.outputs.cache-hit != 'true'
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
 
       - name: Build wamrc
-        if: ${{ matrix.light == 'green' }}
         run: |
           mkdir build && cd build
           cmake ..
@@ -151,7 +112,7 @@ jobs:
         working-directory: wamr-compiler
 
   build_iwasm:
-    needs: [build_llvm_libraries, check_repo]
+    needs: [build_llvm_libraries]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -224,21 +185,14 @@ jobs:
             make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"
           - make_options_run_mode: $MC_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"
-        include:
-          - os: macos-latest
-            light: ${{ needs.check_repo.outputs.traffic_light }}
     steps:
-      - name: light status
-        run: echo "matrix.os=${{ matrix.os }}, light=${{ matrix.light }}"
-
       - name: checkout
-        if: ${{ matrix.light == 'green' }}
         uses: actions/checkout@v3
 
       # only download llvm cache when needed
       - name: Get LLVM libraries
         id: cache_llvm
-        if: (matrix.light == 'green') && (endsWith(matrix.make_options_run_mode, '_JIT_BUILD_OPTIONS'))
+        if: endsWith(matrix.make_options_run_mode, '_JIT_BUILD_OPTIONS')
         uses: actions/cache@v3
         with:
           path: |
@@ -250,11 +204,10 @@ jobs:
           key: ${{ matrix.os }}-${{ env.LLVM_CACHE_SUFFIX }}
 
       - name: Quit if cache miss
-        if: (matrix.light == 'green') && (endsWith(matrix.make_options_run_mode, '_JIT_BUILD_OPTIONS')) && (steps.cache_llvm.outputs.cache-hit != 'true')
+        if: endsWith(matrix.make_options_run_mode, '_JIT_BUILD_OPTIONS') && (steps.cache_llvm.outputs.cache-hit != 'true')
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
 
       - name: Build iwasm
-        if: ${{ matrix.light == 'green' }}
         run: |
           mkdir build && cd build
           cmake .. ${{ matrix.make_options_run_mode }} ${{ matrix.make_options_feature }}
@@ -262,7 +215,7 @@ jobs:
         working-directory: product-mini/platforms/${{ matrix.platform }}
 
   build_samples_wasm_c_api:
-    needs: [build_iwasm, check_repo]
+    needs: [build_iwasm]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -270,27 +223,19 @@ jobs:
             # Running mode
             $CLASSIC_INTERP_BUILD_OPTIONS,
             $FAST_INTERP_BUILD_OPTIONS,
-            # doesn't support
-            #$LAZY_JIT_BUILD_OPTIONS,
-            #$MC_JIT_BUILD_OPTIONS,
-            #$AOT_BUILD_OPTIONS,
           ]
+        # doesn't support
+        #$LAZY_JIT_BUILD_OPTIONS,
+        #$MC_JIT_BUILD_OPTIONS,
+        #$AOT_BUILD_OPTIONS,
         os: [macos-latest]
-        include:
-          - os: macos-latest
-            light: ${{ needs.check_repo.outputs.traffic_light }}
-            wasi_sdk_release: https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-macos.tar.gz
-            wabt_release: https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-macos.tar.gz
+        wasi_sdk_release: ["https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-macos.tar.gz"]
+        wabt_release: ["https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-macos.tar.gz"]
     steps:
-      - name: light status
-        run: echo "matrix.os=${{ matrix.os }}, light=${{ matrix.light }}"
-
       - name: checkout
-        if: ${{ matrix.light == 'green' }}
         uses: actions/checkout@v3
 
       - name: download and install wabt
-        if: ${{ matrix.light == 'green' }}
         run: |
           cd /opt
           sudo wget ${{ matrix.wabt_release }}
@@ -298,7 +243,6 @@ jobs:
           sudo mv wabt-1.0.24 wabt
 
       - name: Build Sample [wasm-c-api]
-        if: ${{ matrix.light == 'green' }}
         run: |
           mkdir build && cd build
           cmake .. ${{ matrix.make_options }}
@@ -316,25 +260,18 @@ jobs:
         working-directory: samples/wasm-c-api
 
   build_samples_others:
-    needs: [build_iwasm, check_repo]
+    needs: [build_iwasm]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        include:
-          - os: macos-latest
-            light: ${{ needs.check_repo.outputs.traffic_light }}
-            wasi_sdk_release: https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-macos.tar.gz
-            wabt_release: https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-macos.tar.gz
+        os: [macos-latest]
+        wasi_sdk_release: ["https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-macos.tar.gz"]
+        wabt_release: ["https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-macos.tar.gz"]
     steps:
-      - name: light status
-        run: echo "matrix.os=${{ matrix.os }}, light=${{ matrix.light }}"
-
       - name: checkout
-        if: ${{ matrix.light == 'green' }}
         uses: actions/checkout@v3
 
       - name: download and install wasi-sdk
-        if: ${{ matrix.light == 'green' }}
         run: |
           cd /opt
           sudo wget ${{ matrix.wasi_sdk_release }}
@@ -342,7 +279,6 @@ jobs:
           sudo mv wasi-sdk-12.0 wasi-sdk
 
       - name: download and install wabt
-        if: ${{ matrix.light == 'green' }}
         run: |
           cd /opt
           sudo wget ${{ matrix.wabt_release }}
@@ -350,14 +286,12 @@ jobs:
           sudo mv wabt-1.0.24 wabt
 
       - name: Build Sample [basic]
-        if: ${{ matrix.light == 'green' }}
         run: |
           cd samples/basic
           ./build.sh
           ./run.sh
 
       - name: Build Sample [file]
-        if: ${{ matrix.light == 'green' }}
         run: |
           cd samples/file
           mkdir build && cd build
@@ -366,7 +300,6 @@ jobs:
           ./src/iwasm -f wasm-app/file.wasm -d .
 
       - name: Build Sample [multi-thread]
-        if: ${{ matrix.light == 'green' }}
         run: |
           cd samples/multi-thread
           mkdir build && cd build
@@ -375,7 +308,6 @@ jobs:
           ./iwasm wasm-apps/test.wasm
 
       - name: Build Sample [multi-module]
-        if: ${{ matrix.light == 'green' }}
         run: |
           cd samples/multi-module
           mkdir build && cd build
@@ -384,7 +316,6 @@ jobs:
           ./multi_module
 
       - name: Build Sample [spawn-thread]
-        if: ${{ matrix.light == 'green' }}
         run: |
           cd samples/spawn-thread
           mkdir build && cd build
@@ -393,7 +324,6 @@ jobs:
           ./spawn_thread
 
       - name: Build Sample [ref-types]
-        if: ${{ matrix.light == 'green' }}
         run: |
           cd samples/ref-types
           mkdir build && cd build
