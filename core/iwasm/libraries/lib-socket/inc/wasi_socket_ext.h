@@ -140,6 +140,9 @@ struct addrinfo {
     struct addrinfo *ai_next; /* Pointer to next in list.  */
 };
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 #ifndef __WASI_RIGHTS_SOCK_ACCEPT
 int
 accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
@@ -191,6 +194,9 @@ getaddrinfo(const char *node, const char *service, const struct addrinfo *hints,
 
 void
 freeaddrinfo(struct addrinfo *res);
+#ifdef __cplusplus
+}
+#endif
 #endif
 
 /**
