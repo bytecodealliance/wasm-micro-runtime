@@ -16,7 +16,7 @@ on:
       - "product-mini/**"
       - "samples/**"
       - "!samples/workload/**"
-      - "wamr-comiler/**"
+      - "wamr-compiler/**"
   # will be triggered on push events
   push:
     branches:
@@ -29,7 +29,7 @@ on:
       - "product-mini/**"
       - "samples/**"
       - "!samples/workload/**"
-      - "wamr-comiler/**"
+      - "wamr-compiler/**"
   # allow to be triggered manually
   workflow_dispatch:
 
