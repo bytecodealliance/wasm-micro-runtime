@@ -6,20 +6,30 @@ name: compilation on macos-latest
 on:
   # will be triggered on PR events
   pull_request:
-    paths-ignore:
-      - "assembly-script/**"
-      - "ci/**"
-      - "doc/**"
-      - "test-tools/**"
-      - ".github/workflows/compilation_on_macos.yml"
+    types:
+      - opened
+      - synchronize
+    paths:
+      - ".github/**"
+      - "core/**"
+      - "!core/deps/**"
+      - "product-mini/**"
+      - "samples/**"
+      - "!samples/workload/**"
+      - "wamr-comiler/**"
   # will be triggered on push events
   push:
-    paths-ignore:
-      - "assembly-script/**"
-      - "ci/**"
-      - "doc/**"
-      - "test-tools/**"
-      - ".github/workflows/compilation_on_macos.yml"
+    branches:
+      - main
+      - "dev/**"
+    paths:
+      - ".github/**"
+      - "core/**"
+      - "!core/deps/**"
+      - "product-mini/**"
+      - "samples/**"
+      - "!samples/workload/**"
+      - "wamr-comiler/**"
   # allow to be triggered manually
   workflow_dispatch:
 
@@ -38,19 +48,6 @@ env:
   LLVM_CACHE_SUFFIX: "build-llvm_libraries_ex"
 
 jobs:
-  # Cancel any in-flight jobs for the same PR/branch so there's only one active
-  # at a time
-  cancel_previous:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [macos-latest]
-    steps:
-      - name: Cancel Workflow Action
-        uses: styfle/cancel-workflow-action@0.9.1
-        with:
-          access_token: ${{ github.token }}
-
   build_llvm_libraries:
     runs-on: ${{ matrix.os }}
     strategy:
