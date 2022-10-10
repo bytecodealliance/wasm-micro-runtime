@@ -359,7 +359,7 @@ jobs:
           cmake --build . --config Release --parallel 4
           ./hello
 
-  spec_test_all_in_one:
+  spec_test:
     needs: [build_iwasm, build_llvm_libraries, build_wamrc]
     runs-on: ubuntu-20.04
     strategy:
@@ -403,7 +403,7 @@ jobs:
 
       #only install x32 support libraries when to run x86_32 cases
       - name: install x32 support libraries
-        if: matrix.test_option == env.DEFAULT_TEST_OPTIONS || matrix.test_option == env.THREADS_TEST_OPTIONS
+        if: matrix.test_option == '$DEFAULT_TEST_OPTIONS' || matrix.test_option == '$THREADS_TEST_OPTIONS'
         run:
           # Add another apt repository as some packages cannot
           # be downloaded with the github default repository
@@ -413,6 +413,6 @@ jobs:
           sudo apt install -y g++-multilib lib32gcc-9-dev
 
       - name: run spec tests x86_32
-        if: matrix.test_option == env.DEFAULT_TEST_OPTIONS || matrix.test_option == env.THREADS_TEST_OPTIONS
+        if: matrix.test_option == '$DEFAULT_TEST_OPTIONS' || matrix.test_option == '$THREADS_TEST_OPTIONS'
         run: ./test_wamr.sh ${{ env.X86_32_TARGET_TEST_OPTIONS }} ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
         working-directory: ./tests/wamr-test-suites
