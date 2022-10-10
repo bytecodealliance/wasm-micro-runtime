@@ -136,3 +136,14 @@ jobs:
       upload_url: ${{ needs.create_release.outputs.upload_url }}
       ver_num: ${{ needs.create_tag.outputs.new_ver}}
       wasi_sdk_url: https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-macos.tar.gz
+
+  #
+  # vscode extension cross-platform
+  release_wamr_ide_vscode_ext_on_ubuntu_2204:
+    needs: [create_tag, create_release]
+    uses: ./.github/workflows/build_wamr_vscode_ext.yml
+    with:
+      cwd: test-tools/wamr-ide/VSCode-Extension
+      runner: ubuntu-22.04
+      upload_url: ${{ needs.create_release.outputs.upload_url }}
+      ver_num: ${{ needs.create_tag.outputs.new_ver }}

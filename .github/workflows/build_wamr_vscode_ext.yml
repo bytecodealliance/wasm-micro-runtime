@@ -1,0 +1,68 @@
+# Copyright (C) 2019 Intel Corporation.  All rights reserved.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+name: build wamr-ide vscode extension
+
+on:
+  workflow_call:
+    inputs:
+      cwd:
+        description: working directory
+        type: string
+        required: true
+      runner:
+        description: OS of compilation
+        type: string
+        required: true
+      upload_url:
+        description: a semantic version number. it is required when `release` is true.
+        type: string
+        required: false
+      ver_num:
+        description: a semantic version number. it is required when `release` is true.
+        type: string
+        required: false
+
+jobs:
+  build:
+    runs-on: ${{ inputs.runner }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Use Node.js 14.x
+        uses: actions/setup-node@v3
+        with:
+          node-version: 14.x
+
+      - name: generate wamr ide vscode extension
+        run: |
+          npm install -g vsce
+          rm -rf node_modules
+          npm install
+          vsce package
+        working-directory: ${{ inputs.cwd }}
+
+      - name: compress the vscode extension
+        run: |
+          tar czf wamr_ide-${{ inputs.ver_num }}.tar.gz wamride-*.vsix
+          zip wamr_ide-${{ inputs.ver_num }}.zip wamride-*.vsix
+        working-directory: ${{ inputs.cwd }}
+
+      - name: upload release tar.gz
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ inputs.upload_url }}
+          asset_path: ${{ inputs.cwd }}/wamr_ide-${{ inputs.ver_num }}.tar.gz
+          asset_name: wamr_ide-${{ inputs.ver_num }}.tar.gz
+          asset_content_type: application/x-gzip
+
+      - name: upload release zip
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ inputs.upload_url }}
+          asset_path: ${{ inputs.cwd }}/wamr_ide-${{ inputs.ver_num }}.zip
+          asset_name: wamr_ide-${{ inputs.ver_num }}.zip
+          asset_content_type: application/zip
