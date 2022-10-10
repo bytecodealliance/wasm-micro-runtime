@@ -18,9 +18,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  LLVM_CACHE_SUFFIX: "build-llvm_libraries_ex"
-
 jobs:
   create_tag:
     uses: ./.github/workflows/create_tag.yml
@@ -44,6 +41,8 @@ jobs:
           body: |
             TODO: fill the content of RELEASE_NOTE.md in
 
+  #
+  # WAMRC
   release_wamrc_on_ubuntu_2004:
     needs: [create_tag, create_release]
     uses: ./.github/workflows/build_wamrc.yml
@@ -77,6 +76,8 @@ jobs:
       upload_url: ${{ needs.create_release.outputs.upload_url }}
       ver_num: ${{ needs.create_tag.outputs.new_ver }}
 
+  #
+  # IWASM
   release_iwasm_on_ubuntu_2004:
     needs: [create_tag, create_release]
     uses: ./.github/workflows/build_iwasm_release.yml
@@ -103,3 +104,35 @@ jobs:
       runner: macos-latest
       upload_url: ${{ needs.create_release.outputs.upload_url }}
       ver_num: ${{ needs.create_tag.outputs.new_ver}}
+
+  #
+  # WAMR_SDK
+  release_wamr_sdk_on_ubuntu_2004:
+    needs: [create_tag, create_release]
+    uses: ./.github/workflows/build_wamr_sdk.yml
+    with:
+      config_file: wamr_config_ubuntu_release.cmake
+      runner: ubuntu-20.04
+      upload_url: ${{ needs.create_release.outputs.upload_url }}
+      ver_num: ${{ needs.create_tag.outputs.new_ver}}
+      wasi_sdk_url: https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz
+
+  release_wamr_sdk_on_ubuntu_2204:
+    needs: [create_tag, create_release]
+    uses: ./.github/workflows/build_wamr_sdk.yml
+    with:
+      config_file: wamr_config_ubuntu_release.cmake
+      runner: ubuntu-22.04
+      upload_url: ${{ needs.create_release.outputs.upload_url }}
+      ver_num: ${{ needs.create_tag.outputs.new_ver}}
+      wasi_sdk_url: https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz
+
+  release_wamr_sdk_on_macos:
+    needs: [create_tag, create_release]
+    uses: ./.github/workflows/build_wamr_sdk.yml
+    with:
+      config_file: wamr_config_macos_release.cmake
+      runner: macos-latest
+      upload_url: ${{ needs.create_release.outputs.upload_url }}
+      ver_num: ${{ needs.create_tag.outputs.new_ver}}
+      wasi_sdk_url: https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-macos.tar.gz
