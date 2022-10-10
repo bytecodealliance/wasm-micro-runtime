@@ -16,7 +16,7 @@ on:
       - "product-mini/**"
       - "samples/**"
       - "!samples/workload/**"
-      - "wamr-comiler/**"
+      - "wamr-compiler/**"
   # will be triggered on push events
   push:
     branches:
@@ -29,7 +29,7 @@ on:
       - "product-mini/**"
       - "samples/**"
       - "!samples/workload/**"
-      - "wamr-comiler/**"
+      - "wamr-compiler/**"
   # allow to be triggered manually
   workflow_dispatch:
 
@@ -359,40 +359,7 @@ jobs:
           cmake --build . --config Release --parallel 4
           ./hello
 
-  spec_test_default:
-    needs: [build_iwasm, build_llvm_libraries, build_wamrc]
-    runs-on: ubuntu-20.04
-    strategy:
-      matrix:
-        test_option: [$DEFAULT_TEST_OPTIONS]
-    steps:
-      - name: checkout
-        uses: actions/checkout@v3
-
-      - name: Get LLVM libraries
-        id: cache_llvm
-        uses: actions/cache@v3
-        with:
-          path: |
-            ./core/deps/llvm/build/bin
-            ./core/deps/llvm/build/include
-            ./core/deps/llvm/build/lib
-            ./core/deps/llvm/build/libexec
-            ./core/deps/llvm/build/share
-          key: ubuntu-20.04-${{ env.LLVM_CACHE_SUFFIX }}
-
-      - name: Quit if cache miss
-        if: steps.cache_llvm.outputs.cache-hit != 'true'
-        run: echo "::error::can not get prebuilt llvm libraries" && exit 1
-
-      - name: install Ninja
-        run: sudo apt install -y ninja-build
-
-      - name: run spec tests
-        run: ./test_wamr.sh ${{ matrix.test_option }}
-        working-directory: ./tests/wamr-test-suites
-
-  spec_test_extra:
+  spec_test:
     needs: [build_iwasm, build_llvm_libraries, build_wamrc]
     runs-on: ubuntu-20.04
     strategy:
@@ -400,6 +367,7 @@ jobs:
         running_mode: ["classic-interp", "fast-interp", "jit", "aot"]
         test_option:
           [
+            $DEFAULT_TEST_OPTIONS,
             $MULTI_MODULES_TEST_OPTIONS,
             $SIMD_TEST_OPTIONS,
             $THREADS_TEST_OPTIONS,
@@ -408,7 +376,9 @@ jobs:
       - name: checkout
         uses: actions/checkout@v3
 
+      #only download llvm libraries in jit and aot mode
       - name: Get LLVM libraries
+        if: matrix.running_mode == 'jit' || matrix.running_mode == 'aot'
         id: cache_llvm
         uses: actions/cache@v3
         with:
@@ -421,52 +391,28 @@ jobs:
           key: ubuntu-20.04-${{ env.LLVM_CACHE_SUFFIX }}
 
       - name: Quit if cache miss
-        if: steps.cache_llvm.outputs.cache-hit != 'true'
+        if: (matrix.running_mode == 'jit' || matrix.running_mode == 'aot') && steps.cache_llvm.outputs.cache-hit != 'true'
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
 
       - name: install Ninja
         run: sudo apt install -y ninja-build
 
-      - name: run spec tests
+      - name: run spec tests default and extra
         run: ./test_wamr.sh ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
         working-directory: ./tests/wamr-test-suites
 
-  spec_test_x86_32:
-    needs: [build_iwasm, build_llvm_libraries, build_wamrc]
-    runs-on: ubuntu-20.04
-    strategy:
-      matrix:
-        running_mode: ["classic-interp", "fast-interp", "jit", "aot"]
-        test_option: [$DEFAULT_TEST_OPTIONS, $THREADS_TEST_OPTIONS]
-    steps:
-      - name: checkout
-        uses: actions/checkout@v3
-
-      - name: Get LLVM libraries
-        id: cache_llvm
-        uses: actions/cache@v3
-        with:
-          path: |
-            ./core/deps/llvm/build/bin
-            ./core/deps/llvm/build/include
-            ./core/deps/llvm/build/lib
-            ./core/deps/llvm/build/libexec
-            ./core/deps/llvm/build/share
-          key: ubuntu-20.04-${{ env.LLVM_CACHE_SUFFIX }}
-
-      - name: Quit if cache miss
-        if: steps.cache_llvm.outputs.cache-hit != 'true'
-        run: echo "::error::can not get prebuilt llvm libraries" && exit 1
-
-      - name: install Ninja and x32 support libraries
+      #only install x32 support libraries when to run x86_32 cases
+      - name: install x32 support libraries
+        if: matrix.test_option == '$DEFAULT_TEST_OPTIONS' || matrix.test_option == '$THREADS_TEST_OPTIONS'
         run:
           # Add another apt repository as some packages cannot
           # be downloaded with the github default repository
           sudo curl -sSL https://packages.microsoft.com/keys/microsoft.asc | sudo tee /etc/apt/trusted.gpg.d/microsoft.asc &&
           sudo apt-add-repository https://packages.microsoft.com/ubuntu/20.04/prod &&
           sudo apt-get update &&
-          sudo apt install -y g++-multilib lib32gcc-9-dev ninja-build
+          sudo apt install -y g++-multilib lib32gcc-9-dev
 
-      - name: run spec tests
+      - name: run spec tests x86_32
+        if: matrix.test_option == '$DEFAULT_TEST_OPTIONS' || matrix.test_option == '$THREADS_TEST_OPTIONS'
         run: ./test_wamr.sh ${{ env.X86_32_TARGET_TEST_OPTIONS }} ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
         working-directory: ./tests/wamr-test-suites
