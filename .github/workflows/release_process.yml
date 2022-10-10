@@ -1,0 +1,105 @@
+# Copyright (C) 2019 Intel Corporation.  All rights reserved.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+name: the binary release processes
+
+on:
+  workflow_dispatch:
+    inputs:
+      require_confirmation:
+        description: "If the process requires a confirmation"
+        type: boolean
+        required: false
+        default: false
+
+# Cancel any in-flight jobs for the same PR/branch so there's only one active
+# at a time
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  LLVM_CACHE_SUFFIX: "build-llvm_libraries_ex"
+
+jobs:
+  create_tag:
+    uses: ./.github/workflows/create_tag.yml
+
+  create_release:
+    needs: [create_tag]
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+      - name: create a release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ needs.create_tag.outputs.new_tag }}
+          release_name: ${{ needs.create_tag.outputs.new_tag }}
+          prerelease: ${{ inputs.require_confirmation || needs.create_tag.outputs.minor_version }}
+          draft: false
+          body: |
+            TODO: fill the content of RELEASE_NOTE.md in
+
+  release_wamrc_on_ubuntu_2004:
+    needs: [create_tag, create_release]
+    uses: ./.github/workflows/build_wamrc.yml
+    with:
+      # can't take an env variable here
+      llvm_cache_key: ubuntu-20.04-build-llvm_libraries_ex
+      release: true
+      runner: ubuntu-20.04
+      upload_url: ${{ needs.create_release.outputs.upload_url }}
+      ver_num: ${{ needs.create_tag.outputs.new_ver}}
+
+  release_wamrc_on_ubuntu_2204:
+    needs: [create_tag, create_release]
+    uses: ./.github/workflows/build_wamrc.yml
+    with:
+      # can't take an env variable here
+      llvm_cache_key: ubuntu-22.04-build-llvm_libraries_ex
+      release: true
+      runner: ubuntu-22.04
+      upload_url: ${{ needs.create_release.outputs.upload_url }}
+      ver_num: ${{ needs.create_tag.outputs.new_ver }}
+
+  release_wamrc_on_ubuntu_macos:
+    needs: [create_tag, create_release]
+    uses: ./.github/workflows/build_wamrc.yml
+    with:
+      # can't take an env variable here
+      llvm_cache_key: macos-latest-build-llvm_libraries_ex
+      release: true
+      runner: macos-latest
+      upload_url: ${{ needs.create_release.outputs.upload_url }}
+      ver_num: ${{ needs.create_tag.outputs.new_ver }}
+
+  release_iwasm_on_ubuntu_2004:
+    needs: [create_tag, create_release]
+    uses: ./.github/workflows/build_iwasm_release.yml
+    with:
+      cwd: product-mini/platforms/linux
+      runner: ubuntu-20.04
+      upload_url: ${{ needs.create_release.outputs.upload_url }}
+      ver_num: ${{ needs.create_tag.outputs.new_ver}}
+
+  release_iwasm_on_ubuntu_2204:
+    needs: [create_tag, create_release]
+    uses: ./.github/workflows/build_iwasm_release.yml
+    with:
+      cwd: product-mini/platforms/linux
+      runner: ubuntu-22.04
+      upload_url: ${{ needs.create_release.outputs.upload_url }}
+      ver_num: ${{ needs.create_tag.outputs.new_ver}}
+
+  release_iwasm_on_macos:
+    needs: [create_tag, create_release]
+    uses: ./.github/workflows/build_iwasm_release.yml
+    with:
+      cwd: product-mini/platforms/darwin
+      runner: macos-latest
+      upload_url: ${{ needs.create_release.outputs.upload_url }}
+      ver_num: ${{ needs.create_tag.outputs.new_ver}}
