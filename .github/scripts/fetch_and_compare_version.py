@@ -16,7 +16,7 @@ def fetch_version_from_code():
     """
     major, minor, patch = "", "", ""
     with open("build-scripts/config_common.cmake", encoding="utf-8") as f:
-        for line in f.readlines():
+        for line in f:
             if "WAMR_VERSION" not in line:
                 continue
 
