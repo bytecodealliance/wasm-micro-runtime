@@ -9,7 +9,9 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include "wasi_nn_common.h"
 #include "wasm_export.h"
+#include "bh_platform.h"
 
 #include "wasi_nn.h"
 #include "wasi_nn_tensorflow.hpp"
@@ -67,7 +69,9 @@ wasi_nn_load(wasm_exec_env_t exec_env, graph_builder_array_wasm *builder,
 {
     NN_DBG_PRINTF("Running wasi_nn_load [encoding=%d, target=%d]...", encoding,
                   target);
+
     wasm_module_inst_t instance = wasm_runtime_get_module_inst(exec_env);
+    bh_assert(instance);
 
     if (!wasm_runtime_validate_native_addr(instance, builder,
                                            sizeof(graph_builder_array_wasm)))
@@ -83,13 +87,18 @@ wasi_nn_load(wasm_exec_env_t exec_env, graph_builder_array_wasm *builder,
         (graph_builder_wasm *)wasm_runtime_addr_app_to_native(
             instance, builder->buf_offset);
 
-    graph_builder *gb_native =
-        (graph_builder *)malloc(builder->size * sizeof(graph_builder));
+    graph_builder *gb_native = (graph_builder *)wasm_runtime_malloc(
+        builder->size * sizeof(graph_builder));
+    if (gb_native == NULL)
+        return missing_memory;
 
     for (int i = 0; i < builder->size; ++i) {
         if (!wasm_runtime_validate_app_addr(instance, gb_wasm[i].buf_offset,
-                                            gb_wasm[i].size * sizeof(uint8_t)))
+                                            gb_wasm[i].size
+                                                * sizeof(uint8_t))) {
+            wasm_runtime_free(gb_native);
             return invalid_argument;
+        }
 
         gb_native[i].buf = (uint8_t *)wasm_runtime_addr_app_to_native(
             instance, gb_wasm[i].buf_offset);
@@ -102,14 +111,17 @@ wasi_nn_load(wasm_exec_env_t exec_env, graph_builder_array_wasm *builder,
     graph_builder_array gba_native = { .buf = gb_native,
                                        .size = builder->size };
 
-    if (!wasm_runtime_validate_native_addr(instance, graph, sizeof(graph)))
+    if (!wasm_runtime_validate_native_addr(instance, graph, sizeof(graph))) {
+        wasm_runtime_free(gb_native);
         return invalid_argument;
+    }
 
     switch (encoding) {
         case tensorflow:
             break;
         default:
             NN_ERR_PRINTF("Only tensorflow is supported.");
+            wasm_runtime_free(gb_native);
             return invalid_argument;
     }
 
@@ -117,9 +129,10 @@ wasi_nn_load(wasm_exec_env_t exec_env, graph_builder_array_wasm *builder,
     _is_initialized = 1;
 
     error res = tensorflow_load(gba_native, _encoding, target, graph);
-    free(gb_native);
     NN_DBG_PRINTF("wasi_nn_load finished with status %d [graph=%d]", res,
                   *graph);
+
+    wasm_runtime_free(gb_native);
     return res;
 }
 
@@ -152,6 +165,7 @@ wasi_nn_set_input(wasm_exec_env_t exec_env, graph_execution_context ctx,
         return res;
 
     wasm_module_inst_t instance = wasm_runtime_get_module_inst(exec_env);
+    bh_assert(instance);
 
     if (!wasm_runtime_validate_native_addr(instance, input_tensor,
                                            sizeof(tensor_wasm)))

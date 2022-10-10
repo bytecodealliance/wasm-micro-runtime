@@ -4,6 +4,10 @@
  */
 
 #include "wasi_nn_tensorflow.hpp"
+#include "wasi_nn_common.h"
+#include "bh_common.h"
+#include "bh_platform.h"
+#include "platform_common.h"
 
 #include <tensorflow/lite/interpreter.h>
 #include <tensorflow/lite/kernels/register.h>
@@ -25,7 +29,7 @@ tensorflow_load(graph_builder_array builder, graph_encoding encoding,
                 execution_target target, graph *graph)
 {
     if (model_pointer != NULL) {
-        free(model_pointer);
+        wasm_runtime_free(model_pointer);
         model_pointer = NULL;
     }
 
@@ -45,16 +49,20 @@ tensorflow_load(graph_builder_array builder, graph_encoding encoding,
     }
 
     uint32_t size = builder.buf[0].size;
-    model_pointer = (char *)malloc(size);
+
+    model_pointer = (char *)wasm_runtime_malloc(size);
     if (model_pointer == NULL) {
         NN_ERR_PRINTF("Error when allocating memory for model.");
         return missing_memory;
     }
-    memcpy(model_pointer, builder.buf[0].buf, size);
+
+    bh_memcpy_s(model_pointer, size, builder.buf[0].buf, size);
 
     model = tflite::FlatBufferModel::BuildFromBuffer(model_pointer, size, NULL);
     if (model == NULL) {
         NN_ERR_PRINTF("Loading model error.");
+        wasm_runtime_free(model_pointer);
+        model_pointer = NULL;
         return missing_memory;
     }
 
@@ -64,6 +72,8 @@ tensorflow_load(graph_builder_array builder, graph_encoding encoding,
     tflite_builder(&interpreter);
     if (interpreter == NULL) {
         NN_ERR_PRINTF("Error when generating the interpreter.");
+        wasm_runtime_free(model_pointer);
+        model_pointer = NULL;
         return missing_memory;
     }
 
@@ -107,9 +117,8 @@ tensorflow_set_input(graph_execution_context ctx, uint32_t index,
         model_tensor_size *= (uint32_t)tensor->dims->data[i];
 
     uint32_t input_tensor_size = 1;
-    for (int i = 0; i < input_tensor->dimensions->size; i++) {
+    for (int i = 0; i < input_tensor->dimensions->size; i++)
         input_tensor_size *= (uint32_t)input_tensor->dimensions->buf[i];
-    }
 
     if (model_tensor_size != input_tensor_size) {
         NN_ERR_PRINTF("Input tensor shape from the model is different than the "
@@ -121,7 +130,8 @@ tensorflow_set_input(graph_execution_context ctx, uint32_t index,
     if (input == NULL)
         return missing_memory;
 
-    memcpy(input, input_tensor->data, model_tensor_size * sizeof(float));
+    bh_memcpy_s(input, model_tensor_size * sizeof(float), input_tensor->data,
+                model_tensor_size * sizeof(float));
     return success;
 }
 
@@ -172,6 +182,7 @@ tensorflow_get_output(graph_execution_context context, uint32_t index,
         NN_DBG_PRINTF("output: %f", tensor_f[i]);
 
     *output_tensor_size = model_tensor_size;
-    memcpy(output_tensor, tensor_f, model_tensor_size * sizeof(float));
+    bh_memcpy_s(output_tensor, model_tensor_size * sizeof(float), tensor_f,
+                model_tensor_size * sizeof(float));
     return success;
 }
