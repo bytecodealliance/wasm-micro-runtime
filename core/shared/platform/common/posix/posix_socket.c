@@ -261,9 +261,12 @@ os_socket_recv_from(bh_socket_t socket, void *buf, unsigned int len, int flags,
         return ret;
     }
 
-    if (src_addr) {
-        sockaddr_to_bh_sockaddr((struct sockaddr *)&sock_addr, socklen,
-                                src_addr);
+    if (src_addr && socklen > 0) {
+        if (sockaddr_to_bh_sockaddr((struct sockaddr *)&sock_addr, socklen,
+                                    src_addr)
+            == BHT_ERROR) {
+            return -1;
+        }
     }
 
     return ret;
@@ -391,8 +394,14 @@ os_socket_addr_resolve(const char *host, const char *service,
                 continue;
             }
 
-            sockaddr_to_bh_sockaddr(res->ai_addr, sizeof(struct sockaddr_in),
-                                    &addr_info[pos].sockaddr);
+            ret = sockaddr_to_bh_sockaddr(res->ai_addr,
+                                          sizeof(struct sockaddr_in),
+                                          &addr_info[pos].sockaddr);
+
+            if (ret == BHT_ERROR) {
+                freeaddrinfo(result);
+                return BHT_ERROR;
+            }
 
             addr_info[pos].is_tcp = res->ai_socktype == SOCK_STREAM;
         }

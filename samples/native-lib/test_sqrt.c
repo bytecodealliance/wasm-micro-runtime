@@ -9,7 +9,7 @@
 #include "wasm_export.h"
 
 static int
-test_sqrt_wrapper(wasm_exec_env_t *exec_env, int x, int y)
+test_sqrt_wrapper(wasm_exec_env_t exec_env, int x, int y)
 {
     return x * x + y * y;
 }
