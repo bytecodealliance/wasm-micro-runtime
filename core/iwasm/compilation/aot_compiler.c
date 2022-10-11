@@ -2674,28 +2674,38 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
         return false;
     }
 
+    /* Run IR optimization before feeding in ORCJIT and AOT codegen */
     if (comp_ctx->optimize) {
-        if (!comp_ctx->is_jit_mode) {
-            /* Run passes for AOT indirect mode */
-            if (comp_ctx->is_indirect_mode) {
-                bh_print_time("Begin to run optimization passes "
-                              "for indirect mode");
-                if (!apply_passes_for_indirect_mode(comp_ctx)) {
-                    return false;
-                }
+        /* Run specific passes for AOT indirect mode */
+        if (!comp_ctx->is_jit_mode && comp_ctx->is_indirect_mode) {
+            bh_print_time("Begin to run optimization passes "
+                          "for indirect mode");
+            if (!apply_passes_for_indirect_mode(comp_ctx)) {
+                return false;
             }
-
-            /* Run passes for both indirect mode and normal mode */
-            bh_print_time("Begin to run llvm optimization passes");
-            aot_apply_llvm_new_pass_manager(comp_ctx, comp_ctx->module);
         }
+
+        /* Run passes for all JIT/AOT mode */
+        bh_print_time("Begin to run llvm optimization passes");
+        aot_apply_llvm_new_pass_manager(comp_ctx, comp_ctx->module);
+        bh_print_time("Finish llvm optimization passes");
     }
+
+#ifdef DUMP_MODULE
+    LLVMDumpModule(comp_ctx->module);
+    os_printf("\n");
+#endif
 
     if (comp_ctx->is_jit_mode) {
         LLVMErrorRef err;
         LLVMOrcJITDylibRef orc_main_dylib;
         LLVMOrcThreadSafeModuleRef orc_thread_safe_module;
+
+#if WASM_ENABLE_LAZY_JIT != 0
+        orc_main_dylib = LLVMOrcLLLazyJITGetMainJITDylib(comp_ctx->orc_jit);
+#else
         orc_main_dylib = LLVMOrcLLJITGetMainJITDylib(comp_ctx->orc_jit);
+#endif
         if (!orc_main_dylib) {
             aot_set_last_error(
                 "failed to get orc orc_jit main dynmaic library");
@@ -2709,8 +2719,13 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
             return false;
         }
 
+#if WASM_ENABLE_LAZY_JIT != 0
+        if ((err = LLVMOrcLLLazyJITAddLLVMIRModule(
+                 comp_ctx->orc_jit, orc_main_dylib, orc_thread_safe_module))) {
+#else
         if ((err = LLVMOrcLLJITAddLLVMIRModule(
                  comp_ctx->orc_jit, orc_main_dylib, orc_thread_safe_module))) {
+#endif
             /* If adding the ThreadSafeModule fails then we need to clean it up
                by ourselves, otherwise the orc orc_jit will manage the memory.
              */
@@ -2720,10 +2735,6 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
         }
     }
 
-#if 0
-    LLVMDumpModule(comp_ctx->module);
-    os_printf("\n");
-#endif
     return true;
 }
 

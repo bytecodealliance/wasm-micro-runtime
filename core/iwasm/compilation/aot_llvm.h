@@ -30,6 +30,8 @@
 #include "llvm-c/DebugInfo.h"
 #endif
 
+#include "orc_extra/aot_orc_extra.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -46,6 +48,16 @@ extern "C" {
 #else
 /* Opaque pointer type */
 #define OPQ_PTR_TYPE INT8_PTR_TYPE
+#endif
+
+#ifndef NDEBUG
+#undef DEBUG_PASS
+#undef DUMP_MODULE
+// #define DEBUG_PASS
+// #define DUMP_MODULE
+#else
+#undef DEBUG_PASS
+#undef DUMP_MODULE
 #endif
 
 /**
@@ -280,14 +292,14 @@ typedef struct AOTCompContext {
     /* Hardware intrinsic compability flags */
     uint64 flags[8];
 
-    /* LLVM execution engine required by JIT */
+    /* required by JIT */
+#if WASM_ENABLE_LAZY_JIT != 0
+    LLVMOrcLLLazyJITRef orc_jit;
+#else
     LLVMOrcLLJITRef orc_jit;
-    LLVMOrcMaterializationUnitRef orc_material_unit;
-    LLVMOrcLazyCallThroughManagerRef orc_call_through_mgr;
-    LLVMOrcIndirectStubsManagerRef orc_indirect_stub_mgr;
-    LLVMOrcCSymbolAliasMapPairs orc_symbol_map_pairs;
+#endif
     LLVMOrcThreadSafeContextRef orc_thread_safe_context;
-    /* Each aot function has its own module */
+
     LLVMModuleRef module;
 
     bool is_jit_mode;
@@ -492,19 +504,17 @@ aot_add_simple_loop_unswitch_pass(LLVMPassManagerRef pass);
 void
 aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module);
 
-LLVMOrcJITTargetMachineBuilderRef
-LLVMOrcJITTargetMachineBuilderCreateFromTargetMachine(LLVMTargetMachineRef TM);
-
-void
-LLVMOrcLLJITBuilderSetNumCompileThreads(LLVMOrcLLJITBuilderRef orcjit_builder,
-                                        unsigned num_compile_threads);
-
 void
 aot_handle_llvm_errmsg(const char *string, LLVMErrorRef err);
 
 void *
-aot_lookup_orcjit_func(LLVMOrcLLJITRef orc_jit, void *module_inst,
-                       uint32 func_idx);
+aot_lookup_orcjit_func(
+#if WASM_ENABLE_LAZY_JIT != 0
+    LLVMOrcLLLazyJITRef orc_jit,
+#else
+    LLVMOrcLLJITRef orc_jit,
+#endif
+    void *module_inst, uint32 func_idx);
 
 #ifdef __cplusplus
 } /* end of extern "C" */

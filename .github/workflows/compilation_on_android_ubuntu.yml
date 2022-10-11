@@ -185,7 +185,7 @@ jobs:
             $CLASSIC_INTERP_BUILD_OPTIONS,
             $FAST_INTERP_BUILD_OPTIONS,
             $LLVM_EAGER_JIT_BUILD_OPTIONS,
-            #$LLVM_LAZY_JIT_BUILD_OPTIONS,
+            $LLVM_LAZY_JIT_BUILD_OPTIONS,
           ]
         make_options_feature: [
             # Features
