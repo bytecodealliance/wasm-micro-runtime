@@ -5,14 +5,6 @@ name: build wamr-ide vscode extension
 on:
   workflow_call:
     inputs:
-      cwd:
-        description: working directory
-        type: string
-        required: true
-      runner:
-        description: OS of compilation
-        type: string
-        required: true
       upload_url:
         description: a semantic version number. it is required when `release` is true.
         type: string
@@ -24,7 +16,7 @@ on:
 
 jobs:
   build:
-    runs-on: ${{ inputs.runner }}
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
 
@@ -39,13 +31,13 @@ jobs:
           rm -rf node_modules
           npm install
           vsce package
-        working-directory: ${{ inputs.cwd }}
+        working-directory: test-tools/wamr-ide/VSCode-Extension
 
       - name: compress the vscode extension
         run: |
           tar czf wamr_ide-${{ inputs.ver_num }}.tar.gz wamride-*.vsix
           zip wamr_ide-${{ inputs.ver_num }}.zip wamride-*.vsix
-        working-directory: ${{ inputs.cwd }}
+        working-directory: test-tools/wamr-ide/VSCode-Extension
 
       - name: upload release tar.gz
         uses: actions/upload-release-asset@v1
@@ -53,7 +45,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ inputs.upload_url }}
-          asset_path: ${{ inputs.cwd }}/wamr_ide-${{ inputs.ver_num }}.tar.gz
+          asset_path: test-tools/wamr-ide/VSCode-Extension/wamr_ide-${{ inputs.ver_num }}.tar.gz
           asset_name: wamr_ide-${{ inputs.ver_num }}.tar.gz
           asset_content_type: application/x-gzip
 
@@ -63,6 +55,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ inputs.upload_url }}
-          asset_path: ${{ inputs.cwd }}/wamr_ide-${{ inputs.ver_num }}.zip
+          asset_path: test-tools/wamr-ide/VSCode-Extension/wamr_ide-${{ inputs.ver_num }}.zip
           asset_name: wamr_ide-${{ inputs.ver_num }}.zip
           asset_content_type: application/zip

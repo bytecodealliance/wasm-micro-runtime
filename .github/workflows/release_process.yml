@@ -143,7 +143,5 @@ jobs:
     needs: [create_tag, create_release]
     uses: ./.github/workflows/build_wamr_vscode_ext.yml
     with:
-      cwd: test-tools/wamr-ide/VSCode-Extension
-      runner: ubuntu-22.04
       upload_url: ${{ needs.create_release.outputs.upload_url }}
       ver_num: ${{ needs.create_tag.outputs.new_ver }}
