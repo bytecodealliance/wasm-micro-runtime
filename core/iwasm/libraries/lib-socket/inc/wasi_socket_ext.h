@@ -12,6 +12,10 @@
 
 /*Be a part of <wasi/api.h>*/
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum {
     SOCKET_DGRAM = 0,
     SOCKET_STREAM,
@@ -140,9 +144,6 @@ struct addrinfo {
     struct addrinfo *ai_next; /* Pointer to next in list.  */
 };
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 #ifndef __WASI_RIGHTS_SOCK_ACCEPT
 int
 accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
@@ -194,9 +195,6 @@ getaddrinfo(const char *node, const char *service, const struct addrinfo *hints,
 
 void
 freeaddrinfo(struct addrinfo *res);
-#ifdef __cplusplus
-}
-#endif
 #endif
 
 /**
@@ -993,4 +991,9 @@ __wasi_sock_get_ipv6_only(__wasi_fd_t fd, bool *option)
  * since don't want to re-compile the wasi-libc,
  * we tend to keep original implentations of recv() and send().
  */
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif
