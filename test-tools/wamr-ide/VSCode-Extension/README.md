@@ -7,6 +7,8 @@
 > Note that please build `lldb` firstly follow this
 > [instruction](./resource/debug/README.md) if you want to enable
 > `source debugging` feature of this extension
+> , especially when you download and decompress .vsix file 
+> from our release rather than build the extension yourself
 
 ### 1. open `VSCode_Extension` directory with the `vscode`
 
