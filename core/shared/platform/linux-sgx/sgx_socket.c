@@ -994,25 +994,15 @@ os_socket_get_reuse_addr(bh_socket_t socket, bool *is_enabled)
 int
 os_socket_set_reuse_port(bh_socket_t socket, bool is_enabled)
 {
-#if defined(SO_REUSEPORT) /* NuttX doesn't have SO_REUSEPORT */
     return os_socket_setbooloption(socket, SOL_SOCKET, SO_REUSEPORT,
                                    is_enabled);
-#else
-    errno = ENOTSUP;
-    return BHT_ERROR;
-#endif /* defined(SO_REUSEPORT) */
 }
 
 int
 os_socket_get_reuse_port(bh_socket_t socket, bool *is_enabled)
 {
-#if defined(SO_REUSEPORT) /* NuttX doesn't have SO_REUSEPORT */
     return os_socket_getbooloption(socket, SOL_SOCKET, SO_REUSEPORT,
                                    is_enabled);
-#else
-    errno = ENOTSUP;
-    return BHT_ERROR;
-#endif /* defined(SO_REUSEPORT) */
 }
 
 int
@@ -1048,27 +1038,15 @@ os_socket_get_tcp_no_delay(bh_socket_t socket, bool *is_enabled)
 int
 os_socket_set_tcp_quick_ack(bh_socket_t socket, bool is_enabled)
 {
-#ifdef TCP_QUICKACK
     return os_socket_setbooloption(socket, IPPROTO_TCP, TCP_QUICKACK,
                                    is_enabled);
-#else
-    errno = ENOSYS;
-
-    return BHT_ERROR;
-#endif
 }
 
 int
 os_socket_get_tcp_quick_ack(bh_socket_t socket, bool *is_enabled)
 {
-#ifdef TCP_QUICKACK
     return os_socket_getbooloption(socket, IPPROTO_TCP, TCP_QUICKACK,
                                    is_enabled);
-#else
-    errno = ENOSYS;
-
-    return BHT_ERROR;
-#endif
 }
 
 int
@@ -1106,27 +1084,15 @@ os_socket_get_tcp_keep_intvl(bh_socket_t socket, uint32 *time_s)
 int
 os_socket_set_tcp_fastopen_connect(bh_socket_t socket, bool is_enabled)
 {
-#ifdef TCP_FASTOPEN_CONNECT
     return os_socket_setbooloption(socket, IPPROTO_TCP, TCP_FASTOPEN_CONNECT,
                                    is_enabled);
-#else
-    errno = ENOSYS;
-
-    return BHT_ERROR;
-#endif
 }
 
 int
 os_socket_get_tcp_fastopen_connect(bh_socket_t socket, bool *is_enabled)
 {
-#ifdef TCP_FASTOPEN_CONNECT
     return os_socket_getbooloption(socket, IPPROTO_TCP, TCP_FASTOPEN_CONNECT,
                                    is_enabled);
-#else
-    errno = ENOSYS;
-
-    return BHT_ERROR;
-#endif
 }
 
 int
