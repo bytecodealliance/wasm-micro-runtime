@@ -1,8 +1,5 @@
-# CALLED WORKFLOW
-# 1. You can connect up to four levels of workflows.
-# 2. Reusable workflows stored within a private repository can only be used by workflows within the same repository.
-# 3. Any environment variables set in an env context defined at the workflow level in the caller workflow
-#    are not propagated to the called workflow.
+# Copyright (C) 2019 Intel Corporation.  All rights reserved.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 name: Reusable workflow-build_llvm_libraries&build_lldb_if_needed
 
 on:
