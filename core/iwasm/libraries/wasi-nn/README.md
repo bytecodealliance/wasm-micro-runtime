@@ -17,7 +17,7 @@ By only including this file in your WASM application you will bind WASI-NN into 
 To run the tests we assume that the current directory is the root of the repository.
 
 
-1. Build the dockre image,
+1. Build the docker image,
 
 ```
 docker build -t wasi-nn -f core/iwasm/libraries/wasi-nn/test/Dockerfile .

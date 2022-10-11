@@ -14,16 +14,10 @@
 #include <fcntl.h>
 #include <errno.h>
 
-#define BUFFER_SIZE 32
-
-#define INPUT_SIZE 25
-
-#define EPSILON 1e-8
-#define MAX_OUTPUT_TENSOR_SIZE 200
 #define MAX_MODEL_SIZE 85000000
-#define MAX_OUTPUT_TENSORS 4
-
-#define GRAPH_EXECUTION_CONTEXT 44
+#define MAX_OUTPUT_TENSOR_SIZE 200
+#define INPUT_TENSOR_DIMS 4
+#define EPSILON 1e-8
 
 typedef struct {
     float *input_tensor;
@@ -37,26 +31,32 @@ error
 wasm_load(char *model_name, graph *graph)
 {
     FILE *pFile = fopen(model_name, "r");
-
-    assert(pFile != NULL);
+    if (pFile == NULL)
+        return invalid_argument;
 
     uint8_t *buffer;
     size_t result;
 
     // allocate memory to contain the whole file:
     buffer = (uint8_t *)malloc(sizeof(uint8_t) * MAX_MODEL_SIZE);
-    if (buffer == NULL)
+    if (buffer == NULL) {
+        fclose(pFile);
         return missing_memory;
+    }
 
     result = fread(buffer, 1, MAX_MODEL_SIZE, pFile);
-    if (result <= 0)
-        return invalid_argument;
+    if (result <= 0) {
+        fclose(pFile);
+        free(buffer);
+        return missing_memory;
+    }
 
     graph_builder_array arr;
 
     arr.size = 1;
     arr.buf = (graph_builder *)malloc(sizeof(graph_builder));
     if (arr.buf == NULL) {
+        fclose(pFile);
         free(buffer);
         return missing_memory;
     }
@@ -68,21 +68,21 @@ wasm_load(char *model_name, graph *graph)
 
     fclose(pFile);
     free(buffer);
+    free(arr.buf);
     return res;
 }
 
 error
-wasm_init_execution_context(graph graph)
+wasm_init_execution_context(graph graph, graph_execution_context *ctx)
 {
-    graph_execution_context gec;
-    return init_execution_context(graph, &gec);
+    return init_execution_context(graph, ctx);
 }
 
 error
-wasm_input(float *input_tensor, uint32_t *dim)
+wasm_input(graph_execution_context ctx, float *input_tensor, uint32_t *dim)
 {
     tensor_dimensions dims;
-    dims.size = 4;
+    dims.size = INPUT_TENSOR_DIMS;
     dims.buf = (uint32_t *)malloc(dims.size * sizeof(uint32_t));
     if (dims.buf == NULL)
         return missing_memory;
@@ -93,23 +93,23 @@ wasm_input(float *input_tensor, uint32_t *dim)
         tensor.dimensions->buf[i] = dim[i];
     tensor.type = fp32;
     tensor.data = (uint8_t *)input_tensor;
-    error err = set_input(44, 0, &tensor);
+    error err = set_input(ctx, 0, &tensor);
 
-    free(tensor.dimensions->buf);
+    free(dims.buf);
     return err;
 }
 
 error
-wasm_compute(graph_execution_context context)
+wasm_compute(graph_execution_context ctx)
 {
-    return compute(context);
+    return compute(ctx);
 }
 
 error
-wasm_get_output(graph_execution_context context, uint32_t index,
-                float *out_tensor, uint32_t *out_size)
+wasm_get_output(graph_execution_context ctx, uint32_t index, float *out_tensor,
+                uint32_t *out_size)
 {
-    return get_output(context, index, (uint8_t *)out_tensor, out_size);
+    return get_output(ctx, index, (uint8_t *)out_tensor, out_size);
 }
 
 // Inference
@@ -118,24 +118,24 @@ float *
 run_inference(float *input, uint32_t *input_size, uint32_t *output_size,
               char *model_name, uint32_t num_output_tensors)
 {
-    graph graph = 444;
+    graph graph;
     if (wasm_load(model_name, &graph) != success) {
         fprintf(stderr, "Error when loading model.");
         exit(1);
     }
 
-    if (wasm_init_execution_context(graph) != success) {
+    graph_execution_context ctx;
+    if (wasm_init_execution_context(graph, &ctx) != success) {
         fprintf(stderr, "Error when initialixing execution context.");
         exit(1);
     }
 
-    if (wasm_input(input, input_size) != success) {
+    if (wasm_input(ctx, input, input_size) != success) {
         fprintf(stderr, "Error when setting input tensor.");
         exit(1);
     }
 
-    graph_execution_context context;
-    if (wasm_compute(context) != success) {
+    if (wasm_compute(ctx) != success) {
         fprintf(stderr, "Error when running inference.");
         exit(1);
     }
@@ -149,7 +149,7 @@ run_inference(float *input, uint32_t *input_size, uint32_t *output_size,
     uint32_t offset = 0;
     for (int i = 0; i < num_output_tensors; ++i) {
         *output_size = MAX_OUTPUT_TENSOR_SIZE - *output_size;
-        if (wasm_get_output(context, i, &out_tensor[offset], output_size)
+        if (wasm_get_output(ctx, i, &out_tensor[offset], output_size)
             != success) {
             fprintf(stderr, "Error when getting input .");
             exit(1);
@@ -164,13 +164,13 @@ run_inference(float *input, uint32_t *input_size, uint32_t *output_size,
 // UTILS
 
 input_info
-create_input(int N, int *dims)
+create_input(int *dims)
 {
     input_info input = { .dim = NULL, .input_tensor = NULL, .elements = 1 };
 
-    input.dim = malloc(N * sizeof(uint32_t));
+    input.dim = malloc(INPUT_TENSOR_DIMS * sizeof(uint32_t));
     if (input.dim)
-        for (int i = 0; i < N; ++i) {
+        for (int i = 0; i < INPUT_TENSOR_DIMS; ++i) {
             input.dim[i] = dims[i];
             input.elements *= dims[i];
         }
@@ -187,9 +187,8 @@ create_input(int N, int *dims)
 void
 test_sum()
 {
-    int N = 4;
     int dims[] = { 1, 5, 5, 1 };
-    input_info input = create_input(4, dims);
+    input_info input = create_input(dims);
 
     uint32_t output_size = 0;
     float *output = run_inference(input.input_tensor, input.dim, &output_size,
@@ -206,9 +205,8 @@ test_sum()
 void
 test_max()
 {
-    int N = 4;
     int dims[] = { 1, 5, 5, 1 };
-    input_info input = create_input(4, dims);
+    input_info input = create_input(dims);
 
     uint32_t output_size = 0;
     float *output = run_inference(input.input_tensor, input.dim, &output_size,
@@ -226,9 +224,8 @@ test_max()
 void
 test_average()
 {
-    int N = 4;
     int dims[] = { 1, 5, 5, 1 };
-    input_info input = create_input(4, dims);
+    input_info input = create_input(dims);
 
     uint32_t output_size = 0;
     float *output = run_inference(input.input_tensor, input.dim, &output_size,
@@ -246,9 +243,8 @@ test_average()
 void
 test_mult_dimensions()
 {
-    int N = 4;
     int dims[] = { 1, 3, 3, 1 };
-    input_info input = create_input(4, dims);
+    input_info input = create_input(dims);
 
     uint32_t output_size = 0;
     float *output = run_inference(input.input_tensor, input.dim, &output_size,
@@ -266,9 +262,8 @@ test_mult_dimensions()
 void
 test_mult_outputs()
 {
-    int N = 4;
     int dims[] = { 1, 4, 4, 1 };
-    input_info input = create_input(4, dims);
+    input_info input = create_input(dims);
 
     uint32_t output_size = 0;
     float *output = run_inference(input.input_tensor, input.dim, &output_size,
