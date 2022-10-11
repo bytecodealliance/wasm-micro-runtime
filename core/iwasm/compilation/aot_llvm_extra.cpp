@@ -4,6 +4,7 @@
  */
 
 #include "llvm/Passes/StandardInstrumentations.h"
+#include "llvm/Support/Error.h"
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/ADT/Twine.h>
 #include <llvm/ADT/Triple.h>
@@ -51,7 +52,7 @@
 using namespace llvm;
 using namespace llvm::orc;
 
-extern "C" {
+LLVM_C_EXTERN_C_BEGIN
 
 bool
 aot_check_simd_compatibility(const char *arch_c_str, const char *cpu_c_str);
@@ -63,17 +64,11 @@ void
 aot_add_simple_loop_unswitch_pass(LLVMPassManagerRef pass);
 
 void
-aot_func_disable_tce(LLVMValueRef func);
-
-void
 aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module);
-}
 
-static TargetMachine *
-unwrap(LLVMTargetMachineRef P)
-{
-    return reinterpret_cast<TargetMachine *>(P);
-}
+LLVM_C_EXTERN_C_END
+
+ExitOnError ExitOnErr;
 
 class ExpandMemoryOpPass : public llvm::ModulePass
 {
@@ -175,13 +170,15 @@ ExpandMemoryOpPass::runOnModule(Module &M)
 void
 aot_add_expand_memory_op_pass(LLVMPassManagerRef pass)
 {
-    unwrap(pass)->add(new ExpandMemoryOpPass());
+    reinterpret_cast<legacy::PassManager *>(pass)->add(
+        new ExpandMemoryOpPass());
 }
 
 void
 aot_add_simple_loop_unswitch_pass(LLVMPassManagerRef pass)
 {
-    unwrap(pass)->add(createSimpleLoopUnswitchLegacyPass());
+    reinterpret_cast<legacy::PassManager *>(pass)->add(
+        createSimpleLoopUnswitchLegacyPass());
 }
 
 bool
@@ -225,18 +222,14 @@ aot_check_simd_compatibility(const char *arch_c_str, const char *cpu_c_str)
 #endif /* WASM_ENABLE_SIMD */
 }
 
-DEFINE_SIMPLE_CONVERSION_FUNCTIONS(LLJITBuilder, LLVMOrcLLJITBuilderRef)
-
-void
-LLVMOrcLLJITBuilderSetNumCompileThreads(LLVMOrcLLJITBuilderRef orcjit_builder,
-                                        unsigned num_compile_threads)
-{
-    unwrap(orcjit_builder)->setNumCompileThreads(num_compile_threads);
-}
-
 void *
-aot_lookup_orcjit_func(LLVMOrcLLJITRef orc_jit, void *module_inst,
-                       uint32 func_idx)
+aot_lookup_orcjit_func(
+#if WASM_ENABLE_LAZY_JIT != 0
+    LLVMOrcLLLazyJITRef orc_jit,
+#else
+    LLVMOrcLLJITRef orc_jit,
+#endif
+    void *module_inst, uint32 func_idx)
 {
     char func_name[32], buf[128], *err_msg = NULL;
     LLVMErrorRef error;
@@ -256,7 +249,11 @@ aot_lookup_orcjit_func(LLVMOrcLLJITRef orc_jit, void *module_inst,
 
     snprintf(func_name, sizeof(func_name), "%s%d", AOT_FUNC_PREFIX,
              func_idx - aot_module->import_func_count);
+#if WASM_ENABLE_LAZY_JIT != 0
+    if ((error = LLVMOrcLLLazyJITLookup(orc_jit, &func_addr, func_name))) {
+#else
     if ((error = LLVMOrcLLJITLookup(orc_jit, &func_addr, func_name))) {
+#endif
         err_msg = LLVMGetErrorMessage(error);
         snprintf(buf, sizeof(buf), "failed to lookup orcjit function: %s",
                  err_msg);
@@ -269,33 +266,10 @@ aot_lookup_orcjit_func(LLVMOrcLLJITRef orc_jit, void *module_inst,
 }
 
 void
-aot_func_disable_tce(LLVMValueRef func)
-{
-    Function *F = unwrap<Function>(func);
-    auto Attrs = F->getAttributes();
-
-#if LLVM_VERSION_MAJOR <= 13
-    Attrs = Attrs.addAttribute(F->getContext(), AttributeList::FunctionIndex,
-                               "disable-tail-calls", "true");
-#else
-    Attrs =
-        Attrs.addAttributeAtIndex(F->getContext(), AttributeList::FunctionIndex,
-                                  "disable-tail-calls", "true");
-#endif
-    F->setAttributes(Attrs);
-}
-
-#ifndef NDEBUG
-// #define DEBUG_PASS
-#undef DEBUG_PASS
-#else
-#undef DEBUG_PASS
-#endif
-
-void
 aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
 {
-    TargetMachine *TM = unwrap(comp_ctx->target_machine);
+    TargetMachine *TM =
+        reinterpret_cast<TargetMachine *>(comp_ctx->target_machine);
     PipelineTuningOptions PTO;
     PTO.LoopVectorization = true;
     PTO.SLPVectorization = true;
@@ -404,7 +378,7 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
         // const char *Passes = "default<O2>";
         const char *Passes =
             "mem2reg,instcombine,simplifycfg,jump-threading,indvars";
-        auto Err = PB.parsePassPipeline(MPM, Passes);
+        ExitOnErr(PB.parsePassPipeline(MPM, Passes));
     }
     else {
         FunctionPassManager FPM;
