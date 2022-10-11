@@ -48,7 +48,10 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
     LLVMValueRef func = NULL;
     LLVMTypeRef *param_types, ret_type, func_type;
     LLVMValueRef local_value;
-    char func_name[32];
+    LLVMTypeRef func_type_wrapper;
+    LLVMValueRef func_wrapper;
+    LLVMBasicBlockRef func_begin;
+    char func_name[48];
     uint64 size;
     uint32 i, j = 0, param_count = (uint64)aot_func_type->param_count;
 
@@ -115,6 +118,34 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
 
     if (p_func_type)
         *p_func_type = func_type;
+
+    if (comp_ctx->is_jit_mode) {
+    func_type_wrapper = LLVMFunctionType(VOID_TYPE, NULL, 0, false);
+    if (!func_type_wrapper) {
+        aot_set_last_error("create LLVM function type failed.");
+        goto fail;
+    }
+
+    snprintf(func_name, sizeof(func_name), "%s%d%s", AOT_FUNC_PREFIX,
+             func_index, "_wrapper");
+    if (!(func_wrapper =
+              LLVMAddFunction(module, func_name, func_type_wrapper))) {
+        aot_set_last_error("add LLVM function failed.");
+        goto fail;
+    }
+
+    if (!(func_begin = LLVMAppendBasicBlockInContext(
+              comp_ctx->context, func_wrapper, "func_begin"))) {
+        aot_set_last_error("add LLVM basic block failed.");
+        goto fail;
+    }
+
+    LLVMPositionBuilderAtEnd(comp_ctx->builder, func_begin);
+    if (!LLVMBuildRetVoid(comp_ctx->builder)) {
+        aot_set_last_error("llvm build ret failed.");
+        goto fail;
+    }
+    }
 
 fail:
     wasm_runtime_free(param_types);
@@ -1345,21 +1376,13 @@ static bool
 orc_jit_create(AOTCompContext *comp_ctx)
 {
     LLVMErrorRef err;
-#if WASM_ENABLE_LAZY_JIT != 0
     LLVMOrcLLLazyJITRef orc_jit = NULL;
     LLVMOrcLLLazyJITBuilderRef builder = NULL;
-#else
-    LLVMOrcLLJITRef orc_jit = NULL;
-    LLVMOrcLLJITBuilderRef builder = NULL;
-#endif
     LLVMOrcJITTargetMachineBuilderRef jtmb = NULL;
+    uint32 num_compile_threads = WASM_ORC_JIT_COMPILE_THREAD_NUM;
     bool ret = false;
 
-#if WASM_ENABLE_LAZY_JIT != 0
     builder = LLVMOrcCreateLLLazyJITBuilder();
-#else
-    builder = LLVMOrcCreateLLJITBuilder();
-#endif
     if (builder == NULL) {
         aot_set_last_error("failed to create jit builder.");
         goto fail;
@@ -1372,70 +1395,47 @@ orc_jit_create(AOTCompContext *comp_ctx)
         goto fail;
     }
 
-    /* ownership transfer
-     * LLVMOrcJITTargetMachineBuilderRef -> LLVMOrcLLJITBuilderRef
-     */
-#if WASM_ENABLE_LAZY_JIT != 0
+    if (num_compile_threads < 1)
+        /* At least one compile thread */
+        num_compile_threads = 1;
+
     LLVMOrcLLLazyJITBuilderSetNumCompileThreads(
-        builder, WASM_ORC_JIT_COMPILE_THREAD_NUM);
+        builder, num_compile_threads);
+
+    /* Ownership transfer:
+       LLVMOrcJITTargetMachineBuilderRef -> LLVMOrcLLJITBuilderRef */
     LLVMOrcLLLazyJITBuilderSetJITTargetMachineBuilder(builder, jtmb);
     err = LLVMOrcCreateLLLazyJIT(&orc_jit, builder);
-#else
-    LLVMOrcLLJITBuilderSetNumCompileThreads(builder,
-                                            WASM_ORC_JIT_COMPILE_THREAD_NUM);
-    LLVMOrcLLJITBuilderSetJITTargetMachineBuilder(builder, jtmb);
-    err = LLVMOrcCreateLLJIT(&orc_jit, builder);
-#endif
     if (err != LLVMErrorSuccess) {
         aot_handle_llvm_errmsg("quited to create llvm lazy orcjit instance",
                                err);
         goto fail;
     }
-    /* ownership transfer
-     * LLVMOrcLLJITBuilderRef -> LLVMOrcLLJITRef
-     */
+    /* Ownership transfer: LLVMOrcLLJITBuilderRef -> LLVMOrcLLJITRef */
     builder = NULL;
 
 #ifndef NDEBUG
     /* Setup TransferLayer */
     LLVMOrcIRTransformLayerSetTransform(
-#if WASM_ENABLE_LAZY_JIT != 0
         LLVMOrcLLLazyJITGetIRTransformLayer(orc_jit),
-#else
-        LLVMOrcLLJITGetIRTransformLayer(orc_jit),
-#endif
         *do_ir_transform, comp_ctx);
 
     LLVMOrcObjectTransformLayerSetTransform(
-#if WASM_ENABLE_LAZY_JIT != 0
         LLVMOrcLLLazyJITGetObjTransformLayer(orc_jit),
-#else
-        LLVMOrcLLJITGetObjTransformLayer(orc_jit),
-#endif
         *do_obj_transform, comp_ctx);
 #endif
 
-    /* ownership transfer
-     * local -> AOTCompContext
-     */
+    /* Ownership transfer: local -> AOTCompContext */
     comp_ctx->orc_jit = orc_jit;
     orc_jit = NULL;
     ret = true;
 
 fail:
     if (builder)
-#if WASM_ENABLE_LAZY_JIT != 0
         LLVMOrcDisposeLLLazyJITBuilder(builder);
-#else
-        LLVMOrcDisposeLLJITBuilder(builder);
-#endif
 
     if (orc_jit)
-#if WASM_ENABLE_LAZY_JIT != 0
         LLVMOrcDisposeLLLazyJIT(orc_jit);
-#else
-        LLVMOrcDisposeLLJIT(orc_jit);
-#endif
     return ret;
 }
 
@@ -2069,11 +2069,7 @@ aot_destroy_comp_context(AOTCompContext *comp_ctx)
 
     /* Has to be the last one */
     if (comp_ctx->orc_jit)
-#if WASM_ENABLE_LAZY_JIT != 0
         LLVMOrcDisposeLLLazyJIT(comp_ctx->orc_jit);
-#else
-        LLVMOrcDisposeLLJIT(comp_ctx->orc_jit);
-#endif
 
     LLVMShutdown();
 

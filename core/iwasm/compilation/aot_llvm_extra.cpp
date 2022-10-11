@@ -224,11 +224,7 @@ aot_check_simd_compatibility(const char *arch_c_str, const char *cpu_c_str)
 
 void *
 aot_lookup_orcjit_func(
-#if WASM_ENABLE_LAZY_JIT != 0
     LLVMOrcLLLazyJITRef orc_jit,
-#else
-    LLVMOrcLLJITRef orc_jit,
-#endif
     void *module_inst, uint32 func_idx)
 {
     char func_name[32], buf[128], *err_msg = NULL;
@@ -249,11 +245,7 @@ aot_lookup_orcjit_func(
 
     snprintf(func_name, sizeof(func_name), "%s%d", AOT_FUNC_PREFIX,
              func_idx - aot_module->import_func_count);
-#if WASM_ENABLE_LAZY_JIT != 0
     if ((error = LLVMOrcLLLazyJITLookup(orc_jit, &func_addr, func_name))) {
-#else
-    if ((error = LLVMOrcLLJITLookup(orc_jit, &func_addr, func_name))) {
-#endif
         err_msg = LLVMGetErrorMessage(error);
         snprintf(buf, sizeof(buf), "failed to lookup orcjit function: %s",
                  err_msg);
@@ -286,19 +278,19 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
 #endif
 #endif
 
-    // Register all the basic analyses with the managers.
+    /* Register all the basic analyses with the managers */
     LoopAnalysisManager LAM;
     FunctionAnalysisManager FAM;
     CGSCCAnalysisManager CGAM;
     ModuleAnalysisManager MAM;
 
-    // Register the target library analysis directly and give it a
-    // customized preset TLI.
+    /* Register the target library analysis directly and give it a
+       customized preset TLI */
     std::unique_ptr<TargetLibraryInfoImpl> TLII(
         new TargetLibraryInfoImpl(Triple(TM->getTargetTriple())));
     FAM.registerPass([&] { return TargetLibraryAnalysis(*TLII); });
 
-    // Register the AA manager first so that our version is the one used.
+    /* Register the AA manager first so that our version is the one used */
     AAManager AA = PB.buildDefaultAAPipeline();
     FAM.registerPass([&] { return std::move(AA); });
 
@@ -365,17 +357,6 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
 
     ModulePassManager MPM;
     if (comp_ctx->is_jit_mode) {
-        /* Apply normal pipeline for JIT mode, without
-           Vectorize related passes, without LTO */
-        // MPM.addPass(PB.buildPerModuleDefaultPipeline(OL));
-        // MPM.addPass(createModuleToFunctionPassAdaptor(
-        //     PB.buildFunctionSimplificationPipeline(
-        //         PassBuilder::OptimizationLevel::O2,
-        //         ThinOrFullLTOPhase::None)));
-        // MPM.addPass(
-        //     PB.buildO0DefaultPipeline(PassBuilder::OptimizationLevel::O3));
-
-        // const char *Passes = "default<O2>";
         const char *Passes =
             "mem2reg,instcombine,simplifycfg,jump-threading,indvars";
         ExitOnErr(PB.parsePassPipeline(MPM, Passes));
