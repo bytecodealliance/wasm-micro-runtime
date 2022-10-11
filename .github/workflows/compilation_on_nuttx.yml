@@ -11,12 +11,15 @@ on:
       - synchronize
     paths:
       - ".github/**"
+      - "build-scripts/**"
       - "core/**"
       - "!core/deps/**"
       - "product-mini/**"
       - "samples/**"
       - "!samples/workload/**"
+      - "tests/wamr-test-suites/**"
       - "wamr-compiler/**"
+      - "wamr-sdk/**"
   # will be triggered on push events
   push:
     branches:
@@ -24,12 +27,15 @@ on:
       - "dev/**"
     paths:
       - ".github/**"
+      - "build-scripts/**"
       - "core/**"
       - "!core/deps/**"
       - "product-mini/**"
       - "samples/**"
       - "!samples/workload/**"
+      - "tests/wamr-test-suites/**"
       - "wamr-compiler/**"
+      - "wamr-sdk/**"
   # allow to be triggered manually
   workflow_dispatch:
 
@@ -44,7 +50,7 @@ jobs:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        nuttx_board_config : [
+        nuttx_board_config: [
           # x64
           "boards/sim/sim/sim/configs/nsh",
           # cortex-m0
