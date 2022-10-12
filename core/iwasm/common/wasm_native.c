@@ -33,6 +33,9 @@ get_spectest_export_apis(NativeSymbol **p_libc_builtin_apis);
 uint32
 get_libc_wasi_export_apis(NativeSymbol **p_libc_wasi_apis);
 
+uint32_t
+get_wasi_nn_export_apis(NativeSymbol **p_libc_wasi_apis);
+
 uint32
 get_base_lib_export_apis(NativeSymbol **p_base_lib_apis);
 
@@ -424,6 +427,13 @@ wasm_native_init()
                                          n_native_symbols))
         goto fail;
 #endif /* WASM_ENABLE_LIB_RATS */
+
+#if WASM_ENABLE_WASI_NN != 0
+    n_native_symbols = get_wasi_nn_export_apis(&native_symbols);
+    if (!wasm_native_register_natives("wasi_nn", native_symbols,
+                                      n_native_symbols))
+        return false;
+#endif
 
     return true;
 fail:

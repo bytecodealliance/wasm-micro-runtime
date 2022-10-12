@@ -91,6 +91,19 @@ if (WAMR_BUILD_LIB_PTHREAD_SEMAPHORE EQUAL 1)
     set (WAMR_BUILD_LIB_PTHREAD 1)
 endif ()
 
+if (WAMR_BUILD_WASI_NN EQUAL 1)
+    execute_process(COMMAND ${WAMR_ROOT_DIR}/core/deps/install_tensorflow.sh
+                    RESULT_VARIABLE TENSORFLOW_RESULT
+    )
+    set(TENSORFLOW_SOURCE_DIR "${WAMR_ROOT_DIR}/core/deps/tensorflow-src")
+    include_directories (${CMAKE_CURRENT_BINARY_DIR}/flatbuffers/include)
+    include_directories (${TENSORFLOW_SOURCE_DIR})
+    add_subdirectory(
+        "${TENSORFLOW_SOURCE_DIR}/tensorflow/lite"
+        "${CMAKE_CURRENT_BINARY_DIR}/tensorflow-lite" EXCLUDE_FROM_ALL)
+    include (${IWASM_DIR}/libraries/wasi-nn/wasi_nn.cmake)
+endif ()
+
 if (WAMR_BUILD_LIB_PTHREAD EQUAL 1)
     include (${IWASM_DIR}/libraries/lib-pthread/lib_pthread.cmake)
     # Enable the dependent feature if lib pthread is enabled
@@ -152,6 +165,7 @@ set (source_all
     ${UTILS_SHARED_SOURCE}
     ${LIBC_BUILTIN_SOURCE}
     ${LIBC_WASI_SOURCE}
+    ${LIBC_WASI_NN_SOURCE}
     ${IWASM_COMMON_SOURCE}
     ${IWASM_INTERP_SOURCE}
     ${IWASM_AOT_SOURCE}
