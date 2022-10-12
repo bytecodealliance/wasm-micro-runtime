@@ -292,7 +292,7 @@ wasm_native_resolve_symbol(const char *module_name, const char *field_name,
     return func_ptr;
 }
 
-static bool
+static NativeSymbolsNode *
 register_natives(const char *module_name, NativeSymbol *native_symbols,
                  uint32 n_native_symbols, bool call_conv_raw)
 {
@@ -304,7 +304,7 @@ register_natives(const char *module_name, NativeSymbol *native_symbols,
 #endif
 
     if (!(node = wasm_runtime_malloc(sizeof(NativeSymbolsNode))))
-        return false;
+        return NULL;
 #if WASM_ENABLE_MEMORY_TRACING != 0
     os_printf("Register native, size: %u\n", sizeof(NativeSymbolsNode));
 #endif
@@ -335,7 +335,7 @@ register_natives(const char *module_name, NativeSymbol *native_symbols,
     LOG_ERROR("module_name: %s, nums: %d, sorted used: %ld us", module_name,
               n_native_symbols, timer);
 #endif
-    return true;
+    return node;
 }
 
 bool
@@ -344,7 +344,8 @@ wasm_native_register_natives(const char *module_name,
                              uint32 n_native_symbols)
 {
     return register_natives(module_name, native_symbols, n_native_symbols,
-                            false);
+                            false)
+           != NULL;
 }
 
 bool
@@ -352,8 +353,36 @@ wasm_native_register_natives_raw(const char *module_name,
                                  NativeSymbol *native_symbols,
                                  uint32 n_native_symbols)
 {
-    return register_natives(module_name, native_symbols, n_native_symbols,
-                            true);
+    return register_natives(module_name, native_symbols, n_native_symbols, true)
+           != NULL;
+}
+
+void *
+wasm_native_register_natives_handle(const char *module_name,
+                                    NativeSymbol *native_symbols,
+                                    uint32 n_native_symbols, bool raw)
+{
+    return register_natives(module_name, native_symbols, n_native_symbols, raw);
+}
+
+bool
+wasm_native_unregister_natives(void *handle)
+{
+    NativeSymbolsNode *node;
+    NativeSymbolsNode **prevp;
+
+    prevp = &g_native_symbols_list;
+    node = *prevp;
+    while (node != NULL) {
+        if (node == handle) {
+            *prevp = node->next;
+            wasm_runtime_free(node);
+            return true;
+        }
+        prevp = &node->next;
+        node = *prevp;
+    }
+    return false;
 }
 
 bool

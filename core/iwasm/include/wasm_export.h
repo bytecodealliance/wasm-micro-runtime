@@ -973,6 +973,41 @@ wasm_runtime_register_natives_raw(const char *module_name,
                                   uint32_t n_native_symbols);
 
 /**
+ * Register native functions with same module name
+ *
+ * @param module_name    Same as wasm_runtime_register_natives
+ * @param native_symbols Same as wasm_runtime_register_natives
+ * @param raw            If true, uses the "raw" API as
+ *                       wasm_runtime_register_natives_raw.
+ *                       Otherwise, uses the default API as
+ *                       wasm_runtime_register_natives.
+ *
+ * @return On success, an opaque handle which can be used for undo
+ *         oprataion later.
+ *         On failure, returns NULL.
+ */
+
+WASM_RUNTIME_API_EXTERN void *
+wasm_runtime_register_natives_handle(const char *module_name,
+                                    NativeSymbol *native_symbols,
+                                    uint32_t n_native_symbols,
+                                    bool raw);
+
+/**
+ * Undo wasm_native_register_natives_handle
+ *
+ * Note: It's a caller's responsibility to ensure that the symbols
+ * being unregistered are not used anymore. For example, modules linked
+ * to the symbols should be unloaded before calling this function.
+ *
+ * @param handle the handle returned by wasm_native_register_natives_handle
+ *
+ * @return true if success, false otherwise
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_unregister_natives(void *handle);
+
+/**
  * Get attachment of native function from execution environment
  *
  * @param exec_env the execution environment to retrieve

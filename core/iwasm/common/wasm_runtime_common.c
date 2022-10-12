@@ -2999,6 +2999,21 @@ wasm_runtime_register_natives_raw(const char *module_name,
                                             n_native_symbols);
 }
 
+void *
+wasm_runtime_register_natives_handle(const char *module_name,
+                                     NativeSymbol *native_symbols,
+                                     uint32 n_native_symbols, bool raw)
+{
+    return wasm_native_register_natives_handle(module_name, native_symbols,
+                                               n_native_symbols, raw);
+}
+
+bool
+wasm_runtime_unregister_natives(void *handle)
+{
+    return wasm_native_unregister_natives(handle);
+}
+
 bool
 wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
                                const WASMType *func_type, const char *signature,
