@@ -189,7 +189,7 @@ void foo2(wasm_exec_env_t exec_env,
 
 The runtime builder should ensure not broking the memory sandbox when exporting the native function to WASM. 
 
-A few key ground rules:
+A few recommendations:
 
 - Never pass any structure/class object pointer to native (do data serialization instead)
 - Do the pointer address conversion in the native API if "$\*" is not used for the pointer in the function signature 
