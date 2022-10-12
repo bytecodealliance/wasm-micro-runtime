@@ -503,11 +503,6 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module);
 void
 aot_handle_llvm_errmsg(const char *string, LLVMErrorRef err);
 
-void *
-aot_lookup_orcjit_func(
-    LLVMOrcLLLazyJITRef orc_jit,
-    void *module_inst, uint32 func_idx);
-
 #ifdef __cplusplus
 } /* end of extern "C" */
 #endif

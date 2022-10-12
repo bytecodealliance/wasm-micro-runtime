@@ -2326,8 +2326,9 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
     func_type_idx = func_type_indexes[func_idx];
     func_type = aot_module->func_types[func_type_idx];
 
-    bh_assert(func_idx >= aot_module->import_func_count
-              && func_ptrs[func_idx] != NULL);
+    if (func_idx >= aot_module->import_func_count) {
+        bh_assert(func_ptrs[func_idx] != NULL);
+    }
 
     if (!(func_ptr = func_ptrs[func_idx])) {
         bh_assert(func_idx < aot_module->import_func_count);
