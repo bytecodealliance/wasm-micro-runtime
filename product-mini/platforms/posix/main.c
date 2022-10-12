@@ -202,12 +202,14 @@ typedef uint32 (*get_native_lib_func)(char **p_module_name,
 static uint32
 load_and_register_native_libs(const char **native_lib_list,
                               uint32 native_lib_count,
-                              void **native_handle_list)
+                              void **native_dlopen_handle_list,
+                              void **native_natives_handle_list)
 {
     uint32 i, native_handle_count = 0, n_native_symbols;
     NativeSymbol *native_symbols;
     char *module_name;
     void *handle;
+    void *natives_handle;
 
     for (i = 0; i < native_lib_count; i++) {
         /* open the native library */
@@ -232,18 +234,36 @@ load_and_register_native_libs(const char **native_lib_list,
 
         /* register native symbols */
         if (!(n_native_symbols > 0 && module_name && native_symbols
-              && wasm_runtime_register_natives(module_name, native_symbols,
-                                               n_native_symbols))) {
+              && (natives_handle = wasm_runtime_register_natives_handle(
+                      module_name, native_symbols, n_native_symbols, false))
+                     != NULL)) {
             LOG_WARNING("warning: failed to register native lib %s",
                         native_lib_list[i]);
             dlclose(handle);
             continue;
         }
 
-        native_handle_list[native_handle_count++] = handle;
+        native_dlopen_handle_list[native_handle_count++] = handle;
+        native_natives_handle_list[native_handle_count++] = natives_handle;
     }
 
     return native_handle_count;
+}
+
+static void
+unregister_and_unload_native_libs(void **native_dlopen_handle_list,
+                                  void **native_natives_handle_list,
+                                  uint32 native_handle_count)
+{
+    uint32 i;
+    for (i = 0; i < native_handle_count; i++) {
+#if !defined(NDEBUG)
+        bool ret =
+#endif
+            wasm_runtime_unregister_natives(native_natives_handle_list[i]);
+        bh_assert(ret);
+        dlclose(native_dlopen_handle_list[i]);
+    }
 }
 #endif /* BH_HAS_DLFCN */
 
@@ -327,8 +347,9 @@ main(int argc, char *argv[])
 #if BH_HAS_DLFCN
     const char *native_lib_list[8] = { NULL };
     uint32 native_lib_count = 0;
-    void *native_handle_list[8] = { NULL };
-    uint32 native_handle_count = 0, native_handle_idx;
+    void *native_dlopen_handle_list[8] = { NULL };
+    void *native_natives_handle_list[8] = { NULL };
+    uint32 native_handle_count = 0;
 #endif
 #if WASM_ENABLE_DEBUG_INTERP != 0
     char *ip_addr = NULL;
@@ -529,7 +550,8 @@ main(int argc, char *argv[])
 
 #if BH_HAS_DLFCN
     native_handle_count = load_and_register_native_libs(
-        native_lib_list, native_lib_count, native_handle_list);
+        native_lib_list, native_lib_count, native_dlopen_handle_list,
+        native_natives_handle_list);
 #endif
 
     /* load WASM byte buffer from WASM bin file */
@@ -632,9 +654,9 @@ fail2:
 fail1:
 #if BH_HAS_DLFCN
     /* unload the native libraries */
-    for (native_handle_idx = 0; native_handle_idx < native_handle_count;
-         native_handle_idx++)
-        dlclose(native_handle_list[native_handle_idx]);
+    unregister_and_unload_native_libs(native_dlopen_handle_list,
+                                      native_natives_handle_list,
+                                      native_handle_count);
 #endif
 
     /* destroy runtime environment */
