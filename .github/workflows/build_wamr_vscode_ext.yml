@@ -10,7 +10,7 @@ on:
         type: string
         required: false
       ver_num:
-        description: a semantic version number. it is required when `release` is true.
+        description: a semantic version number.
         type: string
         required: false
 
