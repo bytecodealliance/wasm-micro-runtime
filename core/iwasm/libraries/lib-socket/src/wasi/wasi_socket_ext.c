@@ -692,12 +692,12 @@ get_ipproto_ip_option(int sockfd, int optname, void *__restrict optval,
             HANDLE_ERROR(error);
             return error;
         case IP_TTL:
-            assert(*optlen == sizeof(uint8_t));
+            assert(*optlen == sizeof(int));
             error = __wasi_sock_get_ip_ttl(sockfd, (uint8_t *)optval);
             HANDLE_ERROR(error);
             return error;
         case IP_MULTICAST_TTL:
-            assert(*optlen == sizeof(uint8_t));
+            assert(*optlen == sizeof(int));
             error = __wasi_sock_get_ip_multicast_ttl(sockfd, (uint8_t *)optval);
             HANDLE_ERROR(error);
             return error;
@@ -915,12 +915,12 @@ set_ipproto_ip_option(int sockfd, int optname, const void *optval,
             HANDLE_ERROR(error);
             return error;
         case IP_TTL:
-            assert(optlen == sizeof(uint8_t));
+            assert(optlen == sizeof(int));
             error = __wasi_sock_set_ip_ttl(sockfd, *(uint8_t *)optval);
             HANDLE_ERROR(error);
             return error;
         case IP_MULTICAST_TTL:
-            assert(optlen == sizeof(uint8_t));
+            assert(optlen == sizeof(int));
             error =
                 __wasi_sock_set_ip_multicast_ttl(sockfd, *(uint8_t *)optval);
             HANDLE_ERROR(error);
