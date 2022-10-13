@@ -1,6 +1,7 @@
 .cache
 .vs
 .vscode
+.venv
 /.idea
 **/cmake-build-*/
 **/*build/

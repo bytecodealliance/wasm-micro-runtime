@@ -3227,11 +3227,13 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #if WASM_ENABLE_SHARED_MEMORY != 0
             HANDLE_OP(WASM_OP_ATOMIC_PREFIX)
             {
-                uint32 offset, addr;
+                uint32 offset = 0, addr;
 
                 GET_OPCODE();
 
-                offset = read_uint32(frame_ip);
+                if (opcode != WASM_OP_ATOMIC_FENCE) {
+                    offset = read_uint32(frame_ip);
+                }
 
                 switch (opcode) {
                     case WASM_OP_ATOMIC_NOTIFY:
