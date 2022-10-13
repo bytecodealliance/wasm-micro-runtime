@@ -171,9 +171,13 @@ typedef struct AOTModule {
 
     /* function info */
     uint32 func_count;
-    /* point to all functions, imported and un-imported */
+    /* func pointers of AOTed (un-imported) functions */
     void **func_ptrs;
-    /* function type indexes */
+#if WASM_ENABLE_JIT != 0
+    /* whether the func pointers are compiled */
+    bool *func_ptrs_compiled;
+#endif
+    /* func type indexes of AOTed (un-imported) functions */
     uint32 *func_type_indexes;
 
     /* export info */
@@ -347,9 +351,9 @@ typedef struct AOTModuleInstance {
     /* points to AOTTableInstance[] */
     AOTPointer tables;
 
-    /* un-imported functions' pointer array */
+    /* func pointers of all (import and un-imported) functions */
     AOTPointer func_ptrs;
-    /* function type indexes */
+    /* func type indexes of all (import and un-imported) functions */
     AOTPointer func_type_indexes;
 
     /* export info */

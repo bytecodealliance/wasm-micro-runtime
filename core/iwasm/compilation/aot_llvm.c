@@ -120,31 +120,31 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
         *p_func_type = func_type;
 
     if (comp_ctx->is_jit_mode) {
-    func_type_wrapper = LLVMFunctionType(VOID_TYPE, NULL, 0, false);
-    if (!func_type_wrapper) {
-        aot_set_last_error("create LLVM function type failed.");
-        goto fail;
-    }
+        func_type_wrapper = LLVMFunctionType(VOID_TYPE, NULL, 0, false);
+        if (!func_type_wrapper) {
+            aot_set_last_error("create LLVM function type failed.");
+            goto fail;
+        }
 
-    snprintf(func_name, sizeof(func_name), "%s%d%s", AOT_FUNC_PREFIX,
-             func_index, "_wrapper");
-    if (!(func_wrapper =
-              LLVMAddFunction(module, func_name, func_type_wrapper))) {
-        aot_set_last_error("add LLVM function failed.");
-        goto fail;
-    }
+        snprintf(func_name, sizeof(func_name), "%s%d%s", AOT_FUNC_PREFIX,
+                 func_index, "_wrapper");
+        if (!(func_wrapper =
+                  LLVMAddFunction(module, func_name, func_type_wrapper))) {
+            aot_set_last_error("add LLVM function failed.");
+            goto fail;
+        }
 
-    if (!(func_begin = LLVMAppendBasicBlockInContext(
-              comp_ctx->context, func_wrapper, "func_begin"))) {
-        aot_set_last_error("add LLVM basic block failed.");
-        goto fail;
-    }
+        if (!(func_begin = LLVMAppendBasicBlockInContext(
+                  comp_ctx->context, func_wrapper, "func_begin"))) {
+            aot_set_last_error("add LLVM basic block failed.");
+            goto fail;
+        }
 
-    LLVMPositionBuilderAtEnd(comp_ctx->builder, func_begin);
-    if (!LLVMBuildRetVoid(comp_ctx->builder)) {
-        aot_set_last_error("llvm build ret failed.");
-        goto fail;
-    }
+        LLVMPositionBuilderAtEnd(comp_ctx->builder, func_begin);
+        if (!LLVMBuildRetVoid(comp_ctx->builder)) {
+            aot_set_last_error("llvm build ret failed.");
+            goto fail;
+        }
     }
 
 fail:
@@ -1399,8 +1399,7 @@ orc_jit_create(AOTCompContext *comp_ctx)
         /* At least one compile thread */
         num_compile_threads = 1;
 
-    LLVMOrcLLLazyJITBuilderSetNumCompileThreads(
-        builder, num_compile_threads);
+    LLVMOrcLLLazyJITBuilderSetNumCompileThreads(builder, num_compile_threads);
 
     /* Ownership transfer:
        LLVMOrcJITTargetMachineBuilderRef -> LLVMOrcLLJITBuilderRef */
@@ -1417,12 +1416,12 @@ orc_jit_create(AOTCompContext *comp_ctx)
 #ifndef NDEBUG
     /* Setup TransferLayer */
     LLVMOrcIRTransformLayerSetTransform(
-        LLVMOrcLLLazyJITGetIRTransformLayer(orc_jit),
-        *do_ir_transform, comp_ctx);
+        LLVMOrcLLLazyJITGetIRTransformLayer(orc_jit), *do_ir_transform,
+        comp_ctx);
 
     LLVMOrcObjectTransformLayerSetTransform(
-        LLVMOrcLLLazyJITGetObjTransformLayer(orc_jit),
-        *do_obj_transform, comp_ctx);
+        LLVMOrcLLLazyJITGetObjTransformLayer(orc_jit), *do_obj_transform,
+        comp_ctx);
 #endif
 
     /* Ownership transfer: local -> AOTCompContext */

@@ -2880,6 +2880,8 @@ orcjit_thread_callback(void *arg)
                function list in the PartitionFunction callback */
             u.v = (void *)func_addr;
             u.f();
+
+            module->func_ptrs_compiled[i] = true;
         }
         else {
             snprintf(func_name, sizeof(func_name), "%s%d", AOT_FUNC_PREFIX, i);
@@ -2977,10 +2979,16 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
 
     /* Allocate memory for function pointers */
     size = (uint64)module->func_count * sizeof(void *);
+    size += module->func_count;
     if (size > 0
         && !(module->func_ptrs =
                  loader_malloc(size, error_buf, error_buf_size))) {
         goto fail2;
+    }
+    if (size > 0) {
+        module->func_ptrs_compiled =
+            (bool *)((uint8 *)module->func_ptrs
+                     + module->func_count * sizeof(void *));
     }
 
     bh_print_time("Begin to lookup jit functions");
@@ -3093,28 +3101,6 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
         if (comp_data->start_func_index >= module->import_func_count) {
             bh_assert(module->func_ptrs[comp_data->start_func_index
                                         - module->import_func_count]);
-            if (!module->func_ptrs[comp_data->start_func_index
-                                   - module->import_func_count]) {
-                LLVMErrorRef error;
-                LLVMOrcJITTargetAddress func_addr = 0;
-                char func_name[32];
-
-                snprintf(func_name, sizeof(func_name), "%s%d", AOT_FUNC_PREFIX,
-                         comp_data->start_func_index
-                             - module->import_func_count);
-                if ((error = LLVMOrcLLLazyJITLookup(comp_ctx->orc_jit,
-                                                    &func_addr, func_name))) {
-                    char *err_msg = LLVMGetErrorMessage(error);
-                    set_error_buf_v(error_buf, error_buf_size,
-                                    "failed to compile orc jit function: %s",
-                                    err_msg);
-                    LLVMDisposeErrorMessage(err_msg);
-                    goto fail5;
-                }
-                module->func_ptrs[comp_data->start_func_index
-                                  - module->import_func_count] =
-                    (void *)func_addr;
-            }
             module->start_function =
                 module->func_ptrs[comp_data->start_func_index
                                   - module->import_func_count];
@@ -3148,9 +3134,6 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
 
     return module;
 
-fail5:
-    if (module->func_type_indexes)
-        wasm_runtime_free(module->func_type_indexes);
 fail4:
     /* Terminate all threads before free module->func_ptrs */
     orcjit_stop_compile_threads();
