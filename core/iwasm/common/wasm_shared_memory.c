@@ -326,8 +326,9 @@ wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
             wasm_runtime_set_exception(module, "expected shared memory");
             return -1;
         }
-        if ((uint8 *)address + (wait64 ? 8 : 4)
-            > module_inst->memories[0]->memory_data_end) {
+        if ((uint8 *)address < module_inst->memories[0]->memory_data
+            || (uint8 *)address + (wait64 ? 8 : 4)
+                   > module_inst->memories[0]->memory_data_end) {
             wasm_runtime_set_exception(module, "out of bounds memory access");
             return -1;
         }
@@ -343,7 +344,9 @@ wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
             wasm_runtime_set_exception(module, "expected shared memory");
             return -1;
         }
-        if (address + (wait64 ? 8 : 4) > aot_memory->memory_data_end.ptr) {
+        if ((uint8 *)address < (uint8 *)aot_memory->memory_data.ptr
+            || (uint8 *)address + (wait64 ? 8 : 4)
+                   > (uint8 *)aot_memory->memory_data_end.ptr) {
             wasm_runtime_set_exception(module, "out of bounds memory access");
             return -1;
         }
@@ -436,7 +439,9 @@ wasm_runtime_atomic_notify(WASMModuleInstanceCommon *module, void *address,
 #if WASM_ENABLE_INTERP != 0
     if (module->module_type == Wasm_Module_Bytecode) {
         WASMModuleInstance *module_inst = (WASMModuleInstance *)module;
-        if ((uint8 *)address + 4 > module_inst->memories[0]->memory_data_end) {
+        if ((uint8 *)address < module_inst->memories[0]->memory_data
+            || (uint8 *)address + 4
+                   > module_inst->memories[0]->memory_data_end) {
             wasm_runtime_set_exception(module, "out of bounds memory access");
             return -1;
         }
@@ -447,7 +452,9 @@ wasm_runtime_atomic_notify(WASMModuleInstanceCommon *module, void *address,
         AOTModuleInstance *aot_inst = (AOTModuleInstance *)module;
         AOTMemoryInstance *aot_memory =
             ((AOTMemoryInstance **)aot_inst->memories.ptr)[0];
-        if (address + 4 > aot_memory->memory_data_end.ptr) {
+        if ((uint8 *)address < (uint8 *)aot_memory->memory_data.ptr
+            || (uint8 *)address + 4
+                   > (uint8 *)aot_memory->memory_data_end.ptr) {
             wasm_runtime_set_exception(module, "out of bounds memory access");
             return -1;
         }
