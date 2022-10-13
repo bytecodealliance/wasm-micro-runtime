@@ -189,12 +189,22 @@ void foo2(wasm_exec_env_t exec_env,
 
 The runtime builder should ensure not broking the memory sandbox when exporting the native function to WASM. 
 
+A ground rule:
+
+- Do the pointer address conversion in the native API if "$\*" is not used for the pointer in the function signature
+
 A few recommendations:
 
 - Never pass any structure/class object pointer to native (do data serialization instead)
-- Do the pointer address conversion in the native API if "$\*" is not used for the pointer in the function signature 
 - Never pass a function pointer to the native 
 
+Note: while not recommended here, nothing prevents you from passing
+structure/function pointers as far as the native API is aware of
+and careful about the ABI used in the wasm module. For example,
+C function pointers are usually represented as table indexes which
+the native API can call with wasm_runtime_call_indirect() or similar.
+However, in this document, we don't recommend to implement your native
+API that way unless necessary because it needs extra carefulness.
 
 
 ## Pass structured data or class object
