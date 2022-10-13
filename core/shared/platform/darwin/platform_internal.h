@@ -46,6 +46,8 @@ extern "C" {
 #define BH_PLATFORM_DARWIN
 #endif
 
+#define BH_HAS_DLFCN 1
+
 /* Stack size of applet threads's native part.  */
 #define BH_APPLET_PRESERVED_STACK_SIZE (32 * 1024)
 

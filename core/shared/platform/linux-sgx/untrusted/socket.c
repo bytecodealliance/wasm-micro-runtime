@@ -96,6 +96,12 @@ ocall_getsockname(int sockfd, void *addr, uint32_t *addrlen, uint32_t addr_size)
 }
 
 int
+ocall_getpeername(int sockfd, void *addr, uint32_t *addrlen, uint32_t addr_size)
+{
+    return getpeername(sockfd, (struct sockaddr *)addr, addrlen);
+}
+
+int
 ocall_listen(int sockfd, int backlog)
 {
     return listen(sockfd, backlog);
@@ -113,10 +119,26 @@ ocall_recv(int sockfd, void *buf, size_t len, int flags)
     return recv(sockfd, buf, len, flags);
 }
 
+ssize_t
+ocall_recvfrom(int sockfd, void *buf, size_t len, int flags, void *src_addr,
+               uint32_t *addrlen, uint32_t addr_size)
+{
+    return recvfrom(sockfd, buf, len, flags, (struct sockaddr *)src_addr,
+                    addrlen);
+}
+
 int
 ocall_send(int sockfd, const void *buf, size_t len, int flags)
 {
     return send(sockfd, buf, len, flags);
+}
+
+ssize_t
+ocall_sendto(int sockfd, const void *buf, size_t len, int flags,
+             void *dest_addr, uint32_t addrlen)
+{
+    return sendto(sockfd, buf, len, flags, (struct sockaddr *)dest_addr,
+                  addrlen);
 }
 
 int

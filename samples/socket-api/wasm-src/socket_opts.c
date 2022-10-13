@@ -1,15 +1,22 @@
+/*
+ * Copyright (C) 2022 Amazon.com Inc. or its affiliates. All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+ */
+
 #include <arpa/inet.h>
 #include <errno.h>
 #include <netinet/tcp.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <unistd.h>
 #ifdef __wasi__
 #include <wasi_socket_ext.h>
 #endif
 
+#define MULTICAST_ADDR 16777440
 #define OPTION_ASSERT(A, B, OPTION)           \
     if (A == B) {                             \
         printf("%s is expected\n", OPTION);   \
@@ -20,14 +27,14 @@
         return EXIT_FAILURE;                  \
     }
 
-struct timeval
+static struct timeval
 to_timeval(time_t tv_sec, suseconds_t tv_usec)
 {
     struct timeval tv = { tv_sec, tv_usec };
     return tv;
 }
 
-int
+static int
 set_and_get_bool_opt(int socket_fd, int level, int optname, int val)
 {
     int bool_opt = val;
@@ -58,9 +65,7 @@ main(int argc, char *argv[])
     int result;
     struct linger linger_opt;
     uint32_t time_s;
-    struct ip_mreq mcast;
-    struct ipv6_mreq mcast_ipv6;
-    unsigned char ttl;
+    int ttl;
 
     printf("[Client] Create TCP socket\n");
     tcp_socket_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -120,7 +125,8 @@ main(int argc, char *argv[])
     result =
         getsockopt(tcp_socket_fd, SOL_SOCKET, SO_SNDBUF, &buf_len, &opt_len);
     OPTION_ASSERT(result, 0, "getsockopt SO_SNDBUF result")
-    OPTION_ASSERT(buf_len, 16384, "SO_SNDBUF buf_len");
+    OPTION_ASSERT((buf_len == 16384 || buf_len == 8192), 1,
+                  "SO_SNDBUF buf_len");
 
     // SO_RCVBUF
     buf_len = 4096;
@@ -133,7 +139,7 @@ main(int argc, char *argv[])
     result =
         getsockopt(tcp_socket_fd, SOL_SOCKET, SO_RCVBUF, &buf_len, &opt_len);
     OPTION_ASSERT(result, 0, "getsockopt SO_RCVBUF result")
-    OPTION_ASSERT(buf_len, 8192, "SO_RCVBUF buf_len");
+    OPTION_ASSERT((buf_len == 8192 || buf_len == 4096), 1, "SO_SNDBUF buf_len");
 
     // SO_KEEPALIVE
     OPTION_ASSERT(
@@ -184,6 +190,7 @@ main(int argc, char *argv[])
         "SO_BROADCAST disabled");
 
     // TCP_KEEPIDLE
+#ifdef TCP_KEEPIDLE
     time_s = 16;
     result = setsockopt(tcp_socket_fd, IPPROTO_TCP, TCP_KEEPIDLE, &time_s,
                         sizeof(time_s));
@@ -195,6 +202,7 @@ main(int argc, char *argv[])
         getsockopt(tcp_socket_fd, IPPROTO_TCP, TCP_KEEPIDLE, &time_s, &opt_len);
     OPTION_ASSERT(result, 0, "getsockopt TCP_KEEPIDLE result")
     OPTION_ASSERT(time_s, 16, "TCP_KEEPIDLE");
+#endif
 
     // TCP_KEEPINTVL
     time_s = 8;
@@ -210,12 +218,14 @@ main(int argc, char *argv[])
     OPTION_ASSERT(time_s, 8, "TCP_KEEPINTVL");
 
     // TCP_FASTOPEN_CONNECT
+#ifdef TCP_FASTOPEN_CONNECT
     OPTION_ASSERT(set_and_get_bool_opt(tcp_socket_fd, IPPROTO_TCP,
                                        TCP_FASTOPEN_CONNECT, 1),
                   1, "TCP_FASTOPEN_CONNECT enabled");
     OPTION_ASSERT(set_and_get_bool_opt(tcp_socket_fd, IPPROTO_TCP,
                                        TCP_FASTOPEN_CONNECT, 0),
                   0, "TCP_FASTOPEN_CONNECT disabled");
+#endif
 
     // TCP_NODELAY
     OPTION_ASSERT(
@@ -226,12 +236,14 @@ main(int argc, char *argv[])
         "TCP_NODELAY disabled");
 
     // TCP_QUICKACK
+#ifdef TCP_QUICKACK
     OPTION_ASSERT(
         set_and_get_bool_opt(tcp_socket_fd, IPPROTO_TCP, TCP_QUICKACK, 1), 1,
         "TCP_QUICKACK enabled");
     OPTION_ASSERT(
         set_and_get_bool_opt(tcp_socket_fd, IPPROTO_TCP, TCP_QUICKACK, 0), 0,
         "TCP_QUICKACK disabled");
+#endif
 
     // IP_TTL
     ttl = 8;
@@ -259,18 +271,6 @@ main(int argc, char *argv[])
         set_and_get_bool_opt(udp_socket_fd, IPPROTO_IP, IP_MULTICAST_LOOP, 0),
         0, "IP_MULTICAST_LOOP disabled");
 
-    // IP_ADD_MEMBERSHIP
-    mcast.imr_multiaddr.s_addr = 16777440;
-    mcast.imr_interface.s_addr = htonl(INADDR_ANY);
-    result = setsockopt(udp_socket_fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mcast,
-                        sizeof(mcast));
-    OPTION_ASSERT(result, 0, "IP_ADD_MEMBERSHIP");
-
-    // IP_DROP_MEMBERSHIP
-    result = setsockopt(udp_socket_fd, IPPROTO_IP, IP_DROP_MEMBERSHIP, &mcast,
-                        sizeof(mcast));
-    OPTION_ASSERT(result, 0, "IP_DROP_MEMBERSHIP");
-
     // IP_MULTICAST_TTL
     ttl = 8;
     result = setsockopt(udp_socket_fd, IPPROTO_IP, IP_MULTICAST_TTL, &ttl,
@@ -291,18 +291,9 @@ main(int argc, char *argv[])
                                        IPV6_MULTICAST_LOOP, 0),
                   0, "IPV6_MULTICAST_LOOP disabled");
 
-    // IPV6_JOIN_GROUP
-    result = setsockopt(udp_ipv6_socket_fd, IPPROTO_IPV6, IPV6_JOIN_GROUP,
-                        &mcast_ipv6, sizeof(mcast_ipv6));
-    // OPTION_ASSERT(result, 0, "IPV6_JOIN_GROUP");
-
-    // IPV6_LEAVE_GROUP
-    result = setsockopt(udp_ipv6_socket_fd, IPPROTO_IPV6, IPV6_LEAVE_GROUP,
-                        &mcast_ipv6, sizeof(mcast_ipv6));
-    // OPTION_ASSERT(result, 0, "IPV6_LEAVE_GROUP");
-
     printf("[Client] Close sockets\n");
     close(tcp_socket_fd);
     close(udp_socket_fd);
+    close(udp_ipv6_socket_fd);
     return EXIT_SUCCESS;
 }
