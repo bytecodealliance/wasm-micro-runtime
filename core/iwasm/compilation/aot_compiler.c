@@ -1217,6 +1217,10 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                                 comp_ctx, func_ctx, align, offset, bytes))
                             return false;
                         break;
+                    case WASM_OP_ATOMIC_FENCE:
+                        /* Skip memory index */
+                        frame_ip++;
+                        break;
                     case WASM_OP_ATOMIC_I32_LOAD:
                         bytes = 4;
                         goto op_atomic_i32_load;

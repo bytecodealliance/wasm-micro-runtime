@@ -12,6 +12,10 @@
 
 /*Be a part of <wasi/api.h>*/
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum {
     SOCKET_DGRAM = 0,
     SOCKET_STREAM,
@@ -987,4 +991,9 @@ __wasi_sock_get_ipv6_only(__wasi_fd_t fd, bool *option)
  * since don't want to re-compile the wasi-libc,
  * we tend to keep original implentations of recv() and send().
  */
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif

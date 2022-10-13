@@ -2052,6 +2052,10 @@ jit_compile_func(JitCompContext *cc)
                                                            bytes))
                             return false;
                         break;
+                    case WASM_OP_ATOMIC_FENCE:
+                        /* Skip memory index */
+                        frame_ip++;
+                        break;
                     case WASM_OP_ATOMIC_I32_LOAD:
                         bytes = 4;
                         goto op_atomic_i32_load;

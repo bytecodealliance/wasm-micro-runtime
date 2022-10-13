@@ -317,6 +317,7 @@ function spec_test()
         git checkout threads/main
 
         git apply ../../spec-test-script/thread_proposal_ignore_cases.patch
+        git apply ../../spec-test-script/thread_proposal_fix_atomic_case.patch
     fi
 
     popd
@@ -392,6 +393,10 @@ function spec_test()
 
     if [[ ${ENABLE_MULTI_THREAD} == 1 ]]; then
         ARGS_FOR_SPEC_TEST+="-p "
+        if [[ $1 == 'fast-jit' ]]; then
+          echo "fast-jit doesn't support multi-thread feature yet, skip it"
+          return
+        fi
     fi
 
     if [[ ${ENABLE_XIP} == 1 ]]; then
