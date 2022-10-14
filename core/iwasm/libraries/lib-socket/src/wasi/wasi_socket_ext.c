@@ -94,7 +94,7 @@ wasi_addr_to_sockaddr(const __wasi_addr_t *wasi_addr,
             uint32_t s_addr;
 
             memset(&sock_addr_in, 0, sizeof(sockaddr_in));
-            
+
             s_addr = (wasi_addr->addr.ip4.addr.n0 << 24)
                      | (wasi_addr->addr.ip4.addr.n1 << 16)
                      | (wasi_addr->addr.ip4.addr.n2 << 8)
@@ -111,7 +111,7 @@ wasi_addr_to_sockaddr(const __wasi_addr_t *wasi_addr,
         case IPv6:
         {
             struct sockaddr_in6 sock_addr_in6;
-            
+
             memset(&sock_addr_in6, 0, sizeof(sockaddr_in6));
 
             uint16_t *addr_buf = (uint16_t *)sock_addr_in6.sin6_addr.s6_addr;
