@@ -1,14 +1,12 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-name: Reusable workflow-build_llvm_libraries&build_lldb_if_needed
+name: Reusable workflow-build_llvm_libraries
 
 on:
   workflow_call:
     inputs:
       runs-on:
         required: true
-        # can't pass array now, workaround by passing Json string and deserialize later
-        default: "['ubuntu-20.04', 'ubuntu-22.04']"
         type: string
       LLVM_CACHE_SUFFIX:
         required: true
@@ -39,6 +37,6 @@ jobs:
 
       - name: Build llvm and clang from source
         id: build_llvm
-        if: ${{ steps.cache_llvm.outputs.cache-hit != 'true' }} && ${{ !inputs.build-lldb }}
+        if: ${{ steps.cache_llvm.outputs.cache-hit != 'true' }} 
         run: /usr/bin/env python3 ./build_llvm.py --arch X86 WebAssembly
         working-directory: build-scripts
