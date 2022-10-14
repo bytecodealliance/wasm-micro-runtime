@@ -35,7 +35,7 @@ jobs:
             ./core/deps/llvm/build/share
           key: ${{ matrix.os }}-${{ inputs.LLVM_CACHE_SUFFIX }}
 
-      - name: Build llvm and clang from source
+      - name: Build llvm
         id: build_llvm
         if: ${{ steps.cache_llvm.outputs.cache-hit != 'true' }} 
         run: /usr/bin/env python3 ./build_llvm.py --arch X86 WebAssembly
