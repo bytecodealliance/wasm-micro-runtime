@@ -6,7 +6,7 @@ on:
   workflow_call:
     inputs:
       upload_url:
-        description: a semantic version number. it is required when `release` is true.
+        description: a semantic version number. 
         type: string
         required: false
       ver_num:
