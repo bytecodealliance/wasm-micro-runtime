@@ -385,7 +385,7 @@ export function put(url: string, payload: ArrayBuffer, payload_len: number, tag:
 
 export function del(url: string, tag: string,
                     cb: (resp: wamr_response) => void): void {
-    var req = new wamr_request(g_mid++, url, COAP_PUT, 0, new ArrayBuffer(0), 0);
+    var req = new wamr_request(g_mid++, url, COAP_DELETE, 0, new ArrayBuffer(0), 0);
 
     do_request(req, cb);
 }
