@@ -87,6 +87,7 @@
 
 #if WASM_ORC_JIT_COMPILE_THREAD_NUM < 1
 #error "WASM_ORC_JIT_COMPILE_THREAD_NUM must be greater than 0"
+#endif
 
 #if (WASM_ENABLE_AOT == 0) && (WASM_ENABLE_JIT != 0)
 /* LLVM JIT can only be enabled when AOT is enabled */
