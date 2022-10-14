@@ -182,7 +182,7 @@ LLVMOrcCreateLLLazyJIT(LLVMOrcLLLazyJITRef *Result,
 
     if (!J) {
         Result = nullptr;
-        return NULL;
+        return 0;
     }
 
     LLLazyJIT *lazy_jit = J->release();
