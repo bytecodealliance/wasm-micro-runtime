@@ -289,6 +289,52 @@ bh_sockaddr_to_sockaddr(const bh_sockaddr_t *bh_sockaddr,
     }
 }
 
+static int
+os_socket_setbooloption(bh_socket_t socket, int level, int optname,
+                        bool is_enabled)
+{
+    int option = (int)is_enabled;
+    int ret;
+
+    if (ocall_setsockopt(&ret, socket, level, optname, &option, sizeof(option))
+        != SGX_SUCCESS) {
+        TRACE_OCALL_FAIL();
+        return BHT_ERROR;
+    }
+
+    if (ret != 0) {
+        errno = get_errno();
+        return BHT_ERROR;
+    }
+
+    return BHT_OK;
+}
+
+static int
+os_socket_getbooloption(bh_socket_t socket, int level, int optname,
+                        bool *is_enabled)
+{
+    assert(is_enabled);
+
+    int optval;
+    socklen_t optval_size = sizeof(optval);
+    int ret;
+    if (ocall_getsockopt(&ret, socket, level, optname, &optval, optval_size,
+                         &optval_size)
+        != SGX_SUCCESS) {
+        TRACE_OCALL_FAIL();
+        return BHT_ERROR;
+    }
+
+    if (ret != 0) {
+        errno = get_errno();
+        return BHT_ERROR;
+    }
+
+    *is_enabled = (bool)optval;
+    return BHT_OK;
+}
+
 int
 socket(int domain, int type, int protocol)
 {
@@ -811,9 +857,24 @@ os_socket_addr_resolve(const char *host, const char *service,
 int
 os_socket_addr_local(bh_socket_t socket, bh_sockaddr_t *sockaddr)
 {
-    errno = ENOSYS;
+    struct sockaddr_in addr;
+    socklen_t addr_len = sizeof(addr);
+    int ret;
 
-    return BHT_ERROR;
+    if (ocall_getsockname(&ret, socket, (struct sockaddr *)&addr, &addr_len,
+                          addr_len)
+        != SGX_SUCCESS) {
+        TRACE_OCALL_FAIL();
+        return BHT_ERROR;
+    }
+
+    if (ret != BHT_OK) {
+        errno = get_errno();
+        return BHT_ERROR;
+    }
+
+    return sockaddr_to_bh_sockaddr((struct sockaddr *)&addr, addr_len,
+                                   sockaddr);
 }
 
 int
@@ -905,49 +966,43 @@ os_socket_get_recv_buf_size(bh_socket_t socket, size_t *bufsiz)
 int
 os_socket_set_keep_alive(bh_socket_t socket, bool is_enabled)
 {
-    errno = ENOSYS;
-
-    return BHT_ERROR;
+    return os_socket_setbooloption(socket, SOL_SOCKET, SO_KEEPALIVE,
+                                   is_enabled);
 }
 
 int
 os_socket_get_keep_alive(bh_socket_t socket, bool *is_enabled)
 {
-    errno = ENOSYS;
-
-    return BHT_ERROR;
+    return os_socket_getbooloption(socket, SOL_SOCKET, SO_KEEPALIVE,
+                                   is_enabled);
 }
 
 int
 os_socket_set_reuse_addr(bh_socket_t socket, bool is_enabled)
 {
-    errno = ENOSYS;
-
-    return BHT_ERROR;
+    return os_socket_setbooloption(socket, SOL_SOCKET, SO_REUSEADDR,
+                                   is_enabled);
 }
 
 int
 os_socket_get_reuse_addr(bh_socket_t socket, bool *is_enabled)
 {
-    errno = ENOSYS;
-
-    return BHT_ERROR;
+    return os_socket_getbooloption(socket, SOL_SOCKET, SO_REUSEADDR,
+                                   is_enabled);
 }
 
 int
 os_socket_set_reuse_port(bh_socket_t socket, bool is_enabled)
 {
-    errno = ENOSYS;
-
-    return BHT_ERROR;
+    return os_socket_setbooloption(socket, SOL_SOCKET, SO_REUSEPORT,
+                                   is_enabled);
 }
 
 int
 os_socket_get_reuse_port(bh_socket_t socket, bool *is_enabled)
 {
-    errno = ENOSYS;
-
-    return BHT_ERROR;
+    return os_socket_getbooloption(socket, SOL_SOCKET, SO_REUSEPORT,
+                                   is_enabled);
 }
 
 int
@@ -969,33 +1024,29 @@ os_socket_get_linger(bh_socket_t socket, bool *is_enabled, int *linger_s)
 int
 os_socket_set_tcp_no_delay(bh_socket_t socket, bool is_enabled)
 {
-    errno = ENOSYS;
-
-    return BHT_ERROR;
+    return os_socket_setbooloption(socket, IPPROTO_TCP, TCP_NODELAY,
+                                   is_enabled);
 }
 
 int
 os_socket_get_tcp_no_delay(bh_socket_t socket, bool *is_enabled)
 {
-    errno = ENOSYS;
-
-    return BHT_ERROR;
+    return os_socket_getbooloption(socket, IPPROTO_TCP, TCP_NODELAY,
+                                   is_enabled);
 }
 
 int
 os_socket_set_tcp_quick_ack(bh_socket_t socket, bool is_enabled)
 {
-    errno = ENOSYS;
-
-    return BHT_ERROR;
+    return os_socket_setbooloption(socket, IPPROTO_TCP, TCP_QUICKACK,
+                                   is_enabled);
 }
 
 int
 os_socket_get_tcp_quick_ack(bh_socket_t socket, bool *is_enabled)
 {
-    errno = ENOSYS;
-
-    return BHT_ERROR;
+    return os_socket_getbooloption(socket, IPPROTO_TCP, TCP_QUICKACK,
+                                   is_enabled);
 }
 
 int
@@ -1033,33 +1084,41 @@ os_socket_get_tcp_keep_intvl(bh_socket_t socket, uint32 *time_s)
 int
 os_socket_set_tcp_fastopen_connect(bh_socket_t socket, bool is_enabled)
 {
-    errno = ENOSYS;
-
-    return BHT_ERROR;
+    return os_socket_setbooloption(socket, IPPROTO_TCP, TCP_FASTOPEN_CONNECT,
+                                   is_enabled);
 }
 
 int
 os_socket_get_tcp_fastopen_connect(bh_socket_t socket, bool *is_enabled)
 {
-    errno = ENOSYS;
-
-    return BHT_ERROR;
+    return os_socket_getbooloption(socket, IPPROTO_TCP, TCP_FASTOPEN_CONNECT,
+                                   is_enabled);
 }
 
 int
 os_socket_set_ip_multicast_loop(bh_socket_t socket, bool ipv6, bool is_enabled)
 {
-    errno = ENOSYS;
-
-    return BHT_ERROR;
+    if (ipv6) {
+        return os_socket_setbooloption(socket, IPPROTO_IPV6,
+                                       IPV6_MULTICAST_LOOP, is_enabled);
+    }
+    else {
+        return os_socket_setbooloption(socket, IPPROTO_IP, IP_MULTICAST_LOOP,
+                                       is_enabled);
+    }
 }
 
 int
 os_socket_get_ip_multicast_loop(bh_socket_t socket, bool ipv6, bool *is_enabled)
 {
-    errno = ENOSYS;
-
-    return BHT_ERROR;
+    if (ipv6) {
+        return os_socket_getbooloption(socket, IPPROTO_IPV6,
+                                       IPV6_MULTICAST_LOOP, is_enabled);
+    }
+    else {
+        return os_socket_getbooloption(socket, IPPROTO_IP, IP_MULTICAST_LOOP,
+                                       is_enabled);
+    }
 }
 
 int
@@ -1115,35 +1174,31 @@ os_socket_get_ip_multicast_ttl(bh_socket_t socket, uint8_t *ttl_s)
 }
 
 int
-os_socket_set_ipv6_only(bh_socket_t socket, bool option)
+os_socket_set_ipv6_only(bh_socket_t socket, bool is_enabled)
 {
-    errno = ENOSYS;
-
-    return BHT_ERROR;
+    return os_socket_setbooloption(socket, IPPROTO_IPV6, IPV6_V6ONLY,
+                                   is_enabled);
 }
 
 int
-os_socket_get_ipv6_only(bh_socket_t socket, bool *option)
+os_socket_get_ipv6_only(bh_socket_t socket, bool *is_enabled)
 {
-    errno = ENOSYS;
-
-    return BHT_ERROR;
+    return os_socket_getbooloption(socket, IPPROTO_IPV6, IPV6_V6ONLY,
+                                   is_enabled);
 }
 
 int
 os_socket_set_broadcast(bh_socket_t socket, bool is_enabled)
 {
-    errno = ENOSYS;
-
-    return BHT_ERROR;
+    return os_socket_setbooloption(socket, SOL_SOCKET, SO_BROADCAST,
+                                   is_enabled);
 }
 
 int
 os_socket_get_broadcast(bh_socket_t socket, bool *is_enabled)
 {
-    errno = ENOSYS;
-
-    return BHT_ERROR;
+    return os_socket_getbooloption(socket, SOL_SOCKET, SO_BROADCAST,
+                                   is_enabled);
 }
 
 #endif
