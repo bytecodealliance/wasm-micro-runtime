@@ -719,9 +719,6 @@ void
 wasm_runtime_unregister_module(const WASMModuleCommon *module);
 
 bool
-wasm_runtime_is_module_registered(const char *module_name);
-
-bool
 wasm_runtime_add_loading_module(const char *module_name, char *error_buf,
                                 uint32 error_buf_size);
 

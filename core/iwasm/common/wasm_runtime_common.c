@@ -702,12 +702,6 @@ wasm_runtime_find_module_registered(const char *module_name)
     return module ? module->module : NULL;
 }
 
-bool
-wasm_runtime_is_module_registered(const char *module_name)
-{
-    return NULL != wasm_runtime_find_module_registered(module_name);
-}
-
 /*
  * simply destroy all
  */
