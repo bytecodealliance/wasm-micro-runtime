@@ -12,6 +12,7 @@
 #include "llvm/ExecutionEngine/Orc/LLJIT.h"
 #include "llvm/ExecutionEngine/Orc/ObjectTransformLayer.h"
 #include "llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h"
+#include "llvm/ExecutionEngine/Orc/CompileOnDemandLayer.h"
 #include "llvm/ExecutionEngine/SectionMemoryManager.h"
 #include "llvm/Support/CBindingWrapping.h"
 
@@ -19,6 +20,7 @@
 
 using namespace llvm;
 using namespace llvm::orc;
+using GlobalValueSet = std::set<const GlobalValue *>;
 
 namespace llvm {
 namespace orc {
@@ -135,6 +137,37 @@ LLVMOrcLLLazyJITBuilderSetJITTargetMachineBuilder(
     unwrap(Builder)->setJITTargetMachineBuilder(*unwrap(JTMP));
 }
 
+static Optional<CompileOnDemandLayer::GlobalValueSet>
+PartitionFunction(GlobalValueSet Requested)
+{
+    std::vector<const GlobalValue *> GVsToAdd;
+
+    for (auto *GV : Requested) {
+        if (isa<Function>(GV) && GV->hasName()) {
+            auto &F = cast<Function>(*GV);       /* get LLVM function */
+            const Module *M = F.getParent();     /* get LLVM module */
+            auto GVName = GV->getName();         /* get the function name */
+            const char *gvname = GVName.begin(); /* C function name */
+            const char *wrapper;
+
+            /* Convert "aot_func#n_wrapper" to "aot_func#n" */
+            if ((wrapper = strstr(gvname, "_wrapper"))) {
+                std::string func_name(gvname, wrapper - gvname);
+                /* Get actual jit function so as to compile it */
+                Function *F1 = M->getFunction(func_name);
+                if (F1)
+                    GVsToAdd.push_back(cast<GlobalValue>(F1));
+            }
+        }
+    }
+
+    for (auto *GV : GVsToAdd) {
+        Requested.insert(GV);
+    }
+
+    return Requested;
+}
+
 LLVMErrorRef
 LLVMOrcCreateLLLazyJIT(LLVMOrcLLLazyJITRef *Result,
                        LLVMOrcLLLazyJITBuilderRef Builder)
@@ -149,10 +182,13 @@ LLVMOrcCreateLLLazyJIT(LLVMOrcLLLazyJITRef *Result,
 
     if (!J) {
         Result = nullptr;
-        return wrap(J.takeError());
+        return 0;
     }
 
-    *Result = wrap(J->release());
+    LLLazyJIT *lazy_jit = J->release();
+    lazy_jit->setPartitionFunction(PartitionFunction);
+
+    *Result = wrap(lazy_jit);
     return LLVMErrorSuccess;
 }
 

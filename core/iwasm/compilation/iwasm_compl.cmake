@@ -11,8 +11,7 @@ else()
                     ${IWASM_COMPL_DIR}/simd/*.c
                     ${IWASM_COMPL_DIR}/simd/*.cpp
                     ${IWASM_COMPL_DIR}/*.c
-                    ${IWASM_COMPL_DIR}/*.cpp
-                    ${IWASM_COMPL_DIR}/orc_extra/*.cpp)
+                    ${IWASM_COMPL_DIR}/*.cpp)
 endif()
 
 set (IWASM_COMPL_SOURCE ${source_all})

@@ -30,7 +30,7 @@
 #include "llvm-c/DebugInfo.h"
 #endif
 
-#include "orc_extra/aot_orc_extra.h"
+#include "aot_orc_extra.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -293,11 +293,7 @@ typedef struct AOTCompContext {
     uint64 flags[8];
 
     /* required by JIT */
-#if WASM_ENABLE_LAZY_JIT != 0
     LLVMOrcLLLazyJITRef orc_jit;
-#else
-    LLVMOrcLLJITRef orc_jit;
-#endif
     LLVMOrcThreadSafeContextRef orc_thread_safe_context;
 
     LLVMModuleRef module;
@@ -506,15 +502,6 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module);
 
 void
 aot_handle_llvm_errmsg(const char *string, LLVMErrorRef err);
-
-void *
-aot_lookup_orcjit_func(
-#if WASM_ENABLE_LAZY_JIT != 0
-    LLVMOrcLLLazyJITRef orc_jit,
-#else
-    LLVMOrcLLJITRef orc_jit,
-#endif
-    void *module_inst, uint32 func_idx);
 
 #ifdef __cplusplus
 } /* end of extern "C" */
