@@ -120,6 +120,17 @@ typedef struct AOTUnwindInfo {
 #define PLT_ITEM_SIZE 12
 #endif
 
+#if WASM_ENABLE_JIT != 0
+struct AOTCompContext;
+
+/* Orc JIT thread arguments */
+typedef struct OrcJitThreadArg {
+    struct AOTCompContext *comp_ctx;
+    struct AOTModule *module;
+    uint32 group_idx;
+} OrcJitThreadArg;
+#endif
+
 typedef struct AOTModule {
     uint32 module_type;
 
@@ -173,12 +184,15 @@ typedef struct AOTModule {
     uint32 func_count;
     /* func pointers of AOTed (un-imported) functions */
     void **func_ptrs;
+    /* func type indexes of AOTed (un-imported) functions */
+    uint32 *func_type_indexes;
 #if WASM_ENABLE_JIT != 0
     /* whether the func pointers are compiled */
     bool *func_ptrs_compiled;
+    bool orcjit_stop_compiling;
+    korp_tid orcjit_threads[WASM_ORC_JIT_BACKEND_THREAD_NUM];
+    OrcJitThreadArg orcjit_thread_args[WASM_ORC_JIT_BACKEND_THREAD_NUM];
 #endif
-    /* func type indexes of AOTed (un-imported) functions */
-    uint32 *func_type_indexes;
 
     /* export info */
     uint32 export_count;

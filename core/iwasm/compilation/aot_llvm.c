@@ -1274,12 +1274,19 @@ aot_handle_llvm_errmsg(const char *string, LLVMErrorRef err)
 static LLVMErrorRef
 run_pass(void *ctx, LLVMModuleRef module)
 {
-    size_t len = 0;
+    AOTCompContext *comp_ctx = (AOTCompContext *)ctx;
+
+#ifndef NDEBUG
+    size_t len;
     LOG_VERBOSE("--- In IRTransformLayer @ T#%ld---",
                 LLVMGetModuleIdentifier(module, &len), pthread_self());
+#endif
+
+    aot_apply_llvm_new_pass_manager(comp_ctx, module);
+
+#ifndef NDEBUG
     bh_print_time("Begin to generate machine code");
-    (void)ctx;
-    (void)module;
+#endif
     return LLVMErrorSuccess;
 }
 
@@ -1379,7 +1386,6 @@ orc_jit_create(AOTCompContext *comp_ctx)
     LLVMOrcLLLazyJITRef orc_jit = NULL;
     LLVMOrcLLLazyJITBuilderRef builder = NULL;
     LLVMOrcJITTargetMachineBuilderRef jtmb = NULL;
-    uint32 num_compile_threads = WASM_ORC_JIT_COMPILE_THREAD_NUM;
     bool ret = false;
 
     builder = LLVMOrcCreateLLLazyJITBuilder();
@@ -1395,11 +1401,8 @@ orc_jit_create(AOTCompContext *comp_ctx)
         goto fail;
     }
 
-    if (num_compile_threads < 1)
-        /* At least one compile thread */
-        num_compile_threads = 1;
-
-    LLVMOrcLLLazyJITBuilderSetNumCompileThreads(builder, num_compile_threads);
+    LLVMOrcLLLazyJITBuilderSetNumCompileThreads(
+        builder, WASM_ORC_JIT_COMPILE_THREAD_NUM);
 
     /* Ownership transfer:
        LLVMOrcJITTargetMachineBuilderRef -> LLVMOrcLLJITBuilderRef */
@@ -1414,7 +1417,7 @@ orc_jit_create(AOTCompContext *comp_ctx)
     builder = NULL;
 
 #ifndef NDEBUG
-    /* Setup TransferLayer */
+    /* Setup TransformLayer */
     LLVMOrcIRTransformLayerSetTransform(
         LLVMOrcLLLazyJITGetIRTransformLayer(orc_jit), *do_ir_transform,
         comp_ctx);

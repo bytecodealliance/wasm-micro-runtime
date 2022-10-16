@@ -17,6 +17,7 @@
 #include "llvm/Support/CBindingWrapping.h"
 
 #include "aot_orc_extra.h"
+#include "aot.h"
 
 using namespace llvm;
 using namespace llvm::orc;
@@ -135,6 +136,9 @@ LLVMOrcLLLazyJITBuilderSetJITTargetMachineBuilder(
     LLVMOrcLLLazyJITBuilderRef Builder, LLVMOrcJITTargetMachineBuilderRef JTMP)
 {
     unwrap(Builder)->setJITTargetMachineBuilder(*unwrap(JTMP));
+    /* Destroy the JTMP, similar to
+       LLVMOrcLLJITBuilderSetJITTargetMachineBuilder */
+    LLVMOrcDisposeJITTargetMachineBuilder(JTMP);
 }
 
 static Optional<CompileOnDemandLayer::GlobalValueSet>
@@ -149,14 +153,33 @@ PartitionFunction(GlobalValueSet Requested)
             auto GVName = GV->getName();         /* get the function name */
             const char *gvname = GVName.begin(); /* C function name */
             const char *wrapper;
+            uint32 prefix_len = strlen(AOT_FUNC_PREFIX);
 
             /* Convert "aot_func#n_wrapper" to "aot_func#n" */
-            if ((wrapper = strstr(gvname, "_wrapper"))) {
-                std::string func_name(gvname, wrapper - gvname);
-                /* Get actual jit function so as to compile it */
-                Function *F1 = M->getFunction(func_name);
-                if (F1)
-                    GVsToAdd.push_back(cast<GlobalValue>(F1));
+            if (strstr(gvname, AOT_FUNC_PREFIX)
+                && (wrapper = strstr(gvname + prefix_len, "_wrapper"))) {
+                char buf[16] = { 0 };
+                char func_name[64];
+                int group_stride, i, j;
+
+                bh_assert(wrapper - (gvname + prefix_len) > 0);
+                /* Get AOT function index */
+                bh_memcpy_s(buf, (uint32)sizeof(buf), gvname + prefix_len,
+                            (uint32)(wrapper - (gvname + prefix_len)));
+                i = atoi(buf);
+
+                group_stride = WASM_ORC_JIT_BACKEND_THREAD_NUM;
+
+                /* Compile some functions each time */
+                for (j = 0; j < WASM_ORC_JIT_COMPILE_THREAD_NUM; j++) {
+                    snprintf(func_name, sizeof(func_name), "%s%d",
+                             AOT_FUNC_PREFIX, i + j * group_stride);
+                    Function *F1 = M->getFunction(func_name);
+                    if (F1) {
+                        LOG_DEBUG("compile func %s", func_name);
+                        GVsToAdd.push_back(cast<GlobalValue>(F1));
+                    }
+                }
             }
         }
     }
@@ -219,7 +242,11 @@ LLVMOrcLLLazyJITLookup(LLVMOrcLLLazyJITRef J, LLVMOrcExecutorAddress *Result,
         return wrap(Sym.takeError());
     }
 
+#if LLVM_VERSION_MAJOR < 15
     *Result = Sym->getAddress();
+#else
+    *Result = Sym->getValue();
+#endif
     return LLVMErrorSuccess;
 }
 
