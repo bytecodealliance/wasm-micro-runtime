@@ -6,7 +6,7 @@ The native library should provide `get_native_lib` API for iwasm to return the n
 
 ```C
 static int
-foo_wrapper(wasm_exec_env_t *exec_env, int x, int y)
+foo_wrapper(wasm_exec_env_t exec_env, int x, int y)
 {
     return x + y;
 }
@@ -45,9 +45,18 @@ will be generated.
 
 ## Run workload
 
+### Linux
+
 ```bash
 cd build
 ./iwasm --native-lib=libtest_add.so --native-lib=libtest_sqrt.so wasm-app/test.wasm
+```
+
+### macOS
+
+```bash
+cd build
+./iwasm --native-lib=libtest_add.dylib --native-lib=libtest_sqrt.dylib wasm-app/test.wasm
 ```
 
 The output is:

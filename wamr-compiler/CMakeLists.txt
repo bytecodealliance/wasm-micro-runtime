@@ -3,7 +3,13 @@
 
 cmake_minimum_required (VERSION 2.9)
 
-string (TOLOWER ${CMAKE_HOST_SYSTEM_NAME} WAMR_BUILD_PLATFORM)
+if (NOT DEFINED WAMR_BUILD_PLATFORM)
+  if (CMAKE_SYSTEM_NAME)
+    string(TOLOWER ${CMAKE_SYSTEM_NAME} WAMR_BUILD_PLATFORM)
+  else()
+    string(TOLOWER ${CMAKE_HOST_SYSTEM_NAME} WAMR_BUILD_PLATFORM)
+  endif()
+endif()
 
 if (NOT WAMR_BUILD_PLATFORM STREQUAL "windows")
   project (aot-compiler)
@@ -224,24 +230,20 @@ endif ()
 if (NOT MSVC)
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fstack-protector-strong --param ssp-buffer-size=4")
 endif()
-if (NOT (MSVC OR CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*Clang"))
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,-z,noexecstack,-z,relro,-z,now")
-  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wl,-z,noexecstack,-z,relro,-z,now")
-endif()
 
 # We disable these flags by default to stay the same with wasm runtime
 # set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mindirect-branch=thunk -mfunction-return=thunk")
 
 if (NOT MSVC)
-  if (NOT (CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*Clang"))
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pie -fPIE -ftrapv -D_FORTIFY_SOURCE=2")
-  else()
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIE -ftrapv -D_FORTIFY_SOURCE=2")
+  add_definitions(-D_FORTIFY_SOURCE=2)
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ftrapv")
+  if (NOT WIN32)
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pie -fPIE")
   endif()
 endif()
 
-if (MSVC)
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_WINSOCK_DEPRECATED_NO_WARNINGS")
+if (WIN32)
+  add_definitions(-D_WINSOCK_DEPRECATED_NO_WARNINGS)
 endif()
 
 # message ("-- CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")
@@ -263,15 +265,23 @@ add_library (aotclib ${IWASM_COMPL_SOURCE})
 
 add_executable (wamrc main.c)
 
+if (LLVM_LINK_LLVM_DYLIB)
+  set(WAMRC_LINK_LLVM_LIBS LLVM)
+else()
+  set(WAMRC_LINK_LLVM_LIBS ${LLVM_AVAILABLE_LIBS})
+endif()
+
 if (NOT MSVC)
-  target_link_libraries (wamrc aotclib vmlib LLVMDemangle ${LLVM_AVAILABLE_LIBS} ${lib_ubsan}
+  target_link_libraries (wamrc aotclib vmlib ${WAMRC_LINK_LLVM_LIBS} ${lib_ubsan}
                          -lm -lpthread ${lib_lldb} ${UV_A_LIBS})
   if (MINGW)
-      target_link_libraries (wamrc -lssp -lWs2_32)
+      target_link_libraries (wamrc ssp.a ws2_32)
   else()
       target_link_libraries (wamrc -ldl)
   endif()
 else()
-  target_link_libraries (wamrc aotclib vmlib  ${lib_lldb} ${LLVM_AVAILABLE_LIBS} ${lib_ubsan}
+  target_link_libraries (wamrc aotclib vmlib  ${lib_lldb} ${WAMRC_LINK_LLVM_LIBS} ${lib_ubsan}
                          ${UV_A_LIBS})
 endif()
+
+install (TARGETS wamrc DESTINATION bin)

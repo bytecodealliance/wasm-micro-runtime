@@ -94,6 +94,10 @@ ExternalProject_Add(wasm-app
                       socket_opts.wasm ${CMAKE_BINARY_DIR}
                       udp_client.wasm ${CMAKE_BINARY_DIR}
                       udp_server.wasm ${CMAKE_BINARY_DIR}
+                      multicast_client.wasm ${CMAKE_BINARY_DIR}
+                      multicast_server.wasm ${CMAKE_BINARY_DIR}
+                      timeout_client.wasm ${CMAKE_BINARY_DIR}
+                      timeout_server.wasm ${CMAKE_BINARY_DIR}
 )
 
 add_executable(tcp_server ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src/tcp_server.c)
@@ -111,6 +115,14 @@ add_executable(socket_opts ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src/socket_opts.c)
 add_executable(udp_client ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src/udp_client.c)
 
 add_executable(udp_server ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src/udp_server.c)
+
+add_executable(multicast_client ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src/multicast_client.c)
+
+add_executable(multicast_server ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src/multicast_server.c)
+
+add_executable(timeout_client ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src/timeout_client.c)
+
+add_executable(timeout_server ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src/timeout_server.c)
 
 ############################################
 ## Build iwasm with wasi and pthread support

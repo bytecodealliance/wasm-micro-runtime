@@ -1217,6 +1217,10 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                                 comp_ctx, func_ctx, align, offset, bytes))
                             return false;
                         break;
+                    case WASM_OP_ATOMIC_FENCE:
+                        /* Skip memory index */
+                        frame_ip++;
+                        break;
                     case WASM_OP_ATOMIC_I32_LOAD:
                         bytes = 4;
                         goto op_atomic_i32_load;
@@ -2669,9 +2673,13 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
     LLVMDIBuilderFinalize(comp_ctx->debug_builder);
 #endif
 
-    bh_print_time("Begin to verify LLVM module");
-    if (!veriy_module(comp_ctx)) {
-        return false;
+    /* Disable LLVM module verification for jit mode to speedup
+       the compilation process */
+    if (!comp_ctx->is_jit_mode) {
+        bh_print_time("Begin to verify LLVM module");
+        if (!veriy_module(comp_ctx)) {
+            return false;
+        }
     }
 
     /* Run IR optimization before feeding in ORCJIT and AOT codegen */
@@ -2701,11 +2709,7 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
         LLVMOrcJITDylibRef orc_main_dylib;
         LLVMOrcThreadSafeModuleRef orc_thread_safe_module;
 
-#if WASM_ENABLE_LAZY_JIT != 0
         orc_main_dylib = LLVMOrcLLLazyJITGetMainJITDylib(comp_ctx->orc_jit);
-#else
-        orc_main_dylib = LLVMOrcLLJITGetMainJITDylib(comp_ctx->orc_jit);
-#endif
         if (!orc_main_dylib) {
             aot_set_last_error(
                 "failed to get orc orc_jit main dynmaic library");
@@ -2719,13 +2723,8 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
             return false;
         }
 
-#if WASM_ENABLE_LAZY_JIT != 0
         if ((err = LLVMOrcLLLazyJITAddLLVMIRModule(
                  comp_ctx->orc_jit, orc_main_dylib, orc_thread_safe_module))) {
-#else
-        if ((err = LLVMOrcLLJITAddLLVMIRModule(
-                 comp_ctx->orc_jit, orc_main_dylib, orc_thread_safe_module))) {
-#endif
             /* If adding the ThreadSafeModule fails then we need to clean it up
                by ourselves, otherwise the orc orc_jit will manage the memory.
              */

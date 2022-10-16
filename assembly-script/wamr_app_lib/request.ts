@@ -137,7 +137,7 @@ function not_expire(trans: wamr_transaction, index: i32, array: Array<wamr_trans
     var elapsed_ms = (now < trans.time) ?
         (now + (0xFFFFFFFF - trans.time) + 1) : (now - trans.time);
 
-    return elapsed_ms >= TRANSACTION_TIMEOUT_MS;
+    return elapsed_ms < TRANSACTION_TIMEOUT_MS;
 }
 
 function transaction_timeout_handler(): void {
