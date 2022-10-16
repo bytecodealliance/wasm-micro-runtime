@@ -38,13 +38,13 @@ jobs:
           result=$(python3 ./.github/scripts/fetch_and_compare_version.py)
           echo "script result is ${result}"
           #
-          # return in a form like "WAMR-X.Y.Z,change_minor" or ",change_patch"
+          # return in a form like "WAMR-X.Y.Z,major_minor_change" or ",patch_change"
           new_ver=$(echo "${result}" | awk -F',' '{print $1}')
           diff_versioning=$(echo "${result}" | awk -F',' '{print $2}')
           echo "next version is ${new_ver}, it ${diff_versioning}"
           #
           # set output
-          if [[ ${diff_versioning} == 'change_minor' ]];then
+          if [[ ${diff_versioning} == 'major_minor_change' ]];then
             echo "::set-output name=minor_version::true"
           else
             echo "::set-output name=minor_version::false"
