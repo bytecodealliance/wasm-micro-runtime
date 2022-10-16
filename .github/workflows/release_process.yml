@@ -28,6 +28,18 @@ jobs:
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
+      - uses: actions/checkout@v3
+
+      - name: prepare the release note
+        run: |
+          extract_result="$(python3 ./.github/scripts/extract_from_release_notes.py RELEASE_NOTES.md)"
+          echo "RELEASE_NOTE<<EOF" >> $GITHUB_ENV
+          echo "${extract_result}" >> $GITHUB_ENV
+          echo "EOF"               >> $GITHUB_ENV
+
+      - name: check output
+        run: echo 'the release note is "${{ env.RELEASE_NOTE }}"'
+
       - name: create a release
         id: create_release
         uses: actions/create-release@v1
@@ -38,8 +50,7 @@ jobs:
           release_name: ${{ needs.create_tag.outputs.new_tag }}
           prerelease: ${{ inputs.require_confirmation || needs.create_tag.outputs.minor_version }}
           draft: false
-          body: |
-            TODO: fill the content of RELEASE_NOTE.md in
+          body: ${{ env.RELEASE_NOTE }}
 
   #
   # WAMRC
