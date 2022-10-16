@@ -2412,7 +2412,7 @@ copy_string_array(const char *array[], uint32 array_size, char **buf_ptr,
         buf_size += strlen(array[i]) + 1;
 
     /* We add +1 to generate null-terminated array of strings */
-    total_size = sizeof(char *) * (uint64)array_size + 1;
+    total_size = sizeof(char *) * ((uint64)array_size + 1);
     if (total_size >= UINT32_MAX
         || (total_size > 0 && !(list = wasm_runtime_malloc((uint32)total_size)))
         || buf_size >= UINT32_MAX
