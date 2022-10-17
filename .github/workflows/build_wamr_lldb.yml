@@ -24,12 +24,20 @@ on:
         required: true
 
 jobs:
+  try_reuse:
+    uses: ./.github/workflows/reuse_latest_release_binaries.yml
+    with:
+      binary_name_stem: "wamr-lldb-${{ inputs.ver_num }}-${{ inputs.arch }}-${{ inputs.runner }}"
+      last_commit: "ea63ba4bd010c2285623ad4acc0262a4d63bcfea"
+      the_path: "./build-scripts/lldb-wasm.patch"
+      upload_url: ${{ inputs.upload_url }}
+
   build:
+    needs: try_reuse
+    if: needs.try_reuse.outputs.result != 'hit'
     runs-on: ${{ inputs.runner }}
     steps:
       - uses: actions/checkout@v3
-
-      #TODO: reuse the binary in pevious release?
 
       - name: Cache build
         id: lldb_build_cache

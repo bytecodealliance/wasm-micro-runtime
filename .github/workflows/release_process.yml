@@ -159,7 +159,7 @@ jobs:
 
   #
   # WAMR_LLDB
-  release_wamr_lldb_on_ubuntu:
+  release_wamr_lldb_on_ubuntu_2004:
     needs: [create_tag, create_release]
     uses: ./.github/workflows/build_wamr_lldb.yml
     with:
@@ -167,7 +167,7 @@ jobs:
       upload_url: ${{ needs.create_release.outputs.upload_url }}
       ver_num: ${{ needs.create_tag.outputs.new_ver}}
 
-  release_wamr_lldb_on_ubuntu:
+  release_wamr_lldb_on_ubuntu_2204:
     needs: [create_tag, create_release]
     uses: ./.github/workflows/build_wamr_lldb.yml
     with:
