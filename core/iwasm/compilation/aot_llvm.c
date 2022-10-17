@@ -1276,17 +1276,14 @@ run_pass(void *ctx, LLVMModuleRef module)
 {
     AOTCompContext *comp_ctx = (AOTCompContext *)ctx;
 
-#ifndef NDEBUG
     size_t len;
     LOG_VERBOSE("--- In IRTransformLayer @ T#%ld---",
                 LLVMGetModuleIdentifier(module, &len), pthread_self());
-#endif
 
-    aot_apply_llvm_new_pass_manager(comp_ctx, module);
+    /* TODO: enable this for JIT mode after fixing LLVM issues */
+    /*aot_apply_llvm_new_pass_manager(comp_ctx, module);*/
 
-#ifndef NDEBUG
     bh_print_time("Begin to generate machine code");
-#endif
     return LLVMErrorSuccess;
 }
 
