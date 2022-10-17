@@ -30,7 +30,7 @@ jobs:
             ./core/deps/llvm/build/lib
             ./core/deps/llvm/build/libexec
             ./core/deps/llvm/build/share
-          key: ${{ matrix.os }}-${{ env.LLVM_CACHE_SUFFIX }}
+          key: ${{ matrix.os }}-build-llvm_libraries_ex
 
       - name: Build llvm
         id: build_llvm
