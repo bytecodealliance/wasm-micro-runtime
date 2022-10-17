@@ -156,3 +156,21 @@ jobs:
     with:
       upload_url: ${{ needs.create_release.outputs.upload_url }}
       ver_num: ${{ needs.create_tag.outputs.new_ver }}
+
+  #
+  # WAMR_LLDB
+  release_wamr_lldb_on_ubuntu:
+    needs: [create_tag, create_release]
+    uses: ./.github/workflows/build_wamr_lldb.yml
+    with:
+      runner: ubuntu-20.04
+      upload_url: ${{ needs.create_release.outputs.upload_url }}
+      ver_num: ${{ needs.create_tag.outputs.new_ver}}
+
+  release_wamr_lldb_on_ubuntu:
+    needs: [create_tag, create_release]
+    uses: ./.github/workflows/build_wamr_lldb.yml
+    with:
+      runner: ubuntu-22.04
+      upload_url: ${{ needs.create_release.outputs.upload_url }}
+      ver_num: ${{ needs.create_tag.outputs.new_ver}}

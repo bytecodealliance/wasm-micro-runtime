@@ -15,18 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Cancel any in-flight jobs for the same PR/branch so there's only one active
-  # at a time
-  cancel_previous:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Cancel Workflow Action
-        uses: styfle/cancel-workflow-action@0.9.1
-        with:
-          access_token: ${{ github.token }}
-
   complinace_job:
-    needs: cancel_previous
     runs-on: ubuntu-latest
     steps:
       - name: checkout

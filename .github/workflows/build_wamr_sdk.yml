@@ -54,7 +54,7 @@ jobs:
       - name: compress the binary
         run: |
           tar czf wamr-sdk-${{ inputs.ver_num }}-${{ inputs.runner }}.tar.gz wamr-sdk
-          zip wamr-sdk-${{ inputs.ver_num }}-${{ inputs.runner }}.zip wamr-sdk
+          zip -r wamr-sdk-${{ inputs.ver_num }}-${{ inputs.runner }}.zip wamr-sdk
         working-directory: wamr-sdk/out
 
       - name: upload release tar.gz

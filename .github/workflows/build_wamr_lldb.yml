@@ -1,0 +1,124 @@
+# Copyright (C) 2019 Intel Corporation.  All rights reserved.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+name: build wamr lldb
+
+on:
+  workflow_call:
+    inputs:
+      arch:
+        description: arch of the release
+        type: string
+        required: false
+        default: x86_64
+      runner:
+        description: OS of compilation
+        type: string
+        required: true
+      upload_url:
+        description: upload binary assets to the URL of release
+        type: string
+        required: true
+      ver_num:
+        description: a semantic version number
+        type: string
+        required: true
+
+jobs:
+  build:
+    runs-on: ${{ inputs.runner }}
+    steps:
+      - uses: actions/checkout@v3
+
+      #TODO: reuse the binary in pevious release?
+
+      - name: Cache build
+        id: lldb_build_cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ./core/deps/llvm-project/build/bin
+            ./core/deps/llvm-project/build/include
+            ./core/deps/llvm-project/build/lib
+            ./core/deps/llvm-project/build/libexec
+            ./core/deps/llvm-project/build/share
+            ./core/deps/llvm-project/lldb/tools/
+            ./core/deps/llvm-project/inst/
+          key: ${{ inputs.runner }}-lldb_build
+
+      - name: intall utils
+        if: steps.lldb_build_cache.outputs.cache-hit != 'true'
+        run: sudo apt update && sudo apt-get install -y lld ninja-build
+
+      # `git clone` takes ~7m
+      - name: download llvm
+        if: steps.lldb_build_cache.outputs.cache-hit != 'true'
+        run: |
+          wget https://github.com/llvm/llvm-project/archive/1f27fe6128769f00197925c3b8f6abb9d0e5cd2e.zip
+          unzip 1f27fe6128769f00197925c3b8f6abb9d0e5cd2e.zip
+          mv llvm-project-1f27fe6128769f00197925c3b8f6abb9d0e5cd2e llvm-project
+        working-directory: core/deps/
+
+      - name: apply wamr patch
+        if: steps.lldb_build_cache.outputs.cache-hit != 'true'
+        run: |
+          git config user.email "action@github.com"
+          git config user.name "github action"
+          git apply ../../../build-scripts/lldb-wasm.patch
+        working-directory: core/deps/llvm-project
+
+      - name: build lldb
+        if: steps.lldb_build_cache.outputs.cache-hit != 'true'
+        run: |
+          echo "start to build lldb..."
+          mkdir -p inst
+          cmake -S ./llvm -B build \
+            -G Ninja \
+            -DCMAKE_INSTALL_PREFIX=../inst \
+            -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_PROJECTS="clang;lldb" \
+            -DLLVM_TARGETS_TO_BUILD=X86 \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DLLVM_BUILD_BENCHMARKS:BOOL=OFF \
+            -DLLVM_BUILD_DOCS:BOOL=OFF  -DLLVM_BUILD_EXAMPLES:BOOL=OFF  \
+            -DLLVM_BUILD_LLVM_DYLIB:BOOL=OFF  -DLLVM_BUILD_TESTS:BOOL=OFF  \
+            -DLLVM_ENABLE_BINDINGS:BOOL=OFF  -DLLVM_INCLUDE_BENCHMARKS:BOOL=OFF  \
+            -DLLVM_INCLUDE_DOCS:BOOL=OFF  -DLLVM_INCLUDE_EXAMPLES:BOOL=OFF  \
+            -DLLVM_INCLUDE_TESTS:BOOL=OFF -DLLVM_ENABLE_LLD:BOOL=ON
+          cmake --build build --target lldb install --parallel $(nproc)
+        working-directory: core/deps/llvm-project
+
+      - name: pack a distribution
+        if: steps.lldb_build_cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p inst/bin
+          mkdir -p inst/lib
+          cp build/bin/lldb* inst/bin
+          cp build/lib/liblldb*.so inst/lib
+          cp build/lib/liblldb*.so.* inst/lib
+          cp lldb/tools/lldb-vscode/package.json inst
+          cp -r lldb/tools/lldb-vscode/syntaxes/ inst
+        working-directory: core/deps/llvm-project
+
+      - name: compress the binary
+        run: |
+          tar czf wamr-lldb-${{ inputs.ver_num }}-${{ inputs.runner }}.tar.gz inst
+          zip -r wamr-lldb-${{ inputs.ver_num }}-${{ inputs.runner }}.zip inst
+        working-directory: core/deps/llvm-project
+
+      - name: upload release tar.gz
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ inputs.upload_url }}
+          asset_path: core/deps/llvm-project/wamr-lldb-${{ inputs.ver_num }}-${{ inputs.runner }}.tar.gz
+          asset_name: wamr-lldb-${{ inputs.ver_num }}-${{ inputs.arch }}-${{ inputs.runner }}.tar.gz
+          asset_content_type: application/x-gzip
+
+      - name: upload release zip
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ inputs.upload_url }}
+          asset_path: core/deps/llvm-project/wamr-lldb-${{ inputs.ver_num }}-${{ inputs.runner }}.zip
+          asset_name: wamr-lldb-${{ inputs.ver_num }}-${{ inputs.arch }}-${{ inputs.runner }}.zip
+          asset_content_type: application/zip
