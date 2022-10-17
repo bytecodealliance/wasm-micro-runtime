@@ -2693,7 +2693,12 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
             }
         }
 
-        /* Run passes for all JIT/AOT mode */
+        /* Run passes for AOT/JIT mode.
+           TODO: Apply these passes in the do_ir_transform callback of
+           TransformLayer when compiling each jit function, so as to
+           speedup the launch process. Now there are two issues in the
+           JIT: one is memory leak in do_ir_transform, the other is
+           possible core dump. */
         bh_print_time("Begin to run llvm optimization passes");
         aot_apply_llvm_new_pass_manager(comp_ctx, comp_ctx->module);
         bh_print_time("Finish llvm optimization passes");

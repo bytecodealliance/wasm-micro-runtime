@@ -81,7 +81,17 @@
 #define WASM_ENABLE_LAZY_JIT 0
 #endif
 
+#ifndef WASM_ORC_JIT_BACKEND_THREAD_NUM
+/* The number of backend threads created by runtime */
+#define WASM_ORC_JIT_BACKEND_THREAD_NUM 4
+#endif
+
+#if WASM_ORC_JIT_BACKEND_THREAD_NUM < 1
+#error "WASM_ORC_JIT_BACKEND_THREAD_NUM must be greater than 0"
+#endif
+
 #ifndef WASM_ORC_JIT_COMPILE_THREAD_NUM
+/* The number of compilation threads created by LLVM JIT */
 #define WASM_ORC_JIT_COMPILE_THREAD_NUM 4
 #endif
 

@@ -2827,30 +2827,17 @@ aot_load_from_aot_file(const uint8 *buf, uint32 size, char *error_buf,
 }
 
 #if WASM_ENABLE_JIT != 0
-
-/* Orc JIT thread arguments */
-typedef struct OrcJitThreadArg {
-    AOTCompData *comp_data;
-    AOTCompContext *comp_ctx;
-    AOTModule *module;
-    int32 group_idx;
-    int32 group_stride;
-    bool lookup_only;
-} OrcJitThreadArg;
-
-static bool orcjit_stop_compiling = false;
-static korp_tid orcjit_threads[WASM_ORC_JIT_COMPILE_THREAD_NUM];
-static OrcJitThreadArg orcjit_thread_args[WASM_ORC_JIT_COMPILE_THREAD_NUM];
-
 static void *
 orcjit_thread_callback(void *arg)
 {
     LLVMOrcJITTargetAddress func_addr = 0;
     OrcJitThreadArg *thread_arg = (OrcJitThreadArg *)arg;
-    AOTCompData *comp_data = thread_arg->comp_data;
     AOTCompContext *comp_ctx = thread_arg->comp_ctx;
     AOTModule *module = thread_arg->module;
-    bool lookup_only = thread_arg->lookup_only;
+    uint32 group_idx = thread_arg->group_idx;
+    uint32 group_stride = WASM_ORC_JIT_BACKEND_THREAD_NUM;
+    uint32 func_count = module->func_count;
+    uint32 i, j;
     typedef void (*F)(void);
     LLVMErrorRef error;
     char func_name[48];
@@ -2858,45 +2845,34 @@ orcjit_thread_callback(void *arg)
         F f;
         void *v;
     } u;
-    int32 i;
 
-    /* Compile wasm functions of this group */
-    for (i = thread_arg->group_idx; i < (int32)comp_data->func_count;
-         i += thread_arg->group_stride) {
-        if (!lookup_only) {
-            snprintf(func_name, sizeof(func_name), "%s%d%s", AOT_FUNC_PREFIX, i,
-                     "_wrapper");
-            error = LLVMOrcLLLazyJITLookup(comp_ctx->orc_jit, &func_addr,
-                                           func_name);
-            if (error != LLVMErrorSuccess) {
-                char *err_msg = LLVMGetErrorMessage(error);
-                os_printf("failed to compile orc jit function: %s", err_msg);
-                LLVMDisposeErrorMessage(err_msg);
-                continue;
-            }
-
-            /* Call the jit wrapper function to trigger its compilation, so as
-               to compile the actual jit function, since we add the latter to
-               function list in the PartitionFunction callback */
-            u.v = (void *)func_addr;
-            u.f();
-
-            module->func_ptrs_compiled[i] = true;
-        }
-        else {
-            snprintf(func_name, sizeof(func_name), "%s%d", AOT_FUNC_PREFIX, i);
-            error = LLVMOrcLLLazyJITLookup(comp_ctx->orc_jit, &func_addr,
-                                           func_name);
-            if (error != LLVMErrorSuccess) {
-                char *err_msg = LLVMGetErrorMessage(error);
-                os_printf("failed to compile orc jit function: %s", err_msg);
-                LLVMDisposeErrorMessage(err_msg);
-                continue;
-            }
-            module->func_ptrs[i] = (void *)func_addr;
+    /* Compile jit functions of this group */
+    for (i = group_idx; i < func_count;
+         i += group_stride * WASM_ORC_JIT_COMPILE_THREAD_NUM) {
+        snprintf(func_name, sizeof(func_name), "%s%d%s", AOT_FUNC_PREFIX, i,
+                 "_wrapper");
+        LOG_DEBUG("compile func %s", func_name);
+        error =
+            LLVMOrcLLLazyJITLookup(comp_ctx->orc_jit, &func_addr, func_name);
+        if (error != LLVMErrorSuccess) {
+            char *err_msg = LLVMGetErrorMessage(error);
+            os_printf("failed to compile orc jit function: %s", err_msg);
+            LLVMDisposeErrorMessage(err_msg);
+            continue;
         }
 
-        if (orcjit_stop_compiling) {
+        /* Call the jit wrapper function to trigger its compilation, so as
+           to compile the actual jit functions, since we add the latter to
+           function list in the PartitionFunction callback */
+        u.v = (void *)func_addr;
+        u.f();
+
+        for (j = 0; j < WASM_ORC_JIT_COMPILE_THREAD_NUM; j++) {
+            if (i + j * group_stride < func_count)
+                module->func_ptrs_compiled[i + j * group_stride] = true;
+        }
+
+        if (module->orcjit_stop_compiling) {
             break;
         }
     }
@@ -2905,13 +2881,14 @@ orcjit_thread_callback(void *arg)
 }
 
 static void
-orcjit_stop_compile_threads()
+orcjit_stop_compile_threads(AOTModule *module)
 {
-    uint32 i;
+    uint32 i, thread_num = (uint32)(sizeof(module->orcjit_thread_args)
+                                    / sizeof(OrcJitThreadArg));
 
-    orcjit_stop_compiling = true;
-    for (i = 0; i < WASM_ORC_JIT_COMPILE_THREAD_NUM; i++) {
-        os_thread_join(orcjit_threads[i], NULL);
+    module->orcjit_stop_compiling = true;
+    for (i = 0; i < thread_num; i++) {
+        os_thread_join(module->orcjit_threads[i], NULL);
     }
 }
 
@@ -2919,9 +2896,12 @@ static AOTModule *
 aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
                         char *error_buf, uint32 error_buf_size)
 {
-    uint32 i;
-    uint64 size;
     AOTModule *module;
+    uint64 size;
+    uint32 i;
+#if WASM_ENABLE_JIT != 0
+    uint32 thread_num;
+#endif
 
     /* Allocate memory for module */
     if (!(module =
@@ -2993,48 +2973,28 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
 
     bh_print_time("Begin to lookup jit functions");
 
-    /* Create threads to lookup the jit functions */
-    for (i = 0; i < WASM_ORC_JIT_COMPILE_THREAD_NUM; i++) {
-        orcjit_thread_args[i].comp_data = comp_data;
-        orcjit_thread_args[i].comp_ctx = comp_ctx;
-        orcjit_thread_args[i].module = module;
-        orcjit_thread_args[i].group_idx = (int32)i;
-        orcjit_thread_args[i].group_stride = WASM_ORC_JIT_COMPILE_THREAD_NUM;
-        orcjit_thread_args[i].lookup_only = true;
+    for (i = 0; i < module->func_count; i++) {
+        char func_name[48];
+        LLVMOrcJITTargetAddress func_addr = 0;
 
-        if (os_thread_create(&orcjit_threads[i], orcjit_thread_callback,
-                             (void *)&orcjit_thread_args[i],
-                             APP_THREAD_STACK_SIZE_DEFAULT)
-            != 0) {
-            uint32 j;
-
-            set_error_buf(error_buf, error_buf_size,
-                          "create orcjit compile thread failed");
-            /* Terminate the threads created */
-            orcjit_stop_compiling = true;
-            for (j = 0; j < i; j++) {
-                os_thread_join(orcjit_threads[j], NULL);
-            }
-            goto fail3;
-        }
-    }
-    for (i = 0; i < WASM_ORC_JIT_COMPILE_THREAD_NUM; i++) {
-        os_thread_join(orcjit_threads[i], NULL);
+        snprintf(func_name, sizeof(func_name), "%s%d", AOT_FUNC_PREFIX, i);
+        LLVMOrcLLLazyJITLookup(comp_ctx->orc_jit, &func_addr, func_name);
+        module->func_ptrs[i] = (void *)func_addr;
     }
 
     bh_print_time("Begin to compile jit functions");
 
-    /* Create threads to compile the jit functions */
-    for (i = 0; i < WASM_ORC_JIT_COMPILE_THREAD_NUM; i++) {
-        orcjit_thread_args[i].comp_data = comp_data;
-        orcjit_thread_args[i].comp_ctx = comp_ctx;
-        orcjit_thread_args[i].module = module;
-        orcjit_thread_args[i].group_idx = (int32)i;
-        orcjit_thread_args[i].group_stride = WASM_ORC_JIT_COMPILE_THREAD_NUM;
-        orcjit_thread_args[i].lookup_only = false;
+    thread_num =
+        (uint32)(sizeof(module->orcjit_thread_args) / sizeof(OrcJitThreadArg));
 
-        if (os_thread_create(&orcjit_threads[i], orcjit_thread_callback,
-                             (void *)&orcjit_thread_args[i],
+    /* Create threads to compile the jit functions */
+    for (i = 0; i < thread_num; i++) {
+        module->orcjit_thread_args[i].comp_ctx = comp_ctx;
+        module->orcjit_thread_args[i].module = module;
+        module->orcjit_thread_args[i].group_idx = i;
+
+        if (os_thread_create(&module->orcjit_threads[i], orcjit_thread_callback,
+                             (void *)&module->orcjit_thread_args[i],
                              APP_THREAD_STACK_SIZE_DEFAULT)
             != 0) {
             uint32 j;
@@ -3042,17 +3002,18 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
             set_error_buf(error_buf, error_buf_size,
                           "create orcjit compile thread failed");
             /* Terminate the threads created */
-            orcjit_stop_compiling = true;
+            module->orcjit_stop_compiling = true;
             for (j = 0; j < i; j++) {
-                os_thread_join(orcjit_threads[j], NULL);
+                os_thread_join(module->orcjit_threads[j], NULL);
             }
             goto fail3;
         }
     }
 
 #if WASM_ENABLE_LAZY_JIT == 0
-    for (i = 0; i < WASM_ORC_JIT_COMPILE_THREAD_NUM; i++) {
-        os_thread_join(orcjit_threads[i], NULL);
+    /* Wait until all jit functions are compiled for eager mode */
+    for (i = 0; i < thread_num; i++) {
+        os_thread_join(module->orcjit_threads[i], NULL);
     }
 #endif
 
@@ -3114,7 +3075,7 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
 
 fail4:
     /* Terminate all threads before free module->func_ptrs */
-    orcjit_stop_compile_threads();
+    orcjit_stop_compile_threads(module);
 fail3:
     if (module->func_ptrs)
         wasm_runtime_free(module->func_ptrs);
@@ -3202,7 +3163,7 @@ void
 aot_unload(AOTModule *module)
 {
 #if WASM_ENABLE_JIT != 0
-    orcjit_stop_compile_threads();
+    orcjit_stop_compile_threads(module);
 
     if (module->comp_data)
         aot_destroy_comp_data(module->comp_data);
