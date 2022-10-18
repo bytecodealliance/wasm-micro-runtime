@@ -41,7 +41,6 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 
 - **WAMR_BUILD_AOT**=1/0, enable AOT or not, default to enable if not set
 - **WAMR_BUILD_JIT**=1/0, enable LLVM JIT or not, default to disable if not set
-- **WAMR_BUILD_LAZY_JIT**=1/0, whether to use Lazy JIT mode or not when *WAMR_BUILD_JIT* is set, default to enable if not set
 - **WAMR_BUILD_FAST_JIT**=1/0, enable Fast JIT or not, default to disable if not set
 
 #### **Configure LIBC**
@@ -224,7 +223,7 @@ make
 By default in Linux, the `fast interpreter`, `AOT` and `Libc WASI` are enabled, and JIT is disabled.
 And the build target is set to X86_64 or X86_32 depending on the platform's bitwidth.
 
-There are total 5 running modes supported: fast interpreter, classi interpreter, AOT, LLVM Lazy JIT, and Fast JIT.
+There are total 5 running modes supported: fast interpreter, classi interpreter, AOT, LLVM JIT and Fast JIT.
 
 (1) To run a wasm file with `fast interpreter` mode - build iwasm with default build and then:
 ```Bash
@@ -250,24 +249,34 @@ wamrc -o <AOT file> <WASM file>
 iwasm <AOT file>
 ```
 
-(4) To enable the `LLVM Lazy JIT` mode, firstly we should build LLVM library:
+(4) To enable the `LLVM JIT` mode, firstly we should build the LLVM library:
 ``` Bash
 cd product-mini/platforms/linux/
 ./build_llvm.sh     (The llvm source code is cloned under <wamr_root_dir>/core/deps/llvm and auto built)
 ```
 
-Then pass argument `-DWAMR_BUILD_JIT=1` to cmake to enable LLVM Lazy JIT:
+Then pass argument `-DWAMR_BUILD_JIT=1` to cmake to enable LLVM JIT:
 ``` Bash
 mkdir build && cd build
 cmake .. -DWAMR_BUILD_JIT=1
 make
 ```
 
-By default, the LLVM Orc Lazy JIT is enabled to speedup the lanuching process and reduce the JIT compilation time
-by creating threads to compile the WASM functions parallely, and for the main thread, the functions in the
-module will not be compiled until they are firstly called and haven't been compiled by the compilation threads.
+Note:
+By default, the LLVM Orc JIT with Lazy compilation is enabled to speedup the lanuching process and reduce
+the JIT compilation time by creating backend threads to compile the WASM functions parallely, and for the
+main thread, the functions in the module will not be compiled until they are firstly called and haven't been
+compiled by the compilation threads.
 
-(6) To enable the `Fast JIT` mode:
+If developer wants to disable the Lazy compilation, we can:
+``` Bash
+mkdir build && cd build
+cmake .. -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=0
+make
+```
+In which all the WASM functions will be previously compiled before main thread starts to run the wasm module.
+
+(5) To enable the `Fast JIT` mode:
 ``` Bash
 mkdir build && cd build
 cmake .. -DWAMR_BUILD_FAST_JIT=1

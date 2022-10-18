@@ -1501,9 +1501,9 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
         goto fail;
     }
 
-    /* Create individual modules for each aot function, note:
-       different from non LAZY JIT mode, no need to dispose them,
-       they will be disposed when the thread safe context is disposed */
+    /* Create LLVM module for each jit function, note:
+       different from non ORC JIT mode, no need to dispose it,
+       it will be disposed when the thread safe context is disposed */
     if (!(comp_ctx->module = LLVMModuleCreateWithNameInContext(
               "WASM Module", comp_ctx->context))) {
         aot_set_last_error("create LLVM module failed.");
@@ -1514,7 +1514,6 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
         goto fail;
     }
 
-    /*TODO*/
 #if WASM_ENABLE_DEBUG_AOT != 0
     if (!(comp_ctx->debug_builder = LLVMCreateDIBuilder(comp_ctx->module))) {
         aot_set_last_error("create LLVM Debug Infor builder failed.");
