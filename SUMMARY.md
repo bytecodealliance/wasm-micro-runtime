@@ -22,7 +22,14 @@
     * [Build Iwasm](doc/build_wamr.md)
     * [Build Wamrc](gitbook/tutorial/build_tutorial/build_wamrc.md)
   * [Language Embedding](gitbook/tutorial/language_embedding/README.md)
-  * [Debugging&IDE Support](gitbook/tutorial/debugging&IDE_support/README.md)
+    * [C/C++](doc/embed_wamr.md)
+    * [Python](language-bindings/python/README.md)
+    * [Go](language-bindings/go/README.md)
+  * [Debugging&IDE Support](test-tools/wamr-ide/README.md)
+    * [Enable Debugging](./gitbook/tutorial/debugging%26IDE_support/README.md)
+      * [WAMR Source Debugging](doc/source_debugging.md)
+      * [Move lldb Binaries](test-tools/wamr-ide/VSCode-Extension/resource/debug/README.md)
+      * [Enable Debugging In VS Code](test-tools/wamr-ide/VSCode-Extension/README.md)
 
 * [Features](gitbook/features/demo_examples/README.md)
 
@@ -45,3 +52,5 @@
 * [Appendix A. Background Knowledge And Jargons](gitbook/appendix/background-knowledge.md)
 
 * [Appendix B. WebAssembly Details](gitbook/appendix/webassembly-details.md)
+
+* [Appendix C. Complete WAMR Introduction](README.md)
