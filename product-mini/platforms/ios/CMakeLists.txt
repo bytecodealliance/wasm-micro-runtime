@@ -1,30 +1,16 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-cmake_minimum_required (VERSION 3.4.1)
+cmake_minimum_required (VERSION 3.21)
 
-set (CMAKE_VERBOSE_MAKEFILE on)
-set (CMAKE_BUILD_TYPE       Release)
-
-# https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-Readme.md#environment-variables-3
-set (CMAKE_TOOLCHAIN_FILE "$ENV{ANDROID_NDK_LATEST_HOME}/build/cmake/android.toolchain.cmake")
-set (ANDROID_SDK $ENV{ANDROID_HOME})
-set (ANDROID_NDK $ENV{ANDROID_NDK_LATEST_HOME})
-
-set (ANDROID_ABI "x86")
-set (ANDROID_LD lld)
-if (NOT DEFINED ANDROID_PLATFORM)
-  set (ANDROID_PLATFORM 24)
-endif ()
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfloat-abi=hard")
 
 project (iwasm)
 
-set (WAMR_BUILD_PLATFORM      "android")
-set (WAMR_BUILD_TARGET        "X86_32")
+set (WAMR_BUILD_PLATFORM "darwin")
 set (WAMR_BUILD_TYPE          Release)
 set (WAMR_BUILD_INTERP        1)
-set (WAMR_BUILD_AOT           1)
-set (WAMR_BUILD_JIT           0)
+set (WAMR_BUILD_AOT           0)
 set (WAMR_BUILD_LIBC_BUILTIN  1)
 set (WAMR_BUILD_LIBC_WASI     1)
 
@@ -33,9 +19,14 @@ set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
 set (CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
 
 # Set WAMR_BUILD_TARGET, currently values supported:
-# "X86_64", "AMD_64", "X86_32", "AARCH64[sub]", "ARM[sub]", "THUMB[sub]", "MIPS", "XTENSA"
+# "X86_64", "AMD_64", "X86_32", "AARCH64[sub]", "ARM[sub]", "THUMB[sub]",
+# "MIPS", "XTENSA", "RISCV64[sub]", "RISCV32[sub]"
 if (NOT DEFINED WAMR_BUILD_TARGET)
-  if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+  if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm64|aarch64)")
+    set (WAMR_BUILD_TARGET "AARCH64")
+  elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "riscv64")
+    set (WAMR_BUILD_TARGET "RISCV64")
+  elseif (CMAKE_SIZEOF_VOID_P EQUAL 8)
     # Build as X86_64 by default in 64-bit platform
     set (WAMR_BUILD_TARGET "X86_64")
   elseif (CMAKE_SIZEOF_VOID_P EQUAL 4)
@@ -49,6 +40,8 @@ endif ()
 if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif ()
+
+set(CMAKE_CXX_STANDARD 14)
 
 if (NOT DEFINED WAMR_BUILD_INTERP)
   # Enable Interpreter by default
@@ -65,6 +58,11 @@ if (NOT DEFINED WAMR_BUILD_JIT)
   set (WAMR_BUILD_JIT 0)
 endif ()
 
+if (NOT DEFINED WAMR_BUILD_FAST_JIT)
+  # Disable Fast JIT by default
+  set (WAMR_BUILD_FAST_JIT 0)
+endif ()
+
 if (NOT DEFINED WAMR_BUILD_LIBC_BUILTIN)
   # Enable libc builtin support by default
   set (WAMR_BUILD_LIBC_BUILTIN 1)
@@ -73,6 +71,42 @@ endif ()
 if (NOT DEFINED WAMR_BUILD_LIBC_WASI)
   # Enable libc wasi support by default
   set (WAMR_BUILD_LIBC_WASI 1)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_FAST_INTERP)
+  # Enable fast interpreter
+  set (WAMR_BUILD_FAST_INTERP 1)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_MULTI_MODULE)
+  # Disable multiple module by default
+  set (WAMR_BUILD_MULTI_MODULE 0)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_LIB_PTHREAD)
+  # Disable pthread library by default
+  set (WAMR_BUILD_LIB_PTHREAD 1)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_MINI_LOADER)
+  # Disable wasm mini loader by default
+  set (WAMR_BUILD_MINI_LOADER 0)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_SIMD)
+  # Enable SIMD by default
+  set (WAMR_BUILD_SIMD 1)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_DEBUG_INTERP)
+  # Disable Debug feature by default
+  set (WAMR_BUILD_DEBUG_INTERP 0)
+endif ()
+
+if (WAMR_BUILD_DEBUG_INTERP EQUAL 1)
+  set (WAMR_BUILD_FAST_INTERP 0)
+  set (WAMR_BUILD_MINI_LOADER 0)
+  set (WAMR_BUILD_SIMD 0)
 endif ()
 
 set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../..)
@@ -100,9 +134,9 @@ endif ()
 
 add_library (iwasm SHARED ${WAMR_RUNTIME_LIB_SOURCE})
 if (CMAKE_BUILD_TYPE STREQUAL Release)
-target_link_libraries (iwasm ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl -landroid -llog -s)
+target_link_libraries (iwasm ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl -s)
 else()
-target_link_libraries (iwasm ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl -landroid -llog)
+target_link_libraries (iwasm ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl)
 endif()
 
 set (distribution_DIR ${CMAKE_BINARY_DIR}/distribution)

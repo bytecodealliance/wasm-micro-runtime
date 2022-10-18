@@ -1200,7 +1200,7 @@ jit_compile_op_return(JitCompContext *cc, uint8 **p_frame_ip)
 bool
 jit_compile_op_unreachable(JitCompContext *cc, uint8 **p_frame_ip)
 {
-    if (!jit_emit_exception(cc, JIT_EXCE_UNREACHABLE, JIT_OP_JMP, 0, NULL))
+    if (!jit_emit_exception(cc, EXCE_UNREACHABLE, JIT_OP_JMP, 0, NULL))
         return false;
 
     return handle_next_reachable_block(cc, p_frame_ip);

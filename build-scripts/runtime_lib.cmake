@@ -1,7 +1,6 @@
 # Copyright (C) 2019 Intel Corporation. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-
 if (NOT DEFINED WAMR_ROOT_DIR)
     set (WAMR_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/../)
 endif ()
@@ -50,23 +49,28 @@ if (NOT DEFINED WAMR_BUILD_TARGET)
 endif ()
 
 ################ optional according to settings ################
-if (WAMR_BUILD_INTERP EQUAL 1 OR WAMR_BUILD_JIT EQUAL 1
-    OR WAMR_BUILD_FAST_JIT EQUAL 1)
-    if (WAMR_BUILD_FAST_JIT EQUAL 1 OR WAMR_BUILD_JIT EQUAL 1)
-        set (WAMR_BUILD_FAST_INTERP 0)
-    endif ()
+if (WAMR_BUILD_FAST_JIT EQUAL 1 OR WAMR_BUILD_JIT EQUAL 1)
+    # Enable classic interpreter if Fast JIT or LLVM JIT is enabled
+    set (WAMR_BUILD_INTERP 1)
+    set (WAMR_BUILD_FAST_INTERP 0)
+endif ()
+
+if (WAMR_BUILD_INTERP EQUAL 1)
     include (${IWASM_DIR}/interpreter/iwasm_interp.cmake)
+endif ()
+
+if (WAMR_BUILD_FAST_JIT EQUAL 1)
+    include (${IWASM_DIR}/fast-jit/iwasm_fast_jit.cmake)
+endif ()
+
+if (WAMR_BUILD_JIT EQUAL 1)
+    # Enable AOT if LLVM JIT is enabled
+    set (WAMR_BUILD_AOT 1)
+    include (${IWASM_DIR}/compilation/iwasm_compl.cmake)
 endif ()
 
 if (WAMR_BUILD_AOT EQUAL 1)
     include (${IWASM_DIR}/aot/iwasm_aot.cmake)
-    if (WAMR_BUILD_JIT EQUAL 1)
-        include (${IWASM_DIR}/compilation/iwasm_compl.cmake)
-    endif ()
-endif ()
-
-if (NOT WAMR_BUILD_JIT EQUAL 1 AND WAMR_BUILD_FAST_JIT EQUAL 1)
-    include (${IWASM_DIR}/fast-jit/iwasm_fast_jit.cmake)
 endif ()
 
 if (WAMR_BUILD_APP_FRAMEWORK EQUAL 1)
