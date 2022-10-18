@@ -369,6 +369,13 @@ typedef struct WASMCustomSection {
 #if WASM_ENABLE_JIT != 0
 struct AOTCompData;
 struct AOTCompContext;
+
+/* Orc JIT thread arguments */
+typedef struct OrcJitThreadArg {
+    struct AOTCompContext *comp_ctx;
+    struct WASMModule *module;
+    uint32 group_idx;
+} OrcJitThreadArg;
 #endif
 
 struct WASMModule {
@@ -501,14 +508,20 @@ struct WASMModule {
 #endif
 
 #if WASM_ENABLE_FAST_JIT != 0
-    /* point to JITed functions */
+    /* func pointers of Fast JITed (un-imported) functions */
     void **fast_jit_func_ptrs;
 #endif
 
 #if WASM_ENABLE_JIT != 0
     struct AOTCompData *comp_data;
     struct AOTCompContext *comp_ctx;
+    /* func pointers of LLVM JITed (un-imported) functions */
     void **func_ptrs;
+    /* whether the func pointers are compiled */
+    bool *func_ptrs_compiled;
+    bool orcjit_stop_compiling;
+    korp_tid orcjit_threads[WASM_ORC_JIT_BACKEND_THREAD_NUM];
+    OrcJitThreadArg orcjit_thread_args[WASM_ORC_JIT_BACKEND_THREAD_NUM];
 #endif
 };
 

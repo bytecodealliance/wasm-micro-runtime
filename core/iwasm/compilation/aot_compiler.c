@@ -2602,7 +2602,6 @@ veriy_module(AOTCompContext *comp_ctx)
     char *msg = NULL;
     bool ret;
 
-#if WASM_ENABLE_LAZY_JIT == 0
     ret = LLVMVerifyModule(comp_ctx->module, LLVMPrintMessageAction, &msg);
     if (!ret && msg) {
         if (msg[0] != '\0') {
@@ -2612,134 +2611,9 @@ veriy_module(AOTCompContext *comp_ctx)
         }
         LLVMDisposeMessage(msg);
     }
-#else
-    uint32 i;
-
-    for (i = 0; i < comp_ctx->func_ctx_count; i++) {
-        ret = LLVMVerifyModule(comp_ctx->modules[i], LLVMPrintMessageAction,
-                               &msg);
-        if (!ret && msg) {
-            if (msg[0] != '\0') {
-                aot_set_last_error(msg);
-                LLVMDisposeMessage(msg);
-                return false;
-            }
-            LLVMDisposeMessage(msg);
-        }
-    }
-#endif
 
     return true;
 }
-
-static bool
-apply_func_passes(AOTCompContext *comp_ctx)
-{
-    LLVMPassManagerRef pass_mgr;
-    uint32 i;
-
-#if WASM_ENABLE_LAZY_JIT == 0
-    pass_mgr = LLVMCreateFunctionPassManagerForModule(comp_ctx->module);
-#else
-    pass_mgr = LLVMCreatePassManager();
-#endif
-
-    if (!pass_mgr) {
-        aot_set_last_error("create LLVM pass manager failed.");
-        return false;
-    }
-
-    LLVMAddPromoteMemoryToRegisterPass(pass_mgr);
-    LLVMAddInstructionCombiningPass(pass_mgr);
-    LLVMAddCFGSimplificationPass(pass_mgr);
-    LLVMAddJumpThreadingPass(pass_mgr);
-#if LLVM_VERSION_MAJOR < 12
-    LLVMAddConstantPropagationPass(pass_mgr);
-#endif
-    LLVMAddIndVarSimplifyPass(pass_mgr);
-
-    if (!comp_ctx->is_jit_mode) {
-        /* Put Vectorize passes before GVN/LICM passes as the former
-           might gain more performance improvement and the latter might
-           break the optimizations for the former */
-        LLVMAddLoopVectorizePass(pass_mgr);
-        LLVMAddSLPVectorizePass(pass_mgr);
-        LLVMAddLoopRotatePass(pass_mgr);
-#if LLVM_VERSION_MAJOR < 15
-        LLVMAddLoopUnswitchPass(pass_mgr);
-#else
-        aot_add_simple_loop_unswitch_pass(pass_mgr);
-#endif
-        LLVMAddInstructionCombiningPass(pass_mgr);
-        LLVMAddCFGSimplificationPass(pass_mgr);
-        if (!comp_ctx->enable_thread_mgr) {
-            /* These two passes may destroy the volatile semantics,
-               disable them when building as multi-thread mode */
-            LLVMAddGVNPass(pass_mgr);
-            LLVMAddLICMPass(pass_mgr);
-            LLVMAddInstructionCombiningPass(pass_mgr);
-            LLVMAddCFGSimplificationPass(pass_mgr);
-        }
-    }
-
-#if WASM_ENABLE_LAZY_JIT == 0
-    LLVMInitializeFunctionPassManager(pass_mgr);
-    for (i = 0; i < comp_ctx->func_ctx_count; i++) {
-        LLVMRunFunctionPassManager(pass_mgr, comp_ctx->func_ctxes[i]->func);
-    }
-    LLVMFinalizeFunctionPassManager(pass_mgr);
-#else
-    for (i = 0; i < comp_ctx->func_ctx_count; i++) {
-        LLVMRunPassManager(pass_mgr, comp_ctx->modules[i]);
-    }
-#endif
-
-    LLVMDisposePassManager(pass_mgr);
-    return true;
-}
-
-#if WASM_ENABLE_LLVM_LEGACY_PM != 0 || LLVM_VERSION_MAJOR < 12
-static bool
-apply_lto_passes(AOTCompContext *comp_ctx)
-{
-    LLVMPassManagerRef common_pass_mgr;
-    LLVMPassManagerBuilderRef pass_mgr_builder;
-#if WASM_ENABLE_LAZY_JIT != 0
-    uint32 i;
-#endif
-
-    if (!(common_pass_mgr = LLVMCreatePassManager())) {
-        aot_set_last_error("create LLVM pass manager failed");
-        return false;
-    }
-
-    if (!(pass_mgr_builder = LLVMPassManagerBuilderCreate())) {
-        aot_set_last_error("create LLVM pass manager builder failed");
-        LLVMDisposePassManager(common_pass_mgr);
-        return false;
-    }
-
-    LLVMPassManagerBuilderSetOptLevel(pass_mgr_builder, comp_ctx->opt_level);
-    LLVMPassManagerBuilderPopulateModulePassManager(pass_mgr_builder,
-                                                    common_pass_mgr);
-#if LLVM_VERSION_MAJOR < 15
-    LLVMPassManagerBuilderPopulateLTOPassManager(pass_mgr_builder,
-                                                 common_pass_mgr, true, true);
-#endif
-
-#if WASM_ENABLE_LAZY_JIT == 0
-    LLVMRunPassManager(common_pass_mgr, comp_ctx->module);
-#else
-    for (i = 0; i < comp_ctx->func_ctx_count; i++) {
-        LLVMRunPassManager(common_pass_mgr, comp_ctx->modules[i]);
-    }
-#endif
-
-    LLVMDisposePassManager(common_pass_mgr);
-    LLVMPassManagerBuilderDispose(pass_mgr_builder);
-    return true;
-}
-#endif /* end of WASM_ENABLE_LLVM_LEGACY_PM != 0 || LLVM_VERSION_MAJOR < 12 */
 
 /* Check whether the target supports hardware atomic instructions */
 static bool
@@ -2779,9 +2653,6 @@ static bool
 apply_passes_for_indirect_mode(AOTCompContext *comp_ctx)
 {
     LLVMPassManagerRef common_pass_mgr;
-#if WASM_ENABLE_LAZY_JIT != 0
-    uint32 i;
-#endif
 
     if (!(common_pass_mgr = LLVMCreatePassManager())) {
         aot_set_last_error("create pass manager failed");
@@ -2796,13 +2667,7 @@ apply_passes_for_indirect_mode(AOTCompContext *comp_ctx)
     if (aot_require_lower_switch_pass(comp_ctx))
         LLVMAddLowerSwitchPass(common_pass_mgr);
 
-#if WASM_ENABLE_LAZY_JIT == 0
     LLVMRunPassManager(common_pass_mgr, comp_ctx->module);
-#else
-    for (i = 0; i < comp_ctx->func_ctx_count; i++) {
-        LLVMRunPassManager(common_pass_mgr, comp_ctx->modules[i]);
-    }
-#endif
 
     LLVMDisposePassManager(common_pass_mgr);
     return true;
@@ -2812,11 +2677,6 @@ bool
 aot_compile_wasm(AOTCompContext *comp_ctx)
 {
     uint32 i;
-#if WASM_ENABLE_LAZY_JIT != 0
-    LLVMErrorRef err;
-    LLVMOrcJITDylibRef orc_main_dylib;
-    LLVMOrcThreadSafeModuleRef orc_thread_safe_module;
-#endif
 
     if (!aot_validate_wasm(comp_ctx)) {
         return false;
@@ -2833,87 +2693,72 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
     LLVMDIBuilderFinalize(comp_ctx->debug_builder);
 #endif
 
-    bh_print_time("Begin to verify LLVM module");
-    if (!veriy_module(comp_ctx)) {
-        return false;
+    /* Disable LLVM module verification for jit mode to speedup
+       the compilation process */
+    if (!comp_ctx->is_jit_mode) {
+        bh_print_time("Begin to verify LLVM module");
+        if (!veriy_module(comp_ctx)) {
+            return false;
+        }
     }
 
+    /* Run IR optimization before feeding in ORCJIT and AOT codegen */
     if (comp_ctx->optimize) {
-        if (comp_ctx->is_jit_mode) {
-            /* Only run func passes for JIT mode */
-            bh_print_time("Begin to run func optimization passes");
-            if (!apply_func_passes(comp_ctx)) {
+        /* Run specific passes for AOT indirect mode */
+        if (!comp_ctx->is_jit_mode && comp_ctx->is_indirect_mode) {
+            bh_print_time("Begin to run optimization passes "
+                          "for indirect mode");
+            if (!apply_passes_for_indirect_mode(comp_ctx)) {
                 return false;
             }
         }
-        else {
-#if WASM_ENABLE_LLVM_LEGACY_PM == 0 && LLVM_VERSION_MAJOR >= 12
-            /* Run llvm new pass manager for AOT compiler if llvm
-               legacy pass manager isn't used */
-            bh_print_time("Begin to run llvm optimization passes");
-            aot_apply_llvm_new_pass_manager(comp_ctx);
-#else
-            /* Run func passes and lto passes for AOT compiler if llvm
-               legacy pass manager is used */
-            bh_print_time("Begin to run func optimization passes");
-            if (!apply_func_passes(comp_ctx)) {
-                return false;
-            }
-            if (!comp_ctx->disable_llvm_lto) {
-                bh_print_time("Begin to run lto optimization passes");
-                if (!apply_lto_passes(comp_ctx)) {
-                    return false;
-                }
-            }
+
+        /* Run passes for AOT/JIT mode.
+           TODO: Apply these passes in the do_ir_transform callback of
+           TransformLayer when compiling each jit function, so as to
+           speedup the launch process. Now there are two issues in the
+           JIT: one is memory leak in do_ir_transform, the other is
+           possible core dump. */
+        bh_print_time("Begin to run llvm optimization passes");
+        aot_apply_llvm_new_pass_manager(comp_ctx, comp_ctx->module);
+        bh_print_time("Finish llvm optimization passes");
+    }
+
+#ifdef DUMP_MODULE
+    LLVMDumpModule(comp_ctx->module);
+    os_printf("\n");
 #endif
-            /* Run passes for AOT indirect mode */
-            if (comp_ctx->is_indirect_mode) {
-                bh_print_time("Begin to run optimization passes "
-                              "for indirect mode");
-                if (!apply_passes_for_indirect_mode(comp_ctx)) {
-                    return false;
-                }
-            }
+
+    if (comp_ctx->is_jit_mode) {
+        LLVMErrorRef err;
+        LLVMOrcJITDylibRef orc_main_dylib;
+        LLVMOrcThreadSafeModuleRef orc_thread_safe_module;
+
+        orc_main_dylib = LLVMOrcLLLazyJITGetMainJITDylib(comp_ctx->orc_jit);
+        if (!orc_main_dylib) {
+            aot_set_last_error(
+                "failed to get orc orc_jit main dynmaic library");
+            return false;
         }
-    }
 
-#if WASM_ENABLE_LAZY_JIT != 0
-    orc_main_dylib = LLVMOrcLLJITGetMainJITDylib(comp_ctx->orc_lazyjit);
-    if (!orc_main_dylib) {
-        aot_set_last_error("failed to get orc jit main dynmaic library");
-        return false;
-    }
-
-    for (i = 0; i < comp_ctx->func_ctx_count; i++) {
         orc_thread_safe_module = LLVMOrcCreateNewThreadSafeModule(
-            comp_ctx->modules[i], comp_ctx->orc_thread_safe_context);
+            comp_ctx->module, comp_ctx->orc_thread_safe_context);
         if (!orc_thread_safe_module) {
             aot_set_last_error("failed to create thread safe module");
             return false;
         }
 
-        if ((err = LLVMOrcLLJITAddLLVMIRModule(comp_ctx->orc_lazyjit,
-                                               orc_main_dylib,
-                                               orc_thread_safe_module))) {
+        if ((err = LLVMOrcLLLazyJITAddLLVMIRModule(
+                 comp_ctx->orc_jit, orc_main_dylib, orc_thread_safe_module))) {
             /* If adding the ThreadSafeModule fails then we need to clean it up
-               by ourselves, otherwise the orc jit will manage the memory. */
+               by ourselves, otherwise the orc orc_jit will manage the memory.
+             */
             LLVMOrcDisposeThreadSafeModule(orc_thread_safe_module);
             aot_handle_llvm_errmsg("failed to addIRModule", err);
             return false;
         }
     }
-#endif
 
-#if 0
-#if WASM_ENABLE_LAZY_JIT == 0
-    LLVMDumpModule(comp_ctx->module);
-#else
-    for (i = 0; i < comp_ctx->func_ctx_count; i++) {
-        LLVMDumpModule(comp_ctx->modules[i]);
-        os_printf("\n");
-    }
-#endif
-#endif
     return true;
 }
 
@@ -2947,7 +2792,6 @@ aot_generate_tempfile_name(const char *prefix, const char *extension,
 }
 #endif /* end of !(defined(_WIN32) || defined(_WIN32_)) */
 
-#if WASM_ENABLE_LAZY_JIT == 0
 bool
 aot_emit_llvm_file(AOTCompContext *comp_ctx, const char *file_name)
 {
@@ -3071,4 +2915,3 @@ aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name)
 
     return true;
 }
-#endif /* end of WASM_ENABLE_LAZY_JIT == 0 */
