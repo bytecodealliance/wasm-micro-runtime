@@ -1,7 +1,9 @@
 # Copyright (C) 2019 Intel Corporation. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-cmake_minimum_required (VERSION 2.9)
+cmake_minimum_required (VERSION 3.14)
+
+include(CheckPIESupported)
 
 if (NOT DEFINED WAMR_BUILD_PLATFORM)
   if (CMAKE_SYSTEM_NAME)
@@ -237,9 +239,6 @@ endif()
 if (NOT MSVC)
   add_definitions(-D_FORTIFY_SOURCE=2)
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ftrapv")
-  if (NOT WIN32)
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pie -fPIE")
-  endif()
 endif()
 
 if (WIN32)
@@ -264,6 +263,8 @@ add_library (vmlib
 add_library (aotclib ${IWASM_COMPL_SOURCE})
 
 add_executable (wamrc main.c)
+check_pie_supported()
+set_target_properties (wamrc PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 if (LLVM_LINK_LLVM_DYLIB)
   set(WAMRC_LINK_LLVM_LIBS LLVM)
