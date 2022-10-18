@@ -72,7 +72,7 @@ iwasm_main(void *arg1)
 
     memset(&init_args, 0, sizeof(RuntimeInitArgs));
 #ifdef POOL_ALLOC
-    static char global_heap_buf[256 * 1024] = { 0 }; /* 256 kB */
+    static char global_heap_buf[WASM_GLOBAL_HEAP_SIZE] = { 0 };
 
     init_args.mem_alloc_type = Alloc_With_Pool;
     init_args.mem_alloc_option.pool.heap_buf = global_heap_buf;

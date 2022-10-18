@@ -38,7 +38,7 @@ app_instance_main(wasm_module_inst_t module_inst)
     return NULL;
 }
 
-static char global_heap_buf[256 * 1024] = { 0 };
+static char global_heap_buf[WASM_GLOBAL_HEAP_SIZE] = { 0 };
 
 void
 iwasm_main(void *arg1)

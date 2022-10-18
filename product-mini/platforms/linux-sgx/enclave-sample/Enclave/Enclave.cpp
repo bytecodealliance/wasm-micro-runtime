@@ -64,11 +64,7 @@ typedef struct EnclaveModule {
     uint32 total_size_mapped;
 } EnclaveModule;
 
-#if WASM_ENABLE_SPEC_TEST == 0
-static char global_heap_buf[10 * 1024 * 1024] = { 0 };
-#else
-static char global_heap_buf[100 * 1024 * 1024] = { 0 };
-#endif
+static char global_heap_buf[WASM_GLOBAL_HEAP_SIZE] = { 0 };
 
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)

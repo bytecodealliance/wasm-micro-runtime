@@ -177,7 +177,7 @@ validate_env_str(char *env)
 #define USE_GLOBAL_HEAP_BUF 0
 
 #if USE_GLOBAL_HEAP_BUF != 0
-static char global_heap_buf[10 * 1024 * 1024] = { 0 };
+static char global_heap_buf[WASM_GLOBAL_HEAP_SIZE] = { 0 };
 #endif
 
 #if WASM_ENABLE_MULTI_MODULE != 0
