@@ -264,7 +264,7 @@ create_memory_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             return false;
         }
         /* memories[0]->memory_data */
-        offset = I32_CONST(offsetof(AOTMemoryInstance, memory_data.ptr));
+        offset = I32_CONST(offsetof(AOTMemoryInstance, memory_data));
         if (!(func_ctx->mem_info[0].mem_base_addr = LLVMBuildInBoundsGEP2(
                   comp_ctx->builder, INT8_TYPE, shared_mem_addr, &offset, 1,
                   "mem_base_addr_offset"))) {
@@ -292,15 +292,24 @@ create_memory_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     else
 #endif
     {
-        offset = I32_CONST(offsetof(AOTModuleInstance, global_table_data)
-                           + offsetof(AOTMemoryInstance, memory_data.ptr));
+        uint32 offset_of_global_table_data;
+
+        if (comp_ctx->is_jit_mode)
+            offset_of_global_table_data =
+                offsetof(WASMModuleInstance, global_table_data);
+        else
+            offset_of_global_table_data =
+                offsetof(AOTModuleInstance, global_table_data);
+
+        offset = I32_CONST(offset_of_global_table_data
+                           + offsetof(AOTMemoryInstance, memory_data));
         if (!(func_ctx->mem_info[0].mem_base_addr = LLVMBuildInBoundsGEP2(
                   comp_ctx->builder, INT8_TYPE, func_ctx->aot_inst, &offset, 1,
                   "mem_base_addr_offset"))) {
             aot_set_last_error("llvm build in bounds gep failed");
             return false;
         }
-        offset = I32_CONST(offsetof(AOTModuleInstance, global_table_data)
+        offset = I32_CONST(offset_of_global_table_data
                            + offsetof(AOTMemoryInstance, cur_page_count));
         if (!(func_ctx->mem_info[0].mem_cur_page_count_addr =
                   LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,
@@ -309,7 +318,7 @@ create_memory_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             aot_set_last_error("llvm build in bounds gep failed");
             return false;
         }
-        offset = I32_CONST(offsetof(AOTModuleInstance, global_table_data)
+        offset = I32_CONST(offset_of_global_table_data
                            + offsetof(AOTMemoryInstance, memory_data_size));
         if (!(func_ctx->mem_info[0].mem_data_size_addr = LLVMBuildInBoundsGEP2(
                   comp_ctx->builder, INT8_TYPE, func_ctx->aot_inst, &offset, 1,
@@ -379,7 +388,7 @@ create_memory_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     /* Load memory bound check constants */
     offset = I32_CONST(offsetof(AOTMemoryInstance, mem_bound_check_1byte)
-                       - offsetof(AOTMemoryInstance, memory_data.ptr));
+                       - offsetof(AOTMemoryInstance, memory_data));
     if (!(func_ctx->mem_info[0].mem_bound_check_1byte =
               LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, mem_info_base,
                                     &offset, 1, "bound_check_1byte_offset"))) {
@@ -405,7 +414,7 @@ create_memory_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     offset = I32_CONST(offsetof(AOTMemoryInstance, mem_bound_check_2bytes)
-                       - offsetof(AOTMemoryInstance, memory_data.ptr));
+                       - offsetof(AOTMemoryInstance, memory_data));
     if (!(func_ctx->mem_info[0].mem_bound_check_2bytes =
               LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, mem_info_base,
                                     &offset, 1, "bound_check_2bytes_offset"))) {
@@ -431,7 +440,7 @@ create_memory_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     offset = I32_CONST(offsetof(AOTMemoryInstance, mem_bound_check_4bytes)
-                       - offsetof(AOTMemoryInstance, memory_data.ptr));
+                       - offsetof(AOTMemoryInstance, memory_data));
     if (!(func_ctx->mem_info[0].mem_bound_check_4bytes =
               LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, mem_info_base,
                                     &offset, 1, "bound_check_4bytes_offset"))) {
@@ -457,7 +466,7 @@ create_memory_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     offset = I32_CONST(offsetof(AOTMemoryInstance, mem_bound_check_8bytes)
-                       - offsetof(AOTMemoryInstance, memory_data.ptr));
+                       - offsetof(AOTMemoryInstance, memory_data));
     if (!(func_ctx->mem_info[0].mem_bound_check_8bytes =
               LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, mem_info_base,
                                     &offset, 1, "bound_check_8bytes_offset"))) {
@@ -483,7 +492,7 @@ create_memory_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     offset = I32_CONST(offsetof(AOTMemoryInstance, mem_bound_check_16bytes)
-                       - offsetof(AOTMemoryInstance, memory_data.ptr));
+                       - offsetof(AOTMemoryInstance, memory_data));
     if (!(func_ctx->mem_info[0].mem_bound_check_16bytes = LLVMBuildInBoundsGEP2(
               comp_ctx->builder, INT8_TYPE, mem_info_base, &offset, 1,
               "bound_check_16bytes_offset"))) {
@@ -533,7 +542,7 @@ create_func_type_indexes(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     LLVMValueRef offset, func_type_indexes_ptr;
     LLVMTypeRef int32_ptr_type;
 
-    offset = I32_CONST(offsetof(AOTModuleInstance, func_type_indexes.ptr));
+    offset = I32_CONST(offsetof(AOTModuleInstance, func_type_indexes));
     func_type_indexes_ptr =
         LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, func_ctx->aot_inst,
                               &offset, 1, "func_type_indexes_ptr");

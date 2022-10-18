@@ -18,6 +18,9 @@
 #include "../fast-jit/jit_compiler.h"
 #include "../fast-jit/jit_codecache.h"
 #endif
+#if WASM_ENABLE_JIT != 0
+#include "../compilation/aot_llvm.h"
+#endif
 
 /* Read a value of given type from the address pointed to by the given
    pointer and increase the pointer to the position just after the
@@ -2923,7 +2926,6 @@ fail:
     return false;
 }
 
-#if WASM_ENABLE_FAST_JIT != 0
 static void
 calculate_global_data_offset(WASMModule *module)
 {
@@ -2933,17 +2935,127 @@ calculate_global_data_offset(WASMModule *module)
     for (i = 0; i < module->import_global_count; i++) {
         WASMGlobalImport *import_global =
             &((module->import_globals + i)->u.global);
+#if WASM_ENABLE_FAST_JIT != 0
         import_global->data_offset = data_offset;
+#endif
         data_offset += wasm_value_type_size(import_global->type);
     }
 
     for (i = 0; i < module->global_count; i++) {
         WASMGlobal *global = module->globals + i;
+#if WASM_ENABLE_FAST_JIT != 0
         global->data_offset = data_offset;
+#endif
         data_offset += wasm_value_type_size(global->type);
     }
+
+    module->global_data_size = data_offset;
 }
+
+#if WASM_ENABLE_JIT != 0
+static bool
+compile_llvm_jit_functions(WASMModule *module, char *error_buf,
+                           uint32 error_buf_size)
+{
+    AOTCompOption option = { 0 };
+    char func_name[32], *aot_last_error;
+    uint64 size;
+    uint32 i;
+
+    size = sizeof(void *) * (uint64)module->function_count;
+    if (size > 0
+        && !(module->func_ptrs =
+                 loader_malloc(size, error_buf, error_buf_size))) {
+        return false;
+    }
+
+    module->comp_data = aot_create_comp_data(module);
+    if (!module->comp_data) {
+        aot_last_error = aot_get_last_error();
+        bh_assert(aot_last_error != NULL);
+        set_error_buf(error_buf, error_buf_size, aot_last_error);
+        return false;
+    }
+
+    option.is_jit_mode = true;
+    option.opt_level = 3;
+    option.size_level = 3;
+#if WASM_ENABLE_BULK_MEMORY != 0
+    option.enable_bulk_memory = true;
 #endif
+#if WASM_ENABLE_THREAD_MGR != 0
+    option.enable_thread_mgr = true;
+#endif
+#if WASM_ENABLE_TAIL_CALL != 0
+    option.enable_tail_call = true;
+#endif
+#if WASM_ENABLE_SIMD != 0
+    option.enable_simd = true;
+#endif
+#if WASM_ENABLE_REF_TYPES != 0
+    option.enable_ref_types = true;
+#endif
+    option.enable_aux_stack_check = true;
+#if (WASM_ENABLE_PERF_PROFILING != 0) || (WASM_ENABLE_DUMP_CALL_STACK != 0)
+    option.enable_aux_stack_frame = true;
+#endif
+
+    module->comp_ctx = aot_create_comp_context(module->comp_data, &option);
+    if (!module->comp_ctx) {
+        aot_last_error = aot_get_last_error();
+        bh_assert(aot_last_error != NULL);
+        set_error_buf(error_buf, error_buf_size, aot_last_error);
+        return false;
+    }
+
+    if (!aot_compile_wasm(module->comp_ctx)) {
+        aot_last_error = aot_get_last_error();
+        bh_assert(aot_last_error != NULL);
+        set_error_buf(error_buf, error_buf_size, aot_last_error);
+        return false;
+    }
+
+#if WASM_ENABLE_LAZY_JIT != 0
+    for (i = 0; i < module->comp_data->func_count; i++) {
+        LLVMErrorRef error;
+        LLVMOrcJITTargetAddress func_addr = 0;
+
+        snprintf(func_name, sizeof(func_name), "%s%d", AOT_FUNC_PREFIX, i);
+        if ((error = LLVMOrcLLJITLookup(module->comp_ctx->orc_lazyjit,
+                                        &func_addr, func_name))) {
+            char *err_msg = LLVMGetErrorMessage(error);
+            set_error_buf_v(error_buf, error_buf_size,
+                            "failed to compile orc jit function: %s", err_msg);
+            LLVMDisposeErrorMessage(err_msg);
+            return false;
+        }
+        /**
+         * No need to lock the func_ptr[func_idx] here as it is basic
+         * data type, the load/store for it can be finished by one cpu
+         * instruction, and there can be only one cpu instruction
+         * loading/storing at the same time.
+         */
+        module->func_ptrs[i] = (void *)func_addr;
+        module->functions[i]->llvm_jit_func_ptr = (void *)func_addr;
+    }
+#else
+    /* Resolve function addresses */
+    bh_assert(module->comp_ctx->exec_engine);
+    for (i = 0; i < module->comp_data->func_count; i++) {
+        snprintf(func_name, sizeof(func_name), "%s%d", AOT_FUNC_PREFIX, i);
+        if (!(module->func_ptrs[i] = (void *)LLVMGetFunctionAddress(
+                  module->comp_ctx->exec_engine, func_name))) {
+            set_error_buf(error_buf, error_buf_size,
+                          "failed to compile llvm mc jit function");
+            return false;
+        }
+        module->functions[i]->llvm_jit_func_ptr = module->func_ptrs[i];
+    }
+#endif /* end of WASM_ENABLE_LAZY_JIT != 0 */
+
+    return true;
+}
+#endif /* end of WASM_ENABLE_JIT != 0 */
 
 static bool
 wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
@@ -3352,9 +3464,9 @@ load_from_sections(WASMModule *module, WASMSection *sections,
 #endif
     }
 
-#if WASM_ENABLE_FAST_JIT != 0
     calculate_global_data_offset(module);
 
+#if WASM_ENABLE_FAST_JIT != 0
     if (module->function_count
         && !(module->fast_jit_func_ptrs =
                  loader_malloc(sizeof(void *) * module->function_count,
@@ -3366,6 +3478,12 @@ load_from_sections(WASMModule *module, WASMSection *sections,
         return false;
     }
 #endif
+
+#if WASM_ENABLE_JIT != 0
+    if (!compile_llvm_jit_functions(module, error_buf, error_buf_size)) {
+        return false;
+    }
+#endif /* end of WASM_ENABLE_JIT != 0 */
 
 #if WASM_ENABLE_MEMORY_TRACING != 0
     wasm_runtime_dump_module_mem_consumption((WASMModuleCommon *)module);
@@ -3898,6 +4016,15 @@ wasm_loader_unload(WASMModule *module)
         }
         wasm_runtime_free(module->fast_jit_func_ptrs);
     }
+#endif
+
+#if WASM_ENABLE_JIT != 0
+    if (module->func_ptrs)
+        wasm_runtime_free(module->func_ptrs);
+    if (module->comp_ctx)
+        aot_destroy_comp_context(module->comp_ctx);
+    if (module->comp_data)
+        aot_destroy_comp_data(module->comp_data);
 #endif
 
     wasm_runtime_free(module);
@@ -6756,8 +6883,7 @@ re_scan:
                     }
                     block_type.is_value_type = false;
                     block_type.u.type = module->types[type_index];
-#if WASM_ENABLE_FAST_INTERP == 0 && WASM_ENABLE_WAMR_COMPILER == 0 \
-    && WASM_ENABLE_JIT == 0
+#if WASM_ENABLE_FAST_INTERP == 0
                     /* If block use type index as block type, change the opcode
                      * to new extended opcode so that interpreter can resolve
                      * the block quickly.

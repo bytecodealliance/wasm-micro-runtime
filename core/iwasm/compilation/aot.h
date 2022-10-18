@@ -304,14 +304,22 @@ aot_set_last_error_v(const char *format, ...);
 #endif
 
 static inline uint32
-aot_get_tbl_data_slots(const AOTTable *tbl)
+aot_get_imp_tbl_data_slots(const AOTImportTable *tbl, bool is_jit_mode)
 {
+#if WASM_ENABLE_MULTI_MODULE != 0
+    if (is_jit_mode)
+        return tbl->table_max_size;
+#endif
     return tbl->possible_grow ? tbl->table_max_size : tbl->table_init_size;
 }
 
 static inline uint32
-aot_get_imp_tbl_data_slots(const AOTImportTable *tbl)
+aot_get_tbl_data_slots(const AOTTable *tbl, bool is_jit_mode)
 {
+#if WASM_ENABLE_MULTI_MODULE != 0
+    if (is_jit_mode)
+        return tbl->table_max_size;
+#endif
     return tbl->possible_grow ? tbl->table_max_size : tbl->table_init_size;
 }
 

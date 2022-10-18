@@ -314,44 +314,26 @@ uint32
 wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
                          uint64 expect, int64 timeout, bool wait64)
 {
+    WASMModuleInstance *module_inst = (WASMModuleInstance *)module;
     AtomicWaitInfo *wait_info;
     AtomicWaitNode *wait_node;
     bool check_ret, is_timeout;
 
-#if WASM_ENABLE_INTERP != 0
-    if (module->module_type == Wasm_Module_Bytecode) {
-        WASMModuleInstance *module_inst = (WASMModuleInstance *)module;
-        /* Currently we have only one memory instance */
-        if (!module_inst->memories[0]->is_shared) {
-            wasm_runtime_set_exception(module, "expected shared memory");
-            return -1;
-        }
-        if ((uint8 *)address < module_inst->memories[0]->memory_data
-            || (uint8 *)address + (wait64 ? 8 : 4)
-                   > module_inst->memories[0]->memory_data_end) {
-            wasm_runtime_set_exception(module, "out of bounds memory access");
-            return -1;
-        }
+    bh_assert(module->module_type == Wasm_Module_Bytecode
+              || module->module_type == Wasm_Module_AoT);
+
+    /* Currently we have only one memory instance */
+    if (!module_inst->memories[0]->is_shared) {
+        wasm_runtime_set_exception(module, "expected shared memory");
+        return -1;
     }
-#endif
-#if WASM_ENABLE_AOT != 0
-    if (module->module_type == Wasm_Module_AoT) {
-        AOTModuleInstance *aot_inst = (AOTModuleInstance *)module;
-        AOTMemoryInstance *aot_memory =
-            ((AOTMemoryInstance **)aot_inst->memories.ptr)[0];
-        /* Currently we have only one memory instance */
-        if (!aot_memory->is_shared) {
-            wasm_runtime_set_exception(module, "expected shared memory");
-            return -1;
-        }
-        if ((uint8 *)address < (uint8 *)aot_memory->memory_data.ptr
-            || (uint8 *)address + (wait64 ? 8 : 4)
-                   > (uint8 *)aot_memory->memory_data_end.ptr) {
-            wasm_runtime_set_exception(module, "out of bounds memory access");
-            return -1;
-        }
+
+    if ((uint8 *)address < module_inst->memories[0]->memory_data
+        || (uint8 *)address + (wait64 ? 8 : 4)
+               > module_inst->memories[0]->memory_data_end) {
+        wasm_runtime_set_exception(module, "out of bounds memory access");
+        return -1;
     }
-#endif
 
     /* acquire the wait info, create new one if not exists */
     wait_info = acquire_wait_info(address, true);
@@ -433,33 +415,18 @@ uint32
 wasm_runtime_atomic_notify(WASMModuleInstanceCommon *module, void *address,
                            uint32 count)
 {
+    WASMModuleInstance *module_inst = (WASMModuleInstance *)module;
     uint32 notify_result;
     AtomicWaitInfo *wait_info;
 
-#if WASM_ENABLE_INTERP != 0
-    if (module->module_type == Wasm_Module_Bytecode) {
-        WASMModuleInstance *module_inst = (WASMModuleInstance *)module;
-        if ((uint8 *)address < module_inst->memories[0]->memory_data
-            || (uint8 *)address + 4
-                   > module_inst->memories[0]->memory_data_end) {
-            wasm_runtime_set_exception(module, "out of bounds memory access");
-            return -1;
-        }
+    bh_assert(module->module_type == Wasm_Module_Bytecode
+              || module->module_type == Wasm_Module_AoT);
+
+    if ((uint8 *)address < module_inst->memories[0]->memory_data
+        || (uint8 *)address + 4 > module_inst->memories[0]->memory_data_end) {
+        wasm_runtime_set_exception(module, "out of bounds memory access");
+        return -1;
     }
-#endif
-#if WASM_ENABLE_AOT != 0
-    if (module->module_type == Wasm_Module_AoT) {
-        AOTModuleInstance *aot_inst = (AOTModuleInstance *)module;
-        AOTMemoryInstance *aot_memory =
-            ((AOTMemoryInstance **)aot_inst->memories.ptr)[0];
-        if ((uint8 *)address < (uint8 *)aot_memory->memory_data.ptr
-            || (uint8 *)address + 4
-                   > (uint8 *)aot_memory->memory_data_end.ptr) {
-            wasm_runtime_set_exception(module, "out of bounds memory access");
-            return -1;
-        }
-    }
-#endif
 
     wait_info = acquire_wait_info(address, false);
 

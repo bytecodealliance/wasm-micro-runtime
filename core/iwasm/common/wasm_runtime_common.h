@@ -852,17 +852,6 @@ wasm_runtime_dump_line_buf_impl(const char *line_buf, bool dump_or_print,
 WASMModuleCommon *
 wasm_exec_env_get_module(WASMExecEnv *exec_env);
 
-/**
- * Enlarge wasm memory data space.
- *
- * @param module the wasm module instance
- * @param inc_page_count denote the page number to increase
- * @return return true if enlarge successfully, false otherwise
- */
-bool
-wasm_runtime_enlarge_memory(WASMModuleInstanceCommon *module,
-                            uint32 inc_page_count);
-
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_register_natives(const char *module_name,
@@ -899,6 +888,16 @@ wasm_runtime_dump_module_inst_mem_consumption(
 
 void
 wasm_runtime_dump_exec_env_mem_consumption(const WASMExecEnv *exec_env);
+
+bool
+wasm_runtime_get_table_elem_type(const WASMModuleCommon *module_comm,
+                                 uint32 table_idx, uint8 *out_elem_type,
+                                 uint32 *out_min_size, uint32 *out_max_size);
+
+bool
+wasm_runtime_get_table_inst_elem_type(
+    const WASMModuleInstanceCommon *module_inst_comm, uint32 table_idx,
+    uint8 *out_elem_type, uint32 *out_min_size, uint32 *out_max_size);
 
 bool
 wasm_runtime_get_export_func_type(const WASMModuleCommon *module_comm,

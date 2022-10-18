@@ -338,8 +338,8 @@ aot_lookup_orcjit_func(LLVMOrcLLJITRef orc_lazyjit, void *module_inst,
     LLVMErrorRef error;
     LLVMOrcJITTargetAddress func_addr = 0;
     AOTModuleInstance *aot_inst = (AOTModuleInstance *)module_inst;
-    AOTModule *aot_module = (AOTModule *)aot_inst->aot_module.ptr;
-    void **func_ptrs = (void **)aot_inst->func_ptrs.ptr;
+    AOTModule *aot_module = (AOTModule *)aot_inst->module;
+    void **func_ptrs = aot_inst->func_ptrs;
 
     /**
      * No need to lock the func_ptr[func_idx] here as it is basic
