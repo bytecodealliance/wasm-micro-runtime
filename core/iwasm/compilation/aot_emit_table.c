@@ -15,16 +15,25 @@ get_tbl_inst_offset(const AOTCompContext *comp_ctx,
     AOTImportTable *imp_tbls = comp_ctx->comp_data->import_tables;
     AOTTable *tbls = comp_ctx->comp_data->tables;
 
-    /* from the head of AOTModuleInstance */
-    offset =
-        offsetof(AOTModuleInstance, global_table_data.bytes)
-        + (uint64)comp_ctx->comp_data->memory_count * sizeof(AOTMemoryInstance)
-        + comp_ctx->comp_data->global_data_size;
+    if (comp_ctx->is_jit_mode) {
+        offset = offsetof(WASMModuleInstance, global_table_data.bytes)
+                 + (uint64)comp_ctx->comp_data->memory_count
+                       * sizeof(AOTMemoryInstance)
+                 + comp_ctx->comp_data->global_data_size;
+    }
+    else {
+        offset = offsetof(AOTModuleInstance, global_table_data.bytes)
+                 + (uint64)comp_ctx->comp_data->memory_count
+                       * sizeof(AOTMemoryInstance)
+                 + comp_ctx->comp_data->global_data_size;
+    }
 
     while (i < tbl_idx && i < comp_ctx->comp_data->import_table_count) {
-        offset += offsetof(AOTTableInstance, data);
+        offset += offsetof(AOTTableInstance, elems);
         /* avoid loading from current AOTTableInstance */
-        offset += sizeof(uint32) * aot_get_imp_tbl_data_slots(imp_tbls + i);
+        offset +=
+            sizeof(uint32)
+            * aot_get_imp_tbl_data_slots(imp_tbls + i, comp_ctx->is_jit_mode);
         ++i;
     }
 
@@ -35,9 +44,10 @@ get_tbl_inst_offset(const AOTCompContext *comp_ctx,
     tbl_idx -= comp_ctx->comp_data->import_table_count;
     i -= comp_ctx->comp_data->import_table_count;
     while (i < tbl_idx && i < comp_ctx->comp_data->table_count) {
-        offset += offsetof(AOTTableInstance, data);
+        offset += offsetof(AOTTableInstance, elems);
         /* avoid loading from current AOTTableInstance */
-        offset += sizeof(uint32) * aot_get_tbl_data_slots(tbls + i);
+        offset += sizeof(uint32)
+                  * aot_get_tbl_data_slots(tbls + i, comp_ctx->is_jit_mode);
         ++i;
     }
 
@@ -82,7 +92,10 @@ aot_compile_op_elem_drop(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     param_types[1] = I32_TYPE;
     ret_type = VOID_TYPE;
 
-    GET_AOT_FUNCTION(aot_drop_table_seg, 2);
+    if (comp_ctx->is_jit_mode)
+        GET_AOT_FUNCTION(llvm_jit_drop_table_seg, 2);
+    else
+        GET_AOT_FUNCTION(aot_drop_table_seg, 2);
 
     param_values[0] = func_ctx->aot_inst;
     if (!(param_values[1] = I32_CONST(tbl_seg_idx))) {
@@ -176,7 +189,7 @@ aot_compile_op_table_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     /* load data as i32* */
     if (!(offset = I32_CONST(get_tbl_inst_offset(comp_ctx, func_ctx, tbl_idx)
-                             + offsetof(AOTTableInstance, data)))) {
+                             + offsetof(AOTTableInstance, elems)))) {
         HANDLE_FAILURE("LLVMConstInt");
         goto fail;
     }
@@ -230,7 +243,7 @@ aot_compile_op_table_set(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     /* load data as i32* */
     if (!(offset = I32_CONST(get_tbl_inst_offset(comp_ctx, func_ctx, tbl_idx)
-                             + offsetof(AOTTableInstance, data)))) {
+                             + offsetof(AOTTableInstance, elems)))) {
         HANDLE_FAILURE("LLVMConstInt");
         goto fail;
     }
@@ -282,7 +295,10 @@ aot_compile_op_table_init(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     param_types[5] = I32_TYPE;
     ret_type = VOID_TYPE;
 
-    GET_AOT_FUNCTION(aot_table_init, 6);
+    if (comp_ctx->is_jit_mode)
+        GET_AOT_FUNCTION(llvm_jit_table_init, 6);
+    else
+        GET_AOT_FUNCTION(aot_table_init, 6);
 
     param_values[0] = func_ctx->aot_inst;
 
@@ -330,7 +346,10 @@ aot_compile_op_table_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     param_types[5] = I32_TYPE;
     ret_type = VOID_TYPE;
 
-    GET_AOT_FUNCTION(aot_table_copy, 6);
+    if (comp_ctx->is_jit_mode)
+        GET_AOT_FUNCTION(llvm_jit_table_copy, 6);
+    else
+        GET_AOT_FUNCTION(aot_table_copy, 6);
 
     param_values[0] = func_ctx->aot_inst;
 
@@ -414,7 +433,10 @@ aot_compile_op_table_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     param_types[3] = I32_TYPE;
     ret_type = I32_TYPE;
 
-    GET_AOT_FUNCTION(aot_table_grow, 4);
+    if (comp_ctx->is_jit_mode)
+        GET_AOT_FUNCTION(llvm_jit_table_grow, 4);
+    else
+        GET_AOT_FUNCTION(aot_table_grow, 4);
 
     param_values[0] = func_ctx->aot_inst;
 
@@ -455,7 +477,10 @@ aot_compile_op_table_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     param_types[4] = I32_TYPE;
     ret_type = VOID_TYPE;
 
-    GET_AOT_FUNCTION(aot_table_fill, 5);
+    if (comp_ctx->is_jit_mode)
+        GET_AOT_FUNCTION(llvm_jit_table_fill, 5);
+    else
+        GET_AOT_FUNCTION(aot_table_fill, 5);
 
     param_values[0] = func_ctx->aot_inst;
 

@@ -382,6 +382,7 @@ jit_cc_init(JitCompContext *cc, unsigned htab_size)
        blocks respectively.  */
     if (!(entry_block = jit_cc_new_basic_block(cc, 0)))
         goto fail;
+
     if (!(exit_block = jit_cc_new_basic_block(cc, 0))) {
         jit_basic_block_delete(entry_block);
         goto fail;
@@ -395,11 +396,11 @@ jit_cc_init(JitCompContext *cc, unsigned htab_size)
               && jit_reg_no(cc->exit_label) == 1);
 
     if (!(cc->exce_basic_blocks =
-              jit_calloc(sizeof(JitBasicBlock *) * JIT_EXCE_NUM)))
+              jit_calloc(sizeof(JitBasicBlock *) * EXCE_NUM)))
         goto fail;
 
     if (!(cc->incoming_insns_for_exec_bbs =
-              jit_calloc(sizeof(JitIncomingInsnList) * JIT_EXCE_NUM)))
+              jit_calloc(sizeof(JitIncomingInsnList) * EXCE_NUM)))
         goto fail;
 
     cc->hreg_info = jit_codegen_get_hreg_info();
@@ -465,7 +466,7 @@ jit_cc_destroy(JitCompContext *cc)
     jit_free(cc->exce_basic_blocks);
 
     if (cc->incoming_insns_for_exec_bbs) {
-        for (i = 0; i < JIT_EXCE_NUM; i++) {
+        for (i = 0; i < EXCE_NUM; i++) {
             incoming_insn = cc->incoming_insns_for_exec_bbs[i];
             while (incoming_insn) {
                 incoming_insn_next = incoming_insn->next;

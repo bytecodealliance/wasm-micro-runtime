@@ -29,3 +29,6 @@ tests/wamr-test-suites/workspace
 samples/socket-api/wasm-src/inc/pthread.h
 
 **/__pycache__
+
+# ignore benchmarks generated
+tests/benchmarks/coremark/coremark*

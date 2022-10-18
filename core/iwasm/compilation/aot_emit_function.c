@@ -162,7 +162,7 @@ call_aot_invoke_native_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
 
         /* JIT mode, call the function directly */
-        if (!(func = I64_CONST((uint64)(uintptr_t)aot_invoke_native))
+        if (!(func = I64_CONST((uint64)(uintptr_t)llvm_jit_invoke_native))
             || !(func = LLVMConstIntToPtr(func, func_ptr_type))) {
             aot_set_last_error("create LLVM value failed.");
             return false;
@@ -407,7 +407,10 @@ call_aot_alloc_frame_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     param_types[1] = I32_TYPE;
     ret_type = INT8_TYPE;
 
-    GET_AOT_FUNCTION(aot_alloc_frame, 2);
+    if (comp_ctx->is_jit_mode)
+        GET_AOT_FUNCTION(llvm_jit_alloc_frame, 2);
+    else
+        GET_AOT_FUNCTION(aot_alloc_frame, 2);
 
     param_values[0] = func_ctx->exec_env;
     param_values[1] = func_idx;
@@ -461,7 +464,10 @@ call_aot_free_frame_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     param_types[0] = comp_ctx->exec_env_type;
     ret_type = INT8_TYPE;
 
-    GET_AOT_FUNCTION(aot_free_frame, 1);
+    if (comp_ctx->is_jit_mode)
+        GET_AOT_FUNCTION(llvm_jit_free_frame, 1);
+    else
+        GET_AOT_FUNCTION(aot_free_frame, 1);
 
     param_values[0] = func_ctx->exec_env;
 
@@ -557,7 +563,7 @@ check_app_addr_and_convert(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
         /* JIT mode, call the function directly */
         if (!(func =
-                  I64_CONST((uint64)(uintptr_t)aot_check_app_addr_and_convert))
+                  I64_CONST((uint64)(uintptr_t)jit_check_app_addr_and_convert))
             || !(func = LLVMConstIntToPtr(func, func_ptr_type))) {
             aot_set_last_error("create LLVM value failed.");
             return false;
@@ -1047,7 +1053,7 @@ call_aot_call_indirect_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
 
         /* JIT mode, call the function directly */
-        if (!(func = I64_CONST((uint64)(uintptr_t)aot_call_indirect))
+        if (!(func = I64_CONST((uint64)(uintptr_t)llvm_jit_call_indirect))
             || !(func = LLVMConstIntToPtr(func, func_ptr_type))) {
             aot_set_last_error("create LLVM value failed.");
             return false;
@@ -1265,7 +1271,7 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     /* load data as i32* */
     if (!(offset = I32_CONST(get_tbl_inst_offset(comp_ctx, func_ctx, tbl_idx)
-                             + offsetof(AOTTableInstance, data)))) {
+                             + offsetof(AOTTableInstance, elems)))) {
         HANDLE_FAILURE("LLVMConstInt");
         goto fail;
     }

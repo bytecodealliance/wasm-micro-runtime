@@ -125,6 +125,7 @@ set(MM_UTIL src/utils/multi_module_utils.c)
 set(EXAMPLES
   callback
   callback_chain
+  clone
   empty_imports
   global
   hello
@@ -134,6 +135,12 @@ set(EXAMPLES
   table
   trap
 )
+
+if(WAMR_BUILD_JIT AND WAMR_BUILD_LAZY_JIT)
+  if((${WAMR_BUILD_JIT} EQUAL 1) AND (${WAMR_BUILD_LAZY_JIT} EQUAL 1))
+    list(APPEND EXAMPLES serialize)
+  endif()
+endif()
 
 foreach(EX ${EXAMPLES})
   set(SRC ${CMAKE_CURRENT_LIST_DIR}/src/${EX}.c)

@@ -18,30 +18,8 @@
 #include "fe/jit_emit_variable.h"
 #include "../interpreter/wasm_interp.h"
 #include "../interpreter/wasm_opcode.h"
+#include "../interpreter/wasm_runtime.h"
 #include "../common/wasm_exec_env.h"
-
-/* clang-format off */
-static const char *jit_exception_msgs[] = {
-    "unreachable",                    /* JIT_EXCE_UNREACHABLE */
-    "allocate memory failed",         /* JIT_EXCE_OUT_OF_MEMORY */
-    "out of bounds memory access",    /* JIT_EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS */
-    "integer overflow",               /* JIT_EXCE_INTEGER_OVERFLOW */
-    "integer divide by zero",         /* JIT_EXCE_INTEGER_DIVIDE_BY_ZERO */
-    "invalid conversion to integer",  /* JIT_EXCE_INVALID_CONVERSION_TO_INTEGER */
-    "indirect call type mismatch",    /* JIT_EXCE_INVALID_FUNCTION_TYPE_INDEX */
-    "invalid function index",         /* JIT_EXCE_INVALID_FUNCTION_INDEX */
-    "undefined element",              /* JIT_EXCE_UNDEFINED_ELEMENT */
-    "uninitialized element",          /* JIT_EXCE_UNINITIALIZED_ELEMENT */
-    "failed to call unlinked import function", /* JIT_EXCE_CALL_UNLINKED_IMPORT_FUNC */
-    "native stack overflow",          /* JIT_EXCE_NATIVE_STACK_OVERFLOW */
-    "unaligned atomic",               /* JIT_EXCE_UNALIGNED_ATOMIC */
-    "wasm auxiliary stack overflow",  /* JIT_EXCE_AUX_STACK_OVERFLOW */
-    "wasm auxiliary stack underflow", /* JIT_EXCE_AUX_STACK_UNDERFLOW */
-    "out of bounds table access",     /* JIT_EXCE_OUT_OF_BOUNDS_TABLE_ACCESS */
-    "wasm operand stack overflow",    /* JIT_EXCE_OPERAND_STACK_OVERFLOW */
-    "",                               /* JIT_EXCE_ALREADY_THROWN */
-};
-/* clang-format on */
 
 JitReg
 get_module_inst_reg(JitFrame *frame)
@@ -378,7 +356,7 @@ get_table_data_reg(JitFrame *frame, uint32 tbl_idx)
         frame->table_regs[tbl_idx].table_data =
             cc->table_regs[tbl_idx].table_data;
         GEN_INSN(ADD, frame->table_regs[tbl_idx].table_data, table_reg,
-                 NEW_CONST(I64, offsetof(WASMTableInstance, base_addr)));
+                 NEW_CONST(I64, offsetof(WASMTableInstance, elems)));
     }
     return frame->table_regs[tbl_idx].table_data;
 }
@@ -586,15 +564,6 @@ gen_commit_sp_ip(JitFrame *frame)
 #endif
 }
 
-static void
-jit_set_exception_with_id(WASMModuleInstance *module_inst, uint32 id)
-{
-    if (id < JIT_EXCE_NUM)
-        wasm_set_exception(module_inst, jit_exception_msgs[id]);
-    else
-        wasm_set_exception(module_inst, "unknown exception");
-}
-
 static bool
 create_fixed_virtual_regs(JitCompContext *cc)
 {
@@ -681,7 +650,7 @@ form_and_translate_func(JitCompContext *cc)
     jit_basic_block_append_insn(jit_cc_entry_basic_block(cc), insn);
 
     /* Patch INSNs jumping to exception basic blocks. */
-    for (i = 0; i < JIT_EXCE_NUM; i++) {
+    for (i = 0; i < EXCE_NUM; i++) {
         incoming_insn = cc->incoming_insns_for_exec_bbs[i];
         if (incoming_insn) {
             if (!(cc->exce_basic_blocks[i] = jit_cc_new_basic_block(cc, 0))) {
@@ -703,7 +672,7 @@ form_and_translate_func(JitCompContext *cc)
                 incoming_insn = incoming_insn_next;
             }
             cc->cur_basic_block = cc->exce_basic_blocks[i];
-            if (i != JIT_EXCE_ALREADY_THROWN) {
+            if (i != EXCE_ALREADY_THROWN) {
                 JitReg module_inst_reg = jit_cc_new_reg_ptr(cc);
                 GEN_INSN(LDPTR, module_inst_reg, cc->exec_env_reg,
                          NEW_CONST(I32, offsetof(WASMExecEnv, module_inst)));
@@ -850,7 +819,7 @@ init_func_translation(JitCompContext *cc)
     GEN_INSN(ADD, frame_boundary, top, NEW_CONST(PTR, frame_size + outs_size));
     /* if frame_boundary > top_boundary, throw stack overflow exception */
     GEN_INSN(CMP, cc->cmp_reg, frame_boundary, top_boundary);
-    if (!jit_emit_exception(cc, JIT_EXCE_OPERAND_STACK_OVERFLOW, JIT_OP_BGTU,
+    if (!jit_emit_exception(cc, EXCE_OPERAND_STACK_OVERFLOW, JIT_OP_BGTU,
                             cc->cmp_reg, NULL)) {
         return NULL;
     }

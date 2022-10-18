@@ -263,6 +263,9 @@ struct WASMFunction {
 #if WASM_ENABLE_FAST_JIT != 0
     void *fast_jit_jitted_code;
 #endif
+#if WASM_ENABLE_JIT != 0
+    void *llvm_jit_func_ptr;
+#endif
 };
 
 struct WASMGlobal {
@@ -363,6 +366,11 @@ typedef struct WASMCustomSection {
 } WASMCustomSection;
 #endif
 
+#if WASM_ENABLE_JIT != 0
+struct AOTCompData;
+struct AOTCompContext;
+#endif
+
 struct WASMModule {
     /* Module type, for module loaded from WASM bytecode binary,
        this field is Wasm_Module_Bytecode;
@@ -406,6 +414,9 @@ struct WASMModule {
     WASMTableSeg *table_segments;
     WASMDataSeg **data_segments;
     uint32 start_function;
+
+    /* total global variable size */
+    uint32 global_data_size;
 
     /* the index of auxiliary __data_end global,
        -1 means unexported */
@@ -492,6 +503,12 @@ struct WASMModule {
 #if WASM_ENABLE_FAST_JIT != 0
     /* point to JITed functions */
     void **fast_jit_func_ptrs;
+#endif
+
+#if WASM_ENABLE_JIT != 0
+    struct AOTCompData *comp_data;
+    struct AOTCompContext *comp_ctx;
+    void **func_ptrs;
 #endif
 };
 
