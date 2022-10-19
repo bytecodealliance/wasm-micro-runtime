@@ -46,8 +46,14 @@ From now on, for each release, we have the same version tagged docker image push
 You could simply pull a certain version of docker images using the following commands:
 
 ```sh
+# pull and retag wasm-toolchain 
 docker pull ghcr.io/bytecodealliance/wasm-toolchain:{version number}
+docker tag ghcr.io/bytecodealliance/wasm-toolchain:{version number} wasm-toolchain:{version number}
+docker rmi ghcr.io/bytecodealliance/wasm-toolchain:{version number} 
+# pull and retag wasm-debug-server
 docker pull ghcr.io/bytecodealliance/wasm-debug-server:{version number}
+docker tag ghcr.io/bytecodealliance/wasm-debug-server:{version number} wasm-debug-server:{version number}
+docker rmi ghcr.io/bytecodealliance/wasm-debug-server:{version number}
 ```
 
 ##### 3.2 Build docker images on host
