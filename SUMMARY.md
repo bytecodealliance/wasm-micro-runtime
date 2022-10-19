@@ -14,6 +14,7 @@
   * [Docker Environment Preparation](doc/devcontainer.md)
   * [Hello-world Program On Docker](gitbook/basics/getting_started/on-docker.md)
   * [How To Build Wasm Application](doc/build_wasm_app.md)
+    * [More Tools To Create Wasm Application](doc/other_wasm_compilers.md)
 
 ## WAMR in practice
 
@@ -32,12 +33,19 @@
       * [Enable Debugging In VS Code](test-tools/wamr-ide/VSCode-Extension/README.md)
 
 * [Features](gitbook/features/demo_examples/README.md)
+  * [Export Native APIs to WASM applications](doc/export_native_api.md)
+  * [Multiple Modules As Dependencies](doc/multi_module.md)
+  * [Multi-thread, pthread APIs and thread management](doc/pthread_library.md)
+  * [Linux SGX(Intel Software Guard Extension) support](doc/linux_sgx.md)
+  * [XIP(Execution In Place) support](doc/xip.md)
+  * [Socket support](doc/socket_api.md)
 
 * [User Case](gitbook/features/user_case/README.md)
 
-## Programmer's manual
+## Programmer's Manual
 
 * [Programmer's Manual](gitbook/programmer's_manual/README.md)
+  * [C API Lists](gitbook/programmer's_manual/C_API_Lists.md)
 
 ## Community
 
