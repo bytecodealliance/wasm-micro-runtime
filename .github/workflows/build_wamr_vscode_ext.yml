@@ -6,13 +6,13 @@ on:
   workflow_call:
     inputs:
       upload_url:
-        description: a semantic version number. 
+        description: upload binary assets to the URL of release
         type: string
-        required: false
+        required: true
       ver_num:
         description: a semantic version number.
         type: string
-        required: false
+        required: true
 
 jobs:
   build:
@@ -24,6 +24,12 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 14.x
+      
+      - name: set vscode extension to correct version 
+        run: |
+          npm install -g json
+          json -I -f package.json -e "this.version=\"${{ inputs.ver_num }}\""
+        working-directory: test-tools/wamr-ide/VSCode-Extension
 
       - name: generate wamr ide vscode extension
         run: |
