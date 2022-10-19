@@ -1321,6 +1321,9 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
     }
     argc = func_type->param_cell_num;
 
+    /* func pointer was looked up previously */
+    bh_assert(function->u.func.func_ptr != NULL);
+
     /* set thread handle and stack boundary */
     wasm_exec_env_set_thread_info(exec_env);
 
@@ -1827,6 +1830,11 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
 
     func_type_idx = func_type_indexes[func_idx];
     func_type = aot_module->func_types[func_type_idx];
+
+    if (func_idx >= aot_module->import_func_count) {
+        /* func pointer was looked up previously */
+        bh_assert(func_ptrs[func_idx] != NULL);
+    }
 
     if (!(func_ptr = func_ptrs[func_idx])) {
         bh_assert(func_idx < aot_module->import_func_count);

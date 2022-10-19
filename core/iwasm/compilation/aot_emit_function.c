@@ -267,131 +267,6 @@ call_aot_invoke_native_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     return true;
 }
 
-#if WASM_ENABLE_LAZY_JIT != 0
-static bool
-lookup_orcjit_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                   LLVMValueRef func_idx, LLVMValueRef *p_func)
-{
-    LLVMBasicBlockRef block_curr, block_resolve_func, block_func_resolved;
-    LLVMValueRef param_values[3], func, value, func_ptr, cmp, phi;
-    LLVMTypeRef param_types[3], ret_type, func_type, func_ptr_type;
-
-    block_curr = LLVMGetInsertBlock(comp_ctx->builder);
-
-    if (!(block_resolve_func = LLVMAppendBasicBlockInContext(
-              comp_ctx->context, func_ctx->func, "resolve_func"))) {
-        aot_set_last_error("llvm add basic block failed.");
-        return false;
-    }
-    if (!(block_func_resolved = LLVMAppendBasicBlockInContext(
-              comp_ctx->context, func_ctx->func, "func_resolved"))) {
-        aot_set_last_error("llvm add basic block failed.");
-        return false;
-    }
-    LLVMMoveBasicBlockAfter(block_resolve_func, block_curr);
-    LLVMMoveBasicBlockAfter(block_func_resolved, block_resolve_func);
-
-    LLVMPositionBuilderAtEnd(comp_ctx->builder, block_func_resolved);
-    if (!(phi = LLVMBuildPhi(comp_ctx->builder, INT8_PTR_TYPE, "phi"))) {
-        aot_set_last_error("llvm build phi failed.");
-        return false;
-    }
-
-    LLVMPositionBuilderAtEnd(comp_ctx->builder, block_curr);
-
-    /* Load function pointer */
-    if (!(func_ptr = LLVMBuildInBoundsGEP2(comp_ctx->builder, OPQ_PTR_TYPE,
-                                           func_ctx->func_ptrs, &func_idx, 1,
-                                           "func_ptr_tmp"))) {
-        aot_set_last_error("llvm build inbounds gep failed.");
-        return false;
-    }
-
-    if (!(func = LLVMBuildLoad2(comp_ctx->builder, OPQ_PTR_TYPE, func_ptr,
-                                "func_ptr"))) {
-        aot_set_last_error("llvm build load failed.");
-        return false;
-    }
-
-    /* If func ptr is NULL, call aot_lookup_orcjit_func to resolve it */
-    if (!(cmp = LLVMBuildIsNull(comp_ctx->builder, func, "cmp"))) {
-        aot_set_last_error("llvm build is null failed");
-        return false;
-    }
-
-    /* Create condition br */
-    if (!LLVMBuildCondBr(comp_ctx->builder, cmp, block_resolve_func,
-                         block_func_resolved)) {
-        aot_set_last_error("llvm build cond br failed.");
-        return false;
-    }
-    LLVMAddIncoming(phi, &func, &block_curr, 1);
-
-    LLVMPositionBuilderAtEnd(comp_ctx->builder, block_resolve_func);
-
-    param_types[0] = INT8_PTR_TYPE;
-    param_types[1] = comp_ctx->aot_inst_type;
-    param_types[2] = I32_TYPE;
-    ret_type = INT8_PTR_TYPE;
-
-    if (!(func_type = LLVMFunctionType(ret_type, param_types, 3, false))
-        || !(func_ptr_type = LLVMPointerType(func_type, 0))) {
-        aot_set_last_error("llvm add function type failed.");
-        return false;
-    }
-
-    if (!(value = I64_CONST((uint64)(uintptr_t)aot_lookup_orcjit_func))
-        || !(func = LLVMConstIntToPtr(value, func_ptr_type))) {
-        aot_set_last_error("create LLVM value failed.");
-        return false;
-    }
-
-    param_values[0] = I64_CONST((uintptr_t)comp_ctx->orc_lazyjit);
-    if (!param_values[0]) {
-        aot_set_last_error("llvm build const failed.");
-        return false;
-    }
-    if (!(param_values[0] =
-              LLVMConstIntToPtr(param_values[0], INT8_PTR_TYPE))) {
-        aot_set_last_error("llvm build bit cast failed.");
-        return false;
-    }
-
-    param_values[1] = func_ctx->aot_inst;
-
-    param_values[2] = func_idx;
-    if (!param_values[2]) {
-        aot_set_last_error("llvm build const failed.");
-        return false;
-    }
-
-    /* Call the function */
-    if (!(func = LLVMBuildCall2(comp_ctx->builder, func_type, func,
-                                param_values, 3, "call_orcjit_lookup"))) {
-        aot_set_last_error("LLVM build call failed.");
-        return false;
-    }
-
-    /* Check whether exception was thrown when looking up func */
-    if (!check_exception_thrown(comp_ctx, func_ctx)) {
-        return false;
-    }
-
-    block_curr = LLVMGetInsertBlock(comp_ctx->builder);
-    LLVMAddIncoming(phi, &func, &block_curr, 1);
-
-    if (!LLVMBuildBr(comp_ctx->builder, block_func_resolved)) {
-        aot_set_last_error("llvm build br failed.");
-        return false;
-    }
-
-    LLVMPositionBuilderAtEnd(comp_ctx->builder, block_func_resolved);
-
-    *p_func = phi;
-    return true;
-}
-#endif
-
 #if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
 static bool
 call_aot_alloc_frame_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
@@ -909,43 +784,13 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             }
         }
         else {
-#if WASM_ENABLE_LAZY_JIT == 0
-            func = func_ctxes[func_idx - import_func_count]->func;
-#else
             if (func_ctxes[func_idx - import_func_count] == func_ctx) {
                 /* recursive call */
                 func = func_ctx->func;
             }
             else {
-                LLVMTypeRef func_ptr_type;
-                LLVMValueRef func_idx_const = I32_CONST(func_idx);
-
-                if (!func_idx_const) {
-                    aot_set_last_error("llvm build const failed.");
-                    goto fail;
-                }
-
-                /* For LAZY JIT, each function belongs to its own module,
-                   we call aot_lookup_orcjit_func to get the func pointer */
-                if (!lookup_orcjit_func(comp_ctx, func_ctx, func_idx_const,
-                                        &func)) {
-                    goto fail;
-                }
-
-                if (!(func_ptr_type = LLVMPointerType(
-                          func_ctxes[func_idx - import_func_count]->func_type,
-                          0))) {
-                    aot_set_last_error("construct func ptr type failed.");
-                    goto fail;
-                }
-
-                if (!(func = LLVMBuildBitCast(comp_ctx->builder, func,
-                                              func_ptr_type, "aot_func"))) {
-                    aot_set_last_error("llvm bit cast failed.");
-                    goto fail;
-                }
+                func = func_ctxes[func_idx - import_func_count]->func;
             }
-#endif
         }
 
         aot_func = func_ctxes[func_idx - import_func_count]->aot_func;
@@ -1574,7 +1419,6 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                                      + 16))
         goto fail;
 
-#if WASM_ENABLE_LAZY_JIT == 0
     /* Load function pointer */
     if (!(func_ptr = LLVMBuildInBoundsGEP2(comp_ctx->builder, OPQ_PTR_TYPE,
                                            func_ctx->func_ptrs, &func_idx, 1,
@@ -1588,12 +1432,6 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         aot_set_last_error("llvm build load failed.");
         goto fail;
     }
-#else
-    /* For LAZY JIT, each function belongs to its own module,
-       we call aot_lookup_orcjit_func to get the func pointer */
-    if (!lookup_orcjit_func(comp_ctx, func_ctx, func_idx, &func_ptr))
-        goto fail;
-#endif
 
     if (!(llvm_func_type =
               LLVMFunctionType(ret_type, param_types, total_param_count, false))

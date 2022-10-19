@@ -1,7 +1,9 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-cmake_minimum_required (VERSION 2.9)
+cmake_minimum_required (VERSION 3.14)
+
+include(CheckPIESupported)
 
 project (iwasm)
 
@@ -119,7 +121,7 @@ set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../..)
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
 
-set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections -pie -fPIE")
+set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections")
 
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security -Wshadow")
 # set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wconversion -Wsign-conversion")
@@ -163,6 +165,9 @@ endif ()
 include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 
 add_executable (iwasm main.c ${UNCOMMON_SHARED_SOURCE})
+
+check_pie_supported()
+set_target_properties (iwasm PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 install (TARGETS iwasm DESTINATION bin)
 

@@ -148,9 +148,9 @@ typedef struct AOTModule {
 
     /* function info */
     uint32 func_count;
-    /* point to AOTed functions */
+    /* func pointers of AOTed (un-imported) functions */
     void **func_ptrs;
-    /* function type indexes */
+    /* func type indexes of AOTed (un-imported) functions */
     uint32 *func_type_indexes;
 
     /* export info */

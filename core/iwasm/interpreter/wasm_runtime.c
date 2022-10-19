@@ -296,6 +296,7 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMMemoryInstance *memory,
 #endif
     bh_assert(memory_data_size <= 4 * (uint64)BH_GB);
 
+    bh_assert(memory != NULL);
 #ifndef OS_ENABLE_HW_BOUND_CHECK
     if (memory_data_size > 0
         && !(memory->memory_data =
@@ -416,7 +417,7 @@ fail2:
     os_munmap(mapped_mem, map_size);
 #endif
 fail1:
-    return memory;
+    return NULL;
 }
 
 /**
