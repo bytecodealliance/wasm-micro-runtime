@@ -161,7 +161,7 @@ jobs:
   # vscode extension docker images package
   release_wamr_ide_docker_images_package:
     needs: [create_tag, create_release]
-    uses: ./.github/workflows/build_docker_images_package.yml
+    uses: ./.github/workflows/build_docker_images.yml
     with:
       ver_num: ${{ needs.create_tag.outputs.new_ver }}
     
