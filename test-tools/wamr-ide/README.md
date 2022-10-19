@@ -37,7 +37,20 @@ under `resource/debug/bin`.
        - Ubuntu Bionic 18.04(LTS)
        ```
 
-#### 3. Build docker images
+#### 3. Pull docker images from the registry(recommended) or build docker images on the host
+
+##### 3.1 Pull docker images from registry
+
+From now on, for each release, we have the same version tagged docker image pushed to GitHub package.
+
+You could simply pull a certain version of docker images using the following commands:
+
+```sh
+docker pull ghcr.io/bytecodealliance/wasm-toolchain:{version number}
+docker pull ghcr.io/bytecodealliance/wasm-debug-server:{version number}
+```
+
+##### 3.2 Build docker images on host
 
 We have 2 docker images which should be built or loaded on your host, `wasm-toolchain` and `wasm-debug-server`. To build these 2 images, please enter the `WASM-Debug-Server/Docker` & `WASM-Toolchain/Docker`, then execute the `build_docker_image` script respectively.
 
