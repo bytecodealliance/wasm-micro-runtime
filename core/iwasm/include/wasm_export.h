@@ -922,6 +922,12 @@ wasm_runtime_get_native_addr_range(wasm_module_inst_t module_inst,
 /**
  * Register native functions with same module name
  *
+ * Note: The array `native_symbols` should not be read-only because the
+ * library can modify it in-place.
+ *
+ * Note: After successful call of this function, the array `native_symbols`
+ * is owned by the library.
+ *
  * @param module_name the module name of the native functions
  * @param native_symbols specifies an array of NativeSymbol structures which
  *        contain the names, function pointers and signatures

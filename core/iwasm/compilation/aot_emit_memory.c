@@ -718,7 +718,7 @@ aot_compile_op_memory_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
             aot_set_last_error("llvm add pointer type failed.");
             return false;
         }
-        if (!(value = I64_CONST((uint64)(uintptr_t)aot_enlarge_memory))
+        if (!(value = I64_CONST((uint64)(uintptr_t)wasm_enlarge_memory))
             || !(func = LLVMConstIntToPtr(value, func_ptr_type))) {
             aot_set_last_error("create LLVM value failed.");
             return false;
@@ -899,7 +899,10 @@ aot_compile_op_memory_init(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     param_types[4] = I32_TYPE;
     ret_type = INT8_TYPE;
 
-    GET_AOT_FUNCTION(aot_memory_init, 5);
+    if (comp_ctx->is_jit_mode)
+        GET_AOT_FUNCTION(llvm_jit_memory_init, 5);
+    else
+        GET_AOT_FUNCTION(aot_memory_init, 5);
 
     /* Call function aot_memory_init() */
     param_values[0] = func_ctx->aot_inst;
@@ -955,7 +958,10 @@ aot_compile_op_data_drop(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     param_types[1] = I32_TYPE;
     ret_type = INT8_TYPE;
 
-    GET_AOT_FUNCTION(aot_data_drop, 2);
+    if (comp_ctx->is_jit_mode)
+        GET_AOT_FUNCTION(llvm_jit_data_drop, 2);
+    else
+        GET_AOT_FUNCTION(aot_data_drop, 2);
 
     /* Call function aot_data_drop() */
     param_values[0] = func_ctx->aot_inst;
@@ -987,18 +993,10 @@ aot_compile_op_memory_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     if (!(dst_addr = check_bulk_memory_overflow(comp_ctx, func_ctx, dst, len)))
         return false;
 
-#if WASM_ENABLE_LAZY_JIT != 0
-    call_aot_memmove = true;
-#endif
-    if (comp_ctx->is_indirect_mode)
-        call_aot_memmove = true;
-
+    call_aot_memmove = comp_ctx->is_indirect_mode || comp_ctx->is_jit_mode;
     if (call_aot_memmove) {
         LLVMTypeRef param_types[3], ret_type, func_type, func_ptr_type;
         LLVMValueRef func, params[3];
-#if WASM_ENABLE_LAZY_JIT == 0
-        int32 func_idx;
-#endif
 
         param_types[0] = INT8_PTR_TYPE;
         param_types[1] = INT8_PTR_TYPE;
@@ -1015,22 +1013,25 @@ aot_compile_op_memory_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
             return false;
         }
 
-#if WASM_ENABLE_LAZY_JIT == 0
-        func_idx = aot_get_native_symbol_index(comp_ctx, "memmove");
-        if (func_idx < 0) {
-            return false;
+        if (comp_ctx->is_jit_mode) {
+            if (!(func = I64_CONST((uint64)(uintptr_t)aot_memmove))
+                || !(func = LLVMConstIntToPtr(func, func_ptr_type))) {
+                aot_set_last_error("create LLVM value failed.");
+                return false;
+            }
         }
-        if (!(func = aot_get_func_from_table(comp_ctx, func_ctx->native_symbol,
-                                             func_ptr_type, func_idx))) {
-            return false;
+        else {
+            int32 func_index;
+            func_index = aot_get_native_symbol_index(comp_ctx, "memmove");
+            if (func_index < 0) {
+                return false;
+            }
+            if (!(func =
+                      aot_get_func_from_table(comp_ctx, func_ctx->native_symbol,
+                                              func_ptr_type, func_index))) {
+                return false;
+            }
         }
-#else
-        if (!(func = I64_CONST((uint64)(uintptr_t)aot_memmove))
-            || !(func = LLVMConstIntToPtr(func, func_ptr_type))) {
-            aot_set_last_error("create LLVM value failed.");
-            return false;
-        }
-#endif
 
         params[0] = dst_addr;
         params[1] = src_addr;
@@ -1052,6 +1053,12 @@ aot_compile_op_memory_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     return true;
 fail:
     return false;
+}
+
+static void *
+jit_memset(void *s, int c, size_t n)
+{
+    return memset(s, c, n);
 }
 
 bool
@@ -1084,7 +1091,7 @@ aot_compile_op_memory_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     }
 
     if (comp_ctx->is_jit_mode) {
-        if (!(func = I64_CONST((uint64)(uintptr_t)aot_memset))
+        if (!(func = I64_CONST((uint64)(uintptr_t)jit_memset))
             || !(func = LLVMConstIntToPtr(func, func_ptr_type))) {
             aot_set_last_error("create LLVM value failed.");
             return false;

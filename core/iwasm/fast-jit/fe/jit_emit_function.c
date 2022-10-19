@@ -9,10 +9,6 @@
 #include "../jit_codegen.h"
 #include "../../interpreter/wasm_runtime.h"
 
-extern bool
-jit_invoke_native(WASMExecEnv *exec_env, uint32 func_idx,
-                  WASMInterpFrame *prev_frame);
-
 static bool
 emit_callnative(JitCompContext *cc, JitReg native_func_reg, JitReg res,
                 JitReg *params, uint32 param_count);
@@ -241,7 +237,7 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
         func_import = &wasm_module->import_functions[func_idx].u.function;
         func_type = func_import->func_type;
 
-        /* Call jit_invoke_native in some cases */
+        /* Call fast_jit_invoke_native in some cases */
         if (!func_import->func_ptr_linked /* import func hasn't been linked */
             || func_import->call_conv_wasm_c_api /* linked by wasm_c_api */
             || func_import->call_conv_raw /* registered as raw mode */
@@ -255,12 +251,13 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
                 goto fail;
             }
 
-            /* Call jit_invoke_native */
+            /* Call fast_jit_invoke_native */
             ret = jit_cc_new_reg_I32(cc);
             arg_regs[0] = cc->exec_env_reg;
             arg_regs[1] = NEW_CONST(I32, func_idx);
             arg_regs[2] = cc->fp_reg;
-            if (!jit_emit_callnative(cc, jit_invoke_native, ret, arg_regs, 3)) {
+            if (!jit_emit_callnative(cc, fast_jit_invoke_native, ret, arg_regs,
+                                     3)) {
                 goto fail;
             }
 
@@ -269,7 +266,7 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
 
             /* Check whether there is exception thrown */
             GEN_INSN(CMP, cc->cmp_reg, ret, NEW_CONST(I32, 0));
-            if (!jit_emit_exception(cc, JIT_EXCE_ALREADY_THROWN, JIT_OP_BEQ,
+            if (!jit_emit_exception(cc, EXCE_ALREADY_THROWN, JIT_OP_BEQ,
                                     cc->cmp_reg, NULL)) {
                 goto fail;
             }
@@ -347,7 +344,7 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
                 GEN_INSN(AND, ret, ret, NEW_CONST(I32, 0xFF));
                 /* Check whether there is exception thrown */
                 GEN_INSN(CMP, cc->cmp_reg, ret, NEW_CONST(I32, 0));
-                if (!jit_emit_exception(cc, JIT_EXCE_ALREADY_THROWN, JIT_OP_BEQ,
+                if (!jit_emit_exception(cc, EXCE_ALREADY_THROWN, JIT_OP_BEQ,
                                         cc->cmp_reg, NULL)) {
                     return false;
                 }
@@ -384,7 +381,7 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
         GEN_INSN(LDI8, ret, module_inst_reg,
                  NEW_CONST(I32, offsetof(WASMModuleInstance, cur_exception)));
         GEN_INSN(CMP, cc->cmp_reg, ret, NEW_CONST(I32, 0));
-        if (!jit_emit_exception(cc, JIT_EXCE_ALREADY_THROWN, JIT_OP_BNE,
+        if (!jit_emit_exception(cc, EXCE_ALREADY_THROWN, JIT_OP_BNE,
                                 cc->cmp_reg, NULL)) {
             goto fail;
         }
@@ -461,22 +458,21 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
     JitBasicBlock *block_import, *block_nonimport, *func_return;
     JitReg elem_idx, native_ret, argv, arg_regs[6];
     JitFrame *jit_frame = cc->jit_frame;
-    JitReg module_inst, tbl_size, offset, offset_i32;
-    JitReg func_import, func_idx, tbl_data, func_count_reg;
-    JitReg func_type_indexes, func_type_idx, fast_jit_func_ptrs_reg;
+    JitReg tbl_size, offset, offset_i32;
+    JitReg func_import, func_idx, tbl_data, func_count;
+    JitReg func_type_indexes, func_type_idx, fast_jit_func_ptrs;
     JitReg offset1_i32, offset1, func_type_idx1, res;
-    JitReg import_func_ptrs_reg, jitted_code_idx, jitted_code;
+    JitReg import_func_ptrs, jitted_code_idx, jitted_code;
     WASMType *func_type;
     uint32 n;
 
     POP_I32(elem_idx);
 
     /* check elem_idx */
-    module_inst = get_module_inst_reg(jit_frame);
     tbl_size = get_table_cur_size_reg(jit_frame, tbl_idx);
 
     GEN_INSN(CMP, cc->cmp_reg, elem_idx, tbl_size);
-    if (!jit_emit_exception(cc, JIT_EXCE_UNDEFINED_ELEMENT, JIT_OP_BGEU,
+    if (!jit_emit_exception(cc, EXCE_UNDEFINED_ELEMENT, JIT_OP_BGEU,
                             cc->cmp_reg, NULL))
         goto fail;
 
@@ -496,16 +492,14 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
     GEN_INSN(LDI32, func_idx, tbl_data, offset);
 
     GEN_INSN(CMP, cc->cmp_reg, func_idx, NEW_CONST(I32, -1));
-    if (!jit_emit_exception(cc, JIT_EXCE_UNINITIALIZED_ELEMENT, JIT_OP_BEQ,
+    if (!jit_emit_exception(cc, EXCE_UNINITIALIZED_ELEMENT, JIT_OP_BEQ,
                             cc->cmp_reg, NULL))
         goto fail;
 
-    func_count_reg = jit_cc_new_reg_I32(cc);
-    GEN_INSN(LDI32, func_count_reg, module_inst,
-             NEW_CONST(I32, offsetof(WASMModuleInstance, function_count)));
-
-    GEN_INSN(CMP, cc->cmp_reg, func_idx, func_count_reg);
-    if (!jit_emit_exception(cc, JIT_EXCE_INVALID_FUNCTION_INDEX, JIT_OP_BGTU,
+    func_count = NEW_CONST(I32, wasm_module->import_function_count
+                                    + wasm_module->function_count);
+    GEN_INSN(CMP, cc->cmp_reg, func_idx, func_count);
+    if (!jit_emit_exception(cc, EXCE_INVALID_FUNCTION_INDEX, JIT_OP_BGTU,
                             cc->cmp_reg, NULL))
         goto fail;
 
@@ -530,8 +524,8 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
                                           wasm_module->type_count, type_idx);
     func_type_idx1 = NEW_CONST(I32, type_idx);
     GEN_INSN(CMP, cc->cmp_reg, func_type_idx, func_type_idx1);
-    if (!jit_emit_exception(cc, JIT_EXCE_INVALID_FUNCTION_TYPE_INDEX,
-                            JIT_OP_BNE, cc->cmp_reg, NULL))
+    if (!jit_emit_exception(cc, EXCE_INVALID_FUNCTION_TYPE_INDEX, JIT_OP_BNE,
+                            cc->cmp_reg, NULL))
         goto fail;
 
     /* pop function arguments and store it to out area of callee stack frame */
@@ -585,22 +579,22 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
     arg_regs[4] = NEW_CONST(I32, func_type->param_cell_num);
     arg_regs[5] = argv;
 
-    import_func_ptrs_reg = get_import_func_ptrs_reg(jit_frame);
+    import_func_ptrs = get_import_func_ptrs_reg(jit_frame);
     func_import = jit_cc_new_reg_ptr(cc);
     if (UINTPTR_MAX == UINT64_MAX) {
         JitReg func_import_offset = jit_cc_new_reg_I32(cc);
         JitReg func_import_offset_i64 = jit_cc_new_reg_I64(cc);
         GEN_INSN(SHL, func_import_offset, func_idx, NEW_CONST(I32, 3));
         GEN_INSN(I32TOI64, func_import_offset_i64, func_import_offset);
-        GEN_INSN(LDPTR, func_import, import_func_ptrs_reg,
-                 func_import_offset_i64);
+        GEN_INSN(LDPTR, func_import, import_func_ptrs, func_import_offset_i64);
     }
     else {
         JitReg func_import_offset = jit_cc_new_reg_I32(cc);
         GEN_INSN(SHL, func_import_offset, func_idx, NEW_CONST(I32, 2));
-        GEN_INSN(LDPTR, func_import, import_func_ptrs_reg, func_import_offset);
+        GEN_INSN(LDPTR, func_import, import_func_ptrs, func_import_offset);
     }
-    if (!jit_emit_callnative(cc, jit_call_indirect, native_ret, arg_regs, 6)) {
+    if (!jit_emit_callnative(cc, fast_jit_call_indirect, native_ret, arg_regs,
+                             6)) {
         goto fail;
     }
 
@@ -609,8 +603,8 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
 
     /* Check whether there is exception thrown */
     GEN_INSN(CMP, cc->cmp_reg, native_ret, NEW_CONST(I32, 0));
-    if (!jit_emit_exception(cc, JIT_EXCE_ALREADY_THROWN, JIT_OP_BEQ,
-                            cc->cmp_reg, NULL)) {
+    if (!jit_emit_exception(cc, EXCE_ALREADY_THROWN, JIT_OP_BEQ, cc->cmp_reg,
+                            NULL)) {
         return false;
     }
 
@@ -664,7 +658,7 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
              NEW_CONST(I32, offsetof(WASMExecEnv, jit_cache) + 4));
 
     /* get jitted_code */
-    fast_jit_func_ptrs_reg = get_fast_jit_func_ptrs_reg(jit_frame);
+    fast_jit_func_ptrs = get_fast_jit_func_ptrs_reg(jit_frame);
     jitted_code_idx = jit_cc_new_reg_I32(cc);
     jitted_code = jit_cc_new_reg_ptr(cc);
     GEN_INSN(SUB, jitted_code_idx, func_idx,
@@ -674,14 +668,12 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
         JitReg jitted_code_offset_64 = jit_cc_new_reg_I64(cc);
         GEN_INSN(SHL, jitted_code_offset, jitted_code_idx, NEW_CONST(I32, 3));
         GEN_INSN(I32TOI64, jitted_code_offset_64, jitted_code_offset);
-        GEN_INSN(LDPTR, jitted_code, fast_jit_func_ptrs_reg,
-                 jitted_code_offset_64);
+        GEN_INSN(LDPTR, jitted_code, fast_jit_func_ptrs, jitted_code_offset_64);
     }
     else {
         JitReg jitted_code_offset = jit_cc_new_reg_I32(cc);
         GEN_INSN(SHL, jitted_code_offset, jitted_code_idx, NEW_CONST(I32, 2));
-        GEN_INSN(LDPTR, jitted_code, fast_jit_func_ptrs_reg,
-                 jitted_code_offset);
+        GEN_INSN(LDPTR, jitted_code, fast_jit_func_ptrs, jitted_code_offset);
     }
 
     res = 0;

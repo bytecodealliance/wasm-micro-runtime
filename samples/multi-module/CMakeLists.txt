@@ -1,7 +1,10 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-cmake_minimum_required (VERSION 2.8...3.16)
+cmake_minimum_required (VERSION 3.14)
+
+include(CheckPIESupported)
+
 project(multi_module)
 
 ################  runtime settings  ################
@@ -47,7 +50,6 @@ set(WAMR_BUILD_LIBC_WASI 1)
 set(WAMR_BUILD_MULTI_MODULE 1)
 
 # compiling and linking flags
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pie -fPIE")
 if (NOT (CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*Clang"))
   set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections")
 endif ()
@@ -149,6 +151,9 @@ include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 add_executable(multi_module src/main.c ${UNCOMMON_SHARED_SOURCE})
 
 add_dependencies(multi_module vmlib WASM_MODULE)
+
+check_pie_supported()
+set_target_properties (multi_module PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # libraries
 target_link_libraries(multi_module PRIVATE vmlib -lpthread -lm)
