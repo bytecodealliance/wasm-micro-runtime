@@ -331,6 +331,9 @@ compile_rems(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 {
     LLVMValueRef phi, no_overflow_value, zero = is_i32 ? I32_ZERO : I64_ZERO;
     LLVMBasicBlockRef block_curr, no_overflow_block, rems_end_block;
+    LLVMTypeRef param_types[2];
+
+    param_types[1] = param_types[0] = is_i32 ? I32_TYPE : I64_TYPE;
 
     block_curr = LLVMGetInsertBlock(comp_ctx->builder);
 
@@ -349,7 +352,15 @@ compile_rems(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMPositionBuilderAtEnd(comp_ctx->builder, no_overflow_block);
 
     /* Calculate the rem value */
-    LLVM_BUILD_OP(SRem, left, right, no_overflow_value, "rem_s", false);
+    if (comp_ctx->disable_llvm_intrinsics && !is_i32
+        && aot_intrinsic_check_capability(comp_ctx, "i64.rem_s")) {
+        no_overflow_value =
+            aot_call_llvm_intrinsic(comp_ctx, func_ctx, "rem_s", param_types[0],
+                                    param_types, 2, left, right);
+    }
+    else {
+        LLVM_BUILD_OP(SRem, left, right, no_overflow_value, "rem_s", false);
+    }
 
     /* Jump to rems_end block */
     if (!LLVMBuildBr(comp_ctx->builder, rems_end_block)) {
