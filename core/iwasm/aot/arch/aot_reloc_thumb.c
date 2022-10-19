@@ -8,6 +8,10 @@
 #define R_ARM_ABS32 2      /* Direct 32 bit */
 #define R_ARM_THM_CALL 10  /* PC relative (Thumb BL and ARMv5 Thumb BLX). */
 #define R_ARM_THM_JMP24 30 /* B.W */
+#define R_ARM_THM_MOVW_ABS_NC 47
+#define R_ARM_THM_MOVT_ABS 48
+#define R_ARM_THM_MOVW_PREL_NC 49
+#define R_ARM_THM_MOVT_PREL 50
 
 /* clang-format off */
 void __adddf3();
@@ -370,6 +374,43 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
             *(uintptr_t *)(target_section_addr + reloc_offset) =
                 (uintptr_t)symbol_addr + initial_addend
                 + (intptr_t)reloc_addend;
+            break;
+        }
+        case R_ARM_THM_MOVW_ABS_NC:
+        case R_ARM_THM_MOVT_ABS:
+        case R_ARM_THM_MOVW_PREL_NC:
+        case R_ARM_THM_MOVT_PREL:
+        {
+            uint16 upper = *(uint16 *)(target_section_addr + reloc_offset);
+            uint16 lower = *(uint16 *)(target_section_addr + reloc_offset + 2);
+            int32 offset;
+
+            /*
+             * MOVT/MOVW instructions encoding in Thumb-2:
+             *
+             * i	= upper[10]
+             * imm4	= upper[3:0]
+             * imm3	= lower[14:12]
+             * imm8	= lower[7:0]
+             *
+             * imm16 = imm4:i:imm3:imm8
+             */
+
+            offset = ((upper & 0x000f) << 12) | ((upper & 0x0400) << 1)
+                     | ((lower & 0x7000) >> 4) | (lower & 0x00ff);
+            offset = (offset ^ 0x8000) - 0x8000;
+
+            offset += (symbol_addr + reloc_addend);
+
+            if (reloc_type == R_ARM_THM_MOVT_PREL
+                || reloc_type == R_ARM_THM_MOVW_PREL_NC)
+                offset -= (int32)(target_section_addr + reloc_offset);
+            if (reloc_type == R_ARM_THM_MOVT_ABS
+                || reloc_type == R_ARM_THM_MOVT_PREL)
+                offset >>= 16;
+
+            *(uint16 *)(target_section_addr + reloc_offset) = upper;
+            *(uint16 *)(target_section_addr + reloc_offset + 2) = lower;
             break;
         }
 

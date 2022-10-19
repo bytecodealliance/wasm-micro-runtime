@@ -228,7 +228,17 @@ os_sem_post(korp_sem *sem)
 int
 os_sem_getvalue(korp_sem *sem, int *sval)
 {
+#if defined(__APPLE__)
+    /*
+     * macOS doesn't have working sem_getvalue.
+     * It's marked as deprecated in the system header.
+     * Mock it up here to avoid compile-time deprecation warnings.
+     */
+    errno = ENOSYS;
+    return -1;
+#else
     return sem_getvalue(sem, sval);
+#endif
 }
 
 int

@@ -617,7 +617,7 @@ wasm_debug_instance_get_memregion(WASMDebugInstance *instance, uint64 addr)
             break;
         case WasmMemory:
         {
-            memory = module_inst->default_memory;
+            memory = wasm_get_default_memory(module_inst);
 
             if (memory) {
                 num_bytes_per_page = memory->num_bytes_per_page;
@@ -715,7 +715,7 @@ wasm_debug_instance_get_linear_mem(WASMDebugInstance *instance, uint64 offset,
         return false;
 
     module_inst = (WASMModuleInstance *)exec_env->module_inst;
-    memory = module_inst->default_memory;
+    memory = wasm_get_default_memory(module_inst);
     if (memory) {
         num_bytes_per_page = memory->num_bytes_per_page;
         linear_mem_size = num_bytes_per_page * memory->cur_page_count;
@@ -748,7 +748,7 @@ wasm_debug_instance_set_linear_mem(WASMDebugInstance *instance, uint64 offset,
         return false;
 
     module_inst = (WASMModuleInstance *)exec_env->module_inst;
-    memory = module_inst->default_memory;
+    memory = wasm_get_default_memory(module_inst);
     if (memory) {
         num_bytes_per_page = memory->num_bytes_per_page;
         linear_mem_size = num_bytes_per_page * memory->cur_page_count;
@@ -1134,10 +1134,10 @@ wasm_debug_instance_get_global(WASMDebugInstance *instance, int32 frame_index,
 
     module_inst = (WASMModuleInstance *)exec_env->module_inst;
     global_data = module_inst->global_data;
-    globals = module_inst->globals;
+    globals = module_inst->e->globals;
 
     if ((global_index < 0)
-        || ((uint32)global_index >= module_inst->global_count)) {
+        || ((uint32)global_index >= module_inst->e->global_count)) {
         return false;
     }
     global = globals + global_index;

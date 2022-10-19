@@ -277,11 +277,11 @@ jit_compile_op_set_global(JitCompContext *cc, uint32 global_idx,
                 JitReg aux_stack_bottom =
                     get_aux_stack_bottom_reg(cc->jit_frame);
                 GEN_INSN(CMP, cc->cmp_reg, value, aux_stack_bound);
-                if (!(jit_emit_exception(cc, JIT_EXCE_AUX_STACK_OVERFLOW,
+                if (!(jit_emit_exception(cc, EXCE_AUX_STACK_OVERFLOW,
                                          JIT_OP_BLEU, cc->cmp_reg, NULL)))
                     goto fail;
                 GEN_INSN(CMP, cc->cmp_reg, value, aux_stack_bottom);
-                if (!(jit_emit_exception(cc, JIT_EXCE_AUX_STACK_UNDERFLOW,
+                if (!(jit_emit_exception(cc, EXCE_AUX_STACK_UNDERFLOW,
                                          JIT_OP_BGTU, cc->cmp_reg, NULL)))
                     goto fail;
             }

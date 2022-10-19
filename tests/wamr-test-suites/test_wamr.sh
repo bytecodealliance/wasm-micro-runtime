@@ -173,10 +173,18 @@ readonly FAST_INTERP_COMPILE_FLAGS="\
 
 # jit: report linking error if set COLLECT_CODE_COVERAGE,
 #      now we don't collect code coverage of jit type
-readonly JIT_COMPILE_FLAGS="\
+readonly ORC_EAGER_JIT_COMPILE_FLAGS="\
     -DWAMR_BUILD_TARGET=${TARGET} \
     -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_FAST_INTERP=0 \
     -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_AOT=1 \
+    -DWAMR_BUILD_LAZY_JIT=0 \
+    -DWAMR_BUILD_SPEC_TEST=1"
+
+readonly ORC_LAZY_JIT_COMPILE_FLAGS="\
+    -DWAMR_BUILD_TARGET=${TARGET} \
+    -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_FAST_INTERP=0 \
+    -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_AOT=1 \
+    -DWAMR_BUILD_LAZY_JIT=1 \
     -DWAMR_BUILD_SPEC_TEST=1"
 
 readonly AOT_COMPILE_FLAGS="\
@@ -196,7 +204,8 @@ readonly FAST_JIT_COMPILE_FLAGS="\
 readonly COMPILE_FLAGS=(
         "${CLASSIC_INTERP_COMPILE_FLAGS}"
         "${FAST_INTERP_COMPILE_FLAGS}"
-        "${JIT_COMPILE_FLAGS}"
+        "${ORC_EAGER_JIT_COMPILE_FLAGS}"
+        "${ORC_LAZY_JIT_COMPILE_FLAGS}"
         "${AOT_COMPILE_FLAGS}"
         "${FAST_JIT_COMPILE_FLAGS}"
     )
@@ -600,9 +609,16 @@ function trigger()
                     continue
                 fi
 
-                echo "work in jit mode"
-                # jit
-                BUILD_FLAGS="$JIT_COMPILE_FLAGS $EXTRA_COMPILE_FLAGS"
+                echo "work in orc jit eager compilation mode"
+                BUILD_FLAGS="$ORC_EAGER_JIT_COMPILE_FLAGS $EXTRA_COMPILE_FLAGS"
+                build_iwasm_with_cfg $BUILD_FLAGS
+                build_wamrc
+                for suite in "${TEST_CASE_ARR[@]}"; do
+                    $suite"_test" jit
+                done
+
+                echo "work in orc jit lazy compilation mode"
+                BUILD_FLAGS="$ORC_EAGER_JIT_COMPILE_FLAGS $EXTRA_COMPILE_FLAGS"
                 build_iwasm_with_cfg $BUILD_FLAGS
                 build_wamrc
                 for suite in "${TEST_CASE_ARR[@]}"; do

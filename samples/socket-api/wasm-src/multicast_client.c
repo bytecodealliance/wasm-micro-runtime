@@ -53,7 +53,7 @@ main(int argc, char *argv[])
     struct ip_mreq ipv4_group;
     int sd;
     int datalen;
-    char databuf[1024];
+    char databuf[1024] = { 0 };
     char multicast_addr_buffer[16];
     struct sockaddr_storage local_address = { 0 };
     int addr_type = -1;
@@ -116,7 +116,7 @@ main(int argc, char *argv[])
 
     printf("Joined multicast group. Waiting for datagram...\n");
 
-    datalen = sizeof(databuf);
+    datalen = sizeof(databuf) - 1;
     read_result = read(sd, databuf, datalen);
 
     if (read_result < 0) {

@@ -78,8 +78,8 @@ check_and_seek_on_64bit_platform(JitCompContext *cc, JitReg addr, JitReg offset,
 #ifndef OS_ENABLE_HW_BOUND_CHECK
     /* if (offset1 > memory_boundary) goto EXCEPTION */
     GEN_INSN(CMP, cc->cmp_reg, offset1, memory_boundary);
-    if (!jit_emit_exception(cc, JIT_EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS,
-                            JIT_OP_BGTU, cc->cmp_reg, NULL)) {
+    if (!jit_emit_exception(cc, EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS, JIT_OP_BGTU,
+                            cc->cmp_reg, NULL)) {
         goto fail;
     }
 #endif
@@ -103,16 +103,16 @@ check_and_seek_on_32bit_platform(JitCompContext *cc, JitReg addr, JitReg offset,
 
     /* if (offset1 < addr) goto EXCEPTION */
     GEN_INSN(CMP, cc->cmp_reg, offset1, addr);
-    if (!jit_emit_exception(cc, JIT_EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS,
-                            JIT_OP_BLTU, cc->cmp_reg, NULL)) {
+    if (!jit_emit_exception(cc, EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS, JIT_OP_BLTU,
+                            cc->cmp_reg, NULL)) {
         goto fail;
     }
 
 #ifndef OS_ENABLE_HW_BOUND_CHECK
     /* if (offset1 > memory_boundary) goto EXCEPTION */
     GEN_INSN(CMP, cc->cmp_reg, offset1, memory_boundary);
-    if (!jit_emit_exception(cc, JIT_EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS,
-                            JIT_OP_BGTU, cc->cmp_reg, NULL)) {
+    if (!jit_emit_exception(cc, EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS, JIT_OP_BGTU,
+                            cc->cmp_reg, NULL)) {
         goto fail;
     }
 #endif
@@ -144,7 +144,7 @@ check_and_seek(JitCompContext *cc, JitReg addr, uint32 offset, uint32 bytes)
         GEN_INSN(LDI32, cur_mem_page_count, memory_inst,
                  NEW_CONST(I32, offsetof(WASMMemoryInstance, cur_page_count)));
         GEN_INSN(CMP, cc->cmp_reg, cur_mem_page_count, NEW_CONST(I32, 0));
-        if (!jit_emit_exception(cc, JIT_EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS,
+        if (!jit_emit_exception(cc, EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS,
                                 JIT_OP_BEQ, cc->cmp_reg, NULL)) {
             goto fail;
         }
@@ -604,8 +604,8 @@ jit_compile_op_memory_init(JitCompContext *cc, uint32 mem_idx, uint32 seg_idx)
         goto fail;
 
     GEN_INSN(CMP, cc->cmp_reg, res, NEW_CONST(I32, 0));
-    if (!jit_emit_exception(cc, JIT_EXCE_ALREADY_THROWN, JIT_OP_BLTS,
-                            cc->cmp_reg, NULL))
+    if (!jit_emit_exception(cc, EXCE_ALREADY_THROWN, JIT_OP_BLTS, cc->cmp_reg,
+                            NULL))
         goto fail;
 
     return true;
@@ -687,8 +687,8 @@ jit_compile_op_memory_copy(JitCompContext *cc, uint32 src_mem_idx,
         goto fail;
 
     GEN_INSN(CMP, cc->cmp_reg, res, NEW_CONST(I32, 0));
-    if (!jit_emit_exception(cc, JIT_EXCE_ALREADY_THROWN, JIT_OP_BLTS,
-                            cc->cmp_reg, NULL))
+    if (!jit_emit_exception(cc, EXCE_ALREADY_THROWN, JIT_OP_BLTS, cc->cmp_reg,
+                            NULL))
         goto fail;
 
     return true;
@@ -741,8 +741,8 @@ jit_compile_op_memory_fill(JitCompContext *cc, uint32 mem_idx)
         goto fail;
 
     GEN_INSN(CMP, cc->cmp_reg, res, NEW_CONST(I32, 0));
-    if (!jit_emit_exception(cc, JIT_EXCE_ALREADY_THROWN, JIT_OP_BLTS,
-                            cc->cmp_reg, NULL))
+    if (!jit_emit_exception(cc, EXCE_ALREADY_THROWN, JIT_OP_BLTS, cc->cmp_reg,
+                            NULL))
         goto fail;
 
     return true;

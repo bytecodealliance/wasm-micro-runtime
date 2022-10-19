@@ -1,19 +1,22 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-cmake_minimum_required (VERSION 2.9)
+cmake_minimum_required (VERSION 3.21)
+
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfloat-abi=hard")
 
 project (iwasm)
 
-set (CMAKE_VERBOSE_MAKEFILE OFF)
-
-string (TOLOWER ${CMAKE_HOST_SYSTEM_NAME} WAMR_BUILD_PLATFORM)
+set (WAMR_BUILD_PLATFORM "darwin")
+set (WAMR_BUILD_TYPE          Release)
+set (WAMR_BUILD_INTERP        1)
+set (WAMR_BUILD_AOT           0)
+set (WAMR_BUILD_LIBC_BUILTIN  1)
+set (WAMR_BUILD_LIBC_WASI     1)
 
 # Reset default linker flags
 set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
 set (CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
-
-set (CMAKE_C_STANDARD 99)
 
 # Set WAMR_BUILD_TARGET, currently values supported:
 # "X86_64", "AMD_64", "X86_32", "AARCH64[sub]", "ARM[sub]", "THUMB[sub]",
@@ -37,6 +40,8 @@ endif ()
 if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif ()
+
+set(CMAKE_CXX_STANDARD 14)
 
 if (NOT DEFINED WAMR_BUILD_INTERP)
   # Enable Interpreter by default
@@ -74,13 +79,13 @@ if (NOT DEFINED WAMR_BUILD_FAST_INTERP)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_MULTI_MODULE)
-  # Disable multiple modules by default
+  # Disable multiple module by default
   set (WAMR_BUILD_MULTI_MODULE 0)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_LIB_PTHREAD)
   # Disable pthread library by default
-  set (WAMR_BUILD_LIB_PTHREAD 0)
+  set (WAMR_BUILD_LIB_PTHREAD 1)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_MINI_LOADER)
@@ -93,24 +98,25 @@ if (NOT DEFINED WAMR_BUILD_SIMD)
   set (WAMR_BUILD_SIMD 1)
 endif ()
 
-if (NOT DEFINED WAMR_BUILD_REF_TYPES)
-  # Disable reference types by default
-  set (WAMR_BUILD_REF_TYPES 0)
+if (NOT DEFINED WAMR_BUILD_DEBUG_INTERP)
+  # Disable Debug feature by default
+  set (WAMR_BUILD_DEBUG_INTERP 0)
 endif ()
 
-if (COLLECT_CODE_COVERAGE EQUAL 1)
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-arcs -ftest-coverage")
-  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage")
+if (WAMR_BUILD_DEBUG_INTERP EQUAL 1)
+  set (WAMR_BUILD_FAST_INTERP 0)
+  set (WAMR_BUILD_MINI_LOADER 0)
+  set (WAMR_BUILD_SIMD 0)
 endif ()
 
-set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../..)
 
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security -Wshadow")
-# set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wconversion -Wsign-conversion")
+set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections -pie -fPIE")
 
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wformat -Wformat-security -Wno-unused")
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security")
+# set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wconversion -Wsign-conversion")
 
 if (WAMR_BUILD_TARGET MATCHES "X86_.*" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
   if (NOT (CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*Clang"))
@@ -126,27 +132,16 @@ endif ()
 #set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fstack-protector-strong --param ssp-buffer-size=4")
 #set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,-z,noexecstack,-z,relro,-z,now")
 
-include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
+add_library (iwasm SHARED ${WAMR_RUNTIME_LIB_SOURCE})
+if (CMAKE_BUILD_TYPE STREQUAL Release)
+target_link_libraries (iwasm ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl -s)
+else()
+target_link_libraries (iwasm ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl)
+endif()
 
-# STATIC LIBRARY
-add_library(iwasm_static STATIC ${WAMR_RUNTIME_LIB_SOURCE})
-set_target_properties (iwasm_static PROPERTIES OUTPUT_NAME vmlib)
+set (distribution_DIR ${CMAKE_BINARY_DIR}/distribution)
+set_target_properties (iwasm PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${distribution_DIR}/wasm/lib")
 
-install (TARGETS iwasm_static ARCHIVE DESTINATION lib)
-
-# SHARED LIBRARY
-add_library (iwasm_shared SHARED ${WAMR_RUNTIME_LIB_SOURCE})
-set_target_properties (iwasm_shared PROPERTIES OUTPUT_NAME iwasm)
-target_link_libraries (iwasm_shared ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl -lpthread)
-
-if (MINGW)
-target_link_libraries (iwasm_shared -lWs2_32)
-endif ()
-
-install (TARGETS iwasm_shared LIBRARY DESTINATION lib)
-
-# HEADERS
-install (FILES
-    ${WAMR_ROOT_DIR}/core/iwasm/include/wasm_c_api.h
-    ${WAMR_ROOT_DIR}/core/iwasm/include/wasm_export.h
-    DESTINATION include)
+add_custom_command (TARGET iwasm POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy_directory "${WAMR_ROOT_DIR}/core/iwasm/include" "${distribution_DIR}/wasm/include/"
+        COMMENT "Copying iwasm to output directory")

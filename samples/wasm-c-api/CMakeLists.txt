@@ -1,7 +1,9 @@
 # Copyright (C) 2019 Intel Corporation. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-cmake_minimum_required (VERSION 2.9)
+cmake_minimum_required (VERSION 3.14)
+
+include(CheckPIESupported)
 
 if (NOT WAMR_BUILD_PLATFORM STREQUAL "windows")
   project(c-api)
@@ -71,7 +73,6 @@ endif()
 
 if (NOT MSVC)
   # compiling and linking flags
-  set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pie -fPIE")
   if (NOT (CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*Clang"))
     set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections")
   endif ()
@@ -125,6 +126,7 @@ set(MM_UTIL src/utils/multi_module_utils.c)
 set(EXAMPLES
   callback
   callback_chain
+  clone
   empty_imports
   global
   hello
@@ -135,10 +137,19 @@ set(EXAMPLES
   trap
 )
 
+if(WAMR_BUILD_JIT AND WAMR_BUILD_LAZY_JIT)
+  if((${WAMR_BUILD_JIT} EQUAL 1) AND (${WAMR_BUILD_LAZY_JIT} EQUAL 1))
+    list(APPEND EXAMPLES serialize)
+  endif()
+endif()
+
+check_pie_supported()
+
 foreach(EX ${EXAMPLES})
   set(SRC ${CMAKE_CURRENT_LIST_DIR}/src/${EX}.c)
 
   add_executable(${EX} ${SRC} ${UNCOMMON_SHARED_SOURCE} ${MM_UTIL})
+  set_target_properties (${EX} PROPERTIES POSITION_INDEPENDENT_CODE ON)
   target_include_directories(${EX} PRIVATE ${UNCOMMON_SHARED_DIR})
   target_link_libraries(${EX} vmlib -lpthread -lm)
   if (MSVC)
