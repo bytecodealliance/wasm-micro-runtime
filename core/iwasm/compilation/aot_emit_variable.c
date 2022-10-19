@@ -114,13 +114,22 @@ compile_global(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 {
     AOTCompData *comp_data = comp_ctx->comp_data;
     uint32 import_global_count = comp_data->import_global_count;
-    uint32 global_base_offset =
-        offsetof(AOTModuleInstance, global_table_data.bytes)
-        + sizeof(AOTMemoryInstance) * comp_ctx->comp_data->memory_count;
+    uint32 global_base_offset;
     uint32 global_offset;
     uint8 global_type;
     LLVMValueRef offset, global_ptr, global, res;
     LLVMTypeRef ptr_type = NULL;
+
+    if (comp_ctx->is_jit_mode) {
+        global_base_offset =
+            offsetof(WASMModuleInstance, global_table_data.bytes)
+            + sizeof(WASMMemoryInstance) * comp_ctx->comp_data->memory_count;
+    }
+    else {
+        global_base_offset =
+            offsetof(AOTModuleInstance, global_table_data.bytes)
+            + sizeof(AOTMemoryInstance) * comp_ctx->comp_data->memory_count;
+    }
 
     bh_assert(global_idx < import_global_count + comp_data->global_count);
 

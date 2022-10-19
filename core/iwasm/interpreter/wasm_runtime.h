@@ -21,6 +21,53 @@ typedef struct WASMMemoryInstance WASMMemoryInstance;
 typedef struct WASMTableInstance WASMTableInstance;
 typedef struct WASMGlobalInstance WASMGlobalInstance;
 
+/**
+ * When LLVM JIT, WAMR compiler or AOT is enabled, we should ensure that
+ * some offsets of the same field in the interpreter module instance and
+ * aot module instance are the same, so that the LLVM JITed/AOTed code
+ * can smoothly access the interpreter module instance.
+ * Same for the memory instance and table instance.
+ * We use the macro DefPointer to define some related pointer fields.
+ */
+#if (WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0 \
+     || WASM_ENABLE_AOT != 0)                               \
+    && UINTPTR_MAX == UINT32_MAX
+/* Add u32 padding if LLVM JIT, WAMR compiler or AOT is enabled on
+   32-bit platform */
+#define DefPointer(type, field) \
+    type field;                 \
+    uint32 field##_padding
+#else
+#define DefPointer(type, field) type field
+#endif
+
+typedef enum WASMExceptionID {
+    EXCE_UNREACHABLE = 0,
+    EXCE_OUT_OF_MEMORY,
+    EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS,
+    EXCE_INTEGER_OVERFLOW,
+    EXCE_INTEGER_DIVIDE_BY_ZERO,
+    EXCE_INVALID_CONVERSION_TO_INTEGER,
+    EXCE_INVALID_FUNCTION_TYPE_INDEX,
+    EXCE_INVALID_FUNCTION_INDEX,
+    EXCE_UNDEFINED_ELEMENT,
+    EXCE_UNINITIALIZED_ELEMENT,
+    EXCE_CALL_UNLINKED_IMPORT_FUNC,
+    EXCE_NATIVE_STACK_OVERFLOW,
+    EXCE_UNALIGNED_ATOMIC,
+    EXCE_AUX_STACK_OVERFLOW,
+    EXCE_AUX_STACK_UNDERFLOW,
+    EXCE_OUT_OF_BOUNDS_TABLE_ACCESS,
+    EXCE_OPERAND_STACK_OVERFLOW,
+    EXCE_ALREADY_THROWN,
+    EXCE_NUM,
+} WASMExceptionID;
+
+typedef union {
+    uint64 u64;
+    uint32 u32[2];
+} MemBound;
+
 struct WASMMemoryInstance {
     /* Module type */
     uint32 module_type;
@@ -35,59 +82,40 @@ struct WASMMemoryInstance {
     uint32 max_page_count;
     /* Memory data size */
     uint32 memory_data_size;
-
     /**
      * Memory data begin address, Note:
      *   the app-heap might be inserted in to the linear memory,
      *   when memory is re-allocated, the heap data and memory data
      *   must be copied to new memory also
      */
-    uint8 *memory_data;
+    DefPointer(uint8 *, memory_data);
     /* Memory data end address */
-    uint8 *memory_data_end;
+    DefPointer(uint8 *, memory_data_end);
 
     /* Heap data base address */
-    uint8 *heap_data;
+    DefPointer(uint8 *, heap_data);
     /* Heap data end address */
-    uint8 *heap_data_end;
+    DefPointer(uint8 *, heap_data_end);
     /* The heap created */
-    void *heap_handle;
+    DefPointer(void *, heap_handle);
 
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    /* mutex lock for the memory, used in atomic operation */
-    korp_mutex mem_lock;
-#endif
-
-#if WASM_ENABLE_FAST_JIT != 0
-#if UINTPTR_MAX == UINT64_MAX
-    uint64 mem_bound_check_1byte;
-    uint64 mem_bound_check_2bytes;
-    uint64 mem_bound_check_4bytes;
-    uint64 mem_bound_check_8bytes;
-    uint64 mem_bound_check_16bytes;
-#else
-    uint32 mem_bound_check_1byte;
-    uint32 mem_bound_check_2bytes;
-    uint32 mem_bound_check_4bytes;
-    uint32 mem_bound_check_8bytes;
-    uint32 mem_bound_check_16bytes;
-#endif
+#if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0 \
+    || WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_AOT != 0
+    MemBound mem_bound_check_1byte;
+    MemBound mem_bound_check_2bytes;
+    MemBound mem_bound_check_4bytes;
+    MemBound mem_bound_check_8bytes;
+    MemBound mem_bound_check_16bytes;
 #endif
 };
 
 struct WASMTableInstance {
-    /* The element type, VALUE_TYPE_FUNCREF/EXTERNREF currently */
-    uint8 elem_type;
     /* Current size */
     uint32 cur_size;
     /* Maximum size */
     uint32 max_size;
-#if WASM_ENABLE_MULTI_MODULE != 0
-    /* just for import, keep the reference here */
-    WASMTableInstance *table_inst_linked;
-#endif
-    /* Base address */
-    uint8 base_addr[1];
+    /* Table elements */
+    uint32 elems[1];
 };
 
 struct WASMGlobalInstance {
@@ -149,7 +177,6 @@ typedef struct WASMExportFuncInstance {
     WASMFunctionInstance *function;
 } WASMExportFuncInstance;
 
-#if WASM_ENABLE_MULTI_MODULE != 0
 typedef struct WASMExportGlobInstance {
     char *name;
     WASMGlobalInstance *global;
@@ -164,7 +191,39 @@ typedef struct WASMExportMemInstance {
     char *name;
     WASMMemoryInstance *memory;
 } WASMExportMemInstance;
+
+/* Extra info of WASM module instance for interpreter/jit mode */
+typedef struct WASMModuleInstanceExtra {
+    WASMGlobalInstance *globals;
+    WASMFunctionInstance *functions;
+
+    uint32 global_count;
+    uint32 function_count;
+
+    WASMFunctionInstance *start_function;
+    WASMFunctionInstance *malloc_function;
+    WASMFunctionInstance *free_function;
+    WASMFunctionInstance *retain_function;
+
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    /* lock for shared memory atomic operations */
+    korp_mutex mem_lock;
+    bool mem_lock_inited;
 #endif
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+    bh_list sub_module_inst_list_head;
+    bh_list *sub_module_inst_list;
+    /* linked table instances of import table instances */
+    WASMTableInstance **table_insts_linked;
+#endif
+
+#if WASM_ENABLE_MEMORY_PROFILING != 0
+    uint32 max_aux_stack_used;
+#endif
+} WASMModuleInstanceExtra;
+
+struct AOTFuncPerfProfInfo;
 
 struct WASMModuleInstance {
     /* Module instance type, for module instance loaded from
@@ -175,78 +234,82 @@ struct WASMModuleInstance {
     uint32 module_type;
 
     uint32 memory_count;
+    DefPointer(WASMMemoryInstance **, memories);
+
+    /* global and table info */
+    uint32 global_data_size;
     uint32 table_count;
-    uint32 global_count;
-    uint32 function_count;
+    DefPointer(uint8 *, global_data);
+    /* For AOTModuleInstance, it denotes `AOTTableInstance *` */
+    DefPointer(WASMTableInstance **, tables);
+
+    /* import func ptrs + llvm jit func ptrs */
+    DefPointer(void **, func_ptrs);
+
+    /* function type indexes */
+    DefPointer(uint32 *, func_type_indexes);
 
     uint32 export_func_count;
-#if WASM_ENABLE_MULTI_MODULE != 0
-    uint32 export_glob_count;
-    uint32 export_mem_count;
-    uint32 export_tab_count;
-#endif
-
-    /* Array of function pointers to import functions */
-    void **import_func_ptrs;
-#if WASM_ENABLE_FAST_JIT != 0
-    /* point to JITed functions */
-    void **fast_jit_func_ptrs;
-    uint32 *func_type_indexes;
-#endif
-
-    WASMMemoryInstance **memories;
-    WASMTableInstance **tables;
-    WASMGlobalInstance *globals;
-    WASMFunctionInstance *functions;
-
-    WASMExportFuncInstance *export_functions;
-#if WASM_ENABLE_MULTI_MODULE != 0
-    WASMExportGlobInstance *export_globals;
-    WASMExportMemInstance *export_memories;
-    WASMExportTabInstance *export_tables;
-#endif
-
-    WASMMemoryInstance *default_memory;
-    WASMTableInstance *default_table;
-    /* Global data of global instances */
-    uint8 *global_data;
-
-    WASMFunctionInstance *start_function;
-    WASMFunctionInstance *malloc_function;
-    WASMFunctionInstance *free_function;
-    WASMFunctionInstance *retain_function;
-
-    WASMModule *module;
-
-#if WASM_ENABLE_LIBC_WASI != 0
-    WASIContext *wasi_ctx;
-#endif
-
-    WASMExecEnv *exec_env_singleton;
-
-    /* Default WASM stack size of threads of this Module instance. */
-    uint32 default_wasm_stack_size;
+    uint32 export_global_count;
+    uint32 export_memory_count;
+    uint32 export_table_count;
+    /* For AOTModuleInstance, it denotes `AOTFunctionInstance *` */
+    DefPointer(WASMExportFuncInstance *, export_functions);
+    DefPointer(WASMExportGlobInstance *, export_globals);
+    DefPointer(WASMExportMemInstance *, export_memories);
+    DefPointer(WASMExportTabInstance *, export_tables);
 
     /* The exception buffer of wasm interpreter for current thread. */
     char cur_exception[128];
 
-#if WASM_ENABLE_DUMP_CALL_STACK != 0
-    Vector *frames;
-#endif
+    /* The WASM module or AOT module, for AOTModuleInstance,
+       it denotes `AOTModule *` */
+    DefPointer(WASMModule *, module);
 
-    /* The custom data that can be set/get by
-     * wasm_set_custom_data/wasm_get_custom_data */
-    void *custom_data;
-
-#if WASM_ENABLE_MULTI_MODULE != 0
-    /* TODO: add mutex for mutli-threads? */
-    bh_list sub_module_inst_list_head;
-    bh_list *sub_module_inst_list;
+#if WASM_ENABLE_LIBC_WASI
+    /* WASI context */
+    DefPointer(WASIContext *, wasi_ctx);
+#else
+    DefPointer(void *, wasi_ctx);
 #endif
+    DefPointer(WASMExecEnv *, exec_env_singleton);
+    /* Array of function pointers to import functions,
+       not available in AOTModuleInstance */
+    DefPointer(void **, import_func_ptrs);
+    /* Array of function pointers to fast jit functions,
+       not available in AOTModuleInstance */
+    DefPointer(void **, fast_jit_func_ptrs);
+    /* The custom data that can be set/get by wasm_{get|set}_custom_data */
+    DefPointer(void *, custom_data);
+    /* Stack frames, used in call stack dump and perf profiling */
+    DefPointer(Vector *, frames);
+    /* Function performance profiling info list, only available
+       in AOTModuleInstance */
+    DefPointer(struct AOTFuncPerfProfInfo *, func_perf_profilings);
+    /* WASM/AOT module extra info, for AOTModuleInstance,
+       it denotes `AOTModuleInstanceExtra *` */
+    DefPointer(WASMModuleInstanceExtra *, e);
 
-#if WASM_ENABLE_MEMORY_PROFILING != 0
-    uint32 max_aux_stack_used;
-#endif
+    /* Default WASM operand stack size */
+    uint32 default_wasm_stack_size;
+    uint32 reserved[3];
+
+    /*
+     * +------------------------------+ <-- memories
+     * | WASMMemoryInstance[mem_count], mem_count is always 1 for LLVM JIT/AOT
+     * +------------------------------+ <-- global_data
+     * | global data
+     * +------------------------------+ <-- tables
+     * | WASMTableInstance[table_count]
+     * +------------------------------+ <-- e
+     * | WASMModuleInstanceExtra
+     * +------------------------------+
+     */
+    union {
+        uint64 _make_it_8_byte_aligned_;
+        WASMMemoryInstance memory_instances[1];
+        uint8 bytes[1];
+    } global_table_data;
 };
 
 struct WASMInterpFrame;
@@ -342,11 +405,11 @@ wasm_create_exec_env_and_call_function(WASMModuleInstance *module_inst,
                                        WASMFunctionInstance *function,
                                        unsigned argc, uint32 argv[]);
 
-bool
-wasm_create_exec_env_singleton(WASMModuleInstance *module_inst);
-
 void
 wasm_set_exception(WASMModuleInstance *module, const char *exception);
+
+void
+wasm_set_exception_with_id(WASMModuleInstance *module_inst, uint32 id);
 
 const char *
 wasm_get_exception(WASMModuleInstance *module);
@@ -366,44 +429,24 @@ uint32
 wasm_module_dup_data(WASMModuleInstance *module_inst, const char *src,
                      uint32 size);
 
+/**
+ * Check whether the app address and the buf is inside the linear memory,
+ * and convert the app address into native address
+ */
 bool
-wasm_validate_app_addr(WASMModuleInstance *module_inst, uint32 app_offset,
-                       uint32 size);
+wasm_check_app_addr_and_convert(WASMModuleInstance *module_inst, bool is_str,
+                                uint32 app_buf_addr, uint32 app_buf_size,
+                                void **p_native_addr);
 
-bool
-wasm_validate_app_str_addr(WASMModuleInstance *module_inst, uint32 app_offset);
-
-bool
-wasm_validate_native_addr(WASMModuleInstance *module_inst, void *native_ptr,
-                          uint32 size);
-
-void *
-wasm_addr_app_to_native(WASMModuleInstance *module_inst, uint32 app_offset);
-
-uint32
-wasm_addr_native_to_app(WASMModuleInstance *module_inst, void *native_ptr);
+WASMMemoryInstance *
+wasm_get_default_memory(WASMModuleInstance *module_inst);
 
 bool
-wasm_get_app_addr_range(WASMModuleInstance *module_inst, uint32 app_offset,
-                        uint32 *p_app_start_offset, uint32 *p_app_end_offset);
-
-bool
-wasm_get_native_addr_range(WASMModuleInstance *module_inst, uint8 *native_ptr,
-                           uint8 **p_native_start_addr,
-                           uint8 **p_native_end_addr);
-
-bool
-wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count);
+wasm_enlarge_memory(WASMModuleInstance *module_inst, uint32 inc_page_count);
 
 bool
 wasm_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 elem_idx,
                    uint32 argc, uint32 argv[]);
-
-#if WASM_ENABLE_FAST_JIT != 0
-bool
-jit_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 elem_idx,
-                  uint32 type_idx, uint32 argc, uint32 argv[]);
-#endif
 
 #if WASM_ENABLE_THREAD_MGR != 0
 bool
@@ -411,16 +454,6 @@ wasm_set_aux_stack(WASMExecEnv *exec_env, uint32 start_offset, uint32 size);
 
 bool
 wasm_get_aux_stack(WASMExecEnv *exec_env, uint32 *start_offset, uint32 *size);
-#endif
-
-#ifdef OS_ENABLE_HW_BOUND_CHECK
-#ifndef BH_PLATFORM_WINDOWS
-void
-wasm_signal_handler(WASMSignalInfo *sig_info);
-#else
-LONG
-wasm_exception_handler(WASMSignalInfo *sig_info);
-#endif
 #endif
 
 void
@@ -456,13 +489,14 @@ wasm_enlarge_table(WASMModuleInstance *module_inst, uint32 table_idx,
 #endif /* WASM_ENABLE_REF_TYPES != 0 */
 
 static inline WASMTableInstance *
-wasm_get_table_inst(const WASMModuleInstance *module_inst, const uint32 tbl_idx)
+wasm_get_table_inst(const WASMModuleInstance *module_inst, uint32 tbl_idx)
 {
     /* careful, it might be a table in another module */
     WASMTableInstance *tbl_inst = module_inst->tables[tbl_idx];
 #if WASM_ENABLE_MULTI_MODULE != 0
-    if (tbl_inst->table_inst_linked) {
-        tbl_inst = tbl_inst->table_inst_linked;
+    if (tbl_idx < module_inst->module->import_table_count
+        && module_inst->e->table_insts_linked[tbl_idx]) {
+        tbl_inst = module_inst->e->table_insts_linked[tbl_idx];
     }
 #endif
     bh_assert(tbl_inst);
@@ -494,6 +528,82 @@ wasm_interp_dump_call_stack(struct WASMExecEnv *exec_env, bool print, char *buf,
 const uint8 *
 wasm_loader_get_custom_section(WASMModule *module, const char *name,
                                uint32 *len);
+
+#if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0 \
+    || WASM_ENABLE_WAMR_COMPILER != 0
+void
+jit_set_exception_with_id(WASMModuleInstance *module_inst, uint32 id);
+
+/**
+ * Check whether the app address and the buf is inside the linear memory,
+ * and convert the app address into native address
+ */
+bool
+jit_check_app_addr_and_convert(WASMModuleInstance *module_inst, bool is_str,
+                               uint32 app_buf_addr, uint32 app_buf_size,
+                               void **p_native_addr);
+#endif /* end of WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0 \
+          || WASM_ENABLE_WAMR_COMPILER != 0 */
+
+#if WASM_ENABLE_FAST_JIT != 0
+bool
+fast_jit_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 elem_idx,
+                       uint32 type_idx, uint32 argc, uint32 *argv);
+
+bool
+fast_jit_invoke_native(WASMExecEnv *exec_env, uint32 func_idx,
+                       struct WASMInterpFrame *prev_frame);
+#endif
+
+#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
+bool
+llvm_jit_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 elem_idx,
+                       uint32 argc, uint32 *argv);
+
+bool
+llvm_jit_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
+                       uint32 *argv);
+
+#if WASM_ENABLE_BULK_MEMORY != 0
+bool
+llvm_jit_memory_init(WASMModuleInstance *module_inst, uint32 seg_index,
+                     uint32 offset, uint32 len, uint32 dst);
+
+bool
+llvm_jit_data_drop(WASMModuleInstance *module_inst, uint32 seg_index);
+#endif
+
+#if WASM_ENABLE_REF_TYPES != 0
+void
+llvm_jit_drop_table_seg(WASMModuleInstance *module_inst, uint32 tbl_seg_idx);
+
+void
+llvm_jit_table_init(WASMModuleInstance *module_inst, uint32 tbl_idx,
+                    uint32 tbl_seg_idx, uint32 length, uint32 src_offset,
+                    uint32 dst_offset);
+
+void
+llvm_jit_table_copy(WASMModuleInstance *module_inst, uint32 src_tbl_idx,
+                    uint32 dst_tbl_idx, uint32 length, uint32 src_offset,
+                    uint32 dst_offset);
+
+void
+llvm_jit_table_fill(WASMModuleInstance *module_inst, uint32 tbl_idx,
+                    uint32 length, uint32 val, uint32 data_offset);
+
+uint32
+llvm_jit_table_grow(WASMModuleInstance *module_inst, uint32 tbl_idx,
+                    uint32 inc_entries, uint32 init_val);
+#endif
+
+#if WASM_ENABLE_DUMP_CALL_STACK != 0 || WASM_ENABLE_PERF_PROFILING != 0
+bool
+llvm_jit_alloc_frame(WASMExecEnv *exec_env, uint32 func_index);
+
+void
+llvm_jit_free_frame(WASMExecEnv *exec_env);
+#endif
+#endif /* end of WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0 */
 
 #ifdef __cplusplus
 }

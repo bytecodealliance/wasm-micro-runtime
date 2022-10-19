@@ -137,7 +137,7 @@ function not_expire(trans: wamr_transaction, index: i32, array: Array<wamr_trans
     var elapsed_ms = (now < trans.time) ?
         (now + (0xFFFFFFFF - trans.time) + 1) : (now - trans.time);
 
-    return elapsed_ms >= TRANSACTION_TIMEOUT_MS;
+    return elapsed_ms < TRANSACTION_TIMEOUT_MS;
 }
 
 function transaction_timeout_handler(): void {
@@ -385,7 +385,7 @@ export function put(url: string, payload: ArrayBuffer, payload_len: number, tag:
 
 export function del(url: string, tag: string,
                     cb: (resp: wamr_response) => void): void {
-    var req = new wamr_request(g_mid++, url, COAP_PUT, 0, new ArrayBuffer(0), 0);
+    var req = new wamr_request(g_mid++, url, COAP_DELETE, 0, new ArrayBuffer(0), 0);
 
     do_request(req, cb);
 }

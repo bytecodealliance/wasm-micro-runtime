@@ -12,7 +12,6 @@ gc_init_internal(gc_heap_t *heap, char *base_addr, gc_size_t heap_max_size)
     int ret;
 
     memset(heap, 0, sizeof *heap);
-    memset(base_addr, 0, heap_max_size);
 
     ret = os_mutex_init(&heap->lock);
     if (ret != BHT_OK) {
@@ -140,7 +139,6 @@ gc_destroy_with_pool(gc_handle_t handle)
 #endif
 
     os_mutex_destroy(&heap->lock);
-    memset(heap->base_addr, 0, heap->current_size);
     memset(heap, 0, sizeof(gc_heap_t));
     return ret;
 }

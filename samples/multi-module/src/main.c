@@ -66,6 +66,7 @@ main()
     uint8 *file_buf = NULL;
     uint32 file_buf_size = 0;
     wasm_module_t module = NULL;
+    wasm_module_t module1;
     wasm_module_inst_t module_inst = NULL;
 
     /* all malloc() only from the given buffer */
@@ -121,6 +122,33 @@ main()
     printf(
         "call \"C5\", it will be failed since it is a export function, ===> ");
     wasm_application_execute_func(module_inst, "C5", 0, args);
+
+    /* examine module registration a bit */
+    module1 = wasm_runtime_find_module_registered("mC");
+    if (module1 != NULL) {
+        printf("unexpected module mC %p != NULL\n", module1);
+        goto UNLOAD_MODULE;
+    }
+    module1 = wasm_runtime_find_module_registered("mA");
+    if (module1 == NULL) {
+        printf("unexpected module mA\n");
+        goto UNLOAD_MODULE;
+    }
+    module1 = wasm_runtime_find_module_registered("mB");
+    if (module1 == NULL) {
+        printf("unexpected module mB\n");
+        goto UNLOAD_MODULE;
+    }
+    if (!wasm_runtime_register_module("mC", module, error_buf,
+                                      sizeof(error_buf))) {
+        printf("%s\n", error_buf);
+        goto UNLOAD_MODULE;
+    }
+    module1 = wasm_runtime_find_module_registered("mC");
+    if (module1 != module) {
+        printf("unexpected module mC %p != %p\n", module1, module);
+        goto UNLOAD_MODULE;
+    }
 
     ret = true;
 

@@ -9,10 +9,6 @@
 #include "../jit_codegen.h"
 #include "../../interpreter/wasm_runtime.h"
 
-extern bool
-jit_invoke_native(WASMExecEnv *exec_env, uint32 func_idx,
-                  WASMInterpFrame *prev_frame);
-
 /* Prepare parameters for the function to call */
 static bool
 pre_call(JitCompContext *cc, const WASMType *func_type)
@@ -187,8 +183,8 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
         arg_regs[1] = NEW_CONST(I32, func_idx);
         arg_regs[2] = cc->fp_reg;
 
-        if (!jit_emit_callnative(cc, jit_invoke_native, native_ret, arg_regs,
-                                 3)) {
+        if (!jit_emit_callnative(cc, fast_jit_invoke_native, native_ret,
+                                 arg_regs, 3)) {
             return false;
         }
         /* Convert bool to uint32 */
@@ -196,7 +192,7 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
 
         /* Check whether there is exception thrown */
         GEN_INSN(CMP, cc->cmp_reg, native_ret, NEW_CONST(I32, 0));
-        if (!jit_emit_exception(cc, JIT_EXCE_ALREADY_THROWN, JIT_OP_BEQ,
+        if (!jit_emit_exception(cc, EXCE_ALREADY_THROWN, JIT_OP_BEQ,
                                 cc->cmp_reg, NULL)) {
             return false;
         }
@@ -355,7 +351,8 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
     arg_regs[4] = NEW_CONST(I32, func_type->param_cell_num);
     arg_regs[5] = argv;
 
-    if (!jit_emit_callnative(cc, jit_call_indirect, native_ret, arg_regs, 6)) {
+    if (!jit_emit_callnative(cc, fast_jit_call_indirect, native_ret, arg_regs,
+                             6)) {
         return false;
     }
     /* Convert bool to uint32 */
@@ -363,8 +360,8 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
 
     /* Check whether there is exception thrown */
     GEN_INSN(CMP, cc->cmp_reg, native_ret, NEW_CONST(I32, 0));
-    if (!jit_emit_exception(cc, JIT_EXCE_ALREADY_THROWN, JIT_OP_BEQ,
-                            cc->cmp_reg, NULL)) {
+    if (!jit_emit_exception(cc, EXCE_ALREADY_THROWN, JIT_OP_BEQ, cc->cmp_reg,
+                            NULL)) {
         return false;
     }
 

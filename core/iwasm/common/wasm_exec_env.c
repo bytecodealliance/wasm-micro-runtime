@@ -65,7 +65,7 @@ wasm_exec_env_create_internal(struct WASMModuleInstanceCommon *module_inst,
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT) {
         AOTModuleInstance *i = (AOTModuleInstance *)module_inst;
-        AOTModule *m = (AOTModule *)i->aot_module.ptr;
+        AOTModule *m = (AOTModule *)i->module;
         exec_env->native_symbol = m->native_symbol_list;
     }
 #endif
@@ -135,7 +135,7 @@ wasm_exec_env_create(struct WASMModuleInstanceCommon *module_inst,
     /* Set the aux_stack_boundary and aux_stack_bottom */
     if (module_inst->module_type == Wasm_Module_AoT) {
         AOTModule *module =
-            (AOTModule *)(((AOTModuleInstance *)module_inst)->aot_module.ptr);
+            (AOTModule *)((AOTModuleInstance *)module_inst)->module;
         exec_env->aux_stack_bottom.bottom = module->aux_stack_bottom;
         exec_env->aux_stack_boundary.boundary =
             module->aux_stack_bottom - module->aux_stack_size;
