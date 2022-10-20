@@ -40,7 +40,7 @@ typedef void (*bh_queue_handle_msg_callback)(void *message, void *arg);
 typedef void (*bh_msg_cleaner)(void *msg);
 
 bh_queue *
-bh_queue_create();
+bh_queue_create(void);
 
 void
 bh_queue_destroy(bh_queue *queue);
