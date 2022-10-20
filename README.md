@@ -1,10 +1,13 @@
 WebAssembly Micro Runtime
 =========================
-[Build WAMR](./doc/build_wamr.md) | [Build AOT Compiler](./README.md#build-wamrc-aot-compiler) | [Embed WAMR](./doc/embed_wamr.md) | [Export Native API](./doc/export_native_api.md) | [Build WASM Apps](./doc/build_wasm_app.md) | [Samples](./README.md#samples)
 
 **A [Bytecode Alliance][BA] project**
 
+**[Website](https://bytecodealliance.github.io/wamr.dev)**&emsp;&emsp;**[Chat](https://bytecodealliance.zulipchat.com/#narrow/stream/290350-wamr)**
+
 [BA]: https://bytecodealliance.org/
+
+[Build WAMR](./doc/build_wamr.md) | [Build AOT Compiler](./README.md#build-wamrc-aot-compiler) | [Embed WAMR](./doc/embed_wamr.md) | [Export Native API](./doc/export_native_api.md) | [Build WASM Apps](./doc/build_wasm_app.md) | [Samples](./README.md#samples)
 
 WebAssembly Micro Runtime (WAMR) is a lightweight standalone WebAssembly (WASM) runtime with small footprint, high performance and highly configurable features for applications cross from embedded, IoT, edge to Trusted Execution Environment (TEE), smart contract, cloud native and so on. It includes a few parts as below:
 - The [**"iwasm" VM core**](./README.md#iwasm-vm-core) to run WASM applications, supporting interpreter mode, AOT mode (Ahead-of-Time compilation) and JIT modes (Just-in-Time compilation, LLVM JIT and Fast JIT are supported)
