@@ -299,7 +299,7 @@ get_table_inst_offset(const WASMModule *module, uint32 tbl_idx)
 {
     uint32 module_inst_struct_size =
         (uint32)offsetof(WASMModuleInstance, global_table_data.bytes);
-    uint32 module_inst_mem_inst_size =
+    uint32 mem_inst_size =
         (uint32)sizeof(WASMMemoryInstance)
         * (module->import_memory_count + module->memory_count);
     uint32 offset, i = 0;
@@ -307,14 +307,13 @@ get_table_inst_offset(const WASMModule *module, uint32 tbl_idx)
 #if WASM_ENABLE_JIT != 0
     /* If the module dosen't have memory, reserve one mem_info space
        with empty content to align with llvm jit compiler */
-    if (module_inst_mem_inst_size == 0)
-        module_inst_mem_inst_size = (uint32)sizeof(WASMMemoryInstance);
+    if (mem_inst_size == 0)
+        mem_inst_size = (uint32)sizeof(WASMMemoryInstance);
 #endif
 
     /* Offset of the first table: size of module inst, memory instances
        and global data */
-    offset = module_inst_struct_size + module_inst_mem_inst_size
-             + module->global_data_size;
+    offset = module_inst_struct_size + mem_inst_size + module->global_data_size;
 
     while (i < tbl_idx && i < module->import_table_count) {
         WASMTableImport *import_table = &module->import_tables[i].u.table;

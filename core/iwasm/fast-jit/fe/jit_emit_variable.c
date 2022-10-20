@@ -182,7 +182,7 @@ get_global_data_offset(const WASMModule *module, uint32 global_idx)
 {
     uint32 module_inst_struct_size =
         (uint32)offsetof(WASMModuleInstance, global_table_data.bytes);
-    uint32 module_inst_mem_inst_size =
+    uint32 mem_inst_size =
         (uint32)sizeof(WASMMemoryInstance)
         * (module->import_memory_count + module->memory_count);
     uint32 global_base_offset;
@@ -190,12 +190,12 @@ get_global_data_offset(const WASMModule *module, uint32 global_idx)
 #if WASM_ENABLE_JIT != 0
     /* If the module dosen't have memory, reserve one mem_info space
        with empty content to align with llvm jit compiler */
-    if (module_inst_mem_inst_size == 0)
-        module_inst_mem_inst_size = (uint32)sizeof(WASMMemoryInstance);
+    if (mem_inst_size == 0)
+        mem_inst_size = (uint32)sizeof(WASMMemoryInstance);
 #endif
 
     /* Size of module inst and memory instances */
-    global_base_offset = module_inst_struct_size + module_inst_mem_inst_size;
+    global_base_offset = module_inst_struct_size + mem_inst_size;
 
     if (global_idx < module->import_global_count) {
         const WASMGlobalImport *import_global =
