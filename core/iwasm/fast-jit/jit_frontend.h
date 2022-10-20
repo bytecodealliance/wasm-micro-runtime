@@ -175,19 +175,10 @@ JitReg
 get_func_type_indexes_reg(JitFrame *frame);
 
 JitReg
-get_global_data_reg(JitFrame *frame);
-
-JitReg
 get_aux_stack_bound_reg(JitFrame *frame);
 
 JitReg
 get_aux_stack_bottom_reg(JitFrame *frame);
-
-JitReg
-get_memories_reg(JitFrame *frame);
-
-JitReg
-get_memory_inst_reg(JitFrame *frame, uint32 mem_idx);
 
 JitReg
 get_memory_data_reg(JitFrame *frame, uint32 mem_idx);
@@ -211,13 +202,7 @@ JitReg
 get_mem_bound_check_16bytes_reg(JitFrame *frame, uint32 mem_idx);
 
 JitReg
-get_tables_reg(JitFrame *frame);
-
-JitReg
-get_table_inst_reg(JitFrame *frame, uint32 table_idx);
-
-JitReg
-get_table_data_reg(JitFrame *frame, uint32 table_idx);
+get_table_elems_reg(JitFrame *frame, uint32 table_idx);
 
 JitReg
 get_table_cur_size_reg(JitFrame *frame, uint32 table_idx);
