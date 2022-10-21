@@ -2714,8 +2714,8 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
         aot_apply_llvm_new_pass_manager(comp_ctx, comp_ctx->module);
 
         /* Run specific passes for AOT indirect mode in last since general
-           optimization may create some intrinsic function call like llvm.memset,
-           so let's remove these function call here.*/
+           optimization may create some intrinsic function call like
+           llvm.memset, so let's remove these function call here.*/
         if (!comp_ctx->is_jit_mode && comp_ctx->is_indirect_mode) {
             bh_print_time("Begin to run optimization passes "
                           "for indirect mode");
