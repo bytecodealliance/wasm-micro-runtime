@@ -486,7 +486,7 @@ function build_iwasm_with_cfg()
         cd ${WAMR_DIR}/product-mini/platforms/linux-sgx \
         && if [ -d build ]; then rm -rf build/*; else mkdir build; fi \
         && cd build \
-        && cmake $* .. \
+        && cmake $* .. -DWAMR_BUILD_GLOBAL_HEAP_POOL=1 \
         && make -j 4
         cd ${WAMR_DIR}/product-mini/platforms/linux-sgx/enclave-sample \
         && make clean \

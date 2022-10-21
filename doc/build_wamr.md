@@ -114,6 +114,12 @@ Currently we only profile the memory consumption of module, module_instance and 
 
 > The function name searching sequence is the same with dump call stack feature.
 
+#### **Enable the global heap**
+- **WAMR_BUILD_GLOBAL_HEAP_POOL**=1/0, default to disable if not set for all *iwasm* applications, except for the platforms Alios and Zephyr.
+
+> **WAMR_BUILD_GLOBAL_HEAP_POOL** is used in the *iwasm* applications provided in the directory `product-mini`. When writing your own host application using WAMR, you must set the initialization argument `mem_alloc_type` to allocate and use a global heap.
+> The global heap is defined in the documentation [Memory model and memory usage tunning](memory_tune.md).
+
 #### **Set the global heap size**
 - **WAMR_BUILD_GLOBAL_HEAP_SIZE**=n, default to 10 MB (10485760) if not set for all *iwasm* applications, except for the platforms Alios (256 kB), Riot (256 kB) and Zephyr (128 kB).
 

@@ -103,7 +103,9 @@ app_instance_main(wasm_module_inst_t module_inst)
     return NULL;
 }
 
+#if WASM_ENABLE_GLOBAL_HEAP_POOL == 1
 static char global_heap_buf[CONFIG_GLOBAL_HEAP_BUF_SIZE] = { 0 };
+#endif
 
 #ifdef CONFIG_BOARD_ESP32
 #include "mem_alloc.h"
@@ -176,9 +178,13 @@ iwasm_main(void *arg1, void *arg2, void *arg3)
 
     memset(&init_args, 0, sizeof(RuntimeInitArgs));
 
+#if WASM_ENABLE_GLOBAL_HEAP_POOL == 1
     init_args.mem_alloc_type = Alloc_With_Pool;
     init_args.mem_alloc_option.pool.heap_buf = global_heap_buf;
     init_args.mem_alloc_option.pool.heap_size = sizeof(global_heap_buf);
+#else
+#error Another memory allocation scheme than global heap pool is not implemented yet for Zephyr.
+#endif
 
     /* initialize runtime environment */
     if (!wasm_runtime_full_init(&init_args)) {

@@ -370,15 +370,14 @@ set_log_verbose_level(int log_verbose_level)
 }
 
 static bool
-init_runtime(bool alloc_with_pool, uint32_t max_thread_num)
+init_runtime(uint32_t max_thread_num)
 {
-    uint64_t ecall_args[2];
+    uint64_t ecall_args[1];
 
-    ecall_args[0] = alloc_with_pool;
-    ecall_args[1] = max_thread_num;
+    ecall_args[0] = max_thread_num;
     if (SGX_SUCCESS
         != ecall_handle_command(g_eid, CMD_INIT_RUNTIME, (uint8_t *)ecall_args,
-                                sizeof(uint64_t) * 2)) {
+                                sizeof(ecall_args))) {
         printf("Call ecall_handle_command() failed.\n");
         return false;
     }
@@ -612,7 +611,7 @@ main(int argc, char *argv[])
     void *wasm_module_inst = NULL;
     char error_buf[128] = { 0 };
     int log_verbose_level = 2;
-    bool is_repl_mode = false, alloc_with_pool = false;
+    bool is_repl_mode = false;
     const char *dir_list[8] = { NULL };
     uint32_t dir_list_size = 0;
     const char *env_list[8] = { NULL };
@@ -628,7 +627,7 @@ main(int argc, char *argv[])
 
 #if TEST_OCALL_API != 0
     {
-        if (!init_runtime(alloc_with_pool, max_thread_num)) {
+        if (!init_runtime(max_thread_num)) {
             return -1;
         }
         ecall_iwasm_test(g_eid);
@@ -735,7 +734,7 @@ main(int argc, char *argv[])
     wasm_file = argv[0];
 
     /* Init runtime */
-    if (!init_runtime(alloc_with_pool, max_thread_num)) {
+    if (!init_runtime(max_thread_num)) {
         return -1;
     }
 
@@ -828,7 +827,7 @@ wamr_pal_create_process(struct wamr_pal_create_process_args *args)
 {
     uint32_t stack_size = 16 * 1024, heap_size = 16 * 1024;
     int log_verbose_level = 2;
-    bool is_repl_mode = false, alloc_with_pool = false;
+    bool is_repl_mode = false;
     const char *dir_list[8] = { NULL };
     uint32_t dir_list_size = 0;
     const char *env_list[8] = { NULL };
@@ -871,7 +870,7 @@ wamr_pal_create_process(struct wamr_pal_create_process_args *args)
     }
 
     /* Init runtime */
-    if (!init_runtime(alloc_with_pool, max_thread_num)) {
+    if (!init_runtime(max_thread_num)) {
         printf("Failed to init runtime\n");
         return -1;
     }

@@ -116,6 +116,13 @@ execute_process(
     OUTPUT_VARIABLE cmdOutput
 )
 
+if (DEFINED WAMR_BUILD_GLOBAL_HEAP_POOL)
+  execute_process(
+      COMMAND bash -c "sed -i -E 's/^WAMR_BUILD_GLOBAL_HEAP_POOL = .*/WAMR_BUILD_GLOBAL_HEAP_POOL = ${WAMR_BUILD_GLOBAL_HEAP_POOL}/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Makefile"
+      OUTPUT_VARIABLE cmdOutput
+  )
+endif()
+
 if (WAMR_BUILD_LIB_RATS EQUAL 1)
     execute_process(
         COMMAND bash -c "sed -i -E 's/^#define LIB_RATS 0 /#define LIB_RATS 1/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Enclave/Enclave.edl"
