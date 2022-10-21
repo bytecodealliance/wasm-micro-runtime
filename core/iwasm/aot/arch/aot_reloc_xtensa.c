@@ -263,10 +263,23 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
             imm16 = (int16)(relative_offset >> 2);
 
             /* write back the imm16 to the l32r instruction */
+
+            /* GCC >= 9 complains if we have a pointer that could be
+             * unaligned. This can happen because the struct is packed.
+             * These pragma are to suppress the warnings because the
+             * function put_imm16_to_addr already handles unaligned
+             * pointers correctly. */
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Waddress-of-packed-member"
+#endif
             if (is_little_endian())
                 put_imm16_to_addr(imm16, &l32r_insn->l.imm16);
             else
                 put_imm16_to_addr(imm16, &l32r_insn->b.imm16);
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif
 
             break;
         }

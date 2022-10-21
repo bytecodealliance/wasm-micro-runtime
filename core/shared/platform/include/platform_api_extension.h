@@ -99,19 +99,19 @@ os_thread_exit(void *retval);
  * @return 0 if success, -1 otherwise
  */
 int
-os_thread_env_init();
+os_thread_env_init(void);
 
 /**
  * Destroy current thread environment
  */
 void
-os_thread_env_destroy();
+os_thread_env_destroy(void);
 
 /**
  * Whether the thread environment is initialized
  */
 bool
-os_thread_env_inited();
+os_thread_env_inited(void);
 
 /**
  * Suspend execution of the calling thread for (at least)

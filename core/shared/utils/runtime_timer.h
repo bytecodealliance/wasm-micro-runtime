@@ -13,7 +13,7 @@ extern "C" {
 #endif
 
 uint64
-bh_get_tick_ms();
+bh_get_tick_ms(void);
 uint32
 bh_get_elpased_ms(uint32 *last_system_clock);
 
