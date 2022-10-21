@@ -459,7 +459,7 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
     JitReg elem_idx, native_ret, argv, arg_regs[6];
     JitFrame *jit_frame = cc->jit_frame;
     JitReg tbl_size, offset, offset_i32;
-    JitReg func_import, func_idx, tbl_data, func_count;
+    JitReg func_import, func_idx, tbl_elems, func_count;
     JitReg func_type_indexes, func_type_idx, fast_jit_func_ptrs;
     JitReg offset1_i32, offset1, func_type_idx1, res;
     JitReg import_func_ptrs, jitted_code_idx, jitted_code;
@@ -488,8 +488,8 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
         GEN_INSN(SHL, offset, elem_idx, NEW_CONST(I32, 2));
     }
     func_idx = jit_cc_new_reg_I32(cc);
-    tbl_data = get_table_data_reg(jit_frame, tbl_idx);
-    GEN_INSN(LDI32, func_idx, tbl_data, offset);
+    tbl_elems = get_table_elems_reg(jit_frame, tbl_idx);
+    GEN_INSN(LDI32, func_idx, tbl_elems, offset);
 
     GEN_INSN(CMP, cc->cmp_reg, func_idx, NEW_CONST(I32, -1));
     if (!jit_emit_exception(cc, EXCE_UNINITIALIZED_ELEMENT, JIT_OP_BEQ,

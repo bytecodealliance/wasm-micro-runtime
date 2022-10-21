@@ -30,7 +30,7 @@ jit_compile_op_elem_drop(JitCompContext *cc, uint32 tbl_seg_idx)
 bool
 jit_compile_op_table_get(JitCompContext *cc, uint32 tbl_idx)
 {
-    JitReg elem_idx, tbl_sz, tbl_data, elem_idx_long, offset, res;
+    JitReg elem_idx, tbl_sz, tbl_elems, elem_idx_long, offset, res;
 
     POP_I32(elem_idx);
 
@@ -48,8 +48,8 @@ jit_compile_op_table_get(JitCompContext *cc, uint32 tbl_idx)
     GEN_INSN(MUL, offset, elem_idx_long, NEW_CONST(I64, sizeof(uint32)));
 
     res = jit_cc_new_reg_I32(cc);
-    tbl_data = get_table_data_reg(cc->jit_frame, tbl_idx);
-    GEN_INSN(LDI32, res, tbl_data, offset);
+    tbl_elems = get_table_elems_reg(cc->jit_frame, tbl_idx);
+    GEN_INSN(LDI32, res, tbl_elems, offset);
     PUSH_I32(res);
 
     return true;
@@ -60,7 +60,7 @@ fail:
 bool
 jit_compile_op_table_set(JitCompContext *cc, uint32 tbl_idx)
 {
-    JitReg elem_idx, elem_val, tbl_sz, tbl_data, elem_idx_long, offset;
+    JitReg elem_idx, elem_val, tbl_sz, tbl_elems, elem_idx_long, offset;
 
     POP_I32(elem_val);
     POP_I32(elem_idx);
@@ -78,8 +78,8 @@ jit_compile_op_table_set(JitCompContext *cc, uint32 tbl_idx)
     offset = jit_cc_new_reg_I64(cc);
     GEN_INSN(MUL, offset, elem_idx_long, NEW_CONST(I64, sizeof(uint32)));
 
-    tbl_data = get_table_data_reg(cc->jit_frame, tbl_idx);
-    GEN_INSN(STI32, elem_val, tbl_data, offset);
+    tbl_elems = get_table_elems_reg(cc->jit_frame, tbl_idx);
+    GEN_INSN(STI32, elem_val, tbl_elems, offset);
 
     return true;
 fail:
