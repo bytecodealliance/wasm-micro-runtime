@@ -120,22 +120,32 @@ jit_compiler_get_pass_name(unsigned i)
 bool
 jit_compiler_compile(WASMModule *module, uint32 func_idx)
 {
-    JitCompContext *cc;
+    JitCompContext *cc = NULL;
     char *last_error;
-    bool ret = true;
+    bool ret = false;
+    uint32 i = func_idx - module->import_function_count;
+    uint32 j = i % WASM_ORC_JIT_BACKEND_THREAD_NUM;
+
+    /* Lock to avoid duplicated compilation by other threads */
+    os_mutex_lock(&module->fast_jit_thread_locks[j]);
+
+    if (module->fast_jit_func_ptrs[i]) {
+        /* Function has been compiled */
+        os_mutex_unlock(&module->fast_jit_thread_locks[j]);
+        return true;
+    }
 
     /* Initialize compilation context.  */
-    if (!(cc = jit_calloc(sizeof(*cc))))
-        return false;
+    if (!(cc = jit_calloc(sizeof(*cc)))) {
+        goto fail;
+    }
 
     if (!jit_cc_init(cc, 64)) {
-        jit_free(cc);
-        return false;
+        goto fail;
     }
 
     cc->cur_wasm_module = module;
-    cc->cur_wasm_func =
-        module->functions[func_idx - module->import_function_count];
+    cc->cur_wasm_func = module->functions[i];
     cc->cur_wasm_func_idx = func_idx;
     cc->mem_space_unchanged = (!cc->cur_wasm_func->has_op_memory_grow
                                && !cc->cur_wasm_func->has_op_func_call)
@@ -146,11 +156,17 @@ jit_compiler_compile(WASMModule *module, uint32 func_idx)
         last_error = jit_get_last_error(cc);
         os_printf("fast jit compilation failed: %s\n",
                   last_error ? last_error : "unknown error");
-        ret = false;
+        goto fail;
     }
 
-    /* Delete the compilation context.  */
-    jit_cc_delete(cc);
+    ret = true;
+
+fail:
+    /* Destroy the compilation context. */
+    if (cc)
+        jit_cc_delete(cc);
+
+    os_mutex_unlock(&module->fast_jit_thread_locks[j]);
 
     return ret;
 }

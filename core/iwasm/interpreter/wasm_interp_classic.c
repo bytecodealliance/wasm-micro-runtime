@@ -3916,6 +3916,7 @@ fast_jit_call_func_bytecode(WASMExecEnv *exec_env,
     uint8 type = func_type->result_count
                      ? func_type->types[func_type->param_count]
                      : VALUE_TYPE_VOID;
+    int32 action;
 
 #if WASM_ENABLE_REF_TYPES != 0
     if (type == VALUE_TYPE_EXTERNREF || type == VALUE_TYPE_FUNCREF)
@@ -3926,8 +3927,11 @@ fast_jit_call_func_bytecode(WASMExecEnv *exec_env,
     info.frame = frame;
     frame->jitted_return_addr =
         (uint8 *)jit_globals->return_to_interp_from_jitted;
-    jit_interp_switch_to_jitted(exec_env, &info,
-                                function->u.func->fast_jit_jitted_code);
+    action = jit_interp_switch_to_jitted(
+        exec_env, &info, function->u.func->fast_jit_jitted_code);
+    bh_assert(action == JIT_INTERP_ACTION_NORMAL
+              || (action == JIT_INTERP_ACTION_THROWN
+                  && wasm_get_exception(exec_env->module_inst)));
     if (func_type->result_count) {
         switch (type) {
             case VALUE_TYPE_I32:
@@ -3951,6 +3955,7 @@ fast_jit_call_func_bytecode(WASMExecEnv *exec_env,
                 break;
         }
     }
+    (void)action;
 }
 #endif
 
