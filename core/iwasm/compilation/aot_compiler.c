@@ -2715,7 +2715,7 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
 
         /* Run specific passes for AOT indirect mode in last since general
            optimization may create some intrinsic function call like
-           llvm.memset, so let's remove these function call here.*/
+           llvm.memset, so let's remove these function calls here. */
         if (!comp_ctx->is_jit_mode && comp_ctx->is_indirect_mode) {
             bh_print_time("Begin to run optimization passes "
                           "for indirect mode");
