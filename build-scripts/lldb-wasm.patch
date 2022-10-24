@@ -1,3 +1,15 @@
+diff --git a/lldb/include/lldb/Breakpoint/Breakpoint.h b/lldb/include/lldb/Breakpoint/Breakpoint.h
+index f2e2a0d22..426d1129b 100644
+--- a/lldb/include/lldb/Breakpoint/Breakpoint.h
++++ b/lldb/include/lldb/Breakpoint/Breakpoint.h
+@@ -9,6 +9,7 @@
+ #ifndef LLDB_BREAKPOINT_BREAKPOINT_H
+ #define LLDB_BREAKPOINT_BREAKPOINT_H
+ 
++#include <limits>
+ #include <memory>
+ #include <string>
+ #include <unordered_set>
 diff --git a/lldb/include/lldb/Core/Module.h b/lldb/include/lldb/Core/Module.h
 index dd7100c46..97d70daad 100644
 --- a/lldb/include/lldb/Core/Module.h
@@ -5829,3 +5841,27 @@ index 4ec2e25c7..24c88fe9a 100644
    default:
      return std::make_shared<UnixSignals>();
    }
+diff --git a/llvm/include/llvm/ExecutionEngine/Orc/OrcRPCExecutorProcessControl.h b/llvm/include/llvm/ExecutionEngine/Orc/OrcRPCExecutorProcessControl.h
+index 4310ba9ce..297b33879 100644
+--- a/llvm/include/llvm/ExecutionEngine/Orc/OrcRPCExecutorProcessControl.h
++++ b/llvm/include/llvm/ExecutionEngine/Orc/OrcRPCExecutorProcessControl.h
+@@ -13,6 +13,7 @@
+ #ifndef LLVM_EXECUTIONENGINE_ORC_ORCRPCEXECUTORPROCESSCONTROL_H
+ #define LLVM_EXECUTIONENGINE_ORC_ORCRPCEXECUTORPROCESSCONTROL_H
+ 
++#include "llvm/ExecutionEngine/Orc/Core.h"
+ #include "llvm/ExecutionEngine/Orc/ExecutorProcessControl.h"
+ #include "llvm/ExecutionEngine/Orc/Shared/RPCUtils.h"
+ #include "llvm/ExecutionEngine/Orc/Shared/RawByteChannel.h"
+diff --git a/llvm/include/llvm/Support/MathExtras.h b/llvm/include/llvm/Support/MathExtras.h
+index 753b1998c..27370c62d 100644
+--- a/llvm/include/llvm/Support/MathExtras.h
++++ b/llvm/include/llvm/Support/MathExtras.h
+@@ -16,6 +16,7 @@
+ #include "llvm/Support/Compiler.h"
+ #include <cassert>
+ #include <climits>
++#include <limits>
+ #include <cmath>
+ #include <cstdint>
+ #include <cstring>

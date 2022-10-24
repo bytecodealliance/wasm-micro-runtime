@@ -182,3 +182,12 @@ jobs:
       runner: ubuntu-22.04
       upload_url: ${{ needs.create_release.outputs.upload_url }}
       ver_num: ${{ needs.create_tag.outputs.new_ver}}
+
+  release_wamr_lldb_on_macos_universal:
+    needs: [create_tag, create_release]
+    uses: ./.github/workflows/build_wamr_lldb.yml
+    with:
+      runner: macos-latest
+      arch: universal
+      upload_url: ${{ needs.create_release.outputs.upload_url }}
+      ver_num: ${{ needs.create_tag.outputs.new_ver}}
