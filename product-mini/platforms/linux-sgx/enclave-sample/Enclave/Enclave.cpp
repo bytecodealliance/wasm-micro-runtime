@@ -64,7 +64,7 @@ typedef struct EnclaveModule {
     uint32 total_size_mapped;
 } EnclaveModule;
 
-#if WASM_ENABLE_GLOBAL_HEAP_POOL == 1
+#if WASM_ENABLE_GLOBAL_HEAP_POOL != 0
 static char global_heap_buf[WASM_GLOBAL_HEAP_SIZE] = { 0 };
 #endif
 
@@ -90,7 +90,7 @@ handle_cmd_init_runtime(uint64 *args, uint32 argc)
     memset(&init_args, 0, sizeof(RuntimeInitArgs));
     init_args.max_thread_num = max_thread_num;
 
-#if WASM_ENABLE_GLOBAL_HEAP_POOL == 1
+#if WASM_ENABLE_GLOBAL_HEAP_POOL != 0
     init_args.mem_alloc_type = Alloc_With_Pool;
     init_args.mem_alloc_option.pool.heap_buf = global_heap_buf;
     init_args.mem_alloc_option.pool.heap_size = sizeof(global_heap_buf);
@@ -595,7 +595,7 @@ ecall_iwasm_main(uint8_t *wasm_file_buf, uint32_t wasm_file_size)
 
     memset(&init_args, 0, sizeof(RuntimeInitArgs));
 
-#if WASM_ENABLE_SPEC_TEST == 1 || WASM_ENABLE_GLOBAL_HEAP_POOL == 1
+#if WASM_ENABLE_SPEC_TEST == 1 || WASM_ENABLE_GLOBAL_HEAP_POOL != 0
     init_args.mem_alloc_type = Alloc_With_Pool;
     init_args.mem_alloc_option.pool.heap_buf = global_heap_buf;
     init_args.mem_alloc_option.pool.heap_size = sizeof(global_heap_buf);

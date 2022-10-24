@@ -38,7 +38,7 @@ app_instance_main(wasm_module_inst_t module_inst)
     return NULL;
 }
 
-#if WASM_ENABLE_GLOBAL_HEAP_POOL == 1
+#if WASM_ENABLE_GLOBAL_HEAP_POOL != 0
 static char global_heap_buf[WASM_GLOBAL_HEAP_SIZE] = { 0 };
 #endif
 
@@ -59,7 +59,7 @@ iwasm_main(void *arg1)
 
     memset(&init_args, 0, sizeof(RuntimeInitArgs));
 
-#if WASM_ENABLE_GLOBAL_HEAP_POOL == 1
+#if WASM_ENABLE_GLOBAL_HEAP_POOL != 0
     init_args.mem_alloc_type = Alloc_With_Pool;
     init_args.mem_alloc_option.pool.heap_buf = global_heap_buf;
     init_args.mem_alloc_option.pool.heap_size = sizeof(global_heap_buf);
