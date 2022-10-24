@@ -497,6 +497,12 @@ aot_intrinsic_i64_div_s(int64 l, int64 r)
     return l / r;
 }
 
+uint32
+aot_intrinsic_i32_div_u(uint32 l, uint32 r)
+{
+    return l / r;
+}
+
 uint64
 aot_intrinsic_i64_div_u(uint64 l, uint64 r)
 {
@@ -561,6 +567,14 @@ add_f32_common_intrinsics(AOTCompContext *comp_ctx)
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_FDIV);
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_SQRT);
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_CMP);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I32_DIV_U);
+
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_MIN);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_MAX);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_CEIL);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_FLOOR);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_TRUNC);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_RINT);
 }
 
 static void

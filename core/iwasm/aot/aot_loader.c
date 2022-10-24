@@ -123,6 +123,66 @@ GET_U64_FROM_ADDR(uint32 *addr)
     return u.val;
 }
 
+#if defined(BUILD_TARGET_XTENSA)
+
+static inline uint8
+GET_U8_FROM_ADDR(const uint8* p)
+{
+    bh_assert(p);
+    uint8 res = 0;
+
+    bh_memcpy_aw(&res, sizeof(uint8), p, sizeof(uint8));
+    return res;
+}
+
+static inline uint16
+GET_U16_FROM_ADDR(const uint8 *p)
+{
+    bh_assert(p);
+    uint16 res;
+
+    bh_memcpy_aw((uint8 *)&res, sizeof(uint16), p, sizeof(uint16));
+    return res;
+}
+
+#define TEMPLATE_READ(p, p_end, res, type)              \
+    do {                                                \
+        if (sizeof(type) != sizeof(uint64))             \
+            p = (uint8 *)align_ptr(p, sizeof(type));    \
+        else                                            \
+            /* align 4 bytes if type is uint64 */       \
+            p = (uint8 *)align_ptr(p, sizeof(uint32));  \
+        CHECK_BUF(p, p_end, sizeof(type));              \
+        if (sizeof(type) == sizeof(uint8))              \
+            res = GET_U8_FROM_ADDR(p);                  \
+        else if (sizeof(type) == sizeof(uint16))        \
+            res = GET_U16_FROM_ADDR(p);                 \
+        else if (sizeof(type) == sizeof(uint32))        \
+            res = *(type *)p;                           \
+        else                                            \
+            res = (type)GET_U64_FROM_ADDR((uint32 *)p); \
+        if (!is_little_endian())                        \
+            exchange_##type((uint8 *)&res);             \
+        p += sizeof(type);                              \
+    } while (0)
+
+#define read_byte_array(p, p_end, addr, len)            \
+    do {                                                \
+        CHECK_BUF(p, p_end, len);                       \
+        bh_memcpy_aw(addr, len, p, len);                \
+        p += len;                                       \
+    } while (0)
+
+#define read_string(p, p_end, str)                                \
+    do {                                                          \
+        if (!(str = load_string((uint8 **)&p, p_end, module,      \
+                                is_load_from_file_buf, true,      \
+                                error_buf, error_buf_size)))      \
+            goto fail;                                            \
+    } while (0)
+
+#else
+
 #define TEMPLATE_READ(p, p_end, res, type)              \
     do {                                                \
         if (sizeof(type) != sizeof(uint64))             \
@@ -140,11 +200,6 @@ GET_U64_FROM_ADDR(uint32 *addr)
         p += sizeof(type);                              \
     } while (0)
 
-#define read_uint8(p, p_end, res) TEMPLATE_READ(p, p_end, res, uint8)
-#define read_uint16(p, p_end, res) TEMPLATE_READ(p, p_end, res, uint16)
-#define read_uint32(p, p_end, res) TEMPLATE_READ(p, p_end, res, uint32)
-#define read_uint64(p, p_end, res) TEMPLATE_READ(p, p_end, res, uint64)
-
 #define read_byte_array(p, p_end, addr, len) \
     do {                                     \
         CHECK_BUF(p, p_end, len);            \
@@ -155,10 +210,17 @@ GET_U64_FROM_ADDR(uint32 *addr)
 #define read_string(p, p_end, str)                                \
     do {                                                          \
         if (!(str = load_string((uint8 **)&p, p_end, module,      \
-                                is_load_from_file_buf, error_buf, \
-                                error_buf_size)))                 \
+                                is_load_from_file_buf, false,     \
+                                error_buf, error_buf_size)))      \
             goto fail;                                            \
     } while (0)
+
+#endif
+
+#define read_uint8(p, p_end, res) TEMPLATE_READ(p, p_end, res, uint8)
+#define read_uint16(p, p_end, res) TEMPLATE_READ(p, p_end, res, uint16)
+#define read_uint32(p, p_end, res) TEMPLATE_READ(p, p_end, res, uint32)
+#define read_uint64(p, p_end, res) TEMPLATE_READ(p, p_end, res, uint64)
 
 /* Legal values for bin_type */
 #define BIN_TYPE_ELF32L 0 /* 32-bit little endian */
@@ -210,7 +272,7 @@ loader_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
 }
 
 static char *
-const_str_set_insert(const uint8 *str, int32 len, AOTModule *module,
+const_str_set_insert(const uint8 *str, int32 len, AOTModule *module, bool is_vram_align_word,
                      char *error_buf, uint32 error_buf_size)
 {
     HashMap *set = module->const_str_set;
@@ -231,7 +293,11 @@ const_str_set_insert(const uint8 *str, int32 len, AOTModule *module,
         return NULL;
     }
 
-    bh_memcpy_s(c_str, (uint32)(len + 1), str, (uint32)len);
+    if(is_vram_align_word) {
+        bh_memcpy_aw(c_str, (uint32)(len + 1), str, (uint32)len);
+    } else {
+        bh_memcpy_s(c_str, (uint32)(len + 1), str, (uint32)len);
+    }
     c_str[len] = '\0';
 
     if ((value = bh_hash_map_find(set, c_str))) {
@@ -251,7 +317,8 @@ const_str_set_insert(const uint8 *str, int32 len, AOTModule *module,
 
 static char *
 load_string(uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
-            bool is_load_from_file_buf, char *error_buf, uint32 error_buf_size)
+            bool is_load_from_file_buf, bool is_vram_align_word,
+            char *error_buf, uint32 error_buf_size)
 {
     uint8 *p = *p_buf;
     const uint8 *p_end = buf_end;
@@ -263,6 +330,12 @@ load_string(uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 
     if (str_len == 0) {
         str = "";
+    }
+    else if(is_vram_align_word) {
+        if (!(str = const_str_set_insert((uint8 *)p, str_len, module, is_vram_align_word,
+                                         error_buf, error_buf_size))) {
+            goto fail;
+        }
     }
     else if (p[str_len - 1] == '\0') {
         /* The string is terminated with '\0', use it directly */
@@ -280,8 +353,8 @@ load_string(uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         /* Load from sections, the file buffer cannot be reffered to
            after loading, we must create another string and insert it
            into const string set */
-        if (!(str = const_str_set_insert((uint8 *)p, str_len, module, error_buf,
-                                         error_buf_size))) {
+        if (!(str = const_str_set_insert((uint8 *)p, str_len, module, is_vram_align_word,
+                                         error_buf, error_buf_size))) {
             goto fail;
         }
     }

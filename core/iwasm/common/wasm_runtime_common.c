@@ -504,8 +504,13 @@ wasm_runtime_full_init(RuntimeInitArgs *init_args)
 }
 
 PackageType
-get_package_type(const uint8 *buf, uint32 size)
+get_package_type(const uint8 *buffer, uint32 size)
 {
+    const uint8 *buf = buffer;
+#if defined(BUILD_TARGET_XTENSA)
+    uint32 buf32 = *(uint32*)buffer;
+    buf = (const uint8 *)&buf32;
+#endif
     if (buf && size >= 4) {
         if (buf[0] == '\0' && buf[1] == 'a' && buf[2] == 's' && buf[3] == 'm')
             return Wasm_Module_Bytecode;
