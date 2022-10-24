@@ -134,22 +134,6 @@ JitBasicBlock *
 jit_frontend_translate_func(JitCompContext *cc);
 
 /**
- * Generate a block leaving the compiled code, which must store the
- * target bcip and other necessary information for switching to
- * interpreter or other compiled code and then jump to the exit of the
- * cc.
- *
- * @param cc the compilation context
- * @param bcip the target bytecode instruction pointer
- * @param sp_offset stack pointer offset at the beginning of the block
- *
- * @return the leaving block if succeeds, NULL otherwise
- */
-JitBlock *
-jit_frontend_gen_leaving_block(JitCompContext *cc, void *bcip,
-                               unsigned sp_offset);
-
-/**
  * Lower the IR of the given compilation context.
  *
  * @param cc the compilation context
@@ -158,6 +142,16 @@ jit_frontend_gen_leaving_block(JitCompContext *cc, void *bcip,
  */
 bool
 jit_frontend_lower(JitCompContext *cc);
+
+uint32
+jit_frontend_get_global_data_offset(const WASMModule *module,
+                                    uint32 global_idx);
+
+uint32
+jit_frontend_get_table_inst_offset(const WASMModule *module, uint32 tbl_idx);
+
+uint32
+jit_frontend_get_module_inst_extra_offset(const WASMModule *module);
 
 JitReg
 get_module_inst_reg(JitFrame *frame);
