@@ -27,7 +27,7 @@
     * [Python](language-bindings/python/README.md)
     * [Go](language-bindings/go/README.md)
   * [Debugging&IDE Support](gitbook/tutorial/debugging%26IDE_support/README.md)
-    * [WAMR Source Debugging](doc/source_debugging.md)
+    * [WAMR Source Debugging With lldb](doc/source_debugging.md)
     * [VS Code Support](test-tools/wamr-ide/README.md)
       * [Enable Debugging In VS Code](test-tools/wamr-ide/VSCode-Extension/README.md)
       * [Move lldb Binaries](test-tools/wamr-ide/VSCode-Extension/resource/debug/README.md)
