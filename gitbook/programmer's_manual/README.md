@@ -1,6 +1,6 @@
+---
+description: "wanna hear a construction joke? we are still working on it"
+---
 # Programmer's Manual
 
-Programmer’s Manual like [LLVM](https://llvm.org/docs/ProgrammersManual.html#introduction)?
-
-- important APIs
-- TODO: abstract Hierarchy
+Complete List of C APIs can be found [here](gitbook/programmer's_manual/C_API_Lists.md)
