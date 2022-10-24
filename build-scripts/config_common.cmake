@@ -110,22 +110,6 @@ else ()
 endif ()
 
 ########################################
-## semantic version information
-
-if (NOT DEFINED WAMR_VERSION_MAJOR)
-  set (WAMR_VERSION_MAJOR 1)
-endif ()
-
-if (NOT DEFINED WAMR_VERSION_MINOR)
-  set (WAMR_VERSION_MINOR 1)
-endif ()
-
-if (NOT DEFINED WAMR_VERSION_PATCH)
-  set (WAMR_VERSION_PATCH 1)
-endif ()
-
-configure_file(${WAMR_ROOT_DIR}/core/version.h.in ${WAMR_ROOT_DIR}/core/version.h @ONLY)
-########################################
 
 message ("-- Build Configurations:")
 message ("     Build as target ${WAMR_BUILD_TARGET}")
