@@ -363,7 +363,7 @@ jobs:
             $SIMD_TEST_OPTIONS,
             $THREADS_TEST_OPTIONS,
           ]
-        includes:
+        include:
           - running_mode: "fast-jit"
             test_option: $DEFAULT_TEST_OPTIONS
     steps:
@@ -397,7 +397,7 @@ jobs:
 
       #only install x32 support libraries when to run x86_32 cases
       - name: install x32 support libraries
-        if: matrix.test_option == '$DEFAULT_TEST_OPTIONS' || matrix.test_option == '$THREADS_TEST_OPTIONS'
+        if: (matrix.test_option == '$DEFAULT_TEST_OPTIONS' && matrix.running_mode != 'fast-jit') || matrix.test_option == '$THREADS_TEST_OPTIONS'
         run:
           # Add another apt repository as some packages cannot
           # be downloaded with the github default repository
@@ -407,6 +407,6 @@ jobs:
           sudo apt install -y g++-multilib lib32gcc-9-dev
 
       - name: run spec tests x86_32
-        if: matrix.test_option == '$DEFAULT_TEST_OPTIONS' || matrix.test_option == '$THREADS_TEST_OPTIONS'
+        if: (matrix.test_option == '$DEFAULT_TEST_OPTIONS' && matrix.running_mode != 'fast-jit') || matrix.test_option == '$THREADS_TEST_OPTIONS'
         run: ./test_wamr.sh ${{ env.X86_32_TARGET_TEST_OPTIONS }} ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
         working-directory: ./tests/wamr-test-suites
