@@ -70,7 +70,7 @@ iwasm_main(void *arg1)
     RuntimeInitArgs init_args;
 
     memset(&init_args, 0, sizeof(RuntimeInitArgs));
-#ifdef FUNC_ALLOC && WASM_ENABLE_GLOBAL_HEAP_POOL == 0
+#if defined(FUNC_ALLOC) && WASM_ENABLE_GLOBAL_HEAP_POOL == 0
     init_args.mem_alloc_type = Alloc_With_Allocator;
     init_args.mem_alloc_option.allocator.malloc_func = malloc;
     init_args.mem_alloc_option.allocator.realloc_func = realloc;
