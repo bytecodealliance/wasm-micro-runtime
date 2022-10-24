@@ -3,7 +3,7 @@
 Prepare WASM building environments
 ==================================
 
-For C and C++, WASI-SDK version 12.0+ is the major tool supported by WAMR to build WASM applications. Also, we can use [Emscripten SDK (EMSDK)](https://github.com/emscripten-core/emsdk), but it is not recommended. And there are some other compilers such as the standard clang compiler, which might also work [here](./other_wasm_compilers.md).
+For C and C++, WASI-SDK version 12.0+ is the major tool supported by WAMR to build WASM applications. Also, we can use [Emscripten SDK (EMSDK)](https://github.com/emscripten-core/emsdk), but it is not recommended. And there are some other compilers such as the standard clang compiler, which might also work [here](other_wasm_compilers.md).
 
 To install WASI SDK, please download the [wasi-sdk release](https://github.com/CraneStation/wasi-sdk/releases) and extract the archive to default path `/opt/wasi-sdk`.
 
