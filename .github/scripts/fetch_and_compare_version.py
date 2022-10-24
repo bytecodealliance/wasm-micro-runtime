@@ -15,7 +15,7 @@ def fetch_version_from_code():
     search the semantic version definition in build-scripts/config_common.cmake
     """
     major, minor, patch = "", "", ""
-    with open("build-scripts/config_common.cmake", encoding="utf-8") as f:
+    with open("core/version.h", encoding="utf-8") as f:
         for line in f:
             if "WAMR_VERSION" not in line:
                 continue
