@@ -117,13 +117,13 @@ Currently we only profile the memory consumption of module, module_instance and 
 #### **Enable the global heap**
 - **WAMR_BUILD_GLOBAL_HEAP_POOL**=1/0, default to disable if not set for all *iwasm* applications, except for the platforms Alios and Zephyr.
 
-> **WAMR_BUILD_GLOBAL_HEAP_POOL** is used in the *iwasm* applications provided in the directory `product-mini`. When writing your own host application using WAMR, you must set the initialization argument `mem_alloc_type` to allocate and use a global heap.
+> **WAMR_BUILD_GLOBAL_HEAP_POOL** is used in the *iwasm* applications provided in the directory `product-mini`. When writing your own host application using WAMR, if you want to use a global heap and allocate memory from it, you must set the initialization argument `mem_alloc_type` to `Alloc_With_Pool`.
 > The global heap is defined in the documentation [Memory model and memory usage tunning](memory_tune.md).
 
 #### **Set the global heap size**
 - **WAMR_BUILD_GLOBAL_HEAP_SIZE**=n, default to 10 MB (10485760) if not set for all *iwasm* applications, except for the platforms Alios (256 kB), Riot (256 kB) and Zephyr (128 kB).
 
-> **WAMR_BUILD_GLOBAL_HEAP_SIZE** is used in the *iwasm* applications provided in the directory `product-mini`. When writing your own host application using WAMR, you must set the initialization argument `mem_alloc_option` to allocate and use a global heap.
+> **WAMR_BUILD_GLOBAL_HEAP_SIZE** is used in the *iwasm* applications provided in the directory `product-mini`. When writing your own host application using WAMR, if you want to set the amount of memory dedicated to the global heap pool, you must set the initialization argument `mem_alloc_option.pool` with the appropriate values.
 > The global heap is defined in the documentation [Memory model and memory usage tunning](memory_tune.md).
 > Note: if `WAMR_BUILD_GLOBAL_HEAP_SIZE` is not set and the flag `WAMR_BUILD_SPEC_TEST` is set, the global heap size is equal to 300 MB (314572800), or 100 MB (104857600) when compiled for Intel SGX (Linux).
 
