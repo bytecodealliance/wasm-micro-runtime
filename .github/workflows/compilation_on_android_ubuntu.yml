@@ -363,13 +363,16 @@ jobs:
             $SIMD_TEST_OPTIONS,
             $THREADS_TEST_OPTIONS,
           ]
+        includes:
+          - running_mode: "fast-jit"
+            test_option: $DEFAULT_TEST_OPTIONS
     steps:
       - name: checkout
         uses: actions/checkout@v3
 
       #only download llvm libraries in jit and aot mode
       - name: Get LLVM libraries
-        if: matrix.running_mode == 'jit' || matrix.running_mode == 'aot'
+        if: matrix.running_mode != 'classic-interp' && matrix.running_mode != 'fast-interp'
         id: cache_llvm
         uses: actions/cache@v3
         with:
@@ -382,7 +385,7 @@ jobs:
           key: ubuntu-20.04-${{ env.LLVM_CACHE_SUFFIX }}
 
       - name: Quit if cache miss
-        if: (matrix.running_mode == 'jit' || matrix.running_mode == 'aot') && steps.cache_llvm.outputs.cache-hit != 'true'
+        if:  matrix.running_mode != 'classic-interp' && matrix.running_mode != 'fast-interp' && steps.cache_llvm.outputs.cache-hit != 'true'
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
 
       - name: install Ninja
