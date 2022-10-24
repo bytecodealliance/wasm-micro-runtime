@@ -137,9 +137,6 @@ endif
 Enclave_C_Flags := $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -fstack-protector $(Enclave_Include_Paths) -DWASM_GLOBAL_HEAP_SIZE=$(WAMR_BUILD_GLOBAL_HEAP_SIZE) -DWASM_ENABLE_GLOBAL_HEAP_POOL=$(WAMR_BUILD_GLOBAL_HEAP_POOL)
 ifeq ($(SPEC_TEST), 1)
 	Enclave_C_Flags += -DWASM_ENABLE_SPEC_TEST=1
-ifeq ($(WAMR_BUILD_GLOBAL_HEAP_POOL), 0)
-$(error The SPEC test can only run with the global heap pool enabled (WAMR_BUILD_GLOBAL_HEAP_POOL=1))
-endif
 else
 	Enclave_C_Flags += -DWASM_ENABLE_SPEC_TEST=0
 endif

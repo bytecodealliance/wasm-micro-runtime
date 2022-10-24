@@ -595,7 +595,7 @@ ecall_iwasm_main(uint8_t *wasm_file_buf, uint32_t wasm_file_size)
 
     memset(&init_args, 0, sizeof(RuntimeInitArgs));
 
-#if WASM_ENABLE_SPEC_TEST == 1 || WASM_ENABLE_GLOBAL_HEAP_POOL != 0
+#if WASM_ENABLE_GLOBAL_HEAP_POOL != 0
     init_args.mem_alloc_type = Alloc_With_Pool;
     init_args.mem_alloc_option.pool.heap_buf = global_heap_buf;
     init_args.mem_alloc_option.pool.heap_size = sizeof(global_heap_buf);
