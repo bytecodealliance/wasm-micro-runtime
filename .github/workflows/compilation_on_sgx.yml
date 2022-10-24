@@ -327,6 +327,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Get LLVM libraries
+        if: matrix.running_mode == 'aot'
         id: cache_llvm
         uses: actions/cache@v3
         with:
@@ -339,7 +340,7 @@ jobs:
           key: ubuntu-20.04-${{ env.LLVM_CACHE_SUFFIX }}
 
       - name: Quit if cache miss
-        if: steps.cache_llvm.outputs.cache-hit != 'true'
+        if: matrix.running_mode == 'aot' && steps.cache_llvm.outputs.cache-hit != 'true'
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
 
       - name: install Ninja
