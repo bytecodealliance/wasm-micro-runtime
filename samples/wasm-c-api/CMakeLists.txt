@@ -121,7 +121,7 @@ if(${WAMR_BUILD_AOT} EQUAL 1)
 endif()
 include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 
-set(MM_UTIL src/utils/multi_module_utils.c)
+set(MM_UTIL src/utils/multi_module_utils.c src/utils/read_proc_status.c)
 # build executable for each .c
 set(EXAMPLES
   callback

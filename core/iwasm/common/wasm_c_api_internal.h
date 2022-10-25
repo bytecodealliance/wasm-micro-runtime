@@ -27,13 +27,15 @@ WASM_DECLARE_VEC(store, *)
 struct wasm_engine_t {
     /* support one store for now */
     wasm_store_vec_t *stores;
-    uint32_t ref_count;
+    korp_mutex lock;
+    uint32 ref_count;
 };
 
 struct wasm_store_t {
     wasm_module_vec_t *modules;
     wasm_instance_vec_t *instances;
     Vector *foreigns;
+    bool deleted;
 };
 
 /* Type Representations */

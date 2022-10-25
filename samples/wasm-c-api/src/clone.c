@@ -11,12 +11,20 @@
 
 #include "wasm_c_api.h"
 
-#define WORKER_NUMBER 10
+extern int
+read_proc_status(pid_t pid, bool(filter)(const char *), char *buf,
+                 size_t buf_cap);
+
+bool
+fetch_mem_info(const char *line);
+
+#define WORKER_NUMBER 3
 
 /******************************* VM *******************************/
 /* Use wasm_vm_t and vm_xxx to simulate a minimal Wasm VM in Envoy */
 
 typedef struct _vm {
+    char *name;
     wasm_engine_t *engine;
     wasm_store_t *store;
     wasm_module_t *module;
@@ -127,7 +135,7 @@ vm_clone_from_module(const wasm_vm_t *base)
     secondary = vm_new();
     if (secondary) {
         printf("Reuse module and bypass vm_load()...");
-        secondary->module = base->module;
+        secondary->module = wasm_module_obtain(secondary->store, base->module);
     }
 
     return secondary;
@@ -174,6 +182,8 @@ vm_release(wasm_vm_t *vm)
         vm->function_list = NULL;
     }
 
+    vm->memory = NULL;
+
     if (vm->exports) {
         wasm_extern_vec_delete(vm->exports);
         free(vm->exports);
@@ -192,6 +202,7 @@ vm_release(wasm_vm_t *vm)
     wasm_engine_delete(vm->engine);
     vm->engine = NULL;
 
+    printf("Have released vm %s \n", vm->name);
     free(vm);
     return NULL;
 }
@@ -452,14 +463,15 @@ thrd_func(void *arg)
     if (!run_warm_start_w_compiled_bytecode(thrd_arg->base_vm, &vm))
         return NULL;
 
+    vm->name = thrd_arg->name;
+    printf("Running test at %s...\n", thrd_arg->name);
+    run_test(vm);
+
     pthread_mutex_trylock(thrd_arg->ready_go_lock);
     while (!(*thrd_arg->ready_go_flag)) {
         pthread_cond_wait(thrd_arg->ready_go_cond, thrd_arg->ready_go_lock);
     }
     pthread_mutex_unlock(thrd_arg->ready_go_lock);
-
-    printf("Running test at %s...\n", thrd_arg->name);
-    run_test(vm);
 
     vm_release(vm);
     pthread_exit(NULL);
@@ -476,18 +488,28 @@ main()
     pthread_key_create(&name_key, NULL);
     pthread_setspecific(name_key, "Execution Thread");
 
+    pid_t self = getpid();
+    char buf[4096] = { 0 };
+    read_proc_status(self, fetch_mem_info, buf, sizeof(buf) / sizeof(buf[0]));
+    printf("[MemInfo] Baseline:\n%s", buf);
+
     printf("Running cold start at the execution thread...\n");
     wasm_vm_t *base_vm;
     if (!run_code_start(&base_vm))
         goto quit;
+    base_vm->name = "base";
     run_test(base_vm);
+
+    read_proc_status(self, fetch_mem_info, buf, sizeof(buf) / sizeof(buf[0]));
+    printf("[MemInfo] Start one vm:\n%s", buf);
 
     printf("Running warm start at other threads...\n");
     pthread_mutex_trylock(&ready_go_lock);
 
-    pthread_t tids[WORKER_NUMBER] = { 0 };
-    thread_arg_t thrd_args[WORKER_NUMBER] = { 0 };
-    for (size_t i = 0; i < sizeof(tids) / sizeof(tids[0]); i++) {
+    pthread_t tids[WORKER_NUMBER * 2] = { 0 };
+    thread_arg_t thrd_args[WORKER_NUMBER * 2] = { 0 };
+
+    for (size_t i = 0; i < WORKER_NUMBER; i++) {
         thread_arg_t *thrd_arg = thrd_args + i;
 
         snprintf(thrd_arg->name, 32, "Worker#%lu", i);
@@ -501,7 +523,27 @@ main()
             break;
     }
 
-    sleep(5);
+    sleep(3);
+    read_proc_status(self, fetch_mem_info, buf, sizeof(buf) / sizeof(buf[0]));
+    printf("[MemInfo] Plus %d vms:\n%s", WORKER_NUMBER, buf);
+
+    for (size_t i = WORKER_NUMBER; i < WORKER_NUMBER * 2; i++) {
+        thread_arg_t *thrd_arg = thrd_args + i;
+
+        snprintf(thrd_arg->name, 32, "Worker#%lu", i);
+        thrd_arg->ready_go_cond = &ready_go_cond;
+        thrd_arg->ready_go_lock = &ready_go_lock;
+        thrd_arg->ready_go_flag = &ready_go_flag;
+        thrd_arg->base_vm = base_vm;
+
+        int ret = pthread_create(&tids[i], NULL, thrd_func, thrd_arg);
+        if (ret != 0)
+            break;
+    }
+
+    sleep(3);
+    read_proc_status(self, fetch_mem_info, buf, sizeof(buf) / sizeof(buf[0]));
+    printf("[MemInfo] Again Plus %d vms:\n%s", WORKER_NUMBER, buf);
 
     ready_go_flag = true;
     pthread_mutex_unlock(&ready_go_lock);
@@ -509,7 +551,8 @@ main()
 
     for (size_t i = 0; i < sizeof(tids) / sizeof(tids[0]); i++) {
         if (tids[i] != 0)
-            pthread_join(tids[i], NULL);
+            if (pthread_join(tids[i], NULL))
+                perror("failed to join a thread");
     }
     vm_release(base_vm);
     ret = EXIT_SUCCESS;

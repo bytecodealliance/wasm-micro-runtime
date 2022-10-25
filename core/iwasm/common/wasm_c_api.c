@@ -261,7 +261,17 @@ static void
 wasm_engine_delete_internal(wasm_engine_t *engine)
 {
     if (engine) {
-        DEINIT_VEC(engine->stores, wasm_store_vec_delete);
+        if (engine->stores) {
+            /* do lazy release.
+             * all stores have been deleted, just need to
+             * handle the vec */
+            bh_vector_destroy((Vector *)engine->stores);
+            wasm_runtime_free(engine->stores);
+            engine->stores = NULL;
+        }
+
+        os_mutex_destroy(&engine->lock);
+
         wasm_runtime_free(engine);
     }
 
@@ -322,6 +332,9 @@ wasm_engine_new_internal(mem_alloc_type_t type, const MemAllocOption *opts)
     /* create wasm_store_vec_t */
     INIT_VEC(engine->stores, wasm_store_vec_new_uninitialized, 1);
 
+    os_mutex_init(&engine->lock);
+    engine->ref_count = 1;
+
     RETURN_OBJ(engine, wasm_engine_delete_internal)
 }
 
@@ -335,8 +348,16 @@ wasm_engine_new()
         singleton_engine =
             wasm_engine_new_internal(Alloc_With_System_Allocator, NULL);
     }
-    if (singleton_engine)
+    else {
+        os_mutex_lock(&singleton_engine->lock);
+
+        if (singleton_engine->ref_count == 0)
+            return NULL;
+
         singleton_engine->ref_count++;
+
+        os_mutex_unlock(&singleton_engine->lock);
+    }
     return singleton_engine;
 }
 
@@ -353,8 +374,16 @@ wasm_engine_new_with_args(mem_alloc_type_t type, const MemAllocOption *opts)
     if (!singleton_engine) {
         singleton_engine = wasm_engine_new_internal(type, opts);
     }
-    if (singleton_engine)
+    else {
+        os_mutex_lock(&singleton_engine->lock);
+
+        if (singleton_engine->ref_count == 0)
+            return NULL;
+
         singleton_engine->ref_count++;
+
+        os_mutex_unlock(&singleton_engine->lock);
+    }
     return singleton_engine;
 }
 
@@ -362,10 +391,21 @@ wasm_engine_new_with_args(mem_alloc_type_t type, const MemAllocOption *opts)
 void
 wasm_engine_delete(wasm_engine_t *engine)
 {
-    if (engine && (--engine->ref_count == 0)) {
-        wasm_engine_delete_internal(engine);
-        singleton_engine = NULL;
+    if (!engine)
+        return;
+
+    os_mutex_lock(&engine->lock);
+
+    engine->ref_count--;
+    if (engine->ref_count > 0) {
+        os_mutex_unlock(&engine->lock);
+        return;
     }
+
+    os_mutex_unlock(&engine->lock);
+
+    wasm_engine_delete_internal(engine);
+    singleton_engine = NULL;
 }
 
 wasm_store_t *
@@ -414,34 +454,24 @@ failed:
 void
 wasm_store_delete(wasm_store_t *store)
 {
-    size_t i, store_count;
-
-    if (!store) {
+    if (!store)
         return;
-    }
 
-    /* remove it from the list in the engine */
-    store_count = bh_vector_size((Vector *)singleton_engine->stores);
-    for (i = 0; i != store_count; ++i) {
-        wasm_store_t *tmp;
+    /* mark first and release later. avoid O(n^2) search and delete */
 
-        if (!bh_vector_get((Vector *)singleton_engine->stores, (uint32)i,
-                           &tmp)) {
-            break;
-        }
-
-        if (tmp == store) {
-            bh_vector_remove((Vector *)singleton_engine->stores, (uint32)i,
-                             NULL);
-            break;
-        }
-    }
+    /*
+     * every thread has on store. One store can't be shared in multile threads
+     * so a store can not be deleted twice
+     */
+    bh_assert(store->deleted == false);
+    store->deleted = true;
 
     DEINIT_VEC(store->modules, wasm_module_vec_delete);
     DEINIT_VEC(store->instances, wasm_instance_vec_delete);
     if (store->foreigns) {
         bh_vector_destroy(store->foreigns);
         wasm_runtime_free(store->foreigns);
+        store->foreigns = NULL;
     }
 
     wasm_runtime_free(store);
@@ -1855,6 +1885,8 @@ wasm_foreign_delete(wasm_foreign_t *foreign)
 struct wasm_module_ex_t {
     struct WASMModuleCommon *module_comm_rt;
     wasm_byte_vec_t *binary;
+    korp_mutex lock;
+    uint32 ref_count;
 };
 
 static inline wasm_module_t *
@@ -1930,6 +1962,9 @@ wasm_module_new(wasm_store_t *store, const wasm_byte_vec_t *binary)
         goto failed;
     }
 
+    os_mutex_init(&module_ex->lock);
+    module_ex->ref_count = 1;
+
     return module_ext_to_module(module_ex);
 
 failed:
@@ -1972,12 +2007,25 @@ wasm_module_delete_internal(wasm_module_t *module)
     }
 
     module_ex = module_to_module_ext(module);
+
+    os_mutex_lock(&module_ex->lock);
+
+    module_ex->ref_count--;
+    if (module_ex->ref_count > 0) {
+        os_mutex_unlock(&module_ex->lock);
+        return;
+    }
+
+    os_mutex_unlock(&module_ex->lock);
+
     DEINIT_VEC(module_ex->binary, wasm_byte_vec_delete);
 
     if (module_ex->module_comm_rt) {
         wasm_runtime_unload(module_ex->module_comm_rt);
         module_ex->module_comm_rt = NULL;
     }
+
+    os_mutex_destroy(&module_ex->lock);
 
     wasm_runtime_free(module_ex);
 }
@@ -2440,6 +2488,38 @@ wasm_module_deserialize(wasm_store_t *store, const wasm_byte_vec_t *binary)
 }
 #endif
 
+wasm_module_t *
+wasm_module_obtain(wasm_store_t *store, wasm_module_t *module)
+{
+    wasm_module_t *new_module = NULL;
+    wasm_module_ex_t *module_ex;
+
+    if (!store || !module)
+        return NULL;
+
+    module_ex = module_to_module_ext(module);
+
+    os_mutex_lock(&module_ex->lock);
+
+    if (module_ex->ref_count == 0) {
+        os_mutex_unlock(&module_ex->lock);
+        return new_module;
+    }
+
+    module_ex->ref_count++;
+
+    os_mutex_unlock(&module_ex->lock);
+
+    /* add it to a watching list in store */
+    if (!bh_vector_append((Vector *)store->modules, &module_ex)) {
+        wasm_module_delete_internal(module);
+        return new_module;
+    }
+
+    new_module = module;
+    return new_module;
+}
+
 static wasm_func_t *
 wasm_func_new_basic(wasm_store_t *store, const wasm_functype_t *type,
                     wasm_func_callback_t func_callback)
@@ -2891,6 +2971,7 @@ wasm_func_call(const wasm_func_t *func, const wasm_val_vec_t *params,
 
     if (argv != argv_buf)
         wasm_runtime_free(argv);
+
     return NULL;
 
 failed:
@@ -4476,6 +4557,16 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
     if (!bh_vector_append((Vector *)store->instances, &instance)) {
         goto failed;
     }
+
+#if WASM_ENABLE_MEMORY_PROFILING != 0
+    {
+        WASMExecEnv *exec_env =
+            wasm_runtime_get_exec_env_singleton(instance->inst_comm_rt);
+        if (exec_env) {
+            wasm_runtime_dump_mem_consumption(exec_env);
+        }
+    }
+#endif
 
     return instance;
 
