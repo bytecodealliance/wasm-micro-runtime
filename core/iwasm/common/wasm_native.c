@@ -53,6 +53,12 @@ uint32
 get_lib_pthread_export_apis(NativeSymbol **p_lib_pthread_apis);
 #endif
 
+#if WASM_ENABLE_LIB_WASI_THREADS != 0
+uint32
+get_lib_wasi_threads_export_apis(NativeSymbol **p_lib_wasi_threads_apis);
+#endif
+
+
 uint32
 get_libc_emcc_export_apis(NativeSymbol **p_libc_emcc_apis);
 
@@ -408,6 +414,14 @@ wasm_native_init()
     n_native_symbols = get_lib_pthread_export_apis(&native_symbols);
     if (n_native_symbols > 0
         && !wasm_native_register_natives("env", native_symbols,
+                                         n_native_symbols))
+        goto fail;
+#endif
+
+#if WASM_ENABLE_LIB_WASI_THREADS != 0
+    n_native_symbols = get_lib_wasi_threads_export_apis(&native_symbols);
+    if (n_native_symbols > 0
+        && !wasm_native_register_natives("wasi", native_symbols,
                                          n_native_symbols))
         goto fail;
 #endif
