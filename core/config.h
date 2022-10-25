@@ -302,12 +302,7 @@
 
 /* Global heap pool size in bytes */
 #ifndef WASM_GLOBAL_HEAP_SIZE
-#if WASM_ENABLE_SPEC_TEST != 0
-/* Spec test requires more heap pool size */
-#define WASM_GLOBAL_HEAP_SIZE (300 * 1024 * 1024)
-#else
 #define WASM_GLOBAL_HEAP_SIZE (10 * 1024 * 1024)
-#endif
 #endif
 
 /* Max app number of all modules */

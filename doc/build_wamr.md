@@ -114,6 +114,19 @@ Currently we only profile the memory consumption of module, module_instance and 
 
 > The function name searching sequence is the same with dump call stack feature.
 
+#### **Enable the global heap**
+- **WAMR_BUILD_GLOBAL_HEAP_POOL**=1/0, default to disable if not set for all *iwasm* applications, except for the platforms Alios and Zephyr.
+
+> **WAMR_BUILD_GLOBAL_HEAP_POOL** is used in the *iwasm* applications provided in the directory `product-mini`. When writing your own host application using WAMR, if you want to use a global heap and allocate memory from it, you must set the initialization argument `mem_alloc_type` to `Alloc_With_Pool`.
+> The global heap is defined in the documentation [Memory model and memory usage tunning](memory_tune.md).
+
+#### **Set the global heap size**
+- **WAMR_BUILD_GLOBAL_HEAP_SIZE**=n, default to 10 MB (10485760) if not set for all *iwasm* applications, except for the platforms Alios (256 kB), Riot (256 kB) and Zephyr (128 kB).
+
+> **WAMR_BUILD_GLOBAL_HEAP_SIZE** is used in the *iwasm* applications provided in the directory `product-mini`. When writing your own host application using WAMR, if you want to set the amount of memory dedicated to the global heap pool, you must set the initialization argument `mem_alloc_option.pool` with the appropriate values.
+> The global heap is defined in the documentation [Memory model and memory usage tunning](memory_tune.md).
+> Note: if `WAMR_BUILD_GLOBAL_HEAP_SIZE` is not set and the flag `WAMR_BUILD_SPEC_TEST` is set, the global heap size is equal to 300 MB (314572800), or 100 MB (104857600) when compiled for Intel SGX (Linux).
+
 #### **Set maximum app thread stack size**
 - **WAMR_APP_THREAD_STACK_SIZE_MAX**=n, default to 8 MB (8388608) if not set
 > Note: the AOT boundary check with hardware trap mechanism might consume large stack since the OS may lazily grow the stack mapping as a guard page is hit, we may use this configuration to reduce the total stack usage, e.g. -DWAMR_APP_THREAD_STACK_SIZE_MAX=131072 (128 KB).
