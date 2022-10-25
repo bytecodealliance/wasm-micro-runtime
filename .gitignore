@@ -8,6 +8,7 @@
 *.obj
 *.a
 *.so
+.DS_Store
 
 core/deps/**
 core/shared/mem-alloc/tlsf

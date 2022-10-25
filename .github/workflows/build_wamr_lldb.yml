@@ -51,10 +51,23 @@ jobs:
             ./core/deps/llvm-project/build/share
             ./core/deps/llvm-project/lldb/tools/
             ./core/deps/llvm-project/inst/
-          key: ${{ inputs.runner }}-lldb_build
+          key: ${{inputs.arch}}-${{ inputs.runner }}-lldb_build
 
-      - name: intall utils
-        if: steps.lldb_build_cache.outputs.cache-hit != 'true'
+      - name: setup xcode macos
+        if: steps.lldb_build_cache.outputs.cache-hit != 'true' && contains(inputs.runner, 'macos')
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      # Remove xCode command line tools, to prevent duplicate symbol compilation failures
+      - name: install utils macos
+        if: steps.lldb_build_cache.outputs.cache-hit != 'true' && contains(inputs.runner, 'macos')
+        run: |
+          brew install swig cmake ninja libedit
+          sudo rm -rf /Library/Developer/CommandLineTools
+
+      - name: intsall utils ubuntu
+        if: steps.lldb_build_cache.outputs.cache-hit != 'true' && contains(inputs.runner, 'ubuntu')
         run: sudo apt update && sudo apt-get install -y lld ninja-build
 
       # `git clone` takes ~7m
@@ -62,20 +75,21 @@ jobs:
         if: steps.lldb_build_cache.outputs.cache-hit != 'true'
         run: |
           wget https://github.com/llvm/llvm-project/archive/1f27fe6128769f00197925c3b8f6abb9d0e5cd2e.zip
-          unzip 1f27fe6128769f00197925c3b8f6abb9d0e5cd2e.zip
+          unzip -q 1f27fe6128769f00197925c3b8f6abb9d0e5cd2e.zip
           mv llvm-project-1f27fe6128769f00197925c3b8f6abb9d0e5cd2e llvm-project
         working-directory: core/deps/
 
       - name: apply wamr patch
         if: steps.lldb_build_cache.outputs.cache-hit != 'true'
         run: |
+          git init
           git config user.email "action@github.com"
           git config user.name "github action"
           git apply ../../../build-scripts/lldb-wasm.patch
         working-directory: core/deps/llvm-project
 
-      - name: build lldb
-        if: steps.lldb_build_cache.outputs.cache-hit != 'true'
+      - name: build lldb ubuntu
+        if: steps.lldb_build_cache.outputs.cache-hit != 'true' && contains(inputs.runner, 'ubuntu')
         run: |
           echo "start to build lldb..."
           mkdir -p inst
@@ -93,16 +107,51 @@ jobs:
           cmake --build build --target lldb install --parallel $(nproc)
         working-directory: core/deps/llvm-project
 
+      - name: build lldb macos
+        if: steps.lldb_build_cache.outputs.cache-hit != 'true' && contains(inputs.runner, 'macos')
+        run: |
+          echo "start to build lldb..."
+          mkdir -p inst
+          cmake -S ./llvm -B build \
+            -G Ninja \
+            -DCMAKE_INSTALL_PREFIX=../inst \
+            -DCMAKE_BUILD_TYPE:STRING="Release" \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            -DLLVM_ENABLE_PROJECTS="clang;lldb" \
+            -DLLVM_INCLUDE_TESTS:BOOL=OFF \
+            -DLLVM_INCLUDE_EXAMPLES:BOOL=OFF  \
+            -DLLVM_BUILD_BENCHMARKS:BOOL=OFF \
+            -DLLVM_BUILD_DOCS:BOOL=OFF \
+            -DLLVM_BUILD_LLVM_DYLIB:BOOL=OFF \
+            -DLLVM_ENABLE_BINDINGS:BOOL=OFF \
+            -DLLVM_TARGETS_TO_BUILD:STRING="X86;WebAssembly" \
+            -DLLVM_ENABLE_LIBXML2:BOOL=ON \
+            -DLLDB_ENABLE_PYTHON:BOOL=OFF \
+            -DLLDB_BUILD_FRAMEWORK:BOOL=OFF
+          cmake --build build --target lldb install --parallel $(nproc)
+        working-directory: core/deps/llvm-project
+
       - name: pack a distribution
         if: steps.lldb_build_cache.outputs.cache-hit != 'true'
         run: |
           mkdir -p inst/bin
           mkdir -p inst/lib
           cp build/bin/lldb* inst/bin
-          cp build/lib/liblldb*.so inst/lib
-          cp build/lib/liblldb*.so.* inst/lib
           cp lldb/tools/lldb-vscode/package.json inst
           cp -r lldb/tools/lldb-vscode/syntaxes/ inst
+        working-directory: core/deps/llvm-project
+
+      - name: pack ubuntu specific libraries
+        if: steps.lldb_build_cache.outputs.cache-hit != 'true' && contains(inputs.runner, 'ubuntu')
+        run: |
+          cp build/lib/liblldb*.so inst/lib
+          cp build/lib/liblldb*.so.* inst/lib
+        working-directory: core/deps/llvm-project
+
+      - name: pack macos specific libraries
+        if: steps.lldb_build_cache.outputs.cache-hit != 'true' && contains(inputs.runner, 'macos')
+        run: |
+          cp build/lib/liblldb*.dylib inst/lib
         working-directory: core/deps/llvm-project
 
       - name: compress the binary
