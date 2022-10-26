@@ -50,7 +50,10 @@ static JitGlobals jit_globals = {
 #else
     .passes = compiler_passes_with_dump,
 #endif
-    .return_to_interp_from_jitted = NULL
+    .return_to_interp_from_jitted = NULL,
+#if WASM_ENABLE_LAZY_JIT != 0
+    .call_to_interp_from_jitted = NULL,
+#endif
 };
 /* clang-format on */
 
@@ -129,7 +132,7 @@ jit_compiler_compile(WASMModule *module, uint32 func_idx)
     /* Lock to avoid duplicated compilation by other threads */
     os_mutex_lock(&module->fast_jit_thread_locks[j]);
 
-    if (module->fast_jit_func_ptrs[i]) {
+    if (jit_compiler_is_compiled(module, func_idx)) {
         /* Function has been compiled */
         os_mutex_unlock(&module->fast_jit_thread_locks[j]);
         return true;
@@ -183,6 +186,21 @@ jit_compiler_compile_all(WASMModule *module)
     }
 
     return true;
+}
+
+bool
+jit_compiler_is_compiled(WASMModule *module, uint32 func_idx)
+{
+    uint32 i = func_idx - module->import_function_count;
+
+#if WASM_ENABLE_LAZY_JIT == 0
+    return module->fast_jit_func_ptrs[i] ? true : false;
+#else
+    return module->fast_jit_func_ptrs[i]
+                   != jit_globals.call_to_interp_from_jitted
+               ? true
+               : false;
+#endif
 }
 
 int

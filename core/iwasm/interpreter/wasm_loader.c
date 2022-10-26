@@ -2957,6 +2957,9 @@ static bool
 init_fast_jit_functions(WASMModule *module, char *error_buf,
                         uint32 error_buf_size)
 {
+#if WASM_ENABLE_LAZY_JIT != 0
+    JitGlobals *jit_globals = jit_compiler_get_jit_globals();
+#endif
     uint32 i;
 
     if (!module->function_count)
@@ -2967,6 +2970,14 @@ init_fast_jit_functions(WASMModule *module, char *error_buf,
                             error_buf_size))) {
         return false;
     }
+
+#if WASM_ENABLE_LAZY_JIT != 0
+    for (i = 0; i < module->function_count; i++) {
+        module->fast_jit_func_ptrs[i] = jit_globals->call_to_interp_from_jitted;
+        module->functions[i]->fast_jit_jitted_code =
+            jit_globals->call_to_interp_from_jitted;
+    }
+#endif
 
     for (i = 0; i < WASM_ORC_JIT_BACKEND_THREAD_NUM; i++) {
         if (os_mutex_init(&module->fast_jit_thread_locks[i]) != 0) {
@@ -3101,7 +3112,7 @@ orcjit_thread_callback(void *arg)
 #if WASM_ENABLE_FAST_JIT != 0
     /* Compile fast jit funcitons of this group */
     for (i = group_idx; i < func_count; i += group_stride) {
-        if (!module->fast_jit_func_ptrs[i]
+        if (!jit_compiler_is_compiled(module, i + module->import_function_count)
             && !jit_compiler_compile(module,
                                      i + module->import_function_count)) {
             LOG_WARNING("warning: failed to compile fast jit function %u", i);
@@ -3211,10 +3222,19 @@ compile_jit_functions(WASMModule *module, char *error_buf,
     for (i = 0; i < thread_num; i++) {
         os_thread_join(module->orcjit_threads[i], NULL);
     }
-#endif
-    for (i = 0; i < thread_num; i++) {
-        os_thread_join(module->orcjit_threads[i], NULL);
+
+#if WASM_ENABLE_FAST_JIT != 0
+    /* Ensure that all the functions are compiled */
+    for (i = 0; i < module->function_count; i++) {
+        if (!jit_compiler_is_compiled(module,
+                                      i + module->import_function_count)) {
+            set_error_buf(error_buf, error_buf_size,
+                          "failed to compile jit functions");
+            return false;
+        }
     }
+#endif
+#endif
 
     bh_print_time("End compile jit functions");
 
@@ -4191,7 +4211,8 @@ wasm_loader_unload(WASMModule *module)
 #if WASM_ENABLE_FAST_JIT != 0
     if (module->fast_jit_func_ptrs) {
         for (i = 0; i < module->function_count; i++) {
-            if (module->fast_jit_func_ptrs[i])
+            if (jit_compiler_is_compiled(module,
+                                         i + module->import_function_count))
                 jit_code_cache_free(module->fast_jit_func_ptrs[i]);
         }
         wasm_runtime_free(module->fast_jit_func_ptrs);

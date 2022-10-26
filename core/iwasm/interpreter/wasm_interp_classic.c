@@ -3906,7 +3906,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
 #if WASM_ENABLE_FAST_JIT != 0
 static void
-fast_jit_call_func_bytecode(WASMExecEnv *exec_env,
+fast_jit_call_func_bytecode(WASMModuleInstance *module_inst,
+                            WASMExecEnv *exec_env,
                             WASMFunctionInstance *function,
                             WASMInterpFrame *frame)
 {
@@ -3916,6 +3917,7 @@ fast_jit_call_func_bytecode(WASMExecEnv *exec_env,
     uint8 type = func_type->result_count
                      ? func_type->types[func_type->param_count]
                      : VALUE_TYPE_VOID;
+    uint32 func_idx = (uint32)(function - module_inst->e->functions);
     int32 action;
 
 #if WASM_ENABLE_REF_TYPES != 0
@@ -3923,6 +3925,17 @@ fast_jit_call_func_bytecode(WASMExecEnv *exec_env,
         type = VALUE_TYPE_I32;
 #endif
 
+#if WASM_ENABLE_LAZY_JIT != 0
+    if (!jit_compiler_is_compiled(module_inst->module, func_idx)) {
+        if (!jit_compiler_compile(module_inst->module, func_idx)) {
+            wasm_set_exception(module_inst, "compile fast jit function failed");
+            return;
+        }
+    }
+#endif
+    bh_assert(jit_compiler_is_compiled(module_inst->module, func_idx));
+
+    /* Switch to jitted code to call the jit function */
     info.out.ret.last_return_type = type;
     info.frame = frame;
     frame->jitted_return_addr =
@@ -3931,7 +3944,9 @@ fast_jit_call_func_bytecode(WASMExecEnv *exec_env,
         exec_env, &info, function->u.func->fast_jit_jitted_code);
     bh_assert(action == JIT_INTERP_ACTION_NORMAL
               || (action == JIT_INTERP_ACTION_THROWN
-                  && wasm_get_exception(exec_env->module_inst)));
+                  && wasm_runtime_get_exception(exec_env->module_inst)));
+
+    /* Get the return values form info.out.ret */
     if (func_type->result_count) {
         switch (type) {
             case VALUE_TYPE_I32:
@@ -3956,8 +3971,9 @@ fast_jit_call_func_bytecode(WASMExecEnv *exec_env,
         }
     }
     (void)action;
+    (void)func_idx;
 }
-#endif
+#endif /* end of WASM_ENABLE_FAST_JIT != 0 */
 
 #if WASM_ENABLE_JIT != 0
 static bool
@@ -4092,7 +4108,7 @@ llvm_jit_call_func_bytecode(WASMModuleInstance *module_inst,
         return ret && !wasm_get_exception(module_inst) ? true : false;
     }
 }
-#endif
+#endif /* end of WASM_ENABLE_JIT != 0 */
 
 void
 wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
@@ -4165,7 +4181,7 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
            no need to copy them from stack frame again */
         copy_argv_from_frame = false;
 #elif WASM_ENABLE_FAST_JIT != 0
-        fast_jit_call_func_bytecode(exec_env, function, frame);
+        fast_jit_call_func_bytecode(module_inst, exec_env, function, frame);
 #else
         wasm_interp_call_func_bytecode(module_inst, exec_env, function, frame);
 #endif

@@ -6,6 +6,7 @@
 #include "jit_codegen.h"
 #include "jit_codecache.h"
 #include "jit_compiler.h"
+#include "jit_frontend.h"
 #include "jit_dump.h"
 
 #include <asmjit/core.h>
@@ -21,6 +22,9 @@ using namespace asmjit;
 
 static char *code_block_switch_to_jitted_from_interp = NULL;
 static char *code_block_return_to_interp_from_jitted = NULL;
+#if WASM_ENABLE_LAZY_JIT != 0
+static char *code_block_call_to_interp_from_jitted = NULL;
+#endif
 
 typedef enum {
     REG_EBP_IDX = 0,
@@ -5860,6 +5864,7 @@ lower_callbc(JitCompContext *cc, x86::Assembler &a, bh_list *jmp_info_list,
     JitReg xmm0_f64_hreg = jit_reg_new(JIT_REG_KIND_F64, 0);
     JitReg ret_reg = *(jit_insn_opnd(insn, 0));
     JitReg func_reg = *(jit_insn_opnd(insn, 2));
+    JitReg func_idx = *(jit_insn_opnd(insn, 3));
     JitReg src_reg;
     int32 func_reg_no;
 
@@ -5869,6 +5874,15 @@ lower_callbc(JitCompContext *cc, x86::Assembler &a, bh_list *jmp_info_list,
     CHECK_KIND(func_reg, JIT_REG_KIND_I64);
     func_reg_no = jit_reg_no(func_reg);
     CHECK_I64_REG_NO(func_reg_no);
+
+    CHECK_KIND(func_idx, JIT_REG_KIND_I32);
+    if (jit_reg_is_const(func_idx)) {
+        imm.setValue(jit_cc_get_const_I32(cc, func_idx));
+        a.mov(regs_i64[REG_RDX_IDX], imm);
+    }
+    else {
+        a.movzx(regs_i64[REG_RDX_IDX], regs_i32[jit_reg_no(func_idx)]);
+    }
 
     node = (JmpInfo *)jit_malloc(sizeof(JmpInfo));
     if (!node)
@@ -6793,6 +6807,8 @@ jit_codegen_init()
     code.setErrorHandler(&err_handler);
     x86::Assembler a(&code);
 
+    /* Initialize code_block_switch_to_jitted_from_interp */
+
     /* push callee-save registers */
     a.push(x86::rbp);
     a.push(x86::rbx);
@@ -6832,10 +6848,9 @@ jit_codegen_init()
     dump_native(stream, code_size);
 #endif
 
-    a.setOffset(0);
+    /* Initialize code_block_return_to_interp_from_jitted */
 
-    /* TODO: mask floating-point exception */
-    /* TODO: floating-point parameters */
+    a.setOffset(0);
 
     /* pop info */
     a.pop(x86::rsi);
@@ -6844,7 +6859,7 @@ jit_codegen_init()
         x86::Mem m(x86::rsi, 0);
         a.mov(m, x86::rbp);
     }
-    /* info->out.ret.ival[0, 1] = rcx */
+    /* info->out.ret.ival[0, 1] = rdx */
     {
         x86::Mem m(x86::rsi, 8);
         a.mov(m, x86::rdx);
@@ -6878,8 +6893,71 @@ jit_codegen_init()
 
     jit_globals->return_to_interp_from_jitted =
         code_block_return_to_interp_from_jitted;
+
+#if WASM_ENABLE_LAZY_JIT != 0
+    /* Initialize code_block_call_to_interp_from_jitted */
+
+    a.setOffset(0);
+
+    /* rdi = exec_env = exec_env_reg */
+    a.mov(x86::rdi, regs_i64[hreg_info->exec_env_hreg_index]);
+    /* rsi = module_inst = exec_env->module_inst */
+    {
+        x86::Mem m(x86::rdi, (uint32)offsetof(WASMExecEnv, module_inst));
+        a.mov(x86::rsi, m);
+    }
+    /* rdx = func_idx, has been prepared in lower_callbc */
+
+    /* call fast_jit_call_to_interp_from_jitted */
+    {
+        Imm imm((uint64)(uintptr_t)fast_jit_call_to_interp_from_jitted);
+        a.mov(x86::rax, imm);
+        a.call(x86::rax);
+    }
+
+    /* check if exception was thrown */
+
+    /* get function return value */
+    {
+        x86::Mem m(regs_i64[hreg_info->exec_env_hreg_index],
+                   offsetof(WASMExecEnv, jit_cache));
+        a.mov(x86::rdx, m);
+        a.movsd(x86::xmm0, m);
+    }
+
+    {
+        /* eax = act */
+        Imm imm(0);
+        a.mov(x86::eax, imm);
+
+        uint32 jitted_return_addr_offset =
+            jit_frontend_get_jitted_return_addr_offset();
+        x86::Mem m(x86::rbp, jitted_return_addr_offset);
+        a.jmp(m);
+    }
+
+    if (err_handler.err)
+        goto fail2;
+
+    code_buf = (char *)code.sectionById(0)->buffer().data();
+    code_size = code.sectionById(0)->buffer().size();
+    stream = (char *)jit_code_cache_alloc(code_size);
+    if (!stream)
+        goto fail2;
+
+    bh_memcpy_s(stream, code_size, code_buf, code_size);
+    code_block_call_to_interp_from_jitted = stream;
+
+    jit_globals->call_to_interp_from_jitted =
+        code_block_call_to_interp_from_jitted;
+#endif
+
     return true;
 
+#if WASM_ENABLE_LAZY_JIT != 0
+fail2:
+    jit_code_cache_free(code_block_switch_to_jitted_from_interp);
+#endif
 fail1:
     jit_code_cache_free(code_block_switch_to_jitted_from_interp);
     return false;
@@ -6890,6 +6968,9 @@ jit_codegen_destroy()
 {
     jit_code_cache_free(code_block_switch_to_jitted_from_interp);
     jit_code_cache_free(code_block_return_to_interp_from_jitted);
+#if WASM_ENABLE_LAZY_JIT != 0
+    jit_code_cache_free(code_block_call_to_interp_from_jitted);
+#endif
 }
 
 /* clang-format off */

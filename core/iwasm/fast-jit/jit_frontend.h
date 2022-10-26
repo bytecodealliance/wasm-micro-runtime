@@ -13,6 +13,10 @@
 #include "../aot/aot_runtime.h"
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #if WASM_ENABLE_AOT == 0
 typedef enum IntCond {
     INT_EQZ = 0,
@@ -158,6 +162,9 @@ jit_frontend_gen_leaving_block(JitCompContext *cc, void *bcip,
  */
 bool
 jit_frontend_lower(JitCompContext *cc);
+
+uint32
+jit_frontend_get_jitted_return_addr_offset();
 
 JitReg
 get_module_inst_reg(JitFrame *frame);
@@ -488,5 +495,9 @@ set_local_f64(JitFrame *frame, int n, JitReg val)
 #define PUSH_F64(v) PUSH(v, VALUE_TYPE_F64)
 #define PUSH_FUNCREF(v) PUSH(v, VALUE_TYPE_FUNCREF)
 #define PUSH_EXTERNREF(v) PUSH(v, VALUE_TYPE_EXTERNREF)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
