@@ -2973,9 +2973,9 @@ init_fast_jit_functions(WASMModule *module, char *error_buf,
 
 #if WASM_ENABLE_LAZY_JIT != 0
     for (i = 0; i < module->function_count; i++) {
-        module->fast_jit_func_ptrs[i] = jit_globals->call_to_interp_from_jitted;
-        module->functions[i]->fast_jit_jitted_code =
-            jit_globals->call_to_interp_from_jitted;
+        module->fast_jit_func_ptrs[i] =
+            module->functions[i]->fast_jit_jitted_code =
+                jit_globals->call_to_interp_from_jitted;
     }
 #endif
 

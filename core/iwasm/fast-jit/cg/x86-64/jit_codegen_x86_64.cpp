@@ -6889,10 +6889,12 @@ jit_codegen_init()
         goto fail1;
 
     bh_memcpy_s(stream, code_size, code_buf, code_size);
-    code_block_return_to_interp_from_jitted = stream;
+    code_block_return_to_interp_from_jitted =
+        jit_globals->return_to_interp_from_jitted = stream;
 
-    jit_globals->return_to_interp_from_jitted =
-        code_block_return_to_interp_from_jitted;
+#if 0
+    dump_native(stream, code_size);
+#endif
 
 #if WASM_ENABLE_LAZY_JIT != 0
     /* Initialize code_block_call_to_interp_from_jitted */
@@ -6908,16 +6910,39 @@ jit_codegen_init()
     }
     /* rdx = func_idx, has been prepared in lower_callbc */
 
-    /* call fast_jit_call_to_interp_from_jitted */
+    /* Call fast_jit_call_to_interp_from_jitted */
     {
         Imm imm((uint64)(uintptr_t)fast_jit_call_to_interp_from_jitted);
         a.mov(x86::rax, imm);
         a.call(x86::rax);
     }
 
-    /* check if exception was thrown */
+    /* Check if there was exception thrown */
+    {
+        /* Did fast_jit_call_to_interp_from_jitted return false? */
+        Imm imm((uint8)0);
+        a.cmp(x86::al, imm);
+        /* If no, jump to `Get function return value` */
+        imm.setValue(INT32_MAX);
+        a.jne(imm);
 
-    /* get function return value */
+        /* The offset written by asmjit is always 0, we patch it again */
+        char *stream;
+        stream = (char *)a.code()->sectionById(0)->buffer().data()
+                 + a.code()->sectionById(0)->buffer().size() - 6;
+        *(int32 *)(stream + 2) = 17;
+
+        /* If yes, set eax to JIT_INTERP_ACTION_THROWN, and
+           jump to code_block_return_to_interp_from_jitted to
+           return to interpreter */
+        imm.setValue(JIT_INTERP_ACTION_THROWN);
+        a.mov(x86::eax, imm);
+        imm.setValue(code_block_return_to_interp_from_jitted);
+        a.mov(x86::rsi, imm);
+        a.jmp(x86::rsi);
+    }
+
+    /* Get function return value from exec_env->jit_cache */
     {
         x86::Mem m(regs_i64[hreg_info->exec_env_hreg_index],
                    offsetof(WASMExecEnv, jit_cache));
@@ -6946,17 +6971,19 @@ jit_codegen_init()
         goto fail2;
 
     bh_memcpy_s(stream, code_size, code_buf, code_size);
-    code_block_call_to_interp_from_jitted = stream;
+    code_block_call_to_interp_from_jitted =
+        jit_globals->call_to_interp_from_jitted = stream;
 
-    jit_globals->call_to_interp_from_jitted =
-        code_block_call_to_interp_from_jitted;
+#if 0
+    dump_native(stream, code_size);
 #endif
+#endif /* end of WASM_ENABLE_LAZY_JIT != 0 */
 
     return true;
 
 #if WASM_ENABLE_LAZY_JIT != 0
 fail2:
-    jit_code_cache_free(code_block_switch_to_jitted_from_interp);
+    jit_code_cache_free(code_block_return_to_interp_from_jitted);
 #endif
 fail1:
     jit_code_cache_free(code_block_switch_to_jitted_from_interp);
@@ -6966,11 +6993,11 @@ fail1:
 void
 jit_codegen_destroy()
 {
-    jit_code_cache_free(code_block_switch_to_jitted_from_interp);
-    jit_code_cache_free(code_block_return_to_interp_from_jitted);
 #if WASM_ENABLE_LAZY_JIT != 0
     jit_code_cache_free(code_block_call_to_interp_from_jitted);
 #endif
+    jit_code_cache_free(code_block_return_to_interp_from_jitted);
+    jit_code_cache_free(code_block_switch_to_jitted_from_interp);
 }
 
 /* clang-format off */

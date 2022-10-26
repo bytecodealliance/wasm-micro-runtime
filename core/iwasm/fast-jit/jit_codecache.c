@@ -58,8 +58,7 @@ jit_pass_register_jitted_code(JitCompContext *cc)
 {
     uint32 jit_func_idx =
         cc->cur_wasm_func_idx - cc->cur_wasm_module->import_function_count;
-    cc->cur_wasm_func->fast_jit_jitted_code = cc->jitted_addr_begin;
     cc->cur_wasm_module->fast_jit_func_ptrs[jit_func_idx] =
-        cc->jitted_addr_begin;
+        cc->cur_wasm_func->fast_jit_jitted_code = cc->jitted_addr_begin;
     return true;
 }
