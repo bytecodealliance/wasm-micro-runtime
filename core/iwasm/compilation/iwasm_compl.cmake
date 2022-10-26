@@ -18,9 +18,11 @@ set (IWASM_COMPL_SOURCE ${source_all})
 
 # Disalbe rtti to works with LLVM
 
-if (MSVC)
-  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /GR-")
-else()
-  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
-endif()
+# Faasm: faasm needs to turn on RTTI because LLVM's Ubuntu build has RTTI
+# enabled
+# if (MSVC)
+#   set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /GR-")
+# else()
+#   set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
+# endif()
 
