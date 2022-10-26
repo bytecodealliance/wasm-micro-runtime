@@ -78,6 +78,7 @@ target_link_libraries(iwasm vmlib -lpthread -lm -ldl)
 ################ native libraries ###############
 add_library (test_add SHARED test_add.c)
 add_library (test_sqrt SHARED test_sqrt.c)
+add_library (test_hello SHARED test_hello.c)
 
 ################ wasm application ###############
 add_subdirectory(wasm-app)
