@@ -77,20 +77,16 @@ jobs:
         if: ${{ matrix.os == 'ubuntu-20.04' }}
         run: |
           if [[ ${{ github.repository }} == */wasm-micro-runtime ]]; then
-            echo "::set-output name=light::green"
+            echo "light=green" >> "$GITHUB_OUTPUT"
           else
-            echo "::set-output name=light::red"
+            echo "light=red" >> "$GITHUB_OUTPUT"
           fi
 
       - name: do_check_on_ubuntu_2204
         id: do_check_on_ubuntu_2204
         if: ${{ matrix.os == 'ubuntu-22.04' }}
         run: |
-          if [[ ${{ github.repository }} == */wasm-micro-runtime ]]; then
-            echo "::set-output name=light::green"
-          else
-            echo "::set-output name=light::green"
-          fi
+          echo "light=green" >> "$GITHUB_OUTPUT"
 
   build_llvm_libraries:
     needs: check_repo
