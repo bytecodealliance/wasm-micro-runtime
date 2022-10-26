@@ -972,6 +972,24 @@ wasm_runtime_register_natives_raw(const char *module_name,
                                   NativeSymbol *native_symbols,
                                   uint32_t n_native_symbols);
 
+
+/**
+ * Undo wasm_runtime_register_natives or wasm_runtime_register_natives_raw
+ *
+ * @param module_name    Should be the same as the corresponding
+ *                       wasm_runtime_register_natives.
+ *                       (Same in term of strcmp.)
+ *
+ * @param native_symbols Should be the same as the corresponding
+ *                       wasm_runtime_register_natives.
+ *                       (Same in term of pointer comparison.)
+ *
+ * @return true if success, false otherwise
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_unregister_natives(const char *module_name,
+                                NativeSymbol *native_symbols);
+
 /**
  * Get attachment of native function from execution environment
  *
