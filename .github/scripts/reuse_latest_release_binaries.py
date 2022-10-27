@@ -94,8 +94,9 @@ def main():
 
 if __name__ == "__main__":
     # use output to indicate results
-    # echo "::set-output name=result::${result}"
-    print(f'::set-output name=result::{"hit" if main() else "not-hit"}')
+    # echo "result=${result}" >> "$GITHUB_OUTPUT"
+    with open(os.environ.get("GITHUB_OUTPUT"), 'a') as output_file:
+        output_file.write("hit\n" if main() else "not-hit\n")
 
     # always return 0
     sys.exit(0)
