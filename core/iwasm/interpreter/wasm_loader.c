@@ -3115,8 +3115,8 @@ orcjit_thread_callback(void *arg)
         if (!jit_compiler_is_compiled(module, i + module->import_function_count)
             && !jit_compiler_compile(module,
                                      i + module->import_function_count)) {
-            LOG_WARNING("warning: failed to compile fast jit function %u", i);
-            continue;
+            os_printf("failed to compile fast jit function %u\n", i);
+            break;
         }
 
         if (module->orcjit_stop_compiling) {
@@ -3146,9 +3146,9 @@ orcjit_thread_callback(void *arg)
             LLVMOrcLLLazyJITLookup(comp_ctx->orc_jit, &func_addr, func_name);
         if (error != LLVMErrorSuccess) {
             char *err_msg = LLVMGetErrorMessage(error);
-            os_printf("failed to compile orc jit function: %s", err_msg);
+            os_printf("failed to compile llvm jit function %u: %s", i, err_msg);
             LLVMDisposeErrorMessage(err_msg);
-            continue;
+            break;
         }
 
         /* Call the jit wrapper function to trigger its compilation, so as
@@ -3224,17 +3224,28 @@ compile_jit_functions(WASMModule *module, char *error_buf,
     }
 
 #if WASM_ENABLE_FAST_JIT != 0
-    /* Ensure that all the functions are compiled */
+    /* Ensure all the fast-jit functions are compiled */
     for (i = 0; i < module->function_count; i++) {
         if (!jit_compiler_is_compiled(module,
                                       i + module->import_function_count)) {
             set_error_buf(error_buf, error_buf_size,
-                          "failed to compile jit functions");
+                          "failed to compile fast jit function");
             return false;
         }
     }
 #endif
+
+#if WASM_ENABLE_JIT != 0
+    /* Ensure all the llvm-jit functions are compiled */
+    for (i = 0; i < module->function_count; i++) {
+        if (!module->func_ptrs_compiled[i]) {
+            set_error_buf(error_buf, error_buf_size,
+                          "failed to compile llvm jit function");
+            return false;
+        }
+    }
 #endif
+#endif /* end of WASM_ENABLE_LAZY_JIT == 0 */
 
     bh_print_time("End compile jit functions");
 

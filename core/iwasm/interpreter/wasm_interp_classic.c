@@ -3926,11 +3926,9 @@ fast_jit_call_func_bytecode(WASMModuleInstance *module_inst,
 #endif
 
 #if WASM_ENABLE_LAZY_JIT != 0
-    if (!jit_compiler_is_compiled(module_inst->module, func_idx)) {
-        if (!jit_compiler_compile(module_inst->module, func_idx)) {
-            wasm_set_exception(module_inst, "compile fast jit function failed");
-            return;
-        }
+    if (!jit_compiler_compile(module_inst->module, func_idx)) {
+        wasm_set_exception(module_inst, "failed to compile fast jit function");
+        return;
     }
 #endif
     bh_assert(jit_compiler_is_compiled(module_inst->module, func_idx));
