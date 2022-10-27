@@ -1286,7 +1286,7 @@ run_pass(void *ctx, LLVMModuleRef module)
     /*AOTCompContext *comp_ctx = (AOTCompContext *)ctx;*/
 
     size_t len;
-    LOG_VERBOSE("--- In IRTransformLayer @ T#%ld---",
+    LOG_VERBOSE("--- In IRTransformLayer @ M#%s, T#%ld---",
                 LLVMGetModuleIdentifier(module, &len), pthread_self());
 
     /* TODO: enable this for JIT mode after fixing LLVM issues */

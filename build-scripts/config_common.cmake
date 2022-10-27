@@ -110,22 +110,6 @@ else ()
 endif ()
 
 ########################################
-## semantic version information
-
-if (NOT DEFINED WAMR_VERSION_MAJOR)
-  set (WAMR_VERSION_MAJOR 1)
-endif ()
-
-if (NOT DEFINED WAMR_VERSION_MINOR)
-  set (WAMR_VERSION_MINOR 1)
-endif ()
-
-if (NOT DEFINED WAMR_VERSION_PATCH)
-  set (WAMR_VERSION_PATCH 1)
-endif ()
-
-configure_file(${WAMR_ROOT_DIR}/core/version.h.in ${WAMR_ROOT_DIR}/core/version.h @ONLY)
-########################################
 
 message ("-- Build Configurations:")
 message ("     Build as target ${WAMR_BUILD_TARGET}")
@@ -277,6 +261,28 @@ endif ()
 if (WAMR_BUILD_LOAD_CUSTOM_SECTION EQUAL 1)
     add_definitions (-DWASM_ENABLE_LOAD_CUSTOM_SECTION=1)
     message ("     Load custom section enabled")
+endif ()
+if (WAMR_BUILD_GLOBAL_HEAP_POOL EQUAL 1)
+  add_definitions(-DWASM_ENABLE_GLOBAL_HEAP_POOL=1)
+  message ("     Global heap pool enabled")
+endif ()
+if (WAMR_BUILD_GLOBAL_HEAP_SIZE GREATER 0)
+  add_definitions (-DWASM_GLOBAL_HEAP_SIZE=${WAMR_BUILD_GLOBAL_HEAP_SIZE})
+  message ("     Custom global heap size: " ${WAMR_BUILD_GLOBAL_HEAP_SIZE})
+else ()
+  # Spec test requires more heap pool size
+  if (WAMR_BUILD_SPEC_TEST EQUAL 1)
+    if (WAMR_BUILD_PLATFORM STREQUAL "linux-sgx")
+      math(EXPR WAMR_BUILD_GLOBAL_HEAP_SIZE "100 * 1024 * 1024")
+    else ()
+      math(EXPR WAMR_BUILD_GLOBAL_HEAP_SIZE "300 * 1024 * 1024")
+    endif ()
+    add_definitions (-DWASM_GLOBAL_HEAP_SIZE=${WAMR_BUILD_GLOBAL_HEAP_SIZE})
+  else ()
+    # By default, the global heap size is of 10 MB
+    math(EXPR WAMR_BUILD_GLOBAL_HEAP_SIZE "10 * 1024 * 1024")
+    add_definitions (-DWASM_GLOBAL_HEAP_SIZE=${WAMR_BUILD_GLOBAL_HEAP_SIZE})
+  endif ()
 endif ()
 if (WAMR_BUILD_STACK_GUARD_SIZE GREATER 0)
     add_definitions (-DWASM_STACK_GUARD_SIZE=${WAMR_BUILD_STACK_GUARD_SIZE})

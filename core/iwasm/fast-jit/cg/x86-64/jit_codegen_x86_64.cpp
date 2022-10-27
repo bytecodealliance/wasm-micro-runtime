@@ -5823,13 +5823,23 @@ lower_callnative(JitCompContext *cc, x86::Assembler &a, JitInsn *insn)
     a.call(regs_i64[REG_RAX_IDX]);
 
     if (ret_reg) {
-        bh_assert((jit_reg_kind(ret_reg) == JIT_REG_KIND_I32
-                   && jit_reg_no(ret_reg) == REG_EAX_IDX)
-                  || (jit_reg_kind(ret_reg) == JIT_REG_KIND_I64
-                      && jit_reg_no(ret_reg) == REG_RAX_IDX)
-                  || ((jit_reg_kind(ret_reg) == JIT_REG_KIND_F32
-                       || jit_reg_kind(ret_reg) == JIT_REG_KIND_F64)
-                      && jit_reg_no(ret_reg) == 0));
+        uint32 ret_reg_no = jit_reg_no(ret_reg);
+        if (jit_reg_kind(ret_reg) == JIT_REG_KIND_I64) {
+            CHECK_I64_REG_NO(ret_reg_no);
+            /* mov res, rax */
+            mov_r_to_r_i64(a, ret_reg_no, REG_RAX_IDX);
+        }
+        else if (jit_reg_kind(ret_reg) == JIT_REG_KIND_F64) {
+            CHECK_F64_REG_NO(ret_reg_no);
+            /* mov res, xmm0_f64 */
+            mov_r_to_r_f64(a, ret_reg_no, 0);
+        }
+        else {
+            bh_assert((jit_reg_kind(ret_reg) == JIT_REG_KIND_I32
+                       && ret_reg_no == REG_EAX_IDX)
+                      || (jit_reg_kind(ret_reg) == JIT_REG_KIND_F32
+                          && ret_reg_no == 0));
+        }
     }
 
     return true;

@@ -5,6 +5,7 @@
 
 #include "jit_emit_control.h"
 #include "jit_emit_exception.h"
+#include "jit_emit_function.h"
 #include "../jit_frontend.h"
 #include "../interpreter/wasm_loader.h"
 
@@ -380,11 +381,51 @@ copy_block_arities(JitCompContext *cc, JitReg dst_frame_sp, uint8 *dst_types,
     }
 }
 
-static void
+static bool
 handle_func_return(JitCompContext *cc, JitBlock *block)
 {
     JitReg prev_frame, prev_frame_sp;
     JitReg ret_reg = 0;
+#if WASM_ENABLE_PERF_PROFILING != 0
+    JitReg func_inst = jit_cc_new_reg_ptr(cc);
+    JitReg time_start = jit_cc_new_reg_I64(cc);
+    JitReg time_end = jit_cc_new_reg_I64(cc);
+    JitReg cur_exec_time = jit_cc_new_reg_I64(cc);
+    JitReg total_exec_time = jit_cc_new_reg_I64(cc);
+    JitReg total_exec_cnt = jit_cc_new_reg_I32(cc);
+#endif
+
+#if WASM_ENABLE_PERF_PROFILING != 0
+    /* time_end = os_time_get_boot_microsecond() */
+    if (!jit_emit_callnative(cc, os_time_get_boot_microsecond, time_end, NULL,
+                             0)) {
+        return false;
+    }
+    /* time_start = cur_frame->time_started */
+    GEN_INSN(LDI64, time_start, cc->fp_reg,
+             NEW_CONST(I32, offsetof(WASMInterpFrame, time_started)));
+    /* cur_exec_time = time_end - time_start */
+    GEN_INSN(SUB, cur_exec_time, time_end, time_start);
+    /* func_inst = cur_frame->function */
+    GEN_INSN(LDPTR, func_inst, cc->fp_reg,
+             NEW_CONST(I32, offsetof(WASMInterpFrame, function)));
+    /* total_exec_time = func_inst->total_exec_time */
+    GEN_INSN(LDI64, total_exec_time, func_inst,
+             NEW_CONST(I32, offsetof(WASMFunctionInstance, total_exec_time)));
+    /* total_exec_time += cur_exec_time */
+    GEN_INSN(ADD, total_exec_time, total_exec_time, cur_exec_time);
+    /* func_inst->total_exec_time = total_exec_time */
+    GEN_INSN(STI64, total_exec_time, func_inst,
+             NEW_CONST(I32, offsetof(WASMFunctionInstance, total_exec_time)));
+    /* totoal_exec_cnt = func_inst->total_exec_cnt */
+    GEN_INSN(LDI32, total_exec_cnt, func_inst,
+             NEW_CONST(I32, offsetof(WASMFunctionInstance, total_exec_cnt)));
+    /* total_exec_cnt++ */
+    GEN_INSN(ADD, total_exec_cnt, total_exec_cnt, NEW_CONST(I32, 1));
+    /* func_inst->total_exec_cnt = total_exec_cnt */
+    GEN_INSN(STI32, total_exec_cnt, func_inst,
+             NEW_CONST(I32, offsetof(WASMFunctionInstance, total_exec_cnt)));
+#endif
 
     prev_frame = jit_cc_new_reg_ptr(cc);
     prev_frame_sp = jit_cc_new_reg_ptr(cc);
@@ -420,6 +461,8 @@ handle_func_return(JitCompContext *cc, JitBlock *block)
     GEN_INSN(MOV, cc->fp_reg, prev_frame);
     /* return 0 */
     GEN_INSN(RETURNBC, NEW_CONST(I32, JIT_INTERP_ACTION_NORMAL), ret_reg, 0);
+
+    return true;
 }
 
 /**
@@ -446,7 +489,9 @@ handle_op_end(JitCompContext *cc, uint8 **p_frame_ip, bool is_block_polymorphic)
            create the end basic block, just continue to translate
            the following opcodes */
         if (block->label_type == LABEL_TYPE_FUNCTION) {
-            handle_func_return(cc, block);
+            if (!handle_func_return(cc, block)) {
+                return false;
+            }
             SET_BB_END_BCIP(cc->cur_basic_block, *p_frame_ip - 1);
             clear_values(jit_frame);
         }
@@ -548,7 +593,10 @@ handle_op_end(JitCompContext *cc, uint8 **p_frame_ip, bool is_block_polymorphic)
         block = jit_block_stack_pop(&cc->block_stack);
 
         if (block->label_type == LABEL_TYPE_FUNCTION) {
-            handle_func_return(cc, block);
+            if (!handle_func_return(cc, block)) {
+                jit_block_destroy(block);
+                goto fail;
+            }
             SET_BB_END_BCIP(cc->cur_basic_block, *p_frame_ip - 1);
             clear_values(jit_frame);
         }
@@ -1190,7 +1238,9 @@ jit_compile_op_return(JitCompContext *cc, uint8 **p_frame_ip)
 
     bh_assert(block_func);
 
-    handle_func_return(cc, block_func);
+    if (!handle_func_return(cc, block_func)) {
+        return false;
+    }
     SET_BB_END_BCIP(cc->cur_basic_block, *p_frame_ip - 1);
     clear_values(cc->jit_frame);
 

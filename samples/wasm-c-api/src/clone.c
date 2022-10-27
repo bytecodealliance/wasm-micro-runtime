@@ -103,7 +103,7 @@ vm_link(wasm_vm_t *vm, wasm_extern_vec_t *imports)
     if (!vm->function_list)
         goto fail;
 
-    memset(vm->function_list, 0, sizeof(2 * sizeof(wasm_func_t *)));
+    memset(vm->function_list, 0, 2 * sizeof(wasm_func_t *));
 
     /* bind wasm_set_byte(...) */
     assert(wasm_extern_kind(vm->exports->data[1]) == WASM_EXTERN_FUNC);

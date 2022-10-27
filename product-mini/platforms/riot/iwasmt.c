@@ -55,9 +55,8 @@ iwasm_t(void *arg1)
     return NULL;
 }
 
-/* choose allocator */
+/* enable FUNC_ALLOC to use custom memory allocation functions */
 #define FUNC_ALLOC
-/* #define POOL_ALLOC */
 
 void *
 iwasm_main(void *arg1)
@@ -71,17 +70,17 @@ iwasm_main(void *arg1)
     RuntimeInitArgs init_args;
 
     memset(&init_args, 0, sizeof(RuntimeInitArgs));
-#ifdef POOL_ALLOC
-    static char global_heap_buf[256 * 1024] = { 0 }; /* 256 kB */
-
-    init_args.mem_alloc_type = Alloc_With_Pool;
-    init_args.mem_alloc_option.pool.heap_buf = global_heap_buf;
-    init_args.mem_alloc_option.pool.heap_size = sizeof(global_heap_buf);
-#elif defined(FUNC_ALLOC)
+#if defined(FUNC_ALLOC) && WASM_ENABLE_GLOBAL_HEAP_POOL == 0
     init_args.mem_alloc_type = Alloc_With_Allocator;
     init_args.mem_alloc_option.allocator.malloc_func = malloc;
     init_args.mem_alloc_option.allocator.realloc_func = realloc;
     init_args.mem_alloc_option.allocator.free_func = free;
+#elif WASM_ENABLE_GLOBAL_HEAP_POOL != 0
+    static char global_heap_buf[WASM_GLOBAL_HEAP_SIZE] = { 0 };
+
+    init_args.mem_alloc_type = Alloc_With_Pool;
+    init_args.mem_alloc_option.pool.heap_buf = global_heap_buf;
+    init_args.mem_alloc_option.pool.heap_size = sizeof(global_heap_buf);
 #else
     init_args.mem_alloc_type = Alloc_With_System_Allocator;
 #endif

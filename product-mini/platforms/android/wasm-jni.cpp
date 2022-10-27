@@ -70,10 +70,14 @@ Java_com_intel_wasm_api_Runtime_run(JNIEnv *env, jclass thiz)
 
     memset(&init_args, 0, sizeof(RuntimeInitArgs));
 
+#if WASM_ENABLE_GLOBAL_HEAP_POOL == 0
     init_args.mem_alloc_type = Alloc_With_Allocator;
     init_args.mem_alloc_option.allocator.malloc_func = (void *)malloc;
     init_args.mem_alloc_option.allocator.realloc_func = (void *)realloc;
     init_args.mem_alloc_option.allocator.free_func = (void *)free;
+#else
+#error The usage of a global heap pool is not implemented yet for Android.
+#endif
 
     LOGI("wasm_runtime_full_init");
     /* initialize runtime environment */
