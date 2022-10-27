@@ -26,6 +26,7 @@ main(int argc, char **argv)
     const char *text = FILE_TEXT;
     char buffer[1000];
     int ret;
+    long long stat_size;
 
     // Test: File opening (fopen)
     printf("Opening a file..\n");
@@ -114,17 +115,25 @@ main(int argc, char **argv)
     assert(ftell(file) == strlen(text) + 2 * ADDITIONAL_SPACE);
     printf("[Test] Extension of the file size passed.\n");
 
+    // Display some debug information
+    printf("Getting the size of the file on disk..\n");
+    struct stat st;
+    stat(PATH_TEST_FILE, &st);
+    stat_size = st.st_size;
+    assert(stat_size != 0);
+
+    // Compare with the size from fstat
+    fstat(fileno(file), &st);
+    printf("The file size is: %lld (stat), %lld (fstat).\n", stat_size,
+           st.st_size);
+    assert(stat_size != 0);
+    assert(stat_size == st.st_size);
+
     // Test: closing the file (fclose)
     printf("Closing from the file..\n");
     ret = fclose(file);
     assert(ret == 0);
     printf("[Test] Closing file passed.\n");
-
-    // Display some debug information
-    printf("Getting the size of the file on disk..\n");
-    struct stat st;
-    stat(PATH_TEST_FILE, &st);
-    printf("The file size is %lld.\n", st.st_size);
 
     printf("All the tests passed!\n");
 

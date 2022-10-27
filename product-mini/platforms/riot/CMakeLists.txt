@@ -45,6 +45,11 @@ if (NOT DEFINED WAMR_ROOT_DIR)
   set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 endif ()
 
+# Override the global heap size for small devices
+if (NOT DEFINED  WAMR_BUILD_GLOBAL_HEAP_SIZE)
+  add_definitions (-DWASM_GLOBAL_HEAP_SIZE=262144) # 256 kB
+endif ()
+
 
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 

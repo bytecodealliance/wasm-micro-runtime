@@ -64,10 +64,8 @@ typedef struct EnclaveModule {
     uint32 total_size_mapped;
 } EnclaveModule;
 
-#if WASM_ENABLE_SPEC_TEST == 0
-static char global_heap_buf[10 * 1024 * 1024] = { 0 };
-#else
-static char global_heap_buf[100 * 1024 * 1024] = { 0 };
+#if WASM_ENABLE_GLOBAL_HEAP_POOL != 0
+static char global_heap_buf[WASM_GLOBAL_HEAP_SIZE] = { 0 };
 #endif
 
 static void
@@ -80,32 +78,25 @@ set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
 static void
 handle_cmd_init_runtime(uint64 *args, uint32 argc)
 {
-    bool alloc_with_pool;
     uint32 max_thread_num;
     RuntimeInitArgs init_args;
 
-    bh_assert(argc == 2);
+    bh_assert(argc == 1);
 
     os_set_print_function(enclave_print);
 
-#if WASM_ENABLE_SPEC_TEST == 0
-    alloc_with_pool = (bool)args[0];
-#else
-    alloc_with_pool = true;
-#endif
-    max_thread_num = (uint32)args[1];
+    max_thread_num = (uint32)args[0];
 
     memset(&init_args, 0, sizeof(RuntimeInitArgs));
     init_args.max_thread_num = max_thread_num;
 
-    if (alloc_with_pool) {
-        init_args.mem_alloc_type = Alloc_With_Pool;
-        init_args.mem_alloc_option.pool.heap_buf = global_heap_buf;
-        init_args.mem_alloc_option.pool.heap_size = sizeof(global_heap_buf);
-    }
-    else {
-        init_args.mem_alloc_type = Alloc_With_System_Allocator;
-    }
+#if WASM_ENABLE_GLOBAL_HEAP_POOL != 0
+    init_args.mem_alloc_type = Alloc_With_Pool;
+    init_args.mem_alloc_option.pool.heap_buf = global_heap_buf;
+    init_args.mem_alloc_option.pool.heap_size = sizeof(global_heap_buf);
+#else
+    init_args.mem_alloc_type = Alloc_With_System_Allocator;
+#endif
 
     /* initialize runtime environment */
     if (!wasm_runtime_full_init(&init_args)) {
@@ -604,9 +595,13 @@ ecall_iwasm_main(uint8_t *wasm_file_buf, uint32_t wasm_file_size)
 
     memset(&init_args, 0, sizeof(RuntimeInitArgs));
 
+#if WASM_ENABLE_GLOBAL_HEAP_POOL != 0
     init_args.mem_alloc_type = Alloc_With_Pool;
     init_args.mem_alloc_option.pool.heap_buf = global_heap_buf;
     init_args.mem_alloc_option.pool.heap_size = sizeof(global_heap_buf);
+#else
+    init_args.mem_alloc_type = Alloc_With_System_Allocator;
+#endif
 
     /* initialize runtime environment */
     if (!wasm_runtime_full_init(&init_args)) {

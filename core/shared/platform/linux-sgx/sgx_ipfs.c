@@ -260,22 +260,27 @@ ipfs_fopen(int fd, const char *filename, int flags)
     bool write_only = (flags & O_ACCMODE) == O_WRONLY;
     bool read_write = (flags & O_ACCMODE) == O_RDWR;
 
-    // The mapping of the mode are described in the table in the official
+    // The mapping of the mode is similar to the table in the official
     // specifications:
     // https://pubs.opengroup.org/onlinepubs/9699919799/functions/fopen.html
+    // Note that POSIX has obtained a file descriptor beforehand.
+    // If opened with a destructive mode ("w" or "w+"), the truncate operation
+    // already occurred and must not be repeated because this will invalidate
+    // the file descriptor obtained by POSIX. Therefore, we do NOT map to the
+    // modes that truncate the file ("w" and "w+"). Instead, we map to a
+    // non-destructive mode ("r+").
+
     if (read_only)
         mode = "r";
     else if (write_only && must_create && must_truncate)
-        mode = "w";
+        // Rather than "w", we map to a non-destructive mode
+        mode = "r+";
     else if (write_only && must_create && must_append)
         mode = "a";
-    else if (read_write && must_create && must_truncate)
-        mode = "w+";
     else if (read_write && must_create && must_append)
         mode = "a+";
-    else if (read_write && must_create)
-        mode = "w+";
     else if (read_write)
+        // Rather than "w+", we map to a non-destructive mode
         mode = "r+";
     else
         mode = NULL;

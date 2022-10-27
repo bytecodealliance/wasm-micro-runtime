@@ -174,10 +174,8 @@ validate_env_str(char *env)
 }
 #endif
 
-#define USE_GLOBAL_HEAP_BUF 0
-
-#if USE_GLOBAL_HEAP_BUF != 0
-static char global_heap_buf[10 * 1024 * 1024] = { 0 };
+#if WASM_ENABLE_GLOBAL_HEAP_POOL != 0
+static char global_heap_buf[WASM_GLOBAL_HEAP_SIZE] = { 0 };
 #endif
 
 #if WASM_ENABLE_MULTI_MODULE != 0
@@ -359,7 +357,7 @@ main(int argc, char *argv[])
 
     memset(&init_args, 0, sizeof(RuntimeInitArgs));
 
-#if USE_GLOBAL_HEAP_BUF != 0
+#if WASM_ENABLE_GLOBAL_HEAP_POOL != 0
     init_args.mem_alloc_type = Alloc_With_Pool;
     init_args.mem_alloc_option.pool.heap_buf = global_heap_buf;
     init_args.mem_alloc_option.pool.heap_size = sizeof(global_heap_buf);

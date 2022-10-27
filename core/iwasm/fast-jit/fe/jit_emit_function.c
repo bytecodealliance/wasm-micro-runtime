@@ -800,11 +800,9 @@ emit_callnative(JitCompContext *cc, JitReg native_func_reg, JitReg res,
     char *f32_arg_names[] = { "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5" };
     char *f64_arg_names[] = { "xmm0_f64", "xmm1_f64", "xmm2_f64",
                               "xmm3_f64", "xmm4_f64", "xmm5_f64" };
-    JitReg i64_arg_regs[6], f32_arg_regs[6], f64_arg_regs[6], res_hreg = 0;
+    JitReg i64_arg_regs[6], f32_arg_regs[6], f64_arg_regs[6], res_reg = 0;
     JitReg eax_hreg = jit_codegen_get_hreg_by_name("eax");
-    JitReg rax_hreg = jit_codegen_get_hreg_by_name("rax");
     JitReg xmm0_hreg = jit_codegen_get_hreg_by_name("xmm0");
-    JitReg xmm0_f64_hreg = jit_codegen_get_hreg_by_name("xmm0_f64");
     uint32 i, i64_reg_idx, float_reg_idx;
 
     bh_assert(param_count <= 6);
@@ -839,16 +837,16 @@ emit_callnative(JitCompContext *cc, JitReg native_func_reg, JitReg res,
     if (res) {
         switch (jit_reg_kind(res)) {
             case JIT_REG_KIND_I32:
-                res_hreg = eax_hreg;
+                res_reg = eax_hreg;
                 break;
             case JIT_REG_KIND_I64:
-                res_hreg = rax_hreg;
+                res_reg = res;
                 break;
             case JIT_REG_KIND_F32:
-                res_hreg = xmm0_hreg;
+                res_reg = xmm0_hreg;
                 break;
             case JIT_REG_KIND_F64:
-                res_hreg = xmm0_f64_hreg;
+                res_reg = res;
                 break;
             default:
                 bh_assert(0);
@@ -856,7 +854,7 @@ emit_callnative(JitCompContext *cc, JitReg native_func_reg, JitReg res,
         }
     }
 
-    insn = GEN_INSN(CALLNATIVE, res_hreg, native_func_reg, param_count);
+    insn = GEN_INSN(CALLNATIVE, res_reg, native_func_reg, param_count);
     if (!insn) {
         return false;
     }
@@ -880,8 +878,8 @@ emit_callnative(JitCompContext *cc, JitReg native_func_reg, JitReg res,
         }
     }
 
-    if (res) {
-        GEN_INSN(MOV, res, res_hreg);
+    if (res && res != res_reg) {
+        GEN_INSN(MOV, res, res_reg);
     }
 
     return true;

@@ -2704,15 +2704,6 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
 
     /* Run IR optimization before feeding in ORCJIT and AOT codegen */
     if (comp_ctx->optimize) {
-        /* Run specific passes for AOT indirect mode */
-        if (!comp_ctx->is_jit_mode && comp_ctx->is_indirect_mode) {
-            bh_print_time("Begin to run optimization passes "
-                          "for indirect mode");
-            if (!apply_passes_for_indirect_mode(comp_ctx)) {
-                return false;
-            }
-        }
-
         /* Run passes for AOT/JIT mode.
            TODO: Apply these passes in the do_ir_transform callback of
            TransformLayer when compiling each jit function, so as to
@@ -2721,6 +2712,17 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
            possible core dump. */
         bh_print_time("Begin to run llvm optimization passes");
         aot_apply_llvm_new_pass_manager(comp_ctx, comp_ctx->module);
+
+        /* Run specific passes for AOT indirect mode in last since general
+           optimization may create some intrinsic function calls like
+           llvm.memset, so let's remove these function calls here. */
+        if (!comp_ctx->is_jit_mode && comp_ctx->is_indirect_mode) {
+            bh_print_time("Begin to run optimization passes "
+                          "for indirect mode");
+            if (!apply_passes_for_indirect_mode(comp_ctx)) {
+                return false;
+            }
+        }
         bh_print_time("Finish llvm optimization passes");
     }
 

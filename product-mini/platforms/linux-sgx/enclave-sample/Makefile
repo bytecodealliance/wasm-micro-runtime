@@ -9,8 +9,10 @@ SGX_ARCH ?= x64
 SGX_DEBUG ?= 0
 SPEC_TEST ?= 0
 
-# This variable is automatically set by CMakeLists.txt
+# These variables are automatically set by CMakeLists.txt
 SGX_IPFS = 0
+WAMR_BUILD_GLOBAL_HEAP_POOL = 0
+WAMR_BUILD_GLOBAL_HEAP_SIZE = 10485760
 
 VMLIB_BUILD_DIR ?= $(CURDIR)/../build
 LIB_RATS_SRC ?= $(VMLIB_BUILD_DIR)/_deps/librats-build
@@ -132,7 +134,7 @@ ifeq ($(LIB_RATS), 1)
 	Enclave_Include_Paths += -I$(LIB_RATS_INCLUDE_DIR)
 endif
 
-Enclave_C_Flags := $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -fstack-protector $(Enclave_Include_Paths)
+Enclave_C_Flags := $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -fstack-protector $(Enclave_Include_Paths) -DWASM_GLOBAL_HEAP_SIZE=$(WAMR_BUILD_GLOBAL_HEAP_SIZE) -DWASM_ENABLE_GLOBAL_HEAP_POOL=$(WAMR_BUILD_GLOBAL_HEAP_POOL)
 ifeq ($(SPEC_TEST), 1)
 	Enclave_C_Flags += -DWASM_ENABLE_SPEC_TEST=1
 else

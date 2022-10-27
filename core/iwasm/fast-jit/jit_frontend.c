@@ -21,6 +21,103 @@
 #include "../interpreter/wasm_runtime.h"
 #include "../common/wasm_exec_env.h"
 
+static uint32
+get_global_base_offset(const WASMModule *module)
+{
+    uint32 module_inst_struct_size =
+        (uint32)offsetof(WASMModuleInstance, global_table_data.bytes);
+    uint32 mem_inst_size =
+        (uint32)sizeof(WASMMemoryInstance)
+        * (module->import_memory_count + module->memory_count);
+
+#if WASM_ENABLE_JIT != 0
+    /* If the module dosen't have memory, reserve one mem_info space
+       with empty content to align with llvm jit compiler */
+    if (mem_inst_size == 0)
+        mem_inst_size = (uint32)sizeof(WASMMemoryInstance);
+#endif
+
+    /* Size of module inst and memory instances */
+    return module_inst_struct_size + mem_inst_size;
+}
+
+static uint32
+get_first_table_inst_offset(const WASMModule *module)
+{
+    return get_global_base_offset(module) + module->global_data_size;
+}
+
+uint32
+jit_frontend_get_global_data_offset(const WASMModule *module, uint32 global_idx)
+{
+    uint32 global_base_offset = get_global_base_offset(module);
+
+    if (global_idx < module->import_global_count) {
+        const WASMGlobalImport *import_global =
+            &((module->import_globals + global_idx)->u.global);
+        return global_base_offset + import_global->data_offset;
+    }
+    else {
+        const WASMGlobal *global =
+            module->globals + (global_idx - module->import_global_count);
+        return global_base_offset + global->data_offset;
+    }
+}
+
+uint32
+jit_frontend_get_table_inst_offset(const WASMModule *module, uint32 tbl_idx)
+{
+    uint32 offset, i = 0;
+
+    offset = get_first_table_inst_offset(module);
+
+    while (i < tbl_idx && i < module->import_table_count) {
+        WASMTableImport *import_table = &module->import_tables[i].u.table;
+
+        offset += (uint32)offsetof(WASMTableInstance, elems);
+#if WASM_ENABLE_MULTI_MODULE != 0
+        offset += (uint32)sizeof(uint32) * import_table->max_size;
+#else
+        offset += (uint32)sizeof(uint32)
+                  * (import_table->possible_grow ? import_table->max_size
+                                                 : import_table->init_size);
+#endif
+
+        i++;
+    }
+
+    if (i == tbl_idx) {
+        return offset;
+    }
+
+    tbl_idx -= module->import_table_count;
+    i -= module->import_table_count;
+    while (i < tbl_idx && i < module->table_count) {
+        WASMTable *table = module->tables + i;
+
+        offset += (uint32)offsetof(WASMTableInstance, elems);
+#if WASM_ENABLE_MULTI_MODULE != 0
+        offset += (uint32)sizeof(uint32) * table->max_size;
+#else
+        offset += (uint32)sizeof(uint32)
+                  * (table->possible_grow ? table->max_size : table->init_size);
+#endif
+
+        i++;
+    }
+
+    return offset;
+}
+
+uint32
+jit_frontend_get_module_inst_extra_offset(const WASMModule *module)
+{
+    uint32 offset = jit_frontend_get_table_inst_offset(
+        module, module->import_table_count + module->table_count);
+
+    return align_uint(offset, 8);
+}
+
 JitReg
 get_module_inst_reg(JitFrame *frame)
 {
@@ -294,72 +391,14 @@ get_mem_bound_check_16bytes_reg(JitFrame *frame, uint32 mem_idx)
     return frame->memory_regs[mem_idx].mem_bound_check_16bytes;
 }
 
-static uint32
-get_table_inst_offset(const WASMModule *module, uint32 tbl_idx)
-{
-    uint32 module_inst_struct_size =
-        (uint32)offsetof(WASMModuleInstance, global_table_data.bytes);
-    uint32 mem_inst_size =
-        (uint32)sizeof(WASMMemoryInstance)
-        * (module->import_memory_count + module->memory_count);
-    uint32 offset, i = 0;
-
-#if WASM_ENABLE_JIT != 0
-    /* If the module dosen't have memory, reserve one mem_info space
-       with empty content to align with llvm jit compiler */
-    if (mem_inst_size == 0)
-        mem_inst_size = (uint32)sizeof(WASMMemoryInstance);
-#endif
-
-    /* Offset of the first table: size of module inst, memory instances
-       and global data */
-    offset = module_inst_struct_size + mem_inst_size + module->global_data_size;
-
-    while (i < tbl_idx && i < module->import_table_count) {
-        WASMTableImport *import_table = &module->import_tables[i].u.table;
-
-        offset += (uint32)offsetof(WASMTableInstance, elems);
-#if WASM_ENABLE_MULTI_MODULE != 0
-        offset += (uint32)sizeof(uint32) * import_table->max_size;
-#else
-        offset += (uint32)sizeof(uint32)
-                  * (import_table->possible_grow ? import_table->max_size
-                                                 : import_table->init_size);
-#endif
-
-        i++;
-    }
-
-    if (i == tbl_idx) {
-        return offset;
-    }
-
-    tbl_idx -= module->import_table_count;
-    i -= module->import_table_count;
-    while (i < tbl_idx && i < module->table_count) {
-        WASMTable *table = module->tables + i;
-
-        offset += (uint32)offsetof(WASMTableInstance, elems);
-#if WASM_ENABLE_MULTI_MODULE != 0
-        offset += (uint32)sizeof(uint32) * table->max_size;
-#else
-        offset += (uint32)sizeof(uint32)
-                  * (table->possible_grow ? table->max_size : table->init_size);
-#endif
-
-        i++;
-    }
-
-    return offset;
-}
-
 JitReg
 get_table_elems_reg(JitFrame *frame, uint32 tbl_idx)
 {
     JitCompContext *cc = frame->cc;
     JitReg module_inst = get_module_inst_reg(frame);
-    uint32 offset = get_table_inst_offset(cc->cur_wasm_module, tbl_idx)
-                    + (uint32)offsetof(WASMTableInstance, elems);
+    uint32 offset =
+        jit_frontend_get_table_inst_offset(cc->cur_wasm_module, tbl_idx)
+        + (uint32)offsetof(WASMTableInstance, elems);
 
     if (!frame->table_regs[tbl_idx].table_elems) {
         frame->table_regs[tbl_idx].table_elems =
@@ -375,8 +414,9 @@ get_table_cur_size_reg(JitFrame *frame, uint32 tbl_idx)
 {
     JitCompContext *cc = frame->cc;
     JitReg module_inst = get_module_inst_reg(frame);
-    uint32 offset = get_table_inst_offset(cc->cur_wasm_module, tbl_idx)
-                    + (uint32)offsetof(WASMTableInstance, cur_size);
+    uint32 offset =
+        jit_frontend_get_table_inst_offset(cc->cur_wasm_module, tbl_idx)
+        + (uint32)offsetof(WASMTableInstance, cur_size);
 
     if (!frame->table_regs[tbl_idx].table_cur_size) {
         frame->table_regs[tbl_idx].table_cur_size =
@@ -745,6 +785,13 @@ init_func_translation(JitCompContext *cc)
     uint32 frame_size, outs_size, local_size, count;
     uint32 i, local_off;
     uint64 total_size;
+#if WASM_ENABLE_DUMP_CALL_STACK != 0 || WASM_ENABLE_PERF_PROFILING != 0
+    JitReg module_inst, func_inst;
+    uint32 func_insts_offset;
+#if WASM_ENABLE_PERF_PROFILING != 0
+    JitReg time_started;
+#endif
+#endif
 
     if ((uint64)max_locals + (uint64)max_stacks >= UINT32_MAX
         || total_cell_num >= UINT32_MAX
@@ -810,6 +857,21 @@ init_func_translation(JitCompContext *cc)
     frame_boundary = jit_cc_new_reg_ptr(cc);
     frame_sp = jit_cc_new_reg_ptr(cc);
 
+#if WASM_ENABLE_DUMP_CALL_STACK != 0 || WASM_ENABLE_PERF_PROFILING != 0
+    module_inst = jit_cc_new_reg_ptr(cc);
+    func_inst = jit_cc_new_reg_ptr(cc);
+#if WASM_ENABLE_PERF_PROFILING != 0
+    time_started = jit_cc_new_reg_I64(cc);
+    /* Call os_time_get_boot_microsecond() to get time_started firstly
+       as there is stack frame switching below, calling native in them
+       may cause register spilling work inproperly */
+    if (!jit_emit_callnative(cc, os_time_get_boot_microsecond, time_started,
+                             NULL, 0)) {
+        return NULL;
+    }
+#endif
+#endif
+
     /* top = exec_env->wasm_stack.s.top */
     GEN_INSN(LDPTR, top, cc->exec_env_reg,
              NEW_CONST(I32, offsetof(WASMExecEnv, wasm_stack.s.top)));
@@ -840,11 +902,28 @@ init_func_translation(JitCompContext *cc)
     /* frame->prev_frame = fp_reg */
     GEN_INSN(STPTR, cc->fp_reg, top,
              NEW_CONST(I32, offsetof(WASMInterpFrame, prev_frame)));
-    /* TODO: do we need to set frame->function? */
-    /*
+#if WASM_ENABLE_DUMP_CALL_STACK != 0 || WASM_ENABLE_PERF_PROFILING != 0
+    /* module_inst = exec_env->module_inst */
+    GEN_INSN(LDPTR, module_inst, cc->exec_env_reg,
+             NEW_CONST(I32, offsetof(WASMExecEnv, module_inst)));
+    func_insts_offset =
+        jit_frontend_get_module_inst_extra_offset(cur_wasm_module)
+        + (uint32)offsetof(WASMModuleInstanceExtra, functions);
+    /* func_inst = module_inst->e->functions */
+    GEN_INSN(LDPTR, func_inst, module_inst, NEW_CONST(I32, func_insts_offset));
+    /* func_inst = func_inst + cur_wasm_func_idx */
+    GEN_INSN(ADD, func_inst, func_inst,
+             NEW_CONST(PTR, (uint32)sizeof(WASMFunctionInstance)
+                                * cur_wasm_func_idx));
+    /* frame->function = func_inst */
     GEN_INSN(STPTR, func_inst, top,
              NEW_CONST(I32, offsetof(WASMInterpFrame, function)));
-    */
+#if WASM_ENABLE_PERF_PROFILING != 0
+    /* frame->time_started = time_started */
+    GEN_INSN(STI64, time_started, top,
+             NEW_CONST(I32, offsetof(WASMInterpFrame, time_started)));
+#endif
+#endif
     /* exec_env->cur_frame = top */
     GEN_INSN(STPTR, top, cc->exec_env_reg,
              NEW_CONST(I32, offsetof(WASMExecEnv, cur_frame)));
