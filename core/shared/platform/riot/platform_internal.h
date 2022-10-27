@@ -40,6 +40,9 @@ typedef kernel_pid_t korp_tid;
 typedef mutex_t korp_mutex;
 typedef unsigned int korp_sem;
 
+#define OS_THREAD_MUTEX_INITIALIZER PTHREAD_MUTEX_INITIALIZER
+#define OS_THREAD_COND_INITIALIZER PTHREAD_COND_INITIALIZER
+
 /* typedef sema_t korp_sem; */
 
 struct os_thread_wait_node;

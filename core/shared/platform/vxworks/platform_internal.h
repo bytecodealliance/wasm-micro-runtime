@@ -56,6 +56,9 @@ typedef pthread_cond_t korp_cond;
 typedef pthread_t korp_thread;
 typedef sem_t korp_sem;
 
+#define OS_THREAD_MUTEX_INITIALIZER PTHREAD_MUTEX_INITIALIZER
+#define OS_THREAD_COND_INITIALIZER PTHREAD_COND_INITIALIZER
+
 #define os_thread_local_attribute __thread
 
 #if WASM_DISABLE_HW_BOUND_CHECK == 0
