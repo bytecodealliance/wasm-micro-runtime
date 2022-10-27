@@ -245,6 +245,46 @@ load_and_register_native_libs(const char **native_lib_list,
 
     return native_handle_count;
 }
+
+static void
+unregister_and_unload_native_libs(uint32 native_lib_count,
+                                  void **native_handle_list)
+{
+    uint32 i, n_native_symbols;
+    NativeSymbol *native_symbols;
+    char *module_name;
+    void *handle;
+
+    for (i = 0; i < native_lib_count; i++) {
+        handle = native_handle_list[i];
+
+        /* lookup get_native_lib func */
+        get_native_lib_func get_native_lib = dlsym(handle, "get_native_lib");
+        if (!get_native_lib) {
+            LOG_WARNING("warning: failed to lookup `get_native_lib` function "
+                        "from native lib %p",
+                        handle);
+            continue;
+        }
+
+        n_native_symbols = get_native_lib(&module_name, &native_symbols);
+        if (n_native_symbols == 0 || module_name == NULL
+            || native_symbols == NULL) {
+            LOG_WARNING("warning: get_native_lib returned different values for "
+                        "native lib %p",
+                        handle);
+            continue;
+        }
+
+        /* unregister native symbols */
+        if (!wasm_runtime_unregister_natives(module_name, native_symbols)) {
+            LOG_WARNING("warning: failed to unregister native lib %p", handle);
+            continue;
+        }
+
+        dlclose(handle);
+    }
+}
 #endif /* BH_HAS_DLFCN */
 
 #if WASM_ENABLE_MULTI_MODULE != 0
@@ -328,7 +368,7 @@ main(int argc, char *argv[])
     const char *native_lib_list[8] = { NULL };
     uint32 native_lib_count = 0;
     void *native_handle_list[8] = { NULL };
-    uint32 native_handle_count = 0, native_handle_idx;
+    uint32 native_handle_count = 0;
 #endif
 #if WASM_ENABLE_DEBUG_INTERP != 0
     char *ip_addr = NULL;
@@ -632,9 +672,7 @@ fail2:
 fail1:
 #if BH_HAS_DLFCN
     /* unload the native libraries */
-    for (native_handle_idx = 0; native_handle_idx < native_handle_count;
-         native_handle_idx++)
-        dlclose(native_handle_list[native_handle_idx]);
+    unregister_and_unload_native_libs(native_handle_count, native_handle_list);
 #endif
 
     /* destroy runtime environment */
