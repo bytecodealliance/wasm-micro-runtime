@@ -96,7 +96,7 @@ if __name__ == "__main__":
     # use output to indicate results
     # echo "result=${result}" >> "$GITHUB_OUTPUT"
     with open(os.environ.get("GITHUB_OUTPUT"), 'a') as output_file:
-        output_file.write("hit\n" if main() else "not-hit\n")
+        output_file.write("result=hit\n" if main() else "result=not-hit\n")
 
     # always return 0
     sys.exit(0)
