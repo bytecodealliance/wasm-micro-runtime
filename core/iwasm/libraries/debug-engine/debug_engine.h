@@ -12,6 +12,7 @@
 
 typedef enum WASMDebugControlThreadStatus {
     RUNNING,
+    DETACHED,
     STOPPED,
 } WASMDebugControlThreadStatus;
 
@@ -184,6 +185,9 @@ wasm_debug_instance_interrupt_all_threads(WASMDebugInstance *instance);
 
 bool
 wasm_debug_instance_continue(WASMDebugInstance *instance);
+
+bool
+wasm_debug_instance_detach(WASMDebugInstance *instance);
 
 bool
 wasm_debug_instance_kill(WASMDebugInstance *instance);
