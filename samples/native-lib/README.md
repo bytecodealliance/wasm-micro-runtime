@@ -49,14 +49,14 @@ will be generated.
 
 ```bash
 cd build
-./iwasm --native-lib=libtest_add.so --native-lib=libtest_sqrt.so wasm-app/test.wasm
+./iwasm --native-lib=./libtest_add.so --native-lib=./libtest_sqrt.so --native-lib=./libtest_hello.so wasm-app/test.wasm
 ```
 
 ### macOS
 
 ```bash
 cd build
-./iwasm --native-lib=libtest_add.dylib --native-lib=libtest_sqrt.dylib wasm-app/test.wasm
+./iwasm --native-lib=libtest_add.dylib --native-lib=libtest_sqrt.dylib --native-lib=libtest_hello.dylib wasm-app/test.wasm
 ```
 
 The output is:
@@ -65,4 +65,8 @@ The output is:
 Hello World!
 10 + 20 = 30
 sqrt(10, 20) = 500
+test_hello("main", 0x0, 0) = 41
+malloc(42) = 0x24b8
+test_hello("main", 0x24b8, 42) = 41
+Message from test_hello: Hello, main. This is test_hello_wrapper!
 ```

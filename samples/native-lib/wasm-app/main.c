@@ -13,8 +13,14 @@ int
 test_sqrt(int x, int y);
 
 int
+test_hello(const char *name, char *buf, size_t buflen);
+
+int
 main(int argc, char **argv)
 {
+    const char *name = __func__;
+    char *buf;
+    size_t buflen;
     int x = 10, y = 20, res;
 
     printf("Hello World!\n");
@@ -24,6 +30,15 @@ main(int argc, char **argv)
 
     res = test_sqrt(x, y);
     printf("sqrt(%d, %d) = %d\n", x, y, res);
+
+    res = test_hello(name, NULL, 0);
+    printf("test_hello(\"%s\", %p, %zu) = %d\n", name, NULL, (size_t)0, res);
+    buflen = res + 1;
+    buf = malloc(buflen);
+    printf("malloc(%zu) = %p\n", buflen, buf);
+    res = test_hello(__func__, buf, buflen);
+    printf("test_hello(\"%s\", %p, %zu) = %d\n", name, buf, buflen, res);
+    printf("Message from test_hello: %s", buf);
 
     return 0;
 }
