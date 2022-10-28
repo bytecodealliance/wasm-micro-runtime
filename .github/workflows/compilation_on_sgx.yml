@@ -6,20 +6,36 @@ name: compilation on SGX
 on:
   # will be triggered on PR events
   pull_request:
-    paths-ignore:
-      - "assembly-script/**"
-      - "ci/**"
-      - "doc/**"
-      - "test-tools/**"
-      - ".github/workflows/compilation_on_sgx.yml"
+    types:
+      - opened
+      - synchronize
+    paths:
+      - ".github/**"
+      - "build-scripts/**"
+      - "core/**"
+      - "!core/deps/**"
+      - "product-mini/**"
+      - "samples/**"
+      - "!samples/workload/**"
+      - "tests/wamr-test-suites/**"
+      - "wamr-compiler/**"
+      - "wamr-sdk/**"
   # will be triggered on push events
   push:
-    paths-ignore:
-      - "assembly-script/**"
-      - "ci/**"
-      - "doc/**"
-      - "test-tools/**"
-      - ".github/workflows/compilation_on_sgx.yml"
+    branches:
+      - main
+      - "dev/**"
+    paths:
+      - ".github/**"
+      - "build-scripts/**"
+      - "core/**"
+      - "!core/deps/**"
+      - "product-mini/**"
+      - "samples/**"
+      - "!samples/workload/**"
+      - "tests/wamr-test-suites/**"
+      - "wamr-compiler/**"
+      - "wamr-sdk/**"
   # allow to be triggered manually
   workflow_dispatch:
 
@@ -30,99 +46,31 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # For BUILD
   AOT_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_LAZY_JIT=0"
   CLASSIC_INTERP_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=0 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_LAZY_JIT=0"
   FAST_INTERP_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=0 -DWAMR_BUILD_FAST_INTERP=1 -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_LAZY_JIT=0"
-  LLVM_EAGER_JIT_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=0"
   LLVM_LAZY_JIT_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=1"
-  # LLVM
+  LLVM_EAGER_JIT_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=0"
   LLVM_CACHE_SUFFIX: "build-llvm_libraries_ex"
 
 jobs:
-  # Cancel any in-flight jobs for the same PR/branch so there's only one active
-  # at a time
-  cancel_previous:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-20.04]
-    steps:
-      - name: Cancel Workflow Action
-        uses: styfle/cancel-workflow-action@0.9.1
-        with:
-          access_token: ${{ github.token }}
-
-  # set different traffic lights based on the current repo and the running OS.
-  # according to light colors, the workflow will run different jobs
-  check_repo:
-    needs: cancel_previous
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-20.04]
-    outputs:
-      traffic_light_on_ubuntu_2004: ${{ steps.do_check_on_ubuntu_2004.outputs.light }}
-    steps:
-      - name: do_check_on_ubuntu_2004
-        id: do_check_on_ubuntu_2004
-        if: ${{ matrix.os == 'ubuntu-20.04' }}
-        run: |
-          if [[ ${{ github.repository }} == */wasm-micro-runtime ]]; then
-            echo "::set-output name=light::green"
-          else
-            echo "::set-output name=light::green"
-          fi
-
   build_llvm_libraries:
-    needs: check_repo
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-20.04]
-        include:
-          - os: ubuntu-20.04
-            light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_2004 }}
-    steps:
-      - name: light status
-        run: echo "matrix.os=${{ matrix.os }}, light=${{ matrix.light }}"
-
-      - name: checkout
-        if: ${{ matrix.light == 'green' }}
-        uses: actions/checkout@v3
-
-      - name: Cache LLVM libraries
-        id: cache_llvm
-        if: ${{ matrix.light == 'green' }}
-        uses: actions/cache@v3
-        with:
-          path: |
-            ./core/deps/llvm/build/bin
-            ./core/deps/llvm/build/include
-            ./core/deps/llvm/build/lib
-            ./core/deps/llvm/build/libexec
-            ./core/deps/llvm/build/share
-          key: ${{ matrix.os }}-${{ env.LLVM_CACHE_SUFFIX }}
-
-      - name: Build llvm and clang from source
-        id: build_llvm
-        if: ${{ matrix.light == 'green' && steps.cache_llvm.outputs.cache-hit != 'true' }}
-        run: /usr/bin/env python3 ./build_llvm.py --arch X86 WebAssembly --project clang lldb
-        working-directory: build-scripts
+    uses: ./.github/workflows/build_llvm_libraries.yml
+    with:
+      runs-on: "['ubuntu-20.04']"
 
   build_iwasm:
-    needs: [check_repo]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         make_options_run_mode: [
-            # Running mode
+            # Running modes supported
             $AOT_BUILD_OPTIONS,
             $CLASSIC_INTERP_BUILD_OPTIONS,
             $FAST_INTERP_BUILD_OPTIONS,
-            # doesn't support
-            #$LLVM_EAGER_JIT_BUILD_OPTIONS,
+            # Running modes unsupported
             #$LLVM_LAZY_JIT_BUILD_OPTIONS,
+            #$LLVM_EAGER_JIT_BUILD_OPTIONS,
           ]
         make_options_feature: [
             # Features
@@ -154,15 +102,8 @@ jobs:
           # MINI_LOADER only on INTERP mode
           - make_options_run_mode: $AOT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"
-        include:
-          - os: ubuntu-20.04
-            light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_2004 }}
     steps:
-      - name: light status
-        run: echo "matrix.os=${{ matrix.os }}, light=${{ matrix.light }}"
-
       - name: install SGX SDK and necessary libraries
-        if: ${{ matrix.light == 'green' }}
         run: |
           mkdir -p /opt/intel
           cd /opt/intel
@@ -176,11 +117,9 @@ jobs:
           source /opt/intel/sgxsdk/environment
 
       - name: checkout
-        if: ${{ matrix.light == 'green' }}
         uses: actions/checkout@v3
 
       - name: Build iwasm
-        if: ${{ matrix.light == 'green' }}
         run: |
           mkdir build && cd build
           cmake .. ${{ matrix.make_options_run_mode }} ${{ matrix.make_options_feature }}
@@ -188,20 +127,13 @@ jobs:
         working-directory: product-mini/platforms/${{ matrix.platform }}
 
   build_wamrc:
-    needs: [build_llvm_libraries, check_repo]
+    needs: [build_llvm_libraries]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-20.04]
-        include:
-          - os: ubuntu-20.04
-            light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_2004 }}
     steps:
-      - name: light status
-        run: echo "matrix.os=${{ matrix.os }}, light=${{ matrix.light }}"
-
       - name: install SGX SDK and necessary libraries
-        if: ${{ matrix.light == 'green' }}
         run: |
           mkdir -p /opt/intel
           cd /opt/intel
@@ -215,12 +147,10 @@ jobs:
           source /opt/intel/sgxsdk/environment
 
       - name: checkout
-        if: ${{ matrix.light == 'green' }}
         uses: actions/checkout@v3
 
       - name: Get LLVM libraries
         id: cache_llvm
-        if: ${{ matrix.light == 'green' }}
         uses: actions/cache@v3
         with:
           path: |
@@ -232,11 +162,10 @@ jobs:
           key: ${{ matrix.os }}-${{ env.LLVM_CACHE_SUFFIX }}
 
       - name: Quit if cache miss
-        if: ${{ matrix.light == 'green' && steps.cache_llvm.outputs.cache-hit != 'true' }}
+        if: steps.cache_llvm.outputs.cache-hit != 'true'
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
 
       - name: Build wamrc
-        if: ${{ matrix.light == 'green' }}
         run: |
           mkdir build && cd build
           cmake ..
@@ -244,35 +173,27 @@ jobs:
         working-directory: wamr-compiler
 
   build_samples_wasm_c_api:
-    needs: [build_iwasm, check_repo]
+    needs: [build_iwasm]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         make_options: [
-            # Running mode
+            # Running modes supported
             $CLASSIC_INTERP_BUILD_OPTIONS,
             $FAST_INTERP_BUILD_OPTIONS,
-            # doesn't support
-            #$AOT_BUILD_OPTIONS,
+            # Running modes unsupported
             #$LLVM_EAGER_JIT_BUILD_OPTIONS,
             #$LLVM_LAZY_JIT_BUILD_OPTIONS,
+            #$AOT_BUILD_OPTIONS,
           ]
         os: [ubuntu-20.04]
-        include:
-          - os: ubuntu-20.04
-            light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_2004 }}
-            wasi_sdk_release: https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz
-            wabt_release: https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-ubuntu.tar.gz
+        wasi_sdk_release: ["https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz"]
+        wabt_release: ["https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-ubuntu.tar.gz"]
     steps:
-      - name: light status
-        run: echo "matrix.os=${{ matrix.os }}, light=${{ matrix.light }}"
-
       - name: checkout
-        if: ${{ matrix.light == 'green' }}
         uses: actions/checkout@v3
 
       - name: download and install wabt
-        if: ${{ matrix.light == 'green' }}
         run: |
           cd /opt
           sudo wget ${{ matrix.wabt_release }}
@@ -280,7 +201,6 @@ jobs:
           sudo mv wabt-1.0.24 wabt
 
       - name: install SGX SDK and necessary libraries
-        if: ${{ matrix.light == 'green' }}
         run: |
           mkdir -p /opt/intel
           cd /opt/intel
@@ -294,7 +214,6 @@ jobs:
           source /opt/intel/sgxsdk/environment
 
       - name: Build Sample [wasm-c-api]
-        if: ${{ matrix.light == 'green' }}
         run: |
           mkdir build && cd build
           cmake .. ${{ matrix.make_options }}
@@ -312,25 +231,18 @@ jobs:
         working-directory: samples/wasm-c-api
 
   build_samples_others:
-    needs: [build_iwasm, check_repo]
+    needs: [build_iwasm]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        include:
-          - os: ubuntu-20.04
-            light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_2004 }}
-            wasi_sdk_release: https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz
-            wabt_release: https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-ubuntu.tar.gz
+        os: [ubuntu-20.04]
+        wasi_sdk_release: ["https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz"]
+        wabt_release: ["https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-ubuntu.tar.gz"]
     steps:
-      - name: light status
-        run: echo "matrix.os=${{ matrix.os }}, light=${{ matrix.light }}"
-
       - name: checkout
-        if: ${{ matrix.light == 'green' }}
         uses: actions/checkout@v3
 
       - name: download and install wasi-sdk
-        if: ${{ matrix.light == 'green' }}
         run: |
           cd /opt
           sudo wget ${{ matrix.wasi_sdk_release }}
@@ -338,7 +250,6 @@ jobs:
           sudo mv wasi-sdk-12.0 wasi-sdk
 
       - name: download and install wabt
-        if: ${{ matrix.light == 'green' }}
         run: |
           cd /opt
           sudo wget ${{ matrix.wabt_release }}
@@ -346,7 +257,6 @@ jobs:
           sudo mv wabt-1.0.24 wabt
 
       - name: install SGX SDK and necessary libraries
-        if: ${{ matrix.light == 'green' }}
         run: |
           mkdir -p /opt/intel
           cd /opt/intel
@@ -360,14 +270,12 @@ jobs:
           source /opt/intel/sgxsdk/environment
 
       - name: Build Sample [basic]
-        if: ${{ matrix.light == 'green' }}
         run: |
           cd samples/basic
           ./build.sh
           ./run.sh
 
       - name: Build Sample [file]
-        if: ${{ matrix.light == 'green' }}
         run: |
           cd samples/file
           mkdir build && cd build
@@ -376,7 +284,6 @@ jobs:
           ./src/iwasm -f wasm-app/file.wasm -d .
 
       - name: Build Sample [multi-thread]
-        if: ${{ matrix.light == 'green' }}
         run: |
           cd samples/multi-thread
           mkdir build && cd build
@@ -385,7 +292,6 @@ jobs:
           ./iwasm wasm-apps/test.wasm
 
       - name: Build Sample [multi-module]
-        if: ${{ matrix.light == 'green' }}
         run: |
           cd samples/multi-module
           mkdir build && cd build
@@ -394,7 +300,6 @@ jobs:
           ./multi_module
 
       - name: Build Sample [spawn-thread]
-        if: ${{ matrix.light == 'green' }}
         run: |
           cd samples/spawn-thread
           mkdir build && cd build
@@ -403,7 +308,6 @@ jobs:
           ./spawn_thread
 
       - name: Build Sample [ref-types]
-        if: ${{ matrix.light == 'green' }}
         run: |
           cd samples/ref-types
           mkdir build && cd build
@@ -412,22 +316,25 @@ jobs:
           ./hello
 
   spec_test_default:
-    needs: [build_iwasm, build_llvm_libraries, build_wamrc, check_repo]
+    needs: [build_iwasm, build_llvm_libraries, build_wamrc]
     runs-on: ubuntu-20.04
     strategy:
       matrix:
         running_mode: ["classic-interp", "fast-interp", "aot"]
         test_option: ["-x -p -s spec -P", "-x -p -s spec -S -P"]
-        include:
-          - os: ubuntu-20.04
-            light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_2004 }}
+        # classic-interp and fast-interp don't support simd
+        exclude:
+          - running_mode: "classic-interp"
+            test_option: "-x -p -s spec -S -P"
+          - running_mode: "fast-interp"
+            test_option: "-x -p -s spec -S -P"
+
     steps:
       - name: checkout
-        if: ${{ matrix.light == 'green' }}
         uses: actions/checkout@v3
 
       - name: Get LLVM libraries
-        if: ${{ matrix.light == 'green' }}
+        if: matrix.running_mode == 'aot'
         id: cache_llvm
         uses: actions/cache@v3
         with:
@@ -440,15 +347,13 @@ jobs:
           key: ubuntu-20.04-${{ env.LLVM_CACHE_SUFFIX }}
 
       - name: Quit if cache miss
-        if: ${{ matrix.light == 'green' && steps.cache_llvm.outputs.cache-hit != 'true' }}
+        if: matrix.running_mode == 'aot' && steps.cache_llvm.outputs.cache-hit != 'true'
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
 
       - name: install Ninja
-        if: ${{ matrix.light == 'green' }}
         run: sudo apt install -y ninja-build
 
       - name: install SGX SDK and necessary libraries
-        if: ${{ matrix.light == 'green' }}
         run: |
           mkdir -p /opt/intel
           cd /opt/intel
@@ -461,7 +366,6 @@ jobs:
           sudo apt install -y libsgx-launch libsgx-urts
 
       - name: run spec tests
-        if: ${{ matrix.light == 'green' }}
         run: |
           source /opt/intel/sgxsdk/environment
           ./test_wamr.sh ${{ matrix.test_option }} -t ${{ matrix.running_mode }}

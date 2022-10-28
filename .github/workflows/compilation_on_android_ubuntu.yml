@@ -6,20 +6,36 @@ name: compilation on android, ubuntu-20.04, ubuntu-22.04
 on:
   # will be triggered on PR events
   pull_request:
-    paths-ignore:
-      - "assembly-script/**"
-      - "ci/**"
-      - "doc/**"
-      - "test-tools/**"
-      - ".github/workflows/compilation_on_android_ubuntu.yml"
+    types:
+      - opened
+      - synchronize
+    paths:
+      - ".github/**"
+      - "build-scripts/**"
+      - "core/**"
+      - "!core/deps/**"
+      - "product-mini/**"
+      - "samples/**"
+      - "!samples/workload/**"
+      - "tests/wamr-test-suites/**"
+      - "wamr-compiler/**"
+      - "wamr-sdk/**"
   # will be triggered on push events
   push:
-    paths-ignore:
-      - "assembly-script/**"
-      - "ci/**"
-      - "doc/**"
-      - "test-tools/**"
-      - ".github/workflows/compilation_on_android_ubuntu.yml"
+    branches:
+      - main
+      - "dev/**"
+    paths:
+      - ".github/**"
+      - "build-scripts/**"
+      - "core/**"
+      - "!core/deps/**"
+      - "product-mini/**"
+      - "samples/**"
+      - "!samples/workload/**"
+      - "tests/wamr-test-suites/**"
+      - "wamr-compiler/**"
+      - "wamr-sdk/**"
   # allow to be triggered manually
   workflow_dispatch:
 
@@ -34,8 +50,8 @@ env:
   AOT_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_LAZY_JIT=0"
   CLASSIC_INTERP_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=0 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_LAZY_JIT=0"
   FAST_INTERP_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=0 -DWAMR_BUILD_FAST_INTERP=1 -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_LAZY_JIT=0"
-  LLVM_EAGER_JIT_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=0"
   LLVM_LAZY_JIT_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=1"
+  LLVM_EAGER_JIT_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=0"
   # LLVM
   LLVM_CACHE_SUFFIX: "build-llvm_libraries_ex"
   # For Spec Test
@@ -46,112 +62,23 @@ env:
   X86_32_TARGET_TEST_OPTIONS: "-m x86_32 -P"
 
 jobs:
-  # Cancel any in-flight jobs for the same PR/branch so there's only one active
-  # at a time
-  cancel_previous:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-20.04, ubuntu-22.04]
-    steps:
-      - name: Cancel Workflow Action
-        uses: styfle/cancel-workflow-action@0.9.1
-        with:
-          access_token: ${{ github.token }}
-
-  # set different traffic lights based on the current repo and the running OS.
-  # according to light colors, the workflow will run different jobs
-  # it is used to separate between the public repo and the private repo
-  check_repo:
-    needs: cancel_previous
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-20.04, ubuntu-22.04]
-    outputs:
-      traffic_light_on_ubuntu_2004: ${{ steps.do_check_on_ubuntu_2004.outputs.light }}
-      traffic_light_on_ubuntu_2204: ${{ steps.do_check_on_ubuntu_2204.outputs.light }}
-    steps:
-      - name: do_check_on_ubuntu_2004
-        id: do_check_on_ubuntu_2004
-        if: ${{ matrix.os == 'ubuntu-20.04' }}
-        run: |
-          if [[ ${{ github.repository }} == */wasm-micro-runtime ]]; then
-            echo "::set-output name=light::green"
-          else
-            echo "::set-output name=light::red"
-          fi
-
-      - name: do_check_on_ubuntu_2204
-        id: do_check_on_ubuntu_2204
-        if: ${{ matrix.os == 'ubuntu-22.04' }}
-        run: |
-          if [[ ${{ github.repository }} == */wasm-micro-runtime ]]; then
-            echo "::set-output name=light::green"
-          else
-            echo "::set-output name=light::green"
-          fi
-
   build_llvm_libraries:
-    needs: check_repo
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-20.04, ubuntu-22.04]
-        include:
-          - os: ubuntu-20.04
-            light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_2004 }}
-          - os: ubuntu-22.04
-            light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_2204 }}
-    steps:
-      - name: light status
-        run: echo "matrix.os=${{ matrix.os }}, light=${{ matrix.light }}"
-
-      - name: checkout
-        if: ${{ matrix.light == 'green' }}
-        uses: actions/checkout@v3
-
-      - name: Cache LLVM libraries
-        id: cache_llvm
-        if: ${{ matrix.light == 'green' }}
-        uses: actions/cache@v3
-        with:
-          path: |
-            ./core/deps/llvm/build/bin
-            ./core/deps/llvm/build/include
-            ./core/deps/llvm/build/lib
-            ./core/deps/llvm/build/libexec
-            ./core/deps/llvm/build/share
-          key: ${{ matrix.os }}-${{ env.LLVM_CACHE_SUFFIX }}
-
-      - name: Build llvm and clang from source
-        id: build_llvm
-        if: ${{ matrix.light == 'green' && steps.cache_llvm.outputs.cache-hit != 'true' }}
-        run: /usr/bin/env python3 ./build_llvm.py --arch X86 WebAssembly --project clang lldb
-        working-directory: build-scripts
+    uses: ./.github/workflows/build_llvm_libraries.yml
+    with:
+      runs-on: "['ubuntu-20.04', 'ubuntu-22.04']"
 
   build_wamrc:
-    needs: [build_llvm_libraries, check_repo]
+    needs: [build_llvm_libraries]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-20.04, ubuntu-22.04]
-        include:
-          - os: ubuntu-20.04
-            light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_2004 }}
-          - os: ubuntu-22.04
-            light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_2204 }}
     steps:
-      - name: light status
-        run: echo "matrix.os=${{ matrix.os }}, light=${{ matrix.light }}"
-
       - name: checkout
-        if: ${{ matrix.light == 'green' }}
         uses: actions/checkout@v3
 
       - name: Get LLVM libraries
         id: cache_llvm
-        if: ${{ matrix.light == 'green' }}
         uses: actions/cache@v3
         with:
           path: |
@@ -163,11 +90,10 @@ jobs:
           key: ${{ matrix.os }}-${{ env.LLVM_CACHE_SUFFIX }}
 
       - name: Quit if cache miss
-        if: ${{ matrix.light == 'green' && steps.cache_llvm.outputs.cache-hit != 'true' }}
+        if: steps.cache_llvm.outputs.cache-hit != 'true'
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
 
       - name: Build wamrc
-        if: ${{ matrix.light == 'green' }}
         run: |
           mkdir build && cd build
           cmake ..
@@ -175,7 +101,7 @@ jobs:
         working-directory: wamr-compiler
 
   build_iwasm:
-    needs: [build_llvm_libraries, check_repo]
+    needs: [build_llvm_libraries]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -184,8 +110,8 @@ jobs:
             $AOT_BUILD_OPTIONS,
             $CLASSIC_INTERP_BUILD_OPTIONS,
             $FAST_INTERP_BUILD_OPTIONS,
-            $LLVM_EAGER_JIT_BUILD_OPTIONS,
             $LLVM_LAZY_JIT_BUILD_OPTIONS,
+            $LLVM_EAGER_JIT_BUILD_OPTIONS,
           ]
         make_options_feature: [
             # Features
@@ -210,9 +136,9 @@ jobs:
           # uncompatiable feature and platform
           # uncompatiable mode and feature
           # MULTI_MODULE only on INTERP mode
-          - make_options_run_mode: $LLVM_EAGER_JIT_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
           - make_options_run_mode: $LLVM_LAZY_JIT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
+          - make_options_run_mode: $LLVM_EAGER_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
           - make_options_run_mode: $AOT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
@@ -224,9 +150,9 @@ jobs:
           # DEBUG_INTERP only on CLASSIC INTERP mode
           - make_options_run_mode: $AOT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_DEBUG_INTERP=1"
-          - make_options_run_mode: $LLVM_EAGER_JIT_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_DEBUG_INTERP=1"
           - make_options_run_mode: $LLVM_LAZY_JIT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_DEBUG_INTERP=1"
+          - make_options_run_mode: $LLVM_EAGER_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_DEBUG_INTERP=1"
           - make_options_run_mode: $FAST_INTERP_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_DEBUG_INTERP=1"
@@ -236,34 +162,25 @@ jobs:
           - make_options_run_mode: $FAST_INTERP_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_DEBUG_AOT=1"
           # TODO: DEBUG_AOT on JIT
-          - make_options_run_mode: $LLVM_EAGER_JIT_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_DEBUG_AOT=1"
           - make_options_run_mode: $LLVM_LAZY_JIT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_DEBUG_AOT=1"
+          - make_options_run_mode: $LLVM_EAGER_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_DEBUG_AOT=1"
           # MINI_LOADER only on INTERP mode
           - make_options_run_mode: $AOT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"
-          - make_options_run_mode: $LLVM_EAGER_JIT_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"
           - make_options_run_mode: $LLVM_LAZY_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"
-        include:
-          - os: ubuntu-20.04
-            light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_2004 }}
-          - os: ubuntu-22.04
-            light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_2204 }}
+          - make_options_run_mode: $LLVM_EAGER_JIT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"
     steps:
-      - name: light status
-        run: echo "matrix.os=${{ matrix.os }}, light=${{ matrix.light }}"
-
       - name: checkout
-        if: ${{ matrix.light == 'green' }}
         uses: actions/checkout@v3
 
       # only download llvm cache when needed
       - name: Get LLVM libraries
         id: cache_llvm
-        if: (matrix.light == 'green') && (endsWith(matrix.make_options_run_mode, '_JIT_BUILD_OPTIONS'))
+        if: endsWith(matrix.make_options_run_mode, '_JIT_BUILD_OPTIONS')
         uses: actions/cache@v3
         with:
           path: |
@@ -275,11 +192,10 @@ jobs:
           key: ${{ matrix.os }}-${{ env.LLVM_CACHE_SUFFIX }}
 
       - name: Quit if cache miss
-        if: (matrix.light == 'green') && (endsWith(matrix.make_options_run_mode, '_JIT_BUILD_OPTIONS')) && (steps.cache_llvm.outputs.cache-hit != 'true')
+        if: endsWith(matrix.make_options_run_mode, '_JIT_BUILD_OPTIONS') && (steps.cache_llvm.outputs.cache-hit != 'true')
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
 
       - name: Build iwasm
-        if: ${{ matrix.light == 'green' }}
         run: |
           mkdir build && cd build
           cmake .. ${{ matrix.make_options_run_mode }} ${{ matrix.make_options_feature }}
@@ -287,39 +203,34 @@ jobs:
         working-directory: product-mini/platforms/${{ matrix.platform }}
 
   build_samples_wasm_c_api:
-    needs: [build_iwasm, build_llvm_libraries, build_wamrc, check_repo]
+    needs: [build_iwasm, build_llvm_libraries, build_wamrc]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         make_options: [
             # Running mode
-            $AOT_BUILD_OPTIONS,
             $CLASSIC_INTERP_BUILD_OPTIONS,
             $FAST_INTERP_BUILD_OPTIONS,
-            $LLVM_EAGER_JIT_BUILD_OPTIONS,
             $LLVM_LAZY_JIT_BUILD_OPTIONS,
+            $LLVM_EAGER_JIT_BUILD_OPTIONS,
+            $AOT_BUILD_OPTIONS,
           ]
         os: [ubuntu-20.04, ubuntu-22.04]
-        include:
-          - os: ubuntu-20.04
-            light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_2004 }}
-            wasi_sdk_release: https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz
-            wabt_release: https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-ubuntu.tar.gz
-          - os: ubuntu-22.04
-            light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_2204 }}
-            wasi_sdk_release: https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz
-            wabt_release: https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-ubuntu.tar.gz
+        wasi_sdk_release:
+          [
+            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz",
+          ]
+        wabt_release:
+          [
+            "https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-ubuntu.tar.gz",
+          ]
     steps:
-      - name: light status
-        run: echo "matrix.os=${{ matrix.os }}, light=${{ matrix.light }}"
-
       - name: checkout
-        if: ${{ matrix.light == 'green' }}
         uses: actions/checkout@v3
 
       - name: Get LLVM libraries
         id: cache_llvm
-        if: (matrix.light == 'green') && (!endsWith(matrix.make_options, '_INTERP_BUILD_OPTIONS'))
+        if: (!endsWith(matrix.make_options, '_INTERP_BUILD_OPTIONS'))
         uses: actions/cache@v3
         with:
           path: |
@@ -331,11 +242,10 @@ jobs:
           key: ${{ matrix.os }}-${{ env.LLVM_CACHE_SUFFIX }}
 
       - name: Quit if cache miss
-        if: (matrix.light == 'green') && (!endsWith(matrix.make_options, '_INTERP_BUILD_OPTIONS')) && (steps.cache_llvm.outputs.cache-hit != 'true')
+        if: (!endsWith(matrix.make_options, '_INTERP_BUILD_OPTIONS')) && (steps.cache_llvm.outputs.cache-hit != 'true')
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
 
       - name: download and install wabt
-        if: ${{ matrix.light == 'green' }}
         run: |
           cd /opt
           sudo wget ${{ matrix.wabt_release }}
@@ -343,7 +253,7 @@ jobs:
           sudo mv wabt-1.0.24 wabt
 
       - name: Build wamrc
-        if: (matrix.light == 'green') && (!endsWith(matrix.make_options, '_INTERP_BUILD_OPTIONS'))
+        if: (!endsWith(matrix.make_options, '_INTERP_BUILD_OPTIONS'))
         run: |
           mkdir build && cd build
           cmake ..
@@ -351,7 +261,6 @@ jobs:
         working-directory: wamr-compiler
 
       - name: Build Sample [wasm-c-api]
-        if: ${{ matrix.light == 'green' }}
         run: |
           mkdir build && cd build
           cmake .. ${{ matrix.make_options }}
@@ -369,29 +278,24 @@ jobs:
         working-directory: samples/wasm-c-api
 
   build_samples_others:
-    needs: [build_iwasm, check_repo]
+    needs: [build_iwasm]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        include:
-          - os: ubuntu-20.04
-            light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_2004 }}
-            wasi_sdk_release: https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz
-            wabt_release: https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-ubuntu.tar.gz
-          - os: ubuntu-22.04
-            light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_2204 }}
-            wasi_sdk_release: https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz
-            wabt_release: https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-ubuntu.tar.gz
+        os: [ubuntu-20.04, ubuntu-22.04]
+        wasi_sdk_release:
+          [
+            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz",
+          ]
+        wabt_release:
+          [
+            "https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-ubuntu.tar.gz",
+          ]
     steps:
-      - name: light status
-        run: echo "matrix.os=${{ matrix.os }}, light=${{ matrix.light }}"
-
       - name: checkout
-        if: ${{ matrix.light == 'green' }}
         uses: actions/checkout@v3
 
       - name: download and install wasi-sdk
-        if: ${{ matrix.light == 'green' }}
         run: |
           cd /opt
           sudo wget ${{ matrix.wasi_sdk_release }}
@@ -399,7 +303,6 @@ jobs:
           sudo mv wasi-sdk-12.0 wasi-sdk
 
       - name: download and install wabt
-        if: ${{ matrix.light == 'green' }}
         run: |
           cd /opt
           sudo wget ${{ matrix.wabt_release }}
@@ -407,14 +310,12 @@ jobs:
           sudo mv wabt-1.0.24 wabt
 
       - name: Build Sample [basic]
-        if: ${{ matrix.light == 'green' }}
         run: |
           cd samples/basic
           ./build.sh
           ./run.sh
 
       - name: Build Sample [file]
-        if: ${{ matrix.light == 'green' }}
         run: |
           cd samples/file
           mkdir build && cd build
@@ -423,7 +324,6 @@ jobs:
           ./src/iwasm -f wasm-app/file.wasm -d .
 
       - name: Build Sample [multi-thread]
-        if: ${{ matrix.light == 'green' }}
         run: |
           cd samples/multi-thread
           mkdir build && cd build
@@ -432,7 +332,6 @@ jobs:
           ./iwasm wasm-apps/test.wasm
 
       - name: Build Sample [multi-module]
-        if: ${{ matrix.light == 'green' }}
         run: |
           cd samples/multi-module
           mkdir build && cd build
@@ -441,7 +340,6 @@ jobs:
           ./multi_module
 
       - name: Build Sample [spawn-thread]
-        if: ${{ matrix.light == 'green' }}
         run: |
           cd samples/spawn-thread
           mkdir build && cd build
@@ -450,7 +348,6 @@ jobs:
           ./spawn_thread
 
       - name: Build Sample [ref-types]
-        if: ${{ matrix.light == 'green' }}
         run: |
           cd samples/ref-types
           mkdir build && cd build
@@ -458,57 +355,63 @@ jobs:
           cmake --build . --config Release --parallel 4
           ./hello
 
-  spec_test_default:
-    needs: [build_iwasm, build_llvm_libraries, build_wamrc, check_repo]
+      - name: Build Sample [simple]
+        run: |
+          ./build.sh -p host-interp
+          python3 ./sample_test_run.py $(pwd)/out
+          exit $?
+        working-directory: ./samples/simple
+
+  spec_test:
+    needs: [build_iwasm, build_llvm_libraries, build_wamrc]
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        test_option: [$DEFAULT_TEST_OPTIONS]
-    steps:
-      - name: checkout
-        uses: actions/checkout@v3
-
-      - name: Get LLVM libraries
-        id: cache_llvm
-        uses: actions/cache@v3
-        with:
-          path: |
-            ./core/deps/llvm/build/bin
-            ./core/deps/llvm/build/include
-            ./core/deps/llvm/build/lib
-            ./core/deps/llvm/build/libexec
-            ./core/deps/llvm/build/share
-          key: ubuntu-20.04-${{ env.LLVM_CACHE_SUFFIX }}
-
-      - name: Quit if cache miss
-        if: steps.cache_llvm.outputs.cache-hit != 'true'
-        run: echo "::error::can not get prebuilt llvm libraries" && exit 1
-
-      - name: install Ninja
-        run: sudo apt install -y ninja-build
-
-      - name: run spec tests
-        run: ./test_wamr.sh ${{ matrix.test_option }}
-        working-directory: ./tests/wamr-test-suites
-
-  spec_test_extra:
-    if: ${{ endsWith(github.repository, 'wasm-micro-runtime') }}
-    needs: [build_iwasm, build_llvm_libraries, build_wamrc, check_repo]
-    runs-on: ubuntu-20.04
-    strategy:
-      matrix:
-        running_mode: ["classic-interp", "fast-interp", "jit", "aot"]
+        running_mode:
+          ["classic-interp", "fast-interp", "jit", "aot", "fast-jit"]
         test_option:
           [
+            $DEFAULT_TEST_OPTIONS,
             $MULTI_MODULES_TEST_OPTIONS,
             $SIMD_TEST_OPTIONS,
             $THREADS_TEST_OPTIONS,
           ]
+        exclude:
+          # uncompatiable modes and features
+          # classic-interp and fast-interp don't support simd
+          - running_mode: "classic-interp"
+            test_option: $SIMD_TEST_OPTIONS
+          - running_mode: "fast-interp"
+            test_option: $SIMD_TEST_OPTIONS
+          # aot and jit don't support multi module
+          - running_mode: "aot"
+            test_option: $MULTI_MODULES_TEST_OPTIONS
+          - running_mode: "jit"
+            test_option: $MULTI_MODULES_TEST_OPTIONS
+          # fast-jit is only tested on default mode, exclude other three
+          - running_mode: "fast-jit"
+            test_option: $MULTI_MODULES_TEST_OPTIONS
+          - running_mode: "fast-jit"
+            test_option: $SIMD_TEST_OPTIONS
+          - running_mode: "fast-jit"
+            test_option: $THREADS_TEST_OPTIONS
     steps:
       - name: checkout
         uses: actions/checkout@v3
 
+      - name: set env variable(if llvm are used)
+        if: matrix.running_mode == 'aot' || matrix.running_mode == 'jit'
+        run: echo "USE_LLVM=true" >> $GITHUB_ENV
+
+      - name: set env variable(if x86_32 test needed)
+        if: > 
+            (matrix.test_option == '$DEFAULT_TEST_OPTIONS' || matrix.test_option == '$THREADS_TEST_OPTIONS') 
+            && matrix.running_mode != 'fast-jit' && matrix.running_mode != 'jit'
+        run: echo "TEST_ON_X86_32=true" >> $GITHUB_ENV
+
+      #only download llvm libraries in jit and aot mode
       - name: Get LLVM libraries
+        if: env.USE_LLVM == 'true'
         id: cache_llvm
         uses: actions/cache@v3
         with:
@@ -521,53 +424,28 @@ jobs:
           key: ubuntu-20.04-${{ env.LLVM_CACHE_SUFFIX }}
 
       - name: Quit if cache miss
-        if: steps.cache_llvm.outputs.cache-hit != 'true'
+        if: env.USE_LLVM == 'true' && steps.cache_llvm.outputs.cache-hit != 'true'
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
 
       - name: install Ninja
         run: sudo apt install -y ninja-build
 
-      - name: run spec tests
+      - name: run spec tests default and extra
         run: ./test_wamr.sh ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
         working-directory: ./tests/wamr-test-suites
 
-  spec_test_x86_32:
-    if: ${{ endsWith(github.repository, 'wasm-micro-runtime') }}
-    needs: [build_iwasm, build_llvm_libraries, build_wamrc, check_repo]
-    runs-on: ubuntu-20.04
-    strategy:
-      matrix:
-        running_mode: ["classic-interp", "fast-interp", "jit", "aot"]
-        test_option: [$DEFAULT_TEST_OPTIONS, $THREADS_TEST_OPTIONS]
-    steps:
-      - name: checkout
-        uses: actions/checkout@v3
-
-      - name: Get LLVM libraries
-        id: cache_llvm
-        uses: actions/cache@v3
-        with:
-          path: |
-            ./core/deps/llvm/build/bin
-            ./core/deps/llvm/build/include
-            ./core/deps/llvm/build/lib
-            ./core/deps/llvm/build/libexec
-            ./core/deps/llvm/build/share
-          key: ubuntu-20.04-${{ env.LLVM_CACHE_SUFFIX }}
-
-      - name: Quit if cache miss
-        if: steps.cache_llvm.outputs.cache-hit != 'true'
-        run: echo "::error::can not get prebuilt llvm libraries" && exit 1
-
-      - name: install Ninja and x32 support libraries
+      #only install x32 support libraries when to run x86_32 cases
+      - name: install x32 support libraries
+        if: env.TEST_ON_X86_32 == 'true'
         run:
           # Add another apt repository as some packages cannot
           # be downloaded with the github default repository
           sudo curl -sSL https://packages.microsoft.com/keys/microsoft.asc | sudo tee /etc/apt/trusted.gpg.d/microsoft.asc &&
           sudo apt-add-repository https://packages.microsoft.com/ubuntu/20.04/prod &&
           sudo apt-get update &&
-          sudo apt install -y g++-multilib lib32gcc-9-dev ninja-build
+          sudo apt install -y g++-multilib lib32gcc-9-dev
 
-      - name: run spec tests
+      - name: run spec tests x86_32
+        if: env.TEST_ON_X86_32 == 'true'
         run: ./test_wamr.sh ${{ env.X86_32_TARGET_TEST_OPTIONS }} ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
         working-directory: ./tests/wamr-test-suites
