@@ -45,20 +45,20 @@ jobs:
           #
           # set output
           if [[ ${diff_versioning} == 'major_minor_change' ]];then
-            echo "::set-output name=minor_version::true"
+            echo "minor_version=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::set-output name=minor_version::false"
+            echo "minor_version=false" >> "$GITHUB_OUTPUT"
           fi
           #
           #
           if [[ -z ${new_ver} ]]; then
             echo "::error::please indicate the right semantic version in build-scripts/config_common.cmake"
-            echo "::set-output name=new_ver::''"
-            echo "::set-output name=new_tag::''"
+            echo "new_ver=''" >> "$GITHUB_OUTPUT"
+            echo "new_tag=''" >> "$GITHUB_OUTPUT"
             exit 1
           else
-            echo "::set-output name=new_ver::${new_ver}"
-            echo "::set-output name=new_tag::WAMR-${new_ver}"
+            echo "new_ver=${new_ver}" >> "$GITHUB_OUTPUT"
+            echo "new_tag=WAMR-${new_ver}" >> "$GITHUB_OUTPUT"
           fi
 
       - name: push tag
