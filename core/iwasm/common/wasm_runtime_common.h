@@ -864,6 +864,11 @@ wasm_runtime_register_natives_raw(const char *module_name,
                                   NativeSymbol *native_symbols,
                                   uint32 n_native_symbols);
 
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_unregister_natives(const char *module_name,
+                                NativeSymbol *native_symbols);
+
 bool
 wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                            const WASMType *func_type, const char *signature,

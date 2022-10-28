@@ -357,6 +357,26 @@ wasm_native_register_natives_raw(const char *module_name,
 }
 
 bool
+wasm_native_unregister_natives(const char *module_name,
+                               NativeSymbol *native_symbols)
+{
+    NativeSymbolsNode **prevp;
+    NativeSymbolsNode *node;
+
+    prevp = &g_native_symbols_list;
+    while ((node = *prevp) != NULL) {
+        if (node->native_symbols == native_symbols
+            && !strcmp(node->module_name, module_name)) {
+            *prevp = node->next;
+            wasm_runtime_free(node);
+            return true;
+        }
+        prevp = &node->next;
+    }
+    return false;
+}
+
+bool
 wasm_native_init()
 {
     NativeSymbol *native_symbols;

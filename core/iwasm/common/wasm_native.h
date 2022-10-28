@@ -65,6 +65,10 @@ wasm_native_register_natives_raw(const char *module_name,
                                  uint32 n_native_symbols);
 
 bool
+wasm_native_unregister_natives(const char *module_name,
+                               NativeSymbol *native_symbols);
+
+bool
 wasm_native_init();
 
 void
