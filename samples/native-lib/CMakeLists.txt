@@ -58,7 +58,9 @@ set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security")
 set (WAMR_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/../..)
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 
-add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
+# Note: we build vmlib as a shared library here so that it can be
+# shared between iwasm and native libraries.
+add_library(vmlib SHARED ${WAMR_RUNTIME_LIB_SOURCE})
 
 ################ wamr runtime ###################
 include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
@@ -79,6 +81,10 @@ target_link_libraries(iwasm vmlib -lpthread -lm -ldl)
 add_library (test_add SHARED test_add.c)
 add_library (test_sqrt SHARED test_sqrt.c)
 add_library (test_hello SHARED test_hello.c)
+# Note: Unlike simpler examples above, test_hello2 directly uses
+# the API provided by the vmlib library.
+add_library (test_hello2 SHARED test_hello2.c)
+target_link_libraries(test_hello2 vmlib)
 
 ################ wasm application ###############
 add_subdirectory(wasm-app)
