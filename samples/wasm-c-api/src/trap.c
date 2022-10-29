@@ -143,6 +143,8 @@ int main(int argc, const char* argv[]) {
     own wasm_name_t message;
     wasm_trap_message(trap, &message);
     printf("> %s\n", message.data);
+    assert(message.num_elems > 0);
+    assert(strncmp(message.data, "Exception: ", strlen("Exception: ")) == 0);
 
     printf("Printing origin...\n");
     own wasm_frame_t* frame = wasm_trap_origin(trap);
