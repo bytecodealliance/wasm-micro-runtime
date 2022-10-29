@@ -66,6 +66,7 @@ static const aot_intrinsic g_intrinsic_mapping[] = {
     { "f32.const", NULL, AOT_INTRINSIC_FLAG_F32_CONST },
     { "f64.const", NULL, AOT_INTRINSIC_FLAG_F64_CONST },
     { "i64.div_s", "aot_intrinsic_i64_div_s", AOT_INTRINSIC_FLAG_I64_DIV_S},
+    { "i32.div_u", "aot_intrinsic_i32_div_u", AOT_INTRINSIC_FLAG_I32_DIV_U},
     { "i64.div_u", "aot_intrinsic_i64_div_u", AOT_INTRINSIC_FLAG_I64_DIV_U},
     { "i64.rem_s", "aot_intrinsic_i64_rem_s", AOT_INTRINSIC_FLAG_I64_REM_S},
     { "i64.rem_u", "aot_intrinsic_i64_rem_u", AOT_INTRINSIC_FLAG_I64_REM_U},
@@ -558,6 +559,12 @@ add_i64_common_intrinsics(AOTCompContext *comp_ctx)
 }
 
 static void
+add_i32_common_intrinsics(AOTCompContext *comp_ctx)
+{
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I32_DIV_U);
+}
+
+static void
 add_f32_common_intrinsics(AOTCompContext *comp_ctx)
 {
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_FABS);
@@ -567,8 +574,6 @@ add_f32_common_intrinsics(AOTCompContext *comp_ctx)
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_FDIV);
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_SQRT);
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_CMP);
-    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I32_DIV_U);
-
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_MIN);
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_MAX);
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_CEIL);
@@ -681,7 +686,9 @@ aot_intrinsic_fill_capability_flags(AOTCompContext *comp_ctx)
          * will cause rodata relocation
          */
         add_f32_common_intrinsics(comp_ctx);
+        add_i32_common_intrinsics(comp_ctx);
         add_f64_common_intrinsics(comp_ctx);
+        add_i64_common_intrinsics(comp_ctx);
         add_common_float_integer_convertion(comp_ctx);
         add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_CONST);
         add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F64_CONST);

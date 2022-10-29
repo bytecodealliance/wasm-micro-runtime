@@ -7,90 +7,59 @@
 
 
 static char *
-align_ptr(char *src, uint32 b)
+align_ptr(char *src, unsigned int b)
 {
     uintptr_t v = (uintptr_t)src;
     uintptr_t m = b - 1;
     return (char *)((v + m) & ~m);
 }
 
+/*
+Memory copy, align with word
+*/
 int
 b_memcpy_aw(void *s1, unsigned int s1max, const void *s2, unsigned int n)
 {
     char *dest = (char *)s1;
-    char *src  = (char *)s2;
+    char *src = (char *)s2;
 
-    if(dest == NULL || src == NULL) {
-        return -1;
-    }
-
-    if(s1max < n) {
-        return -1;
-    }
-
-    char *pa = align_ptr(src, sizeof(unsigned int));
-    char *pb = align_ptr((src + n), sizeof(unsigned int)) - sizeof(unsigned int);
-
-    char *p_pre = pa, *p_suf =pa, *p_read=pa;
+    char *pa = align_ptr(src, 4);
+    char *pb = align_ptr((src + n), 4);
 
     if (pa > src) {
-        p_pre = pa - sizeof(unsigned int);
-    }
-    if (pa < pb) {
-        p_suf = pb;
+        pa -= 4;
     }
 
-    unsigned int pre_offset = 0;
-    unsigned int pre_size = 0;
-    if (p_pre != p_read) {
-        pre_offset = src - p_pre;
-        if (src + n > p_read) {
-            pre_size = p_read - src;
+    for (unsigned int *p = (unsigned int *)pa; p < (unsigned int *)pb; p++) {
+        unsigned int buff = *(p);
+        const char *p_byte_read = ((char *)&buff);
+
+        if ((char *)p <= src) {
+            for (char *leading = src; leading < ((char *)p + 4); leading++) {
+                if (leading >= src + n) {
+                    break;
+                }
+                p_byte_read = ((char *)&buff) + (leading - (char *)p);
+                *dest++ = *p_byte_read;
+            }
+        }
+        else if ((char *)p >= pb - 4) {
+            for (char *traling = (char *)p; traling < src + n; traling++) {
+                *dest++ = *p_byte_read++;
+            }
         }
         else {
-            pre_size = n;
+            if ((char *)p + 4 >= src + n) {
+                for (char *meaning = (char *)p; meaning < src + n; meaning++) {
+                    *dest++ = *p_byte_read++;
+                }
+            }
+            else {
+                *(unsigned int *)dest = buff;
+                dest += 4;
+            }
         }
     }
-
-    unsigned int read_size = 0;
-    unsigned int suf_offset = 0;
-    unsigned int suf_size = 0;
-    if (p_suf != p_read) {
-        read_size = p_suf - p_read;
-        suf_size = src + n - p_suf;
-    }
-    else {
-        if (src + n > pa) {
-            read_size = src + n - pa;
-        }
-    }
-    if((pre_size + read_size + suf_size) != n) {
-        return -1;
-    }
-
-    // copy pre segment
-    unsigned int buff;
-    char* pbuff = (char*)&buff;
-    buff = (*(unsigned int*)p_pre);
-    bh_memcpy_s(dest, pre_size, pbuff + pre_offset,
-                pre_size);
-
-    // copy segment
-    if (read_size < 4) {
-        buff = (*(unsigned int*)p_read);
-        bh_memcpy_s(dest + pre_size, read_size, pbuff, read_size);
-    }
-    else {
-        unsigned int* des = (unsigned int*)(dest + pre_size);
-        unsigned int* src = (unsigned int*)p_read;
-        for(int i = 0;i < read_size/4;i++)
-            *des++ = *src++;
-    }
-
-    // copy suffix segment
-    buff = (*(unsigned int*)p_suf);
-    bh_memcpy_s(dest + pre_size + read_size, suf_size,
-                pbuff, suf_size);
 
     return 0;
 }
