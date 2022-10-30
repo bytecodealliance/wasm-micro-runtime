@@ -464,6 +464,7 @@ struct WASMModuleCommon;
 typedef struct WASMModuleCommon *wasm_module_t;
 #endif
 
+
 WASM_API_EXTERN own wasm_module_t* wasm_module_new(
   wasm_store_t*, const wasm_byte_vec_t* binary);
 
@@ -476,6 +477,11 @@ WASM_API_EXTERN void wasm_module_exports(const wasm_module_t*, own wasm_exportty
 
 WASM_API_EXTERN void wasm_module_serialize(wasm_module_t*, own wasm_byte_vec_t* out);
 WASM_API_EXTERN own wasm_module_t* wasm_module_deserialize(wasm_store_t*, const wasm_byte_vec_t*);
+
+typedef wasm_module_t wasm_shared_module_t;
+WASM_API_EXTERN own wasm_shared_module_t* wasm_module_share(wasm_module_t*);
+WASM_API_EXTERN own wasm_module_t* wasm_module_obtain(wasm_store_t*, wasm_shared_module_t*);
+WASM_API_EXTERN void wasm_shared_module_delete(own wasm_shared_module_t*);
 
 
 // Function Instances

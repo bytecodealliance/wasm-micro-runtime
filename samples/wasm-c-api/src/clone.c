@@ -20,6 +20,7 @@ typedef struct _vm {
     wasm_engine_t *engine;
     wasm_store_t *store;
     wasm_module_t *module;
+    wasm_shared_module_t *shared_module;
     wasm_instance_t *instance;
     wasm_func_t **function_list;
     wasm_memory_t *memory;
@@ -72,10 +73,49 @@ fail:
     return NULL;
 }
 
+wasm_vm_t *
+vm_release(wasm_vm_t *vm)
+{
+    if (!vm)
+        return NULL;
+
+    if (vm->function_list) {
+        free(vm->function_list);
+        vm->function_list = NULL;
+    }
+
+    vm->memory = NULL;
+
+    if (vm->exports) {
+        wasm_extern_vec_delete(vm->exports);
+        free(vm->exports);
+        vm->exports = NULL;
+    }
+
+    wasm_instance_delete(vm->instance);
+    vm->instance = NULL;
+
+    wasm_shared_module_delete(vm->shared_module);
+    vm->shared_module = NULL;
+
+    wasm_module_delete(vm->module);
+    vm->module = NULL;
+
+    wasm_store_delete(vm->store);
+    vm->store = NULL;
+
+    wasm_engine_delete(vm->engine);
+    vm->engine = NULL;
+
+    free(vm);
+    return NULL;
+}
+
 bool
 vm_load(wasm_vm_t *vm, const wasm_byte_vec_t *binary)
 {
     vm->module = wasm_module_new(vm->store, binary);
+    vm->shared_module = wasm_module_share(vm->module);
     return vm->module != NULL;
 }
 
@@ -127,7 +167,10 @@ vm_clone_from_module(const wasm_vm_t *base)
     secondary = vm_new();
     if (secondary) {
         printf("Reuse module and bypass vm_load()...");
-        secondary->module = base->module;
+        secondary->module =
+            wasm_module_obtain(base->store, base->shared_module);
+        if (!secondary->module)
+            secondary = vm_release(secondary);
     }
 
     return secondary;
@@ -161,39 +204,6 @@ vm_clone(const wasm_vm_t *base, clone_level level)
         return vm_clone_from_module(base);
     else
         return vm_clone_from_instance(base);
-}
-
-wasm_vm_t *
-vm_release(wasm_vm_t *vm)
-{
-    if (!vm)
-        return NULL;
-
-    if (vm->function_list) {
-        free(vm->function_list);
-        vm->function_list = NULL;
-    }
-
-    if (vm->exports) {
-        wasm_extern_vec_delete(vm->exports);
-        free(vm->exports);
-        vm->exports = NULL;
-    }
-
-    wasm_instance_delete(vm->instance);
-    vm->instance = NULL;
-
-    wasm_module_delete(vm->module);
-    vm->module = NULL;
-
-    wasm_store_delete(vm->store);
-    vm->store = NULL;
-
-    wasm_engine_delete(vm->engine);
-    vm->engine = NULL;
-
-    free(vm);
-    return NULL;
 }
 
 bool
@@ -444,6 +454,8 @@ static void *
 thrd_func(void *arg)
 {
     thread_arg_t *thrd_arg = (thread_arg_t *)arg;
+
+    sleep(rand() % 5);
     printf("Running warm start at %s...\n", thrd_arg->name);
 
     pthread_setspecific(name_key, thrd_arg->name);
@@ -483,7 +495,6 @@ main()
     run_test(base_vm);
 
     printf("Running warm start at other threads...\n");
-    pthread_mutex_trylock(&ready_go_lock);
 
     pthread_t tids[WORKER_NUMBER] = { 0 };
     thread_arg_t thrd_args[WORKER_NUMBER] = { 0 };
@@ -501,8 +512,8 @@ main()
             break;
     }
 
-    sleep(5);
-
+    sleep(1);
+    pthread_mutex_trylock(&ready_go_lock);
     ready_go_flag = true;
     pthread_mutex_unlock(&ready_go_lock);
     pthread_cond_broadcast(&ready_go_cond);
@@ -511,6 +522,7 @@ main()
         if (tids[i] != 0)
             pthread_join(tids[i], NULL);
     }
+
     vm_release(base_vm);
     ret = EXIT_SUCCESS;
 quit:
