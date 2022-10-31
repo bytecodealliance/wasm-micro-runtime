@@ -366,13 +366,15 @@ typedef struct WASMCustomSection {
 } WASMCustomSection;
 #endif
 
-#if WASM_ENABLE_JIT != 0
+#if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0
 struct AOTCompData;
 struct AOTCompContext;
 
 /* Orc JIT thread arguments */
 typedef struct OrcJitThreadArg {
+#if WASM_ENABLE_JIT != 0
     struct AOTCompContext *comp_ctx;
+#endif
     struct WASMModule *module;
     uint32 group_idx;
 } OrcJitThreadArg;
@@ -510,6 +512,9 @@ struct WASMModule {
 #if WASM_ENABLE_FAST_JIT != 0
     /* func pointers of Fast JITed (un-imported) functions */
     void **fast_jit_func_ptrs;
+    /* locks for Fast JIT lazy compilation */
+    korp_mutex fast_jit_thread_locks[WASM_ORC_JIT_BACKEND_THREAD_NUM];
+    bool fast_jit_thread_locks_inited[WASM_ORC_JIT_BACKEND_THREAD_NUM];
 #endif
 
 #if WASM_ENABLE_JIT != 0
@@ -519,9 +524,12 @@ struct WASMModule {
     void **func_ptrs;
     /* whether the func pointers are compiled */
     bool *func_ptrs_compiled;
-    bool orcjit_stop_compiling;
+#endif
+
+#if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0
     korp_tid orcjit_threads[WASM_ORC_JIT_BACKEND_THREAD_NUM];
     OrcJitThreadArg orcjit_thread_args[WASM_ORC_JIT_BACKEND_THREAD_NUM];
+    bool orcjit_stop_compiling;
 #endif
 };
 
