@@ -289,8 +289,9 @@ wasm_gdbserver_handle_packet(WASMGDBServer *server)
     n = os_socket_recv(server->socket_fd, buf, sizeof(buf));
 
     if (n == 0) {
-        LOG_VERBOSE("Debugger disconnected");
-        return false;
+        handle_detach_request(server, NULL);
+        LOG_VERBOSE("Debugger disconnected, waiting for debugger reconnection");
+        return true;
     }
     else if (n < 0) {
 #if defined(BH_PLATFORM_WINDOWS)
