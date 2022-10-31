@@ -145,6 +145,19 @@ WASM_API_EXTERN own wasm_config_t* wasm_config_new(void);
 
 WASM_DECLARE_OWN(engine)
 
+/**
+ * Create a new engine
+ *
+ * Note: for the engine new/delete operations, including this,
+ * wasm_engine_new_with_config, wasm_engine_new_with_args, and
+ * wasm_engine_delete, if the platform has mutex initializer,
+ * then they are thread-safe: we use a global lock to lock the
+ * operations of the engine. Otherwise they are not thread-safe:
+ * when there are engine new/delete operations happening
+ * simultaneously in multiple threads, developer must create
+ * the lock by himself, and add the lock when calling these
+ * functions.
+ */
 WASM_API_EXTERN own wasm_engine_t* wasm_engine_new(void);
 WASM_API_EXTERN own wasm_engine_t* wasm_engine_new_with_config(own wasm_config_t*);
 
