@@ -382,8 +382,7 @@ load_string(uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         if (!(str = const_str_set_insert((uint8 *)p, str_len, module,
 #if (WASM_ENABLE_WORD_ALIGN_READ != 0)
                                          is_vram_word_align,
-#endif /* end of defined(BUILD_TARGET_XTENSA) && \
-          (WASM_ENABLE_AOT_LOAD_FROM_VRAM != 0) */
+#endif
                                          error_buf, error_buf_size))) {
             goto fail;
         }
