@@ -123,6 +123,80 @@ GET_U64_FROM_ADDR(uint32 *addr)
     return u.val;
 }
 
+#if (WASM_ENABLE_WORD_ALIGN_READ != 0)
+
+static inline uint8
+GET_U8_FROM_ADDR(const uint8 *p)
+{
+    uint8 res = 0;
+    bh_assert(p);
+
+    const uint8 *p_aligned = align_ptr(p, 4);
+    p_aligned = (p_aligned > p) ? p_aligned - 4 : p_aligned;
+
+    uint32 buf32 = *(const uint32 *)p_aligned;
+    const uint8 *pbuf = (const uint8 *)&buf32;
+
+    res = *(uint8 *)(pbuf + (p - p_aligned));
+
+    return res;
+}
+
+static inline uint16
+GET_U16_FROM_ADDR(const uint8 *p)
+{
+    uint16 res = 0;
+    bh_assert(p);
+
+    const uint8 *p_aligned = align_ptr(p, 4);
+    p_aligned = (p_aligned > p) ? p_aligned - 4 : p_aligned;
+
+    uint32 buf32 = *(const uint32 *)p_aligned;
+    const uint8 *pbuf = (const uint8 *)&buf32;
+
+    res = *(uint16 *)(pbuf + (p - p_aligned));
+
+    return res;
+}
+
+#define TEMPLATE_READ(p, p_end, res, type)              \
+    do {                                                \
+        if (sizeof(type) != sizeof(uint64))             \
+            p = (uint8 *)align_ptr(p, sizeof(type));    \
+        else                                            \
+            /* align 4 bytes if type is uint64 */       \
+            p = (uint8 *)align_ptr(p, sizeof(uint32));  \
+        CHECK_BUF(p, p_end, sizeof(type));              \
+        if (sizeof(type) == sizeof(uint8))              \
+            res = GET_U8_FROM_ADDR(p);                  \
+        else if (sizeof(type) == sizeof(uint16))        \
+            res = GET_U16_FROM_ADDR(p);                 \
+        else if (sizeof(type) == sizeof(uint32))        \
+            res = *(type *)p;                           \
+        else                                            \
+            res = (type)GET_U64_FROM_ADDR((uint32 *)p); \
+        if (!is_little_endian())                        \
+            exchange_##type((uint8 *)&res);             \
+        p += sizeof(type);                              \
+    } while (0)
+
+#define read_byte_array(p, p_end, addr, len) \
+    do {                                     \
+        CHECK_BUF(p, p_end, len);            \
+        bh_memcpy_wa(addr, len, p, len);     \
+        p += len;                            \
+    } while (0)
+
+#define read_string(p, p_end, str)                                      \
+    do {                                                                \
+        if (!(str = load_string((uint8 **)&p, p_end, module,            \
+                                is_load_from_file_buf, true, error_buf, \
+                                error_buf_size)))                       \
+            goto fail;                                                  \
+    } while (0)
+
+#else /* else of (WASM_ENABLE_WORD_ALIGN_READ != 0) */
+
 #define TEMPLATE_READ(p, p_end, res, type)              \
     do {                                                \
         if (sizeof(type) != sizeof(uint64))             \
@@ -140,11 +214,6 @@ GET_U64_FROM_ADDR(uint32 *addr)
         p += sizeof(type);                              \
     } while (0)
 
-#define read_uint8(p, p_end, res) TEMPLATE_READ(p, p_end, res, uint8)
-#define read_uint16(p, p_end, res) TEMPLATE_READ(p, p_end, res, uint16)
-#define read_uint32(p, p_end, res) TEMPLATE_READ(p, p_end, res, uint32)
-#define read_uint64(p, p_end, res) TEMPLATE_READ(p, p_end, res, uint64)
-
 #define read_byte_array(p, p_end, addr, len) \
     do {                                     \
         CHECK_BUF(p, p_end, len);            \
@@ -159,6 +228,13 @@ GET_U64_FROM_ADDR(uint32 *addr)
                                 error_buf_size)))                 \
             goto fail;                                            \
     } while (0)
+
+#endif /* end of (WASM_ENABLE_WORD_ALIGN_READ != 0) */
+
+#define read_uint8(p, p_end, res) TEMPLATE_READ(p, p_end, res, uint8)
+#define read_uint16(p, p_end, res) TEMPLATE_READ(p, p_end, res, uint16)
+#define read_uint32(p, p_end, res) TEMPLATE_READ(p, p_end, res, uint32)
+#define read_uint64(p, p_end, res) TEMPLATE_READ(p, p_end, res, uint64)
 
 /* Legal values for bin_type */
 #define BIN_TYPE_ELF32L 0 /* 32-bit little endian */
@@ -211,6 +287,9 @@ loader_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
 
 static char *
 const_str_set_insert(const uint8 *str, int32 len, AOTModule *module,
+#if (WASM_ENABLE_WORD_ALIGN_READ != 0)
+                     bool is_vram_word_align,
+#endif
                      char *error_buf, uint32 error_buf_size)
 {
     HashMap *set = module->const_str_set;
@@ -230,8 +309,15 @@ const_str_set_insert(const uint8 *str, int32 len, AOTModule *module,
     if (!(c_str = loader_malloc((uint32)len + 1, error_buf, error_buf_size))) {
         return NULL;
     }
-
-    bh_memcpy_s(c_str, (uint32)(len + 1), str, (uint32)len);
+#if (WASM_ENABLE_WORD_ALIGN_READ != 0)
+    if (is_vram_word_align) {
+        bh_memcpy_wa(c_str, (uint32)(len + 1), str, (uint32)len);
+    }
+    else
+#endif
+    {
+        bh_memcpy_s(c_str, (uint32)(len + 1), str, (uint32)len);
+    }
     c_str[len] = '\0';
 
     if ((value = bh_hash_map_find(set, c_str))) {
@@ -251,7 +337,11 @@ const_str_set_insert(const uint8 *str, int32 len, AOTModule *module,
 
 static char *
 load_string(uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
-            bool is_load_from_file_buf, char *error_buf, uint32 error_buf_size)
+            bool is_load_from_file_buf,
+#if (WASM_ENABLE_WORD_ALIGN_READ != 0)
+            bool is_vram_word_align,
+#endif
+            char *error_buf, uint32 error_buf_size)
 {
     uint8 *p = *p_buf;
     const uint8 *p_end = buf_end;
@@ -264,6 +354,15 @@ load_string(uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
     if (str_len == 0) {
         str = "";
     }
+#if (WASM_ENABLE_WORD_ALIGN_READ != 0)
+    else if (is_vram_word_align) {
+        if (!(str = const_str_set_insert((uint8 *)p, str_len, module,
+                                         is_vram_word_align, error_buf,
+                                         error_buf_size))) {
+            goto fail;
+        }
+    }
+#endif
     else if (p[str_len - 1] == '\0') {
         /* The string is terminated with '\0', use it directly */
         str = (char *)p;
@@ -280,8 +379,11 @@ load_string(uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         /* Load from sections, the file buffer cannot be reffered to
            after loading, we must create another string and insert it
            into const string set */
-        if (!(str = const_str_set_insert((uint8 *)p, str_len, module, error_buf,
-                                         error_buf_size))) {
+        if (!(str = const_str_set_insert((uint8 *)p, str_len, module,
+#if (WASM_ENABLE_WORD_ALIGN_READ != 0)
+                                         is_vram_word_align,
+#endif
+                                         error_buf, error_buf_size))) {
             goto fail;
         }
     }

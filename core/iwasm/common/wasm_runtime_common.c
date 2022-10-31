@@ -506,6 +506,10 @@ wasm_runtime_full_init(RuntimeInitArgs *init_args)
 PackageType
 get_package_type(const uint8 *buf, uint32 size)
 {
+#if (WASM_ENABLE_WORD_ALIGN_READ != 0)
+    uint32 buf32 = *(uint32 *)buf;
+    buf = (const uint8 *)&buf32;
+#endif
     if (buf && size >= 4) {
         if (buf[0] == '\0' && buf[1] == 'a' && buf[2] == 's' && buf[3] == 'm')
             return Wasm_Module_Bytecode;

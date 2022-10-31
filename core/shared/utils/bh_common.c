@@ -5,6 +5,73 @@
 
 #include "bh_common.h"
 
+static char *
+align_ptr(char *src, unsigned int b)
+{
+    uintptr_t v = (uintptr_t)src;
+    uintptr_t m = b - 1;
+    return (char *)((v + m) & ~m);
+}
+
+/*
+Memory copy, with word alignment
+*/
+int
+b_memcpy_wa(void *s1, unsigned int s1max, const void *s2, unsigned int n)
+{
+    char *dest = (char *)s1;
+    char *src = (char *)s2;
+
+    char *pa = align_ptr(src, 4);
+    char *pb = align_ptr((src + n), 4);
+
+    unsigned int buff;
+    const char *p_byte_read;
+
+    unsigned int *p;
+    char *ps;
+
+    if (pa > src) {
+        pa -= 4;
+    }
+
+    for (p = (unsigned int *)pa; p < (unsigned int *)pb; p++) {
+        buff = *(p);
+        p_byte_read = ((char *)&buff);
+
+        /* read leading word */
+        if ((char *)p <= src) {
+            for (ps = src; ps < ((char *)p + 4); ps++) {
+                if (ps >= src + n) {
+                    break;
+                }
+                p_byte_read = ((char *)&buff) + (ps - (char *)p);
+                *dest++ = *p_byte_read;
+            }
+        }
+        /* read trailing word */
+        else if ((char *)p >= pb - 4) {
+            for (ps = (char *)p; ps < src + n; ps++) {
+                *dest++ = *p_byte_read++;
+            }
+        }
+        /* read meaning word(s) */
+        else {
+            if ((char *)p + 4 >= src + n) {
+                for (ps = (char *)p; ps < src + n; ps++) {
+                    *dest++ = *p_byte_read++;
+                }
+            }
+            else {
+                *(unsigned int *)dest = buff;
+                dest += 4;
+            }
+        }
+    }
+
+    return 0;
+}
+
 int
 b_memcpy_s(void *s1, unsigned int s1max, const void *s2, unsigned int n)
 {

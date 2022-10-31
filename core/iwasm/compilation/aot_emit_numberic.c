@@ -565,7 +565,22 @@ compile_int_div(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 PUSH_INT(res);
                 return true;
             case INT_DIV_U:
-                LLVM_BUILD_OP(UDiv, left, right, res, "div_u", false);
+                if (comp_ctx->disable_llvm_intrinsics && is_i32
+                    && aot_intrinsic_check_capability(comp_ctx, "i32.div_u")) {
+                    res = aot_call_llvm_intrinsic(comp_ctx, func_ctx,
+                                                  "i32.div_u", param_types[0],
+                                                  param_types, 2, left, right);
+                }
+                else if (comp_ctx->disable_llvm_intrinsics && !is_i32
+                         && aot_intrinsic_check_capability(comp_ctx,
+                                                           "i64.div_u")) {
+                    res = aot_call_llvm_intrinsic(comp_ctx, func_ctx,
+                                                  "i64.div_u", param_types[0],
+                                                  param_types, 2, left, right);
+                }
+                else {
+                    LLVM_BUILD_OP(UDiv, left, right, res, "div_u", false);
+                }
                 PUSH_INT(res);
                 return true;
             case INT_REM_S:
