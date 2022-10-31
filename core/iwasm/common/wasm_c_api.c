@@ -308,10 +308,10 @@ wasm_engine_new_internal(mem_alloc_type_t type, const MemAllocOption *opts)
 
 #ifndef NDEBUG
     /*DEBUG*/
-    bh_log_set_verbose_level(5);
+    bh_log_set_verbose_level(BH_LOG_LEVEL_VERBOSE);
 #else
     /*VERBOSE*/
-    bh_log_set_verbose_level(3);
+    bh_log_set_verbose_level(BH_LOG_LEVEL_WARNING);
 #endif
 
     /* create wasm_engine_t */
