@@ -123,10 +123,10 @@ GET_U64_FROM_ADDR(uint32 *addr)
     return u.val;
 }
 
-#if defined(BUILD_TARGET_XTENSA) && (WASM_ENABLE_AOT_LOAD_FROM_VRAM != 0)
+#if (WASM_ENABLE_WORD_ALIGN_READ != 0)
 
 static inline uint8
-GET_U8_FROM_ADDR(const uint8* p)
+GET_U8_FROM_ADDR(const uint8 *p)
 {
     uint8 res = 0;
     bh_assert(p);
@@ -180,23 +180,22 @@ GET_U16_FROM_ADDR(const uint8 *p)
         p += sizeof(type);                              \
     } while (0)
 
-#define read_byte_array(p, p_end, addr, len)            \
-    do {                                                \
-        CHECK_BUF(p, p_end, len);                       \
-        bh_memcpy_aw(addr, len, p, len);                \
-        p += len;                                       \
+#define read_byte_array(p, p_end, addr, len) \
+    do {                                     \
+        CHECK_BUF(p, p_end, len);            \
+        bh_memcpy_wa(addr, len, p, len);     \
+        p += len;                            \
     } while (0)
 
-#define read_string(p, p_end, str)                                \
-    do {                                                          \
-        if (!(str = load_string((uint8 **)&p, p_end, module,      \
-                                is_load_from_file_buf, true,      \
-                                error_buf, error_buf_size)))      \
-            goto fail;                                            \
+#define read_string(p, p_end, str)                                      \
+    do {                                                                \
+        if (!(str = load_string((uint8 **)&p, p_end, module,            \
+                                is_load_from_file_buf, true, error_buf, \
+                                error_buf_size)))                       \
+            goto fail;                                                  \
     } while (0)
 
-#else /* else of defined(BUILD_TARGET_XTENSA)           \
-         && (WASM_ENABLE_AOT_LOAD_FROM_VRAM != 0) */
+#else /* else of (WASM_ENABLE_WORD_ALIGN_READ != 0) */
 
 #define TEMPLATE_READ(p, p_end, res, type)              \
     do {                                                \
@@ -225,13 +224,12 @@ GET_U16_FROM_ADDR(const uint8 *p)
 #define read_string(p, p_end, str)                                \
     do {                                                          \
         if (!(str = load_string((uint8 **)&p, p_end, module,      \
-                                is_load_from_file_buf,            \
-                                error_buf, error_buf_size)))      \
+                                is_load_from_file_buf, error_buf, \
+                                error_buf_size)))                 \
             goto fail;                                            \
     } while (0)
 
-#endif /* end of defined(BUILD_TARGET_XTENSA)           \
-         && (WASM_ENABLE_AOT_LOAD_FROM_VRAM != 0) */
+#endif /* end of (WASM_ENABLE_WORD_ALIGN_READ != 0) */
 
 #define read_uint8(p, p_end, res) TEMPLATE_READ(p, p_end, res, uint8)
 #define read_uint16(p, p_end, res) TEMPLATE_READ(p, p_end, res, uint16)
@@ -289,10 +287,9 @@ loader_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
 
 static char *
 const_str_set_insert(const uint8 *str, int32 len, AOTModule *module,
-#if defined(BUILD_TARGET_XTENSA) && (WASM_ENABLE_AOT_LOAD_FROM_VRAM != 0)
-                     bool is_vram_align_word,
-#endif /* end of defined(BUILD_TARGET_XTENSA) &&  \
-          (WASM_ENABLE_AOT_LOAD_FROM_VRAM != 0) */
+#if (WASM_ENABLE_WORD_ALIGN_READ != 0)
+                     bool is_vram_word_align,
+#endif
                      char *error_buf, uint32 error_buf_size)
 {
     HashMap *set = module->const_str_set;
@@ -312,15 +309,14 @@ const_str_set_insert(const uint8 *str, int32 len, AOTModule *module,
     if (!(c_str = loader_malloc((uint32)len + 1, error_buf, error_buf_size))) {
         return NULL;
     }
-#if defined(BUILD_TARGET_XTENSA) && (WASM_ENABLE_AOT_LOAD_FROM_VRAM != 0)
-    if(is_vram_align_word) {
-        bh_memcpy_aw(c_str, (uint32)(len + 1), str, (uint32)len);
-    } else
-#endif /* end of defined(BUILD_TARGET_XTENSA) &&  \
-          (WASM_ENABLE_AOT_LOAD_FROM_VRAM !=0) */
+#if (WASM_ENABLE_WORD_ALIGN_READ != 0)
+    if (is_vram_word_align) {
+        bh_memcpy_wa(c_str, (uint32)(len + 1), str, (uint32)len);
+    }
+    else
+#endif
     {
         bh_memcpy_s(c_str, (uint32)(len + 1), str, (uint32)len);
-
     }
     c_str[len] = '\0';
 
@@ -342,10 +338,9 @@ const_str_set_insert(const uint8 *str, int32 len, AOTModule *module,
 static char *
 load_string(uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             bool is_load_from_file_buf,
-#if defined(BUILD_TARGET_XTENSA) && (WASM_ENABLE_AOT_LOAD_FROM_VRAM != 0)
-            bool is_vram_align_word,
-#endif /* end of defined(BUILD_TARGET_XTENSA) &&  \
-          (WASM_ENABLE_AOT_LOAD_FROM_VRAM != 0) */
+#if (WASM_ENABLE_WORD_ALIGN_READ != 0)
+            bool is_vram_word_align,
+#endif
             char *error_buf, uint32 error_buf_size)
 {
     uint8 *p = *p_buf;
@@ -359,15 +354,15 @@ load_string(uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
     if (str_len == 0) {
         str = "";
     }
-#if defined(BUILD_TARGET_XTENSA) && (WASM_ENABLE_AOT_LOAD_FROM_VRAM != 0)
-    else if (is_vram_align_word) {
-        if (!(str = const_str_set_insert((uint8 *)p, str_len, module, is_vram_align_word,
-                                         error_buf, error_buf_size))) {
+#if (WASM_ENABLE_WORD_ALIGN_READ != 0)
+    else if (is_vram_word_align) {
+        if (!(str = const_str_set_insert((uint8 *)p, str_len, module,
+                                         is_vram_word_align, error_buf,
+                                         error_buf_size))) {
             goto fail;
         }
     }
-#endif /* end of defined(BUILD_TARGET_XTENSA) &&  \
-          (WASM_ENABLE_AOT_LOAD_FROM_VRAM != 0) */
+#endif
     else if (p[str_len - 1] == '\0') {
         /* The string is terminated with '\0', use it directly */
         str = (char *)p;
@@ -385,9 +380,9 @@ load_string(uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
            after loading, we must create another string and insert it
            into const string set */
         if (!(str = const_str_set_insert((uint8 *)p, str_len, module,
-#if defined(BUILD_TARGET_XTENSA) && (WASM_ENABLE_AOT_LOAD_FROM_VRAM != 0)
-                                         is_vram_align_word,
-#endif /* end of defined(BUILD_TARGET_XTENSA) &&  \
+#if (WASM_ENABLE_WORD_ALIGN_READ != 0)
+                                         is_vram_word_align,
+#endif /* end of defined(BUILD_TARGET_XTENSA) && \
           (WASM_ENABLE_AOT_LOAD_FROM_VRAM != 0) */
                                          error_buf, error_buf_size))) {
             goto fail;

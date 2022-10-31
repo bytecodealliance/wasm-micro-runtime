@@ -5,7 +5,6 @@
 
 #include "bh_common.h"
 
-
 static char *
 align_ptr(char *src, unsigned int b)
 {
@@ -15,10 +14,10 @@ align_ptr(char *src, unsigned int b)
 }
 
 /*
-Memory copy, align with word
+Memory copy, with word alignment
 */
 int
-b_memcpy_aw(void *s1, unsigned int s1max, const void *s2, unsigned int n)
+b_memcpy_wa(void *s1, unsigned int s1max, const void *s2, unsigned int n)
 {
     char *dest = (char *)s1;
     char *src = (char *)s2;
@@ -26,31 +25,40 @@ b_memcpy_aw(void *s1, unsigned int s1max, const void *s2, unsigned int n)
     char *pa = align_ptr(src, 4);
     char *pb = align_ptr((src + n), 4);
 
+    unsigned int buff;
+    const char *p_byte_read;
+
+    unsigned int *p;
+    char *ps;
+
     if (pa > src) {
         pa -= 4;
     }
 
-    for (unsigned int *p = (unsigned int *)pa; p < (unsigned int *)pb; p++) {
-        unsigned int buff = *(p);
-        const char *p_byte_read = ((char *)&buff);
+    for (p = (unsigned int *)pa; p < (unsigned int *)pb; p++) {
+        buff = *(p);
+        p_byte_read = ((char *)&buff);
 
+        /* read leading word */
         if ((char *)p <= src) {
-            for (char *leading = src; leading < ((char *)p + 4); leading++) {
-                if (leading >= src + n) {
+            for (ps = src; ps < ((char *)p + 4); ps++) {
+                if (ps >= src + n) {
                     break;
                 }
-                p_byte_read = ((char *)&buff) + (leading - (char *)p);
+                p_byte_read = ((char *)&buff) + (ps - (char *)p);
                 *dest++ = *p_byte_read;
             }
         }
+        /* read trailing word */
         else if ((char *)p >= pb - 4) {
-            for (char *traling = (char *)p; traling < src + n; traling++) {
+            for (ps = (char *)p; ps < src + n; ps++) {
                 *dest++ = *p_byte_read++;
             }
         }
+        /* read meaning word(s) */
         else {
             if ((char *)p + 4 >= src + n) {
-                for (char *meaning = (char *)p; meaning < src + n; meaning++) {
+                for (ps = (char *)p; ps < src + n; ps++) {
                     *dest++ = *p_byte_read++;
                 }
             }

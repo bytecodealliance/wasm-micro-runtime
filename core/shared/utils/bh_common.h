@@ -19,11 +19,11 @@ extern "C" {
         bh_assert(_ret == 0);                                         \
     } while (0)
 
-#define bh_memcpy_aw(dest, dlen, src, slen)                           \
-    do {                                                              \
-        int _ret = slen == 0 ? 0 : b_memcpy_aw(dest, dlen, src, slen);\
-        (void)_ret;                                                   \
-        bh_assert(_ret == 0);                                         \
+#define bh_memcpy_wa(dest, dlen, src, slen)                            \
+    do {                                                               \
+        int _ret = slen == 0 ? 0 : b_memcpy_wa(dest, dlen, src, slen); \
+        (void)_ret;                                                    \
+        bh_assert(_ret == 0);                                          \
     } while (0)
 
 #define bh_memmove_s(dest, dlen, src, slen)                            \
@@ -50,7 +50,7 @@ extern "C" {
 int
 b_memcpy_s(void *s1, unsigned int s1max, const void *s2, unsigned int n);
 int
-b_memcpy_aw(void *s1, unsigned int s1max, const void *s2, unsigned int n);
+b_memcpy_wa(void *s1, unsigned int s1max, const void *s2, unsigned int n);
 int
 b_memmove_s(void *s1, unsigned int s1max, const void *s2, unsigned int n);
 int
