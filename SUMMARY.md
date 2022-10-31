@@ -33,12 +33,23 @@
       * [Move lldb Binaries](test-tools/wamr-ide/VSCode-Extension/resource/debug/README.md)
 
 * [Features](gitbook/features/demo_examples/README.md)
+  * [Application Framwork](doc/wamr_api.md)
   * [Export Native APIs to WASM applications](doc/export_native_api.md)
   * [Multiple Modules As Dependencies](doc/multi_module.md)
   * [Multi-thread, pthread APIs and thread management](doc/pthread_library.md)
   * [Linux SGX(Intel Software Guard Extension) support](doc/linux_sgx.md)
   * [XIP(Execution In Place) support](doc/xip.md)
   * [Socket support](doc/socket_api.md)
+
+* [Examples](gitbook/examples/README.md)
+  * [Basic](samples/basic/README.md)
+  * [Simple](samples/simple/README.md)
+  * [Littlevgl](samples/littlevgl/README.md)
+  * [GUI](samples/gui/README.md)
+  * [wasm-c-api](samples/wasm-c-api/README.md)
+  * [socket-api](samples/socket-api/README.md)
+  * [workload](samples/workload/README.md)
+  * [sgx-ra](samples/sgx-ra/README.md)
 
 * [User Case](gitbook/features/user_case/README.md)
 
@@ -57,7 +68,7 @@
 
 ## Appendix
 
-* [Appendix A. Background Knowledge And Jargons](gitbook/appendix/background-knowledge.md)
+* [Appendix A. Background Knowledge And Glossary Of Terms](gitbook/appendix/background-knowledge.md)
 
 * [Appendix B. WebAssembly Details](gitbook/appendix/webassembly-details.md)
 
