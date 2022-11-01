@@ -400,6 +400,7 @@ compile_int_div(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMValueRef left, right, cmp_div_zero, overflow, res;
     LLVMBasicBlockRef check_div_zero_succ, check_overflow_succ;
     LLVMTypeRef param_types[2];
+    const char *intrinsic = NULL;
 
     param_types[1] = param_types[0] = is_i32 ? I32_TYPE : I64_TYPE;
 
@@ -561,22 +562,24 @@ compile_int_div(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                                          check_overflow_succ)))
                     goto fail;
 
-                LLVM_BUILD_OP(SDiv, left, right, res, "div_s", false);
+                if (comp_ctx->disable_llvm_intrinsics && !is_i32
+                    && aot_intrinsic_check_capability(comp_ctx, "i64.div_s")) {
+                    res = aot_call_llvm_intrinsic(comp_ctx, func_ctx,
+                                                  "i64.div_s", param_types[0],
+                                                  param_types, 2, left, right);
+                }
+                else {
+                    LLVM_BUILD_OP(SDiv, left, right, res, "div_s", false);
+                }
                 PUSH_INT(res);
                 return true;
             case INT_DIV_U:
-                if (comp_ctx->disable_llvm_intrinsics && is_i32
-                    && aot_intrinsic_check_capability(comp_ctx, "i32.div_u")) {
-                    res = aot_call_llvm_intrinsic(comp_ctx, func_ctx,
-                                                  "i32.div_u", param_types[0],
-                                                  param_types, 2, left, right);
-                }
-                else if (comp_ctx->disable_llvm_intrinsics && !is_i32
-                         && aot_intrinsic_check_capability(comp_ctx,
-                                                           "i64.div_u")) {
-                    res = aot_call_llvm_intrinsic(comp_ctx, func_ctx,
-                                                  "i64.div_u", param_types[0],
-                                                  param_types, 2, left, right);
+                intrinsic = is_i32 ? "i32.div_u" : "i64.div_u";
+                if (comp_ctx->disable_llvm_intrinsics
+                    && aot_intrinsic_check_capability(comp_ctx, intrinsic)) {
+                    res = aot_call_llvm_intrinsic(comp_ctx, func_ctx, intrinsic,
+                                                  param_types[0], param_types,
+                                                  2, left, right);
                 }
                 else {
                     LLVM_BUILD_OP(UDiv, left, right, res, "div_u", false);
@@ -592,7 +595,15 @@ compile_int_div(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 return compile_rems(comp_ctx, func_ctx, left, right, overflow,
                                     is_i32);
             case INT_REM_U:
-                LLVM_BUILD_OP(URem, left, right, res, "rem_u", false);
+                if (comp_ctx->disable_llvm_intrinsics && !is_i32
+                    && aot_intrinsic_check_capability(comp_ctx, "i64.rem_u")) {
+                    res = aot_call_llvm_intrinsic(comp_ctx, func_ctx,
+                                                  "i64.rem_u", param_types[0],
+                                                  param_types, 2, left, right);
+                }
+                else {
+                    LLVM_BUILD_OP(URem, left, right, res, "rem_u", false);
+                }
                 PUSH_INT(res);
                 return true;
             default:
