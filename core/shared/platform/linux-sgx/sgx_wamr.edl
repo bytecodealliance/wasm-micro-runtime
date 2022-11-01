@@ -48,6 +48,9 @@ enclave {
                          int flags);
         int ocall_unlinkat(int dirfd, [in, string]const char *pathname,
                            int flags);
+        ssize_t ocall_readlink([in, string]const char *pathname,
+                               [out, size=bufsiz]char *buf,
+                               size_t bufsiz);
         ssize_t ocall_readlinkat(int dirfd,
                                  [in, string]const char *pathname,
                                  [out, size=bufsiz]char *buf,
