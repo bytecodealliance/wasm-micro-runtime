@@ -1637,11 +1637,11 @@ wasm_frame_func_offset(const wasm_frame_t *frame)
 }
 
 static wasm_trap_t *
-wasm_trap_new_internal(WASMModuleInstanceCommon *inst_comm_rt,
-                       const char *default_error_info)
+wasm_trap_new_internal(wasm_store_t *store,
+                       WASMModuleInstanceCommon *inst_comm_rt,
+                       const char *error_info)
 {
     wasm_trap_t *trap;
-    const char *error_info = NULL;
     wasm_instance_vec_t *instances;
     wasm_instance_t *frame_instance = NULL;
     uint32 i;
@@ -1651,72 +1651,44 @@ wasm_trap_new_internal(WASMModuleInstanceCommon *inst_comm_rt,
         return NULL;
     }
 
-#if WASM_ENABLE_INTERP != 0
-    if (inst_comm_rt->module_type == Wasm_Module_Bytecode) {
-        error_info = wasm_get_exception((WASMModuleInstance *)inst_comm_rt);
-    }
-#endif
-
-#if WASM_ENABLE_AOT != 0
-    if (inst_comm_rt->module_type == Wasm_Module_AoT) {
-        error_info = aot_get_exception((AOTModuleInstance *)inst_comm_rt);
-    }
-#endif
-
-    /*
-     * a wrong combination of module filetype and compilation flags
-     * also leads to below branch
-     */
-    if (!error_info && !(error_info = default_error_info)) {
-        return NULL;
-    }
-
     if (!(trap = malloc_internal(sizeof(wasm_trap_t)))) {
         return NULL;
     }
 
-    if (!(trap->message = malloc_internal(sizeof(wasm_byte_vec_t)))) {
-        goto failed;
-    }
+    /* fill in message */
+    if (strlen(error_info) > 0) {
+        if (!(trap->message = malloc_internal(sizeof(wasm_byte_vec_t)))) {
+            goto failed;
+        }
 
-    wasm_name_new_from_string_nt(trap->message, error_info);
-    if (strlen(error_info) && !trap->message->data) {
-        goto failed;
-    }
-
-#if WASM_ENABLE_DUMP_CALL_STACK != 0
-#if WASM_ENABLE_INTERP != 0
-    if (inst_comm_rt->module_type == Wasm_Module_Bytecode) {
-        trap->frames = ((WASMModuleInstance *)inst_comm_rt)->frames;
-    }
-#endif
-
-#if WASM_ENABLE_AOT != 0
-    if (inst_comm_rt->module_type == Wasm_Module_AoT) {
-        trap->frames = ((AOTModuleInstance *)inst_comm_rt)->frames;
-    }
-#endif
-#endif /* WASM_ENABLE_DUMP_CALL_STACK != 0 */
-
-    /* allow a NULL frames list */
-    if (!trap->frames) {
-        return trap;
-    }
-
-    if (!(instances = singleton_engine->stores->data[0]->instances)) {
-        goto failed;
-    }
-
-    for (i = 0; i < instances->num_elems; i++) {
-        if (instances->data[i]->inst_comm_rt == inst_comm_rt) {
-            frame_instance = instances->data[i];
-            break;
+        wasm_name_new_from_string_nt(trap->message, error_info);
+        if (!trap->message->data) {
+            goto failed;
         }
     }
 
-    for (i = 0; i < trap->frames->num_elems; i++) {
-        (((wasm_frame_t *)trap->frames->data) + i)->instance = frame_instance;
+    /* fill in frames */
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
+    trap->frames = ((WASMModuleInstance *)inst_comm_rt)->frames;
+
+    if (trap->frames) {
+        /* fill in instances */
+        instances = store->instances;
+        bh_assert(instances != NULL);
+
+        for (i = 0; i < instances->num_elems; i++) {
+            if (instances->data[i]->inst_comm_rt == inst_comm_rt) {
+                frame_instance = instances->data[i];
+                break;
+            }
+        }
+
+        for (i = 0; i < trap->frames->num_elems; i++) {
+            (((wasm_frame_t *)trap->frames->data) + i)->instance =
+                frame_instance;
+        }
     }
+#endif /* WASM_ENABLE_DUMP_CALL_STACK != 0 */
 
     return trap;
 failed:
@@ -2929,14 +2901,9 @@ failed:
     if (argv != argv_buf)
         wasm_runtime_free(argv);
 
-    /* trap -> exception -> trap */
-    if (wasm_runtime_get_exception(func->inst_comm_rt)) {
-        return wasm_trap_new_internal(func->inst_comm_rt, NULL);
-    }
-    else {
-        return wasm_trap_new_internal(func->inst_comm_rt,
-                                      "wasm_func_call failed");
-    }
+    return wasm_trap_new_internal(
+        func->store, func->inst_comm_rt,
+        wasm_runtime_get_exception(func->inst_comm_rt));
 }
 
 size_t
