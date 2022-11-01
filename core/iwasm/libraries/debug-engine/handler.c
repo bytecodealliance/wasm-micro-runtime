@@ -781,7 +781,7 @@ handle____request(WASMGDBServer *server, char *payload)
 void
 handle_detach_request(WASMGDBServer *server, char *payload)
 {
-    if(payload != NULL){
+    if (payload != NULL) {
         write_packet(server, "OK");
     }
     wasm_debug_instance_detach(
