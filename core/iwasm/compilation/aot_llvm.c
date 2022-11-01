@@ -1279,42 +1279,6 @@ aot_handle_llvm_errmsg(const char *string, LLVMErrorRef err)
     LLVMDisposeErrorMessage(err_msg);
 }
 
-#ifndef NDEBUG
-static LLVMErrorRef
-run_pass(void *ctx, LLVMModuleRef module)
-{
-    /*AOTCompContext *comp_ctx = (AOTCompContext *)ctx;*/
-
-    size_t len;
-    LOG_VERBOSE("--- In IRTransformLayer @ M#%s, T#%ld---",
-                LLVMGetModuleIdentifier(module, &len), pthread_self());
-
-    /* TODO: enable this for JIT mode after fixing LLVM issues */
-    /*aot_apply_llvm_new_pass_manager(comp_ctx, module);*/
-
-    bh_print_time("Begin to generate machine code");
-    return LLVMErrorSuccess;
-}
-
-static LLVMErrorRef
-do_ir_transform(void *ctx, LLVMOrcThreadSafeModuleRef *module,
-                LLVMOrcMaterializationResponsibilityRef mr)
-{
-    (void)mr;
-    return LLVMOrcThreadSafeModuleWithModuleDo(*module, run_pass, ctx);
-}
-
-static LLVMErrorRef
-do_obj_transform(void *Ctx, LLVMMemoryBufferRef *ObjInOut)
-{
-    bh_print_time("Finish generating machine code");
-    LOG_VERBOSE("--- In ObjectTransformLayer @ T#%ld ---", pthread_self());
-    (void)Ctx;
-    (void)ObjInOut;
-    return LLVMErrorSuccess;
-}
-#endif
-
 static bool
 create_target_machine_detect_host(AOTCompContext *comp_ctx)
 {
@@ -1421,17 +1385,6 @@ orc_jit_create(AOTCompContext *comp_ctx)
     }
     /* Ownership transfer: LLVMOrcLLJITBuilderRef -> LLVMOrcLLJITRef */
     builder = NULL;
-
-#ifndef NDEBUG
-    /* Setup TransformLayer */
-    LLVMOrcIRTransformLayerSetTransform(
-        LLVMOrcLLLazyJITGetIRTransformLayer(orc_jit), *do_ir_transform,
-        comp_ctx);
-
-    LLVMOrcObjectTransformLayerSetTransform(
-        LLVMOrcLLLazyJITGetObjTransformLayer(orc_jit), *do_obj_transform,
-        comp_ctx);
-#endif
 
     /* Ownership transfer: local -> AOTCompContext */
     comp_ctx->orc_jit = orc_jit;
