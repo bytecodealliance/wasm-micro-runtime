@@ -18,6 +18,7 @@ import {
 } from './utilities/directoryUtilities';
 import { decorationProvider } from './decorationProvider';
 import { WasmDebugConfigurationProvider } from './debugConfigurationProvider';
+import { isLLDBInstalled, promptInstallLLDB } from './utilities/lldbUtilities';
 
 let wasmTaskProvider: WasmTaskProvider;
 let wasmDebugConfigProvider: WasmDebugConfigurationProvider;
@@ -686,6 +687,14 @@ export async function activate(context: vscode.ExtensionContext) {
         disposableToggleExcludeFile,
         disposableDebug
     );
+
+    try {
+        if (!isLLDBInstalled(context)) {
+            await promptInstallLLDB(context);
+        }
+    } catch (e) {
+        vscode.window.showWarningMessage((e as Error).message);
+    }
 }
 
 function openWindoWithSituation(uri: vscode.Uri) {

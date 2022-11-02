@@ -7,6 +7,8 @@ import fileSystem = require('fs');
 import vscode = require('vscode');
 import path = require('path');
 import os = require('os');
+import request = require('request');
+import yauzl = require('yauzl');
 
 /**
  *
@@ -118,3 +120,44 @@ export function checkFolderName(folderName: string) {
 
     return valid;
 }
+
+export function DownloadFile(url: string, destinationPath: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+        const file = fileSystem.createWriteStream(destinationPath);
+        const stream = request(url).pipe(file);
+        stream.on("close", resolve);
+        stream.on("error", reject);
+    });
+}
+
+export function UnzipFile(sourcePath: string, getDestinationFileName: (entryName: string) => string): Promise<string[]> {
+    return new Promise((resolve, reject) => {
+        const unzippedFilePaths: string[] = [];
+        yauzl.open(sourcePath, { lazyEntries: true }, function(error, zipfile) {
+            if (error) reject(error);
+            zipfile.readEntry();
+            zipfile.on("entry", function(entry) {
+                // This entry is a directory so skip it
+                if (/\/$/.test(entry.fileName)) {
+                    zipfile.readEntry();
+                    return;
+                } 
+
+                zipfile.openReadStream(entry, function(error, readStream) {
+                    if (error) reject(error);
+                    readStream.on("end", () => zipfile.readEntry());
+                    const destinationFileName = getDestinationFileName ? getDestinationFileName(entry.fileName) : entry.fileName;
+                    fileSystem.mkdirSync(path.dirname(destinationFileName), { recursive: true });
+
+                    const file = fileSystem.createWriteStream(destinationFileName);
+                    readStream.pipe(file).on("error", reject);
+                    unzippedFilePaths.push(destinationFileName);
+                });
+            });
+            zipfile.on("end", function() {
+                zipfile.close();
+                resolve(unzippedFilePaths);
+            });
+        });
+    });
+} 
