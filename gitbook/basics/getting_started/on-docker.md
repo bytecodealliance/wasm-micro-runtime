@@ -15,7 +15,7 @@ Then you are ready to go to the directory that contains hello world program and 
 
 ```sh
 cp iwasm ../../app-samples/hello-world
-cd ../..//app-samples/hello-world
+cd ../../app-samples/hello-world
 ./build.sh
 ```
 

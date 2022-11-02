@@ -2,7 +2,7 @@
 
  In this section, we will introduce the basics of project WAMR to you. In each brief introduction section, you are more than welcome to jump to details of that section triggering your interest.
 
-## What it is
+## What is it?
 
 WebAssembly Micro Runtime (WAMR) is a [Bytecode Alliance](https://bytecodealliance.org/) project. A lightweight standalone WebAssembly (WASM) runtime with small footprint, high performance and highly configurable features for applications cross from embedded, IoT, edge to Trusted Execution Environment (TEE), smart contract, cloud native and so on.
 
