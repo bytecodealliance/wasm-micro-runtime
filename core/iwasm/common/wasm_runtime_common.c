@@ -430,10 +430,6 @@ wasm_runtime_init()
 void
 wasm_runtime_destroy()
 {
-#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
-    aot_compiler_destroy();
-#endif
-
 #if WASM_ENABLE_REF_TYPES != 0
     wasm_externref_map_destroy();
 #endif
@@ -455,6 +451,17 @@ wasm_runtime_destroy()
 
     wasm_runtime_destroy_registered_module_list();
     os_mutex_destroy(&registered_module_list_lock);
+#endif
+
+#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
+    /* Destroy LLVM-JIT compiler after destroying the modules
+     * loaded by multi-module feature, since these modules may
+     * create backend threads to compile the wasm functions,
+     * which may access the LLVM resources. We wait until they
+     * finish the compilation to avoid accessing the destroyed
+     * resources in the compilation threads.
+     */
+    aot_compiler_destroy();
 #endif
 
 #if WASM_ENABLE_FAST_JIT != 0
