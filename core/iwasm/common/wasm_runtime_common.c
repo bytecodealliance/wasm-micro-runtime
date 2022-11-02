@@ -30,6 +30,9 @@
 #if WASM_ENABLE_FAST_JIT != 0
 #include "../fast-jit/jit_compiler.h"
 #endif
+#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
+#include "../compilation/aot_llvm.h"
+#endif
 #include "../common/wasm_c_api_internal.h"
 #include "../../version.h"
 
@@ -347,8 +350,20 @@ wasm_runtime_env_init()
     }
 #endif
 
+#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
+    if (!aot_compiler_init()) {
+        goto fail10;
+    }
+#endif
+
     return true;
 
+#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
+fail10:
+#if WASM_ENABLE_FAST_JIT != 0
+    jit_compiler_destroy();
+#endif
+#endif
 #if WASM_ENABLE_FAST_JIT != 0
 fail9:
 #if WASM_ENABLE_REF_TYPES != 0
@@ -436,6 +451,17 @@ wasm_runtime_destroy()
 
     wasm_runtime_destroy_registered_module_list();
     os_mutex_destroy(&registered_module_list_lock);
+#endif
+
+#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
+    /* Destroy LLVM-JIT compiler after destroying the modules
+     * loaded by multi-module feature, since these modules may
+     * create backend threads to compile the wasm functions,
+     * which may access the LLVM resources. We wait until they
+     * finish the compilation to avoid accessing the destroyed
+     * resources in the compilation threads.
+     */
+    aot_compiler_destroy();
 #endif
 
 #if WASM_ENABLE_FAST_JIT != 0
