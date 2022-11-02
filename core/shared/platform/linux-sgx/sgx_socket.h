@@ -312,6 +312,10 @@ socket(int domain, int type, int protocol);
 int
 getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optlen);
 
+int
+setsockopt(int sockfd, int level, int optname, const void *optval,
+           socklen_t optlen);
+
 ssize_t
 sendmsg(int sockfd, const struct msghdr *msg, int flags);
 

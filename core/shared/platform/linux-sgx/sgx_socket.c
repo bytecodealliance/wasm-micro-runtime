@@ -370,6 +370,24 @@ getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optlen)
     return ret;
 }
 
+int
+setsockopt(int sockfd, int level, int optname, const void *optval,
+           socklen_t optlen)
+{
+    int ret;
+
+    if (ocall_setsockopt(&ret, sockfd, level, optname, (void *)optval, optlen)
+        != SGX_SUCCESS) {
+        TRACE_OCALL_FAIL();
+        return -1;
+    }
+
+    if (ret == -1)
+        errno = get_errno();
+
+    return ret;
+}
+
 ssize_t
 sendmsg(int sockfd, const struct msghdr *msg, int flags)
 {
