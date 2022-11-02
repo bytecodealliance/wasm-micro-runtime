@@ -1642,9 +1642,11 @@ wasm_trap_new_internal(wasm_store_t *store,
                        const char *error_info)
 {
     wasm_trap_t *trap;
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
     wasm_instance_vec_t *instances;
     wasm_instance_t *frame_instance = NULL;
     uint32 i;
+#endif
 
     if (!singleton_engine || !singleton_engine->stores
         || !singleton_engine->stores->num_elems) {

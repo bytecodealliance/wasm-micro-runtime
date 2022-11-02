@@ -1447,6 +1447,34 @@ fail:
     return ret;
 }
 
+bool
+aot_compiler_init(void)
+{
+    /* Initialize LLVM environment */
+
+    LLVMInitializeCore(LLVMGetGlobalPassRegistry());
+#if WASM_ENABLE_WAMR_COMPILER != 0
+    /* Init environment of all targets for AOT compiler */
+    LLVMInitializeAllTargetInfos();
+    LLVMInitializeAllTargets();
+    LLVMInitializeAllTargetMCs();
+    LLVMInitializeAllAsmPrinters();
+#else
+    /* Init environment of native for JIT compiler */
+    LLVMInitializeNativeTarget();
+    LLVMInitializeNativeTarget();
+    LLVMInitializeNativeAsmPrinter();
+#endif
+
+    return true;
+}
+
+void
+aot_compiler_destroy(void)
+{
+    LLVMShutdown();
+}
+
 AOTCompContext *
 aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
 {
@@ -1461,15 +1489,6 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
     uint32 opt_level, size_level, i;
     LLVMCodeModel code_model;
     LLVMTargetDataRef target_data_ref;
-
-    /* Initialize LLVM environment */
-    LLVMInitializeCore(LLVMGetGlobalPassRegistry());
-    /* To all available target */
-    LLVMInitializeAllTargetInfos();
-    LLVMInitializeAllTargets();
-    LLVMInitializeAllTargetMCs();
-    LLVMInitializeAllAsmPrinters();
-    LLVMInitializeAllAsmParsers();
 
     /* Allocate memory */
     if (!(comp_ctx = wasm_runtime_malloc(sizeof(AOTCompContext)))) {
@@ -2077,8 +2096,6 @@ aot_destroy_comp_context(AOTCompContext *comp_ctx)
     /* Has to be the last one */
     if (comp_ctx->orc_jit)
         LLVMOrcDisposeLLLazyJIT(comp_ctx->orc_jit);
-
-    LLVMShutdown();
 
     if (comp_ctx->func_ctxes)
         aot_destroy_func_contexts(comp_ctx->func_ctxes,
