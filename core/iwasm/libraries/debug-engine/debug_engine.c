@@ -130,7 +130,7 @@ control_thread_routine(void *arg)
     while (true) {
         /* wait lldb client to connect */
         if (!wasm_gdbserver_accept(control_thread->server)) {
-            LOG_ERROR("Failed while connecting debugger\n");
+            LOG_ERROR("Failed while accepting debugger connection\n");
             return NULL;
         }
 
