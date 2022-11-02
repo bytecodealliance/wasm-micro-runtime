@@ -55,19 +55,19 @@ allocate_instance_id()
 }
 
 static bool
-should_run(WASMDebugControlThread *control_thread)
+is_thread_running(WASMDebugControlThread *control_thread)
 {
     return control_thread->status == RUNNING;
 }
 
 static bool
-should_stop(WASMDebugControlThread *control_thread)
+is_thread_stopped(WASMDebugControlThread *control_thread)
 {
     return control_thread->status == STOPPED;
 }
 
 static bool
-should_detach(WASMDebugControlThread *control_thread)
+is_thread_detached(WASMDebugControlThread *control_thread)
 {
     return control_thread->status == DETACHED;
 }
@@ -123,7 +123,6 @@ control_thread_routine(void *arg)
 
     if (!wasm_gdbserver_listen(control_thread->server)) {
         LOG_ERROR("Failed while listening for debugger\n");
-        wasm_runtime_free(control_thread->server);
         return NULL;
     }
 
@@ -132,7 +131,6 @@ control_thread_routine(void *arg)
         /* wait lldb client to connect */
         if (!wasm_gdbserver_accept(control_thread->server)) {
             LOG_ERROR("Failed while connecting debugger\n");
-            wasm_runtime_free(control_thread->server);
             return NULL;
         }
 
@@ -141,7 +139,7 @@ control_thread_routine(void *arg)
         /* inner infinite loop: keep serving until detach */
         while (true) {
             os_mutex_lock(&control_thread->wait_lock);
-            if (should_run(control_thread)) {
+            if (is_thread_running(control_thread)) {
                 /* send thread stop reply */
                 if (debug_inst->stopped_thread
                     && debug_inst->current_state == APP_RUNNING) {
@@ -194,11 +192,11 @@ control_thread_routine(void *arg)
                     wasm_close_gdbserver(control_thread->server);
                 }
             }
-            else if (should_detach(control_thread)) {
+            else if (is_thread_detached(control_thread)) {
                 os_mutex_unlock(&control_thread->wait_lock);
                 break;
             }
-            else if (should_stop(control_thread)) {
+            else if (is_thread_stopped(control_thread)) {
                 os_mutex_unlock(&control_thread->wait_lock);
                 return NULL;
             }
@@ -1041,7 +1039,7 @@ wasm_debug_instance_detach(WASMDebugInstance *instance)
         exec_env = bh_list_elem_next(exec_env);
     }
 
-    /* relaunch, and stop the thread*/
+    /* relaunch, accept new debug connection */
     instance->current_state = DBG_LAUNCHING;
     instance->control_thread->status = DETACHED;
 
