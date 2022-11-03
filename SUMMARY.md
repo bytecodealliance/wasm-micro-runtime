@@ -33,7 +33,7 @@
       * [Move LLDB Binaries](test-tools/wamr-ide/VSCode-Extension/resource/debug/README.md)
 
 * [Advance Tutorial](gitbook/advance_tutorial/README.md)
-  * [Performance Test And Fine-tuning](gitbook/tutorial/performance%26footprint/README.md)
+  * [Performance Test And Fine-tuning](gitbook/advance_tutorial/performance%26footprint/README.md)
     * [Memory Usage Profiling](doc/build_wamr#enable-memory-profiling-experiment)
     * [Memory Usage Tunning](doc/memory_tune.md)
   * [Application Framework](doc/wamr_api.md)
