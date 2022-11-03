@@ -16,7 +16,7 @@
   * [How To Build Wasm Application](doc/build_wasm_app.md)
     * [More Tools To Create Wasm Application](doc/other_wasm_compilers.md)
 
-## WAMR in practice
+## WAMR In Practice
 
 * [Tutorial](gitbook/tutorial/README.md)
   * [Build Tutorial](gitbook/tutorial/build_tutorial/README.md)
@@ -34,28 +34,37 @@
 
 * [Advance Tutorial](gitbook/advance_tutorial/README.md)
   * [Performance Test And Fine-tuning](gitbook/tutorial/performance%26footprint/README.md)
-    * [Memory Usage Profiling](doc/build_wamr.md#enable-memory-profiling-experiment)
+    * [Memory Usage Profiling](doc/build_wamr#enable-memory-profiling-experiment)
     * [Memory Usage Tunning](doc/memory_tune.md)
-  * [Application Framwork](doc/wamr_api.md)
+  * [Application Framework](doc/wamr_api.md)
   * [Remote Application Management](gitbook/advance_tutorial/remote_applicatoin_management/README.md)
+    * [Example Program: Using "host_tool"](samples/simple/README.md)
 
 * [Features](gitbook/features/demo_examples/README.md)
-  * [Export Native APIs to WASM applications](doc/export_native_api.md)
+  * [Export Native APIs To WASM Applications](doc/export_native_api.md)
+    * [Example 1: Export C Functions to WASM](samples/basic/README.md)
+    * [Example 2: Using "native-lib"](samples/native-lib/README.md)
   * [Multiple Modules As Dependencies](doc/multi_module.md)
-  * [Multi-thread, pthread APIs and thread management](doc/pthread_library.md)
-  * [Linux SGX(Intel Software Guard Extension) support](doc/linux_sgx.md)
-  * [XIP(Execution In Place) support](doc/xip.md)
-  * [Socket support](doc/socket_api.md)
+    * [Multi-modules Example](samples/multi-module/)
+  * [Multi-thread, Pthread APIs And Thread Management](doc/pthread_library.md)
+    * [Multi-thread Example](samples/multi-thread/)
+  * [Linux SGX(Intel Software Guard Extension) Support](doc/linux_sgx.md)
+    * [Example: SGX Remote Attestation](samples/sgx-ra/README.md)
+  * [XIP(Execution In Place) Support](doc/xip.md)
+  * [Socket Support](doc/socket_api.md)
+    * [Example: Use Socket Api in WAMR](samples/socket-api/README.md)
+  * [Post-MVP Features](gitbook/features/)
+    * [WASM C API](samples/wasm-c-api/README.md)
+    * [128-bit SIMD](samples/workload/README.md)
+    * [Reference Types](samples/ref-types)
 
-* [Examples](gitbook/examples/README.md)
-  * [Basic](samples/basic/README.md)
-  * [Simple](samples/simple/README.md)
-  * [Littlevgl](samples/littlevgl/README.md)
-  * [GUI](samples/gui/README.md)
-  * [wasm-c-api](samples/wasm-c-api/README.md)
-  * [socket-api](samples/socket-api/README.md)
+* [More Examples](gitbook/examples/README.md)
+  * [File interaction of WASI](samples/file/README.md)
+  * [GUI example](gitbook/examples/README.md)
+    * [Littlevgl](samples/littlevgl/README.md)
+    * [LVGL](samples/gui/README.md)
+  * [Same WASM Program Executing Concurrently](samples/spawn-thread)
   * [workload](samples/workload/README.md)
-  * [sgx-ra](samples/sgx-ra/README.md)
 
 * [User Case](gitbook/features/user_case/README.md)
 
@@ -66,7 +75,7 @@
 
 ## Community
 
-* [How To Contribute](gitbook/community/contribute-howto.md)
+* [How To Contribute](CONTRIBUTING.md)
 
 * [WAMR On Github](https://github.com/bytecodealliance/wasm-micro-runtime)
 
