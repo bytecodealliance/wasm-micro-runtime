@@ -38,11 +38,11 @@ There are two main parts of WAMR:
      - Linux, Linux SGX (Intel Software Guard Extension), MacOS, Android, Windows, Windows (MinGW)
      - Zephyr, AliOS-Things, VxWorks, NuttX, RT-Thread, ESP-IDF
 
-     It enable true cross-platform development experience. You can even port WAMR to a new platform follow [this tutorial](https://github.com/TianlongLiang/wasm-micro-runtime/blob/main/doc/port_wamr.md). Though it's unlikely since we support so many platforms, it's comforting to have such features.
+     It enable true cross-platform development experience. You can even port WAMR to a new platform follow [this tutorial](../../../doc/port_wamr.md). Though it's unlikely since we support so many platforms, it's comforting to have such features.
 
    - Security: It has Linux SGX (Intel Software Guard Extension) support, through this unique application isolation technology, your application data is as safe as it could be.
 
-   Features listed above is just the tip of iceberg, a simple teaser for complete lists. The complete lists of feature and examples demonstrating it could be found in [Features](../../features/demo_examples/README.md)
+   Features listed above is just the tip of iceberg, a simple teaser for complete lists. The complete lists of feature and examples demonstrating it could be found in [Features](../../features/README.md)
 
 2. The "wamrc" AOT compiler to compile WASM file into AOT file for best performance and smaller runtime footprint, which is run by "iwasm" VM Core
 

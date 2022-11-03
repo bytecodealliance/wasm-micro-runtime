@@ -1,6 +1,6 @@
 # WebAssembly
 
-In this section, you will learn the basics of WebAssembly. More details about WebAssembly can be found in [Appendix A](../../appendix/webassembly-details.md)
+In this section, you will learn the basics of WebAssembly. More details about WebAssembly can be found in [Appendix B](../../appendix/webassembly-details.md)
 
 ## The origin story of WebAssembly
 
