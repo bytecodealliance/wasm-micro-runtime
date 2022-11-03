@@ -41,6 +41,9 @@ void __gtdf2();
 void __umoddi3();
 void __floatdidf();
 void __divsf3();
+void __fixdfdi();
+void __floatundidf();
+
 
 static SymbolMap target_sym_map[] = {
     REG_COMMON_SYMBOLS
@@ -80,8 +83,8 @@ static SymbolMap target_sym_map[] = {
     REG_SYM(__umoddi3),
     REG_SYM(__floatdidf),
     REG_SYM(__divsf3),
-    REG_SYM(sqrt),
-    REG_SYM(sqrtf),
+    REG_SYM(__fixdfdi),
+    REG_SYM(__floatundidf),
 };
 /* clang-format on */
 
