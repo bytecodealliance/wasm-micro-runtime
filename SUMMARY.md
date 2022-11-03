@@ -32,7 +32,7 @@
       * [Enable Debugging In VS Code](test-tools/wamr-ide/VSCode-Extension/README.md)
       * [Move LLDB Binaries](test-tools/wamr-ide/VSCode-Extension/resource/debug/README.md)
 
-* [Advance Tutorial](gitbook/advance_tutorial/REAMD.md)
+* [Advance Tutorial](gitbook/advance_tutorial/README.md)
   * [Performance Test And Fine-tuning](gitbook/tutorial/performance%26footprint/README.md)
     * [Memory Usage Profiling](doc/build_wamr.md#enable-memory-profiling-experiment)
     * [Memory Usage Tunning](doc/memory_tune.md)
