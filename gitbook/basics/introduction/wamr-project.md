@@ -14,11 +14,11 @@ Like what we explained in previous section, WebAssembly is great for code reuse 
 
 It's not limited to simply being a command line application that run your wasm program. You could also use it as library, integrated in your application to run any wasm program inside your application. Although the most user case is embeded WAMR in their C/C++ program, we do support a several of [language-binding](../../tutorial/language_embedding/README.md) so that you could use WAMR in some language you prefer.
 
-## Main parts of WAMR
+## Component of WAMR
 
 <!-- TODO: link -->
 
-There are two main parts of WAMR:
+There are four parts of WAMR, two main parts of WAMR are:
 
 1. The "iwasm" VM core to run WASM applications. It has many features and achieve several functionality, here are some example may interest you:
 
@@ -47,3 +47,17 @@ There are two main parts of WAMR:
 2. The "wamrc" AOT compiler to compile WASM file into AOT file for best performance and smaller runtime footprint, which is run by "iwasm" VM Core
 
    Both wasm binary file and AOT file are supported by iwasm. The wamrc AOT compiler is to compile wasm binary file to AOT file which can also be run by iwasm. The speed by AOT and JIT are near to native.
+
+The other 2 parts are:
+
+1. Application framework:
+
+   The WAMR application manager supports remote application management from the host environment or the cloud through any physical communications such as TCP, UPD, UART, BLE, etc. Its modular design makes it able to support application management for different managed runtimes.
+
+2. Application manager:
+
+   By using the iwasm VM core, we are flexible to build different application frameworks for the specific domains, although it would take quite some effort.
+
+   The WAMR has offered a comprehensive framework for programming WASM applications for device and IoT usages. The framework supports running multiple applications, that are based on the event driven programming model. Here are the supporting API sets by the WAMR application framework library :
+
+   - Timer, Inter-app communication (request/response and pub/sub), Sensor, Connectivity and data transmission, 2D graphic UI
