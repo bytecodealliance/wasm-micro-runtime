@@ -385,18 +385,14 @@ arguments for cmake:
 
 ```Bash
 cmake .. -G"Unix Makefiles" \
-         -DWAMR_BUILD_LIBC_UVWASI=0 \
          -DWAMR_BUILD_INVOKE_NATIVE_GENERAL=1 \
          -DWAMR_DISABLE_HW_BOUND_CHECK=1
 ````
 
 Note that WASI will be disabled until further work is done towards full MinGW support.
 
-- uvwasi not building out of the box, though it reportedly supports MinGW.
 - Failing compilation of assembler files, the C version of `invokeNative()` will
 be used instead.
-- Compiler complaining about missing `UnwindInfoAddress` field in `RUNTIME_FUNCTION`
-struct (winnt.h).
 
 
 VxWorks
