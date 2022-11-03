@@ -37,7 +37,7 @@
     * [Memory Usage Profiling](doc/build_wamr.md#enable-memory-profiling-experiment)
     * [Memory Usage Tunning](doc/memory_tune.md)
   * [Application Framwork](doc/wamr_api.md)
-  * [Remote Application Management](gitbook/advance_tutorial/README.md)
+  * [Remote Application Management](gitbook/advance_tutorial/remote_applicatoin_management/README.md)
 
 * [Features](gitbook/features/demo_examples/README.md)
   * [Export Native APIs to WASM applications](doc/export_native_api.md)
