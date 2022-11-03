@@ -36,7 +36,6 @@
   * [Performance Test And Fine-tuning](gitbook/tutorial/performance%26footprint/README.md)
     * [Memory Usage Profiling](doc/build_wamr.md#enable-memory-profiling-experiment)
     * [Memory Usage Tunning](doc/memory_tune.md)
-
   * [Application Framwork](doc/wamr_api.md)
   * [Remote Application Management](gitbook/advance_tutorial/README.md)
 

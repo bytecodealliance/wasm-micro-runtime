@@ -1,5 +1,6 @@
-# Remote application management
+# Advance tutorial
 
-The WAMR application manager supports [remote application management](./core/app-mgr) from the host environment or the cloud through any physical communications such as TCP, UPD, UART, BLE, etc. Its modular design makes it able to support application management for different managed runtimes.
+Welcome to the chapter of advance tutorial.
+If you want could either use .
 
-The tool [host_tool](./test-tools/host-tool) communicates to the WAMR app manager for installing/uninstalling the WASM applications on companion chip from the host system. And the [IoT App Store Demo](./test-tools/IoT-APP-Store-Demo/) shows the conception of remotely managing the device applications from the cloud.
+If at the end of day, you start to optimize and take performance into consideration or want to utilize advanced feature, including **application framework** and **dynamic management**, you could find them in [chapter 4. advance tutorial chapter](advance_tutorial/README.md).
