@@ -30,6 +30,9 @@
 #if WASM_ENABLE_FAST_JIT != 0
 #include "../fast-jit/jit_compiler.h"
 #endif
+#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
+#include "../compilation/aot_llvm.h"
+#endif
 #include "../common/wasm_c_api_internal.h"
 #include "../../version.h"
 
@@ -347,8 +350,20 @@ wasm_runtime_env_init()
     }
 #endif
 
+#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
+    if (!aot_compiler_init()) {
+        goto fail10;
+    }
+#endif
+
     return true;
 
+#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
+fail10:
+#if WASM_ENABLE_FAST_JIT != 0
+    jit_compiler_destroy();
+#endif
+#endif
 #if WASM_ENABLE_FAST_JIT != 0
 fail9:
 #if WASM_ENABLE_REF_TYPES != 0
@@ -438,6 +453,17 @@ wasm_runtime_destroy()
     os_mutex_destroy(&registered_module_list_lock);
 #endif
 
+#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
+    /* Destroy LLVM-JIT compiler after destroying the modules
+     * loaded by multi-module feature, since these modules may
+     * create backend threads to compile the wasm functions,
+     * which may access the LLVM resources. We wait until they
+     * finish the compilation to avoid accessing the destroyed
+     * resources in the compilation threads.
+     */
+    aot_compiler_destroy();
+#endif
+
 #if WASM_ENABLE_FAST_JIT != 0
     /* Destroy Fast-JIT compiler after destroying the modules
      * loaded by multi-module feature, since the Fast JIT's
@@ -506,6 +532,10 @@ wasm_runtime_full_init(RuntimeInitArgs *init_args)
 PackageType
 get_package_type(const uint8 *buf, uint32 size)
 {
+#if (WASM_ENABLE_WORD_ALIGN_READ != 0)
+    uint32 buf32 = *(uint32 *)buf;
+    buf = (const uint8 *)&buf32;
+#endif
     if (buf && size >= 4) {
         if (buf[0] == '\0' && buf[1] == 'a' && buf[2] == 's' && buf[3] == 'm')
             return Wasm_Module_Bytecode;
@@ -2902,6 +2932,13 @@ wasm_runtime_register_natives_raw(const char *module_name,
 {
     return wasm_native_register_natives_raw(module_name, native_symbols,
                                             n_native_symbols);
+}
+
+bool
+wasm_runtime_unregister_natives(const char *module_name,
+                                NativeSymbol *native_symbols)
+{
+    return wasm_native_unregister_natives(module_name, native_symbols);
 }
 
 bool

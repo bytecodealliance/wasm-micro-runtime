@@ -1,0 +1,39 @@
+# Copyright (C) 2019 Intel Corporation.  All rights reserved.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+name: Reusable workflow-build_llvm_libraries
+
+on:
+  workflow_call:
+    inputs:
+      runs-on:
+        required: true
+        type: string
+
+jobs:
+  build_llvm_libraries:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: ${{ fromJson(inputs.runs-on) }}
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+
+      - name: Cache LLVM libraries
+        id: cache_llvm
+        uses: actions/cache@v3
+        with:
+          path: |
+            ./core/deps/llvm/build/bin
+            ./core/deps/llvm/build/include
+            ./core/deps/llvm/build/lib
+            ./core/deps/llvm/build/libexec
+            ./core/deps/llvm/build/share
+          key: ${{ matrix.os }}-build-llvm_libraries_ex
+
+      - name: Build llvm
+        id: build_llvm
+        if: ${{ steps.cache_llvm.outputs.cache-hit != 'true' }} 
+        run: /usr/bin/env python3 ./build_llvm.py --arch X86 WebAssembly
+        working-directory: build-scripts

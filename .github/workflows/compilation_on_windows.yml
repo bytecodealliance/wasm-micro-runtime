@@ -6,20 +6,36 @@ name: compilation on windows-latest
 on:
   # will be triggered on PR events
   pull_request:
-    paths-ignore:
-      - "assembly-script/**"
-      - "ci/**"
-      - "doc/**"
-      - "test-tools/**"
-      - ".github/workflows/compilation_on_windows.yml"
+    types:
+      - opened
+      - synchronize
+    paths:
+      - ".github/**"
+      - "build-scripts/**"
+      - "core/**"
+      - "!core/deps/**"
+      - "product-mini/**"
+      - "samples/**"
+      - "!samples/workload/**"
+      - "tests/wamr-test-suites/**"
+      - "wamr-compiler/**"
+      - "wamr-sdk/**"
   # will be triggered on push events
   push:
-    paths-ignore:
-      - "assembly-script/**"
-      - "ci/**"
-      - "doc/**"
-      - "test-tools/**"
-      - ".github/workflows/compilation_on_windows.yml"
+    branches:
+      - main
+      - "dev/**"
+    paths:
+      - ".github/**"
+      - "build-scripts/**"
+      - "core/**"
+      - "!core/deps/**"
+      - "product-mini/**"
+      - "samples/**"
+      - "!samples/workload/**"
+      - "tests/wamr-test-suites/**"
+      - "wamr-compiler/**"
+      - "wamr-sdk/**"
   # allow to be triggered manually
   workflow_dispatch:
 
@@ -30,18 +46,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Cancel any in-flight jobs for the same PR/branch so there's only one active
-  # at a time
-  cancel_previous:
-    runs-on: windows-latest
-    steps:
-      - name: Cancel Workflow Action
-        uses: styfle/cancel-workflow-action@0.9.1
-        with:
-          access_token: ${{ github.token }}
-
   build:
-    needs: cancel_previous
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v3

@@ -777,3 +777,13 @@ handle____request(WASMGDBServer *server, char *payload)
         handle_free(server, args);
     }
 }
+
+void
+handle_detach_request(WASMGDBServer *server, char *payload)
+{
+    if (payload != NULL) {
+        write_packet(server, "OK");
+    }
+    wasm_debug_instance_detach(
+        (WASMDebugInstance *)server->thread->debug_instance);
+}

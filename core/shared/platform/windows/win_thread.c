@@ -512,6 +512,21 @@ os_mutex_lock(korp_mutex *mutex)
     int ret;
 
     assert(mutex);
+
+    if (*mutex == NULL) { /* static initializer? */
+        HANDLE p = CreateMutex(NULL, FALSE, NULL);
+
+        if (!p) {
+            return BHT_ERROR;
+        }
+
+        if (InterlockedCompareExchangePointer((PVOID *)mutex, (PVOID)p, NULL)
+            != NULL) {
+            /* lock has been created by other threads */
+            CloseHandle(p);
+        }
+    }
+
     ret = WaitForSingleObject(*mutex, INFINITE);
     return ret != WAIT_FAILED ? BHT_OK : BHT_ERROR;
 }

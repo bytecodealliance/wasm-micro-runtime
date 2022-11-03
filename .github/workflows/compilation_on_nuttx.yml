@@ -6,18 +6,36 @@ name: compilation on nuttx
 on:
   # will be triggered on PR events
   pull_request:
-    paths-ignore:
-      - "assembly-script/**"
-      - "ci/**"
-      - "doc/**"
-      - "test-tools/**"
+    types:
+      - opened
+      - synchronize
+    paths:
+      - ".github/**"
+      - "build-scripts/**"
+      - "core/**"
+      - "!core/deps/**"
+      - "product-mini/**"
+      - "samples/**"
+      - "!samples/workload/**"
+      - "tests/wamr-test-suites/**"
+      - "wamr-compiler/**"
+      - "wamr-sdk/**"
   # will be triggered on push events
   push:
-    paths-ignore:
-      - "assembly-script/**"
-      - "ci/**"
-      - "doc/**"
-      - "test-tools/**"
+    branches:
+      - main
+      - "dev/**"
+    paths:
+      - ".github/**"
+      - "build-scripts/**"
+      - "core/**"
+      - "!core/deps/**"
+      - "product-mini/**"
+      - "samples/**"
+      - "!samples/workload/**"
+      - "tests/wamr-test-suites/**"
+      - "wamr-compiler/**"
+      - "wamr-sdk/**"
   # allow to be triggered manually
   workflow_dispatch:
 
@@ -28,21 +46,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Cancel any in-flight jobs for the same PR/branch so there's only one active
-  # at a time
-  cancel_previous:
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Cancel Workflow Action
-        uses: styfle/cancel-workflow-action@0.9.1
-        with:
-          access_token: ${{ github.token }}  
-
   build_iwasm_on_nuttx:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        nuttx_board_config : [
+        nuttx_board_config: [
           # x64
           "boards/sim/sim/sim/configs/nsh",
           # cortex-m0
@@ -72,17 +80,17 @@ jobs:
 
     steps:
       - name: Install Utilities
-        run: | 
+        run: |
           sudo apt install -y kconfig-frontends-nox genromfs
           pip3 install pyelftools
           pip3 install cxxfilt
 
       - name: Install ARM Compilers
-        if: ${{ contains(matrix.nuttx_board_config, 'arm') }}
+        if: contains(matrix.nuttx_board_config, 'arm')
         run: sudo apt install -y gcc-arm-none-eabi
 
       - name: Install RISC-V Compilers
-        if: ${{ contains(matrix.nuttx_board_config, 'risc-v') }}
+        if: contains(matrix.nuttx_board_config, 'risc-v')
         run: sudo apt install -y gcc-riscv64-unknown-elf
 
       - name: Checkout NuttX
@@ -104,7 +112,7 @@ jobs:
           path: apps/interpreters/wamr/wamr
 
       - name: Enable WAMR for NuttX
-        run: | 
+        run: |
           find nuttx/boards -name defconfig | xargs sed -i '$a\CONFIG_EOL_IS_CR=y\n${{ matrix.wamr_config_option }}'
           find nuttx/boards/sim -name defconfig | xargs sed -i '$a\CONFIG_LIBM=y\n'
           find nuttx/boards/risc-v -name defconfig | xargs sed -i '$a\CONFIG_LIBM=y\n'

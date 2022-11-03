@@ -63,6 +63,12 @@ typedef struct AOTCompOption {
     uint32_t custom_sections_count;
 } AOTCompOption, *aot_comp_option_t;
 
+bool
+aot_compiler_init(void);
+
+void
+aot_compiler_destroy(void);
+
 aot_comp_context_t
 aot_create_comp_context(aot_comp_data_t comp_data, aot_comp_option_t option);
 

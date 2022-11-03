@@ -308,10 +308,10 @@ wasm_engine_new_internal(mem_alloc_type_t type, const MemAllocOption *opts)
 
 #ifndef NDEBUG
     /*DEBUG*/
-    bh_log_set_verbose_level(5);
+    bh_log_set_verbose_level(BH_LOG_LEVEL_VERBOSE);
 #else
     /*VERBOSE*/
-    bh_log_set_verbose_level(3);
+    bh_log_set_verbose_level(BH_LOG_LEVEL_WARNING);
 #endif
 
     /* create wasm_engine_t */
@@ -327,45 +327,77 @@ wasm_engine_new_internal(mem_alloc_type_t type, const MemAllocOption *opts)
 
 /* global engine instance */
 static wasm_engine_t *singleton_engine = NULL;
+#if defined(OS_THREAD_MUTEX_INITIALIZER)
+/**
+ * lock for the singleton_engine
+ * Note: if the platform has mutex initializer, we use a global lock to
+ * lock the operations of the singleton_engine, otherwise when there are
+ * operations happening simultaneously in multiple threads, developer
+ * must create the lock by himself, and use it to lock the operations
+ */
+static korp_mutex engine_lock = OS_THREAD_MUTEX_INITIALIZER;
+#endif
+
+own wasm_engine_t *
+wasm_engine_new_with_args(mem_alloc_type_t type, const MemAllocOption *opts)
+{
+#if defined(OS_THREAD_MUTEX_INITIALIZER)
+    os_mutex_lock(&engine_lock);
+#endif
+
+    if (!singleton_engine) {
+        singleton_engine = wasm_engine_new_internal(type, opts);
+    }
+
+    if (singleton_engine) {
+        singleton_engine->ref_count++;
+    }
+
+#if defined(OS_THREAD_MUTEX_INITIALIZER)
+    os_mutex_unlock(&engine_lock);
+#endif
+
+    return singleton_engine;
+}
 
 own wasm_engine_t *
 wasm_engine_new()
 {
-    if (!singleton_engine) {
-        singleton_engine =
-            wasm_engine_new_internal(Alloc_With_System_Allocator, NULL);
-    }
-    if (singleton_engine)
-        singleton_engine->ref_count++;
-    return singleton_engine;
+    return wasm_engine_new_with_args(Alloc_With_System_Allocator, NULL);
 }
 
 own wasm_engine_t *
 wasm_engine_new_with_config(own wasm_config_t *config)
 {
     (void)config;
-    return wasm_engine_new();
+    return wasm_engine_new_with_args(Alloc_With_System_Allocator, NULL);
 }
 
-own wasm_engine_t *
-wasm_engine_new_with_args(mem_alloc_type_t type, const MemAllocOption *opts)
-{
-    if (!singleton_engine) {
-        singleton_engine = wasm_engine_new_internal(type, opts);
-    }
-    if (singleton_engine)
-        singleton_engine->ref_count++;
-    return singleton_engine;
-}
-
-/* BE AWARE: will RESET the singleton */
 void
 wasm_engine_delete(wasm_engine_t *engine)
 {
-    if (engine && (--engine->ref_count == 0)) {
-        wasm_engine_delete_internal(engine);
-        singleton_engine = NULL;
+#if defined(OS_THREAD_MUTEX_INITIALIZER)
+    os_mutex_lock(&engine_lock);
+#endif
+
+    if (!engine || !singleton_engine || engine != singleton_engine) {
+#if defined(OS_THREAD_MUTEX_INITIALIZER)
+        os_mutex_unlock(&engine_lock);
+#endif
+        return;
     }
+
+    if (singleton_engine->ref_count > 0) {
+        singleton_engine->ref_count--;
+        if (singleton_engine->ref_count == 0) {
+            wasm_engine_delete_internal(engine);
+            singleton_engine = NULL;
+        }
+    }
+
+#if defined(OS_THREAD_MUTEX_INITIALIZER)
+    os_mutex_unlock(&engine_lock);
+#endif
 }
 
 wasm_store_t *
@@ -1605,37 +1637,19 @@ wasm_frame_func_offset(const wasm_frame_t *frame)
 }
 
 static wasm_trap_t *
-wasm_trap_new_internal(WASMModuleInstanceCommon *inst_comm_rt,
-                       const char *default_error_info)
+wasm_trap_new_internal(wasm_store_t *store,
+                       WASMModuleInstanceCommon *inst_comm_rt,
+                       const char *error_info)
 {
     wasm_trap_t *trap;
-    const char *error_info = NULL;
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
     wasm_instance_vec_t *instances;
     wasm_instance_t *frame_instance = NULL;
     uint32 i;
+#endif
 
     if (!singleton_engine || !singleton_engine->stores
         || !singleton_engine->stores->num_elems) {
-        return NULL;
-    }
-
-#if WASM_ENABLE_INTERP != 0
-    if (inst_comm_rt->module_type == Wasm_Module_Bytecode) {
-        error_info = wasm_get_exception((WASMModuleInstance *)inst_comm_rt);
-    }
-#endif
-
-#if WASM_ENABLE_AOT != 0
-    if (inst_comm_rt->module_type == Wasm_Module_AoT) {
-        error_info = aot_get_exception((AOTModuleInstance *)inst_comm_rt);
-    }
-#endif
-
-    /*
-     * a wrong combination of module filetype and compilation flags
-     * also leads to below branch
-     */
-    if (!error_info && !(error_info = default_error_info)) {
         return NULL;
     }
 
@@ -1643,48 +1657,40 @@ wasm_trap_new_internal(WASMModuleInstanceCommon *inst_comm_rt,
         return NULL;
     }
 
-    if (!(trap->message = malloc_internal(sizeof(wasm_byte_vec_t)))) {
-        goto failed;
-    }
+    /* fill in message */
+    if (strlen(error_info) > 0) {
+        if (!(trap->message = malloc_internal(sizeof(wasm_byte_vec_t)))) {
+            goto failed;
+        }
 
-    wasm_name_new_from_string_nt(trap->message, error_info);
-    if (strlen(error_info) && !trap->message->data) {
-        goto failed;
-    }
-
-#if WASM_ENABLE_DUMP_CALL_STACK != 0
-#if WASM_ENABLE_INTERP != 0
-    if (inst_comm_rt->module_type == Wasm_Module_Bytecode) {
-        trap->frames = ((WASMModuleInstance *)inst_comm_rt)->frames;
-    }
-#endif
-
-#if WASM_ENABLE_AOT != 0
-    if (inst_comm_rt->module_type == Wasm_Module_AoT) {
-        trap->frames = ((AOTModuleInstance *)inst_comm_rt)->frames;
-    }
-#endif
-#endif /* WASM_ENABLE_DUMP_CALL_STACK != 0 */
-
-    /* allow a NULL frames list */
-    if (!trap->frames) {
-        return trap;
-    }
-
-    if (!(instances = singleton_engine->stores->data[0]->instances)) {
-        goto failed;
-    }
-
-    for (i = 0; i < instances->num_elems; i++) {
-        if (instances->data[i]->inst_comm_rt == inst_comm_rt) {
-            frame_instance = instances->data[i];
-            break;
+        wasm_name_new_from_string_nt(trap->message, error_info);
+        if (!trap->message->data) {
+            goto failed;
         }
     }
 
-    for (i = 0; i < trap->frames->num_elems; i++) {
-        (((wasm_frame_t *)trap->frames->data) + i)->instance = frame_instance;
+    /* fill in frames */
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
+    trap->frames = ((WASMModuleInstance *)inst_comm_rt)->frames;
+
+    if (trap->frames) {
+        /* fill in instances */
+        instances = store->instances;
+        bh_assert(instances != NULL);
+
+        for (i = 0; i < instances->num_elems; i++) {
+            if (instances->data[i]->inst_comm_rt == inst_comm_rt) {
+                frame_instance = instances->data[i];
+                break;
+            }
+        }
+
+        for (i = 0; i < trap->frames->num_elems; i++) {
+            (((wasm_frame_t *)trap->frames->data) + i)->instance =
+                frame_instance;
+        }
     }
+#endif /* WASM_ENABLE_DUMP_CALL_STACK != 0 */
 
     return trap;
 failed:
@@ -2897,14 +2903,9 @@ failed:
     if (argv != argv_buf)
         wasm_runtime_free(argv);
 
-    /* trap -> exception -> trap */
-    if (wasm_runtime_get_exception(func->inst_comm_rt)) {
-        return wasm_trap_new_internal(func->inst_comm_rt, NULL);
-    }
-    else {
-        return wasm_trap_new_internal(func->inst_comm_rt,
-                                      "wasm_func_call failed");
-    }
+    return wasm_trap_new_internal(
+        func->store, func->inst_comm_rt,
+        wasm_runtime_get_exception(func->inst_comm_rt));
 }
 
 size_t

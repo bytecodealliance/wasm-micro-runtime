@@ -56,6 +56,12 @@ wasm_create_gdbserver(const char *host, int32 *port);
 bool
 wasm_gdbserver_listen(WASMGDBServer *server);
 
+bool
+wasm_gdbserver_accept(WASMGDBServer *server);
+
+void
+wasm_gdbserver_detach(WASMGDBServer *server);
+
 void
 wasm_close_gdbserver(WASMGDBServer *server);
 

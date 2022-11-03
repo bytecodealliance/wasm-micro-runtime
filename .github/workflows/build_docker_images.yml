@@ -1,0 +1,48 @@
+# Copyright (C) 2019 Intel Corporation.  All rights reserved.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+name: Create and publish Docker images
+
+on:
+  workflow_call:
+    inputs:
+      ver_num:
+        description: a semantic version number.
+        type: string
+        required: true
+
+jobs:
+  build-and-push-images:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Downcase github actor
+        id: downcase_github_actor
+        uses: ASzc/change-string-case-action@v2
+        with:
+          string: ${{ github.actor }}
+
+      - name: Login to the Container registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ steps.downcase_github_actor.outputs.lowercase }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image(wasm-toolchain:${{ inputs.ver_num }}) to Container registry
+        run: |
+          docker build -t ghcr.io/${{ steps.downcase_github_actor.outputs.lowercase }}/wasm-toolchain:${{ inputs.ver_num }} .
+          docker push ghcr.io/${{ steps.downcase_github_actor.outputs.lowercase }}/wasm-toolchain:${{ inputs.ver_num }}
+        working-directory: test-tools/wamr-ide/WASM-Toolchain/Docker
+
+      - name: Build and push Docker image(wasm-debug-server:${{ inputs.ver_num }}) to Container registry
+        run: |
+          docker build -t ghcr.io/${{ steps.downcase_github_actor.outputs.lowercase }}/wasm-debug-server:${{ inputs.ver_num }} .
+          docker push ghcr.io/${{ steps.downcase_github_actor.outputs.lowercase }}/wasm-debug-server:${{ inputs.ver_num }}
+        working-directory: test-tools/wamr-ide/WASM-Debug-Server/Docker
