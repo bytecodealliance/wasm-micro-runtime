@@ -797,7 +797,7 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         callee_cell_num =
             aot_func->param_cell_num + aot_func->local_cell_num + 1;
 
-        if (comp_ctx->enable_bound_check
+        if (comp_ctx->enable_stack_bound_check
             && !check_stack_boundary(comp_ctx, func_ctx, callee_cell_num))
             goto fail;
 
@@ -1411,7 +1411,7 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* Translate call non-import block */
     LLVMPositionBuilderAtEnd(comp_ctx->builder, block_call_non_import);
 
-    if (comp_ctx->enable_bound_check
+    if (comp_ctx->enable_stack_bound_check
         && !check_stack_boundary(comp_ctx, func_ctx,
                                  param_cell_num + ext_cell_num
                                      + 1

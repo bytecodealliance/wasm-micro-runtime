@@ -143,9 +143,11 @@ runtime_signal_handler(void *sig_addr)
     WASMJmpBuf *jmpbuf_node;
     uint8 *mapped_mem_start_addr = NULL;
     uint8 *mapped_mem_end_addr = NULL;
+#if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
     uint8 *stack_min_addr;
     uint32 page_size;
     uint32 guard_page_count = STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT;
+#endif
 
     /* Check whether current thread is running wasm function */
     if (exec_env_tls && exec_env_tls->handle == os_self_thread()
@@ -159,9 +161,11 @@ runtime_signal_handler(void *sig_addr)
             mapped_mem_end_addr = memory_inst->memory_data + 8 * (uint64)BH_GB;
         }
 
+#if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
         /* Get stack info of current thread */
         page_size = os_getpagesize();
         stack_min_addr = os_thread_get_stack_boundary();
+#endif
 
         if (memory_inst
             && (mapped_mem_start_addr <= (uint8 *)sig_addr
@@ -171,6 +175,7 @@ runtime_signal_handler(void *sig_addr)
             wasm_set_exception(module_inst, "out of bounds memory access");
             os_longjmp(jmpbuf_node->jmpbuf, 1);
         }
+#if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
         else if (stack_min_addr - page_size <= (uint8 *)sig_addr
                  && (uint8 *)sig_addr
                         < stack_min_addr + page_size * guard_page_count) {
@@ -179,6 +184,7 @@ runtime_signal_handler(void *sig_addr)
             wasm_set_exception(module_inst, "native stack overflow");
             os_longjmp(jmpbuf_node->jmpbuf, 1);
         }
+#endif
     }
 }
 #else
@@ -230,6 +236,7 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
                 }
             }
         }
+#if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
         else if (ExceptionRecord->ExceptionCode == EXCEPTION_STACK_OVERFLOW) {
             /* Set stack overflow exception and let the wasm func continue
                to run, when the wasm func returns, the caller will check
@@ -243,6 +250,7 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
                 return EXCEPTION_CONTINUE_EXECUTION;
             }
         }
+#endif
     }
 
     os_printf("Unhandled exception thrown:  exception code: 0x%lx, "

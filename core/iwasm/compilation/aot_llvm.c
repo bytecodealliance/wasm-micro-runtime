@@ -1555,8 +1555,22 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
 
 #ifndef OS_ENABLE_HW_BOUND_CHECK
         comp_ctx->enable_bound_check = true;
+        /* Always enable stack boundary check if `bounds-checks`
+           is enabled */
+        comp_ctx->enable_stack_bound_check = true;
 #else
         comp_ctx->enable_bound_check = false;
+        /* When `bounds-checks` is disabled, we set stack boundary
+           check status according to the compilation option */
+#if WASM_DISABLE_STACK_HW_BOUND_CHECK != 0
+        /* Native stack overflow check with hardware trap is disabled,
+           we need to enable the check by LLVM JITed/AOTed code */
+        comp_ctx->enable_stack_bound_check = true;
+#else
+        /* Native stack overflow check with hardware trap is enabled,
+           no need to enable the check by LLVM JITed/AOTed code */
+        comp_ctx->enable_stack_bound_check = false;
+#endif
 #endif
     }
     else {
@@ -1866,6 +1880,18 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
             else {
                 comp_ctx->enable_bound_check = true;
             }
+        }
+
+        if (comp_ctx->enable_bound_check) {
+            /* Always enable stack boundary check if `bounds-checks`
+               is enabled */
+            comp_ctx->enable_stack_bound_check = true;
+        }
+        else {
+            /* When `bounds-checks` is disabled, we set stack boundary
+               check status according to the input option */
+            comp_ctx->enable_stack_bound_check =
+                (option->stack_bounds_checks == 1) ? true : false;
         }
 
         os_printf("Create AoT compiler with:\n");

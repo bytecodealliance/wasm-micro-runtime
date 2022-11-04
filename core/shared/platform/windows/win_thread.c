@@ -706,13 +706,19 @@ static os_thread_local_attribute bool thread_signal_inited = false;
 int
 os_thread_signal_init()
 {
+#if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
     ULONG StackSizeInBytes = 16 * 1024;
+#endif
     bool ret;
 
     if (thread_signal_inited)
         return 0;
 
+#if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
     ret = SetThreadStackGuarantee(&StackSizeInBytes);
+#else
+    ret = true;
+#endif
     if (ret)
         thread_signal_inited = true;
     return ret ? 0 : -1;
