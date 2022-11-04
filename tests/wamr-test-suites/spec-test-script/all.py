@@ -121,7 +121,7 @@ def test_case(
     ):
         return True
 
-    CMD = ["python2.7", "runtest.py"]
+    CMD = ["python", "runtest.py"]
     CMD.append("--wast2wasm")
     CMD.append(WAST2WASM_CMD)
     CMD.append("--interpreter")
