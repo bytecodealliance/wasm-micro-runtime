@@ -34,7 +34,6 @@
 
 * [Advance Tutorial](gitbook/advance_tutorial/README.md)
   * [Performance Test And Fine-tuning](gitbook/advance_tutorial/performance_tuning/README.md)
-    * [Memory Usage Profiling](doc/build_wamr#enable-memory-profiling-experiment)
     * [Memory Usage Tunning](doc/memory_tune.md)
   * [Application Framework](doc/wamr_api.md)
   * [Remote Application Management](gitbook/advance_tutorial/remote_applicatoin_management/README.md)
@@ -59,12 +58,12 @@
     * [Reference Types](samples/ref-types)
 
 * [More Examples](gitbook/examples/README.md)
-  * [File interaction of WASI](samples/file/README.md)
-  * [GUI example](gitbook/examples/README.md)
+  * [File Interaction Of WASI](samples/file/README.md)
+  * [GUI Example](gitbook/examples/gui_examples/README.md)
     * [Littlevgl](samples/littlevgl/README.md)
     * [LVGL](samples/gui/README.md)
   * [Same WASM Program Executing Concurrently](samples/spawn-thread)
-  * [workload](samples/workload/README.md)
+  * [Workload](samples/workload/README.md)
 
 * [User Case](gitbook/features/user_case/README.md)
 

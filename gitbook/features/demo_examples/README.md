@@ -1,6 +1,8 @@
 # Features And Examples
 
-In this chapter, you could see the entire list of features that WAMR support.
+<!-- TODO: each sample should have link/path to the source code involved -->
+
+In this chapter, you could see the complete list of features that WAMR support. And for each feature we have the example followed  demonstrating the usage of such feature.
 
 ## IWASM features
 
@@ -24,24 +26,17 @@ In this chapter, you could see the entire list of features that WAMR support.
 
 ### WASM post-MVP features
 
-- [wasm-c-api](https://github.com/WebAssembly/wasm-c-api), ref to [document](doc/wasm_c_api.md) and [sample](samples/wasm-c-api)
-- [128-bit SIMD](https://github.com/WebAssembly/simd), ref to [samples/workload](samples/workload)
-- [Reference Types](https://github.com/WebAssembly/reference-types), ref to [document](doc/ref_types.md) and [sample](samples/ref-types)
+The ones we support:
+
+- [wasm-c-api](https://github.com/WebAssembly/wasm-c-api), ref to [document](../../../doc/wasm_c_api.md) and [sample](../../../samples/wasm-c-api)
+
+- [128-bit SIMD](https://github.com/WebAssembly/simd), ref to [samples/workload](../../../samples/workload/README.md)
+
+- [Reference Types](https://github.com/WebAssembly/reference-types), ref to [document](../../../doc/ref_types.md) and [sample](../../../samples/ref-types)
+
+Other post-MVP features:
+
 - [Non-trapping float-to-int conversions](https://github.com/WebAssembly/nontrapping-float-to-int-conversions)
 - [Sign-extension operators](https://github.com/WebAssembly/sign-extension-ops), [Bulk memory operations](https://github.com/WebAssembly/bulk-memory-operations)
 - [Multi-value](https://github.com/WebAssembly/multi-value), [Tail-call](https://github.com/WebAssembly/tail-call), [Shared memory](https://github.com/WebAssembly/threads/blob/main/proposals/threads/Overview.md#shared-linear-memory)
 
-### Supported architectures and platforms
-
-The iwasm supports the following architectures:
-
-- X86-64, X86-32
-- ARM, THUMB (ARMV7 Cortex-M7 and Cortex-A15 are tested)
-- AArch64 (Cortex-A57 and Cortex-A53 are tested)
-- RISCV64, RISCV32 (RISC-V LP64 and RISC-V LP64D are tested)
-- XTENSA, MIPS, ARC
-
-The following platforms are supported, click each link below for how to build iwasm on that platform. Refer to [WAMR porting guide](./doc/port_wamr.md) for how to port WAMR to a new platform.
-
-- [Linux](./doc/build_wamr.md#linux),  [Linux SGX (Intel Software Guard Extension)](./doc/linux_sgx.md),  [MacOS](./doc/build_wamr.md#macos),  [Android](./doc/build_wamr.md#android), [Windows](./doc/build_wamr.md#windows), [Windows (MinGW)](./doc/build_wamr.md#mingw)
-- [Zephyr](./doc/build_wamr.md#zephyr),  [AliOS-Things](./doc/build_wamr.md#alios-things),  [VxWorks](./doc/build_wamr.md#vxworks), [NuttX](./doc/build_wamr.md#nuttx), [RT-Thread](./doc/build_wamr.md#RT-Thread), [ESP-IDF](./doc/build_wamr.md#esp-idf)
