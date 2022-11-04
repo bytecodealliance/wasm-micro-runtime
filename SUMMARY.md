@@ -39,7 +39,7 @@
   * [Remote Application Management](gitbook/advance_tutorial/remote_applicatoin_management/README.md)
     * [Example Program: Using "host_tool"](samples/simple/README.md)
 
-* [Features](gitbook/features/demo_examples/README.md)
+* [Features](gitbook/features/README.md)
   * [Export Native APIs To WASM Applications](doc/export_native_api.md)
     * [Example 1: Export C Functions to WASM](samples/basic/README.md)
     * [Example 2: Using "native-lib"](samples/native-lib/README.md)
@@ -52,7 +52,7 @@
   * [XIP(Execution In Place) Support](doc/xip.md)
   * [Socket Support](doc/socket_api.md)
     * [Example: Use Socket Api in WAMR](samples/socket-api/README.md)
-  * [Post-MVP Features](gitbook/features/)
+  * [Post-MVP Features](gitbook/features/demo_examples/README.md)
     * [WASM C API](samples/wasm-c-api/README.md)
     * [128-bit SIMD](samples/workload/README.md)
     * [Reference Types](samples/ref-types)
