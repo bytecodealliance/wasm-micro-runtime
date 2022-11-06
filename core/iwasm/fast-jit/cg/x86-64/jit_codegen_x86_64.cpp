@@ -23,7 +23,7 @@ using namespace asmjit;
 static char *code_block_switch_to_jitted_from_interp = NULL;
 static char *code_block_return_to_interp_from_jitted = NULL;
 #if WASM_ENABLE_LAZY_JIT != 0
-static char *code_block_call_to_interp_from_jitted = NULL;
+static char *code_block_compile_fast_jit_and_then_call = NULL;
 #endif
 
 typedef enum {
@@ -111,16 +111,17 @@ x86::Xmm regs_float[] = {
 
 int
 jit_codegen_interp_jitted_glue(void *exec_env, JitInterpSwitchInfo *info,
-                               void *target)
+                               uint32 func_idx, void *target)
 {
-    typedef int32 (*F)(const void *exec_env, void *info, const void *target);
+    typedef int32 (*F)(const void *exec_env, void *info, uint32 func_idx,
+                       const void *target);
     union {
         F f;
         void *v;
     } u;
 
     u.v = code_block_switch_to_jitted_from_interp;
-    return u.f(exec_env, info, target);
+    return u.f(exec_env, info, func_idx, target);
 }
 
 #define PRINT_LINE() LOG_VERBOSE("<Line:%d>\n", __LINE__)
@@ -6776,6 +6777,324 @@ fail:
     return return_value;
 }
 
+#define MAX_REG_INTS 6
+#define MAX_REG_FLOATS 8
+
+void *
+jit_codegen_compile_call_to_llvm_jit(const WASMType *func_type)
+{
+    const JitHardRegInfo *hreg_info = jit_codegen_get_hreg_info();
+    x86::Gp reg_lp = x86::r10, reg_res = x86::r12;
+    x86::Gp reg_tmp_i64 = x86::r11, reg_tmp_i32 = x86::r11d;
+    /* the index of integer argument registers */
+    uint8 reg_idx_of_int_args[] = { REG_RDI_IDX, REG_RSI_IDX, REG_RDX_IDX,
+                                    REG_RCX_IDX, REG_R8_IDX,  REG_R9_IDX };
+    uint32 n_ints = 0, n_fps = 0, n_stacks = 0, n_pushed;
+    uint32 int_reg_idx = 0, fp_reg_idx = 0, stack_arg_idx = 0;
+    uint32 off_to_lp = 0, off_to_res = 0, code_size, i;
+    uint32 param_count = func_type->param_count;
+    uint32 result_count = func_type->result_count;
+    uint32 ext_result_count;
+    char *code_buf, *stream;
+    Imm imm;
+
+    JitErrorHandler err_handler;
+    Environment env(Arch::kX64);
+    CodeHolder code;
+    code.init(env);
+    code.setErrorHandler(&err_handler);
+    x86::Assembler a(&code);
+
+    /* Load the llvm jit function pointer */
+    {
+        /* r11 = exec_env->module_inst */
+        x86::Mem m1(regs_i64[hreg_info->exec_env_hreg_index],
+                    (uint32)offsetof(WASMExecEnv, module_inst));
+        a.mov(reg_tmp_i64, m1);
+        /* r11 = module_inst->func_ptrs */
+        x86::Mem m2(reg_tmp_i64,
+                    (uint32)offsetof(WASMModuleInstance, func_ptrs));
+        a.mov(reg_tmp_i64, m2);
+        /* rax = func_ptrs[func_idx] */
+        x86::Mem m3(reg_tmp_i64, x86::rdx, 3, 0);
+        a.mov(x86::rax, m3);
+    }
+
+    n_ints++; /* exec_env */
+
+    for (i = 0; i < param_count; i++) {
+        switch (func_type->types[i]) {
+            case VALUE_TYPE_I32:
+            case VALUE_TYPE_I64:
+#if WASM_ENABLE_REF_TYPES != 0
+            case VALUE_TYPE_FUNCREF:
+            case VALUE_TYPE_EXTERNREF:
+#endif
+                if (n_ints < MAX_REG_INTS)
+                    n_ints++;
+                else
+                    n_stacks++;
+                break;
+            case VALUE_TYPE_F32:
+            case VALUE_TYPE_F64:
+                if (n_fps < MAX_REG_FLOATS)
+                    n_fps++;
+                else
+                    n_stacks++;
+                break;
+        }
+    }
+
+    ext_result_count = result_count > 1 ? result_count - 1 : 0;
+
+    if (ext_result_count > 0) {
+        if (n_ints + ext_result_count <= MAX_REG_INTS) {
+            /* extra result pointers can be stored into int registers */
+            n_ints += ext_result_count;
+        }
+        else {
+            /* part or all extra result pointers must be stored into stack */
+            n_stacks += n_ints + ext_result_count - MAX_REG_INTS;
+            n_ints = MAX_REG_INTS;
+        }
+    }
+
+    n_pushed = n_stacks;
+    if (n_stacks & 1) {
+        /* Align stack on 16 bytes */
+        n_pushed++;
+    }
+    if (n_pushed > 0) {
+        imm.setValue(n_pushed * 8);
+        a.sub(x86::rsp, imm);
+    }
+
+    /* r10 = outs_area->lp */
+    {
+        x86::Mem m(regs_i64[hreg_info->exec_env_hreg_index],
+                   (uint32)offsetof(WASMExecEnv, wasm_stack.s.top));
+        a.mov(reg_lp, m);
+        a.add(reg_lp, (uint32)offsetof(WASMInterpFrame, lp));
+    }
+
+    /* rdi = exec_env */
+    a.mov(regs_i64[reg_idx_of_int_args[int_reg_idx++]],
+          regs_i64[hreg_info->exec_env_hreg_index]);
+
+    for (i = 0; i < param_count; i++) {
+        x86::Mem m_src(reg_lp, off_to_lp);
+
+        switch (func_type->types[i]) {
+            case VALUE_TYPE_I32:
+#if WASM_ENABLE_REF_TYPES != 0
+            case VALUE_TYPE_FUNCREF:
+            case VALUE_TYPE_EXTERNREF:
+#endif
+            {
+                if (int_reg_idx < MAX_REG_INTS) {
+                    a.mov(regs_i32[reg_idx_of_int_args[int_reg_idx]], m_src);
+                    int_reg_idx++;
+                }
+                else {
+                    a.mov(reg_tmp_i32, m_src);
+                    x86::Mem m_dst(x86::rsp, stack_arg_idx * 8);
+                    a.mov(m_dst, reg_tmp_i32);
+                    stack_arg_idx++;
+                }
+                off_to_lp += 4;
+                break;
+            }
+            case VALUE_TYPE_I64:
+            {
+                if (int_reg_idx < MAX_REG_INTS) {
+                    a.mov(regs_i64[reg_idx_of_int_args[int_reg_idx]], m_src);
+                    int_reg_idx++;
+                }
+                else {
+                    a.mov(reg_tmp_i64, m_src);
+                    x86::Mem m_dst(x86::rsp, stack_arg_idx * 8);
+                    a.mov(m_dst, reg_tmp_i64);
+                    stack_arg_idx++;
+                }
+                off_to_lp += 8;
+                break;
+            }
+            case VALUE_TYPE_F32:
+            {
+                if (fp_reg_idx < MAX_REG_FLOATS) {
+                    a.movss(regs_float[fp_reg_idx], m_src);
+                    fp_reg_idx++;
+                }
+                else {
+                    a.mov(reg_tmp_i32, m_src);
+                    x86::Mem m_dst(x86::rsp, stack_arg_idx * 8);
+                    a.mov(m_dst, reg_tmp_i32);
+                    stack_arg_idx++;
+                }
+                off_to_lp += 4;
+                break;
+            }
+            case VALUE_TYPE_F64:
+            {
+                if (fp_reg_idx < MAX_REG_FLOATS) {
+                    a.movsd(regs_float[fp_reg_idx], m_src);
+                    fp_reg_idx++;
+                }
+                else {
+                    a.mov(reg_tmp_i64, m_src);
+                    x86::Mem m_dst(x86::rsp, stack_arg_idx * 8);
+                    a.mov(m_dst, reg_tmp_i64);
+                    stack_arg_idx++;
+                }
+                off_to_lp += 8;
+                break;
+            }
+        }
+    }
+
+    if (result_count > 0) {
+        switch (func_type->types[param_count]) {
+            case VALUE_TYPE_I32:
+#if WASM_ENABLE_REF_TYPES != 0
+            case VALUE_TYPE_FUNCREF:
+            case VALUE_TYPE_EXTERNREF:
+#endif
+            case VALUE_TYPE_F32:
+                off_to_res = 4;
+                break;
+            case VALUE_TYPE_I64:
+            case VALUE_TYPE_F64:
+                off_to_res = 8;
+                break;
+        }
+
+        /* r12 = cur_frame->sp */
+        x86::Mem m(x86::rbp, (uint32)offsetof(WASMInterpFrame, sp));
+        a.mov(reg_res, m);
+
+        for (i = 0; i < ext_result_count; i++) {
+            x86::Mem m(reg_res, off_to_res);
+
+            if (int_reg_idx < MAX_REG_INTS) {
+                a.lea(regs_i64[reg_idx_of_int_args[int_reg_idx]], m);
+                int_reg_idx++;
+            }
+            else {
+                a.lea(reg_tmp_i64, m);
+                x86::Mem m_dst(x86::rsp, stack_arg_idx * 8);
+                a.mov(m_dst, reg_tmp_i64);
+                stack_arg_idx++;
+            }
+
+            switch (func_type->types[param_count + 1 + i]) {
+                case VALUE_TYPE_I32:
+#if WASM_ENABLE_REF_TYPES != 0
+                case VALUE_TYPE_FUNCREF:
+                case VALUE_TYPE_EXTERNREF:
+#endif
+                case VALUE_TYPE_F32:
+                    off_to_res += 4;
+                    break;
+                case VALUE_TYPE_I64:
+                case VALUE_TYPE_F64:
+                    off_to_res += 8;
+                    break;
+            }
+        }
+    }
+
+    bh_assert(int_reg_idx == n_ints);
+    bh_assert(fp_reg_idx == n_fps);
+    bh_assert(stack_arg_idx == n_stacks);
+
+    /* Call the llvm jit function */
+    a.call(x86::rax);
+
+    /* Check if there was exception thrown */
+    {
+        /* r11 = exec_env->module_inst */
+        x86::Mem m1(regs_i64[hreg_info->exec_env_hreg_index],
+                    (uint32)offsetof(WASMExecEnv, module_inst));
+        a.mov(reg_tmp_i64, m1);
+        /* module_inst->cur_exception */
+        x86::Mem m2(reg_tmp_i64,
+                    (uint32)offsetof(WASMModuleInstance, cur_exception));
+        /* bl = module_inst->cur_exception[0] */
+        a.mov(x86::bl, m2);
+
+        /* cur_exception[0] == 0 ? */
+        Imm imm((uint8)0);
+        a.cmp(x86::bl, imm);
+        /* If yes, jump to `Get function result and return` */
+        imm.setValue(INT32_MAX);
+        a.je(imm);
+
+        /* The offset written by asmjit is always 0, we patch it again */
+        char *stream;
+        stream = (char *)a.code()->sectionById(0)->buffer().data()
+                 + a.code()->sectionById(0)->buffer().size() - 6;
+        *(int32 *)(stream + 2) = 17;
+
+        /* If no, set eax to JIT_INTERP_ACTION_THROWN, and
+           jump to code_block_return_to_interp_from_jitted to
+           return to interpreter */
+        imm.setValue(JIT_INTERP_ACTION_THROWN);
+        a.mov(x86::eax, imm);
+        imm.setValue(code_block_return_to_interp_from_jitted);
+        a.mov(x86::rsi, imm);
+        a.jmp(x86::rsi);
+    }
+
+    /* Get function result and return */
+
+    if (result_count > 0 && func_type->types[param_count] != VALUE_TYPE_F32
+        && func_type->types[param_count] != VALUE_TYPE_F64) {
+        a.mov(x86::rdx, x86::rax);
+    }
+
+    if (off_to_res > 0) {
+        imm.setValue(off_to_res);
+        a.add(reg_res, imm);
+        /* cur_frame->sp = r12 */
+        x86::Mem m(x86::rbp, (uint32)offsetof(WASMInterpFrame, sp));
+        a.mov(m, reg_res);
+    }
+
+    if (n_pushed > 0) {
+        imm.setValue(n_pushed * 8);
+        a.add(x86::rsp, imm);
+    }
+
+    /* Return to the caller */
+    {
+        /* eax = action = JIT_INTERP_ACTION_NORMAL */
+        Imm imm(0);
+        a.mov(x86::eax, imm);
+
+        uint32 jitted_return_addr_offset =
+            jit_frontend_get_jitted_return_addr_offset();
+        x86::Mem m(x86::rbp, jitted_return_addr_offset);
+        a.jmp(m);
+    }
+
+    if (err_handler.err)
+        return NULL;
+
+    code_buf = (char *)code.sectionById(0)->buffer().data();
+    code_size = code.sectionById(0)->buffer().size();
+    stream = (char *)jit_code_cache_alloc(code_size);
+    if (!stream)
+        return NULL;
+
+    bh_memcpy_s(stream, code_size, code_buf, code_size);
+
+#if 0
+    dump_native(stream, code_size);
+#endif
+
+    return stream;
+}
+
 bool
 jit_codegen_lower(JitCompContext *cc)
 {
@@ -6838,9 +7157,11 @@ jit_codegen_init()
     /* exec_env_reg = exec_env */
     a.mov(regs_i64[hreg_info->exec_env_hreg_index], x86::rdi);
     /* fp_reg = info->frame */
-    a.mov(x86::rbp, x86::ptr(x86::rsi, 0));
-    /* jmp target */
-    a.jmp(x86::rdx);
+    a.mov(x86::rbp, x86::ptr(x86::rsi, offsetof(JitInterpSwitchInfo, frame)));
+    /* rdx = func_idx, is already set in the func_idx argument of
+       jit_codegen_interp_jitted_glue  */
+    /* jmp target, rcx = pc */
+    a.jmp(x86::rcx);
 
     if (err_handler.err)
         return false;
@@ -6866,17 +7187,17 @@ jit_codegen_init()
     a.pop(x86::rsi);
     /* info->frame = fp_reg */
     {
-        x86::Mem m(x86::rsi, 0);
+        x86::Mem m(x86::rsi, offsetof(JitInterpSwitchInfo, frame));
         a.mov(m, x86::rbp);
     }
     /* info->out.ret.ival[0, 1] = rdx */
     {
-        x86::Mem m(x86::rsi, 8);
+        x86::Mem m(x86::rsi, offsetof(JitInterpSwitchInfo, out.ret.ival));
         a.mov(m, x86::rdx);
     }
     /* info->out.ret.fval[0, 1] = xmm0 */
     {
-        x86::Mem m(x86::rsi, 16);
+        x86::Mem m(x86::rsi, offsetof(JitInterpSwitchInfo, out.ret.fval));
         a.movsd(m, x86::xmm0);
     }
 
@@ -6907,32 +7228,44 @@ jit_codegen_init()
 #endif
 
 #if WASM_ENABLE_LAZY_JIT != 0
-    /* Initialize code_block_call_to_interp_from_jitted */
+    /* Initialize code_block_compile_fast_jit_and_then_call */
 
     a.setOffset(0);
 
-    /* rdi = exec_env = exec_env_reg */
-    a.mov(x86::rdi, regs_i64[hreg_info->exec_env_hreg_index]);
-    /* rsi = module_inst = exec_env->module_inst */
-    {
-        x86::Mem m(x86::rdi, (uint32)offsetof(WASMExecEnv, module_inst));
-        a.mov(x86::rsi, m);
-    }
-    /* rdx = func_idx, has been prepared in lower_callbc */
+    /* Use rbx, r12, r13 to save func_dix, module_inst and module,
+       as they are callee-save registers */
 
-    /* Call fast_jit_call_to_interp_from_jitted */
+    /* Backup func_idx: rbx = rdx = func_idx, note that rdx has
+       been prepared in the caller:
+         callbc or code_block_switch_to_jitted_from_interp */
+    a.mov(x86::rbx, x86::rdx);
+    /* r12 = module_inst = exec_env->module_inst */
     {
-        Imm imm((uint64)(uintptr_t)fast_jit_call_to_interp_from_jitted);
+        x86::Mem m(regs_i64[hreg_info->exec_env_hreg_index],
+                   (uint32)offsetof(WASMExecEnv, module_inst));
+        a.mov(x86::r12, m);
+    }
+    /* rdi = r13 = module_inst->module */
+    {
+        x86::Mem m(x86::r12, (uint32)offsetof(WASMModuleInstance, module));
+        a.mov(x86::rdi, m);
+        a.mov(x86::r13, x86::rdi);
+    }
+    /* rsi = rdx = func_idx */
+    a.mov(x86::rsi, x86::rdx);
+    /* Call jit_compiler_compile(module, func_idx) */
+    {
+        Imm imm((uint64)(uintptr_t)jit_compiler_compile);
         a.mov(x86::rax, imm);
         a.call(x86::rax);
     }
 
-    /* Check if there was exception thrown */
+    /* Check if failed to compile the jit function */
     {
-        /* Did fast_jit_call_to_interp_from_jitted return false? */
+        /* Did jit_compiler_compile return false? */
         Imm imm((uint8)0);
         a.cmp(x86::al, imm);
-        /* If no, jump to `Get function return value` */
+        /* If no, jump to `Load compiled func ptr and call it` */
         imm.setValue(INT32_MAX);
         a.jne(imm);
 
@@ -6940,11 +7273,22 @@ jit_codegen_init()
         char *stream;
         stream = (char *)a.code()->sectionById(0)->buffer().data()
                  + a.code()->sectionById(0)->buffer().size() - 6;
-        *(int32 *)(stream + 2) = 17;
+        *(int32 *)(stream + 2) = 39;
 
-        /* If yes, set eax to JIT_INTERP_ACTION_THROWN, and
-           jump to code_block_return_to_interp_from_jitted to
-           return to interpreter */
+        /* If yes, call jit_set_exception_with_id to throw exception,
+           and then set eax to JIT_INTERP_ACTION_THROWN, and jump to
+           code_block_return_to_interp_from_jitted to return */
+
+        /* rdi = module_inst */
+        a.mov(x86::rdi, x86::r12);
+        /* rsi = EXCE_FAILED_TO_COMPILE_FAST_JIT_FUNC */
+        imm.setValue(EXCE_FAILED_TO_COMPILE_FAST_JIT_FUNC);
+        a.mov(x86::rsi, imm);
+        /* Call jit_set_exception_with_id */
+        imm.setValue((uint64)(uintptr_t)jit_set_exception_with_id);
+        a.mov(x86::rax, imm);
+        a.call(x86::rax);
+        /* Return to the caller */
         imm.setValue(JIT_INTERP_ACTION_THROWN);
         a.mov(x86::eax, imm);
         imm.setValue(code_block_return_to_interp_from_jitted);
@@ -6952,23 +7296,21 @@ jit_codegen_init()
         a.jmp(x86::rsi);
     }
 
-    /* Get function return value from exec_env->jit_cache */
+    /* Load compiled func ptr and call it */
     {
-        x86::Mem m(regs_i64[hreg_info->exec_env_hreg_index],
-                   offsetof(WASMExecEnv, jit_cache));
-        a.mov(x86::rdx, m);
-        a.movsd(x86::xmm0, m);
-    }
-
-    {
-        /* eax = act */
-        Imm imm(0);
-        a.mov(x86::eax, imm);
-
-        uint32 jitted_return_addr_offset =
-            jit_frontend_get_jitted_return_addr_offset();
-        x86::Mem m(x86::rbp, jitted_return_addr_offset);
-        a.jmp(m);
+        /* rsi = module->import_function_count */
+        x86::Mem m1(x86::r13,
+                    (uint32)offsetof(WASMModule, import_function_count));
+        a.movzx(x86::rsi, m1);
+        /* rbx = rbx - module->import_function_count */
+        a.sub(x86::rbx, x86::rsi);
+        /* rax = module->fast_jit_func_ptrs */
+        x86::Mem m2(x86::r13, (uint32)offsetof(WASMModule, fast_jit_func_ptrs));
+        a.mov(x86::rax, m2);
+        /* rax = fast_jit_func_ptrs[rbx] */
+        x86::Mem m3(x86::rax, x86::rbx, 3, 0);
+        a.mov(x86::rax, m3);
+        a.jmp(x86::rax);
     }
 
     if (err_handler.err)
@@ -6981,8 +7323,8 @@ jit_codegen_init()
         goto fail2;
 
     bh_memcpy_s(stream, code_size, code_buf, code_size);
-    code_block_call_to_interp_from_jitted =
-        jit_globals->call_to_interp_from_jitted = stream;
+    code_block_compile_fast_jit_and_then_call =
+        jit_globals->compile_fast_jit_and_then_call = stream;
 
 #if 0
     dump_native(stream, code_size);
@@ -7004,7 +7346,7 @@ void
 jit_codegen_destroy()
 {
 #if WASM_ENABLE_LAZY_JIT != 0
-    jit_code_cache_free(code_block_call_to_interp_from_jitted);
+    jit_code_cache_free(code_block_compile_fast_jit_and_then_call);
 #endif
     jit_code_cache_free(code_block_return_to_interp_from_jitted);
     jit_code_cache_free(code_block_switch_to_jitted_from_interp);

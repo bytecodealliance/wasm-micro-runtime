@@ -59,7 +59,13 @@ typedef enum WASMExceptionID {
     EXCE_AUX_STACK_UNDERFLOW,
     EXCE_OUT_OF_BOUNDS_TABLE_ACCESS,
     EXCE_OPERAND_STACK_OVERFLOW,
+#if WASM_ENABLE_FAST_JIT != 0
+    EXCE_FAILED_TO_COMPILE_FAST_JIT_FUNC,
+#if WASM_ENABLE_JIT != 0 && WASM_ENABLE_LAZY_JIT != 0
+    EXCE_FAILED_TO_COMPILE_LLVM_JIT_FUNC,
+#endif
     EXCE_ALREADY_THROWN,
+#endif
     EXCE_NUM,
 } WASMExceptionID;
 
@@ -553,20 +559,6 @@ fast_jit_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 elem_idx,
 bool
 fast_jit_invoke_native(WASMExecEnv *exec_env, uint32 func_idx,
                        struct WASMInterpFrame *prev_frame);
-
-#if WASM_ENABLE_LAZY_JIT != 0
-/**
- * Call to interpreter to invoke a wasm function from Fast JIT jitted code,
- * or code_block_call_to_interp_from_jitted. This happens when the function
- * to call has been compiled. The jitted code of the caller has prepared
- * the function arguments to the outs area of next frame in CALLBC opcode,
- * and will read the return values into current frame after calling.
- */
-bool
-fast_jit_call_to_interp_from_jitted(WASMExecEnv *exec_env,
-                                    WASMModuleInstance *module_inst,
-                                    uint32 func_idx);
-#endif
 #endif
 
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0

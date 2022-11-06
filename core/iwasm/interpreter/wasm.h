@@ -124,6 +124,12 @@ typedef struct WASMType {
     uint16 param_cell_num;
     uint16 ret_cell_num;
     uint16 ref_count;
+#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
+    && WASM_ENABLE_LAZY_JIT != 0
+    /* Code block to call llvm jit functions of this
+       kind of function type from fast jit jitted code */
+    void *call_to_llvm_jit_from_fast_jit;
+#endif
     /* types of params and results */
     uint8 types[1];
 } WASMType;

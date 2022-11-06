@@ -3913,11 +3913,13 @@ fast_jit_call_func_bytecode(WASMModuleInstance *module_inst,
 {
     JitGlobals *jit_globals = jit_compiler_get_jit_globals();
     JitInterpSwitchInfo info;
+    WASMModule *module = module_inst->module;
     WASMType *func_type = function->u.func->func_type;
     uint8 type = func_type->result_count
                      ? func_type->types[func_type->param_count]
                      : VALUE_TYPE_VOID;
     uint32 func_idx = (uint32)(function - module_inst->e->functions);
+    uint32 func_idx_non_import = func_idx - module->import_function_count;
     int32 action;
 
 #if WASM_ENABLE_REF_TYPES != 0
@@ -3926,12 +3928,12 @@ fast_jit_call_func_bytecode(WASMModuleInstance *module_inst,
 #endif
 
 #if WASM_ENABLE_LAZY_JIT != 0
-    if (!jit_compiler_compile(module_inst->module, func_idx)) {
+    if (!jit_compiler_compile(module, func_idx)) {
         wasm_set_exception(module_inst, "failed to compile fast jit function");
         return;
     }
 #endif
-    bh_assert(jit_compiler_is_compiled(module_inst->module, func_idx));
+    bh_assert(jit_compiler_is_compiled(module, func_idx));
 
     /* Switch to jitted code to call the jit function */
     info.out.ret.last_return_type = type;
@@ -3939,7 +3941,8 @@ fast_jit_call_func_bytecode(WASMModuleInstance *module_inst,
     frame->jitted_return_addr =
         (uint8 *)jit_globals->return_to_interp_from_jitted;
     action = jit_interp_switch_to_jitted(
-        exec_env, &info, function->u.func->fast_jit_jitted_code);
+        exec_env, &info, func_idx,
+        module_inst->fast_jit_func_ptrs[func_idx_non_import]);
     bh_assert(action == JIT_INTERP_ACTION_NORMAL
               || (action == JIT_INTERP_ACTION_THROWN
                   && wasm_runtime_get_exception(exec_env->module_inst)));
@@ -4172,18 +4175,63 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
         }
     }
     else {
-#if WASM_ENABLE_JIT != 0
+#if WASM_ENABLE_LAZY_JIT != 0
+
+        /* Fast JIT to LLVM JIT tier-up is enabled */
+#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0
+        /* Fast JIT and LLVM JIT are both enabled, call llvm jit function
+           if it is compiled, else call fast jit function */
+        uint32 func_idx = (uint32)(function - module_inst->e->functions);
+        if (module_inst->module->func_ptrs_compiled
+                [func_idx - module_inst->module->import_function_count]) {
+            llvm_jit_call_func_bytecode(module_inst, exec_env, function, argc,
+                                        argv);
+            /* For llvm jit, the results have been stored in argv,
+               no need to copy them from stack frame again */
+            copy_argv_from_frame = false;
+        }
+        else {
+            fast_jit_call_func_bytecode(module_inst, exec_env, function, frame);
+        }
+#elif WASM_ENABLE_JIT != 0
+        /* Only LLVM JIT is enabled */
         llvm_jit_call_func_bytecode(module_inst, exec_env, function, argc,
                                     argv);
         /* For llvm jit, the results have been stored in argv,
            no need to copy them from stack frame again */
         copy_argv_from_frame = false;
 #elif WASM_ENABLE_FAST_JIT != 0
+        /* Only Fast JIT is enabled */
         fast_jit_call_func_bytecode(module_inst, exec_env, function, frame);
 #else
+        /* Both Fast JIT and LLVM JIT are disabled */
         wasm_interp_call_func_bytecode(module_inst, exec_env, function, frame);
 #endif
+
+#else /* else of WASM_ENABLE_LAZY_JIT != 0 */
+
+        /* Fast JIT to LLVM JIT tier-up is enabled */
+#if WASM_ENABLE_JIT != 0
+        /* LLVM JIT is enabled */
+        llvm_jit_call_func_bytecode(module_inst, exec_env, function, argc,
+                                    argv);
+        /* For llvm jit, the results have been stored in argv,
+           no need to copy them from stack frame again */
+        copy_argv_from_frame = false;
+#elif WASM_ENABLE_FAST_JIT != 0
+        /* Fast JIT is enabled */
+        fast_jit_call_func_bytecode(module_inst, exec_env, function, frame);
+#else
+        /* Both Fast JIT and LLVM JIT are disabled */
+        wasm_interp_call_func_bytecode(module_inst, exec_env, function, frame);
+#endif
+
+#endif /* end of WASM_ENABLE_LAZY_JIT != 0 */
+
         (void)wasm_interp_call_func_bytecode;
+#if WASM_ENABLE_FAST_JIT != 0
+        (void)fast_jit_call_func_bytecode;
+#endif
     }
 
     /* Output the return value to the caller */

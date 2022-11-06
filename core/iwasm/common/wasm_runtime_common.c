@@ -2134,7 +2134,13 @@ static const char *exception_msgs[] = {
     "wasm auxiliary stack underflow", /* EXCE_AUX_STACK_UNDERFLOW */
     "out of bounds table access",     /* EXCE_OUT_OF_BOUNDS_TABLE_ACCESS */
     "wasm operand stack overflow",    /* EXCE_OPERAND_STACK_OVERFLOW */
+#if WASM_ENABLE_FAST_JIT != 0
+    "failed to compile fast jit function", /* EXCE_FAILED_TO_COMPILE_FAST_JIT_FUNC */
+#if WASM_ENABLE_JIT != 0 && WASM_ENABLE_LAZY_JIT != 0
+    "failed to compile llvm jit function", /* EXCE_FAILED_TO_COMPILE_LLVM_JIT_FUNC */
+#endif
     "",                               /* EXCE_ALREADY_THROWN */
+#endif
 };
 /* clang-format on */
 
