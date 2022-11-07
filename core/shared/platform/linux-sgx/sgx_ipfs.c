@@ -297,7 +297,8 @@ ipfs_fopen(int fd, int flags)
     // opened by the initial openat and respects the chroot of WAMR.
     size_t ret;
     char symbolic_path[32];
-    ret = snprintf(symbolic_path, sizeof(symbolic_path), "/proc/self/fd/%d", fd);
+    ret =
+        snprintf(symbolic_path, sizeof(symbolic_path), "/proc/self/fd/%d", fd);
     if (ret >= sizeof(symbolic_path)) {
         errno = ENAMETOOLONG;
         return NULL;
