@@ -171,7 +171,7 @@ Project Technical Steering Committee
 ====================================
 The [WAMR PTSC Charter](./TSC_Charter.md) governs the operations of the project TSC.
 The current TSC members:
-- [donghengqaz](https://github.com/donghengqaz) - **Dongsheng Yan**, <dongsheng.yan@sony.com>
+- [dongsheng28849455](https://github.com/dongsheng28849455) - **Dongsheng Yan**, <dongsheng.yan@sony.com>
 - [loganek](https://github.com/loganek) - **Marcin Kolny**, <mkolny@amazon.co.uk>
 - [lum1n0us](https://github.com/lum1n0us) - **Liang He**， <liang.he@intel.com>
 - [no1wudi](https://github.com/no1wudi) **Qi Huang**, <huangqi3@xiaomi.com>
