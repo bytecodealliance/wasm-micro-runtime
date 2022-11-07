@@ -1,6 +1,6 @@
-# Compile, build and test hello world on host
+# Compile, build and test hello world on the host
 
-Now we have our host set up, we can build our baby step hello world program and run it using WAMR.
+Now we have our host set up, we can build our hello world program and run it using WAMR.
 
 First, build iwasm vmcore on your platform.
 
@@ -11,7 +11,7 @@ cmake ..
 make 
 ```
 
-Then you are ready to go to the directory that contains hello world program and copy our iwasm vmcore
+Then you are ready to go to the directory that contains the hello world program and copy our iwasm vmcore
 
 ```sh
 cp iwasm ../../app-samples/hello-world
@@ -22,5 +22,5 @@ cd ${WAMR-dir}/product-mini/app-samples/hello-world
 Now you could execute your first wasm program!
 
 ```sh
-iwasm test.wasm
+./iwasm test.wasm
 ```

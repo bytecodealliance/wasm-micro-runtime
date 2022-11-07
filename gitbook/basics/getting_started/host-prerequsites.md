@@ -2,7 +2,7 @@
 
 ## Ubuntu
 
-First installed needed packages and libraries
+First, install the needed packages and libraries.
 
 ```sh
 apt-get update \

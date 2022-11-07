@@ -63,7 +63,7 @@
     * [Littlevgl](samples/littlevgl/README.md)
     * [LVGL](samples/gui/README.md)
   * [Same WASM Program Executing Concurrently](samples/spawn-thread)
-  * [Workload](samples/workload/README.md)
+  * [Build And Run Workload](samples/workload/README.md)
 
 * [User Case](gitbook/features/user_case/README.md)
 
