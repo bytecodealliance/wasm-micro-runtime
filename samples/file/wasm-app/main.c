@@ -12,7 +12,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#define PATH_TEST_FOLDER "/test"
+#define PATH_TEST_FOLDER "./test"
 #define PATH_TEST_FILE (PATH_TEST_FOLDER "/test.txt")
 #define FILE_TEXT "Hello, world!"
 #define WORLD_OFFSET 7
