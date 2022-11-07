@@ -248,7 +248,7 @@ ipfs_close(int fd)
 }
 
 void *
-ipfs_fopen(int fd, const char *filename, int flags)
+ipfs_fopen(int fd, int flags)
 {
     // Mapping back the mode
     const char *mode;
@@ -291,8 +291,29 @@ ipfs_fopen(int fd, const char *filename, int flags)
         return NULL;
     }
 
-    // Opening the file
-    void *sgx_file = sgx_fopen_auto_key(filename, mode);
+    // Determine the symbolic link of the file descriptor, because IPFS does not
+    // support opening a relative path to a file descriptor (i.e., openat).
+    // Using the symbolic link in /proc/self allows to retrieve the same path as
+    // opened by the initial openat and respects the chroot of WAMR.
+    size_t ret;
+    char symbolic_path[32];
+    ret =
+        snprintf(symbolic_path, sizeof(symbolic_path), "/proc/self/fd/%d", fd);
+    if (ret >= sizeof(symbolic_path)) {
+        errno = ENAMETOOLONG;
+        return NULL;
+    }
+
+    // Resolve the symbolic link to real absolute path, because IPFS can only
+    // open a file with a same file name it was initially created. Otherwise,
+    // IPFS throws SGX_ERROR_FILE_NAME_MISMATCH.
+    char real_path[PATH_MAX] = { 0 };
+    ret = readlink(symbolic_path, real_path, PATH_MAX - 1);
+    if (ret == -1)
+        return NULL;
+
+    // Opening the file using the real path
+    void *sgx_file = sgx_fopen_auto_key(real_path, mode);
 
     if (sgx_file == NULL) {
         errno = convert_sgx_errno(sgx_ferror(sgx_file));
