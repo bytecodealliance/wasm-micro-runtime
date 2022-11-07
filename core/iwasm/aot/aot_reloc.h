@@ -136,6 +136,8 @@ typedef struct {
     REG_SYM(truncf),                      \
     REG_SYM(rint),                        \
     REG_SYM(rintf),                       \
+    REG_SYM(sqrt),                        \
+    REG_SYM(sqrtf),                       \
     REG_BULK_MEMORY_SYM()                 \
     REG_ATOMIC_WAIT_SYM()                 \
     REG_REF_TYPES_SYM()                   \
