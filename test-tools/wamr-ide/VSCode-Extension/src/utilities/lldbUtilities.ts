@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2022 Amazon.com Inc. or its affiliates. All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+ */
+
 import * as vscode from 'vscode';
 import * as os from 'os';
 import * as path from 'path';
