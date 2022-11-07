@@ -194,8 +194,12 @@ openat(int dirfd, const char *pathname, int flags, ...)
 #if WASM_ENABLE_SGX_IPFS != 0
     struct stat sb;
     int ret = fstatat(dirfd, pathname, &sb, 0);
-    if (ret < 0)
+    if (ret < 0) {
+        if (ocall_close(&ret, fd) != SGX_SUCCESS) {
+            TRACE_OCALL_FAIL();
+        }
         return -1;
+    }
 
     // Ony files are managed by SGX IPFS
     if (S_ISREG(sb.st_mode)) {
@@ -203,7 +207,6 @@ openat(int dirfd, const char *pathname, int flags, ...)
         // file descriptor to interact with the secure file.
         // The first file descriptor opened earlier is used to interact
         // with the metadata of the file (e.g., time, flags, etc.).
-        int ret;
         void *file_ptr = ipfs_fopen(fd, flags);
         if (file_ptr == NULL) {
             if (ocall_close(&ret, fd) != SGX_SUCCESS) {
