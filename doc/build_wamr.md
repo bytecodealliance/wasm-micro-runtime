@@ -80,9 +80,13 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 - **WAMR_BUILD_LIB_PTHREAD_SEMAPHORE**=1/0, default to disable if not set
 > Note: This feature depends on `lib-pthread`, it will be enabled automatically if this feature is enabled.
 
-#### **Disable boundary check with hardware trap in AOT or JIT mode**
+#### **Disable boundary check with hardware trap**
 - **WAMR_DISABLE_HW_BOUND_CHECK**=1/0, default to enable if not set and supported by platform
-> Note: by default only platform linux/darwin/android/vxworks 64-bit will enable boundary check with hardware trap in AOT or JIT mode, and the wamrc tool will generate AOT code without boundary check instructions in all 64-bit targets except SGX to improve performance.
+> Note: by default only platform linux/darwin/android/windows/vxworks 64-bit will enable the boundary check with hardware trap feature, and the wamrc tool will generate AOT code without boundary check instructions in all 64-bit targets except SGX to improve performance. The boundary check includes linear memory access boundary and native stack access boundary, if `WAMR_DISABLE_STACK_HW_BOUND_CHECK` below isn't set.
+
+#### **Disable native stack boundary check with hardware trap**
+- **WAMR_DISABLE_STACK_HW_BOUND_CHECK**=1/0, default to enable if not set and supported by platform, same as `WAMR_DISABLE_HW_BOUND_CHECK`.
+> Note: When boundary check with hardware trap is disabled, or `WAMR_DISABLE_HW_BOUND_CHECK` is set to 1, the native stack boundary check with hardware trap will be disabled too, no matter what value is set to `WAMR_DISABLE_STACK_HW_BOUND_CHECK`. And when boundary check with hardware trap is enabled, the status of this feature is set according to the value of `WAMR_DISABLE_STACK_HW_BOUND_CHECK`.
 
 #### **Enable tail call feature**
 - **WAMR_BUILD_TAIL_CALL**=1/0, default to disable if not set

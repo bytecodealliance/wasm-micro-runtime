@@ -3911,7 +3911,8 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
     }
     argc = function->param_cell_num;
 
-#ifndef OS_ENABLE_HW_BOUND_CHECK
+#if !(defined(OS_ENABLE_HW_BOUND_CHECK) \
+      && WASM_DISABLE_STACK_HW_BOUND_CHECK == 0)
     if ((uint8 *)&prev_frame < exec_env->native_stack_boundary) {
         wasm_set_exception((WASMModuleInstance *)exec_env->module_inst,
                            "native stack overflow");

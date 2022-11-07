@@ -92,6 +92,7 @@ else:
 
 if GetDepend(['WAMR_DISABLE_HW_BOUND_CHECK']):
     CPPDEFINES += ['WASM_DISABLE_HW_BOUND_CHECK=1']
+    CPPDEFINES += ['WASM_DISABLE_STACK_HW_BOUND_CHECK=1']
     print("[WAMR] Hardware boundary check disabled")
 
 if GetDepend(['WAMR_BUILD_SIMD']):

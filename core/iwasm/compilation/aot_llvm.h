@@ -310,6 +310,9 @@ typedef struct AOTCompContext {
     /* Bounday Check */
     bool enable_bound_check;
 
+    /* Native stack bounday Check */
+    bool enable_stack_bound_check;
+
     /* 128-bit SIMD */
     bool enable_simd;
 
@@ -404,6 +407,7 @@ typedef struct AOTCompOption {
     uint32 size_level;
     uint32 output_format;
     uint32 bounds_checks;
+    uint32 stack_bounds_checks;
     char **custom_sections;
     uint32 custom_sections_count;
 } AOTCompOption, *aot_comp_option_t;
