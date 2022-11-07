@@ -306,9 +306,8 @@ ipfs_fopen(int fd, int flags)
     // Resolve the symbolic link to real absolute path, because IPFS can only
     // open a file with a same file name it was initially created. Otherwise,
     // IPFS throws SGX_ERROR_FILE_NAME_MISMATCH.
-    char real_path[PATH_MAX];
-    ret = readlink(symbolic_path, real_path, PATH_MAX);
-    real_path[PATH_MAX - 1] = '\0';
+    char real_path[PATH_MAX] = { 0 };
+    ret = readlink(symbolic_path, real_path, PATH_MAX - 1);
     if (ret == -1)
         return NULL;
 
