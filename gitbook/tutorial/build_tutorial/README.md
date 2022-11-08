@@ -1,6 +1,6 @@
 # build tutorial
 
-In this chapter, we provide detailed tutorial to how to build [iwasm vmcore](../../../doc/build_wamr.md) and [wamrc](../build_tutorial/build_wamrc.md).
+In this chapter, we provide a detailed tutorial on how to build [iwasm vmcore](../../../doc/build_wamr.md) and [wamrc](../build_tutorial/build_wamrc.md).
 
 ## Quick build matrix
 
@@ -16,7 +16,7 @@ Our powerful **iwasm vmcore** provide various running mode you could choose usin
 
 ## Supported architectures and platforms
 
-Here is a list of architectures and platforms WAMR support, you could click to the link for quick reference.
+Here is a list of architectures and platforms WAMR support. You could click on the link for quick reference.
 
 The iwasm supports the following architectures:
 
@@ -26,7 +26,7 @@ The iwasm supports the following architectures:
 - RISCV64, RISCV32 (RISC-V LP64 and RISC-V LP64D are tested)
 - XTENSA, MIPS, ARC
 
-The following platforms are supported, click each link below for how to build iwasm on that platform. Refer to [WAMR porting guide](../../../doc/port_wamr.md) for how to port WAMR to a new platform.
+The following platforms are supported. Click each link below for how to build iwasm on that platform. Refer to [WAMR porting guide](../../../doc/port_wamr.md) for how to port WAMR to a new platform.
 
 - [Linux](../../../doc/build_wamr.md#linux), [Linux SGX (Intel Software Guard Extension)](../../../doc/linux_sgx.md), [MacOS](../../../doc/build_wamr.md#macos), [Android](../../../doc/build_wamr.md#android), [Windows](../../../doc/build_wamr.md#windows), [Windows (MinGW)](../../../doc/build_wamr.md#mingw)
 

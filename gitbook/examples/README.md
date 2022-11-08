@@ -6,6 +6,6 @@ In this chapter, we provide some extra useful examples to demonstrate how you ma
 
 - [GUI Examples](gui_examples/README.md): We provide two examples that both use [LVGL library](https://github.com/lvgl/lvgl)
 
-- [Concurrent WASM Application](../../samples/spawn-thread): Demonstrating how to execute wasm functions of the same wasm application concurrently, in threads created by host embedder or runtime, but not the wasm application itself.
+- [Concurrent WASM Application](../../samples/spawn-thread): Demonstrating how to execute wasm functions of the same wasm application concurrently in threads created by host embedder or runtime, but not the wasm application itself.
 
-- [Workload](../../samples/workload/README.md): Demonstrating how to build and run some complex workloads, e.g. tensorflow-lite, XNNPACK, wasm-av1, meshoptimizer and bwa.
+- [Workload](../../samples/workload/README.md): Demonstrating how to build and run some complex workloads, e.g., tensorflow-lite, XNNPACK, wasm-av1, meshoptimizer, and bwa.

@@ -1,8 +1,8 @@
 # Features And Examples
 
-<!-- TODO: each sample should have link/path to the source code involved -->
+<!-- TODO: each sample should have a link/path to the source code involved -->
 
-In this chapter, you could see the complete list of features that WAMR support. And for each feature we have the example followed demonstrating the usage of such feature.
+In this chapter, you can see the complete list of features that WAMR support. And for each feature, we have an example followed demonstrating the usage of such a feature.
 
 ## IWASM features
 
@@ -11,7 +11,7 @@ In this chapter, you could see the complete list of features that WAMR support. 
 - Full compliant to the W3C WASM MVP
 - Small runtime binary size (~85K for interpreter and ~50K for AOT) and low memory usage
 - Near to native speed by AOT and JIT
-- Self-implemented AOT module loader to enable AOT working on Linux, Windows, MacOS, Android, SGX and MCU systems
+- Self-implemented AOT module loader to enable AOT work on Linux, Windows, MacOS, Android, SGX, and MCU systems
 - Choices of WASM application libc support: the built-in libc subset for the embedded environment or [WASI](https://github.com/WebAssembly/WASI) for the standard libc
 - [The simple C APIs to embed WAMR into host environment](../../doc/embed_wamr.md), see [how to integrate WAMR](../../doc/embed_wamr.md) and the [API list](../../core/iwasm/include/wasm_export.h)
 - [The mechanism to export native APIs to WASM applications](../../doc/export_native_api.md), see [how to register native APIs](../../doc/export_native_api.md)
@@ -26,7 +26,7 @@ In this chapter, you could see the complete list of features that WAMR support. 
 
 ### WASM post-MVP features
 
-There are many post-MVP features for WASM. We support some of them, you could see the details in [this section](demo_examples/README.md)
+There are many post-MVP features for WASM. We support some of them. You can see the details in [this section](demo_examples/README.md)
 
 - [wasm-c-api](https://github.com/WebAssembly/wasm-c-api)
 - [128-bit SIMD](https://github.com/WebAssembly/simd)

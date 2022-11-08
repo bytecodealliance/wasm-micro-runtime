@@ -1,6 +1,6 @@
 # How to Build wamrc AOT compiler
 
-Both wasm binary file and AOT file are supported by iwasm. The wamrc AOT compiler is to compile wasm binary file to AOT file which can also be run by iwasm. Execute following commands to build **wamrc** compiler for Linux:
+Both the WASM binary file and AOT file are supported by iwasm. The wamrc AOT compiler compiles wasm binary file to AOT file, which can also be run by iwasm. Execute the following commands to build **wamrc** compiler for Linux:
 
 ```shell
 cd wamr-compiler
