@@ -13,8 +13,8 @@
   * [Hello-world Program On Host](gitbook/basics/getting_started/on-host.md)
   * [Docker Environment Preparation](doc/devcontainer.md)
   * [Hello-world Program On Docker](gitbook/basics/getting_started/on-docker.md)
-  * [How To Build Wasm Application](doc/build_wasm_app.md)
-    * [More Tools To Create Wasm Application](doc/other_wasm_compilers.md)
+  * [Build And Run WASM Application](doc/build_wasm_app.md)
+    * [More Tools To Create WASM Application](doc/other_wasm_compilers.md)
 
 ## WAMR In Practice
 

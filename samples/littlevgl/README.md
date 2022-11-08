@@ -1,3 +1,6 @@
+---
+description: "The related code of this example resides in directory {WAMR_DIR}/samples/littlevgl"
+---
 "littlevgl" sample introduction
 ==============
 This sample demonstrates that a graphic user interface application in WebAssembly by compiling the LittlevGL v5.3, an open-source embedded 2d graphic library into the WASM bytecode.

@@ -1,3 +1,6 @@
+---
+description: "The code of this example resides in directory {WAMR_DIR}/samples/gui"
+---
 "gui" sample introduction
 ==============
 This sample demonstrates that a graphic user interface application in WebAssembly programming with WAMR graphic library(WGL)  which is part of WAMR app-framework.

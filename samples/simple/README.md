@@ -1,4 +1,6 @@
-
+---
+description: "The related code of this example resides in directory {WAMR_DIR}/samples/simple"
+---
 
 "simple" sample introduction
 ==============
