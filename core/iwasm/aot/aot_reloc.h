@@ -124,6 +124,8 @@ typedef struct {
     { "memset", (void*)aot_memset },      \
     { "memmove", (void*)aot_memmove },    \
     { "memcpy", (void*)aot_memmove },     \
+    { "sqrt", (void*)aot_sqrt },          \
+    { "sqrtf", (void*)aot_sqrtf },        \
     REG_SYM(fmin),                        \
     REG_SYM(fminf),                       \
     REG_SYM(fmax),                        \
@@ -136,8 +138,6 @@ typedef struct {
     REG_SYM(truncf),                      \
     REG_SYM(rint),                        \
     REG_SYM(rintf),                       \
-    REG_SYM(sqrt),                        \
-    REG_SYM(sqrtf),                       \
     REG_BULK_MEMORY_SYM()                 \
     REG_ATOMIC_WAIT_SYM()                 \
     REG_REF_TYPES_SYM()                   \

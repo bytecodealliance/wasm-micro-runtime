@@ -451,6 +451,12 @@ aot_memmove(void *dest, const void *src, size_t n);
 void *
 aot_memset(void *s, int c, size_t n);
 
+double
+aot_sqrt(double x);
+
+float
+aot_sqrtf(float x);
+
 #if WASM_ENABLE_BULK_MEMORY != 0
 bool
 aot_memory_init(AOTModuleInstance *module_inst, uint32 seg_index, uint32 offset,
