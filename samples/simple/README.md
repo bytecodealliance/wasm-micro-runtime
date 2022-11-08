@@ -1,5 +1,5 @@
 ---
-description: "The related code of this example resides in directory {WAMR_DIR}/samples/simple"
+description: "The related code/working directory of this example resides in directory {WAMR_DIR}/samples/simple"
 ---
 
 "simple" sample introduction

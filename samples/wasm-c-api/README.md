@@ -1,5 +1,5 @@
 ---
-description: "The related code of this example resides in directory {WAMR_DIR}/samples/wasm-c-api"
+description: "The related code/working directory of this example resides in directory {WAMR_DIR}/samples/wasm-c-api"
 ---
 WAMR supports *wasm-c-api* in both *interpreter* mode and *aot* mode.
 
