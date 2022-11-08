@@ -4,7 +4,7 @@ In this section, you will learn the basics of WebAssembly. More details about We
 
 ## The origin story of WebAssembly
 
-Like its name suggest, in a sense, it is related to the Web and Assembly. Web means that it, like many other forerunners, like asm.js, trying to improve JavaScript's performance in Browsers. And the Assembly means that the format of WebAssembly is not a human-readable format but a compact binary format that is more efficient for browser to use.
+Like its name suggest, in a sense, it is related to the Web and Assembly. Web means that it, like many other forerunners, like asm.js, trying to improve JavaScript's performance in Browsers. And the Assembly means that the format of WebAssembly is not a human-readable format but a compact binary format that is more efficient for Browsers to use.
 
 ## The other benefits of WebAssembly
 
