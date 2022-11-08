@@ -12,6 +12,7 @@ make
 ```
 
 For **Windows**：
+
 ```shell
 cd wamr-compiler
 python build_llvm.py

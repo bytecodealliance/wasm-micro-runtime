@@ -1,5 +1,5 @@
 ---
-description: "wanna hear a construction joke? we are still working on it"
+description: "This page is under construction/refinement. p.s. wanna hear a construction joke? we are still working on it"
 ---
 # Programmer's Manual
 
