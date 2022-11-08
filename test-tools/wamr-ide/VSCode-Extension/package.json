@@ -129,7 +129,7 @@
                     "program": "./resource/debug/windows/bin/lldb-vscode.exe"
                 },
                 "osx": {
-                    "program": "./resource/debug/osx/bin/lldb-vscode"
+                    "program": "./resource/debug/darwin/bin/lldb-vscode"
                 },
                 "linux": {
                     "program": "./resource/debug/linux/bin/lldb-vscode"
