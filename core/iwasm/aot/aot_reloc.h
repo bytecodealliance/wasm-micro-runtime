@@ -124,6 +124,8 @@ typedef struct {
     { "memset", (void*)aot_memset },      \
     { "memmove", (void*)aot_memmove },    \
     { "memcpy", (void*)aot_memmove },     \
+    { "sqrt", (void*)aot_sqrt },          \
+    { "sqrtf", (void*)aot_sqrtf },        \
     REG_SYM(fmin),                        \
     REG_SYM(fminf),                       \
     REG_SYM(fmax),                        \
