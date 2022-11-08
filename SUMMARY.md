@@ -37,7 +37,8 @@
     * [Memory Usage Tunning](doc/memory_tune.md)
   * [Application Framework](doc/wamr_api.md)
   * [Remote Application Management](gitbook/advance_tutorial/remote_applicatoin_management/README.md)
-    * [Example Program: Using "host_tool"](samples/simple/README.md)
+    * [Example 1: Install/Uninstall WASM App Remotely](samples/simple/README.md)
+    * [Example 2: IoT App Store Demo](test-tools/IoT-APP-Store-Demo/README.md)
 
 * [Features](gitbook/features/README.md)
   * [Export Native APIs To WASM Applications](doc/export_native_api.md)
@@ -55,15 +56,15 @@
   * [Post-MVP Features](gitbook/features/demo_examples/README.md)
     * [WASM C API](samples/wasm-c-api/README.md)
     * [128-bit SIMD](samples/workload/README.md)
-    * [Reference Types](samples/ref-types)
+    * [Reference Types](samples/ref-types/README.md)
 
 * [More Examples](gitbook/examples/README.md)
   * [File Interaction Of WASI](samples/file/README.md)
   * [GUI Example](gitbook/examples/gui_examples/README.md)
     * [Littlevgl](samples/littlevgl/README.md)
     * [LVGL](samples/gui/README.md)
-  * [Same WASM Program Executing Concurrently](samples/spawn-thread)
-  * [Build And Run Workload](samples/workload)
+  * [Same WASM Program Executing Concurrently](samples/spawn-thread/README.md)
+  * [Build And Run Workload](samples/workload/README.md)
 
 * [User Case](gitbook/features/user_case/README.md)
 
