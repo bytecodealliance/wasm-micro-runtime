@@ -44,9 +44,9 @@
     * [Example 1: Export C Functions to WASM](samples/basic/README.md)
     * [Example 2: Using "native-lib"](samples/native-lib/README.md)
   * [Multiple Modules As Dependencies](doc/multi_module.md)
-    * [Multi-modules Example](samples/multi-module/)
+    * [Multi-modules Example](samples/multi-module/README.md)
   * [Multi-thread, Pthread APIs And Thread Management](doc/pthread_library.md)
-    * [Multi-thread Example](samples/multi-thread/)
+    * [Multi-thread Example](samples/multi-thread/README.md)
   * [Linux SGX(Intel Software Guard Extension) Support](doc/linux_sgx.md)
     * [Example: SGX Remote Attestation](samples/sgx-ra/README.md)
   * [XIP(Execution In Place) Support](doc/xip.md)
@@ -63,7 +63,7 @@
     * [Littlevgl](samples/littlevgl/README.md)
     * [LVGL](samples/gui/README.md)
   * [Same WASM Program Executing Concurrently](samples/spawn-thread)
-  * [Build And Run Workload](samples/workload/README.md)
+  * [Build And Run Workload](samples/workload)
 
 * [User Case](gitbook/features/user_case/README.md)
 
