@@ -46,9 +46,9 @@ export function isLLDBInstalled(context: vscode.ExtensionContext): boolean {
 
 export async function promptInstallLLDB(context: vscode.ExtensionContext) {
     const extensionPath = context.extensionPath;
-    const setutPrompt = "setup";
+    const setupPrompt = "setup";
     const skipPrompt = "skip";
-    const response = await vscode.window.showWarningMessage('No LLDB instance found. Setup now?', setutPrompt, skipPrompt);
+    const response = await vscode.window.showWarningMessage('No LLDB instance found. Setup now?', setupPrompt, skipPrompt);
 
     if (response === skipPrompt) {
         return;

@@ -370,13 +370,22 @@ export async function activate(context: vscode.ExtensionContext) {
 
     let disposableDebug = vscode.commands.registerCommand(
         'wamride.debug',
-        () => {
+        async () => {
             if (!isWasmProject) {
                 vscode.window.showErrorMessage('debug failed', {
                     modal: true,
                     detail: 'Current project is not wasm project, please open wasm project and try again.',
                 });
                 return;
+            }
+
+            /* we should check again whether the user installed lldb, as this can be skipped during activation */
+            try {
+                if (!isLLDBInstalled(context)) {
+                    await promptInstallLLDB(context);
+                }
+            } catch (e) {
+                vscode.window.showWarningMessage((e as Error).message);
             }
 
             /* refuse to debug if build process failed */
