@@ -357,6 +357,32 @@ wasm_runtime_load_from_sections(wasm_section_list_t section_list, bool is_aot,
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_unload(wasm_module_t module);
 
+/**
+ * Set WASI parameters.
+ *
+ * While this API operates on a module, these parameters will be used
+ * only when the module is instantiated. That is, you can consider these
+ * as extra parameters for wasm_runtime_instantiate().
+ *
+ * @param module        The module to set WASI parameters.
+ * @param dir_list      The list of directories to preopen. (real path)
+ * @param dir_count     The number of elements in dir_list.
+ * @param map_dir_list  The list of directories to preopen. (mapped path)
+ * @param map_dir_count The number of elements in map_dir_list.
+ *                      If map_dir_count is smaller than dir_count,
+ *                      mapped path is assumed to be same as the
+ *                      corresponding real path for the rest of entries.
+ * @param env           The list of environment variables.
+ * @param env_count     The number of elements in env.
+ * @param argv          The list of command line arguments.
+ * @param argc          The number of elements in argv.
+ * @param stdinfd       The host file descriptor to back WASI STDIN_FILENO.
+ *                      If -1 is specified, STDIN_FILENO is used.
+ * @param stdoutfd      The host file descriptor to back WASI STDOUT_FILENO.
+ *                      If -1 is specified, STDOUT_FILENO is used.
+ * @param stderrfd      The host file descriptor to back WASI STDERR_FILENO.
+ *                      If -1 is specified, STDERR_FILENO is used.
+ */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_wasi_args_ex(wasm_module_t module,
                            const char *dir_list[], uint32_t dir_count,
@@ -365,6 +391,12 @@ wasm_runtime_set_wasi_args_ex(wasm_module_t module,
                            char *argv[], int argc,
                            int stdinfd, int stdoutfd, int stderrfd);
 
+/**
+ * Set WASI parameters.
+ *
+ * Same as wasm_runtime_set_wasi_args_ex with stdinfd = -1, stdoutfd = -1,
+ * stderrfd = -1.
+ */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_wasi_args(wasm_module_t module,
                            const char *dir_list[], uint32_t dir_count,

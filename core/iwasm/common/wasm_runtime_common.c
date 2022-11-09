@@ -2509,7 +2509,11 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
     }
     addr_pool_inited = true;
 
-    /* Prepopulate curfds with stdin, stdout, and stderr file descriptors. */
+    /* Prepopulate curfds with stdin, stdout, and stderr file descriptors.
+     *
+     * If -1 is given, use STDIN_FILENO (0), STDOUT_FILENO (1),
+     * STDERR_FILENO (2) respectively.
+     */
     if (!fd_table_insert_existing(curfds, 0, (stdinfd != -1) ? stdinfd : 0)
         || !fd_table_insert_existing(curfds, 1, (stdoutfd != -1) ? stdoutfd : 1)
         || !fd_table_insert_existing(curfds, 2,
