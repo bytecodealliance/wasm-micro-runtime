@@ -134,6 +134,7 @@ set(EXAMPLES
   memory
   reflect
   table
+  threads
   trap
 )
 
