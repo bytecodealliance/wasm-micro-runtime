@@ -37,6 +37,15 @@ $ echo 'deb [arch=amd64] https://download.01.org/intel-sgx/sgx_repo/ubuntu bioni
 $ wget -O - https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key | sudo apt-key add -
 $ sudo apt-get update
 $ sudo apt-get install -y libsgx-uae-service libsgx-dcap-default-qpl-dev libsgx-dcap-ql-dev libsgx-dcap-quote-verify-dev
+$ # install SGX SSL Library
+$ git clone https://github.com/intel/intel-sgx-ssl.git
+$ wget https://www.openssl.org/source/openssl-1.1.1q.tar.gz
+$ cp openssl-1.1.1q.tar.gz intel-sgx-ssl/openssl_source
+$ rm -f openssl-1.1.1q.tar.gz
+$ cd intel-sgx-ssl/Linux
+$ source /opt/intel/sgxsdk/environment
+$ make all
+$ make install
 ```
 
 You can optionally grant users to communicate with the SDK platform using the following command.

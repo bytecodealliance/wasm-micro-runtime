@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#define LIB_RATS 0
+#define LIB_RATS 1
 #define SGX_IPFS 0
 
 enclave {
@@ -12,6 +12,7 @@ enclave {
     from "sgx_wamr.edl" import *;
 #if LIB_RATS != 0
     from "rats.edl" import *;
+    from "sgx_tsgxssl.edl" import *;
 #endif
 #if SGX_IPFS != 0
     from "sgx_tprotected_fs.edl" import *;
