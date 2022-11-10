@@ -1,4 +1,4 @@
-# Performance Test And Fine-tuning
+# Performance Test
 
 Like word on the street said(no way it's just us saying!) or you may saw in previous chapters(maybe multiple times), WAMR is a **lightweight** standalone WebAssembly (WASM) runtime with **small footprint**, **high performance** and highly configurable features.
 
@@ -15,4 +15,4 @@ For the memory footprint, you can refer to the links below.
 
 - [Performance and footprint data](https://github.com/bytecodealliance/wasm-micro-runtime/wiki/Performance): checkout [here](https://github.com/bytecodealliance/wasm-micro-runtime/wiki/Performance) for the performance and footprint data
 
-And in the later section of this chapter, we provide tutorials on memory fine-tuning. You can [profile memory usage](../../../doc/build_wamr.md#enable-memory-profiling-experiment) and [tunning memory usage](../../../doc/memory_tune.md)
+And in the next section, we provide tutorials on memory usage tuning. You can [profile memory usage](../../../doc/build_wamr.md#enable-memory-profiling-experiment) and [tunning memory usage](../../../doc/memory_tune.md)
