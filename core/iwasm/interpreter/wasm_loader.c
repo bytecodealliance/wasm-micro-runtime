@@ -428,6 +428,12 @@ destroy_wasm_type(WASMType *type)
         return;
     }
 
+#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
+    && WASM_ENABLE_LAZY_JIT != 0
+    if (type->call_to_llvm_jit_from_fast_jit)
+        jit_code_cache_free(type->call_to_llvm_jit_from_fast_jit);
+#endif
+
     wasm_runtime_free(type);
 }
 
@@ -2974,8 +2980,7 @@ init_fast_jit_functions(WASMModule *module, char *error_buf,
 #if WASM_ENABLE_LAZY_JIT != 0
     for (i = 0; i < module->function_count; i++) {
         module->fast_jit_func_ptrs[i] =
-            module->functions[i]->fast_jit_jitted_code =
-                jit_globals->call_to_interp_from_jitted;
+            jit_globals->compile_fast_jit_and_then_call;
     }
 #endif
 
@@ -3112,9 +3117,7 @@ orcjit_thread_callback(void *arg)
 #if WASM_ENABLE_FAST_JIT != 0
     /* Compile fast jit funcitons of this group */
     for (i = group_idx; i < func_count; i += group_stride) {
-        if (!jit_compiler_is_compiled(module, i + module->import_function_count)
-            && !jit_compiler_compile(module,
-                                     i + module->import_function_count)) {
+        if (!jit_compiler_compile(module, i + module->import_function_count)) {
             os_printf("failed to compile fast jit function %u\n", i);
             break;
         }
@@ -3158,8 +3161,16 @@ orcjit_thread_callback(void *arg)
         u.f();
 
         for (j = 0; j < WASM_ORC_JIT_COMPILE_THREAD_NUM; j++) {
-            if (i + j * group_stride < func_count)
+            if (i + j * group_stride < func_count) {
                 module->func_ptrs_compiled[i + j * group_stride] = true;
+#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_LAZY_JIT != 0
+                /* Try to switch to call this llvm jit funtion instead of
+                   fast jit function from fast jit jitted code */
+                jit_compiler_set_call_to_llvm_jit(
+                    module,
+                    i + j * group_stride + module->import_function_count);
+#endif
+            }
         }
 
         if (module->orcjit_stop_compiling) {
@@ -4126,6 +4137,12 @@ wasm_loader_unload(WASMModule *module)
                 if (module->functions[i]->consts)
                     wasm_runtime_free(module->functions[i]->consts);
 #endif
+#if WASM_ENABLE_FAST_JIT != 0
+                if (module->functions[i]->fast_jit_jitted_code) {
+                    jit_code_cache_free(
+                        module->functions[i]->fast_jit_jitted_code);
+                }
+#endif
                 wasm_runtime_free(module->functions[i]);
             }
         }
@@ -4221,11 +4238,6 @@ wasm_loader_unload(WASMModule *module)
 
 #if WASM_ENABLE_FAST_JIT != 0
     if (module->fast_jit_func_ptrs) {
-        for (i = 0; i < module->function_count; i++) {
-            if (jit_compiler_is_compiled(module,
-                                         i + module->import_function_count))
-                jit_code_cache_free(module->fast_jit_func_ptrs[i]);
-        }
         wasm_runtime_free(module->fast_jit_func_ptrs);
     }
 

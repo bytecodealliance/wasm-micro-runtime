@@ -65,6 +65,9 @@ jit_codegen_gen_native(JitCompContext *cc);
 bool
 jit_codegen_lower(JitCompContext *cc);
 
+void *
+jit_codegen_compile_call_to_llvm_jit(const WASMType *func_type);
+
 /**
  * Dump native code in the given range to assembly.
  *
@@ -75,7 +78,8 @@ void
 jit_codegen_dump_native(void *begin_addr, void *end_addr);
 
 int
-jit_codegen_interp_jitted_glue(void *self, JitInterpSwitchInfo *info, void *pc);
+jit_codegen_interp_jitted_glue(void *self, JitInterpSwitchInfo *info,
+                               uint32 func_idx, void *pc);
 
 #ifdef __cplusplus
 }
