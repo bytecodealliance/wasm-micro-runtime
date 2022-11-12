@@ -234,6 +234,7 @@ compile_op_float_min_max(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         nan = LLVMConstRealOfString(ret_type, "NaN");
     char *intrinsic = is_min ? (is_f32 ? "llvm.minnum.f32" : "llvm.minnum.f64")
                              : (is_f32 ? "llvm.maxnum.f32" : "llvm.maxnum.f64");
+    bool is_i32 = is_f32;
 
     CHECK_LLVM_CONST(nan);
 
@@ -290,12 +291,12 @@ compile_op_float_min_max(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         return NULL;
     }
 
-    /* TODO: 64 bit Or/And intrinsic for XIP */
-
     if (is_min)
-        LLVM_BUILD_OP(Or, left_int, right_int, tmp, "tmp_int", NULL);
+        LLVM_BUILD_OP_OR_INTRINSIC(Or, left_int, right_int, tmp, "i64.or",
+                                   "tmp_int", false);
     else
-        LLVM_BUILD_OP(And, left_int, right_int, tmp, "tmp_int", NULL);
+        LLVM_BUILD_OP_OR_INTRINSIC(And, left_int, right_int, tmp, "i64.and",
+                                   "tmp_int", false);
 
     if (!(tmp = LLVMBuildBitCast(comp_ctx->builder, tmp, ret_type, "tmp"))) {
         aot_set_last_error("llvm build bitcast fail.");

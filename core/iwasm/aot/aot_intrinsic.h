@@ -93,6 +93,8 @@ extern "C" {
 #define AOT_INTRINSIC_FLAG_I64_DIV_U    AOT_INTRINSIC_FLAG(1, 29)
 #define AOT_INTRINSIC_FLAG_I64_REM_S    AOT_INTRINSIC_FLAG(1, 30)
 #define AOT_INTRINSIC_FLAG_I64_REM_U    AOT_INTRINSIC_FLAG(1, 31)
+#define AOT_INTRINSIC_FLAG_I64_BIT_OR   AOT_INTRINSIC_FLAG(1, 32)
+#define AOT_INTRINSIC_FLAG_I64_BIT_AND  AOT_INTRINSIC_FLAG(1, 33)
 
 /* clang-format on */
 
@@ -266,6 +268,12 @@ aot_intrinsic_i64_rem_s(int64 l, int64 r);
 
 uint64
 aot_intrinsic_i64_rem_u(uint64 l, uint64 r);
+
+uint64
+aot_intrinsic_i64_bit_or(uint64 l, uint64 r);
+
+uint64
+aot_intrinsic_i64_bit_and(uint64 l, uint64 r);
 
 const char *
 aot_intrinsic_get_symbol(const char *llvm_intrinsic);
