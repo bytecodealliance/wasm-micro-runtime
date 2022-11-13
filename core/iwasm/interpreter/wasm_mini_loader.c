@@ -6398,6 +6398,9 @@ re_scan:
 #if WASM_ENABLE_FAST_INTERP != 0
                 emit_uint32(loader_ctx, mem_offset);
 #endif
+#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
+                func->has_memory_operations = true;
+#endif
                 switch (opcode) {
                     /* load */
                     case WASM_OP_I32_LOAD:
@@ -6447,9 +6450,6 @@ re_scan:
                     default:
                         break;
                 }
-#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
-                func->has_memory_operations = true;
-#endif
                 break;
             }
 
@@ -7037,6 +7037,9 @@ re_scan:
                     emit_uint32(loader_ctx, mem_offset);
 #endif
                 }
+#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
+                func->has_memory_operations = true;
+#endif
                 switch (opcode) {
                     case WASM_OP_ATOMIC_NOTIFY:
                         POP2_AND_PUSH(VALUE_TYPE_I32, VALUE_TYPE_I32);
