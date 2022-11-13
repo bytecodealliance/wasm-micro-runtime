@@ -8933,6 +8933,9 @@ re_scan:
                         read_leb_uint32(p, p_end, mem_offset); /* offset */
 
                         POP_AND_PUSH(VALUE_TYPE_I32, VALUE_TYPE_V128);
+#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
+                        func->has_memory_operations = true;
+#endif
                         break;
                     }
 
@@ -8950,6 +8953,9 @@ re_scan:
 
                         POP_V128();
                         POP_I32();
+#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
+                        func->has_memory_operations = true;
+#endif
                         break;
                     }
 
@@ -9174,6 +9180,9 @@ re_scan:
                         if (opcode < SIMD_v128_store8_lane) {
                             PUSH_V128();
                         }
+#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
+                        func->has_memory_operations = true;
+#endif
                         break;
                     }
 
@@ -9191,6 +9200,9 @@ re_scan:
                         read_leb_uint32(p, p_end, mem_offset); /* offset */
 
                         POP_AND_PUSH(VALUE_TYPE_I32, VALUE_TYPE_V128);
+#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
+                        func->has_memory_operations = true;
+#endif
                         break;
                     }
 
