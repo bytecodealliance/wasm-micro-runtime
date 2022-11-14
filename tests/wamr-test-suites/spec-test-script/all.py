@@ -121,7 +121,7 @@ def test_case(
     ):
         return True
 
-    CMD = ["python", "runtest.py"]
+    CMD = ["python3", "runtest.py"]
     CMD.append("--wast2wasm")
     CMD.append(WAST2WASM_CMD)
     CMD.append("--interpreter")
@@ -270,9 +270,9 @@ def test_suite(
                     verbose_flag,
                 )
                 successful_case += 1
-            except Exception:
+            except Exception as e:
                 failed_case += 1
-                break
+                raise e
 
     print(
         f"IN ALL {case_count} cases: {successful_case} PASS, {failed_case} FAIL, {case_count - successful_case - failed_case} SKIP"

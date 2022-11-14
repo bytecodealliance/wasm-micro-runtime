@@ -187,8 +187,14 @@ jobs:
             #$AOT_BUILD_OPTIONS,
           ]
         os: [ubuntu-20.04]
-        wasi_sdk_release: ["https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz"]
-        wabt_release: ["https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-ubuntu.tar.gz"]
+        wasi_sdk_release:
+          [
+            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz",
+          ]
+        wabt_release:
+          [
+            "https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-ubuntu.tar.gz",
+          ]
     steps:
       - name: checkout
         uses: actions/checkout@v3
@@ -236,8 +242,14 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-20.04]
-        wasi_sdk_release: ["https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz"]
-        wabt_release: ["https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-ubuntu.tar.gz"]
+        wasi_sdk_release:
+          [
+            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz",
+          ]
+        wabt_release:
+          [
+            "https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-ubuntu.tar.gz",
+          ]
     steps:
       - name: checkout
         uses: actions/checkout@v3
@@ -321,13 +333,13 @@ jobs:
     strategy:
       matrix:
         running_mode: ["classic-interp", "fast-interp", "aot"]
-        test_option: ["-x -p -s spec -P", "-x -p -s spec -S -P"]
+        test_option: ["-x -p -s spec -b -P", "-x -p -s spec -S -b -P"]
         # classic-interp and fast-interp don't support simd
         exclude:
           - running_mode: "classic-interp"
-            test_option: "-x -p -s spec -S -P"
+            test_option: "-x -p -s spec -S -b -P"
           - running_mode: "fast-interp"
-            test_option: "-x -p -s spec -S -P"
+            test_option: "-x -p -s spec -S -b -P"
 
     steps:
       - name: checkout
@@ -349,9 +361,6 @@ jobs:
       - name: Quit if cache miss
         if: matrix.running_mode == 'aot' && steps.cache_llvm.outputs.cache-hit != 'true'
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
-
-      - name: install Ninja
-        run: sudo apt install -y ninja-build
 
       - name: install SGX SDK and necessary libraries
         run: |
