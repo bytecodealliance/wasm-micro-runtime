@@ -43,7 +43,7 @@ endif ()
 # Override the global heap usage
 if (NOT DEFINED WAMR_BUILD_GLOBAL_HEAP_POOL)
   add_definitions (-DWASM_ENABLE_GLOBAL_HEAP_POOL=1)
-endif
+endif ()
 
 # Override the global heap size for small devices
 if (NOT DEFINED WAMR_BUILD_GLOBAL_HEAP_SIZE)

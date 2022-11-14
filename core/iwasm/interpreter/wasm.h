@@ -247,11 +247,6 @@ struct WASMFunction {
 
     uint32 max_stack_cell_num;
     uint32 max_block_num;
-    /* Whether function has opcode memory.grow */
-    bool has_op_memory_grow;
-    /* Whether function has opcode call or
-       call_indirect */
-    bool has_op_func_call;
     uint32 code_size;
     uint8 *code;
 #if WASM_ENABLE_FAST_INTERP != 0
@@ -260,11 +255,28 @@ struct WASMFunction {
     uint8 *consts;
     uint32 const_cell_num;
 #endif
+
 #if WASM_ENABLE_FAST_JIT != 0
     void *fast_jit_jitted_code;
 #endif
 #if WASM_ENABLE_JIT != 0
     void *llvm_jit_func_ptr;
+#endif
+
+#if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0 \
+    || WASM_ENABLE_WAMR_COMPILER != 0
+    /* Whether function has opcode memory.grow */
+    bool has_op_memory_grow;
+    /* Whether function has opcode call or call_indirect */
+    bool has_op_func_call;
+#endif
+#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
+    /* Whether function has memory operation opcodes */
+    bool has_memory_operations;
+    /* Whether function has opcode call_indirect */
+    bool has_op_call_indirect;
+    /* Whether function has opcode set_global_aux_stack */
+    bool has_op_set_global_aux_stack;
 #endif
 };
 
