@@ -234,15 +234,49 @@ compile_op_float_min_max(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         nan = LLVMConstRealOfString(ret_type, "NaN");
     char *intrinsic = is_min ? (is_f32 ? "llvm.minnum.f32" : "llvm.minnum.f64")
                              : (is_f32 ? "llvm.maxnum.f32" : "llvm.maxnum.f64");
+    bool is_i32 = is_f32;
 
     CHECK_LLVM_CONST(nan);
 
     param_types[0] = param_types[1] = ret_type;
 
-    if (!(is_nan = LLVMBuildFCmp(comp_ctx->builder, LLVMRealUNO, left, right,
-                                 "is_nan"))
-        || !(is_eq = LLVMBuildFCmp(comp_ctx->builder, LLVMRealOEQ, left, right,
-                                   "is_eq"))) {
+    if (comp_ctx->disable_llvm_intrinsics
+        && aot_intrinsic_check_capability(comp_ctx,
+                                          is_f32 ? "f32_cmp" : "f64_cmp")) {
+        LLVMTypeRef param_types[3];
+        LLVMValueRef opcond = LLVMConstInt(I32_TYPE, FLOAT_UNO, true);
+        param_types[0] = I32_TYPE;
+        param_types[1] = is_f32 ? F32_TYPE : F64_TYPE;
+        param_types[2] = param_types[1];
+        is_nan = aot_call_llvm_intrinsic(
+            comp_ctx, func_ctx, is_f32 ? "f32_cmp" : "f64_cmp", I32_TYPE,
+            param_types, 3, opcond, left, right);
+
+        opcond = LLVMConstInt(I32_TYPE, FLOAT_EQ, true);
+        is_eq = aot_call_llvm_intrinsic(
+            comp_ctx, func_ctx, is_f32 ? "f32_cmp" : "f64_cmp", I32_TYPE,
+            param_types, 3, opcond, left, right);
+
+        if (!is_nan || !is_eq) {
+            return NULL;
+        }
+
+        if (!(is_nan = LLVMBuildIntCast(comp_ctx->builder, is_nan, INT1_TYPE,
+                                        "bit_cast_is_nan"))) {
+            aot_set_last_error("llvm build is_nan bit cast fail.");
+            return NULL;
+        }
+
+        if (!(is_eq = LLVMBuildIntCast(comp_ctx->builder, is_eq, INT1_TYPE,
+                                       "bit_cast_is_eq"))) {
+            aot_set_last_error("llvm build is_eq bit cast fail.");
+            return NULL;
+        }
+    }
+    else if (!(is_nan = LLVMBuildFCmp(comp_ctx->builder, LLVMRealUNO, left,
+                                      right, "is_nan"))
+             || !(is_eq = LLVMBuildFCmp(comp_ctx->builder, LLVMRealOEQ, left,
+                                        right, "is_eq"))) {
         aot_set_last_error("llvm build fcmp fail.");
         return NULL;
     }
@@ -258,9 +292,11 @@ compile_op_float_min_max(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     if (is_min)
-        LLVM_BUILD_OP(Or, left_int, right_int, tmp, "tmp_int", NULL);
+        LLVM_BUILD_OP_OR_INTRINSIC(Or, left_int, right_int, tmp, "i64.or",
+                                   "tmp_int", false);
     else
-        LLVM_BUILD_OP(And, left_int, right_int, tmp, "tmp_int", NULL);
+        LLVM_BUILD_OP_OR_INTRINSIC(And, left_int, right_int, tmp, "i64.and",
+                                   "tmp_int", false);
 
     if (!(tmp = LLVMBuildBitCast(comp_ctx->builder, tmp, ret_type, "tmp"))) {
         aot_set_last_error("llvm build bitcast fail.");

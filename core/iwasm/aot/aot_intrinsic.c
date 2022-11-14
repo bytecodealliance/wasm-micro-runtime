@@ -72,6 +72,8 @@ static const aot_intrinsic g_intrinsic_mapping[] = {
     { "i64.div_u", "aot_intrinsic_i64_div_u", AOT_INTRINSIC_FLAG_I64_DIV_U},
     { "i64.rem_s", "aot_intrinsic_i64_rem_s", AOT_INTRINSIC_FLAG_I64_REM_S},
     { "i64.rem_u", "aot_intrinsic_i64_rem_u", AOT_INTRINSIC_FLAG_I64_REM_U},
+    { "i64.or", "aot_intrinsic_i64_bit_or", AOT_INTRINSIC_FLAG_I64_BIT_OR},
+    { "i64.and", "aot_intrinsic_i64_bit_and", AOT_INTRINSIC_FLAG_I64_BIT_AND},
 };
 /* clang-format on */
 
@@ -524,6 +526,18 @@ aot_intrinsic_i64_rem_u(uint64 l, uint64 r)
     return l % r;
 }
 
+uint64
+aot_intrinsic_i64_bit_or(uint64 l, uint64 r)
+{
+    return l | r;
+}
+
+uint64
+aot_intrinsic_i64_bit_and(uint64 l, uint64 r)
+{
+    return l & r;
+}
+
 const char *
 aot_intrinsic_get_symbol(const char *llvm_intrinsic)
 {
@@ -558,6 +572,8 @@ add_i64_common_intrinsics(AOTCompContext *comp_ctx)
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I64_DIV_U);
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I64_REM_S);
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I64_REM_U);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I64_BIT_OR);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I64_BIT_AND);
 }
 
 static void
