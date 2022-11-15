@@ -17,7 +17,7 @@ It could run an AOT file(compiled by wamrc AOT compiler) in AOT running mode
 It could run wasm applications in Interpreter/JIT running mode:
 
 - Interpreter:
-  We support two running modes of the interpreter:
+  Interpreters are very useful when debugging or studying, but their performance is relatively poor compared with other running modes. We support two running modes of the interpreter:
   - Classic Interpreter: plain interpreter running mode
   - Fast Interpreter: as you can guess from the name, the fast interpreter runs ~2X faster than the classic interpreter but consumes about 2X memory to hold the pre-compiled code.
 - JIT:
@@ -26,4 +26,4 @@ It could run wasm applications in Interpreter/JIT running mode:
   - Fast-JIT: implement JIT without get extra dependencies(LLVM libraries) involved so that iwasm could run easier in some platforms
 
 <!-- TODO: incoming blog -->
-For more detailed introduction, kindly refer to this article(incoming) in our blog.
+For more detailed introduction, kindly refer to this article(**incoming**) in our blog.

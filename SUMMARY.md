@@ -19,7 +19,7 @@
 ## WAMR In Practice
 
 * [Tutorial](gitbook/tutorial/README.md)
-  * [WAMR Running Modes](gitbook/tutorial/running_modes/)
+  * [WAMR Running Modes](gitbook/tutorial/running_modes/README.md)
   * [Build Tutorial](gitbook/tutorial/build_tutorial/README.md)
     * [Build iwasm](doc/build_wamr.md)
     * [Build wamrc](gitbook/tutorial/build_tutorial/build_wamrc.md)
