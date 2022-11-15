@@ -243,19 +243,19 @@ compile_op_float_min_max(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     if (comp_ctx->disable_llvm_intrinsics
         && aot_intrinsic_check_capability(comp_ctx,
                                           is_f32 ? "f32_cmp" : "f64_cmp")) {
-        LLVMTypeRef param_types[3];
+        LLVMTypeRef param_types_intrinsic[3];
         LLVMValueRef opcond = LLVMConstInt(I32_TYPE, FLOAT_UNO, true);
-        param_types[0] = I32_TYPE;
-        param_types[1] = is_f32 ? F32_TYPE : F64_TYPE;
-        param_types[2] = param_types[1];
+        param_types_intrinsic[0] = I32_TYPE;
+        param_types_intrinsic[1] = is_f32 ? F32_TYPE : F64_TYPE;
+        param_types_intrinsic[2] = param_types_intrinsic[1];
         is_nan = aot_call_llvm_intrinsic(
             comp_ctx, func_ctx, is_f32 ? "f32_cmp" : "f64_cmp", I32_TYPE,
-            param_types, 3, opcond, left, right);
+            param_types_intrinsic, 3, opcond, left, right);
 
         opcond = LLVMConstInt(I32_TYPE, FLOAT_EQ, true);
         is_eq = aot_call_llvm_intrinsic(
             comp_ctx, func_ctx, is_f32 ? "f32_cmp" : "f64_cmp", I32_TYPE,
-            param_types, 3, opcond, left, right);
+            param_types_intrinsic, 3, opcond, left, right);
 
         if (!is_nan || !is_eq) {
             return NULL;
