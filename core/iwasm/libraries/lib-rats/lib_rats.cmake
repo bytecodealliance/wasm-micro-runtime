@@ -3,20 +3,15 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 set (LIB_RATS_DIR ${CMAKE_CURRENT_LIST_DIR})
-set (SGX_SDK_INCLUDE_DIR "/opt/intel/sgxsdk/include")
-set (SGX_SSL_INCLUDE_DIR "/opt/intel/sgxssl/include")
+set (SGX_SSL_DIR "/opt/intel/sgxssl")
 
-if (NOT EXISTS ${SGX_SDK_INCLUDE_DIR})
-    message(FATAL_ERROR "Can not find SGX_SDK, please install it first")
-endif()
-
-if (NOT EXISTS ${SGX_SSL_INCLUDE_DIR})
+if (NOT EXISTS ${SGX_SSL_DIR})
     message(FATAL_ERROR "Can not find SGX_SSL, please install it first")
 endif()
 
 add_definitions (-DWASM_ENABLE_LIB_RATS=1)
 
-include_directories(${LIB_RATS_DIR} ${SGX_SDK_INCLUDE_DIR} ${SGX_SSL_INCLUDE_DIR})
+include_directories(${LIB_RATS_DIR} ${SGX_SSL_DIR}/include)
 
 include(FetchContent)
 
