@@ -1963,8 +1963,8 @@ wasm_module_new(wasm_store_t *store, const wasm_byte_vec_t *binary)
 destroy_lock:
     os_mutex_destroy(&module_ex->lock);
 remove_last:
-    bh_vector_remove((Vector *)store->modules, store->modules->num_elems - 1,
-                     NULL);
+    bh_vector_remove((Vector *)store->modules,
+                     (uint32)(store->modules->num_elems - 1), NULL);
 unload:
     wasm_runtime_unload(module_ex->module_comm_rt);
 free_vec:
@@ -2560,7 +2560,7 @@ wasm_module_share(wasm_module_t *module)
 void
 wasm_shared_module_delete(own wasm_shared_module_t *shared_module)
 {
-    return wasm_module_delete_internal((wasm_module_t *)shared_module);
+    wasm_module_delete_internal((wasm_module_t *)shared_module);
 }
 
 static wasm_func_t *
