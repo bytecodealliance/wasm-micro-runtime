@@ -245,7 +245,10 @@ wasm_debug_control_thread_create(WASMDebugInstance *debug_instance, int32 port)
     bh_list_insert(&g_debug_engine->debug_instance_list, debug_instance);
     os_mutex_unlock(&g_debug_engine->instance_list_lock);
 
-    wasm_cluster_send_signal_all(debug_instance->cluster, WAMR_SIG_STOP);
+    /* If we set WAMR_SIG_STOP here, the VSCode debugger adaptor will raise an
+     * exception in the UI. We use WAMR_SIG_SINGSTEP to avoid this exception for
+     * better user experience */
+    wasm_cluster_send_signal_all(debug_instance->cluster, WAMR_SIG_SINGSTEP);
 
     return control_thread;
 

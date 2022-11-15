@@ -2,7 +2,6 @@
 
 from __future__ import print_function
 import os, sys, re
-from pickletools import long1
 import argparse, time
 import signal, atexit, tempfile, subprocess
 
@@ -18,11 +17,9 @@ import struct
 import math
 import traceback
 
-try:
-    long
+if sys.version_info[0] == 2:
     IS_PY_3 = False
-except NameError:
-    long = int
+else:
     IS_PY_3 = True
 
 test_aot = False
@@ -154,7 +151,8 @@ class Runner():
                 self.stdout.close()
             self.stdin = None
             self.stdout = None
-            sys.exc_clear()
+            if not IS_PY_3:
+                sys.exc_clear()
 
 def assert_prompt(runner, prompts, timeout, is_need_execute_result):
     # Wait for the initial prompt
@@ -1128,11 +1126,15 @@ if __name__ == "__main__":
                     # workaround: spec test changes error message to "malformed" while iwasm still use "invalid"
                     error_msg = m.group(2).replace("malformed", "invalid")
                     log("Testing(malformed)")
-                    f = open(wasm_tempfile, 'w')
+                    f = open(wasm_tempfile, 'wb')
                     s = m.group(1)
                     while s:
                         res = re.match("[^\"]*\"([^\"]*)\"(.*)", s, re.DOTALL)
-                        f.write(res.group(1).replace("\\", "\\x").decode("string_escape"))
+                        if IS_PY_3:
+                            context = res.group(1).replace("\\", "\\x").encode("latin1").decode("unicode-escape").encode("latin1")
+                            f.write(context)
+                        else:
+                            f.write(res.group(1).replace("\\", "\\x").decode("string-escape"))
                         s = res.group(2)
                     f.close()
 
@@ -1156,6 +1158,9 @@ if __name__ == "__main__":
                         cmd = [opts.interpreter, "--heap-size=0", "--repl", wasm_tempfile]
                     log("Running: %s" % " ".join(cmd))
                     output = subprocess.check_output(cmd)
+
+                    if IS_PY_3:
+                        output = str(output, "latin1")
 
                     if (error_msg == "unexpected end of section or function") \
                        and output.endswith("unexpected end\n"):

@@ -187,6 +187,12 @@ ocall_unlinkat(int dirfd, const char *pathname, int flags)
 }
 
 ssize_t
+ocall_readlink(const char *pathname, char *buf, size_t bufsiz)
+{
+    return readlink(pathname, buf, bufsiz);
+}
+
+ssize_t
 ocall_readlinkat(int dirfd, const char *pathname, char *buf, size_t bufsiz)
 {
     return readlinkat(dirfd, pathname, buf, bufsiz);

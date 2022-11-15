@@ -12,7 +12,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#define PATH_TEST_FILE "test.txt"
+#define PATH_TEST_FOLDER "./test"
+#define PATH_TEST_FILE (PATH_TEST_FOLDER "/test.txt")
 #define FILE_TEXT "Hello, world!"
 #define WORLD_OFFSET 7
 #define NAME_REPLACMENT "James"
@@ -27,6 +28,10 @@ main(int argc, char **argv)
     char buffer[1000];
     int ret;
     long long stat_size;
+
+    // Test: Create a folder to store the file, if it does not exist yet
+    ret = mkdir(PATH_TEST_FOLDER, 777);
+    assert(ret == 0 || (ret == -1 && errno == EEXIST));
 
     // Test: File opening (fopen)
     printf("Opening a file..\n");

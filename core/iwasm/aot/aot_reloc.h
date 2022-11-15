@@ -112,6 +112,8 @@ typedef struct {
     REG_SYM(aot_intrinsic_i64_div_u),     \
     REG_SYM(aot_intrinsic_i64_rem_s),     \
     REG_SYM(aot_intrinsic_i64_rem_u),     \
+    REG_SYM(aot_intrinsic_i64_bit_or),    \
+    REG_SYM(aot_intrinsic_i64_bit_and),   \
     REG_SYM(aot_intrinsic_i32_div_u),     \
 
 #define REG_COMMON_SYMBOLS                \
@@ -124,6 +126,8 @@ typedef struct {
     { "memset", (void*)aot_memset },      \
     { "memmove", (void*)aot_memmove },    \
     { "memcpy", (void*)aot_memmove },     \
+    { "sqrt", (void*)aot_sqrt },          \
+    { "sqrtf", (void*)aot_sqrtf },        \
     REG_SYM(fmin),                        \
     REG_SYM(fminf),                       \
     REG_SYM(fmax),                        \

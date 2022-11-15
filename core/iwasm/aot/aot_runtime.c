@@ -1968,6 +1968,18 @@ aot_memset(void *s, int c, size_t n)
     return memset(s, c, n);
 }
 
+double
+aot_sqrt(double x)
+{
+    return sqrt(x);
+}
+
+float
+aot_sqrtf(float x)
+{
+    return sqrtf(x);
+}
+
 #if WASM_ENABLE_BULK_MEMORY != 0
 bool
 aot_memory_init(AOTModuleInstance *module_inst, uint32 seg_index, uint32 offset,

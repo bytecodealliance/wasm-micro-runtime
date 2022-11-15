@@ -37,6 +37,11 @@ print_help()
     printf("                              by default it is disabled in all 64-bit platforms except SGX and\n");
     printf("                              in these platforms runtime does bounds checks with hardware trap,\n");
     printf("                              and by default it is enabled in all 32-bit platforms\n");
+    printf("  --stack-bounds-checks=1/0 Enable or disable the bounds checks for native stack:\n");
+    printf("                              if the option isn't set, the status is same as `--bounds-check`,\n");
+    printf("                              if the option is set:\n");
+    printf("                                (1) it is always enabled when `--bounds-checks` is enabled,\n");
+    printf("                                (2) else it is enabled/disabled according to the option value\n");
     printf("  --format=<format>         Specifies the format of the output file\n");
     printf("                            The format supported:\n");
     printf("                              aot (default)  AoT file\n");
@@ -139,6 +144,8 @@ main(int argc, char *argv[])
     option.output_format = AOT_FORMAT_FILE;
     /* default value, enable or disable depends on the platform */
     option.bounds_checks = 2;
+    /* default value, enable or disable depends on the platform */
+    option.stack_bounds_checks = 2;
     option.enable_simd = true;
     option.enable_aux_stack_check = true;
     option.enable_bulk_memory = true;
@@ -192,6 +199,9 @@ main(int argc, char *argv[])
         }
         else if (!strncmp(argv[0], "--bounds-checks=", 16)) {
             option.bounds_checks = (atoi(argv[0] + 16) == 1) ? 1 : 0;
+        }
+        else if (!strncmp(argv[0], "--stack-bounds-checks=", 22)) {
+            option.stack_bounds_checks = (atoi(argv[0] + 22) == 1) ? 1 : 0;
         }
         else if (!strncmp(argv[0], "--format=", 9)) {
             if (argv[0][9] == '\0')

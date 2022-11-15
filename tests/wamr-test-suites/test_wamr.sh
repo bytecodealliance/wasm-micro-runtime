@@ -413,6 +413,7 @@ function spec_test()
     fi
 
     cd ${WORK_DIR}
+    echo "python3 ./all.py ${ARGS_FOR_SPEC_TEST} | tee -a ${REPORT_DIR}/spec_test_report.txt"
     python3 ./all.py ${ARGS_FOR_SPEC_TEST} | tee -a ${REPORT_DIR}/spec_test_report.txt
     [[ ${PIPESTATUS[0]} -ne 0 ]] && exit 1
     cd -

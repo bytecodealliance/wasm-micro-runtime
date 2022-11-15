@@ -3220,7 +3220,13 @@ wasi_ssp_sock_get_reuse_port(
     int optval;
     socklen_t optlen = sizeof(optval);
 
+#if defined(SO_REUSEPORT) /* NuttX doesn't have SO_REUSEPORT */
     ret = getsockopt(fd_number(fo), SOL_SOCKET, SO_REUSEPORT, &optval, &optlen);
+#else
+    errno = ENOTSUP;
+    ret = BHT_ERROR;
+#endif /* defined(SO_REUSEPORT) */
+
     fd_object_release(fo);
     if (BHT_OK != ret) {
         return convert_errno(errno);
@@ -3393,8 +3399,14 @@ wasi_ssp_sock_set_reuse_port(
 
     int optval = reuse;
 
+#if defined(SO_REUSEPORT) /* NuttX doesn't have SO_REUSEPORT */
     ret = setsockopt(fd_number(fo), SOL_SOCKET, SO_REUSEPORT, &optval,
                      sizeof(optval));
+#else
+    errno = ENOTSUP;
+    ret = BHT_ERROR;
+#endif /* defined(SO_REUSEPORT) */
+
     fd_object_release(fo);
     if (BHT_OK != ret) {
         return convert_errno(errno);
@@ -3420,6 +3432,7 @@ wasi_ssp_sock_set_send_buf_size(
 
     ret = setsockopt(fd_number(fo), SOL_SOCKET, SO_SNDBUF, &optval,
                      sizeof(optval));
+
     fd_object_release(fo);
     if (BHT_OK != ret) {
         return convert_errno(errno);
