@@ -1662,7 +1662,6 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
         comp_ctx->enable_stack_bound_check = false;
 #endif
 #endif
-#endif
     }
     else {
         /* Create LLVM target machine */
