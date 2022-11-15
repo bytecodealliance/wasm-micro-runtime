@@ -12,8 +12,8 @@ SPEC_TEST ?= 0
 
 # These variables are automatically set by CMakeLists.txt
 SGX_IPFS = 0
+WAMR_BUILD_LIB_RATS = 0
 WAMR_BUILD_GLOBAL_HEAP_POOL = 0
-WASM_BUILD_LIB_RATS = 0
 WAMR_BUILD_GLOBAL_HEAP_SIZE = 10485760
 
 VMLIB_BUILD_DIR ?= $(CURDIR)/../build
@@ -61,7 +61,7 @@ endif
 
 App_Cpp_Files := App/App.cpp
 App_Include_Paths := -IApp -I$(SGX_SDK)/include
-ifeq ($(WASM_BUILD_LIB_RATS), 1)
+ifeq ($(WAMR_BUILD_LIB_RATS), 1)
 	App_Include_Paths += -I$(LIB_RATS_INCLUDE_DIR)
 endif
 
@@ -94,7 +94,7 @@ else
 	App_Link_Flags += -lsgx_uae_service
 endif
 
-ifeq ($(WASM_BUILD_LIB_RATS), 1)
+ifeq ($(WAMR_BUILD_LIB_RATS), 1)
 	App_Link_Flags += -L$(LIB_RATS_INSTALL_DIR) -L$(SGX_SSL)/lib64 -lrats_u -lsgx_dcap_ql -lsgx_dcap_quoteverify -lsgx_ukey_exchange -lsgx_usgxssl
 endif
 
@@ -130,18 +130,18 @@ Enclave_Include_Paths := -IEnclave -I$(WAMR_ROOT)/core/iwasm/include \
                          -I$(SGX_SDK)/include/tlibc \
                          -I$(SGX_SDK)/include/stlport
 
-ifeq ($(WASM_BUILD_LIB_RATS), 1)
+ifeq ($(WAMR_BUILD_LIB_RATS), 1)
 	Enclave_Include_Paths += -I$(LIB_RATS_INCLUDE_DIR) -I$(SGX_SSL)/include
 endif
 
-Enclave_C_Flags := $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -fstack-protector $(Enclave_Include_Paths) -DWASM_GLOBAL_HEAP_SIZE=$(WAMR_BUILD_GLOBAL_HEAP_SIZE) -DWASM_ENABLE_GLOBAL_HEAP_POOL=$(WAMR_BUILD_GLOBAL_HEAP_POOL) -DWASM_ENABLE_LIB_RATS=$(WASM_BUILD_LIB_RATS)
+Enclave_C_Flags := $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -fstack-protector $(Enclave_Include_Paths) -DWASM_GLOBAL_HEAP_SIZE=$(WAMR_BUILD_GLOBAL_HEAP_SIZE) -DWASM_ENABLE_GLOBAL_HEAP_POOL=$(WAMR_BUILD_GLOBAL_HEAP_POOL) -DWASM_ENABLE_LIB_RATS=$(WAMR_BUILD_LIB_RATS)
 ifeq ($(SPEC_TEST), 1)
 	Enclave_C_Flags += -DWASM_ENABLE_SPEC_TEST=1
 else
 	Enclave_C_Flags += -DWASM_ENABLE_SPEC_TEST=0
 endif
 
-ifeq ($(WASM_BUILD_LIB_RATS), 1)
+ifeq ($(WAMR_BUILD_LIB_RATS), 1)
 	Rats_Lib_Link_Dirs := -L$(LIB_RATS_INSTALL_DIR) -L$(LIB_RATS_INSTALL_DIR)/attesters -L$(LIB_RATS_INSTALL_DIR)/verifiers -L$(SGX_SSL)/lib64
 	Rats_Lib_W_Link_libs := -lattester_nullattester -lattester_sgx_ecdsa -lattester_sgx_la \
 						-lverifier_nullverifier -lverifier_sgx_ecdsa -lverifier_sgx_la -lverifier_sgx_ecdsa_qve \
@@ -160,7 +160,7 @@ Enclave_Link_Flags := $(SGX_COMMON_CFLAGS) -Wl,--no-undefined -nostdlib -nodefau
 Enclave_Edl_Search_Path     =   --search-path ../Enclave \
 								--search-path $(SGX_SDK)/include \
 								--search-path $(WAMR_ROOT)/core/shared/platform/linux-sgx
-ifeq ($(WASM_BUILD_LIB_RATS), 1)
+ifeq ($(WAMR_BUILD_LIB_RATS), 1)
 	Enclave_Edl_Search_Path	+=	--search-path $(LIB_RATS_INCLUDE_DIR)/librats/edl --search-path $(SGX_SSL)/include
 endif
 
@@ -202,7 +202,7 @@ endif
 
 ######## App Objects ########
 librats:
-ifeq ($(WASM_BUILD_LIB_RATS), 1)
+ifeq ($(WAMR_BUILD_LIB_RATS), 1)
 	@cd $(LIB_RATS_SRC) && make install
 	@echo "librats build success"
 endif

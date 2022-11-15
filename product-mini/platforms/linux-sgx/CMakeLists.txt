@@ -126,14 +126,14 @@ endif()
 
 if (WAMR_BUILD_LIB_RATS EQUAL 1)
     execute_process(
-        COMMAND bash -c "sed -i -E 's/^#define WAMR_ENABLE_LIB_RATS 0/#define WAMR_ENABLE_LIB_RATS 1/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Enclave/Enclave.edl"
-        COMMAND bash -c "sed -i -E 's/^WASM_BUILD_LIB_RATS = 0/WASM_BUILD_LIB_RATS = 1/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Makefile"
+        COMMAND bash -c "sed -i -E 's/^#define WASM_ENABLE_LIB_RATS 0/#define WASM_ENABLE_LIB_RATS 1/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Enclave/Enclave.edl"
+        COMMAND bash -c "sed -i -E 's/^WAMR_BUILD_LIB_RATS = 0/WAMR_BUILD_LIB_RATS = 1/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Makefile"
         OUTPUT_VARIABLE cmdOutput
     )
 else()
     execute_process(
-        COMMAND bash -c "sed -i -E 's/^#define WAMR_ENABLE_LIB_RATS 1/#define WAMR_ENABLE_LIB_RATS 0/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Enclave/Enclave.edl"
-        COMMAND bash -c "sed -i -E 's/^WASM_BUILD_LIB_RATS = 1/WASM_BUILD_LIB_RATS = 0/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Makefile"
+        COMMAND bash -c "sed -i -E 's/^#define WASM_ENABLE_LIB_RATS 1/#define WASM_ENABLE_LIB_RATS 0/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Enclave/Enclave.edl"
+        COMMAND bash -c "sed -i -E 's/^WAMR_BUILD_LIB_RATS = 1/WAMR_BUILD_LIB_RATS = 0/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Makefile"
         OUTPUT_VARIABLE cmdOutput
     )
 endif()
