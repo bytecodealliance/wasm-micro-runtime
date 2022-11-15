@@ -57,7 +57,7 @@ hex_dump(const char *title, const uint8_t *buf, uint32_t size, uint32_t number)
 int
 main(int argc, char **argv)
 {
-    int ret_code = 0;
+    int ret_code = -1;
 
     // Generate user_data by SHA256 buffer and the wasm module.
     // user_data = SHA256(buffer || sha256_wasm_module)
@@ -73,9 +73,9 @@ main(int argc, char **argv)
         goto err;
     }
 
-    ret_code = librats_collect(evidence, buffer);
-    if (ret_code != 0) {
-        printf("ERROR: collect evidence failed, %#x", ret_code);
+    int rats_err = librats_collect(evidence, buffer);
+    if (rats_err != 0) {
+        printf("ERROR: collect evidence failed, %#x", rats_err);
         goto err;
     }
 
@@ -89,11 +89,13 @@ main(int argc, char **argv)
     printf("\tAttributes.flags:\t%llu\n", evidence->att_flags);
     printf("\tAttribute.xfrm:\t\t%llu\n", evidence->att_xfrm);
 
-    ret_code = librats_verify(evidence, buffer);
-    if (ret_code != 0) {
-        printf("Evidence is not trusted, error code: %#x.\n", ret_code);
+    rats_err = librats_verify(evidence, buffer);
+    if (rats_err != 0) {
+        printf("Evidence is not trusted, error code: %#x.\n", rats_err);
         goto err;
     }
+
+    ret_code = 0;
     printf("Evidence is trusted.\n");
 
 err:
