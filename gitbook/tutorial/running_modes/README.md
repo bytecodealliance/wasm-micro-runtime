@@ -22,8 +22,8 @@ It could run wasm applications in Interpreter/JIT running mode:
   - Fast Interpreter: as you can guess from the name, the fast interpreter runs ~2X faster than the classic interpreter but consumes about 2X memory to hold the pre-compiled code.
 - JIT:
   Using the Just-in-Time compilation technique, we could make iwasm run much faster than Interpreter mode and sometimes very close to the speed of AOT running mode. We support two running modes of JIT:
-  - JIT(LLVM-JIT): implement JIT using LLVM. The (LLVM)JIT generally performs better than Fast-JIT, **executing ~2X faster** than Fast-JIT. But the startup time is slower than Fast-JIT.
-  - Fast-JIT: implement JIT without getting extra dependencies(LLVM libraries) involved so that iwasm could run easier on some platforms. It is called fast for it **starts up very fast**. So as you can imagine, overall performance for some small applications could be better in this mode than in (LLVM)JIT mode.
+  - LLVM JIT: the JIT engine is implemented based on LLVM codegen. The performance of LLVM JIT is better than Fast JIT, with ~2x of the latter. But the startup time is slower than Fast JIT.
+  - Fast JIT: the JIT engine is implemented based on self-implemented codegen and asmjit encoder library. It is a lightweight JIT engine with small footprint, quick startup, good portability and relatively good performance. Currently it supports x86-64 target and Linux/Linux-SGX/MacOS platforms. The performance of Fast JIT is ~50% of the performance of LLVM JIT.
 
 <!-- TODO: incoming blog -->
 For more detailed introduction, kindly refer to this article(**incoming**) in our blog.

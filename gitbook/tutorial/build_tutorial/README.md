@@ -12,9 +12,9 @@ Our powerful **iwasm vmcore** provide various running mode you could choose usin
 | Running mode | CMake build options | Pros and Cons  |
 | -----------  | -----------         | ---------      |
 |  AOT         | none(default)       |                |
-|  Interpreter | -DWAMR_BUILD_FAST_INTERP=0 |         |
+|  Classic Interpreter | -DWAMR_BUILD_FAST_INTERP=0 |         |
 |  Fast Interpreter | none(default)  |                |
-|  JIT         | -DWAMR_BUILD_JIT=1  |                |
+|  LLVM JIT         | -DWAMR_BUILD_JIT=1  |                |
 |  Fast JIT    | -DWAMR_BUILD_FAST_JIT=1 |            |
 
 ## Supported architectures and platforms
