@@ -3,7 +3,7 @@
 from __future__ import print_function
 import os, sys, re
 import argparse, time
-import signal, atexit, tempfile, subprocess
+import atexit, tempfile, subprocess
 
 from subprocess import Popen, STDOUT, PIPE
 from select import select
@@ -974,18 +974,10 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r):
         return r
 
 def run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r):
-    if not test_aot:
-        log("Starting interpreter for module '%s'" % wasm_tempfile)
-        if opts.verbose:
-            cmd = [opts.interpreter, "--heap-size=0", "-v=5", "--repl", wasm_tempfile]
-        else:
-            cmd = [opts.interpreter, "--heap-size=0", "--repl", wasm_tempfile]
-    else:
-        log("Starting aot for module '%s'" % aot_tempfile)
-        if opts.verbose:
-            cmd = [opts.interpreter, "--heap-size=0", "-v=5", "--repl", aot_tempfile]
-        else:
-            cmd = [opts.interpreter, "--heap-size=0", "--repl", aot_tempfile]
+    tempfile = aot_tempfile if test_aot else wasm_tempfile
+    log("Starting interpreter for module '%s'" % tempfile)
+
+    cmd = [opts.interpreter, "--heap-size=0", "-v=5" if opts.verbose else "-v=0", "--repl", tempfile]
 
     log("Running: %s" % " ".join(cmd))
     if (r != None):
@@ -1052,9 +1044,8 @@ def test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile,
                 log("Run wamrc failed:\n  expected: '%s'\n  got: '%s'" % \
                     (expected, r.buf))
                 sys.exit(1)
-        r = run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r)
-    else:
-        r = run_wasm_with_repl(wasm_tempfile, None, opts, r)
+
+    r = run_wasm_with_repl(wasm_tempfile, aot_tempfile if test_aot else None, opts, r)
 
     # Wait for the initial prompt
     try:
@@ -1106,17 +1097,11 @@ if __name__ == "__main__":
             elif skip_test(form, SKIP_TESTS):
                 log("Skipping test: %s" % form[0:60])
             elif re.match("^\(assert_trap\s+\(module", form):
-                if test_aot:
-                    test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile, opts, r)
-                else:
-                    test_assert_with_exception(form, wast_tempfile, wasm_tempfile, None, opts, r)
+                test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile if test_aot else None, opts, r)
             elif re.match("^\(assert_exhaustion\\b.*", form):
                 test_assert_exhaustion(r, opts, form)
             elif re.match("^\(assert_unlinkable\\b.*", form):
-                if test_aot:
-                    test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile, opts, r)
-                else:
-                    test_assert_with_exception(form, wast_tempfile, wasm_tempfile, None, opts, r)
+                test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile if test_aot else None, opts, r)
             elif re.match("^\(assert_malformed\\b.*", form):
                 # remove comments in wast
                 form,n = re.subn(";;.*\n", "", form)
@@ -1215,9 +1200,8 @@ if __name__ == "__main__":
                                 _, exc, _ = sys.exc_info()
                                 log("Run wamrc failed:\n  got: '%s'" % r.buf)
                                 sys.exit(1)
-                            r = run_wasm_with_repl(temp_files[1], temp_files[2], opts, r)
-                        else:
-                            r = run_wasm_with_repl(temp_files[1], None, opts, r)
+
+                        r = run_wasm_with_repl(temp_files[1], temp_files[2] if test_aot else None, opts, r)
                 else:
                     if not compile_wast_to_wasm(form, wast_tempfile, wasm_tempfile, opts):
                         raise Exception("compile wast to wasm failed")
@@ -1230,9 +1214,8 @@ if __name__ == "__main__":
                             _, exc, _ = sys.exc_info()
                             log("Run wamrc failed:\n  got: '%s'" % r.buf)
                             sys.exit(1)
-                        r = run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r)
-                    else:
-                        r = run_wasm_with_repl(wasm_tempfile, None, opts, r)
+
+                    r = run_wasm_with_repl(wasm_tempfile, aot_tempfile if test_aot else None, opts, r)
 
                 # Wait for the initial prompt
                 try:
