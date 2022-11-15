@@ -102,7 +102,16 @@ find_program(WAT2WASM
 
 if(NOT WAT2WASM)
   message(SEND_ERROR "can not find wat2wasm")
+else ()
+  execute_process(COMMAND ${WAT2WASM} --version
+                  OUTPUT_VARIABLE WAT2WASM_VERSION_OUTPUT)
+  string(STRIP ${WAT2WASM_VERSION_OUTPUT} WAT2WASM_VERSION)
+  message("-- Found wat2wasm ${WAT2WASM_VERSION}")
 endif()
+
+if (${WAT2WASM_VERSION} VERSION_LESS 1.0.26)
+  set(WAT2WASM_FLAGS "--enable-reference-types")
+endif ()
 
 include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 
@@ -122,7 +131,7 @@ endif()
 # wat to wasm
 file(GLOB WAT_FILE src/hello.wat)
 add_custom_target(hello_wasm ALL
-  COMMAND ${WAT2WASM} ${WAT_FILE} --enable-reference-types -o ${PROJECT_BINARY_DIR}/hello.wasm
+  COMMAND ${WAT2WASM} ${WAT_FILE} ${WAT2WASM_FLAGS} -o ${PROJECT_BINARY_DIR}/hello.wasm
   DEPENDS ${WAT_FILE}
   BYPRODUCTS ${PROJECT_BINARY_DIR}/hello.wasm
   VERBATIM

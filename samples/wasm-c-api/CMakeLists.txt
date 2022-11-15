@@ -104,7 +104,16 @@ find_program(WAT2WASM
 
 if(NOT WAT2WASM)
   message(SEND_ERROR "can not find wat2wasm")
+else ()
+  execute_process(COMMAND ${WAT2WASM} --version
+                  OUTPUT_VARIABLE WAT2WASM_VERSION_OUTPUT)
+  string(STRIP ${WAT2WASM_VERSION_OUTPUT} WAT2WASM_VERSION)
+  message("-- Found wat2wasm ${WAT2WASM_VERSION}")
 endif()
+
+if (${WAT2WASM_VERSION} VERSION_LESS 1.0.26)
+  set(WAT2WASM_FLAGS "--enable-reference-types")
+endif ()
 
 if(${WAMR_BUILD_AOT} EQUAL 1)
   ## locate wamrc
@@ -161,7 +170,7 @@ foreach(EX ${EXAMPLES})
   set(WAT ${CMAKE_CURRENT_LIST_DIR}/src/${EX}.wat)
 
   add_custom_target(${EX}_WASM
-    COMMAND ${WAT2WASM} ${WAT} --enable-reference-types -o ${PROJECT_BINARY_DIR}/${EX}.wasm
+    COMMAND ${WAT2WASM} ${WAT} ${WAT2WASM_FLAGS} -o ${PROJECT_BINARY_DIR}/${EX}.wasm
     DEPENDS ${WAT}
     BYPRODUCTS ${PROJECT_BINARY_DIR}/${EX}.wasm
     VERBATIM
