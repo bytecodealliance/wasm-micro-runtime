@@ -3,7 +3,12 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 set (LIB_RATS_DIR ${CMAKE_CURRENT_LIST_DIR})
-set (SGX_SSL_DIR "/opt/intel/sgxssl")
+
+if ("$ENV{SGX_SSL_DIR}" STREQUAL "")
+  set (SGX_SSL_DIR "/opt/intel/sgxssl")
+else()
+  set (SGX_SSL_DIR $ENV{SGX_SSL_DIR})
+endif()
 
 if (NOT EXISTS ${SGX_SSL_DIR})
     message(FATAL_ERROR "Can not find SGX_SSL, please install it first")
