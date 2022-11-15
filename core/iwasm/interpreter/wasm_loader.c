@@ -3524,9 +3524,15 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                                    * memory->init_page_count;
                 if (shrunk_memory_size <= init_memory_size) {
                     /* Reset memory info to decrease memory usage */
+// Faasm: unexpectedly WAMR shinks memory (and overwrites the page count) even
+// if not instructed to do so, which breaks our memory management model. This
+// is why we set WAMR_BUILD_BULK_MEMORY to 0 in the first place. See:
+// https://github.com/bytecodealliance/wasm-micro-runtime/issues/1706
+#ifndef WAMR_FAASM
                     memory->num_bytes_per_page = shrunk_memory_size;
                     memory->init_page_count = 1;
                     LOG_VERBOSE("Shrink memory size to %d", shrunk_memory_size);
+#endif
                 }
             }
         }
