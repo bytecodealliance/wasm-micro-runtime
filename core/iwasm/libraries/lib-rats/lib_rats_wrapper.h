@@ -24,11 +24,13 @@ int
 librats_verify(rats_sgx_evidence_t *evidence, uint32_t evidence_size,
                const char *buffer, uint32_t buffer_size);
 
-#define librats_collect(evidence, buffer) \
-    librats_collect(evidence, sizeof(evidence), buffer, strlen(buffer))
+#define librats_collect(evidence, buffer)                          \
+    librats_collect(evidence, sizeof(rats_sgx_evidence_t), buffer, \
+                    strlen(buffer) + 1)
 
-#define librats_verify(evidence, buffer) \
-    librats_verify(evidence, sizeof(evidence), buffer, strlen(buffer))
+#define librats_verify(evidence, buffer)                          \
+    librats_verify(evidence, sizeof(rats_sgx_evidence_t), buffer, \
+                   strlen(buffer) + 1)
 
 #ifdef __cplusplus
 }
