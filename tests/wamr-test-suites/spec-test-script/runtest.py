@@ -1,21 +1,26 @@
 #!/usr/bin/env python
 
 from __future__ import print_function
-import os, sys, re
-import argparse, time
-import atexit, tempfile, subprocess
 
-from subprocess import Popen, STDOUT, PIPE
-from select import select
-
-# Pseudo-TTY and terminal manipulation
-import pty, array, fcntl, termios
-
-import shutil
-
-import struct
+import argparse
+import array
+import atexit
+import fcntl
 import math
+import os
+# Pseudo-TTY and terminal manipulation
+import pty
+import re
+import shutil
+import struct
+import subprocess
+import sys
+import tempfile
+import termios
+import time
 import traceback
+from select import select
+from subprocess import PIPE, STDOUT, Popen
 
 if sys.version_info[0] == 2:
     IS_PY_3 = False
@@ -51,6 +56,7 @@ def log(data, end='\n'):
 
 # TODO: do we need to support '\n' too
 import platform
+
 if platform.system().find("CYGWIN_NT") >= 0:
     # TODO: this is weird, is this really right on Cygwin?
     sep = "\n\r\n"
