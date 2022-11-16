@@ -117,6 +117,9 @@ def test_case(
     ):
         return True
 
+    if qemu_flag:
+        IWASM_CMD = "iwasm"
+
     CMD = ["python3", "runtest.py"]
     CMD.append("--wast2wasm")
     CMD.append(WAST2WASM_CMD)

@@ -591,7 +591,9 @@ function trigger()
                 echo "work in classic-interp mode"
                 # classic-interp
                 BUILD_FLAGS="$CLASSIC_INTERP_COMPILE_FLAGS $EXTRA_COMPILE_FLAGS"
-                build_iwasm_with_cfg $BUILD_FLAGS
+                if [[ ${ENABLE_QEMU} == 0 ]]; then
+                    build_iwasm_with_cfg $BUILD_FLAGS
+                fi
                 for suite in "${TEST_CASE_ARR[@]}"; do
                     $suite"_test" classic-interp
                 done
@@ -607,7 +609,9 @@ function trigger()
                 echo "work in fast-interp mode"
                 # fast-interp
                 BUILD_FLAGS="$FAST_INTERP_COMPILE_FLAGS $EXTRA_COMPILE_FLAGS"
-                build_iwasm_with_cfg $BUILD_FLAGS
+                if [[ ${ENABLE_QEMU} == 0 ]]; then
+                    build_iwasm_with_cfg $BUILD_FLAGS
+                fi
                 for suite in "${TEST_CASE_ARR[@]}"; do
                     $suite"_test" fast-interp
                 done

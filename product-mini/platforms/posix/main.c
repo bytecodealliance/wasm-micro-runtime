@@ -6,6 +6,7 @@
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -149,7 +150,7 @@ app_instance_repl(wasm_module_inst_t module_inst)
     size_t len = 0;
     ssize_t n;
 
-    while ((fflush(stdout), printf("webassembly> "), n = getline(&cmd, &len, stdin)) != -1) {
+    while ((fflush(stdout), puts("webassembly> "), n = getline(&cmd, &len, stdin)) != -1) {
         bh_assert(n > 0);
         if (cmd[n - 1] == '\n') {
             if (n == 1)
@@ -158,7 +159,7 @@ app_instance_repl(wasm_module_inst_t module_inst)
                 cmd[n - 1] = '\0';
         }
         if (!strcmp(cmd, "__exit__")) {
-            printf("exit repl mode\n");
+            puts("exit repl mode\n");
             break;
         }
         app_argv = split_string(cmd, &app_argc);
