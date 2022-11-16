@@ -24,6 +24,7 @@ function help()
     echo "-x test SGX"
     echo "-b use the wabt binary release package instead of compiling from the source code"
     echo "-P run the spec test parallelly"
+    echo "-Q enable qemu"
 }
 
 OPT_PARSED=""
@@ -42,8 +43,9 @@ TEST_CASE_ARR=()
 SGX_OPT=""
 PLATFORM=$(uname -s | tr A-Z a-z)
 PARALLELISM=0
+ENABLE_QEMU=0
 
-while getopts ":s:cabt:m:MCpSXxP" opt
+while getopts ":s:cabt:m:MCpSXxPQ" opt
 do
     OPT_PARSED="TRUE"
     case $opt in
@@ -118,6 +120,10 @@ do
         ;;
         P)
         PARALLELISM=1
+        ;;
+        Q)
+        echo "enable QEMU"
+        ENABLE_QEMU=1
         ;;
         ?)
         help
@@ -412,6 +418,10 @@ function spec_test()
         ARGS_FOR_SPEC_TEST+="--parl "
     fi
 
+    if [[ ${ENABLE_QEMU} == 1 ]]; then
+        ARGS_FOR_SPEC_TEST+="--qemu "
+    fi
+
     cd ${WORK_DIR}
     echo "python3 ./all.py ${ARGS_FOR_SPEC_TEST} | tee -a ${REPORT_DIR}/spec_test_report.txt"
     python3 ./all.py ${ARGS_FOR_SPEC_TEST} | tee -a ${REPORT_DIR}/spec_test_report.txt
@@ -631,7 +641,9 @@ function trigger()
                 echo "work in aot mode"
                 # aot
                 BUILD_FLAGS="$AOT_COMPILE_FLAGS $EXTRA_COMPILE_FLAGS"
-                build_iwasm_with_cfg $BUILD_FLAGS
+                if [[ ${ENABLE_QEMU} == 0 ]]; then
+                    build_iwasm_with_cfg $BUILD_FLAGS
+                fi
                 build_wamrc
                 for suite in "${TEST_CASE_ARR[@]}"; do
                     $suite"_test" aot

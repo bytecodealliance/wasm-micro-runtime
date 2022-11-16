@@ -221,6 +221,9 @@ parser.add_argument('--xip', default=False, action='store_true',
 parser.add_argument('--multi-thread', default=False, action='store_true',
         help="Enable Multi-thread")
 
+parser.add_argument('--qemu', default=False, action='store_true',
+        help="Enable QEMU")
+
 parser.add_argument('--verbose', default=False, action='store_true',
         help='show more logs')
 
@@ -936,7 +939,7 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r):
     elif test_target == "armv7":
         cmd += ["--target=armv7", "--target-abi=gnueabihf"]
     elif test_target == "thumbv7":
-        cmd += ["--target=thumbv7", "--target-abi=gnueabihf", "--cpu=cortex-a15"]
+        cmd += ["--target=thumbv7", "--target-abi=gnueabihf", "--cpu=cortex-a9"]
     elif test_target == "riscv64_lp64d":
         cmd += ["--target=riscv64", "--target-abi=lp64d"]
     elif test_target == "riscv64_lp64":
@@ -977,45 +980,67 @@ def run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r):
     tempfile = aot_tempfile if test_aot else wasm_tempfile
     log("Starting interpreter for module '%s'" % tempfile)
 
-    cmd = [opts.interpreter, "--heap-size=0", "-v=5" if opts.verbose else "-v=0", "--repl", tempfile]
+    cmd_iwasm = ["iwasm", "--heap-size=0", "-v=5" if opts.verbose else "-v=0", "--repl", tempfile]
+    
+    if opts.qemu:
+        cmd = ["qemu-system-arm", "-semihosting", "-M", "sabrelite", "-m", "1024", "-smp", "4", "-nographic", "-kernel", "/home/huang/Work/nx/nuttx/nuttx"]
+    else:
+        cmd = cmd_iwasm
 
     log("Running: %s" % " ".join(cmd))
     if (r != None):
         r.cleanup()
     r = Runner(cmd, no_pty=opts.no_pty)
+    
+    if opts.qemu:
+        r.read_to_prompt(['nsh> '], 10)
+        r.writeline("mount -t hostfs -o fs=/tmp /tmp")
+        r.read_to_prompt(['nsh> '], 10)
+        r.writeline(" ".join(cmd_iwasm))
+    
     return r
 
 def create_tmpfiles(wast_name):
     tempfiles = []
-    # make tempfile directory
-    if not os.path.exists(temp_file_directory):
-        os.mkdir(temp_file_directory)
 
-    def makefile(name):
-        open(name, "w").close()
+    
+    (t1fd, wast_tempfile) = tempfile.mkstemp(suffix=".wast")
+    (t2fd, wasm_tempfile) = tempfile.mkstemp(suffix=".wasm")
+    # if test_aot:
+    (t3fd, aot_tempfile) = tempfile.mkstemp(suffix=".aot")
+    
+    tempfiles.append(wast_tempfile)
+    tempfiles.append(wasm_tempfile)
+    tempfiles.append(aot_tempfile)
+    # # make tempfile directory
+    # if not os.path.exists(temp_file_directory):
+    #     os.mkdir(temp_file_directory)
 
-    # create temporal file with particular name
-    temp_wast_file = os.path.join(temp_file_directory, ""+ wast_name + ".wast")
-    if not os.path.exists(temp_wast_file):
-        makefile(temp_wast_file)
-    tempfiles.append(temp_wast_file)
+    # def makefile(name):
+    #     open(name, "w").close()
 
-    # now we define the same file name as wast for wasm & aot
-    wasm_file = wast_name +".wasm"
-    temp_wasm_file = os.path.join(temp_file_directory, wasm_file)
-    if not os.path.exists(temp_wasm_file):
-        makefile(temp_wasm_file)
-    tempfiles.append(temp_wasm_file)
+    # # create temporal file with particular name
+    # temp_wast_file = os.path.join(temp_file_directory, ""+ wast_name + ".wast")
+    # if not os.path.exists(temp_wast_file):
+    #     makefile(temp_wast_file)
+    # tempfiles.append(temp_wast_file)
 
-    if test_aot:
-        aot_file = wast_name +".aot"
-        temp_aot_file =os.path.join(temp_file_directory, aot_file)
-        if not os.path.exists(temp_aot_file):
-            makefile(temp_aot_file)
-        tempfiles.append(temp_aot_file)
+    # # now we define the same file name as wast for wasm & aot
+    # wasm_file = wast_name +".wasm"
+    # temp_wasm_file = os.path.join(temp_file_directory, wasm_file)
+    # if not os.path.exists(temp_wasm_file):
+    #     makefile(temp_wasm_file)
+    # tempfiles.append(temp_wasm_file)
 
-    # add these temp file to temporal repo, will be deleted when finishing the test
-    temp_file_repo.extend(tempfiles)
+    # if test_aot:
+    #     aot_file = wast_name +".aot"
+    #     temp_aot_file =os.path.join(temp_file_directory, aot_file)
+    #     if not os.path.exists(temp_aot_file):
+    #         makefile(temp_aot_file)
+    #     tempfiles.append(temp_aot_file)
+
+    # # add these temp file to temporal repo, will be deleted when finishing the test
+    # temp_file_repo.extend(tempfiles)
     return tempfiles
 
 def test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile, opts, r):

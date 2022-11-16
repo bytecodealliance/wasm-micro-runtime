@@ -100,6 +100,7 @@ def test_case(
     xip_flag=False,
     clean_up_flag=True,
     verbose_flag=True,
+    qemu_flag=False,
 ):
     case_path = pathlib.Path(case_path).resolve()
     case_name = case_path.stem
@@ -140,6 +141,9 @@ def test_case(
 
     if xip_flag:
         CMD.append("--xip")
+
+    if qemu_flag:
+        CMD.append("--qemu")
 
     if not clean_up_flag:
         CMD.append("--no_cleanup")
@@ -201,6 +205,7 @@ def test_suite(
     clean_up_flag=True,
     verbose_flag=True,
     parl_flag=False,
+    qemu_flag=False,
 ):
     suite_path = pathlib.Path(SPEC_TEST_DIR).resolve()
     if not suite_path.exists():
@@ -234,6 +239,7 @@ def test_suite(
                         xip_flag,
                         clean_up_flag,
                         verbose_flag,
+                        qemu_flag,
                     ],
                 )
 
@@ -263,6 +269,7 @@ def test_suite(
                     xip_flag,
                     clean_up_flag,
                     verbose_flag,
+                    qemu_flag,
                 )
                 successful_case += 1
             except Exception as e:
@@ -345,6 +352,13 @@ def main():
         help="To run whole test suite parallelly",
     )
     parser.add_argument(
+        "--qemu",
+        action="store_true",
+        default=False,
+        dest="qemu_flag",
+        help="To run whole test suite in qemu",
+    )
+    parser.add_argument(
         "--quiet",
         action="store_false",
         default=True,
@@ -384,6 +398,7 @@ def main():
             options.clean_up_flag,
             options.verbose_flag,
             options.parl_flag,
+            options.qemu_flag,
         )
         end = time.time_ns()
         print(
@@ -403,6 +418,7 @@ def main():
                     options.xip_flag,
                     options.clean_up_flag,
                     options.verbose_flag,
+                    options.qemu_flag,
                 )
             else:
                 ret = True
