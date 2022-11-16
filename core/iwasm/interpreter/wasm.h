@@ -262,13 +262,6 @@ struct WASMFunction {
     uint32 const_cell_num;
 #endif
 
-#if WASM_ENABLE_FAST_JIT != 0
-    void *fast_jit_jitted_code;
-#endif
-#if WASM_ENABLE_JIT != 0
-    void *llvm_jit_func_ptr;
-#endif
-
 #if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0 \
     || WASM_ENABLE_WAMR_COMPILER != 0
     /* Whether function has opcode memory.grow */
@@ -283,6 +276,13 @@ struct WASMFunction {
     bool has_op_call_indirect;
     /* Whether function has opcode set_global_aux_stack */
     bool has_op_set_global_aux_stack;
+#endif
+
+#if WASM_ENABLE_FAST_JIT != 0
+    void *fast_jit_jitted_code;
+#if WASM_ENABLE_JIT != 0 && WASM_ENABLE_LAZY_JIT != 0
+    void *llvm_jit_func_ptr;
+#endif
 #endif
 };
 
@@ -398,6 +398,8 @@ typedef struct OrcJitThreadArg {
 } OrcJitThreadArg;
 #endif
 
+struct WASMModuleInstance;
+
 struct WASMModule {
     /* Module type, for module loaded from WASM bytecode binary,
        this field is Wasm_Module_Bytecode;
@@ -504,18 +506,22 @@ struct WASMModule {
     uint64 load_size;
 #endif
 
-#if WASM_ENABLE_DEBUG_INTERP != 0
+#if WASM_ENABLE_DEBUG_INTERP != 0                    \
+    || (WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT \
+        && WASM_ENABLE_LAZY_JIT != 0)
     /**
-     * Count how many instances reference this module. When source
-     * debugging feature enabled, the debugger may modify the code
-     * section of the module, so we need to report a warning if user
-     * create several instances based on the same module
+     * List of instances referred to this module. When source debugging
+     * feature is enabled, the debugger may modify the code section of
+     * the module, so we need to report a warning if user create several
+     * instances based on the same module. Sub instances created by
+     * lib-pthread or spawn API won't be added into the list.
      *
-     * Sub_instances created by lib-pthread or spawn API will not
-     * influence or check the ref count
+     * Also add the instance to the list for Fast JIT to LLVM JIT
+     * tier-up, since we need to lazily update the LLVM func pointers
+     * in the instance.
      */
-    uint32 ref_count;
-    korp_mutex ref_count_lock;
+    struct WASMModuleInstance *instance_list;
+    korp_mutex instance_list_lock;
 #endif
 
 #if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
@@ -545,9 +551,24 @@ struct WASMModule {
 #endif
 
 #if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0
+    /* backend compilation threads */
     korp_tid orcjit_threads[WASM_ORC_JIT_BACKEND_THREAD_NUM];
+    /* backend thread arguments */
     OrcJitThreadArg orcjit_thread_args[WASM_ORC_JIT_BACKEND_THREAD_NUM];
+    /* whether to stop the compilation of backend threads */
     bool orcjit_stop_compiling;
+#endif
+
+#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
+    && WASM_ENABLE_LAZY_JIT != 0
+    /* wait lock/cond for the synchronization of
+       the llvm jit initialization */
+    korp_mutex tierup_wait_lock;
+    korp_cond tierup_wait_cond;
+    bool tierup_wait_lock_inited;
+    korp_tid llvm_jit_init_thread;
+    /* whether the llvm jit is initialized */
+    bool llvm_jit_inited;
 #endif
 };
 

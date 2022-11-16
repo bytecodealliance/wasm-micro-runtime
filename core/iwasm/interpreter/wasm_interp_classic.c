@@ -4004,11 +4004,14 @@ llvm_jit_call_func_bytecode(WASMModuleInstance *module_inst,
     WASMType *func_type = function->u.func->func_type;
     uint32 result_count = func_type->result_count;
     uint32 ext_ret_count = result_count > 1 ? result_count - 1 : 0;
+    uint32 func_idx = (uint32)(function - module_inst->e->functions);
     bool ret;
 
 #if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
     if (!llvm_jit_alloc_frame(exec_env, function - module_inst->e->functions)) {
-        wasm_set_exception(module_inst, "wasm operand stack overflow");
+        /* wasm operand stack overflow has been thrown,
+           no need to throw again */
+        return false;
     }
 #endif
 
@@ -4049,8 +4052,8 @@ llvm_jit_call_func_bytecode(WASMModuleInstance *module_inst,
         }
 
         ret = wasm_runtime_invoke_native(
-            exec_env, function->u.func->llvm_jit_func_ptr, func_type, NULL,
-            NULL, argv1, argc, argv);
+            exec_env, module_inst->func_ptrs[func_idx], func_type, NULL, NULL,
+            argv1, argc, argv);
 
         if (!ret || wasm_get_exception(module_inst)) {
             if (clear_wasi_proc_exit_exception(module_inst))
@@ -4100,8 +4103,8 @@ llvm_jit_call_func_bytecode(WASMModuleInstance *module_inst,
     }
     else {
         ret = wasm_runtime_invoke_native(
-            exec_env, function->u.func->llvm_jit_func_ptr, func_type, NULL,
-            NULL, argv, argc, argv);
+            exec_env, module_inst->func_ptrs[func_idx], func_type, NULL, NULL,
+            argv, argc, argv);
 
         if (clear_wasi_proc_exit_exception(module_inst))
             ret = true;

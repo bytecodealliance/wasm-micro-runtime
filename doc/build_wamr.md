@@ -240,7 +240,7 @@ make
 By default in Linux, the `fast interpreter`, `AOT` and `Libc WASI` are enabled, and JIT is disabled.
 And the build target is set to X86_64 or X86_32 depending on the platform's bitwidth.
 
-There are total 5 running modes supported: fast interpreter, classi interpreter, AOT, LLVM JIT and Fast JIT.
+There are total 6 running modes supported: fast interpreter, classi interpreter, AOT, LLVM JIT, Fast JIT and Multi-tier JIT.
 
 (1) To run a wasm file with `fast interpreter` mode - build iwasm with default build and then:
 ```Bash
@@ -300,6 +300,14 @@ cmake .. -DWAMR_BUILD_FAST_JIT=1
 make
 ```
 The Fast JIT is a lightweight JIT engine with quick startup, small footprint and good portability, and gains ~50% performance of AOT.
+
+(6) To enable the `Multi-tier JIT` mode:
+``` Bash
+mkdir build && cd build
+cmake .. -DWAMR_BUILD_FAST_JTI=1 -DWAMR_BUILD_JIT=1
+make
+```
+The Multi-tier JIT is a two level JIT tier-up engine, which launchs Fast JIT to run the wasm module as soon as possible and creates backend threads to compile the LLVM JIT functions at the same time, and when the LLVM JIT functions are compiled, the runtime will switch the extecution from the Fast JIT jitted code to LLVM JIT jitted code gradually, so as to gain the best performance.
 
 Linux SGX (Intel Software Guard Extension)
 -------------------------

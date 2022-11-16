@@ -96,6 +96,13 @@ jit_compiler_is_compiled(const WASMModule *module, uint32 func_idx);
 #if WASM_ENABLE_LAZY_JIT != 0 && WASM_ENABLE_JIT != 0
 bool
 jit_compiler_set_call_to_llvm_jit(WASMModule *module, uint32 func_idx);
+
+bool
+jit_compiler_set_call_to_fast_jit(WASMModule *module, uint32 func_idx);
+
+void
+jit_compiler_set_llvm_jit_func_ptr(WASMModule *module, uint32 func_idx,
+                                   void *func_ptr);
 #endif
 
 int
