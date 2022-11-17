@@ -47,11 +47,12 @@ concurrency:
 
 env:
   # For BUILD
-  AOT_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_LAZY_JIT=0"
-  CLASSIC_INTERP_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=0 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_LAZY_JIT=0"
-  FAST_INTERP_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=0 -DWAMR_BUILD_FAST_INTERP=1 -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_LAZY_JIT=0"
-  LLVM_LAZY_JIT_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=1"
-  LLVM_EAGER_JIT_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=0"
+  AOT_BUILD_OPTIONS: "           -DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 _DWAMR_BUILD_FAST_JIT=0 -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_LAZY_JIT=0"
+  CLASSIC_INTERP_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=0 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=1 _DWAMR_BUILD_FAST_JIT=0 -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_LAZY_JIT=0"
+  FAST_INTERP_BUILD_OPTIONS: "   -DWAMR_BUILD_AOT=0 -DWAMR_BUILD_FAST_INTERP=1 -DWAMR_BUILD_INTERP=1 _DWAMR_BUILD_FAST_JIT=0 -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_LAZY_JIT=0"
+  FAST_JIT_BUILD_OPTIONS: "      -DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 _DWAMR_BUILD_FAST_JIT=1 -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_LAZY_JIT=0"
+  LLVM_LAZY_JIT_BUILD_OPTIONS: " -DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 _DWAMR_BUILD_FAST_JIT=0 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=1"
+  LLVM_EAGER_JIT_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 _DWAMR_BUILD_FAST_JIT=0 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=0"
   # LLVM
   LLVM_CACHE_SUFFIX: "build-llvm_libraries_ex"
   # For Spec Test
@@ -110,6 +111,7 @@ jobs:
             $AOT_BUILD_OPTIONS,
             $CLASSIC_INTERP_BUILD_OPTIONS,
             $FAST_INTERP_BUILD_OPTIONS,
+            $FAST_JIT_BUILD_OPTIONS,
             $LLVM_LAZY_JIT_BUILD_OPTIONS,
             $LLVM_EAGER_JIT_BUILD_OPTIONS,
           ]
@@ -136,11 +138,13 @@ jobs:
           # uncompatiable feature and platform
           # uncompatiable mode and feature
           # MULTI_MODULE only on INTERP mode
+          - make_options_run_mode: $AOT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
+          - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
           - make_options_run_mode: $LLVM_LAZY_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
           - make_options_run_mode: $LLVM_EAGER_JIT_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
-          - make_options_run_mode: $AOT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
           # SIMD only on JIT/AOT mode
           - make_options_run_mode: $CLASSIC_INTERP_BUILD_OPTIONS
@@ -150,11 +154,13 @@ jobs:
           # DEBUG_INTERP only on CLASSIC INTERP mode
           - make_options_run_mode: $AOT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_DEBUG_INTERP=1"
+          - make_options_run_mode: $FAST_INTERP_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_DEBUG_INTERP=1"
+          - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_DEBUG_INTERP=1"
           - make_options_run_mode: $LLVM_LAZY_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_DEBUG_INTERP=1"
           - make_options_run_mode: $LLVM_EAGER_JIT_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_DEBUG_INTERP=1"
-          - make_options_run_mode: $FAST_INTERP_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_DEBUG_INTERP=1"
           # DEBUG_AOT only on JIT/AOT mode
           - make_options_run_mode: $CLASSIC_INTERP_BUILD_OPTIONS
@@ -162,12 +168,16 @@ jobs:
           - make_options_run_mode: $FAST_INTERP_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_DEBUG_AOT=1"
           # TODO: DEBUG_AOT on JIT
+          - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_DEBUG_AOT=1"
           - make_options_run_mode: $LLVM_LAZY_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_DEBUG_AOT=1"
           - make_options_run_mode: $LLVM_EAGER_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_DEBUG_AOT=1"
           # MINI_LOADER only on INTERP mode
           - make_options_run_mode: $AOT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"
+          - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"
           - make_options_run_mode: $LLVM_LAZY_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"
@@ -209,11 +219,12 @@ jobs:
       matrix:
         make_options: [
             # Running mode
+            $AOT_BUILD_OPTIONS,
             $CLASSIC_INTERP_BUILD_OPTIONS,
             $FAST_INTERP_BUILD_OPTIONS,
+            $FAST_JIT_BUILD_OPTIONS,
             $LLVM_LAZY_JIT_BUILD_OPTIONS,
             $LLVM_EAGER_JIT_BUILD_OPTIONS,
-            $AOT_BUILD_OPTIONS,
           ]
         os: [ubuntu-20.04, ubuntu-22.04]
         wasi_sdk_release:
