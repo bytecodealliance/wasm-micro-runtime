@@ -293,6 +293,12 @@ else
 CFLAGS += -DWASM_ENABLE_SPEC_TEST=0
 endif
 
+ifeq ($(CONFIG_INTERPRETERS_WAMR_REF_TYPES),y)
+CFLAGS += -DWASM_ENABLE_REF_TYPES=1
+else
+CFLAGS += -DWASM_ENABLE_REF_TYPES=0
+endif
+
 CFLAGS += -Wno-strict-prototypes -Wno-shadow -Wno-unused-variable
 CFLAGS += -Wno-int-conversion -Wno-implicit-function-declaration
 
