@@ -940,7 +940,7 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r):
 
     if test_target == "x86_64":
         cmd.append("--target=x86_64")
-        cmd.append("--cpu=native")
+        cmd.append("--cpu=skylake")
     elif test_target == "i386":
         cmd.append("--target=i386")
     elif test_target == "aarch64":
