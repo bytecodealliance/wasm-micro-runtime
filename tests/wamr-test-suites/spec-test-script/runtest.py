@@ -989,7 +989,10 @@ def run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r):
     tempfile = aot_tempfile if test_aot else wasm_tempfile
     log("Starting interpreter for module '%s'" % tempfile)
 
-    cmd_iwasm = [opts.interpreter, "--heap-size=0", "-v=5" if opts.verbose else "-v=0", "--module-path=/tmp" if opts.multi_module else None, "--repl", tempfile]
+    cmd_iwasm = [opts.interpreter, "--heap-size=0", "-v=5" if opts.verbose else "-v=0", "--repl", tempfile]
+
+    if opts.multi_module:
+        cmd_iwasm.insert(1, "--module-path=/tmp")
 
     if opts.qemu:
         cmd = ["qemu-system-arm", "-semihosting", "-M", "sabrelite", "-m", "1024", "-smp", "4", "-nographic", "-kernel", "/home/huang/Work/nx/nuttx/nuttx"]
