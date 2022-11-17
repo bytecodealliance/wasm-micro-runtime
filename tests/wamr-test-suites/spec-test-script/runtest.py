@@ -37,10 +37,8 @@ log_file = None
 # to save the register module with self-define name
 temp_file_repo = []
 
-# get current work directory
-current_work_directory = os.getcwd()
-# set temporal file directory
-temp_file_directory = os.path.join(current_work_directory,"tempfile")
+# to save the mapping of module files in /tmp by name
+temp_module_table = {} 
 
 def debug(data):
     if debug_file:
@@ -767,7 +765,7 @@ def test_assert_return(r, opts, form):
         expected = [parse_assertion_value(v)[1] for v in returns]
         test_assert(r, opts, "return", "%s %s" % (func, " ".join(args)), ",".join(expected))
     elif not m and n:
-        module = os.path.join(temp_file_directory,n.group(1))
+        module = temp_module_table[n.group(1)].split(".wasm")[0]
         # assume the cmd is (assert_return(invoke $ABC "func")).
         # run the ABC.wasm firstly
         if test_aot:
@@ -833,6 +831,8 @@ def test_assert_trap(r, opts, form):
 
     elif not m and n:
         module = n.group(1)
+        module = "/tmp/"+module
+        print("Testing Trap Mode:", module)
         # will trigger the module named in assert_return(invoke $ABC).
         # run the ABC.wasm firstly
         if test_aot:
@@ -1008,45 +1008,17 @@ def run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r):
 
 def create_tmpfiles(wast_name):
     tempfiles = []
-
     
     (t1fd, wast_tempfile) = tempfile.mkstemp(suffix=".wast")
     (t2fd, wasm_tempfile) = tempfile.mkstemp(suffix=".wasm")
-    # if test_aot:
-    (t3fd, aot_tempfile) = tempfile.mkstemp(suffix=".aot")
-    
     tempfiles.append(wast_tempfile)
     tempfiles.append(wasm_tempfile)
-    tempfiles.append(aot_tempfile)
-    # # make tempfile directory
-    # if not os.path.exists(temp_file_directory):
-    #     os.mkdir(temp_file_directory)
+    if test_aot:
+        (t3fd, aot_tempfile) = tempfile.mkstemp(suffix=".aot")
+        tempfiles.append(aot_tempfile)
 
-    # def makefile(name):
-    #     open(name, "w").close()
-
-    # # create temporal file with particular name
-    # temp_wast_file = os.path.join(temp_file_directory, ""+ wast_name + ".wast")
-    # if not os.path.exists(temp_wast_file):
-    #     makefile(temp_wast_file)
-    # tempfiles.append(temp_wast_file)
-
-    # # now we define the same file name as wast for wasm & aot
-    # wasm_file = wast_name +".wasm"
-    # temp_wasm_file = os.path.join(temp_file_directory, wasm_file)
-    # if not os.path.exists(temp_wasm_file):
-    #     makefile(temp_wasm_file)
-    # tempfiles.append(temp_wasm_file)
-
-    # if test_aot:
-    #     aot_file = wast_name +".aot"
-    #     temp_aot_file =os.path.join(temp_file_directory, aot_file)
-    #     if not os.path.exists(temp_aot_file):
-    #         makefile(temp_aot_file)
-    #     tempfiles.append(temp_aot_file)
-
-    # # add these temp file to temporal repo, will be deleted when finishing the test
-    # temp_file_repo.extend(tempfiles)
+    # add these temp file to temporal repo, will be deleted when finishing the test
+    temp_file_repo.extend(tempfiles)
     return tempfiles
 
 def test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile, opts, r):
@@ -1231,7 +1203,7 @@ if __name__ == "__main__":
                                 _, exc, _ = sys.exc_info()
                                 log("Run wamrc failed:\n  got: '%s'" % r.buf)
                                 sys.exit(1)
-
+                        temp_module_table[module_name] = temp_files[1]
                         r = run_wasm_with_repl(temp_files[1], temp_files[2] if test_aot else None, opts, r)
                 else:
                     if not compile_wast_to_wasm(form, wast_tempfile, wasm_tempfile, opts):
@@ -1275,22 +1247,9 @@ if __name__ == "__main__":
                 # get module's new name from the register cmd
                 name_new =re.split('\"',re.search('\".*\"',form).group(0))[1]
                 if name_new:
-                    # if the register cmd include the new and old module name.
-                    # like: (register "new" $old)
-                    # we will replace the old with new name.
-                    name_old = re.search('\$.*\)',form)
-                    if name_old:
-                        old_ = re.split('\W', re.search('\$.*\)',form).group(0))[1]
-                        old_module = os.path.join(temp_file_directory,old_+".wasm")
-                    else:
-                    # like: (register "new")
-                    # this kind of register cmd will be behind of a noramal module
-                    # these modules' name are default temporal file name
-                    # we replace them with new name.
-                        old_module = wasm_tempfile
+                    new_module = os.path.join("/tmp/", name_new + ".wasm")
+                    shutil.copyfile(temp_module_table.get(name_new, wasm_tempfile), new_module)
 
-                    new_module = os.path.join(current_work_directory,name_new+".wasm")
-                    shutil.copyfile(old_module,new_module)
                     # add new_module copied from the old into temp_file_repo[]
                     temp_file_repo.append(new_module)
                 else:
@@ -1317,9 +1276,6 @@ if __name__ == "__main__":
                 for t in temp_file_repo:
                     if(len(str(t))!=0 and os.path.exists(t)):
                         os.remove(t)
-            # remove /tempfiles/ directory
-            if os.path.exists(temp_file_directory):
-                shutil.rmtree(temp_file_directory)
 
             log("### End testing %s" % opts.test_file.name)
         else:
