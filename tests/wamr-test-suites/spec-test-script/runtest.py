@@ -222,6 +222,9 @@ parser.add_argument('--simd', default=False, action='store_true',
 parser.add_argument('--xip', default=False, action='store_true',
         help="Enable XIP")
 
+parser.add_argument('--multi-module', default=False, action='store_true',
+        help="Enable Multi-thread")
+
 parser.add_argument('--multi-thread', default=False, action='store_true',
         help="Enable Multi-thread")
 
@@ -937,7 +940,7 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r):
 
     if test_target == "x86_64":
         cmd.append("--target=x86_64")
-        cmd.append("--cpu=skylake")
+        cmd.append("--cpu=native")
     elif test_target == "i386":
         cmd.append("--target=i386")
     elif test_target == "aarch64":
@@ -986,8 +989,8 @@ def run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r):
     tempfile = aot_tempfile if test_aot else wasm_tempfile
     log("Starting interpreter for module '%s'" % tempfile)
 
-    cmd_iwasm = [opts.interpreter, "--heap-size=0", "-v=5" if opts.verbose else "-v=0", "--repl", tempfile]
-    
+    cmd_iwasm = [opts.interpreter, "--heap-size=0", "-v=5" if opts.verbose else "-v=0", "--module-path=/tmp" if opts.multi_module else None, "--repl", tempfile]
+
     if opts.qemu:
         cmd = ["qemu-system-arm", "-semihosting", "-M", "sabrelite", "-m", "1024", "-smp", "4", "-nographic", "-kernel", "/home/huang/Work/nx/nuttx/nuttx"]
     else:

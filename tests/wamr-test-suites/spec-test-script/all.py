@@ -134,6 +134,9 @@ def test_case(
         CMD.append("--aot-target")
         CMD.append(target)
 
+    if multi_module_flag:
+        CMD.append("--multi-module")
+
     if multi_thread_flag:
         CMD.append("--multi-thread")
 
