@@ -134,6 +134,10 @@ static JitCompOptions jit_options = { 0 };
    of signal handler */
 static os_thread_local_attribute WASMExecEnv *exec_env_tls = NULL;
 
+static void
+set_exception_internal(WASMModuleInstance *module_inst, const char *exception,
+                       bool access_guard_page);
+
 #ifndef BH_PLATFORM_WINDOWS
 static void
 runtime_signal_handler(void *sig_addr)
@@ -172,7 +176,8 @@ runtime_signal_handler(void *sig_addr)
                 && (uint8 *)sig_addr < mapped_mem_end_addr)) {
             /* The address which causes segmentation fault is inside
                the memory instance's guard regions */
-            wasm_set_exception(module_inst, "out of bounds memory access");
+            set_exception_internal(module_inst, "out of bounds memory access",
+                                   false);
             os_longjmp(jmpbuf_node->jmpbuf, 1);
         }
 #if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
@@ -181,10 +186,16 @@ runtime_signal_handler(void *sig_addr)
                         < stack_min_addr + page_size * guard_page_count) {
             /* The address which causes segmentation fault is inside
                native thread's guard page */
-            wasm_set_exception(module_inst, "native stack overflow");
+            set_exception_internal(module_inst, "native stack overflow", false);
             os_longjmp(jmpbuf_node->jmpbuf, 1);
         }
 #endif
+        else if (exec_env_tls->exce_check_guard_page <= (uint8 *)sig_addr
+                 && (uint8 *)sig_addr
+                        < exec_env_tls->exce_check_guard_page + page_size) {
+            bh_assert(wasm_get_exception(module_inst));
+            os_longjmp(jmpbuf_node->jmpbuf, 1);
+        }
     }
 }
 #else
@@ -2113,14 +2124,31 @@ wasm_runtime_get_exec_env_singleton(WASMModuleInstanceCommon *module_inst_comm)
     return module_inst->exec_env_singleton;
 }
 
+static void
+set_exception_internal(WASMModuleInstance *module_inst, const char *exception,
+                       bool access_guard_page)
+{
+    if (exception) {
+        snprintf(module_inst->cur_exception, sizeof(module_inst->cur_exception),
+                 "Exception: %s", exception);
+#if defined(OS_ENABLE_HW_BOUND_CHECK)
+        if (access_guard_page && exec_env_tls
+            && exec_env_tls->handle == os_self_thread()) {
+            /* Access the guard page to trigger the signal handler */
+            *exec_env_tls->exce_check_guard_page = 0;
+        }
+#else
+        (void)access_guard_page;
+#endif
+    }
+    else
+        module_inst->cur_exception[0] = '\0';
+}
+
 void
 wasm_set_exception(WASMModuleInstance *module_inst, const char *exception)
 {
-    if (exception)
-        snprintf(module_inst->cur_exception, sizeof(module_inst->cur_exception),
-                 "Exception: %s", exception);
-    else
-        module_inst->cur_exception[0] = '\0';
+    set_exception_internal(module_inst, exception, true);
 }
 
 /* clang-format off */

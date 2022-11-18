@@ -3800,7 +3800,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                            + (uint64)cur_func->local_cell_num
                            + (uint64)cur_func->const_cell_num
                            + (uint64)cur_wasm_func->max_stack_cell_num;
-            if (all_cell_num >= UINT32_MAX) {
+            /* A function's param_cell_num and local_cell_num are no larger
+               than UINT16_MAX (checked in loader), here 2MB is large enough
+               for the all_cell_num check */
+            if (all_cell_num >= 2 * BH_MB) {
                 wasm_set_exception(module, "wasm operand stack overflow");
                 goto got_exception;
             }

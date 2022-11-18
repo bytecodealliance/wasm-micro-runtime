@@ -137,6 +137,8 @@ typedef struct WASMExecEnv {
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     WASMJmpBuf *jmpbuf_stack_top;
+    /* One guard page for the exception check */
+    uint8 *exce_check_guard_page;
 #endif
 
 #if WASM_ENABLE_MEMORY_PROFILING != 0
@@ -199,7 +201,8 @@ wasm_exec_env_alloc_wasm_frame(WASMExecEnv *exec_env, unsigned size)
        the outs area contains const cells, its size may be larger than current
        frame size, we should check again before putting the function arguments
        into the outs area. */
-    if (addr + size * 2 > exec_env->wasm_stack.s.top_boundary) {
+    if (size * 2
+        > (uint32)(uintptr_t)(exec_env->wasm_stack.s.top_boundary - addr)) {
         /* WASM stack overflow. */
         return NULL;
     }

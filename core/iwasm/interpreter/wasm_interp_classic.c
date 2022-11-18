@@ -3758,7 +3758,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             word_copy(frame->lp, frame_sp, cur_func->param_cell_num);
         }
         FREE_FRAME(exec_env, frame);
-        wasm_exec_env_set_cur_frame(exec_env, (WASMRuntimeFrame *)prev_frame);
+        wasm_exec_env_set_cur_frame(exec_env, prev_frame);
         goto call_func_from_entry;
     }
 #endif
@@ -3815,7 +3815,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                            + (uint64)cur_wasm_func->max_stack_cell_num
                            + ((uint64)cur_wasm_func->max_block_num)
                                  * sizeof(WASMBranchBlock) / 4;
-            if (all_cell_num >= UINT32_MAX) {
+            /* A function's param_cell_num and local_cell_num are no larger
+               than UINT16_MAX (checked in loader), here 2MB is large enough
+               for the all_cell_num check */
+            if (all_cell_num > 2 * BH_MB) {
                 wasm_set_exception(module, "wasm operand stack overflow");
                 goto got_exception;
             }
@@ -3850,7 +3853,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             cell_num = func_type->ret_cell_num;
             PUSH_CSP(LABEL_TYPE_FUNCTION, 0, cell_num, frame_ip_end - 1);
 
-            wasm_exec_env_set_cur_frame(exec_env, (WASMRuntimeFrame *)frame);
+            wasm_exec_env_set_cur_frame(exec_env, frame);
 #if WASM_ENABLE_THREAD_MGR != 0
             CHECK_SUSPEND_FLAGS();
 #endif
@@ -3861,7 +3864,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     return_func:
     {
         FREE_FRAME(exec_env, frame);
-        wasm_exec_env_set_cur_frame(exec_env, (WASMRuntimeFrame *)prev_frame);
+        wasm_exec_env_set_cur_frame(exec_env, prev_frame);
 
         if (!prev_frame->ip)
             /* Called from native. */
@@ -4124,8 +4127,7 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
     }
 #endif
 
-    if (!(frame =
-              ALLOC_FRAME(exec_env, frame_size, (WASMInterpFrame *)prev_frame)))
+    if (!(frame = ALLOC_FRAME(exec_env, frame_size, prev_frame)))
         return;
 
     outs_area = wasm_exec_env_wasm_stack_top(exec_env);
@@ -4133,6 +4135,12 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
     frame->ip = NULL;
     /* There is no local variable. */
     frame->sp = frame->lp + 0;
+
+    if ((uint8 *)(outs_area->lp + function->param_cell_num)
+        > exec_env->wasm_stack.s.top_boundary) {
+        wasm_set_exception(module_inst, "wasm operand stack overflow");
+        return;
+    }
 
     if (argc > 0)
         word_copy(outs_area->lp, argv, argc);

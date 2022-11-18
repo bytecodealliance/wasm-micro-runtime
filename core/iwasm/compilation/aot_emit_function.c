@@ -51,6 +51,9 @@ check_exception_thrown(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     LLVMBasicBlockRef block_curr, check_exce_succ;
     LLVMValueRef value, cmp;
 
+    if (!comp_ctx->enable_bound_check)
+        return true;
+
     /* Create function return block if it isn't created */
     if (!create_func_return_block(comp_ctx, func_ctx))
         return false;
@@ -94,6 +97,9 @@ check_call_return(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 {
     LLVMBasicBlockRef block_curr, check_call_succ;
     LLVMValueRef cmp;
+
+    if (!comp_ctx->enable_bound_check)
+        return true;
 
     /* Create function return block if it isn't created */
     if (!create_func_return_block(comp_ctx, func_ctx))
