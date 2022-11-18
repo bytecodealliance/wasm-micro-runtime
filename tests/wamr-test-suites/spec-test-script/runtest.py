@@ -1027,7 +1027,7 @@ def create_tmpfiles(wast_name):
     temp_file_repo.extend(tempfiles)
     return tempfiles
 
-def test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile, opts, r):
+def test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile, opts, r, loadable = True):
     details_inside_ast = get_module_exp_from_assert(form)
     log("module is ....'%s'"%details_inside_ast[0])
     log("exception is ....'%s'"%details_inside_ast[1])
@@ -1056,18 +1056,21 @@ def test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile,
 
     r = run_wasm_with_repl(wasm_tempfile, aot_tempfile if test_aot else None, opts, r)
 
-    # Wait for the initial prompt
-    try:
-        assert_prompt(r, ['webassembly> '], opts.start_timeout, True)
-    except:
-        _, exc, _ = sys.exc_info()
-        if (r.buf.find(expected) >= 0):
-            log("Out exception includes expected one, pass:")
-            log("  Expected: %s" %expected)
-            log("  Got: %s" % r.buf)
-        else:
-            raise Exception("Failed:\n  expected: '%s'\n  got: '%s'" % \
-                            (expected, r.buf))
+    # Some module couldn't load so will raise an error directly, so shell prompt won't show here
+
+    if loadable:
+        # Wait for the initial prompt
+        try:
+            assert_prompt(r, ['webassembly> '], opts.start_timeout, True)
+        except:
+            _, exc, _ = sys.exc_info()
+            if (r.buf.find(expected) >= 0):
+                log("Out exception includes expected one, pass:")
+                log("  Expected: %s" %expected)
+                log("  Got: %s" % r.buf)
+            else:
+                raise Exception("Failed:\n  expected: '%s'\n  got: '%s'" % \
+                                (expected, r.buf))
 
 if __name__ == "__main__":
     opts = parser.parse_args(sys.argv[1:])
@@ -1110,7 +1113,7 @@ if __name__ == "__main__":
             elif re.match("^\(assert_exhaustion\\b.*", form):
                 test_assert_exhaustion(r, opts, form)
             elif re.match("^\(assert_unlinkable\\b.*", form):
-                test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile if test_aot else None, opts, r)
+                test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile if test_aot else None, opts, r, False)
             elif re.match("^\(assert_malformed\\b.*", form):
                 # remove comments in wast
                 form,n = re.subn(";;.*\n", "", form)
