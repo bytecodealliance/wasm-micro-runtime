@@ -1150,35 +1150,22 @@ if __name__ == "__main__":
                                 log("Run wamrc failed:\n  expected: '%s'\n  got: '%s'" % \
                                     (error_msg, r.buf))
                             continue
-                        cmd = [opts.interpreter, "--heap-size=0", "--repl", aot_tempfile]
-                    else:
-                        cmd = [opts.interpreter, "--heap-size=0", "--repl", wasm_tempfile]
-                    log("Running: %s" % " ".join(cmd))
-                    output = subprocess.check_output(cmd)
 
-                    if IS_PY_3:
-                        output = str(output, "latin1")
+                    r = run_wasm_with_repl(wasm_tempfile, aot_tempfile if test_aot else None, opts, r)
 
-                    if (error_msg == "unexpected end of section or function") \
-                       and output.endswith("unexpected end\n"):
+                    if (error_msg == "unexpected end of section or function"):
                         # one case in binary.wast
-                        pass
-                    elif (error_msg == "invalid value type") \
-                       and output.endswith("unexpected end\n"):
+                        assert_prompt(r, ["unexpected end", error_msg], opts.start_timeout, True)
+                    elif (error_msg == "invalid value type"):
                         # one case in binary.wast
-                        pass
-                    elif (error_msg == "length out of bounds") \
-                       and output.endswith("unexpected end\n"):
+                        assert_prompt(r, ["unexpected end", error_msg], opts.start_timeout, True)
+                    elif (error_msg == "length out of bounds"):
                         # one case in custom.wast
-                        pass
-                    elif (error_msg == "integer representation too long") \
-                       and output.endswith("invalid section id\n"):
+                        assert_prompt(r, ["unexpected end", error_msg], opts.start_timeout, True)
+                    elif (error_msg == "integer representation too long"):
                         # several cases in binary-leb128.wast
-                        pass
-                    elif not error_msg in output:
-                        raise Exception("Failed:\n  expected: '%s'\n  got: '%s'" % (error_msg, output[0:-1]))
-                    else:
-                        pass
+                        assert_prompt(r, ["invalid section id", error_msg], opts.start_timeout, True)
+
                 elif re.match("^\(assert_malformed\s*\(module quote", form):
                     log("ignoring assert_malformed module quote")
                 else:
@@ -1275,16 +1262,16 @@ if __name__ == "__main__":
     finally:
         if not opts.no_cleanup:
             log("Removing tempfiles")
-            os.remove(wast_tempfile)
-            os.remove(wasm_tempfile)
-            if test_aot:
-                os.remove(aot_tempfile)
+            # os.remove(wast_tempfile)
+            # os.remove(wasm_tempfile)
+            # if test_aot:
+            #     os.remove(aot_tempfile)
 
             # remove the files under /tempfiles/ and copy of .wasm files
-            if temp_file_repo:
-                for t in temp_file_repo:
-                    if(len(str(t))!=0 and os.path.exists(t)):
-                        os.remove(t)
+            # if temp_file_repo:
+            #     for t in temp_file_repo:
+            #         if(len(str(t))!=0 and os.path.exists(t)):
+            #             os.remove(t)
 
             log("### End testing %s" % opts.test_file.name)
         else:
