@@ -772,12 +772,12 @@ def test_assert_return(r, opts, form):
         # assume the cmd is (assert_return(invoke $ABC "func")).
         # run the ABC.wasm firstly
         if test_aot:
-            r = compile_wasm_to_aot(module+".wasm", module+".aot", True, opts, r)
+            cr = compile_wasm_to_aot(module+".wasm", module+".aot", True, opts, None)
             try:
-                assert_prompt(r, ['Compile success'], opts.start_timeout, False)
+                assert_prompt(cr, ['Compile success'], opts.start_timeout, False)
             except:
                 _, exc, _ = sys.exc_info()
-                log("Run wamrc failed:\n  got: '%s'" % r.buf)
+                log("Run wamrc failed:\n  got: '%s'" % cr.buf)
                 sys.exit(1)
             r = run_wasm_with_repl(module+".wasm", module+".aot", opts, r)
         else:
@@ -839,12 +839,12 @@ def test_assert_trap(r, opts, form):
         # will trigger the module named in assert_return(invoke $ABC).
         # run the ABC.wasm firstly
         if test_aot:
-            r = compile_wasm_to_aot(module+".wasm", module+".aot", True, opts, r)
+            cr = compile_wasm_to_aot(module+".wasm", module+".aot", True, opts, None)
             try:
-                assert_prompt(r, ['Compile success'], opts.start_timeout, False)
+                assert_prompt(cr, ['Compile success'], opts.start_timeout, False)
             except:
                 _, exc, _ = sys.exc_info()
-                log("Run wamrc failed:\n  got: '%s'" % r.buf)
+                log("Run wamrc failed:\n  got: '%s'" % cr.buf)
                 sys.exit(1)
             r = run_wasm_with_repl(module+".wasm", module+".aot", opts, r)
         else:
@@ -988,6 +988,7 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r):
 def run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r):
     tempfile = aot_tempfile if test_aot else wasm_tempfile
     log("Starting interpreter for module '%s'" % tempfile)
+    is_init = False
 
     cmd_iwasm = [opts.interpreter, "--heap-size=0", "-v=5" if opts.verbose else "-v=0", "--repl", tempfile]
 
@@ -1000,14 +1001,19 @@ def run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r):
         cmd = cmd_iwasm
 
     log("Running: %s" % " ".join(cmd))
-    if (r != None):
-        r.cleanup()
-    r = Runner(cmd, no_pty=opts.no_pty)
-    
+
+    if (r == None) or (not opts.qemu):
+        r = Runner(cmd, no_pty=opts.no_pty)
+        is_init = True
+
     if opts.qemu:
-        r.read_to_prompt(['nsh> '], 10)
-        r.writeline("mount -t hostfs -o fs=/tmp /tmp")
-        r.read_to_prompt(['nsh> '], 10)
+        if is_init:
+            r.read_to_prompt(['nsh> '], 10)
+            r.writeline("mount -t hostfs -o fs=/tmp /tmp")
+
+        # Exit from iwasm repl first
+        r.writeline("__exit__")
+        r.read_to_prompt(["nsh> ", "__exit__: command not found"], 10)
         r.writeline(" ".join(cmd_iwasm))
     
     return r
@@ -1039,19 +1045,19 @@ def test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile,
         raise Exception("compile wast to wasm failed")
 
     if test_aot:
-        r = compile_wasm_to_aot(wasm_tempfile, aot_tempfile, True, opts, r)
+        cr = compile_wasm_to_aot(wasm_tempfile, aot_tempfile, True, opts, None)
         try:
-            assert_prompt(r, ['Compile success'], opts.start_timeout, True)
+            assert_prompt(cr, ['Compile success'], opts.start_timeout, True)
         except:
             _, exc, _ = sys.exc_info()
-            if (r.buf.find(expected) >= 0):
+            if (cr.buf.find(expected) >= 0):
                 log("Out exception includes expected one, pass:")
                 log("  Expected: %s" % expected)
-                log("  Got: %s" % r.buf)
+                log("  Got: %s" % cr.buf)
                 return
             else:
                 log("Run wamrc failed:\n  expected: '%s'\n  got: '%s'" % \
-                    (expected, r.buf))
+                    (expected, cr.buf))
                 sys.exit(1)
 
     r = run_wasm_with_repl(wasm_tempfile, aot_tempfile if test_aot else None, opts, r)
@@ -1137,18 +1143,19 @@ if __name__ == "__main__":
 
                     # compile wasm to aot
                     if test_aot:
-                        r = compile_wasm_to_aot(wasm_tempfile, aot_tempfile, True, opts, r)
+                        # cr means compile runner
+                        cr = compile_wasm_to_aot(wasm_tempfile, aot_tempfile, True, opts, None)
                         try:
-                            assert_prompt(r, ['Compile success'], opts.start_timeout, True)
+                            assert_prompt(cr, ['Compile success'], opts.start_timeout, True)
                         except:
                             _, exc, _ = sys.exc_info()
-                            if (r.buf.find(error_msg) >= 0):
+                            if (cr.buf.find(error_msg) >= 0):
                                 log("Out exception includes expected one, pass:")
                                 log("  Expected: %s" % error_msg)
-                                log("  Got: %s" % r.buf)
+                                log("  Got: %s" % cr.buf)
                             else:
                                 log("Run wamrc failed:\n  expected: '%s'\n  got: '%s'" % \
-                                    (error_msg, r.buf))
+                                    (error_msg, cr.buf))
                             continue
 
                     r = run_wasm_with_repl(wasm_tempfile, aot_tempfile if test_aot else None, opts, r)
@@ -1192,12 +1199,12 @@ if __name__ == "__main__":
                             raise Exception("compile wast to wasm failed")
 
                         if test_aot:
-                            r = compile_wasm_to_aot(temp_files[1], temp_files[2], True, opts, r)
+                            cr = compile_wasm_to_aot(temp_files[1], temp_files[2], True, opts, None)
                             try:
-                                assert_prompt(r, ['Compile success'], opts.start_timeout, False)
+                                assert_prompt(cr, ['Compile success'], opts.start_timeout, False)
                             except:
                                 _, exc, _ = sys.exc_info()
-                                log("Run wamrc failed:\n  got: '%s'" % r.buf)
+                                log("Run wamrc failed:\n  got: '%s'" % cr.buf)
                                 sys.exit(1)
                         temp_module_table[module_name] = temp_files[1]
                         r = run_wasm_with_repl(temp_files[1], temp_files[2] if test_aot else None, opts, r)
@@ -1206,12 +1213,12 @@ if __name__ == "__main__":
                         raise Exception("compile wast to wasm failed")
 
                     if test_aot:
-                        r = compile_wasm_to_aot(wasm_tempfile, aot_tempfile, True, opts, r)
+                        cr = compile_wasm_to_aot(wasm_tempfile, aot_tempfile, True, opts, None)
                         try:
-                            assert_prompt(r, ['Compile success'], opts.start_timeout, False)
+                            assert_prompt(cr, ['Compile success'], opts.start_timeout, False)
                         except:
                             _, exc, _ = sys.exc_info()
-                            log("Run wamrc failed:\n  got: '%s'" % r.buf)
+                            log("Run wamrc failed:\n  got: '%s'" % cr.buf)
                             sys.exit(1)
 
                     r = run_wasm_with_repl(wasm_tempfile, aot_tempfile if test_aot else None, opts, r)
