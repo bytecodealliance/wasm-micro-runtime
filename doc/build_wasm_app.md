@@ -127,7 +127,7 @@ If we want to build the wasm app with wasi mode, we may build the wasm app with 
 to generate a wasm binary with wasi mode, the auxiliary stack size is 8192 bytes, initial memory size is 64 KB,  heap base global and data end global are exported, wasi entry function exported (_start function), and all symbols are stripped. Note that it is wasi mode, so libc-wasi should be enabled by runtime embedder or iwasm (with `cmake -DWAMR_BUILD_LIBC_WASI=1`, enabled by iwasm in Linux by default), and normally no need to export main function, by default _start function is executed by iwasm.
 
 > Note: for the Rust project, we can set these flags by setting the `rustflags` in the Cargo configuration file, e.g. `<project_dir>/.cargo/config.toml` or `$CARGO_HOME/config.toml`, for example:
-> ```
+> ```toml
 > [build]
 > rustflags = [
 >   "-C", "link-arg=--initial-memory=65536",
@@ -151,7 +151,7 @@ Firstly if libc-builtin (-nostdlib) mode meets the requirements, e.g. there are 
   If the two globals are exported, and there are no memory.grow and memory.size opcodes (normally nostdlib mode doesn't introduce these opcodes since the libc malloc function isn't built into wasm bytecode), WAMR runtime will truncate the linear memory at the place of \__heap_base and append app heap to the end, so we don't need to allocate the memory specified by `-Wl,--initial-memory=n` which must be at least 64 KB. This is helpful for some embedded devices whose memory resource might be limited.
 
 > For the Rust project, please set the flags in the Cargo configuration file, for example:
-> ```
+> ```toml
 > [build]
 > rustflags = [
 >   "-C", "link-arg=--export=__heap_base",
@@ -165,15 +165,17 @@ Firstly if libc-builtin (-nostdlib) mode meets the requirements, e.g. there are 
   The auxiliary stack is an area of linear memory, normally the size is 64 KB by default which might be a little large for embedded devices and partly used, we can use `-z stack-size=n` to set its size.
 
 > For the Rust project, please set the flag in the Cargo configuration file, for example:
+> ```toml
 > [build]
 > rustflags = [
 >   "-C", "link-arg=-zstack-size=8192"
 > ]
+> ```
 
 - use -O3 and -Wl,--strip-all
 
 > For the Rust project, please set the flag in the Cargo configuration file, for example:
-> ```
+> ```toml
 > [build]
 > rustflags = [
 >  "-C", "link-arg=--strip-all"
