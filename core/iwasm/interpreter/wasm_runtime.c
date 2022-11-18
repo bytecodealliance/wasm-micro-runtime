@@ -2027,6 +2027,8 @@ call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
     WASMJmpBuf jmpbuf_node = { 0 }, *jmpbuf_node_pop;
     uint32 page_size = os_getpagesize();
     uint32 guard_page_count = STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT;
+    WASMRuntimeFrame *prev_frame = wasm_exec_env_get_cur_frame(exec_env);
+    uint8 *prev_top = exec_env->wasm_stack.s.top;
 #ifdef BH_PLATFORM_WINDOWS
     const char *exce;
     int result;
@@ -2081,13 +2083,18 @@ call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
         ret = false;
     }
 
-    if (wasm_get_exception(module_inst)) {
+    /* Note: can't check wasm_get_exception(module_inst) here, there may be
+     * exception which is not caught by hardware (e.g. uninitialized elements),
+     * then the stack-frame is already freed inside wasm_interp_call_wasm */
+    if (!ret) {
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
         if (wasm_interp_create_call_stack(exec_env)) {
             wasm_interp_dump_call_stack(exec_env, true, NULL, 0);
         }
 #endif
-        wasm_interp_restore_wasm_frame(exec_env);
+        /* Restore operand frames */
+        wasm_exec_env_set_cur_frame(exec_env, prev_frame);
+        exec_env->wasm_stack.s.top = prev_top;
     }
 
     jmpbuf_node_pop = wasm_exec_env_pop_jmpbuf(exec_env);
