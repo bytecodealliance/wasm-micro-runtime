@@ -1262,16 +1262,16 @@ if __name__ == "__main__":
     finally:
         if not opts.no_cleanup:
             log("Removing tempfiles")
-            # os.remove(wast_tempfile)
-            # os.remove(wasm_tempfile)
-            # if test_aot:
-            #     os.remove(aot_tempfile)
+            os.remove(wast_tempfile)
+            os.remove(wasm_tempfile)
+            if test_aot:
+                os.remove(aot_tempfile)
 
             # remove the files under /tempfiles/ and copy of .wasm files
-            # if temp_file_repo:
-            #     for t in temp_file_repo:
-            #         if(len(str(t))!=0 and os.path.exists(t)):
-            #             os.remove(t)
+            if temp_file_repo:
+                for t in temp_file_repo:
+                    if(len(str(t))!=0 and os.path.exists(t)):
+                        os.remove(t)
 
             log("### End testing %s" % opts.test_file.name)
         else:
