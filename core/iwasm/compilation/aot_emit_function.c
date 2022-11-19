@@ -35,7 +35,14 @@ create_func_return_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
         /* Create return IR */
         LLVMPositionBuilderAtEnd(comp_ctx->builder,
                                  func_ctx->func_return_block);
-        if (!aot_build_zero_function_ret(comp_ctx, func_ctx, aot_func_type)) {
+        if (!comp_ctx->enable_bound_check) {
+            if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_ALREADY_THROWN,
+                                    false, NULL, NULL)) {
+                return false;
+            }
+        }
+        else if (!aot_build_zero_function_ret(comp_ctx, func_ctx,
+                                              aot_func_type)) {
             return false;
         }
     }
@@ -50,9 +57,6 @@ check_exception_thrown(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
     LLVMBasicBlockRef block_curr, check_exce_succ;
     LLVMValueRef value, cmp;
-
-    if (!comp_ctx->enable_bound_check)
-        return true;
 
     /* Create function return block if it isn't created */
     if (!create_func_return_block(comp_ctx, func_ctx))
@@ -97,9 +101,6 @@ check_call_return(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 {
     LLVMBasicBlockRef block_curr, check_call_succ;
     LLVMValueRef cmp;
-
-    if (!comp_ctx->enable_bound_check)
-        return true;
 
     /* Create function return block if it isn't created */
     if (!create_func_return_block(comp_ctx, func_ctx))
@@ -500,7 +501,8 @@ check_app_addr_and_convert(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     /* Check whether exception was thrown when executing the function */
-    if (!check_call_return(comp_ctx, func_ctx, res)) {
+    if (comp_ctx->enable_bound_check
+        && !check_call_return(comp_ctx, func_ctx, res)) {
         return false;
     }
 
@@ -713,7 +715,8 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 goto fail;
             /* Check whether there was exception thrown when executing
                the function */
-            if (!check_call_return(comp_ctx, func_ctx, res))
+            if (comp_ctx->enable_bound_check
+                && !check_call_return(comp_ctx, func_ctx, res))
                 goto fail;
         }
         else { /* call native func directly */
@@ -829,7 +832,7 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
         /* Check whether there was exception thrown when executing
            the function */
-        if (!tail_call && !recursive_call
+        if (!tail_call && !recursive_call && comp_ctx->enable_bound_check
             && !check_exception_thrown(comp_ctx, func_ctx))
             goto fail;
     }
@@ -1401,7 +1404,8 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
 
     /* Check whether exception was thrown when executing the function */
-    if (!check_call_return(comp_ctx, func_ctx, res))
+    if (comp_ctx->enable_bound_check
+        && !check_call_return(comp_ctx, func_ctx, res))
         goto fail;
 
     block_curr = LLVMGetInsertBlock(comp_ctx->builder);
@@ -1460,7 +1464,8 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     /* Check whether exception was thrown when executing the function */
-    if (!check_exception_thrown(comp_ctx, func_ctx))
+    if (comp_ctx->enable_bound_check
+        && !check_exception_thrown(comp_ctx, func_ctx))
         goto fail;
 
     if (func_result_count > 0) {

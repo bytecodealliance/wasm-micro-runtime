@@ -1500,7 +1500,11 @@ aot_set_exception(AOTModuleInstance *module_inst, const char *exception)
 void
 aot_set_exception_with_id(AOTModuleInstance *module_inst, uint32 id)
 {
-    wasm_set_exception_with_id(module_inst, id);
+    if (id != EXCE_ALREADY_THROWN)
+        wasm_set_exception_with_id(module_inst, id);
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    wasm_runtime_access_exce_check_guard_page();
+#endif
 }
 
 const char *
@@ -1755,6 +1759,7 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
     const char *signature;
     void *attachment;
     char buf[96];
+    bool ret = false;
 
     bh_assert(func_idx < aot_module->import_func_count);
 
@@ -1764,27 +1769,34 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
                  "failed to call unlinked import function (%s, %s)",
                  import_func->module_name, import_func->func_name);
         aot_set_exception(module_inst, buf);
-        return false;
+        goto fail;
     }
 
     attachment = import_func->attachment;
     if (import_func->call_conv_wasm_c_api) {
-        return wasm_runtime_invoke_c_api_native(
+        ret = wasm_runtime_invoke_c_api_native(
             (WASMModuleInstanceCommon *)module_inst, func_ptr, func_type, argc,
             argv, import_func->wasm_c_api_with_env, attachment);
     }
     else if (!import_func->call_conv_raw) {
         signature = import_func->signature;
-        return wasm_runtime_invoke_native(exec_env, func_ptr, func_type,
-                                          signature, attachment, argv, argc,
-                                          argv);
+        ret =
+            wasm_runtime_invoke_native(exec_env, func_ptr, func_type, signature,
+                                       attachment, argv, argc, argv);
     }
     else {
         signature = import_func->signature;
-        return wasm_runtime_invoke_native_raw(exec_env, func_ptr, func_type,
-                                              signature, attachment, argv, argc,
-                                              argv);
+        ret = wasm_runtime_invoke_native_raw(exec_env, func_ptr, func_type,
+                                             signature, attachment, argv, argc,
+                                             argv);
     }
+
+fail:
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    if (!ret)
+        wasm_runtime_access_exce_check_guard_page();
+#endif
+    return ret;
 }
 
 bool
@@ -1811,7 +1823,7 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
 
     if ((uint8 *)&module_inst < exec_env->native_stack_boundary) {
         aot_set_exception_with_id(module_inst, EXCE_NATIVE_STACK_OVERFLOW);
-        return false;
+        goto fail;
     }
 
     tbl_inst = module_inst->tables[tbl_idx];
@@ -1819,13 +1831,13 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
 
     if (table_elem_idx >= tbl_inst->cur_size) {
         aot_set_exception_with_id(module_inst, EXCE_UNDEFINED_ELEMENT);
-        return false;
+        goto fail;
     }
 
     func_idx = tbl_inst->elems[table_elem_idx];
     if (func_idx == NULL_REF) {
         aot_set_exception_with_id(module_inst, EXCE_UNINITIALIZED_ELEMENT);
-        return false;
+        goto fail;
     }
 
     func_type_idx = func_type_indexes[func_idx];
@@ -1843,7 +1855,7 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
                  "failed to call unlinked import function (%s, %s)",
                  import_func->module_name, import_func->func_name);
         aot_set_exception(module_inst, buf);
-        return false;
+        goto fail;
     }
 
     if (func_idx < aot_module->import_func_count) {
@@ -1852,9 +1864,13 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
         signature = import_func->signature;
         if (import_func->call_conv_raw) {
             attachment = import_func->attachment;
-            return wasm_runtime_invoke_native_raw(exec_env, func_ptr, func_type,
-                                                  signature, attachment, argv,
-                                                  argc, argv);
+            ret = wasm_runtime_invoke_native_raw(exec_env, func_ptr, func_type,
+                                                 signature, attachment, argv,
+                                                 argc, argv);
+            if (!ret)
+                goto fail;
+
+            return true;
         }
     }
 
@@ -1878,7 +1894,7 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
             && !(argv1 = runtime_malloc(size, module_inst->cur_exception,
                                         sizeof(module_inst->cur_exception)))) {
             aot_set_exception_with_id(module_inst, EXCE_OUT_OF_MEMORY);
-            return false;
+            goto fail;
         }
 
         /* Copy original arguments */
@@ -1897,12 +1913,10 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
 
         ret = invoke_native_internal(exec_env, func_ptr, func_type, signature,
                                      attachment, argv1, argc, argv);
-        if (!ret || aot_get_exception(module_inst)) {
+        if (!ret) {
             if (argv1 != argv1_buf)
                 wasm_runtime_free(argv1);
-            if (clear_wasi_proc_exit_exception(module_inst))
-                return true;
-            return false;
+            goto fail;
         }
 
         /* Get extra result values */
@@ -1941,10 +1955,20 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
     else {
         ret = invoke_native_internal(exec_env, func_ptr, func_type, signature,
                                      attachment, argv, argc, argv);
-        if (clear_wasi_proc_exit_exception(module_inst))
-            return true;
-        return ret;
+        if (!ret)
+            goto fail;
+
+        return true;
     }
+
+fail:
+    if (clear_wasi_proc_exit_exception(module_inst))
+        return true;
+
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    wasm_runtime_access_exce_check_guard_page();
+#endif
+    return false;
 }
 
 bool
@@ -1952,8 +1976,17 @@ aot_check_app_addr_and_convert(AOTModuleInstance *module_inst, bool is_str,
                                uint32 app_buf_addr, uint32 app_buf_size,
                                void **p_native_addr)
 {
-    return wasm_check_app_addr_and_convert(module_inst, is_str, app_buf_addr,
-                                           app_buf_size, p_native_addr);
+    bool ret;
+
+    ret = wasm_check_app_addr_and_convert(module_inst, is_str, app_buf_addr,
+                                          app_buf_size, p_native_addr);
+
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    if (!ret)
+        wasm_runtime_access_exce_check_guard_page();
+#endif
+
+    return ret;
 }
 
 void *

@@ -522,11 +522,11 @@ trunc_f32_to_int(WASMModuleInstance *module, uint32 *frame_sp, float32 src_min,
     if (!saturating) {
         if (isnan(src_value)) {
             wasm_set_exception(module, "invalid conversion to integer");
-            return true;
+            return false;
         }
         else if (src_value <= src_min || src_value >= src_max) {
             wasm_set_exception(module, "integer overflow");
-            return true;
+            return false;
         }
     }
 
@@ -544,7 +544,7 @@ trunc_f32_to_int(WASMModuleInstance *module, uint32 *frame_sp, float32 src_min,
                                          dst_max, is_sign);
         PUSH_I64(dst_value_i64);
     }
-    return false;
+    return true;
 }
 
 static bool
@@ -558,11 +558,11 @@ trunc_f64_to_int(WASMModuleInstance *module, uint32 *frame_sp, float64 src_min,
     if (!saturating) {
         if (isnan(src_value)) {
             wasm_set_exception(module, "invalid conversion to integer");
-            return true;
+            return false;
         }
         else if (src_value <= src_min || src_value >= src_max) {
             wasm_set_exception(module, "integer overflow");
-            return true;
+            return false;
         }
     }
 
@@ -580,21 +580,21 @@ trunc_f64_to_int(WASMModuleInstance *module, uint32 *frame_sp, float64 src_min,
                                          dst_max, is_sign);
         PUSH_I64(dst_value_i64);
     }
-    return false;
+    return true;
 }
 
-#define DEF_OP_TRUNC_F32(min, max, is_i32, is_sign)                     \
-    do {                                                                \
-        if (trunc_f32_to_int(module, frame_sp, min, max, false, is_i32, \
-                             is_sign))                                  \
-            goto got_exception;                                         \
+#define DEF_OP_TRUNC_F32(min, max, is_i32, is_sign)                      \
+    do {                                                                 \
+        if (!trunc_f32_to_int(module, frame_sp, min, max, false, is_i32, \
+                              is_sign))                                  \
+            goto got_exception;                                          \
     } while (0)
 
-#define DEF_OP_TRUNC_F64(min, max, is_i32, is_sign)                     \
-    do {                                                                \
-        if (trunc_f64_to_int(module, frame_sp, min, max, false, is_i32, \
-                             is_sign))                                  \
-            goto got_exception;                                         \
+#define DEF_OP_TRUNC_F64(min, max, is_i32, is_sign)                      \
+    do {                                                                 \
+        if (!trunc_f64_to_int(module, frame_sp, min, max, false, is_i32, \
+                              is_sign))                                  \
+            goto got_exception;                                          \
     } while (0)
 
 #define DEF_OP_TRUNC_SAT_F32(min, max, is_i32, is_sign)                  \
@@ -3795,13 +3795,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                            + (uint64)cur_wasm_func->max_stack_cell_num
                            + ((uint64)cur_wasm_func->max_block_num)
                                  * sizeof(WASMBranchBlock) / 4;
-            /* A function's param_cell_num and local_cell_num are no larger
-               than UINT16_MAX (checked in loader), here 2MB is large enough
-               for the all_cell_num check */
-            if (all_cell_num > 2 * BH_MB) {
-                wasm_set_exception(module, "wasm operand stack overflow");
-                goto got_exception;
-            }
+            /* param_cell_num, local_cell_num, max_stack_cell_num and
+               max_block_num are all no larger than UINT16_MAX (checked
+               in loader), all_cell_num must be smaller than 1MB */
+            bh_assert(all_cell_num < 1 * BH_MB);
 
             frame_size = wasm_interp_interp_frame_size((uint32)all_cell_num);
             if (!(frame = ALLOC_FRAME(exec_env, frame_size, prev_frame))) {
@@ -3970,6 +3967,7 @@ llvm_jit_call_func_bytecode(WASMModuleInstance *module_inst,
 #if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
     if (!llvm_jit_alloc_frame(exec_env, function - module_inst->e->functions)) {
         wasm_set_exception(module_inst, "wasm operand stack overflow");
+        return false;
     }
 #endif
 
