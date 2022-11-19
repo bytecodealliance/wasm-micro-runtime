@@ -15,7 +15,7 @@
 #if WASM_ENABLE_LIB_RATS != 0
 #include <openssl/sha.h>
 
-char wasm_module_hash[SHA256_DIGEST_LENGTH] = { '\0' };
+char wasm_module_hash[SHA256_DIGEST_LENGTH];
 #endif
 
 extern "C" {

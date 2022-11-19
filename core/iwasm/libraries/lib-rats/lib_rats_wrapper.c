@@ -19,24 +19,63 @@
 extern char wasm_module_hash[SHA256_DIGEST_LENGTH];
 
 static int
-librats_collect_wrapper(wasm_exec_env_t exec_env, rats_sgx_evidence_t *evidence,
-                        uint32_t evidence_size, const char *buffer,
-                        uint32_t buffer_size)
+librats_collect_wrapper(wasm_exec_env_t exec_env, char **evidence_json,
+                        const char *buffer, uint32_t buffer_size)
 {
-    attestation_evidence_t att_ev;
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
 
-    char final_hash[SHA256_DIGEST_LENGTH] = { '\0' };
+    char *json, *str_ret;
+    uint32_t str_ret_offset;
+    uint8_t final_hash[SHA256_DIGEST_LENGTH];
+
     SHA256_CTX sha256;
     SHA256_Init(&sha256);
     SHA256_Update(&sha256, wasm_module_hash, SHA256_DIGEST_LENGTH);
     if (buffer != NULL)
-        SHA256_Update(&sha256, buffer, strlen(buffer));
-    SHA256_Final((unsigned char *)final_hash, &sha256);
+        SHA256_Update(&sha256, buffer, buffer_size);
+    SHA256_Final(final_hash, &sha256);
 
-    rats_attester_err_t ret_code =
-        librats_collect_evidence(&att_ev, (const uint8_t *)final_hash);
-    if (ret_code != RATS_ATTESTER_ERR_NONE) {
-        return (int)ret_code;
+    int ret_code = librats_collect_evidence_to_json(final_hash, &json);
+    if (ret_code != 0) {
+        return ret_code;
+    }
+
+    uint32_t json_size = strlen(json) + 1;
+    str_ret_offset = module_malloc(json_size, (void **)&str_ret);
+    if (!str_ret_offset) {
+        free(json);
+        return (int)RATS_ATTESTER_ERR_NO_MEM;
+    }
+    bh_memcpy_s(str_ret, json_size, json, json_size);
+    *((int *)evidence_json) = str_ret_offset;
+    free(json);
+
+    return 0;
+}
+
+static int
+librats_verify_wrapper(wasm_exec_env_t exec_env, const char *evidence_json,
+                       uint32_t evidence_size, const uint8_t *hash,
+                       uint32_t hash_size)
+{
+    return librats_verify_evidence_from_json(evidence_json, hash);
+}
+
+static int
+librats_parse_evidence_wrapper(wasm_exec_env_t exec_env,
+                               const char *evidence_json, uint32_t json_size,
+                               rats_sgx_evidence_t *evidence,
+                               uint32_t evidence_size)
+{
+    attestation_evidence_t att_ev;
+
+    if (get_evidence_from_json(evidence_json, &att_ev) != 0) {
+        return -1;
+    }
+
+    // Only supports parsing sgx evidence currently
+    if (strcmp(att_ev.type, "sgx_ecdsa") != 0) {
+        return -1;
     }
 
     sgx_quote3_t *quote_ptr = (sgx_quote3_t *)att_ev.ecdsa.quote;
@@ -57,40 +96,15 @@ librats_collect_wrapper(wasm_exec_env_t exec_env, rats_sgx_evidence_t *evidence,
     return 0;
 }
 
-static int
-librats_verify_wrapper(wasm_exec_env_t exec_env, rats_sgx_evidence_t *evidence,
-                       uint32_t evidence_size, const char *buffer,
-                       uint32_t buffer_size)
-{
-    attestation_evidence_t att_ev;
-
-    char final_hash[SHA256_DIGEST_LENGTH] = { '\0' };
-    SHA256_CTX sha256;
-    SHA256_Init(&sha256);
-    SHA256_Update(&sha256, wasm_module_hash, SHA256_DIGEST_LENGTH);
-    if (buffer != NULL)
-        SHA256_Update(&sha256, buffer, strlen(buffer));
-    SHA256_Final((unsigned char *)final_hash, &sha256);
-
-    const char *tee_type = "sgx_ecdsa";
-    bh_memcpy_s(att_ev.type, strlen(tee_type), tee_type, strlen(tee_type));
-    bh_memcpy_s(att_ev.ecdsa.quote, evidence->quote_size, evidence->quote,
-                evidence->quote_size);
-    att_ev.ecdsa.quote_len = evidence->quote_size;
-
-    rats_verifier_err_t ret_code = librats_verify_evidence(
-        &att_ev, (const uint8_t *)final_hash, NULL, NULL);
-    return ret_code == RATS_VERIFIER_ERR_NONE ? 0 : (int)ret_code;
-}
-
 /* clang-format off */
 #define REG_NATIVE_FUNC(func_name, signature) \
     { #func_name, func_name##_wrapper, signature, NULL }
 /* clang-format on */
 
 static NativeSymbol native_symbols_lib_rats[] = {
-    REG_NATIVE_FUNC(librats_collect, "(*~*~)i"),
-    REG_NATIVE_FUNC(librats_verify, "(*~*~)i")
+    REG_NATIVE_FUNC(librats_collect, "(**~)i"),
+    REG_NATIVE_FUNC(librats_verify, "(*~*~)i"),
+    REG_NATIVE_FUNC(librats_parse_evidence, "(*~*~)i")
 };
 
 uint32_t

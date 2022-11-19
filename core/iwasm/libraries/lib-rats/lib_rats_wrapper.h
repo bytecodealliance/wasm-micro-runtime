@@ -17,20 +17,28 @@ extern "C" {
 #endif
 
 int
-librats_collect(rats_sgx_evidence_t *evidence, uint32_t evidence_size,
-                const char *buffer, uint32_t buffer_size);
+librats_collect(char **evidence_json, const char *buffer, uint32_t buffer_size);
 
 int
-librats_verify(rats_sgx_evidence_t *evidence, uint32_t evidence_size,
-               const char *buffer, uint32_t buffer_size);
+librats_verify(const char *evidence_json, uint32_t evidence_size,
+               const uint8_t *hash, uint32_t hash_size);
 
-#define librats_collect(evidence, buffer)                          \
-    librats_collect(evidence, sizeof(rats_sgx_evidence_t), buffer, \
-                    strlen(buffer) + 1)
+int
+librats_parse_evidence(const char *evidence_json, uint32_t json_size,
+                       rats_sgx_evidence_t *evidence, uint32_t evidence_size);
 
-#define librats_verify(evidence, buffer)                          \
-    librats_verify(evidence, sizeof(rats_sgx_evidence_t), buffer, \
-                   strlen(buffer) + 1)
+#define librats_collect(evidence_json, buffer) \
+    librats_collect(evidence_json, buffer, buffer ? strlen(buffer) + 1 : 0)
+
+#define librats_verify(evidence_json, hash)                             \
+    librats_verify(evidence_json,                                       \
+                   evidence_json ? strlen(evidence_json) + 1 : 0, hash, \
+                   hash ? strlen((const char *)hash) + 1 : 0)
+
+#define librats_parse_evidence(evidence_json, evidence)                   \
+    librats_parse_evidence(evidence_json,                                 \
+                           evidence_json ? strlen(evidence_json) + 1 : 0, \
+                           evidence, sizeof(rats_sgx_evidence_t))
 
 #ifdef __cplusplus
 }

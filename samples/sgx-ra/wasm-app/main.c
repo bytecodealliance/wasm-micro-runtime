@@ -58,9 +58,10 @@ int
 main(int argc, char **argv)
 {
     int ret_code = -1;
+    char *evidence_json;
 
     // Generate user_data by SHA256 buffer and the wasm module.
-    // user_data = SHA256(buffer || sha256_wasm_module)
+    // user_data = SHA256(sha256_wasm_module || buffer)
     const char *buffer = "This is a sample.";
 
     // If you want to declare the evidence of type rats_sgx_evidence_t on the
@@ -73,9 +74,14 @@ main(int argc, char **argv)
         goto err;
     }
 
-    int rats_err = librats_collect(evidence, buffer);
+    int rats_err = librats_collect(&evidence_json, buffer);
     if (rats_err != 0) {
-        printf("ERROR: collect evidence failed, %#x", rats_err);
+        printf("ERROR: Collect evidence failed, error code: %#x\n", rats_err);
+        goto err;
+    }
+
+    if (librats_parse_evidence(evidence_json, evidence) != 0) {
+        printf("ERROR: Parse evidence failed.\n");
         goto err;
     }
 
@@ -89,9 +95,9 @@ main(int argc, char **argv)
     printf("\tAttributes.flags:\t%llu\n", evidence->att_flags);
     printf("\tAttribute.xfrm:\t\t%llu\n", evidence->att_xfrm);
 
-    rats_err = librats_verify(evidence, buffer);
+    rats_err = librats_verify((const char *)evidence_json, evidence->user_data);
     if (rats_err != 0) {
-        printf("Evidence is not trusted, error code: %#x.\n", rats_err);
+        printf("ERROR: Evidence is not trusted, error code: %#x.\n", rats_err);
         goto err;
     }
 
@@ -99,6 +105,10 @@ main(int argc, char **argv)
     printf("Evidence is trusted.\n");
 
 err:
+    if (evidence_json) {
+        free(evidence_json);
+    }
+
     if (evidence) {
         free(evidence);
     }
