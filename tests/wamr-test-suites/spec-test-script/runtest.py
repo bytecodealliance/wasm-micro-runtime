@@ -1108,11 +1108,6 @@ if __name__ == "__main__":
         (t3fd, aot_tempfile) = tempfile.mkstemp(suffix=".aot")
 
     ret_code = 0
-
-    if opts.qemu:
-        if not opts.test_file.name.endswith("tester.wast"):
-            sys.exit(0)
-
     try:
         log("################################################")
         log("### Testing %s" % opts.test_file.name)
