@@ -97,22 +97,48 @@ rotr64(uint64 n, uint64 c)
     return (n >> c) | (n << ((0 - c) & mask));
 }
 
-static inline double
-wa_fmax(double a, double b)
+static inline float32
+f32_min(float32 a, float32 b)
 {
-    double c = fmax(a, b);
-    if (c == 0 && a == b)
-        return signbit(a) ? b : a;
-    return c;
+    if (isnan(a) || isnan(b))
+        return NAN;
+    else if (a == 0 && a == b)
+        return signbit(a) ? a : b;
+    else
+        return a > b ? b : a;
 }
 
-static inline double
-wa_fmin(double a, double b)
+static inline float32
+f32_max(float32 a, float32 b)
 {
-    double c = fmin(a, b);
-    if (c == 0 && a == b)
+    if (isnan(a) || isnan(b))
+        return NAN;
+    else if (a == 0 && a == b)
+        return signbit(a) ? b : a;
+    else
+        return a > b ? a : b;
+}
+
+static inline float64
+f64_min(float64 a, float64 b)
+{
+    if (isnan(a) || isnan(b))
+        return NAN;
+    else if (a == 0 && a == b)
         return signbit(a) ? a : b;
-    return c;
+    else
+        return a > b ? b : a;
+}
+
+static inline float64
+f64_max(float64 a, float64 b)
+{
+    if (isnan(a) || isnan(b))
+        return NAN;
+    else if (a == 0 && a == b)
+        return signbit(a) ? b : a;
+    else
+        return a > b ? a : b;
 }
 
 static inline uint32
@@ -2497,13 +2523,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 b = *(float32 *)(frame_lp + GET_OFFSET());
                 a = *(float32 *)(frame_lp + GET_OFFSET());
 
-                if (isnan(a))
-                    *(float32 *)(frame_lp + GET_OFFSET()) = a;
-                else if (isnan(b))
-                    *(float32 *)(frame_lp + GET_OFFSET()) = b;
-                else
-                    *(float32 *)(frame_lp + GET_OFFSET()) =
-                        (float32)wa_fmin(a, b);
+                *(float32 *)(frame_lp + GET_OFFSET()) = f32_min(a, b);
                 HANDLE_OP_END();
             }
 
@@ -2514,13 +2534,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 b = *(float32 *)(frame_lp + GET_OFFSET());
                 a = *(float32 *)(frame_lp + GET_OFFSET());
 
-                if (isnan(a))
-                    *(float32 *)(frame_lp + GET_OFFSET()) = a;
-                else if (isnan(b))
-                    *(float32 *)(frame_lp + GET_OFFSET()) = b;
-                else
-                    *(float32 *)(frame_lp + GET_OFFSET()) =
-                        (float32)wa_fmax(a, b);
+                *(float32 *)(frame_lp + GET_OFFSET()) = f32_max(a, b);
                 HANDLE_OP_END();
             }
 
@@ -2615,12 +2629,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 b = POP_F64();
                 a = POP_F64();
 
-                if (isnan(a))
-                    PUSH_F64(a);
-                else if (isnan(b))
-                    PUSH_F64(b);
-                else
-                    PUSH_F64(wa_fmin(a, b));
+                PUSH_F64(f64_min(a, b));
                 HANDLE_OP_END();
             }
 
@@ -2631,12 +2640,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 b = POP_F64();
                 a = POP_F64();
 
-                if (isnan(a))
-                    PUSH_F64(a);
-                else if (isnan(b))
-                    PUSH_F64(b);
-                else
-                    PUSH_F64(wa_fmax(a, b));
+                PUSH_F64(f64_max(a, b));
                 HANDLE_OP_END();
             }
 
