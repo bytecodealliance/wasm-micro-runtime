@@ -6,5 +6,6 @@
 rm -fr build && mkdir build
 cd build
 cmake .. -DWAMR_BUILD_JIT=1
+nproc=$(sysctl -n hw.ncpu)
 make -j ${nproc}
 cd ..
