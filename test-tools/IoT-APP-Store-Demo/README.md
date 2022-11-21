@@ -1,3 +1,6 @@
+---
+description: "The related code/working directory of this example resides in directory {WAMR_DIR}/test-tools/IoT-APP-Store-Demo"
+---
 # IoT Application Store
 Wasm application management portal for WAMR
 
