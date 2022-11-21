@@ -770,16 +770,21 @@ compile_int_div(JitCompContext *cc, IntArithmetic arith_op, bool is_i32,
             }
             case INT_REM_S:
             {
+                JitReg left1 =
+                    is_i32 ? jit_cc_new_reg_I32(cc) : jit_cc_new_reg_I64(cc);
+
                 GEN_INSN(CMP, cc->cmp_reg, right,
                          is_i32 ? NEW_CONST(I32, -1) : NEW_CONST(I64, -1LL));
+                /* Don't generate `SELECTEQ left, cmp_reg, 0, left` since
+                   left might be const, use left1 instead */
                 if (is_i32)
-                    GEN_INSN(SELECTEQ, left, cc->cmp_reg, NEW_CONST(I32, 0),
+                    GEN_INSN(SELECTEQ, left1, cc->cmp_reg, NEW_CONST(I32, 0),
                              left);
                 else
-                    GEN_INSN(SELECTEQ, left, cc->cmp_reg, NEW_CONST(I64, 0),
+                    GEN_INSN(SELECTEQ, left1, cc->cmp_reg, NEW_CONST(I64, 0),
                              left);
                 /* Build default div and rem */
-                return compile_int_div_no_check(cc, arith_op, is_i32, left,
+                return compile_int_div_no_check(cc, arith_op, is_i32, left1,
                                                 right, res);
             }
             default:
