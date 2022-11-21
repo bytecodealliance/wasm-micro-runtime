@@ -1,3 +1,6 @@
+---
+description: "The related code/working directory of this example resides in directory {WAMR_DIR}/samples/multi-module"
+---
 # WAMR MULTI-MODUEL SAMPLE
 **WAMR supports *multi-module* in both *interpreter* mode and *aot* mode.**
 
