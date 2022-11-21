@@ -4,7 +4,7 @@ In this chapter, we provide some extra useful examples to demonstrate how you ma
 
 - [File Interaction Of WASI](../../samples/file/README.md): Demonstrating the supported file interaction API of WASI. This sample can also demonstrate the SGX IPFS (Intel Protected File System), enabling an enclave to seal and unseal data at rest.
 
-- [GUI Examples](gui_examples/README.md): We provide two examples that both use [LVGL library](https://github.com/lvgl/lvgl)
+- [GUI Examples](gui-examples/README.md): We provide two examples that both use [LVGL library](https://github.com/lvgl/lvgl)
 
 - [Concurrent WASM Application](../../samples/spawn-thread): Demonstrating how to execute wasm functions of the same wasm application concurrently in threads created by host embedder or runtime, but not the wasm application itself.
 

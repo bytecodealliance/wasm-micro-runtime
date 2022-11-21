@@ -12,7 +12,7 @@ WebAssembly Micro Runtime (WAMR) is a [Bytecode Alliance](https://bytecodeallian
 
 As we explained in the previous section, WebAssembly is great for code reuse on the server side with the help of runtime like our Project WAMR. So the most straightforward way is to use WAMR to run your WASM program.
 
-It's not limited to simply being a command line application that runs your wasm program. You could also use it as a library, integrated into your application to run any wasm program inside your application. Although most user cases are embedding WAMR in their C/C++ program, we do support other [language-binding](../../tutorial/language_embedding/README.md) so that you could use WAMR in some language you prefer.
+It's not limited to simply being a command line application that runs your wasm program. You could also use it as a library, integrated into your application to run any wasm program inside your application. Although most user cases are embedding WAMR in their C/C++ program, we do support other [language-binding](../../tutorial/language-embedding/README.md) so that you could use WAMR in some language you prefer.
 
 ## Component of WAMR
 

@@ -1,6 +1,6 @@
 # WebAssembly
 
-In this section, you will learn the basics of WebAssembly. More details about WebAssembly can be found in [Appendix B](../../appendix/webassembly-details.md)
+In this section, you will learn the basics of WebAssembly. More details about WebAssembly can be found in [Appendix B](../../appendix/webassembly_details.md)
 
 ## The origin story of WebAssembly
 
@@ -26,4 +26,4 @@ Here is the more detailed [emscripten official tutorial](https://emscripten.org/
 
 ### A server-side example
 
-A hello world example using our WAMR can be found [here](../getting_started/README.md)
+A hello world example using our WAMR can be found [here](../getting-started/README.md)

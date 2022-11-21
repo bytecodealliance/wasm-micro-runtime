@@ -3,7 +3,7 @@ description: "This page is under construction/refinement. p.s. wanna hear a cons
 ---
 # build tutorial
 
-In this chapter, we provide a detailed tutorial on how to build [iwasm vmcore](../../../doc/build_wamr.md) and [wamrc](../build_tutorial/build_wamrc.md).
+In this chapter, we provide a detailed tutorial on how to build [iwasm vmcore](../../../doc/build_wamr.md) and [wamrc](build_wamrc.md).
 
 ## Quick build matrix
 

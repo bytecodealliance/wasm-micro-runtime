@@ -29,7 +29,7 @@ In this chapter, you can see the complete list of features that WAMR support. An
 
 ### WASM post-MVP features
 
-There are many post-MVP features for WASM. We support some of them. You can see the details in [this section](demo_examples/README.md)
+There are many post-MVP features for WASM. We support some of them. You can see the details in [this section](demo-examples/README.md)
 
 - [wasm-c-api](https://github.com/WebAssembly/wasm-c-api)
 - [128-bit SIMD](https://github.com/WebAssembly/simd)
