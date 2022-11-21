@@ -3090,6 +3090,11 @@ init_llvm_jit_functions_stage2(WASMModule *module, char *error_buf,
         return false;
     }
 
+#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_LAZY_JIT != 0
+    if (module->orcjit_stop_compiling)
+        return false;
+#endif
+
     bh_print_time("Begin to lookup llvm jit functions");
 
     for (i = 0; i < module->function_count; i++) {
@@ -3115,6 +3120,11 @@ init_llvm_jit_functions_stage2(WASMModule *module, char *error_buf,
          * loading/storing at the same time.
          */
         module->func_ptrs[i] = (void *)func_addr;
+
+#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_LAZY_JIT != 0
+        if (module->orcjit_stop_compiling)
+            return false;
+#endif
     }
 
     bh_print_time("End lookup llvm jit functions");
