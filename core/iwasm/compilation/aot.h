@@ -309,8 +309,6 @@ aot_get_imp_tbl_data_slots(const AOTImportTable *tbl, bool is_jit_mode)
 #if WASM_ENABLE_MULTI_MODULE != 0
     if (is_jit_mode)
         return tbl->table_max_size;
-#else
-    (void)is_jit_mode;
 #endif
     return tbl->possible_grow ? tbl->table_max_size : tbl->table_init_size;
 }
@@ -321,8 +319,6 @@ aot_get_tbl_data_slots(const AOTTable *tbl, bool is_jit_mode)
 #if WASM_ENABLE_MULTI_MODULE != 0
     if (is_jit_mode)
         return tbl->table_max_size;
-#else
-    (void)is_jit_mode;
 #endif
     return tbl->possible_grow ? tbl->table_max_size : tbl->table_init_size;
 }
