@@ -28,7 +28,7 @@ else:
     IS_PY_3 = True
 
 test_aot = False
-# "x86_64", "i386", "aarch64", "armv7" or "thumbv7"
+# "x86_64", "i386", "aarch64", "armv7", "thumbv7", "riscv32_ilp32", "riscv32_ilp32d", "riscv32_lp64", "riscv64_lp64d"
 test_target = "x86_64"
 
 debug_file = None
@@ -745,12 +745,6 @@ def test_assert_return(r, opts, form):
                 elif splitted[0] in ["f32.const", "f64.const"]:
                     # let strtof or strtod handle original arguments
                     assert(2 == len(splitted)), "{} should have two parts".format(splitted)
-
-                    # Skip some case by hexadecimal format on QEMU
-                    if opts.qemu and 'p' in splitted[1]:
-                        log("Skip unsupported case with arguments : %s" % splitted[1])
-                        return
-
                     args.append(splitted[1])
                 elif "v128.const" == splitted[0]:
                     assert(len(splitted) > 2), "{} should have more than two parts".format(splitted)
@@ -774,11 +768,6 @@ def test_assert_return(r, opts, form):
         expected = [parse_assertion_value(v)[1] for v in returns]
         expected = ",".join(expected)
 
-        # Skip unsupported case on qemu const.wast (hexadecimal format)
-        if opts.qemu and ('e-181' in expected or 'e+300' in expected):
-            log("Skip unsupported case with expected : %s" % expected)
-            return
-    
         test_assert(r, opts, "return", "%s %s" % (func, " ".join(args)), expected)
     elif not m and n:
         module = temp_module_table[n.group(1)].split(".wasm")[0]
@@ -962,10 +951,14 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r):
         cmd += ["--target=armv7", "--target-abi=gnueabihf"]
     elif test_target == "thumbv7":
         cmd += ["--target=thumbv7", "--target-abi=gnueabihf", "--cpu=cortex-a9"]
-    elif test_target == "riscv64_lp64d":
-        cmd += ["--target=riscv64", "--target-abi=lp64d"]
+    elif test_target == "riscv32_ilp32":
+        cmd += ["--target=riscv64", "--target-abi=ilp32"]
+    elif test_target == "riscv32_ilp32d":
+        cmd += ["--target=riscv32", "--target-abi=ilp32d"]
     elif test_target == "riscv64_lp64":
         cmd += ["--target=riscv64", "--target-abi=lp64"]
+    elif test_target == "riscv64_lp64d":
+        cmd += ["--target=riscv64", "--target-abi=lp64d"]
     else:
         pass
 
@@ -1008,7 +1001,13 @@ def run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r):
         cmd_iwasm.insert(1, "--module-path=/tmp")
 
     if opts.qemu:
-        cmd = ["qemu-system-arm", "-semihosting", "-M", "sabrelite", "-m", "1024", "-smp", "4", "-nographic", "-kernel", "/home/huang/Work/nx/nuttx/nuttx"]
+        if opts.aot_target == "thumbv7":
+            cmd = ["qemu-system-arm", "-semihosting", "-M", "sabrelite", "-m", "1024", "-smp", "4", "-nographic", "-kernel", "/home/huang/Work/nx/nuttx/nuttx"]
+        elif opts.aot_target == "riscv32_ilp32":
+            cmd = ["qemu-system-riscv32", "-semihosting", "-M", "virt,aclint=on", "-cpu", "rv32", "-smp", "8", "-nographic", "-bios", "none", "-kernel", "/home/huang/Work/nx/nuttx/nuttx"]
+        elif opts.aot_target == "riscv64_lp64":
+            cmd = ["qemu-system-riscv64", "-semihosting", "-M", "virt,aclint=on", "-cpu", "rv64", "-smp", "8", "-nographic", "-bios", "none", "-kernel", "/home/huang/Work/nx/nuttx/nuttx"]
+
     else:
         cmd = cmd_iwasm
 

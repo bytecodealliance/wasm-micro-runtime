@@ -27,8 +27,11 @@ WAMRC_CMD = "../../../wamr-compiler/build/wamrc"
 class TargetAction(argparse.Action):
     TARGET_MAP = {
         "ARMV7_VFP": "armv7",
-        "RISCV64": "riscv64_lp64d",
-        "RISCV64_LP64": "riscv64_lp64d",
+        "RISCV32": "riscv32_ilp32",
+        "RISCV32_ILP32": "riscv32_ilp32",
+        "RISCV32_ILP32D": "riscv32_ilp32d",
+        "RISCV64": "riscv64_lp64",
+        "RISCV64_LP64": "riscv64_lp64",
         "RISCV64_LP64D": "riscv64_lp64",
         "THUMBV7_VFP": "thumbv7",
         "X86_32": "i386",
@@ -252,8 +255,8 @@ def test_suite(
 
             for case_name, result in results.items():
                 try:
-                    # 5 min / case
-                    result.wait(300)
+                    # 15 min / case
+                    result.wait(1800)
                     if not result.successful():
                         failed_case += 1
                     else:
