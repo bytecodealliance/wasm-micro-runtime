@@ -952,7 +952,7 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r):
     elif test_target == "thumbv7":
         cmd += ["--target=thumbv7", "--target-abi=gnueabihf", "--cpu=cortex-a9"]
     elif test_target == "riscv32_ilp32":
-        cmd += ["--target=riscv64", "--target-abi=ilp32"]
+        cmd += ["--target=riscv32", "--target-abi=ilp32"]
     elif test_target == "riscv32_ilp32d":
         cmd += ["--target=riscv32", "--target-abi=ilp32d"]
     elif test_target == "riscv64_lp64":

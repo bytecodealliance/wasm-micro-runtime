@@ -519,8 +519,8 @@ function build_iwasm_with_cfg()
 function build_wamrc()
 {
     if [[ $TARGET == "ARMV7_VFP" || $TARGET == "THUMBV7_VFP"
-          || $TARGET == "RISCV64" || $TARGET == "RISCV64_LP64D"
-          || $TARGET == "RISCV64_LP64" ]];then
+          || $TARGET == "RISCV32" || $TARGET == "RISCV32_ILP32" || $TARGET == "RISCV32_ILP32D"
+          || $TARGET == "RISCV64" || $TARGET == "RISCV64_LP64D" || $TARGET == "RISCV64_LP64" ]];then
         echo "suppose wamrc is already built"
         return
     fi
