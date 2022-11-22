@@ -409,6 +409,11 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
                 || reloc_type == R_ARM_THM_MOVT_PREL)
                 offset >>= 16;
 
+            upper = (uint16)((upper & 0xfbf0) | ((offset & 0xf000) >> 12)
+                             | ((offset & 0x0800) >> 1));
+            lower = (uint16)((lower & 0x8f00) | ((offset & 0x0700) << 4)
+                             | (offset & 0x00ff));
+
             *(uint16 *)(target_section_addr + reloc_offset) = upper;
             *(uint16 *)(target_section_addr + reloc_offset + 2) = lower;
             break;

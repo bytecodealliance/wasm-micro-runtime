@@ -106,22 +106,48 @@ rotr64(uint64 n, uint64 c)
     return (n >> c) | (n << ((0 - c) & mask));
 }
 
-static inline double
-wa_fmax(double a, double b)
+static inline float32
+f32_min(float32 a, float32 b)
 {
-    double c = fmax(a, b);
-    if (c == 0 && a == b)
-        return signbit(a) ? b : a;
-    return c;
+    if (isnan(a) || isnan(b))
+        return NAN;
+    else if (a == 0 && a == b)
+        return signbit(a) ? a : b;
+    else
+        return a > b ? b : a;
 }
 
-static inline double
-wa_fmin(double a, double b)
+static inline float32
+f32_max(float32 a, float32 b)
 {
-    double c = fmin(a, b);
-    if (c == 0 && a == b)
+    if (isnan(a) || isnan(b))
+        return NAN;
+    else if (a == 0 && a == b)
+        return signbit(a) ? b : a;
+    else
+        return a > b ? a : b;
+}
+
+static inline float64
+f64_min(float64 a, float64 b)
+{
+    if (isnan(a) || isnan(b))
+        return NAN;
+    else if (a == 0 && a == b)
         return signbit(a) ? a : b;
-    return c;
+    else
+        return a > b ? b : a;
+}
+
+static inline float64
+f64_max(float64 a, float64 b)
+{
+    if (isnan(a) || isnan(b))
+        return NAN;
+    else if (a == 0 && a == b)
+        return signbit(a) ? b : a;
+    else
+        return a > b ? a : b;
 }
 
 static inline uint32
@@ -1084,7 +1110,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     uint8 *frame_ip_end = frame_ip + 1;
     uint8 opcode;
     uint32 i, depth, cond, count, fidx, tidx, lidx, frame_size = 0;
-    uint64 all_cell_num = 0;
+    uint32 all_cell_num = 0;
     int32 val;
     uint8 *else_addr, *end_addr, *maddr = NULL;
     uint32 local_idx, local_offset, global_idx;
@@ -2660,12 +2686,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 b = POP_F32();
                 a = POP_F32();
 
-                if (isnan(a))
-                    PUSH_F32(a);
-                else if (isnan(b))
-                    PUSH_F32(b);
-                else
-                    PUSH_F32(wa_fmin(a, b));
+                PUSH_F32(f32_min(a, b));
                 HANDLE_OP_END();
             }
 
@@ -2676,12 +2697,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 b = POP_F32();
                 a = POP_F32();
 
-                if (isnan(a))
-                    PUSH_F32(a);
-                else if (isnan(b))
-                    PUSH_F32(b);
-                else
-                    PUSH_F32(wa_fmax(a, b));
+                PUSH_F32(f32_max(a, b));
                 HANDLE_OP_END();
             }
 
@@ -2774,12 +2790,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 b = POP_F64();
                 a = POP_F64();
 
-                if (isnan(a))
-                    PUSH_F64(a);
-                else if (isnan(b))
-                    PUSH_F64(b);
-                else
-                    PUSH_F64(wa_fmin(a, b));
+                PUSH_F64(f64_min(a, b));
                 HANDLE_OP_END();
             }
 
@@ -2790,12 +2801,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 b = POP_F64();
                 a = POP_F64();
 
-                if (isnan(a))
-                    PUSH_F64(a);
-                else if (isnan(b))
-                    PUSH_F64(b);
-                else
-                    PUSH_F64(wa_fmax(a, b));
+                PUSH_F64(f64_max(a, b));
                 HANDLE_OP_END();
             }
 
@@ -3790,17 +3796,16 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
             func_type = cur_wasm_func->func_type;
 
-            all_cell_num = (uint64)cur_func->param_cell_num
-                           + (uint64)cur_func->local_cell_num
-                           + (uint64)cur_wasm_func->max_stack_cell_num
-                           + ((uint64)cur_wasm_func->max_block_num)
-                                 * sizeof(WASMBranchBlock) / 4;
+            all_cell_num = cur_func->param_cell_num + cur_func->local_cell_num
+                           + cur_wasm_func->max_stack_cell_num
+                           + cur_wasm_func->max_block_num
+                                 * (uint32)sizeof(WASMBranchBlock) / 4;
             /* param_cell_num, local_cell_num, max_stack_cell_num and
                max_block_num are all no larger than UINT16_MAX (checked
                in loader), all_cell_num must be smaller than 1MB */
             bh_assert(all_cell_num < 1 * BH_MB);
 
-            frame_size = wasm_interp_interp_frame_size((uint32)all_cell_num);
+            frame_size = wasm_interp_interp_frame_size(all_cell_num);
             if (!(frame = ALLOC_FRAME(exec_env, frame_size, prev_frame))) {
                 frame = prev_frame;
                 goto got_exception;

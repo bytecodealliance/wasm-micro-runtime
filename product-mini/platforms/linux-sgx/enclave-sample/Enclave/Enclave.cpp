@@ -12,6 +12,12 @@
 #include "wasm_export.h"
 #include "bh_platform.h"
 
+#if WASM_ENABLE_LIB_RATS != 0
+#include <openssl/sha.h>
+
+char wasm_module_hash[SHA256_DIGEST_LENGTH];
+#endif
+
 extern "C" {
 typedef int (*os_print_function_t)(const char *message);
 extern void
@@ -242,6 +248,13 @@ handle_cmd_load_module(uint64 *args, uint32 argc)
     }
 
     *(EnclaveModule **)args_org = enclave_module;
+
+#if WASM_ENABLE_LIB_RATS != 0
+    SHA256_CTX sha256;
+    SHA256_Init(&sha256);
+    SHA256_Update(&sha256, wasm_file, wasm_file_size);
+    SHA256_Final((unsigned char *)wasm_module_hash, &sha256);
+#endif
 
     LOG_VERBOSE("Load module success.\n");
 }
