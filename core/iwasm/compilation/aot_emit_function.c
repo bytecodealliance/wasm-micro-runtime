@@ -789,7 +789,53 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 func = func_ctx->func;
             }
             else {
-                func = func_ctxes[func_idx - import_func_count]->func;
+                if (!comp_ctx->is_jit_mode) {
+                    func = func_ctxes[func_idx - import_func_count]->func;
+                }
+                else {
+#if !(WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_LAZY_JIT != 0)
+                    func = func_ctxes[func_idx - import_func_count]->func;
+#else
+                    /* JIT tier-up, load func ptr from func_ptrs[func_idx] */
+                    LLVMValueRef func_ptr, func_idx_const;
+                    LLVMTypeRef func_ptr_type;
+
+                    if (!(func_idx_const = I32_CONST(func_idx))) {
+                        aot_set_last_error("llvm build const failed.");
+                        goto fail;
+                    }
+
+                    if (!(func_ptr = LLVMBuildInBoundsGEP2(
+                              comp_ctx->builder, OPQ_PTR_TYPE,
+                              func_ctx->func_ptrs, &func_idx_const, 1,
+                              "func_ptr_tmp"))) {
+                        aot_set_last_error("llvm build inbounds gep failed.");
+                        goto fail;
+                    }
+
+                    if (!(func_ptr =
+                              LLVMBuildLoad2(comp_ctx->builder, OPQ_PTR_TYPE,
+                                             func_ptr, "func_ptr"))) {
+                        aot_set_last_error("llvm build load failed.");
+                        goto fail;
+                    }
+
+                    if (!(func_ptr_type = LLVMPointerType(
+                              func_ctxes[func_idx - import_func_count]
+                                  ->func_type,
+                              0))) {
+                        aot_set_last_error("construct func ptr type failed.");
+                        goto fail;
+                    }
+
+                    if (!(func = LLVMBuildBitCast(comp_ctx->builder, func_ptr,
+                                                  func_ptr_type,
+                                                  "indirect_func"))) {
+                        aot_set_last_error("llvm build bit cast failed.");
+                        goto fail;
+                    }
+#endif /* end of !(WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_LAZY_JIT != 0) */
+                }
             }
         }
 

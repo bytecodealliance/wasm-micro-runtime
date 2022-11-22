@@ -2999,16 +2999,28 @@ init_fast_jit_functions(WASMModule *module, char *error_buf,
 
 #if WASM_ENABLE_JIT != 0
 static bool
-init_llvm_jit_functions(WASMModule *module, char *error_buf,
-                        uint32 error_buf_size)
+init_llvm_jit_functions_stage1(WASMModule *module, char *error_buf,
+                               uint32 error_buf_size)
 {
     AOTCompOption option = { 0 };
     char *aot_last_error;
     uint64 size;
-    uint32 i;
 
-    if (!module->function_count)
+    if (module->function_count == 0)
         return true;
+
+#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_LLVM_JIT != 0
+    if (os_mutex_init(&module->tierup_wait_lock) != 0) {
+        set_error_buf(error_buf, error_buf_size, "init jit tierup lock failed");
+        return false;
+    }
+    if (os_cond_init(&module->tierup_wait_cond) != 0) {
+        set_error_buf(error_buf, error_buf_size, "init jit tierup cond failed");
+        os_mutex_destroy(&module->tierup_wait_lock);
+        return false;
+    }
+    module->tierup_wait_lock_inited = true;
+#endif
 
     size = sizeof(void *) * (uint64)module->function_count
            + sizeof(bool) * (uint64)module->function_count;
@@ -3058,12 +3070,30 @@ init_llvm_jit_functions(WASMModule *module, char *error_buf,
         return false;
     }
 
+    return true;
+}
+
+static bool
+init_llvm_jit_functions_stage2(WASMModule *module, char *error_buf,
+                               uint32 error_buf_size)
+{
+    char *aot_last_error;
+    uint32 i;
+
+    if (module->function_count == 0)
+        return true;
+
     if (!aot_compile_wasm(module->comp_ctx)) {
         aot_last_error = aot_get_last_error();
         bh_assert(aot_last_error != NULL);
         set_error_buf(error_buf, error_buf_size, aot_last_error);
         return false;
     }
+
+#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_LAZY_JIT != 0
+    if (module->orcjit_stop_compiling)
+        return false;
+#endif
 
     bh_print_time("Begin to lookup llvm jit functions");
 
@@ -3090,7 +3120,11 @@ init_llvm_jit_functions(WASMModule *module, char *error_buf,
          * loading/storing at the same time.
          */
         module->func_ptrs[i] = (void *)func_addr;
-        module->functions[i]->llvm_jit_func_ptr = (void *)func_addr;
+
+#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_LAZY_JIT != 0
+        if (module->orcjit_stop_compiling)
+            return false;
+#endif
     }
 
     bh_print_time("End lookup llvm jit functions");
@@ -3098,6 +3132,29 @@ init_llvm_jit_functions(WASMModule *module, char *error_buf,
     return true;
 }
 #endif /* end of WASM_ENABLE_JIT != 0 */
+
+#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
+    && WASM_ENABLE_LAZY_JIT != 0
+static void *
+init_llvm_jit_functions_stage2_callback(void *arg)
+{
+    WASMModule *module = (WASMModule *)arg;
+    char error_buf[128];
+    uint32 error_buf_size = (uint32)sizeof(error_buf);
+
+    if (!init_llvm_jit_functions_stage2(module, error_buf, error_buf_size)) {
+        module->orcjit_stop_compiling = true;
+        return NULL;
+    }
+
+    os_mutex_lock(&module->tierup_wait_lock);
+    module->llvm_jit_inited = true;
+    os_cond_broadcast(&module->tierup_wait_cond);
+    os_mutex_unlock(&module->tierup_wait_lock);
+
+    return NULL;
+}
+#endif
 
 #if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0
 /* The callback function to compile jit functions */
@@ -3126,6 +3183,45 @@ orcjit_thread_callback(void *arg)
             return NULL;
         }
     }
+#endif
+
+#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
+    && WASM_ENABLE_LAZY_JIT != 0
+    /* For JIT tier-up, set each llvm jit func to call_to_fast_jit */
+    for (i = group_idx; i < func_count;
+         i += group_stride * WASM_ORC_JIT_COMPILE_THREAD_NUM) {
+        uint32 j;
+
+        for (j = 0; j < WASM_ORC_JIT_COMPILE_THREAD_NUM; j++) {
+            if (i + j * group_stride < func_count) {
+                if (!jit_compiler_set_call_to_fast_jit(
+                        module,
+                        i + j * group_stride + module->import_function_count)) {
+                    os_printf(
+                        "failed to compile call_to_fast_jit for func %u\n",
+                        i + j * group_stride + module->import_function_count);
+                    module->orcjit_stop_compiling = true;
+                    return NULL;
+                }
+            }
+            if (module->orcjit_stop_compiling) {
+                return NULL;
+            }
+        }
+    }
+
+    /* Wait until init_llvm_jit_functions_stage2 finishes */
+    os_mutex_lock(&module->tierup_wait_lock);
+    while (!module->llvm_jit_inited) {
+        os_cond_reltimedwait(&module->tierup_wait_cond,
+                             &module->tierup_wait_lock, 10);
+        if (module->orcjit_stop_compiling) {
+            /* init_llvm_jit_functions_stage2 failed */
+            os_mutex_unlock(&module->tierup_wait_lock);
+            return NULL;
+        }
+    }
+    os_mutex_unlock(&module->tierup_wait_lock);
 #endif
 
 #if WASM_ENABLE_JIT != 0
@@ -3164,6 +3260,25 @@ orcjit_thread_callback(void *arg)
             if (i + j * group_stride < func_count) {
                 module->func_ptrs_compiled[i + j * group_stride] = true;
 #if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_LAZY_JIT != 0
+                snprintf(func_name, sizeof(func_name), "%s%d", AOT_FUNC_PREFIX,
+                         i + j * group_stride);
+                error = LLVMOrcLLLazyJITLookup(comp_ctx->orc_jit, &func_addr,
+                                               func_name);
+                if (error != LLVMErrorSuccess) {
+                    char *err_msg = LLVMGetErrorMessage(error);
+                    os_printf("failed to compile llvm jit function %u: %s", i,
+                              err_msg);
+                    LLVMDisposeErrorMessage(err_msg);
+                    /* Ignore current llvm jit func, as its func ptr is
+                       previous set to call_to_fast_jit, which also works */
+                    continue;
+                }
+
+                jit_compiler_set_llvm_jit_func_ptr(
+                    module,
+                    i + j * group_stride + module->import_function_count,
+                    (void *)func_addr);
+
                 /* Try to switch to call this llvm jit funtion instead of
                    fast jit function from fast jit jitted code */
                 jit_compiler_set_call_to_llvm_jit(
@@ -3206,7 +3321,7 @@ compile_jit_functions(WASMModule *module, char *error_buf,
     bh_print_time("Begin to compile jit functions");
 
     /* Create threads to compile the jit functions */
-    for (i = 0; i < thread_num; i++) {
+    for (i = 0; i < thread_num && i < module->function_count; i++) {
 #if WASM_ENABLE_JIT != 0
         module->orcjit_thread_args[i].comp_ctx = module->comp_ctx;
 #endif
@@ -3231,7 +3346,8 @@ compile_jit_functions(WASMModule *module, char *error_buf,
 #if WASM_ENABLE_LAZY_JIT == 0
     /* Wait until all jit functions are compiled for eager mode */
     for (i = 0; i < thread_num; i++) {
-        os_thread_join(module->orcjit_threads[i], NULL);
+        if (module->orcjit_threads[i])
+            os_thread_join(module->orcjit_threads[i], NULL);
     }
 
 #if WASM_ENABLE_FAST_JIT != 0
@@ -3680,9 +3796,27 @@ load_from_sections(WASMModule *module, WASMSection *sections,
 #endif
 
 #if WASM_ENABLE_JIT != 0
-    if (!init_llvm_jit_functions(module, error_buf, error_buf_size)) {
+    if (!init_llvm_jit_functions_stage1(module, error_buf, error_buf_size)) {
         return false;
     }
+#if !(WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_LAZY_JIT != 0)
+    if (!init_llvm_jit_functions_stage2(module, error_buf, error_buf_size)) {
+        return false;
+    }
+#else
+    /* Run aot_compile_wasm in a backend thread, so as not to block the main
+       thread fast jit execution, since applying llvm optimizations in
+       aot_compile_wasm may cost a lot of time.
+       Create thread with enough native stack to apply llvm optimizations */
+    if (os_thread_create(&module->llvm_jit_init_thread,
+                         init_llvm_jit_functions_stage2_callback,
+                         (void *)module, APP_THREAD_STACK_SIZE_DEFAULT * 8)
+        != 0) {
+        set_error_buf(error_buf, error_buf_size,
+                      "create orcjit compile thread failed");
+        return false;
+    }
+#endif
 #endif
 
 #if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0
@@ -3703,9 +3837,7 @@ create_module(char *error_buf, uint32 error_buf_size)
 {
     WASMModule *module =
         loader_malloc(sizeof(WASMModule), error_buf, error_buf_size);
-#if WASM_ENABLE_FAST_INTERP == 0
     bh_list_status ret;
-#endif
 
     if (!module) {
         return NULL;
@@ -3720,19 +3852,31 @@ create_module(char *error_buf, uint32 error_buf_size)
     module->br_table_cache_list = &module->br_table_cache_list_head;
     ret = bh_list_init(module->br_table_cache_list);
     bh_assert(ret == BH_LIST_SUCCESS);
-    (void)ret;
 #endif
 
 #if WASM_ENABLE_MULTI_MODULE != 0
     module->import_module_list = &module->import_module_list_head;
+    ret = bh_list_init(module->import_module_list);
+    bh_assert(ret == BH_LIST_SUCCESS);
 #endif
+
 #if WASM_ENABLE_DEBUG_INTERP != 0
-    bh_list_init(&module->fast_opcode_list);
-    if (os_mutex_init(&module->ref_count_lock) != 0) {
+    ret = bh_list_init(&module->fast_opcode_list);
+    bh_assert(ret == BH_LIST_SUCCESS);
+#endif
+
+#if WASM_ENABLE_DEBUG_INTERP != 0                    \
+    || (WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT \
+        && WASM_ENABLE_LAZY_JIT != 0)
+    if (os_mutex_init(&module->instance_list_lock) != 0) {
+        set_error_buf(error_buf, error_buf_size,
+                      "init instance list lock failed");
         wasm_runtime_free(module);
         return NULL;
     }
 #endif
+
+    (void)ret;
     return module;
 }
 
@@ -4100,6 +4244,12 @@ wasm_loader_unload(WASMModule *module)
     if (!module)
         return;
 
+#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT && WASM_ENABLE_LAZY_JIT != 0
+    module->orcjit_stop_compiling = true;
+    if (module->llvm_jit_init_thread)
+        os_thread_join(module->llvm_jit_init_thread, NULL);
+#endif
+
 #if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0
     /* Stop Fast/LLVM JIT compilation firstly to avoid accessing
        module internal data after they were freed */
@@ -4113,6 +4263,13 @@ wasm_loader_unload(WASMModule *module)
         aot_destroy_comp_context(module->comp_ctx);
     if (module->comp_data)
         aot_destroy_comp_data(module->comp_data);
+#endif
+
+#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT && WASM_ENABLE_LAZY_JIT != 0
+    if (module->tierup_wait_lock_inited) {
+        os_mutex_destroy(&module->tierup_wait_lock);
+        os_cond_destroy(&module->tierup_wait_cond);
+    }
 #endif
 
     if (module->types) {
@@ -4142,6 +4299,12 @@ wasm_loader_unload(WASMModule *module)
                     jit_code_cache_free(
                         module->functions[i]->fast_jit_jitted_code);
                 }
+#if WASM_ENABLE_JIT != 0 && WASM_ENABLE_LAZY_JIT != 0
+                if (module->functions[i]->llvm_jit_func_ptr) {
+                    jit_code_cache_free(
+                        module->functions[i]->llvm_jit_func_ptr);
+                }
+#endif
 #endif
                 wasm_runtime_free(module->functions[i]);
             }
@@ -4229,7 +4392,12 @@ wasm_loader_unload(WASMModule *module)
         wasm_runtime_free(fast_opcode);
         fast_opcode = next;
     }
-    os_mutex_destroy(&module->ref_count_lock);
+#endif
+
+#if WASM_ENABLE_DEBUG_INTERP != 0                    \
+    || (WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT \
+        && WASM_ENABLE_LAZY_JIT != 0)
+    os_mutex_destroy(&module->instance_list_lock);
 #endif
 
 #if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0

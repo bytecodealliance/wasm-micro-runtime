@@ -193,6 +193,10 @@ jit_compiler_is_compiled(const WASMModule *module, uint32 func_idx)
 {
     uint32 i = func_idx - module->import_function_count;
 
+    bh_assert(func_idx >= module->import_function_count
+              && func_idx
+                     < module->import_function_count + module->function_count);
+
 #if WASM_ENABLE_LAZY_JIT == 0
     return module->fast_jit_func_ptrs[i] ? true : false;
 #else
@@ -216,21 +220,54 @@ jit_compiler_set_call_to_llvm_jit(WASMModule *module, uint32 func_idx)
 
     /* Compile code block of call_to_llvm_jit_from_fast_jit of
        this kind of function type if it hasn't been compiled */
-    os_mutex_lock(&module->fast_jit_thread_locks[k]);
     if (!(func_ptr = func_type->call_to_llvm_jit_from_fast_jit)) {
-        if (!(func_ptr = func_type->call_to_llvm_jit_from_fast_jit =
-                  jit_codegen_compile_call_to_llvm_jit(func_type))) {
-            os_mutex_unlock(&module->fast_jit_thread_locks[k]);
-            return false;
+        os_mutex_lock(&module->fast_jit_thread_locks[k]);
+        if (!(func_ptr = func_type->call_to_llvm_jit_from_fast_jit)) {
+            if (!(func_ptr = func_type->call_to_llvm_jit_from_fast_jit =
+                      jit_codegen_compile_call_to_llvm_jit(func_type))) {
+                os_mutex_unlock(&module->fast_jit_thread_locks[k]);
+                return false;
+            }
         }
+        os_mutex_unlock(&module->fast_jit_thread_locks[k]);
     }
-    os_mutex_unlock(&module->fast_jit_thread_locks[k]);
 
     /* Switch current fast jit func ptr to the code block */
     os_mutex_lock(&module->fast_jit_thread_locks[j]);
     module->fast_jit_func_ptrs[i] = func_ptr;
     os_mutex_unlock(&module->fast_jit_thread_locks[j]);
     return true;
+}
+
+bool
+jit_compiler_set_call_to_fast_jit(WASMModule *module, uint32 func_idx)
+{
+    void *func_ptr = NULL;
+
+    func_ptr = jit_codegen_compile_call_to_fast_jit(module, func_idx);
+    if (func_ptr) {
+        jit_compiler_set_llvm_jit_func_ptr(module, func_idx, func_ptr);
+    }
+
+    return func_ptr ? true : false;
+}
+
+void
+jit_compiler_set_llvm_jit_func_ptr(WASMModule *module, uint32 func_idx,
+                                   void *func_ptr)
+{
+    WASMModuleInstance *instance;
+    uint32 i = func_idx - module->import_function_count;
+
+    module->functions[i]->llvm_jit_func_ptr = module->func_ptrs[i] = func_ptr;
+
+    os_mutex_lock(&module->instance_list_lock);
+    instance = module->instance_list;
+    while (instance) {
+        instance->func_ptrs[func_idx] = func_ptr;
+        instance = instance->e->next;
+    }
+    os_mutex_unlock(&module->instance_list_lock);
 }
 #endif /* end of WASM_ENABLE_LAZY_JIT != 0 && WASM_ENABLE_JIT != 0 */
 
