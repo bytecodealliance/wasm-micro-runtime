@@ -58,7 +58,7 @@ int
 main(int argc, char **argv)
 {
     int ret_code = -1;
-    char *evidence_json;
+    char *evidence_json = NULL;
 
     // Generate user_data by SHA256 buffer and the wasm module.
     // user_data = SHA256(sha256_wasm_module || buffer)
