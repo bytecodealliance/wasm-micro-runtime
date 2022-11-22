@@ -770,16 +770,21 @@ compile_int_div(JitCompContext *cc, IntArithmetic arith_op, bool is_i32,
             }
             case INT_REM_S:
             {
+                JitReg left1 =
+                    is_i32 ? jit_cc_new_reg_I32(cc) : jit_cc_new_reg_I64(cc);
+
                 GEN_INSN(CMP, cc->cmp_reg, right,
                          is_i32 ? NEW_CONST(I32, -1) : NEW_CONST(I64, -1LL));
+                /* Don't generate `SELECTEQ left, cmp_reg, 0, left` since
+                   left might be const, use left1 instead */
                 if (is_i32)
-                    GEN_INSN(SELECTEQ, left, cc->cmp_reg, NEW_CONST(I32, 0),
+                    GEN_INSN(SELECTEQ, left1, cc->cmp_reg, NEW_CONST(I32, 0),
                              left);
                 else
-                    GEN_INSN(SELECTEQ, left, cc->cmp_reg, NEW_CONST(I64, 0),
+                    GEN_INSN(SELECTEQ, left1, cc->cmp_reg, NEW_CONST(I64, 0),
                              left);
                 /* Build default div and rem */
-                return compile_int_div_no_check(cc, arith_op, is_i32, left,
+                return compile_int_div_no_check(cc, arith_op, is_i32, left1,
                                                 right, res);
             }
             default:
@@ -1522,47 +1527,47 @@ jit_compile_op_f64_math(JitCompContext *cc, FloatMath math_op)
 }
 
 static float32
-local_minf(float32 f1, float32 f2)
+f32_min(float32 a, float32 b)
 {
-    if (isnan(f1))
-        return f1;
-    if (isnan(f2))
-        return f2;
-
-    return fminf(f1, f2);
-}
-
-static float64
-local_min(float64 f1, float64 f2)
-{
-    if (isnan(f1))
-        return f1;
-    if (isnan(f2))
-        return f2;
-
-    return fmin(f1, f2);
+    if (isnan(a) || isnan(b))
+        return NAN;
+    else if (a == 0 && a == b)
+        return signbit(a) ? a : b;
+    else
+        return a > b ? b : a;
 }
 
 static float32
-local_maxf(float32 f1, float32 f2)
+f32_max(float32 a, float32 b)
 {
-    if (isnan(f1))
-        return f1;
-    if (isnan(f2))
-        return f2;
-
-    return fmaxf(f1, f2);
+    if (isnan(a) || isnan(b))
+        return NAN;
+    else if (a == 0 && a == b)
+        return signbit(a) ? b : a;
+    else
+        return a > b ? a : b;
 }
 
 static float64
-local_max(float64 f1, float64 f2)
+f64_min(float64 a, float64 b)
 {
-    if (isnan(f1))
-        return f1;
-    if (isnan(f2))
-        return f2;
+    if (isnan(a) || isnan(b))
+        return NAN;
+    else if (a == 0 && a == b)
+        return signbit(a) ? a : b;
+    else
+        return a > b ? b : a;
+}
 
-    return fmax(f1, f2);
+static float64
+f64_max(float64 a, float64 b)
+{
+    if (isnan(a) || isnan(b))
+        return NAN;
+    else if (a == 0 && a == b)
+        return signbit(a) ? b : a;
+    else
+        return a > b ? a : b;
 }
 
 static bool
@@ -1574,9 +1579,9 @@ compile_op_float_min_max(JitCompContext *cc, FloatArithmetic arith_op,
 
     res = is_f32 ? jit_cc_new_reg_F32(cc) : jit_cc_new_reg_F64(cc);
     if (arith_op == FLOAT_MIN)
-        func = is_f32 ? (void *)local_minf : (void *)local_min;
+        func = is_f32 ? (void *)f32_min : (void *)f64_min;
     else
-        func = is_f32 ? (void *)local_maxf : (void *)local_max;
+        func = is_f32 ? (void *)f32_max : (void *)f64_max;
 
     args[0] = lhs;
     args[1] = rhs;

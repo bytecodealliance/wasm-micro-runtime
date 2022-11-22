@@ -696,7 +696,6 @@ wasm_loader_find_export(const WASMModule *module, const char *module_name,
 {
     WASMExport *export;
     uint32 i;
-    uint32 export_index_boundary = 0;
 
     for (i = 0, export = module->exports; i < module->export_count;
          ++i, ++export) {
@@ -719,34 +718,8 @@ wasm_loader_find_export(const WASMModule *module, const char *module_name,
         return NULL;
     }
 
-    switch (export_kind) {
-        case EXPORT_KIND_FUNC:
-            export_index_boundary =
-                module->import_function_count + module->function_count;
-            break;
-        case EXPORT_KIND_GLOBAL:
-            export_index_boundary =
-                module->import_global_count + module->global_count;
-            break;
-        case EXPORT_KIND_MEMORY:
-            export_index_boundary =
-                module->import_memory_count + module->memory_count;
-            break;
-        case EXPORT_KIND_TABLE:
-            export_index_boundary =
-                module->import_table_count + module->table_count;
-            break;
-        default:
-            bh_assert(0);
-    }
-
-    if (export->index >= export_index_boundary) {
-        LOG_DEBUG("%s in the module %s is out of index (%d >= %d )", field_name,
-                  module_name, export->index, export_index_boundary);
-        set_error_buf(error_buf, error_buf_size, "incompatible import type");
-        return NULL;
-    }
-
+    /* since there is a validation in load_export_section(), it is for sure
+     * export->index is valid*/
     return export;
 }
 
@@ -5393,8 +5366,14 @@ wasm_loader_push_frame_ref(WASMLoaderContext *ctx, uint8 type, char *error_buf,
 #endif
 
 check_stack_and_return:
-    if (ctx->stack_cell_num > ctx->max_stack_cell_num)
+    if (ctx->stack_cell_num > ctx->max_stack_cell_num) {
         ctx->max_stack_cell_num = ctx->stack_cell_num;
+        if (ctx->max_stack_cell_num > UINT16_MAX) {
+            set_error_buf(error_buf, error_buf_size,
+                          "operand stack depth limit exceeded");
+            return false;
+        }
+    }
     return true;
 }
 
@@ -5469,8 +5448,14 @@ wasm_loader_push_frame_csp(WASMLoaderContext *ctx, uint8 label_type,
 #endif
     ctx->frame_csp++;
     ctx->csp_num++;
-    if (ctx->csp_num > ctx->max_csp_num)
+    if (ctx->csp_num > ctx->max_csp_num) {
         ctx->max_csp_num = ctx->csp_num;
+        if (ctx->max_csp_num > UINT16_MAX) {
+            set_error_buf(error_buf, error_buf_size,
+                          "label stack depth limit exceeded");
+            return false;
+        }
+    }
     return true;
 fail:
     return false;
