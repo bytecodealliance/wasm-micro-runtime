@@ -59,10 +59,7 @@ typedef enum WASMExceptionID {
     EXCE_AUX_STACK_UNDERFLOW,
     EXCE_OUT_OF_BOUNDS_TABLE_ACCESS,
     EXCE_OPERAND_STACK_OVERFLOW,
-#if WASM_ENABLE_FAST_JIT != 0
-    EXCE_FAILED_TO_COMPILE_FAST_JIT_FUNC,
     EXCE_ALREADY_THROWN,
-#endif
     EXCE_NUM,
 } WASMExceptionID;
 
@@ -223,12 +220,6 @@ typedef struct WASMModuleInstanceExtra {
 
 #if WASM_ENABLE_MEMORY_PROFILING != 0
     uint32 max_aux_stack_used;
-#endif
-
-#if WASM_ENABLE_DEBUG_INTERP != 0                    \
-    || (WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT \
-        && WASM_ENABLE_LAZY_JIT != 0)
-    WASMModuleInstance *next;
 #endif
 } WASMModuleInstanceExtra;
 
