@@ -548,11 +548,11 @@ trunc_f32_to_int(WASMModuleInstance *module, uint32 *frame_sp, float32 src_min,
     if (!saturating) {
         if (isnan(src_value)) {
             wasm_set_exception(module, "invalid conversion to integer");
-            return true;
+            return false;
         }
         else if (src_value <= src_min || src_value >= src_max) {
             wasm_set_exception(module, "integer overflow");
-            return true;
+            return false;
         }
     }
 
@@ -570,7 +570,7 @@ trunc_f32_to_int(WASMModuleInstance *module, uint32 *frame_sp, float32 src_min,
                                          dst_max, is_sign);
         PUSH_I64(dst_value_i64);
     }
-    return false;
+    return true;
 }
 
 static bool
@@ -584,11 +584,11 @@ trunc_f64_to_int(WASMModuleInstance *module, uint32 *frame_sp, float64 src_min,
     if (!saturating) {
         if (isnan(src_value)) {
             wasm_set_exception(module, "invalid conversion to integer");
-            return true;
+            return false;
         }
         else if (src_value <= src_min || src_value >= src_max) {
             wasm_set_exception(module, "integer overflow");
-            return true;
+            return false;
         }
     }
 
@@ -606,21 +606,21 @@ trunc_f64_to_int(WASMModuleInstance *module, uint32 *frame_sp, float64 src_min,
                                          dst_max, is_sign);
         PUSH_I64(dst_value_i64);
     }
-    return false;
+    return true;
 }
 
-#define DEF_OP_TRUNC_F32(min, max, is_i32, is_sign)                     \
-    do {                                                                \
-        if (trunc_f32_to_int(module, frame_sp, min, max, false, is_i32, \
-                             is_sign))                                  \
-            goto got_exception;                                         \
+#define DEF_OP_TRUNC_F32(min, max, is_i32, is_sign)                      \
+    do {                                                                 \
+        if (!trunc_f32_to_int(module, frame_sp, min, max, false, is_i32, \
+                              is_sign))                                  \
+            goto got_exception;                                          \
     } while (0)
 
-#define DEF_OP_TRUNC_F64(min, max, is_i32, is_sign)                     \
-    do {                                                                \
-        if (trunc_f64_to_int(module, frame_sp, min, max, false, is_i32, \
-                             is_sign))                                  \
-            goto got_exception;                                         \
+#define DEF_OP_TRUNC_F64(min, max, is_i32, is_sign)                      \
+    do {                                                                 \
+        if (!trunc_f64_to_int(module, frame_sp, min, max, false, is_i32, \
+                              is_sign))                                  \
+            goto got_exception;                                          \
     } while (0)
 
 #define DEF_OP_TRUNC_SAT_F32(min, max, is_i32, is_sign)                  \
@@ -1110,7 +1110,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     uint8 *frame_ip_end = frame_ip + 1;
     uint8 opcode;
     uint32 i, depth, cond, count, fidx, tidx, lidx, frame_size = 0;
-    uint64 all_cell_num = 0;
+    uint32 all_cell_num = 0;
     int32 val;
     uint8 *else_addr, *end_addr, *maddr = NULL;
     uint32 local_idx, local_offset, global_idx;
@@ -3744,7 +3744,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             word_copy(frame->lp, frame_sp, cur_func->param_cell_num);
         }
         FREE_FRAME(exec_env, frame);
-        wasm_exec_env_set_cur_frame(exec_env, (WASMRuntimeFrame *)prev_frame);
+        wasm_exec_env_set_cur_frame(exec_env, prev_frame);
         goto call_func_from_entry;
     }
 #endif
@@ -3796,17 +3796,16 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
             func_type = cur_wasm_func->func_type;
 
-            all_cell_num = (uint64)cur_func->param_cell_num
-                           + (uint64)cur_func->local_cell_num
-                           + (uint64)cur_wasm_func->max_stack_cell_num
-                           + ((uint64)cur_wasm_func->max_block_num)
-                                 * sizeof(WASMBranchBlock) / 4;
-            if (all_cell_num >= UINT32_MAX) {
-                wasm_set_exception(module, "wasm operand stack overflow");
-                goto got_exception;
-            }
+            all_cell_num = cur_func->param_cell_num + cur_func->local_cell_num
+                           + cur_wasm_func->max_stack_cell_num
+                           + cur_wasm_func->max_block_num
+                                 * (uint32)sizeof(WASMBranchBlock) / 4;
+            /* param_cell_num, local_cell_num, max_stack_cell_num and
+               max_block_num are all no larger than UINT16_MAX (checked
+               in loader), all_cell_num must be smaller than 1MB */
+            bh_assert(all_cell_num < 1 * BH_MB);
 
-            frame_size = wasm_interp_interp_frame_size((uint32)all_cell_num);
+            frame_size = wasm_interp_interp_frame_size(all_cell_num);
             if (!(frame = ALLOC_FRAME(exec_env, frame_size, prev_frame))) {
                 frame = prev_frame;
                 goto got_exception;
@@ -3836,7 +3835,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             cell_num = func_type->ret_cell_num;
             PUSH_CSP(LABEL_TYPE_FUNCTION, 0, cell_num, frame_ip_end - 1);
 
-            wasm_exec_env_set_cur_frame(exec_env, (WASMRuntimeFrame *)frame);
+            wasm_exec_env_set_cur_frame(exec_env, frame);
 #if WASM_ENABLE_THREAD_MGR != 0
             CHECK_SUSPEND_FLAGS();
 #endif
@@ -3847,7 +3846,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     return_func:
     {
         FREE_FRAME(exec_env, frame);
-        wasm_exec_env_set_cur_frame(exec_env, (WASMRuntimeFrame *)prev_frame);
+        wasm_exec_env_set_cur_frame(exec_env, prev_frame);
 
         if (!prev_frame->ip)
             /* Called from native. */
@@ -3973,6 +3972,7 @@ llvm_jit_call_func_bytecode(WASMModuleInstance *module_inst,
 #if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
     if (!llvm_jit_alloc_frame(exec_env, function - module_inst->e->functions)) {
         wasm_set_exception(module_inst, "wasm operand stack overflow");
+        return false;
     }
 #endif
 
@@ -4110,8 +4110,7 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
     }
 #endif
 
-    if (!(frame =
-              ALLOC_FRAME(exec_env, frame_size, (WASMInterpFrame *)prev_frame)))
+    if (!(frame = ALLOC_FRAME(exec_env, frame_size, prev_frame)))
         return;
 
     outs_area = wasm_exec_env_wasm_stack_top(exec_env);
@@ -4119,6 +4118,12 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
     frame->ip = NULL;
     /* There is no local variable. */
     frame->sp = frame->lp + 0;
+
+    if ((uint8 *)(outs_area->lp + function->param_cell_num)
+        > exec_env->wasm_stack.s.top_boundary) {
+        wasm_set_exception(module_inst, "wasm operand stack overflow");
+        return;
+    }
 
     if (argc > 0)
         word_copy(outs_area->lp, argv, argc);

@@ -5078,8 +5078,14 @@ wasm_loader_push_frame_ref(WASMLoaderContext *ctx, uint8 type, char *error_buf,
 #endif
 
 check_stack_and_return:
-    if (ctx->stack_cell_num > ctx->max_stack_cell_num)
+    if (ctx->stack_cell_num > ctx->max_stack_cell_num) {
         ctx->max_stack_cell_num = ctx->stack_cell_num;
+        if (ctx->max_stack_cell_num > UINT16_MAX) {
+            set_error_buf(error_buf, error_buf_size,
+                          "operand stack depth limit exceeded");
+            return false;
+        }
+    }
     return true;
 }
 
@@ -5154,8 +5160,14 @@ wasm_loader_push_frame_csp(WASMLoaderContext *ctx, uint8 label_type,
 #endif
     ctx->frame_csp++;
     ctx->csp_num++;
-    if (ctx->csp_num > ctx->max_csp_num)
+    if (ctx->csp_num > ctx->max_csp_num) {
         ctx->max_csp_num = ctx->csp_num;
+        if (ctx->max_csp_num > UINT16_MAX) {
+            set_error_buf(error_buf, error_buf_size,
+                          "label stack depth limit exceeded");
+            return false;
+        }
+    }
     return true;
 fail:
     return false;
