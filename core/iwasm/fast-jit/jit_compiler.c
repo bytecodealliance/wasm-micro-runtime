@@ -10,9 +10,9 @@
 #include "../interpreter/wasm.h"
 
 typedef struct JitCompilerPass {
-    /* Name of the pass */
+    /* Name of the pass.  */
     const char *name;
-    /* The entry of the compiler pass */
+    /* The entry of the compiler pass.  */
     bool (*run)(JitCompContext *cc);
 } JitCompilerPass;
 
@@ -30,7 +30,7 @@ static JitCompilerPass compiler_passes[] = {
 #undef REG_PASS
 };
 
-/* Number of compiler passes */
+/* Number of compiler passes.  */
 #define COMPILER_PASS_NUM (sizeof(compiler_passes) / sizeof(compiler_passes[0]))
 
 #if WASM_ENABLE_FAST_JIT_DUMP == 0
@@ -43,17 +43,14 @@ static const uint8 compiler_passes_with_dump[] = {
 };
 #endif
 
-/* The exported global data of JIT compiler */
+/* The exported global data of JIT compiler.  */
 static JitGlobals jit_globals = {
 #if WASM_ENABLE_FAST_JIT_DUMP == 0
     .passes = compiler_passes_without_dump,
 #else
     .passes = compiler_passes_with_dump,
 #endif
-    .return_to_interp_from_jitted = NULL,
-#if WASM_ENABLE_LAZY_JIT != 0
-    .compile_fast_jit_and_then_call = NULL,
-#endif
+    .return_to_interp_from_jitted = NULL
 };
 /* clang-format on */
 
@@ -63,7 +60,7 @@ apply_compiler_passes(JitCompContext *cc)
     const uint8 *p = jit_globals.passes;
 
     for (; *p; p++) {
-        /* Set the pass NO */
+        /* Set the pass NO.  */
         cc->cur_pass_no = p - jit_globals.passes;
         bh_assert(*p < COMPILER_PASS_NUM);
 
@@ -123,53 +120,37 @@ jit_compiler_get_pass_name(unsigned i)
 bool
 jit_compiler_compile(WASMModule *module, uint32 func_idx)
 {
-    JitCompContext *cc = NULL;
+    JitCompContext *cc;
     char *last_error;
-    bool ret = false;
-    uint32 i = func_idx - module->import_function_count;
-    uint32 j = i % WASM_ORC_JIT_BACKEND_THREAD_NUM;
+    bool ret = true;
 
-    /* Lock to avoid duplicated compilation by other threads */
-    os_mutex_lock(&module->fast_jit_thread_locks[j]);
-
-    if (jit_compiler_is_compiled(module, func_idx)) {
-        /* Function has been compiled */
-        os_mutex_unlock(&module->fast_jit_thread_locks[j]);
-        return true;
-    }
-
-    /* Initialize the compilation context */
-    if (!(cc = jit_calloc(sizeof(*cc)))) {
-        goto fail;
-    }
+    /* Initialize compilation context.  */
+    if (!(cc = jit_calloc(sizeof(*cc))))
+        return false;
 
     if (!jit_cc_init(cc, 64)) {
-        goto fail;
+        jit_free(cc);
+        return false;
     }
 
     cc->cur_wasm_module = module;
-    cc->cur_wasm_func = module->functions[i];
+    cc->cur_wasm_func =
+        module->functions[func_idx - module->import_function_count];
     cc->cur_wasm_func_idx = func_idx;
     cc->mem_space_unchanged = (!cc->cur_wasm_func->has_op_memory_grow
                                && !cc->cur_wasm_func->has_op_func_call)
                               || (!module->possible_memory_grow);
 
-    /* Apply compiler passes */
+    /* Apply compiler passes.  */
     if (!apply_compiler_passes(cc) || jit_get_last_error(cc)) {
         last_error = jit_get_last_error(cc);
         os_printf("fast jit compilation failed: %s\n",
                   last_error ? last_error : "unknown error");
-        goto fail;
+        ret = false;
     }
 
-    ret = true;
-
-fail:
-    /* Destroy the compilation context */
-    if (cc)
-        jit_cc_delete(cc);
-
-    os_mutex_unlock(&module->fast_jit_thread_locks[j]);
+    /* Delete the compilation context.  */
+    jit_cc_delete(cc);
 
     return ret;
 }
@@ -188,92 +169,8 @@ jit_compiler_compile_all(WASMModule *module)
     return true;
 }
 
-bool
-jit_compiler_is_compiled(const WASMModule *module, uint32 func_idx)
-{
-    uint32 i = func_idx - module->import_function_count;
-
-    bh_assert(func_idx >= module->import_function_count
-              && func_idx
-                     < module->import_function_count + module->function_count);
-
-#if WASM_ENABLE_LAZY_JIT == 0
-    return module->fast_jit_func_ptrs[i] ? true : false;
-#else
-    return module->fast_jit_func_ptrs[i]
-                   != jit_globals.compile_fast_jit_and_then_call
-               ? true
-               : false;
-#endif
-}
-
-#if WASM_ENABLE_LAZY_JIT != 0 && WASM_ENABLE_JIT != 0
-bool
-jit_compiler_set_call_to_llvm_jit(WASMModule *module, uint32 func_idx)
-{
-    uint32 i = func_idx - module->import_function_count;
-    uint32 j = i % WASM_ORC_JIT_BACKEND_THREAD_NUM;
-    WASMType *func_type = module->functions[i]->func_type;
-    uint32 k =
-        ((uint32)(uintptr_t)func_type >> 3) % WASM_ORC_JIT_BACKEND_THREAD_NUM;
-    void *func_ptr = NULL;
-
-    /* Compile code block of call_to_llvm_jit_from_fast_jit of
-       this kind of function type if it hasn't been compiled */
-    if (!(func_ptr = func_type->call_to_llvm_jit_from_fast_jit)) {
-        os_mutex_lock(&module->fast_jit_thread_locks[k]);
-        if (!(func_ptr = func_type->call_to_llvm_jit_from_fast_jit)) {
-            if (!(func_ptr = func_type->call_to_llvm_jit_from_fast_jit =
-                      jit_codegen_compile_call_to_llvm_jit(func_type))) {
-                os_mutex_unlock(&module->fast_jit_thread_locks[k]);
-                return false;
-            }
-        }
-        os_mutex_unlock(&module->fast_jit_thread_locks[k]);
-    }
-
-    /* Switch current fast jit func ptr to the code block */
-    os_mutex_lock(&module->fast_jit_thread_locks[j]);
-    module->fast_jit_func_ptrs[i] = func_ptr;
-    os_mutex_unlock(&module->fast_jit_thread_locks[j]);
-    return true;
-}
-
-bool
-jit_compiler_set_call_to_fast_jit(WASMModule *module, uint32 func_idx)
-{
-    void *func_ptr = NULL;
-
-    func_ptr = jit_codegen_compile_call_to_fast_jit(module, func_idx);
-    if (func_ptr) {
-        jit_compiler_set_llvm_jit_func_ptr(module, func_idx, func_ptr);
-    }
-
-    return func_ptr ? true : false;
-}
-
-void
-jit_compiler_set_llvm_jit_func_ptr(WASMModule *module, uint32 func_idx,
-                                   void *func_ptr)
-{
-    WASMModuleInstance *instance;
-    uint32 i = func_idx - module->import_function_count;
-
-    module->functions[i]->llvm_jit_func_ptr = module->func_ptrs[i] = func_ptr;
-
-    os_mutex_lock(&module->instance_list_lock);
-    instance = module->instance_list;
-    while (instance) {
-        instance->func_ptrs[func_idx] = func_ptr;
-        instance = instance->e->next;
-    }
-    os_mutex_unlock(&module->instance_list_lock);
-}
-#endif /* end of WASM_ENABLE_LAZY_JIT != 0 && WASM_ENABLE_JIT != 0 */
-
 int
-jit_interp_switch_to_jitted(void *exec_env, JitInterpSwitchInfo *info,
-                            uint32 func_idx, void *pc)
+jit_interp_switch_to_jitted(void *exec_env, JitInterpSwitchInfo *info, void *pc)
 {
-    return jit_codegen_interp_jitted_glue(exec_env, info, func_idx, pc);
+    return jit_codegen_interp_jitted_glue(exec_env, info, pc);
 }
