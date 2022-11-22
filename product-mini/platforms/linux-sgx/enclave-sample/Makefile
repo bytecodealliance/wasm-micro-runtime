@@ -4,6 +4,7 @@
 ######## SGX SDK Settings ########
 
 SGX_SDK ?= /opt/intel/sgxsdk
+SGX_SSL ?= /opt/intel/sgxssl
 SGX_MODE ?= SIM
 SGX_ARCH ?= x64
 SGX_DEBUG ?= 0
@@ -11,13 +12,12 @@ SPEC_TEST ?= 0
 
 # These variables are automatically set by CMakeLists.txt
 SGX_IPFS = 0
+WAMR_BUILD_LIB_RATS = 0
 WAMR_BUILD_GLOBAL_HEAP_POOL = 0
 WAMR_BUILD_GLOBAL_HEAP_SIZE = 10485760
 
 VMLIB_BUILD_DIR ?= $(CURDIR)/../build
 LIB_RATS_SRC ?= $(VMLIB_BUILD_DIR)/_deps/librats-build
-LIB_RATS := $(shell if [ -d $(LIB_RATS_SRC) ]; then echo 1; else echo 0; fi)
-
 LIB_RATS_INSTALL_DIR := $(VMLIB_BUILD_DIR)/librats/lib/librats
 LIB_RATS_INCLUDE_DIR := $(VMLIB_BUILD_DIR)/librats/include
 
@@ -61,7 +61,7 @@ endif
 
 App_Cpp_Files := App/App.cpp
 App_Include_Paths := -IApp -I$(SGX_SDK)/include
-ifeq ($(LIB_RATS), 1)
+ifeq ($(WAMR_BUILD_LIB_RATS), 1)
 	App_Include_Paths += -I$(LIB_RATS_INCLUDE_DIR)
 endif
 
@@ -94,8 +94,8 @@ else
 	App_Link_Flags += -lsgx_uae_service
 endif
 
-ifeq ($(LIB_RATS), 1)
-	App_Link_Flags += -L$(LIB_RATS_INSTALL_DIR) -lrats_u -lsgx_dcap_ql -lsgx_dcap_quoteverify -lsgx_ukey_exchange
+ifeq ($(WAMR_BUILD_LIB_RATS), 1)
+	App_Link_Flags += -L$(LIB_RATS_INSTALL_DIR) -L$(SGX_SSL)/lib64 -lrats_u -lsgx_dcap_ql -lsgx_dcap_quoteverify -lsgx_ukey_exchange -lsgx_usgxssl
 endif
 
 App_Cpp_Objects := $(App_Cpp_Files:.cpp=.o)
@@ -130,28 +130,29 @@ Enclave_Include_Paths := -IEnclave -I$(WAMR_ROOT)/core/iwasm/include \
                          -I$(SGX_SDK)/include/tlibc \
                          -I$(SGX_SDK)/include/stlport
 
-ifeq ($(LIB_RATS), 1)
-	Enclave_Include_Paths += -I$(LIB_RATS_INCLUDE_DIR)
+ifeq ($(WAMR_BUILD_LIB_RATS), 1)
+	Enclave_Include_Paths += -I$(LIB_RATS_INCLUDE_DIR) -I$(SGX_SSL)/include
 endif
 
-Enclave_C_Flags := $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -fstack-protector $(Enclave_Include_Paths) -DWASM_GLOBAL_HEAP_SIZE=$(WAMR_BUILD_GLOBAL_HEAP_SIZE) -DWASM_ENABLE_GLOBAL_HEAP_POOL=$(WAMR_BUILD_GLOBAL_HEAP_POOL)
+Enclave_C_Flags := $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -fstack-protector $(Enclave_Include_Paths) -DWASM_GLOBAL_HEAP_SIZE=$(WAMR_BUILD_GLOBAL_HEAP_SIZE) -DWASM_ENABLE_GLOBAL_HEAP_POOL=$(WAMR_BUILD_GLOBAL_HEAP_POOL) -DWASM_ENABLE_LIB_RATS=$(WAMR_BUILD_LIB_RATS)
 ifeq ($(SPEC_TEST), 1)
 	Enclave_C_Flags += -DWASM_ENABLE_SPEC_TEST=1
 else
 	Enclave_C_Flags += -DWASM_ENABLE_SPEC_TEST=0
 endif
 
-ifeq ($(LIB_RATS), 1)
-	Rats_Lib_Link_Dirs := -L$(LIB_RATS_INSTALL_DIR) -L$(LIB_RATS_INSTALL_DIR)/attesters -L$(LIB_RATS_INSTALL_DIR)/verifiers
-	Rats_Lib_Link_libs := -lattester_nullattester -lattester_sgx_ecdsa -lattester_sgx_la \
+ifeq ($(WAMR_BUILD_LIB_RATS), 1)
+	Rats_Lib_Link_Dirs := -L$(LIB_RATS_INSTALL_DIR) -L$(LIB_RATS_INSTALL_DIR)/attesters -L$(LIB_RATS_INSTALL_DIR)/verifiers -L$(SGX_SSL)/lib64
+	Rats_Lib_W_Link_libs := -lattester_nullattester -lattester_sgx_ecdsa -lattester_sgx_la \
 						-lverifier_nullverifier -lverifier_sgx_ecdsa -lverifier_sgx_la -lverifier_sgx_ecdsa_qve \
-						-lrats_lib
+						-lrats_lib -lsgx_tsgxssl
+	Rats_Lib_NW_Link_libs := -lsgx_dcap_tvl -lsgx_tsgxssl_crypto
 endif
 
 Enclave_Cpp_Flags := $(Enclave_C_Flags) -std=c++11 -nostdinc++
 Enclave_Link_Flags := $(SGX_COMMON_CFLAGS) -Wl,--no-undefined -nostdlib -nodefaultlibs -nostartfiles -L$(SGX_LIBRARY_PATH) ${Rats_Lib_Link_Dirs} \
-	-Wl,--whole-archive -l$(Trts_Library_Name) ${Rats_Lib_Link_libs} $(Intel_Ipfs_Trusted_Flag) -Wl,--no-whole-archive \
-	-Wl,--start-group -lsgx_tstdc -lsgx_tcxx -lsgx_pthread -lsgx_tkey_exchange -l$(Crypto_Library_Name) -l$(Service_Library_Name) -lsgx_dcap_tvl -Wl,--end-group \
+	-Wl,--whole-archive -l$(Trts_Library_Name) ${Rats_Lib_W_Link_libs} $(Intel_Ipfs_Trusted_Flag) -Wl,--no-whole-archive \
+	-Wl,--start-group -lsgx_tstdc -lsgx_tcxx -lsgx_pthread -lsgx_tkey_exchange -l$(Crypto_Library_Name) -l$(Service_Library_Name) $(Rats_Lib_NW_Link_libs) -Wl,--end-group \
 	-Wl,-Bstatic -Wl,-Bsymbolic -Wl,--no-undefined \
 	-Wl,-pie,-eenclave_entry -Wl,--export-dynamic  \
 	-Wl,--defsym,__ImageBase=0
@@ -159,8 +160,8 @@ Enclave_Link_Flags := $(SGX_COMMON_CFLAGS) -Wl,--no-undefined -nostdlib -nodefau
 Enclave_Edl_Search_Path     =   --search-path ../Enclave \
 								--search-path $(SGX_SDK)/include \
 								--search-path $(WAMR_ROOT)/core/shared/platform/linux-sgx
-ifeq ($(LIB_RATS), 1)
-	Enclave_Edl_Search_Path	+=	--search-path $(LIB_RATS_INCLUDE_DIR)/librats/edl
+ifeq ($(WAMR_BUILD_LIB_RATS), 1)
+	Enclave_Edl_Search_Path	+=	--search-path $(LIB_RATS_INCLUDE_DIR)/librats/edl --search-path $(SGX_SSL)/include
 endif
 
 
@@ -201,7 +202,7 @@ endif
 
 ######## App Objects ########
 librats:
-ifeq ($(LIB_RATS), 1)
+ifeq ($(WAMR_BUILD_LIB_RATS), 1)
 	@cd $(LIB_RATS_SRC) && make install
 	@echo "librats build success"
 endif

@@ -64,7 +64,8 @@ add_custom_command (
 add_custom_target (vmlib_untrusted ALL DEPENDS libvmlib_untrusted.a)
 
 execute_process (
-    COMMAND bash -c "sed -i -E 's/^#define LIB_RATS 0/#define LIB_RATS 1/g' ${SGX_PLATFORM_DIR}/enclave-sample/Enclave/Enclave.edl"
+    COMMAND bash -c "sed -i -E 's/^#define WASM_ENABLE_LIB_RATS 0/#define WASM_ENABLE_LIB_RATS 1/g' ${SGX_PLATFORM_DIR}/enclave-sample/Enclave/Enclave.edl"
+    COMMAND bash -c "sed -i -E 's/^WAMR_BUILD_LIB_RATS = 0/WAMR_BUILD_LIB_RATS = 1/g' ${SGX_PLATFORM_DIR}/enclave-sample/Makefile"
     OUTPUT_VARIABLE cmdOutput
 )
 
