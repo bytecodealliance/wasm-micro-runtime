@@ -257,9 +257,11 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
 
             /* check relative offset boundary */
             if (relative_offset < -256 * BH_KB || relative_offset > -4) {
-                set_error_buf(error_buf, error_buf_size,
-                              "AOT module load failed: "
-                              "target address out of range.");
+                set_error_buf(
+                    error_buf, error_buf_size,
+                    "AOT module load failed: "
+                    "target address out of range. \r\n"
+                    "use --size-level=0 option to generate .literal island");
                 return false;
             }
 
