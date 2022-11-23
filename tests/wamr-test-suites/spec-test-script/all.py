@@ -134,8 +134,9 @@ def test_case(
 
     if aot_flag:
         CMD.append("--aot")
-        CMD.append("--aot-target")
-        CMD.append(target)
+
+    CMD.append("--target")
+    CMD.append(target)
 
     if multi_module_flag:
         CMD.append("--multi-module")

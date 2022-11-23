@@ -209,9 +209,9 @@ parser.add_argument('test_file', type=argparse.FileType('r'),
 parser.add_argument('--aot', action='store_true',
         help="Test with AOT")
 
-parser.add_argument('--aot-target', type=str,
+parser.add_argument('--target', type=str,
         default="x86_64",
-        help="Set aot target")
+        help="Set running target")
 
 parser.add_argument('--sgx', action='store_true',
         help="Test SGX")
@@ -1001,11 +1001,11 @@ def run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r):
         cmd_iwasm.insert(1, "--module-path=/tmp")
 
     if opts.qemu:
-        if opts.aot_target == "thumbv7":
+        if opts.target == "thumbv7":
             cmd = ["qemu-system-arm", "-semihosting", "-M", "sabrelite", "-m", "1024", "-smp", "4", "-nographic", "-kernel", "/home/huang/Work/nx/nuttx/nuttx"]
-        elif opts.aot_target == "riscv32_ilp32":
+        elif opts.target == "riscv32_ilp32":
             cmd = ["qemu-system-riscv32", "-semihosting", "-M", "virt,aclint=on", "-cpu", "rv32", "-smp", "8", "-nographic", "-bios", "none", "-kernel", "/home/huang/Work/nx/nuttx/nuttx"]
-        elif opts.aot_target == "riscv64_lp64":
+        elif opts.target == "riscv64_lp64":
             cmd = ["qemu-system-riscv64", "-semihosting", "-M", "virt,aclint=on", "-cpu", "rv64", "-smp", "8", "-nographic", "-bios", "none", "-kernel", "/home/huang/Work/nx/nuttx/nuttx"]
 
     else:
@@ -1089,7 +1089,7 @@ if __name__ == "__main__":
 
     if opts.aot: test_aot = True
     # default x86_64
-    test_target = opts.aot_target
+    test_target = opts.target
 
     if opts.rundir: os.chdir(opts.rundir)
 

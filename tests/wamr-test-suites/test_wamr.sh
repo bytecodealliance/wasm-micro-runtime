@@ -409,9 +409,12 @@ function spec_test()
         ARGS_FOR_SPEC_TEST+="-X "
     fi
 
+    # set the current running target
+    ARGS_FOR_SPEC_TEST+="-m ${TARGET} " 
+
     # require warmc only in aot mode
     if [[ $1 == 'aot' ]]; then
-        ARGS_FOR_SPEC_TEST+="-t -m ${TARGET} "
+        ARGS_FOR_SPEC_TEST+="-t"
     fi
 
     if [[ ${PARALLELISM} == 1 ]]; then
