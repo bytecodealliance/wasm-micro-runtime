@@ -261,8 +261,12 @@ def test_suite(
 
             for case_name, result in results.items():
                 try:
-                    # 15 min / case
-                    result.wait(1800)
+                    if qemu_flag:
+                        # 60 min / case, testing on QEMU may very slow
+                        result.wait(7200)
+                    else:
+                        # 5 min / case
+                        result.wait(300)
                     if not result.successful():
                         failed_case += 1
                     else:
