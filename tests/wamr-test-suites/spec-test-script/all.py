@@ -104,6 +104,7 @@ def test_case(
     clean_up_flag=True,
     verbose_flag=True,
     qemu_flag=False,
+    qemu_firmware='',
 ):
     global IWASM_CMD
     case_path = pathlib.Path(case_path).resolve()
@@ -155,6 +156,8 @@ def test_case(
 
     if qemu_flag:
         CMD.append("--qemu")
+        CMD.append("--qemu-firmware")
+        CMD.append(qemu_firmware)
 
     if not clean_up_flag:
         CMD.append("--no_cleanup")
@@ -217,6 +220,7 @@ def test_suite(
     verbose_flag=True,
     parl_flag=False,
     qemu_flag=False,
+    qemu_firmware=''
 ):
     suite_path = pathlib.Path(SPEC_TEST_DIR).resolve()
     if not suite_path.exists():
@@ -251,6 +255,7 @@ def test_suite(
                         clean_up_flag,
                         verbose_flag,
                         qemu_flag,
+                        qemu_firmware,
                     ],
                 )
 
@@ -281,6 +286,7 @@ def test_suite(
                     clean_up_flag,
                     verbose_flag,
                     qemu_flag,
+                    qemu_firmware,
                 )
                 successful_case += 1
             except Exception as e:
@@ -370,6 +376,12 @@ def main():
         help="To run whole test suite in qemu",
     )
     parser.add_argument(
+        "--qemu-firmware",
+        default="",
+        dest="qemu_firmware",
+        help="Firmware required by qemu",
+    )
+    parser.add_argument(
         "--quiet",
         action="store_false",
         default=True,
@@ -410,6 +422,7 @@ def main():
             options.verbose_flag,
             options.parl_flag,
             options.qemu_flag,
+            options.qemu_firmware,
         )
         end = time.time_ns()
         print(
@@ -430,6 +443,7 @@ def main():
                     options.clean_up_flag,
                     options.verbose_flag,
                     options.qemu_flag,
+                    options.qemu_firmware
                 )
             else:
                 ret = True

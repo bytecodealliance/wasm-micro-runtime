@@ -25,6 +25,7 @@ function help()
     echo "-b use the wabt binary release package instead of compiling from the source code"
     echo "-P run the spec test parallelly"
     echo "-Q enable qemu"
+    echo "-F set the firmware path used by qemu"
 }
 
 OPT_PARSED=""
@@ -44,8 +45,9 @@ SGX_OPT=""
 PLATFORM=$(uname -s | tr A-Z a-z)
 PARALLELISM=0
 ENABLE_QEMU=0
+QEMU_FIRMWARE=""
 
-while getopts ":s:cabt:m:MCpSXxPQ" opt
+while getopts ":s:cabt:m:MCpSXxPQF:" opt
 do
     OPT_PARSED="TRUE"
     case $opt in
@@ -124,6 +126,10 @@ do
         Q)
         echo "enable QEMU"
         ENABLE_QEMU=1
+        ;;
+        F)
+        echo "QEMU firmware" ${OPTARG}
+        QEMU_FIRMWARE=${OPTARG}
         ;;
         ?)
         help
@@ -423,6 +429,7 @@ function spec_test()
 
     if [[ ${ENABLE_QEMU} == 1 ]]; then
         ARGS_FOR_SPEC_TEST+="--qemu "
+        ARGS_FOR_SPEC_TEST+="--qemu-firmware ${QEMU_FIRMWARE}"
     fi
 
     cd ${WORK_DIR}

@@ -231,6 +231,8 @@ parser.add_argument('--multi-thread', default=False, action='store_true',
 parser.add_argument('--qemu', default=False, action='store_true',
         help="Enable QEMU")
 
+parser.add_argument('--qemu-firmware', default='', help="Firmware required by qemu")
+
 parser.add_argument('--verbose', default=False, action='store_true',
         help='show more logs')
 
@@ -1001,12 +1003,15 @@ def run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r):
         cmd_iwasm.insert(1, "--module-path=/tmp")
 
     if opts.qemu:
+        if opts.qemu_firmware == '':
+            raise Exception("QEMU firmware missing")
+
         if opts.target == "thumbv7":
-            cmd = ["qemu-system-arm", "-semihosting", "-M", "sabrelite", "-m", "1024", "-smp", "4", "-nographic", "-kernel", "/home/huang/Work/nx/nuttx/nuttx"]
+            cmd = ["qemu-system-arm", "-semihosting", "-M", "sabrelite", "-m", "1024", "-smp", "4", "-nographic", "-kernel", opts.qemu_firmware]
         elif opts.target == "riscv32_ilp32":
-            cmd = ["qemu-system-riscv32", "-semihosting", "-M", "virt,aclint=on", "-cpu", "rv32", "-smp", "8", "-nographic", "-bios", "none", "-kernel", "/home/huang/Work/nx/nuttx/nuttx"]
+            cmd = ["qemu-system-riscv32", "-semihosting", "-M", "virt,aclint=on", "-cpu", "rv32", "-smp", "8", "-nographic", "-bios", "none", "-kernel", opts.qemu_firmware]
         elif opts.target == "riscv64_lp64":
-            cmd = ["qemu-system-riscv64", "-semihosting", "-M", "virt,aclint=on", "-cpu", "rv64", "-smp", "8", "-nographic", "-bios", "none", "-kernel", "/home/huang/Work/nx/nuttx/nuttx"]
+            cmd = ["qemu-system-riscv64", "-semihosting", "-M", "virt,aclint=on", "-cpu", "rv64", "-smp", "8", "-nographic", "-bios", "none", "-kernel", opts.qemu_firmware]
 
     else:
         cmd = cmd_iwasm
