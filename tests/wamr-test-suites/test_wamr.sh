@@ -414,7 +414,7 @@ function spec_test()
 
     # require warmc only in aot mode
     if [[ $1 == 'aot' ]]; then
-        ARGS_FOR_SPEC_TEST+="-t"
+        ARGS_FOR_SPEC_TEST+="-t "
     fi
 
     if [[ ${PARALLELISM} == 1 ]]; then
