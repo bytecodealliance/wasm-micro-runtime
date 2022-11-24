@@ -15,33 +15,38 @@ Before starting, we need to download and install [SGX SDK](https://download.01.o
 
 The following commands are an example of the SGX environment installation on Ubuntu 18.04.
 ``` shell
+# Set your platform, you can get the platforms list on
+# https://download.01.org/intel-sgx/latest/linux-latest/distro
 $ cd $HOME
-$ # Set your platform, you can get the platforms list on 
-$ # https://download.01.org/intel-sgx/latest/linux-latest/distro
 $ SGX_PLATFORM=ubuntu18.04-server
 $ SGX_SDK_VERSION=2.17.100.3
 $ SGX_DRIVER_VERSION=1.41
-$ # install the dependencies
+
+# install the dependencies
 $ sudo apt-get update
 $ sudo apt-get install -y dkms
-$ # install SGX Driver
+
+# install SGX Driver
 $ wget https://download.01.org/intel-sgx/latest/linux-latest/distro/$SGX_PLATFORM/sgx_linux_x64_driver_$SGX_DRIVER_VERSION.bin
 $ chmod +x sgx_linux_x64_driver_$SGX_DRIVER_VERSION.bin
 $ sudo ./sgx_linux_x64_driver_$SGX_DRIVER_VERSION.bin
-$ # install SGX SDK
+
+# install SGX SDK
 $ wget https://download.01.org/intel-sgx/latest/linux-latest/distro/$SGX_PLATFORM/sgx_linux_x64_sdk_$SGX_SDK_VERSION.bin
 $ chmod +x sgx_linux_x64_sdk_$SGX_SDK_VERSION.bin
 $ sudo ./sgx_linux_x64_sdk_$SGX_SDK_VERSION.bin
-$ # install SGX DCAP Library
+
+# install SGX DCAP Library
 $ echo 'deb [arch=amd64] https://download.01.org/intel-sgx/sgx_repo/ubuntu bionic main' | sudo tee /etc/apt/sources.list.d/intel-sgx.list > /dev/null
 $ wget -O - https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key | sudo apt-key add -
 $ sudo apt-get update
 $ sudo apt-get install -y libsgx-uae-service libsgx-dcap-default-qpl-dev libsgx-dcap-ql-dev libsgx-dcap-quote-verify-dev
-$ # install SGX SSL Library
+
+# install SGX SSL Library
 $ git clone https://github.com/intel/linux-sgx.git
 $ cd linux-sgx && make preparation
 $ sudo cp external/toolset/{current_distr}/* /usr/local/bin
-$ # Verify that the paths are correctly set 
+$ # Verify that the paths are correctly set
 $ which ar as ld objcopy objdump ranlib
 $ cd ../
 $ git clone https://github.com/intel/intel-sgx-ssl.git
