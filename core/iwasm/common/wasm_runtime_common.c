@@ -1160,6 +1160,12 @@ wasm_runtime_deinstantiate(WASMModuleInstanceCommon *module_inst)
     wasm_runtime_deinstantiate_internal(module_inst, false);
 }
 
+WASMModuleCommon *
+wasm_runtime_get_module(WASMModuleInstanceCommon *module_inst)
+{
+    return (WASMModuleCommon *)((WASMModuleInstance *)module_inst)->module;
+}
+
 WASMExecEnv *
 wasm_runtime_create_exec_env(WASMModuleInstanceCommon *module_inst,
                              uint32 stack_size)

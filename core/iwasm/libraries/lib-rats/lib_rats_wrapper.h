@@ -10,6 +10,7 @@
 
 #include <stdint.h>
 #include <string.h>
+
 #include "lib_rats_common.h"
 
 #ifdef __cplusplus

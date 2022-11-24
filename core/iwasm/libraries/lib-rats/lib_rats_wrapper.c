@@ -16,13 +16,13 @@
 #include "bh_common.h"
 #include "lib_rats_common.h"
 
-extern char wasm_module_hash[SHA256_DIGEST_LENGTH];
-
 static int
 librats_collect_wrapper(wasm_exec_env_t exec_env, char **evidence_json,
                         const char *buffer, uint32_t buffer_size)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
+    wasm_module_t module = wasm_runtime_get_module(module_inst);
+    char *wasm_module_hash = wasm_runtime_get_module_hash(module);
 
     char *json, *str_ret;
     uint32_t str_ret_offset;

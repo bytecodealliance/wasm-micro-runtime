@@ -358,6 +358,17 @@ WASM_RUNTIME_API_EXTERN void
 wasm_runtime_unload(wasm_module_t module);
 
 /**
+ * Get the module hash of a WASM module, currently only available on
+ * linux-sgx platform when the remote attestation feature is enabled
+ *
+ * @param module the WASM module to retrieve
+ *
+ * @return the module hash of the WASM module
+ */
+char *
+wasm_runtime_get_module_hash(wasm_module_t module);
+
+/**
  * Set WASI parameters.
  *
  * While this API operates on a module, these parameters will be used
@@ -443,6 +454,16 @@ wasm_runtime_instantiate(const wasm_module_t module,
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_deinstantiate(wasm_module_inst_t module_inst);
+
+/**
+ * Get WASM module from WASM module instance
+ *
+ * @param module_inst the WASM module instance to retrieve
+ *
+ * @return the WASM module
+ */
+WASM_RUNTIME_API_EXTERN wasm_module_t
+wasm_runtime_get_module(wasm_module_inst_t module_inst);
 
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_is_wasi_mode(wasm_module_inst_t module_inst);

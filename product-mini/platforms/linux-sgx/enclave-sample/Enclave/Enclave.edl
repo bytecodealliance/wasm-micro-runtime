@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#define WASM_ENABLE_SGX_IPFS 0
 #define WASM_ENABLE_LIB_RATS 0
-#define SGX_IPFS 0
 
 enclave {
     from "sgx_tstdc.edl" import *;
@@ -14,7 +14,7 @@ enclave {
     from "rats.edl" import *;
     from "sgx_tsgxssl.edl" import *;
 #endif
-#if SGX_IPFS != 0
+#if WASM_ENABLE_SGX_IPFS != 0
     from "sgx_tprotected_fs.edl" import *;
 #endif
 
