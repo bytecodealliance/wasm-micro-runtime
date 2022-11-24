@@ -2675,17 +2675,18 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
                        char *argv[], uint32 argc, int stdinfd, int stdoutfd,
                        int stderrfd, char *error_buf, uint32 error_buf_size)
 {
-    uvwasi_t *uvwasi = NULL;
+    WASIContext *ctx;
+    uvwasi_t *uvwasi;
     uvwasi_options_t init_options;
     const char **envp = NULL;
     uint64 total_size;
     uint32 i;
     bool ret = false;
 
-    uvwasi = runtime_malloc(sizeof(uvwasi_t), module_inst, error_buf,
-                            error_buf_size);
-    if (!uvwasi)
+    ctx = runtime_malloc(sizeof(*ctx), module_inst, error_buf, error_buf_size);
+    if (!ctx)
         return false;
+    uvwasi = &ctx->uvwasi;
 
     /* Setup the initialization options */
     uvwasi_options_init(&init_options);
@@ -2733,7 +2734,7 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
         goto fail;
     }
 
-    wasm_runtime_set_wasi_ctx(module_inst, uvwasi);
+    wasm_runtime_set_wasi_ctx(module_inst, ctx);
 
     ret = true;
 
@@ -2863,11 +2864,18 @@ wasm_runtime_destroy_wasi(WASMModuleInstanceCommon *module_inst)
     WASIContext *wasi_ctx = wasm_runtime_get_wasi_ctx(module_inst);
 
     if (wasi_ctx) {
-        uvwasi_destroy(wasi_ctx);
+        uvwasi_destroy(&wasi_ctx->uvwasi);
         wasm_runtime_free(wasi_ctx);
     }
 }
 #endif
+
+uint32_t
+wasm_runtime_get_wasi_exit_code(WASMModuleInstanceCommon *module_inst)
+{
+    WASIContext *wasi_ctx = wasm_runtime_get_wasi_ctx(module_inst);
+    return wasi_ctx->exit_code;
+}
 
 WASIContext *
 wasm_runtime_get_wasi_ctx(WASMModuleInstanceCommon *module_inst_comm)
