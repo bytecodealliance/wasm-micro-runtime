@@ -16,9 +16,6 @@
 #include "bh_common.h"
 #include "lib_rats_common.h"
 
-char *
-wasm_runtime_get_module_hash(wasm_module_t module);
-
 static int
 librats_collect_wrapper(wasm_exec_env_t exec_env, char **evidence_json,
                         const char *buffer, uint32_t buffer_size)

@@ -11,9 +11,14 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define SGX_QUOTE_MAX_SIZE 8192
 #define SGX_USER_DATA_SIZE 64
 #define SGX_MEASUREMENT_SIZE 32
+
 /* clang-format off */
 typedef struct rats_sgx_evidence {
     uint8_t quote[SGX_QUOTE_MAX_SIZE];          /* The quote of the Enclave */
@@ -27,5 +32,9 @@ typedef struct rats_sgx_evidence {
     uint64_t att_xfrm;                          /* XSAVE Feature Request Mask */
 } rats_sgx_evidence_t;
 /* clang-format on */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

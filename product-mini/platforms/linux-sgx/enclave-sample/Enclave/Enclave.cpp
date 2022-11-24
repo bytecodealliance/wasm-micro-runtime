@@ -303,7 +303,6 @@ handle_cmd_unload_module(uint64 *args, uint32 argc)
 #endif
 
     /* Destroy enclave module resources */
-
     if (enclave_module->wasi_arg_buf)
         wasm_runtime_free(enclave_module->wasi_arg_buf);
 
@@ -317,11 +316,6 @@ handle_cmd_unload_module(uint64 *args, uint32 argc)
 }
 
 #if WASM_ENABLE_LIB_RATS != 0
-extern "C" {
-char *
-wasm_runtime_get_module_hash(wasm_module_t module);
-}
-
 char *
 wasm_runtime_get_module_hash(wasm_module_t module)
 {
