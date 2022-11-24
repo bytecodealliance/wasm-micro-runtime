@@ -451,6 +451,18 @@ WASM_RUNTIME_API_EXTERN wasm_function_inst_t
 wasm_runtime_lookup_wasi_start_function(wasm_module_inst_t module_inst);
 
 /**
+ * Get WASI exit code.
+ *
+ * After a WASI command completed its execution, an embedder can
+ * call this function to get its exit code. (that is, the value given
+ * to proc_exit.)
+ *
+ * @param module_inst the module instance
+ */
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_runtime_get_wasi_exit_code(wasm_module_inst_t module_inst);
+
+/**
  * Lookup an exported function in the WASM module instance.
  *
  * @param module_inst the module instance
