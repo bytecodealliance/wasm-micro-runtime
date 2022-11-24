@@ -259,7 +259,9 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
             if (relative_offset < -256 * BH_KB || relative_offset > -4) {
                 set_error_buf(error_buf, error_buf_size,
                               "AOT module load failed: "
-                              "target address out of range.");
+                              "target address out of range.\n"
+                              "Try using `wamrc --size-level=0` to generate "
+                              ".literal island.");
                 return false;
             }
 
