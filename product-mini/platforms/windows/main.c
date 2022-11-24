@@ -27,7 +27,7 @@ print_help()
     printf("  -v=n                   Set log verbose level (0 to 5, default is 2) larger\n"
            "                         level with more log\n");
 #endif
-    printf("  --stack-size=n         Set maximum stack size in bytes, default is 16 KB\n");
+    printf("  --stack-size=n         Set maximum stack size in bytes, default is 64 KB\n");
     printf("  --heap-size=n          Set maximum heap size in bytes, default is 16 KB\n");
     printf("  --repl                 Start a very simple REPL (read-eval-print-loop) mode\n"
            "                         that runs commands in the form of `FUNC ARG...`\n");
@@ -227,7 +227,7 @@ main(int argc, char *argv[])
     const char *func_name = NULL;
     uint8 *wasm_file_buf = NULL;
     uint32 wasm_file_size;
-    uint32 stack_size = 16 * 1024, heap_size = 16 * 1024;
+    uint32 stack_size = 64 * 1024, heap_size = 16 * 1024;
     wasm_module_t wasm_module = NULL;
     wasm_module_inst_t wasm_module_inst = NULL;
     RuntimeInitArgs init_args;
