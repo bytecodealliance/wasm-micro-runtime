@@ -63,7 +63,7 @@ app_instance_main(wasm_module_inst_t module_inst)
     wasm_application_execute_main(module_inst, app_argc, app_argv);
     if ((exception = wasm_runtime_get_exception(module_inst)))
         printf("%s\n", exception);
-    return NULL;
+    return exception;
 }
 
 static void *
@@ -73,7 +73,7 @@ app_instance_func(wasm_module_inst_t module_inst, const char *func_name)
                                   app_argv + 1);
     /* The result of wasm function or exception info was output inside
        wasm_application_execute_func(), here we don't output them again. */
-    return NULL;
+    return wasm_runtime_get_exception(module_inst);
 }
 
 /**
@@ -451,14 +451,29 @@ main(int argc, char *argv[])
     }
 #endif
 
-    if (is_repl_mode)
-        app_instance_repl(wasm_module_inst);
-    else if (func_name)
-        app_instance_func(wasm_module_inst, func_name);
-    else
-        app_instance_main(wasm_module_inst);
-
     ret = 0;
+    if (is_repl_mode) {
+        app_instance_repl(wasm_module_inst);
+    }
+    else if (func_name) {
+        if (app_instance_func(wasm_module_inst, func_name)) {
+            /* got an exception */
+            ret = 1;
+        }
+    }
+    else {
+        if (app_instance_main(wasm_module_inst)) {
+            /* got an exception */
+            ret = 1;
+        }
+    }
+
+#if WASM_ENABLE_LIBC_WASI != 0
+    if (ret == 0) {
+        /* propagate wasi exit code. */
+        ret = wasm_runtime_get_wasi_exit_code(wasm_module_inst);
+    }
+#endif
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
 fail4:
