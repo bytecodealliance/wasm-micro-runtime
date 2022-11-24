@@ -2955,7 +2955,7 @@ orcjit_thread_callback(void *arg)
             LLVMOrcLLLazyJITLookup(comp_ctx->orc_jit, &func_addr, func_name);
         if (error != LLVMErrorSuccess) {
             char *err_msg = LLVMGetErrorMessage(error);
-            os_printf("failed to compile orc jit function: %s", err_msg);
+            os_printf("failed to compile orc jit function: %s\n", err_msg);
             LLVMDisposeErrorMessage(err_msg);
             continue;
         }

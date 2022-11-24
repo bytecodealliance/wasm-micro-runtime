@@ -129,7 +129,7 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
        function list in the PartitionFunction callback */
     if (comp_ctx->is_jit_mode
         && func_index % (backend_thread_num * compile_thread_num)
-               < compile_thread_num) {
+               < backend_thread_num) {
         func_type_wrapper = LLVMFunctionType(VOID_TYPE, NULL, 0, false);
         if (!func_type_wrapper) {
             aot_set_last_error("create LLVM function type failed.");
