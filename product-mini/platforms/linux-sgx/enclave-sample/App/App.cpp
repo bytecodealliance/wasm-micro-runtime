@@ -103,7 +103,7 @@ enclave_init(sgx_enclave_id_t *p_eid)
                <= MAX_PATH - 1 - sizeof(TOKEN_FILENAME) - strlen("/")) {
         /* compose the token path */
         strncpy(token_path, home_dir, MAX_PATH);
-        strncat(token_path, "/", strlen("/"));
+        strncat(token_path, "/", strlen("/") + 1);
         strncat(token_path, TOKEN_FILENAME, sizeof(TOKEN_FILENAME) + 1);
     }
     else {

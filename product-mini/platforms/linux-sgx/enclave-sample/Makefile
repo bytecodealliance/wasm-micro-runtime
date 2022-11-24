@@ -11,7 +11,7 @@ SGX_DEBUG ?= 0
 SPEC_TEST ?= 0
 
 # These variables are automatically set by CMakeLists.txt
-SGX_IPFS = 0
+WAMR_BUILD_SGX_IPFS = 0
 WAMR_BUILD_LIB_RATS = 0
 WAMR_BUILD_GLOBAL_HEAP_POOL = 0
 WAMR_BUILD_GLOBAL_HEAP_SIZE = 10485760
@@ -112,7 +112,7 @@ else
 	Service_Library_Name := sgx_tservice
 endif
 
-ifeq ($(SGX_IPFS), 1)
+ifeq ($(WAMR_BUILD_SGX_IPFS), 1)
 	Intel_Ipfs_Trusted_Flag = -lsgx_tprotected_fs
 	App_Link_Flags += -lsgx_uprotected_fs
 endif
