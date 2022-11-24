@@ -217,7 +217,7 @@ print_help()
            "                         than main\n");
     printf("  -v=n                   Set log verbose level (0 to 5, default is 2) larger\n"
            "                         level with more log\n");
-    printf("  --stack-size=n         Set maximum stack size in bytes, default is 16 KB\n");
+    printf("  --stack-size=n         Set maximum stack size in bytes, default is 64 KB\n");
     printf("  --heap-size=n          Set maximum heap size in bytes, default is 16 KB\n");
     printf("  --repl                 Start a very simple REPL (read-eval-print-loop) mode\n"
            "                         that runs commands in the form of `FUNC ARG...`\n");
@@ -606,7 +606,7 @@ main(int argc, char *argv[])
     const char *func_name = NULL;
     uint8_t *wasm_file_buf = NULL;
     uint32_t wasm_file_size;
-    uint32_t stack_size = 16 * 1024, heap_size = 16 * 1024;
+    uint32_t stack_size = 64 * 1024, heap_size = 16 * 1024;
     void *wasm_module = NULL;
     void *wasm_module_inst = NULL;
     char error_buf[128] = { 0 };
@@ -825,7 +825,7 @@ wamr_pal_init(const struct wamr_pal_attr *args)
 int
 wamr_pal_create_process(struct wamr_pal_create_process_args *args)
 {
-    uint32_t stack_size = 16 * 1024, heap_size = 16 * 1024;
+    uint32_t stack_size = 64 * 1024, heap_size = 16 * 1024;
     int log_verbose_level = 2;
     bool is_repl_mode = false;
     const char *dir_list[8] = { NULL };

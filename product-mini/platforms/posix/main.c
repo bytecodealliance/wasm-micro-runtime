@@ -32,7 +32,7 @@ print_help()
     printf("  -v=n                     Set log verbose level (0 to 5, default is 2) larger\n"
            "                           level with more log\n");
 #endif
-    printf("  --stack-size=n           Set maximum stack size in bytes, default is 16 KB\n");
+    printf("  --stack-size=n           Set maximum stack size in bytes, default is 64 KB\n");
     printf("  --heap-size=n            Set maximum heap size in bytes, default is 16 KB\n");
 #if WASM_ENABLE_FAST_JIT != 0
     printf("  --jit-codecache-size=n   Set fast jit maximum code cache size in bytes,\n");
@@ -341,7 +341,7 @@ main(int argc, char *argv[])
     const char *func_name = NULL;
     uint8 *wasm_file_buf = NULL;
     uint32 wasm_file_size;
-    uint32 stack_size = 16 * 1024, heap_size = 16 * 1024;
+    uint32 stack_size = 64 * 1024, heap_size = 16 * 1024;
 #if WASM_ENABLE_FAST_JIT != 0
     uint32 jit_code_cache_size = FAST_JIT_DEFAULT_CODE_CACHE_SIZE;
 #endif
