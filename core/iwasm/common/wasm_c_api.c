@@ -258,6 +258,12 @@ WASM_DEFINE_VEC_OWN(module, wasm_module_delete_internal)
 WASM_DEFINE_VEC_OWN(store, wasm_store_delete)
 WASM_DEFINE_VEC_OWN(valtype, wasm_valtype_delete)
 
+#ifndef NDEBUG
+#define WASM_C_DUMP_PROC_MEM() LOG_PROC_MEM()
+#else
+#define WASM_C_DUMP_PROC_MEM() (void)0
+#endif
+
 /* Runtime Environment */
 own wasm_config_t *
 wasm_config_new(void)
@@ -307,6 +313,14 @@ wasm_engine_new_internal(mem_alloc_type_t type, const MemAllocOption *opts)
     RuntimeInitArgs init_args = { 0 };
     init_args.mem_alloc_type = type;
 
+#ifndef NDEBUG
+    bh_log_set_verbose_level(BH_LOG_LEVEL_VERBOSE);
+#else
+    bh_log_set_verbose_level(BH_LOG_LEVEL_WARNING);
+#endif
+
+    WASM_C_DUMP_PROC_MEM();
+
     if (type == Alloc_With_Pool) {
         if (!opts) {
             return NULL;
@@ -337,14 +351,6 @@ wasm_engine_new_internal(mem_alloc_type_t type, const MemAllocOption *opts)
         goto failed;
     }
 
-#ifndef NDEBUG
-    /*DEBUG*/
-    bh_log_set_verbose_level(BH_LOG_LEVEL_VERBOSE);
-#else
-    /*VERBOSE*/
-    bh_log_set_verbose_level(BH_LOG_LEVEL_WARNING);
-#endif
-
     /* create wasm_engine_t */
     if (!(engine = malloc_internal(sizeof(wasm_engine_t)))) {
         goto failed;
@@ -357,6 +363,8 @@ wasm_engine_new_internal(mem_alloc_type_t type, const MemAllocOption *opts)
         goto failed;
 
     engine->ref_count = 1;
+
+    WASM_C_DUMP_PROC_MEM();
 
     RETURN_OBJ(engine, wasm_engine_delete_internal)
 }
@@ -442,6 +450,8 @@ wasm_store_new(wasm_engine_t *engine)
 {
     wasm_store_t *store = NULL;
 
+    WASM_C_DUMP_PROC_MEM();
+
     if (!engine || singleton_engine != engine) {
         return NULL;
     }
@@ -473,6 +483,8 @@ wasm_store_new(wasm_engine_t *engine)
         LOG_DEBUG("bh_vector_append failed");
         goto failed;
     }
+
+    WASM_C_DUMP_PROC_MEM();
 
     return store;
 failed:
@@ -1903,6 +1915,8 @@ wasm_module_new(wasm_store_t *store, const wasm_byte_vec_t *binary)
 
     bh_assert(singleton_engine);
 
+    WASM_C_DUMP_PROC_MEM();
+
     if (!store || !binary || binary->size == 0 || binary->size > UINT32_MAX)
         goto quit;
 
@@ -1958,6 +1972,9 @@ wasm_module_new(wasm_store_t *store, const wasm_byte_vec_t *binary)
         goto destroy_lock;
 
     module_ex->ref_count = 1;
+
+    WASM_C_DUMP_PROC_MEM();
+
     return module_ext_to_module(module_ex);
 
 destroy_lock:
@@ -4453,6 +4470,8 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
         return NULL;
     }
 
+    WASM_C_DUMP_PROC_MEM();
+
     instance = malloc_internal(sizeof(wasm_instance_t));
     if (!instance) {
         goto failed;
@@ -4594,6 +4613,8 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
     if (!bh_vector_append((Vector *)store->instances, &instance)) {
         goto failed;
     }
+
+    WASM_C_DUMP_PROC_MEM();
 
     return instance;
 

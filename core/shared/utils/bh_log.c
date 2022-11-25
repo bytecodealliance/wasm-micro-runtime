@@ -79,3 +79,29 @@ bh_print_time(const char *prompt)
 
     last_time_ms = curr_time_ms;
 }
+
+void
+bh_print_proc_mem(const char *prompt)
+{
+    char buf[1024] = { 0 };
+
+    if (log_verbose_level < BH_LOG_LEVEL_DEBUG)
+        return;
+
+    if (os_dumps_proc_mem_info(buf, sizeof(buf)) != 0)
+        return;
+
+    os_printf("%s\n", prompt);
+    os_printf("===== memory usage =====\n");
+    os_printf("%s", buf);
+    os_printf("==========\n");
+    return;
+}
+
+void
+bh_log_proc_mem(const char *function, uint32 line)
+{
+    char prompt[128] = { 0 };
+    snprintf(prompt, sizeof(prompt), "[MEM] %s(...) L%u", function, line);
+    return bh_print_proc_mem(prompt);
+}
