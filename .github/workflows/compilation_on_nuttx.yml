@@ -91,7 +91,10 @@ jobs:
 
       - name: Install RISC-V Compilers
         if: contains(matrix.nuttx_board_config, 'risc-v')
-        run: sudo apt install -y gcc-riscv64-unknown-elf
+        run: |
+          curl -L https://static.dev.sifive.com/dev-tools/freedom-tools/v2020.12/riscv64-unknown-elf-toolchain-10.2.0-2020.12.8-x86_64-linux-ubuntu14.tar.gz > riscv.tar.gz
+          tar xvf riscv.tar.gz
+          echo "$PWD/riscv64-unknown-elf-toolchain-10.2.0-2020.12.8-x86_64-linux-ubuntu14/bin" >> $GITHUB_PATH
 
       - name: Checkout NuttX
         uses: actions/checkout@v3
@@ -113,9 +116,8 @@ jobs:
 
       - name: Enable WAMR for NuttX
         run: |
-          find nuttx/boards -name defconfig | xargs sed -i '$a\CONFIG_EOL_IS_CR=y\n${{ matrix.wamr_config_option }}'
+          find nuttx/boards -name defconfig | xargs sed -i '$a\CONFIG_EOL_IS_LF=y\n${{ matrix.wamr_config_option }}'
           find nuttx/boards/sim -name defconfig | xargs sed -i '$a\CONFIG_LIBM=y\n'
-          find nuttx/boards/risc-v -name defconfig | xargs sed -i '$a\CONFIG_LIBM=y\n'
 
       - name: Build
         run: |
