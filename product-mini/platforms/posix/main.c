@@ -150,9 +150,9 @@ app_instance_repl(wasm_module_inst_t module_inst)
     size_t len = 0;
     ssize_t n;
 
-    while (
-        (fflush(stdout), puts("webassembly> "), n = getline(&cmd, &len, stdin))
-        != -1) {
+    while ((printf("webassembly> "), fflush(stdout),
+            n = getline(&cmd, &len, stdin))
+           != -1) {
         bh_assert(n > 0);
         if (cmd[n - 1] == '\n') {
             if (n == 1)
@@ -161,7 +161,7 @@ app_instance_repl(wasm_module_inst_t module_inst)
                 cmd[n - 1] = '\0';
         }
         if (!strcmp(cmd, "__exit__")) {
-            puts("exit repl mode\n");
+            printf("exit repl mode\n");
             break;
         }
         app_argv = split_string(cmd, &app_argc);
