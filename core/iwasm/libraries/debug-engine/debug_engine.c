@@ -1003,9 +1003,13 @@ wasm_debug_instance_on_failure(WASMDebugInstance *instance)
     if (!instance)
         return false;
 
+    os_mutex_lock(&instance->wait_lock);
     exec_env = bh_list_first_elem(&instance->cluster->exec_env_list);
-    if (!exec_env)
+    if (!exec_env) {
+        os_mutex_unlock(&instance->wait_lock);
         return false;
+    }
+    os_mutex_unlock(&instance->wait_lock);
 
     os_mutex_lock(&instance->wait_lock);
     if (instance->stopped_thread == NULL
@@ -1018,6 +1022,7 @@ wasm_debug_instance_on_failure(WASMDebugInstance *instance)
     os_mutex_unlock(&instance->wait_lock);
 
     /* terminate the wasm execution thread */
+    os_mutex_lock(&instance->wait_lock);
     while (exec_env) {
         /* Resume all threads so they can receive the TERM signal */
         os_mutex_lock(&exec_env->wait_lock);
@@ -1027,6 +1032,7 @@ wasm_debug_instance_on_failure(WASMDebugInstance *instance)
         os_mutex_unlock(&exec_env->wait_lock);
         exec_env = bh_list_elem_next(exec_env);
     }
+    os_mutex_unlock(&instance->wait_lock);
 
     return true;
 }
