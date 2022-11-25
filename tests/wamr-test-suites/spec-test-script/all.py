@@ -19,6 +19,7 @@ The script itself has to be put under the same directory with the "spec".
 PLATFORM_NAME = os.uname().sysname.lower()
 IWASM_CMD = "../../../product-mini/platforms/" + PLATFORM_NAME + "/build/iwasm"
 IWASM_SGX_CMD = "../../../product-mini/platforms/linux-sgx/enclave-sample/iwasm"
+IWASM_QEMU_CMD = "iwasm"
 SPEC_TEST_DIR = "spec/test/core"
 WAST2WASM_CMD = "./wabt/out/gcc/Release/wat2wasm"
 WAMRC_CMD = "../../../wamr-compiler/build/wamrc"
@@ -122,14 +123,16 @@ def test_case(
     ):
         return True
 
-    if qemu_flag:
-        IWASM_CMD = "iwasm"
-
     CMD = ["python3", "runtest.py"]
     CMD.append("--wast2wasm")
     CMD.append(WAST2WASM_CMD)
     CMD.append("--interpreter")
-    CMD.append(IWASM_CMD if not sgx_flag else IWASM_SGX_CMD)
+    if sgx_flag:
+        CMD.append(IWASM_SGX_CMD)
+    elif qemu_flag:
+        CMD.append(IWASM_QEMU_CMD)
+    else:
+        CMD.append(IWASM_CMD)
     CMD.append("--aot-compiler")
     CMD.append(WAMRC_CMD)
 
@@ -262,7 +265,7 @@ def test_suite(
             for case_name, result in results.items():
                 try:
                     if qemu_flag:
-                        # 60 min / case, testing on QEMU may very slow
+                        # 60 min / case, testing on QEMU may be very slow
                         result.wait(7200)
                     else:
                         # 5 min / case
