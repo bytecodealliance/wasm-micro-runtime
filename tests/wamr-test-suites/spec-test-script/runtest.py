@@ -1000,7 +1000,7 @@ def run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r):
     cmd_iwasm = [opts.interpreter, "--heap-size=0", "-v=5" if opts.verbose else "-v=0", "--repl", tmpfile]
 
     if opts.multi_module:
-        cmd_iwasm.insert(1, "--module-path=/tmp")
+        cmd_iwasm.insert(1, "--module-path=" + (tempfile.gettempdir() if not opts.qemu else "/tmp" ))
 
     if opts.qemu:
         if opts.qemu_firmware == '':
