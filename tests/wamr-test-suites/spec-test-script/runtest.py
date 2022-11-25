@@ -838,7 +838,7 @@ def test_assert_trap(r, opts, form):
 
     elif not m and n:
         module = n.group(1)
-        module = tempfile.gettempdir() + module
+        module = tempfile.gettempdir() + "/" + module
         print("Testing Trap Mode:", module)
         # will trigger the module named in assert_return(invoke $ABC).
         # run the ABC.wasm firstly
