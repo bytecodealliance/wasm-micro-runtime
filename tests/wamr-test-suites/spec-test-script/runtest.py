@@ -838,7 +838,7 @@ def test_assert_trap(r, opts, form):
 
     elif not m and n:
         module = n.group(1)
-        module = "/tmp/"+module
+        module = tempfile.gettempdir() + module
         print("Testing Trap Mode:", module)
         # will trigger the module named in assert_return(invoke $ABC).
         # run the ABC.wasm firstly
@@ -994,10 +994,10 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r):
         return r
 
 def run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r):
-    tempfile = aot_tempfile if test_aot else wasm_tempfile
-    log("Starting interpreter for module '%s'" % tempfile)
+    tmpfile = aot_tempfile if test_aot else wasm_tempfile
+    log("Starting interpreter for module '%s'" % tmpfile)
 
-    cmd_iwasm = [opts.interpreter, "--heap-size=0", "-v=5" if opts.verbose else "-v=0", "--repl", tempfile]
+    cmd_iwasm = [opts.interpreter, "--heap-size=0", "-v=5" if opts.verbose else "-v=0", "--repl", tmpfile]
 
     if opts.multi_module:
         cmd_iwasm.insert(1, "--module-path=/tmp")
@@ -1023,7 +1023,7 @@ def run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r):
     
     if opts.qemu:
         r.read_to_prompt(['nsh> '], 10)
-        r.writeline("mount -t hostfs -o fs=/tmp /tmp")
+        r.writeline("mount -t hostfs -o fs={} /tmp".format(tempfile.gettempdir()))
         r.read_to_prompt(['nsh> '], 10)
         r.writeline(" ".join(cmd_iwasm))
     
