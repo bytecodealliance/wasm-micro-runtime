@@ -125,11 +125,11 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
 
     /* Add the jit wrapper function with simple prototype, so that we
        can easily call it to trigger its compilation and let LLVM JIT
-       compile the actual jit functions by adding the latter to the
-       function list in the PartitionFunction callback */
+       compile the actual jit functions by adding them into the function
+       list in the PartitionFunction callback */
     if (comp_ctx->is_jit_mode
-        && func_index % (backend_thread_num * compile_thread_num)
-               < backend_thread_num) {
+        && (func_index % (backend_thread_num * compile_thread_num)
+            < backend_thread_num)) {
         func_type_wrapper = LLVMFunctionType(VOID_TYPE, NULL, 0, false);
         if (!func_type_wrapper) {
             aot_set_last_error("create LLVM function type failed.");
