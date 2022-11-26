@@ -107,7 +107,6 @@ def test_case(
     qemu_flag=False,
     qemu_firmware='',
 ):
-    global IWASM_CMD
     case_path = pathlib.Path(case_path).resolve()
     case_name = case_path.stem
 
