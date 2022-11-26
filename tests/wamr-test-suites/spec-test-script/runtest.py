@@ -1260,7 +1260,7 @@ if __name__ == "__main__":
                 # get module's new name from the register cmd
                 name_new =re.split('\"',re.search('\".*\"',form).group(0))[1]
                 if name_new:
-                    new_module = os.path.join("/tmp/", name_new + ".wasm")
+                    new_module = os.path.join(tempfile.gettempdir(), name_new + ".wasm")
                     shutil.copyfile(temp_module_table.get(name_new, wasm_tempfile), new_module)
 
                     # add new_module copied from the old into temp_file_repo[]
