@@ -952,13 +952,13 @@ print_wrapper(wasm_exec_env_t exec_env)
 static void
 print_i32_wrapper(wasm_exec_env_t exec_env, int32 i32)
 {
-    os_printf("in specttest.print_i32(%d)\n", i32);
+    os_printf("in specttest.print_i32(%" PRId32 ")\n", i32);
 }
 
 static void
 print_i32_f32_wrapper(wasm_exec_env_t exec_env, int32 i32, float f32)
 {
-    os_printf("in specttest.print_i32_f32(%d, %f)\n", i32, f32);
+    os_printf("in specttest.print_i32_f32(%" PRId32 ", %f)\n", i32, f32);
 }
 
 static void

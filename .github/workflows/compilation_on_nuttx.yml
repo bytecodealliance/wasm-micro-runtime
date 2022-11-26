@@ -123,4 +123,4 @@ jobs:
         run: |
           cd nuttx
           tools/configure.sh ${{ matrix.nuttx_board_config }}
-          make -j$(nproc)
+          make -j$(nproc) EXTRAFLAGS=-Werror
