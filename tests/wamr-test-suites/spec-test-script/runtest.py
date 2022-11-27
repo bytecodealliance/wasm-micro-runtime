@@ -652,6 +652,9 @@ def test_assert(r, opts, mode, cmd, expected):
 
     out = invoke(r, opts, cmd)
     out = out.strip()
+    if '\n' in out:
+        outs = [''] + out.split('\n')[1:]
+        out = outs[-1]
 
     if mode=='trap':
         o = re.sub('^Exception: ', '', out)
