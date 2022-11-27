@@ -783,9 +783,7 @@ def test_assert_return(r, opts, form):
                 _, exc, _ = sys.exc_info()
                 log("Run wamrc failed:\n  got: '%s'" % r.buf)
                 sys.exit(1)
-            r = run_wasm_with_repl(module+".wasm", module+".aot", opts, r)
-        else:
-            r = run_wasm_with_repl(module+".wasm", None, opts, r)
+        r = run_wasm_with_repl(module+".wasm", module+".aot" if test_aot else module, opts, r)
         # Wait for the initial prompt
         try:
             assert_prompt(r, ['webassembly> '], opts.start_timeout, False)
@@ -850,9 +848,7 @@ def test_assert_trap(r, opts, form):
                 _, exc, _ = sys.exc_info()
                 log("Run wamrc failed:\n  got: '%s'" % r.buf)
                 sys.exit(1)
-            r = run_wasm_with_repl(module+".wasm", module+".aot", opts, r)
-        else:
-            r = run_wasm_with_repl(module+".wasm", None, opts, r)
+        r = run_wasm_with_repl(module+".wasm", module+".aot" if test_aot else module, opts, r)
         # Wait for the initial prompt
         try:
             assert_prompt(r, ['webassembly> '], opts.start_timeout, False)
@@ -1250,12 +1246,7 @@ if __name__ == "__main__":
                 assert(r), "iwasm repl runtime should be not null"
                 do_invoke(r, opts, form)
             elif re.match("^\(assert_invalid\\b.*", form):
-                if test_aot:
-                    test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile, opts, r)
-                else:
-                    test_assert_with_exception(form, wast_tempfile, wasm_tempfile, None, opts, r)
-
-
+                test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile if test_aot else None, opts, r)
             elif re.match("^\(register\\b.*", form):
                 # get module's new name from the register cmd
                 name_new =re.split('\"',re.search('\".*\"',form).group(0))[1]
