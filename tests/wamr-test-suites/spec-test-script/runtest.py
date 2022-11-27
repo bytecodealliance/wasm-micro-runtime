@@ -651,8 +651,7 @@ def test_assert(r, opts, mode, cmd, expected):
     log("Testing(%s) %s = %s" % (mode, cmd, expected))
 
     out = invoke(r, opts, cmd)
-    outs = [''] + out.split('\n')[1:]
-    out = outs[-1]
+    out = out.strip()
 
     if mode=='trap':
         o = re.sub('^Exception: ', '', out)
