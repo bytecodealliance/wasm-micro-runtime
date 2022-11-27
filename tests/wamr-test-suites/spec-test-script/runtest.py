@@ -651,10 +651,8 @@ def test_assert(r, opts, mode, cmd, expected):
     log("Testing(%s) %s = %s" % (mode, cmd, expected))
 
     out = invoke(r, opts, cmd)
-    out = out.strip()
-    if '\n' in out:
-        outs = [''] + out.split('\n')[1:]
-        out = outs[-1]
+    outs = [''] + out.split('\n')[1:]
+    out = outs[-1]
 
     if mode=='trap':
         o = re.sub('^Exception: ', '', out)
@@ -839,7 +837,7 @@ def test_assert_trap(r, opts, form):
     elif not m and n:
         module = n.group(1)
         module = tempfile.gettempdir() + "/" + module
-        print("Testing Trap Mode:", module)
+
         # will trigger the module named in assert_return(invoke $ABC).
         # run the ABC.wasm firstly
         if test_aot:
