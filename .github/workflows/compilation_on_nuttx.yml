@@ -55,12 +55,8 @@ jobs:
           "boards/sim/sim/sim/configs/nsh",
           # cortex-m0
           "boards/arm/rp2040/raspberrypi-pico/configs/nsh",
-          # cortex-m4
-          "boards/arm/stm32/stm32f4discovery/configs/nsh",
           # cortex-m7
           "boards/arm/stm32h7/nucleo-h743zi/configs/nsh",
-          # cortex-a9
-          "boards/arm/imx6/sabre-6quad/configs/nsh",
           # riscv32imac
           "boards/risc-v/qemu-rv/rv-virt/configs/nsh",
           # riscv64imac
@@ -123,4 +119,4 @@ jobs:
         run: |
           cd nuttx
           tools/configure.sh ${{ matrix.nuttx_board_config }}
-          make -j$(nproc)
+          make -j$(nproc) EXTRAFLAGS=-Werror

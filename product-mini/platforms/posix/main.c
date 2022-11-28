@@ -78,7 +78,7 @@ print_help()
 }
 /* clang-format on */
 
-static void *
+static const void *
 app_instance_main(wasm_module_inst_t module_inst)
 {
     const char *exception;
@@ -89,7 +89,7 @@ app_instance_main(wasm_module_inst_t module_inst)
     return exception;
 }
 
-static void *
+static const void *
 app_instance_func(wasm_module_inst_t module_inst, const char *func_name)
 {
     wasm_application_execute_func(module_inst, func_name, app_argc - 1,
