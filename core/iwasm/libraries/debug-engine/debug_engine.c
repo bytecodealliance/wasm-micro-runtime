@@ -1009,9 +1009,7 @@ wasm_debug_instance_on_failure(WASMDebugInstance *instance)
         os_mutex_unlock(&instance->wait_lock);
         return false;
     }
-    os_mutex_unlock(&instance->wait_lock);
 
-    os_mutex_lock(&instance->wait_lock);
     if (instance->stopped_thread == NULL
         && instance->current_state == DBG_LAUNCHING) {
         /* if fail in start stage: may need wait for main thread to notify it */
@@ -1019,10 +1017,8 @@ wasm_debug_instance_on_failure(WASMDebugInstance *instance)
     }
     instance->current_state = DBG_ERROR;
     instance->stopped_thread = NULL;
-    os_mutex_unlock(&instance->wait_lock);
 
     /* terminate the wasm execution thread */
-    os_mutex_lock(&instance->wait_lock);
     while (exec_env) {
         /* Resume all threads so they can receive the TERM signal */
         os_mutex_lock(&exec_env->wait_lock);
