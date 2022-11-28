@@ -6,6 +6,7 @@
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -149,7 +150,9 @@ app_instance_repl(wasm_module_inst_t module_inst)
     size_t len = 0;
     ssize_t n;
 
-    while ((printf("webassembly> "), n = getline(&cmd, &len, stdin)) != -1) {
+    while ((printf("webassembly> "), fflush(stdout),
+            n = getline(&cmd, &len, stdin))
+           != -1) {
         bh_assert(n > 0);
         if (cmd[n - 1] == '\n') {
             if (n == 1)
