@@ -193,6 +193,10 @@ typedef void *(*thread_start_routine_t)(void *);
 #define SCNxPTR __PRIPTR_PREFIX "x"
 #endif
 
+#ifndef NAN
+#define NAN (0.0 / 0.0)
+#endif
+
 #ifdef __cplusplus
 }
 #endif

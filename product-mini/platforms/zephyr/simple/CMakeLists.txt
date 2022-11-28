@@ -42,12 +42,12 @@ endif ()
 
 # Override the global heap usage
 if (NOT DEFINED WAMR_BUILD_GLOBAL_HEAP_POOL)
-  add_definitions (-DWASM_ENABLE_GLOBAL_HEAP_POOL=1)
+  set (WAMR_BUILD_GLOBAL_HEAP_POOL 1)
 endif ()
 
 # Override the global heap size for small devices
 if (NOT DEFINED WAMR_BUILD_GLOBAL_HEAP_SIZE)
-  add_definitions (-DWASM_GLOBAL_HEAP_SIZE=131072) # 128 kB
+  set (WAMR_BUILD_GLOBAL_HEAP_SIZE 131072) # 128 KB
 endif ()
 
 set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../..)

@@ -15,9 +15,6 @@
 #include "test_wasm.h"
 #endif /* end of BUILD_TARGET_RISCV64_LP64 || BUILD_TARGET_RISCV32_ILP32 */
 
-#include <zephyr.h>
-#include <sys/printk.h>
-
 #if defined(BUILD_TARGET_RISCV64_LP64) || defined(BUILD_TARGET_RISCV32_ILP32)
 #if defined(BUILD_TARGET_RISCV64_LP64)
 #define CONFIG_GLOBAL_HEAP_BUF_SIZE 4360
