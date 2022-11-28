@@ -70,6 +70,31 @@ typedef float64 CellType_F64;
             goto unaligned_atomic;                                   \
     } while (0)
 
+#if WASM_ENABLE_DEBUG_INTERP != 0
+#define TRIGGER_WATCHPOINT_SIGTRAP()                          \
+    wasm_cluster_thread_send_signal(exec_env, WAMR_SIG_TRAP); \
+    CHECK_SUSPEND_FLAGS();
+
+#define CHECK_WATCHPOINT(list, current_addr)                           \
+    WASMDebugWatchPoint *watchpoint = bh_list_first_elem(list);        \
+    while (watchpoint) {                                               \
+        WASMDebugWatchPoint *next = bh_list_elem_next(watchpoint);     \
+        if (watchpoint->addr <= current_addr                           \
+            && watchpoint->addr + watchpoint->length > current_addr) { \
+            TRIGGER_WATCHPOINT_SIGTRAP()                               \
+        }                                                              \
+        watchpoint = next;                                             \
+    }
+
+#define CHECK_READ_WATCHPOINT(addr, offset) \
+    CHECK_WATCHPOINT(watch_point_list_read, WASM_ADDR_OFFSET(addr + offset))
+#define CHECK_WRITE_WATCHPOINT(addr, offset) \
+    CHECK_WATCHPOINT(watch_point_list_write, WASM_ADDR_OFFSET(addr + offset))
+#else
+#define CHECK_READ_WATCHPOINT(addr, offset)
+#define CHECK_WRITE_WATCHPOINT(addr, offset)
+#endif
+
 static inline uint32
 rotl32(uint32 n, uint32 c)
 {
@@ -1120,6 +1145,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
     uint8 *frame_ip_orig = NULL;
+    WASMDebugInstance *debug_instance = wasm_exec_env_get_instance(exec_env);
+    bh_list *watch_point_list_read = &debug_instance->watch_point_list_read;
+    bh_list *watch_point_list_write = &debug_instance->watch_point_list_write;
 #endif
 
 #if WASM_ENABLE_LABELS_AS_VALUES != 0
@@ -1786,6 +1814,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 CHECK_MEMORY_OVERFLOW(4);
                 PUSH_I32(LOAD_I32(maddr));
                 (void)flags;
+                CHECK_READ_WATCHPOINT(addr, offset);
                 HANDLE_OP_END();
             }
 
@@ -1800,6 +1829,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 CHECK_MEMORY_OVERFLOW(8);
                 PUSH_I64(LOAD_I64(maddr));
                 (void)flags;
+                CHECK_READ_WATCHPOINT(addr, offset);
                 HANDLE_OP_END();
             }
 
@@ -1813,6 +1843,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 CHECK_MEMORY_OVERFLOW(1);
                 PUSH_I32(sign_ext_8_32(*(int8 *)maddr));
                 (void)flags;
+                CHECK_READ_WATCHPOINT(addr, offset);
                 HANDLE_OP_END();
             }
 
@@ -1826,6 +1857,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 CHECK_MEMORY_OVERFLOW(1);
                 PUSH_I32((uint32)(*(uint8 *)maddr));
                 (void)flags;
+                CHECK_READ_WATCHPOINT(addr, offset);
                 HANDLE_OP_END();
             }
 
@@ -1839,6 +1871,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 CHECK_MEMORY_OVERFLOW(2);
                 PUSH_I32(sign_ext_16_32(LOAD_I16(maddr)));
                 (void)flags;
+                CHECK_READ_WATCHPOINT(addr, offset);
                 HANDLE_OP_END();
             }
 
@@ -1852,6 +1885,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 CHECK_MEMORY_OVERFLOW(2);
                 PUSH_I32((uint32)(LOAD_U16(maddr)));
                 (void)flags;
+                CHECK_READ_WATCHPOINT(addr, offset);
                 HANDLE_OP_END();
             }
 
@@ -1865,6 +1899,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 CHECK_MEMORY_OVERFLOW(1);
                 PUSH_I64(sign_ext_8_64(*(int8 *)maddr));
                 (void)flags;
+                CHECK_READ_WATCHPOINT(addr, offset);
                 HANDLE_OP_END();
             }
 
@@ -1878,6 +1913,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 CHECK_MEMORY_OVERFLOW(1);
                 PUSH_I64((uint64)(*(uint8 *)maddr));
                 (void)flags;
+                CHECK_READ_WATCHPOINT(addr, offset);
                 HANDLE_OP_END();
             }
 
@@ -1891,6 +1927,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 CHECK_MEMORY_OVERFLOW(2);
                 PUSH_I64(sign_ext_16_64(LOAD_I16(maddr)));
                 (void)flags;
+                CHECK_READ_WATCHPOINT(addr, offset);
                 HANDLE_OP_END();
             }
 
@@ -1904,6 +1941,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 CHECK_MEMORY_OVERFLOW(2);
                 PUSH_I64((uint64)(LOAD_U16(maddr)));
                 (void)flags;
+                CHECK_READ_WATCHPOINT(addr, offset);
                 HANDLE_OP_END();
             }
 
@@ -1918,6 +1956,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 CHECK_MEMORY_OVERFLOW(4);
                 PUSH_I64(sign_ext_32_64(LOAD_I32(maddr)));
                 (void)flags;
+                CHECK_READ_WATCHPOINT(addr, offset);
                 HANDLE_OP_END();
             }
 
@@ -1931,6 +1970,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 CHECK_MEMORY_OVERFLOW(4);
                 PUSH_I64((uint64)(LOAD_U32(maddr)));
                 (void)flags;
+                CHECK_READ_WATCHPOINT(addr, offset);
                 HANDLE_OP_END();
             }
 
@@ -1947,6 +1987,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 CHECK_MEMORY_OVERFLOW(4);
                 STORE_U32(maddr, frame_sp[1]);
                 (void)flags;
+                CHECK_WRITE_WATCHPOINT(addr, offset);
                 HANDLE_OP_END();
             }
 
@@ -1963,6 +2004,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 PUT_I64_TO_ADDR((uint32 *)maddr,
                                 GET_I64_FROM_ADDR(frame_sp + 1));
                 (void)flags;
+                CHECK_WRITE_WATCHPOINT(addr, offset);
                 HANDLE_OP_END();
             }
 
@@ -1988,6 +2030,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 }
 
                 (void)flags;
+                CHECK_WRITE_WATCHPOINT(addr, offset);
                 HANDLE_OP_END();
             }
 
@@ -2017,6 +2060,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     STORE_U32(maddr, (uint32)sval);
                 }
                 (void)flags;
+                CHECK_WRITE_WATCHPOINT(addr, offset);
                 HANDLE_OP_END();
             }
 
