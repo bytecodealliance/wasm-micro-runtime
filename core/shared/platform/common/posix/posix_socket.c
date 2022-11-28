@@ -16,7 +16,9 @@ textual_addr_to_sockaddr(const char *textual, int port, struct sockaddr *out,
                          socklen_t *out_len)
 {
     struct sockaddr_in *v4;
+#ifdef IPPROTO_IPV6
     struct sockaddr_in6 *v6;
+#endif
 
     assert(textual);
 
@@ -28,6 +30,7 @@ textual_addr_to_sockaddr(const char *textual, int port, struct sockaddr *out,
         return true;
     }
 
+#ifdef IPPROTO_IPV6
     v6 = (struct sockaddr_in6 *)out;
     if (inet_pton(AF_INET6, textual, &v6->sin6_addr.s6_addr) == 1) {
         v6->sin6_family = AF_INET6;
@@ -35,6 +38,7 @@ textual_addr_to_sockaddr(const char *textual, int port, struct sockaddr *out,
         *out_len = sizeof(struct sockaddr_in6);
         return true;
     }
+#endif
 
     return false;
 }
@@ -55,6 +59,7 @@ sockaddr_to_bh_sockaddr(const struct sockaddr *sockaddr, socklen_t socklen,
             bh_sockaddr->is_ipv4 = true;
             return BHT_OK;
         }
+#ifdef IPPROTO_IPV6
         case AF_INET6:
         {
             struct sockaddr_in6 *addr = (struct sockaddr_in6 *)sockaddr;
@@ -75,6 +80,7 @@ sockaddr_to_bh_sockaddr(const struct sockaddr *sockaddr, socklen_t socklen,
             bh_sockaddr->is_ipv4 = false;
             return BHT_OK;
         }
+#endif
         default:
             errno = EAFNOSUPPORT;
             return BHT_ERROR;
@@ -92,6 +98,7 @@ bh_sockaddr_to_sockaddr(const bh_sockaddr_t *bh_sockaddr,
         addr->sin_addr.s_addr = htonl(bh_sockaddr->addr_bufer.ipv4);
         *socklen = sizeof(*addr);
     }
+#ifdef IPPROTO_IPV6
     else {
         struct sockaddr_in6 *addr = (struct sockaddr_in6 *)sockaddr;
         size_t i;
@@ -108,6 +115,7 @@ bh_sockaddr_to_sockaddr(const bh_sockaddr_t *bh_sockaddr,
 
         *socklen = sizeof(*addr);
     }
+#endif
 }
 
 int
@@ -143,6 +151,22 @@ os_socket_bind(bh_socket_t socket, const char *host, int *port)
     ling.l_onoff = 1;
     ling.l_linger = 0;
 
+    if (!textual_addr_to_sockaddr(host, *port, (struct sockaddr *)&addr,
+                                  &socklen)) {
+        goto fail;
+    }
+
+    if (addr.ss_family == AF_INET) {
+        *port = ntohs(((struct sockaddr_in *)&addr)->sin_port);
+    }
+    else {
+#ifdef IPPROTO_IPV6
+        *port = ntohs(((struct sockaddr_in6 *)&addr)->sin6_port);
+#else
+        goto fail;
+#endif
+    }
+
     ret = fcntl(socket, F_SETFD, FD_CLOEXEC);
     if (ret < 0) {
         goto fail;
@@ -150,11 +174,6 @@ os_socket_bind(bh_socket_t socket, const char *host, int *port)
 
     ret = setsockopt(socket, SOL_SOCKET, SO_LINGER, &ling, sizeof(ling));
     if (ret < 0) {
-        goto fail;
-    }
-
-    if (!textual_addr_to_sockaddr(host, *port, (struct sockaddr *)&addr,
-                                  &socklen)) {
         goto fail;
     }
 
@@ -167,10 +186,6 @@ os_socket_bind(bh_socket_t socket, const char *host, int *port)
     if (getsockname(socket, (void *)&addr, &socklen) == -1) {
         goto fail;
     }
-
-    *port = ntohs(addr.ss_family == AF_INET
-                      ? ((struct sockaddr_in *)&addr)->sin_port
-                      : ((struct sockaddr_in6 *)&addr)->sin6_port);
 
     return BHT_OK;
 
@@ -319,12 +334,17 @@ os_socket_inet_network(bool is_ipv4, const char *cp, bh_ip_addr_buffer_t *out)
         out->ipv4 = ntohl(out->ipv4);
     }
     else {
+#ifdef IPPROTO_IPV6
         if (inet_pton(AF_INET6, cp, out->ipv6) != 1) {
             return BHT_ERROR;
         }
         for (int i = 0; i < 8; i++) {
             out->ipv6[i] = ntohs(out->ipv6[i]);
         }
+#else
+        errno = EAFNOSUPPORT;
+        return BHT_ERROR;
+#endif
     }
 
     return BHT_OK;
@@ -746,8 +766,13 @@ int
 os_socket_set_ip_multicast_loop(bh_socket_t socket, bool ipv6, bool is_enabled)
 {
     if (ipv6) {
+#ifdef IPPROTO_IPV6
         return os_socket_setbooloption(socket, IPPROTO_IPV6,
                                        IPV6_MULTICAST_LOOP, is_enabled);
+#else
+        errno = EAFNOSUPPORT;
+        return BHT_ERROR;
+#endif
     }
     else {
         return os_socket_setbooloption(socket, IPPROTO_IP, IP_MULTICAST_LOOP,
@@ -759,8 +784,13 @@ int
 os_socket_get_ip_multicast_loop(bh_socket_t socket, bool ipv6, bool *is_enabled)
 {
     if (ipv6) {
+#ifdef IPPROTO_IPV6
         return os_socket_getbooloption(socket, IPPROTO_IPV6,
                                        IPV6_MULTICAST_LOOP, is_enabled);
+#else
+        errno = EAFNOSUPPORT;
+        return BHT_ERROR;
+#endif
     }
     else {
         return os_socket_getbooloption(socket, IPPROTO_IP, IP_MULTICAST_LOOP,
@@ -775,6 +805,7 @@ os_socket_set_ip_add_membership(bh_socket_t socket,
 {
     assert(imr_multiaddr);
     if (is_ipv6) {
+#ifdef IPPROTO_IPV6
         struct ipv6_mreq mreq;
         for (int i = 0; i < 8; i++) {
             ((uint16_t *)mreq.ipv6mr_multiaddr.s6_addr)[i] =
@@ -786,6 +817,10 @@ os_socket_set_ip_add_membership(bh_socket_t socket,
             != 0) {
             return BHT_ERROR;
         }
+#else
+        errno = EAFNOSUPPORT;
+        return BHT_ERROR;
+#endif
     }
     else {
         struct ip_mreq mreq;
@@ -808,6 +843,7 @@ os_socket_set_ip_drop_membership(bh_socket_t socket,
 {
     assert(imr_multiaddr);
     if (is_ipv6) {
+#ifdef IPPROTO_IPV6
         struct ipv6_mreq mreq;
         for (int i = 0; i < 8; i++) {
             ((uint16_t *)mreq.ipv6mr_multiaddr.s6_addr)[i] =
@@ -819,6 +855,10 @@ os_socket_set_ip_drop_membership(bh_socket_t socket,
             != 0) {
             return BHT_ERROR;
         }
+#else
+        errno = EAFNOSUPPORT;
+        return BHT_ERROR;
+#endif
     }
     else {
         struct ip_mreq mreq;
@@ -881,15 +921,25 @@ os_socket_get_ip_multicast_ttl(bh_socket_t socket, uint8_t *ttl_s)
 int
 os_socket_set_ipv6_only(bh_socket_t socket, bool is_enabled)
 {
+#ifdef IPPROTO_IPV6
     return os_socket_setbooloption(socket, IPPROTO_IPV6, IPV6_V6ONLY,
                                    is_enabled);
+#else
+    errno = EAFNOSUPPORT;
+    return BHT_ERROR;
+#endif
 }
 
 int
 os_socket_get_ipv6_only(bh_socket_t socket, bool *is_enabled)
 {
+#ifdef IPPROTO_IPV6
     return os_socket_getbooloption(socket, IPPROTO_IPV6, IPV6_V6ONLY,
                                    is_enabled);
+#else
+    errno = EAFNOSUPPORT;
+    return BHT_ERROR;
+#endif
 }
 
 int
