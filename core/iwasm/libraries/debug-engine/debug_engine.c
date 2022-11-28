@@ -36,6 +36,23 @@ on_thread_stop_event(WASMDebugInstance *debug_inst, WASMExecEnv *exec_env)
     os_mutex_unlock(&debug_inst->wait_lock);
 }
 
+void
+on_thread_exit_event(WASMDebugInstance *debug_inst, WASMExecEnv *exec_env)
+{
+    os_mutex_lock(&debug_inst->wait_lock);
+
+    /* DBG_LAUNCHING: exit when debugger detached,
+     * DBG_ERROR: exit when debugger error */
+    if (debug_inst->current_state != DBG_LAUNCHING
+        && debug_inst->current_state != DBG_ERROR) {
+        /* only when exit normally the debugger thread will participate in
+         * teardown phase */
+        debug_inst->stopped_thread = exec_env;
+    }
+
+    os_mutex_unlock(&debug_inst->wait_lock);
+}
+
 static WASMDebugEngine *g_debug_engine;
 
 static uint32 current_instance_id = 1;
@@ -123,7 +140,7 @@ control_thread_routine(void *arg)
 
     if (!wasm_gdbserver_listen(control_thread->server)) {
         LOG_ERROR("Failed while listening for debugger\n");
-        return NULL;
+        goto fail;
     }
 
     /* outer infinite loop: try to connect with the debugger */
@@ -131,10 +148,12 @@ control_thread_routine(void *arg)
         /* wait lldb client to connect */
         if (!wasm_gdbserver_accept(control_thread->server)) {
             LOG_ERROR("Failed while accepting debugger connection\n");
-            return NULL;
+            goto fail;
         }
 
         control_thread->status = RUNNING;
+        /* when reattached, send signal */
+        wasm_cluster_send_signal_all(debug_inst->cluster, WAMR_SIG_SINGSTEP);
 
         /* inner infinite loop: keep serving until detach */
         while (true) {
@@ -187,9 +206,9 @@ control_thread_routine(void *arg)
                 /* Processing incoming requests */
                 if (!wasm_gdbserver_handle_packet(control_thread->server)) {
                     control_thread->status = STOPPED;
-                    LOG_VERBOSE("control thread of debug object [%p] stopped\n",
-                                debug_inst);
-                    wasm_close_gdbserver(control_thread->server);
+                    LOG_ERROR("An error occurs when handling a packet\n");
+                    os_mutex_unlock(&control_thread->wait_lock);
+                    goto fail;
                 }
             }
             else if (is_thread_detached(control_thread)) {
@@ -203,6 +222,11 @@ control_thread_routine(void *arg)
             os_mutex_unlock(&control_thread->wait_lock);
         }
     }
+fail:
+    wasm_debug_instance_on_failure(debug_inst);
+    LOG_VERBOSE("control thread of debug object [%p] stopped with failure\n",
+                debug_inst);
+    return NULL;
 }
 
 static WASMDebugControlThread *
@@ -972,6 +996,44 @@ wasm_debug_instance_remove_breakpoint(WASMDebugInstance *instance, uint64 addr,
 }
 
 bool
+wasm_debug_instance_on_failure(WASMDebugInstance *instance)
+{
+    WASMExecEnv *exec_env;
+
+    if (!instance)
+        return false;
+
+    os_mutex_lock(&instance->wait_lock);
+    exec_env = bh_list_first_elem(&instance->cluster->exec_env_list);
+    if (!exec_env) {
+        os_mutex_unlock(&instance->wait_lock);
+        return false;
+    }
+
+    if (instance->stopped_thread == NULL
+        && instance->current_state == DBG_LAUNCHING) {
+        /* if fail in start stage: may need wait for main thread to notify it */
+        os_cond_wait(&instance->wait_cond, &instance->wait_lock);
+    }
+    instance->current_state = DBG_ERROR;
+    instance->stopped_thread = NULL;
+
+    /* terminate the wasm execution thread */
+    while (exec_env) {
+        /* Resume all threads so they can receive the TERM signal */
+        os_mutex_lock(&exec_env->wait_lock);
+        wasm_cluster_thread_send_signal(exec_env, WAMR_SIG_TERM);
+        exec_env->current_status->running_status = STATUS_RUNNING;
+        os_cond_signal(&exec_env->wait_cond);
+        os_mutex_unlock(&exec_env->wait_lock);
+        exec_env = bh_list_elem_next(exec_env);
+    }
+    os_mutex_unlock(&instance->wait_lock);
+
+    return true;
+}
+
+bool
 wasm_debug_instance_continue(WASMDebugInstance *instance)
 {
     WASMExecEnv *exec_env;
@@ -1034,10 +1096,7 @@ wasm_debug_instance_detach(WASMDebugInstance *instance)
     while (exec_env) {
         if (instance->current_state == APP_STOPPED) {
             /* Resume all threads since remote debugger detached*/
-            os_mutex_lock(&exec_env->wait_lock);
-            exec_env->current_status->running_status = STATUS_RUNNING;
-            os_cond_signal(&exec_env->wait_cond);
-            os_mutex_unlock(&exec_env->wait_lock);
+            wasm_cluster_thread_continue(exec_env);
         }
         exec_env = bh_list_elem_next(exec_env);
     }
@@ -1045,6 +1104,7 @@ wasm_debug_instance_detach(WASMDebugInstance *instance)
     /* relaunch, accept new debug connection */
     instance->current_state = DBG_LAUNCHING;
     instance->control_thread->status = DETACHED;
+    instance->stopped_thread = NULL;
 
     return true;
 }

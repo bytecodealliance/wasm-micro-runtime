@@ -42,7 +42,8 @@ typedef enum debug_state_t {
      */
     DBG_LAUNCHING,
     APP_RUNNING,
-    APP_STOPPED
+    APP_STOPPED,
+    DBG_ERROR
 } debug_state_t;
 
 typedef struct WASMDebugExecutionMemory {
@@ -107,6 +108,9 @@ typedef enum WasmAddressType {
 
 void
 on_thread_stop_event(WASMDebugInstance *debug_inst, WASMExecEnv *exec_env);
+
+void
+on_thread_exit_event(WASMDebugInstance *debug_inst, WASMExecEnv *exec_env);
 
 WASMDebugInstance *
 wasm_debug_instance_create(WASMCluster *cluster, int32 port);
@@ -179,6 +183,9 @@ wasm_debug_instance_add_breakpoint(WASMDebugInstance *instance, uint64 addr,
 bool
 wasm_debug_instance_remove_breakpoint(WASMDebugInstance *instance, uint64 addr,
                                       uint64 length);
+
+bool
+wasm_debug_instance_on_failure(WASMDebugInstance *instance);
 
 bool
 wasm_debug_instance_interrupt_all_threads(WASMDebugInstance *instance);
