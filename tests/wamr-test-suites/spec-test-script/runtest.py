@@ -1,21 +1,26 @@
 #!/usr/bin/env python
 
 from __future__ import print_function
-import os, sys, re
-import argparse, time
-import signal, atexit, tempfile, subprocess
 
-from subprocess import Popen, STDOUT, PIPE
-from select import select
-
-# Pseudo-TTY and terminal manipulation
-import pty, array, fcntl, termios
-
-import shutil
-
-import struct
+import argparse
+import array
+import atexit
+import fcntl
 import math
+import os
+# Pseudo-TTY and terminal manipulation
+import pty
+import re
+import shutil
+import struct
+import subprocess
+import sys
+import tempfile
+import termios
+import time
 import traceback
+from select import select
+from subprocess import PIPE, STDOUT, Popen
 
 if sys.version_info[0] == 2:
     IS_PY_3 = False
@@ -23,7 +28,7 @@ else:
     IS_PY_3 = True
 
 test_aot = False
-# "x86_64", "i386", "aarch64", "armv7" or "thumbv7"
+# "x86_64", "i386", "aarch64", "armv7", "thumbv7", "riscv32_ilp32", "riscv32_ilp32d", "riscv32_lp64", "riscv64_lp64d"
 test_target = "x86_64"
 
 debug_file = None
@@ -32,10 +37,8 @@ log_file = None
 # to save the register module with self-define name
 temp_file_repo = []
 
-# get current work directory
-current_work_directory = os.getcwd()
-# set temporal file directory
-temp_file_directory = os.path.join(current_work_directory,"tempfile")
+# to save the mapping of module files in /tmp by name
+temp_module_table = {} 
 
 def debug(data):
     if debug_file:
@@ -51,6 +54,7 @@ def log(data, end='\n'):
 
 # TODO: do we need to support '\n' too
 import platform
+
 if platform.system().find("CYGWIN_NT") >= 0:
     # TODO: this is weird, is this really right on Cygwin?
     sep = "\n\r\n"
@@ -205,9 +209,9 @@ parser.add_argument('test_file', type=argparse.FileType('r'),
 parser.add_argument('--aot', action='store_true',
         help="Test with AOT")
 
-parser.add_argument('--aot-target', type=str,
+parser.add_argument('--target', type=str,
         default="x86_64",
-        help="Set aot target")
+        help="Set running target")
 
 parser.add_argument('--sgx', action='store_true',
         help="Test SGX")
@@ -218,8 +222,16 @@ parser.add_argument('--simd', default=False, action='store_true',
 parser.add_argument('--xip', default=False, action='store_true',
         help="Enable XIP")
 
+parser.add_argument('--multi-module', default=False, action='store_true',
+        help="Enable Multi-thread")
+
 parser.add_argument('--multi-thread', default=False, action='store_true',
         help="Enable Multi-thread")
+
+parser.add_argument('--qemu', default=False, action='store_true',
+        help="Enable QEMU")
+
+parser.add_argument('--qemu-firmware', default='', help="Firmware required by qemu")
 
 parser.add_argument('--verbose', default=False, action='store_true',
         help='show more logs')
@@ -637,10 +649,10 @@ def is_result_match_expected(out, expected):
 
 def test_assert(r, opts, mode, cmd, expected):
     log("Testing(%s) %s = %s" % (mode, cmd, expected))
-
     out = invoke(r, opts, cmd)
-    outs = [''] + out.split('\n')[1:]
-    out = outs[-1]
+    if '\n' in out or ' ' in out:
+        outs = [''] + out.split('\n')[1:]
+        out = outs[-1]
 
     if mode=='trap':
         o = re.sub('^Exception: ', '', out)
@@ -756,9 +768,11 @@ def test_assert_return(r, opts, form):
             returns = re.split("\)\s*\(", m.group(3)[1:-1])
         # processed numbers in strings
         expected = [parse_assertion_value(v)[1] for v in returns]
-        test_assert(r, opts, "return", "%s %s" % (func, " ".join(args)), ",".join(expected))
+        expected = ",".join(expected)
+
+        test_assert(r, opts, "return", "%s %s" % (func, " ".join(args)), expected)
     elif not m and n:
-        module = os.path.join(temp_file_directory,n.group(1))
+        module = temp_module_table[n.group(1)].split(".wasm")[0]
         # assume the cmd is (assert_return(invoke $ABC "func")).
         # run the ABC.wasm firstly
         if test_aot:
@@ -769,9 +783,7 @@ def test_assert_return(r, opts, form):
                 _, exc, _ = sys.exc_info()
                 log("Run wamrc failed:\n  got: '%s'" % r.buf)
                 sys.exit(1)
-            r = run_wasm_with_repl(module+".wasm", module+".aot", opts, r)
-        else:
-            r = run_wasm_with_repl(module+".wasm", None, opts, r)
+        r = run_wasm_with_repl(module+".wasm", module+".aot" if test_aot else module, opts, r)
         # Wait for the initial prompt
         try:
             assert_prompt(r, ['webassembly> '], opts.start_timeout, False)
@@ -824,6 +836,8 @@ def test_assert_trap(r, opts, form):
 
     elif not m and n:
         module = n.group(1)
+        module = tempfile.gettempdir() + "/" + module
+
         # will trigger the module named in assert_return(invoke $ABC).
         # run the ABC.wasm firstly
         if test_aot:
@@ -834,9 +848,7 @@ def test_assert_trap(r, opts, form):
                 _, exc, _ = sys.exc_info()
                 log("Run wamrc failed:\n  got: '%s'" % r.buf)
                 sys.exit(1)
-            r = run_wasm_with_repl(module+".wasm", module+".aot", opts, r)
-        else:
-            r = run_wasm_with_repl(module+".wasm", None, opts, r)
+        r = run_wasm_with_repl(module+".wasm", module+".aot" if test_aot else module, opts, r)
         # Wait for the initial prompt
         try:
             assert_prompt(r, ['webassembly> '], opts.start_timeout, False)
@@ -936,11 +948,15 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r):
     elif test_target == "armv7":
         cmd += ["--target=armv7", "--target-abi=gnueabihf"]
     elif test_target == "thumbv7":
-        cmd += ["--target=thumbv7", "--target-abi=gnueabihf", "--cpu=cortex-a15"]
-    elif test_target == "riscv64_lp64d":
-        cmd += ["--target=riscv64", "--target-abi=lp64d"]
+        cmd += ["--target=thumbv7", "--target-abi=gnueabihf", "--cpu=cortex-a9"]
+    elif test_target == "riscv32_ilp32":
+        cmd += ["--target=riscv32", "--target-abi=ilp32"]
+    elif test_target == "riscv32_ilp32d":
+        cmd += ["--target=riscv32", "--target-abi=ilp32d"]
     elif test_target == "riscv64_lp64":
         cmd += ["--target=riscv64", "--target-abi=lp64"]
+    elif test_target == "riscv64_lp64d":
+        cmd += ["--target=riscv64", "--target-abi=lp64d"]
     else:
         pass
 
@@ -974,59 +990,57 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r):
         return r
 
 def run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r):
-    if not test_aot:
-        log("Starting interpreter for module '%s'" % wasm_tempfile)
-        if opts.verbose:
-            cmd = [opts.interpreter, "--heap-size=0", "-v=5", "--repl", wasm_tempfile]
-        else:
-            cmd = [opts.interpreter, "--heap-size=0", "--repl", wasm_tempfile]
+    tmpfile = aot_tempfile if test_aot else wasm_tempfile
+    log("Starting interpreter for module '%s'" % tmpfile)
+
+    cmd_iwasm = [opts.interpreter, "--heap-size=0", "-v=5" if opts.verbose else "-v=0", "--repl", tmpfile]
+
+    if opts.multi_module:
+        cmd_iwasm.insert(1, "--module-path=" + (tempfile.gettempdir() if not opts.qemu else "/tmp" ))
+
+    if opts.qemu:
+        if opts.qemu_firmware == '':
+            raise Exception("QEMU firmware missing")
+
+        if opts.target == "thumbv7":
+            cmd = ["qemu-system-arm", "-semihosting", "-M", "sabrelite", "-m", "1024", "-smp", "4", "-nographic", "-kernel", opts.qemu_firmware]
+        elif opts.target == "riscv32_ilp32":
+            cmd = ["qemu-system-riscv32", "-semihosting", "-M", "virt,aclint=on", "-cpu", "rv32", "-smp", "8", "-nographic", "-bios", "none", "-kernel", opts.qemu_firmware]
+        elif opts.target == "riscv64_lp64":
+            cmd = ["qemu-system-riscv64", "-semihosting", "-M", "virt,aclint=on", "-cpu", "rv64", "-smp", "8", "-nographic", "-bios", "none", "-kernel", opts.qemu_firmware]
+
     else:
-        log("Starting aot for module '%s'" % aot_tempfile)
-        if opts.verbose:
-            cmd = [opts.interpreter, "--heap-size=0", "-v=5", "--repl", aot_tempfile]
-        else:
-            cmd = [opts.interpreter, "--heap-size=0", "--repl", aot_tempfile]
+        cmd = cmd_iwasm
 
     log("Running: %s" % " ".join(cmd))
     if (r != None):
         r.cleanup()
     r = Runner(cmd, no_pty=opts.no_pty)
+    
+    if opts.qemu:
+        r.read_to_prompt(['nsh> '], 10)
+        r.writeline("mount -t hostfs -o fs={} /tmp".format(tempfile.gettempdir()))
+        r.read_to_prompt(['nsh> '], 10)
+        r.writeline(" ".join(cmd_iwasm))
+    
     return r
 
 def create_tmpfiles(wast_name):
     tempfiles = []
-    # make tempfile directory
-    if not os.path.exists(temp_file_directory):
-        os.mkdir(temp_file_directory)
-
-    def makefile(name):
-        open(name, "w").close()
-
-    # create temporal file with particular name
-    temp_wast_file = os.path.join(temp_file_directory, ""+ wast_name + ".wast")
-    if not os.path.exists(temp_wast_file):
-        makefile(temp_wast_file)
-    tempfiles.append(temp_wast_file)
-
-    # now we define the same file name as wast for wasm & aot
-    wasm_file = wast_name +".wasm"
-    temp_wasm_file = os.path.join(temp_file_directory, wasm_file)
-    if not os.path.exists(temp_wasm_file):
-        makefile(temp_wasm_file)
-    tempfiles.append(temp_wasm_file)
-
+    
+    (t1fd, wast_tempfile) = tempfile.mkstemp(suffix=".wast")
+    (t2fd, wasm_tempfile) = tempfile.mkstemp(suffix=".wasm")
+    tempfiles.append(wast_tempfile)
+    tempfiles.append(wasm_tempfile)
     if test_aot:
-        aot_file = wast_name +".aot"
-        temp_aot_file =os.path.join(temp_file_directory, aot_file)
-        if not os.path.exists(temp_aot_file):
-            makefile(temp_aot_file)
-        tempfiles.append(temp_aot_file)
+        (t3fd, aot_tempfile) = tempfile.mkstemp(suffix=".aot")
+        tempfiles.append(aot_tempfile)
 
     # add these temp file to temporal repo, will be deleted when finishing the test
     temp_file_repo.extend(tempfiles)
     return tempfiles
 
-def test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile, opts, r):
+def test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile, opts, r, loadable = True):
     details_inside_ast = get_module_exp_from_assert(form)
     log("module is ....'%s'"%details_inside_ast[0])
     log("exception is ....'%s'"%details_inside_ast[1])
@@ -1052,29 +1066,31 @@ def test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile,
                 log("Run wamrc failed:\n  expected: '%s'\n  got: '%s'" % \
                     (expected, r.buf))
                 sys.exit(1)
-        r = run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r)
-    else:
-        r = run_wasm_with_repl(wasm_tempfile, None, opts, r)
 
-    # Wait for the initial prompt
-    try:
-        assert_prompt(r, ['webassembly> '], opts.start_timeout, True)
-    except:
-        _, exc, _ = sys.exc_info()
-        if (r.buf.find(expected) >= 0):
-            log("Out exception includes expected one, pass:")
-            log("  Expected: %s" %expected)
-            log("  Got: %s" % r.buf)
-        else:
-            raise Exception("Failed:\n  expected: '%s'\n  got: '%s'" % \
-                            (expected, r.buf))
+    r = run_wasm_with_repl(wasm_tempfile, aot_tempfile if test_aot else None, opts, r)
+
+    # Some module couldn't load so will raise an error directly, so shell prompt won't show here
+
+    if loadable:
+        # Wait for the initial prompt
+        try:
+            assert_prompt(r, ['webassembly> '], opts.start_timeout, True)
+        except:
+            _, exc, _ = sys.exc_info()
+            if (r.buf.find(expected) >= 0):
+                log("Out exception includes expected one, pass:")
+                log("  Expected: %s" %expected)
+                log("  Got: %s" % r.buf)
+            else:
+                raise Exception("Failed:\n  expected: '%s'\n  got: '%s'" % \
+                                (expected, r.buf))
 
 if __name__ == "__main__":
     opts = parser.parse_args(sys.argv[1:])
 
     if opts.aot: test_aot = True
     # default x86_64
-    test_target = opts.aot_target
+    test_target = opts.target
 
     if opts.rundir: os.chdir(opts.rundir)
 
@@ -1106,17 +1122,11 @@ if __name__ == "__main__":
             elif skip_test(form, SKIP_TESTS):
                 log("Skipping test: %s" % form[0:60])
             elif re.match("^\(assert_trap\s+\(module", form):
-                if test_aot:
-                    test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile, opts, r)
-                else:
-                    test_assert_with_exception(form, wast_tempfile, wasm_tempfile, None, opts, r)
+                test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile if test_aot else None, opts, r)
             elif re.match("^\(assert_exhaustion\\b.*", form):
                 test_assert_exhaustion(r, opts, form)
             elif re.match("^\(assert_unlinkable\\b.*", form):
-                if test_aot:
-                    test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile, opts, r)
-                else:
-                    test_assert_with_exception(form, wast_tempfile, wasm_tempfile, None, opts, r)
+                test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile if test_aot else None, opts, r, False)
             elif re.match("^\(assert_malformed\\b.*", form):
                 # remove comments in wast
                 form,n = re.subn(";;.*\n", "", form)
@@ -1153,35 +1163,22 @@ if __name__ == "__main__":
                                 log("Run wamrc failed:\n  expected: '%s'\n  got: '%s'" % \
                                     (error_msg, r.buf))
                             continue
-                        cmd = [opts.interpreter, "--heap-size=0", "--repl", aot_tempfile]
-                    else:
-                        cmd = [opts.interpreter, "--heap-size=0", "--repl", wasm_tempfile]
-                    log("Running: %s" % " ".join(cmd))
-                    output = subprocess.check_output(cmd)
 
-                    if IS_PY_3:
-                        output = str(output, "latin1")
+                    r = run_wasm_with_repl(wasm_tempfile, aot_tempfile if test_aot else None, opts, r)
 
-                    if (error_msg == "unexpected end of section or function") \
-                       and output.endswith("unexpected end\n"):
+                    if (error_msg == "unexpected end of section or function"):
                         # one case in binary.wast
-                        pass
-                    elif (error_msg == "invalid value type") \
-                       and output.endswith("unexpected end\n"):
+                        assert_prompt(r, ["unexpected end", error_msg], opts.start_timeout, True)
+                    elif (error_msg == "invalid value type"):
                         # one case in binary.wast
-                        pass
-                    elif (error_msg == "length out of bounds") \
-                       and output.endswith("unexpected end\n"):
+                        assert_prompt(r, ["unexpected end", error_msg], opts.start_timeout, True)
+                    elif (error_msg == "length out of bounds"):
                         # one case in custom.wast
-                        pass
-                    elif (error_msg == "integer representation too long") \
-                       and output.endswith("invalid section id\n"):
+                        assert_prompt(r, ["unexpected end", error_msg], opts.start_timeout, True)
+                    elif (error_msg == "integer representation too long"):
                         # several cases in binary-leb128.wast
-                        pass
-                    elif not error_msg in output:
-                        raise Exception("Failed:\n  expected: '%s'\n  got: '%s'" % (error_msg, output[0:-1]))
-                    else:
-                        pass
+                        assert_prompt(r, ["invalid section id", error_msg], opts.start_timeout, True)
+
                 elif re.match("^\(assert_malformed\s*\(module quote", form):
                     log("ignoring assert_malformed module quote")
                 else:
@@ -1215,9 +1212,8 @@ if __name__ == "__main__":
                                 _, exc, _ = sys.exc_info()
                                 log("Run wamrc failed:\n  got: '%s'" % r.buf)
                                 sys.exit(1)
-                            r = run_wasm_with_repl(temp_files[1], temp_files[2], opts, r)
-                        else:
-                            r = run_wasm_with_repl(temp_files[1], None, opts, r)
+                        temp_module_table[module_name] = temp_files[1]
+                        r = run_wasm_with_repl(temp_files[1], temp_files[2] if test_aot else None, opts, r)
                 else:
                     if not compile_wast_to_wasm(form, wast_tempfile, wasm_tempfile, opts):
                         raise Exception("compile wast to wasm failed")
@@ -1230,9 +1226,8 @@ if __name__ == "__main__":
                             _, exc, _ = sys.exc_info()
                             log("Run wamrc failed:\n  got: '%s'" % r.buf)
                             sys.exit(1)
-                        r = run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r)
-                    else:
-                        r = run_wasm_with_repl(wasm_tempfile, None, opts, r)
+
+                    r = run_wasm_with_repl(wasm_tempfile, aot_tempfile if test_aot else None, opts, r)
 
                 # Wait for the initial prompt
                 try:
@@ -1251,32 +1246,14 @@ if __name__ == "__main__":
                 assert(r), "iwasm repl runtime should be not null"
                 do_invoke(r, opts, form)
             elif re.match("^\(assert_invalid\\b.*", form):
-                if test_aot:
-                    test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile, opts, r)
-                else:
-                    test_assert_with_exception(form, wast_tempfile, wasm_tempfile, None, opts, r)
-
-
+                test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile if test_aot else None, opts, r)
             elif re.match("^\(register\\b.*", form):
                 # get module's new name from the register cmd
                 name_new =re.split('\"',re.search('\".*\"',form).group(0))[1]
                 if name_new:
-                    # if the register cmd include the new and old module name.
-                    # like: (register "new" $old)
-                    # we will replace the old with new name.
-                    name_old = re.search('\$.*\)',form)
-                    if name_old:
-                        old_ = re.split('\W', re.search('\$.*\)',form).group(0))[1]
-                        old_module = os.path.join(temp_file_directory,old_+".wasm")
-                    else:
-                    # like: (register "new")
-                    # this kind of register cmd will be behind of a noramal module
-                    # these modules' name are default temporal file name
-                    # we replace them with new name.
-                        old_module = wasm_tempfile
+                    new_module = os.path.join(tempfile.gettempdir(), name_new + ".wasm")
+                    shutil.copyfile(temp_module_table.get(name_new, wasm_tempfile), new_module)
 
-                    new_module = os.path.join(current_work_directory,name_new+".wasm")
-                    shutil.copyfile(old_module,new_module)
                     # add new_module copied from the old into temp_file_repo[]
                     temp_file_repo.append(new_module)
                 else:
@@ -1303,9 +1280,6 @@ if __name__ == "__main__":
                 for t in temp_file_repo:
                     if(len(str(t))!=0 and os.path.exists(t)):
                         os.remove(t)
-            # remove /tempfiles/ directory
-            if os.path.exists(temp_file_directory):
-                shutil.rmtree(temp_file_directory)
 
             log("### End testing %s" % opts.test_file.name)
         else:

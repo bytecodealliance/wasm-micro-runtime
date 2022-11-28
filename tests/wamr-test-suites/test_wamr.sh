@@ -24,6 +24,8 @@ function help()
     echo "-x test SGX"
     echo "-b use the wabt binary release package instead of compiling from the source code"
     echo "-P run the spec test parallelly"
+    echo "-Q enable qemu"
+    echo "-F set the firmware path used by qemu"
 }
 
 OPT_PARSED=""
@@ -42,8 +44,10 @@ TEST_CASE_ARR=()
 SGX_OPT=""
 PLATFORM=$(uname -s | tr A-Z a-z)
 PARALLELISM=0
+ENABLE_QEMU=0
+QEMU_FIRMWARE=""
 
-while getopts ":s:cabt:m:MCpSXxP" opt
+while getopts ":s:cabt:m:MCpSXxPQF:" opt
 do
     OPT_PARSED="TRUE"
     case $opt in
@@ -118,6 +122,14 @@ do
         ;;
         P)
         PARALLELISM=1
+        ;;
+        Q)
+        echo "enable QEMU"
+        ENABLE_QEMU=1
+        ;;
+        F)
+        echo "QEMU firmware" ${OPTARG}
+        QEMU_FIRMWARE=${OPTARG}
         ;;
         ?)
         help
@@ -403,13 +415,21 @@ function spec_test()
         ARGS_FOR_SPEC_TEST+="-X "
     fi
 
+    # set the current running target
+    ARGS_FOR_SPEC_TEST+="-m ${TARGET} " 
+
     # require warmc only in aot mode
     if [[ $1 == 'aot' ]]; then
-        ARGS_FOR_SPEC_TEST+="-t -m ${TARGET} "
+        ARGS_FOR_SPEC_TEST+="-t "
     fi
 
     if [[ ${PARALLELISM} == 1 ]]; then
         ARGS_FOR_SPEC_TEST+="--parl "
+    fi
+
+    if [[ ${ENABLE_QEMU} == 1 ]]; then
+        ARGS_FOR_SPEC_TEST+="--qemu "
+        ARGS_FOR_SPEC_TEST+="--qemu-firmware ${QEMU_FIRMWARE}"
     fi
 
     cd ${WORK_DIR}
@@ -509,8 +529,8 @@ function build_iwasm_with_cfg()
 function build_wamrc()
 {
     if [[ $TARGET == "ARMV7_VFP" || $TARGET == "THUMBV7_VFP"
-          || $TARGET == "RISCV64" || $TARGET == "RISCV64_LP64D"
-          || $TARGET == "RISCV64_LP64" ]];then
+          || $TARGET == "RISCV32" || $TARGET == "RISCV32_ILP32" || $TARGET == "RISCV32_ILP32D"
+          || $TARGET == "RISCV64" || $TARGET == "RISCV64_LP64D" || $TARGET == "RISCV64_LP64" ]];then
         echo "suppose wamrc is already built"
         return
     fi
@@ -581,7 +601,9 @@ function trigger()
                 echo "work in classic-interp mode"
                 # classic-interp
                 BUILD_FLAGS="$CLASSIC_INTERP_COMPILE_FLAGS $EXTRA_COMPILE_FLAGS"
-                build_iwasm_with_cfg $BUILD_FLAGS
+                if [[ ${ENABLE_QEMU} == 0 ]]; then
+                    build_iwasm_with_cfg $BUILD_FLAGS
+                fi
                 for suite in "${TEST_CASE_ARR[@]}"; do
                     $suite"_test" classic-interp
                 done
@@ -597,7 +619,9 @@ function trigger()
                 echo "work in fast-interp mode"
                 # fast-interp
                 BUILD_FLAGS="$FAST_INTERP_COMPILE_FLAGS $EXTRA_COMPILE_FLAGS"
-                build_iwasm_with_cfg $BUILD_FLAGS
+                if [[ ${ENABLE_QEMU} == 0 ]]; then
+                    build_iwasm_with_cfg $BUILD_FLAGS
+                fi
                 for suite in "${TEST_CASE_ARR[@]}"; do
                     $suite"_test" fast-interp
                 done
@@ -631,7 +655,9 @@ function trigger()
                 echo "work in aot mode"
                 # aot
                 BUILD_FLAGS="$AOT_COMPILE_FLAGS $EXTRA_COMPILE_FLAGS"
-                build_iwasm_with_cfg $BUILD_FLAGS
+                if [[ ${ENABLE_QEMU} == 0 ]]; then
+                    build_iwasm_with_cfg $BUILD_FLAGS
+                fi
                 build_wamrc
                 for suite in "${TEST_CASE_ARR[@]}"; do
                     $suite"_test" aot
