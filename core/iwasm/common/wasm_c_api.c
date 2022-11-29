@@ -5,6 +5,7 @@
 #include "wasm_c_api_internal.h"
 
 #include "bh_assert.h"
+#include "wasm_export.h"
 #include "wasm_memory.h"
 #if WASM_ENABLE_INTERP != 0
 #include "wasm_runtime.h"
@@ -35,6 +36,13 @@ typedef struct wasm_module_ex_t {
     korp_mutex lock;
     uint32 ref_count;
 } wasm_module_ex_t;
+
+#ifndef os_thread_local_attribute
+typedef struct thread_local_stores {
+    korp_tid tid;
+    unsigned stores_num;
+} thread_local_stores;
+#endif
 
 static void
 wasm_module_delete_internal(wasm_module_t *);
@@ -281,23 +289,22 @@ static void
 wasm_engine_delete_internal(wasm_engine_t *engine)
 {
     if (engine) {
-        if (engine->stores) {
-            bh_vector_destroy((Vector *)engine->stores);
-            wasm_runtime_free(engine->stores);
+        /* clean all created wasm_module_t and their locks */
+        unsigned i;
+
+        for (i = 0; i < engine->modules.num_elems; i++) {
+            wasm_module_ex_t *module;
+            if (bh_vector_get(&engine->modules, i, &module)) {
+                os_mutex_destroy(&module->lock);
+                wasm_runtime_free(module);
+            }
         }
 
-        /* clean all created wasm_module_t and their locks */
-        {
-            unsigned i;
-            for (i = 0; i < engine->modules.num_elems; i++) {
-                wasm_module_ex_t *module;
-                if (bh_vector_get(&engine->modules, i, &module)) {
-                    os_mutex_destroy(&module->lock);
-                    wasm_runtime_free(module);
-                }
-            }
-            bh_vector_destroy(&engine->modules);
-        }
+        bh_vector_destroy(&engine->modules);
+
+#ifndef os_thread_local_attribute
+        bh_vector_destroy(&engine->stores_by_tid);
+#endif
 
         wasm_runtime_free(engine);
     }
@@ -360,11 +367,15 @@ wasm_engine_new_internal(mem_alloc_type_t type, const MemAllocOption *opts)
         goto failed;
     }
 
-    INIT_VEC(engine->stores, wasm_store_vec_new_uninitialized, 1);
-
     if (!bh_vector_init(&engine->modules, DEFAULT_VECTOR_INIT_SIZE,
                         sizeof(wasm_module_ex_t *), true))
         goto failed;
+
+#ifndef os_thread_local_attribute
+    if (!bh_vector_init(&engine->stores_by_tid, DEFAULT_VECTOR_INIT_SIZE,
+                        sizeof(thread_local_stores), true))
+        goto failed;
+#endif
 
     engine->ref_count = 1;
 
@@ -375,6 +386,10 @@ wasm_engine_new_internal(mem_alloc_type_t type, const MemAllocOption *opts)
 
 /* global engine instance */
 static wasm_engine_t *singleton_engine = NULL;
+#ifdef os_thread_local_attribute
+/* categorize wasm_store_t as threads*/
+static os_thread_local_attribute unsigned thread_local_stores_num = 0;
+#endif
 #if defined(OS_THREAD_MUTEX_INITIALIZER)
 /**
  * lock for the singleton_engine
@@ -449,6 +464,147 @@ wasm_engine_delete(wasm_engine_t *engine)
 #endif
 }
 
+#ifndef os_thread_local_attribute
+static bool
+search_thread_local_store_num(Vector *stores_by_tid, korp_tid tid,
+                              thread_local_stores *out_ts, unsigned *out_i)
+{
+    unsigned i;
+
+    for (i = 0; i < stores_by_tid->num_elems; i++) {
+        bool ret = bh_vector_get(stores_by_tid, i, out_ts);
+        bh_assert(ret);
+        (void)ret;
+
+        if (out_ts->tid == tid) {
+            *out_i = i;
+            return true;
+        }
+    }
+
+    return false;
+}
+#endif
+
+static unsigned
+retrive_thread_local_store_num(Vector *stores_by_tid, korp_tid tid)
+{
+#ifndef os_thread_local_attribute
+    unsigned i = 0;
+    thread_local_stores ts = { 0 };
+    unsigned ret = 0;
+
+#if defined(OS_THREAD_MUTEX_INITIALIZER)
+    os_mutex_lock(&engine_lock);
+#endif
+
+    if (search_thread_local_store_num(stores_by_tid, tid, &ts, &i))
+        ret = ts.stores_num;
+    else
+        ret = 0;
+
+#if defined(OS_THREAD_MUTEX_INITIALIZER)
+    os_mutex_unlock(&engine_lock);
+#endif
+
+    return ret;
+#else
+    (void)stores_by_tid;
+    (void)tid;
+
+    return thread_local_stores_num;
+#endif
+}
+
+static bool
+increase_thread_local_store_num(Vector *stores_by_tid, korp_tid tid)
+{
+#ifndef os_thread_local_attribute
+    unsigned i = 0;
+    thread_local_stores ts = { 0 };
+    bool ret = false;
+
+#if defined(OS_THREAD_MUTEX_INITIALIZER)
+    os_mutex_lock(&engine_lock);
+#endif
+
+    if (search_thread_local_store_num(stores_by_tid, tid, &ts, &i)) {
+        /* just in case if integer overflow */
+        if (ts.stores_num + 1 < ts.stores_num) {
+            ret = false;
+        }
+        else {
+            ts.stores_num++;
+            ret = bh_vector_set(stores_by_tid, i, &ts);
+            bh_assert(ret);
+        }
+    }
+    else {
+        ts.tid = tid;
+        ts.stores_num = 1;
+        ret = bh_vector_append(stores_by_tid, &ts);
+    }
+
+#if defined(OS_THREAD_MUTEX_INITIALIZER)
+    os_mutex_unlock(&engine_lock);
+#endif
+    return ret;
+#else
+    (void)stores_by_tid;
+    (void)tid;
+
+    /* just in case if integer overflow */
+    if (thread_local_stores_num + 1 < thread_local_stores_num)
+        return false;
+
+    thread_local_stores_num++;
+    return true;
+#endif
+}
+
+static bool
+decrease_thread_local_store_num(Vector *stores_by_tid, korp_tid tid)
+{
+#ifndef os_thread_local_attribute
+    unsigned i = 0;
+    thread_local_stores ts = { 0 };
+    bool ret = false;
+
+#if defined(OS_THREAD_MUTEX_INITIALIZER)
+    os_mutex_lock(&engine_lock);
+#endif
+
+    ret = search_thread_local_store_num(stores_by_tid, tid, &ts, &i);
+    bh_assert(ret);
+
+    /* just in case if integer overflow */
+    if (ts.stores_num - 1 > ts.stores_num) {
+        ret = false;
+    }
+    else {
+        ts.stores_num--;
+        ret = bh_vector_set(stores_by_tid, i, &ts);
+        bh_assert(ret);
+    }
+
+#if defined(OS_THREAD_MUTEX_INITIALIZER)
+    os_mutex_unlock(&engine_lock);
+#endif
+
+    return ret;
+#else
+    (void)stores_by_tid;
+    (void)tid;
+
+    /* just in case if integer overflow */
+    if (thread_local_stores_num - 1 > thread_local_stores_num)
+        return false;
+
+    thread_local_stores_num--;
+    return true;
+#endif
+}
+
 wasm_store_t *
 wasm_store_new(wasm_engine_t *engine)
 {
@@ -456,18 +612,39 @@ wasm_store_new(wasm_engine_t *engine)
 
     WASM_C_DUMP_PROC_MEM();
 
-    if (!engine || singleton_engine != engine) {
+    if (!engine || singleton_engine != engine)
         return NULL;
-    }
 
-    if (!wasm_runtime_init_thread_env()) {
-        LOG_ERROR("init thread environment failed");
-        return NULL;
-    }
+    if (!retrive_thread_local_store_num(&engine->stores_by_tid,
+                                        os_self_thread())) {
+        if (!wasm_runtime_init_thread_env()) {
+            LOG_ERROR("init thread environment failed");
+            return NULL;
+        }
 
-    if (!(store = malloc_internal(sizeof(wasm_store_t)))) {
-        wasm_runtime_destroy_thread_env();
-        return NULL;
+        if (!increase_thread_local_store_num(&engine->stores_by_tid,
+                                             os_self_thread())) {
+            wasm_runtime_destroy_thread_env();
+            return NULL;
+        }
+
+        if (!(store = malloc_internal(sizeof(wasm_store_t)))) {
+            decrease_thread_local_store_num(&singleton_engine->stores_by_tid,
+                                            os_self_thread());
+            wasm_runtime_destroy_thread_env();
+            return NULL;
+        }
+    }
+    else {
+        if (!increase_thread_local_store_num(&engine->stores_by_tid,
+                                             os_self_thread()))
+            return NULL;
+
+        if (!(store = malloc_internal(sizeof(wasm_store_t)))) {
+            decrease_thread_local_store_num(&singleton_engine->stores_by_tid,
+                                            os_self_thread());
+            return NULL;
+        }
     }
 
     /* new a vector, and new its data */
@@ -479,12 +656,6 @@ wasm_store_new(wasm_engine_t *engine)
     if (!(store->foreigns = malloc_internal(sizeof(Vector)))
         || !(bh_vector_init(store->foreigns, 24, sizeof(wasm_foreign_t *),
                             true))) {
-        goto failed;
-    }
-
-    /* append to a store list of engine */
-    if (!bh_vector_append((Vector *)singleton_engine->stores, &store)) {
-        LOG_DEBUG("bh_vector_append failed");
         goto failed;
     }
 
@@ -511,7 +682,14 @@ wasm_store_delete(wasm_store_t *store)
     }
 
     wasm_runtime_free(store);
-    wasm_runtime_destroy_thread_env();
+
+    if (decrease_thread_local_store_num(&singleton_engine->stores_by_tid,
+                                        os_self_thread())) {
+        if (!retrive_thread_local_store_num(&singleton_engine->stores_by_tid,
+                                            os_self_thread())) {
+            wasm_runtime_destroy_thread_env();
+        }
+    }
 }
 
 /* Type Representations */
@@ -1681,10 +1859,8 @@ wasm_trap_new_internal(wasm_store_t *store,
     uint32 i;
 #endif
 
-    if (!singleton_engine || !singleton_engine->stores
-        || !singleton_engine->stores->num_elems) {
+    if (!singleton_engine)
         return NULL;
-    }
 
     if (!(trap = malloc_internal(sizeof(wasm_trap_t)))) {
         return NULL;
