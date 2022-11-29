@@ -223,10 +223,7 @@ int
 os_socket_accept(bh_socket_t server_sock, bh_socket_t *sock, void *addr,
                  unsigned int *addrlen)
 {
-    struct sockaddr addr_tmp;
-    unsigned int len = sizeof(struct sockaddr);
-
-    *sock = accept(server_sock, &addr_tmp, &len);
+    *sock = accept(server_sock, addr, addrlen);
 
     if (*sock < 0) {
         return BHT_ERROR;
@@ -302,7 +299,7 @@ os_socket_send_to(bh_socket_t socket, const void *buf, unsigned int len,
 
     bh_sockaddr_to_sockaddr(dest_addr, &sock_addr, &socklen);
 
-    return sendto(socket, buf, len, 0, (const struct sockaddr *)&sock_addr,
+    return sendto(socket, buf, len, flags, (const struct sockaddr *)&sock_addr,
                   socklen);
 }
 
