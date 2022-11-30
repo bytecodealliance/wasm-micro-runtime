@@ -344,11 +344,12 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
 
         if (!disable_llvm_lto) {
             /* Apply LTO for AOT mode */
-#if LLVM_VERSION_MAJOR < 14
-            MPM.addPass(PB.buildLTODefaultPipeline(OL, NULL));
-#else
-            MPM.addPass(PB.buildLTOPreLinkDefaultPipeline(OL));
-#endif
+            if (comp_ctx->comp_data->func_count >= 10)
+                /* Adds the pre-link optimizations if the func count
+                   is large enough */
+                MPM.addPass(PB.buildLTOPreLinkDefaultPipeline(OL));
+            else
+                MPM.addPass(PB.buildLTODefaultPipeline(OL, NULL));
         }
         else {
             MPM.addPass(PB.buildPerModuleDefaultPipeline(OL));
