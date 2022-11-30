@@ -340,6 +340,10 @@ wasm_engine_new_internal(mem_alloc_type_t type, const MemAllocOption *opts)
             opts->allocator.free_func;
         init_args.mem_alloc_option.allocator.realloc_func =
             opts->allocator.realloc_func;
+#if WASM_MEM_ALLOC_WITH_USER_DATA != 0
+        init_args.mem_alloc_option.allocator.user_data =
+            opts->allocator.user_data;
+#endif
     }
     else {
         init_args.mem_alloc_option.pool.heap_buf = NULL;
