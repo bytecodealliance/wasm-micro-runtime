@@ -28,6 +28,7 @@ mkdir build && cd build
 cmake .. -DWAMR_BUILD_DEBUG_INTERP=1
 make
 ```
+> Note: On MacOS M1 environment, pass the additional `-DWAMR_DISABLE_HW_BOUND_CHECK=1` cmake configuration.
 
 3. Execute iwasm with debug engine enabled
 ``` bash
@@ -43,6 +44,7 @@ mkdir build-lldb && cd build-lldb
 cmake -DCMAKE_BUILD_TYPE:STRING="Release" -DLLVM_ENABLE_PROJECTS="clang;lldb" -DLLVM_TARGETS_TO_BUILD:STRING="X86;WebAssembly" -DLLVM_ENABLE_LIBXML2:BOOL=ON ../llvm
 make -j $(nproc)
 ```
+> Note: If using `CommandLineTools` on MacOS, make sure only one SDK is present in `/Library/Developer/CommandLineTools/SDKs`.
 
 5. Launch customized lldb and connect to iwasm
 ``` bash
