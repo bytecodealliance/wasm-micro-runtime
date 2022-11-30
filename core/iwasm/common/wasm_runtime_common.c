@@ -185,6 +185,12 @@ runtime_signal_handler(void *sig_addr)
             os_longjmp(jmpbuf_node->jmpbuf, 1);
         }
 #endif
+        else if (exec_env_tls->exce_check_guard_page <= (uint8 *)sig_addr
+                 && (uint8 *)sig_addr
+                        < exec_env_tls->exce_check_guard_page + page_size) {
+            bh_assert(wasm_get_exception(module_inst));
+            os_longjmp(jmpbuf_node->jmpbuf, 1);
+        }
     }
 }
 #else
@@ -1434,6 +1440,17 @@ wasm_runtime_get_user_data(WASMExecEnv *exec_env)
 {
     return exec_env->user_data;
 }
+
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+void
+wasm_runtime_access_exce_check_guard_page()
+{
+    if (exec_env_tls && exec_env_tls->handle == os_self_thread()) {
+        uint32 page_size = os_getpagesize();
+        memset(exec_env_tls->exce_check_guard_page, 0, page_size);
+    }
+}
+#endif
 
 WASMType *
 wasm_runtime_get_function_type(const WASMFunctionInstanceCommon *function,

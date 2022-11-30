@@ -56,6 +56,12 @@ wasm_exec_env_create_internal(struct WASMModuleInstanceCommon *module_inst,
 #endif
 #endif
 
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    if (!(exec_env->exce_check_guard_page =
+              os_mmap(NULL, os_getpagesize(), MMAP_PROT_NONE, MMAP_MAP_NONE)))
+        goto fail5;
+#endif
+
     exec_env->module_inst = module_inst;
     exec_env->wasm_stack_size = stack_size;
     exec_env->wasm_stack.s.top_boundary =
@@ -76,6 +82,12 @@ wasm_exec_env_create_internal(struct WASMModuleInstanceCommon *module_inst,
 
     return exec_env;
 
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+fail5:
+#if WASM_ENABLE_THREAD_MGR != 0 && WASM_ENABLE_DEBUG_INTERP != 0
+    wasm_cluster_destroy_exenv_status(exec_env->current_status);
+#endif
+#endif
 #if WASM_ENABLE_THREAD_MGR != 0
 #if WASM_ENABLE_DEBUG_INTERP != 0
 fail4:
@@ -96,6 +108,9 @@ fail1:
 void
 wasm_exec_env_destroy_internal(WASMExecEnv *exec_env)
 {
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    os_munmap(exec_env->exce_check_guard_page, os_getpagesize());
+#endif
 #if WASM_ENABLE_THREAD_MGR != 0
     os_mutex_destroy(&exec_env->wait_lock);
     os_cond_destroy(&exec_env->wait_cond);

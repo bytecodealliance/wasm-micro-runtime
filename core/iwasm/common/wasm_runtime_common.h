@@ -554,6 +554,12 @@ wasm_runtime_set_user_data(WASMExecEnv *exec_env, void *user_data);
 WASM_RUNTIME_API_EXTERN void *
 wasm_runtime_get_user_data(WASMExecEnv *exec_env);
 
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+/* Access exception check guard page to trigger the signal handler */
+void
+wasm_runtime_access_exce_check_guard_page();
+#endif
+
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_call_wasm(WASMExecEnv *exec_env,
