@@ -11,16 +11,25 @@
 typedef enum Memory_Mode {
     MEMORY_MODE_UNKNOWN = 0,
     MEMORY_MODE_POOL,
-    MEMORY_MODE_ALLOCATOR
+    MEMORY_MODE_ALLOCATOR,
+    MEMORY_MODE_SYSTEM_ALLOCATOR
 } Memory_Mode;
 
 static Memory_Mode memory_mode = MEMORY_MODE_UNKNOWN;
 
 static mem_allocator_t pool_allocator = NULL;
 
+#if WASM_MEM_ALLOC_WITH_USER_DATA != 0
+static void *allocator_user_data = NULL;
+static void *(*malloc_func)(void *user_data, unsigned int size) = NULL;
+static void *(*realloc_func)(void *user_data, void *ptr,
+                             unsigned int size) = NULL;
+static void (*free_func)(void *user_data, void *ptr) = NULL;
+#else
 static void *(*malloc_func)(unsigned int size) = NULL;
 static void *(*realloc_func)(void *ptr, unsigned int size) = NULL;
 static void (*free_func)(void *ptr) = NULL;
+#endif
 
 static unsigned int global_pool_size;
 
@@ -39,6 +48,24 @@ wasm_memory_init_with_pool(void *mem, unsigned int bytes)
     return false;
 }
 
+#if WASM_MEM_ALLOC_WITH_USER_DATA != 0
+static bool
+wasm_memory_init_with_allocator(void *_user_data, void *_malloc_func,
+                                void *_realloc_func, void *_free_func)
+{
+    if (_malloc_func && _free_func && _malloc_func != _free_func) {
+        memory_mode = MEMORY_MODE_ALLOCATOR;
+        allocator_user_data = _user_data;
+        malloc_func = _malloc_func;
+        realloc_func = _realloc_func;
+        free_func = _free_func;
+        return true;
+    }
+    LOG_ERROR("Init memory with allocator (%p, %p, %p, %p) failed.\n",
+              _user_data, _malloc_func, _realloc_func, _free_func);
+    return false;
+}
+#else
 static bool
 wasm_memory_init_with_allocator(void *_malloc_func, void *_realloc_func,
                                 void *_free_func)
@@ -54,23 +81,37 @@ wasm_memory_init_with_allocator(void *_malloc_func, void *_realloc_func,
               _realloc_func, _free_func);
     return false;
 }
+#endif
 
 bool
 wasm_runtime_memory_init(mem_alloc_type_t mem_alloc_type,
                          const MemAllocOption *alloc_option)
 {
-    if (mem_alloc_type == Alloc_With_Pool)
+    if (mem_alloc_type == Alloc_With_Pool) {
         return wasm_memory_init_with_pool(alloc_option->pool.heap_buf,
                                           alloc_option->pool.heap_size);
-    else if (mem_alloc_type == Alloc_With_Allocator)
+    }
+    else if (mem_alloc_type == Alloc_With_Allocator) {
+#if WASM_MEM_ALLOC_WITH_USER_DATA != 0
+        return wasm_memory_init_with_allocator(
+            alloc_option->allocator.user_data,
+            alloc_option->allocator.malloc_func,
+            alloc_option->allocator.realloc_func,
+            alloc_option->allocator.free_func);
+#else
         return wasm_memory_init_with_allocator(
             alloc_option->allocator.malloc_func,
             alloc_option->allocator.realloc_func,
             alloc_option->allocator.free_func);
-    else if (mem_alloc_type == Alloc_With_System_Allocator)
-        return wasm_memory_init_with_allocator(os_malloc, os_realloc, os_free);
-    else
+#endif
+    }
+    else if (mem_alloc_type == Alloc_With_System_Allocator) {
+        memory_mode = MEMORY_MODE_SYSTEM_ALLOCATOR;
+        return true;
+    }
+    else {
         return false;
+    }
 }
 
 void
@@ -110,8 +151,15 @@ wasm_runtime_malloc_internal(unsigned int size)
     else if (memory_mode == MEMORY_MODE_POOL) {
         return mem_allocator_malloc(pool_allocator, size);
     }
-    else {
+    else if (memory_mode == MEMORY_MODE_ALLOCATOR) {
+#if WASM_MEM_ALLOC_WITH_USER_DATA != 0
+        return malloc_func(allocator_user_data, size);
+#else
         return malloc_func(size);
+#endif
+    }
+    else {
+        return os_malloc(size);
     }
 }
 
@@ -126,11 +174,18 @@ wasm_runtime_realloc_internal(void *ptr, unsigned int size)
     else if (memory_mode == MEMORY_MODE_POOL) {
         return mem_allocator_realloc(pool_allocator, ptr, size);
     }
-    else {
+    else if (memory_mode == MEMORY_MODE_ALLOCATOR) {
         if (realloc_func)
+#if WASM_MEM_ALLOC_WITH_USER_DATA != 0
+            return realloc_func(allocator_user_data, ptr, size);
+#else
             return realloc_func(ptr, size);
+#endif
         else
             return NULL;
+    }
+    else {
+        return os_realloc(ptr, size);
     }
 }
 
@@ -152,8 +207,15 @@ wasm_runtime_free_internal(void *ptr)
     else if (memory_mode == MEMORY_MODE_POOL) {
         mem_allocator_free(pool_allocator, ptr);
     }
-    else {
+    else if (memory_mode == MEMORY_MODE_ALLOCATOR) {
+#if WASM_MEM_ALLOC_WITH_USER_DATA != 0
+        free_func(allocator_user_data, ptr);
+#else
         free_func(ptr);
+#endif
+    }
+    else {
+        os_free(ptr);
     }
 }
 

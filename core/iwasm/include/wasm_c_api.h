@@ -186,6 +186,9 @@ typedef union MemAllocOption {
         void *malloc_func;
         void *realloc_func;
         void *free_func;
+        /* allocator user data, only used when
+          WASM_MEM_ALLOC_WITH_USER_DATA is defined */
+        void *user_data;
     } allocator;
 } MemAllocOption;
 #endif

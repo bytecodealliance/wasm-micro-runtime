@@ -426,4 +426,8 @@
 #define WASM_ENABLE_SGX_IPFS 0
 #endif
 
+#ifndef WASM_MEM_ALLOC_WITH_USER_DATA
+#define WASM_MEM_ALLOC_WITH_USER_DATA 0
+#endif
+
 #endif /* end of _CONFIG_H_ */
