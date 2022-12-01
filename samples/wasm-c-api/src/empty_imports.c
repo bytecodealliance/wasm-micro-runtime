@@ -97,10 +97,16 @@ int main(int argc, const char* argv[]) {
   wasm_val_t results[1] = { WASM_INIT_VAL };
   wasm_val_vec_t results_vec = WASM_ARRAY_VEC(results);
 
-  if (wasm_func_call(add_func, &args_vec, &results_vec)
-      || results_vec.data[0].of.i32 != 7) {
-    printf("> Error calling function!\n");
-    return 1;
+  wasm_trap_t *trap = wasm_func_call(add_func, &args_vec, &results_vec);
+  if (trap) {
+      printf("> Error calling function!\n");
+      wasm_trap_delete(trap);
+      return 1;
+  }
+
+  if (results_vec.data[0].of.i32 != 7) {
+      printf("> Error calling function!\n");
+      return 1;
   }
 
   wasm_extern_vec_delete(&exports);

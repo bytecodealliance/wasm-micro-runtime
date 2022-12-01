@@ -37,15 +37,22 @@ wasm_func_t* get_export_func(const wasm_extern_vec_t* exports, size_t i) {
     check(val, type, expected); \
   }
 
-#define check_call(func, type, expected) \
-  { \
-    wasm_val_t vs[1]; \
-    wasm_val_vec_t args = WASM_EMPTY_VEC; \
-    wasm_val_vec_t results = WASM_ARRAY_VEC(vs); \
-    wasm_func_call(func, &args, &results); \
-    check(vs[0], type, expected); \
-  }
+#define check_trap(trap)                      \
+    if (trap) {                               \
+        printf("> Error calling function\n"); \
+        wasm_trap_delete(trap);               \
+        exit(1);                              \
+    }
 
+#define check_call(func, type, expected)                           \
+    {                                                              \
+        wasm_val_t vs[1];                                          \
+        wasm_val_vec_t args = WASM_EMPTY_VEC;                      \
+        wasm_val_vec_t results = WASM_ARRAY_VEC(vs);               \
+        wasm_trap_t *trap = wasm_func_call(func, &args, &results); \
+        check_trap(trap);                                          \
+        check(vs[0], type, expected);                              \
+    }
 
 int main(int argc, const char* argv[]) {
   // Initialize.
@@ -225,16 +232,23 @@ int main(int argc, const char* argv[]) {
   wasm_val_vec_t res = WASM_EMPTY_VEC;
   wasm_val_t vs73[] = { WASM_F32_VAL(73) };
   wasm_val_vec_t args73 = WASM_ARRAY_VEC(vs73);
-  wasm_func_call(set_var_f32_import, &args73, &res);
+  wasm_trap_t *trap = wasm_func_call(set_var_f32_import, &args73, &res);
+  check_trap(trap);
+
   wasm_val_t vs74[] = { WASM_I64_VAL(74) };
   wasm_val_vec_t args74 = WASM_ARRAY_VEC(vs74);
-  wasm_func_call(set_var_i64_import, &args74, &res);
+  trap = wasm_func_call(set_var_i64_import, &args74, &res);
+  check_trap(trap);
+
   wasm_val_t vs77[] = { WASM_F32_VAL(77) };
   wasm_val_vec_t args77 = WASM_ARRAY_VEC(vs77);
-  wasm_func_call(set_var_f32_export, &args77, &res);
+  trap = wasm_func_call(set_var_f32_export, &args77, &res);
+  check_trap(trap);
+
   wasm_val_t vs78[] = { WASM_I64_VAL(78) };
   wasm_val_vec_t args78 = WASM_ARRAY_VEC(vs78);
-  wasm_func_call(set_var_i64_export, &args78, &res);
+  trap = wasm_func_call(set_var_i64_export, &args78, &res);
+  check_trap(trap);
 
   check_global(var_f32_import, f32, 73);
   check_global(var_i64_import, i64, 74);

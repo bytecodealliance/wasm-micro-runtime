@@ -118,9 +118,11 @@ int main(int argc, const char* argv[]) {
   printf("Calling export...\n");
   wasm_val_vec_t args = WASM_EMPTY_VEC;
   wasm_val_vec_t results = WASM_EMPTY_VEC;
-  if (wasm_func_call(run_func, &args, &results)) {
-    printf("> Error calling function!\n");
-    return 1;
+  wasm_trap_t *trap = wasm_func_call(run_func, &args, &results);
+  if (trap) {
+      printf("> Error calling function!\n");
+      wasm_trap_delete(trap);
+      return 1;
   }
 
   wasm_extern_vec_delete(&exports);

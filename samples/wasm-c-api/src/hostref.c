@@ -50,9 +50,11 @@ own wasm_ref_t* call_v_r(const wasm_func_t* func) {
   wasm_val_t rs[] = { WASM_INIT_VAL };
   wasm_val_vec_t args = WASM_EMPTY_VEC;
   wasm_val_vec_t results = WASM_ARRAY_VEC(rs);
-  if (wasm_func_call(func, &args, &results)) {
-    printf("> Error calling function!\n");
-    exit(1);
+  wasm_trap_t *trap = wasm_func_call(func, &args, &results);
+  if (trap) {
+      printf("> Error calling function!\n");
+      wasm_trap_delete(trap);
+      exit(1);
   }
   printf("okay\n");
   return rs[0].of.ref;
@@ -63,9 +65,11 @@ void call_r_v(const wasm_func_t* func, wasm_ref_t* ref) {
   wasm_val_t vs[1] = { WASM_REF_VAL(ref) };
   wasm_val_vec_t args = WASM_ARRAY_VEC(vs);
   wasm_val_vec_t results = WASM_EMPTY_VEC;
-  if (wasm_func_call(func, &args, &results)) {
-    printf("> Error calling function!\n");
-    exit(1);
+  wasm_trap_t *trap = wasm_func_call(func, &args, &results);
+  if (trap) {
+      printf("> Error calling function!\n");
+      wasm_trap_delete(trap);
+      exit(1);
   }
   printf("okay\n");
 }
@@ -76,9 +80,11 @@ own wasm_ref_t* call_r_r(const wasm_func_t* func, wasm_ref_t* ref) {
   wasm_val_t rs[1] = { WASM_INIT_VAL };
   wasm_val_vec_t args = WASM_ARRAY_VEC(vs);
   wasm_val_vec_t results = WASM_ARRAY_VEC(rs);
-  if (wasm_func_call(func, &args, &results)) {
-    printf("> Error calling function!\n");
-    exit(1);
+  wasm_trap_t *trap = wasm_func_call(func, &args, &results);
+  if (trap) {
+      printf("> Error calling function!\n");
+      wasm_trap_delete(trap);
+      exit(1);
   }
   printf("okay\n");
   return rs[0].of.ref;
@@ -89,9 +95,11 @@ void call_ir_v(const wasm_func_t* func, int32_t i, wasm_ref_t* ref) {
   wasm_val_t vs[2] = { WASM_I32_VAL(i), WASM_REF_VAL(ref) };
   wasm_val_vec_t args = WASM_ARRAY_VEC(vs);
   wasm_val_vec_t results = WASM_EMPTY_VEC;
-  if (wasm_func_call(func, &args, &results)) {
-    printf("> Error calling function!\n");
-    exit(1);
+  wasm_trap_t *trap = wasm_func_call(func, &args, &results);
+  if (trap) {
+      printf("> Error calling function!\n");
+      wasm_trap_delete(trap);
+      exit(1);
   }
   printf("okay\n");
 }
@@ -102,9 +110,11 @@ own wasm_ref_t* call_i_r(const wasm_func_t* func, int32_t i) {
   wasm_val_t rs[1] = { WASM_INIT_VAL };
   wasm_val_vec_t args = WASM_ARRAY_VEC(vs);
   wasm_val_vec_t results = WASM_ARRAY_VEC(rs);
-  if (wasm_func_call(func, &args, &results)) {
-    printf("> Error calling function!\n");
-    exit(1);
+  wasm_trap_t *trap = wasm_func_call(func, &args, &results);
+  if (trap) {
+      printf("> Error calling function!\n");
+      wasm_trap_delete(trap);
+      exit(1);
   }
   printf("okay\n");
   return rs[0].of.ref;
