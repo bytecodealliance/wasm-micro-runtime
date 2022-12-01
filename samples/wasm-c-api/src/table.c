@@ -53,9 +53,16 @@ void check_call(wasm_func_t* func, int32_t arg1, int32_t arg2, int32_t expected)
   wasm_val_t r[1] = { WASM_INIT_VAL };
   wasm_val_vec_t args = WASM_ARRAY_VEC(vs);
   wasm_val_vec_t results = WASM_ARRAY_VEC(r);
-  if (wasm_func_call(func, &args, &results) || r[0].of.i32 != expected) {
-    printf("> Error on result\n");
-    exit(1);
+  wasm_trap_t *trap = wasm_func_call(func, &args, &results);
+  if (trap) {
+      printf("> Error on calling\n");
+      wasm_trap_delete(trap);
+      exit(1);
+  }
+
+  if (r[0].of.i32 != expected) {
+      printf("> Error on result\n");
+      exit(1);
   }
 }
 
