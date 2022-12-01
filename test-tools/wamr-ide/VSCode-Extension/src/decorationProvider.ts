@@ -4,7 +4,7 @@
  */
 
 import * as vscode from 'vscode';
-import { ReadFromFile } from './utilities/directoryUtilities';
+import { readFromFile } from './utilities/directoryUtilities';
 import * as path from 'path';
 import * as os from 'os';
 
@@ -63,8 +63,8 @@ export class DecorationProvider implements vscode.FileDecorationProvider {
 
         prjConfigDir = path.join(currentPrjDir, '.wamr');
         configFilePath = path.join(prjConfigDir, 'compilation_config.json');
-        if (ReadFromFile(configFilePath) !== '') {
-            configData = JSON.parse(ReadFromFile(configFilePath));
+        if (readFromFile(configFilePath) !== '') {
+            configData = JSON.parse(readFromFile(configFilePath));
             includePathArr = configData['include_paths'];
             excludeFileArr = configData['exclude_files'];
 

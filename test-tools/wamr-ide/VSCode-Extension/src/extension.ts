@@ -12,12 +12,13 @@ import { WasmTaskProvider } from './taskProvider';
 import { TargetConfigPanel } from './view/TargetConfigPanel';
 import { NewProjectPanel } from './view/NewProjectPanel';
 import {
-    CheckIfDirectoryExist,
-    WriteIntoFile,
-    ReadFromFile,
+    checkIfDirectoryExists,
+    writeIntoFile,
+    readFromFile,
 } from './utilities/directoryUtilities';
 import { decorationProvider } from './decorationProvider';
 import { WasmDebugConfigurationProvider } from './debugConfigurationProvider';
+import { isLLDBInstalled, promptInstallLLDB } from './utilities/lldbUtilities';
 
 let wasmTaskProvider: WasmTaskProvider;
 let wasmDebugConfigProvider: WasmDebugConfigurationProvider;
@@ -213,7 +214,7 @@ export async function activate(context: vscode.ExtensionContext) {
                             return;
                         }
                     });
-            } else if (!CheckIfDirectoryExist(curWorkspace as string)) {
+            } else if (!checkIfDirectoryExists(curWorkspace as string)) {
                 vscode.window
                     .showWarningMessage(
                         'Invalid workspace:',
@@ -369,13 +370,22 @@ export async function activate(context: vscode.ExtensionContext) {
 
     let disposableDebug = vscode.commands.registerCommand(
         'wamride.debug',
-        () => {
+        async () => {
             if (!isWasmProject) {
                 vscode.window.showErrorMessage('debug failed', {
                     modal: true,
                     detail: 'Current project is not wasm project, please open wasm project and try again.',
                 });
                 return;
+            }
+
+            /* we should check again whether the user installed lldb, as this can be skipped during activation */
+            try {
+                if (!isLLDBInstalled(context)) {
+                    await promptInstallLLDB(context);
+                }
+            } catch (e) {
+                vscode.window.showWarningMessage((e as Error).message);
             }
 
             /* refuse to debug if build process failed */
@@ -582,7 +592,7 @@ export async function activate(context: vscode.ExtensionContext) {
                             return;
                         }
                     });
-            } else if (!CheckIfDirectoryExist(curWorkspace as string)) {
+            } else if (!checkIfDirectoryExists(curWorkspace as string)) {
                 vscode.window
                     .showWarningMessage(
                         'Invalid workspace:',
@@ -686,6 +696,14 @@ export async function activate(context: vscode.ExtensionContext) {
         disposableToggleExcludeFile,
         disposableDebug
     );
+
+    try {
+        if (!isLLDBInstalled(context)) {
+            await promptInstallLLDB(context);
+        }
+    } catch (e) {
+        vscode.window.showWarningMessage((e as Error).message);
+    }
 }
 
 function openWindoWithSituation(uri: vscode.Uri) {
@@ -736,13 +754,13 @@ export function writeIntoConfigFile(
 
     let prjConfigDir = path.join(currentPrjDir, '.wamr');
     let configFilePath = path.join(prjConfigDir, 'compilation_config.json');
-    WriteIntoFile(configFilePath, jsonStr);
+    writeIntoFile(configFilePath, jsonStr);
 }
 
 export function readFromConfigFile(): string {
     let prjConfigDir = path.join(currentPrjDir, '.wamr');
     let configFilePath = path.join(prjConfigDir, 'compilation_config.json');
-    return ReadFromFile(configFilePath);
+    return readFromFile(configFilePath);
 }
 
 /**
@@ -854,7 +872,7 @@ function generateCMakeFile(
         .concat('\n', strSrcList)
         .concat('\n', strIncludeList);
 
-    WriteIntoFile(cmakeFilePath, fullStr);
+    writeIntoFile(cmakeFilePath, fullStr);
 }
 
 function getAllSrcFiles(_path: string) {
