@@ -143,9 +143,9 @@ runtime_signal_handler(void *sig_addr)
     WASMJmpBuf *jmpbuf_node;
     uint8 *mapped_mem_start_addr = NULL;
     uint8 *mapped_mem_end_addr = NULL;
+    uint32 page_size = os_getpagesize();
 #if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
     uint8 *stack_min_addr;
-    uint32 page_size;
     uint32 guard_page_count = STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT;
 #endif
 
@@ -163,7 +163,6 @@ runtime_signal_handler(void *sig_addr)
 
 #if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
         /* Get stack info of current thread */
-        page_size = os_getpagesize();
         stack_min_addr = os_thread_get_stack_boundary();
 #endif
 
@@ -257,6 +256,17 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
             }
         }
 #endif
+        else if (exec_env_tls->exce_check_guard_page <= (uint8 *)sig_addr
+                 && (uint8 *)sig_addr
+                        < exec_env_tls->exce_check_guard_page + page_size) {
+            bh_assert(wasm_get_exception(module_inst));
+            if (module_inst->module_type == Wasm_Module_Bytecode) {
+                return EXCEPTION_CONTINUE_SEARCH;
+            }
+            else {
+                return EXCEPTION_CONTINUE_EXECUTION;
+            }
+        }
     }
 
     os_printf("Unhandled exception thrown:  exception code: 0x%lx, "
