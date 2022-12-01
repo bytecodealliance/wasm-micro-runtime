@@ -169,9 +169,11 @@ int main(int argc, const char* argv[]) {
   wasm_val_t rs[1] = { WASM_INIT_VAL };
   wasm_val_vec_t args = WASM_ARRAY_VEC(as);
   wasm_val_vec_t results = WASM_ARRAY_VEC(rs);
-  if (wasm_func_call(run_func, &args, &results)) {
-    printf("> Error calling function!\n");
-    return 1;
+  wasm_trap_t *trap = wasm_func_call(run_func, &args, &results);
+  if (trap) {
+      printf("> Error calling function!\n");
+      wasm_trap_delete(trap);
+      return 1;
   }
 
   wasm_extern_vec_delete(&exports);

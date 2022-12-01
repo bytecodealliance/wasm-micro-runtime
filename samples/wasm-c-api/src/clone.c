@@ -231,10 +231,13 @@ vm_function_set_byte(const wasm_vm_t *vm, uint32_t offset, uint8_t byte)
     wasm_val_vec_t args = WASM_ARRAY_VEC(a_v);
     wasm_val_vec_t results = WASM_EMPTY_VEC;
     wasm_trap_t *trap = wasm_func_call(vm->function_list[0], &args, &results);
-    if (trap)
+    if (trap) {
         printf("call wasm_set_byte failed");
+        wasm_trap_delete(trap);
+        return false;
+    }
 
-    return trap != NULL;
+    return true;
 }
 
 bool
@@ -247,6 +250,7 @@ vm_function_get_byte(const wasm_vm_t *vm, uint32_t offset, uint8_t *byte)
     wasm_trap_t *trap = wasm_func_call(vm->function_list[1], &args, &results);
     if (trap) {
         printf("call wasm_get_byte failed");
+        wasm_trap_delete(trap);
         return false;
     }
 

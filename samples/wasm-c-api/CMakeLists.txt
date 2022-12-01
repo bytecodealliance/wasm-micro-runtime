@@ -199,11 +199,16 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 
   if(VALGRIND)
     foreach(EX ${EXAMPLES})
-      add_custom_target(${EX}_LEAK_TEST
-        COMMAND ${VALGRIND} --tool=memcheck --leak-check=yes ./${EX}
+      add_custom_command(
+        OUTPUT ${EX}_leak_check.report
         DEPENDS ${EX} ${EX}_WASM
-        VERBATIM
-        COMMENT "run a leak check on ${EX}"
+        COMMAND ${VALGRIND} --tool=memcheck --leak-check=summary  -- ./${EX} > ${EX}_leak_check.report 2>&1
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+      )
+      add_custom_target(${EX}_LEAK_TEST ALL
+        DEPENDS ${EX}_leak_check.report
+        COMMAND grep "All heap blocks were freed -- no leaks are possible" ${EX}_leak_check.report
+        COMMENT "Please read ${EX}_leak_check.report when meeting Error"
       )
     endforeach()
   endif (VALGRIND)

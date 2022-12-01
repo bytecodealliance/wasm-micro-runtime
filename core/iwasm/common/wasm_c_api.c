@@ -2112,6 +2112,7 @@ wasm_module_imports(const wasm_module_t *module, own wasm_importtype_vec_t *out)
         memset(&module_name, 0, sizeof(wasm_val_vec_t));
         memset(&name, 0, sizeof(wasm_val_vec_t));
         extern_type = NULL;
+        import_type = NULL;
 
         if (i < import_func_count) {
             wasm_functype_t *type = NULL;
