@@ -3081,12 +3081,13 @@ wasi_ssp_sock_addr_resolve(
     size_t _max_info_size;
     size_t actual_info_size;
 
-    if (!ns_lookup_list_search(ns_lookup_list, host)) {
-        return __WASI_EACCES;
-    }
-
     if (!wamr_addr_info) {
         return __WASI_ENOMEM;
+    }
+
+    if (!ns_lookup_list_search(ns_lookup_list, host)) {
+        wasm_runtime_free(wamr_addr_info);
+        return __WASI_EACCES;
     }
 
     int ret = os_socket_addr_resolve(

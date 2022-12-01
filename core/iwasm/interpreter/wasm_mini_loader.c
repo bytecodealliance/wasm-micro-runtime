@@ -5125,10 +5125,11 @@ copy_params_to_dynamic_space(WASMLoaderContext *loader_ctx, bool is_if_block,
 
     /* Free the emit data */
     wasm_runtime_free(emit_data);
-
     return true;
 
 fail:
+    /* Free the emit data */
+    wasm_runtime_free(emit_data);
     return false;
 }
 #endif
