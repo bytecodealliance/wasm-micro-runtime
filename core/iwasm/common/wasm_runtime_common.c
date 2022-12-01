@@ -215,29 +215,41 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
                 mapped_mem_start_addr = memory_inst->memory_data;
                 mapped_mem_end_addr =
                     memory_inst->memory_data + 8 * (uint64)BH_GB;
-                if (mapped_mem_start_addr <= (uint8 *)sig_addr
-                    && (uint8 *)sig_addr < mapped_mem_end_addr) {
-                    /* The address which causes segmentation fault is inside
-                       the memory instance's guard regions.
-                       Set exception and let the wasm func continue to run, when
-                       the wasm func returns, the caller will check whether the
-                       exception is thrown and return to runtime. */
-                    wasm_set_exception(module_inst,
-                                       "out of bounds memory access");
-                    if (module_inst->module_type == Wasm_Module_Bytecode) {
-                        /* Continue to search next exception handler for
-                           interpreter mode as it can be caught by
-                           `__try { .. } __except { .. }` sentences in
-                           wasm_runtime.c */
-                        return EXCEPTION_CONTINUE_SEARCH;
-                    }
-                    else {
-                        /* Skip current instruction and continue to run for
-                           AOT mode. TODO: implement unwind support for AOT
-                           code in Windows platform */
-                        exce_info->ContextRecord->Rip++;
-                        return EXCEPTION_CONTINUE_EXECUTION;
-                    }
+            }
+
+            if (memory_inst && mapped_mem_start_addr <= (uint8 *)sig_addr
+                && (uint8 *)sig_addr < mapped_mem_end_addr) {
+                /* The address which causes segmentation fault is inside
+                   the memory instance's guard regions.
+                   Set exception and let the wasm func continue to run, when
+                   the wasm func returns, the caller will check whether the
+                   exception is thrown and return to runtime. */
+                wasm_set_exception(module_inst, "out of bounds memory access");
+                if (module_inst->module_type == Wasm_Module_Bytecode) {
+                    /* Continue to search next exception handler for
+                       interpreter mode as it can be caught by
+                       `__try { .. } __except { .. }` sentences in
+                       wasm_runtime.c */
+                    return EXCEPTION_CONTINUE_SEARCH;
+                }
+                else {
+                    /* Skip current instruction and continue to run for
+                       AOT mode. TODO: implement unwind support for AOT
+                       code in Windows platform */
+                    exce_info->ContextRecord->Rip++;
+                    return EXCEPTION_CONTINUE_EXECUTION;
+                }
+            }
+            else if (exec_env_tls->exce_check_guard_page <= (uint8 *)sig_addr
+                     && (uint8 *)sig_addr
+                            < exec_env_tls->exce_check_guard_page + page_size) {
+                bh_assert(wasm_get_exception(module_inst));
+                if (module_inst->module_type == Wasm_Module_Bytecode) {
+                    return EXCEPTION_CONTINUE_SEARCH;
+                }
+                else {
+                    exce_info->ContextRecord->Rip++;
+                    return EXCEPTION_CONTINUE_EXECUTION;
                 }
             }
         }
@@ -256,17 +268,6 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
             }
         }
 #endif
-        else if (exec_env_tls->exce_check_guard_page <= (uint8 *)sig_addr
-                 && (uint8 *)sig_addr
-                        < exec_env_tls->exce_check_guard_page + page_size) {
-            bh_assert(wasm_get_exception(module_inst));
-            if (module_inst->module_type == Wasm_Module_Bytecode) {
-                return EXCEPTION_CONTINUE_SEARCH;
-            }
-            else {
-                return EXCEPTION_CONTINUE_EXECUTION;
-            }
-        }
     }
 
     os_printf("Unhandled exception thrown:  exception code: 0x%lx, "
