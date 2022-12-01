@@ -462,6 +462,7 @@ aot_compile_op_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                                      false, NULL, NULL))) {
                 goto fail;
             }
+            aot_block_destroy(block);
             return aot_handle_next_reachable_block(comp_ctx, func_ctx,
                                                    p_frame_ip);
         }

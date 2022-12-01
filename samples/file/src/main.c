@@ -26,7 +26,6 @@ main(int argc, char *argv_main[])
     wasm_module_inst_t module_inst = NULL;
     wasm_exec_env_t exec_env = NULL;
     uint32 buf_size, stack_size = 8092, heap_size = 8092;
-    uint32_t wasm_buffer = 0;
 
     RuntimeInitArgs init_args;
     memset(&init_args, 0, sizeof(RuntimeInitArgs));
@@ -103,11 +102,8 @@ main(int argc, char *argv_main[])
 fail:
     if (exec_env)
         wasm_runtime_destroy_exec_env(exec_env);
-    if (module_inst) {
-        if (wasm_buffer)
-            wasm_runtime_module_free(module_inst, wasm_buffer);
+    if (module_inst)
         wasm_runtime_deinstantiate(module_inst);
-    }
     if (module)
         wasm_runtime_unload(module);
     if (buffer)
