@@ -7,12 +7,14 @@ import fileSystem = require('fs');
 import vscode = require('vscode');
 import path = require('path');
 import os = require('os');
+import request = require('request');
+import yauzl = require('yauzl');
 
 /**
  *
  * @param path destination path
  */
-export function CreateDirectory(
+export function createDirectory(
     dest: string,
     mode: string | number | null | undefined = undefined
 ): boolean {
@@ -30,7 +32,7 @@ export function CreateDirectory(
         }
 
         let parent = path.dirname(dest);
-        if (!CreateDirectory(parent, mode)) {
+        if (!createDirectory(parent, mode)) {
             return false;
         }
 
@@ -42,7 +44,7 @@ export function CreateDirectory(
     }
 }
 
-export function CopyFiles(src: string, dest: string, flags?: number): boolean {
+export function copyFiles(src: string, dest: string, flags?: number): boolean {
     try {
         fileSystem.copyFileSync(src, dest);
         return true;
@@ -52,7 +54,7 @@ export function CopyFiles(src: string, dest: string, flags?: number): boolean {
     }
 }
 
-export function WriteIntoFile(path: string, data: string): void {
+export function writeIntoFile(path: string, data: string): void {
     try {
         fileSystem.writeFileSync(path, data, null);
     } catch (err) {
@@ -60,7 +62,7 @@ export function WriteIntoFile(path: string, data: string): void {
     }
 }
 
-export function ReadFromFile(path: string): string {
+export function readFromFile(path: string): string {
     try {
         let data = fileSystem.readFileSync(path, { encoding: 'utf-8' });
         return data as string;
@@ -70,7 +72,7 @@ export function ReadFromFile(path: string): string {
     }
 }
 
-export function WriteIntoFileAsync(
+export function writeIntoFileAsync(
     path: string,
     data: string,
     callback: fileSystem.NoParamCallback
@@ -83,7 +85,7 @@ export function WriteIntoFileAsync(
     }
 }
 
-export function CheckIfDirectoryExist(path: string): boolean {
+export function checkIfPathExists(path: string): boolean {
     try {
         if (fileSystem.existsSync(path)) {
             return true;
@@ -94,6 +96,22 @@ export function CheckIfDirectoryExist(path: string): boolean {
         vscode.window.showErrorMessage(err as string);
         return false;
     }
+}
+
+export function checkIfDirectoryExists(path: string): boolean {
+    const doesPathExist = checkIfPathExists(path);
+    if (doesPathExist) {
+        return fileSystem.lstatSync(path).isDirectory();
+    }
+    return false;
+}
+
+export function checkIfFileExists(path: string): boolean {
+    const doesPathExist = checkIfPathExists(path);
+    if (doesPathExist) {
+        return fileSystem.lstatSync(path).isFile();
+    }
+    return false;
 }
 
 export function checkFolderName(folderName: string) {
@@ -118,3 +136,54 @@ export function checkFolderName(folderName: string) {
 
     return valid;
 }
+
+export function downloadFile(url: string, destinationPath: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+        const file = fileSystem.createWriteStream(destinationPath);
+        const stream = request(url, undefined, (error, response, body) => {
+            if (response.statusCode !== 200) {
+                reject(new Error(`Download from ${url} failed with ${response.statusMessage}`));
+            }
+        }).pipe(file);
+        stream.on("close", resolve);
+        stream.on("error", reject);
+    });
+}
+
+export function unzipFile(sourcePath: string, getDestinationFileName: (entryName: string) => string): Promise<string[]> {
+    return new Promise((resolve, reject) => {
+        const unzippedFilePaths: string[] = [];
+        yauzl.open(sourcePath, { lazyEntries: true }, function(error, zipfile) {
+            if (error) {
+                reject(error);
+                return;
+            }
+            zipfile.readEntry();
+            zipfile.on("entry", function(entry) {
+                // This entry is a directory so skip it
+                if (/\/$/.test(entry.fileName)) {
+                    zipfile.readEntry();
+                    return;
+                } 
+
+                zipfile.openReadStream(entry, function(error, readStream) {
+                    if (error) {
+                        reject(error);
+                        return;
+                    }
+                    readStream.on("end", () => zipfile.readEntry());
+                    const destinationFileName = getDestinationFileName(entry.fileName);
+                    fileSystem.mkdirSync(path.dirname(destinationFileName), { recursive: true });
+
+                    const file = fileSystem.createWriteStream(destinationFileName);
+                    readStream.pipe(file).on("error", reject);
+                    unzippedFilePaths.push(destinationFileName);
+                });
+            });
+            zipfile.on("end", function() {
+                zipfile.close();
+                resolve(unzippedFilePaths);
+            });
+        });
+    });
+} 
