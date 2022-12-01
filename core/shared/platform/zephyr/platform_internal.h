@@ -7,14 +7,21 @@
 #define _PLATFORM_INTERNAL_H
 
 #include <autoconf.h>
+#include <version.h>
+
+#if KERNEL_VERSION_NUMBER < 0x030200 /* version 3.2.0 */
 #include <zephyr.h>
 #include <kernel.h>
-#include <version.h>
 #if KERNEL_VERSION_NUMBER >= 0x020200 /* version 2.2.0 */
 #include <sys/printk.h>
 #else
 #include <misc/printk.h>
 #endif
+#else /* else of KERNEL_VERSION_NUMBER < 0x030200 */
+#include <zephyr/kernel.h>
+#include <zephyr/sys/printk.h>
+#endif /* end of KERNEL_VERSION_NUMBER < 0x030200 */
+
 #include <inttypes.h>
 #include <stdarg.h>
 #include <ctype.h>
@@ -24,9 +31,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+
 #ifndef CONFIG_NET_BUF_USER_DATA_SIZE
 #define CONFIG_NET_BUF_USER_DATA_SIZE 0
 #endif
+
+#if KERNEL_VERSION_NUMBER < 0x030200 /* version 3.2.0 */
 #include <net/net_pkt.h>
 #include <net/net_if.h>
 #include <net/net_ip.h>
@@ -36,6 +46,17 @@
 #ifdef CONFIG_ARM_MPU
 #include <arch/arm/aarch32/cortex_m/cmsis.h>
 #endif
+#else /* else of KERNEL_VERSION_NUMBER < 0x030200 */
+#include <zephyr/net/net_pkt.h>
+#include <zephyr/net/net_if.h>
+#include <zephyr/net/net_ip.h>
+#include <zephyr/net/net_core.h>
+#include <zephyr/net/net_context.h>
+
+#ifdef CONFIG_ARM_MPU
+#include <zephyr/arch/arm/aarch32/cortex_m/cmsis.h>
+#endif
+#endif /* end of KERNEL_VERSION_NUMBER < 0x030200 */
 
 #ifndef BH_PLATFORM_ZEPHYR
 #define BH_PLATFORM_ZEPHYR
@@ -95,6 +116,11 @@ unsigned long long int strtoull(const char *nptr, char **endptr, int base);
 double strtod(const char *nptr, char **endptr);
 float strtof(const char *nptr, char **endptr);
 /* clang-format on */
+
+#if KERNEL_VERSION_NUMBER >= 0x030100 /* version 3.1.0 */
+#define BH_HAS_SQRT
+#define BH_HAS_SQRTF
+#endif
 
 /**
  * @brief Allocate executable memroy

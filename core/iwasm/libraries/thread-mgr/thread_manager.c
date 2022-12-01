@@ -293,8 +293,9 @@ wasm_cluster_del_exec_env(WASMCluster *cluster, WASMExecEnv *exec_env)
            other threads can't fire stop events */
         os_mutex_lock(&cluster->debug_inst->wait_lock);
         while (cluster->debug_inst->stopped_thread == exec_env) {
-            os_cond_wait(&cluster->debug_inst->wait_cond,
-                         &cluster->debug_inst->wait_lock);
+            /* either wakes up by signal or by 1-second timeout */
+            os_cond_reltimedwait(&cluster->debug_inst->wait_cond,
+                                 &cluster->debug_inst->wait_lock, 1000000);
         }
         os_mutex_unlock(&cluster->debug_inst->wait_lock);
     }
@@ -593,6 +594,21 @@ notify_debug_instance(WASMExecEnv *exec_env)
     on_thread_stop_event(cluster->debug_inst, exec_env);
 }
 
+static void
+notify_debug_instance_exit(WASMExecEnv *exec_env)
+{
+    WASMCluster *cluster;
+
+    cluster = wasm_exec_env_get_cluster(exec_env);
+    bh_assert(cluster);
+
+    if (!cluster->debug_inst) {
+        return;
+    }
+
+    on_thread_exit_event(cluster->debug_inst, exec_env);
+}
+
 void
 wasm_cluster_thread_stopped(WASMExecEnv *exec_env)
 {
@@ -624,7 +640,7 @@ void
 wasm_cluster_thread_exited(WASMExecEnv *exec_env)
 {
     exec_env->current_status->running_status = STATUS_EXIT;
-    notify_debug_instance(exec_env);
+    notify_debug_instance_exit(exec_env);
 }
 
 void

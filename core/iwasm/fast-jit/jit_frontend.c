@@ -1286,11 +1286,8 @@ jit_compile_func(JitCompContext *cc)
 
 #if WASM_ENABLE_TAIL_CALL != 0
             case WASM_OP_RETURN_CALL:
-                if (!cc->enable_tail_call) {
-                    jit_set_last_error(cc, "unsupported opcode");
-                    return false;
-                }
                 read_leb_uint32(frame_ip, frame_ip_end, func_idx);
+
                 if (!jit_compile_op_call(cc, func_idx, true))
                     return false;
                 if (!jit_compile_op_return(cc, &frame_ip))
@@ -1300,11 +1297,6 @@ jit_compile_func(JitCompContext *cc)
             case WASM_OP_RETURN_CALL_INDIRECT:
             {
                 uint32 tbl_idx;
-
-                if (!cc->enable_tail_call) {
-                    jit_set_last_error(cc, "unsupported opcode");
-                    return false;
-                }
 
                 read_leb_uint32(frame_ip, frame_ip_end, type_idx);
 #if WASM_ENABLE_REF_TYPES != 0

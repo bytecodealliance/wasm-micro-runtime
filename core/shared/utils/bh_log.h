@@ -73,6 +73,14 @@ bh_log(LogLevel log_level, const char *file, int line, const char *fmt, ...);
 void
 bh_print_time(const char *prompt);
 
+void
+bh_print_proc_mem(const char *prompt);
+
+void
+bh_log_proc_mem(const char *function, uint32 line);
+
+#define LOG_PROC_MEM(...) bh_log_proc_mem(__FUNCTION__, __LINE__)
+
 #ifdef __cplusplus
 }
 #endif

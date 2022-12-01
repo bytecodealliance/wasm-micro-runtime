@@ -11,9 +11,6 @@
 #define get_module_inst(exec_env) \
     wasm_runtime_get_module_inst(exec_env)
 
-#define get_wasi_ctx(module_inst) \
-    wasm_runtime_get_wasi_ctx(module_inst)
-
 #define validate_app_addr(offset, size) \
     wasm_runtime_validate_app_addr(module_inst, offset, size)
 
@@ -72,8 +69,23 @@ typedef struct iovec_app {
     uint32 buf_len;
 } iovec_app_t;
 
+typedef struct WASIContext {
+    uvwasi_t uvwasi;
+    uint32_t exit_code;
+} WASIContext;
+
 void *
 wasm_runtime_get_wasi_ctx(wasm_module_inst_t module_inst);
+
+static uvwasi_t *
+get_wasi_ctx(wasm_module_inst_t module_inst)
+{
+    WASIContext *ctx = wasm_runtime_get_wasi_ctx(module_inst);
+    if (ctx == NULL) {
+        return NULL;
+    }
+    return &ctx->uvwasi;
+}
 
 static wasi_errno_t
 wasi_args_get(wasm_exec_env_t exec_env, uint32 *argv_offsets, char *argv_buf)
@@ -924,10 +936,12 @@ static void
 wasi_proc_exit(wasm_exec_env_t exec_env, wasi_exitcode_t rval)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
+    WASIContext *wasi_ctx = wasm_runtime_get_wasi_ctx(module_inst);
     /* Here throwing exception is just to let wasm app exit,
        the upper layer should clear the exception and return
        as normal */
     wasm_runtime_set_exception(module_inst, "wasi proc exit");
+    wasi_ctx->exit_code = rval;
 }
 
 static wasi_errno_t

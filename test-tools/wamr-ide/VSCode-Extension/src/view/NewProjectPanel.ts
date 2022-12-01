@@ -8,8 +8,8 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import {
-    CreateDirectory,
-    CopyFiles,
+    createDirectory,
+    copyFiles,
     checkFolderName,
 } from '../utilities/directoryUtilities';
 import { getUri } from '../utilities/getUri';
@@ -84,16 +84,16 @@ export class NewProjectPanel {
             }
         }
 
-        CreateDirectory(path.join(ROOT_PATH, '.wamr'));
-        CreateDirectory(path.join(ROOT_PATH, 'include'));
-        CreateDirectory(path.join(ROOT_PATH, 'src'));
+        createDirectory(path.join(ROOT_PATH, '.wamr'));
+        createDirectory(path.join(ROOT_PATH, 'include'));
+        createDirectory(path.join(ROOT_PATH, 'src'));
 
-        CopyFiles(
+        copyFiles(
             path.join(EXT_PATH, 'resource/scripts/CMakeLists.txt'),
             path.join(ROOT_PATH, '.wamr/CMakeLists.txt')
         );
 
-        CopyFiles(
+        copyFiles(
             path.join(EXT_PATH, 'resource/scripts/project.cmake'),
             path.join(ROOT_PATH, '.wamr/project.cmake')
         );

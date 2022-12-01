@@ -258,6 +258,12 @@ WASM_DEFINE_VEC_OWN(module, wasm_module_delete_internal)
 WASM_DEFINE_VEC_OWN(store, wasm_store_delete)
 WASM_DEFINE_VEC_OWN(valtype, wasm_valtype_delete)
 
+#ifndef NDEBUG
+#define WASM_C_DUMP_PROC_MEM() LOG_PROC_MEM()
+#else
+#define WASM_C_DUMP_PROC_MEM() (void)0
+#endif
+
 /* Runtime Environment */
 own wasm_config_t *
 wasm_config_new(void)
@@ -307,6 +313,14 @@ wasm_engine_new_internal(mem_alloc_type_t type, const MemAllocOption *opts)
     RuntimeInitArgs init_args = { 0 };
     init_args.mem_alloc_type = type;
 
+#ifndef NDEBUG
+    bh_log_set_verbose_level(BH_LOG_LEVEL_VERBOSE);
+#else
+    bh_log_set_verbose_level(BH_LOG_LEVEL_WARNING);
+#endif
+
+    WASM_C_DUMP_PROC_MEM();
+
     if (type == Alloc_With_Pool) {
         if (!opts) {
             return NULL;
@@ -326,6 +340,10 @@ wasm_engine_new_internal(mem_alloc_type_t type, const MemAllocOption *opts)
             opts->allocator.free_func;
         init_args.mem_alloc_option.allocator.realloc_func =
             opts->allocator.realloc_func;
+#if WASM_MEM_ALLOC_WITH_USER_DATA != 0
+        init_args.mem_alloc_option.allocator.user_data =
+            opts->allocator.user_data;
+#endif
     }
     else {
         init_args.mem_alloc_option.pool.heap_buf = NULL;
@@ -336,14 +354,6 @@ wasm_engine_new_internal(mem_alloc_type_t type, const MemAllocOption *opts)
         LOG_DEBUG("wasm_runtime_full_init failed");
         goto failed;
     }
-
-#ifndef NDEBUG
-    /*DEBUG*/
-    bh_log_set_verbose_level(BH_LOG_LEVEL_VERBOSE);
-#else
-    /*VERBOSE*/
-    bh_log_set_verbose_level(BH_LOG_LEVEL_WARNING);
-#endif
 
     /* create wasm_engine_t */
     if (!(engine = malloc_internal(sizeof(wasm_engine_t)))) {
@@ -357,6 +367,8 @@ wasm_engine_new_internal(mem_alloc_type_t type, const MemAllocOption *opts)
         goto failed;
 
     engine->ref_count = 1;
+
+    WASM_C_DUMP_PROC_MEM();
 
     RETURN_OBJ(engine, wasm_engine_delete_internal)
 }
@@ -442,6 +454,8 @@ wasm_store_new(wasm_engine_t *engine)
 {
     wasm_store_t *store = NULL;
 
+    WASM_C_DUMP_PROC_MEM();
+
     if (!engine || singleton_engine != engine) {
         return NULL;
     }
@@ -473,6 +487,8 @@ wasm_store_new(wasm_engine_t *engine)
         LOG_DEBUG("bh_vector_append failed");
         goto failed;
     }
+
+    WASM_C_DUMP_PROC_MEM();
 
     return store;
 failed:
@@ -1903,6 +1919,8 @@ wasm_module_new(wasm_store_t *store, const wasm_byte_vec_t *binary)
 
     bh_assert(singleton_engine);
 
+    WASM_C_DUMP_PROC_MEM();
+
     if (!store || !binary || binary->size == 0 || binary->size > UINT32_MAX)
         goto quit;
 
@@ -1958,6 +1976,9 @@ wasm_module_new(wasm_store_t *store, const wasm_byte_vec_t *binary)
         goto destroy_lock;
 
     module_ex->ref_count = 1;
+
+    WASM_C_DUMP_PROC_MEM();
+
     return module_ext_to_module(module_ex);
 
 destroy_lock:
@@ -4427,25 +4448,25 @@ failed:
 
 wasm_instance_t *
 wasm_instance_new(wasm_store_t *store, const wasm_module_t *module,
-                  const wasm_extern_vec_t *imports, own wasm_trap_t **traps)
+                  const wasm_extern_vec_t *imports, own wasm_trap_t **trap)
 {
-    return wasm_instance_new_with_args(store, module, imports, traps,
+    return wasm_instance_new_with_args(store, module, imports, trap,
                                        KILOBYTE(32), KILOBYTE(32));
 }
 
 wasm_instance_t *
 wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
                             const wasm_extern_vec_t *imports,
-                            own wasm_trap_t **traps, const uint32 stack_size,
+                            own wasm_trap_t **trap, const uint32 stack_size,
                             const uint32 heap_size)
 {
-    char error_buf[128] = { 0 };
+    char sub_error_buf[128] = { 0 };
+    char error_buf[256] = { 0 };
     uint32 import_count = 0;
     bool import_count_verified = false;
     wasm_instance_t *instance = NULL;
     uint32 i = 0;
     bool processed = false;
-    (void)traps;
 
     bh_assert(singleton_engine);
 
@@ -4453,8 +4474,12 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
         return NULL;
     }
 
+    WASM_C_DUMP_PROC_MEM();
+
     instance = malloc_internal(sizeof(wasm_instance_t));
     if (!instance) {
+        snprintf(sub_error_buf, sizeof(sub_error_buf),
+                 "Failed to malloc instance");
         goto failed;
     }
 
@@ -4471,6 +4496,8 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
                 /* make sure a complete import list */
                 if ((int32)import_count < 0
                     || import_count != actual_link_import_count) {
+                    snprintf(sub_error_buf, sizeof(sub_error_buf),
+                             "Failed to validate imports");
                     goto failed;
                 }
             }
@@ -4489,6 +4516,8 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
                 import_count = aot_link(instance, MODULE_AOT(module),
                                         (wasm_extern_t **)imports->data);
                 if ((int32)import_count < 0) {
+                    snprintf(sub_error_buf, sizeof(sub_error_buf),
+                             "Failed to validate imports");
                     goto failed;
                 }
             }
@@ -4501,18 +4530,21 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
          * also leads to below branch
          */
         if (!import_count_verified) {
+            snprintf(sub_error_buf, sizeof(sub_error_buf),
+                     "Failed to verify import count");
             goto failed;
         }
     }
 
     instance->inst_comm_rt = wasm_runtime_instantiate(
-        *module, stack_size, heap_size, error_buf, sizeof(error_buf));
+        *module, stack_size, heap_size, sub_error_buf, sizeof(sub_error_buf));
     if (!instance->inst_comm_rt) {
-        LOG_ERROR(error_buf);
         goto failed;
     }
 
     if (!wasm_runtime_create_exec_env_singleton(instance->inst_comm_rt)) {
+        snprintf(sub_error_buf, sizeof(sub_error_buf),
+                 "Failed to create exec env singleton");
         goto failed;
     }
 
@@ -4537,6 +4569,8 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
                     instance->inst_comm_rt;
                 break;
             default:
+                snprintf(sub_error_buf, sizeof(sub_error_buf),
+                         "Unknown import kind");
                 goto failed;
         }
     }
@@ -4553,6 +4587,8 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
         if (!interp_process_export(store,
                                    (WASMModuleInstance *)instance->inst_comm_rt,
                                    instance->exports)) {
+            snprintf(sub_error_buf, sizeof(sub_error_buf),
+                     "Interpreter failed to process exports");
             goto failed;
         }
 
@@ -4575,6 +4611,8 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
         if (!aot_process_export(store,
                                 (AOTModuleInstance *)instance->inst_comm_rt,
                                 instance->exports)) {
+            snprintf(sub_error_buf, sizeof(sub_error_buf),
+                     "AOT failed to process exports");
             goto failed;
         }
 
@@ -4587,18 +4625,32 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
      * leads to below branch
      */
     if (!processed) {
+        snprintf(sub_error_buf, sizeof(sub_error_buf),
+                 "Incorrect filetype and compilation flags");
         goto failed;
     }
 
     /* add it to a watching list in store */
     if (!bh_vector_append((Vector *)store->instances, &instance)) {
+        snprintf(sub_error_buf, sizeof(sub_error_buf),
+                 "Failed to add to store instances");
         goto failed;
     }
+
+    WASM_C_DUMP_PROC_MEM();
 
     return instance;
 
 failed:
-    LOG_DEBUG("%s failed", __FUNCTION__);
+    snprintf(error_buf, sizeof(error_buf), "%s failed: %s", __FUNCTION__,
+             sub_error_buf);
+    if (trap != NULL) {
+        wasm_message_t message = { 0 };
+        wasm_name_new_from_string(&message, error_buf);
+        *trap = wasm_trap_new(store, &message);
+        wasm_byte_vec_delete(&message);
+    }
+    LOG_DEBUG(error_buf);
     wasm_instance_delete_internal(instance);
     return NULL;
 }

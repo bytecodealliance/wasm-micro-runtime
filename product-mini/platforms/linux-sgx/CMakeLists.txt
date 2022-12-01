@@ -140,14 +140,14 @@ endif()
 
 if (WAMR_BUILD_SGX_IPFS EQUAL 1)
     execute_process(
-        COMMAND bash -c "sed -i -E 's/^#define SGX_IPFS 0/#define SGX_IPFS 1/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Enclave/Enclave.edl"
-        COMMAND bash -c "sed -i -E 's/^SGX_IPFS = 0/SGX_IPFS = 1/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Makefile"
+        COMMAND bash -c "sed -i -E 's/^#define WASM_ENABLE_SGX_IPFS 0/#define WASM_ENABLE_SGX_IPFS 1/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Enclave/Enclave.edl"
+        COMMAND bash -c "sed -i -E 's/^WAMR_BUILD_SGX_IPFS = 0/WAMR_BUILD_SGX_IPFS = 1/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Makefile"
         OUTPUT_VARIABLE cmdOutput
     )
 else()
     execute_process(
-        COMMAND bash -c "sed -i -E 's/^#define SGX_IPFS 1/#define SGX_IPFS 0/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Enclave/Enclave.edl"
-        COMMAND bash -c "sed -i -E 's/^SGX_IPFS = 1/SGX_IPFS = 0/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Makefile"
+        COMMAND bash -c "sed -i -E 's/^#define WASM_ENABLE_SGX_IPFS 1/#define WASM_ENABLE_SGX_IPFS 0/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Enclave/Enclave.edl"
+        COMMAND bash -c "sed -i -E 's/^WAMR_BUILD_SGX_IPFS = 1/WAMR_BUILD_SGX_IPFS = 0/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Makefile"
         OUTPUT_VARIABLE cmdOutput
     )
 endif()

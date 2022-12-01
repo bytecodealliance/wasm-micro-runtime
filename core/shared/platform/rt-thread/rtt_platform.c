@@ -88,6 +88,12 @@ os_free(void *ptr)
     }
 }
 
+int
+os_dumps_proc_mem_info(char *out, unsigned int size)
+{
+    return -1;
+}
+
 static char wamr_vprint_buf[RT_CONSOLEBUF_SIZE * 2];
 
 int

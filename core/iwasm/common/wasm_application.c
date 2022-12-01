@@ -555,7 +555,7 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
             case VALUE_TYPE_FUNCREF:
             {
                 if (argv1[k] != NULL_REF)
-                    os_printf("%u:ref.func", argv1[k]);
+                    os_printf("%" PRIu32 ":ref.func", argv1[k]);
                 else
                     os_printf("func:ref.null");
                 k++;

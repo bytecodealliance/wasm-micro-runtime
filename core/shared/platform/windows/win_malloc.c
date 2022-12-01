@@ -22,3 +22,9 @@ os_free(void *ptr)
 {
     free(ptr);
 }
+
+int
+os_dumps_proc_mem_info(char *out, unsigned int size)
+{
+    return -1;
+}

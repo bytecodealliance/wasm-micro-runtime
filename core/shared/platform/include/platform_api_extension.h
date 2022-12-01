@@ -977,6 +977,19 @@ os_socket_set_broadcast(bh_socket_t socket, bool is_enabled);
 int
 os_socket_get_broadcast(bh_socket_t socket, bool *is_enabled);
 
+/**
+ * Dump memory information of the current process
+ * It may have variant implementations in different platforms
+ *
+ * @param out the output buffer. It is for sure the return content
+ *            is a c-string which ends up with '\0'
+ * @param size the size of the output buffer
+ *
+ * @return 0 if success, -1 otherwise
+ */
+int
+os_dumps_proc_mem_info(char *out, unsigned int size);
+
 #ifdef __cplusplus
 }
 #endif

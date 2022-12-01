@@ -185,6 +185,12 @@ runtime_signal_handler(void *sig_addr)
             os_longjmp(jmpbuf_node->jmpbuf, 1);
         }
 #endif
+        else if (exec_env_tls->exce_check_guard_page <= (uint8 *)sig_addr
+                 && (uint8 *)sig_addr
+                        < exec_env_tls->exce_check_guard_page + page_size) {
+            bh_assert(wasm_get_exception(module_inst));
+            os_longjmp(jmpbuf_node->jmpbuf, 1);
+        }
     }
 }
 #else
@@ -1160,6 +1166,12 @@ wasm_runtime_deinstantiate(WASMModuleInstanceCommon *module_inst)
     wasm_runtime_deinstantiate_internal(module_inst, false);
 }
 
+WASMModuleCommon *
+wasm_runtime_get_module(WASMModuleInstanceCommon *module_inst)
+{
+    return (WASMModuleCommon *)((WASMModuleInstance *)module_inst)->module;
+}
+
 WASMExecEnv *
 wasm_runtime_create_exec_env(WASMModuleInstanceCommon *module_inst,
                              uint32 stack_size)
@@ -1428,6 +1440,17 @@ wasm_runtime_get_user_data(WASMExecEnv *exec_env)
 {
     return exec_env->user_data;
 }
+
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+void
+wasm_runtime_access_exce_check_guard_page()
+{
+    if (exec_env_tls && exec_env_tls->handle == os_self_thread()) {
+        uint32 page_size = os_getpagesize();
+        memset(exec_env_tls->exce_check_guard_page, 0, page_size);
+    }
+}
+#endif
 
 WASMType *
 wasm_runtime_get_function_type(const WASMFunctionInstanceCommon *function,
@@ -2678,17 +2701,18 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
                        char *argv[], uint32 argc, int stdinfd, int stdoutfd,
                        int stderrfd, char *error_buf, uint32 error_buf_size)
 {
-    uvwasi_t *uvwasi = NULL;
+    WASIContext *ctx;
+    uvwasi_t *uvwasi;
     uvwasi_options_t init_options;
     const char **envp = NULL;
     uint64 total_size;
     uint32 i;
     bool ret = false;
 
-    uvwasi = runtime_malloc(sizeof(uvwasi_t), module_inst, error_buf,
-                            error_buf_size);
-    if (!uvwasi)
+    ctx = runtime_malloc(sizeof(*ctx), module_inst, error_buf, error_buf_size);
+    if (!ctx)
         return false;
+    uvwasi = &ctx->uvwasi;
 
     /* Setup the initialization options */
     uvwasi_options_init(&init_options);
@@ -2736,7 +2760,7 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
         goto fail;
     }
 
-    wasm_runtime_set_wasi_ctx(module_inst, uvwasi);
+    wasm_runtime_set_wasi_ctx(module_inst, ctx);
 
     ret = true;
 
@@ -2866,11 +2890,18 @@ wasm_runtime_destroy_wasi(WASMModuleInstanceCommon *module_inst)
     WASIContext *wasi_ctx = wasm_runtime_get_wasi_ctx(module_inst);
 
     if (wasi_ctx) {
-        uvwasi_destroy(wasi_ctx);
+        uvwasi_destroy(&wasi_ctx->uvwasi);
         wasm_runtime_free(wasi_ctx);
     }
 }
 #endif
+
+uint32_t
+wasm_runtime_get_wasi_exit_code(WASMModuleInstanceCommon *module_inst)
+{
+    WASIContext *wasi_ctx = wasm_runtime_get_wasi_ctx(module_inst);
+    return wasi_ctx->exit_code;
+}
 
 WASIContext *
 wasm_runtime_get_wasi_ctx(WASMModuleInstanceCommon *module_inst_comm)

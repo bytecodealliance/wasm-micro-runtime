@@ -3081,7 +3081,7 @@ init_llvm_jit_functions_stage2(WASMModule *module, char *error_buf,
         if (error != LLVMErrorSuccess) {
             char *err_msg = LLVMGetErrorMessage(error);
             set_error_buf_v(error_buf, error_buf_size,
-                            "failed to compile orc jit function: %s", err_msg);
+                            "failed to compile llvm jit function: %s", err_msg);
             LLVMDisposeErrorMessage(err_msg);
             return false;
         }

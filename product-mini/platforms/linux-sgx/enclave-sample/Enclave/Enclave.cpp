@@ -14,8 +14,6 @@
 
 #if WASM_ENABLE_LIB_RATS != 0
 #include <openssl/sha.h>
-
-char wasm_module_hash[SHA256_DIGEST_LENGTH];
 #endif
 
 extern "C" {
@@ -68,7 +66,16 @@ typedef struct EnclaveModule {
     uint32 wasi_argc;
     bool is_xip_file;
     uint32 total_size_mapped;
+#if WASM_ENABLE_LIB_RATS != 0
+    char module_hash[SHA256_DIGEST_LENGTH];
+    struct EnclaveModule *next;
+#endif
 } EnclaveModule;
+
+#if WASM_ENABLE_LIB_RATS != 0
+static EnclaveModule *enclave_module_list = NULL;
+static korp_mutex enclave_module_list_lock = OS_THREAD_MUTEX_INITIALIZER;
+#endif
 
 #if WASM_ENABLE_GLOBAL_HEAP_POOL != 0
 static char global_heap_buf[WASM_GLOBAL_HEAP_SIZE] = { 0 };
@@ -250,10 +257,17 @@ handle_cmd_load_module(uint64 *args, uint32 argc)
     *(EnclaveModule **)args_org = enclave_module;
 
 #if WASM_ENABLE_LIB_RATS != 0
+    /* Calculate the module hash */
     SHA256_CTX sha256;
     SHA256_Init(&sha256);
     SHA256_Update(&sha256, wasm_file, wasm_file_size);
-    SHA256_Final((unsigned char *)wasm_module_hash, &sha256);
+    SHA256_Final((unsigned char *)enclave_module->module_hash, &sha256);
+
+    /* Insert enclave module to enclave module list */
+    os_mutex_lock(&enclave_module_list_lock);
+    enclave_module->next = enclave_module_list;
+    enclave_module_list = enclave_module;
+    os_mutex_unlock(&enclave_module_list_lock);
 #endif
 
     LOG_VERBOSE("Load module success.\n");
@@ -267,6 +281,28 @@ handle_cmd_unload_module(uint64 *args, uint32 argc)
 
     bh_assert(argc == 1);
 
+#if WASM_ENABLE_LIB_RATS != 0
+    /* Remove enclave module from enclave module list */
+    os_mutex_lock(&enclave_module_list_lock);
+
+    EnclaveModule *node_prev = NULL;
+    EnclaveModule *node = enclave_module_list;
+
+    while (node && node != enclave_module) {
+        node_prev = node;
+        node = node->next;
+    }
+    bh_assert(node == enclave_module);
+
+    if (!node_prev)
+        enclave_module_list = node->next;
+    else
+        node_prev->next = node->next;
+
+    os_mutex_unlock(&enclave_module_list_lock);
+#endif
+
+    /* Destroy enclave module resources */
     if (enclave_module->wasi_arg_buf)
         wasm_runtime_free(enclave_module->wasi_arg_buf);
 
@@ -278,6 +314,29 @@ handle_cmd_unload_module(uint64 *args, uint32 argc)
 
     LOG_VERBOSE("Unload module success.\n");
 }
+
+#if WASM_ENABLE_LIB_RATS != 0
+char *
+wasm_runtime_get_module_hash(wasm_module_t module)
+{
+    EnclaveModule *enclave_module;
+    char *module_hash = NULL;
+
+    os_mutex_lock(&enclave_module_list_lock);
+
+    enclave_module = enclave_module_list;
+    while (enclave_module) {
+        if (enclave_module->module == module) {
+            module_hash = enclave_module->module_hash;
+            break;
+        }
+        enclave_module = enclave_module->next;
+    }
+    os_mutex_unlock(&enclave_module_list_lock);
+
+    return module_hash;
+}
+#endif
 
 static void
 handle_cmd_instantiate_module(uint64 *args, uint32 argc)
