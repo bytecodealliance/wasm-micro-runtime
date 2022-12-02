@@ -52,6 +52,7 @@ def ignore_the_case(
     multi_thread_flag=False,
     simd_flag=False,
     xip_flag=False,
+    qemu_flag=False
 ):
     if case_name in ["comments", "inline-module", "names"]:
         return True
@@ -72,6 +73,10 @@ def ignore_the_case(
             "fac",
             "skip-stack-guard-page",
         ]:
+            return True
+
+    if qemu_flag:
+        if case_name in ["f32_bitwise", "f64_bitwise", "loop", "f64", "f64_cmp", "conversions", "f32", "f32_cmp", "float_exprs", "float_misc", "select", "memory_grow"]:
             return True
 
     return False
@@ -119,6 +124,7 @@ def test_case(
         multi_thread_flag,
         simd_flag,
         xip_flag,
+        qemu_flag
     ):
         return True
 
