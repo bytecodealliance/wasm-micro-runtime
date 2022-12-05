@@ -430,4 +430,8 @@
 #define WASM_MEM_ALLOC_WITH_USER_DATA 0
 #endif
 
+#ifndef WASM_ENABLE_WASM_CACHE
+#define WASM_ENABLE_WASM_CACHE 0
+#endif
+
 #endif /* end of _CONFIG_H_ */

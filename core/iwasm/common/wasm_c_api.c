@@ -2,6 +2,7 @@
  * Copyright (C) 2019 Intel Corporation.  All rights reserved.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
+
 #include "wasm_c_api_internal.h"
 
 #include "bh_assert.h"
@@ -17,6 +18,10 @@
 #include "aot_llvm.h"
 #endif /*WASM_ENABLE_JIT != 0 && WASM_ENABLE_LAZY_JIT == 0*/
 #endif /*WASM_ENABLE_AOT != 0*/
+
+#if WASM_ENABLE_WASM_CACHE != 0
+#include <openssl/sha.h>
+#endif
 
 /*
  * Thread Model:
@@ -35,6 +40,9 @@ typedef struct wasm_module_ex_t {
     wasm_byte_vec_t *binary;
     korp_mutex lock;
     uint32 ref_count;
+#if WASM_ENABLE_WASM_CACHE != 0
+    char hash[SHA256_DIGEST_LENGTH];
+#endif
 } wasm_module_ex_t;
 
 #ifndef os_thread_local_attribute
@@ -2087,15 +2095,67 @@ module_to_module_ext(wasm_module_t *module)
 #define MODULE_AOT(module_comm) ((AOTModule *)(*module_comm))
 #endif
 
+#if WASM_ENABLE_WASM_CACHE != 0
+static wasm_module_ex_t *
+check_loaded_module(Vector *modules, char *binary_hash)
+{
+    unsigned i;
+    wasm_module_ex_t *module = NULL;
+
+    for (i = 0; i < modules->num_elems; i++) {
+        bh_vector_get(modules, i, &module);
+        if (!module) {
+            LOG_ERROR("Unexpected failure at %d\n", __LINE__);
+            return NULL;
+        }
+
+        if (!module->ref_count)
+            /* deleted */
+            continue;
+
+        if (memcmp(module->hash, binary_hash, SHA256_DIGEST_LENGTH) == 0)
+            return module;
+    }
+    return NULL;
+}
+
+static wasm_module_ex_t *
+try_reuse_loaded_module(wasm_store_t *store, char *binary_hash)
+{
+    wasm_module_ex_t *cached = NULL;
+    wasm_module_ex_t *ret = NULL;
+
+    cached = check_loaded_module(&singleton_engine->modules, binary_hash);
+    if (!cached)
+        goto quit;
+
+    os_mutex_lock(&cached->lock);
+    if (!cached->ref_count)
+        goto unlock;
+
+    if (!bh_vector_append((Vector *)store->modules, &cached))
+        goto unlock;
+
+    cached->ref_count += 1;
+    ret = cached;
+
+unlock:
+    os_mutex_unlock(&cached->lock);
+quit:
+    return ret;
+}
+#endif /* WASM_ENABLE_WASM_CACHE != 0 */
+
 wasm_module_t *
 wasm_module_new(wasm_store_t *store, const wasm_byte_vec_t *binary)
 {
     char error_buf[128] = { 0 };
     wasm_module_ex_t *module_ex = NULL;
+#if WASM_ENABLE_WASM_CACHE != 0
+    char binary_hash[SHA256_DIGEST_LENGTH] = { 0 };
+#endif
 
     bh_assert(singleton_engine);
-
-    WASM_C_DUMP_PROC_MEM();
 
     if (!store || !binary || binary->size == 0 || binary->size > UINT32_MAX)
         goto quit;
@@ -2120,6 +2180,16 @@ wasm_module_new(wasm_store_t *store, const wasm_byte_vec_t *binary)
             goto quit;
         }
     }
+
+#if WASM_ENABLE_WASM_CACHE != 0
+    /* if cached */
+    SHA256((void *)binary->data, binary->num_elems, binary_hash);
+    module_ex = try_reuse_loaded_module(store, binary_hash);
+    if (module_ex)
+        return module_ext_to_module(module_ex);
+#endif
+
+    WASM_C_DUMP_PROC_MEM();
 
     module_ex = malloc_internal(sizeof(wasm_module_ex_t));
     if (!module_ex)
@@ -2150,6 +2220,11 @@ wasm_module_new(wasm_store_t *store, const wasm_byte_vec_t *binary)
 
     if (!bh_vector_append(&singleton_engine->modules, &module_ex))
         goto destroy_lock;
+
+#if WASM_ENABLE_WASM_CACHE != 0
+    bh_memcpy_s(module_ex->hash, sizeof(module_ex->hash), binary_hash,
+                sizeof(binary_hash));
+#endif
 
     module_ex->ref_count = 1;
 
@@ -2225,6 +2300,10 @@ wasm_module_delete_internal(wasm_module_t *module)
         wasm_runtime_unload(module_ex->module_comm_rt);
         module_ex->module_comm_rt = NULL;
     }
+
+#if WASM_ENABLE_WASM_CACHE != 0
+    memset(module_ex->hash, 0, sizeof(module_ex->hash));
+#endif
 
     os_mutex_unlock(&module_ex->lock);
 }
