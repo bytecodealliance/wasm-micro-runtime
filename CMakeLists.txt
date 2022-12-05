@@ -130,6 +130,9 @@ include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 
 # STATIC LIBRARY
 add_library(iwasm_static STATIC ${WAMR_RUNTIME_LIB_SOURCE})
+if (WAMR_BUILD_WASM_CACHE EQUAL 1)
+  target_link_libraries(iwasm_static OpenSSL::SSL)
+endif ()
 set_target_properties (iwasm_static PROPERTIES OUTPUT_NAME vmlib)
 
 install (TARGETS iwasm_static ARCHIVE DESTINATION lib)
@@ -138,6 +141,9 @@ install (TARGETS iwasm_static ARCHIVE DESTINATION lib)
 add_library (iwasm_shared SHARED ${WAMR_RUNTIME_LIB_SOURCE})
 set_target_properties (iwasm_shared PROPERTIES OUTPUT_NAME iwasm)
 target_link_libraries (iwasm_shared ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl -lpthread)
+if (WAMR_BUILD_WASM_CACHE EQUAL 1)
+  target_link_libraries(iwasm_shared OpenSSL::SSL)
+endif ()
 
 if (MINGW)
 target_link_libraries (iwasm_shared -lWs2_32)
