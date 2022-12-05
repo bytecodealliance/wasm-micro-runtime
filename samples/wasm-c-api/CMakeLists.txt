@@ -92,6 +92,10 @@ if (MSVC)
   target_compile_definitions(vmlib PRIVATE WASM_API_EXTERN=)
 endif()
 target_link_libraries (vmlib ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl -lpthread)
+
+if (WAMR_BUILD_WASM_CACHE EQUAL 1)
+  target_link_libraries(vmlib OpenSSL::SSL)
+endif ()
 ################################################
 
 ################  application related  ################
