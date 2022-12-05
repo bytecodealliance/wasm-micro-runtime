@@ -934,7 +934,7 @@ def compile_wast_to_wasm(form, wast_tempfile, wasm_tempfile, opts):
 
     return True
 
-def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r):
+def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r, output = 'default'):
     log("Compiling AOT to '%s'" % aot_tempfile)
     cmd = [opts.aot_compiler]
 
@@ -972,6 +972,11 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r):
 
     if opts.multi_thread:
         cmd.append("--enable-multi-thread")
+
+    if output == 'object':
+        cmd.append("--format=object")
+    elif output == 'ir':
+        cmd.append("--format=llvmir-opt")
 
     # disable llvm link time optimization as it might convert
     # code of tail call into code of dead loop, and stack overflow
@@ -1265,6 +1270,14 @@ if __name__ == "__main__":
         traceback.print_exc()
         print("THE FINAL EXCEPTION IS {}".format(e))
         ret_code = 101
+
+        if opts.aot or opts.xip:
+            if "indirect-mode" in str(e):
+                compile_wasm_to_aot(wasm_tempfile, aot_tempfile, None, opts, None, "object")
+                subprocess.check_call(["llvm-objdump", "-r", aot_tempfile])
+            compile_wasm_to_aot(wasm_tempfile, aot_tempfile, None, opts, None, "ir")
+            subprocess.check_call(["cat", aot_tempfile])
+
     else:
         ret_code = 0
     finally:
