@@ -124,6 +124,13 @@ if (WAMR_BUILD_LIB_PTHREAD EQUAL 1)
     set (WAMR_BUILD_SHARED_MEMORY 1)
 endif ()
 
+if (WAMR_BUILD_LIB_WASI_THREADS EQUAL 1)
+    include (${IWASM_DIR}/libraries/lib-wasi-threads/lib_wasi_threads.cmake)
+    # Enable the dependent feature if lib wasi threads is enabled
+    set (WAMR_BUILD_BULK_MEMORY 1)
+    set (WAMR_BUILD_SHARED_MEMORY 1)
+endif ()
+
 if (WAMR_BUILD_DEBUG_INTERP EQUAL 1)
     set (WAMR_BUILD_THREAD_MGR 1)
     include (${IWASM_DIR}/libraries/debug-engine/debug_engine.cmake)
@@ -186,6 +193,7 @@ set (source_all
     ${WASM_APP_LIB_SOURCE_ALL}
     ${NATIVE_INTERFACE_SOURCE}
     ${APP_MGR_SOURCE}
+    ${LIB_WASI_THREADS_SOURCE}
     ${LIB_PTHREAD_SOURCE}
     ${THREAD_MGR_SOURCE}
     ${LIBC_EMCC_SOURCE}
