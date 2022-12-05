@@ -170,6 +170,7 @@ struct WASMFunctionInstance {
     /* total execution count */
     uint32 total_exec_cnt;
 #endif
+    void *attachment;
 };
 
 typedef struct WASMExportFuncInstance {

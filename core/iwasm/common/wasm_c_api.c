@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#include "wasm_c_api.h"
 #include "wasm_c_api_internal.h"
 
 #include "bh_assert.h"
@@ -275,7 +276,7 @@ WASM_DEFINE_VEC_OWN(store, wasm_store_delete)
 WASM_DEFINE_VEC_OWN(valtype, wasm_valtype_delete)
 
 #ifndef NDEBUG
-#define WASM_C_DUMP_PROC_MEM() LOG_PROC_MEM()
+#define WASM_C_DUMP_PROC_MEM() (void)0
 #else
 #define WASM_C_DUMP_PROC_MEM() (void)0
 #endif
@@ -4285,11 +4286,9 @@ interp_link_func(const wasm_instance_t *inst, const WASMModule *module_interp,
     imported_func_interp->u.function.wasm_c_api_with_env = import->with_env;
     if (import->with_env) {
         imported_func_interp->u.function.func_ptr_linked = import->u.cb_env.cb;
-        imported_func_interp->u.function.attachment = import->u.cb_env.env;
     }
     else {
         imported_func_interp->u.function.func_ptr_linked = import->u.cb;
-        imported_func_interp->u.function.attachment = NULL;
     }
     import->func_idx_rt = func_idx_rt;
 
@@ -4802,6 +4801,24 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
         snprintf(sub_error_buf, sizeof(sub_error_buf),
                  "Failed to create exec env singleton");
         goto failed;
+    }
+
+    /* patch WASMFunctionInstance* */
+    {
+        WASMModuleInstance *inst = (WASMModuleInstance *)instance->inst_comm_rt;
+        unsigned i;
+        unsigned func_n = 0;
+        for (i = 0; i < inst->module->import_count; i++) {
+            wasm_extern_t *in = imports->data[i];
+            if (wasm_extern_kind(in) != WASM_EXTERN_FUNC)
+                continue;
+
+            wasm_func_t *func_host = wasm_extern_as_func(in);
+            WASMFunctionInstance *func_rt = inst->e->functions + func_n;
+            func_n++;
+
+            func_rt->attachment = func_host->u.cb_env.env;
+        }
     }
 
     /* fill with inst */

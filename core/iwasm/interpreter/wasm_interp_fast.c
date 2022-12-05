@@ -936,7 +936,7 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
         ret = wasm_runtime_invoke_c_api_native(
             (WASMModuleInstanceCommon *)module_inst, native_func_pointer,
             func_import->func_type, cur_func->param_cell_num, frame->lp,
-            func_import->wasm_c_api_with_env, func_import->attachment);
+            func_import->wasm_c_api_with_env, cur_func->attachment);
         if (ret) {
             argv_ret[0] = frame->lp[0];
             argv_ret[1] = frame->lp[1];
