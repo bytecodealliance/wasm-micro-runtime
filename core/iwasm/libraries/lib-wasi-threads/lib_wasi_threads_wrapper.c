@@ -14,7 +14,7 @@
 #endif
 
 static __wasi_errno_t
-thread_spawn_wrapper(wasm_exec_env_t exec_env, void *start_arg)
+thread_spawn_wrapper(wasm_exec_env_t exec_env, uint32 start_arg)
 {
     return __WASI_ENOSYS;
 }
@@ -25,7 +25,7 @@ thread_spawn_wrapper(wasm_exec_env_t exec_env, void *start_arg)
 /* clang-format on */
 
 static NativeSymbol native_symbols_lib_wasi_threads[] = { REG_NATIVE_FUNC(
-    thread_spawn, "(*)i") };
+    thread_spawn, "(i)i") };
 
 uint32
 get_lib_wasi_threads_export_apis(NativeSymbol **p_lib_wasi_threads_apis)
