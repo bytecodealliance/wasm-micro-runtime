@@ -720,19 +720,15 @@ handle_add_break(WASMGDBServer *server, char *payload)
         case eBreakpointSoftware:
             handle_breakpoint_software_add(server, addr, length);
             break;
-            break;
         case eWatchpointWrite:
             handle_watchpoint_write_add(server, addr, length);
-            break;
             break;
         case eWatchpointRead:
             handle_watchpoint_read_add(server, addr, length);
             break;
-            break;
         case eWatchpointReadWrite:
             handle_watchpoint_write_add(server, addr, length);
             handle_watchpoint_read_add(server, addr, length);
-            break;
             break;
         default:
             LOG_ERROR("Unsupported breakpoint type %d", type);
@@ -759,14 +755,11 @@ handle_remove_break(WASMGDBServer *server, char *payload)
         case eBreakpointSoftware:
             handle_breakpoint_software_remove(server, addr, length);
             break;
-            break;
         case eWatchpointWrite:
             handle_watchpoint_write_remove(server, addr, length);
             break;
-            break;
         case eWatchpointRead:
             handle_watchpoint_read_remove(server, addr, length);
-            break;
             break;
         case eWatchpointReadWrite:
             handle_watchpoint_write_remove(server, addr, length);

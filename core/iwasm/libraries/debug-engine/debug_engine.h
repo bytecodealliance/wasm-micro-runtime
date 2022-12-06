@@ -37,7 +37,7 @@ typedef struct WASMDebugBreakPoint {
 } WASMDebugBreakPoint;
 
 typedef struct WASMDebugWatchPoint {
-    struct WASMDebugWatchPoint *next;
+    bh_list_link next;
     uint64 addr;
     uint64 length;
 } WASMDebugWatchPoint;
