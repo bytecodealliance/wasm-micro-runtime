@@ -83,6 +83,11 @@ if (NOT DEFINED WAMR_BUILD_LIB_PTHREAD)
   set (WAMR_BUILD_LIB_PTHREAD 0)
 endif ()
 
+if (NOT DEFINED WAMR_BUILD_LIB_WASI_THREADS)
+  # Disable wasi threads library by default
+  set (WAMR_BUILD_LIB_WASI_THREADS 0)
+endif ()
+
 if (NOT DEFINED WAMR_BUILD_MINI_LOADER)
   # Disable wasm mini loader by default
   set (WAMR_BUILD_MINI_LOADER 0)
