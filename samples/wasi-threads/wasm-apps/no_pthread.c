@@ -8,6 +8,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <assert.h>
 #include <wasi/api.h>
 
 static const int64_t SECOND = 1000 * 1000 * 1000;
@@ -15,6 +16,7 @@ static const int64_t SECOND = 1000 * 1000 * 1000;
 typedef struct {
     int th_ready;
     int value;
+    int thread_id;
 } shared_t;
 
 __attribute__((export_name("wasi_thread_start"))) void
@@ -25,6 +27,7 @@ wasi_thread_start(int thread_id, int *start_arg)
     printf("New thread ID: %d, starting parameter: %d\n", thread_id,
            data->value);
 
+    data->thread_id = thread_id;
     data->value += 8;
     printf("Updated value: %d\n", data->value);
 
@@ -35,12 +38,12 @@ wasi_thread_start(int thread_id, int *start_arg)
 int
 main(int argc, char **argv)
 {
-    shared_t data = { 0, 52 };
-    __wasi_errno_t err;
+    shared_t data = { 0, 52, -1 };
+    int thread_id;
 
-    err = __wasi_thread_spawn(&data);
-    if (err != __WASI_ERRNO_SUCCESS) {
-        printf("Failed to create thread: %d\n", err);
+    thread_id = __wasi_thread_spawn(&data);
+    if (thread_id < 0) {
+        printf("Failed to create thread: %d\n", thread_id);
         return EXIT_FAILURE;
     }
 
@@ -49,7 +52,10 @@ main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
-    printf("Thread completed, new value: %d\n", data.value);
+    printf("Thread completed, new value: %d, thread id: %d\n", data.value,
+           data.thread_id);
+
+    assert(thread_id == data.thread_id);
 
     return EXIT_SUCCESS;
 }

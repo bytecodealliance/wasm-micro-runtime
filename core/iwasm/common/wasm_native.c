@@ -54,6 +54,12 @@ get_lib_pthread_export_apis(NativeSymbol **p_lib_pthread_apis);
 #endif
 
 #if WASM_ENABLE_LIB_WASI_THREADS != 0
+bool
+lib_wasi_threads_init(void);
+
+void
+lib_wasi_threads_destroy(void);
+
 uint32
 get_lib_wasi_threads_export_apis(NativeSymbol **p_lib_wasi_threads_apis);
 #endif
@@ -444,6 +450,9 @@ wasm_native_init()
 #endif
 
 #if WASM_ENABLE_LIB_WASI_THREADS != 0
+    if (!lib_wasi_threads_init())
+        goto fail;
+
     n_native_symbols = get_lib_wasi_threads_export_apis(&native_symbols);
     if (n_native_symbols > 0
         && !wasm_native_register_natives("wasi", native_symbols,
@@ -471,7 +480,7 @@ wasm_native_init()
     n_native_symbols = get_wasi_nn_export_apis(&native_symbols);
     if (!wasm_native_register_natives("wasi_nn", native_symbols,
                                       n_native_symbols))
-        return false;
+        goto fail;
 #endif
 
     return true;
@@ -493,6 +502,10 @@ wasm_native_destroy()
 
 #if WASM_ENABLE_LIB_PTHREAD != 0
     lib_pthread_destroy();
+#endif
+
+#if WASM_ENABLE_LIB_WASI_THREADS != 0
+    lib_wasi_threads_destroy();
 #endif
 
     node = g_native_symbols_list;
