@@ -73,6 +73,10 @@ typedef struct AOTFunctionInstance {
     } u;
 } AOTFunctionInstance;
 
+typedef struct AOTModuleInstanceExtra {
+    CApiFuncImport *c_api_func_imports;
+} AOTModuleInstanceExtra;
+
 #if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
 /* clang-format off */
 typedef struct AOTUnwindInfo {
