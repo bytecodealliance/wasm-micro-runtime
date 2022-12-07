@@ -1948,6 +1948,9 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
         os_mutex_destroy(&module_inst->e->mem_lock);
 #endif
 
+    if (module_inst->e->c_api_func_imports)
+        wasm_runtime_free(module_inst->e->c_api_func_imports);
+
     wasm_runtime_free(module_inst);
 }
 

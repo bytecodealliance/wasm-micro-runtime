@@ -192,6 +192,16 @@ typedef struct WASMExportMemInstance {
     WASMMemoryInstance *memory;
 } WASMExportMemInstance;
 
+/* wasm-c-api import function info */
+typedef struct CApiFuncImport {
+    /* host func pointer after linked */
+    void *func_ptr_linked;
+    /* whether the host func has env argument */
+    bool with_env_arg;
+    /* the env argument of the host func */
+    void *env_arg;
+} CApiFuncImport;
+
 /* Extra info of WASM module instance for interpreter/jit mode */
 typedef struct WASMModuleInstanceExtra {
     WASMGlobalInstance *globals;
@@ -204,6 +214,8 @@ typedef struct WASMModuleInstanceExtra {
     WASMFunctionInstance *malloc_function;
     WASMFunctionInstance *free_function;
     WASMFunctionInstance *retain_function;
+
+    CApiFuncImport *c_api_func_imports;
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
     /* lock for shared memory atomic operations */
