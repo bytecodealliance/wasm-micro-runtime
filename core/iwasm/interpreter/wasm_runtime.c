@@ -1948,6 +1948,9 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
         os_mutex_destroy(&module_inst->e->mem_lock);
 #endif
 
+    if (module_inst->e->c_api_func_imports)
+        wasm_runtime_free(module_inst->e->c_api_func_imports);
+
     wasm_runtime_free(module_inst);
 }
 
@@ -2849,6 +2852,7 @@ llvm_jit_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
     WASMType *func_type;
     void *func_ptr;
     WASMFunctionImport *import_func;
+    CApiFuncImport *c_api_func_import = NULL;
     const char *signature;
     void *attachment;
     char buf[96];
@@ -2870,6 +2874,11 @@ llvm_jit_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
     bh_assert(func_idx < module->import_function_count);
 
     import_func = &module->import_functions[func_idx].u.function;
+    if (import_func->call_conv_wasm_c_api) {
+        c_api_func_import = module_inst->e->c_api_func_imports + func_idx;
+        func_ptr = c_api_func_import->func_ptr_linked;
+    }
+
     if (!func_ptr) {
         snprintf(buf, sizeof(buf),
                  "failed to call unlinked import function (%s, %s)",
@@ -2882,7 +2891,7 @@ llvm_jit_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
     if (import_func->call_conv_wasm_c_api) {
         ret = wasm_runtime_invoke_c_api_native(
             (WASMModuleInstanceCommon *)module_inst, func_ptr, func_type, argc,
-            argv, import_func->wasm_c_api_with_env, attachment);
+            argv, c_api_func_import->with_env_arg, c_api_func_import->env_arg);
     }
     else if (!import_func->call_conv_raw) {
         signature = import_func->signature;

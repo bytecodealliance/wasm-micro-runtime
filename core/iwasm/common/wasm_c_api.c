@@ -4282,15 +4282,13 @@ interp_link_func(const wasm_instance_t *inst, const WASMModule *module_interp,
         return false;
 
     imported_func_interp->u.function.call_conv_wasm_c_api = true;
-    imported_func_interp->u.function.wasm_c_api_with_env = import->with_env;
-    if (import->with_env) {
+    /* only set func_ptr_linked to avoid unlink warning during instantiation,
+       func_ptr_linked, with_env and env will be stored in module instance's
+       c_api_func_imports later and used when calling import function */
+    if (import->with_env)
         imported_func_interp->u.function.func_ptr_linked = import->u.cb_env.cb;
-        imported_func_interp->u.function.attachment = import->u.cb_env.env;
-    }
-    else {
+    else
         imported_func_interp->u.function.func_ptr_linked = import->u.cb;
-        imported_func_interp->u.function.attachment = NULL;
-    }
     import->func_idx_rt = func_idx_rt;
 
     return true;
@@ -4496,15 +4494,13 @@ aot_link_func(const wasm_instance_t *inst, const AOTModule *module_aot,
         return false;
 
     import_aot_func->call_conv_wasm_c_api = true;
-    import_aot_func->wasm_c_api_with_env = import->with_env;
-    if (import->with_env) {
+    /* only set func_ptr_linked to avoid unlink warning during instantiation,
+       func_ptr_linked, with_env and env will be stored in module instance's
+       c_api_func_imports later and used when calling import function */
+    if (import->with_env)
         import_aot_func->func_ptr_linked = import->u.cb_env.cb;
-        import_aot_func->attachment = import->u.cb_env.env;
-    }
-    else {
+    else
         import_aot_func->func_ptr_linked = import->u.cb;
-        import_aot_func->attachment = NULL;
-    }
     import->func_idx_rt = import_func_idx_rt;
 
     return true;
@@ -4718,10 +4714,12 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
 {
     char sub_error_buf[128] = { 0 };
     char error_buf[256] = { 0 };
-    uint32 import_count = 0;
     bool import_count_verified = false;
     wasm_instance_t *instance = NULL;
-    uint32 i = 0;
+    WASMModuleInstance *inst_rt;
+    CApiFuncImport *func_import = NULL, **p_func_imports = NULL;
+    uint32 i = 0, import_count = 0, import_func_count = 0;
+    uint64 total_size;
     bool processed = false;
 
     bh_assert(singleton_engine);
@@ -4803,6 +4801,56 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
                  "Failed to create exec env singleton");
         goto failed;
     }
+
+    inst_rt = (WASMModuleInstance *)instance->inst_comm_rt;
+#if WASM_ENABLE_INTERP != 0
+    if (instance->inst_comm_rt->module_type == Wasm_Module_Bytecode) {
+        p_func_imports = &inst_rt->e->c_api_func_imports;
+        import_func_count = inst_rt->module->import_function_count;
+    }
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (instance->inst_comm_rt->module_type == Wasm_Module_AoT) {
+        p_func_imports =
+            &((AOTModuleInstanceExtra *)inst_rt->e)->c_api_func_imports;
+        import_func_count = ((AOTModule *)inst_rt->module)->import_func_count;
+    }
+#endif
+    bh_assert(p_func_imports);
+
+    /* create the c-api func import list */
+    total_size = (uint64)sizeof(CApiFuncImport) * import_func_count;
+    if (total_size > 0
+        && !(*p_func_imports = func_import = malloc_internal(total_size))) {
+        snprintf(sub_error_buf, sizeof(sub_error_buf),
+                 "Failed to create wasm-c-api func imports");
+        goto failed;
+    }
+
+    /* fill in c-api func import list */
+    for (i = 0; i < import_count; i++) {
+        wasm_func_t *func_host;
+        wasm_extern_t *in;
+
+        in = imports->data[i];
+        if (wasm_extern_kind(in) != WASM_EXTERN_FUNC)
+            continue;
+
+        func_host = wasm_extern_as_func(in);
+
+        func_import->with_env_arg = func_host->with_env;
+        if (func_host->with_env) {
+            func_import->func_ptr_linked = func_host->u.cb_env.cb;
+            func_import->env_arg = func_host->u.cb_env.env;
+        }
+        else {
+            func_import->func_ptr_linked = func_host->u.cb;
+            func_import->env_arg = NULL;
+        }
+
+        func_import++;
+    }
+    bh_assert((uint32)(func_import - *p_func_imports) == import_func_count);
 
     /* fill with inst */
     for (i = 0; imports && imports->data && i < (uint32)import_count; ++i) {
