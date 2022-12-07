@@ -38,6 +38,10 @@ Fix interp/fast-jit float min/max issues
 Fix missing intrinsics for risc-v which were reported by spec test
 wasm-c-api: Fix init/destroy thread env multiple times issue
 Fix wasm-c-api import func link issue in wasm_instance_new
+Fix sample ref-types/wasm-c-api build error with wat2wasm low version
+Fix zephyr sample build errors
+Fix source debugger error handling: continue executing when detached
+Fix scenario where the timeout for atomic wait is set to negative number
 
 ### Enhancements
 Refactor the layout of interpreter and AOT module instance
@@ -71,16 +75,12 @@ Avoid raising exception when debugging with VSCode
 wamr-test-suites: Update runtest.py to support python3
 Enable Nuttx spec test option and register aot symbols
 Use wabt binary instead of building from source in spec test
-Fix sample ref-types/wasm-c-api build error with wat2wasm low version
 nuttx: Enable ref types by Kconfig
 Update xtensa LLVM version to 15.x
 Add bh_print_proc_mem() to dump memory info of current process
 Create trap for error message when wasm_instance_new fails
 wamr-test-suites: Add support for ARM/RISCV by QEMU
-Fix zephyr sample build errors
-Fix source debugger error handling: continue executing when detached
 Enable to compile WAMR on platforms that don't support IPV6
-Fix scenario where the timeout for atomic wait is set to negative number
 Fix warnings in the posix socket implementation
 Update document for MacOS compilation
 Install patched LLDB on vscode extension activation
