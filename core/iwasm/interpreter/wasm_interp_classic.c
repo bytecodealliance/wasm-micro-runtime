@@ -838,6 +838,7 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
                              WASMInterpFrame *prev_frame)
 {
     WASMFunctionImport *func_import = cur_func->u.func_import;
+    CApiFuncImport *c_api_func_import = NULL;
     unsigned local_cell_num = 2;
     WASMInterpFrame *frame;
     uint32 argv_ret[2], cur_func_index;
@@ -858,7 +859,13 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
 
     cur_func_index = (uint32)(cur_func - module_inst->e->functions);
     bh_assert(cur_func_index < module_inst->module->import_function_count);
-    native_func_pointer = module_inst->import_func_ptrs[cur_func_index];
+    if (!func_import->call_conv_wasm_c_api) {
+        native_func_pointer = module_inst->import_func_ptrs[cur_func_index];
+    }
+    else {
+        c_api_func_import = module_inst->e->c_api_func_imports + cur_func_index;
+        native_func_pointer = c_api_func_import->func_ptr_linked;
+    }
 
     if (!native_func_pointer) {
         snprintf(buf, sizeof(buf),
@@ -872,7 +879,7 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
         ret = wasm_runtime_invoke_c_api_native(
             (WASMModuleInstanceCommon *)module_inst, native_func_pointer,
             func_import->func_type, cur_func->param_cell_num, frame->lp,
-            func_import->wasm_c_api_with_env, func_import->attachment);
+            c_api_func_import->with_env_arg, c_api_func_import->env_arg);
         if (ret) {
             argv_ret[0] = frame->lp[0];
             argv_ret[1] = frame->lp[1];

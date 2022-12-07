@@ -987,7 +987,7 @@ aot_instantiate(AOTModule *module, bool is_sub_inst, uint32 stack_size,
         (uint64)module->memory_count * sizeof(AOTMemoryInstance);
     uint64 total_size, table_size = 0;
     uint8 *p;
-    uint32 i;
+    uint32 i, extra_info_offset;
 
     /* Check heap size */
     heap_size = align_uint(heap_size, 8);
@@ -1015,6 +1015,11 @@ aot_instantiate(AOTModule *module, bool is_sub_inst, uint32 stack_size,
     }
     total_size += table_size;
 
+    /* The offset of AOTModuleInstanceExtra, make it 8-byte aligned */
+    total_size = (total_size + 7LL) & ~7LL;
+    extra_info_offset = (uint32)total_size;
+    total_size += sizeof(AOTModuleInstanceExtra);
+
     /* Allocate module instance, global data, table data and heap data */
     if (!(module_inst =
               runtime_malloc(total_size, error_buf, error_buf_size))) {
@@ -1023,6 +1028,8 @@ aot_instantiate(AOTModule *module, bool is_sub_inst, uint32 stack_size,
 
     module_inst->module_type = Wasm_Module_AoT;
     module_inst->module = (void *)module;
+    module_inst->e =
+        (WASMModuleInstanceExtra *)((uint8 *)module_inst + extra_info_offset);
 
     /* Initialize global info */
     p = (uint8 *)module_inst + module_inst_struct_size
@@ -1178,6 +1185,10 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
 
     if (module_inst->exec_env_singleton)
         wasm_exec_env_destroy((WASMExecEnv *)module_inst->exec_env_singleton);
+
+    if (((AOTModuleInstanceExtra *)module_inst->e)->c_api_func_imports)
+        wasm_runtime_free(
+            ((AOTModuleInstanceExtra *)module_inst->e)->c_api_func_imports);
 
     wasm_runtime_free(module_inst);
 }
@@ -1750,6 +1761,10 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
     AOTModuleInstance *module_inst =
         (AOTModuleInstance *)wasm_runtime_get_module_inst(exec_env);
     AOTModule *aot_module = (AOTModule *)module_inst->module;
+    AOTModuleInstanceExtra *module_inst_extra =
+        (AOTModuleInstanceExtra *)module_inst->e;
+    CApiFuncImport *c_api_func_import =
+        module_inst_extra->c_api_func_imports + func_idx;
     uint32 *func_type_indexes = module_inst->func_type_indexes;
     uint32 func_type_idx = func_type_indexes[func_idx];
     AOTFuncType *func_type = aot_module->func_types[func_type_idx];
@@ -1764,6 +1779,9 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
     bh_assert(func_idx < aot_module->import_func_count);
 
     import_func = aot_module->import_funcs + func_idx;
+    if (import_func->call_conv_wasm_c_api)
+        func_ptr = c_api_func_import->func_ptr_linked;
+
     if (!func_ptr) {
         snprintf(buf, sizeof(buf),
                  "failed to call unlinked import function (%s, %s)",
@@ -1776,7 +1794,7 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
     if (import_func->call_conv_wasm_c_api) {
         ret = wasm_runtime_invoke_c_api_native(
             (WASMModuleInstanceCommon *)module_inst, func_ptr, func_type, argc,
-            argv, import_func->wasm_c_api_with_env, attachment);
+            argv, c_api_func_import->with_env_arg, c_api_func_import->env_arg);
     }
     else if (!import_func->call_conv_raw) {
         signature = import_func->signature;
