@@ -4718,7 +4718,7 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
     wasm_instance_t *instance = NULL;
     WASMModuleInstance *inst_rt;
     CApiFuncImport *func_import = NULL, **p_func_imports = NULL;
-    uint32 i = 0, import_count = 0;
+    uint32 i = 0, import_count = 0, import_func_count = 0;
     uint64 total_size;
     bool processed = false;
 
@@ -4806,27 +4806,29 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
 #if WASM_ENABLE_INTERP != 0
     if (instance->inst_comm_rt->module_type == Wasm_Module_Bytecode) {
         p_func_imports = &inst_rt->e->c_api_func_imports;
+        import_func_count = inst_rt->module->import_function_count;
     }
 #endif
 #if WASM_ENABLE_AOT != 0
     if (instance->inst_comm_rt->module_type == Wasm_Module_AoT) {
         p_func_imports =
             &((AOTModuleInstanceExtra *)inst_rt->e)->c_api_func_imports;
+        import_func_count = ((AOTModule *)inst_rt->module)->import_func_count;
     }
 #endif
     bh_assert(p_func_imports);
 
     /* create the c-api func import list */
-    total_size =
-        (uint64)sizeof(CApiFuncImport) * inst_rt->module->import_function_count;
-    if (!(*p_func_imports = func_import = malloc_internal(total_size))) {
+    total_size = (uint64)sizeof(CApiFuncImport) * import_func_count;
+    if (total_size > 0
+        && !(*p_func_imports = func_import = malloc_internal(total_size))) {
         snprintf(sub_error_buf, sizeof(sub_error_buf),
                  "Failed to create wasm-c-api func imports");
         goto failed;
     }
 
     /* fill in c-api func import list */
-    for (i = 0; i < inst_rt->module->import_count; i++) {
+    for (i = 0; i < import_count; i++) {
         wasm_func_t *func_host;
         wasm_extern_t *in;
 
@@ -4848,8 +4850,7 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
 
         func_import++;
     }
-    bh_assert((uint32)(func_import - *p_func_imports)
-              == inst_rt->module->import_function_count);
+    bh_assert((uint32)(func_import - *p_func_imports) == import_func_count);
 
     /* fill with inst */
     for (i = 0; imports && imports->data && i < (uint32)import_count; ++i) {

@@ -1186,8 +1186,9 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
     if (module_inst->exec_env_singleton)
         wasm_exec_env_destroy((WASMExecEnv *)module_inst->exec_env_singleton);
 
-    if (module_inst->e->c_api_func_imports)
-        wasm_runtime_free(module_inst->e->c_api_func_imports);
+    if (((AOTModuleInstanceExtra *)module_inst->e)->c_api_func_imports)
+        wasm_runtime_free(
+            ((AOTModuleInstanceExtra *)module_inst->e)->c_api_func_imports);
 
     wasm_runtime_free(module_inst);
 }
