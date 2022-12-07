@@ -358,6 +358,14 @@ handle_general_query(WASMGDBServer *server, char *payload)
 
         send_thread_stop_status(server, status, tid);
     }
+
+    if (!strcmp(name, "WatchpointSupportInfo")) {
+        os_mutex_lock(&tmpbuf_lock);
+        // Any uint32 is OK for the watchpoint support
+        snprintf(tmpbuf, MAX_PACKET_SIZE, "num:32;");
+        write_packet(server, tmpbuf);
+        os_mutex_unlock(&tmpbuf_lock);
+    }
 }
 
 void
@@ -644,45 +652,124 @@ handle_get_write_memory(WASMGDBServer *server, char *payload)
 }
 
 void
+handle_breakpoint_software_add(WASMGDBServer *server, uint64 addr,
+                               size_t length)
+{
+    bool ret = wasm_debug_instance_add_breakpoint(
+        (WASMDebugInstance *)server->thread->debug_instance, addr, length);
+    write_packet(server, ret ? "OK" : "EO1");
+}
+
+void
+handle_breakpoint_software_remove(WASMGDBServer *server, uint64 addr,
+                                  size_t length)
+{
+    bool ret = wasm_debug_instance_remove_breakpoint(
+        (WASMDebugInstance *)server->thread->debug_instance, addr, length);
+    write_packet(server, ret ? "OK" : "EO1");
+}
+
+void
+handle_watchpoint_write_add(WASMGDBServer *server, uint64 addr, size_t length)
+{
+    bool ret = wasm_debug_instance_watchpoint_write_add(
+        (WASMDebugInstance *)server->thread->debug_instance, addr, length);
+    write_packet(server, ret ? "OK" : "EO1");
+}
+
+void
+handle_watchpoint_write_remove(WASMGDBServer *server, uint64 addr,
+                               size_t length)
+{
+    bool ret = wasm_debug_instance_watchpoint_write_remove(
+        (WASMDebugInstance *)server->thread->debug_instance, addr, length);
+    write_packet(server, ret ? "OK" : "EO1");
+}
+
+void
+handle_watchpoint_read_add(WASMGDBServer *server, uint64 addr, size_t length)
+{
+    bool ret = wasm_debug_instance_watchpoint_read_add(
+        (WASMDebugInstance *)server->thread->debug_instance, addr, length);
+    write_packet(server, ret ? "OK" : "EO1");
+}
+
+void
+handle_watchpoint_read_remove(WASMGDBServer *server, uint64 addr, size_t length)
+{
+    bool ret = wasm_debug_instance_watchpoint_read_remove(
+        (WASMDebugInstance *)server->thread->debug_instance, addr, length);
+    write_packet(server, ret ? "OK" : "EO1");
+}
+
+void
 handle_add_break(WASMGDBServer *server, char *payload)
 {
+    int arg_c;
     size_t type, length;
     uint64 addr;
 
-    if (sscanf(payload, "%zx,%" SCNx64 ",%zx", &type, &addr, &length) == 3) {
-        if (type == eBreakpointSoftware) {
-            bool ret = wasm_debug_instance_add_breakpoint(
-                (WASMDebugInstance *)server->thread->debug_instance, addr,
-                length);
-            if (ret)
-                write_packet(server, "OK");
-            else
-                write_packet(server, "E01");
-            return;
-        }
+    if ((arg_c = sscanf(payload, "%zx,%" SCNx64 ",%zx", &type, &addr, &length))
+        != 3) {
+        LOG_ERROR("Unsupported number of add break arguments %d", arg_c);
+        write_packet(server, "");
+        return;
     }
-    write_packet(server, "");
+
+    switch (type) {
+        case eBreakpointSoftware:
+            handle_breakpoint_software_add(server, addr, length);
+            break;
+        case eWatchpointWrite:
+            handle_watchpoint_write_add(server, addr, length);
+            break;
+        case eWatchpointRead:
+            handle_watchpoint_read_add(server, addr, length);
+            break;
+        case eWatchpointReadWrite:
+            handle_watchpoint_write_add(server, addr, length);
+            handle_watchpoint_read_add(server, addr, length);
+            break;
+        default:
+            LOG_ERROR("Unsupported breakpoint type %d", type);
+            write_packet(server, "");
+            break;
+    }
 }
 
 void
 handle_remove_break(WASMGDBServer *server, char *payload)
 {
+    int arg_c;
     size_t type, length;
     uint64 addr;
 
-    if (sscanf(payload, "%zx,%" SCNx64 ",%zx", &type, &addr, &length) == 3) {
-        if (type == eBreakpointSoftware) {
-            bool ret = wasm_debug_instance_remove_breakpoint(
-                (WASMDebugInstance *)server->thread->debug_instance, addr,
-                length);
-            if (ret)
-                write_packet(server, "OK");
-            else
-                write_packet(server, "E01");
-            return;
-        }
+    if ((arg_c = sscanf(payload, "%zx,%" SCNx64 ",%zx", &type, &addr, &length))
+        != 3) {
+        LOG_ERROR("Unsupported number of remove break arguments %d", arg_c);
+        write_packet(server, "");
+        return;
     }
-    write_packet(server, "");
+
+    switch (type) {
+        case eBreakpointSoftware:
+            handle_breakpoint_software_remove(server, addr, length);
+            break;
+        case eWatchpointWrite:
+            handle_watchpoint_write_remove(server, addr, length);
+            break;
+        case eWatchpointRead:
+            handle_watchpoint_read_remove(server, addr, length);
+            break;
+        case eWatchpointReadWrite:
+            handle_watchpoint_write_remove(server, addr, length);
+            handle_watchpoint_read_remove(server, addr, length);
+            break;
+        default:
+            LOG_ERROR("Unsupported breakpoint type %d", type);
+            write_packet(server, "");
+            break;
+    }
 }
 
 void

@@ -392,6 +392,8 @@ wasm_debug_instance_create(WASMCluster *cluster, int32 port)
     }
 
     bh_list_init(&instance->break_point_list);
+    bh_list_init(&instance->watch_point_list_read);
+    bh_list_init(&instance->watch_point_list_write);
 
     instance->cluster = cluster;
     exec_env = bh_list_first_elem(&cluster->exec_env_list);
@@ -452,6 +454,23 @@ wasm_debug_instance_destroy_breakpoints(WASMDebugInstance *instance)
     }
 }
 
+static void
+wasm_debug_instance_destroy_watchpoints(WASMDebugInstance *instance,
+                                        bh_list *watchpoints)
+{
+    WASMDebugWatchPoint *watchpoint, *next;
+
+    watchpoint = bh_list_first_elem(watchpoints);
+    while (watchpoint) {
+        next = bh_list_elem_next(watchpoint);
+
+        bh_list_remove(watchpoints, watchpoint);
+        wasm_runtime_free(watchpoint);
+
+        watchpoint = next;
+    }
+}
+
 void
 wasm_debug_instance_destroy(WASMCluster *cluster)
 {
@@ -472,6 +491,10 @@ wasm_debug_instance_destroy(WASMCluster *cluster)
 
         /* destroy all breakpoints */
         wasm_debug_instance_destroy_breakpoints(instance);
+        wasm_debug_instance_destroy_watchpoints(
+            instance, &instance->watch_point_list_read);
+        wasm_debug_instance_destroy_watchpoints(
+            instance, &instance->watch_point_list_write);
 
         os_mutex_destroy(&instance->wait_lock);
         os_cond_destroy(&instance->wait_cond);
@@ -993,6 +1016,65 @@ wasm_debug_instance_remove_breakpoint(WASMDebugInstance *instance, uint64 addr,
         }
     }
     return true;
+}
+
+static bool
+add_watchpoint(bh_list *list, uint64 addr, uint64 length)
+{
+    WASMDebugWatchPoint *watchpoint;
+    if (!(watchpoint = wasm_runtime_malloc(sizeof(WASMDebugWatchPoint)))) {
+        LOG_ERROR("WASM Debug Engine error: failed to allocate memory for "
+                  "watchpoint");
+        return false;
+    }
+    memset(watchpoint, 0, sizeof(WASMDebugWatchPoint));
+    watchpoint->addr = addr;
+    watchpoint->length = length;
+    bh_list_insert(list, watchpoint);
+    return true;
+}
+
+static bool
+remove_watchpoint(bh_list *list, uint64 addr, uint64 length)
+{
+    WASMDebugWatchPoint *watchpoint = bh_list_first_elem(list);
+    while (watchpoint) {
+        WASMDebugWatchPoint *next = bh_list_elem_next(watchpoint);
+        if (watchpoint->addr == addr && watchpoint->length == length) {
+            bh_list_remove(list, watchpoint);
+            wasm_runtime_free(watchpoint);
+        }
+        watchpoint = next;
+    }
+    return true;
+}
+
+bool
+wasm_debug_instance_watchpoint_write_add(WASMDebugInstance *instance,
+                                         uint64 addr, uint64 length)
+{
+    return add_watchpoint(&instance->watch_point_list_write, addr, length);
+}
+
+bool
+wasm_debug_instance_watchpoint_write_remove(WASMDebugInstance *instance,
+                                            uint64 addr, uint64 length)
+{
+    return remove_watchpoint(&instance->watch_point_list_write, addr, length);
+}
+
+bool
+wasm_debug_instance_watchpoint_read_add(WASMDebugInstance *instance,
+                                        uint64 addr, uint64 length)
+{
+    return add_watchpoint(&instance->watch_point_list_read, addr, length);
+}
+
+bool
+wasm_debug_instance_watchpoint_read_remove(WASMDebugInstance *instance,
+                                           uint64 addr, uint64 length)
+{
+    return remove_watchpoint(&instance->watch_point_list_read, addr, length);
 }
 
 bool
