@@ -95,8 +95,8 @@ typedef float64 CellType_F64;
 #define CHECK_WRITE_WATCHPOINT(addr, offset) \
     CHECK_WATCHPOINT(watch_point_list_write, WASM_ADDR_OFFSET(addr + offset))
 #else
-#define CHECK_READ_WATCHPOINT(addr, offset)
-#define CHECK_WRITE_WATCHPOINT(addr, offset)
+#define CHECK_READ_WATCHPOINT(addr, offset) (void)0
+#define CHECK_WRITE_WATCHPOINT(addr, offset) (void)0
 #endif
 
 static inline uint32
