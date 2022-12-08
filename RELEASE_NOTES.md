@@ -1,17 +1,3 @@
-## WAMR-X.Y.Z
-
-### Breaking Changes
-
-### New Features
-
-### Bug Fixes
-
-### Enhancements
-
-### Others
-
----
-
 ## WAMR-1.1.2
 
 ### Breaking Changes
@@ -223,5 +209,19 @@ Enable spec test on nuttx and daily run it
 - Fix multi-module and some other issues
 - Fix build issue of the meshoptimizer workload
 - Fix build error on alios platform
+
+---
+
+## WAMR-X.Y.Z
+
+### Breaking Changes
+
+### New Features
+
+### Bug Fixes
+
+### Enhancements
+
+### Others
 
 ---
