@@ -36,6 +36,12 @@ typedef struct WASMDebugBreakPoint {
     uint64 orignal_data;
 } WASMDebugBreakPoint;
 
+typedef struct WASMDebugWatchPoint {
+    bh_list_link next;
+    uint64 addr;
+    uint64 length;
+} WASMDebugWatchPoint;
+
 typedef enum debug_state_t {
     /* Debugger state conversion sequence:
      *   DBG_LAUNCHING ---> APP_STOPPED <---> APP_RUNNING
@@ -56,6 +62,8 @@ struct WASMDebugInstance {
     struct WASMDebugInstance *next;
     WASMDebugControlThread *control_thread;
     bh_list break_point_list;
+    bh_list watch_point_list_read;
+    bh_list watch_point_list_write;
     WASMCluster *cluster;
     uint32 id;
     korp_tid current_tid;
@@ -183,6 +191,22 @@ wasm_debug_instance_add_breakpoint(WASMDebugInstance *instance, uint64 addr,
 bool
 wasm_debug_instance_remove_breakpoint(WASMDebugInstance *instance, uint64 addr,
                                       uint64 length);
+
+bool
+wasm_debug_instance_watchpoint_write_add(WASMDebugInstance *instance,
+                                         uint64 addr, uint64 length);
+
+bool
+wasm_debug_instance_watchpoint_write_remove(WASMDebugInstance *instance,
+                                            uint64 addr, uint64 length);
+
+bool
+wasm_debug_instance_watchpoint_read_add(WASMDebugInstance *instance,
+                                        uint64 addr, uint64 length);
+
+bool
+wasm_debug_instance_watchpoint_read_remove(WASMDebugInstance *instance,
+                                           uint64 addr, uint64 length);
 
 bool
 wasm_debug_instance_on_failure(WASMDebugInstance *instance);
