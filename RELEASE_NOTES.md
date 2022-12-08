@@ -15,8 +15,12 @@
 ## WAMR-1.1.2
 
 ### Breaking Changes
-Remove the MCJIT mode, replace it with ORC JIT eager mode
-Add option to pass user data to allocator functions
+Remove the LLVM MCJIT mode, replace it with LLVM ORC JIT eager mode
+Add option to pass user data to the allocator functions of RuntimeInitArgs
+Change how iwasm returns:
+  return 1 if an exception was thrown, else
+  return the wasi exit code if the wasm app is a wasi app, else
+  keep the same behavior as before
 Enable bulk memory by default
 
 ### New Features
