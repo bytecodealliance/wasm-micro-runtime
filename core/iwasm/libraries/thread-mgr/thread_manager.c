@@ -77,8 +77,9 @@ traverse_list(bh_list *l, list_visitor visitor, void *user_data)
 }
 
 static bool
-allocate_aux_stack(WASMCluster *cluster, uint32 *start, uint32 *size)
+allocate_aux_stack(WASMExecEnv *exec_env, uint32 *start, uint32 *size)
 {
+    WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
     uint32 i;
 
     /* If the module doesn't have aux stack info,
@@ -103,8 +104,9 @@ allocate_aux_stack(WASMCluster *cluster, uint32 *start, uint32 *size)
 }
 
 static bool
-free_aux_stack(WASMCluster *cluster, uint32 start)
+free_aux_stack(WASMExecEnv *exec_env, uint32 start)
 {
+    WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
     uint32 i;
 
     for (i = 0; i < cluster_max_thread_num; i++) {
@@ -407,7 +409,7 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
     if (!new_exec_env)
         goto fail1;
 
-    if (!allocate_aux_stack(cluster, &aux_stack_start, &aux_stack_size)) {
+    if (!allocate_aux_stack(exec_env, &aux_stack_start, &aux_stack_size)) {
         LOG_ERROR("thread manager error: "
                   "failed to allocate aux stack space for new thread");
         goto fail2;
@@ -426,7 +428,7 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
 
 fail3:
     /* free the allocated aux stack space */
-    free_aux_stack(cluster, aux_stack_start);
+    free_aux_stack(exec_env, aux_stack_start);
 fail2:
     wasm_exec_env_destroy(new_exec_env);
 fail1:
@@ -443,7 +445,7 @@ wasm_cluster_destroy_spawned_exec_env(WASMExecEnv *exec_env)
     bh_assert(cluster != NULL);
 
     /* Free aux stack space */
-    free_aux_stack(cluster, exec_env->aux_stack_bottom.bottom);
+    free_aux_stack(exec_env, exec_env->aux_stack_bottom.bottom);
     wasm_cluster_del_exec_env(cluster, exec_env);
     wasm_exec_env_destroy_internal(exec_env);
 
@@ -469,7 +471,7 @@ thread_manager_start_routine(void *arg)
 
     /* Routine exit */
     /* Free aux stack space */
-    free_aux_stack(cluster, exec_env->aux_stack_bottom.bottom);
+    free_aux_stack(exec_env, exec_env->aux_stack_bottom.bottom);
     /* Detach the native thread here to ensure the resources are freed */
     wasm_cluster_detach_thread(exec_env);
 #if WASM_ENABLE_DEBUG_INTERP != 0
@@ -501,7 +503,7 @@ wasm_cluster_create_thread(WASMExecEnv *exec_env,
     if (!new_exec_env)
         return -1;
 
-    if (!allocate_aux_stack(cluster, &aux_stack_start, &aux_stack_size)) {
+    if (!allocate_aux_stack(exec_env, &aux_stack_start, &aux_stack_size)) {
         LOG_ERROR("thread manager error: "
                   "failed to allocate aux stack space for new thread");
         goto fail1;
@@ -532,7 +534,7 @@ fail3:
     wasm_cluster_del_exec_env(cluster, new_exec_env);
 fail2:
     /* free the allocated aux stack space */
-    free_aux_stack(cluster, aux_stack_start);
+    free_aux_stack(exec_env, aux_stack_start);
 fail1:
     wasm_exec_env_destroy(new_exec_env);
     return -1;
@@ -762,7 +764,7 @@ wasm_cluster_exit_thread(WASMExecEnv *exec_env, void *retval)
 #endif
     /* App exit the thread, free the resources before exit native thread */
     /* Free aux stack space */
-    free_aux_stack(cluster, exec_env->aux_stack_bottom.bottom);
+    free_aux_stack(exec_env, exec_env->aux_stack_bottom.bottom);
     /* Detach the native thread here to ensure the resources are freed */
     wasm_cluster_detach_thread(exec_env);
     /* Remove and destroy exec_env */
