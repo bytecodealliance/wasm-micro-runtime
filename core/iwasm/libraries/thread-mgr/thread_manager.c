@@ -80,7 +80,7 @@ static bool
 allocate_aux_stack(WASMExecEnv *exec_env, uint32 *start, uint32 *size)
 {
     WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
-#if WASM_ENABLE_LIB_WASI_THREADS == 1
+#if WASM_ENABLE_HEAP_AUX_STACK_ALLOCATION != 0
     WASMModuleInstanceCommon *module_inst =
         wasm_exec_env_get_module_inst(exec_env);
 
@@ -116,7 +116,7 @@ allocate_aux_stack(WASMExecEnv *exec_env, uint32 *start, uint32 *size)
 static bool
 free_aux_stack(WASMExecEnv *exec_env, uint32 start)
 {
-#if WASM_ENABLE_LIB_WASI_THREADS == 1
+#if WASM_ENABLE_HEAP_AUX_STACK_ALLOCATION != 0
     WASMModuleInstanceCommon *module_inst =
         wasm_exec_env_get_module_inst(exec_env);
 
@@ -179,7 +179,7 @@ wasm_cluster_create(WASMExecEnv *exec_env)
         return cluster;
     }
 
-#if WASM_ENABLE_LIB_WASI_THREADS == 1
+#if WASM_ENABLE_HEAP_AUX_STACK_ALLOCATION != 0
     cluster->stack_size = aux_stack_size;
 #else
     cluster->stack_size = aux_stack_size / (cluster_max_thread_num + 1);
@@ -196,7 +196,7 @@ wasm_cluster_create(WASMExecEnv *exec_env)
                                      cluster->stack_size))
         goto fail;
 
-#if WASM_ENABLE_LIB_WASI_THREADS != 1
+#if WASM_ENABLE_HEAP_AUX_STACK_ALLOCATION == 0
     if (cluster_max_thread_num != 0) {
         uint64 total_size = cluster_max_thread_num * sizeof(uint32);
         uint32 i;
@@ -261,7 +261,7 @@ wasm_cluster_destroy(WASMCluster *cluster)
 
     os_mutex_destroy(&cluster->lock);
 
-#if WASM_ENABLE_LIB_WASI_THREADS != 1
+#if WASM_ENABLE_HEAP_AUX_STACK_ALLOCATION == 0
     if (cluster->stack_tops)
         wasm_runtime_free(cluster->stack_tops);
     if (cluster->stack_segment_occupied)

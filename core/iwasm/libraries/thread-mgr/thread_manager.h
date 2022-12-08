@@ -26,7 +26,7 @@ struct WASMCluster {
     korp_mutex lock;
     bh_list exec_env_list;
 
-#if WASM_ENABLE_LIB_WASI_THREADS != 1
+#if WASM_ENABLE_HEAP_AUX_STACK_ALLOCATION == 0
     /* The aux stack of a module with shared memory will be
         divided into several segments. This array store the
         stack top of different segments */
