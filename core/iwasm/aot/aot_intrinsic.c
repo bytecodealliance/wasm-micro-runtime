@@ -714,6 +714,7 @@ aot_intrinsic_fill_capability_flags(AOTCompContext *comp_ctx)
         }
     }
     else if (!strncmp(comp_ctx->target_arch, "riscv", 5)) {
+        add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I32_CONST);
         /*
          * Note: Use builtin intrinsics since hardware float operation
          * will cause rodata relocation
