@@ -60,6 +60,8 @@ extern "C" {
 #define AOT_INTRINSIC_FLAG_F32_CONST    AOT_INTRINSIC_FLAG(0, 26)
 #define AOT_INTRINSIC_FLAG_I32_CONST    AOT_INTRINSIC_FLAG(0, 27)
 #define AOT_INTRINSIC_FLAG_I32_DIV_U    AOT_INTRINSIC_FLAG(0, 28)
+#define AOT_INTRINSIC_FLAG_I32_REM_S    AOT_INTRINSIC_FLAG(0, 29)
+#define AOT_INTRINSIC_FLAG_I32_REM_U    AOT_INTRINSIC_FLAG(0, 30)
 
 #define AOT_INTRINSIC_FLAG_F64_FADD     AOT_INTRINSIC_FLAG(1, 0)
 #define AOT_INTRINSIC_FLAG_F64_FSUB     AOT_INTRINSIC_FLAG(1, 1)
@@ -259,6 +261,12 @@ aot_intrinsic_i64_div_s(int64 l, int64 r);
 
 uint32
 aot_intrinsic_i32_div_u(uint32 l, uint32 r);
+
+int32
+aot_intrinsic_i32_rem_s(int32 l, int32 r);
+
+uint32
+aot_intrinsic_i32_rem_u(uint32 l, uint32 r);
 
 uint64
 aot_intrinsic_i64_div_u(uint64 l, uint64 r);
