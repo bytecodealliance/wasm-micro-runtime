@@ -115,6 +115,8 @@ typedef struct {
     REG_SYM(aot_intrinsic_i64_bit_or),    \
     REG_SYM(aot_intrinsic_i64_bit_and),   \
     REG_SYM(aot_intrinsic_i32_div_u),     \
+    REG_SYM(aot_intrinsic_i32_rem_s),     \
+    REG_SYM(aot_intrinsic_i32_rem_u),     \
 
 #define REG_COMMON_SYMBOLS                \
     REG_SYM(aot_set_exception_with_id),   \
