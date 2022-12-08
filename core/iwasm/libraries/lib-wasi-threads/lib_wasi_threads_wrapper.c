@@ -4,7 +4,6 @@
  */
 
 #include "bh_log.h"
-#include "wasmtime_ssp.h"
 #include "thread_manager.h"
 
 #if WASM_ENABLE_INTERP != 0
@@ -57,9 +56,6 @@ thread_start(void *arg)
         if (wasm_runtime_get_exception(module_inst))
             wasm_cluster_spread_exception(exec_env);
     }
-
-    /* routine exit, destroy instance */
-    wasm_runtime_deinstantiate_internal(module_inst, true);
 
     wasm_runtime_free(thread_arg);
     exec_env->thread_arg = NULL;

@@ -2443,14 +2443,17 @@ wasm_set_aux_stack(WASMExecEnv *exec_env, uint32 start_offset, uint32 size)
     WASMModuleInstance *module_inst =
         (WASMModuleInstance *)exec_env->module_inst;
     uint32 stack_top_idx = module_inst->module->aux_stack_top_global_index;
+
+    /* For WASI threads aux space is allocated on the heap */
+#if WASM_ENABLE_LIB_WASI_THREADS != 1
+    /* Check the aux stack space */
     uint32 data_end = module_inst->module->aux_data_end;
     uint32 stack_bottom = module_inst->module->aux_stack_bottom;
     bool is_stack_before_data = stack_bottom < data_end ? true : false;
-
-    /* Check the aux stack space, currently we don't allocate space in heap */
     if ((is_stack_before_data && (size > start_offset))
         || ((!is_stack_before_data) && (start_offset - data_end < size)))
         return false;
+#endif
 
     if (stack_top_idx != (uint32)-1) {
         /* The aux stack top is a wasm global,

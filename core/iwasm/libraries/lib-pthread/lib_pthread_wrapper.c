@@ -504,7 +504,6 @@ pthread_start_routine(void *arg)
     info_node->exec_env = exec_env;
     info_node->u.thread = exec_env->handle;
     if (!append_thread_info_node(info_node)) {
-        wasm_runtime_deinstantiate_internal(module_inst, true);
         delete_thread_info_node(info_node);
         os_cond_signal(&parent_exec_env->wait_cond);
         os_mutex_unlock(&parent_exec_env->wait_lock);
@@ -526,9 +525,6 @@ pthread_start_routine(void *arg)
 
     /* destroy pthread key values */
     call_key_destructor(exec_env);
-
-    /* routine exit, destroy instance */
-    wasm_runtime_deinstantiate_internal(module_inst, true);
 
     wasm_runtime_free(routine_args);
 
