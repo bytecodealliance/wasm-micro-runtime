@@ -541,7 +541,7 @@ _jit_realloc(void *ptr, unsigned new_size, unsigned old_size)
 }
 
 static unsigned
-hash_of_const(unsigned kind, unsigned size, void *val)
+hash_of_const(unsigned kind, unsigned size, const void *val)
 {
     uint8 *p = (uint8 *)val, *end = p + size;
     unsigned hash = kind;
@@ -588,7 +588,7 @@ next_of_const(JitCompContext *cc, JitReg reg)
  * @return a constant register containing the value
  */
 static JitReg
-_jit_cc_new_const(JitCompContext *cc, int kind, unsigned size, void *val)
+_jit_cc_new_const(JitCompContext *cc, int kind, unsigned size, const void *val)
 {
     unsigned num = cc->_const_val._num[kind], slot;
     unsigned capacity = cc->_const_val._capacity[kind];
@@ -694,6 +694,12 @@ jit_cc_new_const_F64(JitCompContext *cc, double val)
     _JIT_CC_NEW_CONST_HELPER(F64, double, val);
 }
 
+JitReg
+jit_cc_new_const_V128(JitCompContext *cc, const uint8 *val)
+{
+    return _jit_cc_new_const(cc, JIT_REG_KIND_V128, 16, val);
+}
+
 #undef _JIT_CC_NEW_CONST_HELPER
 
 #define _JIT_CC_GET_CONST_HELPER(KIND, TYPE)                               \
@@ -740,6 +746,14 @@ double
 jit_cc_get_const_F64(JitCompContext *cc, JitReg reg)
 {
     _JIT_CC_GET_CONST_HELPER(F64, double);
+}
+
+const uint8 *
+jit_cc_get_const_V128(JitCompContext *cc, JitReg reg)
+{
+    bh_assert(jit_reg_kind(reg) == JIT_REG_KIND_V128);
+    bh_assert(jit_reg_is_const(reg));
+    return (const uint8 *)address_of_const(cc, reg, 16);
 }
 
 #undef _JIT_CC_GET_CONST_HELPER
@@ -1290,6 +1304,11 @@ jit_cc_pop_value(JitCompContext *cc, uint8 type, JitReg *p_value)
         case VALUE_TYPE_F64:
             value = pop_f64(cc->jit_frame);
             break;
+#if WASM_ENABLE_SIMD != 0
+        case VALUE_TYPE_V128:
+            value = pop_v128(cc->jit_frame);
+            break;
+#endif
         default:
             bh_assert(0);
             break;
@@ -1337,6 +1356,11 @@ jit_cc_push_value(JitCompContext *cc, uint8 type, JitReg value)
         case VALUE_TYPE_F64:
             push_f64(cc->jit_frame, value);
             break;
+#if WASM_ENABLE_SIMD != 0
+        case VALUE_TYPE_V128:
+            push_v128(cc->jit_frame, value);
+            break;
+#endif
     }
 
     return true;

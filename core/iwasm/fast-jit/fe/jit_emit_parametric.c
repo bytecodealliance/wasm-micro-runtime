@@ -39,7 +39,10 @@ pop_value_from_wasm_stack(JitCompContext *cc, bool is_32bit, JitReg *p_value,
 #if WASM_ENABLE_REF_TYPES != 0
              || type == VALUE_TYPE_FUNCREF || type == VALUE_TYPE_EXTERNREF
 #endif
-             || type == VALUE_TYPE_V128)) {
+#if WASM_ENABLE_SIMD != 0
+             || type == VALUE_TYPE_V128
+#endif
+             )) {
         jit_set_last_error(cc, "invalid WASM stack data type.");
         return false;
     }
@@ -66,6 +69,11 @@ pop_value_from_wasm_stack(JitCompContext *cc, bool is_32bit, JitReg *p_value,
         case VALUE_TYPE_F64:
             value = pop_f64(cc->jit_frame);
             break;
+#if WASM_ENABLE_SIMD != 0
+        case VALUE_TYPE_V128:
+            value = pop_v128(cc->jit_frame);
+            break;
+#endif
         default:
             bh_assert(0);
             return false;
@@ -116,6 +124,11 @@ jit_compile_op_select(JitCompContext *cc, bool is_select_32)
         case VALUE_TYPE_F64:
             selected = jit_cc_new_reg_F64(cc);
             break;
+#if WASM_ENABLE_SIMD != 0
+        case VALUE_TYPE_V128:
+            selected = jit_cc_new_reg_V128(cc);
+            break;
+#endif
         default:
             bh_assert(0);
             return false;

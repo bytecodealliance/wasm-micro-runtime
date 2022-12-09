@@ -57,6 +57,11 @@ jit_compile_op_get_local(JitCompContext *cc, uint32 local_idx)
         case VALUE_TYPE_F64:
             value = local_f64(cc->jit_frame, local_offset);
             break;
+#if WASM_ENABLE_SIMD != 0
+        case VALUE_TYPE_V128:
+            value = local_v128(cc->jit_frame, local_offset);
+            break;
+#endif
         default:
             bh_assert(0);
             break;
@@ -103,6 +108,12 @@ jit_compile_op_set_local(JitCompContext *cc, uint32 local_idx)
             POP_F64(value);
             set_local_f64(cc->jit_frame, local_offset, value);
             break;
+#if WASM_ENABLE_SIMD != 0
+        case VALUE_TYPE_V128:
+            POP_V128(value);
+            set_local_v128(cc->jit_frame, local_offset, value);
+            break;
+#endif
         default:
             bh_assert(0);
             break;
@@ -152,6 +163,13 @@ jit_compile_op_tee_local(JitCompContext *cc, uint32 local_idx)
             set_local_f64(cc->jit_frame, local_offset, value);
             PUSH_F64(value);
             break;
+#if WASM_ENABLE_SIMD != 0
+        case VALUE_TYPE_V128:
+            POP_V128(value);
+            set_local_v128(cc->jit_frame, local_offset, value);
+            PUSH_V128(value);
+            break;
+#endif
         default:
             bh_assert(0);
             goto fail;
@@ -224,6 +242,15 @@ jit_compile_op_get_global(JitCompContext *cc, uint32 global_idx)
                      NEW_CONST(I32, data_offset));
             break;
         }
+#if WASM_ENABLE_SIMD != 0
+        case VALUE_TYPE_V128:
+        {
+            value = jit_cc_new_reg_V128(cc);
+            GEN_INSN(LDV128, value, get_module_inst_reg(cc->jit_frame),
+                     NEW_CONST(I32, data_offset));
+            break;
+        }
+#endif
         default:
         {
             jit_set_last_error(cc, "unexpected global type");
@@ -299,6 +326,15 @@ jit_compile_op_set_global(JitCompContext *cc, uint32 global_idx,
                      NEW_CONST(I32, data_offset));
             break;
         }
+#if WASM_ENABLE_SIMD != 0
+        case VALUE_TYPE_V128:
+        {
+            POP_V128(value);
+            GEN_INSN(STV128, value, get_module_inst_reg(cc->jit_frame),
+                     NEW_CONST(I32, data_offset));
+            break;
+        }
+#endif
         default:
         {
             jit_set_last_error(cc, "unexpected global type");

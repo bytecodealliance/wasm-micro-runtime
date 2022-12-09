@@ -58,6 +58,9 @@ typedef struct JitInterpSwitchInfo {
         struct {
             uint32 ival[2];
             uint32 fval[2];
+#if WASM_ENABLE_SIMD != 0
+            uint32 v128val[4];
+#endif
             uint32 last_return_type;
         } ret;
     } out;

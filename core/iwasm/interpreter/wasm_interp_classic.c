@@ -3931,6 +3931,17 @@ fast_jit_call_func_bytecode(WASMExecEnv *exec_env,
                 *(frame->sp - function->ret_cell_num + 1) =
                     info.out.ret.fval[1];
                 break;
+#if WASM_ENABLE_SIMD != 0
+            case VALUE_TYPE_V128:
+                *(frame->sp - function->ret_cell_num) = info.out.ret.v128val[0];
+                *(frame->sp - function->ret_cell_num + 1) =
+                    info.out.ret.v128val[1];
+                *(frame->sp - function->ret_cell_num + 2) =
+                    info.out.ret.v128val[2];
+                *(frame->sp - function->ret_cell_num + 3) =
+                    info.out.ret.v128val[3];
+                break;
+#endif
             default:
                 bh_assert(0);
                 break;

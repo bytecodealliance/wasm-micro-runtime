@@ -50,6 +50,13 @@ pre_call(JitCompContext *cc, const WASMType *func_type)
                 outs_off -= 8;
                 GEN_INSN(STF64, value, cc->fp_reg, NEW_CONST(I32, outs_off));
                 break;
+#if WASM_ENABLE_SIMD != 0
+            case VALUE_TYPE_V128:
+                POP_V128(value);
+                outs_off -= 16;
+                GEN_INSN(STV128, value, cc->fp_reg, NEW_CONST(I32, outs_off));
+                break;
+#endif
             default:
                 bh_assert(0);
                 goto fail;
@@ -131,6 +138,21 @@ post_return(JitCompContext *cc, const WASMType *func_type, JitReg first_res,
                 PUSH_F64(value);
                 n += 2;
                 break;
+#if WASM_ENABLE_SIMD != 0
+            case VALUE_TYPE_V128:
+                if (i == 0 && first_res) {
+                    bh_assert(jit_reg_kind(first_res) == JIT_REG_KIND_V128);
+                    value = first_res;
+                }
+                else {
+                    value = jit_cc_new_reg_V128(cc);
+                    GEN_INSN(LDV128, value, cc->fp_reg,
+                             NEW_CONST(I32, offset_of_local(n)));
+                }
+                PUSH_V128(value);
+                n += 4;
+                break;
+#endif
             default:
                 bh_assert(0);
                 goto fail;
@@ -175,6 +197,12 @@ pre_load(JitCompContext *cc, JitReg *argvs, const WASMType *func_type)
                 POP_F64(value);
                 argvs[func_type->param_count - 1 - i] = value;
                 break;
+#if WASM_ENABLE_SIMD != 0
+            case VALUE_TYPE_V128:
+                POP_V128(value);
+                argvs[func_type->param_count - 1 - i] = value;
+                break;
+#endif
             default:
                 bh_assert(0);
                 goto fail;
@@ -205,6 +233,10 @@ create_first_res_reg(JitCompContext *cc, const WASMType *func_type)
                 return jit_cc_new_reg_F32(cc);
             case VALUE_TYPE_F64:
                 return jit_cc_new_reg_F64(cc);
+#if WASM_ENABLE_SIMD != 0
+            case VALUE_TYPE_V128:
+                return jit_cc_new_reg_V128(cc);
+#endif
             default:
                 bh_assert(0);
                 return 0;
@@ -624,23 +656,31 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
                          NEW_CONST(I32, offset_of_local(n)));
                 break;
             case VALUE_TYPE_I64:
-                res = jit_cc_new_reg_I32(cc);
+                res = jit_cc_new_reg_I64(cc);
                 GEN_INSN(LDI64, res, argv, NEW_CONST(I32, 0));
                 GEN_INSN(STI64, res, cc->fp_reg,
                          NEW_CONST(I32, offset_of_local(n)));
                 break;
             case VALUE_TYPE_F32:
-                res = jit_cc_new_reg_I32(cc);
+                res = jit_cc_new_reg_F32(cc);
                 GEN_INSN(LDF32, res, argv, NEW_CONST(I32, 0));
                 GEN_INSN(STF32, res, cc->fp_reg,
                          NEW_CONST(I32, offset_of_local(n)));
                 break;
             case VALUE_TYPE_F64:
-                res = jit_cc_new_reg_I32(cc);
+                res = jit_cc_new_reg_F64(cc);
                 GEN_INSN(LDF64, res, argv, NEW_CONST(I32, 0));
                 GEN_INSN(STF64, res, cc->fp_reg,
                          NEW_CONST(I32, offset_of_local(n)));
                 break;
+#if WASM_ENABLE_SIMD != 0
+            case VALUE_TYPE_V128:
+                res = jit_cc_new_reg_V128(cc);
+                GEN_INSN(LDV128, res, argv, NEW_CONST(I32, 0));
+                GEN_INSN(STV128, res, cc->fp_reg,
+                         NEW_CONST(I32, offset_of_local(n)));
+                break;
+#endif
             default:
                 bh_assert(0);
                 goto fail;
@@ -695,6 +735,11 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
             case VALUE_TYPE_F64:
                 res = jit_cc_new_reg_F64(cc);
                 break;
+#if WASM_ENABLE_SIMD != 0
+            case VALUE_TYPE_V128:
+                res = jit_cc_new_reg_V128(cc);
+                break;
+#endif
             default:
                 bh_assert(0);
                 goto fail;
@@ -726,6 +771,12 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
                 GEN_INSN(STF64, res, cc->fp_reg,
                          NEW_CONST(I32, offset_of_local(n)));
                 break;
+#if WASM_ENABLE_SIMD != 0
+            case VALUE_TYPE_V128:
+                GEN_INSN(STV128, res, cc->fp_reg,
+                         NEW_CONST(I32, offset_of_local(n)));
+                break;
+#endif
             default:
                 bh_assert(0);
                 goto fail;

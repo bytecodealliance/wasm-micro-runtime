@@ -107,6 +107,12 @@ load_block_params(JitCompContext *cc, JitBlock *block)
                 value = gen_load_f64(jit_frame, offset);
                 offset += 2;
                 break;
+#if WASM_ENABLE_SIMD != 0
+            case VALUE_TYPE_V128:
+                value = gen_load_v128(jit_frame, offset);
+                offset += 4;
+                break;
+#endif
             default:
                 bh_assert(0);
                 break;
@@ -153,6 +159,12 @@ load_block_results(JitCompContext *cc, JitBlock *block)
                 value = gen_load_f64(jit_frame, offset);
                 offset += 2;
                 break;
+#if WASM_ENABLE_SIMD != 0
+            case VALUE_TYPE_V128:
+                value = gen_load_v128(jit_frame, offset);
+                offset += 4;
+                break;
+#endif
             default:
                 bh_assert(0);
                 break;
@@ -374,6 +386,18 @@ copy_block_arities(JitCompContext *cc, JitReg dst_frame_sp, uint8 *dst_types,
                 offset_src += 2;
                 offset_dst += 2;
                 break;
+#if WASM_ENABLE_SIMD != 0
+            case VALUE_TYPE_V128:
+                value = gen_load_v128(jit_frame, offset_src);
+                if (i == 0 && p_first_res_reg)
+                    *p_first_res_reg = value;
+                else
+                    GEN_INSN(STV128, value, dst_frame_sp,
+                             NEW_CONST(I32, offset_dst * 4));
+                offset_src += 4;
+                offset_dst += 4;
+                break;
+#endif
             default:
                 bh_assert(0);
                 break;
