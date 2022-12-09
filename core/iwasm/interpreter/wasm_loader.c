@@ -7752,8 +7752,8 @@ re_scan:
 
                     if (ref_type == VALUE_TYPE_V128) {
 #if WASM_ENABLE_SIMD == 0                                         \
-    || (WASM_ENABLE_WAMR_COMPILER == 0 && WASM_ENABLE_JIT == 0 && \
-        || WASM_ENABLE_FAST_JIT == 0)
+    || (WASM_ENABLE_WAMR_COMPILER == 0 && WASM_ENABLE_JIT == 0 \
+        && WASM_ENABLE_FAST_JIT == 0)
                         set_error_buf(error_buf, error_buf_size,
                                       "SIMD v128 type isn't supported");
                         goto fail;
