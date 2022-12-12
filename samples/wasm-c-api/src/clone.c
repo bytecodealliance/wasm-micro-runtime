@@ -522,6 +522,7 @@ main()
     pthread_mutex_unlock(&ready_go_lock);
     pthread_cond_broadcast(&ready_go_cond);
 
+    sleep(3);
     for (size_t i = 0; i < sizeof(tids) / sizeof(tids[0]); i++) {
         if (tids[i] != 0)
             pthread_join(tids[i], NULL);
