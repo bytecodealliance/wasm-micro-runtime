@@ -2229,11 +2229,11 @@ aot_get_native_symbol_index(AOTCompContext *comp_ctx, const char *symbol)
 
     if (idx < 0) {
         if (comp_ctx->pointer_size == sizeof(uint32)
-            && !strncmp(symbol, "f64#", 4)) {
+            && (!strncmp(symbol, "f64#", 4) || !strncmp(symbol, "i64#", 4))) {
             idx = bh_list_length(&comp_ctx->native_symbols);
             /* Add 4 bytes padding on 32-bit target to make sure that
                the f64 const is stored on 8-byte aligned address */
-            if ((idx & 1) && !strncmp(comp_ctx->target_arch, "i386", 4)) {
+            if (idx & 1) {
                 if (!insert_native_symbol(comp_ctx, "__ignore", idx)) {
                     return -1;
                 }
@@ -2246,7 +2246,7 @@ aot_get_native_symbol_index(AOTCompContext *comp_ctx, const char *symbol)
         }
 
         if (comp_ctx->pointer_size == sizeof(uint32)
-            && !strncmp(symbol, "f64#", 4)) {
+            && (!strncmp(symbol, "f64#", 4) || !strncmp(symbol, "i64#", 4))) {
             /* f64 const occupies 2 pointer slots on 32-bit target */
             if (!insert_native_symbol(comp_ctx, "__ignore", idx + 1)) {
                 return -1;
