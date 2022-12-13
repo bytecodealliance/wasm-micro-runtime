@@ -83,7 +83,12 @@ if (WAMR_BUILD_TARGET STREQUAL "X86_64" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
     endif ()
 endif ()
 
-file (GLOB c_source_jit ${IWASM_FAST_JIT_DIR}/*.c ${IWASM_FAST_JIT_DIR}/fe/*.c)
+if (NOT WAMR_BUILD_SIMD EQUAL 1)
+  file (GLOB c_source_jit ${IWASM_FAST_JIT_DIR}/*.c ${IWASM_FAST_JIT_DIR}/fe/*.c)
+else ()
+  file (GLOB c_source_jit ${IWASM_FAST_JIT_DIR}/*.c ${IWASM_FAST_JIT_DIR}/fe/*.c
+                          ${IWASM_FAST_JIT_DIR}/fe/simd/*.c)
+endif ()
 
 if (WAMR_BUILD_TARGET STREQUAL "X86_64" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
   file (GLOB_RECURSE cpp_source_jit_cg ${IWASM_FAST_JIT_DIR}/cg/x86-64/*.cpp)

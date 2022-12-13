@@ -246,7 +246,8 @@ is_value_type(uint8 type)
         || type == VALUE_TYPE_FUNCREF || type == VALUE_TYPE_EXTERNREF
 #endif
 #if WASM_ENABLE_SIMD != 0
-#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+#if WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_JIT != 0 \
+    || WASM_ENABLE_FAST_JIT != 0
         || type == VALUE_TYPE_V128
 #endif
 #endif
@@ -262,7 +263,8 @@ is_byte_a_type(uint8 type)
 }
 
 #if WASM_ENABLE_SIMD != 0
-#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+#if WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_JIT != 0 \
+    || WASM_ENABLE_FAST_JIT != 0
 static V128
 read_i8x16(uint8 *p_buf, char *error_buf, uint32 error_buf_size)
 {
@@ -275,7 +277,8 @@ read_i8x16(uint8 *p_buf, char *error_buf, uint32 error_buf_size)
 
     return result;
 }
-#endif /* end of (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) */
+#endif /* end of WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_JIT != 0 \
+                 || WASM_ENABLE_FAST_JIT != 0 */
 #endif /* end of WASM_ENABLE_SIMD */
 
 static void *
@@ -476,7 +479,8 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end,
                 *p_float++ = *p++;
             break;
 #if WASM_ENABLE_SIMD != 0
-#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+#if WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_JIT != 0 \
+    || WASM_ENABLE_FAST_JIT != 0
         case INIT_EXPR_TYPE_V128_CONST:
         {
             uint64 high, low;
@@ -495,7 +499,8 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end,
             init_expr->u.v128.i64x2[1] = low;
             break;
         }
-#endif /* end of (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) */
+#endif /* end of WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_JIT != 0 \
+                 || WASM_ENABLE_FAST_JIT != 0 */
 #endif /* end of WASM_ENABLE_SIMD */
 #if WASM_ENABLE_REF_TYPES != 0
         case INIT_EXPR_TYPE_FUNCREF_CONST:
@@ -2223,7 +2228,8 @@ load_export_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                         return false;
                     }
 #if WASM_ENABLE_SIMD != 0
-#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+#if WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_JIT != 0 \
+    || WASM_ENABLE_FAST_JIT != 0
                     /* TODO: check func type, if it has v128 param or result,
                              report error */
 #endif
@@ -4542,7 +4548,8 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
             }
 
 #if WASM_ENABLE_SIMD != 0
-#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+#if WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_JIT != 0 \
+    || WASM_ENABLE_FAST_JIT != 0
             case WASM_OP_SIMD_PREFIX:
             {
                 /* TODO: shall we ceate a table to be friendly to branch
@@ -4631,7 +4638,8 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                 }
                 break;
             }
-#endif /* end of (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) */
+#endif /* end of WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_JIT != 0 \
+                 || WASM_ENABLE_FAST_JIT != 0 */
 #endif /* end of WASM_ENABLE_SIMD */
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
@@ -4918,7 +4926,8 @@ check_stack_top_values(uint8 *frame_ref, int32 stack_cell_num, uint8 type,
     if ((is_32bit_type(type) && stack_cell_num < 1)
         || (is_64bit_type(type) && stack_cell_num < 2)
 #if WASM_ENABLE_SIMD != 0
-#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+#if WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_JIT != 0 \
+    || WASM_ENABLE_FAST_JIT != 0
         || (type == VALUE_TYPE_V128 && stack_cell_num < 4)
 #endif
 #endif
@@ -4932,7 +4941,8 @@ check_stack_top_values(uint8 *frame_ref, int32 stack_cell_num, uint8 type,
         || (is_64bit_type(type)
             && (*(frame_ref - 2) != type || *(frame_ref - 1) != type))
 #if WASM_ENABLE_SIMD != 0
-#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+#if WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_JIT != 0 \
+    || WASM_ENABLE_FAST_JIT != 0
         || (type == VALUE_TYPE_V128
             && (*(frame_ref - 4) != REF_V128_1 || *(frame_ref - 3) != REF_V128_2
                 || *(frame_ref - 2) != REF_V128_3
@@ -5063,7 +5073,8 @@ wasm_loader_push_frame_ref(WASMLoaderContext *ctx, uint8 type, char *error_buf,
     ctx->stack_cell_num++;
 
 #if WASM_ENABLE_SIMD != 0
-#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+#if WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_JIT != 0 \
+    || WASM_ENABLE_FAST_JIT != 0
     if (type == VALUE_TYPE_V128) {
         if (!check_stack_push(ctx, error_buf, error_buf_size))
             return false;
@@ -5118,7 +5129,8 @@ wasm_loader_pop_frame_ref(WASMLoaderContext *ctx, uint8 type, char *error_buf,
     ctx->stack_cell_num--;
 
 #if WASM_ENABLE_SIMD != 0
-#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+#if WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_JIT != 0 \
+    || WASM_ENABLE_FAST_JIT != 0
     if (type == VALUE_TYPE_V128) {
         ctx->frame_ref -= 2;
         ctx->stack_cell_num -= 2;
@@ -6337,7 +6349,8 @@ check_memory_access_align(uint8 opcode, uint32 align, char *error_buf,
 }
 
 #if WASM_ENABLE_SIMD != 0
-#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+#if WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_JIT != 0 \
+    || WASM_ENABLE_FAST_JIT != 0
 static bool
 check_simd_memory_access_align(uint8 opcode, uint32 align, char *error_buf,
                                uint32 error_buf_size)
@@ -6451,7 +6464,8 @@ check_simd_shuffle_mask(V128 mask, char *error_buf, uint32 error_buf_size)
     }
     return true;
 }
-#endif /* end of (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) */
+#endif /* end of WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_JIT != 0 \
+                 || WASM_ENABLE_FAST_JIT != 0 */
 #endif /* end of WASM_ENABLE_SIMD */
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
@@ -7586,7 +7600,8 @@ re_scan:
 #endif
                     }
 #if WASM_ENABLE_SIMD != 0
-#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+#if WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_JIT != 0 \
+    || WASM_ENABLE_FAST_JIT != 0
                     else if (*(loader_ctx->frame_ref - 1) == REF_V128_1) {
                         loader_ctx->frame_ref -= 4;
                         loader_ctx->stack_cell_num -= 4;
@@ -7672,10 +7687,11 @@ re_scan:
 #endif /* end of WASM_ENABLE_FAST_INTERP */
                             break;
 #if WASM_ENABLE_SIMD != 0
-#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+#if WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_JIT != 0 \
+    || WASM_ENABLE_FAST_JIT != 0
                         case REF_V128_4:
                             break;
-#endif /* (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) */
+#endif
 #endif /* WASM_ENABLE_SIMD != 0 */
                         default:
                         {
@@ -7735,8 +7751,9 @@ re_scan:
                         loader_ctx->p_code_compiled - 2;
 
                     if (ref_type == VALUE_TYPE_V128) {
-#if (WASM_ENABLE_SIMD == 0) \
-    || ((WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0))
+#if WASM_ENABLE_SIMD == 0                                      \
+    || (WASM_ENABLE_WAMR_COMPILER == 0 && WASM_ENABLE_JIT == 0 \
+        && WASM_ENABLE_FAST_JIT == 0)
                         set_error_buf(error_buf, error_buf_size,
                                       "SIMD v128 type isn't supported");
                         goto fail;
@@ -8887,7 +8904,8 @@ re_scan:
             }
 
 #if WASM_ENABLE_SIMD != 0
-#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+#if WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_JIT != 0 \
+    || WASM_ENABLE_FAST_JIT != 0
             case WASM_OP_SIMD_PREFIX:
             {
                 opcode = read_uint8(p);
@@ -9542,7 +9560,8 @@ re_scan:
                 }
                 break;
             }
-#endif /* end of (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) */
+#endif /* end of WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_JIT != 0 \
+                 || WASM_ENABLE_FAST_JIT != 0 */
 #endif /* end of WASM_ENABLE_SIMD */
 
 #if WASM_ENABLE_SHARED_MEMORY != 0

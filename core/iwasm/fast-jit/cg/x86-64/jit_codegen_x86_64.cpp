@@ -84,6 +84,7 @@ x86::Gp regs_i64[] = {
 
 #define REG_F32_FREE_IDX 15
 #define REG_F64_FREE_IDX 15
+#define REG_V128_FREE_IDX 15
 
 x86::Xmm regs_float[] = {
     x86::xmm0,
@@ -6864,6 +6865,13 @@ jit_codegen_init()
         x86::Mem m(x86::rsi, 16);
         a.movsd(m, x86::xmm0);
     }
+#if WASM_ENABLE_SIMD != 0
+    /* info->out.ret.v128val[0-3] = xmm0 */
+    {
+        x86::Mem m(x86::rsi, 24);
+        a.movdqu(m, x86::xmm0);
+    }
+#endif
 
     /* pop callee-save registers */
     a.pop(x86::r15);
@@ -6923,9 +6931,16 @@ static const uint8 hreg_info_I64[3][16] = {
 
 /* System V AMD64 ABI Calling Conversion. [XYZ]MM0-7 */
 static uint8 hreg_info_F32[3][16] = {
-    /* xmm0 ~ xmm15 */
+    /* xmm0 ~ xmm15, xmm15 is freely used */
+#if WASM_ENABLE_SIMD == 0
+    /* xmm0 to xmm7 as f32 registers when simd is disabled */
     { 0, 0, 0, 0, 0, 0, 0, 0,
       1, 1, 1, 1, 1, 1, 1, 1 },
+#else
+    /* xmm0 to xmm4 as f32 registers when simd is enabled */
+    { 0, 0, 0, 0, 0, 1, 1, 1,
+      1, 1, 1, 1, 1, 1, 1, 1 },
+#endif
     { 1, 1, 1, 1, 1, 1, 1, 1,
       1, 1, 1, 1, 1, 1, 1, 0 }, /* caller_saved_native */
     { 1, 1, 1, 1, 1, 1, 1, 1,
@@ -6934,14 +6949,34 @@ static uint8 hreg_info_F32[3][16] = {
 
 /* System V AMD64 ABI Calling Conversion. [XYZ]MM0-7 */
 static uint8 hreg_info_F64[3][16] = {
-    /* xmm0 ~ xmm15 */
+    /* xmm0 ~ xmm15, xmm15 is freely used */
+#if WASM_ENABLE_SIMD == 0
+    /* xmm8 to xmm14 as f64 registers when simd is disabled */
     { 1, 1, 1, 1, 1, 1, 1, 1,
       0, 0, 0, 0, 0, 0, 0, 1 },
+#else
+    /* xmm5 to xmm9 as f64 registers when simd is enabled */
+    { 1, 1, 1, 1, 1, 0, 0, 0,
+      0, 0, 1, 1, 1, 1, 1, 1 },
+#endif
     { 1, 1, 1, 1, 1, 1, 1, 1,
       1, 1, 1, 1, 1, 1, 1, 0 }, /* caller_saved_native */
     { 1, 1, 1, 1, 1, 1, 1, 1,
       1, 1, 1, 1, 1, 1, 1, 0 }, /* caller_saved_jitted */
 };
+
+#if WASM_ENABLE_SIMD != 0
+static uint8 hreg_info_V128[3][16] = {
+    /* xmm0 ~ xmm15, xmm15 is freely used */
+    /* xmm10 to xmm14 as v128 registers when simd is enabled */
+    { 1, 1, 1, 1, 1, 1, 1, 1,
+      1, 1, 0, 0, 0, 0, 0, 1 },
+    { 1, 1, 1, 1, 1, 1, 1, 1,
+      1, 1, 1, 1, 1, 1, 1, 0 }, /* caller_saved_native */
+    { 1, 1, 1, 1, 1, 1, 1, 1,
+      1, 1, 1, 1, 1, 1, 1, 0 }, /* caller_saved_jitted */
+};
+#endif
 
 static const JitHardRegInfo hreg_info = {
     {
@@ -6967,9 +7002,16 @@ static const JitHardRegInfo hreg_info = {
           hreg_info_F64[1],
           hreg_info_F64[2] },
 
-        { 0, NULL, NULL, NULL }, /* V8 */
-        { 0, NULL, NULL, NULL }, /* V16 */
-        { 0, NULL, NULL, NULL }  /* V32 */
+        { 0, NULL, NULL, NULL }, /* V64 */
+#if WASM_ENABLE_SIMD == 0
+        { 0, NULL, NULL, NULL }, /* V128 */
+#else
+        { sizeof(hreg_info_V128[0]), /* V128 */
+          hreg_info_V128[0],
+          hreg_info_V128[1],
+          hreg_info_V128[2], },
+#endif
+        { 0, NULL, NULL, NULL }  /* V256 */
     },
     /* frame pointer hreg index: rbp */
     0,
@@ -7006,6 +7048,15 @@ static const char *reg_names_f64[] = {
     "xmm12_f64", "xmm13_f64", "xmm14_f64", "xmm15_f64"
 };
 
+#if WASM_ENABLE_SIMD != 0
+static const char *reg_names_v128[] = {
+    "xmm0_v128",  "xmm1_v128",  "xmm2_v128",  "xmm3_v128",
+    "xmm4_v128",  "xmm5_v128",  "xmm6_v128",  "xmm7_v128",
+    "xmm8_v128",  "xmm9_v128",  "xmm10_v128", "xmm11_v128",
+    "xmm12_v128", "xmm13_v128", "xmm14_v128", "xmm15_v128"
+};
+#endif
+
 JitReg
 jit_codegen_get_hreg_by_name(const char *name)
 {
@@ -7022,16 +7073,24 @@ jit_codegen_get_hreg_by_name(const char *name)
                 return jit_reg_new(JIT_REG_KIND_I64, i);
     }
     else if (!strncmp(name, "xmm", 3)) {
-        if (!strstr(name, "_f64")) {
-            for (i = 0; i < sizeof(reg_names_f32) / sizeof(char *); i++)
-                if (!strcmp(reg_names_f32[i], name))
-                    return jit_reg_new(JIT_REG_KIND_F32, i);
-        }
-        else {
+        if (strstr(name, "_f64")) {
             for (i = 0; i < sizeof(reg_names_f64) / sizeof(char *); i++)
                 if (!strcmp(reg_names_f64[i], name))
                     return jit_reg_new(JIT_REG_KIND_F64, i);
         }
+#if WASM_ENALBE_SIMD != 0
+        else if (strstr(name, "_v128")) {
+            for (i = 0; i < sizeof(reg_names_v128) / sizeof(char *); i++)
+                if (!strcmp(reg_names_v128[i], name))
+                    return jit_reg_new(JIT_REG_KIND_V128, i);
+        }
+#endif
+        else {
+            for (i = 0; i < sizeof(reg_names_f32) / sizeof(char *); i++)
+                if (!strcmp(reg_names_f32[i], name))
+                    return jit_reg_new(JIT_REG_KIND_F32, i);
+        }
     }
+
     return 0;
 }

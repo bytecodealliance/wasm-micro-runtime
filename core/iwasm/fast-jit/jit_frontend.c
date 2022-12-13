@@ -16,6 +16,21 @@
 #include "fe/jit_emit_parametric.h"
 #include "fe/jit_emit_table.h"
 #include "fe/jit_emit_variable.h"
+#if WASM_ENABLE_SIMD != 0
+#include "fe/simd/simd_access_lanes.h"
+#include "fe/simd/simd_bitmask_extracts.h"
+#include "fe/simd/simd_bit_shifts.h"
+#include "fe/simd/simd_bitwise_ops.h"
+#include "fe/simd/simd_bool_reductions.h"
+#include "fe/simd/simd_comparisons.h"
+#include "fe/simd/simd_conversions.h"
+#include "fe/simd/simd_construct_values.h"
+#include "fe/simd/simd_conversions.h"
+#include "fe/simd/simd_floating_point.h"
+#include "fe/simd/simd_int_arith.h"
+#include "fe/simd/simd_load_store.h"
+#include "fe/simd/simd_sat_int_arith.h"
+#endif
 #include "../interpreter/wasm_interp.h"
 #include "../interpreter/wasm_opcode.h"
 #include "../interpreter/wasm_runtime.h"
@@ -541,6 +556,22 @@ gen_load_f64(JitFrame *frame, unsigned n)
     return frame->lp[n].reg;
 }
 
+#if WASM_ENABLE_SIMD != 0
+JitReg
+gen_load_v128(JitFrame *frame, unsigned n)
+{
+    if (!frame->lp[n].reg) {
+        JitCompContext *cc = frame->cc;
+        frame->lp[n].reg = frame->lp[n + 1].reg = frame->lp[n + 2].reg =
+            frame->lp[n + 3].reg = jit_cc_new_reg_V128(cc);
+        GEN_INSN(LDV128, frame->lp[n].reg, cc->fp_reg,
+                 NEW_CONST(I32, offset_of_local(n)));
+    }
+
+    return frame->lp[n].reg;
+}
+#endif
+
 void
 gen_commit_values(JitFrame *frame, JitValueSlot *begin, JitValueSlot *end)
 {
@@ -577,6 +608,15 @@ gen_commit_values(JitFrame *frame, JitValueSlot *begin, JitValueSlot *end)
                          NEW_CONST(I32, offset_of_local(n)));
                 (++p)->dirty = 0;
                 break;
+#if WASM_ENABLE_SIMD != 0
+            case JIT_REG_KIND_V128:
+                GEN_INSN(STV128, p->reg, cc->fp_reg,
+                         NEW_CONST(I32, offset_of_local(n)));
+                (++p)->dirty = 0;
+                (++p)->dirty = 0;
+                (++p)->dirty = 0;
+                break;
+#endif
         }
     }
 }
@@ -2215,6 +2255,1131 @@ jit_compile_func(JitCompContext *cc)
                 break;
             }
 #endif /* end of WASM_ENABLE_SHARED_MEMORY */
+
+#if WASM_ENABLE_SIMD != 0
+            case WASM_OP_SIMD_PREFIX:
+            {
+                opcode = *frame_ip++;
+
+                /* follow the order of enum WASMSimdEXTOpcode in
+                   wasm_opcode.h */
+                switch (opcode) {
+                    /* Memory instruction */
+                    case SIMD_v128_load:
+                    {
+                        read_leb_uint32(frame_ip, frame_ip_end, align);
+                        read_leb_uint32(frame_ip, frame_ip_end, offset);
+                        if (!jit_compile_simd_v128_load(cc, align, offset))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_v128_load8x8_s:
+                    case SIMD_v128_load8x8_u:
+                    case SIMD_v128_load16x4_s:
+                    case SIMD_v128_load16x4_u:
+                    case SIMD_v128_load32x2_s:
+                    case SIMD_v128_load32x2_u:
+                    {
+                        read_leb_uint32(frame_ip, frame_ip_end, align);
+                        read_leb_uint32(frame_ip, frame_ip_end, offset);
+                        if (!jit_compile_simd_load_extend(cc, opcode, align,
+                                                          offset))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_v128_load8_splat:
+                    case SIMD_v128_load16_splat:
+                    case SIMD_v128_load32_splat:
+                    case SIMD_v128_load64_splat:
+                    {
+                        read_leb_uint32(frame_ip, frame_ip_end, align);
+                        read_leb_uint32(frame_ip, frame_ip_end, offset);
+                        if (!jit_compile_simd_load_splat(cc, opcode, align,
+                                                         offset))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_v128_store:
+                    {
+                        read_leb_uint32(frame_ip, frame_ip_end, align);
+                        read_leb_uint32(frame_ip, frame_ip_end, offset);
+                        if (!jit_compile_simd_v128_store(cc, align, offset))
+                            return false;
+                        break;
+                    }
+
+                    /* Basic operation */
+                    case SIMD_v128_const:
+                    {
+                        if (!jit_compile_simd_v128_const(cc, frame_ip))
+                            return false;
+                        frame_ip += 16;
+                        break;
+                    }
+
+                    case SIMD_v8x16_shuffle:
+                    {
+                        if (!jit_compile_simd_shuffle(cc, frame_ip))
+                            return false;
+                        frame_ip += 16;
+                        break;
+                    }
+
+                    case SIMD_v8x16_swizzle:
+                    {
+                        if (!jit_compile_simd_swizzle(cc))
+                            return false;
+                        break;
+                    }
+
+                    /* Splat operation */
+                    case SIMD_i8x16_splat:
+                    case SIMD_i16x8_splat:
+                    case SIMD_i32x4_splat:
+                    case SIMD_i64x2_splat:
+                    case SIMD_f32x4_splat:
+                    case SIMD_f64x2_splat:
+                    {
+                        if (!jit_compile_simd_splat(cc, opcode))
+                            return false;
+                        break;
+                    }
+
+                    /* Lane operation */
+                    case SIMD_i8x16_extract_lane_s:
+                    case SIMD_i8x16_extract_lane_u:
+                    {
+                        if (!jit_compile_simd_extract_i8x16(
+                                cc, *frame_ip++,
+                                SIMD_i8x16_extract_lane_s == opcode))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i8x16_replace_lane:
+                    {
+                        if (!jit_compile_simd_replace_i8x16(cc, *frame_ip++))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i16x8_extract_lane_s:
+                    case SIMD_i16x8_extract_lane_u:
+                    {
+                        if (!jit_compile_simd_extract_i16x8(
+                                cc, *frame_ip++,
+                                SIMD_i16x8_extract_lane_s == opcode))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i16x8_replace_lane:
+                    {
+                        if (!jit_compile_simd_replace_i16x8(cc, *frame_ip++))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i32x4_extract_lane:
+                    {
+                        if (!jit_compile_simd_extract_i32x4(cc, *frame_ip++))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i32x4_replace_lane:
+                    {
+                        if (!jit_compile_simd_replace_i32x4(cc, *frame_ip++))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i64x2_extract_lane:
+                    {
+                        if (!jit_compile_simd_extract_i64x2(cc, *frame_ip++))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i64x2_replace_lane:
+                    {
+                        if (!jit_compile_simd_replace_i64x2(cc, *frame_ip++))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_f32x4_extract_lane:
+                    {
+                        if (!jit_compile_simd_extract_f32x4(cc, *frame_ip++))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_f32x4_replace_lane:
+                    {
+                        if (!jit_compile_simd_replace_f32x4(cc, *frame_ip++))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_f64x2_extract_lane:
+                    {
+                        if (!jit_compile_simd_extract_f64x2(cc, *frame_ip++))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_f64x2_replace_lane:
+                    {
+                        if (!jit_compile_simd_replace_f64x2(cc, *frame_ip++))
+                            return false;
+                        break;
+                    }
+
+                    /* i8x16 Cmp */
+                    case SIMD_i8x16_eq:
+                    case SIMD_i8x16_ne:
+                    case SIMD_i8x16_lt_s:
+                    case SIMD_i8x16_lt_u:
+                    case SIMD_i8x16_gt_s:
+                    case SIMD_i8x16_gt_u:
+                    case SIMD_i8x16_le_s:
+                    case SIMD_i8x16_le_u:
+                    case SIMD_i8x16_ge_s:
+                    case SIMD_i8x16_ge_u:
+                    {
+                        if (!jit_compile_simd_i8x16_compare(
+                                cc, INT_EQ + opcode - SIMD_i8x16_eq))
+                            return false;
+                        break;
+                    }
+
+                    /* i16x8 Cmp */
+                    case SIMD_i16x8_eq:
+                    case SIMD_i16x8_ne:
+                    case SIMD_i16x8_lt_s:
+                    case SIMD_i16x8_lt_u:
+                    case SIMD_i16x8_gt_s:
+                    case SIMD_i16x8_gt_u:
+                    case SIMD_i16x8_le_s:
+                    case SIMD_i16x8_le_u:
+                    case SIMD_i16x8_ge_s:
+                    case SIMD_i16x8_ge_u:
+                    {
+                        if (!jit_compile_simd_i16x8_compare(
+                                cc, INT_EQ + opcode - SIMD_i16x8_eq))
+                            return false;
+                        break;
+                    }
+
+                    /* i32x4 Cmp */
+                    case SIMD_i32x4_eq:
+                    case SIMD_i32x4_ne:
+                    case SIMD_i32x4_lt_s:
+                    case SIMD_i32x4_lt_u:
+                    case SIMD_i32x4_gt_s:
+                    case SIMD_i32x4_gt_u:
+                    case SIMD_i32x4_le_s:
+                    case SIMD_i32x4_le_u:
+                    case SIMD_i32x4_ge_s:
+                    case SIMD_i32x4_ge_u:
+                    {
+                        if (!jit_compile_simd_i32x4_compare(
+                                cc, INT_EQ + opcode - SIMD_i32x4_eq))
+                            return false;
+                        break;
+                    }
+
+                    /* f32x4 Cmp */
+                    case SIMD_f32x4_eq:
+                    case SIMD_f32x4_ne:
+                    case SIMD_f32x4_lt:
+                    case SIMD_f32x4_gt:
+                    case SIMD_f32x4_le:
+                    case SIMD_f32x4_ge:
+                    {
+                        if (!jit_compile_simd_f32x4_compare(
+                                cc, FLOAT_EQ + opcode - SIMD_f32x4_eq))
+                            return false;
+                        break;
+                    }
+
+                    /* f64x2 Cmp */
+                    case SIMD_f64x2_eq:
+                    case SIMD_f64x2_ne:
+                    case SIMD_f64x2_lt:
+                    case SIMD_f64x2_gt:
+                    case SIMD_f64x2_le:
+                    case SIMD_f64x2_ge:
+                    {
+                        if (!jit_compile_simd_f64x2_compare(
+                                cc, FLOAT_EQ + opcode - SIMD_f64x2_eq))
+                            return false;
+                        break;
+                    }
+
+                    /* v128 Op */
+                    case SIMD_v128_not:
+                    case SIMD_v128_and:
+                    case SIMD_v128_andnot:
+                    case SIMD_v128_or:
+                    case SIMD_v128_xor:
+                    case SIMD_v128_bitselect:
+                    {
+                        if (!jit_compile_simd_v128_bitwise(
+                                cc, V128_NOT + opcode - SIMD_v128_not))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_v128_any_true:
+                    {
+                        if (!jit_compile_simd_v128_any_true(cc))
+                            return false;
+                        break;
+                    }
+
+                    /* Load Lane Op */
+                    case SIMD_v128_load8_lane:
+                    case SIMD_v128_load16_lane:
+                    case SIMD_v128_load32_lane:
+                    case SIMD_v128_load64_lane:
+                    {
+                        read_leb_uint32(frame_ip, frame_ip_end, align);
+                        read_leb_uint32(frame_ip, frame_ip_end, offset);
+                        if (!jit_compile_simd_load_lane(cc, opcode, align,
+                                                        offset, *frame_ip++))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_v128_store8_lane:
+                    case SIMD_v128_store16_lane:
+                    case SIMD_v128_store32_lane:
+                    case SIMD_v128_store64_lane:
+                    {
+                        read_leb_uint32(frame_ip, frame_ip_end, align);
+                        read_leb_uint32(frame_ip, frame_ip_end, offset);
+                        if (!jit_compile_simd_store_lane(cc, opcode, align,
+                                                         offset, *frame_ip++))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_v128_load32_zero:
+                    case SIMD_v128_load64_zero:
+                    {
+                        read_leb_uint32(frame_ip, frame_ip_end, align);
+                        read_leb_uint32(frame_ip, frame_ip_end, offset);
+                        if (!jit_compile_simd_load_zero(cc, opcode, align,
+                                                        offset))
+                            return false;
+                        break;
+                    }
+
+                    /* Float conversion */
+                    case SIMD_f32x4_demote_f64x2_zero:
+                    {
+                        if (!jit_compile_simd_f64x2_demote(cc))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_f64x2_promote_low_f32x4_zero:
+                    {
+                        if (!jit_compile_simd_f32x4_promote(cc))
+                            return false;
+                        break;
+                    }
+
+                    /* i8x16 Op */
+                    case SIMD_i8x16_abs:
+                    {
+                        if (!jit_compile_simd_i8x16_abs(cc))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i8x16_neg:
+                    {
+                        if (!jit_compile_simd_i8x16_neg(cc))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i8x16_popcnt:
+                    {
+                        if (!jit_compile_simd_i8x16_popcnt(cc))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i8x16_all_true:
+                    {
+                        if (!jit_compile_simd_i8x16_all_true(cc))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i8x16_bitmask:
+                    {
+                        if (!jit_compile_simd_i8x16_bitmask(cc))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i8x16_narrow_i16x8_s:
+                    case SIMD_i8x16_narrow_i16x8_u:
+                    {
+                        if (!jit_compile_simd_i8x16_narrow_i16x8(
+                                cc, (opcode == SIMD_i8x16_narrow_i16x8_s)))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_f32x4_ceil:
+                    {
+                        if (!jit_compile_simd_f32x4_ceil(cc))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_f32x4_floor:
+                    {
+                        if (!jit_compile_simd_f32x4_floor(cc))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_f32x4_trunc:
+                    {
+                        if (!jit_compile_simd_f32x4_trunc(cc))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_f32x4_nearest:
+                    {
+                        if (!jit_compile_simd_f32x4_nearest(cc))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i8x16_shl:
+                    case SIMD_i8x16_shr_s:
+                    case SIMD_i8x16_shr_u:
+                    {
+                        if (!jit_compile_simd_i8x16_shift(
+                                cc, INT_SHL + opcode - SIMD_i8x16_shl))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i8x16_add:
+                    {
+                        if (!jit_compile_simd_i8x16_arith(cc, V128_ADD))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i8x16_add_sat_s:
+                    case SIMD_i8x16_add_sat_u:
+                    {
+                        if (!jit_compile_simd_i8x16_saturate(
+                                cc, V128_ADD, opcode == SIMD_i8x16_add_sat_s))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i8x16_sub:
+                    {
+                        if (!jit_compile_simd_i8x16_arith(cc, V128_SUB))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i8x16_sub_sat_s:
+                    case SIMD_i8x16_sub_sat_u:
+                    {
+                        if (!jit_compile_simd_i8x16_saturate(
+                                cc, V128_SUB, opcode == SIMD_i8x16_sub_sat_s))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_f64x2_ceil:
+                    {
+                        if (!jit_compile_simd_f64x2_ceil(cc))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_f64x2_floor:
+                    {
+                        if (!jit_compile_simd_f64x2_floor(cc))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i8x16_min_s:
+                    case SIMD_i8x16_min_u:
+                    {
+                        if (!jit_compile_simd_i8x16_cmp(
+                                cc, V128_MIN, opcode == SIMD_i8x16_min_s))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i8x16_max_s:
+                    case SIMD_i8x16_max_u:
+                    {
+                        if (!jit_compile_simd_i8x16_cmp(
+                                cc, V128_MAX, opcode == SIMD_i8x16_max_s))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_f64x2_trunc:
+                    {
+                        if (!jit_compile_simd_f64x2_trunc(cc))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i8x16_avgr_u:
+                    {
+                        if (!jit_compile_simd_i8x16_avgr_u(cc))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i16x8_extadd_pairwise_i8x16_s:
+                    case SIMD_i16x8_extadd_pairwise_i8x16_u:
+                    {
+                        if (!jit_compile_simd_i16x8_extadd_pairwise_i8x16(
+                                cc,
+                                SIMD_i16x8_extadd_pairwise_i8x16_s == opcode))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i32x4_extadd_pairwise_i16x8_s:
+                    case SIMD_i32x4_extadd_pairwise_i16x8_u:
+                    {
+                        if (!jit_compile_simd_i32x4_extadd_pairwise_i16x8(
+                                cc,
+                                SIMD_i32x4_extadd_pairwise_i16x8_s == opcode))
+                            return false;
+                        break;
+                    }
+
+                    /* i16x8 Op */
+                    case SIMD_i16x8_abs:
+                    {
+                        if (!jit_compile_simd_i16x8_abs(cc))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i16x8_neg:
+                    {
+                        if (!jit_compile_simd_i16x8_neg(cc))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i16x8_q15mulr_sat_s:
+                    {
+                        if (!jit_compile_simd_i16x8_q15mulr_sat(cc))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i16x8_all_true:
+                    {
+                        if (!jit_compile_simd_i16x8_all_true(cc))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i16x8_bitmask:
+                    {
+                        if (!jit_compile_simd_i16x8_bitmask(cc))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i16x8_narrow_i32x4_s:
+                    case SIMD_i16x8_narrow_i32x4_u:
+                    {
+                        if (!jit_compile_simd_i16x8_narrow_i32x4(
+                                cc, SIMD_i16x8_narrow_i32x4_s == opcode))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i16x8_extend_low_i8x16_s:
+                    case SIMD_i16x8_extend_high_i8x16_s:
+                    {
+                        if (!jit_compile_simd_i16x8_extend_i8x16(
+                                cc, SIMD_i16x8_extend_low_i8x16_s == opcode,
+                                true))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i16x8_extend_low_i8x16_u:
+                    case SIMD_i16x8_extend_high_i8x16_u:
+                    {
+                        if (!jit_compile_simd_i16x8_extend_i8x16(
+                                cc, SIMD_i16x8_extend_low_i8x16_u == opcode,
+                                false))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i16x8_shl:
+                    case SIMD_i16x8_shr_s:
+                    case SIMD_i16x8_shr_u:
+                    {
+                        if (!jit_compile_simd_i16x8_shift(
+                                cc, INT_SHL + opcode - SIMD_i16x8_shl))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i16x8_add:
+                    {
+                        if (!jit_compile_simd_i16x8_arith(cc, V128_ADD))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i16x8_add_sat_s:
+                    case SIMD_i16x8_add_sat_u:
+                    {
+                        if (!jit_compile_simd_i16x8_saturate(
+                                cc, V128_ADD,
+                                opcode == SIMD_i16x8_add_sat_s ? true : false))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i16x8_sub:
+                    {
+                        if (!jit_compile_simd_i16x8_arith(cc, V128_SUB))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i16x8_sub_sat_s:
+                    case SIMD_i16x8_sub_sat_u:
+                    {
+                        if (!jit_compile_simd_i16x8_saturate(
+                                cc, V128_SUB,
+                                opcode == SIMD_i16x8_sub_sat_s ? true : false))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_f64x2_nearest:
+                    {
+                        if (!jit_compile_simd_f64x2_nearest(cc))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i16x8_mul:
+                    {
+                        if (!jit_compile_simd_i16x8_arith(cc, V128_MUL))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i16x8_min_s:
+                    case SIMD_i16x8_min_u:
+                    {
+                        if (!jit_compile_simd_i16x8_cmp(
+                                cc, V128_MIN, opcode == SIMD_i16x8_min_s))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i16x8_max_s:
+                    case SIMD_i16x8_max_u:
+                    {
+                        if (!jit_compile_simd_i16x8_cmp(
+                                cc, V128_MAX, opcode == SIMD_i16x8_max_s))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i16x8_avgr_u:
+                    {
+                        if (!jit_compile_simd_i16x8_avgr_u(cc))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i16x8_extmul_low_i8x16_s:
+                    case SIMD_i16x8_extmul_high_i8x16_s:
+                    {
+                        if (!(jit_compile_simd_i16x8_extmul_i8x16(
+                                cc, SIMD_i16x8_extmul_low_i8x16_s == opcode,
+                                true)))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i16x8_extmul_low_i8x16_u:
+                    case SIMD_i16x8_extmul_high_i8x16_u:
+                    {
+                        if (!(jit_compile_simd_i16x8_extmul_i8x16(
+                                cc, SIMD_i16x8_extmul_low_i8x16_u == opcode,
+                                false)))
+                            return false;
+                        break;
+                    }
+
+                    /* i32x4 Op */
+                    case SIMD_i32x4_abs:
+                    {
+                        if (!jit_compile_simd_i32x4_abs(cc))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i32x4_neg:
+                    {
+                        if (!jit_compile_simd_i32x4_neg(cc))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i32x4_all_true:
+                    {
+                        if (!jit_compile_simd_i32x4_all_true(cc))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i32x4_bitmask:
+                    {
+                        if (!jit_compile_simd_i32x4_bitmask(cc))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i32x4_narrow_i64x2_s:
+                    case SIMD_i32x4_narrow_i64x2_u:
+                    {
+                        if (!jit_compile_simd_i32x4_narrow_i64x2(
+                                cc, SIMD_i32x4_narrow_i64x2_s == opcode))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i32x4_extend_low_i16x8_s:
+                    case SIMD_i32x4_extend_high_i16x8_s:
+                    {
+                        if (!jit_compile_simd_i32x4_extend_i16x8(
+                                cc, SIMD_i32x4_extend_low_i16x8_s == opcode,
+                                true))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i32x4_extend_low_i16x8_u:
+                    case SIMD_i32x4_extend_high_i16x8_u:
+                    {
+                        if (!jit_compile_simd_i32x4_extend_i16x8(
+                                cc, SIMD_i32x4_extend_low_i16x8_u == opcode,
+                                false))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i32x4_shl:
+                    case SIMD_i32x4_shr_s:
+                    case SIMD_i32x4_shr_u:
+                    {
+                        if (!jit_compile_simd_i32x4_shift(
+                                cc, INT_SHL + opcode - SIMD_i32x4_shl))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i32x4_add:
+                    {
+                        if (!jit_compile_simd_i32x4_arith(cc, V128_ADD))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i32x4_add_sat_s:
+                    case SIMD_i32x4_add_sat_u:
+                    {
+                        if (!jit_compile_simd_i32x4_saturate(
+                                cc, V128_ADD, opcode == SIMD_i32x4_add_sat_s))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i32x4_sub:
+                    {
+                        if (!jit_compile_simd_i32x4_arith(cc, V128_SUB))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i32x4_sub_sat_s:
+                    case SIMD_i32x4_sub_sat_u:
+                    {
+                        if (!jit_compile_simd_i32x4_saturate(
+                                cc, V128_SUB, opcode == SIMD_i32x4_add_sat_s))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i32x4_mul:
+                    {
+                        if (!jit_compile_simd_i32x4_arith(cc, V128_MUL))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i32x4_min_s:
+                    case SIMD_i32x4_min_u:
+                    {
+                        if (!jit_compile_simd_i32x4_cmp(
+                                cc, V128_MIN, SIMD_i32x4_min_s == opcode))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i32x4_max_s:
+                    case SIMD_i32x4_max_u:
+                    {
+                        if (!jit_compile_simd_i32x4_cmp(
+                                cc, V128_MAX, SIMD_i32x4_max_s == opcode))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i32x4_dot_i16x8_s:
+                    {
+                        if (!jit_compile_simd_i32x4_dot_i16x8(cc))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i32x4_avgr_u:
+                    {
+                        if (!jit_compile_simd_i32x4_avgr_u(cc))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i32x4_extmul_low_i16x8_s:
+                    case SIMD_i32x4_extmul_high_i16x8_s:
+                    {
+                        if (!jit_compile_simd_i32x4_extmul_i16x8(
+                                cc, SIMD_i32x4_extmul_low_i16x8_s == opcode,
+                                true))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i32x4_extmul_low_i16x8_u:
+                    case SIMD_i32x4_extmul_high_i16x8_u:
+                    {
+                        if (!jit_compile_simd_i32x4_extmul_i16x8(
+                                cc, SIMD_i32x4_extmul_low_i16x8_u == opcode,
+                                false))
+                            return false;
+                        break;
+                    }
+
+                    /* i64x2 Op */
+                    case SIMD_i64x2_abs:
+                    {
+                        if (!jit_compile_simd_i64x2_abs(cc))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i64x2_neg:
+                    {
+                        if (!jit_compile_simd_i64x2_neg(cc))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i64x2_all_true:
+                    {
+                        if (!jit_compile_simd_i64x2_all_true(cc))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i64x2_bitmask:
+                    {
+                        if (!jit_compile_simd_i64x2_bitmask(cc))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i64x2_extend_low_i32x4_s:
+                    case SIMD_i64x2_extend_high_i32x4_s:
+                    {
+                        if (!jit_compile_simd_i64x2_extend_i32x4(
+                                cc, SIMD_i64x2_extend_low_i32x4_s == opcode,
+                                true))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i64x2_extend_low_i32x4_u:
+                    case SIMD_i64x2_extend_high_i32x4_u:
+                    {
+                        if (!jit_compile_simd_i64x2_extend_i32x4(
+                                cc, SIMD_i64x2_extend_low_i32x4_u == opcode,
+                                false))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i64x2_shl:
+                    case SIMD_i64x2_shr_s:
+                    case SIMD_i64x2_shr_u:
+                    {
+                        if (!jit_compile_simd_i64x2_shift(
+                                cc, INT_SHL + opcode - SIMD_i64x2_shl))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i64x2_add:
+                    {
+                        if (!jit_compile_simd_i64x2_arith(cc, V128_ADD))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i64x2_sub:
+                    {
+                        if (!jit_compile_simd_i64x2_arith(cc, V128_SUB))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i64x2_mul:
+                    {
+                        if (!jit_compile_simd_i64x2_arith(cc, V128_MUL))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i64x2_eq:
+                    case SIMD_i64x2_ne:
+                    case SIMD_i64x2_lt_s:
+                    case SIMD_i64x2_gt_s:
+                    case SIMD_i64x2_le_s:
+                    case SIMD_i64x2_ge_s:
+                    {
+                        IntCond icond[] = { INT_EQ,   INT_NE,   INT_LT_S,
+                                            INT_GT_S, INT_LE_S, INT_GE_S };
+                        if (!jit_compile_simd_i64x2_compare(
+                                cc, icond[opcode - SIMD_i64x2_eq]))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i64x2_extmul_low_i32x4_s:
+                    case SIMD_i64x2_extmul_high_i32x4_s:
+                    {
+                        if (!jit_compile_simd_i64x2_extmul_i32x4(
+                                cc, SIMD_i64x2_extmul_low_i32x4_s == opcode,
+                                true))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i64x2_extmul_low_i32x4_u:
+                    case SIMD_i64x2_extmul_high_i32x4_u:
+                    {
+                        if (!jit_compile_simd_i64x2_extmul_i32x4(
+                                cc, SIMD_i64x2_extmul_low_i32x4_u == opcode,
+                                false))
+                            return false;
+                        break;
+                    }
+
+                    /* f32x4 Op */
+                    case SIMD_f32x4_abs:
+                    {
+                        if (!jit_compile_simd_f32x4_abs(cc))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_f32x4_neg:
+                    {
+                        if (!jit_compile_simd_f32x4_neg(cc))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_f32x4_round:
+                    {
+                        if (!jit_compile_simd_f32x4_round(cc))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_f32x4_sqrt:
+                    {
+                        if (!jit_compile_simd_f32x4_sqrt(cc))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_f32x4_add:
+                    case SIMD_f32x4_sub:
+                    case SIMD_f32x4_mul:
+                    case SIMD_f32x4_div:
+                    {
+                        if (!jit_compile_simd_f32x4_arith(
+                                cc, FLOAT_ADD + opcode - SIMD_f32x4_add))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_f32x4_min:
+                    case SIMD_f32x4_max:
+                    {
+                        if (!jit_compile_simd_f32x4_min_max(cc, SIMD_f32x4_min
+                                                                    == opcode))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_f32x4_pmin:
+                    case SIMD_f32x4_pmax:
+                    {
+                        if (!jit_compile_simd_f32x4_pmin_pmax(
+                                cc, SIMD_f32x4_pmin == opcode))
+                            return false;
+                        break;
+                    }
+
+                        /* f64x2 Op */
+
+                    case SIMD_f64x2_abs:
+                    {
+                        if (!jit_compile_simd_f64x2_abs(cc))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_f64x2_neg:
+                    {
+                        if (!jit_compile_simd_f64x2_neg(cc))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_f64x2_round:
+                    {
+                        if (!jit_compile_simd_f64x2_round(cc))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_f64x2_sqrt:
+                    {
+                        if (!jit_compile_simd_f64x2_sqrt(cc))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_f64x2_add:
+                    case SIMD_f64x2_sub:
+                    case SIMD_f64x2_mul:
+                    case SIMD_f64x2_div:
+                    {
+                        if (!jit_compile_simd_f64x2_arith(
+                                cc, FLOAT_ADD + opcode - SIMD_f64x2_add))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_f64x2_min:
+                    case SIMD_f64x2_max:
+                    {
+                        if (!jit_compile_simd_f64x2_min_max(cc, SIMD_f64x2_min
+                                                                    == opcode))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_f64x2_pmin:
+                    case SIMD_f64x2_pmax:
+                    {
+                        if (!jit_compile_simd_f64x2_pmin_pmax(
+                                cc, SIMD_f64x2_pmin == opcode))
+                            return false;
+                        break;
+                    }
+
+                    /* Conversion Op */
+                    case SIMD_i32x4_trunc_sat_f32x4_s:
+                    case SIMD_i32x4_trunc_sat_f32x4_u:
+                    {
+                        if (!jit_compile_simd_i32x4_trunc_sat_f32x4(
+                                cc, SIMD_i32x4_trunc_sat_f32x4_s == opcode))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_f32x4_convert_i32x4_s:
+                    case SIMD_f32x4_convert_i32x4_u:
+                    {
+                        if (!jit_compile_simd_f32x4_convert_i32x4(
+                                cc, SIMD_f32x4_convert_i32x4_s == opcode))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_i32x4_trunc_sat_f64x2_s_zero:
+                    case SIMD_i32x4_trunc_sat_f64x2_u_zero:
+                    {
+                        if (!jit_compile_simd_i32x4_trunc_sat_f64x2(
+                                cc,
+                                SIMD_i32x4_trunc_sat_f64x2_s_zero == opcode))
+                            return false;
+                        break;
+                    }
+
+                    case SIMD_f64x2_convert_low_i32x4_s:
+                    case SIMD_f64x2_convert_low_i32x4_u:
+                    {
+                        if (!jit_compile_simd_f64x2_convert_i32x4(
+                                cc, SIMD_f64x2_convert_low_i32x4_s == opcode))
+                            return false;
+                        break;
+                    }
+
+                    default:
+                        jit_set_last_error(cc, "unsupported SIMD opcode");
+                        return false;
+                }
+                break;
+            }
+#endif /* end of WASM_ENABLE_SIMD != 0 */
 
             default:
                 jit_set_last_error(cc, "unsupported opcode");

@@ -271,6 +271,19 @@ gen_load_f32(JitFrame *frame, unsigned n);
 JitReg
 gen_load_f64(JitFrame *frame, unsigned n);
 
+#if WASM_ENABLE_SIMD != 0
+/**
+ * Generate instruction to load a v128 value from the frame.
+ *
+ * @param frame the frame information
+ * @param n slot index to the local variable array
+ *
+ * @return register holding the loaded value
+ */
+JitReg
+gen_load_v128(JitFrame *frame, unsigned n);
+#endif
+
 /**
  * Generate instructions to commit computation result to the frame.
  * The general principle is to only commit values that will be used
@@ -368,6 +381,20 @@ push_f64(JitFrame *frame, JitReg value)
     push_i64(frame, value);
 }
 
+#if WASM_ENABLE_SIMD != 0
+static inline void
+push_v128(JitFrame *frame, JitReg value)
+{
+    uint32 i;
+
+    for (i = 0; i < 4; i++) {
+        frame->sp->reg = value;
+        frame->sp->dirty = 1;
+        frame->sp++;
+    }
+}
+#endif
+
 static inline JitReg
 pop_i32(JitFrame *frame)
 {
@@ -395,6 +422,15 @@ pop_f64(JitFrame *frame)
     frame->sp -= 2;
     return gen_load_f64(frame, frame->sp - frame->lp);
 }
+
+#if WASM_ENABLE_SIMD != 0
+static inline JitReg
+pop_v128(JitFrame *frame)
+{
+    frame->sp -= 4;
+    return gen_load_v128(frame, frame->sp - frame->lp);
+}
+#endif
 
 static inline void
 pop(JitFrame *frame, int n)
@@ -427,6 +463,14 @@ local_f64(JitFrame *frame, int n)
     return gen_load_f64(frame, n);
 }
 
+#if WASM_ENABLE_SIMD != 0
+static inline JitReg
+local_v128(JitFrame *frame, int n)
+{
+    return gen_load_v128(frame, n);
+}
+#endif
+
 static void
 set_local_i32(JitFrame *frame, int n, JitReg val)
 {
@@ -455,6 +499,14 @@ set_local_f64(JitFrame *frame, int n, JitReg val)
     set_local_i64(frame, n, val);
 }
 
+#if WASM_ENABLE_SIMD != 0
+static inline void
+set_local_v128(JitFrame *frame, int n, JitReg val)
+{
+    set_local_v128(frame, n, val);
+}
+#endif
+
 #define POP(jit_value, value_type)                         \
     do {                                                   \
         if (!jit_cc_pop_value(cc, value_type, &jit_value)) \
@@ -465,6 +517,7 @@ set_local_f64(JitFrame *frame, int n, JitReg val)
 #define POP_I64(v) POP(v, VALUE_TYPE_I64)
 #define POP_F32(v) POP(v, VALUE_TYPE_F32)
 #define POP_F64(v) POP(v, VALUE_TYPE_F64)
+#define POP_V128(v) POP(v, VALUE_TYPE_V128)
 #define POP_FUNCREF(v) POP(v, VALUE_TYPE_FUNCREF)
 #define POP_EXTERNREF(v) POP(v, VALUE_TYPE_EXTERNREF)
 
@@ -480,6 +533,7 @@ set_local_f64(JitFrame *frame, int n, JitReg val)
 #define PUSH_I64(v) PUSH(v, VALUE_TYPE_I64)
 #define PUSH_F32(v) PUSH(v, VALUE_TYPE_F32)
 #define PUSH_F64(v) PUSH(v, VALUE_TYPE_F64)
+#define PUSH_V128(v) PUSH(v, VALUE_TYPE_V128)
 #define PUSH_FUNCREF(v) PUSH(v, VALUE_TYPE_FUNCREF)
 #define PUSH_EXTERNREF(v) PUSH(v, VALUE_TYPE_EXTERNREF)
 

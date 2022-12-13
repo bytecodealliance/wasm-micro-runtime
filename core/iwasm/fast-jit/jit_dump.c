@@ -52,6 +52,16 @@ jit_dump_reg(JitCompContext *cc, JitReg reg)
                 os_printf("D%d", no);
             break;
 
+        case JIT_REG_KIND_V128:
+            if (jit_reg_is_const(reg)) {
+                uint64 *v = (uint64 *)jit_cc_get_const_V128(cc, reg);
+                os_printf("<0x%016" PRIx64 " 0x%016" PRIx64 ">:v128", *v,
+                          *(v + 1));
+            }
+            else
+                os_printf("v128_%d", no);
+            break;
+
         case JIT_REG_KIND_L32:
             os_printf("L%d", no);
             break;

@@ -1347,6 +1347,17 @@ JitReg
 jit_cc_new_const_F64(JitCompContext *cc, double val);
 
 /**
+ * Create a V128 constant value into the compilation context.
+ *
+ * @param cc compilation context
+ * @param val a V128 value
+ *
+ * @return a constant register containing the value
+ */
+JitReg
+jit_cc_new_const_V128(JitCompContext *cc, const uint8 *val);
+
+/**
  * Get the relocation info of a I32 constant register.
  *
  * @param cc compilation context
@@ -1400,6 +1411,17 @@ jit_cc_get_const_F32(JitCompContext *cc, JitReg reg);
  */
 double
 jit_cc_get_const_F64(JitCompContext *cc, JitReg reg);
+
+/**
+ * Get the constant value of a V128 constant register.
+ *
+ * @param cc compilation context
+ * @param reg constant register
+ *
+ * @return the constant value
+ */
+const uint8 *
+jit_cc_get_const_V128(JitCompContext *cc, JitReg reg);
 
 /**
  * Get the number of total created labels.
