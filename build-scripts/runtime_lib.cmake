@@ -27,14 +27,6 @@ if (DEFINED EXTRA_SDK_INCLUDE_PATH)
     )
 endif ()
 
-# Need exactly OpenSSL 1.1.1
-if (WAMR_BUILD_WASM_CACHE EQUAL 1)
-     # Set OPENSSL_ROOT_DIR to the root directory of an OpenSSL installation.
-     # Like: cmake -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl
-     # Especially on MacOS
-    find_package(OpenSSL 1.1.1 EXACT REQUIRED)
-endif ()
-
 # Set default options
 
 # Set WAMR_BUILD_TARGET, currently values supported:
@@ -153,6 +145,10 @@ endif ()
 
 if (WAMR_BUILD_LIB_RATS EQUAL 1)
     include (${IWASM_DIR}/libraries/lib-rats/lib_rats.cmake)
+endif ()
+
+if (WAMR_BUILD_WASM_CACHE EQUAL 1)
+    include (${WAMR_ROOT_DIR}/build-scripts/involve_boringssl.cmake)
 endif ()
 
 ####################### Common sources #######################
