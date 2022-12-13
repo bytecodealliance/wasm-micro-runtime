@@ -2183,7 +2183,7 @@ wasm_module_new(wasm_store_t *store, const wasm_byte_vec_t *binary)
 
 #if WASM_ENABLE_WASM_CACHE != 0
     /* if cached */
-    SHA256((void *)binary->data, binary->num_elems, binary_hash);
+    SHA256((void *)binary->data, binary->num_elems, (uint8_t *)binary_hash);
     module_ex = try_reuse_loaded_module(store, binary_hash);
     if (module_ex)
         return module_ext_to_module(module_ex);
