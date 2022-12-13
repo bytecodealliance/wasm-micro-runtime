@@ -25,7 +25,7 @@ jobs:
         wamr_test_option: [
           # "-t fast-interp",
           "-t aot",
-          # "-t aot -X"
+          "-t aot -X"
         ]
     steps:
       - name: Install Utilities
