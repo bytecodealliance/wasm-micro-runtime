@@ -68,6 +68,7 @@ static const aot_intrinsic g_intrinsic_mapping[] = {
     { "f32.const", NULL, AOT_INTRINSIC_FLAG_F32_CONST },
     { "f64.const", NULL, AOT_INTRINSIC_FLAG_F64_CONST },
     { "i64.div_s", "aot_intrinsic_i64_div_s", AOT_INTRINSIC_FLAG_I64_DIV_S},
+    { "i32.div_s", "aot_intrinsic_i32_div_s", AOT_INTRINSIC_FLAG_I32_DIV_S},
     { "i32.div_u", "aot_intrinsic_i32_div_u", AOT_INTRINSIC_FLAG_I32_DIV_U},
     { "i32.rem_s", "aot_intrinsic_i32_rem_s", AOT_INTRINSIC_FLAG_I32_REM_S},
     { "i32.rem_u", "aot_intrinsic_i32_rem_u", AOT_INTRINSIC_FLAG_I32_REM_U},
@@ -504,6 +505,12 @@ aot_intrinsic_i64_div_s(int64 l, int64 r)
     return l / r;
 }
 
+int32
+aot_intrinsic_i32_div_s(int32 l, int32 r)
+{
+    return l / r;
+}
+
 uint32
 aot_intrinsic_i32_div_u(uint32 l, uint32 r)
 {
@@ -593,6 +600,7 @@ add_i64_common_intrinsics(AOTCompContext *comp_ctx)
 static void
 add_i32_common_intrinsics(AOTCompContext *comp_ctx)
 {
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I32_DIV_S);
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I32_DIV_U);
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I32_REM_S);
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I32_REM_U);
@@ -691,6 +699,7 @@ aot_intrinsic_fill_capability_flags(AOTCompContext *comp_ctx)
         return;
 
     if (!strncmp(comp_ctx->target_arch, "thumb", 5)) {
+        add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I32_CONST);
         add_i32_common_intrinsics(comp_ctx);
         if (!strcmp(comp_ctx->target_cpu, "cortex-m7")) {
         }
@@ -705,6 +714,7 @@ aot_intrinsic_fill_capability_flags(AOTCompContext *comp_ctx)
         }
     }
     else if (!strncmp(comp_ctx->target_arch, "riscv", 5)) {
+        add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I32_CONST);
         /*
          * Note: Use builtin intrinsics since hardware float operation
          * will cause rodata relocation
