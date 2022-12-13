@@ -160,6 +160,7 @@ jobs:
     needs: [create_tag, create_release]
     uses: ./.github/workflows/build_docker_images.yml
     with:
+      upload_url: ${{ needs.create_release.outputs.upload_url }}
       ver_num: ${{ needs.create_tag.outputs.new_ver }}
 
   #
