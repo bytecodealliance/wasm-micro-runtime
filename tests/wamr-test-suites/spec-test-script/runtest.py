@@ -948,15 +948,15 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r, output = '
     elif test_target == "armv7":
         cmd += ["--target=armv7", "--target-abi=gnueabihf"]
     elif test_target == "thumbv7":
-        cmd += ["--target=thumbv7", "--target-abi=gnueabihf", "--cpu=cortex-a9"]
+        cmd += ["--target=thumbv7", "--target-abi=gnueabihf", "--cpu=cortex-a9", "--cpu-features=-neon"]
     elif test_target == "riscv32_ilp32":
-        cmd += ["--target=riscv32", "--target-abi=ilp32"]
+        cmd += ["--target=riscv32", "--target-abi=ilp32", "--cpu=generic-rv32", "--cpu-features=+m,+a,+c"]
     elif test_target == "riscv32_ilp32d":
-        cmd += ["--target=riscv32", "--target-abi=ilp32d"]
+        cmd += ["--target=riscv32", "--target-abi=ilp32d", "--cpu=generic-rv32", "--cpu-features=+m,+a,+c"]
     elif test_target == "riscv64_lp64":
-        cmd += ["--target=riscv64", "--target-abi=lp64"]
+        cmd += ["--target=riscv64", "--target-abi=lp64", "--cpu=generic-rv64", "--cpu-features=+m,+a,+c"]
     elif test_target == "riscv64_lp64d":
-        cmd += ["--target=riscv64", "--target-abi=lp64d"]
+        cmd += ["--target=riscv64", "--target-abi=lp64d", "--cpu=generic-rv32", "--cpu-features=+m,+a,+c"]
     else:
         pass
 
