@@ -1157,8 +1157,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #if WASM_ENABLE_DEBUG_INTERP != 0
     uint8 *frame_ip_orig = NULL;
     WASMDebugInstance *debug_instance = wasm_exec_env_get_instance(exec_env);
-    bh_list *watch_point_list_read = &debug_instance->watch_point_list_read;
-    bh_list *watch_point_list_write = &debug_instance->watch_point_list_write;
+    bh_list *watch_point_list_read =
+        debug_instance ? &debug_instance->watch_point_list_read : NULL;
+    bh_list *watch_point_list_write =
+        debug_instance ? &debug_instance->watch_point_list_write : NULL;
 #endif
 
 #if WASM_ENABLE_LABELS_AS_VALUES != 0
