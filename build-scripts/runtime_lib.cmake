@@ -127,6 +127,7 @@ endif ()
 if (WAMR_BUILD_LIB_WASI_THREADS EQUAL 1)
     include (${IWASM_DIR}/libraries/lib-wasi-threads/lib_wasi_threads.cmake)
     # Enable the dependent feature if lib wasi threads is enabled
+    set (WAMR_BUILD_THREAD_MGR 1)
     set (WAMR_BUILD_BULK_MEMORY 1)
     set (WAMR_BUILD_SHARED_MEMORY 1)
 endif ()
