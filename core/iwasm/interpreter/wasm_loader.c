@@ -7751,7 +7751,7 @@ re_scan:
                         loader_ctx->p_code_compiled - 2;
 
                     if (ref_type == VALUE_TYPE_V128) {
-#if WASM_ENABLE_SIMD == 0                                         \
+#if WASM_ENABLE_SIMD == 0                                      \
     || (WASM_ENABLE_WAMR_COMPILER == 0 && WASM_ENABLE_JIT == 0 \
         && WASM_ENABLE_FAST_JIT == 0)
                         set_error_buf(error_buf, error_buf_size,
