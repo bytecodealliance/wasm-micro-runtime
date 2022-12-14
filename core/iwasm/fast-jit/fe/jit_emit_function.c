@@ -624,19 +624,19 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
                          NEW_CONST(I32, offset_of_local(n)));
                 break;
             case VALUE_TYPE_I64:
-                res = jit_cc_new_reg_I32(cc);
+                res = jit_cc_new_reg_I64(cc);
                 GEN_INSN(LDI64, res, argv, NEW_CONST(I32, 0));
                 GEN_INSN(STI64, res, cc->fp_reg,
                          NEW_CONST(I32, offset_of_local(n)));
                 break;
             case VALUE_TYPE_F32:
-                res = jit_cc_new_reg_I32(cc);
+                res = jit_cc_new_reg_F32(cc);
                 GEN_INSN(LDF32, res, argv, NEW_CONST(I32, 0));
                 GEN_INSN(STF32, res, cc->fp_reg,
                          NEW_CONST(I32, offset_of_local(n)));
                 break;
             case VALUE_TYPE_F64:
-                res = jit_cc_new_reg_I32(cc);
+                res = jit_cc_new_reg_F64(cc);
                 GEN_INSN(LDF64, res, argv, NEW_CONST(I32, 0));
                 GEN_INSN(STF64, res, cc->fp_reg,
                          NEW_CONST(I32, offset_of_local(n)));
