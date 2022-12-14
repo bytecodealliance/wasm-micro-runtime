@@ -1,6 +1,12 @@
 # Copyright (C) 2022 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+if (APPLE)
+    set (HAVE_FLAG_SEARCH_PATHS_FIRST 0)
+    set (CMAKE_C_LINK_FLAGS "")
+    set (CMAKE_CXX_LINK_FLAGS "")
+endif ()
+
 if (NOT DEFINED WASI_SDK_DIR)
   set (WASI_SDK_DIR               "/opt/wasi-sdk")
 endif ()
@@ -27,3 +33,4 @@ function (compile_sample SOURCE_FILE)
 endfunction ()
 
 compile_sample(no_pthread.c)
+compile_sample(exception_propagation.c)
