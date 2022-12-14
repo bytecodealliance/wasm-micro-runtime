@@ -37,9 +37,6 @@ jobs:
           echo "${extract_result}" >> $GITHUB_ENV
           echo "EOF"               >> $GITHUB_ENV
 
-      - name: check output
-        run: echo 'the release note is "${{ env.RELEASE_NOTE }}"'
-
       - name: create a release
         id: create_release
         uses: actions/create-release@v1
@@ -163,8 +160,9 @@ jobs:
     needs: [create_tag, create_release]
     uses: ./.github/workflows/build_docker_images.yml
     with:
+      upload_url: ${{ needs.create_release.outputs.upload_url }}
       ver_num: ${{ needs.create_tag.outputs.new_ver }}
-    
+
   #
   # WAMR_LLDB
   release_wamr_lldb_on_ubuntu_2004:
