@@ -29,6 +29,8 @@ function (compile_sample SOURCE_FILE)
     LINKER:--export=__data_end
     LINKER:--shared-memory,--max-memory=1966080
     LINKER:--export=wasi_thread_start
+    LINKER:--export=malloc
+    LINKER:--export=free
   )
 endfunction ()
 

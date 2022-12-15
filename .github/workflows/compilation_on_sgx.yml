@@ -244,7 +244,7 @@ jobs:
         os: [ubuntu-20.04]
         wasi_sdk_release:
           [
-            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz",
+            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-16/wasi-sdk-16.0-linux.tar.gz",
           ]
         wabt_release:
           [
@@ -258,8 +258,8 @@ jobs:
         run: |
           cd /opt
           sudo wget ${{ matrix.wasi_sdk_release }}
-          sudo tar -xzf wasi-sdk-12.0-*.tar.gz
-          sudo mv wasi-sdk-12.0 wasi-sdk
+          sudo tar -xzf wasi-sdk-16.0-*.tar.gz
+          sudo mv wasi-sdk-16.0 wasi-sdk
 
       - name: download and install wabt
         run: |
@@ -267,6 +267,17 @@ jobs:
           sudo wget ${{ matrix.wabt_release }}
           sudo tar -xzf wabt-1.0.24-*.tar.gz
           sudo mv wabt-1.0.24 wabt
+
+      - name: build wasi-libc (needed for wasi-threads)
+        run: |
+          git clone --branch wasi-sdk-17 https://github.com/WebAssembly/wasi-libc
+          cd wasi-libc
+          make \
+            AR=/opt/wasi-sdk/bin/llvm-ar \
+            NM=/opt/wasi-sdk/bin/llvm-nm \
+            CC=/opt/wasi-sdk/bin/clang \
+            THREAD_MODEL=posix
+        working-directory: core/deps
 
       - name: install SGX SDK and necessary libraries
         run: |
@@ -326,6 +337,14 @@ jobs:
           cmake ..
           cmake --build . --config Release --parallel 4
           ./hello
+
+      - name: Build Sample [wasi-threads]
+        run: |
+          cd samples/wasi-threads
+          mkdir build && cd build
+          cmake -DWASI_SYSROOT=`pwd`/../../../core/deps/wasi-libc/sysroot ..
+          cmake --build . --config Release --parallel 4
+          ./iwasm wasm-apps/no_pthread.wasm
 
   spec_test_default:
     needs: [build_iwasm, build_llvm_libraries, build_wamrc]
