@@ -137,53 +137,73 @@ export function checkFolderName(folderName: string) {
     return valid;
 }
 
-export function downloadFile(url: string, destinationPath: string): Promise<void> {
+export function downloadFile(
+    url: string,
+    destinationPath: string
+): Promise<void> {
     return new Promise((resolve, reject) => {
         const file = fileSystem.createWriteStream(destinationPath);
         const stream = request(url, undefined, (error, response, body) => {
             if (response.statusCode !== 200) {
-                reject(new Error(`Download from ${url} failed with ${response.statusMessage}`));
+                reject(
+                    new Error(
+                        `Download from ${url} failed with ${response.statusMessage}`
+                    )
+                );
             }
         }).pipe(file);
-        stream.on("close", resolve);
-        stream.on("error", reject);
+        stream.on('close', resolve);
+        stream.on('error', reject);
     });
 }
 
-export function unzipFile(sourcePath: string, getDestinationFileName: (entryName: string) => string): Promise<string[]> {
+export function unzipFile(
+    sourcePath: string,
+    getDestinationFileName: (entryName: string) => string
+): Promise<string[]> {
     return new Promise((resolve, reject) => {
         const unzippedFilePaths: string[] = [];
-        yauzl.open(sourcePath, { lazyEntries: true }, function(error, zipfile) {
-            if (error) {
-                reject(error);
-                return;
-            }
-            zipfile.readEntry();
-            zipfile.on("entry", function(entry) {
-                // This entry is a directory so skip it
-                if (/\/$/.test(entry.fileName)) {
-                    zipfile.readEntry();
+        yauzl.open(
+            sourcePath,
+            { lazyEntries: true },
+            function (error, zipfile) {
+                if (error) {
+                    reject(error);
                     return;
-                } 
-
-                zipfile.openReadStream(entry, function(error, readStream) {
-                    if (error) {
-                        reject(error);
+                }
+                zipfile.readEntry();
+                zipfile.on('entry', function (entry) {
+                    // This entry is a directory so skip it
+                    if (/\/$/.test(entry.fileName)) {
+                        zipfile.readEntry();
                         return;
                     }
-                    readStream.on("end", () => zipfile.readEntry());
-                    const destinationFileName = getDestinationFileName(entry.fileName);
-                    fileSystem.mkdirSync(path.dirname(destinationFileName), { recursive: true });
 
-                    const file = fileSystem.createWriteStream(destinationFileName);
-                    readStream.pipe(file).on("error", reject);
-                    unzippedFilePaths.push(destinationFileName);
+                    zipfile.openReadStream(entry, function (error, readStream) {
+                        if (error) {
+                            reject(error);
+                            return;
+                        }
+                        readStream.on('end', () => zipfile.readEntry());
+                        const destinationFileName = getDestinationFileName(
+                            entry.fileName
+                        );
+                        fileSystem.mkdirSync(
+                            path.dirname(destinationFileName),
+                            { recursive: true }
+                        );
+
+                        const file =
+                            fileSystem.createWriteStream(destinationFileName);
+                        readStream.pipe(file).on('error', reject);
+                        unzippedFilePaths.push(destinationFileName);
+                    });
                 });
-            });
-            zipfile.on("end", function() {
-                zipfile.close();
-                resolve(unzippedFilePaths);
-            });
-        });
+                zipfile.on('end', function () {
+                    zipfile.close();
+                    resolve(unzippedFilePaths);
+                });
+            }
+        );
     });
-} 
+}
