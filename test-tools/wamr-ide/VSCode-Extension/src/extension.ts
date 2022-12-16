@@ -18,7 +18,11 @@ import {
 } from './utilities/directoryUtilities';
 import { decorationProvider } from './decorationProvider';
 import { WasmDebugConfigurationProvider } from './debugConfigurationProvider';
-import { isLLDBInstalled, promptInstallLLDB } from './utilities/lldbUtilities';
+import {
+    isLLDBInstalled,
+    promptInstallLLDB,
+    getWAMRExtensionVersion,
+} from './utilities/lldbUtilities';
 
 let wasmTaskProvider: WasmTaskProvider;
 let wasmDebugConfigProvider: WasmDebugConfigurationProvider;
@@ -42,6 +46,8 @@ export async function activate(context: vscode.ExtensionContext) {
         /* exclude files array used for written into config file */
         excludeFileArr = new Array(),
         scriptMap = new Map();
+
+    const wamrVersion = getWAMRExtensionVersion(context);
 
     /**
      * Get OS platform information for differ windows and linux execution script
@@ -83,7 +89,7 @@ export async function activate(context: vscode.ExtensionContext) {
     typeMap.set('Debug', 'Debug');
     typeMap.set('Destroy', 'Destroy');
 
-    wasmTaskProvider = new WasmTaskProvider(typeMap, scriptMap);
+    wasmTaskProvider = new WasmTaskProvider(typeMap, scriptMap, wamrVersion);
 
     vscode.tasks.registerTaskProvider('wasm', wasmTaskProvider);
 
@@ -670,7 +676,8 @@ export async function activate(context: vscode.ExtensionContext) {
                                 let _path = curWorkspace.concat(
                                     OS_PLATFORM === 'win32'
                                         ? '\\'
-                                        : OS_PLATFORM === 'linux' || OS_PLATFORM === 'darwin'
+                                        : OS_PLATFORM === 'linux' ||
+                                          OS_PLATFORM === 'darwin'
                                         ? '/'
                                         : '',
                                     option

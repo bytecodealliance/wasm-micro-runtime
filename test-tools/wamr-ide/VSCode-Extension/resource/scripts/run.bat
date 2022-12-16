@@ -5,5 +5,5 @@
 
 docker run --rm -it --name=wasm-debug-server-ctr ^
            -v "%cd%":/mnt ^
-           wasm-debug-server:1.0 ^
+           wasm-debug-server:%2 ^
            /bin/bash -c "./run.sh %1"
