@@ -45,11 +45,7 @@ export class WasmTaskProvider implements vscode.TaskProvider {
                             : (this._script.get('buildScript') as string),
                     options: {
                         executable: this._script.get('buildScript'),
-                        shellArgs: [
-                            targetName,
-                            this._wamrVersion,
-                            os.platform(),
-                        ],
+                        shellArgs: [targetName, this._wamrVersion],
                     },
                 };
 
