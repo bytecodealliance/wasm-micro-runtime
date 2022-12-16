@@ -45,8 +45,9 @@ export async function activate(context: vscode.ExtensionContext) {
         includePathArr = new Array(),
         /* exclude files array used for written into config file */
         excludeFileArr = new Array(),
-        scriptMap = new Map(),
-        wamrVersion = '';
+        scriptMap = new Map();
+
+    const wamrVersion = getWAMRExtensionVersion(context);
 
     /**
      * Get OS platform information for differ windows and linux execution script
@@ -87,8 +88,6 @@ export async function activate(context: vscode.ExtensionContext) {
     typeMap.set('Run', 'Run');
     typeMap.set('Debug', 'Debug');
     typeMap.set('Destroy', 'Destroy');
-
-    wamrVersion = getWAMRExtensionVersion(context);
 
     wasmTaskProvider = new WasmTaskProvider(typeMap, scriptMap, wamrVersion);
 
