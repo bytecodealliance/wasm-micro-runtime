@@ -46,7 +46,7 @@ From now on, for each release, we have the same version tagged docker image save
 You could download the tar archive files for docker images from the release, and then load them using the following commands:
 
 ```sh
-# download the zip or tar.gz from release depending on your platform 
+# download the zip or tar.gz from release depending on your platform
 # decompress and get the tar file
 
 # on Linux/MacOS, you could use tar
@@ -55,14 +55,14 @@ tar xf wasm-debug-server-{version number}.tar.gz
 # or you could use unzip
 unzip wasm-toolchain-{version number}.zip
 unzip wasm-debug-server-{version number}.zip
-# load wasm-toolchain 
+# load wasm-toolchain
 docker load --input wasm-toolchain.tar
 # load wasm-debug-server
 docker load --input wasm-debug-server.tar
 
-# on Windows, you could use any unzip software you like 
+# on Windows, you could use any unzip software you like
 # then loading docker images using powershell or git bash
-# load wasm-toolchain 
+# load wasm-toolchain
 docker load --input ./wasm-toolchain.tar
 # load wasm-debug-server
 docker load --input ./wasm-debug-server.tar
