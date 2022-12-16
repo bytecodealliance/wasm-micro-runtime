@@ -28,7 +28,7 @@ jobs:
           docker build -t wasm-debug-server:${{ inputs.ver_num }} .
           docker save -o wasm-debug-server.tar wasm-debug-server:${{ inputs.ver_num }}
         working-directory: test-tools/wamr-ide/WASM-Debug-Server/Docker
-      
+
       - name: compress the tar file
         run: |
           tar czf wasm-debug-server-${{ inputs.ver_num }}.tar.gz wasm-debug-server.tar
@@ -86,4 +86,4 @@ jobs:
           asset_path: test-tools/wamr-ide/WASM-Toolchain/Docker/wasm-toolchain-${{ inputs.ver_num }}.zip
           asset_name: wasm-toolchain-${{ inputs.ver_num }}.zip
           asset_content_type: application/zip
-          
+

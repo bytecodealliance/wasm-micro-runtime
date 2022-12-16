@@ -32,6 +32,8 @@ Fix sample ref-types/wasm-c-api build error with wat2wasm low version
 Fix zephyr sample build errors
 Fix source debugger error handling: continue executing when detached
 Fix scenario where the timeout for atomic wait is set to negative number
+Fix link cxx object file error when building wamrc for docker image
+Fix XIP issue of handling 64-bit const in 32-bit target
 
 ### Enhancements
 Refactor the layout of interpreter and AOT module instance
@@ -75,6 +77,7 @@ Fix warnings in the posix socket implementation
 Update document for MacOS compilation
 Install patched LLDB on vscode extension activation
 Add ARM aeabi memcpy/memmove/memset symbols for AOT bulk memory ops
+Enable wasm cache loading in wasm-c-api
 
 ### Others
 Add CIs to release new version and publish binary files
