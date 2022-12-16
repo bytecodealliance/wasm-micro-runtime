@@ -731,7 +731,7 @@ handle_add_break(WASMGDBServer *server, char *payload)
             handle_watchpoint_read_add(server, addr, length);
             break;
         default:
-            LOG_ERROR("Unsupported breakpoint type %d", type);
+            LOG_ERROR("Unsupported breakpoint type %zu", type);
             write_packet(server, "");
             break;
     }
@@ -766,7 +766,7 @@ handle_remove_break(WASMGDBServer *server, char *payload)
             handle_watchpoint_read_remove(server, addr, length);
             break;
         default:
-            LOG_ERROR("Unsupported breakpoint type %d", type);
+            LOG_ERROR("Unsupported breakpoint type %zu", type);
             write_packet(server, "");
             break;
     }
