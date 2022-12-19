@@ -18,6 +18,9 @@ typedef struct JitGlobals {
     /* Compiler pass sequence, the last element must be 0 */
     const uint8 *passes;
     char *return_to_interp_from_jitted;
+#if WASM_ENABLE_LAZY_JIT != 0
+    char *compile_fast_jit_and_then_call;
+#endif
 } JitGlobals;
 
 /**
@@ -87,8 +90,24 @@ jit_compiler_compile(WASMModule *module, uint32 func_idx);
 bool
 jit_compiler_compile_all(WASMModule *module);
 
+bool
+jit_compiler_is_compiled(const WASMModule *module, uint32 func_idx);
+
+#if WASM_ENABLE_LAZY_JIT != 0 && WASM_ENABLE_JIT != 0
+bool
+jit_compiler_set_call_to_llvm_jit(WASMModule *module, uint32 func_idx);
+
+bool
+jit_compiler_set_call_to_fast_jit(WASMModule *module, uint32 func_idx);
+
+void
+jit_compiler_set_llvm_jit_func_ptr(WASMModule *module, uint32 func_idx,
+                                   void *func_ptr);
+#endif
+
 int
-jit_interp_switch_to_jitted(void *self, JitInterpSwitchInfo *info, void *pc);
+jit_interp_switch_to_jitted(void *self, JitInterpSwitchInfo *info,
+                            uint32 func_idx, void *pc);
 
 /*
  * Pass declarations:
