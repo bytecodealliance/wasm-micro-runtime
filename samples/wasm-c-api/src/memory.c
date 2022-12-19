@@ -36,9 +36,16 @@ void check_call(wasm_func_t* func, int i, wasm_val_t args[], int32_t expected) {
   wasm_val_t r[] = {WASM_INIT_VAL};
   wasm_val_vec_t args_ = {i, args, i, sizeof(wasm_val_t), NULL};
   wasm_val_vec_t results = WASM_ARRAY_VEC(r);
-  if (wasm_func_call(func, &args_, &results) || r[0].of.i32 != expected) {
-    printf("> Error on result\n");
-    exit(1);
+  wasm_trap_t *trap = wasm_func_call(func, &args_, &results);
+  if (trap) {
+      printf("> Error on result\n");
+      wasm_trap_delete(trap);
+      exit(1);
+  }
+
+  if (r[0].of.i32 != expected) {
+      printf("> Error on result\n");
+      exit(1);
   }
 }
 
@@ -59,9 +66,11 @@ void check_call2(wasm_func_t* func, int32_t arg1, int32_t arg2, int32_t expected
 void check_ok(wasm_func_t* func, int i, wasm_val_t args[]) {
   wasm_val_vec_t args_ = {i, args, i, sizeof(wasm_val_t), NULL};
   wasm_val_vec_t results = WASM_EMPTY_VEC;
-  if (wasm_func_call(func, &args_, &results)) {
-    printf("> Error on result, expected empty\n");
-    exit(1);
+  wasm_trap_t *trap = wasm_func_call(func, &args_, &results);
+  if (trap) {
+      printf("> Error on result, expected empty\n");
+      wasm_trap_delete(trap);
+      exit(1);
   }
 }
 

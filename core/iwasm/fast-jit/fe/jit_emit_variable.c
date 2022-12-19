@@ -177,21 +177,6 @@ get_global_type(const WASMModule *module, uint32 global_idx)
     }
 }
 
-static uint32
-get_global_data_offset(const WASMModule *module, uint32 global_idx)
-{
-    if (global_idx < module->import_global_count) {
-        const WASMGlobalImport *import_global =
-            &((module->import_globals + global_idx)->u.global);
-        return import_global->data_offset;
-    }
-    else {
-        const WASMGlobal *global =
-            module->globals + (global_idx - module->import_global_count);
-        return global->data_offset;
-    }
-}
-
 bool
 jit_compile_op_get_global(JitCompContext *cc, uint32 global_idx)
 {
@@ -202,8 +187,10 @@ jit_compile_op_get_global(JitCompContext *cc, uint32 global_idx)
     bh_assert(global_idx < cc->cur_wasm_module->import_global_count
                                + cc->cur_wasm_module->global_count);
 
-    data_offset = get_global_data_offset(cc->cur_wasm_module, global_idx);
+    data_offset =
+        jit_frontend_get_global_data_offset(cc->cur_wasm_module, global_idx);
     global_type = get_global_type(cc->cur_wasm_module, global_idx);
+
     switch (global_type) {
         case VALUE_TYPE_I32:
 #if WASM_ENABLE_REF_TYPES != 0
@@ -212,28 +199,28 @@ jit_compile_op_get_global(JitCompContext *cc, uint32 global_idx)
 #endif
         {
             value = jit_cc_new_reg_I32(cc);
-            GEN_INSN(LDI32, value, get_global_data_reg(cc->jit_frame),
+            GEN_INSN(LDI32, value, get_module_inst_reg(cc->jit_frame),
                      NEW_CONST(I32, data_offset));
             break;
         }
         case VALUE_TYPE_I64:
         {
             value = jit_cc_new_reg_I64(cc);
-            GEN_INSN(LDI64, value, get_global_data_reg(cc->jit_frame),
+            GEN_INSN(LDI64, value, get_module_inst_reg(cc->jit_frame),
                      NEW_CONST(I32, data_offset));
             break;
         }
         case VALUE_TYPE_F32:
         {
             value = jit_cc_new_reg_F32(cc);
-            GEN_INSN(LDF32, value, get_global_data_reg(cc->jit_frame),
+            GEN_INSN(LDF32, value, get_module_inst_reg(cc->jit_frame),
                      NEW_CONST(I32, data_offset));
             break;
         }
         case VALUE_TYPE_F64:
         {
             value = jit_cc_new_reg_F64(cc);
-            GEN_INSN(LDF64, value, get_global_data_reg(cc->jit_frame),
+            GEN_INSN(LDF64, value, get_module_inst_reg(cc->jit_frame),
                      NEW_CONST(I32, data_offset));
             break;
         }
@@ -262,8 +249,10 @@ jit_compile_op_set_global(JitCompContext *cc, uint32 global_idx,
     bh_assert(global_idx < cc->cur_wasm_module->import_global_count
                                + cc->cur_wasm_module->global_count);
 
-    data_offset = get_global_data_offset(cc->cur_wasm_module, global_idx);
+    data_offset =
+        jit_frontend_get_global_data_offset(cc->cur_wasm_module, global_idx);
     global_type = get_global_type(cc->cur_wasm_module, global_idx);
+
     switch (global_type) {
         case VALUE_TYPE_I32:
 #if WASM_ENABLE_REF_TYPES != 0
@@ -285,28 +274,28 @@ jit_compile_op_set_global(JitCompContext *cc, uint32 global_idx,
                                          JIT_OP_BGTU, cc->cmp_reg, NULL)))
                     goto fail;
             }
-            GEN_INSN(STI32, value, get_global_data_reg(cc->jit_frame),
+            GEN_INSN(STI32, value, get_module_inst_reg(cc->jit_frame),
                      NEW_CONST(I32, data_offset));
             break;
         }
         case VALUE_TYPE_I64:
         {
             POP_I64(value);
-            GEN_INSN(STI64, value, get_global_data_reg(cc->jit_frame),
+            GEN_INSN(STI64, value, get_module_inst_reg(cc->jit_frame),
                      NEW_CONST(I32, data_offset));
             break;
         }
         case VALUE_TYPE_F32:
         {
             POP_F32(value);
-            GEN_INSN(STF32, value, get_global_data_reg(cc->jit_frame),
+            GEN_INSN(STF32, value, get_module_inst_reg(cc->jit_frame),
                      NEW_CONST(I32, data_offset));
             break;
         }
         case VALUE_TYPE_F64:
         {
             POP_F64(value);
-            GEN_INSN(STF64, value, get_global_data_reg(cc->jit_frame),
+            GEN_INSN(STF64, value, get_module_inst_reg(cc->jit_frame),
                      NEW_CONST(I32, data_offset));
             break;
         }

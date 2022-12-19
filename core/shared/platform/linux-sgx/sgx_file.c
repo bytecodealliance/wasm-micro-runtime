@@ -88,6 +88,8 @@ ocall_linkat(int *p_ret, int olddirfd, const char *oldpath, int newdirfd,
 int
 ocall_unlinkat(int *p_ret, int dirfd, const char *pathname, int flags);
 int
+ocall_readlink(ssize_t *p_ret, const char *pathname, char *buf, size_t bufsiz);
+int
 ocall_readlinkat(ssize_t *p_ret, int dirfd, const char *pathname, char *buf,
                  size_t bufsiz);
 int
@@ -190,17 +192,28 @@ openat(int dirfd, const char *pathname, int flags, ...)
         errno = get_errno();
 
 #if WASM_ENABLE_SGX_IPFS != 0
-    // When WAMR uses Intel SGX IPFS to enabled, it opens a second
-    // file descriptor to interact with the secure file.
-    // The first file descriptor opened earlier is used to interact
-    // with the metadata of the file (e.g., time, flags, etc.).
-    int ret;
-    void *file_ptr = ipfs_fopen(fd, pathname, flags);
-    if (file_ptr == NULL) {
+    struct stat sb;
+    int ret = fstatat(dirfd, pathname, &sb, 0);
+    if (ret < 0) {
         if (ocall_close(&ret, fd) != SGX_SUCCESS) {
             TRACE_OCALL_FAIL();
         }
         return -1;
+    }
+
+    // Ony files are managed by SGX IPFS
+    if (S_ISREG(sb.st_mode)) {
+        // When WAMR uses Intel SGX IPFS to enabled, it opens a second
+        // file descriptor to interact with the secure file.
+        // The first file descriptor opened earlier is used to interact
+        // with the metadata of the file (e.g., time, flags, etc.).
+        void *file_ptr = ipfs_fopen(fd, flags);
+        if (file_ptr == NULL) {
+            if (ocall_close(&ret, fd) != SGX_SUCCESS) {
+                TRACE_OCALL_FAIL();
+            }
+            return -1;
+        }
     }
 #endif
 
@@ -690,6 +703,24 @@ unlinkat(int dirfd, const char *pathname, int flags)
     int ret;
 
     if (ocall_unlinkat(&ret, dirfd, pathname, flags) != SGX_SUCCESS) {
+        TRACE_OCALL_FAIL();
+        return -1;
+    }
+
+    if (ret == -1)
+        errno = get_errno();
+    return ret;
+}
+
+ssize_t
+readlink(const char *pathname, char *buf, size_t bufsiz)
+{
+    ssize_t ret;
+
+    if (buf == NULL)
+        return -1;
+
+    if (ocall_readlink(&ret, pathname, buf, bufsiz) != SGX_SUCCESS) {
         TRACE_OCALL_FAIL();
         return -1;
     }

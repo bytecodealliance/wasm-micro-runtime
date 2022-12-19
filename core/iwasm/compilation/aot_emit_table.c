@@ -15,18 +15,10 @@ get_tbl_inst_offset(const AOTCompContext *comp_ctx,
     AOTImportTable *imp_tbls = comp_ctx->comp_data->import_tables;
     AOTTable *tbls = comp_ctx->comp_data->tables;
 
-    if (comp_ctx->is_jit_mode) {
-        offset = offsetof(WASMModuleInstance, global_table_data.bytes)
-                 + (uint64)comp_ctx->comp_data->memory_count
-                       * sizeof(AOTMemoryInstance)
-                 + comp_ctx->comp_data->global_data_size;
-    }
-    else {
-        offset = offsetof(AOTModuleInstance, global_table_data.bytes)
-                 + (uint64)comp_ctx->comp_data->memory_count
-                       * sizeof(AOTMemoryInstance)
-                 + comp_ctx->comp_data->global_data_size;
-    }
+    offset =
+        offsetof(AOTModuleInstance, global_table_data.bytes)
+        + (uint64)comp_ctx->comp_data->memory_count * sizeof(AOTMemoryInstance)
+        + comp_ctx->comp_data->global_data_size;
 
     while (i < tbl_idx && i < comp_ctx->comp_data->import_table_count) {
         offset += offsetof(AOTTableInstance, elems);

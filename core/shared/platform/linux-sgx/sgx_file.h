@@ -219,6 +219,8 @@ linkat(int olddirfd, const char *oldpath, int newdirfd, const char *newpath,
 int
 unlinkat(int dirfd, const char *pathname, int flags);
 ssize_t
+readlink(const char *pathname, char *buf, size_t bufsiz);
+ssize_t
 readlinkat(int dirfd, const char *pathname, char *buf, size_t bufsiz);
 int
 symlinkat(const char *target, int newdirfd, const char *linkpath);

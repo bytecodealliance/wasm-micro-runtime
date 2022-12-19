@@ -37,7 +37,38 @@ under `resource/debug/bin`.
        - Ubuntu Bionic 18.04(LTS)
        ```
 
-#### 3. Build docker images
+#### 3. Load docker images from the release tar file or build docker images on the host
+
+##### 3.1 Load docker images from the release tar file
+
+From now on, for each release, we have the same version tagged docker image saved as a tar file, which you can find and download in the release.
+
+You could download the tar archive files for docker images from the release, and then load them using the following commands:
+
+```sh
+# download the zip or tar.gz from release depending on your platform
+# decompress and get the tar file
+
+# on Linux/MacOS, you could use tar
+tar xf wasm-toolchain-{version number}.tar.gz
+tar xf wasm-debug-server-{version number}.tar.gz
+# or you could use unzip
+unzip wasm-toolchain-{version number}.zip
+unzip wasm-debug-server-{version number}.zip
+# load wasm-toolchain
+docker load --input wasm-toolchain.tar
+# load wasm-debug-server
+docker load --input wasm-debug-server.tar
+
+# on Windows, you could use any unzip software you like
+# then loading docker images using powershell or git bash
+# load wasm-toolchain
+docker load --input ./wasm-toolchain.tar
+# load wasm-debug-server
+docker load --input ./wasm-debug-server.tar
+```
+
+##### 3.2 Build docker images on host
 
 We have 2 docker images which should be built or loaded on your host, `wasm-toolchain` and `wasm-debug-server`. To build these 2 images, please enter the `WASM-Debug-Server/Docker` & `WASM-Toolchain/Docker`, then execute the `build_docker_image` script respectively.
 

@@ -63,5 +63,8 @@ void
 handle____request(WASMGDBServer *server, char *payload);
 
 void
+handle_detach_request(WASMGDBServer *server, char *payload);
+
+void
 send_thread_stop_status(WASMGDBServer *server, uint32 status, korp_tid tid);
 #endif

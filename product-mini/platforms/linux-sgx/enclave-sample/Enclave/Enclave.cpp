@@ -12,6 +12,10 @@
 #include "wasm_export.h"
 #include "bh_platform.h"
 
+#if WASM_ENABLE_LIB_RATS != 0
+#include <openssl/sha.h>
+#endif
+
 extern "C" {
 typedef int (*os_print_function_t)(const char *message);
 extern void
@@ -62,12 +66,19 @@ typedef struct EnclaveModule {
     uint32 wasi_argc;
     bool is_xip_file;
     uint32 total_size_mapped;
+#if WASM_ENABLE_LIB_RATS != 0
+    char module_hash[SHA256_DIGEST_LENGTH];
+    struct EnclaveModule *next;
+#endif
 } EnclaveModule;
 
-#if WASM_ENABLE_SPEC_TEST == 0
-static char global_heap_buf[10 * 1024 * 1024] = { 0 };
-#else
-static char global_heap_buf[100 * 1024 * 1024] = { 0 };
+#if WASM_ENABLE_LIB_RATS != 0
+static EnclaveModule *enclave_module_list = NULL;
+static korp_mutex enclave_module_list_lock = OS_THREAD_MUTEX_INITIALIZER;
+#endif
+
+#if WASM_ENABLE_GLOBAL_HEAP_POOL != 0
+static char global_heap_buf[WASM_GLOBAL_HEAP_SIZE] = { 0 };
 #endif
 
 static void
@@ -80,32 +91,25 @@ set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
 static void
 handle_cmd_init_runtime(uint64 *args, uint32 argc)
 {
-    bool alloc_with_pool;
     uint32 max_thread_num;
     RuntimeInitArgs init_args;
 
-    bh_assert(argc == 2);
+    bh_assert(argc == 1);
 
     os_set_print_function(enclave_print);
 
-#if WASM_ENABLE_SPEC_TEST == 0
-    alloc_with_pool = (bool)args[0];
-#else
-    alloc_with_pool = true;
-#endif
-    max_thread_num = (uint32)args[1];
+    max_thread_num = (uint32)args[0];
 
     memset(&init_args, 0, sizeof(RuntimeInitArgs));
     init_args.max_thread_num = max_thread_num;
 
-    if (alloc_with_pool) {
-        init_args.mem_alloc_type = Alloc_With_Pool;
-        init_args.mem_alloc_option.pool.heap_buf = global_heap_buf;
-        init_args.mem_alloc_option.pool.heap_size = sizeof(global_heap_buf);
-    }
-    else {
-        init_args.mem_alloc_type = Alloc_With_System_Allocator;
-    }
+#if WASM_ENABLE_GLOBAL_HEAP_POOL != 0
+    init_args.mem_alloc_type = Alloc_With_Pool;
+    init_args.mem_alloc_option.pool.heap_buf = global_heap_buf;
+    init_args.mem_alloc_option.pool.heap_size = sizeof(global_heap_buf);
+#else
+    init_args.mem_alloc_type = Alloc_With_System_Allocator;
+#endif
 
     /* initialize runtime environment */
     if (!wasm_runtime_full_init(&init_args)) {
@@ -252,6 +256,20 @@ handle_cmd_load_module(uint64 *args, uint32 argc)
 
     *(EnclaveModule **)args_org = enclave_module;
 
+#if WASM_ENABLE_LIB_RATS != 0
+    /* Calculate the module hash */
+    SHA256_CTX sha256;
+    SHA256_Init(&sha256);
+    SHA256_Update(&sha256, wasm_file, wasm_file_size);
+    SHA256_Final((unsigned char *)enclave_module->module_hash, &sha256);
+
+    /* Insert enclave module to enclave module list */
+    os_mutex_lock(&enclave_module_list_lock);
+    enclave_module->next = enclave_module_list;
+    enclave_module_list = enclave_module;
+    os_mutex_unlock(&enclave_module_list_lock);
+#endif
+
     LOG_VERBOSE("Load module success.\n");
 }
 
@@ -263,6 +281,28 @@ handle_cmd_unload_module(uint64 *args, uint32 argc)
 
     bh_assert(argc == 1);
 
+#if WASM_ENABLE_LIB_RATS != 0
+    /* Remove enclave module from enclave module list */
+    os_mutex_lock(&enclave_module_list_lock);
+
+    EnclaveModule *node_prev = NULL;
+    EnclaveModule *node = enclave_module_list;
+
+    while (node && node != enclave_module) {
+        node_prev = node;
+        node = node->next;
+    }
+    bh_assert(node == enclave_module);
+
+    if (!node_prev)
+        enclave_module_list = node->next;
+    else
+        node_prev->next = node->next;
+
+    os_mutex_unlock(&enclave_module_list_lock);
+#endif
+
+    /* Destroy enclave module resources */
     if (enclave_module->wasi_arg_buf)
         wasm_runtime_free(enclave_module->wasi_arg_buf);
 
@@ -274,6 +314,29 @@ handle_cmd_unload_module(uint64 *args, uint32 argc)
 
     LOG_VERBOSE("Unload module success.\n");
 }
+
+#if WASM_ENABLE_LIB_RATS != 0
+char *
+wasm_runtime_get_module_hash(wasm_module_t module)
+{
+    EnclaveModule *enclave_module;
+    char *module_hash = NULL;
+
+    os_mutex_lock(&enclave_module_list_lock);
+
+    enclave_module = enclave_module_list;
+    while (enclave_module) {
+        if (enclave_module->module == module) {
+            module_hash = enclave_module->module_hash;
+            break;
+        }
+        enclave_module = enclave_module->next;
+    }
+    os_mutex_unlock(&enclave_module_list_lock);
+
+    return module_hash;
+}
+#endif
 
 static void
 handle_cmd_instantiate_module(uint64 *args, uint32 argc)
@@ -604,9 +667,13 @@ ecall_iwasm_main(uint8_t *wasm_file_buf, uint32_t wasm_file_size)
 
     memset(&init_args, 0, sizeof(RuntimeInitArgs));
 
+#if WASM_ENABLE_GLOBAL_HEAP_POOL != 0
     init_args.mem_alloc_type = Alloc_With_Pool;
     init_args.mem_alloc_option.pool.heap_buf = global_heap_buf;
     init_args.mem_alloc_option.pool.heap_size = sizeof(global_heap_buf);
+#else
+    init_args.mem_alloc_type = Alloc_With_System_Allocator;
+#endif
 
     /* initialize runtime environment */
     if (!wasm_runtime_full_init(&init_args)) {

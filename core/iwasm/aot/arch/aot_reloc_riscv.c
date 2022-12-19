@@ -16,47 +16,105 @@
 #define RV_OPCODE_SW 0x23
 
 /* clang-format off */
+void __adddf3();
+void __addsf3();
 void __divdi3();
 void __divsi3();
+void __divsf3();
+void __eqsf2();
+void __eqdf2();
+void __extendsfdf2();
 void __fixdfdi();
+void __fixdfsi();
 void __fixsfdi();
+void __fixsfsi();
 void __fixunsdfdi();
+void __fixunsdfsi();
 void __fixunssfdi();
+void __fixunssfsi();
 void __floatdidf();
 void __floatdisf();
+void __floatsisf();
+void __floatsidf();
 void __floatundidf();
 void __floatundisf();
+void __floatunsisf();
+void __floatunsidf();
+void __gedf2();
+void __gesf2();
+void __gtsf2();
+void __ledf2();
+void __lesf2();
 void __moddi3();
 void __modsi3();
+void __muldf3();
 void __muldi3();
+void __mulsf3();
 void __mulsi3();
+void __nedf2();
+void __nesf2();
+void __subdf3();
+void __subsf3();
+void __truncdfsf2();
 void __udivdi3();
 void __udivsi3();
 void __umoddi3();
 void __umodsi3();
+void __unorddf2();
+void __unordsf2();
 /* clang-format on */
 
 static SymbolMap target_sym_map[] = {
     /* clang-format off */
     REG_COMMON_SYMBOLS
+#ifndef __riscv_flen
+    REG_SYM(__adddf3),
+    REG_SYM(__addsf3),
+    REG_SYM(__divsf3),
+    REG_SYM(__gedf2),
+    REG_SYM(__gesf2),
+    REG_SYM(__gtsf2),
+    REG_SYM(__ledf2),
+    REG_SYM(__lesf2),
+    REG_SYM(__muldf3),
+    REG_SYM(__nedf2),
+    REG_SYM(__nesf2),
+    REG_SYM(__eqsf2),
+    REG_SYM(__eqdf2),
+    REG_SYM(__extendsfdf2),
+    REG_SYM(__fixunsdfdi),
+    REG_SYM(__fixunsdfsi),
+    REG_SYM(__fixunssfsi),
+    REG_SYM(__subdf3),
+    REG_SYM(__subsf3),
+    REG_SYM(__truncdfsf2),
+    REG_SYM(__unorddf2),
+    REG_SYM(__unordsf2),
+#endif
     REG_SYM(__divdi3),
     REG_SYM(__divsi3),
 #if __riscv_xlen == 32
     REG_SYM(__fixdfdi),
+    REG_SYM(__fixdfsi),
     REG_SYM(__fixsfdi),
+    REG_SYM(__fixsfsi),
 #endif
-    REG_SYM(__fixunsdfdi),
     REG_SYM(__fixunssfdi),
 #if __riscv_xlen == 32
     REG_SYM(__floatdidf),
     REG_SYM(__floatdisf),
+    REG_SYM(__floatsisf),
+    REG_SYM(__floatsidf),
     REG_SYM(__floatundidf),
     REG_SYM(__floatundisf),
+    REG_SYM(__floatunsisf),
+    REG_SYM(__floatunsidf),
 #endif
     REG_SYM(__moddi3),
     REG_SYM(__modsi3),
     REG_SYM(__muldi3),
 #if __riscv_xlen == 32
+    REG_SYM(__mulsf3),
     REG_SYM(__mulsi3),
 #endif
     REG_SYM(__udivdi3),

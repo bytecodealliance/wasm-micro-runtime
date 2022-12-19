@@ -40,6 +40,12 @@ void
 os_free(void *ptr)
 {}
 
+int
+os_dumps_proc_mem_info(char *out, unsigned int size)
+{
+    return -1;
+}
+
 void *
 os_mmap(void *hint, size_t size, int prot, int flags)
 {

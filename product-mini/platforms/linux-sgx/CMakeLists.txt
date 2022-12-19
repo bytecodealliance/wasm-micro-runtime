@@ -111,34 +111,43 @@ add_custom_command (
 
 add_custom_target (vmlib_untrusted ALL DEPENDS libvmlib_untrusted.a)
 
+if (DEFINED WAMR_BUILD_GLOBAL_HEAP_POOL)
+  execute_process(
+      COMMAND bash -c "sed -i -E 's/^WAMR_BUILD_GLOBAL_HEAP_POOL = .*/WAMR_BUILD_GLOBAL_HEAP_POOL = ${WAMR_BUILD_GLOBAL_HEAP_POOL}/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Makefile"
+      OUTPUT_VARIABLE cmdOutput
+  )
+  if (DEFINED WAMR_BUILD_GLOBAL_HEAP_SIZE)
+    execute_process(
+      COMMAND bash -c "sed -i -E 's/^WAMR_BUILD_GLOBAL_HEAP_SIZE = .*/WAMR_BUILD_GLOBAL_HEAP_SIZE = ${WAMR_BUILD_GLOBAL_HEAP_SIZE}/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Makefile"
+      OUTPUT_VARIABLE cmdOutput
+    )
+  endif()
+endif()
+
 if (WAMR_BUILD_LIB_RATS EQUAL 1)
     execute_process(
-        COMMAND bash -c "sed -i -E 's/^#define LIB_RATS 0 /#define LIB_RATS 1/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Enclave/Enclave.edl"
+        COMMAND bash -c "sed -i -E 's/^#define WASM_ENABLE_LIB_RATS 0/#define WASM_ENABLE_LIB_RATS 1/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Enclave/Enclave.edl"
+        COMMAND bash -c "sed -i -E 's/^WAMR_BUILD_LIB_RATS = 0/WAMR_BUILD_LIB_RATS = 1/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Makefile"
         OUTPUT_VARIABLE cmdOutput
     )
 else()
     execute_process(
-        COMMAND bash -c "sed -i -E 's/^#define LIB_RATS 1/#define LIB_RATS 0/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Enclave/Enclave.edl"
+        COMMAND bash -c "sed -i -E 's/^#define WASM_ENABLE_LIB_RATS 1/#define WASM_ENABLE_LIB_RATS 0/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Enclave/Enclave.edl"
+        COMMAND bash -c "sed -i -E 's/^WAMR_BUILD_LIB_RATS = 1/WAMR_BUILD_LIB_RATS = 0/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Makefile"
         OUTPUT_VARIABLE cmdOutput
     )
 endif()
 
 if (WAMR_BUILD_SGX_IPFS EQUAL 1)
     execute_process(
-        COMMAND bash -c "sed -i -E 's/^#define SGX_IPFS 0/#define SGX_IPFS 1/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Enclave/Enclave.edl"
-        OUTPUT_VARIABLE cmdOutput
-    )
-    execute_process(
-        COMMAND bash -c "sed -i -E 's/^SGX_IPFS = 0/SGX_IPFS = 1/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Makefile"
+        COMMAND bash -c "sed -i -E 's/^#define WASM_ENABLE_SGX_IPFS 0/#define WASM_ENABLE_SGX_IPFS 1/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Enclave/Enclave.edl"
+        COMMAND bash -c "sed -i -E 's/^WAMR_BUILD_SGX_IPFS = 0/WAMR_BUILD_SGX_IPFS = 1/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Makefile"
         OUTPUT_VARIABLE cmdOutput
     )
 else()
     execute_process(
-        COMMAND bash -c "sed -i -E 's/^#define SGX_IPFS 1/#define SGX_IPFS 0/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Enclave/Enclave.edl"
-        OUTPUT_VARIABLE cmdOutput
-    )
-    execute_process(
-        COMMAND bash -c "sed -i -E 's/^SGX_IPFS = 1/SGX_IPFS = 0/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Makefile"
+        COMMAND bash -c "sed -i -E 's/^#define WASM_ENABLE_SGX_IPFS 1/#define WASM_ENABLE_SGX_IPFS 0/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Enclave/Enclave.edl"
+        COMMAND bash -c "sed -i -E 's/^WAMR_BUILD_SGX_IPFS = 1/WAMR_BUILD_SGX_IPFS = 0/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Makefile"
         OUTPUT_VARIABLE cmdOutput
     )
 endif()

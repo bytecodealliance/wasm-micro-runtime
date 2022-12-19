@@ -28,7 +28,7 @@ ipfs_write(int fd, const struct iovec *iov, int iovcnt, bool has_offset,
 int
 ipfs_close(int fd);
 void *
-ipfs_fopen(int fd, const char *filename, int flags);
+ipfs_fopen(int fd, int flags);
 int
 ipfs_fflush(int fd);
 off_t

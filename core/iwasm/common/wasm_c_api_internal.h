@@ -25,12 +25,15 @@ WASM_DECLARE_VEC(store, *)
 
 /* Runtime Environment */
 struct wasm_engine_t {
-    /* support one store for now */
-    wasm_store_vec_t *stores;
-    uint32_t ref_count;
+    uint32 ref_count;
+    /* list of wasm_module_ex_t */
+    Vector modules;
+    /* list of stores which are classified according to tids */
+    Vector stores_by_tid;
 };
 
 struct wasm_store_t {
+    /* maybe should remove the list */
     wasm_module_vec_t *modules;
     wasm_instance_vec_t *instances;
     Vector *foreigns;

@@ -261,10 +261,30 @@ trunc_sat_float_to_int(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                                       param_types, 1, operand);
     }
     else {
-        if (sign)
-            res = LLVMBuildFPToSI(comp_ctx->builder, operand, dest_type, name);
-        else
-            res = LLVMBuildFPToUI(comp_ctx->builder, operand, dest_type, name);
+        char intrinsic[128];
+
+        /* Integer width is always 32 or 64 here. */
+
+        snprintf(intrinsic, sizeof(intrinsic), "i%d_trunc_f%d_%c",
+                 LLVMGetIntTypeWidth(dest_type),
+                 LLVMGetTypeKind(src_type) == LLVMFloatTypeKind ? 32 : 64,
+                 sign ? 's' : 'u');
+
+        if (comp_ctx->disable_llvm_intrinsics
+            && aot_intrinsic_check_capability(comp_ctx, intrinsic)) {
+            res = aot_call_llvm_intrinsic(comp_ctx, func_ctx, intrinsic,
+                                          dest_type, &src_type, 1, operand);
+        }
+        else {
+            if (sign) {
+                res = LLVMBuildFPToSI(comp_ctx->builder, operand, dest_type,
+                                      name);
+            }
+            else {
+                res = LLVMBuildFPToUI(comp_ctx->builder, operand, dest_type,
+                                      name);
+            }
+        }
     }
 
     if (!res) {

@@ -369,9 +369,13 @@ typedef struct WASIContext {
     char **argv_list;
     char *env_buf;
     char **env_list;
+    uint32_t exit_code;
 } WASIContext;
 #else
-typedef uvwasi_t WASIContext;
+typedef struct WASIContext {
+    uvwasi_t uvwasi;
+    uint32_t exit_code;
+} WASIContext;
 #endif
 #endif
 
@@ -485,6 +489,10 @@ WASM_RUNTIME_API_EXTERN void
 wasm_runtime_deinstantiate(WASMModuleInstanceCommon *module_inst);
 
 /* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN WASMModuleCommon *
+wasm_runtime_get_module(WASMModuleInstanceCommon *module_inst);
+
+/* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN WASMFunctionInstanceCommon *
 wasm_runtime_lookup_function(WASMModuleInstanceCommon *const module_inst,
                              const char *name, const char *signature);
@@ -545,6 +553,12 @@ wasm_runtime_set_user_data(WASMExecEnv *exec_env, void *user_data);
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN void *
 wasm_runtime_get_user_data(WASMExecEnv *exec_env);
+
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+/* Access exception check guard page to trigger the signal handler */
+void
+wasm_runtime_access_exce_check_guard_page();
+#endif
 
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN bool
@@ -768,6 +782,10 @@ wasm_runtime_is_wasi_mode(WASMModuleInstanceCommon *module_inst);
 WASM_RUNTIME_API_EXTERN WASMFunctionInstanceCommon *
 wasm_runtime_lookup_wasi_start_function(WASMModuleInstanceCommon *module_inst);
 
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_runtime_get_wasi_exit_code(WASMModuleInstanceCommon *module_inst);
+
 bool
 wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
                        const char *dir_list[], uint32 dir_count,
@@ -863,6 +881,11 @@ WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_register_natives_raw(const char *module_name,
                                   NativeSymbol *native_symbols,
                                   uint32 n_native_symbols);
+
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_unregister_natives(const char *module_name,
+                                NativeSymbol *native_symbols);
 
 bool
 wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,

@@ -248,7 +248,7 @@ ipfs_close(int fd)
 }
 
 void *
-ipfs_fopen(int fd, const char *filename, int flags)
+ipfs_fopen(int fd, int flags)
 {
     // Mapping back the mode
     const char *mode;
@@ -260,22 +260,27 @@ ipfs_fopen(int fd, const char *filename, int flags)
     bool write_only = (flags & O_ACCMODE) == O_WRONLY;
     bool read_write = (flags & O_ACCMODE) == O_RDWR;
 
-    // The mapping of the mode are described in the table in the official
+    // The mapping of the mode is similar to the table in the official
     // specifications:
     // https://pubs.opengroup.org/onlinepubs/9699919799/functions/fopen.html
+    // Note that POSIX has obtained a file descriptor beforehand.
+    // If opened with a destructive mode ("w" or "w+"), the truncate operation
+    // already occurred and must not be repeated because this will invalidate
+    // the file descriptor obtained by POSIX. Therefore, we do NOT map to the
+    // modes that truncate the file ("w" and "w+"). Instead, we map to a
+    // non-destructive mode ("r+").
+
     if (read_only)
         mode = "r";
     else if (write_only && must_create && must_truncate)
-        mode = "w";
+        // Rather than "w", we map to a non-destructive mode
+        mode = "r+";
     else if (write_only && must_create && must_append)
         mode = "a";
-    else if (read_write && must_create && must_truncate)
-        mode = "w+";
     else if (read_write && must_create && must_append)
         mode = "a+";
-    else if (read_write && must_create)
-        mode = "w+";
     else if (read_write)
+        // Rather than "w+", we map to a non-destructive mode
         mode = "r+";
     else
         mode = NULL;
@@ -286,8 +291,29 @@ ipfs_fopen(int fd, const char *filename, int flags)
         return NULL;
     }
 
-    // Opening the file
-    void *sgx_file = sgx_fopen_auto_key(filename, mode);
+    // Determine the symbolic link of the file descriptor, because IPFS does not
+    // support opening a relative path to a file descriptor (i.e., openat).
+    // Using the symbolic link in /proc/self allows to retrieve the same path as
+    // opened by the initial openat and respects the chroot of WAMR.
+    size_t ret;
+    char symbolic_path[32];
+    ret =
+        snprintf(symbolic_path, sizeof(symbolic_path), "/proc/self/fd/%d", fd);
+    if (ret >= sizeof(symbolic_path)) {
+        errno = ENAMETOOLONG;
+        return NULL;
+    }
+
+    // Resolve the symbolic link to real absolute path, because IPFS can only
+    // open a file with a same file name it was initially created. Otherwise,
+    // IPFS throws SGX_ERROR_FILE_NAME_MISMATCH.
+    char real_path[PATH_MAX] = { 0 };
+    ret = readlink(symbolic_path, real_path, PATH_MAX - 1);
+    if (ret == -1)
+        return NULL;
+
+    // Opening the file using the real path
+    void *sgx_file = sgx_fopen_auto_key(real_path, mode);
 
     if (sgx_file == NULL) {
         errno = convert_sgx_errno(sgx_ferror(sgx_file));

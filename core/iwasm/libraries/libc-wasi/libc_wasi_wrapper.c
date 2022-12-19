@@ -57,6 +57,7 @@ typedef struct WASIContext {
     char **argv_list;
     char *env_buf;
     char **env_list;
+    uint32_t exit_code;
 } * wasi_ctx_t;
 
 wasi_ctx_t
@@ -980,10 +981,12 @@ static void
 wasi_proc_exit(wasm_exec_env_t exec_env, wasi_exitcode_t rval)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
+    wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     /* Here throwing exception is just to let wasm app exit,
        the upper layer should clear the exception and return
        as normal */
     wasm_runtime_set_exception(module_inst, "wasi proc exit");
+    wasi_ctx->exit_code = rval;
 }
 
 static wasi_errno_t

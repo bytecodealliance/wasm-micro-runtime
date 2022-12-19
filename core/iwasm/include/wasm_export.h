@@ -117,6 +117,9 @@ typedef union MemAllocOption {
         void *malloc_func;
         void *realloc_func;
         void *free_func;
+        /* allocator user data, only used when
+            WASM_MEM_ALLOC_WITH_USER_DATA is defined */
+        void *user_data;
     } allocator;
 } MemAllocOption;
 #endif
@@ -357,6 +360,43 @@ wasm_runtime_load_from_sections(wasm_section_list_t section_list, bool is_aot,
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_unload(wasm_module_t module);
 
+/**
+ * Get the module hash of a WASM module, currently only available on
+ * linux-sgx platform when the remote attestation feature is enabled
+ *
+ * @param module the WASM module to retrieve
+ *
+ * @return the module hash of the WASM module
+ */
+char *
+wasm_runtime_get_module_hash(wasm_module_t module);
+
+/**
+ * Set WASI parameters.
+ *
+ * While this API operates on a module, these parameters will be used
+ * only when the module is instantiated. That is, you can consider these
+ * as extra parameters for wasm_runtime_instantiate().
+ *
+ * @param module        The module to set WASI parameters.
+ * @param dir_list      The list of directories to preopen. (real path)
+ * @param dir_count     The number of elements in dir_list.
+ * @param map_dir_list  The list of directories to preopen. (mapped path)
+ * @param map_dir_count The number of elements in map_dir_list.
+ *                      If map_dir_count is smaller than dir_count,
+ *                      mapped path is assumed to be same as the
+ *                      corresponding real path for the rest of entries.
+ * @param env           The list of environment variables.
+ * @param env_count     The number of elements in env.
+ * @param argv          The list of command line arguments.
+ * @param argc          The number of elements in argv.
+ * @param stdinfd       The host file descriptor to back WASI STDIN_FILENO.
+ *                      If -1 is specified, STDIN_FILENO is used.
+ * @param stdoutfd      The host file descriptor to back WASI STDOUT_FILENO.
+ *                      If -1 is specified, STDOUT_FILENO is used.
+ * @param stderrfd      The host file descriptor to back WASI STDERR_FILENO.
+ *                      If -1 is specified, STDERR_FILENO is used.
+ */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_wasi_args_ex(wasm_module_t module,
                            const char *dir_list[], uint32_t dir_count,
@@ -365,6 +405,12 @@ wasm_runtime_set_wasi_args_ex(wasm_module_t module,
                            char *argv[], int argc,
                            int stdinfd, int stdoutfd, int stderrfd);
 
+/**
+ * Set WASI parameters.
+ *
+ * Same as wasm_runtime_set_wasi_args_ex with stdinfd = -1, stdoutfd = -1,
+ * stderrfd = -1.
+ */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_wasi_args(wasm_module_t module,
                            const char *dir_list[], uint32_t dir_count,
@@ -412,11 +458,33 @@ wasm_runtime_instantiate(const wasm_module_t module,
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_deinstantiate(wasm_module_inst_t module_inst);
 
+/**
+ * Get WASM module from WASM module instance
+ *
+ * @param module_inst the WASM module instance to retrieve
+ *
+ * @return the WASM module
+ */
+WASM_RUNTIME_API_EXTERN wasm_module_t
+wasm_runtime_get_module(wasm_module_inst_t module_inst);
+
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_is_wasi_mode(wasm_module_inst_t module_inst);
 
 WASM_RUNTIME_API_EXTERN wasm_function_inst_t
 wasm_runtime_lookup_wasi_start_function(wasm_module_inst_t module_inst);
+
+/**
+ * Get WASI exit code.
+ *
+ * After a WASI command completed its execution, an embedder can
+ * call this function to get its exit code. (that is, the value given
+ * to proc_exit.)
+ *
+ * @param module_inst the module instance
+ */
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_runtime_get_wasi_exit_code(wasm_module_inst_t module_inst);
 
 /**
  * Lookup an exported function in the WASM module instance.
@@ -971,6 +1039,24 @@ WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_register_natives_raw(const char *module_name,
                                   NativeSymbol *native_symbols,
                                   uint32_t n_native_symbols);
+
+
+/**
+ * Undo wasm_runtime_register_natives or wasm_runtime_register_natives_raw
+ *
+ * @param module_name    Should be the same as the corresponding
+ *                       wasm_runtime_register_natives.
+ *                       (Same in term of strcmp.)
+ *
+ * @param native_symbols Should be the same as the corresponding
+ *                       wasm_runtime_register_natives.
+ *                       (Same in term of pointer comparison.)
+ *
+ * @return true if success, false otherwise
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_unregister_natives(const char *module_name,
+                                NativeSymbol *native_symbols);
 
 /**
  * Get attachment of native function from execution environment

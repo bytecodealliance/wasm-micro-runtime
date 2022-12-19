@@ -59,6 +59,9 @@ typedef enum WASMExceptionID {
     EXCE_AUX_STACK_UNDERFLOW,
     EXCE_OUT_OF_BOUNDS_TABLE_ACCESS,
     EXCE_OPERAND_STACK_OVERFLOW,
+#if WASM_ENABLE_FAST_JIT != 0
+    EXCE_FAILED_TO_COMPILE_FAST_JIT_FUNC,
+#endif
     EXCE_ALREADY_THROWN,
     EXCE_NUM,
 } WASMExceptionID;
@@ -192,6 +195,16 @@ typedef struct WASMExportMemInstance {
     WASMMemoryInstance *memory;
 } WASMExportMemInstance;
 
+/* wasm-c-api import function info */
+typedef struct CApiFuncImport {
+    /* host func pointer after linked */
+    void *func_ptr_linked;
+    /* whether the host func has env argument */
+    bool with_env_arg;
+    /* the env argument of the host func */
+    void *env_arg;
+} CApiFuncImport;
+
 /* Extra info of WASM module instance for interpreter/jit mode */
 typedef struct WASMModuleInstanceExtra {
     WASMGlobalInstance *globals;
@@ -204,6 +217,8 @@ typedef struct WASMModuleInstanceExtra {
     WASMFunctionInstance *malloc_function;
     WASMFunctionInstance *free_function;
     WASMFunctionInstance *retain_function;
+
+    CApiFuncImport *c_api_func_imports;
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
     /* lock for shared memory atomic operations */
@@ -220,6 +235,12 @@ typedef struct WASMModuleInstanceExtra {
 
 #if WASM_ENABLE_MEMORY_PROFILING != 0
     uint32 max_aux_stack_used;
+#endif
+
+#if WASM_ENABLE_DEBUG_INTERP != 0                    \
+    || (WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT \
+        && WASM_ENABLE_LAZY_JIT != 0)
+    WASMModuleInstance *next;
 #endif
 } WASMModuleInstanceExtra;
 

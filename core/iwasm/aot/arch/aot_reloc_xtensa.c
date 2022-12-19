@@ -41,6 +41,9 @@ void __gtdf2();
 void __umoddi3();
 void __floatdidf();
 void __divsf3();
+void __fixdfdi();
+void __floatundidf();
+
 
 static SymbolMap target_sym_map[] = {
     REG_COMMON_SYMBOLS
@@ -80,8 +83,8 @@ static SymbolMap target_sym_map[] = {
     REG_SYM(__umoddi3),
     REG_SYM(__floatdidf),
     REG_SYM(__divsf3),
-    REG_SYM(sqrt),
-    REG_SYM(sqrtf),
+    REG_SYM(__fixdfdi),
+    REG_SYM(__floatundidf),
 };
 /* clang-format on */
 
@@ -256,17 +259,32 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
             if (relative_offset < -256 * BH_KB || relative_offset > -4) {
                 set_error_buf(error_buf, error_buf_size,
                               "AOT module load failed: "
-                              "target address out of range.");
+                              "target address out of range.\n"
+                              "Try using `wamrc --size-level=0` to generate "
+                              ".literal island.");
                 return false;
             }
 
             imm16 = (int16)(relative_offset >> 2);
 
             /* write back the imm16 to the l32r instruction */
+
+            /* GCC >= 9 complains if we have a pointer that could be
+             * unaligned. This can happen because the struct is packed.
+             * These pragma are to suppress the warnings because the
+             * function put_imm16_to_addr already handles unaligned
+             * pointers correctly. */
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Waddress-of-packed-member"
+#endif
             if (is_little_endian())
                 put_imm16_to_addr(imm16, &l32r_insn->l.imm16);
             else
                 put_imm16_to_addr(imm16, &l32r_insn->b.imm16);
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif
 
             break;
         }

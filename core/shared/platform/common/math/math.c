@@ -450,8 +450,6 @@ ivln2_h  =  1.44269502162933349609e+00, /* 0x3FF71547, 0x60000000 =24b 1/ln2*/
 ivln2_l  =  1.92596299112661746887e-08; /* 0x3E54AE0B, 0xF85DDF44 =1/ln2 tail*/
 
 static double
-freebsd_sqrt(double x);
-static double
 freebsd_floor(double x);
 static double
 freebsd_ceil(double x);
@@ -622,6 +620,7 @@ freebsd_atan2(double y, double x)
     }
 }
 
+#ifndef BH_HAS_SQRTF
 static float
 freebsd_sqrtf(float x)
 {
@@ -689,7 +688,9 @@ freebsd_sqrtf(float x)
     SET_FLOAT_WORD(z, ix);
     return z;
 }
+#endif /* end of BH_HAS_SQRTF */
 
+#ifndef BH_HAS_SQRT
 static double
 freebsd_sqrt(double x) /* wrapper sqrt */
 {
@@ -799,6 +800,7 @@ freebsd_sqrt(double x) /* wrapper sqrt */
 
     return z;
 }
+#endif /* end of BH_HAS_SQRT */
 
 static double
 freebsd_floor(double x)
@@ -1554,11 +1556,13 @@ atan2(double y, double x)
     return freebsd_atan2(y, x);
 }
 
+#ifndef BH_HAS_SQRT
 double
 sqrt(double x)
 {
     return freebsd_sqrt(x);
 }
+#endif
 
 double
 floor(double x)
@@ -1656,11 +1660,13 @@ fmaxf(float x, float y)
     return freebsd_fmaxf(x, y);
 }
 
+#ifndef BH_HAS_SQRTF
 float
 sqrtf(float x)
 {
     return freebsd_sqrtf(x);
 }
+#endif
 
 double
 pow(double x, double y)

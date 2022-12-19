@@ -19,6 +19,9 @@
 #if WASM_ENABLE_DEBUG_INTERP != 0
 #include "../libraries/debug-engine/debug_engine.h"
 #endif
+#if WASM_ENABLE_FAST_JIT != 0
+#include "../fast-jit/jit_compiler.h"
+#endif
 #if WASM_ENABLE_JIT != 0
 #include "../aot/aot_runtime.h"
 #endif
@@ -1414,30 +1417,10 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
     extra_info_offset = (uint32)total_size;
     total_size += sizeof(WASMModuleInstanceExtra);
 
-#if WASM_ENABLE_DEBUG_INTERP != 0
-    if (!is_sub_inst) {
-        os_mutex_lock(&module->ref_count_lock);
-        if (module->ref_count != 0) {
-            LOG_WARNING(
-                "warning: multiple instances referencing the same module may "
-                "cause unexpected behaviour during debugging");
-        }
-        module->ref_count++;
-        os_mutex_unlock(&module->ref_count_lock);
-    }
-#endif
-
     /* Allocate the memory for module instance with memory instances,
        global data, table data appended at the end */
     if (!(module_inst =
               runtime_malloc(total_size, error_buf, error_buf_size))) {
-#if WASM_ENABLE_DEBUG_INTERP != 0
-        if (!is_sub_inst) {
-            os_mutex_lock(&module->ref_count_lock);
-            module->ref_count--;
-            os_mutex_unlock(&module->ref_count_lock);
-        }
-#endif
         return NULL;
     }
 
@@ -1827,6 +1810,33 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
     }
 #endif
 
+#if WASM_ENABLE_DEBUG_INTERP != 0                         \
+    || (WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
+        && WASM_ENABLE_LAZY_JIT != 0)
+    if (!is_sub_inst) {
+        /* Add module instance into module's instance list */
+        os_mutex_lock(&module->instance_list_lock);
+#if WASM_ENABLE_DEBUG_INTERP != 0
+        if (module->instance_list) {
+            LOG_WARNING(
+                "warning: multiple instances referencing to the same module "
+                "may cause unexpected behaviour during debugging");
+        }
+#endif
+#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
+    && WASM_ENABLE_LAZY_JIT != 0
+        /* Copy llvm func ptrs again in case that they were updated
+           after the module instance was created */
+        bh_memcpy_s(module_inst->func_ptrs + module->import_function_count,
+                    sizeof(void *) * module->function_count, module->func_ptrs,
+                    sizeof(void *) * module->function_count);
+#endif
+        module_inst->e->next = module->instance_list;
+        module->instance_list = module_inst;
+        os_mutex_unlock(&module->instance_list_lock);
+    }
+#endif
+
     if (module->start_function != (uint32)-1) {
         /* TODO: fix start function can be import function issue */
         if (module->start_function >= module->import_function_count)
@@ -1864,8 +1874,8 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
     wasm_runtime_dump_module_inst_mem_consumption(
         (WASMModuleInstanceCommon *)module_inst);
 #endif
-    (void)global_data_end;
 
+    (void)global_data_end;
     return module_inst;
 
 fail:
@@ -1935,11 +1945,28 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
     }
 #endif
 
-#if WASM_ENABLE_DEBUG_INTERP != 0
+#if WASM_ENABLE_DEBUG_INTERP != 0                         \
+    || (WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
+        && WASM_ENABLE_LAZY_JIT != 0)
     if (!is_sub_inst) {
-        os_mutex_lock(&module_inst->module->ref_count_lock);
-        module_inst->module->ref_count--;
-        os_mutex_unlock(&module_inst->module->ref_count_lock);
+        WASMModule *module = module_inst->module;
+        WASMModuleInstance *instance_prev = NULL, *instance;
+        os_mutex_lock(&module->instance_list_lock);
+
+        instance = module->instance_list;
+        while (instance) {
+            if (instance == module_inst) {
+                if (!instance_prev)
+                    module->instance_list = instance->e->next;
+                else
+                    instance_prev->e->next = instance->e->next;
+                break;
+            }
+            instance_prev = instance;
+            instance = instance->e->next;
+        }
+
+        os_mutex_unlock(&module->instance_list_lock);
     }
 #endif
 
@@ -1947,6 +1974,9 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
     if (module_inst->e->mem_lock_inited)
         os_mutex_destroy(&module_inst->e->mem_lock);
 #endif
+
+    if (module_inst->e->c_api_func_imports)
+        wasm_runtime_free(module_inst->e->c_api_func_imports);
 
     wasm_runtime_free(module_inst);
 }
@@ -2027,6 +2057,8 @@ call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
     WASMJmpBuf jmpbuf_node = { 0 }, *jmpbuf_node_pop;
     uint32 page_size = os_getpagesize();
     uint32 guard_page_count = STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT;
+    WASMRuntimeFrame *prev_frame = wasm_exec_env_get_cur_frame(exec_env);
+    uint8 *prev_top = exec_env->wasm_stack.s.top;
 #ifdef BH_PLATFORM_WINDOWS
     const char *exce;
     int result;
@@ -2081,13 +2113,18 @@ call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
         ret = false;
     }
 
-    if (wasm_get_exception(module_inst)) {
+    /* Note: can't check wasm_get_exception(module_inst) here, there may be
+     * exception which is not caught by hardware (e.g. uninitialized elements),
+     * then the stack-frame is already freed inside wasm_interp_call_wasm */
+    if (!ret) {
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
         if (wasm_interp_create_call_stack(exec_env)) {
             wasm_interp_dump_call_stack(exec_env, true, NULL, 0);
         }
 #endif
-        wasm_interp_restore_wasm_frame(exec_env);
+        /* Restore operand frames */
+        wasm_exec_env_set_cur_frame(exec_env, prev_frame);
+        exec_env->wasm_stack.s.top = prev_top;
     }
 
     jmpbuf_node_pop = wasm_exec_env_pop_jmpbuf(exec_env);
@@ -2774,7 +2811,11 @@ wasm_interp_dump_call_stack(struct WASMExecEnv *exec_env, bool print, char *buf,
 void
 jit_set_exception_with_id(WASMModuleInstance *module_inst, uint32 id)
 {
-    wasm_set_exception_with_id(module_inst, id);
+    if (id != EXCE_ALREADY_THROWN)
+        wasm_set_exception_with_id(module_inst, id);
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    wasm_runtime_access_exce_check_guard_page();
+#endif
 }
 
 bool
@@ -2782,8 +2823,15 @@ jit_check_app_addr_and_convert(WASMModuleInstance *module_inst, bool is_str,
                                uint32 app_buf_addr, uint32 app_buf_size,
                                void **p_native_addr)
 {
-    return wasm_check_app_addr_and_convert(module_inst, is_str, app_buf_addr,
-                                           app_buf_size, p_native_addr);
+    bool ret = wasm_check_app_addr_and_convert(
+        module_inst, is_str, app_buf_addr, app_buf_size, p_native_addr);
+
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    if (!ret)
+        wasm_runtime_access_exce_check_guard_page();
+#endif
+
+    return ret;
 }
 #endif /* end of WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0 \
           || WASM_ENABLE_WAMR_COMPILER != 0 */
@@ -2796,7 +2844,7 @@ fast_jit_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 elem_idx,
     return call_indirect(exec_env, tbl_idx, elem_idx, argc, argv, true,
                          type_idx);
 }
-#endif
+#endif /* end of WASM_ENABLE_FAST_JIT != 0 */
 
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
 
@@ -2804,12 +2852,20 @@ bool
 llvm_jit_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 elem_idx,
                        uint32 argc, uint32 *argv)
 {
+    bool ret;
+
 #if WASM_ENABLE_JIT != 0
     if (Wasm_Module_AoT == exec_env->module_inst->module_type) {
         return aot_call_indirect(exec_env, tbl_idx, elem_idx, argc, argv);
     }
 #endif
-    return call_indirect(exec_env, tbl_idx, elem_idx, argc, argv, false, 0);
+
+    ret = call_indirect(exec_env, tbl_idx, elem_idx, argc, argv, false, 0);
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    if (!ret)
+        wasm_runtime_access_exce_check_guard_page();
+#endif
+    return ret;
 }
 
 bool
@@ -2823,9 +2879,11 @@ llvm_jit_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
     WASMType *func_type;
     void *func_ptr;
     WASMFunctionImport *import_func;
+    CApiFuncImport *c_api_func_import = NULL;
     const char *signature;
     void *attachment;
     char buf[96];
+    bool ret = false;
 
 #if WASM_ENABLE_JIT != 0
     if (Wasm_Module_AoT == exec_env->module_inst->module_type) {
@@ -2843,32 +2901,44 @@ llvm_jit_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
     bh_assert(func_idx < module->import_function_count);
 
     import_func = &module->import_functions[func_idx].u.function;
+    if (import_func->call_conv_wasm_c_api) {
+        c_api_func_import = module_inst->e->c_api_func_imports + func_idx;
+        func_ptr = c_api_func_import->func_ptr_linked;
+    }
+
     if (!func_ptr) {
         snprintf(buf, sizeof(buf),
                  "failed to call unlinked import function (%s, %s)",
                  import_func->module_name, import_func->field_name);
         wasm_set_exception(module_inst, buf);
-        return false;
+        goto fail;
     }
 
     attachment = import_func->attachment;
     if (import_func->call_conv_wasm_c_api) {
-        return wasm_runtime_invoke_c_api_native(
+        ret = wasm_runtime_invoke_c_api_native(
             (WASMModuleInstanceCommon *)module_inst, func_ptr, func_type, argc,
-            argv, import_func->wasm_c_api_with_env, attachment);
+            argv, c_api_func_import->with_env_arg, c_api_func_import->env_arg);
     }
     else if (!import_func->call_conv_raw) {
         signature = import_func->signature;
-        return wasm_runtime_invoke_native(exec_env, func_ptr, func_type,
-                                          signature, attachment, argv, argc,
-                                          argv);
+        ret =
+            wasm_runtime_invoke_native(exec_env, func_ptr, func_type, signature,
+                                       attachment, argv, argc, argv);
     }
     else {
         signature = import_func->signature;
-        return wasm_runtime_invoke_native_raw(exec_env, func_ptr, func_type,
-                                              signature, attachment, argv, argc,
-                                              argv);
+        ret = wasm_runtime_invoke_native_raw(exec_env, func_ptr, func_type,
+                                             signature, attachment, argv, argc,
+                                             argv);
     }
+
+fail:
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    if (!ret)
+        wasm_runtime_access_exce_check_guard_page();
+#endif
+    return ret;
 }
 
 #if WASM_ENABLE_BULK_MEMORY != 0

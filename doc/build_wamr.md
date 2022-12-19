@@ -80,9 +80,13 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 - **WAMR_BUILD_LIB_PTHREAD_SEMAPHORE**=1/0, default to disable if not set
 > Note: This feature depends on `lib-pthread`, it will be enabled automatically if this feature is enabled.
 
-#### **Disable boundary check with hardware trap in AOT or JIT mode**
+#### **Disable boundary check with hardware trap**
 - **WAMR_DISABLE_HW_BOUND_CHECK**=1/0, default to enable if not set and supported by platform
-> Note: by default only platform linux/darwin/android/vxworks 64-bit will enable boundary check with hardware trap in AOT or JIT mode, and the wamrc tool will generate AOT code without boundary check instructions in all 64-bit targets except SGX to improve performance.
+> Note: by default only platform linux/darwin/android/windows/vxworks 64-bit will enable the boundary check with hardware trap feature, and the wamrc tool will generate AOT code without boundary check instructions in all 64-bit targets except SGX to improve performance. The boundary check includes linear memory access boundary and native stack access boundary, if `WAMR_DISABLE_STACK_HW_BOUND_CHECK` below isn't set.
+
+#### **Disable native stack boundary check with hardware trap**
+- **WAMR_DISABLE_STACK_HW_BOUND_CHECK**=1/0, default to enable if not set and supported by platform, same as `WAMR_DISABLE_HW_BOUND_CHECK`.
+> Note: When boundary check with hardware trap is disabled, or `WAMR_DISABLE_HW_BOUND_CHECK` is set to 1, the native stack boundary check with hardware trap will be disabled too, no matter what value is set to `WAMR_DISABLE_STACK_HW_BOUND_CHECK`. And when boundary check with hardware trap is enabled, the status of this feature is set according to the value of `WAMR_DISABLE_STACK_HW_BOUND_CHECK`.
 
 #### **Enable tail call feature**
 - **WAMR_BUILD_TAIL_CALL**=1/0, default to disable if not set
@@ -113,6 +117,19 @@ Currently we only profile the memory consumption of module, module_instance and 
 > Note: if it is enabled, developer can use API `void wasm_runtime_dump_perf_profiling(wasm_module_inst_t module_inst)` to dump the performance consumption info. Currently we only profile the performance consumption of each WASM function.
 
 > The function name searching sequence is the same with dump call stack feature.
+
+#### **Enable the global heap**
+- **WAMR_BUILD_GLOBAL_HEAP_POOL**=1/0, default to disable if not set for all *iwasm* applications, except for the platforms Alios and Zephyr.
+
+> **WAMR_BUILD_GLOBAL_HEAP_POOL** is used in the *iwasm* applications provided in the directory `product-mini`. When writing your own host application using WAMR, if you want to use a global heap and allocate memory from it, you must set the initialization argument `mem_alloc_type` to `Alloc_With_Pool`.
+> The global heap is defined in the documentation [Memory model and memory usage tunning](memory_tune.md).
+
+#### **Set the global heap size**
+- **WAMR_BUILD_GLOBAL_HEAP_SIZE**=n, default to 10 MB (10485760) if not set for all *iwasm* applications, except for the platforms Alios (256 kB), Riot (256 kB) and Zephyr (128 kB).
+
+> **WAMR_BUILD_GLOBAL_HEAP_SIZE** is used in the *iwasm* applications provided in the directory `product-mini`. When writing your own host application using WAMR, if you want to set the amount of memory dedicated to the global heap pool, you must set the initialization argument `mem_alloc_option.pool` with the appropriate values.
+> The global heap is defined in the documentation [Memory model and memory usage tunning](memory_tune.md).
+> Note: if `WAMR_BUILD_GLOBAL_HEAP_SIZE` is not set and the flag `WAMR_BUILD_SPEC_TEST` is set, the global heap size is equal to 300 MB (314572800), or 100 MB (104857600) when compiled for Intel SGX (Linux).
 
 #### **Set maximum app thread stack size**
 - **WAMR_APP_THREAD_STACK_SIZE_MAX**=n, default to 8 MB (8388608) if not set
@@ -223,7 +240,7 @@ make
 By default in Linux, the `fast interpreter`, `AOT` and `Libc WASI` are enabled, and JIT is disabled.
 And the build target is set to X86_64 or X86_32 depending on the platform's bitwidth.
 
-There are total 5 running modes supported: fast interpreter, classi interpreter, AOT, LLVM JIT and Fast JIT.
+There are total 6 running modes supported: fast interpreter, classi interpreter, AOT, LLVM JIT, Fast JIT and Multi-tier JIT.
 
 (1) To run a wasm file with `fast interpreter` mode - build iwasm with default build and then:
 ```Bash
@@ -283,6 +300,14 @@ cmake .. -DWAMR_BUILD_FAST_JIT=1
 make
 ```
 The Fast JIT is a lightweight JIT engine with quick startup, small footprint and good portability, and gains ~50% performance of AOT.
+
+(6) To enable the `Multi-tier JIT` mode:
+``` Bash
+mkdir build && cd build
+cmake .. -DWAMR_BUILD_FAST_JTI=1 -DWAMR_BUILD_JIT=1
+make
+```
+The Multi-tier JIT is a two level JIT tier-up engine, which launchs Fast JIT to run the wasm module as soon as possible and creates backend threads to compile the LLVM JIT functions at the same time, and when the LLVM JIT functions are compiled, the runtime will switch the extecution from the Fast JIT jitted code to LLVM JIT jitted code gradually, so as to gain the best performance.
 
 Linux SGX (Intel Software Guard Extension)
 -------------------------
@@ -365,6 +390,8 @@ are valid for the MSYS2 build environment:
 ```Bash
 pacman -R cmake
 pacman -S mingw-w64-x86_64-cmake
+pacman -S mingw-w64-x86_64-gcc
+pacman -S make git
 ```
 
 Then follow the build instructions for Windows above, and add the following
@@ -372,16 +399,15 @@ arguments for cmake:
 
 ```Bash
 cmake .. -G"Unix Makefiles" \
-         -DWAMR_BUILD_LIBC_UVWASI=0 \
-         -DWAMR_BUILD_INVOKE_NATIVE_GENERAL=1 \
          -DWAMR_DISABLE_HW_BOUND_CHECK=1
 ````
 
 Note that WASI will be disabled until further work is done towards full MinGW support.
 
-- uvwasi not building out of the box, though it reportedly supports MinGW.
-- Failing compilation of assembler files, the C version of `invokeNative()` will
-be used instead.
+- Since memory access boundary check with hardware trap feature is disabled, when generating the AOT file with `wamrc`, the `--bounds-checks=1` flag should be added to generate the memory access boundary check instructions to ensure the sandbox security:
+```bash
+wamrc --bounds-checks=1 -o <aot_file> <wasm_file>
+```
 - Compiler complaining about missing `UnwindInfoAddress` field in `RUNTIME_FUNCTION`
 struct (winnt.h).
 

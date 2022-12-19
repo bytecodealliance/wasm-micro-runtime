@@ -145,6 +145,19 @@ WASM_API_EXTERN own wasm_config_t* wasm_config_new(void);
 
 WASM_DECLARE_OWN(engine)
 
+/**
+ * Create a new engine
+ *
+ * Note: for the engine new/delete operations, including this,
+ * wasm_engine_new_with_config, wasm_engine_new_with_args, and
+ * wasm_engine_delete, if the platform has mutex initializer,
+ * then they are thread-safe: we use a global lock to lock the
+ * operations of the engine. Otherwise they are not thread-safe:
+ * when there are engine new/delete operations happening
+ * simultaneously in multiple threads, developer must create
+ * the lock by himself, and add the lock when calling these
+ * functions.
+ */
 WASM_API_EXTERN own wasm_engine_t* wasm_engine_new(void);
 WASM_API_EXTERN own wasm_engine_t* wasm_engine_new_with_config(own wasm_config_t*);
 
@@ -173,6 +186,9 @@ typedef union MemAllocOption {
         void *malloc_func;
         void *realloc_func;
         void *free_func;
+        /* allocator user data, only used when
+          WASM_MEM_ALLOC_WITH_USER_DATA is defined */
+        void *user_data;
     } allocator;
 } MemAllocOption;
 #endif
@@ -451,6 +467,7 @@ struct WASMModuleCommon;
 typedef struct WASMModuleCommon *wasm_module_t;
 #endif
 
+
 WASM_API_EXTERN own wasm_module_t* wasm_module_new(
   wasm_store_t*, const wasm_byte_vec_t* binary);
 
@@ -463,6 +480,11 @@ WASM_API_EXTERN void wasm_module_exports(const wasm_module_t*, own wasm_exportty
 
 WASM_API_EXTERN void wasm_module_serialize(wasm_module_t*, own wasm_byte_vec_t* out);
 WASM_API_EXTERN own wasm_module_t* wasm_module_deserialize(wasm_store_t*, const wasm_byte_vec_t*);
+
+typedef wasm_module_t wasm_shared_module_t;
+WASM_API_EXTERN own wasm_shared_module_t* wasm_module_share(wasm_module_t*);
+WASM_API_EXTERN own wasm_module_t* wasm_module_obtain(wasm_store_t*, wasm_shared_module_t*);
+WASM_API_EXTERN void wasm_shared_module_delete(own wasm_shared_module_t*);
 
 
 // Function Instances
@@ -573,13 +595,13 @@ WASM_DECLARE_REF(instance)
 
 WASM_API_EXTERN own wasm_instance_t* wasm_instance_new(
   wasm_store_t*, const wasm_module_t*, const wasm_extern_vec_t *imports,
-  own wasm_trap_t**
+  own wasm_trap_t** trap
 );
 
 // please refer to wasm_runtime_instantiate(...) in core/iwasm/include/wasm_export.h
 WASM_API_EXTERN own wasm_instance_t* wasm_instance_new_with_args(
   wasm_store_t*, const wasm_module_t*, const wasm_extern_vec_t *imports,
-  own wasm_trap_t**, const uint32_t stack_size, const uint32_t heap_size
+  own wasm_trap_t** trap, const uint32_t stack_size, const uint32_t heap_size
 );
 
 WASM_API_EXTERN void wasm_instance_exports(const wasm_instance_t*, own wasm_extern_vec_t* out);

@@ -30,6 +30,9 @@
 #if WASM_ENABLE_FAST_JIT != 0
 #include "../fast-jit/jit_compiler.h"
 #endif
+#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
+#include "../compilation/aot_llvm.h"
+#endif
 #include "../common/wasm_c_api_internal.h"
 #include "../../version.h"
 
@@ -140,9 +143,11 @@ runtime_signal_handler(void *sig_addr)
     WASMJmpBuf *jmpbuf_node;
     uint8 *mapped_mem_start_addr = NULL;
     uint8 *mapped_mem_end_addr = NULL;
+    uint32 page_size = os_getpagesize();
+#if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
     uint8 *stack_min_addr;
-    uint32 page_size;
     uint32 guard_page_count = STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT;
+#endif
 
     /* Check whether current thread is running wasm function */
     if (exec_env_tls && exec_env_tls->handle == os_self_thread()
@@ -156,9 +161,10 @@ runtime_signal_handler(void *sig_addr)
             mapped_mem_end_addr = memory_inst->memory_data + 8 * (uint64)BH_GB;
         }
 
+#if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
         /* Get stack info of current thread */
-        page_size = os_getpagesize();
         stack_min_addr = os_thread_get_stack_boundary();
+#endif
 
         if (memory_inst
             && (mapped_mem_start_addr <= (uint8 *)sig_addr
@@ -168,12 +174,20 @@ runtime_signal_handler(void *sig_addr)
             wasm_set_exception(module_inst, "out of bounds memory access");
             os_longjmp(jmpbuf_node->jmpbuf, 1);
         }
+#if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
         else if (stack_min_addr - page_size <= (uint8 *)sig_addr
                  && (uint8 *)sig_addr
                         < stack_min_addr + page_size * guard_page_count) {
             /* The address which causes segmentation fault is inside
                native thread's guard page */
             wasm_set_exception(module_inst, "native stack overflow");
+            os_longjmp(jmpbuf_node->jmpbuf, 1);
+        }
+#endif
+        else if (exec_env_tls->exce_check_guard_page <= (uint8 *)sig_addr
+                 && (uint8 *)sig_addr
+                        < exec_env_tls->exce_check_guard_page + page_size) {
+            bh_assert(wasm_get_exception(module_inst));
             os_longjmp(jmpbuf_node->jmpbuf, 1);
         }
     }
@@ -201,32 +215,45 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
                 mapped_mem_start_addr = memory_inst->memory_data;
                 mapped_mem_end_addr =
                     memory_inst->memory_data + 8 * (uint64)BH_GB;
-                if (mapped_mem_start_addr <= (uint8 *)sig_addr
-                    && (uint8 *)sig_addr < mapped_mem_end_addr) {
-                    /* The address which causes segmentation fault is inside
-                       the memory instance's guard regions.
-                       Set exception and let the wasm func continue to run, when
-                       the wasm func returns, the caller will check whether the
-                       exception is thrown and return to runtime. */
-                    wasm_set_exception(module_inst,
-                                       "out of bounds memory access");
-                    if (module_inst->module_type == Wasm_Module_Bytecode) {
-                        /* Continue to search next exception handler for
-                           interpreter mode as it can be caught by
-                           `__try { .. } __except { .. }` sentences in
-                           wasm_runtime.c */
-                        return EXCEPTION_CONTINUE_SEARCH;
-                    }
-                    else {
-                        /* Skip current instruction and continue to run for
-                           AOT mode. TODO: implement unwind support for AOT
-                           code in Windows platform */
-                        exce_info->ContextRecord->Rip++;
-                        return EXCEPTION_CONTINUE_EXECUTION;
-                    }
+            }
+
+            if (memory_inst && mapped_mem_start_addr <= (uint8 *)sig_addr
+                && (uint8 *)sig_addr < mapped_mem_end_addr) {
+                /* The address which causes segmentation fault is inside
+                   the memory instance's guard regions.
+                   Set exception and let the wasm func continue to run, when
+                   the wasm func returns, the caller will check whether the
+                   exception is thrown and return to runtime. */
+                wasm_set_exception(module_inst, "out of bounds memory access");
+                if (module_inst->module_type == Wasm_Module_Bytecode) {
+                    /* Continue to search next exception handler for
+                       interpreter mode as it can be caught by
+                       `__try { .. } __except { .. }` sentences in
+                       wasm_runtime.c */
+                    return EXCEPTION_CONTINUE_SEARCH;
+                }
+                else {
+                    /* Skip current instruction and continue to run for
+                       AOT mode. TODO: implement unwind support for AOT
+                       code in Windows platform */
+                    exce_info->ContextRecord->Rip++;
+                    return EXCEPTION_CONTINUE_EXECUTION;
+                }
+            }
+            else if (exec_env_tls->exce_check_guard_page <= (uint8 *)sig_addr
+                     && (uint8 *)sig_addr
+                            < exec_env_tls->exce_check_guard_page + page_size) {
+                bh_assert(wasm_get_exception(module_inst));
+                if (module_inst->module_type == Wasm_Module_Bytecode) {
+                    return EXCEPTION_CONTINUE_SEARCH;
+                }
+                else {
+                    exce_info->ContextRecord->Rip++;
+                    return EXCEPTION_CONTINUE_EXECUTION;
                 }
             }
         }
+#if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
         else if (ExceptionRecord->ExceptionCode == EXCEPTION_STACK_OVERFLOW) {
             /* Set stack overflow exception and let the wasm func continue
                to run, when the wasm func returns, the caller will check
@@ -240,6 +267,7 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
                 return EXCEPTION_CONTINUE_EXECUTION;
             }
         }
+#endif
     }
 
     os_printf("Unhandled exception thrown:  exception code: 0x%lx, "
@@ -347,8 +375,20 @@ wasm_runtime_env_init()
     }
 #endif
 
+#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
+    if (!aot_compiler_init()) {
+        goto fail10;
+    }
+#endif
+
     return true;
 
+#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
+fail10:
+#if WASM_ENABLE_FAST_JIT != 0
+    jit_compiler_destroy();
+#endif
+#endif
 #if WASM_ENABLE_FAST_JIT != 0
 fail9:
 #if WASM_ENABLE_REF_TYPES != 0
@@ -438,6 +478,17 @@ wasm_runtime_destroy()
     os_mutex_destroy(&registered_module_list_lock);
 #endif
 
+#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
+    /* Destroy LLVM-JIT compiler after destroying the modules
+     * loaded by multi-module feature, since these modules may
+     * create backend threads to compile the wasm functions,
+     * which may access the LLVM resources. We wait until they
+     * finish the compilation to avoid accessing the destroyed
+     * resources in the compilation threads.
+     */
+    aot_compiler_destroy();
+#endif
+
 #if WASM_ENABLE_FAST_JIT != 0
     /* Destroy Fast-JIT compiler after destroying the modules
      * loaded by multi-module feature, since the Fast JIT's
@@ -506,6 +557,10 @@ wasm_runtime_full_init(RuntimeInitArgs *init_args)
 PackageType
 get_package_type(const uint8 *buf, uint32 size)
 {
+#if (WASM_ENABLE_WORD_ALIGN_READ != 0)
+    uint32 buf32 = *(uint32 *)buf;
+    buf = (const uint8 *)&buf32;
+#endif
     if (buf && size >= 4) {
         if (buf[0] == '\0' && buf[1] == 'a' && buf[2] == 's' && buf[3] == 'm')
             return Wasm_Module_Bytecode;
@@ -1122,6 +1177,12 @@ wasm_runtime_deinstantiate(WASMModuleInstanceCommon *module_inst)
     wasm_runtime_deinstantiate_internal(module_inst, false);
 }
 
+WASMModuleCommon *
+wasm_runtime_get_module(WASMModuleInstanceCommon *module_inst)
+{
+    return (WASMModuleCommon *)((WASMModuleInstance *)module_inst)->module;
+}
+
 WASMExecEnv *
 wasm_runtime_create_exec_env(WASMModuleInstanceCommon *module_inst,
                              uint32 stack_size)
@@ -1390,6 +1451,17 @@ wasm_runtime_get_user_data(WASMExecEnv *exec_env)
 {
     return exec_env->user_data;
 }
+
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+void
+wasm_runtime_access_exce_check_guard_page()
+{
+    if (exec_env_tls && exec_env_tls->handle == os_self_thread()) {
+        uint32 page_size = os_getpagesize();
+        memset(exec_env_tls->exce_check_guard_page, 0, page_size);
+    }
+}
+#endif
 
 WASMType *
 wasm_runtime_get_function_type(const WASMFunctionInstanceCommon *function,
@@ -2104,6 +2176,9 @@ static const char *exception_msgs[] = {
     "wasm auxiliary stack underflow", /* EXCE_AUX_STACK_UNDERFLOW */
     "out of bounds table access",     /* EXCE_OUT_OF_BOUNDS_TABLE_ACCESS */
     "wasm operand stack overflow",    /* EXCE_OPERAND_STACK_OVERFLOW */
+#if WASM_ENABLE_FAST_JIT != 0
+    "failed to compile fast jit function", /* EXCE_FAILED_TO_COMPILE_FAST_JIT_FUNC */
+#endif
     "",                               /* EXCE_ALREADY_THROWN */
 };
 /* clang-format on */
@@ -2471,7 +2546,11 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
     }
     addr_pool_inited = true;
 
-    /* Prepopulate curfds with stdin, stdout, and stderr file descriptors. */
+    /* Prepopulate curfds with stdin, stdout, and stderr file descriptors.
+     *
+     * If -1 is given, use STDIN_FILENO (0), STDOUT_FILENO (1),
+     * STDERR_FILENO (2) respectively.
+     */
     if (!fd_table_insert_existing(curfds, 0, (stdinfd != -1) ? stdinfd : 0)
         || !fd_table_insert_existing(curfds, 1, (stdoutfd != -1) ? stdoutfd : 1)
         || !fd_table_insert_existing(curfds, 2,
@@ -2633,17 +2712,18 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
                        char *argv[], uint32 argc, int stdinfd, int stdoutfd,
                        int stderrfd, char *error_buf, uint32 error_buf_size)
 {
-    uvwasi_t *uvwasi = NULL;
+    WASIContext *ctx;
+    uvwasi_t *uvwasi;
     uvwasi_options_t init_options;
     const char **envp = NULL;
     uint64 total_size;
     uint32 i;
     bool ret = false;
 
-    uvwasi = runtime_malloc(sizeof(uvwasi_t), module_inst, error_buf,
-                            error_buf_size);
-    if (!uvwasi)
+    ctx = runtime_malloc(sizeof(*ctx), module_inst, error_buf, error_buf_size);
+    if (!ctx)
         return false;
+    uvwasi = &ctx->uvwasi;
 
     /* Setup the initialization options */
     uvwasi_options_init(&init_options);
@@ -2691,7 +2771,7 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
         goto fail;
     }
 
-    wasm_runtime_set_wasi_ctx(module_inst, uvwasi);
+    wasm_runtime_set_wasi_ctx(module_inst, ctx);
 
     ret = true;
 
@@ -2821,11 +2901,18 @@ wasm_runtime_destroy_wasi(WASMModuleInstanceCommon *module_inst)
     WASIContext *wasi_ctx = wasm_runtime_get_wasi_ctx(module_inst);
 
     if (wasi_ctx) {
-        uvwasi_destroy(wasi_ctx);
+        uvwasi_destroy(&wasi_ctx->uvwasi);
         wasm_runtime_free(wasi_ctx);
     }
 }
 #endif
+
+uint32_t
+wasm_runtime_get_wasi_exit_code(WASMModuleInstanceCommon *module_inst)
+{
+    WASIContext *wasi_ctx = wasm_runtime_get_wasi_ctx(module_inst);
+    return wasi_ctx->exit_code;
+}
 
 WASIContext *
 wasm_runtime_get_wasi_ctx(WASMModuleInstanceCommon *module_inst_comm)
@@ -2902,6 +2989,13 @@ wasm_runtime_register_natives_raw(const char *module_name,
 {
     return wasm_native_register_natives_raw(module_name, native_symbols,
                                             n_native_symbols);
+}
+
+bool
+wasm_runtime_unregister_natives(const char *module_name,
+                                NativeSymbol *native_symbols)
+{
+    return wasm_native_unregister_natives(module_name, native_symbols);
 }
 
 bool

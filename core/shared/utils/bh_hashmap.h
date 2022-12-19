@@ -141,7 +141,7 @@ bh_hash_map_get_struct_size(HashMap *hashmap);
  * @return the memory space occupied by HashMapElem structure
  */
 uint32
-bh_hash_map_get_elem_struct_size();
+bh_hash_map_get_elem_struct_size(void);
 
 /**
  * Traverse the hash map and call the callback function

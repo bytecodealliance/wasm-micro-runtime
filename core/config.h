@@ -70,6 +70,10 @@
 #define WASM_ENABLE_AOT 0
 #endif
 
+#ifndef WASM_ENABLE_WORD_ALIGN_READ
+#define WASM_ENABLE_WORD_ALIGN_READ 0
+#endif
+
 #define AOT_MAGIC_NUMBER 0x746f6100
 #define AOT_CURRENT_VERSION 3
 
@@ -134,6 +138,10 @@
 
 #ifndef WASM_ENABLE_UVWASI
 #define WASM_ENABLE_UVWASI 0
+#endif
+
+#ifndef WASM_ENABLE_WASI_NN
+#define WASM_ENABLE_WASI_NN 0
 #endif
 
 /* Default disable libc emcc */
@@ -252,6 +260,12 @@
 #define WASM_DISABLE_HW_BOUND_CHECK 0
 #endif
 
+/* Disable native stack access boundary check with hardware
+ * trap or not, enable it by default if it is supported */
+#ifndef WASM_DISABLE_STACK_HW_BOUND_CHECK
+#define WASM_DISABLE_STACK_HW_BOUND_CHECK 0
+#endif
+
 /* Disable SIMD unless it is manualy enabled somewhere */
 #ifndef WASM_ENABLE_SIMD
 #define WASM_ENABLE_SIMD 0
@@ -298,12 +312,7 @@
 
 /* Global heap pool size in bytes */
 #ifndef WASM_GLOBAL_HEAP_SIZE
-#if WASM_ENABLE_SPEC_TEST != 0
-/* Spec test requires more heap pool size */
-#define WASM_GLOBAL_HEAP_SIZE (300 * 1024 * 1024)
-#else
 #define WASM_GLOBAL_HEAP_SIZE (10 * 1024 * 1024)
-#endif
 #endif
 
 /* Max app number of all modules */
@@ -415,6 +424,14 @@
 
 #ifndef WASM_ENABLE_SGX_IPFS
 #define WASM_ENABLE_SGX_IPFS 0
+#endif
+
+#ifndef WASM_MEM_ALLOC_WITH_USER_DATA
+#define WASM_MEM_ALLOC_WITH_USER_DATA 0
+#endif
+
+#ifndef WASM_ENABLE_WASM_CACHE
+#define WASM_ENABLE_WASM_CACHE 0
 #endif
 
 #endif /* end of _CONFIG_H_ */

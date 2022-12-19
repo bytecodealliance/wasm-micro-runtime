@@ -856,7 +856,6 @@ typedef struct JitValueSlot {
 } JitValueSlot;
 
 typedef struct JitMemRegs {
-    JitReg memory_inst;
     /* The following registers should be re-loaded after
        memory.grow, callbc and callnative */
     JitReg memory_data;
@@ -869,8 +868,7 @@ typedef struct JitMemRegs {
 } JitMemRegs;
 
 typedef struct JitTableRegs {
-    JitReg table_inst;
-    JitReg table_data;
+    JitReg table_elems;
     /* Should be re-loaded after table.grow,
        callbc and callnative */
     JitReg table_cur_size;
@@ -915,18 +913,12 @@ typedef struct JitFrame {
     JitReg fast_jit_func_ptrs_reg;
     /* module_inst->func_type_indexes */
     JitReg func_type_indexes_reg;
-    /* Base address of global data */
-    JitReg global_data_reg;
     /* Boundary of auxiliary stack */
     JitReg aux_stack_bound_reg;
     /* Bottom of auxiliary stack */
     JitReg aux_stack_bottom_reg;
-    /* Memory instances */
-    JitReg memories_reg;
     /* Data of memory instances */
     JitMemRegs *memory_regs;
-    /* Table instances */
-    JitReg tables_reg;
     /* Data of table instances */
     JitTableRegs *table_regs;
 
@@ -1037,18 +1029,12 @@ typedef struct JitCompContext {
     JitReg fast_jit_func_ptrs_reg;
     /* module_inst->func_type_indexes */
     JitReg func_type_indexes_reg;
-    /* Base address of global data */
-    JitReg global_data_reg;
     /* Boundary of auxiliary stack */
     JitReg aux_stack_bound_reg;
     /* Bottom of auxiliary stack */
     JitReg aux_stack_bottom_reg;
-    /* Memory instances */
-    JitReg memories_reg;
     /* Data of memory instances */
     JitMemRegs *memory_regs;
-    /* Table instances */
-    JitReg tables_reg;
     /* Data of table instances */
     JitTableRegs *table_regs;
 

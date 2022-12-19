@@ -20,6 +20,7 @@ typedef struct _vm {
     wasm_engine_t *engine;
     wasm_store_t *store;
     wasm_module_t *module;
+    wasm_shared_module_t *shared_module;
     wasm_instance_t *instance;
     wasm_func_t **function_list;
     wasm_memory_t *memory;
@@ -72,10 +73,49 @@ fail:
     return NULL;
 }
 
+wasm_vm_t *
+vm_release(wasm_vm_t *vm)
+{
+    if (!vm)
+        return NULL;
+
+    if (vm->function_list) {
+        free(vm->function_list);
+        vm->function_list = NULL;
+    }
+
+    vm->memory = NULL;
+
+    if (vm->exports) {
+        wasm_extern_vec_delete(vm->exports);
+        free(vm->exports);
+        vm->exports = NULL;
+    }
+
+    wasm_instance_delete(vm->instance);
+    vm->instance = NULL;
+
+    wasm_shared_module_delete(vm->shared_module);
+    vm->shared_module = NULL;
+
+    wasm_module_delete(vm->module);
+    vm->module = NULL;
+
+    wasm_store_delete(vm->store);
+    vm->store = NULL;
+
+    wasm_engine_delete(vm->engine);
+    vm->engine = NULL;
+
+    free(vm);
+    return NULL;
+}
+
 bool
 vm_load(wasm_vm_t *vm, const wasm_byte_vec_t *binary)
 {
     vm->module = wasm_module_new(vm->store, binary);
+    vm->shared_module = wasm_module_share(vm->module);
     return vm->module != NULL;
 }
 
@@ -103,7 +143,7 @@ vm_link(wasm_vm_t *vm, wasm_extern_vec_t *imports)
     if (!vm->function_list)
         goto fail;
 
-    memset(vm->function_list, 0, sizeof(2 * sizeof(wasm_func_t *)));
+    memset(vm->function_list, 0, 2 * sizeof(wasm_func_t *));
 
     /* bind wasm_set_byte(...) */
     assert(wasm_extern_kind(vm->exports->data[1]) == WASM_EXTERN_FUNC);
@@ -127,7 +167,10 @@ vm_clone_from_module(const wasm_vm_t *base)
     secondary = vm_new();
     if (secondary) {
         printf("Reuse module and bypass vm_load()...");
-        secondary->module = base->module;
+        secondary->module =
+            wasm_module_obtain(base->store, base->shared_module);
+        if (!secondary->module)
+            secondary = vm_release(secondary);
     }
 
     return secondary;
@@ -163,39 +206,6 @@ vm_clone(const wasm_vm_t *base, clone_level level)
         return vm_clone_from_instance(base);
 }
 
-wasm_vm_t *
-vm_release(wasm_vm_t *vm)
-{
-    if (!vm)
-        return NULL;
-
-    if (vm->function_list) {
-        free(vm->function_list);
-        vm->function_list = NULL;
-    }
-
-    if (vm->exports) {
-        wasm_extern_vec_delete(vm->exports);
-        free(vm->exports);
-        vm->exports = NULL;
-    }
-
-    wasm_instance_delete(vm->instance);
-    vm->instance = NULL;
-
-    wasm_module_delete(vm->module);
-    vm->module = NULL;
-
-    wasm_store_delete(vm->store);
-    vm->store = NULL;
-
-    wasm_engine_delete(vm->engine);
-    vm->engine = NULL;
-
-    free(vm);
-    return NULL;
-}
-
 bool
 vm_memory_set_byte(const wasm_vm_t *vm, uint32_t offset, uint8_t byte)
 {
@@ -221,10 +231,13 @@ vm_function_set_byte(const wasm_vm_t *vm, uint32_t offset, uint8_t byte)
     wasm_val_vec_t args = WASM_ARRAY_VEC(a_v);
     wasm_val_vec_t results = WASM_EMPTY_VEC;
     wasm_trap_t *trap = wasm_func_call(vm->function_list[0], &args, &results);
-    if (trap)
+    if (trap) {
         printf("call wasm_set_byte failed");
+        wasm_trap_delete(trap);
+        return false;
+    }
 
-    return trap != NULL;
+    return true;
 }
 
 bool
@@ -237,6 +250,7 @@ vm_function_get_byte(const wasm_vm_t *vm, uint32_t offset, uint8_t *byte)
     wasm_trap_t *trap = wasm_func_call(vm->function_list[1], &args, &results);
     if (trap) {
         printf("call wasm_get_byte failed");
+        wasm_trap_delete(trap);
         return false;
     }
 
@@ -444,6 +458,8 @@ static void *
 thrd_func(void *arg)
 {
     thread_arg_t *thrd_arg = (thread_arg_t *)arg;
+
+    sleep(rand() % 5);
     printf("Running warm start at %s...\n", thrd_arg->name);
 
     pthread_setspecific(name_key, thrd_arg->name);
@@ -483,7 +499,6 @@ main()
     run_test(base_vm);
 
     printf("Running warm start at other threads...\n");
-    pthread_mutex_trylock(&ready_go_lock);
 
     pthread_t tids[WORKER_NUMBER] = { 0 };
     thread_arg_t thrd_args[WORKER_NUMBER] = { 0 };
@@ -501,16 +516,18 @@ main()
             break;
     }
 
-    sleep(5);
-
+    sleep(1);
+    pthread_mutex_trylock(&ready_go_lock);
     ready_go_flag = true;
     pthread_mutex_unlock(&ready_go_lock);
     pthread_cond_broadcast(&ready_go_cond);
 
+    sleep(3);
     for (size_t i = 0; i < sizeof(tids) / sizeof(tids[0]); i++) {
         if (tids[i] != 0)
             pthread_join(tids[i], NULL);
     }
+
     vm_release(base_vm);
     ret = EXIT_SUCCESS;
 quit:

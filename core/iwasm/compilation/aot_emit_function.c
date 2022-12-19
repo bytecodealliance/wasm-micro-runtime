@@ -35,7 +35,14 @@ create_func_return_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
         /* Create return IR */
         LLVMPositionBuilderAtEnd(comp_ctx->builder,
                                  func_ctx->func_return_block);
-        if (!aot_build_zero_function_ret(comp_ctx, func_ctx, aot_func_type)) {
+        if (!comp_ctx->enable_bound_check) {
+            if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_ALREADY_THROWN,
+                                    false, NULL, NULL)) {
+                return false;
+            }
+        }
+        else if (!aot_build_zero_function_ret(comp_ctx, func_ctx,
+                                              aot_func_type)) {
             return false;
         }
     }
@@ -494,7 +501,8 @@ check_app_addr_and_convert(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     /* Check whether exception was thrown when executing the function */
-    if (!check_call_return(comp_ctx, func_ctx, res)) {
+    if (comp_ctx->enable_bound_check
+        && !check_call_return(comp_ctx, func_ctx, res)) {
         return false;
     }
 
@@ -707,7 +715,8 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 goto fail;
             /* Check whether there was exception thrown when executing
                the function */
-            if (!check_call_return(comp_ctx, func_ctx, res))
+            if (comp_ctx->enable_bound_check
+                && !check_call_return(comp_ctx, func_ctx, res))
                 goto fail;
         }
         else { /* call native func directly */
@@ -789,7 +798,53 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 func = func_ctx->func;
             }
             else {
-                func = func_ctxes[func_idx - import_func_count]->func;
+                if (!comp_ctx->is_jit_mode) {
+                    func = func_ctxes[func_idx - import_func_count]->func;
+                }
+                else {
+#if !(WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_LAZY_JIT != 0)
+                    func = func_ctxes[func_idx - import_func_count]->func;
+#else
+                    /* JIT tier-up, load func ptr from func_ptrs[func_idx] */
+                    LLVMValueRef func_ptr, func_idx_const;
+                    LLVMTypeRef func_ptr_type;
+
+                    if (!(func_idx_const = I32_CONST(func_idx))) {
+                        aot_set_last_error("llvm build const failed.");
+                        goto fail;
+                    }
+
+                    if (!(func_ptr = LLVMBuildInBoundsGEP2(
+                              comp_ctx->builder, OPQ_PTR_TYPE,
+                              func_ctx->func_ptrs, &func_idx_const, 1,
+                              "func_ptr_tmp"))) {
+                        aot_set_last_error("llvm build inbounds gep failed.");
+                        goto fail;
+                    }
+
+                    if (!(func_ptr =
+                              LLVMBuildLoad2(comp_ctx->builder, OPQ_PTR_TYPE,
+                                             func_ptr, "func_ptr"))) {
+                        aot_set_last_error("llvm build load failed.");
+                        goto fail;
+                    }
+
+                    if (!(func_ptr_type = LLVMPointerType(
+                              func_ctxes[func_idx - import_func_count]
+                                  ->func_type,
+                              0))) {
+                        aot_set_last_error("construct func ptr type failed.");
+                        goto fail;
+                    }
+
+                    if (!(func = LLVMBuildBitCast(comp_ctx->builder, func_ptr,
+                                                  func_ptr_type,
+                                                  "indirect_func"))) {
+                        aot_set_last_error("llvm build bit cast failed.");
+                        goto fail;
+                    }
+#endif /* end of !(WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_LAZY_JIT != 0) */
+                }
             }
         }
 
@@ -797,7 +852,7 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         callee_cell_num =
             aot_func->param_cell_num + aot_func->local_cell_num + 1;
 
-        if (comp_ctx->enable_bound_check
+        if (comp_ctx->enable_stack_bound_check
             && !check_stack_boundary(comp_ctx, func_ctx, callee_cell_num))
             goto fail;
 
@@ -823,7 +878,7 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
         /* Check whether there was exception thrown when executing
            the function */
-        if (!tail_call && !recursive_call
+        if (!tail_call && !recursive_call && comp_ctx->enable_bound_check
             && !check_exception_thrown(comp_ctx, func_ctx))
             goto fail;
     }
@@ -1395,7 +1450,8 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
 
     /* Check whether exception was thrown when executing the function */
-    if (!check_call_return(comp_ctx, func_ctx, res))
+    if (comp_ctx->enable_bound_check
+        && !check_call_return(comp_ctx, func_ctx, res))
         goto fail;
 
     block_curr = LLVMGetInsertBlock(comp_ctx->builder);
@@ -1411,7 +1467,7 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* Translate call non-import block */
     LLVMPositionBuilderAtEnd(comp_ctx->builder, block_call_non_import);
 
-    if (comp_ctx->enable_bound_check
+    if (comp_ctx->enable_stack_bound_check
         && !check_stack_boundary(comp_ctx, func_ctx,
                                  param_cell_num + ext_cell_num
                                      + 1
@@ -1454,7 +1510,8 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     /* Check whether exception was thrown when executing the function */
-    if (!check_exception_thrown(comp_ctx, func_ctx))
+    if (comp_ctx->enable_bound_check
+        && !check_exception_thrown(comp_ctx, func_ctx))
         goto fail;
 
     if (func_result_count > 0) {

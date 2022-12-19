@@ -5,14 +5,9 @@
 #
 
 import argparse
-import hashlib
 import multiprocessing as mp
 import os
 import pathlib
-import random
-import shlex
-import shutil
-import string
 import subprocess
 import sys
 import time
@@ -24,6 +19,7 @@ The script itself has to be put under the same directory with the "spec".
 PLATFORM_NAME = os.uname().sysname.lower()
 IWASM_CMD = "../../../product-mini/platforms/" + PLATFORM_NAME + "/build/iwasm"
 IWASM_SGX_CMD = "../../../product-mini/platforms/linux-sgx/enclave-sample/iwasm"
+IWASM_QEMU_CMD = "iwasm"
 SPEC_TEST_DIR = "spec/test/core"
 WAST2WASM_CMD = "./wabt/out/gcc/Release/wat2wasm"
 WAMRC_CMD = "../../../wamr-compiler/build/wamrc"
@@ -32,8 +28,11 @@ WAMRC_CMD = "../../../wamr-compiler/build/wamrc"
 class TargetAction(argparse.Action):
     TARGET_MAP = {
         "ARMV7_VFP": "armv7",
-        "RISCV64": "riscv64_lp64d",
-        "RISCV64_LP64": "riscv64_lp64d",
+        "RISCV32": "riscv32_ilp32",
+        "RISCV32_ILP32": "riscv32_ilp32",
+        "RISCV32_ILP32D": "riscv32_ilp32d",
+        "RISCV64": "riscv64_lp64",
+        "RISCV64_LP64": "riscv64_lp64",
         "RISCV64_LP64D": "riscv64_lp64",
         "THUMBV7_VFP": "thumbv7",
         "X86_32": "i386",
@@ -53,6 +52,7 @@ def ignore_the_case(
     multi_thread_flag=False,
     simd_flag=False,
     xip_flag=False,
+    qemu_flag=False
 ):
     if case_name in ["comments", "inline-module", "names"]:
         return True
@@ -73,6 +73,10 @@ def ignore_the_case(
             "fac",
             "skip-stack-guard-page",
         ]:
+            return True
+
+    if qemu_flag:
+        if case_name in ["f32_bitwise", "f64_bitwise", "loop", "f64", "f64_cmp", "conversions", "f32", "f32_cmp", "float_exprs", "float_misc", "select", "memory_grow"]:
             return True
 
     return False
@@ -105,6 +109,8 @@ def test_case(
     xip_flag=False,
     clean_up_flag=True,
     verbose_flag=True,
+    qemu_flag=False,
+    qemu_firmware='',
 ):
     case_path = pathlib.Path(case_path).resolve()
     case_name = case_path.stem
@@ -118,21 +124,31 @@ def test_case(
         multi_thread_flag,
         simd_flag,
         xip_flag,
+        qemu_flag
     ):
         return True
 
-    CMD = ["python2.7", "runtest.py"]
+    CMD = ["python3", "runtest.py"]
     CMD.append("--wast2wasm")
     CMD.append(WAST2WASM_CMD)
     CMD.append("--interpreter")
-    CMD.append(IWASM_CMD if not sgx_flag else IWASM_SGX_CMD)
+    if sgx_flag:
+        CMD.append(IWASM_SGX_CMD)
+    elif qemu_flag:
+        CMD.append(IWASM_QEMU_CMD)
+    else:
+        CMD.append(IWASM_CMD)
     CMD.append("--aot-compiler")
     CMD.append(WAMRC_CMD)
 
     if aot_flag:
         CMD.append("--aot")
-        CMD.append("--aot-target")
-        CMD.append(target)
+
+    CMD.append("--target")
+    CMD.append(target)
+
+    if multi_module_flag:
+        CMD.append("--multi-module")
 
     if multi_thread_flag:
         CMD.append("--multi-thread")
@@ -145,6 +161,11 @@ def test_case(
 
     if xip_flag:
         CMD.append("--xip")
+
+    if qemu_flag:
+        CMD.append("--qemu")
+        CMD.append("--qemu-firmware")
+        CMD.append(qemu_firmware)
 
     if not clean_up_flag:
         CMD.append("--no_cleanup")
@@ -206,6 +227,8 @@ def test_suite(
     clean_up_flag=True,
     verbose_flag=True,
     parl_flag=False,
+    qemu_flag=False,
+    qemu_firmware=''
 ):
     suite_path = pathlib.Path(SPEC_TEST_DIR).resolve()
     if not suite_path.exists():
@@ -239,13 +262,19 @@ def test_suite(
                         xip_flag,
                         clean_up_flag,
                         verbose_flag,
+                        qemu_flag,
+                        qemu_firmware,
                     ],
                 )
 
             for case_name, result in results.items():
                 try:
-                    # 5 min / case
-                    result.wait(300)
+                    if qemu_flag:
+                        # 60 min / case, testing on QEMU may be very slow
+                        result.wait(7200)
+                    else:
+                        # 5 min / case
+                        result.wait(300)
                     if not result.successful():
                         failed_case += 1
                     else:
@@ -268,11 +297,13 @@ def test_suite(
                     xip_flag,
                     clean_up_flag,
                     verbose_flag,
+                    qemu_flag,
+                    qemu_firmware,
                 )
                 successful_case += 1
-            except Exception:
+            except Exception as e:
                 failed_case += 1
-                break
+                raise e
 
     print(
         f"IN ALL {case_count} cases: {successful_case} PASS, {failed_case} FAIL, {case_count - successful_case - failed_case} SKIP"
@@ -350,6 +381,19 @@ def main():
         help="To run whole test suite parallelly",
     )
     parser.add_argument(
+        "--qemu",
+        action="store_true",
+        default=False,
+        dest="qemu_flag",
+        help="To run whole test suite in qemu",
+    )
+    parser.add_argument(
+        "--qemu-firmware",
+        default="",
+        dest="qemu_firmware",
+        help="Firmware required by qemu",
+    )
+    parser.add_argument(
         "--quiet",
         action="store_false",
         default=True,
@@ -389,6 +433,8 @@ def main():
             options.clean_up_flag,
             options.verbose_flag,
             options.parl_flag,
+            options.qemu_flag,
+            options.qemu_firmware,
         )
         end = time.time_ns()
         print(
@@ -408,6 +454,8 @@ def main():
                     options.xip_flag,
                     options.clean_up_flag,
                     options.verbose_flag,
+                    options.qemu_flag,
+                    options.qemu_firmware
                 )
             else:
                 ret = True

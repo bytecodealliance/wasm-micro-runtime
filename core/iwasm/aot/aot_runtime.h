@@ -73,6 +73,10 @@ typedef struct AOTFunctionInstance {
     } u;
 } AOTFunctionInstance;
 
+typedef struct AOTModuleInstanceExtra {
+    CApiFuncImport *c_api_func_imports;
+} AOTModuleInstanceExtra;
+
 #if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
 /* clang-format off */
 typedef struct AOTUnwindInfo {
@@ -450,6 +454,12 @@ aot_memmove(void *dest, const void *src, size_t n);
 
 void *
 aot_memset(void *s, int c, size_t n);
+
+double
+aot_sqrt(double x);
+
+float
+aot_sqrtf(float x);
 
 #if WASM_ENABLE_BULK_MEMORY != 0
 bool

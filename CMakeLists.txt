@@ -1,7 +1,7 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-cmake_minimum_required (VERSION 2.9)
+cmake_minimum_required (VERSION 3.0)
 
 project (iwasm)
 
@@ -107,7 +107,7 @@ set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security -Wshadow")
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security -Wshadow -Wno-unused-parameter")
 # set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wconversion -Wsign-conversion")
 
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wformat -Wformat-security -Wno-unused")
@@ -130,6 +130,9 @@ include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 
 # STATIC LIBRARY
 add_library(iwasm_static STATIC ${WAMR_RUNTIME_LIB_SOURCE})
+if (WAMR_BUILD_WASM_CACHE EQUAL 1)
+  target_link_libraries(iwasm_static PUBLIC boringssl_crypto)
+endif ()
 set_target_properties (iwasm_static PROPERTIES OUTPUT_NAME vmlib)
 
 install (TARGETS iwasm_static ARCHIVE DESTINATION lib)
@@ -138,6 +141,9 @@ install (TARGETS iwasm_static ARCHIVE DESTINATION lib)
 add_library (iwasm_shared SHARED ${WAMR_RUNTIME_LIB_SOURCE})
 set_target_properties (iwasm_shared PROPERTIES OUTPUT_NAME iwasm)
 target_link_libraries (iwasm_shared ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl -lpthread)
+if (WAMR_BUILD_WASM_CACHE EQUAL 1)
+  target_link_libraries(iwasm_shared boringssl_crypto)
+endif ()
 
 if (MINGW)
 target_link_libraries (iwasm_shared -lWs2_32)

@@ -3,7 +3,7 @@
 
 (module
   (func $get_pairs (import "" "get_pairs") (result i32))
-  (func $log (import"" "log") (param i32 i32))
+  (func $log (import "" "log") (param i32 i32))
 
   (func $on_start (export "on_start")
     (call $log (i32.const 0) (i32.const 9))

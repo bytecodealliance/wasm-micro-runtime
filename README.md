@@ -1,10 +1,13 @@
 WebAssembly Micro Runtime
 =========================
-[Build WAMR](./doc/build_wamr.md) | [Build AOT Compiler](./README.md#build-wamrc-aot-compiler) | [Embed WAMR](./doc/embed_wamr.md) | [Export Native API](./doc/export_native_api.md) | [Build WASM Apps](./doc/build_wasm_app.md) | [Samples](./README.md#samples)
 
 **A [Bytecode Alliance][BA] project**
 
 [BA]: https://bytecodealliance.org/
+
+**[Guide](https://wamr.gitbook.io/)**&emsp;&emsp;**[Website](https://bytecodealliance.github.io/wamr.dev)**&emsp;&emsp;**[Chat](https://bytecodealliance.zulipchat.com/#narrow/stream/290350-wamr)**
+
+[Build WAMR](./doc/build_wamr.md) | [Build AOT Compiler](./README.md#build-wamrc-aot-compiler) | [Embed WAMR](./doc/embed_wamr.md) | [Export Native API](./doc/export_native_api.md) | [Build WASM Apps](./doc/build_wasm_app.md) | [Samples](./README.md#samples)
 
 WebAssembly Micro Runtime (WAMR) is a lightweight standalone WebAssembly (WASM) runtime with small footprint, high performance and highly configurable features for applications cross from embedded, IoT, edge to Trusted Execution Environment (TEE), smart contract, cloud native and so on. It includes a few parts as below:
 - The [**"iwasm" VM core**](./README.md#iwasm-vm-core) to run WASM applications, supporting interpreter mode, AOT mode (Ahead-of-Time compilation) and JIT modes (Just-in-Time compilation, LLVM JIT and Fast JIT are supported)
@@ -168,6 +171,8 @@ Project Technical Steering Committee
 ====================================
 The [WAMR PTSC Charter](./TSC_Charter.md) governs the operations of the project TSC.
 The current TSC members:
+- [dongsheng28849455](https://github.com/dongsheng28849455) - **Dongsheng Yan**, <dongsheng.yan@sony.com>
+- [loganek](https://github.com/loganek) - **Marcin Kolny**, <mkolny@amazon.co.uk>
 - [lum1n0us](https://github.com/lum1n0us) - **Liang He**， <liang.he@intel.com>
 - [no1wudi](https://github.com/no1wudi) **Qi Huang**, <huangqi3@xiaomi.com>
 - [qinxk-inter](https://github.com/qinxk-inter) - **Xiaokang Qin**， <xiaokang.qxk@antgroup.com>
@@ -175,6 +180,8 @@ The current TSC members:
 - [wenyongh](https://github.com/wenyongh) - **Wenyong Huang**， <wenyong.huang@intel.com>
 - [xujuntwt95329](https://github.com/xujuntwt95329) - **Jun Xu**， <Jun1.Xu@intel.com>
 - [xwang98](https://github.com/xwang98) - **Xin Wang**， <xin.wang@intel.com> (chair)
+- [yamt](https://github.com/yamt) - **Takashi Yamamoto**, <yamamoto@midokura.com>
+
 
 License
 =======
