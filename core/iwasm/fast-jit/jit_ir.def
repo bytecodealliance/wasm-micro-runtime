@@ -196,7 +196,7 @@ INSN(LOOKUPSWITCH, LookupSwitch, 1, 0)
 
 /* Call and return instructions */
 INSN(CALLNATIVE, VReg, 2, 1)
-INSN(CALLBC, Reg, 3, 2)
+INSN(CALLBC, Reg, 4, 2)
 INSN(RETURNBC, Reg, 3, 0)
 INSN(RETURN, Reg, 1, 0)
 
