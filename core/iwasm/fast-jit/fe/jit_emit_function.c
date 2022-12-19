@@ -409,7 +409,7 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
 
         res = create_first_res_reg(cc, func_type);
 
-        GEN_INSN(CALLBC, res, 0, jitted_code);
+        GEN_INSN(CALLBC, res, 0, jitted_code, NEW_CONST(I32, func_idx));
 
         if (!post_return(cc, func_type, res, true)) {
             goto fail;
@@ -700,7 +700,7 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
                 goto fail;
         }
     }
-    GEN_INSN(CALLBC, res, 0, jitted_code);
+    GEN_INSN(CALLBC, res, 0, jitted_code, func_idx);
     /* Store res into current frame, so that post_return in
         block func_return can get the value */
     n = cc->jit_frame->sp - cc->jit_frame->lp;
