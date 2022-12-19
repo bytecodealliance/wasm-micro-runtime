@@ -26,14 +26,16 @@ struct WASMCluster {
     korp_mutex lock;
     bh_list exec_env_list;
 
+#if WASM_ENABLE_HEAP_AUX_STACK_ALLOCATION == 0
     /* The aux stack of a module with shared memory will be
         divided into several segments. This array store the
         stack top of different segments */
     uint32 *stack_tops;
-    /* Size of every stack segment */
-    uint32 stack_size;
     /* Record which segments are occupied */
     bool *stack_segment_occupied;
+#endif
+    /* Size of every stack segment */
+    uint32 stack_size;
 #if WASM_ENABLE_DEBUG_INTERP != 0
     WASMDebugInstance *debug_inst;
 #endif
