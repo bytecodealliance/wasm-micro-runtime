@@ -27,7 +27,7 @@ const WAMR_LLDB_NOT_SUPPORTED_ERROR = new Error(
 
 function getLLDBUnzipFilePath(destinationFolder: string, filename: string) {
     const dirs = filename.split('/');
-    if (dirs[0] === 'inst') {
+    if (dirs[0] === 'wamr-lldb') {
         dirs.shift();
     }
 

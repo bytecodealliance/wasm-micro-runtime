@@ -20,11 +20,13 @@ them eg. by copying them from Windows.
 Similarly, do not drop execution permission when copying `lldb` binaries
 under `resource/debug/bin`.
 
-#### 1. Install `VSCode` on host.
+### 1. Preparation
+
+#### 1.1. Install `VSCode` on host
 
 - make sure the version of [vscode](https://code.visualstudio.com/Download) you installed is at least _1.59.0_
 
-#### 2. Install `Docker` on host.
+#### 1.2. Install `Docker` on host
 
     1. [Windows: Docker Desktop](https://docs.docker.com/desktop/windows/install/)
     2. [Ubuntu: Docker Engine](https://docs.docker.com/engine/install/ubuntu)
@@ -37,11 +39,13 @@ under `resource/debug/bin`.
        - Ubuntu Bionic 18.04(LTS)
        ```
 
-#### 3. Load docker images from the release tar file or build docker images on the host
+### 2. WAMR VS Code extension: download from the GitHub release or build locally
 
-##### 3.1 Load docker images from the release tar file
+#### 2.1 Download WAMR VS Code extension from the GitHub release(Recommended approach)
 
-From now on, for each release, we have the same version tagged docker image saved as a tar file, which you can find and download in the release.
+##### 2.1.1 Load docker images from the GitHub release tar file
+
+From now on, for each GitHub release, we have the same version tagged docker image saved as a tar file, which you can find and download in the GitHub release.
 
 You could download the tar archive files for docker images from the release, and then load them using the following commands:
 
@@ -68,7 +72,15 @@ docker load --input ./wasm-toolchain.tar
 docker load --input ./wasm-debug-server.tar
 ```
 
-##### 3.2 Build docker images on host
+##### 2.1.2 Download the VS Code extension installation file from the GitHub release
+
+From now on, for each GitHub release, we have the same version tagged zip/tar.gz file(e.g. decompress `wamr_ide-1.1.2.tar.gz` `wamr_ide-1.1.2.zip`), which contains .vsix VS Code extension installation file. You can find and easily download in the GitHub release.
+
+#### 2.2 Build WAMR VS Code extension locally(Alternative approach)
+
+You could also build the VS Code extension locally, the following instruction provides a thorough tutorial. It's worth noting that in the local build tutorial we use tag version 1.0 other than the semantic version of WAMR.
+
+##### 2.2.1 Build docker images on host
 
 We have 2 docker images which should be built or loaded on your host, `wasm-toolchain` and `wasm-debug-server`. To build these 2 images, please enter the `WASM-Debug-Server/Docker` & `WASM-Toolchain/Docker`, then execute the `build_docker_image` script respectively.
 
@@ -90,11 +102,11 @@ $ cd ./WASM-Debug-Server/Docker
 $ ./build_docker_image.sh
 ```
 
-#### After building, you can find `wasm-toolchain` and `wasm-debug-server` docker images on your local
+##### 2.2.2 After building, you can find `wasm-toolchain` and `wasm-debug-server` docker images on your local
 
 ![docker-images](./Media/docker_images.png)
 
-#### If building docker images fail during the process
+##### 2.2.3 If building docker images fail during the process
 
 Sometimes building the Docker images may fail due to bad network conditions. If the `wasm-toolchain` and `wasm-debug-server` images do not exist after building, please build them manually. Fix the proxy setting if needed and execute the following command to build docker images.
 
@@ -114,15 +126,15 @@ $ docker build --no-cache --build-arg http_proxy=http://proxy.example.com:1234
 --build-arg https_proxy=http://proxy.example.com:1234 -t wasm-toolchain:1.0 .
 ```
 
-#### If you encounter the problem `failed to solve with frontend dockerfile.v0: failed to create LLB definition`, please config your docker desktop
+##### 2.2.4 If you encounter the problem `failed to solve with frontend dockerfile.v0: failed to create LLB definition`, please config your docker desktop
 
 ![docker-engine-config](./Media/docker_engine_config.png)
 
-#### Points To Remember
+##### 2.2.5 Points To Remember
 
 - Make sure that the `wasm-toolchain:1.0` and `wasm-debug-server:1.0` docker images are both successfully built before using `WAMR IDE`, otherwise `Build`, `Run` and `Debug` will not work.
 
-#### 4. Generate wamride extension package file
+##### 2.2.6 Generate wamride extension package file
 
 `wamride-1.0.0.vsix` can be packaged by [`npm vsce`](https://code.visualstudio.com/api/working-with-extensions/publishing-extension).
 
@@ -141,7 +153,7 @@ to copy the binaries.
 
 > **You can also debug the extension directly follow this [instruction](./VSCode-Extension/README.md) without packing the extension.**
 
-#### 5. Install extension from vsix
+#### 2.3 Install extension from vsix
 
 ![install_from_vsix](./Media/install_from_vsix.png "install wamr-ide from vsix")
 
