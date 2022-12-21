@@ -34,3 +34,4 @@ endfunction ()
 
 compile_sample(no_pthread.c)
 compile_sample(exception_propagation.c)
+compile_sample(multiple_threads.c)
