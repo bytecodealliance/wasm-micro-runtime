@@ -5890,7 +5890,7 @@ index 6f0633288..749ca37bb 100644
 +  LLDB_RECORD_METHOD_CONST_NO_ARGS(uint32_t, SBTarget, GetMaximumOpcodeByteSize);
 +
 +  TargetSP target_sp(GetSP());
-+  if (target_sp) 
++  if (target_sp)
 +    return target_sp->GetArchitecture().GetMaximumOpcodeByteSize();
 +    
 +  return 0;
@@ -6362,3 +6362,164 @@ index 9ab13cf14..95fbdbac9 100644
    // Custom requests
    g_vsc.RegisterRequestCallback("compileUnits", request_compileUnits);
    g_vsc.RegisterRequestCallback("modules", request_modules);
+diff --git a/lldb/include/lldb/Core/Opcode.h b/lldb/include/lldb/Core/Opcode.h
+index 70f2dbdf6..010331546 100644
+--- a/lldb/include/lldb/Core/Opcode.h
++++ b/lldb/include/lldb/Core/Opcode.h
+@@ -184,7 +184,12 @@ public:
+     if (bytes != nullptr && length > 0) {
+       m_type = eTypeBytes;
+       m_data.inst.length = length;
+-      assert(length < sizeof(m_data.inst.bytes));
++      // FIXME(eloparco): Fix disassembler to avoid this temporary workaround
++      // assert(length < sizeof(m_data.inst.bytes));
++      if (length >= sizeof(m_data.inst.bytes)) {
++        m_data.inst.length = 1;
++        length = 1;
++      }
+       memcpy(m_data.inst.bytes, bytes, length);
+       m_byte_order = lldb::eByteOrderInvalid;
+     } else {
+diff --git a/lldb/source/Plugins/Disassembler/LLVMC/DisassemblerLLVMC.cpp b/lldb/source/Plugins/Disassembler/LLVMC/DisassemblerLLVMC.cpp
+index 7cd505d0e..61e01fa88 100644
+--- a/lldb/source/Plugins/Disassembler/LLVMC/DisassemblerLLVMC.cpp
++++ b/lldb/source/Plugins/Disassembler/LLVMC/DisassemblerLLVMC.cpp
+@@ -1227,8 +1227,11 @@ size_t DisassemblerLLVMC::DecodeInstructions(const Address &base_addr,
+ 
+     uint32_t inst_size = inst_sp->Decode(*this, data, data_cursor);
+ 
++    // FIXME(eloparco): Fix disassembler to avoid this temporary workaround
++    // if (inst_size == 0)
++    // break;
+     if (inst_size == 0)
+-      break;
++      inst_size = 1;
+ 
+     m_instruction_list.Append(inst_sp);
+     data_cursor += inst_size;
+diff --git a/lldb/tools/lldb-vscode/lldb-vscode.cpp b/lldb/tools/lldb-vscode/lldb-vscode.cpp
+index 95fbdbac9..710b8f7d5 100644
+--- a/lldb/tools/lldb-vscode/lldb-vscode.cpp
++++ b/lldb/tools/lldb-vscode/lldb-vscode.cpp
+@@ -107,8 +107,6 @@ typedef void (*RequestCallback)(const llvm::json::Object &command);
+ 
+ enum LaunchMethod { Launch, Attach, AttachForSuspendedLaunch };
+ 
+-lldb::SBFrame g_curr_frame;
+-
+ SOCKET AcceptConnection(int portno) {
+   // Accept a socket connection from any host on "portno".
+   SOCKET newsockfd = -1;
+@@ -2091,8 +2089,7 @@ void request_setBreakpoints(const llvm::json::Object &request) {
+ }
+ 
+ std::vector<lldb::SBInstruction>
+-_get_instructions_from_memory(lldb::addr_t start, uint64_t count,
+-                              lldb::addr_t end) {
++_get_instructions_from_memory(lldb::addr_t start, uint64_t count) {
+   lldb::SBProcess process = g_vsc.target.GetProcess();
+ 
+   lldb::SBError error;
+@@ -2111,32 +2108,18 @@ _get_instructions_from_memory(lldb::addr_t start, uint64_t count,
+ 
+   for (size_t i = 0; i < instructions.GetSize(); i++) {
+     auto instr = instructions.GetInstructionAtIndex(i);
+-    if (instr.GetAddress().GetLoadAddress(g_vsc.target) > end)
+-      break;
+-
+     sb_instructions.emplace_back(instr);
+   }
+   return sb_instructions;
+ }
+ 
+-std::pair<lldb::addr_t, lldb::addr_t> _get_frame_boundary() {
+-  assert(g_curr_frame.IsValid());
+-  auto function = g_curr_frame.GetFunction();
+-
+-  if (!function.IsValid())
+-    return std::make_pair<>(LLDB_INVALID_ADDRESS, LLDB_INVALID_ADDRESS);
+-
+-  return std::make_pair<>(
+-      function.GetStartAddress().GetLoadAddress(g_vsc.target),
+-      function.GetEndAddress().GetLoadAddress(g_vsc.target));
+-}
+-
+ auto _handle_disassemble_positive_offset(lldb::addr_t base_addr,
+                                          int64_t instruction_offset,
+                                          uint64_t instruction_count) {
+   llvm::json::Array response_instructions;
+ 
+-  auto start_addr = lldb::SBAddress(base_addr, g_vsc.target);
++  auto start_addr =
++      lldb::SBAddress(base_addr + instruction_offset, g_vsc.target);
+   lldb::SBInstructionList instructions = g_vsc.target.ReadInstructions(
+       start_addr, instruction_offset + instruction_count);
+ 
+@@ -2164,24 +2147,15 @@ auto _handle_disassemble_negative_offset(
+   auto start_addr = base_addr - bytes_offset;
+   const auto disassemble_bytes = instruction_count * bytes_per_instruction;
+ 
+-  // Get beginning of current stack frame to avoid reading outside of it
+-  const auto frame_boundaries = _get_frame_boundary();
+-  const auto low_pc = frame_boundaries.first;
+-  const auto high_pc = frame_boundaries.second;
+-  if (low_pc == LLDB_INVALID_ADDRESS)
+-    return response_instructions;
+-  if (start_addr < low_pc)
+-    start_addr = low_pc;
+-
+   auto sb_instructions =
+-      _get_instructions_from_memory(start_addr, disassemble_bytes, high_pc);
++      _get_instructions_from_memory(start_addr, disassemble_bytes);
+ 
+   // Find position of requested instruction
+   // in retrieved disassembled instructions
+   auto index = sb_instructions.size() + 1;
+   for (size_t i = 0; i < sb_instructions.size(); i++) {
+     if (sb_instructions[i].GetAddress().GetLoadAddress(g_vsc.target) ==
+-        hex_string_to_addr(memory_reference)) {
++        base_addr) {
+       index = i;
+       break;
+     }
+@@ -2236,15 +2210,10 @@ void request_disassemble(const llvm::json::Object &request) {
+   llvm::json::Array response_instructions;
+ 
+   auto base_addr = hex_string_to_addr(memory_reference);
+-  base_addr += instruction_offset;
+-
+-  fprintf(stderr, "disassemble -> pc=%s off=%lld count=%llu\n",
+-          memory_reference->data(), instruction_offset, instruction_count);
+-
+   bool success = true;
+   if (hex_string_to_addr(memory_reference) == 0) {
+     success = false;
+-    fprintf(stderr, "requested memory reference is nop\n");
++    llvm::errs() << "requested memory reference is nop\n";
+   } else {
+     response_instructions =
+         instruction_offset >= 0
+@@ -2649,9 +2618,6 @@ void request_stackTrace(const llvm::json::Object &request) {
+       if (!frame.IsValid())
+         break;
+ 
+-      if (i == 0) // Current stack frame
+-        g_curr_frame = frame;
+-
+       stackFrames.emplace_back(CreateStackFrame(frame));
+     }
+     const auto totalFrames = thread.GetNumFrames();
+diff --git a/llvm/lib/Target/WebAssembly/MCTargetDesc/WebAssemblyInstPrinter.cpp b/llvm/lib/Target/WebAssembly/MCTargetDesc/WebAssemblyInstPrinter.cpp
+index 2967aaa00..b7cc75096 100644
+--- a/llvm/lib/Target/WebAssembly/MCTargetDesc/WebAssemblyInstPrinter.cpp
++++ b/llvm/lib/Target/WebAssembly/MCTargetDesc/WebAssemblyInstPrinter.cpp
+@@ -68,7 +68,8 @@ void WebAssemblyInstPrinter::printInst(const MCInst *MI, uint64_t Address,
+       printOperand(MI, TableOperand, OS);
+       OS << ", ";
+     } else {
+-      assert(MI->getOperand(TableOperand).getImm() == 0);
++      // FIXME(eloparco): Fix disassembler to avoid this temporary workaround
++      // assert(MI->getOperand(TableOperand).getImm() == 0);
+     }
+     printOperand(MI, TypeOperand, OS);
+     break;
