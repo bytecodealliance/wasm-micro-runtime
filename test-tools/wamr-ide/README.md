@@ -14,11 +14,9 @@ The WAMR-IDE is an Integrated Development Environment to develop WebAssembly app
 
 ## How to setup WAMR IDE
 
-Note: Please ensure that the scripts under `resource` directories have
-execution permission. While on git they have x bits, you might have dropped
-them eg. by copying them from Windows.
-Similarly, do not drop execution permission when copying `lldb` binaries
-under `resource/debug/bin`.
+Now, we have same version tagged docker images, lldb binaries and VS Code installation file(.vsix file) packed for each GitHub release. So if you simply want to use WAMR debugging features in VS Code, the ideal(and effortless) way is following the tutorial in [this section](#21-download-wamr-vs-code-extension-from-the-github-releaserecommended-approach).
+
+Alternatively, if you want to build lldb, docker images, or .vsix file locally so that you can try the effect of your modification, you could refer to the tutorial in [this section](#22-build-wamr-vs-code-extension-locallyalternative-approach).
 
 ### 1. Preparation
 
@@ -74,11 +72,19 @@ docker load --input ./wasm-debug-server.tar
 
 ##### 2.1.2 Download the VS Code extension installation file from the GitHub release
 
-From now on, for each GitHub release, we have the same version tagged zip/tar.gz file(e.g. decompress `wamr_ide-1.1.2.tar.gz` `wamr_ide-1.1.2.zip`), which contains .vsix VS Code extension installation file. You can find and easily download in the GitHub release.
+From now on, for each GitHub release, we have the same version tagged zip/tar.gz file. For example, in release version 1.1.2, you can easily download and decompress `wamr-ide-1.1.2.tar.gz` `wamr-ide-1.1.2.zip`, which contains `wamr-ide.vsix` VS Code extension installation file. As you can imagine, in the future, when new releases are available, you can freely choose whichever version(for example, 1.2.0, 1.3.0, etc.) you prefer. As long as you download the same version tagged docker image and .vsix file, you are all good!
+
+##### 2.1.3 Install extension from vsix
+
+![install_from_vsix](./Media/install_from_vsix.png "install wamr-ide from vsix")
+
+select `wamr-ide.vsix` which you have packed on your host.
 
 #### 2.2 Build WAMR VS Code extension locally(Alternative approach)
 
-You could also build the VS Code extension locally, the following instruction provides a thorough tutorial. It's worth noting that in the local build tutorial we use tag version 1.0 other than the semantic version of WAMR.
+You could also build the VS Code extension locally, the following instruction provides a thorough tutorial. It's worth noting that in the local build tutorial we use hard-coded tag version 1.0 other than the semantic version of WAMR.
+
+Note: Please ensure that the scripts under `resource` directories have execution permission. While on git they have x bits, you might have dropped them eg. by copying them from Windows. Similarly, do not drop execution permission when copying `lldb` binaries under `resource/debug/bin`.
 
 ##### 2.2.1 Build docker images on host
 
@@ -146,14 +152,29 @@ $ npm install
 $ vsce package
 ```
 
-Note that patched `lldb` should be built and put into the `VSCode-Extension/resource/debug` folder before your package or extension debug process if you want to enable `source debugging` feature.
-Please follow this [instruction](../../doc/source_debugging.md#debugging-with-interpreter) to build `lldb`.
-Please follow this [instruction](./VSCode-Extension/resource/debug/README.md)
-to copy the binaries.
+##### 2.2.7 Enable VS Code debugging feature
+
+By default, when you build .vsix locally, the debugging feature is off. Suppose you want to enable the source debugging feature. In that case, you could download `lldb` binaries from our GitHub release (for example, `wamr-lldb-1.1.2-x86_64-ubuntu-20.04.tar.gz`), decompress and put every subdirectory and file to the installed directory of your VS Code extension.
+
+For example, let's say you are on an Ubuntu 20.04 machine. You first download and decompress `wamr-lldb-1.1.2-x86_64-ubuntu-20.04.tar.gz`, and you will get a `wamr-lldb` folder (or `inst` folder in our earlier release). Then, you can simply copy the files and directory inside that folder to the relative path `resource/debug/linux/` under your VS Code extension installation directory. 
+
+Example commands on an Ubuntu 20.04 machine:
+
+```shell
+# decompress .tar.gz file and get the folder
+$ ls wamr-lldb
+bin  lib  package.json  syntaxes
+# copy everything to the vscode extension installation path(in this case, it's /home/{usrname}/.vscode-server/extensions/wamr.wamride-1.0.0/)
+$ cp inst/* /home/{usrname}/.vscode-server/extensions/wamr.wamride-1.0.0/resource/debug/linux/
+```
+
+If you want to use your own patched `lldb`, you could follow this [instruction](../../doc/source_debugging.md#debugging-with-interpreter) to build `lldb`. And follow this [instruction](./VSCode-Extension/resource/debug/README.md)
+to copy the binaries to replace the existing ones.
+
 
 > **You can also debug the extension directly follow this [instruction](./VSCode-Extension/README.md) without packing the extension.**
 
-#### 2.3 Install extension from vsix
+##### 2.2.7 Install extension from vsix
 
 ![install_from_vsix](./Media/install_from_vsix.png "install wamr-ide from vsix")
 
@@ -227,7 +248,7 @@ Click `Change workspace` button, a dialog will show as following. You can select
 
   ![right click menus](./Media/right_click_menus_2.png "right click menus")
 
-  #### After setting up `include path` and `exclude files`, the corresponding folder and files will be decorated with color and icon as following picture shows.
+#### After setting up `include path` and `exclude files`, the corresponding folder and files will be decorated with color and icon as following picture shows
 
   ![decoration for files](./Media/decoration_for_files.png "decoration for files")
 
