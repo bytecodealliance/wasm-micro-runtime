@@ -645,7 +645,7 @@ First, install the dependent packages:
 sudo pkg install gcc cmake wget
 ```
 
-Then you could run following commands to build iwasm with default configurations:
+Then you can run the following commands to build iwasm with default configurations:
 ```shell
 cd product-mini/platforms/freebsd
 mkdir build && cd build
