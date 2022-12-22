@@ -3,8 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#include "wasi_nn_tensorflow.hpp"
-#include "wasi_nn_common.h"
+#include "wasi_nn.h"
+#include "wasi_nn_tensorflowlite.hpp"
+#include "logger.h"
+
 #include "bh_common.h"
 #include "bh_platform.h"
 #include "platform_common.h"
@@ -25,8 +27,8 @@ static char *model_pointer = NULL;
 /* WASI-NN (tensorflow) implementation */
 
 error
-tensorflow_load(graph_builder_array builder, graph_encoding encoding,
-                execution_target target, graph *graph)
+tensorflowlite_load(graph_builder_array builder, graph_encoding encoding,
+                    execution_target target, graph *graph)
 {
     if (model_pointer != NULL) {
         wasm_runtime_free(model_pointer);
@@ -38,8 +40,8 @@ tensorflow_load(graph_builder_array builder, graph_encoding encoding,
         return invalid_argument;
     }
 
-    if (encoding != tensorflow) {
-        NN_ERR_PRINTF("Encoding is not tensorflow.");
+    if (encoding != tensorflowlite) {
+        NN_ERR_PRINTF("Encoding is not tensorflowlite.");
         return invalid_argument;
     }
 
@@ -81,7 +83,7 @@ tensorflow_load(graph_builder_array builder, graph_encoding encoding,
 }
 
 error
-tensorflow_init_execution_context(graph graph)
+tensorflowlite_init_execution_context(graph graph)
 {
     if (interpreter == NULL) {
         NN_ERR_PRINTF("Non-initialized interpreter.");
@@ -92,8 +94,8 @@ tensorflow_init_execution_context(graph graph)
 }
 
 error
-tensorflow_set_input(graph_execution_context ctx, uint32_t index,
-                     tensor *input_tensor)
+tensorflowlite_set_input(graph_execution_context ctx, uint32_t index,
+                         tensor *input_tensor)
 {
     if (interpreter == NULL) {
         NN_ERR_PRINTF("Non-initialized interpreter.");
@@ -136,7 +138,7 @@ tensorflow_set_input(graph_execution_context ctx, uint32_t index,
 }
 
 error
-tensorflow_compute(graph_execution_context ctx)
+tensorflowlite_compute(graph_execution_context ctx)
 {
     if (interpreter == NULL) {
         NN_ERR_PRINTF("Non-initialized interpreter.");
@@ -147,8 +149,9 @@ tensorflow_compute(graph_execution_context ctx)
 }
 
 error
-tensorflow_get_output(graph_execution_context context, uint32_t index,
-                      tensor_data output_tensor, uint32_t *output_tensor_size)
+tensorflowlite_get_output(graph_execution_context context, uint32_t index,
+                          tensor_data output_tensor,
+                          uint32_t *output_tensor_size)
 {
     if (interpreter == NULL) {
         NN_ERR_PRINTF("Non-initialized interpreter.");

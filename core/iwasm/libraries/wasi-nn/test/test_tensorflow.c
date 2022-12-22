@@ -64,7 +64,7 @@ wasm_load(char *model_name, graph *graph)
     arr.buf[0].size = result;
     arr.buf[0].buf = buffer;
 
-    error res = load(&arr, tensorflow, cpu, graph);
+    error res = load(&arr, tensorflowlite, cpu, graph);
 
     fclose(pFile);
     free(buffer);
@@ -151,7 +151,7 @@ run_inference(float *input, uint32_t *input_size, uint32_t *output_size,
         *output_size = MAX_OUTPUT_TENSOR_SIZE - *output_size;
         if (wasm_get_output(ctx, i, &out_tensor[offset], output_size)
             != success) {
-            fprintf(stderr, "Error when getting input .");
+            fprintf(stderr, "Error when getting output .");
             exit(1);
         }
 

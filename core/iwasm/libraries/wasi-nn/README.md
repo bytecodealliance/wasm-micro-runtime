@@ -39,5 +39,5 @@ Tests: passed!
 
 * Only 1 model at a time is supported.
     * `graph` and `graph-execution-context` are ignored.
-* Only `tensorflow` (lite) is supported.
+* Only `tensorflow lite` is supported.
 * Only `cpu` is supported.
