@@ -61,6 +61,7 @@ env:
   SIMD_TEST_OPTIONS: "-s spec -b -S -P"
   THREADS_TEST_OPTIONS: "-s spec -b -p -P"
   X86_32_TARGET_TEST_OPTIONS: "-m x86_32 -P"
+  WASI_TEST_OPTIONS: "-s wasi_certification"
 
 jobs:
   build_llvm_libraries:
@@ -376,7 +377,7 @@ jobs:
           exit $?
         working-directory: ./samples/simple
 
-  spec_test:
+  test:
     needs: [build_iwasm, build_llvm_libraries, build_wamrc]
     runs-on: ubuntu-20.04
     strategy:
@@ -389,6 +390,7 @@ jobs:
             $MULTI_MODULES_TEST_OPTIONS,
             $SIMD_TEST_OPTIONS,
             $THREADS_TEST_OPTIONS,
+            $WASI_TEST_OPTIONS,
           ]
         exclude:
           # uncompatiable modes and features
@@ -400,6 +402,9 @@ jobs:
           # aot and jit don't support multi module
           - running_mode: "aot"
             test_option: $MULTI_MODULES_TEST_OPTIONS
+          # aot is WAMR-specific while wasi-testsuite is generic
+          - running_mode: "aot"
+            test_option: $WASI_TEST_OPTIONS
           - running_mode: "jit"
             test_option: $MULTI_MODULES_TEST_OPTIONS
           # fast-jit is only tested on default mode, exclude other three
@@ -441,7 +446,7 @@ jobs:
         if: env.USE_LLVM == 'true' && steps.cache_llvm.outputs.cache-hit != 'true'
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
 
-      - name: run spec tests default and extra
+      - name: run tests
         run: ./test_wamr.sh ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
         working-directory: ./tests/wamr-test-suites
 
@@ -456,7 +461,7 @@ jobs:
           sudo apt-get update &&
           sudo apt install -y g++-multilib lib32gcc-9-dev
 
-      - name: run spec tests x86_32
+      - name: run tests x86_32
         if: env.TEST_ON_X86_32 == 'true'
         run: ./test_wamr.sh ${{ env.X86_32_TARGET_TEST_OPTIONS }} ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
         working-directory: ./tests/wamr-test-suites
