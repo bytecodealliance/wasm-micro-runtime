@@ -96,14 +96,20 @@ wasi_nn_load(wasm_exec_env_t exec_env, graph_builder_array_wasm *builder,
                                                  &builder_native)))
         return res;
 
-    if (!wasm_runtime_validate_native_addr(instance, graph, sizeof(graph)))
+    if (!wasm_runtime_validate_native_addr(instance, graph, sizeof(graph))) {
+        NN_ERR_PRINTF("graph is invalid");
         return invalid_argument;
+    }
 
     current_encoding = encoding;
     is_initialized = true;
 
     res = lookup[current_encoding].load(&builder_native, current_encoding,
                                         target, graph);
+
+    // XXX: Free intermediate structure pointers
+    wasm_runtime_free(builder_native.buf);
+
     NN_DBG_PRINTF("wasi_nn_load finished with status %d [graph=%d]", res,
                   *graph);
 
@@ -119,6 +125,7 @@ wasi_nn_init_execution_context(wasm_exec_env_t exec_env, graph graph,
     error res;
     if (success != (res = is_model_initialized()))
         return res;
+
     res = lookup[current_encoding].init_execution_context(graph, ctx);
     *ctx = graph;
     NN_DBG_PRINTF(
@@ -148,6 +155,10 @@ wasi_nn_set_input(wasm_exec_env_t exec_env, graph_execution_context ctx,
         return res;
 
     res = lookup[current_encoding].set_input(ctx, index, &input_tensor_native);
+
+    // XXX: Free intermediate structure pointers
+    wasm_runtime_free(input_tensor_native.dimensions);
+
     NN_DBG_PRINTF("wasi_nn_set_input finished with status %d", res);
     return res;
 }

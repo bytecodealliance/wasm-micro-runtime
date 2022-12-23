@@ -27,7 +27,7 @@ static char *model_pointer = NULL;
 /* WASI-NN (tensorflow) implementation */
 
 error
-tensorflowlite_load(graph_builder_array builder, graph_encoding encoding,
+tensorflowlite_load(graph_builder_array *builder, graph_encoding encoding,
                     execution_target target, graph *graph)
 {
     if (model_pointer != NULL) {
@@ -35,7 +35,7 @@ tensorflowlite_load(graph_builder_array builder, graph_encoding encoding,
         model_pointer = NULL;
     }
 
-    if (builder.size != 1) {
+    if (builder->size != 1) {
         NN_ERR_PRINTF("Unexpected builder format.");
         return invalid_argument;
     }
@@ -50,7 +50,7 @@ tensorflowlite_load(graph_builder_array builder, graph_encoding encoding,
         return invalid_argument;
     }
 
-    uint32_t size = builder.buf[0].size;
+    uint32_t size = builder->buf[0].size;
 
     model_pointer = (char *)wasm_runtime_malloc(size);
     if (model_pointer == NULL) {
@@ -58,7 +58,7 @@ tensorflowlite_load(graph_builder_array builder, graph_encoding encoding,
         return missing_memory;
     }
 
-    bh_memcpy_s(model_pointer, size, builder.buf[0].buf, size);
+    bh_memcpy_s(model_pointer, size, builder->buf[0].buf, size);
 
     model = tflite::FlatBufferModel::BuildFromBuffer(model_pointer, size, NULL);
     if (model == NULL) {
@@ -83,7 +83,7 @@ tensorflowlite_load(graph_builder_array builder, graph_encoding encoding,
 }
 
 error
-tensorflowlite_init_execution_context(graph graph)
+tensorflowlite_init_execution_context(graph graph, graph_execution_context *ctx)
 {
     if (interpreter == NULL) {
         NN_ERR_PRINTF("Non-initialized interpreter.");
@@ -149,7 +149,7 @@ tensorflowlite_compute(graph_execution_context ctx)
 }
 
 error
-tensorflowlite_get_output(graph_execution_context context, uint32_t index,
+tensorflowlite_get_output(graph_execution_context ctx, uint32_t index,
                           tensor_data output_tensor,
                           uint32_t *output_tensor_size)
 {

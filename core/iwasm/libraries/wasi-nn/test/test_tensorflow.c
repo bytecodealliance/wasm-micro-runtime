@@ -79,7 +79,7 @@ wasm_init_execution_context(graph graph, graph_execution_context *ctx)
 }
 
 error
-wasm_input(graph_execution_context ctx, float *input_tensor, uint32_t *dim)
+wasm_set_input(graph_execution_context ctx, float *input_tensor, uint32_t *dim)
 {
     tensor_dimensions dims;
     dims.size = INPUT_TENSOR_DIMS;
@@ -130,7 +130,7 @@ run_inference(float *input, uint32_t *input_size, uint32_t *output_size,
         exit(1);
     }
 
-    if (wasm_input(ctx, input, input_size) != success) {
+    if (wasm_set_input(ctx, input, input_size) != success) {
         fprintf(stderr, "Error when setting input tensor.");
         exit(1);
     }
