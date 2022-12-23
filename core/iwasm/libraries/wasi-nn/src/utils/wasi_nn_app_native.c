@@ -7,8 +7,26 @@
 
 static int
 graph_builder_app_native(wasm_module_inst_t instance,
-                         graph_builder_array_wasm *builder,
-                         graph_builder_array, )
+                         graph_builder_wasm *builder,
+                         graph_builder *builder_native)
+{
+    if (!wasm_runtime_validate_app_addr(instance, gb_wasm[i].buf_offset,
+                                        gb_wasm[i].size * sizeof(uint8_t))) {
+        wasm_runtime_free(gb_native);
+        return invalid_argument;
+    }
+
+    gb_native[i].buf = (uint8_t *)wasm_runtime_addr_app_to_native(
+        instance, gb_wasm[i].buf_offset);
+    gb_native[i].size = gb_wasm[i].size;
+
+    NN_DBG_PRINTF("Graph builder %d contains %d elements", i, gb_wasm[i].size);
+}
+
+int
+graph_builder_array_app_native(wasm_module_inst_t instance,
+                               graph_builder_array_wasm *builder,
+                               graph_builder_array *builder_native)
 {
     if (!wasm_runtime_validate_native_addr(instance, builder,
                                            sizeof(graph_builder_array_wasm)))
@@ -30,37 +48,19 @@ graph_builder_app_native(wasm_module_inst_t instance,
         return missing_memory;
 
     for (int i = 0; i < builder->size; ++i) {
-        if (!wasm_runtime_validate_app_addr(instance, gb_wasm[i].buf_offset,
-                                            gb_wasm[i].size
-                                                * sizeof(uint8_t))) {
-            wasm_runtime_free(gb_native);
+        if (!graph_builder_app_native(instance, gb_wasm[i], gb_naive[i]))
             return invalid_argument;
-        }
-
-        gb_native[i].buf = (uint8_t *)wasm_runtime_addr_app_to_native(
-            instance, gb_wasm[i].buf_offset);
-        gb_native[i].size = gb_wasm[i].size;
-
-        NN_DBG_PRINTF("Graph builder %d contains %d elements", i,
-                      gb_wasm[i].size);
     }
 
-    graph_builder_array gba_native = { .buf = gb_native,
-                                       .size = builder->size };
+    builder_native->buf = gb_native;
+    builder_native->size = builder->size;
 }
 
-static int
-tensor_app_native(wasm_module_inst_t instance, tensor_wasm *input_tensor,
-                  tensor *input_tensor_native)
+static void
+tensor_dimensions_app_native(wasm_module_inst_t instance,
+                             tensor_dimensions_wasm *dimensions,
+                             tensor_dimensions *dimensions_native)
 {
-    if (!wasm_runtime_validate_native_addr(instance, input_tensor,
-                                           sizeof(tensor_wasm)))
-        return invalid_argument;
-
-    if (!wasm_runtime_validate_app_addr(
-            instance, input_tensor->dimensions_offset, sizeof(uint32_t)))
-        return invalid_argument;
-
     tensor_dimensions_wasm *dimensions_w =
         (tensor_dimensions_wasm *)wasm_runtime_addr_app_to_native(
             instance, input_tensor->dimensions_offset);
@@ -76,6 +76,29 @@ tensor_app_native(wasm_module_inst_t instance, tensor_wasm *input_tensor,
     };
 
     NN_DBG_PRINTF("Number of dimensions: %d", dimensions.size);
+}
+
+static void
+tensor_data_app_native(int total_elements)
+{
+    if (!wasm_runtime_validate_app_addr(instance, input_tensor->data_offset,
+                                        total_elements))
+        return invalid_argument;
+    (uint8_t *)wasm_runtime_addr_app_to_native(instance,
+                                               input_tensor->data_offset);
+}
+
+int
+tensor_app_native(wasm_module_inst_t instance, tensor_wasm *input_tensor,
+                  tensor *input_tensor_native)
+{
+    if (!wasm_runtime_validate_native_addr(instance, input_tensor,
+                                           sizeof(tensor_wasm)))
+        return invalid_argument;
+
+    tensor_dimensions dimensions;
+    tensor_dimensions_app_native(instance, input_tensor, &dimensions);
+
     int total_elements = 1;
     for (int i = 0; i < dimensions.size; ++i) {
         NN_DBG_PRINTF("Dimension %d: %d", i, dimensions.buf[i]);
@@ -83,12 +106,7 @@ tensor_app_native(wasm_module_inst_t instance, tensor_wasm *input_tensor,
     }
     NN_DBG_PRINTF("Tensor type: %d", input_tensor->type);
 
-    if (!wasm_runtime_validate_app_addr(instance, input_tensor->data_offset,
-                                        total_elements))
-        return invalid_argument;
-
     tensor tensor = { .type = input_tensor->type,
                       .dimensions = &dimensions,
-                      .data = (uint8_t *)wasm_runtime_addr_app_to_native(
-                          instance, input_tensor->data_offset) };
+                      .data = data };
 }

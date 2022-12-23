@@ -20,27 +20,6 @@
 
 /* Definition of 'wasi_nn.h' structs in WASM app format (using offset) */
 
-typedef struct {
-    uint32_t buf_offset;
-    uint32_t size;
-} graph_builder_wasm;
-
-typedef struct {
-    uint32_t buf_offset;
-    uint32_t size;
-} graph_builder_array_wasm;
-
-typedef struct {
-    uint32_t dimensions_offset;
-    tensor_type type;
-    uint32_t data_offset;
-} tensor_wasm;
-
-typedef struct {
-    uint32_t buf_offset;
-    uint32_t size;
-} tensor_dimensions_wasm;
-
 typedef error (*LOAD)(graph_builder_array *, graph_encoding, execution_target,
                       graph *);
 typedef error (*INIT_EXECUTION_CONTEXT)(graph, graph_execution_context *);
@@ -113,7 +92,8 @@ wasi_nn_load(wasm_exec_env_t exec_env, graph_builder_array_wasm *builder,
     error res;
     graph_builder_array builder_native;
     if (success
-        != (res = graph_builder_app_native(instance, builder, &builder_native)))
+        != (res = graph_builder_array_app_native(instance, builder,
+                                                 &builder_native)))
         return res;
 
     if (!wasm_runtime_validate_native_addr(instance, graph, sizeof(graph)))
