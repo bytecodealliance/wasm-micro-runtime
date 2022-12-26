@@ -39,7 +39,7 @@ Firstly please build iwasm with simd support:
 ``` shell
 $ cd <wamr dir>/product-mini/platforms/linux/
 $ mkdir build && cd build
-$ cmake .. -DWAMR_BUILD_SIMD=1 -DWAMR_BUILD_LIBC_EMCC=1
+$ cmake .. -DWAMR_BUILD_LIBC_EMCC=1
 $ make
 ```
 
@@ -47,7 +47,7 @@ Then compile wasm file to aot file and run:
 
 ``` shell
 $ cd <dir of testavx.wasm>
-$ <wamr dir>/wamr-compiler/build/wamrc --enable-simd -o testavx.aot testavx.wasm
+$ <wamr dir>/wamr-compiler/build/wamrc -o testavx.aot testavx.wasm
 # copy sample data like <wamr dir>/samples/workload/wasm-av1/av1/third_party/samples/elephants_dream_480p24.ivf
 # make sure you declare the access priority of the directory in which the sample data is
 $ <wamr dir>/product-mini/platforms/linux/build/iwasm --dir=. testavx.aot elephants_dream_480p24.ivf

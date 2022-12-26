@@ -210,8 +210,8 @@ jobs:
             #$AOT_BUILD_OPTIONS,
           ]
         os: [macos-latest]
-        wasi_sdk_release: ["https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-macos.tar.gz"]
-        wabt_release: ["https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-macos.tar.gz"]
+        wasi_sdk_release: ["https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-16/wasi-sdk-16.0-macos.tar.gz"]
+        wabt_release: ["https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-macos-12.tar.gz"]
     steps:
       - name: checkout
         uses: actions/checkout@v3
@@ -220,8 +220,8 @@ jobs:
         run: |
           cd /opt
           sudo wget ${{ matrix.wabt_release }}
-          sudo tar -xzf wabt-1.0.24-*.tar.gz
-          sudo mv wabt-1.0.24 wabt
+          sudo tar -xzf wabt-1.0.31-*.tar.gz
+          sudo mv wabt-1.0.31 wabt
 
       - name: Build Sample [wasm-c-api]
         run: |
@@ -246,8 +246,8 @@ jobs:
     strategy:
       matrix:
         os: [macos-latest]
-        wasi_sdk_release: ["https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-macos.tar.gz"]
-        wabt_release: ["https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-macos.tar.gz"]
+        wasi_sdk_release: ["https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-16/wasi-sdk-16.0-macos.tar.gz"]
+        wabt_release: ["https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-macos-12.tar.gz"]
     steps:
       - name: checkout
         uses: actions/checkout@v3
@@ -256,15 +256,15 @@ jobs:
         run: |
           cd /opt
           sudo wget ${{ matrix.wasi_sdk_release }}
-          sudo tar -xzf wasi-sdk-12.0-*.tar.gz
-          sudo mv wasi-sdk-12.0 wasi-sdk
+          sudo tar -xzf wasi-sdk-16.0-*.tar.gz
+          sudo mv wasi-sdk-16.0 wasi-sdk
 
       - name: download and install wabt
         run: |
           cd /opt
           sudo wget ${{ matrix.wabt_release }}
-          sudo tar -xzf wabt-1.0.24-*.tar.gz
-          sudo mv wabt-1.0.24 wabt
+          sudo tar -xzf wabt-1.0.31-*.tar.gz
+          sudo mv wabt-1.0.31 wabt
 
       - name: Build Sample [basic]
         run: |

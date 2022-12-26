@@ -85,12 +85,12 @@ cd build && cmake ..
 make
 # 3.2 compile wasm-av1.wasm to wasm-av1.aot
 cd ${OUT_DIR}
-${WAMRC_CMD} --enable-simd -o testavx.aot testavx.wasm
+${WAMRC_CMD} -o testavx.aot testavx.wasm
 
 # 4. build iwasm with pthread and libc_emcc enable
 cd ${WAMR_PLATFORM_DIR}/linux
 rm -fr build && mkdir build
-cd build && cmake .. -DWAMR_BUILD_SIMD=1 -DWAMR_BUILD_LIB_PTHREAD=1 -DWAMR_BUILD_LIBC_EMCC=1
+cd build && cmake .. -DWAMR_BUILD_LIB_PTHREAD=1 -DWAMR_BUILD_LIBC_EMCC=1
 make
 
 # 5. run wasm-av1 with iwasm
