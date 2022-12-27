@@ -1628,6 +1628,8 @@ wasm_val_to_rt_val(WASMModuleInstanceCommon *inst_comm_rt, uint8 val_type_rt,
             ret =
                 wasm_externref_obj2ref(inst_comm_rt, v->of.ref, (uint32 *)data);
             break;
+#else
+            (void)inst_comm_rt;
 #endif
         default:
             LOG_WARNING("unexpected value type %d", val_type_rt);
@@ -1907,6 +1909,9 @@ wasm_trap_new_internal(wasm_store_t *store,
                 frame_instance;
         }
     }
+#else
+    (void)store;
+    (void)inst_comm_rt;
 #endif /* WASM_ENABLE_DUMP_CALL_STACK != 0 */
 
     return trap;
@@ -2034,6 +2039,7 @@ wasm_foreign_new_internal(wasm_store_t *store, uint32 foreign_idx_rt,
     }
 
     foreign->ref_cnt++;
+    (void)inst_comm_rt;
     return foreign;
 }
 
@@ -4291,6 +4297,7 @@ interp_link_func(const wasm_instance_t *inst, const WASMModule *module_interp,
         imported_func_interp->u.function.func_ptr_linked = import->u.cb;
     import->func_idx_rt = func_idx_rt;
 
+    (void)inst;
     return true;
 }
 
