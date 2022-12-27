@@ -72,14 +72,14 @@ export class TargetConfigPanel {
     private configBuildArgs(
         outputFileName: string,
         initMemSize: string,
-        maxmemSize: string,
+        maxMemSize: string,
         stackSize: string,
         exportedSymbols: string
     ): number {
         if (
             outputFileName === '' ||
             initMemSize === '' ||
-            maxmemSize === '' ||
+            maxMemSize === '' ||
             stackSize === '' ||
             exportedSymbols === ''
         ) {
@@ -92,7 +92,7 @@ export class TargetConfigPanel {
         const configObj = {
             outputFileName: outputFileName,
             initMemorySize: initMemSize,
-            maxMemorySize: maxmemSize,
+            maxMemorySize: maxMemSize,
             stackSize: stackSize,
             exportedSymbols: exportedSymbols,
         };
@@ -187,7 +187,7 @@ export class TargetConfigPanel {
                         if (
                             message.outputFileName === '' ||
                             message.initMemSize === '' ||
-                            message.maxmemSize === '' ||
+                            message.maxMemSize === '' ||
                             message.stackSize === '' ||
                             message.exportedSymbols === ''
                         ) {
@@ -199,7 +199,7 @@ export class TargetConfigPanel {
                             this.configBuildArgs(
                                 message.outputFileName,
                                 message.initMemSize,
-                                message.maxmemSize,
+                                message.maxMemSize,
                                 message.stackSize,
                                 message.exportedSymbols
                             ) === TargetConfigPanel.executionSuccess
