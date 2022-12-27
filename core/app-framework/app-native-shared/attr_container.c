@@ -7,11 +7,14 @@
 
 typedef union jvalue {
     bool z;
-    int8_t b;
-    uint16_t c;
-    int16_t s;
-    int32_t i;
-    int64_t j;
+    int8_t i8;
+    uint8_t u8;
+    int16_t i16;
+    uint16_t u16;
+    int32_t i32;
+    uint32_t u32;
+    int64_t i64;
+    uint64_t u64;
     float f;
     double d;
 } jvalue;
@@ -27,7 +30,9 @@ get_int16(const char *buf)
 static inline uint16_t
 get_uint16(const char *buf)
 {
-    return get_int16(buf);
+    uint16_t ret;
+    bh_memcpy_s(&ret, sizeof(uint16_t), buf, sizeof(uint16_t));
+    return ret;
 }
 
 static inline int32_t
@@ -41,7 +46,9 @@ get_int32(const char *buf)
 static inline uint32_t
 get_uint32(const char *buf)
 {
-    return get_int32(buf);
+    uint32_t ret;
+    bh_memcpy_s(&ret, sizeof(uint32_t), buf, sizeof(uint32_t));
+    return ret;
 }
 
 static inline int64_t
@@ -55,7 +62,9 @@ get_int64(const char *buf)
 static inline uint64_t
 get_uint64(const char *buf)
 {
-    return get_int64(buf);
+    uint64_t ret;
+    bh_memcpy_s(&ret, sizeof(uint64_t), buf, sizeof(uint64_t));
+    return ret;
 }
 
 static inline void
@@ -145,8 +154,8 @@ attr_container_get_attr_next(const char *curr_attr)
     p += sizeof(uint16_t) + get_uint16(p);
     type = *p++;
 
-    /* Short type to Boolean type */
-    if (type >= ATTR_TYPE_SHORT && type <= ATTR_TYPE_BOOLEAN) {
+    /* Byte type to Boolean type */
+    if (type >= ATTR_TYPE_BYTE && type <= ATTR_TYPE_BOOLEAN) {
         p += 1 << (type & 3);
         return p;
     }
@@ -342,7 +351,7 @@ attr_container_set_attr(attr_container_t **p_attr_cont, const char *key,
 
     /* key len + key + '\0' + type */
     attr_len = sizeof(uint16_t) + strlen(key) + 1 + 1;
-    if (type >= ATTR_TYPE_SHORT && type <= ATTR_TYPE_BOOLEAN)
+    if (type >= ATTR_TYPE_BYTE && type <= ATTR_TYPE_BOOLEAN)
         attr_len += 1 << (type & 3);
     else if (type == ATTR_TYPE_STRING)
         attr_len += sizeof(uint16_t) + value_length;
@@ -362,7 +371,7 @@ attr_container_set_attr(attr_container_t **p_attr_cont, const char *key,
     p += str_len;
 
     *p++ = type;
-    if (type >= ATTR_TYPE_SHORT && type <= ATTR_TYPE_BOOLEAN)
+    if (type >= ATTR_TYPE_BYTE && type <= ATTR_TYPE_BOOLEAN)
         bh_memcpy_s(p, 1 << (type & 3), value, 1 << (type & 3));
     else if (type == ATTR_TYPE_STRING) {
         set_uint16(p, value_length);
@@ -461,10 +470,34 @@ attr_container_set_short(attr_container_t **p_attr_cont, const char *key,
 }
 
 bool
+attr_container_set_int16(attr_container_t **p_attr_cont, const char *key,
+                         int16_t value)
+{
+    return attr_container_set_attr(p_attr_cont, key, ATTR_TYPE_INT16, &value,
+                                   2);
+}
+
+bool
 attr_container_set_int(attr_container_t **p_attr_cont, const char *key,
                        int value)
 {
     return attr_container_set_attr(p_attr_cont, key, ATTR_TYPE_INT, &value, 4);
+}
+
+bool
+attr_container_set_int32(attr_container_t **p_attr_cont, const char *key,
+                         int32_t value)
+{
+    return attr_container_set_attr(p_attr_cont, key, ATTR_TYPE_INT32, &value,
+                                   4);
+}
+
+bool
+attr_container_set_uint32(attr_container_t **p_attr_cont, const char *key,
+                          uint32_t value)
+{
+    return attr_container_set_attr(p_attr_cont, key, ATTR_TYPE_UINT32, &value,
+                                   4);
 }
 
 bool
@@ -476,10 +509,33 @@ attr_container_set_int64(attr_container_t **p_attr_cont, const char *key,
 }
 
 bool
+attr_container_set_uint64(attr_container_t **p_attr_cont, const char *key,
+                          uint64_t value)
+{
+    return attr_container_set_attr(p_attr_cont, key, ATTR_TYPE_UINT64, &value,
+                                   8);
+}
+
+bool
 attr_container_set_byte(attr_container_t **p_attr_cont, const char *key,
                         int8_t value)
 {
     return attr_container_set_attr(p_attr_cont, key, ATTR_TYPE_BYTE, &value, 1);
+}
+
+bool
+attr_container_set_int8(attr_container_t **p_attr_cont, const char *key,
+                        int8_t value)
+{
+    return attr_container_set_attr(p_attr_cont, key, ATTR_TYPE_INT8, &value, 1);
+}
+
+bool
+attr_container_set_uint8(attr_container_t **p_attr_cont, const char *key,
+                         uint8_t value)
+{
+    return attr_container_set_attr(p_attr_cont, key, ATTR_TYPE_UINT8, &value,
+                                   1);
 }
 
 bool
@@ -552,7 +608,7 @@ attr_container_get_attr(const attr_container_t *attr_cont, const char *key)
 
     if (!(attr_addr = attr_container_find_attr(attr_cont, key))) {
         attr_container_printf("Get attribute failed: lookup key failed.\r\n");
-        return false;
+        return NULL;
     }
 
     /* key len + key + '\0' */
@@ -566,14 +622,17 @@ attr_container_get_attr(const attr_container_t *attr_cont, const char *key)
         uint8_t type;                                                        \
         if (!addr)                                                           \
             return 0;                                                        \
-        val.j = 0;                                                           \
+        val.i64 = 0;                                                         \
         type = *(uint8_t *)addr++;                                           \
         switch (type) {                                                      \
-            case ATTR_TYPE_SHORT:                                            \
-            case ATTR_TYPE_INT:                                              \
+            case ATTR_TYPE_BYTE:  /* = ATTR_TYPE_INT8 */                     \
+            case ATTR_TYPE_SHORT: /* = ATTR_TYPE_INT16 */                    \
+            case ATTR_TYPE_INT:   /* = ATTR_TYPE_INT32 */                    \
             case ATTR_TYPE_INT64:                                            \
-            case ATTR_TYPE_BYTE:                                             \
+            case ATTR_TYPE_UINT8:                                            \
             case ATTR_TYPE_UINT16:                                           \
+            case ATTR_TYPE_UINT32:                                           \
+            case ATTR_TYPE_UINT64:                                           \
             case ATTR_TYPE_FLOAT:                                            \
             case ATTR_TYPE_DOUBLE:                                           \
             case ATTR_TYPE_BOOLEAN:                                          \
@@ -608,31 +667,67 @@ attr_container_get_attr(const attr_container_t *attr_cont, const char *key)
 short
 attr_container_get_as_short(const attr_container_t *attr_cont, const char *key)
 {
-    TEMPLATE_ATTR_BUF_TO_VALUE(attr_cont, key, s);
+    TEMPLATE_ATTR_BUF_TO_VALUE(attr_cont, key, i16);
+}
+
+int16_t
+attr_container_get_as_int16(const attr_container_t *attr_cont, const char *key)
+{
+    return (int16_t)attr_container_get_as_short(attr_cont, key);
 }
 
 int
 attr_container_get_as_int(const attr_container_t *attr_cont, const char *key)
 {
-    TEMPLATE_ATTR_BUF_TO_VALUE(attr_cont, key, i);
+    TEMPLATE_ATTR_BUF_TO_VALUE(attr_cont, key, i32);
+}
+
+int32_t
+attr_container_get_as_int32(const attr_container_t *attr_cont, const char *key)
+{
+    return (int32_t)attr_container_get_as_int(attr_cont, key);
+}
+
+uint32_t
+attr_container_get_as_uint32(const attr_container_t *attr_cont, const char *key)
+{
+    return (uint32_t)attr_container_get_as_int(attr_cont, key);
 }
 
 int64_t
 attr_container_get_as_int64(const attr_container_t *attr_cont, const char *key)
 {
-    TEMPLATE_ATTR_BUF_TO_VALUE(attr_cont, key, j);
+    TEMPLATE_ATTR_BUF_TO_VALUE(attr_cont, key, i64);
+}
+
+uint64_t
+attr_container_get_as_uint64(const attr_container_t *attr_cont, const char *key)
+{
+    return (uint64_t)attr_container_get_as_int64(attr_cont, key);
 }
 
 int8_t
 attr_container_get_as_byte(const attr_container_t *attr_cont, const char *key)
 {
-    TEMPLATE_ATTR_BUF_TO_VALUE(attr_cont, key, b);
+    TEMPLATE_ATTR_BUF_TO_VALUE(attr_cont, key, i8);
+}
+
+int8_t
+attr_container_get_as_int8(const attr_container_t *attr_cont, const char *key)
+{
+    return attr_container_get_as_byte(attr_cont, key);
+}
+
+uint8_t
+attr_container_get_as_uint8(const attr_container_t *attr_cont, const char *key)
+{
+    return (uint8_t)attr_container_get_as_byte(attr_cont, key);
 }
 
 uint16_t
 attr_container_get_as_uint16(const attr_container_t *attr_cont, const char *key)
 {
-    TEMPLATE_ATTR_BUF_TO_VALUE(attr_cont, key, s);
+    return (uint16_t)attr_container_get_as_short(attr_cont, key);
 }
 
 float
@@ -671,11 +766,14 @@ attr_container_get_as_bytearray(const attr_container_t *attr_cont,
 
     type = *(uint8_t *)addr++;
     switch (type) {
-        case ATTR_TYPE_SHORT:
-        case ATTR_TYPE_INT:
+        case ATTR_TYPE_BYTE:  /* = ATTR_TYPE_INT8 */
+        case ATTR_TYPE_SHORT: /* = ATTR_TYPE_INT16 */
+        case ATTR_TYPE_INT:   /* = ATTR_TYPE_INT32 */
         case ATTR_TYPE_INT64:
-        case ATTR_TYPE_BYTE:
+        case ATTR_TYPE_UINT8:
         case ATTR_TYPE_UINT16:
+        case ATTR_TYPE_UINT32:
+        case ATTR_TYPE_UINT64:
         case ATTR_TYPE_FLOAT:
         case ATTR_TYPE_DOUBLE:
         case ATTR_TYPE_BOOLEAN:
@@ -807,33 +905,51 @@ attr_container_dump(const attr_container_t *attr_cont)
         attr_container_printf("  key: %s", key);
 
         switch (type) {
-            case ATTR_TYPE_SHORT:
-                bh_memcpy_s(&value.s, sizeof(int16_t), p, sizeof(int16_t));
+            case ATTR_TYPE_BYTE: /* = ATTR_TYPE_INT8 */
+                bh_memcpy_s(&value.i8, 1, p, 1);
+                attr_container_printf(", type: byte, value: 0x%x\n",
+                                      value.i8 & 0xFF);
+                p++;
+                break;
+            case ATTR_TYPE_SHORT: /* = ATTR_TYPE_INT16 */
+                bh_memcpy_s(&value.i16, sizeof(int16_t), p, sizeof(int16_t));
                 attr_container_printf(", type: short, value: 0x%x\n",
-                                      value.s & 0xFFFF);
+                                      value.i16 & 0xFFFF);
                 p += 2;
                 break;
-            case ATTR_TYPE_INT:
-                bh_memcpy_s(&value.i, sizeof(int32_t), p, sizeof(int32_t));
-                attr_container_printf(", type: int, value: 0x%x\n", value.i);
+            case ATTR_TYPE_INT: /* = ATTR_TYPE_INT32 */
+                bh_memcpy_s(&value.i32, sizeof(int32_t), p, sizeof(int32_t));
+                attr_container_printf(", type: int, value: 0x%x\n", value.i32);
                 p += 4;
                 break;
             case ATTR_TYPE_INT64:
-                bh_memcpy_s(&value.j, sizeof(uint64_t), p, sizeof(uint64_t));
+                bh_memcpy_s(&value.i64, sizeof(int64_t), p, sizeof(int64_t));
                 attr_container_printf(", type: int64, value: 0x%llx\n",
-                                      (long long unsigned int)(value.j));
+                                      (long long unsigned int)(value.i64));
                 p += 8;
                 break;
-            case ATTR_TYPE_BYTE:
-                bh_memcpy_s(&value.b, 1, p, 1);
-                attr_container_printf(", type: byte, value: 0x%x\n",
-                                      value.b & 0xFF);
+            case ATTR_TYPE_UINT8:
+                bh_memcpy_s(&value.u8, 1, p, 1);
+                attr_container_printf(", type: uint8, value: 0x%x\n", value.u8);
                 p++;
                 break;
             case ATTR_TYPE_UINT16:
-                bh_memcpy_s(&value.c, sizeof(uint16_t), p, sizeof(uint16_t));
-                attr_container_printf(", type: uint16, value: 0x%x\n", value.c);
+                bh_memcpy_s(&value.u16, sizeof(uint16_t), p, sizeof(uint16_t));
+                attr_container_printf(", type: uint16, value: 0x%x\n",
+                                      value.u16);
                 p += 2;
+                break;
+            case ATTR_TYPE_UINT32:
+                bh_memcpy_s(&value.u32, sizeof(uint32_t), p, sizeof(uint32_t));
+                attr_container_printf(", type: uint32, value: 0x%x\n",
+                                      value.u32);
+                p += 4;
+                break;
+            case ATTR_TYPE_UINT64:
+                bh_memcpy_s(&value.u64, sizeof(uint64_t), p, sizeof(uint64_t));
+                attr_container_printf(", type: int64, value: 0x%llx\n",
+                                      (long long unsigned int)(value.u64));
+                p += 8;
                 break;
             case ATTR_TYPE_FLOAT:
                 bh_memcpy_s(&value.f, sizeof(float), p, sizeof(float));
