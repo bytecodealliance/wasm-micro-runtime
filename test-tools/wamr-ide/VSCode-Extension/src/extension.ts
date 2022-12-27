@@ -26,13 +26,20 @@ import {
 
 let wasmTaskProvider: WasmTaskProvider;
 let wasmDebugConfigProvider: WasmDebugConfigurationProvider;
-var currentPrjDir = '';
-var extensionPath = '';
-var isWasmProject = false;
+let currentPrjDir = '';
+let isWasmProject = false;
 
+// eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
 export async function activate(context: vscode.ExtensionContext) {
-    var OS_PLATFORM = '',
-        buildScript = '',
+    const extensionPath = context.extensionPath;
+    const osPlatform = os.platform();
+    const wamrVersion = getWAMRExtensionVersion(context);
+    const typeMap = new Map<string, string>();
+    const scriptMap = new Map<string, string>();
+    /* set relative path of build.bat|sh script */
+    const scriptPrefix = 'resource/scripts/';
+
+    let buildScript = '',
         runScript = '',
         debugScript = '',
         destroyScript = '',
@@ -40,39 +47,26 @@ export async function activate(context: vscode.ExtensionContext) {
         runScriptFullPath = '',
         debugScriptFullPath = '',
         destroyScriptFullPath = '',
-        typeMap = new Map(),
         /* include paths array used for written into config file */
-        includePathArr = new Array(),
+        includePathArr = new Array<string>(),
         /* exclude files array used for written into config file */
-        excludeFileArr = new Array(),
-        scriptMap = new Map();
-
-    const wamrVersion = getWAMRExtensionVersion(context);
-
-    /**
-     * Get OS platform information for differ windows and linux execution script
-     */
-    OS_PLATFORM = os.platform();
+        excludeFileArr = new Array<string>();
 
     /**
      * Provide Build & Run Task with Task Provider instead of "tasks.json"
      */
 
-    /* set relative path of build.bat|sh script */
-    let scriptPrefix = 'resource/scripts/';
-    if (OS_PLATFORM === 'win32') {
+    if (osPlatform === 'win32') {
         buildScript = scriptPrefix.concat('build.bat');
         runScript = scriptPrefix.concat('run.bat');
         debugScript = scriptPrefix.concat('boot_debugger_server.bat');
         destroyScript = scriptPrefix.concat('destroy.bat');
-    } else if (OS_PLATFORM === 'linux' || OS_PLATFORM === 'darwin') {
+    } else if (osPlatform === 'linux' || osPlatform === 'darwin') {
         buildScript = scriptPrefix.concat('build.sh');
         runScript = scriptPrefix.concat('run.sh');
         debugScript = scriptPrefix.concat('boot_debugger_server.sh');
         destroyScript = scriptPrefix.concat('destroy.sh');
     }
-
-    extensionPath = context.extensionPath;
 
     buildScriptFullPath = path.join(extensionPath, buildScript);
     runScriptFullPath = path.join(extensionPath, runScript);
@@ -94,10 +88,10 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.tasks.registerTaskProvider('wasm', wasmTaskProvider);
 
     if (vscode.workspace.workspaceFolders?.[0]) {
-        if (OS_PLATFORM === 'win32') {
+        if (osPlatform === 'win32') {
             currentPrjDir = vscode.workspace.workspaceFolders?.[0].uri
                 .fsPath as string;
-        } else if (OS_PLATFORM === 'linux' || OS_PLATFORM === 'darwin') {
+        } else if (osPlatform === 'linux' || osPlatform === 'darwin') {
             currentPrjDir = vscode.workspace.workspaceFolders?.[0].uri
                 .path as string;
         }
@@ -107,7 +101,7 @@ export async function activate(context: vscode.ExtensionContext) {
          * it not, `build`, `run` and `debug` will be disabled
          */
         if (currentPrjDir !== '') {
-            let wamrFolder = fileSystem
+            const wamrFolder = fileSystem
                 .readdirSync(currentPrjDir, {
                     withFileTypes: true,
                 })
@@ -133,7 +127,7 @@ export async function activate(context: vscode.ExtensionContext) {
                         .getConfiguration()
                         .get('C_Cpp.default.systemIncludePath');
 
-                    let LibcBuiltinHeaderPath = path.join(
+                    const libcBuiltinHeaderPath = path.join(
                         extensionPath,
                         'resource/wamr-sdk/libc-builtin-sysroot/include'
                     );
@@ -141,17 +135,17 @@ export async function activate(context: vscode.ExtensionContext) {
                     if (newIncludeInCppArr !== undefined) {
                         /* in case the configuration has not been set up, push directly */
                         if (newIncludeInCppArr === null) {
-                            newIncludeInCppArr = new Array();
-                            newIncludeInCppArr.push(LibcBuiltinHeaderPath);
+                            newIncludeInCppArr = [];
+                            newIncludeInCppArr.push(libcBuiltinHeaderPath);
                         } else {
                             /* if the configuration has been set up, check the condition */
                             if (
                                 /* include libc-builtin-sysroot */
                                 newIncludeInCppArr.indexOf(
-                                    LibcBuiltinHeaderPath
+                                    libcBuiltinHeaderPath
                                 ) < 0
                             ) {
-                                newIncludeInCppArr.push(LibcBuiltinHeaderPath);
+                                newIncludeInCppArr.push(libcBuiltinHeaderPath);
                             }
                         }
 
@@ -185,21 +179,21 @@ export async function activate(context: vscode.ExtensionContext) {
     ]);
 
     if (readFromConfigFile() !== '') {
-        let configData = JSON.parse(readFromConfigFile());
-        includePathArr = configData['include_paths'];
-        excludeFileArr = configData['exclude_files'];
+        const configData = JSON.parse(readFromConfigFile());
+        includePathArr = configData['includePaths'];
+        excludeFileArr = configData['excludeFiles'];
 
-        if (Object.keys(configData['build_args']).length !== 0) {
-            TargetConfigPanel.BUILD_ARGS = configData['build_args'];
+        if (Object.keys(configData['buildArgs']).length !== 0) {
+            TargetConfigPanel.buildArgs = configData['buildArgs'];
         }
     }
 
-    let disposableNewProj = vscode.commands.registerCommand(
+    const disposableNewProj = vscode.commands.registerCommand(
         'wamride.newProject',
         () => {
-            let _ok = 'Set up now';
-            let _cancle = 'Maybe later';
-            let curWorkspace = vscode.workspace
+            const okStr = 'Set up now';
+            const cancelStr = 'Maybe later';
+            const curWorkspace = vscode.workspace
                 .getConfiguration()
                 .get('WAMR-IDE.configWorkspace');
 
@@ -208,11 +202,11 @@ export async function activate(context: vscode.ExtensionContext) {
                 vscode.window
                     .showWarningMessage(
                         'Please setup your workspace firstly.',
-                        _ok,
-                        _cancle
+                        okStr,
+                        cancelStr
                     )
                     .then(item => {
-                        if (item === _ok) {
+                        if (item === okStr) {
                             vscode.commands.executeCommand(
                                 'wamride.changeWorkspace'
                             );
@@ -233,10 +227,10 @@ export async function activate(context: vscode.ExtensionContext) {
                                     .get('WAMR-IDE.configWorkspace') +
                                 '',
                         },
-                        _ok
+                        okStr
                     )
                     .then(item => {
-                        if (item === _ok) {
+                        if (item === okStr) {
                             vscode.commands.executeCommand(
                                 'wamride.changeWorkspace'
                             );
@@ -250,7 +244,7 @@ export async function activate(context: vscode.ExtensionContext) {
         }
     );
 
-    let disposableTargetConfig = vscode.commands.registerCommand(
+    const disposableTargetConfig = vscode.commands.registerCommand(
         'wamride.targetConfig',
         () => {
             if (currentPrjDir !== '') {
@@ -264,16 +258,16 @@ export async function activate(context: vscode.ExtensionContext) {
         }
     );
 
-    let disposableChangeWorkspace = vscode.commands.registerCommand(
+    const disposableChangeWorkspace = vscode.commands.registerCommand(
         'wamride.changeWorkspace',
         async () => {
-            let options: vscode.OpenDialogOptions = {
+            const options: vscode.OpenDialogOptions = {
                 canSelectFiles: false,
                 canSelectFolders: true,
                 openLabel: 'Select Workspace',
             };
 
-            let Workspace = await vscode.window
+            const workSpace = await vscode.window
                 .showOpenDialog(options)
                 .then(res => {
                     if (res) {
@@ -284,21 +278,21 @@ export async function activate(context: vscode.ExtensionContext) {
                 });
 
             /* update workspace value to vscode global settings */
-            if (Workspace !== '' && Workspace !== undefined) {
+            if (workSpace !== '' && workSpace !== undefined) {
                 await vscode.workspace
                     .getConfiguration()
                     .update(
                         'WAMR-IDE.configWorkspace',
-                        Workspace.trim(),
+                        workSpace.trim(),
                         vscode.ConfigurationTarget.Global
                     )
                     .then(
-                        success => {
+                        () => {
                             vscode.window.showInformationMessage(
                                 'Workspace has been set up successfully!'
                             );
                         },
-                        error => {
+                        () => {
                             vscode.window.showErrorMessage(
                                 'Set up Workspace failed!'
                             );
@@ -308,7 +302,7 @@ export async function activate(context: vscode.ExtensionContext) {
         }
     );
 
-    let disposableBuild = vscode.commands.registerCommand(
+    const disposableBuild = vscode.commands.registerCommand(
         'wamride.build',
         () => {
             if (!isWasmProject) {
@@ -327,7 +321,7 @@ export async function activate(context: vscode.ExtensionContext) {
                     'Destroy: Wasm-Container-Before-Build'
                 )
                 .then(() => {
-                    let disposable = vscode.tasks.onDidEndTaskProcess(t => {
+                    const disposable = vscode.tasks.onDidEndTaskProcess(t => {
                         if (
                             t.execution.task.name ===
                             'Wasm-Container-Before-Build'
@@ -345,7 +339,7 @@ export async function activate(context: vscode.ExtensionContext) {
                                 )
                                 .then(() => {
                                     /* destroy the wasm-toolchain-ctr after building */
-                                    let disposable_aft =
+                                    const disposableAft =
                                         vscode.tasks.onDidEndTask(a => {
                                             if (
                                                 a.execution.task.name ===
@@ -361,7 +355,7 @@ export async function activate(context: vscode.ExtensionContext) {
                                                     .then(() => {
                                                         /* dispose the event after this building process
                                                          */
-                                                        disposable_aft.dispose();
+                                                        disposableAft.dispose();
                                                     });
                                             }
                                         });
@@ -374,7 +368,7 @@ export async function activate(context: vscode.ExtensionContext) {
         }
     );
 
-    let disposableDebug = vscode.commands.registerCommand(
+    const disposableDebug = vscode.commands.registerCommand(
         'wamride.debug',
         async () => {
             if (!isWasmProject) {
@@ -414,7 +408,7 @@ export async function activate(context: vscode.ExtensionContext) {
                 )
                 .then(() => {
                     /* execute the debug task when destroy task finish */
-                    let disposable_bfr = vscode.tasks.onDidEndTask(t => {
+                    const disposableBfr = vscode.tasks.onDidEndTask(t => {
                         if (
                             t.execution.task.name ===
                             'Wasm-Container-Before-Debug'
@@ -432,7 +426,7 @@ export async function activate(context: vscode.ExtensionContext) {
                                         )
                                         .then(() => {
                                             /* register to listen debug session finish event */
-                                            let dispose_aft =
+                                            const disposableAft =
                                                 vscode.debug.onDidTerminateDebugSession(
                                                     s => {
                                                         if (
@@ -455,18 +449,19 @@ export async function activate(context: vscode.ExtensionContext) {
                                                             'Debug: Wasm'
                                                         );
 
-                                                        dispose_aft.dispose();
+                                                        disposableAft.dispose();
                                                     }
                                                 );
                                         });
                                 });
                         }
-                        disposable_bfr.dispose();
+                        disposableBfr.dispose();
                     });
                 });
         }
     );
-    let disposableRun = vscode.commands.registerCommand('wamride.run', () => {
+
+    const disposableRun = vscode.commands.registerCommand('wamride.run', () => {
         if (!isWasmProject) {
             vscode.window.showErrorMessage('run failed', {
                 modal: true,
@@ -489,7 +484,7 @@ export async function activate(context: vscode.ExtensionContext) {
                 'Destroy: Wasm-Container-Before-Run'
             )
             .then(() => {
-                let dispose_bfr = vscode.tasks.onDidEndTaskProcess(e => {
+                const disposableAft = vscode.tasks.onDidEndTaskProcess(e => {
                     if (e.execution.task.name === 'Wasm-Container-Before-Run') {
                         /* make sure that run wasm task will be executed after destroy task finish */
                         vscode.commands
@@ -499,25 +494,24 @@ export async function activate(context: vscode.ExtensionContext) {
                             )
                             .then(() => {
                                 if (e.exitCode !== 0) {
-                                    dispose_bfr.dispose();
+                                    disposableAft.dispose();
                                     return;
                                 }
                             });
-                        dispose_bfr.dispose();
+                        disposableAft.dispose();
                     }
                 });
             });
     });
 
-    let disposableToggleIncludePath = vscode.commands.registerCommand(
+    const disposableToggleIncludePath = vscode.commands.registerCommand(
         'wamride.build.toggleStateIncludePath',
         fileUri => {
-            let pathRelative: string;
-            let path =
+            const path =
                 fileUri._fsPath !== null && fileUri._fsPath !== undefined
                     ? fileUri._fsPath
                     : vscode.Uri.parse(fileUri.path as string).fsPath;
-            pathRelative = path.replace(currentPrjDir, '..');
+            const pathRelative = path.replace(currentPrjDir, '..');
 
             if (includePathArr.indexOf(pathRelative) > -1) {
                 /* this folder has been added to include path, remove it */
@@ -531,25 +525,23 @@ export async function activate(context: vscode.ExtensionContext) {
             writeIntoConfigFile(
                 includePathArr,
                 excludeFileArr,
-                TargetConfigPanel.BUILD_ARGS
+                TargetConfigPanel.buildArgs
             );
 
             decorationProvider.updateDecorationsForSource(fileUri);
         }
     );
 
-    let disposableToggleExcludeFile = vscode.commands.registerCommand(
+    const disposableToggleExcludeFile = vscode.commands.registerCommand(
         'wamride.build.toggleStateExclude',
         fileUri => {
-            let pathRelative: string;
-
-            let path =
+            const path =
                 fileUri._fsPath !== null && fileUri._fsPath !== undefined
                     ? fileUri._fsPath
                     : vscode.Uri.parse(fileUri.path as string).fsPath;
 
             /* replace the current project absolute path with .. to change to relative path */
-            pathRelative = path.replace(currentPrjDir, '..');
+            const pathRelative = path.replace(currentPrjDir, '..');
 
             if (excludeFileArr.indexOf(pathRelative) > -1) {
                 excludeFileArr = excludeFileArr.filter(val => {
@@ -562,7 +554,7 @@ export async function activate(context: vscode.ExtensionContext) {
             writeIntoConfigFile(
                 includePathArr,
                 excludeFileArr,
-                TargetConfigPanel.BUILD_ARGS
+                TargetConfigPanel.buildArgs
             );
 
             /* update decoration for this source file */
@@ -570,14 +562,14 @@ export async function activate(context: vscode.ExtensionContext) {
         }
     );
 
-    let disposableOpenFolder = vscode.commands.registerCommand(
+    const disposableOpenFolder = vscode.commands.registerCommand(
         'wamride.openFolder',
         () => {
             /* get projects list under current workspace */
-            let _ok = 'Set up now';
-            let _cancle = 'Maybe later';
-            let _create = 'Create now';
-            let curWorkspace = vscode.workspace
+            const okStr = 'Set up now';
+            const cancelStr = 'Maybe later';
+            const createStr = 'Create now';
+            const curWorkspace = vscode.workspace
                 .getConfiguration()
                 .get('WAMR-IDE.configWorkspace') as string;
 
@@ -586,11 +578,11 @@ export async function activate(context: vscode.ExtensionContext) {
                 vscode.window
                     .showWarningMessage(
                         'Please setup your workspace firstly.',
-                        _ok,
-                        _cancle
+                        okStr,
+                        cancelStr
                     )
                     .then(item => {
-                        if (item === _ok) {
+                        if (item === okStr) {
                             vscode.commands.executeCommand(
                                 'wamride.changeWorkspace'
                             );
@@ -611,10 +603,10 @@ export async function activate(context: vscode.ExtensionContext) {
                                     .get('WAMR-IDE.configWorkspace') +
                                 '',
                         },
-                        _ok
+                        okStr
                     )
                     .then(item => {
-                        if (item === _ok) {
+                        if (item === okStr) {
                             vscode.commands.executeCommand(
                                 'wamride.changeWorkspace'
                             );
@@ -640,7 +632,7 @@ export async function activate(context: vscode.ExtensionContext) {
                         .filter(dirent => dirent.isDirectory())
                         .map(dirent => dirent.name);
 
-                    let projFilesArr = directoryArr.filter(obj => {
+                    const projFilesArr = directoryArr.filter(obj => {
                         if (checkIfWasmProj(path.join(curWorkspace, obj))) {
                             return true;
                         }
@@ -650,11 +642,11 @@ export async function activate(context: vscode.ExtensionContext) {
                         vscode.window
                             .showWarningMessage(
                                 'Current workspace is empty, please create your project firstly.',
-                                _create,
-                                _cancle
+                                createStr,
+                                cancelStr
                             )
                             .then(item => {
-                                if (item === _create) {
+                                if (item === createStr) {
                                     vscode.commands.executeCommand(
                                         'wamride.newProject'
                                     );
@@ -673,18 +665,18 @@ export async function activate(context: vscode.ExtensionContext) {
                                     return;
                                 }
 
-                                let _path = curWorkspace.concat(
-                                    OS_PLATFORM === 'win32'
+                                const path = curWorkspace.concat(
+                                    osPlatform === 'win32'
                                         ? '\\'
-                                        : OS_PLATFORM === 'linux' ||
-                                          OS_PLATFORM === 'darwin'
+                                        : osPlatform === 'linux' ||
+                                          osPlatform === 'darwin'
                                         ? '/'
                                         : '',
                                     option
                                 );
 
                                 /* open the selected wasm project */
-                                openWindoWithSituation(vscode.Uri.file(_path));
+                                openWindowWithSituation(vscode.Uri.file(path));
                             });
                     }
                 }
@@ -713,13 +705,14 @@ export async function activate(context: vscode.ExtensionContext) {
     }
 }
 
-function openWindoWithSituation(uri: vscode.Uri) {
+function openWindowWithSituation(uri: vscode.Uri) {
     /**
      * check if the workspace folder is empty,
      * if yes, open new window, else open in current window
      */
-    let isWorkspaceEmpty: boolean;
-    isWorkspaceEmpty = !vscode.workspace.workspaceFolders?.[0] ? true : false;
+    const isWorkspaceEmpty = !vscode.workspace.workspaceFolders?.[0]
+        ? true
+        : false;
 
     isWorkspaceEmpty === false
         ? vscode.commands.executeCommand('vscode.openFolder', uri, {
@@ -731,11 +724,11 @@ function openWindoWithSituation(uri: vscode.Uri) {
 }
 
 interface BuildArgs {
-    output_file_name: string;
-    init_memory_size: string;
-    max_memory_size: string;
-    stack_size: string;
-    exported_symbols: string;
+    outputFileName: string;
+    initMemorySize: string;
+    maxMemorySize: string;
+    stackSize: string;
+    exportedSymbols: string;
 }
 
 /**
@@ -748,25 +741,25 @@ export function writeIntoConfigFile(
     includePathArr: string[],
     excludeFileArr: string[],
     buildArgs?: BuildArgs
-) {
-    let jsonStr = JSON.stringify(
+): void {
+    const jsonStr = JSON.stringify(
         {
-            include_paths: includePathArr,
-            exclude_files: excludeFileArr,
-            build_args: buildArgs ? buildArgs : '{}',
+            includePaths: includePathArr,
+            excludeFiles: excludeFileArr,
+            buildArgs: buildArgs ? buildArgs : '{}',
         },
         null,
         '\t'
     );
 
-    let prjConfigDir = path.join(currentPrjDir, '.wamr');
-    let configFilePath = path.join(prjConfigDir, 'compilation_config.json');
+    const prjConfigDir = path.join(currentPrjDir, '.wamr');
+    const configFilePath = path.join(prjConfigDir, 'compilation_config.json');
     writeIntoFile(configFilePath, jsonStr);
 }
 
 export function readFromConfigFile(): string {
-    let prjConfigDir = path.join(currentPrjDir, '.wamr');
-    let configFilePath = path.join(prjConfigDir, 'compilation_config.json');
+    const prjConfigDir = path.join(currentPrjDir, '.wamr');
+    const configFilePath = path.join(prjConfigDir, 'compilation_config.json');
     return readFromFile(configFilePath);
 }
 
@@ -778,9 +771,9 @@ function generateCMakeFile(
     excludeFileArr: string[]
 ): void {
     // -Wl,--export=${EXPORT_SYMBOLS}
-    let srcFilePath = path.join(currentPrjDir, 'src');
-    let prjConfigDir = path.join(currentPrjDir, '.wamr');
-    let cmakeFilePath = path.join(prjConfigDir, 'project.cmake');
+    const srcFilePath = path.join(currentPrjDir, 'src');
+    const prjConfigDir = path.join(currentPrjDir, '.wamr');
+    const cmakeFilePath = path.join(prjConfigDir, 'project.cmake');
 
     let strIncludeList = 'set (PROJECT_INCLUDES';
     let strSrcList = 'set (PROJECT_SRC_LIST';
@@ -795,17 +788,16 @@ function generateCMakeFile(
     let i, s, e: number;
 
     /* change the absolute path into relative path */
-    let _re = currentPrjDir;
-    let _substr = '${CMAKE_CURRENT_SOURCE_DIR}/..';
+    const _re = currentPrjDir;
+    const _substr = '${CMAKE_CURRENT_SOURCE_DIR}/..';
 
-    let srcPathArr: Array<{ path: string }> | undefined;
     /**
      * set PROJECT_SRC_LIST
      *     default ADD every c OR c++ OR cpp under the src/ path
-     *     except the files saved in the exclude_files array
+     *     except the files saved in the excludeFiles array
      */
 
-    srcPathArr = getAllSrcFiles(srcFilePath);
+    const srcPathArr = getAllSrcFiles(srcFilePath);
 
     if (srcPathArr === undefined) {
         return;
@@ -818,46 +810,46 @@ function generateCMakeFile(
             ) === -1
         ) {
             /* replace currentPrjDir with ${CMAKE_CURRENT_SOURCE_DIR} */
-            let _newStr = srcPathArr[s].path
+            const newStr = srcPathArr[s].path
                 .replace(_re, _substr)
                 .replace(/\\/g, '/');
 
-            strSrcList = strSrcList.concat(' ', _newStr);
+            strSrcList = strSrcList.concat(' ', newStr);
         }
     }
     strSrcList = strSrcList.concat(' )');
 
     for (i = 0; i < includePathArr.length; i++) {
-        let _newStr = includePathArr[i]
+        const newStr = includePathArr[i]
             .replace(/../, _substr)
             .replace(/\\/g, '/');
-        strIncludeList = strIncludeList.concat(' ', _newStr);
+        strIncludeList = strIncludeList.concat(' ', newStr);
     }
     strIncludeList = strIncludeList.concat(' )');
 
     /* set up user customized input in configBuildArgs webview */
     strOutputFileName = strOutputFileName.concat(
         ' ',
-        TargetConfigPanel.BUILD_ARGS.output_file_name + ')'
+        TargetConfigPanel.buildArgs.outputFileName + ')'
     );
 
     strInitMemSize = strInitMemSize.concat(
         ' ',
-        TargetConfigPanel.BUILD_ARGS.init_memory_size + ')'
+        TargetConfigPanel.buildArgs.initMemorySize + ')'
     );
 
     strMaxMemSize = strMaxMemSize.concat(
         ' ',
-        TargetConfigPanel.BUILD_ARGS.max_memory_size + ')'
+        TargetConfigPanel.buildArgs.maxMemorySize + ')'
     );
 
     strStackSize = strStackSize.concat(
         ' ',
-        TargetConfigPanel.BUILD_ARGS.stack_size + ')'
+        TargetConfigPanel.buildArgs.stackSize + ')'
     );
 
-    let exportedSymbolArr =
-        TargetConfigPanel.BUILD_ARGS.exported_symbols.split(',');
+    const exportedSymbolArr =
+        TargetConfigPanel.buildArgs.exportedSymbols.split(',');
 
     strExportedSymbols = strExportedSymbols.concat(' "');
 
@@ -901,7 +893,7 @@ function getAllSrcFiles(_path: string) {
         const folders = entries.filter(folder => folder.isDirectory());
 
         for (const folder of folders) {
-            let fileArr = getAllSrcFiles(path.join(_path, folder.name));
+            const fileArr = getAllSrcFiles(path.join(_path, folder.name));
             fileArr ? files.push(...fileArr) : '';
         }
 
@@ -911,7 +903,7 @@ function getAllSrcFiles(_path: string) {
     }
 }
 
-function checkIfBuildSuccess(): Boolean {
+function checkIfBuildSuccess(): boolean {
     try {
         let wasmExist = false;
         const entries = fileSystem.readdirSync(
@@ -933,10 +925,10 @@ function checkIfBuildSuccess(): Boolean {
     }
 }
 
-function checkIfWasmProj(_path: string): Boolean {
+function checkIfWasmProj(path: string): boolean {
     try {
         let isWasmProj = false;
-        const entries = fileSystem.readdirSync(_path, {
+        const entries = fileSystem.readdirSync(path, {
             withFileTypes: true,
         });
 

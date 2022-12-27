@@ -37,6 +37,7 @@ function getLLDBUnzipFilePath(destinationFolder: string, filename: string) {
 export function getWAMRExtensionVersion(
     context: vscode.ExtensionContext
 ): string {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     return require(path.join(context.extensionPath, 'package.json')).version;
 }
 
@@ -64,7 +65,9 @@ export function isLLDBInstalled(context: vscode.ExtensionContext): boolean {
     return checkIfFileExists(lldbBinaryPath);
 }
 
-export async function promptInstallLLDB(context: vscode.ExtensionContext) {
+export async function promptInstallLLDB(
+    context: vscode.ExtensionContext
+): Promise<void> {
     const extensionPath = context.extensionPath;
     const setupPrompt = 'setup';
     const skipPrompt = 'skip';
@@ -111,5 +114,7 @@ export async function promptInstallLLDB(context: vscode.ExtensionContext) {
     );
 
     // Remove the bundle.zip
-    fs.unlink(lldbZipPath, () => {});
+    fs.unlink(lldbZipPath, () => {
+        return;
+    });
 }
