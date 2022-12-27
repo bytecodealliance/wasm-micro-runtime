@@ -42,34 +42,34 @@ logger = logging.getLogger("build_wasi_sdk")
 
 external_repos = {
     "config": {
-        "sha256": "302e5e7f3c4996976c58efde8b2f28f71d51357e784330eeed738e129300dc33",
+        "sha256": "6e29664a65277c10f73682893ad12a52e8ce8051a82ae839581d20c18da0d2cc",
         "store_dir": "core/deps/wasi-sdk/src/config",
-        "strip_prefix": "config-191bcb948f7191c36eefe634336f5fc5c0c4c2be",
-        "url": "https://git.savannah.gnu.org/cgit/config.git/snapshot/config-191bcb948f7191c36eefe634336f5fc5c0c4c2be.tar.gz",
+        "strip_prefix": "config-c179db1b6f2ae484bfca1e9f8bae273e3319fa7d",
+        "url": "https://git.savannah.gnu.org/cgit/config.git/snapshot/config-c179db1b6f2ae484bfca1e9f8bae273e3319fa7d.tar.gz",
     },
     "emscripten": {
-        "sha256": "0904a65379aea3ea94087b8c12985b2fee48599b473e3bef914fec2e3941532d",
+        "sha256": "0f8b25cac5b2a55007a45c5bfa2b918add1df90bf624bb47510d8bc887c39901",
         "store_dir": "core/deps/emscripten",
-        "strip_prefix": "emscripten-2.0.28",
-        "url": "https://github.com/emscripten-core/emscripten/archive/refs/tags/2.0.28.tar.gz",
+        "strip_prefix": "emscripten-3.1.28",
+        "url": "https://github.com/emscripten-core/emscripten/archive/refs/tags/3.1.28.tar.gz",
     },
     "llvm-project": {
-        "sha256": "dc5169e51919f2817d06615285e9da6a804f0f881dc55d6247baa25aed3cc143",
+        "sha256": "97db80c61c10ad7ffaffa2c14b413fb6e6537a523b574fd953c2ccd9be68d8bc",
         "store_dir": "core/deps/wasi-sdk/src/llvm-project",
-        "strip_prefix": "llvm-project-34ff6a75f58377f32a5046a29f55c4c0e58bee9e",
-        "url": "https://github.com/llvm/llvm-project/archive/34ff6a75f58377f32a5046a29f55c4c0e58bee9e.tar.gz",
+        "strip_prefix": "llvm-project-088f33605d8a61ff519c580a71b1dd57d16a03f8",
+        "url": "https://github.com/llvm/llvm-project/archive/088f33605d8a61ff519c580a71b1dd57d16a03f8.tar.gz",
     },
     "wasi-sdk": {
-        "sha256": "fc4fdb0e97b915241f32209492a7d0fab42c24216f87c1d5d75f46f7c70a553d",
+        "sha256": "0bccaaa16dfdf006ea4f704ac749db65eba701b382e38a2b152f1d6f2b54bc75",
         "store_dir": "core/deps/wasi-sdk",
-        "strip_prefix": "wasi-sdk-1a953299860bbcc198ad8c12a21d1b2e2f738355",
-        "url": "https://github.com/WebAssembly/wasi-sdk/archive/1a953299860bbcc198ad8c12a21d1b2e2f738355.tar.gz",
+        "strip_prefix": "wasi-sdk-b738c9d5530402ca145f2be495cda65b1e2a5389",
+        "url": "https://github.com/WebAssembly/wasi-sdk/archive/b738c9d5530402ca145f2be495cda65b1e2a5389.tar.gz",
     },
     "wasi-libc": {
-        "sha256": "f6316ca9479d3463eb1c4f6a1d1f659bf15f67cb3c1e2e83d9d11f188dccd864",
+        "sha256": "0f4c49e34dfd0d9ec4822f3422aff019c6cfd18ac652b86092c4459a10eef5bc",
         "store_dir": "core/deps/wasi-sdk/src/wasi-libc",
-        "strip_prefix": "wasi-libc-a78cd329aec717f149934d7362f57050c9401f60",
-        "url": "https://github.com/WebAssembly/wasi-libc/archive/a78cd329aec717f149934d7362f57050c9401f60.tar.gz",
+        "strip_prefix": "wasi-libc-a00bf321eeeca836ee2a0d2d25aeb8524107b8cc",
+        "url": "https://github.com/WebAssembly/wasi-libc/archive/a00bf321eeeca836ee2a0d2d25aeb8524107b8cc.tar.gz",
     },
 }
 
