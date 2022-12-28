@@ -122,6 +122,15 @@ wasi_nn_init_execution_context(wasm_exec_env_t exec_env, graph graph,
 {
     NN_DBG_PRINTF("Running wasi_nn_init_execution_context [graph=%d]...",
                   graph);
+
+    wasm_module_inst_t instance = wasm_runtime_get_module_inst(exec_env);
+    bh_assert(instance);
+
+    if (!wasm_runtime_validate_native_addr(instance, ctx, sizeof(graph_execution_context))) {
+        NN_ERR_PRINTF("ctx is invalid");
+        return invalid_argument;
+    }
+
     error res;
     if (success != (res = is_model_initialized()))
         return res;
