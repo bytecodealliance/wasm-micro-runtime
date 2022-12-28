@@ -127,7 +127,9 @@ tensor_app_native(wasm_module_inst_t instance, tensor_wasm *input_tensor_wasm,
     error res;
 
     tensor_dimensions *dimensions = NULL;
-    if (success != (res = tensor_dimensions_app_native(instance, input_tensor_wasm, &dimensions))) {
+    if (success
+        != (res = tensor_dimensions_app_native(instance, input_tensor_wasm,
+                                               &dimensions))) {
         NN_ERR_PRINTF("error when parsing dimensions");
         return res;
     }

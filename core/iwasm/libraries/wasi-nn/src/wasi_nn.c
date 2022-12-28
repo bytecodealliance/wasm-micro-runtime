@@ -67,7 +67,7 @@ is_model_initialized()
 {
     if (!is_initialized) {
         NN_ERR_PRINTF("Model not initialized.");
-        return invalid_argument;
+        return runtime_error;
     }
     return success;
 }
@@ -83,7 +83,7 @@ wasi_nn_load(wasm_exec_env_t exec_env, graph_builder_array_wasm *builder,
 
     if (!is_encoding_implemented(encoding)) {
         NN_ERR_PRINTF("Encoding not supported.");
-        return invalid_argument;
+        return invalid_encoding;
     }
 
     wasm_module_inst_t instance = wasm_runtime_get_module_inst(exec_env);
@@ -98,18 +98,17 @@ wasi_nn_load(wasm_exec_env_t exec_env, graph_builder_array_wasm *builder,
 
     if (!wasm_runtime_validate_native_addr(instance, graph, sizeof(graph))) {
         NN_ERR_PRINTF("graph is invalid");
-        goto fail;
         res = invalid_argument;
+        goto fail;
     }
 
-    current_encoding = encoding;
-    is_initialized = true;
-
-    res = lookup[current_encoding].load(&builder_native, current_encoding,
-                                        target, graph);
+    res = lookup[encoding].load(&builder_native, encoding, target, graph);
 
     NN_DBG_PRINTF("wasi_nn_load finished with status %d [graph=%d]", res,
                   *graph);
+
+    current_encoding = encoding;
+    is_initialized = true;
 
 fail:
     // XXX: Free intermediate structure pointers
@@ -124,18 +123,18 @@ wasi_nn_init_execution_context(wasm_exec_env_t exec_env, graph graph,
 {
     NN_DBG_PRINTF("Running wasi_nn_init_execution_context [graph=%d]...",
                   graph);
+    error res;
+    if (success != (res = is_model_initialized()))
+        return res;
 
     wasm_module_inst_t instance = wasm_runtime_get_module_inst(exec_env);
     bh_assert(instance);
 
-    if (!wasm_runtime_validate_native_addr(instance, ctx, sizeof(graph_execution_context))) {
+    if (!wasm_runtime_validate_native_addr(instance, ctx,
+                                           sizeof(graph_execution_context))) {
         NN_ERR_PRINTF("ctx is invalid");
         return invalid_argument;
     }
-
-    error res;
-    if (success != (res = is_model_initialized()))
-        return res;
 
     res = lookup[current_encoding].init_execution_context(graph, ctx);
     *ctx = graph;
@@ -151,7 +150,6 @@ wasi_nn_set_input(wasm_exec_env_t exec_env, graph_execution_context ctx,
 {
     NN_DBG_PRINTF("Running wasi_nn_set_input [ctx=%d, index=%d]...", ctx,
                   index);
-
     error res;
     if (success != (res = is_model_initialized()))
         return res;
@@ -194,18 +192,18 @@ wasi_nn_get_output(wasm_exec_env_t exec_env, graph_execution_context ctx,
 {
     NN_DBG_PRINTF("Running wasi_nn_get_output [ctx=%d, index=%d]...", ctx,
                   index);
+    error res;
+    if (success != (res = is_model_initialized()))
+        return res;
 
     wasm_module_inst_t instance = wasm_runtime_get_module_inst(exec_env);
     bh_assert(instance);
 
-    if (!wasm_runtime_validate_native_addr(instance, output_tensor_size, sizeof(uint32_t))) {
+    if (!wasm_runtime_validate_native_addr(instance, output_tensor_size,
+                                           sizeof(uint32_t))) {
         NN_ERR_PRINTF("output_tensor_size is invalid");
         return invalid_argument;
     }
-
-    error res;
-    if (success != (res = is_model_initialized()))
-        return res;
 
     res = lookup[current_encoding].get_output(ctx, index, output_tensor,
                                               output_tensor_size);
