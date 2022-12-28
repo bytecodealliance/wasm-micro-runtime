@@ -192,6 +192,15 @@ wasi_nn_get_output(wasm_exec_env_t exec_env, graph_execution_context ctx,
 {
     NN_DBG_PRINTF("Running wasi_nn_get_output [ctx=%d, index=%d]...", ctx,
                   index);
+
+    wasm_module_inst_t instance = wasm_runtime_get_module_inst(exec_env);
+    bh_assert(instance);
+
+    if (!wasm_runtime_validate_native_addr(instance, output_tensor_size, sizeof(uint32_t))) {
+        NN_ERR_PRINTF("output_tensor_size is invalid");
+        return invalid_argument;
+    }
+
     error res;
     if (success != (res = is_model_initialized()))
         return res;
