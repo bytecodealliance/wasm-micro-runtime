@@ -98,7 +98,8 @@ wasi_nn_load(wasm_exec_env_t exec_env, graph_builder_array_wasm *builder,
 
     if (!wasm_runtime_validate_native_addr(instance, graph, sizeof(graph))) {
         NN_ERR_PRINTF("graph is invalid");
-        return invalid_argument;
+        goto fail;
+        res = invalid_argument;
     }
 
     current_encoding = encoding;
@@ -107,11 +108,12 @@ wasi_nn_load(wasm_exec_env_t exec_env, graph_builder_array_wasm *builder,
     res = lookup[current_encoding].load(&builder_native, current_encoding,
                                         target, graph);
 
-    // XXX: Free intermediate structure pointers
-    wasm_runtime_free(builder_native.buf);
-
     NN_DBG_PRINTF("wasi_nn_load finished with status %d [graph=%d]", res,
                   *graph);
+
+fail:
+    // XXX: Free intermediate structure pointers
+    wasm_runtime_free(builder_native.buf);
 
     return res;
 }

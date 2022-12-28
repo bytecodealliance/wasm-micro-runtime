@@ -124,8 +124,13 @@ tensor_app_native(wasm_module_inst_t instance, tensor_wasm *input_tensor_wasm,
         return invalid_argument;
     }
 
+    error res;
+
     tensor_dimensions *dimensions = NULL;
-    tensor_dimensions_app_native(instance, input_tensor_wasm, &dimensions);
+    if (success != (res = tensor_dimensions_app_native(instance, input_tensor_wasm, &dimensions))) {
+        NN_ERR_PRINTF("error when parsing dimensions");
+        return res;
+    }
 
     int total_elements = 1;
     for (int i = 0; i < dimensions->size; ++i) {
@@ -136,11 +141,12 @@ tensor_app_native(wasm_module_inst_t instance, tensor_wasm *input_tensor_wasm,
     NN_DBG_PRINTF("Total number of elements: %d", total_elements);
 
     tensor_data data = NULL;
-    error res;
     if (success
         != (res = tensor_data_app_native(instance, total_elements,
-                                         input_tensor_wasm, &data)))
+                                         input_tensor_wasm, &data))) {
+        wasm_runtime_free(dimensions);
         return res;
+    }
 
     input_tensor->type = input_tensor_wasm->type;
     input_tensor->dimensions = dimensions;
