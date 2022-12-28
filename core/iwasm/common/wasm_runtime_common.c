@@ -128,6 +128,10 @@ runtime_malloc(uint64 size, WASMModuleInstanceCommon *module_inst,
 static JitCompOptions jit_options = { 0 };
 #endif
 
+#if (WASM_ENABLE_JIT != 0) || (WASM_ENABLE_FAST_JIT != 0)
+static RuntimeOptions runtime_options = { 0 };
+#endif
+
 #ifdef OS_ENABLE_HW_BOUND_CHECK
 /* The exec_env of thread local storage, set before calling function
    and used in signal handler, as we cannot get it from the argument
@@ -514,12 +518,26 @@ wasm_runtime_destroy()
     wasm_runtime_memory_destroy();
 }
 
+#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_FAST_JIT != 0
+RunningMode
+wasm_runtime_get_running_mode(void)
+{
+    return runtime_options.running_mode;
+}
+#endif
+
 bool
 wasm_runtime_full_init(RuntimeInitArgs *init_args)
 {
     if (!wasm_runtime_memory_init(init_args->mem_alloc_type,
                                   &init_args->mem_alloc_option))
         return false;
+
+#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_FAST_JIT != 0
+    /* choose the running mode */
+    if (!wasm_runtime_set_default_running_mode(init_args->running_mode))
+        return false;
+#endif
 
 #if WASM_ENABLE_FAST_JIT != 0
     jit_options.code_cache_size = init_args->fast_jit_code_cache_size;
@@ -552,6 +570,39 @@ wasm_runtime_full_init(RuntimeInitArgs *init_args)
 #endif
 
     return true;
+}
+
+bool
+wasm_runtime_is_running_mode_supported(RunningMode running_mode)
+{
+    bool ret = false;
+#if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0
+    /* if user didn't set one, use 0 as default running mode */
+    ret |= (running_mode == 0);
+    ret |= (running_mode == Mode_Interp);
+#endif
+#if WASM_ENABLE_FAST_JIT != 0
+    ret |= (running_mode == Mode_Fast_JIT);
+#endif
+#if WASM_ENABLE_JIT != 0
+    ret |= (running_mode == Mode_LLVM_JIT);
+#endif
+#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0
+    ret |= (running_mode == Mode_Multi_Tier_JIT);
+#endif
+    return ret;
+}
+
+bool
+wasm_runtime_set_default_running_mode(RunningMode running_mode)
+{
+#if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0
+    if (wasm_runtime_is_running_mode_supported(running_mode)) {
+        runtime_options.running_mode = running_mode;
+        return true;
+    }
+#endif
+    return false;
 }
 
 PackageType

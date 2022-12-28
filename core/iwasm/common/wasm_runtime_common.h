@@ -413,6 +413,12 @@ typedef struct wasm_frame_t {
     const char *func_name_wp;
 } WASMCApiFrame;
 
+#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_FAST_JIT != 0
+typedef struct RuntimeOptions {
+    RunningMode running_mode;
+} RuntimeOptions;
+#endif
+
 #ifdef OS_ENABLE_HW_BOUND_CHECK
 /* Signal info passing to interp/aot signal handler */
 typedef struct WASMSignalInfo {
@@ -436,6 +442,12 @@ wasm_runtime_get_exec_env_tls(void);
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_init(void);
+
+#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_FAST_JIT != 0
+/* Internal API */
+RunningMode
+wasm_runtime_get_running_mode(void);
+#endif
 
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN bool

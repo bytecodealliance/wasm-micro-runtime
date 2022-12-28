@@ -131,6 +131,13 @@ typedef struct mem_alloc_info_t {
     uint32_t highmark_size;
 } mem_alloc_info_t;
 
+typedef enum RunningMode{
+    Mode_Interp = 1,
+    Mode_Fast_JIT,
+    Mode_LLVM_JIT,
+    Mode_Multi_Tier_JIT,
+} RunningMode;
+
 /* WASM runtime initialize arguments */
 typedef struct RuntimeInitArgs {
     mem_alloc_type_t mem_alloc_type;
@@ -152,6 +159,11 @@ typedef struct RuntimeInitArgs {
 
     /* Fast JIT code cache size */
     uint32_t fast_jit_code_cache_size;
+
+    /* Running mode settings, only used when WASM_ENABLE_JIT != 0
+     * || WASM_ENABLE_FAST_JIT != 0*/
+    RunningMode running_mode;
+
 } RuntimeInitArgs;
 
 #ifndef WASM_VALKIND_T_DEFINED
@@ -195,9 +207,9 @@ WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_init(void);
 
 /**
- * Initialize the WASM runtime environment, and also initialize
- * the memory allocator and register native symbols, which are specified
- * with init arguments
+ * Initialize the WASM runtime environment, WASM running mode,
+ * and also initialize the memory allocator and register native symbols,
+ * which are specified with init arguments
  *
  * @param init_args specifies the init arguments
  *
@@ -205,6 +217,27 @@ wasm_runtime_init(void);
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_full_init(RuntimeInitArgs *init_args);
+
+/**
+ * Query whether a certain running mode is supported for this runtime
+ *
+ * @param running_mode the running mode to query
+ *
+ * @return return true if this running mode is supported, false otherwise
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_is_running_mode_supported(RunningMode running_mode);
+
+/**
+ * Setting the default running mode for the WAMR runtime. If a WASM module
+ * instance not specify running mode, this default running mode will be used
+ *
+ * @param running_mode the WASM module instance to destroy
+ *
+ * @return return true if success, false otherwise
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_set_default_running_mode(RunningMode running_mode);
 
 /**
  * Destroy the WASM runtime environment.

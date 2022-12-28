@@ -27,6 +27,18 @@ print_help()
     printf("  -v=n                   Set log verbose level (0 to 5, default is 2) larger\n"
            "                         level with more log\n");
 #endif
+#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_FAST_JIT != 0
+    printf("  --interp               Choose to run iwasm in interpreter mode\n");
+#endif
+#if WASM_ENABLE_FAST_JIT != 0
+    printf("  --fast-jit             Choose to run iwasm in fast jit mode\n");
+#endif
+#if WASM_ENABLE_JIT != 0
+    printf("  --llvm-jit             Choose to run iwasm in llvm jit mode\n");
+#endif
+#if WASM_ENABLE_JIT != 0 && WASM_ENABLE_FAST_JIT != 0
+    printf("  --multi-tier-jit       Choose to run iwasm in multi-tier jit mode\n");
+#endif
     printf("  --stack-size=n         Set maximum stack size in bytes, default is 64 KB\n");
     printf("  --heap-size=n          Set maximum heap size in bytes, default is 16 KB\n");
     printf("  --repl                 Start a very simple REPL (read-eval-print-loop) mode\n"
@@ -248,6 +260,8 @@ main(int argc, char *argv[])
     int instance_port = 0;
 #endif
 
+    memset(&init_args, 0, sizeof(RuntimeInitArgs));
+
     /* Process options. */
     for (argc--, argv++; argc > 0 && argv[0][0] == '-'; argc--, argv++) {
         if (!strcmp(argv[0], "-f") || !strcmp(argv[0], "--function")) {
@@ -257,6 +271,26 @@ main(int argc, char *argv[])
             }
             func_name = argv[0];
         }
+#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_FAST_JIT != 0
+        else if (!strcmp(argv[0], "--interp")) {
+            init_args.running_mode = Mode_Interp;
+        }
+#endif
+#if WASM_ENABLE_FAST_JIT != 0
+        else if (!strcmp(argv[0], "--fast-jit")) {
+            init_args.running_mode = Mode_Fast_JIT;
+        }
+#endif
+#if WASM_ENABLE_JIT != 0
+        else if (!strcmp(argv[0], "--llvm-jit")) {
+            init_args.running_mode = Mode_LLVM_JIT;
+        }
+#endif
+#if WASM_ENABLE_JIT != 0 && WASM_ENABLE_FAST_JIT != 0
+        else if (!strcmp(argv[0], "--multi-tier-jit")) {
+            init_args.running_mode = Mode_Multi_Tier_JIT;
+        }
+#endif
 #if WASM_ENABLE_LOG != 0
         else if (!strncmp(argv[0], "-v=", 3)) {
             log_verbose_level = atoi(argv[0] + 3);
@@ -354,8 +388,6 @@ main(int argc, char *argv[])
     wasm_file = argv[0];
     app_argc = argc;
     app_argv = argv;
-
-    memset(&init_args, 0, sizeof(RuntimeInitArgs));
 
 #if WASM_ENABLE_GLOBAL_HEAP_POOL != 0
     init_args.mem_alloc_type = Alloc_With_Pool;
