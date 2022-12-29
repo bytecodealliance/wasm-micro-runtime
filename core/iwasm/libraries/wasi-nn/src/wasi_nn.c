@@ -90,7 +90,7 @@ wasi_nn_load(wasm_exec_env_t exec_env, graph_builder_array_wasm *builder,
     bh_assert(instance);
 
     error res;
-    graph_builder_array builder_native;
+    graph_builder_array builder_native = { 0 };
     if (success
         != (res = graph_builder_array_app_native(instance, builder,
                                                  &builder_native)))
@@ -112,7 +112,8 @@ wasi_nn_load(wasm_exec_env_t exec_env, graph_builder_array_wasm *builder,
 
 fail:
     // XXX: Free intermediate structure pointers
-    wasm_runtime_free(builder_native.buf);
+    if (builder_native.buf)
+        wasm_runtime_free(builder_native.buf);
 
     return res;
 }
@@ -157,7 +158,7 @@ wasi_nn_set_input(wasm_exec_env_t exec_env, graph_execution_context ctx,
     wasm_module_inst_t instance = wasm_runtime_get_module_inst(exec_env);
     bh_assert(instance);
 
-    tensor input_tensor_native;
+    tensor input_tensor_native = { 0 };
     if (success
         != (res = tensor_app_native(instance, input_tensor,
                                     &input_tensor_native)))
@@ -166,7 +167,8 @@ wasi_nn_set_input(wasm_exec_env_t exec_env, graph_execution_context ctx,
     res = lookup[current_encoding].set_input(ctx, index, &input_tensor_native);
 
     // XXX: Free intermediate structure pointers
-    wasm_runtime_free(input_tensor_native.dimensions);
+    if (input_tensor_native.dimensions)
+        wasm_runtime_free(input_tensor_native.dimensions);
 
     NN_DBG_PRINTF("wasi_nn_set_input finished with status %d", res);
     return res;

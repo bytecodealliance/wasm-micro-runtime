@@ -56,8 +56,11 @@ graph_builder_array_app_native(wasm_module_inst_t instance,
         error res;
         if (success
             != (res = graph_builder_app_native(instance, &builder_wasm[i],
-                                               &builder[i])))
+                                               &builder[i]))) {
+            wasm_runtime_free(builder);
             return res;
+        }
+
         NN_DBG_PRINTF("Graph builder %d contains %d elements", i,
                       builder->size);
     }
@@ -105,6 +108,9 @@ tensor_dimensions_app_native(wasm_module_inst_t instance,
 
     *dimensions =
         (tensor_dimensions *)wasm_runtime_malloc(sizeof(tensor_dimensions));
+    if (dimensions == NULL)
+        return missing_memory;
+
     (*dimensions)->size = dimensions_wasm->size;
     (*dimensions)->buf = (uint32_t *)wasm_runtime_addr_app_to_native(
         instance, dimensions_wasm->buf_offset);
