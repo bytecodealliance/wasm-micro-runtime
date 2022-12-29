@@ -442,7 +442,7 @@ aot_intrinsic_f32_cmp(AOTFloatCond cond, float32 lhs, float32 rhs)
 {
     switch (cond) {
         case FLOAT_EQ:
-            return (float32)fabs(lhs - rhs) <= WA_FLT_EPSILON ? 1 : 0;
+            return lhs == rhs ? 1 : 0;
 
         case FLOAT_LT:
             return lhs < rhs ? 1 : 0;
@@ -473,7 +473,7 @@ aot_intrinsic_f64_cmp(AOTFloatCond cond, float64 lhs, float64 rhs)
 {
     switch (cond) {
         case FLOAT_EQ:
-            return fabs(lhs - rhs) <= WA_DBL_EPSILON ? 1 : 0;
+            return lhs == rhs ? 1 : 0;
 
         case FLOAT_LT:
             return lhs < rhs ? 1 : 0;
