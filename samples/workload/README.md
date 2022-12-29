@@ -22,15 +22,15 @@ $ ln -sf /opt/wabt-${WABT_VER} /opt/wabt
 
 - **emsdk**. Refer to [the guide](https://emscripten.org/docs/getting_started/downloads.html). Don't forget to activate
   emsdk and set up environment variables. Verify it with `echo ${EMSDK}`. Please be sure to install and activate the building
-  of 3.1.28
+  of 3.0.0
 
 ``` bash
 $ cd /opt
 $ git clone https://github.com/emscripten-core/emsdk.git
 $ cd emsdk
 $ git pull
-$ ./emsdk install 3.1.28
-$ ./emsdk activate 3.1.28
+$ ./emsdk install 3.0.0
+$ ./emsdk activate 3.0.0
 $ echo "source /opt/emsdk/emsdk_env.sh" >> "${HOME}"/.bashrc
 ```
 
