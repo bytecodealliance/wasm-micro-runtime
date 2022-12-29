@@ -58,6 +58,8 @@ static const aot_intrinsic g_intrinsic_mapping[] = {
     { "i32_trunc_f64_u", "aot_intrinsic_f64_to_u32", AOT_INTRINSIC_FLAG_F64_TO_U32 },
     { "i32_trunc_f64_s", "aot_intrinsic_f64_to_i32", AOT_INTRINSIC_FLAG_F64_TO_I32 },
     { "i64_trunc_f64_u", "aot_intrinsic_f64_to_u64", AOT_INTRINSIC_FLAG_F64_TO_U64 },
+    { "i64_trunc_f32_s", "aot_intrinsic_f32_to_i64", AOT_INTRINSIC_FLAG_F32_TO_I64 },
+    { "i64_trunc_f32_u", "aot_intrinsic_f32_to_u64", AOT_INTRINSIC_FLAG_F32_TO_U64 },
     { "i64_trunc_f64_s", "aot_intrinsic_f64_to_i64", AOT_INTRINSIC_FLAG_F64_TO_I64 },
     { "f32_demote_f64", "aot_intrinsic_f64_to_f32", AOT_INTRINSIC_FLAG_F64_TO_F32 },
     { "f64_promote_f32", "aot_intrinsic_f32_to_f64", AOT_INTRINSIC_FLAG_F32_TO_F64 },
