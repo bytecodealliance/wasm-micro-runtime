@@ -134,7 +134,7 @@ aot_intrinsic_fdiv_f64(float64 a, float64 b)
 float32
 aot_intrinsic_fabs_f32(float32 a)
 {
-    return (float32)fabs(a);
+    return fabsf(a);
 }
 
 float64
@@ -146,7 +146,7 @@ aot_intrinsic_fabs_f64(float64 a)
 float32
 aot_intrinsic_ceil_f32(float32 a)
 {
-    return (float32)ceilf(a);
+    return ceilf(a);
 }
 
 float64
@@ -158,7 +158,7 @@ aot_intrinsic_ceil_f64(float64 a)
 float32
 aot_intrinsic_floor_f32(float32 a)
 {
-    return (float32)floorf(a);
+    return floorf(a);
 }
 
 float64
@@ -170,7 +170,7 @@ aot_intrinsic_floor_f64(float64 a)
 float32
 aot_intrinsic_trunc_f32(float32 a)
 {
-    return (float32)trunc(a);
+    return truncf(a);
 }
 
 float64
@@ -182,7 +182,7 @@ aot_intrinsic_trunc_f64(float64 a)
 float32
 aot_intrinsic_rint_f32(float32 a)
 {
-    return (float32)rint(a);
+    return rintf(a);
 }
 
 float64
@@ -194,7 +194,7 @@ aot_intrinsic_rint_f64(float64 a)
 float32
 aot_intrinsic_sqrt_f32(float32 a)
 {
-    return (float32)sqrt(a);
+    return sqrtf(a);
 }
 
 float64
@@ -206,7 +206,7 @@ aot_intrinsic_sqrt_f64(float64 a)
 float32
 aot_intrinsic_copysign_f32(float32 a, float32 b)
 {
-    return signbit(b) ? (float32)-fabs(a) : (float32)fabs(a);
+    return signbit(b) ? -fabsf(a) : fabsf(a);
 }
 
 float64
@@ -223,7 +223,7 @@ aot_intrinsic_fmin_f32(float32 a, float32 b)
     else if (isnan(b))
         return b;
     else
-        return (float32)fmin(a, b);
+        return fminf(a, b);
 }
 
 float64
@@ -243,7 +243,7 @@ aot_intrinsic_fmax_f32(float32 a, float32 b)
     else if (isnan(b))
         return b;
     else
-        return (float32)fmax(a, b);
+        return fmaxf(a, b);
 }
 
 float64
