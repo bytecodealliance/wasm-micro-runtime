@@ -218,41 +218,45 @@ aot_intrinsic_copysign_f64(float64 a, float64 b)
 float32
 aot_intrinsic_fmin_f32(float32 a, float32 b)
 {
-    if (isnan(a))
-        return a;
-    else if (isnan(b))
-        return b;
+    if (isnan(a) || isnan(b))
+        return NAN;
+    else if (a == 0 && a == b)
+        return signbit(a) ? a : b;
     else
-        return fminf(a, b);
+        return a > b ? b : a;
 }
 
 float64
 aot_intrinsic_fmin_f64(float64 a, float64 b)
 {
-    float64 c = fmin(a, b);
-    if (c == 0 && a == b)
+    if (isnan(a) || isnan(b))
+        return NAN;
+    else if (a == 0 && a == b)
         return signbit(a) ? a : b;
-    return c;
+    else
+        return a > b ? b : a;
 }
 
 float32
 aot_intrinsic_fmax_f32(float32 a, float32 b)
 {
-    if (isnan(a))
-        return a;
-    else if (isnan(b))
-        return b;
+    if (isnan(a) || isnan(b))
+        return NAN;
+    else if (a == 0 && a == b)
+        return signbit(a) ? b : a;
     else
-        return fmaxf(a, b);
+        return a > b ? a : b;
 }
 
 float64
 aot_intrinsic_fmax_f64(float64 a, float64 b)
 {
-    float64 c = fmax(a, b);
-    if (c == 0 && a == b)
+    if (isnan(a) || isnan(b))
+        return NAN;
+    else if (a == 0 && a == b)
         return signbit(a) ? b : a;
-    return c;
+    else
+        return a > b ? a : b;
 }
 
 uint32
