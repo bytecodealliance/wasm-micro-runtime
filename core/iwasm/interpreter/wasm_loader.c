@@ -2806,8 +2806,8 @@ handle_name_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                         read_leb_uint32(p, p_end, func_name_len);
                         CHECK_BUF(p, p_end, func_name_len);
                         /* Skip the import functions */
-                        if (func_index >= module->import_count) {
-                            func_index -= module->import_count;
+                        if (func_index >= module->import_function_count) {
+                            func_index -= module->import_function_count;
                             if (func_index >= module->function_count) {
                                 set_error_buf(error_buf, error_buf_size,
                                               "out-of-range function index");
