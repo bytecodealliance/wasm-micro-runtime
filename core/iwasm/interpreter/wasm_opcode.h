@@ -21,10 +21,11 @@ typedef enum WASMOpcode {
     WASM_OP_IF = 0x04,          /* if */
     WASM_OP_ELSE = 0x05,        /* else */
 
-    WASM_OP_UNUSED_0x06 = 0x06,
-    WASM_OP_UNUSED_0x07 = 0x07,
-    WASM_OP_UNUSED_0x08 = 0x08,
-    WASM_OP_UNUSED_0x09 = 0x09,
+    WASM_OP_TRY = 0x06,     /* try */
+    WASM_OP_CATCH = 0x07,   /* catch */
+    WASM_OP_THROW = 0x08,   /* throw */
+    WASM_OP_RETHROW = 0x09, /* rethrow */
+
     WASM_OP_UNUSED_0x0a = 0x0a,
 
     WASM_OP_END = 0x0b,                  /* end */
@@ -41,8 +42,9 @@ typedef enum WASMOpcode {
     WASM_OP_UNUSED_0x15 = 0x15,
     WASM_OP_UNUSED_0x16 = 0x16,
     WASM_OP_UNUSED_0x17 = 0x17,
-    WASM_OP_UNUSED_0x18 = 0x18,
-    WASM_OP_UNUSED_0x19 = 0x19,
+
+    WASM_OP_DELEGATE = 0x18,  /* delegate */
+    WASM_OP_CATCH_ALL = 0x19, /* catch_all */
 
     /* parametric instructions */
     WASM_OP_DROP = 0x1a,     /* drop */
@@ -694,10 +696,10 @@ typedef enum WASMAtomicEXTOpcode {
         HANDLE_OPCODE(WASM_OP_LOOP),                 /* 0x03 */ \
         HANDLE_OPCODE(WASM_OP_IF),                   /* 0x04 */ \
         HANDLE_OPCODE(WASM_OP_ELSE),                 /* 0x05 */ \
-        HANDLE_OPCODE(WASM_OP_UNUSED_0x06),          /* 0x06 */ \
-        HANDLE_OPCODE(WASM_OP_UNUSED_0x07),          /* 0x07 */ \
-        HANDLE_OPCODE(WASM_OP_UNUSED_0x08),          /* 0x08 */ \
-        HANDLE_OPCODE(WASM_OP_UNUSED_0x09),          /* 0x09 */ \
+        HANDLE_OPCODE(WASM_OP_TRY),                  /* 0x06 */ \
+        HANDLE_OPCODE(WASM_OP_CATCH),                /* 0x07 */ \
+        HANDLE_OPCODE(WASM_OP_THROW),                /* 0x08 */ \
+        HANDLE_OPCODE(WASM_OP_RETHROW),              /* 0x09 */ \
         HANDLE_OPCODE(WASM_OP_UNUSED_0x0a),          /* 0x0a */ \
         HANDLE_OPCODE(WASM_OP_END),                  /* 0x0b */ \
         HANDLE_OPCODE(WASM_OP_BR),                   /* 0x0c */ \
@@ -712,8 +714,8 @@ typedef enum WASMAtomicEXTOpcode {
         HANDLE_OPCODE(WASM_OP_UNUSED_0x15),          /* 0x15 */ \
         HANDLE_OPCODE(WASM_OP_UNUSED_0x16),          /* 0x16 */ \
         HANDLE_OPCODE(WASM_OP_UNUSED_0x17),          /* 0x17 */ \
-        HANDLE_OPCODE(WASM_OP_UNUSED_0x18),          /* 0x18 */ \
-        HANDLE_OPCODE(WASM_OP_UNUSED_0x19),          /* 0x19 */ \
+        HANDLE_OPCODE(WASM_OP_DELEGATE),             /* 0x18 */ \
+        HANDLE_OPCODE(WASM_OP_CATCH_ALL),            /* 0x19 */ \
         HANDLE_OPCODE(WASM_OP_DROP),                 /* 0x1a */ \
         HANDLE_OPCODE(WASM_OP_SELECT),               /* 0x1b */ \
         HANDLE_OPCODE(WASM_OP_SELECT_T),             /* 0x1c */ \
