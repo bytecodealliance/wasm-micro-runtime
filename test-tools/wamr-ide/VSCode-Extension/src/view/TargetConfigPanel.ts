@@ -11,19 +11,19 @@ import { getUri } from '../utilities/getUri';
 
 export class TargetConfigPanel {
     public static currentPanel: TargetConfigPanel | undefined;
-    private readonly _panel: vscode.WebviewPanel;
+    private readonly viewPanel: vscode.WebviewPanel;
 
     private _disposables: vscode.Disposable[] = [];
-    public static BUILD_ARGS = {
-        output_file_name: 'main.wasm',
-        init_memory_size: '131072',
-        max_memory_size: '131072',
-        stack_size: '4096',
-        exported_symbols: 'main',
+    public static buildArgs = {
+        outputFileName: 'main.wasm',
+        initMemorySize: '131072',
+        maxMemorySize: '131072',
+        stackSize: '4096',
+        exportedSymbols: 'main',
     };
 
-    static readonly USER_INTPUT_ERR: number = -2;
-    static readonly EXCUTION_SUCCESS: number = 0;
+    private static readonly userInputError: number = -2;
+    private static readonly executionSuccess: number = 0;
 
     /**
      *
@@ -31,24 +31,26 @@ export class TargetConfigPanel {
      * @param panelName
      */
     constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri) {
-        this._panel = panel;
-        this._panel.webview.html = this._getHtmlForWebview(
-            this._panel.webview,
+        this.viewPanel = panel;
+        this.viewPanel.webview.html = this._getHtmlForWebview(
+            this.viewPanel.webview,
             extensionUri,
             'resource/webview/page/configBuildTarget.html'
         );
-        this._panel.onDidDispose(this.dispose, null, this._disposables);
-        this._setWebviewMessageListener(this._panel.webview);
+        this.viewPanel.onDidDispose(this.dispose, null, this._disposables);
+        this._setWebviewMessageListener(this.viewPanel.webview);
     }
 
     /**
      *
      * @param context
      */
-    public static render(context: vscode.ExtensionContext) {
+    public static render(context: vscode.ExtensionContext): void {
         /* check if current panel is initialized */
         if (TargetConfigPanel.currentPanel) {
-            TargetConfigPanel.currentPanel._panel.reveal(vscode.ViewColumn.One);
+            TargetConfigPanel.currentPanel.viewPanel.reveal(
+                vscode.ViewColumn.One
+            );
         } else {
             const panel = vscode.window.createWebviewPanel(
                 'targetConfig',
@@ -67,59 +69,56 @@ export class TargetConfigPanel {
         }
     }
 
-    private _configBuildArgs(
+    private configBuildArgs(
         outputFileName: string,
-        initmemSize: string,
-        maxmemSize: string,
+        initMemSize: string,
+        maxMemSize: string,
         stackSize: string,
         exportedSymbols: string
     ): number {
         if (
             outputFileName === '' ||
-            initmemSize === '' ||
-            maxmemSize === '' ||
+            initMemSize === '' ||
+            maxMemSize === '' ||
             stackSize === '' ||
             exportedSymbols === ''
         ) {
-            return TargetConfigPanel.USER_INTPUT_ERR;
+            return TargetConfigPanel.userInputError;
         }
 
-        let _configStr: string;
-        let includePathArr = new Array();
-        let excludeFileArr = new Array();
-        let configJson: any;
+        let includePathArr = [];
+        let excludeFileArr = [];
 
-        let _configObj = {
-            output_file_name: outputFileName,
-            init_memory_size: initmemSize,
-            max_memory_size: maxmemSize,
-            stack_size: stackSize,
-            exported_symbols: exportedSymbols,
+        const configObj = {
+            outputFileName: outputFileName,
+            initMemorySize: initMemSize,
+            maxMemorySize: maxMemSize,
+            stackSize: stackSize,
+            exportedSymbols: exportedSymbols,
         };
+        const configStr = readFromConfigFile();
 
-        TargetConfigPanel.BUILD_ARGS = _configObj;
+        TargetConfigPanel.buildArgs = configObj;
 
-        _configStr = readFromConfigFile();
-
-        if (_configStr !== '' && _configStr !== undefined) {
-            configJson = JSON.parse(_configStr);
+        if (configStr !== '' && configStr !== undefined) {
+            const configJson = JSON.parse(configStr);
             includePathArr =
-                configJson['include_paths'] === undefined
+                configJson['includePaths'] === undefined
                     ? []
-                    : configJson['include_paths'];
+                    : configJson['includePaths'];
             excludeFileArr =
-                configJson['exclude_files'] === undefined
+                configJson['excludeFiles'] === undefined
                     ? []
-                    : configJson['exclude_files'];
+                    : configJson['excludeFiles'];
         }
 
         writeIntoConfigFile(
             includePathArr,
             excludeFileArr,
-            TargetConfigPanel.BUILD_ARGS
+            TargetConfigPanel.buildArgs
         );
 
-        return TargetConfigPanel.EXCUTION_SUCCESS;
+        return TargetConfigPanel.executionSuccess;
     }
 
     private _getHtmlForWebview(
@@ -158,23 +157,23 @@ export class TargetConfigPanel {
             .replace(/(\${styleUri})/, styleUri.toString())
             .replace(
                 /(\${output_file_val})/,
-                TargetConfigPanel.BUILD_ARGS.output_file_name
+                TargetConfigPanel.buildArgs.outputFileName
             )
             .replace(
                 /(\${initial_mem_size_val})/,
-                TargetConfigPanel.BUILD_ARGS.init_memory_size
+                TargetConfigPanel.buildArgs.initMemorySize
             )
             .replace(
                 /(\${max_mem_size_val})/,
-                TargetConfigPanel.BUILD_ARGS.max_memory_size
+                TargetConfigPanel.buildArgs.maxMemorySize
             )
             .replace(
                 /(\${stack_size_val})/,
-                TargetConfigPanel.BUILD_ARGS.stack_size
+                TargetConfigPanel.buildArgs.stackSize
             )
             .replace(
                 /(\${exported_symbols_val})/,
-                TargetConfigPanel.BUILD_ARGS.exported_symbols
+                TargetConfigPanel.buildArgs.exportedSymbols
             );
 
         return html;
@@ -187,8 +186,8 @@ export class TargetConfigPanel {
                     case 'config_build_target':
                         if (
                             message.outputFileName === '' ||
-                            message.initmemSize === '' ||
-                            message.maxmemSize === '' ||
+                            message.initMemSize === '' ||
+                            message.maxMemSize === '' ||
                             message.stackSize === '' ||
                             message.exportedSymbols === ''
                         ) {
@@ -197,13 +196,13 @@ export class TargetConfigPanel {
                             );
                             return;
                         } else if (
-                            this._configBuildArgs(
+                            this.configBuildArgs(
                                 message.outputFileName,
-                                message.initmemSize,
-                                message.maxmemSize,
+                                message.initMemSize,
+                                message.maxMemSize,
                                 message.stackSize,
                                 message.exportedSymbols
-                            ) === TargetConfigPanel.EXCUTION_SUCCESS
+                            ) === TargetConfigPanel.executionSuccess
                         ) {
                             vscode.window
                                 .showInformationMessage(
@@ -211,7 +210,7 @@ export class TargetConfigPanel {
                                     'OK'
                                 )
                                 .then(() => {
-                                    this._panel.dispose();
+                                    this.viewPanel.dispose();
                                     return;
                                 });
                         }
@@ -227,7 +226,7 @@ export class TargetConfigPanel {
 
     private dispose() {
         TargetConfigPanel.currentPanel = undefined;
-        this._panel.dispose();
+        this.viewPanel.dispose();
 
         while (this._disposables.length) {
             const disposable = this._disposables.pop();

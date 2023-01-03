@@ -2597,7 +2597,7 @@ fail:
 }
 
 static bool
-veriy_module(AOTCompContext *comp_ctx)
+verify_module(AOTCompContext *comp_ctx)
 {
     char *msg = NULL;
     bool ret;
@@ -2697,7 +2697,7 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
        the compilation process */
     if (!comp_ctx->is_jit_mode) {
         bh_print_time("Begin to verify LLVM module");
-        if (!veriy_module(comp_ctx)) {
+        if (!verify_module(comp_ctx)) {
             return false;
         }
     }

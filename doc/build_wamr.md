@@ -637,3 +637,18 @@ $ ls ../build_out/
 libvmlib.a ) and an executable binary (*iwasm*) and copy *iwasm* to
 *build_out*. All original generated files are still under
 *product-mini/platforms/linux/build*.
+
+FreeBSD
+-------------------------
+First, install the dependent packages:
+```shell
+sudo pkg install gcc cmake wget
+```
+
+Then you can run the following commands to build iwasm with default configurations:
+```shell
+cd product-mini/platforms/freebsd
+mkdir build && cd build
+cmake ..
+make
+```

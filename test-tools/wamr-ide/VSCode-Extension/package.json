@@ -229,6 +229,7 @@
         "watch": "tsc -watch -p ./",
         "pretest": "npm run compile && npm run lint",
         "lint": "eslint src --ext ts",
+        "lint-fix": "eslint --fix src --ext ts",
         "test": "node ./out/test/runTest.js",
         "prettier-format-check": "prettier --config .prettierrc.json 'src/**/*.ts' --check",
         "prettier-format-apply": "prettier --config .prettierrc.json 'src/**/*.ts' --write"
