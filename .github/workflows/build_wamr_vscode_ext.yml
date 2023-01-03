@@ -41,8 +41,9 @@ jobs:
 
       - name: compress the vscode extension
         run: |
-          tar czf wamr_ide-${{ inputs.ver_num }}.tar.gz wamride-*.vsix
-          zip wamr_ide-${{ inputs.ver_num }}.zip wamride-*.vsix
+          mv wamride-*.vsix wamr-ide.vsix
+          tar czf wamr-ide-${{ inputs.ver_num }}.tar.gz wamr-ide.vsix
+          zip wamr-ide-${{ inputs.ver_num }}.zip wamr-ide.vsix
         working-directory: test-tools/wamr-ide/VSCode-Extension
 
       - name: upload release tar.gz
@@ -51,8 +52,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ inputs.upload_url }}
-          asset_path: test-tools/wamr-ide/VSCode-Extension/wamr_ide-${{ inputs.ver_num }}.tar.gz
-          asset_name: wamr_ide-${{ inputs.ver_num }}.tar.gz
+          asset_path: test-tools/wamr-ide/VSCode-Extension/wamr-ide-${{ inputs.ver_num }}.tar.gz
+          asset_name: wamr-ide-${{ inputs.ver_num }}.tar.gz
           asset_content_type: application/x-gzip
 
       - name: upload release zip
@@ -61,6 +62,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ inputs.upload_url }}
-          asset_path: test-tools/wamr-ide/VSCode-Extension/wamr_ide-${{ inputs.ver_num }}.zip
-          asset_name: wamr_ide-${{ inputs.ver_num }}.zip
+          asset_path: test-tools/wamr-ide/VSCode-Extension/wamr-ide-${{ inputs.ver_num }}.zip
+          asset_name: wamr-ide-${{ inputs.ver_num }}.zip
           asset_content_type: application/zip

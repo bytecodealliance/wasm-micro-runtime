@@ -3426,6 +3426,12 @@ jit_frontend_get_jitted_return_addr_offset()
     return (uint32)offsetof(WASMInterpFrame, jitted_return_addr);
 }
 
+uint32
+jit_frontend_get_jitted_return_addr_offset()
+{
+    return (uint32)offsetof(WASMInterpFrame, jitted_return_addr);
+}
+
 #if 0
 #if WASM_ENABLE_THREAD_MGR != 0
 bool

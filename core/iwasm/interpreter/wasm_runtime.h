@@ -626,6 +626,11 @@ llvm_jit_free_frame(WASMExecEnv *exec_env);
 #endif
 #endif /* end of WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0 */
 
+#if WASM_ENABLE_LIBC_WASI != 0 && WASM_ENABLE_MULTI_MODULE != 0
+void
+wasm_propagate_wasi_args(WASMModule *module);
+#endif
+
 #ifdef __cplusplus
 }
 #endif

@@ -31,7 +31,7 @@ export function createDirectory(
             return false;
         }
 
-        let parent = path.dirname(dest);
+        const parent = path.dirname(dest);
         if (!createDirectory(parent, mode)) {
             return false;
         }
@@ -44,6 +44,7 @@ export function createDirectory(
     }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function copyFiles(src: string, dest: string, flags?: number): boolean {
     try {
         fileSystem.copyFileSync(src, dest);
@@ -64,7 +65,7 @@ export function writeIntoFile(path: string, data: string): void {
 
 export function readFromFile(path: string): string {
     try {
-        let data = fileSystem.readFileSync(path, { encoding: 'utf-8' });
+        const data = fileSystem.readFileSync(path, { encoding: 'utf-8' });
         return data as string;
     } catch (err) {
         vscode.window.showErrorMessage(err as string);
@@ -114,9 +115,9 @@ export function checkIfFileExists(path: string): boolean {
     return false;
 }
 
-export function checkFolderName(folderName: string) {
+export function checkFolderName(folderName: string): boolean {
     let invalidCharacterArr: string[] = [];
-    var valid = true;
+    let valid = true;
 
     if (folderName.length > 255) {
         valid = false;
@@ -143,6 +144,7 @@ export function downloadFile(
 ): Promise<void> {
     return new Promise((resolve, reject) => {
         const file = fileSystem.createWriteStream(destinationPath);
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const stream = request(url, undefined, (error, response, body) => {
             if (response.statusCode !== 200) {
                 reject(

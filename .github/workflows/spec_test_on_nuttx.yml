@@ -9,11 +9,21 @@ on:
 
   workflow_dispatch:
 
+env:
+  LLVM_CACHE_SUFFIX: "build-llvm_libraries_ex"
+
 jobs:
+  build_llvm_libraries:
+    uses: ./.github/workflows/build_llvm_libraries.yml
+    with:
+      runs-on: "['ubuntu-22.04']"
+
   spec_test_on_qemu:
-    runs-on: ubuntu-22.04
+    runs-on: ${{ matrix.os }}
+    needs: [build_llvm_libraries]
     strategy:
       matrix:
+        os: [ubuntu-22.04]
         nuttx_board_config: [
           # cortex-a9
           "boards/arm/imx6/sabre-6quad/configs/nsh",
@@ -61,6 +71,25 @@ jobs:
           repository: ${{ github.repository }}
           path: apps/interpreters/wamr/wamr
 
+      - name: Get LLVM libraries
+        id: cache_llvm
+        uses: actions/cache@v3
+        with:
+          path: |
+            ./core/deps/llvm/build/bin
+            ./core/deps/llvm/build/include
+            ./core/deps/llvm/build/lib
+            ./core/deps/llvm/build/libexec
+            ./core/deps/llvm/build/share
+          key:  ${{ matrix.os }}-${{ env.LLVM_CACHE_SUFFIX }}
+
+      - name: Quit if cache miss
+        if: steps.cache_llvm.outputs.cache-hit != 'true'
+        run: echo "::error::can not get prebuilt llvm libraries" && exit 1
+
+      - name: Copy LLVM
+        run: cp -r core/deps/llvm apps/interpreters/wamr/wamr/core/deps/llvm
+
       - name: Enable WAMR for NuttX
         run: |
           find nuttx/boards -name defconfig | xargs sed -i '$a\CONFIG_INTERPRETERS_WAMR=y\nCONFIG_INTERPRETERS_WAMR_AOT=y\nCONFIG_INTERPRETERS_WAMR_FAST=y\nCONFIG_INTERPRETERS_WAMR_LOG=y\nCONFIG_INTERPRETERS_WAMR_LIBC_BUILTIN=y\nCONFIG_INTERPRETERS_WAMR_REF_TYPES=y\nCONFIG_INTERPRETERS_WAMR_ENABLE_SPEC_TEST=y\nCONFIG_INTERPRETERS_WAMR_SHARED_MEMORY=y\nCONFIG_INTERPRETERS_WAMR_BULK_MEMORY=y\n'
@@ -69,8 +98,7 @@ jobs:
       - name: Build wamrc
         working-directory: apps/interpreters/wamr/wamr/wamr-compiler
         run: |
-          sudo apt install llvm-13-dev
-          cmake -Bbuild -DWAMR_BUILD_WITH_CUSTOM_LLVM=1 .
+          cmake -Bbuild .
           cmake --build build
 
       - name: Build

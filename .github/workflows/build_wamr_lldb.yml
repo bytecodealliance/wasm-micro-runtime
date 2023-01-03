@@ -50,7 +50,7 @@ jobs:
             ./core/deps/llvm-project/build/libexec
             ./core/deps/llvm-project/build/share
             ./core/deps/llvm-project/lldb/tools/
-            ./core/deps/llvm-project/inst/
+            ./core/deps/llvm-project/wamr-lldb/
           key: ${{inputs.arch}}-${{ inputs.runner }}-lldb_build
 
       - name: setup xcode macos
@@ -92,10 +92,10 @@ jobs:
         if: steps.lldb_build_cache.outputs.cache-hit != 'true' && contains(inputs.runner, 'ubuntu')
         run: |
           echo "start to build lldb..."
-          mkdir -p inst
+          mkdir -p wamr-lldb
           cmake -S ./llvm -B build \
             -G Ninja \
-            -DCMAKE_INSTALL_PREFIX=../inst \
+            -DCMAKE_INSTALL_PREFIX=../wamr-lldb \
             -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_PROJECTS="clang;lldb" \
             -DLLVM_TARGETS_TO_BUILD=X86 \
             -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DLLVM_BUILD_BENCHMARKS:BOOL=OFF \
@@ -111,10 +111,10 @@ jobs:
         if: steps.lldb_build_cache.outputs.cache-hit != 'true' && contains(inputs.runner, 'macos')
         run: |
           echo "start to build lldb..."
-          mkdir -p inst
+          mkdir -p wamr-lldb
           cmake -S ./llvm -B build \
             -G Ninja \
-            -DCMAKE_INSTALL_PREFIX=../inst \
+            -DCMAKE_INSTALL_PREFIX=../wamr-lldb \
             -DCMAKE_BUILD_TYPE:STRING="Release" \
             -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
             -DLLVM_ENABLE_PROJECTS="clang;lldb" \
@@ -134,30 +134,30 @@ jobs:
       - name: pack a distribution
         if: steps.lldb_build_cache.outputs.cache-hit != 'true'
         run: |
-          mkdir -p inst/bin
-          mkdir -p inst/lib
-          cp build/bin/lldb* inst/bin
-          cp lldb/tools/lldb-vscode/package.json inst
-          cp -r lldb/tools/lldb-vscode/syntaxes/ inst
+          mkdir -p wamr-lldb/bin
+          mkdir -p wamr-lldb/lib
+          cp build/bin/lldb* wamr-lldb/bin
+          cp lldb/tools/lldb-vscode/package.json wamr-lldb
+          cp -r lldb/tools/lldb-vscode/syntaxes/ wamr-lldb 
         working-directory: core/deps/llvm-project
 
       - name: pack ubuntu specific libraries
         if: steps.lldb_build_cache.outputs.cache-hit != 'true' && contains(inputs.runner, 'ubuntu')
         run: |
-          cp build/lib/liblldb*.so inst/lib
-          cp build/lib/liblldb*.so.* inst/lib
+          cp build/lib/liblldb*.so wamr-lldb/lib
+          cp build/lib/liblldb*.so.* wamr-lldb/lib
         working-directory: core/deps/llvm-project
 
       - name: pack macos specific libraries
         if: steps.lldb_build_cache.outputs.cache-hit != 'true' && contains(inputs.runner, 'macos')
         run: |
-          cp build/lib/liblldb*.dylib inst/lib
+          cp build/lib/liblldb*.dylib wamr-lldb/lib
         working-directory: core/deps/llvm-project
 
       - name: compress the binary
         run: |
-          tar czf wamr-lldb-${{ inputs.ver_num }}-${{ inputs.runner }}.tar.gz inst
-          zip -r wamr-lldb-${{ inputs.ver_num }}-${{ inputs.runner }}.zip inst
+          tar czf wamr-lldb-${{ inputs.ver_num }}-${{ inputs.runner }}.tar.gz wamr-lldb
+          zip -r wamr-lldb-${{ inputs.ver_num }}-${{ inputs.runner }}.zip wamr-lldb
         working-directory: core/deps/llvm-project
 
       - name: upload release tar.gz
