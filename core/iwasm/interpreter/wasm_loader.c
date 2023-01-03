@@ -3354,7 +3354,6 @@ compile_jit_functions(WASMModule *module, char *error_buf,
         }
     }
 #endif
-#endif /* end of WASM_ENABLE_LAZY_JIT == 0 */
 
 #if WASM_ENABLE_JIT != 0
     /* Ensure all the llvm-jit functions are compiled */
