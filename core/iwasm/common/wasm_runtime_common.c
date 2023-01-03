@@ -2359,19 +2359,27 @@ wasm_runtime_set_wasi_args_ex(WASMModuleCommon *module, const char *dir_list[],
 {
     WASIArguments *wasi_args = get_wasi_args_from_module(module);
 
-    if (wasi_args) {
-        wasi_args->dir_list = dir_list;
-        wasi_args->dir_count = dir_count;
-        wasi_args->map_dir_list = map_dir_list;
-        wasi_args->map_dir_count = map_dir_count;
-        wasi_args->env = env_list;
-        wasi_args->env_count = env_count;
-        wasi_args->argv = argv;
-        wasi_args->argc = (uint32)argc;
-        wasi_args->stdio[0] = stdinfd;
-        wasi_args->stdio[1] = stdoutfd;
-        wasi_args->stdio[2] = stderrfd;
+    bh_assert(wasi_args);
+
+    wasi_args->dir_list = dir_list;
+    wasi_args->dir_count = dir_count;
+    wasi_args->map_dir_list = map_dir_list;
+    wasi_args->map_dir_count = map_dir_count;
+    wasi_args->env = env_list;
+    wasi_args->env_count = env_count;
+    wasi_args->argv = argv;
+    wasi_args->argc = (uint32)argc;
+    wasi_args->stdio[0] = stdinfd;
+    wasi_args->stdio[1] = stdoutfd;
+    wasi_args->stdio[2] = stderrfd;
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode) {
+        wasm_propagate_wasi_args((WASMModule *)module);
     }
+#endif
+#endif
 }
 
 void
@@ -2488,7 +2496,8 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
 
     wasm_runtime_set_wasi_ctx(module_inst, wasi_ctx);
 
-    /* process argv[0], trip the path and suffix, only keep the program name */
+    /* process argv[0], trip the path and suffix, only keep the program name
+     */
     if (!copy_string_array((const char **)argv, argc, &argv_buf, &argv_list,
                            &argv_buf_size)) {
         set_error_buf(error_buf, error_buf_size,
@@ -3188,7 +3197,8 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                            uint32 *argv_ret)
 {
     WASMModuleInstanceCommon *module = wasm_runtime_get_module_inst(exec_env);
-    /* argv buf layout: int args(fix cnt) + float args(fix cnt) + stack args */
+    /* argv buf layout: int args(fix cnt) + float args(fix cnt) + stack args
+     */
     uint32 argv_buf[32], *argv1 = argv_buf, *ints, *stacks, size;
     uint32 *argv_src = argv, i, argc1, n_ints = 0, n_stacks = 0;
     uint32 arg_i32, ptr_len;

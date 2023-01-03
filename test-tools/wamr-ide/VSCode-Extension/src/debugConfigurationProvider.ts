@@ -9,8 +9,6 @@ import * as os from 'os';
 export class WasmDebugConfigurationProvider
     implements vscode.DebugConfigurationProvider
 {
-    constructor() {}
-
     /* default port set as 1234 */
     private port = 1234;
     private hostPath!: string;
@@ -29,7 +27,7 @@ export class WasmDebugConfigurationProvider
         return this.providerPromise;
     }
 
-    public setDebugConfig(hostPath: string, port: number) {
+    public setDebugConfig(hostPath: string, port: number): void {
         this.port = port;
         this.hostPath = hostPath;
         /* linux and windows has different debug configuration */
@@ -57,7 +55,7 @@ export class WasmDebugConfigurationProvider
         }
     }
 
-    public getDebugConfig() {
+    public getDebugConfig(): vscode.DebugConfiguration {
         return this.wasmDebugConfig;
     }
 }

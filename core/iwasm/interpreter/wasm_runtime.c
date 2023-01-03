@@ -983,6 +983,18 @@ export_globals_instantiate(const WASMModule *module,
 }
 #endif
 
+#if WASM_ENABLE_LIBC_WASI != 0
+static bool
+execute_initialize_function(WASMModuleInstance *module_inst)
+{
+    WASMFunctionInstance *initialize =
+        wasm_lookup_function(module_inst, "_initialize", NULL);
+    return !initialize
+           || wasm_create_exec_env_and_call_function(module_inst, initialize, 0,
+                                                     NULL);
+}
+#endif
+
 static bool
 execute_post_inst_function(WASMModuleInstance *module_inst)
 {
@@ -1174,28 +1186,6 @@ sub_module_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
         (void)ret;
 
         sub_module_list_node = bh_list_elem_next(sub_module_list_node);
-
-#if WASM_ENABLE_LIBC_WASI != 0
-        {
-            /*
-             * reactor instances may assume that _initialize will be called by
-             * the environment at most once, and that none of their other
-             * exports are accessed before that call.
-             *
-             * let the loader decide how to act if there is no _initialize
-             * in a reactor
-             */
-            WASMFunctionInstance *initialize =
-                wasm_lookup_function(sub_module_inst, "_initialize", NULL);
-            if (initialize
-                && !wasm_create_exec_env_and_call_function(
-                    sub_module_inst, initialize, 0, NULL)) {
-                set_error_buf(error_buf, error_buf_size,
-                              "Call _initialize failed ");
-                goto failed;
-            }
-        }
-#endif
 
         continue;
     failed:
@@ -1844,8 +1834,21 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
                 &module_inst->e->functions[module->start_function];
     }
 
-    /* Execute __post_instantiate function */
-    if (!execute_post_inst_function(module_inst)
+    if (
+#if WASM_ENABLE_LIBC_WASI != 0
+        /*
+         * reactor instances may assume that _initialize will be called by
+         * the environment at most once, and that none of their other
+         * exports are accessed before that call.
+         *
+         * let the loader decide how to act if there is no _initialize
+         * in a reactor
+         */
+        !execute_initialize_function(module_inst) ||
+#endif
+        /* Execute __post_instantiate function */
+        !execute_post_inst_function(module_inst)
+        /* Execute the function in "start" section */
         || !execute_start_function(module_inst)) {
         set_error_buf(error_buf, error_buf_size, module_inst->cur_exception);
         goto fail;
@@ -3233,3 +3236,26 @@ llvm_jit_free_frame(WASMExecEnv *exec_env)
           || WASM_ENABLE_PERF_PROFILING != 0 */
 
 #endif /* end of WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0 */
+
+#if WASM_ENABLE_LIBC_WASI != 0 && WASM_ENABLE_MULTI_MODULE != 0
+void
+wasm_propagate_wasi_args(WASMModule *module)
+{
+    if (!module->import_count)
+        return;
+
+    bh_assert(&module->import_module_list_head);
+
+    WASMRegisteredModule *node =
+        bh_list_first_elem(&module->import_module_list_head);
+    while (node) {
+        WASIArguments *wasi_args_impt_mod =
+            &((WASMModule *)(node->module))->wasi_args;
+        bh_assert(wasi_args_impt_mod);
+
+        bh_memcpy_s(wasi_args_impt_mod, sizeof(WASIArguments),
+                    &module->wasi_args, sizeof(WASIArguments));
+        node = bh_list_elem_next(node);
+    }
+}
+#endif

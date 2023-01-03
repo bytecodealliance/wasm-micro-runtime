@@ -26,11 +26,11 @@ export class DecorationProvider implements vscode.FileDecorationProvider {
     public onDidChangeFileDecorations: vscode.Event<
         vscode.Uri | vscode.Uri[] | undefined
     >;
-    private _eventEmiter: vscode.EventEmitter<vscode.Uri | vscode.Uri[]>;
+    private eventEmitter: vscode.EventEmitter<vscode.Uri | vscode.Uri[]>;
 
     constructor() {
-        this._eventEmiter = new vscode.EventEmitter();
-        this.onDidChangeFileDecorations = this._eventEmiter.event;
+        this.eventEmitter = new vscode.EventEmitter();
+        this.onDidChangeFileDecorations = this.eventEmitter.event;
         this.disposables.push(
             vscode.window.registerFileDecorationProvider(this)
         );
@@ -39,34 +39,27 @@ export class DecorationProvider implements vscode.FileDecorationProvider {
     public provideFileDecoration(
         uri: vscode.Uri
     ): vscode.ProviderResult<vscode.FileDecoration> {
-        let currentPrjDir,
-            prjConfigDir,
-            configFilePath,
-            configData,
-            includePathArr = new Array(),
-            excludeFileArr = new Array(),
-            pathRelative;
-
-        /* Read include_paths and exclude_fils from the config file */
-        currentPrjDir =
+        const currentPrjDir =
             os.platform() === 'win32'
                 ? (vscode.workspace.workspaceFolders?.[0].uri.fsPath as string)
                 : os.platform() === 'linux' || os.platform() === 'darwin'
-                ? (currentPrjDir = vscode.workspace.workspaceFolders?.[0].uri
-                      .path as string)
+                ? (vscode.workspace.workspaceFolders?.[0].uri.path as string)
                 : '';
 
-        pathRelative = (uri.fsPath ? uri.fsPath : uri.toString()).replace(
+        const pathRelative = (uri.fsPath ? uri.fsPath : uri.toString()).replace(
             currentPrjDir,
             '..'
         );
 
-        prjConfigDir = path.join(currentPrjDir, '.wamr');
-        configFilePath = path.join(prjConfigDir, 'compilation_config.json');
+        const prjConfigDir = path.join(currentPrjDir, '.wamr');
+        const configFilePath = path.join(
+            prjConfigDir,
+            'compilation_config.json'
+        );
         if (readFromFile(configFilePath) !== '') {
-            configData = JSON.parse(readFromFile(configFilePath));
-            includePathArr = configData['include_paths'];
-            excludeFileArr = configData['exclude_files'];
+            const configData = JSON.parse(readFromFile(configFilePath));
+            const includePathArr = configData['includePaths'];
+            const excludeFileArr = configData['excludeFiles'];
 
             if (includePathArr.indexOf(pathRelative) > -1) {
                 return DECORATION_INCLUDE_PATHS;
@@ -81,7 +74,7 @@ export class DecorationProvider implements vscode.FileDecorationProvider {
     }
 
     public updateDecorationsForSource(uri: vscode.Uri): void {
-        this._eventEmiter.fire(uri);
+        this.eventEmitter.fire(uri);
     }
 }
 

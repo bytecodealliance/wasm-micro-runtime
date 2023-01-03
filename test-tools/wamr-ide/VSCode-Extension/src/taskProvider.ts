@@ -29,8 +29,8 @@ export class WasmTaskProvider implements vscode.TaskProvider {
     public provideTasks(): Thenable<vscode.Task[]> | undefined {
         if (!this.wasmPromise) {
             /* target name is used for generated aot target */
-            let targetName =
-                TargetConfigPanel.BUILD_ARGS.output_file_name.split('.')[0];
+            const targetName =
+                TargetConfigPanel.buildArgs.outputFileName.split('.')[0];
 
             if (
                 os.platform() === 'linux' ||
@@ -219,7 +219,10 @@ export class WasmTaskProvider implements vscode.TaskProvider {
      * @param _task
      * @returns
      */
-    public resolveTask(_task: vscode.Task): vscode.Task | undefined {
+    public resolveTask(task: vscode.Task): vscode.Task | undefined {
+        if (task) {
+            return task;
+        }
         return undefined;
     }
 }
