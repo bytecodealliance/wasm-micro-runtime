@@ -29,6 +29,14 @@ docker build -t wasi-nn -f core/iwasm/libraries/wasi-nn/test/Dockerfile .
 docker run wasi-nn
 ```
 
+or
+
+```
+docker run --runtime=nvidia wasi-nn
+```
+
+if using NVIDIA GPU.
+
 If all the tests have run properly you will the the following message in the terminal,
 
 ```
