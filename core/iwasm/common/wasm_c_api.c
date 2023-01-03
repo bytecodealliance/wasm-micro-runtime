@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#include "bh_log.h"
 #include "wasm_c_api_internal.h"
 
 #include "bh_assert.h"
@@ -275,7 +276,11 @@ WASM_DEFINE_VEC_OWN(store, wasm_store_delete)
 WASM_DEFINE_VEC_OWN(valtype, wasm_valtype_delete)
 
 #ifndef NDEBUG
+#if WAMR_BUILD_MEMORY_PROFILING != 0
 #define WASM_C_DUMP_PROC_MEM() LOG_PROC_MEM()
+#else
+#define WASM_C_DUMP_PROC_MEM() (void)0
+#endif
 #else
 #define WASM_C_DUMP_PROC_MEM() (void)0
 #endif
@@ -4345,7 +4350,7 @@ interp_link_global(const WASMModule *module_interp, uint16 global_idx_rt,
     return true;
 }
 
-static uint32
+static bool
 interp_link(const wasm_instance_t *inst, const WASMModule *module_interp,
             wasm_extern_t *imports[])
 {
@@ -4390,11 +4395,11 @@ interp_link(const wasm_instance_t *inst, const WASMModule *module_interp,
         }
     }
 
-    return i;
+    return true;
 
 failed:
     LOG_DEBUG("%s failed", __FUNCTION__);
-    return (uint32)-1;
+    return false;
 }
 
 static bool
@@ -4557,7 +4562,7 @@ failed:
     return false;
 }
 
-static uint32
+static bool
 aot_link(const wasm_instance_t *inst, const AOTModule *module_aot,
          wasm_extern_t *imports[])
 {
@@ -4605,11 +4610,11 @@ aot_link(const wasm_instance_t *inst, const AOTModule *module_aot,
         }
     }
 
-    return i;
+    return true;
 
 failed:
     LOG_DEBUG("%s failed", __FUNCTION__);
-    return (uint32)-1;
+    return false;
 }
 
 static bool
@@ -4713,6 +4718,57 @@ wasm_instance_new(wasm_store_t *store, const wasm_module_t *module,
                                        KILOBYTE(32), KILOBYTE(32));
 }
 
+static bool
+compare_imports(const wasm_module_t *module, const wasm_extern_vec_t *imports)
+{
+    unsigned import_func_count = 0;
+    unsigned import_global_count = 0;
+    unsigned import_memory_count = 0;
+    unsigned import_table_count = 0;
+    unsigned i = 0;
+
+    for (i = 0; imports && i < imports->num_elems; i++) {
+        wasm_extern_t *import = imports->data[i];
+        switch (wasm_extern_kind(import)) {
+            case WASM_EXTERN_FUNC:
+                import_func_count++;
+                break;
+            case WASM_EXTERN_GLOBAL:
+                import_global_count++;
+                break;
+            case WASM_EXTERN_MEMORY:
+                import_memory_count++;
+                break;
+            case WASM_EXTERN_TABLE:
+                import_table_count++;
+                break;
+            default:
+                UNREACHABLE();
+                return false;
+        }
+    }
+
+#if WASM_ENABLE_INTERP != 0
+    if ((*module)->module_type == Wasm_Module_Bytecode)
+        return import_func_count == MODULE_INTERP(module)->import_function_count
+               && import_global_count
+                      == MODULE_INTERP(module)->import_global_count
+               && import_memory_count
+                      == MODULE_INTERP(module)->import_memory_count
+               && import_table_count
+                      == MODULE_INTERP(module)->import_table_count;
+#endif
+#if WASM_ENABLE_AOT != 0
+    if ((*module)->module_type == Wasm_Module_AoT)
+        return import_func_count == MODULE_AOT(module)->import_func_count
+               && import_global_count == MODULE_AOT(module)->import_global_count
+               && import_memory_count == MODULE_AOT(module)->import_memory_count
+               && import_table_count == MODULE_AOT(module)->import_table_count;
+#endif
+
+    return false;
+}
+
 wasm_instance_t *
 wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
                             const wasm_extern_vec_t *imports,
@@ -4721,18 +4777,22 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
 {
     char sub_error_buf[128] = { 0 };
     char error_buf[256] = { 0 };
-    bool import_count_verified = false;
     wasm_instance_t *instance = NULL;
     WASMModuleInstance *inst_rt;
     CApiFuncImport *func_import = NULL, **p_func_imports = NULL;
-    uint32 i = 0, import_count = 0, import_func_count = 0;
+    uint32 i = 0, import_func_count = 0;
     uint64 total_size;
-    bool processed = false;
+    bool build_exported = false;
 
     bh_assert(singleton_engine);
 
-    if (!module) {
+    if (!module)
         return NULL;
+
+    if (!compare_imports(module, imports)) {
+        snprintf(sub_error_buf, sizeof(sub_error_buf),
+                 "Failed to match imports");
+        goto failed;
     }
 
     WASM_C_DUMP_PROC_MEM();
@@ -4746,43 +4806,28 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
 
     /* link module and imports */
     if (imports && imports->num_elems) {
+        bool link = false;
 #if WASM_ENABLE_INTERP != 0
         if ((*module)->module_type == Wasm_Module_Bytecode) {
-            import_count = MODULE_INTERP(module)->import_count;
-
-            if (import_count) {
-                uint32 actual_link_import_count =
-                    interp_link(instance, MODULE_INTERP(module),
-                                (wasm_extern_t **)imports->data);
-                /* make sure a complete import list */
-                if ((int32)import_count < 0
-                    || import_count != actual_link_import_count) {
-                    snprintf(sub_error_buf, sizeof(sub_error_buf),
-                             "Failed to validate imports");
-                    goto failed;
-                }
+            if (!interp_link(instance, MODULE_INTERP(module),
+                             (wasm_extern_t **)imports->data)) {
+                snprintf(sub_error_buf, sizeof(sub_error_buf),
+                         "Failed to validate imports");
+                goto failed;
             }
-            import_count_verified = true;
+            link = true;
         }
 #endif
 
 #if WASM_ENABLE_AOT != 0
         if ((*module)->module_type == Wasm_Module_AoT) {
-            import_count = MODULE_AOT(module)->import_func_count
-                           + MODULE_AOT(module)->import_global_count
-                           + MODULE_AOT(module)->import_memory_count
-                           + MODULE_AOT(module)->import_table_count;
-
-            if (import_count) {
-                import_count = aot_link(instance, MODULE_AOT(module),
-                                        (wasm_extern_t **)imports->data);
-                if ((int32)import_count < 0) {
-                    snprintf(sub_error_buf, sizeof(sub_error_buf),
-                             "Failed to validate imports");
-                    goto failed;
-                }
+            if (!aot_link(instance, MODULE_AOT(module),
+                          (wasm_extern_t **)imports->data)) {
+                snprintf(sub_error_buf, sizeof(sub_error_buf),
+                         "Failed to validate imports");
+                goto failed;
             }
-            import_count_verified = true;
+            link = true;
         }
 #endif
 
@@ -4790,7 +4835,7 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
          * a wrong combination of module filetype and compilation flags
          * also leads to below branch
          */
-        if (!import_count_verified) {
+        if (!link) {
             snprintf(sub_error_buf, sizeof(sub_error_buf),
                      "Failed to verify import count");
             goto failed;
@@ -4809,6 +4854,7 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
         goto failed;
     }
 
+    /* create the c-api func import list */
     inst_rt = (WASMModuleInstance *)instance->inst_comm_rt;
 #if WASM_ENABLE_INTERP != 0
     if (instance->inst_comm_rt->module_type == Wasm_Module_Bytecode) {
@@ -4825,7 +4871,6 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
 #endif
     bh_assert(p_func_imports);
 
-    /* create the c-api func import list */
     total_size = (uint64)sizeof(CApiFuncImport) * import_func_count;
     if (total_size > 0
         && !(*p_func_imports = func_import = malloc_internal(total_size))) {
@@ -4835,7 +4880,7 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
     }
 
     /* fill in c-api func import list */
-    for (i = 0; i < import_count; i++) {
+    for (i = 0; imports && i < imports->num_elems; i++) {
         wasm_func_t *func_host;
         wasm_extern_t *in;
 
@@ -4857,10 +4902,9 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
 
         func_import++;
     }
-    bh_assert((uint32)(func_import - *p_func_imports) == import_func_count);
 
     /* fill with inst */
-    for (i = 0; imports && imports->data && i < (uint32)import_count; ++i) {
+    for (i = 0; imports && imports->data && i < imports->num_elems; ++i) {
         wasm_extern_t *import = imports->data[i];
         switch (import->kind) {
             case WASM_EXTERN_FUNC:
@@ -4903,7 +4947,7 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
             goto failed;
         }
 
-        processed = true;
+        build_exported = true;
     }
 #endif
 
@@ -4927,7 +4971,7 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
             goto failed;
         }
 
-        processed = true;
+        build_exported = true;
     }
 #endif
 
@@ -4935,7 +4979,7 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
      * a wrong combination of module filetype and compilation flags
      * leads to below branch
      */
-    if (!processed) {
+    if (!build_exported) {
         snprintf(sub_error_buf, sizeof(sub_error_buf),
                  "Incorrect filetype and compilation flags");
         goto failed;
