@@ -587,7 +587,7 @@ wasm_runtime_is_running_mode_supported(RunningMode running_mode)
 #if WASM_ENABLE_JIT != 0
     ret |= (running_mode == Mode_LLVM_JIT);
 #endif
-#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0
+#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 && WASM_ENABLE_LAZY_JIT != 0
     ret |= (running_mode == Mode_Multi_Tier_JIT);
 #endif
     return ret;

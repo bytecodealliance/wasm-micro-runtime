@@ -4240,7 +4240,7 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
          * With interpreter and both JIT enabled, run multi-tier JIT.
          * The running mode can be overridden with CLI argument */
         if (running_mode == 0) {
-#if WASM_ENABLE_JIT != 0 && WASM_ENABLE_FAST_JIT != 0
+#if WASM_ENABLE_JIT != 0 && WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_LAZY_JIT != 0
             running_mode = Mode_Multi_Tier_JIT;
 #elif WASM_ENABLE_JIT != 0
             running_mode = Mode_LLVM_JIT;
@@ -4317,17 +4317,6 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
 #if WASM_ENABLE_FAST_JIT != 0
         else if (running_mode == Mode_Fast_JIT) {
             fast_jit_call_func_bytecode(module_inst, exec_env, function, frame);
-        }
-#endif
-        /* Fast JIT to LLVM JIT tier-up is enabled */
-#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0
-        /* in eager jit mode, multi-tier use llvm jit */
-        else if (running_mode == Mode_Multi_Tier_JIT) {
-            llvm_jit_call_func_bytecode(module_inst, exec_env, function, argc,
-                                        argv);
-            /* For llvm jit, the results have been stored in argv,
-               no need to copy them from stack frame again */
-            copy_argv_from_frame = false;
         }
 #endif
 

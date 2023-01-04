@@ -36,7 +36,7 @@ print_help()
 #if WASM_ENABLE_JIT != 0
     printf("  --llvm-jit             Choose to run iwasm in llvm jit mode\n");
 #endif
-#if WASM_ENABLE_JIT != 0 && WASM_ENABLE_FAST_JIT != 0
+#if WASM_ENABLE_JIT != 0 && WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_LAZY_JIT != 0
     printf("  --multi-tier-jit       Choose to run iwasm in multi-tier jit mode\n");
 #endif
     printf("  --stack-size=n         Set maximum stack size in bytes, default is 64 KB\n");
