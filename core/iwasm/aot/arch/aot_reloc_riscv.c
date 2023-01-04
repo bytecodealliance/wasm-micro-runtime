@@ -20,6 +20,7 @@ void __adddf3();
 void __addsf3();
 void __divdi3();
 void __divsi3();
+void __divdf3();
 void __divsf3();
 void __eqsf2();
 void __eqdf2();
@@ -42,9 +43,12 @@ void __floatunsisf();
 void __floatunsidf();
 void __gedf2();
 void __gesf2();
+void __gtdf2();
 void __gtsf2();
 void __ledf2();
 void __lesf2();
+void __ltdf2();
+void __ltsf2();
 void __moddi3();
 void __modsi3();
 void __muldf3();
@@ -70,12 +74,16 @@ static SymbolMap target_sym_map[] = {
 #ifndef __riscv_flen
     REG_SYM(__adddf3),
     REG_SYM(__addsf3),
+    REG_SYM(__divdf3),
     REG_SYM(__divsf3),
     REG_SYM(__gedf2),
     REG_SYM(__gesf2),
+    REG_SYM(__gtdf2),
     REG_SYM(__gtsf2),
     REG_SYM(__ledf2),
     REG_SYM(__lesf2),
+    REG_SYM(__ltdf2),
+    REG_SYM(__ltsf2),
     REG_SYM(__muldf3),
     REG_SYM(__nedf2),
     REG_SYM(__nesf2),
