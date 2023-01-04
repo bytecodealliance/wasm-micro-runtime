@@ -8,4 +8,5 @@ add_definitions (-DWASM_ENABLE_LIB_WASI_THREADS=1 -DWASM_ENABLE_HEAP_AUX_STACK_A
 include_directories(${LIB_WASI_THREADS_DIR})
 
 set (LIB_WASI_THREADS_SOURCE
-    ${LIB_WASI_THREADS_DIR}/lib_wasi_threads_wrapper.c)
+    ${LIB_WASI_THREADS_DIR}/lib_wasi_threads_wrapper.c
+    ${LIB_WASI_THREADS_DIR}/tid_allocator.c)
