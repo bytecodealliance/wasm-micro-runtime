@@ -149,6 +149,7 @@ typedef struct AOTImportGlobal {
     uint32 data_offset;
     /* global data after linked */
     WASMValue global_data_linked;
+    bool is_linked;
 } AOTImportGlobal;
 
 /**
