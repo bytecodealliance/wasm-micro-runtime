@@ -2696,7 +2696,7 @@ wasmtime_ssp_poll_oneoff(
         timeout = ts > INT_MAX ? -1 : (int)ts;
     }
     else {
-        timeout = 1000;
+        timeout = -1;
     }
     int ret = poll(pfds, nsubscriptions, timeout);
 

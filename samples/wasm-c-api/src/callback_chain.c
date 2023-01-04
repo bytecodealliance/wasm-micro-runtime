@@ -238,7 +238,7 @@ main(int argc, const char *argv[])
     IMPORT_FUNCTION_LIST(CREATE_WASM_FUNCTION)
 #undef CREATE_WASM_FUNCTION
 
-    wasm_extern_t *fs[10] = { 0 };
+    wasm_extern_t *fs[2] = { 0 };
 #define ADD_TO_FUNCTION_LIST(name, index, ...) \
     fs[index] = wasm_func_as_extern(function_##name);
     IMPORT_FUNCTION_LIST(ADD_TO_FUNCTION_LIST)
