@@ -15,35 +15,37 @@ import {
 import { getUri } from '../utilities/getUri';
 
 export class NewProjectPanel {
-    static USER_SET_WORKSPACE: string;
+    public static userSetWorkSpace: string;
     public static currentPanel: NewProjectPanel | undefined;
-    private readonly _panel: vscode.WebviewPanel;
-    private _disposables: vscode.Disposable[] = [];
+    private readonly viewPanel: vscode.WebviewPanel;
+    private disposableArr: vscode.Disposable[] = [];
 
-    static readonly EXCUTION_SUCCESS: number = 0;
-    static readonly DIR_EXSITED_ERR: number = -1;
-    static readonly USER_INTPUT_ERR: number = -2;
-    static readonly DIR_PATH_INVALID_ERR: number = -3;
+    private static readonly executionSuccess = 0;
+    private static readonly dirExistedError = -1;
+    private static readonly userInputError = -2;
+    private static readonly dirPathInvalidError = -3;
 
     constructor(extensionUri: vscode.Uri, panel: vscode.WebviewPanel) {
-        this._panel = panel;
-        this._panel.webview.html = this._getHtmlForWebview(
-            this._panel.webview,
+        this.viewPanel = panel;
+        this.viewPanel.webview.html = this.getHtmlForWebview(
+            this.viewPanel.webview,
             extensionUri,
             'resource/webview/page/newProject.html'
         );
-        this._setWebviewMessageListener(this._panel.webview, extensionUri);
-        this._panel.onDidDispose(this.dispose, null, this._disposables);
+        this._setWebviewMessageListener(this.viewPanel.webview, extensionUri);
+        this.viewPanel.onDidDispose(this.dispose, null, this.disposableArr);
     }
 
-    public static render(context: vscode.ExtensionContext) {
-        NewProjectPanel.USER_SET_WORKSPACE = vscode.workspace
+    public static render(context: vscode.ExtensionContext): void {
+        NewProjectPanel.userSetWorkSpace = vscode.workspace
             .getConfiguration()
             .get('WAMR-IDE.configWorkspace') as string;
 
         /* check if current panel is initialized */
         if (NewProjectPanel.currentPanel) {
-            NewProjectPanel.currentPanel._panel.reveal(vscode.ViewColumn.One);
+            NewProjectPanel.currentPanel.viewPanel.reveal(
+                vscode.ViewColumn.One
+            );
         } else {
             const panel = vscode.window.createWebviewPanel(
                 'newProject',
@@ -62,25 +64,25 @@ export class NewProjectPanel {
         }
     }
 
-    private _creatNewProject(
+    private createNewProject(
         projName: string,
         template: string,
         extensionUri: vscode.Uri
     ): number {
         if (projName === '' || template === '') {
-            return NewProjectPanel.USER_INTPUT_ERR;
+            return NewProjectPanel.userInputError;
         }
 
         if (!checkFolderName(projName)) {
-            return NewProjectPanel.DIR_PATH_INVALID_ERR;
+            return NewProjectPanel.dirPathInvalidError;
         }
 
-        let ROOT_PATH = path.join(NewProjectPanel.USER_SET_WORKSPACE, projName);
-        let EXT_PATH = extensionUri.fsPath;
+        const ROOT_PATH = path.join(NewProjectPanel.userSetWorkSpace, projName);
+        const EXT_PATH = extensionUri.fsPath;
 
         if (fs.existsSync(ROOT_PATH)) {
             if (fs.lstatSync(ROOT_PATH).isDirectory()) {
-                return NewProjectPanel.DIR_EXSITED_ERR;
+                return NewProjectPanel.dirExistedError;
             }
         }
 
@@ -98,14 +100,14 @@ export class NewProjectPanel {
             path.join(ROOT_PATH, '.wamr/project.cmake')
         );
 
-        return NewProjectPanel.EXCUTION_SUCCESS;
+        return NewProjectPanel.executionSuccess;
     }
 
-    public _getHtmlForWebview(
+    public getHtmlForWebview(
         webview: vscode.Webview,
         extensionUri: vscode.Uri,
         templatePath: string
-    ) {
+    ): string {
         const toolkitUri = getUri(webview, extensionUri, [
             'node_modules',
             '@vscode',
@@ -146,14 +148,14 @@ export class NewProjectPanel {
             message => {
                 switch (message.command) {
                     case 'create_new_project':
-                        let createNewProjectStatus = this._creatNewProject(
+                        const createNewProjectStatus = this.createNewProject(
                             message.projectName,
                             message.template,
                             extensionUri
                         );
                         if (
                             createNewProjectStatus ===
-                            NewProjectPanel.EXCUTION_SUCCESS
+                            NewProjectPanel.executionSuccess
                         ) {
                             webview.postMessage({
                                 command: 'proj_creation_finish',
@@ -161,17 +163,17 @@ export class NewProjectPanel {
                             });
                         } else if (
                             createNewProjectStatus ===
-                            NewProjectPanel.DIR_EXSITED_ERR
+                            NewProjectPanel.dirExistedError
                         ) {
                             vscode.window.showErrorMessage(
                                 'Project : ' +
                                     message.projectName +
-                                    ' exsits in your current root path, please change project name or root path!'
+                                    ' exists in your current root path, please change project name or root path!'
                             );
                             return;
                         } else if (
                             createNewProjectStatus ===
-                            NewProjectPanel.USER_INTPUT_ERR
+                            NewProjectPanel.userInputError
                         ) {
                             vscode.window.showErrorMessage(
                                 'Please fill chart before your submit!'
@@ -179,7 +181,7 @@ export class NewProjectPanel {
                             return;
                         } else if (
                             createNewProjectStatus ===
-                            NewProjectPanel.DIR_PATH_INVALID_ERR
+                            NewProjectPanel.dirPathInvalidError
                         ) {
                             if (os.platform() === 'win32') {
                                 vscode.window.showErrorMessage(
@@ -203,19 +205,18 @@ export class NewProjectPanel {
                                 message.projectName +
                                 ' will be opened!'
                         );
-                        let isWorkspaceEmpty: boolean;
 
-                        let projPath = path.join(
-                            NewProjectPanel.USER_SET_WORKSPACE,
+                        const projPath = path.join(
+                            NewProjectPanel.userSetWorkSpace,
                             message.projectName
                         );
-                        let uri = vscode.Uri.file(projPath);
+                        const uri = vscode.Uri.file(projPath);
 
                         /**
                          * check if the vscode workspace folder is empty,
                          * if yes, open new window, else open in current window
                          */
-                        isWorkspaceEmpty = !vscode.workspace
+                        const isWorkspaceEmpty = !vscode.workspace
                             .workspaceFolders?.[0]
                             ? true
                             : false;
@@ -233,7 +234,7 @@ export class NewProjectPanel {
                               );
 
                     case 'close_webview':
-                        this._panel.dispose();
+                        this.viewPanel.dispose();
                         return;
 
                     default:
@@ -241,16 +242,16 @@ export class NewProjectPanel {
                 }
             },
             undefined,
-            this._disposables
+            this.disposableArr
         );
     }
 
     private dispose() {
         NewProjectPanel.currentPanel = undefined;
-        this._panel.dispose();
+        this.viewPanel.dispose();
 
-        while (this._disposables.length) {
-            const disposable = this._disposables.pop();
+        while (this.disposableArr.length) {
+            const disposable = this.disposableArr.pop();
             if (disposable) {
                 disposable.dispose();
             }

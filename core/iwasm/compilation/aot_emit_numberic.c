@@ -307,6 +307,14 @@ compile_op_float_min_max(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                                         param_types, 2, left, right)))
         return NULL;
 
+    /* The result of XIP intrinsic is 0 or 1, should return it directly */
+
+    if (comp_ctx->disable_llvm_intrinsics
+        && aot_intrinsic_check_capability(comp_ctx,
+                                          is_f32 ? "f32_cmp" : "f64_cmp")) {
+        return cmp;
+    }
+
     if (!(cmp = LLVMBuildSelect(comp_ctx->builder, is_eq, tmp, cmp, "cmp"))) {
         aot_set_last_error("llvm build select fail.");
         return NULL;
