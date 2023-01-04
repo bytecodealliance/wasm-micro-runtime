@@ -14,15 +14,23 @@
 #include "aot_runtime.h"
 #endif
 
-static const char *THREAD_START_FUNCTION = "wasi_thread_start";
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
 
+static const char *THREAD_START_FUNCTION = "wasi_thread_start";
 static korp_mutex thread_id_lock;
 
 // Stack data structure to track available thread identifiers
 #define AVAIL_TIDS_INIT_SIZE CLUSTER_MAX_THREAD_NUM
+enum {
+    TID_MIN = 1,
+    TID_MAX = 0x1FFFFFFF
+}; // Reserved TIDs (WASI specification)
+
 typedef struct {
     int32 *ids;
-    uint32 pos, size;
+    uint32 size;    // Stack capacity
+    uint32 pos;     // Index of the position after the stack top
+    uint32 next_id; // To keep track of the ids to put in the stack
 } AvailableThreadIds;
 static AvailableThreadIds avail_tids;
 
@@ -42,9 +50,15 @@ allocate_thread_id()
 
     os_mutex_lock(&thread_id_lock);
     if (avail_tids.pos == 0) { // Resize stack and push new thread ids
+        if (avail_tids.size == TID_MAX - TID_MIN + 1) {
+            LOG_ERROR("Maximum tread identifier reached");
+            goto return_id;
+        }
+
         uint32 old_size = avail_tids.size;
-        uint32 new_size = avail_tids.size * 2;
-        if (new_size / 2 != avail_tids.size) {
+        uint32 new_size = MIN(avail_tids.size * 2, TID_MAX - TID_MIN + 1);
+        if (new_size != TID_MAX - TID_MIN + 1
+            && new_size / 2 != avail_tids.size) {
             LOG_ERROR("Overflow detected during new size calculation");
             goto return_id;
         }
@@ -62,10 +76,10 @@ allocate_thread_id()
         }
 
         avail_tids.size = new_size;
-        avail_tids.pos = old_size;
+        avail_tids.pos = new_size - old_size;
         avail_tids.ids = tmp;
-        for (uint32 i = 0; i < old_size; i++)
-            avail_tids.ids[i] = new_size - i;
+        for (int64 i = avail_tids.pos - 1; i >= 0; i--)
+            avail_tids.ids[i] = avail_tids.next_id++;
     }
 
     // Pop available thread identifier from `avail_tids` stack
@@ -213,7 +227,8 @@ lib_wasi_threads_init(void)
         return false;
 
     // Initialize stack to store thread identifiers
-    avail_tids.size = AVAIL_TIDS_INIT_SIZE;
+    avail_tids.next_id = TID_MIN;
+    avail_tids.size = MIN(AVAIL_TIDS_INIT_SIZE, TID_MAX - TID_MIN + 1);
     avail_tids.pos = avail_tids.size;
     avail_tids.ids =
         (int32 *)wasm_runtime_malloc(avail_tids.size * sizeof(int32));
@@ -221,8 +236,8 @@ lib_wasi_threads_init(void)
         os_mutex_destroy(&thread_id_lock);
         return false;
     }
-    for (uint32 i = 0; i < avail_tids.size; i++)
-        avail_tids.ids[i] = avail_tids.size - i;
+    for (int64 i = avail_tids.pos - 1; i >= 0; i--)
+        avail_tids.ids[i] = avail_tids.next_id++;
 
     return true;
 }
