@@ -4233,14 +4233,24 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
     }
     else {
 #if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0
-        RunningMode running_mode = wasm_runtime_get_running_mode();
-        /* if user didn't set one
-         * use the default running mode:
-         * With only interpreter and one of JIT enabled run LLVM JIT/Fast JIT.
-         * With interpreter and both JIT enabled, run multi-tier JIT.
-         * The running mode can be overridden with CLI argument */
+        /*  priority of choosing running mode:
+         * 1. user-set module instance running mode
+         * 2. user-set default running mode
+         * 3. system default running mode */
+        RunningMode running_mode;
+        running_mode =
+            wasm_runtime_get_running_mode((wasm_module_inst_t)module_inst);
+
+        if (running_mode == 0)
+            running_mode = wasm_runtime_get_default_running_mode();
+
         if (running_mode == 0) {
-#if WASM_ENABLE_JIT != 0 && WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_LAZY_JIT != 0
+            /* if user didn't set one
+             * use the system default running mode:
+             * With only interpreter and one of JIT enabled run LLVM JIT/Fast
+             * JIT. With interpreter and both JIT enabled, run multi-tier JIT */
+#if WASM_ENABLE_JIT != 0 && WASM_ENABLE_FAST_JIT != 0 \
+    && WASM_ENABLE_LAZY_JIT != 0
             running_mode = Mode_Multi_Tier_JIT;
 #elif WASM_ENABLE_JIT != 0
             running_mode = Mode_LLVM_JIT;

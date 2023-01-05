@@ -1419,6 +1419,8 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
     module_inst->e =
         (WASMModuleInstanceExtra *)((uint8 *)module_inst + extra_info_offset);
 
+    module_inst->e->running_mode = 0;
+
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (os_mutex_init(&module_inst->e->mem_lock) != 0) {
         set_error_buf(error_buf, error_buf_size,

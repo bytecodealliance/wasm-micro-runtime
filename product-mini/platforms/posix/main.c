@@ -416,7 +416,8 @@ main(int argc, char *argv[])
             init_args.running_mode = Mode_LLVM_JIT;
         }
 #endif
-#if WASM_ENABLE_JIT != 0 && WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_LAZY_JIT != 0
+#if WASM_ENABLE_JIT != 0 && WASM_ENABLE_FAST_JIT != 0 \
+    && WASM_ENABLE_LAZY_JIT != 0
         else if (!strcmp(argv[0], "--multi-tier-jit")) {
             init_args.running_mode = Mode_Multi_Tier_JIT;
         }

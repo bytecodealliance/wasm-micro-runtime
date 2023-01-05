@@ -128,7 +128,7 @@ runtime_malloc(uint64 size, WASMModuleInstanceCommon *module_inst,
 static JitCompOptions jit_options = { 0 };
 #endif
 
-#if (WASM_ENABLE_JIT != 0) || (WASM_ENABLE_FAST_JIT != 0)
+#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_FAST_JIT != 0
 static RuntimeOptions runtime_options = { 0 };
 #endif
 
@@ -520,7 +520,7 @@ wasm_runtime_destroy()
 
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_FAST_JIT != 0
 RunningMode
-wasm_runtime_get_running_mode(void)
+wasm_runtime_get_default_running_mode(void)
 {
     return runtime_options.running_mode;
 }
@@ -577,7 +577,8 @@ wasm_runtime_is_running_mode_supported(RunningMode running_mode)
 {
     bool ret = false;
 #if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0
-    /* if user didn't set one, use 0 as default running mode */
+    /* if user didn't set one, use 0 as indicator for default running mode, when
+     * init it to actual running mode when first call wasm code */
     ret |= (running_mode == 0);
     ret |= (running_mode == Mode_Interp);
 #endif
@@ -587,7 +588,8 @@ wasm_runtime_is_running_mode_supported(RunningMode running_mode)
 #if WASM_ENABLE_JIT != 0
     ret |= (running_mode == Mode_LLVM_JIT);
 #endif
-#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 && WASM_ENABLE_LAZY_JIT != 0
+#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
+    && WASM_ENABLE_LAZY_JIT != 0
     ret |= (running_mode == Mode_Multi_Tier_JIT);
 #endif
     return ret;
@@ -1220,6 +1222,28 @@ wasm_runtime_deinstantiate_internal(WASMModuleInstanceCommon *module_inst,
         return;
     }
 #endif
+}
+
+bool
+wasm_runtime_set_running_mode(wasm_module_inst_t module_inst,
+                              RunningMode running_mode)
+{
+#if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0
+    if (wasm_runtime_is_running_mode_supported(running_mode)) {
+        WASMModuleInstance *actual_module_inst =
+            (WASMModuleInstance *)module_inst;
+        actual_module_inst->e->running_mode = running_mode;
+        return true;
+    }
+#endif
+    return false;
+}
+
+RunningMode
+wasm_runtime_get_running_mode(wasm_module_inst_t module_inst)
+{
+    WASMModuleInstance *actual_module_inst = (WASMModuleInstance *)module_inst;
+    return actual_module_inst->e->running_mode;
 }
 
 void

@@ -242,6 +242,7 @@ typedef struct WASMModuleInstanceExtra {
         && WASM_ENABLE_LAZY_JIT != 0)
     WASMModuleInstance *next;
 #endif
+    RunningMode running_mode;
 } WASMModuleInstanceExtra;
 
 struct AOTFuncPerfProfInfo;

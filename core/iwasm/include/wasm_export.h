@@ -484,6 +484,31 @@ wasm_runtime_instantiate(const wasm_module_t module,
                          char *error_buf, uint32_t error_buf_size);
 
 /**
+ * Setting the running mode of a WASM module instance, override the
+ * default running mode of WAMR runtime
+ *
+ * @param module_inst the WASM module instance to set running mode
+ * @param running_mode the running mode to set
+ *
+ * @return return true if success, false otherwise
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_set_running_mode(wasm_module_inst_t module_inst,
+                              RunningMode running_mode);
+
+/**
+ * Getting the running mode of a WASM module instance, if no running mode
+ * is explicit set for this module instance, running mode of runtime will
+ * be used and returned
+ *
+ * @param module_inst the WASM module instance to query for running mode
+ *
+ * @return return the running mode this module instance currently use
+ */
+WASM_RUNTIME_API_EXTERN RunningMode
+wasm_runtime_get_running_mode(wasm_module_inst_t module_inst);
+
+/**
  * Deinstantiate a WASM module instance, destroy the resources.
  *
  * @param module_inst the WASM module instance to destroy
