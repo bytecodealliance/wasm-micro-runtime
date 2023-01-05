@@ -45,6 +45,10 @@ print_help()
 #if WASM_ENABLE_JIT != 0 && WASM_ENABLE_FAST_JIT != 0
     printf("  --multi-tier-jit         Choose to run iwasm in multi-tier jit mode\n");
 #endif
+#if WASM_ENABLE_JIT != 0
+    printf("  --size-level=n           Set LLVM JIT size level, default is 3\n");
+    printf("  --opt-level=n            Set LLVM JIT optimization level, default is 3\n");
+#endif
     printf("  --stack-size=n           Set maximum stack size in bytes, default is 64 KB\n");
     printf("  --heap-size=n            Set maximum heap size in bytes, default is 16 KB\n");
 #if WASM_ENABLE_FAST_JIT != 0
@@ -420,6 +424,28 @@ main(int argc, char *argv[])
     && WASM_ENABLE_LAZY_JIT != 0
         else if (!strcmp(argv[0], "--multi-tier-jit")) {
             init_args.running_mode = Mode_Multi_Tier_JIT;
+        }
+#endif
+#if WASM_ENABLE_JIT != 0
+        else if (!strncmp(argv[0], "--size-level=", 13)) {
+            if (argv[0][13] == '\0')
+                return print_help();
+            init_args.llvm_jit_size_level = atoi(argv[0] + 13);
+            if (init_args.llvm_jit_size_level < 1
+                || init_args.llvm_jit_size_level > 3) {
+                printf("LLVM JIT size level should in range [1,3]\n");
+                return 1;
+            }
+        }
+        else if (!strncmp(argv[0], "--opt-level=", 12)) {
+            if (argv[0][12] == '\0')
+                return print_help();
+            init_args.llvm_jit_opt_level = atoi(argv[0] + 12);
+            if (init_args.llvm_jit_opt_level < 1
+                || init_args.llvm_jit_opt_level > 3) {
+                printf("LLVM JIT opt level should in range [1,3]\n");
+                return 1;
+            }
         }
 #endif
 #if WASM_ENABLE_LOG != 0

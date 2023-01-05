@@ -164,6 +164,10 @@ typedef struct RuntimeInitArgs {
      * || WASM_ENABLE_FAST_JIT != 0*/
     RunningMode running_mode;
 
+    /* LLVM JIT opt and size level */
+    uint32_t llvm_jit_opt_level;
+    uint32_t llvm_jit_size_level;
+
 } RuntimeInitArgs;
 
 #ifndef WASM_VALKIND_T_DEFINED

@@ -3027,9 +3027,11 @@ init_llvm_jit_functions_stage1(WASMModule *module, char *error_buf,
     }
 
     option.is_jit_mode = true;
-    /* TODO: opt level and size level*/
-    option.opt_level = 3;
-    option.size_level = 3;
+
+    LLVMJITOptions llvm_jit_options = wasm_runtime_get_llvm_jit_options();
+    option.opt_level = llvm_jit_options.opt_level;
+    option.size_level = llvm_jit_options.size_level;
+
 #if WASM_ENABLE_BULK_MEMORY != 0
     option.enable_bulk_memory = true;
 #endif

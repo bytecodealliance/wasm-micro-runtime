@@ -419,6 +419,13 @@ typedef struct RuntimeOptions {
 } RuntimeOptions;
 #endif
 
+#ifdef WASM_ENABLE_JIT
+typedef struct LLVMJITOptions {
+    uint32 opt_level;
+    uint32 size_level;
+} LLVMJITOptions;
+#endif
+
 #ifdef OS_ENABLE_HW_BOUND_CHECK
 /* Signal info passing to interp/aot signal handler */
 typedef struct WASMSignalInfo {
@@ -447,6 +454,12 @@ wasm_runtime_init(void);
 /* Internal API */
 RunningMode
 wasm_runtime_get_default_running_mode(void);
+#endif
+
+#if WASM_ENABLE_JIT != 0
+/* Internal API */
+LLVMJITOptions
+wasm_runtime_get_llvm_jit_options(void);
 #endif
 
 /* See wasm_export.h for description */

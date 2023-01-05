@@ -128,6 +128,10 @@ runtime_malloc(uint64 size, WASMModuleInstanceCommon *module_inst,
 static JitCompOptions jit_options = { 0 };
 #endif
 
+#if WASM_ENABLE_JIT != 0
+static LLVMJITOptions llvm_jit_options = { 3, 3 };
+#endif
+
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_FAST_JIT != 0
 static RuntimeOptions runtime_options = { 0 };
 #endif
@@ -526,6 +530,14 @@ wasm_runtime_get_default_running_mode(void)
 }
 #endif
 
+#if WASM_ENABLE_JIT != 0
+LLVMJITOptions
+wasm_runtime_get_llvm_jit_options(void)
+{
+    return llvm_jit_options;
+}
+#endif
+
 bool
 wasm_runtime_full_init(RuntimeInitArgs *init_args)
 {
@@ -541,6 +553,11 @@ wasm_runtime_full_init(RuntimeInitArgs *init_args)
 
 #if WASM_ENABLE_FAST_JIT != 0
     jit_options.code_cache_size = init_args->fast_jit_code_cache_size;
+#endif
+
+#if WASM_ENABLE_JIT != 0
+    llvm_jit_options.size_level = init_args->llvm_jit_size_level;
+    llvm_jit_options.opt_level = init_args->llvm_jit_opt_level;
 #endif
 
     if (!wasm_runtime_env_init()) {
