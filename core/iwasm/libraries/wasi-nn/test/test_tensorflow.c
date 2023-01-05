@@ -193,7 +193,7 @@ test_sum(execution_target target)
 
     uint32_t output_size = 0;
     float *output = run_inference(target, input.input_tensor, input.dim,
-                                  &output_size, "models/sum.tflite", 1);
+                                  &output_size, "/assets/models/sum.tflite", 1);
 
     assert(output_size == 1);
     assert(fabs(output[0] - 300.0) < EPSILON);
@@ -211,7 +211,7 @@ test_max(execution_target target)
 
     uint32_t output_size = 0;
     float *output = run_inference(target, input.input_tensor, input.dim,
-                                  &output_size, "models/max.tflite", 1);
+                                  &output_size, "/assets/models/max.tflite", 1);
 
     assert(output_size == 1);
     assert(fabs(output[0] - 24.0) < EPSILON);
@@ -230,7 +230,7 @@ test_average(execution_target target)
 
     uint32_t output_size = 0;
     float *output = run_inference(target, input.input_tensor, input.dim,
-                                  &output_size, "models/average.tflite", 1);
+                                  &output_size, "/assets/models/average.tflite", 1);
 
     assert(output_size == 1);
     assert(fabs(output[0] - 12.0) < EPSILON);
@@ -249,7 +249,7 @@ test_mult_dimensions(execution_target target)
 
     uint32_t output_size = 0;
     float *output = run_inference(target, input.input_tensor, input.dim,
-                                  &output_size, "models/mult_dim.tflite", 1);
+                                  &output_size, "/assets/models/mult_dim.tflite", 1);
 
     assert(output_size == 9);
     for (int i = 0; i < 9; i++)
@@ -268,7 +268,7 @@ test_mult_outputs(execution_target target)
 
     uint32_t output_size = 0;
     float *output = run_inference(target, input.input_tensor, input.dim,
-                                  &output_size, "models/mult_out.tflite", 2);
+                                  &output_size, "/assets/models/mult_out.tflite", 2);
 
     assert(output_size == 8);
     // first tensor check

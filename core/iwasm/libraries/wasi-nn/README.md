@@ -17,22 +17,48 @@ By only including this file in your WASM application you will bind WASI-NN into 
 To run the tests we assume that the current directory is the root of the repository.
 
 
-1. Build the docker image,
+1. Build the runtime
 
 ```
-docker build -t wasi-nn -f core/iwasm/libraries/wasi-nn/test/Dockerfile .
+docker build -t wasi-nn-base -f core/iwasm/libraries/wasi-nn/test/Dockerfile.base .
 ```
 
-2. Run the container
+```
+EXECUTION_TYPE=cpu
+docker build -t wasi-nn-${EXECUTION_TYPE} -f core/iwasm/libraries/wasi-nn/test/Dockerfile.${EXECUTION_TYPE} .
+```
+
+where `EXECUTION_TYPE` can be `cpu` or `gpu`.
+
+
+2. Build wasm app
 
 ```
-docker run wasi-nn
+docker build -t wasi-nn-compile -f core/iwasm/libraries/wasi-nn/test/Dockerfile.compile .
+```
+
+```
+docker run -v $PWD/core/iwasm/libraries/wasi-nn:/wasi-nn wasi-nn-compile
+```
+
+
+3. Run wasm app
+
+```
+docker run \
+    -v $PWD/core/iwasm/libraries/wasi-nn/test:/assets wasi-nn-${EXECUTION_TYPE} \
+    --dir=/assets \
+    /assets/test_tensorflow.wasm
 ```
 
 or
 
 ```
-docker run --runtime=nvidia wasi-nn
+docker run \
+    --runtime=nvidia \
+    -v $PWD/core/iwasm/libraries/wasi-nn/test:/assets wasi-nn-${EXECUTION_TYPE} \
+    --dir=/assets \
+    /assets/test_tensorflow.wasm
 ```
 
 if using NVIDIA GPU.
