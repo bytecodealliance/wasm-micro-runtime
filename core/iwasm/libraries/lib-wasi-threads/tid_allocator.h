@@ -15,18 +15,22 @@ enum {
 }; // Reserved TIDs (WASI specification)
 
 /* Stack data structure to track available thread identifiers */
-typedef struct tidAllocator TidAllocator;
+typedef struct {
+    int32 *ids;  // Array used to store the stack
+    uint32 size; // Stack capacity
+    uint32 pos;  // Index of the element after the stack top
+} TidAllocator;
 
-TidAllocator *
-tid_allocator_init();
+bool
+tid_allocator_init(TidAllocator *tid_allocator);
 
 void
-tid_allocator_destroy(TidAllocator *tid_allocator);
+tid_allocator_deinit(TidAllocator *tid_allocator);
 
 int32
-tid_allocator_get(TidAllocator *tid_allocator);
+tid_allocator_get_tid(TidAllocator *tid_allocator);
 
 void
-tid_allocator_put(TidAllocator *tid_allocator, int32 thread_id);
+tid_allocator_release_tid(TidAllocator *tid_allocator, int32 thread_id);
 
 #endif /* _TID_ALLOCATOR_H */

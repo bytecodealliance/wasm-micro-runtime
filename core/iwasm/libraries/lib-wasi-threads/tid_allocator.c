@@ -7,40 +7,33 @@
 #include "wasm_export.h"
 #include "bh_log.h"
 
+bh_static_assert(TID_MIN <= TID_MAX);
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 
-struct tidAllocator {
-    int32 *ids;  // Array used to store the stack
-    uint32 size; // Stack capacity
-    uint32 pos;  // Index of the element after the stack top
-};
-
-TidAllocator *
-tid_allocator_init()
+bool
+tid_allocator_init(TidAllocator *tid_allocator)
 {
-    TidAllocator *tid_allocator = wasm_runtime_malloc(sizeof(TidAllocator));
     tid_allocator->size = MIN(TID_ALLOCATOR_INIT_SIZE, TID_MAX - TID_MIN + 1);
     tid_allocator->pos = tid_allocator->size;
     tid_allocator->ids =
         wasm_runtime_malloc(tid_allocator->size * sizeof(int32));
     if (tid_allocator->ids == NULL)
-        return NULL;
+        return false;
 
     for (int64 i = tid_allocator->pos - 1; i >= 0; i--)
         tid_allocator->ids[i] = TID_MIN + (tid_allocator->pos - 1 - i);
 
-    return tid_allocator;
+    return true;
 }
 
 void
-tid_allocator_destroy(TidAllocator *tid_allocator)
+tid_allocator_deinit(TidAllocator *tid_allocator)
 {
     wasm_runtime_free(tid_allocator->ids);
-    wasm_runtime_free(tid_allocator);
 }
 
 int32
-tid_allocator_get(TidAllocator *tid_allocator)
+tid_allocator_get_tid(TidAllocator *tid_allocator)
 {
     if (tid_allocator->pos == 0) { // Resize stack and push new thread ids
         if (tid_allocator->size == TID_MAX - TID_MIN + 1) {
@@ -79,7 +72,7 @@ tid_allocator_get(TidAllocator *tid_allocator)
 }
 
 void
-tid_allocator_put(TidAllocator *tid_allocator, int32 thread_id)
+tid_allocator_release_tid(TidAllocator *tid_allocator, int32 thread_id)
 {
     // Release thread identifier by pushing it into the stack
     bh_assert(tid_allocator->pos < tid_allocator->size);

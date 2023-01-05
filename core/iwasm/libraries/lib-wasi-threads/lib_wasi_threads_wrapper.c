@@ -17,7 +17,7 @@
 
 static const char *THREAD_START_FUNCTION = "wasi_thread_start";
 static korp_mutex thread_id_lock;
-static TidAllocator *tid_allocator;
+static TidAllocator tid_allocator;
 
 typedef struct {
     /* app's entry function */
@@ -32,7 +32,7 @@ static int32
 allocate_thread_id()
 {
     os_mutex_lock(&thread_id_lock);
-    int32 id = tid_allocator_get(tid_allocator);
+    int32 id = tid_allocator_get_tid(&tid_allocator);
     os_mutex_unlock(&thread_id_lock);
 
     return id;
@@ -42,7 +42,7 @@ void
 deallocate_thread_id(int32 thread_id)
 {
     os_mutex_lock(&thread_id_lock);
-    tid_allocator_put(tid_allocator, thread_id);
+    tid_allocator_release_tid(&tid_allocator, thread_id);
     os_mutex_unlock(&thread_id_lock);
 }
 
@@ -170,8 +170,7 @@ lib_wasi_threads_init(void)
     if (0 != os_mutex_init(&thread_id_lock))
         return false;
 
-    tid_allocator = tid_allocator_init();
-    if (tid_allocator == NULL) {
+    if (!tid_allocator_init(&tid_allocator)) {
         os_mutex_destroy(&thread_id_lock);
         return false;
     }
@@ -182,6 +181,6 @@ lib_wasi_threads_init(void)
 void
 lib_wasi_threads_destroy(void)
 {
-    tid_allocator_destroy(tid_allocator);
+    tid_allocator_deinit(&tid_allocator);
     os_mutex_destroy(&thread_id_lock);
 }
