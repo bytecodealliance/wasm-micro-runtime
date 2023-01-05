@@ -35,5 +35,5 @@ jobs:
       - name: Build llvm
         id: build_llvm
         if: ${{ steps.cache_llvm.outputs.cache-hit != 'true' }} 
-        run: /usr/bin/env python3 ./build_llvm.py --arch X86 WebAssembly
+        run: /usr/bin/env python3 ./build_llvm.py --arch AArch64 ARM RISCV X86 WebAssembly
         working-directory: build-scripts
