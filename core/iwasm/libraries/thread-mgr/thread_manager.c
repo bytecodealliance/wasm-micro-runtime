@@ -83,11 +83,14 @@ allocate_aux_stack(WASMExecEnv *exec_env, uint32 *start, uint32 *size)
 #if WASM_ENABLE_HEAP_AUX_STACK_ALLOCATION != 0
     WASMModuleInstanceCommon *module_inst =
         wasm_exec_env_get_module_inst(exec_env);
+    uint32 stack_end;
 
-    *start = wasm_runtime_module_malloc(module_inst, cluster->stack_size, NULL);
+    stack_end =
+        wasm_runtime_module_malloc(module_inst, cluster->stack_size, NULL);
+    *start = stack_end + cluster->stack_size;
     *size = cluster->stack_size;
 
-    return *start != 0;
+    return stack_end != 0;
 #else
     uint32 i;
 
@@ -116,15 +119,18 @@ allocate_aux_stack(WASMExecEnv *exec_env, uint32 *start, uint32 *size)
 static bool
 free_aux_stack(WASMExecEnv *exec_env, uint32 start)
 {
+    WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
+
 #if WASM_ENABLE_HEAP_AUX_STACK_ALLOCATION != 0
     WASMModuleInstanceCommon *module_inst =
         wasm_exec_env_get_module_inst(exec_env);
 
-    wasm_runtime_module_free(module_inst, start);
+    bh_assert(start >= cluster->stack_size);
+
+    wasm_runtime_module_free(module_inst, start - cluster->stack_size);
 
     return true;
 #else
-    WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
     uint32 i;
 
     for (i = 0; i < cluster_max_thread_num; i++) {
