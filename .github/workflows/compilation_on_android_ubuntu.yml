@@ -424,7 +424,8 @@ jobs:
 
       - name: set env variable(if x86_32 test needed)
         if: >
-          (matrix.test_option == '$DEFAULT_TEST_OPTIONS' || matrix.test_option == '$THREADS_TEST_OPTIONS')
+          (matrix.test_option == '$DEFAULT_TEST_OPTIONS' || matrix.test_option == '$THREADS_TEST_OPTIONS'
+           || matrix.test_option == '$WASI_TEST_OPTIONS')
           && matrix.running_mode != 'fast-jit' && matrix.running_mode != 'jit'
         run: echo "TEST_ON_X86_32=true" >> $GITHUB_ENV
 

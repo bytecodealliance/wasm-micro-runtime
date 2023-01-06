@@ -987,7 +987,7 @@ check_linked_symbol(AOTModule *module, char *error_buf, uint32 error_buf_size)
         AOTImportGlobal *global = module->import_globals + i;
         if (!global->is_linked) {
             set_error_buf_v(error_buf, error_buf_size,
-                            "warning: failed to link import global (%s, %s)",
+                            "failed to link import global (%s, %s)",
                             global->module_name, global->global_name);
             return false;
         }

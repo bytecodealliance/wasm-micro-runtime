@@ -1252,7 +1252,7 @@ check_linked_symbol(WASMModuleInstance *module_inst, char *error_buf,
 #else
 #if WASM_ENABLE_WAMR_COMPILER == 0
             set_error_buf_v(error_buf, error_buf_size,
-                            "warning: failed to link import global (%s, %s)",
+                            "failed to link import global (%s, %s)",
                             global->module_name, global->field_name);
             return false;
 #else
