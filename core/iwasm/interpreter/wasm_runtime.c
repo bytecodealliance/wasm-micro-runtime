@@ -1235,6 +1235,7 @@ check_linked_symbol(WASMModuleInstance *module_inst, char *error_buf,
 #if WASM_ENABLE_WAMR_COMPILER == 0
             LOG_WARNING("warning: failed to link import function (%s, %s)",
                         func->module_name, func->field_name);
+            /* will throw exception only if calling */
 #else
             /* do nothing to avoid confused message */
 #endif /* WASM_ENABLE_WAMR_COMPILER == 0 */
@@ -1250,8 +1251,10 @@ check_linked_symbol(WASMModuleInstance *module_inst, char *error_buf,
             return false;
 #else
 #if WASM_ENABLE_WAMR_COMPILER == 0
-            LOG_DEBUG("warning: failed to link import global (%s, %s)",
-                      global->module_name, global->field_name);
+            set_error_buf_v(error_buf, error_buf_size,
+                            "warning: failed to link import global (%s, %s)",
+                            global->module_name, global->field_name);
+            return false;
 #else
             /* do nothing to avoid confused message */
 #endif /* WASM_ENABLE_WAMR_COMPILER == 0 */
