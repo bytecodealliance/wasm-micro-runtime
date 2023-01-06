@@ -64,7 +64,7 @@ wasm_exec_env_get_cluster(WASMExecEnv *exec_env);
 
 int32
 wasm_cluster_create_thread(WASMExecEnv *exec_env,
-                           wasm_module_inst_t module_inst,
+                           wasm_module_inst_t module_inst, bool alloc_aux_stack,
                            void *(*thread_routine)(void *), void *arg);
 
 int32

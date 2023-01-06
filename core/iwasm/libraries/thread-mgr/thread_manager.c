@@ -125,6 +125,10 @@ free_aux_stack(WASMExecEnv *exec_env, uint32 start)
     WASMModuleInstanceCommon *module_inst =
         wasm_exec_env_get_module_inst(exec_env);
 
+    if (!wasm_exec_env_is_aux_stack_managed_by_runtime(exec_env)) {
+        return true;
+    }
+
     bh_assert(start >= cluster->stack_size);
 
     wasm_runtime_module_free(module_inst, start - cluster->stack_size);
@@ -534,7 +538,7 @@ thread_manager_start_routine(void *arg)
 
 int32
 wasm_cluster_create_thread(WASMExecEnv *exec_env,
-                           wasm_module_inst_t module_inst,
+                           wasm_module_inst_t module_inst, bool alloc_aux_stack,
                            void *(*thread_routine)(void *), void *arg)
 {
     WASMCluster *cluster;
@@ -550,16 +554,18 @@ wasm_cluster_create_thread(WASMExecEnv *exec_env,
     if (!new_exec_env)
         return -1;
 
-    if (!allocate_aux_stack(exec_env, &aux_stack_start, &aux_stack_size)) {
-        LOG_ERROR("thread manager error: "
-                  "failed to allocate aux stack space for new thread");
-        goto fail1;
-    }
+    if (alloc_aux_stack) {
+        if (!allocate_aux_stack(exec_env, &aux_stack_start, &aux_stack_size)) {
+            LOG_ERROR("thread manager error: "
+                      "failed to allocate aux stack space for new thread");
+            goto fail1;
+        }
 
-    /* Set aux stack for current thread */
-    if (!wasm_exec_env_set_aux_stack(new_exec_env, aux_stack_start,
-                                     aux_stack_size)) {
-        goto fail2;
+        /* Set aux stack for current thread */
+        if (!wasm_exec_env_set_aux_stack(new_exec_env, aux_stack_start,
+                                         aux_stack_size)) {
+            goto fail2;
+        }
     }
 
     if (!wasm_cluster_add_exec_env(cluster, new_exec_env))
@@ -581,7 +587,8 @@ fail3:
     wasm_cluster_del_exec_env(cluster, new_exec_env);
 fail2:
     /* free the allocated aux stack space */
-    free_aux_stack(exec_env, aux_stack_start);
+    if (alloc_aux_stack)
+        free_aux_stack(exec_env, aux_stack_start);
 fail1:
     wasm_exec_env_destroy(new_exec_env);
     return -1;
