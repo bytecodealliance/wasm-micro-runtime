@@ -126,8 +126,8 @@ thread_spawn_wrapper(wasm_exec_env_t exec_env, uint32 start_arg)
     thread_start_arg->start_func = start_func;
 
     os_mutex_lock(&exec_env->wait_lock);
-    ret = wasm_cluster_create_thread(exec_env, new_module_inst, thread_start,
-                                     thread_start_arg);
+    ret = wasm_cluster_create_thread(exec_env, new_module_inst, false,
+                                     thread_start, thread_start_arg);
     if (ret != 0) {
         LOG_ERROR("Failed to spawn a new thread");
         goto thread_spawn_fail;

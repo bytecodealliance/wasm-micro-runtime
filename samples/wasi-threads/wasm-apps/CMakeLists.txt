@@ -13,12 +13,13 @@ endif ()
 
 set (CMAKE_SYSROOT                  "${WASI_SYSROOT}")
 set (CMAKE_C_COMPILER               "${WASI_SDK_DIR}/bin/clang")
+set (CMAKE_ASM_COMPILER               "${WASI_SDK_DIR}/bin/clang")
 set (CMAKE_C_COMPILER_TARGET        "wasm32-wasi")
 
 function (compile_sample SOURCE_FILE)
   get_filename_component (FILE_NAME ${SOURCE_FILE} NAME_WLE)
   set (WASM_MODULE ${FILE_NAME}.wasm)
-  add_executable (${WASM_MODULE} ${SOURCE_FILE})
+  add_executable (${WASM_MODULE} ${SOURCE_FILE} ${ARGN})
 
   target_compile_options (${WASM_MODULE} PRIVATE
     -pthread -ftls-model=local-exec)
@@ -34,5 +35,5 @@ function (compile_sample SOURCE_FILE)
   )
 endfunction ()
 
-compile_sample(no_pthread.c)
-compile_sample(exception_propagation.c)
+compile_sample(no_pthread.c wasi_thread_start.S)
+compile_sample(exception_propagation.c wasi_thread_start.S)

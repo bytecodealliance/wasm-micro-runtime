@@ -619,8 +619,9 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
     routine_args->module_inst = new_module_inst;
 
     os_mutex_lock(&exec_env->wait_lock);
-    ret = wasm_cluster_create_thread(
-        exec_env, new_module_inst, pthread_start_routine, (void *)routine_args);
+    ret =
+        wasm_cluster_create_thread(exec_env, new_module_inst, true,
+                                   pthread_start_routine, (void *)routine_args);
     if (ret != 0) {
         os_mutex_unlock(&exec_env->wait_lock);
         goto fail;

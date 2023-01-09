@@ -9,18 +9,20 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
-#include <wasi/api.h>
+
+#include "wasi_thread_start.h"
 
 static const int64_t SECOND = 1000 * 1000 * 1000;
 
 typedef struct {
+    start_args_t base;
     int th_ready;
     int value;
     int thread_id;
 } shared_t;
 
-__attribute__((export_name("wasi_thread_start"))) void
-wasi_thread_start(int thread_id, int *start_arg)
+void
+__wasi_thread_start_C(int thread_id, int *start_arg)
 {
     shared_t *data = (shared_t *)start_arg;
 
@@ -38,18 +40,26 @@ wasi_thread_start(int thread_id, int *start_arg)
 int
 main(int argc, char **argv)
 {
-    shared_t data = { 0, 52, -1 };
+    shared_t data = { { NULL }, 0, 52, -1 };
     int thread_id;
+    int ret = EXIT_SUCCESS;
+
+    if (!start_args_init(&data.base)) {
+        printf("Stack allocation for thread failed\n");
+        return EXIT_FAILURE;
+    }
 
     thread_id = __wasi_thread_spawn(&data);
     if (thread_id < 0) {
         printf("Failed to create thread: %d\n", thread_id);
-        return EXIT_FAILURE;
+        ret = EXIT_FAILURE;
+        goto final;
     }
 
     if (__builtin_wasm_memory_atomic_wait32(&data.th_ready, 0, SECOND) == 2) {
         printf("Timeout\n");
-        return EXIT_FAILURE;
+        ret = EXIT_FAILURE;
+        goto final;
     }
 
     printf("Thread completed, new value: %d, thread id: %d\n", data.value,
@@ -57,5 +67,8 @@ main(int argc, char **argv)
 
     assert(thread_id == data.thread_id);
 
-    return EXIT_SUCCESS;
+final:
+    start_args_deinit(&data.base);
+
+    return ret;
 }
