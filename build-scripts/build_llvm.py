@@ -21,13 +21,17 @@ def clone_llvm(dst_dir, llvm_repo, llvm_branch):
     llvm_dir = dst_dir.joinpath("llvm").resolve()
 
     if not llvm_dir.exists():
-        print(f"Clone llvm to {llvm_dir} ...")
         GIT_CLONE_CMD = f"git clone --depth 1 --branch {llvm_branch} {llvm_repo} llvm"
         subprocess.check_output(shlex.split(GIT_CLONE_CMD), cwd=dst_dir)
-    else:
-        print(f"There is an LLVM local repo in {llvm_dir}, clean and keep using it")
 
     return llvm_dir
+
+
+def query_llvm_version(llvm_dir):
+    GIT_LOG_CMD = f"git log --format=format:'%h' -1"
+    return subprocess.check_output(
+        shlex.split(GIT_LOG_CMD), cwd=llvm_dir, universal_newlines=True, text=True
+    )
 
 
 def build_llvm(llvm_dir, platform, backends, projects):
@@ -98,8 +102,8 @@ def build_llvm(llvm_dir, platform, backends, projects):
 
     lib_llvm_core_library = build_dir.joinpath("lib/libLLVMCore.a").resolve()
     if lib_llvm_core_library.exists():
-        print(f"Please remove {build_dir} manually and try again")
-        return build_dir
+        print(f"It has already been fully compiled. If want to a re-build, please remove {build_dir} manually and try again")
+        return None
 
     compile_options = " ".join(
         LLVM_COMPILE_OPTIONS
@@ -118,7 +122,6 @@ def build_llvm(llvm_dir, platform, backends, projects):
             CONFIG_CMD += " -G'Unix Makefiles'"
         else:
             CONFIG_CMD += " -A x64"
-    print(f"{CONFIG_CMD}")
     subprocess.check_call(shlex.split(CONFIG_CMD), cwd=build_dir)
 
     BUILD_CMD = f"cmake --build . --target package --parallel {os.cpu_count()}" + (
@@ -183,8 +186,12 @@ def main():
         choices=["clang", "lldb"],
         help="identify extra LLVM projects, separate by space, like '--project clang lldb'",
     )
+    parser.add_argument(
+        "--llvm-ver",
+        action="store_true",
+        help="return the version info of generated llvm libraries",
+    )
     options = parser.parse_args()
-    print(f"options={options}")
 
     # if the "platform" is not identified in the command line option,
     # detect it
@@ -197,8 +204,6 @@ def main():
             platform = "linux"
     else:
         platform = options.platform
-
-    print(f"========== Build LLVM for {platform} ==========\n")
 
     llvm_repo_and_branch = {
         "arc": {
@@ -224,19 +229,17 @@ def main():
     deps_dir = current_dir.joinpath("../core/deps").resolve()
 
     try:
-        print(f"==================== CLONE LLVM ====================")
         llvm_info = llvm_repo_and_branch.get(platform, llvm_repo_and_branch["default"])
         llvm_dir = clone_llvm(deps_dir, llvm_info["repo"], llvm_info["branch"])
 
-        print()
-        print(f"==================== BUILD LLVM ====================")
-        build_llvm(llvm_dir, platform, options.arch, options.project)
+        if options.llvm_ver:
+            commit_hash = query_llvm_version(llvm_dir)
+            print(commit_hash)
+            return commit_hash is not None
 
-        print()
-        print(f"==================== PACKAGE LLVM ====================")
-        repackage_llvm(llvm_dir)
+        if build_llvm(llvm_dir, platform, options.arch, options.project) is not None:
+            repackage_llvm(llvm_dir)
 
-        print()
         return True
     except subprocess.CalledProcessError:
         return False
