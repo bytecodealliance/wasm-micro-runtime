@@ -4555,6 +4555,7 @@ aot_link_global(const AOTModule *module_aot, uint16 global_idx_rt,
     }
 
     import->global_idx_rt = global_idx_rt;
+    import_aot_global->is_linked = true;
     return true;
 
 failed:

@@ -1226,7 +1226,10 @@ load_import_globals(const uint8 **p_buf, const uint8 *buf_end,
             }
             import_globals[i].global_data_linked =
                 tmp_global.global_data_linked;
+            import_globals[i].is_linked = true;
         }
+#else
+        import_globals[i].is_linked = false;
 #endif
 
         import_globals[i].size = wasm_value_type_size(import_globals[i].type);

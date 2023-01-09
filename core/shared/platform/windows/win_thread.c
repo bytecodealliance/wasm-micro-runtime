@@ -37,6 +37,8 @@ typedef struct os_thread_data {
     korp_mutex wait_lock;
     /* Waiting list of other threads who are joining this thread */
     os_thread_wait_list thread_wait_list;
+    /* End node of the waiting list */
+    os_thread_wait_node *thread_wait_list_end;
     /* Whether the thread has exited */
     bool thread_exited;
     /* Thread return value */
@@ -174,7 +176,8 @@ os_thread_cleanup(void *retval)
             os_sem_signal(&head->sem);
             head = next;
         }
-        thread_data->thread_wait_list = NULL;
+        thread_data->thread_wait_list = thread_data->thread_wait_list_end =
+            NULL;
     }
     /* Set thread status and thread return value */
     thread_data->thread_exited = true;
@@ -313,14 +316,14 @@ os_thread_join(korp_tid thread, void **p_retval)
     }
 
     /* Thread is running */
-    if (!thread_data->thread_wait_list)
-        thread_data->thread_wait_list = &curr_thread_data->wait_node;
-    else {
+    if (!thread_data->thread_wait_list) { /* Waiting list is empty */
+        thread_data->thread_wait_list = thread_data->thread_wait_list_end =
+            &curr_thread_data->wait_node;
+    }
+    else { /* Waiting list isn't empty */
         /* Add to end of waiting list */
-        os_thread_wait_node *p = thread_data->thread_wait_list;
-        while (p->next)
-            p = p->next;
-        p->next = &curr_thread_data->wait_node;
+        thread_data->thread_wait_list_end->next = &curr_thread_data->wait_node;
+        thread_data->thread_wait_list_end = &curr_thread_data->wait_node;
     }
 
     os_mutex_unlock(&thread_data->wait_lock);
@@ -545,7 +548,7 @@ os_cond_init(korp_cond *cond)
     if (os_mutex_init(&cond->wait_list_lock) != BHT_OK)
         return BHT_ERROR;
 
-    cond->thread_wait_list = NULL;
+    cond->thread_wait_list = cond->thread_wait_list_end = NULL;
     return BHT_OK;
 }
 
@@ -568,14 +571,13 @@ os_cond_wait_internal(korp_cond *cond, korp_mutex *mutex, bool timed,
     bh_assert(cond);
     bh_assert(mutex);
     os_mutex_lock(&cond->wait_list_lock);
-    if (!cond->thread_wait_list)
-        cond->thread_wait_list = node;
-    else {
+    if (!cond->thread_wait_list) { /* Waiting list is empty */
+        cond->thread_wait_list = cond->thread_wait_list_end = node;
+    }
+    else { /* Waiting list isn't empty */
         /* Add to end of wait list */
-        os_thread_wait_node *p = cond->thread_wait_list;
-        while (p->next)
-            p = p->next;
-        p->next = node;
+        cond->thread_wait_list_end->next = node;
+        cond->thread_wait_list_end = node;
     }
     os_mutex_unlock(&cond->wait_list_lock);
 
@@ -590,14 +592,24 @@ os_cond_wait_internal(korp_cond *cond, korp_mutex *mutex, bool timed,
 
     /* Remove wait node from wait list */
     os_mutex_lock(&cond->wait_list_lock);
-    if (cond->thread_wait_list == node)
+    if (cond->thread_wait_list == node) {
         cond->thread_wait_list = node->next;
+
+        if (cond->thread_wait_list_end == node) {
+            bh_assert(node->next == NULL);
+            cond->thread_wait_list_end = NULL;
+        }
+    }
     else {
         /* Remove from the wait list */
         os_thread_wait_node *p = cond->thread_wait_list;
         while (p->next != node)
             p = p->next;
         p->next = node->next;
+
+        if (cond->thread_wait_list_end == node) {
+            cond->thread_wait_list_end = p;
+        }
     }
     os_mutex_unlock(&cond->wait_list_lock);
 
