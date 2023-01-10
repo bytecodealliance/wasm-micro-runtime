@@ -42,7 +42,7 @@ def build_llvm(llvm_dir, platform, backends, projects):
         "-DLLVM_BUILD_EXAMPLES:BOOL=OFF",
         "-DLLVM_BUILD_LLVM_DYLIB:BOOL=OFF",
         "-DLLVM_BUILD_TESTS:BOOL=OFF",
-        "-DLLVM_CCACHE_BUILD:BOOL=OFF",
+        "-DLLVM_CCACHE_BUILD:BOOL=ON",
         "-DLLVM_ENABLE_BINDINGS:BOOL=OFF",
         "-DLLVM_ENABLE_IDE:BOOL=OFF",
         "-DLLVM_ENABLE_LIBEDIT=OFF",
@@ -56,6 +56,12 @@ def build_llvm(llvm_dir, platform, backends, projects):
         "-DLLVM_BUILD_TESTS:BOOL=OFF",
         "-DLLVM_OPTIMIZED_TABLEGEN:BOOL=ON",
     ]
+
+    # use clang/clang++/lld. but macos doesn't support lld
+    if not sys.platform.startswith("darwin"):
+        os.environ["CC"] = "clang"
+        os.environ["CXX"] = "clang++"
+        LLVM_COMPILE_OPTIONS.append('-DLLVM_USE_LINKER:STRING="lld"')
 
     LLVM_EXTRA_COMPILE_OPTIONS = {
         "arc": [
@@ -102,7 +108,9 @@ def build_llvm(llvm_dir, platform, backends, projects):
 
     lib_llvm_core_library = build_dir.joinpath("lib/libLLVMCore.a").resolve()
     if lib_llvm_core_library.exists():
-        print(f"It has already been fully compiled. If want to a re-build, please remove {build_dir} manually and try again")
+        print(
+            f"It has already been fully compiled. If want to a re-build, please remove {build_dir} manually and try again"
+        )
         return None
 
     compile_options = " ".join(
@@ -122,9 +130,11 @@ def build_llvm(llvm_dir, platform, backends, projects):
             CONFIG_CMD += " -G'Unix Makefiles'"
         else:
             CONFIG_CMD += " -A x64"
+    else:
+        CONFIG_CMD += " -G'Ninja'"
     subprocess.check_call(shlex.split(CONFIG_CMD), cwd=build_dir)
 
-    BUILD_CMD = f"cmake --build . --target package --parallel {os.cpu_count()}" + (
+    BUILD_CMD = "cmake --build . --target package" + (
         " --config Release" if "windows" == platform else ""
     )
     subprocess.check_call(shlex.split(BUILD_CMD), cwd=build_dir)
@@ -135,23 +145,25 @@ def build_llvm(llvm_dir, platform, backends, projects):
 def repackage_llvm(llvm_dir):
     build_dir = llvm_dir.joinpath("./build").resolve()
 
-    packs = [f for f in build_dir.glob("LLVM-15*.tar.gz")]
+    packs = [f for f in build_dir.glob("LLVM-*.tar.gz")]
     if len(packs) > 1:
-        raise Exception("Find more than one LLVM-15*.tar.gz")
+        raise Exception("Find more than one LLVM-*.tar.gz")
 
     if not packs:
         return
 
     llvm_package = packs[0].name
-    # mv build/LLVM-15.0.0*.gz .
+    # mv build/LLVM-*.gz .
     shutil.move(str(build_dir.joinpath(llvm_package).resolve()), str(llvm_dir))
     # rm -r build
     shutil.rmtree(str(build_dir))
     # mkdir build
     build_dir.mkdir()
-    # tar xf ./LLVM-15.0.0-*.tar.gz --strip-components=1 --directory=build
+    # tar xf ./LLVM-*.tar.gz --strip-components=1 --directory=build
     CMD = f"tar xf {llvm_dir.joinpath(llvm_package).resolve()} --strip-components=1 --directory={build_dir}"
     subprocess.check_call(shlex.split(CMD), cwd=llvm_dir)
+    # rm ./LLVM-1*.gz
+    os.remove(llvm_dir.joinpath(llvm_package).resolve())
 
 
 def main():
