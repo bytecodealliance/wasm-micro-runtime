@@ -360,16 +360,16 @@ function spec_test()
                     exit 1
                     ;;
             esac
-            if [ ! -f /tmp/wabt-1.0.29-${WABT_PLATFORM}.tar.gz ]; then
+            if [ ! -f /tmp/wabt-1.0.31-${WABT_PLATFORM}.tar.gz ]; then
                 wget \
-                    https://github.com/WebAssembly/wabt/releases/download/1.0.29/wabt-1.0.29-${WABT_PLATFORM}.tar.gz \
+                    https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-${WABT_PLATFORM}.tar.gz \
                     -P /tmp
             fi
 
             cd /tmp \
-            && tar zxf wabt-1.0.29-${WABT_PLATFORM}.tar.gz \
+            && tar zxf wabt-1.0.31-${WABT_PLATFORM}.tar.gz \
             && mkdir -p ${WORK_DIR}/wabt/out/gcc/Release/ \
-            && install wabt-1.0.29/bin/wa* ${WORK_DIR}/wabt/out/gcc/Release/ \
+            && install wabt-1.0.31/bin/wa* ${WORK_DIR}/wabt/out/gcc/Release/ \
             && cd -
         fi
     else
@@ -429,7 +429,7 @@ function spec_test()
     fi
 
     # set the current running target
-    ARGS_FOR_SPEC_TEST+="-m ${TARGET} " 
+    ARGS_FOR_SPEC_TEST+="-m ${TARGET} "
 
     # require warmc only in aot mode
     if [[ $1 == 'aot' ]]; then
