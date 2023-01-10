@@ -80,7 +80,7 @@ RUN touch 99verfiy-peer.conf \
 WORKDIR /tmp
 RUN wget --progress=dot:giga https://apt.llvm.org/llvm.sh \
   && chmod a+x ./llvm.sh \
-  && ./llvm.sh ${LLVM_VER} all \
+  && ./llvm.sh ${LLVM_VER} all
 
 #
 # [Optional]
