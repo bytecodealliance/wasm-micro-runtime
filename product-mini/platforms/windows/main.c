@@ -27,9 +27,7 @@ print_help()
     printf("  -v=n                   Set log verbose level (0 to 5, default is 2) larger\n"
            "                         level with more log\n");
 #endif
-#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_FAST_JIT != 0
     printf("  --interp               Choose to run iwasm in interpreter mode\n");
-#endif
 #if WASM_ENABLE_FAST_JIT != 0
     printf("  --fast-jit             Choose to run iwasm in fast jit mode\n");
 #endif
@@ -246,6 +244,7 @@ main(int argc, char *argv[])
     uint32 stack_size = 64 * 1024, heap_size = 16 * 1024;
     wasm_module_t wasm_module = NULL;
     wasm_module_inst_t wasm_module_inst = NULL;
+    RunningMode running_mode = 0;
     RuntimeInitArgs init_args;
     char error_buf[128] = { 0 };
 #if WASM_ENABLE_LOG != 0
@@ -264,8 +263,6 @@ main(int argc, char *argv[])
     int instance_port = 0;
 #endif
 
-    memset(&init_args, 0, sizeof(RuntimeInitArgs));
-
     /* Process options. */
     for (argc--, argv++; argc > 0 && argv[0][0] == '-'; argc--, argv++) {
         if (!strcmp(argv[0], "-f") || !strcmp(argv[0], "--function")) {
@@ -275,24 +272,22 @@ main(int argc, char *argv[])
             }
             func_name = argv[0];
         }
-#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_FAST_JIT != 0
         else if (!strcmp(argv[0], "--interp")) {
-            init_args.running_mode = Mode_Interp;
+            running_mode = Mode_Interp;
         }
-#endif
 #if WASM_ENABLE_FAST_JIT != 0
         else if (!strcmp(argv[0], "--fast-jit")) {
-            init_args.running_mode = Mode_Fast_JIT;
+            running_mode = Mode_Fast_JIT;
         }
 #endif
 #if WASM_ENABLE_JIT != 0
         else if (!strcmp(argv[0], "--llvm-jit")) {
-            init_args.running_mode = Mode_LLVM_JIT;
+            running_mode = Mode_LLVM_JIT;
         }
 #endif
 #if WASM_ENABLE_JIT != 0 && WASM_ENABLE_FAST_JIT != 0
         else if (!strcmp(argv[0], "--multi-tier-jit")) {
-            init_args.running_mode = Mode_Multi_Tier_JIT;
+            running_mode = Mode_Multi_Tier_JIT;
         }
 #endif
 #if WASM_ENABLE_JIT != 0
@@ -300,20 +295,30 @@ main(int argc, char *argv[])
             if (argv[0][13] == '\0')
                 return print_help();
             init_args.llvm_jit_size_level = atoi(argv[0] + 13);
-            if (init_args.llvm_jit_size_level < 1
-                || init_args.llvm_jit_size_level > 3) {
-                printf("LLVM JIT size level should in range [1,3]\n");
-                return 1;
+            if (init_args.llvm_jit_size_level < 1) {
+                printf("LLVM JIT size level shouldn't be smaller than 1, "
+                       "setting it to 1\n");
+                init_args.llvm_jit_size_level = 1;
+            }
+            else if (init_args.llvm_jit_size_level > 3) {
+                printf("LLVM JIT size level shouldn't be greater than 3, "
+                       "setting it to 3\n");
+                init_args.llvm_jit_size_level = 3;
             }
         }
         else if (!strncmp(argv[0], "--opt-level=", 12)) {
             if (argv[0][12] == '\0')
                 return print_help();
             init_args.llvm_jit_opt_level = atoi(argv[0] + 12);
-            if (init_args.llvm_jit_opt_level < 1
-                || init_args.llvm_jit_opt_level > 3) {
-                printf("LLVM JIT opt level should in range [1,3]\n");
-                return 1;
+            if (init_args.llvm_jit_opt_level < 1) {
+                printf("LLVM JIT opt level shouldn't be smaller than 1, "
+                       "setting it to 1\n");
+                init_args.llvm_jit_opt_level = 1;
+            }
+            else if (init_args.llvm_jit_opt_level > 3) {
+                printf("LLVM JIT opt level shouldn't be greater than 3, "
+                       "setting it to 3\n");
+                init_args.llvm_jit_opt_level = 3;
             }
         }
 #endif
@@ -415,6 +420,9 @@ main(int argc, char *argv[])
     app_argc = argc;
     app_argv = argv;
 
+    memset(&init_args, 0, sizeof(RuntimeInitArgs));
+
+    init_args.running_mode = running_mode;
 #if WASM_ENABLE_GLOBAL_HEAP_POOL != 0
     init_args.mem_alloc_type = Alloc_With_Pool;
     init_args.mem_alloc_option.pool.heap_buf = global_heap_buf;

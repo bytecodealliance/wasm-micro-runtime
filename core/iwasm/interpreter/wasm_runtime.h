@@ -219,6 +219,7 @@ typedef struct WASMModuleInstanceExtra {
     WASMFunctionInstance *retain_function;
 
     CApiFuncImport *c_api_func_imports;
+    RunningMode running_mode;
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
     /* lock for shared memory atomic operations */
@@ -242,7 +243,6 @@ typedef struct WASMModuleInstanceExtra {
         && WASM_ENABLE_LAZY_JIT != 0)
     WASMModuleInstance *next;
 #endif
-    RunningMode running_mode;
 } WASMModuleInstanceExtra;
 
 struct AOTFuncPerfProfInfo;

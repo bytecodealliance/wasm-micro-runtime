@@ -1183,10 +1183,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 goto got_exception;
             }
 
-            HANDLE_OP(WASM_OP_NOP)
-            {
-                HANDLE_OP_END();
-            }
+            HANDLE_OP(WASM_OP_NOP) { HANDLE_OP_END(); }
 
             HANDLE_OP(EXT_OP_BLOCK)
             {
@@ -3023,10 +3020,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_I32_REINTERPRET_F32)
             HANDLE_OP(WASM_OP_I64_REINTERPRET_F64)
             HANDLE_OP(WASM_OP_F32_REINTERPRET_I32)
-            HANDLE_OP(WASM_OP_F64_REINTERPRET_I64)
-            {
-                HANDLE_OP_END();
-            }
+            HANDLE_OP(WASM_OP_F64_REINTERPRET_I64) { HANDLE_OP_END(); }
 
             HANDLE_OP(WASM_OP_I32_EXTEND8_S)
             {
@@ -4232,33 +4226,9 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
         }
     }
     else {
-#if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0
-        /*  priority of choosing running mode:
-         * 1. user-set module instance running mode
-         * 2. user-set default running mode
-         * 3. system default running mode */
-        RunningMode running_mode;
-        running_mode =
+        RunningMode running_mode =
             wasm_runtime_get_running_mode((wasm_module_inst_t)module_inst);
 
-        if (running_mode == 0)
-            running_mode = wasm_runtime_get_default_running_mode();
-
-        if (running_mode == 0) {
-            /* if user didn't set one
-             * use the system default running mode:
-             * With only interpreter and one of JIT enabled run LLVM JIT/Fast
-             * JIT. With interpreter and both JIT enabled, run multi-tier JIT */
-#if WASM_ENABLE_JIT != 0 && WASM_ENABLE_FAST_JIT != 0 \
-    && WASM_ENABLE_LAZY_JIT != 0
-            running_mode = Mode_Multi_Tier_JIT;
-#elif WASM_ENABLE_JIT != 0
-            running_mode = Mode_LLVM_JIT;
-#elif WASM_ENABLE_FAST_JIT != 0
-            running_mode = Mode_Fast_JIT;
-#endif
-        }
-#endif
 #if WASM_ENABLE_LAZY_JIT != 0
 
         /* choose to run interpreter mode */
@@ -4306,8 +4276,6 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
 
 #else /* else of WASM_ENABLE_LAZY_JIT != 0 */
 
-#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_FAST_JIT != 0
-
         /* choose to run interpreter mode */
         if (running_mode == Mode_Interp) {
             wasm_interp_call_func_bytecode(module_inst, exec_env, function,
@@ -4329,10 +4297,6 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
             fast_jit_call_func_bytecode(module_inst, exec_env, function, frame);
         }
 #endif
-
-#else  /* else of WASM_ENABLE_JIT != 0 || WASM_ENABLE_FAST_JIT != 0 */
-        wasm_interp_call_func_bytecode(module_inst, exec_env, function, frame);
-#endif /* end of WASM_ENABLE_JIT != 0 || WASM_ENABLE_FAST_JIT != 0 */
 
 #endif /* end of WASM_ENABLE_LAZY_JIT != 0 */
 
