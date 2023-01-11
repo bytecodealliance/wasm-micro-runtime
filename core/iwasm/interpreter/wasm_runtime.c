@@ -2908,8 +2908,14 @@ llvm_jit_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
 
     import_func = &module->import_functions[func_idx].u.function;
     if (import_func->call_conv_wasm_c_api) {
-        c_api_func_import = module_inst->e->c_api_func_imports + func_idx;
-        func_ptr = c_api_func_import->func_ptr_linked;
+        if (module_inst->e->c_api_func_imports) {
+            c_api_func_import = module_inst->e->c_api_func_imports + func_idx;
+            func_ptr = c_api_func_import->func_ptr_linked;
+        }
+        else {
+            c_api_func_import = NULL;
+            func_ptr = NULL;
+        }
     }
 
     if (!func_ptr) {
