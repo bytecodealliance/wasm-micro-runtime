@@ -67,7 +67,7 @@ export function isLLDBInstalled(context: vscode.ExtensionContext): boolean {
 
 export async function promptInstallLLDB(
     context: vscode.ExtensionContext
-): Promise<void> {
+): Promise<string> {
     const extensionPath = context.extensionPath;
     const setupPrompt = 'setup';
     const skipPrompt = 'skip';
@@ -78,7 +78,7 @@ export async function promptInstallLLDB(
     );
 
     if (response === skipPrompt) {
-        return;
+        return Promise.resolve(skipPrompt);
     }
 
     const downloadUrl = getLLDBDownloadUrl(context);
@@ -114,7 +114,6 @@ export async function promptInstallLLDB(
     );
 
     // Remove the bundle.zip
-    fs.unlink(lldbZipPath, () => {
-        return;
-    });
+    fs.unlinkSync(lldbZipPath);
+    return Promise.resolve('done');
 }

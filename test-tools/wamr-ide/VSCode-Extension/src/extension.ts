@@ -24,6 +24,12 @@ import {
     getWAMRExtensionVersion,
 } from './utilities/lldbUtilities';
 
+import {
+    checkIfDockerStarted,
+    checkIfDockerImagesExist,
+    promptSetupDockerImages,
+} from './utilities/dockerUtilities';
+
 let wasmTaskProvider: WasmTaskProvider;
 let wasmDebugConfigProvider: WasmDebugConfigurationProvider;
 let currentPrjDir = '';
@@ -304,12 +310,31 @@ export async function activate(context: vscode.ExtensionContext) {
 
     const disposableBuild = vscode.commands.registerCommand(
         'wamride.build',
-        () => {
+        async () => {
             if (!isWasmProject) {
                 vscode.window.showErrorMessage('Build failed', {
                     modal: true,
                     detail: 'Current project is not wasm project, please open wasm project and try again.',
                 });
+                return;
+            }
+
+            try {
+                /* check if docker images are ready before building */
+                if (
+                    (await checkIfDockerStarted()) &&
+                    !(await checkIfDockerImagesExist(context))
+                ) {
+                    /**NOTE - if users select to skip install,
+                     *        we should return rather than continue
+                     *        the execution
+                     */
+                    if ((await promptSetupDockerImages(context)) === 'skip') {
+                        return;
+                    }
+                }
+            } catch (e) {
+                vscode.window.showWarningMessage((e as Error).message);
                 return;
             }
 
@@ -382,10 +407,29 @@ export async function activate(context: vscode.ExtensionContext) {
             /* we should check again whether the user installed lldb, as this can be skipped during activation */
             try {
                 if (!isLLDBInstalled(context)) {
-                    await promptInstallLLDB(context);
+                    /**NOTE - if users select to skip install,
+                     *        we should return rather than continue
+                     *        the execution
+                     */
+                    if ((await promptInstallLLDB(context)) === 'skip') {
+                        return;
+                    }
+                }
+
+                if (
+                    (await checkIfDockerStarted()) &&
+                    !(await checkIfDockerImagesExist(context))
+                ) {
+                    /**NOTE - save as above lldb, should return if
+                     *        users select to skip set up
+                     */
+                    if ((await promptSetupDockerImages(context)) === 'skip') {
+                        return;
+                    }
                 }
             } catch (e) {
                 vscode.window.showWarningMessage((e as Error).message);
+                return;
             }
 
             /* refuse to debug if build process failed */
@@ -461,48 +505,70 @@ export async function activate(context: vscode.ExtensionContext) {
         }
     );
 
-    const disposableRun = vscode.commands.registerCommand('wamride.run', () => {
-        if (!isWasmProject) {
-            vscode.window.showErrorMessage('run failed', {
-                modal: true,
-                detail: 'Current project is not wasm project, please open wasm project and try again.',
-            });
-            return;
-        }
-
-        /* refuse to debug if build process failed */
-        if (!checkIfBuildSuccess()) {
-            vscode.window.showErrorMessage('Debug failed', {
-                modal: true,
-                detail: 'Can not find WASM binary, please build WASM firstly.',
-            });
-            return;
-        }
-        vscode.commands
-            .executeCommand(
-                'workbench.action.tasks.runTask',
-                'Destroy: Wasm-Container-Before-Run'
-            )
-            .then(() => {
-                const disposableAft = vscode.tasks.onDidEndTaskProcess(e => {
-                    if (e.execution.task.name === 'Wasm-Container-Before-Run') {
-                        /* make sure that run wasm task will be executed after destroy task finish */
-                        vscode.commands
-                            .executeCommand(
-                                'workbench.action.tasks.runTask',
-                                'Run: Wasm'
-                            )
-                            .then(() => {
-                                if (e.exitCode !== 0) {
-                                    disposableAft.dispose();
-                                    return;
-                                }
-                            });
-                        disposableAft.dispose();
-                    }
+    const disposableRun = vscode.commands.registerCommand(
+        'wamride.run',
+        async () => {
+            if (!isWasmProject) {
+                vscode.window.showErrorMessage('run failed', {
+                    modal: true,
+                    detail: 'Current project is not wasm project, please open wasm project and try again.',
                 });
-            });
-    });
+                return;
+            }
+
+            try {
+                /* check if docker images are set up before building */
+                if (
+                    (await checkIfDockerStarted()) &&
+                    !(await checkIfDockerImagesExist(context))
+                ) {
+                    await promptSetupDockerImages(context);
+                }
+            } catch (e) {
+                vscode.window.showWarningMessage((e as Error).message);
+                return;
+            }
+
+            /* refuse to debug if build process failed */
+            if (!checkIfBuildSuccess()) {
+                vscode.window.showErrorMessage('Debug failed', {
+                    modal: true,
+                    detail: 'Can not find WASM binary, please build WASM firstly.',
+                });
+                return;
+            }
+
+            vscode.commands
+                .executeCommand(
+                    'workbench.action.tasks.runTask',
+                    'Destroy: Wasm-Container-Before-Run'
+                )
+                .then(() => {
+                    const disposableAft = vscode.tasks.onDidEndTaskProcess(
+                        e => {
+                            if (
+                                e.execution.task.name ===
+                                'Wasm-Container-Before-Run'
+                            ) {
+                                /* make sure that run wasm task will be executed when destroy task finish */
+                                vscode.commands
+                                    .executeCommand(
+                                        'workbench.action.tasks.runTask',
+                                        'Run: Wasm'
+                                    )
+                                    .then(() => {
+                                        if (e.exitCode !== 0) {
+                                            disposableAft.dispose();
+                                            return;
+                                        }
+                                    });
+                                disposableAft.dispose();
+                            }
+                        }
+                    );
+                });
+        }
+    );
 
     const disposableToggleIncludePath = vscode.commands.registerCommand(
         'wamride.build.toggleStateIncludePath',
@@ -699,6 +765,13 @@ export async function activate(context: vscode.ExtensionContext) {
     try {
         if (!isLLDBInstalled(context)) {
             await promptInstallLLDB(context);
+        }
+
+        if (
+            (await checkIfDockerStarted()) &&
+            !(await checkIfDockerImagesExist(context))
+        ) {
+            await promptSetupDockerImages(context);
         }
     } catch (e) {
         vscode.window.showWarningMessage((e as Error).message);
