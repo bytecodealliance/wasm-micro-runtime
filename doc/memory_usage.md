@@ -13,8 +13,10 @@ the following configuration is assumed in this document:
 * WASI is used
 * libc heap is used
 * app heap is not used
-* wasi-threads based pthread might be used
-* `WASM_ENABLE_LIB_PTHREAD` pthread implementation is not used
+* The pthread implementation in `wasi-libc`, which is based on `wasi-threads`
+  (`WASM_ENABLE_LIB_WASI_THREADS`, which is not available on `main` branch
+  yet) might be used
+* The another pthread implementation (`WASM_ENABLE_LIB_PTHREAD`) is not used
 
 Module
 ------
