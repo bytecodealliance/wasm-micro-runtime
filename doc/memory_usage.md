@@ -122,7 +122,7 @@ In some configurations, runtime overflow can be detected using hardware traps.
 
 In some configurations, explicit overflow detection logic can be emitted
 into AOT modules themselves. (cf. `os_thread_get_stack_boundary`,
-`check_stack_boundary`, `wamrc --stack-bounds-checks`)
+`check_stack_boundary`, `wamrc --stack-bounds-checks=1/0`)
 
 Memory profiling
 ================
