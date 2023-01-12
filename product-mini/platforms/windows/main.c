@@ -27,15 +27,17 @@ print_help()
     printf("  -v=n                   Set log verbose level (0 to 5, default is 2) larger\n"
            "                         level with more log\n");
 #endif
-    printf("  --interp               Choose to run iwasm in interpreter mode\n");
+#if WASM_ENABLE_INTERP != 0
+    printf("  --interp               Run the wasm app with interpreter mode\n");
+#endif
 #if WASM_ENABLE_FAST_JIT != 0
-    printf("  --fast-jit             Choose to run iwasm in fast jit mode\n");
+    printf("  --fast-jit             Run the wasm app with fast jit mode\n");
 #endif
 #if WASM_ENABLE_JIT != 0
-    printf("  --llvm-jit             Choose to run iwasm in llvm jit mode\n");
+    printf("  --llvm-jit             Run the wasm app with llvm jit mode\n");
 #endif
 #if WASM_ENABLE_JIT != 0 && WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_LAZY_JIT != 0
-    printf("  --multi-tier-jit       Choose to run iwasm in multi-tier jit mode\n");
+    printf("  --multi-tier-jit       Run the wasm app with multi-tier jit mode\n");
 #endif
 #if WASM_ENABLE_JIT != 0
     printf("  --size-level=n         Set LLVM JIT size level, default is 3\n");
@@ -272,9 +274,11 @@ main(int argc, char *argv[])
             }
             func_name = argv[0];
         }
+#if WASM_ENABLE_INTERP != 0
         else if (!strcmp(argv[0], "--interp")) {
             running_mode = Mode_Interp;
         }
+#endif
 #if WASM_ENABLE_FAST_JIT != 0
         else if (!strcmp(argv[0], "--fast-jit")) {
             running_mode = Mode_Fast_JIT;

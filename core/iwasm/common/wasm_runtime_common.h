@@ -25,6 +25,9 @@
 extern "C" {
 #endif
 
+/* Internal use for setting default running mode */
+#define Mode_Default 0
+
 #if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS != 0
 
 #define PUT_I64_TO_ADDR(addr, value)       \
@@ -509,10 +512,12 @@ wasm_runtime_instantiate(WASMModuleCommon *module, uint32 stack_size,
                          uint32 heap_size, char *error_buf,
                          uint32 error_buf_size);
 
+/* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_set_running_mode(wasm_module_inst_t module_inst,
                               RunningMode running_mode);
 
+/* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN RunningMode
 wasm_runtime_get_running_mode(wasm_module_inst_t module_inst);
 

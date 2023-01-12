@@ -131,7 +131,8 @@ typedef struct mem_alloc_info_t {
     uint32_t highmark_size;
 } mem_alloc_info_t;
 
-typedef enum RunningMode{
+/* Running mode of runtime and module instance*/
+typedef enum RunningMode {
     Mode_Interp = 1,
     Mode_Fast_JIT,
     Mode_LLVM_JIT,
@@ -160,14 +161,12 @@ typedef struct RuntimeInitArgs {
     /* Fast JIT code cache size */
     uint32_t fast_jit_code_cache_size;
 
-    /* Running mode settings, only used when WASM_ENABLE_JIT != 0
-     * || WASM_ENABLE_FAST_JIT != 0*/
+    /* Default running mode of the runtime */
     RunningMode running_mode;
 
     /* LLVM JIT opt and size level */
     uint32_t llvm_jit_opt_level;
     uint32_t llvm_jit_size_level;
-
 } RuntimeInitArgs;
 
 #ifndef WASM_VALKIND_T_DEFINED
@@ -227,18 +226,19 @@ wasm_runtime_full_init(RuntimeInitArgs *init_args);
  *
  * @param running_mode the running mode to query
  *
- * @return return true if this running mode is supported, false otherwise
+ * @return true if this running mode is supported, false otherwise
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_is_running_mode_supported(RunningMode running_mode);
 
 /**
- * Setting the default running mode for the WAMR runtime. If a WASM module
- * instance not specify running mode, this default running mode will be used
+ * Set the default running mode for the runtime. It is inherited
+ * to set the running mode of a module instance when it is instantiated,
+ * and can be changed by calling wasm_runtime_set_running_mode
  *
- * @param running_mode the WASM module instance to destroy
+ * @param running_mode the running mode to set
  *
- * @return return true if success, false otherwise
+ * @return true if success, false otherwise
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_set_default_running_mode(RunningMode running_mode);
@@ -488,26 +488,26 @@ wasm_runtime_instantiate(const wasm_module_t module,
                          char *error_buf, uint32_t error_buf_size);
 
 /**
- * Setting the running mode of a WASM module instance, override the
- * default running mode of WAMR runtime
+ * Set the running mode of a WASM module instance, override the
+ * default running mode of the runtime
  *
  * @param module_inst the WASM module instance to set running mode
  * @param running_mode the running mode to set
  *
- * @return return true if success, false otherwise
+ * @return true if success, false otherwise
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_set_running_mode(wasm_module_inst_t module_inst,
                               RunningMode running_mode);
 
 /**
- * Getting the running mode of a WASM module instance, if no running mode
- * is explicit set for this module instance, running mode of runtime will
+ * Get the running mode of a WASM module instance, if no running mode
+ * is explicitly set the default running mode of runtime will
  * be used and returned
  *
  * @param module_inst the WASM module instance to query for running mode
  *
- * @return return the running mode this module instance currently use
+ * @return the running mode this module instance currently use
  */
 WASM_RUNTIME_API_EXTERN RunningMode
 wasm_runtime_get_running_mode(wasm_module_inst_t module_inst);

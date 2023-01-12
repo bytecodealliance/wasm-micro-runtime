@@ -4229,14 +4229,15 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
         RunningMode running_mode =
             wasm_runtime_get_running_mode((wasm_module_inst_t)module_inst);
 
-#if WASM_ENABLE_LAZY_JIT != 0
-
-        /* choose to run interpreter mode */
         if (running_mode == Mode_Interp) {
             wasm_interp_call_func_bytecode(module_inst, exec_env, function,
                                            frame);
         }
-        /* LLVM JIT is enabled, able to run LLVM JIT running mode */
+#if WASM_ENABLE_FAST_JIT != 0
+        else if (running_mode == Mode_Fast_JIT) {
+            fast_jit_call_func_bytecode(module_inst, exec_env, function, frame);
+        }
+#endif
 #if WASM_ENABLE_JIT != 0
         else if (running_mode == Mode_LLVM_JIT) {
             llvm_jit_call_func_bytecode(module_inst, exec_env, function, argc,
@@ -4246,17 +4247,10 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
             copy_argv_from_frame = false;
         }
 #endif
-        /* Fast JIT is enabled, able to run Fast JIT running mode */
-#if WASM_ENABLE_FAST_JIT != 0
-        else if (running_mode == Mode_Fast_JIT) {
-            fast_jit_call_func_bytecode(module_inst, exec_env, function, frame);
-        }
-#endif
-        /* Fast JIT to LLVM JIT tier-up is enabled, able to run multi-tier mode
-         */
-#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0
+#if WASM_ENABLE_LAZY_JIT != 0 && WASM_ENABLE_FAST_JIT != 0 \
+    && WASM_ENABLE_JIT != 0
         else if (running_mode == Mode_Multi_Tier_JIT) {
-            /* Fast JIT and LLVM JIT are both enabled, call llvm jit function
+            /* Tier-up from Fast JIT to LLVM JIT, call llvm jit function
                if it is compiled, else call fast jit function */
             uint32 func_idx = (uint32)(function - module_inst->e->functions);
             if (module_inst->module->func_ptrs_compiled
@@ -4273,32 +4267,10 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
             }
         }
 #endif
-
-#else /* else of WASM_ENABLE_LAZY_JIT != 0 */
-
-        /* choose to run interpreter mode */
-        if (running_mode == Mode_Interp) {
-            wasm_interp_call_func_bytecode(module_inst, exec_env, function,
-                                           frame);
+        else {
+            /* There should always be a supported running mode selected */
+            bh_assert(0);
         }
-        /* LLVM JIT is enabled */
-#if WASM_ENABLE_JIT != 0
-        else if (running_mode == Mode_LLVM_JIT) {
-            llvm_jit_call_func_bytecode(module_inst, exec_env, function, argc,
-                                        argv);
-            /* For llvm jit, the results have been stored in argv,
-               no need to copy them from stack frame again */
-            copy_argv_from_frame = false;
-        }
-#endif
-        /* Fast JIT and interpreter is enabled */
-#if WASM_ENABLE_FAST_JIT != 0
-        else if (running_mode == Mode_Fast_JIT) {
-            fast_jit_call_func_bytecode(module_inst, exec_env, function, frame);
-        }
-#endif
-
-#endif /* end of WASM_ENABLE_LAZY_JIT != 0 */
 
         (void)wasm_interp_call_func_bytecode;
 #if WASM_ENABLE_FAST_JIT != 0

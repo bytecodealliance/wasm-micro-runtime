@@ -132,7 +132,7 @@ static JitCompOptions jit_options = { 0 };
 static LLVMJITOptions llvm_jit_options = { 3, 3 };
 #endif
 
-static RunningMode runtime_running_mode = { 0 };
+static RunningMode runtime_running_mode = Mode_Default;
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
 /* The exec_env of thread local storage, set before calling function
@@ -587,7 +587,7 @@ wasm_runtime_full_init(RuntimeInitArgs *init_args)
 bool
 wasm_runtime_is_running_mode_supported(RunningMode running_mode)
 {
-    if (running_mode == 0) {
+    if (running_mode == Mode_Default) {
         return true;
     }
     else if (running_mode == Mode_Interp) {
@@ -1255,14 +1255,16 @@ wasm_runtime_set_running_mode(wasm_module_inst_t module_inst,
         WASMModuleInstance *module_inst_interp =
             (WASMModuleInstance *)module_inst;
 
-        if (running_mode == 0) {
+        if (running_mode == Mode_Default) {
 #if WASM_ENABLE_FAST_JIT == 0 && WASM_ENABLE_JIT == 0
             running_mode = Mode_Interp;
 #elif WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT == 0
             running_mode = Mode_Fast_JIT;
-#elif WASM_ENABLE_FAST_JIT == 0 && WASM_ENABLE_JIT != 0
+#elif (WASM_ENABLE_FAST_JIT == 0 || WASM_ENABLE_LAZY_JIT == 0) \
+    && WASM_ENABLE_JIT != 0
             running_mode = Mode_LLVM_JIT;
-#elif WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0
+#elif WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
+    && WASM_ENABLE_LAZY_JIT != 0
             running_mode = Mode_Multi_Tier_JIT;
 #endif
         }
