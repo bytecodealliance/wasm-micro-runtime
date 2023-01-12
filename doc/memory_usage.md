@@ -14,6 +14,7 @@ the following configuration is assumed in this document:
 * libc heap is used
 * app heap is not used
 * wasi-threads based pthread might be used
+* `WASM_ENABLE_LIB_PTHREAD` pthread implementation is not used
 
 Module
 ------
