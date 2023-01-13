@@ -1787,7 +1787,9 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
     AOTModuleInstanceExtra *module_inst_extra =
         (AOTModuleInstanceExtra *)module_inst->e;
     CApiFuncImport *c_api_func_import =
-        module_inst_extra->c_api_func_imports + func_idx;
+        module_inst_extra->c_api_func_imports
+            ? module_inst_extra->c_api_func_imports + func_idx
+            : NULL;
     uint32 *func_type_indexes = module_inst->func_type_indexes;
     uint32 func_type_idx = func_type_indexes[func_idx];
     AOTFuncType *func_type = aot_module->func_types[func_type_idx];
@@ -1803,7 +1805,8 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
 
     import_func = aot_module->import_funcs + func_idx;
     if (import_func->call_conv_wasm_c_api)
-        func_ptr = c_api_func_import->func_ptr_linked;
+        func_ptr =
+            c_api_func_import ? c_api_func_import->func_ptr_linked : NULL;
 
     if (!func_ptr) {
         snprintf(buf, sizeof(buf),
