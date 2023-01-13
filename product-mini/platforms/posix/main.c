@@ -45,15 +45,15 @@ print_help()
 #if WASM_ENABLE_JIT != 0 && WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_LAZY_JIT != 0
     printf("  --multi-tier-jit         Run the wasm app with multi-tier jit mode\n");
 #endif
-#if WASM_ENABLE_JIT != 0
-    printf("  --size-level=n           Set LLVM JIT size level, default is 3\n");
-    printf("  --opt-level=n            Set LLVM JIT optimization level, default is 3\n");
-#endif
     printf("  --stack-size=n           Set maximum stack size in bytes, default is 64 KB\n");
     printf("  --heap-size=n            Set maximum heap size in bytes, default is 16 KB\n");
 #if WASM_ENABLE_FAST_JIT != 0
     printf("  --jit-codecache-size=n   Set fast jit maximum code cache size in bytes,\n");
     printf("                           default is %u KB\n", FAST_JIT_DEFAULT_CODE_CACHE_SIZE / 1024);
+#endif
+#if WASM_ENABLE_JIT != 0
+    printf("  --llvm-jit-size-level=n  Set LLVM JIT size level, default is 3\n");
+    printf("  --llvm-jit-opt-level=n   Set LLVM JIT optimization level, default is 3\n");
 #endif
     printf("  --repl                   Start a very simple REPL (read-eval-print-loop) mode\n"
            "                           that runs commands in the form of \"FUNC ARG...\"\n");
@@ -364,6 +364,10 @@ main(int argc, char *argv[])
 #if WASM_ENABLE_FAST_JIT != 0
     uint32 jit_code_cache_size = FAST_JIT_DEFAULT_CODE_CACHE_SIZE;
 #endif
+#if WASM_ENABLE_JIT != 0
+    uint32 llvm_jit_size_level = 3;
+    uint32 llvm_jit_opt_level = 3;
+#endif
     wasm_module_t wasm_module = NULL;
     wasm_module_inst_t wasm_module_inst = NULL;
     RunningMode running_mode = 0;
@@ -425,38 +429,6 @@ main(int argc, char *argv[])
             running_mode = Mode_Multi_Tier_JIT;
         }
 #endif
-#if WASM_ENABLE_JIT != 0
-        else if (!strncmp(argv[0], "--size-level=", 13)) {
-            if (argv[0][13] == '\0')
-                return print_help();
-            init_args.llvm_jit_size_level = atoi(argv[0] + 13);
-            if (init_args.llvm_jit_size_level < 1) {
-                printf("LLVM JIT size level shouldn't be smaller than 1, "
-                       "setting it to 1\n");
-                init_args.llvm_jit_size_level = 1;
-            }
-            else if (init_args.llvm_jit_size_level > 3) {
-                printf("LLVM JIT size level shouldn't be greater than 3, "
-                       "setting it to 3\n");
-                init_args.llvm_jit_size_level = 3;
-            }
-        }
-        else if (!strncmp(argv[0], "--opt-level=", 12)) {
-            if (argv[0][12] == '\0')
-                return print_help();
-            init_args.llvm_jit_opt_level = atoi(argv[0] + 12);
-            if (init_args.llvm_jit_opt_level < 1) {
-                printf("LLVM JIT opt level shouldn't be smaller than 1, "
-                       "setting it to 1\n");
-                init_args.llvm_jit_opt_level = 1;
-            }
-            else if (init_args.llvm_jit_opt_level > 3) {
-                printf("LLVM JIT opt level shouldn't be greater than 3, "
-                       "setting it to 3\n");
-                init_args.llvm_jit_opt_level = 3;
-            }
-        }
-#endif
 #if WASM_ENABLE_LOG != 0
         else if (!strncmp(argv[0], "-v=", 3)) {
             log_verbose_level = atoi(argv[0] + 3);
@@ -482,6 +454,38 @@ main(int argc, char *argv[])
             if (argv[0][21] == '\0')
                 return print_help();
             jit_code_cache_size = atoi(argv[0] + 21);
+        }
+#endif
+#if WASM_ENABLE_JIT != 0
+        else if (!strncmp(argv[0], "--llvm-jit-size-level=", 22)) {
+            if (argv[0][22] == '\0')
+                return print_help();
+            llvm_jit_size_level = atoi(argv[0] + 22);
+            if (llvm_jit_size_level < 1) {
+                printf("LLVM JIT size level shouldn't be smaller than 1, "
+                       "setting it to 1\n");
+                llvm_jit_size_level = 1;
+            }
+            else if (llvm_jit_size_level > 3) {
+                printf("LLVM JIT size level shouldn't be greater than 3, "
+                       "setting it to 3\n");
+                llvm_jit_size_level = 3;
+            }
+        }
+        else if (!strncmp(argv[0], "--llvm-jit-opt-level=", 21)) {
+            if (argv[0][21] == '\0')
+                return print_help();
+            llvm_jit_opt_level = atoi(argv[0] + 21);
+            if (llvm_jit_opt_level < 1) {
+                printf("LLVM JIT opt level shouldn't be smaller than 1, "
+                       "setting it to 1\n");
+                llvm_jit_opt_level = 1;
+            }
+            else if (llvm_jit_opt_level > 3) {
+                printf("LLVM JIT opt level shouldn't be greater than 3, "
+                       "setting it to 3\n");
+                llvm_jit_opt_level = 3;
+            }
         }
 #endif
 #if WASM_ENABLE_LIBC_WASI != 0
@@ -623,6 +627,11 @@ main(int argc, char *argv[])
 
 #if WASM_ENABLE_FAST_JIT != 0
     init_args.fast_jit_code_cache_size = jit_code_cache_size;
+#endif
+
+#if WASM_ENABLE_JIT != 0
+    init_args.llvm_jit_size_level = llvm_jit_size_level;
+    init_args.llvm_jit_opt_level = llvm_jit_opt_level;
 #endif
 
 #if WASM_ENABLE_DEBUG_INTERP != 0

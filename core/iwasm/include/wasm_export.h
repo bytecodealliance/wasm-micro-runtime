@@ -222,7 +222,7 @@ WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_full_init(RuntimeInitArgs *init_args);
 
 /**
- * Query whether a certain running mode is supported for this runtime
+ * Query whether a certain running mode is supported for the runtime
  *
  * @param running_mode the running mode to query
  *

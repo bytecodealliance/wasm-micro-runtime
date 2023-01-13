@@ -606,7 +606,8 @@ wasm_runtime_is_running_mode_supported(RunningMode running_mode)
 #endif
     }
     else if (running_mode == Mode_Multi_Tier_JIT) {
-#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0
+#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
+    && WASM_ENABLE_LAZY_JIT != 0
         return true;
 #endif
     }
@@ -1260,12 +1261,14 @@ wasm_runtime_set_running_mode(wasm_module_inst_t module_inst,
             running_mode = Mode_Interp;
 #elif WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT == 0
             running_mode = Mode_Fast_JIT;
-#elif (WASM_ENABLE_FAST_JIT == 0 || WASM_ENABLE_LAZY_JIT == 0) \
-    && WASM_ENABLE_JIT != 0
+#elif WASM_ENABLE_FAST_JIT == 0 && WASM_ENABLE_JIT != 0
             running_mode = Mode_LLVM_JIT;
-#elif WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
-    && WASM_ENABLE_LAZY_JIT != 0
+#else /* WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 */
+#if WASM_ENABLE_LAZY_JIT == 0
+            running_mode = Mode_LLVM_JIT;
+#else
             running_mode = Mode_Multi_Tier_JIT;
+#endif
 #endif
         }
         module_inst_interp->e->running_mode = running_mode;
@@ -1284,12 +1287,6 @@ wasm_runtime_set_running_mode(wasm_module_inst_t module_inst,
 RunningMode
 wasm_runtime_get_running_mode(wasm_module_inst_t module_inst)
 {
-
-#if WASM_ENABLE_AOT != 0
-    if (module_inst->module_type == Wasm_Module_AoT)
-        return 0;
-#endif
-
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode) {
         WASMModuleInstance *module_inst_interp =
@@ -1298,7 +1295,7 @@ wasm_runtime_get_running_mode(wasm_module_inst_t module_inst)
     }
 #endif
 
-    return 0;
+    return Mode_Default;
 }
 
 void
