@@ -9,6 +9,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { getWAMRExtensionVersion } from './lldbUtilities';
 import { downloadFile, unzipFile } from './directoryUtilities';
+import { SelectionOfPrompt, Status } from '../constants';
 
 const DOCKER_IMAGES_TEM_FOLDER_NAME = 'docker-resource';
 
@@ -26,16 +27,14 @@ export async function promptSetupDockerImages(
     context: vscode.ExtensionContext
 ): Promise<string> {
     const extensionPath = context.extensionPath;
-    const setupPrompt = 'setup';
-    const skipPrompt = 'skip';
     const response = await vscode.window.showWarningMessage(
         'Necessary docker images are not found. Setup now?',
-        setupPrompt,
-        skipPrompt
+        SelectionOfPrompt.setUp,
+        SelectionOfPrompt.skip
     );
 
-    if (response === skipPrompt) {
-        return Promise.resolve(skipPrompt);
+    if (response === SelectionOfPrompt.skip) {
+        return response;
     }
 
     const downloadUrlArray = getDockerImagesDownloadUrl(context);
@@ -83,16 +82,16 @@ export async function promptSetupDockerImages(
         `Docker images are ready, please run '$docker images' to check.`
     );
 
-    return Promise.resolve('done');
+    return Status.done;
 }
 
 export async function checkIfDockerStarted(): Promise<boolean> {
     try {
         await execShell('docker images');
-        return Promise.resolve(true);
+        return true;
     } catch (e) {
         vscode.window.showWarningMessage((e as Error).message);
-        return Promise.resolve(false);
+        return false;
     }
 }
 
@@ -105,9 +104,9 @@ export async function checkIfDockerImagesExist(
         await execShell(
             `docker image inspect wasm-debug-server:${imageTag} wasm-toolchain:${imageTag}`
         );
-        return Promise.resolve(true);
+        return true;
     } catch (e) {
-        return Promise.resolve(false);
+        return false;
     }
 }
 

@@ -29,6 +29,7 @@ import {
     checkIfDockerImagesExist,
     promptSetupDockerImages,
 } from './utilities/dockerUtilities';
+import { SelectionOfPrompt } from './constants';
 
 let wasmTaskProvider: WasmTaskProvider;
 let wasmDebugConfigProvider: WasmDebugConfigurationProvider;
@@ -329,7 +330,10 @@ export async function activate(context: vscode.ExtensionContext) {
                      *        we should return rather than continue
                      *        the execution
                      */
-                    if ((await promptSetupDockerImages(context)) === 'skip') {
+                    if (
+                        (await promptSetupDockerImages(context)) ===
+                        SelectionOfPrompt.skip
+                    ) {
                         return;
                     }
                 }
@@ -411,7 +415,10 @@ export async function activate(context: vscode.ExtensionContext) {
                      *        we should return rather than continue
                      *        the execution
                      */
-                    if ((await promptInstallLLDB(context)) === 'skip') {
+                    if (
+                        (await promptInstallLLDB(context)) ===
+                        SelectionOfPrompt.skip
+                    ) {
                         return;
                     }
                 }
@@ -423,7 +430,10 @@ export async function activate(context: vscode.ExtensionContext) {
                     /**NOTE - save as above lldb, should return if
                      *        users select to skip set up
                      */
-                    if ((await promptSetupDockerImages(context)) === 'skip') {
+                    if (
+                        (await promptSetupDockerImages(context)) ===
+                        SelectionOfPrompt.skip
+                    ) {
                         return;
                     }
                 }

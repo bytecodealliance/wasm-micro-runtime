@@ -12,6 +12,7 @@ import {
     downloadFile,
     unzipFile,
 } from './directoryUtilities';
+import { SelectionOfPrompt, Status } from '../constants';
 
 const LLDB_RESOURCE_DIR = 'resource/debug';
 const LLDB_OS_DOWNLOAD_URL_SUFFIX_MAP: Partial<
@@ -69,16 +70,15 @@ export async function promptInstallLLDB(
     context: vscode.ExtensionContext
 ): Promise<string> {
     const extensionPath = context.extensionPath;
-    const setupPrompt = 'setup';
-    const skipPrompt = 'skip';
+
     const response = await vscode.window.showWarningMessage(
         'No LLDB instance found. Setup now?',
-        setupPrompt,
-        skipPrompt
+        SelectionOfPrompt.setUp,
+        SelectionOfPrompt.skip
     );
 
-    if (response === skipPrompt) {
-        return Promise.resolve(skipPrompt);
+    if (response === SelectionOfPrompt.skip) {
+        return response;
     }
 
     const downloadUrl = getLLDBDownloadUrl(context);
@@ -115,5 +115,5 @@ export async function promptInstallLLDB(
 
     // Remove the bundle.zip
     fs.unlinkSync(lldbZipPath);
-    return Promise.resolve('done');
+    return Status.done;
 }
