@@ -1786,6 +1786,10 @@ wasm_runtime_call_wasm(WASMExecEnv *exec_env,
         if (new_argv != argv) {
             wasm_runtime_free(new_argv);
         }
+#if WASM_ENABLE_THREAD_MGR != 0
+        if (wasm_runtime_get_exception(exec_env->module_inst))
+            wasm_cluster_spread_exception(exec_env);
+#endif
         return false;
     }
 
@@ -1794,6 +1798,9 @@ wasm_runtime_call_wasm(WASMExecEnv *exec_env,
                                              result_argc, argv)) {
         wasm_runtime_set_exception(exec_env->module_inst,
                                    "the result conversion is failed");
+#if WASM_ENABLE_THREAD_MGR != 0
+        wasm_cluster_spread_exception(exec_env);
+#endif
         return false;
     }
 #endif
