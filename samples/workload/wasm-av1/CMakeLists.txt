@@ -28,5 +28,8 @@ ExternalProject_Add(av1
                       -DCMAKE_SYSROOT=${WASI_SDK_HOME}/share/wasi-sysroot
                       ${CMAKE_CURRENT_SOURCE_DIR}/av1
   BUILD_COMMAND     make testavx_opt
-  INSTALL_COMMAND   ${CMAKE_COMMAND} -E copy testavx.opt.wasm ${CMAKE_CURRENT_BINARY_DIR}/testavx.wasm
+  INSTALL_COMMAND   ${CMAKE_COMMAND} -E copy_if_different
+                      testavx.opt.wasm
+                      ${CMAKE_CURRENT_SOURCE_DIR}/av1/third_party/samples/elephants_dream_480p24.ivf
+                      ${CMAKE_CURRENT_BINARY_DIR}
 )

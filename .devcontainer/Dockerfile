@@ -21,6 +21,15 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 #
+# binaryen
+ARG BINARYEN_VER=110
+WORKDIR /opt
+RUN wget -c --progress=dot:giga https://github.com/WebAssembly/binaryen/releases/download/version_111/binaryen-version_${BINARYEN_VER}-x86_64-linux.tar.gz \
+  && tar xf binaryen-version_${BINARYEN_VER}-x86_64-linux.tar.gz \
+  && ln -sf /opt/binaryen-version_111 /opt/binaryen \
+  && rm binaryen-version_${BINARYEN_VER}-x86_64-linux.tar.gz
+
+#
 # CMAKE (https://apt.kitware.com/)
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 # hadolint ignore=DL3008

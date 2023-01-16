@@ -42,34 +42,34 @@ logger = logging.getLogger("build_wasi_sdk")
 
 external_repos = {
     "config": {
-        "sha256": "6e29664a65277c10f73682893ad12a52e8ce8051a82ae839581d20c18da0d2cc",
+        "sha256": "0c3f2fe81004d8abe304ed3d793da71ab8975d773ec8dd48e70939fc38b403e7",
         "store_dir": "core/deps/wasi-sdk/src/config",
-        "strip_prefix": "config-c179db1b6f2ae484bfca1e9f8bae273e3319fa7d",
-        "url": "https://git.savannah.gnu.org/cgit/config.git/snapshot/config-c179db1b6f2ae484bfca1e9f8bae273e3319fa7d.tar.gz",
+        "strip_prefix": "config-f992bcc08219edb283d2ab31dd3871a4a0e8220e",
+        "url": "https://git.savannah.gnu.org/cgit/config.git/snapshot/config-f992bcc08219edb283d2ab31dd3871a4a0e8220e.tar.gz",
     },
     "emscripten": {
-        "sha256": "0f8b25cac5b2a55007a45c5bfa2b918add1df90bf624bb47510d8bc887c39901",
+        "sha256": "c5524755b785d8f4b83eb3214fdd3ac4b2e1b1a4644df4c63f06e5968f48f90e",
         "store_dir": "core/deps/emscripten",
-        "strip_prefix": "emscripten-3.1.28",
-        "url": "https://github.com/emscripten-core/emscripten/archive/refs/tags/3.1.28.tar.gz",
+        "strip_prefix": "emscripten-3.0.0",
+        "url": "https://github.com/emscripten-core/emscripten/archive/refs/tags/3.0.0.tar.gz",
     },
     "llvm-project": {
-        "sha256": "97db80c61c10ad7ffaffa2c14b413fb6e6537a523b574fd953c2ccd9be68d8bc",
+        "sha256": "b7f15ee379144b0c26a64ff9a1f27d0ea341a0db0c91b71c66bbfa8b310788ac",
         "store_dir": "core/deps/wasi-sdk/src/llvm-project",
-        "strip_prefix": "llvm-project-088f33605d8a61ff519c580a71b1dd57d16a03f8",
-        "url": "https://github.com/llvm/llvm-project/archive/088f33605d8a61ff519c580a71b1dd57d16a03f8.tar.gz",
+        "strip_prefix": "llvm-project-8dfdcc7b7bf66834a761bd8de445840ef68e4d1a",
+        "url": "https://github.com/llvm/llvm-project/archive/8dfdcc7b7bf66834a761bd8de445840ef68e4d1a.tar.gz",
     },
     "wasi-sdk": {
-        "sha256": "0bccaaa16dfdf006ea4f704ac749db65eba701b382e38a2b152f1d6f2b54bc75",
+        "sha256": "57af7c8a2b7fd73c38ea0960fb5c1e8aacaa3a8a28f3b00d62dd4c1007fa5657",
         "store_dir": "core/deps/wasi-sdk",
-        "strip_prefix": "wasi-sdk-b738c9d5530402ca145f2be495cda65b1e2a5389",
-        "url": "https://github.com/WebAssembly/wasi-sdk/archive/b738c9d5530402ca145f2be495cda65b1e2a5389.tar.gz",
+        "strip_prefix": "wasi-sdk-4c0688868a7f8b2d7be76ab5821323926460f97a",
+        "url": "https://github.com/WebAssembly/wasi-sdk/archive/4c0688868a7f8b2d7be76ab5821323926460f97a.tar.gz",
     },
     "wasi-libc": {
-        "sha256": "0f4c49e34dfd0d9ec4822f3422aff019c6cfd18ac652b86092c4459a10eef5bc",
+        "sha256": "c2423aeb25ff3b7684dceb56ef48a8ed7812835fa8e86d8877e9a0d560b22406",
         "store_dir": "core/deps/wasi-sdk/src/wasi-libc",
-        "strip_prefix": "wasi-libc-a00bf321eeeca836ee2a0d2d25aeb8524107b8cc",
-        "url": "https://github.com/WebAssembly/wasi-libc/archive/a00bf321eeeca836ee2a0d2d25aeb8524107b8cc.tar.gz",
+        "strip_prefix": "wasi-libc-a1c7c2c7a4b2813c6f67bd2ef6e0f430d31cebad",
+        "url": "https://github.com/WebAssembly/wasi-libc/archive/a1c7c2c7a4b2813c6f67bd2ef6e0f430d31cebad.tar.gz",
     },
 }
 
@@ -112,24 +112,24 @@ def unpack(tar_file, strip_prefix, dest_dir):
         with tarfile.open(tar_file) as tar:
             logger.debug(f"extract to {tmp}")
             def is_within_directory(directory, target):
-                
+
                 abs_directory = os.path.abspath(directory)
                 abs_target = os.path.abspath(target)
-            
+
                 prefix = os.path.commonprefix([abs_directory, abs_target])
-                
+
                 return prefix == abs_directory
-            
+
             def safe_extract(tar, path=".", members=None, *, numeric_owner=False):
-            
+
                 for member in tar.getmembers():
                     member_path = os.path.join(path, member.name)
                     if not is_within_directory(path, member_path):
                         raise Exception("Attempted Path Traversal in Tar File")
-            
-                tar.extractall(path, members, numeric_owner=numeric_owner) 
-                
-            
+
+                tar.extractall(path, members, numeric_owner=numeric_owner)
+
+
             safe_extract(tar, tmp)
 
         strip_prefix_dir = (
