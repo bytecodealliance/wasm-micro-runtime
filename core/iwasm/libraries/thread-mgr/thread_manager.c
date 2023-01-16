@@ -772,6 +772,17 @@ wasm_cluster_exit_thread(WASMExecEnv *exec_env, void *retval)
     os_thread_exit(retval);
 }
 
+static void
+set_thread_cancel_flags(WASMExecEnv *exec_env)
+{
+    /* Set the termination flag */
+#if WASM_ENABLE_DEBUG_INTERP != 0
+    wasm_cluster_thread_send_signal(exec_env, WAMR_SIG_TERM);
+#else
+    exec_env->suspend_flags.flags |= 0x01;
+#endif
+}
+
 int32
 wasm_cluster_cancel_thread(WASMExecEnv *exec_env)
 {
@@ -783,12 +794,8 @@ wasm_cluster_cancel_thread(WASMExecEnv *exec_env)
     }
     os_mutex_unlock(&cluster_list_lock);
 
-    /* Set the termination flag */
-#if WASM_ENABLE_DEBUG_INTERP != 0
-    wasm_cluster_thread_send_signal(exec_env, WAMR_SIG_TERM);
-#else
-    exec_env->suspend_flags.flags |= 0x01;
-#endif
+    set_thread_cancel_flags(exec_env);
+
     return 0;
 }
 
@@ -927,6 +934,8 @@ set_exception_visitor(void *node, void *user_data)
     if (curr_exec_env != exec_env) {
         curr_module_inst = get_module_inst(curr_exec_env);
         wasm_runtime_set_exception(curr_module_inst, exception);
+        /* Terminate the thread so it can exit from dead loops */
+        set_thread_cancel_flags(curr_exec_env);
     }
 }
 
