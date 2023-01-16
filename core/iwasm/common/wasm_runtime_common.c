@@ -1747,12 +1747,13 @@ bool
 clear_wasi_proc_exit_exception(WASMModuleInstanceCommon *module_inst_comm)
 {
 #if WASM_ENABLE_LIBC_WASI != 0
+    const char *exception;
     WASMModuleInstance *module_inst = (WASMModuleInstance *)module_inst_comm;
 
     bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
               || module_inst_comm->module_type == Wasm_Module_AoT);
 
-    const char *exception = wasm_get_exception(module_inst);
+    exception = wasm_get_exception(module_inst);
     if (exception && !strcmp(exception, "Exception: wasi proc exit")) {
         /* The "wasi proc exit" exception is thrown by native lib to
            let wasm app exit, which is a normal behavior, we clear
