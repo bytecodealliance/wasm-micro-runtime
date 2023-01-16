@@ -926,14 +926,22 @@ set_exception_visitor(void *node, void *user_data)
     WASMExecEnv *curr_exec_env = (WASMExecEnv *)node;
     WASMExecEnv *exec_env = (WASMExecEnv *)user_data;
     WASMModuleInstanceCommon *module_inst = get_module_inst(exec_env);
-    WASMModuleInstanceCommon *curr_module_inst = get_module_inst(curr_exec_env);
+    WASMModuleInstance *wasm_inst = (WASMModuleInstance *)module_inst;
     const char *exception = wasm_runtime_get_exception(module_inst);
     /* skip "Exception: " */
     exception += 11;
 
     if (curr_exec_env != exec_env) {
-        curr_module_inst = get_module_inst(curr_exec_env);
-        wasm_runtime_set_exception(curr_module_inst, exception);
+        WASMModuleInstance *curr_wasm_inst;
+        WASMModuleInstanceCommon *curr_module_inst =
+            get_module_inst(curr_exec_env);
+        bh_assert(curr_module_inst);
+
+        curr_wasm_inst = (WASMModuleInstance *)curr_module_inst;
+
+        bh_memcpy_s(curr_wasm_inst->cur_exception,
+                    sizeof(curr_wasm_inst->cur_exception),
+                    wasm_inst->cur_exception, sizeof(wasm_inst->cur_exception));
         /* Terminate the thread so it can exit from dead loops */
         set_thread_cancel_flags(curr_exec_env);
     }

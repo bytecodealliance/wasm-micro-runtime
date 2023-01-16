@@ -902,7 +902,6 @@ create_exports(AOTModuleInstance *module_inst, AOTModule *module,
 static bool
 clear_wasi_proc_exit_exception(AOTModuleInstance *module_inst)
 {
-#if (WASM_ENABLE_LIBC_WASI != 0) && (WASM_ENABLE_THREAD_MGR == 0)
     const char *exception = aot_get_exception(module_inst);
     if (exception && !strcmp(exception, "Exception: wasi proc exit")) {
         /* The "wasi proc exit" exception is thrown by native lib to
@@ -912,10 +911,6 @@ clear_wasi_proc_exit_exception(AOTModuleInstance *module_inst)
         return true;
     }
     return false;
-#else
-    (void)module_inst;
-    return false;
-#endif
 }
 
 static bool
