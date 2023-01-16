@@ -11,7 +11,8 @@ typedef struct ThreadArgs {
     int length;
 } ThreadArgs;
 
-void *thread(void *args)
+void *
+thread(void *args)
 {
     while (1) {
         /* When other thread (including main thread) throw exception,
@@ -19,7 +20,8 @@ void *thread(void *args)
     }
 }
 
-int main()
+int
+main()
 {
     pthread_t tids;
 
