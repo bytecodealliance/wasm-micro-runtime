@@ -2036,6 +2036,7 @@ wasm_lookup_table(const WASMModuleInstance *module_inst, const char *name)
 static bool
 clear_wasi_proc_exit_exception(WASMModuleInstance *module_inst)
 {
+#if WASM_ENABLE_LIBC_WASI != 0
     const char *exception = wasm_get_exception(module_inst);
     if (exception && !strcmp(exception, "Exception: wasi proc exit")) {
         /* The "wasi proc exit" exception is thrown by native lib to
@@ -2044,7 +2045,9 @@ clear_wasi_proc_exit_exception(WASMModuleInstance *module_inst)
         wasm_set_exception(module_inst, NULL);
         return true;
     }
+#else
     return false;
+#endif
 }
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
