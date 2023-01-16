@@ -15,7 +15,7 @@ void *
 thread(void *args)
 {
     while (1) {
-        /* When other thread (including main thread) throw exception,
+        /* When other threads (including main thread) throw exception,
             this thread can successfully exit the dead loop */
     }
 }
