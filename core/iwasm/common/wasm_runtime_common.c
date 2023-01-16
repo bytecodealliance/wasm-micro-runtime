@@ -2181,13 +2181,16 @@ wasm_set_exception(WASMModuleInstance *module_inst, const char *exception)
     if (exception) {
         snprintf(module_inst->cur_exception, sizeof(module_inst->cur_exception),
                  "Exception: %s", exception);
-#if WASM_ENABLE_THREAD_MGR != 0
-        wasm_cluster_spread_exception(wasm_clusters_search_exec_env(
-            (WASMModuleInstanceCommon *)module_inst));
-#endif
     }
-    else
+    else {
         module_inst->cur_exception[0] = '\0';
+    }
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    wasm_cluster_spread_exception(
+        wasm_clusters_search_exec_env((WASMModuleInstanceCommon *)module_inst),
+        exception ? false : true);
+#endif
 }
 
 /* clang-format off */

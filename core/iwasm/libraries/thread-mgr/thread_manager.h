@@ -34,6 +34,7 @@ struct WASMCluster {
     uint32 stack_size;
     /* Record which segments are occupied */
     bool *stack_segment_occupied;
+    bool has_exception;
 #if WASM_ENABLE_DEBUG_INTERP != 0
     WASMDebugInstance *debug_inst;
 #endif
@@ -114,16 +115,13 @@ wasm_cluster_wait_for_all_except_self(WASMCluster *cluster,
                                       WASMExecEnv *exec_env);
 
 bool
-wasm_cluster_add_exec_env(WASMCluster *cluster, WASMExecEnv *exec_env);
-
-bool
 wasm_cluster_del_exec_env(WASMCluster *cluster, WASMExecEnv *exec_env);
 
 WASMExecEnv *
 wasm_clusters_search_exec_env(WASMModuleInstanceCommon *module_inst);
 
 void
-wasm_cluster_spread_exception(WASMExecEnv *exec_env);
+wasm_cluster_spread_exception(WASMExecEnv *exec_env, bool clear);
 
 WASMExecEnv *
 wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env);
