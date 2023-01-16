@@ -36,7 +36,8 @@ struct WASMCluster {
     bool *stack_segment_occupied;
     /* When has_exception == true, this cluster should refuse any spawn thread
      * requests, this flag can be cleared by calling
-     * wasm_runtime_clear_exception on instances any thread of this cluster */
+     * wasm_runtime_clear_exception on instances of any threads of this cluster
+     */
     bool has_exception;
     /* When processing is true, this cluster should refuse any spawn thread
      * requests. This is a short-lived state, must be cleared immediately once
