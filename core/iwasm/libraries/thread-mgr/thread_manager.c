@@ -932,12 +932,8 @@ set_exception_visitor(void *node, void *user_data)
     exception += 11;
 
     if (curr_exec_env != exec_env) {
-        WASMModuleInstance *curr_wasm_inst;
-        WASMModuleInstanceCommon *curr_module_inst =
-            get_module_inst(curr_exec_env);
-        bh_assert(curr_module_inst);
-
-        curr_wasm_inst = (WASMModuleInstance *)curr_module_inst;
+        WASMModuleInstance *curr_wasm_inst =
+            (WASMModuleInstance *)get_module_inst(curr_exec_env);
 
         bh_memcpy_s(curr_wasm_inst->cur_exception,
                     sizeof(curr_wasm_inst->cur_exception),

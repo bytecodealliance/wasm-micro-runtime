@@ -30,7 +30,7 @@ main()
     }
 
     /* Trigger an exception */
-    *(int *)(-1) = 100;
+    __builtin_trap();
 
     return 0;
 }
