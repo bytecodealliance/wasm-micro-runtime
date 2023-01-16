@@ -815,15 +815,19 @@ terminate_thread_visitor(void *node, void *user_data)
 void
 wasm_cluster_terminate_all(WASMCluster *cluster)
 {
+    os_mutex_lock(&cluster->lock);
     traverse_list(&cluster->exec_env_list, terminate_thread_visitor, NULL);
+    os_mutex_unlock(&cluster->lock);
 }
 
 void
 wasm_cluster_terminate_all_except_self(WASMCluster *cluster,
                                        WASMExecEnv *exec_env)
 {
+    os_mutex_lock(&cluster->lock);
     traverse_list(&cluster->exec_env_list, terminate_thread_visitor,
                   (void *)exec_env);
+    os_mutex_unlock(&cluster->lock);
 }
 
 static void
@@ -841,15 +845,19 @@ wait_for_thread_visitor(void *node, void *user_data)
 void
 wams_cluster_wait_for_all(WASMCluster *cluster)
 {
+    os_mutex_lock(&cluster->lock);
     traverse_list(&cluster->exec_env_list, wait_for_thread_visitor, NULL);
+    os_mutex_unlock(&cluster->lock);
 }
 
 void
 wasm_cluster_wait_for_all_except_self(WASMCluster *cluster,
                                       WASMExecEnv *exec_env)
 {
+    os_mutex_lock(&cluster->lock);
     traverse_list(&cluster->exec_env_list, wait_for_thread_visitor,
                   (void *)exec_env);
+    os_mutex_unlock(&cluster->lock);
 }
 
 bool
@@ -888,15 +896,19 @@ suspend_thread_visitor(void *node, void *user_data)
 void
 wasm_cluster_suspend_all(WASMCluster *cluster)
 {
+    os_mutex_lock(&cluster->lock);
     traverse_list(&cluster->exec_env_list, suspend_thread_visitor, NULL);
+    os_mutex_unlock(&cluster->lock);
 }
 
 void
 wasm_cluster_suspend_all_except_self(WASMCluster *cluster,
                                      WASMExecEnv *exec_env)
 {
+    os_mutex_lock(&cluster->lock);
     traverse_list(&cluster->exec_env_list, suspend_thread_visitor,
                   (void *)exec_env);
+    os_mutex_unlock(&cluster->lock);
 }
 
 void
@@ -917,7 +929,9 @@ resume_thread_visitor(void *node, void *user_data)
 void
 wasm_cluster_resume_all(WASMCluster *cluster)
 {
+    os_mutex_lock(&cluster->lock);
     traverse_list(&cluster->exec_env_list, resume_thread_visitor, NULL);
+    os_mutex_unlock(&cluster->lock);
 }
 
 static void
@@ -949,7 +963,9 @@ wasm_cluster_spread_exception(WASMExecEnv *exec_env)
     WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
     bh_assert(cluster);
 
+    os_mutex_lock(&clsuter->lock);
     traverse_list(&cluster->exec_env_list, set_exception_visitor, exec_env);
+    os_mutex_unlock(&clsuter->lock);
 }
 
 static void
@@ -977,7 +993,9 @@ wasm_cluster_spread_custom_data(WASMModuleInstanceCommon *module_inst,
         cluster = wasm_exec_env_get_cluster(exec_env);
         bh_assert(cluster);
 
+        os_mutex_lock(&cluster->lock);
         traverse_list(&cluster->exec_env_list, set_custom_data_visitor,
                       custom_data);
+        os_mutex_unlock(&cluster->lock);
     }
 }
