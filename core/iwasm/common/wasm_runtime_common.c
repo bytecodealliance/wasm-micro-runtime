@@ -1757,7 +1757,7 @@ clear_wasi_proc_exit_exception(WASMModuleInstanceCommon *module_inst_comm)
         /* The "wasi proc exit" exception is thrown by native lib to
            let wasm app exit, which is a normal behavior, we clear
            the exception here. */
-        aot_set_exception(module_inst, NULL);
+        wasm_set_exception(module_inst, NULL);
         return true;
     }
     return false;
