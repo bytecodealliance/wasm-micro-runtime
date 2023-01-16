@@ -4021,6 +4021,7 @@ fast_jit_call_func_bytecode(WASMModuleInstance *module_inst,
 static bool
 clear_wasi_proc_exit_exception(WASMModuleInstance *module_inst)
 {
+#if WASM_ENABLE_LIBC_WASI != 0
     const char *exception = wasm_get_exception(module_inst);
     if (exception && !strcmp(exception, "Exception: wasi proc exit")) {
         /* The "wasi proc exit" exception is thrown by native lib to
@@ -4030,6 +4031,9 @@ clear_wasi_proc_exit_exception(WASMModuleInstance *module_inst)
         return true;
     }
     return false;
+#else
+    return false;
+#endif
 }
 
 static bool

@@ -911,6 +911,7 @@ clear_wasi_proc_exit_exception(AOTModuleInstance *module_inst)
         aot_set_exception(module_inst, NULL);
         return true;
     }
+    return false;
 #else
     return false;
 #endif

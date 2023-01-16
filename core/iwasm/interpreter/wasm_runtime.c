@@ -2045,6 +2045,7 @@ clear_wasi_proc_exit_exception(WASMModuleInstance *module_inst)
         wasm_set_exception(module_inst, NULL);
         return true;
     }
+    return false;
 #else
     return false;
 #endif
