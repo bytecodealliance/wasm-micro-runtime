@@ -15,6 +15,20 @@
 #include "aot_runtime.h"
 #endif
 
+typedef struct __wasi_thread_spawn_result_t {
+    uint8 is_error;
+    union {
+        uint8 error;
+        uint32 tid;
+    } u;
+} __wasi_thread_spawn_result_t;
+
+bh_static_assert(sizeof(__wasi_thread_spawn_result_t) == 8);
+bh_static_assert(offsetof(__wasi_thread_spawn_result_t, u.error) == 4);
+bh_static_assert(offsetof(__wasi_thread_spawn_result_t, u.tid) == 4);
+
+#define WASI_THREADS_EAGAIN 0
+
 static const char *THREAD_START_FUNCTION = "wasi_thread_start";
 static korp_mutex thread_id_lock;
 static TidAllocator tid_allocator;
@@ -71,8 +85,8 @@ thread_start(void *arg)
     return NULL;
 }
 
-static int32
-thread_spawn_wrapper(wasm_exec_env_t exec_env, uint32 start_arg)
+static void
+thread_spawn_wrapper(wasm_exec_env_t exec_env, uint32 start_arg, void *retaddr)
 {
     wasm_module_t module = wasm_exec_env_get_module(exec_env);
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
@@ -85,6 +99,8 @@ thread_spawn_wrapper(wasm_exec_env_t exec_env, uint32 start_arg)
 #if WASM_ENABLE_LIBC_WASI != 0
     WASIContext *wasi_ctx;
 #endif
+    __wasi_thread_spawn_result_t result;
+    memset(&result, 0, sizeof(result));
 
     bh_assert(module);
     bh_assert(module_inst);
@@ -92,8 +108,9 @@ thread_spawn_wrapper(wasm_exec_env_t exec_env, uint32 start_arg)
     stack_size = ((WASMModuleInstance *)module_inst)->default_wasm_stack_size;
 
     if (!(new_module_inst = wasm_runtime_instantiate_internal(
-              module, true, stack_size, 0, NULL, 0)))
-        return -1;
+              module, true, stack_size, 0, NULL, 0))) {
+        goto fail;
+    }
 
     wasm_runtime_set_custom_data_internal(
         new_module_inst, wasm_runtime_get_custom_data(module_inst));
@@ -134,7 +151,9 @@ thread_spawn_wrapper(wasm_exec_env_t exec_env, uint32 start_arg)
     }
     os_mutex_unlock(&exec_env->wait_lock);
 
-    return thread_id;
+    result.is_error = 0;
+    result.u.tid = thread_id;
+    goto copyout;
 
 thread_spawn_fail:
     os_mutex_unlock(&exec_env->wait_lock);
@@ -146,16 +165,28 @@ thread_preparation_fail:
     if (thread_start_arg)
         wasm_runtime_free(thread_start_arg);
 
-    return -1;
+fail:
+    result.is_error = 1;
+    result.u.error = WASI_THREADS_EAGAIN;
+
+copyout:
+    if (!wasm_runtime_validate_native_addr(module_inst, retaddr,
+                                           sizeof(result))) {
+        wasm_runtime_set_exception(module_inst, "out of bounds memory access");
+    }
+    else {
+        memcpy(retaddr, &result, sizeof(result));
+    }
 }
 
 /* clang-format off */
-#define REG_NATIVE_FUNC(func_name, signature) \
-    { #func_name, func_name##_wrapper, signature, NULL }
+#define REG_NATIVE_FUNC(symbol, func_name, signature) \
+    { symbol, func_name##_wrapper, signature, NULL }
 /* clang-format on */
 
-static NativeSymbol native_symbols_lib_wasi_threads[] = { REG_NATIVE_FUNC(
-    thread_spawn, "(i)i") };
+static NativeSymbol native_symbols_lib_wasi_threads[] = {
+    REG_NATIVE_FUNC("thread-spawn", thread_spawn, "(i*)"),
+};
 
 uint32
 get_lib_wasi_threads_export_apis(NativeSymbol **p_lib_wasi_threads_apis)
