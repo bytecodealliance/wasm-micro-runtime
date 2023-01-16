@@ -9,7 +9,6 @@
 #include "bh_log.h"
 #include "wasm_runtime_common.h"
 #include "wasm_memory.h"
-#include <stdbool.h>
 #if WASM_ENABLE_INTERP != 0
 #include "../interpreter/wasm_runtime.h"
 #endif
