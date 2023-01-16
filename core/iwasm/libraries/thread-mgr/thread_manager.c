@@ -373,7 +373,7 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
 
     os_mutex_lock(&cluster->lock);
 
-    if (cluster->has_exception) {
+    if (cluster->has_exception || cluster->processing) {
         goto fail1;
     }
 
@@ -510,7 +510,7 @@ wasm_cluster_create_thread(WASMExecEnv *exec_env,
 
     os_mutex_lock(&cluster->lock);
 
-    if (cluster->has_exception) {
+    if (cluster->has_exception || cluster->processing) {
         goto fail1;
     }
 

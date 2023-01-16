@@ -34,13 +34,16 @@ struct WASMCluster {
     uint32 stack_size;
     /* Record which segments are occupied */
     bool *stack_segment_occupied;
-    /* When has_exception == true, this cluster will refuse any spawn thread
+    /* When has_exception == true, this cluster should refuse any spawn thread
      * requests, this flag can be cleared by calling
      * wasm_runtime_clear_exception on instances any thread of this cluster */
     bool has_exception;
-    /* When processing is true, this cluster will refuse any spawn thread
-     * requests, this is a short-lived state, must be cleared immediately once
-     * the processing finished  */
+    /* When processing is true, this cluster should refuse any spawn thread
+     * requests. This is a short-lived state, must be cleared immediately once
+     * the processing finished.
+     * This is used to avoid dead lock when one thread waiting another thread
+     * with lock, see wams_cluster_wait_for_all and wasm_cluster_terminate_all
+     */
     bool processing;
 #if WASM_ENABLE_DEBUG_INTERP != 0
     WASMDebugInstance *debug_inst;
