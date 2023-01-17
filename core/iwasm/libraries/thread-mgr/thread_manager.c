@@ -277,7 +277,7 @@ wasm_cluster_add_exec_env(WASMCluster *cluster, WASMExecEnv *exec_env)
     return ret;
 }
 
-/* The caller must lock cluster->lock */
+/* The caller should lock cluster->lock for thread safety */
 bool
 wasm_cluster_del_exec_env(WASMCluster *cluster, WASMExecEnv *exec_env)
 {
