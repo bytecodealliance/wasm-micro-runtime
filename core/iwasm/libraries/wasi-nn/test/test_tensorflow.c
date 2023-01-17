@@ -295,7 +295,6 @@ main()
     test_mult_dimensions();
     printf("################### Testing multiple outputs...\n");
     test_mult_outputs();
-
     printf("Tests: passed!\n");
     return 0;
 }

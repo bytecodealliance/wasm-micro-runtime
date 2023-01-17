@@ -189,3 +189,22 @@ tensorflowlite_get_output(graph_execution_context ctx, uint32_t index,
                 model_tensor_size * sizeof(float));
     return success;
 }
+
+void
+tensorflowlite_destroy()
+{
+    /*
+        TensorFlow Lite memory is man
+
+        Related issues:
+        * https://github.com/tensorflow/tensorflow/issues/15880
+    */
+    NN_DBG_PRINTF("Freeing memory.");
+    model.reset(nullptr);
+    model = NULL;
+    interpreter.reset(nullptr);
+    interpreter = NULL;
+    wasm_runtime_free(model_pointer);
+    model_pointer = NULL;
+    NN_DBG_PRINTF("Memory free'd.");
+}

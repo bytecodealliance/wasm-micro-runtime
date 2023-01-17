@@ -214,6 +214,15 @@ wasi_nn_get_output(wasm_exec_env_t exec_env, graph_execution_context ctx,
     return res;
 }
 
+/* Non-exposed public functions */
+
+void
+wasi_nn_destroy()
+{
+    NN_DBG_PRINTF("Free wasi-nn");
+    tensorflowlite_destroy();
+}
+
 /* Register WASI-NN in WAMR */
 
 /* clang-format off */

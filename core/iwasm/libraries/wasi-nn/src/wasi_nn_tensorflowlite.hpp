@@ -32,6 +32,9 @@ tensorflowlite_get_output(graph_execution_context ctx, uint32_t index,
                           tensor_data output_tensor,
                           uint32_t *output_tensor_size);
 
+void
+tensorflowlite_destroy();
+
 #ifdef __cplusplus
 }
 #endif
