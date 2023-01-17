@@ -117,13 +117,12 @@ typedef enum execution_target { cpu = 0, gpu, tpu } execution_target;
  * @param builder   Model builder.
  * @param encoding  Model encoding.
  * @param target    Execution target.
- * @param graph     Graph.
+ * @param g         Graph.
  * @return error    Execution status.
  */
 error
 load(graph_builder_array *builder, graph_encoding encoding,
-     execution_target target, graph *graph)
-    __attribute__((export_module("wasi_nn")))
+     execution_target target, graph *g)
     __attribute__((import_module("wasi_nn")));
 
 /**
@@ -137,13 +136,12 @@ typedef uint32_t graph_execution_context;
 /**
  * @brief Create an execution instance of a loaded graph.
  *
- * @param graph     Graph.
+ * @param g         Graph.
  * @param ctx       Execution context.
  * @return error    Execution status.
  */
 error
-init_execution_context(graph graph, graph_execution_context *ctx)
-    __attribute__((export_module("wasi_nn")))
+init_execution_context(graph g, graph_execution_context *ctx)
     __attribute__((import_module("wasi_nn")));
 
 /**
@@ -156,7 +154,6 @@ init_execution_context(graph graph, graph_execution_context *ctx)
  */
 error
 set_input(graph_execution_context ctx, uint32_t index, tensor *tensor)
-    __attribute__((export_module("wasi_nn")))
     __attribute__((import_module("wasi_nn")));
 
 /**
@@ -166,8 +163,7 @@ set_input(graph_execution_context ctx, uint32_t index, tensor *tensor)
  * @return error    Execution status.
  */
 error
-compute(graph_execution_context ctx) __attribute__((export_module("wasi_nn")))
-__attribute__((import_module("wasi_nn")));
+compute(graph_execution_context ctx) __attribute__((import_module("wasi_nn")));
 
 /**
  * @brief Extract the outputs after inference.
@@ -184,7 +180,6 @@ __attribute__((import_module("wasi_nn")));
 error
 get_output(graph_execution_context ctx, uint32_t index,
            tensor_data output_tensor, uint32_t *output_tensor_size)
-    __attribute__((export_module("wasi_nn")))
     __attribute__((import_module("wasi_nn")));
 
 #endif

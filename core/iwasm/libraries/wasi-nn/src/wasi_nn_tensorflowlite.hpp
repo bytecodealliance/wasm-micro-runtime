@@ -14,11 +14,10 @@ extern "C" {
 
 error
 tensorflowlite_load(graph_builder_array *builder, graph_encoding encoding,
-                    execution_target target, graph *graph);
+                    execution_target target, graph *g);
 
 error
-tensorflowlite_init_execution_context(graph graph,
-                                      graph_execution_context *ctx);
+tensorflowlite_init_execution_context(graph g, graph_execution_context *ctx);
 
 error
 tensorflowlite_set_input(graph_execution_context ctx, uint32_t index,

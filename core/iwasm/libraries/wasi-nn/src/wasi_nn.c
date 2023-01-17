@@ -23,7 +23,7 @@
 typedef error (*LOAD)(graph_builder_array *, graph_encoding, execution_target,
                       graph *);
 typedef error (*INIT_EXECUTION_CONTEXT)(graph, graph_execution_context *);
-typedef error (*SET_INPUT)(graph_execution_context, uint32_t, tensor_wasm *);
+typedef error (*SET_INPUT)(graph_execution_context, uint32_t, tensor *);
 typedef error (*COMPUTE)(graph_execution_context);
 typedef error (*GET_OUTPUT)(graph_execution_context, uint32_t, tensor_data,
                             uint32_t *);
@@ -76,7 +76,7 @@ is_model_initialized()
 
 error
 wasi_nn_load(wasm_exec_env_t exec_env, graph_builder_array_wasm *builder,
-             graph_encoding encoding, execution_target target, graph *graph)
+             graph_encoding encoding, execution_target target, graph *g)
 {
     NN_DBG_PRINTF("Running wasi_nn_load [encoding=%d, target=%d]...", encoding,
                   target);
@@ -96,16 +96,15 @@ wasi_nn_load(wasm_exec_env_t exec_env, graph_builder_array_wasm *builder,
                                                  &builder_native)))
         return res;
 
-    if (!wasm_runtime_validate_native_addr(instance, graph, sizeof(graph))) {
+    if (!wasm_runtime_validate_native_addr(instance, g, sizeof(graph))) {
         NN_ERR_PRINTF("graph is invalid");
         res = invalid_argument;
         goto fail;
     }
 
-    res = lookup[encoding].load(&builder_native, encoding, target, graph);
+    res = lookup[encoding].load(&builder_native, encoding, target, g);
 
-    NN_DBG_PRINTF("wasi_nn_load finished with status %d [graph=%d]", res,
-                  *graph);
+    NN_DBG_PRINTF("wasi_nn_load finished with status %d [graph=%d]", res, *g);
 
     current_encoding = encoding;
     is_initialized = true;
@@ -119,11 +118,10 @@ fail:
 }
 
 error
-wasi_nn_init_execution_context(wasm_exec_env_t exec_env, graph graph,
+wasi_nn_init_execution_context(wasm_exec_env_t exec_env, graph g,
                                graph_execution_context *ctx)
 {
-    NN_DBG_PRINTF("Running wasi_nn_init_execution_context [graph=%d]...",
-                  graph);
+    NN_DBG_PRINTF("Running wasi_nn_init_execution_context [graph=%d]...", g);
     error res;
     if (success != (res = is_model_initialized()))
         return res;
@@ -137,8 +135,8 @@ wasi_nn_init_execution_context(wasm_exec_env_t exec_env, graph graph,
         return invalid_argument;
     }
 
-    res = lookup[current_encoding].init_execution_context(graph, ctx);
-    *ctx = graph;
+    res = lookup[current_encoding].init_execution_context(g, ctx);
+    *ctx = g;
     NN_DBG_PRINTF(
         "wasi_nn_init_execution_context finished with status %d [ctx=%d]", res,
         *ctx);

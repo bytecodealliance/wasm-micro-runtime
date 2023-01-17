@@ -28,7 +28,7 @@ static char *model_pointer = NULL;
 
 error
 tensorflowlite_load(graph_builder_array *builder, graph_encoding encoding,
-                    execution_target target, graph *graph)
+                    execution_target target, graph *g)
 {
     if (model_pointer != NULL) {
         wasm_runtime_free(model_pointer);
@@ -83,7 +83,7 @@ tensorflowlite_load(graph_builder_array *builder, graph_encoding encoding,
 }
 
 error
-tensorflowlite_init_execution_context(graph graph, graph_execution_context *ctx)
+tensorflowlite_init_execution_context(graph g, graph_execution_context *ctx)
 {
     if (interpreter == NULL) {
         NN_ERR_PRINTF("Non-initialized interpreter.");
@@ -115,11 +115,11 @@ tensorflowlite_set_input(graph_execution_context ctx, uint32_t index,
     }
 
     uint32_t model_tensor_size = 1;
-    for (int i = 0; i < (int)tensor->dims->size; ++i)
+    for (int i = 0; i < tensor->dims->size; ++i)
         model_tensor_size *= (uint32_t)tensor->dims->data[i];
 
     uint32_t input_tensor_size = 1;
-    for (int i = 0; i < input_tensor->dimensions->size; i++)
+    for (uint32_t i = 0; i < input_tensor->dimensions->size; i++)
         input_tensor_size *= (uint32_t)input_tensor->dimensions->buf[i];
 
     if (model_tensor_size != input_tensor_size) {
@@ -181,7 +181,7 @@ tensorflowlite_get_output(graph_execution_context ctx, uint32_t index,
     }
 
     float *tensor_f = interpreter->typed_output_tensor<float>(index);
-    for (int i = 0; i < model_tensor_size; ++i)
+    for (uint32_t i = 0; i < model_tensor_size; ++i)
         NN_DBG_PRINTF("output: %f", tensor_f[i]);
 
     *output_tensor_size = model_tensor_size;

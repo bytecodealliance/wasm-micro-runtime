@@ -28,7 +28,7 @@ typedef struct {
 // WASI-NN wrappers
 
 error
-wasm_load(char *model_name, graph *graph)
+wasm_load(char *model_name, graph *g)
 {
     FILE *pFile = fopen(model_name, "r");
     if (pFile == NULL)
@@ -64,7 +64,7 @@ wasm_load(char *model_name, graph *graph)
     arr.buf[0].size = result;
     arr.buf[0].buf = buffer;
 
-    error res = load(&arr, tensorflowlite, cpu, graph);
+    error res = load(&arr, tensorflowlite, cpu, g);
 
     fclose(pFile);
     free(buffer);
@@ -73,9 +73,9 @@ wasm_load(char *model_name, graph *graph)
 }
 
 error
-wasm_init_execution_context(graph graph, graph_execution_context *ctx)
+wasm_init_execution_context(graph g, graph_execution_context *ctx)
 {
-    return init_execution_context(graph, ctx);
+    return init_execution_context(g, ctx);
 }
 
 error

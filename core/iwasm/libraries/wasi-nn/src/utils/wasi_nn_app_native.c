@@ -52,7 +52,7 @@ graph_builder_array_app_native(wasm_module_inst_t instance,
     if (builder == NULL)
         return missing_memory;
 
-    for (int i = 0; i < builder_array_wasm->size; ++i) {
+    for (uint32_t i = 0; i < builder_array_wasm->size; ++i) {
         error res;
         if (success
             != (res = graph_builder_app_native(instance, &builder_wasm[i],
@@ -71,7 +71,7 @@ graph_builder_array_app_native(wasm_module_inst_t instance,
 }
 
 static error
-tensor_data_app_native(wasm_module_inst_t instance, int total_elements,
+tensor_data_app_native(wasm_module_inst_t instance, uint32_t total_elements,
                        tensor_wasm *input_tensor_wasm, tensor_data *data)
 {
     if (!wasm_runtime_validate_app_addr(
@@ -140,8 +140,8 @@ tensor_app_native(wasm_module_inst_t instance, tensor_wasm *input_tensor_wasm,
         return res;
     }
 
-    int total_elements = 1;
-    for (int i = 0; i < dimensions->size; ++i) {
+    uint32_t total_elements = 1;
+    for (uint32_t i = 0; i < dimensions->size; ++i) {
         total_elements *= dimensions->buf[i];
         NN_DBG_PRINTF("Dimension %d: %d", i, dimensions->buf[i]);
     }
