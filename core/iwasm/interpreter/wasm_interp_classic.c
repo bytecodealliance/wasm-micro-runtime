@@ -1041,7 +1041,6 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
         }                                                              \
         if (IS_WAMR_STOP_SIG(exec_env->current_status->signal_flag)) { \
             SYNC_ALL_TO_FRAME();                                       \
-            wasm_cluster_thread_stopped(exec_env);                     \
             wasm_cluster_thread_waiting_run(exec_env);                 \
         }                                                              \
     } while (0)
@@ -1077,7 +1076,6 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
                && exec_env->current_status->step_count++ == 1) {          \
             exec_env->current_status->step_count = 0;                     \
             SYNC_ALL_TO_FRAME();                                          \
-            wasm_cluster_thread_stopped(exec_env);                        \
             wasm_cluster_thread_waiting_run(exec_env);                    \
         }                                                                 \
         goto *handle_table[*frame_ip++];                                  \
@@ -1094,7 +1092,6 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
         && exec_env->current_status->step_count++ == 2) {          \
         exec_env->current_status->step_count = 0;                  \
         SYNC_ALL_TO_FRAME();                                       \
-        wasm_cluster_thread_stopped(exec_env);                     \
         wasm_cluster_thread_waiting_run(exec_env);                 \
     }                                                              \
     continue

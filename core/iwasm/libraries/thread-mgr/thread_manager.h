@@ -167,9 +167,6 @@ void
 wasm_cluster_send_signal_all(WASMCluster *cluster, uint32 signo);
 
 void
-wasm_cluster_thread_stopped(WASMExecEnv *exec_env);
-
-void
 wasm_cluster_thread_waiting_run(WASMExecEnv *exec_env);
 
 void
