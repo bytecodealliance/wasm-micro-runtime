@@ -2192,8 +2192,9 @@ wasm_set_exception(WASMModuleInstance *module_inst, const char *exception)
 #if WASM_ENABLE_THREAD_MGR != 0
     exec_env =
         wasm_clusters_search_exec_env((WASMModuleInstanceCommon *)module_inst);
-    bh_assert(exec_env);
-    wasm_cluster_spread_exception(exec_env, exception ? false : true);
+    if (exec_env) {
+        wasm_cluster_spread_exception(exec_env, exception ? false : true);
+    }
 #else
     (void)exec_env;
 #endif
