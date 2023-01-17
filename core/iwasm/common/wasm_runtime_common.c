@@ -2909,7 +2909,6 @@ wasm_runtime_destroy_wasi(WASMModuleInstanceCommon *module_inst)
 #if WASM_ENABLE_WASI_NN != 0
     wasi_nn_destroy();
 #endif
-
 }
 #else
 void
