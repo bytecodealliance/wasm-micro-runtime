@@ -144,10 +144,3 @@ utimensat(int fd, const char *path, const struct timespec ts[2], int flag)
 }
 
 #endif /* !defined(AT_FDCWD) */
-
-DIR *
-fdopendir(int fd)
-{
-    errno = ENOSYS;
-    return NULL;
-}
