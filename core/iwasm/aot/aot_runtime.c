@@ -913,9 +913,6 @@ execute_post_inst_function(AOTModuleInstance *module_inst)
                                                  NULL);
 }
 
-extern bool
-clear_wasi_proc_exit_exception(WASMModuleInstanceCommon *module_inst_comm);
-
 static bool
 execute_start_function(AOTModuleInstance *module_inst)
 {
@@ -941,8 +938,6 @@ execute_start_function(AOTModuleInstance *module_inst)
     u.f(exec_env);
 
     wasm_exec_env_destroy(exec_env);
-    (void)clear_wasi_proc_exit_exception(
-        (WASMModuleInstanceCommon *)module_inst);
     return !aot_get_exception(module_inst);
 }
 

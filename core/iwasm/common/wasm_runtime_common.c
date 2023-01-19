@@ -1743,7 +1743,7 @@ wasm_runtime_finalize_call_function(WASMExecEnv *exec_env,
 }
 #endif
 
-bool
+static bool
 clear_wasi_proc_exit_exception(WASMModuleInstanceCommon *module_inst_comm)
 {
 #if WASM_ENABLE_LIBC_WASI != 0
