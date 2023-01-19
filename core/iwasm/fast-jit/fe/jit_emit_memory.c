@@ -765,20 +765,85 @@ bool
 jit_compile_op_atomic_rmw(JitCompContext *cc, uint8 atomic_op, uint8 op_type,
                           uint32 align, uint32 offset, uint32 bytes)
 {
+    assert(false && "atomic.rmw not implemented");
     return false;
 }
+
+static korp_mutex mem_lock; // TODO(eloparco): Put lock in module instance
 
 bool
 jit_compile_op_atomic_cmpxchg(JitCompContext *cc, uint8 op_type, uint32 align,
                               uint32 offset, uint32 bytes)
 {
-    return false;
+    assert(op_type == VALUE_TYPE_I32
+           && "i64.atomic.rmw.cmpxchg not implemented");
+    assert(bytes == 4 && "only bytes=4 is implemented");
+
+    JitReg sval, expect, addr, memory_data, readv, offset1, new_val;
+
+    POP_I32(sval);
+    POP_I32(expect);
+    POP_I32(addr);
+
+    offset1 = check_and_seek(cc, addr, offset, bytes);
+    if (!offset1) {
+        goto fail;
+    }
+    memory_data = get_memory_data_reg(cc->jit_frame, 0);
+
+    readv = jit_cc_new_reg_I32(cc);
+    new_val = jit_cc_new_reg_I32(cc);
+
+    os_mutex_lock(&mem_lock);
+    GEN_INSN(LDU32, readv, memory_data, offset1);
+
+    // new_val = (readv == expect) ? sval : readv
+    GEN_INSN(CMP, cc->cmp_reg, readv, expect);
+    GEN_INSN(SELECTEQ, new_val, cc->cmp_reg, sval, readv);
+    GEN_INSN(STI32, new_val, memory_data, offset1);
+    os_mutex_unlock(&mem_lock);
+
+    PUSH_I32(readv);
+    return true;
 }
 
 bool
 jit_compile_op_atomic_wait(JitCompContext *cc, uint8 op_type, uint32 align,
                            uint32 offset, uint32 bytes)
 {
+    assert(op_type == VALUE_TYPE_I32 && "wait64 not implemented yet");
+
+    JitReg timeout, expect, addr, res, memory_data, expect_64;
+    JitReg args[5] = { 0 };
+
+    POP_I64(timeout);
+    POP_I32(expect);
+    POP_I32(addr);
+
+    expect_64 = jit_cc_new_reg_I64(cc);
+    GEN_INSN(I32TOI64, expect_64, expect);
+    memory_data = get_memory_data_reg(cc->jit_frame, 0);
+
+    res = jit_cc_new_reg_I32(cc);
+    args[0] = get_module_inst_reg(cc->jit_frame);
+    args[1] = memory_data + offset;
+    args[2] = expect_64;
+    args[3] = timeout;
+    args[4] = NEW_CONST(I32, false);
+
+    if (!jit_emit_callnative(cc, wasm_runtime_atomic_wait, res, args,
+                             sizeof(args) / sizeof(args[0])))
+        goto fail;
+
+    GEN_INSN(CMP, cc->cmp_reg, res, NEW_CONST(I32, -1));
+    if (!jit_emit_exception(cc, EXCE_ALREADY_THROWN, JIT_OP_BEQ, cc->cmp_reg,
+                            NULL))
+        goto fail;
+
+    PUSH_I32(res);
+
+    return true;
+fail:
     return false;
 }
 
@@ -786,6 +851,34 @@ bool
 jit_compiler_op_atomic_notify(JitCompContext *cc, uint32 align, uint32 offset,
                               uint32 bytes)
 {
+    assert(bytes == 4 && "wait64 not implemented yet");
+
+    JitReg notify_count, addr, res, memory_data;
+    JitReg args[3] = { 0 };
+
+    POP_I32(notify_count);
+    POP_I32(addr);
+
+    memory_data = get_memory_data_reg(cc->jit_frame, 0);
+
+    res = jit_cc_new_reg_I32(cc);
+    args[0] = get_module_inst_reg(cc->jit_frame);
+    args[1] = memory_data + offset;
+    args[2] = notify_count;
+
+    if (!jit_emit_callnative(cc, wasm_runtime_atomic_notify, res, args,
+                             sizeof(args) / sizeof(args[0])))
+        goto fail;
+
+    GEN_INSN(CMP, cc->cmp_reg, res, NEW_CONST(I32, 0));
+    if (!jit_emit_exception(cc, EXCE_ALREADY_THROWN, JIT_OP_BLTS, cc->cmp_reg,
+                            NULL))
+        goto fail;
+
+    PUSH_I32(res);
+
+    return true;
+fail:
     return false;
 }
 #endif
