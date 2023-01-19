@@ -993,6 +993,14 @@ void
 wasm_runtime_destroy_custom_sections(WASMCustomSection *section_list);
 #endif
 
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_is_import_func_linked(const char *module_name,
+                                   const char *func_name);
+
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_is_import_global_linked(const char *module_name,
+                                     const char *global_name);
+
 #ifdef __cplusplus
 }
 #endif

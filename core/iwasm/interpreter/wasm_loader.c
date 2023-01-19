@@ -1399,6 +1399,7 @@ load_global_import(const uint8 **p_buf, const uint8 *buf_end,
     WASMModule *sub_module = NULL;
     WASMGlobal *linked_global = NULL;
 #endif
+    bool ret = false;
 
     CHECK_BUF(p, p_end, 2);
     declare_type = read_uint8(p);
@@ -1411,15 +1412,16 @@ load_global_import(const uint8 **p_buf, const uint8 *buf_end,
     }
 
 #if WASM_ENABLE_LIBC_BUILTIN != 0
-    global->is_linked = wasm_native_lookup_libc_builtin_global(
-        sub_module_name, global_name, global);
-    if (global->is_linked) {
+    ret = wasm_native_lookup_libc_builtin_global(sub_module_name, global_name,
+                                                 global);
+    if (ret) {
         if (global->type != declare_type
             || global->is_mutable != declare_mutable) {
             set_error_buf(error_buf, error_buf_size,
                           "incompatible import type");
             return false;
         }
+        global->is_linked = true;
     }
 #endif
 #if WASM_ENABLE_MULTI_MODULE != 0
@@ -1449,6 +1451,7 @@ load_global_import(const uint8 **p_buf, const uint8 *buf_end,
     global->is_mutable = (declare_mutable == 1);
 
     (void)parent_module;
+    (void)ret;
     return true;
 fail:
     return false;
