@@ -769,8 +769,6 @@ jit_compile_op_atomic_rmw(JitCompContext *cc, uint8 atomic_op, uint8 op_type,
     return false;
 }
 
-static korp_mutex mem_lock; // TODO(eloparco): Put lock in module instance
-
 bool
 jit_compile_op_atomic_cmpxchg(JitCompContext *cc, uint8 op_type, uint32 align,
                               uint32 offset, uint32 bytes)
@@ -779,7 +777,8 @@ jit_compile_op_atomic_cmpxchg(JitCompContext *cc, uint8 op_type, uint32 align,
            && "i64.atomic.rmw.cmpxchg not implemented");
     assert(bytes == 4 && "only bytes=4 is implemented");
 
-    JitReg sval, expect, addr, memory_data, readv, offset1, new_val;
+    JitReg sval, expect, addr, memory_data, readv, offset1, new_val, res;
+    JitReg args[1] = { 0 };
 
     POP_I32(sval);
     POP_I32(expect);
@@ -794,17 +793,29 @@ jit_compile_op_atomic_cmpxchg(JitCompContext *cc, uint8 op_type, uint32 align,
     readv = jit_cc_new_reg_I32(cc);
     new_val = jit_cc_new_reg_I32(cc);
 
-    os_mutex_lock(&mem_lock);
+    // Memory mutex lock
+    res = jit_cc_new_reg_I32(cc);
+    args[0] = get_module_inst_reg(cc->jit_frame);
+    if (!jit_emit_callnative(cc, wasm_runtime_mem_lock, res, args,
+                             sizeof(args) / sizeof(args[0])))
+        goto fail;
+
     GEN_INSN(LDU32, readv, memory_data, offset1);
 
     // new_val = (readv == expect) ? sval : readv
     GEN_INSN(CMP, cc->cmp_reg, readv, expect);
     GEN_INSN(SELECTEQ, new_val, cc->cmp_reg, sval, readv);
     GEN_INSN(STI32, new_val, memory_data, offset1);
-    os_mutex_unlock(&mem_lock);
+
+    // Memory mutex unlock
+    if (!jit_emit_callnative(cc, wasm_runtime_mem_unlock, res, args,
+                             sizeof(args) / sizeof(args[0])))
+        goto fail;
 
     PUSH_I32(readv);
     return true;
+fail:
+    return false;
 }
 
 bool
