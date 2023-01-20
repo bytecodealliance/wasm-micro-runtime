@@ -10,7 +10,7 @@ make \
     THREAD_MODEL=posix
 ```
 
-Build and run the samples
+## Build and run the samples
 
 ```shell
 $ mkdir build
@@ -21,4 +21,11 @@ $ make
 $ ./iwasm wasm-apps/no_pthread.wasm
 ...
 $ ./iwasm wasm-apps/exception_propagation.wasm
+```
+
+## Run samples in AOT mode
+```shell
+$ ../../../wamr-compiler/build/wamrc \
+    -o wasm-apps/no_pthread.aot wasm-apps/no_pthread.wasm
+$ ./iwasm wasm-apps/no_pthread.aot
 ```
