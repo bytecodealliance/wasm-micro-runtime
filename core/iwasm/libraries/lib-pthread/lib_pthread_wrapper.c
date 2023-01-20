@@ -520,8 +520,7 @@ pthread_start_routine(void *arg)
 
     if (!wasm_runtime_call_indirect(exec_env, routine_args->elem_index, 1,
                                     argv)) {
-        if (wasm_runtime_get_exception(module_inst))
-            wasm_cluster_spread_exception(exec_env);
+        /* Exception has already been spread during throwing */
     }
 
     /* destroy pthread key values */

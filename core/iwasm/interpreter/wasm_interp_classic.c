@@ -4016,24 +4016,6 @@ fast_jit_call_func_bytecode(WASMModuleInstance *module_inst,
 
 #if WASM_ENABLE_JIT != 0
 static bool
-clear_wasi_proc_exit_exception(WASMModuleInstance *module_inst)
-{
-#if WASM_ENABLE_LIBC_WASI != 0
-    const char *exception = wasm_get_exception(module_inst);
-    if (exception && !strcmp(exception, "Exception: wasi proc exit")) {
-        /* The "wasi proc exit" exception is thrown by native lib to
-           let wasm app exit, which is a normal behavior, we clear
-           the exception here. */
-        wasm_set_exception(module_inst, NULL);
-        return true;
-    }
-    return false;
-#else
-    return false;
-#endif
-}
-
-static bool
 llvm_jit_call_func_bytecode(WASMModuleInstance *module_inst,
                             WASMExecEnv *exec_env,
                             WASMFunctionInstance *function, uint32 argc,
@@ -4092,14 +4074,6 @@ llvm_jit_call_func_bytecode(WASMModuleInstance *module_inst,
         ret = wasm_runtime_invoke_native(
             exec_env, module_inst->func_ptrs[func_idx], func_type, NULL, NULL,
             argv1, argc, argv);
-
-        if (!ret || wasm_get_exception(module_inst)) {
-            if (clear_wasi_proc_exit_exception(module_inst))
-                ret = true;
-            else
-                ret = false;
-        }
-
         if (!ret) {
             if (argv1 != argv1_buf)
                 wasm_runtime_free(argv1);
@@ -4143,9 +4117,6 @@ llvm_jit_call_func_bytecode(WASMModuleInstance *module_inst,
         ret = wasm_runtime_invoke_native(
             exec_env, module_inst->func_ptrs[func_idx], func_type, NULL, NULL,
             argv, argc, argv);
-
-        if (clear_wasi_proc_exit_exception(module_inst))
-            ret = true;
 
         return ret && !wasm_get_exception(module_inst) ? true : false;
     }

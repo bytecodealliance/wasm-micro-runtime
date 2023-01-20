@@ -900,24 +900,6 @@ create_exports(AOTModuleInstance *module_inst, AOTModule *module,
 }
 
 static bool
-clear_wasi_proc_exit_exception(AOTModuleInstance *module_inst)
-{
-#if WASM_ENABLE_LIBC_WASI != 0
-    const char *exception = aot_get_exception(module_inst);
-    if (exception && !strcmp(exception, "Exception: wasi proc exit")) {
-        /* The "wasi proc exit" exception is thrown by native lib to
-           let wasm app exit, which is a normal behavior, we clear
-           the exception here. */
-        aot_set_exception(module_inst, NULL);
-        return true;
-    }
-    return false;
-#else
-    return false;
-#endif
-}
-
-static bool
 execute_post_inst_function(AOTModuleInstance *module_inst)
 {
     AOTFunctionInstance *post_inst_func =
@@ -956,7 +938,6 @@ execute_start_function(AOTModuleInstance *module_inst)
     u.f(exec_env);
 
     wasm_exec_env_destroy(exec_env);
-    (void)clear_wasi_proc_exit_exception(module_inst);
     return !aot_get_exception(module_inst);
 }
 
@@ -1407,13 +1388,6 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
         ret = invoke_native_internal(exec_env, function->u.func.func_ptr,
                                      func_type, NULL, NULL, argv1, argc, argv);
 
-        if (!ret || aot_get_exception(module_inst)) {
-            if (clear_wasi_proc_exit_exception(module_inst))
-                ret = true;
-            else
-                ret = false;
-        }
-
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
         if (!ret) {
             if (aot_create_call_stack(exec_env)) {
@@ -1473,9 +1447,6 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
         ret = invoke_native_internal(exec_env, function->u.func.func_ptr,
                                      func_type, NULL, NULL, argv, argc, argv);
 
-        if (clear_wasi_proc_exit_exception(module_inst))
-            ret = true;
-
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
         if (aot_get_exception(module_inst)) {
             if (aot_create_call_stack(exec_env)) {
@@ -1516,7 +1487,7 @@ aot_create_exec_env_and_call_function(AOTModuleInstance *module_inst,
         }
     }
 
-    ret = aot_call_function(exec_env, func, argc, argv);
+    ret = wasm_runtime_call_wasm(exec_env, func, argc, argv);
 
     /* don't destroy the exec_env if it isn't created in this function */
     if (!existing_exec_env)
@@ -2006,9 +1977,6 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
     }
 
 fail:
-    if (clear_wasi_proc_exit_exception(module_inst))
-        return true;
-
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     wasm_runtime_access_exce_check_guard_page();
 #endif
