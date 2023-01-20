@@ -213,6 +213,14 @@ typedef struct AOTLLVMTypes {
     LLVMTypeRef f32x4_vec_type;
     LLVMTypeRef f64x2_vec_type;
 
+    LLVMTypeRef int8_ptr_type_gs;
+    LLVMTypeRef int16_ptr_type_gs;
+    LLVMTypeRef int32_ptr_type_gs;
+    LLVMTypeRef int64_ptr_type_gs;
+    LLVMTypeRef float32_ptr_type_gs;
+    LLVMTypeRef float64_ptr_type_gs;
+    LLVMTypeRef v128_ptr_type_gs;
+
     LLVMTypeRef i1x2_vec_type;
 
     LLVMTypeRef meta_data_type;
@@ -337,6 +345,10 @@ typedef struct AOTCompContext {
     /* Disable LLVM link time optimization */
     bool disable_llvm_lto;
 
+    /* Enable to use segument register as the base addr
+       of linear memory */
+    bool enable_segue;
+
     /* Whether optimize the JITed code */
     bool optimize;
 
@@ -403,6 +415,7 @@ typedef struct AOTCompOption {
     bool enable_aux_stack_frame;
     bool disable_llvm_intrinsics;
     bool disable_llvm_lto;
+    bool enable_segue;
     uint32 opt_level;
     uint32 size_level;
     uint32 output_format;

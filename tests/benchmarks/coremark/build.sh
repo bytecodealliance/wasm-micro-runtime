@@ -13,15 +13,15 @@ cd coremark
 
 echo "Build coremark with gcc .."
 gcc -O3 -Iposix -I. -DFLAGS_STR=\""-O3 -DPERFORMANCE_RUN=1  -lrt"\" \
-        -DITERATIONS=0 -DPERFORMANCE_RUN=1 \
+        -DITERATIONS=400000 -DSEED_METHOD=SEED_VOLATILE -DPERFORMANCE_RUN=1 \
         core_list_join.c core_main.c core_matrix.c core_state.c \
         core_util.c posix/core_portme.c \
         -o ../coremark.exe -lrt
 
 echo "Build coremark with wasi-sdk .."
 /opt/wasi-sdk/bin/clang -O3 -Iposix -I. -DFLAGS_STR=\""-O3 -DPERFORMANCE_RUN=1"\" \
-        -Wl,--export=main \
-        -DITERATIONS=0 -DPERFORMANCE_RUN=1 \
+        -Wl,--export-all \
+        -DITERATIONS=400000 -DSEED_METHOD=SEED_VOLATILE -DPERFORMANCE_RUN=1 \
         -Wl,--allow-undefined \
         core_list_join.c core_main.c core_matrix.c core_state.c \
         core_util.c posix/core_portme.c \
@@ -31,5 +31,8 @@ cd ..
 
 echo "Compile coremark.wasm to coremark.aot .."
 ${WAMRC} -o coremark.aot coremark.wasm
+
+echo "Compile coremark.wasm to coremark_segue.aot .."
+${WAMRC} --enable-segue -o coremark_segue.aot coremark.wasm
 
 echo "Done"

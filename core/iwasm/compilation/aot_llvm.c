@@ -1106,6 +1106,28 @@ aot_set_llvm_basic_types(AOTLLVMTypes *basic_types, LLVMContextRef context)
     basic_types->v128_type = basic_types->i64x2_vec_type;
     basic_types->v128_ptr_type = LLVMPointerType(basic_types->v128_type, 0);
 
+    basic_types->int8_ptr_type_gs =
+        LLVMPointerType(basic_types->int8_type, 256);
+    basic_types->int16_ptr_type_gs =
+        LLVMPointerType(basic_types->int16_type, 256);
+    basic_types->int32_ptr_type_gs =
+        LLVMPointerType(basic_types->int32_type, 256);
+    basic_types->int64_ptr_type_gs =
+        LLVMPointerType(basic_types->int64_type, 256);
+    basic_types->float32_ptr_type_gs =
+        LLVMPointerType(basic_types->float32_type, 256);
+    basic_types->float64_ptr_type_gs =
+        LLVMPointerType(basic_types->float64_type, 256);
+    basic_types->v128_ptr_type_gs =
+        LLVMPointerType(basic_types->v128_type, 256);
+    if (!basic_types->int8_ptr_type_gs || !basic_types->int16_ptr_type_gs
+        || !basic_types->int32_ptr_type_gs || !basic_types->int64_ptr_type_gs
+        || !basic_types->float32_ptr_type_gs
+        || !basic_types->float64_ptr_type_gs
+        || !basic_types->v128_ptr_type_gs) {
+        return false;
+    }
+
     basic_types->i1x2_vec_type = LLVMVectorType(basic_types->int1_type, 2);
 
     basic_types->funcref_type = LLVMInt32TypeInContext(context);
@@ -2038,6 +2060,10 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
             aot_set_last_error("create LLVM target machine failed.");
             goto fail;
         }
+    }
+
+    if (option->enable_segue && !strcmp(comp_ctx->target_arch, "x86_64")) {
+        comp_ctx->enable_segue = true;
     }
 
     if (option->enable_simd && strcmp(comp_ctx->target_arch, "x86_64") != 0
