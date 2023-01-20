@@ -62,6 +62,7 @@ print_help()
     printf("  --enable-indirect-mode    Enalbe call function through symbol table but not direct call\n");
     printf("  --disable-llvm-intrinsics Disable the LLVM built-in intrinsics\n");
     printf("  --disable-llvm-lto        Disable the LLVM link time optimization\n");
+    printf("  --enable-segue            Enable to use segment register as the base addr of linear memory\n");
     printf("  --emit-custom-sections=<section names>\n");
     printf("                            Emit the specified custom sections to AoT file, using comma to separate\n");
     printf("                            multiple names, e.g.\n");
@@ -262,6 +263,9 @@ main(int argc, char *argv[])
         }
         else if (!strcmp(argv[0], "--disable-llvm-lto")) {
             option.disable_llvm_lto = true;
+        }
+        else if (!strcmp(argv[0], "--enable-segue")) {
+            option.enable_segue = true;
         }
         else if (!strncmp(argv[0], "--emit-custom-sections=", 23)) {
             int len = 0;

@@ -934,6 +934,14 @@ execute_start_function(AOTModuleInstance *module_inst)
         return false;
     }
 
+#if defined(os_writegsbase) && WASM_ENABLE_WAMR_COMPILER == 0
+    {
+        AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
+        if (memory_inst)
+            os_writegsbase(memory_inst->memory_data);
+    }
+#endif
+
     u.v = module->start_function;
     u.f(exec_env);
 
@@ -1335,6 +1343,14 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
         return false;
     }
     argc = func_type->param_cell_num;
+
+#if defined(os_writegsbase) && WASM_ENABLE_WAMR_COMPILER == 0
+    {
+        AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
+        if (memory_inst)
+            os_writegsbase(memory_inst->memory_data);
+    }
+#endif
 
     /* func pointer was looked up previously */
     bh_assert(function->u.func.func_ptr != NULL);

@@ -620,6 +620,10 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
 #endif
 #endif
 
+#if defined(os_writegsbase) && WASM_ENABLE_WAMR_COMPILER == 0
+    os_writegsbase(memory_data_new);
+#endif
+
     return ret;
 }
 #else
