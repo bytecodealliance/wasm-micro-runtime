@@ -16,14 +16,18 @@ import logging
 import os
 
 attr_type_list =  [
-    "ATTR_NONE",
-    "ATTR_TYPE_SHORT",
-    "ATTR_TYPE_INT",
+    "ATTR_TYPE_BYTE", # = ATTR_TYPE_INT8
+    "ATTR_TYPE_SHORT",# = ATTR_TYPE_INT16
+    "ATTR_TYPE_INT", # = ATTR_TYPE_INT32
     "ATTR_TYPE_INT64",
-    "ATTR_TYPE_BYTE",
+    "ATTR_TYPE_UINT8",
     "ATTR_TYPE_UINT16",
+    "ATTR_TYPE_UINT32",
+    "ATTR_TYPE_UINT64",
     "ATTR_TYPE_FLOAT",
     "ATTR_TYPE_DOUBLE",
+    "ATTR_NONE",
+    "ATTR_NONE",
     "ATTR_TYPE_BOOLEAN",
     "ATTR_TYPE_STRING",
     "ATTR_TYPE_BYTEARRAY"
@@ -140,25 +144,37 @@ def decode_attr_container(msg):
         attr_type = attr_type_list[int(type_index[0])]
         buf = buf[1 : ]
 
-        if attr_type == "ATTR_TYPE_SHORT":
+        if attr_type == "ATTR_TYPE_BYTE": # = ATTR_TYPE_INT8
+            (attr_value, ) = struct.unpack('@c', buf[0 : 1])
+            buf = buf[1 : ]
+            # continue
+        elif attr_type == "ATTR_TYPE_SHORT": # = ATTR_TYPE_INT16
             (attr_value, ) = struct.unpack('@h', buf[0 : 2])
             buf = buf[2 : ]
             # continue
-        elif attr_type == "ATTR_TYPE_INT":
-            (attr_value, ) = struct.unpack('@I', buf[0 : 4])
+        elif attr_type == "ATTR_TYPE_INT": # = ATTR_TYPE_INT32
+            (attr_value, ) = struct.unpack('@i', buf[0 : 4])
             buf = buf[4 : ]
             # continue
         elif attr_type == "ATTR_TYPE_INT64":
             (attr_value, ) = struct.unpack('@q', buf[0 : 8])
             buf = buf[8 : ]
             # continue
-        elif attr_type == "ATTR_TYPE_BYTE":
-            (attr_value, ) = struct.unpack('@c', buf[0 : 1])
+        elif attr_type == "ATTR_TYPE_UINT8":
+            (attr_value, ) = struct.unpack('@B', buf[0 : 1])
             buf = buf[1 : ]
             # continue
         elif attr_type == "ATTR_TYPE_UINT16":
             (attr_value, ) = struct.unpack('@H', buf[0 : 2])
             buf = buf[2 : ]
+            # continue
+        elif attr_type == "ATTR_TYPE_UINT32":
+            (attr_value, ) = struct.unpack('@I', buf[0 : 4])
+            buf = buf[4 : ]
+            # continue
+        elif attr_type == "ATTR_TYPE_UINT64":
+            (attr_value, ) = struct.unpack('@Q', buf[0 : 8])
+            buf = buf[8 : ]
             # continue
         elif attr_type == "ATTR_TYPE_FLOAT":
             (attr_value, ) = struct.unpack('@f', buf[0 : 4])

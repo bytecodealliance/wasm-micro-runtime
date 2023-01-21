@@ -50,7 +50,6 @@ static void *
 thread_start(void *arg)
 {
     wasm_exec_env_t exec_env = (wasm_exec_env_t)arg;
-    wasm_module_inst_t module_inst = get_module_inst(exec_env);
     ThreadStartArg *thread_arg = exec_env->thread_arg;
     uint32 argv[2];
 
@@ -59,8 +58,7 @@ thread_start(void *arg)
     argv[1] = thread_arg->arg;
 
     if (!wasm_runtime_call_wasm(exec_env, thread_arg->start_func, 2, argv)) {
-        if (wasm_runtime_get_exception(module_inst))
-            wasm_cluster_spread_exception(exec_env);
+        /* Exception has already been spread during throwing */
     }
 
     // Routine exit

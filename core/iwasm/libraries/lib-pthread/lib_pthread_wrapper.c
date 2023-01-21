@@ -494,7 +494,6 @@ pthread_start_routine(void *arg)
 {
     wasm_exec_env_t exec_env = (wasm_exec_env_t)arg;
     wasm_exec_env_t parent_exec_env;
-    wasm_module_inst_t module_inst = get_module_inst(exec_env);
     ThreadRoutineArgs *routine_args = exec_env->thread_arg;
     ThreadInfoNode *info_node = routine_args->info_node;
     uint32 argv[1];
@@ -519,8 +518,7 @@ pthread_start_routine(void *arg)
 
     if (!wasm_runtime_call_indirect(exec_env, routine_args->elem_index, 1,
                                     argv)) {
-        if (wasm_runtime_get_exception(module_inst))
-            wasm_cluster_spread_exception(exec_env);
+        /* Exception has already been spread during throwing */
     }
 
     /* destroy pthread key values */

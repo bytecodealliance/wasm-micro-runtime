@@ -900,24 +900,6 @@ create_exports(AOTModuleInstance *module_inst, AOTModule *module,
 }
 
 static bool
-clear_wasi_proc_exit_exception(AOTModuleInstance *module_inst)
-{
-#if WASM_ENABLE_LIBC_WASI != 0
-    const char *exception = aot_get_exception(module_inst);
-    if (exception && !strcmp(exception, "Exception: wasi proc exit")) {
-        /* The "wasi proc exit" exception is thrown by native lib to
-           let wasm app exit, which is a normal behavior, we clear
-           the exception here. */
-        aot_set_exception(module_inst, NULL);
-        return true;
-    }
-    return false;
-#else
-    return false;
-#endif
-}
-
-static bool
 execute_post_inst_function(AOTModuleInstance *module_inst)
 {
     AOTFunctionInstance *post_inst_func =
@@ -956,7 +938,6 @@ execute_start_function(AOTModuleInstance *module_inst)
     u.f(exec_env);
 
     wasm_exec_env_destroy(exec_env);
-    (void)clear_wasi_proc_exit_exception(module_inst);
     return !aot_get_exception(module_inst);
 }
 
@@ -975,6 +956,26 @@ execute_memory_init_function(AOTModuleInstance *module_inst)
                                                  0, NULL);
 }
 #endif
+
+static bool
+check_linked_symbol(AOTModule *module, char *error_buf, uint32 error_buf_size)
+{
+    uint32 i;
+
+    /* init_func_ptrs() will go through import functions */
+
+    for (i = 0; i < module->import_global_count; i++) {
+        AOTImportGlobal *global = module->import_globals + i;
+        if (!global->is_linked) {
+            set_error_buf_v(error_buf, error_buf_size,
+                            "failed to link import global (%s, %s)",
+                            global->module_name, global->global_name);
+            return false;
+        }
+    }
+
+    return true;
+}
 
 AOTModuleInstance *
 aot_instantiate(AOTModule *module, bool is_sub_inst, uint32 stack_size,
@@ -1057,6 +1058,9 @@ aot_instantiate(AOTModule *module, bool is_sub_inst, uint32 stack_size,
 
     /* Initialize function type indexes */
     if (!init_func_type_indexes(module_inst, module, error_buf, error_buf_size))
+        goto fail;
+
+    if (!check_linked_symbol(module, error_buf, error_buf_size))
         goto fail;
 
     if (!create_exports(module_inst, module, error_buf, error_buf_size))
@@ -1384,13 +1388,6 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
         ret = invoke_native_internal(exec_env, function->u.func.func_ptr,
                                      func_type, NULL, NULL, argv1, argc, argv);
 
-        if (!ret || aot_get_exception(module_inst)) {
-            if (clear_wasi_proc_exit_exception(module_inst))
-                ret = true;
-            else
-                ret = false;
-        }
-
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
         if (!ret) {
             if (aot_create_call_stack(exec_env)) {
@@ -1450,9 +1447,6 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
         ret = invoke_native_internal(exec_env, function->u.func.func_ptr,
                                      func_type, NULL, NULL, argv, argc, argv);
 
-        if (clear_wasi_proc_exit_exception(module_inst))
-            ret = true;
-
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
         if (aot_get_exception(module_inst)) {
             if (aot_create_call_stack(exec_env)) {
@@ -1493,7 +1487,7 @@ aot_create_exec_env_and_call_function(AOTModuleInstance *module_inst,
         }
     }
 
-    ret = aot_call_function(exec_env, func, argc, argv);
+    ret = wasm_runtime_call_wasm(exec_env, func, argc, argv);
 
     /* don't destroy the exec_env if it isn't created in this function */
     if (!existing_exec_env)
@@ -1764,7 +1758,9 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
     AOTModuleInstanceExtra *module_inst_extra =
         (AOTModuleInstanceExtra *)module_inst->e;
     CApiFuncImport *c_api_func_import =
-        module_inst_extra->c_api_func_imports + func_idx;
+        module_inst_extra->c_api_func_imports
+            ? module_inst_extra->c_api_func_imports + func_idx
+            : NULL;
     uint32 *func_type_indexes = module_inst->func_type_indexes;
     uint32 func_type_idx = func_type_indexes[func_idx];
     AOTFuncType *func_type = aot_module->func_types[func_type_idx];
@@ -1780,7 +1776,8 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
 
     import_func = aot_module->import_funcs + func_idx;
     if (import_func->call_conv_wasm_c_api)
-        func_ptr = c_api_func_import->func_ptr_linked;
+        func_ptr =
+            c_api_func_import ? c_api_func_import->func_ptr_linked : NULL;
 
     if (!func_ptr) {
         snprintf(buf, sizeof(buf),
@@ -1980,9 +1977,6 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
     }
 
 fail:
-    if (clear_wasi_proc_exit_exception(module_inst))
-        return true;
-
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     wasm_runtime_access_exce_check_guard_page();
 #endif

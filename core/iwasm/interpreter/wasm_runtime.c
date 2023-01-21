@@ -1235,6 +1235,7 @@ check_linked_symbol(WASMModuleInstance *module_inst, char *error_buf,
 #if WASM_ENABLE_WAMR_COMPILER == 0
             LOG_WARNING("warning: failed to link import function (%s, %s)",
                         func->module_name, func->field_name);
+            /* will throw exception only if calling */
 #else
             /* do nothing to avoid confused message */
 #endif /* WASM_ENABLE_WAMR_COMPILER == 0 */
@@ -1250,8 +1251,10 @@ check_linked_symbol(WASMModuleInstance *module_inst, char *error_buf,
             return false;
 #else
 #if WASM_ENABLE_WAMR_COMPILER == 0
-            LOG_DEBUG("warning: failed to link import global (%s, %s)",
-                      global->module_name, global->field_name);
+            set_error_buf_v(error_buf, error_buf_size,
+                            "failed to link import global (%s, %s)",
+                            global->module_name, global->field_name);
+            return false;
 #else
             /* do nothing to avoid confused message */
 #endif /* WASM_ENABLE_WAMR_COMPILER == 0 */
@@ -2030,24 +2033,6 @@ wasm_lookup_table(const WASMModuleInstance *module_inst, const char *name)
 }
 #endif
 
-static bool
-clear_wasi_proc_exit_exception(WASMModuleInstance *module_inst)
-{
-#if WASM_ENABLE_LIBC_WASI != 0
-    const char *exception = wasm_get_exception(module_inst);
-    if (exception && !strcmp(exception, "Exception: wasi proc exit")) {
-        /* The "wasi proc exit" exception is thrown by native lib to
-           let wasm app exit, which is a normal behavior, we clear
-           the exception here. */
-        wasm_set_exception(module_inst, NULL);
-        return true;
-    }
-    return false;
-#else
-    return false;
-#endif
-}
-
 #ifdef OS_ENABLE_HW_BOUND_CHECK
 
 static void
@@ -2157,7 +2142,6 @@ wasm_call_function(WASMExecEnv *exec_env, WASMFunctionInstance *function,
     wasm_exec_env_set_thread_info(exec_env);
 
     interp_call_wasm(module_inst, exec_env, function, argc, argv);
-    (void)clear_wasi_proc_exit_exception(module_inst);
     return !wasm_get_exception(module_inst) ? true : false;
 }
 
@@ -2185,7 +2169,7 @@ wasm_create_exec_env_and_call_function(WASMModuleInstance *module_inst,
         }
     }
 
-    ret = wasm_call_function(exec_env, func, argc, argv);
+    ret = wasm_runtime_call_wasm(exec_env, func, argc, argv);
 
     /* don't destroy the exec_env if it isn't created in this function */
     if (!existing_exec_env)
@@ -2455,7 +2439,6 @@ call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 elem_idx,
 
     interp_call_wasm(module_inst, exec_env, func_inst, argc, argv);
 
-    (void)clear_wasi_proc_exit_exception(module_inst);
     return !wasm_get_exception(module_inst) ? true : false;
 
 got_exception:
@@ -2907,8 +2890,14 @@ llvm_jit_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
 
     import_func = &module->import_functions[func_idx].u.function;
     if (import_func->call_conv_wasm_c_api) {
-        c_api_func_import = module_inst->e->c_api_func_imports + func_idx;
-        func_ptr = c_api_func_import->func_ptr_linked;
+        if (module_inst->e->c_api_func_imports) {
+            c_api_func_import = module_inst->e->c_api_func_imports + func_idx;
+            func_ptr = c_api_func_import->func_ptr_linked;
+        }
+        else {
+            c_api_func_import = NULL;
+            func_ptr = NULL;
+        }
     }
 
     if (!func_ptr) {

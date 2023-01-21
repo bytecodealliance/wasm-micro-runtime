@@ -72,6 +72,7 @@ typedef struct os_thread_wait_node *os_thread_wait_list;
 typedef struct korp_cond {
     korp_mutex wait_list_lock;
     os_thread_wait_list thread_wait_list;
+    struct os_thread_wait_node *thread_wait_list_end;
 } korp_cond;
 
 #define bh_socket_t SOCKET

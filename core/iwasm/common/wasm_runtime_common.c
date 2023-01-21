@@ -1743,6 +1743,30 @@ wasm_runtime_finalize_call_function(WASMExecEnv *exec_env,
 }
 #endif
 
+static bool
+clear_wasi_proc_exit_exception(WASMModuleInstanceCommon *module_inst_comm)
+{
+#if WASM_ENABLE_LIBC_WASI != 0
+    const char *exception;
+    WASMModuleInstance *module_inst = (WASMModuleInstance *)module_inst_comm;
+
+    bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
+              || module_inst_comm->module_type == Wasm_Module_AoT);
+
+    exception = wasm_get_exception(module_inst);
+    if (exception && !strcmp(exception, "Exception: wasi proc exit")) {
+        /* The "wasi proc exit" exception is thrown by native lib to
+           let wasm app exit, which is a normal behavior, we clear
+           the exception here. */
+        wasm_set_exception(module_inst, NULL);
+        return true;
+    }
+    return false;
+#else
+    return false;
+#endif
+}
+
 bool
 wasm_runtime_call_wasm(WASMExecEnv *exec_env,
                        WASMFunctionInstanceCommon *function, uint32 argc,
@@ -1783,10 +1807,15 @@ wasm_runtime_call_wasm(WASMExecEnv *exec_env,
                                 param_argc, new_argv);
 #endif
     if (!ret) {
-        if (new_argv != argv) {
-            wasm_runtime_free(new_argv);
+        if (clear_wasi_proc_exit_exception(exec_env->module_inst)) {
+            ret = true;
         }
-        return false;
+        else {
+            if (new_argv != argv) {
+                wasm_runtime_free(new_argv);
+            }
+            return false;
+        }
     }
 
 #if WASM_ENABLE_REF_TYPES != 0
@@ -2150,11 +2179,25 @@ wasm_runtime_get_exec_env_singleton(WASMModuleInstanceCommon *module_inst_comm)
 void
 wasm_set_exception(WASMModuleInstance *module_inst, const char *exception)
 {
-    if (exception)
+    WASMExecEnv *exec_env = NULL;
+
+    if (exception) {
         snprintf(module_inst->cur_exception, sizeof(module_inst->cur_exception),
                  "Exception: %s", exception);
-    else
+    }
+    else {
         module_inst->cur_exception[0] = '\0';
+    }
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    exec_env =
+        wasm_clusters_search_exec_env((WASMModuleInstanceCommon *)module_inst);
+    if (exec_env) {
+        wasm_cluster_spread_exception(exec_env, exception ? false : true);
+    }
+#else
+    (void)exec_env;
+#endif
 }
 
 /* clang-format off */
@@ -4179,6 +4222,8 @@ bool
 wasm_runtime_call_indirect(WASMExecEnv *exec_env, uint32 element_indices,
                            uint32 argc, uint32 argv[])
 {
+    bool ret = false;
+
     if (!wasm_runtime_exec_env_check(exec_env)) {
         LOG_ERROR("Invalid exec env stack info.");
         return false;
@@ -4190,13 +4235,18 @@ wasm_runtime_call_indirect(WASMExecEnv *exec_env, uint32 element_indices,
 
 #if WASM_ENABLE_INTERP != 0
     if (exec_env->module_inst->module_type == Wasm_Module_Bytecode)
-        return wasm_call_indirect(exec_env, 0, element_indices, argc, argv);
+        ret = wasm_call_indirect(exec_env, 0, element_indices, argc, argv);
 #endif
 #if WASM_ENABLE_AOT != 0
     if (exec_env->module_inst->module_type == Wasm_Module_AoT)
-        return aot_call_indirect(exec_env, 0, element_indices, argc, argv);
+        ret = aot_call_indirect(exec_env, 0, element_indices, argc, argv);
 #endif
-    return false;
+
+    if (!ret && clear_wasi_proc_exit_exception(exec_env->module_inst)) {
+        ret = true;
+    }
+
+    return ret;
 }
 
 static void

@@ -891,7 +891,7 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
     if (!func_import->call_conv_wasm_c_api) {
         native_func_pointer = module_inst->import_func_ptrs[cur_func_index];
     }
-    else {
+    else if (module_inst->e->c_api_func_imports) {
         c_api_func_import = module_inst->e->c_api_func_imports + cur_func_index;
         native_func_pointer = c_api_func_import->func_ptr_linked;
     }
@@ -1041,7 +1041,6 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
         }                                                              \
         if (IS_WAMR_STOP_SIG(exec_env->current_status->signal_flag)) { \
             SYNC_ALL_TO_FRAME();                                       \
-            wasm_cluster_thread_stopped(exec_env);                     \
             wasm_cluster_thread_waiting_run(exec_env);                 \
         }                                                              \
     } while (0)
@@ -1077,7 +1076,6 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
                && exec_env->current_status->step_count++ == 1) {          \
             exec_env->current_status->step_count = 0;                     \
             SYNC_ALL_TO_FRAME();                                          \
-            wasm_cluster_thread_stopped(exec_env);                        \
             wasm_cluster_thread_waiting_run(exec_env);                    \
         }                                                                 \
         goto *handle_table[*frame_ip++];                                  \
@@ -1094,7 +1092,6 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
         && exec_env->current_status->step_count++ == 2) {          \
         exec_env->current_status->step_count = 0;                  \
         SYNC_ALL_TO_FRAME();                                       \
-        wasm_cluster_thread_stopped(exec_env);                     \
         wasm_cluster_thread_waiting_run(exec_env);                 \
     }                                                              \
     continue
@@ -4023,24 +4020,6 @@ fast_jit_call_func_bytecode(WASMModuleInstance *module_inst,
 
 #if WASM_ENABLE_JIT != 0
 static bool
-clear_wasi_proc_exit_exception(WASMModuleInstance *module_inst)
-{
-#if WASM_ENABLE_LIBC_WASI != 0
-    const char *exception = wasm_get_exception(module_inst);
-    if (exception && !strcmp(exception, "Exception: wasi proc exit")) {
-        /* The "wasi proc exit" exception is thrown by native lib to
-           let wasm app exit, which is a normal behavior, we clear
-           the exception here. */
-        wasm_set_exception(module_inst, NULL);
-        return true;
-    }
-    return false;
-#else
-    return false;
-#endif
-}
-
-static bool
 llvm_jit_call_func_bytecode(WASMModuleInstance *module_inst,
                             WASMExecEnv *exec_env,
                             WASMFunctionInstance *function, uint32 argc,
@@ -4099,14 +4078,6 @@ llvm_jit_call_func_bytecode(WASMModuleInstance *module_inst,
         ret = wasm_runtime_invoke_native(
             exec_env, module_inst->func_ptrs[func_idx], func_type, NULL, NULL,
             argv1, argc, argv);
-
-        if (!ret || wasm_get_exception(module_inst)) {
-            if (clear_wasi_proc_exit_exception(module_inst))
-                ret = true;
-            else
-                ret = false;
-        }
-
         if (!ret) {
             if (argv1 != argv1_buf)
                 wasm_runtime_free(argv1);
@@ -4150,9 +4121,6 @@ llvm_jit_call_func_bytecode(WASMModuleInstance *module_inst,
         ret = wasm_runtime_invoke_native(
             exec_env, module_inst->func_ptrs[func_idx], func_type, NULL, NULL,
             argv, argc, argv);
-
-        if (clear_wasi_proc_exit_exception(module_inst))
-            ret = true;
 
         return ret && !wasm_get_exception(module_inst) ? true : false;
     }
