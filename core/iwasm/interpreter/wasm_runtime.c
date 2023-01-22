@@ -1389,6 +1389,9 @@ set_running_mode(WASMModuleInstance *module_inst, RunningMode running_mode,
     }
 #if WASM_ENABLE_FAST_JIT != 0
     else if (running_mode == Mode_Fast_JIT) {
+        JitGlobals *jit_globals = jit_compiler_get_jit_globals();
+        uint32 i;
+
         /* Allocate memory for fast_jit_func_ptrs if needed */
         if (!module_inst->fast_jit_func_ptrs
             || module_inst->fast_jit_func_ptrs == module->fast_jit_func_ptrs) {
@@ -1399,11 +1402,18 @@ set_running_mode(WASMModuleInstance *module_inst, RunningMode running_mode,
                 return false;
             }
         }
-        /* Copy all fast jit func ptrs from the module */
-        bh_memcpy_s(module_inst->fast_jit_func_ptrs,
-                    sizeof(void *) * module->function_count,
-                    module->fast_jit_func_ptrs,
-                    sizeof(void *) * module->function_count);
+
+        for (i = 0; i < module->function_count; i++) {
+            if (module->functions[i]->fast_jit_jitted_code) {
+                /* current fast jit function has been compiled */
+                module_inst->fast_jit_func_ptrs[i] =
+                    module->functions[i]->fast_jit_jitted_code;
+            }
+            else {
+                module_inst->fast_jit_func_ptrs[i] =
+                    jit_globals->compile_fast_jit_and_then_call;
+            }
+        }
     }
 #endif
 #if WASM_ENABLE_JIT != 0
