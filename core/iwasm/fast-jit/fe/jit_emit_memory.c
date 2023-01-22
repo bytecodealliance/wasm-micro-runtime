@@ -135,7 +135,8 @@ check_and_seek(JitCompContext *cc, JitReg addr, uint32 offset, uint32 bytes)
 #ifndef OS_ENABLE_HW_BOUND_CHECK
     /* ---------- check ---------- */
     /* 1. shortcut if the memory size is 0 */
-    if (0 == cc->cur_wasm_module->memories[mem_idx].init_page_count) {
+    if (cc->cur_wasm_module->memories != NULL
+        && 0 == cc->cur_wasm_module->memories[mem_idx].init_page_count) {
         JitReg module_inst, cur_page_count;
         uint32 cur_page_count_offset =
             (uint32)offsetof(WASMModuleInstance, global_table_data.bytes)
@@ -175,6 +176,18 @@ check_and_seek(JitCompContext *cc, JitReg addr, uint32 offset, uint32 bytes)
 fail:
     return 0;
 }
+
+#define CHECK_ALIGNMENT(maddr, memory_data, offset1)                   \
+    do {                                                               \
+        GEN_INSN(ADD, maddr, memory_data, offset1);                    \
+        JitReg align_mask = NEW_CONST(I64, ((uint64)1 << align) - 1);  \
+        JitReg AND_res = jit_cc_new_reg_I64(cc);                       \
+        GEN_INSN(AND, AND_res, maddr, align_mask);                     \
+        GEN_INSN(CMP, cc->cmp_reg, AND_res, NEW_CONST(I64, 0));        \
+        if (!jit_emit_exception(cc, EXCE_UNALIGNED_ATOMIC, JIT_OP_BNE, \
+                                cc->cmp_reg, NULL))                    \
+            goto fail;                                                 \
+    } while (0)
 
 bool
 jit_compile_op_i32_load(JitCompContext *cc, uint32 align, uint32 offset,
@@ -769,6 +782,20 @@ jit_compile_op_atomic_rmw(JitCompContext *cc, uint8 atomic_op, uint8 op_type,
     return false;
 }
 
+static void
+wasm_runtime_mem_lock(WASMModuleInstanceCommon *module)
+{
+    WASMModuleInstance *module_inst = (WASMModuleInstance *)module;
+    os_mutex_lock(&module_inst->e->mem_lock);
+}
+
+static void
+wasm_runtime_mem_unlock(WASMModuleInstanceCommon *module)
+{
+    WASMModuleInstance *module_inst = (WASMModuleInstance *)module;
+    os_mutex_unlock(&module_inst->e->mem_lock);
+}
+
 bool
 jit_compile_op_atomic_cmpxchg(JitCompContext *cc, uint8 op_type, uint32 align,
                               uint32 offset, uint32 bytes)
@@ -822,22 +849,34 @@ bool
 jit_compile_op_atomic_wait(JitCompContext *cc, uint8 op_type, uint32 align,
                            uint32 offset, uint32 bytes)
 {
-    assert(op_type == VALUE_TYPE_I32 && "wait64 not implemented yet");
+    bh_assert(op_type == VALUE_TYPE_I32 || op_type == VALUE_TYPE_I64);
 
-    JitReg timeout, expect, addr, res, memory_data, expect_64;
-    JitReg args[5] = { 0 };
-
+    // Pop atomic.wait arguments
+    JitReg timeout, expect, expect_64, addr;
     POP_I64(timeout);
-    POP_I32(expect);
+    if (op_type == VALUE_TYPE_I32) {
+        POP_I32(expect);
+        expect_64 = jit_cc_new_reg_I64(cc);
+        GEN_INSN(I32TOI64, expect_64, expect);
+    }
+    else {
+        POP_I64(expect_64);
+    }
     POP_I32(addr);
 
-    expect_64 = jit_cc_new_reg_I64(cc);
-    GEN_INSN(I32TOI64, expect_64, expect);
-    memory_data = get_memory_data_reg(cc->jit_frame, 0);
+    // Get referenced address and store it in `maddr`
+    JitReg memory_data = get_memory_data_reg(cc->jit_frame, 0);
+    JitReg offset1 = check_and_seek(cc, addr, offset, bytes);
+    if (!offset1)
+        goto fail;
+    JitReg maddr = jit_cc_new_reg_I64(cc);
+    CHECK_ALIGNMENT(maddr, memory_data, offset1);
 
-    res = jit_cc_new_reg_I32(cc);
+    // Prepare `wasm_runtime_atomic_wait` arguments
+    JitReg res = jit_cc_new_reg_I32(cc);
+    JitReg args[5] = { 0 };
     args[0] = get_module_inst_reg(cc->jit_frame);
-    args[1] = memory_data + offset;
+    args[1] = maddr;
     args[2] = expect_64;
     args[3] = timeout;
     args[4] = NEW_CONST(I32, false);
@@ -846,13 +885,13 @@ jit_compile_op_atomic_wait(JitCompContext *cc, uint8 op_type, uint32 align,
                              sizeof(args) / sizeof(args[0])))
         goto fail;
 
+    // Handle return code
     GEN_INSN(CMP, cc->cmp_reg, res, NEW_CONST(I32, -1));
     if (!jit_emit_exception(cc, EXCE_ALREADY_THROWN, JIT_OP_BEQ, cc->cmp_reg,
                             NULL))
         goto fail;
 
     PUSH_I32(res);
-
     return true;
 fail:
     return false;
@@ -862,32 +901,37 @@ bool
 jit_compiler_op_atomic_notify(JitCompContext *cc, uint32 align, uint32 offset,
                               uint32 bytes)
 {
-    assert(bytes == 4 && "wait64 not implemented yet");
-
-    JitReg notify_count, addr, res, memory_data;
-    JitReg args[3] = { 0 };
-
+    // Pop atomic.notify arguments
+    JitReg notify_count, addr;
     POP_I32(notify_count);
     POP_I32(addr);
 
-    memory_data = get_memory_data_reg(cc->jit_frame, 0);
+    // Get referenced address and store it in `maddr`
+    JitReg memory_data = get_memory_data_reg(cc->jit_frame, 0);
+    JitReg offset1 = check_and_seek(cc, addr, offset, bytes);
+    if (!offset1)
+        goto fail;
+    JitReg maddr = jit_cc_new_reg_I64(cc);
+    CHECK_ALIGNMENT(maddr, memory_data, offset1);
 
-    res = jit_cc_new_reg_I32(cc);
+    // Prepare `wasm_runtime_atomic_notify` arguments
+    JitReg res = jit_cc_new_reg_I32(cc);
+    JitReg args[3] = { 0 };
     args[0] = get_module_inst_reg(cc->jit_frame);
-    args[1] = memory_data + offset;
+    args[1] = maddr;
     args[2] = notify_count;
 
     if (!jit_emit_callnative(cc, wasm_runtime_atomic_notify, res, args,
                              sizeof(args) / sizeof(args[0])))
         goto fail;
 
+    // Handle return code
     GEN_INSN(CMP, cc->cmp_reg, res, NEW_CONST(I32, 0));
     if (!jit_emit_exception(cc, EXCE_ALREADY_THROWN, JIT_OP_BLTS, cc->cmp_reg,
                             NULL))
         goto fail;
 
     PUSH_I32(res);
-
     return true;
 fail:
     return false;

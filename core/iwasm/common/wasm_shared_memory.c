@@ -439,19 +439,3 @@ wasm_runtime_atomic_notify(WASMModuleInstanceCommon *module, void *address,
 
     return notify_result;
 }
-
-#if WASM_ENABLE_SHARED_MEMORY != 0
-void
-wasm_runtime_mem_lock(WASMModuleInstanceCommon *module)
-{
-    WASMModuleInstance *module_inst = (WASMModuleInstance *)module;
-    os_mutex_lock(&module_inst->e->mem_lock);
-}
-
-void
-wasm_runtime_mem_unlock(WASMModuleInstanceCommon *module)
-{
-    WASMModuleInstance *module_inst = (WASMModuleInstance *)module;
-    os_mutex_unlock(&module_inst->e->mem_lock);
-}
-#endif /* WASM_ENABLE_SHARED_MEMORY != 0 */

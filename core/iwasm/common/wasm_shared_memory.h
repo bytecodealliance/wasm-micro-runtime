@@ -61,12 +61,6 @@ uint32
 wasm_runtime_atomic_notify(WASMModuleInstanceCommon *module, void *address,
                            uint32 count);
 
-void
-wasm_runtime_mem_lock(WASMModuleInstanceCommon *module);
-
-void
-wasm_runtime_mem_unlock(WASMModuleInstanceCommon *module);
-
 #ifdef __cplusplus
 }
 #endif
