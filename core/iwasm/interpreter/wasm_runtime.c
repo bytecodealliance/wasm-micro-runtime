@@ -1422,6 +1422,7 @@ set_running_mode(WASMModuleInstance *module_inst, RunningMode running_mode,
         uint32 i;
 
         /* Wait until llvm jit finishes initialization */
+        os_mutex_lock(&module->tierup_wait_lock);
         while (!module->llvm_jit_inited) {
             os_cond_reltimedwait(&module->tierup_wait_cond,
                                  &module->tierup_wait_lock, 10);

@@ -490,8 +490,8 @@ wasm_runtime_instantiate(const wasm_module_t module,
 /**
  * Set the running mode of a WASM module instance, override the
  * default running mode of the runtime. Note that it only makes sense when
- * the input is a wasm bytecode file: for the AOT file, runtime always run
- * it with AOT engine, and this function always return true.
+ * the input is a wasm bytecode file: for the AOT file, runtime always runs
+ * it with AOT engine, and this function always returns true.
  *
  * @param module_inst the WASM module instance to set running mode
  * @param running_mode the running mode to set
@@ -506,7 +506,7 @@ wasm_runtime_set_running_mode(wasm_module_inst_t module_inst,
  * Get the running mode of a WASM module instance, if no running mode
  * is explicitly set the default running mode of runtime will
  * be used and returned. Note that it only makes sense when the input is a
- * wasm bytecode file: for the AOT file, this function always return 0.
+ * wasm bytecode file: for the AOT file, this function always returns 0.
  *
  * @param module_inst the WASM module instance to query for running mode
  *
