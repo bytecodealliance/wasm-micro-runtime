@@ -2902,7 +2902,6 @@ wasm_runtime_destroy_wasi(WASMModuleInstanceCommon *module_inst)
 
         wasm_runtime_free(wasi_ctx);
     }
-
 }
 #else
 void
