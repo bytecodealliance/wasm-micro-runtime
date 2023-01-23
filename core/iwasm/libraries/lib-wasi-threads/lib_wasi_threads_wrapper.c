@@ -148,12 +148,12 @@ thread_preparation_fail:
 }
 
 /* clang-format off */
-#define REG_NATIVE_FUNC(func_name, signature) \
-    { #func_name, func_name##_wrapper, signature, NULL }
+#define REG_NATIVE_FUNC(name, func_name, signature) \
+    { name, func_name##_wrapper, signature, NULL }
 /* clang-format on */
 
 static NativeSymbol native_symbols_lib_wasi_threads[] = { REG_NATIVE_FUNC(
-    thread_spawn, "(i)i") };
+    "thread-spawn", thread_spawn, "(i)i") };
 
 uint32
 get_lib_wasi_threads_export_apis(NativeSymbol **p_lib_wasi_threads_apis)
