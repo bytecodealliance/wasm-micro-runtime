@@ -20,6 +20,10 @@
 #include <sys/time.h>
 #endif
 
+#if WASM_ENABLE_WASI_NN != 0
+#include "../libraries/wasi-nn/src/wasi_nn_private.h"
+#endif
+
 static NativeSymbolsList g_native_symbols_list = NULL;
 
 uint32
@@ -480,6 +484,10 @@ wasm_native_destroy()
 
 #if WASM_ENABLE_LIB_PTHREAD != 0
     lib_pthread_destroy();
+#endif
+
+#if WASM_ENABLE_WASI_NN != 0
+    wasi_nn_destroy();
 #endif
 
     node = g_native_symbols_list;

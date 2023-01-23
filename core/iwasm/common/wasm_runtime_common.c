@@ -35,9 +35,6 @@
 #endif
 #include "../common/wasm_c_api_internal.h"
 #include "../../version.h"
-#if WASM_ENABLE_WASI_NN != 0
-#include "../libraries/wasi-nn/src/wasi_nn_private.h"
-#endif
 
 /**
  * For runtime build, BH_MALLOC/BH_FREE should be defined as
@@ -2906,9 +2903,6 @@ wasm_runtime_destroy_wasi(WASMModuleInstanceCommon *module_inst)
         wasm_runtime_free(wasi_ctx);
     }
 
-#if WASM_ENABLE_WASI_NN != 0
-    wasi_nn_destroy();
-#endif
 }
 #else
 void
