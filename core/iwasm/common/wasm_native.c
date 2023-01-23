@@ -486,10 +486,6 @@ wasm_native_destroy()
     lib_pthread_destroy();
 #endif
 
-#if WASM_ENABLE_WASI_NN != 0
-    wasi_nn_destroy();
-#endif
-
     node = g_native_symbols_list;
     while (node) {
         node_next = node->next;

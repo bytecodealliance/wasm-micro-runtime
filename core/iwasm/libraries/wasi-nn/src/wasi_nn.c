@@ -17,6 +17,8 @@
 
 #include "bh_platform.h"
 #include "wasm_export.h"
+#include "wasm_runtime.h"
+#include "aot_runtime.h"
 
 /* Definition of 'wasi_nn.h' structs in WASM app format (using offset) */
 
@@ -37,10 +39,6 @@ typedef struct {
 } api_function;
 
 /* Global variables */
-
-static bool is_initialized = false;
-
-static graph_encoding current_encoding;
 
 static api_function lookup[] = {
     { NULL, NULL, NULL, NULL, NULL },
@@ -63,13 +61,31 @@ is_encoding_implemented(graph_encoding encoding)
 }
 
 static error
-is_model_initialized()
+is_model_initialized(WASINNContext *wasi_nn_ctx)
 {
-    if (!is_initialized) {
+    if (!wasi_nn_ctx->is_initialized) {
         NN_ERR_PRINTF("Model not initialized.");
         return runtime_error;
     }
     return success;
+}
+
+WASINNContext *
+wasm_runtime_get_wasi_nn_ctx(wasm_module_inst_t instance)
+{
+    WASINNContext *wasi_nn_ctx = NULL;
+    if (instance->module_type == Wasm_Module_Bytecode) {
+        NN_DBG_PRINTF("Getting ctx from WASM");
+        WASMModuleInstance *module_inst = (WASMModuleInstance *)instance;
+        wasi_nn_ctx = ((WASMModuleInstanceExtra *)module_inst->e)->wasi_nn_ctx;
+    }
+    else {
+        NN_DBG_PRINTF("Getting ctx from AOT");
+        AOTModuleInstance *module_inst = (AOTModuleInstance *)instance;
+        wasi_nn_ctx = ((AOTModuleInstanceExtra *)module_inst->e)->wasi_nn_ctx;
+    }
+    NN_DBG_PRINTF("Returning ctx");
+    return wasi_nn_ctx;
 }
 
 /* WASI-NN implementation */
@@ -106,8 +122,10 @@ wasi_nn_load(wasm_exec_env_t exec_env, graph_builder_array_wasm *builder,
 
     NN_DBG_PRINTF("wasi_nn_load finished with status %d [graph=%d]", res, *g);
 
-    current_encoding = encoding;
-    is_initialized = true;
+    WASINNContext *wasi_nn_ctx = wasm_runtime_get_wasi_nn_ctx(instance);
+
+    wasi_nn_ctx->current_encoding = encoding;
+    wasi_nn_ctx->is_initialized = true;
 
 fail:
     // XXX: Free intermediate structure pointers
@@ -122,12 +140,14 @@ wasi_nn_init_execution_context(wasm_exec_env_t exec_env, graph g,
                                graph_execution_context *ctx)
 {
     NN_DBG_PRINTF("Running wasi_nn_init_execution_context [graph=%d]...", g);
-    error res;
-    if (success != (res = is_model_initialized()))
-        return res;
 
     wasm_module_inst_t instance = wasm_runtime_get_module_inst(exec_env);
     bh_assert(instance);
+    WASINNContext *wasi_nn_ctx = wasm_runtime_get_wasi_nn_ctx(instance);
+
+    error res;
+    if (success != (res = is_model_initialized(wasi_nn_ctx)))
+        return res;
 
     if (!wasm_runtime_validate_native_addr(instance, ctx,
                                            sizeof(graph_execution_context))) {
@@ -135,7 +155,7 @@ wasi_nn_init_execution_context(wasm_exec_env_t exec_env, graph g,
         return invalid_argument;
     }
 
-    res = lookup[current_encoding].init_execution_context(g, ctx);
+    res = lookup[wasi_nn_ctx->current_encoding].init_execution_context(g, ctx);
     *ctx = g;
     NN_DBG_PRINTF(
         "wasi_nn_init_execution_context finished with status %d [ctx=%d]", res,
@@ -149,12 +169,14 @@ wasi_nn_set_input(wasm_exec_env_t exec_env, graph_execution_context ctx,
 {
     NN_DBG_PRINTF("Running wasi_nn_set_input [ctx=%d, index=%d]...", ctx,
                   index);
-    error res;
-    if (success != (res = is_model_initialized()))
-        return res;
 
     wasm_module_inst_t instance = wasm_runtime_get_module_inst(exec_env);
     bh_assert(instance);
+    WASINNContext *wasi_nn_ctx = wasm_runtime_get_wasi_nn_ctx(instance);
+
+    error res;
+    if (success != (res = is_model_initialized(wasi_nn_ctx)))
+        return res;
 
     tensor input_tensor_native = { 0 };
     if (success
@@ -162,7 +184,8 @@ wasi_nn_set_input(wasm_exec_env_t exec_env, graph_execution_context ctx,
                                     &input_tensor_native)))
         return res;
 
-    res = lookup[current_encoding].set_input(ctx, index, &input_tensor_native);
+    res = lookup[wasi_nn_ctx->current_encoding].set_input(ctx, index,
+                                                          &input_tensor_native);
 
     // XXX: Free intermediate structure pointers
     if (input_tensor_native.dimensions)
@@ -176,11 +199,16 @@ error
 wasi_nn_compute(wasm_exec_env_t exec_env, graph_execution_context ctx)
 {
     NN_DBG_PRINTF("Running wasi_nn_compute [ctx=%d]...", ctx);
+
+    wasm_module_inst_t instance = wasm_runtime_get_module_inst(exec_env);
+    bh_assert(instance);
+    WASINNContext *wasi_nn_ctx = wasm_runtime_get_wasi_nn_ctx(instance);
+
     error res;
-    if (success != (res = is_model_initialized()))
+    if (success != (res = is_model_initialized(wasi_nn_ctx)))
         return res;
 
-    res = lookup[current_encoding].compute(ctx);
+    res = lookup[wasi_nn_ctx->current_encoding].compute(ctx);
     NN_DBG_PRINTF("wasi_nn_compute finished with status %d", res);
     return res;
 }
@@ -192,12 +220,14 @@ wasi_nn_get_output(wasm_exec_env_t exec_env, graph_execution_context ctx,
 {
     NN_DBG_PRINTF("Running wasi_nn_get_output [ctx=%d, index=%d]...", ctx,
                   index);
-    error res;
-    if (success != (res = is_model_initialized()))
-        return res;
 
     wasm_module_inst_t instance = wasm_runtime_get_module_inst(exec_env);
     bh_assert(instance);
+    WASINNContext *wasi_nn_ctx = wasm_runtime_get_wasi_nn_ctx(instance);
+
+    error res;
+    if (success != (res = is_model_initialized(wasi_nn_ctx)))
+        return res;
 
     if (!wasm_runtime_validate_native_addr(instance, output_tensor_size,
                                            sizeof(uint32_t))) {
@@ -205,8 +235,8 @@ wasi_nn_get_output(wasm_exec_env_t exec_env, graph_execution_context ctx,
         return invalid_argument;
     }
 
-    res = lookup[current_encoding].get_output(ctx, index, output_tensor,
-                                              output_tensor_size);
+    res = lookup[wasi_nn_ctx->current_encoding].get_output(
+        ctx, index, output_tensor, output_tensor_size);
     NN_DBG_PRINTF("wasi_nn_get_output finished with status %d [data_size=%d]",
                   res, *output_tensor_size);
     return res;
@@ -214,11 +244,24 @@ wasi_nn_get_output(wasm_exec_env_t exec_env, graph_execution_context ctx,
 
 /* Non-exposed public functions */
 
-void
-wasi_nn_destroy()
+WASINNContext *
+wasi_nn_initialize()
 {
-    NN_DBG_PRINTF("Free wasi-nn");
+    NN_DBG_PRINTF("Initializing wasi-nn");
+    WASINNContext *wasi_nn_ctx = (WASINNContext *)malloc(sizeof(WASINNContext));
+    wasi_nn_ctx->is_initialized = true;
+    wasi_nn_ctx->current_encoding = 3;
+    return wasi_nn_ctx;
+}
+
+void
+wasi_nn_destroy(WASINNContext *wasi_nn_ctx)
+{
+    NN_DBG_PRINTF("Freeing wasi-nn");
+    NN_DBG_PRINTF("-> is_initialized: %d", wasi_nn_ctx->is_initialized);
+    NN_DBG_PRINTF("-> current_encoding: %d", wasi_nn_ctx->current_encoding);
     tensorflowlite_destroy();
+    free(wasi_nn_ctx);
 }
 
 /* Register WASI-NN in WAMR */

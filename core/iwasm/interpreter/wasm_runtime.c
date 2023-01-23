@@ -1882,6 +1882,11 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
 #endif
 
     (void)global_data_end;
+
+#if WASM_ENABLE_WASI_NN != 0
+    module_inst->e->wasi_nn_ctx = wasi_nn_initialize();
+#endif
+
     return module_inst;
 
 fail:
@@ -1983,6 +1988,10 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
 
     if (module_inst->e->c_api_func_imports)
         wasm_runtime_free(module_inst->e->c_api_func_imports);
+
+#if WASM_ENABLE_WASI_NN != 0
+    wasi_nn_destroy(module_inst->e->wasi_nn_ctx);
+#endif
 
     wasm_runtime_free(module_inst);
 }
