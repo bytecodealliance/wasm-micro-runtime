@@ -1,6 +1,6 @@
 # "WASI threads" sample introduction
 
-Currently, since the `wasi-sdk` does not have thread support in the latest release, make sure to have [wasi-libc](https://github.com/WebAssembly/wasi-libc) installed. Build it with threads enabled, e.g.
+Currently, since the `wasi-sdk` does not have thread support in the latest release, make sure to have [wasi-libc](https://github.com/WebAssembly/wasi-libc) installed. After cloning, build the branch `wasi-sdk-17` with threads enabled, e.g.
 
 ```shell
 make \
@@ -9,8 +9,9 @@ make \
     CC=/opt/wasi-sdk/bin/clang \
     THREAD_MODEL=posix
 ```
+A successful build outputs the path to the wasi-libc sysroot. Use the path to build and run the samples, as shown below.
 
-Build and run the samples
+### Build and run the samples
 
 ```shell
 $ mkdir build
