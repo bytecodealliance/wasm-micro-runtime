@@ -596,6 +596,12 @@ struct WASMModule {
     korp_tid llvm_jit_init_thread;
     /* whether the llvm jit is initialized */
     bool llvm_jit_inited;
+    /* Whether to enable llvm jit compilation:
+       it is set to true only when there is a module instance starts to
+       run with running mode Mode_LLVM_JIT or Mode_Multi_Tier_JIT,
+       since no need to enable llvm jit compilation for Mode_Interp and
+       Mode_Fast_JIT, so as to improve performance for them */
+    bool enable_llvm_jit_compilation;
 #endif
 };
 

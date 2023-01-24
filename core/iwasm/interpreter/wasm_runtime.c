@@ -1421,6 +1421,9 @@ set_running_mode(WASMModuleInstance *module_inst, RunningMode running_mode,
         void **llvm_jit_func_ptrs;
         uint32 i;
 
+        /* Notify backend threads to start llvm jit compilation */
+        module->enable_llvm_jit_compilation = true;
+
         /* Wait until llvm jit finishes initialization */
         os_mutex_lock(&module->tierup_wait_lock);
         while (!module->llvm_jit_inited) {
@@ -1443,6 +1446,9 @@ set_running_mode(WASMModuleInstance *module_inst, RunningMode running_mode,
     }
 #endif
     else if (running_mode == Mode_Multi_Tier_JIT) {
+        /* Notify backend threads to start llvm jit compilation */
+        module->enable_llvm_jit_compilation = true;
+
         /* Free fast_jit_func_ptrs if it is allocated before */
         if (module_inst->fast_jit_func_ptrs
             && module_inst->fast_jit_func_ptrs != module->fast_jit_func_ptrs) {

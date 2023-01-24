@@ -2051,9 +2051,9 @@ orcjit_thread_callback(void *arg)
 
     /* Wait until init_llvm_jit_functions_stage2 finishes */
     os_mutex_lock(&module->tierup_wait_lock);
-    while (!module->llvm_jit_inited) {
+    while (!(module->llvm_jit_inited && module->enable_llvm_jit_compilation)) {
         os_cond_reltimedwait(&module->tierup_wait_cond,
-                             &module->tierup_wait_lock, 10);
+                             &module->tierup_wait_lock, 10000);
         if (module->orcjit_stop_compiling) {
             /* init_llvm_jit_functions_stage2 failed */
             os_mutex_unlock(&module->tierup_wait_lock);
