@@ -255,7 +255,7 @@ wasi_nn_initialize()
     NN_DBG_PRINTF("Initializing wasi-nn");
     WASINNContext *wasi_nn_ctx =
         (WASINNContext *)wasm_runtime_malloc(sizeof(WASINNContext));
-    if (wasi_nn_ctx) {
+    if (wasi_nn_ctx == NULL) {
         NN_ERR_PRINTF("Error when allocating memory for WASI-NN context");
         return NULL;
     }
@@ -267,6 +267,10 @@ wasi_nn_initialize()
 void
 wasi_nn_destroy(WASINNContext *wasi_nn_ctx)
 {
+    if (wasi_nn_ctx == NULL) {
+        NN_ERR_PRINTF("Error when deallocating memory. WASI-NN context is NULL");
+        return;
+    }
     NN_DBG_PRINTF("Freeing wasi-nn");
     NN_DBG_PRINTF("-> is_initialized: %d", wasi_nn_ctx->is_initialized);
     NN_DBG_PRINTF("-> current_encoding: %d", wasi_nn_ctx->current_encoding);

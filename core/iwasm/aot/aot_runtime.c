@@ -1104,13 +1104,12 @@ aot_instantiate(AOTModule *module, bool is_sub_inst, uint32 stack_size,
 
 #if WASM_ENABLE_WASI_NN != 0
     if (!is_sub_inst) {
-        if (!((AOTModuleInstanceExtra *)module_inst->e)->wasi_nn_ctx =
-                wasi_nn_initialize()))
-            {
-                set_error_buf(error_buf, error_buf_size,
-                              "wasi nn initialization failed");
-                goto fail;
-            }
+        if (!(((AOTModuleInstanceExtra *)module_inst->e)->wasi_nn_ctx =
+                  wasi_nn_initialize())) {
+            set_error_buf(error_buf, error_buf_size,
+                          "wasi nn initialization failed");
+            goto fail;
+        }
     }
 #endif
 
