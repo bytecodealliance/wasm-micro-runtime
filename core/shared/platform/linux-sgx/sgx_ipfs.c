@@ -13,6 +13,11 @@
 
 #include "sgx_tprotected_fs.h"
 
+// Internal buffer filled with zeroes and used when extending the size of
+// protected files.
+#define ZEROES_PADDING_LENGTH 32 * 1024
+char zeroes_padding[ZEROES_PADDING_LENGTH] = { 0 };
+
 #define SGX_ERROR_FILE_LOWEST_ERROR_ID SGX_ERROR_FILE_BAD_STATUS
 #define SGX_ERROR_FILE_HIGHEST_ERROR_ID SGX_ERROR_FILE_CLOSE_FAILED
 
@@ -76,6 +81,27 @@ static void
 ipfs_file_destroy(void *sgx_file)
 {
     sgx_fclose(sgx_file);
+}
+
+// Writes a given number of zeroes in file at the current offset.
+// The return value is zero if successful; otherwise non-zero.
+static int
+ipfs_write_zeroes(void *sgx_file, size_t len)
+{
+    int min_count;
+
+    do {
+        min_count = len < ZEROES_PADDING_LENGTH ? len : ZEROES_PADDING_LENGTH;
+
+        if (sgx_fwrite(zeroes_padding, 1, min_count, sgx_file) == 0) {
+            errno = convert_sgx_errno(sgx_ferror(sgx_file));
+            return -1;
+        }
+
+        len -= min_count;
+    } while (len > 0);
+
+    return 0;
 }
 
 int
@@ -412,10 +438,8 @@ ipfs_lseek(int fd, off_t offset, int nwhence)
         }
 
         // Write the missing zeroes
-        char zero = 0;
         int64_t number_of_zeroes = offset - sgx_ftell(sgx_file);
-        if (sgx_fwrite(&zero, 1, number_of_zeroes, sgx_file) == 0) {
-            errno = convert_sgx_errno(sgx_ferror(sgx_file));
+        if (ipfs_write_zeroes(sgx_file, number_of_zeroes) != 0) {
             return -1;
         }
 
@@ -468,9 +492,7 @@ ipfs_ftruncate(int fd, off_t len)
 
     // Increasing the size is equal to writing from the end of the file
     // with null bytes.
-    char null_byte = 0;
-    if (sgx_fwrite(&null_byte, 1, len - file_size, sgx_file) == 0) {
-        errno = convert_sgx_errno(sgx_ferror(sgx_file));
+    if (ipfs_write_zeroes(sgx_file, len - file_size) != 0) {
         return -1;
     }
 
