@@ -74,16 +74,21 @@ WASINNContext *
 wasm_runtime_get_wasi_nn_ctx(wasm_module_inst_t instance)
 {
     WASINNContext *wasi_nn_ctx = NULL;
+#if WASM_ENABLE_INTERP != 0
     if (instance->module_type == Wasm_Module_Bytecode) {
         NN_DBG_PRINTF("Getting ctx from WASM");
         WASMModuleInstance *module_inst = (WASMModuleInstance *)instance;
         wasi_nn_ctx = ((WASMModuleInstanceExtra *)module_inst->e)->wasi_nn_ctx;
     }
-    else {
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (instance->module_type == Wasm_Module_AoT) {
         NN_DBG_PRINTF("Getting ctx from AOT");
         AOTModuleInstance *module_inst = (AOTModuleInstance *)instance;
         wasi_nn_ctx = ((AOTModuleInstanceExtra *)module_inst->e)->wasi_nn_ctx;
     }
+#endif
+    bh_assert(wasi_nn_ctx != NULL);
     NN_DBG_PRINTF("Returning ctx");
     return wasi_nn_ctx;
 }
@@ -248,7 +253,12 @@ WASINNContext *
 wasi_nn_initialize()
 {
     NN_DBG_PRINTF("Initializing wasi-nn");
-    WASINNContext *wasi_nn_ctx = (WASINNContext *)malloc(sizeof(WASINNContext));
+    WASINNContext *wasi_nn_ctx =
+        (WASINNContext *)wasm_runtime_malloc(sizeof(WASINNContext));
+    if (wasi_nn_ctx) {
+        NN_ERR_PRINTF("Error when allocating memory for WASI-NN context");
+        return NULL;
+    }
     wasi_nn_ctx->is_initialized = true;
     wasi_nn_ctx->current_encoding = 3;
     return wasi_nn_ctx;
@@ -261,7 +271,7 @@ wasi_nn_destroy(WASINNContext *wasi_nn_ctx)
     NN_DBG_PRINTF("-> is_initialized: %d", wasi_nn_ctx->is_initialized);
     NN_DBG_PRINTF("-> current_encoding: %d", wasi_nn_ctx->current_encoding);
     tensorflowlite_destroy();
-    free(wasi_nn_ctx);
+    wasm_runtime_free(wasi_nn_ctx);
 }
 
 /* Register WASI-NN in WAMR */

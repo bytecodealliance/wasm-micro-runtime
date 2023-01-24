@@ -20,10 +20,6 @@
 #include <sys/time.h>
 #endif
 
-#if WASM_ENABLE_WASI_NN != 0
-#include "../libraries/wasi-nn/src/wasi_nn_private.h"
-#endif
-
 static NativeSymbolsList g_native_symbols_list = NULL;
 
 uint32
