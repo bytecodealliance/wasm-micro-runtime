@@ -268,7 +268,7 @@ jobs:
 
       - name: build wasi-libc (needed for wasi-threads)
         run: |
-          git clone --branch wasi-sdk-17 https://github.com/WebAssembly/wasi-libc
+          git clone https://github.com/WebAssembly/wasi-libc
           cd wasi-libc
           make \
             AR=/opt/wasi-sdk/bin/llvm-ar \
