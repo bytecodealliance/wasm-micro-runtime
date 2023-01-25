@@ -1256,28 +1256,7 @@ wasm_runtime_set_running_mode(wasm_module_inst_t module_inst,
         WASMModuleInstance *module_inst_interp =
             (WASMModuleInstance *)module_inst;
 
-        if (running_mode == Mode_Default) {
-#if WASM_ENABLE_FAST_JIT == 0 && WASM_ENABLE_JIT == 0
-            running_mode = Mode_Interp;
-#elif WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT == 0
-            running_mode = Mode_Fast_JIT;
-#elif WASM_ENABLE_FAST_JIT == 0 && WASM_ENABLE_JIT != 0
-            running_mode = Mode_LLVM_JIT;
-#else /* WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 */
-#if WASM_ENABLE_LAZY_JIT == 0
-            running_mode = Mode_LLVM_JIT;
-#else
-            running_mode = Mode_Multi_Tier_JIT;
-#endif
-#endif
-        }
-        module_inst_interp->e->running_mode = running_mode;
-
-        /* TODO: And here we should handle the function pointers, and call this
-         * API when instantiating the wasm module in wasm_runtime.c, so we don't
-         * need to modify the function pointers in wasm_interp_classic.c, let's
-         * do it later */
-        return true;
+        return wasm_set_running_mode(module_inst_interp, running_mode);
     }
 #endif
 
