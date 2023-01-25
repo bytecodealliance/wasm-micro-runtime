@@ -268,7 +268,8 @@ void
 wasi_nn_destroy(WASINNContext *wasi_nn_ctx)
 {
     if (wasi_nn_ctx == NULL) {
-        NN_ERR_PRINTF("Error when deallocating memory. WASI-NN context is NULL");
+        NN_ERR_PRINTF(
+            "Error when deallocating memory. WASI-NN context is NULL");
         return;
     }
     NN_DBG_PRINTF("Freeing wasi-nn");
