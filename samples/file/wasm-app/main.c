@@ -128,6 +128,23 @@ main(int argc, char **argv)
     assert(ftell(file) == 3 * ADDITIONAL_SPACE);
     printf("[Test] Extension of the file size passed.\n");
 
+    // Test: allocate more space to the file (fseek)
+    printf("Allocate more space to the file (fseek) from the end..\n");
+    printf("File current offset: %ld\n", ftell(file));
+    fseek(file, ADDITIONAL_SPACE, SEEK_END);
+    printf("File current offset: %ld\n", ftell(file));
+    assert(ftell(file) == 4 * ADDITIONAL_SPACE);
+    printf("[Test] Extension of the file size passed.\n");
+
+    // Test: allocate more space to the file (fseek)
+    printf("Allocate more space to the file (fseek) from the middle..\n");
+    fseek(file, 3 * ADDITIONAL_SPACE, SEEK_SET);
+    printf("File current offset: %ld\n", ftell(file));
+    fseek(file, 2 * ADDITIONAL_SPACE, SEEK_CUR);
+    printf("File current offset: %ld\n", ftell(file));
+    assert(ftell(file) == 5 * ADDITIONAL_SPACE);
+    printf("[Test] Extension of the file size passed.\n");
+
     // Display some debug information
     printf("Getting the size of the file on disk..\n");
     struct stat st;

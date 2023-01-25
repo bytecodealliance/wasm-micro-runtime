@@ -13,13 +13,13 @@
 
 #include "sgx_tprotected_fs.h"
 
+#define SGX_ERROR_FILE_LOWEST_ERROR_ID SGX_ERROR_FILE_BAD_STATUS
+#define SGX_ERROR_FILE_HIGHEST_ERROR_ID SGX_ERROR_FILE_CLOSE_FAILED
+
 // Internal buffer filled with zeroes and used when extending the size of
 // protected files.
 #define ZEROES_PADDING_LENGTH 32 * 1024
 char zeroes_padding[ZEROES_PADDING_LENGTH] = { 0 };
-
-#define SGX_ERROR_FILE_LOWEST_ERROR_ID SGX_ERROR_FILE_BAD_STATUS
-#define SGX_ERROR_FILE_HIGHEST_ERROR_ID SGX_ERROR_FILE_CLOSE_FAILED
 
 // The mapping between file descriptors and IPFS file pointers.
 static HashMap *ipfs_file_list;
@@ -130,7 +130,7 @@ ipfs_posix_fallocate(int fd, off_t offset, size_t len)
 
     // The wrapper for fseek takes care of extending the file if sought beyond
     // the end
-    if (ipfs_lseek(fd, offset + len, SEEK_CUR) == -1) {
+    if (ipfs_lseek(fd, offset + len, SEEK_SET) == -1) {
         return errno;
     }
 
@@ -380,7 +380,7 @@ ipfs_fflush(int fd)
 off_t
 ipfs_lseek(int fd, off_t offset, int nwhence)
 {
-    off_t new_offset;
+    off_t cursor_current_location;
     void *sgx_file = fd2file(fd);
     if (!sgx_file) {
         errno = EBADF;
@@ -390,20 +390,20 @@ ipfs_lseek(int fd, off_t offset, int nwhence)
     // Optimization: if the offset is 0 and the whence is SEEK_CUR,
     // this is equivalent of a call to ftell.
     if (offset == 0 && nwhence == SEEK_CUR) {
-        int64_t ftell_result = (off_t)sgx_ftell(sgx_file);
+        cursor_current_location = (off_t)sgx_ftell(sgx_file);
 
-        if (ftell_result == -1) {
+        if (cursor_current_location == -1) {
             errno = convert_sgx_errno(sgx_ferror(sgx_file));
             return -1;
         }
 
-        return ftell_result;
+        return cursor_current_location;
     }
 
     int fseek_result = sgx_fseek(sgx_file, offset, nwhence);
 
     if (fseek_result == 0) {
-        new_offset = (__wasi_filesize_t)sgx_ftell(sgx_file);
+        off_t new_offset = (off_t)sgx_ftell(sgx_file);
 
         if (new_offset == -1) {
             errno = convert_sgx_errno(sgx_ferror(sgx_file));
@@ -431,14 +431,38 @@ ipfs_lseek(int fd, off_t offset, int nwhence)
         // manually.
 
         // Assume the error is raised because the cursor is moved beyond the end
-        // of the file. Try to move the cursor at the end of the file.
+        // of the file.
+
+        // If the whence is the current cursor location, retrieve it
+        if (nwhence == SEEK_CUR) {
+            cursor_current_location = (off_t)sgx_ftell(sgx_file);
+        }
+
+        // Move the cursor at the end of the file
         if (sgx_fseek(sgx_file, 0, SEEK_END) == -1) {
             errno = convert_sgx_errno(sgx_ferror(sgx_file));
             return -1;
         }
 
+        // Compute the number of zeroes to append.
+        int64_t number_of_zeroes;
+        switch (nwhence) {
+            case SEEK_SET:
+                number_of_zeroes = offset - sgx_ftell(sgx_file);
+                break;
+            case SEEK_END:
+                number_of_zeroes = offset;
+                break;
+            case SEEK_CUR:
+                number_of_zeroes =
+                    cursor_current_location + offset - sgx_ftell(sgx_file);
+                break;
+            default:
+                errno = EINVAL;
+                return -1;
+        }
+
         // Write the missing zeroes
-        int64_t number_of_zeroes = offset - sgx_ftell(sgx_file);
         if (ipfs_write_zeroes(sgx_file, number_of_zeroes) != 0) {
             return -1;
         }
