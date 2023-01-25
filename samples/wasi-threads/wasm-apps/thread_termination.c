@@ -36,29 +36,41 @@ run_long_task()
 }
 
 void
+start_job()
+{
+    sem_post(&sem);
+    run_long_task(); // Wait to be interrupted
+    assert(false && "Unreachable");
+}
+
+void
+terminate_process()
+{
+    // Wait for all other threads (including main thread) to be ready
+    printf("Waiting before terminating\n");
+    for (int i = 0; i < NUM_THREADS; i++)
+        sem_wait(&sem);
+
+    printf("Force termination\n");
+#if TEST_TERMINATION_BY_TRAP == 1
+    __builtin_trap();
+#else
+    __wasi_proc_exit(1);
+#endif
+}
+
+void
 __wasi_thread_start_C(int thread_id, int *start_arg)
 {
     shared_t *data = (shared_t *)start_arg;
 
     if (data->throw_exception) {
-        // Wait for all other threads (including main thread) to be ready
-        printf("Waiting before terminating\n");
-        for (int i = 0; i < NUM_THREADS; i++)
-            sem_wait(&sem);
-
-        printf("Force termination\n");
-#if TEST_TERMINATION_BY_TRAP == 1
-        __builtin_trap();
-#else
-        __wasi_proc_exit(1);
-#endif
+        terminate_process();
     }
     else {
         printf("Thread running\n");
 
-        sem_post(&sem);
-        run_long_task(); // Wait to be interrupted
-        assert(false && "Unreachable");
+        start_job();
     }
 }
 
@@ -107,22 +119,13 @@ main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
+#if TEST_TERMINATION_IN_MAIN_THREAD == 1
+    printf("Force termination (main thread)\n");
+    terminate_process();
+#else  /* TEST_TERMINATION_IN_MAIN_THREAD */
     printf("Main thread running\n");
 
-    sem_post(&sem);
-
-#if TEST_TERMINATION_IN_MAIN_THREAD == 1
-
-    printf("Force termination (main thread)\n");
-#if TEST_TERMINATION_BY_TRAP == 1
-    __builtin_trap();
-#else  /* TEST_TERMINATION_BY_TRAP */
-    __wasi_proc_exit(1);
-#endif /* TEST_TERMINATION_BY_TRAP */
-
-#else  /* TEST_TERMINATION_IN_MAIN_THREAD */
-    run_long_task(); // Wait to be interrupted
-    assert(false && "Unreachable");
+    start_job();
 #endif /* TEST_TERMINATION_IN_MAIN_THREAD */
     return EXIT_SUCCESS;
 }
