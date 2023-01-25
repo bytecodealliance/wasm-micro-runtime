@@ -1083,6 +1083,17 @@ aot_instantiate(AOTModule *module, bool is_sub_inst, uint32 stack_size,
     }
 #endif
 
+#if WASM_ENABLE_WASI_NN != 0
+    if (!is_sub_inst) {
+        if (!(((AOTModuleInstanceExtra *)module_inst->e)->wasi_nn_ctx =
+                  wasi_nn_initialize())) {
+            set_error_buf(error_buf, error_buf_size,
+                          "wasi nn initialization failed");
+            goto fail;
+        }
+    }
+#endif
+
     /* Initialize the thread related data */
     if (stack_size == 0)
         stack_size = DEFAULT_WASM_STACK_SIZE;
@@ -1193,6 +1204,15 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
     if (((AOTModuleInstanceExtra *)module_inst->e)->c_api_func_imports)
         wasm_runtime_free(
             ((AOTModuleInstanceExtra *)module_inst->e)->c_api_func_imports);
+
+#if WASM_ENABLE_WASI_NN != 0
+    if (!is_sub_inst) {
+        WASINNContext *wasi_nn_ctx =
+            ((AOTModuleInstanceExtra *)module_inst->e)->wasi_nn_ctx;
+        if (wasi_nn_ctx)
+            wasi_nn_destroy(wasi_nn_ctx);
+    }
+#endif
 
     wasm_runtime_free(module_inst);
 }

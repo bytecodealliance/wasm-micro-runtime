@@ -11,6 +11,10 @@
 #include "../common/wasm_runtime_common.h"
 #include "../common/wasm_exec_env.h"
 
+#if WASM_ENABLE_WASI_NN != 0
+#include "../libraries/wasi-nn/src/wasi_nn_private.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -241,6 +245,10 @@ typedef struct WASMModuleInstanceExtra {
     || (WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT \
         && WASM_ENABLE_LAZY_JIT != 0)
     WASMModuleInstance *next;
+#endif
+
+#if WASM_ENABLE_WASI_NN != 0
+    WASINNContext *wasi_nn_ctx;
 #endif
 } WASMModuleInstanceExtra;
 

@@ -11,6 +11,10 @@
 #include "../interpreter/wasm_runtime.h"
 #include "../compilation/aot.h"
 
+#if WASM_ENABLE_WASI_NN != 0
+#include "../libraries/wasi-nn/src/wasi_nn_private.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -75,6 +79,9 @@ typedef struct AOTFunctionInstance {
 
 typedef struct AOTModuleInstanceExtra {
     CApiFuncImport *c_api_func_imports;
+#if WASM_ENABLE_WASI_NN != 0
+    WASINNContext *wasi_nn_ctx;
+#endif
 } AOTModuleInstanceExtra;
 
 #if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
