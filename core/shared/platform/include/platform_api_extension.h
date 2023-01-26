@@ -17,6 +17,9 @@
 extern "C" {
 #endif
 
+#include <setjmp.h>
+extern void *contexts;
+
 /***************************************************
  *                                                 *
  *                Extension interface              *
@@ -48,6 +51,9 @@ extern "C" {
 int
 os_thread_create(korp_tid *p_tid, thread_start_routine_t start, void *arg,
                  unsigned int stack_size);
+
+int
+os_thread_signal(korp_tid p_tid, int sig);
 
 /**
  * Creates a thread with priority

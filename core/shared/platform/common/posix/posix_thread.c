@@ -9,6 +9,11 @@
 #include "platform_api_vmcore.h"
 #include "platform_api_extension.h"
 
+#include "bh_hashmap.h"
+#include <setjmp.h>
+
+void *contexts = NULL;
+
 typedef struct {
     thread_start_routine_t start;
     void *arg;
@@ -47,12 +52,34 @@ os_thread_wrapper(void *arg)
     return NULL;
 }
 
+static void
+handler(int sig)
+{
+    korp_tid self = pthread_self();
+    bh_list *context_list = bh_hash_map_find(contexts, (void *)(uintptr_t)self);
+    assert(context_list);
+    // Get latest context (first in the list) for current thread
+    sigjmp_buf *context = bh_list_first_elem(context_list);
+    assert(context);
+
+    printf("handler, %p %ld\n", context, self);
+    siglongjmp(*context, 1);
+}
+
 int
 os_thread_create_with_prio(korp_tid *tid, thread_start_routine_t start,
                            void *arg, unsigned int stack_size, int prio)
 {
     pthread_attr_t tattr;
     thread_wrapper_arg *targ;
+
+    struct sigaction act;
+    memset(&act, 0, sizeof(act));
+    act.sa_handler = handler;
+    act.sa_flags = SA_RESETHAND;
+    sigfillset(&act.sa_mask);
+    if (sigaction(SIGTERM, &act, NULL) < 0)
+        return BHT_ERROR;
 
     assert(stack_size > 0);
     assert(tid);
@@ -87,6 +114,12 @@ os_thread_create_with_prio(korp_tid *tid, thread_start_routine_t start,
 
     pthread_attr_destroy(&tattr);
     return BHT_OK;
+}
+
+int
+os_thread_signal(korp_tid tid, int sig)
+{
+    return pthread_kill(tid, sig);
 }
 
 int
