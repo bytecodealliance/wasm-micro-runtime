@@ -14,7 +14,7 @@ endif ()
 set (CMAKE_SYSROOT                  "${WASI_SYSROOT}")
 set (CMAKE_C_COMPILER               "${WASI_SDK_DIR}/bin/clang")
 set (CMAKE_ASM_COMPILER               "${WASI_SDK_DIR}/bin/clang")
-set (CMAKE_C_COMPILER_TARGET        "wasm32-wasi")
+set (CMAKE_EXE_LINKER_FLAGS         "-target wasm32-wasi-threads")
 
 function (compile_sample SOURCE_FILE)
   get_filename_component (FILE_NAME ${SOURCE_FILE} NAME_WLE)
