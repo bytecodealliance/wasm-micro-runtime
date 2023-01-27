@@ -163,6 +163,7 @@ typedef struct AOTFuncContext {
     LLVMValueRef aot_inst;
     LLVMValueRef argv_buf;
     LLVMValueRef native_stack_bound;
+    LLVMValueRef native_stack_max_used_addr;
     LLVMValueRef aux_stack_bound;
     LLVMValueRef aux_stack_bottom;
     LLVMValueRef native_symbol;
