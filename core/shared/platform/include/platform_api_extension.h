@@ -55,6 +55,16 @@ os_thread_create(korp_tid *p_tid, thread_start_routine_t start, void *arg,
 int
 os_thread_signal(korp_tid p_tid, int sig);
 
+sigjmp_buf *
+os_save_context(korp_tid handle);
+
+void
+os_rm_context(korp_tid handle, sigjmp_buf *context);
+
+bool
+os_is_exception(korp_tid handle, sigjmp_buf *context);
+
+void
 /**
  * Creates a thread with priority
  *

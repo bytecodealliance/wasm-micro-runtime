@@ -14,6 +14,18 @@
 
 void *contexts = NULL;
 
+static uint32
+thread_handle_hash(void *handle)
+{
+    return (uint32)(uintptr_t)handle;
+}
+
+static bool
+thread_handle_equal(void *h1, void *h2)
+{
+    return (uint32)(uintptr_t)h1 == (uint32)(uintptr_t)h2 ? true : false;
+}
+
 typedef struct {
     thread_start_routine_t start;
     void *arg;
@@ -64,6 +76,67 @@ handler(int sig)
 
     printf("handler, %p %ld\n", context, self);
     siglongjmp(*context, 1);
+}
+
+sigjmp_buf *
+os_save_context(korp_tid handle)
+{
+    // Create map <tid, list_of_contexts>
+    // NOTE: The list is needed for nested calls to `wasm_interp_call_wasm`
+    if (contexts == NULL) {
+        contexts = bh_hash_map_create(32, false, (HashFunc)thread_handle_hash,
+                                      (KeyEqualFunc)thread_handle_equal, NULL,
+                                      wasm_runtime_free);
+    }
+
+    // Get or create list of contexts for current thread
+    bh_list *context_list =
+        bh_hash_map_find(contexts, (void *)(uintptr_t)handle);
+    if (!context_list) {
+        context_list = malloc(sizeof(bh_list));
+        int ret = bh_list_init(context_list);
+        assert(ret == BH_LIST_SUCCESS);
+
+        bool bh_ret = bh_hash_map_insert(contexts, (void *)(uintptr_t)handle,
+                                         context_list);
+        assert(bh_ret);
+    }
+    assert(context_list);
+
+    // Create context
+    sigjmp_buf *context = malloc(sizeof(sigjmp_buf));
+    pthread_t self = pthread_self();
+    printf("context=%p %ld\n", context, self);
+    return context;
+}
+
+void
+os_rm_context(korp_tid handle, sigjmp_buf *context)
+{
+    korp_tid self = pthread_self();
+    bh_list *context_list = bh_hash_map_find(contexts, (void *)(uintptr_t)self);
+    assert(context_list);
+    int bh_res = bh_list_remove(context_list, context);
+    assert(bh_res == BH_LIST_SUCCESS);
+}
+
+bool
+os_is_exception(korp_tid handle, sigjmp_buf *context)
+{
+    if (sigsetjmp(*context, 1) == 0) {
+        // Normal execution, i.e. not returning from sig handler
+
+        bh_list *context_list =
+            bh_hash_map_find(contexts, (void *)(uintptr_t)handle);
+        assert(context_list);
+
+        // Add context to context list
+        int bh_res = bh_list_insert(context_list, context);
+        assert(bh_res == BH_LIST_SUCCESS);
+        return false;
+    }
+
+    return true;
 }
 
 int

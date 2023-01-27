@@ -99,18 +99,6 @@ typedef float64 CellType_F64;
 #define CHECK_WRITE_WATCHPOINT(addr, offset) (void)0
 #endif
 
-static uint32
-thread_handle_hash(void *handle)
-{
-    return (uint32)(uintptr_t)handle;
-}
-
-static bool
-thread_handle_equal(void *h1, void *h2)
-{
-    return (uint32)(uintptr_t)h1 == (uint32)(uintptr_t)h2 ? true : false;
-}
-
 static inline uint32
 rotl32(uint32 n, uint32 c)
 {
@@ -4195,121 +4183,91 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
 
     wasm_exec_env_set_cur_frame(exec_env, frame);
 
-    // Create map <tid, list_of_contexts>
-    // NOTE: The list is needed for nested calls to `wasm_interp_call_wasm`
-    if (contexts == NULL) {
-        contexts = bh_hash_map_create(32, false, (HashFunc)thread_handle_hash,
-                                      (KeyEqualFunc)thread_handle_equal, NULL,
-                                      wasm_runtime_free);
-    }
+    sigjmp_buf *context = os_save_context(exec_env->handle);
+    if (!os_is_exception(exec_env->handle, context)) {
 
-    // Get or create list of contexts for current thread
-    bh_list *context_list =
-        bh_hash_map_find(contexts, (void *)(uintptr_t)exec_env->handle);
-    if (!context_list) {
-        context_list = malloc(sizeof(bh_list));
-        int ret = bh_list_init(context_list);
-        assert(ret == BH_LIST_SUCCESS);
-
-        bool bh_ret = bh_hash_map_insert(
-            contexts, (void *)(uintptr_t)exec_env->handle, context_list);
-        assert(bh_ret);
-    }
-    assert(context_list);
-
-    // Create context
-    sigjmp_buf *context = malloc(sizeof(sigjmp_buf));
-    pthread_t self = pthread_self();
-    printf("context=%p %ld\n", context, self);
-
-    if (sigsetjmp(*context, 1) == 0) {
-        // Normal execution, i.e. not returning from sig handler
-
-        // Add context to context list
-        int bh_res = bh_list_insert(context_list, context);
-        assert(bh_res == BH_LIST_SUCCESS);
-
-    if (function->is_import_func) {
+        if (function->is_import_func) {
 #if WASM_ENABLE_MULTI_MODULE != 0
-        if (function->import_module_inst) {
-            wasm_interp_call_func_import(module_inst, exec_env, function,
-                                         frame);
-        }
-        else
+            if (function->import_module_inst) {
+                wasm_interp_call_func_import(module_inst, exec_env, function,
+                                             frame);
+            }
+            else
 #endif
-        {
-            /* it is a native function */
-            wasm_interp_call_func_native(module_inst, exec_env, function,
-                                         frame);
+            {
+                /* it is a native function */
+                wasm_interp_call_func_native(module_inst, exec_env, function,
+                                             frame);
+            }
         }
-    }
-    else {
+        else {
 #if WASM_ENABLE_LAZY_JIT != 0
 
-        /* Fast JIT to LLVM JIT tier-up is enabled */
+            /* Fast JIT to LLVM JIT tier-up is enabled */
 #if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0
-        /* Fast JIT and LLVM JIT are both enabled, call llvm jit function
-           if it is compiled, else call fast jit function */
-        uint32 func_idx = (uint32)(function - module_inst->e->functions);
-        if (module_inst->module->func_ptrs_compiled
-                [func_idx - module_inst->module->import_function_count]) {
+            /* Fast JIT and LLVM JIT are both enabled, call llvm jit function
+               if it is compiled, else call fast jit function */
+            uint32 func_idx = (uint32)(function - module_inst->e->functions);
+            if (module_inst->module->func_ptrs_compiled
+                    [func_idx - module_inst->module->import_function_count]) {
                 llvm_jit_call_func_bytecode(module_inst, exec_env, function,
                                             argc, argv);
+                /* For llvm jit, the results have been stored in argv,
+                   no need to copy them from stack frame again */
+                copy_argv_from_frame = false;
+            }
+            else {
+                fast_jit_call_func_bytecode(module_inst, exec_env, function,
+                                            frame);
+            }
+#elif WASM_ENABLE_JIT != 0
+            /* Only LLVM JIT is enabled */
+            llvm_jit_call_func_bytecode(module_inst, exec_env, function, argc,
+                                        argv);
             /* For llvm jit, the results have been stored in argv,
                no need to copy them from stack frame again */
             copy_argv_from_frame = false;
-        }
-        else {
-                fast_jit_call_func_bytecode(module_inst, exec_env, function,
-                                            frame);
-        }
-#elif WASM_ENABLE_JIT != 0
-        /* Only LLVM JIT is enabled */
-        llvm_jit_call_func_bytecode(module_inst, exec_env, function, argc,
-                                    argv);
-        /* For llvm jit, the results have been stored in argv,
-           no need to copy them from stack frame again */
-        copy_argv_from_frame = false;
 #elif WASM_ENABLE_FAST_JIT != 0
-        /* Only Fast JIT is enabled */
-        fast_jit_call_func_bytecode(module_inst, exec_env, function, frame);
+            /* Only Fast JIT is enabled */
+            fast_jit_call_func_bytecode(module_inst, exec_env, function, frame);
 #else
-        /* Both Fast JIT and LLVM JIT are disabled */
+            /* Both Fast JIT and LLVM JIT are disabled */
             wasm_interp_call_func_bytecode(module_inst, exec_env, function,
                                            frame);
 #endif
 
 #else /* else of WASM_ENABLE_LAZY_JIT != 0 */
 
-        /* Fast JIT to LLVM JIT tier-up is enabled */
+            /* Fast JIT to LLVM JIT tier-up is enabled */
 #if WASM_ENABLE_JIT != 0
-        /* LLVM JIT is enabled */
-        llvm_jit_call_func_bytecode(module_inst, exec_env, function, argc,
-                                    argv);
-        /* For llvm jit, the results have been stored in argv,
-           no need to copy them from stack frame again */
-        copy_argv_from_frame = false;
+            /* LLVM JIT is enabled */
+            llvm_jit_call_func_bytecode(module_inst, exec_env, function, argc,
+                                        argv);
+            /* For llvm jit, the results have been stored in argv,
+               no need to copy them from stack frame again */
+            copy_argv_from_frame = false;
 #elif WASM_ENABLE_FAST_JIT != 0
-        /* Fast JIT is enabled */
-        fast_jit_call_func_bytecode(module_inst, exec_env, function, frame);
+            /* Fast JIT is enabled */
+            fast_jit_call_func_bytecode(module_inst, exec_env, function, frame);
 #else
-        /* Both Fast JIT and LLVM JIT are disabled */
+            /* Both Fast JIT and LLVM JIT are disabled */
             wasm_interp_call_func_bytecode(module_inst, exec_env, function,
                                            frame);
 #endif
 
 #endif /* end of WASM_ENABLE_LAZY_JIT != 0 */
 
-        (void)wasm_interp_call_func_bytecode;
+            (void)wasm_interp_call_func_bytecode;
 #if WASM_ENABLE_FAST_JIT != 0
-        (void)fast_jit_call_func_bytecode;
+            (void)fast_jit_call_func_bytecode;
 #endif
         }
     }
 
+    korp_tid self = pthread_self();
     printf("exit context=%p %p\n", context, (void *)self);
-    int bh_res = bh_list_remove(context_list, context);
-    assert(bh_res == BH_LIST_SUCCESS);
+    os_rm_context(exec_env->handle, context);
+
     /* Output the return value to the caller */
     if (!wasm_get_exception(module_inst)) {
         if (copy_argv_from_frame) {
