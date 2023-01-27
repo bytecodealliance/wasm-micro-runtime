@@ -1780,18 +1780,14 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 global = globals + global_idx;
                 global_addr = get_global_addr(global_data, global);
                 aux_stack_top = *(uint32 *)(frame_sp - 1);
-                if (wasm_exec_env_is_aux_stack_managed_by_runtime(exec_env)) {
-                    if (aux_stack_top
-                        <= exec_env->aux_stack_boundary.boundary) {
-                        wasm_set_exception(module,
-                                           "wasm auxiliary stack overflow");
-                        goto got_exception;
-                    }
-                    if (aux_stack_top > exec_env->aux_stack_bottom.bottom) {
-                        wasm_set_exception(module,
-                                           "wasm auxiliary stack underflow");
-                        goto got_exception;
-                    }
+                if (aux_stack_top <= exec_env->aux_stack_boundary.boundary) {
+                    wasm_set_exception(module, "wasm auxiliary stack overflow");
+                    goto got_exception;
+                }
+                if (aux_stack_top > exec_env->aux_stack_bottom.bottom) {
+                    wasm_set_exception(module,
+                                       "wasm auxiliary stack underflow");
+                    goto got_exception;
                 }
                 *(int32 *)global_addr = aux_stack_top;
                 frame_sp--;

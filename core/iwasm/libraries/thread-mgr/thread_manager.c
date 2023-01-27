@@ -586,6 +586,11 @@ wasm_cluster_create_thread(WASMExecEnv *exec_env,
             goto fail3;
         }
     }
+    else {
+        /* Disable aux stack */
+        new_exec_env->aux_stack_boundary.boundary = 0;
+        new_exec_env->aux_stack_bottom.bottom = UINT32_MAX;
+    }
 
     if (!wasm_cluster_add_exec_env(cluster, new_exec_env))
         goto fail3;
