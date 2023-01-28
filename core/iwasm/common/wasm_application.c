@@ -210,6 +210,7 @@ wasm_application_execute_main(WASMModuleInstanceCommon *module_inst, int32 argc,
     WASMExecEnv *exec_env;
 #endif
 
+    os_contexts_init();
     ret = execute_main(module_inst, argc, argv);
 
 #if WASM_ENABLE_THREAD_MGR != 0

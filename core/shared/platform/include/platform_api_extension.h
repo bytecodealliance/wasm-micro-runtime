@@ -19,6 +19,7 @@ extern "C" {
 
 #include <setjmp.h>
 extern void *contexts;
+extern korp_mutex context_lock;
 
 /***************************************************
  *                                                 *
@@ -55,6 +56,9 @@ os_thread_create(korp_tid *p_tid, thread_start_routine_t start, void *arg,
 int
 os_thread_signal(korp_tid p_tid, int sig);
 
+bool
+os_contexts_init();
+
 sigjmp_buf *
 os_save_context(korp_tid handle);
 
@@ -65,6 +69,8 @@ bool
 os_is_exception(korp_tid handle, sigjmp_buf *context);
 
 void
+os_clean_contexts();
+
 /**
  * Creates a thread with priority
  *

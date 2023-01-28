@@ -13,6 +13,7 @@
 #include <setjmp.h>
 
 void *contexts = NULL;
+korp_mutex context_lock;
 
 static uint32
 thread_handle_hash(void *handle)
@@ -67,20 +68,24 @@ os_thread_wrapper(void *arg)
 static void
 handler(int sig)
 {
+    assert(sig == SIGUSR1);
     korp_tid self = pthread_self();
+
+    os_mutex_lock(&context_lock);
     bh_list *context_list = bh_hash_map_find(contexts, (void *)(uintptr_t)self);
     assert(context_list);
     // Get latest context (first in the list) for current thread
     sigjmp_buf *context = bh_list_first_elem(context_list);
     assert(context);
+    os_mutex_unlock(&context_lock);
 
-    printf("handler, %p %ld\n", context, self);
     siglongjmp(*context, 1);
 }
 
 sigjmp_buf *
 os_save_context(korp_tid handle)
 {
+    os_mutex_lock(&context_lock);
     // Create map <tid, list_of_contexts>
     // NOTE: The list is needed for nested calls to `wasm_interp_call_wasm`
     if (contexts == NULL) {
@@ -106,18 +111,51 @@ os_save_context(korp_tid handle)
     // Create context
     sigjmp_buf *context = malloc(sizeof(sigjmp_buf));
     pthread_t self = pthread_self();
+    os_mutex_unlock(&context_lock);
+
     printf("context=%p %ld\n", context, self);
     return context;
+}
+
+bool
+os_contexts_init()
+{
+    struct sigaction act;
+    memset(&act, 0, sizeof(act));
+    act.sa_handler = handler;
+    sigfillset(&act.sa_mask);
+    if (sigaction(SIGUSR1, &act, NULL) < 0) {
+        LOG_ERROR("failed to set signal handler");
+        return BHT_ERROR;
+    }
+
+    if (os_mutex_init(&context_lock) != 0) {
+        LOG_ERROR("failed to init context mutex");
+        return false;
+    }
+
+    return true;
+}
+
+void
+os_clean_contexts()
+{
+    os_mutex_destroy(&context_lock);
+
+    // TODO(eloparco): Release memory
 }
 
 void
 os_rm_context(korp_tid handle, sigjmp_buf *context)
 {
     korp_tid self = pthread_self();
+
+    os_mutex_lock(&context_lock);
     bh_list *context_list = bh_hash_map_find(contexts, (void *)(uintptr_t)self);
     assert(context_list);
     int bh_res = bh_list_remove(context_list, context);
     assert(bh_res == BH_LIST_SUCCESS);
+    os_mutex_unlock(&context_lock);
 }
 
 bool
@@ -126,6 +164,7 @@ os_is_exception(korp_tid handle, sigjmp_buf *context)
     if (sigsetjmp(*context, 1) == 0) {
         // Normal execution, i.e. not returning from sig handler
 
+        os_mutex_lock(&context_lock);
         bh_list *context_list =
             bh_hash_map_find(contexts, (void *)(uintptr_t)handle);
         assert(context_list);
@@ -133,6 +172,7 @@ os_is_exception(korp_tid handle, sigjmp_buf *context)
         // Add context to context list
         int bh_res = bh_list_insert(context_list, context);
         assert(bh_res == BH_LIST_SUCCESS);
+        os_mutex_unlock(&context_lock);
         return false;
     }
 
@@ -145,14 +185,6 @@ os_thread_create_with_prio(korp_tid *tid, thread_start_routine_t start,
 {
     pthread_attr_t tattr;
     thread_wrapper_arg *targ;
-
-    struct sigaction act;
-    memset(&act, 0, sizeof(act));
-    act.sa_handler = handler;
-    act.sa_flags = SA_RESETHAND;
-    sigfillset(&act.sa_mask);
-    if (sigaction(SIGTERM, &act, NULL) < 0)
-        return BHT_ERROR;
 
     assert(stack_size > 0);
     assert(tid);
