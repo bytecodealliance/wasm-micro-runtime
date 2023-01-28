@@ -3226,6 +3226,7 @@ wasi_ssp_sock_get_reuse_port(
 #else
     errno = ENOTSUP;
     ret = BHT_ERROR;
+    optval = 0;
 #endif /* defined(SO_REUSEPORT) */
 
     fd_object_release(fo);
