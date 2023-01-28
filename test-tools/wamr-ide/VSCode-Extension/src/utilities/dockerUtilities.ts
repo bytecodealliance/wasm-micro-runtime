@@ -13,6 +13,8 @@ import { SelectionOfPrompt, Status } from '../constants';
 
 const DOCKER_IMAGES_TEM_FOLDER_NAME = 'docker-resource';
 
+type SelectionStatus = SelectionOfPrompt | Status;
+
 const execShell = (cmd: string) =>
     new Promise<string>((resolve, reject) => {
         cp.exec(cmd, (error, result) => {
@@ -25,7 +27,7 @@ const execShell = (cmd: string) =>
 
 export async function promptSetupDockerImages(
     context: vscode.ExtensionContext
-): Promise<string> {
+): Promise<SelectionStatus> {
     const extensionPath = context.extensionPath;
     const response = await vscode.window.showWarningMessage(
         'Necessary docker images are not found. Setup now?',
