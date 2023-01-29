@@ -1,9 +1,16 @@
 # Copyright (C) 2019 Intel Corporation. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-cmake_minimum_required (VERSION 3.16)
+cmake_minimum_required (VERSION 3.14)
 
 project(wasm_workloads)
+
+################ required headers ################
+find_package(Python3 REQUIRED)
+execute_process(
+  COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_LIST_DIR}/../../test-tools/pick-up-emscripten-headers/collect_files.py --install include
+  WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+)
 
 add_subdirectory(bwa)
 add_subdirectory(meshoptimizer)
@@ -21,8 +28,7 @@ ExternalProject_Add(iwasm
   SOURCE_DIR
     ${CMAKE_CURRENT_SOURCE_DIR}/../../product-mini/platforms/linux
   CONFIGURE_COMMAND
-    ${CMAKE_COMMAND} -S ${CMAKE_CURRENT_SOURCE_DIR}/../../product-mini/platforms/linux -B build
-      -DWAMR_BUILD_SIMD=1 -DWAMR_BUILD_LIBC_EMCC=1
+    ${CMAKE_COMMAND} -S ${CMAKE_CURRENT_SOURCE_DIR}/../../product-mini/platforms/linux -B build -DWAMR_BUILD_LIBC_EMCC=1
   BUILD_COMMAND
     ${CMAKE_COMMAND} --build build
   INSTALL_COMMAND

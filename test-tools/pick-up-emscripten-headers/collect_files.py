@@ -9,68 +9,35 @@ The script operates on such directories and files
 |-- core
 |   `-- deps
 |       |-- emscripten
-|       `-- wasi-sdk
-|           `-- src
-|               |-- llvm-project
-|               `-- wasi-libc
+|-- samples
+|   `-- workloads
+|       |-- include
 `-- test-tools
-    |-- build-wasi-sdk
-    |   |-- build_wasi_sdk.py
-    |   |-- include
-    |   `-- patches
-    `-- wasi-sdk
-        |-- bin
-        |-- lib
-        `-- share
-            `-- wasi-sysroot
+    |-- pick-up-emscripten_headers
+    |   |-- collect_files.py
 """
 
+import argparse
 import hashlib
 import logging
 import os
 import pathlib
-import shlex
 import shutil
-import subprocess
 import sys
 import tarfile
 import tempfile
 import urllib
 import urllib.request
 
-logger = logging.getLogger("build_wasi_sdk")
+logger = logging.getLogger("pick-up-emscripten-headers")
 
 external_repos = {
-    "config": {
-        "sha256": "0c3f2fe81004d8abe304ed3d793da71ab8975d773ec8dd48e70939fc38b403e7",
-        "store_dir": "core/deps/wasi-sdk/src/config",
-        "strip_prefix": "config-f992bcc08219edb283d2ab31dd3871a4a0e8220e",
-        "url": "https://git.savannah.gnu.org/cgit/config.git/snapshot/config-f992bcc08219edb283d2ab31dd3871a4a0e8220e.tar.gz",
-    },
     "emscripten": {
         "sha256": "c5524755b785d8f4b83eb3214fdd3ac4b2e1b1a4644df4c63f06e5968f48f90e",
         "store_dir": "core/deps/emscripten",
         "strip_prefix": "emscripten-3.0.0",
         "url": "https://github.com/emscripten-core/emscripten/archive/refs/tags/3.0.0.tar.gz",
-    },
-    "llvm-project": {
-        "sha256": "b7f15ee379144b0c26a64ff9a1f27d0ea341a0db0c91b71c66bbfa8b310788ac",
-        "store_dir": "core/deps/wasi-sdk/src/llvm-project",
-        "strip_prefix": "llvm-project-8dfdcc7b7bf66834a761bd8de445840ef68e4d1a",
-        "url": "https://github.com/llvm/llvm-project/archive/8dfdcc7b7bf66834a761bd8de445840ef68e4d1a.tar.gz",
-    },
-    "wasi-sdk": {
-        "sha256": "57af7c8a2b7fd73c38ea0960fb5c1e8aacaa3a8a28f3b00d62dd4c1007fa5657",
-        "store_dir": "core/deps/wasi-sdk",
-        "strip_prefix": "wasi-sdk-4c0688868a7f8b2d7be76ab5821323926460f97a",
-        "url": "https://github.com/WebAssembly/wasi-sdk/archive/4c0688868a7f8b2d7be76ab5821323926460f97a.tar.gz",
-    },
-    "wasi-libc": {
-        "sha256": "c2423aeb25ff3b7684dceb56ef48a8ed7812835fa8e86d8877e9a0d560b22406",
-        "store_dir": "core/deps/wasi-sdk/src/wasi-libc",
-        "strip_prefix": "wasi-libc-a1c7c2c7a4b2813c6f67bd2ef6e0f430d31cebad",
-        "url": "https://github.com/WebAssembly/wasi-libc/archive/a1c7c2c7a4b2813c6f67bd2ef6e0f430d31cebad.tar.gz",
-    },
+    }
 }
 
 # TOOD: can we use headers from wasi-libc and clang directly ?
@@ -111,6 +78,7 @@ def unpack(tar_file, strip_prefix, dest_dir):
     with tempfile.TemporaryDirectory() as tmp:
         with tarfile.open(tar_file) as tar:
             logger.debug(f"extract to {tmp}")
+
             def is_within_directory(directory, target):
 
                 abs_directory = os.path.abspath(directory)
@@ -128,7 +96,6 @@ def unpack(tar_file, strip_prefix, dest_dir):
                         raise Exception("Attempted Path Traversal in Tar File")
 
                 tar.extractall(path, members, numeric_owner=numeric_owner)
-
 
             safe_extract(tar, tmp)
 
@@ -160,12 +127,12 @@ def download_repo(name, root):
     download_flag = store_dir.joinpath("DOWNLOADED")
     if store_dir.exists() and download_flag.exists():
         logger.info(
-            f"keep using '{store_dir.relative_to(root)}'. Or to remove it and try again"
+            f"bypass downloading '{store_dir.relative_to(root)}'. Or to remove it and try again if needs a new release"
         )
         return True
 
     # download only when the target is neither existed nor broken
-    download_dir = pathlib.Path("/tmp/build_wasi_sdk/")
+    download_dir = pathlib.Path("/tmp/pick-up-emscripten-headers/")
     download_dir.mkdir(exist_ok=True)
 
     tar_name = pathlib.Path(external_repos[name]["url"]).name
@@ -195,93 +162,26 @@ def download_repo(name, root):
     return True
 
 
-def run_patch(patch_file, cwd):
-    if not patch_file.exists():
-        logger.error(f"{patch_file} not found")
+def collect_headers(root, install_location):
+    if not install_location.exists():
+        logger.error(f"{install_location} does not found")
+        return False
+    else:
+        shutil.rmtree(install_location)
+
+    emscripten_home = root.joinpath(
+        f'{external_repos["emscripten"]["store_dir"]}'
+    ).resolve()
+    if not emscripten_home.exists():
+        logger.error(f"{emscripten_home} does not found")
         return False
 
-    with open(patch_file, "r") as f:
-        try:
-            PATCH_DRY_RUN_CMD = "patch -f -p1 --dry-run"
-            if subprocess.check_call(shlex.split(PATCH_DRY_RUN_CMD), stdin=f, cwd=cwd):
-                logger.error(f"patch dry-run {cwd} failed")
-                return False
-
-            PATCH_CMD = "patch -f -p1"
-            f.seek(0)
-            if subprocess.check_call(shlex.split(PATCH_CMD), stdin=f, cwd=cwd):
-                logger.error(f"patch {cwd} failed")
-                return False
-        except subprocess.CalledProcessError:
-            logger.error(f"patch {cwd} failed")
-            return False
-    return True
-
-
-def build_and_install_wasi_sdk(root):
-    store_dir = root.joinpath(f'{external_repos["wasi-sdk"]["store_dir"]}').resolve()
-    if not store_dir.exists():
-        logger.error(f"{store_dir} does not found")
-        return False
-
-    # patch wasi-libc and wasi-sdk
-    patch_flag = store_dir.joinpath("PATCHED")
-    if not patch_flag.exists():
-        if not run_patch(
-            root.joinpath("test-tools/build-wasi-sdk/patches/wasi_libc.patch"),
-            store_dir.joinpath("src/wasi-libc"),
-        ):
-            return False
-
-        if not run_patch(
-            root.joinpath("test-tools/build-wasi-sdk/patches/wasi_sdk.patch"), store_dir
-        ):
-            return False
-
-        patch_flag.touch()
-    else:
-        logger.info("bypass the patch phase")
-
-    # build
-    build_flag = store_dir.joinpath("BUILDED")
-    if not build_flag.exists():
-        BUILD_CMD = "make build"
-        if subprocess.check_call(shlex.split(BUILD_CMD), cwd=store_dir):
-            logger.error(f"build wasi-sdk failed")
-            return False
-
-        build_flag.touch()
-    else:
-        logger.info("bypass the build phase")
-
-    # install
-    install_flag = store_dir.joinpath("INSTALLED")
-    binary_path = root.joinpath("test-tools").resolve()
-    if not install_flag.exists():
-        shutil.copytree(
-            str(store_dir.joinpath("build/install/opt").resolve()),
-            str(binary_path),
-            dirs_exist_ok=True,
-        )
-
-        # install headers
-        emscripten_headers = (
-            root.joinpath(external_repos["emscripten"]["store_dir"])
-            .joinpath("system")
-            .resolve()
-        )
-        wasi_sysroot_headers = binary_path.joinpath(
-            "wasi-sdk/share/wasi-sysroot/include"
-        ).resolve()
-        for (src, dst) in emscripten_headers_src_dst:
-            src = emscripten_headers.joinpath(src)
-            dst = wasi_sysroot_headers.joinpath(dst)
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy(src, dst)
-
-        install_flag.touch()
-    else:
-        logger.info("bypass the install phase")
+    emscripten_headers = emscripten_home.joinpath("system").resolve()
+    for (src, dst) in emscripten_headers_src_dst:
+        src = emscripten_headers.joinpath(src)
+        dst = install_location.joinpath(dst)
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(src, dst)
 
     return True
 
@@ -300,16 +200,23 @@ def main():
     root = current_file.parent.joinpath("../..").resolve()
     logger.info(f"The root of WAMR is {root}")
 
+    parser = argparse.ArgumentParser(
+        description="collect headers from emscripten for workload compilation"
+    )
+    parser.add_argument(
+        "--install",
+        type=str,
+        help="identify installation location",
+    )
+    options = parser.parse_args()
+
     # download repos
     for repo in external_repos.keys():
         if not download_repo(repo, root):
             return False
 
-    # build wasi_sdk and install
-    if not build_and_install_wasi_sdk(root):
+    if not collect_headers(root, pathlib.Path(options.install)):
         return False
-
-    # TODO install headers from emscripten
 
     return True
 
