@@ -90,7 +90,7 @@ ipfs_write_zeroes(void *sgx_file, size_t len)
 {
     int min_count;
 
-    do {
+    while (len > 0) {
         min_count = len < ZEROES_PADDING_LENGTH ? len : ZEROES_PADDING_LENGTH;
 
         if (sgx_fwrite(zeroes_padding, 1, min_count, sgx_file) == 0) {
@@ -99,7 +99,7 @@ ipfs_write_zeroes(void *sgx_file, size_t len)
         }
 
         len -= min_count;
-    } while (len > 0);
+    }
 
     return 0;
 }
