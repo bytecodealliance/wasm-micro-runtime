@@ -18,8 +18,19 @@ extern "C" {
 #endif
 
 #include <setjmp.h>
-extern void *contexts;
-extern korp_mutex context_lock;
+/**
+ * @brief Structure used to track stack contexts. It contains a map <thread,
+ * list_of_stack_contexts> to save the stack contexts for each thread.
+ * A list is used to handles stack contexts created in nested functions (for the
+ * same thread). Stack contexts are used by the signal handler to restore a
+ * previously saved state.
+ *
+ */
+typedef struct {
+    void *contexts;
+    korp_mutex lock;
+} bh_stack_context_handler_t;
+extern bh_stack_context_handler_t stack_context_handler;
 
 /***************************************************
  *                                                 *
@@ -55,21 +66,6 @@ os_thread_create(korp_tid *p_tid, thread_start_routine_t start, void *arg,
 
 int
 os_thread_signal(korp_tid p_tid, int sig);
-
-bool
-os_contexts_init();
-
-sigjmp_buf *
-os_save_context(korp_tid handle);
-
-void
-os_rm_context(korp_tid handle, sigjmp_buf *context);
-
-bool
-os_is_exception(korp_tid handle, sigjmp_buf *context);
-
-void
-os_clean_contexts();
 
 /**
  * Creates a thread with priority
@@ -301,6 +297,55 @@ os_sem_getvalue(korp_sem *sem, int *sval);
  */
 int
 os_sem_unlink(const char *name);
+
+/******************************************
+ * Functions to handle stack contexts
+ ******************************************/
+
+/**
+ * @brief Initializes the data structures to handle stack contexts
+ *
+ * @return true if success, false otherwise
+ */
+bool
+os_stack_contexts_init();
+
+/**
+ * @brief Destroys the data structures used for stack contexts
+ *
+ */
+void
+os_stack_contexts_deinit();
+
+/**
+ * @brief Creates and returns an empty stack context for the current thread
+ *
+ * @return sigjmp_buf* pointer to stack context created
+ */
+sigjmp_buf *
+os_create_stack_context();
+
+/**
+ * @brief Removes the stack context received from the stack contexts tracked for
+ * the specified thread. Called before the stack context is invalidated
+ * by the function (in which the stack context was created) returning.
+ *
+ * @param handle thread to remove the context from
+ * @param stack_context pointer to the stack pointer to remove
+ */
+void
+os_remove_stack_context(korp_tid handle, sigjmp_buf *stack_context);
+
+/**
+ * @brief Returns true if returning from a signal handler; otherwise, adds the
+ * stack context received to the tracked stack contexts for the specified thread
+ *
+ * @param handle thread in which the context was created
+ * @param stack_context pointer to the stack pointer to use
+ * @return true if returning from a signal handler, false otherwise
+ */
+bool
+os_is_returning_from_signal(korp_tid handle, sigjmp_buf *stack_context);
 
 /****************************************************
  *                     Section 2                    *

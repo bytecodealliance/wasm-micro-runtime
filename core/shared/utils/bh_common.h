@@ -66,6 +66,18 @@ bh_strdup(const char *s);
 char *
 wa_strdup(const char *s);
 
+static inline uint32
+thread_handle_hash(void *handle)
+{
+    return (uint32)(uintptr_t)handle;
+}
+
+static inline bool
+thread_handle_equal(void *h1, void *h2)
+{
+    return (uint32)(uintptr_t)h1 == (uint32)(uintptr_t)h2 ? true : false;
+}
+
 #ifdef __cplusplus
 }
 #endif

@@ -150,18 +150,6 @@ static uint32 handle_id = 1;
 static void
 lib_pthread_destroy_callback(WASMCluster *cluster);
 
-static uint32
-thread_handle_hash(void *handle)
-{
-    return (uint32)(uintptr_t)handle;
-}
-
-static bool
-thread_handle_equal(void *h1, void *h2)
-{
-    return (uint32)(uintptr_t)h1 == (uint32)(uintptr_t)h2 ? true : false;
-}
-
 static void
 thread_info_destroy(void *node)
 {

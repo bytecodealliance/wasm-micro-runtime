@@ -12,20 +12,7 @@
 #include "bh_hashmap.h"
 #include <setjmp.h>
 
-void *contexts = NULL;
-korp_mutex context_lock;
-
-static uint32
-thread_handle_hash(void *handle)
-{
-    return (uint32)(uintptr_t)handle;
-}
-
-static bool
-thread_handle_equal(void *h1, void *h2)
-{
-    return (uint32)(uintptr_t)h1 == (uint32)(uintptr_t)h2 ? true : false;
-}
+bh_stack_context_handler_t stack_context_handler;
 
 typedef struct {
     thread_start_routine_t start;
@@ -66,71 +53,52 @@ os_thread_wrapper(void *arg)
 }
 
 static void
-handler(int sig)
+stack_context_sig_handler(int sig)
 {
     assert(sig == SIGUSR1);
     korp_tid self = pthread_self();
 
-    os_mutex_lock(&context_lock);
-    bh_list *context_list = bh_hash_map_find(contexts, (void *)(uintptr_t)self);
+    os_mutex_lock(&stack_context_handler.lock);
+
+    /* Get latest stack context (first in the list) for current thread */
+    bh_list *context_list = bh_hash_map_find(stack_context_handler.contexts,
+                                             (void *)(uintptr_t)self);
     assert(context_list);
-    // Get latest context (first in the list) for current thread
     sigjmp_buf *context = bh_list_first_elem(context_list);
     assert(context);
-    os_mutex_unlock(&context_lock);
 
+    os_mutex_unlock(&stack_context_handler.lock);
     siglongjmp(*context, 1);
 }
 
 sigjmp_buf *
-os_save_context(korp_tid handle)
+os_create_stack_context(korp_tid handle)
 {
-    os_mutex_lock(&context_lock);
-    // Create map <tid, list_of_contexts>
-    // NOTE: The list is needed for nested calls to `wasm_interp_call_wasm`
-    if (contexts == NULL) {
-        contexts = bh_hash_map_create(32, false, (HashFunc)thread_handle_hash,
-                                      (KeyEqualFunc)thread_handle_equal, NULL,
-                                      wasm_runtime_free);
-    }
-
-    // Get or create list of contexts for current thread
-    bh_list *context_list =
-        bh_hash_map_find(contexts, (void *)(uintptr_t)handle);
-    if (!context_list) {
-        context_list = malloc(sizeof(bh_list));
-        int ret = bh_list_init(context_list);
-        assert(ret == BH_LIST_SUCCESS);
-
-        bool bh_ret = bh_hash_map_insert(contexts, (void *)(uintptr_t)handle,
-                                         context_list);
-        assert(bh_ret);
-    }
-    assert(context_list);
-
-    // Create context
-    sigjmp_buf *context = malloc(sizeof(sigjmp_buf));
-    pthread_t self = pthread_self();
-    os_mutex_unlock(&context_lock);
-
-    printf("context=%p %ld\n", context, self);
-    return context;
+    return BH_MALLOC(sizeof(sigjmp_buf));
 }
 
 bool
-os_contexts_init()
+os_stack_contexts_init()
 {
     struct sigaction act;
     memset(&act, 0, sizeof(act));
-    act.sa_handler = handler;
+    act.sa_handler = stack_context_sig_handler;
     sigfillset(&act.sa_mask);
     if (sigaction(SIGUSR1, &act, NULL) < 0) {
         LOG_ERROR("failed to set signal handler");
-        return BHT_ERROR;
+        return false;
     }
 
-    if (os_mutex_init(&context_lock) != 0) {
+    if (os_mutex_init(&stack_context_handler.lock) != 0) {
         LOG_ERROR("failed to init context mutex");
+        return false;
+    }
+
+    stack_context_handler.contexts = bh_hash_map_create(
+        32, false, (HashFunc)thread_handle_hash,
+        (KeyEqualFunc)thread_handle_equal, NULL, wasm_runtime_free);
+    if (stack_context_handler.contexts == NULL) {
+        LOG_ERROR("failed to init stack contexts");
         return false;
     }
 
@@ -138,45 +106,69 @@ os_contexts_init()
 }
 
 void
-os_clean_contexts()
+os_stack_contexts_deinit()
 {
-    os_mutex_destroy(&context_lock);
+    os_mutex_destroy(&stack_context_handler.lock);
 
     // TODO(eloparco): Release memory
 }
 
 void
-os_rm_context(korp_tid handle, sigjmp_buf *context)
+os_remove_stack_context(korp_tid handle, sigjmp_buf *context)
 {
     korp_tid self = pthread_self();
 
-    os_mutex_lock(&context_lock);
-    bh_list *context_list = bh_hash_map_find(contexts, (void *)(uintptr_t)self);
+    os_mutex_lock(&stack_context_handler.lock);
+
+    bh_list *context_list = bh_hash_map_find(stack_context_handler.contexts,
+                                             (void *)(uintptr_t)self);
     assert(context_list);
-    int bh_res = bh_list_remove(context_list, context);
-    assert(bh_res == BH_LIST_SUCCESS);
-    os_mutex_unlock(&context_lock);
+    int ret = bh_list_remove(context_list, context);
+    assert(ret == BH_LIST_SUCCESS);
+
+    os_mutex_unlock(&stack_context_handler.lock);
 }
 
 bool
-os_is_exception(korp_tid handle, sigjmp_buf *context)
+os_is_returning_from_signal(korp_tid handle, sigjmp_buf *context)
 {
-    if (sigsetjmp(*context, 1) == 0) {
-        // Normal execution, i.e. not returning from sig handler
+    if (sigsetjmp(*context, 1))
+        return true;
 
-        os_mutex_lock(&context_lock);
-        bh_list *context_list =
-            bh_hash_map_find(contexts, (void *)(uintptr_t)handle);
-        assert(context_list);
+    os_mutex_lock(&stack_context_handler.lock);
 
-        // Add context to context list
-        int bh_res = bh_list_insert(context_list, context);
-        assert(bh_res == BH_LIST_SUCCESS);
-        os_mutex_unlock(&context_lock);
-        return false;
+    /* Get or create list of stack contexts for current thread */
+    bh_list *context_list = bh_hash_map_find(stack_context_handler.contexts,
+                                             (void *)(uintptr_t)handle);
+    if (!context_list) {
+        context_list = BH_MALLOC(sizeof(bh_list));
+        if (!context_list) {
+            os_mutex_unlock(&stack_context_handler.lock);
+            return NULL;
+        }
+        int ret_list = bh_list_init(context_list);
+        if (ret_list != BH_LIST_SUCCESS) {
+            BH_FREE(context_list);
+            os_mutex_unlock(&stack_context_handler.lock);
+            return NULL;
+        }
+
+        bool ret_map =
+            bh_hash_map_insert(stack_context_handler.contexts,
+                               (void *)(uintptr_t)handle, context_list);
+        if (!ret_map) {
+            BH_FREE(context_list);
+            os_mutex_unlock(&stack_context_handler.lock);
+            return NULL;
+        }
     }
 
-    return true;
+    /* Add stack context to stack context list */
+    int bh_res = bh_list_insert(context_list, context);
+    assert(bh_res == BH_LIST_SUCCESS);
+
+    os_mutex_unlock(&stack_context_handler.lock);
+    return false;
 }
 
 int

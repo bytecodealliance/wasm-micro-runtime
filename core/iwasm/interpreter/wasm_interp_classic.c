@@ -4183,9 +4183,8 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
 
     wasm_exec_env_set_cur_frame(exec_env, frame);
 
-    sigjmp_buf *context = os_save_context(exec_env->handle);
-    if (!os_is_exception(exec_env->handle, context)) {
-
+    sigjmp_buf *context = os_create_stack_context();
+    if (!os_is_returning_from_signal(exec_env->handle, context)) {
         if (function->is_import_func) {
 #if WASM_ENABLE_MULTI_MODULE != 0
             if (function->import_module_inst) {
@@ -4263,10 +4262,7 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
 #endif
         }
     }
-
-    korp_tid self = pthread_self();
-    printf("exit context=%p %p\n", context, (void *)self);
-    os_rm_context(exec_env->handle, context);
+    os_remove_stack_context(exec_env->handle, context);
 
     /* Output the return value to the caller */
     if (!wasm_get_exception(module_inst)) {

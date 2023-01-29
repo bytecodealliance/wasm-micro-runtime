@@ -621,6 +621,9 @@ main(int argc, char *argv[])
                                          ns_lookup_pool_size);
 #endif
 
+    if (!os_stack_contexts_init())
+        goto fail3;
+
     /* instantiate the module */
     if (!(wasm_module_inst =
               wasm_runtime_instantiate(wasm_module, stack_size, heap_size,
