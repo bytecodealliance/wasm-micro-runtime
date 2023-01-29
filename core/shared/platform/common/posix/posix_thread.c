@@ -77,6 +77,21 @@ os_create_stack_context(korp_tid handle)
     return BH_MALLOC(sizeof(sigjmp_buf));
 }
 
+static void
+free_stack_context_list(void *stack_context_list)
+{
+    bh_list *context_list = (bh_list *)stack_context_list;
+
+    sigjmp_buf *context = bh_list_first_elem(context_list);
+    while (context) {
+        sigjmp_buf *next = bh_list_elem_next(context);
+        BH_FREE(context);
+        context = next;
+    };
+
+    BH_FREE(context_list);
+}
+
 bool
 os_stack_contexts_init()
 {
@@ -96,7 +111,7 @@ os_stack_contexts_init()
 
     stack_context_handler.contexts = bh_hash_map_create(
         32, false, (HashFunc)thread_handle_hash,
-        (KeyEqualFunc)thread_handle_equal, NULL, wasm_runtime_free);
+        (KeyEqualFunc)thread_handle_equal, NULL, free_stack_context_list);
     if (stack_context_handler.contexts == NULL) {
         LOG_ERROR("failed to init stack contexts");
         return false;
@@ -106,11 +121,16 @@ os_stack_contexts_init()
 }
 
 void
-os_stack_contexts_deinit()
+os_stack_contexts_destroy()
 {
-    os_mutex_destroy(&stack_context_handler.lock);
+    os_mutex_lock(&stack_context_handler.lock);
+    if (!bh_hash_map_destroy(stack_context_handler.contexts))
+        LOG_ERROR("failed to destroy stack context map");
+    stack_context_handler.contexts = NULL;
+    os_mutex_unlock(&stack_context_handler.lock);
 
-    // TODO(eloparco): Release memory
+    if (os_mutex_destroy(&stack_context_handler.lock) != BHT_OK)
+        LOG_ERROR("failed to destroy stack contexts");
 }
 
 void
@@ -125,6 +145,7 @@ os_remove_stack_context(korp_tid handle, sigjmp_buf *context)
     assert(context_list);
     int ret = bh_list_remove(context_list, context);
     assert(ret == BH_LIST_SUCCESS);
+    BH_FREE(context);
 
     os_mutex_unlock(&stack_context_handler.lock);
 }
@@ -143,30 +164,36 @@ os_is_returning_from_signal(korp_tid handle, sigjmp_buf *context)
     if (!context_list) {
         context_list = BH_MALLOC(sizeof(bh_list));
         if (!context_list) {
-            os_mutex_unlock(&stack_context_handler.lock);
-            return NULL;
+            LOG_ERROR("failed to allocate stack context list");
+            goto unlock;
         }
+
         int ret_list = bh_list_init(context_list);
         if (ret_list != BH_LIST_SUCCESS) {
-            BH_FREE(context_list);
-            os_mutex_unlock(&stack_context_handler.lock);
-            return NULL;
+            LOG_ERROR("failed to initialize stack context list");
+            goto free_list_and_unlock;
         }
 
         bool ret_map =
             bh_hash_map_insert(stack_context_handler.contexts,
                                (void *)(uintptr_t)handle, context_list);
         if (!ret_map) {
-            BH_FREE(context_list);
-            os_mutex_unlock(&stack_context_handler.lock);
-            return NULL;
+            LOG_ERROR("failed to insert stack context list into map");
+            goto free_list_and_unlock;
         }
     }
 
     /* Add stack context to stack context list */
     int bh_res = bh_list_insert(context_list, context);
-    assert(bh_res == BH_LIST_SUCCESS);
+    if (bh_res != BH_LIST_SUCCESS) {
+        LOG_ERROR("failed to insert stack context into list");
+        goto free_list_and_unlock;
+    }
+    goto unlock;
 
+free_list_and_unlock:
+    BH_FREE(context_list);
+unlock:
     os_mutex_unlock(&stack_context_handler.lock);
     return false;
 }

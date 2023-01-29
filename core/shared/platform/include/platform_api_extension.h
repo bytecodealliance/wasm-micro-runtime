@@ -315,7 +315,7 @@ os_stack_contexts_init();
  *
  */
 void
-os_stack_contexts_deinit();
+os_stack_contexts_destroy();
 
 /**
  * @brief Creates and returns an empty stack context for the current thread

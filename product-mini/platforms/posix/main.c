@@ -695,6 +695,8 @@ fail1:
     /* unload the native libraries */
     unregister_and_unload_native_libs(native_handle_count, native_handle_list);
 #endif
+    
+    os_stack_contexts_destroy();
 
     /* destroy runtime environment */
     wasm_runtime_destroy();
