@@ -8,7 +8,12 @@ project(av1_wasm)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../cmake)
 
 ################ dependencies ################
+find_package(Python3 REQUIRED)
 find_package(WASISDK 16.0 REQUIRED)
+execute_process(
+  COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_LIST_DIR}/../../../test-tools/pick-up-emscripten-headers/collect_files.py --install ../include --loglevel=ERROR
+  WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+)
 
 #######################################
 include(ExternalProject)

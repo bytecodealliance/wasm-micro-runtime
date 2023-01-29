@@ -159,6 +159,7 @@ def download_repo(name, root):
     download_flag.touch()
 
     # leave download files in /tmp
+    logger.info(f"Has downloaed and stored in {store_dir.relative_to(root)}")
     return True
 
 
@@ -166,8 +167,13 @@ def collect_headers(root, install_location):
     if not install_location.exists():
         logger.error(f"{install_location} does not found")
         return False
-    else:
-        shutil.rmtree(install_location)
+
+    install_flag = install_location.joinpath("INSTALLED").resolve()
+    if install_flag.exists():
+        logger.info(
+            f"bypass downloading '{install_location}'. Or to remove it and try again if needs a new one"
+        )
+        return True
 
     emscripten_home = root.joinpath(
         f'{external_repos["emscripten"]["store_dir"]}'
@@ -183,13 +189,37 @@ def collect_headers(root, install_location):
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy(src, dst)
 
+    install_flag.touch()
+    logger.info(f"Has installed in {install_location}")
     return True
 
 
 def main():
+    parser = argparse.ArgumentParser(
+        description="collect headers from emscripten for workload compilation"
+    )
+    parser.add_argument(
+        "--install",
+        type=str,
+        required=True,
+        help="identify installation location",
+    )
+    parser.add_argument(
+        "--loglevel",
+        type=str,
+        default="INFO",
+        choices=[
+            "ERROR",
+            "WARNING",
+            "INFO",
+        ],
+        help="the logging level",
+    )
+    options = parser.parse_args()
+
     console = logging.StreamHandler()
     console.setFormatter(logging.Formatter("%(asctime)s - %(message)s"))
-    logger.setLevel(logging.INFO)
+    logger.setLevel(getattr(logging, options.loglevel))
     logger.addHandler(console)
     logger.propagate = False
 
@@ -199,16 +229,6 @@ def main():
         current_file = pathlib.Path(os.readlink(current_file))
     root = current_file.parent.joinpath("../..").resolve()
     logger.info(f"The root of WAMR is {root}")
-
-    parser = argparse.ArgumentParser(
-        description="collect headers from emscripten for workload compilation"
-    )
-    parser.add_argument(
-        "--install",
-        type=str,
-        help="identify installation location",
-    )
-    options = parser.parse_args()
 
     # download repos
     for repo in external_repos.keys():
