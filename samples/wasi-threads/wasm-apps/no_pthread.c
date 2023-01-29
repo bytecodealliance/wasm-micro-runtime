@@ -12,8 +12,6 @@
 
 #include "wasi_thread_start.h"
 
-#define STOP_FROM_MAIN 1
-
 static const int64_t SECOND = 1000 * 1000 * 1000;
 
 typedef struct {
@@ -31,11 +29,12 @@ __wasi_thread_start_C(int thread_id, int *start_arg)
     printf("New thread ID: %d, starting parameter: %d\n", thread_id,
            data->value);
 
-#if STOP_FROM_MAIN == 1
-    __builtin_wasm_memory_atomic_wait32(0, 0, -1);
-#else
-    __wasi_proc_exit(55);
-#endif
+    data->thread_id = thread_id;
+    data->value += 8;
+    printf("Updated value: %d\n", data->value);
+
+    data->th_ready = 1;
+    __builtin_wasm_memory_atomic_notify(&data->th_ready, 1);
 }
 
 int
@@ -57,11 +56,16 @@ main(int argc, char **argv)
         goto final;
     }
 
-#if STOP_FROM_MAIN == 1
-    __wasi_proc_exit(56);
-#else
-    __builtin_wasm_memory_atomic_wait32(0, 0, -1);
-#endif
+    if (__builtin_wasm_memory_atomic_wait32(&data.th_ready, 0, SECOND) == 2) {
+        printf("Timeout\n");
+        ret = EXIT_FAILURE;
+        goto final;
+    }
+
+    printf("Thread completed, new value: %d, thread id: %d\n", data.value,
+           data.thread_id);
+
+    assert(thread_id == data.thread_id);
 
 final:
     start_args_deinit(&data.base);

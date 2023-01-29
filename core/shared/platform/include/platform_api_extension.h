@@ -24,7 +24,6 @@ extern "C" {
  * A list is used to handles stack contexts created in nested functions (for the
  * same thread). Stack contexts are used by the signal handler to restore a
  * previously saved state.
- *
  */
 typedef struct {
     void *contexts;
