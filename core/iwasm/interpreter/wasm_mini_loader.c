@@ -1894,6 +1894,9 @@ init_llvm_jit_functions_stage1(WASMModule *module, char *error_buf,
 #if (WASM_ENABLE_PERF_PROFILING != 0) || (WASM_ENABLE_DUMP_CALL_STACK != 0)
     option.enable_aux_stack_frame = true;
 #endif
+#if WASM_ENABLE_MEMORY_PROFILING != 0
+    option.enable_stack_estimation = true;
+#endif
 
     module->comp_ctx = aot_create_comp_context(module->comp_data, &option);
     if (!module->comp_ctx) {

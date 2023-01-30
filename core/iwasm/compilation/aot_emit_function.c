@@ -494,7 +494,8 @@ static bool
 check_stack(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             uint32 callee_cell_num)
 {
-    if (!record_stack_usage(comp_ctx, func_ctx, callee_cell_num))
+    if (comp_ctx->enable_stack_estimation
+        && !record_stack_usage(comp_ctx, func_ctx, callee_cell_num))
         return false;
     if (comp_ctx->enable_stack_bound_check
         && !check_stack_boundary(comp_ctx, func_ctx, callee_cell_num))

@@ -449,7 +449,8 @@ create_local_variables(AOTCompData *comp_data, AOTCompContext *comp_ctx,
         }
     }
 
-    if (comp_ctx->enable_stack_bound_check || 1) {
+    if (comp_ctx->enable_stack_bound_check
+        || comp_ctx->enable_stack_estimation) {
         if (aot_func_type->param_count + func->local_count > 0) {
             func_ctx->last_alloca = func_ctx->locals[aot_func_type->param_count
                                                      + func->local_count - 1];
@@ -978,7 +979,8 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
         && !create_native_stack_bound(comp_ctx, func_ctx)) {
         goto fail;
     }
-    if (!create_native_stack_max_used(comp_ctx, func_ctx)) {
+    if (comp_ctx->enable_stack_estimation
+        && !create_native_stack_max_used(comp_ctx, func_ctx)) {
         goto fail;
     }
 
@@ -1639,6 +1641,9 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
 
     if (option->disable_llvm_lto)
         comp_ctx->disable_llvm_lto = true;
+
+    if (option->enable_stack_estimation)
+        comp_ctx->enable_stack_estimation = true;
 
     comp_ctx->opt_level = option->opt_level;
     comp_ctx->size_level = option->size_level;
