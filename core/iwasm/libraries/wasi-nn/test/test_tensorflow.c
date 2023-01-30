@@ -229,8 +229,9 @@ test_average(execution_target target)
     input_info input = create_input(dims);
 
     uint32_t output_size = 0;
-    float *output = run_inference(target, input.input_tensor, input.dim,
-                                  &output_size, "/assets/models/average.tflite", 1);
+    float *output =
+        run_inference(target, input.input_tensor, input.dim, &output_size,
+                      "/assets/models/average.tflite", 1);
 
     assert(output_size == 1);
     assert(fabs(output[0] - 12.0) < EPSILON);
@@ -248,8 +249,9 @@ test_mult_dimensions(execution_target target)
     input_info input = create_input(dims);
 
     uint32_t output_size = 0;
-    float *output = run_inference(target, input.input_tensor, input.dim,
-                                  &output_size, "/assets/models/mult_dim.tflite", 1);
+    float *output =
+        run_inference(target, input.input_tensor, input.dim, &output_size,
+                      "/assets/models/mult_dim.tflite", 1);
 
     assert(output_size == 9);
     for (int i = 0; i < 9; i++)
@@ -267,8 +269,9 @@ test_mult_outputs(execution_target target)
     input_info input = create_input(dims);
 
     uint32_t output_size = 0;
-    float *output = run_inference(target, input.input_tensor, input.dim,
-                                  &output_size, "/assets/models/mult_out.tflite", 2);
+    float *output =
+        run_inference(target, input.input_tensor, input.dim, &output_size,
+                      "/assets/models/mult_out.tflite", 2);
 
     assert(output_size == 8);
     // first tensor check
