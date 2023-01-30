@@ -29,7 +29,7 @@ Build the runtime image for your execution target type.
 
 `EXECUTION_TYPE` can be:
 * `cpu`
-* `gpu`
+* `nvidia-gpu`
 
 ```
 EXECUTION_TYPE=cpu
@@ -60,7 +60,7 @@ Tests: passed!
 
 ```
 docker run \
-    -v $PWD/core/iwasm/libraries/wasi-nn/test:/assets wasi-nn-${EXECUTION_TYPE} \
+    -v $PWD/core/iwasm/libraries/wasi-nn/test:/assets wasi-nn-cpu \
     --dir=/assets \
     /assets/test_tensorflow.wasm
 ```
@@ -70,10 +70,13 @@ docker run \
 ```
 docker run \
     --runtime=nvidia \
-    -v $PWD/core/iwasm/libraries/wasi-nn/test:/assets wasi-nn-${EXECUTION_TYPE} \
+    -v $PWD/core/iwasm/libraries/wasi-nn/test:/assets wasi-nn-nvidia-gpu \
     --dir=/assets \
     /assets/test_tensorflow.wasm
 ```
+
+Requirements:
+* [NVIDIA docker](https://github.com/NVIDIA/nvidia-docker).
 
 ## What is missing
 
