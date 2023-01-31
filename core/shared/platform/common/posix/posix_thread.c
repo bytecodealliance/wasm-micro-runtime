@@ -12,6 +12,8 @@
 #include "bh_hashmap.h"
 #include <setjmp.h>
 
+#define STACK_CTX_SIG SIGUSR1
+static os_thread_local_attribute sigset_t newmask, oldmask;
 bh_stack_context_handler_t stack_context_handler;
 
 typedef struct {
@@ -55,10 +57,8 @@ os_thread_wrapper(void *arg)
 static void
 stack_context_sig_handler(int sig)
 {
-    assert(sig == SIGUSR1);
+    assert(sig == STACK_CTX_SIG);
     korp_tid self = pthread_self();
-
-    os_mutex_lock(&stack_context_handler.lock);
 
     /* Get latest stack context (first in the list) for current thread */
     bh_list *context_list = bh_hash_map_find(stack_context_handler.contexts,
@@ -67,7 +67,6 @@ stack_context_sig_handler(int sig)
     sigjmp_buf *context = bh_list_first_elem(context_list);
     assert(context);
 
-    os_mutex_unlock(&stack_context_handler.lock);
     siglongjmp(*context, 1);
 }
 
@@ -92,6 +91,23 @@ free_stack_context_list(void *stack_context_list)
     BH_FREE(context_list);
 }
 
+static inline void
+stack_ctx_block_sig_and_lock()
+{
+    sigemptyset(&newmask);
+    sigaddset(&newmask, STACK_CTX_SIG);
+    pthread_sigmask(SIG_BLOCK, &newmask, &oldmask);
+
+    os_mutex_lock(&stack_context_handler.lock);
+}
+
+static inline void
+stack_ctx_unlock_and_unblock_sig()
+{
+    os_mutex_unlock(&stack_context_handler.lock);
+    pthread_sigmask(SIG_SETMASK, &oldmask, NULL);
+}
+
 bool
 os_stack_contexts_init()
 {
@@ -99,7 +115,7 @@ os_stack_contexts_init()
     memset(&act, 0, sizeof(act));
     act.sa_handler = stack_context_sig_handler;
     sigfillset(&act.sa_mask);
-    if (sigaction(SIGUSR1, &act, NULL) < 0) {
+    if (sigaction(STACK_CTX_SIG, &act, NULL) < 0) {
         LOG_ERROR("failed to set signal handler");
         return false;
     }
@@ -123,11 +139,9 @@ os_stack_contexts_init()
 void
 os_stack_contexts_destroy()
 {
-    os_mutex_lock(&stack_context_handler.lock);
     if (!bh_hash_map_destroy(stack_context_handler.contexts))
         LOG_ERROR("failed to destroy stack context map");
     stack_context_handler.contexts = NULL;
-    os_mutex_unlock(&stack_context_handler.lock);
 
     if (os_mutex_destroy(&stack_context_handler.lock) != BHT_OK)
         LOG_ERROR("failed to destroy stack contexts");
@@ -138,7 +152,7 @@ os_remove_stack_context(korp_tid handle, sigjmp_buf *context)
 {
     korp_tid self = pthread_self();
 
-    os_mutex_lock(&stack_context_handler.lock);
+    stack_ctx_block_sig_and_lock();
 
     bh_list *context_list = bh_hash_map_find(stack_context_handler.contexts,
                                              (void *)(uintptr_t)self);
@@ -147,7 +161,7 @@ os_remove_stack_context(korp_tid handle, sigjmp_buf *context)
     assert(ret == BH_LIST_SUCCESS);
     BH_FREE(context);
 
-    os_mutex_unlock(&stack_context_handler.lock);
+    stack_ctx_unlock_and_unblock_sig();
 }
 
 bool
@@ -156,7 +170,7 @@ os_is_returning_from_signal(korp_tid handle, sigjmp_buf *context)
     if (sigsetjmp(*context, 1))
         return true;
 
-    os_mutex_lock(&stack_context_handler.lock);
+    stack_ctx_block_sig_and_lock();
 
     /* Get or create list of stack contexts for current thread */
     bh_list *context_list = bh_hash_map_find(stack_context_handler.contexts,
@@ -194,7 +208,7 @@ os_is_returning_from_signal(korp_tid handle, sigjmp_buf *context)
 free_list_and_unlock:
     BH_FREE(context_list);
 unlock:
-    os_mutex_unlock(&stack_context_handler.lock);
+    stack_ctx_unlock_and_unblock_sig();
     return false;
 }
 
