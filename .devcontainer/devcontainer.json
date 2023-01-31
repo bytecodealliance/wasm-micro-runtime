@@ -9,11 +9,12 @@
     // Update 'VARIANT' to pick an Debian / Ubuntu OS version: debian-11, debian-10, debian-9, ubuntu-21.04, ubuntu-20.04, ubuntu-18.04
     // Use Debian 11, Debian 9, Ubuntu 18.04 or Ubuntu 21.04 on local arm64/Apple Silicon
     "args": {
+      "BINARYEN_VER": "111",
       "EMSDK_VER": "3.0.0",
       "LLVM_VER": "15",
       "VARIANT": "ubuntu-20.04",
-      "WASI_SDK_VER": "16",
-      "WABT_VER": "1.0.31",
+      "WASI_SDK_VER": "19",
+      "WABT_VER": "1.0.31"
     }
   },
   "runArgs": [

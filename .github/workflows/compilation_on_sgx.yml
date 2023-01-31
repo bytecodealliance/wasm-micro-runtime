@@ -191,7 +191,7 @@ jobs:
         os: [ubuntu-20.04]
         wasi_sdk_release:
           [
-            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-16/wasi-sdk-16.0-linux.tar.gz",
+            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-linux.tar.gz",
           ]
         wabt_release:
           [
@@ -236,7 +236,7 @@ jobs:
         os: [ubuntu-20.04]
         wasi_sdk_release:
           [
-            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-16/wasi-sdk-16.0-linux.tar.gz",
+            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-linux.tar.gz",
           ]
         wabt_release:
           [
@@ -250,8 +250,8 @@ jobs:
         run: |
           cd /opt
           sudo wget ${{ matrix.wasi_sdk_release }}
-          sudo tar -xzf wasi-sdk-16.0-*.tar.gz
-          sudo mv wasi-sdk-16.0 wasi-sdk
+          sudo tar -xzf wasi-sdk-*.tar.gz
+          sudo mv wasi-sdk-19.0 wasi-sdk
 
       - name: download and install wabt
         run: |

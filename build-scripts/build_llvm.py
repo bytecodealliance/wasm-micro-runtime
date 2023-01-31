@@ -34,7 +34,7 @@ def query_llvm_version(llvm_dir):
     )
 
 
-def build_llvm(llvm_dir, platform, backends, projects):
+def build_llvm(llvm_dir, platform, backends, projects, use_clang=False):
     LLVM_COMPILE_OPTIONS = [
         '-DCMAKE_BUILD_TYPE:STRING="Release"',
         "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
@@ -58,10 +58,16 @@ def build_llvm(llvm_dir, platform, backends, projects):
     ]
 
     # use clang/clang++/lld. but macos doesn't support lld
-    if not sys.platform.startswith("darwin"):
-        os.environ["CC"] = "clang"
-        os.environ["CXX"] = "clang++"
-        LLVM_COMPILE_OPTIONS.append('-DLLVM_USE_LINKER:STRING="lld"')
+    if not sys.platform.startswith("darwin") and use_clang:
+        if shutil.which("clang") and shutil.which("clang++") and shutil.which("lld"):
+            os.environ["CC"] = "clang"
+            os.environ["CXX"] = "clang++"
+            LLVM_COMPILE_OPTIONS.append('-DLLVM_USE_LINKER:STRING="lld"')
+            print("Use the clang toolchain")
+        else:
+            print("Can not find clang, clang++ and lld, keep using the gcc toolchain")
+    else:
+        print("Use the gcc toolchain")
 
     LLVM_EXTRA_COMPILE_OPTIONS = {
         "arc": [
@@ -203,6 +209,11 @@ def main():
         action="store_true",
         help="return the version info of generated llvm libraries",
     )
+    parser.add_argument(
+        "--use-clang",
+        action="store_true",
+        help="use clang instead of gcc",
+    )
     options = parser.parse_args()
 
     # if the "platform" is not identified in the command line option,
@@ -249,7 +260,12 @@ def main():
             print(commit_hash)
             return commit_hash is not None
 
-        if build_llvm(llvm_dir, platform, options.arch, options.project) is not None:
+        if (
+            build_llvm(
+                llvm_dir, platform, options.arch, options.project, options.use_clang
+            )
+            is not None
+        ):
             repackage_llvm(llvm_dir)
 
         return True
