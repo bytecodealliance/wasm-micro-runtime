@@ -25,6 +25,7 @@ struct WASMCluster {
 
     korp_mutex lock;
     bh_list exec_env_list;
+    bool exec_env_list_element_removed;
 
     /* The aux stack of a module with shared memory will be
         divided into several segments. This array store the
