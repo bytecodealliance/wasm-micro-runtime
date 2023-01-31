@@ -88,7 +88,7 @@ typedef struct WASMExecEnv {
      * The lowest stack pointer value observed.
      * Assumption: native stack grows to the lower address.
      */
-    uint8 *native_stack_max_used;
+    uint8 *native_stack_top_min;
 
 #if WASM_ENABLE_FAST_JIT != 0
     /**
@@ -172,11 +172,11 @@ typedef struct WASMExecEnv {
 } WASMExecEnv;
 
 #if WASM_ENABLE_MEMORY_PROFILING != 0
-#define RECORD_STACK_USAGE(e, p)                \
-    do {                                        \
-        if ((e)->native_stack_max_used > (p)) { \
-            (e)->native_stack_max_used = (p);   \
-        }                                       \
+#define RECORD_STACK_USAGE(e, p)               \
+    do {                                       \
+        if ((e)->native_stack_top_min > (p)) { \
+            (e)->native_stack_top_min = (p);   \
+        }                                      \
     } while (0)
 #else
 #define RECORD_STACK_USAGE(e, p) (void)0

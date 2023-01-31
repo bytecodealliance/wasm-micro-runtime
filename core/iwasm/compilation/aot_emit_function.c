@@ -374,7 +374,7 @@ record_stack_usage(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMBasicBlockRef block_update;
     LLVMBasicBlockRef block_after_update;
     LLVMValueRef callee_local_size, new_sp, cmp;
-    LLVMValueRef native_stack_max_used;
+    LLVMValueRef native_stack_top_min;
     LLVMTypeRef ptrdiff_type;
     if (comp_ctx->pointer_size == sizeof(uint64_t)) {
         ptrdiff_type = I64_TYPE;
@@ -385,8 +385,8 @@ record_stack_usage(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     /*
      * new_sp = last_alloca - callee_local_size;
-     * if (*native_stack_max_used_addr > new_sp) {
-     *    *native_stack_max_used_addr = new_sp;
+     * if (*native_stack_top_min_addr > new_sp) {
+     *    *native_stack_top_min_addr = new_sp;
      * }
      */
 
@@ -401,14 +401,14 @@ record_stack_usage(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         aot_set_last_error("llvm build gep failed");
         return false;
     }
-    if (!(native_stack_max_used = LLVMBuildLoad2(
+    if (!(native_stack_top_min = LLVMBuildLoad2(
               comp_ctx->builder, OPQ_PTR_TYPE,
-              func_ctx->native_stack_max_used_addr, "native_stack_max_used"))) {
+              func_ctx->native_stack_top_min_addr, "native_stack_top_min"))) {
         aot_set_last_error("llvm build load failed");
         return false;
     }
     if (!(cmp = LLVMBuildICmp(comp_ctx->builder, LLVMIntULT, new_sp,
-                              native_stack_max_used, "cmp"))) {
+                              native_stack_top_min, "cmp"))) {
         aot_set_last_error("llvm build icmp failed.");
         return false;
     }
@@ -434,7 +434,7 @@ record_stack_usage(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     LLVMPositionBuilderAtEnd(comp_ctx->builder, block_update);
     if (!LLVMBuildStore(comp_ctx->builder, new_sp,
-                        func_ctx->native_stack_max_used_addr)) {
+                        func_ctx->native_stack_top_min_addr)) {
         aot_set_last_error("llvm build store failed");
         return false;
     }

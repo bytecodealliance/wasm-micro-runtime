@@ -30,7 +30,7 @@ bh_static_assert(offsetof(WASMExecEnv, aux_stack_boundary)
 bh_static_assert(offsetof(WASMExecEnv, aux_stack_bottom)
                  == 7 * sizeof(uintptr_t));
 bh_static_assert(offsetof(WASMExecEnv, native_symbol) == 8 * sizeof(uintptr_t));
-bh_static_assert(offsetof(WASMExecEnv, native_stack_max_used)
+bh_static_assert(offsetof(WASMExecEnv, native_stack_top_min)
                  == 9 * sizeof(uintptr_t));
 
 bh_static_assert(offsetof(AOTModuleInstance, memories) == 1 * sizeof(uint64));

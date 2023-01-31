@@ -1408,9 +1408,9 @@ wasm_runtime_dump_mem_consumption(WASMExecEnv *exec_env)
      * Note that this is just about what the runtime itself observed.
      * It doesn't cover host func implementations, signal handlers, etc.
      */
-    if (exec_env->native_stack_max_used != (void *)UINTPTR_MAX)
+    if (exec_env->native_stack_top_min != (void *)UINTPTR_MAX)
         os_printf("Native stack left: %zd\n",
-                  exec_env->native_stack_max_used
+                  exec_env->native_stack_top_min
                       - exec_env->native_stack_boundary);
     else
         os_printf("Native stack left: no enough info to profile\n");

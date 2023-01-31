@@ -287,13 +287,13 @@ create_native_stack_bound(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 }
 
 static bool
-create_native_stack_max_used(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+create_native_stack_top_min(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
     LLVMValueRef offset = I32_NINE;
 
-    if (!(func_ctx->native_stack_max_used_addr = LLVMBuildInBoundsGEP2(
+    if (!(func_ctx->native_stack_top_min_addr = LLVMBuildInBoundsGEP2(
               comp_ctx->builder, OPQ_PTR_TYPE, func_ctx->exec_env, &offset, 1,
-              "native_stack_max_used_addr"))) {
+              "native_stack_top_min_addr"))) {
         aot_set_last_error("llvm build in bounds gep failed");
         return false;
     }
@@ -980,7 +980,7 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
         goto fail;
     }
     if (comp_ctx->enable_stack_estimation
-        && !create_native_stack_max_used(comp_ctx, func_ctx)) {
+        && !create_native_stack_top_min(comp_ctx, func_ctx)) {
         goto fail;
     }
 
