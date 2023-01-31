@@ -145,9 +145,115 @@ utimensat(int fd, const char *path, const struct timespec ts[2], int flag)
 
 #endif /* !defined(AT_FDCWD) */
 
-DIR *
-fdopendir(int fd)
+#ifndef CONFIG_NET
+
+#include <netdb.h>
+
+int
+accept(int sockfd, FAR struct sockaddr *addr, FAR socklen_t *addrlen)
 {
-    errno = ENOSYS;
-    return NULL;
+    errno = ENOTSUP;
+    return -1;
 }
+
+int
+bind(int sockfd, FAR const struct sockaddr *addr, socklen_t addrlen)
+{
+    errno = ENOTSUP;
+    return -1;
+}
+
+int
+listen(int sockfd, int backlog)
+{
+    errno = ENOTSUP;
+    return -1;
+}
+
+int
+connect(int sockfd, FAR const struct sockaddr *addr, socklen_t addrlen)
+{
+    errno = ENOTSUP;
+    return -1;
+}
+
+ssize_t
+recvfrom(int sockfd, FAR void *buf, size_t len, int flags,
+         FAR struct sockaddr *from, FAR socklen_t *fromlen)
+{
+    errno = ENOTSUP;
+    return -1;
+}
+
+ssize_t
+send(int sockfd, FAR const void *buf, size_t len, int flags)
+{
+    errno = ENOTSUP;
+    return -1;
+}
+
+ssize_t
+sendto(int sockfd, FAR const void *buf, size_t len, int flags,
+       FAR const struct sockaddr *to, socklen_t tolen)
+{
+    errno = ENOTSUP;
+    return -1;
+}
+
+int
+socket(int domain, int type, int protocol)
+{
+    errno = ENOTSUP;
+    return -1;
+}
+
+int
+shutdown(int sockfd, int how)
+{
+    errno = ENOTSUP;
+    return -1;
+}
+
+int
+getaddrinfo(FAR const char *nodename, FAR const char *servname,
+            FAR const struct addrinfo *hints, FAR struct addrinfo **res)
+{
+    errno = ENOTSUP;
+    return -1;
+}
+
+void
+freeaddrinfo(FAR struct addrinfo *ai)
+{}
+
+int
+setsockopt(int sockfd, int level, int option, FAR const void *value,
+           socklen_t value_len)
+{
+    errno = ENOTSUP;
+    return -1;
+}
+
+int
+getsockopt(int sockfd, int level, int option, FAR void *value,
+           FAR socklen_t *value_len)
+{
+    errno = ENOTSUP;
+    return -1;
+}
+
+int
+getpeername(int sockfd, FAR struct sockaddr *addr, FAR socklen_t *addrlen)
+{
+    errno = ENOTSUP;
+    return -1;
+}
+
+int
+getsockname(int sockfd, FAR struct sockaddr *addr, FAR socklen_t *addrlen)
+{
+    errno = ENOTSUP;
+    return -1;
+}
+
+#endif

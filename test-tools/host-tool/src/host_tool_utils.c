@@ -15,11 +15,14 @@
 
 typedef union jvalue {
     bool z;
-    int8_t b;
-    uint16_t c;
-    int16_t s;
-    int32_t i;
-    int64_t j;
+    int8_t i8;
+    uint8_t u8;
+    int16_t i16;
+    uint16_t u16;
+    int32_t i32;
+    uint32_t u32;
+    int64_t i64;
+    uint64_t u64;
     float f;
     double d;
 } jvalue;
@@ -90,42 +93,63 @@ attr2json(const attr_container_t *attr_cont)
         type = *p++;
 
         switch (type) {
-            case ATTR_TYPE_SHORT:
-                bh_memcpy_s(&value.s, sizeof(int16_t), p, sizeof(int16_t));
-                if (NULL == (obj = cJSON_CreateNumber(value.s)))
+            case ATTR_TYPE_BYTE: /* = ATTR_TYPE_INT8 */
+                bh_memcpy_s(&value.i8, 1, p, 1);
+                if (NULL == (obj = cJSON_CreateNumber(value.i8)))
+                    goto fail;
+                cJSON_AddItemToObject(root, key, obj);
+                p++;
+                break;
+            case ATTR_TYPE_SHORT: /* = ATTR_TYPE_INT16 */
+                bh_memcpy_s(&value.i16, sizeof(int16_t), p, sizeof(int16_t));
+                if (NULL == (obj = cJSON_CreateNumber(value.i16)))
                     goto fail;
                 cJSON_AddItemToObject(root, key, obj);
                 /* another approach: cJSON_AddNumberToObject(root, key, value.s)
                  */
                 p += 2;
                 break;
-            case ATTR_TYPE_INT:
-                bh_memcpy_s(&value.i, sizeof(int32_t), p, sizeof(int32_t));
-                if (NULL == (obj = cJSON_CreateNumber(value.i)))
+            case ATTR_TYPE_INT: /* = ATTR_TYPE_INT32 */
+                bh_memcpy_s(&value.i32, sizeof(int32_t), p, sizeof(int32_t));
+                if (NULL == (obj = cJSON_CreateNumber(value.i32)))
                     goto fail;
                 cJSON_AddItemToObject(root, key, obj);
                 p += 4;
                 break;
             case ATTR_TYPE_INT64:
-                bh_memcpy_s(&value.j, sizeof(uint64_t), p, sizeof(uint64_t));
-                if (NULL == (obj = cJSON_CreateNumber(value.j)))
+                bh_memcpy_s(&value.i64, sizeof(int64_t), p, sizeof(int64_t));
+                if (NULL == (obj = cJSON_CreateNumber(value.i64)))
                     goto fail;
                 cJSON_AddItemToObject(root, key, obj);
                 p += 8;
                 break;
-            case ATTR_TYPE_BYTE:
-                bh_memcpy_s(&value.b, 1, p, 1);
-                if (NULL == (obj = cJSON_CreateNumber(value.b)))
+            case ATTR_TYPE_UINT8:
+                bh_memcpy_s(&value.u8, 1, p, 1);
+                if (NULL == (obj = cJSON_CreateNumber(value.u8)))
                     goto fail;
                 cJSON_AddItemToObject(root, key, obj);
                 p++;
                 break;
             case ATTR_TYPE_UINT16:
-                bh_memcpy_s(&value.c, sizeof(uint16_t), p, sizeof(uint16_t));
-                if (NULL == (obj = cJSON_CreateNumber(value.c)))
+                bh_memcpy_s(&value.u16, sizeof(uint16_t), p, sizeof(uint16_t));
+                if (NULL == (obj = cJSON_CreateNumber(value.u16)))
                     goto fail;
                 cJSON_AddItemToObject(root, key, obj);
                 p += 2;
+                break;
+            case ATTR_TYPE_UINT32:
+                bh_memcpy_s(&value.u32, sizeof(uint32_t), p, sizeof(uint32_t));
+                if (NULL == (obj = cJSON_CreateNumber(value.u32)))
+                    goto fail;
+                cJSON_AddItemToObject(root, key, obj);
+                p += 4;
+                break;
+            case ATTR_TYPE_UINT64:
+                bh_memcpy_s(&value.u64, sizeof(uint64_t), p, sizeof(uint64_t));
+                if (NULL == (obj = cJSON_CreateNumber(value.u64)))
+                    goto fail;
+                cJSON_AddItemToObject(root, key, obj);
+                p += 8;
                 break;
             case ATTR_TYPE_FLOAT:
                 bh_memcpy_s(&value.f, sizeof(float), p, sizeof(float));

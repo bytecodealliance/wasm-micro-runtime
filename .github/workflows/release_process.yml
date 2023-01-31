@@ -150,6 +150,7 @@ jobs:
   release_wamr_ide_vscode_ext:
     needs: [create_tag, create_release]
     uses: ./.github/workflows/build_wamr_vscode_ext.yml
+    secrets: inherit
     with:
       upload_url: ${{ needs.create_release.outputs.upload_url }}
       ver_num: ${{ needs.create_tag.outputs.new_ver }}

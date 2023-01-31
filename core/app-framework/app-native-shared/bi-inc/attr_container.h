@@ -20,13 +20,27 @@ extern "C" {
 
 /* Attribute type */
 enum {
-    ATTR_TYPE_BEGIN = 1,
-    ATTR_TYPE_SHORT = ATTR_TYPE_BEGIN,
+    ATTR_TYPE_BEGIN = 0,
+    ATTR_TYPE_BYTE = ATTR_TYPE_BEGIN,
+    ATTR_TYPE_INT8 = ATTR_TYPE_BYTE,
+    ATTR_TYPE_SHORT,
+    ATTR_TYPE_INT16 = ATTR_TYPE_SHORT,
     ATTR_TYPE_INT,
+    ATTR_TYPE_INT32 = ATTR_TYPE_INT,
     ATTR_TYPE_INT64,
-    ATTR_TYPE_BYTE,
+    ATTR_TYPE_UINT8,
     ATTR_TYPE_UINT16,
-    ATTR_TYPE_FLOAT,
+    ATTR_TYPE_UINT32,
+    ATTR_TYPE_UINT64,
+    /**
+     * Why ATTR_TYPE_FLOAT = 10?
+     * We determine the number of bytes that should be copied through 1<<(type &
+     * 3). ATTR_TYPE_BYTE = 0, so the number of bytes is 1 << 0  = 1.
+     * ATTR_TYPE_UINT64 = 7, so the number of bytes is 1 << 3 = 8.
+     * Since the float type takes up 4 bytes, ATTR_TYPE_FLOAT should be 10.
+     * Calculation: (1 << (10&3)) = (1 << 2) = 4
+     */
+    ATTR_TYPE_FLOAT = 10,
     ATTR_TYPE_DOUBLE,
     ATTR_TYPE_BOOLEAN,
     ATTR_TYPE_STRING,
@@ -90,6 +104,20 @@ attr_container_set_short(attr_container_t **p_attr_cont, const char *key,
                          short value);
 
 /**
+ * Set int16 attribute in attribute container
+ *
+ * @param p_attr_cont pointer to attribute container to set attribute, and
+ * return the new attribute container if it is re-created
+ * @param key the attribute key
+ * @param value the attribute value
+ *
+ * @return true if success, false otherwise
+ */
+bool
+attr_container_set_int16(attr_container_t **p_attr_cont, const char *key,
+                         int16_t value);
+
+/**
  * Set int attribute in attribute container
  *
  * @param p_attr_cont pointer to attribute container to set attribute, and
@@ -102,6 +130,34 @@ attr_container_set_short(attr_container_t **p_attr_cont, const char *key,
 bool
 attr_container_set_int(attr_container_t **p_attr_cont, const char *key,
                        int value);
+
+/**
+ * Set int32 attribute in attribute container
+ *
+ * @param p_attr_cont pointer to attribute container to set attribute, and
+ * return the new attribute container if it is re-created
+ * @param key the attribute key
+ * @param value the attribute value
+ *
+ * @return true if success, false otherwise
+ */
+bool
+attr_container_set_int32(attr_container_t **p_attr_cont, const char *key,
+                         int32_t value);
+
+/**
+ * Set uint32 attribute in attribute container
+ *
+ * @param p_attr_cont pointer to attribute container to set attribute, and
+ * return the new attribute container if it is re-created
+ * @param key the attribute key
+ * @param value the attribute value
+ *
+ * @return true if success, false otherwise
+ */
+bool
+attr_container_set_uint32(attr_container_t **p_attr_cont, const char *key,
+                          uint32_t value);
 
 /**
  * Set int64 attribute in attribute container
@@ -118,6 +174,20 @@ attr_container_set_int64(attr_container_t **p_attr_cont, const char *key,
                          int64_t value);
 
 /**
+ * Set uint64 attribute in attribute container
+ *
+ * @param p_attr_cont pointer to attribute container to set attribute, and
+ * return the new attribute container if it is re-created
+ * @param key the attribute key
+ * @param value the attribute value
+ *
+ * @return true if success, false otherwise
+ */
+bool
+attr_container_set_uint64(attr_container_t **p_attr_cont, const char *key,
+                          uint64_t value);
+
+/**
  * Set byte attribute in attribute container
  *
  * @param p_attr_cont pointer to attribute container to set attribute, and
@@ -130,6 +200,34 @@ attr_container_set_int64(attr_container_t **p_attr_cont, const char *key,
 bool
 attr_container_set_byte(attr_container_t **p_attr_cont, const char *key,
                         int8_t value);
+
+/**
+ * Set int8 attribute in attribute container
+ *
+ * @param p_attr_cont pointer to attribute container to set attribute, and
+ * return the new attribute container if it is re-created
+ * @param key the attribute key
+ * @param value the attribute value
+ *
+ * @return true if success, false otherwise
+ */
+bool
+attr_container_set_int8(attr_container_t **p_attr_cont, const char *key,
+                        int8_t value);
+
+/**
+ * Set uint8 attribute in attribute container
+ *
+ * @param p_attr_cont pointer to attribute container to set attribute, and
+ * return the new attribute container if it is re-created
+ * @param key the attribute key
+ * @param value the attribute value
+ *
+ * @return true if success, false otherwise
+ */
+bool
+attr_container_set_uint8(attr_container_t **p_attr_cont, const char *key,
+                         uint8_t value);
 
 /**
  * Set uint16 attribute in attribute container
@@ -260,6 +358,18 @@ short
 attr_container_get_as_short(const attr_container_t *attr_cont, const char *key);
 
 /**
+ * Get attribute from attribute container and return it as int16 value,
+ * return 0 if attribute isn't found in message.
+ *
+ * @param attr_cont the attribute container
+ * @param key the attribute key
+ *
+ * @return the short value of the attribute, 0 if key isn't found
+ */
+int16_t
+attr_container_get_as_int16(const attr_container_t *attr_cont, const char *key);
+
+/**
  * Get attribute from attribute container and return it as int value,
  * return 0 if attribute isn't found in message.
  *
@@ -270,6 +380,31 @@ attr_container_get_as_short(const attr_container_t *attr_cont, const char *key);
  */
 int
 attr_container_get_as_int(const attr_container_t *attr_cont, const char *key);
+
+/**
+ * Get attribute from attribute container and return it as int32 value,
+ * return 0 if attribute isn't found in message.
+ *
+ * @param attr_cont the attribute container
+ * @param key the attribute key
+ *
+ * @return the int value of the attribute, 0 if key isn't found
+ */
+int32_t
+attr_container_get_as_int32(const attr_container_t *attr_cont, const char *key);
+
+/**
+ * Get attribute from attribute container and return it as uint32 value,
+ * return 0 if attribute isn't found in message.
+ *
+ * @param attr_cont the attribute container
+ * @param key the attribute key
+ *
+ * @return the unsigned int value of the attribute, 0 if key isn't found
+ */
+uint32_t
+attr_container_get_as_uint32(const attr_container_t *attr_cont,
+                             const char *key);
 
 /**
  * Get attribute from attribute container and return it as int64 value,
@@ -284,6 +419,19 @@ int64_t
 attr_container_get_as_int64(const attr_container_t *attr_cont, const char *key);
 
 /**
+ * Get attribute from attribute container and return it as uint64 value,
+ * return 0 if attribute isn't found in attribute container.
+ *
+ * @param attr_cont the attribute container
+ * @param key the attribute key
+ *
+ * @return the unsigned long value of the attribute, 0 if key isn't found
+ */
+uint64_t
+attr_container_get_as_uint64(const attr_container_t *attr_cont,
+                             const char *key);
+
+/**
  * Get attribute from attribute container and return it as byte value,
  * return 0 if attribute isn't found in attribute container.
  *
@@ -294,6 +442,30 @@ attr_container_get_as_int64(const attr_container_t *attr_cont, const char *key);
  */
 int8_t
 attr_container_get_as_byte(const attr_container_t *attr_cont, const char *key);
+
+/**
+ * Get attribute from attribute container and return it as int8 value,
+ * return 0 if attribute isn't found in attribute container.
+ *
+ * @param attr_cont the attribute container
+ * @param key the attribute key
+ *
+ * @return the byte value of the attribute, 0 if key isn't found
+ */
+int8_t
+attr_container_get_as_int8(const attr_container_t *attr_cont, const char *key);
+
+/**
+ * Get attribute from attribute container and return it as uint8 value,
+ * return 0 if attribute isn't found in attribute container.
+ *
+ * @param attr_cont the attribute container
+ * @param key the attribute key
+ *
+ * @return the uint8 value of the attribute, 0 if key isn't found
+ */
+uint8_t
+attr_container_get_as_uint8(const attr_container_t *attr_cont, const char *key);
 
 /**
  * Get attribute from attribute container and return it as uint16 value,

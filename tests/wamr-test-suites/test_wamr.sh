@@ -46,6 +46,7 @@ PLATFORM=$(uname -s | tr A-Z a-z)
 PARALLELISM=0
 ENABLE_QEMU=0
 QEMU_FIRMWARE=""
+WASI_TESTSUITE_COMMIT="1d913f28b3f0d92086d6f50405cf85768e648b54"
 
 while getopts ":s:cabt:m:MCpSXxPQF:" opt
 do
@@ -447,7 +448,10 @@ function spec_test()
     cd ${WORK_DIR}
     echo "python3 ./all.py ${ARGS_FOR_SPEC_TEST} | tee -a ${REPORT_DIR}/spec_test_report.txt"
     python3 ./all.py ${ARGS_FOR_SPEC_TEST} | tee -a ${REPORT_DIR}/spec_test_report.txt
-    [[ ${PIPESTATUS[0]} -ne 0 ]] && exit 1
+    if [[ ${PIPESTATUS[0]} -ne 0 ]];then
+        echo -e "\nspec tests FAILED" | tee -a ${REPORT_DIR}/spec_test_report.txt
+        exit 1
+    fi
     cd -
 
     echo -e "\nFinish spec tests" | tee -a ${REPORT_DIR}/spec_test_report.txt
@@ -467,6 +471,38 @@ function wasi_test()
                             --interpreter ${IWASM_CMD} \
                             | tee ${REPORT_DIR}/wasi_test_report.txt
     echo "Finish wasi tests"
+}
+
+function wasi_certification_test()
+{
+    echo  "Now start wasi tests"
+
+    cd ${WORK_DIR}
+    if [ ! -d "wasi-testsuite" ]; then
+        echo "wasi not exist, clone it from github"
+        git clone -b prod/testsuite-base \
+            --single-branch https://github.com/WebAssembly/wasi-testsuite.git
+    fi
+    cd wasi-testsuite
+    git reset --hard ${WASI_TESTSUITE_COMMIT}
+
+    python3 -m venv wasi-env && source wasi-env/bin/activate
+    python3 -m pip install -r test-runner/requirements.txt
+    IWASM_PATH=$(dirname ${IWASM_CMD})
+    PATH=${PATH}:${IWASM_PATH} python3 test-runner/wasi_test_runner.py \
+                -r adapters/wasm-micro-runtime.sh \
+                -t \
+                    tests/c/testsuite/ \
+                    tests/assemblyscript/testsuite/ \
+                | tee -a ${REPORT_DIR}/wasi_test_report.txt
+    exit_code=${PIPESTATUS[0]}
+    deactivate
+
+    if [[ ${exit_code} -ne 0 ]];then
+        echo -e "\nwasi tests FAILED" | tee -a ${REPORT_DIR}/wasi_test_report.txt
+        exit 1
+    fi
+    echo -e "\nFinish wasi tests" | tee -a ${REPORT_DIR}/wasi_test_report.txt
 }
 
 function polybench_test()

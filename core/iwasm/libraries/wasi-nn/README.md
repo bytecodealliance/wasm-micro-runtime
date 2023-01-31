@@ -37,7 +37,11 @@ Tests: passed!
 
 ## What is missing
 
-* Only 1 model at a time is supported.
+Supported:
+
+* Only 1 WASM app at a time.
+* Only 1 model at a time.
     * `graph` and `graph-execution-context` are ignored.
-* Only `tensorflow` (lite) is supported.
-* Only `cpu` is supported.
+* Graph encoding: `tensorflowlite`.
+* Execution target: `cpu`.
+* Tensor type: `fp32`.

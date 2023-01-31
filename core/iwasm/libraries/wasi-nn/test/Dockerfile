@@ -8,17 +8,23 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y \
     cmake build-essential git wget python3.10 python3-pip
 
-RUN wget -q https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-14/wasi-sdk-14.0-linux.tar.gz && \
-    tar xf wasi-sdk-*-linux.tar.gz -C /opt && rm -f wasi-sdk-*-linux.tar.gz && \
-    mv /opt/wasi-sdk-14.0 /opt/wasi-sdk
+ARG WASI_SDK_VER=16
+RUN wget -c --progress=dot:giga https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_SDK_VER}/wasi-sdk-${WASI_SDK_VER}.0-linux.tar.gz -P /opt \
+  && tar xf /opt/wasi-sdk-${WASI_SDK_VER}.0-linux.tar.gz -C /opt \
+  && ln -fs /opt/wasi-sdk-${WASI_SDK_VER}.0 /opt/wasi-sdk \
+  && rm /opt/wasi-sdk-${WASI_SDK_VER}.0-linux.tar.gz
 
 WORKDIR /home/wamr
+
+COPY core/deps/install_tensorflow.sh core/deps/install_tensorflow.sh
+RUN ./core/deps/install_tensorflow.sh
+
+COPY core/iwasm/libraries/wasi-nn/test/requirements.txt .
+RUN pip3 install -r requirements.txt
 
 COPY core core
 COPY build-scripts build-scripts
 COPY product-mini product-mini
-
-RUN pip3 install -r core/iwasm/libraries/wasi-nn/test/requirements.txt
 
 WORKDIR /home/wamr/core/iwasm/libraries/wasi-nn/test/build
 

@@ -181,6 +181,9 @@ wasm_exec_env_destroy(WASMExecEnv *exec_env)
            the stopped thread will be overrided by other threads */
         wasm_cluster_thread_exited(exec_env);
 #endif
+        /* We have terminated other threads, this is the only alive thread, so
+         * we don't acquire cluster->lock because the cluster will be destroyed
+         * inside this function */
         wasm_cluster_del_exec_env(cluster, exec_env);
     }
 #endif /* end of WASM_ENABLE_THREAD_MGR */

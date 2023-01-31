@@ -28,7 +28,7 @@ typedef struct {
 // WASI-NN wrappers
 
 error
-wasm_load(char *model_name, graph *graph)
+wasm_load(char *model_name, graph *g)
 {
     FILE *pFile = fopen(model_name, "r");
     if (pFile == NULL)
@@ -64,7 +64,7 @@ wasm_load(char *model_name, graph *graph)
     arr.buf[0].size = result;
     arr.buf[0].buf = buffer;
 
-    error res = load(&arr, tensorflow, cpu, graph);
+    error res = load(&arr, tensorflowlite, cpu, g);
 
     fclose(pFile);
     free(buffer);
@@ -73,13 +73,13 @@ wasm_load(char *model_name, graph *graph)
 }
 
 error
-wasm_init_execution_context(graph graph, graph_execution_context *ctx)
+wasm_init_execution_context(graph g, graph_execution_context *ctx)
 {
-    return init_execution_context(graph, ctx);
+    return init_execution_context(g, ctx);
 }
 
 error
-wasm_input(graph_execution_context ctx, float *input_tensor, uint32_t *dim)
+wasm_set_input(graph_execution_context ctx, float *input_tensor, uint32_t *dim)
 {
     tensor_dimensions dims;
     dims.size = INPUT_TENSOR_DIMS;
@@ -130,7 +130,7 @@ run_inference(float *input, uint32_t *input_size, uint32_t *output_size,
         exit(1);
     }
 
-    if (wasm_input(ctx, input, input_size) != success) {
+    if (wasm_set_input(ctx, input, input_size) != success) {
         fprintf(stderr, "Error when setting input tensor.");
         exit(1);
     }
@@ -151,7 +151,7 @@ run_inference(float *input, uint32_t *input_size, uint32_t *output_size,
         *output_size = MAX_OUTPUT_TENSOR_SIZE - *output_size;
         if (wasm_get_output(ctx, i, &out_tensor[offset], output_size)
             != success) {
-            fprintf(stderr, "Error when getting input .");
+            fprintf(stderr, "Error when getting output .");
             exit(1);
         }
 
@@ -295,7 +295,6 @@ main()
     test_mult_dimensions();
     printf("################### Testing multiple outputs...\n");
     test_mult_outputs();
-
     printf("Tests: passed!\n");
     return 0;
 }
