@@ -179,9 +179,7 @@ typedef struct WASMExecEnv {
         }                                       \
     } while (0)
 #else
-#define RECORD_STACK_USAGE(e, p) \
-    do {                         \
-    } while (0)
+#define RECORD_STACK_USAGE(e, p) (void)0
 #endif
 
 WASMExecEnv *
