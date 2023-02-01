@@ -289,7 +289,20 @@ test_mult_outputs(execution_target target)
 int
 main()
 {
-    execution_target target = gpu;
+    char *env = getenv("TARGET");
+    if (env == NULL) {
+        printf("Usage:\n--env=\"TARGET=[cpu|gpu]\"\n");
+        return 1;
+    }
+    execution_target target;
+    if (strcmp(env, "cpu") == 0)
+        target = cpu;
+    else if (strcmp(env, "gpu") == 0)
+        target = gpu;
+    else {
+        printf("Wrong target!");
+        return 1;
+    }
     printf("################### Testing sum...\n");
     test_sum(target);
     printf("################### Testing max...\n");
