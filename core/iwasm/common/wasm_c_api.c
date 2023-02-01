@@ -276,7 +276,7 @@ WASM_DEFINE_VEC_OWN(store, wasm_store_delete)
 WASM_DEFINE_VEC_OWN(valtype, wasm_valtype_delete)
 
 #ifndef NDEBUG
-#if WAMR_BUILD_MEMORY_PROFILING != 0
+#if WASM_ENABLE_MEMORY_PROFILING != 0
 #define WASM_C_DUMP_PROC_MEM() LOG_PROC_MEM()
 #else
 #define WASM_C_DUMP_PROC_MEM() (void)0
