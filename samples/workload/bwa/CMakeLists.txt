@@ -8,7 +8,12 @@ project(bwa_wasm)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../cmake)
 
 ################ dependencies ################
+find_package(Python3 REQUIRED)
 find_package(WASISDK 16.0 REQUIRED)
+execute_process(
+  COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_LIST_DIR}/../../../test-tools/pick-up-emscripten-headers/collect_files.py --install ../include --loglevel=ERROR
+  WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+)
 
 #######################################
 include(ExternalProject)
@@ -44,7 +49,6 @@ ExternalProject_Add(bwa
                        -DCMAKE_TOOLCHAIN_FILE=${WASISDK_TOOLCHAIN}
                        -DCMAKE_SYSROOT=${WASISDK_SYSROOT}
                        -DCMAKE_C_FLAGS=-isystem\ ${CMAKE_CURRENT_SOURCE_DIR}/../include/sse\ -isystem\ ${CMAKE_CURRENT_SOURCE_DIR}/../include/libc/musl
-                       --debug-output --debug-find
                        ${CMAKE_CURRENT_SOURCE_DIR}/bwa
   BUILD_COMMAND  make bwa_wasm_opt
   INSTALL_COMMAND ${CMAKE_COMMAND} -E copy_if_different ./bwa.opt.wasm ${CMAKE_CURRENT_BINARY_DIR}/bwa.wasm
@@ -55,8 +59,8 @@ ExternalProject_Add(bwa-kit
   PREFIX            bwa-kit
   URL               https://sourceforge.net/projects/bio-bwa/files/bwakit/bwakit-0.7.15_x64-linux.tar.bz2/download
   URL_HASH          SHA256=0a7b11971bc7916b68e9df35a364afe77cb3000df02ffb3a6fbd1aff9be5878c
-  DOWNLOAD_EXTRACT_TIMESTAMP   ON
   DOWNLOAD_NAME     bwakit-0.7.15_x64-linux.tar.bz2
+  DOWNLOAD_EXTRACT_TIMESTAMP   ON
   DOWNLOAD_NO_EXTRACT          OFF
   DOWNLOAD_NO_PROGRESS         ON
   UPDATE_COMMAND    ""

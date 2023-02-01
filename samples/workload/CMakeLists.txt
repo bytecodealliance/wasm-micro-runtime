@@ -5,13 +5,7 @@ cmake_minimum_required (VERSION 3.14)
 
 project(wasm_workloads)
 
-################ required headers ################
-find_package(Python3 REQUIRED)
-execute_process(
-  COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_LIST_DIR}/../../test-tools/pick-up-emscripten-headers/collect_files.py --install include
-  WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
-)
-
+#######################################
 add_subdirectory(bwa)
 add_subdirectory(meshoptimizer)
 add_subdirectory(wasm-av1)
@@ -57,11 +51,12 @@ ExternalProject_Add(wamrc
       ${CMAKE_CURRENT_BINARY_DIR}/wamrc
 )
 
+################ .aot ################
 add_custom_target(
   bwa_to_aot
   ALL
   DEPENDS
-    bwa
+    bwa wamrc
   COMMAND
     ./wamrc -o bwa.aot ./bwa/bwa.wasm
   WORKING_DIRECTORY
@@ -72,7 +67,7 @@ add_custom_target(
   codecbench_to_aot
   ALL
   DEPENDS
-    codecbench
+    codecbench wamrc
   COMMAND
     ./wamrc -o codecbench.aot ./meshoptimizer/codecbench.wasm
   WORKING_DIRECTORY
@@ -83,7 +78,7 @@ add_custom_target(
   av1_to_aot
   ALL
   DEPENDS
-    av1
+    av1 wamrc
   COMMAND
     ./wamrc -o testavx.aot ./wasm-av1/testavx.opt.wasm
   WORKING_DIRECTORY
