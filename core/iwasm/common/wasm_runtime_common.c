@@ -1399,6 +1399,22 @@ wasm_runtime_dump_mem_consumption(WASMExecEnv *exec_env)
     else
         os_printf("Total aux stack used: no enough info to profile\n");
 
+    /*
+     * Report the native stack usage estimation.
+     *
+     * Unlike the aux stack above, we report the amount unused
+     * because we don't know the stack "bottom".
+     *
+     * Note that this is just about what the runtime itself observed.
+     * It doesn't cover host func implementations, signal handlers, etc.
+     */
+    if (exec_env->native_stack_top_min != (void *)UINTPTR_MAX)
+        os_printf("Native stack left: %zd\n",
+                  exec_env->native_stack_top_min
+                      - exec_env->native_stack_boundary);
+    else
+        os_printf("Native stack left: no enough info to profile\n");
+
     os_printf("Total app heap used: %u\n", app_heap_peak_size);
 }
 #endif /* end of (WASM_ENABLE_MEMORY_PROFILING != 0) \

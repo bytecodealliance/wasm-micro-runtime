@@ -163,6 +163,7 @@ typedef struct AOTFuncContext {
     LLVMValueRef aot_inst;
     LLVMValueRef argv_buf;
     LLVMValueRef native_stack_bound;
+    LLVMValueRef native_stack_top_min_addr;
     LLVMValueRef aux_stack_bound;
     LLVMValueRef aux_stack_bottom;
     LLVMValueRef native_symbol;
@@ -313,6 +314,9 @@ typedef struct AOTCompContext {
     /* Native stack bounday Check */
     bool enable_stack_bound_check;
 
+    /* Native stack usage estimation */
+    bool enable_stack_estimation;
+
     /* 128-bit SIMD */
     bool enable_simd;
 
@@ -403,6 +407,7 @@ typedef struct AOTCompOption {
     bool enable_aux_stack_frame;
     bool disable_llvm_intrinsics;
     bool disable_llvm_lto;
+    bool enable_stack_estimation;
     uint32 opt_level;
     uint32 size_level;
     uint32 output_format;

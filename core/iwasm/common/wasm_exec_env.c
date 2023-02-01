@@ -211,6 +211,7 @@ wasm_exec_env_set_thread_info(WASMExecEnv *exec_env)
     exec_env->handle = os_self_thread();
     exec_env->native_stack_boundary =
         stack_boundary ? stack_boundary + WASM_STACK_GUARD_SIZE : NULL;
+    exec_env->native_stack_top_min = (void *)UINTPTR_MAX;
 }
 
 #if WASM_ENABLE_THREAD_MGR != 0
