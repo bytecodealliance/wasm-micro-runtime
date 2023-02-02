@@ -16,9 +16,12 @@ _invokeNative:
     push    %ebp
     movl    %esp, %ebp
     movl    16(%ebp), %ecx          /* ecx = argc */
-    movl    12(%ebp), %edx          /* edx = argv */
+    leal    2(%ecx), %edx           /* edx = ecx + 2 (count return address and saved ebp) */
+    andl    $3, %edx                /* edx = edx % 4 */
+    leal    -16(%esp, %edx, 4), %esp /* esp = esp - 16 + edx * 4 */
     test    %ecx, %ecx
     jz      skip_push_args          /* if ecx == 0, skip pushing arguments */
+    movl    12(%ebp), %edx          /* edx = argv */
     leal    -4(%edx,%ecx,4), %edx   /* edx = edx + ecx * 4 - 4 */
     subl    %esp, %edx              /* edx = edx - esp */
 1:
