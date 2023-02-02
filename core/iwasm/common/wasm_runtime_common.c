@@ -128,6 +128,12 @@ runtime_malloc(uint64 size, WASMModuleInstanceCommon *module_inst,
 static JitCompOptions jit_options = { 0 };
 #endif
 
+#if WASM_ENABLE_JIT != 0
+static LLVMJITOptions llvm_jit_options = { 3, 3 };
+#endif
+
+static RunningMode runtime_running_mode = Mode_Default;
+
 #ifdef OS_ENABLE_HW_BOUND_CHECK
 /* The exec_env of thread local storage, set before calling function
    and used in signal handler, as we cannot get it from the argument
@@ -514,6 +520,20 @@ wasm_runtime_destroy()
     wasm_runtime_memory_destroy();
 }
 
+RunningMode
+wasm_runtime_get_default_running_mode(void)
+{
+    return runtime_running_mode;
+}
+
+#if WASM_ENABLE_JIT != 0
+LLVMJITOptions
+wasm_runtime_get_llvm_jit_options(void)
+{
+    return llvm_jit_options;
+}
+#endif
+
 bool
 wasm_runtime_full_init(RuntimeInitArgs *init_args)
 {
@@ -521,8 +541,18 @@ wasm_runtime_full_init(RuntimeInitArgs *init_args)
                                   &init_args->mem_alloc_option))
         return false;
 
+    if (!wasm_runtime_set_default_running_mode(init_args->running_mode)) {
+        wasm_runtime_memory_destroy();
+        return false;
+    }
+
 #if WASM_ENABLE_FAST_JIT != 0
     jit_options.code_cache_size = init_args->fast_jit_code_cache_size;
+#endif
+
+#if WASM_ENABLE_JIT != 0
+    llvm_jit_options.size_level = init_args->llvm_jit_size_level;
+    llvm_jit_options.opt_level = init_args->llvm_jit_opt_level;
 #endif
 
     if (!wasm_runtime_env_init()) {
@@ -552,6 +582,47 @@ wasm_runtime_full_init(RuntimeInitArgs *init_args)
 #endif
 
     return true;
+}
+
+bool
+wasm_runtime_is_running_mode_supported(RunningMode running_mode)
+{
+    if (running_mode == Mode_Default) {
+        return true;
+    }
+    else if (running_mode == Mode_Interp) {
+#if WASM_ENABLE_INTERP != 0
+        return true;
+#endif
+    }
+    else if (running_mode == Mode_Fast_JIT) {
+#if WASM_ENABLE_FAST_JIT != 0
+        return true;
+#endif
+    }
+    else if (running_mode == Mode_LLVM_JIT) {
+#if WASM_ENABLE_JIT != 0
+        return true;
+#endif
+    }
+    else if (running_mode == Mode_Multi_Tier_JIT) {
+#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
+    && WASM_ENABLE_LAZY_JIT != 0
+        return true;
+#endif
+    }
+
+    return false;
+}
+
+bool
+wasm_runtime_set_default_running_mode(RunningMode running_mode)
+{
+    if (wasm_runtime_is_running_mode_supported(running_mode)) {
+        runtime_running_mode = running_mode;
+        return true;
+    }
+    return false;
 }
 
 PackageType
@@ -1169,6 +1240,41 @@ wasm_runtime_deinstantiate_internal(WASMModuleInstanceCommon *module_inst,
         return;
     }
 #endif
+}
+
+bool
+wasm_runtime_set_running_mode(wasm_module_inst_t module_inst,
+                              RunningMode running_mode)
+{
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT)
+        return true;
+#endif
+
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        WASMModuleInstance *module_inst_interp =
+            (WASMModuleInstance *)module_inst;
+
+        return wasm_set_running_mode(module_inst_interp, running_mode);
+    }
+#endif
+
+    return false;
+}
+
+RunningMode
+wasm_runtime_get_running_mode(wasm_module_inst_t module_inst)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        WASMModuleInstance *module_inst_interp =
+            (WASMModuleInstance *)module_inst;
+        return module_inst_interp->e->running_mode;
+    }
+#endif
+
+    return Mode_Default;
 }
 
 void

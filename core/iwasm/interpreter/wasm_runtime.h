@@ -221,6 +221,7 @@ typedef struct WASMModuleInstanceExtra {
     WASMFunctionInstance *retain_function;
 
     CApiFuncImport *c_api_func_imports;
+    RunningMode running_mode;
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
     /* lock for shared memory atomic operations */
@@ -304,7 +305,11 @@ struct WASMModuleInstance {
        not available in AOTModuleInstance */
     DefPointer(void **, import_func_ptrs);
     /* Array of function pointers to fast jit functions,
-       not available in AOTModuleInstance */
+       not available in AOTModuleInstance:
+       Only when the multi-tier JIT macros are all enabled and the running
+       mode of current module instance is set to Mode_Fast_JIT, runtime
+       will allocate new memory for it, otherwise it always points to the
+       module->fast_jit_func_ptrs */
     DefPointer(void **, fast_jit_func_ptrs);
     /* The custom data that can be set/get by wasm_{get|set}_custom_data */
     DefPointer(void *, custom_data);
@@ -407,6 +412,10 @@ wasm_dump_perf_profiling(const WASMModuleInstance *module_inst);
 
 void
 wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst);
+
+bool
+wasm_set_running_mode(WASMModuleInstance *module_inst,
+                      RunningMode running_mode);
 
 WASMFunctionInstance *
 wasm_lookup_function(const WASMModuleInstance *module_inst, const char *name,

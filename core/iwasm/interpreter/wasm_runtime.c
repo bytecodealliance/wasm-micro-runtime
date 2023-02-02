@@ -737,13 +737,12 @@ functions_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
 
         function++;
     }
+    bh_assert((uint32)(function - functions) == function_count);
 
 #if WASM_ENABLE_FAST_JIT != 0
     module_inst->fast_jit_func_ptrs = module->fast_jit_func_ptrs;
 #endif
 
-    bh_assert((uint32)(function - functions) == function_count);
-    (void)module_inst;
     return functions;
 }
 
@@ -1288,9 +1287,8 @@ init_func_ptrs(WASMModuleInstance *module_inst, WASMModule *module,
         *func_ptrs = import_func->func_ptr_linked;
     }
 
-    /* Set defined function pointers */
-    bh_memcpy_s(func_ptrs, sizeof(void *) * module->function_count,
-                module->func_ptrs, sizeof(void *) * module->function_count);
+    /* The defined function pointers will be set in
+       wasm_runtime_set_running_mode, no need to set them here */
     return true;
 }
 #endif /* end of WASM_ENABLE_JIT != 0 */
@@ -1335,6 +1333,173 @@ init_func_type_indexes(WASMModuleInstance *module_inst, char *error_buf,
     return true;
 }
 #endif /* end of WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0 */
+
+static bool
+set_running_mode(WASMModuleInstance *module_inst, RunningMode running_mode,
+                 bool first_time_set)
+{
+    WASMModule *module = module_inst->module;
+
+    if (running_mode == Mode_Default) {
+#if WASM_ENABLE_FAST_JIT == 0 && WASM_ENABLE_JIT == 0
+        running_mode = Mode_Interp;
+#elif WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT == 0
+        running_mode = Mode_Fast_JIT;
+#elif WASM_ENABLE_FAST_JIT == 0 && WASM_ENABLE_JIT != 0
+        running_mode = Mode_LLVM_JIT;
+#else /* WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 */
+#if WASM_ENABLE_LAZY_JIT == 0
+        running_mode = Mode_LLVM_JIT;
+#else
+        running_mode = Mode_Multi_Tier_JIT;
+#endif
+#endif
+    }
+
+    if (!wasm_runtime_is_running_mode_supported(running_mode))
+        return false;
+
+#if !(WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
+      && WASM_ENABLE_LAZY_JIT != 0) /* No possible multi-tier JIT */
+    module_inst->e->running_mode = running_mode;
+
+    if (running_mode == Mode_Interp) {
+        /* Do nothing for Mode_Interp */
+    }
+    else if (running_mode == Mode_Fast_JIT) {
+        /* Do nothing for Mode_Fast_JIT since
+           module_inst->fast_jit_func_ptrs is same as
+           module->fast_jit_func_ptrs */
+    }
+#if WASM_ENABLE_JIT != 0
+    else if (running_mode == Mode_LLVM_JIT) {
+        /* Set defined function pointers */
+        bh_memcpy_s(module_inst->func_ptrs + module->import_function_count,
+                    sizeof(void *) * module->function_count, module->func_ptrs,
+                    sizeof(void *) * module->function_count);
+    }
+#endif
+    else {
+        bh_assert(0);
+    }
+#else /* Possible multi-tier JIT */
+    os_mutex_lock(&module->instance_list_lock);
+
+    module_inst->e->running_mode = running_mode;
+
+    if (running_mode == Mode_Interp) {
+        /* Do nothing for Mode_Interp */
+    }
+#if WASM_ENABLE_FAST_JIT != 0
+    else if (running_mode == Mode_Fast_JIT) {
+        JitGlobals *jit_globals = jit_compiler_get_jit_globals();
+        uint32 i;
+
+        /* Allocate memory for fast_jit_func_ptrs if needed */
+        if (!module_inst->fast_jit_func_ptrs
+            || module_inst->fast_jit_func_ptrs == module->fast_jit_func_ptrs) {
+            uint64 total_size = (uint64)sizeof(void *) * module->function_count;
+            if (!(module_inst->fast_jit_func_ptrs =
+                      runtime_malloc(total_size, NULL, 0))) {
+                os_mutex_unlock(&module->instance_list_lock);
+                return false;
+            }
+        }
+
+        for (i = 0; i < module->function_count; i++) {
+            if (module->functions[i]->fast_jit_jitted_code) {
+                /* current fast jit function has been compiled */
+                module_inst->fast_jit_func_ptrs[i] =
+                    module->functions[i]->fast_jit_jitted_code;
+            }
+            else {
+                module_inst->fast_jit_func_ptrs[i] =
+                    jit_globals->compile_fast_jit_and_then_call;
+            }
+        }
+    }
+#endif
+#if WASM_ENABLE_JIT != 0
+    else if (running_mode == Mode_LLVM_JIT) {
+        void **llvm_jit_func_ptrs;
+        uint32 i;
+
+        /* Notify backend threads to start llvm jit compilation */
+        module->enable_llvm_jit_compilation = true;
+
+        /* Wait until llvm jit finishes initialization */
+        os_mutex_lock(&module->tierup_wait_lock);
+        while (!module->llvm_jit_inited) {
+            os_cond_reltimedwait(&module->tierup_wait_cond,
+                                 &module->tierup_wait_lock, 10);
+            if (module->orcjit_stop_compiling) {
+                /* init_llvm_jit_functions_stage2 failed */
+                os_mutex_unlock(&module->tierup_wait_lock);
+                os_mutex_unlock(&module->instance_list_lock);
+                return false;
+            }
+        }
+        os_mutex_unlock(&module->tierup_wait_lock);
+
+        llvm_jit_func_ptrs =
+            module_inst->func_ptrs + module->import_function_count;
+        for (i = 0; i < module->function_count; i++) {
+            llvm_jit_func_ptrs[i] = module->functions[i]->llvm_jit_func_ptr;
+        }
+    }
+#endif
+    else if (running_mode == Mode_Multi_Tier_JIT) {
+        /* Notify backend threads to start llvm jit compilation */
+        module->enable_llvm_jit_compilation = true;
+
+        /* Free fast_jit_func_ptrs if it is allocated before */
+        if (module_inst->fast_jit_func_ptrs
+            && module_inst->fast_jit_func_ptrs != module->fast_jit_func_ptrs) {
+            wasm_runtime_free(module_inst->fast_jit_func_ptrs);
+        }
+        module_inst->fast_jit_func_ptrs = module->fast_jit_func_ptrs;
+
+        /* Copy all llvm jit func ptrs from the module */
+        bh_memcpy_s(module_inst->func_ptrs + module->import_function_count,
+                    sizeof(void *) * module->function_count, module->func_ptrs,
+                    sizeof(void *) * module->function_count);
+    }
+    else {
+        bh_assert(0);
+    }
+
+    /* Add module instance into module's instance list if not added */
+    if (first_time_set) {
+        bool found = false;
+        WASMModuleInstance *node = module->instance_list;
+
+        while (node) {
+            if (node == module_inst) {
+                found = true;
+                break;
+            }
+            node = node->e->next;
+        }
+
+        if (!found) {
+            module_inst->e->next = module->instance_list;
+            module->instance_list = module_inst;
+        }
+    }
+
+    os_mutex_unlock(&module->instance_list_lock);
+#endif /* end of !(WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
+                   && WASM_ENABLE_LAZY_JIT != 0) */
+
+    (void)module;
+    return true;
+}
+
+bool
+wasm_set_running_mode(WASMModuleInstance *module_inst, RunningMode running_mode)
+{
+    return set_running_mode(module_inst, running_mode, false);
+}
 
 /**
  * Instantiate module
@@ -1813,32 +1978,28 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
     }
 #endif
 
-#if WASM_ENABLE_DEBUG_INTERP != 0                         \
-    || (WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
-        && WASM_ENABLE_LAZY_JIT != 0)
+#if WASM_ENABLE_DEBUG_INTERP != 0
     if (!is_sub_inst) {
         /* Add module instance into module's instance list */
         os_mutex_lock(&module->instance_list_lock);
-#if WASM_ENABLE_DEBUG_INTERP != 0
         if (module->instance_list) {
             LOG_WARNING(
                 "warning: multiple instances referencing to the same module "
                 "may cause unexpected behaviour during debugging");
         }
-#endif
-#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
-    && WASM_ENABLE_LAZY_JIT != 0
-        /* Copy llvm func ptrs again in case that they were updated
-           after the module instance was created */
-        bh_memcpy_s(module_inst->func_ptrs + module->import_function_count,
-                    sizeof(void *) * module->function_count, module->func_ptrs,
-                    sizeof(void *) * module->function_count);
-#endif
         module_inst->e->next = module->instance_list;
         module->instance_list = module_inst;
         os_mutex_unlock(&module->instance_list_lock);
     }
 #endif
+
+    /* Set running mode before executing wasm functions */
+    if (!set_running_mode(module_inst, wasm_runtime_get_default_running_mode(),
+                          true)) {
+        set_error_buf(error_buf, error_buf_size,
+                      "set instance running mode failed");
+        goto fail;
+    }
 
     if (module->start_function != (uint32)-1) {
         /* TODO: fix start function can be import function issue */
@@ -1908,6 +2069,14 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
 #if WASM_ENABLE_JIT != 0
     if (module_inst->func_ptrs)
         wasm_runtime_free(module_inst->func_ptrs);
+#endif
+
+#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
+    && WASM_ENABLE_LAZY_JIT != 0
+    if (module_inst->fast_jit_func_ptrs
+        && module_inst->fast_jit_func_ptrs
+               != module_inst->module->fast_jit_func_ptrs)
+        wasm_runtime_free(module_inst->fast_jit_func_ptrs);
 #endif
 
 #if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0

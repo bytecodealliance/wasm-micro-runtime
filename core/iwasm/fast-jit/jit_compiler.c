@@ -254,6 +254,8 @@ jit_compiler_set_call_to_fast_jit(WASMModule *module, uint32 func_idx)
 
     func_ptr = jit_codegen_compile_call_to_fast_jit(module, func_idx);
     if (func_ptr) {
+        uint32 i = func_idx - module->import_function_count;
+        module->functions[i]->call_to_fast_jit_from_llvm_jit = func_ptr;
         jit_compiler_set_llvm_jit_func_ptr(module, func_idx, func_ptr);
     }
 
@@ -267,12 +269,14 @@ jit_compiler_set_llvm_jit_func_ptr(WASMModule *module, uint32 func_idx,
     WASMModuleInstance *instance;
     uint32 i = func_idx - module->import_function_count;
 
-    module->functions[i]->llvm_jit_func_ptr = module->func_ptrs[i] = func_ptr;
-
     os_mutex_lock(&module->instance_list_lock);
+
+    module->func_ptrs[i] = func_ptr;
+
     instance = module->instance_list;
     while (instance) {
-        instance->func_ptrs[func_idx] = func_ptr;
+        if (instance->e->running_mode == Mode_Multi_Tier_JIT)
+            instance->func_ptrs[func_idx] = func_ptr;
         instance = instance->e->next;
     }
     os_mutex_unlock(&module->instance_list_lock);
