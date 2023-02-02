@@ -15,7 +15,6 @@
 #include "bh_platform.h"
 #include "wasmtime_ssp.h"
 #include "locking.h"
-#include "numeric_limits.h"
 #include "posix.h"
 #include "random.h"
 #include "refcount.h"
@@ -2257,8 +2256,7 @@ convert_timestamp(__wasi_timestamp_t in, struct timespec *out)
     in /= 1000000000;
 
     // Clamp to the maximum in case it would overflow our system's time_t.
-    out->tv_sec =
-        (time_t)in < NUMERIC_MAX(time_t) ? (time_t)in : NUMERIC_MAX(time_t);
+    out->tv_sec = (time_t)in < BH_TIME_T_MAX ? (time_t)in : BH_TIME_T_MAX;
 }
 
 // Converts the provided timestamps and flags to a set of arguments for
