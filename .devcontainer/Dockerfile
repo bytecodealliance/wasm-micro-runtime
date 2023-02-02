@@ -24,7 +24,7 @@ RUN apt-get update \
 # binaryen
 ARG BINARYEN_VER=111
 WORKDIR /opt
-RUN wget -c --progress=dot:giga https://github.com/WebAssembly/binaryen/releases/download/version_111/binaryen-version_${BINARYEN_VER}-x86_64-linux.tar.gz \
+RUN wget -c --progress=dot:giga https://github.com/WebAssembly/binaryen/releases/download/version_${BINARYEN_VER}/binaryen-version_${BINARYEN_VER}-x86_64-linux.tar.gz \
   && tar xf binaryen-version_${BINARYEN_VER}-x86_64-linux.tar.gz \
   && ln -sf /opt/binaryen-version_111 /opt/binaryen \
   && rm binaryen-version_${BINARYEN_VER}-x86_64-linux.tar.gz
