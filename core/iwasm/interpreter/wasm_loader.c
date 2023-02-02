@@ -4151,10 +4151,8 @@ check_wasi_abi_compatibility(const WASMModule *module,
 
     /* should have one at least */
     if (module->import_wasi_api && !start && !initialize) {
-        set_error_buf(
-            error_buf, error_buf_size,
-            "a module with WASI apis must be either a command or a reactor");
-        return false;
+        LOG_WARNING("warning: a module with WASI apis should be either "
+                    "a command or a reactor");
     }
 
     /*
