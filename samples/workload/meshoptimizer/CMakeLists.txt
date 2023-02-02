@@ -1,11 +1,19 @@
 # Copyright (C) 2019 Intel Corporation. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-cmake_minimum_required (VERSION 3.0)
+cmake_minimum_required (VERSION 3.14)
 
 project(bench-meshoptimizer)
 
-include(${CMAKE_CURRENT_SOURCE_DIR}/../cmake/preparation.cmake)
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../cmake)
+
+################ dependencies ################
+find_package(Python3 REQUIRED)
+find_package(WASISDK 16.0 REQUIRED)
+execute_process(
+  COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_LIST_DIR}/../../../test-tools/pick-up-emscripten-headers/collect_files.py --install ../include --loglevel=ERROR
+  WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+)
 
 ################  MESHOPTIMIZER  ################
 include(ExternalProject)
@@ -13,7 +21,7 @@ include(ExternalProject)
 ExternalProject_Add(codecbench
   PREFIX codecbench
   GIT_REPOSITORY https://github.com/zeux/meshoptimizer.git
-  GIT_TAG        master
+  GIT_TAG        f926b288264522e1b331a41b07ba40167f396913
   GIT_SHALLOW    ON
   GIT_PROGRESS   ON
   SOURCE_DIR     ${CMAKE_CURRENT_SOURCE_DIR}/meshoptimizer
@@ -21,10 +29,10 @@ ExternalProject_Add(codecbench
                    && ${CMAKE_COMMAND} -E echo "Applying patch"
                    && git apply ${CMAKE_CURRENT_SOURCE_DIR}/codecbench.patch
   CONFIGURE_COMMAND ${CMAKE_COMMAND}
-                      -DWASI_SDK_PREFIX=${WASI_SDK_HOME}
-                      -DCMAKE_TOOLCHAIN_FILE=${WASI_SDK_HOME}/share/cmake/wasi-sdk.cmake
-                      -DCMAKE_SYSROOT=${WASI_SDK_HOME}/share/wasi-sysroot
+                      -DWASI_SDK_PREFIX=${WASISDK_HOME}
+                      -DCMAKE_TOOLCHAIN_FILE=${WASISDK_TOOLCHAIN}
+                      -DCMAKE_SYSROOT=${WASISDK_SYSROOT}
                       ${CMAKE_CURRENT_SOURCE_DIR}/meshoptimizer
   BUILD_COMMAND  make codecbench
-  INSTALL_COMMAND ${CMAKE_COMMAND} -E copy ./codecbench.wasm ${CMAKE_BINARY_DIR}/codecbench.wasm
+  INSTALL_COMMAND ${CMAKE_COMMAND} -E copy_if_different ./codecbench.wasm ${CMAKE_CURRENT_BINARY_DIR}/codecbench.wasm
 )

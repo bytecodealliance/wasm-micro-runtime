@@ -136,26 +136,13 @@ include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 
 set(MM_UTIL src/utils/multi_module_utils.c)
 # build executable for each .c
-set(EXAMPLES
-  callback
-  callback_chain
-  clone
-  empty_imports
-  global
-  hello
-  hostref
-  memory
-  reflect
-  table
-  threads
-  trap
-)
-
-if(WAMR_BUILD_JIT AND WAMR_BUILD_LAZY_JIT)
-  if((${WAMR_BUILD_JIT} EQUAL 1) AND (${WAMR_BUILD_LAZY_JIT} EQUAL 1))
-    list(APPEND EXAMPLES serialize)
-  endif()
-endif()
+list(APPEND EXAMPLES callback callback_chain empty_imports global hello hostref memory reflect table trap)
+# FIXME enable both in the future
+#list(APPEND EXAMPLES clone threads)
+# FIXME
+# if(WAMR_BUILD_JIT EQUAL 1 AND WAMR_BUILD_LAZY_JIT EQUAL 0)
+#     list(APPEND EXAMPLES serialize)
+# endif()
 
 check_pie_supported()
 

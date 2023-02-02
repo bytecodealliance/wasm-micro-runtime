@@ -32,3 +32,6 @@ samples/socket-api/wasm-src/inc/pthread.h
 **/__pycache__
 
 tests/benchmarks/coremark/coremark*
+
+samples/workload/include/**
+!samples/workload/include/.gitkeep
