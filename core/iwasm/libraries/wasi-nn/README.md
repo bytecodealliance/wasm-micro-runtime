@@ -17,23 +17,68 @@ By only including this file in your WASM application you will bind WASI-NN into 
 To run the tests we assume that the current directory is the root of the repository.
 
 
-1. Build the docker image,
+### Build the runtime
+
+Build the runtime base image,
 
 ```
-docker build -t wasi-nn -f core/iwasm/libraries/wasi-nn/test/Dockerfile .
+docker build -t wasi-nn-base -f core/iwasm/libraries/wasi-nn/test/Dockerfile.base .
 ```
 
-2. Run the container
+Build the runtime image for your execution target type.
+
+`EXECUTION_TYPE` can be:
+* `cpu`
+* `nvidia-gpu`
 
 ```
-docker run wasi-nn
+EXECUTION_TYPE=cpu
+docker build -t wasi-nn-${EXECUTION_TYPE} -f core/iwasm/libraries/wasi-nn/test/Dockerfile.${EXECUTION_TYPE} .
 ```
+
+
+### Build wasm app
+
+```
+docker build -t wasi-nn-compile -f core/iwasm/libraries/wasi-nn/test/Dockerfile.compile .
+```
+
+```
+docker run -v $PWD/core/iwasm/libraries/wasi-nn:/wasi-nn wasi-nn-compile
+```
+
+
+### Run wasm app
 
 If all the tests have run properly you will the the following message in the terminal,
 
 ```
 Tests: passed!
 ```
+
+* CPU
+
+```
+docker run \
+    -v $PWD/core/iwasm/libraries/wasi-nn/test:/assets wasi-nn-cpu \
+    --dir=/assets \
+    --env="TARGET=cpu" \
+    /assets/test_tensorflow.wasm
+```
+
+* (NVIDIA) GPU
+
+```
+docker run \
+    --runtime=nvidia \
+    -v $PWD/core/iwasm/libraries/wasi-nn/test:/assets wasi-nn-nvidia-gpu \
+    --dir=/assets \
+    --env="TARGET=gpu" \
+    /assets/test_tensorflow.wasm
+```
+
+Requirements:
+* [NVIDIA docker](https://github.com/NVIDIA/nvidia-docker).
 
 ## What is missing
 
@@ -43,5 +88,5 @@ Supported:
 * Only 1 model at a time.
     * `graph` and `graph-execution-context` are ignored.
 * Graph encoding: `tensorflowlite`.
-* Execution target: `cpu`.
+* Execution target: `cpu` and `gpu`.
 * Tensor type: `fp32`.

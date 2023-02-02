@@ -16,6 +16,7 @@
 #include <tensorflow/lite/model.h>
 #include <tensorflow/lite/optional_debug_tools.h>
 #include <tensorflow/lite/error_reporter.h>
+#include <tensorflow/lite/delegates/gpu/delegate.h>
 
 /* Global variables */
 
@@ -45,8 +46,8 @@ tensorflowlite_load(graph_builder_array *builder, graph_encoding encoding,
         return invalid_argument;
     }
 
-    if (target != cpu) {
-        NN_ERR_PRINTF("Only CPU target is supported.");
+    if (target != cpu && target != gpu) {
+        NN_ERR_PRINTF("Only CPU and GPU target is supported.");
         return invalid_argument;
     }
 
@@ -78,6 +79,29 @@ tensorflowlite_load(graph_builder_array *builder, graph_encoding encoding,
         model_pointer = NULL;
         return missing_memory;
     }
+
+    bool use_default = false;
+    switch (target) {
+        case gpu:
+        {
+            // https://www.tensorflow.org/lite/performance/gpu
+            auto options = TfLiteGpuDelegateOptionsV2Default();
+            options.inference_preference =
+                TFLITE_GPU_INFERENCE_PREFERENCE_SUSTAINED_SPEED;
+            options.inference_priority1 =
+                TFLITE_GPU_INFERENCE_PRIORITY_MIN_LATENCY;
+            auto *delegate = TfLiteGpuDelegateV2Create(&options);
+            if (interpreter->ModifyGraphWithDelegate(delegate) != kTfLiteOk) {
+                NN_ERR_PRINTF("Error when enabling GPU delegate.");
+                use_default = true;
+            }
+            break;
+        }
+        default:
+            use_default = true;
+    }
+    if (use_default)
+        NN_WARN_PRINTF("Default encoding is CPU.");
 
     return success;
 }
