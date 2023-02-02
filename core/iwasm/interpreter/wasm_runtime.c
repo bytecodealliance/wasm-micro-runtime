@@ -2256,10 +2256,7 @@ wasm_module_malloc(WASMModuleInstance *module_inst, uint32 size,
         return 0;
     }
 
-    if (memory->heap_handle) {
-        addr = mem_allocator_malloc(memory->heap_handle, size);
-    }
-    else if (module_inst->e->malloc_function && module_inst->e->free_function) {
+    if (module_inst->e->malloc_function && module_inst->e->free_function) {
         if (!execute_malloc_function(
                 module_inst, module_inst->e->malloc_function,
                 module_inst->e->retain_function, size, &offset)) {
@@ -2269,6 +2266,9 @@ wasm_module_malloc(WASMModuleInstance *module_inst, uint32 size,
            the default memory may be changed while memory growing */
         memory = wasm_get_default_memory(module_inst);
         addr = offset ? memory->memory_data + offset : NULL;
+    }
+    else if (memory->heap_handle) {
+        addr = mem_allocator_malloc(memory->heap_handle, size);
     }
 
     if (!addr) {
