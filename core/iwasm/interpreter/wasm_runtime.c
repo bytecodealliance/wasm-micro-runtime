@@ -2137,11 +2137,25 @@ wasm_call_function(WASMExecEnv *exec_env, WASMFunctionInstance *function,
 {
     WASMModuleInstance *module_inst =
         (WASMModuleInstance *)exec_env->module_inst;
+#ifdef OS_ENABLE_BLOCK_INSN_INTERRUPT
+    WASMJmpBuf jmpbuf_node = { 0 }, *jmpbuf_node_pop;
+#endif
 
     /* set thread handle and stack boundary */
     wasm_exec_env_set_thread_info(exec_env);
 
-    interp_call_wasm(module_inst, exec_env, function, argc, argv);
+#ifdef OS_ENABLE_BLOCK_INSN_INTERRUPT
+    wasm_exec_env_push_jmpbuf(exec_env, &jmpbuf_node);
+    wasm_runtime_set_exec_env_tls(exec_env);
+    if (os_setjmp(jmpbuf_node.jmpbuf) == 0)
+#endif
+        interp_call_wasm(module_inst, exec_env, function, argc, argv);
+#ifdef OS_ENABLE_BLOCK_INSN_INTERRUPT
+
+    jmpbuf_node_pop = wasm_exec_env_pop_jmpbuf(exec_env);
+    bh_assert(&jmpbuf_node == jmpbuf_node_pop);
+#endif
+
     return !wasm_get_exception(module_inst) ? true : false;
 }
 
@@ -2153,7 +2167,7 @@ wasm_create_exec_env_and_call_function(WASMModuleInstance *module_inst,
     WASMExecEnv *exec_env = NULL, *existing_exec_env = NULL;
     bool ret;
 
-#if defined(OS_ENABLE_HW_BOUND_CHECK)
+#if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_BLOCK_INSN_INTERRUPT)
     existing_exec_env = exec_env = wasm_runtime_get_exec_env_tls();
 #elif WASM_ENABLE_THREAD_MGR != 0
     existing_exec_env = exec_env =

@@ -346,6 +346,12 @@ os_thread_exit(void *retval)
     return pthread_exit(retval);
 }
 
+int
+os_thread_signal(korp_tid tid, int sig)
+{
+    return pthread_kill(tid, sig);
+}
+
 #if defined(os_thread_local_attribute)
 static os_thread_local_attribute uint8 *thread_stack_boundary = NULL;
 #endif

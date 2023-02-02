@@ -92,6 +92,9 @@ int os_thread_detach(korp_tid);
 void
 os_thread_exit(void *retval);
 
+int
+os_thread_signal(korp_tid tid, int sig);
+
 /**
  * Initialize current thread environment if current thread
  * is created by developer but not runtime

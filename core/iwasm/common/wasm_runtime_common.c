@@ -128,12 +128,14 @@ runtime_malloc(uint64 size, WASMModuleInstanceCommon *module_inst,
 static JitCompOptions jit_options = { 0 };
 #endif
 
-#ifdef OS_ENABLE_HW_BOUND_CHECK
+#if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_BLOCK_INSN_INTERRUPT)
 /* The exec_env of thread local storage, set before calling function
    and used in signal handler, as we cannot get it from the argument
    of signal handler */
 static os_thread_local_attribute WASMExecEnv *exec_env_tls = NULL;
+#endif
 
+#ifdef OS_ENABLE_HW_BOUND_CHECK
 #ifndef BH_PLATFORM_WINDOWS
 static void
 runtime_signal_handler(void *sig_addr)
@@ -303,7 +305,9 @@ runtime_signal_destroy()
 #endif
     os_thread_signal_destroy();
 }
+#endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
+#if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_BLOCK_INSN_INTERRUPT)
 void
 wasm_runtime_set_exec_env_tls(WASMExecEnv *exec_env)
 {
@@ -315,7 +319,35 @@ wasm_runtime_get_exec_env_tls()
 {
     return exec_env_tls;
 }
-#endif /* end of OS_ENABLE_HW_BOUND_CHECK */
+#endif
+
+#ifdef OS_ENABLE_BLOCK_INSN_INTERRUPT
+static void
+os_interrupt_block_insn_sig_handler(int sig)
+{
+    bh_assert(sig == SIGUSR1);
+
+    WASMJmpBuf *jmpbuf_node = exec_env_tls->jmpbuf_stack_top;
+    bh_assert(jmpbuf_node);
+
+    os_longjmp(jmpbuf_node->jmpbuf, 1);
+}
+
+bool
+os_interrupt_block_insn_init()
+{
+    struct sigaction act;
+    memset(&act, 0, sizeof(act));
+    act.sa_handler = os_interrupt_block_insn_sig_handler;
+    sigfillset(&act.sa_mask);
+    if (sigaction(SIGUSR1, &act, NULL) < 0) {
+        LOG_ERROR("failed to set signal handler");
+        return false;
+    }
+
+    return true;
+}
+#endif
 
 static bool
 wasm_runtime_env_init()
@@ -348,7 +380,11 @@ wasm_runtime_env_init()
         goto fail5;
     }
 #endif
-
+#ifdef OS_ENABLE_BLOCK_INSN_INTERRUPT
+    if (!os_interrupt_block_insn_init()) {
+        goto fail5;
+    }
+#endif
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     if (!runtime_signal_init()) {
         goto fail6;
