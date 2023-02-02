@@ -63,19 +63,21 @@ typedef sem_t korp_sem;
 
 #define bh_socket_t int
 
+#if WASM_DISABLE_BLOCK_INSN_INTERRUPT == 0 && WASM_ENABLE_THREAD_MGR != 0
+#define OS_ENABLE_BLOCK_INSN_INTERRUPT
+
+typedef void (*os_block_insn_sig_handler)();
+bool
+os_interrupt_block_insn_init(os_block_insn_sig_handler handler);
+#endif
+
 #if WASM_DISABLE_HW_BOUND_CHECK == 0
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)            \
     || defined(BUILD_TARGET_AARCH64) || defined(BUILD_TARGET_RISCV64_LP64D) \
     || defined(BUILD_TARGET_RISCV64_LP64)
 
-#include <setjmp.h>
-
 #define OS_ENABLE_HW_BOUND_CHECK
 
-typedef jmp_buf korp_jmpbuf;
-
-#define os_setjmp setjmp
-#define os_longjmp longjmp
 #define os_alloca alloca
 
 #define os_getpagesize getpagesize
@@ -98,6 +100,13 @@ void
 os_sigreturn();
 #endif /* end of BUILD_TARGET_X86_64/AMD_64/AARCH64/RISCV64 */
 #endif /* end of WASM_DISABLE_HW_BOUND_CHECK */
+
+#if defined(OS_ENABLE_BLOCK_INSN_INTERRUPT) || defined(OS_ENABLE_HW_BOUND_CHECK)
+#include <setjmp.h>
+typedef jmp_buf korp_jmpbuf;
+#define os_setjmp setjmp
+#define os_longjmp longjmp
+#endif
 
 typedef long int __syscall_slong_t;
 

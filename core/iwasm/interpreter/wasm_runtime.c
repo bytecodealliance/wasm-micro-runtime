@@ -2318,10 +2318,44 @@ call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
     }
     (void)jmpbuf_node_pop;
 }
+#endif /* end of OS_ENABLE_HW_BOUND_CHECK */
+
+#ifndef OS_ENABLE_BLOCK_INSN_INTERRUPT
+
+#ifdef OS_ENABLE_HW_BOUND_CHECK
 #define interp_call_wasm call_wasm_with_hw_bound_check
 #else
 #define interp_call_wasm wasm_interp_call_wasm
 #endif
+
+#else /* else of OS_ENABLE_BLOCK_INSN_INTERRUPT */
+
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+#define call_wasm_block_insn_interrupt call_wasm_with_hw_bound_check
+#else
+#define call_wasm_block_insn_interrupt wasm_interp_call_wasm
+#endif
+
+static void
+interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
+                 WASMFunctionInstance *function, unsigned argc, uint32 argv[])
+{
+    WASMJmpBuf jmpbuf_node = { 0 }, *jmpbuf_node_pop;
+    wasm_runtime_set_exec_env_tls(exec_env);
+
+    if (os_setjmp(jmpbuf_node.jmpbuf) == 0) {
+        wasm_exec_env_push_jmpbuf(exec_env, &jmpbuf_node);
+        call_wasm_block_insn_interrupt(module_inst, exec_env, function, argc,
+                                       argv);
+    }
+
+    jmpbuf_node_pop = wasm_exec_env_pop_jmpbuf(exec_env);
+    bh_assert(&jmpbuf_node == jmpbuf_node_pop);
+    if (!exec_env->jmpbuf_stack_top) {
+        wasm_runtime_set_exec_env_tls(NULL);
+    }
+}
+#endif /* end of OS_ENABLE_BLOCK_INSN_INTERRUPT */
 
 bool
 wasm_call_function(WASMExecEnv *exec_env, WASMFunctionInstance *function,
@@ -2334,6 +2368,7 @@ wasm_call_function(WASMExecEnv *exec_env, WASMFunctionInstance *function,
     wasm_exec_env_set_thread_info(exec_env);
 
     interp_call_wasm(module_inst, exec_env, function, argc, argv);
+
     return !wasm_get_exception(module_inst) ? true : false;
 }
 
@@ -2345,7 +2380,7 @@ wasm_create_exec_env_and_call_function(WASMModuleInstance *module_inst,
     WASMExecEnv *exec_env = NULL, *existing_exec_env = NULL;
     bool ret;
 
-#if defined(OS_ENABLE_HW_BOUND_CHECK)
+#if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_BLOCK_INSN_INTERRUPT)
     existing_exec_env = exec_env = wasm_runtime_get_exec_env_tls();
 #elif WASM_ENABLE_THREAD_MGR != 0
     existing_exec_env = exec_env =
