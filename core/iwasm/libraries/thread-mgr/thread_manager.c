@@ -82,7 +82,7 @@ safe_traverse_exec_env_list(WASMCluster *cluster, list_visitor visitor,
                             void *user_data)
 {
     Vector proc_nodes;
-    void *node, *next;
+    void *node;
     bool ret = true;
 
     if (!bh_vector_init(&proc_nodes, cluster->exec_env_list.len, sizeof(void *),
@@ -92,7 +92,6 @@ safe_traverse_exec_env_list(WASMCluster *cluster, list_visitor visitor,
     }
 
     node = bh_list_first_elem(&cluster->exec_env_list);
-    cluster->exec_env_list_element_removed = false;
 
     while (node) {
         bool already_processed = false;
@@ -112,7 +111,6 @@ safe_traverse_exec_env_list(WASMCluster *cluster, list_visitor visitor,
             continue;
         }
 
-        next = bh_list_elem_next(node);
         os_mutex_unlock(&cluster->lock);
         visitor(node, user_data);
         os_mutex_lock(&cluster->lock);
@@ -121,13 +119,7 @@ safe_traverse_exec_env_list(WASMCluster *cluster, list_visitor visitor,
             goto final;
         }
 
-        if (cluster->exec_env_list_element_removed) {
-            cluster->exec_env_list_element_removed = false;
-            node = bh_list_first_elem(&cluster->exec_env_list);
-        }
-        else {
-            node = next;
-        }
+        node = bh_list_first_elem(&cluster->exec_env_list);
     }
 
 final:
@@ -359,7 +351,6 @@ wasm_cluster_del_exec_env(WASMCluster *cluster, WASMExecEnv *exec_env)
         os_mutex_unlock(&cluster->debug_inst->wait_lock);
     }
 #endif
-    cluster->exec_env_list_element_removed = true;
     if (bh_list_remove(&cluster->exec_env_list, exec_env) != 0)
         ret = false;
 
