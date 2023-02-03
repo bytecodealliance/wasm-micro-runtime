@@ -2147,13 +2147,17 @@ wasm_call_function(WASMExecEnv *exec_env, WASMFunctionInstance *function,
 #ifdef OS_ENABLE_BLOCK_INSN_INTERRUPT
     wasm_exec_env_push_jmpbuf(exec_env, &jmpbuf_node);
     wasm_runtime_set_exec_env_tls(exec_env);
-    if (os_setjmp(jmpbuf_node.jmpbuf) == 0)
+    if (os_setjmp(jmpbuf_node.jmpbuf) == 0) {
 #endif
         interp_call_wasm(module_inst, exec_env, function, argc, argv);
 #ifdef OS_ENABLE_BLOCK_INSN_INTERRUPT
+    }
 
     jmpbuf_node_pop = wasm_exec_env_pop_jmpbuf(exec_env);
     bh_assert(&jmpbuf_node == jmpbuf_node_pop);
+    if (!exec_env->jmpbuf_stack_top) {
+        wasm_runtime_set_exec_env_tls(NULL);
+    }
 #endif
 
     return !wasm_get_exception(module_inst) ? true : false;

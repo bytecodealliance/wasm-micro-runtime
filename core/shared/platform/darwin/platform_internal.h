@@ -68,7 +68,11 @@ typedef sem_t korp_sem;
 
 #if WASM_DISABLE_BLOCK_INSN_INTERRUPT == 0
 #define OS_ENABLE_BLOCK_INSN_INTERRUPT
-#endif
+
+typedef void (*os_block_insn_sig_handler)(int sig);
+bool
+os_interrupt_block_insn_init(os_block_insn_sig_handler handler);
+#endif /* WASM_DISABLE_BLOCK_INSN_INTERRUPT */
 
 #if WASM_DISABLE_HW_BOUND_CHECK == 0
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)            \

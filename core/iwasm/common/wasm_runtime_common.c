@@ -323,7 +323,7 @@ wasm_runtime_get_exec_env_tls()
 
 #ifdef OS_ENABLE_BLOCK_INSN_INTERRUPT
 static void
-os_interrupt_block_insn_sig_handler(int sig)
+interrupt_block_insn_sig_handler(int sig)
 {
     bh_assert(sig == SIGUSR1);
 
@@ -332,22 +332,7 @@ os_interrupt_block_insn_sig_handler(int sig)
 
     os_longjmp(jmpbuf_node->jmpbuf, 1);
 }
-
-bool
-os_interrupt_block_insn_init()
-{
-    struct sigaction act;
-    memset(&act, 0, sizeof(act));
-    act.sa_handler = os_interrupt_block_insn_sig_handler;
-    sigfillset(&act.sa_mask);
-    if (sigaction(SIGUSR1, &act, NULL) < 0) {
-        LOG_ERROR("failed to set signal handler");
-        return false;
-    }
-
-    return true;
-}
-#endif
+#endif /* OS_ENABLE_BLOCK_INSN_INTERRUPT */
 
 static bool
 wasm_runtime_env_init()
@@ -381,8 +366,8 @@ wasm_runtime_env_init()
     }
 #endif
 #ifdef OS_ENABLE_BLOCK_INSN_INTERRUPT
-    if (!os_interrupt_block_insn_init()) {
-        goto fail5;
+    if (!os_interrupt_block_insn_init(interrupt_block_insn_sig_handler)) {
+        goto fail6;
     }
 #endif
 #ifdef OS_ENABLE_HW_BOUND_CHECK
@@ -440,8 +425,10 @@ fail8:
 fail7:
 #endif
 #endif
+#if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_BLOCK_INSN_INTERRUPT)
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     runtime_signal_destroy();
+#endif
 fail6:
 #endif
 #if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_THREAD_MGR != 0)

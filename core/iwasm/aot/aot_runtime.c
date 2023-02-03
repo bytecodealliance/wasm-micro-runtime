@@ -1391,15 +1391,22 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
 #ifdef OS_ENABLE_BLOCK_INSN_INTERRUPT
         wasm_exec_env_push_jmpbuf(exec_env, &jmpbuf_node);
         wasm_runtime_set_exec_env_tls(exec_env);
-        if (os_setjmp(jmpbuf_node.jmpbuf) == 0)
+        if (os_setjmp(jmpbuf_node.jmpbuf) == 0) {
 #endif
             ret = invoke_native_internal(exec_env, function->u.func.func_ptr,
                                          func_type, NULL, NULL, argv1, argc,
                                          argv);
 #ifdef OS_ENABLE_BLOCK_INSN_INTERRUPT
+        }
+        else {
+            ret = false;
+        }
 
         jmpbuf_node_pop = wasm_exec_env_pop_jmpbuf(exec_env);
         bh_assert(&jmpbuf_node == jmpbuf_node_pop);
+        if (!exec_env->jmpbuf_stack_top) {
+            wasm_runtime_set_exec_env_tls(NULL);
+        }
 #endif
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
@@ -1461,15 +1468,22 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
 #ifdef OS_ENABLE_BLOCK_INSN_INTERRUPT
         wasm_exec_env_push_jmpbuf(exec_env, &jmpbuf_node);
         wasm_runtime_set_exec_env_tls(exec_env);
-        if (os_setjmp(jmpbuf_node.jmpbuf) == 0)
+        if (os_setjmp(jmpbuf_node.jmpbuf) == 0) {
 #endif
             ret =
                 invoke_native_internal(exec_env, function->u.func.func_ptr,
                                        func_type, NULL, NULL, argv, argc, argv);
 #ifdef OS_ENABLE_BLOCK_INSN_INTERRUPT
+        }
+        else {
+            ret = false;
+        }
 
         jmpbuf_node_pop = wasm_exec_env_pop_jmpbuf(exec_env);
         bh_assert(&jmpbuf_node == jmpbuf_node_pop);
+        if (!exec_env->jmpbuf_stack_top) {
+            wasm_runtime_set_exec_env_tls(NULL);
+        }
 #endif
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0

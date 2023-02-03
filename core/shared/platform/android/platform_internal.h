@@ -63,8 +63,12 @@ typedef sem_t korp_sem;
 
 #define bh_socket_t int
 
-#if WASM_DISABLE_BLOCK_INSN_INTERRUPT == 0
+#if WASM_DISABLE_BLOCK_INSN_INTERRUPT == 0 && WASM_ENABLE_THREAD_MGR != 0
 #define OS_ENABLE_BLOCK_INSN_INTERRUPT
+
+typedef void (*os_block_insn_sig_handler)(int sig);
+bool
+os_interrupt_block_insn_init(os_block_insn_sig_handler handler);
 #endif
 
 #if WASM_DISABLE_HW_BOUND_CHECK == 0

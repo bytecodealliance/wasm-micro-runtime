@@ -420,6 +420,23 @@ os_thread_get_stack_boundary()
     return addr;
 }
 
+#ifdef OS_ENABLE_BLOCK_INSN_INTERRUPT
+bool
+os_interrupt_block_insn_init(os_block_insn_sig_handler handler)
+{
+    struct sigaction act;
+    memset(&act, 0, sizeof(act));
+    act.sa_handler = handler;
+    sigfillset(&act.sa_mask);
+    if (sigaction(SIGUSR1, &act, NULL) < 0) {
+        os_printf("failed to set signal handler\n");
+        return false;
+    }
+
+    return true;
+}
+#endif /* OS_ENABLE_BLOCK_INSN_INTERRUPT */
+
 #ifdef OS_ENABLE_HW_BOUND_CHECK
 
 #define SIG_ALT_STACK_SIZE (32 * 1024)
