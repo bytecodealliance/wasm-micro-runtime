@@ -542,7 +542,7 @@ wasm_runtime_full_init(RuntimeInitArgs *init_args)
         return false;
 
     if (!wasm_runtime_set_default_running_mode(init_args->running_mode)) {
-        wasm_runtime_destroy();
+        wasm_runtime_memory_destroy();
         return false;
     }
 
