@@ -2066,6 +2066,35 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
     if (!module_inst)
         return;
 
+#if WASM_ENABLE_DEBUG_INTERP != 0                         \
+    || (WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
+        && WASM_ENABLE_LAZY_JIT != 0)
+    /* Remove instance from module's instance list before freeing
+       func_ptrs and fast_jit_func_ptrs of the instance, to avoid
+       accessing the freed memory in the jit backend compilation
+       threads */
+    if (!is_sub_inst) {
+        WASMModule *module = module_inst->module;
+        WASMModuleInstance *instance_prev = NULL, *instance;
+        os_mutex_lock(&module->instance_list_lock);
+
+        instance = module->instance_list;
+        while (instance) {
+            if (instance == module_inst) {
+                if (!instance_prev)
+                    module->instance_list = instance->e->next;
+                else
+                    instance_prev->e->next = instance->e->next;
+                break;
+            }
+            instance_prev = instance;
+            instance = instance->e->next;
+        }
+
+        os_mutex_unlock(&module->instance_list_lock);
+    }
+#endif
+
 #if WASM_ENABLE_JIT != 0
     if (module_inst->func_ptrs)
         wasm_runtime_free(module_inst->func_ptrs);
@@ -2127,31 +2156,6 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
         bh_vector_destroy(module_inst->frames);
         wasm_runtime_free(module_inst->frames);
         module_inst->frames = NULL;
-    }
-#endif
-
-#if WASM_ENABLE_DEBUG_INTERP != 0                         \
-    || (WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
-        && WASM_ENABLE_LAZY_JIT != 0)
-    if (!is_sub_inst) {
-        WASMModule *module = module_inst->module;
-        WASMModuleInstance *instance_prev = NULL, *instance;
-        os_mutex_lock(&module->instance_list_lock);
-
-        instance = module->instance_list;
-        while (instance) {
-            if (instance == module_inst) {
-                if (!instance_prev)
-                    module->instance_list = instance->e->next;
-                else
-                    instance_prev->e->next = instance->e->next;
-                break;
-            }
-            instance_prev = instance;
-            instance = instance->e->next;
-        }
-
-        os_mutex_unlock(&module->instance_list_lock);
     }
 #endif
 
