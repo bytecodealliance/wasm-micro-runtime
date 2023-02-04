@@ -1067,7 +1067,7 @@ set_exception_visitor(void *node, void *user_data)
 
 #ifdef OS_ENABLE_BLOCK_INSN_INTERRUPT
         bh_assert(curr_exec_env->handle);
-        os_thread_signal(curr_exec_env->handle, SIGUSR1);
+        os_thread_kill(curr_exec_env->handle);
 #endif
 
         /* Terminate the thread so it can exit from dead loops */

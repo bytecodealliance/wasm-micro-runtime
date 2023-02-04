@@ -1310,11 +1310,53 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
     (void)jmpbuf_node_pop;
     return ret;
 }
-
-#define invoke_native_internal invoke_native_with_hw_bound_check
-#else /* else of OS_ENABLE_HW_BOUND_CHECK */
-#define invoke_native_internal wasm_runtime_invoke_native
 #endif /* end of OS_ENABLE_HW_BOUND_CHECK */
+
+#ifndef OS_ENABLE_BLOCK_INSN_INTERRUPT
+
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+#define invoke_native_internal invoke_native_with_hw_bound_check
+#else
+#define invoke_native_internal wasm_runtime_invoke_native
+#endif
+
+#else /* else of OS_ENABLE_BLOCK_INSN_INTERRUPT */
+
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+#define invoke_native_block_insn_interrupt invoke_native_with_hw_bound_check
+#else
+#define invoke_native_block_insn_interrupt wasm_runtime_invoke_native
+#endif
+
+static bool
+invoke_native_internal(WASMExecEnv *exec_env, void *func_ptr,
+                       const WASMType *func_type, const char *signature,
+                       void *attachment, uint32 *argv, uint32 argc,
+                       uint32 *argv_ret)
+{
+    int ret = false;
+    WASMJmpBuf jmpbuf_node = { 0 }, *jmpbuf_node_pop;
+    wasm_exec_env_push_jmpbuf(exec_env, &jmpbuf_node);
+    wasm_runtime_set_exec_env_tls(exec_env);
+
+    if (os_setjmp(jmpbuf_node.jmpbuf) == 0) {
+        ret = invoke_native_block_insn_interrupt(exec_env, func_ptr, func_type,
+                                                 signature, attachment, argv,
+                                                 argc, argv_ret);
+    }
+    else {
+        ret = false;
+    }
+
+    jmpbuf_node_pop = wasm_exec_env_pop_jmpbuf(exec_env);
+    bh_assert(&jmpbuf_node == jmpbuf_node_pop);
+    if (!exec_env->jmpbuf_stack_top) {
+        wasm_runtime_set_exec_env_tls(NULL);
+    }
+
+    return ret;
+}
+#endif /* end of OS_ENABLE_BLOCK_INSN_INTERRUPT */
 
 bool
 aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
@@ -1325,9 +1367,6 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
     uint32 result_count = func_type->result_count;
     uint32 ext_ret_count = result_count > 1 ? result_count - 1 : 0;
     bool ret;
-#ifdef OS_ENABLE_BLOCK_INSN_INTERRUPT
-    WASMJmpBuf jmpbuf_node = { 0 }, *jmpbuf_node_pop;
-#endif
 
     if (argc < func_type->param_cell_num) {
         char buf[108];
@@ -1388,26 +1427,8 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
         }
 #endif
 
-#ifdef OS_ENABLE_BLOCK_INSN_INTERRUPT
-        wasm_exec_env_push_jmpbuf(exec_env, &jmpbuf_node);
-        wasm_runtime_set_exec_env_tls(exec_env);
-        if (os_setjmp(jmpbuf_node.jmpbuf) == 0) {
-#endif
-            ret = invoke_native_internal(exec_env, function->u.func.func_ptr,
-                                         func_type, NULL, NULL, argv1, argc,
-                                         argv);
-#ifdef OS_ENABLE_BLOCK_INSN_INTERRUPT
-        }
-        else {
-            ret = false;
-        }
-
-        jmpbuf_node_pop = wasm_exec_env_pop_jmpbuf(exec_env);
-        bh_assert(&jmpbuf_node == jmpbuf_node_pop);
-        if (!exec_env->jmpbuf_stack_top) {
-            wasm_runtime_set_exec_env_tls(NULL);
-        }
-#endif
+        ret = invoke_native_internal(exec_env, function->u.func.func_ptr,
+                                     func_type, NULL, NULL, argv1, argc, argv);
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
         if (!ret) {
@@ -1465,26 +1486,8 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
         }
 #endif
 
-#ifdef OS_ENABLE_BLOCK_INSN_INTERRUPT
-        wasm_exec_env_push_jmpbuf(exec_env, &jmpbuf_node);
-        wasm_runtime_set_exec_env_tls(exec_env);
-        if (os_setjmp(jmpbuf_node.jmpbuf) == 0) {
-#endif
-            ret =
-                invoke_native_internal(exec_env, function->u.func.func_ptr,
-                                       func_type, NULL, NULL, argv, argc, argv);
-#ifdef OS_ENABLE_BLOCK_INSN_INTERRUPT
-        }
-        else {
-            ret = false;
-        }
-
-        jmpbuf_node_pop = wasm_exec_env_pop_jmpbuf(exec_env);
-        bh_assert(&jmpbuf_node == jmpbuf_node_pop);
-        if (!exec_env->jmpbuf_stack_top) {
-            wasm_runtime_set_exec_env_tls(NULL);
-        }
-#endif
+        ret = invoke_native_internal(exec_env, function->u.func.func_ptr,
+                                     func_type, NULL, NULL, argv, argc, argv);
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
         if (aot_get_exception(module_inst)) {

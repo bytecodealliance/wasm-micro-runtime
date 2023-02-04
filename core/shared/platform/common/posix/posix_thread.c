@@ -347,9 +347,9 @@ os_thread_exit(void *retval)
 }
 
 int
-os_thread_signal(korp_tid tid, int sig)
+os_thread_kill(korp_tid tid)
 {
-    return pthread_kill(tid, sig);
+    return pthread_kill(tid, SIGUSR1);
 }
 
 #if defined(os_thread_local_attribute)

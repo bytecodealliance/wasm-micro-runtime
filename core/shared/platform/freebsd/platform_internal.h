@@ -68,7 +68,7 @@ typedef sem_t korp_sem;
 #if WASM_DISABLE_BLOCK_INSN_INTERRUPT == 0
 #define OS_ENABLE_BLOCK_INSN_INTERRUPT
 
-typedef void (*os_block_insn_sig_handler)(int sig);
+typedef void (*os_block_insn_sig_handler)();
 bool
 os_interrupt_block_insn_init(os_block_insn_sig_handler handler);
 #endif /* WASM_DISABLE_BLOCK_INSN_INTERRUPT */

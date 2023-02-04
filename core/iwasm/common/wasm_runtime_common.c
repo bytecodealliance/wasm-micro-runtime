@@ -323,10 +323,8 @@ wasm_runtime_get_exec_env_tls()
 
 #ifdef OS_ENABLE_BLOCK_INSN_INTERRUPT
 static void
-interrupt_block_insn_sig_handler(int sig)
+interrupt_block_insn_sig_handler()
 {
-    bh_assert(sig == SIGUSR1);
-
     WASMJmpBuf *jmpbuf_node = exec_env_tls->jmpbuf_stack_top;
     bh_assert(jmpbuf_node);
 
