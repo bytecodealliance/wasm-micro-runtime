@@ -18,7 +18,9 @@ _invokeNative:
     movl    16(%ebp), %ecx          /* ecx = argc */
     leal    2(%ecx), %edx           /* edx = ecx + 2 (count return address and saved ebp) */
     andl    $3, %edx                /* edx = edx % 4 */
+    jz   stack_aligned              /* if edx == 0, stack is already 16 bytes aligned */
     leal    -16(%esp, %edx, 4), %esp /* esp = esp - 16 + edx * 4 */
+stack_aligned:
     test    %ecx, %ecx
     jz      skip_push_args          /* if ecx == 0, skip pushing arguments */
     movl    12(%ebp), %edx          /* edx = argv */
