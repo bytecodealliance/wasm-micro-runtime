@@ -17,6 +17,7 @@
 
 #define TEST_TERMINATION_BY_TRAP 0 // Otherwise test `proc_exit` termination
 #define TEST_TERMINATION_IN_MAIN_THREAD 1
+#define TEST_ATOMIC_WAIT 1 // Otherwise test `sleep`
 
 #define TIMEOUT_SECONDS 10
 #define NUM_THREADS 3
@@ -30,9 +31,11 @@ typedef struct {
 void
 run_long_task()
 {
-    // Busy waiting to be interruptible by trap or `proc_exit`
-    for (int i = 0; i < TIMEOUT_SECONDS; i++)
-        sleep(1);
+#if TEST_ATOMIC_WAIT == 1
+    __builtin_wasm_memory_atomic_wait32(0, 0, -1);
+#else
+    sleep(TIMEOUT_SECONDS);
+#endif
 }
 
 void
@@ -55,7 +58,7 @@ terminate_process()
 #if TEST_TERMINATION_BY_TRAP == 1
     __builtin_trap();
 #else
-    __wasi_proc_exit(1);
+    __wasi_proc_exit(33);
 #endif
 }
 
