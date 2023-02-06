@@ -200,6 +200,8 @@ parser.add_argument('--no-pty', action='store_true',
         help="Use direct pipes instead of pseudo-tty")
 parser.add_argument('--log-file', type=str,
         help="Write messages to the named file in addition the screen")
+parser.add_argument('--log-dir', type=str,
+        help="The log directory to save the case file if test failed")
 parser.add_argument('--debug-file', type=str,
         help="Write all test interaction the named file")
 
@@ -1092,6 +1094,7 @@ def test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile,
 
 if __name__ == "__main__":
     opts = parser.parse_args(sys.argv[1:])
+    print('Input param :',opts)
 
     if opts.aot: test_aot = True
     # default x86_64
@@ -1271,12 +1274,16 @@ if __name__ == "__main__":
         print("THE FINAL EXCEPTION IS {}".format(e))
         ret_code = 101
 
+        shutil.copyfile(wasm_tempfile, os.path.join(opts.log_dir, os.path.basename(wasm_tempfile)))
+
         if opts.aot or opts.xip:
+            shutil.copyfile(aot_tempfile, os.path.join(opts.log_dir,os.path.basename(aot_tempfile)))
             if "indirect-mode" in str(e):
                 compile_wasm_to_aot(wasm_tempfile, aot_tempfile, None, opts, None, "object")
+                shutil.copyfile(aot_tempfile, os.path.join(opts.log_dir,os.path.basename(aot_tempfile)+'.o'))
                 subprocess.check_call(["llvm-objdump", "-r", aot_tempfile])
             compile_wasm_to_aot(wasm_tempfile, aot_tempfile, None, opts, None, "ir")
-            subprocess.check_call(["cat", aot_tempfile])
+            shutil.copyfile(aot_tempfile, os.path.join(opts.log_dir,os.path.basename(aot_tempfile)+".ir"))
 
     else:
         ret_code = 0

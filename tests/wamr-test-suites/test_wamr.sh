@@ -442,8 +442,11 @@ function spec_test()
 
     if [[ ${ENABLE_QEMU} == 1 ]]; then
         ARGS_FOR_SPEC_TEST+="--qemu "
-        ARGS_FOR_SPEC_TEST+="--qemu-firmware ${QEMU_FIRMWARE}"
+        ARGS_FOR_SPEC_TEST+="--qemu-firmware ${QEMU_FIRMWARE} "
     fi
+
+    # set log directory
+    ARGS_FOR_SPEC_TEST+="--log ${REPORT_DIR}"
 
     cd ${WORK_DIR}
     echo "python3 ./all.py ${ARGS_FOR_SPEC_TEST} | tee -a ${REPORT_DIR}/spec_test_report.txt"
