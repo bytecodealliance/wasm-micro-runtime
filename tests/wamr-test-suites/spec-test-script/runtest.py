@@ -201,7 +201,7 @@ parser.add_argument('--no-pty', action='store_true',
 parser.add_argument('--log-file', type=str,
         help="Write messages to the named file in addition the screen")
 parser.add_argument('--log-dir', type=str,
-        help="Write messages to the named file in addition the screen")
+        help="The log directory to save the case file if test failed")
 parser.add_argument('--debug-file', type=str,
         help="Write all test interaction the named file")
 
