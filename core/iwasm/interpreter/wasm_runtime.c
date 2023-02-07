@@ -2149,10 +2149,10 @@ interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
                  WASMFunctionInstance *function, unsigned argc, uint32 argv[])
 {
     WASMJmpBuf jmpbuf_node = { 0 }, *jmpbuf_node_pop;
-    wasm_exec_env_push_jmpbuf(exec_env, &jmpbuf_node);
     wasm_runtime_set_exec_env_tls(exec_env);
 
     if (os_setjmp(jmpbuf_node.jmpbuf) == 0) {
+        wasm_exec_env_push_jmpbuf(exec_env, &jmpbuf_node);
         call_wasm_block_insn_interrupt(module_inst, exec_env, function, argc,
                                        argv);
     }

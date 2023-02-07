@@ -326,7 +326,9 @@ static void
 interrupt_block_insn_sig_handler()
 {
     WASMJmpBuf *jmpbuf_node = exec_env_tls->jmpbuf_stack_top;
-    bh_assert(jmpbuf_node);
+    if (!jmpbuf_node) {
+        return;
+    }
 
     os_longjmp(jmpbuf_node->jmpbuf, 1);
 }

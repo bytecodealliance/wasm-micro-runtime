@@ -1336,10 +1336,10 @@ invoke_native_internal(WASMExecEnv *exec_env, void *func_ptr,
 {
     int ret = false;
     WASMJmpBuf jmpbuf_node = { 0 }, *jmpbuf_node_pop;
-    wasm_exec_env_push_jmpbuf(exec_env, &jmpbuf_node);
     wasm_runtime_set_exec_env_tls(exec_env);
 
     if (os_setjmp(jmpbuf_node.jmpbuf) == 0) {
+        wasm_exec_env_push_jmpbuf(exec_env, &jmpbuf_node);
         ret = invoke_native_block_insn_interrupt(exec_env, func_ptr, func_type,
                                                  signature, attachment, argv,
                                                  argc, argv_ret);
