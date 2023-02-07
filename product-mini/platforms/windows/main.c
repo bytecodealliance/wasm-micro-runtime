@@ -43,7 +43,7 @@ print_help()
     printf("  --module-path=<path>   Indicate a module search path. default is current\n"
            "                         directory('./')\n");
 #endif
-#if WASM_ENABLE_LIB_PTHREAD != 0
+#if WASM_ENABLE_LIB_PTHREAD != 0 || WASM_ENABLE_LIB_WASI_THREADS != 0
     printf("  --max-threads=n        Set maximum thread number per cluster, default is 4\n");
 #endif
 #if WASM_ENABLE_DEBUG_INTERP != 0
@@ -317,7 +317,7 @@ main(int argc, char *argv[])
             }
         }
 #endif
-#if WASM_ENABLE_LIB_PTHREAD != 0
+#if WASM_ENABLE_LIB_PTHREAD != 0 || WASM_ENABLE_LIB_WASI_THREADS != 0
         else if (!strncmp(argv[0], "--max-threads=", 14)) {
             if (argv[0][14] == '\0')
                 return print_help();
