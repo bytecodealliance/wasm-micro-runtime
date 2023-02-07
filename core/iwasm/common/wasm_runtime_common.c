@@ -2317,6 +2317,12 @@ wasm_set_exception(WASMModuleInstance *module_inst, const char *exception)
     if (exec_env) {
         wasm_cluster_spread_exception(exec_env, exception ? false : true);
     }
+#if WASM_ENABLE_SHARED_MEMORY
+    if (exception) {
+        notify_stale_threads_on_exception(
+            (WASMModuleInstanceCommon *)module_inst);
+    }
+#endif
 #else
     (void)exec_env;
 #endif
