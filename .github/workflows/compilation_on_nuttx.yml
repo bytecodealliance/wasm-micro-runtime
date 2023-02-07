@@ -115,7 +115,7 @@ jobs:
 
       - name: Enable WAMR for NuttX
         run: |
-          find nuttx/boards -name defconfig | xargs sed -i '$a\CONFIG_EOL_IS_LF=y\n${{ matrix.wamr_config_option }}'
+          find nuttx/boards -name defconfig | xargs sed -i '$a\CONFIG_EOL_IS_LF=y\nCONFIG_PSEUDOFS_SOFTLINKS=y\n${{ matrix.wamr_config_option }}'
           find nuttx/boards/sim -name defconfig | xargs sed -i '$a\CONFIG_LIBM=y\n'
 
       - name: Build
