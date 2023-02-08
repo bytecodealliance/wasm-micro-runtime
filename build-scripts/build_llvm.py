@@ -7,6 +7,7 @@
 import argparse
 import os
 import pathlib
+import requests
 import shlex
 import shutil
 import subprocess
@@ -27,11 +28,23 @@ def clone_llvm(dst_dir, llvm_repo, llvm_branch):
     return llvm_dir
 
 
-def query_llvm_version(llvm_dir):
-    GIT_LOG_CMD = f"git log --format=format:'%h' -1"
-    return subprocess.check_output(
-        shlex.split(GIT_LOG_CMD), cwd=llvm_dir, universal_newlines=True, text=True
-    )
+def query_llvm_version(llvm_info):
+    github_token = os.environ['GH_TOKEN']
+    owner_project = llvm_info['repo'].replace("https://github.com/", "").replace(".git", "")
+    url = f"https://api.github.com/repos/{owner_project}/commits/{llvm_info['branch']}"
+    headers = {
+        'Authorization': f"Bearer {github_token}"
+    }
+
+    try:
+        response = requests.request("GET", url, headers=headers, data={})
+        response.raise_for_status()
+    except requests.exceptions.HTTPError as error:
+        print (error) # for debugging purpose
+        return None
+
+    response = response.json()
+    return response['sha']
 
 
 def build_llvm(llvm_dir, platform, backends, projects, use_clang=False):
@@ -253,13 +266,13 @@ def main():
 
     try:
         llvm_info = llvm_repo_and_branch.get(platform, llvm_repo_and_branch["default"])
-        llvm_dir = clone_llvm(deps_dir, llvm_info["repo"], llvm_info["branch"])
 
         if options.llvm_ver:
-            commit_hash = query_llvm_version(llvm_dir)
+            commit_hash = query_llvm_version(llvm_info)
             print(commit_hash)
             return commit_hash is not None
-
+        
+        llvm_dir = clone_llvm(deps_dir, llvm_info["repo"], llvm_info["branch"])
         if (
             build_llvm(
                 llvm_dir, platform, options.arch, options.project, options.use_clang
