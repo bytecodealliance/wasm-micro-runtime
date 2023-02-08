@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  complinace_job:
+  compliance_job:
     runs-on: ubuntu-latest
     steps:
       - name: checkout
