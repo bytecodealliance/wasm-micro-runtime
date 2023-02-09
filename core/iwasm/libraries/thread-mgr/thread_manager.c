@@ -987,7 +987,8 @@ void
 wasm_cluster_kill_all_except_self(WASMCluster *cluster, WASMExecEnv *exec_env)
 {
     os_mutex_lock(&cluster->lock);
-    traverse_list(&cluster->exec_env_list, kill_thread_visitor, (void *)exec_env);
+    traverse_list(&cluster->exec_env_list, kill_thread_visitor,
+                  (void *)exec_env);
     os_mutex_unlock(&cluster->lock);
 }
 #endif
