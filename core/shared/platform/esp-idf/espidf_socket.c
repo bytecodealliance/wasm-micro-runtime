@@ -77,7 +77,7 @@ os_socket_bind(bh_socket_t socket, const char *host, int *port)
     }
 
     socklen = sizeof(addr);
-    if (getsockname(socket, (void *)&addr, &socklen) == -1) {
+    if (getsockname(socket, (struct sockaddr *)&addr, &socklen) == -1) {
         goto fail;
     }
 
@@ -120,7 +120,7 @@ os_socket_accept(bh_socket_t server_sock, bh_socket_t *sock, void *addr,
                  unsigned int *addrlen)
 {
     struct sockaddr addr_tmp;
-    unsigned int len = sizeof(struct sockaddr);
+    socklen_t len = sizeof(struct sockaddr);
 
     *sock = accept(server_sock, (struct sockaddr *)&addr_tmp, &len);
 
@@ -205,7 +205,7 @@ os_socket_addr_remote(bh_socket_t socket, bh_sockaddr_t *sockaddr)
     struct sockaddr_in addr;
     socklen_t addr_len = sizeof(addr);
 
-    if (getpeername(socket, &addr, &addr_len) == -1) {
+    if (getpeername(socket, (struct sockaddr *)&addr, &addr_len) == -1) {
         return BHT_ERROR;
     }
 
@@ -219,7 +219,7 @@ os_socket_addr_local(bh_socket_t socket, bh_sockaddr_t *sockaddr)
     struct sockaddr_in addr;
     socklen_t addr_len = sizeof(addr);
 
-    if (getsockname(socket, &addr, &addr_len) == -1) {
+    if (getsockname(socket, (struct sockaddr *)&addr, &addr_len) == -1) {
         return BHT_ERROR;
     }
 
