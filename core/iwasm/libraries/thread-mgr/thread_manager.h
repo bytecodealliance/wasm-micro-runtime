@@ -125,6 +125,11 @@ void
 wasm_cluster_wait_for_all_except_self(WASMCluster *cluster,
                                       WASMExecEnv *exec_env);
 
+#ifdef OS_ENABLE_INTERRUPT_BLOCK_INSN
+void
+wasm_cluster_kill_all_except_self(WASMCluster *cluster, WASMExecEnv *exec_env);
+#endif
+
 bool
 wasm_cluster_del_exec_env(WASMCluster *cluster, WASMExecEnv *exec_env);
 
