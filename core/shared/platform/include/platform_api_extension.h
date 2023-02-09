@@ -93,6 +93,15 @@ void
 os_thread_exit(void *retval);
 
 /**
+ * Stop the thread specified
+ *
+ * @param tid id of the thread to stop
+ * @return 0 if success
+ */
+int
+os_thread_kill(korp_tid tid);
+
+/**
  * Initialize current thread environment if current thread
  * is created by developer but not runtime
  *

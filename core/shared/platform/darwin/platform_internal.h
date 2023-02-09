@@ -71,19 +71,26 @@ typedef sem_t korp_sem;
     || defined(BUILD_TARGET_AARCH64) || defined(BUILD_TARGET_RISCV64_LP64D) \
     || defined(BUILD_TARGET_RISCV64_LP64)
 
-#include <setjmp.h>
-
 #define OS_ENABLE_HW_BOUND_CHECK
 
-typedef jmp_buf korp_jmpbuf;
-
-#define os_setjmp setjmp
-#define os_longjmp longjmp
 #define os_alloca alloca
 
 #define os_getpagesize getpagesize
 
-typedef void (*os_signal_handler)(void *sig_addr);
+#endif /* end of BUILD_TARGET_X86_64/AMD_64/AARCH64/RISCV64 */
+#endif /* end of WASM_DISABLE_HW_BOUND_CHECK */
+
+#if WASM_ENABLE_INTERRUPT_BLOCK_INSN != 0 && WASM_ENABLE_THREAD_MGR != 0
+#define OS_ENABLE_INTERRUPT_BLOCK_INSN
+#endif
+
+#if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
+
+#define OS_SIGSEGV SIGSEGV
+#define OS_SIGBUS SIGBUS
+#define OS_SIGUSR1 SIGUSR1
+
+typedef void (*os_signal_handler)(int sig, void *sig_addr);
 
 int
 os_thread_signal_init(os_signal_handler handler);
@@ -99,8 +106,14 @@ os_signal_unmask();
 
 void
 os_sigreturn();
-#endif /* end of BUILD_TARGET_X86_64/AMD_64/AARCH64/RISCV64 */
-#endif /* end of WASM_DISABLE_HW_BOUND_CHECK */
+
+#include <setjmp.h>
+typedef jmp_buf korp_jmpbuf;
+#define os_setjmp setjmp
+#define os_longjmp longjmp
+
+#endif /* end of defined(OS_ENABLE_HW_BOUND_CHECK) || \
+          defined(OS_ENABLE_INTERRUPT_BLOCK_INSN) */
 
 #ifdef __cplusplus
 }

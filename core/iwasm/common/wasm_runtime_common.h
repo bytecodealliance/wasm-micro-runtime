@@ -433,7 +433,9 @@ typedef struct WASMSignalInfo {
     EXCEPTION_POINTERS *exce_info;
 #endif
 } WASMSignalInfo;
+#endif
 
+#if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
 /* Set exec_env of thread local storage */
 void
 wasm_runtime_set_exec_env_tls(WASMExecEnv *exec_env);

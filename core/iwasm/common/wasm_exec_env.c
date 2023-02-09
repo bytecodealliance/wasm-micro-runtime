@@ -228,7 +228,7 @@ wasm_exec_env_set_thread_arg(WASMExecEnv *exec_env, void *thread_arg)
 }
 #endif
 
-#ifdef OS_ENABLE_HW_BOUND_CHECK
+#if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
 void
 wasm_exec_env_push_jmpbuf(WASMExecEnv *exec_env, WASMJmpBuf *jmpbuf)
 {
