@@ -522,7 +522,7 @@ thread_manager_start_routine(void *arg)
     exec_env->handle = os_self_thread();
     ret = exec_env->thread_start_routine(exec_env);
 
-#ifdef OS_ENABLE_HW_BOUND_CHECK
+#if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_BLOCK_INSN_INTERRUPT)
     if (exec_env->suspend_flags.flags & 0x08)
         ret = exec_env->thread_ret_value;
 #endif
@@ -821,7 +821,7 @@ wasm_cluster_exit_thread(WASMExecEnv *exec_env, void *retval)
 {
     WASMCluster *cluster;
 
-#ifdef OS_ENABLE_HW_BOUND_CHECK
+#if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_BLOCK_INSN_INTERRUPT)
     if (exec_env->jmpbuf_stack_top) {
         /* Store the return value in exec_env */
         exec_env->thread_ret_value = retval;
@@ -1058,6 +1058,12 @@ set_exception_visitor(void *node, void *user_data)
         bh_memcpy_s(curr_wasm_inst->cur_exception,
                     sizeof(curr_wasm_inst->cur_exception),
                     wasm_inst->cur_exception, sizeof(wasm_inst->cur_exception));
+
+#ifdef OS_ENABLE_BLOCK_INSN_INTERRUPT
+        bh_assert(curr_exec_env->handle);
+        os_thread_kill(curr_exec_env->handle);
+#endif
+
         /* Terminate the thread so it can exit from dead loops */
         set_thread_cancel_flags(curr_exec_env);
     }

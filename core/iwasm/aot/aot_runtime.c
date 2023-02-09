@@ -1333,11 +1333,53 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
     (void)jmpbuf_node_pop;
     return ret;
 }
-
-#define invoke_native_internal invoke_native_with_hw_bound_check
-#else /* else of OS_ENABLE_HW_BOUND_CHECK */
-#define invoke_native_internal wasm_runtime_invoke_native
 #endif /* end of OS_ENABLE_HW_BOUND_CHECK */
+
+#ifndef OS_ENABLE_BLOCK_INSN_INTERRUPT
+
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+#define invoke_native_internal invoke_native_with_hw_bound_check
+#else
+#define invoke_native_internal wasm_runtime_invoke_native
+#endif
+
+#else /* else of OS_ENABLE_BLOCK_INSN_INTERRUPT */
+
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+#define invoke_native_block_insn_interrupt invoke_native_with_hw_bound_check
+#else
+#define invoke_native_block_insn_interrupt wasm_runtime_invoke_native
+#endif
+
+static bool
+invoke_native_internal(WASMExecEnv *exec_env, void *func_ptr,
+                       const WASMType *func_type, const char *signature,
+                       void *attachment, uint32 *argv, uint32 argc,
+                       uint32 *argv_ret)
+{
+    int ret = false;
+    WASMJmpBuf jmpbuf_node = { 0 }, *jmpbuf_node_pop;
+    wasm_runtime_set_exec_env_tls(exec_env);
+
+    if (os_setjmp(jmpbuf_node.jmpbuf) == 0) {
+        wasm_exec_env_push_jmpbuf(exec_env, &jmpbuf_node);
+        ret = invoke_native_block_insn_interrupt(exec_env, func_ptr, func_type,
+                                                 signature, attachment, argv,
+                                                 argc, argv_ret);
+    }
+    else {
+        ret = false;
+    }
+
+    jmpbuf_node_pop = wasm_exec_env_pop_jmpbuf(exec_env);
+    bh_assert(&jmpbuf_node == jmpbuf_node_pop);
+    if (!exec_env->jmpbuf_stack_top) {
+        wasm_runtime_set_exec_env_tls(NULL);
+    }
+
+    return ret;
+}
+#endif /* end of OS_ENABLE_BLOCK_INSN_INTERRUPT */
 
 bool
 aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
@@ -1494,7 +1536,7 @@ aot_create_exec_env_and_call_function(AOTModuleInstance *module_inst,
     WASMExecEnv *exec_env = NULL, *existing_exec_env = NULL;
     bool ret;
 
-#if defined(OS_ENABLE_HW_BOUND_CHECK)
+#if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_BLOCK_INSN_INTERRUPT)
     existing_exec_env = exec_env = wasm_runtime_get_exec_env_tls();
 #elif WASM_ENABLE_THREAD_MGR != 0
     existing_exec_env = exec_env =

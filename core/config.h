@@ -266,6 +266,13 @@
 #define WASM_DISABLE_STACK_HW_BOUND_CHECK 0
 #endif
 
+/* Disable the capability of interrupting blocking instructions
+ * (e.g. atomic.wait, sleep) when an exception (e.g. trap, proc_exit) is raised
+ */
+#ifndef WASM_DISABLE_BLOCK_INSN_INTERRUPT
+#define WASM_DISABLE_BLOCK_INSN_INTERRUPT 0
+#endif
+
 /* Disable SIMD unless it is manualy enabled somewhere */
 #ifndef WASM_ENABLE_SIMD
 #define WASM_ENABLE_SIMD 0

@@ -134,12 +134,14 @@ static LLVMJITOptions llvm_jit_options = { 3, 3 };
 
 static RunningMode runtime_running_mode = Mode_Default;
 
-#ifdef OS_ENABLE_HW_BOUND_CHECK
+#if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_BLOCK_INSN_INTERRUPT)
 /* The exec_env of thread local storage, set before calling function
    and used in signal handler, as we cannot get it from the argument
    of signal handler */
 static os_thread_local_attribute WASMExecEnv *exec_env_tls = NULL;
+#endif
 
+#ifdef OS_ENABLE_HW_BOUND_CHECK
 #ifndef BH_PLATFORM_WINDOWS
 static void
 runtime_signal_handler(void *sig_addr)
@@ -309,7 +311,9 @@ runtime_signal_destroy()
 #endif
     os_thread_signal_destroy();
 }
+#endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
+#if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_BLOCK_INSN_INTERRUPT)
 void
 wasm_runtime_set_exec_env_tls(WASMExecEnv *exec_env)
 {
@@ -321,7 +325,20 @@ wasm_runtime_get_exec_env_tls()
 {
     return exec_env_tls;
 }
-#endif /* end of OS_ENABLE_HW_BOUND_CHECK */
+#endif
+
+#ifdef OS_ENABLE_BLOCK_INSN_INTERRUPT
+static void
+interrupt_block_insn_sig_handler()
+{
+    WASMJmpBuf *jmpbuf_node = exec_env_tls->jmpbuf_stack_top;
+    if (!jmpbuf_node) {
+        return;
+    }
+
+    os_longjmp(jmpbuf_node->jmpbuf, 1);
+}
+#endif /* OS_ENABLE_BLOCK_INSN_INTERRUPT */
 
 static bool
 wasm_runtime_env_init()
@@ -354,7 +371,11 @@ wasm_runtime_env_init()
         goto fail5;
     }
 #endif
-
+#ifdef OS_ENABLE_BLOCK_INSN_INTERRUPT
+    if (!os_interrupt_block_insn_init(interrupt_block_insn_sig_handler)) {
+        goto fail6;
+    }
+#endif
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     if (!runtime_signal_init()) {
         goto fail6;
@@ -410,8 +431,10 @@ fail8:
 fail7:
 #endif
 #endif
+#if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_BLOCK_INSN_INTERRUPT)
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     runtime_signal_destroy();
+#endif
 fail6:
 #endif
 #if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_THREAD_MGR != 0)

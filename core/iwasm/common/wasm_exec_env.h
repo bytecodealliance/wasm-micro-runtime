@@ -25,7 +25,7 @@ typedef struct WASMCurrentEnvStatus WASMCurrentEnvStatus;
 #endif
 #endif
 
-#ifdef OS_ENABLE_HW_BOUND_CHECK
+#if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_BLOCK_INSN_INTERRUPT)
 typedef struct WASMJmpBuf {
     struct WASMJmpBuf *prev;
     korp_jmpbuf jmpbuf;
@@ -141,8 +141,10 @@ typedef struct WASMExecEnv {
     BlockAddr block_addr_cache[BLOCK_ADDR_CACHE_SIZE][BLOCK_ADDR_CONFLICT_SIZE];
 #endif
 
-#ifdef OS_ENABLE_HW_BOUND_CHECK
+#if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_BLOCK_INSN_INTERRUPT)
     WASMJmpBuf *jmpbuf_stack_top;
+#endif
+#ifdef OS_ENABLE_HW_BOUND_CHECK
     /* One guard page for the exception check */
     uint8 *exce_check_guard_page;
 #endif
@@ -301,7 +303,7 @@ void
 wasm_exec_env_set_thread_arg(WASMExecEnv *exec_env, void *thread_arg);
 #endif
 
-#ifdef OS_ENABLE_HW_BOUND_CHECK
+#if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_BLOCK_INSN_INTERRUPT)
 void
 wasm_exec_env_push_jmpbuf(WASMExecEnv *exec_env, WASMJmpBuf *jmpbuf);
 
