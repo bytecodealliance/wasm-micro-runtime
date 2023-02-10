@@ -2272,7 +2272,7 @@ call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
 
     if (os_setjmp(jmpbuf_node.jmpbuf) == 0) {
 #ifdef OS_ENABLE_INTERRUPT_BLOCK_INSN
-    exec_env->canjump = 1;
+        exec_env->canjump = 1;
 #endif
 #ifndef BH_PLATFORM_WINDOWS
         wasm_interp_call_wasm(module_inst, exec_env, function, argc, argv);

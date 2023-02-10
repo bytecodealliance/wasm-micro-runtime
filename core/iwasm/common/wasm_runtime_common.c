@@ -210,6 +210,7 @@ interrupt_block_insn_sig_handler()
 
     /* Check whether current thread is running wasm function */
     if (exec_env_tls && exec_env_tls->handle == os_self_thread()
+        && exec_env_tls->canjump
         && (jmpbuf_node = exec_env_tls->jmpbuf_stack_top)) {
         os_longjmp(jmpbuf_node->jmpbuf, 1);
     }
