@@ -108,7 +108,13 @@
 #endif
 
 #if !defined(BH_PLATFORM_LINUX_SGX)
-#if defined(__GNUC_PREREQ)
+#if defined(__clang__)
+/* Clang provides stdatomic.h since 3.6.0
+See https://releases.llvm.org/3.6.0/tools/clang/docs/ReleaseNotes.html */
+#if __clang_major__ >= 3 || (__clang_minor__ == 3 && __clang_minor__ >= 6)
+#define CONFIG_HAS_STD_ATOMIC 1
+#endif
+#elif defined(__GNUC_PREREQ)
 /* Even though older versions of GCC support C11, atomics were
 not implemented until 4.9. See
 https://gcc.gnu.org/bugzilla/show_bug.cgi?id=58016 */
