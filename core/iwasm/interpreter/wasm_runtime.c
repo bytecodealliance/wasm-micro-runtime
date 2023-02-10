@@ -2264,10 +2264,16 @@ call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
         return;
     }
 
+#ifdef OS_ENABLE_INTERRUPT_BLOCK_INSN
+    exec_env->canjump = 0;
+#endif
     wasm_exec_env_push_jmpbuf(exec_env, &jmpbuf_node);
-
     wasm_runtime_set_exec_env_tls(exec_env);
+
     if (os_setjmp(jmpbuf_node.jmpbuf) == 0) {
+#ifdef OS_ENABLE_INTERRUPT_BLOCK_INSN
+    exec_env->canjump = 1;
+#endif
 #ifndef BH_PLATFORM_WINDOWS
         wasm_interp_call_wasm(module_inst, exec_env, function, argc, argv);
 #else
@@ -2293,6 +2299,10 @@ call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
         ret = false;
     }
 
+#ifdef OS_ENABLE_INTERRUPT_BLOCK_INSN
+    exec_env->canjump = 0;
+#endif
+
     /* Note: can't check wasm_get_exception(module_inst) here, there may be
      * exception which is not caught by hardware (e.g. uninitialized elements),
      * then the stack-frame is already freed inside wasm_interp_call_wasm */
@@ -2316,6 +2326,10 @@ call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
         os_sigreturn();
         os_signal_unmask();
     }
+
+#ifdef OS_ENABLE_INTERRUPT_BLOCK_INSN
+    exec_env->canjump = 1;
+#endif
     (void)jmpbuf_node_pop;
 }
 #endif /* end of OS_ENABLE_HW_BOUND_CHECK */
@@ -2343,10 +2357,12 @@ interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
     WASMJmpBuf jmpbuf_node = { 0 }, *jmpbuf_node_pop;
     bool ret;
 
+    exec_env->canjump = 0;
     wasm_runtime_set_exec_env_tls(exec_env);
     wasm_exec_env_push_jmpbuf(exec_env, &jmpbuf_node);
 
     if (os_setjmp(jmpbuf_node.jmpbuf) == 0) {
+        exec_env->canjump = 1;
         call_wasm_block_insn_interrupt(module_inst, exec_env, function, argc,
                                        argv);
         ret = !wasm_get_exception(module_inst) ? true : false;
@@ -2356,6 +2372,7 @@ interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
         ret = false;
     }
 
+    exec_env->canjump = 0;
     jmpbuf_node_pop = wasm_exec_env_pop_jmpbuf(exec_env);
     bh_assert(&jmpbuf_node == jmpbuf_node_pop);
     if (!exec_env->jmpbuf_stack_top) {
@@ -2365,6 +2382,7 @@ interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
         os_sigreturn();
         os_signal_unmask();
     }
+    exec_env->canjump = 1;
     (void)jmpbuf_node_pop;
 }
 #endif /* end of OS_ENABLE_INTERRUPT_BLOCK_INSN */

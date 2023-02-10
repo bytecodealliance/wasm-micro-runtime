@@ -1276,10 +1276,16 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
         return false;
     }
 
+#ifdef OS_ENABLE_INTERRUPT_BLOCK_INSN
+    exec_env->canjump = 0;
+#endif
     wasm_exec_env_push_jmpbuf(exec_env, &jmpbuf_node);
-
     wasm_runtime_set_exec_env_tls(exec_env);
+
     if (os_setjmp(jmpbuf_node.jmpbuf) == 0) {
+#ifdef OS_ENABLE_INTERRUPT_BLOCK_INSN
+        exec_env->canjump = 1;
+#endif
         /* Quick call with func_ptr if the function signature is simple */
         if (!signature && param_count == 1 && types[0] == VALUE_TYPE_I32) {
             if (result_count == 0) {
@@ -1321,6 +1327,10 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
         ret = false;
     }
 
+#ifdef OS_ENABLE_INTERRUPT_BLOCK_INSN
+    exec_env->canjump = 0;
+#endif
+
     jmpbuf_node_pop = wasm_exec_env_pop_jmpbuf(exec_env);
     bh_assert(&jmpbuf_node == jmpbuf_node_pop);
     if (!exec_env->jmpbuf_stack_top) {
@@ -1330,6 +1340,10 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
         os_sigreturn();
         os_signal_unmask();
     }
+
+#ifdef OS_ENABLE_INTERRUPT_BLOCK_INSN
+    exec_env->canjump = 1;
+#endif
     (void)jmpbuf_node_pop;
     return ret;
 }
@@ -1360,10 +1374,12 @@ invoke_native_internal(WASMExecEnv *exec_env, void *func_ptr,
     bool ret;
     WASMJmpBuf jmpbuf_node = { 0 }, *jmpbuf_node_pop;
 
+    exec_env->canjump = 0;
     wasm_exec_env_push_jmpbuf(exec_env, &jmpbuf_node);
     wasm_runtime_set_exec_env_tls(exec_env);
 
     if (os_setjmp(jmpbuf_node.jmpbuf) == 0) {
+        exec_env->canjump = 1;
         ret = invoke_native_block_insn_interrupt(exec_env, func_ptr, func_type,
                                                  signature, attachment, argv,
                                                  argc, argv_ret);
@@ -1373,6 +1389,7 @@ invoke_native_internal(WASMExecEnv *exec_env, void *func_ptr,
         ret = false;
     }
 
+    exec_env->canjump = 0;
     jmpbuf_node_pop = wasm_exec_env_pop_jmpbuf(exec_env);
     bh_assert(&jmpbuf_node == jmpbuf_node_pop);
     if (!exec_env->jmpbuf_stack_top) {
@@ -1382,6 +1399,7 @@ invoke_native_internal(WASMExecEnv *exec_env, void *func_ptr,
         os_sigreturn();
         os_signal_unmask();
     }
+    exec_env->canjump = 1;
     (void)jmpbuf_node_pop;
     return ret;
 }

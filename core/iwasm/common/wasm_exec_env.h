@@ -120,6 +120,12 @@ typedef struct WASMExecEnv {
 
     /* whether current thread is detached */
     bool thread_is_detached;
+
+#ifdef OS_ENABLE_INTERRUPT_BLOCK_INSN
+    /* Whether the signal handler of interrupting blocking instruction
+       feature can longjmp to the place of setjmp */
+    volatile sig_atomic_t canjump;
+#endif
 #endif
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
