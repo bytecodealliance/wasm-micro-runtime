@@ -4205,7 +4205,8 @@ wasm_memory_data_size(const wasm_memory_t *memory)
             (WASMModuleInstance *)module_inst_comm;
         WASMMemoryInstance *memory_inst =
             module_inst->memories[memory->memory_idx_rt];
-        return memory_inst->cur_page_count * memory_inst->num_bytes_per_page;
+        return (size_t)memory_inst->cur_page_count
+               * memory_inst->num_bytes_per_page;
     }
 #endif
 
@@ -4215,7 +4216,8 @@ wasm_memory_data_size(const wasm_memory_t *memory)
         AOTMemoryInstance *memory_inst =
             ((AOTMemoryInstance **)
                  module_inst->memories)[memory->memory_idx_rt];
-        return memory_inst->cur_page_count * memory_inst->num_bytes_per_page;
+        return (size_t)memory_inst->cur_page_count
+               * memory_inst->num_bytes_per_page;
     }
 #endif
 
