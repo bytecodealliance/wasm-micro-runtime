@@ -425,6 +425,7 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
     os_mutex_lock(&cluster->lock);
 
     if (cluster->has_exception || cluster->processing) {
+        os_mutex_unlock(&cluster->lock);
         goto fail1;
     }
 
@@ -444,6 +445,7 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
 
     if (!(new_module_inst = wasm_runtime_instantiate_internal(
               module, true, stack_size, 0, NULL, 0))) {
+        os_mutex_unlock(&cluster->lock);
         goto fail1;
     }
 
@@ -458,8 +460,10 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
 
     new_exec_env = wasm_exec_env_create_internal(new_module_inst,
                                                  exec_env->wasm_stack_size);
-    if (!new_exec_env)
+    if (!new_exec_env) {
+        os_mutex_unlock(&cluster->lock);
         goto fail2;
+    }
 
     if (!allocate_aux_stack(cluster, &aux_stack_start, &aux_stack_size)) {
         LOG_ERROR("thread manager error: "
@@ -484,12 +488,11 @@ fail4:
     /* free the allocated aux stack space */
     free_aux_stack(cluster, aux_stack_start);
 fail3:
+    os_mutex_unlock(&cluster->lock);
     wasm_exec_env_destroy(new_exec_env);
 fail2:
     wasm_runtime_deinstantiate_internal(new_module_inst, true);
 fail1:
-    os_mutex_unlock(&cluster->lock);
-
     return NULL;
 }
 
@@ -562,13 +565,16 @@ wasm_cluster_create_thread(WASMExecEnv *exec_env,
     os_mutex_lock(&cluster->lock);
 
     if (cluster->has_exception || cluster->processing) {
+        os_mutex_unlock(&cluster->lock);
         goto fail1;
     }
 
     new_exec_env =
         wasm_exec_env_create_internal(module_inst, exec_env->wasm_stack_size);
-    if (!new_exec_env)
+    if (!new_exec_env) {
+        os_mutex_unlock(&cluster->lock);
         goto fail1;
+    }
 
     if (!allocate_aux_stack(cluster, &aux_stack_start, &aux_stack_size)) {
         LOG_ERROR("thread manager error: "
@@ -605,10 +611,9 @@ fail3:
     /* free the allocated aux stack space */
     free_aux_stack(cluster, aux_stack_start);
 fail2:
+    os_mutex_unlock(&cluster->lock);
     wasm_exec_env_destroy(new_exec_env);
 fail1:
-    os_mutex_unlock(&cluster->lock);
-
     return -1;
 }
 
