@@ -730,7 +730,7 @@ os_sigreturn()
 
 #if defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
 void
-os_thread_set_interruptable(bool flag)
+os_thread_set_interruptible(bool flag)
 {
     sigset_t set;
     int how = flag ? SIG_UNBLOCK : SIG_BLOCK;

@@ -106,7 +106,7 @@ os_sigreturn();
 
 #if defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
 void
-os_thread_set_interruptable(bool flag);
+os_thread_set_interruptible(bool flag);
 #endif
 
 #include <setjmp.h>

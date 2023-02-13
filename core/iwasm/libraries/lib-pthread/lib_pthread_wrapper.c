@@ -500,7 +500,7 @@ pthread_start_routine(void *arg)
     uint32 argv[1];
 
 #if defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
-    os_thread_set_interruptable(false);
+    os_thread_set_interruptible(false);
 #endif
 
     parent_exec_env = info_node->parent_exec_env;
@@ -523,14 +523,14 @@ pthread_start_routine(void *arg)
     argv[0] = routine_args->arg;
 
 #if defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
-    os_thread_set_interruptable(true);
+    os_thread_set_interruptible(true);
 #endif
     if (!wasm_runtime_call_indirect(exec_env, routine_args->elem_index, 1,
                                     argv)) {
         /* Exception has already been spread during throwing */
     }
 #if defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
-    os_thread_set_interruptable(false);
+    os_thread_set_interruptible(false);
 #endif
 
     /* destroy pthread key values */
