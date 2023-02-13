@@ -499,6 +499,10 @@ pthread_start_routine(void *arg)
     ThreadInfoNode *info_node = routine_args->info_node;
     uint32 argv[1];
 
+#if defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
+    os_thread_set_interruptable(false);
+#endif
+
     parent_exec_env = info_node->parent_exec_env;
     os_mutex_lock(&parent_exec_env->wait_lock);
     info_node->exec_env = exec_env;
@@ -518,10 +522,16 @@ pthread_start_routine(void *arg)
     wasm_exec_env_set_thread_info(exec_env);
     argv[0] = routine_args->arg;
 
+#if defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
+    os_thread_set_interruptable(true);
+#endif
     if (!wasm_runtime_call_indirect(exec_env, routine_args->elem_index, 1,
                                     argv)) {
         /* Exception has already been spread during throwing */
     }
+#if defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
+    os_thread_set_interruptable(false);
+#endif
 
     /* destroy pthread key values */
     call_key_destructor(exec_env);

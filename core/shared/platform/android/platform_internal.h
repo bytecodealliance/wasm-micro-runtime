@@ -104,6 +104,11 @@ os_signal_unmask();
 void
 os_sigreturn();
 
+#if defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
+void
+os_thread_set_interruptable(bool flag);
+#endif
+
 #include <setjmp.h>
 typedef jmp_buf korp_jmpbuf;
 #define os_setjmp setjmp

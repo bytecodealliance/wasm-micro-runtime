@@ -727,5 +727,18 @@ os_sigreturn()
 #endif
 #endif
 }
+
+#if defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
+void
+os_thread_set_interruptable(bool flag)
+{
+    sigset_t set;
+    int how = flag ? SIG_UNBLOCK : SIG_BLOCK;
+
+    sigemptyset(&set);
+    sigaddset(&set, SIGUSR1);
+    pthread_sigmask(how, &set, NULL);
+}
+#endif
 #endif /* end of defined(OS_ENABLE_HW_BOUND_CHECK) || \
           defined(OS_ENABLE_INTERRUPT_BLOCK_INSN) */
