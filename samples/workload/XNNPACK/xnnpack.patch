@@ -1,8 +1,8 @@
 diff --git a/.bazelrc b/.bazelrc
-index ec740f38..29f9d56e 100644
+index 688279da1..376996885 100644
 --- a/.bazelrc
 +++ b/.bazelrc
-@@ -49,4 +49,9 @@ build:ios_fat --watchos_cpus=armv7k
+@@ -53,4 +53,9 @@ build:ios_fat --watchos_cpus=armv7k
  build:macos --apple_platform_type=macos
  
  build:macos_arm64 --config=macos
@@ -11,42 +11,26 @@ index ec740f38..29f9d56e 100644
 +build:macos_arm64 --cpu=darwin_arm64
 +
 +build:wasm --cpu=wasm
-+build:wasm --copt=-msimd128
++build:wasm --features=wasm_simd
 +build:wasm --crosstool_top=@emsdk//emscripten_toolchain:everything
 +build:wasm --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
-diff --git a/BUILD.bazel b/BUILD.bazel
-index 3fc8139f..c893356d 100644
---- a/BUILD.bazel
-+++ b/BUILD.bazel
-@@ -11988,7 +11988,6 @@ config_setting(
-     values = {
-         "crosstool_top": "@emsdk//emscripten_toolchain:everything",
-         "cpu": "wasm",
--        "copt": "-msimd128",
-         "copt": "-mrelaxed-simd",
-     },
- )
 diff --git a/WORKSPACE b/WORKSPACE
-index c58e76b6..30934678 100644
+index cd8960ffa..5d3e685f4 100644
 --- a/WORKSPACE
 +++ b/WORKSPACE
-@@ -21,6 +21,7 @@ http_archive(
-     name = "com_google_benchmark",
-     strip_prefix = "benchmark-master",
-     urls = ["https://github.com/google/benchmark/archive/master.zip"],
-+    patches = ["@//third_party:benchmark.patch"],
+@@ -92,8 +92,25 @@ http_archive(
+     ],
  )
  
- # FP16 library, used for half-precision conversions
-@@ -84,6 +85,19 @@ http_archive(
-    ],
- )
- 
++load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 +http_archive(
-+  name = "emsdk",
-+  strip_prefix = "emsdk-2.0.26/bazel",
-+  url = "https://github.com/emscripten-core/emsdk/archive/refs/tags/2.0.26.tar.gz",
-+  sha256 = "79e7166aa8eaae6e52cef1363b2d8db795d03684846066bc51f9dcf905dd58ad",
++    name = "emsdk",
++    # Use emsdk-3.0.0 since the larger version may:
++    #   - compress the wasm file into a tar file but not directly generate wasm file
++    #   - generate incomplete implementation of libc API, e.g. throw exception in getentropy
++    strip_prefix = "emsdk-3.0.0/bazel",
++    url = "https://github.com/emscripten-core/emsdk/archive/refs/tags/3.0.0.tar.gz",
++    sha256 = "a41dccfd15be9e85f923efaa0ac21943cbab77ec8d39e52f25eca1ec61a9ac9e"
 +)
 +
 +load("@emsdk//:deps.bzl", emsdk_deps = "deps")
@@ -56,13 +40,17 @@ index c58e76b6..30934678 100644
 +emsdk_emscripten_deps()
 +
  # Android NDK location and version is auto-detected from $ANDROID_NDK_HOME environment variable
- android_ndk_repository(name = "androidndk")
+-android_ndk_repository(name = "androidndk")
++#android_ndk_repository(name = "androidndk")
  
+ # Android SDK location and API is auto-detected from $ANDROID_HOME environment variable
+-android_sdk_repository(name = "androidsdk")
++#android_sdk_repository(name = "androidsdk")
 diff --git a/build_defs.bzl b/build_defs.bzl
-index fbadb400..e496b78d 100644
+index b8217a18d..da232966e 100644
 --- a/build_defs.bzl
 +++ b/build_defs.bzl
-@@ -430,7 +430,7 @@ def xnnpack_benchmark(name, srcs, copts = [], deps = [], tags = []):
+@@ -380,7 +380,7 @@ def xnnpack_benchmark(name, srcs, copts = [], deps = [], tags = []):
              explicitly specified.
      """
      native.cc_binary(
@@ -72,7 +60,7 @@ index fbadb400..e496b78d 100644
          copts = xnnpack_std_cxxopts() + [
              "-Iinclude",
 diff --git a/emscripten.bzl b/emscripten.bzl
-index 130d5f16..2696ad54 100644
+index f1557a7b1..7f964a094 100644
 --- a/emscripten.bzl
 +++ b/emscripten.bzl
 @@ -25,12 +25,19 @@ def xnnpack_emscripten_benchmark_linkopts():
@@ -84,7 +72,7 @@ index 130d5f16..2696ad54 100644
 -        "-s EXIT_RUNTIME=1",
 +        "-s ERROR_ON_UNDEFINED_SYMBOLS=0",
          "-s ALLOW_MEMORY_GROWTH=1",
-         "-s TOTAL_MEMORY=445644800",  # 425M
+         "-s TOTAL_MEMORY=536870912",  # 512M
 -        "--pre-js $(location :preamble.js.lds)",
 +        "-s USE_PTHREADS=0",
 +        "-s STANDALONE_WASM=1",
@@ -99,11 +87,33 @@ index 130d5f16..2696ad54 100644
      ]
  
  def xnnpack_emscripten_deps():
+diff --git a/src/log.c b/src/log.c
+index 5715f2f85..4b3e4261b 100644
+--- a/src/log.c
++++ b/src/log.c
+@@ -55,7 +55,7 @@
+ #endif
+ 
+ #if XNN_LOG_TO_STDIO
+-static void xnn_vlog(int output_handle, const char* prefix, size_t prefix_length, const char* format, va_list args) {
++void xnn_vlog(int output_handle, const char* prefix, size_t prefix_length, const char* format, va_list args) {
+   char stack_buffer[XNN_LOG_STACK_BUFFER_SIZE];
+   char* heap_buffer = NULL;
+   char* out_buffer = &stack_buffer[0];
 diff --git a/third_party/cpuinfo.BUILD b/third_party/cpuinfo.BUILD
-index 128d683e..f6c287c4 100644
+index 1997f4e3a..5e03c43af 100644
 --- a/third_party/cpuinfo.BUILD
 +++ b/third_party/cpuinfo.BUILD
-@@ -343,5 +343,5 @@ config_setting(
+@@ -150,7 +150,7 @@ cc_library(
+         "src/arm/midr.h",
+     ],
+     deps = [
+-        "@clog",
++        "//deps/clog"
+     ],
+ )
+ 
+@@ -352,5 +352,5 @@ config_setting(
  
  config_setting(
      name = "emscripten",

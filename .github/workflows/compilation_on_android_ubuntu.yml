@@ -53,8 +53,6 @@ env:
   FAST_JIT_BUILD_OPTIONS: "      -DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_FAST_JIT=1 -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_LAZY_JIT=0"
   LLVM_LAZY_JIT_BUILD_OPTIONS: " -DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_FAST_JIT=0 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=1"
   LLVM_EAGER_JIT_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_FAST_JIT=0 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=0"
-  # LLVM
-  LLVM_CACHE_SUFFIX: "build-llvm_libraries_ex"
   # For Spec Test
   DEFAULT_TEST_OPTIONS: "-s spec -b -P"
   MULTI_MODULES_TEST_OPTIONS: "-s spec -b -M -P"
@@ -64,23 +62,37 @@ env:
   WASI_TEST_OPTIONS: "-s wasi_certification"
 
 jobs:
-  build_llvm_libraries:
+  build_llvm_libraries_on_ubuntu_2004:
     uses: ./.github/workflows/build_llvm_libraries.yml
     with:
-      runs-on: "['ubuntu-20.04', 'ubuntu-22.04']"
+      os: "ubuntu-20.04"
+      arch: "X86"
+
+  build_llvm_libraries_on_ubuntu_2204:
+    uses: ./.github/workflows/build_llvm_libraries.yml
+    with:
+      os: "ubuntu-22.04"
+      arch: "X86"
 
   build_wamrc:
-    needs: [build_llvm_libraries]
+    needs:
+      [build_llvm_libraries_on_ubuntu_2004, build_llvm_libraries_on_ubuntu_2204]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-20.04, ubuntu-22.04]
+        include:
+          - os: ubuntu-20.04
+            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2004.outputs.cache_key }}
+          - os: ubuntu-22.04
+            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
     steps:
       - name: checkout
         uses: actions/checkout@v3
 
+      # since jobs.id can't contain the dot character
+      # it is hard to use `format` to assemble the cache key
       - name: Get LLVM libraries
-        id: cache_llvm
+        id: retrieve_llvm_libs
         uses: actions/cache@v3
         with:
           path: |
@@ -89,10 +101,10 @@ jobs:
             ./core/deps/llvm/build/lib
             ./core/deps/llvm/build/libexec
             ./core/deps/llvm/build/share
-          key: ${{ matrix.os }}-${{ env.LLVM_CACHE_SUFFIX }}
+          key: ${{ matrix.llvm_cache_key }}
 
       - name: Quit if cache miss
-        if: steps.cache_llvm.outputs.cache-hit != 'true'
+        if: steps.retrieve_llvm_libs.outputs.cache-hit != 'true'
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
 
       - name: Build wamrc
@@ -103,7 +115,8 @@ jobs:
         working-directory: wamr-compiler
 
   build_iwasm:
-    needs: [build_llvm_libraries]
+    needs:
+      [build_llvm_libraries_on_ubuntu_2004, build_llvm_libraries_on_ubuntu_2204]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -187,13 +200,21 @@ jobs:
           # Fast-JIT mode doesn't support android(X86-32)
           - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
             platform: android
+          # only test andorid on ubuntu latest
+          - os: ubuntu-20.04
+            platform: android
+        include:
+          - os: ubuntu-20.04
+            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2004.outputs.cache_key }}
+          - os: ubuntu-22.04
+            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
     steps:
       - name: checkout
         uses: actions/checkout@v3
 
       # only download llvm cache when needed
       - name: Get LLVM libraries
-        id: cache_llvm
+        id: retrieve_llvm_libs
         if: endsWith(matrix.make_options_run_mode, '_JIT_BUILD_OPTIONS')
         uses: actions/cache@v3
         with:
@@ -203,10 +224,10 @@ jobs:
             ./core/deps/llvm/build/lib
             ./core/deps/llvm/build/libexec
             ./core/deps/llvm/build/share
-          key: ${{ matrix.os }}-${{ env.LLVM_CACHE_SUFFIX }}
+          key: ${{ matrix.llvm_cache_key }}
 
       - name: Quit if cache miss
-        if: endsWith(matrix.make_options_run_mode, '_JIT_BUILD_OPTIONS') && (steps.cache_llvm.outputs.cache-hit != 'true')
+        if: endsWith(matrix.make_options_run_mode, '_JIT_BUILD_OPTIONS') && (steps.retrieve_llvm_libs.outputs.cache-hit != 'true')
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
 
       - name: Build iwasm
@@ -217,7 +238,13 @@ jobs:
         working-directory: product-mini/platforms/${{ matrix.platform }}
 
   build_samples_wasm_c_api:
-    needs: [build_iwasm, build_llvm_libraries, build_wamrc]
+    needs:
+      [
+        build_iwasm,
+        build_llvm_libraries_on_ubuntu_2004,
+        build_llvm_libraries_on_ubuntu_2204,
+        build_wamrc,
+      ]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -233,18 +260,23 @@ jobs:
         os: [ubuntu-20.04, ubuntu-22.04]
         wasi_sdk_release:
           [
-            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz",
+            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-linux.tar.gz",
           ]
         wabt_release:
           [
-            "https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-ubuntu.tar.gz",
+            "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-ubuntu.tar.gz",
           ]
+        include:
+          - os: ubuntu-20.04
+            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2004.outputs.cache_key }}
+          - os: ubuntu-22.04
+            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
     steps:
       - name: checkout
         uses: actions/checkout@v3
 
       - name: Get LLVM libraries
-        id: cache_llvm
+        id: retrieve_llvm_libs
         if: (!endsWith(matrix.make_options, '_INTERP_BUILD_OPTIONS'))
         uses: actions/cache@v3
         with:
@@ -254,18 +286,18 @@ jobs:
             ./core/deps/llvm/build/lib
             ./core/deps/llvm/build/libexec
             ./core/deps/llvm/build/share
-          key: ${{ matrix.os }}-${{ env.LLVM_CACHE_SUFFIX }}
+          key: ${{ matrix.llvm_cache_key }}
 
       - name: Quit if cache miss
-        if: (!endsWith(matrix.make_options, '_INTERP_BUILD_OPTIONS')) && (steps.cache_llvm.outputs.cache-hit != 'true')
+        if: (!endsWith(matrix.make_options, '_INTERP_BUILD_OPTIONS')) && (steps.retrieve_llvm_libs.outputs.cache-hit != 'true')
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
 
       - name: download and install wabt
         run: |
           cd /opt
           sudo wget ${{ matrix.wabt_release }}
-          sudo tar -xzf wabt-1.0.24-*.tar.gz
-          sudo mv wabt-1.0.24 wabt
+          sudo tar -xzf wabt-1.0.31-*.tar.gz
+          sudo mv wabt-1.0.31 wabt
 
       - name: Build wamrc
         if: (!endsWith(matrix.make_options, '_INTERP_BUILD_OPTIONS'))
@@ -277,19 +309,9 @@ jobs:
 
       - name: Build Sample [wasm-c-api]
         run: |
-          mkdir build && cd build
-          cmake .. ${{ matrix.make_options }}
-          cmake --build . --config Release --parallel 4
-          ./callback
-          ./callback_chain
-          ./empty_imports
-          ./global
-          ./hello
-          ./hostref
-          ./memory
-          ./reflect
-          ./table
-          ./trap
+          cmake -S . -B build ${{ matrix.make_options }}
+          cmake --build build --config Release --parallel 4
+          ctest --test-dir build
         working-directory: samples/wasm-c-api
 
   build_samples_others:
@@ -298,14 +320,13 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-20.04, ubuntu-22.04]
-        wasi_sdk_release:
-          [
-            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz",
-          ]
-        wabt_release:
-          [
-            "https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-ubuntu.tar.gz",
-          ]
+        include:
+          - os: ubuntu-20.04
+            wasi_sdk_release: "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-linux.tar.gz"
+            wabt_release: "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-ubuntu.tar.gz"
+          - os: ubuntu-22.04
+            wasi_sdk_release: "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-linux.tar.gz"
+            wabt_release: "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-ubuntu.tar.gz"
     steps:
       - name: checkout
         uses: actions/checkout@v3
@@ -314,15 +335,15 @@ jobs:
         run: |
           cd /opt
           sudo wget ${{ matrix.wasi_sdk_release }}
-          sudo tar -xzf wasi-sdk-12.0-*.tar.gz
-          sudo mv wasi-sdk-12.0 wasi-sdk
+          sudo tar -xzf wasi-sdk-*.tar.gz
+          sudo mv wasi-sdk-19.0 wasi-sdk
 
       - name: download and install wabt
         run: |
           cd /opt
           sudo wget ${{ matrix.wabt_release }}
-          sudo tar -xzf wabt-1.0.24-*.tar.gz
-          sudo mv wabt-1.0.24 wabt
+          sudo tar -xzf wabt-1.0.31-*.tar.gz
+          sudo mv wabt-1.0.31 wabt
 
       - name: Build Sample [basic]
         run: |
@@ -378,7 +399,7 @@ jobs:
         working-directory: ./samples/simple
 
   test:
-    needs: [build_iwasm, build_llvm_libraries, build_wamrc]
+    needs: [build_iwasm, build_llvm_libraries_on_ubuntu_2004, build_wamrc]
     runs-on: ubuntu-20.04
     strategy:
       matrix:
@@ -392,6 +413,8 @@ jobs:
             $THREADS_TEST_OPTIONS,
             $WASI_TEST_OPTIONS,
           ]
+        llvm_cache_key:
+          ["${{ needs.build_llvm_libraries_on_ubuntu_2004.outputs.cache_key }}"]
         exclude:
           # uncompatiable modes and features
           # classic-interp and fast-interp don't support simd
@@ -432,7 +455,7 @@ jobs:
       #only download llvm libraries in jit and aot mode
       - name: Get LLVM libraries
         if: env.USE_LLVM == 'true'
-        id: cache_llvm
+        id: retrieve_llvm_libs
         uses: actions/cache@v3
         with:
           path: |
@@ -441,10 +464,10 @@ jobs:
             ./core/deps/llvm/build/lib
             ./core/deps/llvm/build/libexec
             ./core/deps/llvm/build/share
-          key: ubuntu-20.04-${{ env.LLVM_CACHE_SUFFIX }}
+          key: ${{ matrix.llvm_cache_key }}
 
       - name: Quit if cache miss
-        if: env.USE_LLVM == 'true' && steps.cache_llvm.outputs.cache-hit != 'true'
+        if: env.USE_LLVM == 'true' && steps.retrieve_llvm_libs.outputs.cache-hit != 'true'
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
 
       - name: run tests

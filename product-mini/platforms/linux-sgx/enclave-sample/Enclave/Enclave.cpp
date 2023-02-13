@@ -277,7 +277,6 @@ static void
 handle_cmd_unload_module(uint64 *args, uint32 argc)
 {
     EnclaveModule *enclave_module = *(EnclaveModule **)args++;
-    uint32 i;
 
     bh_assert(argc == 1);
 

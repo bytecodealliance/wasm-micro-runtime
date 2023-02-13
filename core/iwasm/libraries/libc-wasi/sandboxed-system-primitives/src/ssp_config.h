@@ -14,6 +14,7 @@
 #ifndef SSP_CONFIG_H
 #define SSP_CONFIG_H
 
+#include "gnuc.h"
 #include <stdlib.h>
 
 #if defined(__FreeBSD__) || defined(__APPLE__) \
@@ -107,10 +108,21 @@
 #endif
 
 #if !defined(BH_PLATFORM_LINUX_SGX)
+#if defined(__GNUC_PREREQ)
+/* Even though older versions of GCC support C11, atomics were
+not implemented until 4.9. See
+https://gcc.gnu.org/bugzilla/show_bug.cgi?id=58016 */
+#if __GNUC_PREREQ(4, 9)
 #define CONFIG_HAS_STD_ATOMIC 1
-#else
+#else /* else of __GNUC_PREREQ(4, 9) */
 #define CONFIG_HAS_STD_ATOMIC 0
-#endif
+#endif /* end of __GNUC_PREREQ(4, 9) */
+#else  /* else of defined(__GNUC_PREREQ) */
+#define CONFIG_HAS_STD_ATOMIC 1
+#endif /* end of defined(__GNUC_PREREQ) */
+#else  /* else of !defined(BH_PLATFORM_LINUX_SGX) */
+#define CONFIG_HAS_STD_ATOMIC 0
+#endif /* end of !defined(BH_PLATFORM_LINUX_SGX) */
 
 #if !defined(__NuttX__)
 #define CONFIG_HAS_D_INO 1

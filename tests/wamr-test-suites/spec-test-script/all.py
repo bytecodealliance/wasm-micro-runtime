@@ -111,6 +111,7 @@ def test_case(
     verbose_flag=True,
     qemu_flag=False,
     qemu_firmware='',
+    log='',
 ):
     case_path = pathlib.Path(case_path).resolve()
     case_name = case_path.stem
@@ -170,6 +171,10 @@ def test_case(
     if not clean_up_flag:
         CMD.append("--no_cleanup")
 
+    if log != '':
+        CMD.append("--log-dir")
+        CMD.append(log)
+
     CMD.append(case_path)
     print(f"============> run {case_name} ", end="")
     with subprocess.Popen(
@@ -228,7 +233,8 @@ def test_suite(
     verbose_flag=True,
     parl_flag=False,
     qemu_flag=False,
-    qemu_firmware=''
+    qemu_firmware='',
+    log='',
 ):
     suite_path = pathlib.Path(SPEC_TEST_DIR).resolve()
     if not suite_path.exists():
@@ -264,6 +270,7 @@ def test_suite(
                         verbose_flag,
                         qemu_flag,
                         qemu_firmware,
+                        log,
                     ],
                 )
 
@@ -299,6 +306,7 @@ def test_suite(
                     verbose_flag,
                     qemu_flag,
                     qemu_firmware,
+                    log,
                 )
                 successful_case += 1
             except Exception as e:
@@ -394,6 +402,12 @@ def main():
         help="Firmware required by qemu",
     )
     parser.add_argument(
+        "--log",
+        default='',
+        dest="log",
+        help="Log directory",
+    )
+    parser.add_argument(
         "--quiet",
         action="store_false",
         default=True,
@@ -435,6 +449,7 @@ def main():
             options.parl_flag,
             options.qemu_flag,
             options.qemu_firmware,
+            options.log,
         )
         end = time.time_ns()
         print(
@@ -455,7 +470,8 @@ def main():
                     options.clean_up_flag,
                     options.verbose_flag,
                     options.qemu_flag,
-                    options.qemu_firmware
+                    options.qemu_firmware,
+                    options.log
                 )
             else:
                 ret = True

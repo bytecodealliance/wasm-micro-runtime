@@ -37,6 +37,9 @@ wasm_shared_memory_init();
 void
 wasm_shared_memory_destroy();
 
+void
+notify_stale_threads_on_exception(WASMModuleInstanceCommon *module);
+
 WASMSharedMemNode *
 wasm_module_get_shared_memory(WASMModuleCommon *module);
 

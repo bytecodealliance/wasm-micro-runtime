@@ -367,6 +367,87 @@ fail:
                  || (WASM_ENABLE_PERF_PROFILING != 0) */
 
 static bool
+record_stack_usage(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                   uint32 callee_cell_num)
+{
+    LLVMBasicBlockRef block_curr = LLVMGetInsertBlock(comp_ctx->builder);
+    LLVMBasicBlockRef block_update;
+    LLVMBasicBlockRef block_after_update;
+    LLVMValueRef callee_local_size, new_sp, cmp;
+    LLVMValueRef native_stack_top_min;
+    LLVMTypeRef ptrdiff_type;
+    if (comp_ctx->pointer_size == sizeof(uint64_t)) {
+        ptrdiff_type = I64_TYPE;
+    }
+    else {
+        ptrdiff_type = I32_TYPE;
+    }
+
+    /*
+     * new_sp = last_alloca - callee_local_size;
+     * if (*native_stack_top_min_addr > new_sp) {
+     *    *native_stack_top_min_addr = new_sp;
+     * }
+     */
+
+    if (!(callee_local_size = LLVMConstInt(
+              ptrdiff_type, -(int64_t)callee_cell_num * 4, true))) {
+        aot_set_last_error("llvm build const failed.");
+        return false;
+    }
+    if (!(new_sp = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,
+                                         func_ctx->last_alloca,
+                                         &callee_local_size, 1, "new_sp"))) {
+        aot_set_last_error("llvm build gep failed");
+        return false;
+    }
+    if (!(native_stack_top_min = LLVMBuildLoad2(
+              comp_ctx->builder, OPQ_PTR_TYPE,
+              func_ctx->native_stack_top_min_addr, "native_stack_top_min"))) {
+        aot_set_last_error("llvm build load failed");
+        return false;
+    }
+    if (!(cmp = LLVMBuildICmp(comp_ctx->builder, LLVMIntULT, new_sp,
+                              native_stack_top_min, "cmp"))) {
+        aot_set_last_error("llvm build icmp failed.");
+        return false;
+    }
+
+    if (!(block_update = LLVMAppendBasicBlockInContext(
+              comp_ctx->context, func_ctx->func, "block_update"))) {
+        aot_set_last_error("llvm add basic block failed.");
+        return false;
+    }
+    if (!(block_after_update = LLVMAppendBasicBlockInContext(
+              comp_ctx->context, func_ctx->func, "block_after_update"))) {
+        aot_set_last_error("llvm add basic block failed.");
+        return false;
+    }
+    LLVMMoveBasicBlockAfter(block_update, block_curr);
+    LLVMMoveBasicBlockAfter(block_after_update, block_update);
+
+    if (!LLVMBuildCondBr(comp_ctx->builder, cmp, block_update,
+                         block_after_update)) {
+        aot_set_last_error("llvm build cond br failed.");
+        return false;
+    }
+
+    LLVMPositionBuilderAtEnd(comp_ctx->builder, block_update);
+    if (!LLVMBuildStore(comp_ctx->builder, new_sp,
+                        func_ctx->native_stack_top_min_addr)) {
+        aot_set_last_error("llvm build store failed");
+        return false;
+    }
+    if (!LLVMBuildBr(comp_ctx->builder, block_after_update)) {
+        aot_set_last_error("llvm build br failed.");
+        return false;
+    }
+
+    LLVMPositionBuilderAtEnd(comp_ctx->builder, block_after_update);
+    return true;
+}
+
+static bool
 check_stack_boundary(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                      uint32 callee_cell_num)
 {
@@ -406,6 +487,19 @@ check_stack_boundary(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     LLVMPositionBuilderAtEnd(comp_ctx->builder, check_stack);
+    return true;
+}
+
+static bool
+check_stack(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+            uint32 callee_cell_num)
+{
+    if (comp_ctx->enable_stack_estimation
+        && !record_stack_usage(comp_ctx, func_ctx, callee_cell_num))
+        return false;
+    if (comp_ctx->enable_stack_bound_check
+        && !check_stack_boundary(comp_ctx, func_ctx, callee_cell_num))
+        return false;
     return true;
 }
 
@@ -852,8 +946,7 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         callee_cell_num =
             aot_func->param_cell_num + aot_func->local_cell_num + 1;
 
-        if (comp_ctx->enable_stack_bound_check
-            && !check_stack_boundary(comp_ctx, func_ctx, callee_cell_num))
+        if (!check_stack(comp_ctx, func_ctx, callee_cell_num))
             goto fail;
 
 #if LLVM_VERSION_MAJOR >= 14
@@ -1467,12 +1560,11 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* Translate call non-import block */
     LLVMPositionBuilderAtEnd(comp_ctx->builder, block_call_non_import);
 
-    if (comp_ctx->enable_stack_bound_check
-        && !check_stack_boundary(comp_ctx, func_ctx,
-                                 param_cell_num + ext_cell_num
-                                     + 1
-                                     /* Reserve some local variables */
-                                     + 16))
+    if (!check_stack(comp_ctx, func_ctx,
+                     param_cell_num + ext_cell_num
+                         + 1
+                         /* Reserve some local variables */
+                         + 16))
         goto fail;
 
     /* Load function pointer */

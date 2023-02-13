@@ -33,7 +33,7 @@ Firstly please build iwasm with simd support:
 ``` shell
 $ cd <wamr dir>/product-mini/platforms/linux/
 $ mkdir build && cd build
-$ cmake .. -DWAMR_BUILD_SIMD=1
+$ cmake ..
 $ make
 ```
 
@@ -41,6 +41,6 @@ Then compile wasm file to aot file and run:
 
 ``` shell
 $ cd <wamr dir>/samples/workload/bwa/build
-$ <wamr dir>/wamr-compiler/build/wamrc --enable-simd -o bwa.aot bwa.wasm
+$ <wamr dir>/wamr-compiler/build/wamrc -o bwa.aot bwa.wasm
 $ <wamr dir>/product-mini/platforms/linux/iwasm --dir=. bwa.aot index hs38DH.fa
 ```

@@ -98,11 +98,11 @@ make
 WAMRC_CMD="$(pwd)/wamrc"
 cd ${OUT_DIR}
 if [[ $1 == '--sgx' ]]; then
-    ${WAMRC_CMD} --enable-simd -sgx -o benchmark_model.aot benchmark_model.wasm
+    ${WAMRC_CMD} -sgx -o benchmark_model.aot benchmark_model.wasm
 elif [[  $1 == '--threads' ]]; then
-    ${WAMRC_CMD} --enable-simd --enable-multi-thread -o benchmark_model.aot benchmark_model.wasm
+    ${WAMRC_CMD} --enable-multi-thread -o benchmark_model.aot benchmark_model.wasm
 else
-    ${WAMRC_CMD} --enable-simd -o benchmark_model.aot benchmark_model.wasm
+    ${WAMRC_CMD} -o benchmark_model.aot benchmark_model.wasm
 fi
 
 # 4. build iwasm with pthread and libc_emcc enable
@@ -112,14 +112,14 @@ fi
 if [[ $1 == '--sgx' ]]; then
     cd ${WAMR_PLATFORM_DIR}/linux-sgx
     rm -fr build && mkdir build
-    cd build && cmake .. -DWAMR_BUILD_SIMD=1 -DWAMR_BUILD_LIB_PTHREAD=1 -DWAMR_BUILD_LIBC_EMCC=1
+    cd build && cmake .. -DWAMR_BUILD_LIB_PTHREAD=1 -DWAMR_BUILD_LIBC_EMCC=1
     make
     cd ../enclave-sample
     make
 else
     cd ${WAMR_PLATFORM_DIR}/linux
     rm -fr build && mkdir build
-    cd build && cmake .. -DWAMR_BUILD_SIMD=1 -DWAMR_BUILD_LIB_PTHREAD=1 -DWAMR_BUILD_LIBC_EMCC=1
+    cd build && cmake .. -DWAMR_BUILD_LIB_PTHREAD=1 -DWAMR_BUILD_LIBC_EMCC=1
     make
 fi
 

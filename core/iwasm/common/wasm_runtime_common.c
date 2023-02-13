@@ -7,6 +7,7 @@
 #include "bh_common.h"
 #include "bh_assert.h"
 #include "bh_log.h"
+#include "wasm_native.h"
 #include "wasm_runtime_common.h"
 #include "wasm_memory.h"
 #if WASM_ENABLE_INTERP != 0
@@ -127,6 +128,12 @@ runtime_malloc(uint64 size, WASMModuleInstanceCommon *module_inst,
 #if WASM_ENABLE_FAST_JIT != 0
 static JitCompOptions jit_options = { 0 };
 #endif
+
+#if WASM_ENABLE_JIT != 0
+static LLVMJITOptions llvm_jit_options = { 3, 3 };
+#endif
+
+static RunningMode runtime_running_mode = Mode_Default;
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
 /* The exec_env of thread local storage, set before calling function
@@ -514,6 +521,20 @@ wasm_runtime_destroy()
     wasm_runtime_memory_destroy();
 }
 
+RunningMode
+wasm_runtime_get_default_running_mode(void)
+{
+    return runtime_running_mode;
+}
+
+#if WASM_ENABLE_JIT != 0
+LLVMJITOptions
+wasm_runtime_get_llvm_jit_options(void)
+{
+    return llvm_jit_options;
+}
+#endif
+
 bool
 wasm_runtime_full_init(RuntimeInitArgs *init_args)
 {
@@ -521,8 +542,18 @@ wasm_runtime_full_init(RuntimeInitArgs *init_args)
                                   &init_args->mem_alloc_option))
         return false;
 
+    if (!wasm_runtime_set_default_running_mode(init_args->running_mode)) {
+        wasm_runtime_memory_destroy();
+        return false;
+    }
+
 #if WASM_ENABLE_FAST_JIT != 0
     jit_options.code_cache_size = init_args->fast_jit_code_cache_size;
+#endif
+
+#if WASM_ENABLE_JIT != 0
+    llvm_jit_options.size_level = init_args->llvm_jit_size_level;
+    llvm_jit_options.opt_level = init_args->llvm_jit_opt_level;
 #endif
 
     if (!wasm_runtime_env_init()) {
@@ -552,6 +583,47 @@ wasm_runtime_full_init(RuntimeInitArgs *init_args)
 #endif
 
     return true;
+}
+
+bool
+wasm_runtime_is_running_mode_supported(RunningMode running_mode)
+{
+    if (running_mode == Mode_Default) {
+        return true;
+    }
+    else if (running_mode == Mode_Interp) {
+#if WASM_ENABLE_INTERP != 0
+        return true;
+#endif
+    }
+    else if (running_mode == Mode_Fast_JIT) {
+#if WASM_ENABLE_FAST_JIT != 0
+        return true;
+#endif
+    }
+    else if (running_mode == Mode_LLVM_JIT) {
+#if WASM_ENABLE_JIT != 0
+        return true;
+#endif
+    }
+    else if (running_mode == Mode_Multi_Tier_JIT) {
+#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
+    && WASM_ENABLE_LAZY_JIT != 0
+        return true;
+#endif
+    }
+
+    return false;
+}
+
+bool
+wasm_runtime_set_default_running_mode(RunningMode running_mode)
+{
+    if (wasm_runtime_is_running_mode_supported(running_mode)) {
+        runtime_running_mode = running_mode;
+        return true;
+    }
+    return false;
 }
 
 PackageType
@@ -1171,6 +1243,41 @@ wasm_runtime_deinstantiate_internal(WASMModuleInstanceCommon *module_inst,
 #endif
 }
 
+bool
+wasm_runtime_set_running_mode(wasm_module_inst_t module_inst,
+                              RunningMode running_mode)
+{
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT)
+        return true;
+#endif
+
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        WASMModuleInstance *module_inst_interp =
+            (WASMModuleInstance *)module_inst;
+
+        return wasm_set_running_mode(module_inst_interp, running_mode);
+    }
+#endif
+
+    return false;
+}
+
+RunningMode
+wasm_runtime_get_running_mode(wasm_module_inst_t module_inst)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        WASMModuleInstance *module_inst_interp =
+            (WASMModuleInstance *)module_inst;
+        return module_inst_interp->e->running_mode;
+    }
+#endif
+
+    return Mode_Default;
+}
+
 void
 wasm_runtime_deinstantiate(WASMModuleInstanceCommon *module_inst)
 {
@@ -1398,6 +1505,22 @@ wasm_runtime_dump_mem_consumption(WASMExecEnv *exec_env)
         os_printf("Total auxiliary stack used: %u\n", max_aux_stack_used);
     else
         os_printf("Total aux stack used: no enough info to profile\n");
+
+    /*
+     * Report the native stack usage estimation.
+     *
+     * Unlike the aux stack above, we report the amount unused
+     * because we don't know the stack "bottom".
+     *
+     * Note that this is just about what the runtime itself observed.
+     * It doesn't cover host func implementations, signal handlers, etc.
+     */
+    if (exec_env->native_stack_top_min != (void *)UINTPTR_MAX)
+        os_printf("Native stack left: %zd\n",
+                  exec_env->native_stack_top_min
+                      - exec_env->native_stack_boundary);
+    else
+        os_printf("Native stack left: no enough info to profile\n");
 
     os_printf("Total app heap used: %u\n", app_heap_peak_size);
 }
@@ -2195,6 +2318,12 @@ wasm_set_exception(WASMModuleInstance *module_inst, const char *exception)
     if (exec_env) {
         wasm_cluster_spread_exception(exec_env, exception ? false : true);
     }
+#if WASM_ENABLE_SHARED_MEMORY
+    if (exception) {
+        notify_stale_threads_on_exception(
+            (WASMModuleInstanceCommon *)module_inst);
+    }
+#endif
 #else
     (void)exec_env;
 #endif
@@ -2219,9 +2348,7 @@ static const char *exception_msgs[] = {
     "wasm auxiliary stack underflow", /* EXCE_AUX_STACK_UNDERFLOW */
     "out of bounds table access",     /* EXCE_OUT_OF_BOUNDS_TABLE_ACCESS */
     "wasm operand stack overflow",    /* EXCE_OPERAND_STACK_OVERFLOW */
-#if WASM_ENABLE_FAST_JIT != 0
     "failed to compile fast jit function", /* EXCE_FAILED_TO_COMPILE_FAST_JIT_FUNC */
-#endif
     "",                               /* EXCE_ALREADY_THROWN */
 };
 /* clang-format on */
@@ -5204,4 +5331,25 @@ wasm_runtime_get_version(uint32_t *major, uint32_t *minor, uint32_t *patch)
     *major = WAMR_VERSION_MAJOR;
     *minor = WAMR_VERSION_MINOR;
     *patch = WAMR_VERSION_PATCH;
+}
+
+bool
+wasm_runtime_is_import_func_linked(const char *module_name,
+                                   const char *func_name)
+{
+    return wasm_native_resolve_symbol(module_name, func_name, NULL, NULL, NULL,
+                                      NULL);
+}
+
+bool
+wasm_runtime_is_import_global_linked(const char *module_name,
+                                     const char *global_name)
+{
+#if WASM_ENABLE_LIBC_BUILTIN != 0
+    WASMGlobalImport global = { 0 };
+    return wasm_native_lookup_libc_builtin_global(module_name, global_name,
+                                                  &global);
+#else
+    return false;
+#endif
 }

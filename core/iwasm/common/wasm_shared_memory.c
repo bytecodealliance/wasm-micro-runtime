@@ -30,6 +30,11 @@ typedef struct AtomicWaitNode {
     korp_cond wait_cond;
 } AtomicWaitNode;
 
+typedef struct AtomicWaitAddressArgs {
+    uint32 index;
+    void **addr;
+} AtomicWaitAddressArgs;
+
 /* Atomic wait map */
 static HashMap *wait_map;
 
@@ -85,6 +90,53 @@ search_module(WASMModuleCommon *module)
 
     os_mutex_unlock(&shared_memory_list_lock);
     return NULL;
+}
+
+static void
+wait_map_address_count_callback(void *key, void *value,
+                                void *p_total_elem_count)
+{
+    *(uint32 *)p_total_elem_count = *(uint32 *)p_total_elem_count + 1;
+}
+
+static void
+create_list_of_waiter_addresses(void *key, void *value, void *user_data)
+{
+    AtomicWaitAddressArgs *data = (AtomicWaitAddressArgs *)user_data;
+    data->addr[data->index++] = key;
+}
+
+void
+notify_stale_threads_on_exception(WASMModuleInstanceCommon *module_inst)
+{
+    AtomicWaitAddressArgs args = { 0 };
+    uint32 i = 0, total_elem_count = 0;
+
+    os_mutex_lock(&shared_memory_list_lock);
+
+    /* count number of addresses in wait_map */
+    bh_hash_map_traverse(wait_map, wait_map_address_count_callback,
+                         (void *)&total_elem_count);
+
+    /* allocate memory */
+    if (!(args.addr = wasm_runtime_malloc(sizeof(void *) * total_elem_count))) {
+        LOG_ERROR(
+            "failed to allocate memory for list of atomic wait addresses");
+        os_mutex_unlock(&shared_memory_list_lock);
+        return;
+    }
+
+    /* set values in list of addresses */
+    bh_hash_map_traverse(wait_map, create_list_of_waiter_addresses, &args);
+    os_mutex_unlock(&shared_memory_list_lock);
+
+    /* notify */
+    for (i = 0; i < args.index; i++) {
+        wasm_runtime_atomic_notify(module_inst, args.addr[i], UINT32_MAX);
+    }
+
+    /* free memory allocated to args data */
+    wasm_runtime_free(args.addr);
 }
 
 WASMSharedMemNode *
@@ -321,6 +373,10 @@ wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
 
     bh_assert(module->module_type == Wasm_Module_Bytecode
               || module->module_type == Wasm_Module_AoT);
+
+    if (wasm_get_exception(module_inst)) {
+        return -1;
+    }
 
     /* Currently we have only one memory instance */
     if (!module_inst->memories[0]->is_shared) {

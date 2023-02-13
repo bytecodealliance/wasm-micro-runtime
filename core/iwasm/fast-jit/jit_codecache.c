@@ -56,9 +56,31 @@ jit_code_cache_free(void *ptr)
 bool
 jit_pass_register_jitted_code(JitCompContext *cc)
 {
-    uint32 jit_func_idx =
-        cc->cur_wasm_func_idx - cc->cur_wasm_module->import_function_count;
-    cc->cur_wasm_module->fast_jit_func_ptrs[jit_func_idx] =
-        cc->cur_wasm_func->fast_jit_jitted_code = cc->jitted_addr_begin;
+    WASMModuleInstance *instance;
+    WASMModule *module = cc->cur_wasm_module;
+    WASMFunction *func = cc->cur_wasm_func;
+    uint32 jit_func_idx = cc->cur_wasm_func_idx - module->import_function_count;
+
+#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
+    && WASM_ENABLE_LAZY_JIT != 0
+    os_mutex_lock(&module->instance_list_lock);
+#endif
+
+    module->fast_jit_func_ptrs[jit_func_idx] = func->fast_jit_jitted_code =
+        cc->jitted_addr_begin;
+
+#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
+    && WASM_ENABLE_LAZY_JIT != 0
+    instance = module->instance_list;
+    while (instance) {
+        if (instance->e->running_mode == Mode_Fast_JIT)
+            instance->fast_jit_func_ptrs[jit_func_idx] = cc->jitted_addr_begin;
+        instance = instance->e->next;
+    }
+
+    os_mutex_unlock(&module->instance_list_lock);
+#else
+    (void)instance;
+#endif
     return true;
 }

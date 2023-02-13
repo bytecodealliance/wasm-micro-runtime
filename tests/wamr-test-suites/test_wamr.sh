@@ -360,16 +360,16 @@ function spec_test()
                     exit 1
                     ;;
             esac
-            if [ ! -f /tmp/wabt-1.0.29-${WABT_PLATFORM}.tar.gz ]; then
+            if [ ! -f /tmp/wabt-1.0.31-${WABT_PLATFORM}.tar.gz ]; then
                 wget \
-                    https://github.com/WebAssembly/wabt/releases/download/1.0.29/wabt-1.0.29-${WABT_PLATFORM}.tar.gz \
+                    https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-${WABT_PLATFORM}.tar.gz \
                     -P /tmp
             fi
 
             cd /tmp \
-            && tar zxf wabt-1.0.29-${WABT_PLATFORM}.tar.gz \
+            && tar zxf wabt-1.0.31-${WABT_PLATFORM}.tar.gz \
             && mkdir -p ${WORK_DIR}/wabt/out/gcc/Release/ \
-            && install wabt-1.0.29/bin/wa* ${WORK_DIR}/wabt/out/gcc/Release/ \
+            && install wabt-1.0.31/bin/wa* ${WORK_DIR}/wabt/out/gcc/Release/ \
             && cd -
         fi
     else
@@ -429,7 +429,7 @@ function spec_test()
     fi
 
     # set the current running target
-    ARGS_FOR_SPEC_TEST+="-m ${TARGET} " 
+    ARGS_FOR_SPEC_TEST+="-m ${TARGET} "
 
     # require warmc only in aot mode
     if [[ $1 == 'aot' ]]; then
@@ -442,8 +442,11 @@ function spec_test()
 
     if [[ ${ENABLE_QEMU} == 1 ]]; then
         ARGS_FOR_SPEC_TEST+="--qemu "
-        ARGS_FOR_SPEC_TEST+="--qemu-firmware ${QEMU_FIRMWARE}"
+        ARGS_FOR_SPEC_TEST+="--qemu-firmware ${QEMU_FIRMWARE} "
     fi
+
+    # set log directory
+    ARGS_FOR_SPEC_TEST+="--log ${REPORT_DIR}"
 
     cd ${WORK_DIR}
     echo "python3 ./all.py ${ARGS_FOR_SPEC_TEST} | tee -a ${REPORT_DIR}/spec_test_report.txt"

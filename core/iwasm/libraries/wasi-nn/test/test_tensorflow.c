@@ -28,7 +28,7 @@ typedef struct {
 // WASI-NN wrappers
 
 error
-wasm_load(char *model_name, graph *graph)
+wasm_load(char *model_name, graph *g, execution_target target)
 {
     FILE *pFile = fopen(model_name, "r");
     if (pFile == NULL)
@@ -64,7 +64,7 @@ wasm_load(char *model_name, graph *graph)
     arr.buf[0].size = result;
     arr.buf[0].buf = buffer;
 
-    error res = load(&arr, tensorflow, cpu, graph);
+    error res = load(&arr, tensorflowlite, target, g);
 
     fclose(pFile);
     free(buffer);
@@ -73,13 +73,13 @@ wasm_load(char *model_name, graph *graph)
 }
 
 error
-wasm_init_execution_context(graph graph, graph_execution_context *ctx)
+wasm_init_execution_context(graph g, graph_execution_context *ctx)
 {
-    return init_execution_context(graph, ctx);
+    return init_execution_context(g, ctx);
 }
 
 error
-wasm_input(graph_execution_context ctx, float *input_tensor, uint32_t *dim)
+wasm_set_input(graph_execution_context ctx, float *input_tensor, uint32_t *dim)
 {
     tensor_dimensions dims;
     dims.size = INPUT_TENSOR_DIMS;
@@ -115,11 +115,12 @@ wasm_get_output(graph_execution_context ctx, uint32_t index, float *out_tensor,
 // Inference
 
 float *
-run_inference(float *input, uint32_t *input_size, uint32_t *output_size,
-              char *model_name, uint32_t num_output_tensors)
+run_inference(execution_target target, float *input, uint32_t *input_size,
+              uint32_t *output_size, char *model_name,
+              uint32_t num_output_tensors)
 {
     graph graph;
-    if (wasm_load(model_name, &graph) != success) {
+    if (wasm_load(model_name, &graph, target) != success) {
         fprintf(stderr, "Error when loading model.");
         exit(1);
     }
@@ -130,7 +131,7 @@ run_inference(float *input, uint32_t *input_size, uint32_t *output_size,
         exit(1);
     }
 
-    if (wasm_input(ctx, input, input_size) != success) {
+    if (wasm_set_input(ctx, input, input_size) != success) {
         fprintf(stderr, "Error when setting input tensor.");
         exit(1);
     }
@@ -151,7 +152,7 @@ run_inference(float *input, uint32_t *input_size, uint32_t *output_size,
         *output_size = MAX_OUTPUT_TENSOR_SIZE - *output_size;
         if (wasm_get_output(ctx, i, &out_tensor[offset], output_size)
             != success) {
-            fprintf(stderr, "Error when getting input .");
+            fprintf(stderr, "Error when getting output .");
             exit(1);
         }
 
@@ -185,14 +186,14 @@ create_input(int *dims)
 // TESTS
 
 void
-test_sum()
+test_sum(execution_target target)
 {
     int dims[] = { 1, 5, 5, 1 };
     input_info input = create_input(dims);
 
     uint32_t output_size = 0;
-    float *output = run_inference(input.input_tensor, input.dim, &output_size,
-                                  "models/sum.tflite", 1);
+    float *output = run_inference(target, input.input_tensor, input.dim,
+                                  &output_size, "/assets/models/sum.tflite", 1);
 
     assert(output_size == 1);
     assert(fabs(output[0] - 300.0) < EPSILON);
@@ -203,14 +204,14 @@ test_sum()
 }
 
 void
-test_max()
+test_max(execution_target target)
 {
     int dims[] = { 1, 5, 5, 1 };
     input_info input = create_input(dims);
 
     uint32_t output_size = 0;
-    float *output = run_inference(input.input_tensor, input.dim, &output_size,
-                                  "models/max.tflite", 1);
+    float *output = run_inference(target, input.input_tensor, input.dim,
+                                  &output_size, "/assets/models/max.tflite", 1);
 
     assert(output_size == 1);
     assert(fabs(output[0] - 24.0) < EPSILON);
@@ -222,14 +223,15 @@ test_max()
 }
 
 void
-test_average()
+test_average(execution_target target)
 {
     int dims[] = { 1, 5, 5, 1 };
     input_info input = create_input(dims);
 
     uint32_t output_size = 0;
-    float *output = run_inference(input.input_tensor, input.dim, &output_size,
-                                  "models/average.tflite", 1);
+    float *output =
+        run_inference(target, input.input_tensor, input.dim, &output_size,
+                      "/assets/models/average.tflite", 1);
 
     assert(output_size == 1);
     assert(fabs(output[0] - 12.0) < EPSILON);
@@ -241,14 +243,15 @@ test_average()
 }
 
 void
-test_mult_dimensions()
+test_mult_dimensions(execution_target target)
 {
     int dims[] = { 1, 3, 3, 1 };
     input_info input = create_input(dims);
 
     uint32_t output_size = 0;
-    float *output = run_inference(input.input_tensor, input.dim, &output_size,
-                                  "models/mult_dim.tflite", 1);
+    float *output =
+        run_inference(target, input.input_tensor, input.dim, &output_size,
+                      "/assets/models/mult_dim.tflite", 1);
 
     assert(output_size == 9);
     for (int i = 0; i < 9; i++)
@@ -260,14 +263,15 @@ test_mult_dimensions()
 }
 
 void
-test_mult_outputs()
+test_mult_outputs(execution_target target)
 {
     int dims[] = { 1, 4, 4, 1 };
     input_info input = create_input(dims);
 
     uint32_t output_size = 0;
-    float *output = run_inference(input.input_tensor, input.dim, &output_size,
-                                  "models/mult_out.tflite", 2);
+    float *output =
+        run_inference(target, input.input_tensor, input.dim, &output_size,
+                      "/assets/models/mult_out.tflite", 2);
 
     assert(output_size == 8);
     // first tensor check
@@ -285,16 +289,30 @@ test_mult_outputs()
 int
 main()
 {
+    char *env = getenv("TARGET");
+    if (env == NULL) {
+        printf("Usage:\n--env=\"TARGET=[cpu|gpu]\"\n");
+        return 1;
+    }
+    execution_target target;
+    if (strcmp(env, "cpu") == 0)
+        target = cpu;
+    else if (strcmp(env, "gpu") == 0)
+        target = gpu;
+    else {
+        printf("Wrong target!");
+        return 1;
+    }
     printf("################### Testing sum...\n");
-    test_sum();
+    test_sum(target);
     printf("################### Testing max...\n");
-    test_max();
+    test_max(target);
     printf("################### Testing average...\n");
-    test_average();
+    test_average(target);
     printf("################### Testing multiple dimensions...\n");
-    test_mult_dimensions();
+    test_mult_dimensions(target);
     printf("################### Testing multiple outputs...\n");
-    test_mult_outputs();
+    test_mult_outputs(target);
 
     printf("Tests: passed!\n");
     return 0;

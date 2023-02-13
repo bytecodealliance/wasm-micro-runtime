@@ -7,6 +7,7 @@
 import argparse
 import os
 import pathlib
+import requests
 import shlex
 import shutil
 import subprocess
@@ -21,28 +22,43 @@ def clone_llvm(dst_dir, llvm_repo, llvm_branch):
     llvm_dir = dst_dir.joinpath("llvm").resolve()
 
     if not llvm_dir.exists():
-        print(f"Clone llvm to {llvm_dir} ...")
         GIT_CLONE_CMD = f"git clone --depth 1 --branch {llvm_branch} {llvm_repo} llvm"
         subprocess.check_output(shlex.split(GIT_CLONE_CMD), cwd=dst_dir)
-    else:
-        print(f"There is an LLVM local repo in {llvm_dir}, clean and keep using it")
 
     return llvm_dir
 
 
-def build_llvm(llvm_dir, platform, backends, projects):
+def query_llvm_version(llvm_info):
+    github_token = os.environ['GH_TOKEN']
+    owner_project = llvm_info['repo'].replace("https://github.com/", "").replace(".git", "")
+    url = f"https://api.github.com/repos/{owner_project}/commits/{llvm_info['branch']}"
+    headers = {
+        'Authorization': f"Bearer {github_token}"
+    }
+
+    try:
+        response = requests.request("GET", url, headers=headers, data={})
+        response.raise_for_status()
+    except requests.exceptions.HTTPError as error:
+        print (error) # for debugging purpose
+        return None
+
+    response = response.json()
+    return response['sha']
+
+
+def build_llvm(llvm_dir, platform, backends, projects, use_clang=False):
     LLVM_COMPILE_OPTIONS = [
         '-DCMAKE_BUILD_TYPE:STRING="Release"',
         "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
         "-DLLVM_APPEND_VC_REV:BOOL=ON",
-        "-DLLVM_BUILD_BENCHMARKS:BOOL=OFF",
-        "-DLLVM_BUILD_DOCS:BOOL=OFF",
         "-DLLVM_BUILD_EXAMPLES:BOOL=OFF",
         "-DLLVM_BUILD_LLVM_DYLIB:BOOL=OFF",
         "-DLLVM_BUILD_TESTS:BOOL=OFF",
-        "-DLLVM_CCACHE_BUILD:BOOL=OFF",
+        "-DLLVM_CCACHE_BUILD:BOOL=ON",
         "-DLLVM_ENABLE_BINDINGS:BOOL=OFF",
         "-DLLVM_ENABLE_IDE:BOOL=OFF",
+        "-DLLVM_ENABLE_LIBEDIT=OFF",
         "-DLLVM_ENABLE_TERMINFO:BOOL=OFF",
         "-DLLVM_ENABLE_ZLIB:BOOL=OFF",
         "-DLLVM_INCLUDE_BENCHMARKS:BOOL=OFF",
@@ -53,6 +69,18 @@ def build_llvm(llvm_dir, platform, backends, projects):
         "-DLLVM_BUILD_TESTS:BOOL=OFF",
         "-DLLVM_OPTIMIZED_TABLEGEN:BOOL=ON",
     ]
+
+    # use clang/clang++/lld. but macos doesn't support lld
+    if not sys.platform.startswith("darwin") and use_clang:
+        if shutil.which("clang") and shutil.which("clang++") and shutil.which("lld"):
+            os.environ["CC"] = "clang"
+            os.environ["CXX"] = "clang++"
+            LLVM_COMPILE_OPTIONS.append('-DLLVM_USE_LINKER:STRING="lld"')
+            print("Use the clang toolchain")
+        else:
+            print("Can not find clang, clang++ and lld, keep using the gcc toolchain")
+    else:
+        print("Use the gcc toolchain")
 
     LLVM_EXTRA_COMPILE_OPTIONS = {
         "arc": [
@@ -99,8 +127,10 @@ def build_llvm(llvm_dir, platform, backends, projects):
 
     lib_llvm_core_library = build_dir.joinpath("lib/libLLVMCore.a").resolve()
     if lib_llvm_core_library.exists():
-        print(f"Please remove {build_dir} manually and try again")
-        return build_dir
+        print(
+            f"It has already been fully compiled. If want to a re-build, please remove {build_dir} manually and try again"
+        )
+        return None
 
     compile_options = " ".join(
         LLVM_COMPILE_OPTIONS
@@ -119,10 +149,11 @@ def build_llvm(llvm_dir, platform, backends, projects):
             CONFIG_CMD += " -G'Unix Makefiles'"
         else:
             CONFIG_CMD += " -A x64"
-    print(f"{CONFIG_CMD}")
+    else:
+        CONFIG_CMD += " -G'Ninja'"
     subprocess.check_call(shlex.split(CONFIG_CMD), cwd=build_dir)
 
-    BUILD_CMD = f"cmake --build . --target package --parallel {os.cpu_count()}" + (
+    BUILD_CMD = "cmake --build . --target package" + (
         " --config Release" if "windows" == platform else ""
     )
     subprocess.check_call(shlex.split(BUILD_CMD), cwd=build_dir)
@@ -133,23 +164,25 @@ def build_llvm(llvm_dir, platform, backends, projects):
 def repackage_llvm(llvm_dir):
     build_dir = llvm_dir.joinpath("./build").resolve()
 
-    packs = [f for f in build_dir.glob("LLVM-13*.tar.gz")]
+    packs = [f for f in build_dir.glob("LLVM-*.tar.gz")]
     if len(packs) > 1:
-        raise Exception("Find more than one LLVM-13*.tar.gz")
+        raise Exception("Find more than one LLVM-*.tar.gz")
 
     if not packs:
         return
 
     llvm_package = packs[0].name
-    # mv build/LLVM-13.0.0*.gz .
+    # mv build/LLVM-*.gz .
     shutil.move(str(build_dir.joinpath(llvm_package).resolve()), str(llvm_dir))
     # rm -r build
     shutil.rmtree(str(build_dir))
     # mkdir build
     build_dir.mkdir()
-    # tar xf ./LLVM-13.0.0-*.tar.gz --strip-components=1 --directory=build
+    # tar xf ./LLVM-*.tar.gz --strip-components=1 --directory=build
     CMD = f"tar xf {llvm_dir.joinpath(llvm_package).resolve()} --strip-components=1 --directory={build_dir}"
     subprocess.check_call(shlex.split(CMD), cwd=llvm_dir)
+    # rm ./LLVM-1*.gz
+    os.remove(llvm_dir.joinpath(llvm_package).resolve())
 
 
 def main():
@@ -184,8 +217,17 @@ def main():
         choices=["clang", "lldb"],
         help="identify extra LLVM projects, separate by space, like '--project clang lldb'",
     )
+    parser.add_argument(
+        "--llvm-ver",
+        action="store_true",
+        help="return the version info of generated llvm libraries",
+    )
+    parser.add_argument(
+        "--use-clang",
+        action="store_true",
+        help="use clang instead of gcc",
+    )
     options = parser.parse_args()
-    print(f"options={options}")
 
     # if the "platform" is not identified in the command line option,
     # detect it
@@ -199,12 +241,10 @@ def main():
     else:
         platform = options.platform
 
-    print(f"========== Build LLVM for {platform} ==========\n")
-
     llvm_repo_and_branch = {
         "arc": {
             "repo": "https://github.com/llvm/llvm-project.git",
-            "branch": "release/13.x",
+            "branch": "release/15.x",
         },
         "xtensa": {
             "repo": "https://github.com/espressif/llvm-project.git",
@@ -212,7 +252,7 @@ def main():
         },
         "default": {
             "repo": "https://github.com/llvm/llvm-project.git",
-            "branch": "release/13.x",
+            "branch": "release/15.x",
         },
     }
 
@@ -225,19 +265,22 @@ def main():
     deps_dir = current_dir.joinpath("../core/deps").resolve()
 
     try:
-        print(f"==================== CLONE LLVM ====================")
         llvm_info = llvm_repo_and_branch.get(platform, llvm_repo_and_branch["default"])
+
+        if options.llvm_ver:
+            commit_hash = query_llvm_version(llvm_info)
+            print(commit_hash)
+            return commit_hash is not None
+        
         llvm_dir = clone_llvm(deps_dir, llvm_info["repo"], llvm_info["branch"])
+        if (
+            build_llvm(
+                llvm_dir, platform, options.arch, options.project, options.use_clang
+            )
+            is not None
+        ):
+            repackage_llvm(llvm_dir)
 
-        print()
-        print(f"==================== BUILD LLVM ====================")
-        build_llvm(llvm_dir, platform, options.arch, options.project)
-
-        print()
-        print(f"==================== PACKAGE LLVM ====================")
-        repackage_llvm(llvm_dir)
-
-        print()
         return True
     except subprocess.CalledProcessError:
         return False

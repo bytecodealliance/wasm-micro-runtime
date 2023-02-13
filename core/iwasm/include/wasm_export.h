@@ -131,6 +131,14 @@ typedef struct mem_alloc_info_t {
     uint32_t highmark_size;
 } mem_alloc_info_t;
 
+/* Running mode of runtime and module instance*/
+typedef enum RunningMode {
+    Mode_Interp = 1,
+    Mode_Fast_JIT,
+    Mode_LLVM_JIT,
+    Mode_Multi_Tier_JIT,
+} RunningMode;
+
 /* WASM runtime initialize arguments */
 typedef struct RuntimeInitArgs {
     mem_alloc_type_t mem_alloc_type;
@@ -152,6 +160,13 @@ typedef struct RuntimeInitArgs {
 
     /* Fast JIT code cache size */
     uint32_t fast_jit_code_cache_size;
+
+    /* Default running mode of the runtime */
+    RunningMode running_mode;
+
+    /* LLVM JIT opt and size level */
+    uint32_t llvm_jit_opt_level;
+    uint32_t llvm_jit_size_level;
 } RuntimeInitArgs;
 
 #ifndef WASM_VALKIND_T_DEFINED
@@ -195,9 +210,9 @@ WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_init(void);
 
 /**
- * Initialize the WASM runtime environment, and also initialize
- * the memory allocator and register native symbols, which are specified
- * with init arguments
+ * Initialize the WASM runtime environment, WASM running mode,
+ * and also initialize the memory allocator and register native symbols,
+ * which are specified with init arguments
  *
  * @param init_args specifies the init arguments
  *
@@ -205,6 +220,28 @@ wasm_runtime_init(void);
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_full_init(RuntimeInitArgs *init_args);
+
+/**
+ * Query whether a certain running mode is supported for the runtime
+ *
+ * @param running_mode the running mode to query
+ *
+ * @return true if this running mode is supported, false otherwise
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_is_running_mode_supported(RunningMode running_mode);
+
+/**
+ * Set the default running mode for the runtime. It is inherited
+ * to set the running mode of a module instance when it is instantiated,
+ * and can be changed by calling wasm_runtime_set_running_mode
+ *
+ * @param running_mode the running mode to set
+ *
+ * @return true if success, false otherwise
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_set_default_running_mode(RunningMode running_mode);
 
 /**
  * Destroy the WASM runtime environment.
@@ -449,6 +486,34 @@ WASM_RUNTIME_API_EXTERN wasm_module_inst_t
 wasm_runtime_instantiate(const wasm_module_t module,
                          uint32_t stack_size, uint32_t heap_size,
                          char *error_buf, uint32_t error_buf_size);
+
+/**
+ * Set the running mode of a WASM module instance, override the
+ * default running mode of the runtime. Note that it only makes sense when
+ * the input is a wasm bytecode file: for the AOT file, runtime always runs
+ * it with AOT engine, and this function always returns true.
+ *
+ * @param module_inst the WASM module instance to set running mode
+ * @param running_mode the running mode to set
+ *
+ * @return true if success, false otherwise
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_set_running_mode(wasm_module_inst_t module_inst,
+                              RunningMode running_mode);
+
+/**
+ * Get the running mode of a WASM module instance, if no running mode
+ * is explicitly set the default running mode of runtime will
+ * be used and returned. Note that it only makes sense when the input is a
+ * wasm bytecode file: for the AOT file, this function always returns 0.
+ *
+ * @param module_inst the WASM module instance to query for running mode
+ *
+ * @return the running mode this module instance currently use
+ */
+WASM_RUNTIME_API_EXTERN RunningMode
+wasm_runtime_get_running_mode(wasm_module_inst_t module_inst);
 
 /**
  * Deinstantiate a WASM module instance, destroy the resources.
@@ -1259,6 +1324,22 @@ wasm_runtime_get_custom_section(wasm_module_t const module_comm,
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_get_version(uint32_t *major, uint32_t *minor, uint32_t *patch);
+
+/**
+ * Check whether an import func `(import <module_name> <func_name> (func ...))` is linked or not
+ * with runtime registered natvie functions
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_is_import_func_linked(const char *module_name,
+                                   const char *func_name);
+
+/**
+ * Check whether an import global `(import <module_name> <global_name> (global ...))` is linked or not
+ * with runtime registered natvie globals
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_is_import_global_linked(const char *module_name,
+                                     const char *global_name);
 /* clang-format on */
 
 #ifdef __cplusplus
