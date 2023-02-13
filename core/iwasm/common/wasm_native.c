@@ -79,7 +79,7 @@ compare_type_with_signautre(uint8 type, const char signature)
 }
 
 static bool
-check_symbol_signature(const WASMType *type, const char *signature)
+check_symbol_signature(const WASMFuncType *type, const char *signature)
 {
     const char *p = signature, *p_end;
     char sig;
@@ -241,8 +241,9 @@ lookup_symbol(NativeSymbol *native_symbols, uint32 n_native_symbols,
 
 void *
 wasm_native_resolve_symbol(const char *module_name, const char *field_name,
-                           const WASMType *func_type, const char **p_signature,
-                           void **p_attachment, bool *p_call_conv_raw)
+                           const WASMFuncType *func_type,
+                           const char **p_signature, void **p_attachment,
+                           bool *p_call_conv_raw)
 {
     NativeSymbolsNode *node, *node_next;
     const char *signature = NULL;

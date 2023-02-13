@@ -36,9 +36,9 @@ typedef enum WASMOpcode {
     WASM_OP_CALL_INDIRECT = 0x11,        /* call_indirect */
     WASM_OP_RETURN_CALL = 0x12,          /* return_call */
     WASM_OP_RETURN_CALL_INDIRECT = 0x13, /* return_call_indirect */
+    WASM_OP_CALL_REF = 0x14,             /* call_ref */
+    WASM_OP_RETURN_CALL_REF = 0x15,      /* return_call_ref */
 
-    WASM_OP_UNUSED_0x14 = 0x14,
-    WASM_OP_UNUSED_0x15 = 0x15,
     WASM_OP_UNUSED_0x16 = 0x16,
     WASM_OP_UNUSED_0x17 = 0x17,
     WASM_OP_UNUSED_0x18 = 0x18,
@@ -259,24 +259,66 @@ typedef enum WASMOpcode {
 
     WASM_OP_IMPDEP = 0xcf,
 
-    WASM_OP_REF_NULL = 0xd0,    /* ref.null */
-    WASM_OP_REF_IS_NULL = 0xd1, /* ref.is_null */
-    WASM_OP_REF_FUNC = 0xd2,    /* ref.func */
+    WASM_OP_REF_NULL = 0xd0,        /* ref.null */
+    WASM_OP_REF_IS_NULL = 0xd1,     /* ref.is_null */
+    WASM_OP_REF_FUNC = 0xd2,        /* ref.func */
+    WASM_OP_REF_AS_NON_NULL = 0xd3, /* ref.as_non_null */
+    WASM_OP_BR_ON_NULL = 0xd4,      /* br_on_null */
+    WASM_OP_REF_EQ = 0xd5,          /* ref.eq */
+    WASM_OP_BR_ON_NON_NULL = 0xd6,  /* br_on_non_null */
 
-    EXT_OP_BLOCK = 0xd3,          /* block with blocktype */
-    EXT_OP_LOOP = 0xd4,           /* loop with blocktype */
-    EXT_OP_IF = 0xd5,             /* if with blocktype */
-    EXT_OP_BR_TABLE_CACHE = 0xd6, /* br_table from cache */
+    EXT_OP_BLOCK = 0xd7,          /* block with blocktype */
+    EXT_OP_LOOP = 0xd8,           /* loop with blocktype */
+    EXT_OP_IF = 0xd9,             /* if with blocktype */
+    EXT_OP_BR_TABLE_CACHE = 0xda, /* br_table from cache */
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
-    DEBUG_OP_BREAK = 0xd7, /* debug break point */
+    DEBUG_OP_BREAK = 0xdb, /* debug break point */
 #endif
 
     /* Post-MVP extend op prefix */
+    WASM_OP_GC_PREFIX = 0xfb,
     WASM_OP_MISC_PREFIX = 0xfc,
     WASM_OP_SIMD_PREFIX = 0xfd,
     WASM_OP_ATOMIC_PREFIX = 0xfe,
 } WASMOpcode;
+
+typedef enum WASMGCEXTOpcode {
+    WASM_OP_STRUCT_NEW_CANON = 0x01,         /* struct.new_canon */
+    WASM_OP_STRUCT_NEW_CANON_DEFAULT = 0x02, /* struct.new_canon_default */
+    WASM_OP_STRUCT_GET = 0x03,               /* struct.get */
+    WASM_OP_STRUCT_GET_S = 0x04,             /* struct.get_s */
+    WASM_OP_STRUCT_GET_U = 0x05,             /* struct.get_u */
+    WASM_OP_STRUCT_SET = 0x06,               /* struct.set */
+
+    WASM_OP_ARRAY_NEW_CANON = 0x11,         /* array.new_canon */
+    WASM_OP_ARRAY_NEW_CANON_DEFAULT = 0x12, /* array.new_canon_default */
+    WASM_OP_ARRAY_GET = 0x13,               /* array.get */
+    WASM_OP_ARRAY_GET_S = 0x14,             /* array.get_s */
+    WASM_OP_ARRAY_GET_U = 0x15,             /* array.get_u */
+    WASM_OP_ARRAY_SET = 0x16,               /* array.set */
+    WASM_OP_ARRAY_LEN = 0x17,               /* array.len */
+    WASM_OP_ARRAY_NEW_CANON_FIXED = 0x19,   /* array.new_canon_fixed */
+    WASM_OP_ARRAY_NEW_CANON_DATA = 0x1b,    /* array.new_canon_data */
+    WASM_OP_ARRAY_NEW_CANON_ELEM = 0x1c,    /* array.new_canon_elem */
+
+    WASM_OP_I31_NEW = 0x20,   /* i31.new */
+    WASM_OP_I31_GET_S = 0x21, /* i31.get_s */
+    WASM_OP_I31_GET_U = 0x22, /* i31.get_u */
+
+    WASM_OP_REF_TEST = 0x40,        /* ref.test */
+    WASM_OP_REF_CAST = 0x41,        /* ref.cast */
+    WASM_OP_BR_ON_CAST = 0x42,      /* br_on_cast */
+    WASM_OP_BR_ON_CAST_FAIL = 0x43, /* br_on_cast_fail */
+
+    WASM_OP_REF_TEST_NULLABLE = 0x48,        /* ref.test_nullable */
+    WASM_OP_REF_CAST_NULLABLE = 0x49,        /* ref.cast_nullable */
+    WASM_OP_BR_ON_CAST_NULLABLE = 0x4a,      /* br_on_cast_nullable */
+    WASM_OP_BR_ON_CAST_FAIL_NULLABLE = 0x4b, /* br_on_cast_fail_nullable */
+
+    WASM_OP_EXTERN_INTERNALIZE = 0x70, /* extern.internalize */
+    WASM_OP_EXTERN_EXTERNALIZE = 0x71, /* extern.externalize */
+} WASMGCEXTOpcode;
 
 typedef enum WASMMiscEXTOpcode {
     WASM_OP_I32_TRUNC_SAT_S_F32 = 0x00,
@@ -676,7 +718,7 @@ typedef enum WASMAtomicEXTOpcode {
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
 #define DEF_DEBUG_BREAK_HANDLE(_name) \
-    _name[DEBUG_OP_BREAK] = HANDLE_OPCODE(DEBUG_OP_BREAK); /* 0xd7 */
+    _name[DEBUG_OP_BREAK] = HANDLE_OPCODE(DEBUG_OP_BREAK); /* 0xdb */
 #else
 #define DEF_DEBUG_BREAK_HANDLE(_name)
 #endif
@@ -708,8 +750,8 @@ typedef enum WASMAtomicEXTOpcode {
         HANDLE_OPCODE(WASM_OP_CALL_INDIRECT),        /* 0x11 */ \
         HANDLE_OPCODE(WASM_OP_RETURN_CALL),          /* 0x12 */ \
         HANDLE_OPCODE(WASM_OP_RETURN_CALL_INDIRECT), /* 0x13 */ \
-        HANDLE_OPCODE(WASM_OP_UNUSED_0x14),          /* 0x14 */ \
-        HANDLE_OPCODE(WASM_OP_UNUSED_0x15),          /* 0x15 */ \
+        HANDLE_OPCODE(WASM_OP_CALL_REF),             /* 0x14 */ \
+        HANDLE_OPCODE(WASM_OP_RETURN_CALL_REF),      /* 0x15 */ \
         HANDLE_OPCODE(WASM_OP_UNUSED_0x16),          /* 0x16 */ \
         HANDLE_OPCODE(WASM_OP_UNUSED_0x17),          /* 0x17 */ \
         HANDLE_OPCODE(WASM_OP_UNUSED_0x18),          /* 0x18 */ \
@@ -899,12 +941,18 @@ typedef enum WASMAtomicEXTOpcode {
         HANDLE_OPCODE(WASM_OP_REF_NULL),             /* 0xd0 */ \
         HANDLE_OPCODE(WASM_OP_REF_IS_NULL),          /* 0xd1 */ \
         HANDLE_OPCODE(WASM_OP_REF_FUNC),             /* 0xd2 */ \
-        HANDLE_OPCODE(EXT_OP_BLOCK),                 /* 0xd3 */ \
-        HANDLE_OPCODE(EXT_OP_LOOP),                  /* 0xd4 */ \
-        HANDLE_OPCODE(EXT_OP_IF),                    /* 0xd5 */ \
-        HANDLE_OPCODE(EXT_OP_BR_TABLE_CACHE),        /* 0xd6 */ \
+        HANDLE_OPCODE(WASM_OP_REF_AS_NON_NULL),      /* 0xd3 */ \
+        HANDLE_OPCODE(WASM_OP_BR_ON_NULL),           /* 0xd4 */ \
+        HANDLE_OPCODE(WASM_OP_REF_EQ),               /* 0xd5 */ \
+        HANDLE_OPCODE(WASM_OP_BR_ON_NON_NULL),       /* 0xd6 */ \
+        HANDLE_OPCODE(EXT_OP_BLOCK),                 /* 0xd7 */ \
+        HANDLE_OPCODE(EXT_OP_LOOP),                  /* 0xd8 */ \
+        HANDLE_OPCODE(EXT_OP_IF),                    /* 0xd9 */ \
+        HANDLE_OPCODE(EXT_OP_BR_TABLE_CACHE),        /* 0xda */ \
     };                                                          \
     do {                                                        \
+        _name[WASM_OP_GC_PREFIX] =                              \
+            HANDLE_OPCODE(WASM_OP_GC_PREFIX); /* 0xfb */        \
         _name[WASM_OP_MISC_PREFIX] =                            \
             HANDLE_OPCODE(WASM_OP_MISC_PREFIX); /* 0xfc */      \
         _name[WASM_OP_ATOMIC_PREFIX] =                          \

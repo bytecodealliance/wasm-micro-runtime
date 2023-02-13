@@ -115,12 +115,17 @@ struct WASMMemoryInstance {
 };
 
 struct WASMTableInstance {
+#if WASM_ENABLE_GC != 0
+    /* The element type */
+    uint8 elem_type;
+    WASMRefType *elem_ref_type;
+#endif
     /* Current size */
     uint32 cur_size;
     /* Maximum size */
     uint32 max_size;
     /* Table elements */
-    uint32 elems[1];
+    table_elem_type_t elems[1];
 };
 
 struct WASMGlobalInstance {
@@ -132,6 +137,9 @@ struct WASMGlobalInstance {
     uint32 data_offset;
     /* initial value */
     WASMValue initial_value;
+#if WASM_ENABLE_GC != 0
+    WASMRefType *ref_type;
+#endif
 #if WASM_ENABLE_MULTI_MODULE != 0
     /* just for import, keep the reference here */
     WASMModuleInstance *import_module_inst;
@@ -234,6 +242,13 @@ typedef struct WASMModuleInstanceExtra {
     bh_list *sub_module_inst_list;
     /* linked table instances of import table instances */
     WASMTableInstance **table_insts_linked;
+#endif
+
+#if WASM_ENABLE_GC != 0
+    /* The gc heap memory pool */
+    uint8 *gc_heap_pool;
+    /* The gc heap created */
+    void *gc_heap_handle;
 #endif
 
 #if WASM_ENABLE_MEMORY_PROFILING != 0
@@ -500,7 +515,7 @@ void
 wasm_get_module_inst_mem_consumption(const WASMModuleInstance *module,
                                      WASMModuleInstMemConsumption *mem_conspn);
 
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
 static inline bool
 wasm_elem_is_active(uint32 mode)
 {
@@ -521,8 +536,17 @@ wasm_elem_is_declarative(uint32 mode)
 
 bool
 wasm_enlarge_table(WASMModuleInstance *module_inst, uint32 table_idx,
-                   uint32 inc_entries, uint32 init_val);
-#endif /* WASM_ENABLE_REF_TYPES != 0 */
+                   uint32 inc_entries, table_elem_type_t init_val);
+#endif /* WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0 */
+
+#if WASM_ENABLE_GC != 0
+void *
+wasm_create_func_obj(WASMModuleInstance *module_inst, uint32 func_idx,
+                     bool throw_exce, char *error_buf, uint32 error_buf_size);
+
+bool
+wasm_traverse_gc_rootset(WASMExecEnv *exec_env, void *heap);
+#endif
 
 static inline WASMTableInstance *
 wasm_get_table_inst(const WASMModuleInstance *module_inst, uint32 tbl_idx)
