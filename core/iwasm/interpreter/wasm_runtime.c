@@ -2264,10 +2264,16 @@ call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
         return;
     }
 
+#ifdef OS_ENABLE_INTERRUPT_BLOCK_INSN
+    exec_env->canjump = 0;
+#endif
     wasm_exec_env_push_jmpbuf(exec_env, &jmpbuf_node);
-
     wasm_runtime_set_exec_env_tls(exec_env);
+
     if (os_setjmp(jmpbuf_node.jmpbuf) == 0) {
+#ifdef OS_ENABLE_INTERRUPT_BLOCK_INSN
+        exec_env->canjump = 1;
+#endif
 #ifndef BH_PLATFORM_WINDOWS
         wasm_interp_call_wasm(module_inst, exec_env, function, argc, argv);
 #else
@@ -2293,6 +2299,10 @@ call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
         ret = false;
     }
 
+#ifdef OS_ENABLE_INTERRUPT_BLOCK_INSN
+    exec_env->canjump = 0;
+#endif
+
     /* Note: can't check wasm_get_exception(module_inst) here, there may be
      * exception which is not caught by hardware (e.g. uninitialized elements),
      * then the stack-frame is already freed inside wasm_interp_call_wasm */
@@ -2316,11 +2326,15 @@ call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
         os_sigreturn();
         os_signal_unmask();
     }
+
+#ifdef OS_ENABLE_INTERRUPT_BLOCK_INSN
+    exec_env->canjump = 1;
+#endif
     (void)jmpbuf_node_pop;
 }
 #endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
-#ifndef OS_ENABLE_BLOCK_INSN_INTERRUPT
+#ifndef OS_ENABLE_INTERRUPT_BLOCK_INSN
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
 #define interp_call_wasm call_wasm_with_hw_bound_check
@@ -2328,7 +2342,7 @@ call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
 #define interp_call_wasm wasm_interp_call_wasm
 #endif
 
-#else /* else of OS_ENABLE_BLOCK_INSN_INTERRUPT */
+#else /* else of OS_ENABLE_INTERRUPT_BLOCK_INSN */
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
 #define call_wasm_block_insn_interrupt call_wasm_with_hw_bound_check
@@ -2341,21 +2355,37 @@ interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
                  WASMFunctionInstance *function, unsigned argc, uint32 argv[])
 {
     WASMJmpBuf jmpbuf_node = { 0 }, *jmpbuf_node_pop;
+    bool ret;
+
+    exec_env->canjump = 0;
     wasm_runtime_set_exec_env_tls(exec_env);
+    wasm_exec_env_push_jmpbuf(exec_env, &jmpbuf_node);
 
     if (os_setjmp(jmpbuf_node.jmpbuf) == 0) {
-        wasm_exec_env_push_jmpbuf(exec_env, &jmpbuf_node);
+        exec_env->canjump = 1;
         call_wasm_block_insn_interrupt(module_inst, exec_env, function, argc,
                                        argv);
+        ret = !wasm_get_exception(module_inst) ? true : false;
+    }
+    else {
+        /* Exception has been set in signal handler before calling longjmp */
+        ret = false;
     }
 
+    exec_env->canjump = 0;
     jmpbuf_node_pop = wasm_exec_env_pop_jmpbuf(exec_env);
     bh_assert(&jmpbuf_node == jmpbuf_node_pop);
     if (!exec_env->jmpbuf_stack_top) {
         wasm_runtime_set_exec_env_tls(NULL);
     }
+    if (!ret) {
+        os_sigreturn();
+        os_signal_unmask();
+    }
+    exec_env->canjump = 1;
+    (void)jmpbuf_node_pop;
 }
-#endif /* end of OS_ENABLE_BLOCK_INSN_INTERRUPT */
+#endif /* end of OS_ENABLE_INTERRUPT_BLOCK_INSN */
 
 bool
 wasm_call_function(WASMExecEnv *exec_env, WASMFunctionInstance *function,
@@ -2380,7 +2410,7 @@ wasm_create_exec_env_and_call_function(WASMModuleInstance *module_inst,
     WASMExecEnv *exec_env = NULL, *existing_exec_env = NULL;
     bool ret;
 
-#if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_BLOCK_INSN_INTERRUPT)
+#if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
     existing_exec_env = exec_env = wasm_runtime_get_exec_env_tls();
 #elif WASM_ENABLE_THREAD_MGR != 0
     existing_exec_env = exec_env =

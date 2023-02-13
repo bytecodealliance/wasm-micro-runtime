@@ -1276,10 +1276,16 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
         return false;
     }
 
+#ifdef OS_ENABLE_INTERRUPT_BLOCK_INSN
+    exec_env->canjump = 0;
+#endif
     wasm_exec_env_push_jmpbuf(exec_env, &jmpbuf_node);
-
     wasm_runtime_set_exec_env_tls(exec_env);
+
     if (os_setjmp(jmpbuf_node.jmpbuf) == 0) {
+#ifdef OS_ENABLE_INTERRUPT_BLOCK_INSN
+        exec_env->canjump = 1;
+#endif
         /* Quick call with func_ptr if the function signature is simple */
         if (!signature && param_count == 1 && types[0] == VALUE_TYPE_I32) {
             if (result_count == 0) {
@@ -1321,6 +1327,10 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
         ret = false;
     }
 
+#ifdef OS_ENABLE_INTERRUPT_BLOCK_INSN
+    exec_env->canjump = 0;
+#endif
+
     jmpbuf_node_pop = wasm_exec_env_pop_jmpbuf(exec_env);
     bh_assert(&jmpbuf_node == jmpbuf_node_pop);
     if (!exec_env->jmpbuf_stack_top) {
@@ -1330,12 +1340,16 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
         os_sigreturn();
         os_signal_unmask();
     }
+
+#ifdef OS_ENABLE_INTERRUPT_BLOCK_INSN
+    exec_env->canjump = 1;
+#endif
     (void)jmpbuf_node_pop;
     return ret;
 }
 #endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
-#ifndef OS_ENABLE_BLOCK_INSN_INTERRUPT
+#ifndef OS_ENABLE_INTERRUPT_BLOCK_INSN
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
 #define invoke_native_internal invoke_native_with_hw_bound_check
@@ -1343,7 +1357,7 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
 #define invoke_native_internal wasm_runtime_invoke_native
 #endif
 
-#else /* else of OS_ENABLE_BLOCK_INSN_INTERRUPT */
+#else /* else of OS_ENABLE_INTERRUPT_BLOCK_INSN */
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
 #define invoke_native_block_insn_interrupt invoke_native_with_hw_bound_check
@@ -1357,29 +1371,39 @@ invoke_native_internal(WASMExecEnv *exec_env, void *func_ptr,
                        void *attachment, uint32 *argv, uint32 argc,
                        uint32 *argv_ret)
 {
-    int ret = false;
+    bool ret;
     WASMJmpBuf jmpbuf_node = { 0 }, *jmpbuf_node_pop;
+
+    exec_env->canjump = 0;
+    wasm_exec_env_push_jmpbuf(exec_env, &jmpbuf_node);
     wasm_runtime_set_exec_env_tls(exec_env);
 
     if (os_setjmp(jmpbuf_node.jmpbuf) == 0) {
-        wasm_exec_env_push_jmpbuf(exec_env, &jmpbuf_node);
+        exec_env->canjump = 1;
         ret = invoke_native_block_insn_interrupt(exec_env, func_ptr, func_type,
                                                  signature, attachment, argv,
                                                  argc, argv_ret);
     }
     else {
+        /* Exception has been set in signal handler before calling longjmp */
         ret = false;
     }
 
+    exec_env->canjump = 0;
     jmpbuf_node_pop = wasm_exec_env_pop_jmpbuf(exec_env);
     bh_assert(&jmpbuf_node == jmpbuf_node_pop);
     if (!exec_env->jmpbuf_stack_top) {
         wasm_runtime_set_exec_env_tls(NULL);
     }
-
+    if (!ret) {
+        os_sigreturn();
+        os_signal_unmask();
+    }
+    exec_env->canjump = 1;
+    (void)jmpbuf_node_pop;
     return ret;
 }
-#endif /* end of OS_ENABLE_BLOCK_INSN_INTERRUPT */
+#endif /* end of OS_ENABLE_INTERRUPT_BLOCK_INSN */
 
 bool
 aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
@@ -1536,7 +1560,7 @@ aot_create_exec_env_and_call_function(AOTModuleInstance *module_inst,
     WASMExecEnv *exec_env = NULL, *existing_exec_env = NULL;
     bool ret;
 
-#if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_BLOCK_INSN_INTERRUPT)
+#if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
     existing_exec_env = exec_env = wasm_runtime_get_exec_env_tls();
 #elif WASM_ENABLE_THREAD_MGR != 0
     existing_exec_env = exec_env =

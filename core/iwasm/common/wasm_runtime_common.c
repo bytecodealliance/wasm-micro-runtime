@@ -134,17 +134,17 @@ static LLVMJITOptions llvm_jit_options = { 3, 3 };
 
 static RunningMode runtime_running_mode = Mode_Default;
 
-#if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_BLOCK_INSN_INTERRUPT)
+#if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
 /* The exec_env of thread local storage, set before calling function
    and used in signal handler, as we cannot get it from the argument
    of signal handler */
 static os_thread_local_attribute WASMExecEnv *exec_env_tls = NULL;
-#endif
+
+#ifndef BH_PLATFORM_WINDOWS
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
-#ifndef BH_PLATFORM_WINDOWS
 static void
-runtime_signal_handler(void *sig_addr)
+hw_bound_check_sig_handler(void *sig_addr)
 {
     WASMModuleInstance *module_inst;
     WASMMemoryInstance *memory_inst;
@@ -200,7 +200,38 @@ runtime_signal_handler(void *sig_addr)
         }
     }
 }
-#else
+#endif /* end of OS_ENABLE_HW_BOUND_CHECK */
+
+#ifdef OS_ENABLE_INTERRUPT_BLOCK_INSN
+static void
+interrupt_block_insn_sig_handler()
+{
+    WASMJmpBuf *jmpbuf_node;
+
+    /* Check whether current thread is running wasm function */
+    if (exec_env_tls && exec_env_tls->handle == os_self_thread()
+        && exec_env_tls->canjump
+        && (jmpbuf_node = exec_env_tls->jmpbuf_stack_top)) {
+        os_longjmp(jmpbuf_node->jmpbuf, 1);
+    }
+}
+#endif /* end of OS_ENABLE_INTERRUPT_BLOCK_INSN */
+
+static void
+runtime_signal_handler(int sig, void *sig_addr)
+{
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    if (sig == OS_SIGSEGV || sig == OS_SIGBUS)
+        hw_bound_check_sig_handler(sig_addr);
+#endif
+#ifdef OS_ENABLE_INTERRUPT_BLOCK_INSN
+    if (sig == OS_SIGUSR1)
+        interrupt_block_insn_sig_handler();
+#endif
+}
+
+#else /* else if BH_PLATFORM_WINDOWS */
+
 static LONG
 runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
 {
@@ -284,6 +315,7 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
               sig_addr);
     return EXCEPTION_CONTINUE_SEARCH;
 }
+
 #endif /* end of BH_PLATFORM_WINDOWS */
 
 static bool
@@ -311,9 +343,7 @@ runtime_signal_destroy()
 #endif
     os_thread_signal_destroy();
 }
-#endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
-#if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_BLOCK_INSN_INTERRUPT)
 void
 wasm_runtime_set_exec_env_tls(WASMExecEnv *exec_env)
 {
@@ -325,20 +355,8 @@ wasm_runtime_get_exec_env_tls()
 {
     return exec_env_tls;
 }
-#endif
-
-#ifdef OS_ENABLE_BLOCK_INSN_INTERRUPT
-static void
-interrupt_block_insn_sig_handler()
-{
-    WASMJmpBuf *jmpbuf_node = exec_env_tls->jmpbuf_stack_top;
-    if (!jmpbuf_node) {
-        return;
-    }
-
-    os_longjmp(jmpbuf_node->jmpbuf, 1);
-}
-#endif /* OS_ENABLE_BLOCK_INSN_INTERRUPT */
+#endif /* end of defined(OS_ENABLE_HW_BOUND_CHECK) || \
+          defined(OS_ENABLE_INTERRUPT_BLOCK_INSN) */
 
 static bool
 wasm_runtime_env_init()
@@ -371,12 +389,7 @@ wasm_runtime_env_init()
         goto fail5;
     }
 #endif
-#ifdef OS_ENABLE_BLOCK_INSN_INTERRUPT
-    if (!os_interrupt_block_insn_init(interrupt_block_insn_sig_handler)) {
-        goto fail6;
-    }
-#endif
-#ifdef OS_ENABLE_HW_BOUND_CHECK
+#if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
     if (!runtime_signal_init()) {
         goto fail6;
     }
@@ -431,10 +444,8 @@ fail8:
 fail7:
 #endif
 #endif
-#if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_BLOCK_INSN_INTERRUPT)
-#ifdef OS_ENABLE_HW_BOUND_CHECK
+#if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
     runtime_signal_destroy();
-#endif
 fail6:
 #endif
 #if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_THREAD_MGR != 0)
@@ -494,7 +505,7 @@ wasm_runtime_destroy()
 #endif
 #endif
 
-#ifdef OS_ENABLE_HW_BOUND_CHECK
+#if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
     runtime_signal_destroy();
 #endif
 
@@ -1333,7 +1344,7 @@ wasm_runtime_init_thread_env(void)
         return false;
 #endif
 
-#ifdef OS_ENABLE_HW_BOUND_CHECK
+#if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
     if (!runtime_signal_init()) {
 #ifdef BH_PLATFORM_WINDOWS
         os_thread_env_destroy();
@@ -1348,7 +1359,7 @@ wasm_runtime_init_thread_env(void)
 void
 wasm_runtime_destroy_thread_env(void)
 {
-#ifdef OS_ENABLE_HW_BOUND_CHECK
+#if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
     runtime_signal_destroy();
 #endif
 
@@ -1365,11 +1376,9 @@ wasm_runtime_thread_env_inited(void)
         return false;
 #endif
 
-#if WASM_ENABLE_AOT != 0
-#ifdef OS_ENABLE_HW_BOUND_CHECK
+#if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
     if (!os_thread_signal_inited())
         return false;
-#endif
 #endif
     return true;
 }
@@ -2344,6 +2353,13 @@ wasm_set_exception(WASMModuleInstance *module_inst, const char *exception)
     if (exception) {
         notify_stale_threads_on_exception(
             (WASMModuleInstanceCommon *)module_inst);
+    }
+#endif
+#ifdef OS_ENABLE_INTERRUPT_BLOCK_INSN
+    if (exec_env) {
+        /* Kill the blocking threads after exception was spreaded and
+           atomic waiting nodes were notified */
+        wasm_cluster_kill_all_except_self(exec_env->cluster, exec_env);
     }
 #endif
 #else

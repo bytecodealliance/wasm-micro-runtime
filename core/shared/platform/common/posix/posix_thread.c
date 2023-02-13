@@ -12,12 +12,12 @@
 typedef struct {
     thread_start_routine_t start;
     void *arg;
-#ifdef OS_ENABLE_HW_BOUND_CHECK
+#if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
     os_signal_handler signal_handler;
 #endif
 } thread_wrapper_arg;
 
-#ifdef OS_ENABLE_HW_BOUND_CHECK
+#if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
 /* The signal handler passed to os_thread_signal_init() */
 static os_thread_local_attribute os_signal_handler signal_handler;
 #endif
@@ -28,7 +28,7 @@ os_thread_wrapper(void *arg)
     thread_wrapper_arg *targ = arg;
     thread_start_routine_t start_func = targ->start;
     void *thread_arg = targ->arg;
-#ifdef OS_ENABLE_HW_BOUND_CHECK
+#if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
     os_signal_handler handler = targ->signal_handler;
 #endif
 
@@ -36,12 +36,12 @@ os_thread_wrapper(void *arg)
     os_printf("THREAD CREATED %jx\n", (uintmax_t)(uintptr_t)pthread_self());
 #endif
     BH_FREE(targ);
-#ifdef OS_ENABLE_HW_BOUND_CHECK
+#if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
     if (os_thread_signal_init(handler) != 0)
         return NULL;
 #endif
     start_func(thread_arg);
-#ifdef OS_ENABLE_HW_BOUND_CHECK
+#if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
     os_thread_signal_destroy();
 #endif
     return NULL;
@@ -75,7 +75,7 @@ os_thread_create_with_prio(korp_tid *tid, thread_start_routine_t start,
 
     targ->start = start;
     targ->arg = arg;
-#ifdef OS_ENABLE_HW_BOUND_CHECK
+#if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
     targ->signal_handler = signal_handler;
 #endif
 
@@ -340,7 +340,7 @@ os_thread_detach(korp_tid thread)
 void
 os_thread_exit(void *retval)
 {
-#ifdef OS_ENABLE_HW_BOUND_CHECK
+#if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
     os_thread_signal_destroy();
 #endif
     return pthread_exit(retval);
@@ -420,26 +420,7 @@ os_thread_get_stack_boundary()
     return addr;
 }
 
-#ifdef OS_ENABLE_BLOCK_INSN_INTERRUPT
-bool
-os_interrupt_block_insn_init(os_block_insn_sig_handler handler)
-{
-    struct sigaction act;
-    memset(&act, 0, sizeof(act));
-    act.sa_handler = handler;
-    sigfillset(&act.sa_mask);
-    if (sigaction(SIGUSR1, &act, NULL) < 0) {
-        os_printf("failed to set signal handler\n");
-        return false;
-    }
-
-    return true;
-}
-#endif /* OS_ENABLE_BLOCK_INSN_INTERRUPT */
-
-#ifdef OS_ENABLE_HW_BOUND_CHECK
-
-#define SIG_ALT_STACK_SIZE (32 * 1024)
+#if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
 
 /**
  * Whether thread signal enviornment is initialized:
@@ -448,7 +429,10 @@ os_interrupt_block_insn_init(os_block_insn_sig_handler handler)
  */
 static os_thread_local_attribute bool thread_signal_inited = false;
 
-#if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
+
+#define SIG_ALT_STACK_SIZE (32 * 1024)
+
 /* The signal alternate stack base addr */
 static os_thread_local_attribute uint8 *sigalt_stack_base_addr;
 
@@ -512,7 +496,8 @@ destroy_stack_guard_pages()
     os_mprotect(stack_min_addr, page_size * guard_page_count,
                 MMAP_PROT_READ | MMAP_PROT_WRITE);
 }
-#endif /* end of WASM_DISABLE_STACK_HW_BOUND_CHECK == 0 */
+#endif /* end of defined(OS_ENABLE_HW_BOUND_CHECK) && \
+          WASM_DISABLE_STACK_HW_BOUND_CHECK == 0 */
 
 static void
 mask_signals(int how)
@@ -520,13 +505,23 @@ mask_signals(int how)
     sigset_t set;
 
     sigemptyset(&set);
+#if defined(OS_ENABLE_HW_BOUND_CHECK)
     sigaddset(&set, SIGSEGV);
     sigaddset(&set, SIGBUS);
+#endif
+#if defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
+    sigaddset(&set, SIGUSR1);
+#endif
     pthread_sigmask(how, &set, NULL);
 }
 
+#if defined(OS_ENABLE_HW_BOUND_CHECK)
 static os_thread_local_attribute struct sigaction prev_sig_act_SIGSEGV;
 static os_thread_local_attribute struct sigaction prev_sig_act_SIGBUS;
+#endif
+#if defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
+static os_thread_local_attribute struct sigaction prev_sig_act_SIGUSR1;
+#endif
 
 static void
 signal_callback(int sig_num, siginfo_t *sig_info, void *sig_ucontext)
@@ -537,14 +532,27 @@ signal_callback(int sig_num, siginfo_t *sig_info, void *sig_ucontext)
     mask_signals(SIG_BLOCK);
 
     /* Try to handle signal with the registered signal handler */
-    if (signal_handler && (sig_num == SIGSEGV || sig_num == SIGBUS)) {
-        signal_handler(sig_addr);
+    if (signal_handler) {
+#if defined(OS_ENABLE_HW_BOUND_CHECK)
+        if (sig_num == SIGSEGV || sig_num == SIGBUS)
+            signal_handler(sig_num, sig_addr);
+#endif
+#if defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
+        if (sig_num == SIGUSR1)
+            signal_handler(sig_num, sig_addr);
+#endif
     }
 
+#if defined(OS_ENABLE_HW_BOUND_CHECK)
     if (sig_num == SIGSEGV)
         prev_sig_act = &prev_sig_act_SIGSEGV;
     else if (sig_num == SIGBUS)
         prev_sig_act = &prev_sig_act_SIGBUS;
+#endif
+#if defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
+    if (sig_num == SIGUSR1)
+        prev_sig_act = &prev_sig_act_SIGUSR1;
+#endif
 
     /* Forward the signal to next handler if found */
     if (prev_sig_act && (prev_sig_act->sa_flags & SA_SIGINFO)) {
@@ -558,12 +566,19 @@ signal_callback(int sig_num, siginfo_t *sig_info, void *sig_ucontext)
     /* Output signal info and then crash if signal is unhandled */
     else {
         switch (sig_num) {
+#if defined(OS_ENABLE_HW_BOUND_CHECK)
             case SIGSEGV:
                 os_printf("unhandled SIGSEGV, si_addr: %p\n", sig_addr);
                 break;
             case SIGBUS:
                 os_printf("unhandled SIGBUS, si_addr: %p\n", sig_addr);
                 break;
+#endif
+#if defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
+            case SIGUSR1:
+                os_printf("unhandled SIGUSR1, si_addr: %p\n", sig_addr);
+                break;
+#endif
             default:
                 os_printf("unhandle signal %d, si_addr: %p\n", sig_num,
                           sig_addr);
@@ -578,7 +593,7 @@ int
 os_thread_signal_init(os_signal_handler handler)
 {
     struct sigaction sig_act;
-#if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
     stack_t sigalt_stack_info;
     uint32 map_size = SIG_ALT_STACK_SIZE;
     uint8 *map_addr;
@@ -587,7 +602,7 @@ os_thread_signal_init(os_signal_handler handler)
     if (thread_signal_inited)
         return 0;
 
-#if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
     if (!init_stack_guard_pages()) {
         os_printf("Failed to init stack guard pages\n");
         return -1;
@@ -611,23 +626,36 @@ os_thread_signal_init(os_signal_handler handler)
     }
 #endif
 
+#if defined(OS_ENABLE_HW_BOUND_CHECK)
     memset(&prev_sig_act_SIGSEGV, 0, sizeof(struct sigaction));
     memset(&prev_sig_act_SIGBUS, 0, sizeof(struct sigaction));
+#endif
+#if defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
+    memset(&prev_sig_act_SIGUSR1, 0, sizeof(struct sigaction));
+#endif
 
     /* Install signal hanlder */
     sig_act.sa_sigaction = signal_callback;
     sig_act.sa_flags = SA_SIGINFO | SA_NODEFER;
-#if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
     sig_act.sa_flags |= SA_ONSTACK;
 #endif
     sigemptyset(&sig_act.sa_mask);
+#if defined(OS_ENABLE_HW_BOUND_CHECK)
     if (sigaction(SIGSEGV, &sig_act, &prev_sig_act_SIGSEGV) != 0
         || sigaction(SIGBUS, &sig_act, &prev_sig_act_SIGBUS) != 0) {
         os_printf("Failed to register signal handler\n");
         goto fail3;
     }
+#endif
+#if defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
+    if (sigaction(SIGUSR1, &sig_act, &prev_sig_act_SIGUSR1) != 0) {
+        os_printf("Failed to register signal handler\n");
+        goto fail3;
+    }
+#endif
 
-#if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
     sigalt_stack_base_addr = map_addr;
 #endif
     signal_handler = handler;
@@ -635,7 +663,7 @@ os_thread_signal_init(os_signal_handler handler)
     return 0;
 
 fail3:
-#if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
     memset(&sigalt_stack_info, 0, sizeof(stack_t));
     sigalt_stack_info.ss_flags = SS_DISABLE;
     sigalt_stack_info.ss_size = map_size;
@@ -651,14 +679,14 @@ fail1:
 void
 os_thread_signal_destroy()
 {
-#if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
     stack_t sigalt_stack_info;
 #endif
 
     if (!thread_signal_inited)
         return;
 
-#if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
     /* Disable signal alternate stack */
     memset(&sigalt_stack_info, 0, sizeof(stack_t));
     sigalt_stack_info.ss_flags = SS_DISABLE;
@@ -688,7 +716,7 @@ os_signal_unmask()
 void
 os_sigreturn()
 {
-#if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
 #if defined(__APPLE__)
 #define UC_RESET_ALT_STACK 0x80000000
     extern int __sigreturn(void *, int);
@@ -699,4 +727,18 @@ os_sigreturn()
 #endif
 #endif
 }
-#endif /* end of OS_ENABLE_HW_BOUND_CHECK */
+
+#if defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
+void
+os_thread_set_interruptible(bool flag)
+{
+    sigset_t set;
+    int how = flag ? SIG_UNBLOCK : SIG_BLOCK;
+
+    sigemptyset(&set);
+    sigaddset(&set, SIGUSR1);
+    pthread_sigmask(how, &set, NULL);
+}
+#endif
+#endif /* end of defined(OS_ENABLE_HW_BOUND_CHECK) || \
+          defined(OS_ENABLE_INTERRUPT_BLOCK_INSN) */
