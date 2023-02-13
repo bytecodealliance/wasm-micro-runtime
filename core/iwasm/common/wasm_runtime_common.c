@@ -7,6 +7,7 @@
 #include "bh_common.h"
 #include "bh_assert.h"
 #include "bh_log.h"
+#include "wasm_native.h"
 #include "wasm_runtime_common.h"
 #include "wasm_memory.h"
 #if WASM_ENABLE_INTERP != 0
@@ -5330,4 +5331,25 @@ wasm_runtime_get_version(uint32_t *major, uint32_t *minor, uint32_t *patch)
     *major = WAMR_VERSION_MAJOR;
     *minor = WAMR_VERSION_MINOR;
     *patch = WAMR_VERSION_PATCH;
+}
+
+bool
+wasm_runtime_is_import_func_linked(const char *module_name,
+                                   const char *func_name)
+{
+    return wasm_native_resolve_symbol(module_name, func_name, NULL, NULL, NULL,
+                                      NULL);
+}
+
+bool
+wasm_runtime_is_import_global_linked(const char *module_name,
+                                     const char *global_name)
+{
+#if WASM_ENABLE_LIBC_BUILTIN != 0
+    WASMGlobalImport global = { 0 };
+    return wasm_native_lookup_libc_builtin_global(module_name, global_name,
+                                                  &global);
+#else
+    return false;
+#endif
 }
