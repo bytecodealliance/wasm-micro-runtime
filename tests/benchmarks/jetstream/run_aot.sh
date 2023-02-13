@@ -13,7 +13,7 @@ IWASM_CMD=$CUR_DIR/../../../product-mini/platforms/${PLATFORM}/build/iwasm
 
 BENCH_NAME_MAX_LEN=20
 
-JETSTREAM_CASES="gcc-loops quicksort HashSet float-mm"
+JETSTREAM_CASES="gcc-loops HashSet tsf float-mm quicksort"
 
 rm -f $REPORT
 touch $REPORT
@@ -34,7 +34,7 @@ echo "Start to run cases, the result is written to report.txt"
 
 #run benchmarks
 cd $OUT_DIR
-echo -en "\t\t\t\t\t  native\tiwasm-aot\n" >> $REPORT
+echo -en "\t\t\t\t\t  native\tiwasm-aot\tiwasm-aot-segue\n" >> $REPORT
 
 for t in $JETSTREAM_CASES
 do
@@ -46,7 +46,11 @@ do
 
     echo "run $t with iwasm aot .."
     echo -en "\t" >> $REPORT
-    $TIME -f "real-%e-time" $IWASM_CMD ${t}.aot 2>&1 | grep "real-.*-time" | awk -F '-' '{ORS=""; print $2}' >> $REPORT
+    $TIME -f "real-%e-time" $IWASM_CMD --dir=. ${t}.aot 2>&1 | grep "real-.*-time" | awk -F '-' '{ORS=""; print $2}' >> $REPORT
+
+    echo "run $t with iwasm aot segue .."
+    echo -en "\t" >> $REPORT
+    $TIME -f "real-%e-time" $IWASM_CMD --dir=. ${t}_segue.aot 2>&1 | grep "real-.*-time" | awk -F '-' '{ORS=""; print $2}' >> $REPORT
 
     echo -en "\n" >> $REPORT
 done

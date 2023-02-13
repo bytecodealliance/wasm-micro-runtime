@@ -9,8 +9,11 @@ WAMRC="../../../wamr-compiler/build/wamrc"
 echo "Run coremark with native .."
 ./coremark.exe
 
-echo "Run coremark with iwasm mode .."
+echo "Run coremark with iwasm aot mode .."
 ${IWASM} coremark.aot
 
-echo "Run coremakr with iwasm interpreter .."
+echo "Run coremark with iwasm aot-segue mode .."
+${IWASM} coremark_segue.aot
+
+echo "Run coremakr with iwasm interpreter mode .."
 ${IWASM} coremark.wasm

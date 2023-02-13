@@ -37,6 +37,7 @@ do
 
     echo "Compile ${bench}.wasm into ${bench}.aot"
     ${WAMRC_CMD} -o ${OUT_DIR}/${bench}.aot ${OUT_DIR}/${bench}.wasm
+    ${WAMRC_CMD} --enable-segue -o ${OUT_DIR}/${bench}_segue.aot ${OUT_DIR}/${bench}.wasm
 done
 
 cd ..
