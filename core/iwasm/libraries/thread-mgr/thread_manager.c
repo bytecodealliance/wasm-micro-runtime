@@ -484,7 +484,7 @@ fail4:
     /* free the allocated aux stack space */
     free_aux_stack(cluster, aux_stack_start);
 fail3:
-    wasm_exec_env_destroy(new_exec_env);
+    wasm_exec_env_destroy_internal(new_exec_env);
 fail2:
     wasm_runtime_deinstantiate_internal(new_module_inst, true);
 fail1:
@@ -605,7 +605,7 @@ fail3:
     /* free the allocated aux stack space */
     free_aux_stack(cluster, aux_stack_start);
 fail2:
-    wasm_exec_env_destroy(new_exec_env);
+    wasm_exec_env_destroy_internal(new_exec_env);
 fail1:
     os_mutex_unlock(&cluster->lock);
 
