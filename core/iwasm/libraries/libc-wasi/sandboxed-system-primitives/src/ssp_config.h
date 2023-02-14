@@ -113,7 +113,7 @@ so we have to handle this case specially */
 #if defined(__clang__)
 /* Clang provides stdatomic.h since 3.6.0
 See https://releases.llvm.org/3.6.0/tools/clang/docs/ReleaseNotes.html */
-#if __clang_major__ > 3 || (__clang_minor__ == 3 && __clang_minor__ >= 6)
+#if __clang_major__ > 3 || (__clang_major__ == 3 && __clang_minor__ >= 6)
 #define CONFIG_HAS_STD_ATOMIC 1
 #else
 #define CONFIG_HAS_STD_ATOMIC 0
