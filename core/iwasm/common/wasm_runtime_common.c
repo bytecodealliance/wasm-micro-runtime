@@ -1117,26 +1117,14 @@ wasm_runtime_load(uint8 *buf, uint32 size, char *error_buf,
 #if WASM_ENABLE_INTERP != 0
         module_common =
             (WASMModuleCommon *)wasm_load(buf, size, error_buf, error_buf_size);
-        module_common = register_module_with_null_name(module_common, error_buf,
-                                                       error_buf_size);
-
-        if (module_common == NULL) {
-            return NULL;
-        }
-        goto success;
+        goto register_module;
 #endif
     }
     else if (get_package_type(buf, size) == Wasm_Module_AoT) {
 #if WASM_ENABLE_AOT != 0
         module_common = (WASMModuleCommon *)aot_load_from_aot_file(
             buf, size, error_buf, error_buf_size);
-        module_common = register_module_with_null_name(module_common, error_buf,
-                                                       error_buf_size);
-
-        if (module_common == NULL) {
-            return NULL;
-        }
-        goto success;
+        goto register_module;
 #endif
     }
 
@@ -1148,7 +1136,13 @@ wasm_runtime_load(uint8 *buf, uint32 size, char *error_buf,
                       "WASM module load failed: magic header not detected");
     return NULL;
 
-success:
+register_module:
+    module_common = register_module_with_null_name(module_common, error_buf,
+                                                   error_buf_size);
+    if (module_common == NULL) {
+        return NULL;
+    }
+
 #if WASM_ENABLE_SHARED_MEMORY != 0
     module = (WASMModule *)module_common;
     if (os_mutex_init(&module->mem_lock) != 0) {
