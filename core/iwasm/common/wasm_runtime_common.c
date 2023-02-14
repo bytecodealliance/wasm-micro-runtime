@@ -1111,21 +1111,32 @@ wasm_runtime_load(uint8 *buf, uint32 size, char *error_buf,
                   uint32 error_buf_size)
 {
     WASMModuleCommon *module_common = NULL;
+    WASMModule *module = NULL;
 
     if (get_package_type(buf, size) == Wasm_Module_Bytecode) {
 #if WASM_ENABLE_INTERP != 0
         module_common =
             (WASMModuleCommon *)wasm_load(buf, size, error_buf, error_buf_size);
-        return register_module_with_null_name(module_common, error_buf,
-                                              error_buf_size);
+        module_common = register_module_with_null_name(module_common, error_buf,
+                                                       error_buf_size);
+
+        if (module_common == NULL) {
+            return NULL;
+        }
+        goto success;
 #endif
     }
     else if (get_package_type(buf, size) == Wasm_Module_AoT) {
 #if WASM_ENABLE_AOT != 0
         module_common = (WASMModuleCommon *)aot_load_from_aot_file(
             buf, size, error_buf, error_buf_size);
-        return register_module_with_null_name(module_common, error_buf,
-                                              error_buf_size);
+        module_common = register_module_with_null_name(module_common, error_buf,
+                                                       error_buf_size);
+
+        if (module_common == NULL) {
+            return NULL;
+        }
+        goto success;
 #endif
     }
 
@@ -1136,6 +1147,32 @@ wasm_runtime_load(uint8 *buf, uint32 size, char *error_buf,
         set_error_buf(error_buf, error_buf_size,
                       "WASM module load failed: magic header not detected");
     return NULL;
+
+success:
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    module = (WASMModule *)module_common;
+    if (os_mutex_init(&module->mem_lock) != 0) {
+        set_error_buf(error_buf, error_buf_size,
+                      "WASM module load failed: unable to init memory mutex");
+
+#if WASM_ENABLE_INTERP != 0
+        if (module->module_type == Wasm_Module_Bytecode) {
+            wasm_unload((WASMModule *)module);
+            return NULL;
+        }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+        if (module->module_type == Wasm_Module_AoT) {
+            aot_unload((AOTModule *)module);
+            return NULL;
+        }
+#endif
+        return NULL;
+    }
+#endif /* end of WASM_ENABLE_SHARED_MEMORY != 0 */
+
+    return module_common;
 }
 
 WASMModuleCommon *
@@ -1171,6 +1208,13 @@ wasm_runtime_load_from_sections(WASMSection *section_list, bool is_aot,
 void
 wasm_runtime_unload(WASMModuleCommon *module)
 {
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    WASMModule *wasm_module = (WASMModule *)module;
+    if (os_mutex_destroy(&wasm_module->mem_lock) != 0) {
+        LOG_ERROR("WASM module load failed: unable to destroy memory mutex");
+    }
+#endif
+
 #if WASM_ENABLE_MULTI_MODULE != 0
     /**
      * since we will unload and free all module when runtime_destroy()

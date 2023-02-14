@@ -603,6 +603,11 @@ struct WASMModule {
        Mode_Fast_JIT, so as to improve performance for them */
     bool enable_llvm_jit_compilation;
 #endif
+
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    /* lock for shared memory atomic operations */
+    korp_mutex mem_lock;
+#endif
 };
 
 typedef struct BlockType {
