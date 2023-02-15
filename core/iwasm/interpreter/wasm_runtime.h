@@ -112,10 +112,6 @@ struct WASMMemoryInstance {
     MemBound mem_bound_check_8bytes;
     MemBound mem_bound_check_16bytes;
 #endif
-
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    korp_mutex lock;
-#endif
 };
 
 struct WASMTableInstance {
