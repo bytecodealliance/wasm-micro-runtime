@@ -2734,6 +2734,13 @@ create_module(char *error_buf, uint32 error_buf_size)
     }
 #endif
 
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    if (os_mutex_init(&module->mem_lock) != 0) {
+        set_error_buf(error_buf, error_buf_size, "init memory lock failed");
+        return NULL;
+    }
+#endif
+
     (void)ret;
     return module;
 }
@@ -3077,6 +3084,11 @@ wasm_loader_unload(WASMModule *module)
             os_mutex_destroy(&module->fast_jit_thread_locks[i]);
         }
     }
+#endif
+
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    WASMModule *wasm_module = (WASMModule *)module;
+    os_mutex_destroy(&wasm_module->mem_lock);
 #endif
 
     wasm_runtime_free(module);
