@@ -234,8 +234,8 @@ typedef struct WASMModuleInstanceExtra {
     uint32 max_aux_stack_used;
 #endif
 
-#if WASM_ENABLE_DEBUG_INTERP != 0                    \
-    || (WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT \
+#if WASM_ENABLE_DEBUG_INTERP != 0                         \
+    || (WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
         && WASM_ENABLE_LAZY_JIT != 0)
     WASMModuleInstance *next;
 #endif
