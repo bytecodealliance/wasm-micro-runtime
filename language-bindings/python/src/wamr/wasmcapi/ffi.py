@@ -36,8 +36,8 @@ current_file = Path(__file__)
 if current_file.is_symlink():
     current_file = Path(os.readlink(current_file))
 current_dir = current_file.parent.resolve()
-root_dir = current_dir.parent.parent.parent.parent.resolve()
-wamr_dir = root_dir.joinpath("wasm-micro-runtime").resolve()
+root_dir = current_dir.parents[4].resolve()
+wamr_dir = root_dir.resolve()
 if not wamr_dir.exists():
     raise RuntimeError(f"not found the repo of wasm-micro-runtime under {root_dir}")
 
