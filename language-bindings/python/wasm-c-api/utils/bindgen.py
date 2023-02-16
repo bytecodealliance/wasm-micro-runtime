@@ -21,7 +21,7 @@ import sys
 from pycparser import c_ast, parse_file
 
 WASM_C_API_HEADER = "core/iwasm/include/wasm_c_api.h"
-BINDING_PATH = "language-bindings/python/wamr/wasm_c_api/binding.py"
+BINDING_PATH = "language-bindings/python/wamr/wasmcapi/binding.py"
 # 4 spaces as default indent
 INDENT = "    "
 
