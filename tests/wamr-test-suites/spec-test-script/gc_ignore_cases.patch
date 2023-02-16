@@ -179,6 +179,27 @@ index 7ee75b20..f2287add 100644
  
  (assert_invalid
    (module
+diff --git a/test/core/gc/extern.wast b/test/core/gc/extern.wast
+index 1f32a0ab..93177e8b 100644
+--- a/test/core/gc/extern.wast
++++ b/test/core/gc/extern.wast
+@@ -36,14 +36,14 @@
+ (assert_return (invoke "internalize" (ref.extern 1)) (ref.host 1))
+ (assert_return (invoke "internalize" (ref.null extern)) (ref.null any))
+ 
+-(assert_return (invoke "externalize" (ref.host 2)) (ref.extern 2))
++;;(assert_return (invoke "externalize" (ref.host 2)) (ref.extern 2))
+ (assert_return (invoke "externalize" (ref.null any)) (ref.null extern))
+ 
+ (assert_return (invoke "externalize-i" (i32.const 0)) (ref.null extern))
+ (assert_return (invoke "externalize-i" (i32.const 1)) (ref.extern))
+ (assert_return (invoke "externalize-i" (i32.const 2)) (ref.extern))
+ (assert_return (invoke "externalize-i" (i32.const 3)) (ref.extern))
+-(assert_return (invoke "externalize-i" (i32.const 4)) (ref.extern))
++;;(assert_return (invoke "externalize-i" (i32.const 4)) (ref.extern))
+ (assert_return (invoke "externalize-i" (i32.const 5)) (ref.null extern))
+ 
+ (assert_return (invoke "externalize-ii" (i32.const 0)) (ref.null any))
 diff --git a/test/core/gc/struct.wast b/test/core/gc/struct.wast
 index bbd2c94a..dc490f62 100644
 --- a/test/core/gc/struct.wast

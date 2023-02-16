@@ -434,6 +434,9 @@ def parse_simple_const_w_type(number, type):
     elif type == "ref.extern":
         number = int(number, 16) if '0x' in number else int(number)
         return number, "0x{:x}:ref.extern".format(number)
+    elif type == "ref.host":
+        number = int(number, 16) if '0x' in number else int(number)
+        return number, "0x{:x}:ref.host".format(number)
     else:
         raise Exception("invalid value {} and type {}".format(number, type))
 
@@ -630,6 +633,9 @@ def simple_value_comparison(out, expected):
     elif "ref.extern" == expected_type:
         out_val_binary = out_val
         expected_val_binary = expected_val
+    elif "ref.host" == expected_type:
+        out_val_binary = out_val
+        expected_val_binary = expected_val
     else:
         assert(0), "unknown 'expected_type' {}".format(expected_type)
 
@@ -778,6 +784,9 @@ def test_assert_return(r, opts, form):
                 elif "ref.extern" == splitted[0]:
                     number, _ = parse_simple_const_w_type(splitted[1], splitted[0])
                     args.append(str(number))
+                elif "ref.host" == splitted[0]:
+                    number, _ = parse_simple_const_w_type(splitted[1], splitted[0])
+                    args.append(str(number))
                 else:
                     assert(0), "an unkonwn parameter type"
 
@@ -787,7 +796,7 @@ def test_assert_return(r, opts, form):
             returns = re.split("\)\s*\(", m.group(3)[1:-1])
         # processed numbers in strings
         if len(returns) == 1 and returns[0] in ["ref.array", "ref.struct", "ref.i31",
-                                                "ref.eq", "ref.any",
+                                                "ref.eq", "ref.any", "ref.extern",
                                                 "ref.func", "ref.null"]:
             expected = [returns[0]]
         elif len(returns) == 1 and returns[0] in ["func:ref.null", "any:ref.null",
