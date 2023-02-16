@@ -53,6 +53,7 @@ env:
   FAST_JIT_BUILD_OPTIONS: "      -DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_FAST_JIT=1 -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_LAZY_JIT=0"
   LLVM_LAZY_JIT_BUILD_OPTIONS: " -DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_FAST_JIT=0 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=1"
   LLVM_EAGER_JIT_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_FAST_JIT=0 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=0"
+  MULTI_TIER_JIT_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_JIT=1 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=1"
   # For Spec Test
   DEFAULT_TEST_OPTIONS: "-s spec -b -P"
   MULTI_MODULES_TEST_OPTIONS: "-s spec -b -M -P"
@@ -128,6 +129,7 @@ jobs:
             $FAST_JIT_BUILD_OPTIONS,
             $LLVM_LAZY_JIT_BUILD_OPTIONS,
             $LLVM_EAGER_JIT_BUILD_OPTIONS,
+            $MULTI_TIER_JIT_BUILD_OPTIONS,
           ]
         make_options_feature: [
             # Features
@@ -160,6 +162,8 @@ jobs:
             make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
           - make_options_run_mode: $LLVM_EAGER_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
+          - make_options_run_mode: $MULTI_TIER_JIT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
           # SIMD only on JIT/AOT mode
           - make_options_run_mode: $CLASSIC_INTERP_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_SIMD=1"
@@ -176,6 +180,8 @@ jobs:
             make_options_feature: "-DWAMR_BUILD_DEBUG_INTERP=1"
           - make_options_run_mode: $LLVM_EAGER_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_DEBUG_INTERP=1"
+          - make_options_run_mode: $MULTI_TIER_JIT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_DEBUG_INTERP=1"
           # DEBUG_AOT only on JIT/AOT mode
           - make_options_run_mode: $CLASSIC_INTERP_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_DEBUG_AOT=1"
@@ -188,6 +194,8 @@ jobs:
             make_options_feature: "-DWAMR_BUILD_DEBUG_AOT=1"
           - make_options_run_mode: $LLVM_EAGER_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_DEBUG_AOT=1"
+          - make_options_run_mode: $MULTI_TIER_JIT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_DEBUG_AOT=1"
           # MINI_LOADER only on INTERP mode
           - make_options_run_mode: $AOT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"
@@ -197,8 +205,12 @@ jobs:
             make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"
           - make_options_run_mode: $LLVM_EAGER_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"
-          # Fast-JIT mode doesn't support android(X86-32)
+          - make_options_run_mode: $MULTI_TIER_JIT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"
+          # Fast-JIT and Multi-Tier-JIT mode don't support android(X86-32)
           - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
+            platform: android
+          - make_options_run_mode: $MULTI_TIER_JIT_BUILD_OPTIONS
             platform: android
           # only test andorid on ubuntu latest
           - os: ubuntu-20.04
@@ -256,6 +268,7 @@ jobs:
             $FAST_JIT_BUILD_OPTIONS,
             $LLVM_LAZY_JIT_BUILD_OPTIONS,
             $LLVM_EAGER_JIT_BUILD_OPTIONS,
+            $MULTI_TIER_JIT_BUILD_OPTIONS,
           ]
         os: [ubuntu-20.04, ubuntu-22.04]
         wasi_sdk_release:
@@ -404,7 +417,14 @@ jobs:
     strategy:
       matrix:
         running_mode:
-          ["classic-interp", "fast-interp", "jit", "aot", "fast-jit"]
+          [
+            "classic-interp",
+            "fast-interp",
+            "jit",
+            "aot",
+            "fast-jit",
+            "multi-tier-jit",
+          ]
         test_option:
           [
             $DEFAULT_TEST_OPTIONS,
@@ -430,26 +450,33 @@ jobs:
             test_option: $WASI_TEST_OPTIONS
           - running_mode: "jit"
             test_option: $MULTI_MODULES_TEST_OPTIONS
-          # fast-jit is only tested on default mode, exclude other three
+          # fast-jit doesn't support multi module, simd, and threads
           - running_mode: "fast-jit"
             test_option: $MULTI_MODULES_TEST_OPTIONS
           - running_mode: "fast-jit"
             test_option: $SIMD_TEST_OPTIONS
           - running_mode: "fast-jit"
             test_option: $THREADS_TEST_OPTIONS
+          # multi-tier-jit doesn't support multi module, simd, and threads
+          - running_mode: "multi-tier-jit"
+            test_option: $MULTI_MODULES_TEST_OPTIONS
+          - running_mode: "multi-tier-jit"
+            test_option: $SIMD_TEST_OPTIONS
+          - running_mode: "multi-tier-jit"
+            test_option: $THREADS_TEST_OPTIONS
     steps:
       - name: checkout
         uses: actions/checkout@v3
 
       - name: set env variable(if llvm are used)
-        if: matrix.running_mode == 'aot' || matrix.running_mode == 'jit'
+        if: matrix.running_mode == 'aot' || matrix.running_mode == 'jit' || matrix.running_mode == 'multi-tier-jit'
         run: echo "USE_LLVM=true" >> $GITHUB_ENV
 
       - name: set env variable(if x86_32 test needed)
         if: >
           (matrix.test_option == '$DEFAULT_TEST_OPTIONS' || matrix.test_option == '$THREADS_TEST_OPTIONS'
            || matrix.test_option == '$WASI_TEST_OPTIONS')
-          && matrix.running_mode != 'fast-jit' && matrix.running_mode != 'jit'
+          && matrix.running_mode != 'fast-jit' && matrix.running_mode != 'jit' && matrix.running_mode != 'multi-tier-jit'
         run: echo "TEST_ON_X86_32=true" >> $GITHUB_ENV
 
       #only download llvm libraries in jit and aot mode
