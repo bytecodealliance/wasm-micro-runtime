@@ -122,6 +122,11 @@ typedef struct WASMExecEnv {
     bool thread_is_detached;
 #endif
 
+#if WASM_ENABLE_GC != 0
+    /* Current local object reference variable */
+    struct WASMLocalObjectRef *cur_local_object_ref;
+#endif
+
 #if WASM_ENABLE_DEBUG_INTERP != 0
     WASMCurrentEnvStatus *current_status;
 #endif

@@ -7,6 +7,9 @@
 #define __MEM_ALLOC_H
 
 #include "bh_platform.h"
+#if WASM_ENABLE_GC != 0
+#include "../../common/gc/gc_object.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -44,6 +47,27 @@ mem_allocator_migrate(mem_allocator_t allocator, char *pool_buf_new,
 
 bool
 mem_allocator_is_heap_corrupted(mem_allocator_t allocator);
+
+#if WASM_ENABLE_GC != 0
+void *
+mem_allocator_malloc_with_gc(mem_allocator_t allocator, uint32_t size);
+
+#if WASM_GC_MANUALLY != 0
+void
+mem_allocator_free_with_gc(mem_allocator_t allocator, void *ptr);
+#endif
+
+#if WASM_ENABLE_THREAD_MGR == 0
+void
+mem_allocator_enable_gc_reclaim(mem_allocator_t allocator, void *exec_env);
+#else
+void
+mem_allocator_enable_gc_reclaim(mem_allocator_t allocator, void *cluster);
+#endif
+
+int
+mem_allocator_add_root(mem_allocator_t allocator, WASMObjectRef obj);
+#endif /* end of WASM_ENABLE_GC != 0 */
 
 bool
 mem_allocator_get_alloc_info(mem_allocator_t allocator, void *mem_alloc_info);

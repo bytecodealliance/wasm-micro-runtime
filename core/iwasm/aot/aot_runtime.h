@@ -509,11 +509,11 @@ aot_table_copy(AOTModuleInstance *module_inst, uint32 src_tbl_idx,
 
 void
 aot_table_fill(AOTModuleInstance *module_inst, uint32 tbl_idx, uint32 length,
-               uint32 val, uint32 data_offset);
+               table_elem_type_t val, uint32 data_offset);
 
 uint32
 aot_table_grow(AOTModuleInstance *module_inst, uint32 tbl_idx,
-               uint32 inc_entries, uint32 init_val);
+               uint32 inc_entries, table_elem_type_t init_val);
 #endif
 
 bool

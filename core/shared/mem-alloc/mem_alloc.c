@@ -56,6 +56,43 @@ mem_allocator_free(mem_allocator_t allocator, void *ptr)
         gc_free_vo((gc_handle_t)allocator, ptr);
 }
 
+#if WASM_ENABLE_GC != 0
+void *
+mem_allocator_malloc_with_gc(mem_allocator_t allocator, uint32_t size)
+{
+    return gc_alloc_wo((gc_handle_t)allocator, size);
+}
+
+#if WASM_GC_MANUALLY != 0
+void
+mem_allocator_free_with_gc(mem_allocator_t allocator, void *ptr)
+{
+    if (ptr)
+        gc_free_wo((gc_handle_t)allocator, ptr);
+}
+#endif
+
+#if WASM_ENABLE_THREAD_MGR == 0
+void
+mem_allocator_enable_gc_reclaim(mem_allocator_t allocator, void *exec_env)
+{
+    return gc_enable_gc_reclaim((gc_handle_t)allocator, exec_env);
+}
+#else
+void
+mem_allocator_enable_gc_reclaim(mem_allocator_t allocator, void *cluster)
+{
+    return gc_enable_gc_reclaim((gc_handle_t)allocator, cluster);
+}
+#endif
+
+int
+mem_allocator_add_root(mem_allocator_t allocator, WASMObjectRef obj)
+{
+    return gc_add_root((gc_handle_t)allocator, (gc_object_t)obj);
+}
+#endif
+
 int
 mem_allocator_migrate(mem_allocator_t allocator, char *pool_buf_new,
                       uint32 pool_buf_size)
