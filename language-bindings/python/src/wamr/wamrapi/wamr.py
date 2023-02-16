@@ -79,9 +79,9 @@ class Module:
 
 
 class Instance:
-    def __init__(self, module: Module):
+    def __init__(self, module: Module, stack_size: int = 65536, heap_size: int = 16384):
         self.module = module
-        self.module_inst = self._create_module_inst(module)
+        self.module_inst = self._create_module_inst(module, stack_size, heap_size)
 
     def __del__(self):
         print("deleting Instance")
@@ -93,10 +93,10 @@ class Instance:
             raise Exception("Error while looking-up function")
         return func
 
-    def _create_module_inst(self, module: Module) -> wasm_module_inst_t:
+    def _create_module_inst(self, module: Module, stack_size: int, heap_size: int) -> wasm_module_inst_t:
         error_buf = create_string_buffer(128)
         module_inst = wasm_runtime_instantiate(
-            module.module, 8092, 8092, error_buf, len(error_buf)
+            module.module, stack_size, heap_size, error_buf, len(error_buf)
         )
         if not module_inst:
             raise Exception("Error while creating module instance")
@@ -104,9 +104,9 @@ class Instance:
 
 
 class ExecEnv:
-    def __init__(self, module_inst: Instance):
+    def __init__(self, module_inst: Instance, stack_size: int = 65536):
         self.module_inst = module_inst
-        self.exec_env = self._create_exec_env(module_inst)
+        self.exec_env = self._create_exec_env(module_inst, stack_size)
 
     def __del__(self):
         print("deleting ExecEnv")
@@ -116,8 +116,8 @@ class ExecEnv:
         if not wasm_runtime_call_wasm(self.exec_env, func, argc, argv):
             raise Exception("Error while calling function")
 
-    def _create_exec_env(self, module_inst: Instance) -> wasm_exec_env_t:
-        exec_env = wasm_runtime_create_exec_env(module_inst.module_inst, 8092)
+    def _create_exec_env(self, module_inst: Instance, stack_size: int) -> wasm_exec_env_t:
+        exec_env = wasm_runtime_create_exec_env(module_inst.module_inst, stack_size)
         if not exec_env:
             raise Exception("Error while creating execution environment")
         return exec_env
