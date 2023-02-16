@@ -207,7 +207,7 @@ jobs:
             make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"
           - make_options_run_mode: $MULTI_TIER_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"
-          # Fast-JIT and Multi-Tier-JIT mode doesn't support android(X86-32)
+          # Fast-JIT and Multi-Tier-JIT mode don't support android(X86-32)
           - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
             platform: android
           - make_options_run_mode: $MULTI_TIER_JIT_BUILD_OPTIONS
