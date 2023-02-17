@@ -30,6 +30,8 @@ bh_static_assert(offsetof(WASMExecEnv, aux_stack_boundary)
 bh_static_assert(offsetof(WASMExecEnv, aux_stack_bottom)
                  == 7 * sizeof(uintptr_t));
 bh_static_assert(offsetof(WASMExecEnv, native_symbol) == 8 * sizeof(uintptr_t));
+bh_static_assert(offsetof(WASMExecEnv, native_stack_top_min)
+                 == 9 * sizeof(uintptr_t));
 
 bh_static_assert(offsetof(AOTModuleInstance, memories) == 1 * sizeof(uint64));
 bh_static_assert(offsetof(AOTModuleInstance, func_ptrs) == 5 * sizeof(uint64));
@@ -1083,6 +1085,17 @@ aot_instantiate(AOTModule *module, bool is_sub_inst, uint32 stack_size,
     }
 #endif
 
+#if WASM_ENABLE_WASI_NN != 0
+    if (!is_sub_inst) {
+        if (!(((AOTModuleInstanceExtra *)module_inst->e)->wasi_nn_ctx =
+                  wasi_nn_initialize())) {
+            set_error_buf(error_buf, error_buf_size,
+                          "wasi nn initialization failed");
+            goto fail;
+        }
+    }
+#endif
+
     /* Initialize the thread related data */
     if (stack_size == 0)
         stack_size = DEFAULT_WASM_STACK_SIZE;
@@ -1194,6 +1207,15 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
         wasm_runtime_free(
             ((AOTModuleInstanceExtra *)module_inst->e)->c_api_func_imports);
 
+#if WASM_ENABLE_WASI_NN != 0
+    if (!is_sub_inst) {
+        WASINNContext *wasi_nn_ctx =
+            ((AOTModuleInstanceExtra *)module_inst->e)->wasi_nn_ctx;
+        if (wasi_nn_ctx)
+            wasi_nn_destroy(wasi_nn_ctx);
+    }
+#endif
+
     wasm_runtime_free(module_inst);
 }
 
@@ -1237,6 +1259,7 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
     /* Check native stack overflow firstly to ensure we have enough
        native stack to run the following codes before actually calling
        the aot function in invokeNative function. */
+    RECORD_STACK_USAGE(exec_env, (uint8 *)&module_inst);
     if ((uint8 *)&module_inst < exec_env->native_stack_boundary
                                     + page_size * (guard_page_count + 1)) {
         aot_set_exception_with_id(module_inst, EXCE_NATIVE_STACK_OVERFLOW);
@@ -1836,6 +1859,7 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
        exec_env->native_stack_boundary must have been set, we don't set
        it again */
 
+    RECORD_STACK_USAGE(exec_env, (uint8 *)&module_inst);
     if ((uint8 *)&module_inst < exec_env->native_stack_boundary) {
         aot_set_exception_with_id(module_inst, EXCE_NATIVE_STACK_OVERFLOW);
         goto fail;

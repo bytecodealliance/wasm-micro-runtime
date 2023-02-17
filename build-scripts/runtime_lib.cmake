@@ -19,6 +19,11 @@ endif ()
 if (NOT DEFINED DEPS_DIR)
     set (DEPS_DIR ${WAMR_ROOT_DIR}/core/deps)
 endif ()
+if (NOT DEFINED SHARED_PLATFORM_CONFIG)
+    # CMake file for platform configuration. The PLATFORM_SHARED_SOURCE varable
+    # should point to a list of platform-specfic source files to compile.
+    set (SHARED_PLATFORM_CONFIG ${SHARED_DIR}/platform/${WAMR_BUILD_PLATFORM}/shared_platform.cmake)
+endif ()
 
 if (DEFINED EXTRA_SDK_INCLUDE_PATH)
     message(STATUS, "EXTRA_SDK_INCLUDE_PATH = ${EXTRA_SDK_INCLUDE_PATH} ")
@@ -96,9 +101,13 @@ if (WAMR_BUILD_LIB_PTHREAD_SEMAPHORE EQUAL 1)
 endif ()
 
 if (WAMR_BUILD_WASI_NN EQUAL 1)
-    execute_process(COMMAND ${WAMR_ROOT_DIR}/core/deps/install_tensorflow.sh
-                    RESULT_VARIABLE TENSORFLOW_RESULT
-    )
+    if (NOT EXISTS "${WAMR_ROOT_DIR}/core/deps/tensorflow-src")
+        execute_process(COMMAND ${WAMR_ROOT_DIR}/core/deps/install_tensorflow.sh
+                        RESULT_VARIABLE TENSORFLOW_RESULT
+        )
+    else ()
+        message("Tensorflow is already downloaded.")
+    endif()
     set(TENSORFLOW_SOURCE_DIR "${WAMR_ROOT_DIR}/core/deps/tensorflow-src")
     include_directories (${CMAKE_CURRENT_BINARY_DIR}/flatbuffers/include)
     include_directories (${TENSORFLOW_SOURCE_DIR})
@@ -169,7 +178,7 @@ LIST (APPEND RUNTIME_LIB_HEADER_LIST ${header})
 
 enable_language (ASM)
 
-include (${SHARED_DIR}/platform/${WAMR_BUILD_PLATFORM}/shared_platform.cmake)
+include (${SHARED_PLATFORM_CONFIG})
 include (${SHARED_DIR}/mem-alloc/mem_alloc.cmake)
 include (${IWASM_DIR}/common/iwasm_common.cmake)
 include (${SHARED_DIR}/utils/shared_utils.cmake)

@@ -250,6 +250,10 @@ lookup_symbol(NativeSymbol *native_symbols, uint32 n_native_symbols,
     return NULL;
 }
 
+/**
+ * allow func_type and all outputs, like p_signature, p_attachment and
+ * p_call_conv_raw to be NULL
+ */
 void *
 wasm_native_resolve_symbol(const char *module_name, const char *field_name,
                            const WASMType *func_type, const char **p_signature,
@@ -275,10 +279,13 @@ wasm_native_resolve_symbol(const char *module_name, const char *field_name,
         node = node_next;
     }
 
+    if (!p_signature || !p_attachment || !p_call_conv_raw)
+        return func_ptr;
+
     if (func_ptr) {
         if (signature && signature[0] != '\0') {
             /* signature is not empty, check its format */
-            if (!check_symbol_signature(func_type, signature)) {
+            if (!func_type || !check_symbol_signature(func_type, signature)) {
 #if WASM_ENABLE_WAMR_COMPILER == 0
                 /* Output warning except running aot compiler */
                 LOG_WARNING("failed to check signature '%s' and resolve "

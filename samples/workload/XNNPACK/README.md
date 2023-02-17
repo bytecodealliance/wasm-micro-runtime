@@ -24,7 +24,7 @@ Firstly please build iwasm with simd, libc-emcc and lib-pthread support:
 ``` bash
 $ cd <wamr-dir>/product-mini/platforms/linux/
 $ mkdir build && cd build
-$ cmake .. -DWAMR_BUILD_SIMD=1 -DWAMR_BUILD_LIBC_EMCC=1 -DWAMR_BUILD_LIB_PTHREAD=1
+$ cmake .. -DWAMR_BUILD_LIBC_EMCC=1 -DWAMR_BUILD_LIB_PTHREAD=1
 $ make
 ```
 
@@ -42,7 +42,7 @@ Then compile wasm file to aot file and run:
 
 ``` shell
 $ cd <wamr-dir>/samples/workload/XNNPACK/xnnpack/bazel-bin
-$ wamrc --enable-simd -o average_pooling_bench.aot average_pooling_bench.wasm  (or other wasm files)
+$ wamrc -o average_pooling_bench.aot average_pooling_bench.wasm  (or other wasm files)
 $ iwasm average_pooling_bench.aot
 ```
 

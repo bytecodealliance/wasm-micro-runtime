@@ -1835,6 +1835,7 @@ static bool
 init_llvm_jit_functions_stage1(WASMModule *module, char *error_buf,
                                uint32 error_buf_size)
 {
+    LLVMJITOptions llvm_jit_options = wasm_runtime_get_llvm_jit_options();
     AOTCompOption option = { 0 };
     char *aot_last_error;
     uint64 size;
@@ -1873,8 +1874,9 @@ init_llvm_jit_functions_stage1(WASMModule *module, char *error_buf,
     }
 
     option.is_jit_mode = true;
-    option.opt_level = 3;
-    option.size_level = 3;
+    option.opt_level = llvm_jit_options.opt_level;
+    option.size_level = llvm_jit_options.size_level;
+
 #if WASM_ENABLE_BULK_MEMORY != 0
     option.enable_bulk_memory = true;
 #endif
@@ -1893,6 +1895,9 @@ init_llvm_jit_functions_stage1(WASMModule *module, char *error_buf,
     option.enable_aux_stack_check = true;
 #if (WASM_ENABLE_PERF_PROFILING != 0) || (WASM_ENABLE_DUMP_CALL_STACK != 0)
     option.enable_aux_stack_frame = true;
+#endif
+#if WASM_ENABLE_MEMORY_PROFILING != 0
+    option.enable_stack_estimation = true;
 #endif
 
     module->comp_ctx = aot_create_comp_context(module->comp_data, &option);
@@ -1957,6 +1962,8 @@ init_llvm_jit_functions_stage2(WASMModule *module, char *error_buf,
         module->func_ptrs[i] = (void *)func_addr;
 
 #if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_LAZY_JIT != 0
+        module->functions[i]->llvm_jit_func_ptr = (void *)func_addr;
+
         if (module->orcjit_stop_compiling)
             return false;
 #endif
@@ -2047,9 +2054,9 @@ orcjit_thread_callback(void *arg)
 
     /* Wait until init_llvm_jit_functions_stage2 finishes */
     os_mutex_lock(&module->tierup_wait_lock);
-    while (!module->llvm_jit_inited) {
+    while (!(module->llvm_jit_inited && module->enable_llvm_jit_compilation)) {
         os_cond_reltimedwait(&module->tierup_wait_cond,
-                             &module->tierup_wait_lock, 10);
+                             &module->tierup_wait_lock, 10000);
         if (module->orcjit_stop_compiling) {
             /* init_llvm_jit_functions_stage2 failed */
             os_mutex_unlock(&module->tierup_wait_lock);
@@ -2718,7 +2725,8 @@ create_module(char *error_buf, uint32 error_buf_size)
     bh_assert(ret == BH_LIST_SUCCESS);
 #endif
 
-#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT && WASM_ENABLE_LAZY_JIT != 0
+#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
+    && WASM_ENABLE_LAZY_JIT != 0
     if (os_mutex_init(&module->instance_list_lock) != 0) {
         set_error_buf(error_buf, error_buf_size,
                       "init instance list lock failed");
@@ -2939,7 +2947,8 @@ wasm_loader_unload(WASMModule *module)
     if (!module)
         return;
 
-#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT && WASM_ENABLE_LAZY_JIT != 0
+#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
+    && WASM_ENABLE_LAZY_JIT != 0
     module->orcjit_stop_compiling = true;
     if (module->llvm_jit_init_thread)
         os_thread_join(module->llvm_jit_init_thread, NULL);
@@ -2960,7 +2969,8 @@ wasm_loader_unload(WASMModule *module)
         aot_destroy_comp_data(module->comp_data);
 #endif
 
-#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT && WASM_ENABLE_LAZY_JIT != 0
+#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
+    && WASM_ENABLE_LAZY_JIT != 0
     if (module->tierup_wait_lock_inited) {
         os_mutex_destroy(&module->tierup_wait_lock);
         os_cond_destroy(&module->tierup_wait_cond);
@@ -2995,9 +3005,9 @@ wasm_loader_unload(WASMModule *module)
                         module->functions[i]->fast_jit_jitted_code);
                 }
 #if WASM_ENABLE_JIT != 0 && WASM_ENABLE_LAZY_JIT != 0
-                if (module->functions[i]->llvm_jit_func_ptr) {
+                if (module->functions[i]->call_to_fast_jit_from_llvm_jit) {
                     jit_code_cache_free(
-                        module->functions[i]->llvm_jit_func_ptr);
+                        module->functions[i]->call_to_fast_jit_from_llvm_jit);
                 }
 #endif
 #endif
@@ -3056,7 +3066,8 @@ wasm_loader_unload(WASMModule *module)
     }
 #endif
 
-#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT && WASM_ENABLE_LAZY_JIT != 0
+#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
+    && WASM_ENABLE_LAZY_JIT != 0
     os_mutex_destroy(&module->instance_list_lock);
 #endif
 

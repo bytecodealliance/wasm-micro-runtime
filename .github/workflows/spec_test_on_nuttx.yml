@@ -16,7 +16,8 @@ jobs:
   build_llvm_libraries:
     uses: ./.github/workflows/build_llvm_libraries.yml
     with:
-      runs-on: "['ubuntu-22.04']"
+      os: "ubuntu-22.04"
+      arch: "ARM RISCV AArch64"
 
   spec_test_on_qemu:
     runs-on: ${{ matrix.os }}
@@ -37,6 +38,7 @@ jobs:
           "-t aot",
           "-t aot -X"
         ]
+        llvm_cache_key: [ "${{ needs.build_llvm_libraries.outputs.cache_key }}" ]
     steps:
       - name: Install Utilities
         run: |
@@ -72,7 +74,7 @@ jobs:
           path: apps/interpreters/wamr/wamr
 
       - name: Get LLVM libraries
-        id: cache_llvm
+        id: retrieve_llvm_libs
         uses: actions/cache@v3
         with:
           path: |
@@ -81,10 +83,10 @@ jobs:
             ./core/deps/llvm/build/lib
             ./core/deps/llvm/build/libexec
             ./core/deps/llvm/build/share
-          key:  ${{ matrix.os }}-${{ env.LLVM_CACHE_SUFFIX }}
+          key: ${{ matrix.llvm_cache_key }}
 
       - name: Quit if cache miss
-        if: steps.cache_llvm.outputs.cache-hit != 'true'
+        if: steps.retrieve_llvm_libs.outputs.cache-hit != 'true'
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
 
       - name: Copy LLVM

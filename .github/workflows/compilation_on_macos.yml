@@ -51,26 +51,28 @@ env:
   FAST_INTERP_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=0 -DWAMR_BUILD_FAST_INTERP=1 -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_LAZY_JIT=0"
   LLVM_LAZY_JIT_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=1"
   LLVM_EAGER_JIT_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=0"
-  LLVM_CACHE_SUFFIX: "build-llvm_libraries_ex"
 
 jobs:
   build_llvm_libraries:
     uses: ./.github/workflows/build_llvm_libraries.yml
     with:
-      runs-on: "['macos-latest']"
+      os: "macos-latest"
+      arch: "X86"
 
   build_wamrc:
     needs: [build_llvm_libraries]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-latest]
+        include:
+          - os: macos-latest
+            llvm_cache_key: ${{ needs.build_llvm_libraries.outputs.cache_key }}
     steps:
       - name: checkout
         uses: actions/checkout@v3
 
       - name: Get LLVM libraries
-        id: cache_llvm
+        id: retrieve_llvm_libs
         uses: actions/cache@v3
         with:
           path: |
@@ -79,10 +81,10 @@ jobs:
             ./core/deps/llvm/build/lib
             ./core/deps/llvm/build/libexec
             ./core/deps/llvm/build/share
-          key: ${{ matrix.os }}-${{ env.LLVM_CACHE_SUFFIX }}
+          key: ${{ matrix.llvm_cache_key }}
 
       - name: Quit if cache miss
-        if: steps.cache_llvm.outputs.cache-hit != 'true'
+        if: steps.retrieve_llvm_libs.outputs.cache-hit != 'true'
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
 
       - name: Build wamrc
@@ -166,13 +168,16 @@ jobs:
             make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"
           - make_options_run_mode: $LLVM_EAGER_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"
+        include:
+          - os: macos-latest
+            llvm_cache_key: ${{ needs.build_llvm_libraries.outputs.cache_key }}
     steps:
       - name: checkout
         uses: actions/checkout@v3
 
       # only download llvm cache when needed
       - name: Get LLVM libraries
-        id: cache_llvm
+        id: retrieve_llvm_libs
         if: endsWith(matrix.make_options_run_mode, '_JIT_BUILD_OPTIONS')
         uses: actions/cache@v3
         with:
@@ -182,10 +187,10 @@ jobs:
             ./core/deps/llvm/build/lib
             ./core/deps/llvm/build/libexec
             ./core/deps/llvm/build/share
-          key: ${{ matrix.os }}-${{ env.LLVM_CACHE_SUFFIX }}
+          key: ${{ matrix.llvm_cache_key }}
 
       - name: Quit if cache miss
-        if: endsWith(matrix.make_options_run_mode, '_JIT_BUILD_OPTIONS') && (steps.cache_llvm.outputs.cache-hit != 'true')
+        if: endsWith(matrix.make_options_run_mode, '_JIT_BUILD_OPTIONS') && (steps.retrieve_llvm_libs.outputs.cache-hit != 'true')
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
 
       - name: Build iwasm
@@ -210,8 +215,14 @@ jobs:
             #$AOT_BUILD_OPTIONS,
           ]
         os: [macos-latest]
-        wasi_sdk_release: ["https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-16/wasi-sdk-16.0-macos.tar.gz"]
-        wabt_release: ["https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-macos.tar.gz"]
+        wasi_sdk_release:
+          [
+            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-macos.tar.gz",
+          ]
+        wabt_release:
+          [
+            "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-macos-12.tar.gz",
+          ]
     steps:
       - name: checkout
         uses: actions/checkout@v3
@@ -220,24 +231,14 @@ jobs:
         run: |
           cd /opt
           sudo wget ${{ matrix.wabt_release }}
-          sudo tar -xzf wabt-1.0.24-*.tar.gz
-          sudo mv wabt-1.0.24 wabt
+          sudo tar -xzf wabt-1.0.31-*.tar.gz
+          sudo mv wabt-1.0.31 wabt
 
       - name: Build Sample [wasm-c-api]
         run: |
-          mkdir build && cd build
-          cmake .. ${{ matrix.make_options }}
-          cmake --build . --config Release --parallel 4
-          ./callback
-          ./callback_chain
-          ./empty_imports
-          ./global
-          ./hello
-          ./hostref
-          ./memory
-          ./reflect
-          ./table
-          ./trap
+          cmake -S . -B build ${{ matrix.make_options }}
+          cmake --build build --config Release --parallel 4
+          ctest --test-dir build
         working-directory: samples/wasm-c-api
 
   build_samples_others:
@@ -246,8 +247,14 @@ jobs:
     strategy:
       matrix:
         os: [macos-latest]
-        wasi_sdk_release: ["https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-16/wasi-sdk-16.0-macos.tar.gz"]
-        wabt_release: ["https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-macos.tar.gz"]
+        wasi_sdk_release:
+          [
+            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-macos.tar.gz",
+          ]
+        wabt_release:
+          [
+            "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-macos-12.tar.gz",
+          ]
     steps:
       - name: checkout
         uses: actions/checkout@v3
@@ -256,15 +263,15 @@ jobs:
         run: |
           cd /opt
           sudo wget ${{ matrix.wasi_sdk_release }}
-          sudo tar -xzf wasi-sdk-16.0-*.tar.gz
-          sudo mv wasi-sdk-16.0 wasi-sdk
+          sudo tar -xzf wasi-sdk-*.tar.gz
+          sudo mv wasi-sdk-19.0 wasi-sdk
 
       - name: download and install wabt
         run: |
           cd /opt
           sudo wget ${{ matrix.wabt_release }}
-          sudo tar -xzf wabt-1.0.24-*.tar.gz
-          sudo mv wabt-1.0.24 wabt
+          sudo tar -xzf wabt-1.0.31-*.tar.gz
+          sudo mv wabt-1.0.31 wabt
 
       - name: build wasi-libc (needed for wasi-threads)
         run: |

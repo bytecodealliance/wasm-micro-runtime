@@ -84,6 +84,12 @@ typedef struct WASMExecEnv {
     void **native_symbol;
 #endif
 
+    /*
+     * The lowest stack pointer value observed.
+     * Assumption: native stack grows to the lower address.
+     */
+    uint8 *native_stack_top_min;
+
 #if WASM_ENABLE_FAST_JIT != 0
     /**
      * Cache for
@@ -164,6 +170,17 @@ typedef struct WASMExecEnv {
         } s;
     } wasm_stack;
 } WASMExecEnv;
+
+#if WASM_ENABLE_MEMORY_PROFILING != 0
+#define RECORD_STACK_USAGE(e, p)               \
+    do {                                       \
+        if ((e)->native_stack_top_min > (p)) { \
+            (e)->native_stack_top_min = (p);   \
+        }                                      \
+    } while (0)
+#else
+#define RECORD_STACK_USAGE(e, p) (void)0
+#endif
 
 WASMExecEnv *
 wasm_exec_env_create_internal(struct WASMModuleInstanceCommon *module_inst,

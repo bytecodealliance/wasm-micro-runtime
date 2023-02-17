@@ -3,12 +3,12 @@
 Prepare WASM building environments
 ==================================
 
-For C and C++, WASI-SDK version 12.0+ is the major tool supported by WAMR to build WASM applications. Also, we can use [Emscripten SDK (EMSDK)](https://github.com/emscripten-core/emsdk), but it is not recommended. And there are some other compilers such as the standard clang compiler, which might also work [here](./other_wasm_compilers.md).
+For C and C++, WASI-SDK version 19.0+ is the major tool supported by WAMR to build WASM applications. Also, we can use [Emscripten SDK (EMSDK)](https://github.com/emscripten-core/emsdk), but it is not recommended. And there are some other compilers such as the standard clang compiler, which might also work [here](./other_wasm_compilers.md).
 
 To install WASI SDK, please download the [wasi-sdk release](https://github.com/CraneStation/wasi-sdk/releases) and extract the archive to default path `/opt/wasi-sdk`.
 
 The official *wasi-sdk release* doesn't fully support *latest 128-bit SIMD spec* yet. WAMR provides a script in [build-wasi-sdk](../test-tools/build-wasi-sdk/) to generate
-another wasi-sdk with *llvm-13* from source code and installs it at *../test-tools/wasi-sdk*. If you plan to build WASM applications with *latest 128-bit SIMD*, please use it instead of the official release.
+another wasi-sdk with *llvm-15* from source code and installs it at *../test-tools/wasi-sdk*. If you plan to build WASM applications with *latest 128-bit SIMD*, please use it instead of the official release.
 
 And [sample workloads](../samples/workload) are using the self-compiled wasi-sdk.
 

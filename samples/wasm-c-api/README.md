@@ -4,9 +4,9 @@ Before staring, we need to download and intall [WABT](https://github.com/WebAsse
 
 ``` shell
 $ cd /opt
-$ wget https://github.com/WebAssembly/wabt/releases/download/1.0.19/wabt-1.0.19-ubuntu.tar.gz
-$ tar -xzf wabt-1.0.19-ubuntu.tar.gz
-$ mv wabt-1.0.19 wabt
+$ wget https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-ubuntu.tar.gz
+$ tar -xzf wabt-1.0.31-ubuntu.tar.gz
+$ mv wabt-1.0.31 wabt
 ```
 
 By default, all samples are compiled and run in "interpreter" mode.
