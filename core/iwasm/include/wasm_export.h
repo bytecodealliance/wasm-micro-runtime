@@ -801,6 +801,27 @@ wasm_runtime_call_wasm_v(wasm_exec_env_t exec_env,
                          uint32_t num_args, ...);
 
 /**
+ * Call a function reference of a given WASM runtime instance with
+ * arguments.
+ *
+ * @param exec_env the execution environment to call the function
+ *   which must be created from wasm_create_exec_env()
+ * @param element_indices the function ference indicies, usually
+ *   prvovided by the caller of a registed native function
+ * @param argc the number of arguments
+ * @param argv the arguments.  If the function method has return value,
+ *   the first (or first two in case 64-bit return value) element of
+ *   argv stores the return value of the called WASM function after this
+ *   function returns.
+ *
+ * @return true if success, false otherwise and exception will be thrown,
+ *   the caller can call wasm_runtime_get_exception to get exception info.
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_call_indirect(wasm_exec_env_t exec_env, uint32_t element_indices,
+                           uint32_t argc, uint32_t argv[]);
+
+/**
  * Find the unique main function from a WASM module instance
  * and execute that function.
  *
