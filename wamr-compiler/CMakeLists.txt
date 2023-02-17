@@ -44,6 +44,7 @@ add_definitions(-DWASM_ENABLE_CUSTOM_NAME_SECTION=1)
 add_definitions(-DWASM_ENABLE_DUMP_CALL_STACK=1)
 add_definitions(-DWASM_ENABLE_PERF_PROFILING=1)
 add_definitions(-DWASM_ENABLE_LOAD_CUSTOM_SECTION=1)
+add_definitions(-DWASM_ENABLE_LIB_WASI_THREADS=1)
 
 if (WAMR_BUILD_LLVM_LEGACY_PM EQUAL 1)
   add_definitions(-DWASM_ENABLE_LLVM_LEGACY_PM=1)
@@ -204,6 +205,7 @@ if (NOT MINGW)
   endif()
 endif()
 include (${IWASM_DIR}/libraries/lib-pthread/lib_pthread.cmake)
+include (${IWASM_DIR}/libraries/lib-wasi-threads/lib_wasi_threads.cmake)
 include (${IWASM_DIR}/common/iwasm_common.cmake)
 include (${IWASM_DIR}/interpreter/iwasm_interp.cmake)
 include (${IWASM_DIR}/aot/iwasm_aot.cmake)
@@ -258,6 +260,7 @@ add_library (vmlib
              ${LIBC_BUILTIN_SOURCE}
              ${LIBC_WASI_SOURCE}
              ${LIB_PTHREAD_SOURCE}
+             ${LIB_WASI_THREADS_SOURCE}
              ${IWASM_COMMON_SOURCE}
              ${IWASM_INTERP_SOURCE}
              ${IWASM_AOT_SOURCE})

@@ -358,6 +358,22 @@ jobs:
           sudo tar -xzf wabt-1.0.31-*.tar.gz
           sudo mv wabt-1.0.31 wabt
 
+      - name: build wasi-libc (needed for wasi-threads)
+        run: |
+          mkdir wasi-libc
+          cd wasi-libc
+          git init
+          # "Rename thread_spawn import" commit on main branch
+          git fetch https://github.com/WebAssembly/wasi-libc \
+            8f5275796a82f8ecfd0833a4f3f444fa37ed4546
+          git checkout FETCH_HEAD
+          make \
+            AR=/opt/wasi-sdk/bin/llvm-ar \
+            NM=/opt/wasi-sdk/bin/llvm-nm \
+            CC=/opt/wasi-sdk/bin/clang \
+            THREAD_MODEL=posix
+        working-directory: core/deps
+
       - name: Build Sample [basic]
         run: |
           cd samples/basic
@@ -410,6 +426,14 @@ jobs:
           python3 ./sample_test_run.py $(pwd)/out
           exit $?
         working-directory: ./samples/simple
+
+      - name: Build Sample [wasi-threads]
+        run: |
+          cd samples/wasi-threads
+          mkdir build && cd build
+          cmake -DWASI_SYSROOT=`pwd`/../../../core/deps/wasi-libc/sysroot ..
+          cmake --build . --config Release --parallel 4
+          ./iwasm wasm-apps/no_pthread.wasm
 
   test:
     needs: [build_iwasm, build_llvm_libraries_on_ubuntu_2004, build_wamrc]
