@@ -1367,7 +1367,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
             HANDLE_OP(EXT_OP_BR_TABLE_CACHE)
             {
-                BrTableCache *node =
+                BrTableCache *node_cache =
                     bh_list_first_elem(module->module->br_table_cache_list);
                 BrTableCache *node_next;
 
@@ -1376,13 +1376,13 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #endif
                 lidx = POP_I32();
 
-                while (node) {
-                    node_next = bh_list_elem_next(node);
-                    if (node->br_table_op_addr == frame_ip - 1) {
-                        depth = node->br_depths[lidx];
+                while (node_cache) {
+                    node_next = bh_list_elem_next(node_cache);
+                    if (node_cache->br_table_op_addr == frame_ip - 1) {
+                        depth = node_cache->br_depths[lidx];
                         goto label_pop_csp_n;
                     }
-                    node = node_next;
+                    node_cache = node_next;
                 }
                 bh_assert(0);
                 HANDLE_OP_END();

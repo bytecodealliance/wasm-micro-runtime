@@ -901,6 +901,19 @@ create_exports(AOTModuleInstance *module_inst, AOTModule *module,
     return create_export_funcs(module_inst, module, error_buf, error_buf_size);
 }
 
+#if WASM_ENABLE_LIBC_WASI != 0
+static bool
+execute_initialize_function(AOTModuleInstance *module_inst)
+{
+    AOTFunctionInstance *initialize =
+        aot_lookup_function(module_inst, "_initialize", NULL);
+
+    return !initialize
+           || aot_create_exec_env_and_call_function(module_inst, initialize, 0,
+                                                    NULL);
+}
+#endif
+
 static bool
 execute_post_inst_function(AOTModuleInstance *module_inst)
 {
@@ -1121,11 +1134,27 @@ aot_instantiate(AOTModule *module, bool is_sub_inst, uint32 stack_size,
     }
 #endif
 
-    /* Execute __post_instantiate function and start function*/
-    if (!execute_post_inst_function(module_inst)
-        || !execute_start_function(module_inst)) {
-        set_error_buf(error_buf, error_buf_size, module_inst->cur_exception);
-        goto fail;
+    if (!is_sub_inst) {
+        if (
+#if WASM_ENABLE_LIBC_WASI != 0
+            /*
+             * reactor instances may assume that _initialize will be called by
+             * the environment at most once, and that none of their other
+             * exports are accessed before that call.
+             *
+             * let the loader decide how to act if there is no _initialize
+             * in a reactor
+             */
+            !execute_initialize_function(module_inst) ||
+#endif
+            /* Execute __post_instantiate function */
+            !execute_post_inst_function(module_inst)
+            /* Execute the function in "start" section */
+            || !execute_start_function(module_inst)) {
+            set_error_buf(error_buf, error_buf_size,
+                          module_inst->cur_exception);
+            goto fail;
+        }
     }
 
 #if WASM_ENABLE_BULK_MEMORY != 0
