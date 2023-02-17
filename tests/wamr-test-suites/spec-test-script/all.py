@@ -77,7 +77,7 @@ def ignore_the_case(
         return True
 
     if gc_flag:
-        if case_name in ["type-canon", "type-equivalence", "type-rec", "extern"]:
+        if case_name in ["type-canon", "type-equivalence", "type-rec"]:
             return True;
 
     if sgx_flag:

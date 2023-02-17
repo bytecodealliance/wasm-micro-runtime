@@ -11389,7 +11389,7 @@ re_scan:
                     case WASM_OP_ARRAY_NEW_CANON_DATA:
                     case WASM_OP_ARRAY_NEW_CANON_ELEM:
                     {
-                        uint32 u32;
+                        uint32 u32 = 0;
 
                         read_leb_uint32(p, p_end, type_idx);
 #if WASM_ENABLE_FAST_INTERP != 0

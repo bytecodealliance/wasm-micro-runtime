@@ -373,7 +373,7 @@ wasm_func_type_is_subtype_of(const WASMFuncType *type1,
                              const WASMFuncType *type2,
                              const WASMTypePtr *types, uint32 type_count)
 {
-    const WASMRefType *ref_type1, *ref_type2;
+    const WASMRefType *ref_type1 = NULL, *ref_type2 = NULL;
     uint32 i, j1 = 0, j2 = 0;
 
     if (type1 == type2)
