@@ -1999,24 +1999,27 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
                 &module_inst->e->functions[module->start_function];
     }
 
-    if (
+    if (!is_sub_inst) {
+        if (
 #if WASM_ENABLE_LIBC_WASI != 0
-        /*
-         * reactor instances may assume that _initialize will be called by
-         * the environment at most once, and that none of their other
-         * exports are accessed before that call.
-         *
-         * let the loader decide how to act if there is no _initialize
-         * in a reactor
-         */
-        !execute_initialize_function(module_inst) ||
+            /*
+             * reactor instances may assume that _initialize will be called by
+             * the environment at most once, and that none of their other
+             * exports are accessed before that call.
+             *
+             * let the loader decide how to act if there is no _initialize
+             * in a reactor
+             */
+            !execute_initialize_function(module_inst) ||
 #endif
-        /* Execute __post_instantiate function */
-        !execute_post_inst_function(module_inst)
-        /* Execute the function in "start" section */
-        || !execute_start_function(module_inst)) {
-        set_error_buf(error_buf, error_buf_size, module_inst->cur_exception);
-        goto fail;
+            /* Execute __post_instantiate function */
+            !execute_post_inst_function(module_inst)
+            /* Execute the function in "start" section */
+            || !execute_start_function(module_inst)) {
+            set_error_buf(error_buf, error_buf_size,
+                          module_inst->cur_exception);
+            goto fail;
+        }
     }
 
 #if WASM_ENABLE_BULK_MEMORY != 0
