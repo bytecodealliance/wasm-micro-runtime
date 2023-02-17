@@ -82,7 +82,7 @@ index 57457286..5c0bd457 100644
  (assert_return (invoke $module1 "call-9") (i32.const 70))
 +;)
 diff --git a/test/core/gc/array.wast b/test/core/gc/array.wast
-index 7ee75b20..f2287add 100644
+index 7ee75b20..e3e0f635 100644
 --- a/test/core/gc/array.wast
 +++ b/test/core/gc/array.wast
 @@ -35,10 +35,10 @@
@@ -136,15 +136,7 @@ index 7ee75b20..f2287add 100644
  (assert_return (invoke "get" (i32.const 0)) (f32.const 1))
  (assert_return (invoke "set_get" (i32.const 1) (f32.const 7)) (f32.const 7))
  (assert_return (invoke "len") (i32.const 2))
-@@ -148,6 +148,7 @@
- (assert_trap (invoke "get" (i32.const 10)) "out of bounds")
- (assert_trap (invoke "set_get" (i32.const 10) (f32.const 7)) "out of bounds")
- 
-+(; ;; TODO: support array.new_canon_data
- (module
-   (type $vec (array i8))
-   (type $mvec (array (mut i8)))
-@@ -185,14 +186,16 @@
+@@ -185,7 +185,7 @@
  )
  
  (assert_return (invoke "new") (ref.array))
@@ -153,25 +145,29 @@ index 7ee75b20..f2287add 100644
  (assert_return (invoke "get" (i32.const 0)) (i32.const 1))
  (assert_return (invoke "set_get" (i32.const 1) (i32.const 7)) (i32.const 7))
  (assert_return (invoke "len") (i32.const 3))
+@@ -201,8 +201,8 @@
+   (type $avec (array (mut anyref)))
  
- (assert_trap (invoke "get" (i32.const 10)) "out of bounds")
- (assert_trap (invoke "set_get" (i32.const 10) (i32.const 7)) "out of bounds")
-+;)
+   (elem $e (ref $bvec)
+-    (array.new_canon $bvec (i32.const 7) (i32.const 3))
+-    (array.new_canon_fixed $bvec 2 (i32.const 1) (i32.const 2))
++    ;;(array.new_canon $bvec (i32.const 7) (i32.const 3))
++    ;;(array.new_canon_fixed $bvec 2 (i32.const 1) (i32.const 2))
+   )
  
-+(; ;; TODO: support array.new_canon_elem
- (module
-   (type $bvec (array i8))
-   (type $vec (array (ref $bvec)))
-@@ -243,7 +246,7 @@
+   (func $new (export "new") (result (ref $vec))
+@@ -242,8 +242,9 @@
+   )
  )
  
++(; ;; TODO: support array.new_canon_elem
  (assert_return (invoke "new") (ref.array))
 -(assert_return (invoke "new") (ref.eq))
 +;;(assert_return (invoke "new") (ref.eq))
  (assert_return (invoke "get" (i32.const 0) (i32.const 0)) (i32.const 7))
  (assert_return (invoke "get" (i32.const 1) (i32.const 0)) (i32.const 1))
  (assert_return (invoke "set_get" (i32.const 0) (i32.const 1) (i32.const 1)) (i32.const 2))
-@@ -251,6 +254,7 @@
+@@ -251,6 +252,7 @@
  
  (assert_trap (invoke "get" (i32.const 10) (i32.const 0)) "out of bounds")
  (assert_trap (invoke "set_get" (i32.const 10) (i32.const 0) (i32.const 0)) "out of bounds")

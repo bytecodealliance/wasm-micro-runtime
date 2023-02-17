@@ -11389,6 +11389,8 @@ re_scan:
                     case WASM_OP_ARRAY_NEW_CANON_DATA:
                     case WASM_OP_ARRAY_NEW_CANON_ELEM:
                     {
+                        WASMArrayType *array_type;
+                        uint8 elem_type;
                         uint32 u32 = 0;
 
                         read_leb_uint32(p, p_end, type_idx);
@@ -11420,12 +11422,11 @@ re_scan:
                             POP_I32();
                         }
 
+                        array_type = (WASMArrayType *)module->types[type_idx];
+                        elem_type = array_type->elem_type;
+
                         if (opcode1 == WASM_OP_ARRAY_NEW_CANON
                             || opcode1 == WASM_OP_ARRAY_NEW_CANON_FIXED) {
-                            WASMArrayType *array_type =
-                                (WASMArrayType *)module->types[type_idx];
-                            uint8 elem_type = array_type->elem_type;
-
                             if (wasm_is_type_multi_byte_type(elem_type)) {
                                 bh_memcpy_s(&wasm_ref_type, sizeof(WASMRefType),
                                             array_type->elem_ref_type,
@@ -11444,9 +11445,43 @@ re_scan:
                             else
                                 POP_REF(elem_type);
                         }
-                        else if (opcode1 == WASM_OP_ARRAY_NEW_CANON_DATA
-                                 || opcode1 == WASM_OP_ARRAY_NEW_CANON_ELEM) {
+                        else if (opcode1 == WASM_OP_ARRAY_NEW_CANON_DATA) {
+                            /* offset of data segment */
                             POP_I32();
+
+                            if (u32 >= module->data_seg_count) {
+                                set_error_buf(error_buf, error_buf_size,
+                                              "unknown data segement");
+                                goto fail;
+                            }
+
+                            if (wasm_is_type_reftype(elem_type)) {
+                                set_error_buf(error_buf, error_buf_size,
+                                              "array elem type mismatch");
+                                goto fail;
+                            }
+                        }
+                        else if (opcode1 == WASM_OP_ARRAY_NEW_CANON_ELEM) {
+                            WASMTableSeg *table_seg =
+                                module->table_segments + u32;
+
+                            /* offset of element segment */
+                            POP_I32();
+
+                            if (u32 >= module->table_seg_count) {
+                                set_error_buf(error_buf, error_buf_size,
+                                              "unknown element segement");
+                                goto fail;
+                            }
+                            if (!wasm_reftype_is_subtype_of(
+                                    table_seg->elem_type,
+                                    table_seg->elem_ref_type, elem_type,
+                                    array_type->elem_ref_type, module->types,
+                                    module->type_count)) {
+                                set_error_buf(error_buf, error_buf_size,
+                                              "array elem type mismatch");
+                                goto fail;
+                            }
                         }
 
                         /* PUSH array obj, (ref $t) */

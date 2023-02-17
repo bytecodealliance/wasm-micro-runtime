@@ -2188,6 +2188,84 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         HANDLE_OP_END();
                     }
                     case WASM_OP_ARRAY_NEW_CANON_DATA:
+                    {
+                        WASMModule *wasm_module = module->module;
+                        WASMArrayType *array_type;
+                        WASMRttType *rtt_type;
+                        WASMValue array_elem = { 0 };
+                        WASMDataSeg *data_seg;
+                        uint8 *array_elem_base;
+                        uint32 array_len, data_seg_idx, data_seg_offset;
+                        uint32 elem_size = 0;
+                        uint64 total_size;
+
+                        read_leb_uint32(frame_ip, frame_ip_end, type_index);
+                        read_leb_uint32(frame_ip, frame_ip_end, data_seg_idx);
+                        data_seg = wasm_module->data_segments[data_seg_idx];
+
+                        array_type =
+                            (WASMArrayType *)wasm_module->types[type_index];
+
+                        if (!(rtt_type = wasm_rtt_type_new(
+                                  (WASMType *)array_type, type_index,
+                                  wasm_module->rtt_types,
+                                  wasm_module->type_count,
+                                  &wasm_module->rtt_type_lock))) {
+                            wasm_set_exception(module,
+                                               "create rtt type failed");
+                            goto got_exception;
+                        }
+
+                        array_len = POP_I32();
+                        data_seg_offset = POP_I32();
+
+                        switch (array_type->elem_type) {
+                            case PACKED_TYPE_I8:
+                                elem_size = 1;
+                                break;
+                            case PACKED_TYPE_I16:
+                                elem_size = 2;
+                                break;
+                            case VALUE_TYPE_I32:
+                            case VALUE_TYPE_F32:
+                                elem_size = 4;
+                                break;
+                            case VALUE_TYPE_I64:
+                            case VALUE_TYPE_F64:
+                                elem_size = 8;
+                                break;
+                            default:
+                                bh_assert(0);
+                        }
+
+                        total_size = (uint64)elem_size * array_len;
+                        if (data_seg_offset >= data_seg->data_length
+                            || total_size
+                                   > data_seg->data_length - data_seg_offset) {
+                            wasm_set_exception(module,
+                                               "data segment out of bounds");
+                            goto got_exception;
+                        }
+
+                        SYNC_ALL_TO_FRAME();
+                        array_obj = wasm_array_obj_new(
+                            module->e->gc_heap_handle, rtt_type, array_len,
+                            &array_elem);
+                        if (!array_obj) {
+                            wasm_set_exception(module,
+                                               "create array object failed");
+                            goto got_exception;
+                        }
+
+                        array_elem_base =
+                            (uint8 *)wasm_array_obj_first_elem_addr(array_obj);
+                        bh_memcpy_s(array_elem_base, (uint32)total_size,
+                                    data_seg->data + data_seg_offset,
+                                    (uint32)total_size);
+
+                        PUSH_REF(array_obj);
+                        HANDLE_OP_END();
+                    }
                     case WASM_OP_ARRAY_NEW_CANON_ELEM:
                     {
                         /* TODO */
