@@ -428,7 +428,7 @@ gc_show_stat(void *heap)
 
     heap = gc_heap_stats(heap, stats, GC_STAT_MAX);
 
-    os_printf("\n[GC stats %p] " PRIu32 " %" PRIu32 " %" PRIu32 " %" PRIu32
+    os_printf("\n[GC stats %p] %" PRIu32 " %" PRIu32 " %" PRIu32 " %" PRIu32
               " %" PRIu32 "\n",
               heap, stats[0], stats[1], stats[2], stats[3], stats[4]);
 }
