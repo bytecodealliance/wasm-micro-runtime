@@ -357,14 +357,13 @@ function spec_test()
     if [[ ${ENABLE_GC} == 1 ]]; then
         echo "checkout spec for GC proposal"
 
+        popd
+        rm -fr spec
         # check spec test cases for GC
-        if [[ -z $(git remote | grep "\<gc\>") ]]; then
-            git remote add gc https://github.com/WebAssembly/gc.git
-        fi
+        git clone -b main --single-branch https://github.com/WebAssembly/gc.git spec
+        pushd spec
 
         git restore . && git clean -ffd .
-        git fetch gc
-        git checkout -B gc_spec --track gc/master
         # Sync constant expression descriptions
         git reset --hard 62beb94ddd41987517781732f17f213d8b866dcc
         git apply ../../spec-test-script/gc_ignore_cases.patch

@@ -373,18 +373,49 @@ wasm_func_type_is_subtype_of(const WASMFuncType *type1,
                              const WASMFuncType *type2,
                              const WASMTypePtr *types, uint32 type_count)
 {
-    /**
-     * The GC proposal overview defines:
-     * A function type is a supertype of another function type if
-     * they have the same number of parameters and results, and:
-     *   For each parameter, the supertype's parameter type is a subtype of
-     *     the subtype's parameter type (contravariance).
-     *   For each result, the supertype's parameter type is a supertype of
-     *     the subtype's parameter type (covariance).
-     * But from our testing, the spec's interpreter doesn't support it yet,
-     * we just check whether the two function types are the same or not.
-     */
-    return wasm_func_type_equal(type1, type2, types, type_count);
+    const WASMRefType *ref_type1, *ref_type2;
+    uint32 i, j1 = 0, j2 = 0;
+
+    if (type1 == type2)
+        return true;
+
+    if (type1->param_count != type2->param_count
+        || type1->result_count != type2->result_count)
+        return false;
+
+    for (i = 0; i < type1->param_count; i++) {
+        if (wasm_is_type_multi_byte_type(type1->types[i])) {
+            bh_assert(j1 < type1->ref_type_map_count);
+            ref_type1 = type1->ref_type_maps[j1++].ref_type;
+        }
+        if (wasm_is_type_multi_byte_type(type2->types[i])) {
+            bh_assert(j2 < type2->ref_type_map_count);
+            ref_type2 = type2->ref_type_maps[j2++].ref_type;
+        }
+        if (!wasm_reftype_is_subtype_of(type2->types[i], ref_type2,
+                                        type1->types[i], ref_type1, types,
+                                        type_count)) {
+            return false;
+        }
+    }
+
+    for (; i < type1->param_count + type1->result_count; i++) {
+        if (wasm_is_type_multi_byte_type(type1->types[i])) {
+            bh_assert(j1 < type1->ref_type_map_count);
+            ref_type1 = type1->ref_type_maps[j1++].ref_type;
+        }
+        if (wasm_is_type_multi_byte_type(type2->types[i])) {
+            bh_assert(j2 < type2->ref_type_map_count);
+            ref_type2 = type2->ref_type_maps[j2++].ref_type;
+        }
+        if (!wasm_reftype_is_subtype_of(type1->types[i], ref_type1,
+                                        type2->types[i], ref_type2, types,
+                                        type_count)) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 bool
@@ -456,18 +487,21 @@ wasm_struct_type_is_subtype_of(const WASMStructType *type1,
     if (type1->field_count > type2->field_count) {
         /* Check whether type1's field list is a prefix of type2 */
         for (i = 0; i < type2->field_count; i++) {
-            if (type1->fields[i].field_flags != type2->fields[i].field_flags
-                || type1->fields[i].field_type != type2->fields[i].field_type)
+            if (type1->fields[i].field_flags != type2->fields[i].field_flags)
                 return false;
             if (wasm_is_type_multi_byte_type(type1->fields[i].field_type)) {
                 bh_assert(j1 < type1->ref_type_map_count);
-                bh_assert(j2 < type2->ref_type_map_count);
                 ref_type1 = type1->ref_type_maps[j1++].ref_type;
+            }
+            if (wasm_is_type_multi_byte_type(type2->fields[i].field_type)) {
+                bh_assert(j2 < type2->ref_type_map_count);
                 ref_type2 = type2->ref_type_maps[j2++].ref_type;
-                if (!wasm_reftype_equal(ref_type1->ref_type, ref_type1,
-                                        ref_type2->ref_type, ref_type2, types,
-                                        type_count))
-                    return false;
+            }
+            if (!wasm_reftype_is_subtype_of(type1->fields[i].field_type,
+                                            ref_type1,
+                                            type2->fields[i].field_type,
+                                            ref_type2, types, type_count)) {
+                return false;
             }
         }
         return true;
@@ -755,6 +789,28 @@ wasm_is_reftype_supers_of_noextern(uint type)
                : false;
 }
 
+/* Whether type1 is one of super types of type2 */
+static bool
+wasm_type_is_supers_of(const WASMType *type1, const WASMType *type2)
+{
+    uint32 i;
+
+    if (type1 == type2)
+        return true;
+
+    if (!(type1->root_type == type2->root_type
+          && type1->inherit_depth < type2->inherit_depth))
+        return false;
+
+    for (i = 0; i < type2->inherit_depth - type1->inherit_depth; i++) {
+        type2 = type2->parent_type;
+        if (type2 == type1)
+            return true;
+    }
+
+    return false;
+}
+
 bool
 wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
                            uint8 type2, const WASMRefType *ref_type2,
@@ -824,7 +880,10 @@ wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
             if (type2 == REF_TYPE_HT_NULLABLE
                 && wasm_is_refheaptype_typeidx(&ref_type2->ref_ht_common)) {
                 return type_idx_equal(ref_type1->ref_ht_typeidx.type_idx,
-                                      ref_type2->ref_ht_typeidx.type_idx);
+                                      ref_type2->ref_ht_typeidx.type_idx)
+                       || wasm_type_is_supers_of(
+                           types[ref_type2->ref_ht_typeidx.type_idx],
+                           types[ref_type1->ref_ht_typeidx.type_idx]);
             }
             else if (types[ref_type1->ref_ht_typeidx.type_idx]->type_flag
                      == WASM_TYPE_STRUCT)
@@ -853,37 +912,66 @@ wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
                  || type2 == REF_TYPE_HT_NON_NULLABLE)
                 && wasm_is_refheaptype_typeidx(&ref_type2->ref_ht_common)) {
                 return type_idx_equal(ref_type1->ref_ht_typeidx.type_idx,
-                                      ref_type2->ref_ht_typeidx.type_idx);
+                                      ref_type2->ref_ht_typeidx.type_idx)
+                       || wasm_type_is_supers_of(
+                           types[ref_type2->ref_ht_typeidx.type_idx],
+                           types[ref_type1->ref_ht_typeidx.type_idx]);
             }
             else if (types[ref_type1->ref_ht_typeidx.type_idx]->type_flag
                      == WASM_TYPE_STRUCT) {
                 /* the super type is (ref null struct) or (ref struct) */
-                if ((type2 == REF_TYPE_HT_NULLABLE
-                     || type2 == REF_TYPE_HT_NON_NULLABLE)
-                    && ref_type2->ref_ht_common.heap_type == HEAP_TYPE_STRUCT)
-                    return true;
-                /* the super type is structref or anyref */
-                return wasm_is_reftype_supers_of_struct(type2);
+                if (type2 == REF_TYPE_HT_NULLABLE
+                    || type2 == REF_TYPE_HT_NON_NULLABLE) {
+                    uint8 ref_type =
+                        (uint8)(ref_type2->ref_ht_common.heap_type
+                                + REF_TYPE_FUNCREF - HEAP_TYPE_FUNC);
+                    return wasm_is_reftype_supers_of_struct(ref_type);
+                }
+                else
+                    /* the super type is structref or anyref */
+                    return wasm_is_reftype_supers_of_struct(type2);
             }
             else if (types[ref_type1->ref_ht_typeidx.type_idx]->type_flag
                      == WASM_TYPE_ARRAY) {
                 /* the super type is (ref null array) or (ref array) */
-                if ((type2 == REF_TYPE_HT_NULLABLE
-                     || type2 == REF_TYPE_HT_NON_NULLABLE)
-                    && ref_type2->ref_ht_common.heap_type == HEAP_TYPE_ARRAY)
-                    return true;
-                /* the super type is arrayref, eqref or anyref */
-                return wasm_is_reftype_supers_of_array(type2);
+                if (type2 == REF_TYPE_HT_NULLABLE
+                    || type2 == REF_TYPE_HT_NON_NULLABLE) {
+                    uint8 ref_type =
+                        (uint8)(ref_type2->ref_ht_common.heap_type
+                                + REF_TYPE_FUNCREF - HEAP_TYPE_FUNC);
+                    return wasm_is_reftype_supers_of_array(ref_type);
+                }
+                else
+                    /* the super type is arrayref, eqref or anyref */
+                    return wasm_is_reftype_supers_of_array(type2);
             }
             else if (types[ref_type1->ref_ht_typeidx.type_idx]->type_flag
                      == WASM_TYPE_FUNC) {
                 /* the super type is (ref null func) or (ref func) */
-                if ((type2 == REF_TYPE_HT_NULLABLE
-                     || type2 == REF_TYPE_HT_NON_NULLABLE)
-                    && ref_type2->ref_ht_common.heap_type == HEAP_TYPE_FUNC)
-                    return true;
-                /* the super type is funcref */
-                return wasm_is_reftype_supers_of_func(type2);
+                if (type2 == REF_TYPE_HT_NULLABLE
+                    || type2 == REF_TYPE_HT_NON_NULLABLE) {
+                    uint8 ref_type =
+                        (uint8)(ref_type2->ref_ht_common.heap_type
+                                + REF_TYPE_FUNCREF - HEAP_TYPE_FUNC);
+                    return wasm_is_reftype_supers_of_func(ref_type);
+                }
+                else
+                    /* the super type is funcref */
+                    return wasm_is_reftype_supers_of_func(type2);
+            }
+            else if (types[ref_type1->ref_ht_typeidx.type_idx]->type_flag
+                     == REF_TYPE_I31REF) {
+                /* the super type is (ref null i31) or (ref i31) */
+                if (type2 == REF_TYPE_HT_NULLABLE
+                    || type2 == REF_TYPE_HT_NON_NULLABLE) {
+                    uint8 ref_type =
+                        (uint8)(ref_type2->ref_ht_common.heap_type
+                                + REF_TYPE_FUNCREF - HEAP_TYPE_FUNC);
+                    return wasm_is_reftype_supers_of_i31(ref_type);
+                }
+                else
+                    /* the super type is i31ref, eqref or anyref */
+                    return wasm_is_reftype_supers_of_i31(type2);
             }
             else {
                 return false;

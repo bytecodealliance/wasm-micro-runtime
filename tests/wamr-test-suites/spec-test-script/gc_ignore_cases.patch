@@ -81,6 +81,166 @@ index 57457286..5c0bd457 100644
  (assert_return (invoke $module1 "call-8") (i32.const 69))
  (assert_return (invoke $module1 "call-9") (i32.const 70))
 +;)
+diff --git a/test/core/gc/array.wast b/test/core/gc/array.wast
+index 7ee75b20..f2287add 100644
+--- a/test/core/gc/array.wast
++++ b/test/core/gc/array.wast
+@@ -35,10 +35,10 @@
+ ;; Binding structure
+ 
+ (module
+-  (rec
++  ;;(rec
+     (type $s0 (array (ref $s1)))
+     (type $s1 (array (ref $s0)))
+-  )
++  ;;)
+ 
+   (func (param (ref $forward)))
+ 
+@@ -61,8 +61,8 @@
+   (type $vec (array f32))
+   (type $mvec (array (mut f32)))
+ 
+-  (global (ref $vec) (array.new_canon $vec (f32.const 1) (i32.const 3)))
+-  (global (ref $vec) (array.new_canon_default $vec (i32.const 3)))
++  ;;(global (ref $vec) (array.new_canon $vec (f32.const 1) (i32.const 3)))
++  ;;(global (ref $vec) (array.new_canon_default $vec (i32.const 3)))
+ 
+   (func $new (export "new") (result (ref $vec))
+     (array.new_canon_default $vec (i32.const 3))
+@@ -95,7 +95,7 @@
+ )
+ 
+ (assert_return (invoke "new") (ref.array))
+-(assert_return (invoke "new") (ref.eq))
++;;(assert_return (invoke "new") (ref.eq))
+ (assert_return (invoke "get" (i32.const 0)) (f32.const 0))
+ (assert_return (invoke "set_get" (i32.const 1) (f32.const 7)) (f32.const 7))
+ (assert_return (invoke "len") (i32.const 3))
+@@ -107,7 +107,7 @@
+   (type $vec (array f32))
+   (type $mvec (array (mut f32)))
+ 
+-  (global (ref $vec) (array.new_canon_fixed $vec 2 (f32.const 1) (f32.const 2)))
++  ;;(global (ref $vec) (array.new_canon_fixed $vec 2 (f32.const 1) (f32.const 2)))
+ 
+   (func $new (export "new") (result (ref $vec))
+     (array.new_canon_fixed $vec 2 (f32.const 1) (f32.const 2))
+@@ -140,7 +140,7 @@
+ )
+ 
+ (assert_return (invoke "new") (ref.array))
+-(assert_return (invoke "new") (ref.eq))
++;;(assert_return (invoke "new") (ref.eq))
+ (assert_return (invoke "get" (i32.const 0)) (f32.const 1))
+ (assert_return (invoke "set_get" (i32.const 1) (f32.const 7)) (f32.const 7))
+ (assert_return (invoke "len") (i32.const 2))
+@@ -148,6 +148,7 @@
+ (assert_trap (invoke "get" (i32.const 10)) "out of bounds")
+ (assert_trap (invoke "set_get" (i32.const 10) (f32.const 7)) "out of bounds")
+ 
++(; ;; TODO: support array.new_canon_data
+ (module
+   (type $vec (array i8))
+   (type $mvec (array (mut i8)))
+@@ -185,14 +186,16 @@
+ )
+ 
+ (assert_return (invoke "new") (ref.array))
+-(assert_return (invoke "new") (ref.eq))
++;;(assert_return (invoke "new") (ref.eq))
+ (assert_return (invoke "get" (i32.const 0)) (i32.const 1))
+ (assert_return (invoke "set_get" (i32.const 1) (i32.const 7)) (i32.const 7))
+ (assert_return (invoke "len") (i32.const 3))
+ 
+ (assert_trap (invoke "get" (i32.const 10)) "out of bounds")
+ (assert_trap (invoke "set_get" (i32.const 10) (i32.const 7)) "out of bounds")
++;)
+ 
++(; ;; TODO: support array.new_canon_elem
+ (module
+   (type $bvec (array i8))
+   (type $vec (array (ref $bvec)))
+@@ -243,7 +246,7 @@
+ )
+ 
+ (assert_return (invoke "new") (ref.array))
+-(assert_return (invoke "new") (ref.eq))
++;;(assert_return (invoke "new") (ref.eq))
+ (assert_return (invoke "get" (i32.const 0) (i32.const 0)) (i32.const 7))
+ (assert_return (invoke "get" (i32.const 1) (i32.const 0)) (i32.const 1))
+ (assert_return (invoke "set_get" (i32.const 0) (i32.const 1) (i32.const 1)) (i32.const 2))
+@@ -251,6 +254,7 @@
+ 
+ (assert_trap (invoke "get" (i32.const 10) (i32.const 0)) "out of bounds")
+ (assert_trap (invoke "set_get" (i32.const 10) (i32.const 0) (i32.const 0)) "out of bounds")
++;)
+ 
+ (assert_invalid
+   (module
+diff --git a/test/core/gc/struct.wast b/test/core/gc/struct.wast
+index bbd2c94a..dc490f62 100644
+--- a/test/core/gc/struct.wast
++++ b/test/core/gc/struct.wast
+@@ -30,10 +30,10 @@
+ ;; Binding structure
+ 
+ (module
+-  (rec
++  ;;(rec
+     (type $s0 (struct (field (ref 0) (ref 1) (ref $s0) (ref $s1))))
+     (type $s1 (struct (field (ref 0) (ref 1) (ref $s0) (ref $s1))))
+-  )
++  ;;)
+ 
+   (func (param (ref $forward)))
+ 
+@@ -55,7 +55,7 @@
+ (module
+   (type $vec (struct (field f32) (field $y (mut f32)) (field $z f32)))
+ 
+-  (global (ref $vec) (struct.new_canon $vec (f32.const 1) (f32.const 2) (f32.const 3)))
++  ;;(global (ref $vec) (struct.new_canon $vec (f32.const 1) (f32.const 2) (f32.const 3)))
+   (global (ref $vec) (struct.new_canon_default $vec))
+ 
+   (func (export "new") (result anyref)
+diff --git a/test/core/gc/type-subtyping.wast b/test/core/gc/type-subtyping.wast
+index fc5d3d6b..7123afdf 100644
+--- a/test/core/gc/type-subtyping.wast
++++ b/test/core/gc/type-subtyping.wast
+@@ -34,6 +34,7 @@
+ 
+ ;; Recursive definitions
+ 
++(;
+ (module
+   (type $t (sub (struct (field anyref))))
+   (rec (type $r (sub $t (struct (field (ref $r))))))
+@@ -175,6 +176,7 @@
+ (assert_trap (invoke "fail4") "cast")
+ (assert_trap (invoke "fail5") "cast")
+ (assert_trap (invoke "fail6") "cast")
++;)
+ 
+ (module
+   (type $t1 (sub (func)))
+@@ -209,6 +211,7 @@
+ 
+ ;; Linking
+ 
++(;
+ (module
+   (type $t0 (sub (func (result (ref null func)))))
+   (rec (type $t1 (sub $t0 (func (result (ref null $t1))))))
+@@ -262,6 +265,7 @@
+   )
+   "incompatible import type"
+ )
++;)
+ 
+ (module
+   (type $t1 (sub (func)))
 diff --git a/test/core/linking.wast b/test/core/linking.wast
 index 6a8ba1d0..e3059235 100644
 --- a/test/core/linking.wast

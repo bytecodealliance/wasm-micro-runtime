@@ -501,9 +501,29 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
     switch (flag) {
         /* i32.const */
         case INIT_EXPR_TYPE_I32_CONST:
+            read_leb_int32(p, p_end, init_expr->u.i32);
+#if WASM_ENABLE_GC == 0
             if (type != VALUE_TYPE_I32)
                 goto fail_type_mismatch;
-            read_leb_int32(p, p_end, init_expr->u.i32);
+#else
+            if (type != VALUE_TYPE_I32) {
+                if (!wasm_reftype_is_subtype_of(
+                        type, (WASMRefType *)ref_type, REF_TYPE_I31REF, NULL,
+                        module->types, module->type_count)) {
+                    goto fail_type_mismatch;
+                }
+                else {
+                    CHECK_BUF(p, p_end, 2);
+                    if (*p == WASM_OP_GC_PREFIX
+                        && *(p + 1) == WASM_OP_I31_NEW) {
+                        p += 2;
+                        init_expr->init_expr_type = INIT_EXPR_TYPE_I31_NEW;
+                    }
+                    else
+                        goto fail_type_mismatch;
+                }
+            }
+#endif
             break;
         /* i64.const */
         case INIT_EXPR_TYPE_I64_CONST:
@@ -724,18 +744,6 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                                         init_expr->u.array_new_canon_fixed.N);
                     }
 
-                    break;
-                }
-                case WASM_OP_I31_NEW:
-                {
-                    init_expr->init_expr_type = INIT_EXPR_TYPE_I31_NEW;
-
-                    CHECK_BUF(p, p_end, 1);
-                    opcode1 = read_uint8(p);
-                    if (opcode1 != WASM_OP_I32_CONST)
-                        goto fail;
-
-                    read_leb_uint32(p, p_end, init_expr->u.u32);
                     break;
                 }
                 case WASM_OP_EXTERN_INTERNALIZE:
@@ -1361,7 +1369,7 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
 #else  /* else of WASM_ENABLE_GC == 0 */
         for (i = 0; i < type_count; i++) {
             uint32 super_type_count = 0, parent_type_idx = (uint32)-1;
-            bool is_sub_final = false;
+            bool is_sub_final = true;
 
             CHECK_BUF(p, p_end, 1);
             flag = read_uint8(p);
@@ -1383,13 +1391,14 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                     }
                     if (module->types[parent_type_idx]->is_sub_final) {
                         set_error_buf(error_buf, error_buf_size,
-                                      "can not inherit from a final type");
+                                      "sub type can not inherit from "
+                                      "a final super type");
                         return false;
                     }
                 }
 
-                if (flag == DEFINED_TYPE_SUB_FINAL)
-                    is_sub_final = true;
+                if (flag == DEFINED_TYPE_SUB)
+                    is_sub_final = false;
 
                 CHECK_BUF(p, p_end, 1);
                 flag = read_uint8(p);
@@ -11390,9 +11399,8 @@ re_scan:
                             || opcode1 == WASM_OP_ARRAY_NEW_CANON_DATA
                             || opcode1 == WASM_OP_ARRAY_NEW_CANON_ELEM) {
                             read_leb_uint32(p, p_end, u32);
-                            (void)u32;
 #if WASM_ENABLE_FAST_INTERP != 0
-                            emit_uint32(loader_ctx, type_idx);
+                            emit_uint32(loader_ctx, u32);
 #endif
                         }
 
@@ -11412,7 +11420,8 @@ re_scan:
                             POP_I32();
                         }
 
-                        if (opcode1 == WASM_OP_ARRAY_NEW_CANON) {
+                        if (opcode1 == WASM_OP_ARRAY_NEW_CANON
+                            || opcode1 == WASM_OP_ARRAY_NEW_CANON_FIXED) {
                             WASMArrayType *array_type =
                                 (WASMArrayType *)module->types[type_idx];
                             uint8 elem_type = array_type->elem_type;
@@ -11427,11 +11436,13 @@ re_scan:
                                 elem_type = VALUE_TYPE_I32;
                             }
 
-                            POP_REF(elem_type);
-                        }
-                        else if (opcode1 == WASM_OP_ARRAY_NEW_CANON_FIXED) {
-                            /* TODO */
-                            bh_assert(0);
+                            if (opcode1 == WASM_OP_ARRAY_NEW_CANON_FIXED) {
+                                uint32 N = u32;
+                                for (i = 0; i < N; i++)
+                                    POP_REF(elem_type);
+                            }
+                            else
+                                POP_REF(elem_type);
                         }
                         else if (opcode1 == WASM_OP_ARRAY_NEW_CANON_DATA
                                  || opcode1 == WASM_OP_ARRAY_NEW_CANON_ELEM) {
@@ -11480,7 +11491,8 @@ re_scan:
                         elem_type = array_type->elem_type;
                         if (is_packed_type(elem_type)) {
                             if (opcode1 != WASM_OP_ARRAY_GET_S
-                                && opcode1 != WASM_OP_ARRAY_GET_U) {
+                                && opcode1 != WASM_OP_ARRAY_GET_U
+                                && opcode1 != WASM_OP_ARRAY_SET) {
                                 set_error_buf(error_buf, error_buf_size,
                                               "type mismatch");
                                 goto fail;
@@ -11579,16 +11591,27 @@ re_scan:
                     }
 
                     case WASM_OP_BR_ON_CAST:
-                    case WASM_OP_BR_ON_CAST_FAIL:
                     case WASM_OP_BR_ON_CAST_NULLABLE:
-                    case WASM_OP_BR_ON_CAST_FAIL_NULLABLE:
                     {
-                        uint8 type;
-                        bool nullable =
-                            (opcode1 == WASM_OP_BR_ON_CAST_NULLABLE
-                             || opcode1 == WASM_OP_BR_ON_CAST_FAIL_NULLABLE)
-                                ? true
-                                : false;
+                        WASMRefType ref_type_tmp;
+                        uint8 type_tmp;
+                        uint32 depth;
+                        bool nullable;
+
+                        nullable = (opcode1 == WASM_OP_BR_ON_CAST_NULLABLE)
+                                       ? true
+                                       : false;
+
+                        p_org = p;
+
+                        read_leb_int32(p, p_end, depth);
+                        (void)depth;
+
+                        if (!wasm_loader_pop_heap_obj(loader_ctx, &type_tmp,
+                                                      &ref_type_tmp, error_buf,
+                                                      error_buf_size)) {
+                            goto fail;
+                        }
 
                         read_leb_int32(p, p_end, heap_type);
                         if (heap_type >= 0) {
@@ -11596,6 +11619,9 @@ re_scan:
                                                   error_buf_size)) {
                                 goto fail;
                             }
+                            wasm_set_refheaptype_typeidx(
+                                &wasm_ref_type.ref_ht_typeidx, nullable,
+                                heap_type);
                         }
                         else {
                             if (heap_type > HEAP_TYPE_FUNC
@@ -11604,7 +11630,42 @@ re_scan:
                                               "unknown type");
                                 goto fail;
                             }
+                            wasm_set_refheaptype_common(
+                                &wasm_ref_type.ref_ht_common, nullable,
+                                heap_type);
                         }
+
+                        p = p_org;
+                        PUSH_REF(wasm_ref_type.ref_type);
+                        if (!(frame_csp_tmp = check_branch_block(
+                                  loader_ctx, &p, p_end, false, error_buf,
+                                  error_buf_size))) {
+                            goto fail;
+                        }
+                        POP_REF(wasm_ref_type.ref_type);
+                        skip_leb_uint32(p, p_end);
+
+                        if (wasm_is_type_multi_byte_type(type_tmp)) {
+                            bh_memcpy_s(
+                                &wasm_ref_type,
+                                wasm_reftype_struct_size(&ref_type_tmp),
+                                &ref_type_tmp,
+                                wasm_reftype_struct_size(&ref_type_tmp));
+                        }
+                        PUSH_REF(type_tmp);
+                        break;
+                    }
+
+                    case WASM_OP_BR_ON_CAST_FAIL:
+                    case WASM_OP_BR_ON_CAST_FAIL_NULLABLE:
+                    {
+                        WASMRefType ref_type_tmp;
+                        uint8 type_tmp;
+                        bool nullable;
+
+                        nullable = (opcode1 == WASM_OP_BR_ON_CAST_FAIL_NULLABLE)
+                                       ? true
+                                       : false;
 
                         if (!(frame_csp_tmp = check_branch_block(
                                   loader_ctx, &p, p_end, false, error_buf,
@@ -11612,27 +11673,35 @@ re_scan:
                             goto fail;
                         }
 
-                        if (!wasm_loader_pop_heap_obj(loader_ctx, &type,
-                                                      &wasm_ref_type, error_buf,
+                        if (!wasm_loader_pop_heap_obj(loader_ctx, &type_tmp,
+                                                      &ref_type_tmp, error_buf,
                                                       error_buf_size)) {
                             goto fail;
                         }
 
-                        if (opcode1 == WASM_OP_BR_ON_CAST_FAIL
-                            || opcode1 == WASM_OP_BR_ON_CAST_FAIL_NULLABLE) {
-                            if (heap_type >= 0) {
-                                wasm_set_refheaptype_typeidx(
-                                    &wasm_ref_type.ref_ht_typeidx, nullable,
-                                    heap_type);
+                        read_leb_int32(p, p_end, heap_type);
+                        if (heap_type >= 0) {
+                            if (!check_type_index(module, heap_type, error_buf,
+                                                  error_buf_size)) {
+                                goto fail;
                             }
-                            else {
-                                wasm_ref_type.ref_type =
-                                    (uint8)(REF_TYPE_FUNCREF + heap_type
-                                            - HEAP_TYPE_FUNC);
+                            wasm_set_refheaptype_typeidx(
+                                &wasm_ref_type.ref_ht_typeidx, nullable,
+                                heap_type);
+                        }
+                        else {
+                            if (heap_type > HEAP_TYPE_FUNC
+                                || heap_type < HEAP_TYPE_NONE) {
+                                set_error_buf(error_buf, error_buf_size,
+                                              "unknown type");
+                                goto fail;
                             }
-                            PUSH_REF(wasm_ref_type.ref_type);
+                            wasm_set_refheaptype_common(
+                                &wasm_ref_type.ref_ht_common, nullable,
+                                heap_type);
                         }
 
+                        PUSH_REF(wasm_ref_type.ref_type);
                         break;
                     }
 

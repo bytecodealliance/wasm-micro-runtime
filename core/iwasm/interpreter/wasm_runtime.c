@@ -913,6 +913,12 @@ globals_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
             global->initial_value.u32 = (uint32)UINT32_MAX;
         }
 #endif
+#if WASM_ENABLE_GC != 0
+        else if (init_expr->init_expr_type == INIT_EXPR_TYPE_I31_NEW) {
+            global->initial_value.gc_obj =
+                (void *)wasm_i31_obj_new(init_expr->u.i32);
+        }
+#endif
         else {
             bh_memcpy_s(&(global->initial_value), sizeof(WASMValue),
                         &(init_expr->u), sizeof(init_expr->u));
@@ -1905,7 +1911,8 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
 #endif
                 default:
 #if WASM_ENABLE_GC != 0
-                    if (wasm_reftype_is_subtype_of(
+                    if (global->type != REF_TYPE_NULLFUNCREF
+                        && wasm_reftype_is_subtype_of(
                             global->type, global->ref_type, REF_TYPE_FUNCREF,
                             NULL, module_inst->module->types,
                             module_inst->module->type_count)) {
@@ -1918,6 +1925,17 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
                                 goto fail;
                         }
                         STORE_PTR((void **)global_data, func_obj);
+                        global_data += sizeof(void *);
+                        break;
+                    }
+                    else if (global->type != REF_TYPE_NULLREF
+                             && wasm_reftype_is_subtype_of(
+                                 global->type, global->ref_type,
+                                 REF_TYPE_I31REF, NULL,
+                                 module_inst->module->types,
+                                 module_inst->module->type_count)) {
+                        STORE_PTR((void **)global_data,
+                                  global->initial_value.gc_obj);
                         global_data += sizeof(void *);
                         break;
                     }
@@ -2055,10 +2073,11 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
             goto fail;
         }
 #elif WASM_ENABLE_GC != 0
-        if (!wasm_reftype_is_subtype_of(table_seg->elem_type,
-                                        table_seg->elem_ref_type,
-                                        table->elem_type, table->elem_ref_type,
-                                        module->types, module->type_count)) {
+        if (!wasm_elem_is_declarative(table_seg->mode)
+            && !wasm_reftype_is_subtype_of(
+                table_seg->elem_type, table_seg->elem_ref_type,
+                table->elem_type, table->elem_ref_type, module->types,
+                module->type_count)) {
             set_error_buf(error_buf, error_buf_size,
                           "elements segment does not fit");
             goto fail;

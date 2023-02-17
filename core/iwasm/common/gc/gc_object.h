@@ -231,6 +231,12 @@ inline static bool
 wasm_obj_is_anyref_obj(WASMObjectRef obj);
 
 inline static void *
+wasm_anyref_obj_get_value(WASMAnyrefObjectRef anyref_obj)
+{
+    return anyref_obj->host_obj;
+}
+
+inline static void *
 wasm_externref_obj_get_value(const WASMExternrefObjectRef externref_obj)
 {
     if (wasm_obj_is_anyref_obj(externref_obj->internal_obj))

@@ -2108,6 +2108,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                     case WASM_OP_ARRAY_NEW_CANON:
                     case WASM_OP_ARRAY_NEW_CANON_DEFAULT:
+                    case WASM_OP_ARRAY_NEW_CANON_FIXED:
                     {
                         WASMModule *wasm_module = module->module;
                         WASMArrayType *array_type;
@@ -2129,7 +2130,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             goto got_exception;
                         }
 
-                        array_len = POP_I32();
+                        if (opcode != WASM_OP_ARRAY_NEW_CANON_FIXED)
+                            array_len = POP_I32();
+                        else
+                            read_leb_uint32(frame_ip, frame_ip_end, array_len);
 
                         if (opcode == WASM_OP_ARRAY_NEW_CANON) {
                             if (wasm_is_type_reftype(array_type->elem_type)) {
@@ -2156,10 +2160,33 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                                "create array object failed");
                             goto got_exception;
                         }
+
+                        if (opcode == WASM_OP_ARRAY_NEW_CANON_FIXED) {
+                            for (i = 0; i < array_len; i++) {
+                                if (wasm_is_type_reftype(
+                                        array_type->elem_type)) {
+                                    array_elem.gc_obj = POP_REF();
+                                }
+                                else if (array_type->elem_type == VALUE_TYPE_I32
+                                         || array_type->elem_type
+                                                == VALUE_TYPE_F32
+                                         || array_type->elem_type
+                                                == PACKED_TYPE_I8
+                                         || array_type->elem_type
+                                                == PACKED_TYPE_I16) {
+                                    array_elem.i32 = POP_I32();
+                                }
+                                else {
+                                    array_elem.i64 = POP_I64();
+                                }
+                                wasm_array_obj_set_elem(
+                                    array_obj, array_len - 1 - i, &array_elem);
+                            }
+                        }
+
                         PUSH_REF(array_obj);
                         HANDLE_OP_END();
                     }
-                    case WASM_OP_ARRAY_NEW_CANON_FIXED:
                     case WASM_OP_ARRAY_NEW_CANON_DATA:
                     case WASM_OP_ARRAY_NEW_CANON_ELEM:
                     {
@@ -2307,8 +2334,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                 else
                                     PUSH_I32(1);
                             }
-                            else if (WASM_OP_REF_CAST) {
-                                wasm_set_exception(module, "null object");
+                            else if (opcode == WASM_OP_REF_CAST) {
+                                wasm_set_exception(module, "cast failure");
                                 goto got_exception;
                             }
                             else {
@@ -2339,8 +2366,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                     PUSH_I32(0);
                             }
                             else if (!castable) {
-                                wasm_set_exception(module,
-                                                   "cast object failed");
+                                wasm_set_exception(module, "cast failure");
                                 goto got_exception;
                             }
                         }
@@ -2352,8 +2378,46 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     case WASM_OP_BR_ON_CAST_NULLABLE:
                     case WASM_OP_BR_ON_CAST_FAIL_NULLABLE:
                     {
-                        wasm_set_exception(module, "unsupported opcode");
-                        goto got_exception;
+                        int32 heap_type;
+
+#if WASM_ENABLE_THREAD_MGR != 0
+                        CHECK_SUSPEND_FLAGS();
+#endif
+                        read_leb_int32(frame_ip, frame_ip_end, depth);
+                        read_leb_int32(frame_ip, frame_ip_end, heap_type);
+
+                        gc_obj = GET_REF_FROM_ADDR(frame_sp - REF_CELL_NUM);
+                        if (!gc_obj) {
+                            if (opcode == WASM_OP_BR_ON_CAST_NULLABLE
+                                || opcode == WASM_OP_BR_ON_CAST_FAIL)
+                                goto label_pop_csp_n;
+                        }
+                        else {
+                            bool castable = false;
+
+                            if (heap_type >= 0) {
+                                WASMModule *wasm_module = module->module;
+                                castable = wasm_obj_is_instance_of(
+                                    gc_obj, (uint32)heap_type,
+                                    wasm_module->types,
+                                    wasm_module->type_count);
+                            }
+                            else {
+                                castable =
+                                    wasm_obj_is_type_of(gc_obj, heap_type);
+                            }
+
+                            if ((castable
+                                 && (opcode == WASM_OP_BR_ON_CAST
+                                     || opcode == WASM_OP_BR_ON_CAST_NULLABLE))
+                                || (!castable
+                                    && (opcode == WASM_OP_BR_ON_CAST_FAIL
+                                        || opcode
+                                               == WASM_OP_BR_ON_CAST_FAIL_NULLABLE))) {
+                                goto label_pop_csp_n;
+                            }
+                        }
+                        HANDLE_OP_END();
                     }
 
                     case WASM_OP_EXTERN_INTERNALIZE:
@@ -3999,7 +4063,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         break;
                     }
 #endif /* WASM_ENABLE_BULK_MEMORY */
-#if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_REF_GC != 0
+#if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
                     case WASM_OP_TABLE_INIT:
                     {
                         uint32 tbl_idx, elem_idx;

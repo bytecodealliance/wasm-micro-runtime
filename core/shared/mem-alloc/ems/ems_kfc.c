@@ -337,18 +337,18 @@ gc_print_stat(void *heap_ptr, int verbose)
 
     gc_heap_stat(heap, &stat);
 
-    os_printf("# stat %s %x use %d free %d \n", "instance", heap, stat.usage,
+    os_printf("# stat %s %p use %d free %d \n", "instance", heap, stat.usage,
               stat.free);
-    os_printf("# stat %s %x wo_usage %d vo_usage %d \n", "instance", heap,
+    os_printf("# stat %s %p wo_usage %d vo_usage %d \n", "instance", heap,
               stat.wo_usage, stat.vo_usage);
-    os_printf("# stat %s %x wo_free %d vo_free %d \n", "instance", heap,
+    os_printf("# stat %s %p wo_free %d vo_free %d \n", "instance", heap,
               stat.wo_free, stat.vo_free);
 #if WASM_ENABLE_GC == 0
-    os_printf("# stat free size %d high %d\n", heap->total_free_size,
-              heap->highmark_size);
-#else
-    os_printf("# stat gc %d free size %d high %d\n", heap->total_gc_count,
+    os_printf("# stat free size %" PRIu32 " high %" PRIu32 "\n",
               heap->total_free_size, heap->highmark_size);
+#else
+    os_printf("# stat gc %" PRIu32 " free size %" PRIu32 " high %" PRIu32 "\n",
+              heap->total_gc_count, heap->total_free_size, heap->highmark_size);
 #endif
     if (verbose) {
         os_printf("usage sizes: \n");
@@ -428,8 +428,9 @@ gc_show_stat(void *heap)
 
     heap = gc_heap_stats(heap, stats, GC_STAT_MAX);
 
-    os_printf("\n[GC stats %x] %d %d %d %d %d\n", heap, stats[0], stats[1],
-              stats[2], stats[3], stats[4]);
+    os_printf("\n[GC stats %p] " PRIu32 " %" PRIu32 " %" PRIu32 " %" PRIu32
+              " %" PRIu32 "\n",
+              heap, stats[0], stats[1], stats[2], stats[3], stats[4]);
 }
 
 #if WASM_ENABLE_GC != 0
@@ -444,7 +445,7 @@ gc_show_fragment(void *heap_arg)
     gct_vm_mutex_lock(&heap->lock);
     gc_traverse_tree(&(heap->kfc_tree_root), (gc_size_t *)stats, &n);
     gct_vm_mutex_unlock(&heap->lock);
-    os_printf("\n[GC %x top sizes] %d %d %d\n", heap, stats[0], stats[1],
-              stats[2]);
+    os_printf("\n[GC %p top sizes] %" PRIu32 " %" PRIu32 " %" RIu32 "\n", heap,
+              stats[0], stats[1], stats[2]);
 }
 #endif

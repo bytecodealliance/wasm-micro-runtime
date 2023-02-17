@@ -786,9 +786,12 @@ def test_assert_return(r, opts, form):
         else:
             returns = re.split("\)\s*\(", m.group(3)[1:-1])
         # processed numbers in strings
-        if len(returns) == 1 and returns[0] in ["ref.array", "ref.struct", "ref.func", "ref.i31", "ref.null"]:
+        if len(returns) == 1 and returns[0] in ["ref.array", "ref.struct", "ref.i31",
+                                                "ref.eq", "ref.any",
+                                                "ref.func", "ref.null"]:
             expected = [returns[0]]
-        elif len(returns) == 1 and returns[0] in ["func:ref.null", "any:ref.null", "extern:ref.null"]:
+        elif len(returns) == 1 and returns[0] in ["func:ref.null", "any:ref.null",
+                                                  "extern:ref.null"]:
             expected = [returns[0]]
         else:
             expected = [parse_assertion_value(v)[1] for v in returns]

@@ -364,7 +364,7 @@ wasm_obj_is_instance_of(WASMObjectRef obj, uint32 type_idx, WASMType **types,
     type_parent = types[type_idx];
 
     if (!(rtt_type_sub->root_type == type_parent->root_type
-          && rtt_type_sub->inherit_depth > type_parent->inherit_depth))
+          && rtt_type_sub->inherit_depth >= type_parent->inherit_depth))
         return false;
 
     type_sub = rtt_type_sub->defined_type;
