@@ -160,7 +160,7 @@ shared_memory_inc_reference(WASMModuleCommon *module)
     uint32 ref_count = -1;
     if (node) {
         os_mutex_lock(&node->lock);
-        ref_count = node->ref_count++;
+        ref_count = ++node->ref_count;
         os_mutex_unlock(&node->lock);
     }
     return ref_count;
