@@ -806,7 +806,7 @@ wasm_runtime_call_wasm_v(wasm_exec_env_t exec_env,
  *
  * @param exec_env the execution environment to call the function
  *   which must be created from wasm_create_exec_env()
- * @param element_indices the function ference indicies, usually
+ * @param element_index the function reference index, usually
  *   prvovided by the caller of a registed native function
  * @param argc the number of arguments
  * @param argv the arguments.  If the function method has return value,
@@ -818,7 +818,7 @@ wasm_runtime_call_wasm_v(wasm_exec_env_t exec_env,
  *   the caller can call wasm_runtime_get_exception to get exception info.
  */
 WASM_RUNTIME_API_EXTERN bool
-wasm_runtime_call_indirect(wasm_exec_env_t exec_env, uint32_t element_indices,
+wasm_runtime_call_indirect(wasm_exec_env_t exec_env, uint32_t element_index,
                            uint32_t argc, uint32_t argv[]);
 
 /**
