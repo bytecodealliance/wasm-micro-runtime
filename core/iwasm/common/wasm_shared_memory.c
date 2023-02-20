@@ -385,7 +385,8 @@ wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
     WASMModuleInstance *module_inst = (WASMModuleInstance *)module;
     AtomicWaitInfo *wait_info;
     AtomicWaitNode *wait_node;
-    bool check_ret, is_timeout;
+    WASMSharedMemNode *node;
+    bool check_ret, is_timeout, no_wait;
 
     bh_assert(module->module_type == Wasm_Module_Bytecode
               || module->module_type == Wasm_Module_AoT);
@@ -417,11 +418,10 @@ wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
 
     os_mutex_lock(&wait_info->wait_list_lock);
 
-    WASMSharedMemNode *node =
-        search_module((WASMModuleCommon *)module_inst->module);
+    node = search_module((WASMModuleCommon *)module_inst->module);
     os_mutex_lock(&node->shared_mem_lock);
-    bool no_wait = (!wait64 && *(uint32 *)address != (uint32)expect)
-                   || (wait64 && *(uint64 *)address != expect);
+    no_wait = (!wait64 && *(uint32 *)address != (uint32)expect)
+              || (wait64 && *(uint64 *)address != expect);
     os_mutex_unlock(&node->shared_mem_lock);
 
     if (no_wait) {
@@ -497,14 +497,15 @@ wasm_runtime_atomic_notify(WASMModuleInstanceCommon *module, void *address,
     WASMModuleInstance *module_inst = (WASMModuleInstance *)module;
     uint32 notify_result;
     AtomicWaitInfo *wait_info;
+    WASMSharedMemNode *node;
+    bool out_of_bounds;
 
     bh_assert(module->module_type == Wasm_Module_Bytecode
               || module->module_type == Wasm_Module_AoT);
 
-    WASMSharedMemNode *node =
-        search_module((WASMModuleCommon *)module_inst->module);
+    node = search_module((WASMModuleCommon *)module_inst->module);
     os_mutex_lock(&node->shared_mem_lock);
-    bool out_of_bounds =
+    out_of_bounds =
         ((uint8 *)address < module_inst->memories[0]->memory_data
          || (uint8 *)address + 4 > module_inst->memories[0]->memory_data_end);
     os_mutex_unlock(&node->shared_mem_lock);
