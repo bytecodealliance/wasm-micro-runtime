@@ -39,7 +39,7 @@ wasm_memory_init_with_pool(void *mem, unsigned int bytes)
     mem_allocator_t _allocator = mem_allocator_create(mem, bytes);
 
     if (_allocator) {
-        __atomic_store_n(&memory_mode, MEMORY_MODE_POOL, __ATOMIC_SEQ_CST);
+        memory_mode = MEMORY_MODE_POOL;
         pool_allocator = _allocator;
         global_pool_size = bytes;
         return true;
@@ -54,7 +54,7 @@ wasm_memory_init_with_allocator(void *_user_data, void *_malloc_func,
                                 void *_realloc_func, void *_free_func)
 {
     if (_malloc_func && _free_func && _malloc_func != _free_func) {
-        __atomic_store_n(&memory_mode, MEMORY_MODE_ALLOCATOR, __ATOMIC_SEQ_CST);
+        memory_mode = MEMORY_MODE_ALLOCATOR;
         allocator_user_data = _user_data;
         malloc_func = _malloc_func;
         realloc_func = _realloc_func;
@@ -71,7 +71,7 @@ wasm_memory_init_with_allocator(void *_malloc_func, void *_realloc_func,
                                 void *_free_func)
 {
     if (_malloc_func && _free_func && _malloc_func != _free_func) {
-        __atomic_store_n(&memory_mode, MEMORY_MODE_ALLOCATOR, __ATOMIC_SEQ_CST);
+        memory_mode = MEMORY_MODE_ALLOCATOR;
         malloc_func = _malloc_func;
         realloc_func = _realloc_func;
         free_func = _free_func;
@@ -106,8 +106,7 @@ wasm_runtime_memory_init(mem_alloc_type_t mem_alloc_type,
 #endif
     }
     else if (mem_alloc_type == Alloc_With_System_Allocator) {
-        __atomic_store_n(&memory_mode, MEMORY_MODE_SYSTEM_ALLOCATOR,
-                         __ATOMIC_SEQ_CST);
+        memory_mode = MEMORY_MODE_SYSTEM_ALLOCATOR;
         return true;
     }
     else {
@@ -118,8 +117,7 @@ wasm_runtime_memory_init(mem_alloc_type_t mem_alloc_type,
 void
 wasm_runtime_memory_destroy()
 {
-    Memory_Mode mem_mode = __atomic_load_n(&memory_mode, __ATOMIC_SEQ_CST);
-    if (mem_mode == MEMORY_MODE_POOL) {
+    if (memory_mode == MEMORY_MODE_POOL) {
 #if BH_ENABLE_GC_VERIFY == 0
         (void)mem_allocator_destroy(pool_allocator);
 #else
@@ -130,14 +128,13 @@ wasm_runtime_memory_destroy()
         }
 #endif
     }
-    __atomic_store_n(&memory_mode, MEMORY_MODE_UNKNOWN, __ATOMIC_SEQ_CST);
+    memory_mode = MEMORY_MODE_UNKNOWN;
 }
 
 unsigned
 wasm_runtime_memory_pool_size()
 {
-    Memory_Mode mem_mode = __atomic_load_n(&memory_mode, __ATOMIC_SEQ_CST);
-    if (mem_mode == MEMORY_MODE_POOL)
+    if (memory_mode == MEMORY_MODE_POOL)
         return global_pool_size;
     else
         return UINT32_MAX;
@@ -146,16 +143,15 @@ wasm_runtime_memory_pool_size()
 static inline void *
 wasm_runtime_malloc_internal(unsigned int size)
 {
-    Memory_Mode mem_mode = __atomic_load_n(&memory_mode, __ATOMIC_SEQ_CST);
-    if (mem_mode == MEMORY_MODE_UNKNOWN) {
+    if (memory_mode == MEMORY_MODE_UNKNOWN) {
         LOG_WARNING(
             "wasm_runtime_malloc failed: memory hasn't been initialize.\n");
         return NULL;
     }
-    else if (mem_mode == MEMORY_MODE_POOL) {
+    else if (memory_mode == MEMORY_MODE_POOL) {
         return mem_allocator_malloc(pool_allocator, size);
     }
-    else if (mem_mode == MEMORY_MODE_ALLOCATOR) {
+    else if (memory_mode == MEMORY_MODE_ALLOCATOR) {
 #if WASM_MEM_ALLOC_WITH_USER_DATA != 0
         return malloc_func(allocator_user_data, size);
 #else
@@ -170,16 +166,15 @@ wasm_runtime_malloc_internal(unsigned int size)
 static inline void *
 wasm_runtime_realloc_internal(void *ptr, unsigned int size)
 {
-    Memory_Mode mem_mode = __atomic_load_n(&memory_mode, __ATOMIC_SEQ_CST);
-    if (mem_mode == MEMORY_MODE_UNKNOWN) {
+    if (memory_mode == MEMORY_MODE_UNKNOWN) {
         LOG_WARNING(
             "wasm_runtime_realloc failed: memory hasn't been initialize.\n");
         return NULL;
     }
-    else if (mem_mode == MEMORY_MODE_POOL) {
+    else if (memory_mode == MEMORY_MODE_POOL) {
         return mem_allocator_realloc(pool_allocator, ptr, size);
     }
-    else if (mem_mode == MEMORY_MODE_ALLOCATOR) {
+    else if (memory_mode == MEMORY_MODE_ALLOCATOR) {
         if (realloc_func)
 #if WASM_MEM_ALLOC_WITH_USER_DATA != 0
             return realloc_func(allocator_user_data, ptr, size);
@@ -205,15 +200,14 @@ wasm_runtime_free_internal(void *ptr)
         return;
     }
 
-    Memory_Mode mem_mode = __atomic_load_n(&memory_mode, __ATOMIC_SEQ_CST);
-    if (mem_mode == MEMORY_MODE_UNKNOWN) {
+    if (memory_mode == MEMORY_MODE_UNKNOWN) {
         LOG_WARNING("warning: wasm_runtime_free failed: "
                     "memory hasn't been initialize.\n");
     }
-    else if (mem_mode == MEMORY_MODE_POOL) {
+    else if (memory_mode == MEMORY_MODE_POOL) {
         mem_allocator_free(pool_allocator, ptr);
     }
-    else if (mem_mode == MEMORY_MODE_ALLOCATOR) {
+    else if (memory_mode == MEMORY_MODE_ALLOCATOR) {
 #if WASM_MEM_ALLOC_WITH_USER_DATA != 0
         free_func(allocator_user_data, ptr);
 #else
@@ -255,8 +249,7 @@ wasm_runtime_free(void *ptr)
 bool
 wasm_runtime_get_mem_alloc_info(mem_alloc_info_t *mem_alloc_info)
 {
-    Memory_Mode mem_mode = __atomic_load_n(&memory_mode, __ATOMIC_SEQ_CST);
-    if (mem_mode == MEMORY_MODE_POOL) {
+    if (memory_mode == MEMORY_MODE_POOL) {
         return mem_allocator_get_alloc_info(pool_allocator, mem_alloc_info);
     }
     return false;
