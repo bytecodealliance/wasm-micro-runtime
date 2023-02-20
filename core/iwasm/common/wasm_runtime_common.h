@@ -615,6 +615,11 @@ wasm_runtime_call_wasm_v(WASMExecEnv *exec_env,
                          uint32 num_results, wasm_val_t *results,
                          uint32 num_args, ...);
 
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_call_indirect(WASMExecEnv *exec_env, uint32 element_index,
+                           uint32 argc, uint32 argv[]);
+
 #if WASM_ENABLE_DEBUG_INTERP != 0
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN uint32
@@ -625,27 +630,6 @@ wasm_runtime_start_debug_instance_with_port(WASMExecEnv *exec_env,
 WASM_RUNTIME_API_EXTERN uint32
 wasm_runtime_start_debug_instance(WASMExecEnv *exec_env);
 #endif
-
-/**
- * Call a function reference of a given WASM runtime instance with
- * arguments.
- *
- * @param exec_env the execution environment to call the function
- *   which must be created from wasm_create_exec_env()
- * @param element_indices the function ference indicies, usually
- *   prvovided by the caller of a registed native function
- * @param argc the number of arguments
- * @param argv the arguments.  If the function method has return value,
- *   the first (or first two in case 64-bit return value) element of
- *   argv stores the return value of the called WASM function after this
- *   function returns.
- *
- * @return true if success, false otherwise and exception will be thrown,
- *   the caller can call wasm_runtime_get_exception to get exception info.
- */
-bool
-wasm_runtime_call_indirect(WASMExecEnv *exec_env, uint32 element_indices,
-                           uint32 argc, uint32 argv[]);
 
 bool
 wasm_runtime_create_exec_env_singleton(WASMModuleInstanceCommon *module_inst);

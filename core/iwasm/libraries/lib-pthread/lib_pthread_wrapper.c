@@ -46,10 +46,6 @@
     wasm_runtime_addr_native_to_app(module_inst, ptr)
 /* clang-format on */
 
-extern bool
-wasm_runtime_call_indirect(wasm_exec_env_t exec_env, uint32 element_indices,
-                           uint32 argc, uint32 argv[]);
-
 enum {
     T_THREAD,
     T_MUTEX,

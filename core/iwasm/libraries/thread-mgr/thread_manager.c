@@ -545,14 +545,18 @@ wasm_cluster_destroy_spawned_exec_env(WASMExecEnv *exec_env)
     wasm_module_inst_t module_inst = wasm_runtime_get_module_inst(exec_env);
     bh_assert(cluster != NULL);
 
-    /* Free aux stack space */
     os_mutex_lock(&cluster->lock);
-    free_aux_stack(exec_env, exec_env->aux_stack_bottom.bottom);
-    wasm_cluster_del_exec_env(cluster, exec_env);
-    os_mutex_unlock(&cluster->lock);
-    wasm_exec_env_destroy_internal(exec_env);
 
+    /* Free aux stack space */
+    free_aux_stack(exec_env, exec_env->aux_stack_bottom.bottom);
+    /* Remove exec_env */
+    wasm_cluster_del_exec_env(cluster, exec_env);
+    /* Destroy exec_env */
+    wasm_exec_env_destroy_internal(exec_env);
+    /* Routine exit, destroy instance */
     wasm_runtime_deinstantiate_internal(module_inst, true);
+
+    os_mutex_unlock(&cluster->lock);
 }
 
 /* start routine of thread manager */
@@ -585,16 +589,17 @@ thread_manager_start_routine(void *arg)
 #endif
 
     os_mutex_lock(&cluster->lock);
+
     /* Free aux stack space */
     free_aux_stack(exec_env, exec_env->aux_stack_bottom.bottom);
-    /* routine exit, destroy instance */
-    wasm_runtime_deinstantiate_internal(module_inst, true);
-    /* Remove and exec_env */
+    /* Remove exec_env */
     wasm_cluster_del_exec_env(cluster, exec_env);
-    os_mutex_unlock(&cluster->lock);
-
-    /* destroy exec_env */
+    /* Destroy exec_env */
     wasm_exec_env_destroy_internal(exec_env);
+    /* Routine exit, destroy instance */
+    wasm_runtime_deinstantiate_internal(module_inst, true);
+
+    os_mutex_unlock(&cluster->lock);
 
     os_thread_exit(ret);
     return ret;
@@ -909,13 +914,19 @@ wasm_cluster_exit_thread(WASMExecEnv *exec_env, void *retval)
     /* App exit the thread, free the resources before exit native thread */
     /* Detach the native thread here to ensure the resources are freed */
     wasm_cluster_detach_thread(exec_env);
+
     os_mutex_lock(&cluster->lock);
+
     /* Free aux stack space */
     free_aux_stack(exec_env, exec_env->aux_stack_bottom.bottom);
-    /* Remove and destroy exec_env */
+    /* Remove exec_env */
     wasm_cluster_del_exec_env(cluster, exec_env);
-    os_mutex_unlock(&cluster->lock);
+    /* Destroy exec_env */
     wasm_exec_env_destroy_internal(exec_env);
+    /* Routine exit, destroy instance */
+    wasm_runtime_deinstantiate_internal(exec_env->module_inst, true);
+
+    os_mutex_unlock(&cluster->lock);
 
     os_thread_exit(retval);
 }
@@ -935,11 +946,14 @@ int32
 wasm_cluster_cancel_thread(WASMExecEnv *exec_env)
 {
     os_mutex_lock(&cluster_list_lock);
-    os_mutex_lock(&exec_env->cluster->lock);
 
     if (!exec_env->cluster) {
-        goto final;
+        os_mutex_unlock(&cluster_list_lock);
+        return 0;
     }
+
+    os_mutex_lock(&exec_env->cluster->lock);
+
     if (!clusters_have_exec_env(exec_env)) {
         /* Invalid thread or the thread has exited */
         goto final;
