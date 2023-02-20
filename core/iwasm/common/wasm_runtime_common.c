@@ -4346,7 +4346,7 @@ fail:
                  || defined(BUILD_TARGET_RISCV64_LP64) */
 
 bool
-wasm_runtime_call_indirect(WASMExecEnv *exec_env, uint32 element_indices,
+wasm_runtime_call_indirect(WASMExecEnv *exec_env, uint32 element_index,
                            uint32 argc, uint32 argv[])
 {
     bool ret = false;
@@ -4362,11 +4362,11 @@ wasm_runtime_call_indirect(WASMExecEnv *exec_env, uint32 element_indices,
 
 #if WASM_ENABLE_INTERP != 0
     if (exec_env->module_inst->module_type == Wasm_Module_Bytecode)
-        ret = wasm_call_indirect(exec_env, 0, element_indices, argc, argv);
+        ret = wasm_call_indirect(exec_env, 0, element_index, argc, argv);
 #endif
 #if WASM_ENABLE_AOT != 0
     if (exec_env->module_inst->module_type == Wasm_Module_AoT)
-        ret = aot_call_indirect(exec_env, 0, element_indices, argc, argv);
+        ret = aot_call_indirect(exec_env, 0, element_index, argc, argv);
 #endif
 
     if (!ret && clear_wasi_proc_exit_exception(exec_env->module_inst)) {
