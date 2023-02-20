@@ -3419,6 +3419,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         ret = wasm_runtime_atomic_wait(
                             (WASMModuleInstanceCommon *)module, maddr,
                             (uint64)expect, timeout, false);
+
+#if WASM_ENABLE_THREAD_MGR != 0
+                        CHECK_SUSPEND_FLAGS();
+#endif
                         if (ret == (uint32)-1)
                             goto got_exception;
 
@@ -3439,6 +3443,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         ret = wasm_runtime_atomic_wait(
                             (WASMModuleInstanceCommon *)module, maddr, expect,
                             timeout, true);
+
+#if WASM_ENABLE_THREAD_MGR != 0
+                        CHECK_SUSPEND_FLAGS();
+#endif
                         if (ret == (uint32)-1)
                             goto got_exception;
 
@@ -3894,10 +3902,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             PUSH_CSP(LABEL_TYPE_FUNCTION, 0, cell_num, frame_ip_end - 1);
 
             wasm_exec_env_set_cur_frame(exec_env, frame);
-#if WASM_ENABLE_THREAD_MGR != 0
-            CHECK_SUSPEND_FLAGS();
-#endif
         }
+#if WASM_ENABLE_THREAD_MGR != 0
+        CHECK_SUSPEND_FLAGS();
+#endif
         HANDLE_OP_END();
     }
 
