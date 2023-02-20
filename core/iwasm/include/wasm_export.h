@@ -805,7 +805,7 @@ wasm_runtime_call_wasm_v(wasm_exec_env_t exec_env,
  * arguments.
  *
  * Note: this can be used to call a function which is not exported
- * by the module's explicitly. You might consider it as an abstraction
+ * by the module explicitly. You might consider it as an abstraction
  * violation.
  *
  * @param exec_env the execution environment to call the function
