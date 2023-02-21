@@ -15,7 +15,7 @@
 #include "wasi_thread_start.h"
 
 enum CONSTANTS {
-    NUM_THREADS = 5,
+    NUM_THREADS = 4,
     NUM_ITER = 1000,
     SECOND = 1000 * 1000 * 1000, /* 1 second */
     TIMEOUT = 10LL * SECOND

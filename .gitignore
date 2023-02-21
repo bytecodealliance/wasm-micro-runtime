@@ -13,6 +13,7 @@
 core/deps/**
 core/shared/mem-alloc/tlsf
 core/app-framework/wgl
+core/iwasm/libraries/wasi-threads/test/*.wasm
 
 wamr-sdk/out/
 wamr-sdk/runtime/build_runtime_sdk/
