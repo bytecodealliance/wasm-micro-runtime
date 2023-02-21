@@ -504,20 +504,22 @@ wasm_runtime_atomic_notify(WASMModuleInstanceCommon *module, void *address,
               || module->module_type == Wasm_Module_AoT);
 
     node = search_module((WASMModuleCommon *)module_inst->module);
-    os_mutex_lock(&node->shared_mem_lock);
+    if (node)
+        os_mutex_lock(&node->shared_mem_lock);
     out_of_bounds =
         ((uint8 *)address < module_inst->memories[0]->memory_data
          || (uint8 *)address + 4 > module_inst->memories[0]->memory_data_end);
-    os_mutex_unlock(&node->shared_mem_lock);
 
     if (out_of_bounds) {
+        if (node)
+            os_mutex_unlock(&node->shared_mem_lock);
         wasm_runtime_set_exception(module, "out of bounds memory access");
         return -1;
     }
 
-    os_mutex_lock(&node->shared_mem_lock);
     wait_info = acquire_wait_info(address, false);
-    os_mutex_unlock(&node->shared_mem_lock);
+    if (node)
+        os_mutex_unlock(&node->shared_mem_lock);
 
     /* Nobody wait on this address */
     if (!wait_info)
