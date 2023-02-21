@@ -46,7 +46,7 @@ PLATFORM=$(uname -s | tr A-Z a-z)
 PARALLELISM=0
 ENABLE_QEMU=0
 QEMU_FIRMWARE=""
-WASI_TESTSUITE_COMMIT="1d913f28b3f0d92086d6f50405cf85768e648b54"
+WASI_TESTSUITE_COMMIT="b18247e2161bea263fe924b8189c67b1d2d10a10"
 
 while getopts ":s:cabt:m:MCpSXxPQF:" opt
 do
@@ -176,6 +176,7 @@ readonly CLASSIC_INTERP_COMPILE_FLAGS="\
     -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_INTERP=0 \
     -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=0 \
     -DWAMR_BUILD_SPEC_TEST=1 \
+    -DWAMR_BUILD_LIB_WASI_THREADS=1 \
     -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
 
 readonly FAST_INTERP_COMPILE_FLAGS="\
@@ -183,6 +184,7 @@ readonly FAST_INTERP_COMPILE_FLAGS="\
     -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_INTERP=1 \
     -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=0 \
     -DWAMR_BUILD_SPEC_TEST=1 \
+    -DWAMR_BUILD_LIB_WASI_THREADS=1 \
     -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
 
 # jit: report linking error if set COLLECT_CODE_COVERAGE,
@@ -192,20 +194,23 @@ readonly ORC_EAGER_JIT_COMPILE_FLAGS="\
     -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_FAST_INTERP=0 \
     -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_AOT=1 \
     -DWAMR_BUILD_LAZY_JIT=0 \
-    -DWAMR_BUILD_SPEC_TEST=1"
+    -DWAMR_BUILD_SPEC_TEST=1 \
+    -DWAMR_BUILD_LIB_WASI_THREADS=1"
 
 readonly ORC_LAZY_JIT_COMPILE_FLAGS="\
     -DWAMR_BUILD_TARGET=${TARGET} \
     -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_FAST_INTERP=0 \
     -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_AOT=1 \
     -DWAMR_BUILD_LAZY_JIT=1 \
-    -DWAMR_BUILD_SPEC_TEST=1"
+    -DWAMR_BUILD_SPEC_TEST=1 \
+    -DWAMR_BUILD_LIB_WASI_THREADS=1"
 
 readonly AOT_COMPILE_FLAGS="\
     -DWAMR_BUILD_TARGET=${TARGET} \
     -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_FAST_INTERP=0 \
     -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=1 \
     -DWAMR_BUILD_SPEC_TEST=1 \
+    -DWAMR_BUILD_LIB_WASI_THREADS=1 \
     -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
 
 readonly FAST_JIT_COMPILE_FLAGS="\
@@ -483,7 +488,7 @@ function wasi_certification_test()
     cd ${WORK_DIR}
     if [ ! -d "wasi-testsuite" ]; then
         echo "wasi not exist, clone it from github"
-        git clone -b prod/testsuite-base \
+        git clone -b prod/testsuite-all \
             --single-branch https://github.com/WebAssembly/wasi-testsuite.git
     fi
     cd wasi-testsuite
@@ -491,12 +496,12 @@ function wasi_certification_test()
 
     python3 -m venv wasi-env && source wasi-env/bin/activate
     python3 -m pip install -r test-runner/requirements.txt
-    IWASM_PATH=$(dirname ${IWASM_CMD})
-    PATH=${PATH}:${IWASM_PATH} python3 test-runner/wasi_test_runner.py \
-                -r adapters/wasm-micro-runtime.sh \
+   TEST_RUNTIME_EXE="${IWASM_CMD} -v=5" python3 test-runner/wasi_test_runner.py \
+                -r adapters/wasm-micro-runtime.py \
                 -t \
                     tests/c/testsuite/ \
                     tests/assemblyscript/testsuite/ \
+                    tests/proposals/wasi-threads/ \
                 | tee -a ${REPORT_DIR}/wasi_test_report.txt
     exit_code=${PIPESTATUS[0]}
     deactivate
