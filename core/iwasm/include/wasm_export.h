@@ -717,6 +717,15 @@ WASM_RUNTIME_API_EXTERN wasm_module_inst_t
 wasm_runtime_get_module_inst(wasm_exec_env_t exec_env);
 
 /**
+ * Get suspend flags from the execution environment
+ * 
+ * @param exec_env the execution environment to get the suspend flags from
+ * @return the suspend flags 
+ */
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_runtime_get_suspend_flags(wasm_exec_env_t exec_env);
+
+/**
  * Set WASM module instance of execution environment
  * Caution:
  *   normally the module instance is bound with the execution

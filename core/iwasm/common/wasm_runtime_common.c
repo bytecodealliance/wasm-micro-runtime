@@ -1550,6 +1550,12 @@ wasm_runtime_get_module_inst(WASMExecEnv *exec_env)
     return wasm_exec_env_get_module_inst(exec_env);
 }
 
+uint32
+wasm_runtime_get_suspend_flags(WASMExecEnv *exec_env)
+{
+    return exec_env->suspend_flags.flags;
+}
+
 void
 wasm_runtime_set_module_inst(WASMExecEnv *exec_env,
                              WASMModuleInstanceCommon *const module_inst)

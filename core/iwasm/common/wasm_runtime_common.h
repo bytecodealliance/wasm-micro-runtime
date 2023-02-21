@@ -575,6 +575,10 @@ WASM_RUNTIME_API_EXTERN WASMModuleInstanceCommon *
 wasm_runtime_get_module_inst(WASMExecEnv *exec_env);
 
 /* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN uint32
+wasm_runtime_get_suspend_flags(WASMExecEnv *exec_env);
+
+/* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_module_inst(WASMExecEnv *exec_env,
                              WASMModuleInstanceCommon *const module_inst);

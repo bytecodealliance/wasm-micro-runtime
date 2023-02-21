@@ -14,6 +14,9 @@ wasm_runtime_set_exception(wasm_module_inst_t module, const char *exception);
 #define get_module_inst(exec_env) \
     wasm_runtime_get_module_inst(exec_env)
 
+#define get_suspend_flags(exec_env) \
+    wasm_runtime_get_suspend_flags(exec_env)
+    
 #define get_wasi_ctx(module_inst) \
     wasm_runtime_get_wasi_ctx(module_inst)
 
@@ -995,7 +998,7 @@ execute_interruptible_poll_oneoff(wasm_module_inst_t module_inst,
 #endif
                                   const __wasi_subscription_t *in,
                                   __wasi_event_t *out, size_t nsubscriptions,
-                                  size_t *nevents)
+                                  size_t *nevents, wasm_exec_env_t exec_env)
 {
     if (nsubscriptions == 0) {
         *nevents = 0;
@@ -1021,24 +1024,20 @@ execute_interruptible_poll_oneoff(wasm_module_inst_t module_inst,
     bh_memcpy_s(in_copy, size_to_copy, in, size_to_copy);
 
     while (timeout == (__wasi_timestamp_t)-1 || elapsed <= timeout) {
-        elapsed += time_quant;
-
         /* update timeout for clock subscription events */
         update_clock_subscription_data(in_copy, nsubscriptions,
                                        min(time_quant, timeout - elapsed));
         err = wasmtime_ssp_poll_oneoff(curfds, in_copy, out, nsubscriptions,
                                        nevents);
+        elapsed += time_quant;
+
         if (err) {
             wasm_runtime_free(in_copy);
             return err;
         }
 
-        if (wasm_runtime_get_exception(module_inst) || *nevents > 0) {
+        if (get_suspend_flags(exec_env) & 0x01) {
             wasm_runtime_free(in_copy);
-
-            if (*nevents) {
-                return __WASI_ESUCCESS;
-            }
             return EINTR;
         }
     }
@@ -1070,7 +1069,7 @@ wasi_poll_oneoff(wasm_exec_env_t exec_env, const wasi_subscription_t *in,
     err = wasmtime_ssp_poll_oneoff(curfds, in, out, nsubscriptions, &nevents);
 #else
     err = execute_interruptible_poll_oneoff(module_inst, curfds, in, out,
-                                            nsubscriptions, &nevents);
+                                            nsubscriptions, &nevents, exec_env);
 #endif
     if (err)
         return err;
