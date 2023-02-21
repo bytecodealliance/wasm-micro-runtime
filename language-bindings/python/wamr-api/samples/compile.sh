@@ -8,4 +8,4 @@
     -Wl,--strip-all,--no-entry -nostdlib \
     -Wl,--export=sum\
     -Wl,--allow-undefined \
-    -o test.wasm sum.c
+    -o sum.wasm sum.c
