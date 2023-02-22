@@ -10,7 +10,31 @@
 #if WASM_ENABLE_THREAD_MGR != 0
 #include "../../../thread-mgr/thread_manager.h"
 typedef struct WASIContext *wasi_ctx_t;
+#else
+typedef struct WASIContext {
+    struct fd_table *curfds;
+    struct fd_prestats *prestats;
+    struct argv_environ_values *argv_environ;
+    struct addr_pool *addr_pool;
+    char *ns_lookup_buf;
+    char **ns_lookup_list;
+    char *argv_buf;
+    char **argv_list;
+    char *env_buf;
+    char **env_list;
+    uint32_t exit_code;
+} * wasi_ctx_t;
 #endif
+
+typedef struct wasi_prestat_app {
+    wasi_preopentype_t pr_type;
+    uint32 pr_name_len;
+} wasi_prestat_app_t;
+
+typedef struct iovec_app {
+    uint32 buf_offset;
+    uint32 buf_len;
+} iovec_app_t;
 
 void
 wasm_runtime_set_exception(wasm_module_inst_t module, const char *exception);
@@ -40,33 +64,6 @@ wasm_runtime_set_exception(wasm_module_inst_t module, const char *exception);
 #define module_free(offset) \
     wasm_runtime_module_free(module_inst, offset)
 /* clang-format on */
-
-typedef struct wasi_prestat_app {
-    wasi_preopentype_t pr_type;
-    uint32 pr_name_len;
-} wasi_prestat_app_t;
-
-typedef struct iovec_app {
-    uint32 buf_offset;
-    uint32 buf_len;
-} iovec_app_t;
-
-/* If the thread manager is enabled, WASIContext is already defined */
-#if WASM_ENABLE_THREAD_MGR == 0
-typedef struct WASIContext {
-    struct fd_table *curfds;
-    struct fd_prestats *prestats;
-    struct argv_environ_values *argv_environ;
-    struct addr_pool *addr_pool;
-    char *ns_lookup_buf;
-    char **ns_lookup_list;
-    char *argv_buf;
-    char **argv_list;
-    char *env_buf;
-    char **env_list;
-    uint32_t exit_code;
-} * wasi_ctx_t;
-#endif
 
 wasi_ctx_t
 wasm_runtime_get_wasi_ctx(wasm_module_inst_t module_inst);
