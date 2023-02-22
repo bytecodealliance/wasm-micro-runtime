@@ -1042,6 +1042,12 @@ execute_interruptible_poll_oneoff(wasm_module_inst_t module_inst,
             wasm_runtime_free(in_copy);
             return EINTR;
         }
+        else if (*nevents > 0
+                 && !(nsubscriptions == 1
+                      && in[0].u.type == __WASI_EVENTTYPE_CLOCK)) {
+            wasm_runtime_free(in_copy);
+            return __WASI_ESUCCESS;
+        }
     }
 
     wasm_runtime_free(in_copy);
