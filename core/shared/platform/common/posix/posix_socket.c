@@ -156,17 +156,6 @@ os_socket_bind(bh_socket_t socket, const char *host, int *port)
         goto fail;
     }
 
-    if (addr.ss_family == AF_INET) {
-        *port = ntohs(((struct sockaddr_in *)&addr)->sin_port);
-    }
-    else {
-#ifdef IPPROTO_IPV6
-        *port = ntohs(((struct sockaddr_in6 *)&addr)->sin6_port);
-#else
-        goto fail;
-#endif
-    }
-
     ret = fcntl(socket, F_SETFD, FD_CLOEXEC);
     if (ret < 0) {
         goto fail;
@@ -185,6 +174,17 @@ os_socket_bind(bh_socket_t socket, const char *host, int *port)
     socklen = sizeof(addr);
     if (getsockname(socket, (void *)&addr, &socklen) == -1) {
         goto fail;
+    }
+
+    if (addr.ss_family == AF_INET) {
+        *port = ntohs(((struct sockaddr_in *)&addr)->sin_port);
+    }
+    else {
+#ifdef IPPROTO_IPV6
+        *port = ntohs(((struct sockaddr_in6 *)&addr)->sin6_port);
+#else
+        goto fail;
+#endif
     }
 
     return BHT_OK;
