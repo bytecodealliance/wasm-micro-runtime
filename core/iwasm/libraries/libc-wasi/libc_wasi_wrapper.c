@@ -1033,9 +1033,11 @@ execute_interruptible_poll_oneoff(
         }
         else if (*nevents > 0) {
             all_outs_are_type_clock = true;
-            for (i = 0; i < nsubscriptions; i++) {
-                if (out[i].type != __WASI_EVENTTYPE_CLOCK)
+            for (i = 0; i < *nevents; i++) {
+                if (out[i].type != __WASI_EVENTTYPE_CLOCK) {
                     all_outs_are_type_clock = false;
+                    break;
+                }
             }
 
             if (!all_outs_are_type_clock) {
