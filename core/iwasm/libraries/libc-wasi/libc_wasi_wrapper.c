@@ -7,6 +7,11 @@
 #include "bh_platform.h"
 #include "wasm_export.h"
 
+#if WASM_ENABLE_THREAD_MGR != 0
+#include "../../../thread-mgr/thread_manager.h"
+typedef struct WASIContext *wasi_ctx_t;
+#endif
+
 void
 wasm_runtime_set_exception(wasm_module_inst_t module, const char *exception);
 
@@ -14,9 +19,6 @@ wasm_runtime_set_exception(wasm_module_inst_t module, const char *exception);
 #define get_module_inst(exec_env) \
     wasm_runtime_get_module_inst(exec_env)
 
-#define get_suspend_flags(exec_env) \
-    wasm_runtime_get_suspend_flags(exec_env)
-    
 #define get_wasi_ctx(module_inst) \
     wasm_runtime_get_wasi_ctx(module_inst)
 
@@ -49,6 +51,8 @@ typedef struct iovec_app {
     uint32 buf_len;
 } iovec_app_t;
 
+/* If the thread manager is enabled, WASIContext is already defined */
+#if WASM_ENABLE_THREAD_MGR == 0
 typedef struct WASIContext {
     struct fd_table *curfds;
     struct fd_prestats *prestats;
@@ -62,6 +66,7 @@ typedef struct WASIContext {
     char **env_list;
     uint32_t exit_code;
 } * wasi_ctx_t;
+#endif
 
 wasi_ctx_t
 wasm_runtime_get_wasi_ctx(wasm_module_inst_t module_inst);
@@ -1036,7 +1041,7 @@ execute_interruptible_poll_oneoff(wasm_module_inst_t module_inst,
             return err;
         }
 
-        if (get_suspend_flags(exec_env) & 0x01) {
+        if (wasm_cluster_is_thread_terminated(exec_env)) {
             wasm_runtime_free(in_copy);
             return EINTR;
         }
