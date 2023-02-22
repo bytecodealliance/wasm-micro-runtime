@@ -7,6 +7,7 @@
 #include "aot_emit_exception.h"
 #include "../aot/aot_runtime.h"
 #include "aot_intrinsic.h"
+#include "aot_emit_control.h"
 
 #define BUILD_ICMP(op, left, right, res, name)                                \
     do {                                                                      \
@@ -1343,6 +1344,14 @@ aot_compile_op_atomic_wait(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         aot_set_last_error("llvm build call failed.");
         return false;
     }
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (comp_ctx->enable_thread_mgr) {
+        if (!check_suspend_flags(comp_ctx, func_ctx))
+            return false;
+    }
+#endif
 
     BUILD_ICMP(LLVMIntSGT, ret_value, I32_ZERO, cmp, "atomic_wait_ret");
 
