@@ -1008,6 +1008,8 @@ execute_interruptible_poll_oneoff(
 
     wasi_errno_t err;
     __wasi_timestamp_t elapsed = 0;
+    bool all_outs_are_type_clock;
+    uint32 i;
 
     const __wasi_timestamp_t timeout = get_timeout_for_poll_oneoff(
                                  in, nsubscriptions),
@@ -1041,11 +1043,17 @@ execute_interruptible_poll_oneoff(
             wasm_runtime_free(in_copy);
             return EINTR;
         }
-        else if (*nevents > 0
-                 && !(nsubscriptions == 1
-                      && in[0].u.type == __WASI_EVENTTYPE_CLOCK)) {
-            wasm_runtime_free(in_copy);
-            return __WASI_ESUCCESS;
+        else if (*nevents > 0) {
+            all_outs_are_type_clock = true;
+            for (i = 0; i < nsubscriptions; i++) {
+                if (out[i].type != __WASI_EVENTTYPE_CLOCK)
+                    all_outs_are_type_clock = false;
+            }
+
+            if (!all_outs_are_type_clock) {
+                wasm_runtime_free(in_copy);
+                return __WASI_ESUCCESS;
+            }
         }
     }
 
