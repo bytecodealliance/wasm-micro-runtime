@@ -901,76 +901,148 @@ create_exports(AOTModuleInstance *module_inst, AOTModule *module,
     return create_export_funcs(module_inst, module, error_buf, error_buf_size);
 }
 
-#if WASM_ENABLE_LIBC_WASI != 0
-static bool
-execute_initialize_function(AOTModuleInstance *module_inst)
+static AOTFunctionInstance *
+lookup_post_instantiate_func(AOTModuleInstance *module_inst,
+                             const char *func_name)
 {
-    AOTFunctionInstance *initialize =
-        aot_lookup_function(module_inst, "_initialize", NULL);
+    AOTFunctionInstance *func;
+    AOTFuncType *func_type;
 
-    return !initialize
-           || aot_create_exec_env_and_call_function(module_inst, initialize, 0,
-                                                    NULL);
-}
-#endif
-
-static bool
-execute_post_inst_function(AOTModuleInstance *module_inst)
-{
-    AOTFunctionInstance *post_inst_func =
-        aot_lookup_function(module_inst, "__post_instantiate", "()");
-
-    if (!post_inst_func)
+    if (!(func = aot_lookup_function(module_inst, func_name, NULL)))
         /* Not found */
-        return true;
+        return NULL;
 
-    return aot_create_exec_env_and_call_function(module_inst, post_inst_func, 0,
-                                                 NULL);
+    func_type = func->u.func.func_type;
+    if (!(func_type->param_count == 0 && func_type->result_count == 0))
+        /* Not a valid function type, ignore it */
+        return NULL;
+
+    return func;
 }
 
 static bool
-execute_start_function(AOTModuleInstance *module_inst)
+execute_post_instantiate_functions(AOTModuleInstance *module_inst,
+                                   bool is_sub_inst)
 {
     AOTModule *module = (AOTModule *)module_inst->module;
-    WASMExecEnv *exec_env;
-    typedef void (*F)(WASMExecEnv *);
-    union {
-        F f;
-        void *v;
-    } u;
+    AOTFunctionInstance *initialize_func = NULL;
+    AOTFunctionInstance *post_inst_func = NULL;
+    AOTFunctionInstance *call_ctors_func = NULL;
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    WASMModuleInstanceCommon *module_inst_main = NULL;
+    WASMExecEnv *exec_env_tls = NULL;
+#endif
+    WASMExecEnv *exec_env = NULL;
+    bool ret = false;
 
-    if (!module->start_function)
+#if WASM_ENABLE_LIBC_WASI != 0
+    /*
+     * WASI reactor instances may assume that _initialize will be called by
+     * the environment at most once, and that none of their other exports
+     * are accessed before that call.
+     */
+    if (!is_sub_inst && module->import_wasi_api) {
+        initialize_func =
+            lookup_post_instantiate_func(module_inst, "_initialize");
+    }
+#endif
+
+    /* Execute possible "__post_instantiate" function if wasm app is
+       compiled by emsdk's early version */
+    if (!is_sub_inst) {
+        post_inst_func =
+            lookup_post_instantiate_func(module_inst, "__post_instantiate");
+    }
+
+#if WASM_ENABLE_BULK_MEMORY != 0
+    /* Only execute the memory init function for main instance since
+       the data segments will be dropped once initialized */
+    if (!is_sub_inst
+#if WASM_ENABLE_LIBC_WASI != 0
+        && !module->import_wasi_api
+#endif
+    ) {
+        call_ctors_func =
+            lookup_post_instantiate_func(module_inst, "__wasm_call_ctors");
+    }
+#endif
+
+    if (!module->start_function && !initialize_func && !post_inst_func
+        && !call_ctors_func) {
+        /* No post instantiation functions to call */
         return true;
+    }
 
-    if (!(exec_env =
-              wasm_exec_env_create((WASMModuleInstanceCommon *)module_inst,
-                                   module_inst->default_wasm_stack_size))) {
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    if (is_sub_inst) {
+        exec_env = exec_env_tls = wasm_runtime_get_exec_env_tls();
+        if (exec_env_tls) {
+            /* Temporarily replace exec_env_tls's module inst to current
+               module inst to avoid checking failure when calling the
+               wasm functions, and ensure that the exec_env's module inst
+               is the correct one. */
+            module_inst_main = exec_env_tls->module_inst;
+            exec_env_tls->module_inst = (WASMModuleInstanceCommon *)module_inst;
+        }
+    }
+#endif
+    if (!exec_env
+        && !(exec_env =
+                 wasm_exec_env_create((WASMModuleInstanceCommon *)module_inst,
+                                      module_inst->default_wasm_stack_size))) {
         aot_set_exception(module_inst, "allocate memory failed");
         return false;
     }
 
-    u.v = module->start_function;
-    u.f(exec_env);
+    /* Execute start function for both main insance and sub instance */
+    if (module->start_function) {
+        AOTFunctionInstance start_func = { 0 };
+        uint32 func_type_idx;
 
+        start_func.func_name = "";
+        start_func.func_index = module->start_func_index;
+        start_func.is_import_func = false;
+        func_type_idx = module->func_type_indexes[module->start_func_index
+                                                  - module->import_func_count];
+        start_func.u.func.func_type = module->func_types[func_type_idx];
+        start_func.u.func.func_ptr = module->start_function;
+        if (!aot_call_function(exec_env, &start_func, 0, NULL)) {
+            goto fail;
+        }
+    }
+
+    if (initialize_func
+        && !aot_call_function(exec_env, initialize_func, 0, NULL)) {
+        goto fail;
+    }
+
+    if (post_inst_func
+        && !aot_call_function(exec_env, post_inst_func, 0, NULL)) {
+        goto fail;
+    }
+
+    if (call_ctors_func
+        && !aot_call_function(exec_env, call_ctors_func, 0, NULL)) {
+        goto fail;
+    }
+
+    ret = true;
+
+fail:
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    if (is_sub_inst && exec_env_tls) {
+        bh_assert(exec_env == exec_env_tls);
+        /* Restore the exec_env_tls's module inst */
+        exec_env_tls->module_inst = module_inst_main;
+    }
+    else
+        wasm_exec_env_destroy(exec_env);
+#else
     wasm_exec_env_destroy(exec_env);
-    return !aot_get_exception(module_inst);
-}
-
-#if WASM_ENABLE_BULK_MEMORY != 0
-static bool
-execute_memory_init_function(AOTModuleInstance *module_inst)
-{
-    AOTFunctionInstance *memory_init_func =
-        aot_lookup_function(module_inst, "__wasm_call_ctors", "()");
-
-    if (!memory_init_func)
-        /* Not found */
-        return true;
-
-    return aot_create_exec_env_and_call_function(module_inst, memory_init_func,
-                                                 0, NULL);
-}
 #endif
+
+    return ret;
+}
 
 static bool
 check_linked_symbol(AOTModule *module, char *error_buf, uint32 error_buf_size)
@@ -1134,47 +1206,10 @@ aot_instantiate(AOTModule *module, bool is_sub_inst, uint32 stack_size,
     }
 #endif
 
-    if (!is_sub_inst) {
-        if (
-#if WASM_ENABLE_LIBC_WASI != 0
-            /*
-             * reactor instances may assume that _initialize will be called by
-             * the environment at most once, and that none of their other
-             * exports are accessed before that call.
-             *
-             * let the loader decide how to act if there is no _initialize
-             * in a reactor
-             */
-            !execute_initialize_function(module_inst) ||
-#endif
-            /* Execute __post_instantiate function */
-            !execute_post_inst_function(module_inst)
-            /* Execute the function in "start" section */
-            || !execute_start_function(module_inst)) {
-            set_error_buf(error_buf, error_buf_size,
-                          module_inst->cur_exception);
-            goto fail;
-        }
+    if (!execute_post_instantiate_functions(module_inst, is_sub_inst)) {
+        set_error_buf(error_buf, error_buf_size, module_inst->cur_exception);
+        goto fail;
     }
-
-#if WASM_ENABLE_BULK_MEMORY != 0
-#if WASM_ENABLE_LIBC_WASI != 0
-    if (!module->import_wasi_api) {
-#endif
-        /* Only execute the memory init function for main instance because
-            the data segments will be dropped once initialized.
-        */
-        if (!is_sub_inst) {
-            if (!execute_memory_init_function(module_inst)) {
-                set_error_buf(error_buf, error_buf_size,
-                              module_inst->cur_exception);
-                goto fail;
-            }
-        }
-#if WASM_ENABLE_LIBC_WASI != 0
-    }
-#endif
-#endif
 
 #if WASM_ENABLE_MEMORY_TRACING != 0
     wasm_runtime_dump_module_inst_mem_consumption(

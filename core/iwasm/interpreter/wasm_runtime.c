@@ -982,88 +982,138 @@ export_globals_instantiate(const WASMModule *module,
 }
 #endif
 
-#if WASM_ENABLE_LIBC_WASI != 0
-static bool
-execute_initialize_function(WASMModuleInstance *module_inst)
+static WASMFunctionInstance *
+lookup_post_instantiate_func(WASMModuleInstance *module_inst,
+                             const char *func_name)
 {
-    WASMFunctionInstance *initialize =
-        wasm_lookup_function(module_inst, "_initialize", NULL);
-    return !initialize
-           || wasm_create_exec_env_and_call_function(module_inst, initialize, 0,
-                                                     NULL);
+    WASMFunctionInstance *func;
+    WASMType *func_type;
+
+    if (!(func = wasm_lookup_function(module_inst, func_name, NULL)))
+        /* Not found */
+        return NULL;
+
+    func_type = func->u.func->func_type;
+    if (!(func_type->param_count == 0 && func_type->result_count == 0))
+        /* Not a valid function type, ignore it */
+        return NULL;
+
+    return func;
 }
+
+static bool
+execute_post_instantiate_functions(WASMModuleInstance *module_inst,
+                                   bool is_sub_inst)
+{
+    WASMFunctionInstance *start_func = module_inst->e->start_function;
+    WASMFunctionInstance *initialize_func = NULL;
+    WASMFunctionInstance *post_inst_func = NULL;
+    WASMFunctionInstance *call_ctors_func = NULL;
+#if WASM_ENABLE_LIBC_WASI != 0
+    WASMModule *module = module_inst->module;
+#endif
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    WASMModuleInstanceCommon *module_inst_main = NULL;
+    WASMExecEnv *exec_env_tls = NULL;
+#endif
+    WASMExecEnv *exec_env = NULL;
+    bool ret = false;
+
+#if WASM_ENABLE_LIBC_WASI != 0
+    /*
+     * WASI reactor instances may assume that _initialize will be called by
+     * the environment at most once, and that none of their other exports
+     * are accessed before that call.
+     */
+    if (!is_sub_inst && module->import_wasi_api) {
+        initialize_func =
+            lookup_post_instantiate_func(module_inst, "_initialize");
+    }
 #endif
 
-static bool
-execute_post_inst_function(WASMModuleInstance *module_inst)
-{
-    WASMFunctionInstance *post_inst_func = NULL;
-    WASMType *post_inst_func_type;
-    uint32 i;
-
-    for (i = 0; i < module_inst->export_func_count; i++)
-        if (!strcmp(module_inst->export_functions[i].name,
-                    "__post_instantiate")) {
-            post_inst_func = module_inst->export_functions[i].function;
-            break;
-        }
-
-    if (!post_inst_func)
-        /* Not found */
-        return true;
-
-    post_inst_func_type = post_inst_func->u.func->func_type;
-    if (post_inst_func_type->param_count != 0
-        || post_inst_func_type->result_count != 0)
-        /* Not a valid function type, ignore it */
-        return true;
-
-    return wasm_create_exec_env_and_call_function(module_inst, post_inst_func,
-                                                  0, NULL);
-}
+    /* Execute possible "__post_instantiate" function if wasm app is
+       compiled by emsdk's early version */
+    if (!is_sub_inst) {
+        post_inst_func =
+            lookup_post_instantiate_func(module_inst, "__post_instantiate");
+    }
 
 #if WASM_ENABLE_BULK_MEMORY != 0
-static bool
-execute_memory_init_function(WASMModuleInstance *module_inst)
-{
-    WASMFunctionInstance *memory_init_func = NULL;
-    WASMType *memory_init_func_type;
-    uint32 i;
-
-    for (i = 0; i < module_inst->export_func_count; i++)
-        if (!strcmp(module_inst->export_functions[i].name,
-                    "__wasm_call_ctors")) {
-            memory_init_func = module_inst->export_functions[i].function;
-            break;
-        }
-
-    if (!memory_init_func)
-        /* Not found */
-        return true;
-
-    memory_init_func_type = memory_init_func->u.func->func_type;
-    if (memory_init_func_type->param_count != 0
-        || memory_init_func_type->result_count != 0)
-        /* Not a valid function type, ignore it */
-        return true;
-
-    return wasm_create_exec_env_and_call_function(module_inst, memory_init_func,
-                                                  0, NULL);
-}
+    /* Only execute the memory init function for main instance since
+       the data segments will be dropped once initialized */
+    if (!is_sub_inst
+#if WASM_ENABLE_LIBC_WASI != 0
+        && !module->import_wasi_api
+#endif
+    ) {
+        call_ctors_func =
+            lookup_post_instantiate_func(module_inst, "__wasm_call_ctors");
+    }
 #endif
 
-static bool
-execute_start_function(WASMModuleInstance *module_inst)
-{
-    WASMFunctionInstance *func = module_inst->e->start_function;
-
-    if (!func)
+    if (!start_func && !initialize_func && !post_inst_func
+        && !call_ctors_func) {
+        /* No post instantiation functions to call */
         return true;
+    }
 
-    bh_assert(!func->is_import_func && func->param_cell_num == 0
-              && func->ret_cell_num == 0);
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    if (is_sub_inst) {
+        exec_env = exec_env_tls = wasm_runtime_get_exec_env_tls();
+        if (exec_env_tls) {
+            /* Temporarily replace exec_env_tls's module inst to current
+               module inst to avoid checking failure when calling the
+               wasm functions, and ensure that the exec_env's module inst
+               is the correct one. */
+            module_inst_main = exec_env_tls->module_inst;
+            exec_env_tls->module_inst = (WASMModuleInstanceCommon *)module_inst;
+        }
+    }
+#endif
+    if (!exec_env
+        && !(exec_env =
+                 wasm_exec_env_create((WASMModuleInstanceCommon *)module_inst,
+                                      module_inst->default_wasm_stack_size))) {
+        wasm_set_exception(module_inst, "allocate memory failed");
+        return false;
+    }
 
-    return wasm_create_exec_env_and_call_function(module_inst, func, 0, NULL);
+    /* Execute start function for both main insance and sub instance */
+    if (start_func && !wasm_call_function(exec_env, start_func, 0, NULL)) {
+        goto fail;
+    }
+
+    if (initialize_func
+        && !wasm_call_function(exec_env, initialize_func, 0, NULL)) {
+        goto fail;
+    }
+
+    if (post_inst_func
+        && !wasm_call_function(exec_env, post_inst_func, 0, NULL)) {
+        goto fail;
+    }
+
+    if (call_ctors_func
+        && !wasm_call_function(exec_env, call_ctors_func, 0, NULL)) {
+        goto fail;
+    }
+
+    ret = true;
+
+fail:
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    if (is_sub_inst && exec_env_tls) {
+        bh_assert(exec_env == exec_env_tls);
+        /* Restore the exec_env_tls's module inst */
+        exec_env_tls->module_inst = module_inst_main;
+    }
+    else
+        wasm_exec_env_destroy(exec_env);
+#else
+    wasm_exec_env_destroy(exec_env);
+#endif
+
+    return ret;
 }
 
 static bool
@@ -1999,47 +2049,10 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
                 &module_inst->e->functions[module->start_function];
     }
 
-    if (!is_sub_inst) {
-        if (
-#if WASM_ENABLE_LIBC_WASI != 0
-            /*
-             * reactor instances may assume that _initialize will be called by
-             * the environment at most once, and that none of their other
-             * exports are accessed before that call.
-             *
-             * let the loader decide how to act if there is no _initialize
-             * in a reactor
-             */
-            !execute_initialize_function(module_inst) ||
-#endif
-            /* Execute __post_instantiate function */
-            !execute_post_inst_function(module_inst)
-            /* Execute the function in "start" section */
-            || !execute_start_function(module_inst)) {
-            set_error_buf(error_buf, error_buf_size,
-                          module_inst->cur_exception);
-            goto fail;
-        }
+    if (!execute_post_instantiate_functions(module_inst, is_sub_inst)) {
+        set_error_buf(error_buf, error_buf_size, module_inst->cur_exception);
+        goto fail;
     }
-
-#if WASM_ENABLE_BULK_MEMORY != 0
-#if WASM_ENABLE_LIBC_WASI != 0
-    if (!module->import_wasi_api) {
-#endif
-        /* Only execute the memory init function for main instance because
-            the data segments will be dropped once initialized.
-        */
-        if (!is_sub_inst) {
-            if (!execute_memory_init_function(module_inst)) {
-                set_error_buf(error_buf, error_buf_size,
-                              module_inst->cur_exception);
-                goto fail;
-            }
-        }
-#if WASM_ENABLE_LIBC_WASI != 0
-    }
-#endif
-#endif
 
 #if WASM_ENABLE_MEMORY_TRACING != 0
     wasm_runtime_dump_module_inst_mem_consumption(
