@@ -994,13 +994,12 @@ update_clock_subscription_data(wasi_subscription_t *in, uint32 nsubscriptions,
 }
 
 static wasi_errno_t
-execute_interruptible_poll_oneoff(wasm_module_inst_t module_inst,
+execute_interruptible_poll_oneoff(
 #if !defined(WASMTIME_SSP_STATIC_CURFDS)
-                                  struct fd_table *curfds,
+    struct fd_table *curfds,
 #endif
-                                  const __wasi_subscription_t *in,
-                                  __wasi_event_t *out, size_t nsubscriptions,
-                                  size_t *nevents, wasm_exec_env_t exec_env)
+    const __wasi_subscription_t *in, __wasi_event_t *out, size_t nsubscriptions,
+    size_t *nevents, wasm_exec_env_t exec_env)
 {
     if (nsubscriptions == 0) {
         *nevents = 0;
@@ -1076,8 +1075,8 @@ wasi_poll_oneoff(wasm_exec_env_t exec_env, const wasi_subscription_t *in,
 #if WASM_ENABLE_THREAD_MGR == 0
     err = wasmtime_ssp_poll_oneoff(curfds, in, out, nsubscriptions, &nevents);
 #else
-    err = execute_interruptible_poll_oneoff(module_inst, curfds, in, out,
-                                            nsubscriptions, &nevents, exec_env);
+    err = execute_interruptible_poll_oneoff(curfds, in, out, nsubscriptions,
+                                            &nevents, exec_env);
 #endif
     if (err)
         return err;
