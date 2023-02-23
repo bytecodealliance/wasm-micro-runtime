@@ -114,7 +114,10 @@ jit_dump_insn(JitCompContext *cc, JitInsn *insn)
     switch (insn->opcode) {
 #define INSN(NAME, OPND_KIND, OPND_NUM, FIRST_USE)     \
     case JIT_OP_##NAME:                                \
-        os_printf("    %-15s", #NAME);                 \
+        if (insn->flags_u8 & 0x1)                      \
+            os_printf("    atomic %-15s", #NAME);      \
+        else                                           \
+            os_printf("    %-15s", #NAME);             \
         jit_dump_insn_##OPND_KIND(cc, insn, OPND_NUM); \
         break;
 #include "jit_ir.def"
@@ -305,6 +308,7 @@ jit_dump_cc(JitCompContext *cc)
 bool
 jit_pass_dump(JitCompContext *cc)
 {
+    // TODO: return true here to avoid dump
     const JitGlobals *jit_globals = jit_compiler_get_jit_globals();
     const uint8 *passes = jit_globals->passes;
     uint8 pass_no = cc->cur_pass_no;

@@ -59,6 +59,13 @@ fail:
     return 0;
 }
 #endif
+#if WASM_ENABLE_SHARED_MEMORY != 0
+static void
+set_load_or_store_atomic(JitInsn *load_or_store_inst)
+{
+    load_or_store_inst->flags_u8 |= 0x1;
+}
+#endif
 
 #if UINTPTR_MAX == UINT64_MAX
 static JitReg
@@ -194,6 +201,7 @@ jit_compile_op_i32_load(JitCompContext *cc, uint32 align, uint32 offset,
                         uint32 bytes, bool sign, bool atomic)
 {
     JitReg addr, offset1, value, memory_data;
+    JitInsn *load_insn;
 
     POP_I32(addr);
 
@@ -203,36 +211,42 @@ jit_compile_op_i32_load(JitCompContext *cc, uint32 align, uint32 offset,
     }
 
     memory_data = get_memory_data_reg(cc->jit_frame, 0);
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    if (atomic) {
+        addr = jit_cc_new_reg_I64(cc);
+        CHECK_ALIGNMENT(addr, memory_data, offset1);
+    }
+#endif
 
     value = jit_cc_new_reg_I32(cc);
     switch (bytes) {
         case 1:
         {
             if (sign) {
-                GEN_INSN(LDI8, value, memory_data, offset1);
+                load_insn = GEN_INSN(LDI8, value, memory_data, offset1);
             }
             else {
-                GEN_INSN(LDU8, value, memory_data, offset1);
+                load_insn = GEN_INSN(LDU8, value, memory_data, offset1);
             }
             break;
         }
         case 2:
         {
             if (sign) {
-                GEN_INSN(LDI16, value, memory_data, offset1);
+                load_insn = GEN_INSN(LDI16, value, memory_data, offset1);
             }
             else {
-                GEN_INSN(LDU16, value, memory_data, offset1);
+                load_insn = GEN_INSN(LDU16, value, memory_data, offset1);
             }
             break;
         }
         case 4:
         {
             if (sign) {
-                GEN_INSN(LDI32, value, memory_data, offset1);
+                load_insn = GEN_INSN(LDI32, value, memory_data, offset1);
             }
             else {
-                GEN_INSN(LDU32, value, memory_data, offset1);
+                load_insn = GEN_INSN(LDU32, value, memory_data, offset1);
             }
             break;
         }
@@ -242,6 +256,11 @@ jit_compile_op_i32_load(JitCompContext *cc, uint32 align, uint32 offset,
             goto fail;
         }
     }
+
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    if (atomic)
+        set_load_or_store_atomic(load_insn);
+#endif
 
     PUSH_I32(value);
     return true;
@@ -254,6 +273,7 @@ jit_compile_op_i64_load(JitCompContext *cc, uint32 align, uint32 offset,
                         uint32 bytes, bool sign, bool atomic)
 {
     JitReg addr, offset1, value, memory_data;
+    JitInsn *load_insn;
 
     POP_I32(addr);
 
@@ -263,46 +283,52 @@ jit_compile_op_i64_load(JitCompContext *cc, uint32 align, uint32 offset,
     }
 
     memory_data = get_memory_data_reg(cc->jit_frame, 0);
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    if (atomic) {
+        addr = jit_cc_new_reg_I64(cc);
+        CHECK_ALIGNMENT(addr, memory_data, offset1);
+    }
+#endif
 
     value = jit_cc_new_reg_I64(cc);
     switch (bytes) {
         case 1:
         {
             if (sign) {
-                GEN_INSN(LDI8, value, memory_data, offset1);
+                load_insn = GEN_INSN(LDI8, value, memory_data, offset1);
             }
             else {
-                GEN_INSN(LDU8, value, memory_data, offset1);
+                load_insn = GEN_INSN(LDU8, value, memory_data, offset1);
             }
             break;
         }
         case 2:
         {
             if (sign) {
-                GEN_INSN(LDI16, value, memory_data, offset1);
+                load_insn = GEN_INSN(LDI16, value, memory_data, offset1);
             }
             else {
-                GEN_INSN(LDU16, value, memory_data, offset1);
+                load_insn = GEN_INSN(LDU16, value, memory_data, offset1);
             }
             break;
         }
         case 4:
         {
             if (sign) {
-                GEN_INSN(LDI32, value, memory_data, offset1);
+                load_insn = GEN_INSN(LDI32, value, memory_data, offset1);
             }
             else {
-                GEN_INSN(LDU32, value, memory_data, offset1);
+                load_insn = GEN_INSN(LDU32, value, memory_data, offset1);
             }
             break;
         }
         case 8:
         {
             if (sign) {
-                GEN_INSN(LDI64, value, memory_data, offset1);
+                load_insn = GEN_INSN(LDI64, value, memory_data, offset1);
             }
             else {
-                GEN_INSN(LDU64, value, memory_data, offset1);
+                load_insn = GEN_INSN(LDU64, value, memory_data, offset1);
             }
             break;
         }
@@ -312,6 +338,11 @@ jit_compile_op_i64_load(JitCompContext *cc, uint32 align, uint32 offset,
             goto fail;
         }
     }
+
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    if (atomic)
+        set_load_or_store_atomic(load_insn);
+#endif
 
     PUSH_I64(value);
     return true;
@@ -370,6 +401,7 @@ jit_compile_op_i32_store(JitCompContext *cc, uint32 align, uint32 offset,
                          uint32 bytes, bool atomic)
 {
     JitReg value, addr, offset1, memory_data;
+    JitInsn *store_insn;
 
     POP_I32(value);
     POP_I32(addr);
@@ -380,21 +412,27 @@ jit_compile_op_i32_store(JitCompContext *cc, uint32 align, uint32 offset,
     }
 
     memory_data = get_memory_data_reg(cc->jit_frame, 0);
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    if (atomic) {
+        addr = jit_cc_new_reg_I64(cc);
+        CHECK_ALIGNMENT(addr, memory_data, offset1);
+    }
+#endif
 
     switch (bytes) {
         case 1:
         {
-            GEN_INSN(STI8, value, memory_data, offset1);
+            store_insn = GEN_INSN(STI8, value, memory_data, offset1);
             break;
         }
         case 2:
         {
-            GEN_INSN(STI16, value, memory_data, offset1);
+            store_insn = GEN_INSN(STI16, value, memory_data, offset1);
             break;
         }
         case 4:
         {
-            GEN_INSN(STI32, value, memory_data, offset1);
+            store_insn = GEN_INSN(STI32, value, memory_data, offset1);
             break;
         }
         default:
@@ -403,6 +441,10 @@ jit_compile_op_i32_store(JitCompContext *cc, uint32 align, uint32 offset,
             goto fail;
         }
     }
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    if (atomic)
+        set_load_or_store_atomic(store_insn);
+#endif
 
     return true;
 fail:
@@ -414,6 +456,7 @@ jit_compile_op_i64_store(JitCompContext *cc, uint32 align, uint32 offset,
                          uint32 bytes, bool atomic)
 {
     JitReg value, addr, offset1, memory_data;
+    JitInsn *store_insn;
 
     POP_I64(value);
     POP_I32(addr);
@@ -428,26 +471,32 @@ jit_compile_op_i64_store(JitCompContext *cc, uint32 align, uint32 offset,
     }
 
     memory_data = get_memory_data_reg(cc->jit_frame, 0);
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    if (atomic) {
+        addr = jit_cc_new_reg_I64(cc);
+        CHECK_ALIGNMENT(addr, memory_data, offset1);
+    }
+#endif
 
     switch (bytes) {
         case 1:
         {
-            GEN_INSN(STI8, value, memory_data, offset1);
+            store_insn = GEN_INSN(STI8, value, memory_data, offset1);
             break;
         }
         case 2:
         {
-            GEN_INSN(STI16, value, memory_data, offset1);
+            store_insn = GEN_INSN(STI16, value, memory_data, offset1);
             break;
         }
         case 4:
         {
-            GEN_INSN(STI32, value, memory_data, offset1);
+            store_insn = GEN_INSN(STI32, value, memory_data, offset1);
             break;
         }
         case 8:
         {
-            GEN_INSN(STI64, value, memory_data, offset1);
+            store_insn = GEN_INSN(STI64, value, memory_data, offset1);
             break;
         }
         default:
@@ -456,6 +505,10 @@ jit_compile_op_i64_store(JitCompContext *cc, uint32 align, uint32 offset,
             goto fail;
         }
     }
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    if (atomic)
+        set_load_or_store_atomic(store_insn);
+#endif
 
     return true;
 fail:
@@ -785,6 +838,76 @@ bool
 jit_compile_op_atomic_cmpxchg(JitCompContext *cc, uint8 op_type, uint32 align,
                               uint32 offset, uint32 bytes)
 {
+    bh_assert(op_type == VALUE_TYPE_I32 || op_type == VALUE_TYPE_I64);
+
+    JitReg addr, offset1, memory_data, value, expect, result;
+
+    if (op_type == VALUE_TYPE_I32) {
+        POP_I32(value);
+        POP_I32(expect);
+    }
+    else {
+        POP_I64(value);
+        POP_I64(expect);
+    }
+    POP_I32(addr);
+
+    offset1 = check_and_seek(cc, addr, offset, bytes);
+    if (!offset1) {
+        goto fail;
+    }
+
+    memory_data = get_memory_data_reg(cc->jit_frame, 0);
+    addr = jit_cc_new_reg_I64(cc);
+    CHECK_ALIGNMENT(addr, memory_data, offset1);
+
+    if (op_type == VALUE_TYPE_I32)
+        result = jit_cc_new_reg_I32(cc);
+    else
+        result = jit_cc_new_reg_I64(cc);
+
+    switch (bytes) {
+        case 1:
+        {
+            GEN_INSN(AT_CMPXCHGU8, result, value, expect, memory_data, offset1);
+            break;
+        }
+        case 2:
+        {
+            GEN_INSN(AT_CMPXCHGU16, result, value, expect, memory_data,
+                     offset1);
+            break;
+        }
+        case 4:
+        {
+            if (op_type == VALUE_TYPE_I32)
+                GEN_INSN(AT_CMPXCHGI32, result, value, expect, memory_data,
+                         offset1);
+            else
+                GEN_INSN(AT_CMPXCHGU32, result, value, expect, memory_data,
+                         offset1);
+            break;
+        }
+        case 8:
+        {
+            GEN_INSN(AT_CMPXCHGI64, result, expect, value, memory_data,
+                     offset1);
+            break;
+        }
+        default:
+        {
+            bh_assert(0);
+            goto fail;
+        }
+    }
+
+    if (op_type == VALUE_TYPE_I32)
+        PUSH_I32(result);
+    else
+        PUSH_I64(result);
+
+    return true;
+fail:
     return false;
 }
 
