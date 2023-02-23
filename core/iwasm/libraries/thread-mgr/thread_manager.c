@@ -1136,9 +1136,10 @@ set_exception_visitor(void *node, void *user_data)
         bh_memcpy_s(curr_wasm_inst->cur_exception,
                     sizeof(curr_wasm_inst->cur_exception),
                     wasm_inst->cur_exception, sizeof(wasm_inst->cur_exception));
-        /* Terminate the thread so it can exit from dead loops */
-        set_thread_cancel_flags(curr_exec_env);
     }
+
+    /* Terminate the thread so it can exit from dead loops */
+    set_thread_cancel_flags(curr_exec_env);
 }
 
 static void
