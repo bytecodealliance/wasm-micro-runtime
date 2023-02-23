@@ -146,6 +146,9 @@ void
 wasm_cluster_spread_custom_data(WASMModuleInstanceCommon *module_inst,
                                 void *custom_data);
 
+bool
+wasm_cluster_is_thread_terminated(WASMExecEnv *exec_env);
+
 #if WASM_ENABLE_DEBUG_INTERP != 0
 #define WAMR_SIG_TRAP (5)
 #define WAMR_SIG_STOP (19)

@@ -2613,6 +2613,8 @@ wasmtime_ssp_poll_oneoff(
         }
 #endif
         *nevents = 1;
+        if (out[0].error != 0)
+            return convert_errno(out[0].error);
         return 0;
     }
 

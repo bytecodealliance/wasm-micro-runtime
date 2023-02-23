@@ -1198,3 +1198,9 @@ wasm_cluster_spread_custom_data(WASMModuleInstanceCommon *module_inst,
         os_mutex_unlock(&cluster->lock);
     }
 }
+
+bool
+wasm_cluster_is_thread_terminated(WASMExecEnv *exec_env)
+{
+    return (exec_env->suspend_flags.flags & 0x01) ? true : false;
+}
