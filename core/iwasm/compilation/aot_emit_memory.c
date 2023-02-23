@@ -1353,7 +1353,7 @@ aot_compile_op_atomic_wait(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 #endif
 
-    BUILD_ICMP(LLVMIntSGT, ret_value, I32_ZERO, cmp, "atomic_wait_ret");
+    BUILD_ICMP(LLVMIntNE, ret_value, I32_NEG_ONE, cmp, "atomic_wait_ret");
 
     ADD_BASIC_BLOCK(wait_fail, "atomic_wait_fail");
     ADD_BASIC_BLOCK(wait_success, "wait_success");
