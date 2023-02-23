@@ -857,6 +857,14 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 goto fail;
             }
 
+#if WASM_ENABLE_THREAD_MGR != 0
+            /* Insert suspend check point */
+            if (comp_ctx->enable_thread_mgr) {
+                if (!check_suspend_flags(comp_ctx, func_ctx))
+                    return false;
+            }
+#endif
+
             /* Check whether there was exception thrown when executing
                the function */
             if (!check_exception_thrown(comp_ctx, func_ctx)) {
