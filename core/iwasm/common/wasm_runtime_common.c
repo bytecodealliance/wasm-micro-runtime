@@ -194,7 +194,6 @@ runtime_signal_handler(void *sig_addr)
         else if (exec_env_tls->exce_check_guard_page <= (uint8 *)sig_addr
                  && (uint8 *)sig_addr
                         < exec_env_tls->exce_check_guard_page + page_size) {
-            bh_assert(wasm_get_exception(module_inst));
             os_longjmp(jmpbuf_node->jmpbuf, 1);
         }
     }
