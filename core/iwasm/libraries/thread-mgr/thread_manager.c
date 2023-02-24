@@ -225,7 +225,9 @@ wasm_cluster_create(WASMExecEnv *exec_env)
     /* Prepare the aux stack top and size for every thread */
     if (!wasm_exec_env_get_aux_stack(exec_env, &aux_stack_start,
                                      &aux_stack_size)) {
+#if WASM_ENABLE_LIB_WASI_THREADS == 0
         LOG_VERBOSE("No aux stack info for this module, can't create thread");
+#endif
 
         /* If the module don't have aux stack info, don't throw error here,
             but remain stack_tops and stack_segment_occupied as NULL */
@@ -1131,39 +1133,28 @@ set_exception_visitor(void *node, void *user_data)
         WASMModuleInstance *curr_wasm_inst =
             (WASMModuleInstance *)get_module_inst(curr_exec_env);
 
-        bh_memcpy_s(curr_wasm_inst->cur_exception,
-                    sizeof(curr_wasm_inst->cur_exception),
-                    wasm_inst->cur_exception, sizeof(wasm_inst->cur_exception));
+        /* Only spread non "wasi proc exit" exception */
+        if (!strstr(wasm_inst->cur_exception, "wasi proc exit")) {
+            bh_memcpy_s(curr_wasm_inst->cur_exception,
+                        sizeof(curr_wasm_inst->cur_exception),
+                        wasm_inst->cur_exception,
+                        sizeof(wasm_inst->cur_exception));
+        }
+
         /* Terminate the thread so it can exit from dead loops */
         set_thread_cancel_flags(curr_exec_env);
     }
 }
 
-static void
-clear_exception_visitor(void *node, void *user_data)
-{
-    WASMExecEnv *exec_env = (WASMExecEnv *)user_data;
-    WASMExecEnv *curr_exec_env = (WASMExecEnv *)node;
-
-    if (curr_exec_env != exec_env) {
-        WASMModuleInstance *curr_wasm_inst =
-            (WASMModuleInstance *)get_module_inst(curr_exec_env);
-
-        curr_wasm_inst->cur_exception[0] = '\0';
-    }
-}
-
 void
-wasm_cluster_spread_exception(WASMExecEnv *exec_env, bool clear)
+wasm_cluster_spread_exception(WASMExecEnv *exec_env)
 {
     WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
     bh_assert(cluster);
 
     os_mutex_lock(&cluster->lock);
-    cluster->has_exception = !clear;
-    traverse_list(&cluster->exec_env_list,
-                  clear ? clear_exception_visitor : set_exception_visitor,
-                  exec_env);
+    cluster->has_exception = true;
+    traverse_list(&cluster->exec_env_list, set_exception_visitor, exec_env);
     os_mutex_unlock(&cluster->lock);
 }
 

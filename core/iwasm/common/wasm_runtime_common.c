@@ -2316,7 +2316,7 @@ wasm_set_exception(WASMModuleInstance *module_inst, const char *exception)
     exec_env =
         wasm_clusters_search_exec_env((WASMModuleInstanceCommon *)module_inst);
     if (exec_env) {
-        wasm_cluster_spread_exception(exec_env, exception ? false : true);
+        wasm_cluster_spread_exception(exec_env);
     }
 #if WASM_ENABLE_SHARED_MEMORY
     if (exception) {
