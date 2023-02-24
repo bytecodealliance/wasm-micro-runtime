@@ -15,8 +15,14 @@
 
 #include "wasi_thread_start.h"
 
-#define TEST_TERMINATION_BY_TRAP 0 // Otherwise test `proc_exit` termination
-#define TEST_TERMINATION_IN_MAIN_THREAD 1
+#define BUSY_WAIT 0
+#define ATOMIC_WAIT 1
+#define POLL_ONEOFF 2
+
+/* Change parameters here to modify the sample behavior */
+#define TEST_TERMINATION_BY_TRAP 0 /* Otherwise `proc_exit` termination */
+#define TEST_TERMINATION_IN_MAIN_THREAD 1 /* Otherwise in spawn thread */
+#define LONG_TASK_IMPL ATOMIC_WAIT
 
 #define TIMEOUT_SECONDS 10
 #define NUM_THREADS 3
@@ -30,23 +36,28 @@ typedef struct {
 void
 run_long_task()
 {
-    // Busy waiting to be interruptible by trap or `proc_exit`
+#if LONG_TASK_IMPL == BUSY_WAIT
     for (int i = 0; i < TIMEOUT_SECONDS; i++)
         sleep(1);
+#elif LONG_TASK_IMPL == ATOMIC_WAIT
+    __builtin_wasm_memory_atomic_wait32(0, 0, -1);
+#else
+    sleep(TIMEOUT_SECONDS);
+#endif
 }
 
 void
 start_job()
 {
     sem_post(&sem);
-    run_long_task(); // Wait to be interrupted
+    run_long_task(); /* Wait to be interrupted */
     assert(false && "Unreachable");
 }
 
 void
 terminate_process()
 {
-    // Wait for all other threads (including main thread) to be ready
+    /* Wait for all other threads (including main thread) to be ready */
     printf("Waiting before terminating\n");
     for (int i = 0; i < NUM_THREADS; i++)
         sem_wait(&sem);
@@ -55,7 +66,7 @@ terminate_process()
 #if TEST_TERMINATION_BY_TRAP == 1
     __builtin_trap();
 #else
-    __wasi_proc_exit(1);
+    __wasi_proc_exit(33);
 #endif
 }
 
@@ -86,14 +97,14 @@ main(int argc, char **argv)
     }
 
     for (i = 0; i < NUM_THREADS; i++) {
-        // No graceful memory free to simplify the example
+        /* No graceful memory free to simplify the example */
         if (!start_args_init(&data[i].base)) {
             printf("Failed to allocate thread's stack\n");
             return EXIT_FAILURE;
         }
     }
 
-// Create a thread that forces termination through trap or `proc_exit`
+    /* Create a thread that forces termination through trap or `proc_exit` */
 #if TEST_TERMINATION_IN_MAIN_THREAD == 1
     data[0].throw_exception = false;
 #else
@@ -105,7 +116,7 @@ main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
-    // Create two additional threads to test exception propagation
+    /* Create two additional threads to test exception propagation */
     data[1].throw_exception = false;
     thread_id = __wasi_thread_spawn(&data[1]);
     if (thread_id < 0) {

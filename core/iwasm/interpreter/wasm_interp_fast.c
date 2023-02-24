@@ -3266,6 +3266,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         if (ret == (uint32)-1)
                             goto got_exception;
 
+#if WASM_ENABLE_THREAD_MGR != 0
+                        CHECK_SUSPEND_FLAGS();
+#endif
+
                         PUSH_I32(ret);
                         break;
                     }
@@ -3285,6 +3289,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             timeout, true);
                         if (ret == (uint32)-1)
                             goto got_exception;
+
+#if WASM_ENABLE_THREAD_MGR != 0
+                        CHECK_SUSPEND_FLAGS();
+#endif
 
                         PUSH_I32(ret);
                         break;
@@ -3826,6 +3834,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
             wasm_exec_env_set_cur_frame(exec_env, (WASMRuntimeFrame *)frame);
         }
+#if WASM_ENABLE_THREAD_MGR != 0
+        CHECK_SUSPEND_FLAGS();
+#endif
         HANDLE_OP_END();
     }
 
