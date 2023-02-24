@@ -26,6 +26,7 @@ function help()
     echo "-P run the spec test parallelly"
     echo "-Q enable qemu"
     echo "-F set the firmware path used by qemu"
+    echo "-w enable WASI threads"
 }
 
 OPT_PARSED=""
@@ -34,6 +35,7 @@ WABT_BINARY_RELEASE="NO"
 TYPE=("classic-interp" "fast-interp" "jit" "aot" "fast-jit" "multi-tier-jit")
 #default target
 TARGET="X86_64"
+ENABLE_WASI_THREADS=0
 ENABLE_MULTI_MODULE=0
 ENABLE_MULTI_THREAD=0
 COLLECT_CODE_COVERAGE=0
@@ -48,7 +50,7 @@ ENABLE_QEMU=0
 QEMU_FIRMWARE=""
 WASI_TESTSUITE_COMMIT="b18247e2161bea263fe924b8189c67b1d2d10a10"
 
-while getopts ":s:cabt:m:MCpSXxPQF:" opt
+while getopts ":s:cabt:m:wMCpSXxPQF:" opt
 do
     OPT_PARSED="TRUE"
     case $opt in
@@ -97,6 +99,10 @@ do
         m)
         echo "set compile target of wamr" ${OPTARG}
         TARGET=${OPTARG^^} # set target to uppercase if input x86_32 or x86_64 --> X86_32 and X86_64
+        ;;
+        w)
+        echo "enable WASI threads"
+        ENABLE_WASI_THREADS=1
         ;;
         M)
         echo "enable multi module feature"
@@ -176,7 +182,6 @@ readonly CLASSIC_INTERP_COMPILE_FLAGS="\
     -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_INTERP=0 \
     -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=0 \
     -DWAMR_BUILD_SPEC_TEST=1 \
-    -DWAMR_BUILD_LIB_WASI_THREADS=1 \
     -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
 
 readonly FAST_INTERP_COMPILE_FLAGS="\
@@ -184,7 +189,6 @@ readonly FAST_INTERP_COMPILE_FLAGS="\
     -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_INTERP=1 \
     -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=0 \
     -DWAMR_BUILD_SPEC_TEST=1 \
-    -DWAMR_BUILD_LIB_WASI_THREADS=1 \
     -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
 
 # jit: report linking error if set COLLECT_CODE_COVERAGE,
@@ -194,23 +198,20 @@ readonly ORC_EAGER_JIT_COMPILE_FLAGS="\
     -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_FAST_INTERP=0 \
     -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_AOT=1 \
     -DWAMR_BUILD_LAZY_JIT=0 \
-    -DWAMR_BUILD_SPEC_TEST=1 \
-    -DWAMR_BUILD_LIB_WASI_THREADS=1"
+    -DWAMR_BUILD_SPEC_TEST=1"
 
 readonly ORC_LAZY_JIT_COMPILE_FLAGS="\
     -DWAMR_BUILD_TARGET=${TARGET} \
     -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_FAST_INTERP=0 \
     -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_AOT=1 \
     -DWAMR_BUILD_LAZY_JIT=1 \
-    -DWAMR_BUILD_SPEC_TEST=1 \
-    -DWAMR_BUILD_LIB_WASI_THREADS=1"
+    -DWAMR_BUILD_SPEC_TEST=1"
 
 readonly AOT_COMPILE_FLAGS="\
     -DWAMR_BUILD_TARGET=${TARGET} \
     -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_FAST_INTERP=0 \
     -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=1 \
     -DWAMR_BUILD_SPEC_TEST=1 \
-    -DWAMR_BUILD_LIB_WASI_THREADS=1 \
     -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
 
 readonly FAST_JIT_COMPILE_FLAGS="\
@@ -644,6 +645,12 @@ function trigger()
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_SIMD=1"
     else
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_SIMD=0"
+    fi
+
+    if [[ ${ENABLE_WASI_THREADS} == 1 ]]; then
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_LIB_WASI_THREADS=1"
+    else
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_LIB_WASI_THREADS=0"
     fi
 
     for t in "${TYPE[@]}"; do

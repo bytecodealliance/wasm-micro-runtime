@@ -60,7 +60,7 @@ env:
   SIMD_TEST_OPTIONS: "-s spec -b -S -P"
   THREADS_TEST_OPTIONS: "-s spec -b -p -P"
   X86_32_TARGET_TEST_OPTIONS: "-m x86_32 -P"
-  WASI_TEST_OPTIONS: "-s wasi_certification"
+  WASI_TEST_OPTIONS: "-s wasi_certification -w"
 
 jobs:
   build_llvm_libraries_on_ubuntu_2004:
