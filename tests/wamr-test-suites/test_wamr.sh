@@ -497,7 +497,7 @@ function wasi_certification_test()
 
     python3 -m venv wasi-env && source wasi-env/bin/activate
     python3 -m pip install -r test-runner/requirements.txt
-   TEST_RUNTIME_EXE="${IWASM_CMD} -v=5" python3 test-runner/wasi_test_runner.py \
+    TEST_RUNTIME_EXE=${IWASM_CMD} python3 test-runner/wasi_test_runner.py \
                 -r adapters/wasm-micro-runtime.py \
                 -t \
                     tests/c/testsuite/ \
