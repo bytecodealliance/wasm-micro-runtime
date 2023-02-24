@@ -1003,7 +1003,7 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* Insert suspend check point */
     if (comp_ctx->enable_thread_mgr) {
         if (!check_suspend_flags(comp_ctx, func_ctx))
-            return false;
+            goto fail;
     }
 #endif
 
@@ -1657,7 +1657,7 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* Insert suspend check point */
     if (comp_ctx->enable_thread_mgr) {
         if (!check_suspend_flags(comp_ctx, func_ctx))
-            return false;
+            goto fail;
     }
 #endif
 
