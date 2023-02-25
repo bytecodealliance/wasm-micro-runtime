@@ -1880,8 +1880,10 @@ clear_wasi_proc_exit_exception(WASMModuleInstanceCommon *module_inst_comm)
     if (exception && !strcmp(exception, "Exception: wasi proc exit")) {
         /* The "wasi proc exit" exception is thrown by native lib to
            let wasm app exit, which is a normal behavior, we clear
-           the exception here. */
-        wasm_set_exception(module_inst, NULL);
+           the exception here. And just clear the exception of current
+           thread, don't call `wasm_set_exception(module_inst, NULL)`
+           which will clear the exception of all threads. */
+        module_inst->cur_exception[0] = '\0';
         return true;
     }
     return false;
@@ -2316,7 +2318,7 @@ wasm_set_exception(WASMModuleInstance *module_inst, const char *exception)
     exec_env =
         wasm_clusters_search_exec_env((WASMModuleInstanceCommon *)module_inst);
     if (exec_env) {
-        wasm_cluster_spread_exception(exec_env);
+        wasm_cluster_spread_exception(exec_env, exception ? false : true);
     }
 #if WASM_ENABLE_SHARED_MEMORY
     if (exception) {

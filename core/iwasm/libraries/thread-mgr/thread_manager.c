@@ -1146,15 +1146,31 @@ set_exception_visitor(void *node, void *user_data)
     }
 }
 
+static void
+clear_exception_visitor(void *node, void *user_data)
+{
+    WASMExecEnv *exec_env = (WASMExecEnv *)user_data;
+    WASMExecEnv *curr_exec_env = (WASMExecEnv *)node;
+
+    if (curr_exec_env != exec_env) {
+        WASMModuleInstance *curr_wasm_inst =
+            (WASMModuleInstance *)get_module_inst(curr_exec_env);
+
+        curr_wasm_inst->cur_exception[0] = '\0';
+    }
+}
+
 void
-wasm_cluster_spread_exception(WASMExecEnv *exec_env)
+wasm_cluster_spread_exception(WASMExecEnv *exec_env, bool clear)
 {
     WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
     bh_assert(cluster);
 
     os_mutex_lock(&cluster->lock);
-    cluster->has_exception = true;
-    traverse_list(&cluster->exec_env_list, set_exception_visitor, exec_env);
+    cluster->has_exception = !clear;
+    traverse_list(&cluster->exec_env_list,
+                  clear ? clear_exception_visitor : set_exception_visitor,
+                  exec_env);
     os_mutex_unlock(&cluster->lock);
 }
 

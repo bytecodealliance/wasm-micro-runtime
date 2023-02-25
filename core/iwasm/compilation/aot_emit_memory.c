@@ -1345,14 +1345,6 @@ aot_compile_op_atomic_wait(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         return false;
     }
 
-#if WASM_ENABLE_THREAD_MGR != 0
-    /* Insert suspend check point */
-    if (comp_ctx->enable_thread_mgr) {
-        if (!check_suspend_flags(comp_ctx, func_ctx))
-            return false;
-    }
-#endif
-
     BUILD_ICMP(LLVMIntNE, ret_value, I32_NEG_ONE, cmp, "atomic_wait_ret");
 
     ADD_BASIC_BLOCK(wait_fail, "atomic_wait_fail");
@@ -1376,6 +1368,14 @@ aot_compile_op_atomic_wait(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMPositionBuilderAtEnd(comp_ctx->builder, wait_success);
 
     PUSH_I32(ret_value);
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (comp_ctx->enable_thread_mgr) {
+        if (!check_suspend_flags(comp_ctx, func_ctx))
+            return false;
+    }
+#endif
 
     return true;
 fail:
