@@ -9,7 +9,7 @@
 # pylint: disable=missing-module-docstring
 
 import pathlib
-from setuptools import setup
+from setuptools import setup, find_packages
 from setuptools.command.develop import develop
 from setuptools.command.install import install
 from subprocess import check_call
@@ -43,6 +43,8 @@ setup(
     version="0.1.0",
     description="A WebAssembly runtime powered by WAMR",
     long_description=readme,
+    packages=find_packages(where="src"),
+    package_dir={"": "src"},
     author="The WAMR Project Developers",
     author_email="hello@bytecodealliance.org",
     url="https://github.com/bytecodealliance/wasm-micro-runtime",
