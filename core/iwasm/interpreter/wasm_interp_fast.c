@@ -13,6 +13,10 @@
 #include "../common/wasm_shared_memory.h"
 #endif
 
+#if WASM_ENABLE_THREAD_MGR != 0
+#include "../libraries/thread-mgr/thread_manager.h"
+#endif
+
 typedef int32 CellType_I32;
 typedef int64 CellType_I64;
 typedef float32 CellType_F32;
@@ -1052,15 +1056,22 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
 #endif
 
 #if WASM_ENABLE_THREAD_MGR != 0
-#define CHECK_SUSPEND_FLAGS()                           \
-    do {                                                \
-        if (exec_env->suspend_flags.flags != 0) {       \
-            if (exec_env->suspend_flags.flags & 0x01) { \
-                /* terminate current thread */          \
-                return;                                 \
-            }                                           \
-            /* TODO: support suspend and breakpoint */  \
-        }                                               \
+#define CHECK_SUSPEND_FLAGS()                                       \
+    do {                                                            \
+        WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env); \
+        if (cluster)                                                \
+            os_mutex_lock(&cluster->lock);                          \
+        if (exec_env->suspend_flags.flags != 0) {                   \
+            if (exec_env->suspend_flags.flags & 0x01) {             \
+                /* terminate current thread */                      \
+                if (cluster)                                        \
+                    os_mutex_unlock(&cluster->lock);                \
+                return;                                             \
+            }                                                       \
+            /* TODO: support suspend and breakpoint */              \
+        }                                                           \
+        if (cluster)                                                \
+            os_mutex_unlock(&cluster->lock);                        \
     } while (0)
 #endif
 
