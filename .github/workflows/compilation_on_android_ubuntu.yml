@@ -478,6 +478,8 @@ jobs:
             test_option: $SIMD_TEST_OPTIONS
           - running_mode: "fast-jit"
             test_option: $THREADS_TEST_OPTIONS
+          - running_mode: "fast-jit"
+            test_option: $WASI_TEST_OPTIONS
           # multi-tier-jit doesn't support multi module, simd, and threads
           - running_mode: "multi-tier-jit"
             test_option: $MULTI_MODULES_TEST_OPTIONS
@@ -485,6 +487,8 @@ jobs:
             test_option: $SIMD_TEST_OPTIONS
           - running_mode: "multi-tier-jit"
             test_option: $THREADS_TEST_OPTIONS
+          - running_mode: "multi-tier-jit"
+            test_option: $WASI_TEST_OPTIONS
     steps:
       - name: checkout
         uses: actions/checkout@v3
