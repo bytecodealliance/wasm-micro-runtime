@@ -508,6 +508,11 @@ function wasi_certification_test()
         exit_code=${PIPESTATUS[0]}
         deactivate
     else
+        target_option=""
+        if [[ $TARGET == "X86_32" ]];then
+            target_option="--target=i386"
+        fi
+
         # Run WASI thread proposal tests
         exit_code=0
         wasm_tests=$(ls tests/proposals/wasi-threads/*.wasm)
@@ -516,12 +521,13 @@ function wasi_certification_test()
             test_json="${test_wasm%.wasm}.json"
 
             echo "Compiling $test_wasm to $test_aot"
-            ${WAMRC_CMD} --enable-multi-thread -o $test_aot $test_wasm \
+            ${WAMRC_CMD} --enable-multi-thread ${target_option} \
+                -o $test_aot $test_wasm \
                 | tee -a ${REPORT_DIR}/wasi_test_report.txt
 
             echo "Running $test_aot"
             expected=$(jq .exit_code ${test_json})
-            ${IWASM_CMD} -v=5 $test_aot \
+            ${IWASM_CMD} $test_aot \
                 | tee -a ${REPORT_DIR}/wasi_test_report.txt
             ret=${PIPESTATUS[0]}
 
