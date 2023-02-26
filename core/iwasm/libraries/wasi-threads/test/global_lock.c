@@ -51,10 +51,7 @@ main(int argc, char **argv)
     shared_t data[NUM_THREADS] = { 0 };
     int thread_ids[NUM_THREADS];
 
-    if (pthread_mutex_init(&mutex, NULL) != 0) {
-        printf("Failed to init mutex.\n");
-        return EXIT_FAILURE;
-    }
+    assert(pthread_mutex_init(&mutex, NULL) == 0 && "Failed to init mutex");
 
     for (int i = 0; i < NUM_THREADS; i++) {
         assert(start_args_init(&data[i].base));
@@ -76,10 +73,6 @@ main(int argc, char **argv)
     assert(g_count == (NUM_THREADS * NUM_ITER)
            && "Global count not updated correctly");
 
-    if (pthread_mutex_destroy(&mutex) != 0) {
-        printf("Failed to init mutex.\n");
-        return EXIT_FAILURE;
-    }
-
+    assert(pthread_mutex_destroy(&mutex) == 0 && "Failed to init mutex");
     return EXIT_SUCCESS;
 }

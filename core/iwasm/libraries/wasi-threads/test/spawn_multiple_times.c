@@ -43,10 +43,7 @@ int
 main(int argc, char **argv)
 {
     shared_t data = { 0 };
-    if (!start_args_init(&data.base)) {
-        printf("Stack allocation for thread failed\n");
-        return EXIT_FAILURE;
-    }
+    assert(start_args_init(&data.base) && "Stack allocation for thread failed");
 
     for (int i = 0; i < NUM_ITER; i++) {
         data.th_done = 0;
