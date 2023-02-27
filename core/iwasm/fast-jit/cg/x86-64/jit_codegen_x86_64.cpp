@@ -892,7 +892,7 @@ mov_imm_to_m(x86::Assembler &a, x86::Mem &m_dst, Imm imm_src, uint32 bytes_dst)
  * @param bytes_dst the bytes number of the data,
  *        could be 1(byte), 2(short), 4(int32), 8(int64),
  *        skipped by float and double
- * @param kind_dst the kind of data to move, could be I32, I64, F32 or F64
+ * @param kind_dst the kind of data to move, could only be I32 or I64
  * @param is_signed whether the data is signed or unsigned
  * @param m_dst the dest memory operand
  * @param reg_no_src the index of dest register
@@ -6410,10 +6410,10 @@ cast_r_f64_to_r_i64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
 /**
- * Encode compare and exchange: loaded value into register from memory with imm
+ * Encode compare and exchange: load value into a register from memory with imm
  * base and imm offset, compare (expected) register data with the loaded value,
- * if equal, store the (replacement) register data to same memeory
- * else, do nothing. Either way return the loaded value
+ * if equal, store the (replacement) register data to the same memory,
+ * else, do nothing. Either way, returns the loaded value
  *
  * @param a the assembler to emit the code
  * @param bytes_dst the bytes number of the data to actual operated on(load,

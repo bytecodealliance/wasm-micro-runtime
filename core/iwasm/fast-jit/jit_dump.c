@@ -308,7 +308,6 @@ jit_dump_cc(JitCompContext *cc)
 bool
 jit_pass_dump(JitCompContext *cc)
 {
-    // TODO: return true here to avoid dump
     const JitGlobals *jit_globals = jit_compiler_get_jit_globals();
     const uint8 *passes = jit_globals->passes;
     uint8 pass_no = cc->cur_pass_no;

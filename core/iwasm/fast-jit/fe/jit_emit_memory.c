@@ -184,12 +184,11 @@ fail:
     return 0;
 }
 
-#define CHECK_ALIGNMENT(maddr, memory_data, offset1)                   \
+#define CHECK_ALIGNMENT(offset1)                                       \
     do {                                                               \
-        GEN_INSN(ADD, maddr, memory_data, offset1);                    \
         JitReg align_mask = NEW_CONST(I64, ((uint64)1 << align) - 1);  \
         JitReg AND_res = jit_cc_new_reg_I64(cc);                       \
-        GEN_INSN(AND, AND_res, maddr, align_mask);                     \
+        GEN_INSN(AND, AND_res, offset1, align_mask);                   \
         GEN_INSN(CMP, cc->cmp_reg, AND_res, NEW_CONST(I64, 0));        \
         if (!jit_emit_exception(cc, EXCE_UNALIGNED_ATOMIC, JIT_OP_BNE, \
                                 cc->cmp_reg, NULL))                    \
@@ -201,7 +200,7 @@ jit_compile_op_i32_load(JitCompContext *cc, uint32 align, uint32 offset,
                         uint32 bytes, bool sign, bool atomic)
 {
     JitReg addr, offset1, value, memory_data;
-    JitInsn *load_insn;
+    JitInsn *load_insn = NULL;
 
     POP_I32(addr);
 
@@ -209,14 +208,13 @@ jit_compile_op_i32_load(JitCompContext *cc, uint32 align, uint32 offset,
     if (!offset1) {
         goto fail;
     }
-
-    memory_data = get_memory_data_reg(cc->jit_frame, 0);
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (atomic) {
-        addr = jit_cc_new_reg_I64(cc);
-        CHECK_ALIGNMENT(addr, memory_data, offset1);
+        CHECK_ALIGNMENT(offset1);
     }
 #endif
+
+    memory_data = get_memory_data_reg(cc->jit_frame, 0);
 
     value = jit_cc_new_reg_I32(cc);
     switch (bytes) {
@@ -258,7 +256,7 @@ jit_compile_op_i32_load(JitCompContext *cc, uint32 align, uint32 offset,
     }
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
-    if (atomic)
+    if (atomic && load_insn)
         set_load_or_store_atomic(load_insn);
 #endif
 
@@ -273,7 +271,7 @@ jit_compile_op_i64_load(JitCompContext *cc, uint32 align, uint32 offset,
                         uint32 bytes, bool sign, bool atomic)
 {
     JitReg addr, offset1, value, memory_data;
-    JitInsn *load_insn;
+    JitInsn *load_insn = NULL;
 
     POP_I32(addr);
 
@@ -281,14 +279,13 @@ jit_compile_op_i64_load(JitCompContext *cc, uint32 align, uint32 offset,
     if (!offset1) {
         goto fail;
     }
-
-    memory_data = get_memory_data_reg(cc->jit_frame, 0);
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (atomic) {
-        addr = jit_cc_new_reg_I64(cc);
-        CHECK_ALIGNMENT(addr, memory_data, offset1);
+        CHECK_ALIGNMENT(offset1);
     }
 #endif
+
+    memory_data = get_memory_data_reg(cc->jit_frame, 0);
 
     value = jit_cc_new_reg_I64(cc);
     switch (bytes) {
@@ -340,7 +337,7 @@ jit_compile_op_i64_load(JitCompContext *cc, uint32 align, uint32 offset,
     }
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
-    if (atomic)
+    if (atomic && load_insn)
         set_load_or_store_atomic(load_insn);
 #endif
 
@@ -401,7 +398,7 @@ jit_compile_op_i32_store(JitCompContext *cc, uint32 align, uint32 offset,
                          uint32 bytes, bool atomic)
 {
     JitReg value, addr, offset1, memory_data;
-    JitInsn *store_insn;
+    JitInsn *store_insn = NULL;
 
     POP_I32(value);
     POP_I32(addr);
@@ -410,14 +407,13 @@ jit_compile_op_i32_store(JitCompContext *cc, uint32 align, uint32 offset,
     if (!offset1) {
         goto fail;
     }
-
-    memory_data = get_memory_data_reg(cc->jit_frame, 0);
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (atomic) {
-        addr = jit_cc_new_reg_I64(cc);
-        CHECK_ALIGNMENT(addr, memory_data, offset1);
+        CHECK_ALIGNMENT(offset1);
     }
 #endif
+
+    memory_data = get_memory_data_reg(cc->jit_frame, 0);
 
     switch (bytes) {
         case 1:
@@ -442,7 +438,7 @@ jit_compile_op_i32_store(JitCompContext *cc, uint32 align, uint32 offset,
         }
     }
 #if WASM_ENABLE_SHARED_MEMORY != 0
-    if (atomic)
+    if (atomic && store_insn)
         set_load_or_store_atomic(store_insn);
 #endif
 
@@ -465,18 +461,17 @@ jit_compile_op_i64_store(JitCompContext *cc, uint32 align, uint32 offset,
     if (!offset1) {
         goto fail;
     }
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    if (atomic) {
+        CHECK_ALIGNMENT(offset1);
+    }
+#endif
 
     if (jit_reg_is_const(value) && bytes < 8) {
         value = NEW_CONST(I32, (int32)jit_cc_get_const_I64(cc, value));
     }
 
     memory_data = get_memory_data_reg(cc->jit_frame, 0);
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    if (atomic) {
-        addr = jit_cc_new_reg_I64(cc);
-        CHECK_ALIGNMENT(addr, memory_data, offset1);
-    }
-#endif
 
     switch (bytes) {
         case 1:
@@ -506,7 +501,7 @@ jit_compile_op_i64_store(JitCompContext *cc, uint32 align, uint32 offset,
         }
     }
 #if WASM_ENABLE_SHARED_MEMORY != 0
-    if (atomic)
+    if (atomic && store_insn)
         set_load_or_store_atomic(store_insn);
 #endif
 
@@ -838,10 +833,9 @@ bool
 jit_compile_op_atomic_cmpxchg(JitCompContext *cc, uint8 op_type, uint32 align,
                               uint32 offset, uint32 bytes)
 {
-    bh_assert(op_type == VALUE_TYPE_I32 || op_type == VALUE_TYPE_I64);
-
     JitReg addr, offset1, memory_data, value, expect, result;
 
+    bh_assert(op_type == VALUE_TYPE_I32 || op_type == VALUE_TYPE_I64);
     if (op_type == VALUE_TYPE_I32) {
         POP_I32(value);
         POP_I32(expect);
@@ -856,10 +850,9 @@ jit_compile_op_atomic_cmpxchg(JitCompContext *cc, uint8 op_type, uint32 align,
     if (!offset1) {
         goto fail;
     }
+    CHECK_ALIGNMENT(offset1);
 
     memory_data = get_memory_data_reg(cc->jit_frame, 0);
-    addr = jit_cc_new_reg_I64(cc);
-    CHECK_ALIGNMENT(addr, memory_data, offset1);
 
     if (op_type == VALUE_TYPE_I32)
         result = jit_cc_new_reg_I32(cc);
@@ -935,8 +928,10 @@ jit_compile_op_atomic_wait(JitCompContext *cc, uint8 op_type, uint32 align,
     JitReg offset1 = check_and_seek(cc, addr, offset, bytes);
     if (!offset1)
         goto fail;
+    CHECK_ALIGNMENT(offset1);
+
     JitReg maddr = jit_cc_new_reg_I64(cc);
-    CHECK_ALIGNMENT(maddr, memory_data, offset1);
+    GEN_INSN(ADD, maddr, memory_data, offset1);
 
     // Prepare `wasm_runtime_atomic_wait` arguments
     JitReg res = jit_cc_new_reg_I32(cc);
@@ -977,8 +972,10 @@ jit_compiler_op_atomic_notify(JitCompContext *cc, uint32 align, uint32 offset,
     JitReg offset1 = check_and_seek(cc, addr, offset, bytes);
     if (!offset1)
         goto fail;
+    CHECK_ALIGNMENT(offset1);
+
     JitReg maddr = jit_cc_new_reg_I64(cc);
-    CHECK_ALIGNMENT(maddr, memory_data, offset1);
+    GEN_INSN(ADD, maddr, memory_data, offset1);
 
     // Prepare `wasm_runtime_atomic_notify` arguments
     JitReg res = jit_cc_new_reg_I32(cc);

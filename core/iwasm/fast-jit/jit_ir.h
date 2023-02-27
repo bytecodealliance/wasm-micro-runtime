@@ -314,7 +314,7 @@ typedef struct JitInsn {
     uint16 opcode;
 
     /* Reserved field that may be used by optimizations locally.
-     * LSB is atomic flag for load/store */
+     * bit_0(Least Significant Bit) is atomic flag for load/store */
     uint8 flags_u8;
 
     /* The unique ID of the instruction. */
