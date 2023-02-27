@@ -52,14 +52,14 @@ class Engine:
         init_args.mem_alloc_option.pool.heap_size = heap_size
         return init_args
 
-    def register_natives(self, env: str, native_symbols: list[NativeSymbol]) -> None:
-        env = String.from_param(env)
+    def register_natives(self, module_name: str, native_symbols: list[NativeSymbol]) -> None:
+        module_name = String.from_param(module_name)
         # WAMR does not copy the symbols. We must store them.
         for native in native_symbols:
-            self._native_symbols[str(native.symbol)] = (env, native)
+            self._native_symbols[str(native.symbol)] = (module_name, native)
 
         if not wasm_runtime_register_natives(
-            env,
+            module_name,
             cast(
                 (NativeSymbol * len(native_symbols))(*native_symbols),
                 POINTER(NativeSymbol)
