@@ -60,7 +60,7 @@ env:
   SIMD_TEST_OPTIONS: "-s spec -b -S -P"
   THREADS_TEST_OPTIONS: "-s spec -b -p -P"
   X86_32_TARGET_TEST_OPTIONS: "-m x86_32 -P"
-  WASI_TEST_OPTIONS: "-s wasi_certification"
+  WASI_TEST_OPTIONS: "-s wasi_certification -w"
 
 jobs:
   build_llvm_libraries_on_ubuntu_2004:
@@ -469,9 +469,6 @@ jobs:
           # aot and jit don't support multi module
           - running_mode: "aot"
             test_option: $MULTI_MODULES_TEST_OPTIONS
-          # aot is WAMR-specific while wasi-testsuite is generic
-          - running_mode: "aot"
-            test_option: $WASI_TEST_OPTIONS
           - running_mode: "jit"
             test_option: $MULTI_MODULES_TEST_OPTIONS
           # fast-jit doesn't support multi module, simd, and threads
@@ -481,6 +478,8 @@ jobs:
             test_option: $SIMD_TEST_OPTIONS
           - running_mode: "fast-jit"
             test_option: $THREADS_TEST_OPTIONS
+          - running_mode: "fast-jit"
+            test_option: $WASI_TEST_OPTIONS
           # multi-tier-jit doesn't support multi module, simd, and threads
           - running_mode: "multi-tier-jit"
             test_option: $MULTI_MODULES_TEST_OPTIONS
@@ -488,6 +487,8 @@ jobs:
             test_option: $SIMD_TEST_OPTIONS
           - running_mode: "multi-tier-jit"
             test_option: $THREADS_TEST_OPTIONS
+          - running_mode: "multi-tier-jit"
+            test_option: $WASI_TEST_OPTIONS
     steps:
       - name: checkout
         uses: actions/checkout@v3
@@ -520,6 +521,10 @@ jobs:
       - name: Quit if cache miss
         if: env.USE_LLVM == 'true' && steps.retrieve_llvm_libs.outputs.cache-hit != 'true'
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
+
+      - name: install jq JSON processor
+        if: matrix.running_mode == 'aot' && matrix.test_option == '$WASI_TEST_OPTIONS'
+        run: sudo apt-get update && sudo apt install -y jq
 
       - name: run tests
         run: ./test_wamr.sh ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
