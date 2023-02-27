@@ -14,18 +14,22 @@ function help()
 {
     echo "test_wamr.sh [options]"
     echo "-c clean previous test results, not start test"
-    echo "-s {suite_name} test only one suite (spec)"
-    echo "-m set compile target of iwasm(x86_64\x86_32\armv7_vfp\thumbv7_vfp\riscv64_lp64d\riscv64_lp64)"
-    echo "-t set compile type of iwasm(classic-interp\fast-interp\jit\aot\fast-jit\multi-tier-jit)"
+    echo "-s {suite_name} test only one suite (spec|wasi_certification)"
+    echo "-m set compile target of iwasm(x86_64|x86_32|armv7_vfp|thumbv7_vfp|riscv64_lp64d|riscv64_lp64)"
+    echo "-t set compile type of iwasm(classic-interp|fast-interp|jit|aot|fast-jit|multi-tier-jit)"
     echo "-M enable multi module feature"
     echo "-p enable multi thread feature"
     echo "-S enable SIMD feature"
+    echo "-G enable GC feature"
     echo "-X enable XIP feature"
     echo "-x test SGX"
     echo "-b use the wabt binary release package instead of compiling from the source code"
+    echo "-g build iwasm with debug version"
+    echo "-v enable GC heap verification"
     echo "-P run the spec test parallelly"
     echo "-Q enable qemu"
     echo "-F set the firmware path used by qemu"
+    echo "-C enable code coverage collect"
 }
 
 OPT_PARSED=""
@@ -38,7 +42,10 @@ ENABLE_MULTI_MODULE=0
 ENABLE_MULTI_THREAD=0
 COLLECT_CODE_COVERAGE=0
 ENABLE_SIMD=0
+ENABLE_GC=0
 ENABLE_XIP=0
+ENABLE_DEBUG_VERSION=0
+ENABLE_GC_HEAP_VERIFY=0
 #unit test case arrary
 TEST_CASE_ARR=()
 SGX_OPT=""
@@ -48,7 +55,7 @@ ENABLE_QEMU=0
 QEMU_FIRMWARE=""
 WASI_TESTSUITE_COMMIT="1d913f28b3f0d92086d6f50405cf85768e648b54"
 
-while getopts ":s:cabt:m:MCpSXxPQF:" opt
+while getopts ":s:cabgvt:m:MCpSXxPGQF:" opt
 do
     OPT_PARSED="TRUE"
     case $opt in
@@ -70,8 +77,9 @@ do
         c)
         read -t 5 -p "Are you sure to delete all reports. y/n    " cmd
         if [[ $cmd == "y" && $(ls -A workspace/report) ]];then
-            rm -r workspace/report/*
-            echo "cleaned all reports"
+            rm -fr workspace/report/*
+            rm -fr /tmp/*.wasm /tmp/*.wast /tmp/*.aot
+            echo "cleaned all reports and temp files"
         fi
         exit 0;;
         a)
@@ -122,6 +130,18 @@ do
         echo "test SGX"
         SGX_OPT="--sgx"
         ;;
+        g)
+        echo "enable build iwasm with debug version"
+        ENABLE_DEBUG_VERSION=1
+        ;;
+        v)
+        echo "enable GC heap verification"
+        ENABLE_GC_HEAP_VERIFY=1
+        ;;
+        G)
+        echo "enable GC feature"
+        ENABLE_GC=1
+        ;;
         P)
         PARALLELISM=1
         ;;
@@ -158,7 +178,6 @@ readonly DATE=$(date +%Y-%m-%d_%H:%M:%S)
 readonly REPORT_DIR=${WORK_DIR}/report/${DATE}
 mkdir -p ${REPORT_DIR}
 
-# TODO: a strong assumation about a link to the WAMR project
 readonly WAMR_DIR=${WORK_DIR}/../../..
 
 if [[ ${SGX_OPT} == "--sgx" ]];then
@@ -192,14 +211,16 @@ readonly ORC_EAGER_JIT_COMPILE_FLAGS="\
     -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_FAST_INTERP=0 \
     -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_AOT=1 \
     -DWAMR_BUILD_LAZY_JIT=0 \
-    -DWAMR_BUILD_SPEC_TEST=1"
+    -DWAMR_BUILD_SPEC_TEST=1 \
+    -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
 
 readonly ORC_LAZY_JIT_COMPILE_FLAGS="\
     -DWAMR_BUILD_TARGET=${TARGET} \
     -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_FAST_INTERP=0 \
     -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_AOT=1 \
     -DWAMR_BUILD_LAZY_JIT=1 \
-    -DWAMR_BUILD_SPEC_TEST=1"
+    -DWAMR_BUILD_SPEC_TEST=1 \
+    -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
 
 readonly AOT_COMPILE_FLAGS="\
     -DWAMR_BUILD_TARGET=${TARGET} \
@@ -213,13 +234,15 @@ readonly FAST_JIT_COMPILE_FLAGS="\
     -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_INTERP=0 \
     -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=0 \
     -DWAMR_BUILD_FAST_JIT=1 \
-    -DWAMR_BUILD_SPEC_TEST=1"
+    -DWAMR_BUILD_SPEC_TEST=1 \
+    -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
 
 readonly MULTI_TIER_JIT_COMPILE_FLAGS="\
     -DWAMR_BUILD_TARGET=${TARGET} \
     -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_INTERP=0 \
     -DWAMR_BUILD_FAST_JIT=1 -DWAMR_BUILD_JIT=1 \
-    -DWAMR_BUILD_SPEC_TEST=1"
+    -DWAMR_BUILD_SPEC_TEST=1 \
+    -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
 
 readonly COMPILE_FLAGS=(
         "${CLASSIC_INTERP_COMPILE_FLAGS}"
@@ -231,39 +254,19 @@ readonly COMPILE_FLAGS=(
         "${MULTI_TIER_JIT_COMPILE_FLAGS}"
     )
 
-# TODO: with libiwasm.so only
 function unit_test()
 {
     echo "Now start unit tests"
 
     cd ${WORK_DIR}
-    readonly UNIT_CASES="wasm-vm host-tool utils"
+    rm -fr unittest-build && mkdir unittest-build
+    cd unittest-build
 
     echo "Build unit test"
     touch ${REPORT_DIR}/unit_test_report.txt
-
-    for compile_flag in "${COMPILE_FLAGS[@]}"; do
-        echo "Build unit test with compile flags with " ${compile_flag}
-
-        # keep going and do not care if it is success or not
-        make -ki clean | true
-        cmake ${compile_flag} ${WORK_DIR}/../../unit && make -j 4
-        if [ "$?" != 0 ];then
-            echo -e "build unit test failed, you may need to change wamr into dev/aot branch and ensure llvm is built"
-            exit 1
-        fi
-
-        echo ${compile_flag} >> ${REPORT_DIR}/unit_test_report.txt
-
-        for case in ${UNIT_CASES}
-        do
-            echo "run ${case} ..."
-            cd ./${case}/
-            ./${case/-/_}"_test" | tee -a ${REPORT_DIR}/unit_test_report.txt
-            cd -
-            echo "finish ${case}"
-        done
-    done
+    cmake ${WORK_DIR}/../../unit -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}
+    make -j
+    make test | tee -a ${REPORT_DIR}/unit_test_report.txt
 
     echo "Finish unit tests"
 }
@@ -341,6 +344,27 @@ function spec_test()
         git apply ../../spec-test-script/thread_proposal_fix_atomic_case.patch
     fi
 
+    # update GC cases
+    if [[ ${ENABLE_GC} == 1 ]]; then
+        echo "checkout spec for GC proposal"
+
+        popd
+        rm -fr spec
+        # check spec test cases for GC
+        git clone -b main --single-branch https://github.com/WebAssembly/gc.git spec
+        pushd spec
+
+        git restore . && git clean -ffd .
+        # Sync constant expression descriptions
+        git reset --hard 62beb94ddd41987517781732f17f213d8b866dcc
+        git apply ../../spec-test-script/gc_ignore_cases.patch
+
+        echo "compile the reference intepreter"
+        pushd interpreter
+        make opt
+        popd
+    fi
+
     popd
     echo $(pwd)
 
@@ -388,6 +412,7 @@ function spec_test()
 
     ln -sf ${WORK_DIR}/../spec-test-script/all.py .
     ln -sf ${WORK_DIR}/../spec-test-script/runtest.py .
+    ln -sf ${WORK_DIR}/../spec-test-script/collect_coverage.sh .
 
     local ARGS_FOR_SPEC_TEST=""
 
@@ -440,6 +465,10 @@ function spec_test()
         ARGS_FOR_SPEC_TEST+="--parl "
     fi
 
+    if [[ ${ENABLE_GC} == 1 ]]; then
+        ARGS_FOR_SPEC_TEST+="--gc "
+    fi
+
     if [[ ${ENABLE_QEMU} == 1 ]]; then
         ARGS_FOR_SPEC_TEST+="--qemu "
         ARGS_FOR_SPEC_TEST+="--qemu-firmware ${QEMU_FIRMWARE} "
@@ -478,7 +507,11 @@ function wasi_test()
 
 function wasi_certification_test()
 {
-    echo  "Now start wasi tests"
+    echo  "Now start wasi certification tests"
+    if [[ $1 == 'aot' ]]; then
+        echo "Test scripts don't support AOT mode, ignored"
+        return
+    fi
 
     cd ${WORK_DIR}
     if [ ! -d "wasi-testsuite" ]; then
@@ -516,7 +549,6 @@ function polybench_test()
     if [[ $1 == "aot" || $1 == "jit" ]];then
         ./build.sh AOT ${SGX_OPT}
         ./test_aot.sh $1 ${SGX_OPT}
-
     else
         ./build.sh
         ./test_interp.sh ${SGX_OPT}
@@ -524,6 +556,22 @@ function polybench_test()
     cp report.txt ${REPORT_DIR}/polybench_$1_test_report.txt
 
     echo "Finish polybench tests"
+}
+
+function libsodium_test()
+{
+    echo "Now start libsodium tests"
+
+    cd ${WORK_DIR}/../libsodium
+    if [[ $1 == "aot" || $1 == "jit" ]];then
+        ./build.sh ${SGX_OPT}
+        ./test_aot.sh $1 ${SGX_OPT}
+    else
+        ./test_interp.sh ${SGX_OPT}
+    fi
+    cp report.txt ${REPORT_DIR}/libsodium_$1_test_report.txt
+
+    echo "Finish libsodium tests"
 }
 
 function malformed_test()
@@ -537,14 +585,13 @@ function standalone_test()
 {
     cd ${WORK_DIR}/../../standalone
 
-    args=""
+    args="--$1"
 
-    [[ $1 == "aot" ]] && args="$args --aot" || args="$args --no-aot"
     [[ ${SGX_OPT} == "--sgx" ]] && args="$args --sgx" || args="$args --no-sgx"
 
-    if [[ ${ENABLE_MULTI_THREAD} == 1 ]];then
-        args="$args --thread"
-    fi
+    [[ ${ENABLE_MULTI_THREAD} == 1 ]] && args="$args --thread" && args="$args --no-thread"
+
+    [[ ${ENABLE_SIMD} == 1 ]] && args="$args --simd" && args="$args --no-simd"
 
     ./standalone.sh $args | tee ${REPORT_DIR}/standalone_$1_test_report.txt
 }
@@ -591,7 +638,7 @@ function build_wamrc()
         && ./build_llvm.sh \
         && if [ -d build ]; then rm -r build/*; else mkdir build; fi \
         && cd build \
-        && cmake .. \
+        && cmake .. -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE} \
         && make -j 4
 }
 
@@ -604,15 +651,31 @@ function build_wamrc()
 
 function collect_coverage()
 {
-    if [[ ${COLLECT_CODE_COVERAGE} == 1 ]];then
-        cd ${IWASM_LINUX_ROOT_DIR}/build
-        lcov -t "iwasm code coverage" -o iwasm.info -c -d .
-        genhtml -o iwasm-gcov iwasm.info
-        [[ -d iwasm-gcov ]] && \
-                cp -r iwasm-gcov ${REPORT_DIR}/$1_iwasm_gcov || \
-                echo "generate code coverage html failed"
+    if [[ ${COLLECT_CODE_COVERAGE} == 1 ]]; then
+        CODE_COV_FILE=""
+        if [[ -z "${COV_FILE}" ]]; then
+            CODE_COV_FILE="${WORK_DIR}/wamr.lcov"
+        else
+            CODE_COV_FILE="${COV_FILE}"
+        fi
+
+        pushd ${WORK_DIR} > /dev/null 2>&1
+        echo "Collect code coverage of iwasm"
+        ./collect_coverage.sh ${CODE_COV_FILE} ${IWASM_LINUX_ROOT_DIR}/build
+        if [[ $1 == "llvm-aot" ]]; then
+            echo "Collect code coverage of wamrc"
+            ./collect_coverage.sh ${CODE_COV_FILE} ${WAMR_DIR}/wamr-compiler/build
+        fi
+        for suite in "${TEST_CASE_ARR[@]}"; do
+            if [[ ${suite} = "unit" ]]; then
+                echo "Collect code coverage of unit test"
+                ./collect_coverage.sh ${CODE_COV_FILE} ${WORK_DIR}/unittest-build
+                break
+            fi
+        done
+        popd > /dev/null 2>&1
     else
-        echo "will not collect code coverage"
+        echo "code coverage isn't collected"
     fi
 }
 
@@ -639,6 +702,20 @@ function trigger()
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_SIMD=1"
     else
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_SIMD=0"
+    fi
+
+    if [[ ${ENABLE_GC} == 1 ]]; then
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_GC=1"
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_REF_TYPES=1"
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_BULK_MEMORY=1"
+    fi
+
+    if [[ ${ENABLE_DEBUG_VERSION} == 1 ]]; then
+        EXTRA_COMPILE_FLAGS+=" -DCMAKE_BUILD_TYPE=Debug"
+    fi
+
+    if [[ ${ENABLE_GC_HEAP_VERIFY} == 1 ]]; then
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_GC_HEAP_VERIFY=1"
     fi
 
     for t in "${TYPE[@]}"; do
@@ -688,18 +765,18 @@ function trigger()
                 echo "work in orc jit eager compilation mode"
                 BUILD_FLAGS="$ORC_EAGER_JIT_COMPILE_FLAGS $EXTRA_COMPILE_FLAGS"
                 build_iwasm_with_cfg $BUILD_FLAGS
-                build_wamrc
                 for suite in "${TEST_CASE_ARR[@]}"; do
                     $suite"_test" jit
                 done
+                collect_coverage llvm-jit
 
                 echo "work in orc jit lazy compilation mode"
                 BUILD_FLAGS="$ORC_EAGER_JIT_COMPILE_FLAGS $EXTRA_COMPILE_FLAGS"
                 build_iwasm_with_cfg $BUILD_FLAGS
-                build_wamrc
                 for suite in "${TEST_CASE_ARR[@]}"; do
                     $suite"_test" jit
                 done
+                collect_coverage llvm-jit
             ;;
 
             "aot")
@@ -713,7 +790,7 @@ function trigger()
                 for suite in "${TEST_CASE_ARR[@]}"; do
                     $suite"_test" aot
                 done
-                collect_coverage aot
+                collect_coverage llvm-aot
             ;;
 
             "fast-jit")
@@ -724,6 +801,7 @@ function trigger()
                 for suite in "${TEST_CASE_ARR[@]}"; do
                     $suite"_test" fast-jit
                 done
+                collect_coverage fast-jit
             ;;
 
             "multi-tier-jit")
@@ -734,6 +812,7 @@ function trigger()
                 for suite in "${TEST_CASE_ARR[@]}"; do
                     $suite"_test" multi-tier-jit
                 done
+                collect_coverage multi-tier-jit
             ;;
 
             *)
@@ -744,11 +823,20 @@ function trigger()
 }
 
 # if collect code coverage, ignore -s, test all test cases.
-if [[ $TEST_CASE_ARR && $COLLECT_CODE_COVERAGE != 1 ]];then
+if [[ $TEST_CASE_ARR ]];then
     trigger || (echo "TEST FAILED"; exit 1)
 else
-    # test all suite, ignore polybench because of long time cost
-    TEST_CASE_ARR=("sightglass" "spec" "wasi" "malformed" "standalone")
+    # test all suite, ignore polybench and libsodium because of long time cost
+    TEST_CASE_ARR=("spec" "malformed" "wasi" "wasi_certification"
+                   "sightglass" "standalone")
+    : '
+    if [[ $COLLECT_CODE_COVERAGE == 1 ]];then
+        # add polybench if collecting code coverage data
+        TEST_CASE_ARR+=("polybench")
+        # add libsodium if needed, which takes long time to run
+        TEST_CASE_ARR+=("libsodium")
+    fi
+    '
     trigger || (echo "TEST FAILED"; exit 1)
     # Add more suites here
 fi

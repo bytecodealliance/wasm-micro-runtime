@@ -38,7 +38,7 @@ log_file = None
 temp_file_repo = []
 
 # to save the mapping of module files in /tmp by name
-temp_module_table = {} 
+temp_module_table = {}
 
 def debug(data):
     if debug_file:
@@ -230,6 +230,9 @@ parser.add_argument('--multi-module', default=False, action='store_true',
 parser.add_argument('--multi-thread', default=False, action='store_true',
         help="Enable Multi-thread")
 
+parser.add_argument('--gc', default=False, action='store_true',
+        help='Test with GC')
+
 parser.add_argument('--qemu', default=False, action='store_true',
         help="Enable QEMU")
 
@@ -420,11 +423,20 @@ def parse_simple_const_w_type(number, type):
             number = float.fromhex(number) if '0x' in number else float(number)
             return number, "{:.7g}:{}".format(number, type)
     elif type == "ref.null":
-        # hard coding
-        return "extern", "extern:ref.null"
+        if number == "func":
+            return "func", "func:ref.null"
+        elif number == "extern":
+            return "extern", "extern:ref.null"
+        elif number == "any":
+            return "any", "any:ref.null"
+        else:
+            raise Exception("invalid value {} and type {}".format(number, type))
     elif type == "ref.extern":
         number = int(number, 16) if '0x' in number else int(number)
         return number, "0x{:x}:ref.extern".format(number)
+    elif type == "ref.host":
+        number = int(number, 16) if '0x' in number else int(number)
+        return number, "0x{:x}:ref.host".format(number)
     else:
         raise Exception("invalid value {} and type {}".format(number, type))
 
@@ -440,6 +452,10 @@ def parse_assertion_value(val):
     type.const val
     ref.extern val
     ref.null ref_type
+    ref.array
+    ref.struct
+    ref.func
+    ref.i31
     """
     if not val:
         return None, ""
@@ -453,6 +469,8 @@ def parse_assertion_value(val):
     if type in ["i32", "i64", "f32", "f64"]:
         return parse_simple_const_w_type(numbers[0], type)
     elif type == "ref":
+        if splitted[0] in ["ref.array", "ref.struct", "ref.func", "ref.i31"]:
+            return splitted[0]
         # need to distinguish between "ref.null" and "ref.extern"
         return parse_simple_const_w_type(numbers[0], splitted[0])
     else:
@@ -615,6 +633,9 @@ def simple_value_comparison(out, expected):
     elif "ref.extern" == expected_type:
         out_val_binary = out_val
         expected_val_binary = expected_val
+    elif "ref.host" == expected_type:
+        out_val_binary = out_val
+        expected_val_binary = expected_val
     else:
         assert(0), "unknown 'expected_type' {}".format(expected_type)
 
@@ -637,8 +658,10 @@ def value_comparison(out, expected):
     if not expected:
         return False
 
-    assert(':' in out), "out should be in a form likes numbers:type, but {}".format(out)
-    assert(':' in expected), "expected should be in a form likes numbers:type, but {}".format(expected)
+    if not out in ["ref.array", "ref.struct", "ref.func", "ref.any", "ref.i31"]:
+        assert(':' in out), "out should be in a form likes numbers:type, but {}".format(out)
+    if not expected in ["ref.array", "ref.struct", "ref.func", "ref.any", "ref.i31"]:
+        assert(':' in expected), "expected should be in a form likes numbers:type, but {}".format(expected)
 
     if 'v128' in out:
         return vector_value_comparison(out, expected)
@@ -761,6 +784,9 @@ def test_assert_return(r, opts, form):
                 elif "ref.extern" == splitted[0]:
                     number, _ = parse_simple_const_w_type(splitted[1], splitted[0])
                     args.append(str(number))
+                elif "ref.host" == splitted[0]:
+                    number, _ = parse_simple_const_w_type(splitted[1], splitted[0])
+                    args.append(str(number))
                 else:
                     assert(0), "an unkonwn parameter type"
 
@@ -769,7 +795,15 @@ def test_assert_return(r, opts, form):
         else:
             returns = re.split("\)\s*\(", m.group(3)[1:-1])
         # processed numbers in strings
-        expected = [parse_assertion_value(v)[1] for v in returns]
+        if len(returns) == 1 and returns[0] in ["ref.array", "ref.struct", "ref.i31",
+                                                "ref.eq", "ref.any", "ref.extern",
+                                                "ref.func", "ref.null"]:
+            expected = [returns[0]]
+        elif len(returns) == 1 and returns[0] in ["func:ref.null", "any:ref.null",
+                                                  "extern:ref.null"]:
+            expected = [returns[0]]
+        else:
+            expected = [parse_assertion_value(v)[1] for v in returns]
         expected = ",".join(expected)
 
         test_assert(r, opts, "return", "%s %s" % (func, " ".join(args)), expected)
@@ -800,10 +834,10 @@ def test_assert_return(r, opts, form):
         if n.group(3) == '':
             args=[]
         else:
-            args = [re.split(' +', v)[1] for v in re.split("\)\s*\(", n.group(3)[1:-1])]
-
-        # a workaround for "ref.null extern" and "ref.null func"
-        args = [ arg.replace('extern', 'null').replace('func', 'null') for arg in args]
+            # convert (ref.null extern/func) into (ref.null null)
+            n1 = n.group(3).replace("(ref.null extern)", "(ref.null null)")
+            n1 = n1.replace("ref.null func)", "(ref.null null)")
+            args = [re.split(' +', v)[1] for v in re.split("\)\s*\(", n1[1:-1])]
 
         _, expected = parse_assertion_value(n.group(4)[1:-1])
         test_assert(r, opts, "return", "%s %s" % (func, " ".join(args)), expected)
@@ -828,10 +862,10 @@ def test_assert_trap(r, opts, form):
         if m.group(2) == '':
             args = []
         else:
-            args = [re.split(' +', v)[1] for v in re.split("\)\s*\(", m.group(2)[1:-1])]
-
-        # workaround for "ref.null extern"
-        args = [ arg.replace('extern', 'null').replace('func', 'null') for arg in args]
+            # convert (ref.null extern/func) into (ref.null null)
+            m1 = m.group(2).replace("(ref.null extern)", "(ref.null null)")
+            m1 = m1.replace("ref.null func)", "(ref.null null)")
+            args = [re.split(' +', v)[1] for v in re.split("\)\s*\(", m1[1:-1])]
 
         expected = "Exception: %s" % m.group(3)
         test_assert(r, opts, "trap", "%s %s" % (func, " ".join(args)), expected)
@@ -918,10 +952,11 @@ def compile_wast_to_wasm(form, wast_tempfile, wasm_tempfile, opts):
     log("Compiling WASM to '%s'" % wasm_tempfile)
 
     # default arguments
-    cmd = [opts.wast2wasm,
-            "--enable-thread",
-            "--no-check",
-            wast_tempfile, "-o", wasm_tempfile ]
+    if opts.gc:
+        cmd = [opts.wast2wasm, "-u", "-d", wast_tempfile, "-o", wasm_tempfile]
+    else:
+        cmd = [opts.wast2wasm, "--enable-thread", "--no-check",
+               wast_tempfile, "-o", wasm_tempfile ]
 
     # remove reference-type and bulk-memory enabling options since a WABT
     # commit 30c1e983d30b33a8004b39fd60cbd64477a7956c
@@ -1023,18 +1058,18 @@ def run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r):
     if (r != None):
         r.cleanup()
     r = Runner(cmd, no_pty=opts.no_pty)
-    
+
     if opts.qemu:
         r.read_to_prompt(['nsh> '], 10)
         r.writeline("mount -t hostfs -o fs={} /tmp".format(tempfile.gettempdir()))
         r.read_to_prompt(['nsh> '], 10)
         r.writeline(" ".join(cmd_iwasm))
-    
+
     return r
 
 def create_tmpfiles(wast_name):
     tempfiles = []
-    
+
     (t1fd, wast_tempfile) = tempfile.mkstemp(suffix=".wast")
     (t2fd, wasm_tempfile) = tempfile.mkstemp(suffix=".wasm")
     tempfiles.append(wast_tempfile)
