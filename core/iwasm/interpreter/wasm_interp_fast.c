@@ -1054,13 +1054,16 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
 #if WASM_ENABLE_THREAD_MGR != 0
 #define CHECK_SUSPEND_FLAGS()                           \
     do {                                                \
+        os_mutex_lock(&exec_env->wait_lock);            \
         if (exec_env->suspend_flags.flags != 0) {       \
             if (exec_env->suspend_flags.flags & 0x01) { \
                 /* terminate current thread */          \
+                os_mutex_unlock(&exec_env->wait_lock);  \
                 return;                                 \
             }                                           \
             /* TODO: support suspend and breakpoint */  \
         }                                               \
+        os_mutex_unlock(&exec_env->wait_lock);          \
     } while (0)
 #endif
 
