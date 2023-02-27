@@ -184,6 +184,7 @@ fail:
     return 0;
 }
 
+#if UINTPTR_MAX == UINT64_MAX
 #define CHECK_ALIGNMENT(offset1)                                       \
     do {                                                               \
         JitReg align_mask = NEW_CONST(I64, ((uint64)1 << align) - 1);  \
@@ -194,6 +195,18 @@ fail:
                                 cc->cmp_reg, NULL))                    \
             goto fail;                                                 \
     } while (0)
+#else
+#define CHECK_ALIGNMENT(offset1)                                       \
+    do {                                                               \
+        JitReg align_mask = NEW_CONST(I32, (1 << align) - 1);          \
+        JitReg AND_res = jit_cc_new_reg_I32(cc);                       \
+        GEN_INSN(AND, AND_res, offset1, align_mask);                   \
+        GEN_INSN(CMP, cc->cmp_reg, AND_res, NEW_CONST(I32, 0));        \
+        if (!jit_emit_exception(cc, EXCE_UNALIGNED_ATOMIC, JIT_OP_BNE, \
+                                cc->cmp_reg, NULL))                    \
+            goto fail;                                                 \
+    } while (0)
+#endif
 
 bool
 jit_compile_op_i32_load(JitCompContext *cc, uint32 align, uint32 offset,
@@ -452,7 +465,7 @@ jit_compile_op_i64_store(JitCompContext *cc, uint32 align, uint32 offset,
                          uint32 bytes, bool atomic)
 {
     JitReg value, addr, offset1, memory_data;
-    JitInsn *store_insn;
+    JitInsn *store_insn = NULL;
 
     POP_I64(value);
     POP_I32(addr);
@@ -930,7 +943,7 @@ jit_compile_op_atomic_wait(JitCompContext *cc, uint8 op_type, uint32 align,
         goto fail;
     CHECK_ALIGNMENT(offset1);
 
-    JitReg maddr = jit_cc_new_reg_I64(cc);
+    JitReg maddr = jit_cc_new_reg_ptr(cc);
     GEN_INSN(ADD, maddr, memory_data, offset1);
 
     // Prepare `wasm_runtime_atomic_wait` arguments
@@ -974,7 +987,7 @@ jit_compiler_op_atomic_notify(JitCompContext *cc, uint32 align, uint32 offset,
         goto fail;
     CHECK_ALIGNMENT(offset1);
 
-    JitReg maddr = jit_cc_new_reg_I64(cc);
+    JitReg maddr = jit_cc_new_reg_ptr(cc);
     GEN_INSN(ADD, maddr, memory_data, offset1);
 
     // Prepare `wasm_runtime_atomic_notify` arguments
