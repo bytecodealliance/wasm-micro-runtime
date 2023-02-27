@@ -166,6 +166,12 @@ if (WAMR_BUILD_DEBUG_AOT EQUAL 1)
   message(STATUS "find lldb ${LLDB_ALL_PLUGINS} in: ${LLVM_LIBRARY_DIRS}")
 endif()
 
+if ("$ENV{COLLECT_CODE_COVERAGE}" STREQUAL "1" OR COLLECT_CODE_COVERAGE EQUAL 1)
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-arcs -ftest-coverage")
+  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage")
+  message ("-- Collect code coverage enabled")
+endif ()
+
 if (NOT (CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*Clang"))
   if(NOT MSVC)
     set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections")

@@ -110,11 +110,6 @@ if (WAMR_BUILD_DEBUG_INTERP EQUAL 1)
   set (WAMR_BUILD_SIMD 0)
 endif ()
 
-if (COLLECT_CODE_COVERAGE EQUAL 1)
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-arcs -ftest-coverage")
-  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage")
-endif ()
-
 set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../../..)
 
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
