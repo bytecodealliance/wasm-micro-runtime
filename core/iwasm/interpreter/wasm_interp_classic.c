@@ -12,10 +12,8 @@
 #if WASM_ENABLE_SHARED_MEMORY != 0
 #include "../common/wasm_shared_memory.h"
 #endif
-#if WASM_ENABLE_THREAD_MGR != 0
-#include "../libraries/thread-mgr/thread_manager.h"
-#endif
 #if WASM_ENABLE_THREAD_MGR != 0 && WASM_ENABLE_DEBUG_INTERP != 0
+#include "../libraries/thread-mgr/thread_manager.h"
 #include "../libraries/debug-engine/debug_engine.h"
 #endif
 #if WASM_ENABLE_FAST_JIT != 0
@@ -1038,32 +1036,25 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
 #if WASM_ENABLE_DEBUG_INTERP != 0
 #define CHECK_SUSPEND_FLAGS()                                          \
     do {                                                               \
-        WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);    \
-        if (cluster)                                                   \
-            os_mutex_lock(&cluster->lock);                             \
+        os_mutex_lock(&exec_env->wait_lock);                           \
         if (IS_WAMR_TERM_SIG(exec_env->current_status->signal_flag)) { \
-            if (cluster)                                               \
-                os_mutex_unlock(&cluster->lock);                       \
+            os_mutex_unlock(&exec_env->wait_lock);                     \
             return;                                                    \
         }                                                              \
         if (IS_WAMR_STOP_SIG(exec_env->current_status->signal_flag)) { \
             SYNC_ALL_TO_FRAME();                                       \
             wasm_cluster_thread_waiting_run(exec_env);                 \
         }                                                              \
-        if (cluster)                                                   \
-            os_mutex_unlock(&cluster->lock);                           \
+        os_mutex_unlock(&exec_env->wait_lock);                         \
     } while (0)
 #else
 #define CHECK_SUSPEND_FLAGS()                                             \
     do {                                                                  \
-        WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);       \
-        if (cluster)                                                      \
-            os_mutex_lock(&cluster->lock);                                \
+        os_mutex_lock(&exec_env->wait_lock);                              \
         if (exec_env->suspend_flags.flags != 0) {                         \
             if (exec_env->suspend_flags.flags & 0x01) {                   \
                 /* terminate current thread */                            \
-                if (cluster)                                              \
-                    os_mutex_unlock(&cluster->lock);                      \
+                os_mutex_unlock(&exec_env->wait_lock);                    \
                 return;                                                   \
             }                                                             \
             while (exec_env->suspend_flags.flags & 0x02) {                \
@@ -1071,8 +1062,7 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
                 os_cond_wait(&exec_env->wait_cond, &exec_env->wait_lock); \
             }                                                             \
         }                                                                 \
-        if (cluster)                                                      \
-            os_mutex_unlock(&cluster->lock);                              \
+        os_mutex_unlock(&exec_env->wait_lock);                            \
     } while (0)
 #endif /* WASM_ENABLE_DEBUG_INTERP */
 #endif /* WASM_ENABLE_THREAD_MGR */

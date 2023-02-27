@@ -1027,18 +1027,7 @@ execute_interruptible_poll_oneoff(
             return err;
         }
 
-#if WASM_ENABLE_THREAD_MGR != 0
-        WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
-        if (cluster)
-            os_mutex_lock(&cluster->lock);
-#endif
-        bool is_thread_terminated = wasm_cluster_is_thread_terminated(exec_env);
-#if WASM_ENABLE_THREAD_MGR != 0
-        if (cluster)
-            os_mutex_unlock(&cluster->lock);
-#endif
-
-        if (is_thread_terminated) {
+        if (wasm_cluster_is_thread_terminated(exec_env)) {
             wasm_runtime_free(in_copy);
             return EINTR;
         }
