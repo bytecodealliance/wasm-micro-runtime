@@ -1,6 +1,8 @@
 # WARM API
 
-## Installation
+## Setup
+
+### Pre-requisites
 
 Install requirements,
 
@@ -8,7 +10,9 @@ Install requirements,
 pip install -r requirements.txt
 ```
 
-Run the following command,
+### Build native lib and update bindings
+
+The following command builds the iwasm library and generates the Python bindings,
 
 ```sh
 bash language-bindings/python/utils/create_lib.sh
