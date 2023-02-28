@@ -6410,10 +6410,149 @@ cast_r_f64_to_r_i64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
 /**
- * Encode compare and exchange: load value into a register from memory with imm
- * base and imm offset, compare (expected) register data with the loaded value,
- * if equal, store the (replacement) register data to the same memory,
- * else, do nothing. Either way, returns the loaded value
+ * Encode moving data from src register to al/ax/eax/rax
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data,
+ *        could be 1(byte), 2(short), 4(int32), 8(int64),
+ * @param reg_no_src the no of dst register
+ *
+ * @return true if success, false otherwise
+ */
+static bool
+mov_r_to_ra(x86::Assembler &a, uint32 bytes_dst, int32 reg_no_src)
+{
+    switch (bytes_dst) {
+        case 1:
+            if (REG_AXL_IDX != reg_no_src)
+                a.mov(regs_i8[REG_AXL_IDX], regs_i8[reg_no_src]);
+            break;
+        case 2:
+            if (REG_AX_IDX != reg_no_src)
+                a.mov(regs_i16[REG_AX_IDX], regs_i16[reg_no_src]);
+            break;
+        case 4:
+            if (REG_EAX_IDX != reg_no_src)
+                a.mov(regs_i32[REG_EAX_IDX], regs_i32[reg_no_src]);
+            break;
+        case 8:
+            if (REG_RAX_IDX != reg_no_src)
+                a.mov(regs_i64[REG_RAX_IDX], regs_i64[reg_no_src]);
+            break;
+        default:
+            bh_assert(0);
+            return false;
+    }
+    return true;
+}
+
+/**
+ * Encode moving data from src imm to al/ax/eax/rax
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data,
+ *        could be 1(byte), 2(short), 4(int32), 8(int64),
+ * @param reg_no_dst the no of dst register
+ *
+ * @return true if success, false otherwise
+ */
+static bool
+mov_imm_to_ra(x86::Assembler &a, uint32 bytes_dst, void *data)
+{
+    Imm imm;
+    imm_set_value(imm, data, bytes_dst);
+    switch (bytes_dst) {
+        case 1:
+            a.mov(regs_i8[REG_AXL_IDX], imm);
+            break;
+        case 2:
+            a.mov(regs_i16[REG_AX_IDX], imm);
+            break;
+        case 4:
+            a.mov(regs_i32[REG_EAX_IDX], imm);
+            break;
+        case 8:
+            a.mov(regs_i64[REG_RAX_IDX], imm);
+            break;
+        default:
+            bh_assert(0);
+            return false;
+    }
+    return true;
+}
+
+/**
+ * Encode atomic compare and exchange, when calling this function,
+ * value for comparison should be already moved in register
+ * al/ax/eax/rax
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data,
+ *        could be 1(byte), 2(short), 4(int32), 8(int64),
+ * @param kind_dst the kind of data to move, could be I32, I64
+ * @param reg_no_dst the index of dest register
+ * @param m_dst the dest memory operand
+ * @param reg_no_xchg the index of register hold exchange value
+ *
+ * @return true if success, false otherwise
+ */
+static bool
+at_cmpxchg(x86::Assembler &a, uint32 bytes_dst, uint32 kind_dst,
+           int32 reg_no_dst, int32 reg_no_xchg, x86::Mem &m_dst)
+{
+    if (kind_dst == JIT_REG_KIND_I32) {
+        bh_assert(reg_no_dst < 16 && reg_no_xchg < 16);
+        switch (bytes_dst) {
+            case 1:
+                a.lock().cmpxchg(m_dst, regs_i8[reg_no_xchg]);
+                extend_r8_to_r32(a, reg_no_dst, REG_AXL_IDX, false);
+                break;
+            case 2:
+                a.lock().cmpxchg(m_dst, regs_i16[reg_no_xchg]);
+                extend_r16_to_r32(a, reg_no_dst, REG_AX_IDX, false);
+                break;
+            case 4:
+                a.lock().cmpxchg(m_dst, regs_i32[reg_no_xchg]);
+                mov_r_to_r_i32(a, reg_no_dst, REG_AX_IDX);
+                break;
+            default:
+                bh_assert(0);
+                return false;
+        }
+    }
+    else if (kind_dst == JIT_REG_KIND_I64) {
+        bh_assert(reg_no_dst < 16 && reg_no_xchg < 16);
+        switch (bytes_dst) {
+            case 1:
+                a.lock().cmpxchg(m_dst, regs_i8[reg_no_xchg]);
+                extend_r8_to_r64(a, reg_no_dst, REG_AXL_IDX, false);
+                break;
+            case 2:
+                a.lock().cmpxchg(m_dst, regs_i16[reg_no_xchg]);
+                extend_r16_to_r64(a, reg_no_dst, REG_AX_IDX, false);
+                break;
+            case 4:
+                a.lock().cmpxchg(m_dst, regs_i32[reg_no_xchg]);
+                extend_r32_to_r64(a, reg_no_dst, REG_EAX_IDX, false);
+                break;
+            case 8:
+                a.lock().cmpxchg(m_dst, regs_i64[reg_no_xchg]);
+                mov_r_to_r_i64(a, reg_no_dst, REG_RAX_IDX);
+                break;
+            default:
+                bh_assert(0);
+                return false;
+        }
+    }
+
+    return true;
+}
+
+/**
+ * Encode atomic compare and exchange: load value into a register from
+ * memory with reg base and reg offset, compare (expected) reg data with the
+ * loaded value, if equal, store the (replacement) reg data to the same
+ * memory, else, do nothing. Either way, returns the loaded value
  *
  * @param a the assembler to emit the code
  * @param bytes_dst the bytes number of the data to actual operated on(load,
@@ -6421,8 +6560,8 @@ cast_r_f64_to_r_i64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
  * @param reg_no_dst the no of register that stores the returned value
  * @param reg_no_xchg the no of register that stores the conditionally
  * replacement value
- * @param reg_no_cmp the no of register that stores the expected value of src
- * memory
+ * @param reg_no_cmp the no of register that stores the expected value of
+ * src memory
  * @param reg_no_base the no of register that stores the base address
  *        of src&dst memory
  * @param reg_no_offset the no of register that stores the offset address
@@ -6435,70 +6574,229 @@ at_cmpxchg_r_r_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
                                int32 reg_no_xchg, int32 reg_no_cmp,
                                int32 reg_no_base, int32 reg_no_offset)
 {
-    return false;
+    x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
+    return mov_r_to_ra(a, bytes_dst, reg_no_cmp)
+           && at_cmpxchg(a, bytes_dst, kind_dst, reg_no_dst, reg_no_xchg, m);
 }
 
+/**
+ * Encode atomic compare and exchange: load value into a register from
+ * memory with reg base and imm offset, compare (expected) reg data with the
+ * loaded value, if equal, store the (replacement) reg data to the same
+ * memory, else, do nothing. Either way, returns the loaded value
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data to actual operated on(load,
+ * compare, replacement) could be 1(byte), 2(short), 4(int32), 8(int64)
+ * @param reg_no_dst the no of register that stores the returned value
+ * @param reg_no_xchg the no of register that stores the conditionally
+ * replacement value
+ * @param reg_no_cmp the no of register that stores the expected value of
+ * src memory
+ * @param reg_no_base the no of register that stores the base address
+ *        of src&dst memory
+ * @param offset the offset address of the memory
+ * @return true if success, false otherwise
+ */
 static bool
 at_cmpxchg_r_r_base_r_offset_imm(x86::Assembler &a, uint32 bytes_dst,
                                  uint32 kind_dst, int32 reg_no_dst,
                                  int32 reg_no_xchg, int32 reg_no_cmp,
                                  int32 reg_no_base, int32 offset)
 {
-    return false;
+    x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
+    return mov_r_to_ra(a, bytes_dst, reg_no_cmp)
+           && at_cmpxchg(a, bytes_dst, kind_dst, reg_no_dst, reg_no_xchg, m);
 }
 
+/**
+ * Encode atomic compare and exchange: load value into a register from
+ * memory with reg base and reg offset, compare (expected) imm data with the
+ * loaded value, if equal, store the (replacement) reg data to the same
+ * memory, else, do nothing. Either way, returns the loaded value
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data to actual operated on(load,
+ * compare, replacement) could be 1(byte), 2(short), 4(int32), 8(int64)
+ * @param reg_no_dst the no of register that stores the returned value
+ * @param reg_no_xchg the no of register that stores the conditionally
+ * replacement value
+ * @param data_cmp the immediate data for comparison(expected value)
+ * @param reg_no_base the no of register that stores the base address
+ *        of src&dst memory
+ * @param reg_no_offset the no of register that stores the offset address
+ *        of src&dst memory
+ * @return true if success, false otherwise
+ */
 static bool
 at_cmpxchg_r_imm_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
                                  uint32 kind_dst, int32 reg_no_dst,
                                  int32 reg_no_xchg, void *data_cmp,
                                  int32 reg_no_base, int32 reg_no_offset)
 {
-    return false;
+    x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
+    return mov_imm_to_ra(a, bytes_dst, data_cmp)
+           && at_cmpxchg(a, bytes_dst, kind_dst, reg_no_dst, reg_no_xchg, m);
 }
 
+/**
+ * Encode atomic compare and exchange: load value into a register from
+ * memory with reg base and imm offset, compare (expected) imm data with the
+ * loaded value, if equal, store the (replacement) reg data to the same
+ * memory, else, do nothing. Either way, returns the loaded value
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data to actual operated on(load,
+ * compare, replacement) could be 1(byte), 2(short), 4(int32), 8(int64)
+ * @param reg_no_dst the no of register that stores the returned value
+ * @param reg_no_xchg the no of register that stores the conditionally
+ * replacement value
+ * @param data_cmp the immediate data for comparison(expected value)
+ * @param reg_no_base the no of register that stores the base address
+ *        of src&dst memory
+ * @return true if success, false otherwise
+ */
 static bool
 at_cmpxchg_r_imm_base_r_offset_imm(x86::Assembler &a, uint32 bytes_dst,
                                    uint32 kind_dst, int32 reg_no_dst,
                                    int32 reg_no_xchg, void *data_cmp,
                                    int32 reg_no_base, int32 offset)
 {
-    return false;
+    x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
+    return mov_imm_to_ra(a, bytes_dst, data_cmp)
+           && at_cmpxchg(a, bytes_dst, kind_dst, reg_no_dst, reg_no_xchg, m);
 }
 
+/**
+ * Encode atomic compare and exchange: load value into a register from
+ * memory with reg base and reg offset, compare (expected) reg data with the
+ * loaded value, if equal, store the (replacement) imm data to the same
+ * memory, else, do nothing. Either way, returns the loaded value
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data to actual operated on(load,
+ * compare, replacement) could be 1(byte), 2(short), 4(int32), 8(int64)
+ * @param reg_no_dst the no of register that stores the returned value
+ * @param data_xchg the immediate data for exchange(conditionally replacment
+ * value)
+ * @param reg_no_cmp the no of register that stores the expected value of
+ * src memory
+ * @param reg_no_base the no of register that stores the base address
+ *        of src&dst memory
+ * @param reg_no_offset the no of register that stores the offset address
+ *        of src&dst memory
+ * @return true if success, false otherwise
+ */
 static bool
 at_cmpxchg_imm_r_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
                                  uint32 kind_dst, int32 reg_no_dst,
                                  void *data_xchg, int32 reg_no_cmp,
                                  int32 reg_no_base, int32 reg_no_offset)
 {
-    return false;
+    x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
+    Imm imm;
+    imm_set_value(imm, data_xchg, bytes_dst);
+    uint32 reg_no_xchg = mov_imm_to_free_reg(a, imm, bytes_dst);
+    return mov_r_to_ra(a, bytes_dst, reg_no_cmp)
+           && at_cmpxchg(a, bytes_dst, kind_dst, reg_no_dst, reg_no_xchg, m);
 }
 
+/**
+ * Encode atomic compare and exchange: load value into a register from
+ * memory with reg base and imm offset, compare (expected) reg data with the
+ * loaded value, if equal, store the (replacement) imm data to the same
+ * memory, else, do nothing. Either way, returns the loaded value
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data to actual operated on(load,
+ * compare, replacement) could be 1(byte), 2(short), 4(int32), 8(int64)
+ * @param reg_no_dst the no of register that stores the returned value
+ * @param data_xchg the immediate data for exchange(conditionally replacment
+ * value)
+ * @param reg_no_cmp the no of register that stores the expected value of
+ * src memory
+ * @param reg_no_base the no of register that stores the base address
+ *        of src&dst memory
+ * @param offset the offset address of the memory
+ * @return true if success, false otherwise
+ */
 static bool
 at_cmpxchg_imm_r_base_r_offset_imm(x86::Assembler &a, uint32 bytes_dst,
                                    uint32 kind_dst, int32 reg_no_dst,
                                    void *data_xchg, int32 reg_no_cmp,
                                    int32 reg_no_base, int32 offset)
 {
-    return false;
+    x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
+    Imm imm;
+    imm_set_value(imm, data_xchg, bytes_dst);
+    uint32 reg_no_xchg = mov_imm_to_free_reg(a, imm, bytes_dst);
+    return mov_r_to_ra(a, bytes_dst, reg_no_cmp)
+           && at_cmpxchg(a, bytes_dst, kind_dst, reg_no_dst, reg_no_xchg, m);
 }
 
+/**
+ * Encode atomic compare and exchange: load value into a register from
+ * memory with reg base and reg offset, compare (expected) imm data with the
+ * loaded value, if equal, store the (replacement) imm data to the same
+ * memory, else, do nothing. Either way, returns the loaded value
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data to actual operated on(load,
+ * compare, replacement) could be 1(byte), 2(short), 4(int32), 8(int64)
+ * @param reg_no_dst the no of register that stores the returned value
+ * @param data_xchg the immediate data for exchange(conditionally replacment
+ * value)
+ * @param data_cmp the immediate data for comparison(expected value)
+ * @param reg_no_base the no of register that stores the base address
+ *        of src&dst memory
+ * @param reg_no_offset the no of register that stores the offset address
+ *        of src&dst memory
+ * @return true if success, false otherwise
+ */
 static bool
 at_cmpxchg_imm_imm_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
                                    uint32 kind_dst, int32 reg_no_dst,
                                    void *data_xchg, void *data_cmp,
                                    int32 reg_no_base, int32 reg_no_offset)
 {
-    return false;
+    x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
+    Imm imm;
+    imm_set_value(imm, data_xchg, bytes_dst);
+    uint32 reg_no_xchg = mov_imm_to_free_reg(a, imm, bytes_dst);
+    return mov_imm_to_ra(a, bytes_dst, data_cmp)
+           && at_cmpxchg(a, bytes_dst, kind_dst, reg_no_dst, reg_no_xchg, m);
 }
 
+/**
+ * Encode atomic compare and exchange: load value into a register from
+ * memory with reg base and imm offset, compare (expected) imm data with the
+ * loaded value, if equal, store the (replacement) imm data to the same
+ * memory, else, do nothing. Either way, returns the loaded value
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data to actual operated on(load,
+ * compare, replacement) could be 1(byte), 2(short), 4(int32), 8(int64)
+ * @param reg_no_dst the no of register that stores the returned value
+ * @param data_xchg the immediate data for exchange(conditionally replacment
+ * value)
+ * @param data_cmp the immediate data for comparison(expected value)
+ * @param reg_no_base the no of register that stores the base address
+ *        of src&dst memory
+ * @param offset the offset address of the memory
+ * @return true if success, false otherwise
+ */
 static bool
 at_cmpxchg_imm_imm_base_r_offset_imm(x86::Assembler &a, uint32 bytes_dst,
                                      uint32 kind_dst, int32 reg_no_dst,
                                      void *data_xchg, void *data_cmp,
                                      int32 reg_no_base, int32 offset)
 {
-    return false;
+    x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
+    Imm imm;
+    imm_set_value(imm, data_xchg, bytes_dst);
+    uint32 reg_no_xchg = mov_imm_to_free_reg(a, imm, bytes_dst);
+    return mov_imm_to_ra(a, bytes_dst, data_cmp)
+           && at_cmpxchg(a, bytes_dst, kind_dst, reg_no_dst, reg_no_xchg, m);
 }
 
 /**
