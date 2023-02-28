@@ -418,7 +418,6 @@ function spec_test()
 
     ln -sf ${WORK_DIR}/../spec-test-script/all.py .
     ln -sf ${WORK_DIR}/../spec-test-script/runtest.py .
-    ln -sf ${WORK_DIR}/../spec-test-script/collect_coverage.sh .
 
     local ARGS_FOR_SPEC_TEST=""
 
@@ -514,10 +513,6 @@ function wasi_test()
 function wasi_certification_test()
 {
     echo  "Now start wasi certification tests"
-    if [[ $1 == 'aot' ]]; then
-        echo "Test scripts don't support AOT mode, ignored"
-        return
-    fi
 
     cd ${WORK_DIR}
     if [ ! -d "wasi-testsuite" ]; then
@@ -650,6 +645,8 @@ function build_wamrc()
 function collect_coverage()
 {
     if [[ ${COLLECT_CODE_COVERAGE} == 1 ]]; then
+        ln -sf ${WORK_DIR}/../spec-test-script/collect_coverage.sh ${WORK_DIR}
+
         CODE_COV_FILE=""
         if [[ -z "${COV_FILE}" ]]; then
             CODE_COV_FILE="${WORK_DIR}/wamr.lcov"
@@ -829,7 +826,7 @@ if [[ $TEST_CASE_ARR ]];then
     trigger || (echo "TEST FAILED"; exit 1)
 else
     # test all suite, ignore polybench and libsodium because of long time cost
-    TEST_CASE_ARR=("spec" "wasi_certification")
+    TEST_CASE_ARR=("spec")
     : '
     if [[ $COLLECT_CODE_COVERAGE == 1 ]];then
         # add polybench if collecting code coverage data
