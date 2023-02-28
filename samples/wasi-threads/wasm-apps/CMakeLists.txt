@@ -16,6 +16,11 @@ set (CMAKE_C_COMPILER               "${WASI_SDK_DIR}/bin/clang")
 set (CMAKE_ASM_COMPILER               "${WASI_SDK_DIR}/bin/clang")
 set (CMAKE_EXE_LINKER_FLAGS         "-target wasm32-wasi-threads")
 
+if ("$ENV{COLLECT_CODE_COVERAGE}" STREQUAL "1" OR COLLECT_CODE_COVERAGE EQUAL 1)
+  set (CMAKE_C_FLAGS "")
+  set (CMAKE_CXX_FLAGS "")
+endif ()
+
 function (compile_sample SOURCE_FILE)
   get_filename_component (FILE_NAME ${SOURCE_FILE} NAME_WLE)
   set (WASM_MODULE ${FILE_NAME}.wasm)
