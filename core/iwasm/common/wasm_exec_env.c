@@ -208,10 +208,17 @@ void
 wasm_exec_env_set_thread_info(WASMExecEnv *exec_env)
 {
     uint8 *stack_boundary = os_thread_get_stack_boundary();
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    os_mutex_lock(&exec_env->wait_lock);
+#endif
     exec_env->handle = os_self_thread();
     exec_env->native_stack_boundary =
         stack_boundary ? stack_boundary + WASM_STACK_GUARD_SIZE : NULL;
     exec_env->native_stack_top_min = (void *)UINTPTR_MAX;
+#if WASM_ENABLE_THREAD_MGR != 0
+    os_mutex_unlock(&exec_env->wait_lock);
+#endif
 }
 
 #if WASM_ENABLE_THREAD_MGR != 0

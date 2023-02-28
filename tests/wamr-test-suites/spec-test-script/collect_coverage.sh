@@ -9,7 +9,7 @@ readonly WORK_DIR=$PWD
 readonly WAMR_DIR=${WORK_DIR}/../../..
 readonly DST_COV_FILE=$1
 readonly SRC_COV_DIR=$2
-readonly SRC_TEMP_COV_FILE=wamr_temp.cov
+readonly SRC_TEMP_COV_FILE=wamr_temp.lcov
 readonly SRC_COV_FILE=wamr.lcov
 
 # get dest folder
@@ -33,7 +33,8 @@ lcov -o ${SRC_TEMP_COV_FILE} -c -d . --rc lcov_branch_coverage=1
 lcov -r ${SRC_TEMP_COV_FILE} -o ${SRC_TEMP_COV_FILE} \
      -rc lcov_branch_coverage=1 \
      "*/usr/*" "*/_deps/*" "*/deps/*" "*/tests/unit/*" \
-     "*/llvm/include/*" "*/include/llvm/*" "*/samples/*"
+     "*/llvm/include/*" "*/include/llvm/*" "*/samples/*" \
+     "*/app-framework/*" "*/test-tools/*"
 
 if [[ -s ${SRC_TEMP_COV_FILE} ]]; then
     if [[ -s ${DST_COV_FILE} ]]; then

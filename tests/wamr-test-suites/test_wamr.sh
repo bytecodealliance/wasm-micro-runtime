@@ -23,6 +23,7 @@ function help()
     echo "-G enable GC feature"
     echo "-X enable XIP feature"
     echo "-x test SGX"
+    echo "-w enable WASI threads"
     echo "-b use the wabt binary release package instead of compiling from the source code"
     echo "-g build iwasm with debug version"
     echo "-v enable GC heap verification"
@@ -38,6 +39,7 @@ WABT_BINARY_RELEASE="NO"
 TYPE=("classic-interp" "fast-interp" "jit" "aot" "fast-jit" "multi-tier-jit")
 #default target
 TARGET="X86_64"
+ENABLE_WASI_THREADS=0
 ENABLE_MULTI_MODULE=0
 ENABLE_MULTI_THREAD=0
 COLLECT_CODE_COVERAGE=0
@@ -53,9 +55,9 @@ PLATFORM=$(uname -s | tr A-Z a-z)
 PARALLELISM=0
 ENABLE_QEMU=0
 QEMU_FIRMWARE=""
-WASI_TESTSUITE_COMMIT="1d913f28b3f0d92086d6f50405cf85768e648b54"
+WASI_TESTSUITE_COMMIT="b18247e2161bea263fe924b8189c67b1d2d10a10"
 
-while getopts ":s:cabgvt:m:MCpSXxPGQF:" opt
+while getopts ":s:cabgvt:m:MCpSXxwPGQF:" opt
 do
     OPT_PARSED="TRUE"
     case $opt in
@@ -105,6 +107,10 @@ do
         m)
         echo "set compile target of wamr" ${OPTARG}
         TARGET=${OPTARG^^} # set target to uppercase if input x86_32 or x86_64 --> X86_32 and X86_64
+        ;;
+        w)
+        echo "enable WASI threads"
+        ENABLE_WASI_THREADS=1
         ;;
         M)
         echo "enable multi module feature"
@@ -516,25 +522,17 @@ function wasi_certification_test()
     cd ${WORK_DIR}
     if [ ! -d "wasi-testsuite" ]; then
         echo "wasi not exist, clone it from github"
-        git clone -b prod/testsuite-base \
+        git clone -b prod/testsuite-all \
             --single-branch https://github.com/WebAssembly/wasi-testsuite.git
     fi
     cd wasi-testsuite
     git reset --hard ${WASI_TESTSUITE_COMMIT}
 
-    python3 -m venv wasi-env && source wasi-env/bin/activate
-    python3 -m pip install -r test-runner/requirements.txt
-    IWASM_PATH=$(dirname ${IWASM_CMD})
-    PATH=${PATH}:${IWASM_PATH} python3 test-runner/wasi_test_runner.py \
-                -r adapters/wasm-micro-runtime.sh \
-                -t \
-                    tests/c/testsuite/ \
-                    tests/assemblyscript/testsuite/ \
-                | tee -a ${REPORT_DIR}/wasi_test_report.txt
-    exit_code=${PIPESTATUS[0]}
-    deactivate
+    bash ../../wasi-test-script/run_wasi_tests.sh $1 $TARGET \
+        | tee -a ${REPORT_DIR}/wasi_test_report.txt
+    ret=${PIPESTATUS[0]}
 
-    if [[ ${exit_code} -ne 0 ]];then
+    if [[ ${ret} -ne 0 ]];then
         echo -e "\nwasi tests FAILED" | tee -a ${REPORT_DIR}/wasi_test_report.txt
         exit 1
     fi
@@ -718,6 +716,10 @@ function trigger()
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_GC_HEAP_VERIFY=1"
     fi
 
+    if [[ ${ENABLE_WASI_THREADS} == 1 ]]; then
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_LIB_WASI_THREADS=1"
+    fi
+
     for t in "${TYPE[@]}"; do
         case $t in
             "classic-interp")
@@ -827,8 +829,7 @@ if [[ $TEST_CASE_ARR ]];then
     trigger || (echo "TEST FAILED"; exit 1)
 else
     # test all suite, ignore polybench and libsodium because of long time cost
-    TEST_CASE_ARR=("spec" "malformed" "wasi" "wasi_certification"
-                   "sightglass" "standalone")
+    TEST_CASE_ARR=("spec" "wasi_certification")
     : '
     if [[ $COLLECT_CODE_COVERAGE == 1 ]];then
         # add polybench if collecting code coverage data

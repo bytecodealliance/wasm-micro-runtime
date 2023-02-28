@@ -574,12 +574,16 @@ thread_manager_start_routine(void *arg)
     bh_assert(cluster != NULL);
     bh_assert(module_inst != NULL);
 
+    os_mutex_lock(&exec_env->wait_lock);
     exec_env->handle = os_self_thread();
+    os_mutex_unlock(&exec_env->wait_lock);
     ret = exec_env->thread_start_routine(exec_env);
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
+    os_mutex_lock(&exec_env->wait_lock);
     if (exec_env->suspend_flags.flags & 0x08)
         ret = exec_env->thread_ret_value;
+    os_mutex_unlock(&exec_env->wait_lock);
 #endif
 
     /* Routine exit */
@@ -854,8 +858,11 @@ wasm_cluster_join_thread(WASMExecEnv *exec_env, void **ret_val)
         os_mutex_unlock(&cluster_list_lock);
         return 0;
     }
+
+    os_mutex_lock(&exec_env->wait_lock);
     exec_env->wait_count++;
     handle = exec_env->handle;
+    os_mutex_unlock(&exec_env->wait_lock);
 
     os_mutex_unlock(&exec_env->cluster->lock);
     os_mutex_unlock(&cluster_list_lock);
@@ -936,12 +943,14 @@ wasm_cluster_exit_thread(WASMExecEnv *exec_env, void *retval)
 static void
 set_thread_cancel_flags(WASMExecEnv *exec_env)
 {
+    os_mutex_lock(&exec_env->wait_lock);
     /* Set the termination flag */
 #if WASM_ENABLE_DEBUG_INTERP != 0
     wasm_cluster_thread_send_signal(exec_env, WAMR_SIG_TERM);
 #else
     exec_env->suspend_flags.flags |= 0x01;
 #endif
+    os_mutex_unlock(&exec_env->wait_lock);
 }
 
 int32
@@ -1209,5 +1218,10 @@ wasm_cluster_spread_custom_data(WASMModuleInstanceCommon *module_inst,
 bool
 wasm_cluster_is_thread_terminated(WASMExecEnv *exec_env)
 {
-    return (exec_env->suspend_flags.flags & 0x01) ? true : false;
+    os_mutex_lock(&exec_env->wait_lock);
+    bool is_thread_terminated =
+        (exec_env->suspend_flags.flags & 0x01) ? true : false;
+    os_mutex_unlock(&exec_env->wait_lock);
+
+    return is_thread_terminated;
 }
