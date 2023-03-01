@@ -73,6 +73,6 @@ main(int argc, char **argv)
     assert(g_count == (NUM_THREADS * NUM_ITER)
            && "Global count not updated correctly");
 
-    assert(pthread_mutex_destroy(&mutex) == 0 && "Failed to init mutex");
+    assert(pthread_mutex_destroy(&mutex) == 0 && "Failed to destroy mutex");
     return EXIT_SUCCESS;
 }

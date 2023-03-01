@@ -60,11 +60,9 @@ void
 terminate_process()
 {
     /* Wait for all other threads (including main thread) to be ready */
-    printf("Waiting before terminating\n");
     for (int i = 0; i < NUM_THREADS; i++)
         sem_wait(&sem);
 
-    printf("Force termination\n");
     if (termination_by_trap)
         __builtin_trap();
     else
@@ -80,7 +78,6 @@ __wasi_thread_start_C(int thread_id, int *start_arg)
         terminate_process();
     }
     else {
-        printf("Thread running\n");
         start_job();
     }
 }
@@ -116,11 +113,9 @@ test_termination(bool trap, bool main, blocking_task_type_t task_type)
     assert(thread_id > 0 && "Failed to create thread");
 
     if (termination_in_main_thread) {
-        printf("Force termination (main thread)\n");
         terminate_process();
     }
     else {
-        printf("Main thread running\n");
         start_job();
     }
 }

@@ -56,7 +56,7 @@ main(int argc, char **argv)
     for (int i = 0; i < NUM_THREADS; i++) {
         assert(start_args_init(&data[i].base)
                && "Stack allocation for thread failed");
-        data[i].count = count;
+        __atomic_store_n(&data[i].count, count, __ATOMIC_SEQ_CST);
         data[i].iteration = i;
 
         thread_ids[i] = __wasi_thread_spawn(&data[i]);
