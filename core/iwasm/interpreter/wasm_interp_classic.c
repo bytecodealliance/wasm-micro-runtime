@@ -1137,12 +1137,20 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #if !defined(OS_ENABLE_HW_BOUND_CHECK)              \
     || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 \
     || WASM_ENABLE_BULK_MEMORY != 0
-    os_mutex_lock(&node->shared_mem_lock);
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    if (node)
+        os_mutex_lock(&node->shared_mem_lock);
+#endif
     uint32 num_bytes_per_page = memory ? memory->num_bytes_per_page : 0;
     uint32 linear_mem_size =
         memory ? num_bytes_per_page * memory->cur_page_count : 0;
-    os_mutex_unlock(&node->shared_mem_lock);
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    if (node)
+        os_mutex_unlock(&node->shared_mem_lock);
 #endif
+#endif /* end of !defined(OS_ENABLE_HW_BOUND_CHECK) \
+    || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 \
+    || WASM_ENABLE_BULK_MEMORY != 0 */
     WASMType **wasm_types = module->module->types;
     WASMGlobalInstance *globals = module->e->globals, *global;
     uint8 opcode_IMPDEP = WASM_OP_IMPDEP;
@@ -2105,7 +2113,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 read_leb_uint32(frame_ip, frame_ip_end, reserved);
                 delta = (uint32)POP_I32();
 
-                os_mutex_lock(&node->shared_mem_lock);
+#if WASM_ENABLE_SHARED_MEMORY != 0
+                if (node)
+                    os_mutex_lock(&node->shared_mem_lock);
+#endif
                 if (!wasm_enlarge_memory(module, delta)) {
                     /* failed to memory.grow, return -1 */
                     PUSH_I32(-1);
@@ -2122,7 +2133,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         num_bytes_per_page * memory->cur_page_count;
 #endif
                 }
-                os_mutex_unlock(&node->shared_mem_lock);
+#if WASM_ENABLE_SHARED_MEMORY != 0
+                if (node)
+                    os_mutex_unlock(&node->shared_mem_lock);
+#endif
 
                 (void)reserved;
                 HANDLE_OP_END();
