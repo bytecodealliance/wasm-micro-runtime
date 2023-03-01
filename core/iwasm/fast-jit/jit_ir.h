@@ -1688,6 +1688,7 @@ jit_cc_is_hreg(JitCompContext *cc, JitReg reg)
     unsigned kind = jit_reg_kind(reg);
     unsigned no = jit_reg_no(reg);
     bh_assert(jit_reg_is_variable(reg));
+    bh_assert(kind < JIT_REG_KIND_L32);
     return no < cc->hreg_info->info[kind].num;
 }
 
@@ -1705,6 +1706,7 @@ jit_cc_is_hreg_fixed(JitCompContext *cc, JitReg reg)
     unsigned kind = jit_reg_kind(reg);
     unsigned no = jit_reg_no(reg);
     bh_assert(jit_cc_is_hreg(cc, reg));
+    bh_assert(kind < JIT_REG_KIND_L32);
     return !!cc->hreg_info->info[kind].fixed[no];
 }
 
@@ -1722,6 +1724,7 @@ jit_cc_is_hreg_caller_saved_native(JitCompContext *cc, JitReg reg)
     unsigned kind = jit_reg_kind(reg);
     unsigned no = jit_reg_no(reg);
     bh_assert(jit_cc_is_hreg(cc, reg));
+    bh_assert(kind < JIT_REG_KIND_L32);
     return !!cc->hreg_info->info[kind].caller_saved_native[no];
 }
 
@@ -1739,6 +1742,7 @@ jit_cc_is_hreg_caller_saved_jitted(JitCompContext *cc, JitReg reg)
     unsigned kind = jit_reg_kind(reg);
     unsigned no = jit_reg_no(reg);
     bh_assert(jit_cc_is_hreg(cc, reg));
+    bh_assert(kind < JIT_REG_KIND_L32);
     return !!cc->hreg_info->info[kind].caller_saved_jitted[no];
 }
 

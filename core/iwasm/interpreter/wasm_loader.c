@@ -3864,8 +3864,8 @@ create_module(char *error_buf, uint32 error_buf_size)
     bh_assert(ret == BH_LIST_SUCCESS);
 #endif
 
-#if WASM_ENABLE_DEBUG_INTERP != 0                    \
-    || (WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT \
+#if WASM_ENABLE_DEBUG_INTERP != 0                         \
+    || (WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
         && WASM_ENABLE_LAZY_JIT != 0)
     if (os_mutex_init(&module->instance_list_lock) != 0) {
         set_error_buf(error_buf, error_buf_size,
@@ -4195,7 +4195,20 @@ check_wasi_abi_compatibility(const WASMModule *module,
 
     memory = wasm_loader_find_export(module, "", "memory", EXPORT_KIND_MEMORY,
                                      error_buf, error_buf_size);
-    if (!memory) {
+    if (!memory
+#if WASM_ENABLE_LIB_WASI_THREADS != 0
+        /*
+         * with wasi-threads, it's still an open question if a memory
+         * should be exported.
+         *
+         * https://github.com/WebAssembly/wasi-threads/issues/22
+         * https://github.com/WebAssembly/WASI/issues/502
+         *
+         * Note: this code assumes the number of memories is at most 1.
+         */
+        && module->import_memory_count == 0
+#endif
+    ) {
         set_error_buf(error_buf, error_buf_size,
                       "a module with WASI apis must export memory by default");
         return false;
@@ -4253,7 +4266,8 @@ wasm_loader_unload(WASMModule *module)
     if (!module)
         return;
 
-#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT && WASM_ENABLE_LAZY_JIT != 0
+#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
+    && WASM_ENABLE_LAZY_JIT != 0
     module->orcjit_stop_compiling = true;
     if (module->llvm_jit_init_thread)
         os_thread_join(module->llvm_jit_init_thread, NULL);
@@ -4274,7 +4288,8 @@ wasm_loader_unload(WASMModule *module)
         aot_destroy_comp_data(module->comp_data);
 #endif
 
-#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT && WASM_ENABLE_LAZY_JIT != 0
+#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
+    && WASM_ENABLE_LAZY_JIT != 0
     if (module->tierup_wait_lock_inited) {
         os_mutex_destroy(&module->tierup_wait_lock);
         os_cond_destroy(&module->tierup_wait_cond);
@@ -4403,8 +4418,8 @@ wasm_loader_unload(WASMModule *module)
     }
 #endif
 
-#if WASM_ENABLE_DEBUG_INTERP != 0                    \
-    || (WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT \
+#if WASM_ENABLE_DEBUG_INTERP != 0                         \
+    || (WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
         && WASM_ENABLE_LAZY_JIT != 0)
     os_mutex_destroy(&module->instance_list_lock);
 #endif

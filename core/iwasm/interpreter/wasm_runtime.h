@@ -223,12 +223,6 @@ typedef struct WASMModuleInstanceExtra {
     CApiFuncImport *c_api_func_imports;
     RunningMode running_mode;
 
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    /* lock for shared memory atomic operations */
-    korp_mutex mem_lock;
-    bool mem_lock_inited;
-#endif
-
 #if WASM_ENABLE_MULTI_MODULE != 0
     bh_list sub_module_inst_list_head;
     bh_list *sub_module_inst_list;
@@ -240,8 +234,8 @@ typedef struct WASMModuleInstanceExtra {
     uint32 max_aux_stack_used;
 #endif
 
-#if WASM_ENABLE_DEBUG_INTERP != 0                    \
-    || (WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT \
+#if WASM_ENABLE_DEBUG_INTERP != 0                         \
+    || (WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
         && WASM_ENABLE_LAZY_JIT != 0)
     WASMModuleInstance *next;
 #endif

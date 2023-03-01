@@ -26,14 +26,16 @@ struct WASMCluster {
     korp_mutex lock;
     bh_list exec_env_list;
 
+#if WASM_ENABLE_HEAP_AUX_STACK_ALLOCATION == 0
     /* The aux stack of a module with shared memory will be
         divided into several segments. This array store the
         stack top of different segments */
     uint32 *stack_tops;
-    /* Size of every stack segment */
-    uint32 stack_size;
     /* Record which segments are occupied */
     bool *stack_segment_occupied;
+#endif
+    /* Size of every stack segment */
+    uint32 stack_size;
     /* When has_exception == true, this cluster should refuse any spawn thread
      * requests, this flag can be cleared by calling
      * wasm_runtime_clear_exception on instances of any threads of this cluster
@@ -74,7 +76,7 @@ wasm_exec_env_get_cluster(WASMExecEnv *exec_env);
 
 int32
 wasm_cluster_create_thread(WASMExecEnv *exec_env,
-                           wasm_module_inst_t module_inst,
+                           wasm_module_inst_t module_inst, bool alloc_aux_stack,
                            void *(*thread_routine)(void *), void *arg);
 
 int32
@@ -143,6 +145,9 @@ wasm_cluster_destroy_spawned_exec_env(WASMExecEnv *exec_env);
 void
 wasm_cluster_spread_custom_data(WASMModuleInstanceCommon *module_inst,
                                 void *custom_data);
+
+bool
+wasm_cluster_is_thread_terminated(WASMExecEnv *exec_env);
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
 #define WAMR_SIG_TRAP (5)

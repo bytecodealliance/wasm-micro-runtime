@@ -37,10 +37,6 @@
     wasm_runtime_module_free(module_inst, offset)
 /* clang-format on */
 
-extern bool
-wasm_runtime_call_indirect(wasm_exec_env_t exec_env, uint32 element_idx,
-                           uint32 argc, uint32 argv[]);
-
 static void
 invoke_viiii_wrapper(wasm_exec_env_t exec_env, uint32 elem_idx, int arg0,
                      int arg1, int arg2, int arg3)

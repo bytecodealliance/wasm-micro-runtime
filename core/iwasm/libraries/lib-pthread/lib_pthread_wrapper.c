@@ -46,10 +46,6 @@
     wasm_runtime_addr_native_to_app(module_inst, ptr)
 /* clang-format on */
 
-extern bool
-wasm_runtime_call_indirect(wasm_exec_env_t exec_env, uint32 element_indices,
-                           uint32 argc, uint32 argv[]);
-
 enum {
     T_THREAD,
     T_MUTEX,
@@ -494,7 +490,6 @@ pthread_start_routine(void *arg)
 {
     wasm_exec_env_t exec_env = (wasm_exec_env_t)arg;
     wasm_exec_env_t parent_exec_env;
-    wasm_module_inst_t module_inst = get_module_inst(exec_env);
     ThreadRoutineArgs *routine_args = exec_env->thread_arg;
     ThreadInfoNode *info_node = routine_args->info_node;
     uint32 argv[1];
@@ -504,7 +499,6 @@ pthread_start_routine(void *arg)
     info_node->exec_env = exec_env;
     info_node->u.thread = exec_env->handle;
     if (!append_thread_info_node(info_node)) {
-        wasm_runtime_deinstantiate_internal(module_inst, true);
         delete_thread_info_node(info_node);
         os_cond_signal(&parent_exec_env->wait_cond);
         os_mutex_unlock(&parent_exec_env->wait_lock);
@@ -525,9 +519,6 @@ pthread_start_routine(void *arg)
 
     /* destroy pthread key values */
     call_key_destructor(exec_env);
-
-    /* routine exit, destroy instance */
-    wasm_runtime_deinstantiate_internal(module_inst, true);
 
     wasm_runtime_free(routine_args);
 
@@ -663,8 +654,9 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
     routine_args->module_inst = new_module_inst;
 
     os_mutex_lock(&exec_env->wait_lock);
-    ret = wasm_cluster_create_thread(
-        exec_env, new_module_inst, pthread_start_routine, (void *)routine_args);
+    ret =
+        wasm_cluster_create_thread(exec_env, new_module_inst, true,
+                                   pthread_start_routine, (void *)routine_args);
     if (ret != 0) {
         os_mutex_unlock(&exec_env->wait_lock);
         goto fail;

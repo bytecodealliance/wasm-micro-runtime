@@ -85,6 +85,12 @@ if (NOT DEFINED WAMR_BUILD_LIB_PTHREAD)
   set (WAMR_BUILD_LIB_PTHREAD 0)
 endif ()
 
+if (NOT DEFINED WAMR_BUILD_LIB_WASI_THREADS)
+  # Disable wasi threads library by default
+  set (WAMR_BUILD_LIB_WASI_THREADS 0)
+endif()
+
+
 if (NOT DEFINED WAMR_BUILD_MINI_LOADER)
   # Disable wasm mini loader by default
   set (WAMR_BUILD_MINI_LOADER 0)
@@ -109,11 +115,6 @@ if (WAMR_BUILD_DEBUG_INTERP EQUAL 1)
   set (WAMR_BUILD_FAST_INTERP 0)
   set (WAMR_BUILD_MINI_LOADER 0)
   set (WAMR_BUILD_SIMD 0)
-endif ()
-
-if (COLLECT_CODE_COVERAGE EQUAL 1)
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-arcs -ftest-coverage")
-  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage")
 endif ()
 
 set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../..)

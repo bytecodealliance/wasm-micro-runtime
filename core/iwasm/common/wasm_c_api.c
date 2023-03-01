@@ -1657,8 +1657,6 @@ wasm_val_to_rt_val(WASMModuleInstanceCommon *inst_comm_rt, uint8 val_type_rt,
             ret =
                 wasm_externref_obj2ref(inst_comm_rt, v->of.ref, (uint32 *)data);
             break;
-#else
-            (void)inst_comm_rt;
 #endif
         default:
             LOG_WARNING("unexpected value type %d", val_type_rt);
@@ -1666,6 +1664,7 @@ wasm_val_to_rt_val(WASMModuleInstanceCommon *inst_comm_rt, uint8 val_type_rt,
             break;
     }
 
+    (void)inst_comm_rt;
     return ret;
 }
 
