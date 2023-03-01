@@ -2336,7 +2336,7 @@ wasm_call_function(WASMExecEnv *exec_env, WASMFunctionInstance *function,
     wasm_exec_env_set_thread_info(exec_env);
 
     interp_call_wasm(module_inst, exec_env, function, argc, argv);
-    return !wasm_get_exception(module_inst) ? true : false;
+    return !wasm_copy_exception(module_inst, NULL);
 }
 
 bool

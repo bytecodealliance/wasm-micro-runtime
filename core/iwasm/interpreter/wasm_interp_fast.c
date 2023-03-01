@@ -1156,15 +1156,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 {
     WASMMemoryInstance *memory = wasm_get_default_memory(module);
 
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    WASMSharedMemNode *node =
-        wasm_module_get_shared_memory((WASMModuleCommon *)module->module);
-#endif
-
 #if !defined(OS_ENABLE_HW_BOUND_CHECK)              \
     || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 \
     || WASM_ENABLE_BULK_MEMORY != 0
 #if WASM_ENABLE_SHARED_MEMORY != 0
+    WASMSharedMemNode *node =
+        wasm_module_get_shared_memory((WASMModuleCommon *)module->module);
     if (node)
         os_mutex_lock(&node->shared_mem_lock);
 #endif
@@ -3816,7 +3813,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             if (memory)
                 linear_mem_size = num_bytes_per_page * memory->cur_page_count;
 #endif
-            if (wasm_get_exception(module))
+            if (wasm_copy_exception(module, NULL))
                 goto got_exception;
         }
         else {
@@ -3919,6 +3916,7 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
 {
     WASMRuntimeFrame *prev_frame = wasm_exec_env_get_cur_frame(exec_env);
     WASMInterpFrame *frame, *outs_area;
+    char exception[EXCEPTION_BUF_LEN];
 
     /* Allocate sufficient cells for all kinds of return values.  */
     unsigned all_cell_num =
@@ -3992,7 +3990,7 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
     }
 
     /* Output the return value to the caller */
-    if (!wasm_get_exception(module_inst)) {
+    if (!wasm_copy_exception(module_inst, NULL)) {
         for (i = 0; i < function->ret_cell_num; i++)
             argv[i] = *(frame->lp + i);
     }
@@ -4002,7 +4000,8 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
             wasm_interp_dump_call_stack(exec_env, true, NULL, 0);
         }
 #endif
-        LOG_DEBUG("meet an exception %s", wasm_get_exception(module_inst));
+        wasm_copy_exception(module_inst, exception);
+        LOG_DEBUG("meet an exception %s", exception);
     }
 
     wasm_exec_env_set_cur_frame(exec_env, prev_frame);

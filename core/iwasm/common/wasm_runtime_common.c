@@ -1870,14 +1870,15 @@ static bool
 clear_wasi_proc_exit_exception(WASMModuleInstanceCommon *module_inst_comm)
 {
 #if WASM_ENABLE_LIBC_WASI != 0
-    const char *exception;
+    bool has_exception;
+    char exception[EXCEPTION_BUF_LEN];
     WASMModuleInstance *module_inst = (WASMModuleInstance *)module_inst_comm;
 
     bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
               || module_inst_comm->module_type == Wasm_Module_AoT);
 
-    exception = wasm_get_exception(module_inst);
-    if (exception && !strcmp(exception, "Exception: wasi proc exit")) {
+    has_exception = wasm_copy_exception(module_inst, exception);
+    if (has_exception && !strcmp(exception, "Exception: wasi proc exit")) {
         /* The "wasi proc exit" exception is thrown by native lib to
            let wasm app exit, which is a normal behavior, we clear
            the exception here. And just clear the exception of current
@@ -2374,11 +2375,19 @@ wasm_set_exception_with_id(WASMModuleInstance *module_inst, uint32 id)
         wasm_set_exception(module_inst, "unknown exception");
 }
 
-// TODO(eloparco): Change signature to receive exception buffer
 const char *
 wasm_get_exception(WASMModuleInstance *module_inst)
 {
-    char *exception = NULL;
+    if (module_inst->cur_exception[0] == '\0')
+        return NULL;
+    else
+        return module_inst->cur_exception;
+}
+
+bool
+wasm_copy_exception(WASMModuleInstance *module_inst, char *exception_buf)
+{
+    int has_exception = false;
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
     WASMSharedMemNode *node =
@@ -2387,18 +2396,21 @@ wasm_get_exception(WASMModuleInstance *module_inst)
         os_mutex_lock(&node->shared_mem_lock);
 #endif
     if (module_inst->cur_exception[0] != '\0') {
-        // TODO(eloparco): Missing free
-        exception = wasm_runtime_malloc(sizeof(module_inst->cur_exception));
-        bh_memcpy_s(exception, sizeof(module_inst->cur_exception),
-                    module_inst->cur_exception,
-                    sizeof(module_inst->cur_exception));
+        /* NULL is passed if the caller is not interested in getting the
+         * exception name, but only in knowing if an exception has been raised
+         */
+        if (exception_buf != NULL)
+            bh_memcpy_s(exception_buf, sizeof(module_inst->cur_exception),
+                        module_inst->cur_exception,
+                        sizeof(module_inst->cur_exception));
+        has_exception = true;
     }
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (node)
         os_mutex_unlock(&node->shared_mem_lock);
 #endif
 
-    return exception;
+    return has_exception;
 }
 
 void
@@ -2420,6 +2432,17 @@ wasm_runtime_get_exception(WASMModuleInstanceCommon *module_inst_comm)
     bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
               || module_inst_comm->module_type == Wasm_Module_AoT);
     return wasm_get_exception(module_inst);
+}
+
+bool
+wasm_runtime_copy_exception(WASMModuleInstanceCommon *module_inst_comm,
+                            char *exception_buf)
+{
+    WASMModuleInstance *module_inst = (WASMModuleInstance *)module_inst_comm;
+
+    bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
+              || module_inst_comm->module_type == Wasm_Module_AoT);
+    return wasm_copy_exception(module_inst, exception_buf);
 }
 
 void
@@ -4361,7 +4384,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     }
     exec_env->attachment = NULL;
 
-    ret = !wasm_runtime_get_exception(module) ? true : false;
+    ret = !wasm_runtime_copy_exception(module, NULL);
 fail:
     if (argv1 != argv_buf)
         wasm_runtime_free(argv1);
