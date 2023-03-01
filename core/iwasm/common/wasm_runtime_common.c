@@ -2306,6 +2306,12 @@ wasm_set_exception(WASMModuleInstance *module_inst, const char *exception)
 {
     WASMExecEnv *exec_env = NULL;
 
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    WASMSharedMemNode *node =
+        wasm_module_get_shared_memory((WASMModuleCommon *)module_inst->module);
+    if (node)
+        os_mutex_lock(&node->shared_mem_lock);
+#endif
     if (exception) {
         snprintf(module_inst->cur_exception, sizeof(module_inst->cur_exception),
                  "Exception: %s", exception);
@@ -2313,6 +2319,10 @@ wasm_set_exception(WASMModuleInstance *module_inst, const char *exception)
     else {
         module_inst->cur_exception[0] = '\0';
     }
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    if (node)
+        os_mutex_unlock(&node->shared_mem_lock);
+#endif
 
 #if WASM_ENABLE_THREAD_MGR != 0
     exec_env =
@@ -2364,13 +2374,31 @@ wasm_set_exception_with_id(WASMModuleInstance *module_inst, uint32 id)
         wasm_set_exception(module_inst, "unknown exception");
 }
 
+// TODO(eloparco): Change signature to receive exception buffer
 const char *
 wasm_get_exception(WASMModuleInstance *module_inst)
 {
-    if (module_inst->cur_exception[0] == '\0')
-        return NULL;
-    else
-        return module_inst->cur_exception;
+    char *exception = NULL;
+
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    WASMSharedMemNode *node =
+        wasm_module_get_shared_memory((WASMModuleCommon *)module_inst->module);
+    if (node)
+        os_mutex_lock(&node->shared_mem_lock);
+#endif
+    if (module_inst->cur_exception[0] != '\0') {
+        // TODO(eloparco): Missing free
+        exception = wasm_runtime_malloc(sizeof(module_inst->cur_exception));
+        bh_memcpy_s(exception, sizeof(module_inst->cur_exception),
+                    module_inst->cur_exception,
+                    sizeof(module_inst->cur_exception));
+    }
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    if (node)
+        os_mutex_unlock(&node->shared_mem_lock);
+#endif
+
+    return exception;
 }
 
 void
