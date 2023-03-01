@@ -1155,13 +1155,29 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                WASMInterpFrame *prev_frame)
 {
     WASMMemoryInstance *memory = wasm_get_default_memory(module);
+
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    WASMSharedMemNode *node =
+        wasm_module_get_shared_memory((WASMModuleCommon *)module->module);
+#endif
+
 #if !defined(OS_ENABLE_HW_BOUND_CHECK)              \
     || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 \
     || WASM_ENABLE_BULK_MEMORY != 0
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    if (node)
+        os_mutex_lock(&node->shared_mem_lock);
+#endif
     uint32 num_bytes_per_page = memory ? memory->num_bytes_per_page : 0;
     uint32 linear_mem_size =
         memory ? num_bytes_per_page * memory->cur_page_count : 0;
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    if (node)
+        os_mutex_unlock(&node->shared_mem_lock);
 #endif
+#endif /* end of !defined(OS_ENABLE_HW_BOUND_CHECK) \
+    || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 \
+    || WASM_ENABLE_BULK_MEMORY != 0 */
     uint8 *global_data = module->global_data;
     WASMGlobalInstance *globals = module->e ? module->e->globals : NULL;
     WASMGlobalInstance *global;
@@ -1185,11 +1201,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     uint8 *maddr = NULL;
     uint32 local_idx, local_offset, global_idx;
     uint8 opcode, local_type, *global_addr;
-
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    WASMSharedMemNode *node =
-        wasm_module_get_shared_memory((WASMModuleCommon *)module->module);
-#endif
 
 #if WASM_ENABLE_LABELS_AS_VALUES != 0
 #define HANDLE_OPCODE(op) &&HANDLE_##op
@@ -1875,6 +1886,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 addr_ret = GET_OFFSET();
                 delta = (uint32)frame_lp[addr1];
 
+#if WASM_ENABLE_SHARED_MEMORY != 0
+                if (node)
+                    os_mutex_lock(&node->shared_mem_lock);
+#endif
                 if (!wasm_enlarge_memory(module, delta)) {
                     /* failed to memory.grow, return -1 */
                     frame_lp[addr_ret] = -1;
@@ -1891,6 +1906,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         num_bytes_per_page * memory->cur_page_count;
 #endif
                 }
+#if WASM_ENABLE_SHARED_MEMORY != 0
+                if (node)
+                    os_mutex_unlock(&node->shared_mem_lock);
+#endif
 
                 (void)reserved;
                 HANDLE_OP_END();
