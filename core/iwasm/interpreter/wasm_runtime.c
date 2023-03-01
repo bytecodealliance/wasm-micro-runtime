@@ -2509,6 +2509,12 @@ wasm_module_free(WASMModuleInstance *module_inst, uint32 ptr)
             return;
         }
 
+#if WASM_ENABLE_SHARED_MEMORY != 0
+        WASMSharedMemNode *node = wasm_module_get_shared_memory(
+            (WASMModuleCommon *)module_inst->module);
+        if (node)
+            os_mutex_lock(&node->shared_mem_lock);
+#endif
         addr = memory->memory_data + ptr;
 
         if (memory->heap_handle && memory->heap_data <= addr
@@ -2521,6 +2527,10 @@ wasm_module_free(WASMModuleInstance *module_inst, uint32 ptr)
             execute_free_function(module_inst, module_inst->e->free_function,
                                   ptr);
         }
+#if WASM_ENABLE_SHARED_MEMORY != 0
+        if (node)
+            os_mutex_unlock(&node->shared_mem_lock);
+#endif
     }
 }
 
