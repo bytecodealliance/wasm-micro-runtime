@@ -23,7 +23,7 @@ if [[ $MODE != "aot" ]];then
                     tests/c/testsuite/ \
                     tests/assemblyscript/testsuite/ \
                     tests/proposals/wasi-threads/ \
-                    ${WAMR_DIR}/core/iwasm/libraries/wasi-threads/test/
+                    ${WAMR_DIR}/core/iwasm/libraries/lib-wasi-threads/test/
     exit_code=${PIPESTATUS[0]}
     deactivate
 else

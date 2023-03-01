@@ -558,7 +558,7 @@ jobs:
       - name: Build WASI thread tests
         if: matrix.test_option == '$WASI_TEST_OPTIONS'
         run: WASI_SYSROOT=../../../../../core/deps/wasi-libc/sysroot bash build.sh
-        working-directory: ./core/iwasm/libraries/wasi-threads/test/
+        working-directory: ./core/iwasm/libraries/lib-wasi-threads/test/
 
       - name: run tests
         timeout-minutes: 10
