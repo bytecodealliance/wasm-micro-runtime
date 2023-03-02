@@ -896,6 +896,7 @@ void
 wasm_cluster_exit_thread(WASMExecEnv *exec_env, void *retval)
 {
     WASMCluster *cluster;
+    WASMModuleInstanceCommon *module_inst;
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     if (exec_env->jmpbuf_stack_top) {
@@ -926,6 +927,8 @@ wasm_cluster_exit_thread(WASMExecEnv *exec_env, void *retval)
 
     os_mutex_lock(&cluster->lock);
 
+    module_inst = exec_env->module_inst;
+
     /* Free aux stack space */
     free_aux_stack(exec_env, exec_env->aux_stack_bottom.bottom);
     /* Remove exec_env */
@@ -933,7 +936,7 @@ wasm_cluster_exit_thread(WASMExecEnv *exec_env, void *retval)
     /* Destroy exec_env */
     wasm_exec_env_destroy_internal(exec_env);
     /* Routine exit, destroy instance */
-    wasm_runtime_deinstantiate_internal(exec_env->module_inst, true);
+    wasm_runtime_deinstantiate_internal(module_inst, true);
 
     os_mutex_unlock(&cluster->lock);
 

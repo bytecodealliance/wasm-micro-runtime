@@ -121,7 +121,7 @@ Shuting down
 ```
 
 ```bash
-$ ./iwasm --addr-pool=127.0.0.1/15 --heap-size=10000000 timeout_client.wasm
+$ ./iwasm --addr-pool=127.0.0.1/15 timeout_client.wasm
 ```
 
 The output is:
