@@ -37,6 +37,7 @@ typedef struct AtomicWaitAddressArgs {
 
 /* Atomic wait map */
 static HashMap *wait_map;
+static korp_mutex wait_map_lock;
 
 static uint32
 wait_address_hash(void *address);
@@ -53,10 +54,17 @@ wasm_shared_memory_init()
     if (os_mutex_init(&shared_memory_list_lock) != 0)
         return false;
 
+    if (os_mutex_init(&wait_map_lock) != 0) {
+        os_mutex_destroy(&shared_memory_list_lock);
+        return false;
+    }
+
+    /* wait map not exists, create new map */
     if (!(wait_map = bh_hash_map_create(32, true, (HashFunc)wait_address_hash,
                                         (KeyEqualFunc)wait_address_equal, NULL,
                                         destroy_wait_info))) {
         os_mutex_destroy(&shared_memory_list_lock);
+        os_mutex_destroy(&wait_map_lock);
         return false;
     }
 
@@ -67,6 +75,7 @@ void
 wasm_shared_memory_destroy()
 {
     os_mutex_destroy(&shared_memory_list_lock);
+    os_mutex_destroy(&wait_map_lock);
     if (wait_map) {
         bh_hash_map_destroy(wait_map);
     }
@@ -113,11 +122,14 @@ notify_stale_threads_on_exception(WASMModuleInstanceCommon *module_inst)
     uint32 i = 0, total_elem_count = 0;
     uint64 total_elem_count_size = 0;
 
+    os_mutex_lock(&wait_map_lock); /* Make the two traversals atomic */
+
     /* count number of addresses in wait_map */
     bh_hash_map_traverse(wait_map, wait_map_address_count_callback,
                          (void *)&total_elem_count);
 
     if (!total_elem_count) {
+        os_mutex_unlock(&wait_map_lock);
         return;
     }
 
@@ -127,11 +139,13 @@ notify_stale_threads_on_exception(WASMModuleInstanceCommon *module_inst)
         || !(args.addr = wasm_runtime_malloc((uint32)total_elem_count_size))) {
         LOG_ERROR(
             "failed to allocate memory for list of atomic wait addresses");
+        os_mutex_unlock(&wait_map_lock);
         return;
     }
 
     /* set values in list of addresses */
     bh_hash_map_traverse(wait_map, create_list_of_waiter_addresses, &args);
+    os_mutex_unlock(&wait_map_lock);
 
     /* notify */
     for (i = 0; i < args.index; i++) {
@@ -289,10 +303,13 @@ acquire_wait_info(void *address, bool create)
     AtomicWaitInfo *wait_info = NULL;
     bh_list_status ret;
 
+    os_mutex_lock(&wait_map_lock); /* Make find + insert atomic */
+
     if (address)
         wait_info = (AtomicWaitInfo *)bh_hash_map_find(wait_map, address);
 
     if (!create) {
+        os_mutex_unlock(&wait_map_lock);
         return wait_info;
     }
 
@@ -319,6 +336,8 @@ acquire_wait_info(void *address, bool create)
         }
     }
 
+    os_mutex_unlock(&wait_map_lock);
+
     bh_assert(wait_info);
     (void)ret;
     return wait_info;
@@ -330,6 +349,8 @@ fail2:
     wasm_runtime_free(wait_info);
 
 fail1:
+    os_mutex_unlock(&wait_map_lock);
+
     return NULL;
 }
 
