@@ -1042,7 +1042,7 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
     exec_env->module_inst = (WASMModuleInstanceCommon *)module_inst;
 
     /* transfer exception if it is thrown */
-    if (wasm_get_exception(sub_module_inst)) {
+    if (wasm_copy_exception(sub_module_inst, NULL)) {
         bh_memcpy_s(module_inst->cur_exception,
                     sizeof(module_inst->cur_exception),
                     sub_module_inst->cur_exception,
@@ -1175,6 +1175,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #endif /* end of !defined(OS_ENABLE_HW_BOUND_CHECK) \
     || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 \
     || WASM_ENABLE_BULK_MEMORY != 0 */
+
     uint8 *global_data = module->global_data;
     WASMGlobalInstance *globals = module->e ? module->e->globals : NULL;
     WASMGlobalInstance *global;
@@ -3916,7 +3917,6 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
 {
     WASMRuntimeFrame *prev_frame = wasm_exec_env_get_cur_frame(exec_env);
     WASMInterpFrame *frame, *outs_area;
-    char exception[EXCEPTION_BUF_LEN];
 
     /* Allocate sufficient cells for all kinds of return values.  */
     unsigned all_cell_num =
@@ -3925,6 +3925,7 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
     /* This frame won't be used by JITed code, so only allocate interp
        frame here.  */
     unsigned frame_size = wasm_interp_interp_frame_size(all_cell_num);
+    char exception[EXCEPTION_BUF_LEN];
 
     if (argc < function->param_cell_num) {
         char buf[128];

@@ -954,7 +954,7 @@ fast_jit_invoke_native(WASMExecEnv *exec_env, uint32 func_idx,
     WASMFunctionInstance *cur_func = module_inst->e->functions + func_idx;
 
     wasm_interp_call_func_native(module_inst, exec_env, cur_func, prev_frame);
-    return wasm_get_exception(module_inst) ? false : true;
+    return wasm_copy_exception(module_inst, NULL) ? false : true;
 }
 #endif
 
@@ -1023,7 +1023,7 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
     exec_env->module_inst = (WASMModuleInstanceCommon *)module_inst;
 
     /* transfer exception if it is thrown */
-    if (wasm_get_exception(sub_module_inst)) {
+    if (wasm_copy_exception(sub_module_inst, NULL)) {
         bh_memcpy_s(module_inst->cur_exception,
                     sizeof(module_inst->cur_exception),
                     sub_module_inst->cur_exception,
@@ -1148,6 +1148,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #endif /* end of !defined(OS_ENABLE_HW_BOUND_CHECK) \
     || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 \
     || WASM_ENABLE_BULK_MEMORY != 0 */
+
     WASMType **wasm_types = module->module->types;
     WASMGlobalInstance *globals = module->e->globals, *global;
     uint8 opcode_IMPDEP = WASM_OP_IMPDEP;
@@ -4018,7 +4019,7 @@ fast_jit_call_func_bytecode(WASMModuleInstance *module_inst,
         module_inst->fast_jit_func_ptrs[func_idx_non_import]);
     bh_assert(action == JIT_INTERP_ACTION_NORMAL
               || (action == JIT_INTERP_ACTION_THROWN
-                  && wasm_runtime_get_exception(exec_env->module_inst)));
+                  && wasm_runtime_copy_exception(exec_env->module_inst, NULL)));
 
     /* Get the return values form info.out.ret */
     if (func_type->result_count) {
@@ -4153,7 +4154,7 @@ llvm_jit_call_func_bytecode(WASMModuleInstance *module_inst,
             exec_env, module_inst->func_ptrs[func_idx], func_type, NULL, NULL,
             argv, argc, argv);
 
-        return ret && !wasm_get_exception(module_inst) ? true : false;
+        return ret && !wasm_copy_exception(module_inst, NULL) ? true : false;
     }
 }
 #endif /* end of WASM_ENABLE_JIT != 0 */

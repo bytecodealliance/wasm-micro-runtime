@@ -194,7 +194,7 @@ runtime_signal_handler(void *sig_addr)
         else if (exec_env_tls->exce_check_guard_page <= (uint8 *)sig_addr
                  && (uint8 *)sig_addr
                         < exec_env_tls->exce_check_guard_page + page_size) {
-            bh_assert(wasm_get_exception(module_inst));
+            bh_assert(wasm_copy_exception(module_inst, NULL));
             os_longjmp(jmpbuf_node->jmpbuf, 1);
         }
     }
@@ -250,7 +250,7 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
             else if (exec_env_tls->exce_check_guard_page <= (uint8 *)sig_addr
                      && (uint8 *)sig_addr
                             < exec_env_tls->exce_check_guard_page + page_size) {
-                bh_assert(wasm_get_exception(module_inst));
+                bh_assert(wasm_copy_exception(module_inst, NULL));
                 if (module_inst->module_type == Wasm_Module_Bytecode) {
                     return EXCEPTION_CONTINUE_SEARCH;
                 }
@@ -3368,7 +3368,7 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
         }
     }
 
-    ret = !wasm_runtime_get_exception(module) ? true : false;
+    ret = !wasm_runtime_copy_exception(module, NULL);
 
 fail:
     if (argv1 != argv_buf)
@@ -3843,7 +3843,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     }
     exec_env->attachment = NULL;
 
-    ret = !wasm_runtime_get_exception(module) ? true : false;
+    ret = !wasm_runtime_copy_exception(module, NULL);
 
 fail:
     if (argv1 != argv_buf)
@@ -4057,7 +4057,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     }
     exec_env->attachment = NULL;
 
-    ret = !wasm_runtime_get_exception(module) ? true : false;
+    ret = !wasm_runtime_copy_exception(module, NULL);
 
 fail:
     if (argv1 != argv_buf)
