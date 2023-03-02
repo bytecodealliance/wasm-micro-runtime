@@ -1884,10 +1884,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 addr_ret = GET_OFFSET();
                 delta = (uint32)frame_lp[addr1];
 
-#if WASM_ENABLE_SHARED_MEMORY != 0
-                if (node)
-                    os_mutex_lock(&node->shared_mem_lock);
-#endif
                 if (!wasm_enlarge_memory(module, delta)) {
                     /* failed to memory.grow, return -1 */
                     frame_lp[addr_ret] = -1;
@@ -1904,10 +1900,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         num_bytes_per_page * memory->cur_page_count;
 #endif
                 }
-#if WASM_ENABLE_SHARED_MEMORY != 0
-                if (node)
-                    os_mutex_unlock(&node->shared_mem_lock);
-#endif
 
                 (void)reserved;
                 HANDLE_OP_END();
