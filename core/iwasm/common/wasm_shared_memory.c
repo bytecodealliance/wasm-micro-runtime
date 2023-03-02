@@ -355,17 +355,16 @@ destroy_wait_info(void *wait_info)
     }
 }
 
-static void
-release_wait_info(HashMap *wait_map_, AtomicWaitInfo *wait_info, void *address)
+static bool
+map_remove_wait_info(HashMap *wait_map_, AtomicWaitInfo *wait_info,
+                     void *address)
 {
-    if (wait_info->wait_list->len == 0) {
-        bh_hash_map_remove(wait_map_, address, NULL, NULL);
-        os_mutex_unlock(&wait_info->wait_list_lock);
-        destroy_wait_info(wait_info);
+    if (wait_info->wait_list->len > 0) {
+        return false;
     }
-    else {
-        os_mutex_unlock(&wait_info->wait_list_lock);
-    }
+
+    bh_hash_map_remove(wait_map_, address, NULL, NULL);
+    return true;
 }
 
 uint32
@@ -376,7 +375,7 @@ wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
     AtomicWaitInfo *wait_info;
     AtomicWaitNode *wait_node;
     WASMSharedMemNode *node;
-    bool check_ret, is_timeout, no_wait;
+    bool check_ret, is_timeout, no_wait, removed_from_map;
 
     bh_assert(module->module_type == Wasm_Module_Bytecode
               || module->module_type == Wasm_Module_AoT);
@@ -420,7 +419,6 @@ wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
 
         if (!(wait_node = wasm_runtime_malloc(sizeof(AtomicWaitNode)))) {
             wasm_runtime_set_exception(module, "failed to create wait node");
-            os_mutex_unlock(&wait_info->wait_list_lock);
             return -1;
         }
         memset(wait_node, 0, sizeof(AtomicWaitNode));
@@ -454,7 +452,7 @@ wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
     is_timeout = wait_node->status == S_WAITING ? true : false;
     os_mutex_unlock(&wait_node->wait_lock);
 
-    /* Unlocked in release_wait_info() */
+    os_mutex_lock(&node->shared_mem_lock);
     os_mutex_lock(&wait_info->wait_list_lock);
 
     check_ret = is_wait_node_exists(wait_info->wait_list, wait_node);
@@ -467,8 +465,10 @@ wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
     wasm_runtime_free(wait_node);
 
     /* Release wait info if no wait nodes attached */
-    os_mutex_lock(&node->shared_mem_lock);
-    release_wait_info(wait_map, wait_info, address);
+    removed_from_map = map_remove_wait_info(wait_map, wait_info, address);
+    os_mutex_unlock(&wait_info->wait_list_lock);
+    if (removed_from_map)
+        destroy_wait_info(wait_info);
     os_mutex_unlock(&node->shared_mem_lock);
 
     (void)check_ret;
