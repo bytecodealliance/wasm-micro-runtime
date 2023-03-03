@@ -726,7 +726,7 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
     || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 \
     || WASM_ENABLE_BULK_MEMORY != 0
 uint32
-get_num_bytes_per_page(WASMMemoryInstance *memory, void *node)
+wasm_get_num_bytes_per_page(WASMMemoryInstance *memory, void *node)
 {
     uint32 num_bytes_per_page;
 #if WASM_ENABLE_SHARED_MEMORY != 0
@@ -742,7 +742,7 @@ get_num_bytes_per_page(WASMMemoryInstance *memory, void *node)
 }
 
 uint32
-get_linear_memory_size(WASMMemoryInstance *memory, void *node)
+wasm_get_linear_memory_size(WASMMemoryInstance *memory, void *node)
 {
     uint32 linear_mem_size;
 #if WASM_ENABLE_SHARED_MEMORY != 0

@@ -1168,8 +1168,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 \
     || WASM_ENABLE_BULK_MEMORY != 0
     uint32 num_bytes_per_page =
-        memory ? get_num_bytes_per_page(memory, node) : 0;
-    uint32 linear_mem_size = memory ? get_linear_memory_size(memory, node) : 0;
+        memory ? wasm_get_num_bytes_per_page(memory, node) : 0;
+    uint32 linear_mem_size =
+        memory ? wasm_get_linear_memory_size(memory, node) : 0;
 #endif
     uint8 *global_data = module->global_data;
     WASMGlobalInstance *globals = module->e ? module->e->globals : NULL;

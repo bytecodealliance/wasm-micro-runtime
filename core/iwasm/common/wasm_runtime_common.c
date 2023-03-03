@@ -2397,7 +2397,8 @@ wasm_copy_exception(WASMModuleInstance *module_inst, char *exception_buf)
 #endif
     if (module_inst->cur_exception[0] != '\0') {
         /* NULL is passed if the caller is not interested in getting the
-         * exception name, but only in knowing if an exception has been raised
+         * exception content, but only in knowing if an exception has been
+         * raised
          */
         if (exception_buf != NULL)
             bh_memcpy_s(exception_buf, sizeof(module_inst->cur_exception),

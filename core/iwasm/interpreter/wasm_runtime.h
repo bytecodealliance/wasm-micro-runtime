@@ -449,6 +449,7 @@ wasm_get_exception(WASMModuleInstance *module);
 /**
  * @brief Copy exception in buffer passed as parameter. Thread-safe version of
  * `wasm_get_exception()`
+ * @note Buffer size must be no smaller than EXCEPTION_BUF_LEN
  * @return true if exception found
  */
 bool

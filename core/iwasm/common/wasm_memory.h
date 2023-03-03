@@ -28,10 +28,10 @@ wasm_runtime_memory_pool_size();
     || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 \
     || WASM_ENABLE_BULK_MEMORY != 0
 uint32
-get_num_bytes_per_page(WASMMemoryInstance *memory, void *node);
+wasm_get_num_bytes_per_page(WASMMemoryInstance *memory, void *node);
 
 uint32
-get_linear_memory_size(WASMMemoryInstance *memory, void *node);
+wasm_get_linear_memory_size(WASMMemoryInstance *memory, void *node);
 #endif
 
 #ifdef __cplusplus

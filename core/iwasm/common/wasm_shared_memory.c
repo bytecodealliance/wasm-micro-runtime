@@ -524,16 +524,20 @@ wasm_runtime_atomic_notify(WASMModuleInstanceCommon *module, void *address,
     }
 
     wait_info = acquire_wait_info(address, false);
-    if (node)
-        os_mutex_unlock(&node->shared_mem_lock);
 
     /* Nobody wait on this address */
-    if (!wait_info)
+    if (!wait_info) {
+        if (node)
+            os_mutex_unlock(&node->shared_mem_lock);
         return 0;
+    }
 
     os_mutex_lock(&wait_info->wait_list_lock);
     notify_result = notify_wait_list(wait_info->wait_list, count);
     os_mutex_unlock(&wait_info->wait_list_lock);
+
+    if (node)
+        os_mutex_unlock(&node->shared_mem_lock);
 
     return notify_result;
 }

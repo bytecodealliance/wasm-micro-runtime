@@ -1146,7 +1146,7 @@ set_exception_visitor(void *node, void *user_data)
         WASMModuleInstance *curr_wasm_inst =
             (WASMModuleInstance *)get_module_inst(curr_exec_env);
 
-/* Only spread non "wasi proc exit" exception */
+        /* Only spread non "wasi proc exit" exception */
 #if WASM_ENABLE_SHARED_MEMORY != 0
         WASMSharedMemNode *shared_mem_node = wasm_module_get_shared_memory(
             (WASMModuleCommon *)curr_wasm_inst->module);
