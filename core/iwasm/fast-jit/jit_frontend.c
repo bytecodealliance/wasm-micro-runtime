@@ -841,7 +841,7 @@ init_func_translation(JitCompContext *cc)
     cc->spill_cache_offset = wasm_interp_interp_frame_size(total_cell_num);
     /* Set spill cache size according to max local cell num, max stack cell
        num and virtual fixed register num */
-    cc->spill_cache_size = (max_locals + max_stacks) * 4 + sizeof(void *) * 5;
+    cc->spill_cache_size = (max_locals + max_stacks) * 4 + sizeof(void *) * 16;
     cc->total_frame_size = cc->spill_cache_offset + cc->spill_cache_size;
     cc->jitted_return_address_offset =
         offsetof(WASMInterpFrame, jitted_return_addr);
