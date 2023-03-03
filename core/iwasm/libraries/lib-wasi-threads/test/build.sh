@@ -1,5 +1,10 @@
 #!/bin/bash
 
+#
+# Copyright (C) 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#
+
 CC=${CC:=/opt/wasi-sdk/bin/clang}
 WASI_SYSROOT=${WASI_SYSROOT:=~/dev/wasi-libc/sysroot}
 WAMR_DIR=../../../../..
