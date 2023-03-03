@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
-#include <semaphore.h>
+#include <pthread.h>
 #include <stdbool.h>
 #include <unistd.h>
 
@@ -25,7 +25,7 @@ static blocking_task_type_t blocking_task_type;
 
 #define TIMEOUT_SECONDS 10ll
 #define NUM_THREADS 3
-static sem_t sem;
+static pthread_barrier_t barrier;
 
 typedef struct {
     start_args_t base;
@@ -51,17 +51,17 @@ run_long_task()
 void
 start_job()
 {
-    sem_post(&sem);
-    run_long_task(); /* Wait to be interrupted */
-    assert(false && "Unreachable");
+    /* Wait for all threads (including the main thread) to be ready */
+    pthread_barrier_wait(&barrier);
+    run_long_task(); /* Task to be interrupted */
+    assert(false && "Thread termination test failed");
 }
 
 void
 terminate_process()
 {
-    /* Wait for all other threads (including main thread) to be ready */
-    for (int i = 0; i < NUM_THREADS; i++)
-        sem_wait(&sem);
+    /* Wait for all threads (including the main thread) to be ready */
+    pthread_barrier_wait(&barrier);
 
     if (termination_by_trap)
         __builtin_trap();
@@ -91,7 +91,8 @@ test_termination(bool trap, bool main, blocking_task_type_t task_type)
 
     int thread_id = -1, i;
     shared_t data[NUM_THREADS] = { 0 };
-    assert(sem_init(&sem, 0, 0) == 0 && "Failed to init semaphore");
+    assert(pthread_barrier_init(&barrier, NULL, NUM_THREADS + 1) == 0
+           && "Failed to init barrier");
 
     for (i = 0; i < NUM_THREADS; i++) {
         /* No graceful memory free to simplify the test */
