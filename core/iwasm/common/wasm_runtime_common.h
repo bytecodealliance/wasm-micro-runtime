@@ -527,6 +527,12 @@ LLVMJITOptions
 wasm_runtime_get_llvm_jit_options(void);
 #endif
 
+#if WASM_ENABLE_GC != 0
+/* Internal API */
+uint32
+wasm_runtime_get_gc_heap_size_default(void);
+#endif
+
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_full_init(RuntimeInitArgs *init_args);
