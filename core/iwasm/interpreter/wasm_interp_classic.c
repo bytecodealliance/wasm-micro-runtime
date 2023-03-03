@@ -8,6 +8,7 @@
 #include "wasm_runtime.h"
 #include "wasm_opcode.h"
 #include "wasm_loader.h"
+#include "wasm_memory.h"
 #include "../common/wasm_exec_env.h"
 #if WASM_ENABLE_SHARED_MEMORY != 0
 #include "../common/wasm_shared_memory.h"
@@ -1126,29 +1127,22 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                WASMFunctionInstance *cur_func,
                                WASMInterpFrame *prev_frame)
 {
-    WASMMemoryInstance *memory = wasm_get_default_memory(module);
-    uint8 *global_data = module->global_data;
-
-#if !defined(OS_ENABLE_HW_BOUND_CHECK)              \
-    || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 \
-    || WASM_ENABLE_BULK_MEMORY != 0
 #if WASM_ENABLE_SHARED_MEMORY != 0
     WASMSharedMemNode *node =
         wasm_module_get_shared_memory((WASMModuleCommon *)module->module);
-    if (node)
-        os_mutex_lock(&node->shared_mem_lock);
+#else
+    void *node = NULL;
 #endif
-    uint32 num_bytes_per_page = memory ? memory->num_bytes_per_page : 0;
-    uint32 linear_mem_size =
-        memory ? num_bytes_per_page * memory->cur_page_count : 0;
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    if (node)
-        os_mutex_unlock(&node->shared_mem_lock);
-#endif
-#endif /* end of !defined(OS_ENABLE_HW_BOUND_CHECK) \
-    || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 \
-    || WASM_ENABLE_BULK_MEMORY != 0 */
 
+    WASMMemoryInstance *memory = wasm_get_default_memory(module);
+    uint8 *global_data = module->global_data;
+#if !defined(OS_ENABLE_HW_BOUND_CHECK)              \
+    || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 \
+    || WASM_ENABLE_BULK_MEMORY != 0
+    uint32 num_bytes_per_page =
+        memory ? get_num_bytes_per_page(memory, node) : 0;
+    uint32 linear_mem_size = memory ? get_linear_memory_size(memory, node) : 0;
+#endif
     WASMType **wasm_types = module->module->types;
     WASMGlobalInstance *globals = module->e->globals, *global;
     uint8 opcode_IMPDEP = WASM_OP_IMPDEP;
