@@ -11,6 +11,7 @@
 typedef struct {
     bool is_initialized;
     graph_encoding current_encoding;
+    void *tflite_ctx;
 } WASINNContext;
 
 /**
