@@ -19,12 +19,6 @@ To run the tests we assume that the current directory is the root of the reposit
 
 ### Build the runtime
 
-Build the runtime base image,
-
-```
-docker build -t wasi-nn-base -f core/iwasm/libraries/wasi-nn/test/Dockerfile.base .
-```
-
 Build the runtime image for your execution target type.
 
 `EXECUTION_TYPE` can be:
