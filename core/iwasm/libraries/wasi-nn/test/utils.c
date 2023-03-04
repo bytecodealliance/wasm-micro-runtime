@@ -4,6 +4,7 @@
  */
 
 #include "utils.h"
+#include "logger.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -100,29 +101,29 @@ run_inference(execution_target target, float *input, uint32_t *input_size,
 {
     graph graph;
     if (wasm_load(model_name, &graph, target) != success) {
-        fprintf(stderr, "Error when loading model.");
+        NN_ERR_PRINTF("Error when loading model.");
         exit(1);
     }
 
     graph_execution_context ctx;
     if (wasm_init_execution_context(graph, &ctx) != success) {
-        fprintf(stderr, "Error when initialixing execution context.");
+        NN_ERR_PRINTF("Error when initialixing execution context.");
         exit(1);
     }
 
     if (wasm_set_input(ctx, input, input_size) != success) {
-        fprintf(stderr, "Error when setting input tensor.");
+        NN_ERR_PRINTF("Error when setting input tensor.");
         exit(1);
     }
 
     if (wasm_compute(ctx) != success) {
-        fprintf(stderr, "Error when running inference.");
+        NN_ERR_PRINTF("Error when running inference.");
         exit(1);
     }
 
     float *out_tensor = (float *)malloc(sizeof(float) * MAX_OUTPUT_TENSOR_SIZE);
     if (out_tensor == NULL) {
-        fprintf(stderr, "Error when allocating memory for output tensor.");
+        NN_ERR_PRINTF("Error when allocating memory for output tensor.");
         exit(1);
     }
 
@@ -131,7 +132,7 @@ run_inference(execution_target target, float *input, uint32_t *input_size,
         *output_size = MAX_OUTPUT_TENSOR_SIZE - *output_size;
         if (wasm_get_output(ctx, i, &out_tensor[offset], output_size)
             != success) {
-            fprintf(stderr, "Error when getting output .");
+            NN_ERR_PRINTF("Error when getting output.");
             exit(1);
         }
 

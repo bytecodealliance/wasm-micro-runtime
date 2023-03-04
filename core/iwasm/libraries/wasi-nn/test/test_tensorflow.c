@@ -10,6 +10,7 @@
 #include <math.h>
 
 #include "utils.h"
+#include "logger.h"
 
 void
 test_sum(execution_target target)
@@ -41,7 +42,7 @@ test_max(execution_target target)
 
     assert(output_size == 1);
     assert(fabs(output[0] - 24.0) < EPSILON);
-    printf("Result: max is %f\n", output[0]);
+    NN_INFO_PRINTF("Result: max is %f", output[0]);
 
     free(input.dim);
     free(input.input_tensor);
@@ -61,7 +62,7 @@ test_average(execution_target target)
 
     assert(output_size == 1);
     assert(fabs(output[0] - 12.0) < EPSILON);
-    printf("Result: average is %f\n", output[0]);
+    NN_INFO_PRINTF("Result: average is %f", output[0]);
 
     free(input.dim);
     free(input.input_tensor);
@@ -117,7 +118,7 @@ main()
 {
     char *env = getenv("TARGET");
     if (env == NULL) {
-        printf("Usage:\n--env=\"TARGET=[cpu|gpu]\"\n");
+        NN_INFO_PRINTF("Usage:\n--env=\"TARGET=[cpu|gpu]\"");
         return 1;
     }
     execution_target target;
@@ -126,20 +127,20 @@ main()
     else if (strcmp(env, "gpu") == 0)
         target = gpu;
     else {
-        printf("Wrong target!");
+        NN_ERR_PRINTF("Wrong target!");
         return 1;
     }
-    printf("################### Testing sum...\n");
+    NN_INFO_PRINTF("################### Testing sum...");
     test_sum(target);
-    printf("################### Testing max...\n");
+    NN_INFO_PRINTF("################### Testing max...");
     test_max(target);
-    printf("################### Testing average...\n");
+    NN_INFO_PRINTF("################### Testing average...");
     test_average(target);
-    printf("################### Testing multiple dimensions...\n");
+    NN_INFO_PRINTF("################### Testing multiple dimensions...");
     test_mult_dimensions(target);
-    printf("################### Testing multiple outputs...\n");
+    NN_INFO_PRINTF("################### Testing multiple outputs...");
     test_mult_outputs(target);
 
-    printf("Tests: passed!\n");
+    NN_INFO_PRINTF("Tests: passed!");
     return 0;
 }
