@@ -13,13 +13,19 @@
     (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 
 /* Disable a level by removing the define */
-#define ENABLE_ERR_LOG
-#define ENABLE_WARN_LOG
-#define ENABLE_DBG_LOG
-#define ENABLE_INFO_LOG
+#ifndef NN_LOG_LEVEL
+/*
+    0 -> debug, info, warn, err
+    1 -> info, warn, err
+    2 -> warn, err
+    3 -> err
+    4 -> NO LOGS
+*/
+#define NN_LOG_LEVEL 0
+#endif
 
 // Definition of the levels
-#ifdef ENABLE_ERR_LOG
+#if NN_LOG_LEVEL <= 3
 #define NN_ERR_PRINTF(fmt, ...)                                        \
     do {                                                               \
         printf("[%s:%d] " fmt, __FILENAME__, __LINE__, ##__VA_ARGS__); \
@@ -29,7 +35,7 @@
 #else
 #define NN_ERR_PRINTF(fmt, ...)
 #endif
-#ifdef ENABLE_WARN_LOG
+#if NN_LOG_LEVEL <= 2
 #define NN_WARN_PRINTF(fmt, ...)                                       \
     do {                                                               \
         printf("[%s:%d] " fmt, __FILENAME__, __LINE__, ##__VA_ARGS__); \
@@ -39,17 +45,7 @@
 #else
 #define NN_WARN_PRINTF(fmt, ...)
 #endif
-#ifdef ENABLE_DBG_LOG
-#define NN_DBG_PRINTF(fmt, ...)                                        \
-    do {                                                               \
-        printf("[%s:%d] " fmt, __FILENAME__, __LINE__, ##__VA_ARGS__); \
-        printf("\n");                                                  \
-        fflush(stdout);                                                \
-    } while (0)
-#else
-#define NN_DBG_PRINTF(fmt, ...)
-#endif
-#ifdef ENABLE_INFO_LOG
+#if NN_LOG_LEVEL <= 1
 #define NN_INFO_PRINTF(fmt, ...)                                       \
     do {                                                               \
         printf("[%s:%d] " fmt, __FILENAME__, __LINE__, ##__VA_ARGS__); \
@@ -58,6 +54,16 @@
     } while (0)
 #else
 #define NN_INFO_PRINTF(fmt, ...)
+#endif
+#if NN_LOG_LEVEL <= 0
+#define NN_DBG_PRINTF(fmt, ...)                                        \
+    do {                                                               \
+        printf("[%s:%d] " fmt, __FILENAME__, __LINE__, ##__VA_ARGS__); \
+        printf("\n");                                                  \
+        fflush(stdout);                                                \
+    } while (0)
+#else
+#define NN_DBG_PRINTF(fmt, ...)
 #endif
 
 #endif
