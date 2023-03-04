@@ -2243,6 +2243,8 @@ call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
 #ifdef BH_PLATFORM_WINDOWS
     const char *exce;
     int result;
+    bool has_exception;
+    char exception[EXCEPTION_BUF_LEN];
 #endif
     bool ret = true;
 
@@ -2275,14 +2277,14 @@ call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
 #else
         __try {
             wasm_interp_call_wasm(module_inst, exec_env, function, argc, argv);
-        } __except (wasm_get_exception(module_inst)
+        } __except (wasm_copy_exception(module_inst, NULL)
                         ? EXCEPTION_EXECUTE_HANDLER
                         : EXCEPTION_CONTINUE_SEARCH) {
             /* exception was thrown in wasm_exception_handler */
             ret = false;
         }
-        if ((exce = wasm_get_exception(module_inst))
-            && strstr(exce, "native stack overflow")) {
+        has_exception = wasm_copy_exception(module_inst, exception);
+        if (has_exception && strstr(exception, "native stack overflow")) {
             /* After a stack overflow, the stack was left
                in a damaged state, let the CRT repair it */
             result = _resetstkoflw();
@@ -2336,7 +2338,7 @@ wasm_call_function(WASMExecEnv *exec_env, WASMFunctionInstance *function,
     wasm_exec_env_set_thread_info(exec_env);
 
     interp_call_wasm(module_inst, exec_env, function, argc, argv);
-    return !wasm_get_exception(module_inst) ? true : false;
+    return !wasm_copy_exception(module_inst, NULL);
 }
 
 bool
@@ -2509,6 +2511,12 @@ wasm_module_free(WASMModuleInstance *module_inst, uint32 ptr)
             return;
         }
 
+#if WASM_ENABLE_SHARED_MEMORY != 0
+        WASMSharedMemNode *node = wasm_module_get_shared_memory(
+            (WASMModuleCommon *)module_inst->module);
+        if (node)
+            os_mutex_lock(&node->shared_mem_lock);
+#endif
         addr = memory->memory_data + ptr;
 
         if (memory->heap_handle && memory->heap_data <= addr
@@ -2521,6 +2529,10 @@ wasm_module_free(WASMModuleInstance *module_inst, uint32 ptr)
             execute_free_function(module_inst, module_inst->e->free_function,
                                   ptr);
         }
+#if WASM_ENABLE_SHARED_MEMORY != 0
+        if (node)
+            os_mutex_unlock(&node->shared_mem_lock);
+#endif
     }
 }
 
@@ -2633,7 +2645,7 @@ call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 elem_idx,
 
     interp_call_wasm(module_inst, exec_env, func_inst, argc, argv);
 
-    return !wasm_get_exception(module_inst) ? true : false;
+    return !wasm_copy_exception(module_inst, NULL);
 
 got_exception:
     return false;

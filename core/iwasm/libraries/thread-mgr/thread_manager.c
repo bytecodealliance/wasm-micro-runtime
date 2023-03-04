@@ -16,6 +16,10 @@
 #include "debug_engine.h"
 #endif
 
+#if WASM_ENABLE_SHARED_MEMORY != 0
+#include "wasm_shared_memory.h"
+#endif
+
 typedef struct {
     bh_list_link l;
     void (*destroy_cb)(WASMCluster *);
@@ -826,15 +830,18 @@ clusters_have_exec_env(WASMExecEnv *exec_env)
     WASMExecEnv *node;
 
     while (cluster) {
+        os_mutex_lock(&cluster->lock);
         node = bh_list_first_elem(&cluster->exec_env_list);
 
         while (node) {
             if (node == exec_env) {
                 bh_assert(exec_env->cluster == cluster);
+                os_mutex_unlock(&cluster->lock);
                 return true;
             }
             node = bh_list_elem_next(node);
         }
+        os_mutex_unlock(&cluster->lock);
 
         cluster = bh_list_elem_next(cluster);
     }
@@ -848,13 +855,11 @@ wasm_cluster_join_thread(WASMExecEnv *exec_env, void **ret_val)
     korp_tid handle;
 
     os_mutex_lock(&cluster_list_lock);
-    os_mutex_lock(&exec_env->cluster->lock);
 
     if (!clusters_have_exec_env(exec_env) || exec_env->thread_is_detached) {
         /* Invalid thread, thread has exited or thread has been detached */
         if (ret_val)
             *ret_val = NULL;
-        os_mutex_unlock(&exec_env->cluster->lock);
         os_mutex_unlock(&cluster_list_lock);
         return 0;
     }
@@ -864,7 +869,6 @@ wasm_cluster_join_thread(WASMExecEnv *exec_env, void **ret_val)
     handle = exec_env->handle;
     os_mutex_unlock(&exec_env->wait_lock);
 
-    os_mutex_unlock(&exec_env->cluster->lock);
     os_mutex_unlock(&cluster_list_lock);
 
     return os_thread_join(handle, ret_val);
@@ -1146,12 +1150,22 @@ set_exception_visitor(void *node, void *user_data)
             (WASMModuleInstance *)get_module_inst(curr_exec_env);
 
         /* Only spread non "wasi proc exit" exception */
+#if WASM_ENABLE_SHARED_MEMORY != 0
+        WASMSharedMemNode *shared_mem_node = wasm_module_get_shared_memory(
+            (WASMModuleCommon *)curr_wasm_inst->module);
+        if (shared_mem_node)
+            os_mutex_lock(&shared_mem_node->shared_mem_lock);
+#endif
         if (!strstr(wasm_inst->cur_exception, "wasi proc exit")) {
             bh_memcpy_s(curr_wasm_inst->cur_exception,
                         sizeof(curr_wasm_inst->cur_exception),
                         wasm_inst->cur_exception,
                         sizeof(wasm_inst->cur_exception));
         }
+#if WASM_ENABLE_SHARED_MEMORY != 0
+        if (shared_mem_node)
+            os_mutex_unlock(&shared_mem_node->shared_mem_lock);
+#endif
 
         /* Terminate the thread so it can exit from dead loops */
         set_thread_cancel_flags(curr_exec_env);
@@ -1168,7 +1182,17 @@ clear_exception_visitor(void *node, void *user_data)
         WASMModuleInstance *curr_wasm_inst =
             (WASMModuleInstance *)get_module_inst(curr_exec_env);
 
+#if WASM_ENABLE_SHARED_MEMORY != 0
+        WASMSharedMemNode *shared_mem_node = wasm_module_get_shared_memory(
+            (WASMModuleCommon *)curr_wasm_inst->module);
+        if (shared_mem_node)
+            os_mutex_lock(&shared_mem_node->shared_mem_lock);
+#endif
         curr_wasm_inst->cur_exception[0] = '\0';
+#if WASM_ENABLE_SHARED_MEMORY != 0
+        if (shared_mem_node)
+            os_mutex_unlock(&shared_mem_node->shared_mem_lock);
+#endif
     }
 }
 
