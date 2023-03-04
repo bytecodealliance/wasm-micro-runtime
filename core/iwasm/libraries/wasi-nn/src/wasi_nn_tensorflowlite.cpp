@@ -18,12 +18,15 @@
 #include <tensorflow/lite/error_reporter.h>
 #include <tensorflow/lite/delegates/gpu/delegate.h>
 
+typedef struct {
+    std::unique_ptr<tflite::Interpreter> interpreter;
+    std::unique_ptr<tflite::FlatBufferModel> model;
+    char *model_pointer;
+} TensorflowLiteContext;
+
 /* Global variables */
 
-static std::unique_ptr<tflite::Interpreter> interpreter;
-static std::unique_ptr<tflite::FlatBufferModel> model;
-
-static char *model_pointer = NULL;
+static TensorflowLiteContext context;
 
 /* WASI-NN (tensorflow) implementation */
 
@@ -31,9 +34,9 @@ error
 tensorflowlite_load(graph_builder_array *builder, graph_encoding encoding,
                     execution_target target, graph *g)
 {
-    if (model_pointer != NULL) {
-        wasm_runtime_free(model_pointer);
-        model_pointer = NULL;
+    if (context.model_pointer != NULL) {
+        wasm_runtime_free(context.model_pointer);
+        context.model_pointer = NULL;
     }
 
     if (builder->size != 1) {
@@ -53,30 +56,31 @@ tensorflowlite_load(graph_builder_array *builder, graph_encoding encoding,
 
     uint32_t size = builder->buf[0].size;
 
-    model_pointer = (char *)wasm_runtime_malloc(size);
-    if (model_pointer == NULL) {
+    context.model_pointer = (char *)wasm_runtime_malloc(size);
+    if (context.model_pointer == NULL) {
         NN_ERR_PRINTF("Error when allocating memory for model.");
         return missing_memory;
     }
 
-    bh_memcpy_s(model_pointer, size, builder->buf[0].buf, size);
+    bh_memcpy_s(context.model_pointer, size, builder->buf[0].buf, size);
 
-    model = tflite::FlatBufferModel::BuildFromBuffer(model_pointer, size, NULL);
-    if (model == NULL) {
+    context.model = tflite::FlatBufferModel::BuildFromBuffer(
+        context.model_pointer, size, NULL);
+    if (context.model == NULL) {
         NN_ERR_PRINTF("Loading model error.");
-        wasm_runtime_free(model_pointer);
-        model_pointer = NULL;
+        wasm_runtime_free(context.model_pointer);
+        context.model_pointer = NULL;
         return missing_memory;
     }
 
     // Build the interpreter with the InterpreterBuilder.
     tflite::ops::builtin::BuiltinOpResolver resolver;
-    tflite::InterpreterBuilder tflite_builder(*model, resolver);
-    tflite_builder(&interpreter);
-    if (interpreter == NULL) {
+    tflite::InterpreterBuilder tflite_builder(*context.model, resolver);
+    tflite_builder(&context.interpreter);
+    if (context.interpreter == NULL) {
         NN_ERR_PRINTF("Error when generating the interpreter.");
-        wasm_runtime_free(model_pointer);
-        model_pointer = NULL;
+        wasm_runtime_free(context.model_pointer);
+        context.model_pointer = NULL;
         return missing_memory;
     }
 
@@ -91,7 +95,8 @@ tensorflowlite_load(graph_builder_array *builder, graph_encoding encoding,
             options.inference_priority1 =
                 TFLITE_GPU_INFERENCE_PRIORITY_MIN_LATENCY;
             auto *delegate = TfLiteGpuDelegateV2Create(&options);
-            if (interpreter->ModifyGraphWithDelegate(delegate) != kTfLiteOk) {
+            if (context.interpreter->ModifyGraphWithDelegate(delegate)
+                != kTfLiteOk) {
                 NN_ERR_PRINTF("Error when enabling GPU delegate.");
                 use_default = true;
             }
@@ -109,11 +114,11 @@ tensorflowlite_load(graph_builder_array *builder, graph_encoding encoding,
 error
 tensorflowlite_init_execution_context(graph g, graph_execution_context *ctx)
 {
-    if (interpreter == NULL) {
+    if (context.interpreter == NULL) {
         NN_ERR_PRINTF("Non-initialized interpreter.");
         return runtime_error;
     }
-    interpreter->AllocateTensors();
+    context.interpreter->AllocateTensors();
     return success;
 }
 
@@ -121,18 +126,18 @@ error
 tensorflowlite_set_input(graph_execution_context ctx, uint32_t index,
                          tensor *input_tensor)
 {
-    if (interpreter == NULL) {
+    if (context.interpreter == NULL) {
         NN_ERR_PRINTF("Non-initialized interpreter.");
         return runtime_error;
     }
 
-    uint32_t num_tensors = interpreter->inputs().size();
+    uint32_t num_tensors = context.interpreter->inputs().size();
     NN_DBG_PRINTF("Number of tensors (%d)", num_tensors);
     if (index + 1 > num_tensors) {
         return runtime_error;
     }
 
-    auto tensor = interpreter->input_tensor(index);
+    auto tensor = context.interpreter->input_tensor(index);
     if (tensor == NULL) {
         NN_ERR_PRINTF("Missing memory");
         return missing_memory;
@@ -152,7 +157,7 @@ tensorflowlite_set_input(graph_execution_context ctx, uint32_t index,
         return invalid_argument;
     }
 
-    auto *input = interpreter->typed_input_tensor<float>(index);
+    auto *input = context.interpreter->typed_input_tensor<float>(index);
     if (input == NULL)
         return missing_memory;
 
@@ -164,11 +169,11 @@ tensorflowlite_set_input(graph_execution_context ctx, uint32_t index,
 error
 tensorflowlite_compute(graph_execution_context ctx)
 {
-    if (interpreter == NULL) {
+    if (context.interpreter == NULL) {
         NN_ERR_PRINTF("Non-initialized interpreter.");
         return runtime_error;
     }
-    interpreter->Invoke();
+    context.interpreter->Invoke();
     return success;
 }
 
@@ -177,19 +182,19 @@ tensorflowlite_get_output(graph_execution_context ctx, uint32_t index,
                           tensor_data output_tensor,
                           uint32_t *output_tensor_size)
 {
-    if (interpreter == NULL) {
+    if (context.interpreter == NULL) {
         NN_ERR_PRINTF("Non-initialized interpreter.");
         return runtime_error;
     }
 
-    uint32_t num_output_tensors = interpreter->outputs().size();
+    uint32_t num_output_tensors = context.interpreter->outputs().size();
     NN_DBG_PRINTF("Number of tensors (%d)", num_output_tensors);
 
     if (index + 1 > num_output_tensors) {
         return runtime_error;
     }
 
-    auto tensor = interpreter->output_tensor(index);
+    auto tensor = context.interpreter->output_tensor(index);
     if (tensor == NULL) {
         NN_ERR_PRINTF("Missing memory");
         return missing_memory;
@@ -204,7 +209,7 @@ tensorflowlite_get_output(graph_execution_context ctx, uint32_t index,
         return missing_memory;
     }
 
-    float *tensor_f = interpreter->typed_output_tensor<float>(index);
+    float *tensor_f = context.interpreter->typed_output_tensor<float>(index);
     for (uint32_t i = 0; i < model_tensor_size; ++i)
         NN_DBG_PRINTF("output: %f", tensor_f[i]);
 
@@ -212,6 +217,14 @@ tensorflowlite_get_output(graph_execution_context ctx, uint32_t index,
     bh_memcpy_s(output_tensor, model_tensor_size * sizeof(float), tensor_f,
                 model_tensor_size * sizeof(float));
     return success;
+}
+
+void
+tensorflowlite_initialize()
+{
+    context.interpreter = NULL;
+    context.model_pointer = NULL;
+    context.model = NULL;
 }
 
 void
@@ -224,11 +237,11 @@ tensorflowlite_destroy()
         * https://github.com/tensorflow/tensorflow/issues/15880
     */
     NN_DBG_PRINTF("Freeing memory.");
-    model.reset(nullptr);
-    model = NULL;
-    interpreter.reset(nullptr);
-    interpreter = NULL;
-    wasm_runtime_free(model_pointer);
-    model_pointer = NULL;
+    context.model.reset(nullptr);
+    context.model = NULL;
+    context.interpreter.reset(nullptr);
+    context.interpreter = NULL;
+    wasm_runtime_free(context.model_pointer);
+    context.model_pointer = NULL;
     NN_DBG_PRINTF("Memory free'd.");
 }

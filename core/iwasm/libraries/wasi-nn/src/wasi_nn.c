@@ -261,6 +261,7 @@ wasi_nn_initialize()
     }
     wasi_nn_ctx->is_initialized = true;
     wasi_nn_ctx->current_encoding = 3;
+    tensorflowlite_initialize();
     return wasi_nn_ctx;
 }
 
