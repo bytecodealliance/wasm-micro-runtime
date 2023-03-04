@@ -325,16 +325,13 @@ tensorflowlite_destroy(void *tflite_ctx)
 
     NN_DBG_PRINTF("Freeing memory.");
     for (int i = 0; i < MAX_INST_MODELS; ++i) {
-        tfl_ctx->models[i].model.reset(nullptr);
-        tfl_ctx->models[i].model = NULL;
+        tfl_ctx->models[i].model.reset();
         if (tfl_ctx->models[i].model_pointer)
             wasm_runtime_free(tfl_ctx->models[i].model_pointer);
         tfl_ctx->models[i].model_pointer = NULL;
     }
-    for (int i = 0; i < MAX_INST_INTERPS; ++i) {
-        tfl_ctx->interpreters[i].interpreter.reset(nullptr);
-        tfl_ctx->interpreters[i].interpreter = NULL;
-    }
+    for (int i = 0; i < MAX_INST_INTERPS; ++i)
+        tfl_ctx->interpreters[i].interpreter.reset();
     os_mutex_destroy(&tfl_ctx->g_lock);
     delete tfl_ctx;
     NN_DBG_PRINTF("Memory free'd.");
