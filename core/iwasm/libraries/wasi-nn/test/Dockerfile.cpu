@@ -16,7 +16,6 @@ WORKDIR /home/wamr/core/iwasm/libraries/wasi-nn/test/build
 
 RUN cmake \
   -DWAMR_BUILD_WASI_NN=1 \
-  -DCMAKE_BUILD_TYPE=Debug \
   ..
 
 RUN make -j $(grep -c ^processor /proc/cpuinfo)
@@ -24,7 +23,5 @@ RUN make -j $(grep -c ^processor /proc/cpuinfo)
 FROM ubuntu:22.04
 
 COPY --from=base /home/wamr/core/iwasm/libraries/wasi-nn/test/build/iwasm /run/iwasm
-
-RUN apt-get update && apt-get install -y gdb libubsan1
 
 ENTRYPOINT [ "/run/iwasm" ]

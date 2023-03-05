@@ -16,7 +16,7 @@ WORKDIR /home/wamr/core/iwasm/libraries/wasi-nn/test/build
 
 RUN cmake \
   -DWAMR_BUILD_WASI_NN=1 \
-  -DTFLITE_ENABLE_GPU=ON \
+  -DWASI_NN_ENABLE_GPU=1 \
   ..
 
 RUN make -j $(grep -c ^processor /proc/cpuinfo)

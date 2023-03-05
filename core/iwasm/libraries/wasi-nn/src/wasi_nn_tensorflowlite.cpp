@@ -17,7 +17,7 @@
 #include <tensorflow/lite/optional_debug_tools.h>
 #include <tensorflow/lite/error_reporter.h>
 
-#if defined(TFLITE_ENABLE_GPU)
+#if defined(WASI_NN_ENABLE_GPU)
 #include <tensorflow/lite/delegates/gpu/delegate.h>
 #endif
 
@@ -149,7 +149,8 @@ tensorflowlite_init_execution_context(void *tflite_ctx, graph g,
     switch (tfl_ctx->models[g].target) {
         case gpu:
         {
-#if defined(TFLITE_ENABLE_GPU)
+#if defined(WASI_NN_ENABLE_GPU)
+            NN_WARN_PRINTF("GPU enabled.");
             // https://www.tensorflow.org/lite/performance/gpu
             auto options = TfLiteGpuDelegateOptionsV2Default();
             options.inference_preference =
@@ -164,6 +165,7 @@ tensorflowlite_init_execution_context(void *tflite_ctx, graph g,
                 use_default = true;
             }
 #else
+            NN_WARN_PRINTF("GPU not enabled.");
             use_default = true;
 #endif
             break;

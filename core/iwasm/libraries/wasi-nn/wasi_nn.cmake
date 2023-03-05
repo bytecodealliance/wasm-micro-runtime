@@ -3,8 +3,6 @@
 
 set (WASI_NN_DIR ${CMAKE_CURRENT_LIST_DIR})
 
-add_definitions (-DWASM_ENABLE_WASI_NN=1)
-
 include_directories (${WASI_NN_DIR})
 include_directories (${WASI_NN_DIR}/src)
 include_directories (${WASI_NN_DIR}/src/utils)
