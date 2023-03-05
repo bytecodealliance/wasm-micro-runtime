@@ -78,9 +78,6 @@ Requirements:
 
 Supported:
 
-* Only 1 WASM app at a time.
-* Only 1 model at a time.
-    * `graph` and `graph-execution-context` are ignored.
 * Graph encoding: `tensorflowlite`.
 * Execution target: `cpu` and `gpu`.
 * Tensor type: `fp32`.

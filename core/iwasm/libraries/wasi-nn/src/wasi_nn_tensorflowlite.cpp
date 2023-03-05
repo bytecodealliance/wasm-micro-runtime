@@ -21,8 +21,10 @@
 #include <tensorflow/lite/delegates/gpu/delegate.h>
 #endif
 
-#define MAX_INST_MODELS 10
-#define MAX_INST_INTERPS 10
+/* Maximum number of graphs per WASM instance */
+#define MAX_GRAPHS_PER_INST 10
+/* Maximum number of graph execution context per WASM instance*/
+#define MAX_GRAPH_EXEC_CONTEXTS_PER_INST 10
 
 typedef struct {
     std::unique_ptr<tflite::Interpreter> interpreter;
@@ -37,9 +39,9 @@ typedef struct {
 
 typedef struct {
     uint32_t current_models;
-    Model models[MAX_INST_MODELS];
+    Model models[MAX_GRAPHS_PER_INST];
     uint32_t current_interpreters;
-    Interpreter interpreters[MAX_INST_INTERPS];
+    Interpreter interpreters[MAX_GRAPH_EXEC_CONTEXTS_PER_INST];
     korp_mutex g_lock;
 } TFLiteContext;
 
@@ -49,7 +51,7 @@ static bool
 initialize_g(TFLiteContext *tfl_ctx, graph *g)
 {
     os_mutex_lock(&tfl_ctx->g_lock);
-    if (tfl_ctx->current_models == MAX_INST_MODELS) {
+    if (tfl_ctx->current_models == MAX_GRAPHS_PER_INST) {
         os_mutex_unlock(&tfl_ctx->g_lock);
         return false;
     }
@@ -62,7 +64,7 @@ initialize_graph_ctx(TFLiteContext *tfl_ctx, graph g,
                      graph_execution_context *ctx)
 {
     os_mutex_lock(&tfl_ctx->g_lock);
-    if (tfl_ctx->current_interpreters == MAX_INST_INTERPS) {
+    if (tfl_ctx->current_interpreters == MAX_GRAPH_EXEC_CONTEXTS_PER_INST) {
         os_mutex_unlock(&tfl_ctx->g_lock);
         return false;
     }
@@ -301,7 +303,7 @@ tensorflowlite_initialize(void **tflite_ctx)
 
     NN_DBG_PRINTF("Initializing models.");
     tfl_ctx->current_models = 0;
-    for (int i = 0; i < MAX_INST_MODELS; ++i) {
+    for (int i = 0; i < MAX_GRAPHS_PER_INST; ++i) {
         tfl_ctx->models[i].model_pointer = NULL;
     }
     NN_DBG_PRINTF("Initializing interpreters.");
@@ -326,13 +328,13 @@ tensorflowlite_destroy(void *tflite_ctx)
     TFLiteContext *tfl_ctx = (TFLiteContext *)tflite_ctx;
 
     NN_DBG_PRINTF("Freeing memory.");
-    for (int i = 0; i < MAX_INST_MODELS; ++i) {
+    for (int i = 0; i < MAX_GRAPHS_PER_INST; ++i) {
         tfl_ctx->models[i].model.reset();
         if (tfl_ctx->models[i].model_pointer)
             wasm_runtime_free(tfl_ctx->models[i].model_pointer);
         tfl_ctx->models[i].model_pointer = NULL;
     }
-    for (int i = 0; i < MAX_INST_INTERPS; ++i)
+    for (int i = 0; i < MAX_GRAPH_EXEC_CONTEXTS_PER_INST; ++i)
         tfl_ctx->interpreters[i].interpreter.reset();
     os_mutex_destroy(&tfl_ctx->g_lock);
     delete tfl_ctx;
