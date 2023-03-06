@@ -28,7 +28,7 @@
 #if NN_LOG_LEVEL <= 3
 #define NN_ERR_PRINTF(fmt, ...)                                        \
     do {                                                               \
-        printf("[%s:%d] " fmt, __FILENAME__, __LINE__, ##__VA_ARGS__); \
+        printf("[%s:%d ERROR] " fmt, __FILENAME__, __LINE__, ##__VA_ARGS__); \
         printf("\n");                                                  \
         fflush(stdout);                                                \
     } while (0)
@@ -38,7 +38,7 @@
 #if NN_LOG_LEVEL <= 2
 #define NN_WARN_PRINTF(fmt, ...)                                       \
     do {                                                               \
-        printf("[%s:%d] " fmt, __FILENAME__, __LINE__, ##__VA_ARGS__); \
+        printf("[%s:%d WARNING] " fmt, __FILENAME__, __LINE__, ##__VA_ARGS__); \
         printf("\n");                                                  \
         fflush(stdout);                                                \
     } while (0)
@@ -48,7 +48,7 @@
 #if NN_LOG_LEVEL <= 1
 #define NN_INFO_PRINTF(fmt, ...)                                       \
     do {                                                               \
-        printf("[%s:%d] " fmt, __FILENAME__, __LINE__, ##__VA_ARGS__); \
+        printf("[%s:%d INFO] " fmt, __FILENAME__, __LINE__, ##__VA_ARGS__); \
         printf("\n");                                                  \
         fflush(stdout);                                                \
     } while (0)
@@ -58,7 +58,7 @@
 #if NN_LOG_LEVEL <= 0
 #define NN_DBG_PRINTF(fmt, ...)                                        \
     do {                                                               \
-        printf("[%s:%d] " fmt, __FILENAME__, __LINE__, ##__VA_ARGS__); \
+        printf("[%s:%d DEBUG] " fmt, __FILENAME__, __LINE__, ##__VA_ARGS__); \
         printf("\n");                                                  \
         fflush(stdout);                                                \
     } while (0)
