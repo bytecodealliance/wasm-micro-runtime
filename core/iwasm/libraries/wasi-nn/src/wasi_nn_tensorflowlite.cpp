@@ -28,13 +28,12 @@
 
 typedef struct {
     std::unique_ptr<tflite::Interpreter> interpreter;
-    uint32_t model_idx;
 } Interpreter;
 
 typedef struct {
     char *model_pointer;
-    execution_target target;
     std::unique_ptr<tflite::FlatBufferModel> model;
+    execution_target target;
 } Model;
 
 typedef struct {
@@ -47,30 +46,66 @@ typedef struct {
 
 /* Utils */
 
-static bool
+static error
 initialize_g(TFLiteContext *tfl_ctx, graph *g)
 {
     os_mutex_lock(&tfl_ctx->g_lock);
     if (tfl_ctx->current_models == MAX_GRAPHS_PER_INST) {
         os_mutex_unlock(&tfl_ctx->g_lock);
-        return false;
+        NN_ERR_PRINTF("Excedded max graphs per WASM instance");
+        return runtime_error;
     }
     *g = tfl_ctx->current_models++;
     os_mutex_unlock(&tfl_ctx->g_lock);
-    return true;
+    return success;
 }
-static bool
+static error
 initialize_graph_ctx(TFLiteContext *tfl_ctx, graph g,
                      graph_execution_context *ctx)
 {
     os_mutex_lock(&tfl_ctx->g_lock);
     if (tfl_ctx->current_interpreters == MAX_GRAPH_EXEC_CONTEXTS_PER_INST) {
         os_mutex_unlock(&tfl_ctx->g_lock);
-        return false;
+        NN_ERR_PRINTF("Excedded max graph execution context per WASM instance");
+        return runtime_error;
     }
     *ctx = tfl_ctx->current_interpreters++;
     os_mutex_unlock(&tfl_ctx->g_lock);
-    return true;
+    return success;
+}
+
+static error
+is_valid_graph(TFLiteContext *tfl_ctx, graph g)
+{
+    if (g >= MAX_GRAPHS_PER_INST) {
+        NN_ERR_PRINTF("Invalid graph: %d >= %d.", g, MAX_GRAPHS_PER_INST);
+        return runtime_error;
+    }
+    if (tfl_ctx->models[g].model_pointer == NULL) {
+        NN_ERR_PRINTF("Context (model) non-initialized.");
+        return runtime_error;
+    }
+    if (tfl_ctx->models[g].model == NULL) {
+        NN_ERR_PRINTF("Context (tflite model) non-initialized.");
+        return runtime_error;
+    }
+    return success;
+}
+
+static error
+is_valid_graph_execution_context(TFLiteContext *tfl_ctx,
+                                 graph_execution_context ctx)
+{
+    if (ctx >= MAX_GRAPH_EXEC_CONTEXTS_PER_INST) {
+        NN_ERR_PRINTF("Invalid graph execution context: %d >= %d", ctx,
+                      MAX_GRAPH_EXEC_CONTEXTS_PER_INST);
+        return runtime_error;
+    }
+    if (tfl_ctx->interpreters[ctx].interpreter == NULL) {
+        NN_ERR_PRINTF("Context (interpreter) non-initialized.");
+        return runtime_error;
+    }
+    return success;
 }
 
 /* WASI-NN (tensorflow) implementation */
@@ -96,8 +131,9 @@ tensorflowlite_load(void *tflite_ctx, graph_builder_array *builder,
         return invalid_argument;
     }
 
-    if (!initialize_g(tfl_ctx, g))
-        return runtime_error;
+    error res;
+    if (success != (res = initialize_g(tfl_ctx, g)))
+        return res;
 
     uint32_t size = builder->buf[0].size;
 
@@ -134,8 +170,12 @@ tensorflowlite_init_execution_context(void *tflite_ctx, graph g,
 {
     TFLiteContext *tfl_ctx = (TFLiteContext *)tflite_ctx;
 
-    if (!initialize_graph_ctx(tfl_ctx, g, ctx))
-        return runtime_error;
+    error res;
+    if (success != (res = is_valid_graph(tfl_ctx, g)))
+        return res;
+
+    if (success != (res = initialize_graph_ctx(tfl_ctx, g, ctx)))
+        return res;
 
     // Build the interpreter with the InterpreterBuilder.
     tflite::ops::builtin::BuiltinOpResolver resolver;
@@ -179,7 +219,6 @@ tensorflowlite_init_execution_context(void *tflite_ctx, graph g,
         NN_WARN_PRINTF("Default encoding is CPU.");
 
     tfl_ctx->interpreters[*ctx].interpreter->AllocateTensors();
-    tfl_ctx->interpreters[*ctx].model_idx = g;
     return success;
 }
 
@@ -189,10 +228,9 @@ tensorflowlite_set_input(void *tflite_ctx, graph_execution_context ctx,
 {
     TFLiteContext *tfl_ctx = (TFLiteContext *)tflite_ctx;
 
-    if (tfl_ctx->interpreters[ctx].interpreter == NULL) {
-        NN_ERR_PRINTF("Non-initialized interpreter.");
-        return runtime_error;
-    }
+    error res;
+    if (success != (res = is_valid_graph_execution_context(tfl_ctx, ctx)))
+        return res;
 
     uint32_t num_tensors =
         tfl_ctx->interpreters[ctx].interpreter->inputs().size();
@@ -237,10 +275,10 @@ tensorflowlite_compute(void *tflite_ctx, graph_execution_context ctx)
 {
     TFLiteContext *tfl_ctx = (TFLiteContext *)tflite_ctx;
 
-    if (tfl_ctx->interpreters[ctx].interpreter == NULL) {
-        NN_ERR_PRINTF("Non-initialized interpreter.");
-        return runtime_error;
-    }
+    error res;
+    if (success != (res = is_valid_graph_execution_context(tfl_ctx, ctx)))
+        return res;
+
     tfl_ctx->interpreters[ctx].interpreter->Invoke();
     return success;
 }
@@ -252,10 +290,9 @@ tensorflowlite_get_output(void *tflite_ctx, graph_execution_context ctx,
 {
     TFLiteContext *tfl_ctx = (TFLiteContext *)tflite_ctx;
 
-    if (tfl_ctx->interpreters[ctx].interpreter == NULL) {
-        NN_ERR_PRINTF("Non-initialized interpreter.");
-        return runtime_error;
-    }
+    error res;
+    if (success != (res = is_valid_graph_execution_context(tfl_ctx, ctx)))
+        return res;
 
     uint32_t num_output_tensors =
         tfl_ctx->interpreters[ctx].interpreter->outputs().size();
@@ -334,8 +371,9 @@ tensorflowlite_destroy(void *tflite_ctx)
             wasm_runtime_free(tfl_ctx->models[i].model_pointer);
         tfl_ctx->models[i].model_pointer = NULL;
     }
-    for (int i = 0; i < MAX_GRAPH_EXEC_CONTEXTS_PER_INST; ++i)
+    for (int i = 0; i < MAX_GRAPH_EXEC_CONTEXTS_PER_INST; ++i) {
         tfl_ctx->interpreters[i].interpreter.reset();
+    }
     os_mutex_destroy(&tfl_ctx->g_lock);
     delete tfl_ctx;
     NN_DBG_PRINTF("Memory free'd.");
