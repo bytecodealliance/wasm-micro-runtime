@@ -580,7 +580,10 @@ thread_manager_start_routine(void *arg)
 
     os_mutex_lock(&exec_env->wait_lock);
     exec_env->handle = os_self_thread();
+    /* Notify the parent thread to continue running */
+    os_cond_signal(&exec_env->wait_cond);
     os_mutex_unlock(&exec_env->wait_lock);
+
     ret = exec_env->thread_start_routine(exec_env);
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
@@ -664,12 +667,20 @@ wasm_cluster_create_thread(WASMExecEnv *exec_env,
     new_exec_env->thread_start_routine = thread_routine;
     new_exec_env->thread_arg = arg;
 
+    os_mutex_lock(&new_exec_env->wait_lock);
+
     if (0
         != os_thread_create(&tid, thread_manager_start_routine,
                             (void *)new_exec_env,
                             APP_THREAD_STACK_SIZE_DEFAULT)) {
+        os_mutex_unlock(&new_exec_env->wait_lock);
         goto fail4;
     }
+
+    /* Wait until the new_exec_env->handle is set to avoid it is
+       illegally accessed after unlocking cluster->lock */
+    os_cond_wait(&new_exec_env->wait_cond, &new_exec_env->wait_lock);
+    os_mutex_unlock(&new_exec_env->wait_lock);
 
     os_mutex_unlock(&cluster->lock);
 
