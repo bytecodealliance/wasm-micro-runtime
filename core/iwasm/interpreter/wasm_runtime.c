@@ -2075,7 +2075,7 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
 
     if (module_inst->exec_env_singleton) {
         /* wasm_exec_env_destroy will call
-           wasm_cluster_terminate_all_except_self to terminate other
+           wasm_cluster_wait_for_all_except_self to wait for other
            threads, so as to destroy their exec_envs and module
            instances first, and avoid accessing the shared resources
            of current module instance after it is deinstantiated. */
