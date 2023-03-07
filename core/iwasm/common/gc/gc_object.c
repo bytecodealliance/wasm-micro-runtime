@@ -43,6 +43,7 @@ gc_obj_malloc(void *heap_handle, uint64 size)
 
     if (size >= UINT32_MAX
         || !(mem = mem_allocator_malloc_with_gc(heap_handle, (uint32)size))) {
+        LOG_WARNING("warning: failed to allocate memory for gc object");
         return NULL;
     }
 

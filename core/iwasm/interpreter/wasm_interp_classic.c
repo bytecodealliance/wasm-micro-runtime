@@ -1651,13 +1651,13 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                 /* clang-format off */
 #if WASM_ENABLE_GC == 0
-                fidx = ((uint32 *)tbl_inst->elems)[val];
+                fidx = tbl_inst->elems[val];
                 if (fidx == (uint32)-1) {
                     wasm_set_exception(module, "uninitialized element");
                     goto got_exception;
                 }
 #else
-                func_obj = ((WASMFuncObjectRef *)tbl_inst->elems)[val];
+                func_obj = (WASMFuncObjectRef)tbl_inst->elems[val];
                 if (!func_obj) {
                     wasm_set_exception(module, "uninitialized element");
                     goto got_exception;
@@ -1684,19 +1684,21 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 else
                     cur_func_type = cur_func->u.func->func_type;
 
+                    /* clang-format off */
 #if WASM_ENABLE_GC == 0
                 if (cur_type != cur_func_type) {
                     wasm_set_exception(module, "indirect call type mismatch");
                     goto got_exception;
                 }
 #else
-        if (!wasm_func_type_equal(cur_type, cur_func_type,
-                                  module->module->types,
-                                  module->module->type_count)) {
-            wasm_set_exception(module, "indirect call type mismatch");
-            goto got_exception;
-        }
+                if (!wasm_func_type_equal(cur_type, cur_func_type,
+                                          module->module->types,
+                                          module->module->type_count)) {
+                    wasm_set_exception(module, "indirect call type mismatch");
+                    goto got_exception;
+                }
 #endif
+                /* clang-format on */
 
 #if WASM_ENABLE_TAIL_CALL != 0
                 if (opcode == WASM_OP_RETURN_CALL_INDIRECT)
@@ -1786,9 +1788,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 }
 
 #if WASM_ENABLE_GC == 0
-                PUSH_I32(((uint32 *)tbl_inst->elems)[elem_idx]);
+                PUSH_I32(tbl_inst->elems[elem_idx]);
 #else
-                PUSH_REF(((table_elem_type_t *)tbl_inst->elems)[elem_idx]);
+                PUSH_REF(tbl_inst->elems[elem_idx]);
 #endif
                 HANDLE_OP_END();
             }
@@ -1815,7 +1817,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     goto got_exception;
                 }
 
-                ((table_elem_type_t *)(tbl_inst->elems))[elem_idx] = elem_val;
+                tbl_inst->elems[elem_idx] = elem_val;
                 HANDLE_OP_END();
             }
 
@@ -2461,7 +2463,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #if WASM_ENABLE_THREAD_MGR != 0
                         CHECK_SUSPEND_FLAGS();
 #endif
-                        read_leb_int32(frame_ip, frame_ip_end, depth);
+                        read_leb_uint32(frame_ip, frame_ip_end, depth);
                         read_leb_int32(frame_ip, frame_ip_end, heap_type);
 
                         gc_obj = GET_REF_FROM_ADDR(frame_sp - REF_CELL_NUM);
@@ -4205,7 +4207,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             (uint32)(n * sizeof(uint32)));
 #else
                         SYNC_ALL_TO_FRAME();
-                        table_elems = (table_elem_type_t *)tbl_inst->elems + d;
+                        table_elems = tbl_inst->elems + d;
                         func_indexes = module->module->table_segments[elem_idx]
                                            .func_indexes
                                        + s;
@@ -4347,8 +4349,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         }
 
                         for (; n != 0; i++, n--) {
-                            ((table_elem_type_t *)tbl_inst->elems)[i] =
-                                fill_val;
+                            tbl_inst->elems[i] = fill_val;
                         }
                         break;
                     }

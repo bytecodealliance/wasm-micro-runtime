@@ -135,6 +135,10 @@ static JitCompOptions jit_options = { 0 };
 static LLVMJITOptions llvm_jit_options = { 3, 3 };
 #endif
 
+#if WASM_ENABLE_GC != 0
+static uint32 gc_heap_size_default = GC_HEAP_SIZE_DEFAULT;
+#endif
+
 static RunningMode runtime_running_mode = Mode_Default;
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
@@ -537,6 +541,14 @@ wasm_runtime_get_llvm_jit_options(void)
 }
 #endif
 
+#if WASM_ENABLE_GC != 0
+uint32
+wasm_runtime_get_gc_heap_size_default(void)
+{
+    return gc_heap_size_default;
+}
+#endif
+
 bool
 wasm_runtime_full_init(RuntimeInitArgs *init_args)
 {
@@ -551,6 +563,10 @@ wasm_runtime_full_init(RuntimeInitArgs *init_args)
 
 #if WASM_ENABLE_FAST_JIT != 0
     jit_options.code_cache_size = init_args->fast_jit_code_cache_size;
+#endif
+
+#if WASM_ENABLE_GC != 0
+    gc_heap_size_default = init_args->gc_heap_size;
 #endif
 
 #if WASM_ENABLE_JIT != 0

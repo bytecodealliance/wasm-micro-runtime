@@ -10410,6 +10410,10 @@ re_scan:
                 if (available_stack_cell
                     > 0) { /* stack isn't in polymorphic state */
                     POP_REF(type);
+#if WASM_ENABLE_FAST_INTERP != 0
+                    /* Erase the opnd offset emitted by POP_REF() */
+                    wasm_loader_emit_backspace(loader_ctx, sizeof(uint16));
+#endif
                 }
                 break;
             }
@@ -11209,6 +11213,9 @@ re_scan:
                 uint32 opcode1;
 
                 read_leb_uint32(p, p_end, opcode1);
+#if WASM_ENABLE_FAST_INTERP != 0
+                emit_byte(loader_ctx, ((uint8)opcode1));
+#endif
 
                 switch (opcode1) {
                     case WASM_OP_STRUCT_NEW_CANON:
@@ -11598,6 +11605,9 @@ re_scan:
                         uint8 type;
 
                         read_leb_int32(p, p_end, heap_type);
+#if WASM_ENABLE_FAST_INTERP != 0
+                        emit_uint32(loader_ctx, (uint32)heap_type);
+#endif
                         if (heap_type >= 0) {
                             if (!check_type_index(module, heap_type, error_buf,
                                                   error_buf_size)) {
@@ -11639,16 +11649,21 @@ re_scan:
 
                         p_org = p;
 
-                        read_leb_int32(p, p_end, depth);
+                        read_leb_uint32(p, p_end, depth);
+                        read_leb_int32(p, p_end, heap_type);
+#if WASM_ENABLE_FAST_INTERP != 0
+                        /* Emit heap_type firstly */
+                        emit_uint32(loader_ctx, (uint32)heap_type);
+#endif
                         (void)depth;
 
+                        /* Pop and backup the stack top's ref type */
                         if (!wasm_loader_pop_heap_obj(loader_ctx, &type_tmp,
                                                       &ref_type_tmp, error_buf,
                                                       error_buf_size)) {
                             goto fail;
                         }
 
-                        read_leb_int32(p, p_end, heap_type);
                         if (heap_type >= 0) {
                             if (!check_type_index(module, heap_type, error_buf,
                                                   error_buf_size)) {
@@ -11671,15 +11686,22 @@ re_scan:
                         }
 
                         p = p_org;
+                        /* Push ref type casted for branch block check */
                         PUSH_REF(wasm_ref_type.ref_type);
                         if (!(frame_csp_tmp = check_branch_block(
                                   loader_ctx, &p, p_end, false, error_buf,
                                   error_buf_size))) {
                             goto fail;
                         }
-                        POP_REF(wasm_ref_type.ref_type);
+                        /* Ignore heap_type */
                         skip_leb_uint32(p, p_end);
 
+                        /* Restore the original stack top's ref type */
+                        POP_REF(wasm_ref_type.ref_type);
+#if WASM_ENABLE_FAST_INTERP != 0
+                        /* Erase the opnd offset emitted by POP_REF() */
+                        wasm_loader_emit_backspace(loader_ctx, sizeof(uint16));
+#endif
                         if (wasm_is_type_multi_byte_type(type_tmp)) {
                             bh_memcpy_s(
                                 &wasm_ref_type,
@@ -11688,33 +11710,56 @@ re_scan:
                                 wasm_reftype_struct_size(&ref_type_tmp));
                         }
                         PUSH_REF(type_tmp);
+#if WASM_ENABLE_FAST_INTERP != 0
+                        /* Erase the opnd offset emitted by PUSH_REF() */
+                        wasm_loader_emit_backspace(loader_ctx, sizeof(uint16));
+#endif
                         break;
                     }
 
                     case WASM_OP_BR_ON_CAST_FAIL:
                     case WASM_OP_BR_ON_CAST_FAIL_NULLABLE:
                     {
-                        WASMRefType ref_type_tmp;
                         uint8 type_tmp;
+                        uint32 depth;
                         bool nullable;
 
                         nullable = (opcode1 == WASM_OP_BR_ON_CAST_FAIL_NULLABLE)
                                        ? true
                                        : false;
 
+                        p_org = p;
+                        read_leb_uint32(p, p_end, depth);
+                        read_leb_int32(p, p_end, heap_type);
+#if WASM_ENABLE_FAST_INTERP != 0
+                        /* Emit heap_type firstly */
+                        emit_uint32(loader_ctx, (uint32)heap_type);
+#endif
+                        (void)depth;
+
+                        /* Pop and push the stack top's ref type so fast-interp
+                           can get the opnd offset */
+                        if (!wasm_loader_pop_heap_obj(loader_ctx, &type_tmp,
+                                                      &wasm_ref_type, error_buf,
+                                                      error_buf_size)) {
+                            goto fail;
+                        }
+                        p = p_org;
+                        PUSH_REF(type_tmp);
                         if (!(frame_csp_tmp = check_branch_block(
                                   loader_ctx, &p, p_end, false, error_buf,
                                   error_buf_size))) {
                             goto fail;
                         }
+                        /* Ignore heap_type */
+                        skip_leb_uint32(p, p_end);
 
-                        if (!wasm_loader_pop_heap_obj(loader_ctx, &type_tmp,
-                                                      &ref_type_tmp, error_buf,
-                                                      error_buf_size)) {
-                            goto fail;
-                        }
-
-                        read_leb_int32(p, p_end, heap_type);
+                        /* Pop the original ref type, and push the casted
+                           ref type */
+                        POP_REF(type_tmp);
+#if WASM_ENABLE_FAST_INTERP != 0
+                        wasm_loader_emit_backspace(loader_ctx, sizeof(uint16));
+#endif
                         if (heap_type >= 0) {
                             if (!check_type_index(module, heap_type, error_buf,
                                                   error_buf_size)) {
@@ -11735,8 +11780,11 @@ re_scan:
                                 &wasm_ref_type.ref_ht_common, nullable,
                                 heap_type);
                         }
-
                         PUSH_REF(wasm_ref_type.ref_type);
+#if WASM_ENABLE_FAST_INTERP != 0
+                        /* Erase the opnd offset emitted by PUSH_REF() */
+                        wasm_loader_emit_backspace(loader_ctx, sizeof(uint16));
+#endif
                         break;
                     }
 
