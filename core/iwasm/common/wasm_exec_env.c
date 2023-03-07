@@ -175,7 +175,7 @@ wasm_exec_env_destroy(WASMExecEnv *exec_env)
     /* Wait for all sub-threads */
     WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
     if (cluster) {
-        wasm_cluster_wait_all_except_self(cluster, exec_env);
+        wasm_cluster_wait_for_all_except_self(cluster, exec_env);
 #if WASM_ENABLE_DEBUG_INTERP != 0
         /* Must fire exit event after other threads exits, otherwise
            the stopped thread will be overrided by other threads */
