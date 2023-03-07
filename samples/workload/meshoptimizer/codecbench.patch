@@ -1,8 +1,8 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index b13d946..4254003 100644
+index 612cf3b..22a365a 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -149,3 +149,43 @@ install(FILES
+@@ -158,3 +158,43 @@ install(FILES
      ${CMAKE_CURRENT_BINARY_DIR}/meshoptimizerConfigVersion.cmake
      COMPONENT meshoptimizer
      DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/meshoptimizer)
@@ -47,10 +47,10 @@ index b13d946..4254003 100644
 +
 +add_dependencies(codecbench.opt codecbench)
 diff --git a/src/vertexcodec.cpp b/src/vertexcodec.cpp
-index 821c467..b7d30b1 100644
+index 4bd1112..257c258 100644
 --- a/src/vertexcodec.cpp
 +++ b/src/vertexcodec.cpp
-@@ -83,13 +83,13 @@
+@@ -89,13 +89,13 @@
  #endif
  
  #ifdef SIMD_WASM
@@ -71,7 +71,7 @@ index 821c467..b7d30b1 100644
  #endif
  
  namespace meshopt
-@@ -691,7 +691,7 @@ static v128_t decodeShuffleMask(unsigned char mask0, unsigned char mask1)
+@@ -757,7 +757,7 @@ static v128_t decodeShuffleMask(unsigned char mask0, unsigned char mask1)
  	v128_t sm1 = wasm_v128_load(&kDecodeBytesGroupShuffle[mask1]);
  
  	v128_t sm1off = wasm_v128_load(&kDecodeBytesGroupCount[mask0]);
@@ -80,7 +80,7 @@ index 821c467..b7d30b1 100644
  
  	v128_t sm1r = wasm_i8x16_add(sm1, sm1off);
  
-@@ -741,7 +741,7 @@ static const unsigned char* decodeBytesGroupSimd(const unsigned char* data, unsi
+@@ -807,7 +807,7 @@ static const unsigned char* decodeBytesGroupSimd(const unsigned char* data, unsi
  
  		v128_t shuf = decodeShuffleMask(mask0, mask1);
  
@@ -89,7 +89,7 @@ index 821c467..b7d30b1 100644
  
  		wasm_v128_store(buffer, result);
  
-@@ -763,7 +763,7 @@ static const unsigned char* decodeBytesGroupSimd(const unsigned char* data, unsi
+@@ -829,7 +829,7 @@ static const unsigned char* decodeBytesGroupSimd(const unsigned char* data, unsi
  
  		v128_t shuf = decodeShuffleMask(mask0, mask1);
  
@@ -99,7 +99,7 @@ index 821c467..b7d30b1 100644
  		wasm_v128_store(buffer, result);
  
 diff --git a/src/vertexfilter.cpp b/src/vertexfilter.cpp
-index 14a73b1..8f4b3c1 100644
+index 5c7589c..c79cad4 100644
 --- a/src/vertexfilter.cpp
 +++ b/src/vertexfilter.cpp
 @@ -57,10 +57,10 @@
@@ -116,4 +116,4 @@ index 14a73b1..8f4b3c1 100644
 +#define wasmx_unziphi_v32x4(a, b) wasm_i32x4_shuffle(a, b, 1, 3, 5, 7)
  #endif
  
- namespace meshopt
+ #ifndef __has_builtin
