@@ -93,14 +93,17 @@ void
 os_thread_exit(void *retval);
 
 #ifndef os_atomic_thread_fence
-#if defined(__clang__) /* clang compiler */
+
+#include <stdatomic.h>
+
 #define BH_ATOMIC_RELEASE __ATOMIC_RELEASE
-#define os_atomic_thread_fence(memorder) atomic_thread_fence(memorder)
-#else /* other compilers */
-#define BH_ATOMIC_RELEASE __ATOMIC_RELEASE
-#define os_atomic_thread_fence(memorder) __atomic_thread_fence(memorder)
-#endif
-#endif
+
+void
+os_atomic_thread_fence(int memorder);
+
+#define os_atomic_thread_fence atomic_thread_fence
+
+#endif /* end of os_atomic_thread_fence */
 
 /**
  * Initialize current thread environment if current thread
