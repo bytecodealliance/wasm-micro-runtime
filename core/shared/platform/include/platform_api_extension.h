@@ -92,6 +92,16 @@ int os_thread_detach(korp_tid);
 void
 os_thread_exit(void *retval);
 
+#ifndef os_atomic_thread_fence
+#if defined(__clang__) /* clang compiler */
+#define BH_ATOMIC_RELEASE __ATOMIC_RELEASE
+#define os_atomic_thread_fence(memorder) atomic_thread_fence(memorder)
+#else /* other compilers */
+#define BH_ATOMIC_RELEASE __ATOMIC_RELEASE
+#define os_atomic_thread_fence(memorder) __atomic_thread_fence(memorder)
+#endif
+#endif
+
 /**
  * Initialize current thread environment if current thread
  * is created by developer but not runtime

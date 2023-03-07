@@ -2073,6 +2073,15 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
     if (!module_inst)
         return;
 
+    if (module_inst->exec_env_singleton) {
+        /* wasm_exec_env_destroy will call
+           wasm_cluster_terminate_all_except_self to terminate other
+           threads, so as to destroy their exec_envs and module
+           instances first, and avoid accessing the shared resources
+           of current module instance after it is deinstantiated. */
+        wasm_exec_env_destroy(module_inst->exec_env_singleton);
+    }
+
 #if WASM_ENABLE_DEBUG_INTERP != 0                         \
     || (WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
         && WASM_ENABLE_LAZY_JIT != 0)
@@ -2154,9 +2163,6 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
 #if WASM_ENABLE_REF_TYPES != 0
     wasm_externref_cleanup((WASMModuleInstanceCommon *)module_inst);
 #endif
-
-    if (module_inst->exec_env_singleton)
-        wasm_exec_env_destroy(module_inst->exec_env_singleton);
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
     if (module_inst->frames) {
