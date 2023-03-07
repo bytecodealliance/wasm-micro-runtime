@@ -3307,7 +3307,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     }
                     case WASM_OP_ATOMIC_FENCE:
                     {
-                        os_atomic_thread_fence(BH_ATOMIC_RELEASE);
+                        os_atomic_thread_fence(os_memory_order_release);
                         break;
                     }
 
