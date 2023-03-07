@@ -283,7 +283,7 @@ def main():
             return commit_hash is not None
         
         repo_addr = llvm_info["repo"]
-        if os.environ['USE_GIT_SSH'] == "true":
+        if os.environ.get('USE_GIT_SSH') == "true":
             repo_addr = llvm_info["repo_ssh"]
         else:
             print("To use ssh for git clone, run: export USE_GIT_SSH=true")
