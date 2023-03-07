@@ -224,8 +224,8 @@ echo -e "\n\n"
 
 echo "##############  Start to build runtime sdk  ###############"
 cd ${sdk_root}/runtime
-rm -fr build_runtime_sdk && mkdir build_runtime_sdk
-cd build_runtime_sdk
+rm -fr build-runtime-sdk && mkdir build-runtime-sdk
+cd build-runtime-sdk
 cmake .. $CM_DEXTRA_SDK_INCLUDE_PATH \
        -DWAMR_BUILD_SDK_PROFILE=${PROFILE} \
        -DCONFIG_PATH=${wamr_config_cmake_file} \
@@ -249,6 +249,6 @@ fi
 
 
 cd ..
-rm -fr build_runtime_sdk
+rm -fr build-runtime-sdk
 
 exit 0
