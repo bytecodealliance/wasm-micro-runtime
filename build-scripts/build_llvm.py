@@ -23,6 +23,7 @@ def clone_llvm(dst_dir, llvm_repo, llvm_branch):
 
     if not llvm_dir.exists():
         GIT_CLONE_CMD = f"git clone --depth 1 --branch {llvm_branch} {llvm_repo} llvm"
+        print(GIT_CLONE_CMD)
         subprocess.check_output(shlex.split(GIT_CLONE_CMD), cwd=dst_dir)
 
     return llvm_dir
@@ -250,14 +251,17 @@ def main():
     llvm_repo_and_branch = {
         "arc": {
             "repo": "https://github.com/llvm/llvm-project.git",
+            "repo_ssh": "git@github.com:llvm/llvm-project.git",
             "branch": "release/15.x",
         },
         "xtensa": {
-            "repo": "https://github.com/espressif/llvm-project.git",
+            "repo": "https://github.com/espressif/llvm-project.git", 
+            "repo_ssh": "git@github.com:espressif/llvm-project.git",
             "branch": "xtensa_release_15.x",
         },
         "default": {
             "repo": "https://github.com/llvm/llvm-project.git",
+            "repo_ssh": "git@github.com:llvm/llvm-project.git",
             "branch": "release/15.x",
         },
     }
@@ -278,7 +282,13 @@ def main():
             print(commit_hash)
             return commit_hash is not None
         
-        llvm_dir = clone_llvm(deps_dir, llvm_info["repo"], llvm_info["branch"])
+        repo_addr = llvm_info["repo"]
+        if os.environ['USE_GIT_SSH'] == "true":
+            repo_addr = llvm_info["repo_ssh"]
+        else:
+            print("To use ssh for git clone, run: export USE_GIT_SSH=true")
+        
+        llvm_dir = clone_llvm(deps_dir, repo_addr, llvm_info["branch"])
         if (
             build_llvm(
                 llvm_dir, platform, options.arch, options.project, options.use_clang,
