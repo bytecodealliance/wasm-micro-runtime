@@ -574,19 +574,64 @@ function malformed_test()
     ./malformed_test.py --run ${IWASM_CMD} | tee ${REPORT_DIR}/malfomed_$1_test_report.txt
 }
 
+function collect_standalone()
+{
+    if [[ ${COLLECT_CODE_COVERAGE} == 1 ]]; then
+        pushd ${WORK_DIR} > /dev/null 2>&1
+
+        CODE_COV_FILE=""
+        if [[ -z "${CODE_COV_FILE}" ]]; then
+            CODE_COV_FILE="${WORK_DIR}/wamr.lcov"
+        else
+            CODE_COV_FILE="${CODE_COV_FILE}"
+        fi
+
+        STANDALONE_DIR=${WORK_DIR}/../../standalone
+
+        echo "Collect code coverage of standalone dump-call-stack"
+        ./collect_coverage.sh "${CODE_COV_FILE}" "${STANDALONE_DIR}/dump-call-stack/build"
+        echo "Collect code coverage of standalone dump-mem-profiling"
+        ./collect_coverage.sh "${CODE_COV_FILE}" "${STANDALONE_DIR}/dump-mem-profiling/build"
+        echo "Collect code coverage of standalone dump-perf-profiling"
+        ./collect_coverage.sh "${CODE_COV_FILE}" "${STANDALONE_DIR}/dump-perf-profiling/build"
+        if [[ $1 == "aot" ]]; then
+            echo "Collect code coverage of standalone pad-test"
+            ./collect_coverage.sh "${CODE_COV_FILE}" "${STANDALONE_DIR}/pad-test/build"
+        fi
+        echo "Collect code coverage of standalone test-invoke-native"
+        ./collect_coverage.sh "${CODE_COV_FILE}" "${STANDALONE_DIR}/test-invoke-native/build"
+        echo "Collect code coverage of standalone test-running-modes"
+        ./collect_coverage.sh "${CODE_COV_FILE}" "${STANDALONE_DIR}/test-running-modes/build"
+        echo "Collect code coverage of standalone test-running-modes/c-embed"
+        ./collect_coverage.sh "${CODE_COV_FILE}" "${STANDALONE_DIR}/test-running-modes/c-embed/build"
+        echo "Collect code coverage of standalone test-ts2"
+        ./collect_coverage.sh "${CODE_COV_FILE}" "${STANDALONE_DIR}/test-ts2/build"
+
+        popd > /dev/null 2>&1
+    fi
+}
+
 function standalone_test()
 {
+    if [[ ${COLLECT_CODE_COVERAGE} == 1 ]]; then
+        export COLLECT_CODE_COVERAGE=1
+    fi
+
     cd ${WORK_DIR}/../../standalone
 
     args="--$1"
 
     [[ ${SGX_OPT} == "--sgx" ]] && args="$args --sgx" || args="$args --no-sgx"
 
-    [[ ${ENABLE_MULTI_THREAD} == 1 ]] && args="$args --thread" && args="$args --no-thread"
+    [[ ${ENABLE_MULTI_THREAD} == 1 ]] && args="$args --thread" || args="$args --no-thread"
 
-    [[ ${ENABLE_SIMD} == 1 ]] && args="$args --simd" && args="$args --no-simd"
+    [[ ${ENABLE_SIMD} == 1 ]] && args="$args --simd" || args="$args --no-simd"
+
+    args="$args ${TARGET}"
 
     ./standalone.sh $args | tee ${REPORT_DIR}/standalone_$1_test_report.txt
+
+    collect_standalone "$1"
 }
 
 function build_iwasm_with_cfg()
@@ -648,10 +693,10 @@ function collect_coverage()
         ln -sf ${WORK_DIR}/../spec-test-script/collect_coverage.sh ${WORK_DIR}
 
         CODE_COV_FILE=""
-        if [[ -z "${COV_FILE}" ]]; then
+        if [[ -z "${CODE_COV_FILE}" ]]; then
             CODE_COV_FILE="${WORK_DIR}/wamr.lcov"
         else
-            CODE_COV_FILE="${COV_FILE}"
+            CODE_COV_FILE="${CODE_COV_FILE}"
         fi
 
         pushd ${WORK_DIR} > /dev/null 2>&1
