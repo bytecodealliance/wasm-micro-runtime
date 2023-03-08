@@ -386,10 +386,13 @@ map_remove_wait_info(HashMap *wait_map_, AtomicWaitInfo *wait_info,
     os_mutex_lock(&wait_map_lock);
     --wait_info->count_acquisition;
 
+    os_mutex_lock(&wait_info->wait_list_lock);
     if (wait_info->wait_list->len > 0) {
+        os_mutex_unlock(&wait_info->wait_list_lock);
         os_mutex_unlock(&wait_map_lock);
         return false;
     }
+    os_mutex_unlock(&wait_info->wait_list_lock);
     if (wait_info->count_acquisition > 0) {
         os_mutex_unlock(&wait_map_lock);
         return false;
