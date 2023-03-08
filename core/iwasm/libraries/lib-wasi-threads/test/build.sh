@@ -6,7 +6,6 @@
 #
 
 CC=${CC:=/opt/wasi-sdk/bin/clang}
-WASI_SYSROOT=${WASI_SYSROOT:=~/dev/wasi-libc/sysroot}
 WAMR_DIR=../../../../..
 
 for test_c in *.c; do
@@ -14,7 +13,6 @@ for test_c in *.c; do
 
     echo "Compiling $test_c to $test_wasm"
     $CC \
-        --sysroot $WASI_SYSROOT \
         -target wasm32-wasi-threads \
         -pthread -ftls-model=local-exec \
         -z stack-size=32768 \
