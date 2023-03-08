@@ -2247,7 +2247,6 @@ call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
     WASMRuntimeFrame *prev_frame = wasm_exec_env_get_cur_frame(exec_env);
     uint8 *prev_top = exec_env->wasm_stack.s.top;
 #ifdef BH_PLATFORM_WINDOWS
-    const char *exce;
     int result;
     bool has_exception;
     char exception[EXCEPTION_BUF_LEN];

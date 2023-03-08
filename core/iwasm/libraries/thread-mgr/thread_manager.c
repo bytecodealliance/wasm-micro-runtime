@@ -100,7 +100,8 @@ safe_traverse_exec_env_list(WASMCluster *cluster, list_visitor visitor,
     while (node) {
         bool already_processed = false;
         void *proc_node;
-        for (size_t i = 0; i < bh_vector_size(&proc_nodes); i++) {
+        uint32 i;
+        for (i = 0; i < (uint32)bh_vector_size(&proc_nodes); i++) {
             if (!bh_vector_get(&proc_nodes, i, &proc_node)) {
                 ret = false;
                 goto final;

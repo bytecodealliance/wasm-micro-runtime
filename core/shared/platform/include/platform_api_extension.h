@@ -108,14 +108,14 @@ os_thread_exit(void *retval);
 /* Clang provides stdatomic.h since 3.6.0
    See https://releases.llvm.org/3.6.0/tools/clang/docs/ReleaseNotes.html */
 #if __clang_major__ > 3 || (__clang_major__ == 3 && __clang_minor__ >= 6)
-#define BH_HAS_STD_ATOMIC 1
+#define BH_HAS_STD_ATOMIC
 #endif
 #elif defined(__GNUC_PREREQ)
 /* Even though older versions of GCC support C11, atomics were
    not implemented until 4.9. See
    https://gcc.gnu.org/bugzilla/show_bug.cgi?id=58016 */
 #if __GNUC_PREREQ(4, 9)
-#define BH_HAS_STD_ATOMIC 1
+#define BH_HAS_STD_ATOMIC
 #endif /* end of __GNUC_PREREQ(4, 9) */
 #endif /* end of defined(__GNUC_PREREQ) */
 
