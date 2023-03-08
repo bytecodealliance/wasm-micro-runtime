@@ -21,6 +21,7 @@ typedef struct AtomicWaitInfo {
     korp_mutex wait_list_lock;
     bh_list wait_list_head;
     bh_list *wait_list;
+    int count_acquisition;
 } AtomicWaitInfo;
 
 typedef struct AtomicWaitNode {
@@ -305,8 +306,10 @@ acquire_wait_info(void *address, bool create)
 
     os_mutex_lock(&wait_map_lock); /* Make find + insert atomic */
 
-    if (address)
+    if (address) 
         wait_info = (AtomicWaitInfo *)bh_hash_map_find(wait_map, address);
+    if (wait_info)
+        ++wait_info->count_acquisition;
 
     if (!create) {
         os_mutex_unlock(&wait_map_lock);
@@ -380,11 +383,20 @@ static bool
 map_remove_wait_info(HashMap *wait_map_, AtomicWaitInfo *wait_info,
                      void *address)
 {
+    os_mutex_lock(&wait_map_lock);
+    --wait_info->count_acquisition;
+
     if (wait_info->wait_list->len > 0) {
+        os_mutex_unlock(&wait_map_lock);
+        return false;
+    }
+    if (wait_info->count_acquisition > 0) {
+        os_mutex_unlock(&wait_map_lock);
         return false;
     }
 
     bh_hash_map_remove(wait_map_, address, NULL, NULL);
+    os_mutex_unlock(&wait_map_lock);
     return true;
 }
 
@@ -486,8 +498,8 @@ wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
     wasm_runtime_free(wait_node);
 
     /* Release wait info if no wait nodes attached */
-    removed_from_map = map_remove_wait_info(wait_map, wait_info, address);
     os_mutex_unlock(&wait_info->wait_list_lock);
+    removed_from_map = map_remove_wait_info(wait_map, wait_info, address);
     if (removed_from_map)
         destroy_wait_info(wait_info);
     os_mutex_unlock(&node->shared_mem_lock);
