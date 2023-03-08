@@ -306,7 +306,7 @@ acquire_wait_info(void *address, bool create)
 
     os_mutex_lock(&wait_map_lock); /* Make find + insert atomic */
 
-    if (address) 
+    if (address)
         wait_info = (AtomicWaitInfo *)bh_hash_map_find(wait_map, address);
     if (wait_info)
         ++wait_info->count_acquisition;
