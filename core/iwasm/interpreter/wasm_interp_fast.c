@@ -3305,6 +3305,11 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         PUSH_I32(ret);
                         break;
                     }
+                    case WASM_OP_ATOMIC_FENCE:
+                    {
+                        os_atomic_thread_fence(os_memory_order_release);
+                        break;
+                    }
 
                     case WASM_OP_ATOMIC_I32_LOAD:
                     case WASM_OP_ATOMIC_I32_LOAD8_U:

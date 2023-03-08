@@ -100,7 +100,8 @@ safe_traverse_exec_env_list(WASMCluster *cluster, list_visitor visitor,
     while (node) {
         bool already_processed = false;
         void *proc_node;
-        for (size_t i = 0; i < bh_vector_size(&proc_nodes); i++) {
+        uint32 i;
+        for (i = 0; i < (uint32)bh_vector_size(&proc_nodes); i++) {
             if (!bh_vector_get(&proc_nodes, i, &proc_node)) {
                 ret = false;
                 goto final;
@@ -595,13 +596,23 @@ thread_manager_start_routine(void *arg)
 
     /* Routine exit */
 
-    /* Detach the native thread here to ensure the resources are freed */
-    wasm_cluster_detach_thread(exec_env);
 #if WASM_ENABLE_DEBUG_INTERP != 0
     wasm_cluster_thread_exited(exec_env);
 #endif
 
+    os_mutex_lock(&cluster_list_lock);
+
     os_mutex_lock(&cluster->lock);
+
+    /* Detach the native thread here to ensure the resources are freed */
+    if (exec_env->wait_count == 0 && !exec_env->thread_is_detached) {
+        /* Only detach current thread when there is no other thread
+           joining it, otherwise let the system resources for the
+           thread be released after joining */
+        os_thread_detach(exec_env->handle);
+        /* No need to set exec_env->thread_is_detached to true here
+           since we will exit soon */
+    }
 
     /* Free aux stack space */
     free_aux_stack(exec_env, exec_env->aux_stack_bottom.bottom);
@@ -613,6 +624,8 @@ thread_manager_start_routine(void *arg)
     wasm_runtime_deinstantiate_internal(module_inst, true);
 
     os_mutex_unlock(&cluster->lock);
+
+    os_mutex_unlock(&cluster_list_lock);
 
     os_thread_exit(ret);
     return ret;
@@ -936,11 +949,22 @@ wasm_cluster_exit_thread(WASMExecEnv *exec_env, void *retval)
     wasm_cluster_clear_thread_signal(exec_env);
     wasm_cluster_thread_exited(exec_env);
 #endif
+
     /* App exit the thread, free the resources before exit native thread */
-    /* Detach the native thread here to ensure the resources are freed */
-    wasm_cluster_detach_thread(exec_env);
+
+    os_mutex_lock(&cluster_list_lock);
 
     os_mutex_lock(&cluster->lock);
+
+    /* Detach the native thread here to ensure the resources are freed */
+    if (exec_env->wait_count == 0 && !exec_env->thread_is_detached) {
+        /* Only detach current thread when there is no other thread
+           joining it, otherwise let the system resources for the
+           thread be released after joining */
+        os_thread_detach(exec_env->handle);
+        /* No need to set exec_env->thread_is_detached to true here
+           since we will exit soon */
+    }
 
     module_inst = exec_env->module_inst;
 
@@ -954,6 +978,8 @@ wasm_cluster_exit_thread(WASMExecEnv *exec_env, void *retval)
     wasm_runtime_deinstantiate_internal(module_inst, true);
 
     os_mutex_unlock(&cluster->lock);
+
+    os_mutex_unlock(&cluster_list_lock);
 
     os_thread_exit(retval);
 }
@@ -981,8 +1007,6 @@ wasm_cluster_cancel_thread(WASMExecEnv *exec_env)
         return 0;
     }
 
-    os_mutex_lock(&exec_env->cluster->lock);
-
     if (!clusters_have_exec_env(exec_env)) {
         /* Invalid thread or the thread has exited */
         goto final;
@@ -991,7 +1015,6 @@ wasm_cluster_cancel_thread(WASMExecEnv *exec_env)
     set_thread_cancel_flags(exec_env);
 
 final:
-    os_mutex_unlock(&exec_env->cluster->lock);
     os_mutex_unlock(&cluster_list_lock);
 
     return 0;

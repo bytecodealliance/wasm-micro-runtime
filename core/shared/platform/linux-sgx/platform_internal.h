@@ -63,6 +63,9 @@ os_set_print_function(os_print_function_t pf);
 char *
 strcpy(char *dest, const char *src);
 
+#define os_memory_order_release __ATOMIC_RELEASE
+#define os_atomic_thread_fence __atomic_thread_fence
+
 #ifdef __cplusplus
 }
 #endif
