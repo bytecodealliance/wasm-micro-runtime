@@ -23,6 +23,7 @@
 
 static pthread_mutex_t lock = { 0 };
 static pthread_cond_t cond = { 0 };
+static bool server_create_failed = false;
 static bool server_is_ready = false;
 
 #ifdef __wasi__
@@ -71,6 +72,8 @@ run_as_server(void *arg)
     pthread_mutex_lock(&lock);
     sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
+        server_create_failed = true;
+        pthread_cond_signal(&cond);
         pthread_mutex_unlock(&lock);
         perror("Create a socket failed");
         return NULL;
@@ -78,6 +81,8 @@ run_as_server(void *arg)
 
 #ifndef __wasi__
     if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char *)&on, sizeof(on))) {
+        server_create_failed = true;
+        pthread_cond_signal(&cond);
         pthread_mutex_unlock(&lock);
         perror("Setsockopt failed");
         goto fail1;
@@ -91,12 +96,16 @@ run_as_server(void *arg)
 
     addrlen = sizeof(addr);
     if (bind(sock, (struct sockaddr *)&addr, addrlen) < 0) {
+        server_create_failed = true;
+        pthread_cond_signal(&cond);
         pthread_mutex_unlock(&lock);
         perror("Bind failed");
         goto fail1;
     }
 
     if (listen(sock, 0) < 0) {
+        server_create_failed = true;
+        pthread_cond_signal(&cond);
         pthread_mutex_unlock(&lock);
         perror("Listen failed");
         goto fail1;
@@ -142,10 +151,14 @@ run_as_client(void *arg)
     ssize_t recv_len = 0;
 
     pthread_mutex_lock(&lock);
-    while (false == server_is_ready) {
+    while (!server_create_failed && !server_is_ready) {
         pthread_cond_wait(&cond, &lock);
     }
     pthread_mutex_unlock(&lock);
+
+    if (server_create_failed) {
+        return NULL;
+    }
 
     local_printf("Client is running...\n");
     sock = socket(AF_INET, SOCK_STREAM, 0);

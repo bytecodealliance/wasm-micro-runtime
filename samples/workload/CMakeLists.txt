@@ -24,7 +24,7 @@ ExternalProject_Add(iwasm
   CONFIGURE_COMMAND
     ${CMAKE_COMMAND} -S ${CMAKE_CURRENT_SOURCE_DIR}/../../product-mini/platforms/linux -B build -DWAMR_BUILD_LIBC_EMCC=1
   BUILD_COMMAND
-    ${CMAKE_COMMAND} --build build
+    ${CMAKE_COMMAND} --build build --parallel 4
   INSTALL_COMMAND
     # FIXME: replace with --install
     ${CMAKE_COMMAND} -E copy_if_different
@@ -43,7 +43,7 @@ ExternalProject_Add(wamrc
   CONFIGURE_COMMAND
     ${CMAKE_COMMAND} -S ${CMAKE_CURRENT_SOURCE_DIR}/../../wamr-compiler -B build
   BUILD_COMMAND
-    ${CMAKE_COMMAND} --build build
+    ${CMAKE_COMMAND} --build build --parallel 4
   INSTALL_COMMAND
     # FIXME: replace with --install
     ${CMAKE_COMMAND} -E copy_if_different
