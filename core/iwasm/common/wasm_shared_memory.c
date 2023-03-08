@@ -337,6 +337,7 @@ acquire_wait_info(void *address, bool create)
         if (!bh_hash_map_insert(wait_map, address, (void *)wait_info)) {
             goto fail3;
         }
+        wait_info->count_acquisition = 1;
     }
 
     os_mutex_unlock(&wait_map_lock);
