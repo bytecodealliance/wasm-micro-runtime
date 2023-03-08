@@ -11,6 +11,7 @@ import sys
 import time
 import traceback
 
+WAMRC_CMD = "../../wamr-compiler/build/wamrc"
 
 def start_server(cwd):
     """
@@ -80,7 +81,30 @@ def main():
     """
     parser = argparse.ArgumentParser(description="run the sample and examine outputs")
     parser.add_argument("working_directory", type=str)
+    parser.add_argument("--aot", action='store_true', help="Test with AOT")
     args = parser.parse_args()
+
+    test_aot = False
+    suffix = ".wasm"
+    if not args.aot:
+        print("Test with interpreter mode")
+    else:
+        print("Test with AOT mode")
+        test_aot = True
+        suffix = ".aot"
+        wasm_files = [ "timer", "sensor", "connection",
+                       "event_publisher", "event_subscriber",
+                       "request_handler", "request_sender" ]
+        work_dir = args.working_directory
+        wasm_apps_dir = work_dir + "/wasm-apps"
+        print("Compile wasm app into aot files")
+        for wasm_file in wasm_files:
+            CMD = []
+            CMD.append(WAMRC_CMD)
+            CMD.append("-o")
+            CMD.append(wasm_apps_dir + "/" + wasm_file + ".aot")
+            CMD.append(wasm_apps_dir + "/" + wasm_file + ".wasm")
+            subprocess.check_call(CMD)
 
     ret = 1
     app_server = None
@@ -90,35 +114,47 @@ def main():
         # wait for a second
         time.sleep(1)
 
-        print("--> Install timer.wasm...")
+        print("--> Install timer" + suffix + "...")
         install_wasm_application(
-            "timer", "./wasm-apps/timer.wasm", args.working_directory
+            "timer", "./wasm-apps/timer" + suffix, args.working_directory
         )
 
-        print("--> Install event_publisher.wasm...")
+        # wait for a second
+        time.sleep(3)
+
+        print("--> Query all installed applications...")
+        query_installed_application(args.working_directory)
+
+        print("--> Install event_publisher" + suffix + "...")
         install_wasm_application(
             "event_publisher",
-            "./wasm-apps/event_publisher.wasm",
+            "./wasm-apps/event_publisher" + suffix,
             args.working_directory,
         )
 
-        print("--> Install event_subscriber.wasm...")
+        print("--> Install event_subscriber" + suffix + "...")
         install_wasm_application(
             "event_subscriber",
-            "./wasm-apps/event_subscriber.wasm",
+            "./wasm-apps/event_subscriber" + suffix,
             args.working_directory,
         )
 
-        print("--> Uninstall timer.wasm...")
+        print("--> Query all installed applications...")
+        query_installed_application(args.working_directory)
+
+        print("--> Uninstall timer" + suffix + "...")
         uninstall_wasm_application("timer", args.working_directory)
 
-        print("--> Uninstall event_publisher.wasm...")
+        print("--> Query all installed applications...")
+        query_installed_application(args.working_directory)
+
+        print("--> Uninstall event_publisher" + suffix + "...")
         uninstall_wasm_application(
             "event_publisher",
             args.working_directory,
         )
 
-        print("--> Uninstall event_subscriber.wasm...")
+        print("--> Uninstall event_subscriber" + suffix + "...")
         uninstall_wasm_application(
             "event_subscriber",
             args.working_directory,
@@ -127,25 +163,54 @@ def main():
         print("--> Query all installed applications...")
         query_installed_application(args.working_directory)
 
-        print("--> Install request_handler.wasm...")
+        print("--> Install request_handler" + suffix + "...")
         install_wasm_application(
             "request_handler",
-            "./wasm-apps/request_handler.wasm",
+            "./wasm-apps/request_handler" + suffix,
             args.working_directory,
         )
 
         print("--> Query again...")
         query_installed_application(args.working_directory)
 
-        print("--> Install request_sender.wasm...")
+        print("--> Install request_sender" + suffix + "...")
         install_wasm_application(
             "request_sender",
-            "./wasm-apps/request_sender.wasm",
+            "./wasm-apps/request_sender" + suffix,
             args.working_directory,
         )
 
         print("--> Send GET to the Wasm application named request_handler...")
         send_get_to_wasm_application("request_handler", "/url1", args.working_directory)
+
+        print("--> Uninstall request_handler" + suffix + "...")
+        uninstall_wasm_application(
+            "request_handler",
+            args.working_directory,
+        )
+
+        print("--> Uninstall request_sender" + suffix + "...")
+        uninstall_wasm_application(
+            "request_sender",
+            args.working_directory,
+        )
+
+        # Install a wasm app named "__exit_app_manager__" just to make app manager exit
+        # while the wasm app is uninstalled, so as to collect the code coverage data.
+        # Only available when collecting code coverage is enabled.
+        print("--> Install timer" + suffix + "...")
+        install_wasm_application(
+            "__exit_app_manager__", "./wasm-apps/timer" + suffix, args.working_directory
+        )
+
+        print("--> Uninstall timer" + suffix + "...")
+        uninstall_wasm_application(
+            "__exit_app_manager__",
+            args.working_directory,
+        )
+
+        # wait for a second
+        time.sleep(1)
 
         print("--> All pass")
         ret = 0

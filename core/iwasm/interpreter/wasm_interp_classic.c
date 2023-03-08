@@ -3467,6 +3467,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     {
                         /* Skip the memory index */
                         frame_ip++;
+                        os_atomic_thread_fence(os_memory_order_release);
                         break;
                     }
 
@@ -4006,7 +4007,8 @@ fast_jit_call_func_bytecode(WASMModuleInstance *module_inst,
         module_inst->fast_jit_func_ptrs[func_idx_non_import]);
     bh_assert(action == JIT_INTERP_ACTION_NORMAL
               || (action == JIT_INTERP_ACTION_THROWN
-                  && wasm_runtime_copy_exception(exec_env->module_inst, NULL)));
+                  && wasm_copy_exception(
+                      (WASMModuleInstance *)exec_env->module_inst, NULL)));
 
     /* Get the return values form info.out.ret */
     if (func_type->result_count) {

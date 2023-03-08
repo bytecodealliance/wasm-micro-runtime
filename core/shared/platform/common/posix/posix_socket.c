@@ -44,15 +44,13 @@ textual_addr_to_sockaddr(const char *textual, int port, struct sockaddr *out,
 }
 
 static int
-sockaddr_to_bh_sockaddr(const struct sockaddr *sockaddr, socklen_t socklen,
+sockaddr_to_bh_sockaddr(const struct sockaddr *sockaddr,
                         bh_sockaddr_t *bh_sockaddr)
 {
     switch (sockaddr->sa_family) {
         case AF_INET:
         {
             struct sockaddr_in *addr = (struct sockaddr_in *)sockaddr;
-
-            assert(socklen >= sizeof(struct sockaddr_in));
 
             bh_sockaddr->port = ntohs(addr->sin_port);
             bh_sockaddr->addr_bufer.ipv4 = ntohl(addr->sin_addr.s_addr);
@@ -64,8 +62,6 @@ sockaddr_to_bh_sockaddr(const struct sockaddr *sockaddr, socklen_t socklen,
         {
             struct sockaddr_in6 *addr = (struct sockaddr_in6 *)sockaddr;
             size_t i;
-
-            assert(socklen >= sizeof(struct sockaddr_in6));
 
             bh_sockaddr->port = ntohs(addr->sin6_port);
 
@@ -274,8 +270,7 @@ os_socket_recv_from(bh_socket_t socket, void *buf, unsigned int len, int flags,
     }
 
     if (src_addr && socklen > 0) {
-        if (sockaddr_to_bh_sockaddr((struct sockaddr *)&sock_addr, socklen,
-                                    src_addr)
+        if (sockaddr_to_bh_sockaddr((struct sockaddr *)&sock_addr, src_addr)
             == BHT_ERROR) {
             return -1;
         }
@@ -411,9 +406,8 @@ os_socket_addr_resolve(const char *host, const char *service,
                 continue;
             }
 
-            ret = sockaddr_to_bh_sockaddr(res->ai_addr,
-                                          sizeof(struct sockaddr_in),
-                                          &addr_info[pos].sockaddr);
+            ret =
+                sockaddr_to_bh_sockaddr(res->ai_addr, &addr_info[pos].sockaddr);
 
             if (ret == BHT_ERROR) {
                 freeaddrinfo(result);
@@ -1014,8 +1008,7 @@ os_socket_addr_local(bh_socket_t socket, bh_sockaddr_t *sockaddr)
         return BHT_ERROR;
     }
 
-    return sockaddr_to_bh_sockaddr((struct sockaddr *)&addr_storage, addr_len,
-                                   sockaddr);
+    return sockaddr_to_bh_sockaddr((struct sockaddr *)&addr_storage, sockaddr);
 }
 
 int
@@ -1031,6 +1024,5 @@ os_socket_addr_remote(bh_socket_t socket, bh_sockaddr_t *sockaddr)
         return BHT_ERROR;
     }
 
-    return sockaddr_to_bh_sockaddr((struct sockaddr *)&addr_storage, addr_len,
-                                   sockaddr);
+    return sockaddr_to_bh_sockaddr((struct sockaddr *)&addr_storage, sockaddr);
 }
