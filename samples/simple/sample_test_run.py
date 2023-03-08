@@ -10,8 +10,17 @@ import subprocess
 import sys
 import time
 import traceback
+import glob
 
 WAMRC_CMD = "../../wamr-compiler/build/wamrc"
+
+def compile_wasm_files_to_aot(wasm_apps_dir):
+    wasm_files = glob.glob(wasm_apps_dir + "/*.wasm")
+    print("Compile wasm app into aot files")
+    for wasm_file in wasm_files:
+        aot_file = wasm_file[0 : len(wasm_file) - 5] + ".aot";
+        cmd = [ WAMRC_CMD, "-o", aot_file, wasm_file ]
+        subprocess.check_call(cmd)
 
 def start_server(cwd):
     """
@@ -92,19 +101,8 @@ def main():
         print("Test with AOT mode")
         test_aot = True
         suffix = ".aot"
-        wasm_files = [ "timer", "sensor", "connection",
-                       "event_publisher", "event_subscriber",
-                       "request_handler", "request_sender" ]
-        work_dir = args.working_directory
-        wasm_apps_dir = work_dir + "/wasm-apps"
-        print("Compile wasm app into aot files")
-        for wasm_file in wasm_files:
-            CMD = []
-            CMD.append(WAMRC_CMD)
-            CMD.append("-o")
-            CMD.append(wasm_apps_dir + "/" + wasm_file + ".aot")
-            CMD.append(wasm_apps_dir + "/" + wasm_file + ".wasm")
-            subprocess.check_call(CMD)
+        wasm_apps_dir = args.working_directory + "/wasm-apps"
+        compile_wasm_files_to_aot(wasm_apps_dir)
 
     ret = 1
     app_server = None

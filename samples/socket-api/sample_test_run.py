@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2019 Intel Corporation.  All rights reserved.
+# Copyright (C) 2023 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 #
 
@@ -10,8 +10,17 @@ import subprocess
 import sys
 import time
 import traceback
+import glob
 
 WAMRC_CMD = "../../wamr-compiler/build/wamrc"
+
+def compile_wasm_files_to_aot(wasm_apps_dir):
+    wasm_files = glob.glob(wasm_apps_dir + "/*.wasm")
+    print("Compile wasm app into aot files")
+    for wasm_file in wasm_files:
+        aot_file = wasm_file[0 : len(wasm_file) - 5] + ".aot";
+        cmd = [ WAMRC_CMD, "-o", aot_file, wasm_file ]
+        subprocess.check_call(cmd)
 
 def start_server(cmd, cwd):
     app_server = subprocess.Popen(shlex.split(cmd), cwd=cwd)
@@ -44,19 +53,8 @@ def main():
         print("Test with AOT mode")
         test_aot = True
         suffix = ".aot"
-        wasm_files = [ "addr_resolve", "multicast_server", "socket_opts",
-                       "tcp_server", "timeout_server", "udp_server",
-                       "multicast_client", "send_recv", "tcp_client",
-                       "timeout_client",  "udp_client" ]
         wasm_apps_dir = args.working_directory
-        print("Compile wasm app into aot files")
-        for wasm_file in wasm_files:
-            CMD = []
-            CMD.append(WAMRC_CMD)
-            CMD.append("-o")
-            CMD.append(wasm_apps_dir + "/" + wasm_file + ".aot")
-            CMD.append(wasm_apps_dir + "/" + wasm_file + ".wasm")
-            subprocess.check_call(CMD)
+        compile_wasm_files_to_aot(wasm_apps_dir)
 
     ret = 1
     app_server = None
