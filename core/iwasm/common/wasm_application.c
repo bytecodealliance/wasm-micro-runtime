@@ -203,7 +203,7 @@ wasm_application_execute_main(WASMModuleInstanceCommon *module_inst, int32 argc,
                               char *argv[])
 {
     bool ret;
-#if WASM_ENABLE_THREAD_MGR != 0 || WASM_ENABLE_MEMORY_PROFILING != 0
+#if WASM_ENABLE_MEMORY_PROFILING != 0
     WASMExecEnv *exec_env;
 #endif
 
@@ -612,7 +612,7 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
                               const char *name, int32 argc, char *argv[])
 {
     bool ret;
-#if WASM_ENABLE_THREAD_MGR != 0 || WASM_ENABLE_MEMORY_PROFILING != 0
+#if WASM_ENABLE_MEMORY_PROFILING != 0
     WASMExecEnv *exec_env;
 #endif
 
