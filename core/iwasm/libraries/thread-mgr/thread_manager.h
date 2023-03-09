@@ -26,14 +26,28 @@ struct WASMCluster {
     korp_mutex lock;
     bh_list exec_env_list;
 
+#if WASM_ENABLE_HEAP_AUX_STACK_ALLOCATION == 0
     /* The aux stack of a module with shared memory will be
         divided into several segments. This array store the
         stack top of different segments */
     uint32 *stack_tops;
-    /* Size of every stack segment */
-    uint32 stack_size;
     /* Record which segments are occupied */
     bool *stack_segment_occupied;
+#endif
+    /* Size of every stack segment */
+    uint32 stack_size;
+    /* When has_exception == true, this cluster should refuse any spawn thread
+     * requests, this flag can be cleared by calling
+     * wasm_runtime_clear_exception on instances of any threads of this cluster
+     */
+    bool has_exception;
+    /* When processing is true, this cluster should refuse any spawn thread
+     * requests. This is a short-lived state, must be cleared immediately once
+     * the processing finished.
+     * This is used to avoid dead lock when one thread waiting another thread
+     * with lock, see wams_cluster_wait_for_all and wasm_cluster_terminate_all
+     */
+    bool processing;
 #if WASM_ENABLE_DEBUG_INTERP != 0
     WASMDebugInstance *debug_inst;
 #endif
@@ -62,7 +76,7 @@ wasm_exec_env_get_cluster(WASMExecEnv *exec_env);
 
 int32
 wasm_cluster_create_thread(WASMExecEnv *exec_env,
-                           wasm_module_inst_t module_inst,
+                           wasm_module_inst_t module_inst, bool alloc_aux_stack,
                            void *(*thread_routine)(void *), void *arg);
 
 int32
@@ -114,16 +128,13 @@ wasm_cluster_wait_for_all_except_self(WASMCluster *cluster,
                                       WASMExecEnv *exec_env);
 
 bool
-wasm_cluster_add_exec_env(WASMCluster *cluster, WASMExecEnv *exec_env);
-
-bool
 wasm_cluster_del_exec_env(WASMCluster *cluster, WASMExecEnv *exec_env);
 
 WASMExecEnv *
 wasm_clusters_search_exec_env(WASMModuleInstanceCommon *module_inst);
 
 void
-wasm_cluster_spread_exception(WASMExecEnv *exec_env);
+wasm_cluster_spread_exception(WASMExecEnv *exec_env, bool clear);
 
 WASMExecEnv *
 wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env);
@@ -134,6 +145,9 @@ wasm_cluster_destroy_spawned_exec_env(WASMExecEnv *exec_env);
 void
 wasm_cluster_spread_custom_data(WASMModuleInstanceCommon *module_inst,
                                 void *custom_data);
+
+bool
+wasm_cluster_is_thread_terminated(WASMExecEnv *exec_env);
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
 #define WAMR_SIG_TRAP (5)
@@ -165,9 +179,6 @@ wasm_cluster_destroy_exenv_status(WASMCurrentEnvStatus *status);
 
 void
 wasm_cluster_send_signal_all(WASMCluster *cluster, uint32 signo);
-
-void
-wasm_cluster_thread_stopped(WASMExecEnv *exec_env);
 
 void
 wasm_cluster_thread_waiting_run(WASMExecEnv *exec_env);

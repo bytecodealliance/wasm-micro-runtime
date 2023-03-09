@@ -25,6 +25,9 @@
 extern "C" {
 #endif
 
+/* Internal use for setting default running mode */
+#define Mode_Default 0
+
 #if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS != 0
 
 #define PUT_I64_TO_ADDR(addr, value)       \
@@ -413,6 +416,13 @@ typedef struct wasm_frame_t {
     const char *func_name_wp;
 } WASMCApiFrame;
 
+#ifdef WASM_ENABLE_JIT
+typedef struct LLVMJITOptions {
+    uint32 opt_level;
+    uint32 size_level;
+} LLVMJITOptions;
+#endif
+
 #ifdef OS_ENABLE_HW_BOUND_CHECK
 /* Signal info passing to interp/aot signal handler */
 typedef struct WASMSignalInfo {
@@ -437,9 +447,27 @@ wasm_runtime_get_exec_env_tls(void);
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_init(void);
 
+/* Internal API */
+RunningMode
+wasm_runtime_get_default_running_mode(void);
+
+#if WASM_ENABLE_JIT != 0
+/* Internal API */
+LLVMJITOptions
+wasm_runtime_get_llvm_jit_options(void);
+#endif
+
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_full_init(RuntimeInitArgs *init_args);
+
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_is_running_mode_supported(RunningMode running_mode);
+
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_set_default_running_mode(RunningMode running_mode);
 
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN void
@@ -483,6 +511,15 @@ WASM_RUNTIME_API_EXTERN WASMModuleInstanceCommon *
 wasm_runtime_instantiate(WASMModuleCommon *module, uint32 stack_size,
                          uint32 heap_size, char *error_buf,
                          uint32 error_buf_size);
+
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_set_running_mode(wasm_module_inst_t module_inst,
+                              RunningMode running_mode);
+
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN RunningMode
+wasm_runtime_get_running_mode(wasm_module_inst_t module_inst);
 
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN void
@@ -578,6 +615,11 @@ wasm_runtime_call_wasm_v(WASMExecEnv *exec_env,
                          uint32 num_results, wasm_val_t *results,
                          uint32 num_args, ...);
 
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_call_indirect(WASMExecEnv *exec_env, uint32 element_index,
+                           uint32 argc, uint32 argv[]);
+
 #if WASM_ENABLE_DEBUG_INTERP != 0
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN uint32
@@ -588,27 +630,6 @@ wasm_runtime_start_debug_instance_with_port(WASMExecEnv *exec_env,
 WASM_RUNTIME_API_EXTERN uint32
 wasm_runtime_start_debug_instance(WASMExecEnv *exec_env);
 #endif
-
-/**
- * Call a function reference of a given WASM runtime instance with
- * arguments.
- *
- * @param exec_env the execution environment to call the function
- *   which must be created from wasm_create_exec_env()
- * @param element_indices the function ference indicies, usually
- *   prvovided by the caller of a registed native function
- * @param argc the number of arguments
- * @param argv the arguments.  If the function method has return value,
- *   the first (or first two in case 64-bit return value) element of
- *   argv stores the return value of the called WASM function after this
- *   function returns.
- *
- * @return true if success, false otherwise and exception will be thrown,
- *   the caller can call wasm_runtime_get_exception to get exception info.
- */
-bool
-wasm_runtime_call_indirect(WASMExecEnv *exec_env, uint32 element_indices,
-                           uint32 argc, uint32 argv[]);
 
 bool
 wasm_runtime_create_exec_env_singleton(WASMModuleInstanceCommon *module_inst);
@@ -955,6 +976,14 @@ wasm_runtime_show_app_heap_corrupted_prompt();
 void
 wasm_runtime_destroy_custom_sections(WASMCustomSection *section_list);
 #endif
+
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_is_import_func_linked(const char *module_name,
+                                   const char *func_name);
+
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_is_import_global_linked(const char *module_name,
+                                     const char *global_name);
 
 #ifdef __cplusplus
 }

@@ -26,6 +26,8 @@ typedef struct WASMSharedMemNode {
     WASMModuleCommon *module;
     /* The memory information */
     WASMMemoryInstanceCommon *memory_inst;
+    /* Lock used for atomic operations */
+    korp_mutex shared_mem_lock;
 
     /* reference count */
     uint32 ref_count;
@@ -36,6 +38,9 @@ wasm_shared_memory_init();
 
 void
 wasm_shared_memory_destroy();
+
+void
+notify_stale_threads_on_exception(WASMModuleInstanceCommon *module);
 
 WASMSharedMemNode *
 wasm_module_get_shared_memory(WASMModuleCommon *module);

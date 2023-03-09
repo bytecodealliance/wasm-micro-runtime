@@ -13,6 +13,8 @@
 core/deps/**
 core/shared/mem-alloc/tlsf
 core/app-framework/wgl
+core/iwasm/libraries/lib-wasi-threads/test/*.wasm
+core/iwasm/libraries/lib-socket/test/*.wasm
 
 wamr-sdk/out/
 wamr-sdk/runtime/build_runtime_sdk/
@@ -32,3 +34,8 @@ samples/socket-api/wasm-src/inc/pthread.h
 **/__pycache__
 
 tests/benchmarks/coremark/coremark*
+
+samples/workload/include/**
+!samples/workload/include/.gitkeep
+
+# core/iwasm/libraries/wasi-threads

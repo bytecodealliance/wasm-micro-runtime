@@ -118,3 +118,17 @@ jobs:
           cmake .. -DWAMR_BUILD_DEBUG_INTERP=1
           cmake --build . --config Release --parallel 4
           cd .. && rm -force -r build
+      - name: Build iwasm [lib pthread]
+        run: |
+          cd product-mini/platforms/windows
+          mkdir build && cd build
+          cmake .. -DWAMR_BUILD_LIB_PTHREAD=1
+          cmake --build . --config Release --parallel 4
+          cd .. && rm -force -r build
+      - name: Build iwasm [lib wasi-thread]
+        run: |
+          cd product-mini/platforms/windows
+          mkdir build && cd build
+          cmake .. -DWAMR_BUILD_LIB_WASI_THREADS=1
+          cmake --build . --config Release --parallel 4
+          cd .. && rm -force -r build

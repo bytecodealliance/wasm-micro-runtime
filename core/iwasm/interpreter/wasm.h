@@ -278,9 +278,14 @@ struct WASMFunction {
 #endif
 
 #if WASM_ENABLE_FAST_JIT != 0
+    /* The compiled fast jit jitted code block of this function */
     void *fast_jit_jitted_code;
 #if WASM_ENABLE_JIT != 0 && WASM_ENABLE_LAZY_JIT != 0
+    /* The compiled llvm jit func ptr of this function */
     void *llvm_jit_func_ptr;
+    /* Code block to call fast jit jitted code of this function
+       from the llvm jit jitted code */
+    void *call_to_fast_jit_from_llvm_jit;
 #endif
 #endif
 };
@@ -505,15 +510,14 @@ struct WASMModule {
     uint64 load_size;
 #endif
 
-#if WASM_ENABLE_DEBUG_INTERP != 0                    \
-    || (WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT \
+#if WASM_ENABLE_DEBUG_INTERP != 0                         \
+    || (WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
         && WASM_ENABLE_LAZY_JIT != 0)
     /**
      * List of instances referred to this module. When source debugging
      * feature is enabled, the debugger may modify the code section of
      * the module, so we need to report a warning if user create several
-     * instances based on the same module. Sub instances created by
-     * lib-pthread or spawn API won't be added into the list.
+     * instances based on the same module.
      *
      * Also add the instance to the list for Fast JIT to LLVM JIT
      * tier-up, since we need to lazily update the LLVM func pointers
@@ -533,7 +537,22 @@ struct WASMModule {
 #endif
 
 #if WASM_ENABLE_FAST_JIT != 0
-    /* func pointers of Fast JITed (un-imported) functions */
+    /**
+     * func pointers of Fast JITed (un-imported) functions
+     * for non Multi-Tier JIT mode:
+     *   (1) when lazy jit is disabled, each pointer is set to the compiled
+     *       fast jit jitted code
+     *   (2) when lazy jit is enabled, each pointer is firstly inited as
+     *       jit_global->compile_fast_jit_and_then_call, and then set to the
+     *       compiled fast jit jitted code when it is called (the stub will
+     *       compile the jit function and then update itself)
+     * for Multi-Tier JIT mode:
+     *   each pointer is firstly inited as compile_fast_jit_and_then_call,
+     *   and then set to the compiled fast jit jitted code when it is called,
+     *   and when the llvm jit func ptr of the same function is compiled, it
+     *   will be set to call_to_llvm_jit_from_fast_jit of this function type
+     *   (tier-up from fast-jit to llvm-jit)
+     */
     void **fast_jit_func_ptrs;
     /* locks for Fast JIT lazy compilation */
     korp_mutex fast_jit_thread_locks[WASM_ORC_JIT_BACKEND_THREAD_NUM];
@@ -543,7 +562,16 @@ struct WASMModule {
 #if WASM_ENABLE_JIT != 0
     struct AOTCompData *comp_data;
     struct AOTCompContext *comp_ctx;
-    /* func pointers of LLVM JITed (un-imported) functions */
+    /**
+     * func pointers of LLVM JITed (un-imported) functions
+     * for non Multi-Tier JIT mode:
+     *   each pointer is set to the lookuped llvm jit func ptr, note that it
+     *   is a stub and will trigger the actual compilation when it is called
+     * for Multi-Tier JIT mode:
+     *   each pointer is inited as call_to_fast_jit code block, when the llvm
+     *   jit func ptr is actually compiled, it is set to the compiled llvm jit
+     *   func ptr
+     */
     void **func_ptrs;
     /* whether the func pointers are compiled */
     bool *func_ptrs_compiled;
@@ -568,6 +596,12 @@ struct WASMModule {
     korp_tid llvm_jit_init_thread;
     /* whether the llvm jit is initialized */
     bool llvm_jit_inited;
+    /* Whether to enable llvm jit compilation:
+       it is set to true only when there is a module instance starts to
+       run with running mode Mode_LLVM_JIT or Mode_Multi_Tier_JIT,
+       since no need to enable llvm jit compilation for Mode_Interp and
+       Mode_Fast_JIT, so as to improve performance for them */
+    bool enable_llvm_jit_compilation;
 #endif
 };
 

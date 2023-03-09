@@ -15,7 +15,6 @@
 #include "bh_platform.h"
 #include "wasmtime_ssp.h"
 #include "locking.h"
-#include "numeric_limits.h"
 #include "posix.h"
 #include "random.h"
 #include "refcount.h"
@@ -686,9 +685,20 @@ fd_table_insert_existing(struct fd_table *ft, __wasi_fd_t in, int out)
     struct fd_object *fo;
     __wasi_errno_t error;
 
-    if (fd_determine_type_rights(out, &type, &rights_base, &rights_inheriting)
-        != 0)
+    error =
+        fd_determine_type_rights(out, &type, &rights_base, &rights_inheriting);
+    if (error != 0) {
+#ifdef BH_PLATFORM_EGO
+        /**
+         * since it is an already opened file and we can assume the opened file
+         * has all necessary rights no matter how to get
+         */
+        if (error != __WASI_ENOTSUP)
+            return false;
+#else
         return false;
+#endif
+    }
 
     error = fd_object_new(type, &fo);
     if (error != 0)
@@ -2257,8 +2267,7 @@ convert_timestamp(__wasi_timestamp_t in, struct timespec *out)
     in /= 1000000000;
 
     // Clamp to the maximum in case it would overflow our system's time_t.
-    out->tv_sec =
-        (time_t)in < NUMERIC_MAX(time_t) ? (time_t)in : NUMERIC_MAX(time_t);
+    out->tv_sec = (time_t)in < BH_TIME_T_MAX ? (time_t)in : BH_TIME_T_MAX;
 }
 
 // Converts the provided timestamps and flags to a set of arguments for
@@ -2604,6 +2613,8 @@ wasmtime_ssp_poll_oneoff(
         }
 #endif
         *nevents = 1;
+        if (out[0].error != 0)
+            return convert_errno(out[0].error);
         return 0;
     }
 
@@ -3226,6 +3237,7 @@ wasi_ssp_sock_get_reuse_port(
 #else
     errno = ENOTSUP;
     ret = BHT_ERROR;
+    optval = 0;
 #endif /* defined(SO_REUSEPORT) */
 
     fd_object_release(fo);

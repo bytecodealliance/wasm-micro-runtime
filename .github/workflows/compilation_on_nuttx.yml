@@ -45,6 +45,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  WASI_SDK_PATH: "/opt/wasi-sdk"
+
 jobs:
   build_iwasm_on_nuttx:
     runs-on: ubuntu-22.04
@@ -65,9 +68,12 @@ jobs:
           "boards/risc-v/k210/maix-bit/configs/nsh",
         ]
         wamr_config_option: [
-          "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_AOT=y\\nCONFIG_INTERPRETERS_WAMR_FAST=y\\nCONFIG_INTERPRETERS_WAMR_LIBC_BUILTIN=y\\n",
           "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_AOT=y\\nCONFIG_INTERPRETERS_WAMR_FAST=y\\n",
+          "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_AOT=y\\nCONFIG_INTERPRETERS_WAMR_FAST=y\\nCONFIG_INTERPRETERS_WAMR_LIBC_WASI=y\\n",
+          "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_AOT=y\\nCONFIG_INTERPRETERS_WAMR_FAST=y\\nCONFIG_INTERPRETERS_WAMR_LIBC_BUILTIN=y\\n",
           "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_AOT=y\\nCONFIG_INTERPRETERS_WAMR_CLASSIC=y\\n",
+          "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_AOT=y\\nCONFIG_INTERPRETERS_WAMR_CLASSIC=y\\nCONFIG_INTERPRETERS_WAMR_LIBC_WASI=y\\n",
+          "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_AOT=y\\nCONFIG_INTERPRETERS_WAMR_CLASSIC=y\\nCONFIG_INTERPRETERS_WAMR_LIBC_BUILTIN=y\\n",
           "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_AOT=y\\nCONFIG_INTERPRETERS_WAMR_LIBC_BUILTIN=y\\n",
           "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_AOT=y\\n",
           "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_FAST=y\\n",
@@ -92,6 +98,12 @@ jobs:
           tar xvf riscv.tar.gz
           echo "$PWD/riscv64-unknown-elf-toolchain-10.2.0-2020.12.8-x86_64-linux-ubuntu14/bin" >> $GITHUB_PATH
 
+      - name: Install WASI-SDK
+        run: |
+          curl -L https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-linux.tar.gz > wasi-sdk.tar.gz
+          tar xvf wasi-sdk.tar.gz
+          sudo mv wasi-sdk-* /opt/wasi-sdk
+
       - name: Checkout NuttX
         uses: actions/checkout@v3
         with:
@@ -112,7 +124,7 @@ jobs:
 
       - name: Enable WAMR for NuttX
         run: |
-          find nuttx/boards -name defconfig | xargs sed -i '$a\CONFIG_EOL_IS_LF=y\n${{ matrix.wamr_config_option }}'
+          find nuttx/boards -name defconfig | xargs sed -i '$a\CONFIG_EOL_IS_LF=y\nCONFIG_PSEUDOFS_SOFTLINKS=y\n${{ matrix.wamr_config_option }}'
           find nuttx/boards/sim -name defconfig | xargs sed -i '$a\CONFIG_LIBM=y\n'
 
       - name: Build

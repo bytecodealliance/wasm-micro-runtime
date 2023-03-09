@@ -5,13 +5,13 @@
 #
 
 readonly BUILD_CONTENT="/tmp/build_content"
-readonly WABT_VER=1.0.23
+readonly WABT_VER=1.0.31
 readonly WABT_FILE="wabt-${WABT_VER}-ubuntu.tar.gz"
-readonly CMAKE_VER=3.16.2
+readonly CMAKE_VER=3.25.1
 readonly CMAKE_FILE="cmake-${CMAKE_VER}-Linux-x86_64.sh"
-readonly BINARYEN_VER=version_101
+readonly BINARYEN_VER=version_111
 readonly BINARYEN_FILE="binaryen-${BINARYEN_VER}-x86_64-linux.tar.gz"
-readonly BAZEL_VER=3.7.0
+readonly BAZEL_VER=6.0.0
 readonly BAZEL_FILE=bazel-${BAZEL_VER}-installer-linux-x86_64.sh
 
 function DEBUG() {
@@ -57,8 +57,8 @@ function install_emsdk() {
   git clone https://github.com/emscripten-core/emsdk.git
   cd emsdk
   git pull
-  ./emsdk install 2.0.26
-  ./emsdk activate 2.0.26
+  ./emsdk install 3.1.28
+  ./emsdk activate 3.1.28
   echo "source /opt/emsdk/emsdk_env.sh" >> "${HOME}"/.bashrc
 }
 
