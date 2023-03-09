@@ -7,6 +7,7 @@
 #include "bh_common.h"
 #include "bh_assert.h"
 #include "bh_log.h"
+#include "wasm_native.h"
 #include "wasm_runtime_common.h"
 #include "wasm_memory.h"
 #if WASM_ENABLE_INTERP != 0
@@ -195,7 +196,7 @@ hw_bound_check_sig_handler(void *sig_addr)
         else if (exec_env_tls->exce_check_guard_page <= (uint8 *)sig_addr
                  && (uint8 *)sig_addr
                         < exec_env_tls->exce_check_guard_page + page_size) {
-            bh_assert(wasm_get_exception(module_inst));
+            bh_assert(wasm_copy_exception(module_inst, NULL));
             os_longjmp(jmpbuf_node->jmpbuf, 1);
         }
     }
@@ -282,7 +283,7 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
             else if (exec_env_tls->exce_check_guard_page <= (uint8 *)sig_addr
                      && (uint8 *)sig_addr
                             < exec_env_tls->exce_check_guard_page + page_size) {
-                bh_assert(wasm_get_exception(module_inst));
+                bh_assert(wasm_copy_exception(module_inst, NULL));
                 if (module_inst->module_type == Wasm_Module_Bytecode) {
                     return EXCEPTION_CONTINUE_SEARCH;
                 }
@@ -1901,18 +1902,21 @@ static bool
 clear_wasi_proc_exit_exception(WASMModuleInstanceCommon *module_inst_comm)
 {
 #if WASM_ENABLE_LIBC_WASI != 0
-    const char *exception;
+    bool has_exception;
+    char exception[EXCEPTION_BUF_LEN];
     WASMModuleInstance *module_inst = (WASMModuleInstance *)module_inst_comm;
 
     bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
               || module_inst_comm->module_type == Wasm_Module_AoT);
 
-    exception = wasm_get_exception(module_inst);
-    if (exception && !strcmp(exception, "Exception: wasi proc exit")) {
+    has_exception = wasm_copy_exception(module_inst, exception);
+    if (has_exception && !strcmp(exception, "Exception: wasi proc exit")) {
         /* The "wasi proc exit" exception is thrown by native lib to
            let wasm app exit, which is a normal behavior, we clear
-           the exception here. */
-        wasm_set_exception(module_inst, NULL);
+           the exception here. And just clear the exception of current
+           thread, don't call `wasm_set_exception(module_inst, NULL)`
+           which will clear the exception of all threads. */
+        module_inst->cur_exception[0] = '\0';
         return true;
     }
     return false;
@@ -2335,6 +2339,12 @@ wasm_set_exception(WASMModuleInstance *module_inst, const char *exception)
 {
     WASMExecEnv *exec_env = NULL;
 
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    WASMSharedMemNode *node =
+        wasm_module_get_shared_memory((WASMModuleCommon *)module_inst->module);
+    if (node)
+        os_mutex_lock(&node->shared_mem_lock);
+#endif
     if (exception) {
         snprintf(module_inst->cur_exception, sizeof(module_inst->cur_exception),
                  "Exception: %s", exception);
@@ -2342,6 +2352,10 @@ wasm_set_exception(WASMModuleInstance *module_inst, const char *exception)
     else {
         module_inst->cur_exception[0] = '\0';
     }
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    if (node)
+        os_mutex_unlock(&node->shared_mem_lock);
+#endif
 
 #if WASM_ENABLE_THREAD_MGR != 0
     exec_env =
@@ -2409,6 +2423,36 @@ wasm_get_exception(WASMModuleInstance *module_inst)
         return module_inst->cur_exception;
 }
 
+bool
+wasm_copy_exception(WASMModuleInstance *module_inst, char *exception_buf)
+{
+    bool has_exception = false;
+
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    WASMSharedMemNode *node =
+        wasm_module_get_shared_memory((WASMModuleCommon *)module_inst->module);
+    if (node)
+        os_mutex_lock(&node->shared_mem_lock);
+#endif
+    if (module_inst->cur_exception[0] != '\0') {
+        /* NULL is passed if the caller is not interested in getting the
+         * exception content, but only in knowing if an exception has been
+         * raised
+         */
+        if (exception_buf != NULL)
+            bh_memcpy_s(exception_buf, sizeof(module_inst->cur_exception),
+                        module_inst->cur_exception,
+                        sizeof(module_inst->cur_exception));
+        has_exception = true;
+    }
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    if (node)
+        os_mutex_unlock(&node->shared_mem_lock);
+#endif
+
+    return has_exception;
+}
+
 void
 wasm_runtime_set_exception(WASMModuleInstanceCommon *module_inst_comm,
                            const char *exception)
@@ -2428,6 +2472,17 @@ wasm_runtime_get_exception(WASMModuleInstanceCommon *module_inst_comm)
     bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
               || module_inst_comm->module_type == Wasm_Module_AoT);
     return wasm_get_exception(module_inst);
+}
+
+bool
+wasm_runtime_copy_exception(WASMModuleInstanceCommon *module_inst_comm,
+                            char *exception_buf)
+{
+    WASMModuleInstance *module_inst = (WASMModuleInstance *)module_inst_comm;
+
+    bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
+              || module_inst_comm->module_type == Wasm_Module_AoT);
+    return wasm_copy_exception(module_inst, exception_buf);
 }
 
 void
@@ -3353,7 +3408,7 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
         }
     }
 
-    ret = !wasm_runtime_get_exception(module) ? true : false;
+    ret = !wasm_runtime_copy_exception(module, NULL);
 
 fail:
     if (argv1 != argv_buf)
@@ -3828,7 +3883,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     }
     exec_env->attachment = NULL;
 
-    ret = !wasm_runtime_get_exception(module) ? true : false;
+    ret = !wasm_runtime_copy_exception(module, NULL);
 
 fail:
     if (argv1 != argv_buf)
@@ -4042,7 +4097,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     }
     exec_env->attachment = NULL;
 
-    ret = !wasm_runtime_get_exception(module) ? true : false;
+    ret = !wasm_runtime_copy_exception(module, NULL);
 
 fail:
     if (argv1 != argv_buf)
@@ -4369,7 +4424,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     }
     exec_env->attachment = NULL;
 
-    ret = !wasm_runtime_get_exception(module) ? true : false;
+    ret = !wasm_runtime_copy_exception(module, NULL);
 fail:
     if (argv1 != argv_buf)
         wasm_runtime_free(argv1);
@@ -4384,7 +4439,7 @@ fail:
                  || defined(BUILD_TARGET_RISCV64_LP64) */
 
 bool
-wasm_runtime_call_indirect(WASMExecEnv *exec_env, uint32 element_indices,
+wasm_runtime_call_indirect(WASMExecEnv *exec_env, uint32 element_index,
                            uint32 argc, uint32 argv[])
 {
     bool ret = false;
@@ -4400,11 +4455,11 @@ wasm_runtime_call_indirect(WASMExecEnv *exec_env, uint32 element_indices,
 
 #if WASM_ENABLE_INTERP != 0
     if (exec_env->module_inst->module_type == Wasm_Module_Bytecode)
-        ret = wasm_call_indirect(exec_env, 0, element_indices, argc, argv);
+        ret = wasm_call_indirect(exec_env, 0, element_index, argc, argv);
 #endif
 #if WASM_ENABLE_AOT != 0
     if (exec_env->module_inst->module_type == Wasm_Module_AoT)
-        ret = aot_call_indirect(exec_env, 0, element_indices, argc, argv);
+        ret = aot_call_indirect(exec_env, 0, element_index, argc, argv);
 #endif
 
     if (!ret && clear_wasi_proc_exit_exception(exec_env->module_inst)) {
@@ -5369,4 +5424,25 @@ wasm_runtime_get_version(uint32_t *major, uint32_t *minor, uint32_t *patch)
     *major = WAMR_VERSION_MAJOR;
     *minor = WAMR_VERSION_MINOR;
     *patch = WAMR_VERSION_PATCH;
+}
+
+bool
+wasm_runtime_is_import_func_linked(const char *module_name,
+                                   const char *func_name)
+{
+    return wasm_native_resolve_symbol(module_name, func_name, NULL, NULL, NULL,
+                                      NULL);
+}
+
+bool
+wasm_runtime_is_import_global_linked(const char *module_name,
+                                     const char *global_name)
+{
+#if WASM_ENABLE_LIBC_BUILTIN != 0
+    WASMGlobalImport global = { 0 };
+    return wasm_native_lookup_libc_builtin_global(module_name, global_name,
+                                                  &global);
+#else
+    return false;
+#endif
 }

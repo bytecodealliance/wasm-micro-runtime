@@ -1,31 +1,34 @@
 # wamr-python
 
+The WAMR Python package contains a set of high-level bindings for WAMR API and WASM-C-API.
+
 ## Installation
 
-### Installing from the source code
-
-Installing from local source tree is in _development mode_. The package appears to be installed but still is editable from the source tree.
+To Install from local source tree in _development mode_ run the following command,
 
 ```bash
-$ python -m pip install -e /path/to/wamr-root/binding/python
+python -m pip install -e .
 ```
+
+In this mode the package appears to be installed but still is editable from the source tree.
 
 ## Usage
 
-```python
-import wamr.ffi as ffi
+From the same package you can use two set of APIs.
+
+To use the WAMR API you can import the symbols as follows,
+
+```py
+from wamr.wamrapi.wamr import Engine, Module, Instance, ExecEnv
 ```
 
-### Preparation
+In the order hand, to use the WASM-C-API,
 
-The binding will load the shared library _libiwasm.so_ from the WAMR repo. So before running the binding, you need to build the library yourself.
+```py
+import wamr.wasmcapi.ffi as ffi
+```
 
-The default compile options are good enough.
+For more information:
 
-Please be aware that `wasm_frame_xxx` and `wasm_trap_xxx` only work well when enabling `WAMR_BUILD_DUMP_CALL_STACK`.
-
-### Examples
-
-There is a [simple example](./samples/hello_procedural.py) to show how to use bindings. Actually, the python binding follows C-APIs. There it should be easy if be familiar with _programming with wasm-c-api_.
-
-Unit test cases under _./tests_ could be another but more complete references.
+* [WAMR API](./wamr_api)
+* [WASM-C-API](./wasm_c_api)

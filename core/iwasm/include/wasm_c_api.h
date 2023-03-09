@@ -354,6 +354,7 @@ WASM_API_EXTERN own wasm_importtype_t* wasm_importtype_new(
 WASM_API_EXTERN const wasm_name_t* wasm_importtype_module(const wasm_importtype_t*);
 WASM_API_EXTERN const wasm_name_t* wasm_importtype_name(const wasm_importtype_t*);
 WASM_API_EXTERN const wasm_externtype_t* wasm_importtype_type(const wasm_importtype_t*);
+WASM_API_EXTERN bool wasm_importtype_is_linked(const wasm_importtype_t*);
 
 
 // Export Types
@@ -796,6 +797,9 @@ static inline void* wasm_val_ptr(const wasm_val_t* val) {
 #define WASM_INIT_VAL {.kind = WASM_ANYREF, .of = {.ref = NULL}}
 
 #define KILOBYTE(n) ((n) * 1024)
+
+// Create placeholders filled in `wasm_externvec_t* imports` for `wasm_instance_new()`
+WASM_API_EXTERN wasm_extern_t *wasm_extern_new_empty(wasm_store_t *,  wasm_externkind_t);
 
 ///////////////////////////////////////////////////////////////////////////////
 

@@ -560,6 +560,7 @@ address_of_const(JitCompContext *cc, JitReg reg, unsigned size)
     unsigned no = jit_reg_no(reg);
     unsigned idx = no & ~_JIT_REG_CONST_IDX_FLAG;
 
+    bh_assert(kind < JIT_REG_KIND_L32);
     bh_assert(jit_reg_is_const_idx(reg) && idx < cc->_const_val._num[kind]);
 
     return cc->_const_val._value[kind] + size * idx;
@@ -572,6 +573,7 @@ next_of_const(JitCompContext *cc, JitReg reg)
     unsigned no = jit_reg_no(reg);
     unsigned idx = no & ~_JIT_REG_CONST_IDX_FLAG;
 
+    bh_assert(kind < JIT_REG_KIND_L32);
     bh_assert(jit_reg_is_const_idx(reg) && idx < cc->_const_val._num[kind]);
 
     return cc->_const_val._next[kind][idx];

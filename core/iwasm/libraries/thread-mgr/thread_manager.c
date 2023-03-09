@@ -16,6 +16,10 @@
 #include "debug_engine.h"
 #endif
 
+#if WASM_ENABLE_SHARED_MEMORY != 0
+#include "wasm_shared_memory.h"
+#endif
+
 typedef struct {
     bh_list_link l;
     void (*destroy_cb)(WASMCluster *);
@@ -96,7 +100,8 @@ safe_traverse_exec_env_list(WASMCluster *cluster, list_visitor visitor,
     while (node) {
         bool already_processed = false;
         void *proc_node;
-        for (size_t i = 0; i < bh_vector_size(&proc_nodes); i++) {
+        uint32 i;
+        for (i = 0; i < (uint32)bh_vector_size(&proc_nodes); i++) {
             if (!bh_vector_get(&proc_nodes, i, &proc_node)) {
                 ret = false;
                 goto final;
@@ -130,8 +135,21 @@ final:
 
 /* The caller must lock cluster->lock */
 static bool
-allocate_aux_stack(WASMCluster *cluster, uint32 *start, uint32 *size)
+allocate_aux_stack(WASMExecEnv *exec_env, uint32 *start, uint32 *size)
 {
+    WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
+#if WASM_ENABLE_HEAP_AUX_STACK_ALLOCATION != 0
+    WASMModuleInstanceCommon *module_inst =
+        wasm_exec_env_get_module_inst(exec_env);
+    uint32 stack_end;
+
+    stack_end =
+        wasm_runtime_module_malloc(module_inst, cluster->stack_size, NULL);
+    *start = stack_end + cluster->stack_size;
+    *size = cluster->stack_size;
+
+    return stack_end != 0;
+#else
     uint32 i;
 
     /* If the module doesn't have aux stack info,
@@ -151,12 +169,29 @@ allocate_aux_stack(WASMCluster *cluster, uint32 *start, uint32 *size)
     }
 
     return false;
+#endif
 }
 
 /* The caller must lock cluster->lock */
 static bool
-free_aux_stack(WASMCluster *cluster, uint32 start)
+free_aux_stack(WASMExecEnv *exec_env, uint32 start)
 {
+    WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
+
+#if WASM_ENABLE_HEAP_AUX_STACK_ALLOCATION != 0
+    WASMModuleInstanceCommon *module_inst =
+        wasm_exec_env_get_module_inst(exec_env);
+
+    if (!wasm_exec_env_is_aux_stack_managed_by_runtime(exec_env)) {
+        return true;
+    }
+
+    bh_assert(start >= cluster->stack_size);
+
+    wasm_runtime_module_free(module_inst, start - cluster->stack_size);
+
+    return true;
+#else
     uint32 i;
 
     for (i = 0; i < cluster_max_thread_num; i++) {
@@ -166,14 +201,14 @@ free_aux_stack(WASMCluster *cluster, uint32 start)
         }
     }
     return false;
+#endif
 }
 
 WASMCluster *
 wasm_cluster_create(WASMExecEnv *exec_env)
 {
     WASMCluster *cluster;
-    uint64 total_size;
-    uint32 aux_stack_start, aux_stack_size, i;
+    uint32 aux_stack_start, aux_stack_size;
 
     bh_assert(exec_env->cluster == NULL);
     if (!(cluster = wasm_runtime_malloc(sizeof(WASMCluster)))) {
@@ -195,7 +230,9 @@ wasm_cluster_create(WASMExecEnv *exec_env)
     /* Prepare the aux stack top and size for every thread */
     if (!wasm_exec_env_get_aux_stack(exec_env, &aux_stack_start,
                                      &aux_stack_size)) {
+#if WASM_ENABLE_LIB_WASI_THREADS == 0
         LOG_VERBOSE("No aux stack info for this module, can't create thread");
+#endif
 
         /* If the module don't have aux stack info, don't throw error here,
             but remain stack_tops and stack_segment_occupied as NULL */
@@ -209,12 +246,16 @@ wasm_cluster_create(WASMExecEnv *exec_env)
         return cluster;
     }
 
+#if WASM_ENABLE_HEAP_AUX_STACK_ALLOCATION != 0
+    cluster->stack_size = aux_stack_size;
+#else
     cluster->stack_size = aux_stack_size / (cluster_max_thread_num + 1);
     if (cluster->stack_size < WASM_THREAD_AUX_STACK_SIZE_MIN) {
         goto fail;
     }
     /* Make stack size 16-byte aligned */
     cluster->stack_size = cluster->stack_size & (~15);
+#endif
 
     /* Set initial aux stack top to the instance and
         aux stack boundary to the main exec_env */
@@ -222,8 +263,10 @@ wasm_cluster_create(WASMExecEnv *exec_env)
                                      cluster->stack_size))
         goto fail;
 
+#if WASM_ENABLE_HEAP_AUX_STACK_ALLOCATION == 0
     if (cluster_max_thread_num != 0) {
-        total_size = cluster_max_thread_num * sizeof(uint32);
+        uint64 total_size = cluster_max_thread_num * sizeof(uint32);
+        uint32 i;
         if (total_size >= UINT32_MAX
             || !(cluster->stack_tops =
                      wasm_runtime_malloc((uint32)total_size))) {
@@ -245,6 +288,7 @@ wasm_cluster_create(WASMExecEnv *exec_env)
             cluster->stack_tops[i] = aux_stack_start - cluster->stack_size * i;
         }
     }
+#endif
 
     os_mutex_lock(&cluster_list_lock);
     if (bh_list_insert(cluster_list, cluster) != 0) {
@@ -284,10 +328,12 @@ wasm_cluster_destroy(WASMCluster *cluster)
 
     os_mutex_destroy(&cluster->lock);
 
+#if WASM_ENABLE_HEAP_AUX_STACK_ALLOCATION == 0
     if (cluster->stack_tops)
         wasm_runtime_free(cluster->stack_tops);
     if (cluster->stack_segment_occupied)
         wasm_runtime_free(cluster->stack_segment_occupied);
+#endif
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
     wasm_debug_instance_destroy(cluster);
@@ -323,7 +369,13 @@ wasm_cluster_add_exec_env(WASMCluster *cluster, WASMExecEnv *exec_env)
 
     exec_env->cluster = cluster;
 
-    if (bh_list_insert(&cluster->exec_env_list, exec_env) != 0)
+    if (cluster->exec_env_list.len == cluster_max_thread_num + 1) {
+        LOG_ERROR("thread manager error: "
+                  "maximum number of threads exceeded");
+        ret = false;
+    }
+
+    if (ret && bh_list_insert(&cluster->exec_env_list, exec_env) != 0)
         ret = false;
 
     return ret;
@@ -461,7 +513,7 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
     if (!new_exec_env)
         goto fail2;
 
-    if (!allocate_aux_stack(cluster, &aux_stack_start, &aux_stack_size)) {
+    if (!allocate_aux_stack(exec_env, &aux_stack_start, &aux_stack_size)) {
         LOG_ERROR("thread manager error: "
                   "failed to allocate aux stack space for new thread");
         goto fail3;
@@ -482,9 +534,9 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
 
 fail4:
     /* free the allocated aux stack space */
-    free_aux_stack(cluster, aux_stack_start);
+    free_aux_stack(exec_env, aux_stack_start);
 fail3:
-    wasm_exec_env_destroy(new_exec_env);
+    wasm_exec_env_destroy_internal(new_exec_env);
 fail2:
     wasm_runtime_deinstantiate_internal(new_module_inst, true);
 fail1:
@@ -500,14 +552,18 @@ wasm_cluster_destroy_spawned_exec_env(WASMExecEnv *exec_env)
     wasm_module_inst_t module_inst = wasm_runtime_get_module_inst(exec_env);
     bh_assert(cluster != NULL);
 
-    /* Free aux stack space */
     os_mutex_lock(&cluster->lock);
-    free_aux_stack(cluster, exec_env->aux_stack_bottom.bottom);
-    wasm_cluster_del_exec_env(cluster, exec_env);
-    os_mutex_unlock(&cluster->lock);
-    wasm_exec_env_destroy_internal(exec_env);
 
+    /* Free aux stack space */
+    free_aux_stack(exec_env, exec_env->aux_stack_bottom.bottom);
+    /* Remove exec_env */
+    wasm_cluster_del_exec_env(cluster, exec_env);
+    /* Destroy exec_env */
+    wasm_exec_env_destroy_internal(exec_env);
+    /* Routine exit, destroy instance */
     wasm_runtime_deinstantiate_internal(module_inst, true);
+
+    os_mutex_unlock(&cluster->lock);
 }
 
 /* start routine of thread manager */
@@ -517,30 +573,59 @@ thread_manager_start_routine(void *arg)
     void *ret;
     WASMExecEnv *exec_env = (WASMExecEnv *)arg;
     WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
-    bh_assert(cluster != NULL);
+    WASMModuleInstanceCommon *module_inst =
+        wasm_exec_env_get_module_inst(exec_env);
 
+    bh_assert(cluster != NULL);
+    bh_assert(module_inst != NULL);
+
+    os_mutex_lock(&exec_env->wait_lock);
     exec_env->handle = os_self_thread();
+    /* Notify the parent thread to continue running */
+    os_cond_signal(&exec_env->wait_cond);
+    os_mutex_unlock(&exec_env->wait_lock);
+
     ret = exec_env->thread_start_routine(exec_env);
 
 #if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
+    os_mutex_lock(&exec_env->wait_lock);
     if (exec_env->suspend_flags.flags & 0x08)
         ret = exec_env->thread_ret_value;
+    os_mutex_unlock(&exec_env->wait_lock);
 #endif
 
     /* Routine exit */
-    /* Detach the native thread here to ensure the resources are freed */
-    wasm_cluster_detach_thread(exec_env);
+
 #if WASM_ENABLE_DEBUG_INTERP != 0
     wasm_cluster_thread_exited(exec_env);
 #endif
+
+    os_mutex_lock(&cluster_list_lock);
+
     os_mutex_lock(&cluster->lock);
+
+    /* Detach the native thread here to ensure the resources are freed */
+    if (exec_env->wait_count == 0 && !exec_env->thread_is_detached) {
+        /* Only detach current thread when there is no other thread
+           joining it, otherwise let the system resources for the
+           thread be released after joining */
+        os_thread_detach(exec_env->handle);
+        /* No need to set exec_env->thread_is_detached to true here
+           since we will exit soon */
+    }
+
     /* Free aux stack space */
-    free_aux_stack(cluster, exec_env->aux_stack_bottom.bottom);
-    /* Remove and exec_env */
+    free_aux_stack(exec_env, exec_env->aux_stack_bottom.bottom);
+    /* Remove exec_env */
     wasm_cluster_del_exec_env(cluster, exec_env);
-    os_mutex_unlock(&cluster->lock);
-    /* destroy exec_env */
+    /* Destroy exec_env */
     wasm_exec_env_destroy_internal(exec_env);
+    /* Routine exit, destroy instance */
+    wasm_runtime_deinstantiate_internal(module_inst, true);
+
+    os_mutex_unlock(&cluster->lock);
+
+    os_mutex_unlock(&cluster_list_lock);
 
     os_thread_exit(ret);
     return ret;
@@ -548,12 +633,12 @@ thread_manager_start_routine(void *arg)
 
 int32
 wasm_cluster_create_thread(WASMExecEnv *exec_env,
-                           wasm_module_inst_t module_inst,
+                           wasm_module_inst_t module_inst, bool alloc_aux_stack,
                            void *(*thread_routine)(void *), void *arg)
 {
     WASMCluster *cluster;
     WASMExecEnv *new_exec_env;
-    uint32 aux_stack_start, aux_stack_size;
+    uint32 aux_stack_start = 0, aux_stack_size;
     korp_tid tid;
 
     cluster = wasm_exec_env_get_cluster(exec_env);
@@ -570,16 +655,23 @@ wasm_cluster_create_thread(WASMExecEnv *exec_env,
     if (!new_exec_env)
         goto fail1;
 
-    if (!allocate_aux_stack(cluster, &aux_stack_start, &aux_stack_size)) {
-        LOG_ERROR("thread manager error: "
-                  "failed to allocate aux stack space for new thread");
-        goto fail2;
-    }
+    if (alloc_aux_stack) {
+        if (!allocate_aux_stack(exec_env, &aux_stack_start, &aux_stack_size)) {
+            LOG_ERROR("thread manager error: "
+                      "failed to allocate aux stack space for new thread");
+            goto fail2;
+        }
 
-    /* Set aux stack for current thread */
-    if (!wasm_exec_env_set_aux_stack(new_exec_env, aux_stack_start,
-                                     aux_stack_size)) {
-        goto fail3;
+        /* Set aux stack for current thread */
+        if (!wasm_exec_env_set_aux_stack(new_exec_env, aux_stack_start,
+                                         aux_stack_size)) {
+            goto fail3;
+        }
+    }
+    else {
+        /* Disable aux stack */
+        new_exec_env->aux_stack_boundary.boundary = 0;
+        new_exec_env->aux_stack_bottom.bottom = UINT32_MAX;
     }
 
     if (!wasm_cluster_add_exec_env(cluster, new_exec_env))
@@ -588,12 +680,20 @@ wasm_cluster_create_thread(WASMExecEnv *exec_env,
     new_exec_env->thread_start_routine = thread_routine;
     new_exec_env->thread_arg = arg;
 
+    os_mutex_lock(&new_exec_env->wait_lock);
+
     if (0
         != os_thread_create(&tid, thread_manager_start_routine,
                             (void *)new_exec_env,
                             APP_THREAD_STACK_SIZE_DEFAULT)) {
+        os_mutex_unlock(&new_exec_env->wait_lock);
         goto fail4;
     }
+
+    /* Wait until the new_exec_env->handle is set to avoid it is
+       illegally accessed after unlocking cluster->lock */
+    os_cond_wait(&new_exec_env->wait_cond, &new_exec_env->wait_lock);
+    os_mutex_unlock(&new_exec_env->wait_lock);
 
     os_mutex_unlock(&cluster->lock);
 
@@ -603,9 +703,10 @@ fail4:
     wasm_cluster_del_exec_env(cluster, new_exec_env);
 fail3:
     /* free the allocated aux stack space */
-    free_aux_stack(cluster, aux_stack_start);
+    if (alloc_aux_stack)
+        free_aux_stack(exec_env, aux_stack_start);
 fail2:
-    wasm_exec_env_destroy(new_exec_env);
+    wasm_exec_env_destroy_internal(new_exec_env);
 fail1:
     os_mutex_unlock(&cluster->lock);
 
@@ -753,15 +854,18 @@ clusters_have_exec_env(WASMExecEnv *exec_env)
     WASMExecEnv *node;
 
     while (cluster) {
+        os_mutex_lock(&cluster->lock);
         node = bh_list_first_elem(&cluster->exec_env_list);
 
         while (node) {
             if (node == exec_env) {
                 bh_assert(exec_env->cluster == cluster);
+                os_mutex_unlock(&cluster->lock);
                 return true;
             }
             node = bh_list_elem_next(node);
         }
+        os_mutex_unlock(&cluster->lock);
 
         cluster = bh_list_elem_next(cluster);
     }
@@ -775,20 +879,20 @@ wasm_cluster_join_thread(WASMExecEnv *exec_env, void **ret_val)
     korp_tid handle;
 
     os_mutex_lock(&cluster_list_lock);
-    os_mutex_lock(&exec_env->cluster->lock);
 
     if (!clusters_have_exec_env(exec_env) || exec_env->thread_is_detached) {
         /* Invalid thread, thread has exited or thread has been detached */
         if (ret_val)
             *ret_val = NULL;
-        os_mutex_unlock(&exec_env->cluster->lock);
         os_mutex_unlock(&cluster_list_lock);
         return 0;
     }
+
+    os_mutex_lock(&exec_env->wait_lock);
     exec_env->wait_count++;
     handle = exec_env->handle;
+    os_mutex_unlock(&exec_env->wait_lock);
 
-    os_mutex_unlock(&exec_env->cluster->lock);
     os_mutex_unlock(&cluster_list_lock);
 
     return os_thread_join(handle, ret_val);
@@ -820,6 +924,7 @@ void
 wasm_cluster_exit_thread(WASMExecEnv *exec_env, void *retval)
 {
     WASMCluster *cluster;
+    WASMModuleInstanceCommon *module_inst;
 
 #if defined(OS_ENABLE_HW_BOUND_CHECK) || defined(OS_ENABLE_INTERRUPT_BLOCK_INSN)
     if (exec_env->jmpbuf_stack_top) {
@@ -844,16 +949,37 @@ wasm_cluster_exit_thread(WASMExecEnv *exec_env, void *retval)
     wasm_cluster_clear_thread_signal(exec_env);
     wasm_cluster_thread_exited(exec_env);
 #endif
+
     /* App exit the thread, free the resources before exit native thread */
-    /* Detach the native thread here to ensure the resources are freed */
-    wasm_cluster_detach_thread(exec_env);
+
+    os_mutex_lock(&cluster_list_lock);
+
     os_mutex_lock(&cluster->lock);
+
+    /* Detach the native thread here to ensure the resources are freed */
+    if (exec_env->wait_count == 0 && !exec_env->thread_is_detached) {
+        /* Only detach current thread when there is no other thread
+           joining it, otherwise let the system resources for the
+           thread be released after joining */
+        os_thread_detach(exec_env->handle);
+        /* No need to set exec_env->thread_is_detached to true here
+           since we will exit soon */
+    }
+
+    module_inst = exec_env->module_inst;
+
     /* Free aux stack space */
-    free_aux_stack(cluster, exec_env->aux_stack_bottom.bottom);
-    /* Remove and destroy exec_env */
+    free_aux_stack(exec_env, exec_env->aux_stack_bottom.bottom);
+    /* Remove exec_env */
     wasm_cluster_del_exec_env(cluster, exec_env);
-    os_mutex_unlock(&cluster->lock);
+    /* Destroy exec_env */
     wasm_exec_env_destroy_internal(exec_env);
+    /* Routine exit, destroy instance */
+    wasm_runtime_deinstantiate_internal(module_inst, true);
+
+    os_mutex_unlock(&cluster->lock);
+
+    os_mutex_unlock(&cluster_list_lock);
 
     os_thread_exit(retval);
 }
@@ -861,23 +987,26 @@ wasm_cluster_exit_thread(WASMExecEnv *exec_env, void *retval)
 static void
 set_thread_cancel_flags(WASMExecEnv *exec_env)
 {
+    os_mutex_lock(&exec_env->wait_lock);
     /* Set the termination flag */
 #if WASM_ENABLE_DEBUG_INTERP != 0
     wasm_cluster_thread_send_signal(exec_env, WAMR_SIG_TERM);
 #else
     exec_env->suspend_flags.flags |= 0x01;
 #endif
+    os_mutex_unlock(&exec_env->wait_lock);
 }
 
 int32
 wasm_cluster_cancel_thread(WASMExecEnv *exec_env)
 {
     os_mutex_lock(&cluster_list_lock);
-    os_mutex_lock(&exec_env->cluster->lock);
 
     if (!exec_env->cluster) {
-        goto final;
+        os_mutex_unlock(&cluster_list_lock);
+        return 0;
     }
+
     if (!clusters_have_exec_env(exec_env)) {
         /* Invalid thread or the thread has exited */
         goto final;
@@ -886,7 +1015,6 @@ wasm_cluster_cancel_thread(WASMExecEnv *exec_env)
     set_thread_cancel_flags(exec_env);
 
 final:
-    os_mutex_unlock(&exec_env->cluster->lock);
     os_mutex_unlock(&cluster_list_lock);
 
     return 0;
@@ -1079,9 +1207,23 @@ set_exception_visitor(void *node, void *user_data)
         WASMModuleInstance *curr_wasm_inst =
             (WASMModuleInstance *)get_module_inst(curr_exec_env);
 
-        bh_memcpy_s(curr_wasm_inst->cur_exception,
-                    sizeof(curr_wasm_inst->cur_exception),
-                    wasm_inst->cur_exception, sizeof(wasm_inst->cur_exception));
+        /* Only spread non "wasi proc exit" exception */
+#if WASM_ENABLE_SHARED_MEMORY != 0
+        WASMSharedMemNode *shared_mem_node = wasm_module_get_shared_memory(
+            (WASMModuleCommon *)curr_wasm_inst->module);
+        if (shared_mem_node)
+            os_mutex_lock(&shared_mem_node->shared_mem_lock);
+#endif
+        if (!strstr(wasm_inst->cur_exception, "wasi proc exit")) {
+            bh_memcpy_s(curr_wasm_inst->cur_exception,
+                        sizeof(curr_wasm_inst->cur_exception),
+                        wasm_inst->cur_exception,
+                        sizeof(wasm_inst->cur_exception));
+        }
+#if WASM_ENABLE_SHARED_MEMORY != 0
+        if (shared_mem_node)
+            os_mutex_unlock(&shared_mem_node->shared_mem_lock);
+#endif
 
         /* Terminate the thread so it can exit from dead loops */
         set_thread_cancel_flags(curr_exec_env);
@@ -1098,7 +1240,17 @@ clear_exception_visitor(void *node, void *user_data)
         WASMModuleInstance *curr_wasm_inst =
             (WASMModuleInstance *)get_module_inst(curr_exec_env);
 
+#if WASM_ENABLE_SHARED_MEMORY != 0
+        WASMSharedMemNode *shared_mem_node = wasm_module_get_shared_memory(
+            (WASMModuleCommon *)curr_wasm_inst->module);
+        if (shared_mem_node)
+            os_mutex_lock(&shared_mem_node->shared_mem_lock);
+#endif
         curr_wasm_inst->cur_exception[0] = '\0';
+#if WASM_ENABLE_SHARED_MEMORY != 0
+        if (shared_mem_node)
+            os_mutex_unlock(&shared_mem_node->shared_mem_lock);
+#endif
     }
 }
 
@@ -1146,4 +1298,15 @@ wasm_cluster_spread_custom_data(WASMModuleInstanceCommon *module_inst,
                       custom_data);
         os_mutex_unlock(&cluster->lock);
     }
+}
+
+bool
+wasm_cluster_is_thread_terminated(WASMExecEnv *exec_env)
+{
+    os_mutex_lock(&exec_env->wait_lock);
+    bool is_thread_terminated =
+        (exec_env->suspend_flags.flags & 0x01) ? true : false;
+    os_mutex_unlock(&exec_env->wait_lock);
+
+    return is_thread_terminated;
 }

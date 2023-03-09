@@ -999,6 +999,14 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 #endif
 
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (comp_ctx->enable_thread_mgr) {
+        if (!check_suspend_flags(comp_ctx, func_ctx))
+            goto fail;
+    }
+#endif
+
     ret = true;
 fail:
     if (param_types)
@@ -1641,6 +1649,14 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 #if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
     if (comp_ctx->enable_aux_stack_frame) {
         if (!call_aot_free_frame_func(comp_ctx, func_ctx))
+            goto fail;
+    }
+#endif
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (comp_ctx->enable_thread_mgr) {
+        if (!check_suspend_flags(comp_ctx, func_ctx))
             goto fail;
     }
 #endif

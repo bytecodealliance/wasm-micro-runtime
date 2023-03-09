@@ -7,8 +7,9 @@
     -Wl,--allow-undefined \
     -Wl,--strip-all,--no-entry \
     --sysroot=/opt/wasi-sdk/share/wasi-sysroot \
-    -I.. \
-    -o test_tensorflow.wasm test_tensorflow.c
+    -I.. -I../src/utils \
+    -o test_tensorflow.wasm \
+    test_tensorflow.c utils.c
 
 # TFLite models to use in the tests
 
