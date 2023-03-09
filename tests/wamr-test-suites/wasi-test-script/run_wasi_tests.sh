@@ -10,6 +10,7 @@ readonly TARGET=$2
 
 readonly WORK_DIR=$PWD
 readonly PLATFORM=$(uname -s | tr A-Z a-z)
+readonly WAMR_DIR="${WORK_DIR}/../../../.."
 readonly IWASM_CMD="${WORK_DIR}/../../../../product-mini/platforms/${PLATFORM}/build/iwasm"
 readonly WAMRC_CMD="${WORK_DIR}/../../../../wamr-compiler/build/wamrc"
 
@@ -21,7 +22,8 @@ if [[ $MODE != "aot" ]];then
                 -t \
                     tests/c/testsuite/ \
                     tests/assemblyscript/testsuite/ \
-                    tests/proposals/wasi-threads/
+                    tests/proposals/wasi-threads/ \
+                    ${WAMR_DIR}/core/iwasm/libraries/lib-wasi-threads/test/
     exit_code=${PIPESTATUS[0]}
     deactivate
 else

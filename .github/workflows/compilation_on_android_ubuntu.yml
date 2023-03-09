@@ -457,6 +457,10 @@ jobs:
             $THREADS_TEST_OPTIONS,
             $WASI_TEST_OPTIONS,
           ]
+        wasi_sdk_release:
+          [
+            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-linux.tar.gz",
+          ]
         llvm_cache_key:
           ["${{ needs.build_llvm_libraries_on_ubuntu_2004.outputs.cache_key }}"]
         exclude:
@@ -493,6 +497,31 @@ jobs:
       - name: checkout
         uses: actions/checkout@v3
 
+      - name: download and install wasi-sdk
+        if: matrix.test_option == '$WASI_TEST_OPTIONS'
+        run: |
+          cd /opt
+          sudo wget ${{ matrix.wasi_sdk_release }}
+          sudo tar -xzf wasi-sdk-*.tar.gz
+          sudo mv wasi-sdk-19.0 wasi-sdk
+
+      - name: build wasi-libc (needed for wasi-threads)
+        if: matrix.test_option == '$WASI_TEST_OPTIONS'
+        run: |
+          mkdir wasi-libc
+          cd wasi-libc
+          git init
+          # "Rename thread_spawn import" commit on main branch
+          git fetch https://github.com/WebAssembly/wasi-libc \
+            8f5275796a82f8ecfd0833a4f3f444fa37ed4546
+          git checkout FETCH_HEAD
+          make \
+            AR=/opt/wasi-sdk/bin/llvm-ar \
+            NM=/opt/wasi-sdk/bin/llvm-nm \
+            CC=/opt/wasi-sdk/bin/clang \
+            THREAD_MODEL=posix
+        working-directory: core/deps
+
       - name: set env variable(if llvm are used)
         if: matrix.running_mode == 'aot' || matrix.running_mode == 'jit' || matrix.running_mode == 'multi-tier-jit'
         run: echo "USE_LLVM=true" >> $GITHUB_ENV
@@ -525,6 +554,11 @@ jobs:
       - name: install jq JSON processor
         if: matrix.running_mode == 'aot' && matrix.test_option == '$WASI_TEST_OPTIONS'
         run: sudo apt-get update && sudo apt install -y jq
+
+      - name: Build WASI thread tests
+        if: matrix.test_option == '$WASI_TEST_OPTIONS'
+        run: WASI_SYSROOT=../../../../../core/deps/wasi-libc/sysroot bash build.sh
+        working-directory: ./core/iwasm/libraries/lib-wasi-threads/test/
 
       - name: run tests
         timeout-minutes: 10

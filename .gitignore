@@ -13,6 +13,7 @@
 core/deps/**
 core/shared/mem-alloc/tlsf
 core/app-framework/wgl
+core/iwasm/libraries/lib-wasi-threads/test/*.wasm
 
 wamr-sdk/out/
 wamr-sdk/runtime/build_runtime_sdk/
@@ -35,3 +36,5 @@ tests/benchmarks/coremark/coremark*
 
 samples/workload/include/**
 !samples/workload/include/.gitkeep
+
+# core/iwasm/libraries/wasi-threads

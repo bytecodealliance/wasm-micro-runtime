@@ -33,7 +33,7 @@ __wasi_thread_start_C(int thread_id, int *start_arg)
     data->value += 8;
     printf("Updated value: %d\n", data->value);
 
-    data->th_ready = 1;
+    __atomic_store_n(&data->th_ready, 1, __ATOMIC_SEQ_CST);
     __builtin_wasm_memory_atomic_notify(&data->th_ready, 1);
 }
 
