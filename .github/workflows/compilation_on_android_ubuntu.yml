@@ -560,6 +560,11 @@ jobs:
         run: WASI_SYSROOT=../../../../../core/deps/wasi-libc/sysroot bash build.sh
         working-directory: ./core/iwasm/libraries/lib-wasi-threads/test/
 
+      - name: build socket api tests
+        if: matrix.test_option == '$WASI_TEST_OPTIONS'
+        run: WASI_SYSROOT=../../../../../core/deps/wasi-libc/sysroot bash build.sh
+        working-directory: ./core/iwasm/libraries/lib-socket/test/
+
       - name: run tests
         timeout-minutes: 10
         run: ./test_wamr.sh ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
