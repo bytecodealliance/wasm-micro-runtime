@@ -92,6 +92,41 @@ int os_thread_detach(korp_tid);
 void
 os_thread_exit(void *retval);
 
+/* Try to define os_atomic_thread_fence if it isn't defined in
+   platform's platform_internal.h */
+#ifndef os_atomic_thread_fence
+
+#if !defined(__GNUC_PREREQ) && (defined(__GNUC__) || defined(__GNUG__)) \
+    && !defined(__clang__) && defined(__GNUC_MINOR__)
+#define __GNUC_PREREQ(maj, min) \
+    ((__GNUC__ << 16) + __GNUC_MINOR__ >= ((maj) << 16) + (min))
+#endif
+
+/* Clang's __GNUC_PREREQ macro has a different meaning than GCC one,
+   so we have to handle this case specially */
+#if defined(__clang__)
+/* Clang provides stdatomic.h since 3.6.0
+   See https://releases.llvm.org/3.6.0/tools/clang/docs/ReleaseNotes.html */
+#if __clang_major__ > 3 || (__clang_major__ == 3 && __clang_minor__ >= 6)
+#define BH_HAS_STD_ATOMIC
+#endif
+#elif defined(__GNUC_PREREQ)
+/* Even though older versions of GCC support C11, atomics were
+   not implemented until 4.9. See
+   https://gcc.gnu.org/bugzilla/show_bug.cgi?id=58016 */
+#if __GNUC_PREREQ(4, 9)
+#define BH_HAS_STD_ATOMIC
+#endif /* end of __GNUC_PREREQ(4, 9) */
+#endif /* end of defined(__GNUC_PREREQ) */
+
+#if defined(BH_HAS_STD_ATOMIC) && !defined(__cplusplus)
+#include <stdatomic.h>
+#define os_memory_order_release memory_order_release
+#define os_atomic_thread_fence atomic_thread_fence
+#endif
+
+#endif /* end of os_atomic_thread_fence */
+
 /**
  * Initialize current thread environment if current thread
  * is created by developer but not runtime

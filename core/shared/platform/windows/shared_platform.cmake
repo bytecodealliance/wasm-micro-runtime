@@ -10,7 +10,8 @@ add_definitions(-DHAVE_STRUCT_TIMESPEC)
 include_directories(${PLATFORM_SHARED_DIR})
 include_directories(${PLATFORM_SHARED_DIR}/../include)
 
-file (GLOB_RECURSE source_all ${PLATFORM_SHARED_DIR}/*.c)
+file (GLOB_RECURSE source_all ${PLATFORM_SHARED_DIR}/*.c
+			      ${PLATFORM_SHARED_DIR}/*.cpp)
 
 set (PLATFORM_SHARED_SOURCE ${source_all})
 

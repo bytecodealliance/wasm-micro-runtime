@@ -993,6 +993,14 @@ wasm_app_module_uninstall(request_t *msg)
 
     app_manager_printf("Uninstall WASM app successful!\n");
 
+#ifdef COLLECT_CODE_COVERAGE
+    /* Exit app manager so as to collect code coverage data */
+    if (!strcmp(m_name, "__exit_app_manager__")) {
+        app_manager_printf("Exit app manager\n");
+        bh_queue_exit_loop_run(get_app_manager_queue());
+    }
+#endif
+
 #if VALGRIND_CHECK != 0
     bh_queue_exit_loop_run(get_app_manager_queue());
 #endif

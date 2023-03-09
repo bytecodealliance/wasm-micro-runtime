@@ -105,11 +105,6 @@ if (NOT DEFINED WAMR_BUILD_REF_TYPES)
   set (WAMR_BUILD_REF_TYPES 0)
 endif ()
 
-if (COLLECT_CODE_COVERAGE EQUAL 1)
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-arcs -ftest-coverage")
-  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage")
-endif ()
-
 set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
@@ -165,4 +160,5 @@ install (TARGETS iwasm_shared LIBRARY DESTINATION lib)
 install (FILES
     ${WAMR_ROOT_DIR}/core/iwasm/include/wasm_c_api.h
     ${WAMR_ROOT_DIR}/core/iwasm/include/wasm_export.h
+    ${WAMR_ROOT_DIR}/core/iwasm/include/lib_export.h
     DESTINATION include)

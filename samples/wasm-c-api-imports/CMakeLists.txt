@@ -56,10 +56,15 @@ if (NOT CMAKE_BUILD_TYPE)
   set (CMAKE_BUILD_TYPE Release)
 endif ()
 
-set(WAMR_BUILD_AOT 1)
-set(WAMR_BUILD_INTERP 0)
+if (NOT DEFINED WAMR_BUILD_AOT)
+  # Enable AOT by default.
+  set (WAMR_BUILD_AOT 1)
+endif ()
+if (NOT DEFINED WAMR_BUILD_INTERP)
+    # Disable Interpreter by default
+  set (WAMR_BUILD_INTERP 0)
+endif ()
 set(WAMR_BUILD_JIT 0)
-
 set(WAMR_BUILD_FAST_INTERP 1)
 set(WAMR_BUILD_LIB_PTHREAD 1)
 set(WAMR_BUILD_LIBC_BUILTIN 1)

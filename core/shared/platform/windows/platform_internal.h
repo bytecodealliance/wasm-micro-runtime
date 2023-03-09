@@ -116,6 +116,20 @@ os_thread_signal_inited();
 #endif /* end of BUILD_TARGET_X86_64/AMD_64 */
 #endif /* end of WASM_DISABLE_HW_BOUND_CHECK */
 
+typedef enum os_memory_order {
+    os_memory_order_relaxed,
+    os_memory_order_consume,
+    os_memory_order_acquire,
+    os_memory_order_release,
+    os_memory_order_acq_rel,
+    os_memory_order_seq_cst,
+} os_memory_order;
+
+void
+bh_atomic_thread_fence(int mem_order);
+
+#define os_atomic_thread_fence bh_atomic_thread_fence
+
 #ifdef __cplusplus
 }
 #endif

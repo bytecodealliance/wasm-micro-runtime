@@ -10,7 +10,7 @@ from ctypes import cast
 from ctypes import create_string_buffer
 from ctypes import POINTER
 from ctypes import pointer
-
+from wamr.wamrapi.iwasm import String
 from wamr.wamrapi.iwasm import Alloc_With_Pool
 from wamr.wamrapi.iwasm import RuntimeInitArgs
 from wamr.wamrapi.iwasm import wasm_exec_env_t
@@ -27,10 +27,15 @@ from wamr.wamrapi.iwasm import wasm_runtime_instantiate
 from wamr.wamrapi.iwasm import wasm_runtime_load
 from wamr.wamrapi.iwasm import wasm_runtime_lookup_function
 from wamr.wamrapi.iwasm import wasm_runtime_unload
+from wamr.wamrapi.iwasm import wasm_runtime_module_malloc
+from wamr.wamrapi.iwasm import wasm_runtime_module_free
+from wamr.wamrapi.iwasm import wasm_runtime_register_natives
+from wamr.wamrapi.iwasm import NativeSymbol
 
 
 class Engine:
     def __init__(self):
+        self._native_symbols = dict()
         self.init_args = self._get_init_args()
         wasm_runtime_full_init(pointer(self.init_args))
 
@@ -47,6 +52,21 @@ class Engine:
         init_args.mem_alloc_option.pool.heap_size = heap_size
         return init_args
 
+    def register_natives(self, module_name: str, native_symbols: list[NativeSymbol]) -> None:
+        module_name = String.from_param(module_name)
+        # WAMR does not copy the symbols. We must store them.
+        for native in native_symbols:
+            self._native_symbols[str(native.symbol)] = (module_name, native)
+
+        if not wasm_runtime_register_natives(
+            module_name,
+            cast(
+                (NativeSymbol * len(native_symbols))(*native_symbols),
+                POINTER(NativeSymbol)
+            ),
+            len(native_symbols)
+        ):
+            raise Exception("Error while registering symbols")
 
 class Module:
     __create_key = object()
@@ -87,7 +107,13 @@ class Instance:
         print("deleting Instance")
         wasm_runtime_deinstantiate(self.module_inst)
 
-    def lookup_function(self, name: str):
+    def malloc(self, nbytes: int, native_handler) -> c_uint:
+        return wasm_runtime_module_malloc(self.module_inst, nbytes, native_handler)
+
+    def free(self, wasm_handler) -> None:
+        wasm_runtime_module_free(self.module_inst, wasm_handler)
+
+    def lookup_function(self, name: str) -> wasm_function_inst_t:
         func = wasm_runtime_lookup_function(self.module_inst, name, None)
         if not func:
             raise Exception("Error while looking-up function")

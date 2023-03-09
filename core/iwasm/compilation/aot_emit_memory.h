@@ -97,6 +97,10 @@ bool
 aot_compiler_op_atomic_notify(AOTCompContext *comp_ctx,
                               AOTFuncContext *func_ctx, uint32 align,
                               uint32 offset, uint32 bytes);
+
+bool
+aot_compiler_op_atomic_fence(AOTCompContext *comp_ctx,
+                             AOTFuncContext *func_ctx);
 #endif
 
 #ifdef __cplusplus
