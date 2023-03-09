@@ -38,3 +38,9 @@ set (CMAKE_EXE_LINKER_FLAGS
 
 add_executable(test.wasm  main.c)
 target_link_libraries(test.wasm)
+
+add_executable(main_thread_exception.wasm  main_thread_exception.c)
+target_link_libraries(main_thread_exception.wasm)
+
+add_executable(main_global_atomic.wasm  main_global_atomic.c)
+target_link_libraries(main_global_atomic.wasm)

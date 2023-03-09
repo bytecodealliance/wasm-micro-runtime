@@ -19,6 +19,11 @@ endif ()
 if (NOT DEFINED DEPS_DIR)
     set (DEPS_DIR ${WAMR_ROOT_DIR}/core/deps)
 endif ()
+if (NOT DEFINED SHARED_PLATFORM_CONFIG)
+    # CMake file for platform configuration. The PLATFORM_SHARED_SOURCE varable
+    # should point to a list of platform-specfic source files to compile.
+    set (SHARED_PLATFORM_CONFIG ${SHARED_DIR}/platform/${WAMR_BUILD_PLATFORM}/shared_platform.cmake)
+endif ()
 
 if (DEFINED EXTRA_SDK_INCLUDE_PATH)
     message(STATUS, "EXTRA_SDK_INCLUDE_PATH = ${EXTRA_SDK_INCLUDE_PATH} ")
@@ -96,10 +101,21 @@ if (WAMR_BUILD_LIB_PTHREAD_SEMAPHORE EQUAL 1)
 endif ()
 
 if (WAMR_BUILD_WASI_NN EQUAL 1)
-    execute_process(COMMAND ${WAMR_ROOT_DIR}/core/deps/install_tensorflow.sh
-                    RESULT_VARIABLE TENSORFLOW_RESULT
-    )
+    if (NOT EXISTS "${WAMR_ROOT_DIR}/core/deps/tensorflow-src")
+        execute_process(COMMAND ${WAMR_ROOT_DIR}/core/deps/install_tensorflow.sh
+                        RESULT_VARIABLE TENSORFLOW_RESULT
+        )
+    else ()
+        message("Tensorflow is already downloaded.")
+    endif()
     set(TENSORFLOW_SOURCE_DIR "${WAMR_ROOT_DIR}/core/deps/tensorflow-src")
+
+    if (WASI_NN_ENABLE_GPU EQUAL 1)
+        # Tensorflow specific:
+        # * https://www.tensorflow.org/lite/guide/build_cmake#available_options_to_build_tensorflow_lite
+        set (TFLITE_ENABLE_GPU ON)
+    endif ()
+
     include_directories (${CMAKE_CURRENT_BINARY_DIR}/flatbuffers/include)
     include_directories (${TENSORFLOW_SOURCE_DIR})
     add_subdirectory(
@@ -111,6 +127,14 @@ endif ()
 if (WAMR_BUILD_LIB_PTHREAD EQUAL 1)
     include (${IWASM_DIR}/libraries/lib-pthread/lib_pthread.cmake)
     # Enable the dependent feature if lib pthread is enabled
+    set (WAMR_BUILD_THREAD_MGR 1)
+    set (WAMR_BUILD_BULK_MEMORY 1)
+    set (WAMR_BUILD_SHARED_MEMORY 1)
+endif ()
+
+if (WAMR_BUILD_LIB_WASI_THREADS EQUAL 1)
+    include (${IWASM_DIR}/libraries/lib-wasi-threads/lib_wasi_threads.cmake)
+    # Enable the dependent feature if lib wasi threads is enabled
     set (WAMR_BUILD_THREAD_MGR 1)
     set (WAMR_BUILD_BULK_MEMORY 1)
     set (WAMR_BUILD_SHARED_MEMORY 1)
@@ -161,7 +185,7 @@ LIST (APPEND RUNTIME_LIB_HEADER_LIST ${header})
 
 enable_language (ASM)
 
-include (${SHARED_DIR}/platform/${WAMR_BUILD_PLATFORM}/shared_platform.cmake)
+include (${SHARED_PLATFORM_CONFIG})
 include (${SHARED_DIR}/mem-alloc/mem_alloc.cmake)
 include (${IWASM_DIR}/common/iwasm_common.cmake)
 include (${SHARED_DIR}/utils/shared_utils.cmake)
@@ -182,6 +206,7 @@ set (source_all
     ${WASM_APP_LIB_SOURCE_ALL}
     ${NATIVE_INTERFACE_SOURCE}
     ${APP_MGR_SOURCE}
+    ${LIB_WASI_THREADS_SOURCE}
     ${LIB_PTHREAD_SOURCE}
     ${THREAD_MGR_SOURCE}
     ${LIBC_EMCC_SOURCE}

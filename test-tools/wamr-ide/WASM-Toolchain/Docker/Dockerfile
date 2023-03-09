@@ -25,17 +25,17 @@ RUN wget --progress=dot:giga https://github.com/Kitware/CMake/releases/download/
 #    - wamr-sdk
 
 ##  - download wasi-sdk with wget and set up to /opt/wasi-sdk
-RUN wget --progress=dot:giga https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-14/wasi-sdk-14.0-linux.tar.gz \
-    && tar -zxvf wasi-sdk-14.0-linux.tar.gz \
-    && mv wasi-sdk-14.0 /opt/wasi-sdk/ \
-    && rm -f wasi-sdk-14.0-linux.tar.gz
+RUN wget --progress=dot:giga https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-linux.tar.gz \
+    && tar -zxvf wasi-sdk-*-linux.tar.gz \
+    && mv wasi-sdk-19.0 /opt/wasi-sdk/ \
+    && rm -f wasi-sdk-*-linux.tar.gz
 
 ##  - clone wamr repo
-RUN git clone -b main --depth=1 https://github.com/bytecodealliance/wasm-micro-runtime.git 
+RUN git clone -b main --depth=1 https://github.com/bytecodealliance/wasm-micro-runtime.git
 
 WORKDIR /root/wasm-micro-runtime/wamr-compiler
 RUN ./build_llvm.sh \
-    && mkdir build 
+    && mkdir build
 
 WORKDIR /root/wasm-micro-runtime/wamr-compiler/build
 RUN cmake .. \

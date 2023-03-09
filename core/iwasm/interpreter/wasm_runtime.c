@@ -737,13 +737,12 @@ functions_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
 
         function++;
     }
+    bh_assert((uint32)(function - functions) == function_count);
 
 #if WASM_ENABLE_FAST_JIT != 0
     module_inst->fast_jit_func_ptrs = module->fast_jit_func_ptrs;
 #endif
 
-    bh_assert((uint32)(function - functions) == function_count);
-    (void)module_inst;
     return functions;
 }
 
@@ -983,88 +982,138 @@ export_globals_instantiate(const WASMModule *module,
 }
 #endif
 
-#if WASM_ENABLE_LIBC_WASI != 0
-static bool
-execute_initialize_function(WASMModuleInstance *module_inst)
+static WASMFunctionInstance *
+lookup_post_instantiate_func(WASMModuleInstance *module_inst,
+                             const char *func_name)
 {
-    WASMFunctionInstance *initialize =
-        wasm_lookup_function(module_inst, "_initialize", NULL);
-    return !initialize
-           || wasm_create_exec_env_and_call_function(module_inst, initialize, 0,
-                                                     NULL);
+    WASMFunctionInstance *func;
+    WASMType *func_type;
+
+    if (!(func = wasm_lookup_function(module_inst, func_name, NULL)))
+        /* Not found */
+        return NULL;
+
+    func_type = func->u.func->func_type;
+    if (!(func_type->param_count == 0 && func_type->result_count == 0))
+        /* Not a valid function type, ignore it */
+        return NULL;
+
+    return func;
 }
+
+static bool
+execute_post_instantiate_functions(WASMModuleInstance *module_inst,
+                                   bool is_sub_inst)
+{
+    WASMFunctionInstance *start_func = module_inst->e->start_function;
+    WASMFunctionInstance *initialize_func = NULL;
+    WASMFunctionInstance *post_inst_func = NULL;
+    WASMFunctionInstance *call_ctors_func = NULL;
+#if WASM_ENABLE_LIBC_WASI != 0
+    WASMModule *module = module_inst->module;
+#endif
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    WASMModuleInstanceCommon *module_inst_main = NULL;
+    WASMExecEnv *exec_env_tls = NULL;
+#endif
+    WASMExecEnv *exec_env = NULL;
+    bool ret = false;
+
+#if WASM_ENABLE_LIBC_WASI != 0
+    /*
+     * WASI reactor instances may assume that _initialize will be called by
+     * the environment at most once, and that none of their other exports
+     * are accessed before that call.
+     */
+    if (!is_sub_inst && module->import_wasi_api) {
+        initialize_func =
+            lookup_post_instantiate_func(module_inst, "_initialize");
+    }
 #endif
 
-static bool
-execute_post_inst_function(WASMModuleInstance *module_inst)
-{
-    WASMFunctionInstance *post_inst_func = NULL;
-    WASMType *post_inst_func_type;
-    uint32 i;
-
-    for (i = 0; i < module_inst->export_func_count; i++)
-        if (!strcmp(module_inst->export_functions[i].name,
-                    "__post_instantiate")) {
-            post_inst_func = module_inst->export_functions[i].function;
-            break;
-        }
-
-    if (!post_inst_func)
-        /* Not found */
-        return true;
-
-    post_inst_func_type = post_inst_func->u.func->func_type;
-    if (post_inst_func_type->param_count != 0
-        || post_inst_func_type->result_count != 0)
-        /* Not a valid function type, ignore it */
-        return true;
-
-    return wasm_create_exec_env_and_call_function(module_inst, post_inst_func,
-                                                  0, NULL);
-}
+    /* Execute possible "__post_instantiate" function if wasm app is
+       compiled by emsdk's early version */
+    if (!is_sub_inst) {
+        post_inst_func =
+            lookup_post_instantiate_func(module_inst, "__post_instantiate");
+    }
 
 #if WASM_ENABLE_BULK_MEMORY != 0
-static bool
-execute_memory_init_function(WASMModuleInstance *module_inst)
-{
-    WASMFunctionInstance *memory_init_func = NULL;
-    WASMType *memory_init_func_type;
-    uint32 i;
-
-    for (i = 0; i < module_inst->export_func_count; i++)
-        if (!strcmp(module_inst->export_functions[i].name,
-                    "__wasm_call_ctors")) {
-            memory_init_func = module_inst->export_functions[i].function;
-            break;
-        }
-
-    if (!memory_init_func)
-        /* Not found */
-        return true;
-
-    memory_init_func_type = memory_init_func->u.func->func_type;
-    if (memory_init_func_type->param_count != 0
-        || memory_init_func_type->result_count != 0)
-        /* Not a valid function type, ignore it */
-        return true;
-
-    return wasm_create_exec_env_and_call_function(module_inst, memory_init_func,
-                                                  0, NULL);
-}
+    /* Only execute the memory init function for main instance since
+       the data segments will be dropped once initialized */
+    if (!is_sub_inst
+#if WASM_ENABLE_LIBC_WASI != 0
+        && !module->import_wasi_api
+#endif
+    ) {
+        call_ctors_func =
+            lookup_post_instantiate_func(module_inst, "__wasm_call_ctors");
+    }
 #endif
 
-static bool
-execute_start_function(WASMModuleInstance *module_inst)
-{
-    WASMFunctionInstance *func = module_inst->e->start_function;
-
-    if (!func)
+    if (!start_func && !initialize_func && !post_inst_func
+        && !call_ctors_func) {
+        /* No post instantiation functions to call */
         return true;
+    }
 
-    bh_assert(!func->is_import_func && func->param_cell_num == 0
-              && func->ret_cell_num == 0);
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    if (is_sub_inst) {
+        exec_env = exec_env_tls = wasm_runtime_get_exec_env_tls();
+        if (exec_env_tls) {
+            /* Temporarily replace exec_env_tls's module inst to current
+               module inst to avoid checking failure when calling the
+               wasm functions, and ensure that the exec_env's module inst
+               is the correct one. */
+            module_inst_main = exec_env_tls->module_inst;
+            exec_env_tls->module_inst = (WASMModuleInstanceCommon *)module_inst;
+        }
+    }
+#endif
+    if (!exec_env
+        && !(exec_env =
+                 wasm_exec_env_create((WASMModuleInstanceCommon *)module_inst,
+                                      module_inst->default_wasm_stack_size))) {
+        wasm_set_exception(module_inst, "allocate memory failed");
+        return false;
+    }
 
-    return wasm_create_exec_env_and_call_function(module_inst, func, 0, NULL);
+    /* Execute start function for both main insance and sub instance */
+    if (start_func && !wasm_call_function(exec_env, start_func, 0, NULL)) {
+        goto fail;
+    }
+
+    if (initialize_func
+        && !wasm_call_function(exec_env, initialize_func, 0, NULL)) {
+        goto fail;
+    }
+
+    if (post_inst_func
+        && !wasm_call_function(exec_env, post_inst_func, 0, NULL)) {
+        goto fail;
+    }
+
+    if (call_ctors_func
+        && !wasm_call_function(exec_env, call_ctors_func, 0, NULL)) {
+        goto fail;
+    }
+
+    ret = true;
+
+fail:
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    if (is_sub_inst && exec_env_tls) {
+        bh_assert(exec_env == exec_env_tls);
+        /* Restore the exec_env_tls's module inst */
+        exec_env_tls->module_inst = module_inst_main;
+    }
+    else
+        wasm_exec_env_destroy(exec_env);
+#else
+    wasm_exec_env_destroy(exec_env);
+#endif
+
+    return ret;
 }
 
 static bool
@@ -1235,6 +1284,7 @@ check_linked_symbol(WASMModuleInstance *module_inst, char *error_buf,
 #if WASM_ENABLE_WAMR_COMPILER == 0
             LOG_WARNING("warning: failed to link import function (%s, %s)",
                         func->module_name, func->field_name);
+            /* will throw exception only if calling */
 #else
             /* do nothing to avoid confused message */
 #endif /* WASM_ENABLE_WAMR_COMPILER == 0 */
@@ -1250,8 +1300,10 @@ check_linked_symbol(WASMModuleInstance *module_inst, char *error_buf,
             return false;
 #else
 #if WASM_ENABLE_WAMR_COMPILER == 0
-            LOG_DEBUG("warning: failed to link import global (%s, %s)",
-                      global->module_name, global->field_name);
+            set_error_buf_v(error_buf, error_buf_size,
+                            "failed to link import global (%s, %s)",
+                            global->module_name, global->field_name);
+            return false;
 #else
             /* do nothing to avoid confused message */
 #endif /* WASM_ENABLE_WAMR_COMPILER == 0 */
@@ -1285,9 +1337,8 @@ init_func_ptrs(WASMModuleInstance *module_inst, WASMModule *module,
         *func_ptrs = import_func->func_ptr_linked;
     }
 
-    /* Set defined function pointers */
-    bh_memcpy_s(func_ptrs, sizeof(void *) * module->function_count,
-                module->func_ptrs, sizeof(void *) * module->function_count);
+    /* The defined function pointers will be set in
+       wasm_runtime_set_running_mode, no need to set them here */
     return true;
 }
 #endif /* end of WASM_ENABLE_JIT != 0 */
@@ -1332,6 +1383,173 @@ init_func_type_indexes(WASMModuleInstance *module_inst, char *error_buf,
     return true;
 }
 #endif /* end of WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0 */
+
+static bool
+set_running_mode(WASMModuleInstance *module_inst, RunningMode running_mode,
+                 bool first_time_set)
+{
+    WASMModule *module = module_inst->module;
+
+    if (running_mode == Mode_Default) {
+#if WASM_ENABLE_FAST_JIT == 0 && WASM_ENABLE_JIT == 0
+        running_mode = Mode_Interp;
+#elif WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT == 0
+        running_mode = Mode_Fast_JIT;
+#elif WASM_ENABLE_FAST_JIT == 0 && WASM_ENABLE_JIT != 0
+        running_mode = Mode_LLVM_JIT;
+#else /* WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 */
+#if WASM_ENABLE_LAZY_JIT == 0
+        running_mode = Mode_LLVM_JIT;
+#else
+        running_mode = Mode_Multi_Tier_JIT;
+#endif
+#endif
+    }
+
+    if (!wasm_runtime_is_running_mode_supported(running_mode))
+        return false;
+
+#if !(WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
+      && WASM_ENABLE_LAZY_JIT != 0) /* No possible multi-tier JIT */
+    module_inst->e->running_mode = running_mode;
+
+    if (running_mode == Mode_Interp) {
+        /* Do nothing for Mode_Interp */
+    }
+    else if (running_mode == Mode_Fast_JIT) {
+        /* Do nothing for Mode_Fast_JIT since
+           module_inst->fast_jit_func_ptrs is same as
+           module->fast_jit_func_ptrs */
+    }
+#if WASM_ENABLE_JIT != 0
+    else if (running_mode == Mode_LLVM_JIT) {
+        /* Set defined function pointers */
+        bh_memcpy_s(module_inst->func_ptrs + module->import_function_count,
+                    sizeof(void *) * module->function_count, module->func_ptrs,
+                    sizeof(void *) * module->function_count);
+    }
+#endif
+    else {
+        bh_assert(0);
+    }
+#else /* Possible multi-tier JIT */
+    os_mutex_lock(&module->instance_list_lock);
+
+    module_inst->e->running_mode = running_mode;
+
+    if (running_mode == Mode_Interp) {
+        /* Do nothing for Mode_Interp */
+    }
+#if WASM_ENABLE_FAST_JIT != 0
+    else if (running_mode == Mode_Fast_JIT) {
+        JitGlobals *jit_globals = jit_compiler_get_jit_globals();
+        uint32 i;
+
+        /* Allocate memory for fast_jit_func_ptrs if needed */
+        if (!module_inst->fast_jit_func_ptrs
+            || module_inst->fast_jit_func_ptrs == module->fast_jit_func_ptrs) {
+            uint64 total_size = (uint64)sizeof(void *) * module->function_count;
+            if (!(module_inst->fast_jit_func_ptrs =
+                      runtime_malloc(total_size, NULL, 0))) {
+                os_mutex_unlock(&module->instance_list_lock);
+                return false;
+            }
+        }
+
+        for (i = 0; i < module->function_count; i++) {
+            if (module->functions[i]->fast_jit_jitted_code) {
+                /* current fast jit function has been compiled */
+                module_inst->fast_jit_func_ptrs[i] =
+                    module->functions[i]->fast_jit_jitted_code;
+            }
+            else {
+                module_inst->fast_jit_func_ptrs[i] =
+                    jit_globals->compile_fast_jit_and_then_call;
+            }
+        }
+    }
+#endif
+#if WASM_ENABLE_JIT != 0
+    else if (running_mode == Mode_LLVM_JIT) {
+        void **llvm_jit_func_ptrs;
+        uint32 i;
+
+        /* Notify backend threads to start llvm jit compilation */
+        module->enable_llvm_jit_compilation = true;
+
+        /* Wait until llvm jit finishes initialization */
+        os_mutex_lock(&module->tierup_wait_lock);
+        while (!module->llvm_jit_inited) {
+            os_cond_reltimedwait(&module->tierup_wait_cond,
+                                 &module->tierup_wait_lock, 10);
+            if (module->orcjit_stop_compiling) {
+                /* init_llvm_jit_functions_stage2 failed */
+                os_mutex_unlock(&module->tierup_wait_lock);
+                os_mutex_unlock(&module->instance_list_lock);
+                return false;
+            }
+        }
+        os_mutex_unlock(&module->tierup_wait_lock);
+
+        llvm_jit_func_ptrs =
+            module_inst->func_ptrs + module->import_function_count;
+        for (i = 0; i < module->function_count; i++) {
+            llvm_jit_func_ptrs[i] = module->functions[i]->llvm_jit_func_ptr;
+        }
+    }
+#endif
+    else if (running_mode == Mode_Multi_Tier_JIT) {
+        /* Notify backend threads to start llvm jit compilation */
+        module->enable_llvm_jit_compilation = true;
+
+        /* Free fast_jit_func_ptrs if it is allocated before */
+        if (module_inst->fast_jit_func_ptrs
+            && module_inst->fast_jit_func_ptrs != module->fast_jit_func_ptrs) {
+            wasm_runtime_free(module_inst->fast_jit_func_ptrs);
+        }
+        module_inst->fast_jit_func_ptrs = module->fast_jit_func_ptrs;
+
+        /* Copy all llvm jit func ptrs from the module */
+        bh_memcpy_s(module_inst->func_ptrs + module->import_function_count,
+                    sizeof(void *) * module->function_count, module->func_ptrs,
+                    sizeof(void *) * module->function_count);
+    }
+    else {
+        bh_assert(0);
+    }
+
+    /* Add module instance into module's instance list if not added */
+    if (first_time_set) {
+        bool found = false;
+        WASMModuleInstance *node = module->instance_list;
+
+        while (node) {
+            if (node == module_inst) {
+                found = true;
+                break;
+            }
+            node = node->e->next;
+        }
+
+        if (!found) {
+            module_inst->e->next = module->instance_list;
+            module->instance_list = module_inst;
+        }
+    }
+
+    os_mutex_unlock(&module->instance_list_lock);
+#endif /* end of !(WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
+                   && WASM_ENABLE_LAZY_JIT != 0) */
+
+    (void)module;
+    return true;
+}
+
+bool
+wasm_set_running_mode(WASMModuleInstance *module_inst, RunningMode running_mode)
+{
+    return set_running_mode(module_inst, running_mode, false);
+}
 
 /**
  * Instantiate module
@@ -1418,15 +1636,6 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
     module_inst->module = module;
     module_inst->e =
         (WASMModuleInstanceExtra *)((uint8 *)module_inst + extra_info_offset);
-
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    if (os_mutex_init(&module_inst->e->mem_lock) != 0) {
-        set_error_buf(error_buf, error_buf_size,
-                      "create shared memory lock failed");
-        goto fail;
-    }
-    module_inst->e->mem_lock_inited = true;
-#endif
 
 #if WASM_ENABLE_MULTI_MODULE != 0
     module_inst->e->sub_module_inst_list =
@@ -1800,32 +2009,38 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
     }
 #endif
 
-#if WASM_ENABLE_DEBUG_INTERP != 0                         \
-    || (WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
-        && WASM_ENABLE_LAZY_JIT != 0)
+#if WASM_ENABLE_WASI_NN != 0
+    if (!is_sub_inst) {
+        if (!(module_inst->e->wasi_nn_ctx = wasi_nn_initialize())) {
+            set_error_buf(error_buf, error_buf_size,
+                          "wasi nn initialization failed");
+            goto fail;
+        }
+    }
+#endif
+
+#if WASM_ENABLE_DEBUG_INTERP != 0
     if (!is_sub_inst) {
         /* Add module instance into module's instance list */
         os_mutex_lock(&module->instance_list_lock);
-#if WASM_ENABLE_DEBUG_INTERP != 0
         if (module->instance_list) {
             LOG_WARNING(
                 "warning: multiple instances referencing to the same module "
                 "may cause unexpected behaviour during debugging");
         }
-#endif
-#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
-    && WASM_ENABLE_LAZY_JIT != 0
-        /* Copy llvm func ptrs again in case that they were updated
-           after the module instance was created */
-        bh_memcpy_s(module_inst->func_ptrs + module->import_function_count,
-                    sizeof(void *) * module->function_count, module->func_ptrs,
-                    sizeof(void *) * module->function_count);
-#endif
         module_inst->e->next = module->instance_list;
         module->instance_list = module_inst;
         os_mutex_unlock(&module->instance_list_lock);
     }
 #endif
+
+    /* Set running mode before executing wasm functions */
+    if (!set_running_mode(module_inst, wasm_runtime_get_default_running_mode(),
+                          true)) {
+        set_error_buf(error_buf, error_buf_size,
+                      "set instance running mode failed");
+        goto fail;
+    }
 
     if (module->start_function != (uint32)-1) {
         /* TODO: fix start function can be import function issue */
@@ -1834,44 +2049,10 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
                 &module_inst->e->functions[module->start_function];
     }
 
-    if (
-#if WASM_ENABLE_LIBC_WASI != 0
-        /*
-         * reactor instances may assume that _initialize will be called by
-         * the environment at most once, and that none of their other
-         * exports are accessed before that call.
-         *
-         * let the loader decide how to act if there is no _initialize
-         * in a reactor
-         */
-        !execute_initialize_function(module_inst) ||
-#endif
-        /* Execute __post_instantiate function */
-        !execute_post_inst_function(module_inst)
-        /* Execute the function in "start" section */
-        || !execute_start_function(module_inst)) {
+    if (!execute_post_instantiate_functions(module_inst, is_sub_inst)) {
         set_error_buf(error_buf, error_buf_size, module_inst->cur_exception);
         goto fail;
     }
-
-#if WASM_ENABLE_BULK_MEMORY != 0
-#if WASM_ENABLE_LIBC_WASI != 0
-    if (!module->import_wasi_api) {
-#endif
-        /* Only execute the memory init function for main instance because
-            the data segments will be dropped once initialized.
-        */
-        if (!is_sub_inst) {
-            if (!execute_memory_init_function(module_inst)) {
-                set_error_buf(error_buf, error_buf_size,
-                              module_inst->cur_exception);
-                goto fail;
-            }
-        }
-#if WASM_ENABLE_LIBC_WASI != 0
-    }
-#endif
-#endif
 
 #if WASM_ENABLE_MEMORY_TRACING != 0
     wasm_runtime_dump_module_inst_mem_consumption(
@@ -1892,9 +2073,55 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
     if (!module_inst)
         return;
 
+    if (module_inst->exec_env_singleton) {
+        /* wasm_exec_env_destroy will call
+           wasm_cluster_wait_for_all_except_self to wait for other
+           threads, so as to destroy their exec_envs and module
+           instances first, and avoid accessing the shared resources
+           of current module instance after it is deinstantiated. */
+        wasm_exec_env_destroy(module_inst->exec_env_singleton);
+    }
+
+#if WASM_ENABLE_DEBUG_INTERP != 0                         \
+    || (WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
+        && WASM_ENABLE_LAZY_JIT != 0)
+    /* Remove instance from module's instance list before freeing
+       func_ptrs and fast_jit_func_ptrs of the instance, to avoid
+       accessing the freed memory in the jit backend compilation
+       threads */
+    if (!is_sub_inst) {
+        WASMModule *module = module_inst->module;
+        WASMModuleInstance *instance_prev = NULL, *instance;
+        os_mutex_lock(&module->instance_list_lock);
+
+        instance = module->instance_list;
+        while (instance) {
+            if (instance == module_inst) {
+                if (!instance_prev)
+                    module->instance_list = instance->e->next;
+                else
+                    instance_prev->e->next = instance->e->next;
+                break;
+            }
+            instance_prev = instance;
+            instance = instance->e->next;
+        }
+
+        os_mutex_unlock(&module->instance_list_lock);
+    }
+#endif
+
 #if WASM_ENABLE_JIT != 0
     if (module_inst->func_ptrs)
         wasm_runtime_free(module_inst->func_ptrs);
+#endif
+
+#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
+    && WASM_ENABLE_LAZY_JIT != 0
+    if (module_inst->fast_jit_func_ptrs
+        && module_inst->fast_jit_func_ptrs
+               != module_inst->module->fast_jit_func_ptrs)
+        wasm_runtime_free(module_inst->fast_jit_func_ptrs);
 #endif
 
 #if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0
@@ -1937,9 +2164,6 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
     wasm_externref_cleanup((WASMModuleInstanceCommon *)module_inst);
 #endif
 
-    if (module_inst->exec_env_singleton)
-        wasm_exec_env_destroy(module_inst->exec_env_singleton);
-
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
     if (module_inst->frames) {
         bh_vector_destroy(module_inst->frames);
@@ -1948,38 +2172,16 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
     }
 #endif
 
-#if WASM_ENABLE_DEBUG_INTERP != 0                         \
-    || (WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
-        && WASM_ENABLE_LAZY_JIT != 0)
-    if (!is_sub_inst) {
-        WASMModule *module = module_inst->module;
-        WASMModuleInstance *instance_prev = NULL, *instance;
-        os_mutex_lock(&module->instance_list_lock);
-
-        instance = module->instance_list;
-        while (instance) {
-            if (instance == module_inst) {
-                if (!instance_prev)
-                    module->instance_list = instance->e->next;
-                else
-                    instance_prev->e->next = instance->e->next;
-                break;
-            }
-            instance_prev = instance;
-            instance = instance->e->next;
-        }
-
-        os_mutex_unlock(&module->instance_list_lock);
-    }
-#endif
-
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    if (module_inst->e->mem_lock_inited)
-        os_mutex_destroy(&module_inst->e->mem_lock);
-#endif
-
     if (module_inst->e->c_api_func_imports)
         wasm_runtime_free(module_inst->e->c_api_func_imports);
+
+#if WASM_ENABLE_WASI_NN != 0
+    if (!is_sub_inst) {
+        WASINNContext *wasi_nn_ctx = module_inst->e->wasi_nn_ctx;
+        if (wasi_nn_ctx)
+            wasi_nn_destroy(wasi_nn_ctx);
+    }
+#endif
 
     wasm_runtime_free(module_inst);
 }
@@ -2030,24 +2232,6 @@ wasm_lookup_table(const WASMModuleInstance *module_inst, const char *name)
 }
 #endif
 
-static bool
-clear_wasi_proc_exit_exception(WASMModuleInstance *module_inst)
-{
-#if WASM_ENABLE_LIBC_WASI != 0
-    const char *exception = wasm_get_exception(module_inst);
-    if (exception && !strcmp(exception, "Exception: wasi proc exit")) {
-        /* The "wasi proc exit" exception is thrown by native lib to
-           let wasm app exit, which is a normal behavior, we clear
-           the exception here. */
-        wasm_set_exception(module_inst, NULL);
-        return true;
-    }
-    return false;
-#else
-    return false;
-#endif
-}
-
 #ifdef OS_ENABLE_HW_BOUND_CHECK
 
 static void
@@ -2063,14 +2247,16 @@ call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
     WASMRuntimeFrame *prev_frame = wasm_exec_env_get_cur_frame(exec_env);
     uint8 *prev_top = exec_env->wasm_stack.s.top;
 #ifdef BH_PLATFORM_WINDOWS
-    const char *exce;
     int result;
+    bool has_exception;
+    char exception[EXCEPTION_BUF_LEN];
 #endif
     bool ret = true;
 
     /* Check native stack overflow firstly to ensure we have enough
        native stack to run the following codes before actually calling
        the aot function in invokeNative function. */
+    RECORD_STACK_USAGE(exec_env, (uint8 *)&exec_env_tls);
     if ((uint8 *)&exec_env_tls < exec_env->native_stack_boundary
                                      + page_size * (guard_page_count + 1)) {
         wasm_set_exception(module_inst, "native stack overflow");
@@ -2096,14 +2282,14 @@ call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
 #else
         __try {
             wasm_interp_call_wasm(module_inst, exec_env, function, argc, argv);
-        } __except (wasm_get_exception(module_inst)
+        } __except (wasm_copy_exception(module_inst, NULL)
                         ? EXCEPTION_EXECUTE_HANDLER
                         : EXCEPTION_CONTINUE_SEARCH) {
             /* exception was thrown in wasm_exception_handler */
             ret = false;
         }
-        if ((exce = wasm_get_exception(module_inst))
-            && strstr(exce, "native stack overflow")) {
+        has_exception = wasm_copy_exception(module_inst, exception);
+        if (has_exception && strstr(exception, "native stack overflow")) {
             /* After a stack overflow, the stack was left
                in a damaged state, let the CRT repair it */
             result = _resetstkoflw();
@@ -2157,8 +2343,7 @@ wasm_call_function(WASMExecEnv *exec_env, WASMFunctionInstance *function,
     wasm_exec_env_set_thread_info(exec_env);
 
     interp_call_wasm(module_inst, exec_env, function, argc, argv);
-    (void)clear_wasi_proc_exit_exception(module_inst);
-    return !wasm_get_exception(module_inst) ? true : false;
+    return !wasm_copy_exception(module_inst, NULL);
 }
 
 bool
@@ -2185,7 +2370,7 @@ wasm_create_exec_env_and_call_function(WASMModuleInstance *module_inst,
         }
     }
 
-    ret = wasm_call_function(exec_env, func, argc, argv);
+    ret = wasm_runtime_call_wasm(exec_env, func, argc, argv);
 
     /* don't destroy the exec_env if it isn't created in this function */
     if (!existing_exec_env)
@@ -2331,6 +2516,12 @@ wasm_module_free(WASMModuleInstance *module_inst, uint32 ptr)
             return;
         }
 
+#if WASM_ENABLE_SHARED_MEMORY != 0
+        WASMSharedMemNode *node = wasm_module_get_shared_memory(
+            (WASMModuleCommon *)module_inst->module);
+        if (node)
+            os_mutex_lock(&node->shared_mem_lock);
+#endif
         addr = memory->memory_data + ptr;
 
         if (memory->heap_handle && memory->heap_data <= addr
@@ -2343,6 +2534,10 @@ wasm_module_free(WASMModuleInstance *module_inst, uint32 ptr)
             execute_free_function(module_inst, module_inst->e->free_function,
                                   ptr);
         }
+#if WASM_ENABLE_SHARED_MEMORY != 0
+        if (node)
+            os_mutex_unlock(&node->shared_mem_lock);
+#endif
     }
 }
 
@@ -2455,8 +2650,7 @@ call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 elem_idx,
 
     interp_call_wasm(module_inst, exec_env, func_inst, argc, argv);
 
-    (void)clear_wasi_proc_exit_exception(module_inst);
-    return !wasm_get_exception(module_inst) ? true : false;
+    return !wasm_copy_exception(module_inst, NULL);
 
 got_exception:
     return false;
@@ -2476,14 +2670,16 @@ wasm_set_aux_stack(WASMExecEnv *exec_env, uint32 start_offset, uint32 size)
     WASMModuleInstance *module_inst =
         (WASMModuleInstance *)exec_env->module_inst;
     uint32 stack_top_idx = module_inst->module->aux_stack_top_global_index;
+
+#if WASM_ENABLE_HEAP_AUX_STACK_ALLOCATION == 0
+    /* Check the aux stack space */
     uint32 data_end = module_inst->module->aux_data_end;
     uint32 stack_bottom = module_inst->module->aux_stack_bottom;
     bool is_stack_before_data = stack_bottom < data_end ? true : false;
-
-    /* Check the aux stack space, currently we don't allocate space in heap */
     if ((is_stack_before_data && (size > start_offset))
         || ((!is_stack_before_data) && (start_offset - data_end < size)))
         return false;
+#endif
 
     if (stack_top_idx != (uint32)-1) {
         /* The aux stack top is a wasm global,
@@ -2905,8 +3101,14 @@ llvm_jit_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
 
     import_func = &module->import_functions[func_idx].u.function;
     if (import_func->call_conv_wasm_c_api) {
-        c_api_func_import = module_inst->e->c_api_func_imports + func_idx;
-        func_ptr = c_api_func_import->func_ptr_linked;
+        if (module_inst->e->c_api_func_imports) {
+            c_api_func_import = module_inst->e->c_api_func_imports + func_idx;
+            func_ptr = c_api_func_import->func_ptr_linked;
+        }
+        else {
+            c_api_func_import = NULL;
+            func_ptr = NULL;
+        }
     }
 
     if (!func_ptr) {

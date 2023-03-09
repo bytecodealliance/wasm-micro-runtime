@@ -56,7 +56,7 @@ done
 
 
 if [ "$CLEAN" = "TRUE" ]; then
-    rm -rf $CURR_DIR/cmake_build
+    rm -rf $CURR_DIR/cmake-build
 fi
 
 
@@ -107,8 +107,8 @@ cd ${WAMR_DIR}/wamr-sdk
 
 echo "#####################build simple project"
 cd ${CURR_DIR}
-mkdir -p cmake_build/$PROFILE
-cd cmake_build/$PROFILE
+mkdir -p cmake-build/$PROFILE
+cd cmake-build/$PROFILE
 cmake ../.. -DWAMR_BUILD_SDK_PROFILE=$PROFILE $CM_TOOLCHAIN $CM_BUILD_TYPE
 make
 if [ $? != 0 ];then

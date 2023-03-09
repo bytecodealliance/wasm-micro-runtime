@@ -1,12 +1,12 @@
 {
     "name": "wamride",
-    "publisher": "wamr",
+    "publisher": "wamr-publisher",
     "repository": {
         "url": "https://github.com/bytecodealliance/wasm-micro-runtime/tree/main/test-tools/wamr-ide"
     },
     "displayName": "WAMR-IDE",
     "description": "An Integrated Development Environment for WASM",
-    "version": "1.0.0",
+    "version": "1.1.2",
     "engines": {
         "vscode": "^1.59.0"
     },

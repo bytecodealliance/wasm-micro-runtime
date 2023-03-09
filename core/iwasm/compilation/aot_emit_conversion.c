@@ -9,6 +9,36 @@
 #include "../aot/aot_intrinsic.h"
 #include "../aot/aot_runtime.h"
 
+static LLVMValueRef
+call_fcmp_intrinsic(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                    enum AOTFloatCond cond, LLVMRealPredicate op,
+                    LLVMValueRef lhs, LLVMValueRef rhs, LLVMTypeRef src_type,
+                    const char *name)
+{
+    LLVMValueRef res = NULL;
+    if (comp_ctx->disable_llvm_intrinsics
+        && aot_intrinsic_check_capability(
+            comp_ctx, src_type == F32_TYPE ? "f32_cmp" : "f64_cmp")) {
+        LLVMTypeRef param_types[3];
+        LLVMValueRef opcond = LLVMConstInt(I32_TYPE, cond, true);
+        param_types[0] = I32_TYPE;
+        param_types[1] = src_type;
+        param_types[2] = src_type;
+        res = aot_call_llvm_intrinsic(
+            comp_ctx, func_ctx, src_type == F32_TYPE ? "f32_cmp" : "f64_cmp",
+            I32_TYPE, param_types, 3, opcond, lhs, rhs);
+        if (!res) {
+            goto fail;
+        }
+        res = LLVMBuildIntCast(comp_ctx->builder, res, INT1_TYPE, "bit_cast");
+    }
+    else {
+        res = LLVMBuildFCmp(comp_ctx->builder, op, lhs, rhs, name);
+    }
+fail:
+    return res;
+}
+
 static bool
 trunc_float_to_int(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                    LLVMValueRef operand, LLVMTypeRef src_type,
@@ -18,26 +48,8 @@ trunc_float_to_int(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMBasicBlockRef check_nan_succ, check_overflow_succ;
     LLVMValueRef is_less, is_greater, res;
 
-    if (comp_ctx->disable_llvm_intrinsics
-        && aot_intrinsic_check_capability(
-            comp_ctx, src_type == F32_TYPE ? "f32_cmp" : "f64_cmp")) {
-        LLVMTypeRef param_types[3];
-        LLVMValueRef opcond = LLVMConstInt(I32_TYPE, FLOAT_UNO, true);
-        param_types[0] = I32_TYPE;
-        param_types[1] = src_type;
-        param_types[2] = src_type;
-        res = aot_call_llvm_intrinsic(
-            comp_ctx, func_ctx, src_type == F32_TYPE ? "f32_cmp" : "f64_cmp",
-            I32_TYPE, param_types, 3, opcond, operand, operand);
-        if (!res) {
-            goto fail;
-        }
-        res = LLVMBuildIntCast(comp_ctx->builder, res, INT1_TYPE, "bit_cast");
-    }
-    else {
-        res = LLVMBuildFCmp(comp_ctx->builder, LLVMRealUNO, operand, operand,
-                            "fcmp_is_nan");
-    }
+    res = call_fcmp_intrinsic(comp_ctx, func_ctx, FLOAT_UNO, LLVMRealUNO,
+                              operand, operand, src_type, "fcmp_is_nan");
 
     if (!res) {
         aot_set_last_error("llvm build fcmp failed.");
@@ -58,54 +70,18 @@ trunc_float_to_int(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                              check_nan_succ)))
         goto fail;
 
-    if (comp_ctx->disable_llvm_intrinsics
-        && aot_intrinsic_check_capability(
-            comp_ctx, src_type == F32_TYPE ? "f32_cmp" : "f64_cmp")) {
-        LLVMTypeRef param_types[3];
-        LLVMValueRef opcond = LLVMConstInt(I32_TYPE, FLOAT_LE, true);
-        param_types[0] = I32_TYPE;
-        param_types[1] = src_type;
-        param_types[2] = src_type;
-        is_less = aot_call_llvm_intrinsic(
-            comp_ctx, func_ctx, src_type == F32_TYPE ? "f32_cmp" : "f64_cmp",
-            I32_TYPE, param_types, 3, opcond, operand, min_value);
-        if (!is_less) {
-            goto fail;
-        }
-        is_less =
-            LLVMBuildIntCast(comp_ctx->builder, is_less, INT1_TYPE, "bit_cast");
-    }
-    else {
-        is_less = LLVMBuildFCmp(comp_ctx->builder, LLVMRealOLE, operand,
-                                min_value, "fcmp_min_value");
-    }
+    is_less =
+        call_fcmp_intrinsic(comp_ctx, func_ctx, FLOAT_LE, LLVMRealOLE, operand,
+                            min_value, src_type, "fcmp_min_value");
 
     if (!is_less) {
         aot_set_last_error("llvm build fcmp failed.");
         goto fail;
     }
 
-    if (comp_ctx->disable_llvm_intrinsics
-        && aot_intrinsic_check_capability(
-            comp_ctx, src_type == F32_TYPE ? "f32_cmp" : "f64_cmp")) {
-        LLVMTypeRef param_types[3];
-        LLVMValueRef opcond = LLVMConstInt(I32_TYPE, FLOAT_GE, true);
-        param_types[0] = I32_TYPE;
-        param_types[1] = src_type;
-        param_types[2] = src_type;
-        is_greater = aot_call_llvm_intrinsic(
-            comp_ctx, func_ctx, src_type == F32_TYPE ? "f32_cmp" : "f64_cmp",
-            I32_TYPE, param_types, 3, opcond, operand, max_value);
-        if (!is_greater) {
-            goto fail;
-        }
-        is_greater = LLVMBuildIntCast(comp_ctx->builder, is_greater, INT1_TYPE,
-                                      "bit_cast");
-    }
-    else {
-        is_greater = LLVMBuildFCmp(comp_ctx->builder, LLVMRealOGE, operand,
-                                   max_value, "fcmp_min_value");
-    }
+    is_greater =
+        call_fcmp_intrinsic(comp_ctx, func_ctx, FLOAT_GE, LLVMRealOGE, operand,
+                            max_value, src_type, "fcmp_min_value");
 
     if (!is_greater) {
         aot_set_last_error("llvm build fcmp failed.");
@@ -183,8 +159,9 @@ trunc_sat_float_to_int(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMValueRef zero = (dest_type == I32_TYPE) ? I32_ZERO : I64_ZERO;
     LLVMValueRef vmin, vmax;
 
-    if (!(res = LLVMBuildFCmp(comp_ctx->builder, LLVMRealUNO, operand, operand,
-                              "fcmp_is_nan"))) {
+    if (!(res =
+              call_fcmp_intrinsic(comp_ctx, func_ctx, FLOAT_UNO, LLVMRealUNO,
+                                  operand, operand, src_type, "fcmp_is_nan"))) {
         aot_set_last_error("llvm build fcmp failed.");
         goto fail;
     }
@@ -212,8 +189,9 @@ trunc_sat_float_to_int(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     /* Start to translate check_nan_succ block */
     LLVMPositionBuilderAtEnd(comp_ctx->builder, check_nan_succ);
-    if (!(is_less = LLVMBuildFCmp(comp_ctx->builder, LLVMRealOLE, operand,
-                                  min_value, "fcmp_min_value"))) {
+    if (!(is_less = call_fcmp_intrinsic(comp_ctx, func_ctx, FLOAT_LE,
+                                        LLVMRealOLE, operand, min_value,
+                                        src_type, "fcmp_min_value"))) {
         aot_set_last_error("llvm build fcmp failed.");
         goto fail;
     }
@@ -232,8 +210,9 @@ trunc_sat_float_to_int(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     /* Start to translate check_less_succ block */
     LLVMPositionBuilderAtEnd(comp_ctx->builder, check_less_succ);
-    if (!(is_greater = LLVMBuildFCmp(comp_ctx->builder, LLVMRealOGE, operand,
-                                     max_value, "fcmp_max_value"))) {
+    if (!(is_greater = call_fcmp_intrinsic(comp_ctx, func_ctx, FLOAT_GE,
+                                           LLVMRealOGE, operand, max_value,
+                                           src_type, "fcmp_max_value"))) {
         aot_set_last_error("llvm build fcmp failed.");
         goto fail;
     }

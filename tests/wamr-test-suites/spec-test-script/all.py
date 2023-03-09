@@ -14,6 +14,18 @@ import time
 
 """
 The script itself has to be put under the same directory with the "spec".
+To run a single non-GC case with interpreter mode:
+  cd workspace
+  python3 runtest.py --wast2wasm wabt/bin/wat2wasm --interpreter iwasm \
+    spec/test/core/xxx.wast
+To run a single non-GC case with aot mode:
+  cd workspace
+  python3 runtest.py --aot --wast2wasm wabt/bin/wat2wasm --interpreter iwasm \
+    --aot-compiler wamrc spec/test/core/xxx.wast
+To run a single GC case:
+  cd workspace
+  python3 runtest.py --wast2wasm spec/interpreter/wasm --interpreter iwasm \
+    --aot-compiler wamrc --gc spec/test/core/xxx.wast
 """
 
 PLATFORM_NAME = os.uname().sysname.lower()
@@ -22,8 +34,8 @@ IWASM_SGX_CMD = "../../../product-mini/platforms/linux-sgx/enclave-sample/iwasm"
 IWASM_QEMU_CMD = "iwasm"
 SPEC_TEST_DIR = "spec/test/core"
 WAST2WASM_CMD = "./wabt/out/gcc/Release/wat2wasm"
+SPEC_INTERPRETER_CMD = "spec/interpreter/wasm"
 WAMRC_CMD = "../../../wamr-compiler/build/wamrc"
-
 
 class TargetAction(argparse.Action):
     TARGET_MAP = {
@@ -51,6 +63,7 @@ def ignore_the_case(
     multi_module_flag=False,
     multi_thread_flag=False,
     simd_flag=False,
+    gc_flag=False,
     xip_flag=False,
     qemu_flag=False
 ):
@@ -62,6 +75,10 @@ def ignore_the_case(
 
     if "i386" == target and case_name in ["float_exprs"]:
         return True
+
+    if gc_flag:
+        if case_name in ["type-canon", "type-equivalence", "type-rec"]:
+            return True;
 
     if sgx_flag:
         if case_name in ["conversions", "f32_bitwise", "f64_bitwise"]:
@@ -76,7 +93,9 @@ def ignore_the_case(
             return True
 
     if qemu_flag:
-        if case_name in ["f32_bitwise", "f64_bitwise", "loop", "f64", "f64_cmp", "conversions", "f32", "f32_cmp", "float_exprs", "float_misc", "select", "memory_grow"]:
+        if case_name in ["f32_bitwise", "f64_bitwise", "loop", "f64", "f64_cmp",
+                         "conversions", "f32", "f32_cmp", "float_exprs",
+                         "float_misc", "select", "memory_grow"]:
             return True
 
     return False
@@ -109,8 +128,10 @@ def test_case(
     xip_flag=False,
     clean_up_flag=True,
     verbose_flag=True,
+    gc_flag=False,
     qemu_flag=False,
     qemu_firmware='',
+    log='',
 ):
     case_path = pathlib.Path(case_path).resolve()
     case_name = case_path.stem
@@ -123,6 +144,7 @@ def test_case(
         multi_module_flag,
         multi_thread_flag,
         simd_flag,
+        gc_flag,
         xip_flag,
         qemu_flag
     ):
@@ -130,7 +152,7 @@ def test_case(
 
     CMD = ["python3", "runtest.py"]
     CMD.append("--wast2wasm")
-    CMD.append(WAST2WASM_CMD)
+    CMD.append(WAST2WASM_CMD if not gc_flag else SPEC_INTERPRETER_CMD)
     CMD.append("--interpreter")
     if sgx_flag:
         CMD.append(IWASM_SGX_CMD)
@@ -169,6 +191,13 @@ def test_case(
 
     if not clean_up_flag:
         CMD.append("--no_cleanup")
+
+    if gc_flag:
+        CMD.append("--gc")
+
+    if log != '':
+        CMD.append("--log-dir")
+        CMD.append(log)
 
     CMD.append(case_path)
     print(f"============> run {case_name} ", end="")
@@ -226,9 +255,11 @@ def test_suite(
     xip_flag=False,
     clean_up_flag=True,
     verbose_flag=True,
+    gc_flag=False,
     parl_flag=False,
     qemu_flag=False,
-    qemu_firmware=''
+    qemu_firmware='',
+    log='',
 ):
     suite_path = pathlib.Path(SPEC_TEST_DIR).resolve()
     if not suite_path.exists():
@@ -239,6 +270,10 @@ def test_suite(
     if simd_flag:
         simd_case_list = sorted(suite_path.glob("simd/*.wast"))
         case_list.extend(simd_case_list)
+
+    if gc_flag:
+        gc_case_list = sorted(suite_path.glob("gc/*.wast"))
+        case_list.extend(gc_case_list)
 
     case_count = len(case_list)
     failed_case = 0
@@ -262,8 +297,10 @@ def test_suite(
                         xip_flag,
                         clean_up_flag,
                         verbose_flag,
+                        gc_flag,
                         qemu_flag,
                         qemu_firmware,
+                        log,
                     ],
                 )
 
@@ -297,8 +334,10 @@ def test_suite(
                     xip_flag,
                     clean_up_flag,
                     verbose_flag,
+                    gc_flag,
                     qemu_flag,
                     qemu_firmware,
+                    log,
                 )
                 successful_case += 1
             except Exception as e:
@@ -394,11 +433,24 @@ def main():
         help="Firmware required by qemu",
     )
     parser.add_argument(
+        "--log",
+        default='',
+        dest="log",
+        help="Log directory",
+    )
+    parser.add_argument(
         "--quiet",
         action="store_false",
         default=True,
         dest="verbose_flag",
         help="Close real time output while running cases, only show last words of failed ones",
+    )
+    parser.add_argument(
+        "--gc",
+        action="store_true",
+        default=False,
+        dest="gc_flag",
+        help="Running with GC feature",
     )
     parser.add_argument(
         "cases",
@@ -432,9 +484,11 @@ def main():
             options.xip_flag,
             options.clean_up_flag,
             options.verbose_flag,
+            options.gc_flag,
             options.parl_flag,
             options.qemu_flag,
             options.qemu_firmware,
+            options.log,
         )
         end = time.time_ns()
         print(
@@ -454,8 +508,10 @@ def main():
                     options.xip_flag,
                     options.clean_up_flag,
                     options.verbose_flag,
+                    options.gc_flag,
                     options.qemu_flag,
-                    options.qemu_firmware
+                    options.qemu_firmware,
+                    options.log
                 )
             else:
                 ret = True
