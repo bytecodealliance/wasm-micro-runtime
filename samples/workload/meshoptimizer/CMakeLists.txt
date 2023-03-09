@@ -21,7 +21,7 @@ include(ExternalProject)
 ExternalProject_Add(codecbench
   PREFIX codecbench
   GIT_REPOSITORY https://github.com/zeux/meshoptimizer.git
-  GIT_TAG        f926b288264522e1b331a41b07ba40167f396913
+  GIT_TAG        f734fd572aed5bf76e84d9ed62ca6f4f6c47d84e
   GIT_SHALLOW    ON
   GIT_PROGRESS   ON
   SOURCE_DIR     ${CMAKE_CURRENT_SOURCE_DIR}/meshoptimizer
@@ -33,6 +33,6 @@ ExternalProject_Add(codecbench
                       -DCMAKE_TOOLCHAIN_FILE=${WASISDK_TOOLCHAIN}
                       -DCMAKE_SYSROOT=${WASISDK_SYSROOT}
                       ${CMAKE_CURRENT_SOURCE_DIR}/meshoptimizer
-  BUILD_COMMAND  make codecbench
+  BUILD_COMMAND  make codecbench -j 4
   INSTALL_COMMAND ${CMAKE_COMMAND} -E copy_if_different ./codecbench.wasm ${CMAKE_CURRENT_BINARY_DIR}/codecbench.wasm
 )

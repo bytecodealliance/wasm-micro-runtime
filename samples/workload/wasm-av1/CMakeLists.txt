@@ -36,7 +36,7 @@ ExternalProject_Add(av1
                       -DCMAKE_SYSROOT=${WASISDK_SYSROOT}
                        -DCMAKE_C_FLAGS=-isystem\ ${CMAKE_CURRENT_SOURCE_DIR}/../include/sse\ -isystem\ ${CMAKE_CURRENT_SOURCE_DIR}/../include/libc/musl
                       ${CMAKE_CURRENT_SOURCE_DIR}/av1
-  BUILD_COMMAND     make testavx_opt
+  BUILD_COMMAND     make testavx_opt -j 4
   INSTALL_COMMAND   ${CMAKE_COMMAND} -E copy_if_different
                       testavx.opt.wasm
                       ${CMAKE_CURRENT_SOURCE_DIR}/av1/third_party/samples/elephants_dream_480p24.ivf

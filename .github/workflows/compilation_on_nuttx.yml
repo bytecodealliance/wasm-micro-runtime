@@ -45,6 +45,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  WASI_SDK_PATH: "/opt/wasi-sdk"
+
 jobs:
   build_iwasm_on_nuttx:
     runs-on: ubuntu-22.04
@@ -94,6 +97,12 @@ jobs:
           curl -L https://static.dev.sifive.com/dev-tools/freedom-tools/v2020.12/riscv64-unknown-elf-toolchain-10.2.0-2020.12.8-x86_64-linux-ubuntu14.tar.gz > riscv.tar.gz
           tar xvf riscv.tar.gz
           echo "$PWD/riscv64-unknown-elf-toolchain-10.2.0-2020.12.8-x86_64-linux-ubuntu14/bin" >> $GITHUB_PATH
+
+      - name: Install WASI-SDK
+        run: |
+          curl -L https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-linux.tar.gz > wasi-sdk.tar.gz
+          tar xvf wasi-sdk.tar.gz
+          sudo mv wasi-sdk-* /opt/wasi-sdk
 
       - name: Checkout NuttX
         uses: actions/checkout@v3
