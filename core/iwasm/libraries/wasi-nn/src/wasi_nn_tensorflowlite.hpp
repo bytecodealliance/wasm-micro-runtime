@@ -13,26 +13,30 @@ extern "C" {
 #endif
 
 error
-tensorflowlite_load(graph_builder_array *builder, graph_encoding encoding,
-                    execution_target target, graph *g);
+tensorflowlite_load(void *tflite_ctx, graph_builder_array *builder,
+                    graph_encoding encoding, execution_target target, graph *g);
 
 error
-tensorflowlite_init_execution_context(graph g, graph_execution_context *ctx);
+tensorflowlite_init_execution_context(void *tflite_ctx, graph g,
+                                      graph_execution_context *ctx);
 
 error
-tensorflowlite_set_input(graph_execution_context ctx, uint32_t index,
-                         tensor *input_tensor);
+tensorflowlite_set_input(void *tflite_ctx, graph_execution_context ctx,
+                         uint32_t index, tensor *input_tensor);
 
 error
-tensorflowlite_compute(graph_execution_context ctx);
+tensorflowlite_compute(void *tflite_ctx, graph_execution_context ctx);
 
 error
-tensorflowlite_get_output(graph_execution_context ctx, uint32_t index,
-                          tensor_data output_tensor,
+tensorflowlite_get_output(void *tflite_ctx, graph_execution_context ctx,
+                          uint32_t index, tensor_data output_tensor,
                           uint32_t *output_tensor_size);
 
 void
-tensorflowlite_destroy();
+tensorflowlite_initialize(void **tflite_ctx);
+
+void
+tensorflowlite_destroy(void *tflite_ctx);
 
 #ifdef __cplusplus
 }

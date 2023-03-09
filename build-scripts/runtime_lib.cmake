@@ -115,6 +115,13 @@ if (WAMR_BUILD_WASI_NN EQUAL 1)
         message("Tensorflow is already downloaded.")
     endif()
     set(TENSORFLOW_SOURCE_DIR "${WAMR_ROOT_DIR}/core/deps/tensorflow-src")
+
+    if (WASI_NN_ENABLE_GPU EQUAL 1)
+        # Tensorflow specific:
+        # * https://www.tensorflow.org/lite/guide/build_cmake#available_options_to_build_tensorflow_lite
+        set (TFLITE_ENABLE_GPU ON)
+    endif ()
+
     include_directories (${CMAKE_CURRENT_BINARY_DIR}/flatbuffers/include)
     include_directories (${TENSORFLOW_SOURCE_DIR})
     add_subdirectory(
@@ -126,6 +133,14 @@ endif ()
 if (WAMR_BUILD_LIB_PTHREAD EQUAL 1)
     include (${IWASM_DIR}/libraries/lib-pthread/lib_pthread.cmake)
     # Enable the dependent feature if lib pthread is enabled
+    set (WAMR_BUILD_THREAD_MGR 1)
+    set (WAMR_BUILD_BULK_MEMORY 1)
+    set (WAMR_BUILD_SHARED_MEMORY 1)
+endif ()
+
+if (WAMR_BUILD_LIB_WASI_THREADS EQUAL 1)
+    include (${IWASM_DIR}/libraries/lib-wasi-threads/lib_wasi_threads.cmake)
+    # Enable the dependent feature if lib wasi threads is enabled
     set (WAMR_BUILD_THREAD_MGR 1)
     set (WAMR_BUILD_BULK_MEMORY 1)
     set (WAMR_BUILD_SHARED_MEMORY 1)
@@ -198,6 +213,7 @@ set (source_all
     ${WASM_APP_LIB_SOURCE_ALL}
     ${NATIVE_INTERFACE_SOURCE}
     ${APP_MGR_SOURCE}
+    ${LIB_WASI_THREADS_SOURCE}
     ${LIB_PTHREAD_SOURCE}
     ${THREAD_MGR_SOURCE}
     ${LIBC_EMCC_SOURCE}

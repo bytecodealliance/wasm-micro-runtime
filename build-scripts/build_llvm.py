@@ -23,6 +23,7 @@ def clone_llvm(dst_dir, llvm_repo, llvm_branch):
 
     if not llvm_dir.exists():
         GIT_CLONE_CMD = f"git clone --depth 1 --branch {llvm_branch} {llvm_repo} llvm"
+        print(GIT_CLONE_CMD)
         subprocess.check_output(shlex.split(GIT_CLONE_CMD), cwd=dst_dir)
 
     return llvm_dir
@@ -47,7 +48,7 @@ def query_llvm_version(llvm_info):
     return response['sha']
 
 
-def build_llvm(llvm_dir, platform, backends, projects, use_clang=False):
+def build_llvm(llvm_dir, platform, backends, projects, use_clang=False, extra_flags=''):
     LLVM_COMPILE_OPTIONS = [
         '-DCMAKE_BUILD_TYPE:STRING="Release"',
         "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
@@ -143,7 +144,7 @@ def build_llvm(llvm_dir, platform, backends, projects, use_clang=False):
         + LLVM_INCLUDE_TOOLS_OPTION
     )
 
-    CONFIG_CMD = f"cmake {compile_options} ../llvm"
+    CONFIG_CMD = f"cmake {compile_options} {extra_flags} ../llvm"
     if "windows" == platform:
         if "mingw" in sysconfig.get_platform().lower():
             CONFIG_CMD += " -G'Unix Makefiles'"
@@ -227,6 +228,12 @@ def main():
         action="store_true",
         help="use clang instead of gcc",
     )
+    parser.add_argument(
+        "--extra-cmake-flags",
+        type=str,
+        default="",
+        help="custom extra cmake flags",
+    )
     options = parser.parse_args()
 
     # if the "platform" is not identified in the command line option,
@@ -244,14 +251,17 @@ def main():
     llvm_repo_and_branch = {
         "arc": {
             "repo": "https://github.com/llvm/llvm-project.git",
+            "repo_ssh": "git@github.com:llvm/llvm-project.git",
             "branch": "release/15.x",
         },
         "xtensa": {
-            "repo": "https://github.com/espressif/llvm-project.git",
+            "repo": "https://github.com/espressif/llvm-project.git", 
+            "repo_ssh": "git@github.com:espressif/llvm-project.git",
             "branch": "xtensa_release_15.x",
         },
         "default": {
             "repo": "https://github.com/llvm/llvm-project.git",
+            "repo_ssh": "git@github.com:llvm/llvm-project.git",
             "branch": "release/15.x",
         },
     }
@@ -272,10 +282,17 @@ def main():
             print(commit_hash)
             return commit_hash is not None
         
-        llvm_dir = clone_llvm(deps_dir, llvm_info["repo"], llvm_info["branch"])
+        repo_addr = llvm_info["repo"]
+        if os.environ.get('USE_GIT_SSH') == "true":
+            repo_addr = llvm_info["repo_ssh"]
+        else:
+            print("To use ssh for git clone, run: export USE_GIT_SSH=true")
+        
+        llvm_dir = clone_llvm(deps_dir, repo_addr, llvm_info["branch"])
         if (
             build_llvm(
-                llvm_dir, platform, options.arch, options.project, options.use_clang
+                llvm_dir, platform, options.arch, options.project, options.use_clang,
+                options.extra_cmake_flags
             )
             is not None
         ):

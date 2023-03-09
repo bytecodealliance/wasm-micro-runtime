@@ -717,11 +717,13 @@ typedef enum WASMAtomicEXTOpcode {
 } WASMAtomicEXTOpcode;
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
-#define DEF_DEBUG_BREAK_HANDLE(_name) \
-    _name[DEBUG_OP_BREAK] = HANDLE_OPCODE(DEBUG_OP_BREAK); /* 0xdb */
+#define DEF_DEBUG_BREAK_HANDLE() \
+    [DEBUG_OP_BREAK] = HANDLE_OPCODE(DEBUG_OP_BREAK), /* 0xdb */
 #else
-#define DEF_DEBUG_BREAK_HANDLE(_name)
+#define DEF_DEBUG_BREAK_HANDLE()
 #endif
+
+#define SET_GOTO_TABLE_ELEM(opcode) [opcode] = HANDLE_OPCODE(opcode)
 
 /*
  * Macro used to generate computed goto tables for the C interpreter.
@@ -949,16 +951,11 @@ typedef enum WASMAtomicEXTOpcode {
         HANDLE_OPCODE(EXT_OP_LOOP),                  /* 0xd8 */ \
         HANDLE_OPCODE(EXT_OP_IF),                    /* 0xd9 */ \
         HANDLE_OPCODE(EXT_OP_BR_TABLE_CACHE),        /* 0xda */ \
-    };                                                          \
-    do {                                                        \
-        _name[WASM_OP_GC_PREFIX] =                              \
-            HANDLE_OPCODE(WASM_OP_GC_PREFIX); /* 0xfb */        \
-        _name[WASM_OP_MISC_PREFIX] =                            \
-            HANDLE_OPCODE(WASM_OP_MISC_PREFIX); /* 0xfc */      \
-        _name[WASM_OP_ATOMIC_PREFIX] =                          \
-            HANDLE_OPCODE(WASM_OP_ATOMIC_PREFIX); /* 0xfe */    \
-        DEF_DEBUG_BREAK_HANDLE(_name)                           \
-    } while (0)
+        SET_GOTO_TABLE_ELEM(WASM_OP_GC_PREFIX),      /* 0xfb */ \
+        SET_GOTO_TABLE_ELEM(WASM_OP_MISC_PREFIX),    /* 0xfc */ \
+        SET_GOTO_TABLE_ELEM(WASM_OP_ATOMIC_PREFIX),  /* 0xfe */ \
+        DEF_DEBUG_BREAK_HANDLE()                                \
+    };
 
 #ifdef __cplusplus
 }

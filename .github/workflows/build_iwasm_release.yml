@@ -36,7 +36,7 @@ jobs:
       - name: generate iwasm binary release
         run: |
           cmake -S . -B build \
-            -DWAMR_BUILD_AOT=1 -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_JIT=0 \
+            -DWAMR_BUILD_AOT=1 -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_JIT=1 -DWAMR_BUILD_JIT=1 \
             -DWAMR_BUILD_CUSTOM_NAME_SECTION=0 \
             -DWAMR_BUILD_DEBUG_INTERP=0 \
             -DWAMR_BUILD_DEBUG_AOT=0 \

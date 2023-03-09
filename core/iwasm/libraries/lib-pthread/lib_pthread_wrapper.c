@@ -46,10 +46,6 @@
     wasm_runtime_addr_native_to_app(module_inst, ptr)
 /* clang-format on */
 
-extern bool
-wasm_runtime_call_indirect(wasm_exec_env_t exec_env, uint32 element_indices,
-                           uint32 argc, uint32 argv[]);
-
 enum {
     T_THREAD,
     T_MUTEX,
@@ -494,7 +490,6 @@ pthread_start_routine(void *arg)
 {
     wasm_exec_env_t exec_env = (wasm_exec_env_t)arg;
     wasm_exec_env_t parent_exec_env;
-    wasm_module_inst_t module_inst = get_module_inst(exec_env);
     ThreadRoutineArgs *routine_args = exec_env->thread_arg;
     ThreadInfoNode *info_node = routine_args->info_node;
     uint32 argv[1];
@@ -504,7 +499,6 @@ pthread_start_routine(void *arg)
     info_node->exec_env = exec_env;
     info_node->u.thread = exec_env->handle;
     if (!append_thread_info_node(info_node)) {
-        wasm_runtime_deinstantiate_internal(module_inst, true);
         delete_thread_info_node(info_node);
         os_cond_signal(&parent_exec_env->wait_cond);
         os_mutex_unlock(&parent_exec_env->wait_lock);
@@ -525,9 +519,6 @@ pthread_start_routine(void *arg)
 
     /* destroy pthread key values */
     call_key_destructor(exec_env);
-
-    /* routine exit, destroy instance */
-    wasm_runtime_deinstantiate_internal(module_inst, true);
 
     wasm_runtime_free(routine_args);
 
@@ -570,6 +561,7 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
 #if WASM_ENABLE_LIBC_WASI != 0
     WASIContext *wasi_ctx;
 #endif
+    CApiFuncImport **new_c_api_func_imports = NULL;
 
     bh_assert(module);
     bh_assert(module_inst);
@@ -602,6 +594,46 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
         wasm_runtime_set_wasi_ctx(new_module_inst, wasi_ctx);
 #endif
 
+    /* workaround about passing instantiate-linking information */
+    {
+        CApiFuncImport *c_api_func_imports;
+        uint32 import_func_count = 0;
+        uint32 size_in_bytes = 0;
+
+#if WASM_ENABLE_INTERP != 0
+        if (module_inst->module_type == Wasm_Module_Bytecode) {
+            new_c_api_func_imports = &(
+                ((WASMModuleInstance *)new_module_inst)->e->c_api_func_imports);
+            c_api_func_imports =
+                ((WASMModuleInstance *)module_inst)->e->c_api_func_imports;
+            import_func_count = ((WASMModule *)module)->import_function_count;
+        }
+#endif
+#if WASM_ENABLE_AOT != 0
+        if (module_inst->module_type == Wasm_Module_AoT) {
+            AOTModuleInstanceExtra *e =
+                (AOTModuleInstanceExtra *)((AOTModuleInstance *)new_module_inst)
+                    ->e;
+            new_c_api_func_imports = &(e->c_api_func_imports);
+
+            e = (AOTModuleInstanceExtra *)((AOTModuleInstance *)module_inst)->e;
+            c_api_func_imports = e->c_api_func_imports;
+
+            import_func_count = ((AOTModule *)module)->import_func_count;
+        }
+#endif
+
+        if (import_func_count != 0 && c_api_func_imports) {
+            size_in_bytes = sizeof(CApiFuncImport *) * import_func_count;
+            *new_c_api_func_imports = wasm_runtime_malloc(size_in_bytes);
+            if (!(*new_c_api_func_imports))
+                goto fail;
+
+            bh_memcpy_s(*new_c_api_func_imports, size_in_bytes,
+                        c_api_func_imports, size_in_bytes);
+        }
+    }
+
     if (!(info_node = wasm_runtime_malloc(sizeof(ThreadInfoNode))))
         goto fail;
 
@@ -622,8 +654,9 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
     routine_args->module_inst = new_module_inst;
 
     os_mutex_lock(&exec_env->wait_lock);
-    ret = wasm_cluster_create_thread(
-        exec_env, new_module_inst, pthread_start_routine, (void *)routine_args);
+    ret =
+        wasm_cluster_create_thread(exec_env, new_module_inst, true,
+                                   pthread_start_routine, (void *)routine_args);
     if (ret != 0) {
         os_mutex_unlock(&exec_env->wait_lock);
         goto fail;

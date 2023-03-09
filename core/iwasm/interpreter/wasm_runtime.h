@@ -19,6 +19,8 @@
 extern "C" {
 #endif
 
+#define EXCEPTION_BUF_LEN 128
+
 typedef struct WASMModuleInstance WASMModuleInstance;
 typedef struct WASMFunctionInstance WASMFunctionInstance;
 typedef struct WASMMemoryInstance WASMMemoryInstance;
@@ -231,12 +233,6 @@ typedef struct WASMModuleInstanceExtra {
     CApiFuncImport *c_api_func_imports;
     RunningMode running_mode;
 
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    /* lock for shared memory atomic operations */
-    korp_mutex mem_lock;
-    bool mem_lock_inited;
-#endif
-
 #if WASM_ENABLE_MULTI_MODULE != 0
     bh_list sub_module_inst_list_head;
     bh_list *sub_module_inst_list;
@@ -255,8 +251,8 @@ typedef struct WASMModuleInstanceExtra {
     uint32 max_aux_stack_used;
 #endif
 
-#if WASM_ENABLE_DEBUG_INTERP != 0                    \
-    || (WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT \
+#if WASM_ENABLE_DEBUG_INTERP != 0                         \
+    || (WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
         && WASM_ENABLE_LAZY_JIT != 0)
     WASMModuleInstance *next;
 #endif
@@ -303,7 +299,7 @@ struct WASMModuleInstance {
     DefPointer(WASMExportTabInstance *, export_tables);
 
     /* The exception buffer of wasm interpreter for current thread. */
-    char cur_exception[128];
+    char cur_exception[EXCEPTION_BUF_LEN];
 
     /* The WASM module or AOT module, for AOTModuleInstance,
        it denotes `AOTModule *` */
@@ -464,6 +460,15 @@ wasm_set_exception_with_id(WASMModuleInstance *module_inst, uint32 id);
 
 const char *
 wasm_get_exception(WASMModuleInstance *module);
+
+/**
+ * @brief Copy exception in buffer passed as parameter. Thread-safe version of
+ * `wasm_get_exception()`
+ * @note Buffer size must be no smaller than EXCEPTION_BUF_LEN
+ * @return true if exception found
+ */
+bool
+wasm_copy_exception(WASMModuleInstance *module_inst, char *exception_buf);
 
 uint32
 wasm_module_malloc(WASMModuleInstance *module_inst, uint32 size,
