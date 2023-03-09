@@ -6420,6 +6420,51 @@ cast_r_f64_to_r_i64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
  * @return true if success, false otherwise
  */
 static bool
+mov_r_to_free_reg_if_ra(x86::Assembler &a, uint32 bytes_dst, int32 &reg_no_src)
+{
+    switch (bytes_dst) {
+        case 1:
+            if (reg_no_src == REG_AXL_IDX) {
+                a.mov(regs_i8[REG_I8_FREE_IDX], regs_i8[reg_no_src]);
+                reg_no_src = REG_I8_FREE_IDX;
+            }
+            break;
+        case 2:
+            if (reg_no_src == REG_AX_IDX) {
+                a.mov(regs_i16[REG_I16_FREE_IDX], regs_i16[reg_no_src]);
+                reg_no_src = REG_I16_FREE_IDX;
+            }
+            break;
+        case 4:
+            if (reg_no_src == REG_EAX_IDX) {
+                a.mov(regs_i32[REG_I32_FREE_IDX], regs_i32[reg_no_src]);
+                reg_no_src = REG_I32_FREE_IDX;
+            }
+            break;
+        case 8:
+            if (REG_RAX_IDX == reg_no_src) {
+                a.mov(regs_i64[REG_I64_FREE_IDX], regs_i64[reg_no_src]);
+                reg_no_src = REG_I64_FREE_IDX;
+            }
+            break;
+        default:
+            bh_assert(0);
+            return false;
+    }
+    return true;
+}
+
+/**
+ * Encode moving data from src register to al/ax/eax/rax
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data,
+ *        could be 1(byte), 2(short), 4(int32), 8(int64),
+ * @param reg_no_src the no of dst register
+ *
+ * @return true if success, false otherwise
+ */
+static bool
 mov_r_to_ra(x86::Assembler &a, uint32 bytes_dst, int32 reg_no_src)
 {
     switch (bytes_dst) {
@@ -6575,7 +6620,8 @@ at_cmpxchg_r_r_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
                                int32 reg_no_base, int32 reg_no_offset)
 {
     x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
-    return mov_r_to_ra(a, bytes_dst, reg_no_cmp)
+    return mov_r_to_free_reg_if_ra(a, bytes_dst, reg_no_xchg)
+           && mov_r_to_ra(a, bytes_dst, reg_no_cmp)
            && at_cmpxchg(a, bytes_dst, kind_dst, reg_no_dst, reg_no_xchg, m);
 }
 
@@ -6605,7 +6651,8 @@ at_cmpxchg_r_r_base_r_offset_imm(x86::Assembler &a, uint32 bytes_dst,
                                  int32 reg_no_base, int32 offset)
 {
     x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
-    return mov_r_to_ra(a, bytes_dst, reg_no_cmp)
+    return mov_r_to_free_reg_if_ra(a, bytes_dst, reg_no_xchg)
+           && mov_r_to_ra(a, bytes_dst, reg_no_cmp)
            && at_cmpxchg(a, bytes_dst, kind_dst, reg_no_dst, reg_no_xchg, m);
 }
 
@@ -6635,7 +6682,8 @@ at_cmpxchg_r_imm_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
                                  int32 reg_no_base, int32 reg_no_offset)
 {
     x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
-    return mov_imm_to_ra(a, bytes_dst, data_cmp)
+    return mov_r_to_free_reg_if_ra(a, bytes_dst, reg_no_xchg)
+           && mov_imm_to_ra(a, bytes_dst, data_cmp)
            && at_cmpxchg(a, bytes_dst, kind_dst, reg_no_dst, reg_no_xchg, m);
 }
 
@@ -6663,7 +6711,8 @@ at_cmpxchg_r_imm_base_r_offset_imm(x86::Assembler &a, uint32 bytes_dst,
                                    int32 reg_no_base, int32 offset)
 {
     x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
-    return mov_imm_to_ra(a, bytes_dst, data_cmp)
+    return mov_r_to_free_reg_if_ra(a, bytes_dst, reg_no_xchg)
+           && mov_imm_to_ra(a, bytes_dst, data_cmp)
            && at_cmpxchg(a, bytes_dst, kind_dst, reg_no_dst, reg_no_xchg, m);
 }
 
@@ -6811,19 +6860,6 @@ at_cmpxchg_imm_imm_base_r_offset_imm(x86::Assembler &a, uint32 bytes_dst,
               reg_no_base = 0, reg_no_offset = 0;                              \
         int32 offset = 0;                                                      \
         bool _ret = false;                                                     \
-        /* r1: replacement value r2: expected value r4: offset can be const */ \
-        if (jit_reg_is_const(r1)) {                                            \
-            CHECK_KIND(r1, JIT_REG_KIND_##kind);                               \
-        }                                                                      \
-        else {                                                                 \
-            CHECK_KIND(r1, JIT_REG_KIND_I64);                                  \
-        }                                                                      \
-        if (jit_reg_is_const(r2)) {                                            \
-            CHECK_KIND(r2, JIT_REG_KIND_##kind);                               \
-        }                                                                      \
-        else {                                                                 \
-            CHECK_KIND(r2, JIT_REG_KIND_I64);                                  \
-        }                                                                      \
         if (jit_reg_is_const(r4)) {                                            \
             CHECK_KIND(r4, JIT_REG_KIND_I32);                                  \
         }                                                                      \
@@ -6838,7 +6874,7 @@ at_cmpxchg_imm_imm_base_r_offset_imm(x86::Assembler &a, uint32 bytes_dst,
         CHECK_NCONST(r3);                                                      \
         reg_no_base = jit_reg_no(r3);                                          \
         CHECK_REG_NO(reg_no_base, jit_reg_kind(r3));                           \
-                                                                               \
+        /* r1: replacement value r2: expected value r4: offset can be const */ \
         if (jit_reg_is_const(r1))                                              \
             data_xchg = jit_cc_get_const_##kind(cc, r1);                       \
         else {                                                                 \

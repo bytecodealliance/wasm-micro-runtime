@@ -896,7 +896,7 @@ jit_compile_op_atomic_cmpxchg(JitCompContext *cc, uint8 op_type, uint32 align,
         }
         case 8:
         {
-            GEN_INSN(AT_CMPXCHGI64, result, expect, value, memory_data,
+            GEN_INSN(AT_CMPXCHGI64, result, value, expect, memory_data,
                      offset1);
             break;
         }
