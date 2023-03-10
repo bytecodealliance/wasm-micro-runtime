@@ -300,7 +300,8 @@ class JitErrorHandler : public ErrorHandler
 
     JitErrorHandler()
       : err(kErrorOk)
-    {}
+    {
+    }
 
     void handleError(Error e, const char *msg, BaseEmitter *base) override
     {
@@ -7460,6 +7461,67 @@ jit_codegen_gen_native(JitCompContext *cc)
                 case JIT_OP_AT_CMPXCHGI64:
                     LOAD_5ARGS();
                     CMPXCHG_R_R_R_R_R(I64, int64, 8);
+                    break;
+
+                case JIT_OP_AT_ADDU8:
+                    LOAD_4ARGS();
+                    // TODO:
+                    break;
+
+                case JIT_OP_AT_ADDU16:
+                    LOAD_4ARGS();
+                    break;
+
+                case JIT_OP_AT_ADDI32:
+                    LOAD_4ARGS();
+                    break;
+
+                case JIT_OP_AT_ADDU32:
+                    LOAD_4ARGS();
+                    break;
+
+                case JIT_OP_AT_ADDI64:
+                    LOAD_4ARGS();
+                    break;
+
+                case JIT_OP_AT_SUBU8:
+                    LOAD_4ARGS();
+                    break;
+
+                case JIT_OP_AT_SUBU16:
+                    LOAD_4ARGS();
+                    break;
+
+                case JIT_OP_AT_SUBI32:
+                    LOAD_4ARGS();
+                    break;
+
+                case JIT_OP_AT_SUBU32:
+                    LOAD_4ARGS();
+                    break;
+
+                case JIT_OP_AT_SUBI64:
+                    LOAD_4ARGS();
+                    break;
+
+                case JIT_OP_AT_XCHGU8:
+                    LOAD_4ARGS();
+                    break;
+
+                case JIT_OP_AT_XCHGU16:
+                    LOAD_4ARGS();
+                    break;
+
+                case JIT_OP_AT_XCHGI32:
+                    LOAD_4ARGS();
+                    break;
+
+                case JIT_OP_AT_XCHGU32:
+                    LOAD_4ARGS();
+                    break;
+
+                case JIT_OP_AT_XCHGI64:
+                    LOAD_4ARGS();
                     break;
 
 #endif

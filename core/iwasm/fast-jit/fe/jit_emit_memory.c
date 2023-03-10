@@ -835,10 +835,122 @@ fail:
 #endif
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
+#define GEN_AT_RMW_INSN(op, op_type, bytes, result, value, memory_data,      \
+                        offset1)                                             \
+    do {                                                                     \
+        switch (bytes) {                                                     \
+            case 1:                                                          \
+            {                                                                \
+                GEN_INSN(AT_##op##U8, result, value, memory_data, offset1);  \
+                break;                                                       \
+            }                                                                \
+            case 2:                                                          \
+            {                                                                \
+                GEN_INSN(AT_##op##U16, result, value, memory_data, offset1); \
+                break;                                                       \
+            }                                                                \
+            case 4:                                                          \
+            {                                                                \
+                if (op_type == VALUE_TYPE_I32)                               \
+                    GEN_INSN(AT_##op##I32, result, value, memory_data,       \
+                             offset1);                                       \
+                else                                                         \
+                    GEN_INSN(AT_##op##U32, result, value, memory_data,       \
+                             offset1);                                       \
+                break;                                                       \
+            }                                                                \
+            case 8:                                                          \
+            {                                                                \
+                GEN_INSN(AT_##op##I64, result, value, memory_data, offset1); \
+                break;                                                       \
+            }                                                                \
+            default:                                                         \
+            {                                                                \
+                bh_assert(0);                                                \
+                goto fail;                                                   \
+            }                                                                \
+        }                                                                    \
+    } while (0)
+
 bool
 jit_compile_op_atomic_rmw(JitCompContext *cc, uint8 atomic_op, uint8 op_type,
                           uint32 align, uint32 offset, uint32 bytes)
 {
+    JitReg addr, offset1, memory_data, value, result;
+
+    bh_assert(op_type == VALUE_TYPE_I32 || op_type == VALUE_TYPE_I64);
+    if (op_type == VALUE_TYPE_I32) {
+        POP_I32(value);
+    }
+    else {
+        POP_I64(value);
+    }
+    POP_I32(addr);
+
+    offset1 = check_and_seek(cc, addr, offset, bytes);
+    if (!offset1) {
+        goto fail;
+    }
+    CHECK_ALIGNMENT(offset1);
+
+    memory_data = get_memory_data_reg(cc->jit_frame, 0);
+
+    if (op_type == VALUE_TYPE_I32)
+        result = jit_cc_new_reg_I32(cc);
+    else
+        result = jit_cc_new_reg_I64(cc);
+
+    switch (atomic_op) {
+        case AtomicRMWBinOpAdd:
+        {
+            GEN_AT_RMW_INSN(ADD, op_type, bytes, result, value, memory_data,
+                            offset1);
+            break;
+        }
+        case AtomicRMWBinOpSub:
+        {
+            GEN_AT_RMW_INSN(SUB, op_type, bytes, result, value, memory_data,
+                            offset1);
+            break;
+        }
+        case AtomicRMWBinOpAnd:
+        {
+            GEN_AT_RMW_INSN(AND, op_type, bytes, result, value, memory_data,
+                            offset1);
+            break;
+        }
+        case AtomicRMWBinOpOr:
+        {
+            GEN_AT_RMW_INSN(OR, op_type, bytes, result, value, memory_data,
+                            offset1);
+            break;
+        }
+        case AtomicRMWBinOpXor:
+        {
+            GEN_AT_RMW_INSN(XOR, op_type, bytes, result, value, memory_data,
+                            offset1);
+            break;
+        }
+        case AtomicRMWBinOpXchg:
+        {
+            GEN_AT_RMW_INSN(XCHG, op_type, bytes, result, value, memory_data,
+                            offset1);
+            break;
+        }
+        default:
+        {
+            bh_assert(0);
+            goto fail;
+        }
+    }
+
+    if (op_type == VALUE_TYPE_I32)
+        PUSH_I32(result);
+    else
+        PUSH_I64(result);
+
+    return true;
+fail:
     return false;
 }
 

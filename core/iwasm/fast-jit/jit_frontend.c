@@ -1078,6 +1078,39 @@ read_leb(JitCompContext *cc, const uint8 *buf, const uint8 *buf_end,
         res = (int64)res64;                                  \
     } while (0)
 
+#if WASM_ENABLE_SHARED_MEMORY != 0
+#define COMPILE_ATOMIC_RMW(OP, NAME)                  \
+    case WASM_OP_ATOMIC_RMW_I32_##NAME:               \
+        bytes = 4;                                    \
+        op_type = VALUE_TYPE_I32;                     \
+        goto OP_ATOMIC_##OP;                          \
+    case WASM_OP_ATOMIC_RMW_I64_##NAME:               \
+        bytes = 8;                                    \
+        op_type = VALUE_TYPE_I64;                     \
+        goto OP_ATOMIC_##OP;                          \
+    case WASM_OP_ATOMIC_RMW_I32_##NAME##8_U:          \
+        bytes = 1;                                    \
+        op_type = VALUE_TYPE_I32;                     \
+        goto OP_ATOMIC_##OP;                          \
+    case WASM_OP_ATOMIC_RMW_I32_##NAME##16_U:         \
+        bytes = 2;                                    \
+        op_type = VALUE_TYPE_I32;                     \
+        goto OP_ATOMIC_##OP;                          \
+    case WASM_OP_ATOMIC_RMW_I64_##NAME##8_U:          \
+        bytes = 1;                                    \
+        op_type = VALUE_TYPE_I64;                     \
+        goto OP_ATOMIC_##OP;                          \
+    case WASM_OP_ATOMIC_RMW_I64_##NAME##16_U:         \
+        bytes = 2;                                    \
+        op_type = VALUE_TYPE_I64;                     \
+        goto OP_ATOMIC_##OP;                          \
+    case WASM_OP_ATOMIC_RMW_I64_##NAME##32_U:         \
+        bytes = 4;                                    \
+        op_type = VALUE_TYPE_I64;                     \
+        OP_ATOMIC_##OP : bin_op = AtomicRMWBinOp##OP; \
+        goto build_atomic_rmw;
+#endif
+
 static bool
 jit_compile_func(JitCompContext *cc)
 {
@@ -2193,14 +2226,12 @@ jit_compile_func(JitCompContext *cc)
                         break;
 
                         /* TODO */
-                        /*
                         COMPILE_ATOMIC_RMW(Add, ADD);
                         COMPILE_ATOMIC_RMW(Sub, SUB);
                         COMPILE_ATOMIC_RMW(And, AND);
                         COMPILE_ATOMIC_RMW(Or, OR);
                         COMPILE_ATOMIC_RMW(Xor, XOR);
                         COMPILE_ATOMIC_RMW(Xchg, XCHG);
-                        */
 
                     build_atomic_rmw:
                         if (!jit_compile_op_atomic_rmw(cc, bin_op, op_type,
