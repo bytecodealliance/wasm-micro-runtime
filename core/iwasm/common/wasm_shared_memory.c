@@ -21,7 +21,6 @@ typedef struct AtomicWaitInfo {
     korp_mutex wait_list_lock;
     bh_list wait_list_head;
     bh_list *wait_list;
-    int count_acquisition;
 } AtomicWaitInfo;
 
 typedef struct AtomicWaitNode {
@@ -299,7 +298,7 @@ notify_wait_list(bh_list *wait_list, uint32 count)
 }
 
 static AtomicWaitInfo *
-acquire_wait_info(void *address, bool create)
+acquire_wait_info(void *address, bool create, AtomicWaitNode* wait_node)
 {
     AtomicWaitInfo *wait_info = NULL;
     bh_list_status ret;
@@ -308,10 +307,8 @@ acquire_wait_info(void *address, bool create)
 
     if (address)
         wait_info = (AtomicWaitInfo *)bh_hash_map_find(wait_map, address);
-    if (wait_info)
-        ++wait_info->count_acquisition;
 
-    if (!create) {
+    if (!create && !wait_info) {
         os_mutex_unlock(&wait_map_lock);
         return wait_info;
     }
@@ -337,7 +334,13 @@ acquire_wait_info(void *address, bool create)
         if (!bh_hash_map_insert(wait_map, address, (void *)wait_info)) {
             goto fail3;
         }
-        wait_info->count_acquisition = 1;
+    }
+    if (wait_node) {
+        os_mutex_lock(&wait_info->wait_list_lock);
+        ret = bh_list_insert(wait_info->wait_list, wait_node);
+        os_mutex_unlock(&wait_info->wait_list_lock);
+        bh_assert(ret == BH_LIST_SUCCESS);
+        (void)ret;
     }
 
     os_mutex_unlock(&wait_map_lock);
@@ -385,8 +388,6 @@ map_remove_wait_info(HashMap *wait_map_, AtomicWaitInfo *wait_info,
                      void *address)
 {
     os_mutex_lock(&wait_map_lock);
-    --wait_info->count_acquisition;
-
     os_mutex_lock(&wait_info->wait_list_lock);
     if (wait_info->wait_list->len > 0) {
         os_mutex_unlock(&wait_info->wait_list_lock);
@@ -394,10 +395,6 @@ map_remove_wait_info(HashMap *wait_map_, AtomicWaitInfo *wait_info,
         return false;
     }
     os_mutex_unlock(&wait_info->wait_list_lock);
-    if (wait_info->count_acquisition > 0) {
-        os_mutex_unlock(&wait_map_lock);
-        return false;
-    }
 
     bh_hash_map_remove(wait_map_, address, NULL, NULL);
     os_mutex_unlock(&wait_map_lock);
@@ -434,14 +431,6 @@ wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
         return -1;
     }
 
-    /* acquire the wait info, create new one if not exists */
-    wait_info = acquire_wait_info(address, true);
-
-    if (!wait_info) {
-        wasm_runtime_set_exception(module, "failed to acquire wait_info");
-        return -1;
-    }
-
     node = search_module((WASMModuleCommon *)module_inst->module);
     os_mutex_lock(&node->shared_mem_lock);
     no_wait = (!wait64 && *(uint32 *)address != (uint32)expect)
@@ -451,32 +440,34 @@ wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
     if (no_wait) {
         return 1;
     }
-    else {
-        bh_list_status ret;
 
-        if (!(wait_node = wasm_runtime_malloc(sizeof(AtomicWaitNode)))) {
-            wasm_runtime_set_exception(module, "failed to create wait node");
-            return -1;
-        }
-        memset(wait_node, 0, sizeof(AtomicWaitNode));
+    if (!(wait_node = wasm_runtime_malloc(sizeof(AtomicWaitNode)))) {
+        wasm_runtime_set_exception(module, "failed to create wait node");
+        return -1;
+    }
+    memset(wait_node, 0, sizeof(AtomicWaitNode));
 
-        if (0 != os_mutex_init(&wait_node->wait_lock)) {
-            wasm_runtime_free(wait_node);
-            return -1;
-        }
+    if (0 != os_mutex_init(&wait_node->wait_lock)) {
+        wasm_runtime_free(wait_node);
+        return -1;
+    }
 
-        if (0 != os_cond_init(&wait_node->wait_cond)) {
-            os_mutex_destroy(&wait_node->wait_lock);
-            wasm_runtime_free(wait_node);
-            return -1;
-        }
+    if (0 != os_cond_init(&wait_node->wait_cond)) {
+        os_mutex_destroy(&wait_node->wait_lock);
+        wasm_runtime_free(wait_node);
+        return -1;
+    }
 
-        wait_node->status = S_WAITING;
-        os_mutex_lock(&wait_info->wait_list_lock);
-        ret = bh_list_insert(wait_info->wait_list, wait_node);
-        os_mutex_unlock(&wait_info->wait_list_lock);
-        bh_assert(ret == BH_LIST_SUCCESS);
-        (void)ret;
+    wait_node->status = S_WAITING;
+
+    /* acquire the wait info, create new one if not exists */
+    wait_info = acquire_wait_info(address, true, wait_node);
+
+    if (!wait_info) {
+        os_mutex_destroy(&wait_node->wait_lock);
+        wasm_runtime_free(wait_node);
+        wasm_runtime_set_exception(module, "failed to acquire wait_info");
+        return -1;
     }
 
     /* condition wait start */
@@ -539,7 +530,7 @@ wasm_runtime_atomic_notify(WASMModuleInstanceCommon *module, void *address,
         return -1;
     }
 
-    wait_info = acquire_wait_info(address, false);
+    wait_info = acquire_wait_info(address, false, NULL);
 
     /* Nobody wait on this address */
     if (!wait_info) {
