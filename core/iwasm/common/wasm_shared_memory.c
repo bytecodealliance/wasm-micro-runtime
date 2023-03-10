@@ -298,7 +298,7 @@ notify_wait_list(bh_list *wait_list, uint32 count)
 }
 
 static AtomicWaitInfo *
-acquire_wait_info(void *address, bool create, AtomicWaitNode* wait_node)
+acquire_wait_info(void *address, bool create, AtomicWaitNode *wait_node)
 {
     AtomicWaitInfo *wait_info = NULL;
     bh_list_status ret;
