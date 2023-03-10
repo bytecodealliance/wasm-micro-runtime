@@ -28,13 +28,14 @@ echo "Start to collect code coverage of ${SRC_COV_DIR} .."
 pushd ${SRC_COV_DIR} > /dev/null 2>&1
 
 # collect all code coverage data
-lcov -o ${SRC_TEMP_COV_FILE} -c -d . --rc lcov_branch_coverage=1
+lcov -q -o ${SRC_TEMP_COV_FILE} -c -d . --rc lcov_branch_coverage=1
 # extract code coverage data of WAMR source files
-lcov -r ${SRC_TEMP_COV_FILE} -o ${SRC_TEMP_COV_FILE} \
+lcov -q -r ${SRC_TEMP_COV_FILE} -o ${SRC_TEMP_COV_FILE} \
      -rc lcov_branch_coverage=1 \
      "*/usr/*" "*/_deps/*" "*/deps/*" "*/tests/unit/*" \
      "*/llvm/include/*" "*/include/llvm/*" "*/samples/*" \
-     "*/app-framework/*" "*/test-tools/*"
+     "*/app-framework/*" "*/app-mgr/*" "*/test-tools/*" \
+     "*/tests/standalone/*" "*/tests/*"
 
 if [[ -s ${SRC_TEMP_COV_FILE} ]]; then
     if [[ -s ${DST_COV_FILE} ]]; then
@@ -46,9 +47,11 @@ if [[ -s ${SRC_TEMP_COV_FILE} ]]; then
         cp -a ${DST_COV_FILE} "${DST_COV_FILE}.orig"
         # replace the lcov file
         cp -a ${SRC_COV_FILE} ${DST_COV_FILE}
+        echo "Code coverage file ${DST_COV_FILE} was appended"
     else
         cp -a ${SRC_TEMP_COV_FILE} ${SRC_COV_FILE}
         cp -a ${SRC_COV_FILE} ${DST_COV_FILE}
+        echo "Code coverage file ${DST_COV_FILE} was generated"
     fi
 
     # get ignored prefix path
@@ -59,7 +62,7 @@ if [[ -s ${SRC_TEMP_COV_FILE} ]]; then
 
     # generate html output for merged code coverage data
     rm -fr ${DST_COV_DIR}/wamr-lcov
-    genhtml -t "WAMR Code Coverage" \
+    genhtml -q -t "WAMR Code Coverage" \
         --rc lcov_branch_coverage=1 --prefix=${prefix_full_path} \
         -o ${DST_COV_DIR}/wamr-lcov \
         ${DST_COV_FILE}
@@ -69,7 +72,6 @@ if [[ -s ${SRC_TEMP_COV_FILE} ]]; then
     zip -r -q -o wamr-lcov.zip wamr-lcov
     rm -fr wamr-lcov
 
-    echo "Code coverage file ${DST_COV_FILE} was generated or appended"
     echo "Code coverage html ${DST_COV_DIR}/wamr-lcov.zip was generated"
 else
     echo "generate code coverage html failed"
