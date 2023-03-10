@@ -50,7 +50,7 @@ ExternalProject_Add(bwa
                        -DCMAKE_SYSROOT=${WASISDK_SYSROOT}
                        -DCMAKE_C_FLAGS=-isystem\ ${CMAKE_CURRENT_SOURCE_DIR}/../include/sse\ -isystem\ ${CMAKE_CURRENT_SOURCE_DIR}/../include/libc/musl
                        ${CMAKE_CURRENT_SOURCE_DIR}/bwa
-  BUILD_COMMAND  make bwa_wasm_opt
+  BUILD_COMMAND  make bwa_wasm_opt -j 4
   INSTALL_COMMAND ${CMAKE_COMMAND} -E copy_if_different ./bwa.opt.wasm ${CMAKE_CURRENT_BINARY_DIR}/bwa.wasm
 )
 

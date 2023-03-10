@@ -22,13 +22,14 @@
 
 /* Definition of 'wasi_nn.h' structs in WASM app format (using offset) */
 
-typedef error (*LOAD)(graph_builder_array *, graph_encoding, execution_target,
-                      graph *);
-typedef error (*INIT_EXECUTION_CONTEXT)(graph, graph_execution_context *);
-typedef error (*SET_INPUT)(graph_execution_context, uint32_t, tensor *);
-typedef error (*COMPUTE)(graph_execution_context);
-typedef error (*GET_OUTPUT)(graph_execution_context, uint32_t, tensor_data,
-                            uint32_t *);
+typedef error (*LOAD)(void *, graph_builder_array *, graph_encoding,
+                      execution_target, graph *);
+typedef error (*INIT_EXECUTION_CONTEXT)(void *, graph,
+                                        graph_execution_context *);
+typedef error (*SET_INPUT)(void *, graph_execution_context, uint32_t, tensor *);
+typedef error (*COMPUTE)(void *, graph_execution_context);
+typedef error (*GET_OUTPUT)(void *, graph_execution_context, uint32_t,
+                            tensor_data, uint32_t *);
 
 typedef struct {
     LOAD load;
@@ -123,11 +124,11 @@ wasi_nn_load(wasm_exec_env_t exec_env, graph_builder_array_wasm *builder,
         goto fail;
     }
 
-    res = lookup[encoding].load(&builder_native, encoding, target, g);
+    WASINNContext *wasi_nn_ctx = wasm_runtime_get_wasi_nn_ctx(instance);
+    res = lookup[encoding].load(wasi_nn_ctx->tflite_ctx, &builder_native,
+                                encoding, target, g);
 
     NN_DBG_PRINTF("wasi_nn_load finished with status %d [graph=%d]", res, *g);
-
-    WASINNContext *wasi_nn_ctx = wasm_runtime_get_wasi_nn_ctx(instance);
 
     wasi_nn_ctx->current_encoding = encoding;
     wasi_nn_ctx->is_initialized = true;
@@ -160,8 +161,9 @@ wasi_nn_init_execution_context(wasm_exec_env_t exec_env, graph g,
         return invalid_argument;
     }
 
-    res = lookup[wasi_nn_ctx->current_encoding].init_execution_context(g, ctx);
-    *ctx = g;
+    res = lookup[wasi_nn_ctx->current_encoding].init_execution_context(
+        wasi_nn_ctx->tflite_ctx, g, ctx);
+
     NN_DBG_PRINTF(
         "wasi_nn_init_execution_context finished with status %d [ctx=%d]", res,
         *ctx);
@@ -189,8 +191,8 @@ wasi_nn_set_input(wasm_exec_env_t exec_env, graph_execution_context ctx,
                                     &input_tensor_native)))
         return res;
 
-    res = lookup[wasi_nn_ctx->current_encoding].set_input(ctx, index,
-                                                          &input_tensor_native);
+    res = lookup[wasi_nn_ctx->current_encoding].set_input(
+        wasi_nn_ctx->tflite_ctx, ctx, index, &input_tensor_native);
 
     // XXX: Free intermediate structure pointers
     if (input_tensor_native.dimensions)
@@ -213,7 +215,8 @@ wasi_nn_compute(wasm_exec_env_t exec_env, graph_execution_context ctx)
     if (success != (res = is_model_initialized(wasi_nn_ctx)))
         return res;
 
-    res = lookup[wasi_nn_ctx->current_encoding].compute(ctx);
+    res = lookup[wasi_nn_ctx->current_encoding].compute(wasi_nn_ctx->tflite_ctx,
+                                                        ctx);
     NN_DBG_PRINTF("wasi_nn_compute finished with status %d", res);
     return res;
 }
@@ -241,7 +244,7 @@ wasi_nn_get_output(wasm_exec_env_t exec_env, graph_execution_context ctx,
     }
 
     res = lookup[wasi_nn_ctx->current_encoding].get_output(
-        ctx, index, output_tensor, output_tensor_size);
+        wasi_nn_ctx->tflite_ctx, ctx, index, output_tensor, output_tensor_size);
     NN_DBG_PRINTF("wasi_nn_get_output finished with status %d [data_size=%d]",
                   res, *output_tensor_size);
     return res;
@@ -261,6 +264,7 @@ wasi_nn_initialize()
     }
     wasi_nn_ctx->is_initialized = true;
     wasi_nn_ctx->current_encoding = 3;
+    tensorflowlite_initialize(&wasi_nn_ctx->tflite_ctx);
     return wasi_nn_ctx;
 }
 
@@ -275,7 +279,7 @@ wasi_nn_destroy(WASINNContext *wasi_nn_ctx)
     NN_DBG_PRINTF("Freeing wasi-nn");
     NN_DBG_PRINTF("-> is_initialized: %d", wasi_nn_ctx->is_initialized);
     NN_DBG_PRINTF("-> current_encoding: %d", wasi_nn_ctx->current_encoding);
-    tensorflowlite_destroy();
+    tensorflowlite_destroy(wasi_nn_ctx->tflite_ctx);
     wasm_runtime_free(wasi_nn_ctx);
 }
 

@@ -1423,4 +1423,13 @@ fail:
     return false;
 }
 
+bool
+aot_compiler_op_atomic_fence(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+{
+    return LLVMBuildFence(comp_ctx->builder,
+                          LLVMAtomicOrderingSequentiallyConsistent, false, "")
+               ? true
+               : false;
+}
+
 #endif /* end of WASM_ENABLE_SHARED_MEMORY */
