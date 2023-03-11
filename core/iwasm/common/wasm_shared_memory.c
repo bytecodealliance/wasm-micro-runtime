@@ -24,8 +24,8 @@ typedef struct AtomicWaitInfo {
     korp_mutex wait_list_lock;
     bh_list wait_list_head;
     bh_list *wait_list;
-    // WARNING: insert to the list allowed only in acquire_wait_info
-    // otherwise there will be data race as described in PR #2016
+    /* WARNING: insert to the list allowed only in acquire_wait_info
+    otherwise there will be data race as described in PR #2016 */
 } AtomicWaitInfo;
 
 typedef struct AtomicWaitNode {
@@ -313,7 +313,7 @@ acquire_wait_info(void *address, AtomicWaitNode *wait_node)
     if (address)
         wait_info = (AtomicWaitInfo *)bh_hash_map_find(wait_map, address);
 
-    if (!wait_node && !wait_info) {
+    if (!wait_node) {
         os_mutex_unlock(&wait_map_lock);
         return wait_info;
     }
@@ -340,13 +340,12 @@ acquire_wait_info(void *address, AtomicWaitNode *wait_node)
             goto fail3;
         }
     }
-    if (wait_node) {
-        os_mutex_lock(&wait_info->wait_list_lock);
-        ret = bh_list_insert(wait_info->wait_list, wait_node);
-        os_mutex_unlock(&wait_info->wait_list_lock);
-        bh_assert(ret == BH_LIST_SUCCESS);
-        (void)ret;
-    }
+
+    os_mutex_lock(&wait_info->wait_list_lock);
+    ret = bh_list_insert(wait_info->wait_list, wait_node);
+    os_mutex_unlock(&wait_info->wait_list_lock);
+    bh_assert(ret == BH_LIST_SUCCESS);
+    (void)ret;
 
     os_mutex_unlock(&wait_map_lock);
 
@@ -479,20 +478,26 @@ wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
 #if WASM_ENABLE_THREAD_MGR != 0
     exec_env =
         wasm_clusters_search_exec_env((WASMModuleInstanceCommon *)module_inst);
+    bh_assert(exec_env);
 #endif
+
+    os_mutex_lock(&node->shared_mem_lock);
+    no_wait = (!wait64 && *(uint32 *)address != (uint32)expect)
+              || (wait64 && *(uint64 *)address != expect);
+    os_mutex_unlock(&node->shared_mem_lock);
 
     /* condition wait start */
     os_mutex_lock(&wait_node->wait_lock);
 
+    if (!no_wait
 #if WASM_ENABLE_THREAD_MGR != 0
-    if (!wasm_cluster_is_thread_terminated(exec_env)) {
+        && !wasm_cluster_is_thread_terminated(exec_env)
 #endif
+    ) {
         os_cond_reltimedwait(&wait_node->wait_cond, &wait_node->wait_lock,
                              timeout < 0 ? BHT_WAIT_FOREVER
                                          : (uint64)timeout / 1000);
-#if WASM_ENABLE_THREAD_MGR != 0
     }
-#endif
 
     is_timeout = wait_node->status == S_WAITING ? true : false;
     os_mutex_unlock(&wait_node->wait_lock);
@@ -515,7 +520,7 @@ wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
     os_mutex_unlock(&node->shared_mem_lock);
 
     (void)check_ret;
-    return is_timeout ? 2 : 0;
+    return no_wait ? 1 : is_timeout ? 2 : 0;
 }
 
 uint32
