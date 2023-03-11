@@ -36,12 +36,11 @@ void
 run_long_task()
 {
     if (blocking_task_type == BLOCKING_TASK_BUSY_WAIT) {
-        for (int i = 0; i < TIMEOUT_SECONDS; i++)
+        for (;;)
             sleep(1);
     }
     else if (blocking_task_type == BLOCKING_TASK_ATOMIC_WAIT) {
-        __builtin_wasm_memory_atomic_wait32(
-            0, 0, TIMEOUT_SECONDS * 1000 * 1000 * 1000);
+        __builtin_wasm_memory_atomic_wait32(0, 0, -1);
     }
     else {
         sleep(TIMEOUT_SECONDS);
