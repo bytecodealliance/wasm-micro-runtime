@@ -24,6 +24,8 @@ typedef struct AtomicWaitInfo {
     korp_mutex wait_list_lock;
     bh_list wait_list_head;
     bh_list *wait_list;
+    // WARNING: insert to the list allowed only in acquire_wait_info
+    // otherwise there will be data race as described in PR #2016
 } AtomicWaitInfo;
 
 typedef struct AtomicWaitNode {
