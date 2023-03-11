@@ -18,7 +18,6 @@
 #include "aot_runtime.h"
 #endif
 
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -65,7 +64,8 @@ shared_memory_set_memory_inst(WASMModuleCommon *module,
 
 uint32
 wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
-                         uint64 expect, int64 timeout, bool wait64, WASMExecEnv *exec_env);
+                         uint64 expect, int64 timeout, bool wait64,
+                         WASMExecEnv *exec_env);
 
 uint32
 wasm_runtime_atomic_notify(WASMModuleInstanceCommon *module, void *address,
