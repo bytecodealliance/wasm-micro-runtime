@@ -8,9 +8,6 @@
 
 #include "bh_common.h"
 #include "wasm_exec_env.h"
-#if WASM_ENABLE_THREAD_MGR != 0
-#include "../libraries/thread-mgr/thread_manager.h"
-#endif
 #if WASM_ENABLE_INTERP != 0
 #include "wasm_runtime.h"
 #endif
@@ -64,8 +61,7 @@ shared_memory_set_memory_inst(WASMModuleCommon *module,
 
 uint32
 wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
-                         uint64 expect, int64 timeout, bool wait64,
-                         WASMExecEnv *exec_env);
+                         uint64 expect, int64 timeout, bool wait64);
 
 uint32
 wasm_runtime_atomic_notify(WASMModuleInstanceCommon *module, void *address,
