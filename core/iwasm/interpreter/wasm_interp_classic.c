@@ -3428,7 +3428,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                         ret = wasm_runtime_atomic_wait(
                             (WASMModuleInstanceCommon *)module, maddr,
-                            (uint64)expect, timeout, false);
+                            (uint64)expect, timeout, false, exec_env);
                         if (ret == (uint32)-1)
                             goto got_exception;
 
@@ -3452,7 +3452,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                         ret = wasm_runtime_atomic_wait(
                             (WASMModuleInstanceCommon *)module, maddr, expect,
-                            timeout, true);
+                            timeout, true, exec_env);
                         if (ret == (uint32)-1)
                             goto got_exception;
 

@@ -5,6 +5,9 @@
 
 #include "bh_log.h"
 #include "wasm_shared_memory.h"
+#if WASM_ENABLE_THREAD_MGR != 0
+#include "../libraries/thread-mgr/thread_manager.h"
+#endif
 
 static bh_list shared_memory_list_head;
 static bh_list *const shared_memory_list = &shared_memory_list_head;
@@ -403,7 +406,7 @@ map_remove_wait_info(HashMap *wait_map_, AtomicWaitInfo *wait_info,
 
 uint32
 wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
-                         uint64 expect, int64 timeout, bool wait64)
+                         uint64 expect, int64 timeout, bool wait64, WASMExecEnv *exec_env)
 {
     WASMModuleInstance *module_inst = (WASMModuleInstance *)module;
     AtomicWaitInfo *wait_info;
@@ -473,9 +476,17 @@ wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
     /* condition wait start */
     os_mutex_lock(&wait_node->wait_lock);
 
-    os_cond_reltimedwait(&wait_node->wait_cond, &wait_node->wait_lock,
+    #if WASM_ENABLE_THREAD_MGR != 0
+    if (!wasm_cluster_is_thread_terminated(exec_env)) {
+    #endif
+        os_cond_reltimedwait(&wait_node->wait_cond, &wait_node->wait_lock,
                          timeout < 0 ? BHT_WAIT_FOREVER
                                      : (uint64)timeout / 1000);
+    #if WASM_ENABLE_THREAD_MGR != 0
+    }
+    #endif
+
+    
 
     is_timeout = wait_node->status == S_WAITING ? true : false;
     os_mutex_unlock(&wait_node->wait_lock);
