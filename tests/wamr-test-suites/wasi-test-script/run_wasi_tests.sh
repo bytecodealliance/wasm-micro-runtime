@@ -25,8 +25,13 @@ run_aot_tests () {
             -o $test_aot $test_wasm
 
         echo "Running $test_aot"
-        expected=$(jq .exit_code ${test_json})
+        expected=0
+        if [ -f ${test_json} ]; then 
+            expected=$(jq .exit_code ${test_json})
+        fi
+        
         ${IWASM_CMD} $test_aot
+        
         ret=${PIPESTATUS[0]}
 
         echo "expected=$expected, actual=$ret"
@@ -57,10 +62,10 @@ else
 
     # Run WASI thread proposal tests
     exit_code=0
+    wamr_tests=$(ls ${WAMR_DIR}/core/iwasm/libraries/lib-wasi-threads/test/*.wasm)
+    run_aot_tests ${wamr_tests}
     wasi_tests=$(ls tests/proposals/wasi-threads/*.wasm)
     run_aot_tests ${wasi_tests}
-    wamr_tests=$(ls ${WAMR_DIR}/core/iwasm/libraries/lib-wasi-threads/test/)
-    run_aot_tests ${wamr_tests}
 fi
 
 exit ${exit_code}
