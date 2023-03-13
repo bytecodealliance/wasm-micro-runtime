@@ -58,9 +58,9 @@ else
     # Run WASI thread proposal tests
     exit_code=0
     wasi_tests=$(ls tests/proposals/wasi-threads/*.wasm)
-    run_aot_tests(${wasi_tests})
+    run_aot_tests ${wasi_tests}
     wamr_tests=$(ls ${WAMR_DIR}/core/iwasm/libraries/lib-wasi-threads/test/)
-    run_aot_tests(${wamr_tests})
+    run_aot_tests ${wamr_tests}
 fi
 
 exit ${exit_code}
