@@ -6411,7 +6411,8 @@ cast_r_f64_to_r_i64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
 /**
- * Encode moving data from src register to al/ax/eax/rax
+ * Encode moving data from src register to free register, if src is
+ * al/ax/eax/rax
  *
  * @param a the assembler to emit the code
  * @param bytes_dst the bytes number of the data,
@@ -6443,7 +6444,7 @@ mov_r_to_free_reg_if_ra(x86::Assembler &a, uint32 bytes_dst, int32 &reg_no_src)
             }
             break;
         case 8:
-            if (REG_RAX_IDX == reg_no_src) {
+            if (reg_no_src == REG_RAX_IDX) {
                 a.mov(regs_i64[REG_I64_FREE_IDX], regs_i64[reg_no_src]);
                 reg_no_src = REG_I64_FREE_IDX;
             }
@@ -6470,19 +6471,19 @@ mov_r_to_ra(x86::Assembler &a, uint32 bytes_dst, int32 reg_no_src)
 {
     switch (bytes_dst) {
         case 1:
-            if (REG_AXL_IDX != reg_no_src)
+            if (reg_no_src != REG_AXL_IDX)
                 a.mov(regs_i8[REG_AXL_IDX], regs_i8[reg_no_src]);
             break;
         case 2:
-            if (REG_AX_IDX != reg_no_src)
+            if (reg_no_src != REG_AX_IDX)
                 a.mov(regs_i16[REG_AX_IDX], regs_i16[reg_no_src]);
             break;
         case 4:
-            if (REG_EAX_IDX != reg_no_src)
+            if (reg_no_src != REG_EAX_IDX)
                 a.mov(regs_i32[REG_EAX_IDX], regs_i32[reg_no_src]);
             break;
         case 8:
-            if (REG_RAX_IDX != reg_no_src)
+            if (reg_no_src != REG_RAX_IDX)
                 a.mov(regs_i64[REG_RAX_IDX], regs_i64[reg_no_src]);
             break;
         default:
@@ -6937,6 +6938,536 @@ at_cmpxchg_imm_imm_base_r_offset_imm(x86::Assembler &a, uint32 bytes_dst,
             GOTO_FAIL;                                                         \
     } while (0)
 
+/**
+ * Encode extend a value in the register
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data,
+ *        could be 1(byte), 2(short), 4(int32), 8(int64),
+ * @param kind_dst the kind of data to extend to, could be I32, I64
+ * @param reg_no_src the index of register hold src value
+ *
+ * @return true if success, false otherwise
+ */
+static bool
+extend_r_to_r_kind(x86::Assembler &a, uint32 bytes_dst, uint32 kind_dst,
+                   int32 reg_no_src, int32 reg_no_dst)
+{
+    if (kind_dst == JIT_REG_KIND_I32) {
+        bh_assert(reg_no_dst < 16 && reg_no_dst < 16);
+        switch (bytes_dst) {
+            case 1:
+                extend_r8_to_r32(a, reg_no_dst, reg_no_src, false);
+                break;
+            case 2:
+                extend_r16_to_r32(a, reg_no_dst, reg_no_src, false);
+                break;
+            case 4:
+                mov_r_to_r_i32(a, reg_no_dst, reg_no_src);
+                break;
+            default:
+                bh_assert(0);
+                return false;
+        }
+    }
+    else if (kind_dst == JIT_REG_KIND_I64) {
+        bh_assert(reg_no_dst < 16 && reg_no_dst < 16);
+        switch (bytes_dst) {
+            case 1:
+                extend_r8_to_r64(a, reg_no_dst, reg_no_src, false);
+                break;
+            case 2:
+                extend_r16_to_r64(a, reg_no_dst, reg_no_src, false);
+                break;
+            case 4:
+                extend_r32_to_r64(a, reg_no_dst, reg_no_src, false);
+                break;
+            case 8:
+                mov_r_to_r_i64(a, reg_no_dst, reg_no_src);
+                break;
+            default:
+                bh_assert(0);
+                return false;
+        }
+    }
+    return true;
+}
+
+/**
+ * Encode negate a value in the register
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data,
+ *        could be 1(byte), 2(short), 4(int32), 8(int64),
+ * @param kind_dst the kind of data to move, could be I32, I64
+ * @param reg_no_src the index of register hold src value
+ *
+ * @return true if success, false otherwise
+ */
+static bool
+neg_r(x86::Assembler &a, uint32 bytes_dst, uint32 kind_dst, int32 reg_no_src)
+{
+    bh_assert(kind_dst == JIT_REG_KIND_I32 || kind_dst == JIT_REG_KIND_I64);
+    bh_assert(reg_no_src < 16);
+    switch (bytes_dst) {
+        case 1:
+            a.neg(regs_i8[reg_no_src]);
+            break;
+        case 2:
+            a.neg(regs_i16[reg_no_src]);
+            break;
+        case 4:
+            a.neg(regs_i32[reg_no_src]);
+            break;
+        case 8:
+            a.neg(regs_i64[reg_no_src]);
+            break;
+        default:
+            bh_assert(0);
+            return false;
+    }
+    return true;
+}
+
+/**
+ * Encode atomic exchange and add
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data,
+ *        could be 1(byte), 2(short), 4(int32), 8(int64),
+ * @param kind_dst the kind of data to move, could be I32, I64
+ * @param reg_no_dst the index of dest register
+ * @param reg_no_src the index of register hold operand value of add operation
+ * @param m_dst the dest memory operand
+ *
+ * @return true if success, false otherwise
+ */
+static bool
+at_xadd(x86::Assembler &a, uint32 bytes_dst, uint32 kind_dst, int32 reg_no_dst,
+        int32 reg_no_src, x86::Mem &m_dst)
+{
+    bh_assert(kind_dst == JIT_REG_KIND_I32 || kind_dst == JIT_REG_KIND_I64);
+    bh_assert(reg_no_dst < 16 && reg_no_dst < 16);
+    switch (bytes_dst) {
+        case 1:
+            a.lock().xadd(m_dst, regs_i8[reg_no_src]);
+            break;
+        case 2:
+            a.lock().xadd(m_dst, regs_i16[reg_no_src]);
+            break;
+        case 4:
+            a.lock().xadd(m_dst, regs_i32[reg_no_src]);
+            break;
+        case 8:
+            a.lock().xadd(m_dst, regs_i64[reg_no_src]);
+            break;
+        default:
+            bh_assert(0);
+            return false;
+    }
+
+    return true;
+}
+
+/**
+ * Encode atomic rmw add: load value into a register from memory
+ * with reg base and reg offset, add loaded value with imm data, store back
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data to actual operated on(load,
+ * compare, replacement) could be 1(byte), 2(short), 4(int32), 8(int64)
+ * @param reg_no_dst the no of register that stores the returned value
+ * @param data_src the immediate data(first operand)
+ * @param reg_no_base the no of register that stores the base address
+ *        of src&dst memory(second operand&store back)
+ * @param offset the offset address of the memory
+ * @return true if success, false otherwise
+ */
+static bool
+at_rmw_add_imm_base_r_offset_imm(x86::Assembler &a, uint32 bytes_dst,
+                                 uint32 kind_dst, int32 reg_no_dst,
+                                 void *data_src, int32 reg_no_base,
+                                 int32 offset)
+{
+    x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
+    Imm imm;
+    imm_set_value(imm, data_src, bytes_dst);
+    uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
+    return at_xadd(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
+           && extend_r_to_r_kind(a, bytes_dst, kind_dst, reg_no_src,
+                                 reg_no_dst);
+}
+
+/**
+ * Encode atomic rmw add: load value into a register from memory
+ * with reg base and reg offset, add loaded value with imm data, store back
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data to actual operated on(load,
+ * compare, replacement) could be 1(byte), 2(short), 4(int32), 8(int64)
+ * @param reg_no_dst the no of register that stores the returned value
+ * @param data_src the immediate data(second operand)
+ * @param reg_no_base the no of register that stores the base address
+ *        of src&dst memory(first operand&store back location)
+ * @param reg_no_offset the no of register that stores the offset of the memory
+ * @return true if success, false otherwise
+ */
+static bool
+at_rmw_add_imm_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
+                               uint32 kind_dst, int32 reg_no_dst,
+                               void *data_src, int32 reg_no_base,
+                               int32 reg_no_offset)
+{
+    x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
+    Imm imm;
+    imm_set_value(imm, data_src, bytes_dst);
+    uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
+    return at_xadd(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
+           && extend_r_to_r_kind(a, bytes_dst, kind_dst, reg_no_src,
+                                 reg_no_dst);
+}
+
+/**
+ * Encode atomic rmw add: load value into a register from memory
+ * with reg base and imm offset, add loaded value with reg data, store back
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data to actual operated on(load,
+ * compare, replacement) could be 1(byte), 2(short), 4(int32), 8(int64)
+ * @param reg_no_dst the no of register that stores the returned value
+ * @param reg_no_src the no of register store the src data(second operand)
+ * @param reg_no_base the no of register that stores the base address
+ *        of src&dst memory(first operand&store back location)
+ * @param offset the offset address of the memory
+ * @return true if success, false otherwise
+ */
+static bool
+at_rmw_add_r_base_r_offset_imm(x86::Assembler &a, uint32 bytes_dst,
+                               uint32 kind_dst, int32 reg_no_dst,
+                               int32 reg_no_src, int32 reg_no_base,
+                               int32 offset)
+{
+    x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
+    return at_xadd(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
+           && extend_r_to_r_kind(a, bytes_dst, kind_dst, reg_no_src,
+                                 reg_no_dst);
+}
+
+/**
+ * Encode atomic rmw add: load value into a register from memory
+ * with reg base and reg offset, add loaded value with reg data, store back
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data to actual operated on(load,
+ * compare, replacement) could be 1(byte), 2(short), 4(int32), 8(int64)
+ * @param reg_no_dst the no of register that stores the returned value
+ * @param reg_no_src the no of register store the src data(second operand)
+ * @param reg_no_base the no of register that stores the base address
+ *        of src&dst memory(first operand&store back)
+ * @param reg_no_offset the no of register that stores the offset of the memory
+ * @return true if success, false otherwise
+ */
+static bool
+at_rmw_add_r_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
+                             uint32 kind_dst, int32 reg_no_dst,
+                             int32 reg_no_src, int32 reg_no_base,
+                             int32 reg_no_offset)
+{
+    x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
+    return at_xadd(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
+           && extend_r_to_r_kind(a, bytes_dst, kind_dst, reg_no_src,
+                                 reg_no_dst);
+}
+
+/**
+ * Encode atomic rmw sub: load value into a register from memory
+ * with reg base and reg offset, sub loaded value with imm data, store back
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data to actual operated on(load,
+ * compare, replacement) could be 1(byte), 2(short), 4(int32), 8(int64)
+ * @param reg_no_dst the no of register that stores the returned value
+ * @param data_src the immediate data(first operand)
+ * @param reg_no_base the no of register that stores the base address
+ *        of src&dst memory(second operand&store back)
+ * @param offset the offset address of the memory
+ * @return true if success, false otherwise
+ */
+static bool
+at_rmw_sub_imm_base_r_offset_imm(x86::Assembler &a, uint32 bytes_dst,
+                                 uint32 kind_dst, int32 reg_no_dst,
+                                 void *data_src, int32 reg_no_base,
+                                 int32 offset)
+{
+    x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
+    Imm imm;
+    imm_set_value(imm, data_src, bytes_dst);
+    uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
+    return neg_r(a, bytes_dst, kind_dst, reg_no_src)
+           && at_xadd(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
+           && extend_r_to_r_kind(a, bytes_dst, kind_dst, reg_no_src,
+                                 reg_no_dst);
+}
+
+/**
+ * Encode atomic rmw sub: load value into a register from memory
+ * with reg base and reg offset, sub loaded value with imm data, store back
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data to actual operated on(load,
+ * compare, replacement) could be 1(byte), 2(short), 4(int32), 8(int64)
+ * @param reg_no_dst the no of register that stores the returned value
+ * @param data_src the immediate data(second operand)
+ * @param reg_no_base the no of register that stores the base address
+ *        of src&dst memory(first operand&store back location)
+ * @param reg_no_offset the no of register that stores the offset of the memory
+ * @return true if success, false otherwise
+ */
+static bool
+at_rmw_sub_imm_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
+                               uint32 kind_dst, int32 reg_no_dst,
+                               void *data_src, int32 reg_no_base,
+                               int32 reg_no_offset)
+{
+    x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
+    Imm imm;
+    imm_set_value(imm, data_src, bytes_dst);
+    uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
+    return neg_r(a, bytes_dst, kind_dst, reg_no_src)
+           && at_xadd(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
+           && extend_r_to_r_kind(a, bytes_dst, kind_dst, reg_no_src,
+                                 reg_no_dst);
+}
+
+/**
+ * Encode atomic rmw sub: load value into a register from memory
+ * with reg base and imm offset, sub loaded value with reg data, store back
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data to actual operated on(load,
+ * compare, replacement) could be 1(byte), 2(short), 4(int32), 8(int64)
+ * @param reg_no_dst the no of register that stores the returned value
+ * @param reg_no_src the no of register store the src data(second operand)
+ * @param reg_no_base the no of register that stores the base address
+ *        of src&dst memory(first operand&store back location)
+ * @param offset the offset address of the memory
+ * @return true if success, false otherwise
+ */
+static bool
+at_rmw_sub_r_base_r_offset_imm(x86::Assembler &a, uint32 bytes_dst,
+                               uint32 kind_dst, int32 reg_no_dst,
+                               int32 reg_no_src, int32 reg_no_base,
+                               int32 offset)
+{
+    x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
+    return neg_r(a, bytes_dst, kind_dst, reg_no_src)
+           && at_xadd(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
+           && extend_r_to_r_kind(a, bytes_dst, kind_dst, reg_no_src,
+                                 reg_no_dst);
+}
+
+/**
+ * Encode atomic rmw sub: load value into a register from memory
+ * with reg base and reg offset, sub loaded value with reg data, store back
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data to actual operated on(load,
+ * compare, replacement) could be 1(byte), 2(short), 4(int32), 8(int64)
+ * @param reg_no_dst the no of register that stores the returned value
+ * @param reg_no_src the no of register store the src data(second operand)
+ * @param reg_no_base the no of register that stores the base address
+ *        of src&dst memory(first operand&store back)
+ * @param reg_no_offset the no of register that stores the offset of the memory
+ * @return true if success, false otherwise
+ */
+static bool
+at_rmw_sub_r_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
+                             uint32 kind_dst, int32 reg_no_dst,
+                             int32 reg_no_src, int32 reg_no_base,
+                             int32 reg_no_offset)
+{
+    x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
+    return neg_r(a, bytes_dst, kind_dst, reg_no_src)
+           && at_xadd(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
+           && extend_r_to_r_kind(a, bytes_dst, kind_dst, reg_no_src,
+                                 reg_no_dst);
+}
+
+/**
+ * Encode atomic rmw xchg: load value into a register from memory
+ * with reg base and reg offset, exchange loaded value with imm data, store back
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data to actual operated on(load,
+ * compare, replacement) could be 1(byte), 2(short), 4(int32), 8(int64)
+ * @param reg_no_dst the no of register that stores the returned value
+ * @param data_src the immediate data(first operand)
+ * @param reg_no_base the no of register that stores the base address
+ *        of src&dst memory(second operand&store back)
+ * @param offset the offset address of the memory
+ * @return true if success, false otherwise
+ */
+static bool
+at_rmw_xchg_imm_base_r_offset_imm(x86::Assembler &a, uint32 bytes_dst,
+                                  uint32 kind_dst, int32 reg_no_dst,
+                                  void *data_src, int32 reg_no_base,
+                                  int32 offset)
+{
+    x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
+    Imm imm;
+    imm_set_value(imm, data_src, bytes_dst);
+    uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
+    return xchg_r_to_m(a, bytes_dst, kind_dst, m, reg_no_src)
+           && extend_r_to_r_kind(a, bytes_dst, kind_dst, reg_no_src,
+                                 reg_no_dst);
+}
+
+/**
+ * Encode atomic rmw xchg: load value into a register from memory
+ * with reg base and reg offset, exchange loaded value with imm data, store back
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data to actual operated on(load,
+ * compare, replacement) could be 1(byte), 2(short), 4(int32), 8(int64)
+ * @param reg_no_dst the no of register that stores the returned value
+ * @param data_src the immediate data(second operand)
+ * @param reg_no_base the no of register that stores the base address
+ *        of src&dst memory(first operand&store back location)
+ * @param reg_no_offset the no of register that stores the offset of the memory
+ * @return true if success, false otherwise
+ */
+static bool
+at_rmw_xchg_imm_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
+                                uint32 kind_dst, int32 reg_no_dst,
+                                void *data_src, int32 reg_no_base,
+                                int32 reg_no_offset)
+{
+    x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
+    Imm imm;
+    imm_set_value(imm, data_src, bytes_dst);
+    uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
+    return xchg_r_to_m(a, bytes_dst, kind_dst, m, reg_no_src)
+           && extend_r_to_r_kind(a, bytes_dst, kind_dst, reg_no_src,
+                                 reg_no_dst);
+}
+
+/**
+ * Encode atomic rmw xchg: load value into a register from memory
+ * with reg base and imm offset, exchange loaded value with reg data, store back
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data to actual operated on(load,
+ * compare, replacement) could be 1(byte), 2(short), 4(int32), 8(int64)
+ * @param reg_no_dst the no of register that stores the returned value
+ * @param reg_no_src the no of register store the src data(second operand)
+ * @param reg_no_base the no of register that stores the base address
+ *        of src&dst memory(first operand&store back location)
+ * @param offset the offset address of the memory
+ * @return true if success, false otherwise
+ */
+static bool
+at_rmw_xchg_r_base_r_offset_imm(x86::Assembler &a, uint32 bytes_dst,
+                                uint32 kind_dst, int32 reg_no_dst,
+                                int32 reg_no_src, int32 reg_no_base,
+                                int32 offset)
+{
+    x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
+    return xchg_r_to_m(a, bytes_dst, kind_dst, m, reg_no_src)
+           && extend_r_to_r_kind(a, bytes_dst, kind_dst, reg_no_src,
+                                 reg_no_dst);
+}
+
+/**
+ * Encode atomic rmw xchg: load value into a register from memory
+ * with reg base and reg offset, exchange loaded value with reg data, store back
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data to actual operated on(load,
+ * compare, replacement) could be 1(byte), 2(short), 4(int32), 8(int64)
+ * @param reg_no_dst the no of register that stores the returned value
+ * @param reg_no_src the no of register store the src data(second operand)
+ * @param reg_no_base the no of register that stores the base address
+ *        of src&dst memory(first operand&store back)
+ * @param reg_no_offset the no of register that stores the offset of the memory
+ * @return true if success, false otherwise
+ */
+static bool
+at_rmw_xchg_r_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
+                              uint32 kind_dst, int32 reg_no_dst,
+                              int32 reg_no_src, int32 reg_no_base,
+                              int32 reg_no_offset)
+{
+    x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
+    return xchg_r_to_m(a, bytes_dst, kind_dst, m, reg_no_src)
+           && extend_r_to_r_kind(a, bytes_dst, kind_dst, reg_no_src,
+                                 reg_no_dst);
+}
+
+/**
+ * Encode insn rmw RMW_type r0, r1, r2, r3
+ * @param bin_op the operation, can be add/sub/xchg/and/or/xor
+ * @param kind the data kind, can only be I32 or I64
+ * @param bytes_dst the byte number of dst data
+ */
+#define AT_RMW_R_R_R_R(bin_op, kind, type, bytes_dst)                          \
+    do {                                                                       \
+        type data_src = 0;                                                     \
+        int32 reg_no_dst = 0, reg_no_src = 0, reg_no_base = 0,                 \
+              reg_no_offset = 0;                                               \
+        int32 offset = 0;                                                      \
+        bool _ret = false;                                                     \
+        if (jit_reg_is_const(r3)) {                                            \
+            CHECK_KIND(r3, JIT_REG_KIND_I32);                                  \
+        }                                                                      \
+        else {                                                                 \
+            CHECK_KIND(r3, JIT_REG_KIND_I64);                                  \
+        }                                                                      \
+        /* r0: read/return value r2: memory base addr can't be const */        \
+        /* already check it's not const in LOAD_4ARGS(); */                    \
+        reg_no_dst = jit_reg_no(r0);                                           \
+        CHECK_REG_NO(reg_no_dst, jit_reg_kind(r0));                            \
+        /* mem_data base address has to be non-const */                        \
+        CHECK_NCONST(r2);                                                      \
+        reg_no_base = jit_reg_no(r2);                                          \
+        CHECK_REG_NO(reg_no_base, jit_reg_kind(r2));                           \
+        /* r1: source operand value r3: offset can be const */                 \
+        if (jit_reg_is_const(r1))                                              \
+            data_src = jit_cc_get_const_##kind(cc, r1);                        \
+        else {                                                                 \
+            reg_no_src = jit_reg_no(r1);                                       \
+            CHECK_REG_NO(reg_no_src, jit_reg_kind(r1));                        \
+        }                                                                      \
+        if (jit_reg_is_const(r3))                                              \
+            offset = jit_cc_get_const_I32(cc, r3);                             \
+        else {                                                                 \
+            reg_no_offset = jit_reg_no(r3);                                    \
+            CHECK_REG_NO(reg_no_offset, jit_reg_kind(r3));                     \
+        }                                                                      \
+                                                                               \
+        if (jit_reg_is_const(r1)) {                                            \
+            if (jit_reg_is_const(r3))                                          \
+                _ret = at_rmw_##bin_op##_imm_base_r_offset_imm(                \
+                    a, bytes_dst, JIT_REG_KIND_##kind, reg_no_dst, &data_src,  \
+                    reg_no_base, offset);                                      \
+            else                                                               \
+                _ret = at_rmw_##bin_op##_imm_base_r_offset_r(                  \
+                    a, bytes_dst, JIT_REG_KIND_##kind, reg_no_dst, &data_src,  \
+                    reg_no_base, reg_no_offset);                               \
+        }                                                                      \
+        else {                                                                 \
+            if (jit_reg_is_const(r3))                                          \
+                _ret = at_rmw_##bin_op##_r_base_r_offset_imm(                  \
+                    a, bytes_dst, JIT_REG_KIND_##kind, reg_no_dst, reg_no_src, \
+                    reg_no_base, offset);                                      \
+            else                                                               \
+                _ret = at_rmw_##bin_op##_r_base_r_offset_r(                    \
+                    a, bytes_dst, JIT_REG_KIND_##kind, reg_no_dst, reg_no_src, \
+                    reg_no_base, reg_no_offset);                               \
+        }                                                                      \
+        if (!_ret)                                                             \
+            GOTO_FAIL;                                                         \
+    } while (0)
+
 #endif
 
 bool
@@ -7311,7 +7842,6 @@ jit_codegen_gen_native(JitCompContext *cc)
                     LD_R_R_R(F64, 8, false);
                     break;
 
-                    // TODO: atomic store
                 case JIT_OP_STI8:
                     LOAD_3ARGS_NO_ASSIGN();
                     atomic = insn->flags_u8 & 0x1;
@@ -7465,63 +7995,107 @@ jit_codegen_gen_native(JitCompContext *cc)
 
                 case JIT_OP_AT_ADDU8:
                     LOAD_4ARGS();
-                    // TODO:
+                    bh_assert(jit_reg_kind(r0) == JIT_REG_KIND_I32
+                              || jit_reg_kind(r0) == JIT_REG_KIND_I64);
+                    if (jit_reg_kind(r0) == JIT_REG_KIND_I32)
+                        AT_RMW_R_R_R_R(add, I32, int32, 1);
+                    else
+                        AT_RMW_R_R_R_R(add, I64, int64, 1);
                     break;
 
                 case JIT_OP_AT_ADDU16:
                     LOAD_4ARGS();
+                    bh_assert(jit_reg_kind(r0) == JIT_REG_KIND_I32
+                              || jit_reg_kind(r0) == JIT_REG_KIND_I64);
+                    if (jit_reg_kind(r0) == JIT_REG_KIND_I32)
+                        AT_RMW_R_R_R_R(add, I32, int32, 2);
+                    else
+                        AT_RMW_R_R_R_R(add, I64, int64, 2);
                     break;
 
                 case JIT_OP_AT_ADDI32:
                     LOAD_4ARGS();
+                    AT_RMW_R_R_R_R(add, I32, int32, 4);
                     break;
 
                 case JIT_OP_AT_ADDU32:
                     LOAD_4ARGS();
+                    AT_RMW_R_R_R_R(add, I64, int64, 4);
                     break;
 
                 case JIT_OP_AT_ADDI64:
                     LOAD_4ARGS();
+                    AT_RMW_R_R_R_R(add, I64, int64, 8);
                     break;
 
                 case JIT_OP_AT_SUBU8:
                     LOAD_4ARGS();
+                    bh_assert(jit_reg_kind(r0) == JIT_REG_KIND_I32
+                              || jit_reg_kind(r0) == JIT_REG_KIND_I64);
+                    if (jit_reg_kind(r0) == JIT_REG_KIND_I32)
+                        AT_RMW_R_R_R_R(sub, I32, int32, 1);
+                    else
+                        AT_RMW_R_R_R_R(sub, I64, int64, 1);
                     break;
 
                 case JIT_OP_AT_SUBU16:
                     LOAD_4ARGS();
+                    bh_assert(jit_reg_kind(r0) == JIT_REG_KIND_I32
+                              || jit_reg_kind(r0) == JIT_REG_KIND_I64);
+                    if (jit_reg_kind(r0) == JIT_REG_KIND_I32)
+                        AT_RMW_R_R_R_R(sub, I32, int32, 2);
+                    else
+                        AT_RMW_R_R_R_R(sub, I64, int64, 2);
                     break;
 
                 case JIT_OP_AT_SUBI32:
                     LOAD_4ARGS();
+                    AT_RMW_R_R_R_R(sub, I32, int32, 4);
                     break;
 
                 case JIT_OP_AT_SUBU32:
                     LOAD_4ARGS();
+                    AT_RMW_R_R_R_R(sub, I64, int64, 4);
                     break;
 
                 case JIT_OP_AT_SUBI64:
                     LOAD_4ARGS();
+                    AT_RMW_R_R_R_R(sub, I64, int64, 8);
                     break;
 
                 case JIT_OP_AT_XCHGU8:
                     LOAD_4ARGS();
+                    bh_assert(jit_reg_kind(r0) == JIT_REG_KIND_I32
+                              || jit_reg_kind(r0) == JIT_REG_KIND_I64);
+                    if (jit_reg_kind(r0) == JIT_REG_KIND_I32)
+                        AT_RMW_R_R_R_R(xchg, I32, int32, 1);
+                    else
+                        AT_RMW_R_R_R_R(xchg, I64, int64, 1);
                     break;
 
                 case JIT_OP_AT_XCHGU16:
                     LOAD_4ARGS();
+                    bh_assert(jit_reg_kind(r0) == JIT_REG_KIND_I32
+                              || jit_reg_kind(r0) == JIT_REG_KIND_I64);
+                    if (jit_reg_kind(r0) == JIT_REG_KIND_I32)
+                        AT_RMW_R_R_R_R(xchg, I32, int32, 2);
+                    else
+                        AT_RMW_R_R_R_R(xchg, I64, int64, 2);
                     break;
 
                 case JIT_OP_AT_XCHGI32:
                     LOAD_4ARGS();
+                    AT_RMW_R_R_R_R(xchg, I32, int32, 4);
                     break;
 
                 case JIT_OP_AT_XCHGU32:
                     LOAD_4ARGS();
+                    AT_RMW_R_R_R_R(xchg, I64, int64, 4);
                     break;
 
                 case JIT_OP_AT_XCHGI64:
                     LOAD_4ARGS();
+                    AT_RMW_R_R_R_R(xchg, I64, int64, 8);
                     break;
 
 #endif
