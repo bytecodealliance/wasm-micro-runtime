@@ -9,6 +9,7 @@
 #include <pthread.h>
 #include <stdbool.h>
 #include <unistd.h>
+#include <limits.h>
 
 #include "wasi_thread_start.h"
 
@@ -23,7 +24,6 @@ static bool termination_by_trap;
 static bool termination_in_main_thread;
 static blocking_task_type_t blocking_task_type;
 
-#define TIMEOUT_SECONDS 10ll
 #define NUM_THREADS 3
 static pthread_barrier_t barrier;
 
@@ -36,15 +36,14 @@ void
 run_long_task()
 {
     if (blocking_task_type == BLOCKING_TASK_BUSY_WAIT) {
-        for (int i = 0; i < TIMEOUT_SECONDS; i++)
-            sleep(1);
+        for (;;) {
+        }
     }
     else if (blocking_task_type == BLOCKING_TASK_ATOMIC_WAIT) {
-        __builtin_wasm_memory_atomic_wait32(
-            0, 0, TIMEOUT_SECONDS * 1000 * 1000 * 1000);
+        __builtin_wasm_memory_atomic_wait32(0, 0, -1);
     }
     else {
-        sleep(TIMEOUT_SECONDS);
+        sleep(UINT_MAX);
     }
 }
 

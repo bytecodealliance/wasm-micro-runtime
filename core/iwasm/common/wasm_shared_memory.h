@@ -7,6 +7,7 @@
 #define _WASM_SHARED_MEMORY_H
 
 #include "bh_common.h"
+#include "wasm_exec_env.h"
 #if WASM_ENABLE_INTERP != 0
 #include "wasm_runtime.h"
 #endif
