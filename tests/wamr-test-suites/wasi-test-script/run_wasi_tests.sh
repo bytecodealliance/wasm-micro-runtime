@@ -14,6 +14,28 @@ readonly WAMR_DIR="${WORK_DIR}/../../../.."
 readonly IWASM_CMD="${WORK_DIR}/../../../../product-mini/platforms/${PLATFORM}/build/iwasm"
 readonly WAMRC_CMD="${WORK_DIR}/../../../../wamr-compiler/build/wamrc"
 
+run_aot_tests () {
+    tests=$1
+    for test_wasm in ${tests}; do
+        test_aot="${test_wasm%.wasm}.aot"
+        test_json="${test_wasm%.wasm}.json"
+
+        echo "Compiling $test_wasm to $test_aot"
+        ${WAMRC_CMD} --enable-multi-thread ${target_option} \
+            -o $test_aot $test_wasm
+
+        echo "Running $test_aot"
+        expected=$(jq .exit_code ${test_json})
+        ${IWASM_CMD} $test_aot
+        ret=${PIPESTATUS[0]}
+
+        echo "expected=$expected, actual=$ret"
+        if [[ $expected != "" ]] && [[ $expected != $ret ]];then
+            exit_code=1
+        fi
+    done
+} 
+
 if [[ $MODE != "aot" ]];then
     python3 -m venv wasi-env && source wasi-env/bin/activate
     python3 -m pip install -r test-runner/requirements.txt
@@ -35,25 +57,10 @@ else
 
     # Run WASI thread proposal tests
     exit_code=0
-    wasm_tests=$(ls tests/proposals/wasi-threads/*.wasm)
-    for test_wasm in ${wasm_tests}; do
-        test_aot="${test_wasm%.wasm}.aot"
-        test_json="${test_wasm%.wasm}.json"
-
-        echo "Compiling $test_wasm to $test_aot"
-        ${WAMRC_CMD} --enable-multi-thread ${target_option} \
-            -o $test_aot $test_wasm
-
-        echo "Running $test_aot"
-        expected=$(jq .exit_code ${test_json})
-        ${IWASM_CMD} $test_aot
-        ret=${PIPESTATUS[0]}
-
-        echo "expected=$expected, actual=$ret"
-        if [[ $expected != "" ]] && [[ $expected != $ret ]];then
-            exit_code=1
-        fi
-    done
+    wasi_tests=$(ls tests/proposals/wasi-threads/*.wasm)
+    run_aot_tests(${wasi_tests})
+    wamr_tests=$(ls ${WAMR_DIR}/core/iwasm/libraries/lib-wasi-threads/test/)
+    run_aot_tests(${wamr_tests})
 fi
 
 exit ${exit_code}
