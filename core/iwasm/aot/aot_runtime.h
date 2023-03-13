@@ -415,6 +415,15 @@ aot_set_exception_with_id(AOTModuleInstance *module_inst, uint32 id);
 const char *
 aot_get_exception(AOTModuleInstance *module_inst);
 
+/**
+ * @brief Copy exception in buffer passed as parameter. Thread-safe version of
+ * `aot_get_exception()`
+ * @note Buffer size must be no smaller than EXCEPTION_BUF_LEN
+ * @return true if exception found, false otherwise
+ */
+bool
+aot_copy_exception(AOTModuleInstance *module_inst, char *exception_buf);
+
 uint32
 aot_module_malloc(AOTModuleInstance *module_inst, uint32 size,
                   void **p_native_addr);
