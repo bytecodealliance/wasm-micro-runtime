@@ -7404,6 +7404,435 @@ at_rmw_xchg_r_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
 }
 
 /**
+ * Encode insn rmw logical operation: generate a loop to make sure it's atomic
+ * @param bin_op the operation, can be and/or/xor
+ * @param kind the data kind, can only be I32 or I64
+ * @param bytes_dst the byte number of dst data
+ */
+#define AT_RMW_LOGICAL_LOOP(bin_op, kind, bytes_dst)                         \
+    do {                                                                     \
+        bh_assert(kind_dst == JIT_REG_KIND_I32                               \
+                  || kind_dst == JIT_REG_KIND_I64);                          \
+        bh_assert(reg_no_dst < 16 && reg_no_dst < 16);                       \
+        /* read original value in memory(operand 1) to rcx */                \
+        mov_m_to_r(a, bytes_dst, kind_dst, false, REG_RCX_IDX, m_dst);       \
+        Label loop = a.newLabel();                                           \
+        /* move operand 1 to rbx */                                          \
+        mov_r_to_r(a, kind_dst, REG_RBX_IDX, REG_RCX_IDX);                   \
+        /* actual logical operation with operand 2, result save to rbx */    \
+        switch (bytes_dst) {                                                 \
+            case 1:                                                          \
+                a.bin_op##_(regs_i8[REG_RBX_IDX], regs_i8[reg_no_src]);      \
+                break;                                                       \
+            case 2:                                                          \
+                a.bin_op##_(regs_i16[REG_RBX_IDX], regs_i16[reg_no_src]);    \
+                break;                                                       \
+            case 4:                                                          \
+                a.bin_op##_(regs_i32[REG_RBX_IDX], regs_i32[reg_no_src]);    \
+                break;                                                       \
+            case 8:                                                          \
+                a.bin_op##_(regs_i64[REG_RBX_IDX], regs_i64[reg_no_src]);    \
+                break;                                                       \
+            default:                                                         \
+                bh_assert(0);                                                \
+                return false;                                                \
+        }                                                                    \
+        /* cmp with read value, to see whether mem data is changed */        \
+        mov_r_to_ra(a, bytes_dst, REG_RCX_IDX);                              \
+        at_cmpxchg(a, bytes_dst, kind_dst, REG_RCX_IDX, REG_RBX_IDX, m_dst); \
+        /* move new original value in memory(being exchanged by cmpxchg) to  \
+         * rcx */                                                            \
+        mov_r_to_r(a, kind_dst, REG_RCX_IDX, REG_RAX_IDX);                   \
+        a.jne(loop);                                                         \
+        return true;                                                         \
+    } while (0)
+
+/**
+ * Encode atomic logical binary operation: and
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data,
+ *        could be 1(byte), 2(short), 4(int32), 8(int64),
+ * @param kind_dst the kind of data to move, could be I32, I64
+ * @param reg_no_dst the index of dest register
+ * @param reg_no_src the index of register hold operand value of add operation
+ * @param m_dst the dest memory operand
+ *
+ * @return true if success, false otherwise
+ */
+static bool
+at_and(x86::Assembler &a, uint32 bytes_dst, uint32 kind_dst, int32 reg_no_dst,
+       int32 reg_no_src, x86::Mem &m_dst)
+{
+    AT_RMW_LOGICAL_LOOP(and, kind_dst, bytes_dst);
+}
+
+/**
+ * Encode atomic logical binary operation: or
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data,
+ *        could be 1(byte), 2(short), 4(int32), 8(int64),
+ * @param kind_dst the kind of data to move, could be I32, I64
+ * @param reg_no_dst the index of dest register
+ * @param reg_no_src the index of register hold operand value of add operation
+ * @param m_dst the dest memory operand
+ *
+ * @return true if success, false otherwise
+ */
+static bool
+at_or(x86::Assembler &a, uint32 bytes_dst, uint32 kind_dst, int32 reg_no_dst,
+      int32 reg_no_src, x86::Mem &m_dst)
+{
+    AT_RMW_LOGICAL_LOOP(or, kind_dst, bytes_dst);
+}
+/**
+ * Encode atomic logical binary operation: xor
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data,
+ *        could be 1(byte), 2(short), 4(int32), 8(int64),
+ * @param kind_dst the kind of data to move, could be I32, I64
+ * @param reg_no_dst the index of dest register
+ * @param reg_no_src the index of register hold operand value of add operation
+ * @param m_dst the dest memory operand
+ *
+ * @return true if success, false otherwise
+ */
+static bool
+at_xor(x86::Assembler &a, uint32 bytes_dst, uint32 kind_dst, int32 reg_no_dst,
+       int32 reg_no_src, x86::Mem &m_dst)
+{
+    AT_RMW_LOGICAL_LOOP(xor, kind_dst, bytes_dst);
+}
+
+/**
+ * Encode atomic rmw and: load value into a register from memory with reg base
+ * and reg offset, bitwise and loaded value with imm data, store back
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data to actual operated on(load,
+ * compare, replacement) could be 1(byte), 2(short), 4(int32), 8(int64)
+ * @param reg_no_dst the no of register that stores the returned value
+ * @param data_src the immediate data(first operand)
+ * @param reg_no_base the no of register that stores the base address
+ *        of src&dst memory(second operand&store back)
+ * @param offset the offset address of the memory
+ * @return true if success, false otherwise
+ */
+static bool
+at_rmw_and_imm_base_r_offset_imm(x86::Assembler &a, uint32 bytes_dst,
+                                 uint32 kind_dst, int32 reg_no_dst,
+                                 void *data_src, int32 reg_no_base,
+                                 int32 offset)
+{
+    x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
+    Imm imm;
+    imm_set_value(imm, data_src, bytes_dst);
+    uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
+    return at_and(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
+           && extend_r_to_r_kind(a, bytes_dst, kind_dst, REG_RCX_IDX,
+                                 reg_no_dst);
+}
+
+/**
+ * Encode atomic rmw and: load value into a register from memory with reg base
+ * and reg offset, bitwise and loaded value with imm data, store back
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data to actual operated on(load,
+ * compare, replacement) could be 1(byte), 2(short), 4(int32), 8(int64)
+ * @param reg_no_dst the no of register that stores the returned value
+ * @param data_src the immediate data(second operand)
+ * @param reg_no_base the no of register that stores the base address
+ *        of src&dst memory(first operand&store back location)
+ * @param reg_no_offset the no of register that stores the offset of the memory
+ * @return true if success, false otherwise
+ */
+static bool
+at_rmw_and_imm_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
+                               uint32 kind_dst, int32 reg_no_dst,
+                               void *data_src, int32 reg_no_base,
+                               int32 reg_no_offset)
+{
+    x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
+    Imm imm;
+    imm_set_value(imm, data_src, bytes_dst);
+    uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
+    return at_and(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
+           && extend_r_to_r_kind(a, bytes_dst, kind_dst, REG_RCX_IDX,
+                                 reg_no_dst);
+}
+
+/**
+ * Encode atomic rmw and: load value into a register from memory with reg base
+ * and imm offset, bitwise and value with reg data, store back
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data to actual operated on(load,
+ * compare, replacement) could be 1(byte), 2(short), 4(int32), 8(int64)
+ * @param reg_no_dst the no of register that stores the returned value
+ * @param reg_no_src the no of register store the src data(second operand)
+ * @param reg_no_base the no of register that stores the base address
+ *        of src&dst memory(first operand&store back location)
+ * @param offset the offset address of the memory
+ * @return true if success, false otherwise
+ */
+static bool
+at_rmw_and_r_base_r_offset_imm(x86::Assembler &a, uint32 bytes_dst,
+                               uint32 kind_dst, int32 reg_no_dst,
+                               int32 reg_no_src, int32 reg_no_base,
+                               int32 offset)
+{
+    x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
+    return at_and(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
+           && extend_r_to_r_kind(a, bytes_dst, kind_dst, REG_RCX_IDX,
+                                 reg_no_dst);
+}
+
+/**
+ * Encode atomic rmw and: load value into a register from memory with reg base
+ * and reg offset, bitwise and loaded value with reg data, store back
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data to actual operated on(load,
+ * compare, replacement) could be 1(byte), 2(short), 4(int32), 8(int64)
+ * @param reg_no_dst the no of register that stores the returned value
+ * @param reg_no_src the no of register store the src data(second operand)
+ * @param reg_no_base the no of register that stores the base address
+ *        of src&dst memory(first operand&store back)
+ * @param reg_no_offset the no of register that stores the offset of the memory
+ * @return true if success, false otherwise
+ */
+static bool
+at_rmw_and_r_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
+                             uint32 kind_dst, int32 reg_no_dst,
+                             int32 reg_no_src, int32 reg_no_base,
+                             int32 reg_no_offset)
+{
+    x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
+    return at_and(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
+           && extend_r_to_r_kind(a, bytes_dst, kind_dst, REG_RCX_IDX,
+                                 reg_no_dst);
+}
+
+/**
+ * Encode atomic rmw or: load value into a register from memory with reg base
+ * and reg offset, bitwise or loaded value with imm data, store back
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data to actual operated on(load,
+ * compare, replacement) could be 1(byte), 2(short), 4(int32), 8(int64)
+ * @param reg_no_dst the no of register that stores the returned value
+ * @param data_src the immediate data(first operand)
+ * @param reg_no_base the no of register that stores the base address
+ *        of src&dst memory(second operand&store back)
+ * @param offset the offset address of the memory
+ * @return true if success, false otherwise
+ */
+static bool
+at_rmw_or_imm_base_r_offset_imm(x86::Assembler &a, uint32 bytes_dst,
+                                uint32 kind_dst, int32 reg_no_dst,
+                                void *data_src, int32 reg_no_base, int32 offset)
+{
+    x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
+    Imm imm;
+    imm_set_value(imm, data_src, bytes_dst);
+    uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
+    return at_or(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
+           && extend_r_to_r_kind(a, bytes_dst, kind_dst, REG_RCX_IDX,
+                                 reg_no_dst);
+}
+
+/**
+ * Encode atomic rmw or: load value into a register from memory with reg base
+ * and reg offset, bitwise or loaded value with imm data, store back
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data to actual operated on(load,
+ * compare, replacement) could be 1(byte), 2(short), 4(int32), 8(int64)
+ * @param reg_no_dst the no of register that stores the returned value
+ * @param data_src the immediate data(second operand)
+ * @param reg_no_base the no of register that stores the base address
+ *        of src&dst memory(first operand&store back location)
+ * @param reg_no_offset the no of register that stores the offset of the memory
+ * @return true if success, false otherwise
+ */
+static bool
+at_rmw_or_imm_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
+                              uint32 kind_dst, int32 reg_no_dst, void *data_src,
+                              int32 reg_no_base, int32 reg_no_offset)
+{
+    x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
+    Imm imm;
+    imm_set_value(imm, data_src, bytes_dst);
+    uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
+    return at_or(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
+           && extend_r_to_r_kind(a, bytes_dst, kind_dst, REG_RCX_IDX,
+                                 reg_no_dst);
+}
+
+/**
+ * Encode atomic rmw or: load value into a register from memory with reg base
+ * and imm offset, bitwise or loaded value with reg data, store back
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data to actual operated on(load,
+ * compare, replacement) could be 1(byte), 2(short), 4(int32), 8(int64)
+ * @param reg_no_dst the no of register that stores the returned value
+ * @param reg_no_src the no of register store the src data(second operand)
+ * @param reg_no_base the no of register that stores the base address
+ *        of src&dst memory(first operand&store back location)
+ * @param offset the offset address of the memory
+ * @return true if success, false otherwise
+ */
+static bool
+at_rmw_or_r_base_r_offset_imm(x86::Assembler &a, uint32 bytes_dst,
+                              uint32 kind_dst, int32 reg_no_dst,
+                              int32 reg_no_src, int32 reg_no_base, int32 offset)
+{
+    x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
+    return at_or(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
+           && extend_r_to_r_kind(a, bytes_dst, kind_dst, REG_RCX_IDX,
+                                 reg_no_dst);
+}
+
+/**
+ * Encode atomic rmw or: load value into a register from memory with reg base
+ * and reg offset, bitwise or loaded value with reg data, store back
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data to actual operated on(load,
+ * compare, replacement) could be 1(byte), 2(short), 4(int32), 8(int64)
+ * @param reg_no_dst the no of register that stores the returned value
+ * @param reg_no_src the no of register store the src data(second operand)
+ * @param reg_no_base the no of register that stores the base address
+ *        of src&dst memory(first operand&store back)
+ * @param reg_no_offset the no of register that stores the offset of the memory
+ * @return true if success, false otherwise
+ */
+static bool
+at_rmw_or_r_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
+                            uint32 kind_dst, int32 reg_no_dst, int32 reg_no_src,
+                            int32 reg_no_base, int32 reg_no_offset)
+{
+    x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
+    return at_or(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
+           && extend_r_to_r_kind(a, bytes_dst, kind_dst, REG_RCX_IDX,
+                                 reg_no_dst);
+}
+
+/**
+ * Encode atomic rmw xor: load value into a register from memory with reg base
+ * and reg offset, bitwise xor loaded value with imm data, store back
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data to actual operated on(load,
+ * compare, replacement) could be 1(byte), 2(short), 4(int32), 8(int64)
+ * @param reg_no_dst the no of register that stores the returned value
+ * @param data_src the immediate data(first operand)
+ * @param reg_no_base the no of register that stores the base address
+ *        of src&dst memory(second operand&store back)
+ * @param offset the offset address of the memory
+ * @return true if success, false otherwise
+ */
+static bool
+at_rmw_xor_imm_base_r_offset_imm(x86::Assembler &a, uint32 bytes_dst,
+                                 uint32 kind_dst, int32 reg_no_dst,
+                                 void *data_src, int32 reg_no_base,
+                                 int32 offset)
+{
+    x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
+    Imm imm;
+    imm_set_value(imm, data_src, bytes_dst);
+    uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
+    return at_xor(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
+           && extend_r_to_r_kind(a, bytes_dst, kind_dst, REG_RCX_IDX,
+                                 reg_no_dst);
+}
+
+/**
+ * Encode atomic rmw xor: load value into a register from memory with reg base
+ * and reg offset, bitwise xor loaded value with imm data, store back
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data to actual operated on(load,
+ * compare, replacement) could be 1(byte), 2(short), 4(int32), 8(int64)
+ * @param reg_no_dst the no of register that stores the returned value
+ * @param data_src the immediate data(second operand)
+ * @param reg_no_base the no of register that stores the base address
+ *        of src&dst memory(first operand&store back location)
+ * @param reg_no_offset the no of register that stores the offset of the memory
+ * @return true if success, false otherwise
+ */
+static bool
+at_rmw_xor_imm_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
+                               uint32 kind_dst, int32 reg_no_dst,
+                               void *data_src, int32 reg_no_base,
+                               int32 reg_no_offset)
+{
+    x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
+    Imm imm;
+    imm_set_value(imm, data_src, bytes_dst);
+    uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
+    return at_xor(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
+           && extend_r_to_r_kind(a, bytes_dst, kind_dst, REG_RCX_IDX,
+                                 reg_no_dst);
+}
+
+/**
+ * Encode atomic rmw xor: load value into a register from memory with reg base
+ * and imm offset, bitwise xor exchange loaded value with reg data, store back
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data to actual operated on(load,
+ * compare, replacement) could be 1(byte), 2(short), 4(int32), 8(int64)
+ * @param reg_no_dst the no of register that stores the returned value
+ * @param reg_no_src the no of register store the src data(second operand)
+ * @param reg_no_base the no of register that stores the base address
+ *        of src&dst memory(first operand&store back location)
+ * @param offset the offset address of the memory
+ * @return true if success, false otherwise
+ */
+static bool
+at_rmw_xor_r_base_r_offset_imm(x86::Assembler &a, uint32 bytes_dst,
+                               uint32 kind_dst, int32 reg_no_dst,
+                               int32 reg_no_src, int32 reg_no_base,
+                               int32 offset)
+{
+    x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
+    return at_xor(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
+           && extend_r_to_r_kind(a, bytes_dst, kind_dst, REG_RCX_IDX,
+                                 reg_no_dst);
+}
+
+/**
+ * Encode atomic rmw xor: load value into a register from memory with reg base
+ * and reg offset, bitwise xor loaded value with reg data, store back
+ *
+ * @param a the assembler to emit the code
+ * @param bytes_dst the bytes number of the data to actual operated on(load,
+ * compare, replacement) could be 1(byte), 2(short), 4(int32), 8(int64)
+ * @param reg_no_dst the no of register that stores the returned value
+ * @param reg_no_src the no of register store the src data(second operand)
+ * @param reg_no_base the no of register that stores the base address
+ *        of src&dst memory(first operand&store back)
+ * @param reg_no_offset the no of register that stores the offset of the memory
+ * @return true if success, false otherwise
+ */
+static bool
+at_rmw_xor_r_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
+                             uint32 kind_dst, int32 reg_no_dst,
+                             int32 reg_no_src, int32 reg_no_base,
+                             int32 reg_no_offset)
+{
+    x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
+    return at_xor(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
+           && extend_r_to_r_kind(a, bytes_dst, kind_dst, REG_RCX_IDX,
+                                 reg_no_dst);
+}
+
+/**
  * Encode insn rmw RMW_type r0, r1, r2, r3
  * @param bin_op the operation, can be add/sub/xchg/and/or/xor
  * @param kind the data kind, can only be I32 or I64
@@ -8096,6 +8525,111 @@ jit_codegen_gen_native(JitCompContext *cc)
                 case JIT_OP_AT_XCHGI64:
                     LOAD_4ARGS();
                     AT_RMW_R_R_R_R(xchg, I64, int64, 8);
+                    break;
+
+                case JIT_OP_AT_ANDU8:
+                    LOAD_4ARGS();
+                    bh_assert(jit_reg_kind(r0) == JIT_REG_KIND_I32
+                              || jit_reg_kind(r0) == JIT_REG_KIND_I64);
+                    if (jit_reg_kind(r0) == JIT_REG_KIND_I32)
+                        AT_RMW_R_R_R_R(and, I32, int32, 1);
+                    else
+                        AT_RMW_R_R_R_R(and, I64, int64, 1);
+                    break;
+
+                case JIT_OP_AT_ANDU16:
+                    LOAD_4ARGS();
+                    bh_assert(jit_reg_kind(r0) == JIT_REG_KIND_I32
+                              || jit_reg_kind(r0) == JIT_REG_KIND_I64);
+                    if (jit_reg_kind(r0) == JIT_REG_KIND_I32)
+                        AT_RMW_R_R_R_R(and, I32, int32, 2);
+                    else
+                        AT_RMW_R_R_R_R(and, I64, int64, 2);
+                    break;
+
+                case JIT_OP_AT_ANDI32:
+                    LOAD_4ARGS();
+                    AT_RMW_R_R_R_R(and, I32, int32, 4);
+                    break;
+
+                case JIT_OP_AT_ANDU32:
+                    LOAD_4ARGS();
+                    AT_RMW_R_R_R_R(and, I64, int64, 4);
+                    break;
+
+                case JIT_OP_AT_ANDI64:
+                    LOAD_4ARGS();
+                    AT_RMW_R_R_R_R(and, I64, int64, 8);
+                    break;
+
+                case JIT_OP_AT_ORU8:
+                    LOAD_4ARGS();
+                    bh_assert(jit_reg_kind(r0) == JIT_REG_KIND_I32
+                              || jit_reg_kind(r0) == JIT_REG_KIND_I64);
+                    if (jit_reg_kind(r0) == JIT_REG_KIND_I32)
+                        AT_RMW_R_R_R_R(or, I32, int32, 1);
+                    else
+                        AT_RMW_R_R_R_R(or, I64, int64, 1);
+                    break;
+
+                case JIT_OP_AT_ORU16:
+                    LOAD_4ARGS();
+                    bh_assert(jit_reg_kind(r0) == JIT_REG_KIND_I32
+                              || jit_reg_kind(r0) == JIT_REG_KIND_I64);
+                    if (jit_reg_kind(r0) == JIT_REG_KIND_I32)
+                        AT_RMW_R_R_R_R(or, I32, int32, 2);
+                    else
+                        AT_RMW_R_R_R_R(or, I64, int64, 2);
+                    break;
+
+                case JIT_OP_AT_ORI32:
+                    LOAD_4ARGS();
+                    AT_RMW_R_R_R_R(or, I32, int32, 4);
+                    break;
+
+                case JIT_OP_AT_ORU32:
+                    LOAD_4ARGS();
+                    AT_RMW_R_R_R_R(or, I64, int64, 4);
+                    break;
+
+                case JIT_OP_AT_ORI64:
+                    LOAD_4ARGS();
+                    AT_RMW_R_R_R_R(or, I64, int64, 8);
+                    break;
+
+                case JIT_OP_AT_XORU8:
+                    LOAD_4ARGS();
+                    bh_assert(jit_reg_kind(r0) == JIT_REG_KIND_I32
+                              || jit_reg_kind(r0) == JIT_REG_KIND_I64);
+                    if (jit_reg_kind(r0) == JIT_REG_KIND_I32)
+                        AT_RMW_R_R_R_R(xor, I32, int32, 1);
+                    else
+                        AT_RMW_R_R_R_R(xor, I64, int64, 1);
+                    break;
+
+                case JIT_OP_AT_XORU16:
+                    LOAD_4ARGS();
+                    bh_assert(jit_reg_kind(r0) == JIT_REG_KIND_I32
+                              || jit_reg_kind(r0) == JIT_REG_KIND_I64);
+                    if (jit_reg_kind(r0) == JIT_REG_KIND_I32)
+                        AT_RMW_R_R_R_R(xor, I32, int32, 2);
+                    else
+                        AT_RMW_R_R_R_R(xor, I64, int64, 2);
+                    break;
+
+                case JIT_OP_AT_XORI32:
+                    LOAD_4ARGS();
+                    AT_RMW_R_R_R_R(xor, I32, int32, 4);
+                    break;
+
+                case JIT_OP_AT_XORU32:
+                    LOAD_4ARGS();
+                    AT_RMW_R_R_R_R(xor, I64, int64, 4);
+                    break;
+
+                case JIT_OP_AT_XORI64:
+                    LOAD_4ARGS();
+                    AT_RMW_R_R_R_R(xor, I64, int64, 8);
                     break;
 
 #endif
