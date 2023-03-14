@@ -106,61 +106,6 @@ search_module(WASMModuleCommon *module)
     return NULL;
 }
 
-static void
-wait_map_address_count_callback(void *key, void *value,
-                                void *p_total_elem_count)
-{
-    *(uint32 *)p_total_elem_count = *(uint32 *)p_total_elem_count + 1;
-}
-
-static void
-create_list_of_waiter_addresses(void *key, void *value, void *user_data)
-{
-    AtomicWaitAddressArgs *data = (AtomicWaitAddressArgs *)user_data;
-    data->addr[data->index++] = key;
-}
-
-void
-notify_stale_threads_on_exception(WASMModuleInstanceCommon *module_inst)
-{
-    AtomicWaitAddressArgs args = { 0 };
-    uint32 i = 0, total_elem_count = 0;
-    uint64 total_elem_count_size = 0;
-
-    os_mutex_lock(&wait_map_lock); /* Make the two traversals atomic */
-
-    /* count number of addresses in wait_map */
-    bh_hash_map_traverse(wait_map, wait_map_address_count_callback,
-                         (void *)&total_elem_count);
-
-    if (!total_elem_count) {
-        os_mutex_unlock(&wait_map_lock);
-        return;
-    }
-
-    /* allocate memory */
-    total_elem_count_size = (uint64)sizeof(void *) * total_elem_count;
-    if (total_elem_count_size >= UINT32_MAX
-        || !(args.addr = wasm_runtime_malloc((uint32)total_elem_count_size))) {
-        LOG_ERROR(
-            "failed to allocate memory for list of atomic wait addresses");
-        os_mutex_unlock(&wait_map_lock);
-        return;
-    }
-
-    /* set values in list of addresses */
-    bh_hash_map_traverse(wait_map, create_list_of_waiter_addresses, &args);
-    os_mutex_unlock(&wait_map_lock);
-
-    /* notify */
-    for (i = 0; i < args.index; i++) {
-        wasm_runtime_atomic_notify(module_inst, args.addr[i], UINT32_MAX);
-    }
-
-    /* free memory allocated to args data */
-    wasm_runtime_free(args.addr);
-}
-
 WASMSharedMemNode *
 wasm_module_get_shared_memory(WASMModuleCommon *module)
 {
@@ -413,7 +358,9 @@ wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
     AtomicWaitInfo *wait_info;
     AtomicWaitNode *wait_node;
     WASMSharedMemNode *node;
+#if WASM_ENABLE_THREAD_MGR != 0
     WASMExecEnv *exec_env;
+#endif
     bool check_ret, is_timeout, no_wait;
 
     bh_assert(module->module_type == Wasm_Module_Bytecode
@@ -489,14 +436,47 @@ wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
     /* condition wait start */
     os_mutex_lock(&wait_node->wait_lock);
 
-    if (!no_wait
+    if (!no_wait) {
+        /* unit of timeout is nsec, convert it to usec */
+        uint64 timeout_left = (uint64)timeout / 1000, timeout_wait;
+        uint64 timeout_1sec = 1e6;
+
+        while (1) {
+            if (timeout < 0) {
+                /* wait forever until it is notified or terminatied
+                   here we keep waiting and checking every second */
+                os_cond_reltimedwait(&wait_node->wait_cond,
+                                     &wait_node->wait_lock,
+                                     (uint64)timeout_1sec);
+                if (wait_node->status
+                        == S_NOTIFIED /* notified by atomic.notify */
 #if WASM_ENABLE_THREAD_MGR != 0
-        && !wasm_cluster_is_thread_terminated(exec_env)
+                    /* terminated by other thread */
+                    || wasm_cluster_is_thread_terminated(exec_env)
 #endif
-    ) {
-        os_cond_reltimedwait(&wait_node->wait_cond, &wait_node->wait_lock,
-                             timeout < 0 ? BHT_WAIT_FOREVER
-                                         : (uint64)timeout / 1000);
+                ) {
+                    break;
+                }
+                /* continue to wait */
+            }
+            else {
+                timeout_wait =
+                    timeout_left < timeout_1sec ? timeout_left : timeout_1sec;
+                os_cond_reltimedwait(&wait_node->wait_cond,
+                                     &wait_node->wait_lock, timeout_wait);
+                if (wait_node->status
+                        == S_NOTIFIED /* notified by atomic.notify */
+                    || timeout_left <= timeout_wait /* time out */
+#if WASM_ENABLE_THREAD_MGR != 0
+                    /* terminated by other thread */
+                    || wasm_cluster_is_thread_terminated(exec_env)
+#endif
+                ) {
+                    break;
+                }
+                timeout_left -= timeout_wait;
+            }
+        }
     }
 
     is_timeout = wait_node->status == S_WAITING ? true : false;

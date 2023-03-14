@@ -7,7 +7,6 @@
 #define _WASM_SHARED_MEMORY_H
 
 #include "bh_common.h"
-#include "wasm_exec_env.h"
 #if WASM_ENABLE_INTERP != 0
 #include "wasm_runtime.h"
 #endif
@@ -39,9 +38,6 @@ wasm_shared_memory_init();
 
 void
 wasm_shared_memory_destroy();
-
-void
-notify_stale_threads_on_exception(WASMModuleInstanceCommon *module);
 
 WASMSharedMemNode *
 wasm_module_get_shared_memory(WASMModuleCommon *module);

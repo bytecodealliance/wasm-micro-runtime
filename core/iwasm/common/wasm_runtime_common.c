@@ -2331,12 +2331,6 @@ wasm_set_exception(WASMModuleInstance *module_inst, const char *exception)
     if (exec_env) {
         wasm_cluster_spread_exception(exec_env, exception ? false : true);
     }
-#if WASM_ENABLE_SHARED_MEMORY
-    if (exception) {
-        notify_stale_threads_on_exception(
-            (WASMModuleInstanceCommon *)module_inst);
-    }
-#endif
 #else
     (void)exec_env;
 #endif
@@ -3144,6 +3138,21 @@ uint32_t
 wasm_runtime_get_wasi_exit_code(WASMModuleInstanceCommon *module_inst)
 {
     WASIContext *wasi_ctx = wasm_runtime_get_wasi_ctx(module_inst);
+#if WASM_ENABLE_THREAD_MGR != 0
+    WASMCluster *cluster;
+    WASMExecEnv *exec_env;
+
+    exec_env = wasm_runtime_get_exec_env_singleton(module_inst);
+    if (exec_env && (cluster = wasm_exec_env_get_cluster(exec_env))) {
+        /**
+         * The main thread may exit earlier than other threads, and
+         * the exit_code of wasi_ctx may be changed by other thread
+         * when it runs into wasi_proc_exit, here we wait until all
+         * other threads exit to avoid getting invalid exit_code.
+         */
+        wasm_cluster_wait_for_all_except_self(cluster, exec_env);
+    }
+#endif
     return wasi_ctx->exit_code;
 }
 

@@ -1321,8 +1321,9 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
     uint16 result_count = func_type->result_count;
     const uint8 *types = func_type->types;
 #ifdef BH_PLATFORM_WINDOWS
-    const char *exce;
     int result;
+    bool has_exception;
+    char exception[EXCEPTION_BUF_LEN];
 #endif
     bool ret;
 
@@ -1356,14 +1357,14 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
                 void (*NativeFunc)(WASMExecEnv *, uint32) =
                     (void (*)(WASMExecEnv *, uint32))func_ptr;
                 NativeFunc(exec_env, argv[0]);
-                ret = aot_get_exception(module_inst) ? false : true;
+                ret = aot_copy_exception(module_inst, NULL) ? false : true;
             }
             else if (result_count == 1
                      && types[param_count] == VALUE_TYPE_I32) {
                 uint32 (*NativeFunc)(WASMExecEnv *, uint32) =
                     (uint32(*)(WASMExecEnv *, uint32))func_ptr;
                 argv_ret[0] = NativeFunc(exec_env, argv[0]);
-                ret = aot_get_exception(module_inst) ? false : true;
+                ret = aot_copy_exception(module_inst, NULL) ? false : true;
             }
             else {
                 ret = wasm_runtime_invoke_native(exec_env, func_ptr, func_type,
@@ -1377,8 +1378,8 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
                                              argv_ret);
         }
 #ifdef BH_PLATFORM_WINDOWS
-        if ((exce = aot_get_exception(module_inst))
-            && strstr(exce, "native stack overflow")) {
+        has_exception = aot_copy_exception(module_inst, exception);
+        if (has_exception && strstr(exception, "native stack overflow")) {
             /* After a stack overflow, the stack was left
                in a damaged state, let the CRT repair it */
             result = _resetstkoflw();
@@ -1541,7 +1542,7 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
                                      func_type, NULL, NULL, argv, argc, argv);
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
-        if (aot_get_exception(module_inst)) {
+        if (aot_copy_exception(module_inst, NULL)) {
             if (aot_create_call_stack(exec_env)) {
                 aot_dump_call_stack(exec_env, true, NULL, 0);
             }
@@ -1552,7 +1553,7 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
         aot_free_frame(exec_env);
 #endif
 
-        return ret && !aot_get_exception(module_inst) ? true : false;
+        return ret && !aot_copy_exception(module_inst, NULL) ? true : false;
     }
 }
 
@@ -1609,6 +1610,14 @@ const char *
 aot_get_exception(AOTModuleInstance *module_inst)
 {
     return wasm_get_exception(module_inst);
+}
+
+bool
+aot_copy_exception(AOTModuleInstance *module_inst, char *exception_buf)
+{
+    /* The field offsets of cur_exception in AOTModuleInstance and
+       WASMModuleInstance are the same */
+    return wasm_copy_exception(module_inst, exception_buf);
 }
 
 static bool

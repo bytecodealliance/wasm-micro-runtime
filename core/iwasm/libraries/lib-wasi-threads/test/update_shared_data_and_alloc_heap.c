@@ -41,9 +41,6 @@ __wasi_thread_start_C(int thread_id, int *start_arg)
     for (int i = 0; i < NUM_ITER; i++)
         __atomic_fetch_add(data->count, 1, __ATOMIC_SEQ_CST);
 
-    pthread_mutex_lock(&mutex); /* malloc is not thread-safe in wasi-libc */
-    vals[data->iteration] = malloc(sizeof(int));
-    pthread_mutex_unlock(&mutex);
     *vals[data->iteration] = data->iteration;
 
     __atomic_store_n(&data->th_done, 1, __ATOMIC_SEQ_CST);
@@ -59,6 +56,11 @@ main(int argc, char **argv)
 
     assert(count != NULL && "Failed to call calloc");
     assert(pthread_mutex_init(&mutex, NULL) == 0 && "Failed to init mutex");
+
+    for (int i = 0; i < NUM_THREADS; i++) {
+        vals[i] = malloc(sizeof(int));
+        assert(vals[i] != NULL && "Failed to call calloc");
+    }
 
     for (int i = 0; i < NUM_THREADS; i++) {
         assert(start_args_init(&data[i].base)
