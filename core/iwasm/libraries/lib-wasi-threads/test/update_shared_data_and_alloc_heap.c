@@ -58,7 +58,7 @@ main(int argc, char **argv)
     assert(pthread_mutex_init(&mutex, NULL) == 0 && "Failed to init mutex");
 
     for (int i = 0; i < NUM_THREADS; i++) {
-        vals[i] = malloc(sizeof(int *));
+        vals[i] = malloc(sizeof(int));
         assert(vals[i] != NULL && "Failed to call calloc");
     }
 
