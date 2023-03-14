@@ -20,6 +20,10 @@ run_aot_tests () {
         test_aot="${test_wasm%.wasm}.aot"
         test_json="${test_wasm%.wasm}.json"
 
+        if [ -f ${test_wasm} ]; then
+            expected=$(jq .exit_code ${test_json})
+        fi
+
         echo "Compiling $test_wasm to $test_aot"
         ${WAMRC_CMD} --enable-multi-thread ${target_option} \
             -o $test_aot $test_wasm
@@ -60,12 +64,12 @@ else
         target_option="--target=i386"
     fi
 
-    # Run WASI thread proposal tests
+    # Run WASI thread tests in AOT mode
     exit_code=0
-    wamr_tests=$(ls ${WAMR_DIR}/core/iwasm/libraries/lib-wasi-threads/test/*.wasm)
-    run_aot_tests ${wamr_tests}
-    wasi_tests=$(ls tests/proposals/wasi-threads/*.wasm)
-    run_aot_tests ${wasi_tests}
+    thread_internal_tests=$(ls -l ${WAMR_DIR}/core/iwasm/libraries/lib-wasi-threads/test/*.wasm)
+    run_aot_tests ${thread_internal_tests}
+    thread_proposal_tests=$(ls -l tests/proposals/wasi-threads/*.wasm)
+    run_aot_tests ${thread_proposal_tests}
 fi
 
 exit ${exit_code}
