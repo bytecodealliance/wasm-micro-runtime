@@ -8,7 +8,7 @@
 
 Please build iwasm and wamrc, refer to:
 - [Build iwasm on Linux](../../../doc/build_wamr.md#linux), or [Build iwasm on MacOS](../../../doc/build_wamr.md#macos)
-- [build wamrc AOT compiler](../../../README.md#build-wamrc-aot-compiler)
+- [Build wamrc AOT compiler](../../../README.md#build-wamrc-aot-compiler)
 
 And install [zig toolchain](https://ziglang.org/learn/getting-started), refer to [Install Zig from a Package Manager](https://github.com/ziglang/zig/wiki/Install-Zig-from-a-Package-Manager) for how to install it.
 
