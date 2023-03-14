@@ -3,7 +3,7 @@
 # Copyright (C) 2023 Amazon.com Inc. or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-set -ueo pipefail
+set -eo pipefail
 CC="${CC:=/opt/wasi-sdk/bin/clang}"
 files=("tcp_udp.c" "nslookup.c")
 
@@ -11,6 +11,7 @@ for file in "${files[@]}"
 do
     echo $file
     $CC \
+        $WASI_SYSROOT_OPTION \
         --target=wasm32-wasi-threads \
         -I../inc \
         ../src/wasi/wasi_socket_ext.c -pthread -ftls-model=local-exec \
