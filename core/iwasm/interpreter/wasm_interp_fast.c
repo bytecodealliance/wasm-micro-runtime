@@ -1825,7 +1825,51 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         struct_type =
                             (WASMStructType *)module->module->types[type_idx];
 
-                        /* TODO */
+                        if (!(rtt_type = wasm_rtt_type_new(
+                                  (WASMType *)struct_type, type_idx,
+                                  wasm_module->rtt_types,
+                                  wasm_module->type_count,
+                                  &wasm_module->rtt_type_lock))) {
+                            wasm_set_exception(module,
+                                               "create rtt type failed");
+                            goto got_exception;
+                        }
+
+                        SYNC_ALL_TO_FRAME();
+                        struct_obj = wasm_struct_obj_new(
+                            module->e->gc_heap_handle, rtt_type);
+                        if (!struct_obj) {
+                            wasm_set_exception(module,
+                                               "create struct object failed");
+                            goto got_exception;
+                        }
+
+                        if (opcode == WASM_OP_STRUCT_NEW_CANON) {
+                            WASMStructFieldType *fields = struct_type->fields;
+                            int32 field_count = (int32)struct_type->field_count;
+                            int32 field_idx;
+                            uint8 field_type;
+
+                            for (field_idx = field_count - 1; field_idx >= 0;
+                                 field_idx--) {
+                                field_type = fields[field_idx].field_type;
+                                if (wasm_is_type_reftype(field_type)) {
+                                    field_value.gc_obj = POP_REF();
+                                }
+                                else if (field_type == VALUE_TYPE_I32
+                                         || field_type == VALUE_TYPE_F32
+                                         || field_type == PACKED_TYPE_I8
+                                         || field_type == PACKED_TYPE_I16) {
+                                    field_value.i32 = POP_I32();
+                                }
+                                else {
+                                    field_value.i64 = POP_I64();
+                                }
+                                wasm_struct_obj_set_field(struct_obj, field_idx,
+                                                          &field_value);
+                            }
+                        }
+                        PUSH_REF(struct_obj);
                         HANDLE_OP_END();
                     }
                     case WASM_OP_STRUCT_GET:
@@ -1872,10 +1916,11 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         }
                         else {
                             PUSH_I64(field_value.i64);
-                        }   
+                        }
                         HANDLE_OP_END();
                     }
-                    case WASM_OP_STRUCT_SET: {
+                    case WASM_OP_STRUCT_SET:
+                    {
                         WASMStructType *struct_type;
                         WASMValue field_value = { 0 };
                         uint32 field_idx;
@@ -1883,7 +1928,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                         type_idx = read_uint32(frame_ip);
                         field_idx = read_uint32(frame_ip);
- 
+
                         struct_type =
                             (WASMStructType *)module->module->types[type_idx];
                         field_type = struct_type->fields[field_idx].field_type;
