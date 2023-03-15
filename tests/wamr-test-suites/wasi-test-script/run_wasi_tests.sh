@@ -66,10 +66,12 @@ else
 
     # Run WASI thread tests in AOT mode
     exit_code=0
-    thread_internal_tests=$(ls -l ${WAMR_DIR}/core/iwasm/libraries/lib-wasi-threads/test/*.wasm)
-    run_aot_tests ${thread_internal_tests}
-    thread_proposal_tests=$(ls -l tests/proposals/wasi-threads/*.wasm)
-    run_aot_tests ${thread_proposal_tests}
+    thread_internal_tests=$(ls ${WAMR_DIR}/core/iwasm/libraries/lib-wasi-threads/test/*.wasm)
+    thread_internal_tests=($thread_internal_tests) # array to pass as arg to a function
+    run_aot_tests "${thread_internal_tests[@]}"
+    thread_proposal_tests=$(ls tests/proposals/wasi-threads/*.wasm)
+    thread_proposal_tests=($thread_proposal_tests) # array to pass as arg to a function
+    run_aot_tests "${thread_proposal_tests[@]}"
 fi
 
 exit ${exit_code}
