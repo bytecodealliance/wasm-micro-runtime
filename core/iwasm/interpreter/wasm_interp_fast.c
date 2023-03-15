@@ -1831,12 +1831,91 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     case WASM_OP_STRUCT_GET:
                     case WASM_OP_STRUCT_GET_S:
                     case WASM_OP_STRUCT_GET_U:
-                    case WASM_OP_STRUCT_SET:
                     {
-                        /* TODO */
+                        WASMStructType *struct_type;
+                        WASMValue field_value = { 0 };
+                        uint32 field_idx;
+                        uint8 field_type;
+
+                        type_idx = read_uint32(frame_ip);
+                        field_idx = read_uint32(frame_ip);
+
+                        struct_type =
+                            (WASMStructType *)module->module->types[type_idx];
+
+                        struct_obj = POP_REF();
+
+                        if (!struct_obj) {
+                            wasm_set_exception(module, "null structure object");
+                            goto got_exception;
+                        }
+                        if (field_idx >= struct_type->field_count) {
+                            wasm_set_exception(
+                                module, "struct field index out of bounds");
+                            goto got_exception;
+                        }
+
+                        wasm_struct_obj_get_field(
+                            struct_obj, field_idx,
+                            opcode == WASM_OP_STRUCT_GET_S ? true : false,
+                            &field_value);
+
+                        field_type = struct_type->fields[field_idx].field_type;
+                        if (wasm_is_type_reftype(field_type)) {
+                            PUSH_REF(field_value.gc_obj);
+                        }
+                        else if (field_type == VALUE_TYPE_I32
+                                 || field_type == VALUE_TYPE_F32
+                                 || field_type == PACKED_TYPE_I8
+                                 || field_type == PACKED_TYPE_I16) {
+                            PUSH_I32(field_value.i32);
+                        }
+                        else {
+                            PUSH_I64(field_value.i64);
+                        }   
                         HANDLE_OP_END();
                     }
+                    case WASM_OP_STRUCT_SET: {
+                        WASMStructType *struct_type;
+                        WASMValue field_value = { 0 };
+                        uint32 field_idx;
+                        uint8 field_type;
 
+                        type_idx = read_uint32(frame_ip);
+                        field_idx = read_uint32(frame_ip);
+ 
+                        struct_type =
+                            (WASMStructType *)module->module->types[type_idx];
+                        field_type = struct_type->fields[field_idx].field_type;
+
+                        if (wasm_is_type_reftype(field_type)) {
+                            field_value.gc_obj = POP_REF();
+                        }
+                        else if (field_type == VALUE_TYPE_I32
+                                 || field_type == VALUE_TYPE_F32
+                                 || field_type == PACKED_TYPE_I8
+                                 || field_type == PACKED_TYPE_I16) {
+                            field_value.i32 = POP_I32();
+                        }
+                        else {
+                            field_value.i64 = POP_I64();
+                        }
+
+                        struct_obj = POP_REF();
+                        if (!struct_obj) {
+                            wasm_set_exception(module, "null structure object");
+                            goto got_exception;
+                        }
+                        if (field_idx >= struct_type->field_count) {
+                            wasm_set_exception(
+                                module, "struct field index out of bounds");
+                            goto got_exception;
+                        }
+
+                        wasm_struct_obj_set_field(struct_obj, field_idx,
+                                                  &field_value);
+                        HANDLE_OP_END();
+                    }
                     case WASM_OP_ARRAY_NEW_CANON:
                     case WASM_OP_ARRAY_NEW_CANON_DEFAULT:
                     case WASM_OP_ARRAY_NEW_CANON_FIXED:
