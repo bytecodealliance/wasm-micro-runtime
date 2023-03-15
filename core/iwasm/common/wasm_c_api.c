@@ -1905,7 +1905,7 @@ wasm_trap_new_internal(wasm_store_t *store,
     }
 
     /* fill in message */
-    if (strlen(error_info) > 0) {
+    if (error_info && strlen(error_info) > 0) {
         if (!(trap->message = malloc_internal(sizeof(wasm_byte_vec_t)))) {
             goto failed;
         }
