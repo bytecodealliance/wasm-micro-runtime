@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES6",
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "outDir": "build",
+    "sourceMap": true,
+    "allowJs": true,
+    "experimentalDecorators": true,
+  },
+  "exclude": ["runtime-library/dyntype/*", "**/build/*", "tools/*", "tests/*"]
+}

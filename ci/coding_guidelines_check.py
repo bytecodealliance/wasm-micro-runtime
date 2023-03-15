@@ -33,6 +33,10 @@ EXCLUDE_PATHS = [
     "**/test-tools/IoT-APP-Store-Demo/*",
     "**/tests/wamr-test-suites/workspace/*",
     "**/wamr-sdk/*",
+    "**/docker-compose.yml",
+    "**/package-lock.json",
+    "**/pre-commit",
+    "**/vite-env.d.ts",
 ]
 
 C_SUFFIXES = [".c", ".cpp", ".h"]
@@ -149,6 +153,7 @@ def run_clang_format_diff(root: pathlib, commits: str) -> bool:
         for summary in [x for x in diff_content if x.startswith("diff --git")]:
             # b/path/to/file -> path/to/file
             with_invalid_format = re.split("\s+", summary)[-1][2:]
+            print(with_invalid_format)
             if not is_excluded(with_invalid_format):
                 print(f"--- {with_invalid_format} failed on code style checking.")
                 found = True
@@ -221,16 +226,17 @@ def analysis_new_item_name(root: pathlib, commit: str) -> bool:
             new_item = match.group(1)
             new_item = pathlib.Path(new_item).resolve()
 
-            if new_item.is_file():
-                if not check_file_name(new_item):
+            if not is_excluded(new_item):
+                if new_item.is_file():
+                    if not check_file_name(new_item):
+                        invalid_items = False
+                        continue
+
+                    new_item = new_item.parent
+
+                if not check_dir_name(new_item, root):
                     invalid_items = False
                     continue
-
-                new_item = new_item.parent
-
-            if not check_dir_name(new_item, root):
-                invalid_items = False
-                continue
         else:
             return invalid_items
 

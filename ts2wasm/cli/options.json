@@ -1,0 +1,56 @@
+{
+    "version": {
+        "category": "General",
+        "description": "Prints the compiler's version and exits.",
+        "alias": "v"
+    },
+    "help": {
+        "category": "General",
+        "description": "Prints this help message and exits.",
+        "alias": "h"
+    },
+    "output": {
+        "category": "Output",
+        "description": "Specifies the WebAssembly output file (.wasm).",
+        "alias": "o"
+    },
+    "wat": {
+        "category": "Output",
+        "description": "Generate the WebAssembly text output file (.wat).",
+        "default": false
+    },
+    "validate": {
+        "category": "Validation",
+        "description": "Validate the specified function of the generated wasm File using WAMR."
+    },
+    "baseDir": {
+        "category": "Output",
+        "description": "Specifies the base directory of output files.",
+        "default": "."
+    },
+    "opt": {
+        "category": "Compile",
+        "description": "Specify optimization level",
+        "default": 0
+    },
+    "disableAny": {
+        "category": "Compile",
+        "description": "disable any feature",
+        "default": true
+    },
+    "disableBuiltIn": {
+        "category": "Compile",
+        "description": "disable builtin functions",
+        "default": true
+    },
+    "disableInterface": {
+        "category": "Compile",
+        "description": "disable interface feature",
+        "default": true
+    },
+    "isBuiltIn": {
+        "category": "Compile",
+        "description": "decide whether to compile the built-in ts files",
+        "default": true
+    }
+}

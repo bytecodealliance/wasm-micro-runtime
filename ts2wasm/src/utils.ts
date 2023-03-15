@@ -1,0 +1,398 @@
+/*
+ * Copyright (C) 2023 Intel Corporation.  All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+ */
+
+import ts from 'typescript';
+import path from 'path';
+import {
+    BlockScope,
+    ClassScope,
+    FunctionScope,
+    GlobalScope,
+    NamespaceScope,
+    Scope,
+} from './scope.js';
+import ExpressionCompiler, { Expression } from './expression.js';
+import { BuiltinNames } from '../lib/builtin/builtinUtil.js';
+import { Type } from './type.js';
+import binaryen from 'binaryen';
+import * as binaryenCAPI from './glue/binaryen.js';
+import { arrayToPtr } from './glue/transform.js';
+import { anyArrayTypeInfo } from './glue/packType.js';
+
+export interface importGlobalInfo {
+    internalName: string;
+    externalModuleName: string;
+    externalBaseName: string;
+    globalType: Type;
+}
+
+export interface importFunctionInfo {
+    internalName: string;
+    externalModuleName: string;
+    externalBaseName: string;
+    funcType: Type;
+}
+
+export enum MatchKind {
+    ExactMatch,
+    ToAnyMatch,
+    FromAnyMatch,
+    ClassMatch,
+    ClassInheritMatch,
+    ClassInfcMatch,
+    ToArrayAnyMatch,
+    FromArrayAnyMatch,
+    MisMatch,
+}
+
+export class Stack<T> {
+    private items: T[] = [];
+    push(item: T) {
+        this.items.push(item);
+    }
+    pop() {
+        if (this.isEmpty()) {
+            throw new Error('Current stack is empty, can not pop');
+        }
+        return this.items.pop()!;
+    }
+    peek() {
+        if (this.isEmpty()) {
+            throw new Error('Current stack is empty, can not get peek item');
+        }
+        return this.items[this.items.length - 1];
+    }
+    isEmpty() {
+        return this.items.length === 0;
+    }
+    clear() {
+        this.items = [];
+    }
+    size() {
+        return this.items.length;
+    }
+    getItemAtIdx(index: number) {
+        if (index >= this.items.length) {
+            throw new Error('index is greater than the size of the stack');
+        }
+        return this.items[index];
+    }
+}
+
+export function getCurScope(
+    node: ts.Node,
+    nodeScopeMap: Map<ts.Node, Scope>,
+): Scope | null {
+    if (!node) return null;
+    const scope = nodeScopeMap.get(node);
+    if (scope) return scope;
+    return getCurScope(node.parent, nodeScopeMap);
+}
+
+export function getNearestFunctionScopeFromCurrent(currentScope: Scope | null) {
+    if (!currentScope) {
+        throw new Error('current scope is null');
+    }
+    const functionScope = currentScope.getNearestFunctionScope();
+    if (!functionScope) {
+        return null;
+    }
+    return functionScope;
+}
+
+export function generateNodeExpression(
+    exprCompiler: ExpressionCompiler,
+    node: ts.Node,
+): Expression {
+    return exprCompiler.visitNode(node);
+}
+
+export function parentIsFunctionLike(node: ts.Node) {
+    if (
+        node.parent.kind === ts.SyntaxKind.FunctionDeclaration ||
+        node.parent.kind === ts.SyntaxKind.MethodDeclaration ||
+        node.parent.kind === ts.SyntaxKind.SetAccessor ||
+        node.parent.kind === ts.SyntaxKind.GetAccessor ||
+        node.parent.kind === ts.SyntaxKind.FunctionExpression ||
+        node.parent.kind === ts.SyntaxKind.ArrowFunction
+    ) {
+        return true;
+    }
+
+    return false;
+}
+
+export function parentIsLoopLike(node: ts.Node) {
+    if (
+        node.parent.kind === ts.SyntaxKind.ForStatement ||
+        node.parent.kind === ts.SyntaxKind.DoStatement ||
+        node.parent.kind === ts.SyntaxKind.WhileStatement
+    ) {
+        return true;
+    }
+
+    return false;
+}
+
+export function parentIsCaseClause(node: ts.Node) {
+    if (
+        node.parent.kind === ts.SyntaxKind.CaseClause ||
+        node.parent.kind === ts.SyntaxKind.DefaultClause
+    ) {
+        return true;
+    }
+
+    return false;
+}
+
+export function isScopeNode(node: ts.Node) {
+    if (
+        node.kind === ts.SyntaxKind.SourceFile ||
+        node.kind === ts.SyntaxKind.ModuleDeclaration ||
+        node.kind === ts.SyntaxKind.FunctionDeclaration ||
+        node.kind === ts.SyntaxKind.FunctionExpression ||
+        node.kind === ts.SyntaxKind.ArrowFunction ||
+        node.kind === ts.SyntaxKind.ClassDeclaration ||
+        node.kind === ts.SyntaxKind.SetAccessor ||
+        node.kind === ts.SyntaxKind.GetAccessor ||
+        node.kind === ts.SyntaxKind.Constructor ||
+        node.kind === ts.SyntaxKind.MethodDeclaration ||
+        node.kind === ts.SyntaxKind.ForStatement ||
+        node.kind === ts.SyntaxKind.WhileStatement ||
+        node.kind === ts.SyntaxKind.DoStatement ||
+        node.kind === ts.SyntaxKind.CaseClause ||
+        node.kind === ts.SyntaxKind.DefaultClause
+    ) {
+        if (ts.isAccessor(node) && !node.body) {
+            return false;
+        }
+        return true;
+    }
+    if (node.kind === ts.SyntaxKind.Block && !parentIsFunctionLike(node)) {
+        return true;
+    }
+    return false;
+}
+
+export function mangling(
+    scopeArray: Array<Scope>,
+    delimiter = BuiltinNames.module_delimiter,
+    prefixStack: Array<string> = [],
+) {
+    scopeArray.forEach((scope) => {
+        let currName = '';
+        if (scope instanceof GlobalScope) {
+            currName = scope.moduleName;
+            scope.startFuncName = `${currName}|start`;
+            prefixStack.push(currName);
+
+            scope.varArray.forEach((v) => {
+                v.mangledName = `${prefixStack.join(delimiter)}|${v.varName}`;
+            });
+        } else if (scope instanceof NamespaceScope) {
+            currName = scope.namespaceName;
+            prefixStack.push(currName);
+
+            scope.varArray.forEach((v) => {
+                v.mangledName = `${prefixStack.join(delimiter)}|${v.varName}`;
+            });
+        } else if (scope instanceof FunctionScope) {
+            currName = scope.funcName;
+            prefixStack.push(currName);
+        } else if (scope instanceof ClassScope) {
+            currName = scope.className;
+            prefixStack.push(currName);
+            scope.classType.mangledName = `${prefixStack.join(delimiter)}`;
+        } else if (scope instanceof BlockScope) {
+            currName = scope.name;
+            prefixStack.push(currName);
+        }
+
+        scope.mangledName = `${prefixStack.join(delimiter)}`;
+
+        mangling(scope.children, delimiter, prefixStack);
+        prefixStack.pop();
+    });
+}
+
+export function getImportModulePath(
+    importDeclaration: ts.ImportDeclaration,
+    currentGlobalScope: GlobalScope,
+) {
+    // get import module name
+    const moduleSpecifier = importDeclaration.moduleSpecifier
+        .getText()
+        .slice(1, -1);
+    const currentModuleName = currentGlobalScope.moduleName;
+    const importModuleName = path.relative(
+        process.cwd(),
+        path.resolve(path.dirname(currentModuleName), moduleSpecifier),
+    );
+    return importModuleName;
+}
+
+export function getGlobalScopeByModuleName(
+    moduleName: string,
+    globalScopeStack: Stack<GlobalScope>,
+) {
+    for (let i = 0; i < globalScopeStack.size(); i++) {
+        const globalScope = globalScopeStack.getItemAtIdx(i);
+        if (globalScope.moduleName === moduleName) {
+            return globalScope;
+        }
+    }
+    throw Error('no such moduleName: ' + moduleName);
+}
+
+export function getImportIdentifierName(
+    importDeclaration: ts.ImportDeclaration,
+) {
+    const importIdentifierArray: string[] = [];
+    const nameAliasImportMap = new Map<string, string>();
+    let nameScopeImportName: string | null = null;
+    let defaultImportName: string | null = null;
+    // get import identifier
+    const importClause = importDeclaration.importClause;
+    if (!importClause) {
+        // importing modules with side effects
+        // import "otherModule"
+        // TODO
+        throw Error('TODO');
+    }
+    const namedBindings = importClause.namedBindings;
+    const importElement = importClause.name;
+    if (importElement) {
+        // import default export from other module
+        // import module_case4_var1 from './module-case4';
+        const importElementName = importElement.getText();
+        defaultImportName = importElementName;
+    }
+    if (namedBindings) {
+        if (ts.isNamedImports(namedBindings)) {
+            // import regular exports from other module
+            // import {module_case2_var1, module_case2_func1} from './module-case2';
+            for (const importSpecifier of namedBindings.elements) {
+                const specificIdentifier = <ts.Identifier>importSpecifier.name;
+                const specificName = specificIdentifier.getText()!;
+                const propertyIdentifier = importSpecifier.propertyName;
+                if (propertyIdentifier) {
+                    const propertyName = (<ts.Identifier>(
+                        propertyIdentifier
+                    )).getText()!;
+                    nameAliasImportMap.set(specificName, propertyName);
+                    importIdentifierArray.push(propertyName);
+                } else {
+                    importIdentifierArray.push(specificName);
+                }
+            }
+        } else if (ts.isNamespaceImport(namedBindings)) {
+            // import entire module into a variable
+            // import * as xx from './yy'
+            const identifier = <ts.Identifier>namedBindings.name;
+            nameScopeImportName = identifier.getText()!;
+        } else {
+            throw Error('unexpected case');
+        }
+    }
+
+    return {
+        importIdentifierArray,
+        nameScopeImportName,
+        nameAliasImportMap,
+        defaultImportName,
+    };
+}
+
+export function getExportIdentifierName(
+    exportDeclaration: ts.ExportDeclaration,
+) {
+    const nameAliasExportMap = new Map<string, string>();
+    // only need to record export alias
+    const exportClause = exportDeclaration.exportClause;
+    if (!exportClause) {
+        throw Error('exportClause is undefined');
+    }
+    if (ts.isNamedExports(exportClause)) {
+        const exportSpecifiers = exportClause.elements;
+        for (const exportSpecifier of exportSpecifiers) {
+            const specificIdentifier = <ts.Identifier>exportSpecifier.name;
+            const specificName = specificIdentifier.getText()!;
+            const propertyIdentifier = exportSpecifier.propertyName;
+            if (propertyIdentifier) {
+                const propertyName = (<ts.Identifier>(
+                    propertyIdentifier
+                )).getText()!;
+                nameAliasExportMap.set(specificName, propertyName);
+            }
+        }
+    }
+
+    return nameAliasExportMap;
+}
+
+export function addWatFuncs(
+    watModule: binaryen.Module,
+    funcName: string,
+    curModule: binaryen.Module,
+) {
+    const funcRef = watModule.getFunction(funcName);
+    const funcInfo = binaryen.getFunctionInfo(funcRef);
+    curModule.addFunction(
+        funcInfo.name,
+        funcInfo.params,
+        funcInfo.results,
+        funcInfo.vars,
+        funcInfo.body,
+    );
+}
+
+export function addWatFuncImports(
+    funcName: string,
+    curModule: binaryen.Module,
+) {
+    curModule.addFunctionImport(
+        funcName,
+        BuiltinNames.external_module_name,
+        getOriginFuncName(funcName),
+        getParamTypeByBuiltInFuncName(funcName),
+        getReturnTypeByBuiltInFuncName(funcName),
+    );
+}
+
+export function getBuiltInFuncName(oriFuncName: string) {
+    return BuiltinNames.bulitIn_module_name
+        .concat(BuiltinNames.module_delimiter)
+        .concat(oriFuncName);
+}
+
+export function getOriginFuncName(builtInFuncName: string) {
+    const strs = builtInFuncName.split(BuiltinNames.module_delimiter);
+    strs.shift();
+    return strs.join(BuiltinNames.module_delimiter);
+}
+
+function getParamTypeByBuiltInFuncName(funcName: string) {
+    const originFuncName = getOriginFuncName(funcName);
+    switch (originFuncName) {
+        case BuiltinNames.console_log_funcName: {
+            return anyArrayTypeInfo.typeRef;
+        }
+        default: {
+            return binaryen.none;
+        }
+    }
+}
+
+function getReturnTypeByBuiltInFuncName(funcName: string) {
+    const originFuncName = getOriginFuncName(funcName);
+    switch (originFuncName) {
+        case BuiltinNames.console_log_funcName: {
+            return binaryen.none;
+        }
+        default: {
+            return binaryen.none;
+        }
+    }
+}

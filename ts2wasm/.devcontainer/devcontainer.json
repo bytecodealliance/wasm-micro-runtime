@@ -1,0 +1,20 @@
+{
+    "name": "DevContainers", // dev container name
+    "dockerComposeFile": [
+        "docker-compose.yml" // docker-compose configure
+    ],
+    // The name of the following service has to match one of the services in docker-compose.yml
+    "service": "devcontainer", // the name of the “service”
+    "workspaceFolder": "/ts2wasm",
+    "extensions": [
+        "firsttris.vscode-jest-runner",
+        "esbenp.prettier-vscode",
+        "eamodio.gitlens",
+        "ms-vscode.vscode-typescript-tslint-plugin",
+        "ms-vsliveshare.vsliveshare",
+        "rtbenfield.vscode-jest-test-adapter",
+        "dbaeumer.vscode-eslint"
+    ],
+    "shutdownAction": "stopCompose", // tells VS Code what to do when we close the folder or VS Code
+    "remoteUser": "vscode"
+}
