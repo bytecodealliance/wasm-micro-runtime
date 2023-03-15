@@ -15,7 +15,7 @@ readonly IWASM_CMD="${WORK_DIR}/../../../../product-mini/platforms/${PLATFORM}/b
 readonly WAMRC_CMD="${WORK_DIR}/../../../../wamr-compiler/build/wamrc"
 
 run_aot_tests () {
-    tests=$1
+    local tests=$1
     for test_wasm in ${tests}; do
         test_aot="${test_wasm%.wasm}.aot"
         test_json="${test_wasm%.wasm}.json"
@@ -26,7 +26,7 @@ run_aot_tests () {
 
         echo "Compiling $test_wasm to $test_aot"
         ${WAMRC_CMD} --enable-multi-thread ${target_option} \
-            -o $test_aot $test_wasm
+            -o ${test_aot} ${test_wasm}
 
         echo "Running $test_aot"
         expected=0
