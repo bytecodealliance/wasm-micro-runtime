@@ -15,8 +15,8 @@ readonly IWASM_CMD="${WORK_DIR}/../../../../product-mini/platforms/${PLATFORM}/b
 readonly WAMRC_CMD="${WORK_DIR}/../../../../wamr-compiler/build/wamrc"
 
 run_aot_tests () {
-    local tests=$1
-    for test_wasm in ${tests}; do
+    local tests=("$@")
+    for test_wasm in ${tests[@]}; do
         test_aot="${test_wasm%.wasm}.aot"
         test_json="${test_wasm%.wasm}.json"
 
