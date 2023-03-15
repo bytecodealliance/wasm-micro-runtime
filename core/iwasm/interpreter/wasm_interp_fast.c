@@ -1975,7 +1975,71 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         array_type =
                             (WASMArrayType *)wasm_module->types[type_idx];
 
-                        /* TODO */
+                        if (!(rtt_type = wasm_rtt_type_new(
+                                  (WASMType *)array_type, type_idx,
+                                  wasm_module->rtt_types,
+                                  wasm_module->type_count,
+                                  &wasm_module->rtt_type_lock))) {
+                            wasm_set_exception(module,
+                                               "create rtt type failed");
+                            goto got_exception;
+                        }
+
+                        if (opcode != WASM_OP_ARRAY_NEW_CANON_FIXED)
+                            array_len = POP_I32();
+                        else
+                            array_len = read_uint32(frame_ip);
+
+                        if (opcode == WASM_OP_ARRAY_NEW_CANON) {
+                            if (wasm_is_type_reftype(array_type->elem_type)) {
+                                array_elem.gc_obj = POP_REF();
+                            }
+                            else if (array_type->elem_type == VALUE_TYPE_I32
+                                     || array_type->elem_type == VALUE_TYPE_F32
+                                     || array_type->elem_type == PACKED_TYPE_I8
+                                     || array_type->elem_type
+                                            == PACKED_TYPE_I16) {
+                                array_elem.i32 = POP_I32();
+                            }
+                            else {
+                                array_elem.i64 = POP_I64();
+                            }
+                        }
+
+                        SYNC_ALL_TO_FRAME();
+                        array_obj = wasm_array_obj_new(
+                            module->e->gc_heap_handle, rtt_type, array_len,
+                            &array_elem);
+                        if (!array_obj) {
+                            wasm_set_exception(module,
+                                               "create array object failed");
+                            goto got_exception;
+                        }
+
+                        if (opcode == WASM_OP_ARRAY_NEW_CANON_FIXED) {
+                            for (i = 0; i < array_len; i++) {
+                                if (wasm_is_type_reftype(
+                                        array_type->elem_type)) {
+                                    array_elem.gc_obj = POP_REF();
+                                }
+                                else if (array_type->elem_type == VALUE_TYPE_I32
+                                         || array_type->elem_type
+                                                == VALUE_TYPE_F32
+                                         || array_type->elem_type
+                                                == PACKED_TYPE_I8
+                                         || array_type->elem_type
+                                                == PACKED_TYPE_I16) {
+                                    array_elem.i32 = POP_I32();
+                                }
+                                else {
+                                    array_elem.i64 = POP_I64();
+                                }
+                                wasm_array_obj_set_elem(
+                                    array_obj, array_len - 1 - i, &array_elem);
+                            }
+                        }
+
+                        PUSH_REF(array_obj);
                         HANDLE_OP_END();
                     }
                     case WASM_OP_ARRAY_NEW_CANON_DATA:
@@ -1997,7 +2061,64 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         array_type =
                             (WASMArrayType *)wasm_module->types[type_idx];
 
-                        /* TODO */
+                        if (!(rtt_type = wasm_rtt_type_new(
+                                  (WASMType *)array_type, type_idx,
+                                  wasm_module->rtt_types,
+                                  wasm_module->type_count,
+                                  &wasm_module->rtt_type_lock))) {
+                            wasm_set_exception(module,
+                                               "create rtt type failed");
+                            goto got_exception;
+                        }
+
+                        array_len = POP_I32();
+                        data_seg_offset = POP_I32();
+
+                        switch (array_type->elem_type) {
+                            case PACKED_TYPE_I8:
+                                elem_size = 1;
+                                break;
+                            case PACKED_TYPE_I16:
+                                elem_size = 2;
+                                break;
+                            case VALUE_TYPE_I32:
+                            case VALUE_TYPE_F32:
+                                elem_size = 4;
+                                break;
+                            case VALUE_TYPE_I64:
+                            case VALUE_TYPE_F64:
+                                elem_size = 8;
+                                break;
+                            default:
+                                bh_assert(0);
+                        }
+
+                        total_size = (uint64)elem_size * array_len;
+                        if (data_seg_offset >= data_seg->data_length
+                            || total_size
+                                   > data_seg->data_length - data_seg_offset) {
+                            wasm_set_exception(module,
+                                               "data segment out of bounds");
+                            goto got_exception;
+                        }
+
+                        SYNC_ALL_TO_FRAME();
+                        array_obj = wasm_array_obj_new(
+                            module->e->gc_heap_handle, rtt_type, array_len,
+                            &array_elem);
+                        if (!array_obj) {
+                            wasm_set_exception(module,
+                                               "create array object failed");
+                            goto got_exception;
+                        }
+
+                        array_elem_base =
+                            (uint8 *)wasm_array_obj_first_elem_addr(array_obj);
+                        bh_memcpy_s(array_elem_base, (uint32)total_size,
+                                    data_seg->data + data_seg_offset,
+                                    (uint32)total_size);
+
+                        PUSH_REF(array_obj);
                         HANDLE_OP_END();
                     }
                     case WASM_OP_ARRAY_NEW_CANON_ELEM:
@@ -2009,10 +2130,94 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     case WASM_OP_ARRAY_GET:
                     case WASM_OP_ARRAY_GET_S:
                     case WASM_OP_ARRAY_GET_U:
+                    {
+                        WASMArrayType *array_type;
+                        WASMValue array_elem = { 0 };
+                        uint32 elem_idx, elem_size_log;
+
+                        type_idx = read_uint32(frame_ip);
+                        array_type =
+                            (WASMArrayType *)module->module->types[type_idx];
+
+                        elem_idx = POP_I32();
+                        array_obj = POP_REF();
+
+                        if (!array_obj) {
+                            wasm_set_exception(module, "null array object");
+                            goto got_exception;
+                        }
+                        if (elem_idx >= wasm_array_obj_length(array_obj)) {
+                            wasm_set_exception(module,
+                                               "array index out of bounds");
+                            goto got_exception;
+                        }
+
+                        wasm_array_obj_get_elem(
+                            array_obj, elem_idx,
+                            opcode == WASM_OP_ARRAY_GET_S ? true : false,
+                            &array_elem);
+                        elem_size_log = wasm_array_obj_elem_size_log(array_obj);
+
+                        if (wasm_is_type_reftype(array_type->elem_type)) {
+                            PUSH_REF(array_elem.gc_obj);
+                        }
+                        else if (elem_size_log < 3) {
+                            PUSH_I32(array_elem.i32);
+                        }
+                        else {
+                            PUSH_I64(array_elem.i64);
+                        }
+                        HANDLE_OP_END();
+                    }
                     case WASM_OP_ARRAY_SET:
+                    {
+                        WASMArrayType *array_type;
+                        WASMValue array_elem = { 0 };
+                        uint32 elem_idx;
+
+                        type_idx = read_uint32(frame_ip);
+                        array_type =
+                            (WASMArrayType *)module->module->types[type_idx];
+                        if (wasm_is_type_reftype(array_type->elem_type)) {
+                            array_elem.gc_obj = POP_REF();
+                        }
+                        else if (array_type->elem_type == VALUE_TYPE_I32
+                                 || array_type->elem_type == VALUE_TYPE_F32
+                                 || array_type->elem_type == PACKED_TYPE_I8
+                                 || array_type->elem_type == PACKED_TYPE_I16) {
+                            array_elem.i32 = POP_I32();
+                        }
+                        else {
+                            array_elem.i64 = POP_I64();
+                        }
+
+                        elem_idx = POP_I32();
+                        array_obj = POP_REF();
+
+                        if (!array_obj) {
+                            wasm_set_exception(module, "null array object");
+                            goto got_exception;
+                        }
+                        if (elem_idx >= wasm_array_obj_length(array_obj)) {
+                            wasm_set_exception(module,
+                                               "array index out of bounds");
+                            goto got_exception;
+                        }
+
+                        wasm_array_obj_set_elem(array_obj, elem_idx,
+                                                &array_elem);
+                        HANDLE_OP_END();
+                    }
                     case WASM_OP_ARRAY_LEN:
                     {
-                        /* TODO */
+                        uint32 array_len;
+                        array_obj = POP_REF();
+                        if (!array_obj) {
+                            wasm_set_exception(module, "null array object");
+                            goto got_exception;
+                        }
+                        array_len = wasm_array_obj_length(array_obj);
+                        PUSH_I32(array_len);
                         HANDLE_OP_END();
                     }
 
