@@ -59,15 +59,16 @@ void
 barrier_wait(barrier_t *barrier)
 {
     bool no_wait;
+    int count;
 
     mutex_lock(&barrier->mutex);
-    barrier->count++;
+    count = barrier->count++;
     no_wait = (barrier->count >= barrier->num_threads);
     mutex_unlock(&barrier->mutex);
 
     if (no_wait) {
         __atomic_store_n(&barrier->ready, 1, __ATOMIC_SEQ_CST);
-        __builtin_wasm_memory_atomic_notify(&barrier->ready, 1);
+        __builtin_wasm_memory_atomic_notify(&barrier->ready, count);
         return;
     }
 
