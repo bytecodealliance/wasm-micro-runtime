@@ -13,6 +13,11 @@ readonly PLATFORM=$(uname -s | tr A-Z a-z)
 readonly WAMR_DIR="${WORK_DIR}/../../../.."
 readonly IWASM_CMD="${WORK_DIR}/../../../../product-mini/platforms/${PLATFORM}/build/iwasm"
 readonly WAMRC_CMD="${WORK_DIR}/../../../../wamr-compiler/build/wamrc"
+readonly C_TESTS="tests/c/testsuite/"
+readonly ASSEMBLYSCRIPT_TESTS="tests/assemblyscript/testsuite/"
+readonly THREAD_PROPOSAL_TESTS="tests/proposals/wasi-threads/"
+readonly THREAD_INTERNAL_TESTS="${WAMR_DIR}/core/iwasm/libraries/lib-wasi-threads/test/"
+readonly LIB_SOCKET_TESTS="${WAMR_DIR}/core/iwasm/libraries/lib-socket/test/"
 
 run_aot_tests () {
     local tests=("$@")
@@ -51,11 +56,11 @@ if [[ $MODE != "aot" ]];then
     TEST_RUNTIME_EXE="${IWASM_CMD}" python3 test-runner/wasi_test_runner.py \
                 -r adapters/wasm-micro-runtime.py \
                 -t \
-                    tests/c/testsuite/ \
-                    tests/assemblyscript/testsuite/ \
-                    tests/proposals/wasi-threads/ \
-                    ${WAMR_DIR}/core/iwasm/libraries/lib-wasi-threads/test/ \
-                    ${WAMR_DIR}/core/iwasm/libraries/lib-socket/test/ \
+                    ${C_TESTS} \
+                    ${ASSEMBLYSCRIPT_TESTS} \
+                    ${THREAD_PROPOSAL_TESTS} \
+                    ${THREAD_INTERNAL_TESTS} \
+                    ${LIB_SOCKET_TESTS} \
     exit_code=${PIPESTATUS[0]}
     deactivate
 else
@@ -64,14 +69,12 @@ else
         target_option="--target=i386"
     fi
 
-    # Run WASI thread tests in AOT mode
     exit_code=0
-    thread_internal_tests=$(ls ${WAMR_DIR}/core/iwasm/libraries/lib-wasi-threads/test/*.wasm)
-    thread_internal_tests=($thread_internal_tests) # array to pass as arg to a function
-    run_aot_tests "${thread_internal_tests[@]}"
-    thread_proposal_tests=$(ls tests/proposals/wasi-threads/*.wasm)
-    thread_proposal_tests=($thread_proposal_tests) # array to pass as arg to a function
-    run_aot_tests "${thread_proposal_tests[@]}"
+    for testsuite in ${THREAD_PROPOSAL_TESTS} ${THREAD_INTERNAL_TESTS}; do
+        tests=$(ls ${testsuite}*.wasm)
+        tests_array=($tests)
+        run_aot_tests "${tests_array[@]}"
+    done
 fi
 
 exit ${exit_code}
