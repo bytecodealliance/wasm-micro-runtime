@@ -58,12 +58,15 @@ barrier_init(barrier_t *barrier, int num_threads)
 void
 barrier_wait(barrier_t *barrier)
 {
-    bool no_wait;
+    bool no_wait = false;
     int count;
 
     mutex_lock(&barrier->mutex);
     count = barrier->count++;
-    no_wait = (barrier->count >= barrier->num_threads);
+    if (barrier->count >= barrier->num_threads) {
+        no_wait = true;
+        barrier->count = 0;
+    }
     mutex_unlock(&barrier->mutex);
 
     if (no_wait) {
