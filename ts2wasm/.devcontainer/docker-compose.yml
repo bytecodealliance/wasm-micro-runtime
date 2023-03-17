@@ -1,0 +1,13 @@
+version: '3.7' #  which syntax version the file uses.
+
+services:
+  devcontainer:
+    image: acme/workspace:0.1 # the image tag
+    build: . # specifies the build context for docker-compose
+    container_name: ts2wasm-container
+    hostname: ts2wasm-dev.local # gives the dev container a hostname it should use
+    working_dir: /ts2wasm
+    volumes:
+       - ..:/ts2wasm
+    command: sleep infinity # instructs docker which command to start when the dev container is running
+  

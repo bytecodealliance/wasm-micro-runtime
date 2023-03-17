@@ -1,0 +1,9 @@
+node_modules
+build
+dist
+out
+.nyc_output
+coverage
+logs
+lib/builtin/watFile/
+logs

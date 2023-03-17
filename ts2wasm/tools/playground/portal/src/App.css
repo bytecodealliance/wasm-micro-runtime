@@ -1,0 +1,77 @@
+html,
+body {
+  width: 100%;
+  height: 100%;
+}
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0 auto;
+  padding: 0rem;
+  background-color: rgba(245, 245, 245, 0.952);
+  position: relative;
+}
+.index {
+  margin: 0 auto;
+  width: 90%;
+  height: 80%;
+  position: absolute;
+  top: 10%;
+  left: 5%;
+}
+.detail {
+  width: 70%;
+  margin: 0 auto;
+  height: 80%;
+  position: absolute;
+  left: 15%;
+  top: 15%;
+  margin-left: -10px;
+  margin-top: -10px;
+}
+
+.namediv {
+  word-wrap: break-word;
+  font-size: 17px;
+}
+
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+}
+.logo:hover {
+  filter: drop-shadow(0 0 2em #646cffaa);
+}
+.logo.react:hover {
+  filter: drop-shadow(0 0 2em #61dafbaa);
+}
+
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  a:nth-of-type(2) .logo {
+    animation: logo-spin infinite 20s linear;
+  }
+}
+
+.card {
+  padding: 2em;
+}
+
+.read-the-docs {
+  color: #888;
+}
+
+.site-page-header-ghost-wrapper {
+  padding: 24px;
+  background-color: #f5f5f5;
+  border-radius: 1em;
+}

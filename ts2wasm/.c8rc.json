@@ -1,0 +1,15 @@
+{
+    "all": true,
+    "include": [
+        "src/**/*.ts"
+    ],
+    "exclude": [
+        "src/glue/*.ts"
+    ],
+    "reporter":[
+         "text-summary",
+         "html",
+         "lcovonly"
+    ],
+    "report-dir": ".test_output/coverage"
+}

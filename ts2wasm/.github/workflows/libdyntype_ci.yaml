@@ -1,0 +1,44 @@
+name: libdyntype CI
+
+on:
+  push:
+    paths-ignore:
+      - "doc/**"
+      - "README.md"
+    branches: [main]
+  pull_request:
+    paths-ignore:
+      - "doc/**"
+      - "README.md"
+    branches: [main]
+  # allow to be triggered manually
+  workflow_dispatch:
+
+jobs:
+  build_and_test:
+    name: 'Libdyntype Build and Test'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: runtime-library/dyntype
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 5
+          submodules: true
+
+      - name: Dyntype Build
+        run: |
+          git pull --recurse-submodules
+          git submodule update --remote --recursive
+          mkdir build && cd build
+          cmake .. && make
+
+      - name: Dyntype Test
+        run: |
+          cd test
+          mkdir build && cd build
+          cmake ..
+          make
+          ./dyntype_test

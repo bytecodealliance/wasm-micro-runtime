@@ -1,0 +1,35 @@
+{
+    "parser": "@typescript-eslint/parser",
+    "parserOptions": {
+        "warnOnUnsupportedTypeScriptVersion": false,
+        "ecmaVersion": 6,
+        "sourceType": "module"
+    },
+    "env": {
+        "browser": false,
+        "node": true,
+        "es6": true
+    },
+    "plugins": [
+        "@typescript-eslint/eslint-plugin",
+        "no-null",
+        "import",
+        "prettier"
+    ],
+    "extends": [
+        "eslint:recommended",
+        "plugin:@typescript-eslint/recommended",
+        "plugin:prettier/recommended"
+    ],
+    "rules": {
+        // eslint-plugin-import
+        // deal with import/export package
+        "import/no-extraneous-dependencies": ["error", { "optionalDependencies": false }],
+        "@typescript-eslint/no-this-alias": ["off"],
+        "@typescript-eslint/no-namespace": ["off"]
+
+        // eslint-plugin-no-null
+        // restricts using null as explicit values for variables or function arguments.
+        // "no-null/no-null": "error"
+    }
+}
