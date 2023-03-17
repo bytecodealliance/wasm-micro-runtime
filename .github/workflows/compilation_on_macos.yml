@@ -249,7 +249,7 @@ jobs:
         os: [macos-latest]
         wasi_sdk_release:
           [
-            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-macos.tar.gz",
+            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20%2Bthreads/wasi-sdk-20.0.threads-macos.tar.gz",
           ]
         wabt_release:
           [
@@ -264,7 +264,7 @@ jobs:
           cd /opt
           sudo wget ${{ matrix.wasi_sdk_release }}
           sudo tar -xzf wasi-sdk-*.tar.gz
-          sudo mv wasi-sdk-19.0 wasi-sdk
+          sudo mv wasi-sdk-20.0+threads wasi-sdk
 
       - name: download and install wabt
         run: |
@@ -272,22 +272,6 @@ jobs:
           sudo wget ${{ matrix.wabt_release }}
           sudo tar -xzf wabt-1.0.31-*.tar.gz
           sudo mv wabt-1.0.31 wabt
-
-      - name: build wasi-libc (needed for wasi-threads)
-        run: |
-          mkdir wasi-libc
-          cd wasi-libc
-          git init
-          # "Rename thread_spawn import" commit on main branch
-          git fetch https://github.com/WebAssembly/wasi-libc \
-            8f5275796a82f8ecfd0833a4f3f444fa37ed4546
-          git checkout FETCH_HEAD
-          make \
-            AR=/opt/wasi-sdk/bin/llvm-ar \
-            NM=/opt/wasi-sdk/bin/llvm-nm \
-            CC=/opt/wasi-sdk/bin/clang \
-            THREAD_MODEL=posix
-        working-directory: core/deps
 
       - name: Build Sample [basic]
         run: |
@@ -339,6 +323,6 @@ jobs:
         run: |
           cd samples/wasi-threads
           mkdir build && cd build
-          cmake -DWASI_SYSROOT=`pwd`/../../../core/deps/wasi-libc/sysroot ..
+          cmake ..
           cmake --build . --config Release --parallel 4
           ./iwasm wasm-apps/no_pthread.wasm

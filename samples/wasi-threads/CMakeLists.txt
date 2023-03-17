@@ -7,13 +7,6 @@ include(CheckPIESupported)
 
 project(wasi_threads_sample)
 
-if (NOT DEFINED WASI_SYSROOT)
-  message (WARNING "Custom sysroot with threads enabled is required to build wasi threads samples.
-Please note that current wasi-sdk doesn't ship with threads enabled.
-Run cmake command with -DWASI_SYSROOT=/path/to/sysroot/with/threads to compile samples.")
-  return ()
-endif ()
-
 ################  runtime settings  ################
 string (TOLOWER ${CMAKE_HOST_SYSTEM_NAME} WAMR_BUILD_PLATFORM)
 if (APPLE)
