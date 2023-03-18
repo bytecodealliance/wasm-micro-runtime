@@ -56,13 +56,6 @@ The following platforms are supported, click each link below for how to build iw
 - [Zephyr](./doc/build_wamr.md#zephyr),  [AliOS-Things](./doc/build_wamr.md#alios-things),  [VxWorks](./doc/build_wamr.md#vxworks), [NuttX](./doc/build_wamr.md#nuttx), [RT-Thread](./doc/build_wamr.md#RT-Thread), [ESP-IDF](./doc/build_wamr.md#esp-idf)
 
 
-### Performance and Footprint
-- [Performance and footprint data](https://github.com/bytecodealliance/wasm-micro-runtime/wiki/Performance): checkout [here](https://github.com/bytecodealliance/wasm-micro-runtime/wiki/Performance) for the performance and footprint data
-- [Memory usage tunning](./doc/memory_tune.md): checkout [here](./doc/memory_tune.md) for the memory model and how to tune the memory usage
-- [Memory usage profiling](./doc/build_wamr.md#enable-memory-profiling-experiment): checkout [here](./doc/build_wamr.md#enable-memory-profiling-experiment) for how to profile the memory usage
-- [Benchmarks](./tests/benchmarks): checkout these links for how to run the benchmarks: [PolyBench](./tests/benchmarks/polybench), [CoreMark](./tests/benchmarks/coremark), [Sightglass](./tests/benchmarks/sightglass), [JetStream2](./tests/benchmarks/jetstream)
-
-
 ## Getting started
 - [Build iwasm VM core](./doc/build_wamr.md) on [Linux](./doc/build_wamr.md#linux), [SGX](./doc/linux_sgx.md), [MacOS](./doc/build_wamr.md#macos) and [Windows](./doc/build_wamr.md#windows), and [Build wamrc AOT compiler](./README.md#build-wamrc-aot-compiler)
 - [Build iwasm (mini product)](./product-mini/README.md)
@@ -71,8 +64,18 @@ The following platforms are supported, click each link below for how to build iw
 - [Build wamrc AOT compiler](./wamr-compiler/README.md)
 - [Build Wasm applications](./doc/build_wasm_app.md)
 - [Port WAMR to a new platform](./doc/port_wamr.md)
-- [Benchmarks](./tests/benchmarks) and [Samples](./samples)
 - [VS Code development container](./doc/devcontainer.md)
+- [Samples](./samples) and [Benchmarks](./tests/benchmarks) 
+
+
+
+### Performance and Footprint
+- [Performance and footprint data](https://github.com/bytecodealliance/wasm-micro-runtime/wiki/Performance): the performance and footprint data
+- [Memory usage tunning](./doc/memory_tune.md):the memory model and how to tune the memory usage
+- [Memory usage profiling](./doc/build_wamr.md#enable-memory-profiling-experiment): how to profile the memory usage
+- [Benchmarks](./tests/benchmarks): checkout these links for how to run the benchmarks: [PolyBench](./tests/benchmarks/polybench), [CoreMark](./tests/benchmarks/coremark), [Sightglass](./tests/benchmarks/sightglass), [JetStream2](./tests/benchmarks/jetstream)
+
+
 
 Project Technical Steering Committee
 ====================================
