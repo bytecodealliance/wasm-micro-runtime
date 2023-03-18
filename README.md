@@ -7,36 +7,35 @@
 
 **[Guide](https://wamr.gitbook.io/)**&emsp;&emsp;**[Website](https://bytecodealliance.github.io/wamr.dev)**&emsp;&emsp;**[Chat](https://bytecodealliance.zulipchat.com/#narrow/stream/290350-wamr)**
 
-[Build WAMR](./doc/build_wamr.md) | [Build AOT Compiler](./README.md#build-wamrc-aot-compiler) | [Embed WAMR](./doc/embed_wamr.md) | [Export Native API](./doc/export_native_api.md) | [Build WASM Apps](./doc/build_wasm_app.md) | [Samples](./README.md#samples)
+[Build WAMR](./doc/build_wamr.md) | [Build AOT Compiler](./README.md#build-wamrc-aot-compiler) | [Embed WAMR](./doc/embed_wamr.md) | [Export Native API](./doc/export_native_api.md) | [Build Wasm Apps](./doc/build_wasm_app.md) | [Samples](./README.md#samples)
 
-WebAssembly Micro Runtime (WAMR) is a lightweight standalone WebAssembly (WASM) runtime with small footprint, high performance and highly configurable features for applications cross from embedded, IoT, edge to Trusted Execution Environment (TEE), smart contract, cloud native and so on. It includes a few parts as below:
-- The [**"iwasm" VM core**](./README.md#iwasm-vm-core) to run WASM applications, supporting interpreter mode, AOT mode (Ahead-of-Time compilation) and JIT modes (Just-in-Time compilation, LLVM JIT and Fast JIT are supported)
-
-- The [**"wamrc" AOT compiler**](./README.md#build-wamrc-aot-compiler) to compile WASM file into AOT file for best performance and smaller runtime footprint, which is run by "iwasm" VM Core
-
-- The [**application framework**](./README.md#application-framework) and the supporting APIs for the WASM applications
-
-- The [**dynamic management**](./README.md#remote-application-management) of the WASM applications
+WebAssembly Micro Runtime (WAMR) is a lightweight standalone WebAssembly (Wasm) runtime with small footprint, high performance and highly configurable features for applications cross from embedded, IoT, edge to Trusted Execution Environment (TEE), smart contract, cloud native and so on. It includes a few parts as below:
+- The [**WAMR VM core**](./README.md#iwasm-vm-core) is a set of runtime libraries for loading and running Wasm modules. It supportes many execution modes including interpreter, Ahead-of-Time compilation(AoT)) and Just-in-Time compilation (JIT). The WAMR supports two JIT tiers - Fast JIT, LLVM JIT, and dynamic tier-up from Fast JIT to LLVM JIT.
+- The [**iwasm**] is executable binary built with WAMR VMcore that supports WASI and command line interface.
+- The [**"wamrc" AOT compiler**](./README.md#build-wamrc-aot-compiler) to compile Wasm file into AOT file for best performance and smaller runtime footprint
+- Additional components for quickly building a real solution with WAMR vmcore:
+  - The [**application framework**](./README.md#application-framework) and the supporting APIs for the Wasm applications
+  - The [**dynamic management**](./README.md#remote-application-management) of the Wasm applications
+  - The [WAMR-IDE (Experimental)](./test-tools/wamr-ide) is VSCode extension for developping WebAssembly applications with C/C++
 
 
 ### Key features
-- Full compliant to the W3C WASM MVP
+- Full compliant to the W3C Wasm MVP
 - Small runtime binary size (~85K for interpreter and ~50K for AOT) and low memory usage
 - Near to native speed by AOT and JIT
 - Self-implemented AOT module loader to enable AOT working on Linux, Windows, MacOS, Android, SGX and MCU systems
-- Choices of WASM application libc support: the built-in libc subset for the embedded environment or [WASI](https://github.com/WebAssembly/WASI) for the standard libc
+- Choices of Wasm application libc support: the built-in libc subset for the embedded environment or [WASI](https://github.com/WebAssembly/WASI) for the standard libc
 - [The simple C APIs to embed WAMR into host environment](./doc/embed_wamr.md), see [how to integrate WAMR](./doc/embed_wamr.md) and the [API list](./core/iwasm/include/wasm_export.h)
-- [The mechanism to export native APIs to WASM applications](./doc/export_native_api.md), see [how to register native APIs](./doc/export_native_api.md)
+- [The mechanism to export native APIs to Wasm applications](./doc/export_native_api.md), see [how to register native APIs](./doc/export_native_api.md)
 - [Multiple modules as dependencies](./doc/multi_module.md), ref to [document](./doc/multi_module.md) and [sample](samples/multi-module)
 - [Multi-thread, pthread APIs and thread management](./doc/pthread_library.md), ref to [document](./doc/pthread_library.md) and [sample](samples/multi-thread)
 - [Linux SGX (Intel Software Guard Extension) support](./doc/linux_sgx.md), ref to [document](./doc/linux_sgx.md)
 - [Source debugging support](./doc/source_debugging.md), ref to [document](./doc/source_debugging.md)
-- [WAMR-IDE (Experimental)](./test-tools/wamr-ide) to develop WebAssembly applications with build, run and debug support, ref to [document](./test-tools/wamr-ide)
 - [XIP (Execution In Place) support](./doc/xip.md), ref to [document](./doc/xip.md)
 - [Berkeley/Posix Socket support](./doc/socket_api.md), ref to [document](./doc/socket_api.md) and [sample](./samples/socket-api)
 - Language bindings: [Go](./language-bindings/go/README.md), [Python](./language-bindings/python/README.md)
 
-### WASM post-MVP features
+### Wasm post-MVP features
 - [wasm-c-api](https://github.com/WebAssembly/wasm-c-api), ref to [document](doc/wasm_c_api.md) and [sample](samples/wasm-c-api)
 - [128-bit SIMD](https://github.com/WebAssembly/simd), ref to [samples/workload](samples/workload)
 - [Reference Types](https://github.com/WebAssembly/reference-types), ref to [document](doc/ref_types.md) and [sample](samples/ref-types)
@@ -70,8 +69,8 @@ The following platforms are supported, click each link below for how to build iw
 - [Embed WAMR into host applications](./doc/embed_wamr.md)
 - [Embed into C/C++](./doc/embed_wamr.md), [Embed into Python](./language-bindings/python), [Embed into Go](./language-bindings/go)
 - [Build wamrc AOT compiler](./wamr-compiler/README.md)
-- [Register native APIs for WASM applications](./doc/export_native_api.md)
-- [Build WASM applications](./doc/build_wasm_app.md)
+- [Register native APIs for Wasm applications](./doc/export_native_api.md)
+- [Build Wasm applications](./doc/build_wasm_app.md)
 - [Port WAMR to a new platform](./doc/port_wamr.md)
 - [Benchmarks](./tests/benchmarks) and [Samples](./samples)
 - [VS Code development container](./doc/devcontainer.md)
