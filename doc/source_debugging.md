@@ -1,5 +1,9 @@
 # WAMR source debugging
 
+References:
+- [Blog: WAMR source debugging basic](https://bytecodealliance.github.io/wamr.dev/blog/wamr-source-debugging-basic/)  
+- [Blog: Debugging wasm with VSCode](https://bytecodealliance.github.io/wamr.dev/blog/debugging-wasm-with-vscode/)
+
 WAMR supports source level debugging based on DWARF (normally used in C/C++/Rust), source map (normally used in AssemblyScript) is not supported.
 
 **The lldb's ability to debug wasm application is based on the patch [Add class WasmProcess for WebAssembly debugging](https://reviews.llvm.org/D78801). Thanks very much to the author @paolosev for such a great work!**
