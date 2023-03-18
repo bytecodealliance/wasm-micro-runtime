@@ -17,9 +17,7 @@ import ExpressionCompiler, { Expression } from './expression.js';
 import { BuiltinNames } from '../lib/builtin/builtinUtil.js';
 import { Type } from './type.js';
 import binaryen from 'binaryen';
-import * as binaryenCAPI from './glue/binaryen.js';
-import { arrayToPtr } from './glue/transform.js';
-import { anyArrayTypeInfo } from './glue/packType.js';
+import { anyArrayTypeInfo } from './backend/binaryen/glue/packType.js';
 
 export interface importGlobalInfo {
     internalName: string;

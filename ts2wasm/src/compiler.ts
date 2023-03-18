@@ -18,7 +18,7 @@ import {
 import { VariableScanner, VariableInit } from './variable.js';
 import ExpressionCompiler from './expression.js';
 import StatementCompiler from './statement.js';
-import { WASMGen } from './wasmGen.js';
+import { WASMGen } from './backend/binaryen/wasmGen.js';
 import path from 'path';
 import { ArgNames } from '../lib/builtin/builtinUtil.js';
 import { Logger } from './log.js';
