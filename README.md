@@ -18,21 +18,8 @@ WebAssembly Micro Runtime (WAMR) is a lightweight standalone WebAssembly (WASM) 
 
 - The [**dynamic management**](./README.md#remote-application-management) of the WASM applications
 
-## Getting started
-- [Build iwasm VM core](./doc/build_wamr.md) on [Linux](./doc/build_wamr.md#linux), [SGX](./doc/linux_sgx.md), [MacOS](./doc/build_wamr.md#macos) and [Windows](./doc/build_wamr.md#windows), and [Build wamrc AOT compiler](./README.md#build-wamrc-aot-compiler)
-- [Embed WAMR into host applications](./doc/embed_wamr.md)
-- [Embed into C/C++](./doc/embed_wamr.md), [Embed into Python](./language-bindings/python), [Embed into Go](./language-bindings/go)
-- [Build wamrc AOT compiler](./wamr-compiler/README.md)
-- [Register native APIs for WASM applications](./doc/export_native_api.md)
-- [Build WASM applications](./doc/build_wasm_app.md)
-- [Port WAMR to a new platform](./doc/port_wamr.md)
-- [Benchmarks](./tests/benchmarks) and [Samples](./samples)
-- [VS Code development container](./doc/devcontainer.md)
-- [Samples](./samples/README.md):The WAMR [samples](./samples) integrate the iwasm VM core, application manager and selected application framework components.
 
-## iwasm VM core
 ### Key features
-
 - Full compliant to the W3C WASM MVP
 - Small runtime binary size (~85K for interpreter and ~50K for AOT) and low memory usage
 - Near to native speed by AOT and JIT
@@ -58,34 +45,36 @@ WebAssembly Micro Runtime (WAMR) is a lightweight standalone WebAssembly (WASM) 
 - [Multi-value](https://github.com/WebAssembly/multi-value), [Tail-call](https://github.com/WebAssembly/tail-call), [Shared memory](https://github.com/WebAssembly/threads/blob/main/proposals/threads/Overview.md#shared-linear-memory)
 
 ### Supported architectures and platforms
-
-The iwasm supports the following architectures:
-
+The iwasm supports the following architectures:  
 - X86-64, X86-32
 - ARM, THUMB (ARMV7 Cortex-M7 and Cortex-A15 are tested)
 - AArch64 (Cortex-A57 and Cortex-A53 are tested)
 - RISCV64, RISCV32 (RISC-V LP64 and RISC-V LP64D are tested)
 - XTENSA, MIPS, ARC
 
-The following platforms are supported, click each link below for how to build iwasm on that platform. Refer to [WAMR porting guide](./doc/port_wamr.md) for how to port WAMR to a new platform.
-
+The following platforms are supported, click each link below for how to build iwasm on that platform. Refer to [WAMR porting guide](./doc/port_wamr.md) for how to port WAMR to a new platform.  
 - [Linux](./doc/build_wamr.md#linux),  [Linux SGX (Intel Software Guard Extension)](./doc/linux_sgx.md),  [MacOS](./doc/build_wamr.md#macos),  [Android](./doc/build_wamr.md#android), [Windows](./doc/build_wamr.md#windows), [Windows (MinGW)](./doc/build_wamr.md#mingw)
 - [Zephyr](./doc/build_wamr.md#zephyr),  [AliOS-Things](./doc/build_wamr.md#alios-things),  [VxWorks](./doc/build_wamr.md#vxworks), [NuttX](./doc/build_wamr.md#nuttx), [RT-Thread](./doc/build_wamr.md#RT-Thread), [ESP-IDF](./doc/build_wamr.md#esp-idf)
 
-### Build iwasm VM core (mini product)
-
-WAMR supports building the iwasm VM core only (no app framework) to the mini product. The WAMR mini product takes the WASM application file name or AOT file name as input and then executes it. For the detailed procedure, please see **[build WAMR VM core](./doc/build_wamr.md)** and **[build and run WASM application](./doc/build_wasm_app.md)**. Also we can click the link of each platform above to see how to build iwasm on it.
-
-
 
 ### Performance and Footprint
-
 - [Performance and footprint data](https://github.com/bytecodealliance/wasm-micro-runtime/wiki/Performance): checkout [here](https://github.com/bytecodealliance/wasm-micro-runtime/wiki/Performance) for the performance and footprint data
 - [Memory usage tunning](./doc/memory_tune.md): checkout [here](./doc/memory_tune.md) for the memory model and how to tune the memory usage
 - [Memory usage profiling](./doc/build_wamr.md#enable-memory-profiling-experiment): checkout [here](./doc/build_wamr.md#enable-memory-profiling-experiment) for how to profile the memory usage
 - [Benchmarks](./tests/benchmarks): checkout these links for how to run the benchmarks: [PolyBench](./tests/benchmarks/polybench), [CoreMark](./tests/benchmarks/coremark), [Sightglass](./tests/benchmarks/sightglass), [JetStream2](./tests/benchmarks/jetstream)
 
 
+## Getting started
+- [Build iwasm (mini product)](./product-mini/README.md)
+- [Build iwasm VM core](./doc/build_wamr.md) on [Linux](./doc/build_wamr.md#linux), [SGX](./doc/linux_sgx.md), [MacOS](./doc/build_wamr.md#macos) and [Windows](./doc/build_wamr.md#windows), and [Build wamrc AOT compiler](./README.md#build-wamrc-aot-compiler)
+- [Embed WAMR into host applications](./doc/embed_wamr.md)
+- [Embed into C/C++](./doc/embed_wamr.md), [Embed into Python](./language-bindings/python), [Embed into Go](./language-bindings/go)
+- [Build wamrc AOT compiler](./wamr-compiler/README.md)
+- [Register native APIs for WASM applications](./doc/export_native_api.md)
+- [Build WASM applications](./doc/build_wasm_app.md)
+- [Port WAMR to a new platform](./doc/port_wamr.md)
+- [Benchmarks](./tests/benchmarks) and [Samples](./samples)
+- [VS Code development container](./doc/devcontainer.md)
 
 Project Technical Steering Committee
 ====================================
