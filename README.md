@@ -10,13 +10,13 @@
 [Build WAMR](./doc/build_wamr.md) | [Build AOT Compiler](./README.md#build-wamrc-aot-compiler) | [Embed WAMR](./doc/embed_wamr.md) | [Export Native API](./doc/export_native_api.md) | [Build Wasm Apps](./doc/build_wasm_app.md) | [Samples](./README.md#samples)
 
 WebAssembly Micro Runtime (WAMR) is a lightweight standalone WebAssembly (Wasm) runtime with small footprint, high performance and highly configurable features for applications cross from embedded, IoT, edge to Trusted Execution Environment (TEE), smart contract, cloud native and so on. It includes a few parts as below:
-- The [**WAMR VM core**](./README.md#iwasm-vm-core) is a set of runtime libraries for loading and running Wasm modules. It supportes many execution modes including interpreter, Ahead-of-Time compilation(AoT)) and Just-in-Time compilation (JIT). The WAMR supports two JIT tiers - Fast JIT, LLVM JIT, and dynamic tier-up from Fast JIT to LLVM JIT.
-- The [**iwasm**] is executable binary built with WAMR VMcore that supports WASI and command line interface.
-- The [**"wamrc" AOT compiler**](./README.md#build-wamrc-aot-compiler) to compile Wasm file into AOT file for best performance and smaller runtime footprint
-- Additional components for quickly building a real solution with WAMR vmcore:
-  - The [**application framework**](./README.md#application-framework) and the supporting APIs for the Wasm applications
-  - The [**dynamic management**](./README.md#remote-application-management) of the Wasm applications
-  - The [WAMR-IDE (Experimental)](./test-tools/wamr-ide) is VSCode extension for developping WebAssembly applications with C/C++
+- [**WAMR VM core**](./README.md#iwasm-vm-core): a set of runtime libraries for loading and running Wasm modules. It supportes many execution modes including interpreter, Ahead-of-Time compilation(AoT)) and Just-in-Time compilation (JIT). The WAMR supports two JIT tiers - Fast JIT, LLVM JIT, and dynamic tier-up from Fast JIT to LLVM JIT.
+- [**iwasm**](./product-mini/) is executable binary built with WAMR VMcore that supports WASI and command line interface.
+- [**"wamrc"**](./README.md#build-wamrc-aot-compiler): The AOT compiler to compile Wasm file into AOT file
+- Helpful components for building real solutions with WAMR vmcore:
+  - [**App framework**](./core/app-framework/README.md): A framework for supporting APIs for the Wasm applications
+  - [**App manager**](./core/app-mgr/README.md): a framework for dynamical loading the Wasm module remotely
+  - [**WAMR-IDE**](./test-tools/wamr-ide): An experimental VSCode extension for developping WebAssembly applications with C/C++
 
 
 ### Key features
