@@ -3,11 +3,14 @@
 
 WAMR vmcore is a set of runtime libraries for loading and running Wasm modules. This document introduces how to build the WAMR vmcore.  
 
-Refer to [how to build iwasm](../product-mini/README.md) for building different target platforms such as Linux, Windows, Mac etc.
+References:
+- [how to build iwasm](../product-mini/README.md): building different target platforms such as Linux, Windows, Mac etc
+- [Blog: Introduction to WAMR running modes](https://bytecodealliance.github.io/wamr.dev/blog/introduction-to-wamr-running-modes/)
+
 
 ## WAMR vmcore cmake building configurations
 
-By including the script `runtime_lib.cmake` under folder [build-scripts](../build-scripts) in CMakeList.txt, it is easy to build minimal product with cmake.
+By including the script `runtime_lib.cmake` under folder [build-scripts](../build-scripts) in CMakeList.txt, it is easy to use vmcore to build host software with cmake.
 
 ```cmake
 # add this into your CMakeList.txt
