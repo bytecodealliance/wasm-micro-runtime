@@ -467,59 +467,6 @@ Note:
 WAMR provides some features which can be easily configured by passing options to cmake, please see [WAMR vmcore cmake building configurations](./build_wamr.md#wamr-vmcore-cmake-building-configurations) for details. Currently in Zephyr, interpreter, AOT and builtin libc are enabled by default.
 
 
-AliOS-Things
--------------------------
-1. a developerkit board id needed for testing
-2. download the AliOS-Things code
-   ``` Bash
-   git clone https://github.com/alibaba/AliOS-Things.git
-   ```
-3. copy <wamr_root_dir>/product-mini/platforms/alios-things directory to AliOS-Things/middleware, and rename it as iwasm
-   ``` Bash
-   cp -a <wamr_root_dir>/product-mini/platforms/alios-things middleware/iwasm
-   ```
-4. create a link to <wamr_root_dir> in middleware/iwasm/ and rename it to wamr
-   ``` Bash
-   ln -s <wamr_root_dir> middleware/iwasm/wamr
-   ```
-5. modify file app/example/helloworld/helloworld.c, patch as:
-   ``` C
-   #include <stdbool.h>
-   #include <aos/kernel.h>
-   extern bool iwasm_init();
-   int application_start(int argc, char *argv[])
-   {
-        int count = 0;
-        iwasm_init();
-       ...
-   }
-   ```
-6. modify file app/example/helloworld/aos.mk
-   ``` C
-      $(NAME)_COMPONENTS := osal_aos iwasm
-   ```
-7. build source code and run
-   For linux host:
-
-   ``` Bash
-   aos make helloworld@linuxhost -c config
-   aos make
-   ./out/helloworld@linuxhost/binary/helloworld@linuxhost.elf
-   ```
-
-   For developerkit:
-   Modify file middleware/iwasm/aos.mk, patch as:
-
-   ``` C
-   WAMR_BUILD_TARGET := THUMBV7M
-   ```
-
-   ``` Bash
-   aos make helloworld@developerkit -c config
-   aos make
-   ```
-   download the binary to developerkit board, check the output from serial port
-
 RT-Thread
 -------------------------
 
@@ -652,3 +599,57 @@ mkdir build && cd build
 cmake ..
 make
 ```
+
+
+AliOS-Things
+-------------------------
+1. a developerkit board id needed for testing
+2. download the AliOS-Things code
+   ``` Bash
+   git clone https://github.com/alibaba/AliOS-Things.git
+   ```
+3. copy <wamr_root_dir>/product-mini/platforms/alios-things directory to AliOS-Things/middleware, and rename it as iwasm
+   ``` Bash
+   cp -a <wamr_root_dir>/product-mini/platforms/alios-things middleware/iwasm
+   ```
+4. create a link to <wamr_root_dir> in middleware/iwasm/ and rename it to wamr
+   ``` Bash
+   ln -s <wamr_root_dir> middleware/iwasm/wamr
+   ```
+5. modify file app/example/helloworld/helloworld.c, patch as:
+   ``` C
+   #include <stdbool.h>
+   #include <aos/kernel.h>
+   extern bool iwasm_init();
+   int application_start(int argc, char *argv[])
+   {
+        int count = 0;
+        iwasm_init();
+       ...
+   }
+   ```
+6. modify file app/example/helloworld/aos.mk
+   ``` C
+      $(NAME)_COMPONENTS := osal_aos iwasm
+   ```
+7. build source code and run
+   For linux host:
+
+   ``` Bash
+   aos make helloworld@linuxhost -c config
+   aos make
+   ./out/helloworld@linuxhost/binary/helloworld@linuxhost.elf
+   ```
+
+   For developerkit:
+   Modify file middleware/iwasm/aos.mk, patch as:
+
+   ``` C
+   WAMR_BUILD_TARGET := THUMBV7M
+   ```
+
+   ``` Bash
+   aos make helloworld@developerkit -c config
+   aos make
+   ```
+   download the binary to developerkit board, check the output from serial port
