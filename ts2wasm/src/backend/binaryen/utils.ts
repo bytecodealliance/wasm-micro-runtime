@@ -1,5 +1,4 @@
-
-import binaryen from "binaryen";
+import binaryen from 'binaryen';
 import { BuiltinNames } from '../../../lib/builtin/builtinUtil.js';
 import { anyArrayTypeInfo } from './glue/packType.js';
 
@@ -15,7 +14,7 @@ export function addWatFuncs(
         funcInfo.params,
         funcInfo.results,
         funcInfo.vars,
-        curModule.copyExpression(funcInfo.body)
+        curModule.copyExpression(funcInfo.body),
     );
 }
 
@@ -27,14 +26,14 @@ export function getOriginFuncName(builtInFuncName: string) {
 
 export function addWatFuncImports(
     funcName: string,
-    curModule: binaryen.Module
+    curModule: binaryen.Module,
 ) {
     curModule.addFunctionImport(
         funcName,
         BuiltinNames.external_module_name,
         getOriginFuncName(funcName),
         getParamTypeByBuiltInFuncName(funcName),
-        getReturnTypeByBuiltInFuncName(funcName)
+        getReturnTypeByBuiltInFuncName(funcName),
     );
 }
 

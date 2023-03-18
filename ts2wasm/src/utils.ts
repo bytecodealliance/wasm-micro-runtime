@@ -333,5 +333,3 @@ export function getBuiltInFuncName(oriFuncName: string) {
         .concat(BuiltinNames.module_delimiter)
         .concat(oriFuncName);
 }
-
-

@@ -114,7 +114,7 @@ app.post('/compile', (req: Request, res: Response) => {
             const parserCtx = new ParserContext();
             const startTime = Date.now();
             try {
-                parserCtx.parse([tempfile], {opt: optLevel});
+                parserCtx.parse([tempfile], { opt: optLevel });
             } catch (e: any) {
                 console.log(e);
                 console.log(
@@ -155,9 +155,8 @@ app.post('/compile', (req: Request, res: Response) => {
             const backend = new WASMGen(parserCtx);
 
             try {
-                backend.codegen({opt: optLevel});
-            }
-            catch (e : any) {
+                backend.codegen({ opt: optLevel });
+            } catch (e: any) {
                 res.json({
                     error: `${e.toString()}`,
                 });
@@ -165,7 +164,7 @@ app.post('/compile', (req: Request, res: Response) => {
             }
 
             const resultText = backend.emitText({
-                format: payloadJson.options?.format
+                format: payloadJson.options?.format,
             });
 
             res.json({

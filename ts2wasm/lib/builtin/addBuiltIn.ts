@@ -6,7 +6,10 @@
 import fs from 'fs';
 import path from 'path';
 import binaryen from 'binaryen';
-import { addWatFuncImports, addWatFuncs } from "../../src/backend/binaryen/utils.js";
+import {
+    addWatFuncImports,
+    addWatFuncs,
+} from '../../src/backend/binaryen/utils.js';
 import { getWatFilesDir, getFuncName } from './utils.js';
 import { BuiltinNames } from './builtinUtil.js';
 

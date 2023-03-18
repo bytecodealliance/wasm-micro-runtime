@@ -16,7 +16,10 @@ import {
     generateFreeDynContext,
 } from '../envInit.js';
 import { arrayToPtr } from '../../src/backend/binaryen/glue/transform.js';
-import { charArrayTypeInfo, stringTypeInfo } from '../../src/backend/binaryen/glue/packType.js';
+import {
+    charArrayTypeInfo,
+    stringTypeInfo,
+} from '../../src/backend/binaryen/glue/packType.js';
 
 function string_concat(module: binaryen.Module) {
     const strStruct1 = module.local.get(1, stringTypeInfo.typeRef);

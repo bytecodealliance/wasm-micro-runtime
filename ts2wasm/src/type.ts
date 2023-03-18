@@ -743,8 +743,7 @@ export default class TypeResolver {
             const func = <ts.ConstructorDeclaration>constructor;
             ctorType = this.generateNodeType(func) as TSFunction;
             ctorScope =
-                <FunctionScope>this.parserCtx.getScopeByNode(func) ||
-                undefined;
+                <FunctionScope>this.parserCtx.getScopeByNode(func) || undefined;
         }
         ctorType.returnType = classType;
         ctorType.funcKind = FunctionKind.CONSTRUCTOR;

@@ -53,7 +53,7 @@ import {
     addBuiltInNoAnyFunc,
     addBuiltInAnyFunc,
 } from '../../../lib/builtin/addBuiltIn.js';
-import { Ts2wasmBackend, ParserContext } from '../index.js'
+import { Ts2wasmBackend, ParserContext } from '../index.js';
 import { Logger } from '../../log.js';
 
 export class WASMFunctionContext {
@@ -231,7 +231,7 @@ class DataSegmentContext {
 export class WASMGen extends Ts2wasmBackend {
     private currentFuncCtx: WASMFunctionContext | null = null;
     private dataSegmentContext: DataSegmentContext | null = null;
-    private binaryenModule : binaryen.Module;
+    private binaryenModule: binaryen.Module;
     private globalScopeStack: Stack<GlobalScope>;
     static contextOfScope: Map<Scope, typeInfo> = new Map<Scope, typeInfo>();
     private wasmTypeCompiler = new WASMTypeGen(this);
@@ -246,7 +246,7 @@ export class WASMGen extends Ts2wasmBackend {
 
     constructor(parserContext: ParserContext) {
         super(parserContext);
-        this.binaryenModule = new binaryen.Module()
+        this.binaryenModule = new binaryen.Module();
         this.globalScopeStack = parserContext.globalScopeStack;
         this.dataSegmentContext = new DataSegmentContext(this);
     }
