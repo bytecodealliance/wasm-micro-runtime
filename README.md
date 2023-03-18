@@ -44,7 +44,7 @@ WebAssembly Micro Runtime (WAMR) is a lightweight standalone WebAssembly (Wasm) 
 - [Multi-value](https://github.com/WebAssembly/multi-value), [Tail-call](https://github.com/WebAssembly/tail-call), [Shared memory](https://github.com/WebAssembly/threads/blob/main/proposals/threads/Overview.md#shared-linear-memory)
 
 ### Supported architectures and platforms
-The iwasm supports the following architectures:  
+The WAMR VMcore supports the following architectures:  
 - X86-64, X86-32
 - ARM, THUMB (ARMV7 Cortex-M7 and Cortex-A15 are tested)
 - AArch64 (Cortex-A57 and Cortex-A53 are tested)
