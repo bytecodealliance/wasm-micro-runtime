@@ -8,9 +8,10 @@ import cp from 'child_process';
 import fs, { constants } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { Compiler, CompileArgs } from '../src/compiler.js';
+import { ParserContext, CompileArgs } from '../src/frontend.js';
 import log4js from 'log4js';
 import { Logger, printLogger } from '../src/log.js';
+import { WASMGen } from '../src/backend/binaryen/index.js';
 
 interface HelpMessageCategory {
     General: string[];
@@ -200,9 +201,15 @@ function main() {
             throw new Error('No ts file to be handled.');
         }
 
-        const compiler = new Compiler();
-        compiler.compile(sourceFileList, compileArgs);
+        /* Step1: Semantic checking, construct scope tree */
+        const parserCtx = new ParserContext();
+        parserCtx.parse(sourceFileList, compileArgs);
 
+        /* Step2: Backend codegen */
+        const backend = new WASMGen(parserCtx);
+        backend.codegen(compileArgs);
+
+        /* Step3: output */
         // Set up base directory
         const baseDir = path.normalize(args.baseDir || '.');
         let generatedWasmFile = '';
@@ -213,7 +220,7 @@ function main() {
             if (args.o) {
                 generatedWasmFile = args.o;
             }
-            const output = compiler.binaryenModule.emitBinary();
+            const output = backend.emitBinary();
             writeFile(generatedWasmFile, output, baseDir);
             console.log(
                 "The wasm file '" + generatedWasmFile + "' has been generated.",
@@ -236,7 +243,7 @@ function main() {
                     generatedWatFile = generatedWasmFile.concat('.wat');
                 }
 
-                const output = compiler.binaryenModule.emitText();
+                const output = backend.emitText();
                 writeFile(generatedWatFile, output, baseDir);
                 console.log(
                     "The wat file '" +
@@ -247,8 +254,10 @@ function main() {
         } else if (args.wat || args.validate) {
             console.warn('WARNING: No wasm file specified.');
         } else {
-            console.log(compiler.binaryenModule.emitText());
+            console.log(backend.emitText());
         }
+
+        backend.dispose();
     } catch (e) {
         printLogger.error(
             (<Error>e).message,

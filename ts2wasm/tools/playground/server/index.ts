@@ -7,10 +7,11 @@ import express, { Express, Request, Response } from 'express';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { Compiler } from '../../../src/compiler.js';
+import { ParserContext } from '../../../src/frontend.js';
 import sqlite3 from 'better-sqlite3';
 import ts from 'typescript';
 import { fileURLToPath } from 'url';
+import { WASMGen } from '../../../src/backend/binaryen/index.js';
 
 const storage_dir = path.join(os.homedir(), '.ts2wasm_playground');
 
@@ -110,10 +111,10 @@ app.post('/compile', (req: Request, res: Response) => {
             console.log(`Saving data to temp file [${tempfile}]`);
 
             const optLevel = payloadJson.options?.opt ? 3 : 0;
-            const compiler = new Compiler();
+            const parserCtx = new ParserContext();
             const startTime = Date.now();
             try {
-                compiler.compile([tempfile], {opt: optLevel});
+                parserCtx.parse([tempfile], {opt: optLevel});
             } catch (e: any) {
                 console.log(e);
                 console.log(
@@ -125,7 +126,7 @@ app.post('/compile', (req: Request, res: Response) => {
                 );
 
                 let formattedError = '';
-                const syntaxErrors = compiler.errorMessage;
+                const syntaxErrors = parserCtx.errorMessage;
                 if (syntaxErrors?.length) {
                     formattedError = ts.formatDiagnostics(
                         syntaxErrors as readonly ts.Diagnostic[],
@@ -151,10 +152,21 @@ app.post('/compile', (req: Request, res: Response) => {
                 return;
             }
 
-            const resultText =
-                payloadJson.options?.format === 'Stack-IR'
-                    ? compiler.binaryenModule.emitStackIR()
-                    : compiler.binaryenModule.emitText();
+            const backend = new WASMGen(parserCtx);
+
+            try {
+                backend.codegen({opt: optLevel});
+            }
+            catch (e : any) {
+                res.json({
+                    error: `${e.toString()}`,
+                });
+                return;
+            }
+
+            const resultText = backend.emitText({
+                format: payloadJson.options?.format
+            });
 
             res.json({
                 content: resultText,

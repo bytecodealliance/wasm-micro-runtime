@@ -13,7 +13,7 @@ import {
     FunctionKind,
     getMethodPrefix,
 } from './type.js';
-import { Compiler } from './compiler.js';
+import { ParserContext } from './frontend.js';
 import { parentIsFunctionLike, Stack } from './utils.js';
 import { Parameter, Variable } from './variable.js';
 import { Statement } from './statement.js';
@@ -577,9 +577,9 @@ export class ScopeScanner {
     /* anonymous function index */
     static anonymousIndex = 0;
 
-    constructor(private compilerCtx: Compiler) {
-        this.globalScopeStack = this.compilerCtx.globalScopeStack;
-        this.nodeScopeMap = this.compilerCtx.nodeScopeMap;
+    constructor(private parserCtx: ParserContext) {
+        this.globalScopeStack = this.parserCtx.globalScopeStack;
+        this.nodeScopeMap = this.parserCtx.nodeScopeMap;
     }
 
     _generateClassFuncScope(
@@ -640,7 +640,7 @@ export class ScopeScanner {
                     -'.ts'.length,
                 );
                 const moduleName = path.relative(process.cwd(), filePath);
-                if (!this.compilerCtx.compileArgs[ArgNames.isBuiltIn]) {
+                if (!this.parserCtx.compileArgs[ArgNames.isBuiltIn]) {
                     globalScope.moduleName = moduleName;
                 } else {
                     globalScope.moduleName = 'builtIn';

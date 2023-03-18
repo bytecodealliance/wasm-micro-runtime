@@ -6,7 +6,7 @@
 import fs from 'fs';
 import path from 'path';
 import binaryen from 'binaryen';
-import { addWatFuncs, addWatFuncImports } from '../../src/utils.js';
+import { addWatFuncImports, addWatFuncs } from "../../src/backend/binaryen/utils.js";
 import { getWatFilesDir, getFuncName } from './utils.js';
 import { BuiltinNames } from './builtinUtil.js';
 
@@ -45,6 +45,7 @@ export function addBuiltInNoAnyFunc(curModule: binaryen.Module) {
                 );
             }
         }
+        watModule.dispose();
     }
 }
 
@@ -73,6 +74,7 @@ export function addBuiltInAnyFunc(curModule: binaryen.Module) {
                 );
             }
         }
+        watModule.dispose();
     }
 }
 

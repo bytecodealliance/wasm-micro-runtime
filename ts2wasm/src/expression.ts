@@ -4,7 +4,7 @@
  */
 
 import ts from 'typescript';
-import { Compiler } from './compiler.js';
+import { ParserContext } from './frontend.js';
 import { ClosureEnvironment, FunctionScope } from './scope.js';
 import { Variable } from './variable.js';
 import { getCurScope } from './utils.js';
@@ -349,9 +349,9 @@ export default class ExpressionCompiler {
     private typeCompiler;
     private nodeScopeMap;
 
-    constructor(private compilerCtx: Compiler) {
-        this.typeCompiler = this.compilerCtx.typeComp;
-        this.nodeScopeMap = this.compilerCtx.nodeScopeMap;
+    constructor(private parserCtx: ParserContext) {
+        this.typeCompiler = this.parserCtx.typeComp;
+        this.nodeScopeMap = this.parserCtx.nodeScopeMap;
     }
 
     visitNode(node: ts.Node): Expression {
@@ -401,7 +401,7 @@ export default class ExpressionCompiler {
                 if (BuiltinNames.builtInObjInfo[targetIdentifier]) {
                     return identifierExpr;
                 }
-                let scope = this.compilerCtx.getScopeByNode(node) || null;
+                let scope = this.parserCtx.getScopeByNode(node) || null;
                 const varReferenceScope = scope!.getNearestFunctionScope();
                 let variable: Variable | undefined = undefined;
                 let maybeClosureVar = false;
@@ -444,9 +444,9 @@ export default class ExpressionCompiler {
                     leftExpr,
                     rightExpr,
                 );
-                this.compilerCtx.sematicChecker.curScope =
-                    this.compilerCtx.getScopeByNode(node);
-                this.compilerCtx.sematicChecker.checkBinaryOperate(
+                this.parserCtx.sematicChecker.curScope =
+                    this.parserCtx.getScopeByNode(node);
+                this.parserCtx.sematicChecker.checkBinaryOperate(
                     (<BinaryExpression>expr).leftOperand.exprType,
                     (<BinaryExpression>expr).rightOperand.exprType,
                     (<BinaryExpression>expr).operatorKind,
@@ -457,7 +457,7 @@ export default class ExpressionCompiler {
                         ts.SyntaxKind.EqualsToken
                 ) {
                     const symbol =
-                        this.compilerCtx.typeChecker!.getSymbolAtLocation(
+                        this.parserCtx.typeChecker!.getSymbolAtLocation(
                             binaryExprNode.left.name,
                         );
                     if (symbol && symbol.declarations) {
@@ -540,12 +540,12 @@ export default class ExpressionCompiler {
                 }
                 const callExpr = new CallExpression(expr, args);
                 callExpr.setExprType(this.typeCompiler.generateNodeType(node));
-                this.compilerCtx.sematicChecker.curScope =
-                    this.compilerCtx.getScopeByNode(node);
+                this.parserCtx.sematicChecker.curScope =
+                    this.parserCtx.getScopeByNode(node);
                 const argTypes = args.map((arg) => arg.exprType);
                 const funcType = expr.exprType as TSFunction;
                 const paramTypes = funcType.getParamTypes();
-                this.compilerCtx.sematicChecker.checkArgTypes(
+                this.parserCtx.sematicChecker.checkArgTypes(
                     paramTypes,
                     argTypes,
                     funcType.hasRest(),
@@ -576,9 +576,9 @@ export default class ExpressionCompiler {
                     expr.expressionKind === ts.SyntaxKind.Identifier &&
                     (<IdentifierExpression>expr).identifierName === 'Array'
                 ) {
-                    this.compilerCtx.sematicChecker.curScope =
-                        this.compilerCtx.getScopeByNode(node);
-                    this.compilerCtx.sematicChecker.checkArrayType(
+                    this.parserCtx.sematicChecker.curScope =
+                        this.parserCtx.getScopeByNode(node);
+                    this.parserCtx.sematicChecker.checkArrayType(
                         !!newExprNode.typeArguments,
                     );
                     let isLiteral = false;

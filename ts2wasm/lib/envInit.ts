@@ -8,7 +8,7 @@ import { dyntype, structdyn } from './dyntype/utils.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { addWatFuncs } from '../src/utils.js';
+import { addWatFuncs } from '../src/backend/binaryen/utils.js';
 import { getWatFilesDir } from './builtin/utils.js';
 
 export function importAnyLibAPI(module: binaryen.Module) {
@@ -379,6 +379,7 @@ export function addItableFunc(module: binaryen.Module) {
     const itableLib = fs.readFileSync(itableFilePath, 'utf-8');
     const watModule = binaryen.parseText(itableLib);
     addWatFuncs(watModule, 'find_index', module);
+    watModule.dispose();
 }
 
 export function addDecoratorFunc(
@@ -395,5 +396,6 @@ export function addDecoratorFunc(
         if (fileName === 'API') {
             addWatFuncs(watModule, builtInFuncName, curModule);
         }
+        watModule.dispose();
     }
 }

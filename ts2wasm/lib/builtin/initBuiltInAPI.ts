@@ -267,6 +267,7 @@ export function initBuiltInAPIs() {
     const module = new binaryen.Module();
     callBuiltInAPIs(module);
     generateWatFile(module, 'API.wat');
+    module.dispose();
 }
 
 initBuiltInAPIs();

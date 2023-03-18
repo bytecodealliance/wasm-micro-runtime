@@ -16,8 +16,6 @@ import {
 import ExpressionCompiler, { Expression } from './expression.js';
 import { BuiltinNames } from '../lib/builtin/builtinUtil.js';
 import { Type } from './type.js';
-import binaryen from 'binaryen';
-import { anyArrayTypeInfo } from './backend/binaryen/glue/packType.js';
 
 export interface importGlobalInfo {
     internalName: string;
@@ -330,67 +328,10 @@ export function getExportIdentifierName(
     return nameAliasExportMap;
 }
 
-export function addWatFuncs(
-    watModule: binaryen.Module,
-    funcName: string,
-    curModule: binaryen.Module,
-) {
-    const funcRef = watModule.getFunction(funcName);
-    const funcInfo = binaryen.getFunctionInfo(funcRef);
-    curModule.addFunction(
-        funcInfo.name,
-        funcInfo.params,
-        funcInfo.results,
-        funcInfo.vars,
-        funcInfo.body,
-    );
-}
-
-export function addWatFuncImports(
-    funcName: string,
-    curModule: binaryen.Module,
-) {
-    curModule.addFunctionImport(
-        funcName,
-        BuiltinNames.external_module_name,
-        getOriginFuncName(funcName),
-        getParamTypeByBuiltInFuncName(funcName),
-        getReturnTypeByBuiltInFuncName(funcName),
-    );
-}
-
 export function getBuiltInFuncName(oriFuncName: string) {
     return BuiltinNames.bulitIn_module_name
         .concat(BuiltinNames.module_delimiter)
         .concat(oriFuncName);
 }
 
-export function getOriginFuncName(builtInFuncName: string) {
-    const strs = builtInFuncName.split(BuiltinNames.module_delimiter);
-    strs.shift();
-    return strs.join(BuiltinNames.module_delimiter);
-}
 
-function getParamTypeByBuiltInFuncName(funcName: string) {
-    const originFuncName = getOriginFuncName(funcName);
-    switch (originFuncName) {
-        case BuiltinNames.console_log_funcName: {
-            return anyArrayTypeInfo.typeRef;
-        }
-        default: {
-            return binaryen.none;
-        }
-    }
-}
-
-function getReturnTypeByBuiltInFuncName(funcName: string) {
-    const originFuncName = getOriginFuncName(funcName);
-    switch (originFuncName) {
-        case BuiltinNames.console_log_funcName: {
-            return binaryen.none;
-        }
-        default: {
-            return binaryen.none;
-        }
-    }
-}
