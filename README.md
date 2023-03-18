@@ -10,13 +10,13 @@
 [Build WAMR](./doc/build_wamr.md) | [Build AOT Compiler](./README.md#build-wamrc-aot-compiler) | [Embed WAMR](./doc/embed_wamr.md) | [Export Native API](./doc/export_native_api.md) | [Build Wasm Apps](./doc/build_wasm_app.md) | [Samples](./README.md#samples)
 
 WebAssembly Micro Runtime (WAMR) is a lightweight standalone WebAssembly (Wasm) runtime with small footprint, high performance and highly configurable features for applications cross from embedded, IoT, edge to Trusted Execution Environment (TEE), smart contract, cloud native and so on. It includes a few parts as below:
-- [**VMcore**](./README.md#iwasm-vm-core): A set of runtime libraries for loading and running Wasm modules. It supportes several execution modes including interpreter, Ahead-of-Time compilation(AoT)) and Just-in-Time compilation (JIT). The WAMR supports two JIT tiers - Fast JIT, LLVM JIT, and dynamic tier-up from Fast JIT to LLVM JIT.
+- [**VMcore**](./core/iwasm/): A set of runtime libraries for loading and running Wasm modules. It supportes several execution modes including interpreter, Ahead-of-Time compilation(AoT)) and Just-in-Time compilation (JIT). The WAMR supports two JIT tiers - Fast JIT, LLVM JIT, and dynamic tier-up from Fast JIT to LLVM JIT.
 - [**iwasm**](./product-mini/): The executable binary built with WAMR VMcore supports WASI and command line interface.
-- [**wamrc**](./README.md#build-wamrc-aot-compiler): The AOT compiler to compile Wasm file into AOT file
+- [**wamrc**](./wamr-compiler/): The AOT compiler to compile Wasm file into AOT file
 - Useful components and tools for building real solutions with WAMR vmcore:
-  - [**App framework**](./core/app-framework/README.md): A framework for supporting APIs for the Wasm applications
-  - [**App manager**](./core/app-mgr/README.md): a framework for dynamical loading the Wasm module remotely
-  - [**WAMR-IDE**](./test-tools/wamr-ide): An experimental VSCode extension for developping WebAssembly applications with C/C++
+  - [App-framework](./core/app-framework/README.md): A framework for supporting APIs for the Wasm applications
+  - [App-manager](./core/app-mgr/README.md): a framework for dynamical loading the Wasm module remotely
+  - [WAMR-IDE](./test-tools/wamr-ide): An experimental VSCode extension for developping WebAssembly applications with C/C++
 
 
 ### Key features
