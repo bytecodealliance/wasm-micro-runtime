@@ -64,7 +64,7 @@ cmake .. -DWAMR_BUILD_FAST_INTERP=0
 make
 ```
 
-(3) To run an AOT file, firstly please refer to [Build wamrc AOT compiler](../README.md#build-wamrc-aot-compiler) to build wamrc, and then:
+(3) To run an AOT file, firstly please refer to [Build wamrc AOT compiler](../wamr-compiler/README.md) to build wamrc, and then:
 ```Bash
 wamrc -o <AOT file> <WASM file>
 iwasm <AOT file>
@@ -144,15 +144,15 @@ To run a wasm file with interpreter mode:
 ```Bash
 iwasm <wasm file>
 ```
-To run an AOT file, firstly please refer to [Build wamrc AOT compiler](../README.md#build-wamrc-aot-compiler) to build wamrc, and then:
+To run an AOT file, firstly please refer to [Build wamrc AOT compiler](../wamr-compiler/README.md) to build wamrc, and then:
 ```Bash
 wamrc -o <AOT file> <WASM file>
 iwasm <AOT file>
 ```
 Note:
-For how to build the `JIT` mode and `classic interpreter` mode, please refer to [Build iwasm on Linux](./build_wamr.md#linux).
+For how to build the `JIT` mode and `classic interpreter` mode, please refer to [Build iwasm on Linux](../doc/build_wamr.md#linux).
 
-WAMR provides some features which can be easily configured by passing options to cmake, please see [WAMR vmcore cmake building configurations](./build_wamr.md#wamr-vmcore-cmake-building-configurations) for details. Currently in MacOS, interpreter, AOT, and builtin libc are enabled by default.
+WAMR provides some features which can be easily configured by passing options to cmake, please see [WAMR vmcore cmake building configurations](../doc/build_wamr.md#wamr-vmcore-cmake-building-configurations) for details. Currently in MacOS, interpreter, AOT, and builtin libc are enabled by default.
 
 ## Windows
 
@@ -175,15 +175,15 @@ To run a wasm file with interpreter mode:
 ```Bash
 iwasm.exe <wasm file>
 ```
-To run an AOT file, firstly please refer to [Build wamrc AOT compiler](../README.md#build-wamrc-aot-compiler) to build wamrc, and then:
+To run an AOT file, firstly please refer to [Build wamrc AOT compiler](../wamr-compiler/README.md) to build wamrc, and then:
 ```Bash
 wamrc.exe -o <AOT file> <WASM file>
 iwasm.exe <AOT file>
 ```
 Note:
-For how to build the `JIT` mode and `classic interpreter` mode, please refer to [Build iwasm on Linux](./build_wamr.md#linux).
+For how to build the `JIT` mode and `classic interpreter` mode, please refer to [Build iwasm on Linux](../doc/build_wamr.md#linux).
 
-WAMR provides some features which can be easily configured by passing options to cmake, please see [WAMR vmcore cmake building configurations](./build_wamr.md#wamr-vmcore-cmake-building-configurations) for details. Currently in Windows, interpreter, AOT, and builtin libc are enabled by default.
+WAMR provides some features which can be easily configured by passing options to cmake, please see [WAMR vmcore cmake building configurations](../doc/build_wamr.md#wamr-vmcore-cmake-building-configurations) for details. Currently in Windows, interpreter, AOT, and builtin libc are enabled by default.
 
 ## MinGW
 
@@ -244,7 +244,7 @@ shared libraries (libc.so.1, libllvm.so.1 or libgnu.so.1 depending on the VSB,
 libunix.so.1) to a supported file system (eg: romfs).
 
 Note:
-WAMR provides some features which can be easily configured by passing options to cmake, please see [WAMR vmcore cmake building configurations](./build_wamr.md#wamr-vmcore-cmake-building-configurations) for details. Currently in VxWorks, interpreter and builtin libc are enabled by default.
+WAMR provides some features which can be easily configured by passing options to cmake, please see [WAMR vmcore cmake building configurations](../doc/build_wamr.md#wamr-vmcore-cmake-building-configurations) for details. Currently in VxWorks, interpreter and builtin libc are enabled by default.
 
 ## Zephyr
 
@@ -268,7 +268,7 @@ west espressif install
 After that set `ESPRESSIF_TOOLCHAIN_PATH` according to the output, for example `~/.espressif/tools/zephyr`.
 
 Note:
-WAMR provides some features which can be easily configured by passing options to cmake, please see [WAMR vmcore cmake building configurations](./build_wamr.md#wamr-vmcore-cmake-building-configurations) for details. Currently in Zephyr, interpreter, AOT and builtin libc are enabled by default.
+WAMR provides some features which can be easily configured by passing options to cmake, please see [WAMR vmcore cmake building configurations](../doc/build_wamr.md#wamr-vmcore-cmake-building-configurations) for details. Currently in Zephyr, interpreter, AOT and builtin libc are enabled by default.
 
 
 ## RT-Thread
@@ -365,9 +365,9 @@ WAMR integrates with ESP-IDF both for the XTENSA and RISC-V chips (esp32x and es
 In order to use this, you need at least version 4.3.1 of ESP-IDF.
 If you don't have it installed, follow the instructions [here](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/#get-started-get-prerequisites).
 ESP-IDF also installs the toolchains needed for compiling WAMR and ESP-IDF.
-A small demonstration of how to use WAMR and ESP-IDF can be found under [product_mini](/product-mini/platforms/esp-idf).
+A small demonstration of how to use WAMR and ESP-IDF can be found under [product_mini](./platforms/esp-idf).
 The demo builds WAMR for ESP-IDF and runs a small wasm program.
-In order to run it for your specific Espressif chip, edit the [build_and_run.sh](/product-mini/platforms/esp-idf/build_and_run.sh) file and put the correct toolchain file (see #Cross-compilation) and `IDF_TARGET`.
+In order to run it for your specific Espressif chip, edit the [build_and_run.sh](./platforms/esp-idf/build_and_run.sh) file and put the correct toolchain file (see #Cross-compilation) and `IDF_TARGET`.
 Before compiling it is also necessary to call ESP-IDF's `export.sh` script to bring all compile time relevant information in scope.
 
 ## Docker
