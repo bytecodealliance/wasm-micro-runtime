@@ -2,11 +2,11 @@
 
 By using the iwasm VM core, we are flexible to build different application frameworks for the specific domains, although it would take quite some effort.
 
-The WAMR has offered a comprehensive framework for programming WASM applications for device and IoT usages. The framework supports running multiple applications, that are based on the event driven programming model. Here are the supporting API sets by the [WAMR application framework library](./doc/wamr_api.md) :
+The WAMR has offered a comprehensive framework for programming WASM applications for device and IoT usages. The framework supports running multiple applications, that are based on the event driven programming model. Here are the supporting API sets by the [WAMR application framework library](../doc/wamr_api.md) :
 
 - Timer,  Inter-app communication (request/response and pub/sub), Sensor, Connectivity and data transmission, 2D graphic UI
 
-Browse the folder  [core/app-framework](./core/app-framework) for how to extend the application framework.
+Browse the folder  [core/app-framework](./app-framework) for how to extend the application framework.
 
 
 ## Directory structure
@@ -113,7 +113,6 @@ Generally you should follow following steps to create a new component:
   #endif
   };
   ```
-
 
 
 ## Sensor component working flow
