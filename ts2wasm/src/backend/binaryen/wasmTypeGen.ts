@@ -79,11 +79,11 @@ export class WASMTypeGen {
                 );
                 break;
             }
-            case TypeKind.UNKNOWN:
             /** regard unknown as any currently */
-            case TypeKind.NULL:
             /** if type is null, then the value can only be null.
              * We treat it as anyref here since it's nullable */
+            case TypeKind.UNKNOWN:
+            case TypeKind.NULL:
             case TypeKind.ANY: {
                 this.tsType2WASMTypeMap.set(type, binaryen.anyref);
                 break;

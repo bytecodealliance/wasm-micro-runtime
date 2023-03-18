@@ -3,9 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-import log4js from 'log4js';
 import path from 'path';
-import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 const curPath = path.dirname(fileURLToPath(import.meta.url));

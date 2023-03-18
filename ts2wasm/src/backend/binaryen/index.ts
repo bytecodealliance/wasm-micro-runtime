@@ -666,7 +666,7 @@ export class WASMGen extends Ts2wasmBackend {
         const returnWASMType =
             this.wasmTypeCompiler.getWASMFuncReturnType(tsFuncType);
 
-        if (functionScope.isDeclare) {
+        if (functionScope.isDeclare()) {
             this.module.addFunctionImport(
                 functionScope.mangledName,
                 BuiltinNames.external_module_name,
@@ -757,7 +757,7 @@ export class WASMGen extends Ts2wasmBackend {
         // add wrapper function if exported
         const isExport =
             functionScope.parent === this.enterModuleScope &&
-            functionScope.isExport;
+            functionScope.isExport();
         if (isExport) {
             const functionStmts: binaryen.ExpressionRef[] = [];
             if (!this.parserContext.compileArgs[ArgNames.disableAny]) {

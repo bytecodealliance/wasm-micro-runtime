@@ -491,7 +491,7 @@ export class WASMStatementGen {
                     globalVar.varType.kind === TypeKind.FUNCTION
                         ? wasmType.getWASMFuncStructType(globalVar.varType)
                         : wasmType.getWASMType(globalVar.varType);
-                if (globalVar.isDeclare) {
+                if (globalVar.isDeclare()) {
                     module.addGlobalImport(
                         globalVar.mangledName,
                         BuiltinNames.external_module_name,
@@ -500,7 +500,7 @@ export class WASMStatementGen {
                     );
                     continue;
                 }
-                const mutable = !globalVar.isConst;
+                const mutable = !globalVar.isConst();
                 if (globalVar.initExpression === null) {
                     module.addGlobal(
                         globalVar.mangledName,

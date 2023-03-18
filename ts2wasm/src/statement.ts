@@ -68,18 +68,8 @@ export class IfStatement extends Statement {
 }
 
 export class BlockStatement extends Statement {
-    private _isFunctionBlock = false;
-
     constructor() {
         super(ts.SyntaxKind.Block);
-    }
-
-    setFunctionBlock(): void {
-        this._isFunctionBlock = true;
-    }
-
-    isFunctionBlock(): boolean {
-        return this._isFunctionBlock;
     }
 }
 
@@ -338,7 +328,7 @@ export default class StatementCompiler {
                     // find identifier, judge if it is declared
                     const res = globalScope.findIdentifier(importIdentifier);
                     if (res instanceof Variable) {
-                        if (res.isDeclare) {
+                        if (res.isDeclare()) {
                             importStmt.addImportGlobal({
                                 internalName: res.mangledName,
                                 externalModuleName:
@@ -348,7 +338,7 @@ export default class StatementCompiler {
                             });
                         }
                     } else if (res instanceof FunctionScope) {
-                        if (res.isDeclare) {
+                        if (res.isDeclare()) {
                             importStmt.addImportFunction({
                                 internalName: res.mangledName,
                                 externalModuleName:
@@ -389,7 +379,7 @@ export default class StatementCompiler {
                 return ifStmt;
             }
             case ts.SyntaxKind.Block: {
-                /* every ts.Block(without function.body) has a corresponding block scope and BlockStatement */
+                /* every ts.Block(except function.body) has a corresponding block scope and BlockStatement */
                 const blockNode = <ts.Block>node;
                 const scope = this.parserCtx.getScopeByNode(blockNode)!;
 

@@ -256,7 +256,7 @@ export class NewExpression extends Expression {
         this.arguments = args;
     }
 
-    get NewExpr(): Expression {
+    get newExpr(): Expression {
         return this.expr;
     }
 
@@ -264,7 +264,7 @@ export class NewExpression extends Expression {
         this.arguments = args;
     }
 
-    get NewArgs(): Array<Expression> | undefined {
+    get newArgs(): Array<Expression> | undefined {
         return this.arguments;
     }
 

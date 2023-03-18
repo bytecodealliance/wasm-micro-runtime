@@ -63,36 +63,36 @@ export class Variable {
         return this.modifiers;
     }
 
-    get isConst(): boolean {
+    public isConst(): boolean {
         return this.modifiers.includes(ModifierKind.const);
     }
 
-    get isReadOnly(): boolean {
+    public isReadOnly(): boolean {
         return this.modifiers.includes(ts.SyntaxKind.ReadonlyKeyword);
     }
 
-    get isDeclare(): boolean {
+    public isDeclare(): boolean {
         let res = false;
         if (this.modifiers.includes(ts.SyntaxKind.DeclareKeyword)) {
             res = true;
             return res;
         }
-        return this.scope?.isDeclare || false;
+        return this.scope?.isDeclare() || false;
     }
 
-    get isExport(): boolean {
+    public isExport(): boolean {
         return this.modifiers.includes(ts.SyntaxKind.ExportKeyword);
     }
 
-    get isDefault(): boolean {
+    public isDefault(): boolean {
         return this.modifiers.includes(ts.SyntaxKind.DefaultKeyword);
     }
 
-    isBlockScoped(): boolean {
+    public isBlockScoped(): boolean {
         return this.modifiers.includes(ModifierKind.var);
     }
 
-    setInitExpr(expr: Expression) {
+    public setInitExpr(expr: Expression) {
         this.init = expr;
     }
 
@@ -104,15 +104,15 @@ export class Variable {
         return this.isClosure;
     }
 
-    setClosureIndex(index: number) {
+    public setClosureIndex(index: number) {
         this.closureIndex = index;
     }
 
-    getClosureIndex(): number {
+    public getClosureIndex(): number {
         return this.closureIndex;
     }
 
-    setVarIndex(varIndex: number) {
+    public setVarIndex(varIndex: number) {
         this.index = varIndex;
     }
 
@@ -120,15 +120,15 @@ export class Variable {
         return this.index;
     }
 
-    get isLocalVar(): boolean {
+    public isLocalVar(): boolean {
         return this.isLocal;
     }
 
-    setIsLocalVar(isLocal: boolean): void {
+    public setIsLocalVar(isLocal: boolean): void {
         this.isLocal = isLocal;
     }
 
-    setVarIsClosure(): void {
+    public setVarIsClosure(): void {
         this.isClosure = true;
     }
 }
@@ -182,7 +182,7 @@ export class VariableScanner {
                 const classScope = scope.parent as ClassScope;
                 if (scope.funcType.funcKind !== FunctionKind.DEFAULT) {
                     /* For class methods, fix type for "this" parameter */
-                    if (!scope.isStatic) {
+                    if (!scope.isStatic()) {
                         scope.varArray[1].varType = classScope.classType;
                     }
                 }
@@ -349,7 +349,7 @@ export class VariableScanner {
                     -1,
                     true,
                 );
-                if (variable.isDefault) {
+                if (variable.isDefault()) {
                     currentScope.getRootGloablScope()!.defaultNoun =
                         variable.varName;
                 }
