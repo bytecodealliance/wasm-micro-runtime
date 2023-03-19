@@ -1,5 +1,8 @@
-Memory model and memory usage tunning
-=====================================
+# Memory model and memory usage tunning
+
+References:
+- [Blog: Understand WAMR heap](https://bytecodealliance.github.io/wamr.dev/blog/understand-the-wamr-heap/)
+- [Blog: Understand WAMR stacks](https://bytecodealliance.github.io/wamr.dev/blog/understand-the-wamr-stacks/)
 
 ## The memory model
 
