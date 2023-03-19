@@ -52,13 +52,13 @@ The WAMR VMcore supports the following architectures:
 - XTENSA, MIPS, ARC
 
 The following platforms are supported, click each link below for how to build iwasm on that platform. Refer to [WAMR porting guide](./doc/port_wamr.md) for how to port WAMR to a new platform.  
-- [Linux](./doc/build_wamr.md#linux),  [Linux SGX (Intel Software Guard Extension)](./doc/linux_sgx.md),  [MacOS](./doc/build_wamr.md#macos),  [Android](./doc/build_wamr.md#android), [Windows](./doc/build_wamr.md#windows), [Windows (MinGW)](./doc/build_wamr.md#mingw)
-- [Zephyr](./doc/build_wamr.md#zephyr),  [AliOS-Things](./doc/build_wamr.md#alios-things),  [VxWorks](./doc/build_wamr.md#vxworks), [NuttX](./doc/build_wamr.md#nuttx), [RT-Thread](./doc/build_wamr.md#RT-Thread), [ESP-IDF](./doc/build_wamr.md#esp-idf)
+- [Linux](./product-mini/README.md#linux),  [Linux SGX (Intel Software Guard Extension)](./doc/linux_sgx.md),  [MacOS](./product-mini/README.md#macos),  [Android](./product-mini/README.md#android), [Windows](./product-mini/README.md#windows), [Windows (MinGW)](./product-mini/README.md#mingw)
+- [Zephyr](./product-mini/README.md#zephyr),  [AliOS-Things](./product-mini/README.md#alios-things),  [VxWorks](./product-mini/README.md#vxworks), [NuttX](./product-mini/README.md#nuttx), [RT-Thread](./product-mini/README.md#RT-Thread), [ESP-IDF](./product-mini/README.md#esp-idf)
 
 
 ## Getting started
-- [Build iwasm VM core](./doc/build_wamr.md) on [Linux](./doc/build_wamr.md#linux), [SGX](./doc/linux_sgx.md), [MacOS](./doc/build_wamr.md#macos) and [Windows](./doc/build_wamr.md#windows), and [Build wamrc AOT compiler](./README.md#build-wamrc-aot-compiler)
-- [Build iwasm (mini product)](./product-mini/README.md)
+- [Build VM core](./doc/build_wamr.md) and [Build wamrc AOT compiler](./wamr-compiler/README.md)
+- [Build iwasm (mini product)](./product-mini/README.md): [Linux](./product-mini/README.md#linux), [SGX](./doc/linux_sgx.md), [MacOS](./product-mini/README.md#macos) and [Windows](./product-mini/README.md#windows)
 - [Embed into C/C++](./doc/embed_wamr.md), [Embed into Python](./language-bindings/python), [Embed into Go](./language-bindings/go)
 - [Register native APIs for Wasm applications](./doc/export_native_api.md)
 - [Build wamrc AOT compiler](./wamr-compiler/README.md)
@@ -104,9 +104,8 @@ use, modify, distribute and sell your own products based on WAMR.
 Any contributions you make will be under the same license.
 
 # More resources
-
+- [Who use WAMR?](https://github.com/bytecodealliance/wasm-micro-runtime/wiki)
 - [WAMR Blogs](https://bytecodealliance.github.io/wamr.dev/blog/)
-- [Community news and events](https://github.com/bytecodealliance/wasm-micro-runtime/wiki/Events)
-- [Roadmap](https://github.com/bytecodealliance/wasm-micro-runtime/wiki/Roadmap)
+- [Community news and events](https://bytecodealliance.github.io/wamr.dev/events/)
 - [WAMR TSC meetings](https://github.com/bytecodealliance/wasm-micro-runtime/wiki/TSC-meeting-notes)
 
