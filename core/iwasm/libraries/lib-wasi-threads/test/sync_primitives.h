@@ -7,34 +7,43 @@
 
 /* Mutex */
 
-typedef int mutex_t;
+typedef int pthread_mutex_t;
 
-void
-mutex_init(mutex_t *mutex)
+int
+pthread_mutex_init(pthread_mutex_t *mutex, void *unused)
 {
     *mutex = 0;
+    return 0;
+}
+
+int
+pthread_mutex_destroy(pthread_mutex_t *mutex)
+{
+    return 0;
 }
 
 static bool
-try_mutex_lock(mutex_t *mutex)
+try_pthread_mutex_lock(pthread_mutex_t *mutex)
 {
     int expected = 0;
     return __atomic_compare_exchange_n(mutex, &expected, 1, false,
                                        __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
 }
 
-void
-mutex_lock(mutex_t *mutex)
+int
+pthread_mutex_lock(pthread_mutex_t *mutex)
 {
-    while (!try_mutex_lock(mutex))
+    while (!try_pthread_mutex_lock(mutex))
         __builtin_wasm_memory_atomic_wait32(mutex, 1, -1);
+    return 0;
 }
 
-void
-mutex_unlock(mutex_t *mutex)
+int
+pthread_mutex_unlock(pthread_mutex_t *mutex)
 {
     __atomic_store_n(mutex, 0, __ATOMIC_SEQ_CST);
     __builtin_wasm_memory_atomic_notify(mutex, 1);
+    return 0;
 }
 
 /* Barrier */
@@ -44,36 +53,39 @@ typedef struct {
     int num_threads;
     int mutex;
     int ready;
-} barrier_t;
+} pthread_barrier_t;
 
-void
-barrier_init(barrier_t *barrier, int num_threads)
+int
+pthread_barrier_init(pthread_barrier_t *barrier, void *unused, int num_threads)
 {
     barrier->count = 0;
     barrier->num_threads = num_threads;
-    barrier->mutex = 0;
     barrier->ready = 0;
+    pthread_mutex_init(&barrier->mutex, NULL);
+
+    return 0;
 }
 
-void
-barrier_wait(barrier_t *barrier)
+int
+pthread_barrier_wait(pthread_barrier_t *barrier)
 {
     bool no_wait = false;
     int count;
 
-    mutex_lock(&barrier->mutex);
+    pthread_mutex_lock(&barrier->mutex);
     count = barrier->count++;
     if (barrier->count >= barrier->num_threads) {
         no_wait = true;
         barrier->count = 0;
     }
-    mutex_unlock(&barrier->mutex);
+    pthread_mutex_unlock(&barrier->mutex);
 
     if (no_wait) {
         __atomic_store_n(&barrier->ready, 1, __ATOMIC_SEQ_CST);
         __builtin_wasm_memory_atomic_notify(&barrier->ready, count);
-        return;
+        return 0;
     }
 
     __builtin_wasm_memory_atomic_wait32(&barrier->ready, 0, -1);
+    return 0;
 }

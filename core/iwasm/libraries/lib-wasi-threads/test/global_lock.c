@@ -12,7 +12,12 @@
 #include <assert.h>
 #include <stdbool.h>
 
+#if USE_PTHREAD_SYNC_PRIMITIVES != 0
+#include <pthread.h>
+#else
 #include "sync_primitives.h"
+#endif
+
 #include "wasi_thread_start.h"
 
 enum CONSTANTS {
@@ -22,7 +27,7 @@ enum CONSTANTS {
     TIMEOUT = 10LL * SECOND
 };
 
-mutex_t mutex;
+pthread_mutex_t mutex;
 int g_count = 0;
 
 typedef struct {
@@ -36,9 +41,9 @@ __wasi_thread_start_C(int thread_id, int *start_arg)
     shared_t *data = (shared_t *)start_arg;
 
     for (int i = 0; i < NUM_ITER; i++) {
-        mutex_lock(&mutex);
+        pthread_mutex_lock(&mutex);
         g_count++;
-        mutex_unlock(&mutex);
+        pthread_mutex_unlock(&mutex);
     }
 
     __atomic_store_n(&data->th_done, 1, __ATOMIC_SEQ_CST);
@@ -51,7 +56,7 @@ main(int argc, char **argv)
     shared_t data[NUM_THREADS] = { 0 };
     int thread_ids[NUM_THREADS];
 
-    mutex_init(&mutex);
+    assert(pthread_mutex_init(&mutex, NULL) == 0 && "Failed to init mutex");
 
     for (int i = 0; i < NUM_THREADS; i++) {
         assert(start_args_init(&data[i].base));
@@ -73,5 +78,6 @@ main(int argc, char **argv)
     assert(g_count == (NUM_THREADS * NUM_ITER)
            && "Global count not updated correctly");
 
+    assert(pthread_mutex_destroy(&mutex) == 0 && "Failed to destroy mutex");
     return EXIT_SUCCESS;
 }

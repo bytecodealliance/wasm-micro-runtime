@@ -10,7 +10,12 @@
 #include <unistd.h>
 #include <limits.h>
 
+#if USE_PTHREAD_SYNC_PRIMITIVES != 0
+#include <pthread.h>
+#else
 #include "sync_primitives.h"
+#endif
+
 #include "wasi_thread_start.h"
 
 typedef enum {
@@ -25,7 +30,7 @@ static bool termination_in_main_thread;
 static blocking_task_type_t blocking_task_type;
 
 #define NUM_THREADS 3
-static barrier_t barrier;
+static pthread_barrier_t barrier;
 
 typedef struct {
     start_args_t base;
@@ -51,7 +56,7 @@ void
 start_job()
 {
     /* Wait for all threads (including the main thread) to be ready */
-    barrier_wait(&barrier);
+    pthread_barrier_wait(&barrier);
     run_long_task(); /* Task to be interrupted */
     assert(false && "Thread termination test failed");
 }
@@ -60,7 +65,7 @@ void
 terminate_process()
 {
     /* Wait for all threads (including the main thread) to be ready */
-    barrier_wait(&barrier);
+    pthread_barrier_wait(&barrier);
 
     if (termination_by_trap)
         __builtin_trap();
@@ -90,7 +95,8 @@ test_termination(bool trap, bool main, blocking_task_type_t task_type)
 
     int thread_id = -1, i;
     shared_t data[NUM_THREADS] = { 0 };
-    barrier_init(&barrier, NUM_THREADS + 1);
+    assert(pthread_barrier_init(&barrier, NULL, NUM_THREADS + 1) == 0
+           && "Failed to init barrier");
 
     for (i = 0; i < NUM_THREADS; i++) {
         /* No graceful memory free to simplify the test */
