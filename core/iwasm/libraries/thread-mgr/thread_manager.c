@@ -793,18 +793,12 @@ notify_debug_instance_exit(WASMExecEnv *exec_env)
 void
 wasm_cluster_thread_waiting_run(WASMExecEnv *exec_env)
 {
-    os_mutex_lock(&exec_env->wait_lock);
-
-    /* Wake up debugger thread after we get the lock, otherwise we may miss the
-     * signal from debugger thread, see
-     * https://github.com/bytecodealliance/wasm-micro-runtime/issues/1860 */
     exec_env->current_status->running_status = STATUS_STOP;
     notify_debug_instance(exec_env);
 
     while (!wasm_cluster_thread_is_running(exec_env)) {
         os_cond_wait(&exec_env->wait_cond, &exec_env->wait_lock);
     }
-    os_mutex_unlock(&exec_env->wait_lock);
 }
 
 void
