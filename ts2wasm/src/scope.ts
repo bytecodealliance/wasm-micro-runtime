@@ -13,7 +13,7 @@ import {
     FunctionKind,
     getMethodPrefix,
 } from './type.js';
-import { Compiler } from './compiler.js';
+import { ParserContext } from './frontend.js';
 import { parentIsFunctionLike, Stack } from './utils.js';
 import { Parameter, Variable } from './variable.js';
 import { Statement } from './statement.js';
@@ -304,7 +304,7 @@ export class Scope {
         return this._getScopeByType<GlobalScope>(ScopeKind.GlobalScope);
     }
 
-    get isDeclare(): boolean {
+    public isDeclare(): boolean {
         let res = false;
         if (
             this.modifiers.find((modifier) => {
@@ -314,10 +314,10 @@ export class Scope {
             res = true;
             return res;
         }
-        return this.parent?.isDeclare || false;
+        return this.parent?.isDeclare() || false;
     }
 
-    get isDefault(): boolean {
+    public isDefault(): boolean {
         return this.modifiers.find((modifier) => {
             return modifier.kind === ts.SyntaxKind.DefaultKeyword;
         }) === undefined
@@ -325,7 +325,7 @@ export class Scope {
             : true;
     }
 
-    get isExport(): boolean {
+    public isExport(): boolean {
         return this.modifiers.find((modifier) => {
             return modifier.kind === ts.SyntaxKind.ExportKeyword;
         }) === undefined
@@ -333,7 +333,7 @@ export class Scope {
             : true;
     }
 
-    get isStatic(): boolean {
+    public isStatic(): boolean {
         return this.modifiers.find((modifier) => {
             return modifier.kind === ts.SyntaxKind.StaticKeyword;
         }) === undefined
@@ -575,11 +575,11 @@ export class ScopeScanner {
     currentScope: Scope | null = null;
     nodeScopeMap: Map<ts.Node, Scope>;
     /* anonymous function index */
-    static anonymousIndex = 0;
+    anonymousIndex = 0;
 
-    constructor(private compilerCtx: Compiler) {
-        this.globalScopeStack = this.compilerCtx.globalScopeStack;
-        this.nodeScopeMap = this.compilerCtx.nodeScopeMap;
+    constructor(private parserCtx: ParserContext) {
+        this.globalScopeStack = this.parserCtx.globalScopeStack;
+        this.nodeScopeMap = this.parserCtx.nodeScopeMap;
     }
 
     _generateClassFuncScope(
@@ -616,7 +616,7 @@ export class ScopeScanner {
 
         functionScope.setFuncName(methodName);
         this.nodeScopeMap.set(node, functionScope);
-        if (!functionScope.isDeclare) {
+        if (!functionScope.isDeclare()) {
             this.setCurrentScope(functionScope);
             this.visitNode(node.body!);
             this.setCurrentScope(parentScope);
@@ -640,7 +640,7 @@ export class ScopeScanner {
                     -'.ts'.length,
                 );
                 const moduleName = path.relative(process.cwd(), filePath);
-                if (!this.compilerCtx.compileArgs[ArgNames.isBuiltIn]) {
+                if (!this.parserCtx.compileArgs[ArgNames.isBuiltIn]) {
                     globalScope.moduleName = moduleName;
                 } else {
                     globalScope.moduleName = 'builtIn';
@@ -869,16 +869,16 @@ export class ScopeScanner {
         if (node.name !== undefined) {
             functionName = node.name.getText();
         } else {
-            functionName = 'anonymous' + ScopeScanner.anonymousIndex++;
+            functionName = 'anonymous' + this.anonymousIndex++;
         }
 
         functionScope.setFuncName(functionName);
         this.nodeScopeMap.set(node, functionScope);
 
-        if (functionScope.isDefault) {
+        if (functionScope.isDefault()) {
             functionScope.getRootGloablScope()!.defaultNoun = functionName;
         }
-        if (!functionScope.isDeclare) {
+        if (!functionScope.isDeclare()) {
             this.setCurrentScope(functionScope);
             this.visitNode(node.body!);
             this.setCurrentScope(parentScope);

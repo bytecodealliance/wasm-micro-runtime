@@ -29,7 +29,6 @@ export function getWatFilesDir() {
 
 export function generateWatFile(module: binaryen.Module, watFileName: string) {
     const output = module.emitText();
-    module.dispose();
     const watFileDirPath = getWatFilesDir();
     const watFilePath = path.join(watFileDirPath, path.basename(watFileName));
     fs.mkdirSync(watFileDirPath, { recursive: true });

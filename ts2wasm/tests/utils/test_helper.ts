@@ -7,19 +7,24 @@ import cp from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { Compiler } from '../../src/compiler.js';
+import { ParserContext } from '../../src/frontend.js';
+import { WASMGen } from '../../src/backend/binaryen/index.js';
 
 const doCompile = (filename: string) => {
-    const compiler = new Compiler();
+    const compiler = new ParserContext();
 
     /* Compile to a temporary file */
     try {
-        compiler.compile([filename]);
-    } catch {
+        compiler.parse([filename]);
+    } catch (e) {
         return null;
     }
-    const output = compiler.binaryenModule.emitBinary();
-    compiler.binaryenModule.dispose();
+
+    const backend = new WASMGen(compiler);
+    backend.codegen();
+    const output = backend.emitBinary();
+    backend.dispose();
+
     // TODO: should cleanup the temp dir
     const tempdir = fs.mkdtempSync(path.join(os.tmpdir(), 'ts2wasm-test-'));
     const tempfile = path.join(tempdir, 'case.wasm');

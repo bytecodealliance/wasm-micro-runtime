@@ -4,10 +4,10 @@
  */
 
 import binaryen from 'binaryen';
-import * as binaryenCAPI from '../../src/glue/binaryen.js';
+import * as binaryenCAPI from '../../src/backend/binaryen/glue/binaryen.js';
 import { BuiltinNames } from './builtinUtil.js';
 import { generateWatFile, getFuncName } from './utils.js';
-import { emptyStructType } from '../../src/glue/transform.js';
+import { emptyStructType } from '../../src/backend/binaryen/glue/transform.js';
 import { dyntype } from '../dyntype/utils.js';
 import {
     importAnyLibAPI,
@@ -15,8 +15,11 @@ import {
     generateInitDynContext,
     generateFreeDynContext,
 } from '../envInit.js';
-import { arrayToPtr } from '../../src/glue/transform.js';
-import { charArrayTypeInfo, stringTypeInfo } from '../../src/glue/packType.js';
+import { arrayToPtr } from '../../src/backend/binaryen/glue/transform.js';
+import {
+    charArrayTypeInfo,
+    stringTypeInfo,
+} from '../../src/backend/binaryen/glue/packType.js';
 
 function string_concat(module: binaryen.Module) {
     const strStruct1 = module.local.get(1, stringTypeInfo.typeRef);
@@ -267,6 +270,7 @@ export function initBuiltInAPIs() {
     const module = new binaryen.Module();
     callBuiltInAPIs(module);
     generateWatFile(module, 'API.wat');
+    module.dispose();
 }
 
 initBuiltInAPIs();

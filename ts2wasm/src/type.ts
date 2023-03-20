@@ -4,7 +4,7 @@
  */
 
 import ts from 'typescript';
-import { Compiler } from './compiler.js';
+import { ParserContext } from './frontend.js';
 import { Stack } from './utils.js';
 import {
     ClassScope,
@@ -337,7 +337,7 @@ export class TSFunction extends Type {
     }
 }
 
-export default class TypeCompiler {
+export default class TypeResolver {
     typechecker: ts.TypeChecker | undefined = undefined;
     globalScopeStack: Stack<GlobalScope>;
     currentScope: Scope | null = null;
@@ -348,20 +348,20 @@ export default class TypeCompiler {
     // cache class shape layout, <ts.Node, tsType>
     nodeTypeCache = new Map<ts.Node, TSClass>();
 
-    constructor(private compilerCtx: Compiler) {
-        this.nodeScopeMap = this.compilerCtx.nodeScopeMap;
-        this.globalScopeStack = this.compilerCtx.globalScopeStack;
+    constructor(private parserCtx: ParserContext) {
+        this.nodeScopeMap = this.parserCtx.nodeScopeMap;
+        this.globalScopeStack = this.parserCtx.globalScopeStack;
     }
 
     visit() {
-        this.typechecker = this.compilerCtx.typeChecker;
+        this.typechecker = this.parserCtx.typeChecker;
         this.nodeScopeMap.forEach((scope, node) => {
             ts.forEachChild(node, this.visitNode.bind(this));
         });
     }
 
     private visitNode(node: ts.Node): void {
-        this.currentScope = this.compilerCtx.getScopeByNode(node)!;
+        this.currentScope = this.parserCtx.getScopeByNode(node)!;
 
         switch (node.kind) {
             case ts.SyntaxKind.VariableDeclaration:
@@ -743,8 +743,7 @@ export default class TypeCompiler {
             const func = <ts.ConstructorDeclaration>constructor;
             ctorType = this.generateNodeType(func) as TSFunction;
             ctorScope =
-                <FunctionScope>this.compilerCtx.getScopeByNode(func) ||
-                undefined;
+                <FunctionScope>this.parserCtx.getScopeByNode(func) || undefined;
         }
         ctorType.returnType = classType;
         ctorType.funcKind = FunctionKind.CONSTRUCTOR;
@@ -786,13 +785,13 @@ export default class TypeCompiler {
                     if (classField.static) {
                         classType.staticFieldsInitValueMap.set(
                             index,
-                            this.compilerCtx.expressionCompiler.visitNode(
+                            this.parserCtx.expressionCompiler.visitNode(
                                 field.initializer,
                             ),
                         );
                     } else {
                         ctorScope.addStatement(
-                            this.compilerCtx.statementCompiler.createFieldAssignStmt(
+                            this.parserCtx.statementCompiler.createFieldAssignStmt(
                                 field.initializer,
                                 classType,
                                 type,
@@ -893,11 +892,11 @@ export default class TypeCompiler {
     }
 
     private generateTypeId(typeString: string): number {
-        if (this.compilerCtx.typeIdMap.has(typeString)) {
-            return this.compilerCtx.typeIdMap.get(typeString)!;
+        if (this.parserCtx.typeIdMap.has(typeString)) {
+            return this.parserCtx.typeIdMap.get(typeString)!;
         }
-        const id = this.compilerCtx.typeIdMap.size;
-        this.compilerCtx.typeIdMap.set(typeString, id);
+        const id = this.parserCtx.typeIdMap.size;
+        this.parserCtx.typeIdMap.set(typeString, id);
         return id;
     }
 
@@ -952,7 +951,7 @@ export default class TypeCompiler {
             });
         }
 
-        const funcDef = this.compilerCtx.getScopeByNode(func);
+        const funcDef = this.parserCtx.getScopeByNode(func);
         if (funcDef && funcDef instanceof FunctionScope) {
             funcDef.setFuncType(tsFuncType);
         }

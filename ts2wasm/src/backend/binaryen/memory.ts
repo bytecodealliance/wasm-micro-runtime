@@ -5,7 +5,7 @@
 
 import binaryen from 'binaryen';
 import { assert } from 'console';
-import { BuiltinNames } from '../lib/builtin/builtinUtil.js';
+import { BuiltinNames } from '../../../lib/builtin/builtinUtil.js';
 import Long from 'long';
 
 function i64_new(low: number, high: number) {

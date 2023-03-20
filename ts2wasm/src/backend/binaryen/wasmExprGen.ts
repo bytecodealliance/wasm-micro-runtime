@@ -16,8 +16,8 @@ import {
     TSInterface,
     Type,
     TypeKind,
-} from './type.js';
-import { Variable } from './variable.js';
+} from '../../type.js';
+import { Variable } from '../../variable.js';
 import {
     BinaryExpression,
     CallExpression,
@@ -36,7 +36,7 @@ import {
     AsExpression,
     ParenthesizedExpression,
     FunctionExpression,
-} from './expression.js';
+} from '../../expression.js';
 import {
     arrayToPtr,
     createCondBlock,
@@ -51,13 +51,13 @@ import {
     Scope,
     NamespaceScope,
     ClosureEnvironment,
-} from './scope.js';
-import { MatchKind, Stack, getBuiltInFuncName } from './utils.js';
-import { dyntype, structdyn } from '../lib/dyntype/utils.js';
-import { BuiltinNames } from '../lib/builtin/builtinUtil.js';
+} from '../../scope.js';
+import { MatchKind, Stack, getBuiltInFuncName } from '../../utils.js';
+import { dyntype, structdyn } from '../../../lib/dyntype/utils.js';
+import { BuiltinNames } from '../../../lib/builtin/builtinUtil.js';
 import { charArrayTypeInfo, stringTypeInfo } from './glue/packType.js';
-import { WASMGen } from './wasmGen.js';
-import { Logger } from './log.js';
+import { WASMGen } from './index.js';
+import { Logger } from '../../log.js';
 
 export interface WasmValue {
     /* binaryen reference */
@@ -1582,7 +1582,7 @@ export class WASMExpressionGen extends WASMExpressionBase {
                 varType = this.wasmType.getWASMFuncStructType(variable.varType);
             }
 
-            if (!variable.isLocalVar) {
+            if (!variable.isLocalVar()) {
                 return new GlobalAccess(
                     variable.mangledName,
                     varType,
@@ -2484,7 +2484,7 @@ export class WASMExpressionGen extends WASMExpressionBase {
                     /* Note: We should use binaryen.none here, but currently
                         the corresponding opcode is not supported by runtime */
                 );
-            } else if (!expr.NewArgs) {
+            } else if (!expr.newArgs) {
                 const arraySize = this.convertTypeToI32(
                     module.f64.const(expr.arrayLen),
                     binaryen.f64,
@@ -2501,7 +2501,7 @@ export class WASMExpressionGen extends WASMExpressionBase {
                 const arrayLen = expr.arrayLen;
                 const array = [];
                 for (let i = 0; i < expr.arrayLen; i++) {
-                    const elemExpr = expr.NewArgs[i];
+                    const elemExpr = expr.newArgs[i];
                     let elemExprRef: binaryen.ExpressionRef;
                     if (arrayType.elementType.kind === TypeKind.ANY) {
                         elemExprRef =
@@ -2548,8 +2548,8 @@ export class WASMExpressionGen extends WASMExpressionBase {
                 ),
             );
             args.push(newStruct);
-            if (expr.NewArgs) {
-                for (const arg of expr.NewArgs) {
+            if (expr.newArgs) {
+                for (const arg of expr.newArgs) {
                     args.push(this.WASMExprGen(arg).binaryenRef);
                 }
             }
@@ -2878,7 +2878,7 @@ export class WASMExpressionGen extends WASMExpressionBase {
         const wasmFuncType = this.wasmType.getWASMType(funcScope.funcType);
 
         /** if function is declare, we don't need to create context */
-        if (funcScope.isDeclare) {
+        if (funcScope.isDeclare()) {
             return this.module.ref.func(funcScope.mangledName, wasmFuncType);
         }
 
@@ -3130,7 +3130,7 @@ export class WASMExpressionGen extends WASMExpressionBase {
         return false;
     }
 
-    private infcAssgnToObj(from: Type, to: Type) {
+    private infcAssignToObj(from: Type, to: Type) {
         if (from.kind === TypeKind.INTERFACE && to.kind === TypeKind.CLASS) {
             return true;
         }
@@ -3216,7 +3216,7 @@ export class WASMExpressionGen extends WASMExpressionBase {
         if (this.objAssignToInfc(fromType, toType)) {
             return this.objTypeBoxing(ref, fromType);
         }
-        if (this.infcAssgnToObj(fromType, toType)) {
+        if (this.infcAssignToObj(fromType, toType)) {
             const infcTypeId = this.getInfcTypeId(ref);
             const objTypeId = this.module.i32.const(toType.typeId);
             const obj = this.infcTypeUnboxing(ref, toType);

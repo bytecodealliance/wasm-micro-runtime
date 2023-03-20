@@ -21,19 +21,19 @@ import {
     ExpressionStatement,
     VariableStatement,
     ImportDeclaration,
-} from './statement.js';
+} from '../../statement.js';
 import {
     FunctionScope,
     Scope,
     ClosureEnvironment,
     ScopeKind,
     BlockScope,
-} from './scope.js';
+} from '../../scope.js';
 import { FlattenLoop, IfStatementInfo, typeInfo } from './glue/utils.js';
-import { WASMGen } from './wasmGen.js';
-import { TSClass, TSFunction, TypeKind } from './type.js';
+import { WASMGen } from './index.js';
+import { TSClass, TSFunction, TypeKind } from '../../type.js';
 import { assert } from 'console';
-import { BuiltinNames } from '../lib/builtin/builtinUtil.js';
+import { BuiltinNames } from '../../../lib/builtin/builtinUtil.js';
 export class WASMStatementGen {
     private currentFuncCtx;
 
@@ -491,7 +491,7 @@ export class WASMStatementGen {
                     globalVar.varType.kind === TypeKind.FUNCTION
                         ? wasmType.getWASMFuncStructType(globalVar.varType)
                         : wasmType.getWASMType(globalVar.varType);
-                if (globalVar.isDeclare) {
+                if (globalVar.isDeclare()) {
                     module.addGlobalImport(
                         globalVar.mangledName,
                         BuiltinNames.external_module_name,
@@ -500,7 +500,7 @@ export class WASMStatementGen {
                     );
                     continue;
                 }
-                const mutable = !globalVar.isConst;
+                const mutable = !globalVar.isConst();
                 if (globalVar.initExpression === null) {
                     module.addGlobal(
                         globalVar.mangledName,

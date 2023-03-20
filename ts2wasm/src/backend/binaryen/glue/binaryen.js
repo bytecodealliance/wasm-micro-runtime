@@ -3,7 +3,7 @@
  * @license Apache-2.0
  */
 
- import binaryen from "../../lib/binaryen.js";
+ import binaryen from "binaryen";
 
  export const {
    _BinaryenTypeCreate,

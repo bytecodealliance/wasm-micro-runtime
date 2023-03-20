@@ -34,13 +34,13 @@ describe('testVariable', function () {
             2,
         );
 
-        expect(param.isReadOnly).eq(true);
-        expect(var1.isReadOnly).eq(false);
-        expect(var1.isConst).eq(true);
-        expect(var2.isConst).eq(false);
-        expect(var1.isDeclare).eq(true);
-        expect(param.isDeclare).eq(false);
-        expect(var1.isExport).eq(false);
-        expect(var2.isExport).eq(true);
+        expect(param.isReadOnly()).eq(true);
+        expect(var1.isReadOnly()).eq(false);
+        expect(var1.isConst()).eq(true);
+        expect(var2.isConst()).eq(false);
+        expect(var1.isDeclare()).eq(true);
+        expect(param.isDeclare()).eq(false);
+        expect(var1.isExport()).eq(false);
+        expect(var2.isExport()).eq(true);
     });
 });

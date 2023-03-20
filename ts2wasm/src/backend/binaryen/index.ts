@@ -6,9 +6,9 @@
 import ts from 'typescript';
 import binaryen from 'binaryen';
 import * as binaryenCAPI from './glue/binaryen.js';
-import { FunctionKind, TSClass } from './type.js';
-import { builtinTypes, Type, TypeKind } from './type.js';
-import { Variable } from './variable.js';
+import { FunctionKind, TSClass } from '../../type.js';
+import { builtinTypes, Type, TypeKind } from '../../type.js';
+import { Variable } from '../../variable.js';
 import {
     arrayToPtr,
     emptyStructType,
@@ -24,10 +24,9 @@ import {
     ClosureEnvironment,
     BlockScope,
     NamespaceScope,
-} from './scope.js';
-import { Stack } from './utils.js';
+} from '../../scope.js';
+import { Stack } from '../../utils.js';
 import { GLOBAL_INIT_FUNC, typeInfo } from './glue/utils.js';
-import { Compiler } from './compiler.js';
 import {
     importAnyLibAPI,
     importInfcLibAPI,
@@ -36,7 +35,7 @@ import {
     generateFreeDynContext,
     addItableFunc,
     addDecoratorFunc,
-} from '../lib/envInit.js';
+} from '../../../lib/envInit.js';
 import { WASMTypeGen } from './wasmTypeGen.js';
 import {
     WASMExpressionGen,
@@ -49,11 +48,13 @@ import {
     initDefaultMemory,
     initDefaultTable,
 } from './memory.js';
-import { ArgNames, BuiltinNames } from '../lib/builtin/builtinUtil.js';
+import { ArgNames, BuiltinNames } from '../../../lib/builtin/builtinUtil.js';
 import {
     addBuiltInNoAnyFunc,
     addBuiltInAnyFunc,
-} from '../lib/builtin/addBuiltIn.js';
+} from '../../../lib/builtin/addBuiltIn.js';
+import { Ts2wasmBackend, ParserContext } from '../index.js';
+import { Logger } from '../../log.js';
 
 export class WASMFunctionContext {
     private binaryenCtx: WASMGen;
@@ -227,10 +228,10 @@ class DataSegmentContext {
     }
 }
 
-export class WASMGen {
+export class WASMGen extends Ts2wasmBackend {
     private currentFuncCtx: WASMFunctionContext | null = null;
     private dataSegmentContext: DataSegmentContext | null = null;
-    private binaryenModule = new binaryen.Module();
+    private binaryenModule: binaryen.Module;
     private globalScopeStack: Stack<GlobalScope>;
     static contextOfScope: Map<Scope, typeInfo> = new Map<Scope, typeInfo>();
     private wasmTypeCompiler = new WASMTypeGen(this);
@@ -243,29 +244,78 @@ export class WASMGen {
     private globalInitArray: Array<binaryen.ExpressionRef> = [];
     private globalInitFuncName = '';
 
-    constructor(private compilerCtx: Compiler) {
-        this.binaryenModule = compilerCtx.binaryenModule;
-        this.globalScopeStack = compilerCtx.globalScopeStack;
+    constructor(parserContext: ParserContext) {
+        super(parserContext);
+        this.binaryenModule = new binaryen.Module();
+        this.globalScopeStack = parserContext.globalScopeStack;
         this.dataSegmentContext = new DataSegmentContext(this);
     }
 
-    WASMGenerate() {
+    public codegen(options?: any): void {
+        this.binaryenModule.setFeatures(binaryen.Features.All);
+        this.binaryenModule.autoDrop();
+        this.WASMGenerate();
+
+        /* Sometimes binaryen can't generate binary module,
+            we dump the module to text and load it back.
+           This is just a simple workaround, we need to find out the root cause
+        */
+        const textModule = this.binaryenModule.emitText();
+        this.binaryenModule.dispose();
+
+        try {
+            this.binaryenModule = binaryen.parseText(textModule);
+        } catch (e) {
+            Logger.debug(textModule);
+            Logger.debug(e);
+            Logger.error(`Generated module is invalid`);
+            throw e;
+        }
+        this.binaryenModule.setFeatures(binaryen.Features.All);
+        this.binaryenModule.autoDrop();
+
+        if (options && options[ArgNames.opt]) {
+            binaryen.setOptimizeLevel(options[ArgNames.opt]);
+            this.binaryenModule.optimize();
+        }
+
+        if (process.env['TS2WASM_VALIDATE']) {
+            this.binaryenModule.validate();
+        }
+    }
+
+    public emitBinary(options?: any): Uint8Array {
+        return this.binaryenModule.emitBinary();
+    }
+
+    public emitText(options?: any): string {
+        if (options?.format === 'Stack-IR') {
+            return this.binaryenModule.emitStackIR();
+        }
+        return this.binaryenModule.emitText();
+    }
+
+    public dispose(): void {
+        this.binaryenModule.dispose();
+    }
+
+    private WASMGenerate() {
         WASMGen.contextOfScope.clear();
         this.enterModuleScope = this.globalScopeStack.peek();
 
         // init wasm environment
         initGlobalOffset(this.module);
         initDefaultTable(this.module);
-        if (!this.compilerCtx.compileArgs[ArgNames.disableBuiltIn]) {
+        if (!this.parserContext.compileArgs[ArgNames.disableBuiltIn]) {
             addBuiltInNoAnyFunc(this.module);
-            if (!this.compilerCtx.compileArgs[ArgNames.disableAny]) {
+            if (!this.parserContext.compileArgs[ArgNames.disableAny]) {
                 addBuiltInAnyFunc(this.module);
             }
         }
-        if (!this.compilerCtx.compileArgs[ArgNames.disableAny]) {
+        if (!this.parserContext.compileArgs[ArgNames.disableAny]) {
             importAnyLibAPI(this.module);
         }
-        if (!this.compilerCtx.compileArgs[ArgNames.disableInterface]) {
+        if (!this.parserContext.compileArgs[ArgNames.disableInterface]) {
             importInfcLibAPI(this.module);
             addItableFunc(this.module);
         }
@@ -278,7 +328,7 @@ export class WASMGen {
             this.WASMGlobalFuncGen();
         }
 
-        if (this.compilerCtx.compileArgs[ArgNames.disableAny]) {
+        if (this.parserContext.compileArgs[ArgNames.disableAny]) {
             if (
                 this.wasmTypeCompiler.tsType2WASMTypeMap.has(
                     builtinTypes.get(TypeKind.ANY)!,
@@ -288,7 +338,7 @@ export class WASMGen {
             }
         }
 
-        if (this.compilerCtx.compileArgs[ArgNames.disableInterface]) {
+        if (this.parserContext.compileArgs[ArgNames.disableInterface]) {
             if (
                 this.wasmTypeCompiler.tsType2WASMTypeMap.has(
                     builtinTypes.get(TypeKind.INTERFACE)!,
@@ -299,7 +349,7 @@ export class WASMGen {
         }
 
         const startFuncOpcodes = [];
-        if (!this.compilerCtx.compileArgs[ArgNames.disableAny]) {
+        if (!this.parserContext.compileArgs[ArgNames.disableAny]) {
             generateGlobalContext(this.module);
             startFuncOpcodes.push(generateInitDynContext(this.module));
         }
@@ -310,7 +360,7 @@ export class WASMGen {
                 binaryen.none,
             ),
         );
-        if (!this.compilerCtx.compileArgs[ArgNames.disableAny]) {
+        if (!this.parserContext.compileArgs[ArgNames.disableAny]) {
             startFuncOpcodes.push(generateFreeDynContext(this.module));
         }
         // set enter module start function as wasm start function
@@ -616,7 +666,7 @@ export class WASMGen {
         const returnWASMType =
             this.wasmTypeCompiler.getWASMFuncReturnType(tsFuncType);
 
-        if (functionScope.isDeclare) {
+        if (functionScope.isDeclare()) {
             this.module.addFunctionImport(
                 functionScope.mangledName,
                 BuiltinNames.external_module_name,
@@ -707,10 +757,10 @@ export class WASMGen {
         // add wrapper function if exported
         const isExport =
             functionScope.parent === this.enterModuleScope &&
-            functionScope.isExport;
+            functionScope.isExport();
         if (isExport) {
             const functionStmts: binaryen.ExpressionRef[] = [];
-            if (!this.compilerCtx.compileArgs[ArgNames.disableAny]) {
+            if (!this.parserContext.compileArgs[ArgNames.disableAny]) {
                 functionStmts.push(generateInitDynContext(this.module));
             }
             functionStmts.push(
@@ -740,7 +790,7 @@ export class WASMGen {
             functionStmts.push(
                 isReturn ? this.module.local.set(idx, targetCall) : targetCall,
             );
-            if (!this.compilerCtx.compileArgs[ArgNames.disableAny]) {
+            if (!this.parserContext.compileArgs[ArgNames.disableAny]) {
                 functionStmts.push(generateFreeDynContext(this.module));
             }
 

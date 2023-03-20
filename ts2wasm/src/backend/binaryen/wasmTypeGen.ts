@@ -14,7 +14,7 @@ import {
     TSInterface,
     Type,
     TypeKind,
-} from './type.js';
+} from '../../type.js';
 import {
     arrayToPtr,
     emptyStructType,
@@ -25,8 +25,8 @@ import {
 } from './glue/transform.js';
 import { assert } from 'console';
 import { infcTypeInfo, stringTypeInfo } from './glue/packType.js';
-import { WASMGen } from './wasmGen.js';
-import { dyntype } from '../lib/dyntype/utils.js';
+import { WASMGen } from './index.js';
+import { dyntype } from '../../../lib/dyntype/utils.js';
 
 export class WASMTypeGen {
     tsType2WASMTypeMap: Map<Type, binaryenCAPI.TypeRef> = new Map();
@@ -80,7 +80,10 @@ export class WASMTypeGen {
                 break;
             }
             /** regard unknown as any currently */
+            /** if type is null, then the value can only be null.
+             * We treat it as anyref here since it's nullable */
             case TypeKind.UNKNOWN:
+            case TypeKind.NULL:
             case TypeKind.ANY: {
                 this.tsType2WASMTypeMap.set(type, binaryen.anyref);
                 break;

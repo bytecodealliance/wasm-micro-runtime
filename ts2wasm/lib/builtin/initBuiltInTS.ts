@@ -5,19 +5,25 @@
 
 import fs from 'fs';
 import path from 'path';
-import { Compiler } from '../../src/compiler.js';
+import { WASMGen } from '../../src/backend/binaryen/index.js';
+import { ParserContext } from '../../src/frontend.js';
 import { getTSFilesDir, generateWatFile } from './utils.js';
 
 const doCompile = (tsFileName: string) => {
-    const compiler = new Compiler();
+    const parserCtx = new ParserContext();
     /* Compile to a wat file */
 
-    compiler.compile([tsFileName], {
+    parserCtx.parse([tsFileName], {
+        isBuiltIn: true,
+    });
+    const backend = new WASMGen(parserCtx);
+    backend.codegen({
         isBuiltIn: true,
     });
 
     const watFileName = tsFileName.replace('.ts', '.wat');
-    generateWatFile(compiler.binaryenModule, watFileName);
+    generateWatFile(backend.module, watFileName);
+    backend.dispose();
 };
 
 /**

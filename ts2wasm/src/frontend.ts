@@ -4,8 +4,7 @@
  */
 
 import ts from 'typescript';
-import binaryen from 'binaryen';
-import TypeCompiler from './type.js';
+import TypeResolver from './type.js';
 import { mangling, Stack } from './utils.js';
 import { fileURLToPath } from 'url';
 import {
@@ -18,9 +17,7 @@ import {
 import { VariableScanner, VariableInit } from './variable.js';
 import ExpressionCompiler from './expression.js';
 import StatementCompiler from './statement.js';
-import { WASMGen } from './wasmGen.js';
 import path from 'path';
-import { ArgNames } from '../lib/builtin/builtinUtil.js';
 import { Logger } from './log.js';
 import { SyntaxError } from './error.js';
 import SematicCheck from './sematicCheck.js';
@@ -40,7 +37,7 @@ export const COMPILER_OPTIONS: ts.CompilerOptions = {
     experimentalDecorators: true,
 };
 
-export class Compiler {
+export class ParserContext {
     private scopeScanner;
     private typeCompiler;
     private _sematicChecker;
@@ -48,13 +45,11 @@ export class Compiler {
     private variableInit;
     private exprCompiler;
     private stmtCompiler;
-    private wasmGen;
     private _errorMessage: ts.Diagnostic[] | null = null;
 
     typeChecker: ts.TypeChecker | undefined;
     globalScopeStack = new Stack<GlobalScope>();
     nodeScopeMap = new Map<ts.Node, Scope>();
-    binaryenModule = new binaryen.Module();
     currentScope: Scope | null = null;
 
     typeId = 0;
@@ -66,16 +61,15 @@ export class Compiler {
 
     constructor() {
         this.scopeScanner = new ScopeScanner(this);
-        this.typeCompiler = new TypeCompiler(this);
+        this.typeCompiler = new TypeResolver(this);
         this._sematicChecker = new SematicCheck();
         this.variableScanner = new VariableScanner(this);
         this.variableInit = new VariableInit(this);
         this.exprCompiler = new ExpressionCompiler(this);
         this.stmtCompiler = new StatementCompiler(this);
-        this.wasmGen = new WASMGen(this);
     }
 
-    compile(fileNames: string[], compileArgs: CompileArgs = {}): void {
+    parse(fileNames: string[], compileArgs: CompileArgs = {}): void {
         const compilerOptions: ts.CompilerOptions = this.getCompilerOptions();
         const program: ts.Program = ts.createProgram(
             fileNames,
@@ -127,43 +121,12 @@ export class Compiler {
         mangling(globalScopeArray);
         /* Step5: Add statements to scopes */
         this.stmtCompiler.visit();
+        /* Step6: Additional semantic check */
         this.sematicChecker.checkRes();
 
         this.recordScopes();
         if (process.env['TS2WASM_DUMP_SCOPE']) {
             this.dumpScopes();
-        }
-
-        /* Step5: wasm code generation */
-        this.binaryenModule.setFeatures(binaryen.Features.All);
-        this.binaryenModule.autoDrop();
-
-        this.wasmGen.WASMGenerate();
-
-        /* Sometimes binaryen can't generate binary module,
-            we dump the module to text and load it back.
-           This is just a simple workaround, we need to find out the root cause
-        */
-        const textModule = this.binaryenModule.emitText();
-        this.binaryenModule.dispose();
-
-        try {
-            this.binaryenModule = binaryen.parseText(textModule);
-        } catch (e) {
-            Logger.debug(textModule);
-            Logger.error(`Generated module is invalid`);
-            throw e;
-        }
-        this.binaryenModule.setFeatures(binaryen.Features.All);
-        this.binaryenModule.autoDrop();
-
-        if (this.compileArgs[ArgNames.opt]) {
-            binaryen.setOptimizeLevel(this.compileArgs[ArgNames.opt]);
-            this.binaryenModule.optimize();
-        }
-
-        if (process.env['TS2WASM_VALIDATE']) {
-            this.binaryenModule.validate();
         }
     }
 
