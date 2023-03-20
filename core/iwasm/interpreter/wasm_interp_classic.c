@@ -1079,12 +1079,14 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
         /* Record the current frame_ip, so when exception occurs,         \
            debugger can know the exact opcode who caused the exception */ \
         frame_ip_orig = frame_ip;                                         \
+        os_mutex_lock(&exec_env->wait_lock);                              \
         while (exec_env->current_status->signal_flag == WAMR_SIG_SINGSTEP \
                && exec_env->current_status->step_count++ == 1) {          \
             exec_env->current_status->step_count = 0;                     \
             SYNC_ALL_TO_FRAME();                                          \
             wasm_cluster_thread_waiting_run(exec_env);                    \
         }                                                                 \
+        os_mutex_unlock(&exec_env->wait_lock);                            \
         goto *handle_table[*frame_ip++];                                  \
     } while (0)
 #else
@@ -1095,12 +1097,14 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
 #define HANDLE_OP(opcode) case opcode:
 #if WASM_ENABLE_THREAD_MGR != 0 && WASM_ENABLE_DEBUG_INTERP != 0
 #define HANDLE_OP_END()                                            \
+    os_mutex_lock(&exec_env->wait_lock);                           \
     if (exec_env->current_status->signal_flag == WAMR_SIG_SINGSTEP \
         && exec_env->current_status->step_count++ == 2) {          \
         exec_env->current_status->step_count = 0;                  \
         SYNC_ALL_TO_FRAME();                                       \
         wasm_cluster_thread_waiting_run(exec_env);                 \
     }                                                              \
+    os_mutex_unlock(&exec_env->wait_lock);                         \
     continue
 #else
 #define HANDLE_OP_END() continue
