@@ -451,7 +451,6 @@ wasm_runtime_atomic_notify(WASMModuleInstanceCommon *module, void *address,
               || module->module_type == Wasm_Module_AoT);
 
     node = search_module((WASMModuleCommon *)module_inst->module);
-    bh_assert(node);
 
     out_of_bounds =
         ((uint8 *)address < module_inst->memories[0]->memory_data
@@ -464,20 +463,23 @@ wasm_runtime_atomic_notify(WASMModuleInstanceCommon *module, void *address,
 
     /* Lock the shared_mem_lock for the whole atomic notify process,
        and use it to os_cond_signal */
-    os_mutex_lock(&node->shared_mem_lock);
+    if (node)
+        os_mutex_lock(&node->shared_mem_lock);
 
     wait_info = acquire_wait_info(address, NULL);
 
     /* Nobody wait on this address */
     if (!wait_info) {
-        os_mutex_unlock(&node->shared_mem_lock);
+        if (node)
+            os_mutex_unlock(&node->shared_mem_lock);
         return 0;
     }
 
     /* Notify each wait node in the wait list */
     notify_result = notify_wait_list(wait_info->wait_list, count);
 
-    os_mutex_unlock(&node->shared_mem_lock);
+    if (node)
+        os_mutex_unlock(&node->shared_mem_lock);
 
     return notify_result;
 }

@@ -3252,7 +3252,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         ret = wasm_runtime_atomic_notify(
                             (WASMModuleInstanceCommon *)module, maddr,
                             notify_count);
-                        bh_assert((int32)ret >= 0);
+                        if (ret == (uint32)-1)
+                            goto got_exception;
 
                         PUSH_I32(ret);
                         break;
