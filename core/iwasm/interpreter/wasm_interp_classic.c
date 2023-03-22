@@ -3467,7 +3467,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     {
                         /* Skip the memory index */
                         frame_ip++;
-                        os_atomic_thread_fence(os_memory_order_release);
+                        os_atomic_thread_fence(os_memory_order_seq_cst);
                         break;
                     }
 
@@ -3574,7 +3574,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             CHECK_BULK_MEMORY_OVERFLOW(addr + offset, 4, maddr);
                             CHECK_ATOMIC_MEMORY_ACCESS();
                             os_mutex_lock(&node->shared_mem_lock);
-                            STORE_U32(maddr, frame_sp[1]);
+                            STORE_U32(maddr, sval);
                             os_mutex_unlock(&node->shared_mem_lock);
                         }
                         break;
@@ -3615,8 +3615,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             CHECK_BULK_MEMORY_OVERFLOW(addr + offset, 8, maddr);
                             CHECK_ATOMIC_MEMORY_ACCESS();
                             os_mutex_lock(&node->shared_mem_lock);
-                            PUT_I64_TO_ADDR((uint32 *)maddr,
-                                            GET_I64_FROM_ADDR(frame_sp + 1));
+                            PUT_I64_TO_ADDR((uint32 *)maddr, sval);
                             os_mutex_unlock(&node->shared_mem_lock);
                         }
                         break;
@@ -3717,9 +3716,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                             os_mutex_lock(&node->shared_mem_lock);
                             readv = (uint64)LOAD_I64(maddr);
-                            if (readv == expect) {
+                            if (readv == expect)
                                 STORE_I64(maddr, sval);
-                            }
                             os_mutex_unlock(&node->shared_mem_lock);
                         }
                         PUSH_I64(readv);
