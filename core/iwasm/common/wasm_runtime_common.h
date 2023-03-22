@@ -508,8 +508,8 @@ wasm_runtime_deinstantiate_internal(WASMModuleInstanceCommon *module_inst,
 
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN WASMModuleInstanceCommon *
-wasm_runtime_instantiate(WASMModuleCommon *module, uint32 stack_size,
-                         uint32 heap_size, char *error_buf,
+wasm_runtime_instantiate(WASMModuleCommon *module, uint32 default_stack_size,
+                         uint32 host_managed_heap_size, char *error_buf,
                          uint32 error_buf_size);
 
 /* See wasm_export.h for description */
