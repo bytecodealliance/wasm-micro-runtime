@@ -904,6 +904,72 @@ check_copy_arities(const JitBlock *block_dst, JitFrame *jit_frame)
     }
 }
 
+#if WASM_ENABLE_THREAD_MGR != 0
+static bool
+check_suspend_flags(JitCompContext *cc)
+{
+    JitReg terminate_addr, terminate_flag, flag, offset, res;
+    JitBasicBlock *terminate_check_block = NULL, *non_terminate_block = NULL,
+                  *terminate_block = NULL;
+    JitInsn *insn = NULL;
+    terminate_addr = cc->exec_env_reg;
+    terminate_flag = jit_cc_new_reg_ptr(cc);
+    flag = jit_cc_new_reg_I32(cc);
+    /* Offset of suspend_flags */
+    offset = jit_cc_new_const_I32(cc, offsetof(WASMExecEnv, suspend_flags));
+    res = jit_cc_new_reg_I32(cc);
+
+    // volatile?
+    if (!(insn = GEN_INSN(LDPTR, terminate_flag, terminate_addr, offset))) {
+        jit_set_last_error(cc, "generate ldptr insn failed");
+        goto fail;
+    }
+
+    CREATE_BASIC_BLOCK(terminate_check_block);
+    terminate_check_block->prev = cc->cur_basic_block;
+    cc->cur_basic_block->next = terminate_check_block;
+
+    CREATE_BASIC_BLOCK(non_terminate_block);
+    non_terminate_block->prev = terminate_check_block;
+    terminate_check_block->next = non_terminate_block;
+
+    SET_BUILDER_POS(non_terminate_block);
+    // TODO: flag greater than 0
+    // GEN_INSN();
+    BUILD_COND_BR(res, terminate_check_block, non_terminate_block);
+
+    /* Move builder to terminate check block */
+    SET_BUILDER_POS(terminate_check_block);
+
+    CREATE_BASIC_BLOCK(terminate_block);
+    terminate_block->prev = terminate_check_block;
+    terminate_check_block->next = terminate_block;
+
+    if (!(insn = GEN_INSN(AND, flag, terminate_flag, NEW_CONST(I32, 1)))) {
+        jit_set_last_error(cc, "generate and insn failed");
+        goto fail;
+    }
+    // TODO: flag greater than 0
+    // GEN_INSN();
+    BUILD_COND_BR(res, terminate_check_block, non_terminate_block);
+
+    /* Move builder to terminate block */
+    SET_BUILDER_POS(terminate_block);
+    // TODO:zero function ret?
+    //    if (!true) {
+    //        goto fail;
+    //    }
+
+    /* Move builder to non terminate block */
+    SET_BUILDER_POS(non_terminate_block);
+    return true;
+
+fail:
+    return false;
+}
+
+#endif
+
 static bool
 handle_op_br(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
 {

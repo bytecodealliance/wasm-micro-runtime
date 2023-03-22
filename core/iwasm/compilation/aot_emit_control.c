@@ -701,7 +701,7 @@ check_suspend_flags(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     if (!(terminate_flags =
               LLVMBuildLoad2(comp_ctx->builder, I32_TYPE, terminate_addr,
                              "terminate_flags"))) {
-        aot_set_last_error("llvm build bit cast failed");
+        aot_set_last_error("llvm build LOAD failed");
         return false;
     }
     /* Set terminate_flags memory accecc to volatile, so that the value
@@ -729,7 +729,7 @@ check_suspend_flags(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
         goto fail;
     }
 
-    /* Move builder to terminate block */
+    /* Move builder to non terminate block */
     SET_BUILDER_POS(non_terminate_block);
     return true;
 
