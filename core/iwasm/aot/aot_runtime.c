@@ -1608,8 +1608,9 @@ execute_malloc_function(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
 
     if (exec_env) {
 #ifdef OS_ENABLE_HW_BOUND_CHECK
-        if (exec_env_tls)
+        if (exec_env_tls) {
             bh_assert(exec_env_tls == exec_env);
+        }
 #endif
         bh_assert(exec_env->module_inst
                   == (WASMModuleInstanceCommon *)module_inst);
@@ -1647,8 +1648,9 @@ execute_free_function(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
 
     if (exec_env) {
 #ifdef OS_ENABLE_HW_BOUND_CHECK
-        if (exec_env_tls)
+        if (exec_env_tls) {
             bh_assert(exec_env_tls == exec_env);
+        }
 #endif
         bh_assert(exec_env->module_inst
                   == (WASMModuleInstanceCommon *)module_inst);
