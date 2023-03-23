@@ -121,7 +121,9 @@ os_thread_exit(void *retval);
 
 #if defined(BH_HAS_STD_ATOMIC) && !defined(__cplusplus)
 #include <stdatomic.h>
+#define os_memory_order_acquire memory_order_acquire
 #define os_memory_order_release memory_order_release
+#define os_memory_order_seq_cst memory_order_seq_cst
 #define os_atomic_thread_fence atomic_thread_fence
 #endif
 
