@@ -450,8 +450,6 @@ wasm_runtime_atomic_notify(WASMModuleInstanceCommon *module, void *address,
     bh_assert(module->module_type == Wasm_Module_Bytecode
               || module->module_type == Wasm_Module_AoT);
 
-    node = search_module((WASMModuleCommon *)module_inst->module);
-
     out_of_bounds =
         ((uint8 *)address < module_inst->memories[0]->memory_data
          || (uint8 *)address + 4 > module_inst->memories[0]->memory_data_end);
@@ -461,25 +459,32 @@ wasm_runtime_atomic_notify(WASMModuleInstanceCommon *module, void *address,
         return -1;
     }
 
+    /* Currently we have only one memory instance */
+    if (!module_inst->memories[0]->is_shared) {
+        /* Always return 0 for ushared linear memory since there is
+           no way to create a waiter on it */
+        return 0;
+    }
+
+    node = search_module((WASMModuleCommon *)module_inst->module);
+    bh_assert(node);
+
     /* Lock the shared_mem_lock for the whole atomic notify process,
        and use it to os_cond_signal */
-    if (node)
-        os_mutex_lock(&node->shared_mem_lock);
+    os_mutex_lock(&node->shared_mem_lock);
 
     wait_info = acquire_wait_info(address, NULL);
 
     /* Nobody wait on this address */
     if (!wait_info) {
-        if (node)
-            os_mutex_unlock(&node->shared_mem_lock);
+        os_mutex_unlock(&node->shared_mem_lock);
         return 0;
     }
 
     /* Notify each wait node in the wait list */
     notify_result = notify_wait_list(wait_info->wait_list, count);
 
-    if (node)
-        os_mutex_unlock(&node->shared_mem_lock);
+    os_mutex_unlock(&node->shared_mem_lock);
 
     return notify_result;
 }
