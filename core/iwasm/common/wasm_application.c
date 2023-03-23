@@ -225,8 +225,11 @@ wasm_application_execute_main(WASMModuleInstanceCommon *module_inst, int32 argc,
         ret = wasm_runtime_get_exception(module_inst) == NULL;
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
-    if (!ret)
-        wasm_runtime_dump_call_stack(exec_env);
+    if (!ret) {
+        exec_env = wasm_runtime_get_exec_env_singleton(module_inst);
+        if (exec_env)
+            wasm_runtime_dump_call_stack(exec_env);
+    }
 #endif
 
     return ret;
