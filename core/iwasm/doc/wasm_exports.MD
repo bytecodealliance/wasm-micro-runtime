@@ -1,4 +1,6 @@
 # Wasm exports
+The internal data structure for Wasm exports:  
+![](./images/wasm_exports.svg)  
 
 ## Setup exports for Module 
 The array data structure pointed by `WASMModule::exports` is setup during loading a module. Basically the runtime will load the exports sections from the module file content, and construct an array of C struct `WASMExport`.   
@@ -18,5 +20,3 @@ function exports are often used in two situations:
 The data structure pointed by `WASMModuleInstance::export_functions` is set up during instantiating module instance.
 
 The runtime will walk through the `WASMModule::exports` array and find all the item with kind equal to "function". Create a node of `WASMExportFuncInstance` for each matching, find the associated `WASMFunctionInstance` object and save its address in the field `function`.
-
-![](./images/wasm_exports.svg)
