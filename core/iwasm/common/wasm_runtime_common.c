@@ -1196,20 +1196,21 @@ wasm_runtime_unload(WASMModuleCommon *module)
 
 WASMModuleInstanceCommon *
 wasm_runtime_instantiate_internal(WASMModuleCommon *module, bool is_sub_inst,
-                                  uint32 stack_size, uint32 heap_size,
-                                  char *error_buf, uint32 error_buf_size)
+                                  WASMExecEnv *exec_env_main, uint32 stack_size,
+                                  uint32 heap_size, char *error_buf,
+                                  uint32 error_buf_size)
 {
 #if WASM_ENABLE_INTERP != 0
     if (module->module_type == Wasm_Module_Bytecode)
         return (WASMModuleInstanceCommon *)wasm_instantiate(
-            (WASMModule *)module, is_sub_inst, stack_size, heap_size, error_buf,
-            error_buf_size);
+            (WASMModule *)module, is_sub_inst, exec_env_main, stack_size,
+            heap_size, error_buf, error_buf_size);
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module->module_type == Wasm_Module_AoT)
         return (WASMModuleInstanceCommon *)aot_instantiate(
-            (AOTModule *)module, is_sub_inst, stack_size, heap_size, error_buf,
-            error_buf_size);
+            (AOTModule *)module, is_sub_inst, exec_env_main, stack_size,
+            heap_size, error_buf, error_buf_size);
 #endif
     set_error_buf(error_buf, error_buf_size,
                   "Instantiate module failed, invalid module type");
@@ -1222,7 +1223,7 @@ wasm_runtime_instantiate(WASMModuleCommon *module, uint32 stack_size,
                          uint32 error_buf_size)
 {
     return wasm_runtime_instantiate_internal(
-        module, false, stack_size, heap_size, error_buf, error_buf_size);
+        module, false, NULL, stack_size, heap_size, error_buf, error_buf_size);
 }
 
 void
@@ -2478,6 +2479,62 @@ wasm_runtime_get_custom_data(WASMModuleInstanceCommon *module_inst_comm)
     bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
               || module_inst_comm->module_type == Wasm_Module_AoT);
     return module_inst->custom_data;
+}
+
+uint32
+wasm_runtime_module_malloc_internal(WASMModuleInstanceCommon *module_inst,
+                                    WASMExecEnv *exec_env, uint32 size,
+                                    void **p_native_addr)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode)
+        return wasm_module_malloc_internal((WASMModuleInstance *)module_inst,
+                                           exec_env, size, p_native_addr);
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT)
+        return aot_module_malloc_internal((AOTModuleInstance *)module_inst,
+                                          exec_env, size, p_native_addr);
+#endif
+    return 0;
+}
+
+uint32
+wasm_runtime_module_realloc_internal(WASMModuleInstanceCommon *module_inst,
+                                     WASMExecEnv *exec_env, uint32 ptr,
+                                     uint32 size, void **p_native_addr)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode)
+        return wasm_module_realloc_internal((WASMModuleInstance *)module_inst,
+                                            exec_env, ptr, size, p_native_addr);
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT)
+        return aot_module_realloc_internal((AOTModuleInstance *)module_inst,
+                                           exec_env, ptr, size, p_native_addr);
+#endif
+    return 0;
+}
+
+void
+wasm_runtime_module_free_internal(WASMModuleInstanceCommon *module_inst,
+                                  WASMExecEnv *exec_env, uint32 ptr)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        wasm_module_free_internal((WASMModuleInstance *)module_inst, exec_env,
+                                  ptr);
+        return;
+    }
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        aot_module_free_internal((AOTModuleInstance *)module_inst, exec_env,
+                                 ptr);
+        return;
+    }
+#endif
 }
 
 uint32

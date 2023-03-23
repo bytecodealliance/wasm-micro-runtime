@@ -1003,7 +1003,7 @@ lookup_post_instantiate_func(WASMModuleInstance *module_inst,
 
 static bool
 execute_post_instantiate_functions(WASMModuleInstance *module_inst,
-                                   bool is_sub_inst)
+                                   bool is_sub_inst, WASMExecEnv *exec_env_main)
 {
     WASMFunctionInstance *start_func = module_inst->e->start_function;
     WASMFunctionInstance *initialize_func = NULL;
@@ -1012,8 +1012,8 @@ execute_post_instantiate_functions(WASMModuleInstance *module_inst,
 #if WASM_ENABLE_LIBC_WASI != 0
     WASMModule *module = module_inst->module;
 #endif
-#ifdef OS_ENABLE_HW_BOUND_CHECK
     WASMModuleInstanceCommon *module_inst_main = NULL;
+#ifdef OS_ENABLE_HW_BOUND_CHECK
     WASMExecEnv *exec_env_tls = NULL;
 #endif
     WASMExecEnv *exec_env = NULL;
@@ -1057,25 +1057,29 @@ execute_post_instantiate_functions(WASMModuleInstance *module_inst,
         return true;
     }
 
-#ifdef OS_ENABLE_HW_BOUND_CHECK
     if (is_sub_inst) {
-        exec_env = exec_env_tls = wasm_runtime_get_exec_env_tls();
-        if (exec_env_tls) {
-            /* Temporarily replace exec_env_tls's module inst to current
-               module inst to avoid checking failure when calling the
-               wasm functions, and ensure that the exec_env's module inst
-               is the correct one. */
-            module_inst_main = exec_env_tls->module_inst;
-            exec_env_tls->module_inst = (WASMModuleInstanceCommon *)module_inst;
-        }
-    }
+        bh_assert(exec_env_main);
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+        exec_env_tls = wasm_runtime_get_exec_env_tls();
+        bh_assert(exec_env_tls == exec_env_main);
+        (void)exec_env_tls;
 #endif
-    if (!exec_env
-        && !(exec_env =
-                 wasm_exec_env_create((WASMModuleInstanceCommon *)module_inst,
-                                      module_inst->default_wasm_stack_size))) {
-        wasm_set_exception(module_inst, "allocate memory failed");
-        return false;
+        exec_env = exec_env_main;
+
+        /* Temporarily replace parent exec_env's module inst to current
+           module inst to avoid checking failure when calling the
+           wasm functions, and ensure that the exec_env's module inst
+           is the correct one. */
+        module_inst_main = exec_env_main->module_inst;
+        exec_env->module_inst = (WASMModuleInstanceCommon *)module_inst;
+    }
+    else {
+        if (!(exec_env =
+                  wasm_exec_env_create((WASMModuleInstanceCommon *)module_inst,
+                                       module_inst->default_wasm_stack_size))) {
+            wasm_set_exception(module_inst, "allocate memory failed");
+            return false;
+        }
     }
 
     /* Execute start function for both main insance and sub instance */
@@ -1101,23 +1105,17 @@ execute_post_instantiate_functions(WASMModuleInstance *module_inst,
     ret = true;
 
 fail:
-#ifdef OS_ENABLE_HW_BOUND_CHECK
-    if (is_sub_inst && exec_env_tls) {
-        bh_assert(exec_env == exec_env_tls);
-        /* Restore the exec_env_tls's module inst */
-        exec_env_tls->module_inst = module_inst_main;
-    }
+    if (is_sub_inst)
+        /* Restore the parent exec_env's module inst */
+        exec_env_main->module_inst = module_inst_main;
     else
         wasm_exec_env_destroy(exec_env);
-#else
-    wasm_exec_env_destroy(exec_env);
-#endif
 
     return ret;
 }
 
 static bool
-execute_malloc_function(WASMModuleInstance *module_inst,
+execute_malloc_function(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
                         WASMFunctionInstance *malloc_func,
                         WASMFunctionInstance *retain_func, uint32 size,
                         uint32 *p_result)
@@ -1143,26 +1141,28 @@ execute_malloc_function(WASMModuleInstance *module_inst,
         argc = 2;
     }
 
+    if (exec_env) {
 #ifdef OS_ENABLE_HW_BOUND_CHECK
-    if (exec_env_tls != NULL) {
-        bh_assert(exec_env_tls->module_inst
+        if (exec_env_tls) {
+            bh_assert(exec_env_tls == exec_env);
+        }
+#endif
+        bh_assert(exec_env->module_inst
                   == (WASMModuleInstanceCommon *)module_inst);
-        ret = wasm_call_function(exec_env_tls, malloc_func, argc, argv);
-
-        if (retain_func && ret) {
-            ret = wasm_call_function(exec_env_tls, retain_func, 1, argv);
+    }
+    else {
+        if (!(exec_env =
+                  wasm_exec_env_create((WASMModuleInstanceCommon *)module_inst,
+                                       module_inst->default_wasm_stack_size))) {
+            wasm_set_exception(module_inst, "allocate memory failed");
+            return false;
         }
     }
-    else
-#endif
-    {
-        ret = wasm_create_exec_env_and_call_function(module_inst, malloc_func,
-                                                     argc, argv);
 
-        if (retain_func && ret) {
-            ret = wasm_create_exec_env_and_call_function(module_inst,
-                                                         retain_func, 1, argv);
-        }
+    ret = wasm_call_function(exec_env, malloc_func, argc, argv);
+
+    if (retain_func && ret) {
+        ret = wasm_call_function(exec_env, retain_func, 1, argv);
     }
 
     if (ret)
@@ -1171,7 +1171,7 @@ execute_malloc_function(WASMModuleInstance *module_inst,
 }
 
 static bool
-execute_free_function(WASMModuleInstance *module_inst,
+execute_free_function(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
                       WASMFunctionInstance *free_func, uint32 offset)
 {
 #ifdef OS_ENABLE_HW_BOUND_CHECK
@@ -1180,18 +1180,26 @@ execute_free_function(WASMModuleInstance *module_inst,
     uint32 argv[2];
 
     argv[0] = offset;
+
+    if (exec_env) {
 #ifdef OS_ENABLE_HW_BOUND_CHECK
-    if (exec_env_tls != NULL) {
-        bh_assert(exec_env_tls->module_inst
-                  == (WASMModuleInstanceCommon *)module_inst);
-        return wasm_call_function(exec_env_tls, free_func, 1, argv);
-    }
-    else
+        if (exec_env_tls) {
+            bh_assert(exec_env_tls == exec_env);
+        }
 #endif
-    {
-        return wasm_create_exec_env_and_call_function(module_inst, free_func, 1,
-                                                      argv);
+        bh_assert(exec_env->module_inst
+                  == (WASMModuleInstanceCommon *)module_inst);
     }
+    else {
+        if (!(exec_env =
+                  wasm_exec_env_create((WASMModuleInstanceCommon *)module_inst,
+                                       module_inst->default_wasm_stack_size))) {
+            wasm_set_exception(module_inst, "allocate memory failed");
+            return false;
+        }
+    }
+
+    return wasm_call_function(exec_env, free_func, 1, argv);
 }
 
 #if WASM_ENABLE_MULTI_MODULE != 0
@@ -1210,7 +1218,7 @@ sub_module_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
         WASMModuleInstance *sub_module_inst = NULL;
 
         sub_module_inst =
-            wasm_instantiate(sub_module, false, stack_size, heap_size,
+            wasm_instantiate(sub_module, false, NULL, stack_size, heap_size,
                              error_buf, error_buf_size);
         if (!sub_module_inst) {
             LOG_DEBUG("instantiate %s failed",
@@ -1555,7 +1563,8 @@ wasm_set_running_mode(WASMModuleInstance *module_inst, RunningMode running_mode)
  * Instantiate module
  */
 WASMModuleInstance *
-wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
+wasm_instantiate(WASMModule *module, bool is_sub_inst,
+                 WASMExecEnv *exec_env_main, uint32 stack_size,
                  uint32 heap_size, char *error_buf, uint32 error_buf_size)
 {
     WASMModuleInstance *module_inst;
@@ -2049,7 +2058,8 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
                 &module_inst->e->functions[module->start_function];
     }
 
-    if (!execute_post_instantiate_functions(module_inst, is_sub_inst)) {
+    if (!execute_post_instantiate_functions(module_inst, is_sub_inst,
+                                            exec_env_main)) {
         set_error_buf(error_buf, error_buf_size, module_inst->cur_exception);
         goto fail;
     }
@@ -2346,39 +2356,6 @@ wasm_call_function(WASMExecEnv *exec_env, WASMFunctionInstance *function,
     return !wasm_copy_exception(module_inst, NULL);
 }
 
-bool
-wasm_create_exec_env_and_call_function(WASMModuleInstance *module_inst,
-                                       WASMFunctionInstance *func,
-                                       unsigned argc, uint32 argv[])
-{
-    WASMExecEnv *exec_env = NULL, *existing_exec_env = NULL;
-    bool ret;
-
-#if defined(OS_ENABLE_HW_BOUND_CHECK)
-    existing_exec_env = exec_env = wasm_runtime_get_exec_env_tls();
-#elif WASM_ENABLE_THREAD_MGR != 0
-    existing_exec_env = exec_env =
-        wasm_clusters_search_exec_env((WASMModuleInstanceCommon *)module_inst);
-#endif
-
-    if (!existing_exec_env) {
-        if (!(exec_env =
-                  wasm_exec_env_create((WASMModuleInstanceCommon *)module_inst,
-                                       module_inst->default_wasm_stack_size))) {
-            wasm_set_exception(module_inst, "allocate memory failed");
-            return false;
-        }
-    }
-
-    ret = wasm_runtime_call_wasm(exec_env, func, argc, argv);
-
-    /* don't destroy the exec_env if it isn't created in this function */
-    if (!existing_exec_env)
-        wasm_exec_env_destroy(exec_env);
-
-    return ret;
-}
-
 #if WASM_ENABLE_PERF_PROFILING != 0
 void
 wasm_dump_perf_profiling(const WASMModuleInstance *module_inst)
@@ -2426,8 +2403,9 @@ wasm_dump_perf_profiling(const WASMModuleInstance *module_inst)
 #endif
 
 uint32
-wasm_module_malloc(WASMModuleInstance *module_inst, uint32 size,
-                   void **p_native_addr)
+wasm_module_malloc_internal(WASMModuleInstance *module_inst,
+                            WASMExecEnv *exec_env, uint32 size,
+                            void **p_native_addr)
 {
     WASMMemoryInstance *memory = wasm_get_default_memory(module_inst);
     uint8 *addr = NULL;
@@ -2443,7 +2421,7 @@ wasm_module_malloc(WASMModuleInstance *module_inst, uint32 size,
     }
     else if (module_inst->e->malloc_function && module_inst->e->free_function) {
         if (!execute_malloc_function(
-                module_inst, module_inst->e->malloc_function,
+                module_inst, exec_env, module_inst->e->malloc_function,
                 module_inst->e->retain_function, size, &offset)) {
             return 0;
         }
@@ -2471,8 +2449,9 @@ wasm_module_malloc(WASMModuleInstance *module_inst, uint32 size,
 }
 
 uint32
-wasm_module_realloc(WASMModuleInstance *module_inst, uint32 ptr, uint32 size,
-                    void **p_native_addr)
+wasm_module_realloc_internal(WASMModuleInstance *module_inst,
+                             WASMExecEnv *exec_env, uint32 ptr, uint32 size,
+                             void **p_native_addr)
 {
     WASMMemoryInstance *memory = wasm_get_default_memory(module_inst);
     uint8 *addr = NULL;
@@ -2488,6 +2467,7 @@ wasm_module_realloc(WASMModuleInstance *module_inst, uint32 ptr, uint32 size,
     }
 
     /* Only support realloc in WAMR's app heap */
+    (void)exec_env;
 
     if (!addr) {
         if (memory->heap_handle
@@ -2506,7 +2486,8 @@ wasm_module_realloc(WASMModuleInstance *module_inst, uint32 ptr, uint32 size,
 }
 
 void
-wasm_module_free(WASMModuleInstance *module_inst, uint32 ptr)
+wasm_module_free_internal(WASMModuleInstance *module_inst,
+                          WASMExecEnv *exec_env, uint32 ptr)
 {
     if (ptr) {
         WASMMemoryInstance *memory = wasm_get_default_memory(module_inst);
@@ -2516,12 +2497,6 @@ wasm_module_free(WASMModuleInstance *module_inst, uint32 ptr)
             return;
         }
 
-#if WASM_ENABLE_SHARED_MEMORY != 0
-        WASMSharedMemNode *node = wasm_module_get_shared_memory(
-            (WASMModuleCommon *)module_inst->module);
-        if (node)
-            os_mutex_lock(&node->shared_mem_lock);
-#endif
         addr = memory->memory_data + ptr;
 
         if (memory->heap_handle && memory->heap_data <= addr
@@ -2531,14 +2506,31 @@ wasm_module_free(WASMModuleInstance *module_inst, uint32 ptr)
         else if (module_inst->e->malloc_function
                  && module_inst->e->free_function && memory->memory_data <= addr
                  && addr < memory->memory_data_end) {
-            execute_free_function(module_inst, module_inst->e->free_function,
-                                  ptr);
+            execute_free_function(module_inst, exec_env,
+                                  module_inst->e->free_function, ptr);
         }
-#if WASM_ENABLE_SHARED_MEMORY != 0
-        if (node)
-            os_mutex_unlock(&node->shared_mem_lock);
-#endif
     }
+}
+
+uint32
+wasm_module_malloc(WASMModuleInstance *module_inst, uint32 size,
+                   void **p_native_addr)
+{
+    return wasm_module_malloc_internal(module_inst, NULL, size, p_native_addr);
+}
+
+uint32
+wasm_module_realloc(WASMModuleInstance *module_inst, uint32 ptr, uint32 size,
+                    void **p_native_addr)
+{
+    return wasm_module_realloc_internal(module_inst, NULL, ptr, size,
+                                        p_native_addr);
+}
+
+void
+wasm_module_free(WASMModuleInstance *module_inst, uint32 ptr)
+{
+    wasm_module_free_internal(module_inst, NULL, ptr);
 }
 
 uint32
