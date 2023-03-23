@@ -988,12 +988,12 @@ static void
 set_thread_cancel_flags(WASMExecEnv *exec_env)
 {
     os_mutex_lock(&exec_env->wait_lock);
-    /* Set the termination flag */
+
 #if WASM_ENABLE_DEBUG_INTERP != 0
     wasm_cluster_thread_send_signal(exec_env, WAMR_SIG_TERM);
-#else
-    exec_env->suspend_flags.flags |= 0x01;
 #endif
+    exec_env->suspend_flags.flags |= 0x01;
+
     os_mutex_unlock(&exec_env->wait_lock);
 }
 
