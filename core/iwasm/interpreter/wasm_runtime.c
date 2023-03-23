@@ -1062,6 +1062,7 @@ execute_post_instantiate_functions(WASMModuleInstance *module_inst,
 #ifdef OS_ENABLE_HW_BOUND_CHECK
         exec_env_tls = wasm_runtime_get_exec_env_tls();
         bh_assert(exec_env_tls == exec_env_main);
+        (void)exec_env_tls;
 #endif
         exec_env = exec_env_main;
 
@@ -1142,8 +1143,9 @@ execute_malloc_function(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
 
     if (exec_env) {
 #ifdef OS_ENABLE_HW_BOUND_CHECK
-        if (exec_env_tls)
+        if (exec_env_tls) {
             bh_assert(exec_env_tls == exec_env);
+        }
 #endif
         bh_assert(exec_env->module_inst
                   == (WASMModuleInstanceCommon *)module_inst);
@@ -1181,8 +1183,9 @@ execute_free_function(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
 
     if (exec_env) {
 #ifdef OS_ENABLE_HW_BOUND_CHECK
-        if (exec_env_tls)
+        if (exec_env_tls) {
             bh_assert(exec_env_tls == exec_env);
+        }
 #endif
         bh_assert(exec_env->module_inst
                   == (WASMModuleInstanceCommon *)module_inst);
@@ -1215,7 +1218,7 @@ sub_module_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
         WASMModuleInstance *sub_module_inst = NULL;
 
         sub_module_inst =
-            wasm_instantiate(sub_module, false, stack_size, heap_size,
+            wasm_instantiate(sub_module, false, NULL, stack_size, heap_size,
                              error_buf, error_buf_size);
         if (!sub_module_inst) {
             LOG_DEBUG("instantiate %s failed",
