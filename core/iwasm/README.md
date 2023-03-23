@@ -4,3 +4,5 @@
 ## Wasm function
 - [Wasm function architecture](./doc/wasm_function.MD)
 
+## Exports
+- [Wasm export architecture](./doc/wasm_exports.MD)
