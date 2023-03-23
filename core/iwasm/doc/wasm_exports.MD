@@ -13,7 +13,7 @@ A `WASMExport` item contains three elements that map the Wasm file exports secti
 ## Function exports
 ### use function exports
 function exports are often used in two situations:  
-    1. **call by host**: runtime API `wasm_runtime_lookup_function` will walk through the array of `WASMModuleInstance::export_functions` and compare the exported name with given target symbol name in the function parameter. If any array item matches the name, then return the value of field `function` which points to associated function instance (WASMFunctionInstance)  
+    1. **call by host**: runtime API `wasm_runtime_lookup_function` will walk through the array of `WASMModuleInstance::export_functions` and compare the exported name with given target symbol name in the function parameter. If any array item matches the name, it then returns the value of field `function` which points to associated function instance (WASMFunctionInstance)  
     2. **import by another module**: During linking multiple modules, the runtime saves the pointer of exported WASMFunctionInstance in the local WASMFunctionInstance of importing module.
 
 ### setup for instance
