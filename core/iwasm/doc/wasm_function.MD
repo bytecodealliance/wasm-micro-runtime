@@ -2,4 +2,4 @@
 
 ## Internal data structure
 
-![](./images/functions.excalidraw.png)
+![](./images/wasm_function.svg)
