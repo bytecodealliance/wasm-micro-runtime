@@ -978,6 +978,7 @@ execute_post_instantiate_functions(AOTModuleInstance *module_inst,
 #ifdef OS_ENABLE_HW_BOUND_CHECK
         exec_env_tls = wasm_runtime_get_exec_env_tls();
         bh_assert(exec_env_tls == exec_env_main);
+        (void)exec_env_tls;
 #endif
         exec_env = exec_env_main;
 
