@@ -40,15 +40,28 @@ iwasm -g=127.0.0.1:1234 test.wasm
 # Use port = 0 to allow a random assigned debug port
 ```
 
-4. Build customized lldb (assume you have already cloned llvm)
+4. Build customized lldb
 ``` bash
-cd ${WAMR_ROOT}/core/deps/llvm
-git apply ../../../build-scripts/lldb-wasm.patch
-mkdir build-lldb && cd build-lldb
-cmake -DCMAKE_BUILD_TYPE:STRING="Release" -DLLVM_ENABLE_PROJECTS="clang;lldb" -DLLVM_TARGETS_TO_BUILD:STRING="X86;WebAssembly" -DLLVM_ENABLE_LIBXML2:BOOL=ON ../llvm
-make -j $(nproc)
+git clone --branch release/13.x --depth=1 https://github.com/llvm/llvm-project
+cd llvm-project
+git apply ${WAMR_ROOT}/build-scripts/lldb-wasm.patch
+mkdir build-lldb
+cmake -S ./llvm -B build-lldb \
+    -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_PROJECTS="clang;lldb" \
+    -DLLVM_TARGETS_TO_BUILD:STRING="X86;WebAssembly" \
+    -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DLLVM_BUILD_BENCHMARKS:BOOL=OFF \
+    -DLLVM_BUILD_DOCS:BOOL=OFF  -DLLVM_BUILD_EXAMPLES:BOOL=OFF  \
+    -DLLVM_BUILD_LLVM_DYLIB:BOOL=OFF  -DLLVM_BUILD_TESTS:BOOL=OFF  \
+    -DLLVM_ENABLE_BINDINGS:BOOL=OFF  -DLLVM_INCLUDE_BENCHMARKS:BOOL=OFF  \
+    -DLLVM_INCLUDE_DOCS:BOOL=OFF  -DLLVM_INCLUDE_EXAMPLES:BOOL=OFF  \
+    -DLLVM_INCLUDE_TESTS:BOOL=OFF -DLLVM_ENABLE_LIBXML2:BOOL=ON
+cmake --build build-lldb --target lldb --parallel $(nproc)
+# The lldb is generated under build-lldb/bin/lldb
 ```
 > Note: If using `CommandLineTools` on MacOS, make sure only one SDK is present in `/Library/Developer/CommandLineTools/SDKs`.
+
+> You can download pre-built `wamr-lldb` binaries from [here](https://github.com/bytecodealliance/wasm-micro-runtime/releases).
 
 5. Launch customized lldb and connect to iwasm
 ``` bash
@@ -56,8 +69,6 @@ lldb
 (lldb) process connect -p wasm connect://127.0.0.1:1234
 ```
 Then you can use lldb commands to debug your applications. Please refer to [lldb document](https://lldb.llvm.org/use/tutorial.html) for command usage.
-
-> Known issue: `step over` on some function may be treated as `step in`, it will be fixed later.
 
 ## Debugging with AOT
 
