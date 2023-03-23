@@ -143,8 +143,8 @@ allocate_aux_stack(WASMExecEnv *exec_env, uint32 *start, uint32 *size)
         wasm_exec_env_get_module_inst(exec_env);
     uint32 stack_end;
 
-    stack_end =
-        wasm_runtime_module_malloc(module_inst, cluster->stack_size, NULL);
+    stack_end = wasm_runtime_module_malloc_internal(module_inst, exec_env,
+                                                    cluster->stack_size, NULL);
     *start = stack_end + cluster->stack_size;
     *size = cluster->stack_size;
 
@@ -188,7 +188,8 @@ free_aux_stack(WASMExecEnv *exec_env, uint32 start)
 
     bh_assert(start >= cluster->stack_size);
 
-    wasm_runtime_module_free(module_inst, start - cluster->stack_size);
+    wasm_runtime_module_free_internal(module_inst, exec_env,
+                                      start - cluster->stack_size);
 
     return true;
 #else
@@ -495,7 +496,7 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
 #endif
 
     if (!(new_module_inst = wasm_runtime_instantiate_internal(
-              module, true, stack_size, 0, NULL, 0))) {
+              module, true, exec_env, stack_size, 0, NULL, 0))) {
         goto fail1;
     }
 
