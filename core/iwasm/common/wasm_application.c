@@ -195,6 +195,7 @@ execute_main(WASMModuleInstanceCommon *module_inst, int32 argc, char *argv[])
 
     if (argv_buf_offset)
         wasm_runtime_module_free(module_inst, argv_buf_offset);
+
     return ret;
 }
 
@@ -203,7 +204,7 @@ wasm_application_execute_main(WASMModuleInstanceCommon *module_inst, int32 argc,
                               char *argv[])
 {
     bool ret;
-#if WASM_ENABLE_MEMORY_PROFILING != 0
+#if (WASM_ENABLE_MEMORY_PROFILING != 0) || (WASM_ENABLE_DUMP_CALL_STACK != 0)
     WASMExecEnv *exec_env;
 #endif
 
@@ -220,7 +221,15 @@ wasm_application_execute_main(WASMModuleInstanceCommon *module_inst, int32 argc,
     wasm_runtime_dump_perf_profiling(module_inst);
 #endif
 
-    return (ret && !wasm_runtime_get_exception(module_inst)) ? true : false;
+    if (ret)
+        ret = wasm_runtime_get_exception(module_inst) == NULL;
+
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
+    if (!ret)
+        wasm_runtime_dump_call_stack(exec_env);
+#endif
+
+    return ret;
 }
 
 /**

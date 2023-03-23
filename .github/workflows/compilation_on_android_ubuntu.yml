@@ -337,9 +337,13 @@ jobs:
           - os: ubuntu-20.04
             wasi_sdk_release: "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-linux.tar.gz"
             wabt_release: "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-ubuntu.tar.gz"
+            wasi_sdk_folder_name: "wasi-sdk-19.0"
+            wasi_sysroot_option: "-DWASI_SYSROOT=`pwd`/../../../core/deps/wasi-libc/sysroot"
           - os: ubuntu-22.04
-            wasi_sdk_release: "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-linux.tar.gz"
+            wasi_sdk_release: "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20%2Bthreads/wasi-sdk-20.0.threads-linux.tar.gz"
             wabt_release: "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-ubuntu.tar.gz"
+            wasi_sdk_folder_name: "wasi-sdk-20.0+threads"
+            wasi_sysroot_option: ""
     steps:
       - name: checkout
         uses: actions/checkout@v3
@@ -349,7 +353,7 @@ jobs:
           cd /opt
           sudo wget ${{ matrix.wasi_sdk_release }}
           sudo tar -xzf wasi-sdk-*.tar.gz
-          sudo mv wasi-sdk-19.0 wasi-sdk
+          sudo mv ${{ matrix.wasi_sdk_folder_name }} wasi-sdk
 
       - name: download and install wabt
         run: |
@@ -359,6 +363,7 @@ jobs:
           sudo mv wabt-1.0.31 wabt
 
       - name: build wasi-libc (needed for wasi-threads)
+        if: matrix.os == 'ubuntu-20.04'
         run: |
           mkdir wasi-libc
           cd wasi-libc
@@ -431,15 +436,22 @@ jobs:
         run: |
           cd samples/wasi-threads
           mkdir build && cd build
-          cmake -DWASI_SYSROOT=`pwd`/../../../core/deps/wasi-libc/sysroot ..
+          cmake ${{ matrix.wasi_sysroot_option }} ..
           cmake --build . --config Release --parallel 4
           ./iwasm wasm-apps/no_pthread.wasm
 
   test:
-    needs: [build_iwasm, build_llvm_libraries_on_ubuntu_2004, build_wamrc]
-    runs-on: ubuntu-20.04
+    needs:
+      [
+        build_iwasm,
+        build_llvm_libraries_on_ubuntu_2004,
+        build_llvm_libraries_on_ubuntu_2204,
+        build_wamrc
+      ]
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
+        os: [ubuntu-20.04, ubuntu-22.04]
         running_mode:
           [
             "classic-interp",
@@ -457,12 +469,21 @@ jobs:
             $THREADS_TEST_OPTIONS,
             $WASI_TEST_OPTIONS,
           ]
-        wasi_sdk_release:
-          [
-            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-linux.tar.gz",
-          ]
-        llvm_cache_key:
-          ["${{ needs.build_llvm_libraries_on_ubuntu_2004.outputs.cache_key }}"]
+        include:
+          - os: ubuntu-20.04
+            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2004.outputs.cache_key }}
+            wasi_sdk_release: "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-linux.tar.gz"
+            wabt_release: "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-ubuntu.tar.gz"
+            wasi_sdk_folder_name: "wasi-sdk-19.0"
+            wasi_sysroot_option: "WASI_SYSROOT_OPTION='--sysroot ../../../../../core/deps/wasi-libc/sysroot'"
+            ubuntu_version: "20.04"
+          - os: ubuntu-22.04
+            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
+            wasi_sdk_release: "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20%2Bthreads/wasi-sdk-20.0.threads-linux.tar.gz"
+            wabt_release: "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-ubuntu.tar.gz"
+            wasi_sdk_folder_name: "wasi-sdk-20.0+threads"
+            wasi_sysroot_option: ""
+            ubuntu_version: "22.04"
         exclude:
           # uncompatiable modes and features
           # classic-interp and fast-interp don't support simd
@@ -503,10 +524,10 @@ jobs:
           cd /opt
           sudo wget ${{ matrix.wasi_sdk_release }}
           sudo tar -xzf wasi-sdk-*.tar.gz
-          sudo mv wasi-sdk-19.0 wasi-sdk
+          sudo mv ${{ matrix.wasi_sdk_folder_name }} wasi-sdk
 
       - name: build wasi-libc (needed for wasi-threads)
-        if: matrix.test_option == '$WASI_TEST_OPTIONS'
+        if: matrix.os == 'ubuntu-20.04' && matrix.test_option == '$WASI_TEST_OPTIONS'
         run: |
           mkdir wasi-libc
           cd wasi-libc
@@ -557,12 +578,12 @@ jobs:
 
       - name: Build WASI thread tests
         if: matrix.test_option == '$WASI_TEST_OPTIONS'
-        run: WASI_SYSROOT=../../../../../core/deps/wasi-libc/sysroot bash build.sh
+        run: ${{ matrix.wasi_sysroot_option }} bash build.sh
         working-directory: ./core/iwasm/libraries/lib-wasi-threads/test/
 
       - name: build socket api tests
         if: matrix.test_option == '$WASI_TEST_OPTIONS'
-        run: WASI_SYSROOT=../../../../../core/deps/wasi-libc/sysroot bash build.sh
+        run: ${{ matrix.wasi_sysroot_option }} bash build.sh
         working-directory: ./core/iwasm/libraries/lib-socket/test/
 
       - name: run tests
@@ -577,7 +598,7 @@ jobs:
           # Add another apt repository as some packages cannot
           # be downloaded with the github default repository
           sudo curl -sSL https://packages.microsoft.com/keys/microsoft.asc | sudo tee /etc/apt/trusted.gpg.d/microsoft.asc &&
-          sudo apt-add-repository https://packages.microsoft.com/ubuntu/20.04/prod &&
+          sudo apt-add-repository https://packages.microsoft.com/ubuntu/${{ matrix.ubuntu_version }}/prod &&
           sudo apt-get update &&
           sudo apt install -y g++-multilib lib32gcc-9-dev
 

@@ -11,7 +11,10 @@ if (NOT DEFINED WASI_SDK_DIR)
   set (WASI_SDK_DIR               "/opt/wasi-sdk")
 endif ()
 
-set (CMAKE_SYSROOT                  "${WASI_SYSROOT}")
+if (DEFINED WASI_SYSROOT)
+  set (CMAKE_SYSROOT                "${WASI_SYSROOT}")
+endif ()
+
 set (CMAKE_C_COMPILER               "${WASI_SDK_DIR}/bin/clang")
 set (CMAKE_ASM_COMPILER               "${WASI_SDK_DIR}/bin/clang")
 set (CMAKE_EXE_LINKER_FLAGS         "-target wasm32-wasi-threads")
