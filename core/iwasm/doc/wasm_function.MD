@@ -7,8 +7,9 @@
 ## Module level data (function)
 **WASMModule**: Data structure created for loading a module.   
 - `WASMImport *import_functions`: initialized from the Wasm file function section
-- `WASMImport *import_functions`: initialized from the Wasm file import section
-**WASMFunction**: represent a Wasm function located in Wasm file code section. Track the links to the compiled function body.
+- `WASMImport *import_functions`: initialized from the Wasm file import section  
+
+**WASMFunction**: represent a Wasm function located in Wasm file code section. Track the links to the compiled function body.  
 **WASMImport**: represent a imported Wasm function which can be a native function or another Wasm module exported function.
 
 ## Instance level data (function)
