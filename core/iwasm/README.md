@@ -6,3 +6,9 @@
 
 ## Exports
 - [Wasm export architecture](./doc/wasm_exports.MD)
+
+## globals
+- [Wasm globals architecture](./doc/wasm_globals.MD)
+
+## classic interpreter
+- [classic interpreter](./doc/classic_interpreter.MD)
