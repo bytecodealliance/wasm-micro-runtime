@@ -3209,9 +3209,15 @@ orcjit_thread_callback(void *arg)
         }
     }
 
-    /* Wait until init_llvm_jit_functions_stage2 finishes */
     os_mutex_lock(&module->tierup_wait_lock);
-    while (!(module->llvm_jit_inited && module->enable_llvm_jit_compilation)) {
+    module->call_to_fast_jit_ready_groups++;
+    os_mutex_unlock(&module->tierup_wait_lock);
+
+    /* Wait until init_llvm_jit_functions_stage2 finishes and all
+       call_to_fast_jit_from_llvm_jit func ptrs are compiled */
+    os_mutex_lock(&module->tierup_wait_lock);
+    while (!(module->llvm_jit_inited && module->enable_llvm_jit_compilation
+             && module->call_to_fast_jit_ready_groups >= group_stride)) {
         os_cond_reltimedwait(&module->tierup_wait_cond,
                              &module->tierup_wait_lock, 10000);
         if (module->orcjit_stop_compiling) {
