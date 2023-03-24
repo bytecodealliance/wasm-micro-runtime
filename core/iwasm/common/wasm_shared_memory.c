@@ -253,6 +253,7 @@ acquire_wait_info(void *address, AtomicWaitNode *wait_node)
         wait_info->wait_list = &wait_info->wait_list_head;
         ret = bh_list_init(wait_info->wait_list);
         bh_assert(ret == BH_LIST_SUCCESS);
+        (void)ret;
 
         if (!bh_hash_map_insert(wait_map, address, (void *)wait_info)) {
             wasm_runtime_free(wait_info);
