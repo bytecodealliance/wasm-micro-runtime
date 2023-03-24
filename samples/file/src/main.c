@@ -20,7 +20,7 @@ main(int argc, char *argv_main[])
     static char global_heap_buf[512 * 1024];
     char *buffer, error_buf[128];
     const char *wasm_path = NULL, *wasi_dir = NULL;
-    int opt;
+    int opt, main_result = 1;
 
     wasm_module_t module = NULL;
     wasm_module_inst_t module_inst = NULL;
@@ -91,7 +91,7 @@ main(int argc, char *argv_main[])
     }
 
     if (wasm_application_execute_main(module_inst, 0, NULL)) {
-        printf("Main wasm function successfully finished.\n");
+        main_result = wasm_runtime_get_wasi_exit_code(module_inst);
     }
     else {
         printf("call wasm function main failed. error: %s\n",
@@ -109,5 +109,5 @@ fail:
     if (buffer)
         BH_FREE(buffer);
     wasm_runtime_destroy();
-    return 0;
+    return main_result;
 }
