@@ -382,9 +382,9 @@ wasm_cluster_add_exec_env(WASMCluster *cluster, WASMExecEnv *exec_env)
     return ret;
 }
 
-/* The caller should lock cluster->lock for thread safety */
-bool
-wasm_cluster_del_exec_env(WASMCluster *cluster, WASMExecEnv *exec_env)
+static bool
+wasm_cluster_del_exec_env_internal(WASMCluster *cluster, WASMExecEnv *exec_env,
+                                   bool can_destroy_cluster)
 {
     bool ret = true;
     bh_assert(exec_env->cluster == cluster);
@@ -407,11 +407,24 @@ wasm_cluster_del_exec_env(WASMCluster *cluster, WASMExecEnv *exec_env)
     if (bh_list_remove(&cluster->exec_env_list, exec_env) != 0)
         ret = false;
 
-    if (cluster->exec_env_list.len == 0) {
-        /* exec_env_list empty, destroy the cluster */
-        wasm_cluster_destroy(cluster);
+    if (can_destroy_cluster) {
+        if (cluster->exec_env_list.len == 0) {
+            /* exec_env_list empty, destroy the cluster */
+            wasm_cluster_destroy(cluster);
+        }
     }
+    else {
+        /* Don't destroy cluster as cluster->lock is being used */
+    }
+
     return ret;
+}
+
+/* The caller should lock cluster->lock for thread safety */
+bool
+wasm_cluster_del_exec_env(WASMCluster *cluster, WASMExecEnv *exec_env)
+{
+    return wasm_cluster_del_exec_env_internal(cluster, exec_env, true);
 }
 
 static WASMExecEnv *
@@ -561,7 +574,7 @@ wasm_cluster_destroy_spawned_exec_env(WASMExecEnv *exec_env)
     /* Free aux stack space */
     free_aux_stack(exec_env, exec_env->aux_stack_bottom.bottom);
     /* Remove exec_env */
-    wasm_cluster_del_exec_env(cluster, exec_env);
+    wasm_cluster_del_exec_env_internal(cluster, exec_env, false);
     /* Destroy exec_env */
     wasm_exec_env_destroy_internal(exec_env);
     /* Routine exit, destroy instance */
@@ -621,7 +634,7 @@ thread_manager_start_routine(void *arg)
     /* Free aux stack space */
     free_aux_stack(exec_env, exec_env->aux_stack_bottom.bottom);
     /* Remove exec_env */
-    wasm_cluster_del_exec_env(cluster, exec_env);
+    wasm_cluster_del_exec_env_internal(cluster, exec_env, false);
     /* Destroy exec_env */
     wasm_exec_env_destroy_internal(exec_env);
     /* Routine exit, destroy instance */
@@ -707,7 +720,7 @@ wasm_cluster_create_thread(WASMExecEnv *exec_env,
     return 0;
 
 fail4:
-    wasm_cluster_del_exec_env(cluster, new_exec_env);
+    wasm_cluster_del_exec_env_internal(cluster, new_exec_env, false);
 fail3:
     /* free the allocated aux stack space */
     if (alloc_aux_stack)
@@ -972,7 +985,7 @@ wasm_cluster_exit_thread(WASMExecEnv *exec_env, void *retval)
     /* Free aux stack space */
     free_aux_stack(exec_env, exec_env->aux_stack_bottom.bottom);
     /* Remove exec_env */
-    wasm_cluster_del_exec_env(cluster, exec_env);
+    wasm_cluster_del_exec_env_internal(cluster, exec_env, false);
     /* Destroy exec_env */
     wasm_exec_env_destroy_internal(exec_env);
     /* Routine exit, destroy instance */
