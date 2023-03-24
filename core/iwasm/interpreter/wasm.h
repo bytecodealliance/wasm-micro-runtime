@@ -602,9 +602,9 @@ struct WASMModule {
        since no need to enable llvm jit compilation for Mode_Interp and
        Mode_Fast_JIT, so as to improve performance for them */
     bool enable_llvm_jit_compilation;
-    /* The count of groups which finish compiling the
-       call_to_fast_jit_from_llvm_jit func ptrs in that group */
-    uint32 call_to_fast_jit_ready_groups;
+    /* The count of groups which finish compiling the fast jit
+       functions in that group */
+    uint32 fast_jit_ready_groups;
 #endif
 };
 
