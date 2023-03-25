@@ -2025,6 +2025,11 @@ orcjit_thread_callback(void *arg)
             return NULL;
         }
     }
+#if WASM_ENABLE_JIT != 0 && WASM_ENABLE_LAZY_JIT != 0
+    os_mutex_lock(&module->tierup_wait_lock);
+    module->fast_jit_ready_groups++;
+    os_mutex_unlock(&module->tierup_wait_lock);
+#endif
 #endif
 
 #if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
@@ -2052,9 +2057,11 @@ orcjit_thread_callback(void *arg)
         }
     }
 
-    /* Wait until init_llvm_jit_functions_stage2 finishes */
+    /* Wait until init_llvm_jit_functions_stage2 finishes and all
+       fast jit functions are compiled */
     os_mutex_lock(&module->tierup_wait_lock);
-    while (!(module->llvm_jit_inited && module->enable_llvm_jit_compilation)) {
+    while (!(module->llvm_jit_inited && module->enable_llvm_jit_compilation
+             && module->fast_jit_ready_groups >= group_stride)) {
         os_cond_reltimedwait(&module->tierup_wait_cond,
                              &module->tierup_wait_lock, 10000);
         if (module->orcjit_stop_compiling) {
