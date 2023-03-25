@@ -12,7 +12,7 @@ COPY resource /root/
 ##  - download cmake with wget and set up
 # hadolint ignore=DL3008
 RUN wget --progress=dot:giga https://github.com/Kitware/CMake/releases/download/v3.21.1/cmake-3.21.1-linux-x86_64.tar.gz \
-    && tar -zxvf cmake-3.21.1-linux-x86_64.tar.gz \
+    && tar -zxf cmake-3.21.1-linux-x86_64.tar.gz \
     && rm -f cmake-3.21.1-linux-x86_64.tar.gz \
     && mv cmake-3.21.1-linux-x86_64 /opt/cmake \
     && ln -s /opt/cmake/bin/cmake /bin/cmake \
@@ -26,12 +26,16 @@ RUN wget --progress=dot:giga https://github.com/Kitware/CMake/releases/download/
 
 ##  - download wasi-sdk with wget and set up to /opt/wasi-sdk
 RUN wget --progress=dot:giga https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-linux.tar.gz \
-    && tar -zxvf wasi-sdk-*-linux.tar.gz \
+    && tar -zxf wasi-sdk-*-linux.tar.gz \
     && mv wasi-sdk-19.0 /opt/wasi-sdk/ \
     && rm -f wasi-sdk-*-linux.tar.gz
 
 ##  - clone wamr repo
 RUN git clone -b main --depth=1 https://github.com/bytecodealliance/wasm-micro-runtime.git
+
+WORKDIR /root/wasm-micro-runtime/build-scripts
+RUN apt-get update && apt-get install --no-install-recommends -y ccache ninja-build python3-pip
+RUN pip3 install --user -r requirements.txt
 
 WORKDIR /root/wasm-micro-runtime/wamr-compiler
 RUN ./build_llvm.sh \
