@@ -4,6 +4,41 @@
   "source": "https://marketplace.visualstudio.com/items?itemName=pomdtr.excalidraw-editor",
   "elements": [
     {
+      "type": "rectangle",
+      "version": 155,
+      "versionNonce": 1248561528,
+      "isDeleted": false,
+      "id": "fxSjNN3geJtdm-2MR7INN",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "angle": 0,
+      "x": 583.9999694824219,
+      "y": 276.33331298828114,
+      "strokeColor": "#000000",
+      "backgroundColor": "#ced4da",
+      "width": 427.66665649414057,
+      "height": 468.6667785644533,
+      "seed": 1226571556,
+      "groupIds": [],
+      "roundness": null,
+      "boundElements": [
+        {
+          "id": "zFlCnXyCuuvj85rH8yMcR",
+          "type": "arrow"
+        },
+        {
+          "id": "KiC12zdfqG7zXRbctXGmT",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1679706874848,
+      "link": null,
+      "locked": false
+    },
+    {
       "type": "text",
       "version": 31,
       "versionNonce": 726044059,
@@ -331,43 +366,8 @@
     },
     {
       "type": "rectangle",
-      "version": 153,
-      "versionNonce": 1762237704,
-      "isDeleted": false,
-      "id": "fxSjNN3geJtdm-2MR7INN",
-      "fillStyle": "hachure",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 1,
-      "opacity": 100,
-      "angle": 0,
-      "x": 583.9999694824219,
-      "y": 276.33331298828114,
-      "strokeColor": "#000000",
-      "backgroundColor": "transparent",
-      "width": 427.66665649414057,
-      "height": 468.6667785644533,
-      "seed": 1226571556,
-      "groupIds": [],
-      "roundness": null,
-      "boundElements": [
-        {
-          "id": "zFlCnXyCuuvj85rH8yMcR",
-          "type": "arrow"
-        },
-        {
-          "id": "KiC12zdfqG7zXRbctXGmT",
-          "type": "arrow"
-        }
-      ],
-      "updated": 1679706533823,
-      "link": null,
-      "locked": false
-    },
-    {
-      "type": "rectangle",
-      "version": 106,
-      "versionNonce": 1436800437,
+      "version": 108,
+      "versionNonce": 628186232,
       "isDeleted": false,
       "id": "10UtZNhGhQIza4PqPLKs5",
       "fillStyle": "hachure",
@@ -386,7 +386,7 @@
       "groupIds": [],
       "roundness": null,
       "boundElements": [],
-      "updated": 1679639008121,
+      "updated": 1679706899765,
       "link": null,
       "locked": false
     },
