@@ -7,15 +7,15 @@
 ## Module level data (function)
 **WASMModule**: Data structure created for loading a module.   
 - `WASMImport *import_functions`: initialized from the Wasm file function section
-- `WASMImport *import_functions`: initialized from the Wasm file import section  
+- `WASMImport *import_functions`: initialized from the Wasm file import section. The runtime will try to solve the imports from the native API registration, refer to [Export native API to WASM application](../../../doc/export_native_api.md).  
 
 **WASMFunction**: represent a Wasm function located in Wasm file code section. Track the links to the compiled function body.  
-**WASMImport**: represent a imported Wasm function which can be a native function or another Wasm module exported function.
+**WASMImport**: represent a imported Wasm function which can be a solved as a native function or another Wasm module exported function.
 
 ## Instance level data (function)
-**`WASMModuleInstance**: Data structure created for instantiating a module
-- `WASMModuleInstanceExtra::functions`: combined imported and internal functions into single array of structure `WASMFunctionInstance`
-- `WASMModuleInstance::import_func_ptrs`: pointer array for solved function imports. This array is referred for calling imported function.
+**WASMModuleInstance**: Data structure created for instantiating a module
+- `WASMModuleInstanceExtra::functions`: combined the imported and internal functions into single array of structure `WASMFunctionInstance`
+- `WASMModuleInstance::import_func_ptrs`: pointer array for solved function imports. This array is referred during calling imported native function. Note it is initialzed with the module level solved imports, but may points to different native function later due to c-api calls.
  
 ## Execution paths
 **Interpreter**:
