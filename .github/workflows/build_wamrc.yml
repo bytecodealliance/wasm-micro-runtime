@@ -38,7 +38,7 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: get cached LLVM libraries
-        id: cache_llvm
+        id: retrieve_llvm_libs
         uses: actions/cache@v3
         with:
           path: |
@@ -49,10 +49,9 @@ jobs:
             ./core/deps/llvm/build/share
           key: ${{ inputs.llvm_cache_key }}
 
-      - name: Build llvm and clang from source
-        if: steps.cache_llvm.outputs.cache-hit != 'true'
-        run: /usr/bin/env python3 ./build_llvm.py --arch X86
-        working-directory: build-scripts
+      - name: Quit if cache miss
+        if: steps.retrieve_llvm_libs.outputs.cache-hit != 'true'
+        run: echo "::error::can not get prebuilt llvm libraries" && exit 1
 
       - name: generate wamrc binary release
         run: |

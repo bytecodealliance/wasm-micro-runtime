@@ -14,6 +14,10 @@ on:
         description: workfing directory
         type: string
         required: true
+      llvm_cache_key:
+        description: the cache key of llvm libraries
+        type: string
+        required: true
       runner:
         description: OS of compilation
         type: string
@@ -32,6 +36,22 @@ jobs:
     runs-on: ${{ inputs.runner }}
     steps:
       - uses: actions/checkout@v3
+
+      - name: get cached LLVM libraries
+        id: retrieve_llvm_libs
+        uses: actions/cache@v3
+        with:
+          path: |
+            ./core/deps/llvm/build/bin
+            ./core/deps/llvm/build/include
+            ./core/deps/llvm/build/lib
+            ./core/deps/llvm/build/libexec
+            ./core/deps/llvm/build/share
+          key: ${{ inputs.llvm_cache_key }}
+
+      - name: Quit if cache miss
+        if: steps.retrieve_llvm_libs.outputs.cache-hit != 'true'
+        run: echo "::error::can not get prebuilt llvm libraries" && exit 1
 
       - name: generate iwasm binary release
         run: |
