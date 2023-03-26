@@ -368,9 +368,9 @@ jobs:
           mkdir wasi-libc
           cd wasi-libc
           git init
-          # "Rename thread_spawn import" commit on main branch
+          # "Fix a_store operation in atomic.h" commit on main branch
           git fetch https://github.com/WebAssembly/wasi-libc \
-            8f5275796a82f8ecfd0833a4f3f444fa37ed4546
+            1dfe5c302d1c5ab621f7abf04620fae92700fd22
           git checkout FETCH_HEAD
           make -j \
             AR=/opt/wasi-sdk/bin/llvm-ar \
@@ -532,9 +532,9 @@ jobs:
           mkdir wasi-libc
           cd wasi-libc
           git init
-          # "Rename thread_spawn import" commit on main branch
+          # "Fix a_store operation in atomic.h" commit on main branch
           git fetch https://github.com/WebAssembly/wasi-libc \
-            8f5275796a82f8ecfd0833a4f3f444fa37ed4546
+            1dfe5c302d1c5ab621f7abf04620fae92700fd22
           git checkout FETCH_HEAD
           make -j \
             AR=/opt/wasi-sdk/bin/llvm-ar \
