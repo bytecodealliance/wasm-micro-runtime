@@ -12,10 +12,10 @@
 #include <assert.h>
 #include <stdbool.h>
 
-#if USE_PTHREAD_SYNC_PRIMITIVES != 0
-#include <pthread.h>
-#else
+#if USE_CUSTOM_SYNC_PRIMITIVES != 0
 #include "sync_primitives.h"
+#else
+#include <pthread.h>
 #endif
 
 #include "wasi_thread_start.h"
