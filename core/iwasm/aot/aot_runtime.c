@@ -990,7 +990,7 @@ execute_post_instantiate_functions(AOTModuleInstance *module_inst,
         exec_env->module_inst = (WASMModuleInstanceCommon *)module_inst;
     }
     else {
-/* Try using the existing exec_env */
+        /* Try using the existing exec_env */
 #ifdef OS_ENABLE_HW_BOUND_CHECK
         exec_env = exec_env_tls;
 #endif
