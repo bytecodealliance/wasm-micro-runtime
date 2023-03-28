@@ -209,7 +209,8 @@ export class VariableScanner {
                 const importDeclaration = <ts.ImportDeclaration>node;
                 const globalScope = this.currentScope!.getRootGloablScope()!;
                 // Get the import module name according to the relative position of enter scope
-                const enterScope = this.globalScopes[this.globalScopes.length - 1];
+                const enterScope =
+                    this.globalScopes[this.globalScopes.length - 1];
                 const importModuleName = getImportModulePath(
                     importDeclaration,
                     enterScope,

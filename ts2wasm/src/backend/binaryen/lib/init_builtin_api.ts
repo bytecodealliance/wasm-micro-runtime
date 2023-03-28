@@ -10,12 +10,6 @@ import { BuiltinNames } from '../../../../lib/builtin/builtin_name.js';
 import { emptyStructType } from '../glue/transform.js';
 import { flattenLoopStatement, FlattenLoop } from '../utils.js';
 import { dyntype } from './dyntype/utils.js';
-import {
-    importAnyLibAPI,
-    generateGlobalContext,
-    generateInitDynContext,
-    generateFreeDynContext,
-} from './env_init.js';
 import { arrayToPtr } from '../glue/transform.js';
 import {
     charArrayTypeInfo,
@@ -23,11 +17,7 @@ import {
     stringTypeInfo,
 } from '../glue/packType.js';
 
-function getFuncName(
-    moduleName: string,
-    funcName: string,
-    delimiter = '|',
-) {
+function getFuncName(moduleName: string, funcName: string, delimiter = '|') {
     return moduleName.concat(delimiter).concat(funcName);
 }
 

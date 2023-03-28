@@ -307,7 +307,10 @@ export default class StatementCompiler {
             case ts.SyntaxKind.ImportDeclaration: {
                 const importDeclaration = <ts.ImportDeclaration>node;
                 // Get the import module name according to the relative position of enter scope
-                const enterScope = this.parserCtx.globalScopes[this.parserCtx.globalScopes.length - 1];
+                const enterScope =
+                    this.parserCtx.globalScopes[
+                        this.parserCtx.globalScopes.length - 1
+                    ];
                 const importModuleName = getImportModulePath(
                     importDeclaration,
                     enterScope,

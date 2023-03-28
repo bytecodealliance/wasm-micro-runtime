@@ -20,7 +20,7 @@ import StatementCompiler from './statement.js';
 import path from 'path';
 import { Logger } from './log.js';
 import { SyntaxError } from './error.js';
-import SematicCheck from './sematic_check.js';
+import SematicCheck from './semantic_check.js';
 import { ArgNames, BuiltinNames } from '../lib/builtin/builtin_name.js';
 
 export interface CompileArgs {
@@ -129,8 +129,10 @@ export class ParserContext {
                 i++
             ) {
                 for (const builtInIdentifier of BuiltinNames.builtinIdentifierArray) {
-                    this.globalScopes[i]
-                        .addImportIdentifier(builtInIdentifier, builtInScope);
+                    this.globalScopes[i].addImportIdentifier(
+                        builtInIdentifier,
+                        builtInScope,
+                    );
                 }
             }
         }
