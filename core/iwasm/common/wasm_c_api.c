@@ -687,8 +687,8 @@ wasm_store_delete(wasm_store_t *store)
         return;
     }
 
-    DEINIT_VEC(store->modules, wasm_module_vec_delete);
     DEINIT_VEC(store->instances, wasm_instance_vec_delete);
+    DEINIT_VEC(store->modules, wasm_module_vec_delete);
     if (store->foreigns) {
         bh_vector_destroy(store->foreigns);
         wasm_runtime_free(store->foreigns);
