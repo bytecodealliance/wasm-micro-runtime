@@ -67,7 +67,7 @@
 - [x] member field initialization
 - [x] member method
 - [x] static method
-- [ ] static field
+- [x] static field
 - [x] inherit
 - [x] implicit constructor
 - [x] visibility control
