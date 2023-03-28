@@ -58,7 +58,7 @@
 - [x] arrow function
 - [x] closure
 - [ ] default parameter
-- [ ] rest parameter
+- [x] rest parameter
 
 ## Class
 - [x] class declaration
