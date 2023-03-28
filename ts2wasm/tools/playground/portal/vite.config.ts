@@ -16,6 +16,9 @@ export default defineConfig(({ command, mode }) => {
                 'node-fetch': 'isomorphic-fetch',
             },
         },
+        build: {
+            sourcemap: 'inline',
+        },
     };
 
     if (command !== 'build') {

@@ -14,7 +14,12 @@ interface I2 {
     z: string;
 }
 
-function infc4(): I {
+function foo(): I {
     const i = { y: true, x: 10, z: 'str' };
     return i;
+}
+
+export function infc4() {
+    const infc = foo();
+    return infc.y;
 }

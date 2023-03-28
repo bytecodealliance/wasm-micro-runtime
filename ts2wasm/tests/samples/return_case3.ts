@@ -8,4 +8,5 @@ export function returnTest3(a: number) {
         return a;
         a += 1;
     }
+    return a;
 }

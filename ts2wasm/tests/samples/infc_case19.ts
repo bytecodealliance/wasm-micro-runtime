@@ -31,7 +31,7 @@ class Foo {
     }
 }
 
-function infc19() {
+export function infc19() {
     const f = new Foo();
     const i: I = f;
     return i.test();

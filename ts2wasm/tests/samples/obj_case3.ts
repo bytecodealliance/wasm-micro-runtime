@@ -14,5 +14,5 @@ export function objTest() {
             },
         },
     };
-    return obj1.c.e;
+    return obj1.c.e.f;
 }

@@ -17,7 +17,7 @@ import { ParserContext } from './frontend.js';
 import { parentIsFunctionLike, Stack } from './utils.js';
 import { Parameter, Variable } from './variable.js';
 import { Statement } from './statement.js';
-import { ArgNames, BuiltinNames } from '../lib/builtin/builtinUtil.js';
+import { ArgNames, BuiltinNames } from '../lib/builtin/builtin_name.js';
 
 export enum ScopeKind {
     Scope,
@@ -225,8 +225,8 @@ export class Scope {
             (scope) => {
                 let res: Variable | Scope | Type | undefined;
 
-                /* Step1: Find variable in current scope */
                 res =
+                    /* Step1: Find variable in current scope */
                     scope.findVariable(name, false) ||
                     /* Step2: Find function in current scope */
                     scope.findFunctionScope(name, false) ||
@@ -571,14 +571,14 @@ export class NamespaceScope extends Scope {
 }
 
 export class ScopeScanner {
-    globalScopeStack: Stack<GlobalScope>;
+    globalScopeArray: Array<GlobalScope>;
     currentScope: Scope | null = null;
     nodeScopeMap: Map<ts.Node, Scope>;
     /* anonymous function index */
     anonymousIndex = 0;
 
     constructor(private parserCtx: ParserContext) {
-        this.globalScopeStack = this.parserCtx.globalScopeStack;
+        this.globalScopeArray = this.parserCtx.globalScopes;
         this.nodeScopeMap = this.parserCtx.nodeScopeMap;
     }
 
@@ -635,17 +635,22 @@ export class ScopeScanner {
                 const sourceFileNode = <ts.SourceFile>node;
                 const globalScope = new GlobalScope();
                 this.setCurrentScope(globalScope);
-                const filePath = sourceFileNode.fileName.slice(
-                    undefined,
-                    -'.ts'.length,
-                );
-                const moduleName = path.relative(process.cwd(), filePath);
-                if (!this.parserCtx.compileArgs[ArgNames.isBuiltIn]) {
-                    globalScope.moduleName = moduleName;
+                let moduleName = '';
+                const isBuiltInFile =
+                    sourceFileNode.fileName.includes(
+                        BuiltinNames.builtinImplementFileName,
+                    ) || this.parserCtx.compileArgs[ArgNames.isBuiltIn];
+                if (isBuiltInFile) {
+                    moduleName = BuiltinNames.builtinModuleName;
                 } else {
-                    globalScope.moduleName = 'builtIn';
+                    const filePath = sourceFileNode.fileName.slice(
+                        undefined,
+                        -'.ts'.length,
+                    );
+                    moduleName = path.relative(process.cwd(), filePath);
                 }
-                this.globalScopeStack.push(globalScope);
+                globalScope.moduleName = moduleName;
+                this.globalScopeArray.push(globalScope);
                 this.nodeScopeMap.set(sourceFileNode, globalScope);
                 for (let i = 0; i < sourceFileNode.statements.length; i++) {
                     this.visitNode(sourceFileNode.statements[i]);

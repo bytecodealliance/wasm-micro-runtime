@@ -5,7 +5,7 @@
 
 import binaryen from 'binaryen';
 import { assert } from 'console';
-import { BuiltinNames } from '../../../lib/builtin/builtinUtil.js';
+import { BuiltinNames } from '../../../lib/builtin/builtin_name.js';
 import Long from 'long';
 
 function i64_new(low: number, high: number) {
@@ -35,7 +35,7 @@ export function initGlobalOffset(module: binaryen.Module) {
     let memoryOffset = initMemoryOffset();
     // finalize data
     module.addGlobal(
-        BuiltinNames.data_end,
+        BuiltinNames.dataEnd,
         binaryen.i32,
         false,
         module.i32.const(memoryOffset.low),
@@ -47,7 +47,7 @@ export function initGlobalOffset(module: binaryen.Module) {
         getByteSize(BuiltinNames.byteSize),
     );
     module.addGlobal(
-        BuiltinNames.stack_pointer,
+        BuiltinNames.stackPointer,
         binaryen.i32,
         true,
         module.i32.const(memoryOffset.low),
@@ -55,7 +55,7 @@ export function initGlobalOffset(module: binaryen.Module) {
 
     // finalize heap
     module.addGlobal(
-        BuiltinNames.heap_base,
+        BuiltinNames.heapBase,
         binaryen.i32,
         false,
         module.i32.const(memoryOffset.low),
@@ -67,18 +67,13 @@ export function initDefaultMemory(
     segments: binaryen.MemorySegment[],
 ): void {
     module.setMemory(
-        BuiltinNames.mem_initialPages,
-        BuiltinNames.mem_maximumPages,
+        BuiltinNames.memInitialPages,
+        BuiltinNames.memMaximumPages,
         'default',
         segments,
     );
 }
 
 export function initDefaultTable(module: binaryen.Module): void {
-    module.addTable(
-        BuiltinNames.extref_table,
-        BuiltinNames.table_initialPages,
-        BuiltinNames.table_maximumPages,
-        binaryen.anyref,
-    );
+    module.addTable(BuiltinNames.extrefTable, 0, -1, binaryen.anyref);
 }

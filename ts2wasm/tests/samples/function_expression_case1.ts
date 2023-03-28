@@ -6,4 +6,7 @@
 const fe_case1_1 = function (a: number, b: number) {
     return a + b;
 };
-// fe_case1_1(1, 2);
+
+export function functionTest() {
+    return fe_case1_1(7.1, 1997);
+}

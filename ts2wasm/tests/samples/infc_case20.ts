@@ -32,6 +32,9 @@ class Foo {
     }
 }
 
-const f = new Foo();
-const i: I = f;
-const m = i._x;
+export function infc20() {
+    const f = new Foo();
+    const i: I = f;
+    const m = i._x;
+    return m;
+}

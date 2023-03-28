@@ -10,8 +10,10 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { ParserContext, CompileArgs } from '../src/frontend.js';
 import log4js from 'log4js';
-import { Logger, printLogger } from '../src/log.js';
+import { Logger, consoleLogger } from '../src/log.js';
 import { WASMGen } from '../src/backend/binaryen/index.js';
+import { default as logConfig } from '../config/log4js.js';
+import { SyntaxError } from '../src/error.js';
 
 interface HelpMessageCategory {
     General: string[];
@@ -259,12 +261,20 @@ function main() {
 
         backend.dispose();
     } catch (e) {
-        printLogger.error(
-            (<Error>e).message,
-            "Error details is in '/logs/error.yyyy-mm-dd.log'",
-        );
-        Logger.error(e);
-        log4js.shutdown(() => process.exit(1));
+        if (e instanceof SyntaxError) {
+            /* Syntax error are reported by frontend.ts */
+            console.log(e.message);
+            process.exit(1);
+        } else {
+            /* TODO: print line number in error message */
+            consoleLogger.error(
+                (<Error>e).message,
+                '\n',
+                `Error details is in '${logConfig.appenders.file.filename}'`,
+            );
+            Logger.error(e);
+            log4js.shutdown(() => process.exit(1));
+        }
     }
 }
 

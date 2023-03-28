@@ -5,5 +5,12 @@
 
 class A4 {
     constructor() {}
-    public test() {}
+    public test() {
+        return 10;
+    }
+}
+
+export function classTest() {
+    const a = new A4();
+    return a.test();
 }

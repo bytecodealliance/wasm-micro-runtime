@@ -1,5 +1,8 @@
 # cant test switch-case-statement.ts because of eslint checking, add the line temporarily
-tests/samples/
+tests/samples/*
 src/glue/binaryen.d.ts
 src/glue/binaryen.js
 runtime-library/dyntype/*
+build/*
+**/dist/*
+tools/playground/server/assets/samples/*

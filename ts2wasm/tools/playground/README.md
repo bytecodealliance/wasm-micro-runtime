@@ -24,10 +24,14 @@ modify the `SERVER_IP` in `.env` to the ip of server, then execute:
 docker-compose up -d --build
 ```
 
+Open the browser and navigate to http://<SERVER_IP>:3050
+
+> Note: must use `chrome` version 111+ and enable the `WebAssembly Garbage Collection flag` in `chrome://flags/#enable-webassembly-garbage-collection`
+
 ## Inspect database
 
 ``` bash
 docker inspect playground_ts2wasm-data
 ```
 
-Get the Mountpoint of the volumn, and use any sqlite3 compatible tool to inspect the database file.
+Get the Mountpoint of the volumn, and use any sqlite3 compatible tool to inspect the database file `feedback.sqlite`.

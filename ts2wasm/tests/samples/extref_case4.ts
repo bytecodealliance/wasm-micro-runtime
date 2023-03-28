@@ -4,9 +4,17 @@
  */
 
 export function extrefTest() {
-    const str = 'hi';
+    // with string
+    // const str = 'hi';
+    // let a: any = str;
+    // const num = 1;
+    // a = num;
+    // return a as number;
+
+    // without string
+    const str = false;
     let a: any = str;
     const num = 1;
     a = num;
-    return a;
+    return a as number;
 }

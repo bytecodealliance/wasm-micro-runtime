@@ -15,13 +15,18 @@ hooks.forEach(function (hook) {
     const hookInSourceControl = path.resolve(__dirname, 'hooks', hook);
 
     if (fs.existsSync(hookInSourceControl)) {
-        const hookInHiddenDirectory = path.resolve(
+        const gitHookDirectory = path.resolve(
             __dirname,
+            '..',
             '..',
             '.git',
             'hooks',
-            hook,
         );
+        const hookInHiddenDirectory = path.resolve(gitHookDirectory, hook);
+
+        if (!fs.existsSync(gitHookDirectory)) {
+            return;
+        }
 
         if (fs.existsSync(hookInHiddenDirectory)) {
             fs.unlinkSync(hookInHiddenDirectory);

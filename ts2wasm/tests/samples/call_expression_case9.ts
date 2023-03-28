@@ -3,11 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-export function callTest(a: any) {
+export function outer(a: any) {
     function inner(b: number) {
-        return a;
+        return a + b;
     }
     return inner;
 }
 
-callTest(1)(2);
+export function callTest() {
+    const res = outer(1)(2);
+    return res;
+}

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-function scopeScannerCase7Func1(a: number) {
+export function scopeScannerCase7Func7(a: number) {
     let b = 2;
     switch (a) {
         case 1: {
@@ -17,4 +17,5 @@ function scopeScannerCase7Func1(a: number) {
         default:
             a += 2;
     }
+    return a + b;
 }

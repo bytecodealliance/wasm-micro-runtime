@@ -6,7 +6,7 @@
 import ts from 'typescript';
 import binaryen from 'binaryen';
 import * as binaryenCAPI from './glue/binaryen.js';
-import { FunctionKind, TSClass } from '../../type.js';
+import { FunctionKind, TSFunction, TSClass } from '../../type.js';
 import { builtinTypes, Type, TypeKind } from '../../type.js';
 import { Variable } from '../../variable.js';
 import {
@@ -26,7 +26,7 @@ import {
     NamespaceScope,
 } from '../../scope.js';
 import { Stack } from '../../utils.js';
-import { GLOBAL_INIT_FUNC, typeInfo } from './glue/utils.js';
+import { typeInfo } from './glue/utils.js';
 import {
     importAnyLibAPI,
     importInfcLibAPI,
@@ -34,27 +34,23 @@ import {
     generateInitDynContext,
     generateFreeDynContext,
     addItableFunc,
-    addDecoratorFunc,
-} from '../../../lib/envInit.js';
-import { WASMTypeGen } from './wasmTypeGen.js';
+} from './lib/env_init.js';
+import { WASMTypeGen } from './wasm_type_gen.js';
 import {
     WASMExpressionGen,
     WASMDynExpressionGen,
     WASMExpressionBase,
-} from './wasmExprGen.js';
-import { WASMStatementGen } from './wasmStmtGen.js';
+} from './wasm_expr_gen.js';
+import { WASMStatementGen } from './wasm_stmt_gen.js';
 import {
     initGlobalOffset,
     initDefaultMemory,
     initDefaultTable,
 } from './memory.js';
-import { ArgNames, BuiltinNames } from '../../../lib/builtin/builtinUtil.js';
-import {
-    addBuiltInNoAnyFunc,
-    addBuiltInAnyFunc,
-} from '../../../lib/builtin/addBuiltIn.js';
+import { ArgNames, BuiltinNames } from '../../../lib/builtin/builtin_name.js';
 import { Ts2wasmBackend, ParserContext } from '../index.js';
 import { Logger } from '../../log.js';
+import { callBuiltInAPIs } from './lib/init_builtin_api.js';
 
 export class WASMFunctionContext {
     private binaryenCtx: WASMGen;
@@ -232,7 +228,7 @@ export class WASMGen extends Ts2wasmBackend {
     private currentFuncCtx: WASMFunctionContext | null = null;
     private dataSegmentContext: DataSegmentContext | null = null;
     private binaryenModule: binaryen.Module;
-    private globalScopeStack: Stack<GlobalScope>;
+    private globalScopes: Array<GlobalScope>;
     static contextOfScope: Map<Scope, typeInfo> = new Map<Scope, typeInfo>();
     private wasmTypeCompiler = new WASMTypeGen(this);
     wasmExprCompiler = new WASMExpressionGen(this);
@@ -247,7 +243,7 @@ export class WASMGen extends Ts2wasmBackend {
     constructor(parserContext: ParserContext) {
         super(parserContext);
         this.binaryenModule = new binaryen.Module();
-        this.globalScopeStack = parserContext.globalScopeStack;
+        this.globalScopes = parserContext.globalScopes;
         this.dataSegmentContext = new DataSegmentContext(this);
     }
 
@@ -301,17 +297,12 @@ export class WASMGen extends Ts2wasmBackend {
 
     private WASMGenerate() {
         WASMGen.contextOfScope.clear();
-        this.enterModuleScope = this.globalScopeStack.peek();
+        this.enterModuleScope = this.globalScopes[this.globalScopes.length - 1];
 
         // init wasm environment
         initGlobalOffset(this.module);
         initDefaultTable(this.module);
-        if (!this.parserContext.compileArgs[ArgNames.disableBuiltIn]) {
-            addBuiltInNoAnyFunc(this.module);
-            if (!this.parserContext.compileArgs[ArgNames.disableAny]) {
-                addBuiltInAnyFunc(this.module);
-            }
-        }
+        callBuiltInAPIs(this.module);
         if (!this.parserContext.compileArgs[ArgNames.disableAny]) {
             importAnyLibAPI(this.module);
         }
@@ -320,9 +311,9 @@ export class WASMGen extends Ts2wasmBackend {
             addItableFunc(this.module);
         }
 
-        for (let i = 0; i < this.globalScopeStack.size(); i++) {
-            const globalScope = this.globalScopeStack.getItemAtIdx(i);
-            this.globalInitFuncName = `${globalScope.moduleName}|${GLOBAL_INIT_FUNC}`;
+        for (let i = 0; i < this.globalScopes.length; i++) {
+            const globalScope = this.globalScopes[i];
+            this.globalInitFuncName = `${globalScope.moduleName}|${BuiltinNames.globalInitFunc}`;
             this.WASMGenHelper(globalScope);
             this.WASMStartFunctionGen(globalScope);
             this.WASMGlobalFuncGen();
@@ -666,11 +657,16 @@ export class WASMGen extends Ts2wasmBackend {
         const returnWASMType =
             this.wasmTypeCompiler.getWASMFuncReturnType(tsFuncType);
 
+        let importName = functionScope.funcName;
+        if (functionScope.className) {
+            importName = `${functionScope.className}_${importName}`;
+        }
+
         if (functionScope.isDeclare()) {
             this.module.addFunctionImport(
                 functionScope.mangledName,
-                BuiltinNames.external_module_name,
-                functionScope.mangledName,
+                BuiltinNames.externalModuleName,
+                importName,
                 originParamWasmType,
                 returnWASMType,
             );
@@ -678,11 +674,11 @@ export class WASMGen extends Ts2wasmBackend {
         }
 
         if (functionScope.hasDecorator(BuiltinNames.decorator)) {
-            const builtInFuncName = functionScope.mangledName.replace(
-                functionScope.getRootGloablScope()!.moduleName,
-                BuiltinNames.bulitIn_module_name,
-            );
-            addDecoratorFunc(this.module, builtInFuncName);
+            // const builtInFuncName = functionScope.mangledName.replace(
+            //     functionScope.getRootGloablScope()!.moduleName,
+            //     BuiltinNames.bulitInModuleName,
+            // );
+            // addDecoratorFunc(this.module, builtInFuncName);
             return;
         }
 
@@ -904,7 +900,7 @@ export class WASMGen extends Ts2wasmBackend {
         const fieldLen = shape.fields.length;
         const dataLength = methodLen + fieldLen;
         const buffer = new Uint32Array(2 + 3 * dataLength);
-        buffer[0] = this.module.i32.const(shape.typeId);
+        buffer[0] = shape.typeId;
         buffer[1] = dataLength;
         for (let i = 0, j = 2; i < methodLen; i++, j += 3) {
             const method = shape.memberFuncs[i];
@@ -918,14 +914,16 @@ export class WASMGen extends Ts2wasmBackend {
                     ? 2
                     : 3;
             buffer[j] = this.generateRawString(method.name);
-            buffer[j + 1] = this.module.i32.const(flag);
-            buffer[j + 2] = this.module.i32.const(i);
+
+            buffer[j + 1] = flag;
+            buffer[j + 2] = i;
         }
         const previousPartLength = 2 + shape.memberFuncs.length * 3;
         for (let i = 0, j = previousPartLength; i < fieldLen; i++, j += 3) {
             buffer[j] = this.generateRawString(shape.fields[i].name);
-            buffer[j + 1] = this.module.i32.const(0);
-            buffer[j + 2] = this.module.i32.const(i + 1);
+
+            buffer[j + 1] = 0;
+            buffer[j + 2] = i + 1;
         }
         const offset = this.dataSegmentContext!.addData(
             new Uint8Array(buffer.buffer),
@@ -943,5 +941,52 @@ export class WASMGen extends Ts2wasmBackend {
             this.module.block(null, this.globalInitArray),
         );
         this.globalInitArray = [];
+    }
+
+    /* Generate a wrapper function for declared (import) function,
+        this is used when creating closure for declared function */
+    public generateImportWrapper(funcScope: FunctionScope) {
+        const importFuncType = funcScope.funcType;
+        const wrappedName = `${funcScope.mangledName}@wrapper`;
+        const wrapperFuncType = importFuncType.clone();
+        wrapperFuncType.isDeclare = false;
+        const paramWASMType =
+            this.wasmType.getWASMFuncParamType(wrapperFuncType);
+        const returnWASMType =
+            this.wasmType.getWASMFuncReturnType(wrapperFuncType);
+
+        if (this.module.getFunction(wrappedName)) {
+            return {
+                wrapperName: wrappedName,
+                wrapperType: wrapperFuncType,
+            };
+        }
+
+        const paramStmts: binaryen.ExpressionRef[] = [];
+        importFuncType.getParamTypes().forEach((p, i) => {
+            paramStmts.push(
+                /* first parameter is context, ignore it */
+                this.module.local.get(i + 1, this.wasmType.getWASMType(p)),
+            );
+        });
+        const targetCall = this.module.call(
+            funcScope.mangledName,
+            paramStmts,
+            returnWASMType,
+        );
+
+        // add export function
+        this.module.addFunction(
+            wrappedName,
+            paramWASMType,
+            returnWASMType,
+            [],
+            targetCall,
+        );
+
+        return {
+            wrapperName: wrappedName,
+            wrapperType: wrapperFuncType,
+        };
     }
 }

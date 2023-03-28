@@ -99,8 +99,7 @@
       "skipLibCheck": true                                 /* Skip type checking all .d.ts files. */
     },
     "include": [
-      "../../../lib/binaryen.js",
-      "../../../src/glue/binaryen.js"
+      "../../../src/backend/binaryen/glue/binaryen.js"
     ],
     "exclude": [
         "dist/*"

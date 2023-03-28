@@ -14,7 +14,7 @@ interface I2 {
     z: string;
 }
 
-function infc17() {
+export function infc17() {
     const i1: I2 = { x: 1, y: true, z: 'str' };
     const i: I = i1;
     const b = 'b';

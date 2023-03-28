@@ -25,7 +25,12 @@ class Foo {
     }
 }
 
-function infc10(i: (i: I2) => void) {
+function foo(i: I2) {
+    return i.y;
+}
+
+export function infc10(i: (i: I2) => boolean) {
     const f: Foo = new Foo();
-    i(f);
+    const res = i(f);
+    return res;
 }

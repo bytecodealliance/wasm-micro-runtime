@@ -9,7 +9,6 @@ import { ClosureEnvironment, FunctionScope } from './scope.js';
 import { Variable } from './variable.js';
 import { getCurScope } from './utils.js';
 import { TSFunction, Type, TypeKind } from './type.js';
-import { BuiltinNames } from '../lib/builtin/builtinUtil.js';
 
 type OperatorKind = ts.SyntaxKind;
 type ExpressionKind = ts.SyntaxKind;
@@ -346,11 +345,11 @@ export class FunctionExpression extends Expression {
 export default class ExpressionCompiler {
     // private currentScope: Scope | null = null;
 
-    private typeCompiler;
+    private typeResolver;
     private nodeScopeMap;
 
     constructor(private parserCtx: ParserContext) {
-        this.typeCompiler = this.parserCtx.typeComp;
+        this.typeResolver = this.parserCtx.typeResolver;
         this.nodeScopeMap = this.parserCtx.nodeScopeMap;
     }
 
@@ -358,7 +357,7 @@ export default class ExpressionCompiler {
         switch (node.kind) {
             case ts.SyntaxKind.NullKeyword: {
                 const nullExpr = new NullKeywordExpression();
-                nullExpr.setExprType(this.typeCompiler.generateNodeType(node));
+                nullExpr.setExprType(this.typeResolver.generateNodeType(node));
                 return nullExpr;
             }
             case ts.SyntaxKind.NumericLiteral: {
@@ -366,7 +365,7 @@ export default class ExpressionCompiler {
                     parseFloat((<ts.NumericLiteral>node).getText()),
                 );
                 numberLiteralExpr.setExprType(
-                    this.typeCompiler.generateNodeType(node),
+                    this.typeResolver.generateNodeType(node),
                 );
                 return numberLiteralExpr;
             }
@@ -375,21 +374,21 @@ export default class ExpressionCompiler {
                     (<ts.StringLiteral>node).getText(),
                 );
                 stringLiteralExpr.setExprType(
-                    this.typeCompiler.generateNodeType(node),
+                    this.typeResolver.generateNodeType(node),
                 );
                 return stringLiteralExpr;
             }
             case ts.SyntaxKind.FalseKeyword: {
                 const falseLiteralExpr = new FalseLiteralExpression();
                 falseLiteralExpr.setExprType(
-                    this.typeCompiler.generateNodeType(node),
+                    this.typeResolver.generateNodeType(node),
                 );
                 return falseLiteralExpr;
             }
             case ts.SyntaxKind.TrueKeyword: {
                 const trueLiteralExpr = new TrueLiteralExpression();
                 trueLiteralExpr.setExprType(
-                    this.typeCompiler.generateNodeType(node),
+                    this.typeResolver.generateNodeType(node),
                 );
                 return trueLiteralExpr;
             }
@@ -398,9 +397,6 @@ export default class ExpressionCompiler {
                 const identifierExpr = new IdentifierExpression(
                     targetIdentifier,
                 );
-                if (BuiltinNames.builtInObjInfo[targetIdentifier]) {
-                    return identifierExpr;
-                }
                 let scope = this.parserCtx.getScopeByNode(node) || null;
                 const varReferenceScope = scope!.getNearestFunctionScope();
                 let variable: Variable | undefined = undefined;
@@ -431,7 +427,7 @@ export default class ExpressionCompiler {
                 }
 
                 identifierExpr.setExprType(
-                    this.typeCompiler.generateNodeType(node),
+                    this.typeResolver.generateNodeType(node),
                 );
                 return identifierExpr;
             }
@@ -472,7 +468,7 @@ export default class ExpressionCompiler {
                             expr = new CallExpression(leftExpr, [rightExpr]);
                             const type = new TSFunction();
                             type.addParamType(
-                                this.typeCompiler.generateNodeType(
+                                this.typeResolver.generateNodeType(
                                     binaryExprNode.left.name,
                                 ),
                             );
@@ -480,7 +476,7 @@ export default class ExpressionCompiler {
                         }
                     }
                 }
-                expr.setExprType(this.typeCompiler.generateNodeType(node));
+                expr.setExprType(this.typeResolver.generateNodeType(node));
                 return expr;
             }
             case ts.SyntaxKind.PrefixUnaryExpression: {
@@ -491,7 +487,7 @@ export default class ExpressionCompiler {
                     prefixExprNode.operator,
                     operand,
                 );
-                unaryExpr.setExprType(this.typeCompiler.generateNodeType(node));
+                unaryExpr.setExprType(this.typeResolver.generateNodeType(node));
                 return unaryExpr;
             }
             case ts.SyntaxKind.PostfixUnaryExpression: {
@@ -502,7 +498,7 @@ export default class ExpressionCompiler {
                     postExprNode.operator,
                     operand,
                 );
-                unaryExpr.setExprType(this.typeCompiler.generateNodeType(node));
+                unaryExpr.setExprType(this.typeResolver.generateNodeType(node));
                 return unaryExpr;
             }
             case ts.SyntaxKind.ConditionalExpression: {
@@ -516,7 +512,7 @@ export default class ExpressionCompiler {
                     whenFalse,
                 );
                 conditionalExpr.setExprType(
-                    this.typeCompiler.generateNodeType(node),
+                    this.typeResolver.generateNodeType(node),
                 );
                 return conditionalExpr;
             }
@@ -534,12 +530,12 @@ export default class ExpressionCompiler {
                 ) {
                     const callExpr = new SuperCallExpression(args);
                     callExpr.setExprType(
-                        this.typeCompiler.generateNodeType(node),
+                        this.typeResolver.generateNodeType(node),
                     );
                     return callExpr;
                 }
                 const callExpr = new CallExpression(expr, args);
-                callExpr.setExprType(this.typeCompiler.generateNodeType(node));
+                callExpr.setExprType(this.typeResolver.generateNodeType(node));
                 this.parserCtx.sematicChecker.curScope =
                     this.parserCtx.getScopeByNode(node);
                 const argTypes = args.map((arg) => arg.exprType);
@@ -554,8 +550,15 @@ export default class ExpressionCompiler {
             }
             case ts.SyntaxKind.PropertyAccessExpression: {
                 const propAccessExprNode = <ts.PropertyAccessExpression>node;
-                const propAccessExpr =
-                    this.generatePropertyAccessExpr(propAccessExprNode);
+                const expr = this.visitNode(propAccessExprNode.expression);
+                const property = this.visitNode(propAccessExprNode.name);
+                const propAccessExpr = new PropertyAccessExpression(
+                    expr,
+                    property,
+                );
+                propAccessExpr.setExprType(
+                    this.typeResolver.generateNodeType(node),
+                );
                 return propAccessExpr;
             }
             case ts.SyntaxKind.ParenthesizedExpression: {
@@ -564,7 +567,7 @@ export default class ExpressionCompiler {
                 );
                 const parentesizedExpr = new ParenthesizedExpression(expr);
                 parentesizedExpr.setExprType(
-                    this.typeCompiler.generateNodeType(node),
+                    this.typeResolver.generateNodeType(node),
                 );
                 return parentesizedExpr;
             }
@@ -609,7 +612,7 @@ export default class ExpressionCompiler {
                         /* else no arguments */
                     }
                     newExpr.setExprType(
-                        this.typeCompiler.generateNodeType(node),
+                        this.typeResolver.generateNodeType(node),
                     );
                     return newExpr;
                 }
@@ -620,7 +623,7 @@ export default class ExpressionCompiler {
                     }
                     newExpr.setArgs(args);
                 }
-                newExpr.setExprType(this.typeCompiler.generateNodeType(node));
+                newExpr.setExprType(this.typeResolver.generateNodeType(node));
                 return newExpr;
             }
             case ts.SyntaxKind.ObjectLiteralExpression: {
@@ -639,7 +642,7 @@ export default class ExpressionCompiler {
                     values,
                 );
                 objLiteralExpr.setExprType(
-                    this.typeCompiler.generateNodeType(node),
+                    this.typeResolver.generateNodeType(node),
                 );
                 return objLiteralExpr;
             }
@@ -651,7 +654,7 @@ export default class ExpressionCompiler {
                 }
                 const arrLiteralExpr = new ArrayLiteralExpression(elements);
                 arrLiteralExpr.setExprType(
-                    this.typeCompiler.generateNodeType(node),
+                    this.typeResolver.generateNodeType(node),
                 );
                 return arrLiteralExpr;
             }
@@ -661,7 +664,7 @@ export default class ExpressionCompiler {
                 const typeNode = asExprNode.type;
                 const asExpr = new AsExpression(expr);
                 asExpr.setExprType(
-                    this.typeCompiler.generateNodeType(typeNode),
+                    this.typeResolver.generateNodeType(typeNode),
                 );
                 return asExpr;
             }
@@ -676,7 +679,7 @@ export default class ExpressionCompiler {
                     argExpr,
                 );
                 elementAccessExpr.setExprType(
-                    this.typeCompiler.generateNodeType(node),
+                    this.typeResolver.generateNodeType(node),
                 );
                 return elementAccessExpr;
             }
@@ -686,39 +689,16 @@ export default class ExpressionCompiler {
                 const funcExpr = new FunctionExpression(
                     funcScope!.getNearestFunctionScope()!,
                 );
-                funcExpr.setExprType(this.typeCompiler.generateNodeType(node));
+                funcExpr.setExprType(this.typeResolver.generateNodeType(node));
                 return funcExpr;
             }
             case ts.SyntaxKind.ThisKeyword: {
                 const expr = new IdentifierExpression('this');
-                expr.setExprType(this.typeCompiler.generateNodeType(node));
+                expr.setExprType(this.typeResolver.generateNodeType(node));
                 return expr;
             }
             default:
                 return new Expression(ts.SyntaxKind.Unknown);
         }
-    }
-
-    generatePropertyAccessExpr(node: ts.PropertyAccessExpression) {
-        const expr = this.visitNode(node.expression);
-        let property: Expression;
-        let propAccessExpr: PropertyAccessExpression;
-        switch (expr.exprType.kind) {
-            case TypeKind.ARRAY:
-            case TypeKind.NUMBER:
-            case TypeKind.STRING:
-            case TypeKind.BOOLEAN: {
-                const propertyName = node.name.getText();
-                property = new IdentifierExpression(propertyName);
-                propAccessExpr = new PropertyAccessExpression(expr, property);
-                break;
-            }
-            default: {
-                property = this.visitNode(node.name);
-                propAccessExpr = new PropertyAccessExpression(expr, property);
-            }
-        }
-        propAccessExpr.setExprType(this.typeCompiler.generateNodeType(node));
-        return propAccessExpr;
     }
 }

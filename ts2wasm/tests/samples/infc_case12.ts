@@ -8,7 +8,8 @@ interface I {
     y: boolean;
 }
 
-function infc12() {
+export function infc12() {
     const i = new Array<I>(2);
     i[0] = { y: true, x: 12 };
+    return i[0].x;
 }

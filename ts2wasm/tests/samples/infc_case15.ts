@@ -14,9 +14,9 @@ interface I2 {
     z: string;
 }
 
-function infc15() {
+export function infc15() {
     const i1: I2 = { x: 1, y: true, z: 'str' };
     const i: I = i1;
-    const b = i.z;
+    const b = i.x;
     return b;
 }

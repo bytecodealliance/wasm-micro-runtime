@@ -31,8 +31,9 @@ class Foo {
     }
 }
 
-function infc18() {
+export function infc18() {
     const f = new Foo();
     const i: I = f;
     i._x = 10;
+    return i._x;
 }

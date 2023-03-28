@@ -25,7 +25,7 @@ log4js.configure(config);
 const logger = log4js.getLogger();
 logger.level = LoggerLevel.TRACE;
 
-export const printLogger = log4js.getLogger('print');
+export const consoleLogger = log4js.getLogger('console');
 logger.level = LoggerLevel.ERROR;
 
 export class Logger {

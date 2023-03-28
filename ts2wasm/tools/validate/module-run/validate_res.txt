@@ -1,13 +1,46 @@
+any_case1.wasm 1 1 1 anyTest
+any_case2.wasm 0 0 0 anyTest
+any_case3.wasm 1 0 1 anyTest
+any_case4.wasm 1 1 1 anyTest
+any_case5.wasm 0 0 0 anyTest
+any_case6.wasm 1 0 1 anyTest
+any_case7.wasm 1 1 3 anyTest
+any_case8.wasm 1 4 0 anyTest
+any_case9.wasm 1 3 0 anyTest
+any_case10.wasm 0 0 0 anyTest
+any_case11.wasm 1 0 1 anyTest
+any_case12.wasm 1 0 1 anyTest
+any_case13.wasm 1 1 1 anyTest
+any_case14.wasm 1 1 1 anyTest
+any_case15.wasm 1 1 4 anyTest
+any_case16.wasm 1 1 2 anyTest
+any_case17.wasm 1 1 2 anyTest
+any_case18.wasm 1 1 3 anyTest
+any_case19.wasm 1 1 1 anyTest
+any_case20.wasm 1 1 9 anyTest
+any_case21.wasm 1 1 2 anyTest
+any_case22.wasm 0 0 0 anyTest
+any_case23.wasm 0 0 0 anyTest
+any_case24.wasm 1 1 1 anyTest
 array_case1.wasm 1 1 3 arrayTest1
-array_case2.wasm 0 1 3 arrayTest2
+array_case2.wasm 0 0 0 arrayTest2
 array_case3.wasm 1 1 1 arrayTest3
 array_case4.wasm 0 1 1 arrayTest4
 array_case5.wasm 1 1 5 arrayTest5
 array_case6.wasm 1 1 1 arrayTest6
-array_case7.wasm 0 1 1 arrayTest7
+array_case7.wasm 1 1 3 arrayTest7
 array_case8.wasm 0 1 1 arrayTest8
 array_case9.wasm 0 1 1 arrayTest9
 array_case10.wasm 1 1 3 arrayTest10
+array_case11.wasm 1 1 5 arrayTest11
+array_case12.wasm 1 1 3 arrayTest12
+array_case13.wasm 1 1 11 arrayTest13
+array_case14.wasm 1 0 1 arrayTest14
+array_case15.wasm 1 1 20 arrayTest15
+array_case16.wasm 0 0 0 arrayTest16
+array_case17.wasm 0 0 0 arrayTest17
+array_case18.wasm 0 0 0 arrayTest18
+array_case19.wasm 1 1 10 arrayTest19 1 10
 binary_expression_case1.wasm 1 1 1 binaryExpressionTest
 binary_expression_case2.wasm 1 1 1 binaryExpressionTest
 binary_expression_case3.wasm 1 1 1 binaryExpressionTest
@@ -49,14 +82,19 @@ boolean_type_case3.wasm 1 1 0 booleanTestCase3
 boolean_type_case4.wasm 1 1 1 booleanTestCase4
 boolean_type_case5.wasm 1 1 1 booleanTestCase5
 boolean_type_case6.wasm 1 1 0 booleanTestCase6
-boolean_type_case7.wasm 0 1 0 booleanTestCase7
+boolean_type_case7.wasm 1 1 0 booleanTestCase7
 boolean_type_case8.wasm 1 1 2 booleanTestCase8
 builtin_array_case1.wasm 1 1 3 arrayTest
+builtin_array_case2.wasm 1 1 1 builtInArray
+builtin_boolean_case1.wasm 0 0 0 builtInBoolean
+builtin_console_case1.wasm 0 0 0 builtInConsole
+builtin_func_case1.wasm 1 1 1 builtInFunc
 builtin_Math_case1.wasm 1 1 3 mathTest
 builtin_Math_case2.wasm 1 1 9 mathTest
-builtin_array_case1.wasm 1 1 3 arrayTest
-builtin_Math_case1.wasm 1 1 3 mathTest
-builtin_Math_case2.wasm 1 1 9 mathTest
+builtin_Math_case3.wasm 1 1 16 mathTest
+builtin_number_case1.wasm 1 1 3.1415926 builtInNumber
+builtin_string_case1.wasm 0 0 0 strTest
+builtin_string_case2.wasm 0 0 0 strTest
 builtin_string_case3.wasm 1 1 5 strTest
 call_expression_case1.wasm 1 1 6 callExpressionTest
 call_expression_case2.wasm 1 1 6 callExpressionTest
@@ -65,11 +103,14 @@ call_expression_case4.wasm 1 1 116 callExpressionTest
 call_expression_case5.wasm 1 1 6 callExpressionTest
 call_expression_case6.wasm 1 1 30 callInternalReturnTest 1 10 1 11
 call_expression_case7.wasm 1 1 134 callInternalReturnTest 1 10 1 11
-call_expression_function_hoisting_case1.wasm 0 0 0 callReturnTest
+call_expression_case8.wasm 1 1 2 callTest
+call_expression_case9.wasm 1 1 3 callTest
+call_expression_function_hoisting_case1.wasm 1 1 110 callReturnTest
 call_expression_recursive_case1.wasm 1 1 55 fibonacci 1 10
 class_case1.wasm 1 1 123 classTest
 class_case2.wasm 1 1 10 classTest
 class_case3.wasm 1 1 10 classTest
+class_case4.wasm 1 1 10 classTest
 class_case5.wasm 1 1 1 classTest5
 class_case6.wasm 1 1 90 classTest6
 class_case7.wasm 1 1 40 classTest7
@@ -85,6 +126,7 @@ class_case16.wasm 1 1 1 classTest16
 class_case17.wasm 1 1 1 classTest17
 class_case18.wasm 1 1 34 classTest
 class_case19.wasm 1 1 74 classTest
+class_declare_case1.wasm 0 0 0 classDecl
 closure_case1.wasm 1 1 3 closureTest
 closure_case2.wasm 1 1 2 closureTest
 closure_case3.wasm 1 1 10 closureTest
@@ -94,12 +136,27 @@ closure_case6.wasm 1 1 3 closureTest
 closure_case7.wasm 0 1 3 closureTest
 closure_case8.wasm 1 1 21 firstClassFuncTest
 closure_case9.wasm 1 1 10 firstClassFuncTest
+closure_case10.wasm 1 1 31 closureTest 1 10
+complexType_case1.wasm 1 1 2 complexTypeTest
+complexType_case2.wasm 0 0 0 cpxCase2Func3
+complexType_case3.wasm 1 1 10 cpxCase3Func1
+complexType_case4.wasm 1 1 3 cpxCase3Func1
+complexType_case5.wasm 1 1 6 cpxCase3Func1
 do_statement_case1.wasm 1 1 16 doTest
 do_statement_case2.wasm 1 1 10 doTest
 do_statement_case3.wasm 1 1 21 doTest
-do_statement_case3.wasm 1 1 16 doTest
 do_statement_case4.wasm 1 1 16 doTest
 do_statement_case5.wasm 1 1 16 doTest
+export_case1.wasm 0 0 0 exportTest
+export_case2.wasm 0 0 0 exportTest
+extref_case1.wasm 1 0 1 extrefTest
+extref_case2.wasm 1 1 1 extrefTest
+extref_case3.wasm 1 2 hi extrefTest
+extref_case4.wasm 1 1 1 extrefTest
+extref_case5.wasm 1 4 0 extrefTest
+extref_case6.wasm 1 0 1 extrefTest
+extref_case7.wasm 1 3 0 extrefTest
+extref_case8.wasm 1 1 1 extrefTest
 for_statement_case1.wasm 1 1 100 forTest
 for_statement_case2.wasm 1 1 90 forTest
 for_statement_case3.wasm 1 1 100 forTest
@@ -107,6 +164,92 @@ for_statement_case4.wasm 1 1 106 forTest
 for_statement_case5.wasm 1 1 105 forTest
 for_statement_case6.wasm 1 1 115 forTest
 for_statement_case7.wasm 1 1 4905 forTest
+function_declaration_case1.wasm 1 1 10 functionTest 1 2 1 8
+function_declaration_case2.wasm 1 1 3 functionTest
+function_declaration_case3.wasm 1 1 1 functionTest
+function_declaration_case4.wasm 1 1 106.5 functionTest 1 100 1 6.5
+function_declaration_case5.wasm 1 1 5 functionTest
+function_declaration_case6.wasm 1 1 7 functionTest
+function_declaration_case7.wasm 1 0 0 functionTest
+function_declaration_case8.wasm 1 1 2 functionTest
+function_expression_case1.wasm 1 1 2004.1 functionTest
+function_expression_case2.wasm 1 1 2 functionTest
+global_statement_case1.wasm 1 1 99 globalTest
+global_statement_case2.wasm 1 1 42 globalTest
+global_statement_case3.wasm 1 1 101 globalTest
+global_statement_case4.wasm 1 1 98 globalTest
+global_statement_case5.wasm 1 1 95 globalTest
+global_statement_case6.wasm 1 1 20 globalTest
+global_variable_case1.wasm 1 1 198 globalVarTest
+global_variable_case2.wasm 1 0 1 globalVarTest
+if_statement_case1.wasm 1 1 26 ifTest
+if_statement_case2.wasm 1 1 36 ifTest
+if_statement_case3.wasm 1 1 17 ifTest
+import_case1.wasm 1 1 5 impExpTest
+import_case2.wasm 0 0 0 impExpTest
+import_case3.wasm 0 0 0 impExpTest
+import_case4.wasm 0 0 0 impExpTest
+import_case5.wasm 1 1 2 print2
+infc_case1.wasm 1 1 1 infc1
+infc_case2.wasm 1 0 0 infc2
+infc_case3.wasm 1 1 10 infc3
+infc_case4.wasm 1 0 1 infc4
+infc_case5.wasm 1 1 10 infc5
+infc_case6.wasm 1 1 1 infc6
+infc_case7.wasm 1 1 2 infc7
+infc_case8.wasm 1 1 100 infc8
+infc_case9.wasm 1 0 0 infc9
+infc_case10.wasm 1 0 0 infc10
+infc_case11.wasm 1 1 10 infc11
+infc_case12.wasm 1 1 12 infc12
+infc_case13.wasm 1 1 1 infc13
+infc_case14.wasm 1 0 1 infc14
+infc_case15.wasm 1 1 1 infc15
+infc_case16.wasm 1 1 20 infc16
+infc_case16.wasm 1 1 20 infc16
+infc_case17.wasm 1 2 str infc17
+infc_case18.wasm 1 1 10 infc18
+infc_case19.wasm 1 0 0 infc19
+infc_case20.wasm 1 1 1 infc20
+module_case1.wasm 1 1 8 modTest
+module_case2.wasm 1 1 2 modTest
+module_case3.wasm 1 1 6 modTest
+module_case4.wasm 1 1 6 modTest
+module_case5.wasm 0 0 0 modTest
+module_case6.wasm 1 1 19 modTest
+module_case7.wasm 1 1 8 modTest
+namespace_case1.wasm 1 1 1 namespaceTest
+namespace_case2.wasm 1 1 2 namespaceTest
+namespace_case3.wasm 1 1 2 namespaceTest
+obj_case1.wasm 1 1 1 objTest
+obj_case2.wasm 1 1 4 objTest
+obj_case3.wasm 1 0 0 objTest
+obj_case4.wasm 1 1 6 objTest
+obj_case5.wasm 1 1 117 objTest
+parenthesized_expression_case1.wasm 1 1 5.833333333333333 parenthesizedTest
+primitiveType_case1.wasm 1 1 3 primitiveTest
+primitiveType_case2.wasm 1 1 6 primitiveTest
+prototype_case1.wasm 0 0 0 protoTest
+prototype_case2.wasm 0 0 0 protoTest
+rest_parameter_case1.wasm 1 1 47 restParameterTest
+rest_parameter_case2.wasm 0 0 0 restParameterTest
+return_case1.wasm 1 1 110 returnTest1
+return_case2.wasm 1 1 1 returnTest2 1 10 1 9
+return_case3.wasm 1 1 119 returnTest3 1 119
+return_case4.wasm 1 1 120 returnTest4 1 120
+scopeScanner_case1.wasm 0 0 0 scopeScannerCase1Func1
+scopeScanner_case2.wasm 1 1 3 scopeScannerCase2Func2 1 100
+scopeScanner_case3.wasm 1 1 3 scopeScannerCase3Func3 1 1
+scopeScanner_case4.wasm 1 1 102 scopeScannerCase4Func4 1 100
+scopeScanner_case5.wasm 1 1 2 scopeScannerCase5Func5 1 -100
+scopeScanner_case6.wasm 1 1 10 scopeScannerCase6Func6 1 1
+scopeScanner_case7.wasm 1 1 7 scopeScannerCase7Func7 1 3
+scopeScanner_case8.wasm 1 1 3 scopeScannerCase8Func8 1 1
+string_case1.wasm 0 0 0 strTest
+string_case2.wasm 0 0 0 strTest
+string_case3.wasm 0 0 0 strTest
+string_case4.wasm 0 0 0 strTest
+string_case5.wasm 0 0 0 strTest
 switch_case_case1.wasm 1 1 1 switchCaseCase1
 switch_case_case2.wasm 1 1 0 switchCaseCase2
 switch_case_case3.wasm 1 1 0 switchCaseCase3
@@ -117,7 +260,10 @@ switch_case_case7.wasm 1 1 11 switchCaseCase7
 switch_case_case8.wasm 1 1 11 switchCaseCase8
 switch_case_case9.wasm 1 1 1 switchCaseCase9
 switch_case_case10.wasm 1 1 20 switchCaseCase10
+variable_var_case1.wasm 1 1 1 varType
+variable_var_case2.wasm 1 1 16 varType
 variable_var_case3.wasm 1 1 10 funcvv3
+wasmGen_globalVar.wasm 1 1 14 globalVar
 while_statement_case1.wasm 1 1 10 whileTest
 while_statement_case2.wasm 1 1 100 whileTest
 while_statement_case3.wasm 1 1 49 whileTest

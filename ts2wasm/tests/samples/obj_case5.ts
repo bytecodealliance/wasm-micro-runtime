@@ -19,3 +19,4 @@ export function objTest() {
     };
     return obj.z.j(8, 9) + obj.x(10);
 }
+// 117

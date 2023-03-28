@@ -9,6 +9,7 @@
     "test": "test"
   },
   "scripts": {
+    "postinstall": "npm run setup-hooks",
     "compile": "",
     "pretest": "npm run compile",
     "test": "mocha",
@@ -17,10 +18,9 @@
     "test:unit": "mocha 'tests/unit/*.test.ts'",
     "cover": "c8 npm run test:unit",
     "lint": "npx lint-staged",
-    "format": "prettier --config .prettierrc.json --write '**/*.ts'",
-    "eslint": "eslint --fix '**/*.ts'",
     "setup-hooks": "ts-node-esm scripts/link_hooks.ts",
-    "build": "rm -rf lib/builtin/watFile/ && ts-node-esm lib/builtin/initBuiltInAPI.ts && ts-node-esm lib/builtin/initBuiltInTS.ts && npx tsc && cp -r lib/builtin/watFile/ build/lib/builtin/ && cp -r ./lib/interface-lib ./build/lib/"
+    "build": "npx tsc && npm run build:lib",
+    "build:lib": "cp -r ./lib/builtin/* ./build/lib/builtin/ && cp -r ./src/backend/binaryen/lib/interface ./build/src/backend/binaryen/lib/interface"
   },
   "repository": {
     "type": "git",
@@ -32,7 +32,9 @@
   "dependencies": {
     "binaryen": "^112.0.0",
     "ts-node": "^10.9.1",
-    "typescript": "^4.7.4"
+    "typescript": "^4.7.4",
+    "log4js": "^6.8.0",
+    "long": "^5.2.1"
   },
   "devDependencies": {
     "@types/chai": "^4.3.3",
@@ -53,8 +55,6 @@
     "eslint-plugin-no-null": "^1.0.2",
     "eslint-plugin-prettier": "^4.2.1",
     "lint-staged": "^13.0.3",
-    "log4js": "^6.8.0",
-    "long": "^5.2.1",
     "minimist": "^1.2.6",
     "mocha": "^10.0.0",
     "prettier": "^2.7.1",
@@ -63,8 +63,8 @@
   },
   "lint-staged": {
     "*.ts": [
-      "eslint --fix '**/*.ts'",
-      "prettier --config .prettierrc.json --write '**/*.ts'"
+      "eslint --ignore-path .eslintignore --config .eslintrc.json --fix '**/*.ts'",
+      "prettier --ignore-path .prettierignore --config .prettierrc.json --write '**/*.ts'"
     ]
   },
   "bugs": {

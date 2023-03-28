@@ -21,7 +21,7 @@ const doCompile = (filename: string) => {
     }
 
     const backend = new WASMGen(compiler);
-    backend.codegen();
+    backend.codegen({ opt: 3 });
     const output = backend.emitBinary();
     backend.dispose();
 

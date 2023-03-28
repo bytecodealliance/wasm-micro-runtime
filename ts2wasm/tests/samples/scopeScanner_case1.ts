@@ -4,4 +4,4 @@
  */
 
 /* eslint-disable @typescript-eslint/no-empty-function */
-function scopeScannerCase1Func1() {}
+export function scopeScannerCase1Func1() {}

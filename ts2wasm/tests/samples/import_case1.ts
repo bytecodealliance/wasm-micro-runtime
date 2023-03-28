@@ -13,5 +13,8 @@ import {
     ns as renamed_ns,
 } from './export_case1';
 
-add(c, b1);
-renamed_ns.two();
+export function impExpTest() {
+    const a = add(c, b1);
+    renamed_ns.two();
+    return a;
+}

@@ -6,8 +6,8 @@
 export function anyTest() {
     let obj: any = {
         a: 1,
-        b: 'hi',
+        // b: 'hi',
         c: true,
     };
-    return obj;
+    return obj.a as number;
 }

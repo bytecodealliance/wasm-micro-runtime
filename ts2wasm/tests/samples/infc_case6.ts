@@ -28,7 +28,8 @@ function testInfc(f: Foo) {
     return f;
 }
 
-function infc6() {
+export function infc6() {
     const i: I2 = { x: 1, y: true, z: 'str' };
     const f = testInfc(i);
+    return f.x;
 }

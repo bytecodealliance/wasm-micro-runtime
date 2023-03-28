@@ -335,11 +335,22 @@ export class TSFunction extends Type {
     set isStatic(value: boolean) {
         this._isStatic = value;
     }
+
+    public clone(): TSFunction {
+        const func = new TSFunction(this.funcKind);
+        func.returnType = this.returnType;
+        func.parameterTypes = this.parameterTypes;
+        func.hasRestParameter = this.hasRestParameter;
+        func.isMethod = this.isMethod;
+        func.isDeclare = this.isDeclare;
+        func.isStatic = this.isStatic;
+        return func;
+    }
 }
 
 export default class TypeResolver {
     typechecker: ts.TypeChecker | undefined = undefined;
-    globalScopeStack: Stack<GlobalScope>;
+    globalScopes: Array<GlobalScope>;
     currentScope: Scope | null = null;
     nodeScopeMap: Map<ts.Node, Scope>;
     // cache class shape layout string, <class name, type string>
@@ -350,7 +361,7 @@ export default class TypeResolver {
 
     constructor(private parserCtx: ParserContext) {
         this.nodeScopeMap = this.parserCtx.nodeScopeMap;
-        this.globalScopeStack = this.parserCtx.globalScopeStack;
+        this.globalScopes = this.parserCtx.globalScopes;
     }
 
     visit() {
@@ -507,7 +518,7 @@ export default class TypeResolver {
             const tsType = this.nodeTypeCache.get(decl);
             if (!tsType) {
                 throw new Error(
-                    `class/interface not found, type name <' + ${type.symbol.name} + '>`,
+                    `class/interface not found, type name <${type.symbol.name}>. `,
                 );
             }
             return tsType;
@@ -853,6 +864,13 @@ export default class TypeResolver {
         const fieldTypeStrs: string[] = [];
 
         node.members.map((member) => {
+            /** Currently, we only handle PropertySignature and MethodSignature */
+            if (
+                member.kind !== ts.SyntaxKind.PropertySignature &&
+                member.kind !== ts.SyntaxKind.MethodSignature
+            ) {
+                return;
+            }
             let fieldType = this.generateNodeType(member);
             const typeString = this.typeToString(member);
             let funcKind = FunctionKind.METHOD;

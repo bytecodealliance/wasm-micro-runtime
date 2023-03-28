@@ -25,6 +25,13 @@ class Foo {
     }
 }
 
-function infc9(i: Foo) {
+function foo(i: Foo) {
     const f: I = i;
+    return f.y;
+}
+
+export function infc9() {
+    const i = new Foo();
+    const res = foo(i);
+    return res;
 }

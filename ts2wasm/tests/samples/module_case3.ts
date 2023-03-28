@@ -5,4 +5,8 @@
 
 import module_case4_var1 from './module_case4';
 
-const module_case3_var1 = module_case4_var1;
+export function modTest() {
+    const module_case3_var1 = module_case4_var1;
+    return module_case3_var1;
+}
+// 6

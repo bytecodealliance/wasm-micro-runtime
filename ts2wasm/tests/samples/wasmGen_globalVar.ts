@@ -5,11 +5,15 @@
 
 /* eslint-disable prefer-const */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-const globalVar1 = 1;
-const globalVar2 = 2 + 3;
-const globalVar3 = true;
-const globalVar4 = 'hello';
-const globalVar5: any = 1;
-let globalVar6 = 6;
-let globalVar7 = [1, 2];
-let globalVar8: any = [1, 2];
+export function globalVar() {
+    const globalVar1 = 1;
+    const globalVar2 = 2 + 3;
+    const globalVar3 = true;
+    const globalVar4 = 'hello';
+    const globalVar5: any = 1;
+    let globalVar6 = 6;
+    let globalVar7 = [1, 2];
+    let globalVar8: any = [1, 2];
+    return globalVar1 + globalVar2 + globalVar6 + globalVar7[1];
+}
+// 14

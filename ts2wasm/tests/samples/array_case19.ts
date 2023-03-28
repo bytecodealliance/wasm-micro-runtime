@@ -4,6 +4,9 @@
  */
 
 export function arrayTest19(n: number) {
-    const array1 = new Array<Array<boolean>>(new Array<boolean>(n));
-    return array1;
+    const array1 = new Array<Array<number>>(n);
+
+    array1[0] = new Array<number>(n);
+    array1[0][0] = n;
+    return array1[0][0];
 }

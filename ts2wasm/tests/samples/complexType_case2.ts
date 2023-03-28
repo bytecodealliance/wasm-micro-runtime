@@ -17,7 +17,7 @@ function cpxCase2Func2(a: number) {
     return 'hi';
 }
 
-function cpxCase2Func3(a: number) {
+export function cpxCase2Func3(a: number) {
     let b = 2;
     {
         const cpxCase2Var3 = [[2, 3], ['hi']];
