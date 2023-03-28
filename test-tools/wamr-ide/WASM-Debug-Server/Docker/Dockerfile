@@ -8,16 +8,15 @@ WORKDIR /root/
 COPY resource /root/
 
 # hadolint ignore=DL3008
-# use `apt update -o Acquire::Check-Valid-Until=false` instead
-# when timezone sync error ouccr
-RUN apt update  \
+RUN apt-get update  \
     && apt-get -y install make cmake --no-install-recommends
 
 ##  -clone wamr-repo and build iwasm
 RUN git clone -b main --depth=1 https://github.com/bytecodealliance/wasm-micro-runtime.git \
-    && mkdir -p /root/wasm-micro-runtime/product-mini/platforms/linux/build \
-    && cd /root/wasm-micro-runtime/product-mini/platforms/linux/build \
-    && cmake .. -DWAMR_BUILD_DEBUG_INTERP=1 \
+    && mkdir -p /root/wasm-micro-runtime/product-mini/platforms/linux/build
+
+WORKDIR /root/wasm-micro-runtime/product-mini/platforms/linux/build
+RUN cmake .. -DWAMR_BUILD_DEBUG_INTERP=1 \
     && make \
     && cp /root/wasm-micro-runtime/product-mini/platforms/linux/build/iwasm /root/iwasm \
     && rm -fr /root/wasm-micro-runtime

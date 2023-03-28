@@ -11,9 +11,8 @@ COPY resource /root/
 
 #  - download cmake with wget and set up
 # hadolint ignore=DL3008
-RUN apt update \
-    && apt-get -y install ccache ninja-build make cmake python3-pip --no-install-recommends \
-    && pip3 install requests
+RUN apt-get update \
+    && apt-get -y install ccache ninja-build make cmake python3-pip --no-install-recommends
 
 #  set compilation environment for wamrc
 #    - wamr repo
@@ -28,16 +27,17 @@ RUN wget --progress=dot:giga https://github.com/WebAssembly/wasi-sdk/releases/do
     && rm -f wasi-sdk-*-linux.tar.gz
 
 ##  - clone wamr repo
-RUN git clone -b main --depth=1 https://github.com/bytecodealliance/wasm-micro-runtime.git \
-    && cd wasm-micro-runtime/build-scripts \
-    && pip3 install --user -r requirements.txt
+RUN git clone -b main --depth=1 https://github.com/bytecodealliance/wasm-micro-runtime.git
 
-RUN cd /root/wasm-micro-runtime/wamr-compiler \
-    && ./build_llvm.sh \
+WORKDIR /root/wasm-micro-runtime/build-scripts
+RUN pip3 install --no-cache-dir --user -r requirements.txt
+
+WORKDIR /root/wasm-micro-runtime/wamr-compiler
+RUN ./build_llvm.sh \
     && mkdir build
 
-RUN cd /root/wasm-micro-runtime/wamr-compiler/build \
-    && cmake .. \
+WORKDIR /root/wasm-micro-runtime/wamr-compiler/build
+RUN cmake .. \
     && make \
     #  - copy the wamrc to /root
     && cp /root/wasm-micro-runtime/wamr-compiler/build/wamrc /root/wamrc \
