@@ -247,6 +247,25 @@ aot_create_func_types(const WASMModule *module)
 
     memset(func_types, 0, size);
 
+#if WASM_ENABLE_GC != 0
+    /* Create each function type */
+    for (i = 0; i < module->type_count; i++) {
+        if (module->types[i]->type_flag == WASM_TYPE_FUNC) {
+            uint8 param_count = ((AOTFuncType *)module->types[i])->param_count;
+            uint8 result_count =
+                ((AOTFuncType *)module->types[i])->result_count;
+
+            size = offsetof(AOTFuncType, types) + (param_count + result_count);
+            if (size >= UINT32_MAX
+                || !(func_types[i] = wasm_runtime_malloc((uint32)size))) {
+                aot_set_last_error("allocate memory failed.");
+                goto fail;
+            }
+            memcpy(func_types[i], module->types[i], size);
+        }
+    }
+
+#else
     /* Create each function type */
     for (i = 0; i < module->type_count; i++) {
         size = offsetof(AOTFuncType, types)
@@ -259,6 +278,7 @@ aot_create_func_types(const WASMModule *module)
         }
         memcpy(func_types[i], module->types[i], size);
     }
+#endif
 
     return func_types;
 
@@ -296,7 +316,7 @@ aot_create_import_funcs(const WASMModule *module)
         import_funcs[i].call_conv_wasm_c_api = false;
         /* Resolve function type index */
         for (j = 0; j < module->type_count; j++)
-            if (import_func->func_type == module->types[j]) {
+            if (import_func->func_type == (WASMFuncType *)module->types[j]) {
                 import_funcs[i].func_type_index = j;
                 break;
             }
@@ -345,7 +365,7 @@ aot_create_funcs(const WASMModule *module)
 
         /* Resolve function type index */
         for (j = 0; j < module->type_count; j++)
-            if (func->func_type == module->types[j]) {
+            if (func->func_type == (WASMFuncType *)module->types[j]) {
                 funcs[i]->func_type_index = j;
                 break;
             }

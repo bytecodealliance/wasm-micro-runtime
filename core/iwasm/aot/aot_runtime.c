@@ -1199,6 +1199,27 @@ aot_instantiate(AOTModule *module, bool is_sub_inst, uint32 stack_size,
     }
 #endif
 
+#if WASM_ENABLE_GC != 0
+    if (!is_sub_inst) {
+        uint32 gc_heap_size = wasm_runtime_get_gc_heap_size_default();
+
+        if (gc_heap_size < GC_HEAP_SIZE_MIN)
+            gc_heap_size = GC_HEAP_SIZE_MIN;
+        if (gc_heap_size > GC_HEAP_SIZE_MAX)
+            gc_heap_size = GC_HEAP_SIZE_MAX;
+
+        module_inst->e->gc_heap_pool =
+            runtime_malloc(gc_heap_size, error_buf, error_buf_size);
+        if (!module_inst->e->gc_heap_pool)
+            goto fail;
+
+        module_inst->e->gc_heap_handle =
+            mem_allocator_create(module_inst->e->gc_heap_pool, gc_heap_size);
+        if (!module_inst->e->gc_heap_handle)
+            goto fail;
+    }
+#endif
+
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
     if (!(module_inst->frames =
               runtime_malloc(sizeof(Vector), error_buf, error_buf_size))) {

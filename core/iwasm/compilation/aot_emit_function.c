@@ -1210,9 +1210,9 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
        are equal (the type index of call_indirect opcode and callee func),
        we don't need to check whether the whole function types are equal,
        including param types and result types. */
-    type_idx = wasm_get_smallest_type_idx(comp_ctx->comp_data->func_types,
-                                          comp_ctx->comp_data->func_type_count,
-                                          type_idx);
+    type_idx = wasm_get_smallest_type_idx(
+        (const WASMTypePtr *)comp_ctx->comp_data->func_types,
+        comp_ctx->comp_data->func_type_count, type_idx);
     ftype_idx_const = I32_CONST(type_idx);
     CHECK_LLVM_CONST(ftype_idx_const);
 
