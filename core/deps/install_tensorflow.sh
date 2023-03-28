@@ -6,6 +6,6 @@ cd ${DEPS_ROOT}
 echo "Downloading tensorflow in ${PWD}..."
 
 git clone https://github.com/tensorflow/tensorflow.git tensorflow-src \
-    --branch v2.9.2
+    --branch v2.11.1
 
 exit 0
