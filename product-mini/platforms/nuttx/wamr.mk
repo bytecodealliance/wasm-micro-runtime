@@ -253,6 +253,20 @@ else
 CFLAGS += -DWASM_ENABLE_THREAD_MGR=0
 endif
 
+ifeq ($(CONFIG_INTERPRETERS_WAMR_GC),y)
+CFLAGS += -DWASM_ENABLE_GC=1
+CSRCS += gc_type.c gc_object.c
+VPATH += $(IWASM_ROOT)/common/gc
+else
+CFLAGS += -DWASM_ENABLE_GC=0
+endif
+
+ifeq ($(CONFIG_INTERPRETERS_WAMR_GC_MANUALLY),y)
+CFLAGS += -DWASM_GC_MANUALLY=1
+else
+CFLAGS += -DWASM_GC_MANUALLY=0
+endif
+
 ifeq ($(CONFIG_INTERPRETERS_WAMR_LIB_PTHREAD),y)
 CFLAGS += -DWASM_ENABLE_LIB_PTHREAD=1
 CSRCS += lib_pthread_wrapper.c
@@ -325,6 +339,7 @@ CSRCS += nuttx_platform.c \
          ems_kfc.c \
          ems_alloc.c \
          ems_hmu.c \
+         ems_gc.c \
          bh_assert.c \
          bh_common.c \
          bh_hashmap.c \
