@@ -4041,7 +4041,7 @@ own wasm_ref_t *
 wasm_table_get(const wasm_table_t *table, wasm_table_size_t index)
 {
     /* TODO */
-    return false;
+    return NULL;
 }
 
 bool
