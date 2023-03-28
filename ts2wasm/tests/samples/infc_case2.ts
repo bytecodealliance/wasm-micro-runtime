@@ -17,7 +17,8 @@ class Foo {
     }
 }
 
-function infc2() {
+export function infc2() {
     const i: I = new Foo();
     const f: Foo = i;
+    return f.x;
 }

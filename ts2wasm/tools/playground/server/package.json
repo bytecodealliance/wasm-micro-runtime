@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "npx tsc && npx tsc -p tsconfig.binaryen.json",
+    "build": "npx tsc && npx tsc -p tsconfig.binaryen.json && npm run copy-files",
+    "copy-files": "mv dist/binaryen.js dist/src/backend/binaryen/glue/ && cp -r ../../../lib/builtin/* dist/lib/builtin/ && cp -r ../../../src/backend/binaryen/lib/interface ./dist/src/backend/binaryen/lib/interface && cp -r assets ./dist/tools/playground/server",
     "start": "node dist/index.js",
     "dev": "concurrently \"npx tsc --watch\" \"nodemon -q dist/index.js\""
   },

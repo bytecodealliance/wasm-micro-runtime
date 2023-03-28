@@ -20,8 +20,9 @@ class Foo {
     }
 }
 
-function infc13() {
+export function infc13() {
     const i = new Array<Foo>(2);
     const j: I2 = { x: 1, y: true, z: 'str' };
     i[0] = j;
+    return i[0].x;
 }

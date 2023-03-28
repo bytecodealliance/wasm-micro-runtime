@@ -14,6 +14,7 @@ import { fileURLToPath } from 'url';
 import { WASMGen } from '../../../src/backend/binaryen/index.js';
 
 const storage_dir = path.join(os.homedir(), '.ts2wasm_playground');
+const samples_dir = 'assets/samples';
 
 const app: Express = express();
 const port = process.env.PORT || 3001;
@@ -93,6 +94,28 @@ app.post('/feedback', async (req: Request, res: Response) => {
     });
 });
 
+app.get('/samples/:name?', (req: Request, res: Response) => {
+    if (req.params.name) {
+        /* Request specific file */
+        const file_path = path.join(samples_dir, req.params.name);
+        if (!fs.existsSync(file_path)) {
+            res.status(404).send({
+                error: `File ${req.params.name} not found`,
+            });
+            return;
+        }
+
+        res.setHeader('Content-Type', 'text/plain');
+        fs.createReadStream(file_path).pipe(res);
+        return;
+    } else {
+        /* Request list of samples */
+        const files = fs.readdirSync(samples_dir);
+        res.json(files);
+        return;
+    }
+});
+
 app.post('/compile', (req: Request, res: Response) => {
     let buffer = '';
     req.on('data', (chunk) => {
@@ -147,7 +170,7 @@ app.post('/compile', (req: Request, res: Response) => {
                 }
 
                 res.json({
-                    error: `${e.toString()}\n${formattedError}`,
+                    error: `${e.toString()}`,
                 });
                 return;
             }
@@ -167,8 +190,13 @@ app.post('/compile', (req: Request, res: Response) => {
                 format: payloadJson.options?.format,
             });
 
+            const wasmBinary = backend.emitBinary();
+
+            backend.dispose();
+
             res.json({
                 content: resultText,
+                wasm: Buffer.from(wasmBinary).toString('base64'),
                 duration: Date.now() - startTime,
             });
         } catch {

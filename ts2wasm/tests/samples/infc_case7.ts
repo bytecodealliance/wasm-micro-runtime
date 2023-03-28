@@ -28,7 +28,8 @@ function testInfc(f: I) {
     return f;
 }
 
-function infc7() {
+export function infc7() {
     const i: Foo = new Foo();
     const f = testInfc(i);
+    return i.x + f.x;
 }

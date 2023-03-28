@@ -1,0 +1,18 @@
+{
+  "name": "browser",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "cd .. && npm install && npm run build && cd - && ts-node-esm index.ts && npm run build_page && npm run serve",
+    "build_page": "cd portal && npm install && npm run build",
+    "serve": "cd portal/dist && ln -s ../../wasm_modules wasm_modules && python3 -m http.server 8999"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "ts-node": "^10.9.1"
+  }
+}

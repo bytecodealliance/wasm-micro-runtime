@@ -16,7 +16,8 @@
     ``` json
     {
         "content": "xxxxxxx",   // if compile success, the generated text representation
-        "error": "xxxxxxx"  // if compile failed, the error message
+        "error": "xxxxxxx",  // if compile failed, the error message
+        "wasm": "xxxxxxx"    // if compile success, base64 of the generated wasm binary
     }
     ```
 
@@ -30,3 +31,18 @@
     }
     ```
 - response: 200
+
+### Sample list
+- url: /samples
+- payload: none
+- response:
+    ``` json
+    [
+        "sample1.ts", "sample2.ts", "..."
+    ]
+    ```
+
+### Sample file
+- url: /samples/:name
+- payload: none
+- response: file content (text/plain)

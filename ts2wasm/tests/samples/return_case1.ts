@@ -4,5 +4,5 @@
  */
 
 export function returnTest1() {
-    return;
+    return 110;
 }

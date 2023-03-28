@@ -5,7 +5,7 @@
 
 import ts from 'typescript';
 import { Expression } from './expression.js';
-import { FunctionKind, Type } from './type.js';
+import { FunctionKind, TSFunction, Type } from './type.js';
 import { ParserContext } from './frontend.js';
 import {
     Stack,
@@ -163,12 +163,12 @@ export class Parameter extends Variable {
 
 export class VariableScanner {
     typechecker: ts.TypeChecker | undefined = undefined;
-    globalScopeStack = new Stack<GlobalScope>();
+    globalScopes = new Array<GlobalScope>();
     currentScope: Scope | null = null;
     nodeScopeMap = new Map<ts.Node, Scope>();
 
     constructor(private parserCtx: ParserContext) {
-        this.globalScopeStack = this.parserCtx.globalScopeStack;
+        this.globalScopes = this.parserCtx.globalScopes;
         this.nodeScopeMap = this.parserCtx.nodeScopeMap;
     }
 
@@ -189,8 +189,8 @@ export class VariableScanner {
             }
         });
 
-        for (let i = 0; i < this.globalScopeStack.size(); ++i) {
-            const scope = this.globalScopeStack.getItemAtIdx(i);
+        for (let i = 0; i < this.globalScopes.length; ++i) {
+            const scope = this.globalScopes[i];
             scope.traverseScopTree((scope) => {
                 if (
                     scope instanceof FunctionScope ||
@@ -209,14 +209,15 @@ export class VariableScanner {
                 const importDeclaration = <ts.ImportDeclaration>node;
                 const globalScope = this.currentScope!.getRootGloablScope()!;
                 // Get the import module name according to the relative position of enter scope
-                const enterScope = this.globalScopeStack.peek();
+                const enterScope =
+                    this.globalScopes[this.globalScopes.length - 1];
                 const importModuleName = getImportModulePath(
                     importDeclaration,
                     enterScope,
                 );
                 const importModuleScope = getGlobalScopeByModuleName(
                     importModuleName,
-                    this.globalScopeStack,
+                    this.globalScopes,
                 );
                 // get import identifier
                 const {
@@ -341,7 +342,19 @@ export class VariableScanner {
                 const typeName = this.typechecker!.typeToString(
                     this.typechecker!.getTypeAtLocation(node),
                 );
-                const variableType = currentScope.findType(typeName);
+                let variableType = currentScope.findType(typeName);
+
+                /* Sometimes the variable's type is inferred as a TSFunction with
+                    isDeclare == true, we need to treat it as non declare function
+                    here to keep the same calling convention for closure */
+                if (
+                    variableType instanceof TSFunction &&
+                    variableType.isDeclare
+                ) {
+                    variableType = variableType.clone();
+                    (variableType as TSFunction).isDeclare = false;
+                }
+
                 const variable = new Variable(
                     variableName,
                     variableType!,
@@ -384,12 +397,12 @@ export class VariableScanner {
 
 export class VariableInit {
     typechecker: ts.TypeChecker | undefined = undefined;
-    globalScopeStack = new Stack<GlobalScope>();
+    globalScopes = new Array<GlobalScope>();
     currentScope: Scope | null = null;
     nodeScopeMap = new Map<ts.Node, Scope>();
 
     constructor(private parserCtx: ParserContext) {
-        this.globalScopeStack = this.parserCtx.globalScopeStack;
+        this.globalScopes = this.parserCtx.globalScopes;
         this.nodeScopeMap = this.parserCtx.nodeScopeMap;
     }
 

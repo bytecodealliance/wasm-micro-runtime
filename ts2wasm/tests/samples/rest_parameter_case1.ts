@@ -13,3 +13,5 @@ export function restParameterTest() {
     }
     return bar1(10, 11, 12, 13) + bar2(14);
 }
+
+// 47

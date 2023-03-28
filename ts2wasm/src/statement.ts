@@ -22,7 +22,7 @@ import {
     importFunctionInfo,
 } from './utils.js';
 import { Variable } from './variable.js';
-import { BuiltinNames } from '../lib/builtin/builtinUtil.js';
+import { BuiltinNames } from '../lib/builtin/builtin_name.js';
 import { TSClass, Type } from './type.js';
 
 type StatementKind = ts.SyntaxKind;
@@ -307,14 +307,17 @@ export default class StatementCompiler {
             case ts.SyntaxKind.ImportDeclaration: {
                 const importDeclaration = <ts.ImportDeclaration>node;
                 // Get the import module name according to the relative position of enter scope
-                const enterScope = this.parserCtx.globalScopeStack.peek();
+                const enterScope =
+                    this.parserCtx.globalScopes[
+                        this.parserCtx.globalScopes.length - 1
+                    ];
                 const importModuleName = getImportModulePath(
                     importDeclaration,
                     enterScope,
                 );
                 const importModuleScope = getGlobalScopeByModuleName(
                     importModuleName,
-                    this.parserCtx.globalScopeStack,
+                    this.parserCtx.globalScopes,
                 );
                 const importStmt = new ImportDeclaration();
                 if (!importModuleScope.isMarkStart) {
@@ -332,7 +335,7 @@ export default class StatementCompiler {
                             importStmt.addImportGlobal({
                                 internalName: res.mangledName,
                                 externalModuleName:
-                                    BuiltinNames.external_module_name,
+                                    BuiltinNames.externalModuleName,
                                 externalBaseName: res.varName,
                                 globalType: res.varType,
                             });
@@ -342,7 +345,7 @@ export default class StatementCompiler {
                             importStmt.addImportFunction({
                                 internalName: res.mangledName,
                                 externalModuleName:
-                                    BuiltinNames.external_module_name,
+                                    BuiltinNames.externalModuleName,
                                 externalBaseName: res.funcName,
                                 funcType: res.funcType,
                             });

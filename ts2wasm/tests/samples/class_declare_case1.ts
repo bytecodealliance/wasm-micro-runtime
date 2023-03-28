@@ -10,4 +10,7 @@ declare class declareClass1 {
     static whoSayHi(name: string): number;
 }
 
-const sayHiFunc = declareClass1.whoSayHi('i');
+export function classDecl() {
+    const sayHiFunc = declareClass1.whoSayHi('i');
+    return sayHiFunc;
+}

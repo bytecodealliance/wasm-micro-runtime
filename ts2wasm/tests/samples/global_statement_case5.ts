@@ -7,8 +7,12 @@
 let globalStatementCase5_1 = 99;
 
 // do while statement
-do {
-    let doWhileVar = 3;
-    --globalStatementCase5_1;
-    doWhileVar = 4;
-} while (globalStatementCase5_1 > 95);
+export function globalTest() {
+    do {
+        let doWhileVar = 3;
+        --globalStatementCase5_1;
+        doWhileVar = 4;
+    } while (globalStatementCase5_1 > 95);
+
+    return globalStatementCase5_1;
+}

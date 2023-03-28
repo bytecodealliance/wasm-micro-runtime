@@ -3,11 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+import os from 'os';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const curPath = path.dirname(fileURLToPath(import.meta.url));
-const logDirPath = path.join(curPath, '..', '..', 'logs');
+const logDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ts2wasm-log-'));
 
 const logConfig = {
     appenders: {
@@ -15,20 +17,14 @@ const logConfig = {
             type: 'console',
         },
         file: {
-            type: 'dateFile',
-            filename: `${logDirPath}/output.log`,
-            alwaysIncludePattern: true,
-            pattern: 'yyyy-MM-dd',
-            keepFileExt: true,
-            numBackups: 3,
+            type: 'file',
+            filename: `${path.join(logDir, 'output.log')}`,
+            backups: 3,
         },
         errorFile: {
-            type: 'dateFile',
-            filename: `${logDirPath}/error.log`,
-            alwaysIncludePattern: true,
-            pattern: 'yyyy-MM-dd',
-            keepFileExt: true,
-            numBackups: 3,
+            type: 'file',
+            filename: `${path.join(logDir, 'error.log')}`,
+            backups: 3,
         },
         errors: {
             type: 'logLevelFilter',
@@ -41,7 +37,7 @@ const logConfig = {
             appenders: ['file', 'errors'],
             level: 'debug',
         },
-        print: {
+        console: {
             appenders: ['console'],
             level: 'error',
         },

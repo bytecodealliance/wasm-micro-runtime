@@ -8,4 +8,8 @@ namespace NSCase1 {
     export const b = true;
 }
 
-const nscase1_global1 = NSCase1.a;
+export function namespaceTest() {
+    const nscase1_global1 = NSCase1.a;
+    return nscase1_global1;
+}
+// 1

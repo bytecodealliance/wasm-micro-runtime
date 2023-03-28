@@ -58,7 +58,7 @@
 - [x] arrow function
 - [x] closure
 - [ ] default parameter
-- [ ] rest parameter
+- [x] rest parameter
 
 ## Class
 - [x] class declaration
@@ -67,7 +67,7 @@
 - [x] member field initialization
 - [x] member method
 - [x] static method
-- [ ] static field
+- [x] static field
 - [x] inherit
 - [x] implicit constructor
 - [x] visibility control

@@ -3,8 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-function scopeScannerCase6Func1(a: number) {
+export function scopeScannerCase6Func6(a: number) {
     do {
         a++;
     } while (a < 10);
+    return a;
 }

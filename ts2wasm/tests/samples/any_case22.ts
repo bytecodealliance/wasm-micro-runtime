@@ -8,7 +8,7 @@ interface I {
     y: boolean;
 }
 
-function anyTest() {
+export function anyTest() {
     const i: I = { x: 1, y: true };
     const a: any = i;
     const b = a as I;

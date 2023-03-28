@@ -6,11 +6,17 @@
 /* eslint-disable @typescript-eslint/no-empty-function */
 
 function inner1() {
-    //
+    return 10;
 }
 function inner2() {
-    //
+    return 20;
 }
-export function outer() {
+function outer() {
     return [inner1, inner2];
+}
+
+export function arrayTest15() {
+    const arr = outer();
+    const res = arr[1];
+    return res(); // 20
 }

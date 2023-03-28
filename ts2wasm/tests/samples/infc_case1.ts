@@ -17,7 +17,8 @@ class Foo {
     }
 }
 
-function infc1() {
+export function infc1() {
     const i: I = { x: 1, y: false };
     const f: Foo = i;
+    return f.x;
 }

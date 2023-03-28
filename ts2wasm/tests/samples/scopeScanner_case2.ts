@@ -3,9 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-function scopeScannerCase2Func1(a: number) {
-    const b = 2;
+export function scopeScannerCase2Func2(a: number) {
+    let b = 2;
     {
         const innerBlock = 1;
+        b += innerBlock;
     }
+    return b;
 }

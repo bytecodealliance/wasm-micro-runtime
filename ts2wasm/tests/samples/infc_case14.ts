@@ -8,7 +8,8 @@ interface I {
     y: boolean;
 }
 
-function infc14() {
+export function infc14() {
     const i: I = { x: 1, y: true };
     const b = i.y;
+    return b;
 }

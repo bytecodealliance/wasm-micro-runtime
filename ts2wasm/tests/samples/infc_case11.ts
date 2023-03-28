@@ -25,7 +25,12 @@ class Foo {
     }
 }
 
-function infc11(i: (i: Foo) => void) {
+function foo(i: Foo) {
+    return i.x;
+}
+
+export function infc11(i: (i: Foo) => number) {
     const f: I2 = { x: 10, y: true, z: 'str' };
-    i(f);
+    const res = i(f);
+    return res;
 }

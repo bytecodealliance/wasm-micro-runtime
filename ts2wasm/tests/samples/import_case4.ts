@@ -9,4 +9,6 @@ import * as other from './export_case1';
 // other.sub(other.b, other.renamed_c) +
 // other.renamed_mul(other.renamed_c, other.a);
 
-other.ns.two();
+export function impExpTest() {
+    other.ns.two();
+}

@@ -5,8 +5,7 @@
 
 import { add } from './export_case1';
 
-add(1, 1);
-
 export function print2() {
-    return 2;
+    const res = add(1, 1);
+    return res;
 }

@@ -11,5 +11,6 @@ export function objTest() {
             d: 4,
         },
     };
-    return obj1.c;
+    return obj1.c.d;
 }
+// 4

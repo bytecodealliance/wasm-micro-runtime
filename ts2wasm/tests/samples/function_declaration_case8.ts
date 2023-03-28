@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-export function functionTest(): void {
+export function functionTest() {
     const a = 2;
+    return a;
 }

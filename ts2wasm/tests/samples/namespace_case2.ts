@@ -10,5 +10,8 @@ namespace NSCase2 {
     case2();
 }
 
-const ns2func1 = NSCase2.case2;
-ns2func1();
+export function namespaceTest() {
+    const ns2func1 = NSCase2.case2;
+    return ns2func1();
+}
+// 2

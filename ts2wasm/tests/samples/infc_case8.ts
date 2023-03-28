@@ -25,6 +25,13 @@ class Foo {
     }
 }
 
-function infc8(i: I2) {
+function foo(i: I2) {
     const f: Foo = i;
+    return f.x;
+}
+
+export function infc8() {
+    const i2: I2 = { y: false, x: 100, z: 'z' };
+    const res = foo(i2);
+    return res;
 }

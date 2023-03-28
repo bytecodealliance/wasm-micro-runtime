@@ -11,3 +11,4 @@ export function objTest() {
     };
     return obj1.a;
 }
+// 1

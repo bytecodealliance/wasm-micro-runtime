@@ -24,7 +24,12 @@ class Foo {
         this.z = 'str';
     }
 }
-function infc5(): Foo {
+function foo(): Foo {
     const i: I2 = { y: true, x: 10, z: 'str' };
     return i;
+}
+
+export function infc5() {
+    const obj = foo();
+    return obj.x;
 }

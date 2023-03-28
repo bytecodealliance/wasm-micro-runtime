@@ -14,7 +14,7 @@ interface I2 {
     x: number;
 }
 
-function anyTest() {
+export function anyTest() {
     const i: I = { x: 1, z: 'str', y: true };
     const a: any = i;
     const b = a as I;

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-export function returnTest3(a: number) {
+export function returnTest4(a: number) {
     if (a > 0) {
         return a;
         return 'hi';
