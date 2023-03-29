@@ -10,7 +10,7 @@ export namespace dyntype {
     export const dyntype_context = 'dyntype_context';
 
     // export module name
-    export const module_name = 'libdytype';
+    export const module_name = 'libdyntype';
 
     // export type
     export const dyn_ctx_t = binaryen.i64; // binaryen.anyref
@@ -91,7 +91,7 @@ export namespace dyntype {
 }
 
 export namespace structdyn {
-    export const module_name = 'libdstructdyn';
+    export const module_name = 'libstructdyn';
     export const enum StructDyn {
         struct_get_dyn_i32 = 'struct_get_dyn_i32',
         struct_get_dyn_i64 = 'struct_get_dyn_i64',

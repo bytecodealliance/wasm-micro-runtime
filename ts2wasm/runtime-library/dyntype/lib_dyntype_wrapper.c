@@ -276,7 +276,7 @@ static NativeSymbol native_symbols[] = {
 uint32_t
 get_native_lib(char **p_module_name, NativeSymbol **p_native_symbols)
 {
-    *p_module_name = "libdytype";
+    *p_module_name = "libdyntype";
     *p_native_symbols = native_symbols;
     return sizeof(native_symbols) / sizeof(NativeSymbol);
 }

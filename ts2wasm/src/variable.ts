@@ -7,24 +7,8 @@ import ts from 'typescript';
 import { Expression } from './expression.js';
 import { FunctionKind, TSFunction, Type } from './type.js';
 import { ParserContext } from './frontend.js';
-import {
-    Stack,
-    generateNodeExpression,
-    isScopeNode,
-    getGlobalScopeByModuleName,
-    getImportModulePath,
-    getImportIdentifierName,
-    getExportIdentifierName,
-} from './utils.js';
-import {
-    BlockScope,
-    ClassScope,
-    FunctionScope,
-    GlobalScope,
-    NamespaceScope,
-    Scope,
-    ScopeKind,
-} from './scope.js';
+import { generateNodeExpression, isScopeNode } from './utils.js';
+import { ClassScope, FunctionScope, GlobalScope, Scope } from './scope.js';
 
 export enum ModifierKind {
     default = '',
@@ -33,8 +17,8 @@ export enum ModifierKind {
     var = 'var',
 }
 export class Variable {
-    private isClosure = false;
-    private closureIndex = 0;
+    private _isClosure = false;
+    private _closureIndex = 0;
     public mangledName = '';
     public scope: Scope | null = null;
 
@@ -88,7 +72,7 @@ export class Variable {
         return this.modifiers.includes(ts.SyntaxKind.DefaultKeyword);
     }
 
-    public isBlockScoped(): boolean {
+    public isFuncScopedVar(): boolean {
         return this.modifiers.includes(ModifierKind.var);
     }
 
@@ -101,15 +85,15 @@ export class Variable {
     }
 
     get varIsClosure(): boolean {
-        return this.isClosure;
+        return this._isClosure;
     }
 
     public setClosureIndex(index: number) {
-        this.closureIndex = index;
+        this._closureIndex = index;
     }
 
     public getClosureIndex(): number {
-        return this.closureIndex;
+        return this._closureIndex;
     }
 
     public setVarIndex(varIndex: number) {
@@ -129,13 +113,13 @@ export class Variable {
     }
 
     public setVarIsClosure(): void {
-        this.isClosure = true;
+        this._isClosure = true;
     }
 }
 
 export class Parameter extends Variable {
-    private isOptional: boolean;
-    private isDestructuring: boolean;
+    private _isOptional: boolean;
+    private _isDestructuring: boolean;
 
     constructor(
         name: string,
@@ -148,16 +132,16 @@ export class Parameter extends Variable {
         isLocal = true,
     ) {
         super(name, type, modifiers, index, isLocal, init);
-        this.isOptional = isOptional;
-        this.isDestructuring = isDestructuring;
+        this._isOptional = isOptional;
+        this._isDestructuring = isDestructuring;
     }
 
     get optional(): boolean {
-        return this.isOptional;
+        return this._isOptional;
     }
 
     get destructuring(): boolean {
-        return this.isDestructuring;
+        return this._isDestructuring;
     }
 }
 
@@ -183,6 +167,10 @@ export class VariableScanner {
                 if (scope.funcType.funcKind !== FunctionKind.DEFAULT) {
                     /* For class methods, fix type for "this" parameter */
                     if (!scope.isStatic()) {
+                        /**
+                         * varArray[0] - context
+                         * varArray[0] - this
+                         */
                         scope.varArray[1].varType = classScope.classType;
                     }
                 }
@@ -205,66 +193,6 @@ export class VariableScanner {
 
     visitNode(node: ts.Node): void {
         switch (node.kind) {
-            case ts.SyntaxKind.ImportDeclaration: {
-                const importDeclaration = <ts.ImportDeclaration>node;
-                const globalScope = this.currentScope!.getRootGloablScope()!;
-                // Get the import module name according to the relative position of enter scope
-                const enterScope =
-                    this.globalScopes[this.globalScopes.length - 1];
-                const importModuleName = getImportModulePath(
-                    importDeclaration,
-                    enterScope,
-                );
-                const importModuleScope = getGlobalScopeByModuleName(
-                    importModuleName,
-                    this.globalScopes,
-                );
-                // get import identifier
-                const {
-                    importIdentifierArray,
-                    nameScopeImportName,
-                    nameAliasImportMap,
-                    defaultImportName,
-                } = getImportIdentifierName(importDeclaration);
-                for (const importIdentifier of importIdentifierArray) {
-                    globalScope.addImportIdentifier(
-                        importIdentifier,
-                        importModuleScope,
-                    );
-                }
-                globalScope.setImportNameAlias(nameAliasImportMap);
-                if (nameScopeImportName) {
-                    globalScope.addImportNameScope(
-                        nameScopeImportName,
-                        importModuleScope,
-                    );
-                }
-                if (defaultImportName) {
-                    globalScope.addImportDefaultName(
-                        defaultImportName,
-                        importModuleScope,
-                    );
-                }
-                break;
-            }
-            case ts.SyntaxKind.ExportDeclaration: {
-                const exportDeclaration = <ts.ExportDeclaration>node;
-                const globalScope = this.currentScope!.getRootGloablScope()!;
-                const nameAliasExportMap =
-                    getExportIdentifierName(exportDeclaration);
-                globalScope.setExportNameAlias(nameAliasExportMap);
-                break;
-            }
-            case ts.SyntaxKind.ExportAssignment: {
-                const exportAssign = <ts.ExportAssignment>node;
-                const globalScope = this.currentScope!.getRootGloablScope()!;
-                const defaultIdentifier = <ts.Identifier>(
-                    exportAssign.expression
-                );
-                const defaultName = defaultIdentifier.getText()!;
-                globalScope.defaultNoun = defaultName;
-                break;
-            }
             case ts.SyntaxKind.Parameter: {
                 if (
                     node.parent.kind === ts.SyntaxKind.FunctionType ||
@@ -371,7 +299,7 @@ export class VariableScanner {
                 const funcScope = currentScope.getNearestFunctionScope();
                 let belongScope: Scope;
                 if (funcScope) {
-                    if (variable.isBlockScoped()) {
+                    if (variable.isFuncScopedVar()) {
                         belongScope = funcScope;
                     } else {
                         belongScope = currentScope;
@@ -438,17 +366,17 @@ export class VariableInit {
                 }
                 if (parameterNode.initializer) {
                     const paramInit = generateNodeExpression(
-                        this.parserCtx.expressionCompiler,
+                        this.parserCtx.expressionProcessor,
                         parameterNode.initializer,
                     );
                     paramObj.setInitExpr(paramInit);
-                    this.parserCtx.sematicChecker.curScope =
+                    this.parserCtx.semanticChecker.curScope =
                         this.parserCtx.getScopeByNode(node);
-                    this.parserCtx.sematicChecker.checkBinaryOperate(
+                    this.parserCtx.semanticChecker.checkBinaryOperate(
                         paramObj.varType,
                         paramInit.exprType,
                     );
-                    this.parserCtx.sematicChecker.checkDefaultParam();
+                    this.parserCtx.semanticChecker.checkDefaultParam();
                 }
                 break;
             }
@@ -463,18 +391,18 @@ export class VariableInit {
                     );
                 }
                 if (
-                    !variableObj.isBlockScoped() &&
+                    !variableObj.isFuncScopedVar() &&
                     variableDeclarationNode.initializer
                 ) {
                     this.parserCtx.currentScope = currentScope;
                     const variableInit = generateNodeExpression(
-                        this.parserCtx.expressionCompiler,
+                        this.parserCtx.expressionProcessor,
                         variableDeclarationNode.initializer,
                     );
                     variableObj.setInitExpr(variableInit);
-                    this.parserCtx.sematicChecker.curScope =
+                    this.parserCtx.semanticChecker.curScope =
                         this.parserCtx.getScopeByNode(node);
-                    this.parserCtx.sematicChecker.checkBinaryOperate(
+                    this.parserCtx.semanticChecker.checkBinaryOperate(
                         variableObj.varType,
                         variableInit.exprType,
                     );

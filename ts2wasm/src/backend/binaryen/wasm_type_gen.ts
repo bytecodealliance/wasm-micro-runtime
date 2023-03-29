@@ -59,9 +59,6 @@ export class WASMTypeGen {
             return;
         }
         switch (type.typeKind) {
-            case TypeKind.DYNCONTEXTTYPE:
-                this.tsType2WASMTypeMap.set(type, dyntype.dyn_ctx_t);
-                break;
             case TypeKind.VOID:
                 this.tsType2WASMTypeMap.set(type, binaryen.none);
                 break;

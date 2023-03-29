@@ -29,20 +29,20 @@ export const consoleLogger = log4js.getLogger('console');
 logger.level = LoggerLevel.ERROR;
 
 export class Logger {
+    static log(...args: any[]) {
+        logger.info(args);
+    }
+
+    static info(...args: any[]) {
+        logger.info(args);
+    }
+
     static trace(...args: any[]) {
         logger.trace(Logger.getStackTrace(), ...args);
     }
 
     static debug(...args: any[]) {
         logger.debug(Logger.getStackTrace(), ...args);
-    }
-
-    static log(...args: any[]) {
-        logger.info(Logger.getStackTrace(), ...args);
-    }
-
-    static info(...args: any[]) {
-        logger.info(Logger.getStackTrace(), ...args);
     }
 
     static warn(...args: any[]) {

@@ -13,7 +13,7 @@ import {
     NamespaceScope,
     Scope,
 } from './scope.js';
-import ExpressionCompiler, { Expression } from './expression.js';
+import ExpressionProcessor, { Expression } from './expression.js';
 import { BuiltinNames } from '../lib/builtin/builtin_name.js';
 import { Type } from './type.js';
 import { UnimplementError } from './error.js';
@@ -100,7 +100,7 @@ export function getNearestFunctionScopeFromCurrent(currentScope: Scope | null) {
 }
 
 export function generateNodeExpression(
-    exprCompiler: ExpressionCompiler,
+    exprCompiler: ExpressionProcessor,
     node: ts.Node,
 ): Expression {
     return exprCompiler.visitNode(node);
@@ -179,9 +179,8 @@ export function mangling(
     prefixStack: Array<string> = [],
 ) {
     scopeArray.forEach((scope) => {
-        let currName = '';
+        const currName = scope.getName();
         if (scope instanceof GlobalScope) {
-            currName = scope.moduleName;
             scope.startFuncName = `${currName}|start`;
             prefixStack.push(currName);
 
@@ -189,21 +188,17 @@ export function mangling(
                 v.mangledName = `${prefixStack.join(delimiter)}|${v.varName}`;
             });
         } else if (scope instanceof NamespaceScope) {
-            currName = scope.namespaceName;
             prefixStack.push(currName);
 
             scope.varArray.forEach((v) => {
                 v.mangledName = `${prefixStack.join(delimiter)}|${v.varName}`;
             });
         } else if (scope instanceof FunctionScope) {
-            currName = scope.funcName;
             prefixStack.push(currName);
         } else if (scope instanceof ClassScope) {
-            currName = scope.className;
             prefixStack.push(currName);
             scope.classType.mangledName = `${prefixStack.join(delimiter)}`;
         } else if (scope instanceof BlockScope) {
-            currName = scope.name;
             prefixStack.push(currName);
         }
 
@@ -234,13 +229,12 @@ export function getGlobalScopeByModuleName(
     moduleName: string,
     globalScopes: Array<GlobalScope>,
 ) {
-    for (let i = 0; i < globalScopes.length; i++) {
-        const globalScope = globalScopes[i];
-        if (globalScope.moduleName === moduleName) {
-            return globalScope;
-        }
+    const res = globalScopes.find((s) => s.moduleName === moduleName);
+    if (!res) {
+        throw Error(`no such module: ${moduleName}`);
     }
-    throw Error('no such moduleName: ' + moduleName);
+
+    return res;
 }
 
 export function getImportIdentifierName(
