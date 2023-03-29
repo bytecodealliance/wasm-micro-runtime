@@ -930,7 +930,7 @@ execute_post_instantiate_functions(AOTModuleInstance *module_inst,
     AOTFunctionInstance *call_ctors_func = NULL;
     WASMModuleInstanceCommon *module_inst_main = NULL;
 #ifdef OS_ENABLE_HW_BOUND_CHECK
-    WASMExecEnv *exec_env_tls = NULL;
+    WASMExecEnv *exec_env_tls = wasm_runtime_get_exec_env_tls();
 #endif
     WASMExecEnv *exec_env = NULL, *exec_env_created = NULL;
     bool ret = false;
@@ -976,7 +976,6 @@ execute_post_instantiate_functions(AOTModuleInstance *module_inst,
     if (is_sub_inst) {
         bh_assert(exec_env_main);
 #ifdef OS_ENABLE_HW_BOUND_CHECK
-        exec_env_tls = wasm_runtime_get_exec_env_tls();
         bh_assert(exec_env_tls == exec_env_main);
         (void)exec_env_tls;
 #endif
