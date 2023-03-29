@@ -29,7 +29,7 @@ const buf = read(moduleName, 'binary');
 let wasmMemory;
 
 const importObject = {
-    libdstructdyn: {
+    libstructdyn: {
         struct_get_dyn_i32: (obj, index) => {},
         struct_get_dyn_i64: (obj, index) => {},
         struct_get_dyn_f32: (obj, index) => {},
@@ -41,7 +41,7 @@ const importObject = {
         struct_set_dyn_f64: (obj, index, value) => {},
         struct_set_dyn_anyref: (obj, index, value) => {},
     },
-    libdytype: {
+    libdyntype: {
         dyntype_context_init: () => BigInt(0),
         dyntype_context_destroy: (ctx) => {},
 

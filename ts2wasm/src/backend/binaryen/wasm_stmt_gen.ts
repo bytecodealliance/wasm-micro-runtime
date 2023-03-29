@@ -34,6 +34,7 @@ import { WASMGen } from './index.js';
 import { TSClass, TSFunction, TypeKind } from '../../type.js';
 import { assert } from 'console';
 import { BuiltinNames } from '../../../lib/builtin/builtin_name.js';
+
 export class WASMStatementGen {
     private currentFuncCtx;
 
@@ -160,31 +161,6 @@ export class WASMStatementGen {
         const nearestFuncScope = <FunctionScope>curNearestFuncScope;
         let returnExprRef: binaryen.ExpressionRef;
         const type = nearestFuncScope.funcType;
-        // if (type.returnType.kind === TypeKind.FUNCTION) {
-        //     const returnedFuncName =
-        //         nearestFuncScope.funcName +
-        //         '|' +
-        //         (<IdentifierExpression>stmt.returnExpression).identifierName;
-        //     const array = [
-        //         module.local.get(
-        //             nearestFuncScope.paramArray.length,
-        //             (<typeInfo>WASMGen.contextOfScope.get(nearestFuncScope))
-        //                 .typeRef,
-        //         ),
-        //         module.ref.func(
-        //             returnedFuncName,
-        //             this.WASMCompiler.wasmType.getWASMType(type.returnType),
-        //         ),
-        //     ];
-        //     returnExprRef = binaryenCAPI._BinaryenStructNew(
-        //         module.ptr,
-        //         arrayToPtr(array).ptr,
-        //         2,
-        //         this.WASMCompiler.wasmType.getWASMFuncStructHeapType(
-        //             type.returnType,
-        //         ),
-        //     );
-        // } else if (
         if (
             type.returnType.kind === TypeKind.ANY &&
             stmt.returnExpression.exprType.kind !== TypeKind.ANY
@@ -522,10 +498,7 @@ export class WASMStatementGen {
                     const varInitExprRef = wasmExpr.WASMExprGen(
                         globalVar.initExpression,
                     ).binaryenRef;
-                    if (
-                        globalVar.varType.kind === TypeKind.NUMBER ||
-                        globalVar.varType.kind === TypeKind.DYNCONTEXTTYPE
-                    ) {
+                    if (globalVar.varType.kind === TypeKind.NUMBER) {
                         if (
                             globalVar.initExpression.expressionKind ===
                             ts.SyntaxKind.NumericLiteral

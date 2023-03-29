@@ -9,6 +9,7 @@ import { ClosureEnvironment, FunctionScope } from './scope.js';
 import { Variable } from './variable.js';
 import { getCurScope } from './utils.js';
 import { TSFunction, Type, TypeKind } from './type.js';
+import { Logger } from './log.js';
 
 type OperatorKind = ts.SyntaxKind;
 type ExpressionKind = ts.SyntaxKind;
@@ -342,9 +343,7 @@ export class FunctionExpression extends Expression {
     }
 }
 
-export default class ExpressionCompiler {
-    // private currentScope: Scope | null = null;
-
+export default class ExpressionProcessor {
     private typeResolver;
     private nodeScopeMap;
 
@@ -440,9 +439,9 @@ export default class ExpressionCompiler {
                     leftExpr,
                     rightExpr,
                 );
-                this.parserCtx.sematicChecker.curScope =
+                this.parserCtx.semanticChecker.curScope =
                     this.parserCtx.getScopeByNode(node);
-                this.parserCtx.sematicChecker.checkBinaryOperate(
+                this.parserCtx.semanticChecker.checkBinaryOperate(
                     (<BinaryExpression>expr).leftOperand.exprType,
                     (<BinaryExpression>expr).rightOperand.exprType,
                     (<BinaryExpression>expr).operatorKind,
@@ -536,12 +535,12 @@ export default class ExpressionCompiler {
                 }
                 const callExpr = new CallExpression(expr, args);
                 callExpr.setExprType(this.typeResolver.generateNodeType(node));
-                this.parserCtx.sematicChecker.curScope =
+                this.parserCtx.semanticChecker.curScope =
                     this.parserCtx.getScopeByNode(node);
                 const argTypes = args.map((arg) => arg.exprType);
                 const funcType = expr.exprType as TSFunction;
                 const paramTypes = funcType.getParamTypes();
-                this.parserCtx.sematicChecker.checkArgTypes(
+                this.parserCtx.semanticChecker.checkArgTypes(
                     paramTypes,
                     argTypes,
                     funcType.hasRest(),
@@ -579,9 +578,9 @@ export default class ExpressionCompiler {
                     expr.expressionKind === ts.SyntaxKind.Identifier &&
                     (<IdentifierExpression>expr).identifierName === 'Array'
                 ) {
-                    this.parserCtx.sematicChecker.curScope =
+                    this.parserCtx.semanticChecker.curScope =
                         this.parserCtx.getScopeByNode(node);
-                    this.parserCtx.sematicChecker.checkArrayType(
+                    this.parserCtx.semanticChecker.checkArrayType(
                         !!newExprNode.typeArguments,
                     );
                     let isLiteral = false;
@@ -685,9 +684,9 @@ export default class ExpressionCompiler {
             }
             case ts.SyntaxKind.FunctionExpression:
             case ts.SyntaxKind.ArrowFunction: {
-                const funcScope = getCurScope(node, this.nodeScopeMap);
+                const funcScope = getCurScope(node, this.nodeScopeMap)!;
                 const funcExpr = new FunctionExpression(
-                    funcScope!.getNearestFunctionScope()!,
+                    funcScope as FunctionScope,
                 );
                 funcExpr.setExprType(this.typeResolver.generateNodeType(node));
                 return funcExpr;
@@ -698,6 +697,9 @@ export default class ExpressionCompiler {
                 return expr;
             }
             default:
+                Logger.warn(
+                    `Encounter un-processed expression, kind: ${node.kind}`,
+                );
                 return new Expression(ts.SyntaxKind.Unknown);
         }
     }

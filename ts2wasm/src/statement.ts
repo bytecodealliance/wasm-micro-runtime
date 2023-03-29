@@ -24,6 +24,7 @@ import {
 import { Variable } from './variable.js';
 import { BuiltinNames } from '../lib/builtin/builtin_name.js';
 import { TSClass, Type } from './type.js';
+import { Logger } from './log.js';
 
 type StatementKind = ts.SyntaxKind;
 
@@ -277,7 +278,7 @@ export class ImportDeclaration extends Statement {
     }
 }
 
-export default class StatementCompiler {
+export default class StatementProcessor {
     private loopLabelStack = new Stack<string>();
     private breakLabelsStack = new Stack<string>();
     private switchLabelStack = new Stack<number>();
@@ -288,6 +289,15 @@ export default class StatementCompiler {
     visit() {
         this.parserCtx.nodeScopeMap.forEach((scope, node) => {
             this.currentScope = scope;
+            /** arrow function body is a ts.expression */
+            if (ts.isArrowFunction(node) && !ts.isBlock(node.body)) {
+                const expr = this.parserCtx.expressionProcessor.visitNode(
+                    node.body,
+                );
+                scope.addStatement(new ReturnStatement(expr));
+            }
+            /* During the traverse, it will enter the inner
+            block scope, so we skip BlockScope here */
             if (
                 scope.kind !== ScopeKind.BlockScope &&
                 scope.kind !== ScopeKind.ClassScope
@@ -369,7 +379,7 @@ export default class StatementCompiler {
             case ts.SyntaxKind.IfStatement: {
                 const ifStatementNode = <ts.IfStatement>node;
                 const condtion: Expression =
-                    this.parserCtx.expressionCompiler.visitNode(
+                    this.parserCtx.expressionProcessor.visitNode(
                         ifStatementNode.expression,
                     );
                 const ifTrue: Statement = this.visitNode(
@@ -408,16 +418,16 @@ export default class StatementCompiler {
                 const returnStatementNode = <ts.ReturnStatement>node;
                 const retStmt = new ReturnStatement(
                     returnStatementNode.expression
-                        ? this.parserCtx.expressionCompiler.visitNode(
+                        ? this.parserCtx.expressionProcessor.visitNode(
                               returnStatementNode.expression,
                           )
                         : null,
                 );
                 const expr = retStmt.returnExpression;
                 if (expr) {
-                    this.parserCtx.sematicChecker.curScope =
+                    this.parserCtx.semanticChecker.curScope =
                         this.parserCtx.getScopeByNode(node);
-                    this.parserCtx.sematicChecker.checkReturnType(
+                    this.parserCtx.semanticChecker.checkReturnType(
                         expr.exprType,
                     );
                 }
@@ -434,7 +444,7 @@ export default class StatementCompiler {
                 const blockLabel = breakLabels.peek();
                 this.loopLabelStack.push(loopLabel);
 
-                const expr = this.parserCtx.expressionCompiler.visitNode(
+                const expr = this.parserCtx.expressionProcessor.visitNode(
                     whileStatementNode.expression,
                 );
                 const statement = this.visitNode(whileStatementNode.statement)!;
@@ -459,7 +469,7 @@ export default class StatementCompiler {
                 const blockLabel = breakLabels.peek();
                 this.loopLabelStack.push(loopLabel);
 
-                const expr = this.parserCtx.expressionCompiler.visitNode(
+                const expr = this.parserCtx.expressionProcessor.visitNode(
                     doWhileStatementNode.expression,
                 );
                 const statement = this.visitNode(
@@ -499,7 +509,7 @@ export default class StatementCompiler {
                         );
                     } else {
                         initStmt = new ExpressionStatement(
-                            this.parserCtx.expressionCompiler.visitNode(
+                            this.parserCtx.expressionProcessor.visitNode(
                                 forInit,
                             ),
                         );
@@ -508,12 +518,12 @@ export default class StatementCompiler {
                 }
 
                 const cond = forStatementNode.condition
-                    ? this.parserCtx.expressionCompiler.visitNode(
+                    ? this.parserCtx.expressionProcessor.visitNode(
                           forStatementNode.condition,
                       )
                     : null;
                 const incrementor = forStatementNode.incrementor
-                    ? this.parserCtx.expressionCompiler.visitNode(
+                    ? this.parserCtx.expressionProcessor.visitNode(
                           forStatementNode.incrementor,
                       )
                     : null;
@@ -533,7 +543,7 @@ export default class StatementCompiler {
             case ts.SyntaxKind.ExpressionStatement: {
                 const exprStatement = <ts.ExpressionStatement>node;
                 const exprStmt = new ExpressionStatement(
-                    this.parserCtx.expressionCompiler.visitNode(
+                    this.parserCtx.expressionProcessor.visitNode(
                         exprStatement.expression,
                     ),
                 );
@@ -549,7 +559,7 @@ export default class StatementCompiler {
                 switchLabels.push(switchLabels.size());
                 const breakLabels = this.breakLabelsStack;
                 breakLabels.push('break-switch-' + switchLabels.size());
-                const expr = this.parserCtx.expressionCompiler.visitNode(
+                const expr = this.parserCtx.expressionProcessor.visitNode(
                     switchStatementNode.expression,
                 );
                 const caseBlock = this.visitNode(
@@ -584,7 +594,7 @@ export default class StatementCompiler {
                 const caseClauseNode = <ts.CaseClause>node;
                 this.currentScope = this.parserCtx.getScopeByNode(node)!;
                 const scope = this.currentScope;
-                const expr = this.parserCtx.expressionCompiler.visitNode(
+                const expr = this.parserCtx.expressionProcessor.visitNode(
                     caseClauseNode.expression,
                 );
                 const statements = new Array<Statement>();
@@ -617,6 +627,11 @@ export default class StatementCompiler {
                 );
                 return breakStmt;
             }
+            default:
+                Logger.info(
+                    `Encounter unprocessed statements, kind: [${node.kind}]`,
+                );
+                break;
         }
 
         return null;
@@ -637,10 +652,10 @@ export default class StatementCompiler {
                 );
             }
             varStatement.addVariable(variable);
-            if (variable.isBlockScoped() && varDecNode.initializer) {
+            if (variable.isFuncScopedVar() && varDecNode.initializer) {
                 const identifierExpr = new IdentifierExpression(varName);
                 identifierExpr.setExprType(variable.varType);
-                const initExpr = this.parserCtx.expressionCompiler.visitNode(
+                const initExpr = this.parserCtx.expressionProcessor.visitNode(
                     varDecNode.initializer,
                 );
                 const assignExpr = new BinaryExpression(
@@ -671,7 +686,7 @@ export default class StatementCompiler {
         );
         propAccessExpr.setExprType(fieldType);
         const initExpr =
-            this.parserCtx.expressionCompiler.visitNode(initializer);
+            this.parserCtx.expressionProcessor.visitNode(initializer);
         const assignExpr = new BinaryExpression(
             ts.SyntaxKind.EqualsToken,
             propAccessExpr,

@@ -674,11 +674,8 @@ export class WASMGen extends Ts2wasmBackend {
         }
 
         if (functionScope.hasDecorator(BuiltinNames.decorator)) {
-            // const builtInFuncName = functionScope.mangledName.replace(
-            //     functionScope.getRootGloablScope()!.moduleName,
-            //     BuiltinNames.bulitInModuleName,
-            // );
-            // addDecoratorFunc(this.module, builtInFuncName);
+            /* Function with @binaryen decorator is implemented directly
+                using binaryen API, don't generate code for them */
             return;
         }
 
@@ -881,8 +878,6 @@ export class WASMGen extends Ts2wasmBackend {
             return module.f64.const(0);
         } else if (varType.kind === TypeKind.BOOLEAN) {
             return module.i32.const(0);
-        } else if (varType.kind === TypeKind.DYNCONTEXTTYPE) {
-            return module.i64.const(0, 0);
         }
         return binaryenCAPI._BinaryenRefNull(module.ptr, binaryen.anyref);
     }

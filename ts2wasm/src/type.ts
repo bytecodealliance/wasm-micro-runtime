@@ -5,7 +5,6 @@
 
 import ts from 'typescript';
 import { ParserContext } from './frontend.js';
-import { Stack } from './utils.js';
 import {
     ClassScope,
     FunctionScope,
@@ -15,6 +14,7 @@ import {
 } from './scope.js';
 import { Parameter, Variable } from './variable.js';
 import { Expression } from './expression.js';
+import { Logger } from './log.js';
 
 export const enum TypeKind {
     VOID = 'void',
@@ -26,7 +26,6 @@ export const enum TypeKind {
     FUNCTION = 'function',
     CLASS = 'class',
     NULL = 'null',
-    DYNCONTEXTTYPE = 'dyntype_context',
     INTERFACE = 'interface',
     UNKNOWN = 'unknown',
 }
@@ -68,10 +67,6 @@ export class Primitive extends Type {
                 this.typeKind = TypeKind.NULL;
                 break;
             }
-            case 'dyntype_context': {
-                this.typeKind = TypeKind.DYNCONTEXTTYPE;
-                break;
-            }
             default: {
                 this.typeKind = TypeKind.UNKNOWN;
             }
@@ -86,7 +81,6 @@ export const builtinTypes = new Map<string, Type>([
     ['any', new Primitive('any')],
     ['void', new Primitive('void')],
     ['null', new Primitive('null')],
-    ['dyntype_context', new Primitive('dyntype_context')],
 ]);
 
 export interface TsClassField {
@@ -106,7 +100,6 @@ export const enum FunctionKind {
     STATIC = 'static',
 }
 
-/* A + '_' +  getMethodPrefix(kind)*/
 export function getMethodPrefix(kind: FunctionKind): string {
     switch (kind) {
         case FunctionKind.CONSTRUCTOR:
@@ -133,27 +126,23 @@ export interface ClassMethod {
 export class TSClass extends Type {
     typeKind = TypeKind.CLASS;
     private _typeId = 0;
-    private name = '';
+    private _name = '';
     private _mangledName = '';
-    private memberFields: Array<TsClassField> = [];
+    private _memberFields: Array<TsClassField> = [];
     private _staticFields: Array<TsClassField> = [];
-    staticFieldsInitValueMap: Map<number, Expression> = new Map();
-    private constructorMethod: TSFunction | null = null;
-    private methods: Array<TsClassFunc> = [];
+    private _methods: Array<TsClassFunc> = [];
+    private _baseClass: TSClass | null = null;
+
+    public staticFieldsInitValueMap: Map<number, Expression> = new Map();
     /* override or own methods */
     public overrideOrOwnMethods: Set<string> = new Set();
-    private baseClass: TSClass | null = null;
 
     constructor() {
         super();
     }
 
-    get classConstructorType(): TSFunction | null {
-        return this.constructorMethod;
-    }
-
     get fields(): Array<TsClassField> {
-        return this.memberFields;
+        return this._memberFields;
     }
 
     get staticFields(): TsClassField[] {
@@ -161,35 +150,31 @@ export class TSClass extends Type {
     }
 
     get memberFuncs(): Array<TsClassFunc> {
-        return this.methods;
-    }
-
-    setClassConstructor(functionType: TSFunction) {
-        this.constructorMethod = functionType;
+        return this._methods;
     }
 
     setBase(base: TSClass): void {
-        this.baseClass = base;
+        this._baseClass = base;
     }
 
     getBase(): TSClass | null {
-        return this.baseClass;
+        return this._baseClass;
     }
 
     addMemberField(memberField: TsClassField): void {
-        this.memberFields.push(memberField);
+        this._memberFields.push(memberField);
     }
 
     getMemberField(name: string): TsClassField | null {
         return (
-            this.memberFields.find((f) => {
+            this._memberFields.find((f) => {
                 return f.name === name;
             }) || null
         );
     }
 
     getMemberFieldIndex(name: string): number {
-        return this.memberFields.findIndex((f) => {
+        return this._memberFields.findIndex((f) => {
             return f.name === name;
         });
     }
@@ -214,7 +199,7 @@ export class TSClass extends Type {
 
     addMethod(classMethod: TsClassFunc): void {
         classMethod.type.isMethod = true;
-        this.methods.push(classMethod);
+        this._methods.push(classMethod);
     }
 
     getMethod(
@@ -231,11 +216,11 @@ export class TSClass extends Type {
     }
 
     setClassName(name: string) {
-        this.name = name;
+        this._name = name;
     }
 
     get className(): string {
-        return this.name;
+        return this._name;
     }
 
     get mangledName(): string {
@@ -265,21 +250,21 @@ export class TSInterface extends TSClass {
 
 export class TSArray extends Type {
     typeKind = TypeKind.ARRAY;
-    constructor(private elemType: Type) {
+    constructor(private _elemType: Type) {
         super();
     }
 
     get elementType(): Type {
-        return this.elemType;
+        return this._elemType;
     }
 }
 
 export class TSFunction extends Type {
     typeKind = TypeKind.FUNCTION;
-    private parameterTypes: Type[] = [];
+    private _parameterTypes: Type[] = [];
     private _returnType: Type = new Primitive('void');
     // iff last parameter is rest paremeter
-    private hasRestParameter = false;
+    private _hasRestParameter = false;
     private _isMethod = false;
     private _isDeclare = false;
     private _isStatic = false;
@@ -297,19 +282,19 @@ export class TSFunction extends Type {
     }
 
     addParamType(paramType: Type) {
-        this.parameterTypes.push(paramType);
+        this._parameterTypes.push(paramType);
     }
 
     getParamTypes(): Type[] {
-        return this.parameterTypes;
+        return this._parameterTypes;
     }
 
     setRest() {
-        this.hasRestParameter = true;
+        this._hasRestParameter = true;
     }
 
     hasRest() {
-        return this.hasRestParameter === true;
+        return this._hasRestParameter === true;
     }
 
     get isMethod() {
@@ -336,11 +321,12 @@ export class TSFunction extends Type {
         this._isStatic = value;
     }
 
+    // shadow copy, content of parameterTypes and returnType is not copied
     public clone(): TSFunction {
         const func = new TSFunction(this.funcKind);
         func.returnType = this.returnType;
-        func.parameterTypes = this.parameterTypes;
-        func.hasRestParameter = this.hasRestParameter;
+        func._parameterTypes = this._parameterTypes;
+        func._hasRestParameter = this._hasRestParameter;
         func.isMethod = this.isMethod;
         func.isDeclare = this.isDeclare;
         func.isStatic = this.isStatic;
@@ -414,14 +400,12 @@ export default class TypeResolver {
             (<FunctionScope>this.currentScope!).setFuncType(type as TSFunction);
         }
         if (ts.isClassDeclaration(node)) {
-            this.currentScope!.parent!.namedTypeMap.set(tsTypeString, type);
+            this.currentScope!.parent!.addType(tsTypeString, type);
             if (this.currentScope! instanceof ClassScope) {
                 this.currentScope!.setClassType(type as TSClass);
             }
         } else {
-            if (!this.currentScope!.namedTypeMap.has(tsTypeString)) {
-                this.currentScope!.namedTypeMap.set(tsTypeString, type);
-            }
+            this.currentScope!.addType(tsTypeString, type);
         }
     }
 
@@ -559,6 +543,9 @@ export default class TypeResolver {
             const typeString =
                 methodTypeStrs.join(', ') + ', ' + fieldTypeStrs.join(', ');
             tsClass.setTypeId(this.generateTypeId(typeString));
+            Logger.info(
+                `Assign type id [${tsClass.typeId}] for object literal type: ${typeString}`,
+            );
             return tsClass;
         }
 
@@ -662,8 +649,7 @@ export default class TypeResolver {
                 return modifier.kind === ts.SyntaxKind.DeclareKeyword;
             });
             if (hasDeclareKeyword) {
-                res = true;
-                return res;
+                return true;
             }
         }
         if (node.parent.kind === ts.SyntaxKind.ModuleBlock) {
@@ -698,7 +684,10 @@ export default class TypeResolver {
 
         const heritage = node.heritageClauses;
         let baseType: TSClass | null = null;
-        if (heritage !== undefined) {
+        if (
+            heritage !== undefined &&
+            heritage[0].token !== ts.SyntaxKind.ImplementsKeyword
+        ) {
             /* base class node, iff it really has the one */
             const heritageName = heritage[0].types[0].getText();
             methodTypeStrs = this.methodShapeStr.get(heritageName)!.split(', ');
@@ -759,10 +748,13 @@ export default class TypeResolver {
         ctorType.returnType = classType;
         ctorType.funcKind = FunctionKind.CONSTRUCTOR;
         ctorScope.setFuncType(ctorType);
-        classType.setClassConstructor(ctorType);
 
         // 2. parse other fields
         for (const member of node.members) {
+            if (ts.isSemicolonClassElement(member)) {
+                /* ES6 allows Semicolon as class elements, we just skip them */
+                continue;
+            }
             const name = ts.isConstructorDeclaration(member)
                 ? 'constructor'
                 : member.name!.getText();
@@ -796,13 +788,13 @@ export default class TypeResolver {
                     if (classField.static) {
                         classType.staticFieldsInitValueMap.set(
                             index,
-                            this.parserCtx.expressionCompiler.visitNode(
+                            this.parserCtx.expressionProcessor.visitNode(
                                 field.initializer,
                             ),
                         );
                     } else {
                         ctorScope.addStatement(
-                            this.parserCtx.statementCompiler.createFieldAssignStmt(
+                            this.parserCtx.statementProcessor.createFieldAssignStmt(
                                 field.initializer,
                                 classType,
                                 type,
@@ -854,6 +846,9 @@ export default class TypeResolver {
         this.fieldShapeStr.set(classType.className, fieldType);
         const typeString = methodType + ', ' + fieldType;
         classType.setTypeId(this.generateTypeId(typeString));
+        Logger.info(
+            `Assign type id [${classType.typeId}] for class [${classType.className}], type string: ${typeString}`,
+        );
         return classType;
     }
 
@@ -905,6 +900,9 @@ export default class TypeResolver {
         const typeString =
             methodTypeStrs.join(', ') + ', ' + fieldTypeStrs.join(', ');
         infc.setTypeId(this.generateTypeId(typeString));
+        Logger.info(
+            `Assign type id [${infc.typeId}] for interface: ${typeString}`,
+        );
 
         return infc;
     }
@@ -963,6 +961,8 @@ export default class TypeResolver {
                 ? true
                 : false;
         if (!isOverride) {
+            /* override methods has been copied from base class,
+                only add non-override methods here */
             classType.addMethod({
                 name: methodName,
                 type: tsFuncType,

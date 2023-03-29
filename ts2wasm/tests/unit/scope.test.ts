@@ -205,7 +205,7 @@ describe('testScope', function () {
         const globalScope = new GlobalScope();
         const funcScope = new FunctionScope(globalScope);
         const funcType = new TSFunction();
-        funcScope.namedTypeMap.set('test', funcType);
+        funcScope.addType('test', funcType);
 
         expect(funcScope.findType('test')).eq(funcType);
     });

@@ -42,7 +42,7 @@ interface SematicError {
     scope: Scope;
 }
 
-export default class SematicCheck {
+export default class SemanticChecker {
     private errors: SematicError[] = [];
     private _curScope: Scope | undefined = undefined;
 
