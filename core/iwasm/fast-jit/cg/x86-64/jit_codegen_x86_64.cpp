@@ -300,8 +300,7 @@ class JitErrorHandler : public ErrorHandler
 
     JitErrorHandler()
       : err(kErrorOk)
-    {
-    }
+    {}
 
     void handleError(Error e, const char *msg, BaseEmitter *base) override
     {

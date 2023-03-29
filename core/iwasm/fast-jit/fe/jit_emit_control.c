@@ -905,63 +905,46 @@ check_copy_arities(const JitBlock *block_dst, JitFrame *jit_frame)
 }
 
 #if WASM_ENABLE_THREAD_MGR != 0
-static bool
-check_suspend_flags(JitCompContext *cc)
+bool
+jit_check_suspend_flags(JitCompContext *cc)
 {
-    JitReg terminate_addr, terminate_flag, flag, offset, res;
-    JitBasicBlock *terminate_check_block = NULL, *non_terminate_block = NULL,
-                  *terminate_block = NULL;
-    JitInsn *insn = NULL;
-    terminate_addr = cc->exec_env_reg;
-    terminate_flag = jit_cc_new_reg_ptr(cc);
+    JitReg exec_env, suspend_flags, flag, offset;
+    JitBasicBlock *non_terminate_block = NULL, *terminate_block;
+    JitFrame *jit_frame = cc->jit_frame;
+    exec_env = cc->exec_env_reg;
+    suspend_flags = jit_cc_new_reg_I32(cc);
     flag = jit_cc_new_reg_I32(cc);
     /* Offset of suspend_flags */
     offset = jit_cc_new_const_I32(cc, offsetof(WASMExecEnv, suspend_flags));
-    res = jit_cc_new_reg_I32(cc);
 
-    // volatile?
-    if (!(insn = GEN_INSN(LDPTR, terminate_flag, terminate_addr, offset))) {
-        jit_set_last_error(cc, "generate ldptr insn failed");
+    GEN_INSN(LDI32, suspend_flags, exec_env, offset);
+
+    /* TODO: exec_env->suspend_flags.flags != 0 */
+    /* now exec_env->suspend_flags.flags & 0x01 is sufficient */
+    GEN_INSN(AND, flag, suspend_flags, NEW_CONST(I32, 1));
+    GEN_INSN(CMP, cc->cmp_reg, suspend_flags, NEW_CONST(I32, 0));
+
+    terminate_block = jit_cc_new_basic_block(cc, 0);
+    non_terminate_block = jit_cc_new_basic_block(cc, 0);
+    if (!terminate_block || !non_terminate_block) {
         goto fail;
     }
 
-    CREATE_BASIC_BLOCK(terminate_check_block);
-    terminate_check_block->prev = cc->cur_basic_block;
-    cc->cur_basic_block->next = terminate_check_block;
+    /* Commit register values to locals and stacks */
+    gen_commit_values(jit_frame, jit_frame->lp, jit_frame->sp);
+    /* Clear frame values */
+    clear_values(jit_frame);
 
-    CREATE_BASIC_BLOCK(non_terminate_block);
-    non_terminate_block->prev = terminate_check_block;
-    terminate_check_block->next = non_terminate_block;
+    /* jump to terminate_block or non_terminate_block */
+    GEN_INSN(BNE, cc->cmp_reg, jit_basic_block_label(terminate_block),
+             jit_basic_block_label(non_terminate_block));
 
-    SET_BUILDER_POS(non_terminate_block);
-    // TODO: flag greater than 0
-    // GEN_INSN();
-    BUILD_COND_BR(res, terminate_check_block, non_terminate_block);
+    cc->cur_basic_block = terminate_block;
+    /* handle_func_return(cc, cc->block_stack.block_list_head); */
+    GEN_INSN(RETURN, NEW_CONST(I32, 0));
 
-    /* Move builder to terminate check block */
-    SET_BUILDER_POS(terminate_check_block);
+    cc->cur_basic_block = non_terminate_block;
 
-    CREATE_BASIC_BLOCK(terminate_block);
-    terminate_block->prev = terminate_check_block;
-    terminate_check_block->next = terminate_block;
-
-    if (!(insn = GEN_INSN(AND, flag, terminate_flag, NEW_CONST(I32, 1)))) {
-        jit_set_last_error(cc, "generate and insn failed");
-        goto fail;
-    }
-    // TODO: flag greater than 0
-    // GEN_INSN();
-    BUILD_COND_BR(res, terminate_check_block, non_terminate_block);
-
-    /* Move builder to terminate block */
-    SET_BUILDER_POS(terminate_block);
-    // TODO:zero function ret?
-    //    if (!true) {
-    //        goto fail;
-    //    }
-
-    /* Move builder to non terminate block */
-    SET_BUILDER_POS(non_terminate_block);
     return true;
 
 fail:
@@ -1052,6 +1035,13 @@ fail:
 bool
 jit_compile_op_br(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
 {
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (!jit_check_suspend_flags(cc))
+        return false;
+#endif
+
     return handle_op_br(cc, br_depth, p_frame_ip)
            && handle_next_reachable_block(cc, p_frame_ip);
 }
@@ -1102,6 +1092,12 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth,
     JitBasicBlock *cur_basic_block, *if_basic_block = NULL;
     JitInsn *insn, *insn_select = NULL, *insn_cmp = NULL;
     bool copy_arities;
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (!jit_check_suspend_flags(cc))
+        return false;
+#endif
 
     if (!(block_dst = get_target_block(cc, br_depth))) {
         return false;
@@ -1209,6 +1205,12 @@ jit_compile_op_br_table(JitCompContext *cc, uint32 *br_depths, uint32 br_count,
     JitInsn *insn;
     uint32 i = 0;
     JitOpndLookupSwitch *opnd = NULL;
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (!jit_check_suspend_flags(cc))
+        return false;
+#endif
 
     cur_basic_block = cc->cur_basic_block;
 
