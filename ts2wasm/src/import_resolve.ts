@@ -51,12 +51,10 @@ export class ImportResolver {
             case ts.SyntaxKind.ImportDeclaration: {
                 const importDeclaration = <ts.ImportDeclaration>node;
                 const globalScope = this.currentScope!.getRootGloablScope()!;
-                // Get the import module name according to the relative position of enter scope
-                const enterScope =
-                    this.globalScopes[this.globalScopes.length - 1];
+                // Get the import module name according to the relative position of current scope
                 const importModuleName = getImportModulePath(
                     importDeclaration,
-                    enterScope,
+                    this.currentScope!.getRootGloablScope()!,
                 );
                 const importModuleScope = getGlobalScopeByModuleName(
                     importModuleName,
