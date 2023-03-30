@@ -80,6 +80,7 @@ jobs:
             # "-DWAMR_BUILD_DEBUG_INTERP=1",
             "-DWAMR_BUILD_DUMP_CALL_STACK=1",
             "-DWAMR_BUILD_LIB_PTHREAD=1",
+            "-DWAMR_BUILD_LIB_WASI_THREADS=1",
             "-DWAMR_BUILD_LOAD_CUSTOM_SECTION=1",
             "-DWAMR_BUILD_MINI_LOADER=1",
             "-DWAMR_BUILD_MEMORY_PROFILING=1",
