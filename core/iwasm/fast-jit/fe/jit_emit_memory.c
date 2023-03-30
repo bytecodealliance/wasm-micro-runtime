@@ -1124,4 +1124,11 @@ jit_compiler_op_atomic_notify(JitCompContext *cc, uint32 align, uint32 offset,
 fail:
     return false;
 }
+
+bool
+jit_compiler_op_atomic_fence(JitCompContext *cc)
+{
+    GEN_INSN(FENCE);
+    return true;
+}
 #endif

@@ -7896,6 +7896,25 @@ at_rmw_xor_r_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
             GOTO_FAIL;                                                         \
     } while (0)
 
+/**
+ * Encode insn mfence
+ **/
+bool
+fence(x86::Assembler &a)
+{
+    a.mfence();
+    return true;
+}
+
+/**
+ * Encode insn fence: CMPXCHG_type r0, r1, r2, r3, r4
+ */
+#define FENCE()        \
+    do {               \
+        if (!fence(a)) \
+            GOTO_FAIL; \
+    } while (0)
+
 #endif
 
 bool
@@ -8629,6 +8648,10 @@ jit_codegen_gen_native(JitCompContext *cc)
                 case JIT_OP_AT_XORI64:
                     LOAD_4ARGS();
                     AT_RMW_R_R_R_R(xor, I64, int64, 8);
+                    break;
+
+                case JIT_OP_FENCE:
+                    FENCE();
                     break;
 
 #endif

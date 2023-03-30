@@ -364,6 +364,10 @@ JitInsn *
 _jit_insn_new_VReg_2(JitOpcode opc, JitReg r0, JitReg r1, int n);
 JitInsn *
 _jit_insn_new_LookupSwitch_1(JitOpcode opc, JitReg value, uint32 num);
+#if WASM_ENABLE_SHARED_MEMORY != 0
+JitInsn *
+_jit_insn_new_Null_0(JitOpcode opc, void *meaningless);
+#endif
 
 /*
  * Instruction creation functions jit_insn_new_NAME, where NAME is the
@@ -385,6 +389,10 @@ _jit_insn_new_LookupSwitch_1(JitOpcode opc, JitReg value, uint32 num);
 #define ARG_LIST_VReg_2 r0, r1, n
 #define ARG_DECL_LookupSwitch_1 JitReg value, uint32 num
 #define ARG_LIST_LookupSwitch_1 value, num
+#if WASM_ENABLE_SHARED_MEMORY != 0
+#define ARG_DECL_Null_0 void
+#define ARG_LIST_Null_0 NULL
+#endif
 #define INSN(NAME, OPND_KIND, OPND_NUM, FIRST_USE)             \
     static inline JitInsn *jit_insn_new_##NAME(                \
         ARG_DECL_##OPND_KIND##_##OPND_NUM)                     \
@@ -410,6 +418,10 @@ _jit_insn_new_LookupSwitch_1(JitOpcode opc, JitReg value, uint32 num);
 #undef ARG_LIST_VReg_2
 #undef ARG_DECL_LookupSwitch_1
 #undef ARG_LIST_LookupSwitch_1
+#if WASM_ENABLE_SHARED_MEMORY != 0
+#undef ARG_DECL_Null_0
+#undef ARG_LIST_Null_0
+#endif
 
 /**
  * Delete an instruction

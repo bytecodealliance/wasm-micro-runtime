@@ -10,7 +10,14 @@
 /**
  * Operand kinds of instructions.
  */
-enum { JIT_OPND_KIND_Reg, JIT_OPND_KIND_VReg, JIT_OPND_KIND_LookupSwitch };
+enum {
+    JIT_OPND_KIND_Reg,
+    JIT_OPND_KIND_VReg,
+    JIT_OPND_KIND_LookupSwitch,
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    JIT_OPND_KIND_Null
+#endif
+};
 
 /**
  * Operand kind of each instruction.
@@ -167,6 +174,20 @@ _jit_insn_new_LookupSwitch_1(JitOpcode opc, JitReg value, uint32 num)
 
     return insn;
 }
+
+#if WASM_ENABLE_SHARED_MEMORY != 0
+JitInsn *
+_jit_insn_new_Null_0(JitOpcode opc, void *meaningless)
+{
+    JitInsn *insn = JIT_INSN_NEW_Reg(0);
+
+    if (insn) {
+        insn->opcode = opc;
+    }
+
+    return insn;
+}
+#endif
 
 #undef JIT_INSN_NEW_Reg
 #undef JIT_INSN_NEW_VReg

@@ -240,8 +240,8 @@ get_memory_data_reg(JitFrame *frame, uint32 mem_idx)
         /* module_inst->memories[0] */
         GEN_INSN(LDPTR, memories_0_addr, memories_addr, NEW_CONST(I32, 0));
         /* memories[0]->memory_data */
-        GEN_INSN(LDPTR, frame->memory_regs[mem_idx].memory_data, memories_0_addr,
-                 NEW_CONST(I32, memory_data_offset));
+        GEN_INSN(LDPTR, frame->memory_regs[mem_idx].memory_data,
+                 memories_0_addr, NEW_CONST(I32, memory_data_offset));
     }
 #else
     memory_data_offset =
@@ -2148,6 +2148,8 @@ jit_compile_func(JitCompContext *cc)
                     case WASM_OP_ATOMIC_FENCE:
                         /* Skip memory index */
                         frame_ip++;
+                        if (!jit_compiler_op_atomic_fence(cc))
+                            return false;
                         break;
                     case WASM_OP_ATOMIC_I32_LOAD:
                         bytes = 4;
