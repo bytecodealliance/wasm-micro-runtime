@@ -14,6 +14,10 @@ on:
         description: workfing directory
         type: string
         required: true
+      llvm_cache_key:
+        description: the cache key of llvm libraries
+        type: string
+        required: true
       runner:
         description: OS of compilation
         type: string
@@ -32,6 +36,19 @@ jobs:
     runs-on: ${{ inputs.runner }}
     steps:
       - uses: actions/checkout@v3
+
+      - name: get cached LLVM libraries
+        id: retrieve_llvm_libs
+        uses: actions/cache@v3
+        with:
+          path: |
+            ./core/deps/llvm/build/bin
+            ./core/deps/llvm/build/include
+            ./core/deps/llvm/build/lib
+            ./core/deps/llvm/build/libexec
+            ./core/deps/llvm/build/share
+          key: ${{ inputs.llvm_cache_key }}
+          fail-on-cache-miss: true
 
       - name: generate iwasm binary release
         run: |
@@ -53,6 +70,7 @@ jobs:
             -DWAMR_BUILD_BULK_MEMORY=1 \
             -DWAMR_BUILD_LIB_PTHREAD=1 \
             -DWAMR_BUILD_LIB_PTHREAD_SEMAPHORE=1 \
+            -DWAMR_BUILD_LIB_WASI_THREADS=1 \
             -DWAMR_BUILD_LIBC_BUILTIN=1 \
             -DWAMR_BUILD_LIBC_WASI=1 \
             -DWAMR_BUILD_REF_TYPES=1 \

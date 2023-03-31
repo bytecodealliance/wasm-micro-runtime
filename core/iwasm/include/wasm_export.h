@@ -467,14 +467,14 @@ wasm_runtime_set_wasi_ns_lookup_pool(wasm_module_t module, const char *ns_lookup
  * Instantiate a WASM module.
  *
  * @param module the WASM module to instantiate
- * @param stack_size the default stack size of the module instance when the
+ * @param default_stack_size the default stack size of the module instance when the
  *        exec env's operation stack isn't created by user, e.g. API
  *        wasm_application_execute_main() and wasm_application_execute_func()
  *        create the operation stack internally with the stack size specified
  *        here. And API wasm_runtime_create_exec_env() creates the operation
  *        stack with stack size specified by its parameter, the stack size
  *        specified here is ignored.
- * @param heap_size the default heap size of the module instance, a heap will
+ * @param host_managed_heap_size the default heap size of the module instance, a heap will
  *        be created besides the app memory space. Both wasm app and native
  *        function can allocate memory from the heap.
  * @param error_buf buffer to output the error info if failed
@@ -484,7 +484,7 @@ wasm_runtime_set_wasi_ns_lookup_pool(wasm_module_t module, const char *ns_lookup
  */
 WASM_RUNTIME_API_EXTERN wasm_module_inst_t
 wasm_runtime_instantiate(const wasm_module_t module,
-                         uint32_t stack_size, uint32_t heap_size,
+                         uint32_t default_stack_size, uint32_t host_managed_heap_size,
                          char *error_buf, uint32_t error_buf_size);
 
 /**

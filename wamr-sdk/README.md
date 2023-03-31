@@ -1,5 +1,12 @@
 # WebAssembly Micro Runtime SDK 
 
+Usually there are two tasks for integrating the WAMR into a particular project:
+
+- Select what WAMR components (vmcore, libc, app-mgr, app-framework components) to be integrated, and get the associated source files added into the project building configuration
+- Generate the APP SDK for developing the WASM apps on the selected libc and framework components
+
+The **[WAMR SDK](./wamr-sdk)** tools is helpful to finish the two tasks quickly. It supports menu configuration for selecting WAMR components and builds the WAMR to a SDK package that includes **runtime SDK** and **APP SDK**. The runtime SDK is used for building the native application and the APP SDK should be shipped to WASM application developers.
+
 
 **Note**: [WASI-SDK](https://github.com/CraneStation/wasi-sdk/releases) version 7 and above should be installed before building the WAMR SDK. 
 

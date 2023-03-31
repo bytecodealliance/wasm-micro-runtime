@@ -33,6 +33,9 @@ bh_hash_map_create(uint32 size, bool use_lock, HashFunc hash_func,
     HashMap *map;
     uint64 total_size;
 
+    if (size < HASH_MAP_MIN_SIZE)
+        size = HASH_MAP_MIN_SIZE;
+
     if (size > HASH_MAP_MAX_SIZE) {
         LOG_ERROR("HashMap create failed: size is too large.\n");
         return NULL;

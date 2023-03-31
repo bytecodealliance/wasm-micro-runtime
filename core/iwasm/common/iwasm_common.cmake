@@ -14,6 +14,17 @@ if (WAMR_DISABLE_APP_ENTRY EQUAL 1)
   list(REMOVE_ITEM c_source_all "${IWASM_COMMON_DIR}/wasm_application.c")
 endif ()
 
+if (CMAKE_OSX_ARCHITECTURES)
+  string(TOLOWER "${CMAKE_OSX_ARCHITECTURES}" OSX_ARCHS)
+
+  list(FIND OSX_ARCHS arm64 OSX_AARCH64)
+  list(FIND OSX_ARCHS x86_64 OSX_X86_64)
+
+  if (NOT "${OSX_AARCH64}" STREQUAL "-1" AND NOT "${OSX_X86_64}" STREQUAL "-1")
+    set(OSX_UNIVERSAL_BUILD 1)
+  endif()
+endif()
+
 if (WAMR_BUILD_INVOKE_NATIVE_GENERAL EQUAL 1)
   # Use invokeNative C version instead of asm code version
   # if WAMR_BUILD_INVOKE_NATIVE_GENERAL is explicitly set.
@@ -24,6 +35,8 @@ if (WAMR_BUILD_INVOKE_NATIVE_GENERAL EQUAL 1)
   #   in arm and mips need to be 8-bytes aligned, and some arguments
   #   of x86_64 are passed by registers but not stack
   set (source_all ${c_source_all} ${IWASM_COMMON_DIR}/arch/invokeNative_general.c)
+elseif (OSX_UNIVERSAL_BUILD EQUAL 1)
+  set (source_all ${c_source_all} ${IWASM_COMMON_DIR}/arch/invokeNative_osx_universal.s)
 elseif (WAMR_BUILD_TARGET STREQUAL "X86_64" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
   if (NOT WAMR_BUILD_SIMD EQUAL 1)
     if (WAMR_BUILD_PLATFORM STREQUAL "windows")
