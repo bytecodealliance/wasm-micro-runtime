@@ -30,7 +30,7 @@
 
 #define BUILD_COND_BR(value_if, block_then, block_else)                       \
     do {                                                                      \
-        if (!GEN_INSN(CMP, cc->cmp_reg, value_if, NEW_CONST(I32, 0))          \
+        if (!GEN_INSN(CMP, cc->cmp_reg, value_if, NEW_CONST(cc, 0))           \
             || !GEN_INSN(BNE, cc->cmp_reg, jit_basic_block_label(block_then), \
                          jit_basic_block_label(block_else))) {                \
             jit_set_last_error(cc, "generate bne insn failed");               \
@@ -908,47 +908,32 @@ check_copy_arities(const JitBlock *block_dst, JitFrame *jit_frame)
 bool
 jit_check_suspend_flags(JitCompContext *cc)
 {
-    JitReg exec_env, suspend_flags, flag, offset;
-    JitBasicBlock *non_terminate_block = NULL, *terminate_block;
-    JitFrame *jit_frame = cc->jit_frame;
+    JitReg exec_env, suspend_flags, terminate_flag, offset;
+    JitBasicBlock *terminate_block, *cur_basic_block;
+
     exec_env = cc->exec_env_reg;
     suspend_flags = jit_cc_new_reg_I32(cc);
-    flag = jit_cc_new_reg_I32(cc);
-    /* Offset of suspend_flags */
+    terminate_flag = jit_cc_new_reg_I32(cc);
+
     offset = jit_cc_new_const_I32(cc, offsetof(WASMExecEnv, suspend_flags));
-
     GEN_INSN(LDI32, suspend_flags, exec_env, offset);
-
-    /* TODO: exec_env->suspend_flags.flags != 0 */
-    /* now exec_env->suspend_flags.flags & 0x01 is sufficient */
-    GEN_INSN(AND, flag, suspend_flags, NEW_CONST(I32, 1));
-    GEN_INSN(CMP, cc->cmp_reg, suspend_flags, NEW_CONST(I32, 0));
+    GEN_INSN(AND, terminate_flag, suspend_flags, NEW_CONST(I32, 1));
 
     terminate_block = jit_cc_new_basic_block(cc, 0);
-    non_terminate_block = jit_cc_new_basic_block(cc, 0);
-    if (!terminate_block || !non_terminate_block) {
-        goto fail;
+    if (!terminate_block) {
+        return false;
     }
 
-    /* Commit register values to locals and stacks */
-    gen_commit_values(jit_frame, jit_frame->lp, jit_frame->sp);
-    /* Clear frame values */
-    clear_values(jit_frame);
+    GEN_INSN(CMP, cc->cmp_reg, terminate_flag, NEW_CONST(I32, 0));
+    GEN_INSN(BNE, cc->cmp_reg, jit_basic_block_label(terminate_block), 0);
 
-    /* jump to terminate_block or non_terminate_block */
-    GEN_INSN(BNE, cc->cmp_reg, jit_basic_block_label(terminate_block),
-             jit_basic_block_label(non_terminate_block));
-
+    cur_basic_block = cc->cur_basic_block;
     cc->cur_basic_block = terminate_block;
-    /* handle_func_return(cc, cc->block_stack.block_list_head); */
     GEN_INSN(RETURN, NEW_CONST(I32, 0));
 
-    cc->cur_basic_block = non_terminate_block;
+    cc->cur_basic_block = cur_basic_block;
 
     return true;
-
-fail:
-    return false;
 }
 
 #endif
