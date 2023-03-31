@@ -30,7 +30,7 @@
 
 #define BUILD_COND_BR(value_if, block_then, block_else)                       \
     do {                                                                      \
-        if (!GEN_INSN(CMP, cc->cmp_reg, value_if, NEW_CONST(cc, 0))           \
+        if (!GEN_INSN(CMP, cc->cmp_reg, value_if, NEW_CONST(I32, 0))          \
             || !GEN_INSN(BNE, cc->cmp_reg, jit_basic_block_label(block_then), \
                          jit_basic_block_label(block_else))) {                \
             jit_set_last_error(cc, "generate bne insn failed");               \
