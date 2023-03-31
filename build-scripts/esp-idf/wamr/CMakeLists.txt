@@ -51,7 +51,7 @@ endif()
 
 idf_component_register(SRCS ${WAMR_RUNTIME_LIB_SOURCE} ${PLATFORM_SHARED_SOURCE}
   INCLUDE_DIRS ${IWASM_DIR}/include ${UTILS_SHARED_DIR} ${PLATFORM_SHARED_DIR} ${PLATFORM_SHARED_DIR}/../include
-  REQUIRES pthread
+  REQUIRES pthread lwip esp_timer
 )
 
 

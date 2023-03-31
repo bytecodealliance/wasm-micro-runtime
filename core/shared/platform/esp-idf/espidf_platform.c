@@ -215,7 +215,7 @@ unlinkat(int fd, const char *path, int flag)
 }
 
 int
-utimensat(int fd, const char *path, const struct timespec ts[2], int flag)
+utimensat(int fd, const char *path, const struct timespec *ts, int flag)
 {
     errno = ENOSYS;
     return -1;
@@ -238,7 +238,7 @@ ftruncate(int fd, off_t length)
 #endif
 
 int
-futimens(int fd, const struct timespec times[2])
+futimens(int fd, const struct timespec *times)
 {
     errno = ENOSYS;
     return -1;

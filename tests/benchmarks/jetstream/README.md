@@ -8,7 +8,7 @@
 
 Please build iwasm and wamrc, refer to:
 - [Build iwasm on Linux](../../../doc/build_wamr.md#linux), or [Build iwasm on MacOS](../../../doc/build_wamr.md#macos)
-- [build wamrc AOT compiler](../../../README.md#build-wamrc-aot-compiler)
+- [Build wamrc AOT compiler](../../../README.md#build-wamrc-aot-compiler)
 
 And install emsdk, refer to [the guide](https://emscripten.org/docs/getting_started/downloads.html). Don't forget to activate
  emsdk and set up environment variables. For example, use instructions below to install it under /opt and activate it:

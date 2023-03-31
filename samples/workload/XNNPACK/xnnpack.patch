@@ -15,10 +15,22 @@ index 688279da1..376996885 100644
 +build:wasm --crosstool_top=@emsdk//emscripten_toolchain:everything
 +build:wasm --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
 diff --git a/WORKSPACE b/WORKSPACE
-index cd8960ffa..5d3e685f4 100644
+index cd8960ffa..787e03ca8 100644
 --- a/WORKSPACE
 +++ b/WORKSPACE
-@@ -92,8 +92,25 @@ http_archive(
+@@ -29,8 +29,9 @@ http_archive(
+ # Google Benchmark library, used in micro-benchmarks.
+ http_archive(
+     name = "com_google_benchmark",
+-    strip_prefix = "benchmark-main",
+-    urls = ["https://github.com/google/benchmark/archive/main.zip"],
++    sha256 = "1ba14374fddcd9623f126b1a60945e4deac4cdc4fb25a5f25e7f779e36f2db52",
++    strip_prefix = "benchmark-d2a8a4ee41b923876c034afb939c4fc03598e622",
++    urls = ["https://github.com/google/benchmark/archive/d2a8a4ee41b923876c034afb939c4fc03598e622.zip"],
+ )
+ 
+ # FP16 library, used for half-precision conversions
+@@ -92,8 +93,25 @@ http_archive(
      ],
  )
  
@@ -47,7 +59,7 @@ index cd8960ffa..5d3e685f4 100644
 -android_sdk_repository(name = "androidsdk")
 +#android_sdk_repository(name = "androidsdk")
 diff --git a/build_defs.bzl b/build_defs.bzl
-index b8217a18d..da232966e 100644
+index b8217a18d..6f2d1675e 100644
 --- a/build_defs.bzl
 +++ b/build_defs.bzl
 @@ -380,7 +380,7 @@ def xnnpack_benchmark(name, srcs, copts = [], deps = [], tags = []):
@@ -59,6 +71,13 @@ index b8217a18d..da232966e 100644
          srcs = srcs,
          copts = xnnpack_std_cxxopts() + [
              "-Iinclude",
+@@ -405,5 +405,5 @@ def xnnpack_benchmark(name, srcs, copts = [], deps = [], tags = []):
+             ":emscripten": xnnpack_emscripten_deps(),
+             "//conditions:default": [],
+         }),
+-	tags = tags,
++	    tags = tags,
+     )
 diff --git a/emscripten.bzl b/emscripten.bzl
 index f1557a7b1..7f964a094 100644
 --- a/emscripten.bzl

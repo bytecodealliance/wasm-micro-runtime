@@ -1,3 +1,97 @@
+## WAMR-1.2.0
+
+### Breaking Changes
+
+
+### New Features
+Implement two-level Multi-tier JIT engine: tier-up from Fast JIT to LLVM JIT to get quick cold startup and better performance
+Enable running mode control for runtime, wasm module instance and iwasm
+Implement wasi-threads feature
+Upgrade toolkits: upgrade to llvm-15.0, wasi-sdk-19.0, emsdk-3.1.28 and so on
+Port WAMR to the FreeBSD platform
+Refactor wasi-nn to simplify the support for multiple frameworks
+wasi-nn: Enable GPU support
+wasi-nn: Support multiple TFLite models
+Add WAMR API bindings in Python
+Add libsodium benchmark
+
+### Bug Fixes
+Fix wasm-c-api import func link issue in wasm_instance_new
+Fix watchpoint segfault when using debug interp without server
+libc-wasi: Fix spurious poll timeout
+Fix typo verify_module in aot_compiler.c
+Fix failure about preopen of reactor modules
+Fix equal check in AOT XIP float cmp intrinsic
+Fix issue of resolving func name in custom name section
+Fix go language binding build on macos arm64
+Prevent undefined behavior from c_api_func_imports == NULL
+Fix potential block issue in source debugger
+SGX IPFS: Fix a segfault and support seeking beyond the end of files while using SEEK_CUR/SEEK_END
+Fix undef error about WAMR_BUILD_MEMORY_PROFILING
+Fix jit memory overwritten after instance deinstantiate
+Fix stack alignment issue on ia32
+Fix explicit casts and types in espidf_socket.c
+Fix potential integer overflow issue in wasm-c-api
+Fix libc-wasi build failure when using clang
+Fix wamrapi python binding for darwin
+Fix getting port issue in posix os_socket_bind
+Fix key error in build_llvm.py
+nuttx: Add missing pthread.h header
+Fix os_socket_addr_resolve() for IPv6
+Enhance/Fix sample socket-api and workload
+Fix fast-jit build error
+Fix dead lock in source debugger
+fix debugger: Set termination flags also when in debug mode
+
+### Enhancements
+Add WAMR-IDE vscode extension to the Visual Studio Marketplace
+Refine Windows thread waiting list operations
+Improve wasm-c-api instantiation-time linking
+Enable platform support for esp-idf v5.0.1
+Readme refactoring
+Add architecture diagram for wasm function
+Add architecture document for wasm export
+Add architecture diagram for wasm globals and classic-interp stack frame
+Use boringssl instead of openssl to implement wasm cache loading
+Implement i32.rem_s and i32.rem_u intrinsic
+Perfect the codebase for wamr-ide
+Remove unnecessary ret value control when spec test is enabled
+Use float version library routine for XIP aot_intrinsic_xxx APIs
+Register missing symbols for f32 to 64 bit integer conversion
+Report error in instantiation when meeting unlinked import globals
+Add more types and APIs for attr_container
+Simplify fcmp intrinsic logic for AOT/XIP
+Add some missing macros for int literals in wamr-sdk libc-builtin-sysroot stdint.h
+nuttx: Mock socket APIs if NET is disabled
+Main thread spread exception when thread-mgr is enabled
+Implement opcode atomic.wait and atomic.notify for Fast JIT
+Add docker images auto check and setup support for WAMR-IDE
+Make memory profiling show native stack usage
+Enable gcc-4.8 compilation
+Enable specifying out-of-source platform configuration cmake file
+Add gh api call for fetching llvm version (#1942) Fixes
+Don't terminate other threads when create thread failed
+Modify poll_oneoff in libc-wasi to make it interruptible
+Expose wasm_runtime_call_indirect
+Make a workaround for EGO when fstat returns NOT_SUPPORT
+Re-org calling post instantiation functions
+Enable custom llvm build flags
+support SSH for git clone llvm
+Support dump call stack on exception and dump call stack on nuttx
+Update document for source debugging
+Document some info about estimating memory usage
+
+### Others
+Enable XIP in CI daily test
+Integrate wasi test suite to wamr-test-suites and CI
+Add CI for wasi-threads tests
+Update CIs and documents to make naming of generated binaries consist
+Enable CI wasi test suite for x86-32 classic/fast interpreter
+CI: Enable libc-wasi compilation test on NuttX
+CI: Enable Multi-tier JIT by default for released iwasm binary
+
+---
+
 ## WAMR-1.1.2
 
 ### Breaking Changes

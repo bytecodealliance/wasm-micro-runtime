@@ -24,22 +24,25 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 14.x
-      
-      - name: set vscode extension to correct version 
+
+      - name: set vscode extension to correct version
         run: |
           npm install -g json
           json -I -f package.json -e "this.version=\"${{ inputs.ver_num }}\""
         working-directory: test-tools/wamr-ide/VSCode-Extension
 
+      # [!workflow]
+      # bypass the step of publishing the extension to the Market.
+      # recover it after creating the secret in the Environment
       - name: generate wamr ide vscode extension
-        env: 
+        env:
           credentials: ${{ secrets.TOKEN }}
         run: |
           npm install -g vsce
           rm -rf node_modules
           npm install
           vsce package
-          vsce publish -p ${{ secrets.TOKEN }}
+          # vsce publish -p ${{ secrets.TOKEN }}
         working-directory: test-tools/wamr-ide/VSCode-Extension
 
       - name: compress the vscode extension
