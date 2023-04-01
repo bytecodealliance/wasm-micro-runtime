@@ -28,6 +28,17 @@ typedef float64 CellType_F64;
 
 #define BR_TABLE_TMP_BUF_LEN 32
 
+#if WASM_ENABLE_THREAD_MGR == 0
+#define get_linear_mem_size() linear_mem_size
+#else
+/**
+ * Load memory data size in each time boundary check in
+ * multi-threading mode since it may be changed by other
+ * threads in memory.grow
+ */
+#define get_linear_mem_size() memory->memory_data_size
+#endif
+
 #if !defined(OS_ENABLE_HW_BOUND_CHECK) \
     || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
 #define CHECK_MEMORY_OVERFLOW(bytes)                            \
@@ -1124,12 +1135,6 @@ get_global_addr(uint8 *global_data, WASMGlobalInstance *global)
                : global_data + global->data_offset;
 #endif
 }
-
-#if WASM_ENABLE_THREAD_MGR == 0
-#define get_linear_mem_size() linear_mem_size
-#else
-#define get_linear_mem_size() memory->memory_data_size
-#endif
 
 static void
 wasm_interp_call_func_bytecode(WASMModuleInstance *module,
