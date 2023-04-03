@@ -270,7 +270,7 @@ jobs:
           mkdir build && cd build
           cmake -DWASI_SYSROOT=`pwd`/../../../core/deps/wasi-libc/sysroot ..
           cmake --build . --config Release --parallel 4
-          cp wasm-app/no_pthread.wasm `pwd`/../../../product-mini/platforms/${{ matrix.platform }}/enclave-sample
+          cp wasm-apps/no_pthread.wasm `pwd`/../../../product-mini/platforms/${{ matrix.platform }}/enclave-sample
 
       - name: Test Sample [wasi-threads] in non-aot mode
         if: matrix.make_options_run_mode != '$AOT_BUILD_OPTIONS'
