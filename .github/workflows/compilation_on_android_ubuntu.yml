@@ -274,7 +274,7 @@ jobs:
         os: [ubuntu-20.04, ubuntu-22.04]
         wasi_sdk_release:
           [
-            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-linux.tar.gz",
+            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-linux.tar.gz",
           ]
         wabt_release:
           [
@@ -334,17 +334,14 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-20.04, ubuntu-22.04]
-        include:
-          - os: ubuntu-20.04
-            wasi_sdk_release: "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-linux.tar.gz"
-            wabt_release: "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-ubuntu.tar.gz"
-            wasi_sdk_folder_name: "wasi-sdk-19.0"
-            wasi_sysroot_option: "-DWASI_SYSROOT=`pwd`/../../../core/deps/wasi-libc/sysroot"
-          - os: ubuntu-22.04
-            wasi_sdk_release: "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20%2Bthreads/wasi-sdk-20.0.threads-linux.tar.gz"
-            wabt_release: "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-ubuntu.tar.gz"
-            wasi_sdk_folder_name: "wasi-sdk-20.0+threads"
-            wasi_sysroot_option: ""
+        wasi_sdk_release:
+          [
+            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-linux.tar.gz"
+          ]
+        wabt_release:
+          [
+            "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-ubuntu.tar.gz"
+          ]
     steps:
       - name: checkout
         uses: actions/checkout@v3
@@ -354,7 +351,7 @@ jobs:
           cd /opt
           sudo wget ${{ matrix.wasi_sdk_release }}
           sudo tar -xzf wasi-sdk-*.tar.gz
-          sudo mv ${{ matrix.wasi_sdk_folder_name }} wasi-sdk
+          sudo mv wasi-sdk-20.0 wasi-sdk
 
       - name: download and install wabt
         run: |
@@ -362,23 +359,6 @@ jobs:
           sudo wget ${{ matrix.wabt_release }}
           sudo tar -xzf wabt-1.0.31-*.tar.gz
           sudo mv wabt-1.0.31 wabt
-
-      - name: build wasi-libc (needed for wasi-threads)
-        if: matrix.os == 'ubuntu-20.04'
-        run: |
-          mkdir wasi-libc
-          cd wasi-libc
-          git init
-          # "Fix a_store operation in atomic.h" commit on main branch
-          git fetch https://github.com/WebAssembly/wasi-libc \
-            1dfe5c302d1c5ab621f7abf04620fae92700fd22
-          git checkout FETCH_HEAD
-          make -j \
-            AR=/opt/wasi-sdk/bin/llvm-ar \
-            NM=/opt/wasi-sdk/bin/llvm-nm \
-            CC=/opt/wasi-sdk/bin/clang \
-            THREAD_MODEL=posix
-        working-directory: core/deps
 
       - name: Build Sample [basic]
         run: |
@@ -437,7 +417,7 @@ jobs:
         run: |
           cd samples/wasi-threads
           mkdir build && cd build
-          cmake ${{ matrix.wasi_sysroot_option }} ..
+          cmake ..
           cmake --build . --config Release --parallel 4
           ./iwasm wasm-apps/no_pthread.wasm
 
@@ -470,20 +450,16 @@ jobs:
             $THREADS_TEST_OPTIONS,
             $WASI_TEST_OPTIONS,
           ]
+        wasi_sdk_release:
+          [
+            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-linux.tar.gz"
+          ]
         include:
           - os: ubuntu-20.04
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2004.outputs.cache_key }}
-            wasi_sdk_release: "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-linux.tar.gz"
-            wabt_release: "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-ubuntu.tar.gz"
-            wasi_sdk_folder_name: "wasi-sdk-19.0"
-            wasi_sysroot_option: "WASI_SYSROOT_OPTION='--sysroot ../../../../../core/deps/wasi-libc/sysroot'"
             ubuntu_version: "20.04"
           - os: ubuntu-22.04
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
-            wasi_sdk_release: "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20%2Bthreads/wasi-sdk-20.0.threads-linux.tar.gz"
-            wabt_release: "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-ubuntu.tar.gz"
-            wasi_sdk_folder_name: "wasi-sdk-20.0+threads"
-            wasi_sysroot_option: ""
             ubuntu_version: "22.04"
         exclude:
           # uncompatiable modes and features
@@ -525,24 +501,7 @@ jobs:
           cd /opt
           sudo wget ${{ matrix.wasi_sdk_release }}
           sudo tar -xzf wasi-sdk-*.tar.gz
-          sudo mv ${{ matrix.wasi_sdk_folder_name }} wasi-sdk
-
-      - name: build wasi-libc (needed for wasi-threads)
-        if: matrix.os == 'ubuntu-20.04' && matrix.test_option == '$WASI_TEST_OPTIONS'
-        run: |
-          mkdir wasi-libc
-          cd wasi-libc
-          git init
-          # "Fix a_store operation in atomic.h" commit on main branch
-          git fetch https://github.com/WebAssembly/wasi-libc \
-            1dfe5c302d1c5ab621f7abf04620fae92700fd22
-          git checkout FETCH_HEAD
-          make -j \
-            AR=/opt/wasi-sdk/bin/llvm-ar \
-            NM=/opt/wasi-sdk/bin/llvm-nm \
-            CC=/opt/wasi-sdk/bin/clang \
-            THREAD_MODEL=posix
-        working-directory: core/deps
+          sudo mv wasi-sdk-20.0 wasi-sdk
 
       - name: set env variable(if llvm are used)
         if: matrix.running_mode == 'aot' || matrix.running_mode == 'jit' || matrix.running_mode == 'multi-tier-jit'
@@ -579,12 +538,12 @@ jobs:
 
       - name: Build WASI thread tests
         if: matrix.test_option == '$WASI_TEST_OPTIONS'
-        run: ${{ matrix.wasi_sysroot_option }} bash build.sh
+        run: bash build.sh
         working-directory: ./core/iwasm/libraries/lib-wasi-threads/test/
 
       - name: build socket api tests
         if: matrix.test_option == '$WASI_TEST_OPTIONS'
-        run: ${{ matrix.wasi_sysroot_option }} bash build.sh
+        run: bash build.sh
         working-directory: ./core/iwasm/libraries/lib-socket/test/
 
       - name: run tests
