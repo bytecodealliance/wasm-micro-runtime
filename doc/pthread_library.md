@@ -1,5 +1,8 @@
 # WAMR pthread library
 
+**Note**: This document describes the old pthread implementation.
+See [Pthread implementations](pthread_impls.md).
+
 WAMR provides a built-in library to support pthread APIs. You can call pthread APIs in your application source code.
 
 ## Build and run
