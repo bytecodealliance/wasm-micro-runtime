@@ -1,182 +1,216 @@
+## WAMR-1.2.1
+
+### Breaking Changes
+
+### New Features
+
+### Bug Fixes
+- libc-wasi/posix.c: Fix POLL{RD,WR}NORM in uClibc (#2069)
+- Fix bh_assert for 64-bit platforms (#2071)
+- wamr-ide: Modify Dockerfile to update base image version and fix build issue (#2068)
+- Fix module_malloc/module_free issues (#2072)
+- Fix use after free when dumping call stack (#2084)
+- Fix compilation errors of workload xnnpack and meshoptimizer (#2081)
+- Fix typo in Fast JIT's BUILD_COND_BR Macro (#2092)
+- Fix sanitizer pointer overflow warning when perform pointer arithmetic (#2098)
+- Update sample workload tensorflow (#2101)
+- Fix ref.func forward-declared function check (#2099)
+- Fix interpreter read linear memory size for multi-threading (#2088)
+
+### Enhancements
+- Limit the minimal size of bh_hashmap (#2073)
+- Bump tensorflow to 2.11.1 in /core/iwasm/libraries/wasi-nn/test (#2061)
+- Bump tensorflow to 2.11.1 in install_tensorflow.sh (#2076)
+- Add support for universal binaries on OSX (#2060)
+- Update documents (#2100)
+
+### Others
+- spectest/nuttx: Increase stack size of iwasm task (#2082)
+- ci: Refactor windows build definition (#2087)
+- ci: Enable WASI threads in CI (#2086)
+- Use wasi-sdk-20 to build wasi-threads cases in CI (#2095)
+
+---
+
 ## WAMR-1.2.0
 
 ### Breaking Changes
 
 
 ### New Features
-Implement two-level Multi-tier JIT engine: tier-up from Fast JIT to LLVM JIT to get quick cold startup and better performance
-Enable running mode control for runtime, wasm module instance and iwasm
-Implement wasi-threads feature
-Upgrade toolkits: upgrade to llvm-15.0, wasi-sdk-19.0, emsdk-3.1.28 and so on
-Port WAMR to the FreeBSD platform
-Refactor wasi-nn to simplify the support for multiple frameworks
-wasi-nn: Enable GPU support
-wasi-nn: Support multiple TFLite models
-Add WAMR API bindings in Python
-Add libsodium benchmark
+- Implement two-level Multi-tier JIT engine: tier-up from Fast JIT to LLVM JIT to get quick cold startup and better performance
+- Enable running mode control for runtime, wasm module instance and iwasm
+- Implement wasi-threads feature
+- Upgrade toolkits: upgrade to llvm-15.0, wasi-sdk-19.0, emsdk-3.1.28 and so on
+- Port WAMR to the FreeBSD platform
+- Refactor wasi-nn to simplify the support for multiple frameworks
+- wasi-nn: Enable GPU support
+- wasi-nn: Support multiple TFLite models
+- Add WAMR API bindings in Python
+- Add libsodium benchmark
 
 ### Bug Fixes
-Fix wasm-c-api import func link issue in wasm_instance_new
-Fix watchpoint segfault when using debug interp without server
-libc-wasi: Fix spurious poll timeout
-Fix typo verify_module in aot_compiler.c
-Fix failure about preopen of reactor modules
-Fix equal check in AOT XIP float cmp intrinsic
-Fix issue of resolving func name in custom name section
-Fix go language binding build on macos arm64
-Prevent undefined behavior from c_api_func_imports == NULL
-Fix potential block issue in source debugger
-SGX IPFS: Fix a segfault and support seeking beyond the end of files while using SEEK_CUR/SEEK_END
-Fix undef error about WAMR_BUILD_MEMORY_PROFILING
-Fix jit memory overwritten after instance deinstantiate
-Fix stack alignment issue on ia32
-Fix explicit casts and types in espidf_socket.c
-Fix potential integer overflow issue in wasm-c-api
-Fix libc-wasi build failure when using clang
-Fix wamrapi python binding for darwin
-Fix getting port issue in posix os_socket_bind
-Fix key error in build_llvm.py
-nuttx: Add missing pthread.h header
-Fix os_socket_addr_resolve() for IPv6
-Enhance/Fix sample socket-api and workload
-Fix fast-jit build error
-Fix dead lock in source debugger
-fix debugger: Set termination flags also when in debug mode
+- Fix wasm-c-api import func link issue in wasm_instance_new
+- Fix watchpoint segfault when using debug interp without server
+- libc-wasi: Fix spurious poll timeout
+- Fix typo verify_module in aot_compiler.c
+- Fix failure about preopen of reactor modules
+- Fix equal check in AOT XIP float cmp intrinsic
+- Fix issue of resolving func name in custom name section
+- Fix go language binding build on macos arm64
+- Prevent undefined behavior from c_api_func_imports == NULL
+- Fix potential block issue in source debugger
+- SGX IPFS: Fix a segfault and support seeking beyond the end of files while using SEEK_CUR/SEEK_END
+- Fix undef error about WAMR_BUILD_MEMORY_PROFILING
+- Fix jit memory overwritten after instance deinstantiate
+- Fix stack alignment issue on ia32
+- Fix explicit casts and types in espidf_socket.c
+- Fix potential integer overflow issue in wasm-c-api
+- Fix libc-wasi build failure when using clang
+- Fix wamrapi python binding for darwin
+- Fix getting port issue in posix os_socket_bind
+- Fix key error in build_llvm.py
+- nuttx: Add missing pthread.h header
+- Fix os_socket_addr_resolve() for IPv6
+- Enhance/Fix sample socket-api and workload
+- Fix fast-jit build error
+- Fix dead lock in source debugger
+- fix debugger: Set termination flags also when in debug mode
 
 ### Enhancements
-Add WAMR-IDE vscode extension to the Visual Studio Marketplace
-Refine Windows thread waiting list operations
-Improve wasm-c-api instantiation-time linking
-Enable platform support for esp-idf v5.0.1
-Readme refactoring
-Add architecture diagram for wasm function
-Add architecture document for wasm export
-Add architecture diagram for wasm globals and classic-interp stack frame
-Use boringssl instead of openssl to implement wasm cache loading
-Implement i32.rem_s and i32.rem_u intrinsic
-Perfect the codebase for wamr-ide
-Remove unnecessary ret value control when spec test is enabled
-Use float version library routine for XIP aot_intrinsic_xxx APIs
-Register missing symbols for f32 to 64 bit integer conversion
-Report error in instantiation when meeting unlinked import globals
-Add more types and APIs for attr_container
-Simplify fcmp intrinsic logic for AOT/XIP
-Add some missing macros for int literals in wamr-sdk libc-builtin-sysroot stdint.h
-nuttx: Mock socket APIs if NET is disabled
-Main thread spread exception when thread-mgr is enabled
-Implement opcode atomic.wait and atomic.notify for Fast JIT
-Add docker images auto check and setup support for WAMR-IDE
-Make memory profiling show native stack usage
-Enable gcc-4.8 compilation
-Enable specifying out-of-source platform configuration cmake file
-Add gh api call for fetching llvm version (#1942) Fixes
-Don't terminate other threads when create thread failed
-Modify poll_oneoff in libc-wasi to make it interruptible
-Expose wasm_runtime_call_indirect
-Make a workaround for EGO when fstat returns NOT_SUPPORT
-Re-org calling post instantiation functions
-Enable custom llvm build flags
-support SSH for git clone llvm
-Support dump call stack on exception and dump call stack on nuttx
-Update document for source debugging
-Document some info about estimating memory usage
+- Add WAMR-IDE vscode extension to the Visual Studio Marketplace
+- Refine Windows thread waiting list operations
+- Improve wasm-c-api instantiation-time linking
+- Enable platform support for esp-idf v5.0.1
+- Readme refactoring
+- Add architecture diagram for wasm function
+- Add architecture document for wasm export
+- Add architecture diagram for wasm globals and classic-interp stack frame
+- Use boringssl instead of openssl to implement wasm cache loading
+- Implement i32.rem_s and i32.rem_u intrinsic
+- Perfect the codebase for wamr-ide
+- Remove unnecessary ret value control when spec test is enabled
+- Use float version library routine for XIP aot_intrinsic_xxx APIs
+- Register missing symbols for f32 to 64 bit integer conversion
+- Report error in instantiation when meeting unlinked import globals
+- Add more types and APIs for attr_container
+- Simplify fcmp intrinsic logic for AOT/XIP
+- Add some missing macros for int literals in wamr-sdk libc-builtin-sysroot stdint.h
+- nuttx: Mock socket APIs if NET is disabled
+- Main thread spread exception when thread-mgr is enabled
+- Implement opcode atomic.wait and atomic.notify for Fast JIT
+- Add docker images auto check and setup support for WAMR-IDE
+- Make memory profiling show native stack usage
+- Enable gcc-4.8 compilation
+- Enable specifying out-of-source platform configuration cmake file
+- Add gh api call for fetching llvm version (#1942) Fixes
+- Don't terminate other threads when create thread failed
+- Modify poll_oneoff in libc-wasi to make it interruptible
+- Expose wasm_runtime_call_indirect
+- Make a workaround for EGO when fstat returns NOT_SUPPORT
+- Re-org calling post instantiation functions
+- Enable custom llvm build flags
+- support SSH for git clone llvm
+- Support dump call stack on exception and dump call stack on nuttx
+- Update document for source debugging
+- Document some info about estimating memory usage
 
 ### Others
-Enable XIP in CI daily test
-Integrate wasi test suite to wamr-test-suites and CI
-Add CI for wasi-threads tests
-Update CIs and documents to make naming of generated binaries consist
-Enable CI wasi test suite for x86-32 classic/fast interpreter
-CI: Enable libc-wasi compilation test on NuttX
-CI: Enable Multi-tier JIT by default for released iwasm binary
+- Enable XIP in CI daily test
+- Integrate wasi test suite to wamr-test-suites and CI
+- Add CI for wasi-threads tests
+- Update CIs and documents to make naming of generated binaries consist
+- Enable CI wasi test suite for x86-32 classic/fast interpreter
+- CI: Enable libc-wasi compilation test on NuttX
+- CI: Enable Multi-tier JIT by default for released iwasm binary
 
 ---
 
 ## WAMR-1.1.2
 
 ### Breaking Changes
-Remove the LLVM MCJIT mode, replace it with LLVM ORC JIT eager mode
-Add option to pass user data to the allocator functions of RuntimeInitArgs
-Change how iwasm returns:
-  return 1 if an exception was thrown, else
-  return the wasi exit code if the wasm app is a wasi app, else
-  keep the same behavior as before
-Enable bulk memory by default
+- Remove the LLVM MCJIT mode, replace it with LLVM ORC JIT eager mode
+- Add option to pass user data to the allocator functions of RuntimeInitArgs
+- Change how iwasm returns:
+  - return 1 if an exception was thrown, else
+  - return the wasi exit code if the wasm app is a wasi app, else
+  - keep the same behavior as before
+- Enable bulk memory by default
 
 ### New Features
-Add control for the native stack check with hardware trap
-Add memory watchpoint support to debugger
-Add wasm_module_obtain() to clone wasm_module_t
-Implement Fast JIT dump call stack and perf profiling
-esp-idf: Add socket support for esp-idf platform
+- Add control for the native stack check with hardware trap
+- Add memory watchpoint support to debugger
+- Add wasm_module_obtain() to clone wasm_module_t
+- Implement Fast JIT dump call stack and perf profiling
+- esp-idf: Add socket support for esp-idf platform
 
 ### Bug Fixes
-Fix XIP issue caused by rem_s on RISC-V
-Fix XIP issues of fp to int cast and int rem/div
-Fix missing float cmp for XIP
-Correct the arch name for armv7a on NuttX
-Fix issue of restoring wasm operand stack
-Fix issue of thumb relocation R_ARM_THM_MOVT_ABS
-Fix fast jit issue of translating opcode i32.rem_s/i64.rem_s
-Fix interp/fast-jit float min/max issues
-Fix missing intrinsics for risc-v which were reported by spec test
-wasm-c-api: Fix init/destroy thread env multiple times issue
-Fix wasm-c-api import func link issue in wasm_instance_new
-Fix sample ref-types/wasm-c-api build error with wat2wasm low version
-Fix zephyr sample build errors
-Fix source debugger error handling: continue executing when detached
-Fix scenario where the timeout for atomic wait is set to negative number
-Fix link cxx object file error when building wamrc for docker image
-Fix XIP issue of handling 64-bit const in 32-bit target
+- Fix XIP issue caused by rem_s on RISC-V
+- Fix XIP issues of fp to int cast and int rem/div
+- Fix missing float cmp for XIP
+- Correct the arch name for armv7a on NuttX
+- Fix issue of restoring wasm operand stack
+- Fix issue of thumb relocation R_ARM_THM_MOVT_ABS
+- Fix fast jit issue of translating opcode i32.rem_s/i64.rem_s
+- Fix interp/fast-jit float min/max issues
+- Fix missing intrinsics for risc-v which were reported by spec test
+- wasm-c-api: Fix init/destroy thread env multiple times issue
+- Fix wasm-c-api import func link issue in wasm_instance_new
+- Fix sample ref-types/wasm-c-api build error with wat2wasm low version
+- Fix zephyr sample build errors
+- Fix source debugger error handling: continue executing when detached
+- Fix scenario where the timeout for atomic wait is set to negative number
+- Fix link cxx object file error when building wamrc for docker image
+- Fix XIP issue of handling 64-bit const in 32-bit target
 
 ### Enhancements
-Refactor the layout of interpreter and AOT module instance
-Refactor LLVM JIT: remove mcjit and legacy pass manager, upgrade to ORCv2 JIT
-Refine Fast JIT call indirect and call native process
-Refine Fast JIT accessing memory/table instance and global data
-Refine AOT exception check when function return
-Enable source debugger reconnection
-Add wasm_runtime_get_wasi_exit_code
-linux-sgx: Use non-destructive modes for opening files using SGX IPFS
-Add wasm_runtime_unregister_natives
-Implement invokeNative asm code for MinGW
-Add wamr Blog link and Gitbook link to readme
-Remove unnecessary app heap memory clean operations to reduce process RSS
-Normalize how the global heap pool is configured across iwasm apps
-Refine the stack frame size check in interpreter
-Enlarge the default wasm operand stack size to 64KB
-Use cmake POSITION_INDEPENDENT_CODE instead of hardcoding -pie -fPIE
-Implement R_ARM_THM_MOVT_[ABS|REPL] for thumb
-Suppress the warnings when building with GCC11
-samples/native-lib: Add a bit more complicated example
-Add mutex initializer for wasm-c-api engine operations
-XIP adaptation for xtensa platform
-Update libuv version number
-Remove an improper assumption when creating wasm_trap
-Avoid initialize LLVM repeatedly
-linux-sgx: Improve the remote attestation
-linux-sgx: Improve the documentation of SGX-RA sample
-linux-sgx: Allow to open files with arbitrary paths in the sandbox using IPFS
-Avoid raising exception when debugging with VSCode
-wamr-test-suites: Update runtest.py to support python3
-Enable Nuttx spec test option and register aot symbols
-Use wabt binary instead of building from source in spec test
-nuttx: Enable ref types by Kconfig
-Update xtensa LLVM version to 15.x
-Add bh_print_proc_mem() to dump memory info of current process
-Create trap for error message when wasm_instance_new fails
-wamr-test-suites: Add support for ARM/RISCV by QEMU
-Enable to compile WAMR on platforms that don't support IPV6
-Fix warnings in the posix socket implementation
-Update document for MacOS compilation
-Install patched LLDB on vscode extension activation
-Add ARM aeabi memcpy/memmove/memset symbols for AOT bulk memory ops
-Enable wasm cache loading in wasm-c-api
+- Refactor the layout of interpreter and AOT module instance
+- Refactor LLVM JIT: remove mcjit and legacy pass manager, upgrade to ORCv2 JIT
+- Refine Fast JIT call indirect and call native process
+- Refine Fast JIT accessing memory/table instance and global data
+- Refine AOT exception check when function return
+- Enable source debugger reconnection
+- Add wasm_runtime_get_wasi_exit_code
+- linux-sgx: Use non-destructive modes for opening files using SGX IPFS
+- Add wasm_runtime_unregister_natives
+- Implement invokeNative asm code for MinGW
+- Add wamr Blog link and Gitbook link to readme
+- Remove unnecessary app heap memory clean operations to reduce process RSS
+- Normalize how the global heap pool is configured across iwasm apps
+- Refine the stack frame size check in interpreter
+- Enlarge the default wasm operand stack size to 64KB
+- Use cmake POSITION_INDEPENDENT_CODE instead of hardcoding -pie -fPIE
+- Implement R_ARM_THM_MOVT_[ABS|REPL] for thumb
+- Suppress the warnings when building with GCC11
+- samples/native-lib: Add a bit more complicated example
+- Add mutex initializer for wasm-c-api engine operations
+- XIP adaptation for xtensa platform
+- Update libuv version number
+- Remove an improper assumption when creating wasm_trap
+- Avoid initialize LLVM repeatedly
+- linux-sgx: Improve the remote attestation
+- linux-sgx: Improve the documentation of SGX-RA sample
+- linux-sgx: Allow to open files with arbitrary paths in the sandbox using IPFS
+- Avoid raising exception when debugging with VSCode
+- wamr-test-suites: Update runtest.py to support python3
+- Enable Nuttx spec test option and register aot symbols
+- Use wabt binary instead of building from source in spec test
+- nuttx: Enable ref types by Kconfig
+- Update xtensa LLVM version to 15.x
+- Add bh_print_proc_mem() to dump memory info of current process
+- Create trap for error message when wasm_instance_new fails
+- wamr-test-suites: Add support for ARM/RISCV by QEMU
+- Enable to compile WAMR on platforms that don't support IPV6
+- Fix warnings in the posix socket implementation
+- Update document for MacOS compilation
+- Install patched LLDB on vscode extension activation
+- Add ARM aeabi memcpy/memmove/memset symbols for AOT bulk memory ops
+- Enable wasm cache loading in wasm-c-api
 
 ### Others
-Add CIs to release new version and publish binary files
-Add more compilation groups of fast jit into CI
-Enable spec test on nuttx and daily run it
+- Add CIs to release new version and publish binary files
+- Add more compilation groups of fast jit into CI
+- Enable spec test on nuttx and daily run it
 
 ---
 
@@ -322,3 +356,5 @@ Enable spec test on nuttx and daily run it
 ### Others
 
 ---
+
+
