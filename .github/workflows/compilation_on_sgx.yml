@@ -159,6 +159,9 @@ jobs:
             "-DWAMR_BUILD_LIB_WASI_THREADS=1 -DWAMR_BUILD_SGX_IPFS=1",
           ]
         platform: [linux-sgx]
+        include:
+          - os: ubuntu-20.04
+            llvm_cache_key: ${{ needs.build_llvm_libraries.outputs.cache_key }}
 
     steps:
       - name: checkout
@@ -230,7 +233,7 @@ jobs:
           fail-on-cache-miss: true
 
       - name: Build wamrc only for testing samples in aot mode
-        if: matrix.make_options_run_mode == '$AOT_BUILD_OPTIONS'
+        if: matrix.iwasm_make_options_run_mode == '$AOT_BUILD_OPTIONS'
         run: |
           mkdir build && cd build
           cmake ..
