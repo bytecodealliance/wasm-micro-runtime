@@ -241,15 +241,15 @@
 ## WAMR-1.1.0
 
 - Extend support for Socket API:
-   - Implement IPv6 (along with IPv4) for all the socket-related operations
-   - Enable resolving host name IP address by adding a host call to WASI
-   - Implement a security feature for controlling what domains are allowed to be resolved
-   - Allow configuring socket options by adding host calls to WASI for setting and reading the options
-   - Enable connection-less communication between hosts by adding host calls to WASI for sending
-   - data directly to a given address and receiving messages from a specific address
-   - Fix verification of the address in the address pool
-   - Add more samples and update the documents
-   - Implement SGX IPFS as POSIX backend for file interaction for linux-sgx
+  - Implement IPv6 (along with IPv4) for all the socket-related operations
+  - Enable resolving host name IP address by adding a host call to WASI
+  - Implement a security feature for controlling what domains are allowed to be resolved
+  - Allow configuring socket options by adding host calls to WASI for setting and reading the options
+  - Enable connection-less communication between hosts by adding host calls to WASI for sending
+  - data directly to a given address and receiving messages from a specific address
+  - Fix verification of the address in the address pool
+  - Add more samples and update the documents
+  - Implement SGX IPFS as POSIX backend for file interaction for linux-sgx
 - Integrates the Intel SGX feature called Intel Protection File System Library (IPFS) into the runtime
   to create, operate and delete files inside the enclave, while guaranteeing the confidentiality and
   integrity of the data persisted
