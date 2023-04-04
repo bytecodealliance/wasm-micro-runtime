@@ -209,14 +209,14 @@ jobs:
       - name: Build iwasm for testing samples
         run: |
           mkdir build && cd build
-          cmake .. ${{ matrix.make_options_run_mode }} ${{ matrix.make_options_feature }}
+          cmake .. ${{ matrix.iwasm_make_options_run_mode }} ${{ matrix.iwasm_make_options_feature }}
           cmake --build . --config Release --parallel 4
           cd ../enclave-sample
           make
         working-directory: product-mini/platforms/${{ matrix.platform }}
 
       - name: Get LLVM libraries
-        if: matrix.make_options_run_mode == '$AOT_BUILD_OPTIONS'
+        if: matrix.iwasm_make_options_run_mode == '$AOT_BUILD_OPTIONS'
         id: retrieve_llvm_libs
         uses: actions/cache@v3
         with:
@@ -250,14 +250,14 @@ jobs:
           cp wasm-app/file.wasm `pwd`/../../../product-mini/platforms/${{ matrix.platform }}/enclave-sample
 
       - name: Test Sample [file] in non-aot mode
-        if: matrix.make_options_run_mode != '$AOT_BUILD_OPTIONS'
+        if: matrix.iwasm_make_options_run_mode != '$AOT_BUILD_OPTIONS'
         run: |
           source /opt/intel/sgxsdk/environment
           ./iwasm --dir=. file.wasm
         working-directory: product-mini/platforms/${{ matrix.platform }}/enclave-sample
 
       - name: Test Sample [file] in aot mode
-        if: matrix.make_options_run_mode == '$AOT_BUILD_OPTIONS'
+        if: matrix.iwasm_make_options_run_mode == '$AOT_BUILD_OPTIONS'
         run: |
           source /opt/intel/sgxsdk/environment
           ./wamrc -sgx -o file.aot file.wasm
@@ -273,14 +273,14 @@ jobs:
           cp wasm-apps/no_pthread.wasm `pwd`/../../../product-mini/platforms/${{ matrix.platform }}/enclave-sample
 
       - name: Test Sample [wasi-threads] in non-aot mode
-        if: matrix.make_options_run_mode != '$AOT_BUILD_OPTIONS'
+        if: matrix.iwasm_make_options_run_mode != '$AOT_BUILD_OPTIONS'
         run: |
           source /opt/intel/sgxsdk/environment
           ./iwasm no_pthread.wasm
         working-directory: product-mini/platforms/${{ matrix.platform }}/enclave-sample
 
       - name: Test Sample [wasi-threads] in aot mode
-        if: matrix.make_options_run_mode == '$AOT_BUILD_OPTIONS'
+        if: matrix.iwasm_make_options_run_mode == '$AOT_BUILD_OPTIONS'
         run: |
           source /opt/intel/sgxsdk/environment
           ./wamrc -sgx -o no_pthread.aot no_pthread.wasm
