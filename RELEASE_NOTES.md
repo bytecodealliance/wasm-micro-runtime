@@ -1,3 +1,37 @@
+## WAMR-1.2.1
+
+### Breaking Changes
+
+### New Features
+
+### Bug Fixes
+libc-wasi/posix.c: Fix POLL{RD,WR}NORM in uClibc (#2069)
+Fix bh_assert for 64-bit platforms (#2071)
+wamr-ide: Modify Dockerfile to update base image version and fix build issue (#2068)
+Fix module_malloc/module_free issues (#2072)
+Fix use after free when dumping call stack (#2084)
+Fix compilation errors of workload xnnpack and meshoptimizer (#2081)
+Fix typo in Fast JIT's BUILD_COND_BR Macro (#2092)
+Fix sanitizer pointer overflow warning when perform pointer arithmetic (#2098)
+Update sample workload tensorflow (#2101)
+Fix ref.func forward-declared function check (#2099)
+Fix interpreter read linear memory size for multi-threading (#2088)
+
+### Enhancements
+Limit the minimal size of bh_hashmap (#2073)
+Bump tensorflow to 2.11.1 in /core/iwasm/libraries/wasi-nn/test (#2061)
+Bump tensorflow to 2.11.1 in install_tensorflow.sh (#2076)
+Add support for universal binaries on OSX (#2060)
+Update documents (#2100)
+
+### Others
+spectest/nuttx: Increase stack size of iwasm task (#2082)
+ci: Refactor windows build definition (#2087)
+ci: Enable WASI threads in CI (#2086)
+Use wasi-sdk-20 to build wasi-threads cases in CI (#2095)
+
+---
+
 ## WAMR-1.2.0
 
 ### Breaking Changes
