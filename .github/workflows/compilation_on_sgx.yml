@@ -227,10 +227,7 @@ jobs:
             ./core/deps/llvm/build/libexec
             ./core/deps/llvm/build/share
           key: ${{ matrix.llvm_cache_key }}
-
-      - name: Quit if cache miss
-        if: matrix.make_options_run_mode == '$AOT_BUILD_OPTIONS' && steps.retrieve_llvm_libs.outputs.cache-hit != 'true'
-        run: echo "::error::can not get prebuilt llvm libraries" && exit 1
+          fail-on-cache-miss: true
 
       - name: Build wamrc only for testing samples in aot mode
         if: matrix.make_options_run_mode == '$AOT_BUILD_OPTIONS'
