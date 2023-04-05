@@ -4,8 +4,6 @@
  */
 
 #include "bh_log.h"
-#include <stdio.h>
-#include <stdarg.h>
 
 /**
  * The verbose level of the log system.  Only those verbose logs whose
@@ -13,12 +11,16 @@
  */
 static uint32 log_verbose_level = BH_LOG_LEVEL_WARNING;
 
+#ifndef BH_PLATFORM_LINUX_SGX
 int (*ptr_vprintf)(const char *, va_list) = vprintf;
+#endif
 
 void
 bh_set_vprintf(int (*ptr)(const char *, va_list))
 {
+#ifndef BH_PLATFORM_LINUX_SGX
     ptr_vprintf = ptr;
+#endif
 }
 
 void
