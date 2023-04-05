@@ -61,6 +61,9 @@ BH_VPRINTF(const char *format, va_list ap);
 #endif
 #endif
 
+extern int
+(*ptr_vprintf)(const char*,va_list);
+
 #ifndef NULL
 #define NULL (void *)0
 #endif

@@ -17,22 +17,26 @@ bh_platform_destroy()
 {}
 
 int
-os_printf(const char *format, ...)
+os_vprintf(const char *format, va_list ap)
 {
-    int ret = 0;
-    va_list ap;
-
-    va_start(ap, format);
-    ret += vprintf(format, ap);
-    va_end(ap);
-
-    return ret;
+#ifndef BH_VPRINTF
+    return ptr_vprintf(format, ap);
+#else
+    return BH_VPRINTF(format, ap);
+#endif
 }
 
 int
-os_vprintf(const char *format, va_list ap)
+os_printf(const char *format, ...)
 {
-    return vprintf(format, ap);
+    int ret;
+    va_list ap;
+
+    va_start(ap, format);
+    ret = os_vprintf(format, ap);
+    va_end(ap);
+
+    return ret;
 }
 
 uint64

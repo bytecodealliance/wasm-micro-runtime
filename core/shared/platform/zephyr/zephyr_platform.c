@@ -121,30 +121,26 @@ os_vprintf(const char *fmt, va_list ap)
 #endif
 
 int
-os_printf(const char *format, ...)
-{
-    int ret = 0;
-    va_list ap;
-
-    va_start(ap, format);
-#ifndef BH_VPRINTF
-    ret += vprintf(format, ap);
-#else
-    ret += BH_VPRINTF(format, ap);
-#endif
-    va_end(ap);
-
-    return ret;
-}
-
-int
 os_vprintf(const char *format, va_list ap)
 {
 #ifndef BH_VPRINTF
-    return vprintf(format, ap);
+    return ptr_vprintf(format, ap);
 #else
     return BH_VPRINTF(format, ap);
 #endif
+}
+
+int
+os_printf(const char *format, ...)
+{
+    int ret;
+    va_list ap;
+
+    va_start(ap, format);
+    ret = os_vprintf(format, ap);
+    va_end(ap);
+
+    return ret;
 }
 
 #if KERNEL_VERSION_NUMBER <= 0x020400 /* version 2.4.0 */

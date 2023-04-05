@@ -11,6 +11,13 @@
  */
 static uint32 log_verbose_level = BH_LOG_LEVEL_WARNING;
 
+int (*ptr_vprintf)(const char*,va_list) = vprintf;
+
+void bh_set_vprintf(int (*ptr)(const char*,va_list))
+{
+    ptr_vprintf = ptr;
+}
+
 void
 bh_log_set_verbose_level(uint32 level)
 {
