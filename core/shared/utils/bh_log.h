@@ -35,10 +35,8 @@ typedef enum {
     BH_LOG_LEVEL_VERBOSE = 4
 } LogLevel;
 
-#ifndef BH_PLATFORM_LINUX_SGX
 void
 bh_log_set_verbose_level(uint32 level);
-#endif
 
 void
 bh_log(LogLevel log_level, const char *file, int line, const char *fmt, ...);
