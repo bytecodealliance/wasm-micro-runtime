@@ -42,7 +42,7 @@ void
 bh_log(LogLevel log_level, const char *file, int line, const char *fmt, ...);
 
 void
-bh_set_vprintf(int (*ptr)(const char*,va_list));
+bh_set_vprintf(int (*ptr)(const char *, va_list));
 
 #ifdef BH_PLATFORM_NUTTX
 
