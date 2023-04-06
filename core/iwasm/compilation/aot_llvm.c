@@ -506,7 +506,7 @@ create_memory_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* Currently we only create memory info for memory 0 */
     /* Load memory base address */
 #if WASM_ENABLE_SHARED_MEMORY != 0
-    is_shared_memory = func_ctx->mem_info->is_shared_memory =
+    is_shared_memory =
         comp_ctx->comp_data->memories[0].memory_flags & 0x02 ? true : false;
     if (is_shared_memory) {
         LLVMValueRef shared_mem_addr;

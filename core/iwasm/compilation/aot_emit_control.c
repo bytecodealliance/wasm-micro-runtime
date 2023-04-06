@@ -673,10 +673,12 @@ check_suspend_flags(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     LLVMValueRef terminate_addr, terminate_flags, flag, offset, res;
     LLVMBasicBlockRef terminate_block, non_terminate_block;
     AOTFuncType *aot_func_type = func_ctx->aot_func->func_type;
+    bool is_shared_memory =
+        comp_ctx->comp_data->memories[0].memory_flags & 0x02 ? true : false;
 
     /* Only need to check the suspend flags when memory is shared since
        shared memory must be enabled for multi-threading */
-    if (!(func_ctx->mem_info && func_ctx->mem_info->is_shared_memory)) {
+    if (!is_shared_memory) {
         return true;
     }
 
@@ -712,11 +714,11 @@ check_suspend_flags(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
         return false;
     }
 
-    CREATE_BLOCK(terminate_block, "terminate");
-    MOVE_BLOCK_AFTER_CURR(terminate_block);
-
     CREATE_BLOCK(non_terminate_block, "non_terminate");
     MOVE_BLOCK_AFTER_CURR(non_terminate_block);
+
+    CREATE_BLOCK(terminate_block, "terminate");
+    MOVE_BLOCK_AFTER_CURR(terminate_block);
 
     BUILD_ICMP(LLVMIntEQ, flag, I32_ZERO, res, "flag_terminate");
     BUILD_COND_BR(res, non_terminate_block, terminate_block);
