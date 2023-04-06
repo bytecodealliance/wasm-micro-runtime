@@ -2178,7 +2178,7 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
        func_ptrs and fast_jit_func_ptrs of the instance, to avoid
        accessing the freed memory in the jit backend compilation
        threads */
-    if (!is_sub_inst) {
+    {
         WASMModule *module = module_inst->module;
         WASMModuleInstance *instance_prev = NULL, *instance;
         os_mutex_lock(&module->instance_list_lock);
