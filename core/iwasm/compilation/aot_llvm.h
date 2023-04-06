@@ -140,6 +140,7 @@ typedef struct AOTCheckedAddr {
 } AOTCheckedAddr, *AOTCheckedAddrList;
 
 typedef struct AOTMemInfo {
+    bool is_shared_memory;
     LLVMValueRef mem_base_addr;
     LLVMValueRef mem_data_size_addr;
     LLVMValueRef mem_cur_page_count_addr;
