@@ -114,6 +114,8 @@
 - Support dump call stack on exception and dump call stack on nuttx
 - Update document for source debugging
 - Document some info about estimating memory usage
+- Document the summary of two pthread implementations
+- Refine aot compiler check suspend_flags and fix issue of multi-tier jit
 
 ### Others
 - Enable XIP in CI daily test
@@ -123,6 +125,7 @@
 - Enable CI wasi test suite for x86-32 classic/fast interpreter
 - CI: Enable libc-wasi compilation test on NuttX
 - CI: Enable Multi-tier JIT by default for released iwasm binary
+- Enable CI build for gcc 4.8 on linux
 
 ---
 
