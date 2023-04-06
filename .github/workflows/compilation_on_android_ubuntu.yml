@@ -115,6 +115,84 @@ jobs:
           cmake --build . --config Release --parallel 4
         working-directory: wamr-compiler
 
+  build_iwasm_linux_gcc4_8:
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:14.04
+    strategy:
+      matrix:
+        make_options_run_mode: [
+            # Running mode
+            $CLASSIC_INTERP_BUILD_OPTIONS,
+            $FAST_INTERP_BUILD_OPTIONS,
+            $FAST_JIT_BUILD_OPTIONS
+        ]
+        make_options_feature: [
+            # Features
+            "-DWAMR_BUILD_CUSTOM_NAME_SECTION=1",
+            "-DWAMR_BUILD_DEBUG_AOT=1",
+            "-DWAMR_BUILD_DEBUG_INTERP=1",
+            "-DWAMR_BUILD_DUMP_CALL_STACK=1",
+            "-DWAMR_BUILD_LIB_PTHREAD=1",
+            "-DWAMR_BUILD_LIB_WASI_THREADS=1",
+            "-DWAMR_BUILD_LOAD_CUSTOM_SECTION=1",
+            "-DWAMR_BUILD_MINI_LOADER=1",
+            "-DWAMR_BUILD_MEMORY_PROFILING=1",
+            "-DWAMR_BUILD_MULTI_MODULE=1",
+            "-DWAMR_BUILD_PERF_PROFILING=1",
+            "-DWAMR_BUILD_REF_TYPES=1",
+            "-DWAMR_BUILD_SIMD=1",
+            "-DWAMR_BUILD_TAIL_CALL=1",
+            "-DWAMR_DISABLE_HW_BOUND_CHECK=1",
+          ]
+        exclude:
+          # uncompatiable feature and platform
+          # uncompatiable mode and feature
+          # MULTI_MODULE only on INTERP mode
+          - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
+          # SIMD only on JIT/AOT mode
+          - make_options_run_mode: $CLASSIC_INTERP_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_SIMD=1"
+          - make_options_run_mode: $FAST_INTERP_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_SIMD=1"
+          # DEBUG_INTERP only on CLASSIC INTERP mode
+          - make_options_run_mode: $FAST_INTERP_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_DEBUG_INTERP=1"
+          - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_DEBUG_INTERP=1"
+          # DEBUG_AOT only on JIT/AOT mode
+          - make_options_run_mode: $CLASSIC_INTERP_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_DEBUG_AOT=1"
+          - make_options_run_mode: $FAST_INTERP_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_DEBUG_AOT=1"
+          # TODO: DEBUG_AOT on JIT
+          - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_DEBUG_AOT=1"
+          # MINI_LOADER only on INTERP mode
+          - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: apt update && apt install -y make g++-4.8 gcc-4.8 wget git
+
+      - name: Install cmake
+        run: |
+          wget https://github.com/Kitware/CMake/releases/download/v3.26.1/cmake-3.26.1-linux-x86_64.tar.gz -O cmake.tar.gz
+          tar xzf cmake.tar.gz
+          cp cmake-3.26.1-linux-x86_64/bin/cmake /usr/local/bin
+          cp -r cmake-3.26.1-linux-x86_64/share/cmake-3.26/ /usr/local/share/
+
+      - name: Build iwasm
+        run: |
+          mkdir build && cd build
+          cmake .. ${{ matrix.make_options_run_mode }} ${{ matrix.make_options_feature }} -DCMAKE_C_COMPILER=gcc-4.8 -DCMAKE_CXX_COMPILER=g++-4.8
+          cmake --build . --config Release --parallel 4
+        working-directory: product-mini/platforms/linux
+
   build_iwasm:
     needs:
       [build_llvm_libraries_on_ubuntu_2004, build_llvm_libraries_on_ubuntu_2204]

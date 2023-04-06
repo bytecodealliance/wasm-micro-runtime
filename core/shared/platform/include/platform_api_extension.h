@@ -116,6 +116,11 @@ os_thread_exit(void *retval);
    https://gcc.gnu.org/bugzilla/show_bug.cgi?id=58016 */
 #if __GNUC_PREREQ(4, 9)
 #define BH_HAS_STD_ATOMIC
+#elif __GNUC_PREREQ(4, 7)
+#define os_memory_order_acquire __ATOMIC_ACQUIRE
+#define os_memory_order_release __ATOMIC_RELEASE
+#define os_memory_order_seq_cst __ATOMIC_SEQ_CST
+#define os_atomic_thread_fence __atomic_thread_fence
 #endif /* end of __GNUC_PREREQ(4, 9) */
 #endif /* end of defined(__GNUC_PREREQ) */
 
