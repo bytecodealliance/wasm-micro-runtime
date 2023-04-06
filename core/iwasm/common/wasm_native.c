@@ -81,7 +81,13 @@ compare_type_with_signautre(uint8 type, const char signature)
     }
 
 #if WASM_ENABLE_REF_TYPES != 0
-    if ('r' == signature && type == VALUE_TYPE_EXTERNREF)
+    if ('r' == signature
+#if WASM_ENABLE_GC != 0
+        && (type >= REF_TYPE_NULLREF && type <= REF_TYPE_FUNCREF)
+#else
+        && type == VALUE_TYPE_EXTERNREF
+#endif
+    )
         return true;
 #endif
 

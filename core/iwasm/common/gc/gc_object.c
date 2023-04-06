@@ -260,9 +260,22 @@ wasm_array_obj_get_elem(WASMArrayObjectRef array_obj, uint32 elem_idx,
     }
 }
 
-WASMFuncObjectRef
-wasm_func_obj_new(void *heap_handle, WASMRttTypeRef rtt_type,
-                  uint32 func_idx_bound)
+#if WASM_ENABLE_GC_BINARYEN != 0
+void
+wasm_array_obj_copy(WASMArrayObjectRef dst_obj, uint32 dst_idx,
+                    WASMArrayObjectRef src_obj, uint32 src_idx, uint32 len)
+{
+    uint8 *dst_data = wasm_array_obj_elem_addr(dst_obj, dst_idx);
+    uint8 *src_data = wasm_array_obj_elem_addr(src_obj, src_idx);
+    uint32 elem_size = 1 << wasm_array_obj_elem_size_log(dst_obj);
+
+    bh_memcpy_s(dst_data, elem_size * len, src_data, elem_size * len);
+}
+#endif
+
+    WASMFuncObjectRef
+    wasm_func_obj_new(void *heap_handle, WASMRttTypeRef rtt_type,
+                      uint32 func_idx_bound)
 {
     WASMFuncObjectRef func_obj;
     uint64 total_size;

@@ -1403,6 +1403,11 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                 CHECK_BUF(p, p_end, 1);
                 flag = read_uint8(p);
             }
+#if WASM_ENABLE_GC_BINARYEN != 0
+            else {
+                is_sub_final = false;
+            }
+#endif
 
             if (flag == DEFINED_TYPE_FUNC) {
                 if (!resolve_func_type(&p, buf_end, module, i, error_buf,
@@ -6020,6 +6025,12 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                     case WASM_OP_ARRAY_SET:
                         skip_leb_uint32(p, p_end); /* typeidx */
                         break;
+#if WASM_ENABLE_GC_BINARYEN != 0
+                    case WASM_OP_ARRAY_COPY:
+                        skip_leb_uint32(p, p_end); /* typeidx1 */
+                        skip_leb_uint32(p, p_end); /* typeidx2 */
+                        break;
+#endif
                     case WASM_OP_ARRAY_LEN:
                         break;
                     case WASM_OP_ARRAY_NEW_CANON_FIXED:
@@ -6816,7 +6827,7 @@ wasm_loader_pop_frame_ref(WASMLoaderContext *ctx, uint8 type, char *error_buf,
     ctx->frame_ref -= cell_num_to_pop;
     ctx->stack_cell_num -= cell_num_to_pop;
 #if WASM_ENABLE_GC != 0
-    if (wasm_is_type_multi_byte_type(type)) {
+    if (wasm_is_type_multi_byte_type(*ctx->frame_ref)) {
         ctx->frame_reftype_map--;
         ctx->reftype_map_num--;
     }
@@ -11590,6 +11601,36 @@ re_scan:
                         break;
                     }
 
+#if WASM_ENABLE_GC_BINARYEN != 0
+                    case WASM_OP_ARRAY_COPY:
+                    {
+                        uint32 src_type_idx;
+                        /* typeidx1 */
+                        read_leb_uint32(p, p_end, type_idx);
+#if WASM_ENABLE_FAST_INTERP != 0
+                        emit_uint32(loader_ctx, type_idx);
+#endif
+                        /* typeidx1 */
+                        read_leb_uint32(p, p_end, src_type_idx);
+#if WASM_ENABLE_FAST_INTERP != 0
+                        emit_uint32(loader_ctx, src_type_idx);
+#endif
+                        POP_I32();
+                        POP_I32();
+                        /* POP array obj, (ref null $t) */
+                        wasm_set_refheaptype_typeidx(
+                            &wasm_ref_type.ref_ht_typeidx, true, src_type_idx);
+                        POP_REF(wasm_ref_type.ref_type);
+                        POP_I32();
+                        /* POP array obj, (ref null $t) */
+                        wasm_set_refheaptype_typeidx(
+                            &wasm_ref_type.ref_ht_typeidx, true, type_idx);
+                        POP_REF(wasm_ref_type.ref_type);
+
+                        break;
+                    }
+#endif
+
                     case WASM_OP_ARRAY_LEN:
                     {
                         POP_REF(REF_TYPE_ARRAYREF);
@@ -11648,8 +11689,14 @@ re_scan:
                         if (opcode1 == WASM_OP_REF_TEST
                             || opcode1 == WASM_OP_REF_TEST_NULLABLE)
                             PUSH_I32();
-                        else
-                            PUSH_REF(type);
+                        else {
+                            bool nullable =
+                                (opcode1 == WASM_OP_REF_CAST_NULLABLE) ? true
+                                                                       : false;
+                            wasm_set_refheaptype_typeidx(
+                                &wasm_ref_type.ref_ht_typeidx, nullable, heap_type);
+                            PUSH_REF(wasm_ref_type.ref_type);
+                        }
                         break;
                     }
 

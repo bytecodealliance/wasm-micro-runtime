@@ -4,6 +4,7 @@
  */
 
 #include "gc_type.h"
+#include "wasm.h"
 
 void
 wasm_dump_value_type(uint8 type, const WASMRefType *ref_type)
@@ -793,7 +794,7 @@ wasm_is_reftype_supers_of_noextern(uint type)
 static bool
 wasm_type_is_supers_of(const WASMType *type1, const WASMType *type2)
 {
-    uint32 i;
+    uint32 i, inherit_depth_diff;
 
     if (type1 == type2)
         return true;
@@ -802,7 +803,8 @@ wasm_type_is_supers_of(const WASMType *type1, const WASMType *type2)
           && type1->inherit_depth < type2->inherit_depth))
         return false;
 
-    for (i = 0; i < type2->inherit_depth - type1->inherit_depth; i++) {
+    inherit_depth_diff = type2->inherit_depth - type1->inherit_depth;
+    for (i = 0; i < inherit_depth_diff; i++) {
         type2 = type2->parent_type;
         if (type2 == type1)
             return true;
@@ -1053,6 +1055,7 @@ reftype_hash(const void *key)
     switch (reftype->ref_type) {
         case (uint8)REF_TYPE_HT_NULLABLE:
         case (uint8)REF_TYPE_HT_NON_NULLABLE:
+        case (uint8)REF_TYPE_NULLREF:
         {
             RefHeapType_Common *ref_heap_type = (RefHeapType_Common *)reftype;
 

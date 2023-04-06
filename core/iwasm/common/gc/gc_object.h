@@ -141,6 +141,10 @@ void
 wasm_array_obj_get_elem(WASMArrayObjectRef array_obj, uint32 elem_idx,
                         bool sign_extend, WASMValue *value);
 
+void
+wasm_array_obj_copy(WASMArrayObjectRef dst_obj, uint32 dst_idx,
+                    WASMArrayObjectRef src_obj, uint32 src_idx, uint32 len);
+
 /**
  * Return the logarithm of the size of array element.
  *

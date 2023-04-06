@@ -2370,6 +2370,38 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                                 &array_elem);
                         HANDLE_OP_END();
                     }
+#if WASM_ENABLE_GC_BINARYEN != 0
+                    case WASM_OP_ARRAY_COPY:
+                    {
+                        uint32 dst_offset, src_offset, len, src_type_index;
+                        WASMArrayObjectRef src_obj, dst_obj;
+
+                        read_leb_uint32(frame_ip, frame_ip_end, type_index);
+                        read_leb_uint32(frame_ip, frame_ip_end, src_type_index);
+
+                        dst_obj = POP_REF();
+                        dst_offset = POP_I32();
+                        src_obj = POP_REF();
+                        src_offset = POP_I32();
+                        len = POP_I32();
+
+                        if (!src_obj || !dst_obj) {
+                            wasm_set_exception(module, "null array object");
+                            goto got_exception;
+                        }
+                        if (dst_offset + len >= wasm_array_obj_length(dst_obj)
+                            || src_offset + len
+                                   >= wasm_array_obj_length(src_obj)) {
+                            wasm_set_exception(module,
+                                               "array index out of bounds");
+                            goto got_exception;
+                        }
+
+                        wasm_array_obj_copy(dst_obj, dst_offset, src_obj,
+                                            src_offset, len);
+                        HANDLE_OP_END();
+                    }
+#endif
                     case WASM_OP_ARRAY_LEN:
                     {
                         uint32 array_len;

@@ -284,23 +284,42 @@ typedef enum WASMOpcode {
 } WASMOpcode;
 
 typedef enum WASMGCEXTOpcode {
+#if WASM_ENABLE_GC_BINARYEN != 0
+    WASM_OP_STRUCT_NEW_CANON = 0x07,         /* struct.new_canon */
+    WASM_OP_STRUCT_NEW_CANON_DEFAULT = 0x08, /* struct.new_canon_default */
+#else
     WASM_OP_STRUCT_NEW_CANON = 0x01,         /* struct.new_canon */
     WASM_OP_STRUCT_NEW_CANON_DEFAULT = 0x02, /* struct.new_canon_default */
+#endif
     WASM_OP_STRUCT_GET = 0x03,               /* struct.get */
     WASM_OP_STRUCT_GET_S = 0x04,             /* struct.get_s */
     WASM_OP_STRUCT_GET_U = 0x05,             /* struct.get_u */
     WASM_OP_STRUCT_SET = 0x06,               /* struct.set */
 
+#if WASM_ENABLE_GC_BINARYEN != 0
+    WASM_OP_ARRAY_NEW_CANON = 0x1b,         /* array.new_canon */
+    WASM_OP_ARRAY_NEW_CANON_DEFAULT = 0x1c, /* array.new_canon_default */
+#else
     WASM_OP_ARRAY_NEW_CANON = 0x11,         /* array.new_canon */
     WASM_OP_ARRAY_NEW_CANON_DEFAULT = 0x12, /* array.new_canon_default */
+#endif
     WASM_OP_ARRAY_GET = 0x13,               /* array.get */
     WASM_OP_ARRAY_GET_S = 0x14,             /* array.get_s */
     WASM_OP_ARRAY_GET_U = 0x15,             /* array.get_u */
     WASM_OP_ARRAY_SET = 0x16,               /* array.set */
+
+#if WASM_ENABLE_GC_BINARYEN != 0
+    WASM_OP_ARRAY_COPY = 0x18,              /* array.copy */
+    WASM_OP_ARRAY_LEN = 0x19,               /* array.len */
+    WASM_OP_ARRAY_NEW_CANON_FIXED = 0x1a,   /* array.new_canon_fixed */
+    WASM_OP_ARRAY_NEW_CANON_DATA = 0x1d,    /* array.new_canon_data */
+    WASM_OP_ARRAY_NEW_CANON_ELEM = 0x1f,    /* array.new_canon_elem */
+#else
     WASM_OP_ARRAY_LEN = 0x17,               /* array.len */
     WASM_OP_ARRAY_NEW_CANON_FIXED = 0x19,   /* array.new_canon_fixed */
     WASM_OP_ARRAY_NEW_CANON_DATA = 0x1b,    /* array.new_canon_data */
     WASM_OP_ARRAY_NEW_CANON_ELEM = 0x1c,    /* array.new_canon_elem */
+#endif
 
     WASM_OP_I31_NEW = 0x20,   /* i31.new */
     WASM_OP_I31_GET_S = 0x21, /* i31.get_s */
