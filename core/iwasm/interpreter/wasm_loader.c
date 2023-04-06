@@ -1366,7 +1366,7 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                 }
             }
         }
-#else  /* else of WASM_ENABLE_GC == 0 */
+#else /* else of WASM_ENABLE_GC == 0 */
         for (i = 0; i < type_count; i++) {
             uint32 super_type_count = 0, parent_type_idx = (uint32)-1;
             bool is_sub_final = true;
@@ -11694,7 +11694,8 @@ re_scan:
                                 (opcode1 == WASM_OP_REF_CAST_NULLABLE) ? true
                                                                        : false;
                             wasm_set_refheaptype_typeidx(
-                                &wasm_ref_type.ref_ht_typeidx, nullable, heap_type);
+                                &wasm_ref_type.ref_ht_typeidx, nullable,
+                                heap_type);
                             PUSH_REF(wasm_ref_type.ref_type);
                         }
                         break;
