@@ -273,9 +273,9 @@ wasm_array_obj_copy(WASMArrayObjectRef dst_obj, uint32 dst_idx,
 }
 #endif
 
-    WASMFuncObjectRef
-    wasm_func_obj_new(void *heap_handle, WASMRttTypeRef rtt_type,
-                      uint32 func_idx_bound)
+WASMFuncObjectRef
+wasm_func_obj_new(void *heap_handle, WASMRttTypeRef rtt_type,
+                  uint32 func_idx_bound)
 {
     WASMFuncObjectRef func_obj;
     uint64 total_size;

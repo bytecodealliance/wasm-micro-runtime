@@ -4,7 +4,6 @@
  */
 
 #include "gc_type.h"
-#include "wasm.h"
 
 void
 wasm_dump_value_type(uint8 type, const WASMRefType *ref_type)
@@ -1055,7 +1054,6 @@ reftype_hash(const void *key)
     switch (reftype->ref_type) {
         case (uint8)REF_TYPE_HT_NULLABLE:
         case (uint8)REF_TYPE_HT_NON_NULLABLE:
-        case (uint8)REF_TYPE_NULLREF:
         {
             RefHeapType_Common *ref_heap_type = (RefHeapType_Common *)reftype;
 

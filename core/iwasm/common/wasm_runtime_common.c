@@ -4490,8 +4490,19 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                     (uint32)invokeNative_Int32(func_ptr, argv1, n_stacks);
                 break;
             case VALUE_TYPE_I64:
-#if WASM_ENABLE_GC == 1
+#if WASM_ENABLE_GC != 0
+            case REF_TYPE_FUNCREF:
+            case REF_TYPE_EXTERNREF:
             case REF_TYPE_ANYREF:
+            case REF_TYPE_EQREF:
+            case REF_TYPE_HT_NULLABLE:
+            case REF_TYPE_HT_NON_NULLABLE:
+            case REF_TYPE_I31REF:
+            case REF_TYPE_NULLFUNCREF:
+            case REF_TYPE_NULLEXTERNREF:
+            case REF_TYPE_STRUCTREF:
+            case REF_TYPE_ARRAYREF:
+            case REF_TYPE_NULLREF:
 #endif
                 PUT_I64_TO_ADDR(argv_ret,
                                 invokeNative_Int64(func_ptr, argv1, n_stacks));
