@@ -835,48 +835,66 @@ fail:
 #endif
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
-#define GEN_AT_RMW_INSN(op, op_type, bytes, result, value, memory_data,      \
-                        offset1)                                             \
-    do {                                                                     \
-        switch (bytes) {                                                     \
-            case 1:                                                          \
-            {                                                                \
-                GEN_INSN(AT_##op##U8, result, value, memory_data, offset1);  \
-                break;                                                       \
-            }                                                                \
-            case 2:                                                          \
-            {                                                                \
-                GEN_INSN(AT_##op##U16, result, value, memory_data, offset1); \
-                break;                                                       \
-            }                                                                \
-            case 4:                                                          \
-            {                                                                \
-                if (op_type == VALUE_TYPE_I32)                               \
-                    GEN_INSN(AT_##op##I32, result, value, memory_data,       \
-                             offset1);                                       \
-                else                                                         \
-                    GEN_INSN(AT_##op##U32, result, value, memory_data,       \
-                             offset1);                                       \
-                break;                                                       \
-            }                                                                \
-            case 8:                                                          \
-            {                                                                \
-                GEN_INSN(AT_##op##I64, result, value, memory_data, offset1); \
-                break;                                                       \
-            }                                                                \
-            default:                                                         \
-            {                                                                \
-                bh_assert(0);                                                \
-                goto fail;                                                   \
-            }                                                                \
-        }                                                                    \
+#define GEN_AT_RMW_INSN(op, op_type, bytes, result, value, memory_data,       \
+                        offset1)                                              \
+    do {                                                                      \
+        switch (bytes) {                                                      \
+            case 1:                                                           \
+            {                                                                 \
+                insn = GEN_INSN(AT_##op##U8, result, value, memory_data,      \
+                                offset1);                                     \
+                break;                                                        \
+            }                                                                 \
+            case 2:                                                           \
+            {                                                                 \
+                insn = GEN_INSN(AT_##op##U16, result, value, memory_data,     \
+                                offset1);                                     \
+                break;                                                        \
+            }                                                                 \
+            case 4:                                                           \
+            {                                                                 \
+                if (op_type == VALUE_TYPE_I32)                                \
+                    insn = GEN_INSN(AT_##op##I32, result, value, memory_data, \
+                                    offset1);                                 \
+                else                                                          \
+                    insn = GEN_INSN(AT_##op##U32, result, value, memory_data, \
+                                    offset1);                                 \
+                break;                                                        \
+            }                                                                 \
+            case 8:                                                           \
+            {                                                                 \
+                insn = GEN_INSN(AT_##op##I64, result, value, memory_data,     \
+                                offset1);                                     \
+                break;                                                        \
+            }                                                                 \
+            default:                                                          \
+            {                                                                 \
+                bh_assert(0);                                                 \
+                goto fail;                                                    \
+            }                                                                 \
+        }                                                                     \
     } while (0)
 
 bool
 jit_compile_op_atomic_rmw(JitCompContext *cc, uint8 atomic_op, uint8 op_type,
                           uint32 align, uint32 offset, uint32 bytes)
 {
-    JitReg addr, offset1, memory_data, value, result;
+    JitReg addr, offset1, memory_data, value, result, eax_hreg, rax_hreg;
+    JitInsn *insn = NULL;
+    bool is_i32 = op_type == VALUE_TYPE_I32;
+    bool is_logical_op = atomic_op == AtomicRMWBinOpAnd
+                         || atomic_op == AtomicRMWBinOpOr
+                         || atomic_op == AtomicRMWBinOpXor;
+
+    /* currently only implemented with x86 instruction */
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+
+    /* For atomic logical binary ops, implicitly used rax in cmpxchg
+     * instruction in generated loop */
+    if (is_logical_op) {
+        eax_hreg = jit_codegen_get_hreg_by_name("eax");
+        rax_hreg = jit_codegen_get_hreg_by_name("rax");
+    }
 
     bh_assert(op_type == VALUE_TYPE_I32 || op_type == VALUE_TYPE_I64);
     if (op_type == VALUE_TYPE_I32) {
@@ -944,12 +962,22 @@ jit_compile_op_atomic_rmw(JitCompContext *cc, uint8 atomic_op, uint8 op_type,
         }
     }
 
+    if (is_logical_op
+        && (!insn
+            || !jit_lock_reg_in_insn(cc, insn, is_i32 ? eax_hreg : rax_hreg))) {
+        jit_set_last_error(
+            cc, "generate atomic logical insn or lock ra hreg failed");
+        goto fail;
+    }
+
     if (op_type == VALUE_TYPE_I32)
         PUSH_I32(result);
     else
         PUSH_I64(result);
 
     return true;
+#endif /* defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) */
+
 fail:
     return false;
 }
@@ -958,10 +986,19 @@ bool
 jit_compile_op_atomic_cmpxchg(JitCompContext *cc, uint8 op_type, uint32 align,
                               uint32 offset, uint32 bytes)
 {
-    JitReg addr, offset1, memory_data, value, expect, result;
+    JitReg addr, offset1, memory_data, value, expect;
+    bool is_i32 = op_type == VALUE_TYPE_I32;
+
+    /* currently only implemented with x86 instruction */
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+    /* cmpxchg will use register al/ax/eax/rax to store parameter expected
+     * value, and the read result will also be stored to al/ax/eax/rax */
+    JitReg eax_hreg = jit_codegen_get_hreg_by_name("eax");
+    JitReg rax_hreg = jit_codegen_get_hreg_by_name("rax");
+    JitInsn *insn = NULL;
 
     bh_assert(op_type == VALUE_TYPE_I32 || op_type == VALUE_TYPE_I64);
-    if (op_type == VALUE_TYPE_I32) {
+    if (is_i32) {
         POP_I32(value);
         POP_I32(expect);
     }
@@ -979,37 +1016,36 @@ jit_compile_op_atomic_cmpxchg(JitCompContext *cc, uint8 op_type, uint32 align,
 
     memory_data = get_memory_data_reg(cc->jit_frame, 0);
 
-    if (op_type == VALUE_TYPE_I32)
-        result = jit_cc_new_reg_I32(cc);
-    else
-        result = jit_cc_new_reg_I64(cc);
-
+    GEN_INSN(MOV, is_i32 ? eax_hreg : rax_hreg, expect);
     switch (bytes) {
         case 1:
         {
-            GEN_INSN(AT_CMPXCHGU8, result, value, expect, memory_data, offset1);
+            insn = GEN_INSN(AT_CMPXCHGU8, value, is_i32 ? eax_hreg : rax_hreg,
+                            memory_data, offset1);
             break;
         }
         case 2:
         {
-            GEN_INSN(AT_CMPXCHGU16, result, value, expect, memory_data,
-                     offset1);
+            insn = GEN_INSN(AT_CMPXCHGU16, value, is_i32 ? eax_hreg : rax_hreg,
+                            memory_data, offset1);
             break;
         }
         case 4:
         {
             if (op_type == VALUE_TYPE_I32)
-                GEN_INSN(AT_CMPXCHGI32, result, value, expect, memory_data,
-                         offset1);
+                insn =
+                    GEN_INSN(AT_CMPXCHGI32, value, is_i32 ? eax_hreg : rax_hreg,
+                             memory_data, offset1);
             else
-                GEN_INSN(AT_CMPXCHGU32, result, value, expect, memory_data,
-                         offset1);
+                insn =
+                    GEN_INSN(AT_CMPXCHGU32, value, is_i32 ? eax_hreg : rax_hreg,
+                             memory_data, offset1);
             break;
         }
         case 8:
         {
-            GEN_INSN(AT_CMPXCHGI64, result, value, expect, memory_data,
-                     offset1);
+            insn = GEN_INSN(AT_CMPXCHGI64, value, is_i32 ? eax_hreg : rax_hreg,
+                            memory_data, offset1);
             break;
         }
         default:
@@ -1019,12 +1055,20 @@ jit_compile_op_atomic_cmpxchg(JitCompContext *cc, uint8 op_type, uint32 align,
         }
     }
 
-    if (op_type == VALUE_TYPE_I32)
-        PUSH_I32(result);
+    if (!insn
+        || !jit_lock_reg_in_insn(cc, insn, is_i32 ? eax_hreg : rax_hreg)) {
+        jit_set_last_error(cc, "generate cmpxchg insn or lock ra hreg failed");
+        goto fail;
+    }
+
+    if (is_i32)
+        PUSH_I32(eax_hreg);
     else
-        PUSH_I64(result);
+        PUSH_I64(rax_hreg);
 
     return true;
+#endif /* defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) */
+
 fail:
     return false;
 }

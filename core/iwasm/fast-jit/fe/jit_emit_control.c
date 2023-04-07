@@ -1078,12 +1078,6 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth,
     JitInsn *insn, *insn_select = NULL, *insn_cmp = NULL;
     bool copy_arities;
 
-#if WASM_ENABLE_THREAD_MGR != 0
-    /* Insert suspend check point */
-    if (!jit_check_suspend_flags(cc))
-        return false;
-#endif
-
     if (!(block_dst = get_target_block(cc, br_depth))) {
         return false;
     }
@@ -1138,6 +1132,12 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth,
         }
         return true;
     }
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (!jit_check_suspend_flags(cc))
+        return false;
+#endif
 
     CREATE_BASIC_BLOCK(if_basic_block);
     if (!(insn = GEN_INSN(BNE, cc->cmp_reg,

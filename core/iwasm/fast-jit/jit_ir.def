@@ -203,16 +203,16 @@ INSN(RETURN, Reg, 1, 0)
 #if WASM_ENABLE_SHARED_MEMORY != 0
 /* Atomic Memory Accesses */
 /* TODO: for code review, remove comments when all finished
- * op1(read/ret value)
- * op2(replacement val)
- * op3(expected val)
- * op4(mem data)
- * op5(offset) */
-INSN(AT_CMPXCHGU8, Reg, 5, 1)
-INSN(AT_CMPXCHGU16, Reg, 5, 1)
-INSN(AT_CMPXCHGI32, Reg, 5, 1)
-INSN(AT_CMPXCHGU32, Reg, 5, 1)
-INSN(AT_CMPXCHGI64, Reg, 5, 1)
+ * result will be stored in hardreg al/ax/eax/rax
+ * op1(replacement val)
+ * op2(expected val)
+ * op3(mem data)
+ * op4(offset) */
+INSN(AT_CMPXCHGU8, Reg, 4, 0)
+INSN(AT_CMPXCHGU16, Reg, 4, 0)
+INSN(AT_CMPXCHGI32, Reg, 4, 0)
+INSN(AT_CMPXCHGU32, Reg, 4, 0)
+INSN(AT_CMPXCHGI64, Reg, 4, 0)
 /* TODO: for code review, remove comments when all finished
  * rmw operations:
  * op1(read value) op2(operand value) op3(mem data) op4(offset)
