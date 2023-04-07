@@ -11,7 +11,10 @@ if (NOT DEFINED WASI_SDK_DIR)
   set (WASI_SDK_DIR               "/opt/wasi-sdk")
 endif ()
 
-set (CMAKE_SYSROOT                  "${WASI_SYSROOT}")
+if (DEFINED WASI_SYSROOT)
+  set (CMAKE_SYSROOT                "${WASI_SYSROOT}")
+endif ()
+
 set (CMAKE_C_COMPILER               "${WASI_SDK_DIR}/bin/clang")
 set (CMAKE_ASM_COMPILER               "${WASI_SDK_DIR}/bin/clang")
 set (CMAKE_EXE_LINKER_FLAGS         "-target wasm32-wasi-threads")
@@ -41,4 +44,3 @@ function (compile_sample SOURCE_FILE)
 endfunction ()
 
 compile_sample(no_pthread.c wasi_thread_start.S)
-compile_sample(thread_termination.c wasi_thread_start.S)

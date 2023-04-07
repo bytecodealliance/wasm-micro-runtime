@@ -22,7 +22,7 @@ ExternalProject_Add(codecbench
   PREFIX codecbench
   GIT_REPOSITORY https://github.com/zeux/meshoptimizer.git
   GIT_TAG        f734fd572aed5bf76e84d9ed62ca6f4f6c47d84e
-  GIT_SHALLOW    ON
+  GIT_SHALLOW    OFF
   GIT_PROGRESS   ON
   SOURCE_DIR     ${CMAKE_CURRENT_SOURCE_DIR}/meshoptimizer
   UPDATE_COMMAND git clean -fd && git checkout -- *

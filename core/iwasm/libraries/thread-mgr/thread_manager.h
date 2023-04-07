@@ -180,6 +180,9 @@ wasm_cluster_destroy_exenv_status(WASMCurrentEnvStatus *status);
 void
 wasm_cluster_send_signal_all(WASMCluster *cluster, uint32 signo);
 
+/* This function must be called with exec_env->wait_lock locked, otherwise we
+ * may miss the signal from debugger thread, see
+ * https://github.com/bytecodealliance/wasm-micro-runtime/issues/1860 */
 void
 wasm_cluster_thread_waiting_run(WASMExecEnv *exec_env);
 

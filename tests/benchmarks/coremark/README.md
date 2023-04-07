@@ -8,7 +8,7 @@
 
 Please build iwasm and wamrc, refer to:
 - [Build iwasm on Linux](../../../doc/build_wamr.md#linux), or [Build iwasm on MacOS](../../../doc/build_wamr.md#macos)
-- [build wamrc AOT compiler](../../../README.md#build-wamrc-aot-compiler)
+- [Build wamrc AOT compiler](../../../README.md#build-wamrc-aot-compiler)
 
 And install WASI SDK, please download the [wasi-sdk release](https://github.com/CraneStation/wasi-sdk/releases) and extract the archive to default path `/opt/wasi-sdk`.
 
