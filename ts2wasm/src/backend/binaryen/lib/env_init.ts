@@ -36,7 +36,7 @@ export function importAnyLibAPI(module: binaryen.Module) {
         dyntype.dyntype_new_string,
         dyntype.module_name,
         dyntype.dyntype_new_string,
-        binaryen.createType([dyntype.dyn_ctx_t, dyntype.cstring]),
+        binaryen.createType([dyntype.dyn_ctx_t, dyntype.dyn_value_t]),
         dyntype.dyn_value_t,
     );
     module.addFunctionImport(
@@ -164,7 +164,7 @@ export function importAnyLibAPI(module: binaryen.Module) {
             dyntype.cstring,
             dyntype.dyn_value_t,
         ]),
-        dyntype.dyn_value_t,
+        dyntype.bool,
     );
     module.addFunctionImport(
         dyntype.dyntype_get_property,
@@ -181,6 +181,17 @@ export function importAnyLibAPI(module: binaryen.Module) {
         dyntype.dyntype_has_property,
         dyntype.module_name,
         dyntype.dyntype_has_property,
+        binaryen.createType([
+            dyntype.dyn_ctx_t,
+            dyntype.dyn_value_t,
+            dyntype.cstring,
+        ]),
+        dyntype.int,
+    );
+    module.addFunctionImport(
+        dyntype.dyntype_delete_property,
+        dyntype.module_name,
+        dyntype.dyntype_delete_property,
         binaryen.createType([
             dyntype.dyn_ctx_t,
             dyntype.dyn_value_t,

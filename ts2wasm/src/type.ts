@@ -32,6 +32,7 @@ export const enum TypeKind {
 
 export class Type {
     typeKind = TypeKind.UNKNOWN;
+    isPrimitive = false;
 
     get kind(): TypeKind {
         return this.typeKind;
@@ -42,6 +43,7 @@ export class Primitive extends Type {
     typeKind;
     constructor(private type: string) {
         super();
+        this.isPrimitive = true;
         switch (type) {
             case 'number': {
                 this.typeKind = TypeKind.NUMBER;
@@ -476,11 +478,27 @@ export default class TypeResolver {
             const nodeTypeArray = type.types.map((elem) => {
                 return this.tsTypeToType(elem);
             });
-            return nodeTypeArray.every((type) => type === nodeTypeArray[0])
-                ? nodeTypeArray[0]
-                : builtinTypes.get('any')!;
+            let res = builtinTypes.get('any')!;
+            // iff there is at least one null type
+            if (nodeTypeArray.find((type) => type.kind === TypeKind.NULL)) {
+                const nonNullTypes = nodeTypeArray.filter(
+                    (type) => type.kind !== TypeKind.NULL,
+                );
+                // iff A | null => ref.null A, otherwise => any
+                if (
+                    nonNullTypes.length > 0 &&
+                    nonNullTypes.every((type) => type === nonNullTypes[0]) &&
+                    !nonNullTypes[0].isPrimitive
+                ) {
+                    res = nonNullTypes[0];
+                }
+            } else {
+                if (nodeTypeArray.every((type) => type === nodeTypeArray[0])) {
+                    res = nodeTypeArray[0];
+                }
+            }
+            return res;
         }
-
         // sophisticated types
         //               object
         //           /    \         \
@@ -555,6 +573,7 @@ export default class TypeResolver {
             return this.parseSignature(signature);
         }
 
+        Logger.debug(`Encounter un-processed type: ${type.flags}`);
         /* cases have not been considered or covered yet... */
         return new Type();
     }

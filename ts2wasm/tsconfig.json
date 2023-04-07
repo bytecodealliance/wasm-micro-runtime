@@ -12,5 +12,5 @@
     "allowJs": true,
     "experimentalDecorators": true,
   },
-  "exclude": ["runtime-library/dyntype/*", "**/build/*", "tools/*", "tests/*"]
+  "exclude": ["runtime-library/*", "lib/*", "**/build/*", "tools/*", "tests/*"]
 }

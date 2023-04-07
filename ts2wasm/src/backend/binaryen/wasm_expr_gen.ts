@@ -415,6 +415,15 @@ export class WASMExpressionBase {
         let condFuncName = '';
         let cvtFuncName = '';
         let binaryenType: binaryen.Type;
+        if (typeKind === TypeKind.ANY) {
+            return anyExprRef;
+        }
+        if (typeKind === TypeKind.NULL) {
+            return binaryenCAPI._BinaryenRefNull(
+                this.module.ptr,
+                binaryenCAPI._BinaryenTypeStructref(),
+            );
+        }
         switch (typeKind) {
             case TypeKind.NUMBER: {
                 condFuncName = dyntype.dyntype_is_number;
@@ -428,19 +437,11 @@ export class WASMExpressionBase {
                 binaryenType = binaryen.i32;
                 break;
             }
-            /** for undefined or null, treat it as anyref in WASM */
-            case TypeKind.ANY: {
-                binaryenType = binaryen.anyref;
-                break;
-            }
             default: {
                 throw Error(
                     `unboxing any type to static type, unsupported static type : ${typeKind}`,
                 );
             }
-        }
-        if (typeKind === TypeKind.ANY) {
-            return anyExprRef;
         }
         const isBaseTypeRef = module.call(
             condFuncName,
@@ -842,7 +843,7 @@ export class WASMExpressionBase {
             case TypeKind.STRING:
                 return binaryenCAPI._BinaryenRefNull(
                     this.module.ptr,
-                    emptyStructType.typeRef,
+                    binaryenCAPI._BinaryenTypeStructref(),
                 );
             default:
                 // TODO
@@ -1039,6 +1040,23 @@ export class WASMExpressionBase {
             }
         }
     }
+
+    generateCondition(exprRef: binaryen.ExpressionRef) {
+        const type = binaryen.getExpressionType(exprRef);
+        // const module = this.WASMCompiler.module;
+        let res = this.module.unreachable();
+        /* TODO: Haven't handle string yet */
+        if (type === binaryen.i32) {
+            res = exprRef;
+        } else if (type === binaryen.f64) {
+            res = this.module.f64.ne(exprRef, this.module.f64.const(0));
+        } else {
+            res = this.module.i32.eqz(
+                binaryenCAPI._BinaryenRefIsNull(this.module.ptr, exprRef),
+            );
+        }
+        return res;
+    }
 }
 
 export class WASMExpressionGen extends WASMExpressionBase {
@@ -1078,7 +1096,9 @@ export class WASMExpressionGen extends WASMExpressionBase {
                 res = this.module.i32.const(1);
                 break;
             case ts.SyntaxKind.NullKeyword:
-                res = this.module.ref.null(emptyStructType.typeRef);
+                res = this.module.ref.null(
+                    binaryenCAPI._BinaryenTypeStructref(),
+                );
                 break;
             case ts.SyntaxKind.StringLiteral:
                 res = this.WASMStringLiteral(<StringLiteralExpression>expr);
@@ -1874,6 +1894,10 @@ export class WASMExpressionGen extends WASMExpressionBase {
     }
 
     private matchType(leftExprType: Type, rightExprType: Type): number {
+        /** iff tsc checking is OK, the leftside is any or reference type, both are OK */
+        if (rightExprType.kind === TypeKind.NULL) {
+            return MatchKind.ExactMatch;
+        }
         if (leftExprType.kind === rightExprType.kind) {
             if (
                 leftExprType.kind === TypeKind.NUMBER ||
@@ -1995,14 +2019,7 @@ export class WASMExpressionGen extends WASMExpressionBase {
             }
             case ts.SyntaxKind.ExclamationToken: {
                 let WASMOperandExpr = this.WASMExprGen(operand).binaryenRef;
-                const WASMOperandType =
-                    binaryen.getExpressionType(WASMOperandExpr);
-                if (WASMOperandType != binaryen.i32) {
-                    WASMOperandExpr = this.convertTypeToI32(
-                        WASMOperandExpr,
-                        WASMOperandType,
-                    );
-                }
+                WASMOperandExpr = this.generateCondition(WASMOperandExpr);
                 return this.module.i32.eqz(WASMOperandExpr);
             }
             case ts.SyntaxKind.MinusToken: {
@@ -2030,6 +2047,8 @@ export class WASMExpressionGen extends WASMExpressionBase {
         expr: ConditionalExpression,
     ): binaryen.ExpressionRef {
         let condWASMExpr = this.WASMExprGen(expr.condtion).binaryenRef;
+        // convert to condition
+        condWASMExpr = this.generateCondition(condWASMExpr);
         const trueWASMExpr = this.WASMExprGen(expr.whenTrue).binaryenRef;
         const falseWASMExpr = this.WASMExprGen(expr.whenFalse).binaryenRef;
         // TODO: union type
@@ -2038,13 +2057,6 @@ export class WASMExpressionGen extends WASMExpressionBase {
                 binaryen.getExpressionType(falseWASMExpr),
             'trueWASMExprType and falseWASMExprType are not equal in conditional expression ',
         );
-        const condWASMExprType = binaryen.getExpressionType(condWASMExpr);
-        if (condWASMExprType !== binaryen.i32) {
-            condWASMExpr = this.convertTypeToI32(
-                condWASMExpr,
-                condWASMExprType,
-            );
-        }
         return this.module.select(condWASMExpr, trueWASMExpr, falseWASMExpr);
     }
 
@@ -2072,7 +2084,10 @@ export class WASMExpressionGen extends WASMExpressionBase {
             if (accessInfo instanceof MethodAccess) {
                 const { methodType, methodIndex, classType, thisObj } =
                     accessInfo;
-                let finalCallWasmArgs = [context];
+                let finalCallWasmArgs = [];
+                if (!methodType.isDeclare) {
+                    finalCallWasmArgs.push(context);
+                }
                 if (thisObj) {
                     finalCallWasmArgs.push(thisObj);
                 }

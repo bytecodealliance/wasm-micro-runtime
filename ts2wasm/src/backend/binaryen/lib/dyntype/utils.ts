@@ -15,7 +15,7 @@ export namespace dyntype {
     // export type
     export const dyn_ctx_t = binaryen.i64; // binaryen.anyref
     export const dyn_value_t = binaryen.anyref;
-    export const dyn_type_t = binaryen.f64;
+    export const dyn_type_t = binaryen.i32;
     export const cvoid = binaryen.none;
     export const double = binaryen.f64;
     export const int = binaryen.i32;

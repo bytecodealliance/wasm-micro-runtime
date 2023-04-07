@@ -5,13 +5,15 @@ this doc records additional sematic checking information of the ts2wasm. We add 
 | item                            | description                                                  |
 | ------------------------------- | ------------------------------------------------------------ |
 | nominal class                   | the operation between two nomial classes(no inheritance relationship) |
-| closure with default parameters | innter function or closure with default parameters           |
-| explicitly any                  | the operation between any type and non-any type              |
+| inner closure with default parameters | innter function or closure with default parameters           |
+| operate between non-any type and any type                 | the operation between any type and non-any type              |
 | operate between different types | for example, 1 + 'str'(plus operation between `number` type and `string` type) |
 | invoke any object               | treat any type as an object and access its properties        |
-| array without explicit type     | declare `Array` without a typeargument, for exampe `new Array()` |
+| array without a specified element type     | declare `Array` without a typeargument, for exampe `new Array()` |
 
 if those rules above are triggered, an error will be throwed, and you will see details in log.
+
+the check of `array without a specified element type` will not be process in `sematic_check.ts`, because we lost the AST information when traversing `Expression`, it will be handled when parsing `new Array` on AST.
 
 ## details
 
@@ -24,7 +26,7 @@ the format of error message as below.
 For example
 
 ```shell
-[inner function with default parameters]: in [tests/samples/call-expression-case6|callInternalReturnTest|callReturnTest], flag 6, message: 'inner function has default parameters'
+[inner closure with default parameters]: in [tests/samples/call-expression-case6|callInternalReturnTest|callReturnTest], flag 6, message: 'inner function has default parameters'
 ```
 
 this message shows that in function `tests/samples/call-expression-case6|callInternalReturnTest|callReturnTest`, there occurs a function with defalut parameters error, it's error flag is 6.
@@ -33,7 +35,7 @@ the meaning of error flags as below.
 
 1.
 
-binary operation between any type and non-any type without explicity type cast. For example,
+binary operation between any type and non-any type without any type casting. For example,
 
 ```typescript
 let a: any = 10;
@@ -124,7 +126,7 @@ foo(b); // error
 
 8.
 
-argument type is any type without explicitly type casting. For example,
+argument type is any type without type casting. For example,
 
 ```typescript
 const a: any = 10;

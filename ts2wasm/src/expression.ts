@@ -424,9 +424,15 @@ export default class ExpressionProcessor {
                         }
                     }
                 }
-
+                /** in order to avoid there is narrowed type checking scope */
+                let declNode = node;
+                const symbol =
+                    this.typeResolver.typechecker!.getSymbolAtLocation(node);
+                if (symbol && symbol.valueDeclaration) {
+                    declNode = symbol.valueDeclaration;
+                }
                 identifierExpr.setExprType(
-                    this.typeResolver.generateNodeType(node),
+                    this.typeResolver.generateNodeType(declNode),
                 );
                 return identifierExpr;
             }
@@ -438,13 +444,6 @@ export default class ExpressionProcessor {
                     binaryExprNode.operatorToken.kind,
                     leftExpr,
                     rightExpr,
-                );
-                this.parserCtx.semanticChecker.curScope =
-                    this.parserCtx.getScopeByNode(node);
-                this.parserCtx.semanticChecker.checkBinaryOperate(
-                    (<BinaryExpression>expr).leftOperand.exprType,
-                    (<BinaryExpression>expr).rightOperand.exprType,
-                    (<BinaryExpression>expr).operatorKind,
                 );
                 if (
                     ts.isPropertyAccessExpression(binaryExprNode.left) &&
@@ -535,16 +534,6 @@ export default class ExpressionProcessor {
                 }
                 const callExpr = new CallExpression(expr, args);
                 callExpr.setExprType(this.typeResolver.generateNodeType(node));
-                this.parserCtx.semanticChecker.curScope =
-                    this.parserCtx.getScopeByNode(node);
-                const argTypes = args.map((arg) => arg.exprType);
-                const funcType = expr.exprType as TSFunction;
-                const paramTypes = funcType.getParamTypes();
-                this.parserCtx.semanticChecker.checkArgTypes(
-                    paramTypes,
-                    argTypes,
-                    funcType.hasRest(),
-                );
                 return callExpr;
             }
             case ts.SyntaxKind.PropertyAccessExpression: {
@@ -578,11 +567,11 @@ export default class ExpressionProcessor {
                     expr.expressionKind === ts.SyntaxKind.Identifier &&
                     (<IdentifierExpression>expr).identifierName === 'Array'
                 ) {
-                    this.parserCtx.semanticChecker.curScope =
-                        this.parserCtx.getScopeByNode(node);
-                    this.parserCtx.semanticChecker.checkArrayType(
-                        !!newExprNode.typeArguments,
-                    );
+                    if (!newExprNode.typeArguments) {
+                        throw new Error(
+                            'new Array without declare element type',
+                        );
+                    }
                     let isLiteral = false;
                     if (newExprNode.arguments) {
                         /* Check if it's created from a literal */

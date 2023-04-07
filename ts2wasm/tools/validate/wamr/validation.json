@@ -1,0 +1,2188 @@
+[
+    {
+        "module": "any_binary_add",
+        "entries": [
+            {
+                "name": "addAnyAny",
+                "args": [],
+                "result": "3:f64"
+            },
+            {
+                "name": "addNumberAnyInBinaryExpr",
+                "args": [],
+                "result": "2:f64"
+            },
+            {
+                "name": "addNumberAnyInMulExpr",
+                "args": [],
+                "result": "9:f64"
+            }
+        ]
+    },
+    {
+        "module": "any_box_any",
+        "entries": [
+            {
+                "name": "boxAny",
+                "args": [],
+                "result": "1:f64"
+            }
+        ]
+    },
+    {
+        "module": "any_box_boolean",
+        "entries": [
+            {
+                "name": "boxBooleanWithVarStmt",
+                "args": [],
+                "result": "0x1:i32"
+            },
+            {
+                "name": "boxBooleanWithBinaryExpr",
+                "args": [],
+                "result": "0x1:i32"
+            }
+        ]
+    },
+    {
+        "module": "any_box_interface",
+        "entries": [
+            {
+                "name": "boxInterface",
+                "args": [],
+                "result": "0x1:i32"
+            }
+        ]
+    },
+    {
+        "module": "any_box_null",
+        "entries": [
+            {
+                "name": "boxNull",
+                "args": [],
+                "result": "ref.struct"
+            }
+        ]
+    },
+    {
+        "module": "any_box_number",
+        "entries": [
+            {
+                "name": "boxNumberWithVarStmt",
+                "args": [],
+                "result": "1:f64"
+            },
+            {
+                "name": "boxNumberWithBinaryExpr",
+                "args": [],
+                "result": "1:f64"
+            }
+        ]
+    },
+    {
+        "module": "any_box_obj",
+        "entries": [
+            {
+                "name": "boxNullObj",
+                "args": [],
+                "result": "ref.struct"
+            },
+            {
+                "name": "boxObjWithNumberProp",
+                "args": [],
+                "result": "1:f64"
+            },
+            {
+                "name": "boxObjWithBooleanProp",
+                "args": [],
+                "result": "0x1:i32"
+            },
+            {
+                "name": "boxNestedObj",
+                "args": [],
+                "result": "1:f64"
+            }
+        ]
+    },
+    {
+        "module": "any_box_string",
+        "entries": [
+            {
+                "name": "boxStringWithVarStmt",
+                "args": [],
+                "result": "ref.struct"
+            },
+            {
+                "name": "boxStringWithBinaryExpr",
+                "args": [],
+                "result": "ref.struct"
+            }
+        ]
+    },
+    {
+        "module": "any_box_undefind",
+        "entries": [
+            {
+                "name": "boxUndefined",
+                "args": [],
+                "result": "ref.struct"
+            }
+        ]
+    },
+    {
+        "module": "any_obj_prop_get",
+        "entries": [
+            {
+                "name": "getProp",
+                "args": [],
+                "result": "4:f64"
+            }
+        ]
+    },
+    {
+        "module": "any_obj_prop_set",
+        "entries": [
+            {
+                "name": "setUnExistProp",
+                "args": [],
+                "result": "4:f64"
+            },
+            {
+                "name": "setExistProp",
+                "args": [],
+                "result": "2:f64"
+            }
+        ]
+    },
+    {
+        "module": "array_contain_closure",
+        "entries": [
+            {
+                "name": "containClosure",
+                "args": [],
+                "result": "11:f64"
+            }
+        ]
+    },
+    {
+        "module": "array_contain_func",
+        "entries": [
+            {
+                "name": "containFunc",
+                "args": [],
+                "result": "20:f64"
+            }
+        ]
+    },
+    {
+        "module": "array_elem_get",
+        "entries": [
+            {
+                "name": "arrayTest6",
+                "args": [],
+                "result": "1:f64"
+            }
+        ]
+    },
+    {
+        "module": "array_elem_set",
+        "entries": [
+            {
+                "name": "setElem",
+                "args": [],
+                "result": "5:f64"
+            }
+        ]
+    },
+    {
+        "module": "array_nested_array",
+        "entries": [
+            {
+                "name": "nestedArray",
+                "args": [],
+                "result": ""
+            }
+        ]
+    },
+    {
+        "module": "array_nested_literal",
+        "entries": [
+            {
+                "name": "nestedLiteral",
+                "args": [],
+                "result": "3:f64"
+            }
+        ]
+    },
+    {
+        "module": "array_nested_literal_array",
+        "entries": [
+            {
+                "name": "nestedLiteralArrayInOneLayer",
+                "args": [],
+                "result": "ref.array"
+            },
+            {
+                "name": "nestedLiteralArrayInMulLayer",
+                "args": [],
+                "result": "ref.array"
+            }
+        ]
+    },
+    {
+        "module": "array_new_array",
+        "entries": []
+    },
+    {
+        "module": "array_new_array_number",
+        "entries": [
+            {
+                "name": "newArrayNumber",
+                "args": [],
+                "result": "3:f64"
+            },
+            {
+                "name": "newArrayNumberWithParam",
+                "args": [
+                    8
+                ],
+                "result": "8:f64"
+            }
+        ]
+    },
+    {
+        "module": "array_new_array_string",
+        "entries": [
+            {
+                "name": "newArrayString",
+                "args": [],
+                "result": "ref.array"
+            }
+        ]
+    },
+    {
+        "module": "array_new_literal_any",
+        "entries": [
+            {
+                "name": "newLiteralExplicitAny",
+                "args": [],
+                "result": "1:f64"
+            },
+            {
+                "name": "newLiteralNonExplicitAny",
+                "args": [],
+                "result": "1:f64"
+            }
+        ]
+    },
+    {
+        "module": "array_new_literal_boolean",
+        "entries": [
+            {
+                "name": "newLiteralBoolean",
+                "args": [],
+                "result": "0x1:i32"
+            }
+        ]
+    },
+    {
+        "module": "array_new_literal_number",
+        "entries": [
+            {
+                "name": "newLiteralNumberWithLiteralType",
+                "args": [],
+                "result": "3:f64"
+            },
+            {
+                "name": "newLiteralNumberWithArrayType",
+                "args": [],
+                "result": "3:f64"
+            },
+            {
+                "name": "newLiteralNumberWithoutInit",
+                "args": [],
+                "result": "ref.array"
+            }
+        ]
+    },
+    {
+        "module": "array_new_literal_string",
+        "entries": [
+            {
+                "name": "newLiteralString",
+                "args": [],
+                "result": "ref.array"
+            }
+        ]
+    },
+    {
+        "module": "block_inner_block",
+        "entries": [
+            {
+                "name": "innerBlock",
+                "args": [],
+                "result": "11:f64"
+            }
+        ]
+    },
+    {
+        "module": "boolean_basic",
+        "entries": [
+            {
+                "name": "booleanBasicTrue",
+                "args": [],
+                "result": "0x1:i32"
+            },
+            {
+                "name": "booleanBasicFalse",
+                "args": [],
+                "result": "0x0:i32"
+            }
+        ]
+    },
+    {
+        "module": "boolean_logic_operator",
+        "entries": [
+            {
+                "name": "logicOr",
+                "args": [],
+                "result": "0x1:i32"
+            },
+            {
+                "name": "logicAnd",
+                "args": [],
+                "result": "0x0:i32"
+            },
+            {
+                "name": "conditionExpr",
+                "args": [],
+                "result": "2:f64"
+            }
+        ]
+    },
+    {
+        "module": "boolean_not",
+        "entries": [
+            {
+                "name": "notNumber",
+                "args": [],
+                "result": "0x0:i32"
+            },
+            {
+                "name": "notBoolean",
+                "args": [],
+                "result": "0x1:i32"
+            },
+            {
+                "name": "notWithLogicOperator",
+                "args": [],
+                "result": "0:f64"
+            }
+        ]
+    },
+    {
+        "module": "builtin_array",
+        "entries": [
+            {
+                "name": "length",
+                "args": [],
+                "result": "3:f64"
+            },
+            {
+                "name": "isArray",
+                "args": [],
+                "result": "0x1:i32"
+            }
+        ]
+    },
+    {
+        "module": "builtin_console",
+        "entries": [
+            {
+                "name": "consoleLog",
+                "args": [],
+                "result": "1 true 123     Object { a: 1, b: 2 }"
+            }
+        ]
+    },
+    {
+        "module": "builtin_math",
+        "entries": [
+            {
+                "name": "mathSqrt",
+                "args": [],
+                "result": "3:f64"
+            },
+            {
+                "name": "mathMaxWithOneOperation",
+                "args": [],
+                "result": "3:f64"
+            },
+            {
+                "name": "mathMaxWithMultiOperation",
+                "args": [],
+                "result": "9:f64"
+            },
+            {
+                "name": "mathMinWithOneOperation",
+                "args": [],
+                "result": "2:f64"
+            },
+            {
+                "name": "mathMinWithMultiOperation",
+                "args": [],
+                "result": "1:f64"
+            },
+            {
+                "name": "mathPowWithZero",
+                "args": [],
+                "result": "1:f64"
+            },
+            {
+                "name": "mathPowWithNegative",
+                "args": [],
+                "result": "0.1111111:f64"
+            },
+            {
+                "name": "mathPowWithPositive",
+                "args": [],
+                "result": "9:f64"
+            },
+            {
+                "name": "mathAbs",
+                "args": [],
+                "result": "3:f64"
+            },
+            {
+                "name": "mathNested",
+                "args": [],
+                "result": "27:f64"
+            }
+        ]
+    },
+    {
+        "module": "builtin_string",
+        "entries": [
+            {
+                "name": "stringConcat",
+                "args": [],
+                "result": "ref.struct"
+            },
+            {
+                "name": "stringLength",
+                "args": [],
+                "result": "5:f64"
+            },
+            {
+                "name": "stringSliceWithTwoNegativeNumber",
+                "args": [],
+                "result": "ref.struct"
+            },
+            {
+                "name": "stringSliceWithTwoPositiveNumber",
+                "args": [],
+                "result": "ref.struct"
+            },
+            {
+                "name": "stringSliceWithTwoUndefind",
+                "args": [],
+                "result": "ref.struct"
+            }
+        ]
+    },
+    {
+        "module": "call_expression_function_hoisting",
+        "entries": [
+            {
+                "name": "funcHosting",
+                "args": [],
+                "result": "110:f64"
+            }
+        ]
+    },
+    {
+        "module": "call_expression_get_value",
+        "entries": [
+            {
+                "name": "getValueWithDefaultParam",
+                "args": [],
+                "result": "116:f64"
+            },
+            {
+                "name": "callInnerFunc",
+                "args": [
+                    13,
+                    7
+                ],
+                "result": "29:f64"
+            },
+            {
+                "name": "recursive",
+                "args": [
+                    30
+                ],
+                "result": "832040:f64"
+            }
+        ]
+    },
+    {
+        "module": "call_expression_param",
+        "entries": [
+            {
+                "name": "noDefaultParam",
+                "args": [],
+                "result": "6:f64"
+            },
+            {
+                "name": "allDefaultParam",
+                "args": [],
+                "result": "6:f64"
+            },
+            {
+                "name": "someDefaultParam",
+                "args": [],
+                "result": "5:f64"
+            },
+            {
+                "name": "paramIsAny",
+                "args": [],
+                "result": "3:f64"
+            }
+        ]
+    },
+    {
+        "module": "class_basic",
+        "entries": [
+            {
+                "name": "withoutCtor",
+                "args": [],
+                "result": "123:f64"
+            },
+            {
+                "name": "basic",
+                "args": [],
+                "result": "10:f64"
+            },
+            {
+                "name": "getterSetter",
+                "args": [],
+                "result": "25:f64"
+            }
+        ]
+    },
+    {
+        "module": "class_declare_case1",
+        "entries": [
+            {
+                "name": "classDecl",
+                "args": [],
+                "result": ""
+            }
+        ]
+    },
+    {
+        "module": "class_extend",
+        "entries": [
+            {
+                "name": "extendWithNewProp",
+                "args": [],
+                "result": "90:f64"
+            },
+            {
+                "name": "methodOverwrite",
+                "args": [],
+                "result": "40:f64"
+            }
+        ]
+    },
+    {
+        "module": "class_field_assign",
+        "entries": [
+            {
+                "name": "withCtor",
+                "args": [],
+                "result": "18:f64"
+            },
+            {
+                "name": "withoutCtor",
+                "args": [],
+                "result": "0x0:i32"
+            }
+        ]
+    },
+    {
+        "module": "class_static_prop",
+        "entries": [
+            {
+                "name": "staticMethodWithOverwrite",
+                "args": [],
+                "result": "2:f64"
+            },
+            {
+                "name": "staticMethod",
+                "args": [],
+                "result": "1:f64"
+            },
+            {
+                "name": "staticFields",
+                "args": [],
+                "result": "74:f64"
+            }
+        ]
+    },
+    {
+        "module": "class_type",
+        "entries": [
+            {
+                "name": "uniqueType",
+                "args": [],
+                "result": "1:f64"
+            }
+        ]
+    },
+    {
+        "module": "closure_basic",
+        "entries": [
+            {
+                "name": "accessOuterVars",
+                "args": [],
+                "result": "2:f64"
+            },
+            {
+                "name": "returnOuterFuncCall",
+                "args": [],
+                "result": "10:f64"
+            },
+            {
+                "name": "accesssGlobalVar",
+                "args": [],
+                "result": "ref.struct"
+            }
+        ]
+    },
+    {
+        "module": "closure_first_class_func",
+        "entries": [
+            {
+                "name": "returnAFunction",
+                "args": [],
+                "result": "3:f64"
+            },
+            {
+                "name": "functionAsParam",
+                "args": [],
+                "result": "10:f64"
+            }
+        ]
+    },
+    {
+        "module": "closure_set_ctx_value",
+        "entries": [
+            {
+                "name": "setCtxValue",
+                "args": [
+                    3
+                ],
+                "result": "24:f64"
+            }
+        ]
+    },
+    {
+        "module": "complexType_case1",
+        "entries": [
+            {
+                "name": "complexTypeTest",
+                "args": [],
+                "result": "5:f64"
+            }
+        ]
+    },
+    {
+        "module": "complexType_case2",
+        "entries": [
+            {
+                "name": "cpxCase2Func3",
+                "args": [
+                    30
+                ],
+                "result": "2:f64"
+            }
+        ]
+    },
+    {
+        "module": "complexType_case3",
+        "entries": [
+            {
+                "name": "cpxCase3Func1",
+                "args": [],
+                "result": "10:f64"
+            }
+        ]
+    },
+    {
+        "module": "complexType_case4",
+        "entries": [
+            {
+                "name": "cpxCase3Func1",
+                "args": [],
+                "result": "3:f64"
+            }
+        ]
+    },
+    {
+        "module": "complexType_case5",
+        "entries": [
+            {
+                "name": "cpxCase3Func1",
+                "args": [],
+                "result": "6:f64"
+            }
+        ]
+    },
+    {
+        "module": "declare_function",
+        "entries": [
+            {
+                "name": "assignDeclareFuncToVar",
+                "args": [],
+                "result": ""
+            }
+        ]
+    },
+    {
+        "module": "do_statement_case1",
+        "entries": [
+            {
+                "name": "doTest",
+                "args": [],
+                "result": "16:f64"
+            }
+        ]
+    },
+    {
+        "module": "do_statement_case2",
+        "entries": [
+            {
+                "name": "doTest",
+                "args": [],
+                "result": "10:f64"
+            }
+        ]
+    },
+    {
+        "module": "do_statement_case3",
+        "entries": [
+            {
+                "name": "doTest",
+                "args": [],
+                "result": "21:f64"
+            }
+        ]
+    },
+    {
+        "module": "do_statement_case4",
+        "entries": [
+            {
+                "name": "doTest",
+                "args": [],
+                "result": "16:f64"
+            }
+        ]
+    },
+    {
+        "module": "do_statement_case5",
+        "entries": [
+            {
+                "name": "doTest",
+                "args": [],
+                "result": "16:f64"
+            }
+        ]
+    },
+    {
+        "module": "export_case1",
+        "entries": [
+            {
+                "name": "add",
+                "args": [
+                    3,
+                    33
+                ],
+                "result": "36:f64"
+            }
+        ]
+    },
+    {
+        "module": "export_case2",
+        "entries": [
+            {
+                "name": "theDefault",
+                "args": [],
+                "result": ""
+            }
+        ]
+    },
+    {
+        "module": "expression_binary",
+        "entries": [
+            {
+                "name": "lt",
+                "args": [],
+                "result": "1:f64"
+            },
+            {
+                "name": "gt",
+                "args": [],
+                "result": "1:f64"
+            },
+            {
+                "name": "le",
+                "args": [],
+                "result": "1:f64"
+            },
+            {
+                "name": "ge",
+                "args": [],
+                "result": "1:f64"
+            },
+            {
+                "name": "eq",
+                "args": [],
+                "result": "1:f64"
+            },
+            {
+                "name": "seenAsEq",
+                "args": [],
+                "result": "1:f64"
+            },
+            {
+                "name": "ne",
+                "args": [],
+                "result": "1:f64"
+            },
+            {
+                "name": "seenAsNe",
+                "args": [],
+                "result": "1:f64"
+            },
+            {
+                "name": "add",
+                "args": [],
+                "result": "3:f64"
+            },
+            {
+                "name": "sub",
+                "args": [],
+                "result": "1:f64"
+            },
+            {
+                "name": "mul",
+                "args": [],
+                "result": "4:f64"
+            },
+            {
+                "name": "div",
+                "args": [],
+                "result": "1:f64"
+            },
+            {
+                "name": "subEq",
+                "args": [],
+                "result": "1:f64"
+            },
+            {
+                "name": "addEq",
+                "args": [],
+                "result": "3:f64"
+            },
+            {
+                "name": "mulEq",
+                "args": [],
+                "result": "6:f64"
+            },
+            {
+                "name": "divEq",
+                "args": [],
+                "result": "2:f64"
+            }
+        ]
+    },
+    {
+        "module": "expression_binary_select",
+        "entries": [
+            {
+                "name": "selectAmpersandTrueTrue",
+                "args": [],
+                "result": "20:f64"
+            },
+            {
+                "name": "selectAmpersandTrueFalse",
+                "args": [],
+                "result": "0:f64"
+            },
+            {
+                "name": "selectAmpersandFalseTrue",
+                "args": [],
+                "result": "0:f64"
+            },
+            {
+                "name": "selectAmpersandFalseFlase",
+                "args": [],
+                "result": "0:f64"
+            },
+            {
+                "name": "selectBarTrueTrue",
+                "args": [],
+                "result": "10:f64"
+            },
+            {
+                "name": "selectBarTrueFalse",
+                "args": [],
+                "result": "1:f64"
+            },
+            {
+                "name": "selectBarFalseTrue",
+                "args": [],
+                "result": "1:f64"
+            },
+            {
+                "name": "selectBarFalseFalse",
+                "args": [],
+                "result": "0:f64"
+            }
+        ]
+    },
+    {
+        "module": "expression_condition",
+        "entries": [
+            {
+                "name": "binaryAsCondition",
+                "args": [],
+                "result": "1:f64"
+            }
+        ]
+    },
+    {
+        "module": "expression_unary",
+        "entries": [
+            {
+                "name": "prefixUnaryPlusPlus",
+                "args": [],
+                "result": "3:f64"
+            },
+            {
+                "name": "prefixUnaryMinusMinus",
+                "args": [],
+                "result": "-1:f64"
+            },
+            {
+                "name": "prefixUnaryExclamation",
+                "args": [],
+                "result": "1:f64"
+            },
+            {
+                "name": "prefixUnaryMinusToLiteralWithBinaryExpr",
+                "args": [],
+                "result": "-1:f64"
+            },
+            {
+                "name": "prefixUnaryMinusToLiteralWithVarStmt",
+                "args": [],
+                "result": "-1:f64"
+            },
+            {
+                "name": "prefixUnaryMinusToVarWithBinaryExpr",
+                "args": [],
+                "result": "-1:f64"
+            },
+            {
+                "name": "prefixUnaryMinusToVarWithVarStmt",
+                "args": [],
+                "result": "-1:f64"
+            },
+            {
+                "name": "prefixUnaryPlus",
+                "args": [],
+                "result": "1:f64"
+            }
+        ]
+    },
+    {
+        "module": "extref_case1",
+        "entries": [
+            {
+                "name": "extrefTest",
+                "args": [],
+                "result": "0x1:i32"
+            }
+        ]
+    },
+    {
+        "module": "extref_case2",
+        "entries": [
+            {
+                "name": "extrefTest",
+                "args": [],
+                "result": "1:f64"
+            }
+        ]
+    },
+    {
+        "module": "extref_case3",
+        "entries": [
+            {
+                "name": "extrefTest",
+                "args": [],
+                "result": "ref.struct"
+            }
+        ]
+    },
+    {
+        "module": "extref_case4",
+        "entries": [
+            {
+                "name": "extrefTest",
+                "args": [],
+                "result": "1:f64"
+            }
+        ]
+    },
+    {
+        "module": "extref_case5",
+        "entries": [
+            {
+                "name": "extrefTest",
+                "args": [],
+                "result": "ref.struct"
+            }
+        ]
+    },
+    {
+        "module": "extref_case6",
+        "entries": [
+            {
+                "name": "extrefTest",
+                "args": [],
+                "result": "0x1:i32"
+            }
+        ]
+    },
+    {
+        "module": "extref_case7",
+        "entries": [
+            {
+                "name": "extrefTest",
+                "args": [],
+                "result": "ref.struct"
+            }
+        ]
+    },
+    {
+        "module": "extref_case8",
+        "entries": [
+            {
+                "name": "extrefTest",
+                "args": [],
+                "result": "1:f64"
+            }
+        ]
+    },
+    {
+        "module": "for_statement_case1",
+        "entries": [
+            {
+                "name": "forTest",
+                "args": [],
+                "result": "100:f64"
+            }
+        ]
+    },
+    {
+        "module": "for_statement_case2",
+        "entries": [
+            {
+                "name": "forTest",
+                "args": [],
+                "result": "90:f64"
+            }
+        ]
+    },
+    {
+        "module": "for_statement_case3",
+        "entries": [
+            {
+                "name": "forTest",
+                "args": [],
+                "result": "100:f64"
+            }
+        ]
+    },
+    {
+        "module": "for_statement_case4",
+        "entries": [
+            {
+                "name": "forTest",
+                "args": [],
+                "result": "106:f64"
+            }
+        ]
+    },
+    {
+        "module": "for_statement_case5",
+        "entries": [
+            {
+                "name": "forTest",
+                "args": [],
+                "result": "105:f64"
+            }
+        ]
+    },
+    {
+        "module": "for_statement_case6",
+        "entries": [
+            {
+                "name": "forTest",
+                "args": [],
+                "result": "115:f64"
+            }
+        ]
+    },
+    {
+        "module": "for_statement_case7",
+        "entries": [
+            {
+                "name": "forTest",
+                "args": [],
+                "result": "4905:f64"
+            }
+        ]
+    },
+    {
+        "module": "function_declaration_case1",
+        "entries": [
+            {
+                "name": "functionTest",
+                "args": [
+                    23,
+                    15
+                ],
+                "result": "38:f64"
+            }
+        ]
+    },
+    {
+        "module": "function_declaration_case2",
+        "entries": [
+            {
+                "name": "functionTest",
+                "args": [
+                    15,
+                    21
+                ],
+                "result": "36:f64"
+            }
+        ]
+    },
+    {
+        "module": "function_declaration_case3",
+        "entries": [
+            {
+                "name": "functionTest",
+                "args": [],
+                "result": "1:f64"
+            }
+        ]
+    },
+    {
+        "module": "function_declaration_case4",
+        "entries": [
+            {
+                "name": "functionTest",
+                "args": [
+                    14,
+                    36
+                ],
+                "result": "50:f64"
+            }
+        ]
+    },
+    {
+        "module": "function_declaration_case5",
+        "entries": [
+            {
+                "name": "functionTest",
+                "args": [],
+                "result": "5:f64"
+            }
+        ]
+    },
+    {
+        "module": "function_declaration_case6",
+        "entries": [
+            {
+                "name": "functionTest",
+                "args": [],
+                "result": "7:f64"
+            }
+        ]
+    },
+    {
+        "module": "function_declaration_case7",
+        "entries": [
+            {
+                "name": "functionTest",
+                "args": [],
+                "result": "0x0:i32"
+            }
+        ]
+    },
+    {
+        "module": "function_declaration_case8",
+        "entries": [
+            {
+                "name": "functionTest",
+                "args": [],
+                "result": "2:f64"
+            }
+        ]
+    },
+    {
+        "module": "function_expression_case1",
+        "entries": [
+            {
+                "name": "functionTest",
+                "args": [],
+                "result": "2004.1:f64"
+            }
+        ]
+    },
+    {
+        "module": "function_expression_case2",
+        "entries": [
+            {
+                "name": "functionTest",
+                "args": [],
+                "result": "2:f64"
+            }
+        ]
+    },
+    {
+        "module": "global_statement_case1",
+        "entries": [
+            {
+                "name": "globalTest",
+                "args": [],
+                "result": "99:f64"
+            }
+        ]
+    },
+    {
+        "module": "global_statement_case2",
+        "entries": [
+            {
+                "name": "globalTest",
+                "args": [],
+                "result": "42:f64"
+            }
+        ]
+    },
+    {
+        "module": "global_statement_case3",
+        "entries": [
+            {
+                "name": "globalTest",
+                "args": [],
+                "result": "101:f64"
+            }
+        ]
+    },
+    {
+        "module": "global_statement_case4",
+        "entries": [
+            {
+                "name": "globalTest",
+                "args": [],
+                "result": "98:f64"
+            }
+        ]
+    },
+    {
+        "module": "global_statement_case5",
+        "entries": [
+            {
+                "name": "globalTest",
+                "args": [],
+                "result": "95:f64"
+            }
+        ]
+    },
+    {
+        "module": "global_statement_case6",
+        "entries": [
+            {
+                "name": "globalTest",
+                "args": [],
+                "result": "20:f64"
+            }
+        ]
+    },
+    {
+        "module": "global_variable_case1",
+        "entries": [
+            {
+                "name": "globalVarTest",
+                "args": [],
+                "result": "198:f64"
+            }
+        ]
+    },
+    {
+        "module": "global_variable_case2",
+        "entries": [
+            {
+                "name": "globalVarTest",
+                "args": [],
+                "result": "0x1:i32"
+            }
+        ]
+    },
+    {
+        "module": "if_statement_case1",
+        "entries": [
+            {
+                "name": "ifTest",
+                "args": [],
+                "result": "26:f64"
+            }
+        ]
+    },
+    {
+        "module": "if_statement_case2",
+        "entries": [
+            {
+                "name": "ifTest",
+                "args": [],
+                "result": "36:f64"
+            }
+        ]
+    },
+    {
+        "module": "if_statement_case3",
+        "entries": [
+            {
+                "name": "ifTest",
+                "args": [],
+                "result": "17:f64"
+            }
+        ]
+    },
+    {
+        "module": "if_statement_case4",
+        "entries": [
+            {
+                "name": "ifTest",
+                "args": [
+                    9
+                ],
+                "result": "9:f64"
+            }
+        ]
+    },
+    {
+        "module": "import_case1",
+        "entries": [
+            {
+                "name": "impExpTest",
+                "args": [],
+                "result": ""
+            }
+        ]
+    },
+    {
+        "module": "import_case2",
+        "entries": [
+            {
+                "name": "impExpTest",
+                "args": [],
+                "result": ""
+            }
+        ]
+    },
+    {
+        "module": "import_case3",
+        "entries": [
+            {
+                "name": "impExpTest",
+                "args": [],
+                "result": ""
+            }
+        ]
+    },
+    {
+        "module": "import_case4",
+        "entries": [
+            {
+                "name": "impExpTest",
+                "args": [],
+                "result": ""
+            }
+        ]
+    },
+    {
+        "module": "import_case5",
+        "entries": [
+            {
+                "name": "print2",
+                "args": [],
+                "result": ""
+            }
+        ]
+    },
+    {
+        "module": "infc_assign_class.",
+        "entries": [
+            {
+                "name": "classAndInfc",
+                "args": [],
+                "result": "1:f64"
+            }
+        ]
+    },
+    {
+        "module": "infc_assign_infc",
+        "entries": [
+            {
+                "name": "infcAndInfc",
+                "args": [],
+                "result": "10:f64"
+            }
+        ]
+    },
+    {
+        "module": "infc_assign_obj",
+        "entries": [
+            {
+                "name": "objLiteralAndInfc",
+                "args": [],
+                "result": "1:f64"
+            }
+        ]
+    },
+    {
+        "module": "infc_field_assign",
+        "entries": [
+            {
+                "name": "fieldAssignToOther",
+                "args": [],
+                "result": "1:f64"
+            },
+            {
+                "name": "otherAssignToField",
+                "args": [],
+                "result": "20:f64"
+            }
+        ]
+    },
+    {
+        "module": "infc_method",
+        "entries": [
+            {
+                "name": "infcSetter",
+                "args": [],
+                "result": "10:f64"
+            },
+            {
+                "name": "infcMethod",
+                "args": [],
+                "result": "0x0:i32"
+            },
+            {
+                "name": "infcGetter",
+                "args": [],
+                "result": "1:f64"
+            }
+        ]
+    },
+    {
+        "module": "infc_parameter",
+        "entries": [
+            {
+                "name": "infcToClass",
+                "args": [],
+                "result": "1:f64"
+            },
+            {
+                "name": "classToInfc",
+                "args": [],
+                "result": "2:f64"
+            },
+            {
+                "name": "infcAsParameter",
+                "args": [],
+                "result": "0x0:i32"
+            }
+        ]
+    },
+    {
+        "module": "infc_return_value",
+        "entries": [
+            {
+                "name": "returnInfc",
+                "args": [],
+                "result": "0x1:i32"
+            },
+            {
+                "name": "returnClass",
+                "args": [],
+                "result": "10:f64"
+            }
+        ]
+    },
+    {
+        "module": "infc_with_array",
+        "entries": [
+            {
+                "name": "infcWithArray",
+                "args": [],
+                "result": "12:f64"
+            }
+        ]
+    },
+    {
+        "module": "module_case1",
+        "entries": [
+            {
+                "name": "modTest",
+                "args": [],
+                "result": "8:f64"
+            }
+        ]
+    },
+    {
+        "module": "module_case10",
+        "entries": []
+    },
+    {
+        "module": "module_case11",
+        "entries": [
+            {
+                "name": "test",
+                "args": [],
+                "result": "6:f64"
+            }
+        ]
+    },
+    {
+        "module": "module_case2",
+        "entries": [
+            {
+                "name": "module_case2_func1",
+                "args": [],
+                "result": "2:f64"
+            },
+            {
+                "name": "modTest",
+                "args": [],
+                "result": "2:f64"
+            }
+        ]
+    },
+    {
+        "module": "module_case3",
+        "entries": [
+            {
+                "name": "modTest",
+                "args": [],
+                "result": "6:f64"
+            }
+        ]
+    },
+    {
+        "module": "module_case4",
+        "entries": [
+            {
+                "name": "modTest",
+                "args": [],
+                "result": "6:f64"
+            }
+        ]
+    },
+    {
+        "module": "module_case5",
+        "entries": [
+            {
+                "name": "modTest",
+                "args": [],
+                "result": ""
+            }
+        ]
+    },
+    {
+        "module": "module_case6",
+        "entries": [
+            {
+                "name": "module_case6_func1",
+                "args": [],
+                "result": ""
+            },
+            {
+                "name": "modTest",
+                "args": [],
+                "result": "19:f64"
+            }
+        ]
+    },
+    {
+        "module": "module_case7",
+        "entries": [
+            {
+                "name": "modTest",
+                "args": [],
+                "result": ""
+            }
+        ]
+    },
+    {
+        "module": "module_case8",
+        "entries": [
+            {
+                "name": "exportDefaultFunc",
+                "args": [
+                    2
+                ],
+                "result": "3:f64"
+            }
+        ]
+    },
+    {
+        "module": "module_case9",
+        "entries": [
+            {
+                "name": "testFunc",
+                "args": [],
+                "result": "11:f64"
+            }
+        ]
+    },
+    {
+        "module": "namespace_case1",
+        "entries": [
+            {
+                "name": "namespaceTest",
+                "args": [],
+                "result": "1:f64"
+            }
+        ]
+    },
+    {
+        "module": "namespace_case2",
+        "entries": [
+            {
+                "name": "namespaceTest",
+                "args": [],
+                "result": "2:f64"
+            }
+        ]
+    },
+    {
+        "module": "namespace_case3",
+        "entries": [
+            {
+                "name": "namespaceTest",
+                "args": [],
+                "result": "4:f64"
+            }
+        ]
+    },
+    {
+        "module": "null_type_case1",
+        "entries": [
+            {
+                "name": "nullTypeTest",
+                "args": [],
+                "result": "20:f64"
+            }
+        ]
+    },
+    {
+        "module": "obj_case1",
+        "entries": [
+            {
+                "name": "objTest",
+                "args": [],
+                "result": "1:f64"
+            }
+        ]
+    },
+    {
+        "module": "obj_case2",
+        "entries": [
+            {
+                "name": "objTest",
+                "args": [],
+                "result": "4:f64"
+            }
+        ]
+    },
+    {
+        "module": "obj_case3",
+        "entries": [
+            {
+                "name": "objTest",
+                "args": [],
+                "result": "0x0:i32"
+            }
+        ]
+    },
+    {
+        "module": "obj_case4",
+        "entries": [
+            {
+                "name": "objTest",
+                "args": [],
+                "result": "6:f64"
+            }
+        ]
+    },
+    {
+        "module": "obj_case5",
+        "entries": [
+            {
+                "name": "objTest",
+                "args": [],
+                "result": "117:f64"
+            }
+        ]
+    },
+    {
+        "module": "parenthesized_expression_case1",
+        "entries": [
+            {
+                "name": "parenthesizedTest",
+                "args": [],
+                "result": "5.833333:f64"
+            }
+        ]
+    },
+    {
+        "module": "primitiveType_case1",
+        "entries": [
+            {
+                "name": "primitiveTest",
+                "args": [],
+                "result": "3:f64"
+            }
+        ]
+    },
+    {
+        "module": "primitiveType_case2",
+        "entries": [
+            {
+                "name": "primitiveTest",
+                "args": [],
+                "result": "6:f64"
+            }
+        ]
+    },
+    {
+        "module": "prototype_case1",
+        "entries": [
+            {
+                "name": "protoTest",
+                "args": [],
+                "result": "ref.struct"
+            }
+        ]
+    },
+    {
+        "module": "prototype_case2",
+        "entries": [
+            {
+                "name": "protoTest",
+                "args": [],
+                "result": "1:f64"
+            }
+        ]
+    },
+    {
+        "module": "rest_parameter_case1",
+        "entries": [
+            {
+                "name": "restParameterTest",
+                "args": [],
+                "result": "47:f64"
+            }
+        ]
+    },
+    {
+        "module": "rest_parameter_case2",
+        "entries": [
+            {
+                "name": "restParameterTest",
+                "args": [],
+                "result": "ref.struct"
+            }
+        ]
+    },
+    {
+        "module": "return_case1",
+        "entries": [
+            {
+                "name": "returnTest1",
+                "args": [],
+                "result": "110:f64"
+            }
+        ]
+    },
+    {
+        "module": "return_case2",
+        "entries": [
+            {
+                "name": "returnTest2",
+                "args": [
+                    14,
+                    24
+                ],
+                "result": "14:f64"
+            }
+        ]
+    },
+    {
+        "module": "return_case3",
+        "entries": [
+            {
+                "name": "returnTest3",
+                "args": [
+                    17
+                ],
+                "result": "17:f64"
+            }
+        ]
+    },
+    {
+        "module": "return_case4",
+        "entries": [
+            {
+                "name": "returnTest4",
+                "args": [
+                    29
+                ],
+                "result": "29:f64"
+            }
+        ]
+    },
+    {
+        "module": "scopeScanner_case1",
+        "entries": [
+            {
+                "name": "scopeScannerCase1Func1",
+                "args": [],
+                "result": "ref.struct"
+            }
+        ]
+    },
+    {
+        "module": "scopeScanner_case2",
+        "entries": [
+            {
+                "name": "scopeScannerCase2Func2",
+                "args": [
+                    28
+                ],
+                "result": "3:f64"
+            }
+        ]
+    },
+    {
+        "module": "scopeScanner_case3",
+        "entries": [
+            {
+                "name": "scopeScannerCase3Func3",
+                "args": [
+                    29
+                ],
+                "result": "2:f64"
+            }
+        ]
+    },
+    {
+        "module": "scopeScanner_case4",
+        "entries": [
+            {
+                "name": "scopeScannerCase4Func4",
+                "args": [
+                    25
+                ],
+                "result": "27:f64"
+            }
+        ]
+    },
+    {
+        "module": "scopeScanner_case5",
+        "entries": [
+            {
+                "name": "scopeScannerCase5Func5",
+                "args": [
+                    38
+                ],
+                "result": "38:f64"
+            }
+        ]
+    },
+    {
+        "module": "scopeScanner_case6",
+        "entries": [
+            {
+                "name": "scopeScannerCase6Func6",
+                "args": [
+                    4
+                ],
+                "result": "10:f64"
+            }
+        ]
+    },
+    {
+        "module": "scopeScanner_case7",
+        "entries": [
+            {
+                "name": "scopeScannerCase7Func7",
+                "args": [
+                    15
+                ],
+                "result": "19:f64"
+            }
+        ]
+    },
+    {
+        "module": "scopeScanner_case8",
+        "entries": [
+            {
+                "name": "scopeScannerCase8Func8",
+                "args": [
+                    18
+                ],
+                "result": "2:f64"
+            }
+        ]
+    },
+    {
+        "module": "string_case1",
+        "entries": [
+            {
+                "name": "strTest",
+                "args": [],
+                "result": "ref.struct"
+            }
+        ]
+    },
+    {
+        "module": "string_case2",
+        "entries": [
+            {
+                "name": "strTest",
+                "args": [],
+                "result": "ref.struct"
+            }
+        ]
+    },
+    {
+        "module": "string_case3",
+        "entries": [
+            {
+                "name": "strTest",
+                "args": [],
+                "result": "ref.struct"
+            }
+        ]
+    },
+    {
+        "module": "string_case4",
+        "entries": [
+            {
+                "name": "strTest",
+                "args": [],
+                "result": "ref.struct"
+            }
+        ]
+    },
+    {
+        "module": "string_case5",
+        "entries": [
+            {
+                "name": "strTest",
+                "args": [],
+                "result": "ref.struct"
+            }
+        ]
+    },
+    {
+        "module": "switch_case_case1",
+        "entries": [
+            {
+                "name": "switchCaseCase1",
+                "args": [],
+                "result": "1:f64"
+            }
+        ]
+    },
+    {
+        "module": "switch_case_case10",
+        "entries": [
+            {
+                "name": "switchCaseCase10",
+                "args": [],
+                "result": "20:f64"
+            }
+        ]
+    },
+    {
+        "module": "switch_case_case2",
+        "entries": [
+            {
+                "name": "switchCaseCase2",
+                "args": [],
+                "result": "0:f64"
+            }
+        ]
+    },
+    {
+        "module": "switch_case_case3",
+        "entries": [
+            {
+                "name": "switchCaseCase3",
+                "args": [],
+                "result": "0:f64"
+            }
+        ]
+    },
+    {
+        "module": "switch_case_case4",
+        "entries": [
+            {
+                "name": "switchCaseCase4",
+                "args": [],
+                "result": "10:f64"
+            }
+        ]
+    },
+    {
+        "module": "switch_case_case5",
+        "entries": [
+            {
+                "name": "switchCaseCase5",
+                "args": [],
+                "result": "11:f64"
+            }
+        ]
+    },
+    {
+        "module": "switch_case_case6",
+        "entries": [
+            {
+                "name": "switchCaseCase6",
+                "args": [],
+                "result": "10:f64"
+            }
+        ]
+    },
+    {
+        "module": "switch_case_case7",
+        "entries": [
+            {
+                "name": "switchCaseCase7",
+                "args": [],
+                "result": "11:f64"
+            }
+        ]
+    },
+    {
+        "module": "switch_case_case8",
+        "entries": [
+            {
+                "name": "switchCaseCase8",
+                "args": [],
+                "result": "11:f64"
+            }
+        ]
+    },
+    {
+        "module": "switch_case_case9",
+        "entries": [
+            {
+                "name": "switchCaseCase9",
+                "args": [],
+                "result": "1:f64"
+            }
+        ]
+    },
+    {
+        "module": "variable_var_case1",
+        "entries": [
+            {
+                "name": "varType",
+                "args": [],
+                "result": "1:f64"
+            }
+        ]
+    },
+    {
+        "module": "variable_var_case2",
+        "entries": [
+            {
+                "name": "varType",
+                "args": [],
+                "result": "16:f64"
+            }
+        ]
+    },
+    {
+        "module": "variable_var_case3",
+        "entries": [
+            {
+                "name": "funcvv3",
+                "args": [],
+                "result": "10:f64"
+            }
+        ]
+    },
+    {
+        "module": "wasmGen_globalVar",
+        "entries": [
+            {
+                "name": "globalVar",
+                "args": [],
+                "result": "14:f64"
+            }
+        ]
+    },
+    {
+        "module": "while_statement_case1",
+        "entries": [
+            {
+                "name": "whileTest",
+                "args": [],
+                "result": "10:f64"
+            }
+        ]
+    },
+    {
+        "module": "while_statement_case2",
+        "entries": [
+            {
+                "name": "whileTest",
+                "args": [],
+                "result": "100:f64"
+            }
+        ]
+    },
+    {
+        "module": "while_statement_case3",
+        "entries": [
+            {
+                "name": "whileTest",
+                "args": [],
+                "result": "49:f64"
+            }
+        ]
+    }
+]

@@ -6,7 +6,9 @@
 #include "dyntype.h"
 #include "cutils.h"
 #include "quickjs.h"
+#include <stdbool.h>
 
+static dyn_ctx_t g_dynamic_context = NULL;
 
 typedef struct DynTypeContext {
   JSRuntime *js_rt;
@@ -41,6 +43,10 @@ static dyn_type_t quickjs_type_to_dyn_type(int quickjs_tag) {
 }
 
 dyn_ctx_t dyntype_context_init() {
+    if (g_dynamic_context) {
+        return g_dynamic_context;
+    }
+
     dyn_ctx_t ctx = malloc(sizeof(DynTypeContext));
     if (!ctx) {
         return NULL;
@@ -54,6 +60,8 @@ dyn_ctx_t dyntype_context_init() {
     if (!ctx->js_ctx) {
         goto fail;
     }
+
+    g_dynamic_context = ctx;
     return ctx;
 fail:
     dyntype_context_destroy(ctx);
@@ -76,6 +84,12 @@ void dyntype_context_destroy(dyn_ctx_t ctx) {
         }
         free(ctx);
     }
+
+    g_dynamic_context = NULL;
+}
+
+dyn_ctx_t dyntype_get_context() {
+    return g_dynamic_context;
 }
 
 dyn_value_t dyntype_new_number(dyn_ctx_t ctx, double value) {
@@ -114,12 +128,22 @@ dyn_value_t dyntype_new_object(dyn_ctx_t ctx) {
     return dyntype_dup_value(ctx->js_ctx, v);
 }
 
-dyn_value_t dyntype_new_array(dyn_ctx_t ctx) {
+dyn_value_t dyntype_new_array_with_length(dyn_ctx_t ctx, int len) {
     JSValue v = JS_NewArray(ctx->js_ctx);
     if (JS_IsException(v)) {
         return NULL;
     }
+
+    if (len) {
+        JSValue vlen = JS_NewInt32(ctx->js_ctx, len);
+        set_array_length1(ctx->js_ctx, JS_VALUE_GET_OBJ(v), vlen, 0);
+    }
+
     return dyntype_dup_value(ctx->js_ctx, v);
+}
+
+dyn_value_t dyntype_new_array(dyn_ctx_t ctx) {
+    return dyntype_new_array_with_length(ctx, 0);
 }
 
 dyn_value_t dyntype_new_extref(dyn_ctx_t ctx, void *ptr, external_ref_tag tag) {
@@ -218,17 +242,17 @@ int dyntype_delete_property(dyn_ctx_t ctx, dyn_value_t obj, const char *prop) {
 
 bool dyntype_is_undefined(dyn_ctx_t ctx, dyn_value_t obj) {
     JSValue *ptr = (JSValue *)obj;
-    return JS_IsUndefined(*ptr);
+    return (bool)JS_IsUndefined(*ptr);
 }
 
 bool dyntype_is_null(dyn_ctx_t ctx, dyn_value_t obj) {
     JSValue *ptr = (JSValue *)obj;
-    return JS_IsNull(*ptr);
+    return (bool)JS_IsNull(*ptr);
 }
 
 bool dyntype_is_bool(dyn_ctx_t ctx, dyn_value_t obj) {
     JSValue *ptr = (JSValue *)obj;
-    return JS_IsBool(*ptr);
+    return (bool)JS_IsBool(*ptr);
 }
 
 int dyntype_to_bool(dyn_ctx_t ctx, dyn_value_t bool_obj, bool *pres) {
@@ -242,7 +266,7 @@ int dyntype_to_bool(dyn_ctx_t ctx, dyn_value_t bool_obj, bool *pres) {
 
 bool dyntype_is_number(dyn_ctx_t ctx, dyn_value_t obj) {
     JSValue *ptr = (JSValue *)obj;
-    return JS_IsNumber(*ptr);
+    return (bool)JS_IsNumber(*ptr);
 }
 
 int dyntype_to_number(dyn_ctx_t ctx, dyn_value_t obj, double *pres) {
@@ -275,12 +299,12 @@ void dyntype_free_cstring(dyn_ctx_t ctx, char *str) {
 
 bool dyntype_is_object(dyn_ctx_t ctx, dyn_value_t obj) {
     JSValue *ptr = (JSValue *)obj;
-    return JS_IsObject(*ptr);
+    return (bool)JS_IsObject(*ptr);
 }
 
 bool dyntype_is_array(dyn_ctx_t ctx, dyn_value_t obj) {
     JSValue *ptr = (JSValue *)obj;
-    return JS_IsArray(ctx->js_ctx, *ptr);
+    return (bool)JS_IsArray(ctx->js_ctx, *ptr);
 }
 
 bool dyntype_is_extref(dyn_ctx_t ctx, dyn_value_t obj) {

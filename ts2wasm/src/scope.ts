@@ -441,7 +441,7 @@ export class GlobalScope extends Scope {
     defaultModuleImportMap = new Map<string, GlobalScope>();
     defaultNoun = '';
 
-    isMarkStart = false;
+    isCircularImport = false;
 
     constructor(parent: Scope | null = null) {
         super(parent);

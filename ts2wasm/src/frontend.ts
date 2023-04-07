@@ -76,11 +76,11 @@ export class ParserContext {
         this._scopeScanner = new ScopeScanner(this);
         this._importResolver = new ImportResolver(this);
         this._typeResolver = new TypeResolver(this);
-        this._sematicChecker = new SemanticChecker();
         this._variableScanner = new VariableScanner(this);
         this._variableInit = new VariableInit(this);
         this._exprProcessor = new ExpressionProcessor(this);
         this._stmtProcessor = new StatementProcessor(this);
+        this._sematicChecker = new SemanticChecker(this);
     }
 
     parse(fileNames: string[], compileArgs: CompileArgs = {}): void {
@@ -129,7 +129,7 @@ export class ParserContext {
         /* Step6: Add statements to scopes */
         this._stmtProcessor.visit();
         /* Step7: Additional semantic check */
-        this._sematicChecker.checkRes();
+        this._sematicChecker.sematicCheck();
 
         this.dumpScopes(Logger.debug, Logger.debug);
         if (process.env['TS2WASM_DUMP_SCOPE']) {

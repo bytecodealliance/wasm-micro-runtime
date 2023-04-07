@@ -215,7 +215,7 @@ TEST_F(TypesTest, create_extern_ref) {
     EXPECT_EQ(dyntype_has_property(ctx, extobj, "not_a_object"), -DYNTYPE_TYPEERR);
     EXPECT_EQ(dyntype_delete_property(ctx, extobj, "not_a_object"), -DYNTYPE_FALSE);
 
-    dyn_value_t extobj1 = dyntype_new_extref(ctx, obj, (external_ref_tag)2);
+    dyn_value_t extobj1 = dyntype_new_extref(ctx, obj, (external_ref_tag)(ExtArray + 1));
     EXPECT_EQ(extobj1, nullptr);
 
     EXPECT_FALSE(dyntype_is_number(ctx, extobj));

@@ -183,7 +183,7 @@ export const infcTypeInformation = generateInfcTypeInfo();
 function genarateCharArrayTypeInfo(): typeInfo {
     const charArrayTypeInfo = initArrayType(
         BinaryenType.I32,
-        Pakced.Not,
+        Pakced.I8,
         true,
         true,
     );

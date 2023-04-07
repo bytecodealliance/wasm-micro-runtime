@@ -213,10 +213,10 @@ export function getImportModulePath(
     importDeclaration: ts.ImportDeclaration,
     currentGlobalScope: GlobalScope,
 ) {
-    // get import module name
+    /* moduleSpecifier contains quotation marks, so we must slice them to get real module name */
     const moduleSpecifier = importDeclaration.moduleSpecifier
         .getText()
-        .slice(1, -1);
+        .slice("'".length, -"'".length);
     const currentModuleName = currentGlobalScope.moduleName;
     const importModuleName = path.relative(
         process.cwd(),

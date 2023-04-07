@@ -254,27 +254,9 @@ export class VariableStatement extends Statement {
 
 export class ImportDeclaration extends Statement {
     importModuleStartFuncName = '';
-    private _importGlobalArray: importGlobalInfo[] = [];
-    private _importFunctionArray: importFunctionInfo[] = [];
 
     constructor() {
         super(ts.SyntaxKind.ImportDeclaration);
-    }
-
-    addImportGlobal(importGlobalInfo: importGlobalInfo) {
-        this._importGlobalArray.push(importGlobalInfo);
-    }
-
-    addImportFunction(importFunctionInfo: importFunctionInfo) {
-        this._importFunctionArray.push(importFunctionInfo);
-    }
-
-    get importGlobalArray(): importGlobalInfo[] {
-        return this._importGlobalArray;
-    }
-
-    get importFunctionArray(): importFunctionInfo[] {
-        return this._importFunctionArray;
     }
 }
 
@@ -326,38 +308,16 @@ export default class StatementProcessor {
                     this.parserCtx.globalScopes,
                 );
                 const importStmt = new ImportDeclaration();
-                if (!importModuleScope.isMarkStart) {
+                if (!importModuleScope.isCircularImport) {
                     importStmt.importModuleStartFuncName =
                         importModuleScope.startFuncName;
-                    importModuleScope.isMarkStart = true;
+                    importModuleScope.isCircularImport = true;
                     return importStmt;
                 }
-                const globalScope = this.currentScope!.getRootGloablScope()!;
-                for (const importIdentifier of globalScope.identifierModuleImportMap.keys()) {
-                    // find identifier, judge if it is declared
-                    const res = globalScope.findIdentifier(importIdentifier);
-                    if (res instanceof Variable) {
-                        if (res.isDeclare()) {
-                            importStmt.addImportGlobal({
-                                internalName: res.mangledName,
-                                externalModuleName:
-                                    BuiltinNames.externalModuleName,
-                                externalBaseName: res.varName,
-                                globalType: res.varType,
-                            });
-                        }
-                    } else if (res instanceof FunctionScope) {
-                        if (res.isDeclare()) {
-                            importStmt.addImportFunction({
-                                internalName: res.mangledName,
-                                externalModuleName:
-                                    BuiltinNames.externalModuleName,
-                                externalBaseName: res.funcName,
-                                funcType: res.funcType,
-                            });
-                        }
-                    }
-                }
+                /** Currently, we put all ts files into a whole wasm file.
+                 *  So we don't need to collect import information here.
+                 *  If we generate several wasm files, we need to collect here.
+                 */
                 return importStmt;
             }
             case ts.SyntaxKind.VariableStatement: {
@@ -419,15 +379,6 @@ export default class StatementProcessor {
                           )
                         : null,
                 );
-                const expr = retStmt.returnExpression;
-                if (expr) {
-                    this.parserCtx.semanticChecker.curScope =
-                        this.parserCtx.getScopeByNode(node);
-                    this.parserCtx.semanticChecker.checkReturnType(
-                        expr.exprType,
-                    );
-                }
-
                 return retStmt;
             }
             case ts.SyntaxKind.WhileStatement: {

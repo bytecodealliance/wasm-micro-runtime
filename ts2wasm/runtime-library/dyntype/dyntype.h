@@ -50,6 +50,8 @@ typedef enum dyn_type_t {
 
 /******************* Initialization and destroy *******************/
 
+dyn_ctx_t dyntype_get_context();
+
 /**
  * @brief Initialize the dynamic type system context
  *
@@ -130,6 +132,9 @@ dyn_value_t dyntype_new_null(dyn_ctx_t ctx);
  * @return dynamic value if success, NULL otherwise
  */
 dyn_value_t dyntype_new_object(dyn_ctx_t ctx);
+
+
+dyn_value_t dyntype_new_array_with_length(dyn_ctx_t ctx, int len);
 
 /**
  * @brief Create a new dynamic array object without any elements

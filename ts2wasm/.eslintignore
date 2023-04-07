@@ -2,7 +2,7 @@
 tests/samples/*
 src/glue/binaryen.d.ts
 src/glue/binaryen.js
-runtime-library/dyntype/*
+runtime-library/*
 build/*
 **/dist/*
 tools/playground/server/assets/samples/*

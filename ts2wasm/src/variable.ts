@@ -370,13 +370,6 @@ export class VariableInit {
                         parameterNode.initializer,
                     );
                     paramObj.setInitExpr(paramInit);
-                    this.parserCtx.semanticChecker.curScope =
-                        this.parserCtx.getScopeByNode(node);
-                    this.parserCtx.semanticChecker.checkBinaryOperate(
-                        paramObj.varType,
-                        paramInit.exprType,
-                    );
-                    this.parserCtx.semanticChecker.checkDefaultParam();
                 }
                 break;
             }
@@ -400,12 +393,6 @@ export class VariableInit {
                         variableDeclarationNode.initializer,
                     );
                     variableObj.setInitExpr(variableInit);
-                    this.parserCtx.semanticChecker.curScope =
-                        this.parserCtx.getScopeByNode(node);
-                    this.parserCtx.semanticChecker.checkBinaryOperate(
-                        variableObj.varType,
-                        variableInit.exprType,
-                    );
                 }
                 break;
             }

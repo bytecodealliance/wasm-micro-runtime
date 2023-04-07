@@ -1,0 +1,14 @@
+{
+  "name": "wamr-validation",
+  "version": "1.0.0",
+  "description": "This folder contains code to compile all the sample code and execute on WAMR.",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "cd .. && npm install && cd - && ts-node-esm index.ts",
+    "gen_item": "ts-node-esm create_validation_items.ts"
+  },
+  "author": "",
+  "license": "ISC"
+}
