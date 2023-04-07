@@ -331,7 +331,9 @@ jit_pass_dump(JitCompContext *cc)
 
     os_printf("JIT.COMPILER.DUMP: PASS_NO=%d PREV_PASS=%s\n\n", pass_no,
               pass_name);
+
     jit_dump_cc(cc);
+
     os_printf("\n");
     return true;
 }

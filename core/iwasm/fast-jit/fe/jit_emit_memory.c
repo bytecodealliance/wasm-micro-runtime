@@ -986,7 +986,7 @@ bool
 jit_compile_op_atomic_cmpxchg(JitCompContext *cc, uint8 op_type, uint32 align,
                               uint32 offset, uint32 bytes)
 {
-    JitReg addr, offset1, memory_data, value, expect;
+    JitReg addr, offset1, memory_data, value, expect, result;
     bool is_i32 = op_type == VALUE_TYPE_I32;
 
     /* currently only implemented with x86 instruction */
@@ -1001,10 +1001,12 @@ jit_compile_op_atomic_cmpxchg(JitCompContext *cc, uint8 op_type, uint32 align,
     if (is_i32) {
         POP_I32(value);
         POP_I32(expect);
+        result = jit_cc_new_reg_I32(cc);
     }
     else {
         POP_I64(value);
         POP_I64(expect);
+        result = jit_cc_new_reg_I64(cc);
     }
     POP_I32(addr);
 
@@ -1061,10 +1063,12 @@ jit_compile_op_atomic_cmpxchg(JitCompContext *cc, uint8 op_type, uint32 align,
         goto fail;
     }
 
+    GEN_INSN(MOV, result, is_i32 ? eax_hreg : rax_hreg);
+
     if (is_i32)
-        PUSH_I32(eax_hreg);
+        PUSH_I32(result);
     else
-        PUSH_I64(rax_hreg);
+        PUSH_I64(result);
 
     return true;
 #endif /* defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) */
