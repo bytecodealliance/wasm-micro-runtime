@@ -1061,6 +1061,18 @@ resolve_func_type(const uint8 **p_buf, const uint8 *buf_end, WASMModule *module,
     type->param_cell_num = (uint16)param_cell_num;
     type->ret_cell_num = (uint16)ret_cell_num;
 
+    /* Calculate the minimal type index of the type equal to this type */
+    type->min_type_idx_normalized = type_idx;
+    for (i = 0; i < type_idx; i++) {
+        WASMFuncType *func_type = (WASMFuncType *)module->types[i];
+        if (func_type->type_flag == WASM_TYPE_FUNC
+            && wasm_func_type_equal(type, func_type, module->types,
+                                    type_idx + 1)) {
+            type->min_type_idx_normalized = i;
+            break;
+        }
+    }
+
     *p_buf = p;
 
     module->types[type_idx] = (WASMType *)type;
@@ -9185,8 +9197,7 @@ re_scan:
                     block_type.is_value_type = false;
                     block_type.u.type =
                         (WASMFuncType *)module->types[type_index];
-#if WASM_ENABLE_FAST_INTERP == 0 && WASM_ENABLE_WAMR_COMPILER == 0 \
-    && WASM_ENABLE_JIT == 0
+#if WASM_ENABLE_FAST_INTERP == 0
                     /* If block use type index as block type, change the opcode
                      * to new extended opcode so that interpreter can resolve
                      * the block quickly.
