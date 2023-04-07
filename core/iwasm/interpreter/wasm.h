@@ -307,6 +307,9 @@ typedef struct WASMFuncType {
     uint16 ref_type_map_count;
     WASMRefTypeMap *ref_type_maps;
     WASMRefTypeMap *result_ref_type_maps;
+    /* minimal type index of the type equal to this type,
+       used in type equal check in call_indirect opcode */
+    uint32 min_type_idx_normalized;
 #else
     uint16 ref_count;
 #endif
