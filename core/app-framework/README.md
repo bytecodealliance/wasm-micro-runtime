@@ -1,27 +1,26 @@
-Application framework
-=======
+# Application framework
+
+By using the WAMR VM core, we are flexible to build different application frameworks for the specific domains, although it would take quite some effort.
+
+The WAMR has offered a comprehensive framework for programming WASM applications for device and IoT usages. The framework supports running multiple applications, that are based on the event driven programming model. Here are the supporting API sets by the [WAMR application framework library](../doc/wamr_api.md) :
+
+- Timer,  Inter-app communication (request/response and pub/sub), Sensor, Connectivity and data transmission, 2D graphic UI
+
+Browse the folder  [core/app-framework](./app-framework) for how to extend the application framework.
+
 
 ## Directory structure
-
-
-
-This folder "app-native-shared" is for the source files shared by both WASM APP and native runtime
+This folder "app-native-shared" is for the source files shared by both WASM APP and native runtime  
 
 - The c files in this directory are compiled into both the WASM APP and runtime.
 - The header files for distributing to SDK are placed in the "bi-inc" folder.
 
+This folder "template" contains a pre-defined directory structure for a framework component. The developers can copy the template folder to create new components to the application framework.  
 
-
-This folder "template" contains a pre-defined directory structure for a framework component. The developers can copy the template folder to create new components to the application framework.
-
-
-
-Every other subfolder is framework component. Each component contains two library parts: **app and native**.
+Every other subfolder is framework component. Each component contains two library parts: **app and native**.  
 
 - The "base" component provide timer API and inter-app communication support. It must be enabled if other components are selected.
 - Under the "app" folder of a component, the subfolder "wa_inc" holds all header files that should be included by the WASM applications
-
-
 
 ## Application framework basic model
 
@@ -116,10 +115,6 @@ Generally you should follow following steps to create a new component:
   ```
 
 
-
 ## Sensor component working flow
-
-
-
 ![](../../doc/pics/sensor_callflow.PNG)
 

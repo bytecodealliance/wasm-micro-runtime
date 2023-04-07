@@ -12,6 +12,9 @@
 extern "C" {
 #endif
 
+/* Minimum initial size of hash map */
+#define HASH_MAP_MIN_SIZE 4
+
 /* Maximum initial size of hash map */
 #define HASH_MAP_MAX_SIZE 65536
 

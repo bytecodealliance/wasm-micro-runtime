@@ -294,7 +294,7 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
                 snprintf(error_buf, error_buf_size,
                          "Load relocation section failed: "
                          "invalid relocation type %d.",
-                         reloc_type);
+                         (int)reloc_type);
             return false;
     }
 

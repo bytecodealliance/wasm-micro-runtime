@@ -153,7 +153,7 @@ static void
 adjust_ptr(uint8 **p_ptr, intptr_t offset)
 {
     if (*p_ptr)
-        *p_ptr += offset;
+        *p_ptr = (uint8 *)((intptr_t)(*p_ptr) + offset);
 }
 
 int

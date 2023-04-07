@@ -12,7 +12,7 @@ import {
     downloadFile,
     unzipFile,
 } from './directoryUtilities';
-import { SelectionOfPrompt, Status } from '../constants';
+import { SelectionOfPrompt } from '../constants';
 
 const LLDB_RESOURCE_DIR = 'resource/debug';
 const LLDB_OS_DOWNLOAD_URL_SUFFIX_MAP: Partial<

@@ -4,11 +4,11 @@
 sockets. A socket is an abstract representation of the local endpoint of a
 network communication path.
 
-Currently, WAMR supports a limit set of all well-known functions:
-`accept()`, `bind()`, `connect()`, `listen()`, `recv()`, `send()`, `shutdown()`
-and `socket()`. Users can call those functions in WebAssembly code directly.
-Those WebAssembly socket calls will be dispatched to the imported
-functions and eventually will be implemented by host socket APIs.
+Currently, WAMR supports some Socket API features:
+- Support TCP and UDP
+- Support IPv4 and IPv6
+- Support get/set socket options
+- Support access control
 
 This document introduces a way to support the _Berkeley/POSIX Socket API_ in
 WebAssembly code.
