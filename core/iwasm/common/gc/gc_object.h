@@ -222,6 +222,10 @@ WASMExternrefObjectRef
 wasm_externref_obj_new(struct WASMExecEnv *exec_env, void *heap_handle,
                        void *host_obj);
 
+WASMAnyrefObjectRef
+wasm_anyref_obj_new(struct WASMExecEnv *exec_env, void *heap_handle,
+                    void *host_obj);
+
 /* Implementation of opcode extern.internalize */
 WASMObjectRef
 wasm_externref_obj_to_internal_obj(WASMExternrefObjectRef externref_obj);

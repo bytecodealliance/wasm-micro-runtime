@@ -324,6 +324,27 @@ wasm_externref_obj_new(WASMExecEnv *exec_env, void *heap_handle, void *host_obj)
     return externref_obj;
 }
 
+WASMAnyrefObjectRef
+wasm_anyref_obj_new(WASMExecEnv *exec_env, void *heap_handle, void *host_obj)
+{
+    WASMAnyrefObjectRef anyref_obj;
+    WASMLocalObjectRef local_ref;
+
+    if (!(anyref_obj = gc_obj_malloc(heap_handle, sizeof(WASMAnyrefObject)))) {
+        return NULL;
+    }
+
+    anyref_obj->header = WASM_OBJ_ANYREF_OBJ_FLAG;
+    anyref_obj->host_obj = host_obj;
+
+    /* Lock anyref_obj in case it is reclaimed when allocating memory below */
+    wasm_runtime_push_local_object_ref(exec_env, &local_ref);
+    local_ref.val = (WASMObjectRef)anyref_obj;
+
+    wasm_runtime_pop_local_object_ref(exec_env);
+    return anyref_obj;
+}
+
 WASMObjectRef
 wasm_externref_obj_to_internal_obj(WASMExternrefObjectRef externref_obj)
 {
