@@ -48,7 +48,11 @@ import {
     initDefaultTable,
 } from './memory.js';
 import { ArgNames, BuiltinNames } from '../../../lib/builtin/builtin_name.js';
-import { Ts2wasmBackend, ParserContext } from '../index.js';
+import {
+    Ts2wasmBackend,
+    ParserContext,
+    DataSegmentContext
+} from '../index.js';
 import { Logger } from '../../log.js';
 import { callBuiltInAPIs } from './lib/init_builtin_api.js';
 
@@ -131,99 +135,6 @@ export class WASMFunctionContext {
     }
 }
 
-interface segmentInfo {
-    data: Uint8Array;
-    offset: number;
-}
-
-class DataSegmentContext {
-    static readonly reservedSpace: number = 1024;
-    private binaryenCtx: WASMGen;
-    currentOffset;
-    stringOffsetMap;
-    /* cache <typeid, itable*>*/
-    itableMap;
-    dataArray: Array<segmentInfo> = [];
-
-    constructor(binaryenCtx: WASMGen) {
-        /* Reserve 1024 bytes at beggining */
-        this.binaryenCtx = binaryenCtx;
-        this.currentOffset = DataSegmentContext.reservedSpace;
-        this.stringOffsetMap = new Map<string, number>();
-        this.itableMap = new Map<number, number>();
-    }
-
-    addData(data: Uint8Array) {
-        /* there is no efficient approach to cache the data buffer,
-            currently we don't cache it */
-        const offset = this.currentOffset;
-        this.currentOffset += data.length;
-
-        this.dataArray.push({
-            data: data,
-            offset: offset,
-        });
-
-        return offset;
-    }
-
-    addString(str: string) {
-        if (this.stringOffsetMap.has(str)) {
-            /* Re-use the string to save space */
-            return this.stringOffsetMap.get(str)!;
-        }
-
-        const offset = this.currentOffset;
-        this.stringOffsetMap.set(str, offset);
-        this.currentOffset += str.length + 1;
-
-        const buffer = new Uint8Array(str.length + 1);
-        for (let i = 0; i < str.length; i++) {
-            const byte = str.charCodeAt(i);
-            if (byte >= 256) {
-                throw Error('UTF-16 string not supported in data segment');
-            }
-            buffer[i] = byte;
-        }
-        buffer[str.length] = 0;
-
-        this.dataArray.push({
-            data: buffer,
-            offset: offset,
-        });
-
-        return offset;
-    }
-
-    generateSegment(): binaryen.MemorySegment | null {
-        const offset = DataSegmentContext.reservedSpace;
-        const size = this.currentOffset - offset;
-
-        if (this.dataArray.length === 0) {
-            return null;
-        }
-
-        const data = new Uint8Array(size);
-        this.dataArray.forEach((info) => {
-            for (let i = 0; i < info.data.length; i++) {
-                const targetOffset =
-                    i + info.offset - DataSegmentContext.reservedSpace;
-                data[targetOffset] = info.data[i];
-            }
-        });
-
-        return {
-            offset: this.binaryenCtx.module.i32.const(offset),
-            data: data,
-            passive: false,
-        };
-    }
-
-    getDataEnd(): number {
-        return this.currentOffset;
-    }
-}
-
 export class WASMGen extends Ts2wasmBackend {
     private currentFuncCtx: WASMFunctionContext | null = null;
     private dataSegmentContext: DataSegmentContext | null = null;
@@ -244,7 +155,7 @@ export class WASMGen extends Ts2wasmBackend {
         super(parserContext);
         this.binaryenModule = new binaryen.Module();
         this.globalScopes = parserContext.globalScopes;
-        this.dataSegmentContext = new DataSegmentContext(this);
+        this.dataSegmentContext = new DataSegmentContext();
     }
 
     public codegen(options?: any): void {
@@ -367,7 +278,11 @@ export class WASMGen extends Ts2wasmBackend {
         const segments = [];
         const segmentInfo = this.dataSegmentContext!.generateSegment();
         if (segmentInfo) {
-            segments.push(segmentInfo);
+            segments.push({
+              offset: this.module.i32.const(segmentInfo.offset),
+	      data: segmentInfo.data,
+	      passive: false
+	    });
         }
         initDefaultMemory(this.module, segments);
     }
