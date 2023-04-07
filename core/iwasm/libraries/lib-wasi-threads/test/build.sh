@@ -14,7 +14,6 @@ for test_c in *.c; do
 
     echo "Compiling $test_c to $test_wasm"
     $CC \
-        $WASI_SYSROOT_OPTION \
         -target wasm32-wasi-threads \
         -pthread -ftls-model=local-exec \
         -z stack-size=32768 \

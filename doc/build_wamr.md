@@ -47,6 +47,7 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 - **WAMR_BUILD_AOT**=1/0, enable AOT or not, default to enable if not set
 - **WAMR_BUILD_JIT**=1/0, enable LLVM JIT or not, default to disable if not set
 - **WAMR_BUILD_FAST_JIT**=1/0, enable Fast JIT or not, default to disable if not set
+- **WAMR_BUILD_FAST_JIT**=1 and **WAMR_BUILD_JIT**=1, enable Multi-tier JIT, default to disable if not set
 
 #### **Configure LIBC**
 
@@ -84,6 +85,16 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 #### **Enable lib-pthread-semaphore**
 - **WAMR_BUILD_LIB_PTHREAD_SEMAPHORE**=1/0, default to disable if not set
 > Note: This feature depends on `lib-pthread`, it will be enabled automatically if this feature is enabled.
+
+#### **Enable lib wasi-threads**
+- **WAMR_BUILD_LIB_WASI_THREADS**=1/0, default to disable if not set
+> Note: The dependent feature of lib wasi-threads such as the `shared memory` and `thread manager` will be enabled automatically.
+
+#### **Enable lib wasi-nn**
+- **WAMR_BUILD_WASI_NN**=1/0, default to disable if not set
+
+#### **Enable lib wasi-nn GPU mode**
+- **WASI_NN_ENABLE_GPU**=1/0, default to disable if not set
 
 #### **Disable boundary check with hardware trap**
 - **WAMR_DISABLE_HW_BOUND_CHECK**=1/0, default to enable if not set and supported by platform
