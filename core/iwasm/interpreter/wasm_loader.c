@@ -2500,7 +2500,7 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
     WASMImport *import_functions = NULL, *import_tables = NULL;
     WASMImport *import_memories = NULL, *import_globals = NULL;
     char *sub_module_name, *field_name;
-    uint8 u8, kind;
+    uint8 u8, kind, global_type;
 
     read_leb_uint32(p, p_end, import_count);
 
@@ -2569,8 +2569,19 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                     break;
 
                 case IMPORT_KIND_GLOBAL: /* import global */
-                    CHECK_BUF(p, p_end, 2);
-                    p += 2;
+                    /* valtype */
+                    CHECK_BUF(p, p_end, 1);
+                    global_type = read_uint8(p);
+                    if (wasm_is_type_multi_byte_type(global_type)) {
+                        int32 heap_type;
+                        read_leb_int32(p, p_end, heap_type);
+                        (void)heap_type;
+                    }
+
+                    /* mutability */
+                    CHECK_BUF(p, p_end, 1);
+                    p += 1;
+
                     module->import_global_count++;
                     break;
 
