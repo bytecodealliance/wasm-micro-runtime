@@ -12,6 +12,12 @@ WAMR_DIR=../../../../..
 for test_c in *.c; do
     test_wasm="$(basename $test_c .c).wasm"
 
+    if [ $test_wasm = "linear_memory_size_update.wasm" ]; then
+        thread_start_file=""
+    else
+        thread_start_file=$WAMR_DIR/samples/wasi-threads/wasm-apps/wasi_thread_start.S
+    fi
+
     echo "Compiling $test_c to $test_wasm"
     $CC \
         -target wasm32-wasi-threads \
@@ -24,6 +30,6 @@ for test_c in *.c; do
         -Wl,--export=malloc \
         -Wl,--export=free \
         -I $WAMR_DIR/samples/wasi-threads/wasm-apps \
-        $WAMR_DIR/samples/wasi-threads/wasm-apps/wasi_thread_start.S \
+        $thread_start_file \
         $test_c -o $test_wasm
 done
