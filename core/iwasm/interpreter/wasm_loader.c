@@ -2569,6 +2569,7 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                     break;
 
                 case IMPORT_KIND_GLOBAL: /* import global */
+#if WASM_ENABLE_GC != 0
                     /* valtype */
                     CHECK_BUF(p, p_end, 1);
                     global_type = read_uint8(p);
@@ -2581,7 +2582,12 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                     /* mutability */
                     CHECK_BUF(p, p_end, 1);
                     p += 1;
+#else
+                    CHECK_BUF(p, p_end, 2);
+                    p += 2;
+#endif
 
+                    (void)global_type;
                     module->import_global_count++;
                     break;
 
