@@ -260,7 +260,6 @@ wasm_array_obj_get_elem(WASMArrayObjectRef array_obj, uint32 elem_idx,
     }
 }
 
-#if WASM_ENABLE_GC_BINARYEN != 0
 void
 wasm_array_obj_copy(WASMArrayObjectRef dst_obj, uint32 dst_idx,
                     WASMArrayObjectRef src_obj, uint32 src_idx, uint32 len)
@@ -271,7 +270,6 @@ wasm_array_obj_copy(WASMArrayObjectRef dst_obj, uint32 dst_idx,
 
     bh_memcpy_s(dst_data, elem_size * len, src_data, elem_size * len);
 }
-#endif
 
 WASMFuncObjectRef
 wasm_func_obj_new(void *heap_handle, WASMRttTypeRef rtt_type,
@@ -328,7 +326,6 @@ WASMAnyrefObjectRef
 wasm_anyref_obj_new(WASMExecEnv *exec_env, void *heap_handle, void *host_obj)
 {
     WASMAnyrefObjectRef anyref_obj;
-    WASMLocalObjectRef local_ref;
 
     if (!(anyref_obj = gc_obj_malloc(heap_handle, sizeof(WASMAnyrefObject)))) {
         return NULL;
@@ -337,11 +334,6 @@ wasm_anyref_obj_new(WASMExecEnv *exec_env, void *heap_handle, void *host_obj)
     anyref_obj->header = WASM_OBJ_ANYREF_OBJ_FLAG;
     anyref_obj->host_obj = host_obj;
 
-    /* Lock anyref_obj in case it is reclaimed when allocating memory below */
-    wasm_runtime_push_local_object_ref(exec_env, &local_ref);
-    local_ref.val = (WASMObjectRef)anyref_obj;
-
-    wasm_runtime_pop_local_object_ref(exec_env);
     return anyref_obj;
 }
 
