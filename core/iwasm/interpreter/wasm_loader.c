@@ -11622,6 +11622,8 @@ re_scan:
                     case WASM_OP_ARRAY_COPY:
                     {
                         uint32 src_type_idx;
+                        WASMRefType src_ref_type = { 0 };
+                        WASMRefType dst_ref_type = { 0 };
                         /* typeidx1 */
                         read_leb_uint32(p, p_end, type_idx);
 #if WASM_ENABLE_FAST_INTERP != 0
@@ -11636,19 +11638,17 @@ re_scan:
                         POP_I32();
                         /* POP array obj, (ref null $t) */
                         wasm_set_refheaptype_typeidx(
-                            &wasm_ref_type.ref_ht_typeidx, true, src_type_idx);
-                        POP_REF(wasm_ref_type.ref_type);
+                            &src_ref_type.ref_ht_typeidx, true, src_type_idx);
+                        POP_REF(src_ref_type.ref_type);
                         POP_I32();
                         /* POP array obj, (ref null $t) */
                         wasm_set_refheaptype_typeidx(
-                            &wasm_ref_type.ref_ht_typeidx, true, type_idx);
-                        POP_REF(wasm_ref_type.ref_type);
+                            &dst_ref_type.ref_ht_typeidx, true, type_idx);
+                        POP_REF(dst_ref_type.ref_type);
 
                         if (!wasm_reftype_is_subtype_of(
-                                src_type_idx,
-                                (*(loader_ctx->frame_reftype_map + 1)).ref_type,
-                                type_idx,
-                                (*(loader_ctx->frame_reftype_map)).ref_type,
+                                src_ref_type.ref_type, &src_ref_type,
+                                dst_ref_type.ref_type, &dst_ref_type,
                                 module->types, module->type_count)) {
                             set_error_buf(error_buf, error_buf_size,
                                           "type mismatch");
