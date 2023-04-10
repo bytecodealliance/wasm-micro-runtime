@@ -2223,6 +2223,11 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         dst_offset = POP_I32();
                         dst_obj = POP_REF();
 
+                        if (!src_obj || !dst_obj) {
+                            wasm_set_exception(module, "null array object");
+                            goto got_exception;
+                        }
+
                         if (len > 0) {
                             if ((dst_offset > UINT32_MAX - len)
                                 || (dst_offset + len

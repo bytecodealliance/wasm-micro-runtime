@@ -11624,6 +11624,7 @@ re_scan:
                         uint32 src_type_idx;
                         WASMRefType src_ref_type = { 0 };
                         WASMRefType dst_ref_type = { 0 };
+                        WASMArrayType *array_type;
                         /* typeidx1 */
                         read_leb_uint32(p, p_end, type_idx);
 #if WASM_ENABLE_FAST_INTERP != 0
@@ -11658,6 +11659,13 @@ re_scan:
                                 module->types, module->type_count)) {
                             set_error_buf(error_buf, error_buf_size,
                                           "type mismatch");
+                            goto fail;
+                        }
+
+                        array_type = (WASMArrayType *)module->types[type_idx];
+                        if (!(array_type->elem_flags & 1)) {
+                            set_error_buf(error_buf, error_buf_size,
+                                          "array is immutable");
                             goto fail;
                         }
 
