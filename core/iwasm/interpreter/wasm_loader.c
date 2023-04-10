@@ -11627,7 +11627,7 @@ re_scan:
 #if WASM_ENABLE_FAST_INTERP != 0
                         emit_uint32(loader_ctx, type_idx);
 #endif
-                        /* typeidx1 */
+                        /* typeidx2 */
                         read_leb_uint32(p, p_end, src_type_idx);
 #if WASM_ENABLE_FAST_INTERP != 0
                         emit_uint32(loader_ctx, src_type_idx);

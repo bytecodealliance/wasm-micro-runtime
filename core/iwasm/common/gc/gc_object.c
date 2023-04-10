@@ -268,7 +268,7 @@ wasm_array_obj_copy(WASMArrayObjectRef dst_obj, uint32 dst_idx,
     uint8 *src_data = wasm_array_obj_elem_addr(src_obj, src_idx);
     uint32 elem_size = 1 << wasm_array_obj_elem_size_log(dst_obj);
 
-    bh_memcpy_s(dst_data, elem_size * len, src_data, elem_size * len);
+    bh_memmove_s(dst_data, elem_size * len, src_data, elem_size * len);
 }
 
 WASMFuncObjectRef
