@@ -11638,13 +11638,19 @@ re_scan:
                         POP_I32();
                         /* POP array obj, (ref null $t) */
                         wasm_set_refheaptype_typeidx(
-                            &src_ref_type.ref_ht_typeidx, true, src_type_idx);
-                        POP_REF(src_ref_type.ref_type);
+                            &wasm_ref_type.ref_ht_typeidx, true, src_type_idx);
+                        POP_REF(wasm_ref_type.ref_type);
+                        bh_memcpy_s(&src_ref_type, (uint32)sizeof(WASMRefType),
+                                    &wasm_ref_type,
+                                    wasm_reftype_struct_size(&wasm_ref_type));
                         POP_I32();
                         /* POP array obj, (ref null $t) */
                         wasm_set_refheaptype_typeidx(
-                            &dst_ref_type.ref_ht_typeidx, true, type_idx);
-                        POP_REF(dst_ref_type.ref_type);
+                            &wasm_ref_type.ref_ht_typeidx, true, type_idx);
+                        POP_REF(wasm_ref_type.ref_type);
+                        bh_memcpy_s(&dst_ref_type, (uint32)sizeof(WASMRefType),
+                                    &wasm_ref_type,
+                                    wasm_reftype_struct_size(&wasm_ref_type));
 
                         if (!wasm_reftype_is_subtype_of(
                                 src_ref_type.ref_type, &src_ref_type,
