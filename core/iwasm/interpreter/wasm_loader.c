@@ -11644,6 +11644,17 @@ re_scan:
                             &wasm_ref_type.ref_ht_typeidx, true, type_idx);
                         POP_REF(wasm_ref_type.ref_type);
 
+                        if (!wasm_reftype_is_subtype_of(
+                                src_type_idx,
+                                (*(loader_ctx->frame_reftype_map + 1)).ref_type,
+                                type_idx,
+                                (*(loader_ctx->frame_reftype_map)).ref_type,
+                                module->types, module->type_count)) {
+                            set_error_buf(error_buf, error_buf_size,
+                                          "type mismatch");
+                            goto fail;
+                        }
+
                         break;
                     }
 #endif
