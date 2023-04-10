@@ -2391,13 +2391,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         }
 
                         if (len > 0) {
-                            if (((uint64)dst_offset + (uint64)len >= UINT32_MAX)
+                            if ((dst_offset > UINT32_MAX - len)
                                 || (dst_offset + len
-                                    >= wasm_array_obj_length(dst_obj))
-                                || ((uint64)src_offset + (uint64)len
-                                    >= UINT32_MAX)
+                                    > wasm_array_obj_length(dst_obj))
+                                || (src_offset > UINT32_MAX - len)
                                 || (src_offset + len
-                                    >= wasm_array_obj_length(src_obj))) {
+                                    > wasm_array_obj_length(src_obj))) {
                                 wasm_set_exception(module,
                                                    "array index out of bounds");
                                 goto got_exception;
