@@ -467,6 +467,21 @@ check_type_index(const WASMModule *module, uint32 type_index, char *error_buf,
     }
     return true;
 }
+
+static bool
+check_array_type(const WASMModule *module, uint32 type_index, char *error_buf,
+                 uint32 error_buf_size)
+{
+    if (!check_type_index(module, type_index, error_buf, error_buf_size)) {
+        return false;
+    }
+    if (module->types[type_index]->type_flag != WASM_TYPE_ARRAY) {
+        set_error_buf(error_buf, error_buf_size, "unkown array type");
+        return false;
+    }
+
+    return true;
+}
 #endif
 
 static bool
@@ -729,13 +744,8 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                     read_leb_uint32(p, p_end, init_expr->u.type_index);
                     type_idx = init_expr->u.type_index;
 
-                    if (!check_type_index(module, type_idx, error_buf,
+                    if (!check_array_type(module, type_idx, error_buf,
                                           error_buf_size)) {
-                        return false;
-                    }
-                    if (module->types[type_idx]->type_flag != WASM_TYPE_ARRAY) {
-                        set_error_buf(error_buf, error_buf_size,
-                                      "unkown array type");
                         return false;
                     }
 
@@ -11459,14 +11469,8 @@ re_scan:
 #endif
                         }
 
-                        if (!check_type_index(module, type_idx, error_buf,
+                        if (!check_array_type(module, type_idx, error_buf,
                                               error_buf_size)) {
-                            goto fail;
-                        }
-                        if (module->types[type_idx]->type_flag
-                            != WASM_TYPE_ARRAY) {
-                            set_error_buf(error_buf, error_buf_size,
-                                          "unkown array type");
                             goto fail;
                         }
 
@@ -11557,14 +11561,8 @@ re_scan:
 #if WASM_ENABLE_FAST_INTERP != 0
                         emit_uint32(loader_ctx, type_idx);
 #endif
-                        if (!check_type_index(module, type_idx, error_buf,
+                        if (!check_array_type(module, type_idx, error_buf,
                                               error_buf_size)) {
-                            goto fail;
-                        }
-                        if (module->types[type_idx]->type_flag
-                            != WASM_TYPE_ARRAY) {
-                            set_error_buf(error_buf, error_buf_size,
-                                          "unkown array type");
                             goto fail;
                         }
                         array_type = (WASMArrayType *)module->types[type_idx];
@@ -11635,6 +11633,16 @@ re_scan:
 #if WASM_ENABLE_FAST_INTERP != 0
                         emit_uint32(loader_ctx, src_type_idx);
 #endif
+                        if (!check_array_type(module, type_idx, error_buf,
+                                              error_buf_size)) {
+                            goto fail;
+                        }
+
+                        if (!check_array_type(module, src_type_idx, error_buf,
+                                              error_buf_size)) {
+                            goto fail;
+                        }
+
                         POP_I32();
                         POP_I32();
                         /* POP array obj, (ref null $t) */
