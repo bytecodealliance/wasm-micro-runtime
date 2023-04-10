@@ -793,7 +793,7 @@ wasm_is_reftype_supers_of_noextern(uint type)
 static bool
 wasm_type_is_supers_of(const WASMType *type1, const WASMType *type2)
 {
-    uint32 i;
+    uint32 i, inherit_depth_diff;
 
     if (type1 == type2)
         return true;
@@ -802,7 +802,8 @@ wasm_type_is_supers_of(const WASMType *type1, const WASMType *type2)
           && type1->inherit_depth < type2->inherit_depth))
         return false;
 
-    for (i = 0; i < type2->inherit_depth - type1->inherit_depth; i++) {
+    inherit_depth_diff = type2->inherit_depth - type1->inherit_depth;
+    for (i = 0; i < inherit_depth_diff; i++) {
         type2 = type2->parent_type;
         if (type2 == type1)
             return true;

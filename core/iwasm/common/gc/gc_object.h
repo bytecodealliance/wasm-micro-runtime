@@ -141,6 +141,10 @@ void
 wasm_array_obj_get_elem(WASMArrayObjectRef array_obj, uint32 elem_idx,
                         bool sign_extend, WASMValue *value);
 
+void
+wasm_array_obj_copy(WASMArrayObjectRef dst_obj, uint32 dst_idx,
+                    WASMArrayObjectRef src_obj, uint32 src_idx, uint32 len);
+
 /**
  * Return the logarithm of the size of array element.
  *
@@ -217,6 +221,10 @@ wasm_func_obj_get_func_type(const WASMFuncObjectRef func_obj)
 WASMExternrefObjectRef
 wasm_externref_obj_new(struct WASMExecEnv *exec_env, void *heap_handle,
                        void *host_obj);
+
+WASMAnyrefObjectRef
+wasm_anyref_obj_new(struct WASMExecEnv *exec_env, void *heap_handle,
+                    void *host_obj);
 
 /* Implementation of opcode extern.internalize */
 WASMObjectRef

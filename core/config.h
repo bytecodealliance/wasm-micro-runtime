@@ -444,6 +444,11 @@
 #define WASM_ENABLE_GC 0
 #endif
 
+/* GC binaryen compatible mode */
+#ifndef WASM_ENABLE_GC_BINARYEN
+#define WASM_ENABLE_GC_BINARYEN 0
+#endif
+
 #ifndef GC_REFTYPE_MAP_SIZE_DEFAULT
 #define GC_REFTYPE_MAP_SIZE_DEFAULT 64
 #endif

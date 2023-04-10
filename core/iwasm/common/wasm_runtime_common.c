@@ -3647,6 +3647,20 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     for (i = 0; i < func_type->param_count; i++) {
         switch (func_type->types[i]) {
             case VALUE_TYPE_I32:
+#if WASM_ENABLE_GC != 0
+            case REF_TYPE_FUNCREF:
+            case REF_TYPE_EXTERNREF:
+            case REF_TYPE_ANYREF:
+            case REF_TYPE_EQREF:
+            case REF_TYPE_HT_NULLABLE:
+            case REF_TYPE_HT_NON_NULLABLE:
+            case REF_TYPE_I31REF:
+            case REF_TYPE_NULLFUNCREF:
+            case REF_TYPE_NULLEXTERNREF:
+            case REF_TYPE_STRUCTREF:
+            case REF_TYPE_ARRAYREF:
+            case REF_TYPE_NULLREF:
+#endif
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
             case VALUE_TYPE_FUNCREF:
             case VALUE_TYPE_EXTERNREF:
@@ -3791,6 +3805,20 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     for (i = 0; i < func_type->param_count; i++) {
         switch (func_type->types[i]) {
             case VALUE_TYPE_I32:
+#if WASM_ENABLE_GC != 0
+            case REF_TYPE_FUNCREF:
+            case REF_TYPE_EXTERNREF:
+            case REF_TYPE_ANYREF:
+            case REF_TYPE_EQREF:
+            case REF_TYPE_HT_NULLABLE:
+            case REF_TYPE_HT_NON_NULLABLE:
+            case REF_TYPE_I31REF:
+            case REF_TYPE_NULLFUNCREF:
+            case REF_TYPE_NULLEXTERNREF:
+            case REF_TYPE_STRUCTREF:
+            case REF_TYPE_ARRAYREF:
+            case REF_TYPE_NULLREF:
+#endif
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
             case VALUE_TYPE_FUNCREF:
 #endif
@@ -3996,6 +4024,20 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     else {
         switch (func_type->types[func_type->param_count]) {
             case VALUE_TYPE_I32:
+#if WASM_ENABLE_GC != 0
+            case REF_TYPE_FUNCREF:
+            case REF_TYPE_EXTERNREF:
+            case REF_TYPE_ANYREF:
+            case REF_TYPE_EQREF:
+            case REF_TYPE_HT_NULLABLE:
+            case REF_TYPE_HT_NON_NULLABLE:
+            case REF_TYPE_I31REF:
+            case REF_TYPE_NULLFUNCREF:
+            case REF_TYPE_NULLEXTERNREF:
+            case REF_TYPE_STRUCTREF:
+            case REF_TYPE_ARRAYREF:
+            case REF_TYPE_NULLREF:
+#endif
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
             case VALUE_TYPE_FUNCREF:
 #endif
@@ -4128,6 +4170,20 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     for (i = 0; i < func_type->param_count; i++) {
         switch (func_type->types[i]) {
             case VALUE_TYPE_I32:
+#if WASM_ENABLE_GC != 0
+            case REF_TYPE_FUNCREF:
+            case REF_TYPE_EXTERNREF:
+            case REF_TYPE_ANYREF:
+            case REF_TYPE_EQREF:
+            case REF_TYPE_HT_NULLABLE:
+            case REF_TYPE_HT_NON_NULLABLE:
+            case REF_TYPE_I31REF:
+            case REF_TYPE_NULLFUNCREF:
+            case REF_TYPE_NULLEXTERNREF:
+            case REF_TYPE_STRUCTREF:
+            case REF_TYPE_ARRAYREF:
+            case REF_TYPE_NULLREF:
+#endif
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
             case VALUE_TYPE_FUNCREF:
 #endif
@@ -4214,6 +4270,20 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     else {
         switch (func_type->types[func_type->param_count]) {
             case VALUE_TYPE_I32:
+#if WASM_ENABLE_GC != 0
+            case REF_TYPE_FUNCREF:
+            case REF_TYPE_EXTERNREF:
+            case REF_TYPE_ANYREF:
+            case REF_TYPE_EQREF:
+            case REF_TYPE_HT_NULLABLE:
+            case REF_TYPE_HT_NON_NULLABLE:
+            case REF_TYPE_I31REF:
+            case REF_TYPE_NULLFUNCREF:
+            case REF_TYPE_NULLEXTERNREF:
+            case REF_TYPE_STRUCTREF:
+            case REF_TYPE_ARRAYREF:
+            case REF_TYPE_NULLREF:
+#endif
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
             case VALUE_TYPE_FUNCREF:
 #endif
@@ -4453,6 +4523,20 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                 break;
             }
             case VALUE_TYPE_I64:
+#if WASM_ENABLE_GC != 0
+            case REF_TYPE_FUNCREF:
+            case REF_TYPE_EXTERNREF:
+            case REF_TYPE_ANYREF:
+            case REF_TYPE_EQREF:
+            case REF_TYPE_HT_NULLABLE:
+            case REF_TYPE_HT_NON_NULLABLE:
+            case REF_TYPE_I31REF:
+            case REF_TYPE_NULLFUNCREF:
+            case REF_TYPE_NULLEXTERNREF:
+            case REF_TYPE_STRUCTREF:
+            case REF_TYPE_ARRAYREF:
+            case REF_TYPE_NULLREF:
+#endif
                 if (n_ints < MAX_REG_INTS)
                     ints[n_ints++] = *(uint64 *)argv_src;
                 else
@@ -4542,6 +4626,20 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                     (uint32)invokeNative_Int32(func_ptr, argv1, n_stacks);
                 break;
             case VALUE_TYPE_I64:
+#if WASM_ENABLE_GC != 0
+            case REF_TYPE_FUNCREF:
+            case REF_TYPE_EXTERNREF:
+            case REF_TYPE_ANYREF:
+            case REF_TYPE_EQREF:
+            case REF_TYPE_HT_NULLABLE:
+            case REF_TYPE_HT_NON_NULLABLE:
+            case REF_TYPE_I31REF:
+            case REF_TYPE_NULLFUNCREF:
+            case REF_TYPE_NULLEXTERNREF:
+            case REF_TYPE_STRUCTREF:
+            case REF_TYPE_ARRAYREF:
+            case REF_TYPE_NULLREF:
+#endif
                 PUT_I64_TO_ADDR(argv_ret,
                                 invokeNative_Int64(func_ptr, argv1, n_stacks));
                 break;

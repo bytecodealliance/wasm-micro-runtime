@@ -260,6 +260,17 @@ wasm_array_obj_get_elem(WASMArrayObjectRef array_obj, uint32 elem_idx,
     }
 }
 
+void
+wasm_array_obj_copy(WASMArrayObjectRef dst_obj, uint32 dst_idx,
+                    WASMArrayObjectRef src_obj, uint32 src_idx, uint32 len)
+{
+    uint8 *dst_data = wasm_array_obj_elem_addr(dst_obj, dst_idx);
+    uint8 *src_data = wasm_array_obj_elem_addr(src_obj, src_idx);
+    uint32 elem_size = 1 << wasm_array_obj_elem_size_log(dst_obj);
+
+    bh_memmove_s(dst_data, elem_size * len, src_data, elem_size * len);
+}
+
 WASMFuncObjectRef
 wasm_func_obj_new(void *heap_handle, WASMRttTypeRef rtt_type,
                   uint32 func_idx_bound)
@@ -309,6 +320,21 @@ wasm_externref_obj_new(WASMExecEnv *exec_env, void *heap_handle, void *host_obj)
 
     wasm_runtime_pop_local_object_ref(exec_env);
     return externref_obj;
+}
+
+WASMAnyrefObjectRef
+wasm_anyref_obj_new(WASMExecEnv *exec_env, void *heap_handle, void *host_obj)
+{
+    WASMAnyrefObjectRef anyref_obj;
+
+    if (!(anyref_obj = gc_obj_malloc(heap_handle, sizeof(WASMAnyrefObject)))) {
+        return NULL;
+    }
+
+    anyref_obj->header = WASM_OBJ_ANYREF_OBJ_FLAG;
+    anyref_obj->host_obj = host_obj;
+
+    return anyref_obj;
 }
 
 WASMObjectRef
