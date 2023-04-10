@@ -2379,11 +2379,11 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         read_leb_uint32(frame_ip, frame_ip_end, type_index);
                         read_leb_uint32(frame_ip, frame_ip_end, src_type_index);
 
-                        dst_obj = POP_REF();
-                        dst_offset = POP_I32();
-                        src_obj = POP_REF();
-                        src_offset = POP_I32();
                         len = POP_I32();
+                        src_offset = POP_I32();
+                        src_obj = POP_REF();
+                        dst_offset = POP_I32();
+                        dst_obj = POP_REF();
 
                         if (!src_obj || !dst_obj) {
                             wasm_set_exception(module, "null array object");
