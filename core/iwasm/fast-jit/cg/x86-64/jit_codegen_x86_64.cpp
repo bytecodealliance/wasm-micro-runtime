@@ -6407,7 +6407,7 @@ extend_r_to_r_kind(x86::Assembler &a, uint32 bytes_dst, uint32 kind_dst,
                    int32 reg_no_src, int32 reg_no_dst)
 {
     if (kind_dst == JIT_REG_KIND_I32) {
-        bh_assert(reg_no_dst < 16 && reg_no_dst < 16);
+        bh_assert(reg_no_src < 16 && reg_no_dst < 16);
         switch (bytes_dst) {
             case 1:
                 extend_r8_to_r32(a, reg_no_dst, reg_no_src, false);
@@ -6424,7 +6424,7 @@ extend_r_to_r_kind(x86::Assembler &a, uint32 bytes_dst, uint32 kind_dst,
         }
     }
     else if (kind_dst == JIT_REG_KIND_I64) {
-        bh_assert(reg_no_dst < 16 && reg_no_dst < 16);
+        bh_assert(reg_no_src < 16 && reg_no_dst < 16);
         switch (bytes_dst) {
             case 1:
                 extend_r8_to_r64(a, reg_no_dst, reg_no_src, false);
@@ -6469,7 +6469,7 @@ at_cmpxchg(x86::Assembler &a, uint32 bytes_dst, uint32 kind_dst,
 {
     bh_assert((kind_dst == JIT_REG_KIND_I32 && bytes_dst <= 4)
               || kind_dst == JIT_REG_KIND_I64);
-    bh_assert(reg_no_xchg < 16 && reg_no_xchg < 16);
+    bh_assert(reg_no_xchg < 16);
     switch (bytes_dst) {
         case 1:
             a.lock().cmpxchg(m_dst, regs_i8[reg_no_xchg]);
@@ -6727,7 +6727,7 @@ at_xadd(x86::Assembler &a, uint32 bytes_dst, uint32 kind_dst, int32 reg_no_dst,
 {
     bh_assert((kind_dst == JIT_REG_KIND_I32 && bytes_dst <= 4)
               || kind_dst == JIT_REG_KIND_I64);
-    bh_assert(reg_no_dst < 16 && reg_no_dst < 16);
+    bh_assert(reg_no_src < 16 && reg_no_dst < 16);
     switch (bytes_dst) {
         case 1:
             a.lock().xadd(m_dst, regs_i8[reg_no_src]);
@@ -7093,35 +7093,37 @@ at_rmw_xchg_r_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
     do {                                                                       \
         bh_assert((kind_dst == JIT_REG_KIND_I32 && bytes_dst <= 4)             \
                   || kind_dst == JIT_REG_KIND_I64);                            \
-        bh_assert(reg_no_dst < 16 && reg_no_dst < 16);                         \
+        bh_assert(reg_no_src < 16 && reg_no_dst < 16);                         \
         /* read original value in memory(operand 1) to rax(expected) */        \
         mov_m_to_r(a, bytes_dst, kind_dst, false, REG_RAX_IDX, m_dst);         \
         Label loop = a.newLabel();                                             \
-        /* move operand 1 to free reg */                                       \
-        mov_r_to_r(a, kind_dst, REG_I64_FREE_IDX, REG_RAX_IDX);                \
+        /* bind the loopStart label to the current position in the code. */    \
+        a.bind(loop);                                                          \
+        /* move operand 1 to temp reg rb */                                    \
+        mov_r_to_r(a, kind_dst, REG_RBX_IDX, REG_RAX_IDX);                     \
         /* actual logical operation with operand 2, result save to rbx */      \
         switch (bytes_dst) {                                                   \
             case 1:                                                            \
-                a.bin_op##_(regs_i8[REG_I8_FREE_IDX], regs_i8[reg_no_src]);    \
+                a.bin_op##_(regs_i8[REG_RBX_IDX], regs_i8[reg_no_src]);        \
                 break;                                                         \
             case 2:                                                            \
-                a.bin_op##_(regs_i16[REG_I16_FREE_IDX], regs_i16[reg_no_src]); \
+                a.bin_op##_(regs_i16[REG_RBX_IDX], regs_i16[reg_no_src]);      \
                 break;                                                         \
             case 4:                                                            \
-                a.bin_op##_(regs_i32[REG_I32_FREE_IDX], regs_i32[reg_no_src]); \
+                a.bin_op##_(regs_i32[REG_RBX_IDX], regs_i32[reg_no_src]);      \
                 break;                                                         \
             case 8:                                                            \
-                a.bin_op##_(regs_i64[REG_I64_FREE_IDX], regs_i64[reg_no_src]); \
+                a.bin_op##_(regs_i64[REG_RBX_IDX], regs_i64[reg_no_src]);      \
                 break;                                                         \
             default:                                                           \
                 bh_assert(0);                                                  \
                 return false;                                                  \
         }                                                                      \
-        /* cmp with read value in RAX, try to change with result value in FREE \
+        /* cmp with read value in RAX, try to change with result value in RBX  \
          * REG, if change successfully, mem data is changed and exit loop(ZF   \
-         * is set) if not, loop again(ZF is clear) and try to do logical ops   \
+         * is set) if not, loop again(ZF is clear) and tries to do logical ops \
          * atomically */                                                       \
-        at_cmpxchg(a, bytes_dst, kind_dst, REG_I64_FREE_IDX, m_dst);           \
+        at_cmpxchg(a, bytes_dst, kind_dst, REG_RBX_IDX, m_dst);                \
         a.jne(loop);                                                           \
         return true;                                                           \
     } while (0)

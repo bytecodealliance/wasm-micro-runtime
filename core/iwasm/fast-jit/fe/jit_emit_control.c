@@ -925,12 +925,6 @@ jit_check_suspend_flags(JitCompContext *cc)
         return false;
     }
 
-    /* Clone current jit frame to a new jit fame */
-//    if (!(jit_frame_cloned = jit_frame_clone(jit_frame))) {
-//        jit_set_last_error(cc, "allocate memory failed");
-//        return false;
-//    }
-
     gen_commit_values(jit_frame, jit_frame->lp, jit_frame->sp);
     /* Check suspend flag value in terminate check block */
     cc->cur_basic_block = terminate_check_block;
@@ -949,10 +943,6 @@ jit_check_suspend_flags(JitCompContext *cc)
     GEN_INSN(RETURN, NEW_CONST(I32, 0));
 
     cc->cur_basic_block = cur_basic_block;
-    /* Restore the jit frame so that the registers can
-       be used again in current basic block */
-//    jit_frame_copy(jit_frame, jit_frame_cloned);
-//    jit_free(jit_frame_cloned);
 
     return true;
 }

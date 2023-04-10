@@ -879,7 +879,8 @@ bool
 jit_compile_op_atomic_rmw(JitCompContext *cc, uint8 atomic_op, uint8 op_type,
                           uint32 align, uint32 offset, uint32 bytes)
 {
-    JitReg addr, offset1, memory_data, value, result, eax_hreg, rax_hreg;
+    JitReg addr, offset1, memory_data, value, result, eax_hreg, rax_hreg,
+        ebx_hreg, rbx_hreg;
     JitInsn *insn = NULL;
     bool is_i32 = op_type == VALUE_TYPE_I32;
     bool is_logical_op = atomic_op == AtomicRMWBinOpAnd
@@ -890,10 +891,13 @@ jit_compile_op_atomic_rmw(JitCompContext *cc, uint8 atomic_op, uint8 op_type,
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
 
     /* For atomic logical binary ops, implicitly used rax in cmpxchg
-     * instruction in generated loop */
+     * instruction, and implicitly used rbx for storing termp value
+     * in generated loop */
     if (is_logical_op) {
         eax_hreg = jit_codegen_get_hreg_by_name("eax");
         rax_hreg = jit_codegen_get_hreg_by_name("rax");
+        ebx_hreg = jit_codegen_get_hreg_by_name("ebx");
+        rbx_hreg = jit_codegen_get_hreg_by_name("rbx");
     }
 
     bh_assert(op_type == VALUE_TYPE_I32 || op_type == VALUE_TYPE_I64);
@@ -964,9 +968,10 @@ jit_compile_op_atomic_rmw(JitCompContext *cc, uint8 atomic_op, uint8 op_type,
 
     if (is_logical_op
         && (!insn
-            || !jit_lock_reg_in_insn(cc, insn, is_i32 ? eax_hreg : rax_hreg))) {
+            || !jit_lock_reg_in_insn(cc, insn, is_i32 ? eax_hreg : rax_hreg)
+            || !jit_lock_reg_in_insn(cc, insn, is_i32 ? ebx_hreg : rbx_hreg))) {
         jit_set_last_error(
-            cc, "generate atomic logical insn or lock ra hreg failed");
+            cc, "generate atomic logical insn or lock ra&rb hreg failed");
         goto fail;
     }
 
