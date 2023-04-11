@@ -29,6 +29,6 @@ export function stringSliceWithTwoPositiveNumber() {
 
 export function stringSliceWithTwoUndefind() {
     const a: string = 'hello';
-    const b: string = a.slice();
+    const b: string = a.slice(undefined, undefined);
     return b;
 }

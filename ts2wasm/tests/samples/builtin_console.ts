@@ -5,8 +5,8 @@
 
 export function consoleLog() {
     let obj: any = {
-        a: 1, 
-        b: 2
-    }
+        a: 1,
+        b: 2,
+    };
     console.log(1, true, 123, obj);
 }

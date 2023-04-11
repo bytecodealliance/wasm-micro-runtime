@@ -103,11 +103,13 @@ export const importObject = {
         struct_get_dyn_f32: (obj, index) => {},
         struct_get_dyn_f64: (obj, index) => {},
         struct_get_dyn_anyref: (obj, index) => {},
+        struct_get_dyn_funcref: (obj, index) => {},
         struct_set_dyn_i32: (obj, index, value) => {},
         struct_set_dyn_i64: (obj, index, value) => {},
         struct_set_dyn_f32: (obj, index, value) => {},
         struct_set_dyn_f64: (obj, index, value) => {},
         struct_set_dyn_anyref: (obj, index, value) => {},
+        struct_set_dyn_funcref: (obj, index, value) => {},
     },
     libdyntype: {
         dyntype_context_init: () => BigInt(0),
@@ -185,10 +187,17 @@ export const importObject = {
         dyntype_has_property: (ctx, obj, prop) => {
             return prop in obj;
         },
+        dyntype_delete_property: (ctx, obj, prop) => {
+            delete obj[prop];
+            return true;
+        },
         dyntype_is_object: (ctx, obj) => {
             return typeof obj === 'object';
         },
 
+        dyntype_is_undefined: (ctx, value) => {
+            typeof value === 'undefined';
+        },
         dyntype_new_undefined: (ctx) => undefined,
 
         dyntype_new_null: (ctx) => null,

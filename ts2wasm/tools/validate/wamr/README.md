@@ -25,6 +25,12 @@ The script will print the pass rate, and the failed cases will be recorded into 
 2. Run the wasm module on WAMR with given arguments in `validation.json`
 3. Compare the output with the expected result
 
+> Note: The failed cases doesn't always mean there are bugs in the compiler or runtime, many known reasons may cause the cases to fail:
+>
+>    1. Some cases require non-primitive arguments (e.g. struct, any) but currently the runtime only receives `number` type arguments through cli
+>    2. Some cases require some imported functions/globals, but the runtime didn't provide them
+>    3. Some cases return complex values (e.g. struct, array, any), the runtime can't print detailed information, so the output is not accurate
+
 ## validation.json format
 
 `validation.json` is a json file to record the cases to be tested, the format is:

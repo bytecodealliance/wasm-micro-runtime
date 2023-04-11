@@ -1,0 +1,1684 @@
+[
+    {
+        "module": "any_binary_add",
+        "entries": [
+            {
+                "name": "addAnyAny",
+                "args": [],
+                "result": 3
+            },
+            {
+                "name": "addNumberAnyInBinaryExpr",
+                "args": [],
+                "result": 2
+            },
+            {
+                "name": "addNumberAnyInMulExpr",
+                "args": [],
+                "result": 9
+            }
+        ]
+    },
+    {
+        "module": "any_box_any",
+        "entries": [
+            {
+                "name": "boxAny",
+                "args": [],
+                "result": 1
+            }
+        ]
+    },
+    {
+        "module": "any_box_boolean",
+        "entries": [
+            {
+                "name": "boxBooleanWithVarStmt",
+                "args": [],
+                "result": 1
+            },
+            {
+                "name": "boxBooleanWithBinaryExpr",
+                "args": [],
+                "result": 1
+            }
+        ]
+    },
+    {
+        "module": "any_box_interface",
+        "entries": [
+            {
+                "name": "boxInterface",
+                "args": [],
+                "result": 1
+            }
+        ]
+    },
+    {
+        "module": "any_box_null",
+        "entries": [
+            {
+                "name": "boxNull",
+                "args": [],
+                "result": null
+            }
+        ]
+    },
+    {
+        "module": "any_box_number",
+        "entries": [
+            {
+                "name": "boxNumberWithVarStmt",
+                "args": [],
+                "result": 1
+            },
+            {
+                "name": "boxNumberWithBinaryExpr",
+                "args": [],
+                "result": 1
+            }
+        ]
+    },
+    {
+        "module": "any_box_obj",
+        "entries": [
+            {
+                "name": "boxEmptyObj",
+                "args": [],
+                "result": {}
+            },
+            {
+                "name": "boxObjWithNumberProp",
+                "args": [],
+                "result": 1
+            },
+            {
+                "name": "boxObjWithBooleanProp",
+                "args": [],
+                "result": 1
+            },
+            {
+                "name": "boxNestedObj",
+                "args": [],
+                "result": 1
+            }
+        ]
+    },
+    {
+        "module": "any_box_string",
+        "entries": [
+            {
+                "name": "boxStringWithVarStmt",
+                "args": [],
+                "result": "hello"
+            },
+            {
+                "name": "boxStringWithBinaryExpr",
+                "args": [],
+                "result": "hello"
+            }
+        ]
+    },
+    {
+        "module": "any_box_undefind",
+        "entries": [
+            {
+                "name": "boxUndefined",
+                "args": [],
+                "result": "undefined"
+            }
+        ]
+    },
+    {
+        "module": "any_obj_prop_get",
+        "entries": [
+            {
+                "name": "getProp",
+                "args": [],
+                "result": 4
+            }
+        ]
+    },
+    {
+        "module": "any_obj_prop_set",
+        "entries": [
+            {
+                "name": "setUnExistProp",
+                "args": [],
+                "result": 4
+            },
+            {
+                "name": "setExistProp",
+                "args": [],
+                "result": 2
+            }
+        ]
+    },
+    {
+        "module": "array_contain_closure",
+        "entries": [
+            {
+                "name": "containClosure",
+                "args": [],
+                "result": 11
+            }
+        ]
+    },
+    {
+        "module": "array_contain_func",
+        "entries": [
+            {
+                "name": "containFunc",
+                "args": [],
+                "result": 20
+            }
+        ]
+    },
+    {
+        "module": "array_elem_get",
+        "entries": [
+            {
+                "name": "arrayTest6",
+                "args": [],
+                "result": 1
+            }
+        ]
+    },
+    {
+        "module": "array_elem_set",
+        "entries": [
+            {
+                "name": "setElem",
+                "args": [],
+                "result": 5
+            }
+        ]
+    },
+    {
+        "module": "array_nested_array",
+        "entries": [
+            {
+                "name": "nestedArray",
+                "args": [],
+                "result": "need_manual_fill"
+            }
+        ]
+    },
+    {
+        "module": "array_nested_literal",
+        "entries": [
+            {
+                "name": "nestedLiteral",
+                "args": [],
+                "result": 3
+            }
+        ]
+    },
+    {
+        "module": "array_nested_literal_array",
+        "entries": [
+            {
+                "name": "nestedLiteralArrayInOneLayer",
+                "args": [],
+                "result": [
+                    [
+                        "hello"
+                    ]
+                ]
+            },
+            {
+                "name": "nestedLiteralArrayInMulLayer",
+                "args": [],
+                "result": [
+                    [
+                        [
+                            "hello"
+                        ]
+                    ]
+                ]
+            }
+        ]
+    },
+    {
+        "module": "array_new_array",
+        "entries": []
+    },
+    {
+        "module": "array_new_array_number",
+        "entries": [
+            {
+                "name": "newArrayNumber",
+                "args": [],
+                "result": 3
+            },
+            {
+                "name": "newArrayNumberWithParam",
+                "args": [
+                    29
+                ],
+                "result": 29
+            }
+        ]
+    },
+    {
+        "module": "array_new_array_string",
+        "entries": [
+            {
+                "name": "newArrayString",
+                "args": [],
+                "result": [
+                    "hi",
+                    "world"
+                ]
+            }
+        ]
+    },
+    {
+        "module": "array_new_literal_any",
+        "entries": [
+            {
+                "name": "newLiteralExplicitAny",
+                "args": [],
+                "result": 1
+            },
+            {
+                "name": "newLiteralNonExplicitAny",
+                "args": [],
+                "result": 1
+            }
+        ]
+    },
+    {
+        "module": "array_new_literal_boolean",
+        "entries": [
+            {
+                "name": "newLiteralBoolean",
+                "args": [],
+                "result": 1
+            }
+        ]
+    },
+    {
+        "module": "array_new_literal_number",
+        "entries": [
+            {
+                "name": "newLiteralNumberWithLiteralType",
+                "args": [],
+                "result": 3
+            },
+            {
+                "name": "newLiteralNumberWithArrayType",
+                "args": [],
+                "result": 3
+            },
+            {
+                "name": "newLiteralNumberWithoutInit",
+                "args": [],
+                "result": []
+            }
+        ]
+    },
+    {
+        "module": "array_new_literal_string",
+        "entries": [
+            {
+                "name": "newLiteralString",
+                "args": [],
+                "result": [
+                    "hello",
+                    "world"
+                ]
+            }
+        ]
+    },
+    {
+        "module": "block_inner_block",
+        "entries": [
+            {
+                "name": "innerBlock",
+                "args": [],
+                "result": 11
+            }
+        ]
+    },
+    {
+        "module": "boolean_basic",
+        "entries": [
+            {
+                "name": "booleanBasicTrue",
+                "args": [],
+                "result": 1
+            },
+            {
+                "name": "booleanBasicFalse",
+                "args": [],
+                "result": 0
+            }
+        ]
+    },
+    {
+        "module": "boolean_logic_operator",
+        "entries": [
+            {
+                "name": "logicOr",
+                "args": [],
+                "result": 1
+            },
+            {
+                "name": "logicAnd",
+                "args": [],
+                "result": 0
+            },
+            {
+                "name": "conditionExpr",
+                "args": [],
+                "result": 2
+            }
+        ]
+    },
+    {
+        "module": "boolean_not",
+        "entries": [
+            {
+                "name": "notNumber",
+                "args": [],
+                "result": 0
+            },
+            {
+                "name": "notBoolean",
+                "args": [],
+                "result": 1
+            },
+            {
+                "name": "notWithLogicOperator",
+                "args": [],
+                "result": 0
+            }
+        ]
+    },
+    {
+        "module": "builtin_array",
+        "entries": [
+            {
+                "name": "length",
+                "args": [],
+                "result": 3
+            },
+            {
+                "name": "isArray",
+                "args": [],
+                "result": 1
+            }
+        ]
+    },
+    {
+        "module": "builtin_console",
+        "entries": [
+            {
+                "name": "consoleLog",
+                "args": [],
+                "result": "undefined"
+            }
+        ]
+    },
+    {
+        "module": "builtin_math",
+        "entries": [
+            {
+                "name": "mathSqrt",
+                "args": [],
+                "result": 3
+            },
+            {
+                "name": "mathMaxWithOneOperation",
+                "args": [],
+                "result": 3
+            },
+            {
+                "name": "mathMaxWithMultiOperation",
+                "args": [],
+                "result": 9
+            },
+            {
+                "name": "mathMinWithOneOperation",
+                "args": [],
+                "result": 2
+            },
+            {
+                "name": "mathMinWithMultiOperation",
+                "args": [],
+                "result": 1
+            },
+            {
+                "name": "mathPowWithZero",
+                "args": [],
+                "result": 1
+            },
+            {
+                "name": "mathPowWithNegative",
+                "args": [],
+                "result": 0.1111111111111111
+            },
+            {
+                "name": "mathPowWithPositive",
+                "args": [],
+                "result": 9
+            },
+            {
+                "name": "mathAbs",
+                "args": [],
+                "result": 3
+            },
+            {
+                "name": "mathNested",
+                "args": [],
+                "result": 27
+            }
+        ]
+    },
+    {
+        "module": "builtin_string",
+        "entries": [
+            {
+                "name": "stringConcat",
+                "args": [],
+                "result": "helloworld"
+            },
+            {
+                "name": "stringLength",
+                "args": [],
+                "result": 5
+            },
+            {
+                "name": "stringSliceWithTwoNegativeNumber",
+                "args": [],
+                "result": ""
+            },
+            {
+                "name": "stringSliceWithTwoPositiveNumber",
+                "args": [],
+                "result": "el"
+            },
+            {
+                "name": "stringSliceWithTwoUndefind",
+                "args": [],
+                "result": "hello"
+            }
+        ]
+    },
+    {
+        "module": "call_expression_function_hoisting",
+        "entries": [
+            {
+                "name": "funcHosting",
+                "args": [],
+                "result": 110
+            }
+        ]
+    },
+    {
+        "module": "call_expression_get_value",
+        "entries": [
+            {
+                "name": "getValueWithDefaultParam",
+                "args": [],
+                "result": 116
+            },
+            {
+                "name": "callInnerFunc",
+                "args": [
+                    27,
+                    9
+                ],
+                "result": 45
+            },
+            {
+                "name": "recursive",
+                "args": [
+                    4
+                ],
+                "result": 3
+            }
+        ]
+    },
+    {
+        "module": "call_expression_param",
+        "entries": [
+            {
+                "name": "noDefaultParam",
+                "args": [],
+                "result": 6
+            },
+            {
+                "name": "allDefaultParam",
+                "args": [],
+                "result": 6
+            },
+            {
+                "name": "someDefaultParam",
+                "args": [],
+                "result": 5
+            },
+            {
+                "name": "paramIsAny",
+                "args": [],
+                "result": 3
+            }
+        ]
+    },
+    {
+        "module": "cast_any_to_static",
+        "entries": [
+            {
+                "name": "castAnyBackToClass",
+                "args": [],
+                "result": 1
+            },
+            {
+                "name": "castAnyBackToString",
+                "args": [],
+                "result": "hi"
+            },
+            {
+                "name": "castAnyBackToNumber",
+                "args": [],
+                "result": 1
+            },
+            {
+                "name": "castAnyBackToNull",
+                "args": [],
+                "result": null
+            },
+            {
+                "name": "castAnyBackToBoolean",
+                "args": [],
+                "result": 1
+            },
+            {
+                "name": "castAnyBackToUndefined",
+                "args": [],
+                "result": "undefined"
+            }
+        ]
+    },
+    {
+        "module": "class_basic",
+        "entries": [
+            {
+                "name": "withoutCtor",
+                "args": [],
+                "result": 123
+            },
+            {
+                "name": "basic",
+                "args": [],
+                "result": 10
+            },
+            {
+                "name": "getterSetter",
+                "args": [],
+                "result": 25
+            }
+        ]
+    },
+    {
+        "module": "class_extend",
+        "entries": [
+            {
+                "name": "extendWithNewProp",
+                "args": [],
+                "result": 90
+            },
+            {
+                "name": "methodOverwrite",
+                "args": [],
+                "result": 40
+            }
+        ]
+    },
+    {
+        "module": "class_field_assign",
+        "entries": [
+            {
+                "name": "withCtor",
+                "args": [],
+                "result": 18
+            },
+            {
+                "name": "withoutCtor",
+                "args": [],
+                "result": 0
+            }
+        ]
+    },
+    {
+        "module": "class_static_prop",
+        "entries": [
+            {
+                "name": "staticMethodWithOverwrite",
+                "args": [],
+                "result": 2
+            },
+            {
+                "name": "staticMethod",
+                "args": [],
+                "result": 1
+            },
+            {
+                "name": "staticFields",
+                "args": [],
+                "result": 74
+            }
+        ]
+    },
+    {
+        "module": "class_type",
+        "entries": [
+            {
+                "name": "uniqueType",
+                "args": [],
+                "result": 1
+            }
+        ]
+    },
+    {
+        "module": "closure_basic",
+        "entries": [
+            {
+                "name": "accessOuterVars",
+                "args": [],
+                "result": 2
+            },
+            {
+                "name": "returnOuterFuncCall",
+                "args": [],
+                "result": 10
+            },
+            {
+                "name": "accesssGlobalVar",
+                "args": []
+            }
+        ]
+    },
+    {
+        "module": "closure_first_class_func",
+        "entries": [
+            {
+                "name": "returnAFunction",
+                "args": [],
+                "result": 3
+            },
+            {
+                "name": "functionAsParam",
+                "args": [],
+                "result": 10
+            }
+        ]
+    },
+    {
+        "module": "closure_set_ctx_value",
+        "entries": [
+            {
+                "name": "setCtxValue",
+                "args": [
+                    23
+                ],
+                "result": 44
+            }
+        ]
+    },
+    {
+        "module": "complexType_case1",
+        "entries": [
+            {
+                "name": "complexTypeTest",
+                "args": [],
+                "result": 5
+            }
+        ]
+    },
+    {
+        "module": "complexType_case2",
+        "entries": [
+            {
+                "name": "cpxCase2Func3",
+                "args": [
+                    19
+                ],
+                "result": 2
+            }
+        ]
+    },
+    {
+        "module": "complexType_case3",
+        "entries": [
+            {
+                "name": "cpxCase3Func1",
+                "args": [],
+                "result": 10
+            }
+        ]
+    },
+    {
+        "module": "complexType_case4",
+        "entries": [
+            {
+                "name": "cpxCase3Func1",
+                "args": [],
+                "result": 3
+            }
+        ]
+    },
+    {
+        "module": "complexType_case5",
+        "entries": [
+            {
+                "name": "cpxCase3Func1",
+                "args": [],
+                "result": 6
+            }
+        ]
+    },
+    {
+        "module": "declare_class",
+        "entries": [
+            {
+                "name": "classDecl",
+                "args": [],
+                "result": "need_manual_fill"
+            }
+        ]
+    },
+    {
+        "module": "declare_func",
+        "entries": [
+            {
+                "name": "assignDeclareFuncToVar",
+                "args": [],
+                "result": "need_manual_fill"
+            }
+        ]
+    },
+    {
+        "module": "declare_namespace",
+        "entries": []
+    },
+    {
+        "module": "declare_var",
+        "entries": []
+    },
+    {
+        "module": "export_class",
+        "entries": []
+    },
+    {
+        "module": "export_func",
+        "entries": [
+            {
+                "name": "add",
+                "args": [
+                    39,
+                    7
+                ],
+                "result": 46
+            },
+            {
+                "name": "theDefault",
+                "args": [],
+                "result": 8
+            }
+        ]
+    },
+    {
+        "module": "export_func_invoked",
+        "entries": [
+            {
+                "name": "beCalledFunc",
+                "args": [],
+                "result": 2
+            },
+            {
+                "name": "exportedFunc",
+                "args": [],
+                "result": 2
+            }
+        ]
+    },
+    {
+        "module": "export_namespace",
+        "entries": []
+    },
+    {
+        "module": "export_var",
+        "entries": []
+    },
+    {
+        "module": "expression_binary",
+        "entries": [
+            {
+                "name": "lt",
+                "args": [],
+                "result": 1
+            },
+            {
+                "name": "gt",
+                "args": [],
+                "result": 1
+            },
+            {
+                "name": "le",
+                "args": [],
+                "result": 1
+            },
+            {
+                "name": "ge",
+                "args": [],
+                "result": 1
+            },
+            {
+                "name": "eq",
+                "args": [],
+                "result": 1
+            },
+            {
+                "name": "seenAsEq",
+                "args": [],
+                "result": 1
+            },
+            {
+                "name": "ne",
+                "args": [],
+                "result": 1
+            },
+            {
+                "name": "seenAsNe",
+                "args": [],
+                "result": 1
+            },
+            {
+                "name": "add",
+                "args": [],
+                "result": 3
+            },
+            {
+                "name": "sub",
+                "args": [],
+                "result": 1
+            },
+            {
+                "name": "mul",
+                "args": [],
+                "result": 4
+            },
+            {
+                "name": "div",
+                "args": [],
+                "result": 1
+            },
+            {
+                "name": "subEq",
+                "args": [],
+                "result": 1
+            },
+            {
+                "name": "addEq",
+                "args": [],
+                "result": 3
+            },
+            {
+                "name": "mulEq",
+                "args": [],
+                "result": 6
+            },
+            {
+                "name": "divEq",
+                "args": [],
+                "result": 2
+            }
+        ]
+    },
+    {
+        "module": "expression_binary_select",
+        "entries": [
+            {
+                "name": "selectAmpersandTrueTrue",
+                "args": [],
+                "result": 20
+            },
+            {
+                "name": "selectAmpersandTrueFalse",
+                "args": [],
+                "result": 0
+            },
+            {
+                "name": "selectAmpersandFalseTrue",
+                "args": [],
+                "result": 0
+            },
+            {
+                "name": "selectAmpersandFalseFlase",
+                "args": [],
+                "result": 0
+            },
+            {
+                "name": "selectBarTrueTrue",
+                "args": [],
+                "result": 10
+            },
+            {
+                "name": "selectBarTrueFalse",
+                "args": [],
+                "result": 1
+            },
+            {
+                "name": "selectBarFalseTrue",
+                "args": [],
+                "result": 1
+            },
+            {
+                "name": "selectBarFalseFalse",
+                "args": [],
+                "result": 0
+            }
+        ]
+    },
+    {
+        "module": "expression_condition",
+        "entries": [
+            {
+                "name": "binaryAsCondition",
+                "args": [],
+                "result": 1
+            }
+        ]
+    },
+    {
+        "module": "expression_unary",
+        "entries": [
+            {
+                "name": "prefixUnaryPlusPlus",
+                "args": [],
+                "result": 3
+            },
+            {
+                "name": "prefixUnaryMinusMinus",
+                "args": [],
+                "result": -1
+            },
+            {
+                "name": "prefixUnaryExclamation",
+                "args": [],
+                "result": 1
+            },
+            {
+                "name": "prefixUnaryMinusToLiteralWithBinaryExpr",
+                "args": [],
+                "result": -1
+            },
+            {
+                "name": "prefixUnaryMinusToLiteralWithVarStmt",
+                "args": [],
+                "result": -1
+            },
+            {
+                "name": "prefixUnaryMinusToVarWithBinaryExpr",
+                "args": [],
+                "result": -1
+            },
+            {
+                "name": "prefixUnaryMinusToVarWithVarStmt",
+                "args": [],
+                "result": -1
+            },
+            {
+                "name": "prefixUnaryPlus",
+                "args": [],
+                "result": 1
+            }
+        ]
+    },
+    {
+        "module": "function_declaration",
+        "entries": [
+            {
+                "name": "simpleFunctionOnlyReturn",
+                "args": [],
+                "result": 1
+            },
+            {
+                "name": "basicFunction",
+                "args": [
+                    19,
+                    15
+                ],
+                "result": 34
+            },
+            {
+                "name": "defaultParamExport",
+                "args": [],
+                "result": 3
+            },
+            {
+                "name": "functionWithFuncScopeVariable",
+                "args": [],
+                "result": 5
+            },
+            {
+                "name": "miltipleVariablesInOneStatement",
+                "args": [],
+                "result": 7
+            }
+        ]
+    },
+    {
+        "module": "function_expression",
+        "entries": [
+            {
+                "name": "functionExpression",
+                "args": [],
+                "result": 2004.1
+            },
+            {
+                "name": "arrowFunction",
+                "args": [],
+                "result": 2
+            },
+            {
+                "name": "arrowFunctionWithoutReturn",
+                "args": [],
+                "result": 2
+            }
+        ]
+    },
+    {
+        "module": "function_scope_var",
+        "entries": [
+            {
+                "name": "useBeforeDeclare",
+                "args": [],
+                "result": 1
+            },
+            {
+                "name": "operateWithConst",
+                "args": [],
+                "result": 16
+            },
+            {
+                "name": "nestedFunction",
+                "args": [],
+                "result": 10
+            }
+        ]
+    },
+    {
+        "module": "if_statement_case1",
+        "entries": [
+            {
+                "name": "ifElse",
+                "args": [],
+                "result": 26
+            },
+            {
+                "name": "nestedIf",
+                "args": [],
+                "result": 36
+            },
+            {
+                "name": "noElseBranch",
+                "args": [],
+                "result": 17
+            },
+            {
+                "name": "returnInIf",
+                "args": [
+                    37
+                ],
+                "result": 37
+            }
+        ]
+    },
+    {
+        "module": "import_class",
+        "entries": [
+            {
+                "name": "importClass",
+                "args": [],
+                "result": "need_manual_fill"
+            },
+            {
+                "name": "test",
+                "args": [],
+                "result": "need_manual_fill"
+            }
+        ]
+    },
+    {
+        "module": "import_func",
+        "entries": [
+            {
+                "name": "importFuncAdd",
+                "args": [],
+                "result": 3
+            },
+            {
+                "name": "importFuncSub",
+                "args": [],
+                "result": -1
+            },
+            {
+                "name": "importFuncMul",
+                "args": [],
+                "result": 2
+            },
+            {
+                "name": "importDefaultFunc",
+                "args": [],
+                "result": 8
+            },
+            {
+                "name": "importFuncInvoked",
+                "args": [],
+                "result": 2
+            }
+        ]
+    },
+    {
+        "module": "import_namespace",
+        "entries": [
+            {
+                "name": "importNamespaceFunc",
+                "args": [],
+                "result": "need_manual_fill"
+            },
+            {
+                "name": "importNamespaceVar",
+                "args": [],
+                "result": "need_manual_fill"
+            },
+            {
+                "name": "importNestedNamespaceFunc",
+                "args": [],
+                "result": "need_manual_fill"
+            },
+            {
+                "name": "importNestedNamespaceVar",
+                "args": [],
+                "result": "need_manual_fill"
+            }
+        ]
+    },
+    {
+        "module": "import_var",
+        "entries": [
+            {
+                "name": "importVarA",
+                "args": [],
+                "result": 1
+            },
+            {
+                "name": "importVarB",
+                "args": [],
+                "result": 2
+            },
+            {
+                "name": "importVarC",
+                "args": [],
+                "result": 3
+            }
+        ]
+    },
+    {
+        "module": "infc_assign_class.",
+        "entries": [
+            {
+                "name": "classAndInfc",
+                "args": [],
+                "result": 1
+            }
+        ]
+    },
+    {
+        "module": "infc_assign_infc",
+        "entries": [
+            {
+                "name": "infcAndInfc",
+                "args": [],
+                "result": 10
+            }
+        ]
+    },
+    {
+        "module": "infc_assign_obj",
+        "entries": [
+            {
+                "name": "objLiteralAndInfc",
+                "args": [],
+                "result": 1
+            }
+        ]
+    },
+    {
+        "module": "infc_field_assign",
+        "entries": [
+            {
+                "name": "fieldAssignToOther",
+                "args": [],
+                "result": 1
+            },
+            {
+                "name": "otherAssignToField",
+                "args": [],
+                "result": 20
+            }
+        ]
+    },
+    {
+        "module": "infc_method",
+        "entries": [
+            {
+                "name": "infcSetter",
+                "args": [],
+                "result": 10
+            },
+            {
+                "name": "infcMethod",
+                "args": [],
+                "result": 0
+            },
+            {
+                "name": "infcGetter",
+                "args": [],
+                "result": 1
+            }
+        ]
+    },
+    {
+        "module": "infc_parameter",
+        "entries": [
+            {
+                "name": "infcToClass",
+                "args": [],
+                "result": 1
+            },
+            {
+                "name": "classToInfc",
+                "args": [],
+                "result": 2
+            },
+            {
+                "name": "infcAsParameter",
+                "args": [],
+                "result": 0
+            }
+        ]
+    },
+    {
+        "module": "infc_return_value",
+        "entries": [
+            {
+                "name": "returnInfc",
+                "args": [],
+                "result": 1
+            },
+            {
+                "name": "returnClass",
+                "args": [],
+                "result": 10
+            }
+        ]
+    },
+    {
+        "module": "infc_with_array",
+        "entries": [
+            {
+                "name": "infcWithArray",
+                "args": [],
+                "result": 12
+            }
+        ]
+    },
+    {
+        "module": "loop_do_while",
+        "entries": [
+            {
+                "name": "loopBodyEmpty",
+                "args": [],
+                "result": 10
+            },
+            {
+                "name": "basicDoLoop",
+                "args": [],
+                "result": 100
+            },
+            {
+                "name": "prefixPlusPlus",
+                "args": [],
+                "result": 21
+            },
+            {
+                "name": "suffixPlusPlus",
+                "args": [],
+                "result": 22
+            },
+            {
+                "name": "numberAsCondition",
+                "args": [],
+                "result": 0
+            }
+        ]
+    },
+    {
+        "module": "loop_for",
+        "entries": [
+            {
+                "name": "basicCase",
+                "args": [],
+                "result": 106
+            },
+            {
+                "name": "loopBodySemicolon",
+                "args": [],
+                "result": 100
+            },
+            {
+                "name": "loopBodyEmpty",
+                "args": [],
+                "result": 100
+            },
+            {
+                "name": "noInitializer",
+                "args": [],
+                "result": 90
+            },
+            {
+                "name": "noCondition",
+                "args": [],
+                "result": 88
+            },
+            {
+                "name": "noIncrement",
+                "args": [],
+                "result": 90
+            },
+            {
+                "name": "nestedForLoopWithBreak",
+                "args": [],
+                "result": 105
+            },
+            {
+                "name": "multipleForLoop",
+                "args": [],
+                "result": 115
+            }
+        ]
+    },
+    {
+        "module": "loop_while",
+        "entries": [
+            {
+                "name": "basicLoop",
+                "args": [],
+                "result": 10
+            },
+            {
+                "name": "loopBodyEmpty",
+                "args": [],
+                "result": 100
+            },
+            {
+                "name": "loopBodySemicolon",
+                "args": [],
+                "result": 100
+            },
+            {
+                "name": "complexLoop",
+                "args": [],
+                "result": 49
+            }
+        ]
+    },
+    {
+        "module": "namespace_func",
+        "entries": [
+            {
+                "name": "namespaceFunc",
+                "args": [],
+                "result": 2
+            }
+        ]
+    },
+    {
+        "module": "namespace_nest",
+        "entries": [
+            {
+                "name": "namespaceNested",
+                "args": [],
+                "result": 4
+            }
+        ]
+    },
+    {
+        "module": "namespace_var",
+        "entries": [
+            {
+                "name": "namespaceVar",
+                "args": [],
+                "result": 1
+            }
+        ]
+    },
+    {
+        "module": "null_type_case1",
+        "entries": [
+            {
+                "name": "nullTypeTest",
+                "args": [],
+                "result": 20
+            }
+        ]
+    },
+    {
+        "module": "obj_literal",
+        "entries": [
+            {
+                "name": "simpleObject",
+                "args": [],
+                "result": 1
+            },
+            {
+                "name": "nestedObject",
+                "args": [],
+                "result": 4
+            },
+            {
+                "name": "moreNestedObject",
+                "args": [],
+                "result": 0
+            },
+            {
+                "name": "assignObjectLiteralToField",
+                "args": [],
+                "result": 6
+            },
+            {
+                "name": "withMethodField",
+                "args": [],
+                "result": 117
+            }
+        ]
+    },
+    {
+        "module": "parenthesized_expression_case1",
+        "entries": [
+            {
+                "name": "parenthesizedTest",
+                "args": [],
+                "result": 5.833333333333333
+            }
+        ]
+    },
+    {
+        "module": "primitiveType",
+        "entries": [
+            {
+                "name": "constPrimitiveVars",
+                "args": [],
+                "result": 3
+            },
+            {
+                "name": "letPrimitiveVars",
+                "args": [],
+                "result": 6
+            }
+        ]
+    },
+    {
+        "module": "prototype",
+        "entries": [
+            {
+                "name": "setPrototype",
+                "args": [],
+                "result": 1
+            },
+            {
+                "name": "returnPrototypeObject",
+                "args": [],
+                "result": {
+                    "height": 1
+                }
+            }
+        ]
+    },
+    {
+        "module": "rest_param_interface",
+        "entries": [
+            {
+                "name": "restParameterTest",
+                "args": [],
+                "result": {
+                    "x": 10,
+                    "y": "123"
+                }
+            }
+        ]
+    },
+    {
+        "module": "rest_param_number",
+        "entries": [
+            {
+                "name": "restParameterTest",
+                "args": [],
+                "result": 47
+            }
+        ]
+    },
+    {
+        "module": "return_statement",
+        "entries": [
+            {
+                "name": "deadCodeAfterReturn",
+                "args": [
+                    34,
+                    38
+                ],
+                "result": 34
+            },
+            {
+                "name": "deadReturnStatement",
+                "args": [
+                    11
+                ],
+                "result": 11
+            }
+        ]
+    },
+    {
+        "module": "scoped_variables",
+        "entries": [
+            {
+                "name": "nestedScopes",
+                "args": [],
+                "result": 5
+            }
+        ]
+    },
+    {
+        "module": "string_type",
+        "entries": [
+            {
+                "name": "stringNotReturned",
+                "args": [],
+                "result": "undefined"
+            },
+            {
+                "name": "returnString",
+                "args": [],
+                "result": "hello"
+            },
+            {
+                "name": "assignStringToVariable",
+                "args": [],
+                "result": "hello"
+            },
+            {
+                "name": "noExplicitStringKeyword",
+                "args": [],
+                "result": ""
+            },
+            {
+                "name": "unicode",
+                "args": [],
+                "result": "🀄"
+            }
+        ]
+    },
+    {
+        "module": "switch_case_statement",
+        "entries": [
+            {
+                "name": "switchWithDefault",
+                "args": [],
+                "result": 0
+            },
+            {
+                "name": "nestedSwitchCase",
+                "args": [],
+                "result": 1
+            },
+            {
+                "name": "emptySwitch",
+                "args": [],
+                "result": 0
+            },
+            {
+                "name": "switchWithoutDefault",
+                "args": [],
+                "result": 10
+            },
+            {
+                "name": "multipleCasesShareSameBlock",
+                "args": [],
+                "result": 11
+            },
+            {
+                "name": "caseWithoutBlock",
+                "args": [],
+                "result": 10
+            },
+            {
+                "name": "caseWithoutBreak",
+                "args": [],
+                "result": 11
+            },
+            {
+                "name": "varDeclarationInCase",
+                "args": [],
+                "result": 20
+            }
+        ]
+    },
+    {
+        "module": "top_level_statements",
+        "entries": []
+    }
+]

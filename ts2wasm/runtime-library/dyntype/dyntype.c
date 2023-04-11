@@ -322,19 +322,19 @@ int dyntype_to_extref(dyn_ctx_t ctx, dyn_value_t obj, void **pres) {
         return -DYNTYPE_TYPEERR;
     }
     JSValue *ptr = (JSValue *)obj;
-    *pres = ptr->u.ptr;
+    *pres = JS_VALUE_GET_PTR(*ptr);
     return DYNTYPE_SUCCESS;
 }
 
 dyn_type_t dyntype_typeof(dyn_ctx_t ctx, dyn_value_t obj) {
     JSValueConst *ptr = (JSValueConst *)obj;
-    if (ptr->tag == JS_TAG_EXT_OBJ) {
+    if (JS_VALUE_GET_TAG(*ptr) == JS_TAG_EXT_OBJ) {
         return DynExtRefObj;
     }
-    if (ptr->tag == JS_TAG_EXT_FUNC) {
+    if (JS_VALUE_GET_TAG(*ptr) == JS_TAG_EXT_FUNC) {
         return DynExtRefFunc;
     }
-    if (ptr->tag == JS_TAG_EXT_INFC) {
+    if (JS_VALUE_GET_TAG(*ptr) == JS_TAG_EXT_INFC) {
         return DynExtRefInfc;
     }
     int q_atom_tag = js_operator_typeof1(ctx->js_ctx, *ptr);

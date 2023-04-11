@@ -118,6 +118,10 @@ const importObject = {
         dyntype_has_property: (ctx, obj, prop) => {
             return prop in obj;
         },
+        dyntype_delete_property: (ctx, obj, prop) => {
+            delete obj[prop];
+            return true;
+        },
         dyntype_is_object: (ctx, obj) => {
             return typeof obj === 'object';
         },

@@ -881,7 +881,9 @@ export default class TypeResolver {
             /** Currently, we only handle PropertySignature and MethodSignature */
             if (
                 member.kind !== ts.SyntaxKind.PropertySignature &&
-                member.kind !== ts.SyntaxKind.MethodSignature
+                member.kind !== ts.SyntaxKind.MethodSignature &&
+                member.kind !== ts.SyntaxKind.GetAccessor &&
+                member.kind !== ts.SyntaxKind.SetAccessor
             ) {
                 return;
             }

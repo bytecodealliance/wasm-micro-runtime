@@ -98,10 +98,12 @@ export namespace structdyn {
         struct_get_dyn_f32 = 'struct_get_dyn_f32',
         struct_get_dyn_f64 = 'struct_get_dyn_f64',
         struct_get_dyn_anyref = 'struct_get_dyn_anyref',
+        struct_get_dyn_funcref = 'struct_get_dyn_funcref',
         struct_set_dyn_i32 = 'struct_set_dyn_i32',
         struct_set_dyn_i64 = 'struct_set_dyn_i64',
         struct_set_dyn_f32 = 'struct_set_dyn_f32',
         struct_set_dyn_f64 = 'struct_set_dyn_f64',
         struct_set_dyn_anyref = 'struct_set_dyn_anyref',
+        struct_set_dyn_funcref = 'struct_set_dyn_funcref',
     }
 }

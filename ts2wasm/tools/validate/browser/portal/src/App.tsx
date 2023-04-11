@@ -12,21 +12,29 @@ import { CheckOutlined, CloseOutlined, UserOutlined } from "@ant-design/icons";
 // @ts-ignore
 import * as validator from './validate'
 
+import validationItems from './validate_data.json' assert { type: 'json' };
+
 const { Header, Footer, Sider, Content } = Layout;
 const { Title, Paragraph, Text, Link } = Typography;
 const { Panel } = Collapse;
+
+let totalTestCases = 0;
+
+validationItems.forEach((item) => {
+  totalTestCases += item.entries.length;
+})
 
 function App() {
   const [prog, setProg] = useState(0);
   const [errorsMap, setErrorsMap] = useState([]);
   const [passRatio, setPassRatio] = useState(0);
-  const [totalFiles, setTotalFiles] = useState(validator.validateData.length);
+  const [totalFiles, setTotalFiles] = useState(totalTestCases);
   const [totalFailed, setTotalFailed] = useState(0);
   const [showRatio, setShowRatio] = useState(false);
   const [currentModule, setCurrentModule] = useState('');
 
   async function traverseDirectory() {
-    setTotalFiles(validator.validateData.length);
+    setTotalFiles(totalTestCases);
     setTotalFailed(0);
     let count = 0;
     setProg(0);
@@ -36,49 +44,75 @@ function App() {
     let errors: any = [];
     let failed = 0;
 
-    for (const data of validator.validateData) {
-      count++;
-      setProg(Math.round(count / validator.validateData.length * 100));
-      const item = data.split(' ');
+    for (let item of validationItems) {
+        const moduleName = item.module;
+        let wasmInstance : WebAssembly.Instance;
 
-      const moduleName = item[0];
-      const value = validator.typeConvert(item[2], item[3]);
-      const exportFunc = item[4];
-      const parameters = [];
-      for (let i = 5; i < item.length; i += 2) {
-        parameters.push(validator.typeConvert(item[i], item[i + 1]));
-      }
-      try {
         setCurrentModule(moduleName);
-        let { instance } = await WebAssembly.instantiateStreaming(
-          fetch(`./wasm_modules/${moduleName}`), validator.importObject
-        );
-        console.log(data);
-        const func = instance.exports[exportFunc];
-        validator.setWasmMemory(instance.exports.default);
-        const res = (func as any).call(func, ...parameters);
+        try {
+          let { instance } = await WebAssembly.instantiateStreaming(
+            fetch(`./wasm_modules/${moduleName}.wasm`), validator.importObject
+          );
+          wasmInstance = instance;
+        }
+        catch (e) {
+          console.error(`${moduleName} instantiate failed`);
+          failed += item.entries.length;
 
-        // output res
-        const output = value == res;
-        if (!output) {
+          count += item.entries.length;
+          setProg(Math.round(count / totalTestCases * 100));
+
           errors.push({
             case: moduleName,
-            error: `expect result: ${value}, but got ${res}`
+            error: `instantiate failed: ${e}`
           })
-          failed++;
+          setErrorsMap(errors);
+          continue;
         }
-      }
-      catch (e: any) {
-        console.error(`${moduleName} instantiate failed`);
-        failed++;
 
-        errors.push({
-          case: moduleName,
-          error: `instantiate failed: ${e}`
-        })
-      }
-      setErrorsMap(errors);
-    }
+        validator.setWasmMemory(wasmInstance.exports.default);
+
+        for (let entry of item.entries) {
+          const exportFunc = entry.name;
+          const parameters = entry.args;
+          let expect : any = entry.result;
+
+          if (expect === 'undefined') {
+            expect = undefined;
+          }
+
+          count++;
+          setProg(Math.round(count / totalTestCases * 100));
+
+          try {
+            setCurrentModule(`${moduleName}:${exportFunc}`);
+            const func = wasmInstance.exports[exportFunc];
+            const res = (func as any).call(func, ...parameters);
+
+            // output res
+            const output = expect == res;
+            if (!output) {
+              errors.push({
+                case: `${moduleName}:${exportFunc}`,
+                error: `expect result: ${expect}, but got ${res}`
+              })
+              failed++;
+            }
+          }
+          catch (e) {
+            console.error(`${moduleName}:${exportFunc} execute failed`);
+            failed += item.entries.length;
+
+            errors.push({
+              case: `${moduleName}:${exportFunc}`,
+              error: `error: ${e}`
+            })
+            continue;
+          }
+
+          setErrorsMap(errors);
+        };
+    };
 
     setTotalFailed(failed);
     setPassRatio(Math.round((totalFiles - failed) / totalFiles * 100))

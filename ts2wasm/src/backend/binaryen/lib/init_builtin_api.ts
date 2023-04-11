@@ -8,7 +8,12 @@ import ts from 'typescript';
 import * as binaryenCAPI from '../glue/binaryen.js';
 import { BuiltinNames } from '../../../../lib/builtin/builtin_name.js';
 import { emptyStructType } from '../glue/transform.js';
-import { flattenLoopStatement, FlattenLoop } from '../utils.js';
+import {
+    flattenLoopStatement,
+    FlattenLoop,
+    isBaseType,
+    unboxAnyTypeToBaseType,
+} from '../utils.js';
 import { dyntype } from './dyntype/utils.js';
 import { arrayToPtr } from '../glue/transform.js';
 import {
@@ -16,6 +21,7 @@ import {
     stringArrayTypeInfo,
     stringTypeInfo,
 } from '../glue/packType.js';
+import { TypeKind } from '../../../type.js';
 
 function getFuncName(moduleName: string, funcName: string, delimiter = '|') {
     return moduleName.concat(delimiter).concat(funcName);
@@ -216,20 +222,104 @@ function string_concat(module: binaryen.Module) {
 }
 
 function string_slice(module: binaryen.Module) {
-    const context = module.local.get(0, emptyStructType.typeRef);
-    const strStruct = module.local.get(1, stringTypeInfo.typeRef);
-    const start = module.local.get(2, binaryen.i32);
-    const end = module.local.get(3, binaryen.i32);
+    /** Args: context, this, start, end */
+    const thisStrStructIdx = 1;
+    const startParamIdx = 2;
+    const endParamIdx = 3;
+    /** Locals: start_i32, end_i32 */
+    const startI32Idx = 4;
+    const endI32Idx = 5;
+    const newStrArrayIndex = 6;
+    /** structure index information */
+    const arrayIdxInStruct = 1;
+    /** invoke binaryen API */
+    const thisStrStruct = module.local.get(
+        thisStrStructIdx,
+        stringTypeInfo.typeRef,
+    );
+    const startAnyRef = module.local.get(startParamIdx, binaryen.anyref);
+    const endAnyRef = module.local.get(endParamIdx, binaryen.anyref);
+    const statementArray: binaryen.ExpressionRef[] = [];
     const strArray = binaryenCAPI._BinaryenStructGet(
         module.ptr,
-        1,
-        strStruct,
+        arrayIdxInStruct,
+        thisStrStruct,
         charArrayTypeInfo.typeRef,
         false,
     );
-    const newStrLen = module.i32.sub(end, start);
-    const statementArray: binaryen.ExpressionRef[] = [];
-    const newStrArrayIndex = 4;
+    const strLen = binaryenCAPI._BinaryenArrayLen(module.ptr, strArray);
+
+    /** 1. set start and end to i32 */
+    const setAnyToI32 = (
+        module: binaryen.Module,
+        localIdx: number,
+        anyRef: binaryen.ExpressionRef,
+        defaultValue: binaryen.ExpressionRef,
+    ) => {
+        const isUndefined = isBaseType(
+            module,
+            anyRef,
+            dyntype.dyntype_is_undefined,
+        );
+        const dynToNumberValue = unboxAnyTypeToBaseType(
+            module,
+            anyRef,
+            TypeKind.NUMBER,
+        );
+        // get passed param value by string length
+        const paramValue = module.if(
+            module.f64.le(dynToNumberValue, module.f64.const(0)),
+            module.if(
+                module.i32.le_s(
+                    module.i32.add(
+                        module.i32.trunc_u_sat.f64(dynToNumberValue),
+                        strLen,
+                    ),
+                    module.i32.const(0),
+                ),
+                module.i32.const(0),
+                module.i32.add(
+                    module.i32.trunc_u_sat.f64(dynToNumberValue),
+                    strLen,
+                ),
+            ),
+            module.if(
+                module.i32.le_s(
+                    module.i32.trunc_u_sat.f64(dynToNumberValue),
+                    strLen,
+                ),
+                module.i32.trunc_u_sat.f64(dynToNumberValue),
+                strLen,
+            ),
+        );
+
+        return module.if(
+            module.i32.ne(isUndefined, module.i32.const(0)),
+            module.local.set(localIdx, defaultValue),
+            module.local.set(localIdx, paramValue),
+        );
+    };
+
+    const setStartAnyToI32Ref = setAnyToI32(
+        module,
+        startI32Idx,
+        startAnyRef,
+        module.i32.const(0),
+    );
+    const setEndAnyToI32Ref = setAnyToI32(module, endI32Idx, endAnyRef, strLen);
+    statementArray.push(setStartAnyToI32Ref);
+    statementArray.push(setEndAnyToI32Ref);
+
+    /** 2. get new string length */
+    const start = module.local.get(startI32Idx, binaryen.i32);
+    const end = module.local.get(endI32Idx, binaryen.i32);
+    const newStrLen = module.if(
+        module.i32.le_s(start, end),
+        module.i32.sub(end, start),
+        module.i32.const(0),
+    );
+
+    /** 3. copy value to new string */
     const newStrArrayType = charArrayTypeInfo.typeRef;
     const newStrArrayStatement = module.local.set(
         newStrArrayIndex,
@@ -240,14 +330,21 @@ function string_slice(module: binaryen.Module) {
             module.i32.const(0),
         ),
     );
-    const arrayCopyStatement = binaryenCAPI._BinaryenArrayCopy(
-        module.ptr,
-        module.local.get(newStrArrayIndex, newStrArrayType),
-        module.i32.const(0),
-        strArray,
-        start,
-        newStrLen,
+    statementArray.push(newStrArrayStatement);
+    const arrayCopyStatement = module.if(
+        module.i32.ne(newStrLen, module.i32.const(0)),
+        binaryenCAPI._BinaryenArrayCopy(
+            module.ptr,
+            module.local.get(newStrArrayIndex, newStrArrayType),
+            module.i32.const(0),
+            strArray,
+            start,
+            newStrLen,
+        ),
     );
+    statementArray.push(arrayCopyStatement);
+
+    /** 4. generate new string structure */
     const newStrStruct = binaryenCAPI._BinaryenStructNew(
         module.ptr,
         arrayToPtr([
@@ -257,9 +354,9 @@ function string_slice(module: binaryen.Module) {
         2,
         stringTypeInfo.heapTypeRef,
     );
-    statementArray.push(newStrArrayStatement);
-    statementArray.push(arrayCopyStatement);
     statementArray.push(module.return(newStrStruct));
+
+    /** 5. generate block, return block */
     const sliceBlock = module.block('slice', statementArray);
     return sliceBlock;
 }
@@ -379,11 +476,11 @@ export function callBuiltInAPIs(module: binaryen.Module) {
         binaryen.createType([
             emptyStructType.typeRef,
             stringTypeInfo.typeRef,
-            binaryen.i32,
-            binaryen.i32,
+            binaryen.anyref,
+            binaryen.anyref,
         ]),
         stringTypeInfo.typeRef,
-        [charArrayTypeInfo.typeRef],
+        [binaryen.i32, binaryen.i32, charArrayTypeInfo.typeRef],
         string_slice(module),
     );
     /** TODO: */

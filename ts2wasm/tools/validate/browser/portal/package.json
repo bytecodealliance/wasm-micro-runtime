@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "gen_item": "cd src && ts-node-esm create_validation_items.ts",
     "preview": "vite preview"
   },
   "dependencies": {

@@ -238,9 +238,8 @@ export class WASMStatementGen {
         const scope = stmt.getScope() as Scope;
         this.currentFuncCtx.enterScope(scope);
 
-        let WASMCond: binaryen.ExpressionRef = this.WASMCompiler.module.nop();
-        let WASMIncrementor: binaryen.ExpressionRef =
-            this.WASMCompiler.module.nop();
+        let WASMCond: binaryen.ExpressionRef | undefined;
+        let WASMIncrementor: binaryen.ExpressionRef | undefined;
         let WASMStmts: binaryen.ExpressionRef = this.WASMCompiler.module.nop();
         if (stmt.forLoopInitializer !== null) {
             const init = this.WASMStmtGen(stmt.forLoopInitializer);

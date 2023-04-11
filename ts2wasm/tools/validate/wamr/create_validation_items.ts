@@ -23,8 +23,14 @@ for (const file of tsFiles) {
 
     try {
         const parserCtx = new ParserContext();
+
         console.log(`analyzing [${file}] ...`);
-        parserCtx.parse([currentTsFile]);
+        try {
+            parserCtx.parse([currentTsFile]);
+        } catch (e) {
+            console.error(`Parsing [${file}] failed, skip it`);
+            continue;
+        }
 
         const entryScope =
             parserCtx.globalScopes[parserCtx.globalScopes.length - 1];
@@ -63,6 +69,7 @@ for (const file of tsFiles) {
                     `Failed to execute ${f.getName()}(${args}) by ts-node:`,
                 );
                 console.error(`${e}`);
+                result = 'need_manual_fill';
             }
 
             newItem.entries.push({

@@ -1,5 +1,3 @@
-src/glue/binaryen.d.ts
-src/glue/binaryen.js
 runtime-library/*
 tests/samples/*
 tools/playground/server/assets/samples/*

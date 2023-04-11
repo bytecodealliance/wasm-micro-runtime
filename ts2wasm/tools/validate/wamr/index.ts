@@ -42,6 +42,8 @@ fs.mkdirSync(COMPILE_DIR);
 
 let totalCases = 0;
 let totalFail = 0;
+let totalCompilationFail = 0;
+let totalNeedManualValidation = 0;
 
 validationItems.forEach((item) => {
     const sourceFile = `${SAMPLES_DIR}/${item.module}.ts`;
@@ -49,6 +51,8 @@ validationItems.forEach((item) => {
 
     const moduleEntries = item.entries.length;
     totalCases += moduleEntries;
+
+    let compilationSuccess = false;
 
     try {
         const parserCtx = new ParserContext();
@@ -61,11 +65,38 @@ validationItems.forEach((item) => {
         const wasmBuffer = backend.emitBinary();
         fs.writeFileSync(outputFile, wasmBuffer);
         backend.dispose();
+        compilationSuccess = true;
     } catch {
         console.error(`Compiling [${item.module}] failed`);
     }
 
     item.entries.forEach((entry) => {
+        if (!compilationSuccess) {
+            totalCompilationFail++;
+
+            fs.appendFileSync(
+                TEST_LOG_FILE,
+                `===================================================================================\n`,
+            );
+            fs.appendFileSync(
+                TEST_LOG_FILE,
+                `Running [${item.module}:${entry.name}] failed due to compilation error\n`,
+            );
+            fs.appendFileSync(
+                TEST_LOG_FILE,
+                `-----------------------------------------------------------------------------------\n`,
+            );
+            fs.appendFileSync(
+                TEST_LOG_FILE,
+                `source code: \n\t${sourceFile}\n`,
+            );
+            fs.appendFileSync(
+                TEST_LOG_FILE,
+                `===================================================================================\n\n\n`,
+            );
+            totalFail++;
+        }
+
         const iwasmArgs = [
             '-f',
             entry.name,
@@ -140,11 +171,23 @@ validationItems.forEach((item) => {
                     `===================================================================================\n\n\n`,
                 );
                 totalFail++;
+
+                if (executOutput.indexOf('ref')) {
+                    totalNeedManualValidation++;
+                }
             }
         }
     });
 });
 
 console.log(`${totalCases - totalFail} / ${totalCases} passed!`);
+console.log(`-------------------------------------------------------------`);
+console.log(`In the ${totalFail} failed cases:`);
+console.log(
+    `    * ${totalCompilationFail} cases failed due to compilation error`,
+);
+console.log(
+    `    * ${totalNeedManualValidation} cases need manual validation due to complex return type`,
+);
 
 process.exit(0);

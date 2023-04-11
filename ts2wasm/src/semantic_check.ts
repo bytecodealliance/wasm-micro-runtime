@@ -19,6 +19,7 @@ import {
     TypeKind,
     TSArray,
     TSFunction,
+    Primitive,
 } from './type.js';
 import { Logger } from './log.js';
 import { ParserContext } from './frontend.js';
@@ -203,7 +204,6 @@ export default class SemanticChecker {
                 argExpr.exprType,
                 ErrorFlag.ArgsAndParamsTypesAreNonAnyAndAnyTypes,
                 `explicitly pass any type as argument without type casting`,
-                ts.SyntaxKind.EqualsToken,
             );
             if (argExpr instanceof PropertyAccessExpression) {
                 this.invokeAnyObjCheck(
@@ -230,7 +230,6 @@ export default class SemanticChecker {
             expr.exprType,
             ErrorFlag.ReturnTypesAreNonAnyAndAnyTypes,
             `return statement type and function return type are non-any and any types`,
-            ts.SyntaxKind.EqualsToken,
         );
         if (expr instanceof PropertyAccessExpression) {
             this.invokeAnyObjCheck(
@@ -256,7 +255,6 @@ export default class SemanticChecker {
             right,
             ErrorFlag.BinaryOperationOnNonAnyAndAnyType,
             `binary operation between non-any type and any type without type cast`,
-            operateKind,
         );
         this.diffTypesOprtCheck(
             left,
@@ -323,14 +321,12 @@ export default class SemanticChecker {
         right: Type,
         flag: number,
         msg: string,
-        operatorKind?: ts.SyntaxKind,
     ) {
-        const cond1 = left.kind !== TypeKind.ANY && right.kind === TypeKind.ANY;
-        const cond2 =
-            left.kind === TypeKind.ANY &&
-            right.kind !== TypeKind.ANY &&
-            operatorKind !== ts.SyntaxKind.EqualsToken;
-        if (cond1 || cond2) {
+        const cond =
+            left.kind !== TypeKind.ANY &&
+            !(left instanceof Primitive) &&
+            right.kind === TypeKind.ANY;
+        if (cond) {
             this.errors.push({
                 errorKind: ErrorKind.nonAnyAndAny,
                 errorFlag: flag,

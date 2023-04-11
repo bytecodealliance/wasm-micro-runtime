@@ -6,6 +6,7 @@
 interface I {
     x: number;
     y: boolean;
+    get _x(): number;
     set _x(x: number);
 }
 

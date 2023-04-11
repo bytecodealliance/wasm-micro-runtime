@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-export function boxNullObj() {
+export function boxEmptyObj() {
     let a: any = {};
     return a;
 }
