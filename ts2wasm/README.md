@@ -26,7 +26,11 @@ ts2wasm is a compiler which compiles TypeScript source code directly into WebAss
 
 ## Execute the generated module
 
-Refer to [run on v8](./tools/validate/module-run/run_generated_module.md)
+### Execute on WAMR
+Refer to [iwasm_gc](./runtime-library/README.md)
+
+### Execute on browser
+Refer to [ts2wasm playground](./tools/playground/README.md)
 
 ## Test
 
