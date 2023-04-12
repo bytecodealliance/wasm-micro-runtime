@@ -894,12 +894,10 @@ jit_compile_op_atomic_rmw(JitCompContext *cc, uint8 atomic_op, uint8 op_type,
     /* For atomic logical binary ops, implicitly used rax in cmpxchg
      * instruction, and implicitly used rbx for storing termp value
      * in generated loop */
-    if (is_logical_op) {
-        eax_hreg = jit_codegen_get_hreg_by_name("eax");
-        rax_hreg = jit_codegen_get_hreg_by_name("rax");
-        ebx_hreg = jit_codegen_get_hreg_by_name("ebx");
-        rbx_hreg = jit_codegen_get_hreg_by_name("rbx");
-    }
+     eax_hreg = jit_codegen_get_hreg_by_name("eax");
+     rax_hreg = jit_codegen_get_hreg_by_name("rax");
+     ebx_hreg = jit_codegen_get_hreg_by_name("ebx");
+     rbx_hreg = jit_codegen_get_hreg_by_name("rbx");
 
     bh_assert(op_type == VALUE_TYPE_I32 || op_type == VALUE_TYPE_I64);
     if (op_type == VALUE_TYPE_I32) {

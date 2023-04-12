@@ -30,7 +30,7 @@
 
 #define BUILD_COND_BR(value_if, block_then, block_else)                       \
     do {                                                                      \
-        if (!GEN_INSN(CMP, cc->cmp_reg, value_if, NEW_CONST(cc, 0))           \
+        if (!GEN_INSN(CMP, cc->cmp_reg, value_if, NEW_CONST(I32, 0))          \
             || !GEN_INSN(BNE, cc->cmp_reg, jit_basic_block_label(block_then), \
                          jit_basic_block_label(block_else))) {                \
             jit_set_last_error(cc, "generate bne insn failed");               \
@@ -914,7 +914,7 @@ jit_frame_copy(JitFrame *jit_frame_dst, const JitFrame *jit_frame_src);
 bool
 jit_check_suspend_flags(JitCompContext *cc)
 {
-    JitReg exec_env, suspend_flags, terminate_flag, offset, cmp_reg;
+    JitReg exec_env, suspend_flags, terminate_flag, offset;
     JitBasicBlock *terminate_block, *cur_basic_block;
     JitFrame *jit_frame = cc->jit_frame;
 
@@ -925,9 +925,7 @@ jit_check_suspend_flags(JitCompContext *cc)
     }
 
     gen_commit_values(jit_frame, jit_frame->lp, jit_frame->sp);
-    /* Check suspend flag value in terminate check block */
     exec_env = cc->exec_env_reg;
-    cmp_reg = jit_cc_new_reg_I32(cc);
     suspend_flags = jit_cc_new_reg_I32(cc);
     terminate_flag = jit_cc_new_reg_I32(cc);
 
@@ -935,8 +933,8 @@ jit_check_suspend_flags(JitCompContext *cc)
     GEN_INSN(LDI32, suspend_flags, exec_env, offset);
     GEN_INSN(AND, terminate_flag, suspend_flags, NEW_CONST(I32, 1));
 
-    GEN_INSN(CMP, cmp_reg, terminate_flag, NEW_CONST(I32, 0));
-    GEN_INSN(BNE, cmp_reg, jit_basic_block_label(terminate_block), 0);
+    GEN_INSN(CMP, cc->cmp_reg, terminate_flag, NEW_CONST(I32, 0));
+    GEN_INSN(BNE, cc->cmp_reg, jit_basic_block_label(terminate_block), 0);
 
     cc->cur_basic_block = terminate_block;
     GEN_INSN(RETURN, NEW_CONST(I32, 0));
@@ -1156,7 +1154,6 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth,
         jit_insn_delete(insn_select);
     }
 
-    /* TODO: move it here, seems fine, in as sense, it's in "else" branch */
 #if WASM_ENABLE_THREAD_MGR != 0
     /* Insert suspend check point */
     if (!jit_check_suspend_flags(cc))

@@ -247,7 +247,7 @@ INSN(AT_XCHGU16, Reg, 4, 1)
 INSN(AT_XCHGI32, Reg, 4, 1)
 INSN(AT_XCHGU32, Reg, 4, 1)
 INSN(AT_XCHGI64, Reg, 4, 1)
-INSN(FENCE, Null, 0, 0)
+INSN(FENCE, Reg, 0, 0)
 #endif
 
 #undef INSN

@@ -53,6 +53,18 @@ static const uint8 insn_opnd_first_use[] = {
                + sizeof(JitReg) * (OPND_NUM))
 
 JitInsn *
+_jit_insn_new_Reg_0(JitOpcode opc)
+{
+    JitInsn *insn = JIT_INSN_NEW_Reg(0);
+
+    if (insn) {
+        insn->opcode = opc;
+    }
+
+    return insn;
+}
+
+JitInsn *
 _jit_insn_new_Reg_1(JitOpcode opc, JitReg r0)
 {
     JitInsn *insn = JIT_INSN_NEW_Reg(1);
@@ -174,20 +186,6 @@ _jit_insn_new_LookupSwitch_1(JitOpcode opc, JitReg value, uint32 num)
 
     return insn;
 }
-
-#if WASM_ENABLE_SHARED_MEMORY != 0
-JitInsn *
-_jit_insn_new_Null_0(JitOpcode opc, void *meaningless)
-{
-    JitInsn *insn = JIT_INSN_NEW_Reg(0);
-
-    if (insn) {
-        insn->opcode = opc;
-    }
-
-    return insn;
-}
-#endif
 
 #undef JIT_INSN_NEW_Reg
 #undef JIT_INSN_NEW_VReg
