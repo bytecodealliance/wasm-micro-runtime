@@ -1088,12 +1088,6 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth,
     JitInsn *insn, *insn_select = NULL, *insn_cmp = NULL;
     bool copy_arities;
 
-#if WASM_ENABLE_THREAD_MGR != 0
-    /* Insert suspend check point */
-    if (!jit_check_suspend_flags(cc))
-        return false;
-#endif
-
     if (!(block_dst = get_target_block(cc, br_depth))) {
         return false;
     }
@@ -1149,10 +1143,6 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth,
         return true;
     }
 
-    /* TODO: try to move check_suspend_flag here, but there is a problem:
-     * previous GEN_INSN(CMP) and following GEN_INSN(BNE) are divided,
-     * the jump flag are overwrite by check_suspend_flag */
-
     CREATE_BASIC_BLOCK(if_basic_block);
     if (!(insn = GEN_INSN(BNE, cc->cmp_reg,
                           jit_basic_block_label(if_basic_block), 0))) {
@@ -1165,6 +1155,13 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth,
         jit_insn_unlink(insn_select);
         jit_insn_delete(insn_select);
     }
+
+    /* TODO: move it here, seems fine, in as sense, it's in "else" branch */
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (!jit_check_suspend_flags(cc))
+        return false;
+#endif
 
     SET_BUILDER_POS(if_basic_block);
     SET_BB_BEGIN_BCIP(if_basic_block, *p_frame_ip - 1);
