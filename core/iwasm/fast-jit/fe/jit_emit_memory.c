@@ -9,6 +9,7 @@
 #include "../jit_frontend.h"
 #include "../jit_codegen.h"
 #include "../../interpreter/wasm_runtime.h"
+#include "jit_emit_control.h"
 
 #ifndef OS_ENABLE_HW_BOUND_CHECK
 static JitReg
@@ -1131,6 +1132,12 @@ jit_compile_op_atomic_wait(JitCompContext *cc, uint8 op_type, uint32 align,
         goto fail;
 
     PUSH_I32(res);
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (!jit_check_suspend_flags(cc))
+        goto fail;
+#endif
     return true;
 fail:
     return false;

@@ -914,21 +914,20 @@ jit_frame_copy(JitFrame *jit_frame_dst, const JitFrame *jit_frame_src);
 bool
 jit_check_suspend_flags(JitCompContext *cc)
 {
-    JitReg exec_env, suspend_flags, terminate_flag, offset;
-    JitBasicBlock *terminate_check_block, *terminate_block, *cur_basic_block;
-    JitFrame *jit_frame = cc->jit_frame, *jit_frame_cloned;
+    JitReg exec_env, suspend_flags, terminate_flag, offset, cmp_reg;
+    JitBasicBlock *terminate_block, *cur_basic_block;
+    JitFrame *jit_frame = cc->jit_frame;
 
     cur_basic_block = cc->cur_basic_block;
-    terminate_check_block = jit_cc_new_basic_block(cc, 0);
     terminate_block = jit_cc_new_basic_block(cc, 0);
-    if (!terminate_check_block || !terminate_block) {
+    if (!terminate_block) {
         return false;
     }
 
     gen_commit_values(jit_frame, jit_frame->lp, jit_frame->sp);
     /* Check suspend flag value in terminate check block */
-    cc->cur_basic_block = terminate_check_block;
     exec_env = cc->exec_env_reg;
+    cmp_reg = jit_cc_new_reg_I32(cc);
     suspend_flags = jit_cc_new_reg_I32(cc);
     terminate_flag = jit_cc_new_reg_I32(cc);
 
@@ -936,8 +935,8 @@ jit_check_suspend_flags(JitCompContext *cc)
     GEN_INSN(LDI32, suspend_flags, exec_env, offset);
     GEN_INSN(AND, terminate_flag, suspend_flags, NEW_CONST(I32, 1));
 
-    GEN_INSN(CMP, cc->cmp_reg, terminate_flag, NEW_CONST(I32, 0));
-    GEN_INSN(BNE, cc->cmp_reg, jit_basic_block_label(terminate_block), 0);
+    GEN_INSN(CMP, cmp_reg, terminate_flag, NEW_CONST(I32, 0));
+    GEN_INSN(BNE, cmp_reg, jit_basic_block_label(terminate_block), 0);
 
     cc->cur_basic_block = terminate_block;
     GEN_INSN(RETURN, NEW_CONST(I32, 0));
@@ -1089,6 +1088,12 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth,
     JitInsn *insn, *insn_select = NULL, *insn_cmp = NULL;
     bool copy_arities;
 
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (!jit_check_suspend_flags(cc))
+        return false;
+#endif
+
     if (!(block_dst = get_target_block(cc, br_depth))) {
         return false;
     }
@@ -1144,11 +1149,9 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth,
         return true;
     }
 
-#if WASM_ENABLE_THREAD_MGR != 0
-    /* Insert suspend check point */
-    if (!jit_check_suspend_flags(cc))
-        return false;
-#endif
+    /* TODO: try to move check_suspend_flag here, but there is a problem:
+     * previous GEN_INSN(CMP) and following GEN_INSN(BNE) are divided,
+     * the jump flag are overwrite by check_suspend_flag */
 
     CREATE_BASIC_BLOCK(if_basic_block);
     if (!(insn = GEN_INSN(BNE, cc->cmp_reg,

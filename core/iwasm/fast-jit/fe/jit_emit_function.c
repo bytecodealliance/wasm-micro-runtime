@@ -282,6 +282,12 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
                 goto fail;
             }
 
+#if WASM_ENABLE_THREAD_MGR != 0
+            /* Insert suspend check point */
+            if (!jit_check_suspend_flags(cc))
+                goto fail;
+#endif
+
             return true;
         }
 
@@ -422,6 +428,12 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
             goto fail;
         }
     }
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (!jit_check_suspend_flags(cc))
+        goto fail;
+#endif
 
     /* Clear part of memory regs and table regs as their values
        may be changed in the function call */
@@ -754,6 +766,12 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
     if (!post_return(cc, func_type, 0, true)) {
         goto fail;
     }
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (!jit_check_suspend_flags(cc))
+        goto fail;
+#endif
 
     /* Clear part of memory regs and table regs as their values
        may be changed in the function call */
