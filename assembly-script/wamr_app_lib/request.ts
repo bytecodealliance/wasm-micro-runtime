@@ -7,7 +7,7 @@ import * as console from './console'
 import * as timer from './timer'
 
 @external("env", "wasm_response_send")
-declare function wasm_response_send(buffer: ArrayBuffer, size: i32): void;
+declare function wasm_response_send(buffer: ArrayBuffer, size: i32): bool;
 
 @external("env", "wasm_register_resource")
 declare function wasm_register_resource(url: ArrayBuffer): void;
