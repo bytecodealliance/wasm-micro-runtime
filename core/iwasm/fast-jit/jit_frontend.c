@@ -2246,7 +2246,6 @@ jit_compile_func(JitCompContext *cc)
                             return false;
                         break;
 
-                        /* TODO */
                         COMPILE_ATOMIC_RMW(Add, ADD);
                         COMPILE_ATOMIC_RMW(Sub, SUB);
                         COMPILE_ATOMIC_RMW(And, AND);

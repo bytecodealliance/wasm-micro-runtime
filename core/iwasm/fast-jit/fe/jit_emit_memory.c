@@ -60,6 +60,7 @@ fail:
     return 0;
 }
 #endif
+
 #if WASM_ENABLE_SHARED_MEMORY != 0
 static void
 set_load_or_store_atomic(JitInsn *load_or_store_inst)
@@ -272,6 +273,8 @@ jit_compile_op_i32_load(JitCompContext *cc, uint32 align, uint32 offset,
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (atomic && load_insn)
         set_load_or_store_atomic(load_insn);
+#else
+    (void)load_insn;
 #endif
 
     PUSH_I32(value);
@@ -353,6 +356,8 @@ jit_compile_op_i64_load(JitCompContext *cc, uint32 align, uint32 offset,
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (atomic && load_insn)
         set_load_or_store_atomic(load_insn);
+#else
+    (void)load_insn;
 #endif
 
     PUSH_I64(value);
@@ -454,6 +459,8 @@ jit_compile_op_i32_store(JitCompContext *cc, uint32 align, uint32 offset,
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (atomic && store_insn)
         set_load_or_store_atomic(store_insn);
+#else
+    (void)store_insn;
 #endif
 
     return true;
@@ -517,6 +524,8 @@ jit_compile_op_i64_store(JitCompContext *cc, uint32 align, uint32 offset,
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (atomic && store_insn)
         set_load_or_store_atomic(store_insn);
+#else
+    (void)store_insn;
 #endif
 
     return true;
@@ -888,16 +897,16 @@ jit_compile_op_atomic_rmw(JitCompContext *cc, uint8 atomic_op, uint8 op_type,
                          || atomic_op == AtomicRMWBinOpOr
                          || atomic_op == AtomicRMWBinOpXor;
 
-    /* currently only implemented with x86 instruction */
+    /* currently we only implement atomic rmw on x86-64 target */
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
 
-    /* For atomic logical binary ops, implicitly used rax in cmpxchg
-     * instruction, and implicitly used rbx for storing termp value
-     * in generated loop */
-     eax_hreg = jit_codegen_get_hreg_by_name("eax");
-     rax_hreg = jit_codegen_get_hreg_by_name("rax");
-     ebx_hreg = jit_codegen_get_hreg_by_name("ebx");
-     rbx_hreg = jit_codegen_get_hreg_by_name("rbx");
+    /* For atomic logical binary ops, it implicitly uses rax in cmpxchg
+     * instruction and implicitly uses rbx for storing temp value in the
+     * generated loop */
+    eax_hreg = jit_codegen_get_hreg_by_name("eax");
+    rax_hreg = jit_codegen_get_hreg_by_name("rax");
+    ebx_hreg = jit_codegen_get_hreg_by_name("ebx");
+    rbx_hreg = jit_codegen_get_hreg_by_name("rbx");
 
     bh_assert(op_type == VALUE_TYPE_I32 || op_type == VALUE_TYPE_I64);
     if (op_type == VALUE_TYPE_I32) {
@@ -992,8 +1001,7 @@ jit_compile_op_atomic_cmpxchg(JitCompContext *cc, uint8 op_type, uint32 align,
 {
     JitReg addr, offset1, memory_data, value, expect, result;
     bool is_i32 = op_type == VALUE_TYPE_I32;
-
-    /* currently only implemented with x86 instruction */
+    /* currently we only implement atomic cmpxchg on x86-64 target */
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
     /* cmpxchg will use register al/ax/eax/rax to store parameter expected
      * value, and the read result will also be stored to al/ax/eax/rax */

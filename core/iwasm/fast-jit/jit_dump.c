@@ -108,15 +108,6 @@ jit_dump_insn_LookupSwitch(JitCompContext *cc, JitInsn *insn, unsigned opnd_num)
     }
 }
 
-#if WASM_ENABLE_SHARED_MEMORY != 0
-void
-jit_dump_insn_Null(JitCompContext *cc, JitInsn *insn, unsigned opnd_num)
-{
-    /*shouldn't have anything to dump, since it doesn't have any operator*/
-    bh_assert(opnd_num == 0);
-}
-#endif
-
 void
 jit_dump_insn(JitCompContext *cc, JitInsn *insn)
 {

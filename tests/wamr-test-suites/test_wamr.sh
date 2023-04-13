@@ -442,9 +442,9 @@ function spec_test()
         fi
     fi
 
-    if [[ ${ENABLE_MULTI_THREAD} == 1 ]]; then                                                                                                   
-        ARGS_FOR_SPEC_TEST+="-p "                                                                                                                
-    fi                                                                                                                                           
+    if [[ ${ENABLE_MULTI_THREAD} == 1 ]]; then
+        ARGS_FOR_SPEC_TEST+="-p "
+    fi
 
     if [[ ${ENABLE_XIP} == 1 ]]; then
         ARGS_FOR_SPEC_TEST+="-X "

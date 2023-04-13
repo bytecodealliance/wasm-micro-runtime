@@ -905,12 +905,6 @@ check_copy_arities(const JitBlock *block_dst, JitFrame *jit_frame)
 }
 
 #if WASM_ENABLE_THREAD_MGR != 0
-static JitFrame *
-jit_frame_clone(const JitFrame *jit_frame);
-
-static void
-jit_frame_copy(JitFrame *jit_frame_dst, const JitFrame *jit_frame_src);
-
 bool
 jit_check_suspend_flags(JitCompContext *cc)
 {

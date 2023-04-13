@@ -14,9 +14,6 @@ enum {
     JIT_OPND_KIND_Reg,
     JIT_OPND_KIND_VReg,
     JIT_OPND_KIND_LookupSwitch,
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    JIT_OPND_KIND_Null
-#endif
 };
 
 /**
