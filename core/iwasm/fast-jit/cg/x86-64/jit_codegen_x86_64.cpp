@@ -6903,9 +6903,6 @@ at_rmw_sub_imm_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
     Imm imm;
     imm_set_value(imm, data_src, bytes_dst);
     uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
-    Label loop = a.newLabel();
-    if (loop.isValid()) {
-    }
     return neg_r(a, bytes_dst, kind_dst, reg_no_src)
            && at_xadd(a, bytes_dst, kind_dst, reg_no_src, m)
            && extend_r_to_r(a, bytes_dst, kind_dst, reg_no_src, reg_no_dst);
