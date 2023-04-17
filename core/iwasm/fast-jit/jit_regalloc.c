@@ -410,6 +410,11 @@ collect_distances(RegallocContext *rc, JitBasicBlock *basic_block)
 
     JIT_FOREACH_INSN(basic_block, insn)
     {
+        // fence insn doesn't have any operand, hence, no regs involved
+        if (insn->opcode == JIT_OP_FENCE) {
+            continue;
+        }
+
         JitRegVec regvec = jit_insn_opnd_regs(insn);
         unsigned i;
         JitReg *regp;
@@ -737,6 +742,11 @@ allocate_for_basic_block(RegallocContext *rc, JitBasicBlock *basic_block,
 
     JIT_FOREACH_INSN_REVERSE(basic_block, insn)
     {
+        // fence insn doesn't have any operand, hence, no regs involved
+        if (insn->opcode == JIT_OP_FENCE) {
+            continue;
+        }
+
         JitRegVec regvec = jit_insn_opnd_regs(insn);
         unsigned first_use = jit_insn_opnd_first_use(insn);
         unsigned i;

@@ -7554,11 +7554,10 @@ at_rmw_xor_r_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
 /**
  * Encode insn mfence
  **/
-static bool
+static void
 fence(x86::Assembler &a)
 {
     a.mfence();
-    return true;
 }
 
 /**
