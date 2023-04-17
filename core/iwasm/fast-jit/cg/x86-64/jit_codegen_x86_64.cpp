@@ -6403,8 +6403,8 @@ cast_r_f64_to_r_i64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
  * @return true if success, false otherwise
  */
 static bool
-extend_r_to_r_kind(x86::Assembler &a, uint32 bytes_dst, uint32 kind_dst,
-                   int32 reg_no_src, int32 reg_no_dst)
+extend_r_to_r(x86::Assembler &a, uint32 bytes_dst, uint32 kind_dst,
+              int32 reg_no_src, int32 reg_no_dst)
 {
     if (kind_dst == JIT_REG_KIND_I32) {
         bh_assert(reg_no_src < 16 && reg_no_dst < 16);
@@ -6514,8 +6514,7 @@ at_cmpxchg_r_ra_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
 {
     x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
     return at_cmpxchg(a, bytes_dst, kind_dst, reg_no_xchg, m)
-           && extend_r_to_r_kind(a, bytes_dst, kind_dst, REG_RAX_IDX,
-                                 REG_RAX_IDX);
+           && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, REG_RAX_IDX);
 }
 
 /**
@@ -6541,8 +6540,7 @@ at_cmpxchg_r_ra_base_r_offset_imm(x86::Assembler &a, uint32 bytes_dst,
 {
     x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
     return at_cmpxchg(a, bytes_dst, kind_dst, reg_no_xchg, m)
-           && extend_r_to_r_kind(a, bytes_dst, kind_dst, REG_RAX_IDX,
-                                 REG_RAX_IDX);
+           && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, REG_RAX_IDX);
 }
 
 /**
@@ -6572,8 +6570,7 @@ at_cmpxchg_imm_ra_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
     imm_set_value(imm, data_xchg, bytes_dst);
     uint32 reg_no_xchg = mov_imm_to_free_reg(a, imm, bytes_dst);
     return at_cmpxchg(a, bytes_dst, kind_dst, reg_no_xchg, m)
-           && extend_r_to_r_kind(a, bytes_dst, kind_dst, REG_RAX_IDX,
-                                 REG_RAX_IDX);
+           && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, REG_RAX_IDX);
 }
 
 /**
@@ -6602,8 +6599,7 @@ at_cmpxchg_imm_ra_base_r_offset_imm(x86::Assembler &a, uint32 bytes_dst,
     imm_set_value(imm, data_xchg, bytes_dst);
     uint32 reg_no_xchg = mov_imm_to_free_reg(a, imm, bytes_dst);
     return at_cmpxchg(a, bytes_dst, kind_dst, reg_no_xchg, m)
-           && extend_r_to_r_kind(a, bytes_dst, kind_dst, REG_RAX_IDX,
-                                 REG_RAX_IDX);
+           && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, REG_RAX_IDX);
 }
 
 /**
@@ -6715,19 +6711,18 @@ neg_r(x86::Assembler &a, uint32 bytes_dst, uint32 kind_dst, int32 reg_no_src)
  * @param bytes_dst the bytes number of the data,
  *        could be 1(byte), 2(short), 4(int32), 8(int64),
  * @param kind_dst the kind of data to move, could be I32, I64
- * @param reg_no_dst the index of dest register
  * @param reg_no_src the index of register hold operand value of add operation
  * @param m_dst the dest memory operand
  *
  * @return true if success, false otherwise
  */
 static bool
-at_xadd(x86::Assembler &a, uint32 bytes_dst, uint32 kind_dst, int32 reg_no_dst,
-        int32 reg_no_src, x86::Mem &m_dst)
+at_xadd(x86::Assembler &a, uint32 bytes_dst, uint32 kind_dst, int32 reg_no_src,
+        x86::Mem &m_dst)
 {
     bh_assert((kind_dst == JIT_REG_KIND_I32 && bytes_dst <= 4)
               || kind_dst == JIT_REG_KIND_I64);
-    bh_assert(reg_no_src < 16 && reg_no_dst < 16);
+    bh_assert(reg_no_src < 16);
     switch (bytes_dst) {
         case 1:
             a.lock().xadd(m_dst, regs_i8[reg_no_src]);
@@ -6773,9 +6768,8 @@ at_rmw_add_imm_base_r_offset_imm(x86::Assembler &a, uint32 bytes_dst,
     Imm imm;
     imm_set_value(imm, data_src, bytes_dst);
     uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
-    return at_xadd(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
-           && extend_r_to_r_kind(a, bytes_dst, kind_dst, reg_no_src,
-                                 reg_no_dst);
+    return at_xadd(a, bytes_dst, kind_dst, reg_no_src, m)
+           && extend_r_to_r(a, bytes_dst, kind_dst, reg_no_src, reg_no_dst);
 }
 
 /**
@@ -6802,9 +6796,8 @@ at_rmw_add_imm_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
     Imm imm;
     imm_set_value(imm, data_src, bytes_dst);
     uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
-    return at_xadd(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
-           && extend_r_to_r_kind(a, bytes_dst, kind_dst, reg_no_src,
-                                 reg_no_dst);
+    return at_xadd(a, bytes_dst, kind_dst, reg_no_src, m)
+           && extend_r_to_r(a, bytes_dst, kind_dst, reg_no_src, reg_no_dst);
 }
 
 /**
@@ -6828,9 +6821,8 @@ at_rmw_add_r_base_r_offset_imm(x86::Assembler &a, uint32 bytes_dst,
                                int32 offset)
 {
     x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
-    return at_xadd(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
-           && extend_r_to_r_kind(a, bytes_dst, kind_dst, reg_no_src,
-                                 reg_no_dst);
+    return at_xadd(a, bytes_dst, kind_dst, reg_no_src, m)
+           && extend_r_to_r(a, bytes_dst, kind_dst, reg_no_src, reg_no_dst);
 }
 
 /**
@@ -6854,9 +6846,8 @@ at_rmw_add_r_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
                              int32 reg_no_offset)
 {
     x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
-    return at_xadd(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
-           && extend_r_to_r_kind(a, bytes_dst, kind_dst, reg_no_src,
-                                 reg_no_dst);
+    return at_xadd(a, bytes_dst, kind_dst, reg_no_src, m)
+           && extend_r_to_r(a, bytes_dst, kind_dst, reg_no_src, reg_no_dst);
 }
 
 /**
@@ -6884,9 +6875,8 @@ at_rmw_sub_imm_base_r_offset_imm(x86::Assembler &a, uint32 bytes_dst,
     imm_set_value(imm, data_src, bytes_dst);
     uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
     return neg_r(a, bytes_dst, kind_dst, reg_no_src)
-           && at_xadd(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
-           && extend_r_to_r_kind(a, bytes_dst, kind_dst, reg_no_src,
-                                 reg_no_dst);
+           && at_xadd(a, bytes_dst, kind_dst, reg_no_src, m)
+           && extend_r_to_r(a, bytes_dst, kind_dst, reg_no_src, reg_no_dst);
 }
 
 /**
@@ -6913,10 +6903,12 @@ at_rmw_sub_imm_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
     Imm imm;
     imm_set_value(imm, data_src, bytes_dst);
     uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
+    Label loop = a.newLabel();
+    if (loop.isValid()) {
+    }
     return neg_r(a, bytes_dst, kind_dst, reg_no_src)
-           && at_xadd(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
-           && extend_r_to_r_kind(a, bytes_dst, kind_dst, reg_no_src,
-                                 reg_no_dst);
+           && at_xadd(a, bytes_dst, kind_dst, reg_no_src, m)
+           && extend_r_to_r(a, bytes_dst, kind_dst, reg_no_src, reg_no_dst);
 }
 
 /**
@@ -6941,9 +6933,8 @@ at_rmw_sub_r_base_r_offset_imm(x86::Assembler &a, uint32 bytes_dst,
 {
     x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
     return neg_r(a, bytes_dst, kind_dst, reg_no_src)
-           && at_xadd(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
-           && extend_r_to_r_kind(a, bytes_dst, kind_dst, reg_no_src,
-                                 reg_no_dst);
+           && at_xadd(a, bytes_dst, kind_dst, reg_no_src, m)
+           && extend_r_to_r(a, bytes_dst, kind_dst, reg_no_src, reg_no_dst);
 }
 
 /**
@@ -6968,9 +6959,8 @@ at_rmw_sub_r_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
 {
     x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
     return neg_r(a, bytes_dst, kind_dst, reg_no_src)
-           && at_xadd(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
-           && extend_r_to_r_kind(a, bytes_dst, kind_dst, reg_no_src,
-                                 reg_no_dst);
+           && at_xadd(a, bytes_dst, kind_dst, reg_no_src, m)
+           && extend_r_to_r(a, bytes_dst, kind_dst, reg_no_src, reg_no_dst);
 }
 
 /**
@@ -6998,8 +6988,7 @@ at_rmw_xchg_imm_base_r_offset_imm(x86::Assembler &a, uint32 bytes_dst,
     imm_set_value(imm, data_src, bytes_dst);
     uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
     return xchg_r_to_m(a, bytes_dst, kind_dst, m, reg_no_src)
-           && extend_r_to_r_kind(a, bytes_dst, kind_dst, reg_no_src,
-                                 reg_no_dst);
+           && extend_r_to_r(a, bytes_dst, kind_dst, reg_no_src, reg_no_dst);
 }
 
 /**
@@ -7027,8 +7016,7 @@ at_rmw_xchg_imm_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
     imm_set_value(imm, data_src, bytes_dst);
     uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
     return xchg_r_to_m(a, bytes_dst, kind_dst, m, reg_no_src)
-           && extend_r_to_r_kind(a, bytes_dst, kind_dst, reg_no_src,
-                                 reg_no_dst);
+           && extend_r_to_r(a, bytes_dst, kind_dst, reg_no_src, reg_no_dst);
 }
 
 /**
@@ -7053,8 +7041,7 @@ at_rmw_xchg_r_base_r_offset_imm(x86::Assembler &a, uint32 bytes_dst,
 {
     x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
     return xchg_r_to_m(a, bytes_dst, kind_dst, m, reg_no_src)
-           && extend_r_to_r_kind(a, bytes_dst, kind_dst, reg_no_src,
-                                 reg_no_dst);
+           && extend_r_to_r(a, bytes_dst, kind_dst, reg_no_src, reg_no_dst);
 }
 
 /**
@@ -7079,8 +7066,7 @@ at_rmw_xchg_r_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
 {
     x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
     return xchg_r_to_m(a, bytes_dst, kind_dst, m, reg_no_src)
-           && extend_r_to_r_kind(a, bytes_dst, kind_dst, reg_no_src,
-                                 reg_no_dst);
+           && extend_r_to_r(a, bytes_dst, kind_dst, reg_no_src, reg_no_dst);
 }
 
 /**
@@ -7097,8 +7083,11 @@ at_rmw_xchg_r_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
         /* read original value in memory(operand 1) to rax(expected) */        \
         mov_m_to_r(a, bytes_dst, kind_dst, false, REG_RAX_IDX, m_dst);         \
         Label loop = a.newLabel();                                             \
+        if (!loop.isValid())                                                   \
+            return false;                                                      \
         /* bind the loopStart label to the current position in the code. */    \
-        a.bind(loop);                                                          \
+        if (a.bind(loop) != kErrorOk)                                          \
+            return false;                                                      \
         /* move operand 1 to temp reg rb */                                    \
         mov_r_to_r(a, kind_dst, REG_RBX_IDX, REG_RAX_IDX);                     \
         /* actual logical operation with operand 2, result save to rbx */      \
@@ -7212,8 +7201,7 @@ at_rmw_and_imm_base_r_offset_imm(x86::Assembler &a, uint32 bytes_dst,
     imm_set_value(imm, data_src, bytes_dst);
     uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
     return at_and(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
-           && extend_r_to_r_kind(a, bytes_dst, kind_dst, REG_RAX_IDX,
-                                 reg_no_dst);
+           && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, reg_no_dst);
 }
 
 /**
@@ -7241,8 +7229,7 @@ at_rmw_and_imm_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
     imm_set_value(imm, data_src, bytes_dst);
     uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
     return at_and(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
-           && extend_r_to_r_kind(a, bytes_dst, kind_dst, REG_RAX_IDX,
-                                 reg_no_dst);
+           && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, reg_no_dst);
 }
 
 /**
@@ -7267,8 +7254,7 @@ at_rmw_and_r_base_r_offset_imm(x86::Assembler &a, uint32 bytes_dst,
 {
     x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
     return at_and(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
-           && extend_r_to_r_kind(a, bytes_dst, kind_dst, REG_RAX_IDX,
-                                 reg_no_dst);
+           && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, reg_no_dst);
 }
 
 /**
@@ -7293,8 +7279,7 @@ at_rmw_and_r_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
 {
     x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
     return at_and(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
-           && extend_r_to_r_kind(a, bytes_dst, kind_dst, REG_RAX_IDX,
-                                 reg_no_dst);
+           && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, reg_no_dst);
 }
 
 /**
@@ -7321,8 +7306,7 @@ at_rmw_or_imm_base_r_offset_imm(x86::Assembler &a, uint32 bytes_dst,
     imm_set_value(imm, data_src, bytes_dst);
     uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
     return at_or(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
-           && extend_r_to_r_kind(a, bytes_dst, kind_dst, REG_RAX_IDX,
-                                 reg_no_dst);
+           && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, reg_no_dst);
 }
 
 /**
@@ -7349,8 +7333,7 @@ at_rmw_or_imm_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
     imm_set_value(imm, data_src, bytes_dst);
     uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
     return at_or(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
-           && extend_r_to_r_kind(a, bytes_dst, kind_dst, REG_RAX_IDX,
-                                 reg_no_dst);
+           && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, reg_no_dst);
 }
 
 /**
@@ -7374,8 +7357,7 @@ at_rmw_or_r_base_r_offset_imm(x86::Assembler &a, uint32 bytes_dst,
 {
     x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
     return at_or(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
-           && extend_r_to_r_kind(a, bytes_dst, kind_dst, REG_RAX_IDX,
-                                 reg_no_dst);
+           && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, reg_no_dst);
 }
 
 /**
@@ -7399,8 +7381,7 @@ at_rmw_or_r_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
 {
     x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
     return at_or(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
-           && extend_r_to_r_kind(a, bytes_dst, kind_dst, REG_RAX_IDX,
-                                 reg_no_dst);
+           && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, reg_no_dst);
 }
 
 /**
@@ -7428,8 +7409,7 @@ at_rmw_xor_imm_base_r_offset_imm(x86::Assembler &a, uint32 bytes_dst,
     imm_set_value(imm, data_src, bytes_dst);
     uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
     return at_xor(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
-           && extend_r_to_r_kind(a, bytes_dst, kind_dst, REG_RAX_IDX,
-                                 reg_no_dst);
+           && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, reg_no_dst);
 }
 
 /**
@@ -7457,8 +7437,7 @@ at_rmw_xor_imm_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
     imm_set_value(imm, data_src, bytes_dst);
     uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
     return at_xor(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
-           && extend_r_to_r_kind(a, bytes_dst, kind_dst, REG_RAX_IDX,
-                                 reg_no_dst);
+           && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, reg_no_dst);
 }
 
 /**
@@ -7483,8 +7462,7 @@ at_rmw_xor_r_base_r_offset_imm(x86::Assembler &a, uint32 bytes_dst,
 {
     x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
     return at_xor(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
-           && extend_r_to_r_kind(a, bytes_dst, kind_dst, REG_RAX_IDX,
-                                 reg_no_dst);
+           && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, reg_no_dst);
 }
 
 /**
@@ -7509,8 +7487,7 @@ at_rmw_xor_r_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
 {
     x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
     return at_xor(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
-           && extend_r_to_r_kind(a, bytes_dst, kind_dst, REG_RAX_IDX,
-                                 reg_no_dst);
+           && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, reg_no_dst);
 }
 
 /**
@@ -7581,7 +7558,7 @@ at_rmw_xor_r_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
 /**
  * Encode insn mfence
  **/
-bool
+static bool
 fence(x86::Assembler &a)
 {
     a.mfence();
@@ -7591,11 +7568,7 @@ fence(x86::Assembler &a)
 /**
  * Encode insn fence
  */
-#define FENCE()        \
-    do {               \
-        if (!fence(a)) \
-            GOTO_FAIL; \
-    } while (0)
+#define FENCE() fence(a)
 
 #endif
 
