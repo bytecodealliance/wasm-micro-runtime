@@ -7083,10 +7083,9 @@ at_rmw_xchg_r_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst,
         /* read original value in memory(operand 1) to rax(expected) */        \
         mov_m_to_r(a, bytes_dst, kind_dst, false, REG_RAX_IDX, m_dst);         \
         Label loop = a.newLabel();                                             \
-        if (!loop.isValid())                                                   \
-            return false;                                                      \
-        /* bind the loopStart label to the current position in the code. */    \
-        if (a.bind(loop) != kErrorOk)                                          \
+        /* check whether loop is valid, and bind the loop label                \
+         * to the current position in the code. */                             \
+        if (!loop.isValid() || a.bind(loop) != kErrorOk)                       \
             return false;                                                      \
         /* move operand 1 to temp reg rb */                                    \
         mov_r_to_r(a, kind_dst, REG_RBX_IDX, REG_RAX_IDX);                     \
