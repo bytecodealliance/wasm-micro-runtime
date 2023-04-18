@@ -32,8 +32,6 @@ jobs:
         working-directory: test-tools/wamr-ide/VSCode-Extension
 
       - name: generate wamr ide vscode extension
-        env:
-          credentials: ${{ secrets.TOKEN }}
         run: |
           npm install -g vsce
           rm -rf node_modules
