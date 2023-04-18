@@ -23,7 +23,7 @@ cd ${WAMR_DIR}/samples/workload/XNNPACK
 xnnpack_out_dir=xnnpack/bazel-bin
 if [ -d "$xnnpack_out_dir" ]; then
   echo "XNNPACK build directory exists"
-  file_count=$(ls "$xnnpack_out_dir" | grep "runfiles$" | wc -l)
+  file_count=$(ls "$xnnpack_out_dir" | grep ".wasm$" | wc -l)
   # TODO: currently should be 116 files, may changes in the future
   if [ $file_count -eq 116 ]; then
     echo "Fully build XNNPACK benchmark wasm files"
@@ -48,15 +48,7 @@ fi
 # 1.3 copy files to out/
 rm -rf ${OUT_DIR}
 mkdir ${OUT_DIR}
-# List all .wasm files in the input directory
-wasm_files=$(ls xnnpack/bazel-bin/*.runfiles/xnnpack/**.wasm)
-# Iterate through the .wasm files and create soft links
-for wasm_file in $wasm_files; do
-  # Get the filename without the path
-  wasm_name=$(basename "$wasm_file")
-  # Create a soft link in the output directory
-  ln -s "$wasm_file" "${out_dir}/${wasm_name}"
-done
+cp xnnpack/bazel-bin/*.wasm out/
 
 # 2. compile xnnpack benchmark wasm files to benchmark aot files with wamrc
 # 2.1 build wamr-compiler if needed
@@ -66,21 +58,38 @@ rm -fr build && mkdir build
 cd build && cmake ..
 make
 # 2.2 compile all .wasm files to .aot files
-cd build
 WAMRC_CMD="$(pwd)/wamrc"
 cd ${OUT_DIR}
 # List all .wasm files in the input directory
 wasm_files=$(ls *.wasm)
-# Iterate through the .wasm files and compile it to aot file
-for wasm_file in $wasm_files; do
-  # Get the filename without the path and the .wasm suffix
+# Define the number of parallel processes to use
+num_procs=$(($(nproc) - 2))
+if [ $num_procs -lt 2 ]; then
+  num_procs=1
+fi
+# Define function to compile .wasm files
+function compile_wasm() {
+  wasm_file=$1
+  WAMRC_CMD=$2
   wasm_file_name=$(basename "$wasm_file" .wasm)
-  if [[ $1 == '--sgx' ]]; then
+  if [[ $3 == "--sgx" ]]; then
     ${WAMRC_CMD} -sgx -o "${wasm_file_name}.aot" "${wasm_file_name}.wasm"
   else
     ${WAMRC_CMD} --enable-multi-thread -o "${wasm_file_name}.aot" "${wasm_file_name}.wasm"
   fi
+}
+# Loop through each .wasm file and compile it in parallel
+i=0
+for wasm_file in $wasm_files; do
+  compile_wasm "$wasm_file" "$WAMRC_CMD" "$1" &
+  i=$(((i + 1) % num_procs))
+  if [ $i -eq 0 ]; then
+    echo "i is equal to 0"
+    wait
+  fi
 done
+# Wait for all background processes to finish
+wait
 
 # 3. build iwasm with pthread and libc_emcc enable
 #    platform:
@@ -110,9 +119,15 @@ cd ${OUT_DIR}
 # List all .wasm files in the input directory
 aot_files=$(ls *.aot)
 # Iterate through the .wasm files and compile it to aot file
+i=0
 for aot_file in $aot_files; do
-  echo "---> run xnnpack benchmark $aot_file iwasm"
-  if [[ $1 == '--sgx' ]]; then
-    ${IWASM_CMD} $aot_file
+  echo "---> run xnnpack benchmark $aot_file with iwasm"
+  ${IWASM_CMD} $aot_file &
+  i=$(((i + 1) % num_procs))
+  if [ $i -eq 0 ]; then
+    echo "i is equal to 0"
+    wait
   fi
 done
+# Wait for all background processes to finish
+wait
