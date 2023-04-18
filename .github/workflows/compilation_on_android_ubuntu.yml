@@ -125,8 +125,8 @@ jobs:
             # Running mode
             $CLASSIC_INTERP_BUILD_OPTIONS,
             $FAST_INTERP_BUILD_OPTIONS,
-            $FAST_JIT_BUILD_OPTIONS
-        ]
+            $FAST_JIT_BUILD_OPTIONS,
+          ]
         make_options_feature: [
             # Features
             "-DWAMR_BUILD_CUSTOM_NAME_SECTION=1",
@@ -414,11 +414,11 @@ jobs:
         os: [ubuntu-20.04, ubuntu-22.04]
         wasi_sdk_release:
           [
-            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-linux.tar.gz"
+            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-linux.tar.gz",
           ]
         wabt_release:
           [
-            "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-ubuntu.tar.gz"
+            "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-ubuntu.tar.gz",
           ]
     steps:
       - name: checkout
@@ -505,7 +505,7 @@ jobs:
         build_iwasm,
         build_llvm_libraries_on_ubuntu_2004,
         build_llvm_libraries_on_ubuntu_2204,
-        build_wamrc
+        build_wamrc,
       ]
     runs-on: ${{ matrix.os }}
     strategy:
@@ -530,7 +530,7 @@ jobs:
           ]
         wasi_sdk_release:
           [
-            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-linux.tar.gz"
+            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-linux.tar.gz",
           ]
         include:
           - os: ubuntu-20.04
@@ -551,24 +551,16 @@ jobs:
             test_option: $MULTI_MODULES_TEST_OPTIONS
           - running_mode: "jit"
             test_option: $MULTI_MODULES_TEST_OPTIONS
-          # fast-jit doesn't support multi module, simd, and threads
+          # fast-jit doesn't support multi module, simd
           - running_mode: "fast-jit"
             test_option: $MULTI_MODULES_TEST_OPTIONS
           - running_mode: "fast-jit"
             test_option: $SIMD_TEST_OPTIONS
-          - running_mode: "fast-jit"
-            test_option: $THREADS_TEST_OPTIONS
-          - running_mode: "fast-jit"
-            test_option: $WASI_TEST_OPTIONS
-          # multi-tier-jit doesn't support multi module, simd, and threads
+          # multi-tier-jit doesn't support multi module, simd
           - running_mode: "multi-tier-jit"
             test_option: $MULTI_MODULES_TEST_OPTIONS
           - running_mode: "multi-tier-jit"
             test_option: $SIMD_TEST_OPTIONS
-          - running_mode: "multi-tier-jit"
-            test_option: $THREADS_TEST_OPTIONS
-          - running_mode: "multi-tier-jit"
-            test_option: $WASI_TEST_OPTIONS
     steps:
       - name: checkout
         uses: actions/checkout@v3

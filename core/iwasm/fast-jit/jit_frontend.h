@@ -108,6 +108,17 @@ typedef enum FloatArithmetic {
     FLOAT_MAX,
 } FloatArithmetic;
 
+#if WASM_ENABLE_SHARED_MEMORY != 0
+typedef enum AtomicRMWBinOp {
+    AtomicRMWBinOpAdd,
+    AtomicRMWBinOpSub,
+    AtomicRMWBinOpAnd,
+    AtomicRMWBinOpOr,
+    AtomicRMWBinOpXor,
+    AtomicRMWBinOpXchg
+} AtomicRMWBinOp;
+#endif
+
 /**
  * Translate instructions in a function. The translated block must
  * end with a branch instruction whose targets are offsets relating to

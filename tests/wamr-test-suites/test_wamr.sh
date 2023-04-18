@@ -444,14 +444,6 @@ function spec_test()
 
     if [[ ${ENABLE_MULTI_THREAD} == 1 ]]; then
         ARGS_FOR_SPEC_TEST+="-p "
-        if [[ $1 == 'fast-jit' ]]; then
-          echo "fast-jit doesn't support multi-thread feature yet, skip it"
-          return
-        fi
-        if [[ $1 == 'multi-tier-jit' ]]; then
-          echo "multi-tier-jit doesn't support multi-thread feature yet, skip it"
-          return
-        fi
     fi
 
     if [[ ${ENABLE_XIP} == 1 ]]; then
