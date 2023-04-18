@@ -37,6 +37,10 @@ jobs:
           rm -rf node_modules
           npm install
           vsce package
+        working-directory: test-tools/wamr-ide/VSCode-Extension
+
+      - name: publish wamr ide vscode extension to the vsce marketplace
+        run: |
           vsce publish -p ${{ secrets.TOKEN }}
         working-directory: test-tools/wamr-ide/VSCode-Extension
 
