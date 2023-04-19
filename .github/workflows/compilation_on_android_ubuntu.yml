@@ -338,7 +338,9 @@ jobs:
       ]
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
+        sanitizer: ["", "ubsan"]
         make_options: [
             # Running mode
             $AOT_BUILD_OPTIONS,
@@ -363,6 +365,7 @@ jobs:
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2004.outputs.cache_key }}
           - os: ubuntu-22.04
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
+
     steps:
       - name: checkout
         uses: actions/checkout@v3
@@ -380,6 +383,25 @@ jobs:
             ./core/deps/llvm/build/share
           key: ${{ matrix.llvm_cache_key }}
 
+      # - name: configure ubsan env
+      #   if: matrix.sanitizer == 'ubsan'
+      #   run: |
+      #     # echo "SANITIZER_FLAGS=-g -O2 -fno-omit-frame-pointer -fsanitize=undefined -fno-sanitize-recover=all -fno-sanitize=bounds,alignment" >> $GITHUB_ENV
+      #     # echo "LIBCXX_SANITIZER=Undefined" >> $GITHUB_ENV
+      # - name: configure asan env
+      #   if: matrix.sanitizer == 'asan'
+      #   run: |
+      #     echo "SANITIZER_FLAGS=-g -O2 -fno-omit-frame-pointer -fsanitize=address -fno-sanitize-recover=all" >> $GITHUB_ENV
+      #     echo "LIBCXX_SANITIZER=Address" >> $GITHUB_ENV
+      # - name: configure tsan env
+      #   if: matrix.sanitizer == 'tsan'
+      #   run: |
+      #     echo "SANITIZER_FLAGS=-g -O2 -fno-omit-frame-pointer -fsanitize=thread -fno-sanitize-recover=all" >> $GITHUB_ENV
+      #     echo "LIBCXX_SANITIZER=Thread" >> $GITHUB_ENV
+
+      - name: Configure Sanitizer
+        run: echo "SANITIZER=matrix.sanitizer" >> $GITHUB_ENV
+
       - name: Quit if cache miss
         if: (!endsWith(matrix.make_options, '_INTERP_BUILD_OPTIONS')) && (steps.retrieve_llvm_libs.outputs.cache-hit != 'true')
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
@@ -395,15 +417,16 @@ jobs:
         if: (!endsWith(matrix.make_options, '_INTERP_BUILD_OPTIONS'))
         run: |
           mkdir build && cd build
-          cmake ..
+          cmake -DSANITIZER=${{env.SANITIZER}} ..
           cmake --build . --config Release --parallel 4
         working-directory: wamr-compiler
 
       - name: Build Sample [wasm-c-api]
         run: |
-          cmake -S . -B build ${{ matrix.make_options }}
+          VERBOSE=1
+          cmake -S . -B build ${{ matrix.make_options }}  -DCMAKE_C_FLAGS="${{ env.SANITIZER_FLAGS }}" -DCMAKE_CXX_FLAGS="${{ env.SANITIZER_FLAGS }}"
           cmake --build build --config Release --parallel 4
-          ctest --test-dir build
+          ctest --test-dir build --output-on-failure
         working-directory: samples/wasm-c-api
 
   build_samples_others:

@@ -506,6 +506,11 @@ mask_signals(int how)
 static os_thread_local_attribute struct sigaction prev_sig_act_SIGSEGV;
 static os_thread_local_attribute struct sigaction prev_sig_act_SIGBUS;
 
+#if defined(__GNUC__)
+#pragma GCC push_options
+#pragma GCC optimize("O0")
+__attribute__((no_sanitize_address))
+#endif
 static void
 signal_callback(int sig_num, siginfo_t *sig_info, void *sig_ucontext)
 {

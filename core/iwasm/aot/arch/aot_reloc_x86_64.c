@@ -84,7 +84,7 @@ init_plt_table(uint8 *plt)
         /* mov symbol_addr, rax */
         *p++ = 0x48;
         *p++ = 0xB8;
-        *(uint64 *)p = (uint64)(uintptr_t)target_sym_map[i].symbol_addr;
+        *(uint64 *)p = (uint64)target_sym_map[i].symbol_addr;
         p += sizeof(uint64);
         /* jmp rax */
         *p++ = 0xFF;
