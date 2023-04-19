@@ -19,7 +19,7 @@
 extern "C" {
 #endif
 
-#define GC_HEAD_PADDING 4
+#define GC_HEAD_PADDING 8
 
 #define NULL_REF ((gc_object_t)NULL)
 
