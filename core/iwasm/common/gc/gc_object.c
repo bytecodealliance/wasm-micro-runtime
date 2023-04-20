@@ -6,6 +6,12 @@
 #include "gc_object.h"
 #include "mem_alloc.h"
 #include "../wasm_runtime_common.h"
+#if WASM_ENABLE_INTERP != 0
+#include "../interpreter/wasm_runtime.h"
+#endif
+#if WASM_ENABLE_AOT != 0
+#include "../aot/aot_runtime.h"
+#endif
 
 WASMRttTypeRef
 wasm_rtt_type_new(WASMType *defined_type, uint32 defined_type_idx,
@@ -51,9 +57,29 @@ gc_obj_malloc(void *heap_handle, uint64 size)
     return mem;
 }
 
-WASMStructObjectRef
-wasm_struct_obj_new(void *heap_handle, WASMRttTypeRef rtt_type)
+static void *
+get_gc_heap_handle(WASMExecEnv *exec_env)
 {
+    void *gc_heap_handle = NULL;
+    WASMModuleInstanceCommon *module_inst = exec_env->module_inst;
+
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode)
+        gc_heap_handle = ((WASMModuleInstance *)module_inst)->e->gc_heap_handle;
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT)
+        gc_heap_handle = NULL; /* TODO */
+#endif
+
+    bh_assert(gc_heap_handle);
+    return gc_heap_handle;
+}
+
+WASMStructObjectRef
+wasm_struct_obj_new(WASMExecEnv *exec_env, WASMRttTypeRef rtt_type)
+{
+    void *heap_handle = get_gc_heap_handle(exec_env);
     WASMStructObjectRef struct_obj;
     WASMStructType *struct_type;
 
@@ -71,7 +97,7 @@ wasm_struct_obj_new(void *heap_handle, WASMRttTypeRef rtt_type)
 
 void
 wasm_struct_obj_set_field(WASMStructObjectRef struct_obj, uint32 field_idx,
-                          WASMValue *value)
+                          const WASMValue *value)
 {
     WASMRttTypeRef rtt_type =
         (WASMRttTypeRef)wasm_object_header((WASMObjectRef)struct_obj);
@@ -152,9 +178,10 @@ wasm_struct_obj_get_field(const WASMStructObjectRef struct_obj,
 }
 
 WASMArrayObjectRef
-wasm_array_obj_new(void *heap_handle, WASMRttTypeRef rtt_type, uint32 length,
-                   WASMValue *init_value)
+wasm_array_obj_new(WASMExecEnv *exec_env, WASMRttTypeRef rtt_type,
+                   uint32 length, WASMValue *init_value)
 {
+    void *heap_handle = get_gc_heap_handle(exec_env);
     WASMArrayObjectRef array_obj;
     WASMArrayType *array_type;
     uint64 total_size;
@@ -214,7 +241,7 @@ wasm_array_obj_new(void *heap_handle, WASMRttTypeRef rtt_type, uint32 length,
 
 void
 wasm_array_obj_set_elem(WASMArrayObjectRef array_obj, uint32 elem_idx,
-                        WASMValue *value)
+                        const WASMValue *value)
 {
     uint8 *elem_data = wasm_array_obj_elem_addr(array_obj, elem_idx);
     uint32 elem_size = 1 << wasm_array_obj_elem_size_log(array_obj);
@@ -236,7 +263,7 @@ wasm_array_obj_set_elem(WASMArrayObjectRef array_obj, uint32 elem_idx,
 }
 
 void
-wasm_array_obj_get_elem(WASMArrayObjectRef array_obj, uint32 elem_idx,
+wasm_array_obj_get_elem(const WASMArrayObjectRef array_obj, uint32 elem_idx,
                         bool sign_extend, WASMValue *value)
 {
     uint8 *elem_data = wasm_array_obj_elem_addr(array_obj, elem_idx);
@@ -271,9 +298,28 @@ wasm_array_obj_copy(WASMArrayObjectRef dst_obj, uint32 dst_idx,
     bh_memmove_s(dst_data, elem_size * len, src_data, elem_size * len);
 }
 
+uint32
+wasm_array_obj_length(const WASMArrayObjectRef array_obj)
+{
+    return array_obj->length >> WASM_ARRAY_LENGTH_SHIFT;
+}
+
+void *
+wasm_array_obj_first_elem_addr(const WASMArrayObjectRef array_obj)
+{
+    return array_obj->elem_data;
+}
+
+void *
+wasm_array_obj_elem_addr(const WASMArrayObjectRef array_obj, uint32 elem_idx)
+{
+    return array_obj->elem_data
+           + (elem_idx << wasm_array_obj_elem_size_log(array_obj));
+}
+
 WASMFuncObjectRef
-wasm_func_obj_new(void *heap_handle, WASMRttTypeRef rtt_type,
-                  uint32 func_idx_bound)
+wasm_func_obj_new_internal(void *heap_handle, WASMRttTypeRef rtt_type,
+                           uint32 func_idx_bound)
 {
     WASMFuncObjectRef func_obj;
     uint64 total_size;
@@ -291,9 +337,33 @@ wasm_func_obj_new(void *heap_handle, WASMRttTypeRef rtt_type,
     return func_obj;
 }
 
-WASMExternrefObjectRef
-wasm_externref_obj_new(WASMExecEnv *exec_env, void *heap_handle, void *host_obj)
+WASMFuncObjectRef
+wasm_func_obj_new(WASMExecEnv *exec_env, WASMRttTypeRef rtt_type,
+                  uint32 func_idx_bound)
 {
+    void *heap_handle = get_gc_heap_handle(exec_env);
+    return wasm_func_obj_new_internal(heap_handle, rtt_type, func_idx_bound);
+}
+
+uint32
+wasm_func_obj_get_func_idx_bound(const WASMFuncObjectRef func_obj)
+{
+    return func_obj->func_idx_bound;
+}
+
+WASMFuncType *
+wasm_func_obj_get_func_type(const WASMFuncObjectRef func_obj)
+{
+    WASMRttTypeRef rtt_type =
+        (WASMRttTypeRef)wasm_object_header((WASMObjectRef)func_obj);
+    bh_assert(rtt_type->type_flag == WASM_TYPE_FUNC);
+    return (WASMFuncType *)rtt_type->defined_type;
+}
+
+WASMExternrefObjectRef
+wasm_externref_obj_new(WASMExecEnv *exec_env, const void *host_obj)
+{
+    void *heap_handle = get_gc_heap_handle(exec_env);
     WASMAnyrefObjectRef anyref_obj;
     WASMExternrefObjectRef externref_obj;
     WASMLocalObjectRef local_ref;
@@ -323,8 +393,9 @@ wasm_externref_obj_new(WASMExecEnv *exec_env, void *heap_handle, void *host_obj)
 }
 
 WASMAnyrefObjectRef
-wasm_anyref_obj_new(WASMExecEnv *exec_env, void *heap_handle, void *host_obj)
+wasm_anyref_obj_new(WASMExecEnv *exec_env, const void *host_obj)
 {
+    void *heap_handle = get_gc_heap_handle(exec_env);
     WASMAnyrefObjectRef anyref_obj;
 
     if (!(anyref_obj = gc_obj_malloc(heap_handle, sizeof(WASMAnyrefObject)))) {
@@ -344,9 +415,10 @@ wasm_externref_obj_to_internal_obj(WASMExternrefObjectRef externref_obj)
 }
 
 WASMExternrefObjectRef
-wasm_internal_obj_to_externref_obj(void *heap_handle,
+wasm_internal_obj_to_externref_obj(WASMExecEnv *exec_env,
                                    WASMObjectRef internal_obj)
 {
+    void *heap_handle = get_gc_heap_handle(exec_env);
     WASMExternrefObjectRef externref_obj;
 
     if (!(externref_obj =
@@ -358,6 +430,160 @@ wasm_internal_obj_to_externref_obj(void *heap_handle,
     externref_obj->internal_obj = internal_obj;
 
     return externref_obj;
+}
+
+const void *
+wasm_anyref_obj_get_value(WASMAnyrefObjectRef anyref_obj)
+{
+    return anyref_obj->host_obj;
+}
+
+const void *
+wasm_externref_obj_get_value(const WASMExternrefObjectRef externref_obj)
+{
+    if (wasm_obj_is_anyref_obj(externref_obj->internal_obj))
+        return ((WASMAnyrefObjectRef)externref_obj->internal_obj)->host_obj;
+    else
+        return externref_obj->internal_obj;
+}
+
+WASMI31ObjectRef
+wasm_i31_obj_new(uint32 i31_value)
+{
+    return (WASMI31ObjectRef)((i31_value << 1) | 1);
+}
+
+uint32
+wasm_i31_obj_get_value(WASMI31ObjectRef i31_obj, bool sign_extend)
+{
+    uint32 i31_value = (uint32)(((uintptr_t)i31_obj) >> 1);
+    if (sign_extend && (i31_value & 0x40000000)) /* bit 30 is 1 */
+        /* set bit 31 to 1 */
+        i31_value |= 0x80000000;
+    return i31_value;
+}
+
+bool
+wasm_obj_is_i31_obj(WASMObjectRef obj)
+{
+    bh_assert(obj);
+    return (((uintptr_t)obj) & 1) ? true : false;
+}
+
+bool
+wasm_obj_is_externref_obj(WASMObjectRef obj)
+{
+    bh_assert(obj);
+    return (!wasm_obj_is_i31_obj(obj)
+            && (obj->header & WASM_OBJ_EXTERNREF_OBJ_FLAG))
+               ? true
+               : false;
+}
+
+bool
+wasm_obj_is_anyref_obj(WASMObjectRef obj)
+{
+    bh_assert(obj);
+    return (!wasm_obj_is_i31_obj(obj)
+            && (obj->header & WASM_OBJ_ANYREF_OBJ_FLAG))
+               ? true
+               : false;
+}
+
+bool
+wasm_obj_is_i31_externref_or_anyref_obj(WASMObjectRef obj)
+{
+    bh_assert(obj);
+    return (wasm_obj_is_i31_obj(obj)
+            || (obj->header
+                & (WASM_OBJ_EXTERNREF_OBJ_FLAG | WASM_OBJ_ANYREF_OBJ_FLAG)))
+               ? true
+               : false;
+}
+
+bool
+wasm_obj_is_struct_obj(WASMObjectRef obj)
+{
+    WASMRttTypeRef rtt_type;
+
+    bh_assert(obj);
+
+    if (wasm_obj_is_i31_externref_or_anyref_obj(obj))
+        return false;
+
+    rtt_type = (WASMRttTypeRef)wasm_object_header(obj);
+    return rtt_type->type_flag == WASM_TYPE_STRUCT ? true : false;
+}
+
+bool
+wasm_obj_is_array_obj(WASMObjectRef obj)
+{
+    WASMRttTypeRef rtt_type;
+
+    bh_assert(obj);
+
+    if (wasm_obj_is_i31_externref_or_anyref_obj(obj))
+        return false;
+
+    rtt_type = (WASMRttTypeRef)wasm_object_header(obj);
+    return rtt_type->type_flag == WASM_TYPE_ARRAY ? true : false;
+}
+
+bool
+wasm_obj_is_func_obj(WASMObjectRef obj)
+{
+    WASMRttTypeRef rtt_type;
+
+    bh_assert(obj);
+
+    if (wasm_obj_is_i31_externref_or_anyref_obj(obj))
+        return false;
+
+    rtt_type = (WASMRttTypeRef)wasm_object_header(obj);
+    return rtt_type->type_flag == WASM_TYPE_FUNC ? true : false;
+}
+
+bool
+wasm_obj_is_internal_obj(WASMObjectRef obj)
+{
+    WASMRttTypeRef rtt_type;
+
+    bh_assert(obj);
+
+    if (wasm_obj_is_i31_obj(obj))
+        return true;
+    else if (obj->header & WASM_OBJ_ANYREF_OBJ_FLAG)
+        return true;
+    else if (obj->header & WASM_OBJ_EXTERNREF_OBJ_FLAG)
+        return false;
+    else {
+        rtt_type = (WASMRttTypeRef)wasm_object_header(obj);
+        return (rtt_type->type_flag == WASM_TYPE_STRUCT
+                || rtt_type->type_flag == WASM_TYPE_ARRAY)
+                   ? true
+                   : false;
+    }
+}
+
+bool
+wasm_obj_is_eq_obj(WASMObjectRef obj)
+{
+    WASMRttTypeRef rtt_type;
+
+    bh_assert(obj);
+
+    if (wasm_obj_is_i31_obj(obj))
+        return true;
+    else if ((obj->header & WASM_OBJ_ANYREF_OBJ_FLAG)
+             || (obj->header & WASM_OBJ_EXTERNREF_OBJ_FLAG))
+        return false;
+    else {
+        rtt_type = (WASMRttTypeRef)wasm_object_header(obj);
+        return (rtt_type->type_flag == WASM_TYPE_STRUCT
+                || rtt_type->type_flag == WASM_TYPE_ARRAY)
+                   ? true
+                   : false;
+    }
 }
 
 bool

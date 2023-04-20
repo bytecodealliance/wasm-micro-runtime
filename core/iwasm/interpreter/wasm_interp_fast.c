@@ -1839,8 +1839,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         }
 
                         SYNC_ALL_TO_FRAME();
-                        struct_obj = wasm_struct_obj_new(
-                            module->e->gc_heap_handle, rtt_type);
+                        struct_obj = wasm_struct_obj_new(exec_env, rtt_type);
                         if (!struct_obj) {
                             wasm_set_exception(module,
                                                "create struct object failed");
@@ -2010,9 +2009,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         }
 
                         SYNC_ALL_TO_FRAME();
-                        array_obj = wasm_array_obj_new(
-                            module->e->gc_heap_handle, rtt_type, array_len,
-                            &array_elem);
+                        array_obj = wasm_array_obj_new(exec_env, rtt_type,
+                                                       array_len, &array_elem);
                         if (!array_obj) {
                             wasm_set_exception(module,
                                                "create array object failed");
@@ -2106,9 +2104,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         }
 
                         SYNC_ALL_TO_FRAME();
-                        array_obj = wasm_array_obj_new(
-                            module->e->gc_heap_handle, rtt_type, array_len,
-                            &array_elem);
+                        array_obj = wasm_array_obj_new(exec_env, rtt_type,
+                                                       array_len, &array_elem);
                         if (!array_obj) {
                             wasm_set_exception(module,
                                                "create array object failed");

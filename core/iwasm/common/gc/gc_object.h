@@ -60,7 +60,7 @@ typedef struct WASMExternrefObject {
 typedef struct WASMAnyrefObject {
     /* bits[1] must be 1, denotes an anyref object */
     WASMObjectHeader header;
-    void *host_obj;
+    const void *host_obj;
 } WASMAnyrefObject, *WASMAnyrefObjectRef;
 
 /**
@@ -119,26 +119,26 @@ wasm_rtt_type_get_defined_type(const WASMRttTypeRef rtt_type)
 }
 
 WASMStructObjectRef
-wasm_struct_obj_new(void *heap_handle, WASMRttTypeRef rtt_type);
+wasm_struct_obj_new(struct WASMExecEnv *exec_env, WASMRttTypeRef rtt_type);
 
 void
 wasm_struct_obj_set_field(WASMStructObjectRef struct_obj, uint32 field_idx,
-                          WASMValue *value);
+                          const WASMValue *value);
 
 void
 wasm_struct_obj_get_field(const WASMStructObjectRef struct_obj,
                           uint32 field_idx, bool sign_extend, WASMValue *value);
 
 WASMArrayObjectRef
-wasm_array_obj_new(void *heap_handle, WASMRttTypeRef rtt_type, uint32 length,
-                   WASMValue *init_value);
+wasm_array_obj_new(struct WASMExecEnv *exec_env, WASMRttTypeRef rtt_type,
+                   uint32 length, WASMValue *init_value);
 
 void
 wasm_array_obj_set_elem(WASMArrayObjectRef array_obj, uint32 elem_idx,
-                        WASMValue *value);
+                        const WASMValue *value);
 
 void
-wasm_array_obj_get_elem(WASMArrayObjectRef array_obj, uint32 elem_idx,
+wasm_array_obj_get_elem(const WASMArrayObjectRef array_obj, uint32 elem_idx,
                         bool sign_extend, WASMValue *value);
 
 void
@@ -165,11 +165,8 @@ wasm_array_obj_elem_size_log(const WASMArrayObjectRef array_obj)
  *
  * @return the length of the array
  */
-inline static uint32
-wasm_array_obj_length(const WASMArrayObjectRef array_obj)
-{
-    return array_obj->length >> WASM_ARRAY_LENGTH_SHIFT;
-}
+uint32
+wasm_array_obj_length(const WASMArrayObjectRef array_obj);
 
 /**
  * Return the address of the first element of an array object.
@@ -178,11 +175,8 @@ wasm_array_obj_length(const WASMArrayObjectRef array_obj)
  *
  * @return the address of the first element of the array object
  */
-inline static void *
-wasm_array_obj_first_elem_addr(const WASMArrayObjectRef array_obj)
-{
-    return array_obj->elem_data;
-}
+void *
+wasm_array_obj_first_elem_addr(const WASMArrayObjectRef array_obj);
 
 /**
  * Return the address of the i-th element of an array object.
@@ -192,205 +186,76 @@ wasm_array_obj_first_elem_addr(const WASMArrayObjectRef array_obj)
  *
  * @return the address of the i-th element of the array object
  */
-inline static void *
-wasm_array_obj_elem_addr(const WASMArrayObjectRef array_obj, uint32 elem_idx)
-{
-    return array_obj->elem_data
-           + (elem_idx << wasm_array_obj_elem_size_log(array_obj));
-}
+void *
+wasm_array_obj_elem_addr(const WASMArrayObjectRef array_obj, uint32 elem_idx);
 
 WASMFuncObjectRef
-wasm_func_obj_new(void *heap_handle, WASMRttTypeRef rtt_type,
+wasm_func_obj_new_internal(void *heap_handle, WASMRttTypeRef rtt_type,
+                           uint32 func_idx_bound);
+
+WASMFuncObjectRef
+wasm_func_obj_new(struct WASMExecEnv *exec_env, WASMRttTypeRef rtt_type,
                   uint32 func_idx_bound);
 
-inline static uint32
-wasm_func_obj_get_func_idx_bound(const WASMFuncObjectRef func_obj)
-{
-    return func_obj->func_idx_bound;
-}
+uint32
+wasm_func_obj_get_func_idx_bound(const WASMFuncObjectRef func_obj);
 
-inline static WASMFuncType *
-wasm_func_obj_get_func_type(const WASMFuncObjectRef func_obj)
-{
-    WASMRttTypeRef rtt_type =
-        (WASMRttTypeRef)wasm_object_header((WASMObjectRef)func_obj);
-    bh_assert(rtt_type->type_flag == WASM_TYPE_FUNC);
-    return (WASMFuncType *)rtt_type->defined_type;
-}
+WASMFuncType *
+wasm_func_obj_get_func_type(const WASMFuncObjectRef func_obj);
 
 WASMExternrefObjectRef
-wasm_externref_obj_new(struct WASMExecEnv *exec_env, void *heap_handle,
-                       void *host_obj);
+wasm_externref_obj_new(struct WASMExecEnv *exec_env, const void *host_obj);
 
 WASMAnyrefObjectRef
-wasm_anyref_obj_new(struct WASMExecEnv *exec_env, void *heap_handle,
-                    void *host_obj);
+wasm_anyref_obj_new(struct WASMExecEnv *exec_env, const void *host_obj);
 
 /* Implementation of opcode extern.internalize */
 WASMObjectRef
-wasm_externref_obj_to_internal_obj(WASMExternrefObjectRef externref_obj);
+wasm_externref_obj_to_internal_obj(const WASMExternrefObjectRef externref_obj);
 
 /* Implementation of opcode extern.externalize */
 WASMExternrefObjectRef
-wasm_internal_obj_to_externref_obj(void *heap_handle,
-                                   WASMObjectRef internal_obj);
+wasm_internal_obj_to_externref_obj(struct WASMExecEnv *exec_env,
+                                   const WASMObjectRef internal_obj);
 
-inline static bool
+const void *
+wasm_anyref_obj_get_value(const WASMAnyrefObjectRef anyref_obj);
+
+const void *
+wasm_externref_obj_get_value(const WASMExternrefObjectRef externref_obj);
+
+WASMI31ObjectRef
+wasm_i31_obj_new(uint32 i31_value);
+
+uint32
+wasm_i31_obj_get_value(WASMI31ObjectRef i31_obj, bool sign_extend);
+
+bool
+wasm_obj_is_i31_obj(WASMObjectRef obj);
+
+bool
+wasm_obj_is_externref_obj(WASMObjectRef obj);
+
+bool
 wasm_obj_is_anyref_obj(WASMObjectRef obj);
 
-inline static void *
-wasm_anyref_obj_get_value(WASMAnyrefObjectRef anyref_obj)
-{
-    return anyref_obj->host_obj;
-}
+bool
+wasm_obj_is_i31_externref_or_anyref_obj(WASMObjectRef obj);
 
-inline static void *
-wasm_externref_obj_get_value(const WASMExternrefObjectRef externref_obj)
-{
-    if (wasm_obj_is_anyref_obj(externref_obj->internal_obj))
-        return ((WASMAnyrefObjectRef)externref_obj->internal_obj)->host_obj;
-    else
-        return externref_obj->internal_obj;
-}
+bool
+wasm_obj_is_struct_obj(WASMObjectRef obj);
 
-inline static WASMI31ObjectRef
-wasm_i31_obj_new(uint32 i31_value)
-{
-    return (WASMI31ObjectRef)((i31_value << 1) | 1);
-}
+bool
+wasm_obj_is_array_obj(WASMObjectRef obj);
 
-inline static uint32
-wasm_i31_obj_get_value(WASMI31ObjectRef i31_obj, bool sign_extend)
-{
-    uint32 i31_value = (uint32)(((uintptr_t)i31_obj) >> 1);
-    if (sign_extend && (i31_value & 0x40000000)) /* bit 30 is 1 */
-        /* set bit 31 to 1 */
-        i31_value |= 0x80000000;
-    return i31_value;
-}
+bool
+wasm_obj_is_func_obj(WASMObjectRef obj);
 
-inline static bool
-wasm_obj_is_i31_obj(WASMObjectRef obj)
-{
-    bh_assert(obj);
-    return (((uintptr_t)obj) & 1) ? true : false;
-}
+bool
+wasm_obj_is_internal_obj(WASMObjectRef obj);
 
-inline static bool
-wasm_obj_is_externref_obj(WASMObjectRef obj)
-{
-    bh_assert(obj);
-    return (!wasm_obj_is_i31_obj(obj)
-            && (obj->header & WASM_OBJ_EXTERNREF_OBJ_FLAG))
-               ? true
-               : false;
-}
-
-inline static bool
-wasm_obj_is_anyref_obj(WASMObjectRef obj)
-{
-    bh_assert(obj);
-    return (!wasm_obj_is_i31_obj(obj)
-            && (obj->header & WASM_OBJ_ANYREF_OBJ_FLAG))
-               ? true
-               : false;
-}
-
-inline static bool
-wasm_obj_is_i31_externref_or_anyref_obj(WASMObjectRef obj)
-{
-    bh_assert(obj);
-    return (wasm_obj_is_i31_obj(obj)
-            || (obj->header
-                & (WASM_OBJ_EXTERNREF_OBJ_FLAG | WASM_OBJ_ANYREF_OBJ_FLAG)))
-               ? true
-               : false;
-}
-
-inline static bool
-wasm_obj_is_struct_obj(WASMObjectRef obj)
-{
-    WASMRttTypeRef rtt_type;
-
-    bh_assert(obj);
-
-    if (wasm_obj_is_i31_externref_or_anyref_obj(obj))
-        return false;
-
-    rtt_type = (WASMRttTypeRef)wasm_object_header(obj);
-    return rtt_type->type_flag == WASM_TYPE_STRUCT ? true : false;
-}
-
-inline static bool
-wasm_obj_is_array_obj(WASMObjectRef obj)
-{
-    WASMRttTypeRef rtt_type;
-
-    bh_assert(obj);
-
-    if (wasm_obj_is_i31_externref_or_anyref_obj(obj))
-        return false;
-
-    rtt_type = (WASMRttTypeRef)wasm_object_header(obj);
-    return rtt_type->type_flag == WASM_TYPE_ARRAY ? true : false;
-}
-
-inline static bool
-wasm_obj_is_func_obj(WASMObjectRef obj)
-{
-    WASMRttTypeRef rtt_type;
-
-    bh_assert(obj);
-
-    if (wasm_obj_is_i31_externref_or_anyref_obj(obj))
-        return false;
-
-    rtt_type = (WASMRttTypeRef)wasm_object_header(obj);
-    return rtt_type->type_flag == WASM_TYPE_FUNC ? true : false;
-}
-
-inline static bool
-wasm_obj_is_internal_obj(WASMObjectRef obj)
-{
-    WASMRttTypeRef rtt_type;
-
-    bh_assert(obj);
-
-    if (wasm_obj_is_i31_obj(obj))
-        return true;
-    else if (obj->header & WASM_OBJ_ANYREF_OBJ_FLAG)
-        return true;
-    else if (obj->header & WASM_OBJ_EXTERNREF_OBJ_FLAG)
-        return false;
-    else {
-        rtt_type = (WASMRttTypeRef)wasm_object_header(obj);
-        return (rtt_type->type_flag == WASM_TYPE_STRUCT
-                || rtt_type->type_flag == WASM_TYPE_ARRAY)
-                   ? true
-                   : false;
-    }
-}
-
-inline static bool
-wasm_obj_is_eq_obj(WASMObjectRef obj)
-{
-    WASMRttTypeRef rtt_type;
-
-    bh_assert(obj);
-
-    if (wasm_obj_is_i31_obj(obj))
-        return true;
-    else if ((obj->header & WASM_OBJ_ANYREF_OBJ_FLAG)
-             || (obj->header & WASM_OBJ_EXTERNREF_OBJ_FLAG))
-        return false;
-    else {
-        rtt_type = (WASMRttTypeRef)wasm_object_header(obj);
-        return (rtt_type->type_flag == WASM_TYPE_STRUCT
-                || rtt_type->type_flag == WASM_TYPE_ARRAY)
-                   ? true
-                   : false;
-    }
-}
+bool
+wasm_obj_is_eq_obj(WASMObjectRef obj);
 
 inline static bool
 wasm_obj_is_null_obj(WASMObjectRef obj)
