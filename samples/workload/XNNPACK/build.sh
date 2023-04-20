@@ -26,23 +26,25 @@ if [ -d "$xnnpack_out_dir" ]; then
   file_count=$(ls "$xnnpack_out_dir" | grep ".wasm$" | wc -l)
   # TODO: currently should be 116 files, may changes in the future
   if [ $file_count -eq 116 ]; then
-    echo "Fully build XNNPACK benchmark wasm files"
-    need_build=false
+    echo "Have fully built XNNPACK benchmark wasm files before, rebuild it to update"
+    need_fresh_build=false
+    cmake -B build
+    cmake --build build
   else
-    echo "Partially build XNNPACK wasm files, rebuild again"
-    need_build=true
+    echo "Partially build XNNPACK wasm files, start a fresh build"
+    need_fresh_build=true
   fi
 else
-  echo "XNNPACK build directory does not exist"
-  need_build=true
+  echo "XNNPACK build directory does not exist, start a fresh build"
+  need_fresh_build=true
 fi
 
 # 1.2 only build wasm files if needed
-if [ "$need_build" = true ]; then
+if [ "$need_fresh_build" = true ]; then
   echo "Start building xnnpack"
-  # rm -fr build && mkdir build
-  # cmake -B build
-  # cmake --build build
+  rm -fr build && mkdir build
+  cmake -B build
+  cmake --build build
 fi
 
 # 1.3 copy files to out/
@@ -122,12 +124,5 @@ aot_files=$(ls *.aot)
 i=0
 for aot_file in $aot_files; do
   echo "---> run xnnpack benchmark $aot_file with iwasm"
-  ${IWASM_CMD} $aot_file &
-  i=$(((i + 1) % num_procs))
-  if [ $i -eq 0 ]; then
-    echo "i is equal to 0"
-    wait
-  fi
+  ${IWASM_CMD} $aot_file
 done
-# Wait for all background processes to finish
-wait
