@@ -46,3 +46,13 @@ $ wamrc -o average_pooling_bench.aot average_pooling_bench.wasm  (or other wasm 
 $ iwasm average_pooling_bench.aot
 ```
 
+## Alternatively, build and run in one shell script
+
+> Note: Some steps in this shell script will use significant CPU resources to do things such as parallel compilation. You are more than welcome to modify it to accommodate your situation
+
+```bash
+# for linux platform, or
+./build.sh
+# for linux-sgx platform
+./build.sh --sgx
+```

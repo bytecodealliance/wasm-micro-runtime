@@ -121,7 +121,6 @@ cd ${OUT_DIR}
 # List all .wasm files in the input directory
 aot_files=$(ls *.aot)
 # Iterate through the .wasm files and compile it to aot file
-i=0
 for aot_file in $aot_files; do
   echo "---> run xnnpack benchmark $aot_file with iwasm"
   ${IWASM_CMD} $aot_file
