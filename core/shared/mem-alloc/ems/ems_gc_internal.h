@@ -207,6 +207,12 @@ set_hmu_normal_node_next(hmu_normal_node_t *node, hmu_normal_node_t *next)
 typedef struct hmu_tree_node {
     hmu_t hmu_header;
     gc_size_t size;
+#if UINTPTR_MAX == UINT64_MAX && WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
+    /* each hmu node is 4-byte aligned and not 8-byte aligned,
+       add 4 bytes padding to make below left/right/parent fields
+       8-byte aligned, so that we can directly access them */
+    uint32 __padding;
+#endif
     struct hmu_tree_node *left;
     struct hmu_tree_node *right;
     struct hmu_tree_node *parent;
@@ -223,8 +229,14 @@ typedef struct gc_heap_struct {
 
     hmu_normal_list_t kfc_normal_list[HMU_NORMAL_NODE_CNT];
 
-    /* order in kfc_tree is: size[left] <= size[cur] < size[right]*/
-    hmu_tree_node_t kfc_tree_root;
+#if UINTPTR_MAX == UINT64_MAX && WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
+    /* make kfc_tree_root_buf 4-byte aligned and not 8-byte aligned */
+    uint32 __padding;
+#endif
+    uint8 kfc_tree_root_buf[sizeof(hmu_tree_node_t)];
+    /* point to kfc_tree_root_buf, the order in kfc_tree is:
+         size[left] <= size[cur] < size[right] */
+    hmu_tree_node_t *kfc_tree_root;
 
     /* whether heap is corrupted, e.g. the hmu nodes are modified
        by user */

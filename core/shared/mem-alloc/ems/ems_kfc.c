@@ -27,7 +27,7 @@ gc_init_internal(gc_heap_t *heap, char *base_addr, gc_size_t heap_max_size)
     heap->total_free_size = heap->current_size;
     heap->highmark_size = 0;
 
-    root = &heap->kfc_tree_root;
+    root = heap->kfc_tree_root = (hmu_tree_node_t *)heap->kfc_tree_root_buf;
     memset(root, 0, sizeof *root);
     root->size = sizeof *root;
     hmu_set_ut(&root->hmu_header, HMU_FC);
@@ -188,9 +188,9 @@ gc_migrate(gc_handle_t handle, char *pool_buf_new, gc_size_t pool_buf_size)
     }
 
     heap->base_addr = (uint8 *)base_addr_new;
-    adjust_ptr((uint8 **)&heap->kfc_tree_root.left, offset);
-    adjust_ptr((uint8 **)&heap->kfc_tree_root.right, offset);
-    adjust_ptr((uint8 **)&heap->kfc_tree_root.parent, offset);
+    adjust_ptr((uint8 **)&heap->kfc_tree_root->left, offset);
+    adjust_ptr((uint8 **)&heap->kfc_tree_root->right, offset);
+    adjust_ptr((uint8 **)&heap->kfc_tree_root->parent, offset);
 
     cur = (hmu_t *)heap->base_addr;
     end = (hmu_t *)((char *)heap->base_addr + heap->current_size);
@@ -208,7 +208,7 @@ gc_migrate(gc_handle_t handle, char *pool_buf_new, gc_size_t pool_buf_size)
             tree_node = (hmu_tree_node_t *)cur;
             adjust_ptr((uint8 **)&tree_node->left, offset);
             adjust_ptr((uint8 **)&tree_node->right, offset);
-            if (tree_node->parent != &heap->kfc_tree_root)
+            if (tree_node->parent != heap->kfc_tree_root)
                 /* The root node belongs to heap structure,
                    it is fixed part and isn't changed. */
                 adjust_ptr((uint8 **)&tree_node->parent, offset);
