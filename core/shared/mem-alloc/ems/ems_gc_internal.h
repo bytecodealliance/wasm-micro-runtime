@@ -204,19 +204,27 @@ set_hmu_normal_node_next(hmu_normal_node_t *node, hmu_normal_node_t *next)
     }
 }
 
+#ifndef __packed
+/* Note: This version check is a bit relaxed.
+   The __packed__ attribute has been there since gcc 2 era. */
+#if __GNUC__ >= 3
+#define __packed __attribute__((__packed__))
+#endif
+#endif
+
 typedef struct hmu_tree_node {
     hmu_t hmu_header;
-    gc_size_t size;
-#if UINTPTR_MAX == UINT64_MAX && WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
-    /* each hmu node is 4-byte aligned and not 8-byte aligned,
-       add 4 bytes padding to make below left/right/parent fields
-       8-byte aligned, so that we can directly access them */
-    uint32 __padding;
-#endif
     struct hmu_tree_node *left;
     struct hmu_tree_node *right;
     struct hmu_tree_node *parent;
-} hmu_tree_node_t;
+    gc_size_t size;
+} __packed hmu_tree_node_t;
+
+#define ASSERT_TREE_NODE_ALIGNED_ACCESS(tree_node)                          \
+    do {                                                                    \
+        bh_assert((((uintptr_t)&tree_node->left) & (sizeof(uintptr_t) - 1)) \
+                  == 0);                                                    \
+    } while (0)
 
 typedef struct gc_heap_struct {
     /* for double checking*/
@@ -229,8 +237,10 @@ typedef struct gc_heap_struct {
 
     hmu_normal_list_t kfc_normal_list[HMU_NORMAL_NODE_CNT];
 
-#if UINTPTR_MAX == UINT64_MAX && WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
-    /* make kfc_tree_root_buf 4-byte aligned and not 8-byte aligned */
+#if UINTPTR_MAX == UINT64_MAX
+    /* make kfc_tree_root_buf 4-byte aligned and not 8-byte aligned,
+       so kfc_tree_root's left/right/parent fields are 8-byte aligned
+       and we can access them directly */
     uint32 __padding;
 #endif
     uint8 kfc_tree_root_buf[sizeof(hmu_tree_node_t)];
