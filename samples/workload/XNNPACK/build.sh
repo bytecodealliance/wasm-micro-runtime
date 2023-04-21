@@ -13,7 +13,7 @@ BUILD_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WAMR_DIR="${BUILD_SCRIPT_DIR}/../../.."
 WAMR_PLATFORM_DIR="${WAMR_DIR}/product-mini/platforms"
 WAMRC_DIR="${WAMR_DIR}/wamr-compiler"
-OUT_DIR="${BUILD_SCRIPT_DIR}/out"
+OUT_DIR="${BUILD_SCRIPT_DIR}/build/wasm-opt"
 
 set -xe
 
@@ -24,12 +24,13 @@ xnnpack_out_dir=xnnpack/bazel-bin
 if [ -d "$xnnpack_out_dir" ]; then
   echo "XNNPACK build directory exists"
   file_count=$(ls "$xnnpack_out_dir" | grep ".wasm$" | wc -l)
-  # TODO: currently should be 116 files, may changes in the future
-  if [ $file_count -eq 116 ]; then
-    echo "Have fully built XNNPACK benchmark wasm files before, rebuild it to update"
+  file_count_expected=$(egrep "\/\/:.*\.wasm" CMakeLists.txt | wc -l)
+  if [ $file_count -eq $file_count_expected ]; then
+    echo "Have fully built XNNPACK benchmark wasm files before, reinstall to make sure everything in correct directory"
     need_fresh_build=false
-    cmake -B build
-    cmake --build build
+    mkdir -p build && cd build
+    cmake ..
+    cmake --install .
   else
     echo "Partially build XNNPACK wasm files, start a fresh build"
     need_fresh_build=true
@@ -42,15 +43,11 @@ fi
 # 1.2 only build wasm files if needed
 if [ "$need_fresh_build" = true ]; then
   echo "Start building xnnpack"
-  rm -fr build && mkdir build
-  cmake -B build
-  cmake --build build
+  rm -fr build && mkdir build && cd build
+  cmake ..
+  cmake --build .
+  cmake --install .
 fi
-
-# 1.3 copy files to out/
-rm -rf ${OUT_DIR}
-mkdir ${OUT_DIR}
-cp xnnpack/bazel-bin/*.wasm out/
 
 # 2. compile xnnpack benchmark wasm files to benchmark aot files with wamrc
 # 2.1 build wamr-compiler if needed
