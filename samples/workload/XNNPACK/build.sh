@@ -17,22 +17,18 @@ OUT_DIR="${BUILD_SCRIPT_DIR}/build/wasm-opt"
 
 set -xe
 
-# 1. build xnnpack wasm files
-# 1.1 to decide whether needs to build xnnpack wasm files
+# 1. build wamrc and xnnpack aot files using cmake
+# 1.1 to decide whether needs to start a fresh build
 cd ${WAMR_DIR}/samples/workload/XNNPACK
-xnnpack_out_dir=xnnpack/bazel-bin
-if [ -d "$xnnpack_out_dir" ]; then
+if [ -d "$OUT_DIR" ]; then
   echo "XNNPACK build directory exists"
-  file_count=$(ls "$xnnpack_out_dir" | grep ".wasm$" | wc -l)
+  file_count=$(ls "$OUT_DIR" | grep ".aot$" | wc -l)
   file_count_expected=$(egrep "\/\/:.*\.wasm" CMakeLists.txt | wc -l)
   if [ $file_count -eq $file_count_expected ]; then
-    echo "Have fully built XNNPACK benchmark wasm files before, reinstall to make sure everything in correct directory"
+    echo "Have fully built XNNPACK benchmark aot files before, skip build"
     need_fresh_build=false
-    mkdir -p build && cd build
-    cmake ..
-    cmake --install .
   else
-    echo "Partially build XNNPACK wasm files, start a fresh build"
+    echo "Partially build XNNPACK aot files, start a fresh build"
     need_fresh_build=true
   fi
 else
@@ -40,57 +36,24 @@ else
   need_fresh_build=true
 fi
 
-# 1.2 only build wasm files if needed
-if [ "$need_fresh_build" = true ]; then
-  echo "Start building xnnpack"
-  rm -fr build && mkdir build && cd build
-  cmake ..
-  cmake --build .
-  cmake --install .
-fi
-
-# 2. compile xnnpack benchmark wasm files to benchmark aot files with wamrc
-# 2.1 build wamr-compiler if needed
-cd ${WAMRC_DIR}
-./build_llvm.sh
-rm -fr build && mkdir build
-cd build && cmake ..
-make
-# 2.2 compile all .wasm files to .aot files
-WAMRC_CMD="$(pwd)/wamrc"
-cd ${OUT_DIR}
-# List all .wasm files in the input directory
-wasm_files=$(ls *.wasm)
-# Define the number of parallel processes to use
+# 1.2 only build wamrc, xnnpack wasm files and aot files if needed
 num_procs=$(($(nproc) - 2))
 if [ $num_procs -lt 2 ]; then
   num_procs=1
 fi
-# Define function to compile .wasm files
-function compile_wasm() {
-  wasm_file=$1
-  WAMRC_CMD=$2
-  wasm_file_name=$(basename "$wasm_file" .wasm)
-  if [[ $3 == "--sgx" ]]; then
-    ${WAMRC_CMD} -sgx -o "${wasm_file_name}.aot" "${wasm_file_name}.wasm"
+if [ "$need_fresh_build" = true ]; then
+  echo "Start building xnnpack"
+  rm -rf xnnpack && rm -fr build && mkdir build
+  if [[ $1 == '--sgx' ]]; then
+    cmake -B build -DSGX=1
   else
-    ${WAMRC_CMD} --enable-multi-thread -o "${wasm_file_name}.aot" "${wasm_file_name}.wasm"
+    cmake -B build
   fi
-}
-# Loop through each .wasm file and compile it in parallel
-i=0
-for wasm_file in $wasm_files; do
-  compile_wasm "$wasm_file" "$WAMRC_CMD" "$1" &
-  i=$(((i + 1) % num_procs))
-  if [ $i -eq 0 ]; then
-    echo "i is equal to 0"
-    wait
-  fi
-done
-# Wait for all background processes to finish
-wait
+  cmake --build build -j $num_procs
+  cd build && cmake --install .
+fi
 
-# 3. build iwasm with pthread and libc_emcc enable
+# 2. build iwasm with pthread and libc_emcc enable
 #    platform:
 #     linux by default
 #     linux-sgx if $1 equals '--sgx'
@@ -108,7 +71,7 @@ else
   make
 fi
 
-# 4. run xnnpack with iwasm
+# 3. run xnnpack with iwasm
 if [[ $1 == '--sgx' ]]; then
   IWASM_CMD="${WAMR_PLATFORM_DIR}/linux-sgx/enclave-sample/iwasm"
 else

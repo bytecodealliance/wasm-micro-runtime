@@ -8,6 +8,29 @@ project(xnnpack_wasm)
 ################  EMCC ################
 include(ExternalProject)
 
+if(NOT SGX)
+    set(SGX 0)
+endif()
+
+################ iwasm ################
+ExternalProject_Add(wamrc
+  PREFIX
+    wamrc-build
+  BUILD_ALWAYS
+    YES
+  SOURCE_DIR
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../../wamr-compiler
+  CONFIGURE_COMMAND
+    ${CMAKE_COMMAND} -S ${CMAKE_CURRENT_SOURCE_DIR}/../../../wamr-compiler -B build
+  BUILD_COMMAND
+    ${CMAKE_COMMAND} --build build --parallel 4
+  INSTALL_COMMAND
+    # FIXME: replace with --install
+    ${CMAKE_COMMAND} -E copy_if_different
+      ${CMAKE_CURRENT_BINARY_DIR}/wamrc-build/src/wamrc-build/build/wamrc
+      ${CMAKE_CURRENT_BINARY_DIR}/wamrc
+)
+
 ExternalProject_Add(xnnpack
     PREFIX xnnpack
     GIT_REPOSITORY https://github.com/google/XNNPACK.git
@@ -145,3 +168,45 @@ ExternalProject_Add(xnnpack
                       ${CMAKE_CURRENT_SOURCE_DIR}/xnnpack/bazel-out/wasm-opt/bin/
                       ${CMAKE_BINARY_DIR}/wasm-opt
 )
+
+################ .aot ################
+# Get a list of all the AOT files under the ./bwa directory
+file(GLOB WASM_FILES "${CMAKE_BINARY_DIR}/wasm-opt/*.wasm")
+
+# Convert all the WASM files to AOT files
+foreach(WASM_FILE ${WASM_FILES})
+    if(SGX EQUAL 1)
+        message("Generate aot files on linux-sgx")
+        get_filename_component(WASM_NAME ${WASM_FILE} NAME_WE)
+        add_custom_target(
+            ${WASM_NAME}_AOT
+            ALL
+            COMMAND
+                ../wamrc --sgx -o ${WASM_NAME}.aot ${WASM_FILE}
+            DEPENDS 
+                wamrc xnnpack
+            WORKING_DIRECTORY
+                ${CMAKE_CURRENT_BINARY_DIR}/wasm-opt
+            BYPRODUCTS 
+                ${CMAKE_CURRENT_BINARY_DIR}/${WASM_NAME}.aot
+            VERBATIM
+            COMMENT "generate a aot file for ${WASM_FILE}"
+        )
+    else()
+        message("Generate aot files on linux")
+        get_filename_component(WASM_NAME ${WASM_FILE} NAME_WE)
+        add_custom_target(
+            ${WASM_NAME}_AOT
+            ALL
+            COMMAND
+                ../wamrc --enable-multi-thread -o ${WASM_NAME}.aot ${WASM_FILE}
+            DEPENDS 
+                wamrc xnnpack
+            WORKING_DIRECTORY
+                ${CMAKE_CURRENT_BINARY_DIR}/wasm-opt
+            BYPRODUCTS ${CMAKE_CURRENT_BINARY_DIR}/${WASM_NAME}.aot
+            VERBATIM
+            COMMENT "generate a aot file for ${WASM_FILE}"
+        )
+    endif()
+endforeach()
