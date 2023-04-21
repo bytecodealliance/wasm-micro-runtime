@@ -204,21 +204,36 @@ set_hmu_normal_node_next(hmu_normal_node_t *node, hmu_normal_node_t *next)
     }
 }
 
-#ifndef __packed
-/* Note: This version check is a bit relaxed.
-   The __packed__ attribute has been there since gcc 2 era. */
-#if __GNUC__ >= 3
-#define __packed __attribute__((__packed__))
-#endif
-#endif
-
+/**
+ * Define hmu_tree_node as packed struct, since it is at the 4-byte
+ * aligned address and the size of hmu_head is 4, so in 64-bit target,
+ * the left/right/parent fields will be at 8-byte aligned address,
+ * we can access them directly.
+ */
+#if defined(_MSC_VER)
+__pragma(pack(push, 1));
 typedef struct hmu_tree_node {
     hmu_t hmu_header;
     struct hmu_tree_node *left;
     struct hmu_tree_node *right;
     struct hmu_tree_node *parent;
     gc_size_t size;
-} __packed hmu_tree_node_t;
+} hmu_tree_node_t;
+__pragma(pack(pop));
+#elif defined(__GNUC__) || defined(__clang__)
+typedef struct hmu_tree_node {
+    hmu_t hmu_header;
+    struct hmu_tree_node *left;
+    struct hmu_tree_node *right;
+    struct hmu_tree_node *parent;
+    gc_size_t size;
+} __attribute__((packed)) hmu_tree_node_t;
+#else
+#error "packed attribute isn't used to define struct hmu_tree_node"
+#endif
+
+bh_static_assert(sizeof(hmu_tree_node_t) == 8 + 3 * sizeof(void *));
+bh_static_assert(offsetof(hmu_tree_node_t, left) == 4);
 
 #define ASSERT_TREE_NODE_ALIGNED_ACCESS(tree_node)                          \
     do {                                                                    \
