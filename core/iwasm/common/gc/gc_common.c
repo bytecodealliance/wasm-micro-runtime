@@ -46,16 +46,71 @@ wasm_defined_type_is_array_type(WASMType *const def_type1)
     return false;
 }
 
+uint32
+wasm_func_type_get_param_count(WASMFuncType *const func_type)
+{
+    /* TODO */
+    return 0;
+}
+
+wasm_ref_type_t
+wasm_func_type_get_param_type(WASMFuncType *const func_type, uint32 param_idx)
+{
+    wasm_ref_type_t ref_type = { 0 };
+    /* TODO */
+    return ref_type;
+}
+
+uint32
+wasm_func_type_get_result_count(WASMFuncType *const func_type)
+{
+    /* TODO */
+    return 0;
+}
+
+wasm_ref_type_t
+wasm_func_type_get_result_type(WASMFuncType *const func_type, uint32 param_idx)
+{
+    wasm_ref_type_t ref_type = { 0 };
+    /* TODO */
+    return ref_type;
+}
+
+uint32
+wasm_struct_type_get_field_count(WASMStructType *const struct_type)
+{
+    /* TODO */
+    return 0;
+}
+
+wasm_ref_type_t
+wasm_struct_type_get_field_type(WASMStructType *const struct_type,
+                                uint32 field_idx, bool *p_is_mutable)
+{
+    wasm_ref_type_t ref_type = { 0 };
+    /* TODO */
+    return ref_type;
+}
+
+wasm_ref_type_t
+wasm_array_type_get_elem_type(WASMArrayType *const array_type,
+                              bool *p_is_mutable)
+{
+    wasm_ref_type_t ref_type = { 0 };
+    /* TODO */
+    return ref_type;
+}
+
 bool
-wasm_is_defined_type_equal(WASMType *const def_type1, WASMType *const def_type2,
-                           WASMModuleCommon *const module)
+wasm_defined_type_equal(WASMType *const def_type1, WASMType *const def_type2,
+                        WASMModuleCommon *const module)
 {
     /* TODO */
     return false;
 }
 
 bool
-wasm_is_defined_type_subtype_of(WASMType *const def_type1,
+wasm_defined_type_is_subtype_of(WASMType *const def_type1,
                                 WASMType *const def_type2,
                                 WASMModuleCommon *const module)
 {

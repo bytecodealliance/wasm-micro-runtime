@@ -208,15 +208,15 @@ wasm_array_type_get_elem_type(const wasm_array_type_t array_type,
  * Check whether two defined types are equal
  */
 WASM_RUNTIME_API_EXTERN bool
-wasm_is_defined_type_equal(const wasm_defined_type_t def_type1,
-                           const wasm_defined_type_t def_type2,
-                           const wasm_module_t module);
+wasm_defined_type_equal(const wasm_defined_type_t def_type1,
+                        const wasm_defined_type_t def_type2,
+                        const wasm_module_t module);
 
 /**
  * Check whether def_type1 is subtype of def_type2
  */
 WASM_RUNTIME_API_EXTERN bool
-wasm_is_defined_type_subtype_of(const wasm_defined_type_t def_type1,
+wasm_defined_type_is_subtype_of(const wasm_defined_type_t def_type1,
                                 const wasm_defined_type_t def_type2,
                                 const wasm_module_t module);
 
@@ -348,13 +348,13 @@ wasm_func_obj_new_with_type(wasm_exec_env_t exec_env, wasm_func_type_t type);
 /**
  * Get the function index bound of a function object
  */
-uint32
+WASM_RUNTIME_API_EXTERN uint32
 wasm_func_obj_get_func_idx_bound(const wasm_func_obj_t func_obj);
 
 /**
  * Get the function type of a function object
  */
-wasm_func_type_t
+WASM_RUNTIME_API_EXTERN wasm_func_type_t
 wasm_func_obj_get_func_type(const wasm_func_obj_t func_obj);
 
 /**
@@ -366,7 +366,7 @@ wasm_externref_obj_new(wasm_exec_env_t exec_env, const void *host_obj);
 /**
  * Get the host value of an externref object
  */
-const void *
+WASM_RUNTIME_API_EXTERN const void *
 wasm_externref_obj_get_value(const wasm_externref_obj_t externref_obj);
 
 /**
@@ -378,7 +378,7 @@ wasm_anyref_obj_new(wasm_exec_env_t exec_env, const void *host_obj);
 /**
  * Get the host object value of an anyref object
  */
-const void *
+WASM_RUNTIME_API_EXTERN const void *
 wasm_anyref_obj_get_value(const wasm_anyref_obj_t anyref_obj);
 
 /**
@@ -402,7 +402,7 @@ wasm_internal_obj_to_externref_obj(wasm_exec_env_t exec_env,
 WASM_RUNTIME_API_EXTERN wasm_i31_obj_t
 wasm_i31_obj_new(uint32 i31_value);
 
-uint32
+WASM_RUNTIME_API_EXTERN uint32
 wasm_i31_obj_get_value(wasm_i31_obj_t i31_obj, bool sign_extend);
 
 /**
@@ -439,31 +439,31 @@ wasm_obj_is_func_obj(const wasm_obj_t obj);
  * Check whether an object is an i31 object
  */
 WASM_RUNTIME_API_EXTERN bool
-wasm_is_obj_i31_obj(const wasm_obj_t obj);
+wasm_obj_is_i31_obj(const wasm_obj_t obj);
 
 /**
  * Check whether an object is an externref object
  */
 WASM_RUNTIME_API_EXTERN bool
-wasm_is_obj_externref_obj(const wasm_obj_t obj);
+wasm_obj_is_externref_obj(const wasm_obj_t obj);
 
 /**
  * Check whether an object is an anyref object
  */
 WASM_RUNTIME_API_EXTERN bool
-wasm_is_obj_anyref_obj(const wasm_obj_t obj);
+wasm_obj_is_anyref_obj(const wasm_obj_t obj);
 
 /**
  * Check whether an object is a struct object, or, a i31/struct/array object
  */
 WASM_RUNTIME_API_EXTERN bool
-wasm_is_obj_internal_obj(const wasm_obj_t obj);
+wasm_obj_is_internal_obj(const wasm_obj_t obj);
 
 /**
  * Check whether an object is a eq object
  */
 WASM_RUNTIME_API_EXTERN bool
-wasm_is_obj_eq_obj(const wasm_obj_t obj);
+wasm_obj_is_eq_obj(const wasm_obj_t obj);
 
 /**
  * Check whether an object is an instance of a defined type
