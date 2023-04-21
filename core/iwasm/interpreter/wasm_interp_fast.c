@@ -2423,7 +2423,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         else {
                             if (!(externref_obj =
                                       wasm_internal_obj_to_externref_obj(
-                                          module->e->gc_heap_handle, gc_obj))) {
+                                          exec_env, gc_obj))) {
                                 wasm_set_exception(
                                     module, "create externref object failed");
                                 goto got_exception;
