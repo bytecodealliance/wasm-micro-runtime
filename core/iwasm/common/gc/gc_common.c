@@ -26,21 +26,21 @@ wasm_get_defined_type(WASMModuleCommon *const module, uint32 index)
 }
 
 bool
-wasm_defined_type_is_func_type(WASMType *const def_type1)
+wasm_defined_type_is_func_type(WASMType *const def_type)
 {
     /* TODO */
     return false;
 }
 
 bool
-wasm_defined_type_is_struct_type(WASMType *const def_type1)
+wasm_defined_type_is_struct_type(WASMType *const def_type)
 {
     /* TODO */
     return false;
 }
 
 bool
-wasm_defined_type_is_array_type(WASMType *const def_type1)
+wasm_defined_type_is_array_type(WASMType *const def_type)
 {
     /* TODO */
     return false;

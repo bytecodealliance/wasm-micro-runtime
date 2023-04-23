@@ -51,29 +51,29 @@ typedef struct WASMObject *wasm_obj_t;
 #ifndef WASM_VALUE_DEFINED
 #define WASM_VALUE_DEFINED
 typedef union V128 {
-    int8 i8x16[16];
-    int16 i16x8[8];
-    int32 i32x8[4];
-    int64 i64x2[2];
-    float32 f32x4[4];
-    float64 f64x2[2];
+    int8_t i8x16[16];
+    int16_t i16x8[8];
+    int32_t i32x8[4];
+    int64_t i64x2[2];
+    float f32x4[4];
+    double f64x2[2];
 } V128;
 
 typedef union WASMValue {
-    int32 i32;
-    uint32 u32;
-    uint32 global_index;
-    uint32 ref_index;
-    int64 i64;
-    uint64 u64;
-    float32 f32;
-    float64 f64;
+    int32_t i32;
+    uint32_t u32;
+    uint32_t global_index;
+    uint32_t ref_index;
+    int64_t i64;
+    uint64_t u64;
+    float f32;
+    double f64;
     V128 v128;
     wasm_obj_t *gc_obj;
-    uint32 type_index;
+    uint32_t type_index;
     struct {
-        uint32 type_index;
-        uint32 N;
+        uint32_t type_index;
+        uint32_t N;
     } array_new_canon_fixed;
 } WASMValue;
 #endif /* end of WASM_VALUE_DEFINED */
@@ -94,7 +94,7 @@ typedef struct wasm_ref_type_t {
  * this type of variable so that they can be traced when GC occurs.
  * Before using such a variable, it must be pushed onto the stack
  * (implemented as a chain) of such variables, and before leaving the
- * frame of the variables, they must be poped from the stack.
+ * frame of the variables, they must be popped from the stack.
  */
 typedef struct WASMLocalObjectRef {
     /* Previous local object reference variable on the stack */
@@ -144,24 +144,24 @@ wasm_get_defined_type(const wasm_module_t module, uint32_t index);
  * Check whether a defined type is a function type
  */
 WASM_RUNTIME_API_EXTERN bool
-wasm_defined_type_is_func_type(const wasm_defined_type_t def_type1);
+wasm_defined_type_is_func_type(const wasm_defined_type_t def_type);
 
 /**
  * Check whether a defined type is a struct type
  */
 WASM_RUNTIME_API_EXTERN bool
-wasm_defined_type_is_struct_type(const wasm_defined_type_t def_type1);
+wasm_defined_type_is_struct_type(const wasm_defined_type_t def_type);
 
 /**
  * Check whether a defined type is an array type
  */
 WASM_RUNTIME_API_EXTERN bool
-wasm_defined_type_is_array_type(const wasm_defined_type_t def_type1);
+wasm_defined_type_is_array_type(const wasm_defined_type_t def_type);
 
 /**
  * Get parameter count of a function type
  */
-WASM_RUNTIME_API_EXTERN uint32
+WASM_RUNTIME_API_EXTERN uint32_t
 wasm_func_type_get_param_count(const wasm_func_type_t func_type);
 
 /**
@@ -169,12 +169,12 @@ wasm_func_type_get_param_count(const wasm_func_type_t func_type);
  */
 WASM_RUNTIME_API_EXTERN wasm_ref_type_t
 wasm_func_type_get_param_type(const wasm_func_type_t func_type,
-                              uint32 param_idx);
+                              uint32_t param_idx);
 
 /**
  * Get result count of a function type
  */
-WASM_RUNTIME_API_EXTERN uint32
+WASM_RUNTIME_API_EXTERN uint32_t
 wasm_func_type_get_result_count(const wasm_func_type_t func_type);
 
 /**
@@ -182,12 +182,12 @@ wasm_func_type_get_result_count(const wasm_func_type_t func_type);
  */
 WASM_RUNTIME_API_EXTERN wasm_ref_type_t
 wasm_func_type_get_result_type(const wasm_func_type_t func_type,
-                               uint32 param_idx);
+                               uint32_t result_idx);
 
 /**
  * Get field count of a struct type
  */
-WASM_RUNTIME_API_EXTERN uint32
+WASM_RUNTIME_API_EXTERN uint32_t
 wasm_struct_type_get_field_count(const wasm_struct_type_t struct_type);
 
 /**
@@ -195,7 +195,7 @@ wasm_struct_type_get_field_count(const wasm_struct_type_t struct_type);
  */
 WASM_RUNTIME_API_EXTERN wasm_ref_type_t
 wasm_struct_type_get_field_type(const wasm_struct_type_t struct_type,
-                                uint32 field_idx, bool *p_is_mutable);
+                                uint32_t field_idx, bool *p_is_mutable);
 
 /**
  * Get element type of an array type
@@ -227,14 +227,14 @@ wasm_defined_type_is_subtype_of(const wasm_defined_type_t def_type1,
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_ref_type_set_type_idx(wasm_ref_type_t *ref_type, bool nullable,
-                           int32 type_idx);
+                           int32_t type_idx);
 
 /**
  * Set the ref_type to be (ref null? func/extern/any/eq/i31/struct/array/..)
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_ref_type_set_heap_type(wasm_ref_type_t *ref_type, bool nullable,
-                            int32 heap_type);
+                            int32_t heap_type);
 
 /**
  * Check whether two ref types are equal
@@ -258,7 +258,7 @@ wasm_ref_type_is_subtype_of(const wasm_ref_type_t *ref_type1,
  * Create a struct object with the index of defined type
  */
 WASM_RUNTIME_API_EXTERN wasm_struct_obj_t
-wasm_struct_obj_new_with_typeidx(wasm_exec_env_t exec_env, uint32 type_idx);
+wasm_struct_obj_new_with_typeidx(wasm_exec_env_t exec_env, uint32_t type_idx);
 
 /**
  * Create a struct object with the struct type
@@ -271,21 +271,21 @@ wasm_struct_obj_new_with_type(wasm_exec_env_t exec_env,
  * Set the field value of a struct object
  */
 WASM_RUNTIME_API_EXTERN void
-wasm_struct_obj_set_field(wasm_struct_obj_t obj, uint32 field_idx,
+wasm_struct_obj_set_field(wasm_struct_obj_t obj, uint32_t field_idx,
                           const wasm_value_t *value);
 
 /**
  * Get the field value of a struct object
  */
 WASM_RUNTIME_API_EXTERN void
-wasm_struct_obj_get_field(const wasm_struct_obj_t obj, uint32 field_idx,
+wasm_struct_obj_get_field(const wasm_struct_obj_t obj, uint32_t field_idx,
                           bool sign_extend, wasm_value_t *value);
 
 /**
  * Create an array object with the index of defined type
  */
 WASM_RUNTIME_API_EXTERN wasm_array_obj_t
-wasm_array_obj_new_with_typeidx(wasm_exec_env_t exec_env, uint32 type_idx);
+wasm_array_obj_new_with_typeidx(wasm_exec_env_t exec_env, uint32_t type_idx);
 
 /**
  * Create an array object with the array type
@@ -298,27 +298,28 @@ wasm_array_obj_new_with_type(wasm_exec_env_t exec_env,
  * Set the specified element's value of an array object
  */
 WASM_RUNTIME_API_EXTERN void
-wasm_array_obj_set_elem(wasm_array_obj_t array_obj, uint32 elem_idx,
+wasm_array_obj_set_elem(wasm_array_obj_t array_obj, uint32_t elem_idx,
                         const wasm_value_t *value);
 
 /**
  * Get the specified element's value of an array object
  */
 WASM_RUNTIME_API_EXTERN void
-wasm_array_obj_get_elem(const wasm_array_obj_t array_obj, uint32 elem_idx,
+wasm_array_obj_get_elem(const wasm_array_obj_t array_obj, uint32_t elem_idx,
                         bool sign_extend, wasm_value_t *value);
 
 /**
  * Copy elements from one array to another
  */
 WASM_RUNTIME_API_EXTERN void
-wasm_array_obj_copy(wasm_array_obj_t dst_obj, uint32 dst_idx,
-                    const wasm_array_obj_t src_obj, uint32 src_idx, uint32 len);
+wasm_array_obj_copy(wasm_array_obj_t dst_obj, uint32_t dst_idx,
+                    const wasm_array_obj_t src_obj, uint32_t src_idx,
+                    uint32_t len);
 
 /**
  * Return the length of an array object
  */
-WASM_RUNTIME_API_EXTERN uint32
+WASM_RUNTIME_API_EXTERN uint32_t
 wasm_array_obj_length(const wasm_array_obj_t array_obj);
 
 /**
@@ -331,13 +332,13 @@ wasm_array_obj_first_elem_addr(const wasm_array_obj_t array_obj);
  * Get the address of the i-th element of an array object
  */
 WASM_RUNTIME_API_EXTERN void *
-wasm_array_obj_elem_addr(const wasm_array_obj_t array_obj, uint32 elem_idx);
+wasm_array_obj_elem_addr(const wasm_array_obj_t array_obj, uint32_t elem_idx);
 
 /**
  * Create a function object with the index of defined type
  */
 WASM_RUNTIME_API_EXTERN wasm_func_obj_t
-wasm_func_obj_new_with_typeidx(wasm_exec_env_t exec_env, uint32 type_idx);
+wasm_func_obj_new_with_typeidx(wasm_exec_env_t exec_env, uint32_t type_idx);
 
 /**
  * Create a function object with the function type
@@ -348,7 +349,7 @@ wasm_func_obj_new_with_type(wasm_exec_env_t exec_env, wasm_func_type_t type);
 /**
  * Get the function index bound of a function object
  */
-WASM_RUNTIME_API_EXTERN uint32
+WASM_RUNTIME_API_EXTERN uint32_t
 wasm_func_obj_get_func_idx_bound(const wasm_func_obj_t func_obj);
 
 /**
@@ -400,9 +401,9 @@ wasm_internal_obj_to_externref_obj(wasm_exec_env_t exec_env,
  * Create an i31 object
  */
 WASM_RUNTIME_API_EXTERN wasm_i31_obj_t
-wasm_i31_obj_new(uint32 i31_value);
+wasm_i31_obj_new(uint32_t i31_value);
 
-WASM_RUNTIME_API_EXTERN uint32
+WASM_RUNTIME_API_EXTERN uint32_t
 wasm_i31_obj_get_value(wasm_i31_obj_t i31_obj, bool sign_extend);
 
 /**
@@ -454,13 +455,13 @@ WASM_RUNTIME_API_EXTERN bool
 wasm_obj_is_anyref_obj(const wasm_obj_t obj);
 
 /**
- * Check whether an object is a struct object, or, a i31/struct/array object
+ * Check whether an object is a struct object, or, an i31/struct/array object
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_obj_is_internal_obj(const wasm_obj_t obj);
 
 /**
- * Check whether an object is a eq object
+ * Check whether an object is an eq object
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_obj_is_eq_obj(const wasm_obj_t obj);
@@ -478,7 +479,7 @@ wasm_obj_is_instance_of_defined_type(const wasm_obj_t obj,
  * index type_idx
  */
 WASM_RUNTIME_API_EXTERN bool
-wasm_obj_is_instance_of_type_idx(const wasm_obj_t obj, uint32 type_idx,
+wasm_obj_is_instance_of_type_idx(const wasm_obj_t obj, uint32_t type_idx,
                                  const wasm_module_t module);
 
 /**
@@ -490,7 +491,7 @@ wasm_obj_is_instance_of_ref_type(const wasm_obj_t obj,
 
 /**
  * Push a local object ref into stack, note that we should set its value
- * after pushing to retain it during GC, and should pop it out from stack
+ * after pushing to retain it during GC, and should pop it from stack
  * before returning from the current function
  */
 WASM_RUNTIME_API_EXTERN void
@@ -498,15 +499,15 @@ wasm_runtime_push_local_object_ref(wasm_exec_env_t exec_env,
                                    wasm_local_obj_ref_t *local_obj_ref);
 
 /**
- * Pop a local object ref out from stack
+ * Pop a local object ref from stack
  */
 WASM_RUNTIME_API_EXTERN wasm_local_obj_ref_t *
 wasm_runtime_pop_local_object_ref(wasm_exec_env_t exec_env);
 
 /**
- * Pop n local object refs out from stack
+ * Pop n local object refs from stack
  */
 WASM_RUNTIME_API_EXTERN void
-wasm_runtime_pop_local_object_refs(wasm_exec_env_t exec_env, uint32 n);
+wasm_runtime_pop_local_object_refs(wasm_exec_env_t exec_env, uint32_t n);
 
 #endif /* end of _GC_EXPORT_H */
