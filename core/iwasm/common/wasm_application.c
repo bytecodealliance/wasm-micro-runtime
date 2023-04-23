@@ -510,21 +510,9 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
                     }
                     else if (type->types[i] == VALUE_TYPE_EXTERNREF) {
                         WASMExternrefObjectRef gc_obj;
-                        void *gc_heap_handle = NULL;
                         void *extern_obj =
                             (void *)(uintptr_t)strtoull(argv[i], &endptr, 0);
-#if WASM_ENABLE_INTERP != 0
-                        if (module_inst->module_type == Wasm_Module_Bytecode)
-                            gc_heap_handle = ((WASMModuleInstance *)module_inst)
-                                                 ->e->gc_heap_handle;
-#endif
-#if WASM_ENABLE_AOT != 0
-                        if (module_inst->module_type == Wasm_Module_AoT)
-                            gc_heap_handle = NULL; /* TODO */
-#endif
-                        bh_assert(gc_heap_handle);
-                        gc_obj = wasm_externref_obj_new(
-                            exec_env, gc_heap_handle, extern_obj);
+                        gc_obj = wasm_externref_obj_new(exec_env, extern_obj);
                         if (!gc_obj) {
                             wasm_runtime_set_exception(
                                 module_inst, "create extern object failed");

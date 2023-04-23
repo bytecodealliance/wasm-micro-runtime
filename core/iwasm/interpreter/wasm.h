@@ -9,6 +9,9 @@
 #include "bh_platform.h"
 #include "bh_hashmap.h"
 #include "bh_assert.h"
+#if WASM_ENABLE_GC != 0
+#include "gc_export.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -152,6 +155,8 @@ typedef struct WASMModule WASMModule;
 typedef struct WASMFunction WASMFunction;
 typedef struct WASMGlobal WASMGlobal;
 
+#ifndef WASM_VALUE_DEFINED
+#define WASM_VALUE_DEFINED
 typedef union V128 {
     int8 i8x16[16];
     int16 i16x8[8];
@@ -172,7 +177,7 @@ typedef union WASMValue {
     float64 f64;
     V128 v128;
 #if WASM_ENABLE_GC != 0
-    void *gc_obj;
+    wasm_obj_t *gc_obj;
     uint32 type_index;
     struct {
         uint32 type_index;
@@ -180,6 +185,7 @@ typedef union WASMValue {
     } array_new_canon_fixed;
 #endif
 } WASMValue;
+#endif /* end of WASM_VALUE_DEFINED */
 
 typedef struct InitializerExpression {
     /* type of INIT_EXPR_TYPE_XXX, which is an instruction of
