@@ -671,9 +671,16 @@ bool
 check_suspend_flags(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
     LLVMValueRef terminate_addr, terminate_flags, flag, offset, res;
-    LLVMBasicBlockRef terminate_check_block, non_terminate_block;
+    LLVMBasicBlockRef terminate_block, non_terminate_block;
     AOTFuncType *aot_func_type = func_ctx->aot_func->func_type;
-    LLVMBasicBlockRef terminate_block;
+    bool is_shared_memory =
+        comp_ctx->comp_data->memories[0].memory_flags & 0x02 ? true : false;
+
+    /* Only need to check the suspend flags when memory is shared since
+       shared memory must be enabled for multi-threading */
+    if (!is_shared_memory) {
+        return true;
+    }
 
     /* Offset of suspend_flags */
     offset = I32_FIVE;
@@ -694,27 +701,12 @@ check_suspend_flags(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     if (!(terminate_flags =
               LLVMBuildLoad2(comp_ctx->builder, I32_TYPE, terminate_addr,
                              "terminate_flags"))) {
-        aot_set_last_error("llvm build bit cast failed");
+        aot_set_last_error("llvm build LOAD failed");
         return false;
     }
     /* Set terminate_flags memory accecc to volatile, so that the value
         will always be loaded from memory rather than register */
     LLVMSetVolatile(terminate_flags, true);
-
-    CREATE_BLOCK(terminate_check_block, "terminate_check");
-    MOVE_BLOCK_AFTER_CURR(terminate_check_block);
-
-    CREATE_BLOCK(non_terminate_block, "non_terminate");
-    MOVE_BLOCK_AFTER_CURR(non_terminate_block);
-
-    BUILD_ICMP(LLVMIntSGT, terminate_flags, I32_ZERO, res, "need_terminate");
-    BUILD_COND_BR(res, terminate_check_block, non_terminate_block);
-
-    /* Move builder to terminate check block */
-    SET_BUILDER_POS(terminate_check_block);
-
-    CREATE_BLOCK(terminate_block, "terminate");
-    MOVE_BLOCK_AFTER_CURR(terminate_block);
 
     if (!(flag = LLVMBuildAnd(comp_ctx->builder, terminate_flags, I32_ONE,
                               "termination_flag"))) {
@@ -722,8 +714,14 @@ check_suspend_flags(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
         return false;
     }
 
-    BUILD_ICMP(LLVMIntSGT, flag, I32_ZERO, res, "need_terminate");
-    BUILD_COND_BR(res, terminate_block, non_terminate_block);
+    CREATE_BLOCK(non_terminate_block, "non_terminate");
+    MOVE_BLOCK_AFTER_CURR(non_terminate_block);
+
+    CREATE_BLOCK(terminate_block, "terminate");
+    MOVE_BLOCK_AFTER_CURR(terminate_block);
+
+    BUILD_ICMP(LLVMIntEQ, flag, I32_ZERO, res, "flag_terminate");
+    BUILD_COND_BR(res, non_terminate_block, terminate_block);
 
     /* Move builder to terminate block */
     SET_BUILDER_POS(terminate_block);
@@ -731,7 +729,7 @@ check_suspend_flags(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
         goto fail;
     }
 
-    /* Move builder to terminate block */
+    /* Move builder to non terminate block */
     SET_BUILDER_POS(non_terminate_block);
     return true;
 

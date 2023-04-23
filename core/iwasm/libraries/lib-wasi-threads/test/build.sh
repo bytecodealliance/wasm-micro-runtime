@@ -5,16 +5,21 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 #
 
+set -eo pipefail
 CC=${CC:=/opt/wasi-sdk/bin/clang}
-WASI_SYSROOT=${WASI_SYSROOT:=~/dev/wasi-libc/sysroot}
 WAMR_DIR=../../../../..
 
 for test_c in *.c; do
     test_wasm="$(basename $test_c .c).wasm"
 
+    if [ $test_wasm = "linear_memory_size_update.wasm" ]; then
+        thread_start_file=""
+    else
+        thread_start_file=$WAMR_DIR/samples/wasi-threads/wasm-apps/wasi_thread_start.S
+    fi
+
     echo "Compiling $test_c to $test_wasm"
     $CC \
-        --sysroot $WASI_SYSROOT \
         -target wasm32-wasi-threads \
         -pthread -ftls-model=local-exec \
         -z stack-size=32768 \
@@ -25,6 +30,6 @@ for test_c in *.c; do
         -Wl,--export=malloc \
         -Wl,--export=free \
         -I $WAMR_DIR/samples/wasi-threads/wasm-apps \
-        $WAMR_DIR/samples/wasi-threads/wasm-apps/wasi_thread_start.S \
+        $thread_start_file \
         $test_c -o $test_wasm
 done

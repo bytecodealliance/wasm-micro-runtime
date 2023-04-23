@@ -1183,8 +1183,9 @@ class BasicTestSuite(unittest.TestCase):
             self._wasm_store, module, imports, create_null_pointer(wasm_trap_t)
         )
 
-        wasm_instance_delete(instance)
         wasm_module_delete(module)
+
+        self.assertIsNullPointer(instance)
 
     def test_wasm_instance_new_pos(self):
         binary = load_module_file(MODULE_BINARY)
@@ -1227,8 +1228,9 @@ class BasicTestSuite(unittest.TestCase):
             create_null_pointer(wasm_trap_t),
         )
 
-        wasm_instance_delete(instance)
         wasm_module_delete(module)
+
+        self.assertIsNullPointer(instance)
 
     # test those APIs in advanced:
     # wasm_instance_delete
