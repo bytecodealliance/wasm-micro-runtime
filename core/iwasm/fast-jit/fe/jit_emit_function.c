@@ -915,6 +915,99 @@ emit_callnative(JitCompContext *cc, JitReg native_func_reg, JitReg res,
 
     return true;
 }
+#elif defined(BUILD_TARGET_AARCH64)
+static bool
+emit_callnative(JitCompContext *cc, JitReg native_func_reg, JitReg res,
+                JitReg *params, uint32 param_count)
+{
+    JitInsn *insn;
+    char *i64_arg_names[] = { "x0", "x1", "x2", "x3", "x4", "x5" };
+    char *f32_arg_names[] = { "s0", "s1", "s2", "s3", "s4", "s5" };
+    char *f64_arg_names[] = { "d0", "d1", "d2", "d3", "d4", "d5" };
+    JitReg i64_arg_regs[6], f32_arg_regs[6], f64_arg_regs[6], res_reg = 0;
+    JitReg w0_hreg = jit_codegen_get_hreg_by_name("w0");
+    JitReg s0_hreg = jit_codegen_get_hreg_by_name("s0");
+    uint32 i, i64_reg_idx, float_reg_idx;
+
+    bh_assert(param_count <= 6);
+
+    for (i = 0; i < 6; i++) {
+        i64_arg_regs[i] = jit_codegen_get_hreg_by_name(i64_arg_names[i]);
+        f32_arg_regs[i] = jit_codegen_get_hreg_by_name(f32_arg_names[i]);
+        f64_arg_regs[i] = jit_codegen_get_hreg_by_name(f64_arg_names[i]);
+    }
+
+    i64_reg_idx = float_reg_idx = 0;
+    for (i = 0; i < param_count; i++) {
+        switch (jit_reg_kind(params[i])) {
+            case JIT_REG_KIND_I32:
+                GEN_INSN(I32TOI64, i64_arg_regs[i64_reg_idx++], params[i]);
+                break;
+            case JIT_REG_KIND_I64:
+                GEN_INSN(MOV, i64_arg_regs[i64_reg_idx++], params[i]);
+                break;
+            case JIT_REG_KIND_F32:
+                GEN_INSN(MOV, f32_arg_regs[float_reg_idx++], params[i]);
+                break;
+            case JIT_REG_KIND_F64:
+                GEN_INSN(MOV, f64_arg_regs[float_reg_idx++], params[i]);
+                break;
+            default:
+                bh_assert(0);
+                return false;
+        }
+    }
+
+    if (res) {
+        switch (jit_reg_kind(res)) {
+            case JIT_REG_KIND_I32:
+                res_reg = w0_hreg;
+                break;
+            case JIT_REG_KIND_I64:
+                res_reg = res;
+                break;
+            case JIT_REG_KIND_F32:
+                res_reg = s0_hreg;
+                break;
+            case JIT_REG_KIND_F64:
+                res_reg = res;
+                break;
+            default:
+                bh_assert(0);
+                return false;
+        }
+    }
+
+    insn = GEN_INSN(CALLNATIVE, res_reg, native_func_reg, param_count);
+    if (!insn) {
+        return false;
+    }
+
+    i64_reg_idx = float_reg_idx = 0;
+    for (i = 0; i < param_count; i++) {
+        switch (jit_reg_kind(params[i])) {
+            case JIT_REG_KIND_I32:
+            case JIT_REG_KIND_I64:
+                *(jit_insn_opndv(insn, i + 2)) = i64_arg_regs[i64_reg_idx++];
+                break;
+            case JIT_REG_KIND_F32:
+                *(jit_insn_opndv(insn, i + 2)) = f32_arg_regs[float_reg_idx++];
+                break;
+            case JIT_REG_KIND_F64:
+                *(jit_insn_opndv(insn, i + 2)) = f64_arg_regs[float_reg_idx++];
+                break;
+            default:
+                bh_assert(0);
+                return false;
+        }
+    }
+
+    if (res && res != res_reg) {
+        GEN_INSN(MOV, res, res_reg);
+    }
+
+    return true;
+}
 #else
 static bool
 emit_callnative(JitCompContext *cc, JitRef native_func_reg, JitReg res,

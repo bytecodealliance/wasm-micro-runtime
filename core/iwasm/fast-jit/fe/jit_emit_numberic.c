@@ -460,6 +460,11 @@ compile_int_div_no_check(JitCompContext *cc, IntArithmetic arith_op,
     JitReg edx_hreg = jit_codegen_get_hreg_by_name("edx");
     JitReg rax_hreg = jit_codegen_get_hreg_by_name("rax");
     JitReg rdx_hreg = jit_codegen_get_hreg_by_name("rdx");
+#elif defined(BUILD_TARGET_AARCH64)
+    JitReg w0_hreg = jit_codegen_get_hreg_by_name("w0");
+    JitReg w1_hreg = jit_codegen_get_hreg_by_name("w1");
+    JitReg x0_hreg = jit_codegen_get_hreg_by_name("x0");
+    JitReg x1_hreg = jit_codegen_get_hreg_by_name("x1");
 #endif
 
     if (jit_reg_is_const(right) && jit_reg_is_const(left)) {
@@ -599,6 +604,97 @@ compile_int_div_no_check(JitCompContext *cc, IntArithmetic arith_op,
             else {
                 res = jit_cc_new_reg_I64(cc);
                 insn1 = jit_insn_new_MOV(res, rdx_hreg);
+            }
+
+            if (!insn1) {
+                jit_set_last_error(cc, "generate insn failed");
+                goto fail;
+            }
+
+            jit_insn_insert_after(insn, insn1);
+            break;
+        }
+#elif defined(BUILD_TARGET_AARCH64)
+        case INT_DIV_S:
+        case INT_DIV_U:
+        {
+            JitInsn *insn = NULL, *insn1 = NULL;
+
+            if (is_i32) {
+                GEN_INSN(MOV, w0_hreg, left);
+                if (arith_op == INT_DIV_S)
+                    insn = GEN_INSN(DIV_S, w0_hreg, w0_hreg, right);
+                else
+                    insn = GEN_INSN(DIV_U, w0_hreg, w0_hreg, right);
+            }
+            else {
+                GEN_INSN(MOV, x0_hreg, left);
+                if (arith_op == INT_DIV_S)
+                    insn = GEN_INSN(DIV_S, x0_hreg, x0_hreg, right);
+                else
+                    insn = GEN_INSN(DIV_U, x0_hreg, x0_hreg, right);
+            }
+
+            if (!insn) {
+                goto fail;
+            }
+            if (!jit_lock_reg_in_insn(cc, insn, w0_hreg)
+                || !jit_lock_reg_in_insn(cc, insn, w1_hreg)) {
+                goto fail;
+            }
+
+            if (is_i32) {
+                res = jit_cc_new_reg_I32(cc);
+                insn1 = jit_insn_new_MOV(res, w0_hreg);
+            }
+            else {
+                res = jit_cc_new_reg_I64(cc);
+                insn1 = jit_insn_new_MOV(res, x0_hreg);
+            }
+
+            if (!insn1) {
+                jit_set_last_error(cc, "generate insn failed");
+                goto fail;
+            }
+
+            jit_insn_insert_after(insn, insn1);
+            break;
+        }
+        case INT_REM_S:
+        case INT_REM_U:
+        {
+            JitInsn *insn = NULL, *insn1 = NULL;
+
+            if (is_i32) {
+                GEN_INSN(MOV, w0_hreg, left);
+                if (arith_op == INT_REM_S)
+                    insn = GEN_INSN(REM_S, w1_hreg, w0_hreg, right);
+                else
+                    insn = GEN_INSN(REM_U, w1_hreg, w0_hreg, right);
+            }
+            else {
+                GEN_INSN(MOV, x0_hreg, left);
+                if (arith_op == INT_REM_S)
+                    insn = GEN_INSN(REM_S, x1_hreg, x0_hreg, right);
+                else
+                    insn = GEN_INSN(REM_U, x1_hreg, x0_hreg, right);
+            }
+
+            if (!insn) {
+                goto fail;
+            }
+            if (!jit_lock_reg_in_insn(cc, insn, w0_hreg)
+                || !jit_lock_reg_in_insn(cc, insn, w1_hreg)) {
+                goto fail;
+            }
+
+            if (is_i32) {
+                res = jit_cc_new_reg_I32(cc);
+                insn1 = jit_insn_new_MOV(res, w1_hreg);
+            }
+            else {
+                res = jit_cc_new_reg_I64(cc);
+                insn1 = jit_insn_new_MOV(res, x1_hreg);
             }
 
             if (!insn1) {
