@@ -4,7 +4,7 @@
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
 
 # Find tensorflow-lite
-find_package(tensorflow-lite REQUIRED)
+find_package(tensorflow_lite REQUIRED)
 
 set (WASI_NN_DIR ${CMAKE_CURRENT_LIST_DIR})
 
