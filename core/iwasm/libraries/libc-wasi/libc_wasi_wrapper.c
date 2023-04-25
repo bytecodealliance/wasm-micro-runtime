@@ -961,8 +961,9 @@ get_timeout_for_poll_oneoff(const wasi_subscription_t *in,
     for (i = 0; i < nsubscriptions; ++i) {
         const __wasi_subscription_t *s = &in[i];
         if (s->u.type == __WASI_EVENTTYPE_CLOCK
-            && (s->u.u.clock.flags & __WASI_SUBSCRIPTION_CLOCK_ABSTIME) == 0) {
-            timeout = min(timeout, s->u.u.clock.timeout);
+            && (s->u.u.clock.flags & __WASI_SUBSCRIPTION_CLOCK_ABSTIME) == 0
+            && s->u.u.clock.timeout < timeout) {
+            timeout = s->u.u.clock.timeout;
         }
     }
     return timeout;
