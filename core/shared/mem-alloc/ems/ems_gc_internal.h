@@ -213,6 +213,7 @@ set_hmu_normal_node_next(hmu_normal_node_t *node, hmu_normal_node_t *next)
 #if UINTPTR_MAX == UINT64_MAX
 #if defined(_MSC_VER)
 __pragma(pack(push, 1));
+#define __attr_packed
 #elif defined(__GNUC__) || defined(__clang__)
 #define __attr_packed __attribute__((packed))
 #else
