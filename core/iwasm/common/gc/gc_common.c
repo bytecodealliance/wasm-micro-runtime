@@ -178,7 +178,7 @@ wasm_ref_type_is_subtype_of(const wasm_ref_type_t *ref_type1,
     WASMTypePtr *types = (WASMModule *)module->types;
     uint32 type_count = wasm_get_defined_type_count(module);
     return wasm_reftype_is_subtype_of(type1, (WASMRefType *)ref_type1, type2,
-                                      (WASMRefType *)ref_type2, NULL, 0);
+                                      (WASMRefType *)ref_type2, types, type_count);
 }
 
 WASMStructObjectRef
