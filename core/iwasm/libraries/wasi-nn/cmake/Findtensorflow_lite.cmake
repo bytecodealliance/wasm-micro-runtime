@@ -4,7 +4,6 @@
 
 find_library(TENSORFLOW_LITE 
      NAMES tensorflow-lite
-     HINTS ${CMAKE_LIBRARY_PATH}
 )
 
 if(NOT EXISTS ${TENSORFLOW_LITE})
@@ -32,11 +31,9 @@ if(NOT EXISTS ${TENSORFLOW_LITE})
 else()
     find_path(TENSORFLOW_LITE_INCLUDE_DIR
     NAMES tensorflow/lite/interpreter.h
-    HINTS ${CMAKE_LIBRARY_PATH}../include
     )
     find_path(FLATBUFFER_INCLUDE_DIR
     NAMES flatbuffers/flatbuffers.h
-    HINTS ${CMAKE_LIBRARY_PATH}../include
     )
     include_directories (${TENSORFLOW_LITE_INCLUDE_DIR})
     include_directories (${FLATBUFFER_INCLUDE_DIR})    
