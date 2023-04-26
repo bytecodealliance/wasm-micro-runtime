@@ -4,6 +4,8 @@
  */
 
 #include "../wasm_runtime_common.h"
+#include "gc_object.h"
+#include <stdlib.h>
 #if WASM_ENABLE_INTERP != 0
 #include "../interpreter/wasm_runtime.h"
 #endif
@@ -14,15 +16,39 @@
 uint32
 wasm_get_defined_type_count(WASMModuleCommon *const module)
 {
-    /* TODO */
-    return 0;
+    WASMModule* wasm_module;
+    uint32 type_count = 0;
+
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode) {
+        wasm_module = (WASMModule*)module;
+        type_count = wasm_module->type_count;
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    // TODO
+#endif
+    return type_count;
 }
 
 WASMType *
 wasm_get_defined_type(WASMModuleCommon *const module, uint32 index)
 {
-    /* TODO */
-    return NULL;
+    WASMType* type = NULL;
+
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode) {
+        WASMModule* wasm_module = (WASMModule*)module;
+        bh_assert(index < wasm_module->type_count);
+        type = wasm_module->types[index];
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    // TODO
+#endif
+    return type;
 }
 
 bool
@@ -35,8 +61,7 @@ wasm_defined_type_is_func_type(WASMType *const def_type)
 bool
 wasm_defined_type_is_struct_type(WASMType *const def_type)
 {
-    /* TODO */
-    return false;
+    return wasm_type_is_struct_type(def_type);
 }
 
 bool
@@ -51,6 +76,33 @@ wasm_func_type_get_param_count(WASMFuncType *const func_type)
 {
     /* TODO */
     return 0;
+}
+
+wasm_ref_type_t *
+wasm_ref_type_normalize(wasm_ref_type_t *ref_type) {
+    if (ref_type->value_type != REF_TYPE_HT_NULLABLE) {
+        return ref_type;
+    }
+    int32_t heap_type = ref_type->heap_type;
+    switch (heap_type) {
+#define XX(heap_type_kind, value_type_kind) \
+    case heap_type_kind: \
+        ref_type->value_type = value_type_kind; \
+        break;
+    XX(HEAP_TYPE_FUNC, REF_TYPE_FUNCREF);
+    XX(HEAP_TYPE_EXTERN, REF_TYPE_EXTERNREF);
+    XX(HEAP_TYPE_ANY, REF_TYPE_ANYREF);
+    XX(HEAP_TYPE_EQ, REF_TYPE_EQREF);
+    XX(HEAP_TYPE_I31, REF_TYPE_I31REF);
+    XX(HEAP_TYPE_NOFUNC, REF_TYPE_NULLFUNCREF);
+    XX(HEAP_TYPE_NOEXTERN, REF_TYPE_NULLEXTERNREF);
+    XX(HEAP_TYPE_STRUCT, REF_TYPE_STRUCTREF);
+    XX(HEAP_TYPE_ARRAY, REF_TYPE_ARRAYREF);
+    XX(HEAP_TYPE_NONE, REF_TYPE_NULLREF);
+#undef XX
+    }
+    ref_type->heap_type = 0;
+    return ref_type;
 }
 
 wasm_ref_type_t
@@ -79,8 +131,7 @@ wasm_func_type_get_result_type(WASMFuncType *const func_type, uint32 param_idx)
 uint32
 wasm_struct_type_get_field_count(WASMStructType *const struct_type)
 {
-    /* TODO */
-    return 0;
+    return struct_type->field_count;
 }
 
 wasm_ref_type_t
@@ -88,7 +139,33 @@ wasm_struct_type_get_field_type(WASMStructType *const struct_type,
                                 uint32 field_idx, bool *p_is_mutable)
 {
     wasm_ref_type_t ref_type = { 0 };
-    /* TODO */
+    WASMRefTypeMap *ref_type_maps;
+    WASMRefType *field_ref_type;
+    WASMStructFieldType field;
+    uint32 i;
+    uint32 ref_type_map_count;
+
+    bh_assert(field_idx < struct_type->field_count);
+
+    field = struct_type->fields[field_idx];
+    ref_type_maps = struct_type->ref_type_maps;
+    ref_type_map_count = struct_type->ref_type_map_count;
+
+    for (i = 0; i < ref_type_map_count; i++) {
+        if (ref_type_maps[i].index == field_idx) {
+            field_ref_type = struct_type->ref_type_maps[i].ref_type;
+            break;
+        }
+    }
+
+    ref_type.value_type = field.field_type;
+    *p_is_mutable = field.field_flags & 1;
+
+    if (i < ref_type_map_count) {
+        ref_type.nullable = field_ref_type->ref_ht_common.nullable;
+        ref_type.heap_type = field_ref_type->ref_ht_common.heap_type;
+    }
+
     return ref_type;
 }
 
@@ -105,8 +182,20 @@ bool
 wasm_defined_type_equal(WASMType *const def_type1, WASMType *const def_type2,
                         WASMModuleCommon *const module)
 {
-    /* TODO */
-    return false;
+    WASMTypePtr *types = NULL;
+    uint32 type_count = 0;
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode) {
+        WASMModule* wasm_module = (WASMModule*)module;
+        types = wasm_module->types;
+        type_count = wasm_module->type_count;
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    // TODO
+#endif
+    return wasm_type_equal(def_type1, def_type2, types, type_count);
 }
 
 bool
@@ -114,22 +203,42 @@ wasm_defined_type_is_subtype_of(WASMType *const def_type1,
                                 WASMType *const def_type2,
                                 WASMModuleCommon *const module)
 {
-    /* TODO */
-    return false;
+    WASMTypePtr *types = NULL;
+    uint32 type_count = 0;
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode) {
+        WASMModule* wasm_module = (WASMModule*)module;
+        types = wasm_module->types;
+        type_count = wasm_module->type_count;
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    // TODO
+#endif
+    return wasm_type_is_subtype_of(def_type1, def_type2, types, type_count);
 }
 
-void
+bool
 wasm_ref_type_set_type_idx(wasm_ref_type_t *ref_type, bool nullable,
                            int32 type_idx)
 {
-    /* TODO */
+    ref_type->nullable = nullable;
+    ref_type->heap_type = type_idx;
+
+    ref_type = wasm_ref_type_normalize(ref_type);
+    return true;
 }
 
-void
+bool
 wasm_ref_type_set_heap_type(wasm_ref_type_t *ref_type, bool nullable,
                             int32 heap_type)
 {
-    /* TODO */
+    ref_type->nullable = nullable;
+    ref_type->heap_type = heap_type;
+
+    ref_type = wasm_ref_type_normalize(ref_type);
+    return true;
 }
 
 bool
@@ -153,15 +262,41 @@ wasm_ref_type_is_subtype_of(const wasm_ref_type_t *ref_type1,
 WASMStructObjectRef
 wasm_struct_obj_new_with_typeidx(WASMExecEnv *exec_env, uint32 type_idx)
 {
-    /* TODO */
-    return NULL;
+    wasm_module_inst_t module_inst = wasm_runtime_get_module_inst(exec_env);
+    WASMType *type = NULL;
+    WASMStructType *struct_type;
+
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        WASMModule *module = ((WASMModuleInstance *)module_inst)->module;
+        bh_assert(type_idx < module->type_count);
+        type = module->types[type_idx];
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    // TODO
+#endif
+
+    bh_assert(wasm_defined_type_is_struct_type(type));
+    struct_type = (WASMStructType *)type;
+    return wasm_struct_obj_new_with_type(exec_env, struct_type);
 }
 
 WASMStructObjectRef
 wasm_struct_obj_new_with_type(WASMExecEnv *exec_env, WASMStructType *type)
 {
-    /* TODO */
-    return NULL;
+    WASMStructObjectRef struct_obj;
+    WASMRttTypeRef rtt_type = (WASMRttTypeRef)malloc(sizeof(WASMRttTypeRef));
+
+    rtt_type->type_flag = WASM_TYPE_STRUCT;
+    rtt_type->inherit_depth = type->inherit_depth;
+    rtt_type->defined_type = (WASMType*)type;
+    rtt_type->root_type = type->root_type;
+
+    struct_obj = wasm_struct_obj_new(exec_env, rtt_type);
+    free(rtt_type);
+    return struct_obj;
 }
 
 WASMArrayObjectRef
@@ -196,16 +331,48 @@ bool
 wasm_obj_is_instance_of_defined_type(WASMObjectRef obj, WASMType *defined_type,
                                      WASMModuleCommon *const module)
 {
-    /* TODO */
-    return false;
+    WASMType **types = NULL;
+    uint32 type_count = 0;
+    uint32 type_idx = 0;
+
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode) {
+        WASMModule *wasm_module = (WASMModule*)module;
+        type_count = wasm_module->type_count;
+        types = wasm_module->types;
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    // TODO
+#endif
+
+    for ( ; type_idx < type_count; type_idx++) {
+        if (wasm_defined_type_equal(types[type_idx], defined_type, module)) {
+            break;
+        }
+    }
+    bh_assert(type_idx < type_count);
+    return wasm_obj_is_instance_of(obj, type_idx, types, type_count);
 }
 
 bool
 wasm_obj_is_instance_of_type_idx(WASMObjectRef obj, uint32 type_idx,
                                  WASMModuleCommon *const module)
 {
-    /* TODO */
-    return false;
+    WASMType **types = NULL;
+    uint32 type_count = 0;
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode) {
+        WASMModule *wasm_module = (WASMModule*)module;
+        types = wasm_module->types;
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    // TODO
+#endif
+    return wasm_obj_is_instance_of(obj, type_idx, types, type_count);
 }
 
 bool
