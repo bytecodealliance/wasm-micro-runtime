@@ -628,7 +628,7 @@ function standalone_test()
 
 function build_iwasm_with_cfg()
 {
-    echo "Build iwasm with compile flags with " $* " for spec test" \
+    echo "Build iwasm with compile flags " $* " for spec test" \
         | tee -a ${REPORT_DIR}/spec_test_report.txt
 
     if [[ ${SGX_OPT} == "--sgx" ]];then
@@ -752,6 +752,23 @@ function trigger()
 
     if [[ ${ENABLE_WASI_THREADS} == 1 ]]; then
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_LIB_WASI_THREADS=1"
+    fi
+
+    echo "SANITIZER IS" $WAMR_BUILD_SANITIZER
+
+    if [[ "$WAMR_BUILD_SANITIZER" == "ubsan" ]]; then
+        echo "Setting run with ubsan"
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_SANITIZER=ubsan"
+    fi
+
+    if [[ "$WAMR_BUILD_SANITIZER" == "asan" ]]; then
+        echo "Setting run with asan"
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_SANITIZER=asan"
+    fi
+
+    if [[ "$WAMR_BUILD_SANITIZER" == "tsan" ]]; then
+        echo "Setting run with tsan"
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_SANITIZER=tsan"
     fi
 
     for t in "${TYPE[@]}"; do

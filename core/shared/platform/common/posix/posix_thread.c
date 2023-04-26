@@ -492,6 +492,12 @@ destroy_stack_guard_pages()
 }
 #endif /* end of WASM_DISABLE_STACK_HW_BOUND_CHECK == 0 */
 
+/* ASAN is not designed to work with custom stack unwind or other low-level \
+ things. > Ignore a function that does some low-level magic. (e.g. walking \
+ through the thread's stack bypassing the frame boundaries) */
+#if defined(__GNUC__)
+__attribute__((no_sanitize_address))
+#endif
 static void
 mask_signals(int how)
 {
@@ -506,6 +512,12 @@ mask_signals(int how)
 static os_thread_local_attribute struct sigaction prev_sig_act_SIGSEGV;
 static os_thread_local_attribute struct sigaction prev_sig_act_SIGBUS;
 
+/* ASAN is not designed to work with custom stack unwind or other low-level \
+ things. > Ignore a function that does some low-level magic. (e.g. walking \
+ through the thread's stack bypassing the frame boundaries) */
+#if defined(__GNUC__)
+__attribute__((no_sanitize_address))
+#endif
 static void
 signal_callback(int sig_num, siginfo_t *sig_info, void *sig_ucontext)
 {
