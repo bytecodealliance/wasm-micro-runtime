@@ -1022,8 +1022,8 @@ execute_interruptible_poll_oneoff(
 
     while (timeout == (__wasi_timestamp_t)-1 || elapsed <= timeout) {
         /* update timeout for clock subscription events */
-        update_clock_subscription_data(in_copy, nsubscriptions,
-                                       min_uint64(time_quant, timeout - elapsed));
+        update_clock_subscription_data(
+            in_copy, nsubscriptions, min_uint64(time_quant, timeout - elapsed));
         err = wasmtime_ssp_poll_oneoff(curfds, in_copy, out, nsubscriptions,
                                        nevents);
         elapsed += time_quant;
