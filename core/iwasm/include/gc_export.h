@@ -33,7 +33,7 @@ typedef enum wasm_value_type_enum {
 
 typedef int32_t wasm_heap_type_t;
 
-enum wasm_heap_type_enum {
+typedef enum wasm_heap_type_enum {
     HEAP_TYPE_FUNC = -0x10,
     HEAP_TYPE_EXTERN = -0x11,
     HEAP_TYPE_ANY = -0x12,
