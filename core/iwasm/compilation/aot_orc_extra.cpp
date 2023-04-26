@@ -242,7 +242,7 @@ LLVMOrcLLLazyJITLookup(LLVMOrcLLLazyJITRef J, LLVMOrcExecutorAddress *Result,
         return wrap(Sym.takeError());
     }
 
-#if LLVM_VERSION_MAJOR < 15
+#if LLVM_VERSION_MAJOR < 15 || defined(__APPLE__)
     *Result = Sym->getAddress();
 #else
     *Result = Sym->getValue();

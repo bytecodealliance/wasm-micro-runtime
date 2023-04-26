@@ -80,54 +80,55 @@ typedef enum {
 } RegIndexI64;
 
 /* clang-format off */
-a64::Gp regs_i8[] = {
-    x86::bpl,  x86::al, x86::bl, x86::cl,
-    x86::dl,   x86::dil,  x86::sil,  x86::spl,
-    x86::r8b,  x86::r9b,  x86::r10b, x86::r11b,
-    x86::r12b, x86::r13b, x86::r14b, x86::r15b
+a64::Vec regs_i8[] = {
+    a64::b0,  a64::b1,  a64::b2,  a64::b3,
+    a64::b4,  a64::b5,  a64::b6,  a64::b7,
+    a64::b8,  a64::b9,  a64::b10, a64::b11,
+    a64::b12, a64::b13, a64::b14, a64::b15,
+    a64::b16, a64::b17, a64::b18, a64::b19,
+    a64::b20, a64::b21, a64::b22, a64::b23,
+    a64::b24, a64::b25, a64::b26, a64::b27,
+    a64::b28, a64::b29, a64::b30, a64::b31
 };
 
-a64::Gp regs_i16[] = {
-    x86::bp,   x86::ax,   x86::bx,   x86::cx,
-    x86::dx,   x86::di,   x86::si,   x86::sp,
-    x86::r8w,  x86::r9w,  x86::r10w, x86::r11w,
-    x86::r12w, x86::r13w, x86::r14w, x86::r15w
+a64::Vec regs_i16[] = {
+    a64::h0,  a64::h1,  a64::h2,  a64::h3,
+    a64::h4,  a64::h5,  a64::h6,  a64::h7,
+    a64::h8,  a64::h9,  a64::h10, a64::h11,
+    a64::h12, a64::h13, a64::h14, a64::h15,
+    a64::h16, a64::h17, a64::h18, a64::h19,
+    a64::h20, a64::h21, a64::h22, a64::h23,
+    a64::h24, a64::h25, a64::h26, a64::h27,
+    a64::h28, a64::h29, a64::h30, a64::h31
 };
 
 a64::Gp regs_i32[] = {
-    x86::ebp,  x86::eax,  x86::ebx,  x86::ecx,
-    x86::edx,  x86::edi,  x86::esi,  x86::esp,
-    x86::r8d,  x86::r9d,  x86::r10d, x86::r11d,
-    x86::r12d, x86::r13d, x86::r14d, x86::r15d
+    a64::x0,  a64::x1,  a64::x2,  a64::x3,
+    a64::x4,  a64::x5,  a64::x6,  a64::x7,
+    a64::x8,  a64::x9,  a64::x10, a64::x11,
+    a64::x12, a64::x13, a64::x14, a64::x15,
+    a64::x16, a64::x17, a64::x18, a64::x19,
+    a64::x20, a64::x21, a64::x22, a64::x23,
+    a64::x24, a64::x25, a64::x26, a64::x27,
+    a64::x28, a64::x29, a64::x30, 
 };
 
 a64::Gp regs_i64[] = {
-    x86::rbp, x86::rax, x86::rbx, x86::rcx,
-    x86::rdx, x86::rdi, x86::rsi, x86::rsp,
-    x86::r8,  x86::r9,  x86::r10, x86::r11,
-    x86::r12, x86::r13, x86::r14, x86::r15,
+    a64::w0,  a64::w1,  a64::w2,  a64::w3,
+    a64::w4,  a64::w5,  a64::w6,  a64::w7,
+    a64::w8,  a64::w9,  a64::w10, a64::w11,
+    a64::w12, a64::w13, a64::w14, a64::w15,
+    a64::w16, a64::w17, a64::w18, a64::w19,
+    a64::w20, a64::w21, a64::w22, a64::w23,
+    a64::w24, a64::w25, a64::w26, a64::w27,
+    a64::w28, a64::w29, a64::w30
 };
 
 #define REG_F32_FREE_IDX 15
 #define REG_F64_FREE_IDX 15
 
-a64::Xmm regs_float[] = {
-    x86::xmm0,
-    x86::xmm1,
-    x86::xmm2,
-    x86::xmm3,
-    x86::xmm4,
-    x86::xmm5,
-    x86::xmm6,
-    x86::xmm7,
-    x86::xmm8,
-    x86::xmm9,
-    x86::xmm10,
-    x86::xmm11,
-    x86::xmm12,
-    x86::xmm13,
-    x86::xmm14,
-    x86::xmm15,
+a64::VecS regs_float[] = {
+
 };
 /* clang-format on */
 
@@ -731,7 +732,7 @@ mov_r_to_r(a64::Assembler &a, uint32 kind_dst, int32 reg_no_dst,
  */
 static bool
 mov_m_to_r(a64::Assembler &a, uint32 bytes_dst, uint32 kind_dst, bool is_signed,
-           int32 reg_no_dst, x86::Mem &m_src)
+           int32 reg_no_dst, a64::Mem &m_src)
 {
     if (kind_dst == JIT_REG_KIND_I32) {
         switch (bytes_dst) {
@@ -805,7 +806,7 @@ mov_m_to_r(a64::Assembler &a, uint32 bytes_dst, uint32 kind_dst, bool is_signed,
  */
 static bool
 mov_r_to_m(a64::Assembler &a, uint32 bytes_dst, uint32 kind_dst,
-           x86::Mem &m_dst, int32 reg_no_src)
+           a64::Mem &m_dst, int32 reg_no_src)
 {
     if (kind_dst == JIT_REG_KIND_I32) {
         bh_assert(reg_no_src < 16);
@@ -862,7 +863,7 @@ mov_r_to_m(a64::Assembler &a, uint32 bytes_dst, uint32 kind_dst,
  * @return new stream
  */
 static bool
-mov_imm_to_m(a64::Assembler &a, x86::Mem &m_dst, Imm imm_src, uint32 bytes_dst)
+mov_imm_to_m(a64::Assembler &a, a64::Mem &m_dst, Imm imm_src, uint32 bytes_dst)
 {
     if (bytes_dst == 8) {
         int64 value = imm_src.value();
@@ -898,7 +899,7 @@ mov_imm_to_m(a64::Assembler &a, x86::Mem &m_dst, Imm imm_src, uint32 bytes_dst)
  */
 static bool
 xchg_r_to_m(a64::Assembler &a, uint32 bytes_dst, uint32 kind_dst,
-            x86::Mem &m_dst, int32 reg_no_src)
+            a64::Mem &m_dst, int32 reg_no_src)
 {
     bh_assert((kind_dst == JIT_REG_KIND_I32 && bytes_dst <= 4)
               || kind_dst == JIT_REG_KIND_I64);
@@ -943,7 +944,7 @@ ld_r_from_base_imm_offset_imm(a64::Assembler &a, uint32 bytes_dst,
                               uint32 kind_dst, bool is_signed, int32 reg_no_dst,
                               int32 base, int32 offset)
 {
-    x86::Mem m((uintptr_t)(base + offset), bytes_dst);
+    a64::Mem m((uintptr_t)(base + offset), bytes_dst);
     return mov_m_to_r(a, bytes_dst, kind_dst, is_signed, reg_no_dst, m);
 }
 
@@ -967,7 +968,7 @@ ld_r_from_base_imm_offset_r(a64::Assembler &a, uint32 bytes_dst,
                             uint32 kind_dst, bool is_signed, int32 reg_no_dst,
                             int32 base, int32 reg_no_offset)
 {
-    x86::Mem m(regs_i64[reg_no_offset], base, bytes_dst);
+    a64::Mem m(regs_i64[reg_no_offset], base, bytes_dst);
     return mov_m_to_r(a, bytes_dst, kind_dst, is_signed, reg_no_dst, m);
 }
 
@@ -991,7 +992,7 @@ ld_r_from_base_r_offset_imm(a64::Assembler &a, uint32 bytes_dst,
                             uint32 kind_dst, bool is_signed, int32 reg_no_dst,
                             int32 reg_no_base, int32 offset)
 {
-    x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
+    a64::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
     return mov_m_to_r(a, bytes_dst, kind_dst, is_signed, reg_no_dst, m);
 }
 
@@ -1016,7 +1017,7 @@ ld_r_from_base_r_offset_r(a64::Assembler &a, uint32 bytes_dst, uint32 kind_dst,
                           bool is_signed, int32 reg_no_dst, int32 reg_no_base,
                           int32 reg_no_offset)
 {
-    x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
+    a64::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
     return mov_m_to_r(a, bytes_dst, kind_dst, is_signed, reg_no_dst, m);
 }
 
@@ -1039,7 +1040,7 @@ st_r_to_base_imm_offset_imm(a64::Assembler &a, uint32 bytes_dst,
                             uint32 kind_dst, int32 reg_no_src, int32 base,
                             int32 offset, bool atomic)
 {
-    x86::Mem m((uintptr_t)(base + offset), bytes_dst);
+    a64::Mem m((uintptr_t)(base + offset), bytes_dst);
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (atomic)
         return xchg_r_to_m(a, bytes_dst, kind_dst, m, reg_no_src);
@@ -1067,7 +1068,7 @@ st_r_to_base_imm_offset_r(a64::Assembler &a, uint32 bytes_dst, uint32 kind_dst,
                           int32 reg_no_src, int32 base, int32 reg_no_offset,
                           bool atomic)
 {
-    x86::Mem m(regs_i64[reg_no_offset], base, bytes_dst);
+    a64::Mem m(regs_i64[reg_no_offset], base, bytes_dst);
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (atomic)
         return xchg_r_to_m(a, bytes_dst, kind_dst, m, reg_no_src);
@@ -1094,7 +1095,7 @@ st_r_to_base_r_offset_imm(a64::Assembler &a, uint32 bytes_dst, uint32 kind_dst,
                           int32 reg_no_src, int32 reg_no_base, int32 offset,
                           bool atomic)
 {
-    x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
+    a64::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (atomic)
         return xchg_r_to_m(a, bytes_dst, kind_dst, m, reg_no_src);
@@ -1122,7 +1123,7 @@ st_r_to_base_r_offset_r(a64::Assembler &a, uint32 bytes_dst, uint32 kind_dst,
                         int32 reg_no_src, int32 reg_no_base,
                         int32 reg_no_offset, bool atomic)
 {
-    x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
+    a64::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (atomic)
         return xchg_r_to_m(a, bytes_dst, kind_dst, m, reg_no_src);
@@ -1199,7 +1200,7 @@ st_imm_to_base_imm_offset_imm(a64::Assembler &a, uint32 bytes_dst,
                               void *data_src, int32 base, int32 offset,
                               bool atomic)
 {
-    x86::Mem m((uintptr_t)(base + offset), bytes_dst);
+    a64::Mem m((uintptr_t)(base + offset), bytes_dst);
     Imm imm;
     imm_set_value(imm, data_src, bytes_dst);
 #if WASM_ENABLE_SHARED_MEMORY != 0
@@ -1228,7 +1229,7 @@ static bool
 st_imm_to_base_imm_offset_r(a64::Assembler &a, uint32 bytes_dst, void *data_src,
                             int32 base, int32 reg_no_offset, bool atomic)
 {
-    x86::Mem m(regs_i64[reg_no_offset], base, bytes_dst);
+    a64::Mem m(regs_i64[reg_no_offset], base, bytes_dst);
     Imm imm;
     imm_set_value(imm, data_src, bytes_dst);
 #if WASM_ENABLE_SHARED_MEMORY != 0
@@ -1257,7 +1258,7 @@ static bool
 st_imm_to_base_r_offset_imm(a64::Assembler &a, uint32 bytes_dst, void *data_src,
                             int32 reg_no_base, int32 offset, bool atomic)
 {
-    x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
+    a64::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
     Imm imm;
     imm_set_value(imm, data_src, bytes_dst);
 #if WASM_ENABLE_SHARED_MEMORY != 0
@@ -1287,7 +1288,7 @@ static bool
 st_imm_to_base_r_offset_r(a64::Assembler &a, uint32 bytes_dst, void *data_src,
                           int32 reg_no_base, int32 reg_no_offset, bool atomic)
 {
-    x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
+    a64::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
     Imm imm;
     imm_set_value(imm, data_src, bytes_dst);
 #if WASM_ENABLE_SHARED_MEMORY != 0
@@ -3134,7 +3135,7 @@ alu_imm_imm_to_r_f32(a64::Assembler &a, ALU_OP op, int32 reg_no_dst,
 }
 
 static bool
-alu_r_m_float(a64::Assembler &a, ALU_OP op, int32 reg_no, x86::Mem &m,
+alu_r_m_float(a64::Assembler &a, ALU_OP op, int32 reg_no, a64::Mem &m,
               bool is_f32)
 {
     switch (op) {
@@ -3212,7 +3213,7 @@ alu_imm_r_to_r_f32(a64::Assembler &a, ALU_OP op, int32 reg_no_dst,
 {
     const JitHardRegInfo *hreg_info = jit_codegen_get_hreg_info();
     /* xmm -> m128 */
-    x86::Mem cache = x86::xmmword_ptr(regs_i64[hreg_info->exec_env_hreg_index],
+    a64::Mem cache = a64::xmmword_ptr(regs_i64[hreg_info->exec_env_hreg_index],
                                       offsetof(WASMExecEnv, jit_cache));
     a.movups(cache, regs_float[reg_no2_src]);
 
@@ -3239,7 +3240,7 @@ alu_r_imm_to_r_f32(a64::Assembler &a, ALU_OP op, int32 reg_no_dst,
 {
     const JitHardRegInfo *hreg_info = jit_codegen_get_hreg_info();
     /* imm -> m32 */
-    x86::Mem cache = x86::dword_ptr(regs_i64[hreg_info->exec_env_hreg_index],
+    a64::Mem cache = a64::dword_ptr(regs_i64[hreg_info->exec_env_hreg_index],
                                     offsetof(WASMExecEnv, jit_cache));
     cast_float_to_integer v = { .f = data2_src };
     Imm imm(v.i);
@@ -3402,7 +3403,7 @@ alu_imm_r_to_r_f64(a64::Assembler &a, ALU_OP op, int32 reg_no_dst,
 {
     const JitHardRegInfo *hreg_info = jit_codegen_get_hreg_info();
     /* xmm -> m128 */
-    x86::Mem cache = x86::qword_ptr(regs_i64[hreg_info->exec_env_hreg_index],
+    a64::Mem cache = a64::qword_ptr(regs_i64[hreg_info->exec_env_hreg_index],
                                     offsetof(WASMExecEnv, jit_cache));
     a.movupd(cache, regs_float[reg_no2_src]);
 
@@ -3429,7 +3430,7 @@ alu_r_imm_to_r_f64(a64::Assembler &a, ALU_OP op, int32 reg_no_dst,
 {
     const JitHardRegInfo *hreg_info = jit_codegen_get_hreg_info();
     /* imm -> m64 */
-    x86::Mem cache = x86::qword_ptr(regs_i64[hreg_info->exec_env_hreg_index],
+    a64::Mem cache = a64::qword_ptr(regs_i64[hreg_info->exec_env_hreg_index],
                                     offsetof(WASMExecEnv, jit_cache));
     cast_double_to_integer v = { .d = data2_src };
     Imm imm(v.i);
@@ -4048,27 +4049,27 @@ shift_r_r_to_r_i32(a64::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
     switch (op) {
         case SHL:
         {
-            a.shl(regs_i32[reg_no_dst], x86::cl);
+            a.shl(regs_i32[reg_no_dst], a64::cl);
             break;
         }
         case SHRS:
         {
-            a.sar(regs_i32[reg_no_dst], x86::cl);
+            a.sar(regs_i32[reg_no_dst], a64::cl);
             break;
         }
         case SHRU:
         {
-            a.shr(regs_i32[reg_no_dst], x86::cl);
+            a.shr(regs_i32[reg_no_dst], a64::cl);
             break;
         }
         case ROTL:
         {
-            a.rol(regs_i32[reg_no_dst], x86::cl);
+            a.rol(regs_i32[reg_no_dst], a64::cl);
             break;
         }
         case ROTR:
         {
-            a.ror(regs_i32[reg_no_dst], x86::cl);
+            a.ror(regs_i32[reg_no_dst], a64::cl);
             break;
         }
         default:
@@ -4246,27 +4247,27 @@ shift_r_r_to_r_i64(a64::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
     switch (op) {
         case SHL:
         {
-            a.shl(regs_i64[reg_no_dst], x86::cl);
+            a.shl(regs_i64[reg_no_dst], a64::cl);
             break;
         }
         case SHRS:
         {
-            a.sar(regs_i64[reg_no_dst], x86::cl);
+            a.sar(regs_i64[reg_no_dst], a64::cl);
             break;
         }
         case SHRU:
         {
-            a.shr(regs_i64[reg_no_dst], x86::cl);
+            a.shr(regs_i64[reg_no_dst], a64::cl);
             break;
         }
         case ROTL:
         {
-            a.rol(regs_i64[reg_no_dst], x86::cl);
+            a.rol(regs_i64[reg_no_dst], a64::cl);
             break;
         }
         case ROTR:
         {
-            a.ror(regs_i64[reg_no_dst], x86::cl);
+            a.ror(regs_i64[reg_no_dst], a64::cl);
             break;
         }
         default:
@@ -5724,7 +5725,7 @@ lookupswitch_r(JitCompContext *cc, a64::Assembler &a, bh_list *jmp_info_list,
 {
     JmpInfo *node;
     Imm imm;
-    x86::Mem m;
+    a64::Mem m;
     uint32 i;
     int32 label_dst = 0;
     char *stream;
@@ -5797,7 +5798,7 @@ lookupswitch_r(JitCompContext *cc, a64::Assembler &a, bh_list *jmp_info_list,
         a.mov(regs_i64[reg_no], imm);
 
         /* jmp *(base_addr + rsi * 8) */
-        m = x86::ptr(regs_i64[reg_no], regs_i64[REG_I64_FREE_IDX], 3);
+        m = a64::ptr(regs_i64[reg_no], regs_i64[REG_I64_FREE_IDX], 3);
         a.jmp(m);
 
         /* Store each dst label absolute address */
@@ -6026,7 +6027,7 @@ lower_callbc(JitCompContext *cc, a64::Assembler &a, bh_list *jmp_info_list,
     int32 func_reg_no;
 
     /* Load return_jitted_addr from stack */
-    x86::Mem m(x86::rbp, cc->jitted_return_address_offset);
+    a64::Mem m(a64::rbp, cc->jitted_return_address_offset);
 
     CHECK_KIND(func_reg, JIT_REG_KIND_I64);
     func_reg_no = jit_reg_no(func_reg);
@@ -6126,9 +6127,9 @@ lower_returnbc(JitCompContext *cc, a64::Assembler &a, JitInsn *insn)
     {
         /* eax = act */
         Imm imm(act);
-        a.mov(x86::eax, imm);
+        a.mov(a64::eax, imm);
 
-        x86::Mem m(x86::rbp, cc->jitted_return_address_offset);
+        a64::Mem m(a64::rbp, cc->jitted_return_address_offset);
         a.jmp(m);
     }
     return true;
@@ -6149,7 +6150,7 @@ lower_return(JitCompContext *cc, a64::Assembler &a, JitInsn *insn)
     {
         /* eax = act */
         Imm imm(act);
-        a.mov(x86::eax, imm);
+        a.mov(a64::eax, imm);
 
         imm.setValue((uintptr_t)code_block_return_to_interp_from_jitted);
         a.mov(regs_i64[REG_I64_FREE_IDX], imm);
@@ -6465,7 +6466,7 @@ extend_r_to_r(a64::Assembler &a, uint32 bytes_dst, uint32 kind_dst,
  */
 static bool
 at_cmpxchg(a64::Assembler &a, uint32 bytes_dst, uint32 kind_dst,
-           int32 reg_no_xchg, x86::Mem &m_dst)
+           int32 reg_no_xchg, a64::Mem &m_dst)
 {
     bh_assert((kind_dst == JIT_REG_KIND_I32 && bytes_dst <= 4)
               || kind_dst == JIT_REG_KIND_I64);
@@ -6512,7 +6513,7 @@ at_cmpxchg_r_ra_base_r_offset_r(a64::Assembler &a, uint32 bytes_dst,
                                 uint32 kind_dst, int32 reg_no_xchg,
                                 int32 reg_no_base, int32 reg_no_offset)
 {
-    x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
+    a64::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
     return at_cmpxchg(a, bytes_dst, kind_dst, reg_no_xchg, m)
            && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, REG_RAX_IDX);
 }
@@ -6538,7 +6539,7 @@ at_cmpxchg_r_ra_base_r_offset_imm(a64::Assembler &a, uint32 bytes_dst,
                                   uint32 kind_dst, int32 reg_no_xchg,
                                   int32 reg_no_base, int32 offset)
 {
-    x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
+    a64::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
     return at_cmpxchg(a, bytes_dst, kind_dst, reg_no_xchg, m)
            && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, REG_RAX_IDX);
 }
@@ -6565,7 +6566,7 @@ at_cmpxchg_imm_ra_base_r_offset_r(a64::Assembler &a, uint32 bytes_dst,
                                   uint32 kind_dst, void *data_xchg,
                                   int32 reg_no_base, int32 reg_no_offset)
 {
-    x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
+    a64::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
     Imm imm;
     imm_set_value(imm, data_xchg, bytes_dst);
     uint32 reg_no_xchg = mov_imm_to_free_reg(a, imm, bytes_dst);
@@ -6594,7 +6595,7 @@ at_cmpxchg_imm_ra_base_r_offset_imm(a64::Assembler &a, uint32 bytes_dst,
                                     uint32 kind_dst, void *data_xchg,
                                     int32 reg_no_base, int32 offset)
 {
-    x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
+    a64::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
     Imm imm;
     imm_set_value(imm, data_xchg, bytes_dst);
     uint32 reg_no_xchg = mov_imm_to_free_reg(a, imm, bytes_dst);
@@ -6718,7 +6719,7 @@ neg_r(a64::Assembler &a, uint32 bytes_dst, uint32 kind_dst, int32 reg_no_src)
  */
 static bool
 at_xadd(a64::Assembler &a, uint32 bytes_dst, uint32 kind_dst, int32 reg_no_src,
-        x86::Mem &m_dst)
+        a64::Mem &m_dst)
 {
     bh_assert((kind_dst == JIT_REG_KIND_I32 && bytes_dst <= 4)
               || kind_dst == JIT_REG_KIND_I64);
@@ -6764,7 +6765,7 @@ at_rmw_add_imm_base_r_offset_imm(a64::Assembler &a, uint32 bytes_dst,
                                  void *data_src, int32 reg_no_base,
                                  int32 offset)
 {
-    x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
+    a64::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
     Imm imm;
     imm_set_value(imm, data_src, bytes_dst);
     uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
@@ -6792,7 +6793,7 @@ at_rmw_add_imm_base_r_offset_r(a64::Assembler &a, uint32 bytes_dst,
                                void *data_src, int32 reg_no_base,
                                int32 reg_no_offset)
 {
-    x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
+    a64::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
     Imm imm;
     imm_set_value(imm, data_src, bytes_dst);
     uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
@@ -6820,7 +6821,7 @@ at_rmw_add_r_base_r_offset_imm(a64::Assembler &a, uint32 bytes_dst,
                                int32 reg_no_src, int32 reg_no_base,
                                int32 offset)
 {
-    x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
+    a64::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
     return at_xadd(a, bytes_dst, kind_dst, reg_no_src, m)
            && extend_r_to_r(a, bytes_dst, kind_dst, reg_no_src, reg_no_dst);
 }
@@ -6845,7 +6846,7 @@ at_rmw_add_r_base_r_offset_r(a64::Assembler &a, uint32 bytes_dst,
                              int32 reg_no_src, int32 reg_no_base,
                              int32 reg_no_offset)
 {
-    x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
+    a64::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
     return at_xadd(a, bytes_dst, kind_dst, reg_no_src, m)
            && extend_r_to_r(a, bytes_dst, kind_dst, reg_no_src, reg_no_dst);
 }
@@ -6870,7 +6871,7 @@ at_rmw_sub_imm_base_r_offset_imm(a64::Assembler &a, uint32 bytes_dst,
                                  void *data_src, int32 reg_no_base,
                                  int32 offset)
 {
-    x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
+    a64::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
     Imm imm;
     imm_set_value(imm, data_src, bytes_dst);
     uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
@@ -6899,7 +6900,7 @@ at_rmw_sub_imm_base_r_offset_r(a64::Assembler &a, uint32 bytes_dst,
                                void *data_src, int32 reg_no_base,
                                int32 reg_no_offset)
 {
-    x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
+    a64::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
     Imm imm;
     imm_set_value(imm, data_src, bytes_dst);
     uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
@@ -6928,7 +6929,7 @@ at_rmw_sub_r_base_r_offset_imm(a64::Assembler &a, uint32 bytes_dst,
                                int32 reg_no_src, int32 reg_no_base,
                                int32 offset)
 {
-    x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
+    a64::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
     return neg_r(a, bytes_dst, kind_dst, reg_no_src)
            && at_xadd(a, bytes_dst, kind_dst, reg_no_src, m)
            && extend_r_to_r(a, bytes_dst, kind_dst, reg_no_src, reg_no_dst);
@@ -6954,7 +6955,7 @@ at_rmw_sub_r_base_r_offset_r(a64::Assembler &a, uint32 bytes_dst,
                              int32 reg_no_src, int32 reg_no_base,
                              int32 reg_no_offset)
 {
-    x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
+    a64::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
     return neg_r(a, bytes_dst, kind_dst, reg_no_src)
            && at_xadd(a, bytes_dst, kind_dst, reg_no_src, m)
            && extend_r_to_r(a, bytes_dst, kind_dst, reg_no_src, reg_no_dst);
@@ -6980,7 +6981,7 @@ at_rmw_xchg_imm_base_r_offset_imm(a64::Assembler &a, uint32 bytes_dst,
                                   void *data_src, int32 reg_no_base,
                                   int32 offset)
 {
-    x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
+    a64::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
     Imm imm;
     imm_set_value(imm, data_src, bytes_dst);
     uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
@@ -7008,7 +7009,7 @@ at_rmw_xchg_imm_base_r_offset_r(a64::Assembler &a, uint32 bytes_dst,
                                 void *data_src, int32 reg_no_base,
                                 int32 reg_no_offset)
 {
-    x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
+    a64::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
     Imm imm;
     imm_set_value(imm, data_src, bytes_dst);
     uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
@@ -7036,7 +7037,7 @@ at_rmw_xchg_r_base_r_offset_imm(a64::Assembler &a, uint32 bytes_dst,
                                 int32 reg_no_src, int32 reg_no_base,
                                 int32 offset)
 {
-    x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
+    a64::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
     return xchg_r_to_m(a, bytes_dst, kind_dst, m, reg_no_src)
            && extend_r_to_r(a, bytes_dst, kind_dst, reg_no_src, reg_no_dst);
 }
@@ -7061,7 +7062,7 @@ at_rmw_xchg_r_base_r_offset_r(a64::Assembler &a, uint32 bytes_dst,
                               int32 reg_no_src, int32 reg_no_base,
                               int32 reg_no_offset)
 {
-    x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
+    a64::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
     return xchg_r_to_m(a, bytes_dst, kind_dst, m, reg_no_src)
            && extend_r_to_r(a, bytes_dst, kind_dst, reg_no_src, reg_no_dst);
 }
@@ -7128,7 +7129,7 @@ at_rmw_xchg_r_base_r_offset_r(a64::Assembler &a, uint32 bytes_dst,
  */
 static bool
 at_and(a64::Assembler &a, uint32 bytes_dst, uint32 kind_dst, int32 reg_no_dst,
-       int32 reg_no_src, x86::Mem &m_dst)
+       int32 reg_no_src, a64::Mem &m_dst)
 {
     AT_RMW_LOGICAL_LOOP(and, kind_dst, bytes_dst);
 }
@@ -7148,7 +7149,7 @@ at_and(a64::Assembler &a, uint32 bytes_dst, uint32 kind_dst, int32 reg_no_dst,
  */
 static bool
 at_or(a64::Assembler &a, uint32 bytes_dst, uint32 kind_dst, int32 reg_no_dst,
-      int32 reg_no_src, x86::Mem &m_dst)
+      int32 reg_no_src, a64::Mem &m_dst)
 {
     AT_RMW_LOGICAL_LOOP(or, kind_dst, bytes_dst);
 }
@@ -7167,7 +7168,7 @@ at_or(a64::Assembler &a, uint32 bytes_dst, uint32 kind_dst, int32 reg_no_dst,
  */
 static bool
 at_xor(a64::Assembler &a, uint32 bytes_dst, uint32 kind_dst, int32 reg_no_dst,
-       int32 reg_no_src, x86::Mem &m_dst)
+       int32 reg_no_src, a64::Mem &m_dst)
 {
     AT_RMW_LOGICAL_LOOP(xor, kind_dst, bytes_dst);
 }
@@ -7192,7 +7193,7 @@ at_rmw_and_imm_base_r_offset_imm(a64::Assembler &a, uint32 bytes_dst,
                                  void *data_src, int32 reg_no_base,
                                  int32 offset)
 {
-    x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
+    a64::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
     Imm imm;
     imm_set_value(imm, data_src, bytes_dst);
     uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
@@ -7220,7 +7221,7 @@ at_rmw_and_imm_base_r_offset_r(a64::Assembler &a, uint32 bytes_dst,
                                void *data_src, int32 reg_no_base,
                                int32 reg_no_offset)
 {
-    x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
+    a64::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
     Imm imm;
     imm_set_value(imm, data_src, bytes_dst);
     uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
@@ -7248,7 +7249,7 @@ at_rmw_and_r_base_r_offset_imm(a64::Assembler &a, uint32 bytes_dst,
                                int32 reg_no_src, int32 reg_no_base,
                                int32 offset)
 {
-    x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
+    a64::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
     return at_and(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
            && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, reg_no_dst);
 }
@@ -7273,7 +7274,7 @@ at_rmw_and_r_base_r_offset_r(a64::Assembler &a, uint32 bytes_dst,
                              int32 reg_no_src, int32 reg_no_base,
                              int32 reg_no_offset)
 {
-    x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
+    a64::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
     return at_and(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
            && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, reg_no_dst);
 }
@@ -7297,7 +7298,7 @@ at_rmw_or_imm_base_r_offset_imm(a64::Assembler &a, uint32 bytes_dst,
                                 uint32 kind_dst, int32 reg_no_dst,
                                 void *data_src, int32 reg_no_base, int32 offset)
 {
-    x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
+    a64::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
     Imm imm;
     imm_set_value(imm, data_src, bytes_dst);
     uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
@@ -7324,7 +7325,7 @@ at_rmw_or_imm_base_r_offset_r(a64::Assembler &a, uint32 bytes_dst,
                               uint32 kind_dst, int32 reg_no_dst, void *data_src,
                               int32 reg_no_base, int32 reg_no_offset)
 {
-    x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
+    a64::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
     Imm imm;
     imm_set_value(imm, data_src, bytes_dst);
     uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
@@ -7351,7 +7352,7 @@ at_rmw_or_r_base_r_offset_imm(a64::Assembler &a, uint32 bytes_dst,
                               uint32 kind_dst, int32 reg_no_dst,
                               int32 reg_no_src, int32 reg_no_base, int32 offset)
 {
-    x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
+    a64::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
     return at_or(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
            && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, reg_no_dst);
 }
@@ -7375,7 +7376,7 @@ at_rmw_or_r_base_r_offset_r(a64::Assembler &a, uint32 bytes_dst,
                             uint32 kind_dst, int32 reg_no_dst, int32 reg_no_src,
                             int32 reg_no_base, int32 reg_no_offset)
 {
-    x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
+    a64::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
     return at_or(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
            && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, reg_no_dst);
 }
@@ -7400,7 +7401,7 @@ at_rmw_xor_imm_base_r_offset_imm(a64::Assembler &a, uint32 bytes_dst,
                                  void *data_src, int32 reg_no_base,
                                  int32 offset)
 {
-    x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
+    a64::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
     Imm imm;
     imm_set_value(imm, data_src, bytes_dst);
     uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
@@ -7428,7 +7429,7 @@ at_rmw_xor_imm_base_r_offset_r(a64::Assembler &a, uint32 bytes_dst,
                                void *data_src, int32 reg_no_base,
                                int32 reg_no_offset)
 {
-    x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
+    a64::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
     Imm imm;
     imm_set_value(imm, data_src, bytes_dst);
     uint32 reg_no_src = mov_imm_to_free_reg(a, imm, bytes_dst);
@@ -7456,7 +7457,7 @@ at_rmw_xor_r_base_r_offset_imm(a64::Assembler &a, uint32 bytes_dst,
                                int32 reg_no_src, int32 reg_no_base,
                                int32 offset)
 {
-    x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
+    a64::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
     return at_xor(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
            && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, reg_no_dst);
 }
@@ -7481,7 +7482,7 @@ at_rmw_xor_r_base_r_offset_r(a64::Assembler &a, uint32 bytes_dst,
                              int32 reg_no_src, int32 reg_no_base,
                              int32 reg_no_offset)
 {
-    x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
+    a64::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
     return at_xor(a, bytes_dst, kind_dst, reg_no_dst, reg_no_src, m)
            && extend_r_to_r(a, bytes_dst, kind_dst, REG_RAX_IDX, reg_no_dst);
 }
@@ -8368,8 +8369,8 @@ void *
 jit_codegen_compile_call_to_llvm_jit(const WASMType *func_type)
 {
     const JitHardRegInfo *hreg_info = jit_codegen_get_hreg_info();
-    x86::Gp reg_lp = x86::r10, reg_res = x86::r12;
-    x86::Gp reg_tmp_i64 = x86::r11, reg_tmp_i32 = x86::r11d;
+    a64::Gp reg_lp = a64::r10, reg_res = a64::r12;
+    a64::Gp reg_tmp_i64 = a64::r11, reg_tmp_i32 = a64::r11d;
     /* the index of integer argument registers */
     uint8 reg_idx_of_int_args[] = { REG_RDI_IDX, REG_RSI_IDX, REG_RDX_IDX,
                                     REG_RCX_IDX, REG_R8_IDX,  REG_R9_IDX };
@@ -8392,16 +8393,16 @@ jit_codegen_compile_call_to_llvm_jit(const WASMType *func_type)
     /* Load the llvm jit function pointer */
     {
         /* r11 = exec_env->module_inst */
-        x86::Mem m1(regs_i64[hreg_info->exec_env_hreg_index],
+        a64::Mem m1(regs_i64[hreg_info->exec_env_hreg_index],
                     (uint32)offsetof(WASMExecEnv, module_inst));
         a.mov(reg_tmp_i64, m1);
         /* r11 = module_inst->func_ptrs */
-        x86::Mem m2(reg_tmp_i64,
+        a64::Mem m2(reg_tmp_i64,
                     (uint32)offsetof(WASMModuleInstance, func_ptrs));
         a.mov(reg_tmp_i64, m2);
         /* rax = func_ptrs[func_idx] */
-        x86::Mem m3(reg_tmp_i64, x86::rdx, 3, 0);
-        a.mov(x86::rax, m3);
+        a64::Mem m3(reg_tmp_i64, a64::rdx, 3, 0);
+        a.mov(a64::rax, m3);
     }
 
     n_ints++; /* exec_env */
@@ -8450,12 +8451,12 @@ jit_codegen_compile_call_to_llvm_jit(const WASMType *func_type)
     }
     if (n_pushed > 0) {
         imm.setValue(n_pushed * 8);
-        a.sub(x86::rsp, imm);
+        a.sub(a64::rsp, imm);
     }
 
     /* r10 = outs_area->lp */
     {
-        x86::Mem m(regs_i64[hreg_info->exec_env_hreg_index],
+        a64::Mem m(regs_i64[hreg_info->exec_env_hreg_index],
                    (uint32)offsetof(WASMExecEnv, wasm_stack.s.top));
         a.mov(reg_lp, m);
         a.add(reg_lp, (uint32)offsetof(WASMInterpFrame, lp));
@@ -8466,7 +8467,7 @@ jit_codegen_compile_call_to_llvm_jit(const WASMType *func_type)
           regs_i64[hreg_info->exec_env_hreg_index]);
 
     for (i = 0; i < param_count; i++) {
-        x86::Mem m_src(reg_lp, off_to_lp);
+        a64::Mem m_src(reg_lp, off_to_lp);
 
         switch (func_type->types[i]) {
             case VALUE_TYPE_I32:
@@ -8481,7 +8482,7 @@ jit_codegen_compile_call_to_llvm_jit(const WASMType *func_type)
                 }
                 else {
                     a.mov(reg_tmp_i32, m_src);
-                    x86::Mem m_dst(x86::rsp, stack_arg_idx * 8);
+                    a64::Mem m_dst(a64::rsp, stack_arg_idx * 8);
                     a.mov(m_dst, reg_tmp_i32);
                     stack_arg_idx++;
                 }
@@ -8496,7 +8497,7 @@ jit_codegen_compile_call_to_llvm_jit(const WASMType *func_type)
                 }
                 else {
                     a.mov(reg_tmp_i64, m_src);
-                    x86::Mem m_dst(x86::rsp, stack_arg_idx * 8);
+                    a64::Mem m_dst(a64::rsp, stack_arg_idx * 8);
                     a.mov(m_dst, reg_tmp_i64);
                     stack_arg_idx++;
                 }
@@ -8511,7 +8512,7 @@ jit_codegen_compile_call_to_llvm_jit(const WASMType *func_type)
                 }
                 else {
                     a.mov(reg_tmp_i32, m_src);
-                    x86::Mem m_dst(x86::rsp, stack_arg_idx * 8);
+                    a64::Mem m_dst(a64::rsp, stack_arg_idx * 8);
                     a.mov(m_dst, reg_tmp_i32);
                     stack_arg_idx++;
                 }
@@ -8526,7 +8527,7 @@ jit_codegen_compile_call_to_llvm_jit(const WASMType *func_type)
                 }
                 else {
                     a.mov(reg_tmp_i64, m_src);
-                    x86::Mem m_dst(x86::rsp, stack_arg_idx * 8);
+                    a64::Mem m_dst(a64::rsp, stack_arg_idx * 8);
                     a.mov(m_dst, reg_tmp_i64);
                     stack_arg_idx++;
                 }
@@ -8553,11 +8554,11 @@ jit_codegen_compile_call_to_llvm_jit(const WASMType *func_type)
         }
 
         /* r12 = cur_frame->sp */
-        x86::Mem m(x86::rbp, (uint32)offsetof(WASMInterpFrame, sp));
+        a64::Mem m(a64::rbp, (uint32)offsetof(WASMInterpFrame, sp));
         a.mov(reg_res, m);
 
         for (i = 0; i < ext_result_count; i++) {
-            x86::Mem m(reg_res, off_to_res);
+            a64::Mem m(reg_res, off_to_res);
 
             if (int_reg_idx < MAX_REG_INTS) {
                 a.lea(regs_i64[reg_idx_of_int_args[int_reg_idx]], m);
@@ -8565,7 +8566,7 @@ jit_codegen_compile_call_to_llvm_jit(const WASMType *func_type)
             }
             else {
                 a.lea(reg_tmp_i64, m);
-                x86::Mem m_dst(x86::rsp, stack_arg_idx * 8);
+                a64::Mem m_dst(a64::rsp, stack_arg_idx * 8);
                 a.mov(m_dst, reg_tmp_i64);
                 stack_arg_idx++;
             }
@@ -8592,23 +8593,23 @@ jit_codegen_compile_call_to_llvm_jit(const WASMType *func_type)
     bh_assert(stack_arg_idx == n_stacks);
 
     /* Call the llvm jit function */
-    a.call(x86::rax);
+    a.call(a64::rax);
 
     /* Check if there was exception thrown */
     {
         /* r11 = exec_env->module_inst */
-        x86::Mem m1(regs_i64[hreg_info->exec_env_hreg_index],
+        a64::Mem m1(regs_i64[hreg_info->exec_env_hreg_index],
                     (uint32)offsetof(WASMExecEnv, module_inst));
         a.mov(reg_tmp_i64, m1);
         /* module_inst->cur_exception */
-        x86::Mem m2(reg_tmp_i64,
+        a64::Mem m2(reg_tmp_i64,
                     (uint32)offsetof(WASMModuleInstance, cur_exception));
         /* bl = module_inst->cur_exception[0] */
-        a.mov(x86::bl, m2);
+        a.mov(a64::bl, m2);
 
         /* cur_exception[0] == 0 ? */
         Imm imm((uint8)0);
-        a.cmp(x86::bl, imm);
+        a.cmp(a64::bl, imm);
         /* If yes, jump to `Get function result and return` */
         imm.setValue(INT32_MAX);
         a.je(imm);
@@ -8620,10 +8621,10 @@ jit_codegen_compile_call_to_llvm_jit(const WASMType *func_type)
            jump to code_block_return_to_interp_from_jitted to
            return to interpreter */
         imm.setValue(JIT_INTERP_ACTION_THROWN);
-        a.mov(x86::eax, imm);
+        a.mov(a64::eax, imm);
         imm.setValue(code_block_return_to_interp_from_jitted);
-        a.mov(x86::rsi, imm);
-        a.jmp(x86::rsi);
+        a.mov(a64::rsi, imm);
+        a.jmp(a64::rsi);
 
         char *stream_new = (char *)a.code()->sectionById(0)->buffer().data()
                            + a.code()->sectionById(0)->buffer().size();
@@ -8635,31 +8636,31 @@ jit_codegen_compile_call_to_llvm_jit(const WASMType *func_type)
 
     if (result_count > 0 && func_type->types[param_count] != VALUE_TYPE_F32
         && func_type->types[param_count] != VALUE_TYPE_F64) {
-        a.mov(x86::rdx, x86::rax);
+        a.mov(a64::rdx, a64::rax);
     }
 
     if (off_to_res > 0) {
         imm.setValue(off_to_res);
         a.add(reg_res, imm);
         /* cur_frame->sp = r12 */
-        x86::Mem m(x86::rbp, (uint32)offsetof(WASMInterpFrame, sp));
+        a64::Mem m(a64::rbp, (uint32)offsetof(WASMInterpFrame, sp));
         a.mov(m, reg_res);
     }
 
     if (n_pushed > 0) {
         imm.setValue(n_pushed * 8);
-        a.add(x86::rsp, imm);
+        a.add(a64::rsp, imm);
     }
 
     /* Return to the caller */
     {
         /* eax = action = JIT_INTERP_ACTION_NORMAL */
         Imm imm(0);
-        a.mov(x86::eax, imm);
+        a.mov(a64::eax, imm);
 
         uint32 jitted_return_addr_offset =
             jit_frontend_get_jitted_return_addr_offset();
-        x86::Mem m(x86::rbp, jitted_return_addr_offset);
+        a64::Mem m(a64::rbp, jitted_return_addr_offset);
         a.jmp(m);
     }
 
@@ -8756,7 +8757,7 @@ jit_codegen_compile_call_to_fast_jit(const WASMModule *module, uint32 func_idx)
      */
     switch_info_size = align_uint((uint32)sizeof(JitInterpSwitchInfo), 16) + 8;
     imm.setValue((uint64)switch_info_size);
-    a.sub(x86::rsp, imm);
+    a.sub(a64::rsp, imm);
 
     /* Push all integer argument registers since we will use them as
        temporarily registers to load/store data */
@@ -8792,20 +8793,20 @@ jit_codegen_compile_call_to_fast_jit(const WASMModule *module, uint32 func_idx)
        the first argument of LLVM JIT function */
     /* rsi = param_cell_num */
     imm.setValue(param_cell_num);
-    a.mov(x86::rsi, imm);
+    a.mov(a64::rsi, imm);
     /* rdx = ret_cell_num */
     imm.setValue(ret_cell_num);
-    a.mov(x86::rdx, imm);
+    a.mov(a64::rdx, imm);
     /* call fast_jit_alloc_frame */
     imm.setValue((uint64)(uintptr_t)fast_jit_alloc_frame);
-    a.mov(x86::rax, imm);
-    a.call(x86::rax);
+    a.mov(a64::rax, imm);
+    a.call(a64::rax);
 
     /* Check the return value, note now rax is the allocated frame */
     {
         /* Did fast_jit_alloc_frame return NULL? */
         Imm imm((uint64)0);
-        a.cmp(x86::rax, imm);
+        a.cmp(a64::rax, imm);
         /* If no, jump to `Copy arguments to frame lp area` */
         imm.setValue(INT32_MAX);
         a.jne(imm);
@@ -8821,7 +8822,7 @@ jit_codegen_compile_call_to_fast_jit(const WASMModule *module, uint32 func_idx)
         }
         /* Pop jit interp switch info */
         imm.setValue((uint64)switch_info_size);
-        a.add(x86::rsp, imm);
+        a.add(a64::rsp, imm);
 
         /* Return to the caller, don't use leave as we didn't
            `push rbp` and `mov rbp, rsp` */
@@ -8843,7 +8844,7 @@ jit_codegen_compile_call_to_fast_jit(const WASMModule *module, uint32 func_idx)
 
     /* Copy arguments to frame lp area */
     for (i = 0; i < func_type->param_count; i++) {
-        x86::Mem m_dst(x86::rax, frame_lp_offset);
+        a64::Mem m_dst(a64::rax, frame_lp_offset);
         switch (func_type->types[i]) {
             case VALUE_TYPE_I32:
 #if WASM_ENABLE_REF_TYPES != 0
@@ -8852,17 +8853,17 @@ jit_codegen_compile_call_to_fast_jit(const WASMModule *module, uint32 func_idx)
 #endif
                 if (int_reg_idx < MAX_REG_INTS) {
                     /* Copy i32 argument from int register */
-                    x86::Mem m_src(x86::rsp, int_reg_offset);
-                    a.mov(x86::esi, m_src);
-                    a.mov(m_dst, x86::esi);
+                    a64::Mem m_src(a64::rsp, int_reg_offset);
+                    a.mov(a64::esi, m_src);
+                    a.mov(m_dst, a64::esi);
                     int_reg_offset += 8;
                     int_reg_idx++;
                 }
                 else {
                     /* Copy i32 argument from stack */
-                    x86::Mem m_src(x86::rsp, stack_arg_offset);
-                    a.mov(x86::esi, m_src);
-                    a.mov(m_dst, x86::esi);
+                    a64::Mem m_src(a64::rsp, stack_arg_offset);
+                    a.mov(a64::esi, m_src);
+                    a.mov(m_dst, a64::esi);
                     stack_arg_offset += 8;
                     stack_arg_idx++;
                 }
@@ -8871,17 +8872,17 @@ jit_codegen_compile_call_to_fast_jit(const WASMModule *module, uint32 func_idx)
             case VALUE_TYPE_I64:
                 if (int_reg_idx < MAX_REG_INTS) {
                     /* Copy i64 argument from int register */
-                    x86::Mem m_src(x86::rsp, int_reg_offset);
-                    a.mov(x86::rsi, m_src);
-                    a.mov(m_dst, x86::rsi);
+                    a64::Mem m_src(a64::rsp, int_reg_offset);
+                    a.mov(a64::rsi, m_src);
+                    a.mov(m_dst, a64::rsi);
                     int_reg_offset += 8;
                     int_reg_idx++;
                 }
                 else {
                     /* Copy i64 argument from stack */
-                    x86::Mem m_src(x86::rsp, stack_arg_offset);
-                    a.mov(x86::rsi, m_src);
-                    a.mov(m_dst, x86::rsi);
+                    a64::Mem m_src(a64::rsp, stack_arg_offset);
+                    a.mov(a64::rsi, m_src);
+                    a.mov(m_dst, a64::rsi);
                     stack_arg_offset += 8;
                     stack_arg_idx++;
                 }
@@ -8894,9 +8895,9 @@ jit_codegen_compile_call_to_fast_jit(const WASMModule *module, uint32 func_idx)
                 }
                 else {
                     /* Copy f32 argument from stack */
-                    x86::Mem m_src(x86::rsp, stack_arg_offset);
-                    a.mov(x86::esi, m_src);
-                    a.mov(m_dst, x86::esi);
+                    a64::Mem m_src(a64::rsp, stack_arg_offset);
+                    a.mov(a64::esi, m_src);
+                    a.mov(m_dst, a64::esi);
                     stack_arg_offset += 8;
                     stack_arg_idx++;
                 }
@@ -8909,9 +8910,9 @@ jit_codegen_compile_call_to_fast_jit(const WASMModule *module, uint32 func_idx)
                 }
                 else {
                     /* Copy f64 argument from stack */
-                    x86::Mem m_src(x86::rsp, stack_arg_offset);
-                    a.mov(x86::rsi, m_src);
-                    a.mov(m_dst, x86::rsi);
+                    a64::Mem m_src(a64::rsp, stack_arg_offset);
+                    a.mov(a64::rsi, m_src);
+                    a.mov(m_dst, a64::rsi);
                     stack_arg_offset += 8;
                     stack_arg_idx++;
                 }
@@ -8925,36 +8926,36 @@ jit_codegen_compile_call_to_fast_jit(const WASMModule *module, uint32 func_idx)
     /* Call the fast jit function */
     {
         /* info = rsp + switch_info_offset */
-        a.lea(x86::rsi, x86::ptr(x86::rsp, switch_info_offset));
+        a.lea(a64::rsi, a64::ptr(a64::rsp, switch_info_offset));
         /* info.frame = frame = rax, or return of fast_jit_alloc_frame */
-        x86::Mem m1(x86::rsi, (uint32)offsetof(JitInterpSwitchInfo, frame));
-        a.mov(m1, x86::rax);
+        a64::Mem m1(a64::rsi, (uint32)offsetof(JitInterpSwitchInfo, frame));
+        a.mov(m1, a64::rax);
 
         /* Call code_block_switch_to_jitted_from_interp
            with argument (exec_env, info, func_idx, pc) */
         /* rdi = exec_env */
-        a.mov(x86::rdi, x86::ptr(x86::rsp, exec_env_offset));
+        a.mov(a64::rdi, a64::ptr(a64::rsp, exec_env_offset));
         /* rsi = info, has been set */
         /* rdx = func_idx */
         imm.setValue(func_idx);
-        a.mov(x86::rdx, imm);
+        a.mov(a64::rdx, imm);
         /* module_inst = exec_env->module_inst */
-        a.mov(x86::rcx,
-              x86::ptr(x86::rdi, (uint32)offsetof(WASMExecEnv, module_inst)));
+        a.mov(a64::rcx,
+              a64::ptr(a64::rdi, (uint32)offsetof(WASMExecEnv, module_inst)));
         /* fast_jit_func_ptrs = module_inst->fast_jit_func_ptrs */
-        a.mov(x86::rcx,
-              x86::ptr(x86::rcx, (uint32)offsetof(WASMModuleInstance,
+        a.mov(a64::rcx,
+              a64::ptr(a64::rcx, (uint32)offsetof(WASMModuleInstance,
                                                   fast_jit_func_ptrs)));
         imm.setValue(func_idx_non_import);
-        a.mov(x86::rax, imm);
-        x86::Mem m3(x86::rcx, x86::rax, 3, 0);
+        a.mov(a64::rax, imm);
+        a64::Mem m3(a64::rcx, a64::rax, 3, 0);
         /* rcx = module_inst->fast_jit_func_ptrs[func_idx_non_import] */
-        a.mov(x86::rcx, m3);
+        a.mov(a64::rcx, m3);
 
         imm.setValue(
             (uint64)(uintptr_t)code_block_switch_to_jitted_from_interp);
-        a.mov(x86::rax, imm);
-        a.call(x86::rax);
+        a.mov(a64::rax, imm);
+        a.call(a64::rax);
     }
 
     /* No need to check exception thrown here as it will be checked
@@ -8970,11 +8971,11 @@ jit_codegen_compile_call_to_fast_jit(const WASMModule *module, uint32 func_idx)
             case VALUE_TYPE_FUNCREF:
             case VALUE_TYPE_EXTERNREF:
 #endif
-                a.mov(x86::eax, x86::edx);
+                a.mov(a64::eax, a64::edx);
                 frame_lp_offset += 4;
                 break;
             case VALUE_TYPE_I64:
-                a.mov(x86::rax, x86::rdx);
+                a.mov(a64::rax, a64::rdx);
                 frame_lp_offset += 8;
                 break;
             case VALUE_TYPE_F32:
@@ -8992,10 +8993,10 @@ jit_codegen_compile_call_to_fast_jit(const WASMModule *module, uint32 func_idx)
         /* Copy extra results from exec_env->cur_frame */
         if (ext_result_count > 0) {
             /* rdi = exec_env */
-            a.mov(x86::rdi, x86::ptr(x86::rsp, exec_env_offset));
+            a.mov(a64::rdi, a64::ptr(a64::rsp, exec_env_offset));
             /* rsi = exec_env->cur_frame */
-            a.mov(x86::rsi,
-                  x86::ptr(x86::rdi, (uint32)offsetof(WASMExecEnv, cur_frame)));
+            a.mov(a64::rsi,
+                  a64::ptr(a64::rdi, (uint32)offsetof(WASMExecEnv, cur_frame)));
 
             for (i = 0; i < ext_result_count; i++) {
                 switch (func_type->types[param_count + 1 + i]) {
@@ -9007,20 +9008,20 @@ jit_codegen_compile_call_to_fast_jit(const WASMModule *module, uint32 func_idx)
                     case VALUE_TYPE_F32:
                     {
                         /* Copy 32-bit result */
-                        a.mov(x86::ecx, x86::ptr(x86::rsi, frame_lp_offset));
+                        a.mov(a64::ecx, a64::ptr(a64::rsi, frame_lp_offset));
                         if (int_reg_idx < MAX_REG_INTS) {
-                            x86::Mem m1(x86::rsp,
+                            a64::Mem m1(a64::rsp,
                                         exec_env_offset + int_reg_idx * 8);
-                            a.mov(x86::rdx, m1);
-                            x86::Mem m2(x86::rdx, 0);
-                            a.mov(m2, x86::ecx);
+                            a.mov(a64::rdx, m1);
+                            a64::Mem m2(a64::rdx, 0);
+                            a.mov(m2, a64::ecx);
                             int_reg_idx++;
                         }
                         else {
-                            x86::Mem m1(x86::rsp, stack_arg_offset);
-                            a.mov(x86::rdx, m1);
-                            x86::Mem m2(x86::rdx, 0);
-                            a.mov(m2, x86::ecx);
+                            a64::Mem m1(a64::rsp, stack_arg_offset);
+                            a.mov(a64::rdx, m1);
+                            a64::Mem m2(a64::rdx, 0);
+                            a.mov(m2, a64::ecx);
                             stack_arg_offset += 8;
                             stack_arg_idx++;
                         }
@@ -9031,20 +9032,20 @@ jit_codegen_compile_call_to_fast_jit(const WASMModule *module, uint32 func_idx)
                     case VALUE_TYPE_F64:
                     {
                         /* Copy 64-bit result */
-                        a.mov(x86::rcx, x86::ptr(x86::rsi, frame_lp_offset));
+                        a.mov(a64::rcx, a64::ptr(a64::rsi, frame_lp_offset));
                         if (int_reg_idx < MAX_REG_INTS) {
-                            x86::Mem m1(x86::rsp,
+                            a64::Mem m1(a64::rsp,
                                         exec_env_offset + int_reg_idx * 8);
-                            a.mov(x86::rdx, m1);
-                            x86::Mem m2(x86::rdx, 0);
-                            a.mov(m2, x86::rcx);
+                            a.mov(a64::rdx, m1);
+                            a64::Mem m2(a64::rdx, 0);
+                            a.mov(m2, a64::rcx);
                             int_reg_idx++;
                         }
                         else {
-                            x86::Mem m1(x86::rsp, stack_arg_offset);
-                            a.mov(x86::rdx, m1);
-                            x86::Mem m2(x86::rdx, 0);
-                            a.mov(m2, x86::rcx);
+                            a64::Mem m1(a64::rsp, stack_arg_offset);
+                            a.mov(a64::rdx, m1);
+                            a64::Mem m2(a64::rdx, 0);
+                            a.mov(m2, a64::rcx);
                             stack_arg_offset += 8;
                             stack_arg_idx++;
                         }
@@ -9061,22 +9062,22 @@ jit_codegen_compile_call_to_fast_jit(const WASMModule *module, uint32 func_idx)
     /* Free the frame allocated */
 
     /* rdi = exec_env */
-    a.mov(x86::rdi, x86::ptr(x86::rsp, exec_env_offset));
+    a.mov(a64::rdi, a64::ptr(a64::rsp, exec_env_offset));
     /* rsi = exec_env->cur_frame */
-    a.mov(x86::rsi,
-          x86::ptr(x86::rdi, (uint32)offsetof(WASMExecEnv, cur_frame)));
+    a.mov(a64::rsi,
+          a64::ptr(a64::rdi, (uint32)offsetof(WASMExecEnv, cur_frame)));
     /* rdx = exec_env->cur_frame->prev_frame */
-    a.mov(x86::rdx,
-          x86::ptr(x86::rsi, (uint32)offsetof(WASMInterpFrame, prev_frame)));
+    a.mov(a64::rdx,
+          a64::ptr(a64::rsi, (uint32)offsetof(WASMInterpFrame, prev_frame)));
     /* exec_env->wasm_stack.s.top = cur_frame */
     {
-        x86::Mem m(x86::rdi, offsetof(WASMExecEnv, wasm_stack.s.top));
-        a.mov(m, x86::rsi);
+        a64::Mem m(a64::rdi, offsetof(WASMExecEnv, wasm_stack.s.top));
+        a.mov(m, a64::rsi);
     }
     /* exec_env->cur_frame = prev_frame */
     {
-        x86::Mem m(x86::rdi, offsetof(WASMExecEnv, cur_frame));
-        a.mov(m, x86::rdx);
+        a64::Mem m(a64::rdi, offsetof(WASMExecEnv, cur_frame));
+        a.mov(m, a64::rdx);
     }
 
     /* Pop all integer arument registers */
@@ -9085,7 +9086,7 @@ jit_codegen_compile_call_to_fast_jit(const WASMModule *module, uint32 func_idx)
     }
     /* Pop jit interp switch info */
     imm.setValue((uint64)switch_info_size);
-    a.add(x86::rsp, imm);
+    a.add(a64::rsp, imm);
 
     /* Return to the caller, don't use leave as we didn't
        `push rbp` and `mov rbp, rsp` */
@@ -9158,14 +9159,14 @@ jit_codegen_init()
     /* Initialize code_block_switch_to_jitted_from_interp */
 
     /* push callee-save registers */
-    a.push(x86::rbp);
-    a.push(x86::rbx);
-    a.push(x86::r12);
-    a.push(x86::r13);
-    a.push(x86::r14);
-    a.push(x86::r15);
+    a.push(a64::rbp);
+    a.push(a64::rbx);
+    a.push(a64::r12);
+    a.push(a64::r13);
+    a.push(a64::r14);
+    a.push(a64::r15);
     /* push info */
-    a.push(x86::rsi);
+    a.push(a64::rsi);
 
     /* Note: the number of register pushed must be odd, as the stack pointer
        %rsp must be aligned to a 16-byte boundary before making a call, so
@@ -9174,13 +9175,13 @@ jit_codegen_init()
        calling native functions. */
 
     /* exec_env_reg = exec_env */
-    a.mov(regs_i64[hreg_info->exec_env_hreg_index], x86::rdi);
+    a.mov(regs_i64[hreg_info->exec_env_hreg_index], a64::rdi);
     /* fp_reg = info->frame */
-    a.mov(x86::rbp, x86::ptr(x86::rsi, offsetof(JitInterpSwitchInfo, frame)));
+    a.mov(a64::rbp, a64::ptr(a64::rsi, offsetof(JitInterpSwitchInfo, frame)));
     /* rdx = func_idx, is already set in the func_idx argument of
        jit_codegen_interp_jitted_glue  */
     /* jmp target, rcx = pc */
-    a.jmp(x86::rcx);
+    a.jmp(a64::rcx);
 
     if (err_handler.err)
         return false;
@@ -9203,30 +9204,30 @@ jit_codegen_init()
     a.setOffset(0);
 
     /* pop info */
-    a.pop(x86::rsi);
+    a.pop(a64::rsi);
     /* info->frame = fp_reg */
     {
-        x86::Mem m(x86::rsi, offsetof(JitInterpSwitchInfo, frame));
-        a.mov(m, x86::rbp);
+        a64::Mem m(a64::rsi, offsetof(JitInterpSwitchInfo, frame));
+        a.mov(m, a64::rbp);
     }
     /* info->out.ret.ival[0, 1] = rdx */
     {
-        x86::Mem m(x86::rsi, offsetof(JitInterpSwitchInfo, out.ret.ival));
-        a.mov(m, x86::rdx);
+        a64::Mem m(a64::rsi, offsetof(JitInterpSwitchInfo, out.ret.ival));
+        a.mov(m, a64::rdx);
     }
     /* info->out.ret.fval[0, 1] = xmm0 */
     {
-        x86::Mem m(x86::rsi, offsetof(JitInterpSwitchInfo, out.ret.fval));
-        a.movsd(m, x86::xmm0);
+        a64::Mem m(a64::rsi, offsetof(JitInterpSwitchInfo, out.ret.fval));
+        a.movsd(m, a64::xmm0);
     }
 
     /* pop callee-save registers */
-    a.pop(x86::r15);
-    a.pop(x86::r14);
-    a.pop(x86::r13);
-    a.pop(x86::r12);
-    a.pop(x86::rbx);
-    a.pop(x86::rbp);
+    a.pop(a64::r15);
+    a.pop(a64::r14);
+    a.pop(a64::r13);
+    a.pop(a64::r12);
+    a.pop(a64::rbx);
+    a.pop(a64::rbp);
     a.ret();
 
     if (err_handler.err)
@@ -9257,33 +9258,33 @@ jit_codegen_init()
     /* Backup func_idx: rbx = rdx = func_idx, note that rdx has
        been prepared in the caller:
          callbc or code_block_switch_to_jitted_from_interp */
-    a.mov(x86::rbx, x86::rdx);
+    a.mov(a64::rbx, a64::rdx);
     /* r12 = module_inst = exec_env->module_inst */
     {
-        x86::Mem m(regs_i64[hreg_info->exec_env_hreg_index],
+        a64::Mem m(regs_i64[hreg_info->exec_env_hreg_index],
                    (uint32)offsetof(WASMExecEnv, module_inst));
-        a.mov(x86::r12, m);
+        a.mov(a64::r12, m);
     }
     /* rdi = r13 = module_inst->module */
     {
-        x86::Mem m(x86::r12, (uint32)offsetof(WASMModuleInstance, module));
-        a.mov(x86::rdi, m);
-        a.mov(x86::r13, x86::rdi);
+        a64::Mem m(a64::r12, (uint32)offsetof(WASMModuleInstance, module));
+        a.mov(a64::rdi, m);
+        a.mov(a64::r13, a64::rdi);
     }
     /* rsi = rdx = func_idx */
-    a.mov(x86::rsi, x86::rdx);
+    a.mov(a64::rsi, a64::rdx);
     /* Call jit_compiler_compile(module, func_idx) */
     {
         Imm imm((uint64)(uintptr_t)jit_compiler_compile);
-        a.mov(x86::rax, imm);
-        a.call(x86::rax);
+        a.mov(a64::rax, imm);
+        a.call(a64::rax);
     }
 
     /* Check if failed to compile the jit function */
     {
         /* Did jit_compiler_compile return false? */
         Imm imm((uint8)0);
-        a.cmp(x86::al, imm);
+        a.cmp(a64::al, imm);
         /* If no, jump to `Load compiled func ptr and call it` */
         imm.setValue(INT32_MAX);
         a.jne(imm);
@@ -9296,20 +9297,20 @@ jit_codegen_init()
            code_block_return_to_interp_from_jitted to return */
 
         /* rdi = module_inst */
-        a.mov(x86::rdi, x86::r12);
+        a.mov(a64::rdi, a64::r12);
         /* rsi = EXCE_FAILED_TO_COMPILE_FAST_JIT_FUNC */
         imm.setValue(EXCE_FAILED_TO_COMPILE_FAST_JIT_FUNC);
-        a.mov(x86::rsi, imm);
+        a.mov(a64::rsi, imm);
         /* Call jit_set_exception_with_id */
         imm.setValue((uint64)(uintptr_t)jit_set_exception_with_id);
-        a.mov(x86::rax, imm);
-        a.call(x86::rax);
+        a.mov(a64::rax, imm);
+        a.call(a64::rax);
         /* Return to the caller */
         imm.setValue(JIT_INTERP_ACTION_THROWN);
-        a.mov(x86::eax, imm);
+        a.mov(a64::eax, imm);
         imm.setValue(code_block_return_to_interp_from_jitted);
-        a.mov(x86::rsi, imm);
-        a.jmp(x86::rsi);
+        a.mov(a64::rsi, imm);
+        a.jmp(a64::rsi);
 
         /* Patch the offset of jne instruction */
         char *stream_new = (char *)a.code()->sectionById(0)->buffer().data()
@@ -9320,18 +9321,18 @@ jit_codegen_init()
     /* Load compiled func ptr and call it */
     {
         /* rsi = module->import_function_count */
-        x86::Mem m1(x86::r13,
+        a64::Mem m1(a64::r13,
                     (uint32)offsetof(WASMModule, import_function_count));
-        a.movzx(x86::rsi, m1);
+        a.movzx(a64::rsi, m1);
         /* rbx = rbx - module->import_function_count */
-        a.sub(x86::rbx, x86::rsi);
+        a.sub(a64::rbx, a64::rsi);
         /* rax = module->fast_jit_func_ptrs */
-        x86::Mem m2(x86::r13, (uint32)offsetof(WASMModule, fast_jit_func_ptrs));
-        a.mov(x86::rax, m2);
+        a64::Mem m2(a64::r13, (uint32)offsetof(WASMModule, fast_jit_func_ptrs));
+        a.mov(a64::rax, m2);
         /* rax = fast_jit_func_ptrs[rbx] */
-        x86::Mem m3(x86::rax, x86::rbx, 3, 0);
-        a.mov(x86::rax, m3);
-        a.jmp(x86::rax);
+        a64::Mem m3(a64::rax, a64::rbx, 3, 0);
+        a.mov(a64::rax, m3);
+        a.jmp(a64::rax);
     }
 
     if (err_handler.err)
