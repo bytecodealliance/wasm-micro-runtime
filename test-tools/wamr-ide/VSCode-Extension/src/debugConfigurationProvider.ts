@@ -7,32 +7,29 @@ import * as vscode from 'vscode';
 import * as os from 'os';
 
 export class WasmDebugConfigurationProvider
-    implements vscode.DebugConfigurationProvider
-{
-    private wasmDebugConfig!: vscode.DebugConfiguration;
+    implements vscode.DebugConfigurationProvider {
+    private wasmDebugConfig = {
+        type: 'wamr-debug',
+        name: 'Attach',
+        request: 'attach',
+        stopOnEntry: true,
+        initCommands: os.platform() === 'win32' || os.platform() === 'darwin' ?
+            /* linux and windows has different debug configuration */
+            ['platform select remote-linux'] :
+            undefined,
+        attachCommands: [
+            /* default port 1234 */
+            'process connect -p wasm connect://127.0.0.1:1234',
+        ]
+    };
 
-    resolveDebugConfiguration(
+    public resolveDebugConfiguration(
         _: vscode.WorkspaceFolder | undefined,
         debugConfiguration: vscode.DebugConfiguration,
     ): vscode.ProviderResult<vscode.DebugConfiguration> {
-        const defaultConfig: vscode.DebugConfiguration = {
-            type: 'wamr-debug',
-            name: 'Attach',
-            request: 'attach',
-            stopOnEntry: true,
-            attachCommands: [
-                /* default port 1234 */
-                'process connect -p wasm connect://127.0.0.1:1234',
-            ]
-        };
-
-        /* linux and windows has different debug configuration */
-        if (os.platform() === 'win32' || os.platform() === 'darwin') {
-            defaultConfig.initCommands = ['platform select remote-linux'];
-        }
 
         this.wasmDebugConfig = {
-            ...defaultConfig,
+            ...this.wasmDebugConfig,
             ...debugConfiguration
         };
 
