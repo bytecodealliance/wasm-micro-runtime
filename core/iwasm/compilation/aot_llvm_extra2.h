@@ -1,3 +1,8 @@
+/*
+ * Copyright (c)2023 YAMAMOTO Takashi.  All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+ */
+
 #include <llvm-c/TargetMachine.h>
 
 LLVM_C_EXTERN_C_BEGIN
