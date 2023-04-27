@@ -7,6 +7,8 @@
 #include <llvm/MC/TargetRegistry.h>
 #include <llvm/Target/TargetMachine.h>
 
+#include "bh_assert.h"
+
 #include "aot_llvm_extra2.h"
 
 static llvm::Optional<llvm::Reloc::Model>
@@ -28,6 +30,8 @@ convert(LLVMRelocMode reloc_mode)
         case LLVMRelocROPI_RWPI:
             return llvm::Reloc::ROPI_RWPI;
     }
+    bh_assert(0);
+    return llvm::None;
 }
 
 static llvm::CodeGenOpt::Level
@@ -43,6 +47,8 @@ convert(LLVMCodeGenOptLevel opt_level)
         case LLVMCodeGenLevelAggressive:
             return llvm::CodeGenOpt::Aggressive;
     }
+    bh_assert(0);
+    return llvm::CodeGenOpt::None;
 }
 
 static llvm::Optional<llvm::CodeModel::Model>
@@ -66,6 +72,8 @@ convert(LLVMCodeModel code_model, bool *jit)
         case LLVMCodeModelLarge:
             return llvm::CodeModel::Large;
     }
+    bh_assert(0);
+    return llvm::None;
 }
 
 LLVMTargetMachineRef
