@@ -7,7 +7,6 @@
 #define _GC_EXPORT_H
 
 #include "wasm_export.h"
-#include <stdbool.h>
 
 typedef uint8_t wasm_value_type_t;
 
@@ -232,14 +231,14 @@ wasm_defined_type_is_subtype_of(const wasm_defined_type_t def_type1,
 /**
  * Set the ref_type to be (ref null? type_idx)
  */
-WASM_RUNTIME_API_EXTERN bool
+WASM_RUNTIME_API_EXTERN void
 wasm_ref_type_set_type_idx(wasm_ref_type_t *ref_type, bool nullable,
                            int32_t type_idx);
 
 /**
  * Set the ref_type to be (ref null? func/extern/any/eq/i31/struct/array/..)
  */
-WASM_RUNTIME_API_EXTERN bool
+WASM_RUNTIME_API_EXTERN void
 wasm_ref_type_set_heap_type(wasm_ref_type_t *ref_type, bool nullable,
                             int32_t heap_type);
 
