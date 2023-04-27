@@ -54,13 +54,21 @@ wasm_ref_type_t
 wasm_func_type_get_param_type(WASMFuncType *const func_type, uint32 param_idx)
 {
     bh_assert(param_idx < func_type->param_count);
-    WASMRefTypeMap ref_type_maps = func_type->ref_type_maps[param_idx];
-    RefHeapType_Common ref_ht_common = ref_type_maps.ref_type->ref_ht_common;
-    wasm_ref_type_t ref_type = {
-        .value_type = ref_ht_common.ref_type,
-        .nullable = ref_ht_common.nullable,
-        .heap_type = ref_ht_common.heap_type,
-    };
+    wasm_ref_type_t ref_type = { 0 };
+    uint32 i = 0;
+    if (wasm_is_type_multi_byte_type(func_type->types[param_idx])) {
+        for (; i < func_type->param_count; i++) {
+            bh_assert(param_idx < func_type->ref_type_map_count);
+            if (func_type->ref_type_maps[i].index == param_idx) {
+                WASMRefTypeMap ref_type_map = func_type->ref_type_maps[i];
+                RefHeapType_Common ref_ht_common =
+                    ref_type_map.ref_type->ref_ht_common;
+                ref_type.value_type = ref_ht_common.ref_type;
+                ref_type.nullable = ref_ht_common.nullable;
+                ref_type.heap_type = ref_ht_common.heap_type;
+            }
+        }
+    }
     return ref_type;
 }
 
@@ -74,15 +82,22 @@ wasm_ref_type_t
 wasm_func_type_get_result_type(WASMFuncType *const func_type, uint32 result_idx)
 {
     bh_assert(result_idx < func_type->result_count);
-    WASMRefTypeMap result_ref_type_maps =
-        func_type->result_ref_type_maps[result_idx];
-    RefHeapType_Common ref_ht_common =
-        result_ref_type_maps.ref_type->ref_ht_common;
-    wasm_ref_type_t ref_type = {
-        .value_type = ref_ht_common.ref_type,
-        .nullable = ref_ht_common.nullable,
-        .heap_type = ref_ht_common.heap_type,
-    };
+    wasm_ref_type_t ref_type = { 0 };
+    uint32 i = func_type->param_count;
+    uint32 result_idx_with_param = func_type->param_count + result_idx;
+    if (wasm_is_type_multi_byte_type(func_type->types[result_idx_with_param])) {
+        for (; i < func_type->param_count + func_type->result_count; i++) {
+            bh_assert(result_idx_with_param < func_type->ref_type_map_count);
+            if (func_type->ref_type_maps[i].index == result_idx_with_param) {
+                WASMRefTypeMap ref_type_map = func_type->ref_type_maps[i];
+                RefHeapType_Common ref_ht_common =
+                    ref_type_map.ref_type->ref_ht_common;
+                ref_type.value_type = ref_ht_common.ref_type;
+                ref_type.nullable = ref_ht_common.nullable;
+                ref_type.heap_type = ref_ht_common.heap_type;
+            }
+        }
+    }
     return ref_type;
 }
 
@@ -106,13 +121,14 @@ wasm_ref_type_t
 wasm_array_type_get_elem_type(WASMArrayType *const array_type,
                               bool *p_is_mutable)
 {
-    WASMRefType *elem_ref_type = array_type->elem_ref_type;
-    RefHeapType_Common ref_ht_common = elem_ref_type->ref_ht_common;
-    wasm_ref_type_t ref_type = {
-        .value_type = ref_ht_common.ref_type,
-        .nullable = ref_ht_common.nullable,
-        .heap_type = ref_ht_common.heap_type,
-    };
+    wasm_ref_type_t ref_type = { 0 };
+    if (wasm_is_type_multi_byte_type(array_type->elem_type)) {
+        WASMRefType *elem_ref_type = array_type->elem_ref_type;
+        RefHeapType_Common ref_ht_common = elem_ref_type->ref_ht_common;
+        ref_type.value_type = ref_ht_common.ref_type;
+        ref_type.nullable = ref_ht_common.nullable;
+        ref_type.heap_type = ref_ht_common.heap_type;
+    }
 
     if (p_is_mutable != NULL) {
         if (array_type->elem_flags & 1) {
