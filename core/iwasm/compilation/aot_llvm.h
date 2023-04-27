@@ -415,6 +415,7 @@ typedef struct AOTCompOption {
     uint32 stack_bounds_checks;
     char **custom_sections;
     uint32 custom_sections_count;
+    const char *stack_usage_file;
 } AOTCompOption, *aot_comp_option_t;
 
 bool
