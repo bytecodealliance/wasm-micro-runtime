@@ -766,7 +766,7 @@ wasm_is_reftype_supers_of_none(uint8 type, const WASMRefType *ref_type,
 }
 
 inline static bool
-wasm_is_reftype_supers_of_nofunc(uint type, const WASMRefType *ref_type,
+wasm_is_reftype_supers_of_nofunc(uint8 type, const WASMRefType *ref_type,
                                  const WASMTypePtr *types, uint32 type_count)
 {
     if (type == REF_TYPE_NULLFUNCREF || type == REF_TYPE_FUNCREF)
@@ -782,7 +782,7 @@ wasm_is_reftype_supers_of_nofunc(uint type, const WASMRefType *ref_type,
 }
 
 inline static bool
-wasm_is_reftype_supers_of_noextern(uint type)
+wasm_is_reftype_supers_of_noextern(uint8 type)
 {
     return (type == REF_TYPE_NULLEXTERNREF || type == REF_TYPE_EXTERNREF)
                ? true
