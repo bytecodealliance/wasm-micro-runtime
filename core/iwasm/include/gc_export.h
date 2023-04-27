@@ -8,6 +8,10 @@
 
 #include "wasm_export.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef uint8_t wasm_value_type_t;
 
 typedef enum wasm_value_type_enum {
@@ -509,5 +513,9 @@ wasm_runtime_pop_local_object_ref(wasm_exec_env_t exec_env);
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_pop_local_object_refs(wasm_exec_env_t exec_env, uint32_t n);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* end of _GC_EXPORT_H */
