@@ -203,8 +203,18 @@ wasm_array_obj_new_with_typeidx(WASMExecEnv *exec_env, uint32 type_idx,
                                 uint32 length, wasm_value_t *init_value)
 {
     WASMModuleCommon *module = wasm_exec_env_get_module(exec_env);
+    WASMModuleInstanceCommon *module_inst =
+        wasm_exec_env_get_module_inst(exec_env);
+    WASMModule *wasm_module = (WASMModule *)module;
     WASMType *defined_type = wasm_get_defined_type(module, type_idx);
-    WASMRttTypeRef rtt_type = wasm_runtime_malloc(sizeof(WASMRttType));
+    WASMRttTypeRef rtt_type;
+    if (!(rtt_type = wasm_rtt_type_new(
+              defined_type, type_idx, wasm_module->rtt_types,
+              wasm_module->type_count, &wasm_module->rtt_type_lock))) {
+        wasm_set_exception((WASMModuleInstance *)module_inst,
+                           "create rtt type failed");
+        goto got_exception;
+    }
     rtt_type->type_flag = defined_type->type_flag;
     rtt_type->inherit_depth = defined_type->inherit_depth;
     rtt_type->defined_type = defined_type;
@@ -213,6 +223,8 @@ wasm_array_obj_new_with_typeidx(WASMExecEnv *exec_env, uint32 type_idx,
     WASMArrayObjectRef array_obj =
         wasm_array_obj_new(exec_env, rtt_type, length, init_value);
     return array_obj;
+got_exception:
+    return NULL;
 }
 
 WASMArrayObjectRef
@@ -235,9 +247,18 @@ wasm_func_obj_new_with_typeidx(WASMExecEnv *exec_env, uint32 type_idx,
                                uint32 func_idx_bound)
 {
     WASMModuleCommon *module = wasm_exec_env_get_module(exec_env);
+    WASMModuleInstanceCommon *module_inst =
+        wasm_exec_env_get_module_inst(exec_env);
+    WASMModule *wasm_module = (WASMModule *)module;
     WASMType *defined_type = wasm_get_defined_type(module, type_idx);
-
-    WASMRttTypeRef rtt_type = wasm_runtime_malloc(sizeof(WASMRttType));
+    WASMRttTypeRef rtt_type;
+    if (!(rtt_type = wasm_rtt_type_new(
+              defined_type, type_idx, wasm_module->rtt_types,
+              wasm_module->type_count, &wasm_module->rtt_type_lock))) {
+        wasm_set_exception((WASMModuleInstance *)module_inst,
+                           "create rtt type failed");
+        goto got_exception;
+    }
     rtt_type->type_flag = defined_type->type_flag;
     rtt_type->inherit_depth = defined_type->inherit_depth;
     rtt_type->defined_type = defined_type;
@@ -246,6 +267,8 @@ wasm_func_obj_new_with_typeidx(WASMExecEnv *exec_env, uint32 type_idx,
     WASMFuncObjectRef func_obj =
         wasm_func_obj_new(exec_env, rtt_type, func_idx_bound);
     return func_obj;
+got_exception:
+    return NULL;
 }
 
 WASMFuncObjectRef
@@ -283,7 +306,7 @@ bool
 wasm_obj_is_instance_of_ref_type(const WASMObjectRef obj,
                                  const wasm_ref_type_t *ref_type)
 {
-    int32_t heap_type = ref_type->heap_type;
+    int32 heap_type = ref_type->heap_type;
     return wasm_obj_is_type_of(obj, heap_type);
 }
 
