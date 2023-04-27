@@ -142,6 +142,10 @@ wasm_get_defined_type(const wasm_module_t module, uint32_t index);
 
 /**
  * Check whether a defined type is a function type
+ *
+ * @param def_type the defined type to be checked
+ *
+ * @return return true if the defined type is function type, false otherwise
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_defined_type_is_func_type(const wasm_defined_type_t def_type);
@@ -154,18 +158,32 @@ wasm_defined_type_is_struct_type(const wasm_defined_type_t def_type);
 
 /**
  * Check whether a defined type is an array type
+ *
+ * @param def_type the defined type to be checked
+ *
+ * @return return true if the defined type is array type, false otherwise
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_defined_type_is_array_type(const wasm_defined_type_t def_type);
 
 /**
  * Get parameter count of a function type
+ *
+ * @param func_type the specified function type
+ *
+ * @return the param count of the specified function type
  */
 WASM_RUNTIME_API_EXTERN uint32_t
 wasm_func_type_get_param_count(const wasm_func_type_t func_type);
 
 /**
  * Get type of a specified parameter of a function type
+ *
+ * @param func_type the specified function type
+ * @param param_idx the specified param index
+ *
+ * @return the param type at the specified param index of the specified func
+ * type
  */
 WASM_RUNTIME_API_EXTERN wasm_ref_type_t
 wasm_func_type_get_param_type(const wasm_func_type_t func_type,
@@ -173,12 +191,22 @@ wasm_func_type_get_param_type(const wasm_func_type_t func_type,
 
 /**
  * Get result count of a function type
+ *
+ * @param func_type the specified function type
+ *
+ * @return the result count of the specified function type
  */
 WASM_RUNTIME_API_EXTERN uint32_t
 wasm_func_type_get_result_count(const wasm_func_type_t func_type);
 
 /**
  * Get type of a specified result of a function type
+ *
+ * @param func_type the specified function type
+ * @param param_idx the specified result index
+ *
+ * @return the result type at the specified result index of the specified func
+ * type
  */
 WASM_RUNTIME_API_EXTERN wasm_ref_type_t
 wasm_func_type_get_result_type(const wasm_func_type_t func_type,
@@ -199,6 +227,12 @@ wasm_struct_type_get_field_type(const wasm_struct_type_t struct_type,
 
 /**
  * Get element type of an array type
+ *
+ * @param array_type the specified array type
+ * @param p_is_mutable the pointer passed by invoker, record if the elem is
+ * mutable
+ *
+ * @return the ref type of array's elem type
  */
 WASM_RUNTIME_API_EXTERN wasm_ref_type_t
 wasm_array_type_get_elem_type(const wasm_array_type_t array_type,
@@ -214,6 +248,13 @@ wasm_defined_type_equal(const wasm_defined_type_t def_type1,
 
 /**
  * Check whether def_type1 is subtype of def_type2
+ *
+ * @param def_type1 the specified defined type1
+ * @param def_type2 the specified defined type2
+ * @param module current wasm module
+ *
+ * @return return true if the defined type1 is subtype of the defined type2,
+ * false otherwise
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_defined_type_is_subtype_of(const wasm_defined_type_t def_type1,
@@ -282,17 +323,35 @@ wasm_struct_obj_get_field(const wasm_struct_obj_t obj, uint32_t field_idx,
                           bool sign_extend, wasm_value_t *value);
 
 /**
- * Create an array object with the index of defined type
+ * Create an array object with the index of defined type, the obj's length is
+ * length, init value is init_value
+ *
+ * @param exec_env the execution environment
+ * @param type_idx the index of the specified type
+ * @param length the array's length
+ * @param init_value the array's init value
+ *
+ * @return the created array object
  */
 WASM_RUNTIME_API_EXTERN wasm_array_obj_t
-wasm_array_obj_new_with_typeidx(wasm_exec_env_t exec_env, uint32_t type_idx);
+wasm_array_obj_new_with_typeidx(wasm_exec_env_t exec_env, uint32_t type_idx,
+                                uint32_t length, wasm_value_t *init_value);
 
 /**
- * Create an array object with the array type
+ * Create an array object with the array type, the obj's length is length, init
+ * value is init_value
+ *
+ * @param exec_env the execution environment
+ * @param type the array's specified type
+ * @param length the array's length
+ * @param init_value the array's init value
+ *
+ * @return the created array object
  */
 WASM_RUNTIME_API_EXTERN wasm_array_obj_t
 wasm_array_obj_new_with_type(wasm_exec_env_t exec_env,
-                             const wasm_array_type_t type);
+                             const wasm_array_type_t type, uint32_t length,
+                             wasm_value_t *init_value);
 
 /**
  * Set the specified element's value of an array object
@@ -335,16 +394,31 @@ WASM_RUNTIME_API_EXTERN void *
 wasm_array_obj_elem_addr(const wasm_array_obj_t array_obj, uint32_t elem_idx);
 
 /**
- * Create a function object with the index of defined type
+ * Create a function object with the index of defined type and the index of the
+ * function
+ *
+ * @param exec_env the execution environment
+ * @param type_idx the index of the specified type
+ * @param func_idx_bound the index of the function
+ *
+ * @return the created function object
  */
 WASM_RUNTIME_API_EXTERN wasm_func_obj_t
-wasm_func_obj_new_with_typeidx(wasm_exec_env_t exec_env, uint32_t type_idx);
+wasm_func_obj_new_with_typeidx(wasm_exec_env_t exec_env, uint32_t type_idx,
+                               uint32_t func_idx_bound);
 
 /**
- * Create a function object with the function type
+ * Create a function object with the function type and the index of the function
+ *
+ * @param exec_env the execution environment
+ * @param type the specified type
+ * @param func_idx_bound the index of the function
+ *
+ * @return the created function object
  */
 WASM_RUNTIME_API_EXTERN wasm_func_obj_t
-wasm_func_obj_new_with_type(wasm_exec_env_t exec_env, wasm_func_type_t type);
+wasm_func_obj_new_with_type(wasm_exec_env_t exec_env, wasm_func_type_t type,
+                            uint32_t func_idx_bound);
 
 /**
  * Get the function index bound of a function object
