@@ -245,12 +245,19 @@ wasm_ref_type_equal(const wasm_ref_type_t *ref_type1,
                     const wasm_ref_type_t *ref_type2,
                     WASMModuleCommon *const module)
 {
-    const wasm_ref_type_t *ref_type1_norm = wasm_ref_type_normalize(ref_type1);
-    const wasm_ref_type_t *ref_type2_norm = wasm_ref_type_normalize(ref_type2);
-    uint8 type1 = ref_type1_norm->value_type;
-    uint8 type2 = ref_type2_norm->value_type;
+    wasm_ref_type_t ref_type1_norm = { 0 };
+    wasm_ref_type_t ref_type2_norm = { 0 };
     uint32 type_count = 0;
     WASMTypePtr *types = NULL;
+    uint8 type1;
+    uint8 type2;
+
+    bh_memcpy_s(&ref_type1_norm, (uint32)sizeof(wasm_ref_type_t), ref_type1,
+                (uint32)sizeof(wasm_ref_type_t));
+    bh_memcpy_s(&ref_type2_norm, (uint32)sizeof(wasm_ref_type_t), ref_type2,
+                (uint32)sizeof(wasm_ref_type_t));
+    type1 = ref_type1_norm.value_type;
+    type2 = ref_type2_norm.value_type;
 
 #if WASM_ENABLE_INTERP != 0
     if (module->module_type == Wasm_Module_Bytecode) {
@@ -262,8 +269,9 @@ wasm_ref_type_equal(const wasm_ref_type_t *ref_type1,
     // TODO
 #endif
 
-    return wasm_reftype_equal(type1, (WASMRefType *)ref_type1_norm, type2,
-                              (WASMRefType *)ref_type2_norm, types, type_count);
+    return wasm_reftype_equal(type1, (WASMRefType *)&ref_type1_norm, type2,
+                              (WASMRefType *)&ref_type2_norm, types,
+                              type_count);
 }
 
 bool
@@ -271,12 +279,19 @@ wasm_ref_type_is_subtype_of(const wasm_ref_type_t *ref_type1,
                             const wasm_ref_type_t *ref_type2,
                             WASMModuleCommon *const module)
 {
-    const wasm_ref_type_t *ref_type1_norm = wasm_ref_type_normalize(ref_type1);
-    const wasm_ref_type_t *ref_type2_norm = wasm_ref_type_normalize(ref_type2);
-    uint8 type1 = ref_type1_norm->value_type;
-    uint8 type2 = ref_type2_norm->value_type;
+    wasm_ref_type_t ref_type1_norm = { 0 };
+    wasm_ref_type_t ref_type2_norm = { 0 };
+    uint8 type1;
+    uint8 type2;
     WASMTypePtr *types = NULL;
     uint32 type_count = 0;
+
+    bh_memcpy_s(&ref_type1_norm, (uint32)sizeof(wasm_ref_type_t), ref_type1,
+                (uint32)sizeof(wasm_ref_type_t));
+    bh_memcpy_s(&ref_type2_norm, (uint32)sizeof(wasm_ref_type_t), ref_type2,
+                (uint32)sizeof(wasm_ref_type_t));
+    type1 = ref_type1_norm.value_type;
+    type2 = ref_type2_norm.value_type;
 
 #if WASM_ENABLE_INTERP != 0
     if (module->module_type == Wasm_Module_Bytecode) {
@@ -288,8 +303,8 @@ wasm_ref_type_is_subtype_of(const wasm_ref_type_t *ref_type1,
     // TODO
 #endif
 
-    return wasm_reftype_is_subtype_of(type1, (WASMRefType *)ref_type1_norm,
-                                      type2, (WASMRefType *)ref_type2_norm,
+    return wasm_reftype_is_subtype_of(type1, (WASMRefType *)&ref_type1_norm,
+                                      type2, (WASMRefType *)&ref_type2_norm,
                                       types, type_count);
 }
 
