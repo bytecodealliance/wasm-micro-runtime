@@ -53,12 +53,11 @@ wasm_func_type_get_param_count(WASMFuncType *const func_type)
 wasm_ref_type_t
 wasm_func_type_get_param_type(WASMFuncType *const func_type, uint32 param_idx)
 {
-    bh_assert(param_idx < func_type->param_count);
     wasm_ref_type_t ref_type = { 0 };
-    uint32 i = 0;
+    bh_assert(param_idx < func_type->param_count);
+    bh_assert(param_idx < func_type->ref_type_map_count);
     if (wasm_is_type_multi_byte_type(func_type->types[param_idx])) {
-        for (; i < func_type->param_count; i++) {
-            bh_assert(param_idx < func_type->ref_type_map_count);
+        for (uint32 i = 0; i < func_type->param_count; i++) {
             if (func_type->ref_type_maps[i].index == param_idx) {
                 WASMRefTypeMap ref_type_map = func_type->ref_type_maps[i];
                 RefHeapType_Common ref_ht_common =
@@ -66,6 +65,7 @@ wasm_func_type_get_param_type(WASMFuncType *const func_type, uint32 param_idx)
                 ref_type.value_type = ref_ht_common.ref_type;
                 ref_type.nullable = ref_ht_common.nullable;
                 ref_type.heap_type = ref_ht_common.heap_type;
+                break;
             }
         }
     }
@@ -81,13 +81,13 @@ wasm_func_type_get_result_count(WASMFuncType *const func_type)
 wasm_ref_type_t
 wasm_func_type_get_result_type(WASMFuncType *const func_type, uint32 result_idx)
 {
-    bh_assert(result_idx < func_type->result_count);
     wasm_ref_type_t ref_type = { 0 };
-    uint32 i = func_type->param_count;
     uint32 result_idx_with_param = func_type->param_count + result_idx;
+    bh_assert(result_idx < func_type->result_count);
+    bh_assert(result_idx_with_param < func_type->ref_type_map_count);
     if (wasm_is_type_multi_byte_type(func_type->types[result_idx_with_param])) {
-        for (; i < func_type->param_count + func_type->result_count; i++) {
-            bh_assert(result_idx_with_param < func_type->ref_type_map_count);
+        for (uint32 i = func_type->param_count;
+             i < func_type->param_count + func_type->result_count; i++) {
             if (func_type->ref_type_maps[i].index == result_idx_with_param) {
                 WASMRefTypeMap ref_type_map = func_type->ref_type_maps[i];
                 RefHeapType_Common ref_ht_common =
@@ -95,6 +95,7 @@ wasm_func_type_get_result_type(WASMFuncType *const func_type, uint32 result_idx)
                 ref_type.value_type = ref_ht_common.ref_type;
                 ref_type.nullable = ref_ht_common.nullable;
                 ref_type.heap_type = ref_ht_common.heap_type;
+                break;
             }
         }
     }
@@ -178,12 +179,8 @@ wasm_ref_type_equal(const wasm_ref_type_t *ref_type1,
                     const wasm_ref_type_t *ref_type2,
                     WASMModuleCommon *const module)
 {
-    uint8 type1 = ref_type1->value_type;
-    uint8 type2 = ref_type2->value_type;
-    WASMTypePtr *types = ((WASMModule *)module)->types;
-    uint32 type_count = wasm_get_defined_type_count(module);
-    return wasm_reftype_equal(type1, (WASMRefType *)ref_type1, type2,
-                              (WASMRefType *)ref_type2, types, type_count);
+    /* TODO */
+    return false;
 }
 
 bool
@@ -191,13 +188,8 @@ wasm_ref_type_is_subtype_of(const wasm_ref_type_t *ref_type1,
                             const wasm_ref_type_t *ref_type2,
                             WASMModuleCommon *const module)
 {
-    uint8 type1 = ref_type1->value_type;
-    uint8 type2 = ref_type2->value_type;
-    WASMTypePtr *types = ((WASMModule *)module)->types;
-    uint32 type_count = wasm_get_defined_type_count(module);
-    return wasm_reftype_is_subtype_of(type1, (WASMRefType *)ref_type1, type2,
-                                      (WASMRefType *)ref_type2, types,
-                                      type_count);
+    /* TODO */
+    return false;
 }
 
 WASMStructObjectRef
@@ -218,12 +210,14 @@ WASMArrayObjectRef
 wasm_array_obj_new_with_typeidx(WASMExecEnv *exec_env, uint32 type_idx,
                                 uint32 length, wasm_value_t *init_value)
 {
+    WASMArrayObjectRef array_obj;
+    WASMRttTypeRef rtt_type;
     WASMModuleCommon *module = wasm_exec_env_get_module(exec_env);
     WASMModuleInstanceCommon *module_inst =
         wasm_exec_env_get_module_inst(exec_env);
     WASMModule *wasm_module = (WASMModule *)module;
     WASMType *defined_type = wasm_get_defined_type(module, type_idx);
-    WASMRttTypeRef rtt_type;
+
     if (!(rtt_type = wasm_rtt_type_new(
               defined_type, type_idx, wasm_module->rtt_types,
               wasm_module->type_count, &wasm_module->rtt_type_lock))) {
@@ -231,13 +225,8 @@ wasm_array_obj_new_with_typeidx(WASMExecEnv *exec_env, uint32 type_idx,
                            "create rtt type failed");
         goto got_exception;
     }
-    rtt_type->type_flag = defined_type->type_flag;
-    rtt_type->inherit_depth = defined_type->inherit_depth;
-    rtt_type->defined_type = defined_type;
-    rtt_type->root_type = defined_type->root_type;
 
-    WASMArrayObjectRef array_obj =
-        wasm_array_obj_new(exec_env, rtt_type, length, init_value);
+    array_obj = wasm_array_obj_new(exec_env, rtt_type, length, init_value);
     return array_obj;
 got_exception:
     return NULL;
@@ -247,14 +236,22 @@ WASMArrayObjectRef
 wasm_array_obj_new_with_type(WASMExecEnv *exec_env, WASMArrayType *type,
                              uint32 length, wasm_value_t *init_value)
 {
-    WASMRttTypeRef rtt_type = wasm_runtime_malloc(sizeof(WASMRttType));
-    rtt_type->type_flag = type->type_flag;
-    rtt_type->inherit_depth = type->inherit_depth;
-    rtt_type->defined_type = (WASMType *)type;
-    rtt_type->root_type = type->root_type;
+    WASMArrayObjectRef array_obj;
+    uint32 type_idx = 0;
+    WASMModule *wasm_module = (WASMModule *)wasm_exec_env_get_module(exec_env);
 
-    WASMArrayObjectRef array_obj =
-        wasm_array_obj_new(exec_env, rtt_type, length, init_value);
+    for (uint32 i = 0; i < wasm_module->type_count; i++) {
+        if (wasm_module->types[i]->type_flag != WASM_TYPE_ARRAY) {
+            continue;
+        }
+        if (wasm_module->types[i] == (WASMType *)type) {
+            type_idx = i;
+            break;
+        }
+    }
+
+    array_obj =
+        wasm_array_obj_new_with_typeidx(exec_env, type_idx, length, init_value);
     return array_obj;
 }
 
@@ -262,12 +259,14 @@ WASMFuncObjectRef
 wasm_func_obj_new_with_typeidx(WASMExecEnv *exec_env, uint32 type_idx,
                                uint32 func_idx_bound)
 {
+    WASMFuncObjectRef func_obj;
+    WASMRttTypeRef rtt_type;
     WASMModuleCommon *module = wasm_exec_env_get_module(exec_env);
     WASMModuleInstanceCommon *module_inst =
         wasm_exec_env_get_module_inst(exec_env);
     WASMModule *wasm_module = (WASMModule *)module;
     WASMType *defined_type = wasm_get_defined_type(module, type_idx);
-    WASMRttTypeRef rtt_type;
+
     if (!(rtt_type = wasm_rtt_type_new(
               defined_type, type_idx, wasm_module->rtt_types,
               wasm_module->type_count, &wasm_module->rtt_type_lock))) {
@@ -275,13 +274,8 @@ wasm_func_obj_new_with_typeidx(WASMExecEnv *exec_env, uint32 type_idx,
                            "create rtt type failed");
         goto got_exception;
     }
-    rtt_type->type_flag = defined_type->type_flag;
-    rtt_type->inherit_depth = defined_type->inherit_depth;
-    rtt_type->defined_type = defined_type;
-    rtt_type->root_type = defined_type->root_type;
 
-    WASMFuncObjectRef func_obj =
-        wasm_func_obj_new(exec_env, rtt_type, func_idx_bound);
+    func_obj = wasm_func_obj_new(exec_env, rtt_type, func_idx_bound);
     return func_obj;
 got_exception:
     return NULL;
@@ -291,14 +285,22 @@ WASMFuncObjectRef
 wasm_func_obj_new_with_type(WASMExecEnv *exec_env, WASMFuncType *type,
                             uint32 func_idx_bound)
 {
-    WASMRttTypeRef rtt_type = wasm_runtime_malloc(sizeof(WASMRttType));
-    rtt_type->type_flag = type->type_flag;
-    rtt_type->inherit_depth = type->inherit_depth;
-    rtt_type->defined_type = (WASMType *)type;
-    rtt_type->root_type = type->root_type;
+    WASMFuncObjectRef func_obj;
+    uint32 type_idx = 0;
+    WASMModule *wasm_module = (WASMModule *)wasm_exec_env_get_module(exec_env);
 
-    WASMFuncObjectRef func_obj =
-        wasm_func_obj_new(exec_env, rtt_type, func_idx_bound);
+    for (uint32 i = 0; i < wasm_module->type_count; i++) {
+        if (wasm_module->types[i]->type_flag != WASM_TYPE_FUNC) {
+            continue;
+        }
+        if (wasm_module->types[i] == (WASMType *)type) {
+            type_idx = i;
+            break;
+        }
+    }
+
+    func_obj =
+        wasm_func_obj_new_with_typeidx(exec_env, type_idx, func_idx_bound);
     return func_obj;
 }
 
