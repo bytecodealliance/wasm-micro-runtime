@@ -86,8 +86,10 @@ WORKDIR /home/wamr/core/iwasm/libraries/wasi-nn/test/build
 
 RUN cmake \
     -DCMAKE_LIBRARY_PATH=/usr/local/lib/ \
+    -DCMAKE_INCLUDE_PATH=/usr/local/include/ \
     -DWAMR_BUILD_WASI_NN=1 \
     -DWAMR_BUILD_WASI_NN_ENABLE_EXT=1 \
+    -DWASI_NN_EXT_DELEGATE_PATH="/usr/lib/libvx_delegate.so" \
     ..
 
 RUN make -j $(grep -c ^processor /proc/cpuinfo)
