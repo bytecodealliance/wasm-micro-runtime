@@ -4,8 +4,11 @@
  */
 
 #include "../wasm_runtime_common.h"
+#include "bh_assert.h"
 #include "gc_export.h"
 #include "gc_object.h"
+#include "wasm.h"
+#include <stdbool.h>
 #if WASM_ENABLE_INTERP != 0
 #include "../interpreter/wasm_runtime.h"
 #endif
@@ -78,16 +81,27 @@ wasm_func_type_get_param_count(WASMFuncType *const func_type)
     return 0;
 }
 
-wasm_ref_type_t *
+bool
 wasm_ref_type_normalize(wasm_ref_type_t *ref_type)
 {
-    int32 heap_type;
+    wasm_value_type_t value_type = ref_type->value_type;
+    int32 heap_type = ref_type->heap_type;
 
-    if (ref_type->value_type != REF_TYPE_HT_NULLABLE) {
-        return ref_type;
+    if (value_type < VALUE_TYPE_NULLREF || value_type > VALUE_TYPE_I32) {
+        return false;
     }
-    heap_type = ref_type->heap_type;
+    if (value_type == VALUE_TYPE_HT_NULLABLE_REF
+        || value_type == VALUE_TYPE_HT_NON_NULLABLE_REF) {
+        if (heap_type < 0) {
+            if (heap_type < HEAP_TYPE_NONE || heap_type > HEAP_TYPE_FUNC) {
+                return false;
+            }
+        }
+    }
 
+    if (value_type != REF_TYPE_HT_NULLABLE) {
+        return true;
+    }
     if (heap_type >= HEAP_TYPE_NONE && heap_type <= HEAP_TYPE_FUNC) {
         ref_type->value_type =
             (uint8)(REF_TYPE_NULLREF + heap_type - HEAP_TYPE_NONE);
@@ -98,7 +112,7 @@ wasm_ref_type_normalize(wasm_ref_type_t *ref_type)
         ref_type->nullable = true;
     }
 
-    return ref_type;
+    return true;
 }
 
 wasm_ref_type_t
@@ -237,7 +251,9 @@ wasm_ref_type_set_heap_type(wasm_ref_type_t *ref_type, bool nullable,
     ref_type->nullable = nullable;
     ref_type->heap_type = heap_type;
 
-    ref_type = wasm_ref_type_normalize(ref_type);
+    if (!wasm_ref_type_normalize(ref_type)) {
+        bh_assert(0);
+    }
 }
 
 bool
@@ -256,6 +272,12 @@ wasm_ref_type_equal(const wasm_ref_type_t *ref_type1,
                 (uint32)sizeof(wasm_ref_type_t));
     bh_memcpy_s(&ref_type2_norm, (uint32)sizeof(wasm_ref_type_t), ref_type2,
                 (uint32)sizeof(wasm_ref_type_t));
+    if (!wasm_ref_type_normalize(&ref_type1_norm)) {
+        bh_assert(0);
+    }
+    if (!wasm_ref_type_normalize(&ref_type2_norm)) {
+        bh_assert(0);
+    }
     type1 = ref_type1_norm.value_type;
     type2 = ref_type2_norm.value_type;
 
@@ -290,6 +312,12 @@ wasm_ref_type_is_subtype_of(const wasm_ref_type_t *ref_type1,
                 (uint32)sizeof(wasm_ref_type_t));
     bh_memcpy_s(&ref_type2_norm, (uint32)sizeof(wasm_ref_type_t), ref_type2,
                 (uint32)sizeof(wasm_ref_type_t));
+    if (!wasm_ref_type_normalize(&ref_type1_norm)) {
+        bh_assert(0);
+    }
+    if (!wasm_ref_type_normalize(&ref_type2_norm)) {
+        bh_assert(0);
+    }
     type1 = ref_type1_norm.value_type;
     type2 = ref_type2_norm.value_type;
 

@@ -167,7 +167,7 @@ wasm_func_type_get_param_count(const wasm_func_type_t func_type);
 /**
  * Normalize reference type
  */
-WASM_RUNTIME_API_EXTERN wasm_ref_type_t *
+WASM_RUNTIME_API_EXTERN bool
 wasm_ref_type_normalize(wasm_ref_type_t *ref_type);
 
 /**
