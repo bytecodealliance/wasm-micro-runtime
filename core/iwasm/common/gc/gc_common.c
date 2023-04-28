@@ -80,10 +80,12 @@ wasm_func_type_get_param_count(WASMFuncType *const func_type)
 wasm_ref_type_t *
 wasm_ref_type_normalize(wasm_ref_type_t *ref_type)
 {
+    int32 heap_type;
+
     if (ref_type->value_type != REF_TYPE_HT_NULLABLE) {
         return ref_type;
     }
-    int32 heap_type = ref_type->heap_type;
+    heap_type = ref_type->heap_type;
 
     if (heap_type >= HEAP_TYPE_NONE && heap_type <= HEAP_TYPE_FUNC) {
         ref_type->value_type =
@@ -370,7 +372,7 @@ wasm_obj_is_instance_of_defined_type(WASMObjectRef obj, WASMType *defined_type,
     // TODO
 #endif
 
-    for (; type_idx < type_count; type_idx++) {
+    for (type_idx = 0; type_idx < type_count; type_idx++) {
         if (types[type_idx] == defined_type) {
             break;
         }
