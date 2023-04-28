@@ -21,6 +21,10 @@
 #include <tensorflow/lite/delegates/gpu/delegate.h>
 #endif
 
+#if defined(WASI_NN_ENABLE_EXTERNAL_DELEGATE)
+#include <tensorflow/lite/delegates/external/external_delegate.h>
+#endif
+
 /* Maximum number of graphs per WASM instance */
 #define MAX_GRAPHS_PER_INST 10
 /* Maximum number of graph execution context per WASM instance*/
@@ -204,6 +208,17 @@ tensorflowlite_init_execution_context(void *tflite_ctx, graph g,
                     .interpreter->ModifyGraphWithDelegate(delegate)
                 != kTfLiteOk) {
                 NN_ERR_PRINTF("Error when enabling GPU delegate.");
+                use_default = true;
+            }
+#elif defined(WASI_NN_ENABLE_EXTERNAL_DELEGATE)
+            NN_WARN_PRINTF("external delegation enabled.");
+            auto options = TfLiteExternalDelegateOptionsDefault(
+                "/usr/lib/libvx_delegate.so");
+            auto *delegate = TfLiteExternalDelegateCreate(&options);
+            if (tfl_ctx->interpreters[*ctx]
+                    .interpreter->ModifyGraphWithDelegate(delegate)
+                != kTfLiteOk) {
+                NN_ERR_PRINTF("Error when enabling External delegate.");
                 use_default = true;
             }
 #else

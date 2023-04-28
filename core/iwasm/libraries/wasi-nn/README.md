@@ -24,6 +24,7 @@ Build the runtime image for your execution target type.
 `EXECUTION_TYPE` can be:
 * `cpu`
 * `nvidia-gpu`
+* `vx-delegate`
 
 ```
 EXECUTION_TYPE=cpu
@@ -70,6 +71,18 @@ docker run \
     --env="TARGET=gpu" \
     /assets/test_tensorflow.wasm
 ```
+
+* vx-delegate for NPU (x86 simulater)
+
+```
+docker run \
+    -v $PWD/core/iwasm/libraries/wasi-nn/test:/assets wasi-nn-vx-delegate \
+    --dir=/assets \
+    --env="TARGET=gpu" \
+    /assets/test_tensorflow.wasm
+```
+
+
 
 Requirements:
 * [NVIDIA docker](https://github.com/NVIDIA/nvidia-docker).
