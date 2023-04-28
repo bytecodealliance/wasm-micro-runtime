@@ -244,8 +244,15 @@ wasm_ref_type_equal(const wasm_ref_type_t *ref_type1,
                     const wasm_ref_type_t *ref_type2,
                     WASMModuleCommon *const module)
 {
-    /* TODO */
-    return false;
+    const wasm_ref_type_t *ref_type1_norm = wasm_ref_type_normalize(ref_type1);
+    const wasm_ref_type_t *ref_type2_norm = wasm_ref_type_normalize(ref_type2);
+    uint8 type1 = ref_type1_norm->value_type;
+    uint8 type2 = ref_type2_norm->value_type;
+    WASMTypePtr *types = ((WASMModule *)module)->types;
+    uint32 type_count = wasm_get_defined_type_count(module);
+
+    return wasm_reftype_equal(type1, (WASMRefType *)ref_type1_norm, type2,
+                              (WASMRefType *)ref_type2_norm, types, type_count);
 }
 
 bool
@@ -253,8 +260,16 @@ wasm_ref_type_is_subtype_of(const wasm_ref_type_t *ref_type1,
                             const wasm_ref_type_t *ref_type2,
                             WASMModuleCommon *const module)
 {
-    /* TODO */
-    return false;
+    const wasm_ref_type_t *ref_type1_norm = wasm_ref_type_normalize(ref_type1);
+    const wasm_ref_type_t *ref_type2_norm = wasm_ref_type_normalize(ref_type2);
+    uint8 type1 = ref_type1_norm->value_type;
+    uint8 type2 = ref_type2_norm->value_type;
+    WASMTypePtr *types = ((WASMModule *)module)->types;
+    uint32 type_count = wasm_get_defined_type_count(module);
+
+    return wasm_reftype_is_subtype_of(type1, (WASMRefType *)ref_type1_norm,
+                                      type2, (WASMRefType *)ref_type2_norm,
+                                      types, type_count);
 }
 
 WASMStructObjectRef
