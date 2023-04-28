@@ -54,8 +54,10 @@ wasm_ref_type_t
 wasm_func_type_get_param_type(WASMFuncType *const func_type, uint32 param_idx)
 {
     wasm_ref_type_t ref_type = { 0 };
+
     bh_assert(param_idx < func_type->param_count);
     bh_assert(param_idx < func_type->ref_type_map_count);
+
     if (wasm_is_type_multi_byte_type(func_type->types[param_idx])) {
         for (uint32 i = 0; i < func_type->param_count; i++) {
             if (func_type->ref_type_maps[i].index == param_idx) {
@@ -69,6 +71,7 @@ wasm_func_type_get_param_type(WASMFuncType *const func_type, uint32 param_idx)
             }
         }
     }
+
     return ref_type;
 }
 
@@ -83,8 +86,10 @@ wasm_func_type_get_result_type(WASMFuncType *const func_type, uint32 result_idx)
 {
     wasm_ref_type_t ref_type = { 0 };
     uint32 result_idx_with_param = func_type->param_count + result_idx;
+
     bh_assert(result_idx < func_type->result_count);
     bh_assert(result_idx_with_param < func_type->ref_type_map_count);
+
     if (wasm_is_type_multi_byte_type(func_type->types[result_idx_with_param])) {
         for (uint32 i = func_type->param_count;
              i < func_type->param_count + func_type->result_count; i++) {
@@ -99,6 +104,7 @@ wasm_func_type_get_result_type(WASMFuncType *const func_type, uint32 result_idx)
             }
         }
     }
+
     return ref_type;
 }
 
@@ -123,6 +129,7 @@ wasm_array_type_get_elem_type(WASMArrayType *const array_type,
                               bool *p_is_mutable)
 {
     wasm_ref_type_t ref_type = { 0 };
+
     if (wasm_is_type_multi_byte_type(array_type->elem_type)) {
         WASMRefType *elem_ref_type = array_type->elem_ref_type;
         RefHeapType_Common ref_ht_common = elem_ref_type->ref_ht_common;
@@ -227,7 +234,9 @@ wasm_array_obj_new_with_typeidx(WASMExecEnv *exec_env, uint32 type_idx,
     }
 
     array_obj = wasm_array_obj_new(exec_env, rtt_type, length, init_value);
+
     return array_obj;
+
 got_exception:
     return NULL;
 }
@@ -252,6 +261,7 @@ wasm_array_obj_new_with_type(WASMExecEnv *exec_env, WASMArrayType *type,
 
     array_obj =
         wasm_array_obj_new_with_typeidx(exec_env, type_idx, length, init_value);
+
     return array_obj;
 }
 
@@ -276,7 +286,9 @@ wasm_func_obj_new_with_typeidx(WASMExecEnv *exec_env, uint32 type_idx,
     }
 
     func_obj = wasm_func_obj_new(exec_env, rtt_type, func_idx_bound);
+
     return func_obj;
+
 got_exception:
     return NULL;
 }
@@ -301,6 +313,7 @@ wasm_func_obj_new_with_type(WASMExecEnv *exec_env, WASMFuncType *type,
 
     func_obj =
         wasm_func_obj_new_with_typeidx(exec_env, type_idx, func_idx_bound);
+
     return func_obj;
 }
 
