@@ -212,8 +212,8 @@ tensorflowlite_init_execution_context(void *tflite_ctx, graph g,
             }
 #elif defined(WASI_NN_ENABLE_EXTERNAL_DELEGATE)
             NN_WARN_PRINTF("external delegation enabled.");
-            auto options = TfLiteExternalDelegateOptionsDefault(
-                WASI_NN_EXT_DELEGATE_PATH);
+            auto options =
+                TfLiteExternalDelegateOptionsDefault(WASI_NN_EXT_DELEGATE_PATH);
             auto *delegate = TfLiteExternalDelegateCreate(&options);
             if (tfl_ctx->interpreters[*ctx]
                     .interpreter->ModifyGraphWithDelegate(delegate)
