@@ -4,6 +4,7 @@
  */
 
 #include "../wasm_runtime_common.h"
+#include "gc_export.h"
 #include "gc_object.h"
 #if WASM_ENABLE_INTERP != 0
 #include "../interpreter/wasm_runtime.h"
@@ -248,8 +249,18 @@ wasm_ref_type_equal(const wasm_ref_type_t *ref_type1,
     const wasm_ref_type_t *ref_type2_norm = wasm_ref_type_normalize(ref_type2);
     uint8 type1 = ref_type1_norm->value_type;
     uint8 type2 = ref_type2_norm->value_type;
-    WASMTypePtr *types = ((WASMModule *)module)->types;
-    uint32 type_count = wasm_get_defined_type_count(module);
+    uint32 type_count = 0;
+    WASMTypePtr *types = NULL;
+
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode) {
+        types = ((WASMModule *)module)->types;
+        type_count = wasm_get_defined_type_count(module);
+    }
+#endif
+#if WASM_ENABLE_AOT != 0
+    // TODO
+#endif
 
     return wasm_reftype_equal(type1, (WASMRefType *)ref_type1_norm, type2,
                               (WASMRefType *)ref_type2_norm, types, type_count);
@@ -264,8 +275,18 @@ wasm_ref_type_is_subtype_of(const wasm_ref_type_t *ref_type1,
     const wasm_ref_type_t *ref_type2_norm = wasm_ref_type_normalize(ref_type2);
     uint8 type1 = ref_type1_norm->value_type;
     uint8 type2 = ref_type2_norm->value_type;
-    WASMTypePtr *types = ((WASMModule *)module)->types;
-    uint32 type_count = wasm_get_defined_type_count(module);
+    WASMTypePtr *types = NULL;
+    uint32 type_count = 0;
+
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode) {
+        types = ((WASMModule *)module)->types;
+        type_count = wasm_get_defined_type_count(module);
+    }
+#endif
+#if WASM_ENABLE_AOT != 0
+    // TODO
+#endif
 
     return wasm_reftype_is_subtype_of(type1, (WASMRefType *)ref_type1_norm,
                                       type2, (WASMRefType *)ref_type2_norm,
