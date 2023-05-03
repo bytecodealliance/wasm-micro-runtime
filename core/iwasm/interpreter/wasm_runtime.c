@@ -22,7 +22,7 @@
 #if WASM_ENABLE_FAST_JIT != 0
 #include "../fast-jit/jit_compiler.h"
 #endif
-#if WASM_ENABLE_JIT != 0
+#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_AOT != 0
 #include "../aot/aot_runtime.h"
 #endif
 
