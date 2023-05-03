@@ -624,7 +624,7 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
 #endif
 
         if (import_func_count != 0 && c_api_func_imports) {
-            size_in_bytes = sizeof(CApiFuncImport *) * import_func_count;
+            size_in_bytes = sizeof(CApiFuncImport) * import_func_count;
             *new_c_api_func_imports = wasm_runtime_malloc(size_in_bytes);
             if (!(*new_c_api_func_imports))
                 goto fail;
