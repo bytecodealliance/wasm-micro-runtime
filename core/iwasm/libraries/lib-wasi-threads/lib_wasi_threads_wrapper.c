@@ -83,6 +83,7 @@ thread_spawn_wrapper(wasm_exec_env_t exec_env, uint32 start_arg)
 #if WASM_ENABLE_LIBC_WASI != 0
     WASIContext *wasi_ctx;
 #endif
+    CApiFuncImport **new_c_api_func_imports = NULL;
 
     bh_assert(module);
     bh_assert(module_inst);
@@ -101,6 +102,46 @@ thread_spawn_wrapper(wasm_exec_env_t exec_env, uint32 start_arg)
     if (wasi_ctx)
         wasm_runtime_set_wasi_ctx(new_module_inst, wasi_ctx);
 #endif
+
+    /* workaround about passing instantiate-linking information */
+    {
+        CApiFuncImport *c_api_func_imports;
+        uint32 import_func_count = 0;
+        uint32 size_in_bytes = 0;
+
+#if WASM_ENABLE_INTERP != 0
+        if (module_inst->module_type == Wasm_Module_Bytecode) {
+            new_c_api_func_imports = &(
+                ((WASMModuleInstance *)new_module_inst)->e->c_api_func_imports);
+            c_api_func_imports =
+                ((WASMModuleInstance *)module_inst)->e->c_api_func_imports;
+            import_func_count = ((WASMModule *)module)->import_function_count;
+        }
+#endif
+#if WASM_ENABLE_AOT != 0
+        if (module_inst->module_type == Wasm_Module_AoT) {
+            AOTModuleInstanceExtra *e =
+                (AOTModuleInstanceExtra *)((AOTModuleInstance *)new_module_inst)
+                    ->e;
+            new_c_api_func_imports = &(e->c_api_func_imports);
+
+            e = (AOTModuleInstanceExtra *)((AOTModuleInstance *)module_inst)->e;
+            c_api_func_imports = e->c_api_func_imports;
+
+            import_func_count = ((AOTModule *)module)->import_func_count;
+        }
+#endif
+
+        if (import_func_count != 0 && c_api_func_imports) {
+            size_in_bytes = sizeof(CApiFuncImport *) * import_func_count;
+            *new_c_api_func_imports = wasm_runtime_malloc(size_in_bytes);
+            if (!(*new_c_api_func_imports))
+                return -1;
+
+            bh_memcpy_s(*new_c_api_func_imports, size_in_bytes,
+                        c_api_func_imports, size_in_bytes);
+        }
+    }
 
     start_func = wasm_runtime_lookup_function(new_module_inst,
                                               THREAD_START_FUNCTION, NULL);
@@ -136,6 +177,7 @@ thread_spawn_fail:
     deallocate_thread_id(thread_id);
 
 thread_preparation_fail:
+    wasm_runtime_free(*new_c_api_func_imports);
     if (new_module_inst)
         wasm_runtime_deinstantiate_internal(new_module_inst, true);
     if (thread_start_arg)
