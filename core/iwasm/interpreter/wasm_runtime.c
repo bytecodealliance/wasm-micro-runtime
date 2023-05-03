@@ -2078,6 +2078,49 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst,
             &module_inst->e->functions[module->retain_function];
     }
 
+    if (exec_env_main && ((WASMModuleInstance const*)(exec_env_main->module_inst))->e->c_api_func_imports != NULL) {
+        /* workaround about passing instantiate-linking information */
+        {
+            CApiFuncImport **new_c_api_func_imports = NULL;
+            CApiFuncImport *c_api_func_imports;
+            uint32 import_func_count = 0;
+            uint32 size_in_bytes = 0;
+
+#if WASM_ENABLE_INTERP != 0
+            if (exec_env_main->module_inst->module_type == Wasm_Module_Bytecode) {
+                new_c_api_func_imports = &(
+                    ((WASMModuleInstance *)module_inst)->e->c_api_func_imports);
+                c_api_func_imports =
+                    ((WASMModuleInstance *)exec_env_main->module_inst)->e->c_api_func_imports;
+                import_func_count = ((WASMModule *)module)->import_function_count;
+            }
+#endif
+#if WASM_ENABLE_AOT != 0
+            if (exec_env_main->module_inst->module_type == Wasm_Module_AoT) {
+                AOTModuleInstanceExtra *e =
+                    (AOTModuleInstanceExtra *)((AOTModuleInstance *)module_inst)
+                        ->e;
+                new_c_api_func_imports = &(e->c_api_func_imports);
+
+                e = (AOTModuleInstanceExtra *)((AOTModuleInstance *)exec_env_main->module_inst)->e;
+                c_api_func_imports = e->c_api_func_imports;
+
+                import_func_count = ((AOTModule *)module)->import_func_count;
+            }
+#endif
+
+            if (import_func_count != 0 && c_api_func_imports) {
+                size_in_bytes = sizeof(CApiFuncImport) * import_func_count;
+                *new_c_api_func_imports = wasm_runtime_malloc(size_in_bytes);
+                if (!(*new_c_api_func_imports))
+                    goto fail;
+
+                bh_memcpy_s(*new_c_api_func_imports, size_in_bytes,
+                            c_api_func_imports, size_in_bytes);
+            }
+        }
+    }
+
 #if WASM_ENABLE_LIBC_WASI != 0
     /* The sub-instance will get the wasi_ctx from main-instance */
     if (!is_sub_inst) {
