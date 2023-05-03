@@ -2078,7 +2078,10 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst,
             &module_inst->e->functions[module->retain_function];
     }
 
-    if (exec_env_main && ((WASMModuleInstance const*)(exec_env_main->module_inst))->e->c_api_func_imports != NULL) {
+    if (exec_env_main
+        && ((WASMModuleInstance const *)(exec_env_main->module_inst))
+                   ->e->c_api_func_imports
+               != NULL) {
         /* workaround about passing instantiate-linking information */
         {
             CApiFuncImport **new_c_api_func_imports = NULL;
@@ -2087,12 +2090,15 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst,
             uint32 size_in_bytes = 0;
 
 #if WASM_ENABLE_INTERP != 0
-            if (exec_env_main->module_inst->module_type == Wasm_Module_Bytecode) {
+            if (exec_env_main->module_inst->module_type
+                == Wasm_Module_Bytecode) {
                 new_c_api_func_imports = &(
                     ((WASMModuleInstance *)module_inst)->e->c_api_func_imports);
                 c_api_func_imports =
-                    ((WASMModuleInstance *)exec_env_main->module_inst)->e->c_api_func_imports;
-                import_func_count = ((WASMModule *)module)->import_function_count;
+                    ((WASMModuleInstance *)exec_env_main->module_inst)
+                        ->e->c_api_func_imports;
+                import_func_count =
+                    ((WASMModule *)module)->import_function_count;
             }
 #endif
 #if WASM_ENABLE_AOT != 0
@@ -2102,7 +2108,9 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst,
                         ->e;
                 new_c_api_func_imports = &(e->c_api_func_imports);
 
-                e = (AOTModuleInstanceExtra *)((AOTModuleInstance *)exec_env_main->module_inst)->e;
+                e = (AOTModuleInstanceExtra *)((AOTModuleInstance *)
+                                                   exec_env_main->module_inst)
+                        ->e;
                 c_api_func_imports = e->c_api_func_imports;
 
                 import_func_count = ((AOTModule *)module)->import_func_count;
