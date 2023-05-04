@@ -40,7 +40,8 @@
 #define CONFIG_HAS_CAP_ENTER 0
 #endif
 
-#if defined(CLOCK_NANOSLEEP_COMPILES)
+#if !defined(__APPLE__) && !defined(__FreeBSD__) && !defined(__EMSCRIPTEN__) \
+&& !defined(ESP_PLATFORM) && defined(CLOCK_NANOSLEEP_COMPILES)
 #define CONFIG_HAS_CLOCK_NANOSLEEP 1
 #else
 #define CONFIG_HAS_CLOCK_NANOSLEEP 0
