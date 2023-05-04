@@ -13,12 +13,32 @@ file(WRITE "${PROJECT_BINARY_DIR}/try_compile_clock_nanosleep.c"
 	int main () { return 0; }
 ")
 
-try_compile(WAMR_HAVE_CLOCK_NANOSLEEP
+try_compile(WAMR_HAS_CLOCK_NANOSLEEP
   ${PROJECT_BINARY_DIR}/try_compile_clock_nanosleep
   ${PROJECT_BINARY_DIR}/try_compile_clock_nanosleep.c)
 
-if (WAMR_HAVE_CLOCK_NANOSLEEP)
+if (WAMR_HAS_CLOCK_NANOSLEEP)
     add_definitions(-DCLOCK_NANOSLEEP_COMPILES)
+endif()
+
+file(WRITE "${PROJECT_BINARY_DIR}/try_compile_nanosleep.c"
+"	#include <time.h>
+    void mysleep_ms(int milisec)
+    {
+        struct timespec res;
+        res.tv_sec = milisec/1000;
+        res.tv_nsec = (milisec*1000000) % 1000000000;
+        nanosleep(&res, NULL);
+    }
+	int main () { return 0; }
+")
+
+try_compile(WAMR_HAS_NANOSLEEP
+  ${PROJECT_BINARY_DIR}/try_compile_nanosleep
+  ${PROJECT_BINARY_DIR}/try_compile_nanosleep.c)
+
+if (WAMR_HAS_NANOSLEEP)
+    add_definitions(-DNANOSLEEP_COMPILES)
 endif()
 
 if (NOT DEFINED WAMR_ROOT_DIR)
