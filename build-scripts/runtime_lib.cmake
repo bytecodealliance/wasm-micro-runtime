@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 file(WRITE "${PROJECT_BINARY_DIR}/try_compile_clock_nanosleep.c"
-"	#include <time.h>
+"   #include <time.h>
     void mysleep_ms(int milisec)
     {
         struct timespec res;
@@ -10,7 +10,7 @@ file(WRITE "${PROJECT_BINARY_DIR}/try_compile_clock_nanosleep.c"
         res.tv_nsec = (milisec*1000000) % 1000000000;
         clock_nanosleep(CLOCK_MONOTONIC, 0, &res, NULL);
     }
-	int main () { return 0; }
+    int main () { return 0; }
 ")
 
 try_compile(WAMR_HAS_CLOCK_NANOSLEEP
@@ -22,7 +22,7 @@ if (WAMR_HAS_CLOCK_NANOSLEEP)
 endif()
 
 file(WRITE "${PROJECT_BINARY_DIR}/try_compile_nanosleep.c"
-"	#include <time.h>
+"   #include <time.h>
     void mysleep_ms(int milisec)
     {
         struct timespec res;
@@ -30,7 +30,7 @@ file(WRITE "${PROJECT_BINARY_DIR}/try_compile_nanosleep.c"
         res.tv_nsec = (milisec*1000000) % 1000000000;
         nanosleep(&res, NULL);
     }
-	int main () { return 0; }
+    int main () { return 0; }
 ")
 
 try_compile(WAMR_HAS_NANOSLEEP
