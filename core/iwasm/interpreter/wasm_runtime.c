@@ -3445,7 +3445,7 @@ llvm_jit_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
     WASMModule *module;
     uint32 *func_type_indexes;
     uint32 func_type_idx;
-    WASMFuncType *func_type;
+    WASMType *func_type;
     void *func_ptr;
     WASMFunctionImport *import_func;
     CApiFuncImport *c_api_func_import = NULL;
@@ -3492,20 +3492,21 @@ llvm_jit_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
     attachment = import_func->attachment;
     if (import_func->call_conv_wasm_c_api) {
         ret = wasm_runtime_invoke_c_api_native(
-            (WASMModuleInstanceCommon *)module_inst, func_ptr, func_type, argc,
-            argv, c_api_func_import->with_env_arg, c_api_func_import->env_arg);
+            (WASMModuleInstanceCommon *)module_inst, func_ptr,
+            (WASMFuncType *)func_type, argc, argv,
+            c_api_func_import->with_env_arg, c_api_func_import->env_arg);
     }
     else if (!import_func->call_conv_raw) {
         signature = import_func->signature;
-        ret =
-            wasm_runtime_invoke_native(exec_env, func_ptr, func_type, signature,
-                                       attachment, argv, argc, argv);
+        ret = wasm_runtime_invoke_native(exec_env, func_ptr,
+                                         (WASMFuncType *)func_type, signature,
+                                         attachment, argv, argc, argv);
     }
     else {
         signature = import_func->signature;
-        ret = wasm_runtime_invoke_native_raw(exec_env, func_ptr, func_type,
-                                             signature, attachment, argv, argc,
-                                             argv);
+        ret = wasm_runtime_invoke_native_raw(
+            exec_env, func_ptr, (WASMFuncType *)func_type, signature,
+            attachment, argv, argc, argv);
     }
 
 fail:
@@ -3674,7 +3675,7 @@ llvm_jit_table_copy(WASMModuleInstance *module_inst, uint32 src_tbl_idx,
 
 void
 llvm_jit_table_fill(WASMModuleInstance *module_inst, uint32 tbl_idx,
-                    uint32 length, uint32 val, uint32 data_offset)
+                    uint32 length, table_elem_type_t val, uint32 data_offset)
 {
     WASMTableInstance *tbl_inst;
 
@@ -3700,7 +3701,7 @@ llvm_jit_table_fill(WASMModuleInstance *module_inst, uint32 tbl_idx,
 
 uint32
 llvm_jit_table_grow(WASMModuleInstance *module_inst, uint32 tbl_idx,
-                    uint32 inc_size, uint32 init_val)
+                    uint32 inc_size, table_elem_type_t init_val)
 {
     WASMTableInstance *tbl_inst;
     uint32 i, orig_size, total_size;

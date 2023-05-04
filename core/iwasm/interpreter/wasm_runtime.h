@@ -664,11 +664,11 @@ llvm_jit_table_copy(WASMModuleInstance *module_inst, uint32 src_tbl_idx,
 
 void
 llvm_jit_table_fill(WASMModuleInstance *module_inst, uint32 tbl_idx,
-                    uint32 length, uint32 val, uint32 data_offset);
+                    uint32 length, table_elem_type_t val, uint32 data_offset);
 
 uint32
 llvm_jit_table_grow(WASMModuleInstance *module_inst, uint32 tbl_idx,
-                    uint32 inc_entries, uint32 init_val);
+                    uint32 inc_entries, table_elem_type_t init_val);
 #endif
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0 || WASM_ENABLE_PERF_PROFILING != 0
