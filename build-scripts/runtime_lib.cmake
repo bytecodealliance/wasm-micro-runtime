@@ -1,6 +1,26 @@
 # Copyright (C) 2019 Intel Corporation. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+file(WRITE "${PROJECT_BINARY_DIR}/try_compile_clock_nanosleep.c"
+"	#include <time.h>
+    void mysleep_ms(int milisec)
+    {
+        struct timespec res;
+        res.tv_sec = milisec/1000;
+        res.tv_nsec = (milisec*1000000) % 1000000000;
+        clock_nanosleep(CLOCK_MONOTONIC, 0, &res, NULL);
+    }
+	int main () { return 0; }
+")
+
+try_compile(WAMR_HAVE_CLOCK_NANOSLEEP
+  ${PROJECT_BINARY_DIR}/try_compile_clock_nanosleep
+  ${PROJECT_BINARY_DIR}/try_compile_clock_nanosleep.c)
+
+if (WAMR_HAVE_CLOCK_NANOSLEEP)
+    add_definitions(-DCLOCK_NANOSLEEP_COMPILES)
+endif()
+
 if (NOT DEFINED WAMR_ROOT_DIR)
     set (WAMR_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/../)
 endif ()
