@@ -594,7 +594,7 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
         wasm_runtime_set_wasi_ctx(new_module_inst, wasi_ctx);
 #endif
 
-    if (!(wasm_cluster_dup_c_api_imports(new_module_inst, module_inst, module)))
+    if (!(wasm_cluster_dup_c_api_imports(new_module_inst, module_inst)))
         goto fail;
 
     if (!(info_node = wasm_runtime_malloc(sizeof(ThreadInfoNode))))

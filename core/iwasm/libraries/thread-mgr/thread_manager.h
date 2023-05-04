@@ -76,9 +76,8 @@ wasm_exec_env_get_cluster(WASMExecEnv *exec_env);
 
 /* Forward registered functions to a new thread */
 bool
-wasm_cluster_dup_c_api_imports(wasm_module_inst_t module_inst_dst,
-                               wasm_module_inst_t module_inst_src,
-                               wasm_module_t module);
+wasm_cluster_dup_c_api_imports(WASMModuleInstanceCommon *module_inst_dst,
+                               const WASMModuleInstanceCommon *module_inst_src);
 
 int32
 wasm_cluster_create_thread(WASMExecEnv *exec_env,
