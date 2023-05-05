@@ -3984,7 +3984,7 @@ wasm_table_set(wasm_table_t *table, wasm_table_size_t index,
             return false;
         }
 
-        p_ref_idx = table_interp->elems + index;
+        p_ref_idx = (uint32 *)(table_interp->elems + index);
         function_count =
             ((WASMModuleInstance *)table->inst_comm_rt)->e->function_count;
     }
@@ -4000,7 +4000,7 @@ wasm_table_set(wasm_table_t *table, wasm_table_size_t index,
             return false;
         }
 
-        p_ref_idx = table_aot->elems + index;
+        p_ref_idx = (uint32 *)(table_aot->elems + index);
         function_count = module_aot->func_count;
     }
 #endif

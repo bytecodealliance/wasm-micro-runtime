@@ -1345,9 +1345,9 @@ load_func_index_vec(const uint8 **p_buf, const uint8 *buf_end,
 
     read_leb_uint32(p, p_end, function_count);
     table_segment->function_count = function_count;
-    total_size = sizeof(uint32) * (uint64)function_count;
+    total_size = sizeof(uintptr_t) * (uint64)function_count;
     if (total_size > 0
-        && !(table_segment->func_indexes = (uint32 *)loader_malloc(
+        && !(table_segment->func_indexes = (uintptr_t *)loader_malloc(
                  total_size, error_buf, error_buf_size))) {
         return false;
     }

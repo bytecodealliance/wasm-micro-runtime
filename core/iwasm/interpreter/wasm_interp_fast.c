@@ -4026,7 +4026,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         WASMTableInstance *tbl_inst;
 #if WASM_ENABLE_GC != 0
                         void **table_elems;
-                        uint32 *func_indexes;
+                        uintptr_t *func_indexes;
                         uint64 i;
 #endif
 
@@ -4070,15 +4070,15 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         }
 
 #if WASM_ENABLE_GC == 0
-                        bh_memcpy_s(
-                            (uint8 *)tbl_inst
-                                + offsetof(WASMTableInstance, elems)
-                                + d * sizeof(uint32),
-                            (uint32)((tbl_inst->cur_size - d) * sizeof(uint32)),
-                            module->module->table_segments[elem_idx]
-                                    .func_indexes
-                                + s,
-                            (uint32)(n * sizeof(uint32)));
+                        bh_memcpy_s((uint8 *)tbl_inst
+                                        + offsetof(WASMTableInstance, elems)
+                                        + d * sizeof(table_elem_type_t),
+                                    (uint32)((tbl_inst->cur_size - d)
+                                             * sizeof(table_elem_type_t)),
+                                    module->module->table_segments[elem_idx]
+                                            .func_indexes
+                                        + s,
+                                    (uint32)(n * sizeof(table_elem_type_t)));
 #else
                         SYNC_ALL_TO_FRAME();
                         table_elems = tbl_inst->elems + d;

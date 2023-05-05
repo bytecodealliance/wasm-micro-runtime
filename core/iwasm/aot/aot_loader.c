@@ -1037,7 +1037,7 @@ load_table_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
         read_uint64(buf, buf_end, init_expr_value);
         read_uint32(buf, buf_end, func_index_count);
 
-        size1 = sizeof(uint32) * (uint64)func_index_count;
+        size1 = sizeof(uintptr_t) * (uint64)func_index_count;
         size = offsetof(AOTTableInitData, func_indexes) + size1;
         if (!(data_list[i] = loader_malloc(size, error_buf, error_buf_size))) {
             return false;

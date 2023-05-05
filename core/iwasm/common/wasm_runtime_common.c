@@ -4935,7 +4935,8 @@ mark_externref(uint32 externref_idx)
 static void
 interp_mark_all_externrefs(WASMModuleInstance *module_inst)
 {
-    uint32 i, j, externref_idx, *table_data;
+    uint32 i, j, externref_idx;
+    table_elem_type_t *table_data;
     uint8 *global_data = module_inst->global_data;
     WASMGlobalInstance *global;
     WASMTableInstance *table;
@@ -5455,7 +5456,8 @@ results_to_argv(WASMModuleInstanceCommon *module_inst, uint32 *out_argv,
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
             case VALUE_TYPE_EXTERNREF:
                 if (!wasm_externref_obj2ref(module_inst,
-                                            (void *)result->of.foreign, argv)) {
+                                            (void *)result->of.foreign,
+                                            (uint32 *)argv)) {
                     return false;
                 }
                 argv++;

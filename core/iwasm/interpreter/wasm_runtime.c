@@ -640,7 +640,7 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
 #endif
 #if WASM_ENABLE_GC == 0
         /* Store function indexes */
-        total_size += sizeof(uint32) * (uint64)max_size_fixed;
+        total_size += sizeof(uintptr_t) * (uint64)max_size_fixed;
 #else
         /* Store object pointers */
         total_size += sizeof(uintptr_t) * (uint64)max_size_fixed;
@@ -2313,8 +2313,8 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst,
         bh_memcpy_s(
             table_data + table_seg->base_offset.u.i32,
             (uint32)((table->cur_size - (uint32)table_seg->base_offset.u.i32)
-                     * sizeof(uint32)),
-            table_seg->func_indexes, (uint32)(length * sizeof(uint32)));
+                     * sizeof(table_elem_type_t)),
+            table_seg->func_indexes, (uint32)(length * sizeof(uintptr_t)));
 #else
         for (j = 0; j < length; j++) {
             WASMFuncObjectRef func_obj;
@@ -3628,10 +3628,11 @@ llvm_jit_table_init(WASMModuleInstance *module_inst, uint32 tbl_idx,
     }
 
     bh_memcpy_s((uint8 *)tbl_inst + offsetof(WASMTableInstance, elems)
-                    + dst_offset * sizeof(uint32),
-                (uint32)sizeof(uint32) * (tbl_inst->cur_size - dst_offset),
+                    + dst_offset * sizeof(table_elem_type_t),
+                (uint32)sizeof(table_elem_type_t)
+                    * (tbl_inst->cur_size - dst_offset),
                 tbl_seg->func_indexes + src_offset,
-                (uint32)(length * sizeof(uint32)));
+                (uint32)(length * sizeof(table_elem_type_t)));
 }
 
 void
@@ -3665,11 +3666,12 @@ llvm_jit_table_copy(WASMModuleInstance *module_inst, uint32 src_tbl_idx,
     /* if src_offset < dst_offset, copy from back to front */
     /* merge all together */
     bh_memmove_s((uint8 *)dst_tbl_inst + offsetof(WASMTableInstance, elems)
-                     + sizeof(uint32) * dst_offset,
-                 (uint32)sizeof(uint32) * (dst_tbl_inst->cur_size - dst_offset),
+                     + sizeof(table_elem_type_t) * dst_offset,
+                 (uint32)sizeof(table_elem_type_t)
+                     * (dst_tbl_inst->cur_size - dst_offset),
                  (uint8 *)src_tbl_inst + offsetof(WASMTableInstance, elems)
-                     + sizeof(uint32) * src_offset,
-                 (uint32)sizeof(uint32) * length);
+                     + sizeof(table_elem_type_t) * src_offset,
+                 (uint32)sizeof(table_elem_type_t) * length);
 }
 
 void

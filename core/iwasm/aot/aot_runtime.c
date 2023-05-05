@@ -228,12 +228,14 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
         }
 
         /* Set all elements to -1 to mark them as uninitialized elements */
-        memset(tbl_inst->elems, 0xff, sizeof(uint32) * tbl_inst->max_size);
+        memset(tbl_inst->elems, 0xff,
+               sizeof(table_elem_type_t) * tbl_inst->max_size);
 
         module_inst->tables[i] = tbl_inst;
         tbl_inst = (AOTTableInstance *)((uint8 *)tbl_inst
                                         + offsetof(AOTTableInstance, elems)
-                                        + sizeof(uint32) * tbl_inst->max_size);
+                                        + sizeof(table_elem_type_t)
+                                              * tbl_inst->max_size);
     }
 
     /* fill table with element segment content */
@@ -316,9 +318,10 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
          * Check function index in the current module inst for now.
          * will check the linked table inst owner in future
          */
-        bh_memcpy_s(tbl_inst->elems + base_offset,
-                    (tbl_inst->max_size - base_offset) * sizeof(uint32),
-                    table_seg->func_indexes, length * sizeof(uint32));
+        bh_memcpy_s(
+            tbl_inst->elems + base_offset,
+            (tbl_inst->max_size - base_offset) * sizeof(table_elem_type_t),
+            table_seg->func_indexes, length * sizeof(table_elem_type_t));
     }
 
     return true;
@@ -1112,7 +1115,7 @@ aot_instantiate(AOTModule *module, bool is_sub_inst, WASMExecEnv *exec_env_main,
      */
     for (i = 0; i != module->import_table_count; ++i) {
         table_size += offsetof(AOTTableInstance, elems);
-        table_size += (uint64)sizeof(uint32)
+        table_size += (uint64)sizeof(table_elem_type_t)
                       * (uint64)aot_get_imp_tbl_data_slots(
                           module->import_tables + i, false);
     }
@@ -1120,7 +1123,7 @@ aot_instantiate(AOTModule *module, bool is_sub_inst, WASMExecEnv *exec_env_main,
     for (i = 0; i != module->table_count; ++i) {
         table_size += offsetof(AOTTableInstance, elems);
         table_size +=
-            (uint64)sizeof(uint32)
+            (uint64)sizeof(table_elem_type_t)
             * (uint64)aot_get_tbl_data_slots(module->tables + i, false);
     }
     total_size += table_size;
@@ -2507,9 +2510,10 @@ aot_table_init(AOTModuleInstance *module_inst, uint32 tbl_idx,
     }
 
     bh_memcpy_s((uint8 *)tbl_inst + offsetof(AOTTableInstance, elems)
-                    + dst_offset * sizeof(uint32),
-                (tbl_inst->cur_size - dst_offset) * sizeof(uint32),
-                tbl_seg->func_indexes + src_offset, length * sizeof(uint32));
+                    + dst_offset * sizeof(table_elem_type_t),
+                (tbl_inst->cur_size - dst_offset) * sizeof(table_elem_type_t),
+                tbl_seg->func_indexes + src_offset,
+                length * sizeof(table_elem_type_t));
 }
 
 void
@@ -2535,11 +2539,12 @@ aot_table_copy(AOTModuleInstance *module_inst, uint32 src_tbl_idx,
     /* if src_offset < dst_offset, copy from back to front */
     /* merge all together */
     bh_memmove_s((uint8 *)dst_tbl_inst + offsetof(AOTTableInstance, elems)
-                     + dst_offset * sizeof(uint32),
-                 (dst_tbl_inst->cur_size - dst_offset) * sizeof(uint32),
+                     + dst_offset * sizeof(table_elem_type_t),
+                 (dst_tbl_inst->cur_size - dst_offset)
+                     * sizeof(table_elem_type_t),
                  (uint8 *)src_tbl_inst + offsetof(AOTTableInstance, elems)
-                     + src_offset * sizeof(uint32),
-                 length * sizeof(uint32));
+                     + src_offset * sizeof(table_elem_type_t),
+                 length * sizeof(table_elem_type_t));
 }
 
 void

@@ -114,9 +114,9 @@ aot_create_table_init_data_list(const WASMModule *module)
 
     /* Create each table data segment */
     for (i = 0; i < module->table_seg_count; i++) {
-        size =
-            offsetof(AOTTableInitData, func_indexes)
-            + sizeof(uint32) * (uint64)module->table_segments[i].function_count;
+        size = offsetof(AOTTableInitData, func_indexes)
+               + sizeof(uintptr_t)
+                     * (uint64)module->table_segments[i].function_count;
         if (size >= UINT32_MAX
             || !(data_list[i] = wasm_runtime_malloc((uint32)size))) {
             aot_set_last_error("allocate memory failed.");
@@ -136,10 +136,11 @@ aot_create_table_init_data_list(const WASMModule *module)
                     sizeof(AOTInitExpr));
         data_list[i]->func_index_count =
             module->table_segments[i].function_count;
-        bh_memcpy_s(data_list[i]->func_indexes,
-                    sizeof(uint32) * module->table_segments[i].function_count,
-                    module->table_segments[i].func_indexes,
-                    sizeof(uint32) * module->table_segments[i].function_count);
+        bh_memcpy_s(
+            data_list[i]->func_indexes,
+            sizeof(uintptr_t) * module->table_segments[i].function_count,
+            module->table_segments[i].func_indexes,
+            sizeof(uintptr_t) * module->table_segments[i].function_count);
     }
 
     return data_list;
