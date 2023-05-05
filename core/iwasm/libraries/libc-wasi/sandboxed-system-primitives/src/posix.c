@@ -2567,8 +2567,10 @@ wasmtime_ssp_poll_oneoff(
                 if ((in[0].u.u.clock.flags & __WASI_SUBSCRIPTION_CLOCK_ABSTIME)
                     != 0) {
                     // TODO(ed): Implement.
+#if !defined(BH_PLATFORM_LINUX_SGX)
                     fputs("Unimplemented absolute sleep on monotonic clock\n",
                           stderr);
+#endif
                     out[0].error = __WASI_ENOSYS;
                 }
                 else {
