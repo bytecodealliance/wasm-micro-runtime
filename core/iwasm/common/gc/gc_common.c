@@ -259,6 +259,7 @@ wasm_ref_type_set_heap_type(wasm_ref_type_t *ref_type, bool nullable,
     ref_type->heap_type = heap_type;
     ret = wasm_ref_type_normalize(ref_type);
     bh_assert(ret);
+    (void)ret;
 }
 
 bool
