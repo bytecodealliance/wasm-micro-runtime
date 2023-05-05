@@ -36,7 +36,7 @@ typedef enum wasm_value_type_enum {
 
 typedef int32_t wasm_heap_type_t;
 
-enum wasm_heap_type_enum {
+typedef enum wasm_heap_type_enum {
     HEAP_TYPE_FUNC = -0x10,
     HEAP_TYPE_EXTERN = -0x11,
     HEAP_TYPE_ANY = -0x12,
@@ -167,6 +167,12 @@ wasm_defined_type_is_array_type(const wasm_defined_type_t def_type);
  */
 WASM_RUNTIME_API_EXTERN uint32_t
 wasm_func_type_get_param_count(const wasm_func_type_t func_type);
+
+/**
+ * Normalize reference type
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_ref_type_normalize(wasm_ref_type_t *ref_type);
 
 /**
  * Get type of a specified parameter of a function type
