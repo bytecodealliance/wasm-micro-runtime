@@ -2561,18 +2561,17 @@ wasmtime_ssp_poll_oneoff(
         else {
             out[0].error = __WASI_ENOTSUP;
         }
-#else
+#elif !defined(BH_PLATFORM_LINUX_SGX)
         switch (in[0].u.u.clock.clock_id) {
             case __WASI_CLOCK_MONOTONIC:
                 if ((in[0].u.u.clock.flags & __WASI_SUBSCRIPTION_CLOCK_ABSTIME)
                     != 0) {
-                    // TODO(ed): Implement.
-#if !defined(BH_PLATFORM_LINUX_SGX)
+                    // TODO(ed): Implement. 
                     fputs("Unimplemented absolute sleep on monotonic clock\n",
                           stderr);
-#endif
                     out[0].error = __WASI_ENOSYS;
                 }
+
                 else {
                     // Perform relative sleeps on the monotonic clock also using
                     // nanosleep(). This is incorrect, but good enough for now.
