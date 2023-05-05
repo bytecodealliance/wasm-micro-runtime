@@ -1222,7 +1222,7 @@ aot_instantiate(AOTModule *module, bool is_sub_inst, WASMExecEnv *exec_env_main,
 #endif
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
-    if (!(module_inst->frames =
+        if (!(module_inst->frames =
               runtime_malloc(sizeof(Vector), error_buf, error_buf_size))) {
         goto fail;
     }
