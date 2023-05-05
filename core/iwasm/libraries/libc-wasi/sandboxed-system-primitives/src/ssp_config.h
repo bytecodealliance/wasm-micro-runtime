@@ -47,12 +47,6 @@
 #define CONFIG_HAS_CLOCK_NANOSLEEP 0
 #endif
 
-#if defined(NANOSLEEP_COMPILES)
-#define CONFIG_HAS_NANOSLEEP 1
-#else
-#define CONFIG_HAS_NANOSLEEP 0
-#endif
-
 #if !defined(__APPLE__) && !defined(__FreeBSD__) && !defined(ESP_PLATFORM)
 #define CONFIG_HAS_FDATASYNC 1
 #else
