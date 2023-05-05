@@ -73,7 +73,7 @@ typedef union WASMValue {
     float f32;
     double f64;
     V128 v128;
-    wasm_obj_t *gc_obj;
+    wasm_obj_t gc_obj;
     uint32_t type_index;
     struct {
         uint32_t type_index;
