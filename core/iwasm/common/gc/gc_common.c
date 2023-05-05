@@ -83,14 +83,15 @@ wasm_ref_type_normalize(wasm_ref_type_t *ref_type)
     wasm_value_type_t value_type = ref_type->value_type;
     int32 heap_type = ref_type->heap_type;
 
-    if ((value_type >= VALUE_TYPE_V128 || value_type <= VALUE_TYPE_I32)
-        || (value_type >= VALUE_TYPE_NULLREF
-            && value_type <= VALUE_TYPE_FUNCREF)) {
+    if (!((value_type >= VALUE_TYPE_V128 && value_type <= VALUE_TYPE_I32)
+          || (value_type >= VALUE_TYPE_NULLREF
+              && value_type <= VALUE_TYPE_FUNCREF))) {
         return false;
     }
     if (value_type == VALUE_TYPE_HT_NULLABLE_REF
         || value_type == VALUE_TYPE_HT_NON_NULLABLE_REF) {
-        if (heap_type < HEAP_TYPE_NONE || heap_type > HEAP_TYPE_FUNC) {
+        if (heap_type < 0
+            && (heap_type < HEAP_TYPE_NONE || heap_type > HEAP_TYPE_FUNC)) {
             return false;
         }
     }
@@ -139,6 +140,7 @@ wasm_func_type_get_result_type(WASMFuncType *const func_type, uint32 param_idx)
 uint32
 wasm_struct_type_get_field_count(WASMStructType *const struct_type)
 {
+    bh_assert(struct_type->type_flag == WASM_TYPE_STRUCT);
     return struct_type->field_count;
 }
 
@@ -150,6 +152,7 @@ wasm_struct_type_get_field_type(WASMStructType *const struct_type,
     WASMStructFieldType field;
     uint32 i;
 
+    bh_assert(struct_type->type_flag == WASM_TYPE_STRUCT);
     bh_assert(field_idx < struct_type->field_count);
 
     field = struct_type->fields[field_idx];
@@ -171,7 +174,9 @@ wasm_struct_type_get_field_type(WASMStructType *const struct_type,
         }
     }
 
-    *p_is_mutable = field.field_flags & 1;
+    if (p_is_mutable) {
+        *p_is_mutable = field.field_flags & 1;
+    }
 
     return ref_type;
 }
@@ -234,6 +239,7 @@ void
 wasm_ref_type_set_type_idx(wasm_ref_type_t *ref_type, bool nullable,
                            int32 type_idx)
 {
+    bh_assert(type_idx >= 0);
     ref_type->value_type =
         nullable ? VALUE_TYPE_HT_NULLABLE_REF : VALUE_TYPE_HT_NON_NULLABLE_REF;
     ref_type->nullable = nullable;
@@ -244,15 +250,15 @@ void
 wasm_ref_type_set_heap_type(wasm_ref_type_t *ref_type, bool nullable,
                             int32 heap_type)
 {
+    bool ret;
+
     bh_assert(heap_type <= HEAP_TYPE_FUNC && heap_type >= HEAP_TYPE_NONE);
     ref_type->value_type =
         nullable ? VALUE_TYPE_HT_NULLABLE_REF : VALUE_TYPE_HT_NON_NULLABLE_REF;
     ref_type->nullable = nullable;
     ref_type->heap_type = heap_type;
-
-    if (!wasm_ref_type_normalize(ref_type)) {
-        bh_assert(0);
-    }
+    ret = wasm_ref_type_normalize(ref_type);
+    bh_assert(ret);
 }
 
 bool
@@ -378,6 +384,8 @@ wasm_struct_obj_new_with_type(WASMExecEnv *exec_env, WASMStructType *type)
     uint32 i = 0;
     uint32 type_count = 0;
 
+    bh_assert(type->type_flag == WASM_TYPE_STRUCT);
+
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode) {
         WASMModule *module = ((WASMModuleInstance *)module_inst)->module;
@@ -389,14 +397,16 @@ wasm_struct_obj_new_with_type(WASMExecEnv *exec_env, WASMStructType *type)
                 break;
             }
         }
+        bh_assert(i < type_count);
+        rtt_type =
+            wasm_rtt_type_new((WASMType *)type, i, module->rtt_types,
+                              module->type_count, &module->rtt_type_lock);
     }
 #endif
 #if WASM_ENABLE_AOT != 0
     /* TODO */
 #endif
 
-    bh_assert(i < type_count);
-    bh_assert(type->type_flag == WASM_TYPE_STRUCT);
     if (!rtt_type) {
         return NULL;
     }
