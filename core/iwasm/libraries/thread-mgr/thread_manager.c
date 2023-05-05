@@ -733,6 +733,55 @@ fail1:
     return -1;
 }
 
+bool
+wasm_cluster_dup_c_api_imports(WASMModuleInstanceCommon *module_inst_dst,
+                               const WASMModuleInstanceCommon *module_inst_src)
+{
+    /* workaround about passing instantiate-linking information */
+    CApiFuncImport **new_c_api_func_imports = NULL;
+    CApiFuncImport *c_api_func_imports;
+    uint32 import_func_count = 0;
+    uint32 size_in_bytes = 0;
+
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst_src->module_type == Wasm_Module_Bytecode) {
+        new_c_api_func_imports =
+            &(((WASMModuleInstance *)module_inst_dst)->e->c_api_func_imports);
+        c_api_func_imports = ((const WASMModuleInstance *)module_inst_src)
+                                 ->e->c_api_func_imports;
+        import_func_count =
+            ((WASMModule *)(((const WASMModuleInstance *)module_inst_src)
+                                ->module))
+                ->import_function_count;
+    }
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (module_inst_src->module_type == Wasm_Module_AoT) {
+        AOTModuleInstanceExtra *e =
+            (AOTModuleInstanceExtra *)((AOTModuleInstance *)module_inst_dst)->e;
+        new_c_api_func_imports = &(e->c_api_func_imports);
+
+        e = (AOTModuleInstanceExtra *)((AOTModuleInstance *)module_inst_src)->e;
+        c_api_func_imports = e->c_api_func_imports;
+
+        import_func_count =
+            ((AOTModule *)(((AOTModuleInstance *)module_inst_src)->module))
+                ->import_func_count;
+    }
+#endif
+
+    if (import_func_count != 0 && c_api_func_imports) {
+        size_in_bytes = sizeof(CApiFuncImport) * import_func_count;
+        *new_c_api_func_imports = wasm_runtime_malloc(size_in_bytes);
+        if (!(*new_c_api_func_imports))
+            return false;
+
+        bh_memcpy_s(*new_c_api_func_imports, size_in_bytes, c_api_func_imports,
+                    size_in_bytes);
+    }
+    return true;
+}
+
 #if WASM_ENABLE_DEBUG_INTERP != 0
 WASMCurrentEnvStatus *
 wasm_cluster_create_exenv_status()

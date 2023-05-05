@@ -23,6 +23,9 @@
 #if WASM_ENABLE_WASM_CACHE != 0
 #include <openssl/sha.h>
 #endif
+#if WASM_ENABLE_THREAD_MGR != 0
+#include "thread_manager.h"
+#endif
 
 /*
  * Thread Model:
@@ -3315,7 +3318,17 @@ wasm_func_call(const wasm_func_t *func, const wasm_val_vec_t *params,
         goto failed;
     }
 
-    exec_env = wasm_runtime_get_exec_env_singleton(func->inst_comm_rt);
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    exec_env = wasm_runtime_get_exec_env_tls();
+#endif
+#if WASM_ENABLE_THREAD_MGR != 0
+    if (!exec_env) {
+        exec_env = wasm_clusters_search_exec_env(func->inst_comm_rt);
+    }
+#endif
+    if (!exec_env) {
+        exec_env = wasm_runtime_get_exec_env_singleton(func->inst_comm_rt);
+    }
     if (!exec_env) {
         goto failed;
     }
