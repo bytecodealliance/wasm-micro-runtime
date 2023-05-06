@@ -159,21 +159,22 @@ wasm_func_type_get_param_type(WASMFuncType *const func_type, uint32 param_idx)
 
     bh_assert(param_idx < func_type->param_count);
 
+    ref_type.value_type = func_type->types[param_idx];
+
     if (wasm_is_type_multi_byte_type(func_type->types[param_idx])) {
-        for (i = 0; i < func_type->ref_type_map_count; i++) {
-            if (func_type->ref_type_maps[i].index == param_idx) {
-                WASMRefTypeMap ref_type_map = func_type->ref_type_maps[i];
-                RefHeapType_Common ref_ht_common =
-                    ref_type_map.ref_type->ref_ht_common;
-                ref_type.value_type = ref_ht_common.ref_type;
-                ref_type.nullable = ref_ht_common.nullable;
-                ref_type.heap_type = ref_ht_common.heap_type;
+        WASMRefTypeMap *ref_type_maps = func_type->ref_type_maps;
+        uint32 ref_type_map_count = func_type->ref_type_map_count;
+
+        for (i = 0; i < ref_type_map_count; i++) {
+            if (ref_type_maps[i].index == param_idx) {
+                WASMRefType *field_ref_type =
+                    func_type->ref_type_maps[i].ref_type;
+
+                ref_type.nullable = field_ref_type->ref_ht_common.nullable;
+                ref_type.heap_type = field_ref_type->ref_ht_common.heap_type;
                 break;
             }
         }
-    }
-    else {
-        ref_type.value_type = func_type->types[param_idx];
     }
 
     return ref_type;
@@ -194,21 +195,22 @@ wasm_func_type_get_result_type(WASMFuncType *const func_type, uint32 result_idx)
     result_idx_with_param = func_type->param_count + result_idx;
     bh_assert(result_idx < func_type->result_count);
 
+    ref_type.value_type = func_type->types[result_idx_with_param];
+
     if (wasm_is_type_multi_byte_type(func_type->types[result_idx_with_param])) {
-        for (i = 0; i < func_type->ref_type_map_count; i++) {
-            if (func_type->ref_type_maps[i].index == result_idx_with_param) {
-                WASMRefTypeMap ref_type_map = func_type->ref_type_maps[i];
-                RefHeapType_Common ref_ht_common =
-                    ref_type_map.ref_type->ref_ht_common;
-                ref_type.value_type = ref_ht_common.ref_type;
-                ref_type.nullable = ref_ht_common.nullable;
-                ref_type.heap_type = ref_ht_common.heap_type;
+        WASMRefTypeMap *ref_type_maps = func_type->ref_type_maps;
+        uint32 ref_type_map_count = func_type->ref_type_map_count;
+
+        for (i = 0; i < ref_type_map_count; i++) {
+            if (ref_type_maps[i].index == result_idx_with_param) {
+                WASMRefType *field_ref_type =
+                    func_type->ref_type_maps[i].ref_type;
+
+                ref_type.nullable = field_ref_type->ref_ht_common.nullable;
+                ref_type.heap_type = field_ref_type->ref_ht_common.heap_type;
                 break;
             }
         }
-    }
-    else {
-        ref_type.value_type = func_type->types[result_idx_with_param];
     }
 
     return ref_type;
