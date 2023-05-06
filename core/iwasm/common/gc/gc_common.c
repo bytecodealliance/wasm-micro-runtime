@@ -268,10 +268,9 @@ wasm_array_type_get_elem_type(WASMArrayType *const array_type,
 
     if (wasm_is_type_multi_byte_type(array_type->elem_type)) {
         WASMRefType *elem_ref_type = array_type->elem_ref_type;
-        RefHeapType_Common ref_ht_common = elem_ref_type->ref_ht_common;
-        ref_type.value_type = ref_ht_common.ref_type;
-        ref_type.nullable = ref_ht_common.nullable;
-        ref_type.heap_type = ref_ht_common.heap_type;
+        ref_type.value_type = elem_ref_type->ref_ht_common.ref_type;
+        ref_type.nullable = elem_ref_type->ref_ht_common.nullable;
+        ref_type.heap_type = elem_ref_type->ref_ht_common.heap_type;
     }
     else {
         ref_type.value_type = array_type->elem_type;
