@@ -171,7 +171,7 @@ wasm_obj_get_defined_type_idx(const wasm_module_t module, const wasm_obj_t obj);
  *
  * @param def_type the defined type to be checked
  *
- * @return return true if the defined type is function type, false otherwise
+ * @return true if the defined type is function type, false otherwise
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_defined_type_is_func_type(const wasm_defined_type_t def_type);
@@ -187,7 +187,7 @@ wasm_defined_type_is_struct_type(const wasm_defined_type_t def_type);
  *
  * @param def_type the defined type to be checked
  *
- * @return return true if the defined type is array type, false otherwise
+ * @return true if the defined type is array type, false otherwise
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_defined_type_is_array_type(const wasm_defined_type_t def_type);
@@ -285,7 +285,7 @@ wasm_defined_type_equal(const wasm_defined_type_t def_type1,
  * @param def_type2 the specified defined type2
  * @param module current wasm module
  *
- * @return return true if the defined type1 is subtype of the defined type2,
+ * @return true if the defined type1 is subtype of the defined type2,
  * false otherwise
  */
 WASM_RUNTIME_API_EXTERN bool
