@@ -12,6 +12,43 @@
 #include "../aot/aot_runtime.h"
 #endif
 
+static bool
+wasm_ref_type_normalize(wasm_ref_type_t *ref_type)
+{
+    wasm_value_type_t value_type = ref_type->value_type;
+    int32 heap_type = ref_type->heap_type;
+
+    if (!((value_type >= VALUE_TYPE_V128 && value_type <= VALUE_TYPE_I32)
+          || (value_type >= VALUE_TYPE_NULLREF
+              && value_type <= VALUE_TYPE_FUNCREF))) {
+        return false;
+    }
+    if (value_type == VALUE_TYPE_HT_NULLABLE_REF
+        || value_type == VALUE_TYPE_HT_NON_NULLABLE_REF) {
+        if (heap_type < 0
+            && (heap_type < HEAP_TYPE_NONE || heap_type > HEAP_TYPE_FUNC)) {
+            return false;
+        }
+    }
+
+    if (value_type != REF_TYPE_HT_NULLABLE) {
+        ref_type->nullable = false;
+    }
+    else {
+        if (heap_type >= HEAP_TYPE_NONE && heap_type <= HEAP_TYPE_FUNC) {
+            ref_type->value_type =
+                (uint8)(REF_TYPE_NULLREF + heap_type - HEAP_TYPE_NONE);
+            ref_type->nullable = false;
+            ref_type->heap_type = 0;
+        }
+        else {
+            ref_type->nullable = true;
+        }
+    }
+
+    return true;
+}
+
 uint32
 wasm_get_defined_type_count(WASMModuleCommon *const module)
 {
@@ -115,43 +152,6 @@ wasm_func_type_get_param_count(WASMFuncType *const func_type)
 {
     /* TODO */
     return 0;
-}
-
-bool
-wasm_ref_type_normalize(wasm_ref_type_t *ref_type)
-{
-    wasm_value_type_t value_type = ref_type->value_type;
-    int32 heap_type = ref_type->heap_type;
-
-    if (!((value_type >= VALUE_TYPE_V128 && value_type <= VALUE_TYPE_I32)
-          || (value_type >= VALUE_TYPE_NULLREF
-              && value_type <= VALUE_TYPE_FUNCREF))) {
-        return false;
-    }
-    if (value_type == VALUE_TYPE_HT_NULLABLE_REF
-        || value_type == VALUE_TYPE_HT_NON_NULLABLE_REF) {
-        if (heap_type < 0
-            && (heap_type < HEAP_TYPE_NONE || heap_type > HEAP_TYPE_FUNC)) {
-            return false;
-        }
-    }
-
-    if (value_type != REF_TYPE_HT_NULLABLE) {
-        ref_type->nullable = false;
-    }
-    else {
-        if (heap_type >= HEAP_TYPE_NONE && heap_type <= HEAP_TYPE_FUNC) {
-            ref_type->value_type =
-                (uint8)(REF_TYPE_NULLREF + heap_type - HEAP_TYPE_NONE);
-            ref_type->nullable = false;
-            ref_type->heap_type = 0;
-        }
-        else {
-            ref_type->nullable = true;
-        }
-    }
-
-    return true;
 }
 
 wasm_ref_type_t
