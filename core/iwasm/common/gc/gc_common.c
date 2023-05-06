@@ -497,7 +497,8 @@ wasm_runtime_call_func_ref(WASMExecEnv *exec_env,
         WASMModuleInstance *module_inst =
             (WASMModuleInstance *)exec_env->module_inst;
 
-        bh_assert(func_idx < module_inst->module->function_count);
+        bh_assert(func_idx < module_inst->module->import_function_count
+                                 + module_inst->module->function_count);
         func_inst = module_inst->e->functions + func_idx;
     }
 #endif
