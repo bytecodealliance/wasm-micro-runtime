@@ -84,7 +84,10 @@ typedef union WASMValue {
 
 typedef union WASMValue wasm_value_t;
 
-/* Reference type, the layout is same as WasmRefType in wasm.h */
+/* Reference type, the layout is same as WasmRefType in wasm.h
+ * use wasm_ref_type_set_type_idx to initialize as concrete ref type
+ * use wasm_ref_type_set_heap_type to initialize as abstract ref type
+ */
 typedef struct wasm_ref_type_t {
     wasm_value_type_t value_type;
     bool nullable;
@@ -189,12 +192,6 @@ wasm_defined_type_is_array_type(const wasm_defined_type_t def_type);
  */
 WASM_RUNTIME_API_EXTERN uint32_t
 wasm_func_type_get_param_count(const wasm_func_type_t func_type);
-
-/**
- * Normalize reference type
- */
-WASM_RUNTIME_API_EXTERN bool
-wasm_ref_type_normalize(wasm_ref_type_t *ref_type);
 
 /**
  * Get type of a specified parameter of a function type
