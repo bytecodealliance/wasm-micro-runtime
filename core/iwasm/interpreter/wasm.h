@@ -177,7 +177,7 @@ typedef union WASMValue {
     float64 f64;
     V128 v128;
 #if WASM_ENABLE_GC != 0
-    wasm_obj_t *gc_obj;
+    wasm_obj_t gc_obj;
     uint32 type_index;
     struct {
         uint32 type_index;

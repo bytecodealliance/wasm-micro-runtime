@@ -8,6 +8,10 @@
 
 #include "wasm_export.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef uint8_t wasm_value_type_t;
 
 typedef enum wasm_value_type_enum {
@@ -32,7 +36,7 @@ typedef enum wasm_value_type_enum {
 
 typedef int32_t wasm_heap_type_t;
 
-enum wasm_heap_type_enum {
+typedef enum wasm_heap_type_enum {
     HEAP_TYPE_FUNC = -0x10,
     HEAP_TYPE_EXTERN = -0x11,
     HEAP_TYPE_ANY = -0x12,
@@ -69,7 +73,7 @@ typedef union WASMValue {
     float f32;
     double f64;
     V128 v128;
-    wasm_obj_t *gc_obj;
+    wasm_obj_t gc_obj;
     uint32_t type_index;
     struct {
         uint32_t type_index;
@@ -141,6 +145,28 @@ WASM_RUNTIME_API_EXTERN wasm_defined_type_t
 wasm_get_defined_type(const wasm_module_t module, uint32_t index);
 
 /**
+ * Get defined type of the GC managed object, the object must be struct,
+ * array or func.
+ *
+ * @param obj the object
+ *
+ * @return defined type of the object.
+ */
+WASM_RUNTIME_API_EXTERN wasm_defined_type_t
+wasm_obj_get_defined_type(const wasm_obj_t obj);
+
+/**
+ * Get defined type index of the GC managed object, the object must be struct,
+ * array or func.
+ *
+ * @param obj the object
+ *
+ * @return defined type index of the object.
+ */
+WASM_RUNTIME_API_EXTERN int32_t
+wasm_obj_get_defined_type_idx(const wasm_module_t module, const wasm_obj_t obj);
+
+/**
  * Check whether a defined type is a function type
  *
  * @param def_type the defined type to be checked
@@ -175,6 +201,12 @@ wasm_defined_type_is_array_type(const wasm_defined_type_t def_type);
  */
 WASM_RUNTIME_API_EXTERN uint32_t
 wasm_func_type_get_param_count(const wasm_func_type_t func_type);
+
+/**
+ * Normalize reference type
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_ref_type_normalize(wasm_ref_type_t *ref_type);
 
 /**
  * Get type of a specified parameter of a function type
@@ -433,6 +465,74 @@ WASM_RUNTIME_API_EXTERN wasm_func_type_t
 wasm_func_obj_get_func_type(const wasm_func_obj_t func_obj);
 
 /**
+ * Call the given WASM function object with arguments (bytecode and AoT).
+ *
+ * @param exec_env the execution environment to call the function,
+ *   which must be created from wasm_create_exec_env()
+ * @param func_obj the function object to call
+ * @param argc total cell number that the function parameters occupy,
+ *   a cell is a slot of the uint32 array argv[], e.g. i32/f32 argument
+ *   occupies one cell, i64/f64 argument occupies two cells, note that
+ *   it might be different from the parameter number of the function
+ * @param argv the arguments. If the function has return value,
+ *   the first (or first two in case 64-bit return value) element of
+ *   argv stores the return value of the called WASM function after this
+ *   function returns.
+ *
+ * @return true if success, false otherwise and exception will be thrown,
+ *   the caller can call wasm_runtime_get_exception to get the exception
+ *   info.
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_call_func_ref(wasm_exec_env_t exec_env,
+                           const wasm_func_obj_t func_obj, uint32_t argc,
+                           uint32_t argv[]);
+
+/**
+ * Call the given WASM function object with provided results space
+ * and arguments (bytecode and AoT).
+ *
+ * @param exec_env the execution environment to call the function,
+ *   which must be created from wasm_create_exec_env()
+ * @param func_obj the function object to call
+ * @param num_results the number of results
+ * @param results the pre-alloced pointer to get the results
+ * @param num_args the number of arguments
+ * @param args the arguments
+ *
+ * @return true if success, false otherwise and exception will be thrown,
+ *   the caller can call wasm_runtime_get_exception to get the exception
+ *   info.
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_call_func_ref_a(wasm_exec_env_t exec_env,
+                             const wasm_func_obj_t func_obj,
+                             uint32_t num_results, wasm_val_t results[],
+                             uint32_t num_args, wasm_val_t *args);
+
+/**
+ * Call the given WASM function object with provided results space and
+ * variant arguments (bytecode and AoT).
+ *
+ * @param exec_env the execution environment to call the function,
+ *   which must be created from wasm_create_exec_env()
+ * @param func_obj the function object to call
+ * @param num_results the number of results
+ * @param results the pre-alloced pointer to get the results
+ * @param num_args the number of arguments
+ * @param ... the variant arguments
+ *
+ * @return true if success, false otherwise and exception will be thrown,
+ *   the caller can call wasm_runtime_get_exception to get the exception
+ *   info.
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_call_func_ref_v(wasm_exec_env_t exec_env,
+                             const wasm_func_obj_t func_obj,
+                             uint32_t num_results, wasm_val_t results[],
+                             uint32_t num_args, ...);
+
+/**
  * Create an externref object with host object
  */
 WASM_RUNTIME_API_EXTERN wasm_externref_obj_t
@@ -583,5 +683,9 @@ wasm_runtime_pop_local_object_ref(wasm_exec_env_t exec_env);
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_pop_local_object_refs(wasm_exec_env_t exec_env, uint32_t n);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* end of _GC_EXPORT_H */
