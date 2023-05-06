@@ -18,19 +18,24 @@ Note that all ESP-IDF toolchain files live under `$IDF_PATH/tools/cmake/`.
 ## Linux
 
 First of all please install the dependent packages.
-Run command below in Ubuntu-18.04:
-
+Run command below in Ubuntu-20.04:
 ``` Bash
-sudo apt install build-essential cmake g++-multilib libgcc-8-dev lib32gcc-8-dev
+sudo apt install build-essential cmake g++-multilib libgcc-9-dev lib32gcc-9-dev ccache
+```
+Or in Ubuntu-18.04:
+``` Bash
+sudo apt install build-essential cmake g++-multilib libgcc-8-dev lib32gcc-8-dev ccache
 ```
 Or in Ubuntu-16.04:
 ``` Bash
-sudo apt install build-essential cmake g++-multilib libgcc-5-dev lib32gcc-5-dev
+sudo apt install build-essential cmake g++-multilib libgcc-5-dev lib32gcc-5-dev ccache
 ```
 Or in Fedora:
 ``` Bash
 sudo dnf install glibc-devel.i686
 ```
+
+> The above package should be sufficient, and chances are you already have the necessary packages, but to be 100% sure or you are using a rather fresh/new developing environment, you can refer to our [devcontainer Dockerfile](https://github.com/bytecodealliance/wasm-micro-runtime/blob/main/.devcontainer/Dockerfile) and install the packages list in there.
 
 After installing dependencies, build the source code:
 ``` Bash

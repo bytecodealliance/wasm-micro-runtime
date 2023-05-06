@@ -1,7 +1,17 @@
 
 ### Build wamrc AOT compiler
 
-Both wasm binary file and AOT file are supported by iwasm. The wamrc AOT compiler is to compile wasm binary file to AOT file which can also be run by iwasm. Execute following commands to build **wamrc** compiler for Linux:
+Both wasm binary file and AOT file are supported by iwasm. The wamrc AOT compiler is to compile wasm binary file to AOT file which can also be run by iwasm. You can execute following commands to build **wamrc** compiler:
+
+For **Linux**(Ubuntu 20.04 as an example):
+
+First, make sure necessary dependency are installed:
+
+```shell
+sudo apt-get install git build-essential cmake g++-multilib libgcc-9-dev lib32gcc-9-dev ccache 
+```
+
+> The above package should be sufficient, and chances are you already have the necessary packages, but to be 100% sure or you are using a rather fresh/new developing environment, you can refer to our [devcontainer Dockerfile](https://github.com/bytecodealliance/wasm-micro-runtime/blob/main/.devcontainer/Dockerfile) and install the packages list in there.
 
 ```shell
 cd wamr-compiler
@@ -13,6 +23,7 @@ make
 ```
 
 For **Windows**：
+
 ```shell
 cd wamr-compiler
 python build_llvm.py
