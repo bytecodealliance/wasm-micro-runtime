@@ -50,6 +50,46 @@ wasm_get_defined_type(WASMModuleCommon *const module, uint32 index)
     return type;
 }
 
+WASMType *
+wasm_obj_get_defined_type(const WASMObjectRef obj)
+{
+    if ((!wasm_obj_is_struct_obj(obj)) && (!wasm_obj_is_array_obj(obj))
+        && (!wasm_obj_is_func_obj(obj))) {
+        bh_assert(false);
+    }
+
+    return ((WASMRttTypeRef)(obj->header))->defined_type;
+}
+
+int32
+wasm_obj_get_defined_type_idx(WASMModuleCommon *const module,
+                              const WASMObjectRef obj)
+{
+    WASMType *type = wasm_obj_get_defined_type(obj);
+    int32 i, type_idx = -1;
+
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode) {
+        WASMModule *wasm_module = (WASMModule *)module;
+        uint32 type_count = wasm_module->type_count;
+
+        for (i = 0; i < type_count; i++) {
+            if (wasm_module->types[i] == type) {
+                type_idx = i;
+                break;
+            }
+        }
+
+        bh_assert(type_idx < type_count);
+    }
+#endif
+#if WASM_ENABLE_AOT != 0
+    /* TODO */
+#endif
+
+    return type_idx;
+}
+
 bool
 wasm_defined_type_is_func_type(WASMType *const def_type)
 {
@@ -442,6 +482,55 @@ wasm_func_obj_new_with_type(WASMExecEnv *exec_env, WASMFuncType *type)
 {
     /* TODO */
     return NULL;
+}
+
+bool
+wasm_runtime_call_func_ref(WASMExecEnv *exec_env,
+                           const WASMFuncObjectRef func_obj, uint32 argc,
+                           uint32 argv[])
+{
+    WASMFunctionInstance *func_inst = NULL;
+    uint32 func_idx = wasm_func_obj_get_func_idx_bound(func_obj);
+
+#if WASM_ENABLE_INTERP != 0
+    if (exec_env->module_inst->module_type == Wasm_Module_Bytecode) {
+        WASMModuleInstance *module_inst =
+            (WASMModuleInstance *)exec_env->module_inst;
+
+        bh_assert(func_idx < module_inst->module->import_function_count
+                                 + module_inst->module->function_count);
+        func_inst = module_inst->e->functions + func_idx;
+    }
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (exec_env->module_inst->module_type == Wasm_Module_AoT) {
+        /* TODO */
+        return false;
+    }
+#endif
+
+    bh_assert(func_inst);
+    return wasm_runtime_call_wasm(exec_env, func_inst, argc, argv);
+}
+
+bool
+wasm_runtime_call_func_ref_a(WASMExecEnv *exec_env,
+                             const WASMFuncObjectRef func_obj,
+                             uint32 num_results, wasm_val_t results[],
+                             uint32 num_args, wasm_val_t *args)
+{
+    /* TODO */
+    return false;
+}
+
+bool
+wasm_runtime_call_func_ref_v(wasm_exec_env_t exec_env,
+                             const WASMFuncObjectRef func_obj,
+                             uint32 num_results, wasm_val_t results[],
+                             uint32 num_args, ...)
+{
+    /* TODO */
+    return false;
 }
 
 bool
