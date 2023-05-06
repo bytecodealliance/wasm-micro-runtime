@@ -61,12 +61,12 @@ wasm_obj_get_defined_type(const WASMObjectRef obj)
     return ((WASMRttTypeRef)(obj->header))->defined_type;
 }
 
-int32_t
+int32
 wasm_obj_get_defined_type_idx(WASMModuleCommon *const module,
                               const WASMObjectRef obj)
 {
     WASMType *type = wasm_obj_get_defined_type(obj);
-    int32_t i, type_idx = -1;
+    int32 i, type_idx = -1;
 
 #if WASM_ENABLE_INTERP != 0
     if (module->module_type == Wasm_Module_Bytecode) {
@@ -486,8 +486,8 @@ wasm_func_obj_new_with_type(WASMExecEnv *exec_env, WASMFuncType *type)
 
 bool
 wasm_runtime_call_func_ref(WASMExecEnv *exec_env,
-                           const WASMFuncObjectRef func_obj, uint32_t argc,
-                           uint32_t argv[])
+                           const WASMFuncObjectRef func_obj, uint32 argc,
+                           uint32 argv[])
 {
     WASMFunctionInstance *func_inst = NULL;
     uint32 func_idx = wasm_func_obj_get_func_idx_bound(func_obj);
@@ -516,8 +516,8 @@ wasm_runtime_call_func_ref(WASMExecEnv *exec_env,
 bool
 wasm_runtime_call_func_ref_a(WASMExecEnv *exec_env,
                              const WASMFuncObjectRef func_obj,
-                             uint32_t num_results, wasm_val_t results[],
-                             uint32_t num_args, wasm_val_t *args)
+                             uint32 num_results, wasm_val_t results[],
+                             uint32 num_args, wasm_val_t *args)
 {
     /* TODO */
     return false;
@@ -526,8 +526,8 @@ wasm_runtime_call_func_ref_a(WASMExecEnv *exec_env,
 bool
 wasm_runtime_call_func_ref_v(wasm_exec_env_t exec_env,
                              const WASMFuncObjectRef func_obj,
-                             uint32_t num_results, wasm_val_t results[],
-                             uint32_t num_args, ...)
+                             uint32 num_results, wasm_val_t results[],
+                             uint32 num_args, ...)
 {
     /* TODO */
     return false;
