@@ -103,7 +103,7 @@ wasm_obj_get_defined_type_idx(WASMModuleCommon *const module,
                               const WASMObjectRef obj)
 {
     WASMType *type = wasm_obj_get_defined_type(obj);
-    uint32 i, type_idx = -1;
+    uint32 i, type_idx = (uint32)-1;
 
 #if WASM_ENABLE_INTERP != 0
     if (module->module_type == Wasm_Module_Bytecode) {
