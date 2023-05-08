@@ -163,6 +163,7 @@ wasm_func_type_get_param_type(WASMFuncType *const func_type, uint32 param_idx)
     if (wasm_is_type_multi_byte_type(func_type->types[param_idx])) {
         WASMRefType *param_ref_type = wasm_reftype_map_find(
             func_type->ref_type_maps, func_type->ref_type_map_count, param_idx);
+        bh_assert(param_ref_type);
         ref_type.nullable = param_ref_type->ref_ht_common.nullable;
         ref_type.heap_type = param_ref_type->ref_ht_common.heap_type;
     }
@@ -191,6 +192,7 @@ wasm_func_type_get_result_type(WASMFuncType *const func_type, uint32 result_idx)
         WASMRefType *result_ref_type = wasm_reftype_map_find(
             func_type->ref_type_maps, func_type->ref_type_map_count,
             result_idx_with_param);
+        bh_assert(result_ref_type);
         ref_type.nullable = result_ref_type->ref_ht_common.nullable;
         ref_type.heap_type = result_ref_type->ref_ht_common.heap_type;
     }
@@ -222,6 +224,7 @@ wasm_struct_type_get_field_type(WASMStructType *const struct_type,
         WASMRefType *field_ref_type =
             wasm_reftype_map_find(struct_type->ref_type_maps,
                                   struct_type->ref_type_map_count, field_idx);
+        bh_assert(field_ref_type);
         ref_type.nullable = field_ref_type->ref_ht_common.nullable;
         ref_type.heap_type = field_ref_type->ref_ht_common.heap_type;
     }
