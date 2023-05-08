@@ -136,13 +136,22 @@ typedef uintptr_t wasm_i31_obj_t;
 /* Defined type related operations */
 
 /**
- * Get the defined type count of a WASM module
+ * Get number of defined types in the given wasm module
+ *
+ * @param module the wasm module
+ *
+ * @return defined type count
  */
 WASM_RUNTIME_API_EXTERN uint32_t
 wasm_get_defined_type_count(const wasm_module_t module);
 
 /**
- * Get the specified defined type of a WASM module
+ * Get defined type by type index
+ *
+ * @param module the wasm module
+ * @param index the type index
+ *
+ * @return defined type
  */
 WASM_RUNTIME_API_EXTERN wasm_defined_type_t
 wasm_get_defined_type(const wasm_module_t module, uint32_t index);
@@ -181,6 +190,10 @@ wasm_defined_type_is_func_type(const wasm_defined_type_t def_type);
 
 /**
  * Check whether a defined type is a struct type
+ *
+ * @param def_type the defined type to be checked
+ *
+ * @return true if the defined type is struct type, false otherwise
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_defined_type_is_struct_type(const wasm_defined_type_t def_type);
@@ -243,12 +256,22 @@ wasm_func_type_get_result_type(const wasm_func_type_t func_type,
 
 /**
  * Get field count of a struct type
+ *
+ * @param struct_type the specified struct type
+ *
+ * @return the field count of the specified struct type
  */
 WASM_RUNTIME_API_EXTERN uint32_t
 wasm_struct_type_get_field_count(const wasm_struct_type_t struct_type);
 
 /**
  * Get type of a specified field of a struct type
+ *
+ * @param struct_type the specified struct type
+ * @param field_idx index of the specified field
+ * @param p_is_mutable if not NULL, output the mutability of the field
+ *
+ * @return the result type at the specified field index of the specified struct
  */
 WASM_RUNTIME_API_EXTERN wasm_ref_type_t
 wasm_struct_type_get_field_type(const wasm_struct_type_t struct_type,
@@ -258,8 +281,7 @@ wasm_struct_type_get_field_type(const wasm_struct_type_t struct_type,
  * Get element type of an array type
  *
  * @param array_type the specified array type
- * @param p_is_mutable the pointer passed by invoker, record if the elem is
- * mutable
+ * @param p_is_mutable if not NULL, output the mutability of the element type
  *
  * @return the ref type of array's elem type
  */
@@ -269,6 +291,13 @@ wasm_array_type_get_elem_type(const wasm_array_type_t array_type,
 
 /**
  * Check whether two defined types are equal
+ *
+ * @param def_type1 the specified defined type1
+ * @param def_type2 the specified defined type2
+ * @param module current wasm module
+ *
+ * @return true if the defined type1 is equal to the defined type2,
+ * false otherwise
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_defined_type_equal(const wasm_defined_type_t def_type1,
@@ -294,6 +323,10 @@ wasm_defined_type_is_subtype_of(const wasm_defined_type_t def_type1,
 
 /**
  * Set the ref_type to be (ref null? type_idx)
+ *
+ * @param ref_type the ref_type to be set
+ * @param nullable whether the ref_type is nullable
+ * @param type_idx the type index
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_ref_type_set_type_idx(wasm_ref_type_t *ref_type, bool nullable,
@@ -301,6 +334,10 @@ wasm_ref_type_set_type_idx(wasm_ref_type_t *ref_type, bool nullable,
 
 /**
  * Set the ref_type to be (ref null? func/extern/any/eq/i31/struct/array/..)
+ *
+ * @param ref_type the ref_type to be set
+ * @param nullable whether the ref_type is nullable
+ * @param heap_type the heap type
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_ref_type_set_heap_type(wasm_ref_type_t *ref_type, bool nullable,
@@ -308,6 +345,13 @@ wasm_ref_type_set_heap_type(wasm_ref_type_t *ref_type, bool nullable,
 
 /**
  * Check whether two ref types are equal
+ *
+ * @param ref_type1 the specified ref type1
+ * @param ref_type2 the specified ref type2
+ * @param module current wasm module
+ *
+ * @return true if the ref type1 is equal to the ref type2,
+ * false otherwise
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_ref_type_equal(const wasm_ref_type_t *ref_type1,
@@ -316,6 +360,13 @@ wasm_ref_type_equal(const wasm_ref_type_t *ref_type1,
 
 /**
  * Check whether ref_type1 is subtype of ref_type2
+ *
+ * @param ref_type1 the specified ref type1
+ * @param ref_type2 the specified ref type2
+ * @param module current wasm module
+ *
+ * @return true if the ref type1 is subtype of the ref type2,
+ * false otherwise
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_ref_type_is_subtype_of(const wasm_ref_type_t *ref_type1,
@@ -326,12 +377,22 @@ wasm_ref_type_is_subtype_of(const wasm_ref_type_t *ref_type1,
 
 /**
  * Create a struct object with the index of defined type
+ *
+ * @param exec_env the execution environment
+ * @param type_idx index of the struct type
+ *
+ * @return wasm_struct_obj_t if create success, NULL otherwise
  */
 WASM_RUNTIME_API_EXTERN wasm_struct_obj_t
 wasm_struct_obj_new_with_typeidx(wasm_exec_env_t exec_env, uint32_t type_idx);
 
 /**
  * Create a struct object with the struct type
+ *
+ * @param exec_env the execution environment
+ * @param type defined struct type
+ *
+ * @return wasm_struct_obj_t if create success, NULL otherwise
  */
 WASM_RUNTIME_API_EXTERN wasm_struct_obj_t
 wasm_struct_obj_new_with_type(wasm_exec_env_t exec_env,
@@ -339,6 +400,10 @@ wasm_struct_obj_new_with_type(wasm_exec_env_t exec_env,
 
 /**
  * Set the field value of a struct object
+ *
+ * @param obj the struct object to set field
+ * @param field_idx the specified field index
+ * @param value wasm value to be set
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_struct_obj_set_field(wasm_struct_obj_t obj, uint32_t field_idx,
@@ -346,6 +411,11 @@ wasm_struct_obj_set_field(wasm_struct_obj_t obj, uint32_t field_idx,
 
 /**
  * Get the field value of a struct object
+ *
+ * @param obj the struct object to get field
+ * @param field_idx the specified field index
+ * @param sign_extend whether to sign extend for i8 and i16 element types
+ * @param value output the wasm value
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_struct_obj_get_field(const wasm_struct_obj_t obj, uint32_t field_idx,
@@ -384,6 +454,10 @@ wasm_array_obj_new_with_type(wasm_exec_env_t exec_env,
 
 /**
  * Set the specified element's value of an array object
+ *
+ * @param array_obj the array object to set element value
+ * @param elem_idx the specified element index
+ * @param value wasm value to be set
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_array_obj_set_elem(wasm_array_obj_t array_obj, uint32_t elem_idx,
@@ -391,6 +465,11 @@ wasm_array_obj_set_elem(wasm_array_obj_t array_obj, uint32_t elem_idx,
 
 /**
  * Get the specified element's value of an array object
+ *
+ * @param array_obj the array object to get element value
+ * @param elem_idx the specified element index
+ * @param sign_extend whether to sign extend for i8 and i16 element types
+ * @param value output the wasm value
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_array_obj_get_elem(const wasm_array_obj_t array_obj, uint32_t elem_idx,
@@ -398,6 +477,12 @@ wasm_array_obj_get_elem(const wasm_array_obj_t array_obj, uint32_t elem_idx,
 
 /**
  * Copy elements from one array to another
+ *
+ * @param dst_obj destination array object
+ * @param dst_idx target index in destination
+ * @param src_obj source array object
+ * @param src_idx start index in source
+ * @param len length of elements to copy
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_array_obj_copy(wasm_array_obj_t dst_obj, uint32_t dst_idx,
@@ -406,18 +491,31 @@ wasm_array_obj_copy(wasm_array_obj_t dst_obj, uint32_t dst_idx,
 
 /**
  * Return the length of an array object
+ *
+ * @param array_obj the array object to get length
+ *
+ * @return length of the array object
  */
 WASM_RUNTIME_API_EXTERN uint32_t
 wasm_array_obj_length(const wasm_array_obj_t array_obj);
 
 /**
  * Get the address of the first element of an array object
+ *
+ * @param array_obj the array object to get element address
+ *
+ * @return address of the first element
  */
 WASM_RUNTIME_API_EXTERN void *
 wasm_array_obj_first_elem_addr(const wasm_array_obj_t array_obj);
 
 /**
  * Get the address of the i-th element of an array object
+ *
+ * @param array_obj the array object to get element address
+ * @param elem_idx the specified element index
+ *
+ * @return address of the specified element
  */
 WASM_RUNTIME_API_EXTERN void *
 wasm_array_obj_elem_addr(const wasm_array_obj_t array_obj, uint32_t elem_idx);
@@ -451,12 +549,20 @@ wasm_func_obj_new_with_type(wasm_exec_env_t exec_env, wasm_func_type_t type,
 
 /**
  * Get the function index bound of a function object
+ *
+ * @param func_obj the function object
+ *
+ * @return the bound function index
  */
 WASM_RUNTIME_API_EXTERN uint32_t
 wasm_func_obj_get_func_idx_bound(const wasm_func_obj_t func_obj);
 
 /**
  * Get the function type of a function object
+ *
+ * @param func_obj the function object
+ *
+ * @return defined function type
  */
 WASM_RUNTIME_API_EXTERN wasm_func_type_t
 wasm_func_obj_get_func_type(const wasm_func_obj_t func_obj);
@@ -531,24 +637,42 @@ wasm_runtime_call_func_ref_v(wasm_exec_env_t exec_env,
 
 /**
  * Create an externref object with host object
+ *
+ * @param exec_env the execution environment
+ * @param host_obj host object pointer
+ *
+ * @return wasm_externref_obj_t if success, NULL otherwise
  */
 WASM_RUNTIME_API_EXTERN wasm_externref_obj_t
 wasm_externref_obj_new(wasm_exec_env_t exec_env, const void *host_obj);
 
 /**
  * Get the host value of an externref object
+ *
+ * @param externref_obj the externref object
+ *
+ * @return the stored host object pointer
  */
 WASM_RUNTIME_API_EXTERN const void *
 wasm_externref_obj_get_value(const wasm_externref_obj_t externref_obj);
 
 /**
  * Create an anyref object with host object
+ *
+ * @param exec_env the execution environment
+ * @param host_obj host object pointer
+ *
+ * @return wasm_anyref_obj_t if success, NULL otherwise
  */
 WASM_RUNTIME_API_EXTERN wasm_anyref_obj_t
 wasm_anyref_obj_new(wasm_exec_env_t exec_env, const void *host_obj);
 
 /**
  * Get the host object value of an anyref object
+ *
+ * @param anyref_obj the anyref object
+ *
+ * @return the stored host object pointer
  */
 WASM_RUNTIME_API_EXTERN const void *
 wasm_anyref_obj_get_value(const wasm_anyref_obj_t anyref_obj);
@@ -556,6 +680,10 @@ wasm_anyref_obj_get_value(const wasm_anyref_obj_t anyref_obj);
 /**
  * Get the internal object inside the externref object, same as
  * the operation of opcode extern.internalize
+ *
+ * @param externref_obj the externref object
+ *
+ * @return internalized wasm_obj_t
  */
 WASM_RUNTIME_API_EXTERN wasm_obj_t
 wasm_externref_obj_to_internal_obj(const wasm_externref_obj_t externref_obj);
@@ -563,6 +691,11 @@ wasm_externref_obj_to_internal_obj(const wasm_externref_obj_t externref_obj);
 /**
  * Create an externref object from an internal object, same as
  * the operation of opcode extern.externalize
+ *
+ * @param exec_env the execution environment
+ * @param internal_obj the internal object
+ *
+ * @return wasm_externref_obj_t if create success, NULL othersise
  */
 WASM_RUNTIME_API_EXTERN wasm_externref_obj_t
 wasm_internal_obj_to_externref_obj(wasm_exec_env_t exec_env,
@@ -570,75 +703,135 @@ wasm_internal_obj_to_externref_obj(wasm_exec_env_t exec_env,
 
 /**
  * Create an i31 object
+ *
+ * @param i31_value the scalar value
+ *
+ * @return wasm_i31_obj_t
  */
 WASM_RUNTIME_API_EXTERN wasm_i31_obj_t
 wasm_i31_obj_new(uint32_t i31_value);
 
+/**
+ * Get value from an i31 object
+ *
+ * @param i31_obj the i31 object
+ * @param sign_extend whether to sign extend the value
+ *
+ * @return wasm_i31_obj_t
+ */
 WASM_RUNTIME_API_EXTERN uint32_t
 wasm_i31_obj_get_value(wasm_i31_obj_t i31_obj, bool sign_extend);
 
 /**
  * Pin an object to make it traced during GC
+ *
+ * @param exec_env the execution environment
+ * @param obj the object to pin
+ *
+ * @return true if success, false otherwise
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_pin_object(wasm_exec_env_t exec_env, wasm_obj_t obj);
 
 /**
  * Unpin an object
+ *
+ * @param exec_env the execution environment
+ * @param obj the object to unpin
+ *
+ * @return true if success, false otherwise
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_unpin_object(wasm_exec_env_t exec_env, wasm_obj_t obj);
 
 /**
- * Check whether an object is a struct object
+ * Check whether an object is a struct objectc
+ *
+ * @param obj the object to check
+ *
+ * @return true if the object is a struct, false otherwise
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_obj_is_struct_obj(const wasm_obj_t obj);
 
 /**
  * Check whether an object is an array object
+ *
+ * @param obj the object to check
+ *
+ * @return true if the object is a array, false otherwise
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_obj_is_array_obj(const wasm_obj_t obj);
 
 /**
  * Check whether an object is a function object
+ *
+ * @param obj the object to check
+ *
+ * @return true if the object is a function, false otherwise
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_obj_is_func_obj(const wasm_obj_t obj);
 
 /**
  * Check whether an object is an i31 object
+ *
+ * @param obj the object to check
+ *
+ * @return true if the object is an i32, false otherwise
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_obj_is_i31_obj(const wasm_obj_t obj);
 
 /**
  * Check whether an object is an externref object
+ *
+ * @param obj the object to check
+ *
+ * @return true if the object is an externref, false otherwise
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_obj_is_externref_obj(const wasm_obj_t obj);
 
 /**
  * Check whether an object is an anyref object
+ *
+ * @param obj the object to check
+ *
+ * @return true if the object is an anyref, false otherwise
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_obj_is_anyref_obj(const wasm_obj_t obj);
 
 /**
  * Check whether an object is a struct object, or, an i31/struct/array object
+ *
+ * @param obj the object to check
+ *
+ * @return true if the object is an internal object, false otherwise
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_obj_is_internal_obj(const wasm_obj_t obj);
 
 /**
  * Check whether an object is an eq object
+ *
+ * @param obj the object to check
+ *
+ * @return true if the object is an eq object, false otherwise
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_obj_is_eq_obj(const wasm_obj_t obj);
 
 /**
  * Check whether an object is an instance of a defined type
+ *
+ * @param obj the object to check
+ * @param defined_type the defined type
+ * @param module current wasm module
+ *
+ * @return true if the object is instance of the defined type, false otherwise
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_obj_is_instance_of_defined_type(const wasm_obj_t obj,
@@ -648,6 +841,13 @@ wasm_obj_is_instance_of_defined_type(const wasm_obj_t obj,
 /**
  * Check whether an object is an instance of a defined type with
  * index type_idx
+ *
+ * @param obj the object to check
+ * @param type_idx the type index
+ * @param module current wasm module
+ *
+ * @return true if the object is instance of the defined type specified by
+ * type_idx, false otherwise
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_obj_is_instance_of_type_idx(const wasm_obj_t obj, uint32_t type_idx,
@@ -655,6 +855,11 @@ wasm_obj_is_instance_of_type_idx(const wasm_obj_t obj, uint32_t type_idx,
 
 /**
  * Check whether an object is an instance of a ref type
+ *
+ * @param obj the object to check
+ * @param ref_type the ref type
+ *
+ * @return true if the object is instance of the ref type, false otherwise
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_obj_is_instance_of_ref_type(const wasm_obj_t obj,
@@ -664,6 +869,9 @@ wasm_obj_is_instance_of_ref_type(const wasm_obj_t obj,
  * Push a local object ref into stack, note that we should set its value
  * after pushing to retain it during GC, and should pop it from stack
  * before returning from the current function
+ *
+ * @param exec_env the execution environment
+ * @param local_obj_ref the local object ref to push
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_push_local_object_ref(wasm_exec_env_t exec_env,
@@ -671,12 +879,19 @@ wasm_runtime_push_local_object_ref(wasm_exec_env_t exec_env,
 
 /**
  * Pop a local object ref from stack
+ *
+ * @param exec_env the execution environment
+ *
+ * @return the popped wasm_local_obj_ref_t
  */
 WASM_RUNTIME_API_EXTERN wasm_local_obj_ref_t *
 wasm_runtime_pop_local_object_ref(wasm_exec_env_t exec_env);
 
 /**
  * Pop n local object refs from stack
+ *
+ * @param exec_env the execution environment
+ * @param n number to pop
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_pop_local_object_refs(wasm_exec_env_t exec_env, uint32_t n);
