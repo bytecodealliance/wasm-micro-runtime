@@ -35,8 +35,6 @@ Or in Fedora:
 sudo dnf install glibc-devel.i686
 ```
 
-> The above package should be sufficient, and chances are you already have the necessary packages, but to be 100% sure or you are using a rather fresh/new developing environment, you can refer to our [devcontainer Dockerfile](https://github.com/bytecodealliance/wasm-micro-runtime/blob/main/.devcontainer/Dockerfile) and install the packages list in there.
-
 After installing dependencies, build the source code:
 ``` Bash
 cd product-mini/platforms/linux/

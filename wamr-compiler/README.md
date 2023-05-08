@@ -11,8 +11,6 @@ First, make sure necessary dependency are installed:
 sudo apt-get install git build-essential cmake g++-multilib libgcc-9-dev lib32gcc-9-dev ccache 
 ```
 
-> The above package should be sufficient, and chances are you already have the necessary packages, but to be 100% sure or you are using a rather fresh/new developing environment, you can refer to our [devcontainer Dockerfile](https://github.com/bytecodealliance/wasm-micro-runtime/blob/main/.devcontainer/Dockerfile) and install the packages list in there.
-
 ```shell
 cd wamr-compiler
 ./build_llvm.sh (or "./build_llvm_xtensa.sh" to support xtensa target)
