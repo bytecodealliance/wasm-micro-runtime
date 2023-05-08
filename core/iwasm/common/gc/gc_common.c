@@ -103,7 +103,7 @@ wasm_obj_get_defined_type_idx(WASMModuleCommon *const module,
                               const WASMObjectRef obj)
 {
     WASMType *type = wasm_obj_get_defined_type(obj);
-    int32 i, type_idx = -1;
+    uint32 i, type_idx = (uint32)-1;
 
 #if WASM_ENABLE_INTERP != 0
     if (module->module_type == Wasm_Module_Bytecode) {
@@ -154,7 +154,6 @@ wasm_func_type_get_param_count(WASMFuncType *const func_type)
 wasm_ref_type_t
 wasm_func_type_get_param_type(WASMFuncType *const func_type, uint32 param_idx)
 {
-    uint32 i;
     wasm_ref_type_t ref_type = { 0 };
 
     bh_assert(param_idx < func_type->param_count);
@@ -162,19 +161,11 @@ wasm_func_type_get_param_type(WASMFuncType *const func_type, uint32 param_idx)
     ref_type.value_type = func_type->types[param_idx];
 
     if (wasm_is_type_multi_byte_type(func_type->types[param_idx])) {
-        WASMRefTypeMap *ref_type_maps = func_type->ref_type_maps;
-        uint32 ref_type_map_count = func_type->ref_type_map_count;
-
-        for (i = 0; i < ref_type_map_count; i++) {
-            if (ref_type_maps[i].index == param_idx) {
-                WASMRefType *field_ref_type =
-                    func_type->ref_type_maps[i].ref_type;
-
-                ref_type.nullable = field_ref_type->ref_ht_common.nullable;
-                ref_type.heap_type = field_ref_type->ref_ht_common.heap_type;
-                break;
-            }
-        }
+        WASMRefType *param_ref_type = wasm_reftype_map_find(
+            func_type->ref_type_maps, func_type->ref_type_map_count, param_idx);
+        bh_assert(param_ref_type);
+        ref_type.nullable = param_ref_type->ref_ht_common.nullable;
+        ref_type.heap_type = param_ref_type->ref_ht_common.heap_type;
     }
 
     return ref_type;
@@ -190,7 +181,7 @@ wasm_ref_type_t
 wasm_func_type_get_result_type(WASMFuncType *const func_type, uint32 result_idx)
 {
     wasm_ref_type_t ref_type = { 0 };
-    uint32 i, result_idx_with_param;
+    uint32 result_idx_with_param;
 
     result_idx_with_param = func_type->param_count + result_idx;
     bh_assert(result_idx < func_type->result_count);
@@ -198,19 +189,12 @@ wasm_func_type_get_result_type(WASMFuncType *const func_type, uint32 result_idx)
     ref_type.value_type = func_type->types[result_idx_with_param];
 
     if (wasm_is_type_multi_byte_type(func_type->types[result_idx_with_param])) {
-        WASMRefTypeMap *ref_type_maps = func_type->ref_type_maps;
-        uint32 ref_type_map_count = func_type->ref_type_map_count;
-
-        for (i = 0; i < ref_type_map_count; i++) {
-            if (ref_type_maps[i].index == result_idx_with_param) {
-                WASMRefType *field_ref_type =
-                    func_type->ref_type_maps[i].ref_type;
-
-                ref_type.nullable = field_ref_type->ref_ht_common.nullable;
-                ref_type.heap_type = field_ref_type->ref_ht_common.heap_type;
-                break;
-            }
-        }
+        WASMRefType *result_ref_type = wasm_reftype_map_find(
+            func_type->ref_type_maps, func_type->ref_type_map_count,
+            result_idx_with_param);
+        bh_assert(result_ref_type);
+        ref_type.nullable = result_ref_type->ref_ht_common.nullable;
+        ref_type.heap_type = result_ref_type->ref_ht_common.heap_type;
     }
 
     return ref_type;
@@ -229,7 +213,6 @@ wasm_struct_type_get_field_type(WASMStructType *const struct_type,
 {
     wasm_ref_type_t ref_type = { 0 };
     WASMStructFieldType field;
-    uint32 i;
 
     bh_assert(struct_type->type_flag == WASM_TYPE_STRUCT);
     bh_assert(field_idx < struct_type->field_count);
@@ -238,19 +221,12 @@ wasm_struct_type_get_field_type(WASMStructType *const struct_type,
     ref_type.value_type = field.field_type;
 
     if (wasm_is_type_multi_byte_type(field.field_type)) {
-        WASMRefTypeMap *ref_type_maps = struct_type->ref_type_maps;
-        uint32 ref_type_map_count = struct_type->ref_type_map_count;
-
-        for (i = 0; i < ref_type_map_count; i++) {
-            if (ref_type_maps[i].index == field_idx) {
-                WASMRefType *field_ref_type =
-                    struct_type->ref_type_maps[i].ref_type;
-
-                ref_type.nullable = field_ref_type->ref_ht_common.nullable;
-                ref_type.heap_type = field_ref_type->ref_ht_common.heap_type;
-                break;
-            }
-        }
+        WASMRefType *field_ref_type =
+            wasm_reftype_map_find(struct_type->ref_type_maps,
+                                  struct_type->ref_type_map_count, field_idx);
+        bh_assert(field_ref_type);
+        ref_type.nullable = field_ref_type->ref_ht_common.nullable;
+        ref_type.heap_type = field_ref_type->ref_ht_common.heap_type;
     }
 
     if (p_is_mutable) {
@@ -266,14 +242,12 @@ wasm_array_type_get_elem_type(WASMArrayType *const array_type,
 {
     wasm_ref_type_t ref_type = { 0 };
 
+    ref_type.value_type = array_type->elem_type;
+
     if (wasm_is_type_multi_byte_type(array_type->elem_type)) {
         WASMRefType *elem_ref_type = array_type->elem_ref_type;
-        ref_type.value_type = elem_ref_type->ref_ht_common.ref_type;
         ref_type.nullable = elem_ref_type->ref_ht_common.nullable;
         ref_type.heap_type = elem_ref_type->ref_ht_common.heap_type;
-    }
-    else {
-        ref_type.value_type = array_type->elem_type;
     }
 
     if (p_is_mutable) {
