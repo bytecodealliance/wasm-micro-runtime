@@ -34,7 +34,8 @@ do
                 utilities/polybench.c ${file}                       \
                 -Wl,--export=__heap_base -Wl,--export=__data_end    \
                 -Wl,--export=malloc -Wl,--export=free               \
-                -DPOLYBENCH_TIME -o ${OUT_DIR}/${file_name%.*}.wasm
+                -DPOLYBENCH_TIME -o ${OUT_DIR}/${file_name%.*}.wasm \
+                -D_WASI_EMULATED_PROCESS_CLOCKS
 
         echo "Compile ${file_name%.*}.wasm into ${file_name%.*}.aot"
         ${WAMRC_CMD} -o ${OUT_DIR}/${file_name%.*}.aot \
