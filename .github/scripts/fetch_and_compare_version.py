@@ -12,7 +12,7 @@ import sys
 
 def fetch_version_from_code():
     """
-    search the semantic version definition in build-scripts/config_common.cmake
+    search the semantic version definition in core/version.h
     """
     major, minor, patch = "", "", ""
     with open("core/version.h", encoding="utf-8") as f:

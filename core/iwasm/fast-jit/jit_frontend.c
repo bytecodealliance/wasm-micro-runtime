@@ -223,18 +223,37 @@ get_memory_data_reg(JitFrame *frame, uint32 mem_idx)
 {
     JitCompContext *cc = frame->cc;
     JitReg module_inst_reg = get_module_inst_reg(frame);
-    uint32 memory_data_offset =
-        (uint32)offsetof(WASMModuleInstance, global_table_data.bytes)
-        + (uint32)offsetof(WASMMemoryInstance, memory_data);
+    uint32 memory_data_offset;
 
     bh_assert(mem_idx == 0);
-
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    uint32 memories_offset = (uint32)offsetof(WASMModuleInstance, memories);
+    JitReg memories_addr = jit_cc_new_reg_ptr(cc);
+    JitReg memories_0_addr = jit_cc_new_reg_ptr(cc);
+    memory_data_offset = (uint32)offsetof(WASMMemoryInstance, memory_data);
+    if (!frame->memory_regs[mem_idx].memory_data) {
+        frame->memory_regs[mem_idx].memory_data =
+            cc->memory_regs[mem_idx].memory_data;
+        /* module_inst->memories */
+        GEN_INSN(LDPTR, memories_addr, module_inst_reg,
+                 NEW_CONST(I32, memories_offset));
+        /* module_inst->memories[0] */
+        GEN_INSN(LDPTR, memories_0_addr, memories_addr, NEW_CONST(I32, 0));
+        /* memories[0]->memory_data */
+        GEN_INSN(LDPTR, frame->memory_regs[mem_idx].memory_data,
+                 memories_0_addr, NEW_CONST(I32, memory_data_offset));
+    }
+#else
+    memory_data_offset =
+        (uint32)offsetof(WASMModuleInstance, global_table_data.bytes)
+        + (uint32)offsetof(WASMMemoryInstance, memory_data);
     if (!frame->memory_regs[mem_idx].memory_data) {
         frame->memory_regs[mem_idx].memory_data =
             cc->memory_regs[mem_idx].memory_data;
         GEN_INSN(LDPTR, frame->memory_regs[mem_idx].memory_data,
                  module_inst_reg, NEW_CONST(I32, memory_data_offset));
     }
+#endif
     return frame->memory_regs[mem_idx].memory_data;
 }
 
@@ -1077,6 +1096,39 @@ read_leb(JitCompContext *cc, const uint8 *buf, const uint8 *buf_end,
         p += off;                                            \
         res = (int64)res64;                                  \
     } while (0)
+
+#if WASM_ENABLE_SHARED_MEMORY != 0
+#define COMPILE_ATOMIC_RMW(OP, NAME)                  \
+    case WASM_OP_ATOMIC_RMW_I32_##NAME:               \
+        bytes = 4;                                    \
+        op_type = VALUE_TYPE_I32;                     \
+        goto OP_ATOMIC_##OP;                          \
+    case WASM_OP_ATOMIC_RMW_I64_##NAME:               \
+        bytes = 8;                                    \
+        op_type = VALUE_TYPE_I64;                     \
+        goto OP_ATOMIC_##OP;                          \
+    case WASM_OP_ATOMIC_RMW_I32_##NAME##8_U:          \
+        bytes = 1;                                    \
+        op_type = VALUE_TYPE_I32;                     \
+        goto OP_ATOMIC_##OP;                          \
+    case WASM_OP_ATOMIC_RMW_I32_##NAME##16_U:         \
+        bytes = 2;                                    \
+        op_type = VALUE_TYPE_I32;                     \
+        goto OP_ATOMIC_##OP;                          \
+    case WASM_OP_ATOMIC_RMW_I64_##NAME##8_U:          \
+        bytes = 1;                                    \
+        op_type = VALUE_TYPE_I64;                     \
+        goto OP_ATOMIC_##OP;                          \
+    case WASM_OP_ATOMIC_RMW_I64_##NAME##16_U:         \
+        bytes = 2;                                    \
+        op_type = VALUE_TYPE_I64;                     \
+        goto OP_ATOMIC_##OP;                          \
+    case WASM_OP_ATOMIC_RMW_I64_##NAME##32_U:         \
+        bytes = 4;                                    \
+        op_type = VALUE_TYPE_I64;                     \
+        OP_ATOMIC_##OP : bin_op = AtomicRMWBinOp##OP; \
+        goto build_atomic_rmw;
+#endif
 
 static bool
 jit_compile_func(JitCompContext *cc)
@@ -2096,6 +2148,8 @@ jit_compile_func(JitCompContext *cc)
                     case WASM_OP_ATOMIC_FENCE:
                         /* Skip memory index */
                         frame_ip++;
+                        if (!jit_compiler_op_atomic_fence(cc))
+                            return false;
                         break;
                     case WASM_OP_ATOMIC_I32_LOAD:
                         bytes = 4;
@@ -2192,15 +2246,12 @@ jit_compile_func(JitCompContext *cc)
                             return false;
                         break;
 
-                        /* TODO */
-                        /*
                         COMPILE_ATOMIC_RMW(Add, ADD);
                         COMPILE_ATOMIC_RMW(Sub, SUB);
                         COMPILE_ATOMIC_RMW(And, AND);
                         COMPILE_ATOMIC_RMW(Or, OR);
                         COMPILE_ATOMIC_RMW(Xor, XOR);
                         COMPILE_ATOMIC_RMW(Xchg, XCHG);
-                        */
 
                     build_atomic_rmw:
                         if (!jit_compile_op_atomic_rmw(cc, bin_op, op_type,

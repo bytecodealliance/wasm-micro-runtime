@@ -52,7 +52,7 @@ jobs:
           #
           #
           if [[ -z ${new_ver} ]]; then
-            echo "::error::please indicate the right semantic version in build-scripts/config_common.cmake"
+            echo "::error::please indicate the right semantic version in core/version.h"
             echo "new_ver=''" >> "$GITHUB_OUTPUT"
             echo "new_tag=''" >> "$GITHUB_OUTPUT"
             exit 1
