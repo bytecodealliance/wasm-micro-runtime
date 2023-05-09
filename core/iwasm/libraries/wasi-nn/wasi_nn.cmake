@@ -1,6 +1,11 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
+
+# Find tensorflow-lite
+find_package(tensorflow_lite REQUIRED)
+
 set (WASI_NN_DIR ${CMAKE_CURRENT_LIST_DIR})
 
 include_directories (${WASI_NN_DIR})

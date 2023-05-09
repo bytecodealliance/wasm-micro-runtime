@@ -10,7 +10,8 @@ on:
       - opened
       - synchronize
     paths:
-      - ".github/**"
+      - ".github/workflows/build_llvm_libraries.yml"
+      - ".github/workflows/compilation_on_sgx.yml"
       - "build-scripts/**"
       - "core/**"
       - "!core/deps/**"
@@ -26,7 +27,8 @@ on:
       - main
       - "dev/**"
     paths:
-      - ".github/**"
+      - ".github/workflows/build_llvm_libraries.yml"
+      - ".github/workflows/compilation_on_sgx.yml"
       - "build-scripts/**"
       - "core/**"
       - "!core/deps/**"

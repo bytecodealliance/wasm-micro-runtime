@@ -96,14 +96,23 @@ jobs:
           cmake -S ./llvm -B build \
             -G Ninja \
             -DCMAKE_INSTALL_PREFIX=../wamr-lldb \
-            -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_PROJECTS="clang;lldb" \
-            -DLLVM_TARGETS_TO_BUILD=X86 \
-            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DLLVM_BUILD_BENCHMARKS:BOOL=OFF \
-            -DLLVM_BUILD_DOCS:BOOL=OFF  -DLLVM_BUILD_EXAMPLES:BOOL=OFF  \
-            -DLLVM_BUILD_LLVM_DYLIB:BOOL=OFF  -DLLVM_BUILD_TESTS:BOOL=OFF  \
-            -DLLVM_ENABLE_BINDINGS:BOOL=OFF  -DLLVM_INCLUDE_BENCHMARKS:BOOL=OFF  \
-            -DLLVM_INCLUDE_DOCS:BOOL=OFF  -DLLVM_INCLUDE_EXAMPLES:BOOL=OFF  \
-            -DLLVM_INCLUDE_TESTS:BOOL=OFF -DLLVM_ENABLE_LLD:BOOL=ON
+            -DCMAKE_BUILD_TYPE:STRING="Release" \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            -DLLVM_ENABLE_PROJECTS="clang;lldb" \
+            -DLLVM_TARGETS_TO_BUILD:STRING="X86;WebAssembly" \
+            -DLLVM_BUILD_BENCHMARKS:BOOL=OFF \
+            -DLLVM_BUILD_DOCS:BOOL=OFF \
+            -DLLVM_BUILD_EXAMPLES:BOOL=OFF  \
+            -DLLVM_BUILD_LLVM_DYLIB:BOOL=OFF \
+            -DLLVM_BUILD_TESTS:BOOL=OFF  \
+            -DLLVM_INCLUDE_BENCHMARKS:BOOL=OFF  \
+            -DLLVM_INCLUDE_DOCS:BOOL=OFF \
+            -DLLVM_INCLUDE_EXAMPLES:BOOL=OFF \
+            -DLLVM_INCLUDE_TESTS:BOOL=OFF \
+            -DLLVM_ENABLE_BINDINGS:BOOL=OFF \
+            -DLLVM_ENABLE_LIBXML2:BOOL=ON \
+            -DLLDB_ENABLE_PYTHON:BOOL=OFF \
+            -DLLVM_ENABLE_LLD:BOOL=ON
           cmake --build build --target lldb install --parallel $(nproc)
         working-directory: core/deps/llvm-project
 
@@ -118,13 +127,20 @@ jobs:
             -DCMAKE_BUILD_TYPE:STRING="Release" \
             -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
             -DLLVM_ENABLE_PROJECTS="clang;lldb" \
+            -DLLVM_TARGETS_TO_BUILD:STRING="X86;WebAssembly" \
+            -DLLVM_BUILD_BENCHMARKS:BOOL=OFF \
+            -DLLVM_BUILD_DOCS:BOOL=OFF \
+            -DLLVM_BUILD_EXAMPLES:BOOL=OFF  \
+            -DLLVM_BUILD_LLVM_DYLIB:BOOL=OFF \
+            -DLLVM_BUILD_TESTS:BOOL=OFF  \
+            -DLLVM_INCLUDE_BENCHMARKS:BOOL=OFF  \
+            -DLLVM_INCLUDE_DOCS:BOOL=OFF \
+            -DLLVM_INCLUDE_EXAMPLES:BOOL=OFF \
             -DLLVM_INCLUDE_TESTS:BOOL=OFF \
-            -DLLVM_INCLUDE_EXAMPLES:BOOL=OFF  \
             -DLLVM_BUILD_BENCHMARKS:BOOL=OFF \
             -DLLVM_BUILD_DOCS:BOOL=OFF \
             -DLLVM_BUILD_LLVM_DYLIB:BOOL=OFF \
             -DLLVM_ENABLE_BINDINGS:BOOL=OFF \
-            -DLLVM_TARGETS_TO_BUILD:STRING="X86;WebAssembly" \
             -DLLVM_ENABLE_LIBXML2:BOOL=ON \
             -DLLDB_ENABLE_PYTHON:BOOL=OFF \
             -DLLDB_BUILD_FRAMEWORK:BOOL=OFF

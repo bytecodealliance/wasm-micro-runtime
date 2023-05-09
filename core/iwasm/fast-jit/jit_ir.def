@@ -200,6 +200,50 @@ INSN(CALLBC, Reg, 4, 2)
 INSN(RETURNBC, Reg, 3, 0)
 INSN(RETURN, Reg, 1, 0)
 
+#if WASM_ENABLE_SHARED_MEMORY != 0
+/* Atomic Memory Accesses */
+/* op1(replacement val) op2(expected val) op3(mem data) op4(offset)
+ * and in x86, the result is stored in register al/ax/eax/rax */
+INSN(AT_CMPXCHGU8, Reg, 4, 0)
+INSN(AT_CMPXCHGU16, Reg, 4, 0)
+INSN(AT_CMPXCHGI32, Reg, 4, 0)
+INSN(AT_CMPXCHGU32, Reg, 4, 0)
+INSN(AT_CMPXCHGI64, Reg, 4, 0)
+/* rmw operations:
+ * op1(read value) op2(operand value) op3(mem data) op4(offset) */
+INSN(AT_ADDU8, Reg, 4, 1)
+INSN(AT_ADDU16, Reg, 4, 1)
+INSN(AT_ADDI32, Reg, 4, 1)
+INSN(AT_ADDU32, Reg, 4, 1)
+INSN(AT_ADDI64, Reg, 4, 1)
+INSN(AT_SUBU8, Reg, 4, 1)
+INSN(AT_SUBU16, Reg, 4, 1)
+INSN(AT_SUBI32, Reg, 4, 1)
+INSN(AT_SUBU32, Reg, 4, 1)
+INSN(AT_SUBI64, Reg, 4, 1)
+INSN(AT_ANDU8, Reg, 4, 1)
+INSN(AT_ANDU16, Reg, 4, 1)
+INSN(AT_ANDI32, Reg, 4, 1)
+INSN(AT_ANDU32, Reg, 4, 1)
+INSN(AT_ANDI64, Reg, 4, 1)
+INSN(AT_ORU8, Reg, 4, 1)
+INSN(AT_ORU16, Reg, 4, 1)
+INSN(AT_ORI32, Reg, 4, 1)
+INSN(AT_ORU32, Reg, 4, 1)
+INSN(AT_ORI64, Reg, 4, 1)
+INSN(AT_XORU8, Reg, 4, 1)
+INSN(AT_XORU16, Reg, 4, 1)
+INSN(AT_XORI32, Reg, 4, 1)
+INSN(AT_XORU32, Reg, 4, 1)
+INSN(AT_XORI64, Reg, 4, 1)
+INSN(AT_XCHGU8, Reg, 4, 1)
+INSN(AT_XCHGU16, Reg, 4, 1)
+INSN(AT_XCHGI32, Reg, 4, 1)
+INSN(AT_XCHGU32, Reg, 4, 1)
+INSN(AT_XCHGI64, Reg, 4, 1)
+INSN(FENCE, Reg, 0, 0)
+#endif
+
 #undef INSN
 
 /**

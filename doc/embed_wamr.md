@@ -1,7 +1,7 @@
 Embedding WAMR guideline
 =====================================
 
-**Note**: This document is about how to embed WAMR into C/C++ host applications, for other languages, please refer to: [Embed WAMR into Python](../language-bindings/go), [Embed WAMR into Go](../language-bindings/go).
+**Note**: This document is about how to embed WAMR into C/C++ host applications, for other languages, please refer to: [Embed WAMR into Python](../language-bindings/python), [Embed WAMR into Go](../language-bindings/go).
 
 All the embedding APIs supported by the runtime are defined under folder [core/iwasm/include](../core/iwasm/include). The API details are available in the header files.
 

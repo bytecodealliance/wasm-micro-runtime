@@ -56,8 +56,14 @@ typedef struct WASIContext *wasi_ctx_t;
 wasi_ctx_t
 wasm_runtime_get_wasi_ctx(wasm_module_inst_t module_inst);
 
-static inline size_t
-min(size_t a, size_t b)
+static inline uint64_t
+min_uint64(uint64_t a, uint64_t b)
+{
+    return a > b ? b : a;
+}
+
+static inline uint32_t
+min_uint32(uint32_t a, uint32_t b)
 {
     return a > b ? b : a;
 }
@@ -962,7 +968,7 @@ get_timeout_for_poll_oneoff(const wasi_subscription_t *in,
         const __wasi_subscription_t *s = &in[i];
         if (s->u.type == __WASI_EVENTTYPE_CLOCK
             && (s->u.u.clock.flags & __WASI_SUBSCRIPTION_CLOCK_ABSTIME) == 0) {
-            timeout = min(timeout, s->u.u.clock.timeout);
+            timeout = min_uint64(timeout, s->u.u.clock.timeout);
         }
     }
     return timeout;
@@ -1016,8 +1022,8 @@ execute_interruptible_poll_oneoff(
 
     while (timeout == (__wasi_timestamp_t)-1 || elapsed <= timeout) {
         /* update timeout for clock subscription events */
-        update_clock_subscription_data(in_copy, nsubscriptions,
-                                       min(time_quant, timeout - elapsed));
+        update_clock_subscription_data(
+            in_copy, nsubscriptions, min_uint64(time_quant, timeout - elapsed));
         err = wasmtime_ssp_poll_oneoff(curfds, in_copy, out, nsubscriptions,
                                        nevents);
         elapsed += time_quant;
@@ -1999,7 +2005,7 @@ copy_buffer_to_iovec_app(wasm_module_inst_t module_inst, uint8 *buf_begin,
          * only copy the amount in the app buffer. Otherwise, we fill the iovec
          * buffer and reduce size to copy on the next iteration
          */
-        size_to_copy_into_iovec = min(data->buf_len, size_to_copy);
+        size_to_copy_into_iovec = min_uint32(data->buf_len, size_to_copy);
 
         native_addr = (void *)addr_app_to_native(data->buf_offset);
         bh_memcpy_s(native_addr, size_to_copy_into_iovec, buf,

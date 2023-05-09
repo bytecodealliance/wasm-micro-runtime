@@ -18,7 +18,7 @@ const LLDB_RESOURCE_DIR = 'resource/debug';
 const LLDB_OS_DOWNLOAD_URL_SUFFIX_MAP: Partial<
     Record<NodeJS.Platform, string>
 > = {
-    linux: 'x86_64-ubuntu-22.04',
+    linux: 'x86_64-ubuntu-20.04',
     darwin: 'universal-macos-latest',
 };
 

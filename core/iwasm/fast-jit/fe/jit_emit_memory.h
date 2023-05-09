@@ -80,6 +80,9 @@ jit_compile_op_atomic_wait(JitCompContext *cc, uint8 op_type, uint32 align,
 bool
 jit_compiler_op_atomic_notify(JitCompContext *cc, uint32 align, uint32 offset,
                               uint32 bytes);
+
+bool
+jit_compiler_op_atomic_fence(JitCompContext *cc);
 #endif
 
 #ifdef __cplusplus
