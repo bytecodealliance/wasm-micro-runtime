@@ -25,7 +25,7 @@ static bool
 remove_tree_node(gc_heap_t *heap, hmu_tree_node_t *p)
 {
     hmu_tree_node_t *q = NULL, **slot = NULL, *parent;
-    hmu_tree_node_t *root = &heap->kfc_tree_root;
+    hmu_tree_node_t *root = heap->kfc_tree_root;
     gc_uint8 *base_addr = heap->base_addr;
     gc_uint8 *end_addr = base_addr + heap->current_size;
 
@@ -38,13 +38,17 @@ remove_tree_node(gc_heap_t *heap, hmu_tree_node_t *p)
         goto fail;
     }
 
-    /* get the slot which holds pointer to node p*/
+    /* get the slot which holds pointer to node p */
     if (p == p->parent->right) {
-        slot = &p->parent->right;
+        /* Don't use `slot = &p->parent->right` to avoid compiler warning */
+        slot = (hmu_tree_node_t **)((uint8 *)p->parent
+                                    + offsetof(hmu_tree_node_t, right));
     }
     else if (p == p->parent->left) {
-        /* p should be a child of its parent*/
-        slot = &p->parent->left;
+        /* p should be a child of its parent */
+        /* Don't use `slot = &p->parent->left` to avoid compiler warning */
+        slot = (hmu_tree_node_t **)((uint8 *)p->parent
+                                    + offsetof(hmu_tree_node_t, left));
     }
     else {
         goto fail;
@@ -241,7 +245,7 @@ gci_add_fc(gc_heap_t *heap, hmu_t *hmu, gc_size_t size)
     node->left = node->right = node->parent = NULL;
 
     /* find proper node to link this new node to */
-    root = &heap->kfc_tree_root;
+    root = heap->kfc_tree_root;
     tp = root;
     bh_assert(tp->size < size);
     while (1) {
@@ -289,6 +293,7 @@ alloc_hmu(gc_heap_t *heap, gc_size_t size)
     uint32 node_idx = 0, init_node_idx = 0;
     hmu_tree_node_t *root = NULL, *tp = NULL, *last_tp = NULL;
     hmu_t *next, *rest;
+    uintptr_t tp_ret;
 
     bh_assert(gci_is_heap_valid(heap));
     bh_assert(size > 0 && !(size & 7));
@@ -354,7 +359,7 @@ alloc_hmu(gc_heap_t *heap, gc_size_t size)
     }
 
     /* need to find a node in tree*/
-    root = &heap->kfc_tree_root;
+    root = heap->kfc_tree_root;
 
     /* find the best node*/
     bh_assert(root);
@@ -402,7 +407,8 @@ alloc_hmu(gc_heap_t *heap, gc_size_t size)
             heap->highmark_size = heap->current_size - heap->total_free_size;
 
         hmu_set_size((hmu_t *)last_tp, size);
-        return (hmu_t *)last_tp;
+        tp_ret = (uintptr_t)last_tp;
+        return (hmu_t *)tp_ret;
     }
 
     return NULL;

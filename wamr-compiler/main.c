@@ -42,6 +42,8 @@ print_help()
     printf("                              if the option is set:\n");
     printf("                                (1) it is always enabled when `--bounds-checks` is enabled,\n");
     printf("                                (2) else it is enabled/disabled according to the option value\n");
+    printf("  --stack-usage=<file>      Generate a stack-usage file.\n");
+    printf("                              Similarly to `clang -fstack-usage`.\n");
     printf("  --format=<format>         Specifies the format of the output file\n");
     printf("                            The format supported:\n");
     printf("                              aot (default)  AoT file\n");
@@ -203,6 +205,9 @@ main(int argc, char *argv[])
         }
         else if (!strncmp(argv[0], "--stack-bounds-checks=", 22)) {
             option.stack_bounds_checks = (atoi(argv[0] + 22) == 1) ? 1 : 0;
+        }
+        else if (!strncmp(argv[0], "--stack-usage=", 14)) {
+            option.stack_usage_file = argv[0] + 14;
         }
         else if (!strncmp(argv[0], "--format=", 9)) {
             if (argv[0][9] == '\0')

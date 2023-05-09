@@ -30,5 +30,5 @@ import wamr.wasmcapi.ffi as ffi
 
 For more information:
 
-* [WAMR API](./wamr_api)
-* [WASM-C-API](./wasm_c_api)
+* [WAMR API](./wamr-api)
+* [WASM-C-API](./wasm-c-api)
