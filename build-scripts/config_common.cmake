@@ -79,12 +79,6 @@ elseif (WAMR_BUILD_TARGET MATCHES "THUMB.*")
   set (CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -Wa,-mthumb")
 endif ()
 
-if (WAMR_BUILD_TARGET STREQUAL "X86_64" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
-  if (NOT WAMR_BUILD_PLATFORM STREQUAL "windows")
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfsgsbase")
-  endif ()
-endif ()
-
 if (NOT WAMR_BUILD_INTERP EQUAL 1)
 if (NOT WAMR_BUILD_AOT EQUAL 1)
   message (FATAL_ERROR "-- WAMR Interpreter and AOT must be enabled at least one")

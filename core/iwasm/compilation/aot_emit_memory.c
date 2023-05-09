@@ -407,14 +407,15 @@ aot_compile_op_i32_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 {
     LLVMValueRef maddr, value = NULL;
     LLVMTypeRef data_type;
+    bool enable_segue = comp_ctx->enable_segue_i32_load;
 
     if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, bytes,
-                                            comp_ctx->enable_segue)))
+                                            enable_segue)))
         return false;
 
     switch (bytes) {
         case 4:
-            if (!comp_ctx->enable_segue)
+            if (!enable_segue)
                 BUILD_PTR_CAST(INT32_PTR_TYPE);
             else
                 BUILD_PTR_CAST(INT32_PTR_TYPE_GS);
@@ -428,14 +429,14 @@ aot_compile_op_i32_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         case 2:
         case 1:
             if (bytes == 2) {
-                if (!comp_ctx->enable_segue)
+                if (!enable_segue)
                     BUILD_PTR_CAST(INT16_PTR_TYPE);
                 else
                     BUILD_PTR_CAST(INT16_PTR_TYPE_GS);
                 data_type = INT16_TYPE;
             }
             else {
-                if (!comp_ctx->enable_segue)
+                if (!enable_segue)
                     BUILD_PTR_CAST(INT8_PTR_TYPE);
                 else
                     BUILD_PTR_CAST(INT8_PTR_TYPE_GS);
@@ -476,14 +477,15 @@ aot_compile_op_i64_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 {
     LLVMValueRef maddr, value = NULL;
     LLVMTypeRef data_type;
+    bool enable_segue = comp_ctx->enable_segue_i64_load;
 
     if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, bytes,
-                                            comp_ctx->enable_segue)))
+                                            enable_segue)))
         return false;
 
     switch (bytes) {
         case 8:
-            if (!comp_ctx->enable_segue)
+            if (!enable_segue)
                 BUILD_PTR_CAST(INT64_PTR_TYPE);
             else
                 BUILD_PTR_CAST(INT64_PTR_TYPE_GS);
@@ -498,21 +500,21 @@ aot_compile_op_i64_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         case 2:
         case 1:
             if (bytes == 4) {
-                if (!comp_ctx->enable_segue)
+                if (!enable_segue)
                     BUILD_PTR_CAST(INT32_PTR_TYPE);
                 else
                     BUILD_PTR_CAST(INT32_PTR_TYPE_GS);
                 data_type = I32_TYPE;
             }
             else if (bytes == 2) {
-                if (!comp_ctx->enable_segue)
+                if (!enable_segue)
                     BUILD_PTR_CAST(INT16_PTR_TYPE);
                 else
                     BUILD_PTR_CAST(INT16_PTR_TYPE_GS);
                 data_type = INT16_TYPE;
             }
             else {
-                if (!comp_ctx->enable_segue)
+                if (!enable_segue)
                     BUILD_PTR_CAST(INT8_PTR_TYPE);
                 else
                     BUILD_PTR_CAST(INT8_PTR_TYPE_GS);
@@ -551,12 +553,13 @@ aot_compile_op_f32_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                         uint32 align, uint32 offset)
 {
     LLVMValueRef maddr, value;
+    bool enable_segue = comp_ctx->enable_segue_f32_load;
 
     if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, 4,
-                                            comp_ctx->enable_segue)))
+                                            enable_segue)))
         return false;
 
-    if (!comp_ctx->enable_segue)
+    if (!enable_segue)
         BUILD_PTR_CAST(F32_PTR_TYPE);
     else
         BUILD_PTR_CAST(F32_PTR_TYPE_GS);
@@ -573,12 +576,13 @@ aot_compile_op_f64_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                         uint32 align, uint32 offset)
 {
     LLVMValueRef maddr, value;
+    bool enable_segue = comp_ctx->enable_segue_f64_load;
 
     if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, 8,
-                                            comp_ctx->enable_segue)))
+                                            enable_segue)))
         return false;
 
-    if (!comp_ctx->enable_segue)
+    if (!enable_segue)
         BUILD_PTR_CAST(F64_PTR_TYPE);
     else
         BUILD_PTR_CAST(F64_PTR_TYPE_GS);
@@ -595,29 +599,30 @@ aot_compile_op_i32_store(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                          uint32 align, uint32 offset, uint32 bytes, bool atomic)
 {
     LLVMValueRef maddr, value;
+    bool enable_segue = comp_ctx->enable_segue_i32_store;
 
     POP_I32(value);
 
     if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, bytes,
-                                            comp_ctx->enable_segue)))
+                                            enable_segue)))
         return false;
 
     switch (bytes) {
         case 4:
-            if (!comp_ctx->enable_segue)
+            if (!enable_segue)
                 BUILD_PTR_CAST(INT32_PTR_TYPE);
             else
                 BUILD_PTR_CAST(INT32_PTR_TYPE_GS);
             break;
         case 2:
-            if (!comp_ctx->enable_segue)
+            if (!enable_segue)
                 BUILD_PTR_CAST(INT16_PTR_TYPE);
             else
                 BUILD_PTR_CAST(INT16_PTR_TYPE_GS);
             BUILD_TRUNC(value, INT16_TYPE);
             break;
         case 1:
-            if (!comp_ctx->enable_segue)
+            if (!enable_segue)
                 BUILD_PTR_CAST(INT8_PTR_TYPE);
             else
                 BUILD_PTR_CAST(INT8_PTR_TYPE_GS);
@@ -644,36 +649,37 @@ aot_compile_op_i64_store(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                          uint32 align, uint32 offset, uint32 bytes, bool atomic)
 {
     LLVMValueRef maddr, value;
+    bool enable_segue = comp_ctx->enable_segue_i64_store;
 
     POP_I64(value);
 
     if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, bytes,
-                                            comp_ctx->enable_segue)))
+                                            enable_segue)))
         return false;
 
     switch (bytes) {
         case 8:
-            if (!comp_ctx->enable_segue)
+            if (!enable_segue)
                 BUILD_PTR_CAST(INT64_PTR_TYPE);
             else
                 BUILD_PTR_CAST(INT64_PTR_TYPE_GS);
             break;
         case 4:
-            if (!comp_ctx->enable_segue)
+            if (!enable_segue)
                 BUILD_PTR_CAST(INT32_PTR_TYPE);
             else
                 BUILD_PTR_CAST(INT32_PTR_TYPE_GS);
             BUILD_TRUNC(value, I32_TYPE);
             break;
         case 2:
-            if (!comp_ctx->enable_segue)
+            if (!enable_segue)
                 BUILD_PTR_CAST(INT16_PTR_TYPE);
             else
                 BUILD_PTR_CAST(INT16_PTR_TYPE_GS);
             BUILD_TRUNC(value, INT16_TYPE);
             break;
         case 1:
-            if (!comp_ctx->enable_segue)
+            if (!enable_segue)
                 BUILD_PTR_CAST(INT8_PTR_TYPE);
             else
                 BUILD_PTR_CAST(INT8_PTR_TYPE_GS);
@@ -700,14 +706,15 @@ aot_compile_op_f32_store(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                          uint32 align, uint32 offset)
 {
     LLVMValueRef maddr, value;
+    bool enable_segue = comp_ctx->enable_segue_f32_store;
 
     POP_F32(value);
 
     if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, 4,
-                                            comp_ctx->enable_segue)))
+                                            enable_segue)))
         return false;
 
-    if (!comp_ctx->enable_segue)
+    if (!enable_segue)
         BUILD_PTR_CAST(F32_PTR_TYPE);
     else
         BUILD_PTR_CAST(F32_PTR_TYPE_GS);
@@ -722,14 +729,15 @@ aot_compile_op_f64_store(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                          uint32 align, uint32 offset)
 {
     LLVMValueRef maddr, value;
+    bool enable_segue = comp_ctx->enable_segue_f64_store;
 
     POP_F64(value);
 
     if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, 8,
-                                            comp_ctx->enable_segue)))
+                                            enable_segue)))
         return false;
 
-    if (!comp_ctx->enable_segue)
+    if (!enable_segue)
         BUILD_PTR_CAST(F64_PTR_TYPE);
     else
         BUILD_PTR_CAST(F64_PTR_TYPE_GS);
@@ -1223,6 +1231,11 @@ aot_compile_op_atomic_rmw(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                           uint32 offset, uint32 bytes)
 {
     LLVMValueRef maddr, value, result;
+    bool enable_segue = (op_type == VALUE_TYPE_I32)
+                            ? comp_ctx->enable_segue_i32_load
+                                  && comp_ctx->enable_segue_i32_store
+                            : comp_ctx->enable_segue_i64_load
+                                  && comp_ctx->enable_segue_i64_store;
 
     if (op_type == VALUE_TYPE_I32)
         POP_I32(value);
@@ -1230,7 +1243,7 @@ aot_compile_op_atomic_rmw(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         POP_I64(value);
 
     if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, bytes,
-                                            comp_ctx->enable_segue)))
+                                            enable_segue)))
         return false;
 
     if (!check_memory_alignment(comp_ctx, func_ctx, maddr, align))
@@ -1238,13 +1251,13 @@ aot_compile_op_atomic_rmw(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     switch (bytes) {
         case 8:
-            if (!comp_ctx->enable_segue)
+            if (!enable_segue)
                 BUILD_PTR_CAST(INT64_PTR_TYPE);
             else
                 BUILD_PTR_CAST(INT64_PTR_TYPE_GS);
             break;
         case 4:
-            if (!comp_ctx->enable_segue)
+            if (!enable_segue)
                 BUILD_PTR_CAST(INT32_PTR_TYPE);
             else
                 BUILD_PTR_CAST(INT32_PTR_TYPE_GS);
@@ -1252,14 +1265,14 @@ aot_compile_op_atomic_rmw(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 BUILD_TRUNC(value, I32_TYPE);
             break;
         case 2:
-            if (!comp_ctx->enable_segue)
+            if (!enable_segue)
                 BUILD_PTR_CAST(INT16_PTR_TYPE);
             else
                 BUILD_PTR_CAST(INT16_PTR_TYPE_GS);
             BUILD_TRUNC(value, INT16_TYPE);
             break;
         case 1:
-            if (!comp_ctx->enable_segue)
+            if (!enable_segue)
                 BUILD_PTR_CAST(INT8_PTR_TYPE);
             else
                 BUILD_PTR_CAST(INT8_PTR_TYPE_GS);
@@ -1304,6 +1317,11 @@ aot_compile_op_atomic_cmpxchg(AOTCompContext *comp_ctx,
                               uint32 align, uint32 offset, uint32 bytes)
 {
     LLVMValueRef maddr, value, expect, result;
+    bool enable_segue = (op_type == VALUE_TYPE_I32)
+                            ? comp_ctx->enable_segue_i32_load
+                                  && comp_ctx->enable_segue_i32_store
+                            : comp_ctx->enable_segue_i64_load
+                                  && comp_ctx->enable_segue_i64_store;
 
     if (op_type == VALUE_TYPE_I32) {
         POP_I32(value);
@@ -1315,7 +1333,7 @@ aot_compile_op_atomic_cmpxchg(AOTCompContext *comp_ctx,
     }
 
     if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, bytes,
-                                            comp_ctx->enable_segue)))
+                                            enable_segue)))
         return false;
 
     if (!check_memory_alignment(comp_ctx, func_ctx, maddr, align))
@@ -1323,13 +1341,13 @@ aot_compile_op_atomic_cmpxchg(AOTCompContext *comp_ctx,
 
     switch (bytes) {
         case 8:
-            if (!comp_ctx->enable_segue)
+            if (!enable_segue)
                 BUILD_PTR_CAST(INT64_PTR_TYPE);
             else
                 BUILD_PTR_CAST(INT64_PTR_TYPE_GS);
             break;
         case 4:
-            if (!comp_ctx->enable_segue)
+            if (!enable_segue)
                 BUILD_PTR_CAST(INT32_PTR_TYPE);
             else
                 BUILD_PTR_CAST(INT32_PTR_TYPE_GS);
@@ -1339,7 +1357,7 @@ aot_compile_op_atomic_cmpxchg(AOTCompContext *comp_ctx,
             }
             break;
         case 2:
-            if (!comp_ctx->enable_segue)
+            if (!enable_segue)
                 BUILD_PTR_CAST(INT16_PTR_TYPE);
             else
                 BUILD_PTR_CAST(INT16_PTR_TYPE_GS);
@@ -1347,7 +1365,7 @@ aot_compile_op_atomic_cmpxchg(AOTCompContext *comp_ctx,
             BUILD_TRUNC(expect, INT16_TYPE);
             break;
         case 1:
-            if (!comp_ctx->enable_segue)
+            if (!enable_segue)
                 BUILD_PTR_CAST(INT8_PTR_TYPE);
             else
                 BUILD_PTR_CAST(INT8_PTR_TYPE_GS);

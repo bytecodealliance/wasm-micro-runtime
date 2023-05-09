@@ -60,12 +60,6 @@ typedef sem_t korp_sem;
 
 #define os_thread_local_attribute __thread
 
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-#include <immintrin.h>
-#define os_writegsbase(base_addr) \
-    _writegsbase_u64(((uint64)(uintptr_t)base_addr))
-#endif
-
 #if WASM_DISABLE_HW_BOUND_CHECK == 0
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) \
     || defined(BUILD_TARGET_AARCH64)
