@@ -96,6 +96,9 @@ thread_spawn_wrapper(wasm_exec_env_t exec_env, uint32 start_arg)
     wasm_runtime_set_custom_data_internal(
         new_module_inst, wasm_runtime_get_custom_data(module_inst));
 
+    if (!(wasm_cluster_dup_c_api_imports(new_module_inst, module_inst)))
+        goto thread_preparation_fail;
+
 #if WASM_ENABLE_LIBC_WASI != 0
     wasi_ctx = wasm_runtime_get_wasi_ctx(module_inst);
     if (wasi_ctx)
