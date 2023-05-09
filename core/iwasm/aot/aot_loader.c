@@ -1430,8 +1430,28 @@ destroy_object_data_sections(AOTObjectDataSection *data_sections,
     uint32 i;
     AOTObjectDataSection *data_section = data_sections;
     for (i = 0; i < data_section_count; i++, data_section++)
-        if (data_section->data)
+        if (data_section->data) {
+#if WASM_ENABLE_STATIC_PGO != 0
+            if (!strncmp(data_section->name, "__llvm_prf_data", 15)) {
+                LLVMProfileData *data = (LLVMProfileData *)data_section->data;
+                if (data->values) {
+                    uint32 num_value_sites =
+                        data->num_value_sites[0] + data->num_value_sites[1];
+                    uint32 j;
+                    for (j = 0; j < num_value_sites; j++) {
+                        ValueProfNode *node = data->values[j], *node_next;
+                        while (node) {
+                            node_next = node->next;
+                            wasm_runtime_free(node);
+                            node = node_next;
+                        }
+                    }
+                    wasm_runtime_free(data->values);
+                }
+            }
+#endif
             os_munmap(data_section->data, data_section->size);
+        }
     wasm_runtime_free(data_sections);
 }
 
@@ -1937,6 +1957,14 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
         bh_memcpy_s(symbol, symbol_len, relocation->symbol_name, symbol_len);
         symbol[symbol_len] = '\0';
 
+#if WASM_ENABLE_STATIC_PGO != 0
+        if (!strcmp(symbol, "__llvm_profile_runtime")
+            || !strcmp(symbol, "__llvm_profile_register_function")
+            || !strcmp(symbol, "__llvm_profile_register_names_function")) {
+            continue;
+        }
+#endif
+
         if (!strncmp(symbol, AOT_FUNC_PREFIX, strlen(AOT_FUNC_PREFIX))) {
             p = symbol + strlen(AOT_FUNC_PREFIX);
             if (*p == '\0'
@@ -1956,7 +1984,13 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
                  /* ".rodata.cst4/8/16/.." */
                  || !strncmp(symbol, ".rodata.cst", strlen(".rodata.cst"))
                  /* ".rodata.strn.m" */
-                 || !strncmp(symbol, ".rodata.str", strlen(".rodata.str"))) {
+                 || !strncmp(symbol, ".rodata.str", strlen(".rodata.str"))
+#if WASM_ENABLE_STATIC_PGO != 0
+                 || !strncmp(symbol, "__llvm_prf_cnts", 15)
+                 || !strncmp(symbol, "__llvm_prf_data", 15)
+                 || !strncmp(symbol, "__llvm_prf_names", 16)
+#endif
+        ) {
             symbol_addr = get_data_section_addr(module, symbol, NULL);
             if (!symbol_addr) {
                 set_error_buf_v(error_buf, error_buf_size,
@@ -2088,6 +2122,14 @@ do_data_relocation(AOTModule *module, AOTRelocationGroup *group,
     else if (!strcmp(group->section_name, ".rdata")) {
         data_section_name = group->section_name;
     }
+#if WASM_ENABLE_STATIC_PGO != 0
+    else if (!strncmp(group->section_name, ".rel__llvm_prf_data", 19)) {
+        data_section_name = group->section_name + strlen(".rel");
+    }
+    else if (!strncmp(group->section_name, ".rela__llvm_prf_data", 20)) {
+        data_section_name = group->section_name + strlen(".rela");
+    }
+#endif
     else {
         set_error_buf(error_buf, error_buf_size,
                       "invalid data relocation section name");
@@ -2107,6 +2149,49 @@ do_data_relocation(AOTModule *module, AOTRelocationGroup *group,
         if (!strcmp(symbol, ".text")) {
             symbol_addr = module->code;
         }
+#if WASM_ENABLE_STATIC_PGO != 0
+        else if (!strncmp(symbol, AOT_FUNC_PREFIX, strlen(AOT_FUNC_PREFIX))) {
+            char *p = symbol + strlen(AOT_FUNC_PREFIX);
+            uint32 func_index;
+            if (*p == '\0'
+                || (func_index = (uint32)atoi(p)) > module->func_count) {
+                set_error_buf_v(error_buf, error_buf_size,
+                                "invalid relocation symbol %s", symbol);
+                return false;
+            }
+            symbol_addr = module->func_ptrs[func_index];
+        }
+        else if (!strcmp(symbol, "__llvm_prf_cnts")) {
+            uint32 j;
+            for (j = 0; j < module->data_section_count; j++) {
+                if (!strncmp(module->data_sections[j].name, symbol, 15)) {
+                    bh_assert(relocation->relocation_addend + sizeof(uint64)
+                              <= module->data_sections[j].size);
+                    symbol_addr = module->data_sections[j].data;
+                    break;
+                }
+            }
+            if (j == module->data_section_count) {
+                set_error_buf_v(error_buf, error_buf_size,
+                                "invalid relocation symbol %s", symbol);
+                return false;
+            }
+        }
+        else if (!strncmp(symbol, "__llvm_prf_cnts", 15)) {
+            uint32 j;
+            for (j = 0; j < module->data_section_count; j++) {
+                if (!strcmp(module->data_sections[j].name, symbol)) {
+                    symbol_addr = module->data_sections[j].data;
+                    break;
+                }
+            }
+            if (j == module->data_section_count) {
+                set_error_buf_v(error_buf, error_buf_size,
+                                "invalid relocation symbol %s", symbol);
+                return false;
+            }
+        }
+#endif /* end of WASM_ENABLE_STATIC_PGO != 0 */
         else {
             set_error_buf_v(error_buf, error_buf_size,
                             "invalid relocation symbol %s", symbol);

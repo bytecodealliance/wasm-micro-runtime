@@ -341,6 +341,12 @@ typedef struct AOTCompContext {
     /* Disable LLVM link time optimization */
     bool disable_llvm_lto;
 
+    /* Enable LLVM PGO (Profile-Guided Optimization) */
+    bool enable_llvm_pgo;
+
+    /* Use profile file collected by LLVM PGO */
+    char *use_prof_file;
+
     /* Whether optimize the JITed code */
     bool optimize;
 
@@ -407,7 +413,9 @@ typedef struct AOTCompOption {
     bool enable_aux_stack_frame;
     bool disable_llvm_intrinsics;
     bool disable_llvm_lto;
+    bool enable_llvm_pgo;
     bool enable_stack_estimation;
+    char *use_prof_file;
     uint32 opt_level;
     uint32 size_level;
     uint32 output_format;
@@ -518,6 +526,13 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module);
 
 void
 aot_handle_llvm_errmsg(const char *string, LLVMErrorRef err);
+
+char *
+aot_compress_aot_func_names(AOTCompContext *comp_ctx, uint32 *p_size);
+
+bool
+aot_set_cond_br_weights(AOTCompContext *comp_ctx, LLVMValueRef cond_br,
+                        int32 weights_true, int32 weights_false);
 
 #ifdef __cplusplus
 } /* end of extern "C" */

@@ -65,6 +65,8 @@ print_help()
     printf("  --enable-indirect-mode    Enalbe call function through symbol table but not direct call\n");
     printf("  --disable-llvm-intrinsics Disable the LLVM built-in intrinsics\n");
     printf("  --disable-llvm-lto        Disable the LLVM link time optimization\n");
+    printf("  --enable-llvm-pgo         Enable LLVM PGO (Profile-Guided Optimization)\n");
+    printf("  --use-prof-file=<file>    Use profile file collected by LLVM PGO (Profile-Guided Optimization)\n");
     printf("  --emit-custom-sections=<section names>\n");
     printf("                            Emit the specified custom sections to AoT file, using comma to separate\n");
     printf("                            multiple names, e.g.\n");
@@ -271,6 +273,14 @@ main(int argc, char *argv[])
         }
         else if (!strcmp(argv[0], "--disable-llvm-lto")) {
             option.disable_llvm_lto = true;
+        }
+        else if (!strcmp(argv[0], "--enable-llvm-pgo")) {
+            option.enable_llvm_pgo = true;
+        }
+        else if (!strncmp(argv[0], "--use-prof-file=", 16)) {
+            if (argv[0][16] == '\0')
+                PRINT_HELP_AND_EXIT();
+            option.use_prof_file = argv[0] + 16;
         }
         else if (!strncmp(argv[0], "--emit-custom-sections=", 23)) {
             int len = 0;

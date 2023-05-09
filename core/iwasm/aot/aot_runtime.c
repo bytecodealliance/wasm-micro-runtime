@@ -2834,3 +2834,455 @@ aot_dump_perf_profiling(const AOTModuleInstance *module_inst)
     }
 }
 #endif /* end of WASM_ENABLE_PERF_PROFILING */
+
+#if WASM_ENABLE_STATIC_PGO != 0
+
+/* indirect call target */
+#define IPVK_IndirectCallTarget 0
+/* memory intrinsic functions size */
+#define IPVK_MemOPSize 1
+#define IPVK_First IPVK_IndirectCallTarget
+#define IPVK_Last IPVK_MemOPSize
+
+#define INSTR_PROF_DEFAULT_NUM_VAL_PER_SITE 24
+#define INSTR_PROF_MAX_NUM_VAL_PER_SITE 255
+
+static int hasNonDefaultValsPerSite = 0;
+static uint32 VPMaxNumValsPerSite = INSTR_PROF_DEFAULT_NUM_VAL_PER_SITE;
+
+static bool
+cmpxchg_ptr(void **ptr, void *old_val, void *new_val)
+{
+#if defined(os_atomic_cmpxchg)
+    return os_atomic_cmpxchg(ptr, &old_val, new_val);
+#else
+    /* TODO: add lock when thread-manager is enabled */
+    void *read = *ptr;
+    if (read == old_val) {
+        *ptr = new_val;
+        return true;
+    }
+    return false;
+#endif
+}
+
+static int
+allocateValueProfileCounters(LLVMProfileData *Data)
+{
+    ValueProfNode **Mem;
+    uint64 NumVSites = 0, total_size;
+    uint32 VKI;
+
+    /* When dynamic allocation is enabled, allow tracking the max number of
+       values allowed. */
+    if (!hasNonDefaultValsPerSite)
+        VPMaxNumValsPerSite = INSTR_PROF_MAX_NUM_VAL_PER_SITE;
+
+    for (VKI = IPVK_First; VKI <= IPVK_Last; ++VKI)
+        NumVSites += Data->num_value_sites[VKI];
+
+    /* If NumVSites = 0, calloc is allowed to return a non-null pointer. */
+    bh_assert(NumVSites > 0 && "NumVSites can't be zero");
+
+    total_size = (uint64)sizeof(ValueProfNode *) * NumVSites;
+    if (total_size > UINT32_MAX
+        || !(Mem = (ValueProfNode **)wasm_runtime_malloc((uint32)total_size))) {
+        return 0;
+    }
+    memset(Mem, 0, (uint32)total_size);
+
+    if (!cmpxchg_ptr((void **)&Data->values, NULL, Mem)) {
+        wasm_runtime_free(Mem);
+        return 0;
+    }
+    return 1;
+}
+
+static ValueProfNode *
+allocateOneNode(void)
+{
+    ValueProfNode *Node;
+
+    Node = wasm_runtime_malloc((uint32)sizeof(ValueProfNode));
+    if (Node)
+        memset(Node, 0, sizeof(ValueProfNode));
+    return Node;
+}
+
+static void
+instrumentTargetValueImpl(uint64 TargetValue, void *Data, uint32 CounterIndex,
+                          uint64 CountValue)
+{
+    ValueProfNode **ValueCounters;
+    ValueProfNode *PrevVNode = NULL, *MinCountVNode = NULL, *CurVNode;
+    LLVMProfileData *PData = (LLVMProfileData *)Data;
+    uint64 MinCount = UINT64_MAX;
+    uint8 VDataCount = 0;
+    bool success = false;
+
+    if (!PData)
+        return;
+    if (!CountValue)
+        return;
+    if (!PData->values) {
+        if (!allocateValueProfileCounters(PData))
+            return;
+    }
+
+    ValueCounters = (ValueProfNode **)PData->values;
+    CurVNode = ValueCounters[CounterIndex];
+
+    while (CurVNode) {
+        if (TargetValue == CurVNode->value) {
+            CurVNode->count += CountValue;
+            return;
+        }
+        if (CurVNode->count < MinCount) {
+            MinCount = CurVNode->count;
+            MinCountVNode = CurVNode;
+        }
+        PrevVNode = CurVNode;
+        CurVNode = CurVNode->next;
+        ++VDataCount;
+    }
+
+    if (VDataCount >= VPMaxNumValsPerSite) {
+        if (MinCountVNode->count <= CountValue) {
+            CurVNode = MinCountVNode;
+            CurVNode->value = TargetValue;
+            CurVNode->count = CountValue;
+        }
+        else
+            MinCountVNode->count -= CountValue;
+
+        return;
+    }
+
+    CurVNode = allocateOneNode();
+    if (!CurVNode)
+        return;
+    CurVNode->value = TargetValue;
+    CurVNode->count += CountValue;
+
+    if (!ValueCounters[CounterIndex]) {
+        success =
+            cmpxchg_ptr((void **)&ValueCounters[CounterIndex], NULL, CurVNode);
+    }
+    else if (PrevVNode && !PrevVNode->next) {
+        success = cmpxchg_ptr((void **)&PrevVNode->next, 0, CurVNode);
+    }
+
+    if (!success) {
+        wasm_runtime_free(CurVNode);
+    }
+}
+
+void
+llvm_profile_instrument_target(uint64 target_value, void *data,
+                               uint32 counter_idx)
+{
+#if 0
+    /* TODO */
+    instrumentTargetValueImpl(target_value, data, counter_idx, 1);
+#endif
+}
+
+static inline uint32
+popcount64(uint64 u)
+{
+    uint32 ret = 0;
+    while (u) {
+        u = (u & (u - 1));
+        ret++;
+    }
+    return ret;
+}
+
+static inline uint32
+clz64(uint64 type)
+{
+    uint32 num = 0;
+    if (type == 0)
+        return 64;
+    while (!(type & 0x8000000000000000LL)) {
+        num++;
+        type <<= 1;
+    }
+    return num;
+}
+
+/* Map an (observed) memop size value to the representative value of its range.
+   For example, 5 -> 5, 22 -> 17, 99 -> 65, 256 -> 256, 1001 -> 513. */
+static uint64
+InstrProfGetRangeRepValue(uint64 Value)
+{
+    if (Value <= 8)
+        /* The first ranges are individually tracked. Use the value as is. */
+        return Value;
+    else if (Value >= 513)
+        /* The last range is mapped to its lowest value. */
+        return 513;
+    else if (popcount64(Value) == 1)
+        /* If it's a power of two, use it as is. */
+        return Value;
+    else
+        /* Otherwise, take to the previous power of two + 1. */
+        return (((uint64)1) << (64 - clz64(Value) - 1)) + 1;
+}
+
+void
+llvm_profile_instrument_memop(uint64 target_value, void *data,
+                              uint32 counter_idx)
+{
+    uint64 rep_value = InstrProfGetRangeRepValue(target_value);
+    instrumentTargetValueImpl(rep_value, data, counter_idx, 1);
+}
+
+uint32
+aot_get_pgo_prof_data_size(AOTModuleInstance *module_inst)
+{
+    AOTModule *module = (AOTModule *)module_inst->module;
+    LLVMProfileData *prof_data;
+    uint32 num_prof_data = 0, num_prof_counters = 0, padding_size, i;
+    uint32 prof_counters_size = 0, prof_names_size = 0;
+    uint32 total_size;
+
+    for (i = 0; i < module->data_section_count; i++) {
+        if (!strncmp(module->data_sections[i].name, "__llvm_prf_data", 15)) {
+            bh_assert(module->data_sections[i].size == sizeof(LLVMProfileData));
+            num_prof_data++;
+            prof_data = (LLVMProfileData *)module->data_sections[i].data;
+            num_prof_counters += prof_data->num_counters;
+        }
+        else if (!strncmp(module->data_sections[i].name, "__llvm_prf_cnts",
+                          15)) {
+            prof_counters_size += module->data_sections[i].size;
+        }
+        else if (!strncmp(module->data_sections[i].name, "__llvm_prf_names",
+                          16)) {
+            prof_names_size = module->data_sections[i].size;
+        }
+    }
+
+    if (prof_counters_size != num_prof_counters * sizeof(uint64))
+        return 0;
+
+    total_size = sizeof(LLVMProfileRawHeader)
+                 + num_prof_data * sizeof(LLVMProfileData) + prof_counters_size
+                 + prof_names_size;
+    padding_size = sizeof(uint64) - (prof_names_size % sizeof(uint64));
+    if (padding_size != sizeof(uint64))
+        total_size += padding_size;
+
+    for (i = 0; i < module->data_section_count; i++) {
+        if (!strncmp(module->data_sections[i].name, "__llvm_prf_data", 15)) {
+            uint32 j, k, num_value_sites, num_value_nodes;
+            ValueProfNode **values, *value_node;
+
+            prof_data = (LLVMProfileData *)module->data_sections[i].data;
+            values = prof_data->values;
+
+            if (prof_data->num_value_sites[0] > 0
+                || prof_data->num_value_sites[1] > 0) {
+                /* TotalSize (uint32) and NumValueKinds (uint32) */
+                total_size += 8;
+                for (j = 0; j < 2; j++) {
+                    if ((num_value_sites = prof_data->num_value_sites[j]) > 0) {
+                        /* ValueKind (uint32) and NumValueSites (uint32) */
+                        total_size += 8;
+                        /* (Value + Counter) group counts of each value site,
+                           each count is one byte */
+                        total_size += align_uint(num_value_sites, 8);
+
+                        if (values) {
+                            for (k = 0; k < num_value_sites; k++) {
+                                num_value_nodes = 0;
+                                value_node = *values;
+                                while (value_node) {
+                                    num_value_nodes++;
+                                    value_node = value_node->next;
+                                }
+                                if (num_value_nodes) {
+                                    /* (Value + Counter) groups */
+                                    total_size += num_value_nodes * 8 * 2;
+                                }
+                                values++;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return total_size;
+}
+
+uint32
+aot_dump_pgo_prof_data_to_buf(AOTModuleInstance *module_inst, char *buf,
+                              uint32 len)
+{
+    AOTModule *module = (AOTModule *)module_inst->module;
+    LLVMProfileRawHeader prof_header = { 0 };
+    LLVMProfileData *prof_data;
+    uint8 *prof_names = NULL;
+    uint32 num_prof_data = 0, num_prof_counters = 0, padding_size, i;
+    uint32 prof_counters_size = 0, prof_names_size = 0;
+    uint32 total_size, size;
+    int64 counters_delta, offset_counters;
+
+    for (i = 0; i < module->data_section_count; i++) {
+        if (!strncmp(module->data_sections[i].name, "__llvm_prf_data", 15)) {
+            bh_assert(module->data_sections[i].size == sizeof(LLVMProfileData));
+            num_prof_data++;
+            prof_data = (LLVMProfileData *)module->data_sections[i].data;
+            num_prof_counters += prof_data->num_counters;
+        }
+        else if (!strncmp(module->data_sections[i].name, "__llvm_prf_cnts",
+                          15)) {
+            prof_counters_size += module->data_sections[i].size;
+        }
+        else if (!strncmp(module->data_sections[i].name, "__llvm_prf_names",
+                          16)) {
+            prof_names_size = module->data_sections[i].size;
+            prof_names = module->data_sections[i].data;
+        }
+    }
+
+    if (prof_counters_size != num_prof_counters * sizeof(uint64))
+        return 0;
+
+    total_size = sizeof(LLVMProfileRawHeader)
+                 + num_prof_data * sizeof(LLVMProfileData) + prof_counters_size
+                 + prof_names_size;
+    padding_size = sizeof(uint64) - (prof_names_size % sizeof(uint64));
+    if (padding_size != sizeof(uint64))
+        total_size += padding_size;
+
+    if (len < total_size)
+        return 0;
+
+    prof_header.counters_delta = counters_delta =
+        sizeof(LLVMProfileData) * num_prof_data;
+    offset_counters = 0;
+    for (i = 0; i < module->data_section_count; i++) {
+        if (!strncmp(module->data_sections[i].name, "__llvm_prf_data", 15)) {
+            prof_data = (LLVMProfileData *)module->data_sections[i].data;
+            prof_data->func_ptr = 0;
+            prof_data->offset_counters = counters_delta + offset_counters;
+            offset_counters += prof_data->num_counters * sizeof(uint64);
+            counters_delta -= sizeof(LLVMProfileData);
+        }
+    }
+
+    prof_header.magic = 0xFF6C70726F667281LL;
+    prof_header.version = 0x000000000000008LL;
+    prof_header.num_prof_data = num_prof_data;
+    prof_header.num_prof_counters = num_prof_counters;
+    prof_header.names_size = prof_names_size;
+    prof_header.value_kind_last = 1;
+
+    size = sizeof(LLVMProfileRawHeader);
+    bh_memcpy_s(buf, size, &prof_header, size);
+    buf += size;
+
+    for (i = 0; i < module->data_section_count; i++) {
+        if (!strncmp(module->data_sections[i].name, "__llvm_prf_data", 15)) {
+            size = sizeof(LLVMProfileData);
+            bh_memcpy_s(buf, size, module->data_sections[i].data, size);
+            buf += size;
+        }
+    }
+
+    for (i = 0; i < module->data_section_count; i++) {
+        if (!strncmp(module->data_sections[i].name, "__llvm_prf_cnts", 15)) {
+            size = module->data_sections[i].size;
+            bh_memcpy_s(buf, size, module->data_sections[i].data, size);
+            buf += size;
+        }
+    }
+
+    if (prof_names && prof_names_size > 0) {
+        size = prof_names_size;
+        bh_memcpy_s(buf, size, prof_names, size);
+        buf += size;
+        padding_size = sizeof(uint64) - (prof_names_size % sizeof(uint64));
+        if (padding_size != sizeof(uint64)) {
+            char padding_buf[8] = { 0 };
+            bh_memcpy_s(buf, padding_size, padding_buf, padding_size);
+            buf += padding_size;
+        }
+    }
+
+    for (i = 0; i < module->data_section_count; i++) {
+        if (!strncmp(module->data_sections[i].name, "__llvm_prf_data", 15)) {
+            uint32 j, k, num_value_sites, num_value_nodes;
+            ValueProfNode **values, **values_tmp, *value_node;
+
+            prof_data = (LLVMProfileData *)module->data_sections[i].data;
+            values = values_tmp = prof_data->values;
+
+            if (prof_data->num_value_sites[0] > 0
+                || prof_data->num_value_sites[1] > 0) {
+                uint32 *buf_total_size = (uint32 *)buf;
+
+                buf += 4; /* emit TotalSize later */
+                *(uint32 *)buf = (prof_data->num_value_sites[0] > 0
+                                  && prof_data->num_value_sites[1] > 0)
+                                     ? 2
+                                     : 1;
+                buf += 4;
+
+                for (j = 0; j < 2; j++) {
+                    if ((num_value_sites = prof_data->num_value_sites[j]) > 0) {
+                        /* ValueKind */
+                        *(uint32 *)buf = j;
+                        buf += 4;
+                        /* NumValueSites */
+                        *(uint32 *)buf = num_value_sites;
+                        buf += 4;
+
+                        for (k = 0; k < num_value_sites; k++) {
+                            num_value_nodes = 0;
+                            if (values_tmp) {
+                                value_node = *values_tmp;
+                                while (value_node) {
+                                    num_value_nodes++;
+                                    value_node = value_node->next;
+                                }
+                                values_tmp++;
+                            }
+                            bh_assert(num_value_nodes < 255);
+                            *(uint8 *)buf++ = (uint8)num_value_nodes;
+                        }
+                        if (num_value_sites % 8) {
+                            buf += 8 - (num_value_sites % 8);
+                        }
+
+                        for (k = 0; k < num_value_sites; k++) {
+                            if (values) {
+                                value_node = *values;
+                                while (value_node) {
+                                    *(uint64 *)buf = value_node->value;
+                                    buf += 8;
+                                    *(uint64 *)buf = value_node->count;
+                                    buf += 8;
+                                    value_node = value_node->next;
+                                }
+                                values++;
+                            }
+                        }
+                    }
+                }
+
+                /* TotalSize */
+                *(uint32 *)buf_total_size =
+                    (uint8 *)buf - (uint8 *)buf_total_size;
+                total_size += (uint8 *)buf - (uint8 *)buf_total_size;
+            }
+        }
+    }
+
+    return total_size;
+}
+#endif /* end of WASM_ENABLE_STATIC_PGO != 0 */
