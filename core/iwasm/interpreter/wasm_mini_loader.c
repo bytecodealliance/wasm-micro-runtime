@@ -1839,6 +1839,13 @@ init_llvm_jit_functions_stage1(WASMModule *module, char *error_buf,
     AOTCompOption option = { 0 };
     char *aot_last_error;
     uint64 size;
+    bool gc_enabled =
+#if WASM_ENABLE_GC != 0
+        true
+#else
+        false
+#endif
+        ;
 
     if (module->function_count == 0)
         return true;
@@ -1865,7 +1872,7 @@ init_llvm_jit_functions_stage1(WASMModule *module, char *error_buf,
         (bool *)((uint8 *)module->func_ptrs
                  + sizeof(void *) * module->function_count);
 
-    module->comp_data = aot_create_comp_data(module);
+    module->comp_data = aot_create_comp_data(module, gc_enabled);
     if (!module->comp_data) {
         aot_last_error = aot_get_last_error();
         bh_assert(aot_last_error != NULL);

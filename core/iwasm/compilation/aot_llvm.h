@@ -346,6 +346,9 @@ typedef struct AOTCompContext {
     /* Whether optimize the JITed code */
     bool optimize;
 
+    /* Enable GC */
+    bool enable_gc;
+
     uint32 opt_level;
     uint32 size_level;
 
@@ -410,6 +413,7 @@ typedef struct AOTCompOption {
     bool disable_llvm_intrinsics;
     bool disable_llvm_lto;
     bool enable_stack_estimation;
+    bool enable_gc;
     uint32 opt_level;
     uint32 size_level;
     uint32 output_format;
