@@ -204,13 +204,47 @@ set_hmu_normal_node_next(hmu_normal_node_t *node, hmu_normal_node_t *next)
     }
 }
 
+/**
+ * Define hmu_tree_node as a packed struct, since it is at the 4-byte
+ * aligned address and the size of hmu_head is 4, so in 64-bit target,
+ * the left/right/parent fields will be at 8-byte aligned address,
+ * we can access them directly.
+ */
+#if UINTPTR_MAX == UINT64_MAX
+#if defined(_MSC_VER)
+__pragma(pack(push, 1));
+#define __attr_packed
+#elif defined(__GNUC__) || defined(__clang__)
+#define __attr_packed __attribute__((packed))
+#else
+#error "packed attribute isn't used to define struct hmu_tree_node"
+#endif
+#else /* else of UINTPTR_MAX == UINT64_MAX */
+#define __attr_packed
+#endif
+
 typedef struct hmu_tree_node {
     hmu_t hmu_header;
-    gc_size_t size;
     struct hmu_tree_node *left;
     struct hmu_tree_node *right;
     struct hmu_tree_node *parent;
-} hmu_tree_node_t;
+    gc_size_t size;
+} __attr_packed hmu_tree_node_t;
+
+#if UINTPTR_MAX == UINT64_MAX
+#if defined(_MSC_VER)
+__pragma(pack(pop));
+#endif
+#endif
+
+bh_static_assert(sizeof(hmu_tree_node_t) == 8 + 3 * sizeof(void *));
+bh_static_assert(offsetof(hmu_tree_node_t, left) == 4);
+
+#define ASSERT_TREE_NODE_ALIGNED_ACCESS(tree_node)                          \
+    do {                                                                    \
+        bh_assert((((uintptr_t)&tree_node->left) & (sizeof(uintptr_t) - 1)) \
+                  == 0);                                                    \
+    } while (0)
 
 typedef struct gc_heap_struct {
     /* for double checking*/
@@ -223,8 +257,16 @@ typedef struct gc_heap_struct {
 
     hmu_normal_list_t kfc_normal_list[HMU_NORMAL_NODE_CNT];
 
-    /* order in kfc_tree is: size[left] <= size[cur] < size[right]*/
-    hmu_tree_node_t kfc_tree_root;
+#if UINTPTR_MAX == UINT64_MAX
+    /* make kfc_tree_root_buf 4-byte aligned and not 8-byte aligned,
+       so kfc_tree_root's left/right/parent fields are 8-byte aligned
+       and we can access them directly */
+    uint32 __padding;
+#endif
+    uint8 kfc_tree_root_buf[sizeof(hmu_tree_node_t)];
+    /* point to kfc_tree_root_buf, the order in kfc_tree is:
+         size[left] <= size[cur] < size[right] */
+    hmu_tree_node_t *kfc_tree_root;
 
     /* whether heap is corrupted, e.g. the hmu nodes are modified
        by user */
