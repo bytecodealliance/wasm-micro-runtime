@@ -79,7 +79,7 @@ extern "C" {
 #define DEFAULT_MAX_PAGES 65536
 
 #if WASM_ENABLE_GC == 0
-typedef uint32 table_elem_type_t;
+typedef uintptr_t table_elem_type_t;
 #define NULL_REF (0xFFFFFFFF)
 #else
 typedef void *table_elem_type_t;
@@ -610,7 +610,7 @@ typedef struct WASMTableSeg {
     uint32 table_index;
     InitializerExpression base_offset;
     uint32 function_count;
-    uint32 *func_indexes;
+    uintptr_t *func_indexes;
 } WASMTableSeg;
 
 typedef struct WASMDataSeg {

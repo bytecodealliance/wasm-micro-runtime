@@ -132,7 +132,7 @@ typedef struct AOTTableInitData {
     /* Function index count */
     uint32 func_index_count;
     /* Function index array */
-    uint32 func_indexes[1];
+    uintptr_t func_indexes[1];
 } AOTTableInitData;
 
 /**

@@ -1210,9 +1210,9 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
        are equal (the type index of call_indirect opcode and callee func),
        we don't need to check whether the whole function types are equal,
        including param types and result types. */
-    type_idx = wasm_get_smallest_type_idx(comp_ctx->comp_data->func_types,
-                                          comp_ctx->comp_data->func_type_count,
-                                          type_idx);
+    type_idx = wasm_get_smallest_type_idx(
+        (WASMTypePtr *)comp_ctx->comp_data->func_types,
+        comp_ctx->comp_data->func_type_count, type_idx);
     ftype_idx_const = I32_CONST(type_idx);
     CHECK_LLVM_CONST(ftype_idx_const);
 
@@ -1285,22 +1285,28 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     if (!(table_elem = LLVMBuildBitCast(comp_ctx->builder, table_elem,
-                                        INT32_PTR_TYPE, "table_elem_i32p"))) {
+                                        INTPTR_PTR_TYPE, "table_elem_ptr"))) {
         HANDLE_FAILURE("LLVMBuildBitCast");
         goto fail;
     }
 
     /* Load function index */
     if (!(table_elem =
-              LLVMBuildInBoundsGEP2(comp_ctx->builder, I32_TYPE, table_elem,
+              LLVMBuildInBoundsGEP2(comp_ctx->builder, INTPTR_TYPE, table_elem,
                                     &elem_idx, 1, "table_elem"))) {
         HANDLE_FAILURE("LLVMBuildNUWAdd");
         goto fail;
     }
 
-    if (!(func_idx = LLVMBuildLoad2(comp_ctx->builder, I32_TYPE, table_elem,
+    if (!(func_idx = LLVMBuildLoad2(comp_ctx->builder, INTPTR_TYPE, table_elem,
                                     "func_idx"))) {
         aot_set_last_error("llvm build load failed.");
+        goto fail;
+    }
+
+    if (!(func_idx = LLVMBuildIntCast2(comp_ctx->builder, func_idx, I32_TYPE,
+                                       true, "func_idx_i32"))) {
+        aot_set_last_error("llvm build int cast failed.");
         goto fail;
     }
 

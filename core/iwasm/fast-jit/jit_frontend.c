@@ -97,9 +97,9 @@ jit_frontend_get_table_inst_offset(const WASMModule *module, uint32 tbl_idx)
 
         offset += (uint32)offsetof(WASMTableInstance, elems);
 #if WASM_ENABLE_MULTI_MODULE != 0
-        offset += (uint32)sizeof(uint32) * table->max_size;
+        offset += (uint32)sizeof(table_elem_type_t) * table->max_size;
 #else
-        offset += (uint32)sizeof(uint32)
+        offset += (uint32)sizeof(table_elem_type_t)
                   * (table->possible_grow ? table->max_size : table->init_size);
 #endif
 
