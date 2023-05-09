@@ -10,7 +10,8 @@ on:
       - opened
       - synchronize
     paths:
-      - ".github/**"
+      - ".github/workflows/build_llvm_libraries.yml"
+      - ".github/workflows/compilation_on_android_ubuntu.yml"
       - "build-scripts/**"
       - "core/**"
       - "!core/deps/**"
@@ -26,7 +27,8 @@ on:
       - main
       - "dev/**"
     paths:
-      - ".github/**"
+      - ".github/workflows/build_llvm_libraries.yml"
+      - ".github/workflows/compilation_on_android_ubuntu.yml"
       - "build-scripts/**"
       - "core/**"
       - "!core/deps/**"
@@ -125,8 +127,8 @@ jobs:
             # Running mode
             $CLASSIC_INTERP_BUILD_OPTIONS,
             $FAST_INTERP_BUILD_OPTIONS,
-            $FAST_JIT_BUILD_OPTIONS
-        ]
+            $FAST_JIT_BUILD_OPTIONS,
+          ]
         make_options_feature: [
             # Features
             "-DWAMR_BUILD_CUSTOM_NAME_SECTION=1",
@@ -338,7 +340,9 @@ jobs:
       ]
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
+        sanitizer: ["", "ubsan"]
         make_options: [
             # Running mode
             $AOT_BUILD_OPTIONS,
@@ -363,6 +367,7 @@ jobs:
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2004.outputs.cache_key }}
           - os: ubuntu-22.04
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
+
     steps:
       - name: checkout
         uses: actions/checkout@v3
@@ -395,15 +400,16 @@ jobs:
         if: (!endsWith(matrix.make_options, '_INTERP_BUILD_OPTIONS'))
         run: |
           mkdir build && cd build
-          cmake ..
+          cmake -DSANITIZER="${{matrix.sanitizer}}" ..
           cmake --build . --config Release --parallel 4
         working-directory: wamr-compiler
 
       - name: Build Sample [wasm-c-api]
         run: |
-          cmake -S . -B build ${{ matrix.make_options }}
+          VERBOSE=1
+          cmake -S . -B build ${{ matrix.make_options }} -DSANITIZER="${{matrix.sanitizer}}"
           cmake --build build --config Release --parallel 4
-          ctest --test-dir build
+          ctest --test-dir build --output-on-failure
         working-directory: samples/wasm-c-api
 
   build_samples_others:
@@ -414,11 +420,11 @@ jobs:
         os: [ubuntu-20.04, ubuntu-22.04]
         wasi_sdk_release:
           [
-            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-linux.tar.gz"
+            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-linux.tar.gz",
           ]
         wabt_release:
           [
-            "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-ubuntu.tar.gz"
+            "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-ubuntu.tar.gz",
           ]
     steps:
       - name: checkout
@@ -505,7 +511,7 @@ jobs:
         build_iwasm,
         build_llvm_libraries_on_ubuntu_2004,
         build_llvm_libraries_on_ubuntu_2204,
-        build_wamrc
+        build_wamrc,
       ]
     runs-on: ${{ matrix.os }}
     strategy:
@@ -530,7 +536,7 @@ jobs:
           ]
         wasi_sdk_release:
           [
-            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-linux.tar.gz"
+            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-linux.tar.gz",
           ]
         include:
           - os: ubuntu-20.04
@@ -551,24 +557,16 @@ jobs:
             test_option: $MULTI_MODULES_TEST_OPTIONS
           - running_mode: "jit"
             test_option: $MULTI_MODULES_TEST_OPTIONS
-          # fast-jit doesn't support multi module, simd, and threads
+          # fast-jit doesn't support multi module, simd
           - running_mode: "fast-jit"
             test_option: $MULTI_MODULES_TEST_OPTIONS
           - running_mode: "fast-jit"
             test_option: $SIMD_TEST_OPTIONS
-          - running_mode: "fast-jit"
-            test_option: $THREADS_TEST_OPTIONS
-          - running_mode: "fast-jit"
-            test_option: $WASI_TEST_OPTIONS
-          # multi-tier-jit doesn't support multi module, simd, and threads
+          # multi-tier-jit doesn't support multi module, simd
           - running_mode: "multi-tier-jit"
             test_option: $MULTI_MODULES_TEST_OPTIONS
           - running_mode: "multi-tier-jit"
             test_option: $SIMD_TEST_OPTIONS
-          - running_mode: "multi-tier-jit"
-            test_option: $THREADS_TEST_OPTIONS
-          - running_mode: "multi-tier-jit"
-            test_option: $WASI_TEST_OPTIONS
     steps:
       - name: checkout
         uses: actions/checkout@v3

@@ -24,7 +24,7 @@ if (APPLE)
   add_definitions(-DBH_PLATFORM_DARWIN)
 endif ()
 
-# Resetdefault linker flags
+# Reset default linker flags
 set(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
 set(CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
 
@@ -86,6 +86,15 @@ endif()
 # build out vmlib
 set(WAMR_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/../..)
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
+
+if (NOT DEFINED SANITIZER)
+  set(SANITIZER "")
+elseif (SANITIZER STREQUAL "ubsan")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O2 -fno-omit-frame-pointer -fsanitize=undefined -fno-sanitize-recover=all -fno-sanitize=alignment" )
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=undefined")
+elseif (NOT (SANITIZER STREQUAL "") )
+  message(SEND_ERROR "Unsupported sanitizer: ${SANITIZER}")
+endif()
 
 add_library(vmlib STATIC ${WAMR_RUNTIME_LIB_SOURCE})
 if (MSVC)

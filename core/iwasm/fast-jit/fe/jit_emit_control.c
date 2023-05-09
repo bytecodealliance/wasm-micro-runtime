@@ -904,6 +904,42 @@ check_copy_arities(const JitBlock *block_dst, JitFrame *jit_frame)
     }
 }
 
+#if WASM_ENABLE_THREAD_MGR != 0
+bool
+jit_check_suspend_flags(JitCompContext *cc)
+{
+    JitReg exec_env, suspend_flags, terminate_flag, offset;
+    JitBasicBlock *terminate_block, *cur_basic_block;
+    JitFrame *jit_frame = cc->jit_frame;
+
+    cur_basic_block = cc->cur_basic_block;
+    terminate_block = jit_cc_new_basic_block(cc, 0);
+    if (!terminate_block) {
+        return false;
+    }
+
+    gen_commit_values(jit_frame, jit_frame->lp, jit_frame->sp);
+    exec_env = cc->exec_env_reg;
+    suspend_flags = jit_cc_new_reg_I32(cc);
+    terminate_flag = jit_cc_new_reg_I32(cc);
+
+    offset = jit_cc_new_const_I32(cc, offsetof(WASMExecEnv, suspend_flags));
+    GEN_INSN(LDI32, suspend_flags, exec_env, offset);
+    GEN_INSN(AND, terminate_flag, suspend_flags, NEW_CONST(I32, 1));
+
+    GEN_INSN(CMP, cc->cmp_reg, terminate_flag, NEW_CONST(I32, 0));
+    GEN_INSN(BNE, cc->cmp_reg, jit_basic_block_label(terminate_block), 0);
+
+    cc->cur_basic_block = terminate_block;
+    GEN_INSN(RETURN, NEW_CONST(I32, 0));
+
+    cc->cur_basic_block = cur_basic_block;
+
+    return true;
+}
+
+#endif
+
 static bool
 handle_op_br(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
 {
@@ -986,6 +1022,13 @@ fail:
 bool
 jit_compile_op_br(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
 {
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (!jit_check_suspend_flags(cc))
+        return false;
+#endif
+
     return handle_op_br(cc, br_depth, p_frame_ip)
            && handle_next_reachable_block(cc, p_frame_ip);
 }
@@ -1105,6 +1148,12 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth,
         jit_insn_delete(insn_select);
     }
 
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (!jit_check_suspend_flags(cc))
+        return false;
+#endif
+
     SET_BUILDER_POS(if_basic_block);
     SET_BB_BEGIN_BCIP(if_basic_block, *p_frame_ip - 1);
 
@@ -1143,6 +1192,12 @@ jit_compile_op_br_table(JitCompContext *cc, uint32 *br_depths, uint32 br_count,
     JitInsn *insn;
     uint32 i = 0;
     JitOpndLookupSwitch *opnd = NULL;
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (!jit_check_suspend_flags(cc))
+        return false;
+#endif
 
     cur_basic_block = cc->cur_basic_block;
 
