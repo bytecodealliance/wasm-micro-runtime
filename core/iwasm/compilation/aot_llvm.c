@@ -4,6 +4,7 @@
  */
 
 #include "aot_llvm.h"
+#include "aot_llvm_extra2.h"
 #include "aot_compiler.h"
 #include "aot_emit_exception.h"
 #include "../aot/aot_runtime.h"
@@ -2055,9 +2056,10 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
             code_model = LLVMCodeModelSmall;
 
         /* Create the target machine */
-        if (!(comp_ctx->target_machine = LLVMCreateTargetMachine(
+        if (!(comp_ctx->target_machine = LLVMCreateTargetMachineWithOpts(
                   target, triple_norm, cpu, features, opt_level,
-                  LLVMRelocStatic, code_model))) {
+                  LLVMRelocStatic, code_model, false,
+                  option->stack_usage_file))) {
             aot_set_last_error("create LLVM target machine failed.");
             goto fail;
         }
