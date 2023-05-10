@@ -44,6 +44,7 @@
 #if LLVM_VERSION_MAJOR >= 12
 #include <llvm/Analysis/AliasAnalysis.h>
 #endif
+#include <llvm/ProfileData/InstrProf.h>
 
 #include <cstring>
 #include "../aot/aot_runtime.h"
@@ -232,14 +233,20 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
     PTO.SLPVectorization = true;
     PTO.LoopUnrolling = true;
 
+    Optional<PGOOptions> PGO = None;
+    if (comp_ctx->enable_llvm_pgo)
+        PGO = PGOOptions("", "", "", PGOOptions::IRInstr);
+    else if (comp_ctx->use_prof_file)
+        PGO = PGOOptions(comp_ctx->use_prof_file, "", "", PGOOptions::IRUse);
+
 #ifdef DEBUG_PASS
     PassInstrumentationCallbacks PIC;
-    PassBuilder PB(TM, PTO, None, &PIC);
+    PassBuilder PB(TM, PTO, PGO, &PIC);
 #else
 #if LLVM_VERSION_MAJOR == 12
-    PassBuilder PB(false, TM, PTO);
+    PassBuilder PB(false, TM, PTO, PGO);
 #else
-    PassBuilder PB(TM, PTO);
+    PassBuilder PB(TM, PTO, PGO);
 #endif
 #endif
 
@@ -357,4 +364,35 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
     }
 
     MPM.run(*M, MAM);
+}
+
+char *
+aot_compress_aot_func_names(AOTCompContext *comp_ctx, uint32 *p_size)
+{
+    std::vector<std::string> NameStrs;
+    std::string Result;
+    char buf[32], *compressed_str;
+    uint32 compressed_str_len, i;
+
+    for (i = 0; i < comp_ctx->func_ctx_count; i++) {
+        snprintf(buf, sizeof(buf), "%s%d", AOT_FUNC_PREFIX, i);
+        std::string str(buf);
+        NameStrs.push_back(str);
+    }
+
+    if (collectPGOFuncNameStrings(NameStrs, true, Result)) {
+        aot_set_last_error("collect pgo func name strings failed");
+        return NULL;
+    }
+
+    compressed_str_len = Result.size();
+    if (!(compressed_str = (char *)wasm_runtime_malloc(compressed_str_len))) {
+        aot_set_last_error("allocate memory failed");
+        return NULL;
+    }
+
+    bh_memcpy_s(compressed_str, compressed_str_len, Result.c_str(),
+                compressed_str_len);
+    *p_size = compressed_str_len;
+    return compressed_str;
 }

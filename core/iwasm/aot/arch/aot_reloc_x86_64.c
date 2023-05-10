@@ -11,6 +11,7 @@
 #define R_X86_64_PLT32 4 /* 32 bit PLT address */
 #define R_X86_64_32 10   /* Direct 32 bit zero extended */
 #define R_X86_64_32S 11  /* Direct 32 bit sign extended */
+#define R_X86_64_PC64 24 /* PC relative 64 bit */
 #else
 #ifndef IMAGE_REL_AMD64_ADDR64
 #define IMAGE_REL_AMD64_ADDR64 1 /* The 64-bit VA of the relocation target */
@@ -180,6 +181,16 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
             }
 
             *(int32 *)(target_section_addr + reloc_offset) = (int32)target_addr;
+            break;
+        }
+        case R_X86_64_PC64:
+        {
+            intptr_t target_addr = (intptr_t) /* S + A - P */
+                ((uintptr_t)symbol_addr + reloc_addend
+                 - (uintptr_t)(target_section_addr + reloc_offset));
+
+            CHECK_RELOC_OFFSET(sizeof(int64));
+            *(int64 *)(target_section_addr + reloc_offset) = (int64)target_addr;
             break;
         }
         case R_X86_64_32:
