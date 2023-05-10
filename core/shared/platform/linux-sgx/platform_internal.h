@@ -56,6 +56,20 @@ typedef unsigned int korp_sem;
 #define OS_THREAD_MUTEX_INITIALIZER PTHREAD_MUTEX_INITIALIZER
 #endif
 
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+#define os_writegsbase(base_addr)                                 \
+    do {                                                          \
+        uint64 __gs_value = (uint64)(uintptr_t)base_addr;         \
+        asm volatile("wrgsbase %0" ::"r"(__gs_value) : "memory"); \
+    } while (0)
+#if 0
+/* _writegsbase_u64 also works, but need to add -mfsgsbase flag for gcc */
+#include <immintrin.h>
+#define os_writegsbase(base_addr) \
+    _writegsbase_u64(((uint64)(uintptr_t)base_addr))
+#endif
+#endif
+
 typedef int (*os_print_function_t)(const char *message);
 void
 os_set_print_function(os_print_function_t pf);

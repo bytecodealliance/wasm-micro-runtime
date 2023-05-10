@@ -1015,10 +1015,11 @@ execute_post_instantiate_functions(AOTModuleInstance *module_inst,
         }
     }
 
-#if defined(os_writegsbase) && WASM_ENABLE_WAMR_COMPILER == 0
+#if defined(os_writegsbase)
     {
         AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
         if (memory_inst)
+            /* write base addr of linear memory to GS segment register */
             os_writegsbase(memory_inst->memory_data);
     }
 #endif
@@ -1461,10 +1462,11 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
     }
     argc = func_type->param_cell_num;
 
-#if defined(os_writegsbase) && WASM_ENABLE_WAMR_COMPILER == 0
+#if defined(os_writegsbase)
     {
         AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
         if (memory_inst)
+            /* write base addr of linear memory to GS segment register */
             os_writegsbase(memory_inst->memory_data);
     }
 #endif
