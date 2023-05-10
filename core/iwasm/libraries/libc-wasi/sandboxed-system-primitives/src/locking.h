@@ -183,7 +183,7 @@ cond_signal(struct cond *cond)
     pthread_cond_signal(&cond->object);
 }
 
-#if !CONFIG_HAS_CLOCK_NANOSLEEP && !defined(BH_PLATFORM_LINUX_SGX)
+#if !CONFIG_HAS_CLOCK_NANOSLEEP
 static inline bool
 cond_timedwait(struct cond *cond, struct mutex *lock, uint64_t timeout,
                bool abstime) REQUIRES_EXCLUSIVE(*lock) NO_LOCK_ANALYSIS

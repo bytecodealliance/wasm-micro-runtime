@@ -2561,7 +2561,7 @@ wasmtime_ssp_poll_oneoff(
         else {
             out[0].error = __WASI_ENOTSUP;
         }
-#elif !defined(BH_PLATFORM_LINUX_SGX)
+#else
         switch (in[0].u.u.clock.clock_id) {
             case __WASI_CLOCK_MONOTONIC:
                 if ((in[0].u.u.clock.flags & __WASI_SUBSCRIPTION_CLOCK_ABSTIME)
