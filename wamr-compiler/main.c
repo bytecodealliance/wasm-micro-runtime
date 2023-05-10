@@ -65,7 +65,13 @@ print_help()
     printf("  --enable-indirect-mode    Enalbe call function through symbol table but not direct call\n");
     printf("  --disable-llvm-intrinsics Disable the LLVM built-in intrinsics\n");
     printf("  --disable-llvm-lto        Disable the LLVM link time optimization\n");
-    printf("  --enable-segue            Enable to use segment register as the base addr of linear memory\n");
+    printf("  --enable-segue[=<flags>]  Enable using segment register GS as the base address of linear memory,\n");
+    printf("                            only available on linux x86-64, flags can be:\n");
+    printf("                              i32.load, i64.load, f32.load, f64.load, v128.load,\n");
+    printf("                              i32.store, i64.store, f32.store, f64.store, v128.store\n");
+    printf("                            Using comma to seperate, e.g. --enable-segue=i32.load,i64.store\n");
+    printf("                            and --enable-segue means all flags are added.\n");
+    printf("  --disable-segue           Disable using segment register GS as the base address of linear memory\n");
     printf("  --emit-custom-sections=<section names>\n");
     printf("                            Emit the specified custom sections to AoT file, using comma to separate\n");
     printf("                            multiple names, e.g.\n");
@@ -125,6 +131,52 @@ split_string(char *str, int *count, const char *delimer)
         *count = idx - 1;
     }
     return res;
+}
+
+static uint32
+resolve_segue_flags(char *str_flags)
+{
+    uint32 segue_flags = 0;
+    int32 flag_count, i;
+    char **flag_list;
+
+    flag_list = split_string(str_flags, &flag_count, ",");
+    if (flag_list) {
+        for (i = 0; i < flag_count; i++) {
+            if (!strcmp(flag_list[i], "i32.load")) {
+                segue_flags |= 1 << 0;
+            }
+            else if (!strcmp(flag_list[i], "i64.load")) {
+                segue_flags |= 1 << 1;
+            }
+            else if (!strcmp(flag_list[i], "f32.load")) {
+                segue_flags |= 1 << 2;
+            }
+            else if (!strcmp(flag_list[i], "f64.load")) {
+                segue_flags |= 1 << 3;
+            }
+            else if (!strcmp(flag_list[i], "v128.load")) {
+                segue_flags |= 1 << 4;
+            }
+            else if (!strcmp(flag_list[i], "i32.store")) {
+                segue_flags |= 1 << 8;
+            }
+            else if (!strcmp(flag_list[i], "i64.store")) {
+                segue_flags |= 1 << 9;
+            }
+            else if (!strcmp(flag_list[i], "f32.store")) {
+                segue_flags |= 1 << 10;
+            }
+            else if (!strcmp(flag_list[i], "f64.store")) {
+                segue_flags |= 1 << 11;
+            }
+            else if (!strcmp(flag_list[i], "v128.store")) {
+                segue_flags |= 1 << 12;
+            }
+        }
+        free(flag_list);
+    }
+    return segue_flags;
 }
 
 int
@@ -274,7 +326,15 @@ main(int argc, char *argv[])
             option.disable_llvm_lto = true;
         }
         else if (!strcmp(argv[0], "--enable-segue")) {
-            option.enable_segue = true;
+            /* all flags are enabled */
+            option.segue_flags = 0x1F1F;
+        }
+        else if (!strncmp(argv[0], "--enable-segue=", 15)) {
+            option.segue_flags = resolve_segue_flags(argv[0] + 15);
+        }
+        else if (!strcmp(argv[0], "--disable-segue")) {
+            /* all flags are disabled */
+            option.segue_flags = 0;
         }
         else if (!strncmp(argv[0], "--emit-custom-sections=", 23)) {
             int len = 0;

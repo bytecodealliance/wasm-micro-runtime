@@ -2087,9 +2087,36 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
         }
     }
 
-    if (option->enable_segue && !strcmp(comp_ctx->target_arch, "x86_64")) {
-        comp_ctx->enable_segue = true;
+    triple = LLVMGetTargetMachineTriple(comp_ctx->target_machine);
+    if (!triple) {
+        aot_set_last_error("get target machine triple failed.");
+        goto fail;
     }
+    if (strstr(triple, "linux") && !strcmp(comp_ctx->target_arch, "x86_64")) {
+        if (option->segue_flags) {
+            if (option->segue_flags & (1 << 0))
+                comp_ctx->enable_segue_i32_load = true;
+            if (option->segue_flags & (1 << 1))
+                comp_ctx->enable_segue_i64_load = true;
+            if (option->segue_flags & (1 << 2))
+                comp_ctx->enable_segue_f32_load = true;
+            if (option->segue_flags & (1 << 3))
+                comp_ctx->enable_segue_f64_load = true;
+            if (option->segue_flags & (1 << 4))
+                comp_ctx->enable_segue_v128_load = true;
+            if (option->segue_flags & (1 << 8))
+                comp_ctx->enable_segue_i32_store = true;
+            if (option->segue_flags & (1 << 9))
+                comp_ctx->enable_segue_i64_store = true;
+            if (option->segue_flags & (1 << 10))
+                comp_ctx->enable_segue_f32_store = true;
+            if (option->segue_flags & (1 << 11))
+                comp_ctx->enable_segue_f64_store = true;
+            if (option->segue_flags & (1 << 12))
+                comp_ctx->enable_segue_v128_store = true;
+        }
+    }
+    LLVMDisposeMessage(triple);
 
     if (option->enable_simd && strcmp(comp_ctx->target_arch, "x86_64") != 0
         && strncmp(comp_ctx->target_arch, "aarch64", 7) != 0) {

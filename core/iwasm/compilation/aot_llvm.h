@@ -350,8 +350,17 @@ typedef struct AOTCompContext {
     bool disable_llvm_lto;
 
     /* Enable to use segument register as the base addr
-       of linear memory */
-    bool enable_segue;
+       of linear memory for load/store operations */
+    bool enable_segue_i32_load;
+    bool enable_segue_i64_load;
+    bool enable_segue_f32_load;
+    bool enable_segue_f64_load;
+    bool enable_segue_v128_load;
+    bool enable_segue_i32_store;
+    bool enable_segue_i64_store;
+    bool enable_segue_f32_store;
+    bool enable_segue_f64_store;
+    bool enable_segue_v128_store;
 
     /* Whether optimize the JITed code */
     bool optimize;
@@ -419,13 +428,13 @@ typedef struct AOTCompOption {
     bool enable_aux_stack_frame;
     bool disable_llvm_intrinsics;
     bool disable_llvm_lto;
-    bool enable_segue;
     bool enable_stack_estimation;
     uint32 opt_level;
     uint32 size_level;
     uint32 output_format;
     uint32 bounds_checks;
     uint32 stack_bounds_checks;
+    uint32 segue_flags;
     char **custom_sections;
     uint32 custom_sections_count;
     const char *stack_usage_file;
