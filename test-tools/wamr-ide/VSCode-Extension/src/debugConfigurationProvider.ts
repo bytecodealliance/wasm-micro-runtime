@@ -7,52 +7,33 @@ import * as vscode from 'vscode';
 import * as os from 'os';
 
 export class WasmDebugConfigurationProvider
-    implements vscode.DebugConfigurationProvider
-{
-    /* default port set as 1234 */
-    private port = 1234;
-    private hostPath!: string;
-    private providerPromise: Thenable<vscode.DebugConfiguration> | undefined =
-        undefined;
+    implements vscode.DebugConfigurationProvider {
+    private wasmDebugConfig = {
+        type: 'wamr-debug',
+        name: 'Attach',
+        request: 'attach',
+        stopOnEntry: true,
+        initCommands: os.platform() === 'win32' || os.platform() === 'darwin' ?
+            /* linux and windows has different debug configuration */
+            ['platform select remote-linux'] :
+            undefined,
+        attachCommands: [
+            /* default port 1234 */
+            'process connect -p wasm connect://127.0.0.1:1234',
+        ]
+    };
 
-    private wasmDebugConfig!: vscode.DebugConfiguration;
+    public resolveDebugConfiguration(
+        _: vscode.WorkspaceFolder | undefined,
+        debugConfiguration: vscode.DebugConfiguration,
+    ): vscode.ProviderResult<vscode.DebugConfiguration> {
 
-    public resolveDebugConfiguration():
-        | Thenable<vscode.DebugConfiguration>
-        | undefined {
-        if (!this.providerPromise) {
-            this.providerPromise = Promise.resolve(this.wasmDebugConfig);
-            return this.providerPromise;
-        }
-        return this.providerPromise;
-    }
+        this.wasmDebugConfig = {
+            ...this.wasmDebugConfig,
+            ...debugConfiguration
+        };
 
-    public setDebugConfig(hostPath: string, port: number): void {
-        this.port = port;
-        this.hostPath = hostPath;
-        /* linux and windows has different debug configuration */
-        if (os.platform() === 'win32' || os.platform() === 'darwin') {
-            this.wasmDebugConfig = {
-                type: 'wamr-debug',
-                name: 'Attach',
-                request: 'attach',
-                ['stopOnEntry']: true,
-                ['initCommands']: ['platform select remote-linux'],
-                ['attachCommands']: [
-                    'process connect -p wasm connect://127.0.0.1:' + port + '',
-                ],
-            };
-        } else if (os.platform() === 'linux') {
-            this.wasmDebugConfig = {
-                type: 'wamr-debug',
-                name: 'Attach',
-                request: 'attach',
-                ['stopOnEntry']: true,
-                ['attachCommands']: [
-                    'process connect -p wasm connect://127.0.0.1:' + port + '',
-                ],
-            };
-        }
+        return this.wasmDebugConfig;
     }
 
     public getDebugConfig(): vscode.DebugConfiguration {
