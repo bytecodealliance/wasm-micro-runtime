@@ -368,8 +368,8 @@ reclaim_instance_heap(gc_heap_t *heap)
 
             if (is_compact_mode) {
                 for (j = 0; j < (int)ref_num; j++) {
-                    offset = ref_start_offset + j * sizeof(uintptr_t);
-                    bh_assert(offset + sizeof(uintptr_t) < size);
+                    offset = ref_start_offset + j * sizeof(void *);
+                    bh_assert(offset + sizeof(void *) < size);
                     ref = *(gc_object_t *)(((gc_uint8 *)obj) + offset);
                     if (ref == NULL_REF)
                         continue; /* NULL REF */
