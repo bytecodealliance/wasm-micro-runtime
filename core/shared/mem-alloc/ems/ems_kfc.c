@@ -465,7 +465,7 @@ gc_show_fragment(void *heap_arg)
 
     memset(stats, 0, n * sizeof(int));
     gct_vm_mutex_lock(&heap->lock);
-    gc_traverse_tree(&(heap->kfc_tree_root), (gc_size_t *)stats, &n);
+    gc_traverse_tree(heap->kfc_tree_root, (gc_size_t *)stats, &n);
     gct_vm_mutex_unlock(&heap->lock);
     os_printf("\n[GC %p top sizes] %" PRIu32 " %" PRIu32 " %" PRIu32 "\n", heap,
               stats[0], stats[1], stats[2]);

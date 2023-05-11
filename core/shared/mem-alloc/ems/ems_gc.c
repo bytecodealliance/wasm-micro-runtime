@@ -85,7 +85,7 @@ sweep_instance_heap(gc_heap_t *heap)
     for (i = 0; i < lsize; i++) {
         heap->kfc_normal_list[i].next = NULL;
     }
-    heap->kfc_tree_root.right = NULL;
+    heap->kfc_tree_root->right = NULL;
     heap->root_set = NULL;
 
     while (cur < end) {
