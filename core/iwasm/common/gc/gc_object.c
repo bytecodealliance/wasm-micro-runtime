@@ -684,7 +684,7 @@ wasm_object_get_ref_list(WASMObjectRef obj, bool *p_is_compact_mode,
         static uint16 externref_obj_ref_list[] = { (uint16)offsetof(
             WASMExternrefObject, internal_obj) };
         *p_is_compact_mode = false;
-        *p_ref_num = 0;
+        *p_ref_num = 1;
         *p_ref_list = externref_obj_ref_list;
         return true;
     }
@@ -712,9 +712,18 @@ wasm_object_get_ref_list(WASMObjectRef obj, bool *p_is_compact_mode,
     }
     else if (rtt_type->defined_type->type_flag == WASM_TYPE_ARRAY) {
         /* array object */
-        *p_is_compact_mode = true;
-        *p_ref_num = (uint16)wasm_array_obj_length((WASMArrayObjectRef)obj);
-        *p_ref_start_offset = (uint16)offsetof(WASMArrayObject, elem_data);
+        WASMArrayType *type = (WASMArrayType *)rtt_type->defined_type;
+        if (wasm_is_type_reftype(type->elem_type)) {
+            *p_is_compact_mode = true;
+            *p_ref_num = (uint16)wasm_array_obj_length((WASMArrayObjectRef)obj);
+            *p_ref_start_offset = (uint16)offsetof(WASMArrayObject, elem_data);
+        }
+        else {
+            *p_is_compact_mode = false;
+            *p_ref_num = 0;
+            *p_ref_list = NULL;
+        }
+
         return true;
     }
     else {
