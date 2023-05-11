@@ -4818,7 +4818,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 wasm_interp_call_func_native(module, exec_env, cur_func,
                                              prev_frame);
 #if WASM_ENABLE_GC != 0
-                if (wasm_is_type_reftype(cur_func->param_types[cur_func->param_count])) {
+                if (wasm_is_type_reftype(
+                        cur_func->param_types[cur_func->param_count])) {
 #if UINTPTR_MAX == UINT64_MAX
                     frame_ref_tmp = FRAME_REF(prev_frame->sp - 2);
                     *frame_ref_tmp = *(frame_ref_tmp + 1) = 1;
