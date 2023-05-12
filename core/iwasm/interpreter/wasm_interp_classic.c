@@ -1025,6 +1025,7 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
     char buf[128];
     bool ret;
 #if WASM_ENABLE_GC != 0
+    WASMFuncType *func_type;
     uint8 *frame_ref;
 #endif
 
@@ -1092,6 +1093,20 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
 
     if (!ret)
         return;
+
+#if WASM_ENABLE_GC != 0
+    func_type = cur_func->u.func_import->func_type;
+    if (func_type->result_count
+        && wasm_is_type_reftype(func_type->types[cur_func->param_count])) {
+        frame_ref = (uint8 *)prev_frame->csp_boundary
+                    + (unsigned)(uintptr_t)(prev_frame->sp - prev_frame->lp);
+#if UINTPTR_MAX == UINT64_MAX
+        *frame_ref = *(frame_ref + 1) = 1;
+#else
+        *frame_ref = 1;
+#endif
+    }
+#endif
 
     if (cur_func->ret_cell_num == 1) {
         prev_frame->sp[0] = argv_ret[0];
