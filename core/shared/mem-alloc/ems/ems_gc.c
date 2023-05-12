@@ -384,7 +384,7 @@ reclaim_instance_heap(gc_heap_t *heap)
             else {
                 for (j = 0; j < (int)ref_num; j++) {
                     offset = ref_list[j];
-                    bh_assert(offset + 4 < size);
+                    bh_assert(offset + sizeof(void *) < size);
 
                     ref = *(gc_object_t *)(((gc_uint8 *)obj) + offset);
                     if (ref == NULL_REF)
