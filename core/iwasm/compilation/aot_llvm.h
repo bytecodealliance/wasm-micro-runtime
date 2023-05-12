@@ -50,15 +50,15 @@ extern "C" {
 #define OPQ_PTR_TYPE INT8_PTR_TYPE
 #endif
 
-#ifndef NDEBUG
-#undef DEBUG_PASS
-#undef DUMP_MODULE
+// #ifndef NDEBUG
+// #undef DEBUG_PASS
+// #undef DUMP_MODULE
 // #define DEBUG_PASS
-// #define DUMP_MODULE
-#else
-#undef DEBUG_PASS
-#undef DUMP_MODULE
-#endif
+#define DUMP_MODULE
+// #else
+// #undef DEBUG_PASS
+// #undef DUMP_MODULE
+// #endif
 
 /**
  * Value in the WASM operation stack, each stack element

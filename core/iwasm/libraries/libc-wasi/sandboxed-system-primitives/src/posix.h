@@ -39,7 +39,7 @@ struct argv_environ_values {
     const char *argv_buf;
     size_t argv_buf_size;
     char **argv_list;
-    size_t argc;
+        size_t argc;
     char *environ_buf;
     size_t environ_buf_size;
     char **environ_list;
