@@ -350,7 +350,8 @@ init_frame_refs(uint8 *frame_ref, uint32 cell_num, WASMFunctionInstance *func)
 
 #if UINTPTR_MAX == UINT64_MAX
 #define SET_FRAME_REF(off) *FRAME_REF(off) = *FRAME_REF(off + 1) = 1
-#define CLEAR_FRAME_REF(off) *FRAME_REF(off) = *FRAME_REF(off + 1) = 0
+#define CLEAR_FRAME_REF(off) \
+    off >= local_cell_num ? (*FRAME_REF(off) = *FRAME_REF(off + 1) = 0) : 0
 #else
 #define SET_FRAME_REF(off) *FRAME_REF(off) = 1
 #define CLEAR_FRAME_REF(off) *FRAME_REF(off) = 0
@@ -1329,6 +1330,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #endif
 #if WASM_ENABLE_GC != 0
     register uint8 *frame_ref = NULL; /* cache of frame->ref */
+    uint32 local_cell_num = 0;
     int16 opnd_off;
 #endif
     uint8 *frame_ip_end = frame_ip + 1;
@@ -1488,6 +1490,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     else if (wasm_is_type_reftype(ret_types[ret_idx])) {
                         PUT_REF_TO_ADDR(prev_frame->lp + ret_offset,
                                         GET_OPERAND(void *, REF, off));
+                        *(prev_frame->frame_ref + ret_offset) = 1;
+#if UINTPTR_MAX == UINT64_MAX
+                        *(prev_frame->frame_ref + ret_offset + 1) = 1;
+#endif
                         ret_offset += REF_CELL_NUM;
                     }
 #endif
@@ -4794,6 +4800,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     outs_area->lp,
                     GET_OPERAND(void *, REF,
                                 2 * (cur_func->param_count - i - 1)));
+                CLEAR_FRAME_REF(
+                    *(uint16 *)(frame_ip
+                                + (2 * (cur_func->param_count - i - 1))));
                 outs_area->lp += REF_CELL_NUM;
             }
 #endif
@@ -4862,6 +4871,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #if WASM_ENABLE_GC != 0
             /* area of frame_ref */
             all_cell_num += (cell_num_of_local_stack + 3) / 4;
+            /* cells occupied by locals, POP_REF should not clear frame_ref for
+             * these cells */
+            local_cell_num =
+                cur_func->param_cell_num + cur_func->local_cell_num;
 #endif
             /* param_cell_num, local_cell_num, const_cell_num and
                max_stack_cell_num are all no larger than UINT16_MAX (checked
