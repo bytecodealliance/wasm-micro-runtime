@@ -1099,7 +1099,7 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
     if (func_type->result_count
         && wasm_is_type_reftype(func_type->types[cur_func->param_count])) {
         frame_ref = (uint8 *)prev_frame->csp_boundary
-                    + (unsigned)(prev_frame->sp - prev_frame->lp);
+                    + (unsigned)(uintptr_t)(prev_frame->sp - prev_frame->lp);
 #if UINTPTR_MAX == UINT64_MAX
         *frame_ref = *(frame_ref + 1) = 1;
 #else
