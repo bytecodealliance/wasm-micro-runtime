@@ -459,6 +459,14 @@ init_frame_refs(uint8 *frame_ref, uint32 cell_num, WASMFunctionInstance *func)
         SET_FRAME_REF(opnd_off);          \
     } while (0)
 
+#define PUSH_I31(value)                   \
+    do {                                  \
+        uint32 *addr_tmp;                 \
+        opnd_off = GET_OFFSET();          \
+        addr_tmp = frame_lp + opnd_off;   \
+        PUT_REF_TO_ADDR(addr_tmp, value); \
+    } while (0)
+
 #define POP_I32() (*(int32 *)(frame_lp + GET_OFFSET()))
 
 #define POP_F32() (*(float32 *)(frame_lp + GET_OFFSET()))
@@ -2290,7 +2298,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                         i31_val = POP_I32();
                         i31_obj = wasm_i31_obj_new(i31_val);
-                        PUSH_REF(i31_obj);
+                        PUSH_I31(i31_obj);
                         HANDLE_OP_END();
                     }
                     case WASM_OP_I31_GET_S:
