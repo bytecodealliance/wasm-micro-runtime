@@ -4931,8 +4931,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
         RECOVER_CONTEXT(prev_frame);
 #if WASM_ENABLE_GC != 0
-        local_cell_num =
-                cur_func->param_cell_num + cur_func->local_cell_num;
+        local_cell_num = cur_func->param_cell_num + cur_func->local_cell_num;
 #endif
         HANDLE_OP_END();
     }
