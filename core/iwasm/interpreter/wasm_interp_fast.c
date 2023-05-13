@@ -356,7 +356,7 @@ init_frame_refs(uint8 *frame_ref, uint32 cell_num, WASMFunctionInstance *func)
     off >= local_cell_num ? (*FRAME_REF(off) = *FRAME_REF(off + 1) = 0) : 0
 #else
 #define SET_FRAME_REF(off) *FRAME_REF(off) = 1
-#define CLEAR_FRAME_REF(off) *FRAME_REF(off) = 0
+#define CLEAR_FRAME_REF(off) off >= local_cell_num ? (*FRAME_REF(off) = 0) : 0
 #endif
 
 #define FRAME_REF_FOR(frame, p) \
@@ -3879,10 +3879,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 HANDLE_OP_END();
             }
 
-            HANDLE_OP(WASM_OP_SET_LOCAL)
-            {
-                opcode = WASM_OP_SET_LOCAL;
-            }
+            HANDLE_OP(WASM_OP_SET_LOCAL) { opcode = WASM_OP_SET_LOCAL; }
             HANDLE_OP(WASM_OP_TEE_LOCAL)
             {
                 GET_LOCAL_INDEX_TYPE_AND_OFFSET();
