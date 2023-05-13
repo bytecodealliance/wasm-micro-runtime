@@ -1667,13 +1667,18 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         PUT_REF_TO_ADDR(frame_lp + addr_ret,
                                         GET_REF_FROM_ADDR(frame_lp + addr2));
                 }
-                if (*FRAME_REF(addr1)) {
-                    /* If original ref is i31ref, should not set frameref for
-                     * target cell */
-                    SET_FRAME_REF(addr_ret);
+                {
+                    uint8 orig_ref = *FRAME_REF(addr1);
+                    CLEAR_FRAME_REF(addr1);
+                    CLEAR_FRAME_REF(addr2);
+
+                    if (orig_ref) {
+                        /* If original ref is i31ref, should not set frameref
+                         * for target cell */
+                        SET_FRAME_REF(addr_ret);
+                    }
                 }
-                CLEAR_FRAME_REF(addr1);
-                CLEAR_FRAME_REF(addr2);
+
                 HANDLE_OP_END();
             }
 #endif
