@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#include "gc_type.h"
 #include "wasm_interp.h"
 #include "bh_log.h"
 #include "wasm_runtime.h"
