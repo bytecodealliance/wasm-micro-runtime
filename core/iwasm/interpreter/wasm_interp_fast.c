@@ -1351,7 +1351,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     int32 didx, val;
     uint8 *maddr = NULL;
     uint32 local_idx, local_offset, global_idx;
-    uint8 opcode, local_type, *global_addr;
+    uint8 opcode = 0, local_type, *global_addr;
 #if WASM_ENABLE_GC != 0
     WASMObjectRef gc_obj;
     WASMStructObjectRef struct_obj;
@@ -3880,6 +3880,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             }
 
             HANDLE_OP(WASM_OP_SET_LOCAL)
+            {
+                opcode = WASM_OP_SET_LOCAL;
+            }
             HANDLE_OP(WASM_OP_TEE_LOCAL)
             {
                 GET_LOCAL_INDEX_TYPE_AND_OFFSET();
