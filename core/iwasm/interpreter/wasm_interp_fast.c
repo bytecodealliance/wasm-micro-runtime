@@ -5065,8 +5065,14 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
              i;
     /* This frame won't be used by JITed code, so only allocate interp
        frame here.  */
-    unsigned frame_size = wasm_interp_interp_frame_size(all_cell_num);
+    unsigned frame_size;
     char exception[EXCEPTION_BUF_LEN];
+
+#if WASM_ENABLE_GC != 0
+    all_cell_num += (all_cell_num + 3) / 4;
+#endif
+
+    frame_size = wasm_interp_interp_frame_size(all_cell_num);
 
     if (argc < function->param_cell_num) {
         char buf[128];
@@ -5099,7 +5105,9 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
     /* There is no local variable. */
     frame->lp = frame->operand + 0;
 #if WASM_ENABLE_GC != 0
-    frame->frame_ref = (uint8 *)frame->lp;
+    frame->frame_ref =
+        (uint8 *)(frame->lp
+                  + (function->ret_cell_num > 2 ? function->ret_cell_num : 2));
 #endif
     frame->ret_offset = 0;
 
