@@ -463,7 +463,7 @@ init_frame_refs(uint8 *frame_ref, uint32 cell_num, WASMFunctionInstance *func)
         SET_FRAME_REF(opnd_off);          \
     } while (0)
 
-#define PUSH_I31REF(value)                   \
+#define PUSH_I31REF(value)                \
     do {                                  \
         uint32 *addr_tmp;                 \
         opnd_off = GET_OFFSET();          \
