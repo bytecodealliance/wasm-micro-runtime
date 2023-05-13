@@ -359,8 +359,6 @@ init_frame_refs(uint8 *frame_ref, uint32 cell_num, WASMFunctionInstance *func)
 #define CLEAR_FRAME_REF(off) *FRAME_REF(off) = 0
 #endif
 
-#define GET_FRAME_REF(off) *FRAME_REF(off)
-
 #define FRAME_REF_FOR(frame, p) \
     COMPUTE_FRAME_REF(frame->frame_ref, p - frame->lp)
 
@@ -1500,8 +1498,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         ret_offset += 2;
                     }
 #if WASM_ENABLE_GC != 0
-                    else if (wasm_is_type_reftype(ret_types[ret_idx])
-                             && !wasm_is_reftype_i31ref(ret_types[ret_idx])) {
+                    else if (wasm_is_type_reftype(ret_types[ret_idx])) {
                         PUT_REF_TO_ADDR(prev_frame->lp + ret_offset,
                                         GET_OPERAND(void *, REF, off));
                         if (!wasm_is_reftype_i31ref(ret_types[ret_idx])) {
@@ -1668,7 +1665,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         PUT_REF_TO_ADDR(frame_lp + addr_ret,
                                         GET_REF_FROM_ADDR(frame_lp + addr2));
                 }
-                if (GET_FRAME_REF(addr1)) {
+                if (*FRAME_REF(addr1)) {
                     /* If original ref is i31ref, should not set frameref for
                      * target cell */
                     SET_FRAME_REF(addr_ret);
