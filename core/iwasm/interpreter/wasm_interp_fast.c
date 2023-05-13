@@ -314,7 +314,7 @@ init_frame_refs(uint8 *frame_ref, uint32 cell_num, WASMFunctionInstance *func)
 
     for (i = 0, j = 0; i < func->param_count; i++) {
         if (wasm_is_type_reftype(func->param_types[i])
-            && !wasm_is_reftype_i31ref(func->local_types[i])) {
+            && !wasm_is_reftype_i31ref(func->param_types[i])) {
             frame_ref[j++] = 1;
 #if UINTPTR_MAX == UINT64_MAX
             frame_ref[j++] = 1;
