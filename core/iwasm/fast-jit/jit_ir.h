@@ -930,6 +930,10 @@ typedef struct JitFrame {
     /* Data of table instances */
     JitTableRegs *table_regs;
 
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+    JitReg ent_and_bw_cnts_reg;
+#endif
+
     /* Local variables */
     JitValueSlot lp[1];
 } JitFrame;
@@ -1146,6 +1150,12 @@ typedef struct JitCompContext {
     /* indicate if the last comparision is about floating-point numbers or not
      */
     bool last_cmp_on_fp;
+
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+    JitReg ent_and_bw_cnts_reg;
+    uint32 ent_and_bw_cnts_idx;
+    uint32 vp_cnts_idx;
+#endif
 } JitCompContext;
 
 /*

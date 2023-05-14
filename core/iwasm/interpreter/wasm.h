@@ -606,6 +606,16 @@ struct WASMModule {
        functions in that group */
     uint32 fast_jit_ready_groups;
 #endif
+
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+    /*
+     * it is a 2-dim uint32 array. [function_count][]
+     * every row represents all counters of a function.
+     * every column represents a counter of a function.
+     * in a row, [0] is the capacity. [1] is the funtion entry counter.
+     */
+    uint32 **ent_and_br_cnts;
+#endif
 };
 
 typedef struct BlockType {
@@ -789,6 +799,28 @@ block_type_get_result_types(BlockType *block_type, uint8 **p_result_types)
     }
     return result_count;
 }
+
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+static inline uint32 *
+wasm_dpgo_get_ent_and_br_cnts(WASMModule *module, uint32 func_idx,
+                              uint32 *capacity)
+{
+    uint32 *ent_and_br_cnts = module->ent_and_br_cnts[func_idx];
+    if (capacity)
+        *capacity = ent_and_br_cnts ? ent_and_br_cnts[0] : 0;
+
+    return ent_and_br_cnts;
+}
+
+static inline uint32
+wasm_dpgo_get_ent_cnt_value(WASMModule *module, uint32 func_idx)
+{
+    uint32 *ent_and_br_cnts =
+        wasm_dpgo_get_ent_and_br_cnts(module, func_idx, NULL);
+    return ent_and_br_cnts ? ent_and_br_cnts[1] : 0;
+}
+
+#endif /* WASM_ENABLE_DYNAMIC_PGO != 0 */
 
 #ifdef __cplusplus
 } /* end of extern "C" */
