@@ -144,6 +144,9 @@ if (WAMR_BUILD_TARGET MATCHES "X86_.*" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
                                               -fno-sanitize-recover")
     endif()
   else ()
+    # close unused warnning
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-unused-parameter")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-parameter")
     # UNDEFINED BEHAVIOR, refer to https://en.cppreference.com/w/cpp/language/ub
     if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WAMR_BUILD_JIT EQUAL 1)
       set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=undefined \
