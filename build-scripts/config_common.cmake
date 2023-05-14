@@ -127,6 +127,14 @@ else ()
   unset (LLVM_AVAILABLE_LIBS)
 endif ()
 
+# Only enable dynamic-PGO(WAMR_BUILD_DYNAMIC_PGO) in multi-tier JIT mode if set it
+if (NOT WAMR_BUILD_FAST_JIT EQUAL 1 OR NOT WAMR_BUILD_JIT EQUAL 1 OR NOT WAMR_BUILD_LAZY_JIT EQUAL 1)
+  if (WAMR_BUILD_DYNAMIC_PGO EQUAL 1)
+    message (WARNING "-- WAMR_BUILD_DYNAMIC_PGO is only available in multi-tier JIT mode")
+    set(WAMR_BUILD_DYNAMIC_PGO 0)
+  endif ()
+endif()
+
 ########################################
 
 message ("-- Build Configurations:")
@@ -166,6 +174,10 @@ endif ()
 if (WAMR_BUILD_FAST_JIT EQUAL 1 AND WAMR_BUILD_JIT EQUAL 1
     AND WAMR_BUILD_LAZY_JIT EQUAL 1)
   message ("     Multi-tier JIT enabled")
+  if (WAMR_BUILD_DYNAMIC_PGO EQUAL 1)
+    add_definitions( -DWASM_ENABLE_DYNAMIC_PGO=1)
+    message ("     Dynamic PGO enabled")
+  endif ()
 endif ()
 if (WAMR_BUILD_LIBC_BUILTIN EQUAL 1)
   message ("     Libc builtin enabled")

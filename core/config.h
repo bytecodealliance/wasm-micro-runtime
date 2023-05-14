@@ -445,4 +445,8 @@
 #define WASM_ENABLE_WASM_CACHE 0
 #endif
 
+#ifndef WASME_ENABLE_DYNAMIC_PGO
+#define WASME_ENABLE_DYNAMIC_PGO 0
+#endif
+
 #endif /* end of _CONFIG_H_ */
