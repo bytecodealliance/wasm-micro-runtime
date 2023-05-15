@@ -152,7 +152,7 @@ fail:
 
 static AOTImportGlobal *
 aot_create_import_globals(const WASMModule *module,
-                          uint32 *p_import_global_data_size)
+                          uint32 *p_import_global_data_size, bool gc_enabled)
 {
     AOTImportGlobal *import_globals;
     uint64 size;
@@ -177,10 +177,11 @@ aot_create_import_globals(const WASMModule *module,
         import_globals[i].is_mutable = import_global->is_mutable;
         import_globals[i].global_data_linked =
             import_global->global_data_linked;
-        import_globals[i].size = wasm_value_type_size(import_global->type);
+        import_globals[i].size =
+            wasm_value_type_size_ex(import_global->type, gc_enabled);
         /* Calculate data offset */
         import_globals[i].data_offset = data_offset;
-        data_offset += wasm_value_type_size(import_global->type);
+        data_offset += wasm_value_type_size_ex(import_global->type, gc_enabled);
     }
 
     *p_import_global_data_size = data_offset;
@@ -189,7 +190,7 @@ aot_create_import_globals(const WASMModule *module,
 
 static AOTGlobal *
 aot_create_globals(const WASMModule *module, uint32 global_data_start_offset,
-                   uint32 *p_global_data_size)
+                   uint32 *p_global_data_size, bool gc_enabled)
 {
     AOTGlobal *globals;
     uint64 size;
@@ -209,12 +210,12 @@ aot_create_globals(const WASMModule *module, uint32 global_data_start_offset,
         WASMGlobal *global = &module->globals[i];
         globals[i].type = global->type;
         globals[i].is_mutable = global->is_mutable;
-        globals[i].size = wasm_value_type_size(global->type);
+        globals[i].size = wasm_value_type_size_ex(global->type, gc_enabled);
         memcpy(&globals[i].init_expr, &global->init_expr,
                sizeof(global->init_expr));
         /* Calculate data offset */
         globals[i].data_offset = data_offset;
-        data_offset += wasm_value_type_size(global->type);
+        data_offset += wasm_value_type_size_ex(global->type, gc_enabled);
     }
 
     *p_global_data_size = data_offset - global_data_start_offset;
@@ -250,15 +251,15 @@ aot_create_func_types(const WASMModule *module)
 
     /* Create each function type */
     for (i = 0; i < module->type_count; i++) {
-        size = offsetof(AOTFuncType, types)
-               + (uint64)module->types[i]->param_count
-               + (uint64)module->types[i]->result_count;
+        AOTFuncType *func_type = (AOTFuncType *)module->types[i];
+        size = offsetof(AOTFuncType, types) + (uint64)func_type->param_count
+               + (uint64)func_type->result_count;
         if (size >= UINT32_MAX
             || !(func_types[i] = wasm_runtime_malloc((uint32)size))) {
             aot_set_last_error("allocate memory failed.");
             goto fail;
         }
-        memcpy(func_types[i], module->types[i], size);
+        memcpy(func_types[i], func_type, size);
     }
 
     return func_types;
@@ -297,7 +298,7 @@ aot_create_import_funcs(const WASMModule *module)
         import_funcs[i].call_conv_wasm_c_api = false;
         /* Resolve function type index */
         for (j = 0; j < module->type_count; j++)
-            if (import_func->func_type == module->types[j]) {
+            if (import_func->func_type == (WASMFuncType *)module->types[j]) {
                 import_funcs[i].func_type_index = j;
                 break;
             }
@@ -346,7 +347,7 @@ aot_create_funcs(const WASMModule *module)
 
         /* Resolve function type index */
         for (j = 0; j < module->type_count; j++)
-            if (func->func_type == module->types[j]) {
+            if (func->func_type == (WASMFuncType *)module->types[j]) {
                 funcs[i]->func_type_index = j;
                 break;
             }
@@ -368,7 +369,7 @@ fail:
 }
 
 AOTCompData *
-aot_create_comp_data(WASMModule *module)
+aot_create_comp_data(WASMModule *module, bool gc_enabled)
 {
     AOTCompData *comp_data;
     uint32 import_global_data_size = 0, global_data_size = 0, i, j;
@@ -486,15 +487,16 @@ aot_create_comp_data(WASMModule *module)
     /* Create import globals */
     comp_data->import_global_count = module->import_global_count;
     if (comp_data->import_global_count > 0
-        && !(comp_data->import_globals =
-                 aot_create_import_globals(module, &import_global_data_size)))
+        && !(comp_data->import_globals = aot_create_import_globals(
+                 module, &import_global_data_size, gc_enabled)))
         goto fail;
 
     /* Create globals */
     comp_data->global_count = module->global_count;
     if (comp_data->global_count
-        && !(comp_data->globals = aot_create_globals(
-                 module, import_global_data_size, &global_data_size)))
+        && !(comp_data->globals =
+                 aot_create_globals(module, import_global_data_size,
+                                    &global_data_size, gc_enabled)))
         goto fail;
 
     comp_data->global_data_size = import_global_data_size + global_data_size;

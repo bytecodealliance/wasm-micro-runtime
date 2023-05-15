@@ -1657,6 +1657,9 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
     if (option->enable_stack_estimation)
         comp_ctx->enable_stack_estimation = true;
 
+    if (option->enable_gc)
+        comp_ctx->enable_gc = true;
+
     comp_ctx->opt_level = option->opt_level;
     comp_ctx->size_level = option->size_level;
 
