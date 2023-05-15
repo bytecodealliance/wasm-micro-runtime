@@ -20,6 +20,7 @@ extern "C" {
 #endif
 
 typedef InitializerExpression AOTInitExpr;
+typedef WASMType AOTType;
 typedef WASMFuncType AOTFuncType;
 typedef WASMExport AOTExport;
 
