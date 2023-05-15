@@ -18,7 +18,7 @@ wasm_ref_type_normalize(wasm_ref_type_t *ref_type)
     wasm_value_type_t value_type = ref_type->value_type;
     int32 heap_type = ref_type->heap_type;
 
-    if (!((value_type >= VALUE_TYPE_V128 && value_type <= VALUE_TYPE_I32)
+    if (!((value_type >= VALUE_TYPE_I16 && value_type <= VALUE_TYPE_I32)
           || (value_type >= VALUE_TYPE_NULLREF
               && value_type <= VALUE_TYPE_FUNCREF))) {
         return false;
