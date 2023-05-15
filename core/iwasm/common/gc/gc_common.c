@@ -354,6 +354,11 @@ wasm_ref_type_equal(const wasm_ref_type_t *ref_type1,
     type1 = ref_type1_norm.value_type;
     type2 = ref_type2_norm.value_type;
 
+    if ((type1 == VALUE_TYPE_I8 && type2 == VALUE_TYPE_I8)
+        || (type1 == VALUE_TYPE_I16 && type2 == VALUE_TYPE_I16)) {
+        return true;
+    }
+
 #if WASM_ENABLE_INTERP != 0
     if (module->module_type == Wasm_Module_Bytecode) {
         types = ((WASMModule *)module)->types;
