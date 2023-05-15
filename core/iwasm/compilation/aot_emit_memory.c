@@ -263,9 +263,17 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
     }
     else {
-        if (!(maddr = LLVMBuildIntToPtr(comp_ctx->builder, offset1,
-                                        INT8_PTR_TYPE_GS, "maddr"))) {
-            aot_set_last_error("llvm build IntToPtr failed.");
+        LLVMValueRef maddr_base;
+
+        if (!(maddr_base = LLVMBuildIntToPtr(comp_ctx->builder, addr,
+                                             INT8_PTR_TYPE_GS, "maddr_base"))) {
+            aot_set_last_error("llvm build int to ptr failed.");
+            goto fail;
+        }
+        if (!(maddr = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,
+                                            maddr_base, &offset_const, 1,
+                                            "maddr"))) {
+            aot_set_last_error("llvm build inboundgep failed.");
             goto fail;
         }
     }

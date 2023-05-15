@@ -3,6 +3,8 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+PLATFORM=$(uname -s | tr A-Z a-z)
+
 WAMRC="../../../wamr-compiler/build/wamrc"
 
 if [ ! -d coremark ]; then
@@ -32,7 +34,9 @@ cd ..
 echo "Compile coremark.wasm to coremark.aot .."
 ${WAMRC} -o coremark.aot coremark.wasm
 
-echo "Compile coremark.wasm to coremark_segue.aot .."
-${WAMRC} --enable-segue -o coremark_segue.aot coremark.wasm
+if [[ ${PLATFORM} == "linux" ]]; then
+    echo "Compile coremark.wasm to coremark_segue.aot .."
+    ${WAMRC} --enable-segue -o coremark_segue.aot coremark.wasm
+fi
 
 echo "Done"

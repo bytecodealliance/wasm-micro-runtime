@@ -71,7 +71,6 @@ print_help()
     printf("                              i32.store, i64.store, f32.store, f64.store, v128.store\n");
     printf("                            Using comma to seperate, e.g. --enable-segue=i32.load,i64.store\n");
     printf("                            and --enable-segue means all flags are added.\n");
-    printf("  --disable-segue           Disable using segment register GS as the base address of linear memory\n");
     printf("  --emit-custom-sections=<section names>\n");
     printf("                            Emit the specified custom sections to AoT file, using comma to separate\n");
     printf("                            multiple names, e.g.\n");
@@ -172,6 +171,11 @@ resolve_segue_flags(char *str_flags)
             }
             else if (!strcmp(flag_list[i], "v128.store")) {
                 segue_flags |= 1 << 12;
+            }
+            else {
+                /* invalid flag */
+                free(flag_list);
+                return (uint32)-1;
             }
         }
         free(flag_list);
@@ -331,6 +335,8 @@ main(int argc, char *argv[])
         }
         else if (!strncmp(argv[0], "--enable-segue=", 15)) {
             option.segue_flags = resolve_segue_flags(argv[0] + 15);
+            if (option.segue_flags == (uint32)-1)
+                PRINT_HELP_AND_EXIT();
         }
         else if (!strcmp(argv[0], "--disable-segue")) {
             /* all flags are disabled */

@@ -5,6 +5,8 @@
 
 source /opt/emsdk/emsdk_env.sh
 
+PLATFORM=$(uname -s | tr A-Z a-z)
+
 OUT_DIR=$PWD/out
 WAMRC_CMD=$PWD/../../../wamr-compiler/build/wamrc
 
@@ -12,7 +14,7 @@ mkdir -p jetstream
 mkdir -p tsf-src
 mkdir -p ${OUT_DIR}
 
-if [[ $1 == "--simd" ]];then
+if [[ $1 != "--no-simd" ]];then
     NATIVE_SIMD_FLAGS="-msse2 -msse3 -msse4"
     WASM_SIMD_FLAGS="-msimd128 -msse2 -msse3 -msse4"
 else
@@ -49,8 +51,10 @@ em++ -O3 -s STANDALONE_WASM=1 ${WASM_SIMD_FLAGS} \
 echo "Compile gcc-loops.wasm to gcc-loops.aot"
 ${WAMRC_CMD} -o ${OUT_DIR}/gcc-loops.aot ${OUT_DIR}/gcc-loops.wasm
 
-echo "Compile gcc-loops.wasm to gcc-loops_segue.aot"
-${WAMRC_CMD} --enable-segue -o ${OUT_DIR}/gcc-loops_segue.aot ${OUT_DIR}/gcc-loops.wasm
+if [[ ${PLATFORM} == "linux" ]]; then
+    echo "Compile gcc-loops.wasm to gcc-loops_segue.aot"
+    ${WAMRC_CMD} --enable-segue -o ${OUT_DIR}/gcc-loops_segue.aot ${OUT_DIR}/gcc-loops.wasm
+fi
 
 echo "Build quicksort with gcc .."
 gcc -O3 ${NATIVE_SIMD_FLAGS} -o ${OUT_DIR}/quicksort_native quicksort.c
@@ -65,8 +69,10 @@ emcc -O3 -s STANDALONE_WASM=1 ${WASM_SIMD_FLAGS} \
 echo "Compile quicksort.wasm to quicksort.aot"
 ${WAMRC_CMD} -o ${OUT_DIR}/quicksort.aot ${OUT_DIR}/quicksort.wasm
 
-echo "Compile quicksort.wasm to quicksort_segue.aot"
-${WAMRC_CMD} --enable-segue -o ${OUT_DIR}/quicksort_segue.aot ${OUT_DIR}/quicksort.wasm
+if [[ ${PLATFORM} == "linux" ]]; then
+    echo "Compile quicksort.wasm to quicksort_segue.aot"
+    ${WAMRC_CMD} --enable-segue -o ${OUT_DIR}/quicksort_segue.aot ${OUT_DIR}/quicksort.wasm
+fi
 
 echo "Build HashSet with g++ .."
 g++ -O3 ${NATIVE_SIMD_FLAGS} -o ${OUT_DIR}/HashSet_native HashSet.cpp \
@@ -82,8 +88,10 @@ em++ -O3 -s STANDALONE_WASM=1 ${WASM_SIMD_FLAGS} \
 echo "Compile HashSet.wasm to HashSet.aot"
 ${WAMRC_CMD} -o ${OUT_DIR}/HashSet.aot ${OUT_DIR}/HashSet.wasm
 
-echo "Compile HashSet.wasm to HashSet_segue.aot"
-${WAMRC_CMD} --enable-segue -o ${OUT_DIR}/HashSet_segue.aot ${OUT_DIR}/HashSet.wasm
+if [[ ${PLATFORM} == "linux" ]]; then
+    echo "Compile HashSet.wasm to HashSet_segue.aot"
+    ${WAMRC_CMD} --enable-segue -o ${OUT_DIR}/HashSet_segue.aot ${OUT_DIR}/HashSet.wasm
+fi
 
 echo "Build float-mm with gcc .."
 gcc -O3 ${NATIVE_SIMD_FLAGS} -o ${OUT_DIR}/float-mm_native float-mm.c
@@ -98,8 +106,10 @@ emcc -O3 -s STANDALONE_WASM=1 ${WASM_SIMD_FLAGS} \
 echo "Compile float-mm.wasm to float-mm.aot"
 ${WAMRC_CMD} -o ${OUT_DIR}/float-mm.aot ${OUT_DIR}/float-mm.wasm
 
-echo "Compile float-mm.wasm to float-mm_segue.aot"
-${WAMRC_CMD} --enable-segue -o ${OUT_DIR}/float-mm_segue.aot ${OUT_DIR}/float-mm.wasm
+if [[ ${PLATFORM} == "linux" ]]; then
+    echo "Compile float-mm.wasm to float-mm_segue.aot"
+    ${WAMRC_CMD} --enable-segue -o ${OUT_DIR}/float-mm_segue.aot ${OUT_DIR}/float-mm.wasm
+fi
 
 cd ../tsf-src
 
@@ -158,5 +168,7 @@ echo "Build tsf standalone with wasi-sdk .."
 echo "Compile tsf.wasm to tsf.aot"
 ${WAMRC_CMD} -o ${OUT_DIR}/tsf.aot ${OUT_DIR}/tsf.wasm
 
-echo "Compile tsf.wasm to tsf_segue.aot"
-${WAMRC_CMD} --enable-segue -o ${OUT_DIR}/tsf_segue.aot ${OUT_DIR}/tsf.wasm
+if [[ ${PLATFORM} == "linux" ]]; then
+    echo "Compile tsf.wasm to tsf_segue.aot"
+    ${WAMRC_CMD} --enable-segue -o ${OUT_DIR}/tsf_segue.aot ${OUT_DIR}/tsf.wasm
+fi
