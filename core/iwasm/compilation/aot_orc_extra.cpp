@@ -194,6 +194,9 @@ PartitionFunction(GlobalValueSet Requested)
     return Requested;
 }
 
+Expected<std::unique_ptr<orc::IRCompileLayer::IRCompiler>>
+compiler_creator(orc::JITTargetMachineBuilder JTMB);
+
 LLVMErrorRef
 LLVMOrcCreateLLLazyJIT(LLVMOrcLLLazyJITRef *Result,
                        LLVMOrcLLLazyJITBuilderRef Builder)
@@ -203,6 +206,8 @@ LLVMOrcCreateLLLazyJIT(LLVMOrcLLLazyJITRef *Result,
     if (!Builder)
         Builder = LLVMOrcCreateLLLazyJITBuilder();
 
+    auto b = unwrap(Builder);
+    b->setCompileFunctionCreator(compiler_creator);
     auto J = unwrap(Builder)->create();
     LLVMOrcDisposeLLLazyJITBuilder(Builder);
 
