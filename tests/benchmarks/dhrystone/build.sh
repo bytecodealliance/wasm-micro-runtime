@@ -1,5 +1,7 @@
 #!/bin/bash
 
+PLATFORM=$(uname -s | tr A-Z a-z)
+
 WAMRC_CMD=$PWD/../../../wamr-compiler/build/wamrc
 
 echo "===> compile dhrystone src to dhrystone_native"
@@ -13,5 +15,7 @@ echo "===> compile dhrystone src to dhrystone.wasm"
 echo "===> compile dhrystone.wasm to dhrystone.aot"
 ${WAMRC_CMD} -o dhrystone.aot dhrystone.wasm
 
-echo "===> compile dhrystone.wasm to dhrystone_segue.aot"
-${WAMRC_CMD} --enable-segue -o dhrystone_segue.aot dhrystone.wasm
+if [[ ${PLATFORM} == "linux" ]]; then
+    echo "===> compile dhrystone.wasm to dhrystone_segue.aot"
+    ${WAMRC_CMD} --enable-segue -o dhrystone_segue.aot dhrystone.wasm
+fi
