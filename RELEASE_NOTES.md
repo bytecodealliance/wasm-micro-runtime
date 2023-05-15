@@ -29,6 +29,7 @@
 - wasi-nn: Add external delegation to support several NPU/GPU (#2162)
 - Update document for iwasm/wamrc dependent packages (#2183)
 - Use a manual flag to disable clock_nanosleep on the unsupported platforms (#2176)
+- Fix compile warnings on windows platform (#2208)
 
 ### Others
 - CI: Add ubsan checks to samples/wasm-c-api (#2147)
