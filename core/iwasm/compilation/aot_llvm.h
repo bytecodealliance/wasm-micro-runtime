@@ -53,8 +53,8 @@ extern "C" {
 // #ifndef NDEBUG
 // #undef DEBUG_PASS
 // #undef DUMP_MODULE
-// #define DEBUG_PASS
-#define DUMP_MODULE
+//#define DEBUG_PASS
+//#define DUMP_MODULE
 // #else
 // #undef DEBUG_PASS
 // #undef DUMP_MODULE

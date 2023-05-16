@@ -50,7 +50,7 @@ def query_llvm_version(llvm_info):
 
 def build_llvm(llvm_dir, platform, backends, projects, use_clang=False, extra_flags=''):
     LLVM_COMPILE_OPTIONS = [
-        '-DCMAKE_BUILD_TYPE:STRING="Release"',
+        '-DCMAKE_BUILD_TYPE:STRING="Debug"',
         "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
         "-DLLVM_APPEND_VC_REV:BOOL=ON",
         "-DLLVM_BUILD_EXAMPLES:BOOL=OFF",
@@ -155,7 +155,7 @@ def build_llvm(llvm_dir, platform, backends, projects, use_clang=False, extra_fl
     subprocess.check_call(shlex.split(CONFIG_CMD), cwd=build_dir)
 
     BUILD_CMD = "cmake --build . --target package" + (
-        " --config Release" if "windows" == platform else ""
+        " --config Debug" if "windows" == platform else ""
     )
     subprocess.check_call(shlex.split(BUILD_CMD), cwd=build_dir)
 

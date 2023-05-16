@@ -2099,7 +2099,7 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
     comp_ctx->pointer_size = LLVMPointerSize(target_data_ref);
     LLVMDisposeTargetData(target_data_ref);
 
-    comp_ctx->optimize = true;
+    comp_ctx->optimize = false;
     if (option->output_format == AOT_LLVMIR_UNOPT_FILE)
         comp_ctx->optimize = false;
 

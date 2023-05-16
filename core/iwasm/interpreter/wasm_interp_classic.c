@@ -21,6 +21,8 @@
 #include "../fast-jit/jit_compiler.h"
 #endif
 
+extern void _Z17serialize_to_fileP11WASMExecEnv(WASMExecEnv* instance);
+int counter_ = 0;
 typedef int32 CellType_I32;
 typedef int64 CellType_I64;
 typedef float32 CellType_F32;
@@ -1101,7 +1103,17 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
         goto *handle_table[*frame_ip++];                                  \
     } while (0)
 #else
-#define HANDLE_OP_END() FETCH_OPCODE_AND_DISPATCH()
+#define HANDLE_OP_END()                                    \
+    do {                                                   \
+        if (!exec_env->is_checkpoint && counter_ < 1000) { \
+            counter_++;                                    \
+            FETCH_OPCODE_AND_DISPATCH();                   \
+        }                                                  \
+        else {                                             \
+          printf(  printf("[%s:%d]\n", __FILE__,__LINE__); \
+            _Z17serialize_to_fileP11WASMExecEnv(exec_env); \
+        }                                                  \
+    } while (0)
 #endif
 
 #else /* else of WASM_ENABLE_LABELS_AS_VALUES */

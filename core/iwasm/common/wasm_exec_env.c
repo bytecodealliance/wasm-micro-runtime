@@ -64,6 +64,7 @@ wasm_exec_env_create_internal(struct WASMModuleInstanceCommon *module_inst,
 
     exec_env->module_inst = module_inst;
     exec_env->wasm_stack_size = stack_size;
+    exec_env->is_checkpoint = false;
     exec_env->wasm_stack.s.top_boundary =
         exec_env->wasm_stack.s.bottom + stack_size;
     exec_env->wasm_stack.s.top = exec_env->wasm_stack.s.bottom;
