@@ -2025,6 +2025,8 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
                 break;
         }
 
+        LLVMSetTarget(comp_ctx->module, triple_norm);
+
         if (!LLVMTargetHasTargetMachine(target)) {
             snprintf(buf, sizeof(buf),
                      "no target machine for this target (%s).", triple_norm);
