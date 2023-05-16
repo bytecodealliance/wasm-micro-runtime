@@ -394,7 +394,7 @@ Examples: wamrc -o test.aot test.wasm
 
 ### Usage example
 ``` bash
-WAMRC_LLC_COMPILER=<path/to/your/compiler/driver> ./wamrc -o test.aot test.wasm
+WAMRC_LLC_COMPILER=/usr/local/opt/llvm@14/bin/clang WAMRC_LLC_FLAGS="--target=x86_64-pc-linux-gnu -mcmodel=medium -c -O3" ./wamrc -o test.aot test.wasm
 ```
 
 > Note: `wamrc` will verify whether the specified file exists and executable. If verification failed, `wamrc` will report a warning and fallback to normal pipeline. Since the verification is based on file, you **must specify the absolute path to the binary** even if it's in `$PATH`
@@ -402,6 +402,8 @@ WAMRC_LLC_COMPILER=<path/to/your/compiler/driver> ./wamrc -o test.aot test.wasm
 > Note: `WAMRC_LLC_COMPILER` has higher priority than `WAMRC_ASM_COMPILER`, if `WAMRC_LLC_COMPILER` is set and verified, then `WAMRC_ASM_COMPILER` will be ignored.
 
 > Note: the `LLC` and `ASM` in the env name just means this compiler will be used to compile the `LLVM IR file`/`assembly file` to object file, usually passing the compiler driver is the simplest way. (e.g. for LLVM toolchain, you don't need to pass `/usr/bin/llc`, using `/usr/bin/clang` is OK)
+
+> Note: You might need to set `WAMRC_LLC_FLAGS`/`WAMRC_ASM_FLAGS` to match whatever the `wamrc` command would automatically do. In the above example, `-mcmodel=medium` corresponds to `wamrc --size-level=1`, which is the default of `wamrc` on macOS.
 
 Run WASM app in WAMR mini product build
 =======================================
