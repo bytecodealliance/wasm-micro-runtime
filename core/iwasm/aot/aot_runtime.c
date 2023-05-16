@@ -862,8 +862,7 @@ create_export_funcs(AOTModuleInstance *module_inst, AOTModule *module,
                     func_index =
                         export_func->func_index - module->import_func_count;
                     ftype_index = module->func_type_indexes[func_index];
-                    export_func->u.func.func_type =
-                        module->func_types[ftype_index];
+                    export_func->u.func.func_type = module->types[ftype_index];
                     export_func->u.func.func_ptr =
                         module->func_ptrs[func_index];
                 }
@@ -1028,7 +1027,7 @@ execute_post_instantiate_functions(AOTModuleInstance *module_inst,
         start_func.is_import_func = false;
         func_type_idx = module->func_type_indexes[module->start_func_index
                                                   - module->import_func_count];
-        start_func.u.func.func_type = module->func_types[func_type_idx];
+        start_func.u.func.func_type = module->types[func_type_idx];
         start_func.u.func.func_ptr = module->start_function;
         if (!aot_call_function(exec_env, &start_func, 0, NULL)) {
             goto fail;
@@ -1949,7 +1948,7 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
             : NULL;
     uint32 *func_type_indexes = module_inst->func_type_indexes;
     uint32 func_type_idx = func_type_indexes[func_idx];
-    AOTFuncType *func_type = aot_module->func_types[func_type_idx];
+    AOTFuncType *func_type = aot_module->types[func_type_idx];
     void **func_ptrs = module_inst->func_ptrs;
     void *func_ptr = func_ptrs[func_idx];
     AOTImportFunc *import_func;
@@ -2051,7 +2050,7 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
 #endif
 
     func_type_idx = func_type_indexes[func_idx];
-    func_type = aot_module->func_types[func_type_idx];
+    func_type = aot_module->types[func_type_idx];
 
     if (func_idx >= aot_module->import_func_count) {
         /* func pointer was looked up previously */
@@ -2339,9 +2338,9 @@ aot_get_module_mem_consumption(const AOTModule *module,
 
     mem_conspn->module_struct_size = sizeof(AOTModule);
 
-    mem_conspn->types_size = sizeof(AOTFuncType *) * module->func_type_count;
-    for (i = 0; i < module->func_type_count; i++) {
-        AOTFuncType *type = module->func_types[i];
+    mem_conspn->types_size = sizeof(AOTFuncType *) * module->type_count;
+    for (i = 0; i < module->type_count; i++) {
+        AOTFuncType *type = (AOTFuncType *)module->types[i];
         size = offsetof(AOTFuncType, types)
                + sizeof(uint8) * (type->param_count + type->result_count);
         mem_conspn->types_size += size;

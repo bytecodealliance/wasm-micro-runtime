@@ -613,7 +613,7 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         {
 #if WASM_ENABLE_GC != 0
             table->elem_type = import->u.table.elem_type;
-            table->elem_ref_type = import->u.table.elem_ref_type;
+            table->elem_ref_type.elem_ref_type = import->u.table.elem_ref_type;
 #endif
             table->cur_size = import->u.table.init_size;
             table->max_size = max_size_fixed;
@@ -657,7 +657,7 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
 #endif
 #if WASM_ENABLE_GC != 0
         table->elem_type = module->tables[i].elem_type;
-        table->elem_ref_type = module->tables[i].elem_ref_type;
+        table->elem_ref_type.elem_ref_type = module->tables[i].elem_ref_type;
 #endif
         table->cur_size = module->tables[i].init_size;
         table->max_size = max_size_fixed;
@@ -2210,8 +2210,8 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst,
         if (!wasm_elem_is_declarative(table_seg->mode)
             && !wasm_reftype_is_subtype_of(
                 table_seg->elem_type, table_seg->elem_ref_type,
-                table->elem_type, table->elem_ref_type, module->types,
-                module->type_count)) {
+                table->elem_type, table->elem_ref_type.elem_ref_type,
+                module->types, module->type_count)) {
             set_error_buf(error_buf, error_buf_size,
                           "elements segment does not fit");
             goto fail;
@@ -3464,7 +3464,7 @@ llvm_jit_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
     module = module_inst->module;
     func_type_indexes = module_inst->func_type_indexes;
     func_type_idx = func_type_indexes[func_idx];
-    func_type = module->types[func_type_idx];
+    func_type = (AOTFuncType *)module->types[func_type_idx];
     func_ptr = module_inst->func_ptrs[func_idx];
 
     bh_assert(func_idx < module->import_function_count);
@@ -3676,7 +3676,7 @@ llvm_jit_table_copy(WASMModuleInstance *module_inst, uint32 src_tbl_idx,
 
 void
 llvm_jit_table_fill(WASMModuleInstance *module_inst, uint32 tbl_idx,
-                    uint32 length, uint32 val, uint32 data_offset)
+                    uint32 length, uintptr_t val, uint32 data_offset)
 {
     WASMTableInstance *tbl_inst;
 
@@ -3696,13 +3696,13 @@ llvm_jit_table_fill(WASMModuleInstance *module_inst, uint32 tbl_idx,
     }
 
     for (; length != 0; data_offset++, length--) {
-        tbl_inst->elems[data_offset] = val;
+        tbl_inst->elems[data_offset] = (table_elem_type_t *)val;
     }
 }
 
 uint32
 llvm_jit_table_grow(WASMModuleInstance *module_inst, uint32 tbl_idx,
-                    uint32 inc_size, uint32 init_val)
+                    uint32 inc_size, uintptr_t init_val)
 {
     WASMTableInstance *tbl_inst;
     uint32 i, orig_size, total_size;
@@ -3735,7 +3735,7 @@ llvm_jit_table_grow(WASMModuleInstance *module_inst, uint32 tbl_idx,
 
     /* fill in */
     for (i = 0; i < inc_size; ++i) {
-        tbl_inst->elems[tbl_inst->cur_size + i] = init_val;
+        tbl_inst->elems[tbl_inst->cur_size + i] = (table_elem_type_t *)init_val;
     }
 
     tbl_inst->cur_size = total_size;

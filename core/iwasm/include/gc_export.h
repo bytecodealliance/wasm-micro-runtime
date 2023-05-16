@@ -20,6 +20,8 @@ typedef enum wasm_value_type_enum {
     VALUE_TYPE_F32 = 0x7D,
     VALUE_TYPE_F64 = 0x7C,
     VALUE_TYPE_V128 = 0x7B,
+    VALUE_TYPE_I8 = 0x7A,
+    VALUE_TYPE_I16 = 0x79,
     VALUE_TYPE_FUNCREF = 0x70,
     VALUE_TYPE_EXTERNREF = 0x6F,
     VALUE_TYPE_ANYREF = 0x6E,

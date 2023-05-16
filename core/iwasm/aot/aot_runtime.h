@@ -10,6 +10,9 @@
 #include "../common/wasm_runtime_common.h"
 #include "../interpreter/wasm_runtime.h"
 #include "../compilation/aot.h"
+#if WASM_ENABLE_GC != 0
+#include "gc_export.h"
+#endif
 
 #if WASM_ENABLE_WASI_NN != 0
 #include "../libraries/wasi-nn/src/wasi_nn_private.h"
@@ -139,8 +142,8 @@ typedef struct AOTModule {
     AOTTableInitData **table_init_data_list;
 
     /* function type info */
-    uint32 func_type_count;
-    AOTFuncType **func_types;
+    uint32 type_count;
+    AOTFuncType **types;
 
     /* import global variable info */
     uint32 import_global_count;

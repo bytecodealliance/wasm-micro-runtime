@@ -20,6 +20,7 @@ extern "C" {
 #endif
 
 typedef InitializerExpression AOTInitExpr;
+typedef WASMType AOTType;
 typedef WASMFuncType AOTFuncType;
 typedef WASMExport AOTExport;
 
@@ -277,7 +278,7 @@ typedef struct AOTNativeSymbol {
 } AOTNativeSymbol;
 
 AOTCompData *
-aot_create_comp_data(WASMModule *module);
+aot_create_comp_data(WASMModule *module, bool gc_enabled);
 
 void
 aot_destroy_comp_data(AOTCompData *comp_data);

@@ -5258,13 +5258,13 @@ wasm_runtime_get_export_func_type(const WASMModuleCommon *module_comm,
         AOTModule *module = (AOTModule *)module_comm;
 
         if (export->index < module->import_func_count) {
-            *out = module->func_types[module->import_funcs[export->index]
-                                          .func_type_index];
+            *out = module->types[module->import_funcs[export->index]
+                                     .func_type_index];
         }
         else {
-            *out = module->func_types
-                       [module->func_type_indexes[export->index
-                                                  - module->import_func_count]];
+            *out =
+                module->types[module->func_type_indexes
+                                  [export->index - module->import_func_count]];
         }
         return true;
     }

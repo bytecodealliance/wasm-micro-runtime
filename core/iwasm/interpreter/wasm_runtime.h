@@ -116,12 +116,25 @@ struct WASMMemoryInstance {
 #endif
 };
 
+/* WASMTableInstance is used to represent table instance in
+ * runtime, to compute the table element address with index
+ * we need to know the element type and the element ref type.
+ * For pointer type, it's 32-bit or 64-bit, align up to 8 bytes
+ * to simplify the computation.
+ * And each struct member should be 4-byte or 8-byte aligned.
+ */
 struct WASMTableInstance {
-#if WASM_ENABLE_GC != 0
     /* The element type */
     uint8 elem_type;
-    WASMRefType *elem_ref_type;
+    uint8 __padding__[7];
+    union {
+#if WASM_ENABLE_GC != 0
+        WASMRefType *elem_ref_type;
+#else
+        uintptr_t elem_ref_type;
 #endif
+        uint64 __padding__;
+    } elem_ref_type;
     /* Current size */
     uint32 cur_size;
     /* Maximum size */
@@ -664,11 +677,11 @@ llvm_jit_table_copy(WASMModuleInstance *module_inst, uint32 src_tbl_idx,
 
 void
 llvm_jit_table_fill(WASMModuleInstance *module_inst, uint32 tbl_idx,
-                    uint32 length, uint32 val, uint32 data_offset);
+                    uint32 length, uintptr_t val, uint32 data_offset);
 
 uint32
 llvm_jit_table_grow(WASMModuleInstance *module_inst, uint32 tbl_idx,
-                    uint32 inc_entries, uint32 init_val);
+                    uint32 inc_entries, uintptr_t init_val);
 #endif
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0 || WASM_ENABLE_PERF_PROFILING != 0
