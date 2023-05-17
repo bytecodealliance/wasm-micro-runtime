@@ -1110,7 +1110,7 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
             FETCH_OPCODE_AND_DISPATCH();                   \
         }                                                  \
         else {                                             \
-          printf(  printf("[%s:%d]\n", __FILE__,__LINE__); \
+            printf("[%s:%d]\n", __FILE__, __LINE__);       \
             _Z17serialize_to_fileP11WASMExecEnv(exec_env); \
         }                                                  \
     } while (0)
