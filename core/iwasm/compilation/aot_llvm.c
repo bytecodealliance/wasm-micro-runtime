@@ -2007,6 +2007,7 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
         os_printf("Create AoT compiler with:\n");
         os_printf("  target:        %s\n", comp_ctx->target_arch);
         os_printf("  target cpu:    %s\n", cpu);
+        os_printf("  target triple: %s\n", triple_norm);
         os_printf("  cpu features:  %s\n", features);
         os_printf("  opt level:     %d\n", opt_level);
         os_printf("  size level:    %d\n", size_level);
@@ -2024,6 +2025,8 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
                 os_printf("  output format: native object file\n");
                 break;
         }
+
+        LLVMSetTarget(comp_ctx->module, triple_norm);
 
         if (!LLVMTargetHasTargetMachine(target)) {
             snprintf(buf, sizeof(buf),
