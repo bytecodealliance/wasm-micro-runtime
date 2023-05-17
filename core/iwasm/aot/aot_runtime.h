@@ -118,6 +118,13 @@ typedef struct AOTUnwindInfo {
 #define PLT_ITEM_SIZE 12
 #endif
 
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+typedef struct GOTItem {
+    uint32 func_idx;
+    struct GOTItem *next;
+} GOTItem, *GOTItemList;
+#endif
+
 typedef struct AOTModule {
     uint32 module_type;
 
@@ -212,6 +219,13 @@ typedef struct AOTModule {
        for AOT functions */
     RUNTIME_FUNCTION *rtl_func_table;
     bool rtl_func_table_registered;
+#endif
+
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+    uint32 got_item_count;
+    GOTItemList got_item_list;
+    GOTItemList got_item_list_end;
+    void **got_func_ptrs;
 #endif
 
     /* data sections in AOT object file, including .data, .rodata

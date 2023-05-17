@@ -2981,10 +2981,7 @@ void
 llvm_profile_instrument_target(uint64 target_value, void *data,
                                uint32 counter_idx)
 {
-#if 0
-    /* TODO */
     instrumentTargetValueImpl(target_value, data, counter_idx, 1);
-#endif
 }
 
 static inline uint32
@@ -3168,7 +3165,6 @@ aot_dump_pgo_prof_data_to_buf(AOTModuleInstance *module_inst, char *buf,
     for (i = 0; i < module->data_section_count; i++) {
         if (!strncmp(module->data_sections[i].name, "__llvm_prf_data", 15)) {
             prof_data = (LLVMProfileData *)module->data_sections[i].data;
-            prof_data->func_ptr = 0;
             prof_data->offset_counters = counters_delta + offset_counters;
             offset_counters += prof_data->num_counters * sizeof(uint64);
             counters_delta -= sizeof(LLVMProfileData);
@@ -3176,7 +3172,12 @@ aot_dump_pgo_prof_data_to_buf(AOTModuleInstance *module_inst, char *buf,
     }
 
     prof_header.magic = 0xFF6C70726F667281LL;
-    prof_header.version = 0x000000000000008LL;
+    /* Version 8 */
+    prof_header.version = 0x0000000000000008LL;
+    /* with VARIANT_MASK_IR_PROF (IR Instrumentation) */
+    prof_header.version |= 0x1ULL << 56;
+    /* with VARIANT_MASK_MEMPROF (Memory Profile) */
+    prof_header.version |= 0x1ULL << 62;
     prof_header.num_prof_data = num_prof_data;
     prof_header.num_prof_counters = num_prof_counters;
     prof_header.names_size = prof_names_size;
