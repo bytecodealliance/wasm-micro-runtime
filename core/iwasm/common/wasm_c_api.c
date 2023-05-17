@@ -3010,9 +3010,9 @@ wasm_func_new_internal(wasm_store_t *store, uint16 func_idx_rt,
         }
         else {
             type_rt =
-                module_aot->func_types[module_aot->func_type_indexes
-                                           [func_idx_rt
-                                            - module_aot->import_func_count]];
+                module_aot
+                    ->types[module_aot->func_type_indexes
+                                [func_idx_rt - module_aot->import_func_count]];
         }
     }
 #endif
