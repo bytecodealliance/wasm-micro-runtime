@@ -1984,6 +1984,7 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
                     if (got_item->func_idx == func_index)
                         break;
                     got_item_idx++;
+                    got_item = got_item->next;
                 }
                 /* Calculate `GOT + G` */
                 symbol_addr = module->got_func_ptrs + got_item_idx;
