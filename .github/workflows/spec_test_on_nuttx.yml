@@ -52,7 +52,7 @@ jobs:
       - name: Install RISC-V Compilers
         if: contains(matrix.nuttx_board_config, 'risc-v')
         run: |
-          curl -L https://static.dev.sifive.com/dev-tools/freedom-tools/v2020.12/riscv64-unknown-elf-toolchain-10.2.0-2020.12.8-x86_64-linux-ubuntu14.tar.gz > riscv.tar.gz
+          curl -L -k https://static.dev.sifive.com/dev-tools/freedom-tools/v2020.12/riscv64-unknown-elf-toolchain-10.2.0-2020.12.8-x86_64-linux-ubuntu14.tar.gz > riscv.tar.gz
           tar xvf riscv.tar.gz
           echo "$PWD/riscv64-unknown-elf-toolchain-10.2.0-2020.12.8-x86_64-linux-ubuntu14/bin" >> $GITHUB_PATH
 

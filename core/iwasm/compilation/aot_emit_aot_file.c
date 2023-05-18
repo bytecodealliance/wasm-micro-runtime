@@ -179,10 +179,8 @@ get_file_header_size()
 static uint32
 get_string_size(AOTCompContext *comp_ctx, const char *s)
 {
-    /* string size (2 bytes) + string content */
-    return (uint32)sizeof(uint16) + (uint32)strlen(s) +
-           /* emit string with '\0' only in XIP mode */
-           (comp_ctx->is_indirect_mode ? 1 : 0);
+    /* string size (2 bytes) + string content + '\0' */
+    return (uint32)sizeof(uint16) + (uint32)strlen(s) + 1;
 }
 
 static uint32
@@ -1072,17 +1070,16 @@ static union {
         offset += len;                \
     } while (0)
 
+/* Emit string with '\0'
+ */
 #define EMIT_STR(s)                                   \
     do {                                              \
-        uint32 str_len = (uint32)strlen(s);           \
+        uint32 str_len = (uint32)strlen(s) + 1;       \
         if (str_len > INT16_MAX) {                    \
             aot_set_last_error("emit string failed: " \
                                "string too long");    \
             return false;                             \
         }                                             \
-        if (comp_ctx->is_indirect_mode)               \
-            /* emit '\0' only in XIP mode */          \
-            str_len++;                                \
         EMIT_U16(str_len);                            \
         EMIT_BUF(s, str_len);                         \
     } while (0)

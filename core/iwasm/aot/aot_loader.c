@@ -306,19 +306,18 @@ const_str_set_insert(const uint8 *str, int32 len, AOTModule *module,
     }
 
     /* Lookup const string set, use the string if found */
-    if (!(c_str = loader_malloc((uint32)len + 1, error_buf, error_buf_size))) {
+    if (!(c_str = loader_malloc((uint32)len, error_buf, error_buf_size))) {
         return NULL;
     }
 #if (WASM_ENABLE_WORD_ALIGN_READ != 0)
     if (is_vram_word_align) {
-        bh_memcpy_wa(c_str, (uint32)(len + 1), str, (uint32)len);
+        bh_memcpy_wa(c_str, (uint32)len, str, (uint32)len);
     }
     else
 #endif
     {
-        bh_memcpy_s(c_str, (uint32)(len + 1), str, (uint32)len);
+        bh_memcpy_s(c_str, len, str, (uint32)len);
     }
-    c_str[len] = '\0';
 
     if ((value = bh_hash_map_find(set, c_str))) {
         wasm_runtime_free(c_str);
@@ -363,22 +362,18 @@ load_string(uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         }
     }
 #endif
-    else if (p[str_len - 1] == '\0') {
-        /* The string is terminated with '\0', use it directly */
-        str = (char *)p;
-    }
     else if (is_load_from_file_buf) {
-        /* As the file buffer can be referred to after loading,
-           we use the 2 bytes of size to adjust the string:
-           move string 2 byte backward and then append '\0' */
-        str = (char *)(p - 2);
-        bh_memmove_s(str, (uint32)(str_len + 1), p, (uint32)str_len);
-        str[str_len] = '\0';
+        /* The string is always terminated with '\0', use it directly.
+         * In this case, the file buffer can be reffered to after loading.
+         */
+        bh_assert(p[str_len - 1] == '\0');
+        str = (char *)p;
     }
     else {
         /* Load from sections, the file buffer cannot be reffered to
            after loading, we must create another string and insert it
            into const string set */
+        bh_assert(p[str_len - 1] == '\0');
         if (!(str = const_str_set_insert((uint8 *)p, str_len, module,
 #if (WASM_ENABLE_WORD_ALIGN_READ != 0)
                                          is_vram_word_align,
