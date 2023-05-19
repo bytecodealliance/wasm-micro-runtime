@@ -107,6 +107,15 @@ read_leb(const uint8 *buf, const uint8 *buf_end, uint32 *p_offset,
         res = (int64)res64;                              \
     } while (0)
 
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+extern uint32_t
+wasm_dpgo_set_instrs_with_prof_md(WASMModule *module, uint32_t func_idx,
+                                  LLVMValueRef value, uint32_t location);
+
+extern void
+wasm_dpgo_set_prof_meta(AOTCompContext *comp_ctx, uint32_t func_idx);
+#endif
+
 /**
  * Since Wamrc uses a full feature Wasm loader,
  * add a post-validator here to run checks according
@@ -184,6 +193,10 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 #if WASM_ENABLE_DEBUG_AOT != 0
     LLVMMetadataRef location;
 #endif
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+    WASMModule *wasm_module = comp_ctx->comp_data->wasm_module;
+    uint32 instr_prof_data_location = 1;
+#endif
 
     /* Start to translate the opcodes */
     LLVMPositionBuilderAtEnd(
@@ -197,6 +210,12 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
             comp_ctx, func_ctx,
             (frame_ip - 1) - comp_ctx->comp_data->wasm_module->buf_code);
         LLVMSetCurrentDebugLocation2(comp_ctx->builder, location);
+#endif
+
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+        instr_prof_data_location = wasm_dpgo_set_instrs_with_prof_md(
+            wasm_module, wasm_module->import_function_count + func_index,
+            func_ctx->func, instr_prof_data_location);
 #endif
 
         switch (opcode) {
@@ -2691,13 +2710,29 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
         }
     }
 
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+    for (i = 0; i < comp_ctx->func_ctx_count; i++) {
+        wasm_dpgo_set_prof_meta(
+            comp_ctx,
+            comp_ctx->comp_data->wasm_module->import_function_count + i);
+    }
+#endif
+
+#ifndef NDEBUG
+    LLVMDumpModule(comp_ctx->module);
+    os_printf("\n");
+#endif
+
 #if WASM_ENABLE_DEBUG_AOT != 0
     LLVMDIBuilderFinalize(comp_ctx->debug_builder);
 #endif
 
     /* Disable LLVM module verification for jit mode to speedup
        the compilation process */
-    if (!comp_ctx->is_jit_mode) {
+#if !(WASM_ENABLE_DYNAMIC_PGO != 0)
+    if (!comp_ctx->is_jit_mode)
+#endif
+    {
         bh_print_time("Begin to verify LLVM module");
         if (!verify_module(comp_ctx)) {
             return false;
