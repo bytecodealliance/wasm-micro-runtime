@@ -17,3 +17,5 @@ And then run `./build.sh` to build the source code, file `coremark.exe`, `corema
 # Running
 
 Run `./run.sh` to test the benchmark, the native mode, iwasm aot mode and iwasm interpreter mode will be tested respectively.
+
+Run `./test_pog.sh` to test the benchmark with AOT static PGO (Profile-Guided Optimization) enabled, please install `llvm-profdata` first.
