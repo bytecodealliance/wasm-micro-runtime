@@ -2539,8 +2539,6 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
 
         module->got_item_count = got_item_count;
     }
-#else
-    (void)got_item_idx;
 #endif /* end of defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) \
                  || defined(BUILD_TARGET_X86_32) */
 
