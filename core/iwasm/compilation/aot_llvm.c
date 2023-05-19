@@ -124,6 +124,7 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
     backend_thread_num = WASM_ORC_JIT_BACKEND_THREAD_NUM;
     compile_thread_num = WASM_ORC_JIT_COMPILE_THREAD_NUM;
 
+#if WASM_ENABLE_DYNAMIC_PGO == 0
     /* Add the jit wrapper function with simple prototype, so that we
        can easily call it to trigger its compilation and let LLVM JIT
        compile the actual jit functions by adding them into the function
@@ -157,6 +158,7 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
             goto fail;
         }
     }
+#endif /* WASM_ENABLE_DYNAMIC_PGO == 0 */
 
 fail:
     wasm_runtime_free(param_types);
@@ -1456,6 +1458,67 @@ fail:
     return ret;
 }
 
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+/*
+ * func_name should be in a form likes "aot_func#NNN".
+ * extract NNN from func_name, and NNN -> func_idx
+ */
+static bool
+retrieve_func_idx_from_aot_func_name(const char *func_name, uint32 *func_idx)
+{
+    /* make sure func_name starts with AOT_FUNC_PREFIX */
+    if (!(strstr(func_name, AOT_FUNC_PREFIX) == func_name))
+        return false;
+
+    *func_idx = atoi(func_name + strlen(AOT_FUNC_PREFIX));
+    return true;
+}
+
+static LLVMErrorRef
+apply_prof_meta_and_opt(void *Ctx, LLVMModuleRef Mod)
+{
+    AOTCompContext *comp_ctx = (AOTCompContext *)Ctx;
+    WASMModule *wasm_module = comp_ctx->comp_data->wasm_module;
+    LLVMValueRef cur = LLVMGetFirstFunction(Mod);
+    LLVMValueRef next;
+
+    while (cur && !wasm_module->orcjit_stop_compiling) {
+        size_t size = 0;
+        const char *func_name = LLVMGetValueName2(cur, &size);
+        uint32 func_idx;
+
+        if (retrieve_func_idx_from_aot_func_name(func_name, &func_idx)) {
+            LOG_DEBUG("  --> Add prof meta into %s",
+                      LLVMGetValueName2(cur, &size));
+            wasm_dpgo_set_prof_meta(
+                comp_ctx, cur,
+                comp_ctx->comp_data->wasm_module->import_function_count
+                    + func_idx);
+        }
+
+        next = LLVMGetNextFunction(cur);
+        cur = next;
+    }
+
+    if (wasm_module->orcjit_stop_compiling) {
+        LOG_WARNING("quit because of orcjit_stop_compiling");
+        return LLVMErrorSuccess;
+    }
+
+    // FIXME:
+    // aot_apply_llvm_new_pass_manger(comp_ctx, Mod);
+    return LLVMErrorSuccess;
+}
+
+static LLVMErrorRef
+transform(void *Ctx, LLVMOrcThreadSafeModuleRef *ModInOut,
+          LLVMOrcMaterializationResponsibilityRef MR)
+{
+    return LLVMOrcThreadSafeModuleWithModuleDo(*ModInOut,
+                                               apply_prof_meta_and_opt, Ctx);
+}
+#endif
+
 static bool
 orc_jit_create(AOTCompContext *comp_ctx)
 {
@@ -1490,6 +1553,15 @@ orc_jit_create(AOTCompContext *comp_ctx)
                                err);
         goto fail;
     }
+
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+    {
+        LLVMOrcIRTransformLayerRef TL =
+            LLVMOrcLLLazyJITGetIRTransformLayer(orc_jit);
+        LLVMOrcIRTransformLayerSetTransform(TL, transform, comp_ctx);
+    }
+#endif
+
     /* Ownership transfer: LLVMOrcLLJITBuilderRef -> LLVMOrcLLJITRef */
     builder = NULL;
 

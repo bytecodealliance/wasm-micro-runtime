@@ -519,6 +519,12 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module);
 void
 aot_handle_llvm_errmsg(const char *string, LLVMErrorRef err);
 
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+void
+wasm_dpgo_set_prof_meta(AOTCompContext *comp_ctx, LLVMValueRef function,
+                        uint32 func_idx);
+#endif
+
 #ifdef __cplusplus
 } /* end of extern "C" */
 #endif

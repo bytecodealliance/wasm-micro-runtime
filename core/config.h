@@ -449,4 +449,16 @@
 #define WASM_ENABLE_DYNAMIC_PGO 0
 #endif
 
+/*
+ * a default value about how many times a function
+ * should be executed before generating a more
+ * optimized version with a high-level jit
+ *
+ * TODO: should be removed after adding a new
+ * command line option of iwasm
+ */
+#ifndef WASM_DPGO_TIER_UP_THRESHOLD
+#define WASM_DPGO_TIER_UP_THRESHOLD 100
+#endif
+
 #endif /* end of _CONFIG_H_ */

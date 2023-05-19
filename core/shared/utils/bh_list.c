@@ -47,6 +47,28 @@ bh_list_insert(bh_list *list, void *elem)
 }
 
 bh_list_status
+bh_list_append(bh_list *list, void *elem)
+{
+    bh_list_link *p = NULL;
+
+    if (!list || !elem)
+        return BH_LIST_ERROR;
+
+#if BH_DEBUG != 0
+    bh_assert(!bh_list_is_elem_exist(list, elem));
+#endif
+
+    p = &(list->head);
+    while (p->next)
+        p = p->next;
+
+    p->next = elem;
+    ((bh_list_link *)elem)->next = NULL;
+    list->len++;
+    return BH_LIST_SUCCESS;
+}
+
+bh_list_status
 bh_list_remove(bh_list *list, void *elem)
 {
     bh_list_link *cur = NULL;

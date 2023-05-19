@@ -404,6 +404,18 @@ typedef struct OrcJitThreadArg {
 
 struct WASMModuleInstance;
 
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+/* TODO: keep it in DEBUG building */
+struct WASMProfCntInfo {
+    bh_list_link l;
+    uint32 func_idx;
+    uint32 offset;
+    uint32 opcode;
+    uint32 counter_amount;
+    uint32 first_counter_idx;
+};
+#endif
+
 struct WASMModule {
     /* Module type, for module loaded from WASM bytecode binary,
        this field is Wasm_Module_Bytecode;
@@ -582,6 +594,12 @@ struct WASMModule {
     korp_tid orcjit_threads[WASM_ORC_JIT_BACKEND_THREAD_NUM];
     /* backend thread arguments */
     OrcJitThreadArg orcjit_thread_args[WASM_ORC_JIT_BACKEND_THREAD_NUM];
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+    /* immediately stop */
+    korp_mutex orcjit_stop_lock;
+    korp_cond orcjit_stop_cond;
+    bool orcjit_stop_lock_inited;
+#endif /*WASM_ENABLE_DYNAMIC_PGO != 0*/
     /* whether to stop the compilation of backend threads */
     bool orcjit_stop_compiling;
 #endif
@@ -615,6 +633,15 @@ struct WASMModule {
      * in a row, [0] is the capacity. [1] is the funtion entry counter.
      */
     uint32 **ent_and_br_cnts;
+
+    /*
+     * bh_list[function_count]
+     * a counter list with more information
+     * it is an array of bh_list.
+     * Every row represents a function counters information
+     * [0] is the function entry counter info
+     */
+    bh_list *prof_cnts_info;
 #endif
 };
 
@@ -818,6 +845,34 @@ wasm_dpgo_get_ent_cnt_value(WASMModule *module, uint32 func_idx)
     uint32 *ent_and_br_cnts =
         wasm_dpgo_get_ent_and_br_cnts(module, func_idx, NULL);
     return ent_and_br_cnts ? ent_and_br_cnts[1] : 0;
+}
+
+static inline bh_list *
+wasm_dpgo_get_func_prof_cnts_info(WASMModule *module, uint32 func_idx)
+{
+    return module->prof_cnts_info + func_idx;
+}
+
+static inline struct WASMProfCntInfo *
+wasm_dpgo_get_cur_prof_cnt_info(WASMModule *module, uint32 func_idx,
+                                uint32 info_idx)
+{
+    bh_list *func_prof_cnts_info =
+        wasm_dpgo_get_func_prof_cnts_info(module, func_idx);
+    void *elem = bh_list_first_elem(func_prof_cnts_info);
+    while (info_idx-- > 0) {
+        elem = bh_list_elem_next(elem);
+    }
+    return (struct WASMProfCntInfo *)elem;
+}
+
+static inline void
+wasm_dpgo_dump_prof_cnt_info(struct WASMProfCntInfo *cnt, char *buf,
+                             uint32 buf_size)
+{
+    snprintf(buf, buf_size, "  OP:0x%x,OFFSET:%u,CNT:%u,1ST_IDX:%u",
+             cnt->opcode, cnt->offset, cnt->counter_amount,
+             cnt->first_counter_idx);
 }
 
 #endif /* WASM_ENABLE_DYNAMIC_PGO != 0 */
