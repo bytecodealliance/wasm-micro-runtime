@@ -615,6 +615,13 @@ struct WASMModule {
      * in a row, [0] is the capacity. [1] is the funtion entry counter.
      */
     uint32 **ent_and_br_cnts;
+    /*
+     * it is a 2-dim array. [function_count][]
+     * every row represents all instructions which requires !prof metadata of a
+     * function
+     * in a row, [0] is the capacity. [1] is the funtion. [2..] are instructions
+     */
+    void *instrs_with_prof_md;
 #endif
 };
 
@@ -818,6 +825,18 @@ wasm_dpgo_get_ent_cnt_value(WASMModule *module, uint32 func_idx)
     uint32 *ent_and_br_cnts =
         wasm_dpgo_get_ent_and_br_cnts(module, func_idx, NULL);
     return ent_and_br_cnts ? ent_and_br_cnts[1] : 0;
+}
+
+static inline void *
+wasm_dpgo_get_instrs_with_prof_md(WASMModule *module, uint32 func_idx,
+                                  uint32 *capacity)
+{
+    void *instrs_with_prof_md =
+        ((void **)module->instrs_with_prof_md)[func_idx];
+    if (capacity)
+        *capacity = instrs_with_prof_md ? *(uint64 *)instrs_with_prof_md : 0;
+
+    return instrs_with_prof_md;
 }
 
 #endif /* WASM_ENABLE_DYNAMIC_PGO != 0 */

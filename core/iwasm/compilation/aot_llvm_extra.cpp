@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#include "llvm-c/Types.h"
+#include "llvm/IR/MDBuilder.h"
 #include <llvm/Passes/StandardInstrumentations.h>
 #include <llvm/Support/Error.h>
 #include <llvm/ADT/SmallVector.h>
@@ -11,6 +13,7 @@
 #include <llvm/Analysis/TargetTransformInfo.h>
 #include <llvm/CodeGen/TargetPassConfig.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
+#include <llvm/IR/Function.h>
 #include <llvm/MC/MCSubtargetInfo.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Target/TargetMachine.h>
@@ -48,6 +51,9 @@
 #include <cstring>
 #include "../aot/aot_runtime.h"
 #include "aot_llvm.h"
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+#include "wasm.h"
+#endif
 
 using namespace llvm;
 using namespace llvm::orc;
@@ -66,6 +72,13 @@ aot_add_simple_loop_unswitch_pass(LLVMPassManagerRef pass);
 void
 aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module);
 
+uint32_t
+wasm_dpgo_set_instrs_with_prof_md(WASMModule *module, uint32_t func_idx,
+                                  LLVMValueRef value, uint32_t location);
+
+void
+wasm_dpgo_set_prof_meta(AOTCompContext *comp_ctx, uint32_t func_idx);
+
 LLVM_C_EXTERN_C_END
 
 ExitOnError ExitOnErr;
@@ -77,7 +90,8 @@ class ExpandMemoryOpPass : public llvm::ModulePass
 
     ExpandMemoryOpPass()
       : ModulePass(ID)
-    {}
+    {
+    }
 
     bool runOnModule(Module &M) override;
 
@@ -358,3 +372,134 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
 
     MPM.run(*M, MAM);
 }
+
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+uint32_t
+wasm_dpgo_set_instrs_with_prof_md(WASMModule *module, uint32_t func_idx,
+                                  LLVMValueRef value, uint32_t location)
+{
+    uint32_t capacity = 0;
+    LLVMValueRef *instr_list =
+        (LLVMValueRef *)wasm_dpgo_get_instrs_with_prof_md(module, func_idx,
+                                                          &capacity);
+
+    bh_assert(location < capacity && "Invalid location");
+
+    if (LLVMGetValueKind(value) == LLVMInstructionValueKind || location != 1)
+        bh_assert("Invalid value for location");
+
+    instr_list[location] = value;
+    return location++;
+}
+
+void
+wasm_dpgo_set_function_entry_count(LLVMValueRef function, uint32_t count)
+{
+    Function *F = unwrap<Function>(function);
+    if (F->hasProfileData()) {
+        uint64_t current_count = F->getEntryCount().getValue().getCount();
+        if (current_count == count)
+            return;
+    }
+
+    F->setEntryCount(count, Function::PCT_Real);
+}
+
+void
+wasm_dpgo_set_branch_weights(LLVMModuleRef module, LLVMValueRef instruction,
+                             uint32_t *counts, uint32_t counts_size)
+{
+    Module *M = reinterpret_cast<Module *>(module);
+    MDBuilder MDB(M->getContext());
+
+    SmallVector<unsigned, 4> Weights;
+    for (unsigned i = 0; i < counts_size; i++)
+        Weights.push_back(counts[i]);
+
+    Instruction *I = unwrap<Instruction>(instruction);
+    I->setMetadata(LLVMContext::MD_prof, MDB.createBranchWeights(Weights));
+}
+
+void
+wasm_dpgo_set_irr_loop(LLVMModuleRef module, LLVMValueRef instruction,
+                       uint32_t count)
+{
+    Module *M = reinterpret_cast<Module *>(module);
+    MDBuilder MDB(M->getContext());
+
+    Instruction *I = unwrap<Instruction>(instruction);
+    I->setMetadata(llvm::LLVMContext::MD_irr_loop,
+                   MDB.createIrrLoopHeaderWeight(count));
+}
+
+void
+wasm_dpgo_set_vp(LLVMModuleRef module, LLVMValueRef instruction,
+                 uint32_t *counts, uint32_t counts_size)
+{
+    /*
+    TODO:
+    using
+    void annotateValueSite(Module &M, Instruction &Inst,
+                           const InstrProfRecord &InstrProfR,
+                           InstrProfValueKind ValueKind, uint32_t SiteIndx,
+                           uint32_t MaxMDCount = 3);
+
+    Valuekind is 0(IPVK_IndirectCallTarget),
+    MaxMDCount needs to be defined
+    */
+}
+
+/*
+ * Set prof metadata (!prof) for a function by given func_idx
+ *
+ * Instead of visiting all instructions in a function, we only need
+ * to traversal an instruciton list, which is stored in the WASMModule.
+ * It is created during the llvm jit compilation of a function.
+ */
+void
+wasm_dpgo_set_prof_meta(AOTCompContext *comp_ctx, uint32_t func_idx)
+{
+    WASMModule *wasm_module = comp_ctx->comp_data->wasm_module;
+    uint32_t capacity = 0;
+    LLVMValueRef *instr_list =
+        (LLVMValueRef *)wasm_dpgo_get_instrs_with_prof_md(wasm_module, func_idx,
+                                                          &capacity);
+
+    /* set function entry count for every function */
+    LLVMValueRef function = instr_list[1];
+    bh_assert(LLVMGetValueKind(function) == LLVMFunctionValueKind
+              && "[1] should be a function");
+    /* FIXME: fake value*/
+    // wasm_dpgo_set_function_entry_count(
+    //     function, wasm_dpgo_get_ent_cnt_value(wasm_module, func_idx));
+    wasm_dpgo_set_function_entry_count(function, capacity);
+
+    /* set profiling metadata for some instructions */
+    for (unsigned i = 2; i < capacity; i++) {
+        LLVMValueRef instruciton = instr_list[i];
+        if (!instruciton)
+            continue;
+
+        bh_assert(LLVMGetValueKind(instruciton) == LLVMInstructionValueKind
+                  && "[>1] should be a function");
+
+        if (LLVMGetInstructionOpcode(instruciton) == LLVMCall) {
+            /* TODO: add VP*/
+            continue;
+        }
+
+#ifndef NDEBUG
+        LLVMDumpValue(instruciton);
+#endif
+
+        int num_operands = LLVMGetNumOperands(instruciton);
+        LOG_WARNING("num_operands: %d", num_operands);
+        if (LLVMGetInstructionOpcode(instruciton) == LLVMBr) {
+        }
+        else if (LLVMGetInstructionOpcode(instruciton) == LLVMSwitch) {
+        }
+        else if (LLVMGetInstructionOpcode(instruciton) == LLVMSelect) {
+        }
+    }
+}
+#endif /* WASM_ENABLE_DYNAMIC_PGO != 0 */

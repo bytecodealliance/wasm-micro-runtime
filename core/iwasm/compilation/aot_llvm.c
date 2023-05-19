@@ -936,6 +936,8 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
         goto fail;
     }
 
+    bh_assert(LLVMGetValueKind(func_ctx->func) == LLVMFunctionValueKind && "0");
+
     /* Create function's first AOTBlock */
     if (!(aot_block =
               aot_create_func_block(comp_ctx, func_ctx, func, aot_func_type))) {

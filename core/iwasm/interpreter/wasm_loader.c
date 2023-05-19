@@ -3002,7 +3002,8 @@ init_llvm_jit_functions_stage1(WASMModule *module, char *error_buf,
     if (module->function_count == 0)
         return true;
 
-#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_LLVM_JIT != 0
+#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
+    && WASM_ENABLE_LAZY_JIT != 0
     if (os_mutex_init(&module->tierup_wait_lock) != 0) {
         set_error_buf(error_buf, error_buf_size, "init jit tierup lock failed");
         return false;
@@ -3720,9 +3721,15 @@ load_from_sections(WASMModule *module, WASMSection *sections,
         sizeof(void *)
             * (module->import_function_count + module->function_count),
         error_buf, error_buf_size);
-    if (!module->ent_and_br_cnts) {
+    if (!module->ent_and_br_cnts)
         return false;
-    }
+
+    module->instrs_with_prof_md = loader_malloc(
+        sizeof(void *)
+            * (module->import_function_count + module->function_count),
+        error_buf, error_buf_size);
+    if (!module->instrs_with_prof_md)
+        return false;
 #endif
 
     for (i = 0; i < module->function_count; i++) {
@@ -10205,14 +10212,30 @@ re_scan:
     func->max_block_num = loader_ctx->max_csp_num;
 
 #if WASM_ENABLE_DYNAMIC_PGO != 0
-    uint32 *ent_and_br_cnts = loader_malloc(
-        sizeof(uint32) * ent_and_br_cnts_cap, error_buf, error_buf_size);
-    if (!ent_and_br_cnts)
-        goto fail;
+    {
+        uint32 *ent_and_br_cnts;
+        void *instrs_with_prof_md;
 
-    ent_and_br_cnts[0] = ent_and_br_cnts_cap;
-    module->ent_and_br_cnts[module->import_function_count + cur_func_idx] =
-        ent_and_br_cnts;
+        ent_and_br_cnts = loader_malloc(sizeof(uint32) * ent_and_br_cnts_cap,
+                                        error_buf, error_buf_size);
+        if (!ent_and_br_cnts)
+            goto fail;
+
+        ent_and_br_cnts[0] = ent_and_br_cnts_cap;
+        module->ent_and_br_cnts[module->import_function_count + cur_func_idx] =
+            ent_and_br_cnts;
+
+        instrs_with_prof_md = loader_malloc(
+            sizeof(void *) * ent_and_br_cnts_cap, error_buf, error_buf_size);
+        if (!instrs_with_prof_md)
+            goto fail;
+
+        *(uint64 *)instrs_with_prof_md = ent_and_br_cnts_cap;
+        ((void **)module->instrs_with_prof_md)[module->import_function_count
+                                               + cur_func_idx] =
+            instrs_with_prof_md;
+    }
+
 #endif
 
     return_value = true;
