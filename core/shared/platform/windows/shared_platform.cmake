@@ -5,7 +5,7 @@ set (PLATFORM_SHARED_DIR ${CMAKE_CURRENT_LIST_DIR})
 
 add_definitions(-DBH_PLATFORM_WINDOWS)
 add_definitions(-DHAVE_STRUCT_TIMESPEC)
-
+add_definitions(-D_WINSOCK_DEPRECATED_NO_WARNINGS)
 
 include_directories(${PLATFORM_SHARED_DIR})
 include_directories(${PLATFORM_SHARED_DIR}/../include)

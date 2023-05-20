@@ -283,7 +283,7 @@ typedef struct AOTLLVMConsts {
  * Compiler context
  */
 typedef struct AOTCompContext {
-    AOTCompData *comp_data;
+    const AOTCompData *comp_data;
 
     /* LLVM variables required to emit LLVM IR */
     LLVMContextRef context;
@@ -447,7 +447,7 @@ void
 aot_compiler_destroy(void);
 
 AOTCompContext *
-aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option);
+aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option);
 
 void
 aot_destroy_comp_context(AOTCompContext *comp_ctx);
@@ -486,7 +486,7 @@ void
 aot_block_destroy(AOTBlock *block);
 
 LLVMTypeRef
-wasm_type_to_llvm_type(AOTLLVMTypes *llvm_types, uint8 wasm_type);
+wasm_type_to_llvm_type(const AOTLLVMTypes *llvm_types, uint8 wasm_type);
 
 bool
 aot_checked_addr_list_add(AOTFuncContext *func_ctx, uint32 local_idx,
