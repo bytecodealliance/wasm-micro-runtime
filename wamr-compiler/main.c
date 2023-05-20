@@ -66,10 +66,10 @@ print_help()
     printf("  --disable-llvm-intrinsics Disable the LLVM built-in intrinsics\n");
     printf("  --disable-llvm-lto        Disable the LLVM link time optimization\n");
     printf("  --enable-segue[=<flags>]  Enable using segment register GS as the base address of linear memory,\n");
-    printf("                            only available on linux x86-64, flags can be:\n");
-    printf("                              i32.load, i64.load, f32.load, f64.load, v128.load,\n");
-    printf("                              i32.store, i64.store, f32.store, f64.store, v128.store\n");
-    printf("                            Using comma to seperate, e.g. --enable-segue=i32.load,i64.store\n");
+    printf("                            only available on linux/linux-sgx x86-64, which may improve performance,\n");
+    printf("                            flags can be: i32.load, i64.load, f32.load, f64.load, v128.load,\n");
+    printf("                                          i32.store, i64.store, f32.store, f64.store, v128.store\n");
+    printf("                            Use comma to seperate, e.g. --enable-segue=i32.load,i64.store\n");
     printf("                            and --enable-segue means all flags are added.\n");
     printf("  --emit-custom-sections=<section names>\n");
     printf("                            Emit the specified custom sections to AoT file, using comma to separate\n");
@@ -90,7 +90,7 @@ print_help()
     } while (0)
 
 /**
- * Split a strings into an array of strings
+ * Split a string into an array of strings
  * Returns NULL on failure
  * Memory must be freed by caller
  * Based on: http://stackoverflow.com/a/11198630/471795
@@ -174,8 +174,8 @@ resolve_segue_flags(char *str_flags)
             }
             else {
                 /* invalid flag */
-                free(flag_list);
-                return (uint32)-1;
+                segue_flags = (uint32)-1;
+                break;
             }
         }
         free(flag_list);
@@ -337,10 +337,6 @@ main(int argc, char *argv[])
             option.segue_flags = resolve_segue_flags(argv[0] + 15);
             if (option.segue_flags == (uint32)-1)
                 PRINT_HELP_AND_EXIT();
-        }
-        else if (!strcmp(argv[0], "--disable-segue")) {
-            /* all flags are disabled */
-            option.segue_flags = 0;
         }
         else if (!strncmp(argv[0], "--emit-custom-sections=", 23)) {
             int len = 0;
