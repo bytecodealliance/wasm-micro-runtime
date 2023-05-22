@@ -5,6 +5,9 @@
 
 #include "jit_utils.h"
 #include "jit_compiler.h"
+#if BH_DEBUG != 0
+#include "jit_dump.h"
+#endif
 
 #if BH_DEBUG != 0
 #define VREG_DEF_SANITIZER
@@ -388,7 +391,11 @@ check_vreg_definition(RegallocContext *rc, JitInsn *insn)
             continue;
 
         vr = rc_get_vr(rc, *regp);
-        bh_assert(vr->distances);
+        if (!vr->distances) {
+            os_printf("vreg#%d is not defined before use in insn\n", i);
+            jit_dump_insn(rc->cc, insn);
+            bh_assert(vr->distances && "vreg is not defined before use");
+        }
     }
 }
 #endif

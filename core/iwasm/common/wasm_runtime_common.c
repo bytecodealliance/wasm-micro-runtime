@@ -1090,6 +1090,8 @@ static WASMModuleCommon *
 register_module_with_null_name(WASMModuleCommon *module_common, char *error_buf,
                                uint32 error_buf_size)
 {
+    (void)error_buf;
+    (void)error_buf_size;
 #if WASM_ENABLE_MULTI_MODULE != 0
     if (module_common) {
         if (!wasm_runtime_register_module_internal(NULL, module_common, NULL, 0,
@@ -2941,6 +2943,9 @@ fail:
         wasm_runtime_free(ns_lookup_buf);
     if (ns_lookup_list)
         wasm_runtime_free(ns_lookup_list);
+
+    (void)map_dir_list;
+    (void)map_dir_count;
     return false;
 }
 #else  /* else of WASM_ENABLE_UVWASI == 0 */
@@ -3440,6 +3445,8 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
 fail:
     if (argv1 != argv_buf)
         wasm_runtime_free(argv1);
+
+    (void)argc;
     return ret;
 }
 
@@ -4456,6 +4463,7 @@ fail:
     if (argv1 != argv_buf)
         wasm_runtime_free(argv1);
 
+    (void)argc;
     return ret;
 }
 
@@ -5328,6 +5336,7 @@ results_to_argv(WASMModuleInstanceCommon *module_inst, uint32 *out_argv,
         }
     }
 
+    (void)module_inst;
     return true;
 }
 
@@ -5418,6 +5427,8 @@ fail:
         wasm_runtime_free(params);
     if (results != results_buf)
         wasm_runtime_free(results);
+
+    (void)argc;
     return ret;
 }
 
