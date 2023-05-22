@@ -153,6 +153,10 @@ jit_compiler_compile(WASMModule *module, uint32 func_idx)
     cc->mem_space_unchanged = (!cc->cur_wasm_func->has_op_memory_grow
                                && !cc->cur_wasm_func->has_op_func_call)
                               || (!module->possible_memory_grow);
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+    cc->ent_and_bw_cnts_idx = 1;
+    cc->vp_cnts_idx = 1;
+#endif
 
     /* Apply compiler passes */
     if (!apply_compiler_passes(cc) || jit_get_last_error(cc)) {

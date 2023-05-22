@@ -273,6 +273,8 @@ read_i8x16(uint8 *p_buf, char *error_buf, uint32 error_buf_size)
         result.i8x16[i] = read_uint8(p_buf);
     }
 
+    (void)error_buf;
+    (void)error_buf_size;
     return result;
 }
 #endif /* end of (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) */
@@ -3714,6 +3716,16 @@ load_from_sections(WASMModule *module, WASMSection *sections,
     handle_table = wasm_interp_get_handle_table();
 #endif
 
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+    module->ent_and_br_cnts = loader_malloc(
+        sizeof(void *)
+            * (module->import_function_count + module->function_count),
+        error_buf, error_buf_size);
+    if (!module->ent_and_br_cnts) {
+        return false;
+    }
+#endif
+
     for (i = 0; i < module->function_count; i++) {
         WASMFunction *func = module->functions[i];
         if (!wasm_loader_prepare_bytecode(module, func, i, error_buf,
@@ -4266,6 +4278,42 @@ fail:
     return NULL;
 }
 
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+#ifndef NDEBUG
+void
+wasm_runtime_dump_pgo_info(WASMModule *module)
+{
+    for (unsigned i = 0;
+         i < (module->import_function_count + module->function_count); i++) {
+        uint32 ent_and_br_cnts_capacity = 0;
+        uint32 *ent_and_br_cnts =
+            wasm_dpgo_get_ent_and_br_cnts(module, i, &ent_and_br_cnts_capacity);
+
+        if (i < module->import_function_count) {
+            bh_assert(!ent_and_br_cnts
+                      && "should be no counter for an import func");
+            continue;
+        }
+
+        LOG_WARNING("Counters of Func#%u: CAPACITY: %u", i,
+                    ent_and_br_cnts_capacity);
+
+        if (ent_and_br_cnts_capacity == 0)
+            continue;
+
+        uint32 func_ent_cnt_value = wasm_dpgo_get_ent_cnt_value(module, i);
+        LOG_WARNING("  [1] : %u", func_ent_cnt_value);
+
+        for (unsigned j = 2; j < ent_and_br_cnts_capacity; j++) {
+            uint32 cnt_val = ent_and_br_cnts[j];
+            if (cnt_val)
+                LOG_WARNING("  [%u] : %u", j, cnt_val);
+        }
+    }
+}
+#endif
+#endif
+
 void
 wasm_loader_unload(WASMModule *module)
 {
@@ -4445,6 +4493,23 @@ wasm_loader_unload(WASMModule *module)
         if (module->fast_jit_thread_locks_inited[i]) {
             os_mutex_destroy(&module->fast_jit_thread_locks[i]);
         }
+    }
+#endif
+
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+#ifndef NDEBUG
+    wasm_runtime_dump_pgo_info(module);
+#endif
+
+    if (module->ent_and_br_cnts) {
+        for (i = 0; i < module->function_count; i++) {
+            uint32 *ent_and_br_cnts =
+                wasm_dpgo_get_ent_and_br_cnts(module, i, NULL);
+            if (ent_and_br_cnts)
+                wasm_runtime_free(ent_and_br_cnts);
+        }
+        wasm_runtime_free(module->ent_and_br_cnts);
+        module->ent_and_br_cnts = NULL;
     }
 #endif
 
@@ -5382,6 +5447,8 @@ wasm_loader_ctx_init(WASMFunction *func, char *error_buf, uint32 error_buf_size)
         loader_ctx->max_dynamic_offset =
             func->param_cell_num + func->local_cell_num;
 #endif
+
+    (void)func;
     return loader_ctx;
 
 fail:
@@ -7224,6 +7291,11 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
            func->param_cell_num, func->local_cell_num, func->ret_cell_num);
 #endif
 
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+    /* always [0] for capacity, [1] for entry */
+    uint32 ent_and_br_cnts_cap = 2;
+#endif
+
     global_count = module->import_global_count + module->global_count;
 
     param_count = func->func_type->param_count;
@@ -7290,6 +7362,9 @@ re_scan:
                 PRESERVE_LOCAL_FOR_BLOCK();
 #endif
                 POP_I32();
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+                ent_and_br_cnts_cap += 2;
+#endif
                 goto handle_op_block_and_loop;
             case WASM_OP_BLOCK:
             case WASM_OP_LOOP:
@@ -7573,6 +7648,9 @@ re_scan:
                           loader_ctx, &p, p_end, error_buf, error_buf_size)))
                     goto fail;
 
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+                ent_and_br_cnts_cap += 2;
+#endif
                 break;
             }
 
@@ -7683,6 +7761,10 @@ re_scan:
 
                 RESET_STACK();
                 SET_CUR_BLOCK_STACK_POLYMORPHIC_STATE(true);
+
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+                ent_and_br_cnts_cap += count;
+#endif
                 break;
             }
 
@@ -8056,6 +8138,9 @@ re_scan:
 #endif
                     PUSH_TYPE(VALUE_TYPE_ANY);
                 }
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+                ent_and_br_cnts_cap += 2;
+#endif
                 break;
             }
 
@@ -8138,6 +8223,10 @@ re_scan:
 #endif /* WASM_ENABLE_FAST_INTERP != 0 */
 
                 (void)vec_len;
+
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+                ent_and_br_cnts_cap += vec_len;
+#endif
                 break;
             }
 
@@ -10120,6 +10209,18 @@ re_scan:
     func->max_stack_cell_num = loader_ctx->max_stack_cell_num;
 #endif
     func->max_block_num = loader_ctx->max_csp_num;
+
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+    uint32 *ent_and_br_cnts = loader_malloc(
+        sizeof(uint32) * ent_and_br_cnts_cap, error_buf, error_buf_size);
+    if (!ent_and_br_cnts)
+        goto fail;
+
+    ent_and_br_cnts[0] = ent_and_br_cnts_cap;
+    module->ent_and_br_cnts[module->import_function_count + cur_func_idx] =
+        ent_and_br_cnts;
+#endif
+
     return_value = true;
 
 fail:

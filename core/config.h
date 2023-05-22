@@ -456,8 +456,8 @@
 #define WASM_DISABLE_WRITE_GS_BASE 0
 #endif
 
-#ifndef WASME_ENABLE_DYNAMIC_PGO
-#define WASME_ENABLE_DYNAMIC_PGO 0
+#ifndef WASM_ENABLE_DYNAMIC_PGO
+#define WASM_ENABLE_DYNAMIC_PGO 0
 #endif
 
 #endif /* end of _CONFIG_H_ */
