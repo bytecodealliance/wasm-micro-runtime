@@ -2321,6 +2321,8 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
 
         for (j = 0; j < relocation_count; j++) {
             AOTRelocation relocation = { 0 };
+            char group_name_buf[128] = { 0 };
+            char symbol_name_buf[128] = { 0 };
             uint32 symbol_index, offset32;
             int32 addend32;
             uint16 symbol_name_len;
@@ -2349,10 +2351,10 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
             symbol_name_len = *(uint16 *)symbol_name;
             symbol_name += sizeof(uint16);
 
-            char group_name_buf[128] = { 0 };
-            char symbol_name_buf[128] = { 0 };
-            memcpy(group_name_buf, group_name, group_name_len);
-            memcpy(symbol_name_buf, symbol_name, symbol_name_len);
+            bh_memcpy_s(group_name_buf, (uint32)sizeof(grou_name_buf),
+                        group_name, group_name_len);
+            bh_memcpy_s(symbol_name_buf, (uint32)sizeof(symbol_name_buf),
+                        symbol_name, symbol_name_len);
 
             if ((group_name_len == strlen(".text")
                  || (module->is_indirect_mode
@@ -2442,6 +2444,8 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
 
         for (j = 0; j < relocation_count; j++) {
             AOTRelocation relocation = { 0 };
+            char group_name_buf[128] = { 0 };
+            char symbol_name_buf[128] = { 0 };
             uint32 symbol_index;
             uint16 symbol_name_len;
             uint8 *symbol_name;
@@ -2462,10 +2466,10 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
             symbol_name_len = *(uint16 *)symbol_name;
             symbol_name += sizeof(uint16);
 
-            char group_name_buf[128] = { 0 };
-            char symbol_name_buf[128] = { 0 };
-            memcpy(group_name_buf, group_name, group_name_len);
-            memcpy(symbol_name_buf, symbol_name, symbol_name_len);
+            bh_memcpy_s(group_name_buf, (uint32)sizeof(group_name_buf),
+                        group_name, group_name_len);
+            bh_memcpy_s(symbol_name_buf, (uint32)sizeof(symbol_name_buf),
+                        symbol_name, symbol_name_len);
 
             if (relocation.relocation_type == R_X86_64_GOTPCREL
                 && !strncmp(symbol_name_buf, AOT_FUNC_PREFIX,
@@ -3283,3 +3287,23 @@ aot_get_custom_section(const AOTModule *module, const char *name, uint32 *len)
     return NULL;
 }
 #endif /* end of WASM_ENABLE_LOAD_CUSTOM_SECTION */
+
+#if WASM_ENABLE_STATIC_PGO != 0
+void
+aot_exchange_uint16(uint8 *p_data)
+{
+    return exchange_uint16(p_data);
+}
+
+void
+aot_exchange_uint32(uint8 *p_data)
+{
+    return exchange_uint32(p_data);
+}
+
+void
+aot_exchange_uint64(uint8 *p_data)
+{
+    return exchange_uint64(p_data);
+}
+#endif
