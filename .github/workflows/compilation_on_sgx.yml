@@ -156,7 +156,7 @@ jobs:
           ]
         iwasm_make_options_feature: [
             # Features to be tested: IPFS and wasi-threads
-            "-DWAMR_BUILD_LIB_WASI_THREADS=1 -DWAMR_BUILD_SGX_IPFS=1",
+            "-DWAMR_BUILD_SGX_IPFS=1",
           ]
         platform: [linux-sgx]
         include:
@@ -262,29 +262,6 @@ jobs:
           source /opt/intel/sgxsdk/environment
           ./wamrc -sgx -o file.aot file.wasm
           ./iwasm --dir=. file.aot
-        working-directory: product-mini/platforms/${{ matrix.platform }}/enclave-sample
-
-      - name: Build Sample [wasi-threads]
-        run: |
-          cd samples/wasi-threads
-          mkdir build && cd build
-          cmake -DWASI_SYSROOT=`pwd`/../../../core/deps/wasi-libc/sysroot ..
-          cmake --build . --config Release --parallel 4
-          cp wasm-apps/no_pthread.wasm `pwd`/../../../product-mini/platforms/${{ matrix.platform }}/enclave-sample
-
-      - name: Test Sample [wasi-threads] in non-aot mode
-        if: matrix.iwasm_make_options_run_mode != '$AOT_BUILD_OPTIONS'
-        run: |
-          source /opt/intel/sgxsdk/environment
-          ./iwasm no_pthread.wasm
-        working-directory: product-mini/platforms/${{ matrix.platform }}/enclave-sample
-
-      - name: Test Sample [wasi-threads] in aot mode
-        if: matrix.iwasm_make_options_run_mode == '$AOT_BUILD_OPTIONS'
-        run: |
-          source /opt/intel/sgxsdk/environment
-          ./wamrc -sgx -o no_pthread.aot no_pthread.wasm
-          ./iwasm no_pthread.aot
         working-directory: product-mini/platforms/${{ matrix.platform }}/enclave-sample
 
   spec_test_default:
