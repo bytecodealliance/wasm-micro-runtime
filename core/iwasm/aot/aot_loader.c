@@ -2351,7 +2351,7 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
             symbol_name_len = *(uint16 *)symbol_name;
             symbol_name += sizeof(uint16);
 
-            bh_memcpy_s(group_name_buf, (uint32)sizeof(grou_name_buf),
+            bh_memcpy_s(group_name_buf, (uint32)sizeof(group_name_buf),
                         group_name, group_name_len);
             bh_memcpy_s(symbol_name_buf, (uint32)sizeof(symbol_name_buf),
                         symbol_name, symbol_name_len);
