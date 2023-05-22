@@ -4,10 +4,12 @@
  */
 
 #include "jit_emit_control.h"
+#include "bh_list.h"
 #include "jit_emit_exception.h"
 #include "jit_emit_function.h"
 #include "../jit_frontend.h"
 #include "../interpreter/wasm_loader.h"
+#include "jit_ir.h"
 
 #define CREATE_BASIC_BLOCK(new_basic_block)                       \
     do {                                                          \
@@ -52,6 +54,17 @@
     do {                                                                     \
         *(jit_annl_end_bcip(cc, jit_basic_block_label(basic_block))) = bcip; \
     } while (0)
+
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+static void
+check_prof_cnt_idx(JitCompContext *cc)
+{
+    struct WASMProfCounter *prof_cnt_info =
+        wasm_dpgo_get_cur_prof_counters_info(
+            cc->cur_wasm_module, cc->cur_wasm_func_idx, cc->opcode_w_prof_idx);
+    bh_assert(prof_cnt_info->first_counter_idx == cc->ent_and_br_cnts_idx);
+}
+#endif
 
 static JitBlock *
 get_target_block(JitCompContext *cc, uint32 br_depth)
@@ -1108,6 +1121,10 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth,
 
     if (!copy_arities) {
         if (block_dst->label_type == LABEL_TYPE_LOOP) {
+            // #if WASM_ENABLE_DYNAMIC_PGO != 0
+            //             gen_increase_cnt_insn_here(jit_frame);
+            // #endif
+
             if (!(insn = GEN_INSN(
                       BNE, cc->cmp_reg,
                       jit_basic_block_label(block_dst->basic_block_entry),
@@ -1115,12 +1132,33 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth,
                 jit_set_last_error(cc, "generate bne insn failed");
                 goto fail;
             }
+
+            snprintf(insn->comment, 100, "or br_if to loop");
+
+            // #if WASM_ENABLE_DYNAMIC_PGO != 0
+            //             gen_increase_cnt_insn_here(jit_frame);
+            // #endif
         }
         else {
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+            // check_prof_cnt_idx(cc);
+
+            // gen_increase_cnt_insn_here(jit_frame);
+#endif
+
             if (!(insn = GEN_INSN(BNE, cc->cmp_reg, 0, 0))) {
                 jit_set_last_error(cc, "generate bne insn failed");
                 goto fail;
             }
+
+            snprintf(insn->comment, 100, "OP br_if");
+
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+            // gen_increase_cnt_insn_here(jit_frame);
+
+            // cc->opcode_w_prof_idx++;
+#endif
+
             if (!jit_block_add_incoming_insn(block_dst, insn, 1)) {
                 jit_set_last_error(cc, "add incoming insn failed");
                 goto fail;
@@ -1132,15 +1170,27 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth,
             jit_insn_unlink(insn_select);
             jit_insn_delete(insn_select);
         }
+
         return true;
     }
 
     CREATE_BASIC_BLOCK(if_basic_block);
+
+    // #if WASM_ENABLE_DYNAMIC_PGO != 0
+    //     gen_increase_cnt_insn_here(jit_frame);
+    // #endif
+
     if (!(insn = GEN_INSN(BNE, cc->cmp_reg,
                           jit_basic_block_label(if_basic_block), 0))) {
         jit_set_last_error(cc, "generate bne insn failed");
         goto fail;
     }
+    snprintf(insn->comment, 100, "OP_BR_IF");
+
+    // #if WASM_ENABLE_DYNAMIC_PGO != 0
+    //     gen_increase_cnt_insn_here(jit_frame);
+    // #endif
+
     if (insn_select && insn_cmp) {
         /* Change `CMP + SELECTcc` into `CMP + Bcc` */
         insn->opcode = JIT_OP_BEQ + (insn_select->opcode - JIT_OP_SELECTEQ);

@@ -9,6 +9,8 @@
 #include "aot_emit_exception.h"
 #include "../aot/aot_runtime.h"
 #include "../aot/aot_intrinsic.h"
+#include "llvm-c/Core.h"
+#include "llvm-c/Types.h"
 
 #if WASM_ENABLE_DEBUG_AOT != 0
 #include "debug/dwarf_extractor.h"
@@ -124,6 +126,7 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
     backend_thread_num = WASM_ORC_JIT_BACKEND_THREAD_NUM;
     compile_thread_num = WASM_ORC_JIT_COMPILE_THREAD_NUM;
 
+#if !(WASM_ENABLE_DYNAMIC_PGO != 0)
     /* Add the jit wrapper function with simple prototype, so that we
        can easily call it to trigger its compilation and let LLVM JIT
        compile the actual jit functions by adding them into the function
@@ -157,6 +160,7 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
             goto fail;
         }
     }
+#endif
 
 fail:
     wasm_runtime_free(param_types);
@@ -1458,6 +1462,59 @@ fail:
     return ret;
 }
 
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+/*
+ * func_name is in a form likes "aot_func#NNN".
+ * extract NNN from func_name
+ * NNN -> func_idx
+ */
+static uint32
+retrieve_idx_from_name(const char *func_name) {
+    const char *p = func_name;
+    uint32 idx = 0;
+
+    while (*p != '\0') {
+        if (*p >= '0' && *p <= '9') {
+            idx = idx * 10 + (*p - '0');
+        }
+        p++;
+    }
+
+    return idx;
+}
+
+static LLVMErrorRef
+apply_prof_meta_and_opt(void *Ctx, LLVMModuleRef Mod)
+{
+    AOTCompContext *comp_ctx = (AOTCompContext *)Ctx;
+
+    LLVMValueRef cur = LLVMGetFirstFunction(Mod);
+    LLVMValueRef next;
+    while (cur) {
+        size_t size = 0;
+        const char *func_name = LLVMGetValueName2(cur, &size);
+        LOG_DEBUG("  --> Opt.func %s", LLVMGetValueName2(cur, &size));
+
+
+        uint32 func_idx = retrieve_idx_from_name(func_name);
+        wasm_dpgo_set_prof_meta(comp_ctx, func_idx);
+
+        next = LLVMGetNextFunction(cur);
+        cur = next;
+    }
+
+    return LLVMErrorSuccess;
+}
+
+static LLVMErrorRef
+transform(void *Ctx, LLVMOrcThreadSafeModuleRef *ModInOut,
+          LLVMOrcMaterializationResponsibilityRef MR)
+{
+    return LLVMOrcThreadSafeModuleWithModuleDo(*ModInOut,
+                                               apply_prof_meta_and_opt, Ctx);
+}
+#endif
+
 static bool
 orc_jit_create(AOTCompContext *comp_ctx)
 {
@@ -1492,6 +1549,16 @@ orc_jit_create(AOTCompContext *comp_ctx)
                                err);
         goto fail;
     }
+
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+    // Use TransformLayer to set IR transform.
+    {
+        LLVMOrcIRTransformLayerRef TL =
+            LLVMOrcLLLazyJITGetIRTransformLayer(orc_jit);
+        LLVMOrcIRTransformLayerSetTransform(TL, *transform, comp_ctx);
+    }
+#endif
+
     /* Ownership transfer: LLVMOrcLLJITBuilderRef -> LLVMOrcLLJITRef */
     builder = NULL;
 

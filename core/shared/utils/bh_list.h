@@ -62,6 +62,10 @@ bh_list_init(bh_list *list);
 bh_list_status
 bh_list_insert(bh_list *list, void *elem);
 
+
+bh_list_status
+bh_list_append(bh_list *list, void *elem);
+
 /**
  * Remove an elem pointer from list. The list node memory is maintained by list
  * while elem memory is the responsibility of list user.

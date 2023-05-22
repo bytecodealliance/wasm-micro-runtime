@@ -320,6 +320,8 @@ typedef struct JitInsn {
     /* The unique ID of the instruction. */
     uint16 uid;
 
+    char comment[128];
+
     /* Operands for different kinds of instructions. */
     union {
         /* For instructions with fixed-number register operand(s). */
@@ -932,7 +934,7 @@ typedef struct JitFrame {
 
 #if WASM_ENABLE_DYNAMIC_PGO != 0
     /* module->ent_and_br_cnts */
-    JitReg ent_and_bw_cnts_reg;
+    JitReg ent_and_br_cnts_reg;
 #endif
 
     /* Local variables */
@@ -985,6 +987,13 @@ typedef struct JitBlock {
 
     /* The begin frame stack pointer of this block */
     JitValueSlot *frame_sp_begin;
+
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+    /* stash required counter idx */
+    /*TODO: can I know predecessors amount dunring loading? if so, use
+     * uint32[]*/
+    bh_list stashed_cnts;
+#endif
 } JitBlock;
 
 /**
@@ -1153,11 +1162,13 @@ typedef struct JitCompContext {
     bool last_cmp_on_fp;
 
 #if WASM_ENABLE_DYNAMIC_PGO != 0
-    /* module->ent_and_br_cnts. frame->ent_and_bw_cnts_reg */
-    JitReg ent_and_bw_cnts_reg;
-    /* access index in module->ent_and_bw_cnts */
-    uint32 ent_and_bw_cnts_idx;
+    /* module->ent_and_br_cnts. frame->ent_and_br_cnts_reg */
+    JitReg ent_and_br_cnts_reg;
+    /* access index in module->ent_and_br_cnts */
+    uint32 ent_and_br_cnts_idx;
     uint32 vp_cnts_idx;
+
+    uint32 opcode_w_prof_idx;
 #endif
 } JitCompContext;
 

@@ -404,6 +404,16 @@ typedef struct OrcJitThreadArg {
 
 struct WASMModuleInstance;
 
+/* TODO: keep it in DEBUG building */
+struct WASMProfCounter {
+    bh_list_link l;
+    uint32 func_idx;
+    uint32 offset;
+    uint32 opcode;
+    uint32 counter_amount;
+    uint32 first_counter_idx;
+};
+
 struct WASMModule {
     /* Module type, for module loaded from WASM bytecode binary,
        this field is Wasm_Module_Bytecode;
@@ -621,7 +631,15 @@ struct WASMModule {
      * function
      * in a row, [0] is the capacity. [1] is the funtion. [2..] are instructions
      */
-    void *instrs_with_prof_md;
+    void **instrs_with_prof_md;
+
+    /*
+     * bh_list[function_count]
+     * another counter list with more information
+     * it is a array of bh_list. Every row represents a function counters
+     * information
+     */
+    bh_list *prof_counters_info;
 #endif
 };
 
@@ -831,12 +849,30 @@ static inline void *
 wasm_dpgo_get_instrs_with_prof_md(WASMModule *module, uint32 func_idx,
                                   uint32 *capacity)
 {
-    void *instrs_with_prof_md =
-        ((void **)module->instrs_with_prof_md)[func_idx];
+    void *instrs_with_prof_md = module->instrs_with_prof_md[func_idx];
     if (capacity)
         *capacity = instrs_with_prof_md ? *(uint64 *)instrs_with_prof_md : 0;
 
     return instrs_with_prof_md;
+}
+
+static inline bh_list *
+wasm_dpgo_get_prof_counters_info(WASMModule *module, uint32 func_idx)
+{
+    return module->prof_counters_info + func_idx;
+}
+
+static inline struct WASMProfCounter *
+wasm_dpgo_get_cur_prof_counters_info(WASMModule *module, uint32 func_idx,
+                                     uint32 info_idx)
+{
+    bh_list *func_prof_counters_info =
+        wasm_dpgo_get_prof_counters_info(module, func_idx);
+    void *elem = bh_list_first_elem(func_prof_counters_info);
+    while (info_idx-- > 0) {
+        elem = bh_list_elem_next(elem);
+    }
+    return (struct WASMProfCounter *)elem;
 }
 
 #endif /* WASM_ENABLE_DYNAMIC_PGO != 0 */

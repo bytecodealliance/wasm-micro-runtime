@@ -209,7 +209,9 @@ LLVMOrcCreateLLLazyJIT(LLVMOrcLLLazyJITRef *Result,
     }
 
     LLLazyJIT *lazy_jit = J->release();
+#if !(WASM_ENABLE_DYNAMIC_PGO != 0)
     lazy_jit->setPartitionFunction(PartitionFunction);
+#endif
 
     *Result = wrap(lazy_jit);
     return LLVMErrorSuccess;

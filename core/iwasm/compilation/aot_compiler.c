@@ -196,6 +196,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 #if WASM_ENABLE_DYNAMIC_PGO != 0
     WASMModule *wasm_module = comp_ctx->comp_data->wasm_module;
     uint32 instr_prof_data_location = 1;
+    uint32 func_prof_cnt_info_idx = 0;
 #endif
 
     /* Start to translate the opcodes */
@@ -302,11 +303,32 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 break;
 
             case WASM_OP_BR_IF:
+            {
                 read_leb_uint32(frame_ip, frame_ip_end, br_depth);
                 if (!aot_compile_op_br_if(comp_ctx, func_ctx, br_depth,
                                           &frame_ip))
                     return false;
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+                {
+                    struct WASMProfCounter *prof_cnt_info =
+                        wasm_dpgo_get_cur_prof_counters_info(
+                            wasm_module,
+                            wasm_module->import_function_count + func_index,
+                            func_prof_cnt_info_idx++);
+
+                    bh_assert(prof_cnt_info->opcode == 0xd);
+                    bh_assert(frame_ip - func_ctx->aot_func->code
+                              == prof_cnt_info->offset);
+
+                    instr_prof_data_location =
+                        wasm_dpgo_set_instrs_with_prof_md(
+                            wasm_module,
+                            wasm_module->import_function_count + func_index,
+                            func_ctx->func, instr_prof_data_location);
+                }
+#endif
                 break;
+            }
 
             case WASM_OP_BR_TABLE:
                 read_leb_uint32(frame_ip, frame_ip_end, br_count);
@@ -2710,30 +2732,20 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
         }
     }
 
-#if WASM_ENABLE_DYNAMIC_PGO != 0
-    for (i = 0; i < comp_ctx->func_ctx_count; i++) {
-        wasm_dpgo_set_prof_meta(
-            comp_ctx,
-            comp_ctx->comp_data->wasm_module->import_function_count + i);
-    }
-#endif
-
 #if WASM_ENABLE_DEBUG_AOT != 0
     LLVMDIBuilderFinalize(comp_ctx->debug_builder);
 #endif
 
     /* Disable LLVM module verification for jit mode to speedup
        the compilation process */
-#if !(WASM_ENABLE_DYNAMIC_PGO != 0)
-    if (!comp_ctx->is_jit_mode)
-#endif
-    {
+    if (!comp_ctx->is_jit_mode) {
         bh_print_time("Begin to verify LLVM module");
         if (!verify_module(comp_ctx)) {
             return false;
         }
     }
 
+#if !(WASM_ENABLE_DYNAMIC_PGO != 0)
     /* Run IR optimization before feeding in ORCJIT and AOT codegen */
     if (comp_ctx->optimize) {
         /* Run passes for AOT/JIT mode.
@@ -2761,6 +2773,7 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
 #ifdef DUMP_MODULE
     LLVMDumpModule(comp_ctx->module);
     os_printf("\n");
+#endif
 #endif
 
     if (comp_ctx->is_jit_mode) {

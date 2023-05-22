@@ -466,13 +466,15 @@ wasm_dpgo_set_prof_meta(AOTCompContext *comp_ctx, uint32_t func_idx)
                                                           &capacity);
 
     /* set function entry count for every function */
+    uint32 entry_counter_value =
+        wasm_dpgo_get_ent_cnt_value(wasm_module, func_idx);
+    if (entry_counter_value < WASM_DPGO_TIER_UP_THRESHOLD)
+        return;
+
     LLVMValueRef function = instr_list[1];
     bh_assert(LLVMGetValueKind(function) == LLVMFunctionValueKind
               && "[1] should be a function");
-    /* FIXME: fake value*/
-    // wasm_dpgo_set_function_entry_count(
-    //     function, wasm_dpgo_get_ent_cnt_value(wasm_module, func_idx));
-    wasm_dpgo_set_function_entry_count(function, capacity);
+    wasm_dpgo_set_function_entry_count(function, entry_counter_value);
 
     /* set profiling metadata for some instructions */
     for (unsigned i = 2; i < capacity; i++) {

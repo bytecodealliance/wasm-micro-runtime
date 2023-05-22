@@ -87,7 +87,7 @@
 
 #ifndef WASM_ORC_JIT_BACKEND_THREAD_NUM
 /* The number of backend threads created by runtime */
-#define WASM_ORC_JIT_BACKEND_THREAD_NUM 4
+#define WASM_ORC_JIT_BACKEND_THREAD_NUM 1
 #endif
 
 #if WASM_ORC_JIT_BACKEND_THREAD_NUM < 1
@@ -448,5 +448,7 @@
 #ifndef WASM_ENABLE_DYNAMIC_PGO
 #define WASM_ENABLE_DYNAMIC_PGO 0
 #endif
+
+#define WASM_DPGO_TIER_UP_THRESHOLD 100
 
 #endif /* end of _CONFIG_H_ */

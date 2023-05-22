@@ -448,23 +448,25 @@ get_table_cur_size_reg(JitFrame *frame, uint32 tbl_idx)
 
 #if WASM_ENABLE_DYNAMIC_PGO != 0
 JitReg
-get_ent_and_bw_cnts_reg(JitFrame *frame)
+get_ent_and_br_cnts_reg(JitFrame *frame)
 {
     JitCompContext *cc = frame->cc;
+    JitInsn *insn;
 
-    if (!frame->ent_and_bw_cnts_reg) {
+    if (!frame->ent_and_br_cnts_reg) {
         JitReg module_reg = get_module_reg(frame);
-        JitReg mod_ent_and_bw_cnts_reg = jit_cc_new_reg_ptr(cc);
+        JitReg mod_ent_and_br_cnts_reg = jit_cc_new_reg_ptr(cc);
 
         bh_assert(
             frame->cur_wasm_module->ent_and_br_cnts[frame->cur_wasm_func_idx]
             != NULL);
 
-        frame->ent_and_bw_cnts_reg = cc->ent_and_bw_cnts_reg;
+        frame->ent_and_br_cnts_reg = cc->ent_and_br_cnts_reg;
 
         /* ent_and_br_cnts = module->ent_and_br_cnts */
-        GEN_INSN(LDPTR, mod_ent_and_bw_cnts_reg, module_reg,
-                 NEW_CONST(I32, offsetof(WASMModule, ent_and_br_cnts)));
+        insn = GEN_INSN(LDPTR, mod_ent_and_br_cnts_reg, module_reg,
+                        NEW_CONST(I32, offsetof(WASMModule, ent_and_br_cnts)));
+        snprintf(insn->comment, 100, "Get module ent_and_br_cnts");
 
         if (UINTPTR_MAX == UINT64_MAX) {
             JitReg offset_reg = jit_cc_new_reg_I64(cc);
@@ -475,8 +477,9 @@ get_ent_and_bw_cnts_reg(JitFrame *frame)
              * ent_and_br_cnts = (uint32*)mod_ent_and_br_cnts +
              *     cur_wasm_func_idx
              */
-            GEN_INSN(LDPTR, frame->ent_and_bw_cnts_reg, mod_ent_and_bw_cnts_reg,
-                     offset_reg);
+            insn = GEN_INSN(LDPTR, frame->ent_and_br_cnts_reg,
+                            mod_ent_and_br_cnts_reg, offset_reg);
+            snprintf(insn->comment, 100, "Get function ent_and_br_cnts");
         }
         else {
             JitReg offset_reg = jit_cc_new_reg_I32(cc);
@@ -487,13 +490,71 @@ get_ent_and_bw_cnts_reg(JitFrame *frame)
              * ent_and_br_cnts = (uint32*)mod_ent_and_br_cnts +
              *     cur_wasm_func_idx
              */
-            GEN_INSN(LDPTR, frame->ent_and_bw_cnts_reg, mod_ent_and_bw_cnts_reg,
+            GEN_INSN(LDPTR, frame->ent_and_br_cnts_reg, mod_ent_and_br_cnts_reg,
                      offset_reg);
         }
     }
 
-    return frame->ent_and_bw_cnts_reg;
+    return frame->ent_and_br_cnts_reg;
 }
+
+void
+gen_increase_cnt_insn(JitFrame *frame, uint32 cnt_idx)
+{
+    JitCompContext *cc = frame->cc;
+    JitReg ent_and_br_cnts_reg = get_ent_and_br_cnts_reg(frame);
+    JitReg cnt_reg = jit_cc_new_reg_I32(cc);
+    JitReg cnt_inc_reg = jit_cc_new_reg_I32(cc);
+    JitReg offset_reg;
+
+    bh_assert(cnt_idx > 0);
+
+    if (UINTPTR_MAX == UINT64_MAX) {
+        offset_reg = jit_cc_new_reg_I64(cc);
+        /* uint32[cnt_idx] -> x bytes*/
+        GEN_INSN(SHL, offset_reg, NEW_CONST(I64, cnt_idx), NEW_CONST(I64, 2));
+    }
+    else {
+        offset_reg = jit_cc_new_reg_I32(cc);
+        /* uint32[cnt_idx] -> x bytes*/
+        GEN_INSN(SHL, offset_reg, NEW_CONST(I32, cnt_idx), NEW_CONST(I32, 2));
+    }
+
+    /* load -> increase -> store */
+    JitInsn *insn = GEN_INSN(LDI32, cnt_reg, ent_and_br_cnts_reg, offset_reg);
+    GEN_INSN(ADD, cnt_inc_reg, cnt_reg, NEW_CONST(I32, 1));
+    GEN_INSN(STI32, cnt_inc_reg, ent_and_br_cnts_reg, offset_reg);
+
+    snprintf(insn->comment, 100, "increase Cnt.#%d", cnt_idx);
+}
+
+void
+gen_increase_cnt_insn_here(JitFrame *frame)
+{
+    bh_assert(frame->cc->ent_and_br_cnts_idx > 0
+              && "ent_and_br_cnts_idx in JitCompContext should be > 0");
+
+    gen_increase_cnt_insn(frame, frame->cc->ent_and_br_cnts_idx++);
+}
+
+/*
+ * TODO:
+ * generate counter increase instructions around the given instruction.
+ * usually, the given instruction is a conditional branch instruction.
+ *
+ * since the given `insn` has been generated and appended in its basicblock,
+ * need to `jit_cc_new_insn(...)` new instructions for the first counter
+ * operations and `jit_insn_insert_before()` them before the given `insn`.
+ *
+ * need to use `jit_cc_new_insn(...)` new instructions for the second counter
+ * operations and `jit_insn_insert_after()` them before the given `insn`.
+ */
+void
+gen_increase_cnt_around_insn(JitFrame *frame, uint32 cnt_1st_idx, JitInsn *insn)
+{
+}
+
+/**/
 #endif /* #if WASM_ENABLE_DYNAMIC_PGO != 0 */
 
 void
@@ -510,7 +571,7 @@ clear_fixed_virtual_regs(JitFrame *frame)
     frame->aux_stack_bound_reg = 0;
     frame->aux_stack_bottom_reg = 0;
 #if WASM_ENABLE_DYNAMIC_PGO != 0
-    frame->ent_and_bw_cnts_reg = 0;
+    frame->ent_and_br_cnts_reg = 0;
 #endif
 
     count = module->import_memory_count + module->memory_count;
@@ -697,7 +758,7 @@ create_fixed_virtual_regs(JitCompContext *cc)
     cc->aux_stack_bound_reg = jit_cc_new_reg_I32(cc);
     cc->aux_stack_bottom_reg = jit_cc_new_reg_I32(cc);
 #if WASM_ENABLE_DYNAMIC_PGO != 0
-    cc->ent_and_bw_cnts_reg = jit_cc_new_reg_ptr(cc);
+    cc->ent_and_br_cnts_reg = jit_cc_new_reg_ptr(cc);
 #endif
 
     count = module->import_memory_count + module->memory_count;
@@ -949,32 +1010,8 @@ init_func_translation(JitCompContext *cc)
 
 #if WASM_ENABLE_DYNAMIC_PGO != 0
     /* add a function entry counter */
-    {
-        JitReg ent_and_bw_cnts_reg = get_ent_and_bw_cnts_reg(jit_frame);
-        JitReg cnt_reg = jit_cc_new_reg_I32(cc);
-        JitReg cnt_inc_reg = jit_cc_new_reg_I32(cc);
-
-        if (UINTPTR_MAX == UINT64_MAX) {
-            JitReg offset_reg = jit_cc_new_reg_I64(cc);
-            /* uint32[cc->ent_and_bw_cnt_idx] -> x bytes*/
-            GEN_INSN(SHL, offset_reg, NEW_CONST(I64, cc->ent_and_bw_cnts_idx),
-                     NEW_CONST(I64, 2));
-            /* load -> increase -> store */
-            GEN_INSN(LDI32, cnt_reg, ent_and_bw_cnts_reg, offset_reg);
-            GEN_INSN(ADD, cnt_inc_reg, cnt_reg, NEW_CONST(I32, 1));
-            GEN_INSN(STI32, cnt_inc_reg, ent_and_bw_cnts_reg, offset_reg);
-        }
-        else {
-            JitReg offset_reg = jit_cc_new_reg_I32(cc);
-            /* uint32[cc->ent_and_bw_cnt_idx] -> x bytes*/
-            GEN_INSN(SHL, offset_reg, NEW_CONST(I32, cc->ent_and_bw_cnts_idx),
-                     NEW_CONST(I32, 2));
-            /* load -> increase -> store */
-            GEN_INSN(LDI32, cnt_reg, ent_and_bw_cnts_reg, offset_reg);
-            GEN_INSN(ADD, cnt_inc_reg, cnt_reg, NEW_CONST(I32, 1));
-            GEN_INSN(STI32, cnt_inc_reg, ent_and_bw_cnts_reg, offset_reg);
-        }
-    }
+    bh_assert(jit_frame->cc->ent_and_br_cnts_idx == 1);
+    gen_increase_cnt_insn_here(jit_frame);
 #endif
 
     /* top = exec_env->wasm_stack.s.top */

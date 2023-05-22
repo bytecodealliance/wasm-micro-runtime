@@ -3138,8 +3138,6 @@ init_llvm_jit_functions_stage2(WASMModule *module, char *error_buf,
 #if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
     && WASM_ENABLE_LAZY_JIT != 0
 
-#define WASM_DPGO_TIER_UP_THRESHOLD 100
-
 static bool
 wasm_tier_up_function(WASMModule *module, uint32 func_idx,
                       void *llvm_jit_gen_addr)
@@ -3787,6 +3785,13 @@ load_from_sections(WASMModule *module, WASMSection *sections,
         error_buf, error_buf_size);
     if (!module->instrs_with_prof_md)
         return false;
+
+    module->prof_counters_info = loader_malloc(
+        sizeof(bh_list)
+            * (module->import_function_count + module->function_count),
+        error_buf, error_buf_size);
+    if (!module->prof_counters_info)
+        return false;
 #endif
 
     for (i = 0; i < module->function_count; i++) {
@@ -4351,6 +4356,8 @@ wasm_runtime_dump_pgo_info(WASMModule *module)
         uint32 ent_and_br_cnts_capacity = 0;
         uint32 *ent_and_br_cnts =
             wasm_dpgo_get_ent_and_br_cnts(module, i, &ent_and_br_cnts_capacity);
+        bh_list *func_prof_cnt_info =
+            wasm_dpgo_get_prof_counters_info(module, i);
 
         if (i < module->import_function_count) {
             bh_assert(!ent_and_br_cnts
@@ -4371,6 +4378,15 @@ wasm_runtime_dump_pgo_info(WASMModule *module)
             uint32 cnt_val = ent_and_br_cnts[j];
             if (cnt_val)
                 LOG_WARNING("  [%u] : %u", j, cnt_val);
+        }
+
+        struct WASMProfCounter *node = bh_list_first_elem(func_prof_cnt_info);
+        while (node) {
+            LOG_WARNING("  OP:0x%x,OFFSET:%u,CNT:%u,1ST_IDX:%u", node->opcode,
+                        node->offset, node->counter_amount,
+                        node->first_counter_idx);
+
+            node = bh_list_elem_next(node);
         }
     }
 }
@@ -4566,13 +4582,41 @@ wasm_loader_unload(WASMModule *module)
 
     if (module->ent_and_br_cnts) {
         for (i = 0; i < module->function_count; i++) {
-            uint32 *ent_and_br_cnts =
-                wasm_dpgo_get_ent_and_br_cnts(module, i, NULL);
+            uint32 *ent_and_br_cnts = wasm_dpgo_get_ent_and_br_cnts(
+                module, i + module->import_function_count, NULL);
             if (ent_and_br_cnts)
                 wasm_runtime_free(ent_and_br_cnts);
         }
         wasm_runtime_free(module->ent_and_br_cnts);
         module->ent_and_br_cnts = NULL;
+    }
+
+    if (module->instrs_with_prof_md) {
+        for (i = 0; i < module->function_count; i++) {
+            void *instrs_with_prof_md = wasm_dpgo_get_instrs_with_prof_md(
+                module, i + module->import_function_count, NULL);
+            if (instrs_with_prof_md)
+                wasm_runtime_free(instrs_with_prof_md);
+        }
+        wasm_runtime_free(module->instrs_with_prof_md);
+        module->instrs_with_prof_md = NULL;
+    }
+
+    if (module->prof_counters_info) {
+        for (i = 0; i < module->function_count; i++) {
+            bh_list *func_prof_counters_info = wasm_dpgo_get_prof_counters_info(
+                module, i + module->import_function_count);
+            struct WASMProfCounter *elem =
+                bh_list_first_elem(func_prof_counters_info);
+            while (elem) {
+                struct WASMProfCounter *next = bh_list_elem_next(elem);
+                bh_list_remove(func_prof_counters_info, elem);
+                wasm_runtime_free(elem);
+                elem = next;
+            }
+        }
+        wasm_runtime_free(module->prof_counters_info);
+        module->prof_counters_info = NULL;
     }
 #endif
 
@@ -7400,6 +7444,13 @@ re_scan:
 
     PUSH_CSP(LABEL_TYPE_FUNCTION, func_block_type, p);
 
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+    bh_list *func_prof_cnt_info = wasm_dpgo_get_prof_counters_info(
+        module, module->import_function_count + cur_func_idx);
+    if (bh_list_init(func_prof_cnt_info) != BH_LIST_SUCCESS)
+        goto fail;
+#endif
+
     while (p < p_end) {
         opcode = *p++;
 #if WASM_ENABLE_FAST_INTERP != 0
@@ -7712,6 +7763,24 @@ re_scan:
                     goto fail;
 
 #if WASM_ENABLE_DYNAMIC_PGO != 0
+                {
+                    struct WASMProfCounter *opcode_cnt;
+
+                    opcode_cnt = loader_malloc(sizeof(struct WASMProfCounter),
+                                               error_buf, error_buf_size);
+                    if (!opcode_cnt)
+                        goto fail;
+
+                    opcode_cnt->func_idx = cur_func_idx;
+                    opcode_cnt->offset = p - func->code;
+                    opcode_cnt->opcode = WASM_OP_BR_IF;
+                    opcode_cnt->counter_amount = 2;
+                    opcode_cnt->first_counter_idx = ent_and_br_cnts_cap;
+
+                    if (bh_list_append(func_prof_cnt_info, opcode_cnt)
+                        != BH_LIST_SUCCESS)
+                        goto fail;
+                }
                 ent_and_br_cnts_cap += 2;
 #endif
                 break;

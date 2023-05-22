@@ -65,6 +65,8 @@ jit_emit_exception(JitCompContext *cc, int32 exception_id, uint8 jit_opcode,
         }
     }
 
+    snprintf(insn->comment, 100, "exception");
+
     incoming_insn = jit_calloc(sizeof(JitIncomingInsn));
     if (!incoming_insn) {
         jit_set_last_error(cc, "allocate memory failed");
