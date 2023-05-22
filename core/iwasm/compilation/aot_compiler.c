@@ -2718,11 +2718,6 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
     }
 #endif
 
-#ifndef NDEBUG
-    LLVMDumpModule(comp_ctx->module);
-    os_printf("\n");
-#endif
-
 #if WASM_ENABLE_DEBUG_AOT != 0
     LLVMDIBuilderFinalize(comp_ctx->debug_builder);
 #endif
