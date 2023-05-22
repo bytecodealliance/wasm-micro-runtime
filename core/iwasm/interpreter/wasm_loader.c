@@ -3137,6 +3137,28 @@ init_llvm_jit_functions_stage2(WASMModule *module, char *error_buf,
 
 #if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
     && WASM_ENABLE_LAZY_JIT != 0
+
+#define WASM_DPGO_TIER_UP_THRESHOLD 100
+
+static bool
+wasm_tier_up_function(WASMModule *module, uint32 func_idx,
+                      void *llvm_jit_gen_addr)
+{
+    /*TODO: clarify the condition */
+    /* bypass if #func_idx has been tiered up */
+    if (module->functions[func_idx - module->import_function_count]
+            ->func_type->call_to_llvm_jit_from_fast_jit)
+        return true;
+
+    LOG_DEBUG("tier up function #%d", func_idx);
+
+    jit_compiler_set_llvm_jit_func_ptr(module, func_idx, llvm_jit_gen_addr);
+
+    /* Try to switch to call this llvm jit funtion instead of
+       fast jit function from fast jit jitted code */
+    return jit_compiler_set_call_to_llvm_jit(module, func_idx);
+}
+
 static void *
 init_llvm_jit_functions_stage2_callback(void *arg)
 {
@@ -3153,6 +3175,38 @@ init_llvm_jit_functions_stage2_callback(void *arg)
     module->llvm_jit_inited = true;
     os_cond_broadcast(&module->tierup_wait_cond);
     os_mutex_unlock(&module->tierup_wait_lock);
+
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+    {
+        /*
+         * keep monitor function entry counts, wasm_dpgo_get_ent_cnt_value(),
+         * in every second. if a function entry count is larger than the
+         * threshold, tier-up the function.
+         */
+        while (module->orcjit_stop_compiling == false) {
+            sleep(1);
+
+            uint32 i;
+            for (i = 0; i < module->function_count; i++) {
+                uint32 func_ent_cnt_val = wasm_dpgo_get_ent_cnt_value(
+                    module, i + module->import_function_count);
+                if (func_ent_cnt_val >= WASM_DPGO_TIER_UP_THRESHOLD) {
+                    if (module->orcjit_stop_compiling)
+                        return NULL;
+
+                    /* tier-up the function */
+                    if (wasm_tier_up_function(module,
+                                              i + module->import_function_count,
+                                              module->func_ptrs[i])
+                        == false) {
+                        module->orcjit_stop_compiling = true;
+                        return NULL;
+                    }
+                }
+            }
+        }
+    }
+#endif
 
     return NULL;
 }
@@ -3231,6 +3285,9 @@ orcjit_thread_callback(void *arg)
         }
     }
     os_mutex_unlock(&module->tierup_wait_lock);
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+    return NULL;
+#endif
 #endif
 
 #if WASM_ENABLE_JIT != 0
@@ -10231,8 +10288,9 @@ re_scan:
             goto fail;
 
         *(uint64 *)instrs_with_prof_md = ent_and_br_cnts_cap;
-        ((void**)module->instrs_with_prof_md)[module->import_function_count
-                                    + cur_func_idx] = instrs_with_prof_md;
+        ((void **)module->instrs_with_prof_md)[module->import_function_count
+                                               + cur_func_idx] =
+            instrs_with_prof_md;
     }
 
 #endif
