@@ -904,6 +904,51 @@ create_func_ptrs(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     return true;
 }
 
+const char *aot_stack_sizes_name = AOT_STACK_SIZES_NAME;
+
+static bool
+aot_create_stack_sizes(const AOTCompData *comp_data, AOTCompContext *comp_ctx)
+{
+    LLVMTypeRef stack_sizes_type =
+        LLVMArrayType(I32_TYPE, comp_data->func_count);
+    if (!stack_sizes_type) {
+        aot_set_last_error("failed to create stack_sizes type.");
+        return false;
+    }
+    LLVMValueRef stack_sizes =
+        LLVMAddGlobal(comp_ctx->module, stack_sizes_type, aot_stack_sizes_name);
+    if (!stack_sizes) {
+        aot_set_last_error("failed to create stack_sizes global.");
+        return false;
+    }
+    LLVMValueRef *values;
+    uint64 size = sizeof(LLVMValueRef) * comp_data->func_count;
+    if (size >= UINT32_MAX || !(values = wasm_runtime_malloc((uint32)size))) {
+        aot_set_last_error("allocate memory failed.");
+        return false;
+    }
+    uint32 i;
+    for (i = 0; i < comp_data->func_count; i++) {
+        /*
+         * This value is a placeholder, which will be replaced
+         * after the corresponding functions are compiled.
+         *
+         * Don't use zeros becasue LLVM can optimize them to
+         * zeroinitializer.
+         */
+        values[i] = I32_NEG_ONE;
+    }
+    LLVMValueRef array =
+        LLVMConstArray(I32_TYPE, values, comp_data->func_count);
+    wasm_runtime_free(values);
+    if (!array) {
+        aot_set_last_error("failed to create stack_sizes initializer.");
+        return false;
+    }
+    LLVMSetInitializer(stack_sizes, array);
+    return true;
+}
+
 /**
  * Create function compiler context
  */
@@ -1069,6 +1114,9 @@ aot_create_func_contexts(const AOTCompData *comp_data, AOTCompContext *comp_ctx)
     AOTFuncContext **func_ctxes;
     uint64 size;
     uint32 i;
+
+    if (!aot_create_stack_sizes(comp_data, comp_ctx))
+        return NULL;
 
     /* Allocate memory */
     size = sizeof(AOTFuncContext *) * (uint64)comp_data->func_count;
