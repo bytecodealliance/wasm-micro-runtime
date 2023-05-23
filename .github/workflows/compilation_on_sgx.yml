@@ -135,11 +135,21 @@ jobs:
           make
         working-directory: product-mini/platforms/${{ matrix.platform }}
 
-  build_iwasm_and_run_samples:
+  run_samples_file:
     needs: [build_iwasm, build_llvm_libraries]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
+        iwasm_make_options_run_mode: [
+            # Running modes supported
+            $AOT_BUILD_OPTIONS,
+            $CLASSIC_INTERP_BUILD_OPTIONS,
+            $FAST_INTERP_BUILD_OPTIONS,
+            # Running modes unsupported
+            #$LLVM_LAZY_JIT_BUILD_OPTIONS,
+            #$LLVM_EAGER_JIT_BUILD_OPTIONS,
+            #$MULTI_TIER_JIT_BUILD_OPTIONS,
+          ]
         os: [ubuntu-20.04]
         wasi_sdk_release:
           [
@@ -148,17 +158,6 @@ jobs:
         wabt_release:
           [
             "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-ubuntu.tar.gz",
-          ]
-        iwasm_make_options_run_mode: [
-            # Running modes supported
-            $AOT_BUILD_OPTIONS,
-            $CLASSIC_INTERP_BUILD_OPTIONS,
-            $FAST_INTERP_BUILD_OPTIONS,
-            $FAST_JIT_BUILD_OPTIONS,
-            # Running modes unsupported
-            #$LLVM_LAZY_JIT_BUILD_OPTIONS,
-            #$LLVM_EAGER_JIT_BUILD_OPTIONS,
-            #$MULTI_TIER_JIT_BUILD_OPTIONS,
           ]
         iwasm_make_options_feature: [
             # Features to be tested: IPFS
