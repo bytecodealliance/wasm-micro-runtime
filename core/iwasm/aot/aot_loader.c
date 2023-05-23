@@ -2543,7 +2543,7 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
 
         module->got_item_count = got_item_count;
     }
-#endif /* end of defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) */
+#endif /* defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) */
 
     buf = symbol_buf_end;
     read_uint32(buf, buf_end, group_count);
