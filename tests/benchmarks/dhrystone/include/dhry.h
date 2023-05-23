@@ -5,9 +5,9 @@
  *
  *                   "DHRYSTONE" Benchmark Program
  *                   -----------------------------
- *                                                                            
+ *
  *  Version:    C, Version 2.1
- *                                                                            
+ *
  *  File:       dhry.h (part 1 of 3)
  *
  *  Date:       May 25, 1988
@@ -35,12 +35,12 @@
  *
  *  Collection of Results:
  *              Reinhold Weicker (address see above) and
- *              
+ *
  *              Rick Richardson
  *              PC Research. Inc.
  *              94 Apple Orchard Drive
  *              Tinton Falls, NJ 07724
- *                      Phone:  (201) 389-8963 (9-17 EST)               
+ *                      Phone:  (201) 389-8963 (9-17 EST)
  *                      Usenet: ...!uunet!pcrat!rick
  *
  *      Please send results to Rick Richardson and/or Reinhold Weicker.
@@ -69,7 +69,7 @@
  *  Initial display of calibration times to confirm linearity.
  *
  *  Display of results within one screen (or at a slow speed as the test
- *  progresses) so that it can be seen to have run successfully. 
+ *  progresses) so that it can be seen to have run successfully.
  *
  *  Facilities to type in details of system used etc.
  *
@@ -139,12 +139,12 @@
  * Cache                256K
  * Options              Neptune chipset
  * OS/DOS               Windows 95
- * Compiler             Watcom C/ C++ 10.5 Win386 
+ * Compiler             Watcom C/ C++ 10.5 Win386
  * OptLevel             -otexan -zp8 -fp5 -5r
  * Run by               Roy Longbottom
  * From                 UK
  * Mail                 101323.2241@compuserve.com
- * 
+ *
  * Final values         (* implementation-dependent):
  *
  * Int_Glob:      O.K.  5
@@ -153,13 +153,13 @@
  * Ch_2_Glob:     O.K.  B
  * Arr_1_Glob[8]: O.K.  7
  * Arr_2_Glob8/7: O.K.     1600010
- * Ptr_Glob->  
+ * Ptr_Glob->
  *   Ptr_Comp:       *  98008
  *   Discr:       O.K.  0
  *   Enum_Comp:   O.K.  2
  *   Int_Comp:    O.K.  17
  *   Str_Comp:    O.K.  DHRYSTONE PROGRAM, SOME STRING
- * Next_Ptr_Glob-> 
+ * Next_Ptr_Glob->
  *   Ptr_Comp:       *  98008 same as above
  *   Discr:       O.K.  0
  *   Enum_Comp:   O.K.  1
@@ -173,7 +173,7 @@
  * Str_2_Loc:     O.K.  DHRYSTONE PROGRAM, 2'ND STRING
  *
  * Register option      Selected.
- * 
+ *
  * Microseconds 1 loop:          4.53
  * Dhrystones / second:      220690
  * VAX MIPS rating:            125.61
@@ -188,12 +188,12 @@
  * Cache                256K
  * Options              Neptune chipset
  * OS/DOS               Windows 95
- * Compiler             Watcom C/ C++ 10.5 Win386 
+ * Compiler             Watcom C/ C++ 10.5 Win386
  * OptLevel                 No optimisation
  * Run by               Roy Longbottom
  * From                 UK
  * Mail                 101323.2241@compuserve.com
- * 
+ *
  * Final values         (* implementation-dependent):
  *
  * Int_Glob:      O.K.  5
@@ -202,13 +202,13 @@
  * Ch_2_Glob:     O.K.  B
  * Arr_1_Glob[8]: O.K.  7
  * Arr_2_Glob8/7: O.K.      320010
- * Ptr_Glob->  
+ * Ptr_Glob->
  *   Ptr_Comp:       *  98004
  *   Discr:       O.K.  0
  *   Enum_Comp:   O.K.  2
  *   Int_Comp:    O.K.  17
  *   Str_Comp:    O.K.  DHRYSTONE PROGRAM, SOME STRING
- * Next_Ptr_Glob-> 
+ * Next_Ptr_Glob->
  *   Ptr_Comp:       *  98004 same as above
  *   Discr:       O.K.  0
  *   Enum_Comp:   O.K.  1
@@ -235,77 +235,72 @@
 #ifndef TIME
 #define TIMES
 #endif
-                /* Use times(2) time function unless    */
-                /* explicitly defined otherwise         */
+/* Use times(2) time function unless    */
+/* explicitly defined otherwise         */
 
 #ifdef TIMES
-/* #include <sys/types.h> 
+/* #include <sys/types.h>
    #include <sys/times.h> */
-                /* for "times" */
+/* for "times" */
 #endif
 
-#define Mic_secs_Per_Second     1000000.0
-                /* Berkeley UNIX C returns process times in seconds/HZ */
+#define Mic_secs_Per_Second 1000000.0
+/* Berkeley UNIX C returns process times in seconds/HZ */
 
-#ifdef  NOSTRUCTASSIGN
-#define structassign(d, s)      memcpy(&(d), &(s), sizeof(d))
+#ifdef NOSTRUCTASSIGN
+#define structassign(d, s) memcpy(&(d), &(s), sizeof(d))
 #else
-#define structassign(d, s)      d = s
+#define structassign(d, s) d = s
 #endif
 
-#ifdef  NOENUM
+#ifdef NOENUM
 #define Ident_1 0
 #define Ident_2 1
 #define Ident_3 2
 #define Ident_4 3
 #define Ident_5 4
-  typedef int   Enumeration;
+typedef int Enumeration;
 #else
-  typedef       enum    {Ident_1, Ident_2, Ident_3, Ident_4, Ident_5}
-                Enumeration;
+typedef enum { Ident_1, Ident_2, Ident_3, Ident_4, Ident_5 } Enumeration;
 #endif
-        /* for boolean and enumeration types in Ada, Pascal */
+/* for boolean and enumeration types in Ada, Pascal */
 
 /* General definitions: */
 
 #include <stdio.h>
 #include <string.h>
 
-                /* for strcpy, strcmp */
+/* for strcpy, strcmp */
 
-#define Null 0 
-                /* Value of a Null pointer */
-#define true  1
+#define Null 0
+/* Value of a Null pointer */
+#define true 1
 #define false 0
 
-typedef int     One_Thirty;
-typedef int     One_Fifty;
-typedef char    Capital_Letter;
-typedef int     Boolean;
-typedef char    Str_30 [31];
-typedef int     Arr_1_Dim [50];
-typedef int     Arr_2_Dim [50] [50];
+typedef int One_Thirty;
+typedef int One_Fifty;
+typedef char Capital_Letter;
+typedef int Boolean;
+typedef char Str_30[31];
+typedef int Arr_1_Dim[50];
+typedef int Arr_2_Dim[50][50];
 
-typedef struct record 
-    {
+typedef struct record {
     struct record *Ptr_Comp;
-    Enumeration    Discr;
+    Enumeration Discr;
     union {
-          struct {
-                  Enumeration Enum_Comp;
-                  int         Int_Comp;
-                  char        Str_Comp [31];
-                  } var_1;
-          struct {
-                  Enumeration E_Comp_2;
-                  char        Str_2_Comp [31];
-                  } var_2;
-          struct {
-                  char        Ch_1_Comp;
-                  char        Ch_2_Comp;
-                  } var_3;
-          } variant;
-      } Rec_Type, *Rec_Pointer;
-
-
-
+        struct {
+            Enumeration Enum_Comp;
+            int Int_Comp;
+            char Str_Comp[31];
+        } var_1;
+        struct {
+            Enumeration E_Comp_2;
+            char Str_2_Comp[31];
+        } var_2;
+        struct {
+            char Ch_1_Comp;
+            char Ch_2_Comp;
+        } var_3;
+    } variant;
+} Rec_Type, *Rec_Pointer;
