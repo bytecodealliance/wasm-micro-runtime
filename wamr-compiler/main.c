@@ -69,7 +69,7 @@ print_help()
     printf("                            only available on linux/linux-sgx x86-64, which may improve performance,\n");
     printf("                            flags can be: i32.load, i64.load, f32.load, f64.load, v128.load,\n");
     printf("                                          i32.store, i64.store, f32.store, f64.store, v128.store\n");
-    printf("                            Use comma to seperate, e.g. --enable-segue=i32.load,i64.store\n");
+    printf("                            Use comma to separate, e.g. --enable-segue=i32.load,i64.store\n");
     printf("                            and --enable-segue means all flags are added.\n");
     printf("  --emit-custom-sections=<section names>\n");
     printf("                            Emit the specified custom sections to AoT file, using comma to separate\n");

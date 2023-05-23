@@ -59,7 +59,7 @@ print_help()
     printf("                           linear memory, which may improve performance, flags can be:\n");
     printf("                              i32.load, i64.load, f32.load, f64.load, v128.load,\n");
     printf("                              i32.store, i64.store, f32.store, f64.store, v128.store\n");
-    printf("                           Use comma to seperate, e.g. --enable-segue=i32.load,i64.store\n");
+    printf("                           Use comma to separate, e.g. --enable-segue=i32.load,i64.store\n");
     printf("                           and --enable-segue means all flags are added.\n");
 #endif
 #endif

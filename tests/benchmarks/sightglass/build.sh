@@ -36,7 +36,6 @@ do
         -Wl,--export=app_main -Wl,--export=_start \
         ${bench}.c main/main_${bench}.c main/my_libc.c
 
-
     echo "Compile ${bench}.wasm into ${bench}.aot"
     ${WAMRC_CMD} -o ${OUT_DIR}/${bench}.aot ${OUT_DIR}/${bench}.wasm
     if [[ ${PLATFORM} == "linux" ]]; then
