@@ -2419,6 +2419,59 @@ aot_resolve_object_data_sections(AOTObjectData *obj_data)
 }
 
 static bool
+aot_resolve_stack_sizes(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
+{
+    LLVMSymbolIteratorRef sym_itr;
+    const char *name;
+
+    if (!(sym_itr = LLVMObjectFileCopySymbolIterator(obj_data->binary))) {
+        aot_set_last_error("llvm get symbol iterator failed.");
+        return false;
+    }
+
+    while (!LLVMObjectFileIsSymbolIteratorAtEnd(obj_data->binary, sym_itr)) {
+        if ((name = LLVMGetSymbolName(sym_itr))
+            && !strcmp(name, aot_stack_sizes_name)) {
+            uint64_t sz = LLVMGetSymbolSize(sym_itr);
+            if (sz != sizeof(uint32_t) * obj_data->func_count) {
+                aot_set_last_error("stack_sizes had unexpected size.");
+                goto fail;
+            }
+            uint64_t addr = LLVMGetSymbolAddress(sym_itr);
+            LLVMSectionIteratorRef sec_itr;
+            if (!(sec_itr =
+                      LLVMObjectFileCopySectionIterator(obj_data->binary))) {
+                aot_set_last_error("llvm get section iterator failed.");
+                goto fail;
+            }
+            LLVMMoveToContainingSection(sec_itr, sym_itr);
+            const char *sec_name = LLVMGetSectionName(sec_itr);
+            LOG_VERBOSE("stack_sizes found in section %s offset %" PRIu64 ".",
+                        sec_name, addr);
+            /* XXX discard const */
+            uint32_t *stack_sizes = (uint32_t *)LLVMGetSectionContents(sec_itr);
+            uint32 i;
+            for (i = 0; i < obj_data->func_count; i++) {
+                if (stack_sizes[i] != 0xffffffff) {
+                    LLVMDisposeSectionIterator(sec_itr);
+                    aot_set_last_error("unexpected data in stack_sizes.");
+                    goto fail;
+                }
+            }
+            stack_sizes[0] = 0xdeadbeef;
+            LLVMDisposeSectionIterator(sec_itr);
+            LLVMDisposeSymbolIterator(sym_itr);
+            return true;
+        }
+        LLVMMoveToNextSymbol(sym_itr);
+    }
+    aot_set_last_error("stack_sizes not found.");
+fail:
+    LLVMDisposeSymbolIterator(sym_itr);
+    return false;
+}
+
+static bool
 aot_resolve_functions(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
 {
     AOTObjectFunc *func;
@@ -2429,6 +2482,8 @@ aot_resolve_functions(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
     /* allocate memory for aot function */
     obj_data->func_count = comp_ctx->comp_data->func_count;
     if (obj_data->func_count) {
+        if (!aot_resolve_stack_sizes(comp_ctx, obj_data))
+            return false;
         total_size = (uint32)sizeof(AOTObjectFunc) * obj_data->func_count;
         if (!(obj_data->funcs = wasm_runtime_malloc(total_size))) {
             aot_set_last_error("allocate memory for functions failed.");
