@@ -38,6 +38,35 @@ wasm_type_to_llvm_type(const AOTLLVMTypes *llvm_types, uint8 wasm_type)
     return NULL;
 }
 
+static LLVMValueRef
+aot_add_llvm_func1(const AOTCompContext *comp_ctx, LLVMModuleRef module,
+                   uint32 func_index, uint32 param_count, LLVMTypeRef func_type)
+{
+    char func_name[48];
+    LLVMValueRef func;
+    LLVMValueRef local_value;
+    uint32 i, j;
+
+    /* Add LLVM function */
+    snprintf(func_name, sizeof(func_name), "%s%d", AOT_FUNC_PREFIX, func_index);
+    if (!(func = LLVMAddFunction(module, func_name, func_type))) {
+        aot_set_last_error("add LLVM function failed.");
+        return NULL;
+    }
+
+    j = 0;
+    local_value = LLVMGetParam(func, j++);
+    LLVMSetValueName(local_value, "exec_env");
+
+    /* Set parameter names */
+    for (i = 0; i < param_count; i++) {
+        local_value = LLVMGetParam(func, j++);
+        LLVMSetValueName(local_value, "");
+    }
+
+    return func;
+}
+
 /**
  * Add LLVM function
  */
@@ -48,7 +77,6 @@ aot_add_llvm_func(const AOTCompContext *comp_ctx, LLVMModuleRef module,
 {
     LLVMValueRef func = NULL;
     LLVMTypeRef *param_types, ret_type, func_type;
-    LLVMValueRef local_value;
     LLVMTypeRef func_type_wrapper;
     LLVMValueRef func_wrapper;
     LLVMBasicBlockRef func_begin;
@@ -101,22 +129,9 @@ aot_add_llvm_func(const AOTCompContext *comp_ctx, LLVMModuleRef module,
         goto fail;
     }
 
-    /* Add LLVM function */
-    snprintf(func_name, sizeof(func_name), "%s%d", AOT_FUNC_PREFIX, func_index);
-    if (!(func = LLVMAddFunction(module, func_name, func_type))) {
-        aot_set_last_error("add LLVM function failed.");
+    if (!(func = aot_add_llvm_func1(comp_ctx, module, func_index,
+                                    aot_func_type->param_count, func_type)))
         goto fail;
-    }
-
-    j = 0;
-    local_value = LLVMGetParam(func, j++);
-    LLVMSetValueName(local_value, "exec_env");
-
-    /* Set parameter names */
-    for (i = 0; i < aot_func_type->param_count; i++) {
-        local_value = LLVMGetParam(func, j++);
-        LLVMSetValueName(local_value, "");
-    }
 
     if (p_func_type)
         *p_func_type = func_type;
