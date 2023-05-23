@@ -2532,6 +2532,7 @@ aot_resolve_functions(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
                 else {
                     func->text_offset = LLVMGetSymbolAddress(sym_itr);
                 }
+                LOG_VERBOSE("func %u name %s offset %u", func_index, name, func->text_offset);
             }
         }
         LLVMMoveToNextSymbol(sym_itr);
