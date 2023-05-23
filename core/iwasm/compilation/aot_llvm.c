@@ -40,7 +40,8 @@ wasm_type_to_llvm_type(const AOTLLVMTypes *llvm_types, uint8 wasm_type)
 
 static LLVMValueRef
 aot_add_llvm_func1(const AOTCompContext *comp_ctx, LLVMModuleRef module,
-                   uint32 func_index, uint32 param_count, LLVMTypeRef func_type)
+                   uint32 func_index, uint32 param_count, LLVMTypeRef func_type,
+                   const char *name_suffix)
 {
     char func_name[48];
     LLVMValueRef func;
@@ -48,7 +49,8 @@ aot_add_llvm_func1(const AOTCompContext *comp_ctx, LLVMModuleRef module,
     uint32 i, j;
 
     /* Add LLVM function */
-    snprintf(func_name, sizeof(func_name), "%s%d", AOT_FUNC_PREFIX, func_index);
+    snprintf(func_name, sizeof(func_name), "%s%d%s", AOT_FUNC_PREFIX,
+             func_index, name_suffix);
     if (!(func = LLVMAddFunction(module, func_name, func_type))) {
         aot_set_last_error("add LLVM function failed.");
         return NULL;
@@ -129,9 +131,56 @@ aot_add_llvm_func(const AOTCompContext *comp_ctx, LLVMModuleRef module,
         goto fail;
     }
 
-    if (!(func = aot_add_llvm_func1(comp_ctx, module, func_index,
-                                    aot_func_type->param_count, func_type)))
+    bh_assert(func_index < comp_ctx->func_ctx_count);
+    if (!(func = aot_add_llvm_func1(comp_ctx, module, func_index + comp_ctx->func_ctx_count,
+                                    aot_func_type->param_count, func_type, "")))
         goto fail;
+
+    {
+        LLVMSetLinkage(func, LLVMInternalLinkage);
+
+        LLVMBasicBlockRef begin;
+        LLVMValueRef precheck_func;
+        if (!(precheck_func = aot_add_llvm_func1(
+                  comp_ctx, module, func_index, aot_func_type->param_count,
+                  func_type, "_precheck")))
+            goto fail;
+        if (!(begin = LLVMAppendBasicBlockInContext(
+                  comp_ctx->context, precheck_func, "precheck"))) {
+            aot_set_last_error("add LLVM basic block failed.");
+            goto fail;
+        }
+        unsigned int param_count = LLVMCountParams(precheck_func);
+        LLVMValueRef *params;
+        uint64 sz = param_count * sizeof(LLVMValueRef);
+        params = wasm_runtime_malloc(sz);
+        LLVMGetParams(precheck_func, params);
+        LLVMPositionBuilderAtEnd(comp_ctx->builder, begin);
+        const char *name = "tail_call";
+        if (ret_type == VOID_TYPE) {
+            name = "";
+        }
+        LLVMValueRef retval = LLVMBuildCall2(comp_ctx->builder, func_type, func,
+                                             params, param_count, name);
+        if (!retval) {
+            aot_set_last_error("llvm build ret failed.");
+            goto fail;
+        }
+        wasm_runtime_free(params);
+        LLVMSetTailCall(retval, true);
+        if (ret_type == VOID_TYPE) {
+            if (!LLVMBuildRetVoid(comp_ctx->builder)) {
+                aot_set_last_error("llvm build ret failed.");
+                goto fail;
+            }
+        }
+        else {
+            if (!LLVMBuildRet(comp_ctx->builder, retval)) {
+                aot_set_last_error("llvm build ret failed.");
+                goto fail;
+            }
+        }
+    }
 
     if (p_func_type)
         *p_func_type = func_type;
