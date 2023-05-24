@@ -14,7 +14,7 @@ WAMRC_CMD=$CUR_DIR/../../../wamr-compiler/build/wamrc
 
 BENCH_NAME_MAX_LEN=20
 
-JETSTREAM_CASES="gcc-loops quicksort HashSet float-mm"
+JETSTREAM_CASES="gcc-loops HashSet tsf float-mm quicksort"
 
 rm -f $REPORT
 touch $REPORT
@@ -77,11 +77,11 @@ do
 
     echo "run $t with iwasm aot .."
     echo -en "\t" >> $REPORT
-    $TIME -f "real-%e-time" $IWASM_CMD ${t}.aot 2>&1 | grep "real-.*-time" | awk -F '-' '{ORS=""; print $2}' >> $REPORT
+    $TIME -f "real-%e-time" $IWASM_CMD --dir=. ${t}.aot 2>&1 | grep "real-.*-time" | awk -F '-' '{ORS=""; print $2}' >> $REPORT
 
     echo "run $t with iwasm aot opt .."
     echo -en "\t" >> $REPORT
-    $TIME -f "real-%e-time" $IWASM_CMD ${t}_opt.aot 2>&1 | grep "real-.*-time" | awk -F '-' '{ORS=""; print $2}' >> $REPORT
+    $TIME -f "real-%e-time" $IWASM_CMD --dir=. ${t}_opt.aot 2>&1 | grep "real-.*-time" | awk -F '-' '{ORS=""; print $2}' >> $REPORT
 
     echo -en "\n" >> $REPORT
 done

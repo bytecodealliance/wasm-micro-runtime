@@ -34,6 +34,10 @@ echo "Compile coremark.wasm to coremark_opt.aot with the profile data .."
 ${WAMRC} --use-prof-file=coremark.profdata -o coremark_opt.aot coremark.wasm
 
 echo ""
+echo "Run the coremark native"
+./coremark.exe
+
+echo ""
 echo "Run the original aot file coremark.aot"
 ${IWASM} coremark.aot
 
