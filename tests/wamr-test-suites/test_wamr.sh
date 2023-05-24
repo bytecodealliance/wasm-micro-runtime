@@ -430,7 +430,7 @@ function spec_test()
 
     # sgx only enable in interp mode and aot mode
     if [[ ${SGX_OPT} == "--sgx" ]];then
-        if [[ $1 == 'classic-interp' || $1 == 'fast-interp' || $1 == 'aot' ]]; then
+        if [[ $1 == 'classic-interp' || $1 == 'fast-interp' || $1 == 'aot' || $1 == 'fast-jit' ]]; then
           ARGS_FOR_SPEC_TEST+="-x "
         fi
     fi
