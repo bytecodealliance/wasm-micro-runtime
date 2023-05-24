@@ -10,6 +10,7 @@ TIME=/usr/bin/time
 
 PLATFORM=$(uname -s | tr A-Z a-z)
 IWASM_CMD=$CUR_DIR/../../../product-mini/platforms/${PLATFORM}/build/iwasm
+WAMRC_CMD=$CUR_DIR/../../../wamr-compiler/build/wamrc
 
 BENCH_NAME_MAX_LEN=20
 
@@ -33,11 +34,41 @@ function print_bench_name()
     fi
 }
 
+pushd $OUT_DIR > /dev/null 2>&1
+for t in $POLYBENCH_CASES
+do
+    if [ ! -e "${t}.wasm" ]; then
+        echo "%{t}.wasm doesn't exist, please run build.sh first"
+        exit
+    fi
+
+    echo ""
+    echo "Compile ${t}.wasm to ${t}.aot .."
+    ${WAMRC_CMD} -o ${t}.aot ${t}.wasm
+
+    echo ""
+    echo "Compile ${t}.wasm to ${t}_pgo.aot .."
+    ${WAMRC_CMD} --enable-llvm-pgo -o ${t}_pgo.aot ${t}.wasm
+
+    echo ""
+    echo "Run ${t}_pgo.aot to generate the raw profile data .."
+    ${IWASM_CMD} --gen-prof-file=${t}.profraw --dir=. ${t}_pgo.aot
+
+    echo ""
+    echo "Merge the raw profile data to ${t}.profdata .."
+    llvm-profdata merge -output=${t}.profdata ${t}.profraw
+
+    echo ""
+    echo "Compile ${t}.wasm to ${t}_opt.aot with the profile data .."
+    ${WAMRC_CMD} --use-prof-file=${t}.profdata -o ${t}_opt.aot ${t}.wasm
+done
+popd > /dev/null 2>&1
+
 echo "Start to run cases, the result is written to report.txt"
 
 #run benchmarks
 cd $OUT_DIR
-echo -en "\t\t\t\t\t  native\tiwasm-interp\n" >> $REPORT
+echo -en "\t\t\t\t\t  native\tiwasm-aot\tiwasm-aot-pgo\n" >> $REPORT
 
 for t in $POLYBENCH_CASES
 do
@@ -47,9 +78,13 @@ do
     echo -en "\t" >> $REPORT
     $TIME -f "real-%e-time" ./${t}_native 2>&1 | grep "real-.*-time" | awk -F '-' '{ORS=""; print $2}' >> $REPORT
 
-    echo "run $t with iwasm interp .."
+    echo "run $t with iwasm aot .."
     echo -en "\t" >> $REPORT
-    $TIME -f "real-%e-time" $IWASM_CMD ${t}.wasm 2>&1 | grep "real-.*-time" | awk -F '-' '{ORS=""; print $2}' >> $REPORT
+    $TIME -f "real-%e-time" $IWASM_CMD ${t}.aot 2>&1 | grep "real-.*-time" | awk -F '-' '{ORS=""; print $2}' >> $REPORT
+
+    echo "run $t with iwasm aot opt .."
+    echo -en "\t" >> $REPORT
+    $TIME -f "real-%e-time" $IWASM_CMD ${t}_opt.aot 2>&1 | grep "real-.*-time" | awk -F '-' '{ORS=""; print $2}' >> $REPORT
 
     echo -en "\n" >> $REPORT
 done

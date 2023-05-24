@@ -3,6 +3,8 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+PLATFORM=$(uname -s | tr A-Z a-z)
+
 CUR_DIR=$PWD
 OUT_DIR=$CUR_DIR/out
 REPORT=$CUR_DIR/report.txt
@@ -13,7 +15,7 @@ IWASM_CMD=$CUR_DIR/../../../product-mini/platforms/${PLATFORM}/build/iwasm
 
 BENCH_NAME_MAX_LEN=20
 
-JETSTREAM_CASES="gcc-loops quicksort HashSet float-mm"
+JETSTREAM_CASES="gcc-loops HashSet tsf float-mm quicksort"
 
 rm -f $REPORT
 touch $REPORT
@@ -46,7 +48,7 @@ do
 
     echo "run $t with iwasm aot .."
     echo -en "\t" >> $REPORT
-    $TIME -f "real-%e-time" $IWASM_CMD ${t}.aot 2>&1 | grep "real-.*-time" | awk -F '-' '{ORS=""; print $2}' >> $REPORT
+    $TIME -f "real-%e-time" $IWASM_CMD --dir=. ${t}.aot 2>&1 | grep "real-.*-time" | awk -F '-' '{ORS=""; print $2}' >> $REPORT
 
     echo -en "\n" >> $REPORT
 done
