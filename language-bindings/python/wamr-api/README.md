@@ -1,5 +1,7 @@
 # WARM API
 
+* **Notice**: The python package `wamr.wamrapi.wamr` need python >= `3.9`.
+
 ## Setup
 
 ### Pre-requisites
