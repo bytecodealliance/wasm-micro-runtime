@@ -132,18 +132,32 @@ aot_add_llvm_func(const AOTCompContext *comp_ctx, LLVMModuleRef module,
     }
 
     bh_assert(func_index < comp_ctx->func_ctx_count);
-    if (!(func = aot_add_llvm_func1(comp_ctx, module, func_index + comp_ctx->func_ctx_count,
+    /*
+     * Use an out-of-range index (by adding comp_ctx->func_ctx_count)
+     * to ensure that this function is not used directly.
+     *
+     * REVISIT: probably this breaks windows hw bound check
+     * (the RtlAddFunctionTable stuff)
+     */
+    if (!(func = aot_add_llvm_func1(comp_ctx, module,
+                                    func_index + comp_ctx->func_ctx_count,
                                     aot_func_type->param_count, func_type, "")))
         goto fail;
 
     {
         LLVMSetLinkage(func, LLVMInternalLinkage);
+        unsigned int kind =
+            LLVMGetEnumAttributeKindForName("noinline", strlen("noinline"));
+        LLVMAttributeRef attr_noinline =
+            LLVMCreateEnumAttribute(comp_ctx->context, kind, 0);
+        LLVMAddAttributeAtIndex(func, LLVMAttributeFunctionIndex,
+                                attr_noinline);
 
         LLVMBasicBlockRef begin;
         LLVMValueRef precheck_func;
-        if (!(precheck_func = aot_add_llvm_func1(
-                  comp_ctx, module, func_index, aot_func_type->param_count,
-                  func_type, "_precheck")))
+        if (!(precheck_func = aot_add_llvm_func1(comp_ctx, module, func_index,
+                                                 aot_func_type->param_count,
+                                                 func_type, "_precheck")))
             goto fail;
         if (!(begin = LLVMAppendBasicBlockInContext(
                   comp_ctx->context, precheck_func, "precheck"))) {
