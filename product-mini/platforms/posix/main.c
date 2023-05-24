@@ -388,6 +388,8 @@ dump_pgo_prof_data(wasm_module_inst_t module_inst, const char *path)
     fclose(file);
 
     wasm_runtime_free(buf);
+
+    printf("LLVM raw profile file %s was generated.\n", path);
 }
 #endif
 

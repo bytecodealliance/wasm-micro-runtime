@@ -118,6 +118,13 @@ typedef struct AOTUnwindInfo {
 #define PLT_ITEM_SIZE 12
 #endif
 
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+typedef struct GOTItem {
+    uint32 func_idx;
+    struct GOTItem *next;
+} GOTItem, *GOTItemList;
+#endif
+
 typedef struct AOTModule {
     uint32 module_type;
 
@@ -212,6 +219,13 @@ typedef struct AOTModule {
        for AOT functions */
     RUNTIME_FUNCTION *rtl_func_table;
     bool rtl_func_table_registered;
+#endif
+
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+    uint32 got_item_count;
+    GOTItemList got_item_list;
+    GOTItemList got_item_list_end;
+    void **got_func_ptrs;
 #endif
 
     /* data sections in AOT object file, including .data, .rodata
@@ -328,7 +342,7 @@ typedef struct ValueProfNode {
 typedef struct LLVMProfileData {
     uint64 func_md5;
     uint64 func_hash;
-    int64 offset_counters;
+    intptr_t offset_counters;
     uintptr_t func_ptr;
     ValueProfNode **values;
     uint32 num_counters;
@@ -621,7 +635,16 @@ aot_get_pgo_prof_data_size(AOTModuleInstance *module_inst);
 uint32
 aot_dump_pgo_prof_data_to_buf(AOTModuleInstance *module_inst, char *buf,
                               uint32 len);
-#endif
+
+void
+aot_exchange_uint16(uint8 *p_data);
+
+void
+aot_exchange_uint32(uint8 *p_data);
+
+void
+aot_exchange_uint64(uint8 *p_data);
+#endif /* end of WASM_ENABLE_STATIC_PGO != 0 */
 
 #ifdef __cplusplus
 } /* end of extern "C" */

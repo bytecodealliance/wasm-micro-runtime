@@ -2981,10 +2981,7 @@ void
 llvm_profile_instrument_target(uint64 target_value, void *data,
                                uint32 counter_idx)
 {
-#if 0
-    /* TODO */
     instrumentTargetValueImpl(target_value, data, counter_idx, 1);
-#endif
 }
 
 static inline uint32
@@ -3038,14 +3035,18 @@ llvm_profile_instrument_memop(uint64 target_value, void *data,
     instrumentTargetValueImpl(rep_value, data, counter_idx, 1);
 }
 
-uint32
-aot_get_pgo_prof_data_size(AOTModuleInstance *module_inst)
+static uint32
+get_pgo_prof_data_size(AOTModuleInstance *module_inst, uint32 *p_num_prof_data,
+                       uint32 *p_num_prof_counters, uint32 *p_padding_size,
+                       uint32 *p_prof_counters_size, uint32 *p_prof_names_size,
+                       uint32 *p_value_counters_size, uint8 **p_prof_names)
 {
     AOTModule *module = (AOTModule *)module_inst->module;
     LLVMProfileData *prof_data;
+    uint8 *prof_names = NULL;
     uint32 num_prof_data = 0, num_prof_counters = 0, padding_size, i;
     uint32 prof_counters_size = 0, prof_names_size = 0;
-    uint32 total_size;
+    uint32 total_size, total_size_wo_value_counters;
 
     for (i = 0; i < module->data_section_count; i++) {
         if (!strncmp(module->data_sections[i].name, "__llvm_prf_data", 15)) {
@@ -3061,6 +3062,7 @@ aot_get_pgo_prof_data_size(AOTModuleInstance *module_inst)
         else if (!strncmp(module->data_sections[i].name, "__llvm_prf_names",
                           16)) {
             prof_names_size = module->data_sections[i].size;
+            prof_names = module->data_sections[i].data;
         }
     }
 
@@ -3073,6 +3075,9 @@ aot_get_pgo_prof_data_size(AOTModuleInstance *module_inst)
     padding_size = sizeof(uint64) - (prof_names_size % sizeof(uint64));
     if (padding_size != sizeof(uint64))
         total_size += padding_size;
+
+    /* Total size excluding value counters */
+    total_size_wo_value_counters = total_size;
 
     for (i = 0; i < module->data_section_count; i++) {
         if (!strncmp(module->data_sections[i].name, "__llvm_prf_data", 15)) {
@@ -3115,8 +3120,37 @@ aot_get_pgo_prof_data_size(AOTModuleInstance *module_inst)
         }
     }
 
+    if (p_num_prof_data)
+        *p_num_prof_data = num_prof_data;
+    if (p_num_prof_counters)
+        *p_num_prof_counters = num_prof_counters;
+    if (p_padding_size)
+        *p_padding_size = padding_size;
+    if (p_prof_counters_size)
+        *p_prof_counters_size = prof_counters_size;
+    if (p_prof_names_size)
+        *p_prof_names_size = prof_names_size;
+    if (p_value_counters_size)
+        *p_value_counters_size = total_size - total_size_wo_value_counters;
+    if (p_prof_names)
+        *p_prof_names = prof_names;
+
     return total_size;
 }
+
+uint32
+aot_get_pgo_prof_data_size(AOTModuleInstance *module_inst)
+{
+    return get_pgo_prof_data_size(module_inst, NULL, NULL, NULL, NULL, NULL,
+                                  NULL, NULL);
+}
+
+static union {
+    int a;
+    char b;
+} __ue = { .a = 1 };
+
+#define is_little_endian() (__ue.b == 1)
 
 uint32
 aot_dump_pgo_prof_data_to_buf(AOTModuleInstance *module_inst, char *buf,
@@ -3128,39 +3162,19 @@ aot_dump_pgo_prof_data_to_buf(AOTModuleInstance *module_inst, char *buf,
     uint8 *prof_names = NULL;
     uint32 num_prof_data = 0, num_prof_counters = 0, padding_size, i;
     uint32 prof_counters_size = 0, prof_names_size = 0;
+    uint32 value_counters_size = 0, value_counters_size_backup = 0;
     uint32 total_size, size;
     int64 counters_delta, offset_counters;
 
-    for (i = 0; i < module->data_section_count; i++) {
-        if (!strncmp(module->data_sections[i].name, "__llvm_prf_data", 15)) {
-            bh_assert(module->data_sections[i].size == sizeof(LLVMProfileData));
-            num_prof_data++;
-            prof_data = (LLVMProfileData *)module->data_sections[i].data;
-            num_prof_counters += prof_data->num_counters;
-        }
-        else if (!strncmp(module->data_sections[i].name, "__llvm_prf_cnts",
-                          15)) {
-            prof_counters_size += module->data_sections[i].size;
-        }
-        else if (!strncmp(module->data_sections[i].name, "__llvm_prf_names",
-                          16)) {
-            prof_names_size = module->data_sections[i].size;
-            prof_names = module->data_sections[i].data;
-        }
-    }
-
-    if (prof_counters_size != num_prof_counters * sizeof(uint64))
-        return 0;
-
-    total_size = sizeof(LLVMProfileRawHeader)
-                 + num_prof_data * sizeof(LLVMProfileData) + prof_counters_size
-                 + prof_names_size;
-    padding_size = sizeof(uint64) - (prof_names_size % sizeof(uint64));
-    if (padding_size != sizeof(uint64))
-        total_size += padding_size;
-
+    total_size = get_pgo_prof_data_size(module_inst, &num_prof_data,
+                                        &num_prof_counters, &padding_size,
+                                        &prof_counters_size, &prof_names_size,
+                                        &value_counters_size, &prof_names);
     if (len < total_size)
         return 0;
+
+    value_counters_size_backup = value_counters_size;
+    value_counters_size = 0;
 
     prof_header.counters_delta = counters_delta =
         sizeof(LLVMProfileData) * num_prof_data;
@@ -3168,7 +3182,6 @@ aot_dump_pgo_prof_data_to_buf(AOTModuleInstance *module_inst, char *buf,
     for (i = 0; i < module->data_section_count; i++) {
         if (!strncmp(module->data_sections[i].name, "__llvm_prf_data", 15)) {
             prof_data = (LLVMProfileData *)module->data_sections[i].data;
-            prof_data->func_ptr = 0;
             prof_data->offset_counters = counters_delta + offset_counters;
             offset_counters += prof_data->num_counters * sizeof(uint64);
             counters_delta -= sizeof(LLVMProfileData);
@@ -3176,11 +3189,26 @@ aot_dump_pgo_prof_data_to_buf(AOTModuleInstance *module_inst, char *buf,
     }
 
     prof_header.magic = 0xFF6C70726F667281LL;
-    prof_header.version = 0x000000000000008LL;
+    /* Version 8 */
+    prof_header.version = 0x0000000000000008LL;
+    /* with VARIANT_MASK_IR_PROF (IR Instrumentation) */
+    prof_header.version |= 0x1ULL << 56;
+    /* with VARIANT_MASK_MEMPROF (Memory Profile) */
+    prof_header.version |= 0x1ULL << 62;
     prof_header.num_prof_data = num_prof_data;
     prof_header.num_prof_counters = num_prof_counters;
     prof_header.names_size = prof_names_size;
     prof_header.value_kind_last = 1;
+
+    if (!is_little_endian()) {
+        aot_exchange_uint64((uint8 *)&prof_header.magic);
+        aot_exchange_uint64((uint8 *)&prof_header.version);
+        aot_exchange_uint64((uint8 *)&prof_header.num_prof_data);
+        aot_exchange_uint64((uint8 *)&prof_header.num_prof_counters);
+        aot_exchange_uint64((uint8 *)&prof_header.names_size);
+        aot_exchange_uint64((uint8 *)&prof_header.counters_delta);
+        aot_exchange_uint64((uint8 *)&prof_header.value_kind_last);
+    }
 
     size = sizeof(LLVMProfileRawHeader);
     bh_memcpy_s(buf, size, &prof_header, size);
@@ -3190,6 +3218,25 @@ aot_dump_pgo_prof_data_to_buf(AOTModuleInstance *module_inst, char *buf,
         if (!strncmp(module->data_sections[i].name, "__llvm_prf_data", 15)) {
             size = sizeof(LLVMProfileData);
             bh_memcpy_s(buf, size, module->data_sections[i].data, size);
+            if (!is_little_endian()) {
+                prof_data = (LLVMProfileData *)buf;
+
+                aot_exchange_uint64((uint8 *)&prof_data->func_hash);
+                aot_exchange_uint64((uint8 *)&prof_data->offset_counters);
+                if (UINTPTR_MAX == UINT64_MAX) {
+                    aot_exchange_uint64((uint8 *)&prof_data->offset_counters);
+                    aot_exchange_uint64((uint8 *)&prof_data->func_ptr);
+                    aot_exchange_uint64((uint8 *)&prof_data->values);
+                }
+                else {
+                    aot_exchange_uint32((uint8 *)&prof_data->offset_counters);
+                    aot_exchange_uint32((uint8 *)&prof_data->func_ptr);
+                    aot_exchange_uint32((uint8 *)&prof_data->values);
+                }
+                aot_exchange_uint32((uint8 *)&prof_data->num_counters);
+                aot_exchange_uint16((uint8 *)&prof_data->num_value_sites[0]);
+                aot_exchange_uint16((uint8 *)&prof_data->num_value_sites[1]);
+            }
             buf += size;
         }
     }
@@ -3231,15 +3278,21 @@ aot_dump_pgo_prof_data_to_buf(AOTModuleInstance *module_inst, char *buf,
                                   && prof_data->num_value_sites[1] > 0)
                                      ? 2
                                      : 1;
+                if (!is_little_endian())
+                    aot_exchange_uint32((uint8 *)buf);
                 buf += 4;
 
                 for (j = 0; j < 2; j++) {
                     if ((num_value_sites = prof_data->num_value_sites[j]) > 0) {
                         /* ValueKind */
                         *(uint32 *)buf = j;
+                        if (!is_little_endian())
+                            aot_exchange_uint32((uint8 *)buf);
                         buf += 4;
                         /* NumValueSites */
                         *(uint32 *)buf = num_value_sites;
+                        if (!is_little_endian())
+                            aot_exchange_uint32((uint8 *)buf);
                         buf += 4;
 
                         for (k = 0; k < num_value_sites; k++) {
@@ -3264,8 +3317,12 @@ aot_dump_pgo_prof_data_to_buf(AOTModuleInstance *module_inst, char *buf,
                                 value_node = *values;
                                 while (value_node) {
                                     *(uint64 *)buf = value_node->value;
+                                    if (!is_little_endian())
+                                        aot_exchange_uint64((uint8 *)buf);
                                     buf += 8;
                                     *(uint64 *)buf = value_node->count;
+                                    if (!is_little_endian())
+                                        aot_exchange_uint64((uint8 *)buf);
                                     buf += 8;
                                     value_node = value_node->next;
                                 }
@@ -3278,10 +3335,15 @@ aot_dump_pgo_prof_data_to_buf(AOTModuleInstance *module_inst, char *buf,
                 /* TotalSize */
                 *(uint32 *)buf_total_size =
                     (uint8 *)buf - (uint8 *)buf_total_size;
-                total_size += (uint8 *)buf - (uint8 *)buf_total_size;
+                if (!is_little_endian())
+                    aot_exchange_uint64((uint8 *)buf_total_size);
+                value_counters_size += (uint8 *)buf - (uint8 *)buf_total_size;
             }
         }
     }
+
+    bh_assert(value_counters_size == value_counters_size_backup);
+    (void)value_counters_size_backup;
 
     return total_size;
 }

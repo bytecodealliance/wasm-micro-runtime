@@ -1920,6 +1920,8 @@ str2uint64(const char *buf, uint64 *p_res)
     return true;
 }
 
+#define R_X86_64_GOTPCREL 9 /* 32 bit signed PC relative offset to GOT */
+
 static bool
 do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
                    char *error_buf, uint32 error_buf_size)
@@ -1973,7 +1975,25 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
                                 "invalid import symbol %s", symbol);
                 goto check_symbol_fail;
             }
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+            if (relocation->relocation_type == R_X86_64_GOTPCREL) {
+                GOTItem *got_item = module->got_item_list;
+                uint32 got_item_idx = 0;
+
+                while (got_item) {
+                    if (got_item->func_idx == func_index)
+                        break;
+                    got_item_idx++;
+                    got_item = got_item->next;
+                }
+                /* Calculate `GOT + G` */
+                symbol_addr = module->got_func_ptrs + got_item_idx;
+            }
+            else
+                symbol_addr = module->func_ptrs[func_index];
+#else
             symbol_addr = module->func_ptrs[func_index];
+#endif
         }
         else if (!strcmp(symbol, ".text")) {
             symbol_addr = module->code;
@@ -2239,7 +2259,7 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
 {
     AOTRelocationGroup *groups = NULL, *group;
     uint32 symbol_count = 0;
-    uint32 group_count = 0, i, j;
+    uint32 group_count = 0, i, j, got_item_count = 0;
     uint64 size;
     uint32 *symbol_offsets, total_string_len;
     uint8 *symbol_buf, *symbol_buf_end;
@@ -2301,6 +2321,8 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
 
         for (j = 0; j < relocation_count; j++) {
             AOTRelocation relocation = { 0 };
+            char group_name_buf[128] = { 0 };
+            char symbol_name_buf[128] = { 0 };
             uint32 symbol_index, offset32;
             int32 addend32;
             uint16 symbol_name_len;
@@ -2329,10 +2351,10 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
             symbol_name_len = *(uint16 *)symbol_name;
             symbol_name += sizeof(uint16);
 
-            char group_name_buf[128] = { 0 };
-            char symbol_name_buf[128] = { 0 };
-            memcpy(group_name_buf, group_name, group_name_len);
-            memcpy(symbol_name_buf, symbol_name, symbol_name_len);
+            bh_memcpy_s(group_name_buf, (uint32)sizeof(group_name_buf),
+                        group_name, group_name_len);
+            bh_memcpy_s(symbol_name_buf, (uint32)sizeof(symbol_name_buf),
+                        symbol_name, symbol_name_len);
 
             if ((group_name_len == strlen(".text")
                  || (module->is_indirect_mode
@@ -2393,6 +2415,135 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
         module->extra_plt_data_size = (uint32)size;
     }
 #endif /* end of defined(BH_PLATFORM_WINDOWS) */
+
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+    buf = symbol_buf_end;
+    read_uint32(buf, buf_end, group_count);
+
+    /* Resolve the relocations of type R_X86_64_GOTPCREL */
+    for (i = 0; i < group_count; i++) {
+        uint32 name_index, relocation_count;
+        uint16 group_name_len;
+        uint8 *group_name;
+
+        /* section name address is 4 bytes aligned. */
+        buf = (uint8 *)align_ptr(buf, sizeof(uint32));
+        read_uint32(buf, buf_end, name_index);
+
+        if (name_index >= symbol_count) {
+            set_error_buf(error_buf, error_buf_size,
+                          "symbol index out of range");
+            goto fail;
+        }
+
+        group_name = symbol_buf + symbol_offsets[name_index];
+        group_name_len = *(uint16 *)group_name;
+        group_name += sizeof(uint16);
+
+        read_uint32(buf, buf_end, relocation_count);
+
+        for (j = 0; j < relocation_count; j++) {
+            AOTRelocation relocation = { 0 };
+            char group_name_buf[128] = { 0 };
+            char symbol_name_buf[128] = { 0 };
+            uint32 symbol_index;
+            uint16 symbol_name_len;
+            uint8 *symbol_name;
+
+            /* relocation offset and addend */
+            buf += sizeof(void *) * 2;
+
+            read_uint32(buf, buf_end, relocation.relocation_type);
+            read_uint32(buf, buf_end, symbol_index);
+
+            if (symbol_index >= symbol_count) {
+                set_error_buf(error_buf, error_buf_size,
+                              "symbol index out of range");
+                goto fail;
+            }
+
+            symbol_name = symbol_buf + symbol_offsets[symbol_index];
+            symbol_name_len = *(uint16 *)symbol_name;
+            symbol_name += sizeof(uint16);
+
+            bh_memcpy_s(group_name_buf, (uint32)sizeof(group_name_buf),
+                        group_name, group_name_len);
+            bh_memcpy_s(symbol_name_buf, (uint32)sizeof(symbol_name_buf),
+                        symbol_name, symbol_name_len);
+
+            if (relocation.relocation_type == R_X86_64_GOTPCREL
+                && !strncmp(symbol_name_buf, AOT_FUNC_PREFIX,
+                            strlen(AOT_FUNC_PREFIX))) {
+                uint32 func_idx =
+                    atoi(symbol_name_buf + strlen(AOT_FUNC_PREFIX));
+                GOTItem *got_item = module->got_item_list;
+
+                if (func_idx >= module->func_count) {
+                    set_error_buf(error_buf, error_buf_size,
+                                  "func index out of range");
+                    goto fail;
+                }
+
+                while (got_item) {
+                    if (got_item->func_idx == func_idx)
+                        break;
+                    got_item = got_item->next;
+                }
+
+                if (!got_item) {
+                    /* Create the got item and append to the list */
+                    got_item = wasm_runtime_malloc(sizeof(GOTItem));
+                    if (!got_item) {
+                        set_error_buf(error_buf, error_buf_size,
+                                      "allocate memory failed");
+                        goto fail;
+                    }
+
+                    got_item->func_idx = func_idx;
+                    got_item->next = NULL;
+                    if (!module->got_item_list) {
+                        module->got_item_list = module->got_item_list_end =
+                            got_item;
+                    }
+                    else {
+                        module->got_item_list_end->next = got_item;
+                        module->got_item_list_end = got_item;
+                    }
+
+                    got_item_count++;
+                }
+            }
+        }
+    }
+
+    if (got_item_count) {
+        GOTItem *got_item = module->got_item_list;
+        uint32 got_item_idx = 0;
+
+        map_prot = MMAP_PROT_READ | MMAP_PROT_WRITE;
+        /* aot code and data in x86_64 must be in range 0 to 2G due to
+           relocation for R_X86_64_32/32S/PC32 */
+        map_flags = MMAP_MAP_32BIT;
+
+        /* Create the GOT for func_ptrs, note that it is different from
+           the .got section of a dynamic object file */
+        size = (uint64)sizeof(void *) * got_item_count;
+        if (size > UINT32_MAX
+            || !(module->got_func_ptrs =
+                     os_mmap(NULL, (uint32)size, map_prot, map_flags))) {
+            set_error_buf(error_buf, error_buf_size, "mmap memory failed");
+            goto fail;
+        }
+
+        while (got_item) {
+            module->got_func_ptrs[got_item_idx++] =
+                module->func_ptrs[got_item->func_idx];
+            got_item = got_item->next;
+        }
+
+        module->got_item_count = got_item_count;
+    }
+#endif /* defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) */
 
     buf = symbol_buf_end;
     read_uint32(buf, buf_end, group_count);
@@ -3069,9 +3220,26 @@ aot_unload(AOTModule *module)
     }
 #endif
 
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+    {
+        GOTItem *got_item = module->got_item_list, *got_item_next;
+
+        if (module->got_func_ptrs) {
+            os_munmap(module->got_func_ptrs,
+                      sizeof(void *) * module->got_item_count);
+        }
+        while (got_item) {
+            got_item_next = got_item->next;
+            wasm_runtime_free(got_item);
+            got_item = got_item_next;
+        }
+    }
+#endif
+
     if (module->data_sections)
         destroy_object_data_sections(module->data_sections,
                                      module->data_section_count);
+
 #if WASM_ENABLE_DEBUG_AOT != 0
     jit_code_entry_destroy(module->elf_hdr);
 #endif
@@ -3118,3 +3286,23 @@ aot_get_custom_section(const AOTModule *module, const char *name, uint32 *len)
     return NULL;
 }
 #endif /* end of WASM_ENABLE_LOAD_CUSTOM_SECTION */
+
+#if WASM_ENABLE_STATIC_PGO != 0
+void
+aot_exchange_uint16(uint8 *p_data)
+{
+    return exchange_uint16(p_data);
+}
+
+void
+aot_exchange_uint32(uint8 *p_data)
+{
+    return exchange_uint32(p_data);
+}
+
+void
+aot_exchange_uint64(uint8 *p_data)
+{
+    return exchange_uint64(p_data);
+}
+#endif
