@@ -69,6 +69,58 @@ aot_add_llvm_func1(const AOTCompContext *comp_ctx, LLVMModuleRef module,
     return func;
 }
 
+static bool
+aot_add_precheck_function(const AOTCompContext *comp_ctx, LLVMModuleRef module,
+                          uint32 func_index, uint32 orig_param_count,
+                          LLVMTypeRef func_type, LLVMValueRef orig_func)
+{
+    LLVMBasicBlockRef begin;
+    LLVMValueRef precheck_func;
+    if (!(precheck_func =
+              aot_add_llvm_func1(comp_ctx, module, func_index, orig_param_count,
+                                 func_type, "_precheck")))
+        goto fail;
+    if (!(begin = LLVMAppendBasicBlockInContext(comp_ctx->context,
+                                                precheck_func, "precheck"))) {
+        aot_set_last_error("add LLVM basic block failed.");
+        goto fail;
+    }
+    unsigned int param_count = LLVMCountParams(precheck_func);
+    LLVMValueRef *params;
+    uint64 sz = param_count * sizeof(LLVMValueRef);
+    params = wasm_runtime_malloc(sz);
+    LLVMGetParams(precheck_func, params);
+    LLVMPositionBuilderAtEnd(comp_ctx->builder, begin);
+    const char *name = "tail_call";
+    LLVMTypeRef ret_type = LLVMGetReturnType(func_type);
+    if (ret_type == VOID_TYPE) {
+        name = "";
+    }
+    LLVMValueRef retval = LLVMBuildCall2(comp_ctx->builder, func_type,
+                                         orig_func, params, param_count, name);
+    if (!retval) {
+        aot_set_last_error("llvm build ret failed.");
+        goto fail;
+    }
+    wasm_runtime_free(params);
+    LLVMSetTailCall(retval, true);
+    if (ret_type == VOID_TYPE) {
+        if (!LLVMBuildRetVoid(comp_ctx->builder)) {
+            aot_set_last_error("llvm build ret failed.");
+            goto fail;
+        }
+    }
+    else {
+        if (!LLVMBuildRet(comp_ctx->builder, retval)) {
+            aot_set_last_error("llvm build ret failed.");
+            goto fail;
+        }
+    }
+    return true;
+fail:
+    return false;
+}
+
 /**
  * Add LLVM function
  */
@@ -132,6 +184,7 @@ aot_add_llvm_func(const AOTCompContext *comp_ctx, LLVMModuleRef module,
     }
 
     bh_assert(func_index < comp_ctx->func_ctx_count);
+    bh_assert(LLVMGetReturnType(func_type) == ret_type);
     /*
      * Use an out-of-range index (by adding comp_ctx->func_ctx_count)
      * to ensure that this function is not used directly.
@@ -153,47 +206,10 @@ aot_add_llvm_func(const AOTCompContext *comp_ctx, LLVMModuleRef module,
         LLVMAddAttributeAtIndex(func, LLVMAttributeFunctionIndex,
                                 attr_noinline);
 
-        LLVMBasicBlockRef begin;
-        LLVMValueRef precheck_func;
-        if (!(precheck_func = aot_add_llvm_func1(comp_ctx, module, func_index,
-                                                 aot_func_type->param_count,
-                                                 func_type, "_precheck")))
+        if (!aot_add_precheck_function(comp_ctx, module, func_index,
+                                       aot_func_type->param_count, func_type,
+                                       func))
             goto fail;
-        if (!(begin = LLVMAppendBasicBlockInContext(
-                  comp_ctx->context, precheck_func, "precheck"))) {
-            aot_set_last_error("add LLVM basic block failed.");
-            goto fail;
-        }
-        unsigned int param_count = LLVMCountParams(precheck_func);
-        LLVMValueRef *params;
-        uint64 sz = param_count * sizeof(LLVMValueRef);
-        params = wasm_runtime_malloc(sz);
-        LLVMGetParams(precheck_func, params);
-        LLVMPositionBuilderAtEnd(comp_ctx->builder, begin);
-        const char *name = "tail_call";
-        if (ret_type == VOID_TYPE) {
-            name = "";
-        }
-        LLVMValueRef retval = LLVMBuildCall2(comp_ctx->builder, func_type, func,
-                                             params, param_count, name);
-        if (!retval) {
-            aot_set_last_error("llvm build ret failed.");
-            goto fail;
-        }
-        wasm_runtime_free(params);
-        LLVMSetTailCall(retval, true);
-        if (ret_type == VOID_TYPE) {
-            if (!LLVMBuildRetVoid(comp_ctx->builder)) {
-                aot_set_last_error("llvm build ret failed.");
-                goto fail;
-            }
-        }
-        else {
-            if (!LLVMBuildRet(comp_ctx->builder, retval)) {
-                aot_set_last_error("llvm build ret failed.");
-                goto fail;
-            }
-        }
     }
 
     if (p_func_type)
