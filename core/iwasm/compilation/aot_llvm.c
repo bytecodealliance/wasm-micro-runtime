@@ -91,6 +91,23 @@ aot_add_precheck_function(const AOTCompContext *comp_ctx, LLVMModuleRef module,
     params = wasm_runtime_malloc(sz);
     LLVMGetParams(precheck_func, params);
     LLVMPositionBuilderAtEnd(comp_ctx->builder, begin);
+
+    LLVMTypeRef uintptr_type = I64_TYPE;
+    LLVMValueRef sp_ptr =
+        LLVMBuildAlloca(comp_ctx->builder, I32_TYPE, "sp_ptr");
+    LLVMValueRef sp =
+        LLVMBuildPtrToInt(comp_ctx->builder, sp_ptr, uintptr_type, "sp");
+    LLVMValueRef func_index_const = I32_CONST(func_index);
+    LLVMValueRef sizes = LLVMBuildBitCast(
+        comp_ctx->builder, comp_ctx->stack_sizes, INT32_PTR_TYPE, "sizes");
+    LLVMValueRef sizep =
+        LLVMBuildInBoundsGEP2(comp_ctx->builder, INT32_PTR_TYPE, sizes,
+                              &func_index_const, 1, "sizep");
+    LLVMValueRef size32 =
+        LLVMBuildLoad2(comp_ctx->builder, I32_TYPE, sizep, "size32");
+    LLVMValueRef size =
+        LLVMBuildZExt(comp_ctx->builder, size32, uintptr_type, "size");
+
     const char *name = "tail_call";
     LLVMTypeRef ret_type = LLVMGetReturnType(func_type);
     if (ret_type == VOID_TYPE) {
