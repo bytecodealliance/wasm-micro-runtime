@@ -320,6 +320,11 @@ typedef struct JitInsn {
     /* The unique ID of the instruction. */
     uint16 uid;
 
+#if WASM_ENABLE_FAST_JIT_DUMP != 0
+    /* some helpful messages */
+    char comment[128];
+#endif
+
     /* Operands for different kinds of instructions. */
     union {
         /* For instructions with fixed-number register operand(s). */
@@ -1885,6 +1890,11 @@ jit_cc_update_cfg(JitCompContext *cc);
 #define JIT_FOREACH_BLOCK_REVERSE_ENTRY_EXIT(CC, I, B) \
     for ((I) = (CC)->_ann._label_num; (I) > 0; (I)--)  \
         if (((B) = (CC)->_ann._label_basic_block[(I)-1]))
+
+#if WASM_ENABLE_FAST_JIT_DUMP != 0
+void
+jit_insn_add_comments(JitInsn *insn, const char *format, ...);
+#endif
 
 #ifdef __cplusplus
 }

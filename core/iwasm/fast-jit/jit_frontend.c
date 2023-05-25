@@ -451,11 +451,11 @@ JitReg
 get_ent_and_br_cnts_reg(JitFrame *frame)
 {
     JitCompContext *cc = frame->cc;
-    JitInsn *insn;
 
     if (!frame->ent_and_br_cnts_reg) {
         JitReg module_reg = get_module_reg(frame);
         JitReg mod_ent_and_bw_cnts_reg = jit_cc_new_reg_ptr(cc);
+        JitInsn *insn;
 
         bh_assert(
             frame->cur_wasm_module->ent_and_br_cnts[frame->cur_wasm_func_idx]
@@ -466,6 +466,9 @@ get_ent_and_br_cnts_reg(JitFrame *frame)
         /* ent_and_br_cnts = module->ent_and_br_cnts */
         insn = GEN_INSN(LDPTR, mod_ent_and_bw_cnts_reg, module_reg,
                         NEW_CONST(I32, offsetof(WASMModule, ent_and_br_cnts)));
+#if WASM_ENABLE_FAST_JIT_DUMP != 0
+        jit_insn_add_comments(insn, "Get ent_and_br_cnts of a module");
+#endif
 
         if (UINTPTR_MAX == UINT64_MAX) {
             JitReg offset_reg = jit_cc_new_reg_I64(cc);
@@ -476,8 +479,11 @@ get_ent_and_br_cnts_reg(JitFrame *frame)
              * ent_and_br_cnts = (uint32*)mod_ent_and_br_cnts +
              *     cur_wasm_func_idx
              */
-            GEN_INSN(LDPTR, frame->ent_and_br_cnts_reg, mod_ent_and_bw_cnts_reg,
-                     offset_reg);
+            insn = GEN_INSN(LDPTR, frame->ent_and_br_cnts_reg,
+                            mod_ent_and_bw_cnts_reg, offset_reg);
+#if WASM_ENABLE_FAST_JIT_DUMP != 0
+            jit_insn_add_comments(insn, "Get ent_and_br_cnts of a func");
+#endif
         }
         else {
             JitReg offset_reg = jit_cc_new_reg_I32(cc);
@@ -488,9 +494,13 @@ get_ent_and_br_cnts_reg(JitFrame *frame)
              * ent_and_br_cnts = (uint32*)mod_ent_and_br_cnts +
              *     cur_wasm_func_idx
              */
-            GEN_INSN(LDPTR, frame->ent_and_br_cnts_reg, mod_ent_and_bw_cnts_reg,
-                     offset_reg);
+            insn = GEN_INSN(LDPTR, frame->ent_and_br_cnts_reg,
+                            mod_ent_and_bw_cnts_reg, offset_reg);
+#if WASM_ENABLE_FAST_JIT_DUMP != 0
+            jit_insn_add_comments(insn, "Get ent_and_br_cnts of a func");
+#endif
         }
+        (void)insn;
     }
 
     return frame->ent_and_br_cnts_reg;
@@ -504,15 +514,20 @@ gen_increase_cnt_insn_internal(JitFrame *frame, uint32 cnt_idx)
     JitReg cnt_reg = jit_cc_new_reg_I32(cc);
     JitReg cnt_inc_reg = jit_cc_new_reg_I32(cc);
     JitReg offset_reg;
+    JitInsn *insn;
 
     bh_assert(cnt_idx > 0);
 
     /* uint32[cnt_idx] -> x bytes*/
     offset_reg = NEW_CONST(I32, (cnt_idx << 2));
     /* load -> increase -> store */
-    JitInsn *insn = GEN_INSN(LDI32, cnt_reg, ent_and_br_cnts_reg, offset_reg);
+    insn = GEN_INSN(LDI32, cnt_reg, ent_and_br_cnts_reg, offset_reg);
     GEN_INSN(ADD, cnt_inc_reg, cnt_reg, NEW_CONST(I32, 1));
     GEN_INSN(STI32, cnt_inc_reg, ent_and_br_cnts_reg, offset_reg);
+#if WASM_ENABLE_FAST_JIT_DUMP != 0
+    jit_insn_add_comments(insn, "load->inc->store Cnt.#%d", cnt_idx);
+#endif
+    (void)insn;
 }
 
 void
