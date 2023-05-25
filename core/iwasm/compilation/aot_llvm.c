@@ -1040,6 +1040,8 @@ aot_create_stack_sizes(const AOTCompData *comp_data, AOTCompContext *comp_ctx)
         return false;
     }
     LLVMSetInitializer(stack_sizes, array);
+    comp_ctx->stack_sizes_type = stack_sizes_type;
+    comp_ctx->stack_sizes = stack_sizes;
     return true;
 }
 

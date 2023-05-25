@@ -378,6 +378,10 @@ typedef struct AOTCompContext {
     /* LLVM floating-point exception behavior metadata */
     LLVMValueRef fp_exception_behavior;
 
+    /* a global array to store stack sizes */
+    LLVMTypeRef stack_sizes_type;
+    LLVMValueRef stack_sizes;
+
     /* LLVM data types */
     AOTLLVMTypes basic_types;
     LLVMTypeRef exec_env_type;
