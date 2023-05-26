@@ -1132,6 +1132,28 @@ aot_set_llvm_basic_types(AOTLLVMTypes *basic_types, LLVMContextRef context)
     basic_types->v128_type = basic_types->i64x2_vec_type;
     basic_types->v128_ptr_type = LLVMPointerType(basic_types->v128_type, 0);
 
+    basic_types->int8_ptr_type_gs =
+        LLVMPointerType(basic_types->int8_type, 256);
+    basic_types->int16_ptr_type_gs =
+        LLVMPointerType(basic_types->int16_type, 256);
+    basic_types->int32_ptr_type_gs =
+        LLVMPointerType(basic_types->int32_type, 256);
+    basic_types->int64_ptr_type_gs =
+        LLVMPointerType(basic_types->int64_type, 256);
+    basic_types->float32_ptr_type_gs =
+        LLVMPointerType(basic_types->float32_type, 256);
+    basic_types->float64_ptr_type_gs =
+        LLVMPointerType(basic_types->float64_type, 256);
+    basic_types->v128_ptr_type_gs =
+        LLVMPointerType(basic_types->v128_type, 256);
+    if (!basic_types->int8_ptr_type_gs || !basic_types->int16_ptr_type_gs
+        || !basic_types->int32_ptr_type_gs || !basic_types->int64_ptr_type_gs
+        || !basic_types->float32_ptr_type_gs
+        || !basic_types->float64_ptr_type_gs
+        || !basic_types->v128_ptr_type_gs) {
+        return false;
+    }
+
     basic_types->i1x2_vec_type = LLVMVectorType(basic_types->int1_type, 2);
 
     basic_types->funcref_type = LLVMInt32TypeInContext(context);
@@ -2072,6 +2094,37 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
             goto fail;
         }
     }
+
+    triple = LLVMGetTargetMachineTriple(comp_ctx->target_machine);
+    if (!triple) {
+        aot_set_last_error("get target machine triple failed.");
+        goto fail;
+    }
+    if (strstr(triple, "linux") && !strcmp(comp_ctx->target_arch, "x86_64")) {
+        if (option->segue_flags) {
+            if (option->segue_flags & (1 << 0))
+                comp_ctx->enable_segue_i32_load = true;
+            if (option->segue_flags & (1 << 1))
+                comp_ctx->enable_segue_i64_load = true;
+            if (option->segue_flags & (1 << 2))
+                comp_ctx->enable_segue_f32_load = true;
+            if (option->segue_flags & (1 << 3))
+                comp_ctx->enable_segue_f64_load = true;
+            if (option->segue_flags & (1 << 4))
+                comp_ctx->enable_segue_v128_load = true;
+            if (option->segue_flags & (1 << 8))
+                comp_ctx->enable_segue_i32_store = true;
+            if (option->segue_flags & (1 << 9))
+                comp_ctx->enable_segue_i64_store = true;
+            if (option->segue_flags & (1 << 10))
+                comp_ctx->enable_segue_f32_store = true;
+            if (option->segue_flags & (1 << 11))
+                comp_ctx->enable_segue_f64_store = true;
+            if (option->segue_flags & (1 << 12))
+                comp_ctx->enable_segue_v128_store = true;
+        }
+    }
+    LLVMDisposeMessage(triple);
 
     if (option->enable_simd && strcmp(comp_ctx->target_arch, "x86_64") != 0
         && strncmp(comp_ctx->target_arch, "aarch64", 7) != 0) {

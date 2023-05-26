@@ -2889,6 +2889,16 @@ load(const uint8 *buf, uint32 size, AOTModule *module, char *error_buf,
            module->code and will be destroyed in aot_unload() */
         destroy_sections(section_list, false);
     }
+
+#if 0
+    {
+        uint32 i;
+        for (i = 0; i < module->func_count; i++) {
+            os_printf("AOT func %u, addr: %p\n", i, module->func_ptrs[i]);
+        }
+    }
+#endif
+
     return ret;
 fail:
     return false;

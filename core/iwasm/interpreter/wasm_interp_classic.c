@@ -4231,6 +4231,15 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
 
     wasm_exec_env_set_cur_frame(exec_env, frame);
 
+#if defined(os_writegsbase)
+    {
+        WASMMemoryInstance *memory_inst = wasm_get_default_memory(module_inst);
+        if (memory_inst)
+            /* write base addr of linear memory to GS segment register */
+            os_writegsbase(memory_inst->memory_data);
+    }
+#endif
+
     if (function->is_import_func) {
 #if WASM_ENABLE_MULTI_MODULE != 0
         if (function->import_module_inst) {

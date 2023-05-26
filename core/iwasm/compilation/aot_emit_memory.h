@@ -53,7 +53,7 @@ aot_compile_op_f64_store(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
 LLVMValueRef
 aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                          uint32 offset, uint32 bytes);
+                          uint32 offset, uint32 bytes, bool enable_segue);
 
 bool
 aot_compile_op_memory_size(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);

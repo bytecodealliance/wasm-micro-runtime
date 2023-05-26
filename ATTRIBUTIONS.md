@@ -16,6 +16,7 @@ WAMR project reused some components from other open source project:
 - **asmjit**: for the Fast JIT x86-64 codegen implementation
 - **zydis**: for the Fast JIT x86-64 codegen implementation
 - **NuttX ELF headers**: used in core/iwasm/aot/debug/elf_parser.c
+- **Dhrystone**: for the test benchmakr dhrystone
 
 The WAMR fast interpreter is a clean room development. We would acknowledge the inspirations by [WASM3](https://github.com/wasm3/wasm3) open source project for the approach of pre-calculated oprand stack location.
 
@@ -35,6 +36,7 @@ The WAMR fast interpreter is a clean room development. We would acknowledge the 
 | asmjit | unspecified | unspecified | https://github.com/asmjit/asmjit | |
 | zydis | unspecified | e14a07895136182a5b53e181eec3b1c6e0b434de | https://github.com/zyantific/zydis | |
 | NuttX ELF headers | 72313301e23f9c2de969fb64b9a0f67bb4c284df | 10.3.0 | https://github.com/apache/incubator-nuttx | |
+| Dhrystone | 2.1 | 2.1 | https://fossies.org/linux/privat/old/ | |
 
 ## Licenses
 
@@ -81,15 +83,19 @@ The WAMR fast interpreter is a clean room development. We would acknowledge the 
 [LICENSE](./tests/wamr-test-suites/spec-test-script/LICENSE)
 
 ### libuv
+
 [LICENSE](./core/iwasm/libraries/libc-uvwasi/LICENSE_LIBUV)
 
 ### uvwasi
+
 [LICENSE](./core/iwasm/libraries/libc-uvwasi/LICENSE_UVWASI)
 
 ### asmjit
+
 [LICENSE](./core/iwasm/fast-jit/cg/LICENSE_ASMJIT)
 
 ### zydis
+
 [LICENSE](./core/iwasm/fast-jit/cg/LICENSE_ZYDIS)
 
 ### NuttX ELF headers
@@ -97,3 +103,7 @@ The WAMR fast interpreter is a clean room development. We would acknowledge the 
 [LICENSE](./core/iwasm/aot/debug/LICENSE_NUTTX)
 
 [NOTICE](./core/iwasm/aot/debug/NOTICE_NUTTX)
+
+### Dhrystone
+
+[LICENSE](./tests/benchmarks/dhrystone/LICENSE)

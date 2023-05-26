@@ -167,6 +167,8 @@ typedef struct RuntimeInitArgs {
     /* LLVM JIT opt and size level */
     uint32_t llvm_jit_opt_level;
     uint32_t llvm_jit_size_level;
+    /* Segue optimization flags for LLVM JIT */
+    uint32_t segue_flags;
 } RuntimeInitArgs;
 
 #ifndef WASM_VALKIND_T_DEFINED
@@ -1351,20 +1353,21 @@ WASM_RUNTIME_API_EXTERN void
 wasm_runtime_get_version(uint32_t *major, uint32_t *minor, uint32_t *patch);
 
 /**
- * Check whether an import func `(import <module_name> <func_name> (func ...))` is linked or not
- * with runtime registered natvie functions
+ * Check whether an import func `(import <module_name> <func_name> (func ...))`
+ * is linked or not with runtime registered natvie functions
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_is_import_func_linked(const char *module_name,
                                    const char *func_name);
 
 /**
- * Check whether an import global `(import <module_name> <global_name> (global ...))` is linked or not
- * with runtime registered natvie globals
+ * Check whether an import global `(import <module_name> <global_name> (global ...))`
+ * is linked or not with runtime registered natvie globals
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_is_import_global_linked(const char *module_name,
                                      const char *global_name);
+
 /* clang-format on */
 
 #ifdef __cplusplus

@@ -54,6 +54,14 @@ print_help()
 #if WASM_ENABLE_JIT != 0
     printf("  --llvm-jit-size-level=n  Set LLVM JIT size level, default is 3\n");
     printf("  --llvm-jit-opt-level=n   Set LLVM JIT optimization level, default is 3\n");
+#if defined(os_writegsbase)
+    printf("  --enable-segue[=<flags>] Enable using segment register GS as the base address of\n");
+    printf("                           linear memory, which may improve performance, flags can be:\n");
+    printf("                              i32.load, i64.load, f32.load, f64.load, v128.load,\n");
+    printf("                              i32.store, i64.store, f32.store, f64.store, v128.store\n");
+    printf("                           Use comma to separate, e.g. --enable-segue=i32.load,i64.store\n");
+    printf("                           and --enable-segue means all flags are added.\n");
+#endif
 #endif
     printf("  --repl                   Start a very simple REPL (read-eval-print-loop) mode\n"
            "                           that runs commands in the form of \"FUNC ARG...\"\n");
@@ -117,13 +125,13 @@ app_instance_func(wasm_module_inst_t module_inst, const char *func_name)
 }
 
 /**
- * Split a space separated strings into an array of strings
+ * Split a string into an array of strings
  * Returns NULL on failure
  * Memory must be freed by caller
  * Based on: http://stackoverflow.com/a/11198630/471795
  */
 static char **
-split_string(char *str, int *count)
+split_string(char *str, int *count, const char *delimer)
 {
     char **res = NULL, **res1;
     char *p;
@@ -131,7 +139,7 @@ split_string(char *str, int *count)
 
     /* split string and append tokens to 'res' */
     do {
-        p = strtok(str, " ");
+        p = strtok(str, delimer);
         str = NULL;
         res1 = res;
         res = (char **)realloc(res1, sizeof(char *) * (uint32)(idx + 1));
@@ -180,7 +188,7 @@ app_instance_repl(wasm_module_inst_t module_inst)
             printf("exit repl mode\n");
             break;
         }
-        app_argv = split_string(cmd, &app_argc);
+        app_argv = split_string(cmd, &app_argc, " ");
         if (app_argv == NULL) {
             LOG_ERROR("Wasm prepare param failed: split string failed.\n");
             break;
@@ -194,6 +202,59 @@ app_instance_repl(wasm_module_inst_t module_inst)
     free(cmd);
     return NULL;
 }
+
+#if WASM_ENABLE_JIT != 0
+static uint32
+resolve_segue_flags(char *str_flags)
+{
+    uint32 segue_flags = 0;
+    int32 flag_count, i;
+    char **flag_list;
+
+    flag_list = split_string(str_flags, &flag_count, ",");
+    if (flag_list) {
+        for (i = 0; i < flag_count; i++) {
+            if (!strcmp(flag_list[i], "i32.load")) {
+                segue_flags |= 1 << 0;
+            }
+            else if (!strcmp(flag_list[i], "i64.load")) {
+                segue_flags |= 1 << 1;
+            }
+            else if (!strcmp(flag_list[i], "f32.load")) {
+                segue_flags |= 1 << 2;
+            }
+            else if (!strcmp(flag_list[i], "f64.load")) {
+                segue_flags |= 1 << 3;
+            }
+            else if (!strcmp(flag_list[i], "v128.load")) {
+                segue_flags |= 1 << 4;
+            }
+            else if (!strcmp(flag_list[i], "i32.store")) {
+                segue_flags |= 1 << 8;
+            }
+            else if (!strcmp(flag_list[i], "i64.store")) {
+                segue_flags |= 1 << 9;
+            }
+            else if (!strcmp(flag_list[i], "f32.store")) {
+                segue_flags |= 1 << 10;
+            }
+            else if (!strcmp(flag_list[i], "f64.store")) {
+                segue_flags |= 1 << 11;
+            }
+            else if (!strcmp(flag_list[i], "v128.store")) {
+                segue_flags |= 1 << 12;
+            }
+            else {
+                /* invalid flag */
+                segue_flags = (uint32)-1;
+                break;
+            }
+        }
+        free(flag_list);
+    }
+    return segue_flags;
+}
+#endif /* end of WASM_ENABLE_JIT != 0 */
 
 #if WASM_ENABLE_LIBC_WASI != 0
 static bool
@@ -367,6 +428,7 @@ main(int argc, char *argv[])
 #if WASM_ENABLE_JIT != 0
     uint32 llvm_jit_size_level = 3;
     uint32 llvm_jit_opt_level = 3;
+    uint32 segue_flags = 0;
 #endif
     wasm_module_t wasm_module = NULL;
     wasm_module_inst_t wasm_module_inst = NULL;
@@ -487,7 +549,16 @@ main(int argc, char *argv[])
                 llvm_jit_opt_level = 3;
             }
         }
-#endif
+        else if (!strcmp(argv[0], "--enable-segue")) {
+            /* all flags are enabled */
+            segue_flags = 0x1F1F;
+        }
+        else if (!strncmp(argv[0], "--enable-segue=", 15)) {
+            segue_flags = resolve_segue_flags(argv[0] + 15);
+            if (segue_flags == (uint32)-1)
+                return print_help();
+        }
+#endif /* end of WASM_ENABLE_JIT != 0 */
 #if WASM_ENABLE_LIBC_WASI != 0
         else if (!strncmp(argv[0], "--dir=", 6)) {
             if (argv[0][6] == '\0')
@@ -632,6 +703,7 @@ main(int argc, char *argv[])
 #if WASM_ENABLE_JIT != 0
     init_args.llvm_jit_size_level = llvm_jit_size_level;
     init_args.llvm_jit_opt_level = llvm_jit_opt_level;
+    init_args.segue_flags = segue_flags;
 #endif
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
