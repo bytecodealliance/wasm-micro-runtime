@@ -127,6 +127,28 @@ else ()
   unset (LLVM_AVAILABLE_LIBS)
 endif ()
 
+# Sanitizers
+
+set(WAMR_BUILD_SANITIZER $ENV{WAMR_BUILD_SANITIZER})
+
+if (NOT DEFINED WAMR_BUILD_SANITIZER)
+  set(WAMR_BUILD_SANITIZER "")
+elseif (WAMR_BUILD_SANITIZER STREQUAL "ubsan")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O0 -fno-omit-frame-pointer -fsanitize=undefined -fno-sanitize-recover=all -fno-sanitize=alignment" )
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=undefined")
+elseif (WAMR_BUILD_SANITIZER STREQUAL "asan")
+  if (NOT WAMR_BUILD_JIT EQUAL 1)
+    set (ASAN_OPTIONS "verbosity=2 debug=true ")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O0 -fno-omit-frame-pointer -fsanitize=address -fno-sanitize-recover=all" )
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
+  endif()
+elseif (WAMR_BUILD_SANITIZER STREQUAL "tsan") 
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O0 -fno-omit-frame-pointer -fsanitize=thread -fno-sanitize-recover=all" )
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=thread")
+elseif (NOT (WAMR_BUILD_SANITIZER STREQUAL "") )
+  message(SEND_ERROR "Unsupported sanitizer: ${WAMR_BUILD_SANITIZER}")
+endif()
+
 ########################################
 
 message ("-- Build Configurations:")
