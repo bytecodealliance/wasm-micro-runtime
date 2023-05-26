@@ -14,6 +14,9 @@
 #include "debug/dwarf_extractor.h"
 #endif
 
+static bool
+create_native_symbol(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
+
 LLVMTypeRef
 wasm_type_to_llvm_type(const AOTLLVMTypes *llvm_types, uint8 wasm_type)
 {
@@ -69,13 +72,76 @@ aot_add_llvm_func1(const AOTCompContext *comp_ctx, LLVMModuleRef module,
     return func;
 }
 
+static LLVMValueRef
+create_native_stack_bound_from_exec_env(const AOTCompContext *comp_ctx,
+                                        LLVMValueRef exec_env)
+{
+    LLVMValueRef stack_bound_offset = I32_FOUR, stack_bound_addr;
+    LLVMValueRef native_stack_bound;
+
+    if (!(stack_bound_addr = LLVMBuildInBoundsGEP2(
+              comp_ctx->builder, OPQ_PTR_TYPE, exec_env, &stack_bound_offset, 1,
+              "stack_bound_addr"))) {
+        aot_set_last_error("llvm build in bounds gep failed");
+        return NULL;
+    }
+
+    if (!(native_stack_bound =
+              LLVMBuildLoad2(comp_ctx->builder, OPQ_PTR_TYPE, stack_bound_addr,
+                             "native_stack_bound"))) {
+        aot_set_last_error("llvm build load failed");
+        return NULL;
+    }
+
+    return native_stack_bound;
+}
+
+/*
+ * create a basic func_ctx enough to call aot_emit_exception.
+ */
+static bool
+create_basic_func_context(const AOTCompContext *comp_ctx,
+                          AOTFuncContext *func_ctx)
+{
+    LLVMValueRef aot_inst_offset = I32_TWO, aot_inst_addr;
+
+    /* Save the pameters for fast access */
+    func_ctx->exec_env = LLVMGetParam(func_ctx->func, 0);
+
+    /* Get aot inst address, the layout of exec_env is:
+       exec_env->next, exec_env->prev, exec_env->module_inst, and argv_buf */
+    if (!(aot_inst_addr = LLVMBuildInBoundsGEP2(
+              comp_ctx->builder, OPQ_PTR_TYPE, func_ctx->exec_env,
+              &aot_inst_offset, 1, "aot_inst_addr"))) {
+        aot_set_last_error("llvm build in bounds gep failed");
+        goto fail;
+    }
+
+    /* Load aot inst */
+    if (!(func_ctx->aot_inst = LLVMBuildLoad2(comp_ctx->builder, OPQ_PTR_TYPE,
+                                              aot_inst_addr, "aot_inst"))) {
+        aot_set_last_error("llvm build load failed");
+        goto fail;
+    }
+
+    if (comp_ctx->is_indirect_mode
+        && !create_native_symbol(comp_ctx, func_ctx)) {
+        goto fail;
+    }
+
+    return true;
+fail:
+    return false;
+}
+
 static bool
 aot_add_precheck_function(const AOTCompContext *comp_ctx, LLVMModuleRef module,
                           uint32 func_index, uint32 orig_param_count,
-                          LLVMTypeRef func_type, LLVMValueRef orig_func)
+                          LLVMTypeRef func_type, LLVMValueRef wrapped_func)
 {
-    LLVMBasicBlockRef begin;
     LLVMValueRef precheck_func;
+    LLVMBasicBlockRef begin;
+    LLVMBasicBlockRef call_wrapped_func_block;
     if (!(precheck_func =
               aot_add_llvm_func1(comp_ctx, module, func_index, orig_param_count,
                                  func_type, "_precheck")))
@@ -85,36 +151,62 @@ aot_add_precheck_function(const AOTCompContext *comp_ctx, LLVMModuleRef module,
         aot_set_last_error("add LLVM basic block failed.");
         goto fail;
     }
+    if (!(call_wrapped_func_block = LLVMAppendBasicBlockInContext(
+              comp_ctx->context, precheck_func, "call_wrapped_func"))) {
+        aot_set_last_error("add LLVM basic block failed.");
+        goto fail;
+    }
     unsigned int param_count = LLVMCountParams(precheck_func);
     LLVMValueRef *params;
     uint64 sz = param_count * sizeof(LLVMValueRef);
     params = wasm_runtime_malloc(sz);
     LLVMGetParams(precheck_func, params);
-    LLVMPositionBuilderAtEnd(comp_ctx->builder, begin);
+
+    LLVMBuilderRef b = comp_ctx->builder;
+    LLVMPositionBuilderAtEnd(b, begin);
 
     LLVMTypeRef uintptr_type = I64_TYPE;
-    LLVMValueRef sp_ptr =
-        LLVMBuildAlloca(comp_ctx->builder, I32_TYPE, "sp_ptr");
-    LLVMValueRef sp =
-        LLVMBuildPtrToInt(comp_ctx->builder, sp_ptr, uintptr_type, "sp");
+    LLVMValueRef sp_ptr = LLVMBuildAlloca(b, I32_TYPE, "sp_ptr");
+    LLVMValueRef sp = LLVMBuildPtrToInt(b, sp_ptr, uintptr_type, "sp");
     LLVMValueRef func_index_const = I32_CONST(func_index);
-    LLVMValueRef sizes = LLVMBuildBitCast(
-        comp_ctx->builder, comp_ctx->stack_sizes, INT32_PTR_TYPE, "sizes");
-    LLVMValueRef sizep =
-        LLVMBuildInBoundsGEP2(comp_ctx->builder, INT32_PTR_TYPE, sizes,
-                              &func_index_const, 1, "sizep");
-    LLVMValueRef size32 =
-        LLVMBuildLoad2(comp_ctx->builder, I32_TYPE, sizep, "size32");
-    LLVMValueRef size =
-        LLVMBuildZExt(comp_ctx->builder, size32, uintptr_type, "size");
+    LLVMValueRef sizes =
+        LLVMBuildBitCast(b, comp_ctx->stack_sizes, INT32_PTR_TYPE, "sizes");
+    LLVMValueRef sizep = LLVMBuildInBoundsGEP2(b, INT32_PTR_TYPE, sizes,
+                                               &func_index_const, 1, "sizep");
+    LLVMValueRef size32 = LLVMBuildLoad2(b, I32_TYPE, sizep, "size32");
+    LLVMValueRef size = LLVMBuildZExt(b, size32, uintptr_type, "size");
+    LLVMValueRef exec_env = LLVMGetParam(precheck_func, 0);
+    LLVMValueRef native_stack_bound =
+        create_native_stack_bound_from_exec_env(comp_ctx, exec_env);
+    LLVMValueRef bound_base_int = LLVMBuildPtrToInt(
+        b, native_stack_bound, uintptr_type, "bound_base_int");
+    LLVMValueRef bound = LLVMBuildAdd(b, bound_base_int, size, "bound");
+    LLVMValueRef cmp = LLVMBuildICmp(b, LLVMIntULT, sp, bound, "cmp");
+    /* todo: @llvm.expect.i1(i1 %cmp, i1 0) */
+#if 0
+    LLVMValueRef cond_br = LLVMBuildCondBr(b, cmp, exception_block, call_wrapped_func_block);
+#endif
+    AOTFuncContext tmp;
+    AOTFuncContext *func_ctx = &tmp;
+    memset(func_ctx, 0, sizeof(*func_ctx));
+    func_ctx->func = precheck_func;
+    func_ctx->module = module;
+    func_ctx->aot_func = comp_ctx->comp_data->funcs[func_index];
+    if (!create_basic_func_context(comp_ctx, func_ctx))
+        goto fail;
+    /* XXX what to do for func_ctx->debug_func? maybe just disable? */
+    if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_NATIVE_STACK_OVERFLOW,
+                            true, cmp, call_wrapped_func_block))
+        goto fail;
 
+    LLVMPositionBuilderAtEnd(b, call_wrapped_func_block);
     const char *name = "tail_call";
     LLVMTypeRef ret_type = LLVMGetReturnType(func_type);
     if (ret_type == VOID_TYPE) {
         name = "";
     }
-    LLVMValueRef retval = LLVMBuildCall2(comp_ctx->builder, func_type,
-                                         orig_func, params, param_count, name);
+    LLVMValueRef retval =
+        LLVMBuildCall2(b, func_type, wrapped_func, params, param_count, name);
     if (!retval) {
         aot_set_last_error("llvm build ret failed.");
         goto fail;
@@ -122,17 +214,18 @@ aot_add_precheck_function(const AOTCompContext *comp_ctx, LLVMModuleRef module,
     wasm_runtime_free(params);
     LLVMSetTailCall(retval, true);
     if (ret_type == VOID_TYPE) {
-        if (!LLVMBuildRetVoid(comp_ctx->builder)) {
+        if (!LLVMBuildRetVoid(b)) {
             aot_set_last_error("llvm build ret failed.");
             goto fail;
         }
     }
     else {
-        if (!LLVMBuildRet(comp_ctx->builder, retval)) {
+        if (!LLVMBuildRet(b, retval)) {
             aot_set_last_error("llvm build ret failed.");
             goto fail;
         }
     }
+
     return true;
 fail:
     return false;
