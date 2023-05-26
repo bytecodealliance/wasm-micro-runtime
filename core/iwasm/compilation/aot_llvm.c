@@ -156,6 +156,8 @@ aot_add_precheck_function(const AOTCompContext *comp_ctx, LLVMModuleRef module,
         aot_set_last_error("add LLVM basic block failed.");
         goto fail;
     }
+    /* XXX error checks */
+    /* XXX tweak for 32-bit arch */
     unsigned int param_count = LLVMCountParams(precheck_func);
     LLVMValueRef *params;
     uint64 sz = param_count * sizeof(LLVMValueRef);
@@ -1113,6 +1115,7 @@ const char *aot_stack_sizes_name = AOT_STACK_SIZES_NAME;
 static bool
 aot_create_stack_sizes(const AOTCompData *comp_data, AOTCompContext *comp_ctx)
 {
+    const char *stack_sizes_name = "stack_sizes";
     LLVMTypeRef stack_sizes_type =
         LLVMArrayType(I32_TYPE, comp_data->func_count);
     if (!stack_sizes_type) {
@@ -1120,7 +1123,7 @@ aot_create_stack_sizes(const AOTCompData *comp_data, AOTCompContext *comp_ctx)
         return false;
     }
     LLVMValueRef stack_sizes =
-        LLVMAddGlobal(comp_ctx->module, stack_sizes_type, aot_stack_sizes_name);
+        LLVMAddGlobal(comp_ctx->module, stack_sizes_type, stack_sizes_name);
     if (!stack_sizes) {
         aot_set_last_error("failed to create stack_sizes global.");
         return false;
@@ -1150,6 +1153,20 @@ aot_create_stack_sizes(const AOTCompData *comp_data, AOTCompContext *comp_ctx)
         return false;
     }
     LLVMSetInitializer(stack_sizes, array);
+    /*
+     * create an alias so that aot_resolve_stack_sizes can find it.
+     */
+    LLVMValueRef alias = LLVMAddAlias2(comp_ctx->module, stack_sizes_type, 0,
+                                       stack_sizes, aot_stack_sizes_name);
+    if (!alias) {
+        aot_set_last_error("failed to create stack_sizes alias.");
+        return false;
+    }
+    /*
+     * make the original symbol internal. we mainly use this version to
+     * avoid creating extra relocations in the precheck functions.
+     */
+    LLVMSetLinkage(stack_sizes, LLVMInternalLinkage);
     comp_ctx->stack_sizes_type = stack_sizes_type;
     comp_ctx->stack_sizes = stack_sizes;
     return true;

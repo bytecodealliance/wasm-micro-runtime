@@ -2458,7 +2458,8 @@ aot_resolve_stack_sizes(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
                     goto fail;
                 }
             }
-            stack_sizes[0] = 0xdeadbeef;
+            /* TODO: fill in the real values */
+            stack_sizes[0] = 0x8000;
             LLVMDisposeSectionIterator(sec_itr);
             LLVMDisposeSymbolIterator(sym_itr);
             return true;
