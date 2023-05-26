@@ -15,7 +15,7 @@
 #endif
 
 LLVMTypeRef
-wasm_type_to_llvm_type(AOTLLVMTypes *llvm_types, uint8 wasm_type)
+wasm_type_to_llvm_type(const AOTLLVMTypes *llvm_types, uint8 wasm_type)
 {
     switch (wasm_type) {
         case VALUE_TYPE_I32:
@@ -42,8 +42,8 @@ wasm_type_to_llvm_type(AOTLLVMTypes *llvm_types, uint8 wasm_type)
  * Add LLVM function
  */
 static LLVMValueRef
-aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
-                  AOTFuncType *aot_func_type, uint32 func_index,
+aot_add_llvm_func(const AOTCompContext *comp_ctx, LLVMModuleRef module,
+                  const AOTFuncType *aot_func_type, uint32 func_index,
                   LLVMTypeRef *p_func_type)
 {
     LLVMValueRef func = NULL;
@@ -177,8 +177,9 @@ free_block_memory(AOTBlock *block)
  * Create first AOTBlock, or function block for the function
  */
 static AOTBlock *
-aot_create_func_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                      AOTFunc *func, AOTFuncType *aot_func_type)
+aot_create_func_block(const AOTCompContext *comp_ctx,
+                      const AOTFuncContext *func_ctx, const AOTFunc *func,
+                      const AOTFuncType *aot_func_type)
 {
     AOTBlock *aot_block;
     uint32 param_count = aot_func_type->param_count,
@@ -266,7 +267,8 @@ create_argv_buf(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 }
 
 static bool
-create_native_stack_bound(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+create_native_stack_bound(const AOTCompContext *comp_ctx,
+                          AOTFuncContext *func_ctx)
 {
     LLVMValueRef stack_bound_offset = I32_FOUR, stack_bound_addr;
 
@@ -288,7 +290,8 @@ create_native_stack_bound(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 }
 
 static bool
-create_native_stack_top_min(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+create_native_stack_top_min(const AOTCompContext *comp_ctx,
+                            AOTFuncContext *func_ctx)
 {
     LLVMValueRef offset = I32_NINE;
 
@@ -303,7 +306,7 @@ create_native_stack_top_min(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 }
 
 static bool
-create_aux_stack_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+create_aux_stack_info(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
     LLVMValueRef aux_stack_bound_offset = I32_SIX, aux_stack_bound_addr;
     LLVMValueRef aux_stack_bottom_offset = I32_SEVEN, aux_stack_bottom_addr;
@@ -355,7 +358,7 @@ create_aux_stack_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 }
 
 static bool
-create_native_symbol(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+create_native_symbol(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
     LLVMValueRef native_symbol_offset = I32_EIGHT, native_symbol_addr;
 
@@ -384,8 +387,9 @@ create_native_symbol(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 }
 
 static bool
-create_local_variables(AOTCompData *comp_data, AOTCompContext *comp_ctx,
-                       AOTFuncContext *func_ctx, AOTFunc *func)
+create_local_variables(const AOTCompData *comp_data,
+                       const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                       const AOTFunc *func)
 {
     AOTFuncType *aot_func_type = comp_data->func_types[func->func_type_index];
     char local_name[32];
@@ -475,7 +479,7 @@ create_local_variables(AOTCompData *comp_data, AOTCompContext *comp_ctx,
 }
 
 static bool
-create_memory_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+create_memory_info(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                    LLVMTypeRef int8_ptr_type, uint32 func_index)
 {
     LLVMValueRef offset, mem_info_base;
@@ -807,7 +811,7 @@ create_memory_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 }
 
 static bool
-create_cur_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+create_cur_exception(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
     LLVMValueRef offset;
 
@@ -823,7 +827,8 @@ create_cur_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 }
 
 static bool
-create_func_type_indexes(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+create_func_type_indexes(const AOTCompContext *comp_ctx,
+                         AOTFuncContext *func_ctx)
 {
     LLVMValueRef offset, func_type_indexes_ptr;
     LLVMTypeRef int32_ptr_type;
@@ -861,7 +866,7 @@ create_func_type_indexes(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 }
 
 static bool
-create_func_ptrs(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+create_func_ptrs(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
     LLVMValueRef offset;
 
@@ -903,7 +908,7 @@ create_func_ptrs(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
  * Create function compiler context
  */
 static AOTFuncContext *
-aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
+aot_create_func_context(const AOTCompData *comp_data, AOTCompContext *comp_ctx,
                         AOTFunc *func, uint32 func_index)
 {
     AOTFuncContext *func_ctx;
@@ -1059,7 +1064,7 @@ aot_destroy_func_contexts(AOTFuncContext **func_ctxes, uint32 count)
  * Create function compiler contexts
  */
 static AOTFuncContext **
-aot_create_func_contexts(AOTCompData *comp_data, AOTCompContext *comp_ctx)
+aot_create_func_contexts(const AOTCompData *comp_data, AOTCompContext *comp_ctx)
 {
     AOTFuncContext **func_ctxes;
     uint64 size;
@@ -1126,6 +1131,28 @@ aot_set_llvm_basic_types(AOTLLVMTypes *basic_types, LLVMContextRef context)
 
     basic_types->v128_type = basic_types->i64x2_vec_type;
     basic_types->v128_ptr_type = LLVMPointerType(basic_types->v128_type, 0);
+
+    basic_types->int8_ptr_type_gs =
+        LLVMPointerType(basic_types->int8_type, 256);
+    basic_types->int16_ptr_type_gs =
+        LLVMPointerType(basic_types->int16_type, 256);
+    basic_types->int32_ptr_type_gs =
+        LLVMPointerType(basic_types->int32_type, 256);
+    basic_types->int64_ptr_type_gs =
+        LLVMPointerType(basic_types->int64_type, 256);
+    basic_types->float32_ptr_type_gs =
+        LLVMPointerType(basic_types->float32_type, 256);
+    basic_types->float64_ptr_type_gs =
+        LLVMPointerType(basic_types->float64_type, 256);
+    basic_types->v128_ptr_type_gs =
+        LLVMPointerType(basic_types->v128_type, 256);
+    if (!basic_types->int8_ptr_type_gs || !basic_types->int16_ptr_type_gs
+        || !basic_types->int32_ptr_type_gs || !basic_types->int64_ptr_type_gs
+        || !basic_types->float32_ptr_type_gs
+        || !basic_types->float64_ptr_type_gs
+        || !basic_types->v128_ptr_type_gs) {
+        return false;
+    }
 
     basic_types->i1x2_vec_type = LLVMVectorType(basic_types->int1_type, 2);
 
@@ -1536,7 +1563,7 @@ aot_compiler_destroy(void)
 }
 
 AOTCompContext *
-aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
+aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
 {
     AOTCompContext *comp_ctx, *ret = NULL;
     LLVMTargetRef target;
@@ -2013,6 +2040,7 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
         os_printf("Create AoT compiler with:\n");
         os_printf("  target:        %s\n", comp_ctx->target_arch);
         os_printf("  target cpu:    %s\n", cpu);
+        os_printf("  target triple: %s\n", triple_norm);
         os_printf("  cpu features:  %s\n", features);
         os_printf("  opt level:     %d\n", opt_level);
         os_printf("  size level:    %d\n", size_level);
@@ -2030,6 +2058,8 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
                 os_printf("  output format: native object file\n");
                 break;
         }
+
+        LLVMSetTarget(comp_ctx->module, triple_norm);
 
         if (!LLVMTargetHasTargetMachine(target)) {
             snprintf(buf, sizeof(buf),
@@ -2070,6 +2100,37 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
             goto fail;
         }
     }
+
+    triple = LLVMGetTargetMachineTriple(comp_ctx->target_machine);
+    if (!triple) {
+        aot_set_last_error("get target machine triple failed.");
+        goto fail;
+    }
+    if (strstr(triple, "linux") && !strcmp(comp_ctx->target_arch, "x86_64")) {
+        if (option->segue_flags) {
+            if (option->segue_flags & (1 << 0))
+                comp_ctx->enable_segue_i32_load = true;
+            if (option->segue_flags & (1 << 1))
+                comp_ctx->enable_segue_i64_load = true;
+            if (option->segue_flags & (1 << 2))
+                comp_ctx->enable_segue_f32_load = true;
+            if (option->segue_flags & (1 << 3))
+                comp_ctx->enable_segue_f64_load = true;
+            if (option->segue_flags & (1 << 4))
+                comp_ctx->enable_segue_v128_load = true;
+            if (option->segue_flags & (1 << 8))
+                comp_ctx->enable_segue_i32_store = true;
+            if (option->segue_flags & (1 << 9))
+                comp_ctx->enable_segue_i64_store = true;
+            if (option->segue_flags & (1 << 10))
+                comp_ctx->enable_segue_f32_store = true;
+            if (option->segue_flags & (1 << 11))
+                comp_ctx->enable_segue_f64_store = true;
+            if (option->segue_flags & (1 << 12))
+                comp_ctx->enable_segue_v128_store = true;
+        }
+    }
+    LLVMDisposeMessage(triple);
 
     if (option->enable_simd && strcmp(comp_ctx->target_arch, "x86_64") != 0
         && strncmp(comp_ctx->target_arch, "aarch64", 7) != 0) {

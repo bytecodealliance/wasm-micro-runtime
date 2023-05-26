@@ -34,4 +34,9 @@ cd ..
 echo "Compile coremark.wasm to coremark.aot .."
 ${WAMRC} -o coremark.aot coremark.wasm
 
+if [[ ${PLATFORM} == "linux" ]]; then
+    echo "Compile coremark.wasm to coremark_segue.aot .."
+    ${WAMRC} --enable-segue -o coremark_segue.aot coremark.wasm
+fi
+
 echo "Done"

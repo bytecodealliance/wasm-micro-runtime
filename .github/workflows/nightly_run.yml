@@ -1,43 +1,12 @@
-# Copyright (C) 2019 Intel Corporation.  All rights reserved.
+# Copyright (C) 2023 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-name: compilation on android, ubuntu-20.04, ubuntu-22.04
+name: nightly_run
 
 on:
-  # will be triggered on PR events
-  pull_request:
-    types:
-      - opened
-      - synchronize
-    paths:
-      - ".github/workflows/build_llvm_libraries.yml"
-      - ".github/workflows/compilation_on_android_ubuntu.yml"
-      - "build-scripts/**"
-      - "core/**"
-      - "!core/deps/**"
-      - "product-mini/**"
-      - "samples/**"
-      - "!samples/workload/**"
-      - "tests/wamr-test-suites/**"
-      - "wamr-compiler/**"
-      - "wamr-sdk/**"
-  # will be triggered on push events
-  push:
-    branches:
-      - main
-      - "dev/**"
-    paths:
-      - ".github/workflows/build_llvm_libraries.yml"
-      - ".github/workflows/compilation_on_android_ubuntu.yml"
-      - "build-scripts/**"
-      - "core/**"
-      - "!core/deps/**"
-      - "product-mini/**"
-      - "samples/**"
-      - "!samples/workload/**"
-      - "tests/wamr-test-suites/**"
-      - "wamr-compiler/**"
-      - "wamr-sdk/**"
+  # midnight UTC
+  schedule:
+    - cron: "0 0 * * *"
   # allow to be triggered manually
   workflow_dispatch:
 
@@ -252,6 +221,83 @@ jobs:
           cmake --build . --config Release --parallel 4
         working-directory: product-mini/platforms/${{ matrix.platform }}
 
+  build_iwasm_linux_gcc4_8:
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:14.04
+    strategy:
+      matrix:
+        make_options_run_mode: [
+            # Running mode
+            $CLASSIC_INTERP_BUILD_OPTIONS,
+            $FAST_INTERP_BUILD_OPTIONS,
+            $FAST_JIT_BUILD_OPTIONS,
+          ]
+        make_options_feature: [
+            # Features
+            "-DWAMR_BUILD_CUSTOM_NAME_SECTION=1",
+            "-DWAMR_BUILD_DEBUG_AOT=1",
+            "-DWAMR_BUILD_DEBUG_INTERP=1",
+            "-DWAMR_BUILD_DUMP_CALL_STACK=1",
+            "-DWAMR_BUILD_LIB_PTHREAD=1",
+            "-DWAMR_BUILD_LIB_WASI_THREADS=1",
+            "-DWAMR_BUILD_LOAD_CUSTOM_SECTION=1",
+            "-DWAMR_BUILD_MINI_LOADER=1",
+            "-DWAMR_BUILD_MEMORY_PROFILING=1",
+            "-DWAMR_BUILD_MULTI_MODULE=1",
+            "-DWAMR_BUILD_PERF_PROFILING=1",
+            "-DWAMR_BUILD_REF_TYPES=1",
+            "-DWAMR_BUILD_SIMD=1",
+            "-DWAMR_BUILD_TAIL_CALL=1",
+            "-DWAMR_DISABLE_HW_BOUND_CHECK=1",
+          ]
+        exclude:
+          # uncompatiable feature and platform
+          # uncompatiable mode and feature
+          # MULTI_MODULE only on INTERP mode
+          - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
+          # SIMD only on JIT/AOT mode
+          - make_options_run_mode: $CLASSIC_INTERP_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_SIMD=1"
+          - make_options_run_mode: $FAST_INTERP_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_SIMD=1"
+          # DEBUG_INTERP only on CLASSIC INTERP mode
+          - make_options_run_mode: $FAST_INTERP_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_DEBUG_INTERP=1"
+          - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_DEBUG_INTERP=1"
+          # DEBUG_AOT only on JIT/AOT mode
+          - make_options_run_mode: $CLASSIC_INTERP_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_DEBUG_AOT=1"
+          - make_options_run_mode: $FAST_INTERP_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_DEBUG_AOT=1"
+          # TODO: DEBUG_AOT on JIT
+          - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_DEBUG_AOT=1"
+          # MINI_LOADER only on INTERP mode
+          - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
+            make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: apt update && apt install -y make g++-4.8 gcc-4.8 wget git
+
+      - name: Install cmake
+        run: |
+          wget https://github.com/Kitware/CMake/releases/download/v3.26.1/cmake-3.26.1-linux-x86_64.tar.gz -O cmake.tar.gz
+          tar xzf cmake.tar.gz
+          cp cmake-3.26.1-linux-x86_64/bin/cmake /usr/local/bin
+          cp -r cmake-3.26.1-linux-x86_64/share/cmake-3.26/ /usr/local/share/
+      - name: Build iwasm
+        run: |
+          mkdir build && cd build
+          cmake .. ${{ matrix.make_options_run_mode }} ${{ matrix.make_options_feature }} -DCMAKE_C_COMPILER=gcc-4.8 -DCMAKE_CXX_COMPILER=g++-4.8
+          cmake --build . --config Release --parallel 4
+        working-directory: product-mini/platforms/linux
+
   build_samples_wasm_c_api:
     needs:
       [
@@ -264,6 +310,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        sanitizer: ["", "ubsan", "asan"]
         make_options: [
             # Running mode
             $AOT_BUILD_OPTIONS,
@@ -288,7 +335,9 @@ jobs:
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2004.outputs.cache_key }}
           - os: ubuntu-22.04
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
-
+        exclude:
+          - make_options: $MULTI_TIER_JIT_BUILD_OPTIONS
+            sanitizer: asan
     steps:
       - name: checkout
         uses: actions/checkout@v3
@@ -316,19 +365,18 @@ jobs:
           sudo wget ${{ matrix.wabt_release }}
           sudo tar -xzf wabt-1.0.31-*.tar.gz
           sudo mv wabt-1.0.31 wabt
-
       - name: Build wamrc
         if: (!endsWith(matrix.make_options, '_INTERP_BUILD_OPTIONS'))
         run: |
           mkdir build && cd build
-          cmake ..
+          cmake -D WAMR_BUILD_SANITIZER="${{matrix.sanitizer}}" ..
           cmake --build . --config Release --parallel 4
         working-directory: wamr-compiler
 
       - name: Build Sample [wasm-c-api]
         run: |
           VERBOSE=1
-          cmake -S . -B build ${{ matrix.make_options }}
+          cmake -S . -B build ${{ matrix.make_options }} -D WAMR_BUILD_SANITIZER="${{matrix.sanitizer}}"
           cmake --build build --config Release --parallel 4
           ctest --test-dir build --output-on-failure
         working-directory: samples/wasm-c-api
@@ -357,20 +405,17 @@ jobs:
           sudo wget ${{ matrix.wasi_sdk_release }}
           sudo tar -xzf wasi-sdk-*.tar.gz
           sudo mv wasi-sdk-20.0 wasi-sdk
-
       - name: download and install wabt
         run: |
           cd /opt
           sudo wget ${{ matrix.wabt_release }}
           sudo tar -xzf wabt-1.0.31-*.tar.gz
           sudo mv wabt-1.0.31 wabt
-
       - name: Build Sample [basic]
         run: |
           cd samples/basic
           ./build.sh
           ./run.sh
-
       - name: Build Sample [file]
         run: |
           cd samples/file
@@ -378,7 +423,6 @@ jobs:
           cmake ..
           cmake --build . --config Release --parallel 4
           ./src/iwasm -f wasm-app/file.wasm -d .
-
       - name: Build Sample [multi-thread]
         run: |
           cd samples/multi-thread
@@ -386,7 +430,6 @@ jobs:
           cmake ..
           cmake --build . --config Release --parallel 4
           ./iwasm wasm-apps/test.wasm
-
       - name: Build Sample [multi-module]
         run: |
           cd samples/multi-module
@@ -394,7 +437,6 @@ jobs:
           cmake ..
           cmake --build . --config Release --parallel 4
           ./multi_module
-
       - name: Build Sample [spawn-thread]
         run: |
           cd samples/spawn-thread
@@ -402,7 +444,6 @@ jobs:
           cmake ..
           cmake --build . --config Release --parallel 4
           ./spawn_thread
-
       - name: Build Sample [ref-types]
         run: |
           cd samples/ref-types
@@ -410,7 +451,6 @@ jobs:
           cmake ..
           cmake --build . --config Release --parallel 4
           ./hello
-
       - name: Build Sample [simple]
         run: |
           ./build.sh -p host-interp
@@ -425,7 +465,6 @@ jobs:
           cmake ..
           cmake --build . --config Release --parallel 4
           ./iwasm wasm-apps/no_pthread.wasm
-
   test:
     needs:
       [
@@ -439,6 +478,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-20.04, ubuntu-22.04]
+        sanitizer: ["", "ubsan", "asan"]
         running_mode:
           [
             "classic-interp",
@@ -469,6 +509,19 @@ jobs:
             ubuntu_version: "22.04"
         exclude:
           # uncompatiable modes and features
+          - os: ubuntu-20.04
+            sanitizer: asan
+          # asan works only for aot now
+          - running_mode: "classic-interp"
+            sanitizer: asan
+          - running_mode: "fast-interp"
+            sanitizer: asan
+          - running_mode: "jit"
+            sanitizer: asan
+          - running_mode: "fast-jit"
+            sanitizer: asan
+          - running_mode: "multi-tier-jit"
+            sanitizer: asan
           # classic-interp and fast-interp don't support simd
           - running_mode: "classic-interp"
             test_option: $SIMD_TEST_OPTIONS
@@ -500,7 +553,6 @@ jobs:
           sudo wget ${{ matrix.wasi_sdk_release }}
           sudo tar -xzf wasi-sdk-*.tar.gz
           sudo mv wasi-sdk-20.0 wasi-sdk
-
       - name: set env variable(if llvm are used)
         if: matrix.running_mode == 'aot' || matrix.running_mode == 'jit' || matrix.running_mode == 'multi-tier-jit'
         run: echo "USE_LLVM=true" >> $GITHUB_ENV
@@ -511,6 +563,9 @@ jobs:
            || matrix.test_option == '$WASI_TEST_OPTIONS')
           && matrix.running_mode != 'fast-jit' && matrix.running_mode != 'jit' && matrix.running_mode != 'multi-tier-jit'
         run: echo "TEST_ON_X86_32=true" >> $GITHUB_ENV
+      
+      - name: set sanitizer
+        run: echo "WAMR_BUILD_SANITIZER=${{ matrix.sanitizer }}" >> $GITHUB_ENV
 
       #only download llvm libraries in jit and aot mode
       - name: Get LLVM libraries

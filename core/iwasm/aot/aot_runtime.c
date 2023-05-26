@@ -1015,6 +1015,15 @@ execute_post_instantiate_functions(AOTModuleInstance *module_inst,
         }
     }
 
+#if defined(os_writegsbase)
+    {
+        AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
+        if (memory_inst)
+            /* write base addr of linear memory to GS segment register */
+            os_writegsbase(memory_inst->memory_data);
+    }
+#endif
+
     /* Execute start function for both main insance and sub instance */
     if (module->start_function) {
         AOTFunctionInstance start_func = { 0 };
@@ -1452,6 +1461,15 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
         return false;
     }
     argc = func_type->param_cell_num;
+
+#if defined(os_writegsbase)
+    {
+        AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
+        if (memory_inst)
+            /* write base addr of linear memory to GS segment register */
+            os_writegsbase(memory_inst->memory_data);
+    }
+#endif
 
     /* func pointer was looked up previously */
     bh_assert(function->u.func.func_ptr != NULL);

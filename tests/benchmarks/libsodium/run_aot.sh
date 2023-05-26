@@ -42,7 +42,11 @@ function print_bench_name()
 # run benchmarks
 cd $OUT_DIR
 
-echo -en "\t\t\t\t\t\tnative\tiwasm-aot\n" >> $REPORT
+if [[ ${PLATFORM} == "linux" ]]; then
+    echo -en "\t\t\t\t\t\tnative\tiwasm-aot\tiwasm-aot-segue\n" >> $REPORT
+else
+    echo -en "\t\t\t\t\t\tnative\tiwasm-aot\n" >> $REPORT
+fi
 
 for t in $libsodium_CASES
 do
@@ -68,6 +72,19 @@ do
         # use time command to get result instead
         $TIME -f "real-%e-time" $IWASM_CMD ${t}.aot 2>&1 | grep "real-.*-time" |
             awk -F '-' '{printf "%-10.2f", $2}' >> $REPORT
+    fi
+
+    if [[ ${PLATFORM} == "linux" ]]; then
+        echo "run $t with iwasm aot segue..."
+        echo -en "\t  \t" >> $REPORT
+        if [[ $t != "sodium_utils2" ]]; then
+            $IWASM_CMD ${t}_segue.aot | awk '{printf "%.2f", $0/1000000.0}' >> $REPORT
+        else
+            # sodium_utils2 doesn't print the result,
+            # use time command to get result instead
+            $TIME -f "real-%e-time" $IWASM_CMD ${t}_segue.aot 2>&1 | grep "real-.*-time" |
+                awk -F '-' '{printf "%.2f", $2}' >> $REPORT
+        fi
     fi
 
     echo -en "\n" >> $REPORT

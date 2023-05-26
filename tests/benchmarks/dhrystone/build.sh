@@ -17,3 +17,8 @@ echo "===> compile dhrystone src to dhrystone.wasm"
 
 echo "===> compile dhrystone.wasm to dhrystone.aot"
 ${WAMRC_CMD} -o dhrystone.aot dhrystone.wasm
+
+if [[ ${PLATFORM} == "linux" ]]; then
+    echo "===> compile dhrystone.wasm to dhrystone_segue.aot"
+    ${WAMRC_CMD} --enable-segue -o dhrystone_segue.aot dhrystone.wasm
+fi

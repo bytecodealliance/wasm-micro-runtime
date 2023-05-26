@@ -27,7 +27,7 @@ ${IWASM} --gen-prof-file=dhrystone.profraw dhrystone_pgo.aot
 
 echo ""
 echo "Merge the raw profile data to dhrystone.profdata .."
-llvm-profdata merge -output=dhrystone.profdata dhrystone.profraw
+rm -f dhrystone.profdata && llvm-profdata merge -output=dhrystone.profdata dhrystone.profraw
 
 echo ""
 echo "Compile dhrystone.wasm to dhrystone_opt.aot with the profile data .."

@@ -12,3 +12,8 @@ echo "============> run dhrystone native"
 
 echo "============> run dhrystone.aot"
 ${IWASM_CMD} dhrystone.aot
+
+if [[ ${PLATFORM} == "linux" ]]; then
+    echo "============> run dhrystone_segue.aot"
+    ${IWASM_CMD} dhrystone_segue.aot
+fi

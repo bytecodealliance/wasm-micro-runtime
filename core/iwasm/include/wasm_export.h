@@ -167,6 +167,8 @@ typedef struct RuntimeInitArgs {
     /* LLVM JIT opt and size level */
     uint32_t llvm_jit_opt_level;
     uint32_t llvm_jit_size_level;
+    /* Segue optimization flags for LLVM JIT */
+    uint32_t segue_flags;
 } RuntimeInitArgs;
 
 #ifndef WASM_VALKIND_T_DEFINED

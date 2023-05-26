@@ -1,3 +1,42 @@
+## WAMR-1.2.2
+
+### Breaking Changes
+
+### New Features
+- Implement Fast JIT multi-threading feature (#2134)
+
+### Bug Fixes
+- Update request.ts wasm_response_send signature (#2122)
+- Fix ems allocator unaligned memory access on riscv64 (#2140)
+- libc_wasi_wrapper.c: Fix min func issue for size_t < 8 bytes on some platforms (#2152)
+- Fix three multi-threading and wasm-c-api-imports issues (#2173)
+- Fix build polybench benchmark error with wasi-sdk-19.0 (#2187)
+- Fix wamr-ide debugger ignoring launch config (#2155)
+
+### Enhancements
+- Add test for validating linear memory size updates (#2078)
+- Update Zephyr docs to remove unsupported west subcommand (#2128)
+- Update messages/comments to refer the new place of the version definition (#2133)
+- build_wamr_lldb.yml: sync lldb build options between ubuntu and macos (#2132)
+- build_wamr_vscode_ext.yml: vsce publish only on the official repo (#2130)
+- VSCode-Extension: Download lldb built for ubuntu 20.04 (#2139)
+- Avoid re-installing if Tensorflow is already installed for WASI-NN (#2148)
+- wamrc: Add --stack-usage option (#2158)
+- Fix URL in language-bindings/python/README.md (#2166)
+- Fix URL in embed_wamr.md (#2165)
+- Fix URL in README.md (#2168)
+- Return error when exception was raised after main thread finishes (#2169)
+- wasi-nn: Add external delegation to support several NPU/GPU (#2162)
+- Update document for iwasm/wamrc dependent packages (#2183)
+- Use a manual flag to disable clock_nanosleep on the unsupported platforms (#2176)
+- Fix compile warnings on windows platform (#2208)
+
+### Others
+- CI: Add ubsan checks to samples/wasm-c-api (#2147)
+- CI: More precise trigger paths for github actions (#2157)
+
+---
+
 ## WAMR-1.2.1
 
 ### Breaking Changes

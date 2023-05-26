@@ -40,4 +40,12 @@ do
         echo -e "Error while compiling ${case}.wasm to ${case}.aot"
         exit
     fi
+
+    if [[ ${PLATFORM} == "linux" ]]; then
+        ${WAMRC_CMD} --enable-segue -o ${OUT_DIR}/${case}_segue.aot ${OUT_DIR}/${case}.wasm
+        if [ "$?" != 0 ]; then
+            echo -e "Error while compiling ${case}.wasm to ${case}_segue.aot"
+            exit
+        fi
+    fi
 done

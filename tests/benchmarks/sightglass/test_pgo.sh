@@ -55,7 +55,7 @@ do
 
     echo ""
     echo "Merge the raw profile data to ${t}.profdata .."
-    llvm-profdata merge -output=${t}.profdata ${t}.profraw
+    rm -f ${t}.profdata && llvm-profdata merge -output=${t}.profdata ${t}.profraw
 
     echo ""
     echo "Compile ${t}.wasm to ${t}_opt.aot with the profile data .."

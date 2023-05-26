@@ -27,7 +27,7 @@ ${IWASM} --gen-prof-file=coremark.profraw coremark_pgo.aot
 
 echo ""
 echo "Merge the raw profile data to coremark.profdata .."
-llvm-profdata merge -output=coremark.profdata coremark.profraw
+rm -f coremark.profdata && llvm-profdata merge -output=coremark.profdata coremark.profraw
 
 echo ""
 echo "Compile coremark.wasm to coremark_opt.aot with the profile data .."
