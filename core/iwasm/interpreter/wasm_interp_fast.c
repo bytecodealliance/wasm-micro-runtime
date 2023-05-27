@@ -352,9 +352,10 @@ init_frame_refs(uint8 *frame_ref, uint32 cell_num, WASMFunctionInstance *func)
 
 #if UINTPTR_MAX == UINT64_MAX
 #define SET_FRAME_REF(off) *FRAME_REF(off) = *FRAME_REF(off + 1) = 1
-#define CLEAR_FRAME_REF(off)                                            \
-    off >= local_cell_num ? (*FRAME_REF(off) = *FRAME_REF(off + 1) = 0) \
-                          : (void)0
+#define CLEAR_FRAME_REF(off)                          \
+    (unsigned)off >= local_cell_num                   \
+        ? (*FRAME_REF(off) = *FRAME_REF(off + 1) = 0) \
+        : (void)0
 #else
 #define SET_FRAME_REF(off) *FRAME_REF(off) = 1
 #define CLEAR_FRAME_REF(off) \
@@ -479,8 +480,8 @@ init_frame_refs(uint8 *frame_ref, uint32 cell_num, WASMFunctionInstance *func)
 
 #define POP_F64() (GET_F64_FROM_ADDR(frame_lp + GET_OFFSET()))
 
-#define POP_REF()                                        \
-    (opnd_off = GET_OFFSET(), CLEAR_FRAME_REF(opnd_off), \
+#define POP_REF()                                                    \
+    (opnd_off = GET_OFFSET(), CLEAR_FRAME_REF((unsigned)(opnd_off)), \
      GET_REF_FROM_ADDR(frame_lp + opnd_off))
 
 #if WASM_ENABLE_GC != 0
@@ -831,6 +832,9 @@ trunc_f64_to_int(WASMModuleInstance *module, uint8 *frame_ip, uint32 *frame_lp,
 
 static bool
 copy_stack_values(WASMModuleInstance *module, uint32 *frame_lp, uint32 arity,
+#if WASM_ENABLE_GC != 0
+                  uint8 *frame_ref,
+#endif
                   uint32 total_cell_num, const uint8 *cells,
                   const int16 *src_offsets, const uint16 *dst_offsets)
 {
@@ -838,11 +842,16 @@ copy_stack_values(WASMModuleInstance *module, uint32 *frame_lp, uint32 arity,
      * we use 2 steps to do the copy. First step, copy the src values
      * to a tmp buf. Second step, copy the values from tmp buf to dst.
      */
+    bool ret = false;
     uint32 buf[16] = { 0 }, i;
     uint32 *tmp_buf = buf;
     uint8 cell;
     int16 src, buf_index = 0;
     uint16 dst;
+#if WASM_ENABLE_GC != 0
+    uint8 ref_buf[4];
+    uint8 *tmp_ref_buf = ref_buf;
+#endif
 
     /* Allocate memory if the buf is not large enough */
     if (total_cell_num > sizeof(buf) / sizeof(uint32)) {
@@ -850,19 +859,38 @@ copy_stack_values(WASMModuleInstance *module, uint32 *frame_lp, uint32 arity,
         if (total_size >= UINT32_MAX
             || !(tmp_buf = wasm_runtime_malloc((uint32)total_size))) {
             wasm_set_exception(module, "allocate memory failed");
-            return false;
+            goto fail;
         }
     }
+
+#if WASM_ENABLE_GC != 0
+    if (total_cell_num > sizeof(ref_buf) / sizeof(uint8)) {
+        uint64 total_size = sizeof(uint8) * (uint64)total_cell_num;
+        if (total_size >= UINT32_MAX
+            || !(tmp_ref_buf = wasm_runtime_malloc((uint32)total_size))) {
+            wasm_set_exception(module, "allocate memory failed");
+            goto fail;
+        }
+    }
+#endif
 
     /* 1) Copy values from src to tmp buf */
     for (i = 0; i < arity; i++) {
         cell = cells[i * CELL_SIZE];
         src = src_offsets[i];
-        if (cell == 1)
+        if (cell == 1) {
             tmp_buf[buf_index] = frame_lp[src];
+#if WASM_ENABLE_GC != 0
+            tmp_ref_buf[buf_index] = frame_ref[src];
+#endif
+        }
         else {
             tmp_buf[buf_index] = frame_lp[src];
             tmp_buf[buf_index + 1] = frame_lp[src + 1];
+#if WASM_ENABLE_GC != 0
+            tmp_ref_buf[buf_index] = frame_ref[src];
+            tmp_ref_buf[buf_index + 1] = frame_ref[src + 1];
+#endif
         }
         buf_index += cell;
     }
@@ -872,22 +900,87 @@ copy_stack_values(WASMModuleInstance *module, uint32 *frame_lp, uint32 arity,
     for (i = 0; i < arity; i++) {
         cell = cells[i * CELL_SIZE];
         dst = dst_offsets[i];
-        if (cell == 1)
+        if (cell == 1) {
             frame_lp[dst] = tmp_buf[buf_index];
+#if WASM_ENABLE_GC != 0
+            frame_ref[dst] = tmp_ref_buf[buf_index];
+#endif
+        }
         else {
             frame_lp[dst] = tmp_buf[buf_index];
             frame_lp[dst + 1] = tmp_buf[buf_index + 1];
+#if WASM_ENABLE_GC != 0
+            frame_ref[dst] = tmp_ref_buf[buf_index];
+            frame_ref[dst + 1] = tmp_ref_buf[buf_index + 1];
+#endif
         }
         buf_index += cell;
     }
 
+    ret = true;
+
+fail:
     if (tmp_buf != buf) {
         wasm_runtime_free(tmp_buf);
     }
 
-    return true;
+#if WASM_ENABLE_GC != 0
+    if (tmp_ref_buf != ref_buf) {
+        wasm_runtime_free(tmp_ref_buf);
+    }
+#endif
+
+    return ret;
 }
 
+#if WASM_ENABLE_GC != 0
+#define RECOVER_BR_INFO()                                                  \
+    do {                                                                   \
+        uint32 arity;                                                      \
+        /* read arity */                                                   \
+        arity = read_uint32(frame_ip);                                     \
+        if (arity) {                                                       \
+            uint32 total_cell;                                             \
+            uint16 *dst_offsets = NULL;                                    \
+            uint8 *cells;                                                  \
+            int16 *src_offsets = NULL;                                     \
+            /* read total cell num */                                      \
+            total_cell = read_uint32(frame_ip);                            \
+            /* cells */                                                    \
+            cells = (uint8 *)frame_ip;                                     \
+            frame_ip += arity * CELL_SIZE;                                 \
+            /* src offsets */                                              \
+            src_offsets = (int16 *)frame_ip;                               \
+            frame_ip += arity * sizeof(int16);                             \
+            /* dst offsets */                                              \
+            dst_offsets = (uint16 *)frame_ip;                              \
+            frame_ip += arity * sizeof(uint16);                            \
+            if (arity == 1) {                                              \
+                if (cells[0] == 1) {                                       \
+                    frame_lp[dst_offsets[0]] = frame_lp[src_offsets[0]];   \
+                    CLEAR_FRAME_REF((unsigned)(src_offsets[0]));           \
+                    SET_FRAME_REF(dst_offsets[0]);                         \
+                }                                                          \
+                else if (cells[0] == 2) {                                  \
+                    frame_lp[dst_offsets[0]] = frame_lp[src_offsets[0]];   \
+                    frame_lp[dst_offsets[0] + 1] =                         \
+                        frame_lp[src_offsets[0] + 1];                      \
+                    CLEAR_FRAME_REF((unsigned)src_offsets[0]);             \
+                    CLEAR_FRAME_REF((unsigned)(src_offsets[0] + 1));       \
+                    SET_FRAME_REF((unsigned)dst_offsets[0]);               \
+                    SET_FRAME_REF((unsigned)(dst_offsets[0] + 1));         \
+                }                                                          \
+            }                                                              \
+            else {                                                         \
+                if (!copy_stack_values(module, frame_lp, arity, frame_ref, \
+                                       total_cell, cells, src_offsets,     \
+                                       dst_offsets))                       \
+                    goto got_exception;                                    \
+            }                                                              \
+        }                                                                  \
+        frame_ip = (uint8 *)LOAD_PTR(frame_ip);                            \
+    } while (0)
+#else
 #define RECOVER_BR_INFO()                                                   \
     do {                                                                    \
         uint32 arity;                                                       \
@@ -926,6 +1019,7 @@ copy_stack_values(WASMModuleInstance *module, uint32 *frame_lp, uint32 arity,
         }                                                                   \
         frame_ip = (uint8 *)LOAD_PTR(frame_ip);                             \
     } while (0)
+#endif
 
 #define SKIP_BR_INFO()                                                        \
     do {                                                                      \
@@ -3845,6 +3939,14 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 addr1 = GET_OFFSET();
                 addr2 = GET_OFFSET();
                 frame_lp[addr2] = frame_lp[addr1];
+
+#if WASM_ENABLE_GC != 0
+                if (*FRAME_REF(addr1)) {
+                    SET_FRAME_REF(addr2);
+                    CLEAR_FRAME_REF(addr1);
+                }
+#endif
+
                 HANDLE_OP_END();
             }
 
@@ -3854,6 +3956,16 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 addr2 = GET_OFFSET();
                 frame_lp[addr2] = frame_lp[addr1];
                 frame_lp[addr2 + 1] = frame_lp[addr1 + 1];
+
+#if WASM_ENABLE_GC != 0
+                if (*FRAME_REF(addr1)) {
+                    SET_FRAME_REF(addr2);
+                    SET_FRAME_REF(addr2 + 1);
+                    CLEAR_FRAME_REF(addr1);
+                    CLEAR_FRAME_REF(addr1 + 1);
+                }
+#endif
+
                 HANDLE_OP_END();
             }
 
@@ -3879,6 +3991,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 frame_ip += values_count * sizeof(uint16);
 
                 if (!copy_stack_values(module, frame_lp, values_count,
+#if WASM_ENABLE_GC != 0
+                                       frame_ref,
+#endif
                                        total_cell, cells, src_offsets,
                                        dst_offsets))
                     goto got_exception;
