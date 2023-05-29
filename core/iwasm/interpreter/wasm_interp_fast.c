@@ -359,7 +359,7 @@ init_frame_refs(uint8 *frame_ref, uint32 cell_num, WASMFunctionInstance *func)
 #else
 #define SET_FRAME_REF(off) *FRAME_REF(off) = 1
 #define CLEAR_FRAME_REF(off) \
-    off >= local_cell_num ? (*FRAME_REF(off) = 0) : (void)0
+    (unsigned)off >= local_cell_num ? (*FRAME_REF(off) = 0) : (void)0
 #endif
 
 #define FRAME_REF_FOR(frame, p) \
@@ -882,6 +882,7 @@ copy_stack_values(WASMModuleInstance *module, uint32 *frame_lp, uint32 arity,
             tmp_buf[buf_index] = frame_lp[src];
 #if WASM_ENABLE_GC != 0
             tmp_ref_buf[buf_index] = frame_ref[src];
+            frame_ref[src] = 0;
 #endif
         }
         else {
@@ -890,6 +891,8 @@ copy_stack_values(WASMModuleInstance *module, uint32 *frame_lp, uint32 arity,
 #if WASM_ENABLE_GC != 0
             tmp_ref_buf[buf_index] = frame_ref[src];
             tmp_ref_buf[buf_index + 1] = frame_ref[src + 1];
+            frame_ref[src] = 0;
+            frame_ref[src + 1] = 0;
 #endif
         }
         buf_index += cell;
@@ -3942,8 +3945,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
 #if WASM_ENABLE_GC != 0
                 if (*FRAME_REF(addr1)) {
-                    SET_FRAME_REF(addr2);
                     CLEAR_FRAME_REF(addr1);
+                    SET_FRAME_REF(addr2);
                 }
 #endif
 
@@ -3959,10 +3962,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
 #if WASM_ENABLE_GC != 0
                 if (*FRAME_REF(addr1)) {
-                    SET_FRAME_REF(addr2);
-                    SET_FRAME_REF(addr2 + 1);
                     CLEAR_FRAME_REF(addr1);
                     CLEAR_FRAME_REF(addr1 + 1);
+                    SET_FRAME_REF(addr2);
+                    SET_FRAME_REF(addr2 + 1);
                 }
 #endif
 
