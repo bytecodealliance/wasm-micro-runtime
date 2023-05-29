@@ -234,10 +234,16 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
     PTO.LoopUnrolling = true;
 
     Optional<PGOOptions> PGO = None;
-    if (comp_ctx->enable_llvm_pgo)
+    if (comp_ctx->enable_llvm_pgo) {
+        /* Disable static counter allocation for value profiler,
+           it will be allocated by runtime */
+        const char *argv[] = { "", "-vp-static-alloc=false" };
+        cl::ParseCommandLineOptions(2, argv);
         PGO = PGOOptions("", "", "", PGOOptions::IRInstr);
-    else if (comp_ctx->use_prof_file)
+    }
+    else if (comp_ctx->use_prof_file) {
         PGO = PGOOptions(comp_ctx->use_prof_file, "", "", PGOOptions::IRUse);
+    }
 
 #ifdef DEBUG_PASS
     PassInstrumentationCallbacks PIC;
