@@ -135,7 +135,7 @@ fail:
 }
 
 static bool
-aot_add_precheck_function(const AOTCompContext *comp_ctx, LLVMModuleRef module,
+aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
                           uint32 func_index, uint32 orig_param_count,
                           LLVMTypeRef func_type, LLVMValueRef wrapped_func)
 {
@@ -237,7 +237,7 @@ fail:
  * Add LLVM function
  */
 static LLVMValueRef
-aot_add_llvm_func(const AOTCompContext *comp_ctx, LLVMModuleRef module,
+aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
                   const AOTFuncType *aot_func_type, uint32 func_index,
                   LLVMTypeRef *p_func_type)
 {
@@ -2805,8 +2805,8 @@ aot_checked_addr_list_destroy(AOTFuncContext *func_ctx)
 }
 
 bool
-aot_build_zero_function_ret(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                            AOTFuncType *func_type)
+aot_build_zero_function_ret(const AOTCompContext *comp_ctx,
+                            AOTFuncContext *func_ctx, AOTFuncType *func_type)
 {
     LLVMValueRef ret = NULL;
 

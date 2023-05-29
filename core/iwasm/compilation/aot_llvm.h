@@ -513,8 +513,8 @@ void
 aot_checked_addr_list_destroy(AOTFuncContext *func_ctx);
 
 bool
-aot_build_zero_function_ret(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                            AOTFuncType *func_type);
+aot_build_zero_function_ret(const AOTCompContext *comp_ctx,
+                            AOTFuncContext *func_ctx, AOTFuncType *func_type);
 
 LLVMValueRef
 aot_call_llvm_intrinsic(const AOTCompContext *comp_ctx,
