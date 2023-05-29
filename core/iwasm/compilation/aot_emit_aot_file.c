@@ -2525,12 +2525,12 @@ aot_resolve_stack_sizes(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
                     goto fail;
                 }
             }
-            if (read_stack_usage_file(comp_ctx->stack_usage_file, stack_sizes,
+            if (!read_stack_usage_file(comp_ctx->stack_usage_file, stack_sizes,
                                       obj_data->func_count)) {
                 goto fail;
             }
             for (i = 0; i < obj_data->func_count; i++) {
-                if (stack_sizes[i] != 0xffffffff) {
+                if (stack_sizes[i] == 0xffffffff) {
                     aot_set_last_error("incomplete stack usage file.");
                     goto fail;
                 }
