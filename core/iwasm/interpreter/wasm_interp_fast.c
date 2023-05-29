@@ -990,7 +990,7 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
 }
 
 #if WASM_ENABLE_MULTI_MODULE != 0
-static void
+void
 wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                WASMExecEnv *exec_env,
                                WASMFunctionInstance *cur_func,

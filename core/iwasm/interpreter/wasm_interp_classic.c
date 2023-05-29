@@ -973,7 +973,7 @@ fast_jit_invoke_native(WASMExecEnv *exec_env, uint32 func_idx,
 #endif
 
 #if WASM_ENABLE_MULTI_MODULE != 0
-static void
+void
 wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                WASMExecEnv *exec_env,
                                WASMFunctionInstance *cur_func,
@@ -1148,7 +1148,7 @@ get_global_addr(uint8 *global_data, WASMGlobalInstance *global)
 #endif
 }
 
-static void
+void
 wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                WASMExecEnv *exec_env,
                                WASMFunctionInstance *cur_func,
