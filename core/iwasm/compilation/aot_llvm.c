@@ -2296,6 +2296,8 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
             }
         }
 
+        comp_ctx->stack_usage_file = option->stack_usage_file;
+
         if (comp_ctx->enable_bound_check) {
             /* Always enable stack boundary check if `bounds-checks`
                is enabled */
@@ -2366,7 +2368,7 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
         if (!(comp_ctx->target_machine = LLVMCreateTargetMachineWithOpts(
                   target, triple_norm, cpu, features, opt_level,
                   LLVMRelocStatic, code_model, false,
-                  option->stack_usage_file))) {
+                  comp_ctx->stack_usage_file))) {
             aot_set_last_error("create LLVM target machine failed.");
             goto fail;
         }

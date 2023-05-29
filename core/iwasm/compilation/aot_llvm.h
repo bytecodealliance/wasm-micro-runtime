@@ -410,6 +410,8 @@ typedef struct AOTCompContext {
      * file for some architecture (such as arc) */
     const char *external_asm_compiler;
     const char *asm_compiler_flags;
+
+    const char *stack_usage_file;
 } AOTCompContext;
 
 enum {

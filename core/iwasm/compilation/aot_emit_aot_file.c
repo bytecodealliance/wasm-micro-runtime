@@ -2419,8 +2419,76 @@ aot_resolve_object_data_sections(AOTObjectData *obj_data)
 }
 
 static bool
+read_stack_usage_file(const char *filename, uint32_t *sizes, uint32 count)
+{
+    FILE *fp = NULL;
+    if (filename == NULL) {
+        aot_set_last_error("no stack usage file is specified.");
+        return false;
+    }
+    fp = fopen(filename, "r");
+    if (fp == NULL) {
+        goto fail;
+    }
+    /*
+     * the file consists of lines like:
+     *
+     * WASM Module:aot_func#9  72  static
+     */
+    const char *aot_func_prefix = AOT_FUNC_PREFIX;
+    while (true) {
+        char line[100];
+        char *cp = fgets(line, sizeof(line), fp);
+        char *fn;
+        char *colon;
+        if (cp == NULL) {
+            break;
+        }
+        /*
+         * Note: strrchr (not strchr) because a module name can contain
+         * colons.
+         */
+        colon = strrchr(cp, ':');
+        if (colon == NULL) {
+            goto fail;
+        }
+        fn = strstr(colon, aot_func_prefix);
+        if (fn == NULL) {
+            goto fail;
+        }
+        uintmax_t func_idx;
+        uintmax_t sz;
+        int ret;
+        ret = sscanf(fn + strlen(aot_func_prefix), "%ju %ju static", &func_idx,
+                     &sz);
+        if (ret != 2) {
+            /* Probably an uninteresting entry. eg. ones for _precheck func */
+            continue;
+        }
+        if (sz > UINT32_MAX) {
+            goto fail;
+        }
+        if (func_idx > UINT32_MAX || func_idx < count) {
+            goto fail;
+        }
+        func_idx -= count; /* see aot_add_llvm_func */
+        sizes[func_idx] = sz;
+        LOG_VERBOSE("AOT func#%" PRIu32 " stack_size %" PRIu32,
+                    (uint32_t)func_idx, sizes[func_idx]);
+    }
+    fclose(fp);
+    return true;
+fail:
+    if (fp != NULL)
+        fclose(fp);
+    aot_set_last_error("failed to read stack usage file.");
+    return false;
+}
+
+static bool
 aot_resolve_stack_sizes(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
 {
+    LLVMSectionIteratorRef sec_itr = NULL;
     LLVMSymbolIteratorRef sym_itr;
     const char *name;
 
@@ -2438,7 +2506,6 @@ aot_resolve_stack_sizes(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
                 goto fail;
             }
             uint64_t addr = LLVMGetSymbolAddress(sym_itr);
-            LLVMSectionIteratorRef sec_itr;
             if (!(sec_itr =
                       LLVMObjectFileCopySectionIterator(obj_data->binary))) {
                 aot_set_last_error("llvm get section iterator failed.");
@@ -2458,8 +2525,17 @@ aot_resolve_stack_sizes(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
                     goto fail;
                 }
             }
-            /* TODO: fill in the real values */
-            stack_sizes[0] = 0x8000;
+            if (read_stack_usage_file(comp_ctx->stack_usage_file, stack_sizes,
+                                      obj_data->func_count)) {
+                goto fail;
+            }
+            for (i = 0; i < obj_data->func_count; i++) {
+                if (stack_sizes[i] != 0xffffffff) {
+                    aot_set_last_error("incomplete stack usage file.");
+                    goto fail;
+                }
+            }
+            /* TODO add the amount stack to use to make calls */
             LLVMDisposeSectionIterator(sec_itr);
             LLVMDisposeSymbolIterator(sym_itr);
             return true;
@@ -2468,6 +2544,8 @@ aot_resolve_stack_sizes(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
     }
     aot_set_last_error("stack_sizes not found.");
 fail:
+    if (sec_itr)
+        LLVMDisposeSectionIterator(sec_itr);
     LLVMDisposeSymbolIterator(sym_itr);
     return false;
 }
