@@ -274,19 +274,22 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
 
     bh_assert(func_index < comp_ctx->func_ctx_count);
     bh_assert(LLVMGetReturnType(func_type) == ret_type);
-    /*
-     * Use an out-of-range index (by adding comp_ctx->func_ctx_count)
-     * to ensure that this function is not used directly.
-     *
-     * REVISIT: probably this breaks windows hw bound check
-     * (the RtlAddFunctionTable stuff)
-     */
-    if (!(func = aot_add_llvm_func1(comp_ctx, module,
-                                    func_index + comp_ctx->func_ctx_count,
+    uint32 body_func_index = func_index;
+    if (comp_ctx->enable_stack_bound_check) {
+        /*
+         * Use an out-of-range index (by adding comp_ctx->func_ctx_count)
+         * to ensure that this function is not used directly.
+         *
+         * REVISIT: probably this breaks windows hw bound check
+         * (the RtlAddFunctionTable stuff)
+         */
+        body_func_index += comp_ctx->func_ctx_count;
+    }
+    if (!(func = aot_add_llvm_func1(comp_ctx, module, body_func_index,
                                     aot_func_type->param_count, func_type, "")))
         goto fail;
 
-    {
+    if (comp_ctx->enable_stack_bound_check) {
         LLVMSetLinkage(func, LLVMInternalLinkage);
         unsigned int kind =
             LLVMGetEnumAttributeKindForName("noinline", strlen("noinline"));
@@ -303,6 +306,9 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
         LLVMAddAttributeAtIndex(precheck_func, LLVMAttributeFunctionIndex,
                                 attr_noinline);
         *p_precheck_func = precheck_func;
+    }
+    else {
+        *p_precheck_func = func;
     }
 
     if (p_func_type)
@@ -1319,7 +1325,8 @@ aot_create_func_contexts(const AOTCompData *comp_data, AOTCompContext *comp_ctx)
     uint64 size;
     uint32 i;
 
-    if (!aot_create_stack_sizes(comp_data, comp_ctx))
+    if (comp_ctx->enable_stack_bound_check
+        && !aot_create_stack_sizes(comp_data, comp_ctx))
         return NULL;
 
     /* Allocate memory */
