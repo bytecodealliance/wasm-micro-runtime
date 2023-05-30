@@ -2526,7 +2526,7 @@ aot_resolve_stack_sizes(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
                 }
             }
             if (!read_stack_usage_file(comp_ctx->stack_usage_file, stack_sizes,
-                                      obj_data->func_count)) {
+                                       obj_data->func_count)) {
                 goto fail;
             }
             for (i = 0; i < obj_data->func_count; i++) {
