@@ -885,15 +885,17 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         else {
             if (func_ctxes[func_idx - import_func_count] == func_ctx) {
                 /* recursive call */
-                func = func_ctx->func;
+                func = func_ctx->precheck_func;
             }
             else {
                 if (!comp_ctx->is_jit_mode) {
-                    func = func_ctxes[func_idx - import_func_count]->func;
+                    func =
+                        func_ctxes[func_idx - import_func_count]->precheck_func;
                 }
                 else {
 #if !(WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_LAZY_JIT != 0)
-                    func = func_ctxes[func_idx - import_func_count]->func;
+                    func =
+                        func_ctxes[func_idx - import_func_count]->precheck_func;
 #else
                     /* JIT tier-up, load func ptr from func_ptrs[func_idx] */
                     LLVMValueRef func_ptr, func_idx_const;

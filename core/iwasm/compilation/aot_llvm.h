@@ -153,6 +153,7 @@ typedef struct AOTMemInfo {
 typedef struct AOTFuncContext {
     AOTFunc *aot_func;
     LLVMValueRef func;
+    LLVMValueRef precheck_func;
     LLVMTypeRef func_type;
     LLVMModuleRef module;
     AOTBlockStack block_stack;

@@ -134,7 +134,7 @@ fail:
     return false;
 }
 
-static bool
+static LLVMValueRef
 aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
                           uint32 func_index, uint32 orig_param_count,
                           LLVMTypeRef func_type, LLVMValueRef wrapped_func)
@@ -228,9 +228,9 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
         }
     }
 
-    return true;
+    return precheck_func;
 fail:
-    return false;
+    return NULL;
 }
 
 /**
@@ -239,7 +239,7 @@ fail:
 static LLVMValueRef
 aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
                   const AOTFuncType *aot_func_type, uint32 func_index,
-                  LLVMTypeRef *p_func_type)
+                  LLVMTypeRef *p_func_type, LLVMValueRef *p_precheck_func)
 {
     LLVMValueRef func = NULL;
     LLVMTypeRef *param_types, ret_type, func_type;
@@ -318,10 +318,12 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
         LLVMAddAttributeAtIndex(func, LLVMAttributeFunctionIndex,
                                 attr_noinline);
 
-        if (!aot_add_precheck_function(comp_ctx, module, func_index,
-                                       aot_func_type->param_count, func_type,
-                                       func))
+        LLVMValueRef precheck_func = aot_add_precheck_function(
+            comp_ctx, module, func_index, aot_func_type->param_count, func_type,
+            func);
+        if (!precheck_func)
             goto fail;
+        *p_precheck_func = precheck_func;
     }
 
     if (p_func_type)
@@ -1203,9 +1205,9 @@ aot_create_func_context(const AOTCompData *comp_data, AOTCompContext *comp_ctx,
     func_ctx->module = comp_ctx->module;
 
     /* Add LLVM function */
-    if (!(func_ctx->func =
-              aot_add_llvm_func(comp_ctx, func_ctx->module, aot_func_type,
-                                func_index, &func_ctx->func_type))) {
+    if (!(func_ctx->func = aot_add_llvm_func(
+              comp_ctx, func_ctx->module, aot_func_type, func_index,
+              &func_ctx->func_type, &func_ctx->precheck_func))) {
         goto fail;
     }
 
