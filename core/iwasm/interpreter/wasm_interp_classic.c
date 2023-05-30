@@ -349,7 +349,8 @@ init_frame_refs(uint8 *frame_ref, uint32 cell_num, WASMFunctionInstance *func)
     memset(frame_ref, 0, cell_num);
 
     for (i = 0, j = 0; i < func->param_count; i++) {
-        if (wasm_is_type_reftype(func->param_types[i])) {
+        if (wasm_is_type_reftype(func->param_types[i])
+            && !wasm_is_reftype_i31ref(func->param_types[i])) {
             frame_ref[j++] = 1;
 #if UINTPTR_MAX == UINT64_MAX
             frame_ref[j++] = 1;
@@ -363,7 +364,8 @@ init_frame_refs(uint8 *frame_ref, uint32 cell_num, WASMFunctionInstance *func)
     }
 
     for (i = 0; i < func->local_count; i++) {
-        if (wasm_is_type_reftype(func->local_types[i])) {
+        if (wasm_is_type_reftype(func->local_types[i])
+            && !wasm_is_reftype_i31ref(func->local_types[i])) {
             frame_ref[j++] = 1;
 #if UINTPTR_MAX == UINT64_MAX
             frame_ref[j++] = 1;
@@ -428,6 +430,11 @@ init_frame_refs(uint8 *frame_ref, uint32 cell_num, WASMFunctionInstance *func)
         *frame_ref_tmp = *(frame_ref_tmp + 1) = 1; \
         frame_sp += 2;                             \
     } while (0)
+#define PUSH_I31REF(value)                \
+    do {                                  \
+        PUT_REF_TO_ADDR(frame_sp, value); \
+        frame_sp += 2;                    \
+    } while (0)
 #else
 #define PUSH_REF(value)                      \
     do {                                     \
@@ -435,6 +442,11 @@ init_frame_refs(uint8 *frame_ref, uint32 cell_num, WASMFunctionInstance *func)
         frame_ref_tmp = FRAME_REF(frame_sp); \
         *frame_ref_tmp = 1;                  \
         frame_sp++;                          \
+    } while (0)
+#define PUSH_I31REF(value)                \
+    do {                                  \
+        PUT_REF_TO_ADDR(frame_sp, value); \
+        frame_sp++;                       \
     } while (0)
 #endif
 
@@ -1100,11 +1112,13 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
         && wasm_is_type_reftype(func_type->types[cur_func->param_count])) {
         frame_ref = (uint8 *)prev_frame->csp_boundary
                     + (unsigned)(uintptr_t)(prev_frame->sp - prev_frame->lp);
+        if (!wasm_is_reftype_i31ref(func_type->types[cur_func->param_count])) {
 #if UINTPTR_MAX == UINT64_MAX
-        *frame_ref = *(frame_ref + 1) = 1;
+            *frame_ref = *(frame_ref + 1) = 1;
 #else
-        *frame_ref = 1;
+            *frame_ref = 1;
 #endif
+        }
     }
 #endif
 
@@ -1805,6 +1819,13 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         *(frame_sp - 1) = *frame_sp;
                 }
 
+#if WASM_ENABLE_GC != 0
+                frame_ref_tmp = FRAME_REF(frame_sp);
+                *frame_ref_tmp = 0;
+#if UINTPTR_MAX == UINT64_MAX
+                *(frame_ref_tmp + 1) = 0;
+#endif
+#endif
                 (void)vec_len;
                 HANDLE_OP_END();
             }
@@ -2088,7 +2109,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             &field_value);
 
                         field_type = struct_type->fields[field_idx].field_type;
-                        if (wasm_is_type_reftype(field_type)) {
+                        if (wasm_is_reftype_i31ref(field_type)) {
+                            PUSH_I31REF(field_value.gc_obj);
+                        }
+                        else if (wasm_is_type_reftype(field_type)) {
                             PUSH_REF(field_value.gc_obj);
                         }
                         else if (field_type == VALUE_TYPE_I32
@@ -2340,7 +2364,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             &array_elem);
                         elem_size_log = wasm_array_obj_elem_size_log(array_obj);
 
-                        if (wasm_is_type_reftype(array_type->elem_type)) {
+                        if (wasm_is_reftype_i31ref(array_type->elem_type)) {
+                            PUSH_I31REF(array_elem.gc_obj);
+                        }
+                        else if (wasm_is_type_reftype(array_type->elem_type)) {
                             PUSH_REF(array_elem.gc_obj);
                         }
                         else if (elem_size_log < 3) {
@@ -2450,7 +2477,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                         i31_val = POP_I32();
                         i31_obj = wasm_i31_obj_new(i31_val);
-                        PUSH_REF(i31_obj);
+                        PUSH_I31REF(i31_obj);
                         HANDLE_OP_END();
                     }
                     case WASM_OP_I31_GET_S:
@@ -2635,8 +2662,14 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     default:
 #if WASM_ENABLE_GC != 0
                         if (wasm_is_type_reftype(local_type)) {
-                            PUSH_REF(
-                                GET_REF_FROM_ADDR(frame_lp + local_offset));
+                            if (wasm_is_reftype_i31ref(local_type)) {
+                                PUSH_I31REF(
+                                    GET_REF_FROM_ADDR(frame_lp + local_offset));
+                            }
+                            else {
+                                PUSH_REF(
+                                    GET_REF_FROM_ADDR(frame_lp + local_offset));
+                            }
                         }
                         else
 #endif
@@ -2766,10 +2799,15 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #if WASM_ENABLE_GC == 0
                 PUSH_I32(*(uint32 *)global_addr);
 #else
-                if (!wasm_is_type_reftype(global->type))
+                if (!wasm_is_type_reftype(global->type)) {
                     PUSH_I32(*(uint32 *)global_addr);
-                else
+                }
+                else if (wasm_is_reftype_i31ref(global->type)) {
+                    PUSH_I31REF(GET_REF_FROM_ADDR((uint32 *)global_addr));
+                }
+                else {
                     PUSH_REF(GET_REF_FROM_ADDR((uint32 *)global_addr));
+                }
 #endif
                 /* clang-format on */
                 HANDLE_OP_END();

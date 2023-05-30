@@ -715,7 +715,7 @@ wasm_object_get_ref_list(WASMObjectRef obj, bool *p_is_compact_mode,
         WASMArrayType *type = (WASMArrayType *)rtt_type->defined_type;
         if (wasm_is_type_reftype(type->elem_type)) {
             *p_is_compact_mode = true;
-            *p_ref_num = (uint16)wasm_array_obj_length((WASMArrayObjectRef)obj);
+            *p_ref_num = wasm_array_obj_length((WASMArrayObjectRef)obj);
             *p_ref_start_offset = (uint16)offsetof(WASMArrayObject, elem_data);
         }
         else {
