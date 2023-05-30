@@ -647,27 +647,6 @@ create_local_variables(const AOTCompData *comp_data,
         }
     }
 
-    if (comp_ctx->enable_stack_bound_check
-        || comp_ctx->enable_stack_estimation) {
-        if (aot_func_type->param_count + func->local_count > 0) {
-            func_ctx->last_alloca = func_ctx->locals[aot_func_type->param_count
-                                                     + func->local_count - 1];
-            if (!(func_ctx->last_alloca =
-                      LLVMBuildBitCast(comp_ctx->builder, func_ctx->last_alloca,
-                                       INT8_PTR_TYPE, "stack_ptr"))) {
-                aot_set_last_error("llvm build bit cast failed.");
-                return false;
-            }
-        }
-        else {
-            if (!(func_ctx->last_alloca = LLVMBuildAlloca(
-                      comp_ctx->builder, INT8_TYPE, "stack_ptr"))) {
-                aot_set_last_error("llvm build alloca failed.");
-                return false;
-            }
-        }
-    }
-
     return true;
 }
 
@@ -1235,11 +1214,6 @@ aot_create_func_context(const AOTCompData *comp_data, AOTCompContext *comp_ctx,
         goto fail;
     }
 
-    /* Get native stack boundary address */
-    if (comp_ctx->enable_stack_bound_check
-        && !create_native_stack_bound(comp_ctx, func_ctx)) {
-        goto fail;
-    }
     if (comp_ctx->enable_stack_estimation
         && !create_native_stack_top_min(comp_ctx, func_ctx)) {
         goto fail;
