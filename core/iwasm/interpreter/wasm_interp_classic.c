@@ -1116,6 +1116,9 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
                 _Z17serialize_to_fileP11WASMExecEnv(exec_env); \
             }                                                  \
         }                                                      \
+        else {                                                 \
+            FETCH_OPCODE_AND_DISPATCH();                       \
+        }                                                      \
     } while (0)
 #endif
 
