@@ -16,6 +16,9 @@
 
 static bool
 create_native_symbol(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
+static bool
+create_native_stack_bound(const AOTCompContext *comp_ctx,
+                          AOTFuncContext *func_ctx);
 
 LLVMTypeRef
 wasm_type_to_llvm_type(const AOTLLVMTypes *llvm_types, uint8 wasm_type)
@@ -70,30 +73,6 @@ aot_add_llvm_func1(const AOTCompContext *comp_ctx, LLVMModuleRef module,
     }
 
     return func;
-}
-
-static LLVMValueRef
-create_native_stack_bound_from_exec_env(const AOTCompContext *comp_ctx,
-                                        LLVMValueRef exec_env)
-{
-    LLVMValueRef stack_bound_offset = I32_FOUR, stack_bound_addr;
-    LLVMValueRef native_stack_bound;
-
-    if (!(stack_bound_addr = LLVMBuildInBoundsGEP2(
-              comp_ctx->builder, OPQ_PTR_TYPE, exec_env, &stack_bound_offset, 1,
-              "stack_bound_addr"))) {
-        aot_set_last_error("llvm build in bounds gep failed");
-        return NULL;
-    }
-
-    if (!(native_stack_bound =
-              LLVMBuildLoad2(comp_ctx->builder, OPQ_PTR_TYPE, stack_bound_addr,
-                             "native_stack_bound"))) {
-        aot_set_last_error("llvm build load failed");
-        return NULL;
-    }
-
-    return native_stack_bound;
 }
 
 /*
@@ -156,6 +135,22 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
         aot_set_last_error("add LLVM basic block failed.");
         goto fail;
     }
+    LLVMBuilderRef b = comp_ctx->builder;
+    LLVMPositionBuilderAtEnd(b, begin);
+
+    /* create a temporary minimum func_ctx */
+    AOTFuncContext tmp;
+    AOTFuncContext *func_ctx = &tmp;
+    memset(func_ctx, 0, sizeof(*func_ctx));
+    func_ctx->func = precheck_func;
+    func_ctx->module = module;
+    func_ctx->aot_func = comp_ctx->comp_data->funcs[func_index];
+    if (!create_basic_func_context(comp_ctx, func_ctx))
+        goto fail;
+    if (!create_native_stack_bound(comp_ctx, func_ctx))
+        goto fail;
+
+    /* XXX what to do for func_ctx->debug_func? maybe just disable? */
     /* XXX error checks */
     /* XXX tweak for 32-bit arch */
     unsigned int param_count = LLVMCountParams(precheck_func);
@@ -163,9 +158,6 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
     uint64 sz = param_count * sizeof(LLVMValueRef);
     params = wasm_runtime_malloc(sz);
     LLVMGetParams(precheck_func, params);
-
-    LLVMBuilderRef b = comp_ctx->builder;
-    LLVMPositionBuilderAtEnd(b, begin);
 
     LLVMTypeRef uintptr_type = I64_TYPE;
     LLVMValueRef sp_ptr = LLVMBuildAlloca(b, I32_TYPE, "sp_ptr");
@@ -177,26 +169,11 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
                                                &func_index_const, 1, "sizep");
     LLVMValueRef size32 = LLVMBuildLoad2(b, I32_TYPE, sizep, "size32");
     LLVMValueRef size = LLVMBuildZExt(b, size32, uintptr_type, "size");
-    LLVMValueRef exec_env = LLVMGetParam(precheck_func, 0);
-    LLVMValueRef native_stack_bound =
-        create_native_stack_bound_from_exec_env(comp_ctx, exec_env);
     LLVMValueRef bound_base_int = LLVMBuildPtrToInt(
-        b, native_stack_bound, uintptr_type, "bound_base_int");
+        b, func_ctx->native_stack_bound, uintptr_type, "bound_base_int");
     LLVMValueRef bound = LLVMBuildAdd(b, bound_base_int, size, "bound");
     LLVMValueRef cmp = LLVMBuildICmp(b, LLVMIntULT, sp, bound, "cmp");
     /* todo: @llvm.expect.i1(i1 %cmp, i1 0) */
-#if 0
-    LLVMValueRef cond_br = LLVMBuildCondBr(b, cmp, exception_block, call_wrapped_func_block);
-#endif
-    AOTFuncContext tmp;
-    AOTFuncContext *func_ctx = &tmp;
-    memset(func_ctx, 0, sizeof(*func_ctx));
-    func_ctx->func = precheck_func;
-    func_ctx->module = module;
-    func_ctx->aot_func = comp_ctx->comp_data->funcs[func_index];
-    if (!create_basic_func_context(comp_ctx, func_ctx))
-        goto fail;
-    /* XXX what to do for func_ctx->debug_func? maybe just disable? */
     if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_NATIVE_STACK_OVERFLOW,
                             true, cmp, call_wrapped_func_block))
         goto fail;
