@@ -323,6 +323,8 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
             func);
         if (!precheck_func)
             goto fail;
+        LLVMAddAttributeAtIndex(precheck_func, LLVMAttributeFunctionIndex,
+                                attr_noinline);
         *p_precheck_func = precheck_func;
     }
 
