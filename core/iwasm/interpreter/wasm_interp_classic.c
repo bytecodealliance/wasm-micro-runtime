@@ -22,6 +22,7 @@
 #endif
 
 extern void _Z17serialize_to_fileP11WASMExecEnv(WASMExecEnv* instance);
+
 int counter_ = 0;
 typedef int32 CellType_I32;
 typedef int64 CellType_I64;
@@ -1103,16 +1104,18 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
         goto *handle_table[*frame_ip++];                                  \
     } while (0)
 #else
-#define HANDLE_OP_END()                                    \
-    do {                                                   \
-        if (!exec_env->is_checkpoint && counter_ < 1000) { \
-            counter_++;                                    \
-            FETCH_OPCODE_AND_DISPATCH();                   \
-        }                                                  \
-        else {                                             \
-            printf("[%s:%d]\n", __FILE__, __LINE__);       \
-            _Z17serialize_to_fileP11WASMExecEnv(exec_env); \
-        }                                                  \
+#define HANDLE_OP_END()                                        \
+    do {                                                       \
+       if (!exec_env->is_restore) {                            \
+            if (!exec_env->is_checkpoint && counter_ < 1000) { \
+                counter_++;                                    \
+                FETCH_OPCODE_AND_DISPATCH();                   \
+            }                                                  \
+            else {                                             \
+                printf("[%s:%d]\n", __FILE__, __LINE__);       \
+                _Z17serialize_to_fileP11WASMExecEnv(exec_env); \
+            }                                                  \
+        }                                                      \
     } while (0)
 #endif
 
@@ -1186,7 +1189,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     uint8 local_type, *global_addr;
     uint32 cache_index, type_index, param_cell_num, cell_num;
     uint8 value_type;
-
+    if (exec_env->is_restore){
+        frame = exec_env->cur_frame;
+        UPDATE_ALL_FROM_FRAME();
+        frame_ip_end = wasm_get_func_code_end(cur_func);
+        frame_lp = frame->lp;
+    }
 #if WASM_ENABLE_DEBUG_INTERP != 0
     uint8 *frame_ip_orig = NULL;
     WASMDebugInstance *debug_instance = wasm_exec_env_get_instance(exec_env);

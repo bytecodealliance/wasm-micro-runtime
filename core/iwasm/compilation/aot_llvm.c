@@ -1593,6 +1593,7 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
     }
 
 #if WASM_ENABLE_DEBUG_AOT != 0
+    create_dwarf_extractor(comp_ctx->comp_data, "/home/victoryang00/Documents/asplos24/MVVM/cmake-build-debug/test/counter.wasm");
     if (!(comp_ctx->debug_builder = LLVMCreateDIBuilder(comp_ctx->module))) {
         aot_set_last_error("create LLVM Debug Infor builder failed.");
         goto fail;
