@@ -2258,8 +2258,6 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
             }
         }
 
-        comp_ctx->stack_usage_file = option->stack_usage_file;
-
         if (comp_ctx->enable_bound_check) {
             /* Always enable stack boundary check if `bounds-checks`
                is enabled */
@@ -2270,6 +2268,18 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
                check status according to the input option */
             comp_ctx->enable_stack_bound_check =
                 (option->stack_bounds_checks == 1) ? true : false;
+        }
+
+        if (comp_ctx->enable_stack_bound_check
+            && option->stack_usage_file == NULL) {
+            if (!aot_generate_tempfile_name(
+                    "wamrc-su", "su", comp_ctx->stack_usage_temp_file,
+                    sizeof(comp_ctx->stack_usage_temp_file)))
+                goto fail;
+            comp_ctx->stack_usage_file = comp_ctx->stack_usage_temp_file;
+        }
+        else {
+            comp_ctx->stack_usage_file = option->stack_usage_file;
         }
 
         os_printf("Create AoT compiler with:\n");
@@ -2473,6 +2483,10 @@ aot_destroy_comp_context(AOTCompContext *comp_ctx)
 {
     if (!comp_ctx)
         return;
+
+    if (comp_ctx->stack_usage_file == comp_ctx->stack_usage_temp_file) {
+        (void)unlink(comp_ctx->stack_usage_temp_file);
+    }
 
     if (comp_ctx->target_machine)
         LLVMDisposeTargetMachine(comp_ctx->target_machine);

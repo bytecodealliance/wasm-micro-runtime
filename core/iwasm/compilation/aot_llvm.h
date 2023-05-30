@@ -413,6 +413,7 @@ typedef struct AOTCompContext {
     const char *asm_compiler_flags;
 
     const char *stack_usage_file;
+    char stack_usage_temp_file[64];
 } AOTCompContext;
 
 enum {
