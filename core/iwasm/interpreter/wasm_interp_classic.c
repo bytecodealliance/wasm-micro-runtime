@@ -70,6 +70,7 @@ typedef float64 CellType_F64;
     do {                                                \
         uint64 offset1 = (uint64)offset + (uint64)addr; \
         maddr = memory->memory_data + offset1;          \
+        printf("maddr addr %p %d %ld %d\n",maddr, *maddr,addr,offset); \
     } while (0)
 
 #define CHECK_BULK_MEMORY_OVERFLOW(start, bytes, maddr) \
@@ -1091,18 +1092,18 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
        do {                                                             \
            printf("ip %d ",frame_ip-cur_func->u.func->code);                      \
            printf("sp %d ",((uint8*)frame_sp)-exec_env->wasm_stack.s.bottom);  \
+           printf("sp val %d ",*(uint8*)frame_sp);  \
            printf("lp %d\n", frame_lp[0]); \
-           printf("frame_csp %d ",frame_csp->begin_addr-cur_func->u.func->code); \
-           printf("frame_csp-1 %d ",(frame_csp-1)->begin_addr-cur_func->u.func->code); \
-           printf("frame_csp-2 %d ",(frame_csp-2)->begin_addr-cur_func->u.func->code); \
-           if(cache_items) printf("cache %d ",cache_items->else_addr?cache_items->else_addr-cache_items->start_addr:cache_items->end_addr-cache_items->start_addr);                                       \
+           printf("frame_csp %ld ",frame_csp->begin_addr-cur_func->u.func->code); \
+           printf("frame_csp-1 %ld ",(frame_csp-1)->begin_addr-cur_func->u.func->code); \
+           printf("frame_csp-2 %ld ",(frame_csp-2)->begin_addr-cur_func->u.func->code); \
            printf("all_cell_num %d ",all_cell_num);                     \
            printf("value_type %d ",value_type);                     \
            printf("val %d ",val);                     \
            printf("depth %d \n",depth);                     \
     } while (0)
 #define SNAPSHOT_STEP 1000
-#define SANPSHOT_DEBUG_STEP 0
+#define SNAPSHOT_DEBUG_STEP 0
 
 #if WASM_ENABLE_THREAD_MGR != 0 && WASM_ENABLE_DEBUG_INTERP != 0
 #define HANDLE_OP_END()                                                   \
@@ -1133,7 +1134,7 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
                 printf("[%s:%d]\n", __FILE__, __LINE__);                 \
                 counter_++;                                              \
                 SERIALIZE_CURSTATE();                                    \
-                if(counter_>SNAPSHOT_STEP+SANPSHOT_DEBUG_STEP) {         \
+                if(counter_>SNAPSHOT_STEP+SNAPSHOT_DEBUG_STEP) {         \
                     _Z17serialize_to_fileP11WASMExecEnv(exec_env);       \
                 }                                                        \
              FETCH_OPCODE_AND_DISPATCH();                                \
@@ -1218,10 +1219,14 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     uint32 cache_index, type_index, param_cell_num, cell_num;
     uint8 value_type;
     if (exec_env->is_restore){
+        WASMFunction *cur_wasm_func = cur_func->u.func;
         frame = exec_env->cur_frame;
         UPDATE_ALL_FROM_FRAME();
         frame_ip_end = wasm_get_func_code_end(cur_func);
         frame_lp = frame->lp;
+        frame->csp_boundary =
+                frame->csp_bottom + cur_wasm_func->max_block_num;
+        frame->sp_boundary = frame->sp_boundary = frame->sp_bottom + cur_wasm_func->max_stack_cell_num;
     }
 #if WASM_ENABLE_DEBUG_INTERP != 0
     uint8 *frame_ip_orig = NULL;
@@ -1277,7 +1282,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 else if (cache_items[1].start_addr == frame_ip) {
                     end_addr = cache_items[1].end_addr;
                 }
-#if WASM_ENABLE_DEBUG_INTERP != 0
                 else if (!wasm_loader_find_block_addr(
                              exec_env, (BlockAddr *)exec_env->block_addr_cache,
                              frame_ip, (uint8 *)-1, LABEL_TYPE_BLOCK,
@@ -1285,7 +1289,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     wasm_set_exception(module, "find block address failed");
                     goto got_exception;
                 }
-#endif
                 else {
                     end_addr = NULL;
                 }
@@ -3960,7 +3963,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             frame_ip = wasm_get_func_code(cur_func);
             frame_ip_end = wasm_get_func_code_end(cur_func);
             frame_lp = frame->lp;
-
             frame_sp = frame->sp_bottom =
                 frame_lp + cur_func->param_cell_num + cur_func->local_cell_num;
             frame->sp_boundary =
