@@ -157,6 +157,7 @@ PartitionFunction(GlobalValueSet Requested)
             const char *wrapper;
             uint32 prefix_len = strlen(AOT_FUNC_PREFIX);
 
+            LOG_DEBUG("requested func %s", gvname);
             /* Convert "aot_func#n_wrapper" to "aot_func#n" */
             if (strstr(gvname, AOT_FUNC_PREFIX)
                 && (wrapper = strstr(gvname + prefix_len, "_wrapper"))) {
