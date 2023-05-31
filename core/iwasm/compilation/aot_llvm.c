@@ -165,7 +165,7 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
     LLVMValueRef func_index_const = I32_CONST(func_index);
     LLVMValueRef sizes =
         LLVMBuildBitCast(b, comp_ctx->stack_sizes, INT32_PTR_TYPE, "sizes");
-    LLVMValueRef sizep = LLVMBuildInBoundsGEP2(b, INT32_PTR_TYPE, sizes,
+    LLVMValueRef sizep = LLVMBuildInBoundsGEP2(b, I32_TYPE, sizes,
                                                &func_index_const, 1, "sizep");
     LLVMValueRef size32 = LLVMBuildLoad2(b, I32_TYPE, sizep, "size32");
     LLVMValueRef size = LLVMBuildZExt(b, size32, uintptr_type, "size");
