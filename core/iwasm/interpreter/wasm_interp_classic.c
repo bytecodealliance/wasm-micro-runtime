@@ -1087,14 +1087,22 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
 #define HANDLE_OP(opcode) HANDLE_##opcode:
 #define FETCH_OPCODE_AND_DISPATCH() goto *handle_table[*frame_ip++]
 
-#define SERIALIZE_CURSTATE()                                  \
-       do {                                                   \
-           printf("ip:%d ",frame_ip_end-frame_ip);            \
-           printf("sp %d ",frame_sp-cur_func->code);          \
-           printf("lp %d\n",frame_lp-cur_func->code);         \
+#define SERIALIZE_CURSTATE()                                            \
+       do {                                                             \
+           printf("ip %d ",frame_ip-cur_func->u.func->code);                      \
+           printf("sp %d ",((uint8*)frame_sp)-exec_env->wasm_stack.s.bottom);  \
+           printf("lp %d\n", frame_lp[0]); \
+           printf("frame_csp %d ",frame_csp->begin_addr-cur_func->u.func->code); \
+           printf("frame_csp-1 %d ",(frame_csp-1)->begin_addr-cur_func->u.func->code); \
+           printf("frame_csp-2 %d ",(frame_csp-2)->begin_addr-cur_func->u.func->code); \
+           if(cache_items) printf("cache %d ",cache_items->else_addr?cache_items->else_addr-cache_items->start_addr:cache_items->end_addr-cache_items->start_addr);                                       \
+           printf("all_cell_num %d ",all_cell_num);                     \
+           printf("value_type %d ",value_type);                     \
+           printf("val %d ",val);                     \
+           printf("depth %d \n",depth);                     \
     } while (0)
 #define SNAPSHOT_STEP 1000
-#define SANPSHOT_DEBUG_STEP 8
+#define SANPSHOT_DEBUG_STEP 0
 
 #if WASM_ENABLE_THREAD_MGR != 0 && WASM_ENABLE_DEBUG_INTERP != 0
 #define HANDLE_OP_END()                                                   \
@@ -1115,6 +1123,7 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
 #else
 #define HANDLE_OP_END()                                                  \
     do {                                                                 \
+       SYNC_ALL_TO_FRAME();                                              \
        if (!exec_env->is_restore) {                                      \
             if (!exec_env->is_checkpoint && counter_ < SNAPSHOT_STEP) {  \
                 counter_++;                                              \
@@ -1123,13 +1132,16 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
             else {                                                       \
                 printf("[%s:%d]\n", __FILE__, __LINE__);                 \
                 counter_++;                                              \
-               SERIALIZE_CURSTATE();                                     \
+                SERIALIZE_CURSTATE();                                    \
                 if(counter_>SNAPSHOT_STEP+SANPSHOT_DEBUG_STEP) {         \
                     _Z17serialize_to_fileP11WASMExecEnv(exec_env);       \
                 }                                                        \
-            }                                                            \
+             FETCH_OPCODE_AND_DISPATCH();                                \
+             }                                                           \
         }                                                                \
         else {                                                           \
+            printf("[%s:%d]\n", __FILE__, __LINE__);                 \
+            SERIALIZE_CURSTATE();                                         \
             FETCH_OPCODE_AND_DISPATCH();                                 \
         }                                                                \
     } while (0)
