@@ -121,9 +121,8 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
     LLVMValueRef precheck_func;
     LLVMBasicBlockRef begin;
     LLVMBasicBlockRef call_wrapped_func_block;
-    if (!(precheck_func =
-              aot_add_llvm_func1(comp_ctx, module, func_index, orig_param_count,
-                                 func_type, "")))
+    if (!(precheck_func = aot_add_llvm_func1(comp_ctx, module, func_index,
+                                             orig_param_count, func_type, "")))
         goto fail;
     if (!(begin = LLVMAppendBasicBlockInContext(comp_ctx->context,
                                                 precheck_func, "precheck"))) {
