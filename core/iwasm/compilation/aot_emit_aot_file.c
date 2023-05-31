@@ -2462,8 +2462,7 @@ read_stack_usage_file(const char *filename, uint32_t *sizes, uint32 count)
         ret = sscanf(fn + strlen(aot_func_prefix), "%ju %ju static", &func_idx,
                      &sz);
         if (ret != 2) {
-            /* Probably an uninteresting entry. eg. ones for _precheck func */
-            continue;
+            goto fail;
         }
         if (sz > UINT32_MAX) {
             goto fail;
@@ -2472,6 +2471,14 @@ read_stack_usage_file(const char *filename, uint32_t *sizes, uint32 count)
             goto fail;
         }
         func_idx -= count; /* see aot_add_llvm_func */
+        if (func_idx >= count) {
+            /*
+             * Probably an uninteresting entry.
+             * eg. ones for a precheck wrapped func.
+             * cf. aot_add_llvm_func
+             */
+            continue;
+        }
         sizes[func_idx] = sz;
         LOG_VERBOSE("AOT func#%" PRIu32 " stack_size %" PRIu32,
                     (uint32_t)func_idx, sizes[func_idx]);
