@@ -166,7 +166,6 @@ typedef struct AOTFuncContext {
     LLVMValueRef aux_stack_bound;
     LLVMValueRef aux_stack_bottom;
     LLVMValueRef native_symbol;
-    LLVMValueRef last_alloca;
     LLVMValueRef func_ptrs;
 
     AOTMemInfo *mem_info;
