@@ -1087,6 +1087,15 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
 #define HANDLE_OP(opcode) HANDLE_##opcode:
 #define FETCH_OPCODE_AND_DISPATCH() goto *handle_table[*frame_ip++]
 
+#define SERIALIZE_CURSTATE()                                  \
+       do {                                                   \
+           printf("ip:%d ",frame_ip_end-frame_ip);            \
+           printf("sp %d ",frame_sp-cur_func->code);          \
+           printf("lp %d\n",frame_lp-cur_func->code);         \
+    } while (0)
+#define SNAPSHOT_STEP 1000
+#define SANPSHOT_DEBUG_STEP 8
+
 #if WASM_ENABLE_THREAD_MGR != 0 && WASM_ENABLE_DEBUG_INTERP != 0
 #define HANDLE_OP_END()                                                   \
     do {                                                                  \
@@ -1104,21 +1113,25 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
         goto *handle_table[*frame_ip++];                                  \
     } while (0)
 #else
-#define HANDLE_OP_END()                                        \
-    do {                                                       \
-       if (!exec_env->is_restore) {                            \
-            if (!exec_env->is_checkpoint && counter_ < 1000) { \
-                counter_++;                                    \
-                FETCH_OPCODE_AND_DISPATCH();                   \
-            }                                                  \
-            else {                                             \
-                printf("[%s:%d]\n", __FILE__, __LINE__);       \
-                _Z17serialize_to_fileP11WASMExecEnv(exec_env); \
-            }                                                  \
-        }                                                      \
-        else {                                                 \
-            FETCH_OPCODE_AND_DISPATCH();                       \
-        }                                                      \
+#define HANDLE_OP_END()                                                  \
+    do {                                                                 \
+       if (!exec_env->is_restore) {                                      \
+            if (!exec_env->is_checkpoint && counter_ < SNAPSHOT_STEP) {  \
+                counter_++;                                              \
+                FETCH_OPCODE_AND_DISPATCH();                             \
+            }                                                            \
+            else {                                                       \
+                printf("[%s:%d]\n", __FILE__, __LINE__);                 \
+                counter_++;                                              \
+               SERIALIZE_CURSTATE();                                     \
+                if(counter_>SNAPSHOT_STEP+SANPSHOT_DEBUG_STEP) {         \
+                    _Z17serialize_to_fileP11WASMExecEnv(exec_env);       \
+                }                                                        \
+            }                                                            \
+        }                                                                \
+        else {                                                           \
+            FETCH_OPCODE_AND_DISPATCH();                                 \
+        }                                                                \
     } while (0)
 #endif
 
