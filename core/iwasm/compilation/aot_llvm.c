@@ -289,7 +289,8 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
         goto fail;
 
     if (comp_ctx->enable_stack_bound_check) {
-        LLVMSetLinkage(func, LLVMInternalLinkage);
+        if (!comp_ctx->is_jit_mode)
+            LLVMSetLinkage(func, LLVMInternalLinkage);
         unsigned int kind =
             LLVMGetEnumAttributeKindForName("noinline", strlen("noinline"));
         LLVMAttributeRef attr_noinline =
