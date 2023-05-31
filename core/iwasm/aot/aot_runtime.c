@@ -3088,8 +3088,8 @@ get_pgo_prof_data_size(AOTModuleInstance *module_inst, uint32 *p_num_prof_data,
         return 0;
 
     total_size = sizeof(LLVMProfileRawHeader)
-                 + num_prof_data * sizeof(LLVMProfileData) + prof_counters_size
-                 + prof_names_size;
+                 + num_prof_data * sizeof(LLVMProfileData_64)
+                 + prof_counters_size + prof_names_size;
     padding_size = sizeof(uint64) - (prof_names_size % sizeof(uint64));
     if (padding_size != sizeof(uint64))
         total_size += padding_size;
@@ -3195,14 +3195,14 @@ aot_dump_pgo_prof_data_to_buf(AOTModuleInstance *module_inst, char *buf,
     value_counters_size = 0;
 
     prof_header.counters_delta = counters_delta =
-        sizeof(LLVMProfileData) * num_prof_data;
+        sizeof(LLVMProfileData_64) * num_prof_data;
     offset_counters = 0;
     for (i = 0; i < module->data_section_count; i++) {
         if (!strncmp(module->data_sections[i].name, "__llvm_prf_data", 15)) {
             prof_data = (LLVMProfileData *)module->data_sections[i].data;
             prof_data->offset_counters = counters_delta + offset_counters;
             offset_counters += prof_data->num_counters * sizeof(uint64);
-            counters_delta -= sizeof(LLVMProfileData);
+            counters_delta -= sizeof(LLVMProfileData_64);
         }
     }
 
@@ -3234,28 +3234,31 @@ aot_dump_pgo_prof_data_to_buf(AOTModuleInstance *module_inst, char *buf,
 
     for (i = 0; i < module->data_section_count; i++) {
         if (!strncmp(module->data_sections[i].name, "__llvm_prf_data", 15)) {
-            size = sizeof(LLVMProfileData);
-            bh_memcpy_s(buf, size, module->data_sections[i].data, size);
-            if (!is_little_endian()) {
-                prof_data = (LLVMProfileData *)buf;
+            LLVMProfileData_64 *prof_data_64 = (LLVMProfileData_64 *)buf;
 
-                aot_exchange_uint64((uint8 *)&prof_data->func_hash);
-                aot_exchange_uint64((uint8 *)&prof_data->offset_counters);
-                if (UINTPTR_MAX == UINT64_MAX) {
-                    aot_exchange_uint64((uint8 *)&prof_data->offset_counters);
-                    aot_exchange_uint64((uint8 *)&prof_data->func_ptr);
-                    aot_exchange_uint64((uint8 *)&prof_data->values);
-                }
-                else {
-                    aot_exchange_uint32((uint8 *)&prof_data->offset_counters);
-                    aot_exchange_uint32((uint8 *)&prof_data->func_ptr);
-                    aot_exchange_uint32((uint8 *)&prof_data->values);
-                }
-                aot_exchange_uint32((uint8 *)&prof_data->num_counters);
-                aot_exchange_uint16((uint8 *)&prof_data->num_value_sites[0]);
-                aot_exchange_uint16((uint8 *)&prof_data->num_value_sites[1]);
+            /* Convert LLVMProfileData to LLVMProfileData_64, the pointer width
+               in the output file is alawys 8 bytes */
+            prof_data = (LLVMProfileData *)module->data_sections[i].data;
+            prof_data_64->func_md5 = prof_data->func_md5;
+            prof_data_64->func_hash = prof_data->func_hash;
+            prof_data_64->offset_counters = prof_data->offset_counters;
+            prof_data_64->func_ptr = prof_data->func_ptr;
+            prof_data_64->values = (uint64)(uintptr_t)prof_data->values;
+            prof_data_64->num_counters = prof_data->num_counters;
+            prof_data_64->num_value_sites[0] = prof_data->num_value_sites[0];
+            prof_data_64->num_value_sites[1] = prof_data->num_value_sites[1];
+
+            if (!is_little_endian()) {
+                aot_exchange_uint64((uint8 *)&prof_data_64->func_hash);
+                aot_exchange_uint64((uint8 *)&prof_data_64->offset_counters);
+                aot_exchange_uint64((uint8 *)&prof_data_64->offset_counters);
+                aot_exchange_uint64((uint8 *)&prof_data_64->func_ptr);
+                aot_exchange_uint64((uint8 *)&prof_data_64->values);
+                aot_exchange_uint32((uint8 *)&prof_data_64->num_counters);
+                aot_exchange_uint16((uint8 *)&prof_data_64->num_value_sites[0]);
+                aot_exchange_uint16((uint8 *)&prof_data_64->num_value_sites[1]);
             }
-            buf += size;
+            buf += sizeof(LLVMProfileData_64);
         }
     }
 
