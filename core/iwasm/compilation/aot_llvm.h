@@ -154,8 +154,6 @@ typedef struct AOTFuncContext {
     AOTFunc *aot_func;
     LLVMValueRef func;
     LLVMTypeRef func_type;
-    /* LLVM module for this function, note that in LAZY JIT mode,
-       each aot function belongs to an individual module */
     LLVMModuleRef module;
     AOTBlockStack block_stack;
 
