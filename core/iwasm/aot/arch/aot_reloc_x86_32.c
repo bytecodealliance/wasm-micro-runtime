@@ -8,6 +8,9 @@
 #define R_386_32 1    /* Direct 32 bit  */
 #define R_386_PC32 2  /* PC relative 32 bit */
 #define R_386_PLT32 4 /* 32-bit address ProcedureLinkageTable */
+#define R_386_TLS_GD_32                      \
+    24 /*  Direct 32 bit for general dynamic \
+           thread local data */
 
 #if !defined(_WIN32) && !defined(_WIN32_)
 /* clang-format off */
@@ -110,6 +113,9 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
 {
     switch (reloc_type) {
         case R_386_32:
+#if WASM_ENABLE_STATIC_PGO != 0
+        case R_386_TLS_GD_32:
+#endif
         {
             intptr_t value;
 

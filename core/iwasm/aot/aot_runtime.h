@@ -339,15 +339,31 @@ typedef struct ValueProfNode {
     struct ValueProfNode *next;
 } ValueProfNode;
 
+/* The profiling data of data sections created by aot compiler and
+   used when profiling, the width of pointer can be 8 bytes (64-bit)
+   or 4 bytes (32-bit) */
 typedef struct LLVMProfileData {
     uint64 func_md5;
     uint64 func_hash;
-    intptr_t offset_counters;
+    uint64 offset_counters;
     uintptr_t func_ptr;
     ValueProfNode **values;
     uint32 num_counters;
     uint16 num_value_sites[2];
 } LLVMProfileData;
+
+/* The profiling data for writting to the output file, the width of
+   pointer is 8 bytes suppose we always use wamrc and llvm-profdata
+   with 64-bit mode */
+typedef struct LLVMProfileData_64 {
+    uint64 func_md5;
+    uint64 func_hash;
+    uint64 offset_counters;
+    uint64 func_ptr;
+    uint64 values;
+    uint32 num_counters;
+    uint16 num_value_sites[2];
+} LLVMProfileData_64;
 #endif /* end of WASM_ENABLE_STATIC_PGO != 0 */
 
 /**
