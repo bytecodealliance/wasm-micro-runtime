@@ -158,7 +158,12 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
     params = wasm_runtime_malloc(sz);
     LLVMGetParams(precheck_func, params);
 
-    LLVMTypeRef uintptr_type = I64_TYPE;
+    const bool is_64bit = comp_ctx->pointer_size == sizeof(uint64);
+    LLVMTypeRef uintptr_type;
+    if (is_64bit)
+        uintptr_type = I64_TYPE;
+    else
+        uintptr_type = I32_TYPE;
     LLVMValueRef sp_ptr = LLVMBuildAlloca(b, I32_TYPE, "sp_ptr");
     LLVMValueRef sp = LLVMBuildPtrToInt(b, sp_ptr, uintptr_type, "sp");
     LLVMValueRef func_index_const = I32_CONST(func_index);
@@ -167,7 +172,13 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
     LLVMValueRef sizep = LLVMBuildInBoundsGEP2(b, I32_TYPE, sizes,
                                                &func_index_const, 1, "sizep");
     LLVMValueRef size32 = LLVMBuildLoad2(b, I32_TYPE, sizep, "size32");
-    LLVMValueRef size = LLVMBuildZExt(b, size32, uintptr_type, "size");
+    LLVMValueRef size;
+    if (is_64bit) {
+        size = LLVMBuildZExt(b, size32, uintptr_type, "size");
+    }
+    else {
+        size = size32;
+    }
     LLVMValueRef bound_base_int = LLVMBuildPtrToInt(
         b, func_ctx->native_stack_bound, uintptr_type, "bound_base_int");
     LLVMValueRef bound = LLVMBuildAdd(b, bound_base_int, size, "bound");
