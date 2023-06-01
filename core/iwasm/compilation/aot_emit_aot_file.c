@@ -2437,7 +2437,12 @@ read_stack_usage_file(const char *filename, uint32_t *sizes, uint32 count)
      */
     const char *aot_func_prefix = AOT_FUNC_PREFIX;
     const char *aot_func_prefix2 = AOT_FUNC_PREFIX2;
+    uint32_t precheck_found = 0;
+    uint32_t precheck_stack_size_max = 0;
+    uint32_t precheck_stack_size_min = UINT32_MAX;
+    uint32_t found = 0;
     while (true) {
+        const char *prefix;
         char line[100];
         char *cp = fgets(line, sizeof(line), fp);
         char *fn;
@@ -2455,17 +2460,19 @@ read_stack_usage_file(const char *filename, uint32_t *sizes, uint32 count)
         }
         fn = strstr(colon, aot_func_prefix);
         if (fn != NULL) {
-            continue;
+            prefix = aot_func_prefix;
         }
-        fn = strstr(colon, aot_func_prefix2);
-        if (fn == NULL) {
-            goto fail;
+        else {
+            fn = strstr(colon, aot_func_prefix2);
+            if (fn == NULL) {
+                goto fail;
+            }
+            prefix = aot_func_prefix2;
         }
         uintmax_t func_idx;
         uintmax_t sz;
         int ret;
-        ret = sscanf(fn + strlen(aot_func_prefix2), "%ju %ju static", &func_idx,
-                     &sz);
+        ret = sscanf(fn + strlen(prefix), "%ju %ju static", &func_idx, &sz);
         if (ret != 2) {
             goto fail;
         }
@@ -2475,11 +2482,38 @@ read_stack_usage_file(const char *filename, uint32_t *sizes, uint32 count)
         if (func_idx > UINT32_MAX) {
             goto fail;
         }
+        if (prefix == aot_func_prefix) {
+            if (sz < precheck_stack_size_min) {
+                precheck_stack_size_min = sz;
+            }
+            if (sz > precheck_stack_size_max) {
+                precheck_stack_size_max = sz;
+            }
+            precheck_found++;
+            continue;
+        }
         sizes[func_idx] = sz;
+        found++;
         LOG_VERBOSE("AOT func#%" PRIu32 " stack_size %" PRIu32,
                     (uint32_t)func_idx, sizes[func_idx]);
     }
     fclose(fp);
+    if (found != count || precheck_found != count) {
+        LOG_ERROR("%" PRIu32 " entires and %" PRIu32
+                  " precheck entries found where %" PRIu32
+                  " entries are expected",
+                  found, precheck_found, count);
+    }
+    if (precheck_stack_size_min != precheck_stack_size_max) {
+        LOG_WARNING(
+            "precheck functions use inconsistent amount of stack. (%" PRIu32
+            " - %" PRIu32 ")",
+            precheck_stack_size_min, precheck_stack_size_max);
+    }
+    else {
+        LOG_VERBOSE("precheck functions use %" PRIu32 " bytes of stack.",
+                    precheck_stack_size_max);
+    }
     return true;
 fail:
     if (fp != NULL)
