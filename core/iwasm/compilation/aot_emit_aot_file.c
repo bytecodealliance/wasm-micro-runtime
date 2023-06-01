@@ -2498,11 +2498,19 @@ read_stack_usage_file(const char *filename, uint32_t *sizes, uint32 count)
                     (uint32_t)func_idx, sizes[func_idx]);
     }
     fclose(fp);
-    if (found != count || precheck_found != count) {
-        LOG_ERROR("%" PRIu32 " entires and %" PRIu32
-                  " precheck entries found where %" PRIu32
+    if (precheck_found != count) {
+        LOG_ERROR("%" PRIu32 " precheck entries found where %" PRIu32
                   " entries are expected",
-                  found, precheck_found, count);
+                  precheck_found, count);
+    }
+    if (found != count) {
+        /*
+         * LLVM seems to eliminate calls to an empty function
+         * even if it's marked noinline.
+         */
+        LOG_WARNING("%" PRIu32 " entries found where %" PRIu32
+                    " entries are expected",
+                    found, count);
     }
     if (precheck_stack_size_min != precheck_stack_size_max) {
         /*
@@ -2577,9 +2585,14 @@ aot_resolve_stack_sizes(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
                 goto fail;
             }
             for (i = 0; i < obj_data->func_count; i++) {
+                /*
+                 * LLVM seems to eliminate calls to an empty function
+                 * even if it's marked noinline.
+                 */
                 if (stack_sizes[i] == 0xffffffff) {
-                    aot_set_last_error("incomplete stack usage file.");
-                    goto fail;
+                    LOG_VERBOSE("assuming no stack usage for func #%" PRIu32,
+                                i);
+                    stack_sizes[i] = 0;
                 }
             }
             /* TODO add the amount stack to use to make calls */
