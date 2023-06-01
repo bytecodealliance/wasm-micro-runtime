@@ -3829,9 +3829,11 @@ load_from_sections(WASMModule *module, WASMSection *sections,
 
 #if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0
     /* Create threads to compile the jit functions */
+#if 0
     if (!compile_jit_functions(module, error_buf, error_buf_size)) {
         return false;
     }
+#endif
 #endif
 
 #if WASM_ENABLE_MEMORY_TRACING != 0
