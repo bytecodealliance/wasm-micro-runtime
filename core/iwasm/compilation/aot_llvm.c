@@ -1715,10 +1715,36 @@ fail:
 }
 
 static void
-stack_size_callback(void *user_data, const char *name, size_t namelen,
-                    size_t stack_size)
+jit_stack_size_callback(void *user_data, const char *name, size_t namelen,
+                        size_t stack_size)
 {
+    AOTCompContext *comp_ctx = user_data;
+    char buf[64];
+    uint32 func_idx;
+    int ret;
+
     LOG_VERBOSE("func %.*s stack %zu", (int)namelen, name, stack_size);
+    bh_assert(comp_ctx != NULL);
+    bh_assert(comp_ctx->jit_stack_sizes != NULL);
+
+    if (namelen >= sizeof(buf)) {
+        LOG_DEBUG("too long name: %.*s", (int)namelen, name);
+        return;
+    }
+    /* ensure NUL termination */
+    memcpy(buf, name, namelen);
+    buf[namelen] = 0;
+
+    ret = sscanf(buf, AOT_FUNC_PREFIX2 "%" SCNu32, &func_idx);
+    if (ret != 1) {
+        LOG_DEBUG("failed to parse: %s", buf);
+        return;
+    }
+
+    bh_assert(func_idx < comp_ctx->func_ctx_count);
+    /* Note: -1 == AOT_NEG_ONE from aot_create_stack_sizes */
+    bh_assert(comp_ctx->jit_stack_sizes[func_idx] == (uint32)-1);
+    comp_ctx->jit_stack_sizes[func_idx] = stack_size;
 }
 
 static bool
@@ -1738,7 +1764,7 @@ orc_jit_create(AOTCompContext *comp_ctx)
 
     if (comp_ctx->enable_stack_bound_check)
         LLVMOrcLLJITBuilderSetCompileFuncitonCreatorWithStackSizesCallback(
-            builder, stack_size_callback, comp_ctx);
+            builder, jit_stack_size_callback, comp_ctx);
 
     err = LLVMOrcJITTargetMachineBuilderDetectHost(&jtmb);
     if (err != LLVMErrorSuccess) {

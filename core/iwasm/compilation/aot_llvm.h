@@ -381,6 +381,7 @@ typedef struct AOTCompContext {
     /* a global array to store stack sizes */
     LLVMTypeRef stack_sizes_type;
     LLVMValueRef stack_sizes;
+    uint32 *jit_stack_sizes; /* for JIT */
 
     /* LLVM data types */
     AOTLLVMTypes basic_types;

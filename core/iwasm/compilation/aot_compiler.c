@@ -2761,6 +2761,17 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
             aot_handle_llvm_errmsg("failed to addIRModule", err);
             return false;
         }
+
+        if (comp_ctx->stack_sizes != NULL) {
+            LLVMOrcJITTargetAddress addr;
+            if ((err = LLVMOrcLLLazyJITLookup(comp_ctx->orc_jit, &addr,
+                                              aot_stack_sizes_name))) {
+                LLVMOrcDisposeThreadSafeModule(orc_thread_safe_module);
+                aot_handle_llvm_errmsg("failed to look up stack_sizes", err);
+                return false;
+            }
+            comp_ctx->jit_stack_sizes = (uint32 *)addr;
+        }
     }
 
     return true;
