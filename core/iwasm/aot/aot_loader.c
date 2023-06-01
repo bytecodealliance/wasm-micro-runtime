@@ -1975,7 +1975,8 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
                                 "invalid import symbol %s", symbol);
                 goto check_symbol_fail;
             }
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+#if (defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)) \
+    && !defined(BH_PLATFORM_WINDOWS)
             if (relocation->relocation_type == R_X86_64_GOTPCREL) {
                 GOTItem *got_item = module->got_item_list;
                 uint32 got_item_idx = 0;
@@ -2416,7 +2417,8 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
     }
 #endif /* end of defined(BH_PLATFORM_WINDOWS) */
 
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+#if (defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)) \
+    && !defined(BH_PLATFORM_WINDOWS)
     buf = symbol_buf_end;
     read_uint32(buf, buf_end, group_count);
 
@@ -2545,7 +2547,8 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
     }
 #else
     (void)got_item_count;
-#endif /* defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) */
+#endif /* (defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)) && \
+          !defined(BH_PLATFORM_WINDOWS) */
 
     buf = symbol_buf_end;
     read_uint32(buf, buf_end, group_count);
@@ -3232,7 +3235,8 @@ aot_unload(AOTModule *module)
     }
 #endif
 
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+#if (defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)) \
+    && !defined(BH_PLATFORM_WINDOWS)
     {
         GOTItem *got_item = module->got_item_list, *got_item_next;
 
