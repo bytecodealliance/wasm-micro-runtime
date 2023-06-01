@@ -47,7 +47,7 @@ wasm_type_to_llvm_type(const AOTLLVMTypes *llvm_types, uint8 wasm_type)
 static LLVMValueRef
 aot_add_llvm_func1(const AOTCompContext *comp_ctx, LLVMModuleRef module,
                    uint32 func_index, uint32 param_count, LLVMTypeRef func_type,
-                   const char *name_suffix)
+                   const char *prefix)
 {
     char func_name[48];
     LLVMValueRef func;
@@ -55,8 +55,7 @@ aot_add_llvm_func1(const AOTCompContext *comp_ctx, LLVMModuleRef module,
     uint32 i, j;
 
     /* Add LLVM function */
-    snprintf(func_name, sizeof(func_name), "%s%d%s", AOT_FUNC_PREFIX,
-             func_index, name_suffix);
+    snprintf(func_name, sizeof(func_name), "%s%d", prefix, func_index);
     if (!(func = LLVMAddFunction(module, func_name, func_type))) {
         aot_set_last_error("add LLVM function failed.");
         return NULL;
@@ -121,8 +120,9 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
     LLVMValueRef precheck_func;
     LLVMBasicBlockRef begin;
     LLVMBasicBlockRef call_wrapped_func_block;
-    if (!(precheck_func = aot_add_llvm_func1(comp_ctx, module, func_index,
-                                             orig_param_count, func_type, "")))
+    if (!(precheck_func =
+              aot_add_llvm_func1(comp_ctx, module, func_index, orig_param_count,
+                                 func_type, AOT_FUNC_PREFIX)))
         goto fail;
     if (!(begin = LLVMAppendBasicBlockInContext(comp_ctx->context,
                                                 precheck_func, "precheck"))) {
@@ -273,19 +273,17 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
 
     bh_assert(func_index < comp_ctx->func_ctx_count);
     bh_assert(LLVMGetReturnType(func_type) == ret_type);
-    uint32 body_func_index = func_index;
+    const char *prefix = AOT_FUNC_PREFIX;
     if (comp_ctx->enable_stack_bound_check) {
         /*
-         * Use an out-of-range index (by adding comp_ctx->func_ctx_count)
-         * to ensure that this function is not used directly.
-         *
          * REVISIT: probably this breaks windows hw bound check
          * (the RtlAddFunctionTable stuff)
          */
-        body_func_index += comp_ctx->func_ctx_count;
+        prefix = AOT_FUNC_PREFIX2;
     }
-    if (!(func = aot_add_llvm_func1(comp_ctx, module, body_func_index,
-                                    aot_func_type->param_count, func_type, "")))
+    if (!(func = aot_add_llvm_func1(comp_ctx, module, func_index,
+                                    aot_func_type->param_count, func_type,
+                                    prefix)))
         goto fail;
 
     if (comp_ctx->enable_stack_bound_check) {

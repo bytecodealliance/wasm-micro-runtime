@@ -2436,6 +2436,7 @@ read_stack_usage_file(const char *filename, uint32_t *sizes, uint32 count)
      * WASM Module:aot_func#9  72  static
      */
     const char *aot_func_prefix = AOT_FUNC_PREFIX;
+    const char *aot_func_prefix2 = AOT_FUNC_PREFIX2;
     while (true) {
         char line[100];
         char *cp = fgets(line, sizeof(line), fp);
@@ -2453,13 +2454,17 @@ read_stack_usage_file(const char *filename, uint32_t *sizes, uint32 count)
             goto fail;
         }
         fn = strstr(colon, aot_func_prefix);
+        if (fn != NULL) {
+            continue;
+        }
+        fn = strstr(colon, aot_func_prefix2);
         if (fn == NULL) {
             goto fail;
         }
         uintmax_t func_idx;
         uintmax_t sz;
         int ret;
-        ret = sscanf(fn + strlen(aot_func_prefix), "%ju %ju static", &func_idx,
+        ret = sscanf(fn + strlen(aot_func_prefix2), "%ju %ju static", &func_idx,
                      &sz);
         if (ret != 2) {
             goto fail;
@@ -2467,17 +2472,8 @@ read_stack_usage_file(const char *filename, uint32_t *sizes, uint32 count)
         if (sz > UINT32_MAX) {
             goto fail;
         }
-        if (func_idx > UINT32_MAX || func_idx < count) {
+        if (func_idx > UINT32_MAX) {
             goto fail;
-        }
-        func_idx -= count; /* see aot_add_llvm_func */
-        if (func_idx >= count) {
-            /*
-             * Probably an uninteresting entry.
-             * eg. ones for a precheck wrapped func.
-             * cf. aot_add_llvm_func
-             */
-            continue;
         }
         sizes[func_idx] = sz;
         LOG_VERBOSE("AOT func#%" PRIu32 " stack_size %" PRIu32,
