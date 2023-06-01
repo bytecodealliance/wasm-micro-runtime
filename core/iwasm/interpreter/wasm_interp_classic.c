@@ -1141,8 +1141,6 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
              }                                                           \
         }                                                                \
         else {                                                           \
-            printf("[%s:%d]\n", __FILE__, __LINE__);                 \
-            SERIALIZE_CURSTATE();                                         \
             FETCH_OPCODE_AND_DISPATCH();                                 \
         }                                                                \
     } while (0)
@@ -1219,14 +1217,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     uint32 cache_index, type_index, param_cell_num, cell_num;
     uint8 value_type;
     if (exec_env->is_restore){
-        WASMFunction *cur_wasm_func = cur_func->u.func;
+//        WASMFunction *cur_wasm_func = cur_func->u.func;
         frame = exec_env->cur_frame;
         UPDATE_ALL_FROM_FRAME();
         frame_ip_end = wasm_get_func_code_end(cur_func);
-        frame_lp = frame->lp;
-        frame->csp_boundary =
-                frame->csp_bottom + cur_wasm_func->max_block_num;
-        frame->sp_boundary = frame->sp_boundary = frame->sp_bottom + cur_wasm_func->max_stack_cell_num;
+        frame_lp = frame->lp_bak;
+
     }
 #if WASM_ENABLE_DEBUG_INTERP != 0
     uint8 *frame_ip_orig = NULL;
