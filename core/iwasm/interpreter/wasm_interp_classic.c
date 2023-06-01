@@ -342,7 +342,6 @@ read_leb(const uint8 *buf, uint32 *p_offset, uint32 maxbits, bool sign)
 
 #define PUSH_CSP(_label_type, param_cell_num, cell_num, _target_addr) \
     do {                                                              \
-        bh_assert(frame_csp < frame->csp_boundary);                   \
         /* frame_csp->label_type = _label_type; */                    \
         frame_csp->cell_num = cell_num;                               \
         frame_csp->begin_addr = frame_ip;                             \
@@ -1088,21 +1087,21 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
 #define HANDLE_OP(opcode) HANDLE_##opcode:
 #define FETCH_OPCODE_AND_DISPATCH() goto *handle_table[*frame_ip++]
 
-#define SERIALIZE_CURSTATE()                                            \
+#define SERIALIZE_CURSTATE(file)                                            \
        do {                                                             \
-           printf("ip %d ",frame_ip-cur_func->u.func->code);                      \
-           printf("sp %d ",((uint8*)frame_sp)-exec_env->wasm_stack.s.bottom);  \
-           printf("sp val %d ",*(uint8*)frame_sp);  \
-           printf("lp %d\n", frame_lp[0]); \
-           printf("frame_csp %ld ",frame_csp->begin_addr-cur_func->u.func->code); \
-           printf("frame_csp-1 %ld ",(frame_csp-1)->begin_addr-cur_func->u.func->code); \
-           printf("frame_csp-2 %ld ",(frame_csp-2)->begin_addr-cur_func->u.func->code); \
-           printf("all_cell_num %d ",all_cell_num);                     \
-           printf("value_type %d ",value_type);                     \
-           printf("val %d ",val);                     \
-           printf("depth %d \n",depth);                     \
+           fprintf(file,"ip %d ",frame_ip-cur_func->u.func->code);                      \
+           fprintf(file,"sp %d ",((uint8*)frame_sp)-exec_env->wasm_stack.s.bottom);  \
+           fprintf(file,"sp val %d ",*(uint8*)frame_sp);  \
+           fprintf(file,"lp %d\n", frame_lp[0]); \
+          if(frame_csp&&frame_csp->begin_addr) fprintf(file,"frame_csp %ld ",frame_csp->begin_addr-cur_func->u.func->code); \
+          if ((frame_csp-1)&&(frame_csp-1)->begin_addr) fprintf(file,"frame_csp-1 %ld ",(frame_csp-1)->begin_addr-cur_func->u.func->code); \
+          if ((frame_csp-2)&&(frame_csp-2)->begin_addr) fprintf(file,"frame_csp-2 %ld ",(frame_csp-2)->begin_addr-cur_func->u.func->code); \
+           fprintf(file,"all_cell_num %d ",all_cell_num);                     \
+           fprintf(file,"value_type %d ",value_type);                     \
+           fprintf(file,"val %d ",val);                     \
+           fprintf(file,"depth %d \n",depth);                     \
     } while (0)
-#define SNAPSHOT_STEP 1000
+#define SNAPSHOT_STEP 3000
 #define SNAPSHOT_DEBUG_STEP 0
 
 #if WASM_ENABLE_THREAD_MGR != 0 && WASM_ENABLE_DEBUG_INTERP != 0
@@ -1131,9 +1130,9 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
                 FETCH_OPCODE_AND_DISPATCH();                             \
             }                                                            \
             else {                                                       \
-                printf("[%s:%d]\n", __FILE__, __LINE__);                 \
+                fprintf(file1,"[%s:%d]\n", __FILE__, __LINE__);                 \
                 counter_++;                                              \
-                SERIALIZE_CURSTATE();                                    \
+                SERIALIZE_CURSTATE(file1);                                    \
                 if(counter_>SNAPSHOT_STEP+SNAPSHOT_DEBUG_STEP) {         \
                     _Z17serialize_to_fileP11WASMExecEnv(exec_env);       \
                 }                                                        \
@@ -1141,7 +1140,10 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
              }                                                           \
         }                                                                \
         else {                                                           \
-            FETCH_OPCODE_AND_DISPATCH();                                 \
+                fprintf(file2,"[%s:%d]\n", __FILE__, __LINE__);                 \
+                counter_++;                                              \
+                SERIALIZE_CURSTATE(file2);                                    \
+                FETCH_OPCODE_AND_DISPATCH();                                 \
         }                                                                \
     } while (0)
 #endif
@@ -1216,12 +1218,20 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     uint8 local_type, *global_addr;
     uint32 cache_index, type_index, param_cell_num, cell_num;
     uint8 value_type;
+    FILE* file1;
+    FILE *file2;
     if (exec_env->is_restore){
 //        WASMFunction *cur_wasm_func = cur_func->u.func;
+        file2=fopen("trace-compare1.txt","w");
         frame = exec_env->cur_frame;
         UPDATE_ALL_FROM_FRAME();
         frame_ip_end = wasm_get_func_code_end(cur_func);
         frame_lp = frame->lp_bak;
+    }else{
+        if(SNAPSHOT_DEBUG_STEP!=0)
+            file1=fopen("trace-origin.txt","w");
+        else
+            file1=fopen("trace-orgin.txt","w");
 
     }
 #if WASM_ENABLE_DEBUG_INTERP != 0
@@ -1373,6 +1383,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_END)
             {
                 if (frame_csp > frame->csp_bottom + 1) {
+                    printf("csp %p " ,frame_csp);
+                    printf("csp_bottom %p\n" ,frame->csp_bottom);
                     POP_CSP();
                 }
                 else { /* end of function, treat as WASM_OP_RETURN */
@@ -3968,7 +3980,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 (WASMBranchBlock *)frame->sp_boundary;
             frame->csp_boundary =
                 frame->csp_bottom + cur_wasm_func->max_block_num;
-
+            printf("csp_bottom %p for function %s\n", frame->csp_bottom,frame->function->u.func->field_name);
             /* Initialize the local variables */
             memset(frame_lp + cur_func->param_cell_num, 0,
                    (uint32)(cur_func->local_cell_num * 4));
@@ -3994,6 +4006,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             /* Called from native. */
             return;
 
+        printf("return_func: %s\n", prev_frame->function->u.func->field_name);
         RECOVER_CONTEXT(prev_frame);
         HANDLE_OP_END();
     }
