@@ -1714,6 +1714,13 @@ fail:
     return ret;
 }
 
+static void
+stack_size_callback(void *user_data, const char *name, size_t namelen,
+                    size_t stack_size)
+{
+    LOG_VERBOSE("func %.*s stack %zu", (int)namelen, name, stack_size);
+}
+
 static bool
 orc_jit_create(AOTCompContext *comp_ctx)
 {
@@ -1728,6 +1735,10 @@ orc_jit_create(AOTCompContext *comp_ctx)
         aot_set_last_error("failed to create jit builder.");
         goto fail;
     }
+
+    if (comp_ctx->enable_stack_bound_check)
+        LLVMOrcLLJITBuilderSetCompileFuncitonCreatorWithStackSizesCallback(
+            builder, stack_size_callback, comp_ctx);
 
     err = LLVMOrcJITTargetMachineBuilderDetectHost(&jtmb);
     if (err != LLVMErrorSuccess) {
@@ -1919,14 +1930,6 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
     if (option->is_jit_mode) {
         comp_ctx->is_jit_mode = true;
 
-        /* Create TargetMachine */
-        if (!create_target_machine_detect_host(comp_ctx))
-            goto fail;
-
-        /* Create LLJIT Instance */
-        if (!orc_jit_create(comp_ctx))
-            goto fail;
-
 #ifndef OS_ENABLE_HW_BOUND_CHECK
         comp_ctx->enable_bound_check = true;
         /* Always enable stack boundary check if `bounds-checks`
@@ -1946,6 +1949,14 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
         comp_ctx->enable_stack_bound_check = false;
 #endif
 #endif
+
+        /* Create TargetMachine */
+        if (!create_target_machine_detect_host(comp_ctx))
+            goto fail;
+
+        /* Create LLJIT Instance */
+        if (!orc_jit_create(comp_ctx))
+            goto fail;
     }
     else {
         /* Create LLVM target machine */

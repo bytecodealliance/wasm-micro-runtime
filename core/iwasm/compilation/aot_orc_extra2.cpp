@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 #include "llvm/ExecutionEngine/Orc/CompileUtils.h"
+#include "llvm/ExecutionEngine/Orc/LLJIT.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Object/ObjectFile.h"
 #include "llvm/Support/SmallVectorMemoryBuffer.h"
@@ -10,34 +11,49 @@
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 
+#include "aot_orc_extra.h"
 #include "bh_log.h"
+
+typedef void (*cb_t)(void *, const char *, size_t, size_t);
 
 class MyCompiler : public llvm::orc::IRCompileLayer::IRCompiler
 {
   public:
-    MyCompiler(llvm::orc::JITTargetMachineBuilder JTMB);
+    MyCompiler(llvm::orc::JITTargetMachineBuilder JTMB, cb_t cb, void *cb_data);
     llvm::Expected<llvm::orc::SimpleCompiler::CompileResult> operator()(
         llvm::Module &M) override;
 
   private:
     llvm::orc::JITTargetMachineBuilder JTMB;
+
+    cb_t cb;
+    void *cb_data;
 };
 
-MyCompiler::MyCompiler(llvm::orc::JITTargetMachineBuilder JTMB)
+MyCompiler::MyCompiler(llvm::orc::JITTargetMachineBuilder JTMB, cb_t cb,
+                       void *cb_data)
   : IRCompiler(llvm::orc::irManglingOptionsFromTargetOptions(JTMB.getOptions()))
   , JTMB(std::move(JTMB))
+  , cb(cb)
+  , cb_data(cb_data)
 {}
 
 class PrintStackSizes : public llvm::MachineFunctionPass
 {
   public:
-    PrintStackSizes();
+    PrintStackSizes(cb_t cb, void *cb_data);
     bool runOnMachineFunction(llvm::MachineFunction &MF) override;
     static char ID;
+
+  private:
+    cb_t cb;
+    void *cb_data;
 };
 
-PrintStackSizes::PrintStackSizes()
+PrintStackSizes::PrintStackSizes(cb_t cb, void *cb_data)
   : MachineFunctionPass(ID)
+  , cb(cb)
+  , cb_data(cb_data)
 {}
 
 char PrintStackSizes::ID = 0;
@@ -48,7 +64,7 @@ PrintStackSizes::runOnMachineFunction(llvm::MachineFunction &MF)
     auto name = MF.getName();
     auto MFI = &MF.getFrameInfo();
     size_t sz = MFI->getStackSize();
-    LOG_VERBOSE("func %.*s stack %zu", name.size(), name.data(), sz);
+    cb(cb_data, name.data(), name.size(), sz);
     return false;
 }
 
@@ -85,7 +101,7 @@ MyCompiler::operator()(llvm::Module &M)
             return llvm::make_error<llvm::StringError>(
                 "Target does not support MC emission",
                 llvm::inconvertibleErrorCode());
-        PM.add(new PrintStackSizes());
+        PM.add(new PrintStackSizes(cb, cb_data));
         dynamic_cast<llvm::legacy::PassManager *>(&PM)->add(
             llvm::createFreeMachineFunctionPass());
         PM.run(M);
@@ -99,9 +115,20 @@ MyCompiler::operator()(llvm::Module &M)
     return std::move(ObjBuffer);
 }
 
-llvm::Expected<std::unique_ptr<llvm::orc::IRCompileLayer::IRCompiler>>
-compiler_creator(llvm::orc::JITTargetMachineBuilder JTMB)
+DEFINE_SIMPLE_CONVERSION_FUNCTIONS(llvm::orc::LLLazyJITBuilder,
+                                   LLVMOrcLLLazyJITBuilderRef)
+
+void
+LLVMOrcLLJITBuilderSetCompileFuncitonCreatorWithStackSizesCallback(
+    LLVMOrcLLLazyJITBuilderRef Builder,
+    void (*cb)(void *, const char *, size_t, size_t), void *cb_data)
 {
-    LOG_VERBOSE("%s called", __func__);
-    return std::make_unique<MyCompiler>(MyCompiler(std::move(JTMB)));
+    auto b = unwrap(Builder);
+    b->setCompileFunctionCreator(
+        [cb, cb_data](llvm::orc::JITTargetMachineBuilder JTMB)
+            -> llvm::Expected<
+                std::unique_ptr<llvm::orc::IRCompileLayer::IRCompiler>> {
+            return std::make_unique<MyCompiler>(
+                MyCompiler(std::move(JTMB), cb, cb_data));
+        });
 }
