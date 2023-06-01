@@ -2505,6 +2505,16 @@ read_stack_usage_file(const char *filename, uint32_t *sizes, uint32 count)
                   found, precheck_found, count);
     }
     if (precheck_stack_size_min != precheck_stack_size_max) {
+        /*
+         * Note: this is too strict.
+         *
+         * actually, the stack consumption of the precheck functions
+         * can depend on the type of them.
+         * that is, depending on various factors including
+         * calling conventions and compilers, a function with many
+         * parameters can consume more stack, even if it merely does
+         * a tail-call to another function.
+         */
         LOG_WARNING(
             "precheck functions use inconsistent amount of stack. (%" PRIu32
             " - %" PRIu32 ")",
