@@ -38,7 +38,7 @@ pushd $OUT_DIR > /dev/null 2>&1
 for t in $POLYBENCH_CASES
 do
     if [ ! -e "${t}.wasm" ]; then
-        echo "%{t}.wasm doesn't exist, please run build.sh first"
+        echo "${t}.wasm doesn't exist, please run build.sh first"
         exit
     fi
 
