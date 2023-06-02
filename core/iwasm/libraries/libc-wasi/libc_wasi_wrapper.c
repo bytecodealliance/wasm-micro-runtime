@@ -562,6 +562,8 @@ wasi_fd_fdstat_get(wasm_exec_env_t exec_env, wasi_fd_t fd,
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
+    if (!fdstat_app){return 0;}
+
     if (!validate_native_addr(fdstat_app, sizeof(wasi_fdstat_t)))
         return (wasi_errno_t)-1;
 
@@ -632,7 +634,7 @@ wasi_fd_write(wasm_exec_env_t exec_env, wasi_fd_t fd,
 
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
-
+    if(!nwritten_app) return 0;
     total_size = sizeof(iovec_app_t) * (uint64)iovs_len;
     if (!validate_native_addr(nwritten_app, (uint32)sizeof(uint32))
         || total_size >= UINT32_MAX

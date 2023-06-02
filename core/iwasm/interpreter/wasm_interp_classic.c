@@ -467,8 +467,9 @@ read_leb(const uint8 *buf, uint32 *p_offset, uint32 maxbits, bool sign)
         frame_lp = frame->lp;           \
         frame_sp = frame->sp;           \
         frame_csp = frame->csp;         \
-        frame_lp_bak = ((uint8*)frame->lp_bak)-exec_env->wasm_stack.s.bottom;\
-        if(exec_env->is_restore && frame_lp_bak>0 && frame_lp_bak<10000 &&   \
+        if(exec_env->is_restore && frame->lp_bak && \
+            ((uint8*)frame->lp_bak)-exec_env->wasm_stack.s.bottom>0 &&       \
+            ((uint8*)frame->lp_bak)-exec_env->wasm_stack.s.bottom<10000 &&   \
            ((uint8*)frame_sp)-exec_env->wasm_stack.s.bottom>0 &&             \
            ((uint8*)frame_sp)-exec_env->wasm_stack.s.bottom<10000){          \
             frame_lp = frame->lp_bak;       \
@@ -1095,8 +1096,8 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
 
 #define SERIALIZE_CURSTATE(file)                                            \
        do {                                                             \
-           fprintf(file,"ip %d ",frame_ip-cur_func->u.func->code);                      \
-           fprintf(file,"sp %d ",((uint8*)frame_sp)-exec_env->wasm_stack.s.bottom);  \
+           fprintf(file,"ip %ld ",frame_ip-cur_func->u.func->code);                      \
+           fprintf(file,"sp %ld ",((uint8*)frame_sp)-exec_env->wasm_stack.s.bottom);  \
            fprintf(file,"sp val %d ",*(uint8*)frame_sp);  \
            fprintf(file,"lp %d\n", frame_lp[0]); \
           if(frame_csp&&frame_csp->begin_addr) fprintf(file,"frame_csp %ld ",frame_csp->begin_addr-cur_func->u.func->code); \
