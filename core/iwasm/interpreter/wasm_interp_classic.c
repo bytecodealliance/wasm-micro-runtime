@@ -467,8 +467,10 @@ read_leb(const uint8 *buf, uint32 *p_offset, uint32 maxbits, bool sign)
         frame_lp = frame->lp;           \
         frame_sp = frame->sp;           \
         frame_csp = frame->csp;         \
-        frame_lp_bak =  ((uint8*)frame->lp_bak)-exec_env->wasm_stack.s.bottom;\
-        if(exec_env->is_restore && frame_lp_bak>0  && frame_lp_bak<10000){    \
+        frame_lp_bak = ((uint8*)frame->lp_bak)-exec_env->wasm_stack.s.bottom;\
+        if(exec_env->is_restore && frame_lp_bak>0 && frame_lp_bak<10000 &&   \
+           ((uint8*)frame_sp)-exec_env->wasm_stack.s.bottom>0 &&             \
+           ((uint8*)frame_sp)-exec_env->wasm_stack.s.bottom<10000){          \
             frame_lp = frame->lp_bak;       \
         }                                   \
     } while (0)
