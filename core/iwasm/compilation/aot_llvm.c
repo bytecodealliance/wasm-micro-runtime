@@ -1509,36 +1509,53 @@ apply_prof_meta_and_opt(void *Ctx, LLVMModuleRef Mod)
     LLVMValueRef cur = LLVMGetFirstFunction(Mod);
     LLVMValueRef next;
 
-    while (cur && !wasm_module->orcjit_stop_compiling) {
+    for (cur = LLVMGetFirstFunction(Mod);
+         cur && !wasm_module->orcjit_stop_compiling;
+         next = LLVMGetNextFunction(cur), cur = next) {
         size_t size = 0;
         const char *func_name = LLVMGetValueName2(cur, &size);
         uint32 func_idx;
 
-        if (retrieve_func_idx_from_aot_func_name(func_name, &func_idx)) {
-            LOG_DEBUG("  --> Add prof meta into %s",
-                      LLVMGetValueName2(cur, &size));
-            wasm_dpgo_set_prof_meta(
-                comp_ctx, cur,
-                comp_ctx->comp_data->wasm_module->import_function_count
-                    + func_idx);
+        /* if not aot_func#N(...) */
+        if (!retrieve_func_idx_from_aot_func_name(func_name, &func_idx))
+            continue;
+
+        /* current function is one of callees of a hotness function */
+        if (!wasm_module->func_ptrs_compiled[func_idx]) {
+            if (!wasm_tier_up_function(
+                    wasm_module, func_idx + wasm_module->import_function_count,
+                    wasm_module->func_ptrs[func_idx])) {
+                LOG_WARNING("Tier up function #%d failed", func_idx);
+                return NULL;
+            }
         }
 
-        next = LLVMGetNextFunction(cur);
-        cur = next;
+        /* only hotness */
+        if (wasm_module
+                ->func_opt_w_prof[func_idx + wasm_module->import_function_count]
+            != NEED_OPT_WITH_PROF_META)
+            continue;
+
+        bool broken_function = false;
+        wasm_dpgo_set_prof_meta(wasm_module, Mod, cur,
+                                wasm_module->import_function_count + func_idx);
+
+        broken_function = LLVMVerifyFunction(cur, LLVMPrintMessageAction);
+        bh_assert(!broken_function && "Found a broken function!");
+        if (broken_function)
+            return LLVMCreateStringError("invalid function + prof meta");
+
+        wasm_module
+            ->func_opt_w_prof[func_idx + wasm_module->import_function_count] =
+            OPTIMIZED;
     }
 
     if (wasm_module->orcjit_stop_compiling) {
         LOG_WARNING("quit because of orcjit_stop_compiling");
-        return LLVMErrorSuccess;
+        return LLVMCreateStringError("module unloading...");
     }
 
-    // FIXME:
-    // aot_apply_llvm_new_pass_manager(comp_ctx, Mod);
-
-    // os_printf("\n");
-    // LLVMDumpModule(Mod);
-    // os_printf("\n");
-
+    aot_apply_llvm_new_pass_manager(comp_ctx, Mod);
     return LLVMErrorSuccess;
 }
 

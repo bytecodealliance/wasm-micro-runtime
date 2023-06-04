@@ -661,6 +661,12 @@ void
 wasm_propagate_wasi_args(WASMModule *module);
 #endif
 
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+bool
+wasm_tier_up_function(WASMModule *module, uint32 func_idx,
+                      void *llvm_jit_gen_addr);
+#endif
+
 #ifdef __cplusplus
 }
 #endif

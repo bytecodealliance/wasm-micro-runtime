@@ -461,4 +461,8 @@
 #define WASM_DPGO_TIER_UP_THRESHOLD 100
 #endif
 
+#ifndef WASM_ENABLE_FAST_JIT_OPT_MERGE_CMP
+#define WASM_ENABLE_FAST_JIT_OPT_MERGE_CMP 1
+#endif
+
 #endif /* end of _CONFIG_H_ */

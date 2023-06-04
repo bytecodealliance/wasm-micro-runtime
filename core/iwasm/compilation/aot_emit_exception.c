@@ -124,15 +124,22 @@ aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
     }
     else {
+        LLVMValueRef cond_br =
+            LLVMBuildCondBr(comp_ctx->builder, cond_br_if,
+                            func_ctx->got_exception_block, cond_br_else_block);
         /* Create condition br */
-        if (!LLVMBuildCondBr(comp_ctx->builder, cond_br_if,
-                             func_ctx->got_exception_block,
-                             cond_br_else_block)) {
+        if (!cond_br) {
             aot_set_last_error("llvm build cond br failed.");
             return false;
         }
+
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+        wasm_dpgo_unlike_true_branch(comp_ctx->context, cond_br);
+#endif
+
         /* Start to translate the else block */
         LLVMPositionBuilderAtEnd(comp_ctx->builder, cond_br_else_block);
+        (void)cond_br;
     }
 
     return true;

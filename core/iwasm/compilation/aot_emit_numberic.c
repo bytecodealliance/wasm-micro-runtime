@@ -387,7 +387,8 @@ compile_rems(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
              LLVMValueRef left, LLVMValueRef right, LLVMValueRef overflow_cond,
              bool is_i32)
 {
-    LLVMValueRef phi, no_overflow_value, zero = is_i32 ? I32_ZERO : I64_ZERO;
+    LLVMValueRef phi, no_overflow_value, cond_br;
+    LLVMValueRef zero = is_i32 ? I32_ZERO : I64_ZERO;
     LLVMBasicBlockRef block_curr, no_overflow_block, rems_end_block;
     LLVMTypeRef param_types[2];
 
@@ -400,11 +401,16 @@ compile_rems(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     ADD_BASIC_BLOCK(no_overflow_block, "rems_no_overflow");
 
     /* Create condition br */
-    if (!LLVMBuildCondBr(comp_ctx->builder, overflow_cond, rems_end_block,
-                         no_overflow_block)) {
+    cond_br = LLVMBuildCondBr(comp_ctx->builder, overflow_cond, rems_end_block,
+                              no_overflow_block);
+    if (!cond_br) {
         aot_set_last_error("llvm build cond br failed.");
         return false;
     }
+
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+    wasm_dpgo_unlike_true_branch(comp_ctx->context, cond_br);
+#endif
 
     /* Translate no_overflow_block */
     LLVMPositionBuilderAtEnd(comp_ctx->builder, no_overflow_block);
