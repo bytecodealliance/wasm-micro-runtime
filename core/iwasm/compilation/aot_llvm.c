@@ -948,6 +948,33 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
     func_ctx->debug_func = dwarf_gen_func_info(comp_ctx, func_ctx);
 #endif
 
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+    /* TODO: create function type for real. DPGO doesn't need this type */
+    LLVMMetadataRef fake_func_ty = LLVMDIBuilderCreateSubroutineType(
+        comp_ctx->debug_builder, comp_ctx->debug_file, NULL, 0,
+        LLVMDIFlagZero | LLVMDIFlagNoReturn);
+    if (!fake_func_ty) {
+        LOG_ERROR("LLVMDIBuilderCreateSubroutineType failed");
+        goto fail;
+    }
+
+    size_t func_name_len;
+    const char *func_name = LLVMGetValueName2(func_ctx->func, &func_name_len);
+    /*
+     * expedient measures:
+     * - set the function index as the "LineNo* of the function
+     */
+    func_ctx->debug_func = LLVMDIBuilderCreateFunction(
+        comp_ctx->debug_builder, comp_ctx->debug_file, func_name, func_name_len,
+        func_name, func_name_len, comp_ctx->debug_file, func_index,
+        fake_func_ty, true, true, 1, LLVMDIFlagZero, false);
+    if (!func_ctx->debug_func) {
+        LOG_ERROR("LLVMDIBuilderCreateFunction failed");
+        goto fail;
+    }
+    LLVMSetSubprogram(func_ctx->func, func_ctx->debug_func);
+#endif
+
     aot_block_stack_push(&func_ctx->block_stack, aot_block);
 
     /* Add local variables */
@@ -1506,7 +1533,12 @@ apply_prof_meta_and_opt(void *Ctx, LLVMModuleRef Mod)
     }
 
     // FIXME:
-    // aot_apply_llvm_new_pass_manger(comp_ctx, Mod);
+    // aot_apply_llvm_new_pass_manager(comp_ctx, Mod);
+
+    // os_printf("\n");
+    // LLVMDumpModule(Mod);
+    // os_printf("\n");
+
     return LLVMErrorSuccess;
 }
 
@@ -1665,12 +1697,15 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
         goto fail;
     }
 
-#if WASM_ENABLE_DEBUG_AOT != 0
+#if WASM_ENABLE_DEBUG_AOT != 0 || WASM_ENABLE_DYNAMIC_PGO != 0
     if (!(comp_ctx->debug_builder = LLVMCreateDIBuilder(comp_ctx->module))) {
         aot_set_last_error("create LLVM Debug Infor builder failed.");
         goto fail;
     }
 
+#if WASM_ENABLE_DEBUG_AOT != 0
+    /* Add a module flag named "Debug Info Version" */
+    /* llvm::DEBUG_METADATA_VERSION is 3 */
     LLVMAddModuleFlag(
         comp_ctx->module, LLVMModuleFlagBehaviorWarning, "Debug Info Version",
         strlen("Debug Info Version"),
@@ -1686,7 +1721,41 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
         aot_set_last_error("dwarf generate compile unit info failed");
         goto fail;
     }
-#endif
+#else
+    {
+        const char *file_name = "module.wasm";
+        const char *dir_name = ".";
+
+        /* Add a module flag named "Debug Info Version" */
+        const char *debug_ver_key = "Debug Info Version";
+        /* llvm::DEBUG_METADATA_VERSION is 3 */
+        LLVMMetadataRef debug_ver_val = LLVMValueAsMetadata(
+            LLVMConstInt(LLVMInt32TypeInContext(comp_ctx->context), 3, false));
+        LLVMAddModuleFlag(comp_ctx->module, LLVMModuleFlagBehaviorWarning,
+                          debug_ver_key, strlen(debug_ver_key), debug_ver_val);
+
+        comp_ctx->debug_file = LLVMDIBuilderCreateFile(
+            comp_ctx->debug_builder, file_name, strlen(file_name), dir_name,
+            strlen(dir_name));
+        if (!comp_ctx->debug_file) {
+            aot_set_last_error("dwarf generate file info failed");
+            goto fail;
+        }
+
+        /* use LLVMDWARFSourceLanguageC for now */
+        comp_ctx->debug_comp_unit = LLVMDIBuilderCreateCompileUnit(
+            comp_ctx->debug_builder, LLVMDWARFSourceLanguageC,
+            comp_ctx->debug_file, NULL, 0, 0 /*isOptimized*/, NULL, 0,
+            1 /*RuntimeVer*/, NULL, 0, LLVMDWARFEmissionFull, 0 /*DWOId*/,
+            0 /*SplitDebugInlining*/, 0 /*DebugInfoForProfiling*/, NULL, 0,
+            NULL, 0);
+        if (!comp_ctx->debug_comp_unit) {
+            aot_set_last_error("dwarf generate compile unit info failed");
+            goto fail;
+        }
+    }
+#endif /* WASM_ENABLE_DEBUG_AOT != 0 */
+#endif /* WASM_ENABLE_DEBUG_AOT != 0 || WASM_ENABLE_DYNAMIC_PGO != 0 */
 
     if (option->enable_bulk_memory)
         comp_ctx->enable_bulk_memory = true;
@@ -2246,8 +2315,18 @@ aot_destroy_comp_context(AOTCompContext *comp_ctx)
     if (comp_ctx->target_machine)
         LLVMDisposeTargetMachine(comp_ctx->target_machine);
 
-    if (comp_ctx->builder)
+    if (comp_ctx->builder) {
         LLVMDisposeBuilder(comp_ctx->builder);
+        comp_ctx->builder = NULL;
+    }
+
+#if WASM_ENABLE_DEBUG_AOT != 0 || WASM_ENABLE_DYNAMIC_PGO != 0
+    if (comp_ctx->debug_builder) {
+        LLVMDIBuilderFinalize(comp_ctx->debug_builder);
+        LLVMDisposeDIBuilder(comp_ctx->debug_builder);
+        comp_ctx->debug_builder = NULL;
+    }
+#endif
 
     if (comp_ctx->orc_thread_safe_context)
         LLVMOrcDisposeThreadSafeContext(comp_ctx->orc_thread_safe_context);
