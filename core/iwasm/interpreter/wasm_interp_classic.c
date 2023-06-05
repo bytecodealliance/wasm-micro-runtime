@@ -274,7 +274,7 @@ local_copysignf(float x, float y)
 {
     union {
         float f;
-        uint32_t i;
+        uint32 i;
     } ux = { x }, uy = { y };
     ux.i &= 0x7fffffff;
     ux.i |= uy.i & 0x80000000;
@@ -286,9 +286,9 @@ local_copysign(double x, double y)
 {
     union {
         double f;
-        uint64_t i;
+        uint64 i;
     } ux = { x }, uy = { y };
-    ux.i &= -1ULL / 2;
+    ux.i &= UINT64_MAX / 2;
     ux.i |= uy.i & 1ULL << 63;
     return ux.f;
 }
@@ -5116,6 +5116,12 @@ wasm_interp_traverse_gc_rootset(WASMExecEnv *exec_env, void *heap)
 #endif
 
 #if WASM_ENABLE_FAST_JIT != 0
+/* ASAN is not designed to work with custom stack unwind or other low-level \
+ things. > Ignore a function that does some low-level magic. (e.g. walking \
+ through the thread's stack bypassing the frame boundaries) */
+#if defined(__GNUC__)
+__attribute__((no_sanitize_address))
+#endif
 static void
 fast_jit_call_func_bytecode(WASMModuleInstance *module_inst,
                             WASMExecEnv *exec_env,
@@ -5354,6 +5360,15 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
         word_copy(outs_area->lp, argv, argc);
 
     wasm_exec_env_set_cur_frame(exec_env, frame);
+
+#if defined(os_writegsbase)
+    {
+        WASMMemoryInstance *memory_inst = wasm_get_default_memory(module_inst);
+        if (memory_inst)
+            /* write base addr of linear memory to GS segment register */
+            os_writegsbase(memory_inst->memory_data);
+    }
+#endif
 
     if (function->is_import_func) {
 #if WASM_ENABLE_MULTI_MODULE != 0

@@ -133,7 +133,7 @@ static JitCompOptions jit_options = { 0 };
 #endif
 
 #if WASM_ENABLE_JIT != 0
-static LLVMJITOptions llvm_jit_options = { 3, 3 };
+static LLVMJITOptions llvm_jit_options = { 3, 3, 0 };
 #endif
 
 #if WASM_ENABLE_GC != 0
@@ -573,6 +573,7 @@ wasm_runtime_full_init(RuntimeInitArgs *init_args)
 #if WASM_ENABLE_JIT != 0
     llvm_jit_options.size_level = init_args->llvm_jit_size_level;
     llvm_jit_options.opt_level = init_args->llvm_jit_opt_level;
+    llvm_jit_options.segue_flags = init_args->segue_flags;
 #endif
 
     if (!wasm_runtime_env_init()) {
@@ -4302,6 +4303,12 @@ static V128FuncPtr invokeNative_V128 = (V128FuncPtr)(uintptr_t)invokeNative;
           || defined(BUILD_TARGET_RISCV64_LP64) */
 #endif /* end of defined(_WIN32) || defined(_WIN32_) */
 
+/* ASAN is not designed to work with custom stack unwind or other low-level \
+ things. > Ignore a function that does some low-level magic. (e.g. walking \
+ through the thread's stack bypassing the frame boundaries) */
+#if defined(__GNUC__)
+__attribute__((no_sanitize_address))
+#endif
 bool
 wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                            const WASMFuncType *func_type, const char *signature,
@@ -5144,6 +5151,33 @@ wasm_runtime_dump_call_stack_to_buf(wasm_exec_env_t exec_env, char *buf,
     return 0;
 }
 #endif /* end of WASM_ENABLE_DUMP_CALL_STACK */
+
+#if WASM_ENABLE_STATIC_PGO != 0
+uint32
+wasm_runtime_get_pgo_prof_data_size(WASMModuleInstanceCommon *module_inst)
+{
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        AOTModuleInstance *aot_inst = (AOTModuleInstance *)module_inst;
+        return aot_get_pgo_prof_data_size(aot_inst);
+    }
+#endif
+    return 0;
+}
+
+uint32
+wasm_runtime_dump_pgo_prof_data_to_buf(WASMModuleInstanceCommon *module_inst,
+                                       char *buf, uint32 len)
+{
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        AOTModuleInstance *aot_inst = (AOTModuleInstance *)module_inst;
+        return aot_dump_pgo_prof_data_to_buf(aot_inst, buf, len);
+    }
+#endif
+    return 0;
+}
+#endif /* end of WASM_ENABLE_STATIC_PGO != 0 */
 
 bool
 wasm_runtime_get_table_elem_type(const WASMModuleCommon *module_comm,

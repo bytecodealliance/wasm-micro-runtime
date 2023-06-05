@@ -469,4 +469,8 @@
 #define WASM_ENABLE_WASM_CACHE 0
 #endif
 
+#ifndef WASM_ENABLE_STATIC_PGO
+#define WASM_ENABLE_STATIC_PGO 0
+#endif
+
 #endif /* end of _CONFIG_H_ */

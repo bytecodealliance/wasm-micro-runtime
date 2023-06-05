@@ -171,7 +171,6 @@ export async function activate(context: vscode.ExtensionContext) {
 
     /* register debug configuration */
     wasmDebugConfigProvider = new WasmDebugConfigurationProvider();
-    wasmDebugConfigProvider.setDebugConfig(currentPrjDir, 1234);
 
     vscode.debug.registerDebugConfigurationProvider(
         'wamr-debug',

@@ -55,13 +55,16 @@ typedef struct AOTCompOption {
     bool enable_aux_stack_frame;
     bool disable_llvm_intrinsics;
     bool disable_llvm_lto;
+    bool enable_llvm_pgo;
     bool enable_stack_estimation;
     bool enable_gc;
+    char *use_prof_file;
     uint32_t opt_level;
     uint32_t size_level;
     uint32_t output_format;
     uint32_t bounds_checks;
     uint32_t stack_bounds_checks;
+    uint32_t segue_flags;
     char **custom_sections;
     uint32_t custom_sections_count;
     const char *stack_usage_file;
