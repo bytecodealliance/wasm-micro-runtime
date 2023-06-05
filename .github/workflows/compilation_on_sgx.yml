@@ -51,6 +51,7 @@ env:
   AOT_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_LAZY_JIT=0"
   CLASSIC_INTERP_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=0 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_LAZY_JIT=0"
   FAST_INTERP_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=0 -DWAMR_BUILD_FAST_INTERP=1 -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_LAZY_JIT=0"
+  FAST_JIT_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_JIT=1 -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_LAZY_JIT=1"
   LLVM_LAZY_JIT_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=1"
   LLVM_EAGER_JIT_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=0"
 
@@ -70,6 +71,7 @@ jobs:
             $AOT_BUILD_OPTIONS,
             $CLASSIC_INTERP_BUILD_OPTIONS,
             $FAST_INTERP_BUILD_OPTIONS,
+            $FAST_JIT_BUILD_OPTIONS,
             # Running modes unsupported
             #$LLVM_LAZY_JIT_BUILD_OPTIONS,
             #$LLVM_EAGER_JIT_BUILD_OPTIONS,
@@ -127,124 +129,43 @@ jobs:
           mkdir build && cd build
           cmake .. ${{ matrix.make_options_run_mode }} ${{ matrix.make_options_feature }}
           cmake --build . --config Release --parallel 4
+          cd ../enclave-sample
+          make
         working-directory: product-mini/platforms/${{ matrix.platform }}
 
-  build_wamrc:
-    needs: [build_llvm_libraries]
+  run_samples_file:
+    needs: [build_iwasm, build_llvm_libraries]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
+        iwasm_make_options_run_mode: [
+            # Running modes supported
+            $AOT_BUILD_OPTIONS,
+            $CLASSIC_INTERP_BUILD_OPTIONS,
+            $FAST_INTERP_BUILD_OPTIONS,
+            $FAST_JIT_BUILD_OPTIONS,
+            # Running modes unsupported
+            #$LLVM_LAZY_JIT_BUILD_OPTIONS,
+            #$LLVM_EAGER_JIT_BUILD_OPTIONS,
+          ]
+        os: [ubuntu-20.04]
+        wasi_sdk_release:
+          [
+            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-linux.tar.gz",
+          ]
+        wabt_release:
+          [
+            "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-ubuntu.tar.gz",
+          ]
+        iwasm_make_options_feature: [
+            # Features to be tested: IPFS
+            "-DWAMR_BUILD_SGX_IPFS=1",
+          ]
+        platform: [linux-sgx]
         include:
           - os: ubuntu-20.04
             llvm_cache_key: ${{ needs.build_llvm_libraries.outputs.cache_key }}
-    steps:
-      - name: install SGX SDK and necessary libraries
-        run: |
-          mkdir -p /opt/intel
-          cd /opt/intel
-          wget https://download.01.org/intel-sgx/sgx-linux/2.15/distro/ubuntu20.04-server/sgx_linux_x64_sdk_2.15.100.3.bin
-          chmod +x sgx_linux_x64_sdk_2.15.100.3.bin
-          echo 'yes' | ./sgx_linux_x64_sdk_2.15.100.3.bin
-          echo 'deb [arch=amd64] https://download.01.org/intel-sgx/sgx_repo/ubuntu focal main' | sudo tee /etc/apt/sources.list.d/intel-sgx.list
-          wget -qO - https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key | sudo apt-key add -
-          sudo apt update
-          sudo apt install -y libsgx-launch libsgx-urts
-          source /opt/intel/sgxsdk/environment
 
-      - name: checkout
-        uses: actions/checkout@v3
-
-      - name: Get LLVM libraries
-        id: retrieve_llvm_libs
-        uses: actions/cache@v3
-        with:
-          path: |
-            ./core/deps/llvm/build/bin
-            ./core/deps/llvm/build/include
-            ./core/deps/llvm/build/lib
-            ./core/deps/llvm/build/libexec
-            ./core/deps/llvm/build/share
-          key: ${{ matrix.llvm_cache_key }}
-
-      - name: Quit if cache miss
-        if: steps.retrieve_llvm_libs.outputs.cache-hit != 'true'
-        run: echo "::error::can not get prebuilt llvm libraries" && exit 1
-
-      - name: Build wamrc
-        run: |
-          mkdir build && cd build
-          cmake ..
-          cmake --build . --config Release --parallel 4
-        working-directory: wamr-compiler
-
-  build_samples_wasm_c_api:
-    needs: [build_iwasm]
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        make_options: [
-            # Running modes supported
-            $CLASSIC_INTERP_BUILD_OPTIONS,
-            $FAST_INTERP_BUILD_OPTIONS,
-            # Running modes unsupported
-            #$LLVM_EAGER_JIT_BUILD_OPTIONS,
-            #$LLVM_LAZY_JIT_BUILD_OPTIONS,
-            #$AOT_BUILD_OPTIONS,
-          ]
-        os: [ubuntu-20.04]
-        wasi_sdk_release:
-          [
-            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-linux.tar.gz",
-          ]
-        wabt_release:
-          [
-            "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-ubuntu.tar.gz",
-          ]
-    steps:
-      - name: checkout
-        uses: actions/checkout@v3
-
-      - name: download and install wabt
-        run: |
-          cd /opt
-          sudo wget ${{ matrix.wabt_release }}
-          sudo tar -xzf wabt-1.0.31-*.tar.gz
-          sudo mv wabt-1.0.31 wabt
-
-      - name: install SGX SDK and necessary libraries
-        run: |
-          mkdir -p /opt/intel
-          cd /opt/intel
-          wget https://download.01.org/intel-sgx/sgx-linux/2.15/distro/ubuntu20.04-server/sgx_linux_x64_sdk_2.15.100.3.bin
-          chmod +x sgx_linux_x64_sdk_2.15.100.3.bin
-          echo 'yes' | ./sgx_linux_x64_sdk_2.15.100.3.bin
-          echo 'deb [arch=amd64] https://download.01.org/intel-sgx/sgx_repo/ubuntu focal main' | sudo tee /etc/apt/sources.list.d/intel-sgx.list
-          wget -qO - https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key | sudo apt-key add -
-          sudo apt update
-          sudo apt install -y libsgx-launch libsgx-urts
-          source /opt/intel/sgxsdk/environment
-
-      - name: Build Sample [wasm-c-api]
-        run: |
-          cmake -S . -B build ${{ matrix.make_options }}
-          cmake --build build --config Release --parallel 4
-          ctest --test-dir build
-        working-directory: samples/wasm-c-api
-
-  build_samples_others:
-    needs: [build_iwasm]
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-20.04]
-        wasi_sdk_release:
-          [
-            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-linux.tar.gz",
-          ]
-        wabt_release:
-          [
-            "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-ubuntu.tar.gz",
-          ]
     steps:
       - name: checkout
         uses: actions/checkout@v3
@@ -290,13 +211,38 @@ jobs:
           wget -qO - https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key | sudo apt-key add -
           sudo apt update
           sudo apt install -y libsgx-launch libsgx-urts
-          source /opt/intel/sgxsdk/environment
 
-      - name: Build Sample [basic]
+      - name: Build iwasm for testing samples
         run: |
-          cd samples/basic
-          ./build.sh
-          ./run.sh
+          mkdir build && cd build
+          cmake .. ${{ matrix.iwasm_make_options_run_mode }} ${{ matrix.iwasm_make_options_feature }}
+          cmake --build . --config Release --parallel 4
+          cd ../enclave-sample
+          make
+        working-directory: product-mini/platforms/${{ matrix.platform }}
+
+      - name: Get LLVM libraries
+        if: matrix.iwasm_make_options_run_mode == '$AOT_BUILD_OPTIONS'
+        id: retrieve_llvm_libs
+        uses: actions/cache@v3
+        with:
+          path: |
+            ./core/deps/llvm/build/bin
+            ./core/deps/llvm/build/include
+            ./core/deps/llvm/build/lib
+            ./core/deps/llvm/build/libexec
+            ./core/deps/llvm/build/share
+          key: ${{ matrix.llvm_cache_key }}
+          fail-on-cache-miss: true
+
+      - name: Build wamrc only for testing samples in aot mode
+        if: matrix.iwasm_make_options_run_mode == '$AOT_BUILD_OPTIONS'
+        run: |
+          mkdir build && cd build
+          cmake ..
+          cmake --build . --config Release --parallel 4
+          cp wamrc `pwd`/../../product-mini/platforms/${{ matrix.platform }}/enclave-sample
+        working-directory: wamr-compiler
 
       - name: Build Sample [file]
         run: |
@@ -304,62 +250,46 @@ jobs:
           mkdir build && cd build
           cmake ..
           cmake --build . --config Release --parallel 4
-          ./src/iwasm -f wasm-app/file.wasm -d .
+          cp wasm-app/file.wasm `pwd`/../../../product-mini/platforms/${{ matrix.platform }}/enclave-sample
 
-      - name: Build Sample [multi-thread]
+      - name: Test Sample [file] in non-aot mode
+        if: matrix.iwasm_make_options_run_mode != '$AOT_BUILD_OPTIONS'
         run: |
-          cd samples/multi-thread
-          mkdir build && cd build
-          cmake ..
-          cmake --build . --config Release --parallel 4
-          ./iwasm wasm-apps/test.wasm
+          source /opt/intel/sgxsdk/environment
+          ./iwasm --dir=. file.wasm
+        working-directory: product-mini/platforms/${{ matrix.platform }}/enclave-sample
 
-      - name: Build Sample [multi-module]
+      - name: Test Sample [file] in aot mode
+        if: matrix.iwasm_make_options_run_mode == '$AOT_BUILD_OPTIONS'
         run: |
-          cd samples/multi-module
-          mkdir build && cd build
-          cmake ..
-          cmake --build . --config Release --parallel 4
-          ./multi_module
-
-      - name: Build Sample [spawn-thread]
-        run: |
-          cd samples/spawn-thread
-          mkdir build && cd build
-          cmake ..
-          cmake --build . --config Release --parallel 4
-          ./spawn_thread
-
-      - name: Build Sample [ref-types]
-        run: |
-          cd samples/ref-types
-          mkdir build && cd build
-          cmake ..
-          cmake --build . --config Release --parallel 4
-          ./hello
-
-      - name: Build Sample [wasi-threads]
-        run: |
-          cd samples/wasi-threads
-          mkdir build && cd build
-          cmake -DWASI_SYSROOT=`pwd`/../../../core/deps/wasi-libc/sysroot ..
-          cmake --build . --config Release --parallel 4
-          ./iwasm wasm-apps/no_pthread.wasm
+          source /opt/intel/sgxsdk/environment
+          ./wamrc -sgx -o file.aot file.wasm
+          ./iwasm --dir=. file.aot
+        working-directory: product-mini/platforms/${{ matrix.platform }}/enclave-sample
 
   spec_test_default:
-    needs: [build_iwasm, build_llvm_libraries, build_wamrc]
+    needs: [build_iwasm, build_llvm_libraries]
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        running_mode: ["classic-interp", "fast-interp", "aot"]
-        test_option: ["-x -p -s spec -b -P", "-x -p -s spec -S -b -P"]
+        running_mode: ["classic-interp", "fast-interp", "aot", "fast-jit"]
+        test_option: ["-x -p -s spec -b -P", "-x -p -s spec -S -b -P", "-x -p -s spec -X -b -P"]
         llvm_cache_key: ["${{ needs.build_llvm_libraries.outputs.cache_key }}"]
-        # classic-interp and fast-interp don't support simd
         exclude:
+          # classic-interp, fast-interp and fast-jit don't support simd
           - running_mode: "classic-interp"
             test_option: "-x -p -s spec -S -b -P"
           - running_mode: "fast-interp"
             test_option: "-x -p -s spec -S -b -P"
+          - running_mode: "fast-jit"
+            test_option: "-x -p -s spec -S -b -P"
+          # classic-interp, fast-interp and fast jit don't support XIP
+          - running_mode: "classic-interp"
+            test_option: "-x -p -s spec -X -b -P"
+          - running_mode: "fast-interp"
+            test_option: "-x -p -s spec -X -b -P"
+          - running_mode: "fast-jit"
+            test_option: "-x -p -s spec -X -b -P"
 
     steps:
       - name: checkout

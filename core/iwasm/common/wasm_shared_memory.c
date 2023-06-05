@@ -384,7 +384,7 @@ wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
 
     /* unit of timeout is nsec, convert it to usec */
     timeout_left = (uint64)timeout / 1000;
-    timeout_1sec = 1e6;
+    timeout_1sec = (uint64)1e6;
 
     while (1) {
         if (timeout < 0) {

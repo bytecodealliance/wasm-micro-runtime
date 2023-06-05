@@ -130,6 +130,7 @@ os_thread_exit(void *retval);
 #define os_memory_order_release memory_order_release
 #define os_memory_order_seq_cst memory_order_seq_cst
 #define os_atomic_thread_fence atomic_thread_fence
+#define os_atomic_cmpxchg atomic_compare_exchange_strong
 #endif
 
 #endif /* end of os_atomic_thread_fence */

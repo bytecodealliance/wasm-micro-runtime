@@ -62,4 +62,5 @@ setup(
         'install': PreInstallCommand,
         'egg_info': PreEggInfoCommand,
     },
+    python_requires='>=3.9'
 )

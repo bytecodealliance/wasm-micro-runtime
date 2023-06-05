@@ -239,6 +239,13 @@ check_type_compatible(uint8 src_type, uint8 dst_type)
 #define FUNC_REF_TYPE comp_ctx->basic_types.funcref_type
 #define EXTERN_REF_TYPE comp_ctx->basic_types.externref_type
 
+#define INT8_PTR_TYPE_GS comp_ctx->basic_types.int8_ptr_type_gs
+#define INT16_PTR_TYPE_GS comp_ctx->basic_types.int16_ptr_type_gs
+#define INT32_PTR_TYPE_GS comp_ctx->basic_types.int32_ptr_type_gs
+#define INT64_PTR_TYPE_GS comp_ctx->basic_types.int64_ptr_type_gs
+#define F32_PTR_TYPE_GS comp_ctx->basic_types.float32_ptr_type_gs
+#define F64_PTR_TYPE_GS comp_ctx->basic_types.float64_ptr_type_gs
+
 #define I32_CONST(v) LLVMConstInt(I32_TYPE, v, true)
 #define I64_CONST(v) LLVMConstInt(I64_TYPE, v, true)
 #define F32_CONST(v) LLVMConstReal(F32_TYPE, v)
@@ -272,6 +279,7 @@ check_type_compatible(uint8 src_type, uint8 dst_type)
 
 #define V128_TYPE comp_ctx->basic_types.v128_type
 #define V128_PTR_TYPE comp_ctx->basic_types.v128_ptr_type
+#define V128_PTR_TYPE_GS comp_ctx->basic_types.v128_ptr_type_gs
 #define V128_i8x16_TYPE comp_ctx->basic_types.i8x16_vec_type
 #define V128_i16x8_TYPE comp_ctx->basic_types.i16x8_vec_type
 #define V128_i32x4_TYPE comp_ctx->basic_types.i32x4_vec_type
