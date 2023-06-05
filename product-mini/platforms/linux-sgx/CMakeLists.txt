@@ -107,6 +107,13 @@ add_custom_command (
 
 add_custom_target (vmlib_untrusted ALL DEPENDS libvmlib_untrusted.a)
 
+if ((WAMR_BUILD_AOT EQUAL 1) AND (DEFINED WAMR_BUILD_STATIC_PGO))
+  execute_process(
+      COMMAND bash -c "sed -i -E 's/^WAMR_BUILD_STATIC_PGO = .*/WAMR_BUILD_STATIC_PGO = ${WAMR_BUILD_STATIC_PGO}/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Makefile"
+      OUTPUT_VARIABLE cmdOutput
+  )
+endif()
+
 if (DEFINED WAMR_BUILD_GLOBAL_HEAP_POOL)
   execute_process(
       COMMAND bash -c "sed -i -E 's/^WAMR_BUILD_GLOBAL_HEAP_POOL = .*/WAMR_BUILD_GLOBAL_HEAP_POOL = ${WAMR_BUILD_GLOBAL_HEAP_POOL}/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Makefile"
