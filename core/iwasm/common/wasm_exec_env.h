@@ -20,9 +20,6 @@ struct WASMInterpFrame;
 
 #if WASM_ENABLE_THREAD_MGR != 0
 typedef struct WASMCluster WASMCluster;
-#if WASM_ENABLE_DEBUG_INTERP != 0
-typedef struct WASMCurrentEnvStatus WASMCurrentEnvStatus;
-#endif
 #endif
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
@@ -31,6 +28,22 @@ typedef struct WASMJmpBuf {
     korp_jmpbuf jmpbuf;
 } WASMJmpBuf;
 #endif
+
+typedef struct WASMThreadStatus {
+    uint64 signal_flag : 32;
+    uint64 step_count : 16;
+    uint64 running_status : 16;
+} WASMThreadStatus;
+
+typedef enum ThreadRunningStatus {
+    WASM_THREAD_RUNNING,
+    WASM_THREAD_WAIT,
+    WASM_THREAD_SUSPENDED,
+    WASM_THREAD_ZOMBIE,
+    WASM_THREAD_STOP,
+    WASM_THREAD_EXIT,
+    WASM_THREAD_STEP,
+} ThreadRunningStatus;
 
 /* Execution environment */
 typedef struct WASMExecEnv {
@@ -112,18 +125,24 @@ typedef struct WASMExecEnv {
     /* pointer to the cluster */
     WASMCluster *cluster;
 
-    /* used to support debugger */
+    /* the lock for protecting the wait_cond and the fields of this exec_env,
+       including suspend_flags, thread_ret_value, wait_count, suspend_count,
+       thread_is_detached */
     korp_mutex wait_lock;
+
+    /* conditional variable for this thread to wait */
     korp_cond wait_cond;
+
     /* the count of threads which are joining current thread */
     uint32 wait_count;
 
+    /* the count of threads which are suspending current thread */
+    uint32 suspend_count;
+
     /* whether current thread is detached */
     bool thread_is_detached;
-#endif
 
-#if WASM_ENABLE_DEBUG_INTERP != 0
-    WASMCurrentEnvStatus *current_status;
+    WASMThreadStatus current_status;
 #endif
 
     /* attachment for native function */

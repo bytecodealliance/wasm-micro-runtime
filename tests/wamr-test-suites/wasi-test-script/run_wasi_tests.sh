@@ -25,10 +25,6 @@ run_aot_tests () {
         test_aot="${test_wasm%.wasm}.aot"
         test_json="${test_wasm%.wasm}.json"
 
-        if [ -f ${test_wasm} ]; then
-            expected=$(jq .exit_code ${test_json})
-        fi
-
         echo "Compiling $test_wasm to $test_aot"
         ${WAMRC_CMD} --enable-multi-thread ${target_option} \
             -o ${test_aot} ${test_wasm}

@@ -166,12 +166,12 @@ control_thread_routine(void *arg)
                     korp_tid tid;
 
                     status = (uint32)debug_inst->stopped_thread->current_status
-                                 ->signal_flag;
+                                 .signal_flag;
                     tid = debug_inst->stopped_thread->handle;
 
                     if (debug_inst->stopped_thread->current_status
-                            ->running_status
-                        == STATUS_EXIT) {
+                            .running_status
+                        == WASM_THREAD_EXIT) {
                         /* If the thread exits, report "W00" if it's the last
                          * thread in the cluster, otherwise ignore this event */
                         status = 0;
@@ -602,7 +602,7 @@ wasm_debug_instance_get_thread_status(WASMDebugInstance *instance, korp_tid tid)
     exec_env = bh_list_first_elem(&instance->cluster->exec_env_list);
     while (exec_env) {
         if (exec_env->handle == tid) {
-            return (uint32)exec_env->current_status->signal_flag;
+            return (uint32)exec_env->current_status.signal_flag;
         }
         exec_env = bh_list_elem_next(exec_env);
     }
@@ -1105,7 +1105,7 @@ wasm_debug_instance_on_failure(WASMDebugInstance *instance)
         /* Resume all threads so they can receive the TERM signal */
         os_mutex_lock(&exec_env->wait_lock);
         wasm_cluster_thread_send_signal(exec_env, WAMR_SIG_TERM);
-        exec_env->current_status->running_status = STATUS_RUNNING;
+        exec_env->current_status.running_status = WASM_THREAD_RUNNING;
         os_cond_signal(&exec_env->wait_cond);
         os_mutex_unlock(&exec_env->wait_lock);
         exec_env = bh_list_elem_next(exec_env);
@@ -1208,7 +1208,7 @@ wasm_debug_instance_kill(WASMDebugInstance *instance)
         if (instance->current_state == APP_STOPPED) {
             /* Resume all threads so they can receive the TERM signal */
             os_mutex_lock(&exec_env->wait_lock);
-            exec_env->current_status->running_status = STATUS_RUNNING;
+            exec_env->current_status.running_status = WASM_THREAD_RUNNING;
             os_cond_signal(&exec_env->wait_cond);
             os_mutex_unlock(&exec_env->wait_lock);
         }
