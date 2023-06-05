@@ -1771,15 +1771,17 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                         GET_REF_FROM_ADDR(frame_lp + addr2));
                 }
                 {
+                    uint8 orig_ref = 0;
                     /* Ignore constants because they are not reference */
                     if (addr1 >= 0) {
-                        uint8 orig_ref = *FRAME_REF(addr1);
+                        orig_ref = *FRAME_REF(addr1);
                         CLEAR_FRAME_REF(addr1);
+                    }
+                    if (addr2 >= 0) {
                         CLEAR_FRAME_REF(addr2);
-
-                        if (orig_ref) {
-                            SET_FRAME_REF(addr_ret);
-                        }
+                    }
+                    if (orig_ref) {
+                        SET_FRAME_REF(addr_ret);
                     }
                 }
 
