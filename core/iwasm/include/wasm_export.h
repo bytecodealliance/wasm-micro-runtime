@@ -1332,6 +1332,30 @@ wasm_runtime_dump_call_stack_to_buf(wasm_exec_env_t exec_env, char *buf,
                                     uint32_t len);
 
 /**
+ * Get the size required to store the LLVM PGO profile data
+ *
+ * @param module_inst the WASM module instance
+ *
+ * @return size required to store the contents, 0 means error
+ */
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_runtime_get_pgo_prof_data_size(wasm_module_inst_t module_inst);
+
+/**
+ * Dump the LLVM PGO profile data to buffer
+ *
+ * @param module_inst the WASM module instance
+ * @param buf buffer to store the dumped content
+ * @param len length of the buffer
+ *
+ * @return bytes dumped to the buffer, 0 means error and data in buf
+ *         may be invalid
+ */
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_runtime_dump_pgo_prof_data_to_buf(wasm_module_inst_t module_inst,
+                                       char *buf, uint32_t len);
+
+/**
  * Get a custom section by name
  *
  * @param module_comm the module to find
