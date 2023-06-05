@@ -2399,7 +2399,7 @@ aot_resolve_object_data_sections(AOTObjectData *obj_data)
 
                 if (obj_data->comp_ctx->enable_llvm_pgo
                     && !strcmp(name, "__llvm_prf_names")) {
-                    data_section->data = aot_compress_aot_func_names(
+                    data_section->data = (uint8 *)aot_compress_aot_func_names(
                         obj_data->comp_ctx, &data_section->size);
                     data_section->is_data_allocated = true;
                 }
