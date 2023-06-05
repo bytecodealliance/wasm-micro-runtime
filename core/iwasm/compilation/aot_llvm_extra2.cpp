@@ -4,6 +4,8 @@
  */
 
 #include <llvm-c/TargetMachine.h>
+#include <llvm/ADT/None.h>
+#include <llvm/ADT/Optional.h>
 #if LLVM_VERSION_MAJOR >= 14
 #include <llvm/MC/TargetRegistry.h>
 #else
