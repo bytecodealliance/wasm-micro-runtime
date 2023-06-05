@@ -5033,6 +5033,33 @@ wasm_runtime_dump_call_stack_to_buf(wasm_exec_env_t exec_env, char *buf,
 }
 #endif /* end of WASM_ENABLE_DUMP_CALL_STACK */
 
+#if WASM_ENABLE_STATIC_PGO != 0
+uint32
+wasm_runtime_get_pgo_prof_data_size(WASMModuleInstanceCommon *module_inst)
+{
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        AOTModuleInstance *aot_inst = (AOTModuleInstance *)module_inst;
+        return aot_get_pgo_prof_data_size(aot_inst);
+    }
+#endif
+    return 0;
+}
+
+uint32
+wasm_runtime_dump_pgo_prof_data_to_buf(WASMModuleInstanceCommon *module_inst,
+                                       char *buf, uint32 len)
+{
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        AOTModuleInstance *aot_inst = (AOTModuleInstance *)module_inst;
+        return aot_dump_pgo_prof_data_to_buf(aot_inst, buf, len);
+    }
+#endif
+    return 0;
+}
+#endif /* end of WASM_ENABLE_STATIC_PGO != 0 */
+
 bool
 wasm_runtime_get_table_elem_type(const WASMModuleCommon *module_comm,
                                  uint32 table_idx, uint8 *out_elem_type,

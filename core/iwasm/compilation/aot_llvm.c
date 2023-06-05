@@ -1670,6 +1670,12 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
     if (option->disable_llvm_lto)
         comp_ctx->disable_llvm_lto = true;
 
+    if (option->enable_llvm_pgo)
+        comp_ctx->enable_llvm_pgo = true;
+
+    if (option->use_prof_file)
+        comp_ctx->use_prof_file = option->use_prof_file;
+
     if (option->enable_stack_estimation)
         comp_ctx->enable_stack_estimation = true;
 
@@ -2828,4 +2834,24 @@ aot_load_const_from_table(AOTCompContext *comp_ctx, LLVMValueRef base,
 
     (void)const_type;
     return const_value;
+}
+
+bool
+aot_set_cond_br_weights(AOTCompContext *comp_ctx, LLVMValueRef cond_br,
+                        int32 weights_true, int32 weights_false)
+{
+    LLVMMetadataRef md_nodes[3], meta_data;
+    LLVMValueRef meta_data_as_value;
+
+    md_nodes[0] = LLVMMDStringInContext2(comp_ctx->context, "branch_weights",
+                                         strlen("branch_weights"));
+    md_nodes[1] = LLVMValueAsMetadata(I32_CONST(weights_true));
+    md_nodes[2] = LLVMValueAsMetadata(I32_CONST(weights_false));
+
+    meta_data = LLVMMDNodeInContext2(comp_ctx->context, md_nodes, 3);
+    meta_data_as_value = LLVMMetadataAsValue(comp_ctx->context, meta_data);
+
+    LLVMSetMetadata(cond_br, 2, meta_data_as_value);
+
+    return true;
 }
