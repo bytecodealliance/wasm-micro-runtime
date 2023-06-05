@@ -4,7 +4,11 @@
  */
 
 #include <llvm-c/TargetMachine.h>
+#if LLVM_VERSION_MAJOR >= 14
 #include <llvm/MC/TargetRegistry.h>
+#else
+#include <llvm/Support/TargetRegistry.h>
+#endif
 #include <llvm/Target/TargetMachine.h>
 
 #include "bh_assert.h"
