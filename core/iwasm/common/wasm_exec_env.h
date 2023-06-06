@@ -36,14 +36,18 @@ typedef struct WASMThreadStatus {
 } WASMThreadStatus;
 
 typedef enum ThreadRunningStatus {
-    WASM_THREAD_RUNNING,
-    WASM_THREAD_WAIT,
-    WASM_THREAD_SUSPENDED,
+    WASM_THREAD_RUNNING = 0,
+    WASM_THREAD_WAIT = 1,
+    WASM_THREAD_SUSPENDED = 2,
     WASM_THREAD_ZOMBIE,
     WASM_THREAD_STOP,
     WASM_THREAD_EXIT,
     WASM_THREAD_STEP,
 } ThreadRunningStatus;
+
+#define THREAD_TERMINATE_FLAG 1
+#define THREAD_SUSPEND_FLAG 2
+#define THREAD_RET_VALUE_FLAG 8
 
 /* Execution environment */
 typedef struct WASMExecEnv {
@@ -125,9 +129,8 @@ typedef struct WASMExecEnv {
     /* pointer to the cluster */
     WASMCluster *cluster;
 
-    /* the lock for protecting the wait_cond and the fields of this exec_env,
-       including suspend_flags, thread_ret_value, wait_count, suspend_count,
-       thread_is_detached */
+    /* the lock for protecting wait_cond, wait_count and
+       thread_is_detached of this exec_env */
     korp_mutex wait_lock;
 
     /* conditional variable for this thread to wait */

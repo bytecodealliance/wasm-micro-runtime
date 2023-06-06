@@ -25,9 +25,12 @@ struct WASMCluster {
 
     /* The lock for exec_env_list, has_exception and processing */
     korp_mutex lock;
+
     bh_list exec_env_list;
 
-    /* The lock for thread_safe_cond and thread_resume_cond */
+    /* The lock for thread_safe_cond, thread_resume_cond and the below
+       fields of exec_env:
+         suspend_flags, suspend_count, current_status, thread_ret_value */
     korp_mutex thread_state_lock;
 
     /* Condition variable for notifying threads that are waiting for
