@@ -2165,6 +2165,7 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
         aot_set_last_error("create LLVM target data layout failed.");
         goto fail;
     }
+    LLVMSetModuleDataLayout(comp_ctx->module, target_data_ref);
     comp_ctx->pointer_size = LLVMPointerSize(target_data_ref);
     LLVMDisposeTargetData(target_data_ref);
 
