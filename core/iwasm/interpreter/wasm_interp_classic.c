@@ -487,7 +487,7 @@ read_leb(const uint8 *buf, uint32 *p_offset, uint32 maxbits, bool sign)
         ctype cval;                                     \
         read_leb_##ctype(frame_ip, frame_ip_end, cval); \
         PUSH_##src_op_type(cval);                       \
-        printf("i32.const %d %d %d %d\n",cval,*frame_sp,((uint8*)frame_sp)-exec_env->wasm_stack.s.bottom); \
+        printf("i32.const %d %d %ld",cval,*frame_sp,((uint8*)frame_sp)-exec_env->wasm_stack.s.bottom); \
     } while (0)
 
 #define DEF_OP_EQZ(src_op_type)             \
@@ -1108,7 +1108,7 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
            fprintf(file,"val %d ",val);                     \
            fprintf(file,"depth %d \n",depth);                     \
     } while (0)
-#define SNAPSHOT_STEP 3000
+#define SNAPSHOT_STEP 2000
 #define SNAPSHOT_DEBUG_STEP 0
 
 #if WASM_ENABLE_THREAD_MGR != 0 && WASM_ENABLE_DEBUG_INTERP != 0
@@ -1213,7 +1213,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     register uint8 *frame_ip = &opcode_IMPDEP; /* cache of frame->ip */
     register uint32 *frame_lp = NULL;          /* cache of frame->lp */
     register uint32 *frame_sp = NULL;          /* cache of frame->sp */
-    register uint32 *frame_lp_bak = NULL;      /* cache of frame->lp_bak */
     WASMBranchBlock *frame_csp = NULL;
     BlockAddr *cache_items;
     uint8 *frame_ip_end = frame_ip + 1;
@@ -1751,7 +1750,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         GET_I64_FROM_ADDR(frame_lp + (local_offset & 0x7F)));
                 else
                     PUSH_I32(*(int32 *)(frame_lp + local_offset));
-                printf("local.get %d %d %d %d %d\n",local_offset,*frame_lp,((uint8*)frame_lp)-exec_env->wasm_stack.s.bottom,*frame_sp,((uint8*)frame_sp)-exec_env->wasm_stack.s.bottom);
+                printf("local.get %d %d %ld %d %ld\n",local_offset,*frame_lp,((uint8*)frame_lp)-exec_env->wasm_stack.s.bottom,*frame_sp,((uint8*)frame_sp)-exec_env->wasm_stack.s.bottom);
 
                 HANDLE_OP_END();
             }
@@ -1791,7 +1790,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         POP_I64());
                 else
                     *(int32 *)(frame_lp + local_offset) = POP_I32();
-                printf("local.set %d %d %d\n",local_offset,*frame_sp,((uint8*)frame_sp)-exec_env->wasm_stack.s.bottom);
+                printf("local.set %d %d %ld\n",local_offset,*frame_sp,((uint8*)frame_sp)-exec_env->wasm_stack.s.bottom);
 
                 HANDLE_OP_END();
             }
@@ -1863,9 +1862,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 global = globals + global_idx;
                 global_addr = get_global_addr(global_data, global);
                 *(int32 *)global_addr = POP_I32();
-                printf("set.global %d %d %d %d %p\n",
+                printf("set.global %ld %d %d %p\n",
                        ((uint8 *)frame_sp) - exec_env->wasm_stack.s.bottom,
-                       *frame_sp, globals[0], global_idx, global_addr);
+                       *frame_sp, global_idx, global_addr);
                 HANDLE_OP_END();
             }
 
@@ -1906,7 +1905,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 bh_assert(global_idx < module->e->global_count);
                 global = globals + global_idx;
                 global_addr = get_global_addr(global_data, global);
-                printf("set.global %d %d %d %d\n",global_idx,*frame_sp,((uint8*)frame_sp)-exec_env->wasm_stack.s.bottom);
+                printf("set.global %d %d %ld\n",global_idx,*frame_sp,((uint8*)frame_sp)-exec_env->wasm_stack.s.bottom);
                 PUT_I64_TO_ADDR((uint32 *)global_addr, POP_I64());
                 HANDLE_OP_END();
             }
@@ -1920,7 +1919,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 read_leb_uint32(frame_ip, frame_ip_end, flags);
                 read_leb_uint32(frame_ip, frame_ip_end, offset);
                 addr = POP_I32();
-                printf("load.i32 %d %d %d %d\n",offset,flags,*frame_sp,((uint8*)frame_sp)-exec_env->wasm_stack.s.bottom);
+                printf("load.i32 %d %d %d %ld\n",offset,flags,*frame_sp,((uint8*)frame_sp)-exec_env->wasm_stack.s.bottom);
                 CHECK_MEMORY_OVERFLOW(4);
                 PUSH_I32(LOAD_I32(maddr));
                 CHECK_READ_WATCHPOINT(addr, offset);
@@ -2467,7 +2466,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_I32_ADD)
             {
                 DEF_OP_NUMERIC(uint32, uint32, I32, +);
-                printf("i32.add %d %d %d %d\n", *frame_sp,((uint8*)frame_sp)-exec_env->wasm_stack.s.bottom);
+                printf("i32.add %d %ld\n", *frame_sp,((uint8*)frame_sp)-exec_env->wasm_stack.s.bottom);
                 HANDLE_OP_END();
             }
 
@@ -3998,7 +3997,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 (WASMBranchBlock *)frame->sp_boundary;
             frame->csp_boundary =
                 frame->csp_bottom + cur_wasm_func->max_block_num;
+
             printf("csp_bottom %p for function %s\n", frame->csp_bottom,frame->function->u.func->field_name);
+            
             /* Initialize the local variables */
             memset(frame_lp + cur_func->param_cell_num, 0,
                    (uint32)(cur_func->local_cell_num * 4));
