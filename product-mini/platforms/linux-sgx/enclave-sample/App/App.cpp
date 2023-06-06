@@ -282,21 +282,21 @@ split_string(char *str, int *count)
 }
 
 typedef enum EcallCmd {
-    CMD_INIT_RUNTIME = 0,       /* wasm_runtime_init/full_init() */
-    CMD_LOAD_MODULE,            /* wasm_runtime_load() */
-    CMD_INSTANTIATE_MODULE,     /* wasm_runtime_instantiate() */
-    CMD_LOOKUP_FUNCTION,        /* wasm_runtime_lookup_function() */
-    CMD_CREATE_EXEC_ENV,        /* wasm_runtime_create_exec_env() */
-    CMD_CALL_WASM,              /* wasm_runtime_call_wasm */
-    CMD_EXEC_APP_FUNC,          /* wasm_application_execute_func() */
-    CMD_EXEC_APP_MAIN,          /* wasm_application_execute_main() */
-    CMD_GET_EXCEPTION,          /* wasm_runtime_get_exception() */
-    CMD_DEINSTANTIATE_MODULE,   /* wasm_runtime_deinstantiate() */
-    CMD_UNLOAD_MODULE,          /* wasm_runtime_unload() */
-    CMD_DESTROY_RUNTIME,        /* wasm_runtime_destroy() */
-    CMD_SET_WASI_ARGS,          /* wasm_runtime_set_wasi_args() */
-    CMD_SET_LOG_LEVEL,          /* bh_log_set_verbose_level() */
-    CMD_GET_VERSION,            /* wasm_runtime_get_version() */
+    CMD_INIT_RUNTIME = 0,     /* wasm_runtime_init/full_init() */
+    CMD_LOAD_MODULE,          /* wasm_runtime_load() */
+    CMD_INSTANTIATE_MODULE,   /* wasm_runtime_instantiate() */
+    CMD_LOOKUP_FUNCTION,      /* wasm_runtime_lookup_function() */
+    CMD_CREATE_EXEC_ENV,      /* wasm_runtime_create_exec_env() */
+    CMD_CALL_WASM,            /* wasm_runtime_call_wasm */
+    CMD_EXEC_APP_FUNC,        /* wasm_application_execute_func() */
+    CMD_EXEC_APP_MAIN,        /* wasm_application_execute_main() */
+    CMD_GET_EXCEPTION,        /* wasm_runtime_get_exception() */
+    CMD_DEINSTANTIATE_MODULE, /* wasm_runtime_deinstantiate() */
+    CMD_UNLOAD_MODULE,        /* wasm_runtime_unload() */
+    CMD_DESTROY_RUNTIME,      /* wasm_runtime_destroy() */
+    CMD_SET_WASI_ARGS,        /* wasm_runtime_set_wasi_args() */
+    CMD_SET_LOG_LEVEL,        /* bh_log_set_verbose_level() */
+    CMD_GET_VERSION,          /* wasm_runtime_get_version() */
 #if WASM_ENABLE_STATIC_PGO != 0
     CMD_GET_PGO_PROF_BUF_SIZE,  /* wasm_runtime_get_pro_prof_data_size() */
     CMD_DUMP_PGO_PROF_BUF_DATA, /* wasm_runtime_dump_pgo_prof_data_to_buf() */
@@ -640,6 +640,7 @@ dump_pgo_prof_data(void *module_inst, const char *path)
                                 (uint8_t *)ecall_args_2,
                                 sizeof(ecall_args_2))) {
         printf("Call ecall_handle_command() failed.\n");
+        free(buf);
         return;
     }
     if (!(len = ecall_args_2[0])) {
