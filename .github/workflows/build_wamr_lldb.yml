@@ -116,6 +116,16 @@ jobs:
           cmake --build build --target lldb install --parallel $(nproc)
         working-directory: core/deps/llvm-project
 
+      - name: validate lldb ubuntu
+        if: steps.lldb_build_cache.outputs.cache-hit != 'true' && contains(inputs.runner, 'ubuntu')
+        run: |
+          echo "start to validate lldb..."
+          mkdir -p wamr-debug
+          cmake -S product-mini/platforms/linux -B wamr-debug -DWAMR_BUILD_DEBUG_INTERP=1
+          cmake --build wamr-debug --parallel $(nproc)
+          python3 ci/validate_lldb.py --lldb wamr-lldb/bin/lldb --wamr wamr-debug/iwasm
+        working-directory: .
+
       - name: build lldb macos
         if: steps.lldb_build_cache.outputs.cache-hit != 'true' && contains(inputs.runner, 'macos')
         run: |
