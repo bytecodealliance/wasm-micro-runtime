@@ -259,7 +259,9 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
          * update native_stack_top_min
          */
         LLVMPositionBuilderAtEnd(b, update_top_block);
-        LLVMBuildStore(b, new_sp, func_ctx->native_stack_top_min_addr);
+        LLVMValueRef new_sp_ptr =
+            LLVMBuildIntToPtr(b, new_sp, OPQ_PTR_TYPE, "new_sp_ptr");
+        LLVMBuildStore(b, new_sp_ptr, func_ctx->native_stack_top_min_addr);
         LLVMBuildBr(b, stack_bound_check_block);
     }
     else {
