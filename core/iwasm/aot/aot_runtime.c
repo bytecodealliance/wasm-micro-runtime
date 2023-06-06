@@ -1480,6 +1480,10 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
 
     /* set thread handle and stack boundary */
     wasm_exec_env_set_thread_info(exec_env);
+    uint8 *fp = __builtin_frame_address(0);
+    LOG_VERBOSE("%s: native_stack_boundary %p frame %p size %zu", __func__,
+                exec_env->native_stack_boundary, fp,
+                fp - exec_env->native_stack_boundary);
 
     if (ext_ret_count > 0) {
         uint32 cell_num = 0, i;
