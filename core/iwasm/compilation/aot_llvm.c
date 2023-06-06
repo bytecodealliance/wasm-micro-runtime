@@ -222,9 +222,9 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
     }
     /*
      * calculate new sp
-     *
-     * TODO check underflow
      */
+    LLVMValueRef underflow =
+        LLVMBuildICmp(b, LLVMIntULT, sp, size, "underflow");
     LLVMValueRef new_sp = LLVMBuildSub(b, sp, size, "new_sp");
     LLVMBuildBr(b, check_top_block);
 
@@ -247,9 +247,9 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
          * native_stack_bound <= native_stack_top_min
          */
         LLVMValueRef cmp_top =
-            LLVMBuildICmp(b, LLVMIntULT, new_sp, top_min_int, "cmp");
-        if (!LLVMBuildCondBr(b, cmp_top, update_top_block,
-                             call_wrapped_func_block)) {
+            LLVMBuildICmp(b, LLVMIntULT, new_sp, top_min_int, "cmp_top");
+        cmp_top = LLVMBuildOr(b, underflow, cmp_top, "cmp_top2");
+        if (!LLVMBuildCondBr(b, cmp_top, update_top_block, call_wrapped_func_block)) {
             aot_set_last_error("llvm build cond br failed.");
             goto fail;
         }
@@ -274,6 +274,7 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
             b, func_ctx->native_stack_bound, uintptr_type, "bound_base_int");
         LLVMValueRef cmp =
             LLVMBuildICmp(b, LLVMIntULT, new_sp, bound_int, "cmp");
+        cmp = LLVMBuildOr(b, underflow, cmp, "cmp2");
         /* todo: @llvm.expect.i1(i1 %cmp, i1 0) */
         if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_NATIVE_STACK_OVERFLOW,
                                 true, cmp, call_wrapped_func_block))
