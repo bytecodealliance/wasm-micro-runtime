@@ -63,6 +63,19 @@ bh_list_status
 bh_list_insert(bh_list *list, void *elem);
 
 /**
+ * Append an elem pointer into list. The list node memory is maintained by list
+ * while elem memory is the responsibility of list user.
+ *
+ * @param list    pointer to list.
+ * @param elem    pointer to elem that will be inserted into list.
+ * @return        <code>BH_LIST_ERROR</code> if OK;
+ *                <code>BH_LIST_ERROR</code> if input is invalid or no memory
+ * available.
+ */
+bh_list_status
+bh_list_append(bh_list *list, void *elem);
+
+/**
  * Remove an elem pointer from list. The list node memory is maintained by list
  * while elem memory is the responsibility of list user.
  *

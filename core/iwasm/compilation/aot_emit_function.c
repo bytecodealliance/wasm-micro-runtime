@@ -965,6 +965,7 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
         /* Set calling convention for the call with the func's calling
            convention */
+        /* TODO: there is a case which from L935 is actually a pointer */
         if (LLVMGetValueKind(func) == LLVMFunctionValueKind)
             LLVMSetInstructionCallConv(value_ret,
                                        LLVMGetFunctionCallConv(func));
