@@ -1874,7 +1874,7 @@ orc_jit_create(AOTCompContext *comp_ctx)
         goto fail;
     }
 
-    if (comp_ctx->enable_stack_bound_check)
+    if (comp_ctx->enable_stack_bound_check || comp_ctx->enable_stack_estimation)
         LLVMOrcLLJITBuilderSetCompileFuncitonCreatorWithStackSizesCallback(
             builder, jit_stack_size_callback, comp_ctx);
 
