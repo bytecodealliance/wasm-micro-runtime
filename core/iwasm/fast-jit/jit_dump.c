@@ -71,6 +71,12 @@ jit_dump_insn_Reg(JitCompContext *cc, JitInsn *insn, unsigned opnd_num)
         jit_dump_reg(cc, *(jit_insn_opnd(insn, i)));
     }
 
+#if WASM_ENABLE_FAST_JIT_DUMP != 0
+    if (strlen(insn->comment)) {
+        os_printf("; %s", insn->comment);
+    }
+#endif
+
     os_printf("\n");
 }
 
@@ -85,6 +91,12 @@ jit_dump_insn_VReg(JitCompContext *cc, JitInsn *insn, unsigned opnd_num)
         os_printf(i == 0 ? " " : ", ");
         jit_dump_reg(cc, *(jit_insn_opndv(insn, i)));
     }
+
+#if WASM_ENABLE_FAST_JIT_DUMP != 0
+    if (strlen(insn->comment)) {
+        os_printf("; %s", insn->comment);
+    }
+#endif
 
     os_printf("\n");
 }
