@@ -1425,3 +1425,17 @@ just_return:
         jit_set_last_error(cc, "generate insn failed");
     return ret;
 }
+
+#if WASM_ENABLE_FAST_JIT_DUMP != 0
+void
+jit_insn_add_comments(JitInsn *insn, const char *format, ...)
+{
+    va_list ap;
+    bh_assert(insn);
+    bh_assert(sizeof(insn->comment) / sizeof(insn->comment[0]) > 100);
+
+    va_start(ap, format);
+    vsnprintf(insn->comment, 100, format, ap);
+    va_end(ap);
+}
+#endif
