@@ -90,6 +90,10 @@ print_help()
     printf("  -g=ip:port               Set the debug sever address, default is debug disabled\n");
     printf("                             if port is 0, then a random port will be used\n");
 #endif
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+    printf("  --hot-func-threshold=n   Set a threshold for when a function becomes hot enough.\n");
+    printf("                             By default, it is %d\n", WASM_DPGO_TIER_UP_THRESH_DEFAULT);
+#endif
     printf("  --version                Show version information\n");
     return 1;
 }
@@ -398,6 +402,9 @@ main(int argc, char *argv[])
     char *ip_addr = NULL;
     int instance_port = 0;
 #endif
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+    int threshold_val = WASM_DPGO_TIER_UP_THRESH_DEFAULT;
+#endif
 
     /* Process options. */
     for (argc--, argv++; argc > 0 && argv[0][0] == '-'; argc--, argv++) {
@@ -593,6 +600,18 @@ main(int argc, char *argv[])
             ip_addr = argv[0] + 3;
         }
 #endif
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+        else if (!strncmp(argv[0], "--hot-func-threshold",
+                          strlen("--hot-func-threshold"))) {
+            char *thresh_str =
+                strchr(argv[0] + strlen("--hot-func-threshold"), '=') + 1;
+            /* atoi() return 0 for invalid input */
+            int tmp = atoi(thresh_str);
+
+            if (tmp > 0)
+                threshold_val = tmp;
+        }
+#endif
         else if (!strncmp(argv[0], "--version", 9)) {
             uint32 major, minor, patch;
             wasm_runtime_get_version(&major, &minor, &patch);
@@ -638,6 +657,10 @@ main(int argc, char *argv[])
     init_args.instance_port = instance_port;
     if (ip_addr)
         strcpy(init_args.ip_addr, ip_addr);
+#endif
+
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+    init_args.hot_func_threshold = threshold_val;
 #endif
 
     /* initialize runtime environment */

@@ -453,12 +453,9 @@
  * a default value about how many times a function
  * should be executed before generating a more
  * optimized version with a high-level jit
- *
- * TODO: should be removed after adding a new
- * command line option of iwasm
  */
-#ifndef WASM_DPGO_TIER_UP_THRESHOLD
-#define WASM_DPGO_TIER_UP_THRESHOLD 100
+#ifndef WASM_DPGO_TIER_UP_THRESH_DEFAULT
+#define WASM_DPGO_TIER_UP_THRESH_DEFAULT 100
 #endif
 
 #ifndef WASM_ENABLE_FAST_JIT_OPT_MERGE_CMP
