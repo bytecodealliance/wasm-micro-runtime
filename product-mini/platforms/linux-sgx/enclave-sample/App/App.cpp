@@ -232,9 +232,9 @@ print_help()
     printf("                         for example:\n");
     printf("                           --addr-pool=1.2.3.4/15,2.3.4.5/16\n");
     printf("  --max-threads=n        Set maximum thread number per cluster, default is 4\n");
-// TODO:#if WASM_ENABLE_STATIC_PGO != 0
+#if WASM_ENABLE_STATIC_PGO != 0
     printf("  --gen-prof-file=<path> Generate LLVM PGO (Profile-Guided Optimization) profile file\n");
-// #endif
+#endif
     printf("  --version              Show version information\n");
     return 1;
 }
@@ -297,10 +297,10 @@ typedef enum EcallCmd {
     CMD_SET_WASI_ARGS,          /* wasm_runtime_set_wasi_args() */
     CMD_SET_LOG_LEVEL,          /* bh_log_set_verbose_level() */
     CMD_GET_VERSION,            /* wasm_runtime_get_version() */
-                                // TODO:#if WASM_ENABLE_STATIC_PGO != 0
+#if WASM_ENABLE_STATIC_PGO != 0
     CMD_GET_PGO_PROF_BUF_SIZE,  /* wasm_runtime_get_pro_prof_data_size() */
     CMD_DUMP_PGO_PROF_BUF_DATA, /* wasm_runtime_dump_pgo_prof_data_to_buf() */
-    // #endif
+#endif
 } EcallCmd;
 
 static void
@@ -605,7 +605,7 @@ get_version(uint64_t *major, uint64_t *minor, uint64_t *patch)
     *patch = ecall_args[2];
 }
 
-// TODO: #if WASM_ENABLE_STATIC_PGO != 0
+#if WASM_ENABLE_STATIC_PGO != 0
 static void
 dump_pgo_prof_data(void *module_inst, const char *path)
 {
@@ -660,7 +660,7 @@ dump_pgo_prof_data(void *module_inst, const char *path)
 
     printf("LLVM raw profile file %s was generated.\n", path);
 }
-// #endif
+#endif
 
 int
 main(int argc, char *argv[])
@@ -683,9 +683,9 @@ main(int argc, char *argv[])
     const char *addr_pool[8] = { NULL };
     uint32_t addr_pool_size = 0;
     uint32_t max_thread_num = 4;
-    // TODO: #if WASM_ENABLE_STATIC_PGO != 0
+#if WASM_ENABLE_STATIC_PGO != 0
     const char *gen_prof_file = NULL;
-    // #endif
+#endif
 
     if (enclave_init(&g_eid) < 0) {
         std::cout << "Fail to initialize enclave." << std::endl;
@@ -785,13 +785,13 @@ main(int argc, char *argv[])
                 return print_help();
             max_thread_num = atoi(argv[0] + 14);
         }
-        // TODO: #if WASM_ENABLE_STATIC_PGO != 0
+#if WASM_ENABLE_STATIC_PGO != 0
         else if (!strncmp(argv[0], "--gen-prof-file=", 16)) {
             if (argv[0][16] == '\0')
                 return print_help();
             gen_prof_file = argv[0] + 16;
         }
-        // #endif
+#endif
         else if (!strncmp(argv[0], "--version", 9)) {
             uint64_t major = 0, minor = 0, patch = 0;
             get_version(&major, &minor, &patch);
@@ -853,10 +853,10 @@ main(int argc, char *argv[])
     else
         app_instance_main(wasm_module_inst, argc, argv);
 
-    // TODO:#if WASM_ENABLE_STATIC_PGO != 0 && WASM_ENABLE_AOT != 0
+#if WASM_ENABLE_STATIC_PGO != 0
     if (gen_prof_file)
         dump_pgo_prof_data(wasm_module_inst, gen_prof_file);
-    // #endif
+#endif
 
     ret = 0;
 

@@ -34,25 +34,25 @@ enclave_print(const char *message)
 }
 
 typedef enum EcallCmd {
-    CMD_INIT_RUNTIME = 0,       /* wasm_runtime_init/full_init() */
-    CMD_LOAD_MODULE,            /* wasm_runtime_load() */
-    CMD_INSTANTIATE_MODULE,     /* wasm_runtime_instantiate() */
-    CMD_LOOKUP_FUNCTION,        /* wasm_runtime_lookup_function() */
-    CMD_CREATE_EXEC_ENV,        /* wasm_runtime_create_exec_env() */
-    CMD_CALL_WASM,              /* wasm_runtime_call_wasm */
-    CMD_EXEC_APP_FUNC,          /* wasm_application_execute_func() */
-    CMD_EXEC_APP_MAIN,          /* wasm_application_execute_main() */
-    CMD_GET_EXCEPTION,          /* wasm_runtime_get_exception() */
-    CMD_DEINSTANTIATE_MODULE,   /* wasm_runtime_deinstantiate() */
-    CMD_UNLOAD_MODULE,          /* wasm_runtime_unload() */
-    CMD_DESTROY_RUNTIME,        /* wasm_runtime_destroy() */
-    CMD_SET_WASI_ARGS,          /* wasm_runtime_set_wasi_args() */
-    CMD_SET_LOG_LEVEL,          /* bh_log_set_verbose_level() */
-    CMD_GET_VERSION,            /* wasm_runtime_get_version() */
-                                // TODO:#if WASM_ENABLE_STATIC_PGO != 0
+    CMD_INIT_RUNTIME = 0,     /* wasm_runtime_init/full_init() */
+    CMD_LOAD_MODULE,          /* wasm_runtime_load() */
+    CMD_INSTANTIATE_MODULE,   /* wasm_runtime_instantiate() */
+    CMD_LOOKUP_FUNCTION,      /* wasm_runtime_lookup_function() */
+    CMD_CREATE_EXEC_ENV,      /* wasm_runtime_create_exec_env() */
+    CMD_CALL_WASM,            /* wasm_runtime_call_wasm */
+    CMD_EXEC_APP_FUNC,        /* wasm_application_execute_func() */
+    CMD_EXEC_APP_MAIN,        /* wasm_application_execute_main() */
+    CMD_GET_EXCEPTION,        /* wasm_runtime_get_exception() */
+    CMD_DEINSTANTIATE_MODULE, /* wasm_runtime_deinstantiate() */
+    CMD_UNLOAD_MODULE,        /* wasm_runtime_unload() */
+    CMD_DESTROY_RUNTIME,      /* wasm_runtime_destroy() */
+    CMD_SET_WASI_ARGS,        /* wasm_runtime_set_wasi_args() */
+    CMD_SET_LOG_LEVEL,        /* bh_log_set_verbose_level() */
+    CMD_GET_VERSION,          /* wasm_runtime_get_version() */
+#if WASM_ENABLE_STATIC_PGO != 0
     CMD_GET_PGO_PROF_BUF_SIZE,  /* wasm_runtime_get_pro_prof_data_size() */
     CMD_DUMP_PGO_PROF_BUF_DATA, /* wasm_runtime_dump_pgo_prof_data_to_buf() */
-    // #endif
+#endif
 } EcallCmd;
 
 typedef struct EnclaveModule {
@@ -601,7 +601,7 @@ handle_cmd_get_version(uint64 *args, uint32 argc)
     args[2] = patch;
 }
 
-// TODO:#if WASM_ENABLE_STATIC_PGO != 0
+#if WASM_ENABLE_STATIC_PGO != 0
 static void
 handle_cmd_get_pgo_prof_buf_size(uint64 *args, int32 argc)
 {
@@ -629,7 +629,7 @@ handle_cmd_get_pro_prof_buf_data(uint64 *args, int32 argc)
         wasm_runtime_dump_pgo_prof_data_to_buf(module_inst, buf, len);
     args_org[0] = bytes_dumped;
 }
-// #endif
+#endif
 
 void
 ecall_handle_command(unsigned cmd, unsigned char *cmd_buf,
@@ -681,15 +681,14 @@ ecall_handle_command(unsigned cmd, unsigned char *cmd_buf,
         case CMD_GET_VERSION:
             handle_cmd_get_version(args, argc);
             break;
-            // TODO: pgo write buffer
-            // TODO:#if WASM_ENABLE_STATIC_PGO != 0
+#if WASM_ENABLE_STATIC_PGO != 0
         case CMD_GET_PGO_PROF_BUF_SIZE:
             handle_cmd_get_pgo_prof_buf_size(args, argc);
             break;
         case CMD_DUMP_PGO_PROF_BUF_DATA:
             handle_cmd_get_pro_prof_buf_data(args, argc);
             break;
-            // #endif
+#endif
         default:
             LOG_ERROR("Unknown command %d\n", cmd);
             break;

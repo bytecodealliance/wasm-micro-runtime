@@ -7,7 +7,7 @@ SGX_SDK ?= /opt/intel/sgxsdk
 SGX_SSL ?= /opt/intel/sgxssl
 SGX_MODE ?= SIM
 SGX_ARCH ?= x64
-SGX_DEBUG ?= 1
+SGX_DEBUG ?= 0
 SPEC_TEST ?= 0
 
 # These variables are automatically set by CMakeLists.txt
@@ -66,7 +66,7 @@ ifeq ($(WAMR_BUILD_LIB_RATS), 1)
 	App_Include_Paths += -I$(LIB_RATS_INCLUDE_DIR)
 endif
 
-App_C_Flags := $(SGX_COMMON_CFLAGS) -fPIC -Wno-attributes $(App_Include_Paths) -DWASM_ENABLE_LIB_RATS=$(WAMR_BUILD_LIB_RATS) -DWASM_ENABLE_STATIC_PGO=$(WAMR_BUILD_STATIC_PGO)
+App_C_Flags := $(SGX_COMMON_CFLAGS) -fPIC -Wno-attributes $(App_Include_Paths) -DWASM_ENABLE_STATIC_PGO=$(WAMR_BUILD_STATIC_PGO)
 
 # Three configuration modes - Debug, prerelease, release
 #   Debug - Macro DEBUG enabled.
