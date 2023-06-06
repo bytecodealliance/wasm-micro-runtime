@@ -19,6 +19,9 @@ create_native_symbol(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
 static bool
 create_native_stack_bound(const AOTCompContext *comp_ctx,
                           AOTFuncContext *func_ctx);
+static bool
+create_native_stack_top_min(const AOTCompContext *comp_ctx,
+                            AOTFuncContext *func_ctx);
 
 LLVMTypeRef
 wasm_type_to_llvm_type(const AOTLLVMTypes *llvm_types, uint8 wasm_type)
@@ -112,6 +115,12 @@ fail:
     return false;
 }
 
+/*
+ * a "precheck" function performs a few things before calling wrapped_func.
+ *
+ * - update native_stack_top_min if necessary
+ * - stack overflow check (if it does, trap)
+ */
 static LLVMValueRef
 aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
                           uint32 func_index, uint32 orig_param_count,
@@ -119,13 +128,32 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
 {
     LLVMValueRef precheck_func;
     LLVMBasicBlockRef begin;
+    LLVMBasicBlockRef check_top_block;
+    LLVMBasicBlockRef update_top_block;
+    LLVMBasicBlockRef stack_bound_check_block;
     LLVMBasicBlockRef call_wrapped_func_block;
     if (!(precheck_func =
               aot_add_llvm_func1(comp_ctx, module, func_index, orig_param_count,
                                  func_type, AOT_FUNC_PREFIX)))
         goto fail;
     if (!(begin = LLVMAppendBasicBlockInContext(comp_ctx->context,
-                                                precheck_func, "precheck"))) {
+                                                precheck_func, "begin"))) {
+        aot_set_last_error("add LLVM basic block failed.");
+        goto fail;
+    }
+    if (!(check_top_block = LLVMAppendBasicBlockInContext(
+              comp_ctx->context, precheck_func, "check_top_block"))) {
+        aot_set_last_error("add LLVM basic block failed.");
+        goto fail;
+    }
+    if (comp_ctx->enable_stack_estimation
+        && !(update_top_block = LLVMAppendBasicBlockInContext(
+                 comp_ctx->context, precheck_func, "update_top_block"))) {
+        aot_set_last_error("add LLVM basic block failed.");
+        goto fail;
+    }
+    if (!(stack_bound_check_block = LLVMAppendBasicBlockInContext(
+              comp_ctx->context, precheck_func, "stack_bound_check_block"))) {
         aot_set_last_error("add LLVM basic block failed.");
         goto fail;
     }
@@ -146,8 +174,13 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
     func_ctx->aot_func = comp_ctx->comp_data->funcs[func_index];
     if (!create_basic_func_context(comp_ctx, func_ctx))
         goto fail;
-    if (!create_native_stack_bound(comp_ctx, func_ctx))
+    if (comp_ctx->enable_stack_bound_check
+        && !create_native_stack_bound(comp_ctx, func_ctx))
         goto fail;
+    if (comp_ctx->enable_stack_estimation
+        && !create_native_stack_top_min(comp_ctx, func_ctx)) {
+        goto fail;
+    }
 
     /* XXX what to do for func_ctx->debug_func? maybe just disable? */
     /* XXX error checks */
@@ -164,8 +197,16 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
         uintptr_type = I64_TYPE;
     else
         uintptr_type = I32_TYPE;
+
+    /*
+     * load the stack pointer
+     */
     LLVMValueRef sp_ptr = LLVMBuildAlloca(b, I32_TYPE, "sp_ptr");
     LLVMValueRef sp = LLVMBuildPtrToInt(b, sp_ptr, uintptr_type, "sp");
+
+    /*
+     * load the value for this wrapped function from the stack_sizes array
+     */
     LLVMValueRef func_index_const = I32_CONST(func_index);
     LLVMValueRef sizes =
         LLVMBuildBitCast(b, comp_ctx->stack_sizes, INT32_PTR_TYPE, "sizes");
@@ -179,15 +220,70 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
     else {
         size = size32;
     }
-    LLVMValueRef bound_base_int = LLVMBuildPtrToInt(
-        b, func_ctx->native_stack_bound, uintptr_type, "bound_base_int");
-    LLVMValueRef bound = LLVMBuildAdd(b, bound_base_int, size, "bound");
-    LLVMValueRef cmp = LLVMBuildICmp(b, LLVMIntULT, sp, bound, "cmp");
-    /* todo: @llvm.expect.i1(i1 %cmp, i1 0) */
-    if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_NATIVE_STACK_OVERFLOW,
-                            true, cmp, call_wrapped_func_block))
-        goto fail;
+    LLVMBuildBr(b, check_top_block);
 
+    LLVMPositionBuilderAtEnd(b, check_top_block);
+    if (comp_ctx->enable_stack_estimation) {
+        /*
+         * load native_stack_top_min from the exec_env
+         */
+        LLVMValueRef top_min =
+            LLVMBuildLoad2(b, OPQ_PTR_TYPE, func_ctx->native_stack_top_min_addr,
+                           "native_stack_top_min");
+        LLVMValueRef top_min_int = LLVMBuildPtrToInt(
+            b, top_min, uintptr_type, "native_stack_top_min_int");
+
+        /*
+         * update native_stack_top_min if
+         * sp < native_stack_top_min + size
+         *
+         * Note: unless the stack has already overflown in thin exec_env,
+         * native_stack_bound <= native_stack_top_min
+         */
+        LLVMValueRef top_min_plus_size =
+            LLVMBuildAdd(b, top_min_int, size, "top_min_plus_size");
+        LLVMValueRef cmp_top =
+            LLVMBuildICmp(b, LLVMIntULT, sp, top_min_plus_size, "cmp");
+        if (!LLVMBuildCondBr(b, cmp_top, update_top_block,
+                             call_wrapped_func_block)) {
+            aot_set_last_error("llvm build cond br failed.");
+            goto fail;
+        }
+
+        /*
+         * update native_stack_top_min
+         */
+        LLVMPositionBuilderAtEnd(b, update_top_block);
+        LLVMValueRef new_sp = LLVMBuildSub(b, sp, size, "new_sp");
+        LLVMBuildStore(b, new_sp, func_ctx->native_stack_top_min_addr);
+        LLVMBuildBr(b, stack_bound_check_block);
+    }
+    else {
+        LLVMBuildBr(b, stack_bound_check_block);
+    }
+
+    LLVMPositionBuilderAtEnd(b, stack_bound_check_block);
+    if (comp_ctx->enable_stack_bound_check) {
+        /*
+         * trap if sp < native_stack_bound + size
+         */
+        LLVMValueRef bound_base_int = LLVMBuildPtrToInt(
+            b, func_ctx->native_stack_bound, uintptr_type, "bound_base_int");
+        LLVMValueRef bound = LLVMBuildAdd(b, bound_base_int, size, "bound");
+        LLVMValueRef cmp = LLVMBuildICmp(b, LLVMIntULT, sp, bound, "cmp");
+        /* todo: @llvm.expect.i1(i1 %cmp, i1 0) */
+        if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_NATIVE_STACK_OVERFLOW,
+                                true, cmp, call_wrapped_func_block))
+            goto fail;
+    }
+    else {
+        LLVMBuildBr(b, call_wrapped_func_block);
+    }
+
+    /*
+     * call the wrapped function
+     * use a tail-call if possible
+     */
     LLVMPositionBuilderAtEnd(b, call_wrapped_func_block);
     const char *name = "tail_call";
     LLVMTypeRef ret_type = LLVMGetReturnType(func_type);
@@ -285,7 +381,9 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
     bh_assert(func_index < comp_ctx->func_ctx_count);
     bh_assert(LLVMGetReturnType(func_type) == ret_type);
     const char *prefix = AOT_FUNC_PREFIX;
-    if (comp_ctx->enable_stack_bound_check) {
+    const bool need_precheck =
+        comp_ctx->enable_stack_bound_check || comp_ctx->enable_stack_estimation;
+    if (need_precheck) {
         /*
          * REVISIT: probably this breaks windows hw bound check
          * (the RtlAddFunctionTable stuff)
@@ -297,7 +395,7 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
                                     prefix)))
         goto fail;
 
-    if (comp_ctx->enable_stack_bound_check) {
+    if (need_precheck) {
         if (!comp_ctx->is_jit_mode)
             LLVMSetLinkage(func, LLVMInternalLinkage);
         unsigned int kind =
@@ -1223,11 +1321,6 @@ aot_create_func_context(const AOTCompData *comp_data, AOTCompContext *comp_ctx,
         goto fail;
     }
 
-    if (comp_ctx->enable_stack_estimation
-        && !create_native_stack_top_min(comp_ctx, func_ctx)) {
-        goto fail;
-    }
-
     /* Get auxiliary stack info */
     if (wasm_func->has_op_set_global_aux_stack
         && !create_aux_stack_info(comp_ctx, func_ctx)) {
@@ -1308,7 +1401,8 @@ aot_create_func_contexts(const AOTCompData *comp_data, AOTCompContext *comp_ctx)
     uint64 size;
     uint32 i;
 
-    if (comp_ctx->enable_stack_bound_check
+    if ((comp_ctx->enable_stack_bound_check
+         || comp_ctx->enable_stack_estimation)
         && !aot_create_stack_sizes(comp_data, comp_ctx))
         return NULL;
 
@@ -2316,7 +2410,8 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
                 (option->stack_bounds_checks == 1) ? true : false;
         }
 
-        if (comp_ctx->enable_stack_bound_check
+        if ((comp_ctx->enable_stack_bound_check
+             || comp_ctx->enable_stack_estimation)
             && option->stack_usage_file == NULL) {
             if (!aot_generate_tempfile_name(
                     "wamrc-su", "su", comp_ctx->stack_usage_temp_file,
