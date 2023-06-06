@@ -961,17 +961,23 @@ fail:
             if (arity == 1) {                                              \
                 if (cells[0] == 1) {                                       \
                     frame_lp[dst_offsets[0]] = frame_lp[src_offsets[0]];   \
-                    CLEAR_FRAME_REF((unsigned)(src_offsets[0]));           \
-                    SET_FRAME_REF(dst_offsets[0]);                         \
+                    /* Ignore constants because they are not reference */  \
+                    if (src_offsets[0] >= 0) {                             \
+                        CLEAR_FRAME_REF((unsigned)(src_offsets[0]));       \
+                        SET_FRAME_REF(dst_offsets[0]);                     \
+                    }                                                      \
                 }                                                          \
                 else if (cells[0] == 2) {                                  \
                     frame_lp[dst_offsets[0]] = frame_lp[src_offsets[0]];   \
                     frame_lp[dst_offsets[0] + 1] =                         \
                         frame_lp[src_offsets[0] + 1];                      \
-                    CLEAR_FRAME_REF((unsigned)src_offsets[0]);             \
-                    CLEAR_FRAME_REF((unsigned)(src_offsets[0] + 1));       \
-                    SET_FRAME_REF((unsigned)dst_offsets[0]);               \
-                    SET_FRAME_REF((unsigned)(dst_offsets[0] + 1));         \
+                    /* Ignore constants because they are not reference */  \
+                    if (src_offsets[0] >= 0) {                             \
+                        CLEAR_FRAME_REF((unsigned)src_offsets[0]);         \
+                        CLEAR_FRAME_REF((unsigned)(src_offsets[0] + 1));   \
+                        SET_FRAME_REF((unsigned)dst_offsets[0]);           \
+                        SET_FRAME_REF((unsigned)(dst_offsets[0] + 1));     \
+                    }                                                      \
                 }                                                          \
             }                                                              \
             else {                                                         \
@@ -1765,13 +1771,16 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                         GET_REF_FROM_ADDR(frame_lp + addr2));
                 }
                 {
-                    uint8 orig_ref = *FRAME_REF(addr1);
-                    CLEAR_FRAME_REF(addr1);
-                    CLEAR_FRAME_REF(addr2);
-
+                    uint8 orig_ref = 0;
+                    /* Ignore constants because they are not reference */
+                    if (addr1 >= 0) {
+                        orig_ref = *FRAME_REF(addr1);
+                        CLEAR_FRAME_REF(addr1);
+                    }
+                    if (addr2 >= 0) {
+                        CLEAR_FRAME_REF(addr2);
+                    }
                     if (orig_ref) {
-                        /* If original ref is i31ref, should not set frameref
-                         * for target cell */
                         SET_FRAME_REF(addr_ret);
                     }
                 }
@@ -3944,9 +3953,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 frame_lp[addr2] = frame_lp[addr1];
 
 #if WASM_ENABLE_GC != 0
-                if (*FRAME_REF(addr1)) {
-                    CLEAR_FRAME_REF(addr1);
-                    SET_FRAME_REF(addr2);
+                /* Ignore constants because they are not reference */
+                if (addr1 >= 0) {
+                    if (*FRAME_REF(addr1)) {
+                        CLEAR_FRAME_REF(addr1);
+                        SET_FRAME_REF(addr2);
+                    }
                 }
 #endif
 
@@ -3961,11 +3973,14 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 frame_lp[addr2 + 1] = frame_lp[addr1 + 1];
 
 #if WASM_ENABLE_GC != 0
-                if (*FRAME_REF(addr1)) {
-                    CLEAR_FRAME_REF(addr1);
-                    CLEAR_FRAME_REF(addr1 + 1);
-                    SET_FRAME_REF(addr2);
-                    SET_FRAME_REF(addr2 + 1);
+                /* Ignore constants because they are not reference */
+                if (addr1 >= 0) {
+                    if (*FRAME_REF(addr1)) {
+                        CLEAR_FRAME_REF(addr1);
+                        CLEAR_FRAME_REF(addr1 + 1);
+                        SET_FRAME_REF(addr2);
+                        SET_FRAME_REF(addr2 + 1);
+                    }
                 }
 #endif
 
