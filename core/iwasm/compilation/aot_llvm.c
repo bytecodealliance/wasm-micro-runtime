@@ -220,6 +220,12 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
     else {
         size = size32;
     }
+    /*
+     * calculate new sp
+     *
+     * TODO check underflow
+     */
+    LLVMValueRef new_sp = LLVMBuildSub(b, sp, size, "new_sp");
     LLVMBuildBr(b, check_top_block);
 
     LLVMPositionBuilderAtEnd(b, check_top_block);
@@ -235,15 +241,13 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
 
         /*
          * update native_stack_top_min if
-         * sp < native_stack_top_min + size
+         * new_sp = sp - size < native_stack_top_min
          *
-         * Note: unless the stack has already overflown in thin exec_env,
+         * Note: unless the stack has already overflown in this exec_env,
          * native_stack_bound <= native_stack_top_min
          */
-        LLVMValueRef top_min_plus_size =
-            LLVMBuildAdd(b, top_min_int, size, "top_min_plus_size");
         LLVMValueRef cmp_top =
-            LLVMBuildICmp(b, LLVMIntULT, sp, top_min_plus_size, "cmp");
+            LLVMBuildICmp(b, LLVMIntULT, new_sp, top_min_int, "cmp");
         if (!LLVMBuildCondBr(b, cmp_top, update_top_block,
                              call_wrapped_func_block)) {
             aot_set_last_error("llvm build cond br failed.");
@@ -254,7 +258,6 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
          * update native_stack_top_min
          */
         LLVMPositionBuilderAtEnd(b, update_top_block);
-        LLVMValueRef new_sp = LLVMBuildSub(b, sp, size, "new_sp");
         LLVMBuildStore(b, new_sp, func_ctx->native_stack_top_min_addr);
         LLVMBuildBr(b, stack_bound_check_block);
     }
@@ -265,12 +268,12 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
     LLVMPositionBuilderAtEnd(b, stack_bound_check_block);
     if (comp_ctx->enable_stack_bound_check) {
         /*
-         * trap if sp < native_stack_bound + size
+         * trap if new_sp < native_stack_bound
          */
-        LLVMValueRef bound_base_int = LLVMBuildPtrToInt(
+        LLVMValueRef bound_int = LLVMBuildPtrToInt(
             b, func_ctx->native_stack_bound, uintptr_type, "bound_base_int");
-        LLVMValueRef bound = LLVMBuildAdd(b, bound_base_int, size, "bound");
-        LLVMValueRef cmp = LLVMBuildICmp(b, LLVMIntULT, sp, bound, "cmp");
+        LLVMValueRef cmp =
+            LLVMBuildICmp(b, LLVMIntULT, new_sp, bound_int, "cmp");
         /* todo: @llvm.expect.i1(i1 %cmp, i1 0) */
         if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_NATIVE_STACK_OVERFLOW,
                                 true, cmp, call_wrapped_func_block))
