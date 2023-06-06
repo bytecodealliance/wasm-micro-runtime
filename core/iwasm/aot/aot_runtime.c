@@ -1383,10 +1383,6 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
 
     wasm_runtime_set_exec_env_tls(exec_env);
     if (os_setjmp(jmpbuf_node.jmpbuf) == 0) {
-        uint8 *fp = __builtin_frame_address(0);
-        LOG_VERBOSE("%s: native_stack_boundary %p frame %p size %zu", __func__,
-                    exec_env->native_stack_boundary, fp,
-                    fp - exec_env->native_stack_boundary);
         /* Quick call with func_ptr if the function signature is simple */
         if (!signature && param_count == 1 && types[0] == VALUE_TYPE_I32) {
             if (result_count == 0) {
