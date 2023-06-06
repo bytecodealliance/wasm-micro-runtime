@@ -13,6 +13,8 @@
 #include <llvm/Analysis/TargetTransformInfo.h>
 #include <llvm/CodeGen/TargetPassConfig.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/MDBuilder.h>
 #include <llvm/MC/MCSubtargetInfo.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Target/TargetMachine.h>
@@ -417,3 +419,86 @@ aot_compress_aot_func_names(AOTCompContext *comp_ctx, uint32 *p_size)
     *p_size = compressed_str_len;
     return compressed_str;
 }
+
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+/*TODO: maybe move below to a new file? */
+
+/* append !{!"function_entry_count", i64 NN} */
+void
+wasm_dpgo_set_function_entry_count(LLVMValueRef function, uint32 count)
+{
+    Function *F = unwrap<Function>(function);
+    if (F->hasProfileData()) {
+        uint64 current_count = F->getEntryCount().getValue().getCount();
+        if (current_count == count)
+            return;
+    }
+
+    F->setEntryCount(count, Function::PCT_Real);
+    F->addFnAttr(Attribute::Hot);
+}
+
+/* append !{!"branch_weights", i32 NN, i32 MM} */
+void
+wasm_dpgo_set_branch_weights(LLVMModuleRef module, LLVMValueRef instruction,
+                             uint32 *counts, uint32 counts_size)
+{
+    Module *M = reinterpret_cast<Module *>(module);
+    MDBuilder MDB(M->getContext());
+
+    SmallVector<unsigned, 4> Weights;
+    for (unsigned i = 0; i < counts_size; i++)
+        Weights.push_back(counts[i]);
+
+    Instruction *I = unwrap<Instruction>(instruction);
+    I->setMetadata(LLVMContext::MD_prof, MDB.createBranchWeights(Weights));
+}
+
+/* append !{!"loop_header_weight", i64 NN} */
+void
+wasm_dpgo_set_irr_loop(LLVMModuleRef module, LLVMValueRef instruction,
+                       uint32 count)
+{
+    Module *M = reinterpret_cast<Module *>(module);
+    MDBuilder MDB(M->getContext());
+
+    Instruction *I = unwrap<Instruction>(instruction);
+    I->setMetadata(llvm::LLVMContext::MD_irr_loop,
+                   MDB.createIrrLoopHeaderWeight(count));
+}
+
+void
+wasm_dpgo_set_vp(LLVMModuleRef module, LLVMValueRef instruction, uint32 *counts,
+                 uint32 counts_size)
+{
+    /*
+    TODO:
+    using
+    void annotateValueSite(Module &M, Instruction &Inst,
+                           const InstrProfRecord &InstrProfR,
+                           InstrProfValueKind ValueKind, uint32 SiteIndx,
+                           uint32 MaxMDCount = 3);
+
+    Valuekind is 0(IPVK_IndirectCallTarget),
+    MaxMDCount needs to be defined
+    */
+}
+
+/*
+ * Set prof metadata (!prof) for a function by given func_idx
+ *
+ */
+void
+wasm_dpgo_set_prof_meta(AOTCompContext *comp_ctx, LLVMValueRef function,
+                        uint32 func_idx)
+{
+    WASMModule *wasm_module = comp_ctx->comp_data->wasm_module;
+    LLVMModuleRef module = comp_ctx->module;
+
+    bh_assert(LLVMGetValueKind(function) == LLVMFunctionValueKind);
+    wasm_dpgo_set_function_entry_count(
+        function, wasm_dpgo_get_ent_cnt_value(wasm_module, func_idx));
+
+    /*TODO:  set profiling metadata for some instructions */
+}
+#endif /* WASM_ENABLE_DYNAMIC_PGO != 0 */

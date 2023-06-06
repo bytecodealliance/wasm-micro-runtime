@@ -221,7 +221,10 @@ get_table_cur_size_reg(JitFrame *frame, uint32 table_idx);
 
 #if WASM_ENABLE_DYNAMIC_PGO != 0
 JitReg
-get_ent_and_bw_cnts_reg(JitFrame *frame);
+get_ent_and_br_cnts_reg(JitFrame *frame);
+
+void
+gen_increase_cnt_insn(JitFrame *frame);
 #endif
 
 void

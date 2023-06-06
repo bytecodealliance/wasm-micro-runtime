@@ -554,6 +554,12 @@ bool
 aot_set_cond_br_weights(AOTCompContext *comp_ctx, LLVMValueRef cond_br,
                         int32 weights_true, int32 weights_false);
 
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+void
+wasm_dpgo_set_prof_meta(AOTCompContext *comp_ctx, LLVMValueRef function,
+                        uint32 func_idx);
+#endif
+
 #ifdef __cplusplus
 } /* end of extern "C" */
 #endif

@@ -2691,6 +2691,15 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
         }
     }
 
+    /*
+     * release IRBuilder as early as possible.  Further, release IR generation
+     * resource
+     */
+    if (comp_ctx->builder) {
+        LLVMDisposeBuilder(comp_ctx->builder);
+        comp_ctx->builder = NULL;
+    }
+
 #if WASM_ENABLE_DEBUG_AOT != 0
     LLVMDIBuilderFinalize(comp_ctx->debug_builder);
 #endif
@@ -2704,6 +2713,7 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
         }
     }
 
+#if WASM_ENABLE_DYNAMIC_PGO == 0
     /* Run IR optimization before feeding in ORCJIT and AOT codegen */
     if (comp_ctx->optimize) {
         /* Run passes for AOT/JIT mode.
@@ -2727,6 +2737,7 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
         }
         bh_print_time("Finish llvm optimization passes");
     }
+#endif /* WASM_ENABLE_DYNAMIC_PGO == 0 */
 
 #ifdef DUMP_MODULE
     LLVMDumpModule(comp_ctx->module);

@@ -932,7 +932,7 @@ typedef struct JitFrame {
 
 #if WASM_ENABLE_DYNAMIC_PGO != 0
     /* module->ent_and_br_cnts */
-    JitReg ent_and_bw_cnts_reg;
+    JitReg ent_and_br_cnts_reg;
 #endif
 
     /* Local variables */
@@ -1153,10 +1153,10 @@ typedef struct JitCompContext {
     bool last_cmp_on_fp;
 
 #if WASM_ENABLE_DYNAMIC_PGO != 0
-    /* module->ent_and_br_cnts. frame->ent_and_bw_cnts_reg */
-    JitReg ent_and_bw_cnts_reg;
+    /* module->ent_and_br_cnts. frame->ent_and_br_cnts_reg */
+    JitReg ent_and_br_cnts_reg;
     /* access index in module->ent_and_bw_cnts */
-    uint32 ent_and_bw_cnts_idx;
+    uint32 ent_and_br_cnts_idx;
     uint32 vp_cnts_idx;
 #endif
 } JitCompContext;
