@@ -277,6 +277,11 @@ jit_compile_op_i32_load(JitCompContext *cc, uint32 align, uint32 offset,
     (void)load_insn;
 #endif
 
+#if WASM_ENABLE_FAST_JIT_DUMP != 0 && WASM_ENABLE_DYNAMIC_PGO != 0
+    jit_insn_add_comments(load_insn, "load %u Bytes. Offset %u, Sign %d", bytes,
+                          offset, sign);
+#endif
+
     PUSH_I32(value);
     return true;
 fail:

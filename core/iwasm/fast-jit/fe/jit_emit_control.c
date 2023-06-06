@@ -1096,6 +1096,10 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth,
     gen_commit_values(jit_frame, jit_frame->lp, jit_frame->sp);
 
     if (!(insn_select && insn_cmp)) {
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+        gen_increase_cnt_insn(jit_frame);
+#endif
+
         if (!GEN_INSN(CMP, cc->cmp_reg, cond, NEW_CONST(I32, 0))) {
             jit_set_last_error(cc, "generate cmp insn failed");
             goto fail;
@@ -1115,12 +1119,22 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth,
                 jit_set_last_error(cc, "generate bne insn failed");
                 goto fail;
             }
+
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+            gen_increase_cnt_insn(jit_frame);
+#endif
         }
         else {
+
             if (!(insn = GEN_INSN(BNE, cc->cmp_reg, 0, 0))) {
                 jit_set_last_error(cc, "generate bne insn failed");
                 goto fail;
             }
+
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+            gen_increase_cnt_insn(jit_frame);
+#endif
+
             if (!jit_block_add_incoming_insn(block_dst, insn, 1)) {
                 jit_set_last_error(cc, "add incoming insn failed");
                 goto fail;
@@ -1141,6 +1155,11 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth,
         jit_set_last_error(cc, "generate bne insn failed");
         goto fail;
     }
+
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+    gen_increase_cnt_insn(jit_frame);
+#endif
+
     if (insn_select && insn_cmp) {
         /* Change `CMP + SELECTcc` into `CMP + Bcc` */
         insn->opcode = JIT_OP_BEQ + (insn_select->opcode - JIT_OP_SELECTEQ);

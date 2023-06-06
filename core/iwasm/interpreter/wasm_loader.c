@@ -7544,9 +7544,10 @@ re_scan:
                 PRESERVE_LOCAL_FOR_BLOCK();
 #endif
                 POP_I32();
-#if WASM_ENABLE_DYNAMIC_PGO != 0
-                ent_and_br_cnts_cap += 2;
-#endif
+                /*FIXME: enable it later */
+                // #if WASM_ENABLE_DYNAMIC_PGO != 0
+                //                 ent_and_br_cnts_cap += 2;
+                // #endif
                 goto handle_op_block_and_loop;
             case WASM_OP_BLOCK:
             case WASM_OP_LOOP:
@@ -7957,9 +7958,10 @@ re_scan:
                 RESET_STACK();
                 SET_CUR_BLOCK_STACK_POLYMORPHIC_STATE(true);
 
-#if WASM_ENABLE_DYNAMIC_PGO != 0
-                ent_and_br_cnts_cap += count;
-#endif
+                /*FIXME: enable it later */
+                // #if WASM_ENABLE_DYNAMIC_PGO != 0
+                //                 ent_and_br_cnts_cap += count;
+                // #endif
                 break;
             }
 
@@ -8333,9 +8335,10 @@ re_scan:
 #endif
                     PUSH_TYPE(VALUE_TYPE_ANY);
                 }
-#if WASM_ENABLE_DYNAMIC_PGO != 0
-                ent_and_br_cnts_cap += 2;
-#endif
+                /*FIXME: enable it later */
+                // #if WASM_ENABLE_DYNAMIC_PGO != 0
+                //                 ent_and_br_cnts_cap += 2;
+                // #endif
                 break;
             }
 
@@ -8419,9 +8422,10 @@ re_scan:
 
                 (void)vec_len;
 
-#if WASM_ENABLE_DYNAMIC_PGO != 0
-                ent_and_br_cnts_cap += vec_len;
-#endif
+                /*FIXME: enable it later */
+                // #if WASM_ENABLE_DYNAMIC_PGO != 0
+                //                 ent_and_br_cnts_cap += vec_len;
+                // #endif
                 break;
             }
 
