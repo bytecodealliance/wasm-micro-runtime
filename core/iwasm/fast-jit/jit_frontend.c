@@ -125,8 +125,13 @@ get_module_inst_reg(JitFrame *frame)
 
     if (!frame->module_inst_reg) {
         frame->module_inst_reg = cc->module_inst_reg;
-        GEN_INSN(LDPTR, frame->module_inst_reg, cc->exec_env_reg,
-                 NEW_CONST(I32, offsetof(WASMExecEnv, module_inst)));
+        JitInsn *insn =
+            GEN_INSN(LDPTR, frame->module_inst_reg, cc->exec_env_reg,
+                     NEW_CONST(I32, offsetof(WASMExecEnv, module_inst)));
+#if WASM_ENABLE_DYNAMIC_PGO != 0 && WASM_ENABLE_FAST_JIT_DUMP != 0
+        jit_insn_add_comments(insn, "get module instance");
+#endif
+        (void)insn;
     }
     return frame->module_inst_reg;
 }
@@ -139,8 +144,13 @@ get_module_reg(JitFrame *frame)
 
     if (!frame->module_reg) {
         frame->module_reg = cc->module_reg;
-        GEN_INSN(LDPTR, frame->module_reg, module_inst_reg,
-                 NEW_CONST(I32, offsetof(WASMModuleInstance, module)));
+        JitInsn *insn =
+            GEN_INSN(LDPTR, frame->module_reg, module_inst_reg,
+                     NEW_CONST(I32, offsetof(WASMModuleInstance, module)));
+#if WASM_ENABLE_DYNAMIC_PGO != 0 && WASM_ENABLE_FAST_JIT_DUMP != 0
+        jit_insn_add_comments(insn, "get module");
+#endif
+        (void)insn;
     }
     return frame->module_reg;
 }
@@ -250,8 +260,13 @@ get_memory_data_reg(JitFrame *frame, uint32 mem_idx)
     if (!frame->memory_regs[mem_idx].memory_data) {
         frame->memory_regs[mem_idx].memory_data =
             cc->memory_regs[mem_idx].memory_data;
-        GEN_INSN(LDPTR, frame->memory_regs[mem_idx].memory_data,
-                 module_inst_reg, NEW_CONST(I32, memory_data_offset));
+        JitInsn *insn =
+            GEN_INSN(LDPTR, frame->memory_regs[mem_idx].memory_data,
+                     module_inst_reg, NEW_CONST(I32, memory_data_offset));
+#if WASM_ENABLE_FAST_JIT_DUMP != 0 && WASM_ENABLE_DYNAMIC_PGO != 0
+        jit_insn_add_comments(insn, "get mem data %u", mem_idx);
+#endif
+        (void)insn;
     }
 #endif
     return frame->memory_regs[mem_idx].memory_data;
@@ -611,8 +626,12 @@ gen_load_i32(JitFrame *frame, unsigned n)
     if (!frame->lp[n].reg) {
         JitCompContext *cc = frame->cc;
         frame->lp[n].reg = jit_cc_new_reg_I32(cc);
-        GEN_INSN(LDI32, frame->lp[n].reg, cc->fp_reg,
-                 NEW_CONST(I32, offset_of_local(n)));
+        JitInsn *insn = GEN_INSN(LDI32, frame->lp[n].reg, cc->fp_reg,
+                                 NEW_CONST(I32, offset_of_local(n)));
+#if WASM_ENABLE_FAST_JIT_DUMP != 0 && WASM_ENABLE_DYNAMIC_PGO != 0
+        jit_insn_add_comments(insn, "load i32 local #%d", n);
+#endif
+        (void)insn;
     }
 
     return frame->lp[n].reg;
