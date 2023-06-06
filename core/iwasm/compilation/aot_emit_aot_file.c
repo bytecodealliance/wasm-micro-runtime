@@ -2621,7 +2621,8 @@ aot_resolve_functions(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
     /* allocate memory for aot function */
     obj_data->func_count = comp_ctx->comp_data->func_count;
     if (obj_data->func_count) {
-        if (comp_ctx->enable_stack_bound_check
+        if ((comp_ctx->enable_stack_bound_check
+             || comp_ctx->enable_stack_estimation)
             && !aot_resolve_stack_sizes(comp_ctx, obj_data))
             return false;
         total_size = (uint32)sizeof(AOTObjectFunc) * obj_data->func_count;
