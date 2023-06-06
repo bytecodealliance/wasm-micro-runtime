@@ -249,7 +249,8 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
         LLVMValueRef cmp_top =
             LLVMBuildICmp(b, LLVMIntULT, new_sp, top_min_int, "cmp_top");
         cmp_top = LLVMBuildOr(b, underflow, cmp_top, "cmp_top2");
-        if (!LLVMBuildCondBr(b, cmp_top, update_top_block, call_wrapped_func_block)) {
+        if (!LLVMBuildCondBr(b, cmp_top, update_top_block,
+                             call_wrapped_func_block)) {
             aot_set_last_error("llvm build cond br failed.");
             goto fail;
         }
