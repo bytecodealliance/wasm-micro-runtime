@@ -89,6 +89,11 @@ if (NOT DEFINED WAMR_BUILD_SGX_IPFS)
   set (WAMR_BUILD_SGX_IPFS 0)
 endif ()
 
+if (NOT DEFINED WAMR_BUILD_STATIC_PGO)
+  # Disable static PGO by default
+  set (WAMR_BUILD_STATIC_PGO 0)
+endif ()
+
 set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections")
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu11 -ffunction-sections -fdata-sections \
                                      -Wall -Wno-unused-parameter -Wno-pedantic \
@@ -107,7 +112,7 @@ add_custom_command (
 
 add_custom_target (vmlib_untrusted ALL DEPENDS libvmlib_untrusted.a)
 
-if ((WAMR_BUILD_AOT EQUAL 1) AND (DEFINED WAMR_BUILD_STATIC_PGO))
+if (WAMR_BUILD_AOT EQUAL 1)
   execute_process(
       COMMAND bash -c "sed -i -E 's/^WAMR_BUILD_STATIC_PGO = .*/WAMR_BUILD_STATIC_PGO = ${WAMR_BUILD_STATIC_PGO}/g' ${CMAKE_CURRENT_SOURCE_DIR}/enclave-sample/Makefile"
       OUTPUT_VARIABLE cmdOutput
