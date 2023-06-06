@@ -348,12 +348,16 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
         FPM.addPass(LoadStoreVectorizerPass());
 
         if (comp_ctx->enable_llvm_pgo || comp_ctx->use_prof_file) {
-            LICMOptions licm_opt;
             /* LICM pass: loop invariant code motion, attempting to remove
                as much code from the body of a loop as possible. Experiments
                show it is good to enable it when pgo is enabled. */
+#if LLVM_VERSION_MAJOR >= 15
+            LICMOptions licm_opt;
             FPM.addPass(
                 createFunctionToLoopPassAdaptor(LICMPass(licm_opt), true));
+#else
+            FPM.addPass(createFunctionToLoopPassAdaptor(LICMPass(), true));
+#endif
         }
 
         /*
