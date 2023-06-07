@@ -233,8 +233,8 @@ typedef struct AOTCompData {
     AOTGlobal *globals;
 
     /* Function types */
-    uint32 func_type_count;
-    AOTFuncType **func_types;
+    uint32 type_count;
+    AOTType **types;
 
     /* Import functions */
     uint32 import_func_count;

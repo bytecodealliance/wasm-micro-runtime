@@ -158,9 +158,9 @@ typedef struct AOTModule {
     uint32 table_init_data_count;
     AOTTableInitData **table_init_data_list;
 
-    /* function type info */
+    /* type info */
     uint32 type_count;
-    AOTFuncType **types;
+    AOTType **types;
 
     /* import global variable info */
     uint32 import_global_count;

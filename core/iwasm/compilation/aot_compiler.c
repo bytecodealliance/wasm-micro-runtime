@@ -234,7 +234,8 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 else {
                     frame_ip--;
                     read_leb_uint32(frame_ip, frame_ip_end, type_index);
-                    func_type = comp_ctx->comp_data->func_types[type_index];
+                    func_type =
+                        (AOTFuncType *)comp_ctx->comp_data->types[type_index];
                     param_count = func_type->param_count;
                     param_types = func_type->types;
                     result_count = func_type->result_count;
@@ -253,7 +254,8 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
             case EXT_OP_IF:
             {
                 read_leb_uint32(frame_ip, frame_ip_end, type_index);
-                func_type = comp_ctx->comp_data->func_types[type_index];
+                func_type =
+                    (AOTFuncType *)comp_ctx->comp_data->types[type_index];
                 param_count = func_type->param_count;
                 param_types = func_type->types;
                 result_count = func_type->result_count;
