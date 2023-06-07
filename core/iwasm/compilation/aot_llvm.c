@@ -132,34 +132,30 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
     LLVMBasicBlockRef update_top_block;
     LLVMBasicBlockRef stack_bound_check_block;
     LLVMBasicBlockRef call_wrapped_func_block;
-    if (!(precheck_func =
-              aot_add_llvm_func1(comp_ctx, module, func_index, orig_param_count,
-                                 func_type, AOT_FUNC_PREFIX)))
-        goto fail;
-    if (!(begin = LLVMAppendBasicBlockInContext(comp_ctx->context,
-                                                precheck_func, "begin"))) {
-        aot_set_last_error("add LLVM basic block failed.");
+    LLVMValueRef *params = NULL;
+    precheck_func =
+        aot_add_llvm_func1(comp_ctx, module, func_index, orig_param_count,
+                           func_type, AOT_FUNC_PREFIX);
+    if (!precheck_func) {
         goto fail;
     }
-    if (!(check_top_block = LLVMAppendBasicBlockInContext(
-              comp_ctx->context, precheck_func, "check_top_block"))) {
-        aot_set_last_error("add LLVM basic block failed.");
-        goto fail;
+    begin = LLVMAppendBasicBlockInContext(comp_ctx->context, precheck_func,
+                                          "begin");
+    check_top_block = LLVMAppendBasicBlockInContext(
+        comp_ctx->context, precheck_func, "check_top_block");
+    if (comp_ctx->enable_stack_estimation) {
+        update_top_block = LLVMAppendBasicBlockInContext(
+            comp_ctx->context, precheck_func, "update_top_block");
+        if (!update_top_block) {
+            goto fail;
+        }
     }
-    if (comp_ctx->enable_stack_estimation
-        && !(update_top_block = LLVMAppendBasicBlockInContext(
-                 comp_ctx->context, precheck_func, "update_top_block"))) {
-        aot_set_last_error("add LLVM basic block failed.");
-        goto fail;
-    }
-    if (!(stack_bound_check_block = LLVMAppendBasicBlockInContext(
-              comp_ctx->context, precheck_func, "stack_bound_check_block"))) {
-        aot_set_last_error("add LLVM basic block failed.");
-        goto fail;
-    }
-    if (!(call_wrapped_func_block = LLVMAppendBasicBlockInContext(
-              comp_ctx->context, precheck_func, "call_wrapped_func"))) {
-        aot_set_last_error("add LLVM basic block failed.");
+    stack_bound_check_block = LLVMAppendBasicBlockInContext(
+        comp_ctx->context, precheck_func, "stack_bound_check_block");
+    call_wrapped_func_block = LLVMAppendBasicBlockInContext(
+        comp_ctx->context, precheck_func, "call_wrapped_func");
+    if (!begin || !check_top_block || !stack_bound_check_block
+        || !call_wrapped_func_block) {
         goto fail;
     }
     LLVMBuilderRef b = comp_ctx->builder;
@@ -186,9 +182,11 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
     /* XXX error checks */
     /* XXX tweak for 32-bit arch */
     unsigned int param_count = LLVMCountParams(precheck_func);
-    LLVMValueRef *params;
     uint64 sz = param_count * sizeof(LLVMValueRef);
     params = wasm_runtime_malloc(sz);
+    if (params == NULL) {
+        goto fail;
+    }
     LLVMGetParams(precheck_func, params);
 
     const bool is_64bit = comp_ctx->pointer_size == sizeof(uint64);
@@ -202,7 +200,13 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
      * load the stack pointer
      */
     LLVMValueRef sp_ptr = LLVMBuildAlloca(b, I32_TYPE, "sp_ptr");
+    if (!sp_ptr) {
+        goto fail;
+    }
     LLVMValueRef sp = LLVMBuildPtrToInt(b, sp_ptr, uintptr_type, "sp");
+    if (!sp) {
+        goto fail;
+    }
 
     /*
      * load the value for this wrapped function from the stack_sizes array
@@ -210,12 +214,24 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
     LLVMValueRef func_index_const = I32_CONST(func_index);
     LLVMValueRef sizes =
         LLVMBuildBitCast(b, comp_ctx->stack_sizes, INT32_PTR_TYPE, "sizes");
+    if (!sizes) {
+        goto fail;
+    }
     LLVMValueRef sizep = LLVMBuildInBoundsGEP2(b, I32_TYPE, sizes,
                                                &func_index_const, 1, "sizep");
+    if (!sizep) {
+        goto fail;
+    }
     LLVMValueRef size32 = LLVMBuildLoad2(b, I32_TYPE, sizep, "size32");
+    if (!size32) {
+        goto fail;
+    }
     LLVMValueRef size;
     if (is_64bit) {
         size = LLVMBuildZExt(b, size32, uintptr_type, "size");
+        if (!size) {
+            goto fail;
+        }
     }
     else {
         size = size32;
@@ -225,8 +241,16 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
      */
     LLVMValueRef underflow =
         LLVMBuildICmp(b, LLVMIntULT, sp, size, "underflow");
+    if (!underflow) {
+        goto fail;
+    }
     LLVMValueRef new_sp = LLVMBuildSub(b, sp, size, "new_sp");
-    LLVMBuildBr(b, check_top_block);
+    if (!new_sp) {
+        goto fail;
+    }
+    if (!LLVMBuildBr(b, check_top_block)) {
+        goto fail;
+    }
 
     LLVMPositionBuilderAtEnd(b, check_top_block);
     if (comp_ctx->enable_stack_estimation) {
@@ -236,8 +260,14 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
         LLVMValueRef top_min =
             LLVMBuildLoad2(b, OPQ_PTR_TYPE, func_ctx->native_stack_top_min_addr,
                            "native_stack_top_min");
+        if (!top_min) {
+            goto fail;
+        }
         LLVMValueRef top_min_int = LLVMBuildPtrToInt(
             b, top_min, uintptr_type, "native_stack_top_min_int");
+        if (!top_min_int) {
+            goto fail;
+        }
 
         /*
          * update native_stack_top_min if
@@ -248,7 +278,13 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
          */
         LLVMValueRef cmp_top =
             LLVMBuildICmp(b, LLVMIntULT, new_sp, top_min_int, "cmp_top");
+        if (!cmp_top) {
+            goto fail;
+        }
         cmp_top = LLVMBuildOr(b, underflow, cmp_top, "cmp_top2");
+        if (!cmp_top) {
+            goto fail;
+        }
         if (!LLVMBuildCondBr(b, cmp_top, update_top_block,
                              call_wrapped_func_block)) {
             aot_set_last_error("llvm build cond br failed.");
@@ -261,11 +297,21 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
         LLVMPositionBuilderAtEnd(b, update_top_block);
         LLVMValueRef new_sp_ptr =
             LLVMBuildIntToPtr(b, new_sp, OPQ_PTR_TYPE, "new_sp_ptr");
-        LLVMBuildStore(b, new_sp_ptr, func_ctx->native_stack_top_min_addr);
-        LLVMBuildBr(b, stack_bound_check_block);
+        if (!new_sp_ptr) {
+            goto fail;
+        }
+        if (!LLVMBuildStore(b, new_sp_ptr,
+                            func_ctx->native_stack_top_min_addr)) {
+            goto fail;
+        }
+        if (!LLVMBuildBr(b, stack_bound_check_block)) {
+            goto fail;
+        }
     }
     else {
-        LLVMBuildBr(b, stack_bound_check_block);
+        if (!LLVMBuildBr(b, stack_bound_check_block)) {
+            goto fail;
+        }
     }
 
     LLVMPositionBuilderAtEnd(b, stack_bound_check_block);
@@ -275,16 +321,27 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
          */
         LLVMValueRef bound_int = LLVMBuildPtrToInt(
             b, func_ctx->native_stack_bound, uintptr_type, "bound_base_int");
+        if (!bound_int) {
+            goto fail;
+        }
         LLVMValueRef cmp =
             LLVMBuildICmp(b, LLVMIntULT, new_sp, bound_int, "cmp");
+        if (!cmp) {
+            goto fail;
+        }
         cmp = LLVMBuildOr(b, underflow, cmp, "cmp2");
+        if (!cmp) {
+            goto fail;
+        }
         /* todo: @llvm.expect.i1(i1 %cmp, i1 0) */
         if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_NATIVE_STACK_OVERFLOW,
                                 true, cmp, call_wrapped_func_block))
             goto fail;
     }
     else {
-        LLVMBuildBr(b, call_wrapped_func_block);
+        if (!LLVMBuildBr(b, call_wrapped_func_block)) {
+            goto fail;
+        }
     }
 
     /*
@@ -300,26 +357,28 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
     LLVMValueRef retval =
         LLVMBuildCall2(b, func_type, wrapped_func, params, param_count, name);
     if (!retval) {
-        aot_set_last_error("llvm build ret failed.");
         goto fail;
     }
     wasm_runtime_free(params);
+    params = NULL;
     LLVMSetTailCall(retval, true);
     if (ret_type == VOID_TYPE) {
         if (!LLVMBuildRetVoid(b)) {
-            aot_set_last_error("llvm build ret failed.");
             goto fail;
         }
     }
     else {
         if (!LLVMBuildRet(b, retval)) {
-            aot_set_last_error("llvm build ret failed.");
             goto fail;
         }
     }
 
     return precheck_func;
 fail:
+    if (params != NULL) {
+        wasm_runtime_free(params);
+    }
+    aot_set_last_error("failed to build precheck wrapper function.");
     return NULL;
 }
 
