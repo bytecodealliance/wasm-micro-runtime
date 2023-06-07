@@ -203,7 +203,7 @@ wasm_func_type_get_result_type(WASMFuncType *const func_type, uint32 result_idx)
 uint32
 wasm_struct_type_get_field_count(WASMStructType *const struct_type)
 {
-    bh_assert(struct_type->type_flag == WASM_TYPE_STRUCT);
+    bh_assert(struct_type->base_type.type_flag == WASM_TYPE_STRUCT);
     return struct_type->field_count;
 }
 
@@ -214,7 +214,7 @@ wasm_struct_type_get_field_type(WASMStructType *const struct_type,
     wasm_ref_type_t ref_type = { 0 };
     WASMStructFieldType field;
 
-    bh_assert(struct_type->type_flag == WASM_TYPE_STRUCT);
+    bh_assert(struct_type->base_type.type_flag == WASM_TYPE_STRUCT);
     bh_assert(field_idx < struct_type->field_count);
 
     field = struct_type->fields[field_idx];
@@ -452,7 +452,7 @@ wasm_struct_obj_new_with_type(WASMExecEnv *exec_env, WASMStructType *type)
     uint32 i = 0;
     uint32 type_count = 0;
 
-    bh_assert(type->type_flag == WASM_TYPE_STRUCT);
+    bh_assert(type->base_type.type_flag == WASM_TYPE_STRUCT);
 
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode) {
@@ -523,7 +523,7 @@ wasm_array_obj_new_with_type(WASMExecEnv *exec_env, WASMArrayType *type,
     uint32 i, type_count, type_idx = 0;
     WASMModuleCommon *module = wasm_exec_env_get_module(exec_env);
 
-    bh_assert(type->type_flag == WASM_TYPE_ARRAY);
+    bh_assert(type->base_type.type_flag == WASM_TYPE_ARRAY);
 
 #if WASM_ENABLE_INTERP != 0
     if (module->module_type == Wasm_Module_Bytecode) {
@@ -588,7 +588,7 @@ wasm_func_obj_new_with_type(WASMExecEnv *exec_env, WASMFuncType *type,
     uint32 i, type_count, type_idx = 0;
     WASMModuleCommon *module = wasm_exec_env_get_module(exec_env);
 
-    bh_assert(type->type_flag == WASM_TYPE_FUNC);
+    bh_assert(type->base_type.type_flag == WASM_TYPE_FUNC);
 
 #if WASM_ENABLE_INTERP != 0
     if (module->module_type == Wasm_Module_Bytecode) {

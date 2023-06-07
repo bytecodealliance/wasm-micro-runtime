@@ -272,29 +272,13 @@ typedef struct WASMType {
     /* The parent type */
     struct WASMType *parent_type;
     uint32 parent_type_idx;
-
-    uint32 data[1];
 } WASMType, *WASMTypePtr;
 #endif /* end of WASM_ENABLE_GC */
 
 /* Function type */
 typedef struct WASMFuncType {
 #if WASM_ENABLE_GC != 0
-    /**
-     * type_flag must be WASM_TYPE_FUNC for WASMFuncType,
-     * otherwise this structure must be treated as WASMStructType
-     * or WASMArrayType
-     */
-    uint16 type_flag;
-
-    bool is_sub_final;
-    /* The inheritance depth */
-    uint32 inherit_depth;
-    /* The root type */
-    WASMType *root_type;
-    /* The parent type */
-    WASMType *parent_type;
-    uint32 parent_type_idx;
+    WASMType base_type;
 #endif
 
     uint16 param_count;
@@ -335,21 +319,7 @@ typedef struct WASMStructFieldType {
 } WASMStructFieldType;
 
 typedef struct WASMStructType {
-    /**
-     * type_flag must be WASM_TYPE_STRUCT for WASMStructType,
-     * otherwise this structure must be treated as WASMFuncType
-     * or WASMArrayType
-     */
-    uint16 type_flag;
-
-    bool is_sub_final;
-    /* The inheritance depth */
-    uint32 inherit_depth;
-    /* The root type */
-    WASMType *root_type;
-    /* The parent type */
-    WASMType *parent_type;
-    uint32 parent_type_idx;
+    WASMType base_type;
 
     /* total size of this struct object */
     uint32 total_size;
@@ -370,21 +340,7 @@ typedef struct WASMStructType {
 } WASMStructType;
 
 typedef struct WASMArrayType {
-    /**
-     * type_flag must be WASM_TYPE_ARRAY for WASMArrayType
-     * or this structure must be treated as WASMFuncType or
-     * WASMStructType
-     */
-    uint16 type_flag;
-
-    bool is_sub_final;
-    /* The inheritance depth */
-    uint32 inherit_depth;
-    /* The root type */
-    WASMType *root_type;
-    /* The parent type */
-    WASMType *parent_type;
-    uint32 parent_type_idx;
+    WASMType base_type;
 
     uint16 elem_flags;
     uint8 elem_type;

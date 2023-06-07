@@ -123,12 +123,12 @@ wasm_dump_func_type(const WASMFuncType *type)
     uint32 i, j = 0;
     const WASMRefType *ref_type = NULL;
 
-    if (type->parent_type_idx != (uint32)-1) {
-        if (!type->is_sub_final)
+    if (type->base_type.parent_type_idx != (uint32)-1) {
+        if (!type->base_type.is_sub_final)
             os_printf("sub ");
         else
             os_printf("sub final ");
-        os_printf("%u ", type->parent_type_idx);
+        os_printf("%u ", type->base_type.parent_type_idx);
     }
 
     os_printf("func [");
@@ -170,12 +170,12 @@ wasm_dump_struct_type(const WASMStructType *type)
     uint32 i, j = 0;
     const WASMRefType *ref_type = NULL;
 
-    if (type->parent_type_idx != (uint32)-1) {
-        if (!type->is_sub_final)
+    if (type->base_type.parent_type_idx != (uint32)-1) {
+        if (!type->base_type.is_sub_final)
             os_printf("sub ");
         else
             os_printf("sub final ");
-        os_printf("%u ", type->parent_type_idx);
+        os_printf("%u ", type->base_type.parent_type_idx);
     }
 
     os_printf("struct");
@@ -203,12 +203,12 @@ wasm_dump_struct_type(const WASMStructType *type)
 void
 wasm_dump_array_type(const WASMArrayType *type)
 {
-    if (type->parent_type_idx != (uint32)-1) {
-        if (!type->is_sub_final)
+    if (type->base_type.parent_type_idx != (uint32)-1) {
+        if (!type->base_type.is_sub_final)
             os_printf("sub ");
         else
             os_printf("sub final ");
-        os_printf("%u ", type->parent_type_idx);
+        os_printf("%u ", type->base_type.parent_type_idx);
     }
 
     os_printf("array ");
