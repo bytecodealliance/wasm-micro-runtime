@@ -1015,7 +1015,7 @@ resolve_func_type(const uint8 **p_buf, const uint8 *buf_end, WASMModule *module,
         }
     }
 
-    type->type_flag = WASM_TYPE_FUNC;
+    type->base_type.type_flag = WASM_TYPE_FUNC;
     type->param_count = param_count;
     type->result_count = result_count;
     type->ref_type_map_count = ref_type_map_count;
@@ -1075,7 +1075,7 @@ resolve_func_type(const uint8 **p_buf, const uint8 *buf_end, WASMModule *module,
     type->min_type_idx_normalized = type_idx;
     for (i = 0; i < type_idx; i++) {
         WASMFuncType *func_type = (WASMFuncType *)module->types[i];
-        if (func_type->type_flag == WASM_TYPE_FUNC
+        if (func_type->base_type.type_flag == WASM_TYPE_FUNC
             && wasm_func_type_equal(type, func_type, module->types,
                                     type_idx + 1)) {
             type->min_type_idx_normalized = i;
@@ -1155,7 +1155,7 @@ resolve_struct_type(const uint8 **p_buf, const uint8 *buf_end,
                    + sizeof(WASMStructFieldType) * field_count);
     *reference_table++ = ref_field_count;
 
-    type->type_flag = WASM_TYPE_STRUCT;
+    type->base_type.type_flag = WASM_TYPE_STRUCT;
     type->field_count = field_count;
     type->ref_type_map_count = ref_type_map_count;
 
@@ -1238,7 +1238,7 @@ resolve_array_type(const uint8 **p_buf, const uint8 *buf_end,
         return false;
     }
 
-    type->type_flag = WASM_TYPE_ARRAY;
+    type->base_type.type_flag = WASM_TYPE_ARRAY;
     type->elem_flags = mutable;
     type->elem_type = ref_type.ref_type;
     if (need_ref_type_map) {
