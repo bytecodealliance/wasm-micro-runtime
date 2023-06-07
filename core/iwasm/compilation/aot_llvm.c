@@ -1833,9 +1833,10 @@ jit_stack_size_callback(void *user_data, const char *name, size_t namelen,
     AOTCompContext *comp_ctx = user_data;
     char buf[64];
     uint32 func_idx;
+    const AOTFuncContext *func_ctx;
+    unsigned int call_size;
     int ret;
 
-    LOG_VERBOSE("func %.*s stack %zu", (int)namelen, name, stack_size);
     bh_assert(comp_ctx != NULL);
     bh_assert(comp_ctx->jit_stack_sizes != NULL);
 
@@ -1849,14 +1850,18 @@ jit_stack_size_callback(void *user_data, const char *name, size_t namelen,
 
     ret = sscanf(buf, AOT_FUNC_PREFIX2 "%" SCNu32, &func_idx);
     if (ret != 1) {
-        LOG_DEBUG("failed to parse: %s", buf);
         return;
     }
 
     bh_assert(func_idx < comp_ctx->func_ctx_count);
+    func_ctx = comp_ctx->func_ctxes[func_idx];
+    call_size = func_ctx->stack_consumption_for_func_call;
+    LOG_VERBOSE("func %.*s stack %zu + %u", (int)namelen, name, stack_size,
+                call_size);
+
     /* Note: -1 == AOT_NEG_ONE from aot_create_stack_sizes */
     bh_assert(comp_ctx->jit_stack_sizes[func_idx] == (uint32)-1);
-    comp_ctx->jit_stack_sizes[func_idx] = stack_size;
+    comp_ctx->jit_stack_sizes[func_idx] = stack_size + call_size;
 }
 
 static bool

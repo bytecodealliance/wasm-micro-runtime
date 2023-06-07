@@ -182,6 +182,9 @@ typedef struct AOTFuncContext {
 #if WASM_ENABLE_DEBUG_AOT != 0
     LLVMMetadataRef debug_func;
 #endif
+
+    unsigned int stack_consumption_for_func_call;
+
     LLVMValueRef locals[1];
 } AOTFuncContext;
 

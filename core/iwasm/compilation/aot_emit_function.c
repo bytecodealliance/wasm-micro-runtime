@@ -473,6 +473,78 @@ check_app_addr_and_convert(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     return true;
 }
 
+static void
+aot_estimate_stack_usage_for_function_call(const AOTCompContext *comp_ctx,
+                                           AOTFuncContext *caller_func_ctx,
+                                           const AOTFuncType *callee_func_type)
+{
+    /*
+     * Estimate how much stack is necessary to make a function call.
+     * This does not include the stack consumption of the callee function.
+     *
+     * A small overstimation is acceptable. An underestimation is not.
+     *
+     * Assumptions:
+     *
+     * - the first result is returned via a register.
+     *
+     * - all parameters, including exec_env and pointers to non-first
+     *   results, are passed via stack.
+     *   (this is a bit pessimistic than many of real calling conventions,
+     *   where some of parameters are passed via register.)
+     *
+     * - N-byte value needs N-byte alignment on stack.
+     *
+     * - a value smaller than a pointer is extended.
+     *   (eg. 4 byte values are extended to 8 byte on x86-64.)
+     */
+
+    const unsigned int param_count = callee_func_type->param_count;
+    const unsigned int result_count = callee_func_type->result_count;
+    unsigned int size = 0;
+    unsigned int i;
+    unsigned int nb;
+
+    if (!(comp_ctx->enable_stack_bound_check
+          || comp_ctx->enable_stack_estimation)) {
+        return;
+    }
+
+    /* exec_env */
+    nb = comp_ctx->pointer_size;
+    size = ((size + nb - 1) & -nb) + nb;
+
+    /* parameters */
+    for (i = 0; i < param_count; i++) {
+        nb = wasm_value_type_cell_num(callee_func_type->types[i]) * 4;
+        if (nb < comp_ctx->pointer_size) {
+            nb = comp_ctx->pointer_size;
+        }
+        size = ((size + nb - 1) & -nb) + nb;
+    }
+
+    /* pointers to results */
+    nb = comp_ctx->pointer_size;
+    for (i = 1; i < result_count; i++) {
+        size = ((size + nb - 1) & -nb) + nb;
+    }
+
+    /* return address */
+    nb = comp_ctx->pointer_size;
+    size = ((size + nb - 1) & -nb) + nb;
+
+    /*
+     * some extra for possible arch-dependent things like
+     * 16-byte alignment for x86_64.
+     */
+    size += 16;
+
+    LOG_VERBOSE("stack comsumption for function call %u", size);
+    if (caller_func_ctx->stack_consumption_for_func_call < size) {
+        caller_func_ctx->stack_consumption_for_func_call = size;
+    }
+}
+
 bool
 aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                     uint32 func_idx, bool tail_call)
@@ -519,6 +591,7 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         func_type =
             func_ctxes[func_idx - import_func_count]->aot_func->func_type;
     }
+    aot_estimate_stack_usage_for_function_call(comp_ctx, func_ctx, func_type);
 
     /* Get param cell number */
     param_cell_num = func_type->param_cell_num;
@@ -1069,6 +1142,7 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     CHECK_LLVM_CONST(ftype_idx_const);
 
     func_type = comp_ctx->comp_data->func_types[type_idx];
+    aot_estimate_stack_usage_for_function_call(comp_ctx, func_ctx, func_type);
     func_param_count = func_type->param_count;
     func_result_count = func_type->result_count;
 

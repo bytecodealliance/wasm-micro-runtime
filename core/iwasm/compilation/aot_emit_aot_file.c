@@ -2494,8 +2494,6 @@ read_stack_usage_file(const char *filename, uint32_t *sizes, uint32 count)
         }
         sizes[func_idx] = sz;
         found++;
-        LOG_VERBOSE("AOT func#%" PRIu32 " stack_size %" PRIu32,
-                    (uint32_t)func_idx, sizes[func_idx]);
     }
     fclose(fp);
     if (precheck_found != count) {
@@ -2585,6 +2583,8 @@ aot_resolve_stack_sizes(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
                 goto fail;
             }
             for (i = 0; i < obj_data->func_count; i++) {
+                const AOTFuncContext *func_ctx = comp_ctx->func_ctxes[i];
+
                 /*
                  * LLVM seems to eliminate calls to an empty function
                  * even if it's marked noinline.
@@ -2592,7 +2592,21 @@ aot_resolve_stack_sizes(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
                 if (stack_sizes[i] == 0xffffffff) {
                     LOG_VERBOSE("assuming no stack usage for func #%" PRIu32,
                                 i);
+                    /* an empty function can't have a call */
+                    bh_assert(func_ctx->stack_consumption_for_func_call == 0);
                     stack_sizes[i] = 0;
+                }
+                else {
+                    LOG_VERBOSE("AOT func#%" PRIu32 " stack_size %" PRIu32
+                                " + %u",
+                                i, stack_sizes[i],
+                                func_ctx->stack_consumption_for_func_call);
+                    if (UINT32_MAX - stack_sizes[i]
+                        < func_ctx->stack_consumption_for_func_call) {
+                        aot_set_last_error("stack size overflow.");
+                        goto fail;
+                    }
+                    stack_sizes[i] += func_ctx->stack_consumption_for_func_call;
                 }
             }
             /* TODO add the amount stack to use to make calls */
