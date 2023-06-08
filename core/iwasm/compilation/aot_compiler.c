@@ -2697,7 +2697,7 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
 
     /* Disable LLVM module verification for jit mode to speedup
        the compilation process */
-    if (!comp_ctx->is_jit_mode || 1) {
+    if (!comp_ctx->is_jit_mode) {
         bh_print_time("Begin to verify LLVM module");
         if (!verify_module(comp_ctx)) {
             return false;
