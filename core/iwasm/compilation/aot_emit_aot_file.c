@@ -2590,8 +2590,6 @@ aot_resolve_stack_sizes(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
                  * (and eliminate the function) even if it's marked noinline.
                  */
                 if (stack_sizes[i] == 0xffffffff) {
-                    LOG_VERBOSE("assuming no stack usage for func #%" PRIu32,
-                                i);
                     if (func_ctx->stack_consumption_for_func_call != 0) {
                         /*
                          * This happens if a function calling another
@@ -2607,9 +2605,12 @@ aot_resolve_stack_sizes(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
                          *     end
                          *   )
                          */
-                        LOG_VERBOSE("AOT func #%" PRIu32
+                        LOG_VERBOSE("AOT func#%" PRIu32
                                     " had call(s) but eliminated?",
                                     i);
+                    }
+                    else {
+                        LOG_VERBOSE("AOT func#%" PRIu32 " eliminated?", i);
                     }
                     stack_sizes[i] = 0;
                 }

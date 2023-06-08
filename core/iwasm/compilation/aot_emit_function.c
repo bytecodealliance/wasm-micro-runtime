@@ -539,7 +539,11 @@ aot_estimate_stack_usage_for_function_call(const AOTCompContext *comp_ctx,
      */
     size += 16;
 
-    LOG_VERBOSE("stack comsumption for function call %u", size);
+    /*
+     * only record the max value, assuming that LLVM emits machine code
+     * which rewinds the stack before making the next call in the
+     * function.
+     */
     if (caller_func_ctx->stack_consumption_for_func_call < size) {
         caller_func_ctx->stack_consumption_for_func_call = size;
     }
