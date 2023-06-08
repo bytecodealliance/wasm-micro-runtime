@@ -1758,6 +1758,43 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst,
     first_table = (WASMTableInstance *)(module_inst->global_data
                                         + module->global_data_size);
 
+    if (global_count > 0) {
+        /* Initialize the global data */
+        global_data = module_inst->global_data;
+        global_data_end = global_data + module->global_data_size;
+        global = globals;
+        for (i = 0; i < global_count; i++, global++) {
+            switch (global->type) {
+                case VALUE_TYPE_I32:
+                case VALUE_TYPE_F32:
+#if WASM_ENABLE_REF_TYPES != 0
+                case VALUE_TYPE_FUNCREF:
+                case VALUE_TYPE_EXTERNREF:
+#endif
+                    *(int32 *)global_data = global->initial_value.i32;
+                    global_data += sizeof(int32);
+                    break;
+                case VALUE_TYPE_I64:
+                case VALUE_TYPE_F64:
+                    bh_memcpy_s(global_data,
+                                (uint32)(global_data_end - global_data),
+                                &global->initial_value.i64, sizeof(int64));
+                    global_data += sizeof(int64);
+                    break;
+#if WASM_ENABLE_SIMD != 0
+                case VALUE_TYPE_V128:
+                    bh_memcpy_s(global_data, (uint32)sizeof(V128),
+                                &global->initial_value.v128, sizeof(V128));
+                    global_data += sizeof(V128);
+                    break;
+#endif
+                default:
+                    bh_assert(0);
+            }
+        }
+        bh_assert(global_data == global_data_end);
+    }
+
     module_inst->memory_count =
         module->import_memory_count + module->memory_count;
     module_inst->table_count = module->import_table_count + module->table_count;
@@ -1806,43 +1843,6 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst,
 #endif
     ) {
         goto fail;
-    }
-
-    if (global_count > 0) {
-        /* Initialize the global data */
-        global_data = module_inst->global_data;
-        global_data_end = global_data + module->global_data_size;
-        global = globals;
-        for (i = 0; i < global_count; i++, global++) {
-            switch (global->type) {
-                case VALUE_TYPE_I32:
-                case VALUE_TYPE_F32:
-#if WASM_ENABLE_REF_TYPES != 0
-                case VALUE_TYPE_FUNCREF:
-                case VALUE_TYPE_EXTERNREF:
-#endif
-                    *(int32 *)global_data = global->initial_value.i32;
-                    global_data += sizeof(int32);
-                    break;
-                case VALUE_TYPE_I64:
-                case VALUE_TYPE_F64:
-                    bh_memcpy_s(global_data,
-                                (uint32)(global_data_end - global_data),
-                                &global->initial_value.i64, sizeof(int64));
-                    global_data += sizeof(int64);
-                    break;
-#if WASM_ENABLE_SIMD != 0
-                case VALUE_TYPE_V128:
-                    bh_memcpy_s(global_data, (uint32)sizeof(V128),
-                                &global->initial_value.v128, sizeof(V128));
-                    global_data += sizeof(V128);
-                    break;
-#endif
-                default:
-                    bh_assert(0);
-            }
-        }
-        bh_assert(global_data == global_data_end);
     }
 
     if (!check_linked_symbol(module_inst, error_buf, error_buf_size)) {
