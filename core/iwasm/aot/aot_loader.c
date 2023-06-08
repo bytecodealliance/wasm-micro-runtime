@@ -1087,18 +1087,18 @@ fail:
 }
 
 static void
-destroy_func_types(AOTFuncType **func_types, uint32 count)
+destroy_types(AOTType **types, uint32 count)
 {
     uint32 i;
     for (i = 0; i < count; i++)
-        if (func_types[i])
-            wasm_runtime_free(func_types[i]);
-    wasm_runtime_free(func_types);
+        if (types[i])
+            wasm_runtime_free(types[i]);
+    wasm_runtime_free(types);
 }
 
 static bool
-load_func_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
-                char *error_buf, uint32 error_buf_size)
+load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
+           char *error_buf, uint32 error_buf_size)
 {
     const uint8 *buf = *p_buf;
     AOTFuncType **func_types;
@@ -1107,10 +1107,11 @@ load_func_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 
     /* Allocate memory */
     size = sizeof(AOTFuncType *) * (uint64)module->type_count;
-    if (!(module->types = func_types =
-              loader_malloc(size, error_buf, error_buf_size))) {
+    if (!(func_types = loader_malloc(size, error_buf, error_buf_size))) {
         return false;
     }
+
+    module->types = (AOTType **)func_types;
 
     /* Create each function type */
     for (i = 0; i < module->type_count; i++) {
@@ -1166,7 +1167,7 @@ load_func_type_info(const uint8 **p_buf, const uint8 *buf_end,
 
     /* load function type */
     if (module->type_count > 0
-        && !load_func_types(&buf, buf_end, module, error_buf, error_buf_size))
+        && !load_types(&buf, buf_end, module, error_buf, error_buf_size))
         return false;
 
     *p_buf = buf;
@@ -1373,7 +1374,7 @@ load_import_funcs(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             return false;
         }
         import_funcs[i].func_type =
-            module->types[import_funcs[i].func_type_index];
+            (AOTFuncType *)module->types[import_funcs[i].func_type_index];
         read_string(buf, buf_end, import_funcs[i].module_name);
         read_string(buf, buf_end, import_funcs[i].func_name);
 
@@ -2789,7 +2790,7 @@ load_from_sections(AOTModule *module, AOTSection *sections,
             if (!strcmp(exports[i].name, "malloc")) {
                 func_index = exports[i].index - module->import_func_count;
                 func_type_index = module->func_type_indexes[func_index];
-                func_type = module->types[func_type_index];
+                func_type = (AOTFuncType *)module->types[func_type_index];
                 if (func_type->param_count == 1 && func_type->result_count == 1
                     && func_type->types[0] == VALUE_TYPE_I32
                     && func_type->types[1] == VALUE_TYPE_I32) {
@@ -2802,7 +2803,7 @@ load_from_sections(AOTModule *module, AOTSection *sections,
             else if (!strcmp(exports[i].name, "__new")) {
                 func_index = exports[i].index - module->import_func_count;
                 func_type_index = module->func_type_indexes[func_index];
-                func_type = module->types[func_type_index];
+                func_type = (AOTFuncType *)module->types[func_type_index];
                 if (func_type->param_count == 2 && func_type->result_count == 1
                     && func_type->types[0] == VALUE_TYPE_I32
                     && func_type->types[1] == VALUE_TYPE_I32
@@ -2826,7 +2827,8 @@ load_from_sections(AOTModule *module, AOTSection *sections,
                                 export_tmp->index - module->import_func_count;
                             func_type_index =
                                 module->func_type_indexes[func_index];
-                            func_type = module->types[func_type_index];
+                            func_type =
+                                (AOTFuncType *)module->types[func_type_index];
                             if (func_type->param_count == 1
                                 && func_type->result_count == 1
                                 && func_type->types[0] == VALUE_TYPE_I32
@@ -2854,7 +2856,7 @@ load_from_sections(AOTModule *module, AOTSection *sections,
                      || (!strcmp(exports[i].name, "__unpin"))) {
                 func_index = exports[i].index - module->import_func_count;
                 func_type_index = module->func_type_indexes[func_index];
-                func_type = module->types[func_type_index];
+                func_type = (AOTFuncType *)module->types[func_type_index];
                 if (func_type->param_count == 1 && func_type->result_count == 0
                     && func_type->types[0] == VALUE_TYPE_I32) {
                     bh_assert(module->free_func_index == (uint32)-1);
@@ -3185,7 +3187,7 @@ aot_unload(AOTModule *module)
                                      module->table_init_data_count);
 
     if (module->types)
-        destroy_func_types(module->types, module->type_count);
+        destroy_types(module->types, module->type_count);
 
     if (module->import_globals)
         destroy_import_globals(module->import_globals);

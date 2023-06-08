@@ -1195,7 +1195,7 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     bool ret = false;
 
     /* Check function type index */
-    if (type_idx >= comp_ctx->comp_data->func_type_count) {
+    if (type_idx >= comp_ctx->comp_data->type_count) {
         aot_set_last_error("function type index out of range");
         return false;
     }
@@ -1206,13 +1206,13 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
        are equal (the type index of call_indirect opcode and callee func),
        we don't need to check whether the whole function types are equal,
        including param types and result types. */
-    type_idx = wasm_get_smallest_type_idx(
-        (WASMTypePtr *)comp_ctx->comp_data->func_types,
-        comp_ctx->comp_data->func_type_count, type_idx);
+    type_idx =
+        wasm_get_smallest_type_idx((WASMTypePtr *)comp_ctx->comp_data->types,
+                                   comp_ctx->comp_data->type_count, type_idx);
     ftype_idx_const = I32_CONST(type_idx);
     CHECK_LLVM_CONST(ftype_idx_const);
 
-    func_type = comp_ctx->comp_data->func_types[type_idx];
+    func_type = (AOTFuncType *)comp_ctx->comp_data->types[type_idx];
     func_param_count = func_type->param_count;
     func_result_count = func_type->result_count;
 

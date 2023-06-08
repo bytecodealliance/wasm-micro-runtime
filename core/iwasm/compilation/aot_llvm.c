@@ -391,7 +391,8 @@ create_local_variables(const AOTCompData *comp_data,
                        const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                        const AOTFunc *func)
 {
-    AOTFuncType *aot_func_type = comp_data->func_types[func->func_type_index];
+    AOTFuncType *aot_func_type =
+        (AOTFuncType *)comp_data->types[func->func_type_index];
     char local_name[32];
     uint32 i, j = 1;
 
@@ -912,7 +913,8 @@ aot_create_func_context(const AOTCompData *comp_data, AOTCompContext *comp_ctx,
                         AOTFunc *func, uint32 func_index)
 {
     AOTFuncContext *func_ctx;
-    AOTFuncType *aot_func_type = comp_data->func_types[func->func_type_index];
+    AOTFuncType *aot_func_type =
+        (AOTFuncType *)comp_data->types[func->func_type_index];
     WASMModule *module = comp_ctx->comp_data->wasm_module;
     WASMFunction *wasm_func = module->functions[func_index];
     AOTBlock *aot_block;

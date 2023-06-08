@@ -378,9 +378,9 @@ get_func_type_size(AOTFuncType *func_type)
 }
 
 static uint32
-get_func_types_size(AOTFuncType **func_types, uint32 func_type_count)
+get_types_size(AOTType **func_types, uint32 func_type_count)
 {
-    AOTFuncType **func_type = func_types;
+    AOTFuncType **func_type = (AOTFuncType **)func_types;
     uint32 size = 0, i;
 
     for (i = 0; i < func_type_count; i++, func_type++) {
@@ -395,8 +395,7 @@ get_func_type_info_size(AOTCompData *comp_data)
 {
     /* func type count + func type list */
     return (uint32)sizeof(uint32)
-           + get_func_types_size(comp_data->func_types,
-                                 comp_data->func_type_count);
+           + get_types_size(comp_data->types, comp_data->type_count);
 }
 
 static uint32
@@ -1503,17 +1502,17 @@ aot_emit_table_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
 }
 
 static bool
-aot_emit_func_type_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
-                        AOTCompData *comp_data, AOTObjectData *obj_data)
+aot_emit_type_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
+                   AOTCompData *comp_data, AOTObjectData *obj_data)
 {
     uint32 offset = *p_offset, i;
-    AOTFuncType **func_types = comp_data->func_types;
+    AOTFuncType **func_types = (AOTFuncType **)comp_data->types;
 
     *p_offset = offset = align_uint(offset, 4);
 
-    EMIT_U32(comp_data->func_type_count);
+    EMIT_U32(comp_data->type_count);
 
-    for (i = 0; i < comp_data->func_type_count; i++) {
+    for (i = 0; i < comp_data->type_count; i++) {
         offset = align_uint(offset, 4);
         EMIT_U32(func_types[i]->param_count);
         EMIT_U32(func_types[i]->result_count);
@@ -1673,7 +1672,7 @@ aot_emit_init_data_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     if (!aot_emit_mem_info(buf, buf_end, &offset, comp_ctx, comp_data, obj_data)
         || !aot_emit_table_info(buf, buf_end, &offset, comp_ctx, comp_data,
                                 obj_data)
-        || !aot_emit_func_type_info(buf, buf_end, &offset, comp_data, obj_data)
+        || !aot_emit_type_info(buf, buf_end, &offset, comp_data, obj_data)
         || !aot_emit_import_global_info(buf, buf_end, &offset, comp_ctx,
                                         comp_data, obj_data)
         || !aot_emit_global_info(buf, buf_end, &offset, comp_data, obj_data)

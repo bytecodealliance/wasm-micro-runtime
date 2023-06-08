@@ -223,17 +223,17 @@ aot_create_globals(const WASMModule *module, uint32 global_data_start_offset,
 }
 
 static void
-aot_destroy_func_types(AOTFuncType **func_types, uint32 count)
+aot_destroy_types(AOTType **types, uint32 count)
 {
     uint32 i;
     for (i = 0; i < count; i++)
-        if (func_types[i])
-            wasm_runtime_free(func_types[i]);
-    wasm_runtime_free(func_types);
+        if (types[i])
+            wasm_runtime_free(types[i]);
+    wasm_runtime_free(types);
 }
 
-static AOTFuncType **
-aot_create_func_types(const WASMModule *module)
+static AOTType **
+aot_create_types(const WASMModule *module)
 {
     AOTFuncType **func_types;
     uint64 size;
@@ -262,10 +262,10 @@ aot_create_func_types(const WASMModule *module)
         memcpy(func_types[i], func_type, size);
     }
 
-    return func_types;
+    return (AOTType **)func_types;
 
 fail:
-    aot_destroy_func_types(func_types, module->type_count);
+    aot_destroy_types((AOTType **)func_types, module->type_count);
     return NULL;
 }
 
@@ -502,9 +502,8 @@ aot_create_comp_data(WASMModule *module, bool gc_enabled)
     comp_data->global_data_size = import_global_data_size + global_data_size;
 
     /* Create function types */
-    comp_data->func_type_count = module->type_count;
-    if (comp_data->func_type_count
-        && !(comp_data->func_types = aot_create_func_types(module)))
+    comp_data->type_count = module->type_count;
+    if (comp_data->type_count && !(comp_data->types = aot_create_types(module)))
         goto fail;
 
     /* Create import functions */
@@ -580,9 +579,8 @@ aot_destroy_comp_data(AOTCompData *comp_data)
     if (comp_data->globals)
         wasm_runtime_free(comp_data->globals);
 
-    if (comp_data->func_types)
-        aot_destroy_func_types(comp_data->func_types,
-                               comp_data->func_type_count);
+    if (comp_data->types)
+        aot_destroy_types(comp_data->types, comp_data->type_count);
 
     if (comp_data->import_funcs)
         wasm_runtime_free(comp_data->import_funcs);
