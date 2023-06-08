@@ -121,8 +121,28 @@ jit_compile_op_select(JitCompContext *cc, bool is_select_32)
             return false;
     }
 
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+    gen_increase_cnt_insn(cc->jit_frame);
+#endif
+
     GEN_INSN(CMP, cc->cmp_reg, cond, NEW_CONST(I32, 0));
     GEN_INSN(SELECTNE, selected, cc->cmp_reg, val1, val2);
+
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+    {
+        /*
+         * 1 if cond is not 0, otherwise 0
+         * this counter represents the number of times
+         * the condition is true
+         */
+        JitReg tmp = jit_cc_new_reg_I32(cc);
+        GEN_INSN(CMP, cc->cmp_reg, cond, NEW_CONST(I32, 0));
+        GEN_INSN(SELECTNE, tmp, cc->cmp_reg, NEW_CONST(I32, 1),
+                 NEW_CONST(I32, 0));
+        gen_increase_cnt_w_val_insn(cc->jit_frame, tmp);
+    }
+#endif
+
     PUSH(selected, val1_type);
     return true;
 fail:

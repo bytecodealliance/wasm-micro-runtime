@@ -225,6 +225,9 @@ get_ent_and_br_cnts_reg(JitFrame *frame);
 
 void
 gen_increase_cnt_insn(JitFrame *frame);
+
+void
+gen_increase_cnt_w_val_insn(JitFrame *frame, JitReg val_reg);
 #endif
 
 void
