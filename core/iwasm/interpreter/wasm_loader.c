@@ -3101,7 +3101,6 @@ init_llvm_jit_functions_stage2(WASMModule *module, char *error_buf,
         char func_name[48];
 
         snprintf(func_name, sizeof(func_name), "%s%d", AOT_FUNC_PREFIX, i);
-        LOG_VERBOSE("looking up %s", func_name);
         error = LLVMOrcLLLazyJITLookup(module->comp_ctx->orc_jit, &func_addr,
                                        func_name);
         if (error != LLVMErrorSuccess) {
