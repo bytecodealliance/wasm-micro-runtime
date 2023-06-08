@@ -2504,7 +2504,7 @@ read_stack_usage_file(const char *filename, uint32_t *sizes, uint32 count)
     if (found != count) {
         /*
          * LLVM seems to eliminate calls to an empty function
-         * even if it's marked noinline.
+         * (and eliminate the function) even if it's marked noinline.
          */
         LOG_WARNING("%" PRIu32 " entries found where %" PRIu32
                     " entries are expected",
@@ -2587,13 +2587,30 @@ aot_resolve_stack_sizes(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
 
                 /*
                  * LLVM seems to eliminate calls to an empty function
-                 * even if it's marked noinline.
+                 * (and eliminate the function) even if it's marked noinline.
                  */
                 if (stack_sizes[i] == 0xffffffff) {
                     LOG_VERBOSE("assuming no stack usage for func #%" PRIu32,
                                 i);
-                    /* an empty function can't have a call */
-                    bh_assert(func_ctx->stack_consumption_for_func_call == 0);
+                    if (func_ctx->stack_consumption_for_func_call != 0) {
+                        /*
+                         * This happens if a function calling another
+                         * function has been optimized out.
+                         *
+                         * for example,
+                         *
+                         *   (func $func
+                         *     (local i32)
+                         *     local.get 0
+                         *     if
+                         *       call $another
+                         *     end
+                         *   )
+                         */
+                        LOG_VERBOSE("AOT func #%" PRIu32
+                                    " had call(s) but eliminated?",
+                                    i);
+                    }
                     stack_sizes[i] = 0;
                 }
                 else {
