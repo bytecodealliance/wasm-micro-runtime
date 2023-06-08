@@ -5,13 +5,12 @@
 
 PLATFORM=$(uname -s | tr A-Z a-z)
 
-WAMRC="../../../wamr-compiler/build/wamrc"
 if [ "$1" = "--sgx" ] && [ "$PLATFORM" = "linux" ]; then
     IWASM="../../../product-mini/platforms/${PLATFORM}-sgx/enclave-sample/iwasm"
-    WAMRC="${WAMRC} -sgx"
-    . /opt/intel/sgxsdk/environment
+    WAMRC="../../../wamr-compiler/build/wamrc -sgx"
 else
     IWASM="../../../product-mini/platforms/${PLATFORM}/build/iwasm"
+    WAMRC="../../../wamr-compiler/build/wamrc"
 fi
 
 if [ ! -e "coremark.wasm" ]; then

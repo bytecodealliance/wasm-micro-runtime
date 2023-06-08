@@ -22,7 +22,6 @@ readonly REPORT=$PWD/report.txt
 if [ "$1" = "--sgx" ] && [ "$PLATFORM" = "linux" ]; then
     readonly IWASM_CMD="$PWD/../../../product-mini/platforms/${PLATFORM}-sgx/enclave-sample/iwasm"
     readonly WAMRC_CMD="$PWD/../../../wamr-compiler/build/wamrc -sgx"
-    . /opt/intel/sgxsdk/environment
 else
     readonly IWASM_CMD="$PWD/../../../product-mini/platforms/${PLATFORM}/build/iwasm"
     readonly WAMRC_CMD="$PWD/../../../wamr-compiler/build/wamrc"
