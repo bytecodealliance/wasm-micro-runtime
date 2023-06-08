@@ -168,6 +168,9 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
     func_ctx->func = precheck_func;
     func_ctx->module = module;
     func_ctx->aot_func = comp_ctx->comp_data->funcs[func_index];
+#if WASM_ENABLE_DEBUG_AOT != 0
+    func_ctx->debug_func = NULL;
+#endif
     if (!create_basic_func_context(comp_ctx, func_ctx))
         goto fail;
     if (comp_ctx->enable_stack_bound_check
@@ -178,7 +181,6 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
         goto fail;
     }
 
-    /* XXX what to do for func_ctx->debug_func? maybe just disable? */
     /* XXX error checks */
     /* XXX tweak for 32-bit arch */
     unsigned int param_count = LLVMCountParams(precheck_func);
@@ -3035,9 +3037,12 @@ aot_build_zero_function_ret(const AOTCompContext *comp_ctx,
         return false;
     }
 #if WASM_ENABLE_DEBUG_AOT != 0
-    LLVMMetadataRef return_location =
-        dwarf_gen_func_ret_location(comp_ctx, func_ctx);
-    LLVMInstructionSetDebugLoc(ret, return_location);
+    /* debug_func is NULL for precheck function */
+    if (func_ctx->debug_func != NULL) {
+        LLVMMetadataRef return_location =
+            dwarf_gen_func_ret_location(comp_ctx, func_ctx);
+        LLVMInstructionSetDebugLoc(ret, return_location);
+    }
 #endif
     return true;
 }
