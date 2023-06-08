@@ -181,8 +181,6 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
         goto fail;
     }
 
-    /* XXX error checks */
-    /* XXX tweak for 32-bit arch */
     unsigned int param_count = LLVMCountParams(precheck_func);
     uint64 sz = param_count * sizeof(LLVMValueRef);
     params = wasm_runtime_malloc(sz);
