@@ -2888,7 +2888,7 @@ aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name)
         if (comp_ctx->external_llc_compiler) {
             const char *stack_usage_flag = "";
             char bc_file_name[64];
-            char su_file_name[65];
+            char su_file_name[65]; /* see the comment below */
 
             if (comp_ctx->stack_usage_file != NULL) {
                 /*
