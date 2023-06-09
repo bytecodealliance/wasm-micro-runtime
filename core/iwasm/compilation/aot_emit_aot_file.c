@@ -2635,7 +2635,6 @@ aot_resolve_stack_sizes(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
                     stack_sizes[i] += func_ctx->stack_consumption_for_func_call;
                 }
             }
-            /* TODO add the amount stack to use to make calls */
             LLVMDisposeSectionIterator(sec_itr);
             LLVMDisposeSymbolIterator(sym_itr);
             return true;
