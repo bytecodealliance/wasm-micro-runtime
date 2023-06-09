@@ -2568,7 +2568,15 @@ aot_resolve_stack_sizes(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
             const char *sec_name = LLVMGetSectionName(sec_itr);
             LOG_VERBOSE("stack_sizes found in section %s offset %" PRIu64 ".",
                         sec_name, addr);
-            /* XXX discard const */
+            /*
+             * XXX discard const
+             *
+             * It seems working as of writing this. (LLVM 14-16)
+             *
+             * An alternative implementation would be to record the offset
+             * and replace the data in aot_emit_aot_file_buf. A bit cleaner
+             * but more complex than this implementation.
+             */
             uint32_t *stack_sizes = (uint32_t *)LLVMGetSectionContents(sec_itr);
             uint32 i;
             for (i = 0; i < obj_data->func_count; i++) {
