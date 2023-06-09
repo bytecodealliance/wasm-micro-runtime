@@ -1708,6 +1708,7 @@ load_function_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
         rtl_func_table[module->func_count - 1].EndAddress =
             (DWORD)(module->code_size - plt_table_size);
 
+#if 0
         if (!RtlAddFunctionTable(rtl_func_table, module->func_count,
                                  (DWORD64)(uintptr_t)module->code)) {
             set_error_buf(error_buf, error_buf_size,
@@ -1715,6 +1716,7 @@ load_function_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
             return false;
         }
         module->rtl_func_table_registered = true;
+#endif
     }
 #endif
 
