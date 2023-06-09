@@ -482,7 +482,13 @@ aot_estimate_stack_usage_for_function_call(const AOTCompContext *comp_ctx,
      * Estimate how much stack is necessary to make a function call.
      * This does not include the stack consumption of the callee function.
      *
-     * A small overstimation is acceptable. An underestimation is not.
+     * For precise estimation, ideally this function needs to be
+     * target-specific.
+     * However, this implementation aims to be target-independent,
+     * allowing a small overstimation, which is probably ok for our purpose.
+     * (overflow detection and memory profiling)
+     * On the other hand, an underestimation should be avoided as it
+     * can cause more serious problems like silent data corruptions.
      *
      * Assumptions:
      *
