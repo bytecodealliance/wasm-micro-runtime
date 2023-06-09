@@ -79,6 +79,11 @@ aot_add_llvm_func1(const AOTCompContext *comp_ctx, LLVMModuleRef module,
 
 /*
  * create a basic func_ctx enough to call aot_emit_exception.
+ *
+ * that is:
+ * - exec_env
+ * - aot_inst
+ * - native_symbol (if is_indirect_mode)
  */
 static bool
 create_basic_func_context(const AOTCompContext *comp_ctx,
@@ -1324,7 +1329,6 @@ aot_create_func_context(const AOTCompData *comp_data, AOTCompContext *comp_ctx,
     WASMFunction *wasm_func = module->functions[func_index];
     AOTBlock *aot_block;
     LLVMTypeRef int8_ptr_type;
-    LLVMValueRef aot_inst_offset = I32_TWO, aot_inst_addr;
     uint64 size;
 
     /* Allocate memory for the function context */
@@ -1363,22 +1367,7 @@ aot_create_func_context(const AOTCompData *comp_data, AOTCompContext *comp_ctx,
     /* Add local variables */
     LLVMPositionBuilderAtEnd(comp_ctx->builder, aot_block->llvm_entry_block);
 
-    /* Save the pameters for fast access */
-    func_ctx->exec_env = LLVMGetParam(func_ctx->func, 0);
-
-    /* Get aot inst address, the layout of exec_env is:
-       exec_env->next, exec_env->prev, exec_env->module_inst, and argv_buf */
-    if (!(aot_inst_addr = LLVMBuildInBoundsGEP2(
-              comp_ctx->builder, OPQ_PTR_TYPE, func_ctx->exec_env,
-              &aot_inst_offset, 1, "aot_inst_addr"))) {
-        aot_set_last_error("llvm build in bounds gep failed");
-        goto fail;
-    }
-
-    /* Load aot inst */
-    if (!(func_ctx->aot_inst = LLVMBuildLoad2(comp_ctx->builder, OPQ_PTR_TYPE,
-                                              aot_inst_addr, "aot_inst"))) {
-        aot_set_last_error("llvm build load failed");
+    if (!create_basic_func_context(comp_ctx, func_ctx)) {
         goto fail;
     }
 
@@ -1390,12 +1379,6 @@ aot_create_func_context(const AOTCompData *comp_data, AOTCompContext *comp_ctx,
     /* Get auxiliary stack info */
     if (wasm_func->has_op_set_global_aux_stack
         && !create_aux_stack_info(comp_ctx, func_ctx)) {
-        goto fail;
-    }
-
-    /* Get native symbol list */
-    if (comp_ctx->is_indirect_mode
-        && !create_native_symbol(comp_ctx, func_ctx)) {
         goto fail;
     }
 
