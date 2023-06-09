@@ -26,7 +26,7 @@
 #include "llvm-c/Initialization.h"
 #include "llvm-c/TargetMachine.h"
 #include "llvm-c/LLJIT.h"
-#if WASM_ENABLE_DEBUG_AOT != 0
+#if WASM_ENABLE_DEBUG_AOT != 0 || WASM_ENABLE_DYNAMIC_PGO != 0
 #include "llvm-c/DebugInfo.h"
 #endif
 
@@ -181,7 +181,7 @@ typedef struct AOTFuncContext {
     LLVMBasicBlockRef func_return_block;
     LLVMValueRef exception_id_phi;
     LLVMValueRef func_type_indexes;
-#if WASM_ENABLE_DEBUG_AOT != 0
+#if WASM_ENABLE_DEBUG_AOT != 0 || WASM_ENABLE_DYNAMIC_PGO != 0
     LLVMMetadataRef debug_func;
 #endif
     LLVMValueRef locals[1];
@@ -280,7 +280,7 @@ typedef struct AOTCompContext {
     /* LLVM variables required to emit LLVM IR */
     LLVMContextRef context;
     LLVMBuilderRef builder;
-#if WASM_ENABLE_DEBUG_AOT
+#if WASM_ENABLE_DEBUG_AOT != 0 || WASM_ENABLE_DYNAMIC_PGO != 0
     LLVMDIBuilderRef debug_builder;
     LLVMMetadataRef debug_file;
     LLVMMetadataRef debug_comp_unit;
@@ -521,8 +521,18 @@ aot_handle_llvm_errmsg(const char *string, LLVMErrorRef err);
 
 #if WASM_ENABLE_DYNAMIC_PGO != 0
 void
+wasm_dpgo_set_branch_weights(LLVMContextRef context, LLVMValueRef instruction,
+                             uint32 *counts, uint32 counts_size);
+
+void
 wasm_dpgo_set_prof_meta(AOTCompContext *comp_ctx, LLVMValueRef function,
                         uint32 func_idx);
+
+void
+wasm_dpgo_unlike_true_branch(LLVMContextRef context, LLVMValueRef cond_br);
+
+void
+wasm_dpgo_unlike_false_branch(LLVMContextRef context, LLVMValueRef cond_br);
 #endif
 
 #ifdef __cplusplus

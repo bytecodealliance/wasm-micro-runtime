@@ -181,7 +181,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
     float32 f32_const;
     float64 f64_const;
     AOTFuncType *func_type = NULL;
-#if WASM_ENABLE_DEBUG_AOT != 0
+#if WASM_ENABLE_DEBUG_AOT != 0 || WASM_ENABLE_DYNAMIC_PGO != 0
     LLVMMetadataRef location;
 #endif
 
@@ -196,6 +196,17 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
         location = dwarf_gen_location(
             comp_ctx, func_ctx,
             (frame_ip - 1) - comp_ctx->comp_data->wasm_module->buf_code);
+        LLVMSetCurrentDebugLocation2(comp_ctx->builder, location);
+#endif
+
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+        location = LLVMDIBuilderCreateDebugLocation(
+            comp_ctx->context, frame_ip - func_ctx->aot_func->code, 1,
+            func_ctx->debug_func, NULL);
+        if (!location) {
+            LOG_ERROR("Cannot create dubug loation");
+            goto fail;
+        }
         LLVMSetCurrentDebugLocation2(comp_ctx->builder, location);
 #endif
 
@@ -2689,24 +2700,40 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
         if (!aot_compile_func(comp_ctx, i)) {
             return false;
         }
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+        /* resolve `!MD.isTemporary()` */
+        LLVMDIBuilderFinalizeSubprogram(comp_ctx->debug_builder,
+                                        comp_ctx->func_ctxes[i]->debug_func);
+#endif
     }
 
     /*
      * release IRBuilder as early as possible.  Further, release IR generation
      * resource
      */
-    if (comp_ctx->builder) {
-        LLVMDisposeBuilder(comp_ctx->builder);
-        comp_ctx->builder = NULL;
-    }
+    LLVMDisposeBuilder(comp_ctx->builder);
+    comp_ctx->builder = NULL;
 
-#if WASM_ENABLE_DEBUG_AOT != 0
+#if WASM_ENABLE_DEBUG_AOT != 0 || WASM_ENABLE_DYNAMIC_PGO != 0
+    /* release DIBuilder as early as possible. */
     LLVMDIBuilderFinalize(comp_ctx->debug_builder);
+    LLVMDisposeDIBuilder(comp_ctx->debug_builder);
+    comp_ctx->debug_builder = NULL;
 #endif
 
-    /* Disable LLVM module verification for jit mode to speedup
-       the compilation process */
-    if (!comp_ctx->is_jit_mode) {
+    /*
+     * Disable LLVM module verification for jit mode to speedup
+     * the compilation process
+     *
+     * always want to verify the module to make sure DILocation
+     * related information are correct. If not, it may leads an
+     * exception very far away
+     */
+#if WASM_ENABLE_DYNAMIC_PGO == 0
+    if (!comp_ctx->is_jit_mode)
+#endif
+    {
+
         bh_print_time("Begin to verify LLVM module");
         if (!verify_module(comp_ctx)) {
             return false;
