@@ -157,6 +157,11 @@ if (NOT WAMR_BUILD_FAST_JIT EQUAL 1 OR NOT WAMR_BUILD_JIT EQUAL 1 OR NOT WAMR_BU
   endif ()
 endif()
 
+# Conflict check for DEBUG_AOT and DYNAMIC_PGO. Both append DILocation to LLVM IR
+if (WAMR_BUILD_DYNAMIC_PGO EQUAL 1 AND WAMR_BUILD_DEBUG_AOT EQUAL 1)
+  message (FATAL_ERROR "Cannot enable WAMR_BUILD_DYNAMIC_PGO and WAMR_BUILD_DEBUG_AOT at the same time")
+endif ()
+
 ########################################
 
 message ("-- Build Configurations:")
