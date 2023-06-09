@@ -564,6 +564,7 @@ gc_realloc_vo_internal(void *vheap, void *ptr, gc_size_t size, const char *file,
                         os_mutex_unlock(&heap->lock);
                         return NULL;
                     }
+                    hmu_mark_pinuse(hmu_next);
                 }
                 os_mutex_unlock(&heap->lock);
                 return obj_old;
