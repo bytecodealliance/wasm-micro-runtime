@@ -450,7 +450,8 @@
 #endif
 
 /* Disable writing linear memory base address to GS segment register,
-   enable it by default on linux x86-64 platform */
+   by default only in linux x86-64, linear memory base addr is written
+   to GS segment register before calling wasm/aot function. */
 #ifndef WASM_DISABLE_WRITE_GS_BASE
 #define WASM_DISABLE_WRITE_GS_BASE 0
 #endif
