@@ -25,6 +25,7 @@ void __divdi3();
 void __udivdi3();
 void __moddi3();
 void __umoddi3();
+void __aulldiv();
 /* clang-format on */
 #else
 #pragma function(floor)
