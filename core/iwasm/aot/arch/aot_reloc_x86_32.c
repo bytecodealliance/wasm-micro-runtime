@@ -25,7 +25,6 @@ void __divdi3();
 void __udivdi3();
 void __moddi3();
 void __umoddi3();
-void __aulldiv();
 /* clang-format on */
 #else
 #pragma function(floor)
@@ -54,13 +53,13 @@ __umoddi3(uint64 a, uint64 b)
 {
     return a % b;
 }
+#endif
 
 static uint64
 __aulldiv(uint64 a, uint64 b)
 {
     return a / b;
 }
-#endif
 
 /* clang-format off */
 static SymbolMap target_sym_map[] = {
