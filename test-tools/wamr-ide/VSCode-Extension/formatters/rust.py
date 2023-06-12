@@ -1,5 +1,6 @@
 '''
 Copyright (c) 2016 Vadim Chugunov
+SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 '''
 
 from __future__ import print_function, division
