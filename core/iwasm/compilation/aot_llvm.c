@@ -216,6 +216,7 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
     /*
      * load the value for this wrapped function from the stack_sizes array
      */
+#if 0
     LLVMValueRef func_index_const = I32_CONST(func_index);
     LLVMValueRef sizes =
         LLVMBuildBitCast(b, comp_ctx->stack_sizes, INT32_PTR_TYPE, "sizes");
@@ -241,6 +242,9 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
     else {
         size = size32;
     }
+#else
+    LLVMValueRef size = I64_CONST(8192);
+#endif
     /*
      * calculate new sp
      */
