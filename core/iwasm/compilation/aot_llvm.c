@@ -244,13 +244,11 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
     /*
      * calculate new sp
      */
-#if 0
     LLVMValueRef underflow =
         LLVMBuildICmp(b, LLVMIntULT, sp, size, "underflow");
     if (!underflow) {
         goto fail;
     }
-#endif
     LLVMValueRef new_sp = LLVMBuildSub(b, sp, size, "new_sp");
     if (!new_sp) {
         goto fail;
@@ -288,12 +286,10 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
         if (!cmp_top) {
             goto fail;
         }
-#if 0
         cmp_top = LLVMBuildOr(b, underflow, cmp_top, "cmp_top2");
         if (!cmp_top) {
             goto fail;
         }
-#endif
         if (!LLVMBuildCondBr(b, cmp_top, update_top_block,
                              call_wrapped_func_block)) {
             aot_set_last_error("llvm build cond br failed.");
@@ -338,12 +334,10 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
         if (!cmp) {
             goto fail;
         }
-#if 0
         cmp = LLVMBuildOr(b, underflow, cmp, "cmp2");
         if (!cmp) {
             goto fail;
         }
-#endif
         /* todo: @llvm.expect.i1(i1 %cmp, i1 0) */
         if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_NATIVE_STACK_OVERFLOW,
                                 true, cmp, call_wrapped_func_block))
