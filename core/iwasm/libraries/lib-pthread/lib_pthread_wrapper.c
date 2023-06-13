@@ -561,7 +561,6 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
 #if WASM_ENABLE_LIBC_WASI != 0
     WASIContext *wasi_ctx;
 #endif
-    CApiFuncImport **new_c_api_func_imports = NULL;
 
     bh_assert(module);
     bh_assert(module_inst);

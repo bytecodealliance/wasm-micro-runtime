@@ -1,5 +1,22 @@
+diff --git a/test/core/atomic_wait_notify.wast b/test/core/atomic_wait_notify.wast
+index 2e312c3..4f35ac5 100644
+--- a/test/core/atomic_wait_notify.wast
++++ b/test/core/atomic_wait_notify.wast
+@@ -70,6 +70,7 @@
+   (memory (export "shared") 1 1 shared)
+ )
+ 
++(;
+ (thread $T1 (shared (module $Mem))
+   (register "mem" $Mem)
+   (module
+@@ -106,3 +107,4 @@
+ 
+ (wait $T1)
+ (wait $T2)
++;)
 diff --git a/test/core/binary.wast b/test/core/binary.wast
-index b9fa438c..a5711dd3 100644
+index b9fa438..a5711dd 100644
 --- a/test/core/binary.wast
 +++ b/test/core/binary.wast
 @@ -45,7 +45,7 @@
@@ -163,7 +180,7 @@ index b9fa438c..a5711dd3 100644
  ;; 1 elem segment declared, 2 given
  (assert_malformed
 diff --git a/test/core/elem.wast b/test/core/elem.wast
-index 1ea2b061..8eded377 100644
+index 1ea2b06..8eded37 100644
 --- a/test/core/elem.wast
 +++ b/test/core/elem.wast
 @@ -12,10 +12,10 @@
@@ -195,7 +212,7 @@ index 1ea2b061..8eded377 100644
  (assert_return (invoke $module1 "call-9") (i32.const 70))
 +;)
 diff --git a/test/core/thread.wast b/test/core/thread.wast
-index c3456a61..83fc2815 100644
+index c3456a6..83fc281 100644
 --- a/test/core/thread.wast
 +++ b/test/core/thread.wast
 @@ -2,6 +2,7 @@

@@ -3000,7 +3000,7 @@ init_llvm_jit_functions_stage1(WASMModule *module, char *error_buf,
     if (module->function_count == 0)
         return true;
 
-#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_LLVM_JIT != 0
+#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_LAZY_JIT != 0
     if (os_mutex_init(&module->tierup_wait_lock) != 0) {
         set_error_buf(error_buf, error_buf_size, "init jit tierup lock failed");
         return false;
@@ -3035,6 +3035,7 @@ init_llvm_jit_functions_stage1(WASMModule *module, char *error_buf,
     llvm_jit_options = wasm_runtime_get_llvm_jit_options();
     option.opt_level = llvm_jit_options.opt_level;
     option.size_level = llvm_jit_options.size_level;
+    option.segue_flags = llvm_jit_options.segue_flags;
 
 #if WASM_ENABLE_BULK_MEMORY != 0
     option.enable_bulk_memory = true;

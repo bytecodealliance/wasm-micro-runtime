@@ -111,6 +111,8 @@ typedef struct AOTSymbolList {
 
 /* AOT object data */
 typedef struct AOTObjectData {
+    AOTCompContext *comp_ctx;
+
     LLVMMemoryBufferRef mem_buf;
     LLVMBinaryRef binary;
 
@@ -118,6 +120,12 @@ typedef struct AOTObjectData {
 
     void *text;
     uint32 text_size;
+
+    void *text_unlikely;
+    uint32 text_unlikely_size;
+
+    void *text_hot;
+    uint32 text_hot_size;
 
     /* literal data and size */
     void *literal;
@@ -558,8 +566,10 @@ get_init_data_section_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
 static uint32
 get_text_section_size(AOTObjectData *obj_data)
 {
-    return (sizeof(uint32) + obj_data->literal_size + obj_data->text_size + 3)
-           & ~3;
+    return sizeof(uint32) + align_uint(obj_data->literal_size, 4)
+           + align_uint(obj_data->text_size, 4)
+           + align_uint(obj_data->text_unlikely_size, 4)
+           + align_uint(obj_data->text_hot_size, 4);
 }
 
 static uint32
@@ -1702,12 +1712,28 @@ aot_emit_text_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     EMIT_U32(AOT_SECTION_TYPE_TEXT);
     EMIT_U32(section_size);
     EMIT_U32(obj_data->literal_size);
-    if (obj_data->literal_size > 0)
-        EMIT_BUF(obj_data->literal, obj_data->literal_size);
-    EMIT_BUF(obj_data->text, obj_data->text_size);
 
-    while (offset & 3)
-        EMIT_BUF(&placeholder, 1);
+    if (obj_data->literal_size > 0) {
+        EMIT_BUF(obj_data->literal, obj_data->literal_size);
+        while (offset & 3)
+            EMIT_BUF(&placeholder, 1);
+    }
+
+    if (obj_data->text_size > 0) {
+        EMIT_BUF(obj_data->text, obj_data->text_size);
+        while (offset & 3)
+            EMIT_BUF(&placeholder, 1);
+    }
+    if (obj_data->text_unlikely_size > 0) {
+        EMIT_BUF(obj_data->text_unlikely, obj_data->text_unlikely_size);
+        while (offset & 3)
+            EMIT_BUF(&placeholder, 1);
+    }
+    if (obj_data->text_hot_size > 0) {
+        EMIT_BUF(obj_data->text_hot, obj_data->text_hot_size);
+        while (offset & 3)
+            EMIT_BUF(&placeholder, 1);
+    }
 
     if (offset - *p_offset != section_size + sizeof(uint32) * 2) {
         aot_set_last_error("emit text section failed.");
@@ -2211,11 +2237,23 @@ aot_resolve_text(AOTObjectData *obj_data)
         }
         while (
             !LLVMObjectFileIsSectionIteratorAtEnd(obj_data->binary, sec_itr)) {
-            if ((name = (char *)LLVMGetSectionName(sec_itr))
-                && !strcmp(name, ".text")) {
-                obj_data->text = (char *)LLVMGetSectionContents(sec_itr);
-                obj_data->text_size = (uint32)LLVMGetSectionSize(sec_itr);
-                break;
+            if ((name = (char *)LLVMGetSectionName(sec_itr))) {
+                if (!strcmp(name, ".text")) {
+                    obj_data->text = (char *)LLVMGetSectionContents(sec_itr);
+                    obj_data->text_size = (uint32)LLVMGetSectionSize(sec_itr);
+                }
+                else if (!strcmp(name, ".text.unlikely.")) {
+                    obj_data->text_unlikely =
+                        (char *)LLVMGetSectionContents(sec_itr);
+                    obj_data->text_unlikely_size =
+                        (uint32)LLVMGetSectionSize(sec_itr);
+                }
+                else if (!strcmp(name, ".text.hot.")) {
+                    obj_data->text_hot =
+                        (char *)LLVMGetSectionContents(sec_itr);
+                    obj_data->text_hot_size =
+                        (uint32)LLVMGetSectionSize(sec_itr);
+                }
             }
             LLVMMoveToNextSection(sec_itr);
         }
@@ -2253,7 +2291,8 @@ static bool
 get_relocations_count(LLVMSectionIteratorRef sec_itr, uint32 *p_count);
 
 static bool
-is_data_section(LLVMSectionIteratorRef sec_itr, char *section_name)
+is_data_section(AOTObjectData *obj_data, LLVMSectionIteratorRef sec_itr,
+                char *section_name)
 {
     uint32 relocation_count = 0;
 
@@ -2265,7 +2304,11 @@ is_data_section(LLVMSectionIteratorRef sec_itr, char *section_name)
             || !strncmp(section_name, ".rodata.str", strlen(".rodata.str"))
             || (!strcmp(section_name, ".rdata")
                 && get_relocations_count(sec_itr, &relocation_count)
-                && relocation_count > 0));
+                && relocation_count > 0)
+            || (obj_data->comp_ctx->enable_llvm_pgo
+                && (!strncmp(section_name, "__llvm_prf_cnts", 15)
+                    || !strncmp(section_name, "__llvm_prf_data", 15)
+                    || !strncmp(section_name, "__llvm_prf_names", 16))));
 }
 
 static bool
@@ -2281,7 +2324,7 @@ get_object_data_sections_count(AOTObjectData *obj_data, uint32 *p_count)
     }
     while (!LLVMObjectFileIsSectionIteratorAtEnd(obj_data->binary, sec_itr)) {
         if ((name = (char *)LLVMGetSectionName(sec_itr))
-            && (is_data_section(sec_itr, name))) {
+            && (is_data_section(obj_data, sec_itr, name))) {
             count++;
         }
         LLVMMoveToNextSection(sec_itr);
@@ -2306,6 +2349,9 @@ aot_resolve_object_data_sections(AOTObjectData *obj_data)
     }
 
     if (sections_count > 0) {
+        uint32 llvm_prf_cnts_idx = 0, llvm_prf_data_idx = 0;
+        char buf[32];
+
         size = (uint32)sizeof(AOTObjectDataSection) * sections_count;
         if (!(data_section = obj_data->data_sections =
                   wasm_runtime_malloc(size))) {
@@ -2322,10 +2368,46 @@ aot_resolve_object_data_sections(AOTObjectData *obj_data)
         while (
             !LLVMObjectFileIsSectionIteratorAtEnd(obj_data->binary, sec_itr)) {
             if ((name = (char *)LLVMGetSectionName(sec_itr))
-                && (is_data_section(sec_itr, name))) {
+                && (is_data_section(obj_data, sec_itr, name))) {
                 data_section->name = name;
-                data_section->data = (uint8 *)LLVMGetSectionContents(sec_itr);
-                data_section->size = (uint32)LLVMGetSectionSize(sec_itr);
+                if (obj_data->comp_ctx->enable_llvm_pgo
+                    && !strcmp(name, "__llvm_prf_cnts")) {
+                    snprintf(buf, sizeof(buf), "%s%u", name,
+                             llvm_prf_cnts_idx++);
+                    size = strlen(buf) + 1;
+                    if (!(data_section->name = wasm_runtime_malloc(size))) {
+                        aot_set_last_error(
+                            "allocate memory for data section name failed.");
+                        return false;
+                    }
+                    bh_memcpy_s(data_section->name, size, buf, size);
+                    data_section->is_name_allocated = true;
+                }
+                else if (obj_data->comp_ctx->enable_llvm_pgo
+                         && !strcmp(name, "__llvm_prf_data")) {
+                    snprintf(buf, sizeof(buf), "%s%u", name,
+                             llvm_prf_data_idx++);
+                    size = strlen(buf) + 1;
+                    if (!(data_section->name = wasm_runtime_malloc(size))) {
+                        aot_set_last_error(
+                            "allocate memory for data section name failed.");
+                        return false;
+                    }
+                    bh_memcpy_s(data_section->name, size, buf, size);
+                    data_section->is_name_allocated = true;
+                }
+
+                if (obj_data->comp_ctx->enable_llvm_pgo
+                    && !strcmp(name, "__llvm_prf_names")) {
+                    data_section->data = (uint8 *)aot_compress_aot_func_names(
+                        obj_data->comp_ctx, &data_section->size);
+                    data_section->is_data_allocated = true;
+                }
+                else {
+                    data_section->data =
+                        (uint8 *)LLVMGetSectionContents(sec_itr);
+                    data_section->size = (uint32)LLVMGetSectionSize(sec_itr);
+                }
                 data_section++;
             }
             LLVMMoveToNextSection(sec_itr);
@@ -2365,9 +2447,36 @@ aot_resolve_functions(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
             && str_starts_with(name, prefix)) {
             func_index = (uint32)atoi(name + strlen(prefix));
             if (func_index < obj_data->func_count) {
+                LLVMSectionIteratorRef contain_section;
+                char *contain_section_name;
+
                 func = obj_data->funcs + func_index;
                 func->func_name = name;
-                func->text_offset = LLVMGetSymbolAddress(sym_itr);
+
+                if (!(contain_section = LLVMObjectFileCopySectionIterator(
+                          obj_data->binary))) {
+                    aot_set_last_error("llvm get section iterator failed.");
+                    LLVMDisposeSymbolIterator(sym_itr);
+                    return false;
+                }
+                LLVMMoveToContainingSection(contain_section, sym_itr);
+                contain_section_name =
+                    (char *)LLVMGetSectionName(contain_section);
+                LLVMDisposeSectionIterator(contain_section);
+
+                if (!strcmp(contain_section_name, ".text.unlikely.")) {
+                    func->text_offset = align_uint(obj_data->text_size, 4)
+                                        + LLVMGetSymbolAddress(sym_itr);
+                }
+                else if (!strcmp(contain_section_name, ".text.hot.")) {
+                    func->text_offset =
+                        align_uint(obj_data->text_size, 4)
+                        + align_uint(obj_data->text_unlikely_size, 4)
+                        + LLVMGetSymbolAddress(sym_itr);
+                }
+                else {
+                    func->text_offset = LLVMGetSymbolAddress(sym_itr);
+                }
             }
         }
         LLVMMoveToNextSymbol(sym_itr);
@@ -2478,9 +2587,86 @@ aot_resolve_object_relocation_group(AOTObjectData *obj_data,
         }
 
         /* set relocation fields */
-        relocation->relocation_offset = offset;
         relocation->relocation_type = (uint32)type;
         relocation->symbol_name = (char *)LLVMGetSymbolName(rel_sym);
+        relocation->relocation_offset = offset;
+        if (!strcmp(group->section_name, ".rela.text.unlikely.")
+            || !strcmp(group->section_name, ".rel.text.unlikely.")) {
+            relocation->relocation_offset += align_uint(obj_data->text_size, 4);
+        }
+        else if (!strcmp(group->section_name, ".rela.text.hot.")
+                 || !strcmp(group->section_name, ".rel.text.hot.")) {
+            relocation->relocation_offset +=
+                align_uint(obj_data->text_size, 4)
+                + align_uint(obj_data->text_unlikely_size, 4);
+        }
+        if (!strcmp(relocation->symbol_name, ".text.unlikely.")) {
+            relocation->symbol_name = ".text";
+            relocation->relocation_addend += align_uint(obj_data->text_size, 4);
+        }
+        if (!strcmp(relocation->symbol_name, ".text.hot.")) {
+            relocation->symbol_name = ".text";
+            relocation->relocation_addend +=
+                align_uint(obj_data->text_size, 4)
+                + align_uint(obj_data->text_unlikely_size, 4);
+        }
+
+        if (obj_data->comp_ctx->enable_llvm_pgo
+            && (!strcmp(relocation->symbol_name, "__llvm_prf_cnts")
+                || !strcmp(relocation->symbol_name, "__llvm_prf_data"))) {
+            LLVMSectionIteratorRef sec_itr;
+            char buf[32], *section_name;
+            uint32 prof_section_idx = 0;
+
+            if (!(sec_itr =
+                      LLVMObjectFileCopySectionIterator(obj_data->binary))) {
+                aot_set_last_error("llvm get section iterator failed.");
+                LLVMDisposeSymbolIterator(rel_sym);
+                goto fail;
+            }
+            while (!LLVMObjectFileIsSectionIteratorAtEnd(obj_data->binary,
+                                                         sec_itr)) {
+                section_name = (char *)LLVMGetSectionName(sec_itr);
+                if (section_name
+                    && !strcmp(section_name, relocation->symbol_name)) {
+                    if (LLVMGetSectionContainsSymbol(sec_itr, rel_sym))
+                        break;
+                    prof_section_idx++;
+                }
+                LLVMMoveToNextSection(sec_itr);
+            }
+            LLVMDisposeSectionIterator(sec_itr);
+
+            if (!strcmp(group->section_name, ".rela.text")
+                || !strcmp(group->section_name, ".rel.text")) {
+                snprintf(buf, sizeof(buf), "%s%u", relocation->symbol_name,
+                         prof_section_idx);
+                size = strlen(buf) + 1;
+                if (!(relocation->symbol_name = wasm_runtime_malloc(size))) {
+                    aot_set_last_error(
+                        "allocate memory for relocation symbol name failed.");
+                    LLVMDisposeSymbolIterator(rel_sym);
+                    goto fail;
+                }
+                bh_memcpy_s(relocation->symbol_name, size, buf, size);
+                relocation->is_symbol_name_allocated = true;
+            }
+            else if (!strncmp(group->section_name, ".rela__llvm_prf_data", 20)
+                     || !strncmp(group->section_name, ".rel__llvm_prf_data",
+                                 19)) {
+                snprintf(buf, sizeof(buf), "%s%u", relocation->symbol_name,
+                         prof_section_idx);
+                size = strlen(buf) + 1;
+                if (!(relocation->symbol_name = wasm_runtime_malloc(size))) {
+                    aot_set_last_error(
+                        "allocate memory for relocation symbol name failed.");
+                    LLVMDisposeSymbolIterator(rel_sym);
+                    goto fail;
+                }
+                bh_memcpy_s(relocation->symbol_name, size, buf, size);
+                relocation->is_symbol_name_allocated = true;
+            }
+        }
 
         /* for ".LCPIxxx", ".LJTIxxx", ".LBBxxx" and switch lookup table
          * relocation, transform the symbol name to real section name and set
@@ -2525,10 +2711,14 @@ fail:
 }
 
 static bool
-is_relocation_section_name(char *section_name)
+is_relocation_section_name(AOTObjectData *obj_data, char *section_name)
 {
     return (!strcmp(section_name, ".rela.text")
             || !strcmp(section_name, ".rel.text")
+            || !strcmp(section_name, ".rela.text.unlikely.")
+            || !strcmp(section_name, ".rel.text.unlikely.")
+            || !strcmp(section_name, ".rela.text.hot.")
+            || !strcmp(section_name, ".rel.text.hot.")
             || !strcmp(section_name, ".rela.literal")
             || !strcmp(section_name, ".rela.data")
             || !strcmp(section_name, ".rel.data")
@@ -2536,6 +2726,9 @@ is_relocation_section_name(char *section_name)
             || !strcmp(section_name, ".rel.sdata")
             || !strcmp(section_name, ".rela.rodata")
             || !strcmp(section_name, ".rel.rodata")
+            || (obj_data->comp_ctx->enable_llvm_pgo
+                && (!strcmp(section_name, ".rela__llvm_prf_data")
+                    || !strcmp(section_name, ".rel__llvm_prf_data")))
             /* ".rela.rodata.cst4/8/16/.." */
             || !strncmp(section_name, ".rela.rodata.cst",
                         strlen(".rela.rodata.cst"))
@@ -2545,14 +2738,15 @@ is_relocation_section_name(char *section_name)
 }
 
 static bool
-is_relocation_section(LLVMSectionIteratorRef sec_itr)
+is_relocation_section(AOTObjectData *obj_data, LLVMSectionIteratorRef sec_itr)
 {
     uint32 count = 0;
     char *name = (char *)LLVMGetSectionName(sec_itr);
     if (name) {
-        if (is_relocation_section_name(name))
+        if (is_relocation_section_name(obj_data, name))
             return true;
-        else if ((!strcmp(name, ".text") || !strcmp(name, ".rdata"))
+        else if ((!strcmp(name, ".text") || !strcmp(name, ".text.unlikely.")
+                  || !strcmp(name, ".text.hot.") || !strcmp(name, ".rdata"))
                  && get_relocations_count(sec_itr, &count) && count > 0)
             return true;
     }
@@ -2570,7 +2764,7 @@ get_relocation_groups_count(AOTObjectData *obj_data, uint32 *p_count)
         return false;
     }
     while (!LLVMObjectFileIsSectionIteratorAtEnd(obj_data->binary, sec_itr)) {
-        if (is_relocation_section(sec_itr)) {
+        if (is_relocation_section(obj_data, sec_itr)) {
             count++;
         }
         LLVMMoveToNextSection(sec_itr);
@@ -2586,7 +2780,7 @@ aot_resolve_object_relocation_groups(AOTObjectData *obj_data)
 {
     LLVMSectionIteratorRef sec_itr;
     AOTRelocationGroup *relocation_group;
-    uint32 group_count;
+    uint32 group_count, llvm_prf_data_idx = 0;
     char *name;
     uint32 size;
 
@@ -2612,14 +2806,50 @@ aot_resolve_object_relocation_groups(AOTObjectData *obj_data)
         return false;
     }
     while (!LLVMObjectFileIsSectionIteratorAtEnd(obj_data->binary, sec_itr)) {
-        if (is_relocation_section(sec_itr)) {
+        if (is_relocation_section(obj_data, sec_itr)) {
             name = (char *)LLVMGetSectionName(sec_itr);
             relocation_group->section_name = name;
+
+            if (obj_data->comp_ctx->enable_llvm_pgo
+                && (!strcmp(name, ".rela__llvm_prf_data")
+                    || !strcmp(name, ".rel__llvm_prf_data"))) {
+                char buf[32];
+                snprintf(buf, sizeof(buf), "%s%u", name, llvm_prf_data_idx);
+                size = strlen(buf) + 1;
+                if (!(relocation_group->section_name =
+                          wasm_runtime_malloc(size))) {
+                    aot_set_last_error(
+                        "allocate memory for section name failed.");
+                    LLVMDisposeSectionIterator(sec_itr);
+                    return false;
+                }
+                bh_memcpy_s(relocation_group->section_name, size, buf, size);
+                relocation_group->is_section_name_allocated = true;
+            }
+
             if (!aot_resolve_object_relocation_group(obj_data, relocation_group,
                                                      sec_itr)) {
                 LLVMDisposeSectionIterator(sec_itr);
                 return false;
             }
+
+            if (obj_data->comp_ctx->enable_llvm_pgo
+                && (!strcmp(name, ".rela__llvm_prf_data")
+                    || !strcmp(name, ".rel__llvm_prf_data"))) {
+                llvm_prf_data_idx++;
+            }
+
+            if (!strcmp(relocation_group->section_name, ".rela.text.unlikely.")
+                || !strcmp(relocation_group->section_name, ".rela.text.hot.")) {
+                relocation_group->section_name = ".rela.text";
+            }
+            else if (!strcmp(relocation_group->section_name,
+                             ".rel.text.unlikely.")
+                     || !strcmp(relocation_group->section_name,
+                                ".rel.text.hot.")) {
+                relocation_group->section_name = ".rel.text";
+            }
+
             relocation_group++;
         }
         LLVMMoveToNextSection(sec_itr);
@@ -2633,12 +2863,21 @@ static void
 destroy_relocation_groups(AOTRelocationGroup *relocation_groups,
                           uint32 relocation_group_count)
 {
-    uint32 i;
+    uint32 i, j;
     AOTRelocationGroup *relocation_group = relocation_groups;
 
-    for (i = 0; i < relocation_group_count; i++, relocation_group++)
-        if (relocation_group->relocations)
+    for (i = 0; i < relocation_group_count; i++, relocation_group++) {
+        if (relocation_group->relocations) {
+            for (j = 0; j < relocation_group->relocation_count; j++) {
+                if (relocation_group->relocations[j].is_symbol_name_allocated)
+                    wasm_runtime_free(
+                        relocation_group->relocations[j].symbol_name);
+            }
             wasm_runtime_free(relocation_group->relocations);
+        }
+        if (relocation_group->is_section_name_allocated)
+            wasm_runtime_free(relocation_group->section_name);
+    }
     wasm_runtime_free(relocation_groups);
 }
 
@@ -2664,8 +2903,20 @@ aot_obj_data_destroy(AOTObjectData *obj_data)
         LLVMDisposeMemoryBuffer(obj_data->mem_buf);
     if (obj_data->funcs)
         wasm_runtime_free(obj_data->funcs);
-    if (obj_data->data_sections)
+    if (obj_data->data_sections) {
+        uint32 i;
+        for (i = 0; i < obj_data->data_sections_count; i++) {
+            if (obj_data->data_sections[i].name
+                && obj_data->data_sections[i].is_name_allocated) {
+                wasm_runtime_free(obj_data->data_sections[i].name);
+            }
+            if (obj_data->data_sections[i].data
+                && obj_data->data_sections[i].is_data_allocated) {
+                wasm_runtime_free(obj_data->data_sections[i].data);
+            }
+        }
         wasm_runtime_free(obj_data->data_sections);
+    }
     if (obj_data->relocation_groups)
         destroy_relocation_groups(obj_data->relocation_groups,
                                   obj_data->relocation_group_count);
@@ -2688,6 +2939,7 @@ aot_obj_data_create(AOTCompContext *comp_ctx)
         return false;
     }
     memset(obj_data, 0, sizeof(AOTObjectData));
+    obj_data->comp_ctx = comp_ctx;
 
     bh_print_time("Begin to emit object file");
     if (comp_ctx->external_llc_compiler || comp_ctx->external_asm_compiler) {
@@ -2821,8 +3073,8 @@ aot_obj_data_create(AOTCompContext *comp_ctx)
     if (!aot_resolve_target_info(comp_ctx, obj_data)
         || !aot_resolve_text(obj_data) || !aot_resolve_literal(obj_data)
         || !aot_resolve_object_data_sections(obj_data)
-        || !aot_resolve_object_relocation_groups(obj_data)
-        || !aot_resolve_functions(comp_ctx, obj_data))
+        || !aot_resolve_functions(comp_ctx, obj_data)
+        || !aot_resolve_object_relocation_groups(obj_data))
         goto fail;
 
     return obj_data;
