@@ -5,8 +5,9 @@ FROM ubuntu:20.04 AS base
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+# hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y \
-    cmake build-essential git
+    cmake build-essential git --no-install-recommends
 
 WORKDIR /home/wamr
 
@@ -19,10 +20,11 @@ RUN cmake \
   -DWASI_NN_ENABLE_GPU=1 \
   ..
 
-RUN make -j $(grep -c ^processor /proc/cpuinfo)
+RUN make -j "$(grep -c ^processor /proc/cpuinfo)"
 
 FROM nvidia/cuda:11.3.0-runtime-ubuntu20.04
 
+# hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ocl-icd-libopencl1 \
         ocl-icd-opencl-dev \

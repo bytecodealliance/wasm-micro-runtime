@@ -81,7 +81,7 @@ RUN mkdir /opt/bazelisk \
 #
 # install clang+llvm
 ARG LLVM_VER=14
-RUN apt-get purge -y clang-10 llvm-10 && apt autoremove -y
+RUN apt-get purge -y clang-10 llvm-10 && apt-get autoremove -y
 WORKDIR /etc/apt/apt.conf.d
 RUN touch 99verfiy-peer.conf \
   && echo "Acquire { https::Verify-Peer false }" > 99verfiy-peer.conf
@@ -110,14 +110,15 @@ RUN python3 -m pip install --no-cache-dir --upgrade pip \
 
 #
 # Install github-cli. It doens't work as a feature of devcontainer.json
-RUN cd /tmp \
-  && wget https://github.com/cli/cli/releases/download/v2.20.2/gh_2.20.2_linux_amd64.deb \
+WORKDIR /tmp
+RUN wget -q https://github.com/cli/cli/releases/download/v2.20.2/gh_2.20.2_linux_amd64.deb \
   && dpkg -i gh_2.20.2_linux_amd64.deb
 
 #
 # Install NodeJS
-RUN curl -fsSL https://deb.nodesource.com/setup_19.x | bash -
-RUN apt-get install -y nodejs
+RUN wget -qO- https://deb.nodesource.com/setup_19.x | bash -
+# hadolint ignore=DL3008
+RUN apt-get install -y nodejs --no-install-recommends
 
 # set path
 ENV PATH="/opt/bazelisk:/usr/lib/llvm-${LLVM_VER}/bin:${PATH}"

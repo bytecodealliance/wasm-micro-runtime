@@ -5,8 +5,9 @@ FROM ubuntu:20.04 AS base
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+# hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y \
-    cmake build-essential git
+    cmake build-essential git --no-install-recommends
 
 WORKDIR /home/wamr
 
@@ -18,7 +19,7 @@ RUN cmake \
   -DWAMR_BUILD_WASI_NN=1 \
   ..
 
-RUN make -j $(grep -c ^processor /proc/cpuinfo)
+RUN make -j "$(grep -c ^processor /proc/cpuinfo)"
 
 FROM ubuntu:22.04
 
