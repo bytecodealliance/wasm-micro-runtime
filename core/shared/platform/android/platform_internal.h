@@ -27,6 +27,7 @@
 #include <sched.h>
 #include <errno.h>
 #include <netinet/in.h>
+#include <sys/epoll.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
