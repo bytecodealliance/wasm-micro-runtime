@@ -5865,3 +5865,661 @@ index 753b1998c..27370c62d 100644
  #include <cmath>
  #include <cstdint>
  #include <cstring>
+diff --git a/lldb/include/lldb/API/SBTarget.h b/lldb/include/lldb/API/SBTarget.h
+index 5a6908f04..5454869e0 100644
+--- a/lldb/include/lldb/API/SBTarget.h
++++ b/lldb/include/lldb/API/SBTarget.h
+@@ -834,6 +834,8 @@ public:
+ 
+   lldb::addr_t GetStackRedZoneSize();
+ 
++  uint32_t GetMaximumOpcodeByteSize() const;
++
+   bool IsLoaded(const lldb::SBModule &module) const;
+ 
+   lldb::SBLaunchInfo GetLaunchInfo() const;
+diff --git a/lldb/source/API/SBTarget.cpp b/lldb/source/API/SBTarget.cpp
+index 6f0633288..749ca37bb 100644
+--- a/lldb/source/API/SBTarget.cpp
++++ b/lldb/source/API/SBTarget.cpp
+@@ -2102,6 +2102,16 @@ lldb::SBInstructionList SBTarget::ReadInstructions(lldb::SBAddress base_addr,
+   return LLDB_RECORD_RESULT(sb_instructions);
+ }
+ 
++uint32_t SBTarget::GetMaximumOpcodeByteSize() const {
++  LLDB_RECORD_METHOD_CONST_NO_ARGS(uint32_t, SBTarget, GetMaximumOpcodeByteSize);
++
++  TargetSP target_sp(GetSP());
++  if (target_sp)
++    return target_sp->GetArchitecture().GetMaximumOpcodeByteSize();
++    
++  return 0;
++}
++
+ lldb::SBInstructionList SBTarget::GetInstructions(lldb::SBAddress base_addr,
+                                                   const void *buf,
+                                                   size_t size) {
+diff --git a/lldb/tools/lldb-vscode/CMakeLists.txt b/lldb/tools/lldb-vscode/CMakeLists.txt
+index 41c1f1083..9a7dedb81 100644
+--- a/lldb/tools/lldb-vscode/CMakeLists.txt
++++ b/lldb/tools/lldb-vscode/CMakeLists.txt
+@@ -26,6 +26,7 @@ add_public_tablegen_target(LLDBVSCodeOptionsTableGen)
+ add_lldb_tool(lldb-vscode
+   lldb-vscode.cpp
+   BreakpointBase.cpp
++  DisassembledInstruction.cpp
+   ExceptionBreakpoint.cpp
+   FifoFiles.cpp
+   FunctionBreakpoint.cpp
+diff --git a/lldb/tools/lldb-vscode/DisassembledInstruction.cpp b/lldb/tools/lldb-vscode/DisassembledInstruction.cpp
+new file mode 100644
+index 000000000..8dd968d72
+--- /dev/null
++++ b/lldb/tools/lldb-vscode/DisassembledInstruction.cpp
+@@ -0,0 +1,27 @@
++#include "DisassembledInstruction.h"
++
++#include "LLDBUtils.h"
++#include "VSCode.h"
++#include "lldb/API/SBInstruction.h"
++
++namespace lldb_vscode {
++
++DisassembledInstruction::DisassembledInstruction()
++    : m_address("0x0000000000000000"), m_instruction("   <invalid>") {}
++
++DisassembledInstruction::DisassembledInstruction(lldb::SBInstruction &inst) {
++  const auto inst_addr = inst.GetAddress().GetLoadAddress(g_vsc.target);
++  const char *m = inst.GetMnemonic(g_vsc.target);
++  const char *o = inst.GetOperands(g_vsc.target);
++  const char *c = inst.GetComment(g_vsc.target);
++
++  std::string line;
++  llvm::raw_string_ostream line_strm(line);
++  const auto comment_sep = (c == nullptr || std::string(c) == "") ? "" : "  ; ";
++  line_strm << llvm::formatv("{0,12} {1}{2}{3}", m, o, comment_sep, c);
++
++  m_address = addr_to_hex_string(inst_addr);
++  m_instruction = line_strm.str();
++}
++
++} // namespace lldb_vscode
+\ No newline at end of file
+diff --git a/lldb/tools/lldb-vscode/DisassembledInstruction.h b/lldb/tools/lldb-vscode/DisassembledInstruction.h
+new file mode 100644
+index 000000000..ad7e3d424
+--- /dev/null
++++ b/lldb/tools/lldb-vscode/DisassembledInstruction.h
+@@ -0,0 +1,19 @@
++#ifndef LLDB_TOOLS_LLDB_VSCODE_DISASSEMBLED_INSTRUCTION_H
++#define LLDB_TOOLS_LLDB_VSCODE_DISASSEMBLED_INSTRUCTION_H
++
++#include "VSCodeForward.h"
++#include <string>
++
++namespace lldb_vscode {
++
++struct DisassembledInstruction {
++  std::string m_address;
++  std::string m_instruction;
++
++  DisassembledInstruction();
++  DisassembledInstruction(lldb::SBInstruction &inst);
++};
++
++} // namespace lldb_vscode
++
++#endif // LLDB_TOOLS_LLDB_VSCODE_DISASSEMBLED_INSTRUCTION_H
+\ No newline at end of file
+diff --git a/lldb/tools/lldb-vscode/JSONUtils.cpp b/lldb/tools/lldb-vscode/JSONUtils.cpp
+index 0e6227f3b..c89d5c968 100644
+--- a/lldb/tools/lldb-vscode/JSONUtils.cpp
++++ b/lldb/tools/lldb-vscode/JSONUtils.cpp
+@@ -748,6 +748,9 @@ llvm::json::Value CreateStackFrame(lldb::SBFrame &frame) {
+     object.try_emplace("line", line);
+   }
+   object.try_emplace("column", line_entry.GetColumn());
++
++  auto pc = addr_to_hex_string(frame.GetPC());
++  object.try_emplace("instructionPointerReference", pc);
+   return llvm::json::Value(std::move(object));
+ }
+ 
+@@ -1033,6 +1036,14 @@ llvm::json::Value CreateCompileUnit(lldb::SBCompileUnit unit) {
+   return llvm::json::Value(std::move(object));
+ }
+ 
++llvm::json::Value
++CreateDisassembledInstruction(DisassembledInstruction instruction) {
++  llvm::json::Object object;
++  EmplaceSafeString(object, "address", instruction.m_address);
++  EmplaceSafeString(object, "instruction", instruction.m_instruction);
++  return llvm::json::Value(std::move(object));
++}
++
+ /// See
+ /// https://microsoft.github.io/debug-adapter-protocol/specification#Reverse_Requests_RunInTerminal
+ llvm::json::Object
+diff --git a/lldb/tools/lldb-vscode/JSONUtils.h b/lldb/tools/lldb-vscode/JSONUtils.h
+index bb81b8889..46ef96c98 100644
+--- a/lldb/tools/lldb-vscode/JSONUtils.h
++++ b/lldb/tools/lldb-vscode/JSONUtils.h
+@@ -348,6 +348,8 @@ llvm::json::Value CreateSource(lldb::SBFrame &frame, int64_t &disasm_line);
+ ///   "source" - source file information as a "Source" VSCode object
+ ///   "line" - the source file line number as an integer
+ ///   "column" - the source file column number as an integer
++///   "instructionPointerReference" - a memory reference for the current
++///                                   instruction pointer in this frame
+ ///
+ /// \param[in] frame
+ ///     The LLDB stack frame to use when populating out the "StackFrame"
+@@ -462,6 +464,24 @@ llvm::json::Value CreateVariable(lldb::SBValue v, int64_t variablesReference,
+                                  int64_t varID, bool format_hex,
+                                  bool is_name_duplicated = false);
+ 
++/// Create a "DisassembledInstruction" object for a LLDB disassembled
++/// instruction object.
++///
++/// This function will fill in the following keys in the returned
++/// object:
++///   "address" - the address of the instruction
++///   "instruction" - the text representing the instruction and its operands
++///
++/// \param[in] instruction
++///     The LLDB disassembled instruction to use when populating out the
++///     "DisassembledInstruction" object.
++///
++/// \return
++///     A "DisassembledInstruction" JSON object with that follows the formal
++///     JSON definition outlined by Microsoft.
++llvm::json::Value
++CreateDisassembledInstruction(DisassembledInstruction instruction);
++
+ llvm::json::Value CreateCompileUnit(lldb::SBCompileUnit unit);
+ 
+ /// Create a runInTerminal reverse request object
+diff --git a/lldb/tools/lldb-vscode/LLDBUtils.cpp b/lldb/tools/lldb-vscode/LLDBUtils.cpp
+index 621f4ec37..7c1e8065d 100644
+--- a/lldb/tools/lldb-vscode/LLDBUtils.cpp
++++ b/lldb/tools/lldb-vscode/LLDBUtils.cpp
+@@ -83,4 +83,12 @@ int64_t MakeVSCodeFrameID(lldb::SBFrame &frame) {
+                    frame.GetFrameID());
+ }
+ 
++std::string addr_to_hex_string(lldb::addr_t address) {
++  return "0x" + llvm::utohexstr(address, true);
++}
++
++lldb::addr_t hex_string_to_addr(llvm::Optional<llvm::StringRef> hex_address) {
++  return std::stoull(hex_address->data(), nullptr, 16);
++}
++
+ } // namespace lldb_vscode
+diff --git a/lldb/tools/lldb-vscode/LLDBUtils.h b/lldb/tools/lldb-vscode/LLDBUtils.h
+index 8867589b1..79b75712c 100644
+--- a/lldb/tools/lldb-vscode/LLDBUtils.h
++++ b/lldb/tools/lldb-vscode/LLDBUtils.h
+@@ -10,6 +10,7 @@
+ #define LLDB_TOOLS_LLDB_VSCODE_LLDBUTILS_H
+ 
+ #include "VSCodeForward.h"
++#include "lldb/lldb-types.h"
+ #include "llvm/ADT/ArrayRef.h"
+ #include "llvm/ADT/StringRef.h"
+ #include "llvm/Support/raw_ostream.h"
+@@ -106,6 +107,26 @@ uint32_t GetLLDBThreadIndexID(uint64_t dap_frame_id);
+ ///     The LLDB frame index ID.
+ uint32_t GetLLDBFrameID(uint64_t dap_frame_id);
+ 
++/// Given an address, convert it to its hexadecimal representation.
++///
++/// \param[in] address
++///     The address to convert.
++///
++/// \return
++///     The hexadecimal representation of the address.
++std::string addr_to_hex_string(lldb::addr_t address);
++
++/// Given an hexadecimal representation of an address, convert it to a number.
++///
++/// Reverse of `addr_to_hex_string()`.
++///
++/// \param[in] hex_address
++///     The hexadecimal address to convert.
++///
++/// \return
++///     The decimal representation of the hex address.
++lldb::addr_t hex_string_to_addr(llvm::Optional<llvm::StringRef> hex_address);
++
+ } // namespace lldb_vscode
+ 
+ #endif
+diff --git a/lldb/tools/lldb-vscode/VSCode.h b/lldb/tools/lldb-vscode/VSCode.h
+index 29796767c..e523ba04c 100644
+--- a/lldb/tools/lldb-vscode/VSCode.h
++++ b/lldb/tools/lldb-vscode/VSCode.h
+@@ -46,6 +46,7 @@
+ #include "lldb/API/SBTarget.h"
+ #include "lldb/API/SBThread.h"
+ 
++#include "DisassembledInstruction.h"
+ #include "ExceptionBreakpoint.h"
+ #include "FunctionBreakpoint.h"
+ #include "IOStream.h"
+diff --git a/lldb/tools/lldb-vscode/VSCodeForward.h b/lldb/tools/lldb-vscode/VSCodeForward.h
+index 6be5a9635..a94d050ea 100644
+--- a/lldb/tools/lldb-vscode/VSCodeForward.h
++++ b/lldb/tools/lldb-vscode/VSCodeForward.h
+@@ -15,6 +15,7 @@ struct ExceptionBreakpoint;
+ struct FunctionBreakpoint;
+ struct SourceBreakpoint;
+ struct SourceReference;
++struct DisassembledInstruction;
+ } // namespace lldb_vscode
+ 
+ namespace lldb {
+diff --git a/lldb/tools/lldb-vscode/lldb-vscode.cpp b/lldb/tools/lldb-vscode/lldb-vscode.cpp
+index 9ab13cf14..95fbdbac9 100644
+--- a/lldb/tools/lldb-vscode/lldb-vscode.cpp
++++ b/lldb/tools/lldb-vscode/lldb-vscode.cpp
+@@ -107,6 +107,8 @@ typedef void (*RequestCallback)(const llvm::json::Object &command);
+ 
+ enum LaunchMethod { Launch, Attach, AttachForSuspendedLaunch };
+ 
++lldb::SBFrame g_curr_frame;
++
+ SOCKET AcceptConnection(int portno) {
+   // Accept a socket connection from any host on "portno".
+   SOCKET newsockfd = -1;
+@@ -1512,6 +1514,8 @@ void request_initialize(const llvm::json::Object &request) {
+   // The debug adapter supports sending progress reporting events.
+   body.try_emplace("supportsProgressReporting", true);
+ 
++  body.try_emplace("supportsDisassembleRequest", true);
++
+   response.try_emplace("body", std::move(body));
+   g_vsc.SendJSON(llvm::json::Value(std::move(response)));
+ }
+@@ -2086,6 +2090,191 @@ void request_setBreakpoints(const llvm::json::Object &request) {
+   g_vsc.SendJSON(llvm::json::Value(std::move(response)));
+ }
+ 
++std::vector<lldb::SBInstruction>
++_get_instructions_from_memory(lldb::addr_t start, uint64_t count,
++                              lldb::addr_t end) {
++  lldb::SBProcess process = g_vsc.target.GetProcess();
++
++  lldb::SBError error;
++  std::vector<uint8_t> buffer(count, 0);
++  const size_t bytes_read __attribute__((unused)) = process.ReadMemory(
++      start, static_cast<void *>(buffer.data()), count, error);
++  assert(bytes_read == count && error.Success() &&
++         "unable to read byte range from memory");
++
++  // If base_addr starts in the middle of an instruction,
++  // that first instruction will not be parsed correctly (negligible)
++  std::vector<lldb::SBInstruction> sb_instructions;
++  const auto base_addr = lldb::SBAddress(start, g_vsc.target);
++  lldb::SBInstructionList instructions =
++      g_vsc.target.GetInstructions(base_addr, buffer.data(), count);
++
++  for (size_t i = 0; i < instructions.GetSize(); i++) {
++    auto instr = instructions.GetInstructionAtIndex(i);
++    if (instr.GetAddress().GetLoadAddress(g_vsc.target) > end)
++      break;
++
++    sb_instructions.emplace_back(instr);
++  }
++  return sb_instructions;
++}
++
++std::pair<lldb::addr_t, lldb::addr_t> _get_frame_boundary() {
++  assert(g_curr_frame.IsValid());
++  auto function = g_curr_frame.GetFunction();
++
++  if (!function.IsValid())
++    return std::make_pair<>(LLDB_INVALID_ADDRESS, LLDB_INVALID_ADDRESS);
++
++  return std::make_pair<>(
++      function.GetStartAddress().GetLoadAddress(g_vsc.target),
++      function.GetEndAddress().GetLoadAddress(g_vsc.target));
++}
++
++auto _handle_disassemble_positive_offset(lldb::addr_t base_addr,
++                                         int64_t instruction_offset,
++                                         uint64_t instruction_count) {
++  llvm::json::Array response_instructions;
++
++  auto start_addr = lldb::SBAddress(base_addr, g_vsc.target);
++  lldb::SBInstructionList instructions = g_vsc.target.ReadInstructions(
++      start_addr, instruction_offset + instruction_count);
++
++  std::vector<DisassembledInstruction> dis_instructions;
++  const auto num_instrs_to_skip = static_cast<size_t>(instruction_offset);
++  for (size_t i = num_instrs_to_skip; i < instructions.GetSize(); ++i) {
++    lldb::SBInstruction instr = instructions.GetInstructionAtIndex(i);
++
++    auto disass_instr =
++        CreateDisassembledInstruction(DisassembledInstruction(instr));
++    response_instructions.emplace_back(std::move(disass_instr));
++  }
++
++  return response_instructions;
++}
++
++auto _handle_disassemble_negative_offset(
++    lldb::addr_t base_addr, int64_t instruction_offset,
++    uint64_t instruction_count,
++    llvm::Optional<llvm::StringRef> memory_reference) {
++  llvm::json::Array response_instructions;
++
++  const auto bytes_per_instruction = g_vsc.target.GetMaximumOpcodeByteSize();
++  const auto bytes_offset = -instruction_offset * bytes_per_instruction;
++  auto start_addr = base_addr - bytes_offset;
++  const auto disassemble_bytes = instruction_count * bytes_per_instruction;
++
++  // Get beginning of current stack frame to avoid reading outside of it
++  const auto frame_boundaries = _get_frame_boundary();
++  const auto low_pc = frame_boundaries.first;
++  const auto high_pc = frame_boundaries.second;
++  if (low_pc == LLDB_INVALID_ADDRESS)
++    return response_instructions;
++  if (start_addr < low_pc)
++    start_addr = low_pc;
++
++  auto sb_instructions =
++      _get_instructions_from_memory(start_addr, disassemble_bytes, high_pc);
++
++  // Find position of requested instruction
++  // in retrieved disassembled instructions
++  auto index = sb_instructions.size() + 1;
++  for (size_t i = 0; i < sb_instructions.size(); i++) {
++    if (sb_instructions[i].GetAddress().GetLoadAddress(g_vsc.target) ==
++        hex_string_to_addr(memory_reference)) {
++      index = i;
++      break;
++    }
++  }
++  if (index == sb_instructions.size() + 1) {
++    fprintf(stderr, "current line not found in disassembled instructions\n");
++    return response_instructions;
++  }
++
++  // Copy instructions into queue to easily manipulate them
++  std::deque<DisassembledInstruction> disass_instructions;
++  for (auto &instr : sb_instructions)
++    disass_instructions.emplace_back(DisassembledInstruction(instr));
++
++  // Make sure the address in the disassemble request is at the right position
++  const uint64_t expected_index = -instruction_offset;
++  if (index < expected_index) {
++    for (uint64_t i = 0; i < (expected_index - index); i++) {
++      DisassembledInstruction nop_instruction;
++      disass_instructions.emplace_front(nop_instruction);
++    }
++  } else if (index > expected_index) {
++    const auto num_instr_to_remove = index - expected_index;
++    disass_instructions.erase(disass_instructions.begin(),
++                              disass_instructions.begin() +
++                                  num_instr_to_remove);
++  }
++
++  // Truncate if too many instructions
++  if (disass_instructions.size() > instruction_count) {
++    disass_instructions.erase(disass_instructions.begin() + instruction_count,
++                              disass_instructions.end());
++  }
++
++  assert(disass_instructions.size() > expected_index &&
++         disass_instructions[expected_index].m_address ==
++             memory_reference.getValue());
++
++  for (auto &instr : disass_instructions)
++    response_instructions.emplace_back(CreateDisassembledInstruction(instr));
++  return response_instructions;
++}
++
++void request_disassemble(const llvm::json::Object &request) {
++  llvm::json::Object response;
++  lldb::SBError error;
++  FillResponse(request, response);
++  auto arguments = request.getObject("arguments");
++  const auto memory_reference = arguments->getString("memoryReference");
++  const auto instruction_offset = GetSigned(arguments, "instructionOffset", 0);
++  const auto instruction_count = GetUnsigned(arguments, "instructionCount", 0);
++  llvm::json::Array response_instructions;
++
++  auto base_addr = hex_string_to_addr(memory_reference);
++  base_addr += instruction_offset;
++
++  fprintf(stderr, "disassemble -> pc=%s off=%lld count=%llu\n",
++          memory_reference->data(), instruction_offset, instruction_count);
++
++  bool success = true;
++  if (hex_string_to_addr(memory_reference) == 0) {
++    success = false;
++    fprintf(stderr, "requested memory reference is nop\n");
++  } else {
++    response_instructions =
++        instruction_offset >= 0
++            ? _handle_disassemble_positive_offset(base_addr, instruction_offset,
++                                                  instruction_count)
++            : _handle_disassemble_negative_offset(base_addr, instruction_offset,
++                                                  instruction_count,
++                                                  memory_reference);
++  }
++
++  // Add padding if not enough instructions
++  if (response_instructions.size() < instruction_count) {
++    const auto padding_len = instruction_count - response_instructions.size();
++    for (size_t i = 0; i < padding_len; i++) {
++      const DisassembledInstruction nop_instruction;
++      auto disass_instr = CreateDisassembledInstruction(nop_instruction);
++      response_instructions.emplace_back(std::move(disass_instr));
++    }
++  }
++
++  assert((response_instructions.size() == instruction_count) &&
++         "should return exact number of requested instructions");
++
++  llvm::json::Object body;
++  body.try_emplace("instructions", std::move(response_instructions));
++  response.try_emplace("body", std::move(body));
++  response["success"] = llvm::json::Value(success);
++  g_vsc.SendJSON(llvm::json::Value(std::move(response)));
++}
++
+ // "SetExceptionBreakpointsRequest": {
+ //   "allOf": [ { "$ref": "#/definitions/Request" }, {
+ //     "type": "object",
+@@ -2459,6 +2648,10 @@ void request_stackTrace(const llvm::json::Object &request) {
+       auto frame = thread.GetFrameAtIndex(i);
+       if (!frame.IsValid())
+         break;
++
++      if (i == 0) // Current stack frame
++        g_curr_frame = frame;
++
+       stackFrames.emplace_back(CreateStackFrame(frame));
+     }
+     const auto totalFrames = thread.GetNumFrames();
+@@ -2957,8 +3150,8 @@ void request_variables(const llvm::json::Object &request) {
+ 
+       if (!variable.IsValid())
+         break;
+-      variables.emplace_back(CreateVariable(variable, VARIDX_TO_VARREF(i), i,
+-                                            hex,
++      variables.emplace_back(CreateVariable(
++          variable, VARIDX_TO_VARREF(i), i, hex,
+           variable_name_counts[GetNonNullVariableName(variable)] > 1));
+     }
+   } else {
+@@ -3034,6 +3227,7 @@ void RegisterRequestCallbacks() {
+   g_vsc.RegisterRequestCallback("stepOut", request_stepOut);
+   g_vsc.RegisterRequestCallback("threads", request_threads);
+   g_vsc.RegisterRequestCallback("variables", request_variables);
++  g_vsc.RegisterRequestCallback("disassemble", request_disassemble);
+   // Custom requests
+   g_vsc.RegisterRequestCallback("compileUnits", request_compileUnits);
+   g_vsc.RegisterRequestCallback("modules", request_modules);
+diff --git a/lldb/include/lldb/Core/Opcode.h b/lldb/include/lldb/Core/Opcode.h
+index 70f2dbdf6..010331546 100644
+--- a/lldb/include/lldb/Core/Opcode.h
++++ b/lldb/include/lldb/Core/Opcode.h
+@@ -184,7 +184,12 @@ public:
+     if (bytes != nullptr && length > 0) {
+       m_type = eTypeBytes;
+       m_data.inst.length = length;
+-      assert(length < sizeof(m_data.inst.bytes));
++      // FIXME(eloparco): Fix disassembler to avoid this temporary workaround
++      // assert(length < sizeof(m_data.inst.bytes));
++      if (length >= sizeof(m_data.inst.bytes)) {
++        m_data.inst.length = 1;
++        length = 1;
++      }
+       memcpy(m_data.inst.bytes, bytes, length);
+       m_byte_order = lldb::eByteOrderInvalid;
+     } else {
+diff --git a/lldb/source/Plugins/Disassembler/LLVMC/DisassemblerLLVMC.cpp b/lldb/source/Plugins/Disassembler/LLVMC/DisassemblerLLVMC.cpp
+index 7cd505d0e..61e01fa88 100644
+--- a/lldb/source/Plugins/Disassembler/LLVMC/DisassemblerLLVMC.cpp
++++ b/lldb/source/Plugins/Disassembler/LLVMC/DisassemblerLLVMC.cpp
+@@ -1227,8 +1227,11 @@ size_t DisassemblerLLVMC::DecodeInstructions(const Address &base_addr,
+ 
+     uint32_t inst_size = inst_sp->Decode(*this, data, data_cursor);
+ 
++    // FIXME(eloparco): Fix disassembler to avoid this temporary workaround
++    // if (inst_size == 0)
++    // break;
+     if (inst_size == 0)
+-      break;
++      inst_size = 1;
+ 
+     m_instruction_list.Append(inst_sp);
+     data_cursor += inst_size;
+diff --git a/lldb/tools/lldb-vscode/lldb-vscode.cpp b/lldb/tools/lldb-vscode/lldb-vscode.cpp
+index 95fbdbac9..710b8f7d5 100644
+--- a/lldb/tools/lldb-vscode/lldb-vscode.cpp
++++ b/lldb/tools/lldb-vscode/lldb-vscode.cpp
+@@ -107,8 +107,6 @@ typedef void (*RequestCallback)(const llvm::json::Object &command);
+ 
+ enum LaunchMethod { Launch, Attach, AttachForSuspendedLaunch };
+ 
+-lldb::SBFrame g_curr_frame;
+-
+ SOCKET AcceptConnection(int portno) {
+   // Accept a socket connection from any host on "portno".
+   SOCKET newsockfd = -1;
+@@ -2091,8 +2089,7 @@ void request_setBreakpoints(const llvm::json::Object &request) {
+ }
+ 
+ std::vector<lldb::SBInstruction>
+-_get_instructions_from_memory(lldb::addr_t start, uint64_t count,
+-                              lldb::addr_t end) {
++_get_instructions_from_memory(lldb::addr_t start, uint64_t count) {
+   lldb::SBProcess process = g_vsc.target.GetProcess();
+ 
+   lldb::SBError error;
+@@ -2111,32 +2108,18 @@ _get_instructions_from_memory(lldb::addr_t start, uint64_t count,
+ 
+   for (size_t i = 0; i < instructions.GetSize(); i++) {
+     auto instr = instructions.GetInstructionAtIndex(i);
+-    if (instr.GetAddress().GetLoadAddress(g_vsc.target) > end)
+-      break;
+-
+     sb_instructions.emplace_back(instr);
+   }
+   return sb_instructions;
+ }
+ 
+-std::pair<lldb::addr_t, lldb::addr_t> _get_frame_boundary() {
+-  assert(g_curr_frame.IsValid());
+-  auto function = g_curr_frame.GetFunction();
+-
+-  if (!function.IsValid())
+-    return std::make_pair<>(LLDB_INVALID_ADDRESS, LLDB_INVALID_ADDRESS);
+-
+-  return std::make_pair<>(
+-      function.GetStartAddress().GetLoadAddress(g_vsc.target),
+-      function.GetEndAddress().GetLoadAddress(g_vsc.target));
+-}
+-
+ auto _handle_disassemble_positive_offset(lldb::addr_t base_addr,
+                                          int64_t instruction_offset,
+                                          uint64_t instruction_count) {
+   llvm::json::Array response_instructions;
+ 
+-  auto start_addr = lldb::SBAddress(base_addr, g_vsc.target);
++  auto start_addr =
++      lldb::SBAddress(base_addr + instruction_offset, g_vsc.target);
+   lldb::SBInstructionList instructions = g_vsc.target.ReadInstructions(
+       start_addr, instruction_offset + instruction_count);
+ 
+@@ -2164,24 +2147,15 @@ auto _handle_disassemble_negative_offset(
+   auto start_addr = base_addr - bytes_offset;
+   const auto disassemble_bytes = instruction_count * bytes_per_instruction;
+ 
+-  // Get beginning of current stack frame to avoid reading outside of it
+-  const auto frame_boundaries = _get_frame_boundary();
+-  const auto low_pc = frame_boundaries.first;
+-  const auto high_pc = frame_boundaries.second;
+-  if (low_pc == LLDB_INVALID_ADDRESS)
+-    return response_instructions;
+-  if (start_addr < low_pc)
+-    start_addr = low_pc;
+-
+   auto sb_instructions =
+-      _get_instructions_from_memory(start_addr, disassemble_bytes, high_pc);
++      _get_instructions_from_memory(start_addr, disassemble_bytes);
+ 
+   // Find position of requested instruction
+   // in retrieved disassembled instructions
+   auto index = sb_instructions.size() + 1;
+   for (size_t i = 0; i < sb_instructions.size(); i++) {
+     if (sb_instructions[i].GetAddress().GetLoadAddress(g_vsc.target) ==
+-        hex_string_to_addr(memory_reference)) {
++        base_addr) {
+       index = i;
+       break;
+     }
+@@ -2236,15 +2210,10 @@ void request_disassemble(const llvm::json::Object &request) {
+   llvm::json::Array response_instructions;
+ 
+   auto base_addr = hex_string_to_addr(memory_reference);
+-  base_addr += instruction_offset;
+-
+-  fprintf(stderr, "disassemble -> pc=%s off=%lld count=%llu\n",
+-          memory_reference->data(), instruction_offset, instruction_count);
+-
+   bool success = true;
+   if (hex_string_to_addr(memory_reference) == 0) {
+     success = false;
+-    fprintf(stderr, "requested memory reference is nop\n");
++    llvm::errs() << "requested memory reference is nop\n";
+   } else {
+     response_instructions =
+         instruction_offset >= 0
+@@ -2649,9 +2618,6 @@ void request_stackTrace(const llvm::json::Object &request) {
+       if (!frame.IsValid())
+         break;
+ 
+-      if (i == 0) // Current stack frame
+-        g_curr_frame = frame;
+-
+       stackFrames.emplace_back(CreateStackFrame(frame));
+     }
+     const auto totalFrames = thread.GetNumFrames();
+diff --git a/llvm/lib/Target/WebAssembly/MCTargetDesc/WebAssemblyInstPrinter.cpp b/llvm/lib/Target/WebAssembly/MCTargetDesc/WebAssemblyInstPrinter.cpp
+index 2967aaa00..b7cc75096 100644
+--- a/llvm/lib/Target/WebAssembly/MCTargetDesc/WebAssemblyInstPrinter.cpp
++++ b/llvm/lib/Target/WebAssembly/MCTargetDesc/WebAssemblyInstPrinter.cpp
+@@ -68,7 +68,8 @@ void WebAssemblyInstPrinter::printInst(const MCInst *MI, uint64_t Address,
+       printOperand(MI, TableOperand, OS);
+       OS << ", ";
+     } else {
+-      assert(MI->getOperand(TableOperand).getImm() == 0);
++      // FIXME(eloparco): Fix disassembler to avoid this temporary workaround
++      // assert(MI->getOperand(TableOperand).getImm() == 0);
+     }
+     printOperand(MI, TypeOperand, OS);
+     break;
