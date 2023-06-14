@@ -73,7 +73,7 @@ jobs:
           brew link --overwrite swig@3
           sudo rm -rf /Library/Developer/CommandLineTools
 
-      - name: intsall utils ubuntu
+      - name: install utils ubuntu
         if: steps.lldb_build_cache.outputs.cache-hit != 'true' && contains(inputs.runner, 'ubuntu')
         run: sudo apt update && sudo apt-get install -y lld ninja-build
 
@@ -102,7 +102,7 @@ jobs:
           tar -xvf python.tar.gz
         working-directory: core/deps
 
-      - name: get stand-alone pyhton macos
+      - name: get stand-alone python macos
         if: steps.lldb_build_cache.outputs.cache-hit != 'true' && contains(inputs.runner, 'macos')
         run: |
           wget ${{ env.PYTHON_MACOS_STANDALONE_BUILD }} -O python.tar.gz
