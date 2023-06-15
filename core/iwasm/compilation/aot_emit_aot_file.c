@@ -2582,8 +2582,8 @@ aot_resolve_stack_sizes(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
             uint32_t *stack_sizes = (uint32_t *)LLVMGetSectionContents(sec_itr);
             uint32 i;
             for (i = 0; i < obj_data->func_count; i++) {
-                if (stack_sizes[i] != 0xffffffff) {
-                    LLVMDisposeSectionIterator(sec_itr);
+                /* Note: -1 == AOT_NEG_ONE from aot_create_stack_sizes */
+                if (stack_sizes[i] != (uint32)-1) {
                     aot_set_last_error("unexpected data in stack_sizes.");
                     goto fail;
                 }
@@ -2598,8 +2598,10 @@ aot_resolve_stack_sizes(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
                 /*
                  * LLVM seems to eliminate calls to an empty function
                  * (and eliminate the function) even if it's marked noinline.
+                 *
+                 * Note: -1 == AOT_NEG_ONE from aot_create_stack_sizes
                  */
-                if (stack_sizes[i] == 0xffffffff) {
+                if (stack_sizes[i] == (uint32)-1) {
                     if (func_ctx->stack_consumption_for_func_call != 0) {
                         /*
                          * This happens if a function calling another
