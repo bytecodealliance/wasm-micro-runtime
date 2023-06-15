@@ -2905,7 +2905,6 @@ aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name)
                 bh_assert(len > 3);
                 bh_assert(file_name[len - 2] == '.');
                 bh_assert(file_name[len - 1] == 'o');
-                memcpy(su_file_name, file_name, len);
                 snprintf(su_file_name, sizeof(su_file_name), "%.*s.su",
                          (int)(len - 2), file_name);
                 stack_usage_flag = " -fstack-usage";
