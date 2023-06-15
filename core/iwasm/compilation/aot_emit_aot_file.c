@@ -2584,7 +2584,8 @@ aot_resolve_stack_sizes(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
              * and replace the data in aot_emit_aot_file_buf. A bit cleaner
              * but more complex than this implementation.
              */
-            uint32_t *stack_sizes = (uint32_t *)LLVMGetSectionContents(sec_itr);
+            uint32_t *stack_sizes =
+                (uint32_t *)(LLVMGetSectionContents(sec_itr) + addr);
             uint32 i;
             for (i = 0; i < obj_data->func_count; i++) {
                 /* Note: -1 == AOT_NEG_ONE from aot_create_stack_sizes */
