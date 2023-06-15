@@ -2447,6 +2447,10 @@ read_stack_usage_file(const char *filename, uint32_t *sizes, uint32 count)
         char *cp = fgets(line, sizeof(line), fp);
         char *fn;
         char *colon;
+        uintmax_t func_idx;
+        uintmax_t sz;
+        int ret;
+
         if (cp == NULL) {
             break;
         }
@@ -2469,9 +2473,6 @@ read_stack_usage_file(const char *filename, uint32_t *sizes, uint32 count)
             }
             prefix = aot_func_prefix2;
         }
-        uintmax_t func_idx;
-        uintmax_t sz;
-        int ret;
         ret = sscanf(fn + strlen(prefix), "%ju %ju static", &func_idx, &sz);
         if (ret != 2) {
             goto fail;
