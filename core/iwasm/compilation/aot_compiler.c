@@ -2862,6 +2862,9 @@ fail:
             LOG_DEBUG("close error");
             success = false;
         }
+        if (!success) {
+            (void)unlink(dest);
+        }
     }
     if (sfp != NULL) {
         (void)fclose(sfp);
