@@ -7,9 +7,9 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y \
-    cmake build-essential git wget python3.10 python3-pip --no-install-recommends \
-    && apt-get clean -y \
-    && rm -rf /var/lib/apt/lists/*
+  cmake build-essential git wget python3.10 python3-pip --no-install-recommends \
+  && apt-get clean -y \
+  && rm -rf /var/lib/apt/lists/*
 
 ARG WASI_SDK_VER=19
 RUN wget -c --progress=dot:giga https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_SDK_VER}/wasi-sdk-${WASI_SDK_VER}.0-linux.tar.gz -P /opt \
