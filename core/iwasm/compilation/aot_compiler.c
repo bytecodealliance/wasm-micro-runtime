@@ -2892,12 +2892,12 @@ aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name)
         if (comp_ctx->external_llc_compiler) {
             const char *stack_usage_flag = "";
             char bc_file_name[64];
-            char su_file_name[65]; /* see the comment below */
+            char su_file_name[65]; /* See the comment below */
 
             if (comp_ctx->stack_usage_file != NULL) {
                 /*
                  * Note: we know the caller uses 64 byte buffer for
-                 * file_name. it will get 1 byte longer because we
+                 * file_name. It will get 1 byte longer because we
                  * replace ".o" with ".su".
                  */
                 size_t len = strlen(file_name);
@@ -2940,7 +2940,7 @@ aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name)
                 /*
                  * move the temporary .su file to the specified location.
                  *
-                 * Note: the formar is automatimally inferred from the output
+                 * Note: the former is automatimally inferred from the output
                  * filename (file_name here) by clang.
                  *
                  * Note: the latter might be user-specified.
