@@ -2840,9 +2840,9 @@ aot_move_file(const char *dest, const char *src)
         goto fail;
     }
     do {
-        rsz = fread(buf, sizeof(buf), 1, sfp);
+        rsz = fread(buf, 1, sizeof(buf), sfp);
         if (rsz > 0) {
-            size_t wsz = fwrite(buf, rsz, 1, dfp);
+            size_t wsz = fwrite(buf, 1, rsz, dfp);
             if (wsz < rsz) {
                 LOG_DEBUG("write error");
                 goto fail;
