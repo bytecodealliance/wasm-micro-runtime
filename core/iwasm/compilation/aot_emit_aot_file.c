@@ -2443,7 +2443,7 @@ aot_resolve_object_data_sections(AOTObjectData *obj_data)
 }
 
 static bool
-read_stack_usage_file(const char *filename, uint32_t *sizes, uint32 count)
+read_stack_usage_file(const char *filename, uint32 *sizes, uint32 count)
 {
     FILE *fp = NULL;
     if (filename == NULL) {
@@ -2462,10 +2462,10 @@ read_stack_usage_file(const char *filename, uint32_t *sizes, uint32 count)
      */
     const char *aot_func_prefix = AOT_FUNC_PREFIX;
     const char *aot_func_prefix2 = AOT_FUNC_PREFIX2;
-    uint32_t precheck_found = 0;
-    uint32_t precheck_stack_size_max = 0;
-    uint32_t precheck_stack_size_min = UINT32_MAX;
-    uint32_t found = 0;
+    uint32 precheck_found = 0;
+    uint32 precheck_stack_size_max = 0;
+    uint32 precheck_stack_size_min = UINT32_MAX;
+    uint32 found = 0;
     while (true) {
         const char *prefix;
         char line[100];
@@ -2585,7 +2585,7 @@ aot_resolve_stack_sizes(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
         if ((name = LLVMGetSymbolName(sym_itr))
             && !strcmp(name, aot_stack_sizes_name)) {
             uint64_t sz = LLVMGetSymbolSize(sym_itr);
-            if (sz != sizeof(uint32_t) * obj_data->func_count) {
+            if (sz != sizeof(uint32) * obj_data->func_count) {
                 aot_set_last_error("stack_sizes had unexpected size.");
                 goto fail;
             }
