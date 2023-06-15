@@ -517,8 +517,7 @@ aot_estimate_stack_usage_for_function_call(const AOTCompContext *comp_ctx,
     }
 
     /* exec_env */
-    nb = comp_ctx->pointer_size;
-    size = ((size + nb - 1) & -nb) + nb;
+    size = comp_ctx->pointer_size;
 
     /* parameters */
     for (i = 0; i < param_count; i++) {
@@ -526,18 +525,18 @@ aot_estimate_stack_usage_for_function_call(const AOTCompContext *comp_ctx,
         if (nb < comp_ctx->pointer_size) {
             nb = comp_ctx->pointer_size;
         }
-        size = ((size + nb - 1) & -nb) + nb;
+        size = align_uint(size, nb) + nb;
     }
 
     /* pointers to results */
     nb = comp_ctx->pointer_size;
     for (i = 1; i < result_count; i++) {
-        size = ((size + nb - 1) & -nb) + nb;
+        size = align_uint(size, nb) + nb;
     }
 
     /* return address */
     nb = comp_ctx->pointer_size;
-    size = ((size + nb - 1) & -nb) + nb;
+    size = align_uint(size, nb) + nb;
 
     /*
      * some extra for possible arch-dependent things like
