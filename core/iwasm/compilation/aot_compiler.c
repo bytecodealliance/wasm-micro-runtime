@@ -2832,8 +2832,9 @@ aot_move_file(const char *dest, const char *src)
     FILE *dfp = fopen(dest, "w");
     FILE *sfp = fopen(src, "r");
     size_t rsz;
-    char buf[1];
+    char buf[128];
     bool success = false;
+
     if (dfp == NULL || sfp == NULL) {
         LOG_DEBUG("open error %s %s", dest, src);
         goto fail;
