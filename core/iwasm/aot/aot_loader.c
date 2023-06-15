@@ -1997,7 +1997,7 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
 #endif
         }
 #if defined(BH_PLATFORM_WINDOWS) && defined(BUILD_TARGET_X86_32)
-        /* AOT function name starts with '-' in windows x86-32 */
+        /* AOT function name starts with '_' in windows x86-32 */
         else if (!strncmp(symbol, "_" AOT_FUNC_PREFIX,
                           strlen("_" AOT_FUNC_PREFIX))) {
             p = symbol + strlen("_" AOT_FUNC_PREFIX);
