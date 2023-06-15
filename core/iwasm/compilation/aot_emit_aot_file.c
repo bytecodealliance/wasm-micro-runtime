@@ -140,6 +140,10 @@ typedef struct AOTObjectData {
     AOTSymbolList symbol_list;
     AOTRelocationGroup *relocation_groups;
     uint32 relocation_group_count;
+
+    const char *stack_sizes_section_name;
+    uint32 stack_sizes_offset;
+    uint32 *stack_sizes;
 } AOTObjectData;
 
 #if 0
@@ -1634,7 +1638,27 @@ aot_emit_object_data_section_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
         EMIT_STR(data_section->name);
         offset = align_uint(offset, 4);
         EMIT_U32(data_section->size);
-        EMIT_BUF(data_section->data, data_section->size);
+        if (obj_data->stack_sizes_section_name != NULL
+            && !strcmp(obj_data->stack_sizes_section_name,
+                       data_section->name)) {
+            uint32 ss_offset = obj_data->stack_sizes_offset;
+            uint32 ss_size =
+                obj_data->func_count * sizeof(*obj_data->stack_sizes);
+            LOG_VERBOSE("Replacing stack_sizes in %s section, offset %" PRIu32
+                        ", size %" PRIu32,
+                        obj_data->stack_sizes_section_name, ss_offset, ss_size);
+            if (ss_offset > 0) {
+                EMIT_BUF(data_section->data, ss_offset);
+            }
+            EMIT_BUF(obj_data->stack_sizes, ss_size);
+            if (data_section->size > ss_offset + ss_size) {
+                EMIT_BUF(data_section->data + ss_offset + ss_size,
+                         data_section->size - (ss_offset + ss_size));
+            }
+        }
+        else {
+            EMIT_BUF(data_section->data, data_section->size);
+        }
     }
 
     if (offset - *p_offset
@@ -2576,23 +2600,40 @@ aot_resolve_stack_sizes(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
             LOG_VERBOSE("stack_sizes found in section %s offset %" PRIu64 ".",
                         sec_name, addr);
             /*
-             * XXX discard const
-             *
-             * It seems working as of writing this. (LLVM 14-16)
-             *
-             * An alternative implementation would be to record the offset
-             * and replace the data in aot_emit_aot_file_buf. A bit cleaner
-             * but more complex than this implementation.
+             * Note: We can't always modify stack_sizes in-place.
+             * Eg. When WAMRC_LLC_COMPILER is used, LLVM sometimes uses
+             * read-only mmap of the temporary file to back
+             * LLVMGetSectionContents.
              */
-            uint32_t *stack_sizes =
-                (uint32_t *)(LLVMGetSectionContents(sec_itr) + addr);
+            const uint32 *ro_stack_sizes =
+                (const uint32 *)(LLVMGetSectionContents(sec_itr) + addr);
             uint32 i;
             for (i = 0; i < obj_data->func_count; i++) {
                 /* Note: -1 == AOT_NEG_ONE from aot_create_stack_sizes */
-                if (stack_sizes[i] != (uint32)-1) {
+                if (ro_stack_sizes[i] != (uint32)-1) {
                     aot_set_last_error("unexpected data in stack_sizes.");
                     goto fail;
                 }
+            }
+            if (addr > UINT32_MAX) {
+                aot_set_last_error("too large stack_sizes offset.");
+                goto fail;
+            }
+            /*
+             * Record section/offset and construct a copy of stack_sizes.
+             * aot_emit_object_data_section_info will emit this copy.
+             */
+            obj_data->stack_sizes_section_name = sec_name;
+            obj_data->stack_sizes_offset = addr;
+            obj_data->stack_sizes = wasm_runtime_malloc(
+                obj_data->func_count * sizeof(*obj_data->stack_sizes));
+            if (obj_data->stack_sizes == NULL) {
+                aot_set_last_error("failed to allocate memory.");
+                goto fail;
+            }
+            uint32 *stack_sizes = obj_data->stack_sizes;
+            for (i = 0; i < obj_data->func_count; i++) {
+                stack_sizes[i] = (uint32)-1;
             }
             if (!read_stack_usage_file(comp_ctx->stack_usage_file, stack_sizes,
                                        obj_data->func_count)) {
@@ -3167,6 +3208,8 @@ aot_obj_data_destroy(AOTObjectData *obj_data)
                                   obj_data->relocation_group_count);
     if (obj_data->symbol_list.len)
         destroy_relocation_symbol_list(&obj_data->symbol_list);
+    if (obj_data->stack_sizes)
+        wasm_runtime_free(obj_data->stack_sizes);
     wasm_runtime_free(obj_data);
 }
 
