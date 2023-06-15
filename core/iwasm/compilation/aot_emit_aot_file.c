@@ -2428,6 +2428,7 @@ read_stack_usage_file(const char *filename, uint32_t *sizes, uint32 count)
     }
     fp = fopen(filename, "r");
     if (fp == NULL) {
+        LOG_ERROR("failed to open stack usage file: %s", filename);
         goto fail;
     }
     /*
@@ -2469,6 +2470,7 @@ read_stack_usage_file(const char *filename, uint32_t *sizes, uint32 count)
         else {
             fn = strstr(colon, aot_func_prefix2);
             if (fn == NULL) {
+                LOG_ERROR("failed to parse stack usage line: %s", cp);
                 goto fail;
             }
             prefix = aot_func_prefix2;
