@@ -5601,52 +5601,6 @@ fail:
             goto fail;                                                  \
     } while (0)
 
-#if WASM_ENABLE_SHARED_MEMORY != 0
-#define LAST_OP_OUTPUT_I32()                                                \
-    (!last_op_atomic_prefix                                                 \
-     && ((last_op >= WASM_OP_I32_EQZ && last_op <= WASM_OP_I32_ROTR)        \
-         || (last_op == WASM_OP_I32_LOAD || last_op == WASM_OP_F32_LOAD)    \
-         || (last_op >= WASM_OP_I32_LOAD8_S                                 \
-             && last_op <= WASM_OP_I32_LOAD16_U)                            \
-         || (last_op >= WASM_OP_F32_ABS && last_op <= WASM_OP_F32_COPYSIGN) \
-         || (last_op >= WASM_OP_I32_WRAP_I64                                \
-             && last_op <= WASM_OP_I32_TRUNC_U_F64)                         \
-         || (last_op >= WASM_OP_F32_CONVERT_S_I32                           \
-             && last_op <= WASM_OP_F32_DEMOTE_F64)                          \
-         || (last_op == WASM_OP_I32_REINTERPRET_F32)                        \
-         || (last_op == WASM_OP_F32_REINTERPRET_I32)                        \
-         || (last_op == EXT_OP_COPY_STACK_TOP)))                            \
-        || ((last_op_atomic_prefix)                                         \
-            && ((last_op >= WASM_OP_ATOMIC_NOTIFY                           \
-                 && last_op <= WASM_OP_ATOMIC_WAIT64)                       \
-                || (last_op == WASM_OP_ATOMIC_I32_LOAD)                     \
-                || (last_op == WASM_OP_ATOMIC_I32_LOAD8_U)                  \
-                || (last_op == WASM_OP_ATOMIC_I32_LOAD16_U)                 \
-                || (last_op == WASM_OP_ATOMIC_I32_STORE)                    \
-                || (last_op == WASM_OP_ATOMIC_I32_STORE8)                   \
-                || (last_op == WASM_OP_ATOMIC_I32_STORE16)                  \
-                || (last_op == WASM_OP_ATOMIC_RMW_I32_ADD)                  \
-                || (last_op == WASM_OP_ATOMIC_RMW_I32_ADD8_U)               \
-                || (last_op == WASM_OP_ATOMIC_RMW_I32_ADD16_U)              \
-                || (last_op == WASM_OP_ATOMIC_RMW_I32_SUB)                  \
-                || (last_op == WASM_OP_ATOMIC_RMW_I32_SUB8_U)               \
-                || (last_op == WASM_OP_ATOMIC_RMW_I32_SUB16_U)              \
-                || (last_op == WASM_OP_ATOMIC_RMW_I32_AND)                  \
-                || (last_op == WASM_OP_ATOMIC_RMW_I32_AND8_U)               \
-                || (last_op == WASM_OP_ATOMIC_RMW_I32_AND16_U)              \
-                || (last_op == WASM_OP_ATOMIC_RMW_I32_OR)                   \
-                || (last_op == WASM_OP_ATOMIC_RMW_I32_OR8_U)                \
-                || (last_op == WASM_OP_ATOMIC_RMW_I32_OR16_U)               \
-                || (last_op == WASM_OP_ATOMIC_RMW_I32_XOR)                  \
-                || (last_op == WASM_OP_ATOMIC_RMW_I32_XOR8_U)               \
-                || (last_op == WASM_OP_ATOMIC_RMW_I32_XOR16_U)              \
-                || (last_op == WASM_OP_ATOMIC_RMW_I32_XCHG)                 \
-                || (last_op == WASM_OP_ATOMIC_RMW_I32_XCHG8_U)              \
-                || (last_op == WASM_OP_ATOMIC_RMW_I32_XCHG16_U)             \
-                || (last_op == WASM_OP_ATOMIC_RMW_I32_CMPXCHG)              \
-                || (last_op == WASM_OP_ATOMIC_RMW_I32_CMPXCHG8_U)           \
-                || (last_op == WASM_OP_ATOMIC_RMW_I32_CMPXCHG16_U)))
-#else
 #define LAST_OP_OUTPUT_I32()                                                   \
     (last_op >= WASM_OP_I32_EQZ && last_op <= WASM_OP_I32_ROTR)                \
         || (last_op == WASM_OP_I32_LOAD || last_op == WASM_OP_F32_LOAD)        \
@@ -5659,52 +5613,7 @@ fail:
         || (last_op == WASM_OP_I32_REINTERPRET_F32)                            \
         || (last_op == WASM_OP_F32_REINTERPRET_I32)                            \
         || (last_op == EXT_OP_COPY_STACK_TOP)
-#endif
 
-#if WASM_ENABLE_SHARED_MEMORY != 0
-#define LAST_OP_OUTPUT_I64()                                                \
-    (!last_op_atomic_prefix                                                 \
-     && ((last_op >= WASM_OP_I64_CLZ && last_op <= WASM_OP_I64_ROTR)        \
-         || (last_op >= WASM_OP_F64_ABS && last_op <= WASM_OP_F64_COPYSIGN) \
-         || (last_op == WASM_OP_I64_LOAD || last_op == WASM_OP_F64_LOAD)    \
-         || (last_op >= WASM_OP_I64_LOAD8_S                                 \
-             && last_op <= WASM_OP_I64_LOAD32_U)                            \
-         || (last_op >= WASM_OP_I64_EXTEND_S_I32                            \
-             && last_op <= WASM_OP_I64_TRUNC_U_F64)                         \
-         || (last_op >= WASM_OP_F64_CONVERT_S_I32                           \
-             && last_op <= WASM_OP_F64_PROMOTE_F32)                         \
-         || (last_op == WASM_OP_I64_REINTERPRET_F64)                        \
-         || (last_op == WASM_OP_F64_REINTERPRET_I64)                        \
-         || (last_op == EXT_OP_COPY_STACK_TOP_I64)))                        \
-        || ((last_op_atomic_prefix)                                         \
-            && ((last_op == WASM_OP_ATOMIC_I64_LOAD)                        \
-                || (last_op >= WASM_OP_ATOMIC_I64_LOAD8_U                   \
-                    && last_op <= WASM_OP_ATOMIC_I64_LOAD32_U)              \
-                || (last_op == WASM_OP_ATOMIC_I64_STORE)                    \
-                || (last_op >= WASM_OP_ATOMIC_I64_STORE8                    \
-                    && last_op <= WASM_OP_ATOMIC_I64_STORE32)               \
-                || (last_op == WASM_OP_ATOMIC_RMW_I64_ADD)                  \
-                || (last_op >= WASM_OP_ATOMIC_RMW_I64_ADD8_U                \
-                    && last_op <= WASM_OP_ATOMIC_RMW_I64_ADD32_U)           \
-                || (last_op == WASM_OP_ATOMIC_RMW_I64_SUB)                  \
-                || (last_op >= WASM_OP_ATOMIC_RMW_I64_SUB8_U                \
-                    && last_op <= WASM_OP_ATOMIC_RMW_I64_SUB32_U)           \
-                || (last_op == WASM_OP_ATOMIC_RMW_I64_AND)                  \
-                || (last_op >= WASM_OP_ATOMIC_RMW_I64_AND8_U                \
-                    && last_op <= WASM_OP_ATOMIC_RMW_I64_AND32_U)           \
-                || (last_op == WASM_OP_ATOMIC_RMW_I64_OR)                   \
-                || (last_op >= WASM_OP_ATOMIC_RMW_I64_OR8_U                 \
-                    && last_op <= WASM_OP_ATOMIC_RMW_I64_OR32_U)            \
-                || (last_op == WASM_OP_ATOMIC_RMW_I64_XOR)                  \
-                || (last_op >= WASM_OP_ATOMIC_RMW_I64_XOR8_U                \
-                    && last_op <= WASM_OP_ATOMIC_RMW_I64_XOR32_U)           \
-                || (last_op == WASM_OP_ATOMIC_RMW_I64_XCHG)                 \
-                || (last_op >= WASM_OP_ATOMIC_RMW_I64_XCHG8_U               \
-                    && last_op <= WASM_OP_ATOMIC_RMW_I64_XCHG32_U)          \
-                || (last_op == WASM_OP_ATOMIC_RMW_I64_CMPXCHG)              \
-                || (last_op >= WASM_OP_ATOMIC_RMW_I64_CMPXCHG8_U            \
-                    && last_op <= WASM_OP_ATOMIC_RMW_I64_CMPXCHG32_U)))
-#else
 #define LAST_OP_OUTPUT_I64()                                                   \
     (last_op >= WASM_OP_I64_CLZ && last_op <= WASM_OP_I64_ROTR)                \
         || (last_op >= WASM_OP_F64_ABS && last_op <= WASM_OP_F64_COPYSIGN)     \
@@ -5717,7 +5626,6 @@ fail:
         || (last_op == WASM_OP_I64_REINTERPRET_F64)                            \
         || (last_op == WASM_OP_F64_REINTERPRET_I64)                            \
         || (last_op == EXT_OP_COPY_STACK_TOP_I64)
-#endif
 
 #define GET_CONST_OFFSET(type, val)                                    \
     do {                                                               \
@@ -7311,10 +7219,6 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
     bool disable_emit, preserve_local = false;
     float32 f32_const;
     float64 f64_const;
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    bool op_atomic_prefix = true;
-    bool last_op_atomic_prefix = true;
-#endif
 
     LOG_OP("\nProcessing func | [%d] params | [%d] locals | [%d] return\n",
            func->param_cell_num, func->local_cell_num, func->ret_cell_num);
@@ -7367,10 +7271,6 @@ re_scan:
         p_org = p;
         disable_emit = false;
         emit_label(opcode);
-#if WASM_ENABLE_SHARED_MEMORY != 0
-        last_op_atomic_prefix = op_atomic_prefix;
-        op_atomic_prefix = false;
-#endif
 #endif
 
         switch (opcode) {
@@ -9355,10 +9255,11 @@ re_scan:
 #if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
             case WASM_OP_SIMD_PREFIX:
             {
-                opcode = read_uint8(p);
+                uint32 opcode1;
+                opcode1 = read_uint8(p);
                 /* follow the order of enum WASMSimdEXTOpcode in wasm_opcode.h
                  */
-                switch (opcode) {
+                switch (opcode1) {
                     /* memory instruction */
                     case SIMD_v128_load:
                     case SIMD_v128_load8x8_s:
@@ -9376,7 +9277,7 @@ re_scan:
 
                         read_leb_uint32(p, p_end, align); /* align */
                         if (!check_simd_memory_access_align(
-                                opcode, align, error_buf, error_buf_size)) {
+                                opcode1, align, error_buf, error_buf_size)) {
                             goto fail;
                         }
 
@@ -9395,7 +9296,7 @@ re_scan:
 
                         read_leb_uint32(p, p_end, align); /* align */
                         if (!check_simd_memory_access_align(
-                                opcode, align, error_buf, error_buf_size)) {
+                                opcode1, align, error_buf, error_buf_size)) {
                             goto fail;
                         }
 
@@ -9451,7 +9352,7 @@ re_scan:
                         uint8 pop_type[] = { VALUE_TYPE_I32, VALUE_TYPE_I32,
                                              VALUE_TYPE_I32, VALUE_TYPE_I64,
                                              VALUE_TYPE_F32, VALUE_TYPE_F64 };
-                        POP_AND_PUSH(pop_type[opcode - SIMD_i8x16_splat],
+                        POP_AND_PUSH(pop_type[opcode1 - SIMD_i8x16_splat],
                                      VALUE_TYPE_V128);
                         break;
                     }
@@ -9496,22 +9397,23 @@ re_scan:
 
                         CHECK_BUF(p, p_end, 1);
                         lane = read_uint8(p);
-                        if (!check_simd_access_lane(opcode, lane, error_buf,
+                        if (!check_simd_access_lane(opcode1, lane, error_buf,
                                                     error_buf_size)) {
                             goto fail;
                         }
 
-                        if (replace[opcode - SIMD_i8x16_extract_lane_s]) {
+                        if (replace[opcode1 - SIMD_i8x16_extract_lane_s]) {
                             if (!(wasm_loader_pop_frame_ref(
                                     loader_ctx,
-                                    replace[opcode - SIMD_i8x16_extract_lane_s],
+                                    replace[opcode1
+                                            - SIMD_i8x16_extract_lane_s],
                                     error_buf, error_buf_size)))
                                 goto fail;
                         }
 
                         POP_AND_PUSH(
                             VALUE_TYPE_V128,
-                            push_type[opcode - SIMD_i8x16_extract_lane_s]);
+                            push_type[opcode1 - SIMD_i8x16_extract_lane_s]);
                         break;
                     }
 
@@ -9612,7 +9514,7 @@ re_scan:
 
                         read_leb_uint32(p, p_end, align); /* align */
                         if (!check_simd_memory_access_align(
-                                opcode, align, error_buf, error_buf_size)) {
+                                opcode1, align, error_buf, error_buf_size)) {
                             goto fail;
                         }
 
@@ -9620,14 +9522,14 @@ re_scan:
 
                         CHECK_BUF(p, p_end, 1);
                         lane = read_uint8(p);
-                        if (!check_simd_access_lane(opcode, lane, error_buf,
+                        if (!check_simd_access_lane(opcode1, lane, error_buf,
                                                     error_buf_size)) {
                             goto fail;
                         }
 
                         POP_V128();
                         POP_I32();
-                        if (opcode < SIMD_v128_store8_lane) {
+                        if (opcode1 < SIMD_v128_store8_lane) {
                             PUSH_V128();
                         }
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
@@ -9642,8 +9544,9 @@ re_scan:
                         CHECK_MEMORY();
 
                         read_leb_uint32(p, p_end, align); /* align */
-                        if (!check_simd_memory_access_align(
-                                opcode, align, error_buf, error_buf_size)) {
+                        if (!check_simd_memory_access_align(opcode_suffix,
+                                                            align, error_buf,
+                                                            error_buf_size)) {
                             goto fail;
                         }
 
@@ -10000,7 +9903,7 @@ re_scan:
                             snprintf(error_buf, error_buf_size,
                                      "WASM module load failed: "
                                      "invalid opcode 0xfd %02x.",
-                                     opcode);
+                                     opcode_suffix);
                         }
                         goto fail;
                     }
@@ -10013,16 +9916,16 @@ re_scan:
 #if WASM_ENABLE_SHARED_MEMORY != 0
             case WASM_OP_ATOMIC_PREFIX:
             {
-                opcode = read_uint8(p);
+                uint32 opcode1;
+                opcode1 = read_uint8(p);
 #if WASM_ENABLE_FAST_INTERP != 0
-                op_atomic_prefix = true;
                 emit_byte(loader_ctx, opcode);
 #endif
-                if (opcode != WASM_OP_ATOMIC_FENCE) {
+                if (opcode1 != WASM_OP_ATOMIC_FENCE) {
                     CHECK_MEMORY();
                     read_leb_uint32(p, p_end, align);      /* align */
                     read_leb_uint32(p, p_end, mem_offset); /* offset */
-                    if (!check_memory_align_equal(opcode, align, error_buf,
+                    if (!check_memory_align_equal(opcode1, align, error_buf,
                                                   error_buf_size)) {
                         goto fail;
                     }
@@ -10033,7 +9936,7 @@ re_scan:
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
                 func->has_memory_operations = true;
 #endif
-                switch (opcode) {
+                switch (opcode1) {
                     case WASM_OP_ATOMIC_NOTIFY:
                         POP2_AND_PUSH(VALUE_TYPE_I32, VALUE_TYPE_I32);
                         break;
@@ -10149,7 +10052,7 @@ re_scan:
                     default:
                         set_error_buf_v(error_buf, error_buf_size,
                                         "%s %02x %02x", "unsupported opcode",
-                                        0xfe, opcode);
+                                        0xfe, opcode1);
                         goto fail;
                 }
                 break;
