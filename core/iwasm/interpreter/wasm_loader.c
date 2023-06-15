@@ -9918,7 +9918,7 @@ re_scan:
                 uint32 opcode1;
                 opcode1 = read_uint8(p);
 #if WASM_ENABLE_FAST_INTERP != 0
-                emit_byte(loader_ctx, opcode);
+                emit_byte(loader_ctx, opcode1);
 #endif
                 if (opcode1 != WASM_OP_ATOMIC_FENCE) {
                     CHECK_MEMORY();
