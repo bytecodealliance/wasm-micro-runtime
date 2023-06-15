@@ -9256,6 +9256,7 @@ re_scan:
             case WASM_OP_SIMD_PREFIX:
             {
                 uint32 opcode1;
+
                 opcode1 = read_uint8(p);
                 /* follow the order of enum WASMSimdEXTOpcode in wasm_opcode.h
                  */
@@ -9916,6 +9917,7 @@ re_scan:
             case WASM_OP_ATOMIC_PREFIX:
             {
                 uint32 opcode1;
+
                 opcode1 = read_uint8(p);
 #if WASM_ENABLE_FAST_INTERP != 0
                 emit_byte(loader_ctx, opcode1);
