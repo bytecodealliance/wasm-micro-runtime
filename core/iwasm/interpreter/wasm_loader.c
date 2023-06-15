@@ -9544,9 +9544,8 @@ re_scan:
                         CHECK_MEMORY();
 
                         read_leb_uint32(p, p_end, align); /* align */
-                        if (!check_simd_memory_access_align(opcode_suffix,
-                                                            align, error_buf,
-                                                            error_buf_size)) {
+                        if (!check_simd_memory_access_align(
+                                opcode1, align, error_buf, error_buf_size)) {
                             goto fail;
                         }
 
@@ -9903,7 +9902,7 @@ re_scan:
                             snprintf(error_buf, error_buf_size,
                                      "WASM module load failed: "
                                      "invalid opcode 0xfd %02x.",
-                                     opcode_suffix);
+                                     opcode1);
                         }
                         goto fail;
                     }
