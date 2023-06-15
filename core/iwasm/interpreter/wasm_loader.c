@@ -5617,7 +5617,9 @@ fail:
          || (last_op == WASM_OP_F32_REINTERPRET_I32)                        \
          || (last_op == EXT_OP_COPY_STACK_TOP)))                            \
         || ((last_op_atomic_prefix)                                         \
-            && ((last_op == WASM_OP_ATOMIC_I32_LOAD)                        \
+            && ((last_op >= WASM_OP_ATOMIC_NOTIFY                           \
+                 && last_op <= WASM_OP_ATOMIC_WAIT64)                       \
+                || (last_op == WASM_OP_ATOMIC_I32_LOAD)                     \
                 || (last_op == WASM_OP_ATOMIC_I32_LOAD8_U)                  \
                 || (last_op == WASM_OP_ATOMIC_I32_LOAD16_U)                 \
                 || (last_op == WASM_OP_ATOMIC_I32_STORE)                    \
