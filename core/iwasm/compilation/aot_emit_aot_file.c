@@ -2485,6 +2485,9 @@ read_stack_usage_file(const char *filename, uint32_t *sizes, uint32 count)
         if (func_idx > UINT32_MAX) {
             goto fail;
         }
+        if (func_idx >= count) {
+            goto fail;
+        }
         if (prefix == aot_func_prefix) {
             if (sz < precheck_stack_size_min) {
                 precheck_stack_size_min = sz;
