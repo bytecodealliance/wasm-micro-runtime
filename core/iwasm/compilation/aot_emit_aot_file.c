@@ -2498,16 +2498,17 @@ read_stack_usage_file(const char *filename, uint32_t *sizes, uint32 count)
     }
     fclose(fp);
     if (precheck_found != count) {
-        LOG_ERROR("%" PRIu32 " precheck entries found where %" PRIu32
+        LOG_ERROR("%" PRIu32 " precheck entries found while %" PRIu32
                   " entries are expected",
                   precheck_found, count);
+        return false;
     }
     if (found != count) {
         /*
          * LLVM seems to eliminate calls to an empty function
          * (and eliminate the function) even if it's marked noinline.
          */
-        LOG_WARNING("%" PRIu32 " entries found where %" PRIu32
+        LOG_WARNING("%" PRIu32 " entries found while %" PRIu32
                     " entries are expected",
                     found, count);
     }
