@@ -94,6 +94,9 @@ int
 os_mutex_destroy(korp_mutex *mutex);
 
 int
+os_mutex_trylock(korp_mutex *mutex);
+
+int
 os_mutex_lock(korp_mutex *mutex);
 
 int

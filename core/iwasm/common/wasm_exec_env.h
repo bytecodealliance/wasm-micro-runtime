@@ -29,13 +29,7 @@ typedef struct WASMJmpBuf {
 } WASMJmpBuf;
 #endif
 
-typedef struct WASMThreadStatus {
-    uint64 signal_flag : 32;
-    uint64 step_count : 16;
-    uint64 running_status : 16;
-} WASMThreadStatus;
-
-typedef enum ThreadRunningStatus {
+typedef enum ThreadRunningState {
     WASM_THREAD_RUNNING = 0,
     WASM_THREAD_WAIT = 1,
     WASM_THREAD_SUSPENDED = 2,
@@ -43,7 +37,13 @@ typedef enum ThreadRunningStatus {
     WASM_THREAD_STOP,
     WASM_THREAD_EXIT,
     WASM_THREAD_STEP,
-} ThreadRunningStatus;
+} ThreadRunningState;
+
+typedef struct WASMThreadStatus {
+    uint64 signal_flag : 32;
+    uint64 step_count : 16;
+    uint64 running_state : 16;
+} WASMThreadStatus;
 
 #define THREAD_TERMINATE_FLAG 1
 #define THREAD_SUSPEND_FLAG 2

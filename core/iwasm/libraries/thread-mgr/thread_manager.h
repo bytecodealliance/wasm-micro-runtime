@@ -129,17 +129,19 @@ void
 wasm_cluster_cancel_all_callbacks();
 
 void
+wasm_cluster_suspend_thread(WASMExecEnv *exec_env, WASMExecEnv *self);
+
+void
+wasm_cluster_suspend_all_except_self(WASMCluster *cluster, WASMExecEnv *self);
+
+void
 wasm_cluster_suspend_all(WASMCluster *cluster);
 
 void
-wasm_cluster_suspend_all_except_self(WASMCluster *cluster,
-                                     WASMExecEnv *exec_env);
-
-void
-wasm_cluster_suspend_thread(WASMExecEnv *exec_env);
-
-void
 wasm_cluster_resume_thread(WASMExecEnv *exec_env);
+
+void
+wasm_cluster_resume_all_except_self(WASMCluster *cluster, WASMExecEnv *self);
 
 void
 wasm_cluster_resume_all(WASMCluster *cluster);
@@ -158,7 +160,7 @@ void
 wasm_cluster_wait_for_all_except_self(WASMCluster *cluster,
                                       WASMExecEnv *exec_env);
 
-bool
+void
 wasm_cluster_del_exec_env(WASMCluster *cluster, WASMExecEnv *exec_env);
 
 WASMExecEnv *
