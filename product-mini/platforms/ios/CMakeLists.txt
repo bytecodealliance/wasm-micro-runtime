@@ -134,9 +134,9 @@ endif ()
 
 add_library (iwasm SHARED ${WAMR_RUNTIME_LIB_SOURCE})
 if (CMAKE_BUILD_TYPE STREQUAL Release)
-target_link_libraries (iwasm ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} ${UVWASI_LIBS} -lm -ldl -s)
+target_link_libraries (iwasm ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl -s)
 else()
-target_link_libraries (iwasm ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} ${UVWASI_LIBS} -lm -ldl)
+target_link_libraries (iwasm ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl)
 endif()
 
 set (distribution_DIR ${CMAKE_BINARY_DIR}/distribution)

@@ -285,7 +285,7 @@ endif()
 
 if (NOT MSVC)
   target_link_libraries (wamrc aotclib vmlib ${WAMRC_LINK_LLVM_LIBS} ${lib_ubsan}
-                         -lm -lpthread ${lib_lldb} ${UV_A_LIBS} ${UVWASI_LIBS})
+                         -lm -lpthread ${lib_lldb} ${UV_A_LIBS})
   if (MINGW)
       target_link_libraries (wamrc ssp.a ws2_32)
   else()
@@ -293,7 +293,7 @@ if (NOT MSVC)
   endif()
 else()
   target_link_libraries (wamrc aotclib vmlib  ${lib_lldb} ${WAMRC_LINK_LLVM_LIBS} ${lib_ubsan}
-                         ${UV_A_LIBS} ${UVWASI_LIBS})
+                         ${UV_A_LIBS})
 endif()
 
 install (TARGETS wamrc DESTINATION bin)
