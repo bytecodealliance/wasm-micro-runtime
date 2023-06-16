@@ -3109,7 +3109,8 @@ init_llvm_jit_functions_stage2(WASMModule *module, char *error_buf,
         return false;
 #endif
 
-#if WASM_ENABLE_DYNAMIC_PGO == 0
+    /* FIXME: Can't skip this part in DPGO. it leads to a SIGSEGV(0x0) when
+     * `call` */
     bh_print_time("Begin to lookup llvm jit functions");
 
     for (i = 0; i < module->function_count; i++) {
@@ -3145,7 +3146,6 @@ init_llvm_jit_functions_stage2(WASMModule *module, char *error_buf,
     }
 
     bh_print_time("End lookup llvm jit functions");
-#endif
 
     (void)i;
     return true;
@@ -3156,16 +3156,16 @@ init_llvm_jit_functions_stage2(WASMModule *module, char *error_buf,
     && WASM_ENABLE_LAZY_JIT != 0
 
 #if WASM_ENABLE_DYNAMIC_PGO != 0
-static bool
+bool
 wasm_tier_up_function(WASMModule *module, uint32 func_idx,
                       void *llvm_jit_gen_addr)
 {
     /* bypass if #func_idx has been tiered up */
-    if (module->func_ptrs[func_idx - module->import_function_count]
-        == llvm_jit_gen_addr)
+    if (module->func_ptrs_compiled[func_idx - module->import_function_count])
         return true;
 
     LOG_DEBUG("tier up function #%d", func_idx);
+    module->func_ptrs_compiled[func_idx - module->import_function_count] = true;
 
     jit_compiler_set_llvm_jit_func_ptr(module, func_idx, llvm_jit_gen_addr);
 
@@ -3209,33 +3209,30 @@ init_llvm_jit_functions_stage2_callback(void *arg)
              i++) {
             uint32 func_ent_cnt_val = wasm_dpgo_get_ent_cnt_value(
                 module, i + module->import_function_count);
-            if (func_ent_cnt_val >= WASM_DPGO_TIER_UP_THRESHOLD) {
-                /* tier-up the function */
-                char func_name[48];
-                LLVMOrcJITTargetAddress func_addr = 0;
-                LLVMErrorRef error;
+            if (func_ent_cnt_val < WASM_DPGO_TIER_UP_THRESHOLD)
+                continue;
 
-                snprintf(func_name, sizeof(func_name), "%s%d", AOT_FUNC_PREFIX,
-                         i);
+            /*
+             * either a function has not been tiered-up,
+             * or a function has been tiered-up with one of its caller
+             * becoming hotness
+             */
+            if (module->func_opt_w_prof[i + module->import_function_count]
+                == NOTHING)
+                module->func_opt_w_prof[i + module->import_function_count] =
+                    NEED_OPT_WITH_PROF_META;
 
-                error = LLVMOrcLLLazyJITLookup(module->comp_ctx->orc_jit,
-                                               &func_addr, func_name);
-                if (error != LLVMErrorSuccess) {
-                    char *err_msg = LLVMGetErrorMessage(error);
-                    set_error_buf_v(error_buf, error_buf_size,
-                                    "failed to compile llvm jit function: %s",
-                                    err_msg);
-                    LLVMDisposeErrorMessage(err_msg);
-                    return false;
-                }
+            /* >= WASM_DPGO_TIER_UP_THRESHOLD and already been tiered up */
+            if (module->func_ptrs_compiled[i])
+                continue;
 
-                if (wasm_tier_up_function(module,
-                                          i + module->import_function_count,
-                                          (void *)func_addr)
-                    == false) {
-                    LOG_WARNING("Tier up function #%d failed", i);
-                    return NULL;
-                }
+            /* tier-up the function */
+            /* we have run LLVMOrcLLLazyJITLookup before and gona to reuse it */
+            if (!wasm_tier_up_function(module,
+                                       i + module->import_function_count,
+                                       module->func_ptrs[i])) {
+                LOG_WARNING("Tier up function #%d failed", i);
+                return NULL;
             }
         }
     }
@@ -3276,11 +3273,11 @@ orcjit_thread_callback(void *arg)
     os_mutex_lock(&module->tierup_wait_lock);
     module->fast_jit_ready_groups++;
     os_mutex_unlock(&module->tierup_wait_lock);
+#endif /* WASM_ENABLE_JIT != 0 && WASM_ENABLE_LAZY_JIT != 0 */
+#endif /* WASM_ENABLE_FAST_JIT != 0 */
 #if WASM_ENABLE_DYNAMIC_PGO != 0
     return NULL;
 #endif /* WASM_ENABLE_DYNAMIC_PGO != 0 */
-#endif /* WASM_ENABLE_JIT != 0 && WASM_ENABLE_LAZY_JIT != 0 */
-#endif /* WASM_ENABLE_FAST_JIT != 0 */
 
 #if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
     && WASM_ENABLE_LAZY_JIT != 0
@@ -3819,6 +3816,13 @@ load_from_sections(WASMModule *module, WASMSection *sections,
             * (module->import_function_count + module->function_count),
         error_buf, error_buf_size);
     if (!module->prof_cnts_info)
+        return false;
+
+    module->func_opt_w_prof = loader_malloc(
+        sizeof(enum WASMDPGOFuncState)
+            * (module->import_function_count + module->function_count),
+        error_buf, error_buf_size);
+    if (!module->func_opt_w_prof)
         return false;
 #endif
 
@@ -4391,20 +4395,25 @@ wasm_runtime_dump_pgo_info(WASMModule *module)
             continue;
         }
 
-        LOG_WARNING("Counters of Func#%u: CAPACITY: %u", i,
-                    ent_and_br_cnts_capacity);
-
         if (ent_and_br_cnts_capacity == 0)
             continue;
 
         uint32 func_ent_cnt_value = wasm_dpgo_get_ent_cnt_value(module, i);
-        LOG_WARNING("  [1] : %u", func_ent_cnt_value);
+        if (func_ent_cnt_value < WASM_DPGO_TIER_UP_THRESHOLD)
+            continue;
 
+        LOG_DEBUG("Counters of Func#%u: CAPACITY: %u", i,
+                  ent_and_br_cnts_capacity);
+        LOG_DEBUG("  [1] : %u", func_ent_cnt_value);
+
+        /* too much to print. Enable it when necessary */
+#if 0
         for (unsigned j = 2; j < ent_and_br_cnts_capacity; j++) {
             uint32 cnt_val = ent_and_br_cnts[j];
             if (cnt_val)
                 LOG_WARNING("  [%u] : %u", j, cnt_val);
         }
+#endif
     }
 }
 #endif
@@ -4641,6 +4650,11 @@ wasm_loader_unload(WASMModule *module)
         }
         wasm_runtime_free(module->prof_cnts_info);
         module->prof_cnts_info = NULL;
+    }
+
+    if (module->func_opt_w_prof) {
+        wasm_runtime_free(module->func_opt_w_prof);
+        module->func_opt_w_prof = NULL;
     }
 #endif
 
@@ -7825,12 +7839,6 @@ re_scan:
 
             case WASM_OP_BR_IF:
             {
-                POP_I32();
-
-                if (!(frame_csp_tmp = check_branch_block(
-                          loader_ctx, &p, p_end, error_buf, error_buf_size)))
-                    goto fail;
-
 #if WASM_ENABLE_DYNAMIC_PGO != 0
                 struct WASMProfCntInfo *opcode_cnt = new_WasmProfCntInfo(
                     module->import_function_count + cur_func_idx,
@@ -7847,6 +7855,12 @@ re_scan:
 
                 ent_and_br_cnts_cap += 2;
 #endif
+
+                POP_I32();
+
+                if (!(frame_csp_tmp = check_branch_block(
+                          loader_ctx, &p, p_end, error_buf, error_buf_size)))
+                    goto fail;
                 break;
             }
 

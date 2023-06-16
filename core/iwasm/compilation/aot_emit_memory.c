@@ -881,7 +881,8 @@ bool
 aot_compile_op_memory_init(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                            uint32 seg_index)
 {
-    LLVMValueRef seg, offset, dst, len, param_values[5], ret_value, func, value;
+    LLVMValueRef seg, offset, dst, len, param_values[5], ret_value, func, value,
+        cond_br;
     LLVMTypeRef param_types[5], ret_type, func_type, func_ptr_type;
     AOTFuncType *aot_func_type = func_ctx->aot_func->func_type;
     LLVMBasicBlockRef block_curr = LLVMGetInsertBlock(comp_ctx->builder);
@@ -925,11 +926,16 @@ aot_compile_op_memory_init(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMMoveBasicBlockAfter(mem_init_fail, block_curr);
     LLVMMoveBasicBlockAfter(init_success, block_curr);
 
-    if (!LLVMBuildCondBr(comp_ctx->builder, ret_value, init_success,
-                         mem_init_fail)) {
+    cond_br = LLVMBuildCondBr(comp_ctx->builder, ret_value, init_success,
+                              mem_init_fail);
+    if (!cond_br) {
         aot_set_last_error("llvm build cond br failed.");
         goto fail;
     }
+
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+    wasm_dpgo_unlike_false_branch(comp_ctx->context, cond_br);
+#endif
 
     /* If memory.init failed, return this function
        so the runtime can catch the exception */
@@ -1295,7 +1301,7 @@ aot_compile_op_atomic_wait(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                            uint8 op_type, uint32 align, uint32 offset,
                            uint32 bytes)
 {
-    LLVMValueRef maddr, value, timeout, expect, cmp;
+    LLVMValueRef maddr, value, timeout, expect, cmp, cond_br;
     LLVMValueRef param_values[5], ret_value, func, is_wait64;
     LLVMTypeRef param_types[5], ret_type, func_type, func_ptr_type;
     LLVMBasicBlockRef wait_fail, wait_success;
@@ -1353,10 +1359,15 @@ aot_compile_op_atomic_wait(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMMoveBasicBlockAfter(wait_fail, block_curr);
     LLVMMoveBasicBlockAfter(wait_success, block_curr);
 
-    if (!LLVMBuildCondBr(comp_ctx->builder, cmp, wait_success, wait_fail)) {
+    cond_br = LLVMBuildCondBr(comp_ctx->builder, cmp, wait_success, wait_fail);
+    if (!cond_br) {
         aot_set_last_error("llvm build cond br failed.");
         goto fail;
     }
+
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+    wasm_dpgo_unlike_false_branch(comp_ctx->context, cond_br);
+#endif
 
     /* If atomic wait failed, return this function
        so the runtime can catch the exception */

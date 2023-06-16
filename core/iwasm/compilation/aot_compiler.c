@@ -2615,14 +2615,22 @@ verify_module(AOTCompContext *comp_ctx)
     char *msg = NULL;
     bool ret;
 
+    /*
+     * LLVMVerifyModule() return true if the module is broken.
+     */
     ret = LLVMVerifyModule(comp_ctx->module, LLVMPrintMessageAction, &msg);
-    if (!ret && msg) {
-        if (msg[0] != '\0') {
-            aot_set_last_error(msg);
+    if (ret) {
+        if (msg) {
+            if (msg[0] != '\0')
+                aot_set_last_error(msg);
+            else
+                aot_set_last_error("LLVM IR Module is broken");
             LLVMDisposeMessage(msg);
-            return false;
         }
-        LLVMDisposeMessage(msg);
+        else {
+            aot_set_last_error("LLVM IR Module is broken");
+        }
+        return false;
     }
 
     return true;
@@ -2733,9 +2741,13 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
     if (!comp_ctx->is_jit_mode)
 #endif
     {
-
         bh_print_time("Begin to verify LLVM module");
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+        if (verify_module_and_debug_info(comp_ctx->module)) {
+#else
         if (!verify_module(comp_ctx)) {
+#endif
+            LOG_ERROR("verify LLVM IR module failed");
             return false;
         }
     }

@@ -1768,6 +1768,7 @@ jit_compile_func(JitCompContext *cc)
                 if (!jit_compile_op_i32_compare(cc, INT_EQZ + opcode
                                                         - WASM_OP_I32_EQZ))
                     return false;
+#if WASM_ENABLE_FAST_JIT_OPT_MERGE_CMP != 0
                 if (frame_ip < frame_ip_end) {
                     /* Merge `CMP, SELECTcc, CMP, BNE` insns into `CMP, Bcc` */
                     if (*frame_ip == WASM_OP_IF || *frame_ip == EXT_OP_IF)
@@ -1775,6 +1776,7 @@ jit_compile_func(JitCompContext *cc)
                     if (*frame_ip == WASM_OP_BR_IF)
                         merge_cmp_and_br_if = true;
                 }
+#endif
                 break;
 
             case WASM_OP_I64_EQZ:
@@ -1791,6 +1793,7 @@ jit_compile_func(JitCompContext *cc)
                 if (!jit_compile_op_i64_compare(cc, INT_EQZ + opcode
                                                         - WASM_OP_I64_EQZ))
                     return false;
+#if WASM_ENABLE_FAST_JIT_OPT_MERGE_CMP != 0
                 if (frame_ip < frame_ip_end) {
                     /* Merge `CMP, SELECTcc, CMP, BNE` insns into `CMP, Bcc` */
                     if (*frame_ip == WASM_OP_IF || *frame_ip == EXT_OP_IF)
@@ -1798,6 +1801,7 @@ jit_compile_func(JitCompContext *cc)
                     if (*frame_ip == WASM_OP_BR_IF)
                         merge_cmp_and_br_if = true;
                 }
+#endif
                 break;
 
             case WASM_OP_F32_EQ:
@@ -1809,6 +1813,7 @@ jit_compile_func(JitCompContext *cc)
                 if (!jit_compile_op_f32_compare(cc, FLOAT_EQ + opcode
                                                         - WASM_OP_F32_EQ))
                     return false;
+#if WASM_ENABLE_FAST_JIT_OPT_MERGE_CMP != 0
                 if (frame_ip < frame_ip_end) {
                     /* Merge `CMP, SELECTcc, CMP, BNE` insns into `CMP, Bcc` */
                     if (*frame_ip == WASM_OP_IF || *frame_ip == EXT_OP_IF)
@@ -1816,6 +1821,7 @@ jit_compile_func(JitCompContext *cc)
                     if (*frame_ip == WASM_OP_BR_IF)
                         merge_cmp_and_br_if = true;
                 }
+#endif
                 break;
 
             case WASM_OP_F64_EQ:
@@ -1827,6 +1833,7 @@ jit_compile_func(JitCompContext *cc)
                 if (!jit_compile_op_f64_compare(cc, FLOAT_EQ + opcode
                                                         - WASM_OP_F64_EQ))
                     return false;
+#if WASM_ENABLE_FAST_JIT_OPT_MERGE_CMP != 0
                 if (frame_ip < frame_ip_end) {
                     /* Merge `CMP, SELECTcc, CMP, BNE` insns into `CMP, Bcc` */
                     if (*frame_ip == WASM_OP_IF || *frame_ip == EXT_OP_IF)
@@ -1834,6 +1841,7 @@ jit_compile_func(JitCompContext *cc)
                     if (*frame_ip == WASM_OP_BR_IF)
                         merge_cmp_and_br_if = true;
                 }
+#endif
                 break;
 
             case WASM_OP_I32_CLZ:
