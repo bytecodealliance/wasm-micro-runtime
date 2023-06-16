@@ -57,7 +57,7 @@ static bool
 check_exception_thrown(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
     LLVMBasicBlockRef block_curr, check_exce_succ;
-    LLVMValueRef value, cmp;
+    LLVMValueRef value, cmp, cond_br;
 
     /* Create function return block if it isn't created */
     if (!create_func_return_block(comp_ctx, func_ctx))
@@ -85,11 +85,16 @@ check_exception_thrown(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 
     LLVMPositionBuilderAtEnd(comp_ctx->builder, block_curr);
     /* Create condition br */
-    if (!LLVMBuildCondBr(comp_ctx->builder, cmp, check_exce_succ,
-                         func_ctx->func_return_block)) {
+    cond_br = LLVMBuildCondBr(comp_ctx->builder, cmp, check_exce_succ,
+                              func_ctx->func_return_block);
+    if (!cond_br) {
         aot_set_last_error("llvm build cond br failed.");
         return false;
     }
+
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+    wasm_dpgo_unlike_false_branch(comp_ctx->context, cond_br);
+#endif
 
     LLVMPositionBuilderAtEnd(comp_ctx->builder, check_exce_succ);
     return true;
@@ -101,7 +106,7 @@ check_call_return(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                   LLVMValueRef res)
 {
     LLVMBasicBlockRef block_curr, check_call_succ;
-    LLVMValueRef cmp;
+    LLVMValueRef cmp, cond_br;
 
     /* Create function return block if it isn't created */
     if (!create_func_return_block(comp_ctx, func_ctx))
@@ -125,11 +130,16 @@ check_call_return(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     LLVMPositionBuilderAtEnd(comp_ctx->builder, block_curr);
     /* Create condition br */
-    if (!LLVMBuildCondBr(comp_ctx->builder, cmp, check_call_succ,
-                         func_ctx->func_return_block)) {
+    cond_br = LLVMBuildCondBr(comp_ctx->builder, cmp, check_call_succ,
+                              func_ctx->func_return_block);
+    if (!cond_br) {
         aot_set_last_error("llvm build cond br failed.");
         return false;
     }
+
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+    wasm_dpgo_unlike_false_branch(comp_ctx->context, cond_br);
+#endif
 
     LLVMPositionBuilderAtEnd(comp_ctx->builder, check_call_succ);
     return true;
@@ -280,7 +290,7 @@ static bool
 call_aot_alloc_frame_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                           LLVMValueRef func_idx)
 {
-    LLVMValueRef param_values[2], ret_value, value, func;
+    LLVMValueRef param_values[2], ret_value, value, func, alloc_cond_br;
     LLVMTypeRef param_types[2], ret_type, func_type, func_ptr_type;
     LLVMBasicBlockRef block_curr = LLVMGetInsertBlock(comp_ctx->builder);
     LLVMBasicBlockRef frame_alloc_fail, frame_alloc_success;
@@ -317,11 +327,16 @@ call_aot_alloc_frame_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMMoveBasicBlockAfter(frame_alloc_fail, block_curr);
     LLVMMoveBasicBlockAfter(frame_alloc_success, block_curr);
 
-    if (!LLVMBuildCondBr(comp_ctx->builder, ret_value, frame_alloc_success,
-                         frame_alloc_fail)) {
+    alloc_cond_br = LLVMBuildCondBr(comp_ctx->builder, ret_value,
+                                    frame_alloc_success, frame_alloc_fail);
+    if (!alloc_cond_br) {
         aot_set_last_error("llvm build cond br failed.");
         return false;
     }
+
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+    wasm_dpgo_unlike_false_branch(comp_ctx->context, alloc_cond_br);
+#endif
 
     /* If frame alloc failed, return this function
         so the runtime can catch the exception */

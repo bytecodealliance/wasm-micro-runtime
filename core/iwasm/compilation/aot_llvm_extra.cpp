@@ -25,11 +25,13 @@
 #include <llvm/ExecutionEngine/JITEventListener.h>
 #include <llvm/ExecutionEngine/RTDyldMemoryManager.h>
 #include <llvm/ExecutionEngine/Orc/LLJIT.h>
+#include <llvm/IR/CFG.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/IntrinsicInst.h>
 #include <llvm/IR/LegacyPassManager.h>
+#include <llvm/IR/Verifier.h>
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/ErrorHandling.h>
 #include <llvm/Target/CodeGenCWrappers.h>
@@ -82,7 +84,8 @@ class ExpandMemoryOpPass : public llvm::ModulePass
 
     ExpandMemoryOpPass()
       : ModulePass(ID)
-    {}
+    {
+    }
 
     bool runOnModule(Module &M) override;
 
@@ -248,6 +251,11 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
     else if (comp_ctx->use_prof_file) {
         PGO = PGOOptions(comp_ctx->use_prof_file, "", "", PGOOptions::IRUse);
     }
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+    else {
+        PGO = PGOOptions();
+    }
+#endif
 
 #ifdef DEBUG_PASS
     PassInstrumentationCallbacks PIC;
@@ -339,9 +347,16 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
 
     ModulePassManager MPM;
     if (comp_ctx->is_jit_mode) {
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+        /* FIXME: tuning default pipelines and customized pipelines */
+        // MPM.addPass(PB.buildFunctionSimplificationPipeline(
+        //     OL, ThinOrFullLTOPhase::None));
+        MPM.addPass(PB.buildPerModuleDefaultPipeline(OL));
+#else
         const char *Passes =
             "mem2reg,instcombine,simplifycfg,jump-threading,indvars";
         ExitOnErr(PB.parsePassPipeline(MPM, Passes));
+#endif
     }
     else {
         FunctionPassManager FPM;
@@ -387,6 +402,8 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
     }
 
     MPM.run(*M, MAM);
+
+    /*TODO: dump modification */
 }
 
 char *
@@ -422,6 +439,20 @@ aot_compress_aot_func_names(AOTCompContext *comp_ctx, uint32 *p_size)
 
 #if WASM_ENABLE_DYNAMIC_PGO != 0
 /*TODO: maybe move below to a new file? */
+/* return true if broken */
+bool
+verify_module_and_debug_info(LLVMModuleRef module)
+{
+    bool broken_debug_info = false;
+    Module *M = reinterpret_cast<Module *>(module);
+    bool broken_module = verifyModule(*M, &dbgs(), &broken_debug_info);
+
+    if (broken_debug_info || broken_module)
+        LOG_ERROR("broken_module=%d, broken_debug_info=%d", broken_module,
+                  broken_debug_info);
+
+    return broken_debug_info || broken_module;
+}
 
 /* append !{!"function_entry_count", i64 NN} */
 void
@@ -440,28 +471,53 @@ wasm_dpgo_set_function_entry_count(LLVMValueRef function, uint32 count)
 
 /* append !{!"branch_weights", i32 NN, i32 MM} */
 void
-wasm_dpgo_set_branch_weights(LLVMModuleRef module, LLVMValueRef instruction,
+wasm_dpgo_set_branch_weights(LLVMContextRef context, LLVMValueRef instruction,
                              uint32 *counts, uint32 counts_size)
 {
-    Module *M = reinterpret_cast<Module *>(module);
-    MDBuilder MDB(M->getContext());
-
+    MDBuilder MDB(*reinterpret_cast<LLVMContext *>(context));
     SmallVector<unsigned, 4> Weights;
-    for (unsigned i = 0; i < counts_size; i++)
-        Weights.push_back(counts[i]);
 
+    for (unsigned i = 0; i < counts_size; i++) {
+        Weights.push_back(counts[i]);
+    }
+
+    // FIXME: add more counters when meeting switch
+    LOG_DEBUG("%s --> branch_weights {%u, %u}",
+              LLVMPrintValueToString(instruction), counts[0], counts[1]);
+
+    bh_assert(LLVMGetValueKind(instruction) == LLVMInstructionValueKind);
     Instruction *I = unwrap<Instruction>(instruction);
     I->setMetadata(LLVMContext::MD_prof, MDB.createBranchWeights(Weights));
 }
 
+void
+wasm_dpgo_unlike_true_branch(LLVMContextRef context, LLVMValueRef cond_br)
+{
+    bh_assert(LLVMIsABranchInst(cond_br));
+    bh_assert(LLVMIsConditional(cond_br));
+
+    uint32 weights[2] = { 1, 1000 };
+    return wasm_dpgo_set_branch_weights(context, cond_br, weights, 2);
+}
+
+void
+wasm_dpgo_unlike_false_branch(LLVMContextRef context, LLVMValueRef cond_br)
+{
+    bh_assert(LLVMIsABranchInst(cond_br));
+    bh_assert(LLVMIsConditional(cond_br));
+
+    uint32 weights[2] = { 1000, 1 };
+    return wasm_dpgo_set_branch_weights(context, cond_br, weights, 2);
+}
+
 /* append !{!"loop_header_weight", i64 NN} */
 void
-wasm_dpgo_set_irr_loop(LLVMModuleRef module, LLVMValueRef instruction,
+wasm_dpgo_set_irr_loop(LLVMContextRef context, LLVMValueRef instruction,
                        uint32 count)
 {
-    Module *M = reinterpret_cast<Module *>(module);
-    MDBuilder MDB(M->getContext());
+    MDBuilder MDB(*reinterpret_cast<LLVMContext *>(context));
 
+    bh_assert(LLVMGetValueKind(instruction) == LLVMInstructionValueKind);
     Instruction *I = unwrap<Instruction>(instruction);
     I->setMetadata(llvm::LLVMContext::MD_irr_loop,
                    MDB.createIrrLoopHeaderWeight(count));
@@ -484,21 +540,98 @@ wasm_dpgo_set_vp(LLVMModuleRef module, LLVMValueRef instruction, uint32 *counts,
     */
 }
 
-/*
- * Set prof metadata (!prof) for a function by given func_idx
- *
- */
-void
-wasm_dpgo_set_prof_meta(AOTCompContext *comp_ctx, LLVMValueRef function,
-                        uint32 func_idx)
+static void
+wasm_dpgo_visit_terminator(WASMModule *wasm_module, LLVMModuleRef module,
+                           LLVMValueRef function, uint32 func_idx)
 {
-    WASMModule *wasm_module = comp_ctx->comp_data->wasm_module;
-    LLVMModuleRef module = comp_ctx->module;
+    LLVMBasicBlockRef basic_block = LLVMGetFirstBasicBlock(function);
+    while (basic_block) {
+        LLVMValueRef terminator = LLVMGetBasicBlockTerminator(basic_block);
+        basic_block = LLVMGetNextBasicBlock(basic_block);
 
+        if (LLVMGetNumSuccessors(terminator) > 1)
+            LOG_DEBUG("Terminator: %s  .", LLVMPrintValueToString(terminator));
+
+        /* only take care condbr and switch */
+        if (!LLVMIsABranchInst(terminator) && !LLVMIsASwitchInst(terminator))
+            continue;
+
+        /* bypass non-CondBr */
+        if (LLVMIsABranchInst(terminator) && !LLVMIsConditional(terminator))
+            continue;
+
+        // LOG_DEBUG("Terminator: %s  .", LLVMPrintValueToString(terminator));
+
+        LLVMValueRef prof_md =
+            LLVMGetMetadata(terminator, LLVMContext::MD_prof);
+        if (prof_md) {
+            LOG_DEBUG("  Already has Prof meta");
+            continue;
+        }
+
+        /* always have some Debug Location */
+        LLVMMetadataRef dbg_location = LLVMInstructionGetDebugLoc(terminator);
+        bh_assert(dbg_location && "No Debug Location");
+        bh_assert(LLVMGetMetadataKind(dbg_location)
+                      == LLVMDILocationMetadataKind
+                  && "Not a DILocation");
+
+        uint32 line = LLVMDILocationGetLine(dbg_location);
+        LOG_DEBUG("  DILocation. LINE: %u", line);
+
+        /* locate profiling counters */
+        uint32 counter_amount;
+        uint32 first_counter_idx;
+        bool ret = wasm_dpgo_get_prof_cnt_info(
+            wasm_module, func_idx, line, &counter_amount, &first_counter_idx);
+        if (!ret) {
+            LOG_DEBUG("    No Prof Cnt Info for Func.#%u Line:%u", func_idx,
+                      line);
+
+            // FIXME: remove if when we have switch
+            if (LLVMIsABranchInst(terminator)) {
+                wasm_dpgo_dump_func_prof_cnts_info(wasm_module, func_idx);
+                bh_assert(counter_amount != 0 && "No counter for condBr");
+                return;
+            }
+            continue;
+        }
+
+        /*
+         * there will be two counters for a condBr. the first one is before
+         * condBr. the second one is for one branch. Since fast-jit condBr
+         * usually uses VOID, which means stay in the same basic block, the
+         * second counter always right after condBr.
+         */
+        uint32 *ent_and_br_cnts =
+            wasm_dpgo_get_ent_and_br_cnts(wasm_module, func_idx, NULL);
+        uint32 *cur_br_cnts = ent_and_br_cnts + first_counter_idx;
+        bh_assert(counter_amount == 2
+                  && "condBr doesn't have two counters for two branches");
+        LOG_DEBUG(
+            "    Prof Cnt Info for Func.#%u Line:%u, cnt[0]=%u, cnt[1]=%u",
+            func_idx, line, cur_br_cnts[0], cur_br_cnts[1]);
+
+        uint32 weights[2] = { 0 };
+        weights[0] = cur_br_cnts[1];
+        weights[1] = cur_br_cnts[0] - cur_br_cnts[1];
+        wasm_dpgo_set_branch_weights(LLVMGetModuleContext(module), terminator,
+                                     weights, 2);
+    }
+}
+
+void
+wasm_dpgo_set_prof_meta(WASMModule *wasm_module, LLVMModuleRef module,
+                        LLVMValueRef function, uint32 func_idx)
+{
     bh_assert(LLVMGetValueKind(function) == LLVMFunctionValueKind);
-    wasm_dpgo_set_function_entry_count(
-        function, wasm_dpgo_get_ent_cnt_value(wasm_module, func_idx));
+    bh_assert(func_idx < wasm_module->import_function_count
+                             + wasm_module->function_count);
 
-    /*TODO:  set profiling metadata for some instructions */
+    size_t size;
+    LOG_DEBUG("  --> Add prof meta into %s",
+              LLVMGetValueName2(function, &size));
+
+    wasm_dpgo_visit_terminator(wasm_module, module, function, func_idx);
 }
 #endif /* WASM_ENABLE_DYNAMIC_PGO != 0 */
