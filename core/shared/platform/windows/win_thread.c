@@ -535,6 +535,13 @@ os_mutex_lock(korp_mutex *mutex)
 }
 
 int
+os_mutex_trylock(korp_mutex *mutex)
+{
+    /* unsupported */
+    return BHT_ERROR;
+}
+
+int
 os_mutex_unlock(korp_mutex *mutex)
 {
     bh_assert(mutex);
