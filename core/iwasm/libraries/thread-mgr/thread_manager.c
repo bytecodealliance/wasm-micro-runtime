@@ -102,7 +102,7 @@ global_exec_env_list_del(WASMExecEnv *exec_env)
 static void
 global_exec_env_list_del_exec_envs(WASMCluster *cluster)
 {
-    GlobalExecEnvNode *exec_env_node, *prev = NULL;
+    GlobalExecEnvNode *exec_env_node, *prev = NULL, *next;
 
     os_mutex_lock(&global_exec_env_list_lock);
 
@@ -111,10 +111,12 @@ global_exec_env_list_del_exec_envs(WASMCluster *cluster)
     while (exec_env_node) {
         if (exec_env_node->exec_env->cluster == cluster) {
             if (prev)
-                prev->next = exec_env_node->next;
+                prev->next = next = exec_env_node->next;
             else
-                global_exec_env_list = exec_env_node->next;
+                global_exec_env_list = next = exec_env_node->next;
+
             wasm_runtime_free(exec_env_node);
+            exec_env_node = next;
         }
         else {
             prev = exec_env_node;
@@ -846,10 +848,8 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
         goto fail4;
     }
 
-    os_mutex_lock(&cluster->thread_state_lock);
     /* Inherit suspend_flags of parent thread */
     new_exec_env->suspend_flags.flags = exec_env->suspend_flags.flags;
-    os_mutex_unlock(&cluster->thread_state_lock);
 
     if (!wasm_cluster_add_exec_env(cluster, new_exec_env))
         goto fail4;
