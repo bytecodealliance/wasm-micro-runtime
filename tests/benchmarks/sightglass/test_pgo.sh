@@ -9,8 +9,13 @@ REPORT=$CUR_DIR/report.txt
 TIME=/usr/bin/time
 
 PLATFORM=$(uname -s | tr A-Z a-z)
-IWASM_CMD=$CUR_DIR/../../../product-mini/platforms/${PLATFORM}/build/iwasm
-WAMRC_CMD=$CUR_DIR/../../../wamr-compiler/build/wamrc
+if [ "$1" = "--sgx" ] && [ "$PLATFORM" = "linux" ]; then
+    IWASM_CMD="$CUR_DIR/../../../product-mini/platforms/${PLATFORM}-sgx/enclave-sample/iwasm"
+    WAMRC_CMD="$CUR_DIR/../../../wamr-compiler/build/wamrc -sgx"
+else
+    IWASM_CMD="$CUR_DIR/../../../product-mini/platforms/${PLATFORM}/build/iwasm"
+    WAMRC_CMD="$CUR_DIR/../../../wamr-compiler/build/wamrc"
+fi
 
 BENCH_NAME_MAX_LEN=20
 

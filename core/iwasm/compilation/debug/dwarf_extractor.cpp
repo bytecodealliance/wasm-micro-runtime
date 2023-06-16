@@ -114,7 +114,7 @@ destroy_dwarf_extractor(dwar_extractor_handle_t handle)
 }
 
 LLVMMetadataRef
-dwarf_gen_file_info(AOTCompContext *comp_ctx)
+dwarf_gen_file_info(const AOTCompContext *comp_ctx)
 {
     dwar_extractor *extractor;
     int units_number;
@@ -191,7 +191,7 @@ dwarf_gen_mock_vm_info(AOTCompContext *comp_ctx)
 #endif
 
 LLVMMetadataRef
-dwarf_gen_comp_unit_info(AOTCompContext *comp_ctx)
+dwarf_gen_comp_unit_info(const AOTCompContext *comp_ctx)
 {
     dwar_extractor *extractor;
     int units_number;
@@ -257,7 +257,7 @@ lldb_get_basic_type_encoding(BasicType basic_type)
 }
 
 static LLVMMetadataRef
-lldb_type_to_type_dbi(AOTCompContext *comp_ctx, SBType &type)
+lldb_type_to_type_dbi(const AOTCompContext *comp_ctx, SBType &type)
 {
     LLVMMetadataRef type_info = NULL;
     BasicType basic_type = type.GetBasicType();
@@ -282,8 +282,9 @@ lldb_type_to_type_dbi(AOTCompContext *comp_ctx, SBType &type)
 }
 
 static LLVMMetadataRef
-lldb_function_to_function_dbi(AOTCompContext *comp_ctx, SBSymbolContext &sc,
-                              AOTFuncContext *func_ctx)
+lldb_function_to_function_dbi(const AOTCompContext *comp_ctx,
+                              SBSymbolContext &sc,
+                              const AOTFuncContext *func_ctx)
 {
     SBFunction function(sc.GetFunction());
     const char *function_name = function.GetName();
@@ -388,7 +389,8 @@ lldb_function_to_function_dbi(AOTCompContext *comp_ctx, SBSymbolContext &sc,
 }
 
 LLVMMetadataRef
-dwarf_gen_func_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+dwarf_gen_func_info(const AOTCompContext *comp_ctx,
+                    const AOTFuncContext *func_ctx)
 {
     LLVMMetadataRef func_info = NULL;
     dwar_extractor *extractor;
@@ -417,8 +419,8 @@ dwarf_gen_func_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 }
 
 void
-dwarf_get_func_name(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                    char *name, int len)
+dwarf_get_func_name(const AOTCompContext *comp_ctx,
+                    const AOTFuncContext *func_ctx, char *name, int len)
 {
     LLVMMetadataRef func_info = NULL;
     dwar_extractor *extractor;
@@ -448,8 +450,8 @@ dwarf_get_func_name(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 }
 
 LLVMMetadataRef
-dwarf_gen_location(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                   uint64_t vm_offset)
+dwarf_gen_location(const AOTCompContext *comp_ctx,
+                   const AOTFuncContext *func_ctx, uint64_t vm_offset)
 {
     LLVMMetadataRef location_info = NULL;
     dwar_extractor *extractor;
@@ -487,7 +489,8 @@ dwarf_gen_location(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 }
 
 LLVMMetadataRef
-dwarf_gen_func_ret_location(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+dwarf_gen_func_ret_location(const AOTCompContext *comp_ctx,
+                            const AOTFuncContext *func_ctx)
 {
     LLVMMetadataRef func_info = NULL;
     dwar_extractor *extractor;

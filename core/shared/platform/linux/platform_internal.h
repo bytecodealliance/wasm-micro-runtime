@@ -63,6 +63,7 @@ typedef sem_t korp_sem;
 
 #define bh_socket_t int
 
+#if WASM_DISABLE_WRITE_GS_BASE == 0
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
 #define os_writegsbase(base_addr)                                 \
     do {                                                          \
@@ -74,6 +75,7 @@ typedef sem_t korp_sem;
 #include <immintrin.h>
 #define os_writegsbase(base_addr) \
     _writegsbase_u64(((uint64)(uintptr_t)base_addr))
+#endif
 #endif
 #endif
 
