@@ -2282,7 +2282,10 @@ jit_compile_func(JitCompContext *cc)
                     }
 #endif /* WASM_ENABLE_REF_TYPES */
                     default:
-                        jit_set_last_error(cc, "unsupported opcode");
+                        jit_set_last_error_v(
+                            cc,
+                            "unsupported opcode. WASM_OP_MISC_PREFIX 0x%02x",
+                            opcode);
                         return false;
                 }
                 break;
@@ -2431,7 +2434,10 @@ jit_compile_func(JitCompContext *cc)
                         break;
 
                     default:
-                        jit_set_last_error(cc, "unsupported opcode");
+                        jit_set_last_error_v(
+                            cc,
+                            "unsupported opcode. WASM_OP_ATOMIC_PREFIX 0x%02x",
+                            opcode);
                         return false;
                 }
                 break;
@@ -2439,7 +2445,7 @@ jit_compile_func(JitCompContext *cc)
 #endif /* end of WASM_ENABLE_SHARED_MEMORY */
 
             default:
-                jit_set_last_error(cc, "unsupported opcode");
+                jit_set_last_error_v(cc, "unsupported opcode 0x%02x", opcode);
                 return false;
         }
         /* Error may occur when creating registers, basic blocks, insns,
