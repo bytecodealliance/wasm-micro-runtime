@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2019 Intel Corporation. All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+ */
+
 import {DebugProtocol} from '@vscode/debugprotocol';
 import {after, before, test, suite} from 'mocha';
 import {assert} from 'chai';

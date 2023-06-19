@@ -8,8 +8,10 @@
     "description": "An Integrated Development Environment for WASM",
     "version": "1.2.2",
     "engines": {
-        "vscode": "^1.59.0"
+        "vscode": "^1.59.0",
+        "node": ">=16.0.0"
     },
+    "engineStrict": true,
     "categories": [
         "Other"
     ],
@@ -251,8 +253,7 @@
         "glob": "^7.1.7",
         "mocha": "^10.2.0",
         "prettier": "2.5.1",
-        "typescript": "^4.3.2",
-        "vscode-test": "^1.5.2"
+        "typescript": "^4.3.2"
     },
     "dependencies": {
         "@vscode/webview-ui-toolkit": "^0.8.4",

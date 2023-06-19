@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2019 Intel Corporation. All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+ */
+
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::cell::RefCell;
