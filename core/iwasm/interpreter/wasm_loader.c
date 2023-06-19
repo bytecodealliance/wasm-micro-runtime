@@ -3195,7 +3195,7 @@ init_llvm_jit_functions_stage2_callback(void *arg)
     LOG_VERBOSE("DPGO uses %d as hotness thresholdold",
                 wasm_runtime_get_hot_func_threshold());
     /*
-     * keep monitor function entry counts, wasm_dpgo_get_ent_cnt_value(),
+     * keep monitor function entry counts, wasm_dpgo_get_func_entry_count(),
      * in every second. if a function entry count is larger than the
      * threshold, tier-up the function.
      */
@@ -3208,7 +3208,7 @@ init_llvm_jit_functions_stage2_callback(void *arg)
         for (i = 0;
              i < module->function_count && !module->orcjit_stop_compiling;
              i++) {
-            uint32 func_ent_cnt_val = wasm_dpgo_get_ent_cnt_value(
+            uint32 func_ent_cnt_val = wasm_dpgo_get_func_entry_count(
                 module, i + module->import_function_count);
             if (func_ent_cnt_val < wasm_runtime_get_hot_func_threshold())
                 continue;
@@ -4400,8 +4400,8 @@ wasm_runtime_dump_pgo_info(WASMModule *module)
         if (ent_and_br_cnts_capacity == 0)
             continue;
 
-        uint32 func_ent_cnt_value = wasm_dpgo_get_ent_cnt_value(module, i);
-        if (func_ent_cnt_value < wasm_runtime_get_hot_func_threshold())
+        uint32 func_ent_cnt_value = wasm_dpgo_get_func_entry_count(module, i);
+        if (func_ent_cnt_value < wasm_runtime_get_hot_func_thresh())
             continue;
 
         LOG_DEBUG("Counters of Func#%u: CAPACITY: %u", i,

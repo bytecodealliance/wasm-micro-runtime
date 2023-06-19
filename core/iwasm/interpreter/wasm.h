@@ -636,7 +636,9 @@ struct WASMModule {
      * it is a 2-dim uint32 array. [function_count][]
      * every row represents all counters of a function.
      * every column represents a counter of a function.
-     * in a row, [0] is the capacity. [1] is the funtion entry counter.
+     * in a row, [0] is the capacity. [1] is the function entry counter.
+     *
+     * fast-jit accesses it directly w/ lowest performance casting
      */
     uint32 **ent_and_br_cnts;
 
@@ -646,6 +648,8 @@ struct WASMModule {
      * it is an array of bh_list.
      * Every row represents a function counters information
      * [0] is the function entry counter info
+     *
+     * llvm-jit accesses it via its debug location, offset
      */
     bh_list *prof_cnts_info;
 
@@ -849,7 +853,7 @@ wasm_dpgo_get_ent_and_br_cnts(WASMModule *module, uint32 func_idx,
 }
 
 static inline uint32
-wasm_dpgo_get_ent_cnt_value(WASMModule *module, uint32 func_idx)
+wasm_dpgo_get_func_entry_count(WASMModule *module, uint32 func_idx)
 {
     uint32 *ent_and_br_cnts =
         wasm_dpgo_get_ent_and_br_cnts(module, func_idx, NULL);
@@ -884,12 +888,13 @@ wasm_dpgo_prof_cnt_info_to_string(struct WASMProfCntInfo *cnt, char *buf,
              cnt->first_counter_idx);
 }
 
-/* search in `prof_cnts_info[i]` with the given `offset` of `struct
- * WASMProfCntInfo` and return `counter_amount` and `first_counter_idx`
+/*
+ * search in `prof_cnts_info[func_idx]` with the given `offset` and
+ * return `struct WASMProfCntInfo`
  */
-static inline bool
-wasm_dpgo_get_prof_cnt_info(WASMModule *module, uint32 func_idx, uint32 offset,
-                            uint32 *counter_amount, uint32 *first_counter_idx)
+static inline struct WASMProfCntInfo *
+wasm_dpgo_search_prof_cnt_info(WASMModule *module, uint32 func_idx,
+                               uint32 offset)
 {
     bh_list *func_prof_cnts_info;
     void *elem;
@@ -901,14 +906,49 @@ wasm_dpgo_get_prof_cnt_info(WASMModule *module, uint32 func_idx, uint32 offset,
     while (elem) {
         struct WASMProfCntInfo *cnt_info = (struct WASMProfCntInfo *)elem;
         if (cnt_info->offset == offset) {
-            *counter_amount = cnt_info->counter_amount;
-            *first_counter_idx = cnt_info->first_counter_idx;
-            return true;
+            return cnt_info;
         }
         elem = bh_list_elem_next(elem);
     }
 
-    return false;
+    return NULL;
+}
+
+static inline bool
+wasm_dpgo_get_cond_br_counts(WASMModule *module, uint32 func_idx, uint32 offset,
+                             uint32 *true_cnt, uint32 *false_cnt)
+{
+    struct WASMProfCntInfo *cnt_info;
+    uint32 *cur_func_cnts;
+    uint32 *cur_op_cnts;
+
+    cnt_info = wasm_dpgo_search_prof_cnt_info(module, func_idx, offset);
+    if (!cnt_info)
+        return false;
+
+    bh_assert(cnt_info->counter_amount == 2);
+
+    cur_func_cnts = wasm_dpgo_get_ent_and_br_cnts(module, func_idx, NULL);
+    if (!cur_func_cnts)
+        return false;
+
+    cur_op_cnts = cur_func_cnts + cnt_info->first_counter_idx;
+
+    /*
+     * there will be two counters for a condBr. the first one is before
+     * condBr. the second one represents true target.
+     */
+    *true_cnt = cur_op_cnts[1];
+    *false_cnt = cur_op_cnts[0] - cur_op_cnts[1];
+    return true;
+}
+
+static inline bool
+wasm_dpgo_get_select_counts(WASMModule *module, uint32 func_dix, uint32 offset,
+                            uint32 *true_cnt, uint32 *false_cnt)
+{
+    return wasm_dpgo_get_cond_br_counts(module, func_dix, offset, true_cnt,
+                                        false_cnt);
 }
 
 static inline void

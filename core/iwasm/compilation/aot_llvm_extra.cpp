@@ -486,9 +486,8 @@ wasm_dpgo_set_vp(LLVMModuleRef module, LLVMValueRef instruction, uint32 *counts,
 }
 
 static bool
-wasm_dpgo_get_cnts_for_instr(WASMModule *wasm_module, uint32 func_idx,
-                             LLVMValueRef instruction, uint32 *line,
-                             uint32 *cnt_amount, uint32 *first_cnt_idx)
+wasm_dpgo_get_offset_of_instr(WASMModule *wasm_module, LLVMValueRef instruction,
+                              uint32 *line)
 {
     /* always have some Debug Location */
     LLVMMetadataRef dbg_location = LLVMInstructionGetDebugLoc(instruction);
@@ -500,27 +499,6 @@ wasm_dpgo_get_cnts_for_instr(WASMModule *wasm_module, uint32 func_idx,
 
     *line = LLVMDILocationGetLine(dbg_location);
     LOG_DEBUG("  DILocation. LINE: %u", *line);
-
-    /* locate profiling counters */
-    bool ret = wasm_dpgo_get_prof_cnt_info(wasm_module, func_idx, *line,
-                                           cnt_amount, first_cnt_idx);
-    if (!ret) {
-        LOG_DEBUG("    No Prof Cnt Info for Func.#%u Line:%u", func_idx, *line);
-
-        // FIXME: remove if when we have switch
-        if (!LLVMIsASwitchInst(instruction)) {
-            wasm_dpgo_dump_func_prof_cnts_info(wasm_module, func_idx);
-            bh_assert(*cnt_amount != 0 && "No counter for condBr or select");
-            return false;
-        }
-
-        *cnt_amount = 0;
-        return true;
-    }
-
-    // FIXME: remove if when we have switch
-    bh_assert(!LLVMIsASwitchInst(instruction)
-              && "There should be no counter for switch");
     return true;
 }
 
@@ -541,32 +519,19 @@ wasm_dpgo_visit_select(WASMModule *wasm_module, LLVMModuleRef module,
             LOG_DEBUG("Select : %s  .", LLVMPrintValueToString(instruction));
 
             /* locate profiling counters */
-            uint32 counter_amount;
-            uint32 first_counter_idx;
             uint32 line;
-            bool ret = wasm_dpgo_get_cnts_for_instr(
-                wasm_module, func_idx, instruction, &line, &counter_amount,
-                &first_counter_idx);
+            bool ret =
+                wasm_dpgo_get_offset_of_instr(wasm_module, instruction, &line);
+            if (!ret)
+                return;
+
+            uint32 weights[2] = { 0 };
+            ret = wasm_dpgo_get_select_counts(wasm_module, func_idx, line,
+                                              &weights[0], &weights[1]);
             bh_assert(ret && "Failed to get profiling counters for select");
             if (!ret)
                 return;
 
-            /*
-             * there will be two counters for a condBr. the first one is before
-             * select. the second one represents true target.
-             */
-            uint32 *ent_and_br_cnts =
-                wasm_dpgo_get_ent_and_br_cnts(wasm_module, func_idx, NULL);
-            uint32 *cur_br_cnts = ent_and_br_cnts + first_counter_idx;
-            bh_assert(counter_amount == 2
-                      && "select doesn't have two counters for two targets");
-            LOG_DEBUG(
-                "    Prof Cnt Info for Func.#%u Line:%u, cnt[0]=%u, cnt[1]=%u",
-                func_idx, line, cur_br_cnts[0], cur_br_cnts[1]);
-
-            uint32 weights[2] = { 0 };
-            weights[0] = cur_br_cnts[1];
-            weights[1] = cur_br_cnts[0] - cur_br_cnts[1];
             wasm_dpgo_set_branch_weights(LLVMGetModuleContext(module),
                                          instruction, weights, 2);
         }
@@ -603,39 +568,26 @@ wasm_dpgo_visit_terminator(WASMModule *wasm_module, LLVMModuleRef module,
         }
 
         /* locate profiling counters */
-        uint32 counter_amount;
-        uint32 first_counter_idx;
         uint32 line;
-        bool ret = wasm_dpgo_get_cnts_for_instr(
-            wasm_module, func_idx, terminator, &line, &counter_amount,
-            &first_counter_idx);
+        bool ret =
+            wasm_dpgo_get_offset_of_instr(wasm_module, terminator, &line);
         if (!ret)
             return;
 
-        // FIXME: remove when we have switch
-        if (!counter_amount)
-            return;
+        if (LLVMIsABranchInst(terminator)) {
+            uint32 weights[2] = { 0 };
+            ret = wasm_dpgo_get_cond_br_counts(wasm_module, func_idx, line,
+                                               &weights[0], &weights[1]);
+            bh_assert(ret && "Failed to get profiling counters for condbr");
+            if (!ret)
+                return;
 
-        /*
-         * there will be two counters for a condBr. the first one is before
-         * condBr. the second one is for one branch. Since fast-jit condBr
-         * usually uses VOID, which means stay in the same basic block, the
-         * second counter always right after condBr.
-         */
-        uint32 *ent_and_br_cnts =
-            wasm_dpgo_get_ent_and_br_cnts(wasm_module, func_idx, NULL);
-        uint32 *cur_br_cnts = ent_and_br_cnts + first_counter_idx;
-        bh_assert(counter_amount == 2
-                  && "condBr doesn't have two counters for two branches");
-        LOG_DEBUG(
-            "    Prof Cnt Info for Func.#%u Line:%u, cnt[0]=%u, cnt[1]=%u",
-            func_idx, line, cur_br_cnts[0], cur_br_cnts[1]);
+            wasm_dpgo_set_branch_weights(LLVMGetModuleContext(module),
+                                         terminator, weights, 2);
+            continue;
+        }
 
-        uint32 weights[2] = { 0 };
-        weights[0] = cur_br_cnts[1];
-        weights[1] = cur_br_cnts[0] - cur_br_cnts[1];
-        wasm_dpgo_set_branch_weights(LLVMGetModuleContext(module), terminator,
-                                     weights, 2);
+        // FIXME: implement switch
     }
 }
 
