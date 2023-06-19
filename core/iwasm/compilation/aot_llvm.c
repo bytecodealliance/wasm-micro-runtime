@@ -149,6 +149,83 @@ aot_target_precheck_can_use_musttail(const AOTCompContext *comp_ctx)
     return true;
 }
 
+unsigned int
+aot_estimate_stack_usage_for_function_call(const AOTCompContext *comp_ctx,
+                                           const AOTFuncType *callee_func_type)
+{
+    /*
+     * Estimate how much stack is necessary to make a function call.
+     * This does not include the stack consumption of the callee function.
+     *
+     * For precise estimation, ideally this function needs to be
+     * target-specific.
+     * However, this implementation aims to be target-independent,
+     * allowing a small overstimation, which is probably ok for our purpose.
+     * (overflow detection and memory profiling)
+     * On the other hand, an underestimation should be avoided as it
+     * can cause more serious problems like silent data corruptions.
+     *
+     * Assumptions:
+     *
+     * - the first result is returned via a register.
+     *
+     * - all parameters, including exec_env and pointers to non-first
+     *   results, are passed via stack.
+     *   (this is a bit pessimistic than many of real calling conventions,
+     *   where some of parameters are passed via register.)
+     *
+     * - N-byte value needs N-byte alignment on stack.
+     *
+     * - a value smaller than a pointer is extended.
+     *   (eg. 4 byte values are extended to 8 byte on x86-64.)
+     */
+
+    const unsigned int param_count = callee_func_type->param_count;
+    const unsigned int result_count = callee_func_type->result_count;
+    unsigned int size = 0;
+    unsigned int i;
+    unsigned int nb;
+
+    if (!strcmp(comp_ctx->target_arch, "xtensa")) {
+        /*
+         * In the xtensa windowed ABI, outgoing arguments are already
+         * included in the callee's stack frame size, which equals to
+         * the operand of the ENTRY instruction and what LLVM
+         * MFI->getStackSize returns.
+         */
+        return 0;
+    }
+
+    /* exec_env */
+    size = comp_ctx->pointer_size;
+
+    /* parameters */
+    for (i = 0; i < param_count; i++) {
+        nb = wasm_value_type_cell_num(callee_func_type->types[i]) * 4;
+        if (nb < comp_ctx->pointer_size) {
+            nb = comp_ctx->pointer_size;
+        }
+        size = align_uint(size, nb) + nb;
+    }
+
+    /* pointers to results */
+    nb = comp_ctx->pointer_size;
+    for (i = 1; i < result_count; i++) {
+        size = align_uint(size, nb) + nb;
+    }
+
+    /* return address */
+    nb = comp_ctx->pointer_size;
+    size = align_uint(size, nb) + nb;
+
+    /*
+     * some extra for possible arch-dependent things like
+     * 16-byte alignment for x86_64.
+     */
+    size += 16;
+    return size;
+}
+
 /*
  * a "precheck" function performs a few things before calling wrapped_func.
  *

@@ -568,6 +568,10 @@ aot_set_cond_br_weights(AOTCompContext *comp_ctx, LLVMValueRef cond_br,
 bool
 aot_target_precheck_can_use_musttail(const AOTCompContext *comp_ctx);
 
+unsigned int
+aot_estimate_stack_usage_for_function_call(const AOTCompContext *comp_ctx,
+                                           const AOTFuncType *callee_func_type);
+
 #ifdef __cplusplus
 } /* end of extern "C" */
 #endif
