@@ -170,7 +170,7 @@ control_thread_routine(void *arg)
                     tid = debug_inst->stopped_thread->handle;
 
                     if (debug_inst->stopped_thread->current_status.running_state
-                        == WASM_THREAD_EXIT) {
+                        == WASM_THREAD_EXITED) {
                         /* If the thread exits, report "W00" if it's the last
                          * thread in the cluster, otherwise ignore this event */
                         status = 0;

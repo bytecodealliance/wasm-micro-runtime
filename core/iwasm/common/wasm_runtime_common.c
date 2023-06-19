@@ -1085,6 +1085,18 @@ wasm_runtime_set_max_thread_num(uint32 num)
 {
     wasm_cluster_set_max_thread_num(num);
 }
+
+void
+wasm_runtime_enter_safe_state()
+{
+    wasm_cluster_change_curr_thread_to_safe();
+}
+
+void
+jeff_runtime_exit_safe_state()
+{
+    wasm_cluster_change_curr_thread_to_running();
+}
 #endif /* end of WASM_ENABLE_THREAD_MGR */
 
 static WASMModuleCommon *

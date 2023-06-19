@@ -680,7 +680,8 @@ pthread_join_wrapper(wasm_exec_env_t exec_env, uint32 thread,
 
     if (node->status != THREAD_EXIT) {
         /* if the thread is still running, call the platforms join API */
-        join_ret = wasm_cluster_join_thread(target_exec_env, (void **)&ret);
+        join_ret =
+            wasm_cluster_join_thread(target_exec_env, exec_env, (void **)&ret);
     }
     else {
         /* if the thread has exited, return stored results */

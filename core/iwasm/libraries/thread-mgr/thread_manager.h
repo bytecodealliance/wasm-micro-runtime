@@ -111,7 +111,8 @@ wasm_cluster_create_thread(WASMExecEnv *exec_env,
                            void *(*thread_routine)(void *), void *arg);
 
 int32
-wasm_cluster_join_thread(WASMExecEnv *exec_env, void **ret_val);
+wasm_cluster_join_thread(WASMExecEnv *exec_env, WASMExecEnv *self,
+                         void **ret_val);
 
 int32
 wasm_cluster_detach_thread(WASMExecEnv *exec_env);
@@ -182,7 +183,17 @@ wasm_cluster_spread_custom_data(WASMModuleInstanceCommon *module_inst,
 bool
 wasm_cluster_is_thread_terminated(WASMExecEnv *exec_env);
 
+ThreadRunningState
+wasm_thread_change_to_running(WASMExecEnv *self);
+
+void
+wasm_cluster_change_curr_thread_to_running();
+
+void
+wasm_cluster_change_curr_thread_to_safe();
+
 #if WASM_ENABLE_DEBUG_INTERP != 0
+
 #define WAMR_SIG_TRAP (5)
 #define WAMR_SIG_STOP (19)
 #define WAMR_SIG_TERM (15)

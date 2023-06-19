@@ -797,6 +797,12 @@ wasm_exec_env_get_aux_stack(WASMExecEnv *exec_env, uint32 *start_offset,
 bool
 wasm_exec_env_set_aux_stack(WASMExecEnv *exec_env, uint32 start_offset,
                             uint32 size);
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_enter_safe_state();
+
+WASM_RUNTIME_API_EXTERN void
+jeff_runtime_exit_safe_state();
 #endif
 
 #if WASM_ENABLE_LIBC_WASI != 0

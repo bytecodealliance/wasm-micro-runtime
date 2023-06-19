@@ -13,8 +13,10 @@
 #if WASM_ENABLE_SHARED_MEMORY != 0
 #include "../common/wasm_shared_memory.h"
 #endif
-#if WASM_ENABLE_THREAD_MGR != 0 && WASM_ENABLE_DEBUG_INTERP != 0
+#if WASM_ENABLE_THREAD_MGR != 0
 #include "../libraries/thread-mgr/thread_manager.h"
+#endif
+#if WASM_ENABLE_DEBUG_INTERP != 0
 #include "../libraries/debug-engine/debug_engine.h"
 #endif
 #if WASM_ENABLE_FAST_JIT != 0
@@ -1068,7 +1070,12 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
                 /* terminate current thread */                \
                 return;                                       \
             }                                                 \
-            /* TODO: check suspension */                      \
+            if (exec_env->suspend_count > 0) {                \
+                SYNC_ALL_TO_FRAME();                          \
+                wasm_thread_change_to_running(exec_env);      \
+                if (wasm_copy_exception(module, NULL))        \
+                    goto got_exception;                       \
+            }                                                 \
         }                                                     \
     } while (0)
 #endif /* WASM_ENABLE_DEBUG_INTERP */

@@ -31,12 +31,12 @@ typedef struct WASMJmpBuf {
 
 typedef enum ThreadRunningState {
     WASM_THREAD_RUNNING = 0,
-    WASM_THREAD_WAIT = 1,
+    WASM_THREAD_VMWAIT = 1,
     WASM_THREAD_SUSPENDED = 2,
-    WASM_THREAD_ZOMBIE,
-    WASM_THREAD_STOP,
-    WASM_THREAD_EXIT,
-    WASM_THREAD_STEP,
+    WASM_THREAD_EXITED = 3,
+
+    WASM_THREAD_STOP = 4,
+    WASM_THREAD_STEP = 5,
 } ThreadRunningState;
 
 typedef struct WASMThreadStatus {
