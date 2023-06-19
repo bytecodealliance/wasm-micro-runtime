@@ -1987,6 +1987,8 @@ jit_stack_size_callback(void *user_data, const char *name, size_t namelen,
     char buf[64];
     uint32 func_idx;
     const AOTFuncContext *func_ctx;
+    bool musttail;
+    unsigned int stack_consumption_to_call_wrapped_func;
     unsigned int call_size;
     int ret;
 
@@ -2009,8 +2011,13 @@ jit_stack_size_callback(void *user_data, const char *name, size_t namelen,
     bh_assert(func_idx < comp_ctx->func_ctx_count);
     func_ctx = comp_ctx->func_ctxes[func_idx];
     call_size = func_ctx->stack_consumption_for_func_call;
-    LOG_VERBOSE("func %.*s stack %zu + %u", (int)namelen, name, stack_size,
-                call_size);
+    musttail = aot_target_precheck_can_use_musttail(comp_ctx);
+    stack_consumption_to_call_wrapped_func =
+        musttail ? 0
+                 : aot_estimate_stack_usage_for_function_call(
+                     comp_ctx, func_ctx->aot_func->func_type);
+    LOG_VERBOSE("func %.*s stack %u + %zu + %u", (int)namelen, name,
+                stack_consumption_to_call_wrapped_func, stack_size, call_size);
 
     /* Note: -1 == AOT_NEG_ONE from aot_create_stack_sizes */
     bh_assert(comp_ctx->jit_stack_sizes[func_idx] == (uint32)-1);
