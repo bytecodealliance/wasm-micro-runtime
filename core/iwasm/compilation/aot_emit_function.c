@@ -473,7 +473,7 @@ check_app_addr_and_convert(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     return true;
 }
 
-static unsigned int
+unsigned int
 aot_estimate_stack_usage_for_function_call(const AOTCompContext *comp_ctx,
                                            const AOTFuncType *callee_func_type)
 {
