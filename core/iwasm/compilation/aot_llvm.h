@@ -565,6 +565,9 @@ bool
 aot_set_cond_br_weights(AOTCompContext *comp_ctx, LLVMValueRef cond_br,
                         int32 weights_true, int32 weights_false);
 
+bool
+aot_target_precheck_can_use_musttail(const AOTCompContext *comp_ctx);
+
 #ifdef __cplusplus
 } /* end of extern "C" */
 #endif

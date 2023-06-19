@@ -121,6 +121,35 @@ fail:
 }
 
 /*
+ * return if the "precheck" wrapper function can use tail call optimization
+ */
+bool
+aot_target_precheck_can_use_musttail(const AOTCompContext *comp_ctx)
+{
+    if (!strcmp(comp_ctx->target_arch, "xtensa")) {
+        /*
+         * xtensa windowed ABI doesn't have tail call optimization.
+         */
+        return false;
+    }
+    if (!strcmp(comp_ctx->target_arch, "riscv32")
+        || !strcmp(comp_ctx->target_arch, "riscv64")) {
+        /*
+         * REVISIT: actually, riscv can use tail call optimization
+         * in some cases. I (yamamoto) don't know the exact conditions
+         * though.
+         */
+        return false;
+    }
+    /*
+     * x86-64/i386: true
+     *
+     * others: assume true for now
+     */
+    return true;
+}
+
+/*
  * a "precheck" function performs a few things before calling wrapped_func.
  *
  * - update native_stack_top_min if necessary
@@ -366,7 +395,12 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
     }
     wasm_runtime_free(params);
     params = NULL;
-    LLVMSetTailCall(retval, true);
+    if (aot_target_precheck_can_use_musttail(comp_ctx)) {
+        LLVMSetTailCallKind(retval, LLVMTailCallKindMustTail);
+    }
+    else {
+        LLVMSetTailCallKind(retval, LLVMTailCallKindTail);
+    }
     if (ret_type == VOID_TYPE) {
         if (!LLVMBuildRetVoid(b)) {
             goto fail;
