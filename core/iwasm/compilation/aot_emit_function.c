@@ -473,9 +473,8 @@ check_app_addr_and_convert(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     return true;
 }
 
-static void
+static unsigned int
 aot_estimate_stack_usage_for_function_call(const AOTCompContext *comp_ctx,
-                                           AOTFuncContext *caller_func_ctx,
                                            const AOTFuncType *callee_func_type)
 {
     /*
@@ -511,11 +510,6 @@ aot_estimate_stack_usage_for_function_call(const AOTCompContext *comp_ctx,
     unsigned int i;
     unsigned int nb;
 
-    if (!(comp_ctx->enable_stack_bound_check
-          || comp_ctx->enable_stack_estimation)) {
-        return;
-    }
-
     /* exec_env */
     size = comp_ctx->pointer_size;
 
@@ -543,7 +537,23 @@ aot_estimate_stack_usage_for_function_call(const AOTCompContext *comp_ctx,
      * 16-byte alignment for x86_64.
      */
     size += 16;
+    return size;
+}
 
+static void
+aot_estimate_and_record_stack_usage_for_function_call(
+    const AOTCompContext *comp_ctx, AOTFuncContext *caller_func_ctx,
+    const AOTFuncType *callee_func_type)
+{
+    unsigned int size;
+
+    if (!(comp_ctx->enable_stack_bound_check
+          || comp_ctx->enable_stack_estimation)) {
+        return;
+    }
+
+    size =
+        aot_estimate_stack_usage_for_function_call(comp_ctx, callee_func_type);
     /*
      * only record the max value, assuming that LLVM emits machine code
      * which rewinds the stack before making the next call in the
@@ -600,7 +610,8 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         func_type =
             func_ctxes[func_idx - import_func_count]->aot_func->func_type;
     }
-    aot_estimate_stack_usage_for_function_call(comp_ctx, func_ctx, func_type);
+    aot_estimate_and_record_stack_usage_for_function_call(comp_ctx, func_ctx,
+                                                          func_type);
 
     /* Get param cell number */
     param_cell_num = func_type->param_cell_num;
@@ -1151,7 +1162,8 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     CHECK_LLVM_CONST(ftype_idx_const);
 
     func_type = comp_ctx->comp_data->func_types[type_idx];
-    aot_estimate_stack_usage_for_function_call(comp_ctx, func_ctx, func_type);
+    aot_estimate_and_record_stack_usage_for_function_call(comp_ctx, func_ctx,
+                                                          func_type);
     func_param_count = func_type->param_count;
     func_result_count = func_type->result_count;
 
