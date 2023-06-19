@@ -2641,6 +2641,11 @@ aot_resolve_stack_sizes(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
             }
             for (i = 0; i < obj_data->func_count; i++) {
                 const AOTFuncContext *func_ctx = comp_ctx->func_ctxes[i];
+                bool musttail = aot_target_precheck_can_use_musttail(comp_ctx);
+                unsigned int stack_consumption_to_call_wrapped_func =
+                    musttail ? 0
+                             : aot_estimate_stack_usage_for_function_call(
+                                 comp_ctx, func_ctx->aot_func->func_type);
 
                 /*
                  * LLVM seems to eliminate calls to an empty function
@@ -2674,9 +2679,10 @@ aot_resolve_stack_sizes(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
                     stack_sizes[i] = 0;
                 }
                 else {
-                    LOG_VERBOSE("AOT func#%" PRIu32 " stack_size %" PRIu32
+                    LOG_VERBOSE("AOT func#%" PRIu32 " stack_size %u + %" PRIu32
                                 " + %u",
-                                i, stack_sizes[i],
+                                i, stack_consumption_to_call_wrapped_func,
+                                stack_sizes[i],
                                 func_ctx->stack_consumption_for_func_call);
                     if (UINT32_MAX - stack_sizes[i]
                         < func_ctx->stack_consumption_for_func_call) {
@@ -2684,6 +2690,12 @@ aot_resolve_stack_sizes(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
                         goto fail;
                     }
                     stack_sizes[i] += func_ctx->stack_consumption_for_func_call;
+                    if (UINT32_MAX - stack_sizes[i]
+                        < stack_consumption_to_call_wrapped_func) {
+                        aot_set_last_error("stack size overflow.");
+                        goto fail;
+                    }
+                    stack_sizes[i] += stack_consumption_to_call_wrapped_func;
                 }
             }
             LLVMDisposeSectionIterator(sec_itr);
