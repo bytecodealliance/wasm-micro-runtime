@@ -2561,6 +2561,13 @@ read_stack_usage_file(const char *filename, uint32 *sizes, uint32 count)
         LOG_VERBOSE("precheck functions use %" PRIu32 " bytes of stack.",
                     precheck_stack_size_max);
     }
+    if (precheck_stack_size_max >= 1024) {
+        LOG_WARNING("precheck functions themselves consume relatively large "
+                    "amount of stack (%" PRIu32
+                    "). Please ensure the runtime has large enough "
+                    "WASM_STACK_GUARD_SIZE.",
+                    precheck_stack_size_max);
+    }
     return true;
 fail:
     if (fp != NULL)
