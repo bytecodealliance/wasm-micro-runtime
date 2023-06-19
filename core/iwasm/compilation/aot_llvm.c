@@ -248,6 +248,7 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
     LLVMBasicBlockRef stack_bound_check_block;
     LLVMBasicBlockRef call_wrapped_func_block;
     LLVMValueRef *params = NULL;
+
     precheck_func =
         aot_add_llvm_func1(comp_ctx, module, func_index, orig_param_count,
                            func_type, AOT_FUNC_PREFIX);
