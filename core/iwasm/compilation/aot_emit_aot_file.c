@@ -2443,7 +2443,8 @@ aot_resolve_object_data_sections(AOTObjectData *obj_data)
 }
 
 static bool
-read_stack_usage_file(const char *filename, uint32 *sizes, uint32 count)
+read_stack_usage_file(const AOTCompContext *comp_ctx, const char *filename,
+                      uint32 *sizes, uint32 count)
 {
     FILE *fp = NULL;
     if (filename == NULL) {
@@ -2537,8 +2538,9 @@ read_stack_usage_file(const char *filename, uint32 *sizes, uint32 count)
          * LLVM seems to eliminate calls to an empty function
          * (and eliminate the function) even if it's marked noinline.
          */
-        LOG_WARNING("%" PRIu32 " entries found while %" PRIu32
-                    " entries are expected",
+        LOG_VERBOSE("%" PRIu32 " entries found while %" PRIu32
+                    " entries are expected. Maybe LLVM optimization eliminated "
+                    "some functions.",
                     found, count);
     }
     if (precheck_stack_size_min != precheck_stack_size_max) {
@@ -2552,10 +2554,18 @@ read_stack_usage_file(const char *filename, uint32 *sizes, uint32 count)
          * parameters can consume more stack, even if it merely does
          * a tail-call to another function.
          */
-        LOG_WARNING(
-            "precheck functions use inconsistent amount of stack. (%" PRIu32
-            " - %" PRIu32 ")",
-            precheck_stack_size_min, precheck_stack_size_max);
+        bool musttail = aot_target_precheck_can_use_musttail(comp_ctx);
+        if (musttail) {
+            LOG_WARNING(
+                "precheck functions use variable amount of stack. (%" PRIu32
+                " - %" PRIu32 ")",
+                precheck_stack_size_min, precheck_stack_size_max);
+        }
+        else {
+            LOG_VERBOSE("precheck functions use %" PRIu32 " - %" PRIu32
+                        " bytes of stack.",
+                        precheck_stack_size_min, precheck_stack_size_max);
+        }
     }
     else {
         LOG_VERBOSE("precheck functions use %" PRIu32 " bytes of stack.",
@@ -2642,8 +2652,8 @@ aot_resolve_stack_sizes(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
             for (i = 0; i < obj_data->func_count; i++) {
                 stack_sizes[i] = (uint32)-1;
             }
-            if (!read_stack_usage_file(comp_ctx->stack_usage_file, stack_sizes,
-                                       obj_data->func_count)) {
+            if (!read_stack_usage_file(comp_ctx, comp_ctx->stack_usage_file,
+                                       stack_sizes, obj_data->func_count)) {
                 goto fail;
             }
             for (i = 0; i < obj_data->func_count; i++) {
