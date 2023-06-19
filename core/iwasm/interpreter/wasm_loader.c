@@ -3164,7 +3164,6 @@ wasm_tier_up_function(WASMModule *module, uint32 func_idx,
     if (module->func_ptrs_compiled[func_idx - module->import_function_count])
         return true;
 
-    LOG_DEBUG("tier up function #%d", func_idx);
     module->func_ptrs_compiled[func_idx - module->import_function_count] = true;
 
     jit_compiler_set_llvm_jit_func_ptr(module, func_idx, llvm_jit_gen_addr);
@@ -3193,6 +3192,8 @@ init_llvm_jit_functions_stage2_callback(void *arg)
     os_mutex_unlock(&module->tierup_wait_lock);
 
 #if WASM_ENABLE_DYNAMIC_PGO != 0
+    LOG_VERBOSE("DPGO uses %d as hotness thresholdold",
+                wasm_runtime_get_hot_func_threshold());
     /*
      * keep monitor function entry counts, wasm_dpgo_get_ent_cnt_value(),
      * in every second. if a function entry count is larger than the
@@ -3209,7 +3210,7 @@ init_llvm_jit_functions_stage2_callback(void *arg)
              i++) {
             uint32 func_ent_cnt_val = wasm_dpgo_get_ent_cnt_value(
                 module, i + module->import_function_count);
-            if (func_ent_cnt_val < WASM_DPGO_TIER_UP_THRESHOLD)
+            if (func_ent_cnt_val < wasm_runtime_get_hot_func_threshold())
                 continue;
 
             /*
@@ -3222,11 +3223,12 @@ init_llvm_jit_functions_stage2_callback(void *arg)
                 module->func_opt_w_prof[i + module->import_function_count] =
                     NEED_OPT_WITH_PROF_META;
 
-            /* >= WASM_DPGO_TIER_UP_THRESHOLD and already been tiered up */
+            /* already been tiered up */
             if (module->func_ptrs_compiled[i])
                 continue;
 
             /* tier-up the function */
+            LOG_VERBOSE("tier up function #%d", i);
             /* we have run LLVMOrcLLLazyJITLookup before and gona to reuse it */
             if (!wasm_tier_up_function(module,
                                        i + module->import_function_count,
@@ -4399,7 +4401,7 @@ wasm_runtime_dump_pgo_info(WASMModule *module)
             continue;
 
         uint32 func_ent_cnt_value = wasm_dpgo_get_ent_cnt_value(module, i);
-        if (func_ent_cnt_value < WASM_DPGO_TIER_UP_THRESHOLD)
+        if (func_ent_cnt_value < wasm_runtime_get_hot_func_threshold())
             continue;
 
         LOG_DEBUG("Counters of Func#%u: CAPACITY: %u", i,
