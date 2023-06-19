@@ -129,6 +129,10 @@ aot_target_precheck_can_use_musttail(const AOTCompContext *comp_ctx)
     if (!strcmp(comp_ctx->target_arch, "xtensa")) {
         /*
          * xtensa windowed ABI doesn't have tail call optimization.
+         *
+         * Note: as of writing this, the xtensa version of LLVM
+         * simply ignores the musttail attribute.
+         * https://github.com/espressif/llvm-project/pull/73
          */
         return false;
     }
