@@ -510,6 +510,16 @@ aot_estimate_stack_usage_for_function_call(const AOTCompContext *comp_ctx,
     unsigned int i;
     unsigned int nb;
 
+    if (!strcmp(comp_ctx->target_arch, "xtensa")) {
+        /*
+         * In the xtensa windowed ABI, outgoing arguments are already
+         * included in the callee's stack frame size, which equals to
+         * the operand of the ENTRY instruction and what LLVM
+         * MFI->getStackSize returns.
+         */
+        return 0;
+    }
+
     /* exec_env */
     size = comp_ctx->pointer_size;
 
