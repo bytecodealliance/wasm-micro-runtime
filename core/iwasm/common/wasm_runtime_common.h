@@ -1004,6 +1004,11 @@ WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_is_import_global_linked(const char *module_name,
                                      const char *global_name);
 
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+uint32
+wasm_runtime_get_hot_func_threshold();
+#endif
+
 #ifdef __cplusplus
 }
 #endif

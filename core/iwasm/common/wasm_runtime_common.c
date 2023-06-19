@@ -535,6 +535,15 @@ wasm_runtime_get_llvm_jit_options(void)
 }
 #endif
 
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+static uint32 hot_func_threshold;
+uint32
+wasm_runtime_get_hot_func_threshold()
+{
+    return hot_func_threshold;
+}
+#endif
+
 bool
 wasm_runtime_full_init(RuntimeInitArgs *init_args)
 {
@@ -555,6 +564,10 @@ wasm_runtime_full_init(RuntimeInitArgs *init_args)
     llvm_jit_options.size_level = init_args->llvm_jit_size_level;
     llvm_jit_options.opt_level = init_args->llvm_jit_opt_level;
     llvm_jit_options.segue_flags = init_args->segue_flags;
+#endif
+
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+    hot_func_threshold = init_args->hot_func_threshold;
 #endif
 
     if (!wasm_runtime_env_init()) {
@@ -5491,7 +5504,7 @@ wasm_runtime_destroy_custom_sections(WASMCustomSection *section_list)
 #endif /* end of WASM_ENABLE_LOAD_CUSTOM_SECTION */
 
 void
-wasm_runtime_get_version(uint32_t *major, uint32_t *minor, uint32_t *patch)
+wasm_runtime_get_version(uint32 *major, uint32 *minor, uint32 *patch)
 {
     *major = WAMR_VERSION_MAJOR;
     *minor = WAMR_VERSION_MINOR;

@@ -100,6 +100,9 @@ print_help()
 #endif
 #if WASM_ENABLE_STATIC_PGO != 0
     printf("  --gen-prof-file=<path>   Generate LLVM PGO (Profile-Guided Optimization) profile file\n");
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+    printf("  --hot-func-threshold=n   Set a threshold for when a function becomes hot enough.\n");
+    printf("                             By default, it is %d\n", WASM_DPGO_TIER_UP_THRESH_DEFAULT);
 #endif
     printf("  --version                Show version information\n");
     return 1;
@@ -503,6 +506,8 @@ main(int argc, char *argv[])
 #endif
 #if WASM_ENABLE_STATIC_PGO != 0
     const char *gen_prof_file = NULL;
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+    int threshold_val = WASM_DPGO_TIER_UP_THRESH_DEFAULT;
 #endif
 
     /* Process options. */
@@ -713,6 +718,16 @@ main(int argc, char *argv[])
             if (argv[0][16] == '\0')
                 return print_help();
             gen_prof_file = argv[0] + 16;
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+        else if (!strncmp(argv[0], "--hot-func-threshold",
+                          strlen("--hot-func-threshold"))) {
+            char *thresh_str =
+                strchr(argv[0] + strlen("--hot-func-threshold"), '=') + 1;
+            /* atoi() return 0 for invalid input */
+            int tmp = atoi(thresh_str);
+
+            if (tmp > 0)
+                threshold_val = tmp;
         }
 #endif
         else if (!strncmp(argv[0], "--version", 9)) {
@@ -761,6 +776,10 @@ main(int argc, char *argv[])
     init_args.instance_port = instance_port;
     if (ip_addr)
         strcpy(init_args.ip_addr, ip_addr);
+#endif
+
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+    init_args.hot_func_threshold = threshold_val;
 #endif
 
     /* initialize runtime environment */
