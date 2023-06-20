@@ -1363,7 +1363,8 @@ aot_emit_target_info_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     EMIT_U16(target_info->e_machine);
     EMIT_U32(target_info->e_version);
     EMIT_U32(target_info->e_flags);
-    EMIT_U32(target_info->reserved);
+    EMIT_U64(target_info->feature_flags);
+    EMIT_U64(target_info->reserved);
     EMIT_BUF(target_info->arch, sizeof(target_info->arch));
 
     if (offset - *p_offset != section_size + sizeof(uint32) * 2) {

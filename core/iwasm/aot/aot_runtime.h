@@ -22,6 +22,20 @@
 extern "C" {
 #endif
 
+/* Wasm feature supported, mainly used by AOTTargetInfo now */
+#define WASM_FEATURE_SIMD_128BIT (1 << 0)
+#define WASM_FEATURE_BULK_MEMORY (1 << 1)
+#define WASM_FEATURE_THREADS (1 << 2)
+#define WASM_FEATURE_REF_TYPES (1 << 3)
+#define WASM_FEATURE_TAIL_CALL (1 << 4)
+#define WASM_FEATURE_EXCEPTION_HANDLING (1 << 5)
+#define WASM_FEATURE_GARBAGE_COLLECTION (1 << 6)
+#define WASM_FEATURE_COMPONENT_MODEL (1 << 7)
+#define WASM_FEATURE_MULTIPLE_MEMORY (1 << 8)
+#define WASM_FEATURE_RELAXED_SIMD (1 << 9)
+#define WASM_FEATURE_FLEXIBLE_VECTORS (1 << 10)
+#define WASM_FEATURE_STRING_REF (1 << 11)
+
 typedef enum AOTSectionType {
     AOT_SECTION_TYPE_TARGET_INFO = 0,
     AOT_SECTION_TYPE_INIT_DATA = 1,
@@ -298,8 +312,10 @@ typedef struct AOTTargetInfo {
     uint32 e_version;
     /* Processor-specific flags */
     uint32 e_flags;
+    /* Specify wasm features supported */
+    uint64 feature_flags;
     /* Reserved */
-    uint32 reserved;
+    uint64 reserved;
     /* Arch name */
     char arch[16];
 } AOTTargetInfo;
