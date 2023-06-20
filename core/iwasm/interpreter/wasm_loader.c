@@ -7431,6 +7431,26 @@ new_WasmProfCntInfo(uint32 cur_func_idx, uint32 offset, uint32 opcode,
     return opcode_cnt;
 }
 
+static bool
+create_and_append_WasmProfCntInfo(bh_list *func_prof_cnts_info,
+                                  uint32 cur_func_idx, uint32 offset,
+                                  uint32 opcode, uint32 counter_amount,
+                                  uint32 first_counter_idx, char *error_buf,
+                                  uint32 error_buf_size)
+{
+    struct WASMProfCntInfo *opcode_cnt =
+        new_WasmProfCntInfo(cur_func_idx, offset, opcode, counter_amount,
+                            first_counter_idx, error_buf, error_buf_size);
+    if (!opcode_cnt)
+        return false;
+
+    if (bh_list_append(func_prof_cnts_info, opcode_cnt) != BH_LIST_SUCCESS) {
+        wasm_runtime_free(opcode_cnt);
+        return false;
+    }
+    return true;
+}
+
 #endif
 
 static bool
@@ -7843,18 +7863,12 @@ re_scan:
             case WASM_OP_BR_IF:
             {
 #if WASM_ENABLE_DYNAMIC_PGO != 0
-                struct WASMProfCntInfo *opcode_cnt = new_WasmProfCntInfo(
-                    module->import_function_count + cur_func_idx,
-                    p - func->code, opcode, 2, ent_and_br_cnts_cap, error_buf,
-                    error_buf_size);
-                if (!opcode_cnt)
+                if (!create_and_append_WasmProfCntInfo(
+                        func_prof_cnts_info,
+                        module->import_function_count + cur_func_idx,
+                        p - func->code, opcode, 2, ent_and_br_cnts_cap,
+                        error_buf, error_buf_size))
                     goto fail;
-
-                if (bh_list_append(func_prof_cnts_info, opcode_cnt)
-                    != BH_LIST_SUCCESS) {
-                    wasm_runtime_free(opcode_cnt);
-                    goto fail;
-                }
 
                 ent_and_br_cnts_cap += 2;
 #endif
@@ -8261,6 +8275,16 @@ re_scan:
                 uint8 ref_type;
                 BranchBlock *cur_block = loader_ctx->frame_csp - 1;
                 int32 available_stack_cell;
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+                if (!create_and_append_WasmProfCntInfo(
+                        func_prof_cnts_info,
+                        module->import_function_count + cur_func_idx,
+                        p - func->code, opcode, 2, ent_and_br_cnts_cap,
+                        error_buf, error_buf_size))
+                    goto fail;
+
+                ent_and_br_cnts_cap += 2;
+#endif
 
                 POP_I32();
 
@@ -8352,10 +8376,6 @@ re_scan:
 #endif
                     PUSH_TYPE(VALUE_TYPE_ANY);
                 }
-                /*FIXME: enable it later */
-                // #if WASM_ENABLE_DYNAMIC_PGO != 0
-                //                 ent_and_br_cnts_cap += 2;
-                // #endif
                 break;
             }
 
@@ -8363,6 +8383,16 @@ re_scan:
             case WASM_OP_SELECT_T:
             {
                 uint8 vec_len, ref_type;
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+                if (!create_and_append_WasmProfCntInfo(
+                        func_prof_cnts_info,
+                        module->import_function_count + cur_func_idx,
+                        p - func->code, opcode, 2, ent_and_br_cnts_cap,
+                        error_buf, error_buf_size))
+                    goto fail;
+
+                ent_and_br_cnts_cap += 2;
+#endif
 
                 read_leb_uint32(p, p_end, vec_len);
                 if (!vec_len) {
@@ -8439,10 +8469,6 @@ re_scan:
 
                 (void)vec_len;
 
-                /*FIXME: enable it later */
-                // #if WASM_ENABLE_DYNAMIC_PGO != 0
-                //                 ent_and_br_cnts_cap += vec_len;
-                // #endif
                 break;
             }
 

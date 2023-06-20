@@ -540,6 +540,94 @@ wasm_dpgo_set_vp(LLVMModuleRef module, LLVMValueRef instruction, uint32 *counts,
     */
 }
 
+static bool
+wasm_dpgo_get_cnts_for_instr(WASMModule *wasm_module, uint32 func_idx,
+                             LLVMValueRef instruction, uint32 *line,
+                             uint32 *cnt_amount, uint32 *first_cnt_idx)
+{
+    /* always have some Debug Location */
+    LLVMMetadataRef dbg_location = LLVMInstructionGetDebugLoc(instruction);
+    bh_assert(dbg_location && "No Debug Location");
+    bh_assert(LLVMGetMetadataKind(dbg_location) == LLVMDILocationMetadataKind
+              && "Not a DILocation");
+    if (!dbg_location)
+        return false;
+
+    *line = LLVMDILocationGetLine(dbg_location);
+    LOG_DEBUG("  DILocation. LINE: %u", *line);
+
+    /* locate profiling counters */
+    bool ret = wasm_dpgo_get_prof_cnt_info(wasm_module, func_idx, *line,
+                                           cnt_amount, first_cnt_idx);
+    if (!ret) {
+        LOG_DEBUG("    No Prof Cnt Info for Func.#%u Line:%u", func_idx, *line);
+
+        // FIXME: remove if when we have switch
+        if (!LLVMIsASwitchInst(instruction)) {
+            wasm_dpgo_dump_func_prof_cnts_info(wasm_module, func_idx);
+            bh_assert(*cnt_amount == 0 && "No counter for condBr or select");
+            return false;
+        }
+
+        *cnt_amount = 0;
+        return true;
+    }
+
+    // FIXME: remove if when we have switch
+    bh_assert(!LLVMIsASwitchInst(instruction)
+              && "There should be no counter for switch");
+    return true;
+}
+
+static void
+wasm_dpgo_visit_select(WASMModule *wasm_module, LLVMModuleRef module,
+                       LLVMValueRef function, uint32 func_idx)
+{
+    for (LLVMBasicBlockRef basic_block = LLVMGetFirstBasicBlock(function);
+         basic_block != NULL;
+         basic_block = LLVMGetNextBasicBlock(basic_block)) {
+        for (LLVMValueRef instruction = LLVMGetFirstInstruction(basic_block);
+             instruction != NULL;
+             instruction = LLVMGetNextInstruction(instruction)) {
+
+            if (!LLVMIsASelectInst(instruction))
+                continue;
+
+            LOG_DEBUG("Select : %s  .", LLVMPrintValueToString(instruction));
+
+            /* locate profiling counters */
+            uint32 counter_amount;
+            uint32 first_counter_idx;
+            uint32 line;
+            bool ret = wasm_dpgo_get_cnts_for_instr(
+                wasm_module, func_idx, instruction, &line, &counter_amount,
+                &first_counter_idx);
+            bh_assert(ret && "Failed to get profiling counters for select");
+            if (!ret)
+                return;
+
+            /*
+             * there will be two counters for a condBr. the first one is before
+             * select. the second one represents true target.
+             */
+            uint32 *ent_and_br_cnts =
+                wasm_dpgo_get_ent_and_br_cnts(wasm_module, func_idx, NULL);
+            uint32 *cur_br_cnts = ent_and_br_cnts + first_counter_idx;
+            bh_assert(counter_amount == 2
+                      && "select doesn't have two counters for two targets");
+            LOG_DEBUG(
+                "    Prof Cnt Info for Func.#%u Line:%u, cnt[0]=%u, cnt[1]=%u",
+                func_idx, line, cur_br_cnts[0], cur_br_cnts[1]);
+
+            uint32 weights[2] = { 0 };
+            weights[0] = cur_br_cnts[1];
+            weights[1] = cur_br_cnts[0] - cur_br_cnts[1];
+            wasm_dpgo_set_branch_weights(LLVMGetModuleContext(module),
+                                         instruction, weights, 2);
+        }
+    }
+}
+
 static void
 wasm_dpgo_visit_terminator(WASMModule *wasm_module, LLVMModuleRef module,
                            LLVMValueRef function, uint32 func_idx)
@@ -549,8 +637,10 @@ wasm_dpgo_visit_terminator(WASMModule *wasm_module, LLVMModuleRef module,
         LLVMValueRef terminator = LLVMGetBasicBlockTerminator(basic_block);
         basic_block = LLVMGetNextBasicBlock(basic_block);
 
-        if (LLVMGetNumSuccessors(terminator) > 1)
-            LOG_DEBUG("Terminator: %s  .", LLVMPrintValueToString(terminator));
+        if (LLVMGetNumSuccessors(terminator) <= 1)
+            continue;
+
+        LOG_DEBUG("Terminator: %s  .", LLVMPrintValueToString(terminator));
 
         /* only take care condbr and switch */
         if (!LLVMIsABranchInst(terminator) && !LLVMIsASwitchInst(terminator))
@@ -560,8 +650,6 @@ wasm_dpgo_visit_terminator(WASMModule *wasm_module, LLVMModuleRef module,
         if (LLVMIsABranchInst(terminator) && !LLVMIsConditional(terminator))
             continue;
 
-        // LOG_DEBUG("Terminator: %s  .", LLVMPrintValueToString(terminator));
-
         LLVMValueRef prof_md =
             LLVMGetMetadata(terminator, LLVMContext::MD_prof);
         if (prof_md) {
@@ -569,33 +657,19 @@ wasm_dpgo_visit_terminator(WASMModule *wasm_module, LLVMModuleRef module,
             continue;
         }
 
-        /* always have some Debug Location */
-        LLVMMetadataRef dbg_location = LLVMInstructionGetDebugLoc(terminator);
-        bh_assert(dbg_location && "No Debug Location");
-        bh_assert(LLVMGetMetadataKind(dbg_location)
-                      == LLVMDILocationMetadataKind
-                  && "Not a DILocation");
-
-        uint32 line = LLVMDILocationGetLine(dbg_location);
-        LOG_DEBUG("  DILocation. LINE: %u", line);
-
         /* locate profiling counters */
         uint32 counter_amount;
         uint32 first_counter_idx;
-        bool ret = wasm_dpgo_get_prof_cnt_info(
-            wasm_module, func_idx, line, &counter_amount, &first_counter_idx);
-        if (!ret) {
-            LOG_DEBUG("    No Prof Cnt Info for Func.#%u Line:%u", func_idx,
-                      line);
+        uint32 line;
+        bool ret = wasm_dpgo_get_cnts_for_instr(
+            wasm_module, func_idx, terminator, &line, &counter_amount,
+            &first_counter_idx);
+        if (!ret)
+            return;
 
-            // FIXME: remove if when we have switch
-            if (LLVMIsABranchInst(terminator)) {
-                wasm_dpgo_dump_func_prof_cnts_info(wasm_module, func_idx);
-                bh_assert(counter_amount != 0 && "No counter for condBr");
-                return;
-            }
-            continue;
-        }
+        // FIXME: remove when we have switch
+        if (!counter_amount)
+            return;
 
         /*
          * there will be two counters for a condBr. the first one is before
@@ -633,5 +707,6 @@ wasm_dpgo_set_prof_meta(WASMModule *wasm_module, LLVMModuleRef module,
               LLVMGetValueName2(function, &size));
 
     wasm_dpgo_visit_terminator(wasm_module, module, function, func_idx);
+    wasm_dpgo_visit_select(wasm_module, module, function, func_idx);
 }
 #endif /* WASM_ENABLE_DYNAMIC_PGO != 0 */
