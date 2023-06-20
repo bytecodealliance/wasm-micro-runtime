@@ -1,7 +1,7 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-name: compilation on android, ubuntu-20.04, ubuntu-22.04
+name: compilation on android, ubuntu-22.04
 
 on:
   # will be triggered on PR events
@@ -65,12 +65,6 @@ env:
   WASI_TEST_OPTIONS: "-s wasi_certification -w"
 
 jobs:
-  build_llvm_libraries_on_ubuntu_2004:
-    uses: ./.github/workflows/build_llvm_libraries.yml
-    with:
-      os: "ubuntu-20.04"
-      arch: "X86"
-
   build_llvm_libraries_on_ubuntu_2204:
     uses: ./.github/workflows/build_llvm_libraries.yml
     with:
@@ -79,13 +73,11 @@ jobs:
   
   build_wamrc:
     needs:
-      [build_llvm_libraries_on_ubuntu_2004, build_llvm_libraries_on_ubuntu_2204]
+      [build_llvm_libraries_on_ubuntu_2204]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
-          - os: ubuntu-20.04
-            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2004.outputs.cache_key }}
           - os: ubuntu-22.04
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
     steps:
@@ -119,7 +111,7 @@ jobs:
 
   build_iwasm:
     needs:
-      [build_llvm_libraries_on_ubuntu_2004, build_llvm_libraries_on_ubuntu_2204]
+      [build_llvm_libraries_on_ubuntu_2204]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -151,7 +143,7 @@ jobs:
             "-DWAMR_BUILD_TAIL_CALL=1",
             "-DWAMR_DISABLE_HW_BOUND_CHECK=1",
           ]
-        os: [ubuntu-20.04, ubuntu-22.04]
+        os: [ubuntu-22.04]
         platform: [android, linux]
         exclude:
           # uncompatiable feature and platform
@@ -215,12 +207,7 @@ jobs:
             platform: android
           - make_options_run_mode: $MULTI_TIER_JIT_BUILD_OPTIONS
             platform: android
-          # only test andorid on ubuntu latest
-          - os: ubuntu-20.04
-            platform: android
         include:
-          - os: ubuntu-20.04
-            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2004.outputs.cache_key }}
           - os: ubuntu-22.04
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
     steps:
@@ -256,7 +243,6 @@ jobs:
     needs:
       [
         build_iwasm,
-        build_llvm_libraries_on_ubuntu_2004,
         build_llvm_libraries_on_ubuntu_2204,
         build_wamrc,
       ]
@@ -274,7 +260,7 @@ jobs:
             $LLVM_EAGER_JIT_BUILD_OPTIONS,
             $MULTI_TIER_JIT_BUILD_OPTIONS,
           ]
-        os: [ubuntu-20.04, ubuntu-22.04]
+        os: [ubuntu-22.04]
         wasi_sdk_release:
           [
             "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-linux.tar.gz",
@@ -284,8 +270,6 @@ jobs:
             "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-ubuntu.tar.gz",
           ]
         include:
-          - os: ubuntu-20.04
-            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2004.outputs.cache_key }}
           - os: ubuntu-22.04
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
 
@@ -338,7 +322,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-20.04, ubuntu-22.04]
+        os: [ubuntu-22.04]
         wasi_sdk_release:
           [
             "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-linux.tar.gz",
@@ -430,7 +414,6 @@ jobs:
     needs:
       [
         build_iwasm,
-        build_llvm_libraries_on_ubuntu_2004,
         build_llvm_libraries_on_ubuntu_2204,
         build_wamrc,
       ]
@@ -438,7 +421,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-20.04, ubuntu-22.04]
+        os: [ubuntu-22.04]
         running_mode:
           [
             "classic-interp",
@@ -461,9 +444,6 @@ jobs:
             "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-linux.tar.gz",
           ]
         include:
-          - os: ubuntu-20.04
-            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2004.outputs.cache_key }}
-            ubuntu_version: "20.04"
           - os: ubuntu-22.04
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
             ubuntu_version: "22.04"
