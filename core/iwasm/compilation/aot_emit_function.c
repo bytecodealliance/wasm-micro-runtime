@@ -10,6 +10,10 @@
 #include "../aot/aot_runtime.h"
 #include "llvm-c/Core.h"
 
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+#include "dpgo/dpgo_internal.h"
+#endif
+
 #define ADD_BASIC_BLOCK(block, name)                                          \
     do {                                                                      \
         if (!(block = LLVMAppendBasicBlockInContext(comp_ctx->context,        \

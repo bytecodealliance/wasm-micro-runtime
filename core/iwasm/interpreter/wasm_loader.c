@@ -21,6 +21,9 @@
 #if WASM_ENABLE_JIT != 0
 #include "../compilation/aot_llvm.h"
 #endif
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+#include "../compilation/dpgo/dpgo_internal.h"
+#endif
 
 /* Read a value of given type from the address pointed to by the given
    pointer and increase the pointer to the position just after the
@@ -3195,9 +3198,9 @@ init_llvm_jit_functions_stage2_callback(void *arg)
     LOG_VERBOSE("DPGO uses %d as hotness thresholdold",
                 wasm_runtime_get_hot_func_threshold());
     /*
-     * keep monitor function entry counts, wasm_dpgo_get_func_entry_count(),
-     * in every second. if a function entry count is larger than the
-     * threshold, tier-up the function.
+     * keep checking function entry counts periodically.
+     * if a function entry count is larger than the
+     * threshold, hot enough, tier-up the function.
      */
     while (!module->orcjit_stop_compiling) {
         uint32 i;
@@ -4380,47 +4383,6 @@ fail:
     return NULL;
 }
 
-#if WASM_ENABLE_DYNAMIC_PGO != 0
-#ifndef NDEBUG
-void
-wasm_runtime_dump_pgo_info(WASMModule *module)
-{
-    for (unsigned i = 0;
-         i < (module->import_function_count + module->function_count); i++) {
-        uint32 ent_and_br_cnts_capacity = 0;
-        uint32 *ent_and_br_cnts =
-            wasm_dpgo_get_ent_and_br_cnts(module, i, &ent_and_br_cnts_capacity);
-
-        if (i < module->import_function_count) {
-            bh_assert(!ent_and_br_cnts
-                      && "should be no counter for an import func");
-            continue;
-        }
-
-        if (ent_and_br_cnts_capacity == 0)
-            continue;
-
-        uint32 func_ent_cnt_value = wasm_dpgo_get_func_entry_count(module, i);
-        if (func_ent_cnt_value < wasm_runtime_get_hot_func_thresh())
-            continue;
-
-        LOG_DEBUG("Counters of Func#%u: CAPACITY: %u", i,
-                  ent_and_br_cnts_capacity);
-        LOG_DEBUG("  [1] : %u", func_ent_cnt_value);
-
-        /* too much to print. Enable it when necessary */
-#if 0
-        for (unsigned j = 2; j < ent_and_br_cnts_capacity; j++) {
-            uint32 cnt_val = ent_and_br_cnts[j];
-            if (cnt_val)
-                LOG_WARNING("  [%u] : %u", j, cnt_val);
-        }
-#endif
-    }
-}
-#endif
-#endif
-
 void
 wasm_loader_unload(WASMModule *module)
 {
@@ -4627,10 +4589,10 @@ wasm_loader_unload(WASMModule *module)
 
     if (module->ent_and_br_cnts) {
         for (i = 0; i < module->function_count; i++) {
-            uint32 *ent_and_br_cnts = wasm_dpgo_get_ent_and_br_cnts(
-                module, i + module->import_function_count, NULL);
-            if (ent_and_br_cnts)
-                wasm_runtime_free(ent_and_br_cnts);
+            uint32 *func_cnts =
+                module->ent_and_br_cnts[i + module->import_function_count];
+            if (func_cnts)
+                wasm_runtime_free(func_cnts);
         }
         wasm_runtime_free(module->ent_and_br_cnts);
         module->ent_and_br_cnts = NULL;
@@ -4639,8 +4601,7 @@ wasm_loader_unload(WASMModule *module)
     if (module->prof_cnts_info) {
         for (i = 0; i < module->function_count; i++) {
             bh_list *func_prof_counters_info =
-                wasm_dpgo_get_func_prof_cnts_info(
-                    module, i + module->import_function_count);
+                module->prof_cnts_info + (i + module->import_function_count);
             struct WASMProfCntInfo *elem =
                 bh_list_first_elem(func_prof_counters_info);
             while (elem) {
@@ -7409,27 +7370,6 @@ wasm_loader_get_custom_section(WASMModule *module, const char *name,
 #endif
 
 #if WASM_ENABLE_DYNAMIC_PGO != 0
-static struct WASMProfCntInfo *
-new_WasmProfCntInfo(uint32 cur_func_idx, uint32 offset, uint32 opcode,
-                    uint32 counter_amount, uint32 first_counter_idx,
-                    char *error_buf, uint32 error_buf_size)
-{
-    struct WASMProfCntInfo *opcode_cnt;
-
-    opcode_cnt = loader_malloc(sizeof(struct WASMProfCntInfo), error_buf,
-                               error_buf_size);
-    if (!opcode_cnt)
-        return NULL;
-
-    opcode_cnt->func_idx = cur_func_idx;
-    opcode_cnt->offset = offset;
-    opcode_cnt->opcode = opcode;
-    opcode_cnt->counter_amount = counter_amount;
-    opcode_cnt->first_counter_idx = first_counter_idx;
-
-    return opcode_cnt;
-}
-
 static bool
 create_and_append_WasmProfCntInfo(bh_list *func_prof_cnts_info,
                                   uint32 cur_func_idx, uint32 offset,
@@ -7449,7 +7389,6 @@ create_and_append_WasmProfCntInfo(bh_list *func_prof_cnts_info,
     }
     return true;
 }
-
 #endif
 
 static bool
@@ -7488,9 +7427,8 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
      * it is the capacity of the array of profiling counters of the function
      * it also is the index of the first counter of every opcode
      */
-    uint32 ent_and_br_cnts_cap = 1;
+    uint32 cur_func_counter_amount = 1;
     bh_list *func_prof_cnts_info;
-    struct WASMProfCntInfo *func_ent_cnt;
 #endif
 
     global_count = module->import_global_count + module->global_count;
@@ -7541,18 +7479,14 @@ re_scan:
     if (bh_list_init(func_prof_cnts_info) != BH_LIST_SUCCESS)
         goto fail;
 
-    func_ent_cnt = new_WasmProfCntInfo(
-        module->import_function_count + cur_func_idx, p - func->code, 0, 1,
-        ent_and_br_cnts_cap, error_buf, error_buf_size);
-    if (!func_ent_cnt)
+    /* add a counter about function entry */
+    if (!create_and_append_WasmProfCntInfo(
+            func_prof_cnts_info, module->import_function_count + cur_func_idx,
+            p - func->code, 0, 1, cur_func_counter_amount, error_buf,
+            error_buf_size))
         goto fail;
 
-    if (bh_list_append(func_prof_cnts_info, func_ent_cnt) != BH_LIST_SUCCESS) {
-        wasm_runtime_free(func_ent_cnt);
-        goto fail;
-    }
-
-    ent_and_br_cnts_cap++;
+    cur_func_counter_amount++;
 #endif
 
     while (p < p_end) {
@@ -7584,11 +7518,11 @@ re_scan:
                 if (!create_and_append_WasmProfCntInfo(
                         func_prof_cnts_info,
                         module->import_function_count + cur_func_idx,
-                        p - func->code, opcode, 2, ent_and_br_cnts_cap,
+                        p - func->code, opcode, 2, cur_func_counter_amount,
                         error_buf, error_buf_size))
                     goto fail;
 
-                ent_and_br_cnts_cap += 2;
+                cur_func_counter_amount += 2;
 #endif
 
                 POP_I32();
@@ -7873,11 +7807,11 @@ re_scan:
                 if (!create_and_append_WasmProfCntInfo(
                         func_prof_cnts_info,
                         module->import_function_count + cur_func_idx,
-                        p - func->code, opcode, 2, ent_and_br_cnts_cap,
+                        p - func->code, opcode, 2, cur_func_counter_amount,
                         error_buf, error_buf_size))
                     goto fail;
 
-                ent_and_br_cnts_cap += 2;
+                cur_func_counter_amount += 2;
 #endif
 
                 POP_I32();
@@ -7998,7 +7932,7 @@ re_scan:
 
                 /*FIXME: enable it later */
                 // #if WASM_ENABLE_DYNAMIC_PGO != 0
-                //                 ent_and_br_cnts_cap += count;
+                //                 cur_func_counter_amount += count;
                 // #endif
                 break;
             }
@@ -8286,11 +8220,11 @@ re_scan:
                 if (!create_and_append_WasmProfCntInfo(
                         func_prof_cnts_info,
                         module->import_function_count + cur_func_idx,
-                        p - func->code, opcode, 2, ent_and_br_cnts_cap,
+                        p - func->code, opcode, 2, cur_func_counter_amount,
                         error_buf, error_buf_size))
                     goto fail;
 
-                ent_and_br_cnts_cap += 2;
+                cur_func_counter_amount += 2;
 #endif
 
                 POP_I32();
@@ -8394,11 +8328,11 @@ re_scan:
                 if (!create_and_append_WasmProfCntInfo(
                         func_prof_cnts_info,
                         module->import_function_count + cur_func_idx,
-                        p - func->code, opcode, 2, ent_and_br_cnts_cap,
+                        p - func->code, opcode, 2, cur_func_counter_amount,
                         error_buf, error_buf_size))
                     goto fail;
 
-                ent_and_br_cnts_cap += 2;
+                cur_func_counter_amount += 2;
 #endif
 
                 read_leb_uint32(p, p_end, vec_len);
@@ -10456,16 +10390,17 @@ re_scan:
 
 #if WASM_ENABLE_DYNAMIC_PGO != 0
     {
-        uint32 *ent_and_br_cnts;
+        uint32 *func_entry_and_br_counters;
 
-        ent_and_br_cnts = loader_malloc(sizeof(uint32) * ent_and_br_cnts_cap,
-                                        error_buf, error_buf_size);
-        if (!ent_and_br_cnts)
+        func_entry_and_br_counters =
+            loader_malloc(sizeof(uint32) * cur_func_counter_amount, error_buf,
+                          error_buf_size);
+        if (!func_entry_and_br_counters)
             goto fail;
 
-        ent_and_br_cnts[0] = ent_and_br_cnts_cap;
+        func_entry_and_br_counters[0] = cur_func_counter_amount;
         module->ent_and_br_cnts[module->import_function_count + cur_func_idx] =
-            ent_and_br_cnts;
+            func_entry_and_br_counters;
     }
 
 #endif

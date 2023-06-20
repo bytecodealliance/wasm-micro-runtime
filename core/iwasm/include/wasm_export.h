@@ -167,10 +167,9 @@ typedef struct RuntimeInitArgs {
     /* LLVM JIT opt and size level */
     uint32_t llvm_jit_opt_level;
     uint32_t llvm_jit_size_level;
-#if WASM_ENABLE_DYNAMIC_PGO != 0
+
     /* when DPGO will tier up a function */
     uint32_t hot_func_threshold;
-#endif
 } RuntimeInitArgs;
 
 #ifndef WASM_VALKIND_T_DEFINED

@@ -7,6 +7,10 @@
 #include "../interpreter/wasm_runtime.h"
 #include "../aot/aot_runtime.h"
 
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+#include "dpgo/dpgo_internal.h"
+#endif
+
 bool
 aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                    int32 exception_id, bool is_cond_br, LLVMValueRef cond_br_if,

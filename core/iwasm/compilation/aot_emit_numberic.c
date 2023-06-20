@@ -11,6 +11,10 @@
 
 #include <stdarg.h>
 
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+#include "dpgo/dpgo_internal.h"
+#endif
+
 #define LLVM_BUILD_ICMP(op, left, right, res, name)                           \
     do {                                                                      \
         if (!(res =                                                           \

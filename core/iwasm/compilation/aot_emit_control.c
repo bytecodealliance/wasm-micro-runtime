@@ -12,6 +12,10 @@
 #include "debug/dwarf_extractor.h"
 #endif
 
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+#include "dpgo/dpgo_internal.h"
+#endif
+
 static char *block_name_prefix[] = { "block", "loop", "if" };
 static char *block_name_suffix[] = { "begin", "else", "end" };
 
@@ -670,7 +674,7 @@ fail:
 bool
 check_suspend_flags(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
-    LLVMValueRef terminate_addr, terminate_flags, flag, offset, res;
+    LLVMValueRef terminate_addr, terminate_flags, flag, offset, res, cond_br;
     LLVMBasicBlockRef terminate_block, non_terminate_block;
     AOTFuncType *aot_func_type = func_ctx->aot_func->func_type;
     bool is_shared_memory =
@@ -721,7 +725,16 @@ check_suspend_flags(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     MOVE_BLOCK_AFTER_CURR(terminate_block);
 
     BUILD_ICMP(LLVMIntEQ, flag, I32_ZERO, res, "flag_terminate");
-    BUILD_COND_BR(res, non_terminate_block, terminate_block);
+
+    cond_br = LLVMBuildCondBr(comp_ctx->builder, res, non_terminate_block,
+                              terminate_block);
+    if (!cond_br) {
+        aot_set_last_error("llvm build cond br failed.");
+        goto fail;
+    }
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+    wasm_dpgo_unlike_false_branch(comp_ctx->context, cond_br);
+#endif
 
     /* Move builder to terminate block */
     SET_BUILDER_POS(terminate_block);
