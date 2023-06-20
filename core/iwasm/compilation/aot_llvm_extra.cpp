@@ -505,7 +505,7 @@ wasm_dpgo_get_cnts_for_instr(WASMModule *wasm_module, uint32 func_idx,
         // FIXME: remove if when we have switch
         if (!LLVMIsASwitchInst(instruction)) {
             wasm_dpgo_dump_func_prof_cnts_info(wasm_module, func_idx);
-            bh_assert(*cnt_amount == 0 && "No counter for condBr or select");
+            bh_assert(*cnt_amount != 0 && "No counter for condBr or select");
             return false;
         }
 
