@@ -2601,12 +2601,12 @@ aot_resolve_stack_sizes(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
     while (!LLVMObjectFileIsSymbolIteratorAtEnd(obj_data->binary, sym_itr)) {
         if ((name = LLVMGetSymbolName(sym_itr))
             && !strcmp(name, aot_stack_sizes_name)) {
-            uint64_t sz = LLVMGetSymbolSize(sym_itr);
+            uint64 sz = LLVMGetSymbolSize(sym_itr);
             if (sz != sizeof(uint32) * obj_data->func_count) {
                 aot_set_last_error("stack_sizes had unexpected size.");
                 goto fail;
             }
-            uint64_t addr = LLVMGetSymbolAddress(sym_itr);
+            uint64 addr = LLVMGetSymbolAddress(sym_itr);
             if (!(sec_itr =
                       LLVMObjectFileCopySectionIterator(obj_data->binary))) {
                 aot_set_last_error("llvm get section iterator failed.");
