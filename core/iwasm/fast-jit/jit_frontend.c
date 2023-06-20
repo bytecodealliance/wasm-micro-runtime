@@ -542,6 +542,7 @@ gen_increase_cnt_insn_internal(JitFrame *frame, uint32 cnt_idx)
 #if WASM_ENABLE_FAST_JIT_DUMP != 0
     jit_insn_add_comments(insn, "load->inc->store Cnt.#%d", cnt_idx);
 #endif
+
     (void)insn;
 }
 
@@ -551,6 +552,34 @@ gen_increase_cnt_insn(JitFrame *frame)
     bh_assert(frame->cc->ent_and_br_cnts_idx > 0
               && "ent_and_br_cnts_idx in JitCompContext should be > 0");
     gen_increase_cnt_insn_internal(frame, frame->cc->ent_and_br_cnts_idx++);
+}
+
+void
+gen_increase_cnt_w_val_insn(JitFrame *frame, JitReg val_reg)
+{
+    JitCompContext *cc = frame->cc;
+    JitReg ent_and_br_cnts_reg = get_ent_and_br_cnts_reg(frame);
+    JitReg cnt_reg = jit_cc_new_reg_I32(cc);
+    JitReg cnt_inc_reg = jit_cc_new_reg_I32(cc);
+    JitReg offset_reg;
+    JitInsn *insn;
+    uint32 cnt_idx = frame->cc->ent_and_br_cnts_idx++;
+
+    bh_assert(frame->cc->ent_and_br_cnts_idx > 0
+              && "ent_and_br_cnts_idx in JitCompContext should be > 0");
+
+    /* uint32[cnt_idx] -> x bytes*/
+    offset_reg = NEW_CONST(I32, (cnt_idx << 2));
+    /* load -> increase -> store */
+    insn = GEN_INSN(LDI32, cnt_reg, ent_and_br_cnts_reg, offset_reg);
+    GEN_INSN(ADD, cnt_inc_reg, cnt_reg, val_reg);
+    GEN_INSN(STI32, cnt_inc_reg, ent_and_br_cnts_reg, offset_reg);
+
+#if WASM_ENABLE_FAST_JIT_DUMP != 0
+    jit_insn_add_comments(insn, "load->inc->store Cnt.#%d", cnt_idx);
+#endif
+
+    (void)insn;
 }
 
 #endif /* #if WASM_ENABLE_DYNAMIC_PGO != 0 */
