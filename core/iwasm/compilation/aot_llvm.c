@@ -1989,6 +1989,10 @@ jit_stack_size_callback(void *user_data, const char *name, size_t namelen,
                         size_t stack_size)
 {
     AOTCompContext *comp_ctx = user_data;
+    /*
+     * Note: the longest name we care is
+     * something like "aot_func_internal#4294967295".
+     */
     char buf[64];
     uint32 func_idx;
     const AOTFuncContext *func_ctx;
@@ -2005,7 +2009,7 @@ jit_stack_size_callback(void *user_data, const char *name, size_t namelen,
         return;
     }
     /* ensure NUL termination */
-    memcpy(buf, name, namelen);
+    bh_memcpy_s(buf, sizeof(buf), name, namelen);
     buf[namelen] = 0;
 
     ret = sscanf(buf, AOT_FUNC_INTERNAL_PREFIX "%" SCNu32, &func_idx);
