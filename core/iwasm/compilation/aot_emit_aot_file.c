@@ -1647,10 +1647,14 @@ aot_emit_object_data_section_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
             LOG_VERBOSE("Replacing stack_sizes in %s section, offset %" PRIu32
                         ", size %" PRIu32,
                         obj_data->stack_sizes_section_name, ss_offset, ss_size);
+            bh_assert(ss_offset + ss_size <= data_section->size);
+            /* 0 .. ss_offset */
             if (ss_offset > 0) {
                 EMIT_BUF(data_section->data, ss_offset);
             }
+            /* ss_offset .. ss_offset+ss_size */
             EMIT_BUF(obj_data->stack_sizes, ss_size);
+            /* ss_offset+ss_size .. data_section->size */
             if (data_section->size > ss_offset + ss_size) {
                 EMIT_BUF(data_section->data + ss_offset + ss_size,
                          data_section->size - (ss_offset + ss_size));
