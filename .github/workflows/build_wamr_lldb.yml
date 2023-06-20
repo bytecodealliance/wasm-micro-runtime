@@ -22,6 +22,12 @@ on:
         description: a semantic version number
         type: string
         required: true
+      wasi_sdk_url:
+        description: download WASI_SDK from this URL
+        type: string
+        required: false
+        default: "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-linux.tar.gz"
+      
 
 jobs:
   try_reuse:
@@ -38,6 +44,15 @@ jobs:
     runs-on: ${{ inputs.runner }}
     steps:
       - uses: actions/checkout@v3
+      
+      - name: download and install wasi-sdk
+        run: |
+          cd /opt
+          basename=$(basename ${{ inputs.wasi_sdk_url }})
+          sudo wget --progress=dot:giga ${{ inputs.wasi_sdk_url }}
+          sudo tar -xzf ${basename}
+          sudo rm ${basename}
+          sudo mv wasi-sdk-* wasi-sdk
 
       - name: Cache build
         id: lldb_build_cache
