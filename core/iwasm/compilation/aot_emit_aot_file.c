@@ -2462,7 +2462,7 @@ read_stack_usage_file(const AOTCompContext *comp_ctx, const char *filename,
      * WASM Module:aot_func#9  72  static
      */
     const char *aot_func_prefix = AOT_FUNC_PREFIX;
-    const char *aot_func_prefix2 = AOT_FUNC_PREFIX2;
+    const char *aot_func_internal_prefix = AOT_FUNC_INTERNAL_PREFIX;
     uint32 precheck_found = 0;
     uint32 precheck_stack_size_max = 0;
     uint32 precheck_stack_size_min = UINT32_MAX;
@@ -2493,12 +2493,12 @@ read_stack_usage_file(const AOTCompContext *comp_ctx, const char *filename,
             prefix = aot_func_prefix;
         }
         else {
-            fn = strstr(colon, aot_func_prefix2);
+            fn = strstr(colon, aot_func_internal_prefix);
             if (fn == NULL) {
                 LOG_ERROR("failed to parse stack usage line: %s", cp);
                 goto fail;
             }
-            prefix = aot_func_prefix2;
+            prefix = aot_func_internal_prefix;
         }
         ret = sscanf(fn + strlen(prefix), "%ju %ju static", &func_idx, &sz);
         if (ret != 2) {

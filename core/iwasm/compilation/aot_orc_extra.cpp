@@ -170,7 +170,7 @@ PartitionFunction(GlobalValueSet Requested)
                  * the name) is requested, compile others in the group too.
                  * otherwise, only compile the requested one.
                  * (and possibly the correspondig wrapped function,
-                 * which has AOT_FUNC_PREFIX2.)
+                 * which has AOT_FUNC_INTERNAL_PREFIX.)
                  */
                 wrapper = strstr(gvname + prefix_len, "_wrapper");
                 if (wrapper != NULL) {
@@ -199,7 +199,7 @@ PartitionFunction(GlobalValueSet Requested)
                         GVsToAdd.push_back(cast<GlobalValue>(F1));
                     }
                     snprintf(func_name, sizeof(func_name), "%s%d",
-                             AOT_FUNC_PREFIX2, i + j * group_stride);
+                             AOT_FUNC_INTERNAL_PREFIX, i + j * group_stride);
                     F1 = M->getFunction(func_name);
                     if (F1) {
                         LOG_DEBUG("compile func %s", func_name);

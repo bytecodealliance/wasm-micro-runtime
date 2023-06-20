@@ -19,8 +19,8 @@ extern "C" {
 #define AOT_FUNC_PREFIX "aot_func#"
 #endif
 
-#ifndef AOT_FUNC_PREFIX2
-#define AOT_FUNC_PREFIX2 "aot_func2#"
+#ifndef AOT_FUNC_INTERNAL_PREFIX
+#define AOT_FUNC_INTERNAL_PREFIX "aot_func_internal#"
 #endif
 
 #ifndef AOT_STACK_SIZES_NAME

@@ -575,7 +575,7 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
          * REVISIT: probably this breaks windows hw bound check
          * (the RtlAddFunctionTable stuff)
          */
-        prefix = AOT_FUNC_PREFIX2;
+        prefix = AOT_FUNC_INTERNAL_PREFIX;
     }
     if (!(func = aot_add_llvm_func1(comp_ctx, module, func_index,
                                     aot_func_type->param_count, func_type,
@@ -2008,7 +2008,7 @@ jit_stack_size_callback(void *user_data, const char *name, size_t namelen,
     memcpy(buf, name, namelen);
     buf[namelen] = 0;
 
-    ret = sscanf(buf, AOT_FUNC_PREFIX2 "%" SCNu32, &func_idx);
+    ret = sscanf(buf, AOT_FUNC_INTERNAL_PREFIX "%" SCNu32, &func_idx);
     if (ret != 1) {
         return;
     }
