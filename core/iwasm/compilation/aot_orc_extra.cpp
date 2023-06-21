@@ -157,13 +157,29 @@ PartitionFunction(GlobalValueSet Requested)
             const char *wrapper;
             uint32 prefix_len = strlen(AOT_FUNC_PREFIX);
 
+            LOG_DEBUG("requested func %s", gvname);
             /* Convert "aot_func#n_wrapper" to "aot_func#n" */
-            if (strstr(gvname, AOT_FUNC_PREFIX)
-                && (wrapper = strstr(gvname + prefix_len, "_wrapper"))) {
+            if (strstr(gvname, AOT_FUNC_PREFIX)) {
                 char buf[16] = { 0 };
                 char func_name[64];
                 int group_stride, i, j;
+                int num;
 
+                /*
+                 * if the jit wrapper (which has "_wrapper" suffix in
+                 * the name) is requested, compile others in the group too.
+                 * otherwise, only compile the requested one.
+                 * (and possibly the correspondig wrapped function,
+                 * which has AOT_FUNC_INTERNAL_PREFIX.)
+                 */
+                wrapper = strstr(gvname + prefix_len, "_wrapper");
+                if (wrapper != NULL) {
+                    num = WASM_ORC_JIT_COMPILE_THREAD_NUM;
+                }
+                else {
+                    num = 1;
+                    wrapper = strchr(gvname + prefix_len, 0);
+                }
                 bh_assert(wrapper - (gvname + prefix_len) > 0);
                 /* Get AOT function index */
                 bh_memcpy_s(buf, (uint32)sizeof(buf), gvname + prefix_len,
@@ -173,10 +189,18 @@ PartitionFunction(GlobalValueSet Requested)
                 group_stride = WASM_ORC_JIT_BACKEND_THREAD_NUM;
 
                 /* Compile some functions each time */
-                for (j = 0; j < WASM_ORC_JIT_COMPILE_THREAD_NUM; j++) {
+                for (j = 0; j < num; j++) {
+                    Function *F1;
                     snprintf(func_name, sizeof(func_name), "%s%d",
                              AOT_FUNC_PREFIX, i + j * group_stride);
-                    Function *F1 = M->getFunction(func_name);
+                    F1 = M->getFunction(func_name);
+                    if (F1) {
+                        LOG_DEBUG("compile func %s", func_name);
+                        GVsToAdd.push_back(cast<GlobalValue>(F1));
+                    }
+                    snprintf(func_name, sizeof(func_name), "%s%d",
+                             AOT_FUNC_INTERNAL_PREFIX, i + j * group_stride);
+                    F1 = M->getFunction(func_name);
                     if (F1) {
                         LOG_DEBUG("compile func %s", func_name);
                         GVsToAdd.push_back(cast<GlobalValue>(F1));

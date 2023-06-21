@@ -6,6 +6,7 @@
 #include <llvm-c/TargetMachine.h>
 #include <llvm/ADT/None.h>
 #include <llvm/ADT/Optional.h>
+#include <llvm/IR/Instructions.h>
 #if LLVM_VERSION_MAJOR >= 14
 #include <llvm/MC/TargetRegistry.h>
 #else
@@ -112,3 +113,20 @@ LLVMCreateTargetMachineWithOpts(LLVMTargetRef ctarget, const char *triple,
                                                      opts, rm, cm, ol, jit);
     return reinterpret_cast<LLVMTargetMachineRef>(targetmachine);
 }
+
+/* https://reviews.llvm.org/D153107 */
+#if LLVM_VERSION_MAJOR < 17
+using namespace llvm;
+
+LLVMTailCallKind
+LLVMGetTailCallKind(LLVMValueRef Call)
+{
+    return (LLVMTailCallKind)unwrap<CallInst>(Call)->getTailCallKind();
+}
+
+void
+LLVMSetTailCallKind(LLVMValueRef Call, LLVMTailCallKind kind)
+{
+    unwrap<CallInst>(Call)->setTailCallKind((CallInst::TailCallKind)kind);
+}
+#endif
