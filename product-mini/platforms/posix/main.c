@@ -100,6 +100,7 @@ print_help()
 #endif
 #if WASM_ENABLE_STATIC_PGO != 0
     printf("  --gen-prof-file=<path>   Generate LLVM PGO (Profile-Guided Optimization) profile file\n");
+#endif
 #if WASM_ENABLE_DYNAMIC_PGO != 0
     printf("  --hot-func-threshold=n   Set a threshold for when a function becomes hot enough.\n");
     printf("                             By default, it is %d\n", WASM_DPGO_TIER_UP_THRESH_DEFAULT);
@@ -506,6 +507,7 @@ main(int argc, char *argv[])
 #endif
 #if WASM_ENABLE_STATIC_PGO != 0
     const char *gen_prof_file = NULL;
+#endif
 #if WASM_ENABLE_DYNAMIC_PGO != 0
     int threshold_val = WASM_DPGO_TIER_UP_THRESH_DEFAULT;
 #endif
@@ -718,6 +720,7 @@ main(int argc, char *argv[])
             if (argv[0][16] == '\0')
                 return print_help();
             gen_prof_file = argv[0] + 16;
+#endif
 #if WASM_ENABLE_DYNAMIC_PGO != 0
         else if (!strncmp(argv[0], "--hot-func-threshold",
                           strlen("--hot-func-threshold"))) {

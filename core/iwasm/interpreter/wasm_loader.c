@@ -7580,11 +7580,19 @@ re_scan:
 #if WASM_ENABLE_FAST_INTERP != 0
                 PRESERVE_LOCAL_FOR_BLOCK();
 #endif
+
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+                if (!create_and_append_WasmProfCntInfo(
+                        func_prof_cnts_info,
+                        module->import_function_count + cur_func_idx,
+                        p - func->code, opcode, 2, ent_and_br_cnts_cap,
+                        error_buf, error_buf_size))
+                    goto fail;
+
+                ent_and_br_cnts_cap += 2;
+#endif
+
                 POP_I32();
-                /*FIXME: enable it later */
-                // #if WASM_ENABLE_DYNAMIC_PGO != 0
-                //                 ent_and_br_cnts_cap += 2;
-                // #endif
                 goto handle_op_block_and_loop;
             case WASM_OP_BLOCK:
             case WASM_OP_LOOP:
