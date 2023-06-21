@@ -414,20 +414,25 @@ void
 wasm_dpgo_set_branch_weights(LLVMContextRef context, LLVMValueRef instruction,
                              uint32 *counts, uint32 counts_size)
 {
+    bh_assert(LLVMGetValueKind(instruction) == LLVMInstructionValueKind);
     MDBuilder MDB(*reinterpret_cast<LLVMContext *>(context));
-    SmallVector<unsigned, 4> Weights;
-
-    for (unsigned i = 0; i < counts_size; i++) {
-        Weights.push_back(counts[i]);
-    }
+    Instruction *I = unwrap<Instruction>(instruction);
 
     // FIXME: add more counters when meeting switch
     LOG_DEBUG("%s --> branch_weights {%u, %u}",
               LLVMPrintValueToString(instruction), counts[0], counts[1]);
 
-    bh_assert(LLVMGetValueKind(instruction) == LLVMInstructionValueKind);
-    Instruction *I = unwrap<Instruction>(instruction);
-    I->setMetadata(LLVMContext::MD_prof, MDB.createBranchWeights(Weights));
+    if (counts_size == 2) {
+        I->setMetadata(LLVMContext::MD_prof,
+                       MDB.createBranchWeights(counts[0], counts[1]));
+    }
+    else {
+        SmallVector<unsigned, 4> Weights;
+        for (unsigned i = 0; i < counts_size; i++) {
+            Weights.push_back(counts[i]);
+        }
+        I->setMetadata(LLVMContext::MD_prof, MDB.createBranchWeights(Weights));
+    }
 }
 
 void
