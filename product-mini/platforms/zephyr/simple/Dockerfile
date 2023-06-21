@@ -2,22 +2,15 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 FROM ubuntu:20.04
 
-ARG UNAME=wamr
-ARG DOCKER_UID=1000
-ARG DOCKER_GID=1000
 ARG DEBIAN_FRONTEND=noninteractive
 ENV TZ=Asian/Shanghai
-
-RUN groupadd -g ${DOCKER_GID} ${UNAME} \
-    && useradd -m -l -u ${DOCKER_UID} -g ${DOCKER_GID} -s /bin/bash ${UNAME} 
-ENV PATH="/home/wamr/.local/bin:$PATH"
 
 # Install dependencies for Zephyr and ESPRESSIF
 # hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y git wget flex bison gperf python3 python3-pip python3-venv\
     python3-dev python3-setuptools python3-tk python3-wheel xz-utils file libpython3.8-dev \
     ninja-build ccache libffi-dev libssl-dev dfu-util libusb-1.0-0 device-tree-compiler \
-    make gcc gcc-multilib g++-multilib libsdl2-dev libmagic1 --no-install-recommends \
+    make gcc gcc-multilib g++-multilib libsdl2-dev libmagic1 qemu udev --no-install-recommends \
     && apt-get clean -y && rm -rf /var/lib/apt/lists/*
 
 # Install recent CMake version
@@ -38,13 +31,11 @@ WORKDIR /opt/zephyr-sdk-0.16.1
 # hadolint ignore=DL4006
 RUN yes | ./setup.sh
 
-USER ${UNAME}
-
 # Get ESP-IDF
 RUN mkdir -p ~/esp
-WORKDIR /home/wamr/esp
+WORKDIR /root/esp
 RUN git clone https://github.com/espressif/esp-idf.git 
-WORKDIR /home/wamr/esp/esp-idf
+WORKDIR /root/esp/esp-idf
 RUN git checkout 03d4fa28694ee15ccfd5a97447575de2d1655026 \
     && git submodule update --init --recursive
 # Set up the sep-idf tools
@@ -52,22 +43,18 @@ RUN ./install.sh esp32 esp32c3
 
 # Get Zephyr 
 # hadolint ignore=DL3013
-RUN pip3 install --no-cache-dir --user -U west && west init -m https://github.com/zephyrproject-rtos/zephyr --mr v2.5.0 /home/wamr/zephyrproject
+RUN pip3 install --no-cache-dir west && west init -m https://github.com/zephyrproject-rtos/zephyr --mr v3.4.0 /root/zephyrproject
 
-WORKDIR /home/wamr/zephyrproject
+WORKDIR /root/zephyrproject
 RUN west update 
 
-WORKDIR /home/wamr/zephyrproject/zephyr
+WORKDIR /root/zephyrproject/zephyr
 RUN west zephyr-export && pip install --no-cache-dir -r ~/zephyrproject/zephyr/scripts/requirements.txt
 
 # Git clone wamr
-WORKDIR /home/wamr
+WORKDIR /root
 RUN git clone https://github.com/bytecodealliance/wasm-micro-runtime.git
 
-WORKDIR /home/wamr/wasm-micro-runtime/product-mini/platforms/zephyr/simple
+WORKDIR /root/wasm-micro-runtime/product-mini/platforms/zephyr/simple
 
-# TODO: . /home/wamr/esp/esp-idf/export.sh
-ENV ZEPHYR_BASE="/home/wamr/zephyrproject/zephyr"
-ENV ZEPHYR_TOOLCHAIN_VARIANT="espressif"
-ENV ESPRESSIF_TOOLCHAIN_PATH="/home/wamr/.espressif/tools/xtensa-esp32-elf/esp-12.2.0_20230208/xtensa-esp32-elf/"
-ENV ESP_IDF_PATH="/home/wamr/esp/esp-idf"
+ENV ZEPHYR_BASE="/root/zephyrproject/zephyr"
