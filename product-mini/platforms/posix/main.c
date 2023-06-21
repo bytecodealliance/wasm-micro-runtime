@@ -65,6 +65,9 @@ print_help()
 #endif
     printf("  --repl                   Start a very simple REPL (read-eval-print-loop) mode\n"
            "                           that runs commands in the form of \"FUNC ARG...\"\n");
+#if WASM_CONFIGUABLE_BOUNDS_CHECKS != 0
+    printf("  --disable-bounds-checks  Disable bounds checks for memory accesses\n");
+#endif
 #if WASM_ENABLE_LIBC_WASI != 0
     printf("  --env=<env>              Pass wasi environment variables with \"key=value\"\n");
     printf("                           to the program, for example:\n");
@@ -481,6 +484,9 @@ main(int argc, char *argv[])
 #endif
     bool is_repl_mode = false;
     bool is_xip_file = false;
+#if WASM_CONFIGUABLE_BOUNDS_CHECKS != 0
+    bool disable_bounds_checks = false;
+#endif
 #if WASM_ENABLE_LIBC_WASI != 0
     const char *dir_list[8] = { NULL };
     uint32 dir_list_size = 0;
@@ -545,6 +551,11 @@ main(int argc, char *argv[])
         else if (!strcmp(argv[0], "--repl")) {
             is_repl_mode = true;
         }
+#if WASM_CONFIGUABLE_BOUNDS_CHECKS != 0
+        else if (!strcmp(argv[0], "--disable-bounds-checks")) {
+            disable_bounds_checks = true;
+        }
+#endif
         else if (!strncmp(argv[0], "--stack-size=", 13)) {
             if (argv[0][13] == '\0')
                 return print_help();
@@ -831,6 +842,12 @@ main(int argc, char *argv[])
         printf("%s\n", error_buf);
         goto fail3;
     }
+
+#if WASM_CONFIGUABLE_BOUNDS_CHECKS != 0
+    if (disable_bounds_checks) {
+        wasm_runtime_set_bounds_checks(wasm_module_inst, false);
+    }
+#endif
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
     if (ip_addr != NULL) {

@@ -456,4 +456,9 @@
 #define WASM_DISABLE_WRITE_GS_BASE 0
 #endif
 
+/* Configurable bounds checks */
+#ifndef WASM_CONFIGURABLE_BOUNDS_CHECKS
+#define WASM_CONFIGURABLE_BOUNDS_CHECKS 0
+#endif
+
 #endif /* end of _CONFIG_H_ */
