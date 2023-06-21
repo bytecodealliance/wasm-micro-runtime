@@ -555,6 +555,12 @@ gen_increase_cnt_insn(JitFrame *frame)
 }
 
 void
+gen_dummy_increase_cnt_insn(JitFrame *frame)
+{
+    frame->cc->ent_and_br_cnts_idx++;
+}
+
+void
 gen_increase_cnt_w_val_insn(JitFrame *frame, JitReg val_reg)
 {
     JitCompContext *cc = frame->cc;

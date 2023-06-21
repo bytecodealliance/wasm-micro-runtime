@@ -806,6 +806,10 @@ jit_compile_op_block(JitCompContext *cc, uint8 **p_frame_ip,
             goto fail;
     }
     else if (label_type == LABEL_TYPE_IF) {
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+        gen_increase_cnt_insn(cc->jit_frame);
+#endif
+
         POP_I32(value);
 
         if (!jit_reg_is_const_val(value)) {
@@ -820,6 +824,10 @@ jit_compile_op_block(JitCompContext *cc, uint8 **p_frame_ip,
                     cc, block, block->basic_block_entry, value,
                     merge_cmp_and_if))
                 goto fail;
+
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+            gen_increase_cnt_insn(cc->jit_frame);
+#endif
         }
         else {
             if (jit_cc_get_const_I32(cc, value) != 0) {
@@ -829,8 +837,16 @@ jit_compile_op_block(JitCompContext *cc, uint8 **p_frame_ip,
                 if (!push_jit_block_to_stack_and_pass_params(
                         cc, block, cc->cur_basic_block, 0, false))
                     goto fail;
+
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+                gen_increase_cnt_insn(cc->jit_frame);
+#endif
             }
             else {
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+                /* Clarify me */
+                gen_dummy_increase_cnt_insn(cc->jit_frame);
+#endif
                 if (else_addr) {
                     /* Compare value is not 0, condition is false, if branch of
                        BASIC_BLOCK if cannot be reached, we treat it same as
