@@ -2761,6 +2761,16 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
             aot_handle_llvm_errmsg("failed to addIRModule", err);
             return false;
         }
+
+        if (comp_ctx->stack_sizes != NULL) {
+            LLVMOrcJITTargetAddress addr;
+            if ((err = LLVMOrcLLLazyJITLookup(comp_ctx->orc_jit, &addr,
+                                              aot_stack_sizes_name))) {
+                aot_handle_llvm_errmsg("failed to look up stack_sizes", err);
+                return false;
+            }
+            comp_ctx->jit_stack_sizes = (uint32 *)addr;
+        }
     }
 
     return true;
@@ -2815,6 +2825,55 @@ aot_emit_llvm_file(AOTCompContext *comp_ctx, const char *file_name)
     return true;
 }
 
+static bool
+aot_move_file(const char *dest, const char *src)
+{
+    FILE *dfp = fopen(dest, "w");
+    FILE *sfp = fopen(src, "r");
+    size_t rsz;
+    char buf[128];
+    bool success = false;
+
+    if (dfp == NULL || sfp == NULL) {
+        LOG_DEBUG("open error %s %s", dest, src);
+        goto fail;
+    }
+    do {
+        rsz = fread(buf, 1, sizeof(buf), sfp);
+        if (rsz > 0) {
+            size_t wsz = fwrite(buf, 1, rsz, dfp);
+            if (wsz < rsz) {
+                LOG_DEBUG("write error");
+                goto fail;
+            }
+        }
+        if (rsz < sizeof(buf)) {
+            if (ferror(sfp)) {
+                LOG_DEBUG("read error");
+                goto fail;
+            }
+        }
+    } while (rsz > 0);
+    success = true;
+fail:
+    if (dfp != NULL) {
+        if (fclose(dfp)) {
+            LOG_DEBUG("close error");
+            success = false;
+        }
+        if (!success) {
+            (void)unlink(dest);
+        }
+    }
+    if (sfp != NULL) {
+        (void)fclose(sfp);
+    }
+    if (success) {
+        (void)unlink(src);
+    }
+    return success;
+}
+
 bool
 aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name)
 {
@@ -2830,7 +2889,25 @@ aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name)
         int ret;
 
         if (comp_ctx->external_llc_compiler) {
+            const char *stack_usage_flag = "";
             char bc_file_name[64];
+            char su_file_name[65]; /* See the comment below */
+
+            if (comp_ctx->stack_usage_file != NULL) {
+                /*
+                 * Note: we know the caller uses 64 byte buffer for
+                 * file_name. It will get 1 byte longer because we
+                 * replace ".o" with ".su".
+                 */
+                size_t len = strlen(file_name);
+                bh_assert(len + 1 <= sizeof(su_file_name));
+                bh_assert(len > 3);
+                bh_assert(file_name[len - 2] == '.');
+                bh_assert(file_name[len - 1] == 'o');
+                snprintf(su_file_name, sizeof(su_file_name), "%.*s.su",
+                         (int)(len - 2), file_name);
+                stack_usage_flag = " -fstack-usage";
+            }
 
             if (!aot_generate_tempfile_name("wamrc-bc", "bc", bc_file_name,
                                             sizeof(bc_file_name))) {
@@ -2842,8 +2919,8 @@ aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name)
                 return false;
             }
 
-            snprintf(cmd, sizeof(cmd), "%s %s -o %s %s",
-                     comp_ctx->external_llc_compiler,
+            snprintf(cmd, sizeof(cmd), "%s%s %s -o %s %s",
+                     comp_ctx->external_llc_compiler, stack_usage_flag,
                      comp_ctx->llc_compiler_flags ? comp_ctx->llc_compiler_flags
                                                   : "-O3 -c",
                      file_name, bc_file_name);
@@ -2857,6 +2934,22 @@ aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name)
                 aot_set_last_error("failed to compile LLVM bitcode to obj file "
                                    "with external LLC compiler.");
                 return false;
+            }
+            if (comp_ctx->stack_usage_file != NULL) {
+                /*
+                 * move the temporary .su file to the specified location.
+                 *
+                 * Note: the former is automatimally inferred from the output
+                 * filename (file_name here) by clang.
+                 *
+                 * Note: the latter might be user-specified.
+                 * (wamrc --stack-usage=<file>)
+                 */
+                if (!aot_move_file(comp_ctx->stack_usage_file, su_file_name)) {
+                    aot_set_last_error("failed to move su file.");
+                    (void)unlink(su_file_name);
+                    return false;
+                }
             }
         }
         else if (comp_ctx->external_asm_compiler) {

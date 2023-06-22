@@ -29,6 +29,7 @@ aot_compile_op_ref_is_null(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
 bool
 aot_compile_op_ref_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                         uint32 func_idx);
+
 #ifdef __cplusplus
 } /* end of extern "C" */
 #endif

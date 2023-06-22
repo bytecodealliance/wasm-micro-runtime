@@ -19,6 +19,15 @@ extern "C" {
 #define AOT_FUNC_PREFIX "aot_func#"
 #endif
 
+#ifndef AOT_FUNC_INTERNAL_PREFIX
+#define AOT_FUNC_INTERNAL_PREFIX "aot_func_internal#"
+#endif
+
+#ifndef AOT_STACK_SIZES_NAME
+#define AOT_STACK_SIZES_NAME "aot_stack_sizes"
+#endif
+extern const char *aot_stack_sizes_name;
+
 typedef InitializerExpression AOTInitExpr;
 typedef WASMType AOTFuncType;
 typedef WASMExport AOTExport;

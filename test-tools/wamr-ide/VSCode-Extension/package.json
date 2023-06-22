@@ -8,8 +8,10 @@
     "description": "An Integrated Development Environment for WASM",
     "version": "1.2.2",
     "engines": {
-        "vscode": "^1.59.0"
+        "vscode": "^1.59.0",
+        "node": ">=16.0.0"
     },
+    "engineStrict": true,
     "categories": [
         "Other"
     ],
@@ -235,6 +237,7 @@
         "prettier-format-apply": "prettier --config .prettierrc.json 'src/**/*.ts' --write"
     },
     "devDependencies": {
+        "@types/chai": "^4.3.5",
         "@types/glob": "^7.1.3",
         "@types/mocha": "^8.2.2",
         "@types/node": "14.x",
@@ -243,12 +246,14 @@
         "@types/yauzl": "^2.10.0",
         "@typescript-eslint/eslint-plugin": "^4.26.0",
         "@typescript-eslint/parser": "^4.26.0",
+        "@vscode/debugprotocol": "^1.61.0",
+        "@vscode/test-electron": "^2.3.3",
+        "chai": "^4.3.7",
         "eslint": "^7.32.0",
         "glob": "^7.1.7",
-        "mocha": "^8.4.0",
+        "mocha": "^10.2.0",
         "prettier": "2.5.1",
-        "typescript": "^4.3.2",
-        "vscode-test": "^1.5.2"
+        "typescript": "^4.3.2"
     },
     "dependencies": {
         "@vscode/webview-ui-toolkit": "^0.8.4",

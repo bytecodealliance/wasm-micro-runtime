@@ -153,6 +153,7 @@ typedef struct AOTMemInfo {
 typedef struct AOTFuncContext {
     AOTFunc *aot_func;
     LLVMValueRef func;
+    LLVMValueRef precheck_func;
     LLVMTypeRef func_type;
     LLVMModuleRef module;
     AOTBlockStack block_stack;
@@ -165,7 +166,6 @@ typedef struct AOTFuncContext {
     LLVMValueRef aux_stack_bound;
     LLVMValueRef aux_stack_bottom;
     LLVMValueRef native_symbol;
-    LLVMValueRef last_alloca;
     LLVMValueRef func_ptrs;
 
     AOTMemInfo *mem_info;
@@ -182,6 +182,9 @@ typedef struct AOTFuncContext {
 #if WASM_ENABLE_DEBUG_AOT != 0
     LLVMMetadataRef debug_func;
 #endif
+
+    unsigned int stack_consumption_for_func_call;
+
     LLVMValueRef locals[1];
 } AOTFuncContext;
 
@@ -378,6 +381,11 @@ typedef struct AOTCompContext {
     /* LLVM floating-point exception behavior metadata */
     LLVMValueRef fp_exception_behavior;
 
+    /* a global array to store stack sizes */
+    LLVMTypeRef stack_sizes_type;
+    LLVMValueRef stack_sizes;
+    uint32 *jit_stack_sizes; /* for JIT */
+
     /* LLVM data types */
     AOTLLVMTypes basic_types;
     LLVMTypeRef exec_env_type;
@@ -406,6 +414,9 @@ typedef struct AOTCompContext {
      * file for some architecture (such as arc) */
     const char *external_asm_compiler;
     const char *asm_compiler_flags;
+
+    const char *stack_usage_file;
+    char stack_usage_temp_file[64];
 } AOTCompContext;
 
 enum {
@@ -509,8 +520,8 @@ void
 aot_checked_addr_list_destroy(AOTFuncContext *func_ctx);
 
 bool
-aot_build_zero_function_ret(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                            AOTFuncType *func_type);
+aot_build_zero_function_ret(const AOTCompContext *comp_ctx,
+                            AOTFuncContext *func_ctx, AOTFuncType *func_type);
 
 LLVMValueRef
 aot_call_llvm_intrinsic(const AOTCompContext *comp_ctx,
@@ -553,6 +564,13 @@ aot_compress_aot_func_names(AOTCompContext *comp_ctx, uint32 *p_size);
 bool
 aot_set_cond_br_weights(AOTCompContext *comp_ctx, LLVMValueRef cond_br,
                         int32 weights_true, int32 weights_false);
+
+bool
+aot_target_precheck_can_use_musttail(const AOTCompContext *comp_ctx);
+
+unsigned int
+aot_estimate_stack_usage_for_function_call(const AOTCompContext *comp_ctx,
+                                           const AOTFuncType *callee_func_type);
 
 #ifdef __cplusplus
 } /* end of extern "C" */
