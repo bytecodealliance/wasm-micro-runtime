@@ -461,6 +461,61 @@ check_machine_info(AOTTargetInfo *target_info, char *error_buf,
 }
 
 static bool
+check_feature_flags(char *error_buf, uint32 error_buf_size,
+                    uint64 feature_flags)
+{
+#if WASM_ENABLE_SIMD == 0
+    if (feature_flags & WASM_FEATURE_SIMD_128BIT) {
+        set_error_buf(error_buf, error_buf_size,
+                      "SIMD is not enabled in this build");
+        return false;
+    }
+#endif
+
+#if WASM_ENABLE_BULK_MEMORY == 0
+    if (feature_flags & WASM_FEATURE_BULK_MEMORY) {
+        set_error_buf(error_buf, error_buf_size,
+                      "bulk memory is not enabled in this build");
+        return false;
+    }
+#endif
+
+#if WASM_ENABLE_THREAD_MGR == 0
+    if (feature_flags & WASM_FEATURE_THREADS) {
+        set_error_buf(error_buf, error_buf_size,
+                      "thread is not enabled in this build");
+        return false;
+    }
+#endif
+
+#if WASM_ENABLE_REF_TYPES == 0
+    if (feature_flags & WASM_FEATURE_REF_TYPES) {
+        set_error_buf(error_buf, error_buf_size,
+                      "reference types is not enabled in this build");
+        return false;
+    }
+#endif
+
+#if WASM_ENABLE_TAIL_CALL == 0
+    if (feature_flags & WASM_FEATURE_TAIL_CALL) {
+        set_error_buf(error_buf, error_buf_size,
+                      "tail call is not enabled in this build");
+        return false;
+    }
+#endif
+
+#if WASM_ENABLE_GC == 0
+    if (feature_flags & WASM_FEATURE_GARBAGE_COLLECTION) {
+        set_error_buf(error_buf, error_buf_size,
+                      "garbage collection is not enabled in this build");
+        return false;
+    }
+#endif
+
+    return true;
+}
+
+static bool
 load_target_info_section(const uint8 *buf, const uint8 *buf_end,
                          AOTModule *module, char *error_buf,
                          uint32 error_buf_size)
@@ -475,7 +530,8 @@ load_target_info_section(const uint8 *buf, const uint8 *buf_end,
     read_uint16(p, p_end, target_info.e_machine);
     read_uint32(p, p_end, target_info.e_version);
     read_uint32(p, p_end, target_info.e_flags);
-    read_uint32(p, p_end, target_info.reserved);
+    read_uint64(p, p_end, target_info.feature_flags);
+    read_uint64(p, p_end, target_info.reserved);
     read_byte_array(p, p_end, target_info.arch, sizeof(target_info.arch));
 
     if (p != buf_end) {
@@ -522,7 +578,9 @@ load_target_info_section(const uint8 *buf, const uint8 *buf_end,
         return false;
     }
 
-    return true;
+    /* Finally, check feature flags */
+    return check_feature_flags(error_buf, error_buf_size,
+                               target_info.feature_flags);
 fail:
     return false;
 }
