@@ -57,13 +57,15 @@ static HashMap *hashmap;
 
 /* Get wasi-nn context from module instance */
 
-uint32 hash_func(const void *key) {
+uint32
+hash_func(const void *key)
+{
     // fnv1a_hash
     const uint32 FNV_PRIME = 16777619;
     const uint32 FNV_OFFSET_BASIS = 2166136261U;
 
     uint32 hash = FNV_OFFSET_BASIS;
-    const unsigned char* bytes = (const unsigned char*)key;
+    const unsigned char *bytes = (const unsigned char *)key;
 
     for (size_t i = 0; i < sizeof(uintptr_t); ++i) {
         hash ^= bytes[i];
@@ -73,17 +75,23 @@ uint32 hash_func(const void *key) {
     return hash;
 }
 
-bool key_equal_func(void *key1, void *key2) {
+bool
+key_equal_func(void *key1, void *key2)
+{
     return key1 == key2;
 }
 
-void key_destroy_func(void *key1) {}
+void
+key_destroy_func(void *key1)
+{}
 
-void value_destroy_func(void *value) {
-    wasi_nn_ctx_destroy((WASINNContext*)value);
+void
+value_destroy_func(void *value)
+{
+    wasi_nn_ctx_destroy((WASINNContext *)value);
 }
 
-WASINNContext*
+WASINNContext *
 wasi_nn_initialize_context()
 {
     NN_DBG_PRINTF("Initializing wasi-nn context");
@@ -102,7 +110,9 @@ bool
 wasi_nn_initialize()
 {
     NN_DBG_PRINTF("Initializing wasi-nn");
-    hashmap = bh_hash_map_create(HASHMAP_INITIAL_SIZE, true, hash_func, key_equal_func, key_destroy_func, value_destroy_func);
+    hashmap = bh_hash_map_create(HASHMAP_INITIAL_SIZE, true, hash_func,
+                                 key_equal_func, key_destroy_func,
+                                 value_destroy_func);
     if (hashmap == NULL) {
         NN_ERR_PRINTF("Error when allocating memory for WASI-NN context");
         return false;
@@ -113,14 +123,16 @@ wasi_nn_initialize()
 WASINNContext *
 wasm_runtime_get_wasi_nn_ctx(wasm_module_inst_t instance)
 {
-    WASINNContext *wasi_nn_ctx = (WASINNContext*) bh_hash_map_find(hashmap, (void*)instance);
+    WASINNContext *wasi_nn_ctx =
+        (WASINNContext *)bh_hash_map_find(hashmap, (void *)instance);
     if (wasi_nn_ctx == NULL) {
-        wasi_nn_ctx  = wasi_nn_initialize_context();
+        wasi_nn_ctx = wasi_nn_initialize_context();
         if (wasi_nn_ctx == NULL) {
             NN_ERR_PRINTF("Error when allocating memory for WASI-NN context");
             return NULL;
         }
-        bool ok = bh_hash_map_insert(hashmap, (void*)instance, (void*)wasi_nn_ctx);
+        bool ok =
+            bh_hash_map_insert(hashmap, (void *)instance, (void *)wasi_nn_ctx);
         if (!ok) {
             NN_ERR_PRINTF("Error when allocating memory for WASI-NN context");
             return NULL;
