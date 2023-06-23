@@ -50,6 +50,7 @@ else()
         include_directories("${uvwasi_SOURCE_DIR}/include")
         add_subdirectory(${uvwasi_SOURCE_DIR} ${uvwasi_BINARY_DIR} EXCLUDE_FROM_ALL)
         set (UVWASI_LIBRARIES uvwasi_a)
+        set_target_properties(uvwasi_a PROPERTIES POSITION_INDEPENDENT_CODE 1)
     endif()
 endif()
 
