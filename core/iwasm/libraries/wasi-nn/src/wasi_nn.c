@@ -114,7 +114,7 @@ wasi_nn_initialize()
                                  key_equal_func, key_destroy_func,
                                  value_destroy_func);
     if (hashmap == NULL) {
-        NN_ERR_PRINTF("Error when allocating memory for WASI-NN context");
+        NN_ERR_PRINTF("Error while initializing hashmap");
         return false;
     }
     return true;
@@ -127,14 +127,12 @@ wasm_runtime_get_wasi_nn_ctx(wasm_module_inst_t instance)
         (WASINNContext *)bh_hash_map_find(hashmap, (void *)instance);
     if (wasi_nn_ctx == NULL) {
         wasi_nn_ctx = wasi_nn_initialize_context();
-        if (wasi_nn_ctx == NULL) {
-            NN_ERR_PRINTF("Error when allocating memory for WASI-NN context");
+        if (wasi_nn_ctx == NULL)
             return NULL;
-        }
         bool ok =
             bh_hash_map_insert(hashmap, (void *)instance, (void *)wasi_nn_ctx);
         if (!ok) {
-            NN_ERR_PRINTF("Error when allocating memory for WASI-NN context");
+            NN_ERR_PRINTF("Error while storing context");
             return NULL;
         }
     }
