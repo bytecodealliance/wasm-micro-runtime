@@ -7,9 +7,8 @@
 #include "wasi_nn_tensorflowlite.hpp"
 #include "logger.h"
 
-#include "bh_common.h"
 #include "bh_platform.h"
-#include "platform_common.h"
+#include "wasm_export.h"
 
 #include <tensorflow/lite/interpreter.h>
 #include <tensorflow/lite/kernels/register.h>

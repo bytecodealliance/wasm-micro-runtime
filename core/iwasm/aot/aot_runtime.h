@@ -89,9 +89,6 @@ typedef struct AOTFunctionInstance {
 
 typedef struct AOTModuleInstanceExtra {
     CApiFuncImport *c_api_func_imports;
-#if WASM_ENABLE_WASI_NN != 0
-    WASINNContext *wasi_nn_ctx;
-#endif
 } AOTModuleInstanceExtra;
 
 #if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
