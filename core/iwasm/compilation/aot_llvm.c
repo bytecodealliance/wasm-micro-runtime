@@ -242,11 +242,11 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
                           LLVMTypeRef func_type, LLVMValueRef wrapped_func)
 {
     LLVMValueRef precheck_func;
-    LLVMBasicBlockRef begin;
-    LLVMBasicBlockRef check_top_block;
-    LLVMBasicBlockRef update_top_block;
-    LLVMBasicBlockRef stack_bound_check_block;
-    LLVMBasicBlockRef call_wrapped_func_block;
+    LLVMBasicBlockRef begin = NULL;
+    LLVMBasicBlockRef check_top_block = NULL;
+    LLVMBasicBlockRef update_top_block = NULL;
+    LLVMBasicBlockRef stack_bound_check_block = NULL;
+    LLVMBasicBlockRef call_wrapped_func_block = NULL;
     LLVMValueRef *params = NULL;
 
     precheck_func =
@@ -385,6 +385,8 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
             goto fail;
         }
 
+        bh_assert(update_top_block);
+
         /*
          * update native_stack_top_min if
          * new_sp = sp - size < native_stack_top_min
@@ -412,7 +414,7 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
          */
         LLVMPositionBuilderAtEnd(b, update_top_block);
         LLVMValueRef new_sp_ptr =
-            LLVMBuildIntToPtr(b, new_sp, OPQ_PTR_TYPE, "new_sp_ptr");
+            LLVMBuildIntToPtr(b, new_sp, INT8_PTR_TYPE, "new_sp_ptr");
         if (!new_sp_ptr) {
             goto fail;
         }
@@ -1416,8 +1418,13 @@ aot_create_stack_sizes(const AOTCompData *comp_data, AOTCompContext *comp_ctx)
     /*
      * create an alias so that aot_resolve_stack_sizes can find it.
      */
+#if LLVM_VERSION_MAJOR > 13
     LLVMValueRef alias = LLVMAddAlias2(comp_ctx->module, stack_sizes_type, 0,
                                        stack_sizes, aot_stack_sizes_name);
+#else
+    LLVMValueRef alias = LLVMAddAlias(comp_ctx->module, stack_sizes_type,
+                                      stack_sizes, aot_stack_sizes_name);
+#endif
     if (!alias) {
         aot_set_last_error("failed to create stack_sizes alias.");
         return false;
