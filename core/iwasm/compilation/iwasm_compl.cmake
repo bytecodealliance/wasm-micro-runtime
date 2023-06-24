@@ -14,6 +14,13 @@ else()
                     ${IWASM_COMPL_DIR}/*.cpp)
 endif()
 
+if (WAMR_BUILD_DYNAMIC_PGO EQUAL 1)
+  list(APPEND source_all
+    ${IWASM_COMPL_DIR}/dpgo/dpgo_impl.c
+    ${IWASM_COMPL_DIR}/dpgo/dpgo_llvm_extra.cpp
+  )
+endif()
+
 set (IWASM_COMPL_SOURCE ${source_all})
 
 # Disalbe rtti to works with LLVM

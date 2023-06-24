@@ -14,6 +14,10 @@
 #include "debug/dwarf_extractor.h"
 #endif
 
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+#include "dpgo/dpgo_internal.h"
+#endif
+
 LLVMTypeRef
 wasm_type_to_llvm_type(AOTLLVMTypes *llvm_types, uint8 wasm_type)
 {
@@ -49,13 +53,16 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
     LLVMValueRef func = NULL;
     LLVMTypeRef *param_types, ret_type, func_type;
     LLVMValueRef local_value;
-    LLVMTypeRef func_type_wrapper;
-    LLVMValueRef func_wrapper;
-    LLVMBasicBlockRef func_begin;
     char func_name[48];
     uint64 size;
     uint32 i, j = 0, param_count = (uint64)aot_func_type->param_count;
+
+#if WASM_ENABLE_DYNAMIC_PGO == 0
     uint32 backend_thread_num, compile_thread_num;
+    LLVMTypeRef func_type_wrapper;
+    LLVMValueRef func_wrapper;
+    LLVMBasicBlockRef func_begin;
+#endif
 
     /* exec env as first parameter */
     param_count++;
@@ -121,10 +128,10 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
     if (p_func_type)
         *p_func_type = func_type;
 
+#if WASM_ENABLE_DYNAMIC_PGO == 0
     backend_thread_num = WASM_ORC_JIT_BACKEND_THREAD_NUM;
     compile_thread_num = WASM_ORC_JIT_COMPILE_THREAD_NUM;
 
-#if WASM_ENABLE_DYNAMIC_PGO == 0
     /* Add the jit wrapper function with simple prototype, so that we
        can easily call it to trigger its compilation and let LLVM JIT
        compile the actual jit functions by adding them into the function
@@ -1531,8 +1538,8 @@ apply_prof_meta_and_opt(void *Ctx, LLVMModuleRef Mod)
         }
 
         /* only hotness */
-        if (wasm_module
-                ->func_opt_w_prof[func_idx + wasm_module->import_function_count]
+        if (wasm_dpgo_get_func_hotness_state(
+                wasm_module, func_idx + wasm_module->import_function_count)
             != NEED_OPT_WITH_PROF_META)
             continue;
 
@@ -1545,9 +1552,9 @@ apply_prof_meta_and_opt(void *Ctx, LLVMModuleRef Mod)
         if (broken_function)
             return LLVMCreateStringError("invalid function + prof meta");
 
-        wasm_module
-            ->func_opt_w_prof[func_idx + wasm_module->import_function_count] =
-            OPTIMIZED;
+        wasm_dpgo_set_func_hotness_state(
+            wasm_module, func_idx + wasm_module->import_function_count,
+            OPTIMIZED);
     }
 
     if (wasm_module->orcjit_stop_compiling) {

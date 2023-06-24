@@ -519,25 +519,6 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module);
 void
 aot_handle_llvm_errmsg(const char *string, LLVMErrorRef err);
 
-#if WASM_ENABLE_DYNAMIC_PGO != 0
-bool
-verify_module_and_debug_info(LLVMModuleRef module);
-
-void
-wasm_dpgo_set_branch_weights(LLVMContextRef context, LLVMValueRef instruction,
-                             uint32 *counts, uint32 counts_size);
-
-void
-wasm_dpgo_set_prof_meta(WASMModule *wasm_module, LLVMModuleRef module,
-                        LLVMValueRef function, uint32 func_idx);
-
-void
-wasm_dpgo_unlike_true_branch(LLVMContextRef context, LLVMValueRef cond_br);
-
-void
-wasm_dpgo_unlike_false_branch(LLVMContextRef context, LLVMValueRef cond_br);
-#endif
-
 #ifdef __cplusplus
 } /* end of extern "C" */
 #endif

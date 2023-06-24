@@ -405,22 +405,12 @@ typedef struct OrcJitThreadArg {
 struct WASMModuleInstance;
 
 #if WASM_ENABLE_DYNAMIC_PGO != 0
-/* TODO: keep it in DEBUG building */
-struct WASMProfCntInfo {
-    bh_list_link l;
-    uint32 func_idx;
-    uint32 offset;
-    uint32 opcode;
-    uint32 counter_amount;
-    uint32 first_counter_idx;
-};
-#endif
-
-enum WASMDPGOFuncState {
+typedef enum WASMDPGOFuncState {
     NOTHING = 0,
     NEED_OPT_WITH_PROF_META,
     OPTIMIZED,
-};
+} WASMDPGOFuncState;
+#endif
 
 struct WASMModule {
     /* Module type, for module loaded from WASM bytecode binary,
@@ -636,7 +626,9 @@ struct WASMModule {
      * it is a 2-dim uint32 array. [function_count][]
      * every row represents all counters of a function.
      * every column represents a counter of a function.
-     * in a row, [0] is the capacity. [1] is the funtion entry counter.
+     * in a row, [0] is the capacity. [1] is the function entry counter.
+     *
+     * fast-jit accesses it directly w/ lowest performance casting
      */
     uint32 **ent_and_br_cnts;
 
@@ -646,11 +638,13 @@ struct WASMModule {
      * it is an array of bh_list.
      * Every row represents a function counters information
      * [0] is the function entry counter info
+     *
+     * llvm-jit accesses it via its debug location, offset
      */
     bh_list *prof_cnts_info;
 
     /* whether a llvm func is hotness */
-    enum WASMDPGOFuncState *func_opt_w_prof;
+    WASMDPGOFuncState *func_opt_w_prof;
 #endif
 };
 
@@ -835,101 +829,6 @@ block_type_get_result_types(BlockType *block_type, uint8 **p_result_types)
     }
     return result_count;
 }
-
-#if WASM_ENABLE_DYNAMIC_PGO != 0
-static inline uint32 *
-wasm_dpgo_get_ent_and_br_cnts(WASMModule *module, uint32 func_idx,
-                              uint32 *capacity)
-{
-    uint32 *ent_and_br_cnts = module->ent_and_br_cnts[func_idx];
-    if (capacity)
-        *capacity = ent_and_br_cnts ? ent_and_br_cnts[0] : 0;
-
-    return ent_and_br_cnts;
-}
-
-static inline uint32
-wasm_dpgo_get_ent_cnt_value(WASMModule *module, uint32 func_idx)
-{
-    uint32 *ent_and_br_cnts =
-        wasm_dpgo_get_ent_and_br_cnts(module, func_idx, NULL);
-    return ent_and_br_cnts ? ent_and_br_cnts[1] : 0;
-}
-
-static inline bh_list *
-wasm_dpgo_get_func_prof_cnts_info(WASMModule *module, uint32 func_idx)
-{
-    return module->prof_cnts_info + func_idx;
-}
-
-static inline struct WASMProfCntInfo *
-wasm_dpgo_get_cur_prof_cnt_info(WASMModule *module, uint32 func_idx,
-                                uint32 info_idx)
-{
-    bh_list *func_prof_cnts_info =
-        wasm_dpgo_get_func_prof_cnts_info(module, func_idx);
-    void *elem = bh_list_first_elem(func_prof_cnts_info);
-    while (info_idx-- > 0) {
-        elem = bh_list_elem_next(elem);
-    }
-    return (struct WASMProfCntInfo *)elem;
-}
-
-static inline void
-wasm_dpgo_prof_cnt_info_to_string(struct WASMProfCntInfo *cnt, char *buf,
-                                  uint32 buf_size)
-{
-    snprintf(buf, buf_size, "  OP:0x%x,OFFSET:%u,CNT:%u,1ST_IDX:%u",
-             cnt->opcode, cnt->offset, cnt->counter_amount,
-             cnt->first_counter_idx);
-}
-
-/* search in `prof_cnts_info[i]` with the given `offset` of `struct
- * WASMProfCntInfo` and return `counter_amount` and `first_counter_idx`
- */
-static inline bool
-wasm_dpgo_get_prof_cnt_info(WASMModule *module, uint32 func_idx, uint32 offset,
-                            uint32 *counter_amount, uint32 *first_counter_idx)
-{
-    bh_list *func_prof_cnts_info;
-    void *elem;
-
-    func_prof_cnts_info = wasm_dpgo_get_func_prof_cnts_info(module, func_idx);
-    bh_assert(func_prof_cnts_info);
-
-    elem = bh_list_first_elem(func_prof_cnts_info);
-    while (elem) {
-        struct WASMProfCntInfo *cnt_info = (struct WASMProfCntInfo *)elem;
-        if (cnt_info->offset == offset) {
-            *counter_amount = cnt_info->counter_amount;
-            *first_counter_idx = cnt_info->first_counter_idx;
-            return true;
-        }
-        elem = bh_list_elem_next(elem);
-    }
-
-    return false;
-}
-
-static inline void
-wasm_dpgo_dump_func_prof_cnts_info(WASMModule *module, uint32 func_idx)
-{
-    bh_list *func_cnts_info =
-        wasm_dpgo_get_func_prof_cnts_info(module, func_idx);
-    struct WASMProfCntInfo *cnt_info =
-        (struct WASMProfCntInfo *)bh_list_first_elem(func_cnts_info);
-
-    LOG_DEBUG("Dump Prof Cnt Info of Func.#%u, CAP.%u", func_idx,
-              func_cnts_info->len);
-    while (cnt_info) {
-        char info[128] = { 0 };
-        wasm_dpgo_prof_cnt_info_to_string(cnt_info, info, sizeof(info));
-        LOG_DEBUG("  %s", info);
-        cnt_info = (struct WASMProfCntInfo *)bh_list_elem_next(cnt_info);
-    }
-}
-
-#endif /* WASM_ENABLE_DYNAMIC_PGO != 0 */
 
 #ifdef __cplusplus
 } /* end of extern "C" */

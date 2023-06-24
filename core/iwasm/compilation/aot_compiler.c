@@ -36,6 +36,10 @@
 #include "debug/dwarf_extractor.h"
 #endif
 
+#if WASM_ENABLE_DYNAMIC_PGO != 0
+#include "dpgo/dpgo_internal.h"
+#endif
+
 #define CHECK_BUF(buf, buf_end, length)                             \
     do {                                                            \
         if (buf + length > buf_end) {                               \
@@ -200,6 +204,21 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 #endif
 
 #if WASM_ENABLE_DYNAMIC_PGO != 0
+#ifndef NDEBUG
+        {
+            if (opcode == WASM_OP_BR_IF || opcode == WASM_OP_SELECT
+                || opcode == WASM_OP_SELECT_T) {
+                WASMModule *wasm_module = comp_ctx->comp_data->wasm_module;
+                struct WASMProfCntInfo *cnt_info =
+                    wasm_dpgo_search_prof_cnt_info(
+                        wasm_module,
+                        func_index + wasm_module->import_function_count,
+                        frame_ip - func_ctx->aot_func->code);
+                bh_assert(cnt_info
+                          && "br_if or select needs profiling counters");
+            }
+        }
+#endif
         location = LLVMDIBuilderCreateDebugLocation(
             comp_ctx->context, frame_ip - func_ctx->aot_func->code, 1,
             func_ctx->debug_func, NULL);
@@ -2609,6 +2628,7 @@ fail:
     return false;
 }
 
+#if WASM_ENABLE_DYNAMIC_PGO == 0
 static bool
 verify_module(AOTCompContext *comp_ctx)
 {
@@ -2693,6 +2713,7 @@ apply_passes_for_indirect_mode(AOTCompContext *comp_ctx)
     LLVMDisposePassManager(common_pass_mgr);
     return true;
 }
+#endif
 
 bool
 aot_compile_wasm(AOTCompContext *comp_ctx)
