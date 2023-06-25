@@ -251,17 +251,7 @@ WAMR provides some features which can be easily configured by passing options to
 
 ## Zephyr
 
-You need to prepare Zephyr first as described [here](https://docs.zephyrproject.org/latest/getting_started/index.html#get-zephyr-and-install-python-dependencies).
-
-After that you need to point the `ZEPHYR_BASE` variable to e.g. `~/zephyrproject/zephyr`. Also, it is important that you have `west` available for subsequent actions.
-
-``` Bash
-cd <wamr_root_dir>/product-mini/platforms/zephyr/simple
-# Execute the ./build_and_run.sh script with board name as parameter. Here take x86 as example:
-./build_and_run.sh x86
-```
-
-The [Zephyr SDK](https://github.com/zephyrproject-rtos/sdk-ng) provides toolchains for all supported targets. Follow the instructions in the [documentation](https://docs.zephyrproject.org/latest/develop/getting_started/index.html#install-zephyr-sdk) to ensure it is installed and configured correctly.
+Please refer to this [README](./platforms/zephyr/simple/README.md) under the Zephyr sample directory for details.
 
 Note:
 WAMR provides some features which can be easily configured by passing options to cmake, please see [WAMR vmcore cmake building configurations](../doc/build_wamr.md#wamr-vmcore-cmake-building-configurations) for details. Currently in Zephyr, interpreter, AOT and builtin libc are enabled by default.
