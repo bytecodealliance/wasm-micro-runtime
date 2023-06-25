@@ -1378,25 +1378,33 @@ static bool
 aot_create_stack_sizes(const AOTCompData *comp_data, AOTCompContext *comp_ctx)
 {
     const char *stack_sizes_name = "stack_sizes";
-    LLVMTypeRef stack_sizes_type =
-        LLVMArrayType(I32_TYPE, comp_data->func_count);
+    LLVMValueRef stack_sizes, *values, array, alias;
+    LLVMTypeRef stack_sizes_type;
+#if LLVM_VERSION_MAJOR <= 13
+    LLVMTypeRef alias_type;
+#endif
+    uint64 size;
+    uint32 i;
+
+    stack_sizes_type = LLVMArrayType(I32_TYPE, comp_data->func_count);
     if (!stack_sizes_type) {
         aot_set_last_error("failed to create stack_sizes type.");
         return false;
     }
-    LLVMValueRef stack_sizes =
+
+    stack_sizes =
         LLVMAddGlobal(comp_ctx->module, stack_sizes_type, stack_sizes_name);
     if (!stack_sizes) {
         aot_set_last_error("failed to create stack_sizes global.");
         return false;
     }
-    LLVMValueRef *values;
-    uint64 size = sizeof(LLVMValueRef) * comp_data->func_count;
+
+    size = sizeof(LLVMValueRef) * comp_data->func_count;
     if (size >= UINT32_MAX || !(values = wasm_runtime_malloc((uint32)size))) {
         aot_set_last_error("allocate memory failed.");
         return false;
     }
-    uint32 i;
+
     for (i = 0; i < comp_data->func_count; i++) {
         /*
          * This value is a placeholder, which will be replaced
@@ -1407,28 +1415,35 @@ aot_create_stack_sizes(const AOTCompData *comp_data, AOTCompContext *comp_ctx)
          */
         values[i] = I32_NEG_ONE;
     }
-    LLVMValueRef array =
-        LLVMConstArray(I32_TYPE, values, comp_data->func_count);
+
+    array = LLVMConstArray(I32_TYPE, values, comp_data->func_count);
     wasm_runtime_free(values);
     if (!array) {
         aot_set_last_error("failed to create stack_sizes initializer.");
         return false;
     }
     LLVMSetInitializer(stack_sizes, array);
+
     /*
      * create an alias so that aot_resolve_stack_sizes can find it.
      */
 #if LLVM_VERSION_MAJOR > 13
-    LLVMValueRef alias = LLVMAddAlias2(comp_ctx->module, stack_sizes_type, 0,
-                                       stack_sizes, aot_stack_sizes_name);
+    alias = LLVMAddAlias2(comp_ctx->module, stack_sizes_type, 0, stack_sizes,
+                          aot_stack_sizes_name);
 #else
-    LLVMValueRef alias = LLVMAddAlias(comp_ctx->module, stack_sizes_type,
-                                      stack_sizes, aot_stack_sizes_name);
+    alias_type = LLVMPointerType(stack_sizes_type, 0);
+    if (!alias_type) {
+        aot_set_last_error("failed to create alias type.");
+        return false;
+    }
+    alias = LLVMAddAlias(comp_ctx->module, alias_type, stack_sizes,
+                         aot_stack_sizes_name);
 #endif
     if (!alias) {
         aot_set_last_error("failed to create stack_sizes alias.");
         return false;
     }
+
     /*
      * make the original symbol internal. we mainly use this version to
      * avoid creating extra relocations in the precheck functions.
