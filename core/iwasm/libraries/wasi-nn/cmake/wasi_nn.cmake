@@ -13,10 +13,10 @@ include_directories (${WASI_NN_ROOT_DIR}/src)
 include_directories (${WASI_NN_ROOT_DIR}/src/utils)
 
 set (
-  LIBC_WASI_NN_SOURCE
+  WASI_NN_SOURCES
   ${WASI_NN_ROOT_DIR}/src/wasi_nn.c
   ${WASI_NN_ROOT_DIR}/src/wasi_nn_tensorflowlite.cpp
   ${WASI_NN_ROOT_DIR}/src/utils/wasi_nn_app_native.c
 )
 
-set (TENSORFLOW_LIB tensorflow-lite)
+set (WASI_NN_LIBS tensorflow-lite)
