@@ -2333,6 +2333,7 @@ is_data_section(AOTObjectData *obj_data, LLVMSectionIteratorRef sec_itr,
             || (!strcmp(section_name, ".rdata")
                 && get_relocations_count(sec_itr, &relocation_count)
                 && relocation_count > 0)
+            || !strcmp(section_name, aot_stack_sizes_section_name)
             || (obj_data->comp_ctx->enable_llvm_pgo
                 && (!strncmp(section_name, "__llvm_prf_cnts", 15)
                     || !strncmp(section_name, "__llvm_prf_data", 15)
@@ -2604,7 +2605,7 @@ aot_resolve_stack_sizes(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
 
     while (!LLVMObjectFileIsSymbolIteratorAtEnd(obj_data->binary, sym_itr)) {
         if ((name = LLVMGetSymbolName(sym_itr))
-            && !strcmp(name, aot_stack_sizes_name)) {
+            && !strcmp(name, aot_stack_sizes_alias_name)) {
             uint64 sz = LLVMGetSymbolSize(sym_itr);
             if (sz != sizeof(uint32) * obj_data->func_count) {
                 aot_set_last_error("stack_sizes had unexpected size.");
@@ -2620,6 +2621,11 @@ aot_resolve_stack_sizes(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
             const char *sec_name = LLVMGetSectionName(sec_itr);
             LOG_VERBOSE("stack_sizes found in section %s offset %" PRIu64 ".",
                         sec_name, addr);
+            if (strcmp(sec_name, aot_stack_sizes_section_name) || addr != 0) {
+                aot_set_last_error(
+                    "stack_sizes found at an unexpected location.");
+                goto fail;
+            }
             /*
              * Note: We can't always modify stack_sizes in-place.
              * Eg. When WAMRC_LLC_COMPILER is used, LLVM sometimes uses
@@ -2928,6 +2934,15 @@ aot_resolve_object_relocation_group(AOTObjectData *obj_data,
             relocation->relocation_addend +=
                 align_uint(obj_data->text_size, 4)
                 + align_uint(obj_data->text_unlikely_size, 4);
+        }
+
+        /*
+         * Note: aot_stack_sizes_section_name section only contains
+         * stack_sizes table.
+         */
+        if (!strcmp(relocation->symbol_name, aot_stack_sizes_name)) {
+            /* discard const */
+            relocation->symbol_name = (char *)aot_stack_sizes_section_name;
         }
 
         if (obj_data->comp_ctx->enable_llvm_pgo

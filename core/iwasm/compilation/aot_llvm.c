@@ -1373,11 +1373,12 @@ create_func_ptrs(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 }
 
 const char *aot_stack_sizes_name = AOT_STACK_SIZES_NAME;
+const char *aot_stack_sizes_alias_name = AOT_STACK_SIZES_ALIAS_NAME;
+const char *aot_stack_sizes_section_name = AOT_STACK_SIZES_SECTION_NAME;
 
 static bool
 aot_create_stack_sizes(const AOTCompData *comp_data, AOTCompContext *comp_ctx)
 {
-    const char *stack_sizes_name = "stack_sizes";
     LLVMValueRef stack_sizes, *values, array, alias;
     LLVMTypeRef stack_sizes_type;
 #if LLVM_VERSION_MAJOR <= 13
@@ -1393,7 +1394,7 @@ aot_create_stack_sizes(const AOTCompData *comp_data, AOTCompContext *comp_ctx)
     }
 
     stack_sizes =
-        LLVMAddGlobal(comp_ctx->module, stack_sizes_type, stack_sizes_name);
+        LLVMAddGlobal(comp_ctx->module, stack_sizes_type, aot_stack_sizes_name);
     if (!stack_sizes) {
         aot_set_last_error("failed to create stack_sizes global.");
         return false;
@@ -1429,7 +1430,7 @@ aot_create_stack_sizes(const AOTCompData *comp_data, AOTCompContext *comp_ctx)
      */
 #if LLVM_VERSION_MAJOR > 13
     alias = LLVMAddAlias2(comp_ctx->module, stack_sizes_type, 0, stack_sizes,
-                          aot_stack_sizes_name);
+                          aot_stack_sizes_alias_name);
 #else
     alias_type = LLVMPointerType(stack_sizes_type, 0);
     if (!alias_type) {
@@ -1437,7 +1438,7 @@ aot_create_stack_sizes(const AOTCompData *comp_data, AOTCompContext *comp_ctx)
         return false;
     }
     alias = LLVMAddAlias(comp_ctx->module, alias_type, stack_sizes,
-                         aot_stack_sizes_name);
+                         aot_stack_sizes_alias_name);
 #endif
     if (!alias) {
         aot_set_last_error("failed to create stack_sizes alias.");
@@ -1449,6 +1450,7 @@ aot_create_stack_sizes(const AOTCompData *comp_data, AOTCompContext *comp_ctx)
      * avoid creating extra relocations in the precheck functions.
      */
     LLVMSetLinkage(stack_sizes, LLVMInternalLinkage);
+    LLVMSetSection(stack_sizes, aot_stack_sizes_section_name);
     comp_ctx->stack_sizes_type = stack_sizes_type;
     comp_ctx->stack_sizes = stack_sizes;
     return true;
