@@ -18,6 +18,7 @@ extern "C" {
  * mark the object:
  *   bits[0] is 1: the object is an externref object
  *   bits[1] is 1: the object is an anyref object
+ *   bits[2] is 1: the object has extra information
  *   if both bits[0] and bits[1] are 0, then this object header must
  *   be a pointer of a WASMRttType, denotes that the object is a
  *   struct object, or an array object, or a function object
@@ -29,6 +30,8 @@ typedef uintptr_t WASMObjectHeader;
 #define WASM_OBJ_EXTERNREF_OBJ_FLAG (((uintptr_t)1) << 0)
 
 #define WASM_OBJ_ANYREF_OBJ_FLAG (((uintptr_t)1) << 1)
+
+#define WASM_OBJ_EXTRA_INFO_FLAG (((uintptr_t)1) << 2)
 
 /* Representation of WASM objects */
 typedef struct WASMObject {

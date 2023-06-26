@@ -17,6 +17,8 @@ extern "C" {
 
 typedef void *mem_allocator_t;
 
+typedef uint32_t (*gc_finalizer_t)(void *obj, void *data);
+
 mem_allocator_t
 mem_allocator_create(void *mem, uint32_t size);
 
@@ -67,6 +69,13 @@ mem_allocator_enable_gc_reclaim(mem_allocator_t allocator, void *cluster);
 
 int
 mem_allocator_add_root(mem_allocator_t allocator, WASMObjectRef obj);
+
+bool
+mem_allocator_set_gc_finalizer(mem_allocator_t allocator, void *obj,
+                               gc_finalizer_t cb, void *data);
+
+void
+mem_allocator_unset_gc_finalizer(mem_allocator_t allocator, void *obj);
 #endif /* end of WASM_ENABLE_GC != 0 */
 
 bool

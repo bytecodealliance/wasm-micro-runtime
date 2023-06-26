@@ -2,6 +2,7 @@
  * Copyright (C) 2022 Tencent Corporation.  All rights reserved.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
+#include "ems/ems_gc.h"
 #include "ems_gc_internal.h"
 
 #define GB (1 << 30UL)
@@ -99,6 +100,17 @@ sweep_instance_heap(gc_heap_t *heap)
             /* merge previous free areas with current one */
             if (!last)
                 last = cur;
+
+            if (ut == HMU_WO) {
+                /* Invoke registered finalizer */
+                gc_object_t cur_obj = hmu_to_obj(cur);
+                if (gct_vm_get_extra_info_flag(cur_obj)) {
+                    extra_info_node_t *node = search_extra_info_node(
+                        (gc_handle_t)heap, cur_obj, NULL);
+                    node->finalizer(node->obj, node->data);
+                    gc_unset_finalizer((gc_handle_t)heap, cur_obj);
+                }
+            }
         }
         else {
             /* current block is still live */

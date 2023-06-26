@@ -948,3 +948,145 @@ gci_dump(gc_heap_t *heap)
         heap->is_heap_corrupted = true;
     }
 }
+
+extra_info_node_t *
+search_extra_info_node(gc_handle_t handle, gc_object_t obj, gc_size_t *p_index)
+{
+    gc_heap_t *vheap = (gc_heap_t *)handle;
+    gc_size_t low = 0, high = vheap->extra_info_node_cnt;
+    gc_size_t mid;
+    extra_info_node_t *node;
+
+    if (!vheap->extra_info_nodes)
+        return NULL;
+
+    while (low < high) {
+        mid = (low + high) / 2;
+        node = vheap->extra_info_nodes[mid];
+
+        if (obj == node->obj) {
+            if (p_index) {
+                *p_index = mid;
+            }
+            return node;
+        }
+        else if (obj < node->obj) {
+            high = mid;
+        }
+        else {
+            low = mid + 1;
+        }
+    }
+
+    if (p_index) {
+        *p_index = low;
+    }
+    return NULL;
+}
+
+static bool
+insert_extra_info_node(gc_heap_t *vheap, extra_info_node_t *node)
+{
+    gc_size_t index;
+    extra_info_node_t *orig_node;
+
+    if (!vheap->extra_info_nodes) {
+        vheap->extra_info_nodes = vheap->extra_info_normal_nodes;
+        vheap->extra_info_node_capacity =
+            sizeof(vheap->extra_info_normal_nodes) / sizeof(extra_info_node_t *);
+        vheap->extra_info_nodes[0] = node;
+        vheap->extra_info_node_cnt = 1;
+        return true;
+    }
+
+    /* extend array */
+    if (vheap->extra_info_node_cnt == vheap->extra_info_node_capacity) {
+        extra_info_node_t **new_nodes = NULL;
+        gc_size_t new_capacity = vheap->extra_info_node_capacity * 2;
+        gc_size_t total_size = sizeof(extra_info_node_t *) * new_capacity;
+
+        new_nodes = (extra_info_node_t **)BH_MALLOC(total_size);
+        if (!new_nodes) {
+            LOG_ERROR("alloc extra info nodes failed");
+            return false;
+        }
+
+        bh_memcpy_s(new_nodes, total_size, vheap->extra_info_nodes,
+                    sizeof(extra_info_node_t) * vheap->extra_info_node_cnt);
+        if (vheap->extra_info_nodes != vheap->extra_info_normal_nodes) {
+            BH_FREE(vheap->extra_info_nodes);
+        }
+
+        vheap->extra_info_nodes = new_nodes;
+        vheap->extra_info_node_capacity = new_capacity;
+    }
+
+    orig_node = search_extra_info_node(vheap, node->obj, &index);
+    if (orig_node) {
+        /* replace the old node */
+        vheap->extra_info_nodes[index] = node;
+        BH_FREE(orig_node);
+    }
+    else {
+        bh_memmove_s(vheap->extra_info_nodes + index + 1,
+                     (vheap->extra_info_node_capacity - index - 1)
+                         * sizeof(extra_info_node_t *),
+                     vheap->extra_info_nodes + index,
+                     (vheap->extra_info_node_cnt - index)
+                         * sizeof(extra_info_node_t *));
+        vheap->extra_info_nodes[index] = node;
+        vheap->extra_info_node_cnt += 1;
+    }
+
+    return true;
+}
+
+bool
+gc_set_finalizer(gc_handle_t handle, gc_object_t obj, gc_finalizer_t cb,
+                 void *data)
+{
+    extra_info_node_t *node = NULL;
+    gc_heap_t *vheap = (gc_heap_t *)handle;
+
+    node = (extra_info_node_t *)BH_MALLOC(sizeof(extra_info_node_t));
+
+    if (!node) {
+        LOG_ERROR("alloc a new extra info node failed");
+        return GC_FALSE;
+    }
+    memset(node, 0, sizeof(extra_info_node_t));
+
+    node->finalizer = cb;
+    node->obj = obj;
+    node->data = data;
+
+    if (!insert_extra_info_node(vheap, node)) {
+        BH_FREE(node);
+        return GC_FALSE;
+    }
+
+    gct_vm_set_extra_info_flag(obj, true);
+    return GC_TRUE;
+}
+
+void
+gc_unset_finalizer(gc_handle_t handle, gc_object_t obj)
+{
+    gc_size_t index;
+    gc_heap_t *vheap = (gc_heap_t *)handle;
+    extra_info_node_t *node = search_extra_info_node(vheap, obj, &index);
+
+    if (!node) {
+        return;
+    }
+
+    BH_FREE(node);
+    bh_memmove_s(
+        vheap->extra_info_nodes + index,
+        (vheap->extra_info_node_capacity - index) * sizeof(extra_info_node_t *),
+        vheap->extra_info_nodes + index + 1,
+        (vheap->extra_info_node_cnt - index) * sizeof(extra_info_node_t *));
+    vheap->extra_info_node_cnt -= 1;
+
+    gct_vm_set_extra_info_flag(obj, false);
+}

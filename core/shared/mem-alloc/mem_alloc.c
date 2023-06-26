@@ -4,6 +4,7 @@
  */
 
 #include "mem_alloc.h"
+#include <stdbool.h>
 
 #if DEFAULT_MEM_ALLOCATOR == MEM_ALLOCATOR_EMS
 
@@ -111,6 +112,19 @@ mem_allocator_get_alloc_info(mem_allocator_t allocator, void *mem_alloc_info)
 {
     gc_heap_stats((gc_handle_t)allocator, mem_alloc_info, 3);
     return true;
+}
+
+bool
+mem_allocator_set_gc_finalizer(mem_allocator_t allocator, void *obj,
+                               gc_finalizer_t cb, void *data)
+{
+    return gc_set_finalizer((gc_handle_t)allocator, (gc_object_t)obj, cb, data);
+}
+
+void
+mem_allocator_unset_gc_finalizer(mem_allocator_t allocator, void *obj)
+{
+    gc_unset_finalizer((gc_handle_t)allocator, (gc_object_t)obj);
 }
 
 #else /* else of DEFAULT_MEM_ALLOCATOR */
