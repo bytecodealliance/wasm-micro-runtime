@@ -10,7 +10,7 @@ To have a quicker start, a Docker container of the Zephyr setup can be generated
 docker build -t wamr-zephyr .
 ```
 
-> PS: currently, the esp32 custom linker script only work with lower version of Zephyr, if you want to use esp32 board, you can build the Dockerfile with lower version of Zephyr, Zephyr SDE, ESP-IDF. The old version of Docker image can also build other target, but probably it's a better choice to simply use new Dockerfile for other boards
+> PS: currently, the esp32 custom linker script only works with a lower version of Zephyr, if you want to use an esp32 board, you can build the Dockerfile with a lower version of Zephyr, Zephyr SDE, ESP-IDF. The old version of Docker image can also build other targets, but probably it's a better choice to use the new Dockerfile for other boards
 
 ```shell
 # If you want to build on esp32 platform
@@ -51,7 +51,7 @@ cp boards/esp32.conf prj.conf
 
 ### Dependencies installation
 
-Following the Zephyr and espressif official document:
+Following the Zephyr and Espressif official document:
 
 1. Zephyr installation:
 
@@ -73,7 +73,7 @@ sudo apt-get install qemu
 
 ### Run the build script
 
-Make sure you have the environment variable ready, you can use command `env` to check:
+Make sure you have the environment variable ready, you can use the command `env` to check:
 
 ```shell
 env
@@ -86,13 +86,15 @@ export ZEPHYR_BASE=~/zephyrproject/zephyr
 source ~/zephyrproject/.venv/bin/activate
 ```
 
-> PS: for boards esp32, need to configure some extra environment first, check following env variable whether in env list, if not, adding them like:
->
-> ```shell
-> export ZEPHYR_TOOLCHAIN_VARIANT="espressif"
-> export ESPRESSIF_TOOLCHAIN_PATH="~/.espressif/tools/xtensa-esp32-elf/esp-{the version you installed}/xtensa-esp32-elf/"
-> export ESP_IDF_PATH="~/esp/esp-idf"
-> ```
+For boards esp32, need to configure some extra environment first, check the following env variable whether in the env list, if not, add them like:
+
+> Noted: The esp32 custom linker script doesn't work with the recent version of Zephyr, if you want to use it in the local environment, please install Zephyr 2.3.0 with the corresponding SDK, and ESP-IDF 4.0
+
+```shell
+export ZEPHYR_TOOLCHAIN_VARIANT="espressif"
+export ESPRESSIF_TOOLCHAIN_PATH="~/.espressif/tools/xtensa-esp32-elf/esp-{the version you installed}/xtensa-esp32-elf/"
+export ESP_IDF_PATH="~/esp/esp-idf"
+```
 
 Then you can run the build script:
 
