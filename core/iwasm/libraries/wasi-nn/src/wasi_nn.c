@@ -57,7 +57,7 @@ static HashMap *hashmap;
 
 /* Get wasi-nn context from module instance */
 
-uint32
+static uint32
 hash_func(const void *key)
 {
     // fnv1a_hash
@@ -75,23 +75,23 @@ hash_func(const void *key)
     return hash;
 }
 
-bool
+static bool
 key_equal_func(void *key1, void *key2)
 {
     return key1 == key2;
 }
 
-void
+static void
 key_destroy_func(void *key1)
 {}
 
-void
+static void
 value_destroy_func(void *value)
 {
     wasi_nn_ctx_destroy((WASINNContext *)value);
 }
 
-WASINNContext *
+static WASINNContext *
 wasi_nn_initialize_context()
 {
     NN_DBG_PRINTF("Initializing wasi-nn context");
@@ -106,7 +106,7 @@ wasi_nn_initialize_context()
     return wasi_nn_ctx;
 }
 
-bool
+static bool
 wasi_nn_initialize()
 {
     NN_DBG_PRINTF("Initializing wasi-nn");
@@ -120,7 +120,7 @@ wasi_nn_initialize()
     return true;
 }
 
-WASINNContext *
+static WASINNContext *
 wasm_runtime_get_wasi_nn_ctx(wasm_module_inst_t instance)
 {
     WASINNContext *wasi_nn_ctx =
@@ -140,7 +140,7 @@ wasm_runtime_get_wasi_nn_ctx(wasm_module_inst_t instance)
     return wasi_nn_ctx;
 }
 
-void
+static void
 wasi_nn_ctx_destroy(WASINNContext *wasi_nn_ctx)
 {
     if (wasi_nn_ctx == NULL) {
