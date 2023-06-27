@@ -21,6 +21,18 @@
 #include "rights.h"
 #include "str.h"
 
+/* Some platforms (e.g. Windows) already define `min()` macro.
+ We're undefing it here to make sure the `min` call does exactly
+ what we want it to do. */
+#ifdef min
+#undef min
+#endif
+static inline size_t
+min(size_t a, size_t b)
+{
+    return a > b ? b : a;
+}
+
 #if 0 /* TODO: -std=gnu99 causes compile error, comment them first */
 // struct iovec must have the same layout as __wasi_iovec_t.
 static_assert(offsetof(struct iovec, iov_base) ==
@@ -3760,12 +3772,6 @@ addr_pool_insert(struct addr_pool *addr_pool, const char *addr, uint8 mask)
     }
     cur->next = next;
     return true;
-}
-
-static inline size_t
-min(size_t a, size_t b)
-{
-    return a > b ? b : a;
 }
 
 static void
