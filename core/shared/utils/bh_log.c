@@ -39,14 +39,14 @@ bh_log(LogLevel log_level, const char *file, int line, const char *fmt, ...)
     s = t % 60;
     mills = (uint32)(usec % 1000);
 
-    snprintf(buf, sizeof(buf),
-             "%02" PRIu32 ":%02" PRIu32 ":%02" PRIu32 ":%03" PRIu32, h, m, s,
-             mills);
-
-    os_printf("[%s - %" PRIXPTR "]: ", buf, (uintptr_t)self);
-
-    if (file)
-        os_printf("%s, line %d, ", file, line);
+//    snprintf(buf, sizeof(buf),
+//             "%02" PRIu32 ":%02" PRIu32 ":%02" PRIu32 ":%03" PRIu32, h, m, s,
+//             mills);
+//
+//    os_printf("[%s - %" PRIXPTR "]: ", buf, (uintptr_t)self);
+//
+//    if (file)
+//        os_printf("%s, line %d, ", file, line);
 
     va_start(ap, fmt);
     os_vprintf(fmt, ap);
