@@ -44,7 +44,7 @@ include_directories(
 )
 
 add_library(wasi-nn SHARED
-  ${LIBC_WASI_NN_SOURCE}
+  ${WASI_NN_SOURCES}
 )
 
 # Add `get_native_lib` symbol
@@ -53,6 +53,6 @@ target_compile_definitions(wasi-nn PUBLIC
 )
 
 target_link_libraries(wasi-nn
-  ${TENSORFLOW_LIB}
+  ${WASI_NN_LIBS}
   vmlib
 )
