@@ -86,7 +86,9 @@ convert_errno(int error)
         X(EDEADLK),
         X(EDESTADDRREQ),
         X(EDOM),
+#ifdef EDQUOT
         X(EDQUOT),
+#endif
         X(EEXIST),
         X(EFAULT),
         X(EFBIG),
@@ -103,7 +105,9 @@ convert_errno(int error)
         X(EMFILE),
         X(EMLINK),
         X(EMSGSIZE),
+#ifdef EMULTIHOP
         X(EMULTIHOP),
+#endif
         X(ENAMETOOLONG),
         X(ENETDOWN),
         X(ENETRESET),
@@ -142,7 +146,9 @@ convert_errno(int error)
         X(EROFS),
         X(ESPIPE),
         X(ESRCH),
+#ifdef ESTALE
         X(ESTALE),
+#endif
         X(ETIMEDOUT),
         X(ETXTBSY),
         X(EXDEV),
