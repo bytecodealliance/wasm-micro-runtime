@@ -133,6 +133,7 @@ wasm_runtime_get_wasi_nn_ctx(wasm_module_inst_t instance)
             bh_hash_map_insert(hashmap, (void *)instance, (void *)wasi_nn_ctx);
         if (!ok) {
             NN_ERR_PRINTF("Error while storing context");
+            wasi_nn_ctx_destroy(wasi_nn_ctx);
             return NULL;
         }
     }
