@@ -112,10 +112,16 @@ MyCompiler::operator()(llvm::Module &M)
         PM.run(M);
     }
 
+#if LLVM_VERSION_MAJOR > 13
     auto ObjBuffer = std::make_unique<llvm::SmallVectorMemoryBuffer>(
         std::move(ObjBufferSV),
         M.getModuleIdentifier() + "-jitted-objectbuffer",
         /*RequiresNullTerminator=*/false);
+#else
+    auto ObjBuffer = std::make_unique<llvm::SmallVectorMemoryBuffer>(
+        std::move(ObjBufferSV),
+        M.getModuleIdentifier() + "-jitted-objectbuffer");
+#endif
 
     return std::move(ObjBuffer);
 }

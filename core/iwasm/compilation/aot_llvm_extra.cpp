@@ -235,7 +235,11 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
     PTO.SLPVectorization = true;
     PTO.LoopUnrolling = true;
 
-    Optional<PGOOptions> PGO = None;
+#if LLVM_VERSION_MAJOR >= 16
+    Optional<PGOOptions> PGO = std::nullopt;
+#else
+    Optional<PGOOptions> PGO = llvm::None;
+#endif
     if (comp_ctx->enable_llvm_pgo) {
         /* Disable static counter allocation for value profiler,
            it will be allocated by runtime */

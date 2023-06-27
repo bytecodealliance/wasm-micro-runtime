@@ -6,6 +6,9 @@
 #ifndef WASI_NN_TYPES_H
 #define WASI_NN_TYPES_H
 
+#include <stdint.h>
+#include <stdbool.h>
+
 /**
  * ERRORS
  *

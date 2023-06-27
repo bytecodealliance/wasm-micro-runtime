@@ -101,7 +101,7 @@ if (WAMR_BUILD_LIB_PTHREAD_SEMAPHORE EQUAL 1)
 endif ()
 
 if (WAMR_BUILD_WASI_NN EQUAL 1)
-    include (${IWASM_DIR}/libraries/wasi-nn/wasi_nn.cmake)
+    include (${IWASM_DIR}/libraries/wasi-nn/cmake/wasi_nn.cmake)
 endif ()
 
 if (WAMR_BUILD_LIB_PTHREAD EQUAL 1)
@@ -177,7 +177,7 @@ set (source_all
     ${UTILS_SHARED_SOURCE}
     ${LIBC_BUILTIN_SOURCE}
     ${LIBC_WASI_SOURCE}
-    ${LIBC_WASI_NN_SOURCE}
+    ${WASI_NN_SOURCES}
     ${IWASM_COMMON_SOURCE}
     ${IWASM_INTERP_SOURCE}
     ${IWASM_AOT_SOURCE}
