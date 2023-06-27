@@ -3609,8 +3609,13 @@ wasmtime_ssp_sock_shutdown(
 __wasi_errno_t
 wasmtime_ssp_sched_yield(void)
 {
+#ifdef BH_PLATFORM_WINDOWS
+    if (!SwitchToThread())
+        return __WASI_EAGAIN;
+#else
     if (sched_yield() < 0)
         return convert_errno(errno);
+#endif
     return 0;
 }
 
