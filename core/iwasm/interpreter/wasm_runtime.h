@@ -318,6 +318,9 @@ struct WASMModuleInstance {
     uint32 default_wasm_stack_size;
     uint32 reserved[3];
 
+    /* AOT */
+    DefPointer(const uint32 *, aot_stack_sizes);
+
     /*
      * +------------------------------+ <-- memories
      * | WASMMemoryInstance[mem_count], mem_count is always 1 for LLVM JIT/AOT

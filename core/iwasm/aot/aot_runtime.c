@@ -39,8 +39,10 @@ bh_static_assert(offsetof(AOTModuleInstance, func_type_indexes)
                  == 6 * sizeof(uint64));
 bh_static_assert(offsetof(AOTModuleInstance, cur_exception)
                  == 13 * sizeof(uint64));
-bh_static_assert(offsetof(AOTModuleInstance, global_table_data)
+bh_static_assert(offsetof(AOTModuleInstance, aot_stack_sizes)
                  == 13 * sizeof(uint64) + 128 + 11 * sizeof(uint64));
+bh_static_assert(offsetof(AOTModuleInstance, global_table_data)
+                 == 13 * sizeof(uint64) + 128 + 12 * sizeof(uint64));
 
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
@@ -1209,6 +1211,9 @@ aot_instantiate(AOTModule *module, bool is_sub_inst, WASMExecEnv *exec_env_main,
         stack_size = 48 * 1024;
 #endif
     module_inst->default_wasm_stack_size = stack_size;
+
+    module_inst->aot_stack_sizes =
+        aot_get_data_section_addr(module, AOT_STACK_SIZES_SECTION_NAME, NULL);
 
 #if WASM_ENABLE_PERF_PROFILING != 0
     total_size = (uint64)sizeof(AOTFuncPerfProfInfo)
