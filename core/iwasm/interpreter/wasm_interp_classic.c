@@ -20,8 +20,9 @@
 #if WASM_ENABLE_FAST_JIT != 0
 #include "../fast-jit/jit_compiler.h"
 #endif
-
-extern void _Z17serialize_to_fileP11WASMExecEnv(WASMExecEnv* instance);
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+#include "../../../../../include/wamr_export.h"
+#endif
 
 int counter_ = 0;
 typedef int32 CellType_I32;
@@ -1089,11 +1090,6 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
 #endif /* WASM_ENABLE_DEBUG_INTERP */
 #endif /* WASM_ENABLE_THREAD_MGR */
 
-#if WASM_ENABLE_LABELS_AS_VALUES != 0
-
-#define HANDLE_OP(opcode) HANDLE_##opcode:
-#define FETCH_OPCODE_AND_DISPATCH() goto *handle_table[*frame_ip++]
-
 #define SERIALIZE_CURSTATE(file)                                            \
        do {                                                             \
            fprintf(file,"ip %ld ",frame_ip-cur_func->u.func->code);                      \
@@ -1110,6 +1106,11 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
     } while (0)
 #define SNAPSHOT_STEP 2000
 #define SNAPSHOT_DEBUG_STEP 0
+
+#if WASM_ENABLE_LABELS_AS_VALUES != 0
+
+#define HANDLE_OP(opcode) HANDLE_##opcode:
+#define FETCH_OPCODE_AND_DISPATCH() goto *handle_table[*frame_ip++]
 
 #if WASM_ENABLE_THREAD_MGR != 0 && WASM_ENABLE_DEBUG_INTERP != 0
 #define HANDLE_OP_END()                                                   \
@@ -1128,31 +1129,35 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
         goto *handle_table[*frame_ip++];                                  \
     } while (0)
 #else
-#define HANDLE_OP_END()                                                  \
-    do {                                                                 \
-       SYNC_ALL_TO_FRAME();                                              \
-       if (!exec_env->is_restore) {                                      \
-            if (!exec_env->is_checkpoint && counter_ < SNAPSHOT_STEP) {  \
-                counter_++;                                              \
-                FETCH_OPCODE_AND_DISPATCH();                             \
-            }                                                            \
-            else {                                                       \
-                fprintf(file1,"[%s:%d]\n", __FILE__, __LINE__);                 \
-                counter_++;                                              \
-                SERIALIZE_CURSTATE(file1);                                    \
-                if(counter_>SNAPSHOT_STEP+SNAPSHOT_DEBUG_STEP) {         \
-                    _Z17serialize_to_fileP11WASMExecEnv(exec_env);       \
-                }                                                        \
-             FETCH_OPCODE_AND_DISPATCH();                                \
-             }                                                           \
-        }                                                                \
-        else {                                                           \
-                fprintf(file2,"[%s:%d]\n", __FILE__, __LINE__);                 \
-                counter_++;                                              \
-                SERIALIZE_CURSTATE(file2);                                    \
-                FETCH_OPCODE_AND_DISPATCH();                                 \
-        }                                                                \
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+#define HANDLE_OP_END()                                                 \
+    do {                                                                \
+        SYNC_ALL_TO_FRAME();                                            \
+        if (!exec_env->is_restore) {                                    \
+            if (!exec_env->is_checkpoint && counter_ < SNAPSHOT_STEP) { \
+                counter_++;                                             \
+                FETCH_OPCODE_AND_DISPATCH();                            \
+            }                                                           \
+            else {                                                      \
+                fprintf(file1, "[%s:%d]\n", __FILE__, __LINE__);        \
+                counter_++;                                             \
+                SERIALIZE_CURSTATE(file1);                              \
+                if (counter_ > SNAPSHOT_STEP + SNAPSHOT_DEBUG_STEP) {   \
+                    serialize_to_file(exec_env);                        \
+                }                                                       \
+                FETCH_OPCODE_AND_DISPATCH();                            \
+            }                                                           \
+        }                                                               \
+        else {                                                          \
+            fprintf(file2, "[%s:%d]\n", __FILE__, __LINE__);            \
+            counter_++;                                                 \
+            SERIALIZE_CURSTATE(file2);                                  \
+            FETCH_OPCODE_AND_DISPATCH();                                \
+        }                                                               \
     } while (0)
+#else
+#define HANDLE_OP_END() FETCH_OPCODE_AND_DISPATCH()
+#endif
 #endif
 
 #else /* else of WASM_ENABLE_LABELS_AS_VALUES */
@@ -1169,7 +1174,36 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
     os_mutex_unlock(&exec_env->wait_lock);                         \
     continue
 #else
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+#define HANDLE_OP_END()                                                 \
+    do {                                                                \
+        SYNC_ALL_TO_FRAME();                                            \
+        if (!exec_env->is_restore) {                                    \
+            if (!exec_env->is_checkpoint && counter_ < SNAPSHOT_STEP) { \
+                counter_++;                                             \
+                continue;                                               \
+            }                                                           \
+            else {                                                      \
+                fprintf(file1, "[%s:%d]\n", __FILE__, __LINE__);        \
+                counter_++;                                             \
+                SERIALIZE_CURSTATE(file1);                              \
+                if (counter_ > SNAPSHOT_STEP + SNAPSHOT_DEBUG_STEP) {   \
+                    serialize_to_file(exec_env);                        \
+                }                                                       \
+                continue;                                               \
+            }                                                           \
+        }                                                               \
+        else {                                                          \
+            fprintf(file2, "[%s:%d]\n", __FILE__, __LINE__);            \
+            counter_++;                                                 \
+            SERIALIZE_CURSTATE(file2);                                  \
+            continue;                                                   \
+        }                                                               \
+    } while (0)
+#else
 #define HANDLE_OP_END() continue
+#endif
+
 #endif
 
 #endif /* end of WASM_ENABLE_LABELS_AS_VALUES */
@@ -1225,6 +1259,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     uint8 local_type, *global_addr;
     uint32 cache_index, type_index, param_cell_num, cell_num;
     uint8 value_type;
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
     FILE* file1;
     FILE *file2;
     if (exec_env->is_restore){
@@ -1241,6 +1276,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             file1=fopen("trace-orgin.txt","w");
 
     }
+#endif
 #if WASM_ENABLE_DEBUG_INTERP != 0
     uint8 *frame_ip_orig = NULL;
     WASMDebugInstance *debug_instance = wasm_exec_env_get_instance(exec_env);

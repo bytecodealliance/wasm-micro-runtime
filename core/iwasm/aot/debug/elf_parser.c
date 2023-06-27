@@ -7,7 +7,9 @@
 #include <assert.h>
 #include <fcntl.h>
 #include <stdlib.h>
+#ifndef BH_PLATFORM_WINDOWS
 #include <unistd.h>
+#endif
 #include <string.h>
 #include <errno.h>
 #include <stdbool.h>

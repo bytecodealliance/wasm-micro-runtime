@@ -14,12 +14,19 @@
 #include "ssp_config.h"
 #include "bh_platform.h"
 #include "wasmtime_ssp.h"
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#endif
 #include "locking.h"
 #include "posix.h"
 #include "random.h"
 #include "refcount.h"
 #include "rights.h"
 #include "str.h"
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+#include "../../../../../include/wamr_export.h"
+#endif
 
 #if 0 /* TODO: -std=gnu99 causes compile error, comment them first */
 // struct iovec must have the same layout as __wasi_iovec_t.
@@ -1569,6 +1576,7 @@ path_get(struct fd_table *curfds, struct path_access *pa, __wasi_fd_t fd,
     pa->path = pa->path_start = path;
     pa->follow = (flags & __WASI_LOOKUP_SYMLINK_FOLLOW) != 0;
     pa->fd_object = fo;
+    insert_fd(pa->fd, path, 0);
     return 0;
 #else
     // The implementation provides no mechanism to constrain lookups to a
@@ -1757,6 +1765,7 @@ success:
     pa->fd = fds[curfd];
     pa->follow = false;
     pa->fd_object = fo;
+    insert_fd(pa->fd, path, 0);
     return 0;
 
 fail:

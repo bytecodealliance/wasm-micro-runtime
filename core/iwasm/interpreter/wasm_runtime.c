@@ -2366,7 +2366,7 @@ call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
 
     wasm_runtime_set_exec_env_tls(exec_env);
     if (os_setjmp(jmpbuf_node.jmpbuf) == 0) {
-#ifndef BH_PLATFORM_WINDOWS
+#if !defined(BH_PLATFORM_WINDOWS) || defined(__MINGW64__) || defined(__MINGW32__)
         wasm_interp_call_wasm(module_inst, exec_env, function, argc, argv);
 #else
         __try {
