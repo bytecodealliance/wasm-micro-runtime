@@ -734,10 +734,11 @@ wasm_object_get_ref_list(WASMObjectRef obj, bool *p_is_compact_mode,
 
 bool
 wasm_obj_set_gc_finalizer(wasm_exec_env_t exec_env, const wasm_obj_t obj,
-                               wasm_finalizer_t cb, void *data)
+                          wasm_finalizer_t cb, void *data)
 {
     void *heap_handle = get_gc_heap_handle(exec_env);
-    return mem_allocator_set_gc_finalizer(heap_handle, obj, (gc_finalizer_t)cb, data);
+    return mem_allocator_set_gc_finalizer(heap_handle, obj, (gc_finalizer_t)cb,
+                                          data);
 }
 
 void

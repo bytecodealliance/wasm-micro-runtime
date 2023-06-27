@@ -992,8 +992,8 @@ insert_extra_info_node(gc_heap_t *vheap, extra_info_node_t *node)
 
     if (!vheap->extra_info_nodes) {
         vheap->extra_info_nodes = vheap->extra_info_normal_nodes;
-        vheap->extra_info_node_capacity =
-            sizeof(vheap->extra_info_normal_nodes) / sizeof(extra_info_node_t *);
+        vheap->extra_info_node_capacity = sizeof(vheap->extra_info_normal_nodes)
+                                          / sizeof(extra_info_node_t *);
         vheap->extra_info_nodes[0] = node;
         vheap->extra_info_node_cnt = 1;
         return true;
