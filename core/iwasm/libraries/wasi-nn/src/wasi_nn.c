@@ -55,6 +55,9 @@ static api_function lookup[] = {
 
 static HashMap *hashmap;
 
+static void
+wasi_nn_ctx_destroy(WASINNContext *wasi_nn_ctx);
+
 /* Get wasi-nn context from module instance */
 
 static uint32
