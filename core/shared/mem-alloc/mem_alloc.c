@@ -114,6 +114,7 @@ mem_allocator_get_alloc_info(mem_allocator_t allocator, void *mem_alloc_info)
     return true;
 }
 
+#if WASM_ENABLE_GC != 0
 bool
 mem_allocator_set_gc_finalizer(mem_allocator_t allocator, void *obj,
                                gc_finalizer_t cb, void *data)
@@ -126,6 +127,7 @@ mem_allocator_unset_gc_finalizer(mem_allocator_t allocator, void *obj)
 {
     gc_unset_finalizer((gc_handle_t)allocator, (gc_object_t)obj);
 }
+#endif
 
 #else /* else of DEFAULT_MEM_ALLOCATOR */
 

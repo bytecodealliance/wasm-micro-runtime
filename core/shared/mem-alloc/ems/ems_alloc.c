@@ -949,6 +949,7 @@ gci_dump(gc_heap_t *heap)
     }
 }
 
+#if WASM_ENABLE_GC != 0
 extra_info_node_t *
 search_extra_info_node(gc_handle_t handle, gc_object_t obj, gc_size_t *p_index)
 {
@@ -1090,3 +1091,4 @@ gc_unset_finalizer(gc_handle_t handle, gc_object_t obj)
 
     gct_vm_set_extra_info_flag(obj, false);
 }
+#endif
