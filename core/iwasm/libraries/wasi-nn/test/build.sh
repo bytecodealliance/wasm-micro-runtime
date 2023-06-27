@@ -7,7 +7,7 @@
     -Wl,--allow-undefined \
     -Wl,--strip-all,--no-entry \
     --sysroot=/opt/wasi-sdk/share/wasi-sysroot \
-    -I.. -I../src/utils \
+    -I../include -I../src/utils \
     -o test_tensorflow.wasm \
     test_tensorflow.c utils.c
 
