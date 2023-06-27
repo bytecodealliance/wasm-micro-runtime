@@ -62,6 +62,7 @@ def build_llvm(llvm_dir, platform, backends, projects, use_clang=False, extra_fl
         "-DLLVM_ENABLE_LIBEDIT=OFF",
         "-DLLVM_ENABLE_TERMINFO:BOOL=OFF",
         "-DLLVM_ENABLE_ZLIB:BOOL=OFF",
+        "-DLLVM_ENABLE_ZSTD:BOOL=OFF",
         "-DLLVM_INCLUDE_BENCHMARKS:BOOL=OFF",
         "-DLLVM_INCLUDE_DOCS:BOOL=OFF",
         "-DLLVM_INCLUDE_EXAMPLES:BOOL=OFF",
