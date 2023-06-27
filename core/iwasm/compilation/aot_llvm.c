@@ -242,11 +242,11 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
                           LLVMTypeRef func_type, LLVMValueRef wrapped_func)
 {
     LLVMValueRef precheck_func;
-    LLVMBasicBlockRef begin;
-    LLVMBasicBlockRef check_top_block;
-    LLVMBasicBlockRef update_top_block;
-    LLVMBasicBlockRef stack_bound_check_block;
-    LLVMBasicBlockRef call_wrapped_func_block;
+    LLVMBasicBlockRef begin = NULL;
+    LLVMBasicBlockRef check_top_block = NULL;
+    LLVMBasicBlockRef update_top_block = NULL;
+    LLVMBasicBlockRef stack_bound_check_block = NULL;
+    LLVMBasicBlockRef call_wrapped_func_block = NULL;
     LLVMValueRef *params = NULL;
 
     precheck_func =
@@ -385,6 +385,8 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
             goto fail;
         }
 
+        bh_assert(update_top_block);
+
         /*
          * update native_stack_top_min if
          * new_sp = sp - size < native_stack_top_min
@@ -412,7 +414,7 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
          */
         LLVMPositionBuilderAtEnd(b, update_top_block);
         LLVMValueRef new_sp_ptr =
-            LLVMBuildIntToPtr(b, new_sp, OPQ_PTR_TYPE, "new_sp_ptr");
+            LLVMBuildIntToPtr(b, new_sp, INT8_PTR_TYPE, "new_sp_ptr");
         if (!new_sp_ptr) {
             goto fail;
         }
@@ -1376,25 +1378,33 @@ static bool
 aot_create_stack_sizes(const AOTCompData *comp_data, AOTCompContext *comp_ctx)
 {
     const char *stack_sizes_name = "stack_sizes";
-    LLVMTypeRef stack_sizes_type =
-        LLVMArrayType(I32_TYPE, comp_data->func_count);
+    LLVMValueRef stack_sizes, *values, array, alias;
+    LLVMTypeRef stack_sizes_type;
+#if LLVM_VERSION_MAJOR <= 13
+    LLVMTypeRef alias_type;
+#endif
+    uint64 size;
+    uint32 i;
+
+    stack_sizes_type = LLVMArrayType(I32_TYPE, comp_data->func_count);
     if (!stack_sizes_type) {
         aot_set_last_error("failed to create stack_sizes type.");
         return false;
     }
-    LLVMValueRef stack_sizes =
+
+    stack_sizes =
         LLVMAddGlobal(comp_ctx->module, stack_sizes_type, stack_sizes_name);
     if (!stack_sizes) {
         aot_set_last_error("failed to create stack_sizes global.");
         return false;
     }
-    LLVMValueRef *values;
-    uint64 size = sizeof(LLVMValueRef) * comp_data->func_count;
+
+    size = sizeof(LLVMValueRef) * comp_data->func_count;
     if (size >= UINT32_MAX || !(values = wasm_runtime_malloc((uint32)size))) {
         aot_set_last_error("allocate memory failed.");
         return false;
     }
-    uint32 i;
+
     for (i = 0; i < comp_data->func_count; i++) {
         /*
          * This value is a placeholder, which will be replaced
@@ -1405,23 +1415,35 @@ aot_create_stack_sizes(const AOTCompData *comp_data, AOTCompContext *comp_ctx)
          */
         values[i] = I32_NEG_ONE;
     }
-    LLVMValueRef array =
-        LLVMConstArray(I32_TYPE, values, comp_data->func_count);
+
+    array = LLVMConstArray(I32_TYPE, values, comp_data->func_count);
     wasm_runtime_free(values);
     if (!array) {
         aot_set_last_error("failed to create stack_sizes initializer.");
         return false;
     }
     LLVMSetInitializer(stack_sizes, array);
+
     /*
      * create an alias so that aot_resolve_stack_sizes can find it.
      */
-    LLVMValueRef alias = LLVMAddAlias2(comp_ctx->module, stack_sizes_type, 0,
-                                       stack_sizes, aot_stack_sizes_name);
+#if LLVM_VERSION_MAJOR > 13
+    alias = LLVMAddAlias2(comp_ctx->module, stack_sizes_type, 0, stack_sizes,
+                          aot_stack_sizes_name);
+#else
+    alias_type = LLVMPointerType(stack_sizes_type, 0);
+    if (!alias_type) {
+        aot_set_last_error("failed to create alias type.");
+        return false;
+    }
+    alias = LLVMAddAlias(comp_ctx->module, alias_type, stack_sizes,
+                         aot_stack_sizes_name);
+#endif
     if (!alias) {
         aot_set_last_error("failed to create stack_sizes alias.");
         return false;
     }
+
     /*
      * make the original symbol internal. we mainly use this version to
      * avoid creating extra relocations in the precheck functions.

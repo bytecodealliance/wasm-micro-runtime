@@ -23,7 +23,11 @@ convert(LLVMRelocMode reloc_mode)
 {
     switch (reloc_mode) {
         case LLVMRelocDefault:
+#if LLVM_VERSION_MAJOR >= 16
+            return std::nullopt;
+#else
             return llvm::None;
+#endif
         case LLVMRelocStatic:
             return llvm::Reloc::Static;
         case LLVMRelocPIC:
@@ -38,7 +42,11 @@ convert(LLVMRelocMode reloc_mode)
             return llvm::Reloc::ROPI_RWPI;
     }
     bh_assert(0);
+#if LLVM_VERSION_MAJOR >= 16
+    return std::nullopt;
+#else
     return llvm::None;
+#endif
 }
 
 static llvm::CodeGenOpt::Level
@@ -64,10 +72,18 @@ convert(LLVMCodeModel code_model, bool *jit)
     *jit = false;
     switch (code_model) {
         case LLVMCodeModelDefault:
+#if LLVM_VERSION_MAJOR >= 16
+            return std::nullopt;
+#else
             return llvm::None;
+#endif
         case LLVMCodeModelJITDefault:
             *jit = true;
+#if LLVM_VERSION_MAJOR >= 16
+            return std::nullopt;
+#else
             return llvm::None;
+#endif
         case LLVMCodeModelTiny:
             return llvm::CodeModel::Tiny;
         case LLVMCodeModelSmall:
@@ -80,7 +96,11 @@ convert(LLVMCodeModel code_model, bool *jit)
             return llvm::CodeModel::Large;
     }
     bh_assert(0);
+#if LLVM_VERSION_MAJOR >= 16
+    return std::nullopt;
+#else
     return llvm::None;
+#endif
 }
 
 LLVMTargetMachineRef
