@@ -49,6 +49,10 @@ typedef enum EcallCmd {
     CMD_SET_WASI_ARGS,        /* wasm_runtime_set_wasi_args() */
     CMD_SET_LOG_LEVEL,        /* bh_log_set_verbose_level() */
     CMD_GET_VERSION,          /* wasm_runtime_get_version() */
+#if WASM_ENABLE_STATIC_PGO != 0
+    CMD_GET_PGO_PROF_BUF_SIZE,  /* wasm_runtime_get_pro_prof_data_size() */
+    CMD_DUMP_PGO_PROF_BUF_DATA, /* wasm_runtime_dump_pgo_prof_data_to_buf() */
+#endif
 } EcallCmd;
 
 typedef struct EnclaveModule {
@@ -597,6 +601,36 @@ handle_cmd_get_version(uint64 *args, uint32 argc)
     args[2] = patch;
 }
 
+#if WASM_ENABLE_STATIC_PGO != 0
+static void
+handle_cmd_get_pgo_prof_buf_size(uint64 *args, int32 argc)
+{
+    wasm_module_inst_t module_inst = *(wasm_module_inst_t *)args;
+    uint32 buf_len;
+
+    bh_assert(argc == 1);
+
+    buf_len = wasm_runtime_get_pgo_prof_data_size(module_inst);
+    args[0] = buf_len;
+}
+
+static void
+handle_cmd_get_pro_prof_buf_data(uint64 *args, int32 argc)
+{
+    uint64 *args_org = args;
+    wasm_module_inst_t module_inst = *(wasm_module_inst_t *)args++;
+    char *buf = *(char **)args++;
+    uint32 len = *(uint32 *)args++;
+    uint32 bytes_dumped;
+
+    bh_assert(argc == 3);
+
+    bytes_dumped =
+        wasm_runtime_dump_pgo_prof_data_to_buf(module_inst, buf, len);
+    args_org[0] = bytes_dumped;
+}
+#endif
+
 void
 ecall_handle_command(unsigned cmd, unsigned char *cmd_buf,
                      unsigned cmd_buf_size)
@@ -647,6 +681,14 @@ ecall_handle_command(unsigned cmd, unsigned char *cmd_buf,
         case CMD_GET_VERSION:
             handle_cmd_get_version(args, argc);
             break;
+#if WASM_ENABLE_STATIC_PGO != 0
+        case CMD_GET_PGO_PROF_BUF_SIZE:
+            handle_cmd_get_pgo_prof_buf_size(args, argc);
+            break;
+        case CMD_DUMP_PGO_PROF_BUF_DATA:
+            handle_cmd_get_pro_prof_buf_data(args, argc);
+            break;
+#endif
         default:
             LOG_ERROR("Unknown command %d\n", cmd);
             break;

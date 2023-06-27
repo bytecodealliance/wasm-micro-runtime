@@ -5,8 +5,13 @@
 
 PLATFORM=$(uname -s | tr A-Z a-z)
 
-IWASM="../../../product-mini/platforms/${PLATFORM}/build/iwasm"
-WAMRC="../../../wamr-compiler/build/wamrc"
+if [ "$1" = "--sgx" ] && [ "$PLATFORM" = "linux" ]; then
+    IWASM="../../../product-mini/platforms/${PLATFORM}-sgx/enclave-sample/iwasm"
+    WAMRC="../../../wamr-compiler/build/wamrc -sgx"
+else
+    IWASM="../../../product-mini/platforms/${PLATFORM}/build/iwasm"
+    WAMRC="../../../wamr-compiler/build/wamrc"
+fi
 
 if [ ! -e "dhrystone.wasm" ]; then
     echo "dhrystone.wasm doesn't exist, please run build.sh first"

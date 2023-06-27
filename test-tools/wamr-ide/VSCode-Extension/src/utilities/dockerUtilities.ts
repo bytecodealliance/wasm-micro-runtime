@@ -102,7 +102,7 @@ export async function checkIfDockerImagesExist(
 ): Promise<boolean> {
     try {
         /* the tag of images is equal to extension's version */
-        const imageTag = getWAMRExtensionVersion(context);
+        const imageTag = getWAMRExtensionVersion(context.extensionPath);
         await execShell(
             `docker image inspect wasm-debug-server:${imageTag} wasm-toolchain:${imageTag}`
         );
@@ -115,7 +115,7 @@ export async function checkIfDockerImagesExist(
 function getDockerImagesDownloadUrl(
     context: vscode.ExtensionContext
 ): string[] {
-    const wamrVersion = getWAMRExtensionVersion(context);
+    const wamrVersion = getWAMRExtensionVersion(context.extensionPath);
     const wamrReleaseUrl = `https://github.com/bytecodealliance/wasm-micro-runtime/releases/download/WAMR`;
 
     return [

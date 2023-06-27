@@ -1,4 +1,5 @@
 .cache
+.clangd
 .vs
 .vscode
 .venv

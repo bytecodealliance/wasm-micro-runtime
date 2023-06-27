@@ -21,7 +21,7 @@ else()
   add_definitions(-DCOMPILING_WASM_RUNTIME_API=1)
 endif()
 
-set (CMAKE_CXX_STANDARD 14)
+set (CMAKE_CXX_STANDARD 17)
 
 if (NOT DEFINED WAMR_BUILD_PLATFORM)
   set (WAMR_BUILD_PLATFORM "linux")

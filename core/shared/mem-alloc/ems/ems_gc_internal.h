@@ -214,13 +214,16 @@ set_hmu_normal_node_next(hmu_normal_node_t *node, hmu_normal_node_t *next)
 #if defined(_MSC_VER)
 __pragma(pack(push, 1));
 #define __attr_packed
+#define __attr_aligned(a)
 #elif defined(__GNUC__) || defined(__clang__)
 #define __attr_packed __attribute__((packed))
+#define __attr_aligned(a) __attribute__((aligned(a)))
 #else
 #error "packed attribute isn't used to define struct hmu_tree_node"
 #endif
 #else /* else of UINTPTR_MAX == UINT64_MAX */
 #define __attr_packed
+#define __attr_aligned(a)
 #endif
 
 typedef struct hmu_tree_node {
@@ -229,7 +232,7 @@ typedef struct hmu_tree_node {
     struct hmu_tree_node *right;
     struct hmu_tree_node *parent;
     gc_size_t size;
-} __attr_packed hmu_tree_node_t;
+} __attr_packed __attr_aligned(4) hmu_tree_node_t;
 
 #if UINTPTR_MAX == UINT64_MAX
 #if defined(_MSC_VER)

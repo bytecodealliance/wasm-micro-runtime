@@ -36,6 +36,11 @@ jobs:
     needs: try_reuse
     if: needs.try_reuse.outputs.result != 'hit'
     runs-on: ${{ inputs.runner }}
+
+    env:
+      PYTHON_VERSION: '3.10'
+      PYTHON_UBUNTU_STANDALONE_BUILD: https://github.com/indygreg/python-build-standalone/releases/download/20230507/cpython-3.10.11+20230507-x86_64-unknown-linux-gnu-install_only.tar.gz
+      PYTHON_MACOS_STANDALONE_BUILD: https://github.com/indygreg/python-build-standalone/releases/download/20230507/cpython-3.10.11+20230507-x86_64-apple-darwin-install_only.tar.gz
     steps:
       - uses: actions/checkout@v3
 
@@ -63,10 +68,12 @@ jobs:
       - name: install utils macos
         if: steps.lldb_build_cache.outputs.cache-hit != 'true' && contains(inputs.runner, 'macos')
         run: |
-          brew install swig cmake ninja libedit
+          brew remove swig
+          brew install swig@3 cmake ninja libedit
+          brew link --overwrite swig@3
           sudo rm -rf /Library/Developer/CommandLineTools
 
-      - name: intsall utils ubuntu
+      - name: install utils ubuntu
         if: steps.lldb_build_cache.outputs.cache-hit != 'true' && contains(inputs.runner, 'ubuntu')
         run: sudo apt update && sudo apt-get install -y lld ninja-build
 
@@ -88,6 +95,20 @@ jobs:
           git apply ../../../build-scripts/lldb-wasm.patch
         working-directory: core/deps/llvm-project
 
+      - name: get stand-alone python ubuntu
+        if: steps.lldb_build_cache.outputs.cache-hit != 'true' && contains(inputs.runner, 'ubuntu')
+        run: |
+          wget ${{ env.PYTHON_UBUNTU_STANDALONE_BUILD }} -O python.tar.gz
+          tar -xvf python.tar.gz
+        working-directory: core/deps
+
+      - name: get stand-alone python macos
+        if: steps.lldb_build_cache.outputs.cache-hit != 'true' && contains(inputs.runner, 'macos')
+        run: |
+          wget ${{ env.PYTHON_MACOS_STANDALONE_BUILD }} -O python.tar.gz
+          tar -xvf python.tar.gz
+        working-directory: core/deps
+
       - name: build lldb ubuntu
         if: steps.lldb_build_cache.outputs.cache-hit != 'true' && contains(inputs.runner, 'ubuntu')
         run: |
@@ -102,17 +123,21 @@ jobs:
             -DLLVM_TARGETS_TO_BUILD:STRING="X86;WebAssembly" \
             -DLLVM_BUILD_BENCHMARKS:BOOL=OFF \
             -DLLVM_BUILD_DOCS:BOOL=OFF \
-            -DLLVM_BUILD_EXAMPLES:BOOL=OFF  \
+            -DLLVM_BUILD_EXAMPLES:BOOL=OFF \
             -DLLVM_BUILD_LLVM_DYLIB:BOOL=OFF \
-            -DLLVM_BUILD_TESTS:BOOL=OFF  \
-            -DLLVM_INCLUDE_BENCHMARKS:BOOL=OFF  \
+            -DLLVM_BUILD_TESTS:BOOL=OFF \
+            -DLLVM_INCLUDE_BENCHMARKS:BOOL=OFF \
             -DLLVM_INCLUDE_DOCS:BOOL=OFF \
             -DLLVM_INCLUDE_EXAMPLES:BOOL=OFF \
             -DLLVM_INCLUDE_TESTS:BOOL=OFF \
             -DLLVM_ENABLE_BINDINGS:BOOL=OFF \
             -DLLVM_ENABLE_LIBXML2:BOOL=ON \
-            -DLLDB_ENABLE_PYTHON:BOOL=OFF \
-            -DLLVM_ENABLE_LLD:BOOL=ON
+            -DLLVM_ENABLE_LLD:BOOL=ON \
+            -DLLDB_ENABLE_PYTHON:BOOL=ON \
+            -DLLDB_EMBED_PYTHON_HOME=ON \
+            -DLLDB_PYTHON_HOME=.. \
+            -DLLDB_PYTHON_RELATIVE_PATH=lib/lldb-python \
+            -DPython3_EXECUTABLE="$(pwd)/../python/bin/python${{ env.PYTHON_VERSION }}"
           cmake --build build --target lldb install --parallel $(nproc)
         working-directory: core/deps/llvm-project
 
@@ -130,20 +155,21 @@ jobs:
             -DLLVM_TARGETS_TO_BUILD:STRING="X86;WebAssembly" \
             -DLLVM_BUILD_BENCHMARKS:BOOL=OFF \
             -DLLVM_BUILD_DOCS:BOOL=OFF \
-            -DLLVM_BUILD_EXAMPLES:BOOL=OFF  \
+            -DLLVM_BUILD_EXAMPLES:BOOL=OFF \
             -DLLVM_BUILD_LLVM_DYLIB:BOOL=OFF \
-            -DLLVM_BUILD_TESTS:BOOL=OFF  \
-            -DLLVM_INCLUDE_BENCHMARKS:BOOL=OFF  \
+            -DLLVM_BUILD_TESTS:BOOL=OFF \
+            -DLLVM_INCLUDE_BENCHMARKS:BOOL=OFF \
             -DLLVM_INCLUDE_DOCS:BOOL=OFF \
             -DLLVM_INCLUDE_EXAMPLES:BOOL=OFF \
             -DLLVM_INCLUDE_TESTS:BOOL=OFF \
-            -DLLVM_BUILD_BENCHMARKS:BOOL=OFF \
-            -DLLVM_BUILD_DOCS:BOOL=OFF \
-            -DLLVM_BUILD_LLVM_DYLIB:BOOL=OFF \
             -DLLVM_ENABLE_BINDINGS:BOOL=OFF \
             -DLLVM_ENABLE_LIBXML2:BOOL=ON \
-            -DLLDB_ENABLE_PYTHON:BOOL=OFF \
-            -DLLDB_BUILD_FRAMEWORK:BOOL=OFF
+            -DLLDB_BUILD_FRAMEWORK:BOOL=OFF \
+            -DLLDB_ENABLE_PYTHON:BOOL=ON \
+            -DLLDB_EMBED_PYTHON_HOME=ON \
+            -DLLDB_PYTHON_HOME=.. \
+            -DLLDB_PYTHON_RELATIVE_PATH=lib/lldb-python \
+            -DPython3_EXECUTABLE="$(pwd)/../python/bin/python${{ env.PYTHON_VERSION }}"
           cmake --build build --target lldb install --parallel $(nproc)
         working-directory: core/deps/llvm-project
 
@@ -162,12 +188,20 @@ jobs:
         run: |
           cp build/lib/liblldb*.so wamr-lldb/lib
           cp build/lib/liblldb*.so.* wamr-lldb/lib
+          cp -R build/lib/lldb-python wamr-lldb/lib
+          cp -R ../python/lib/python* wamr-lldb/lib
+          cp ../python/lib/libpython${{ env.PYTHON_VERSION }}.so.1.0 wamr-lldb/lib
         working-directory: core/deps/llvm-project
 
       - name: pack macos specific libraries
         if: steps.lldb_build_cache.outputs.cache-hit != 'true' && contains(inputs.runner, 'macos')
         run: |
           cp build/lib/liblldb*.dylib wamr-lldb/lib
+          cp -R build/lib/lldb-python wamr-lldb/lib
+          cp -R ../python/lib/python* wamr-lldb/lib
+          cp ../python/lib/libpython*.dylib wamr-lldb/lib
+          install_name_tool -change /install/lib/libpython${{ env.PYTHON_VERSION }}.dylib @rpath/libpython${{ env.PYTHON_VERSION }}.dylib wamr-lldb/lib/liblldb.*.dylib
+        # Patch path of python library -> https://github.com/indygreg/python-build-standalone/blob/85923ca3911784e6978b85d56e06e9ae75cb2dc4/docs/quirks.rst?plain=1#L412-L446  
         working-directory: core/deps/llvm-project
 
       - name: compress the binary

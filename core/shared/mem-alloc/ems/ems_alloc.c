@@ -625,6 +625,7 @@ gc_realloc_vo_internal(void *vheap, void *ptr, gc_size_t size, const char *file,
                         UNLOCK_HEAP(heap);
                         return NULL;
                     }
+                    hmu_mark_pinuse(hmu_next);
                 }
                 UNLOCK_HEAP(heap);
                 return obj_old;
