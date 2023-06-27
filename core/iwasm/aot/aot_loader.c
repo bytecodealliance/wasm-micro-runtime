@@ -2020,6 +2020,7 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
                  || !strncmp(symbol, ".rodata.cst", strlen(".rodata.cst"))
                  /* ".rodata.strn.m" */
                  || !strncmp(symbol, ".rodata.str", strlen(".rodata.str"))
+                 || !strcmp(symbol, AOT_STACK_SIZES_SECTION_NAME)
 #if WASM_ENABLE_STATIC_PGO != 0
                  || !strncmp(symbol, "__llvm_prf_cnts", 15)
                  || !strncmp(symbol, "__llvm_prf_data", 15)

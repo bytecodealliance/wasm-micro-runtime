@@ -28,6 +28,16 @@ extern "C" {
 #endif
 extern const char *aot_stack_sizes_name;
 
+#ifndef AOT_STACK_SIZES_ALIAS_NAME
+#define AOT_STACK_SIZES_ALIAS_NAME "aot_stack_sizes_alias"
+#endif
+extern const char *aot_stack_sizes_alias_name;
+
+#ifndef AOT_STACK_SIZES_SECTION_NAME
+#define AOT_STACK_SIZES_SECTION_NAME ".aot_stack_sizes"
+#endif
+extern const char *aot_stack_sizes_section_name;
+
 typedef InitializerExpression AOTInitExpr;
 typedef WASMType AOTFuncType;
 typedef WASMExport AOTExport;
