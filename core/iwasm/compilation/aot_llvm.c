@@ -2220,6 +2220,29 @@ orc_jit_create(AOTCompContext *comp_ctx)
         LLVMOrcIRTransformLayerRef TL =
             LLVMOrcLLLazyJITGetIRTransformLayer(orc_jit);
         LLVMOrcIRTransformLayerSetTransform(TL, transform, comp_ctx);
+
+        /*
+         * Register runtime provided symbols and
+         * let LLVMJIT lookup alternative implementations
+         * of some functions used by llvm intrinsics
+         *
+         * TODO:
+         * need to add more.
+         * for now, it is a short list driven by test cases.
+         */
+        LLVMJITSymbolFlags flag = { LLVMJITSymbolGenericFlagsExported
+                                        | LLVMJITSymbolGenericFlagsCallable,
+                                    0 };
+        LLVMOrcCSymbolMapPair syms[2] = {
+            { LLVMOrcLLLazyJITMangleAndIntern(orc_jit, "memset"),
+              { (uint64)&aot_memset, flag } },
+            { LLVMOrcLLLazyJITMangleAndIntern(orc_jit, "memmove"),
+              { (uint64)&aot_memmove, flag } },
+        };
+
+        LLVMOrcMaterializationUnitRef MU = LLVMOrcAbsoluteSymbols(syms, 2);
+        LLVMOrcJITDylibRef MainJD = LLVMOrcLLLazyJITGetMainJITDylib(orc_jit);
+        LLVMOrcJITDylibDefine(MainJD, MU);
     }
 #endif
 
