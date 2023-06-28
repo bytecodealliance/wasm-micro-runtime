@@ -15,6 +15,7 @@ WAMR_BUILD_SGX_IPFS = 0
 WAMR_BUILD_LIB_RATS = 0
 WAMR_BUILD_GLOBAL_HEAP_POOL = 0
 WAMR_BUILD_GLOBAL_HEAP_SIZE = 10485760
+WAMR_BUILD_STATIC_PGO = 0
 
 VMLIB_BUILD_DIR ?= $(CURDIR)/../build
 LIB_RATS_SRC ?= $(VMLIB_BUILD_DIR)/_deps/librats-build
@@ -65,7 +66,7 @@ ifeq ($(WAMR_BUILD_LIB_RATS), 1)
 	App_Include_Paths += -I$(LIB_RATS_INCLUDE_DIR)
 endif
 
-App_C_Flags := $(SGX_COMMON_CFLAGS) -fPIC -Wno-attributes $(App_Include_Paths)
+App_C_Flags := $(SGX_COMMON_CFLAGS) -fPIC -Wno-attributes $(App_Include_Paths) -DWASM_ENABLE_STATIC_PGO=$(WAMR_BUILD_STATIC_PGO)
 
 # Three configuration modes - Debug, prerelease, release
 #   Debug - Macro DEBUG enabled.
@@ -134,7 +135,7 @@ ifeq ($(WAMR_BUILD_LIB_RATS), 1)
 	Enclave_Include_Paths += -I$(LIB_RATS_INCLUDE_DIR) -I$(SGX_SSL)/include
 endif
 
-Enclave_C_Flags := $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -fstack-protector $(Enclave_Include_Paths) -DWASM_GLOBAL_HEAP_SIZE=$(WAMR_BUILD_GLOBAL_HEAP_SIZE) -DWASM_ENABLE_GLOBAL_HEAP_POOL=$(WAMR_BUILD_GLOBAL_HEAP_POOL) -DWASM_ENABLE_LIB_RATS=$(WAMR_BUILD_LIB_RATS)
+Enclave_C_Flags := $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -fstack-protector $(Enclave_Include_Paths) -DWASM_GLOBAL_HEAP_SIZE=$(WAMR_BUILD_GLOBAL_HEAP_SIZE) -DWASM_ENABLE_GLOBAL_HEAP_POOL=$(WAMR_BUILD_GLOBAL_HEAP_POOL) -DWASM_ENABLE_LIB_RATS=$(WAMR_BUILD_LIB_RATS) -DWASM_ENABLE_STATIC_PGO=$(WAMR_BUILD_STATIC_PGO)
 ifeq ($(SPEC_TEST), 1)
 	Enclave_C_Flags += -DWASM_ENABLE_SPEC_TEST=1
 else

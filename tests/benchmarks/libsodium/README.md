@@ -18,6 +18,12 @@ And then run `./build.sh` to build the source code, the libsodium source code wi
 
 Run `./run_aot.sh` to test the benchmark, the native mode and iwasm aot mode will be tested respectively.
 
+Run `./test_pgo.sh` to test the benchmark with AOT static PGO (Profile-Guided Optimization) enabled, please refer [here](../README.md#install-llvm-profdata) to install tool `llvm-profdata` and build `iwasm` with `cmake -DWAMR_BUILD_STATIC_PGO=1`.
+
+- For Linux, build `iwasm` with `cmake -DWAMR_BUILD_STATIC_PGO=1`, then run `./test_pgo.sh` to test the benchmark with AOT static PGO (Profile-Guided Optimization) enabled.
+
+- For Linux-sgx, similarly, build `iwasm` with `cmake -DWAMR_BUILD_STATIC_PGO=1`, then `make` in the directory `enclave-sample`. And run `./test_pgo.sh --sgx` to test the benchmark.
+
 # Others
 
 Refer to [Performance of WebAssembly runtimes in 2023](https://00f.net/2023/01/04/webassembly-benchmark-2023) for more about the performance comparison of wasm runtimes on running the libsodium benchmarks.

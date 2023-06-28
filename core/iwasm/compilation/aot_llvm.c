@@ -18,8 +18,17 @@
 #include "dpgo/dpgo_internal.h"
 #endif
 
+static bool
+create_native_symbol(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
+static bool
+create_native_stack_bound(const AOTCompContext *comp_ctx,
+                          AOTFuncContext *func_ctx);
+static bool
+create_native_stack_top_min(const AOTCompContext *comp_ctx,
+                            AOTFuncContext *func_ctx);
+
 LLVMTypeRef
-wasm_type_to_llvm_type(AOTLLVMTypes *llvm_types, uint8 wasm_type)
+wasm_type_to_llvm_type(const AOTLLVMTypes *llvm_types, uint8 wasm_type)
 {
     switch (wasm_type) {
         case VALUE_TYPE_I32:
@@ -42,18 +51,474 @@ wasm_type_to_llvm_type(AOTLLVMTypes *llvm_types, uint8 wasm_type)
     return NULL;
 }
 
+static LLVMValueRef
+aot_add_llvm_func1(const AOTCompContext *comp_ctx, LLVMModuleRef module,
+                   uint32 func_index, uint32 param_count, LLVMTypeRef func_type,
+                   const char *prefix)
+{
+    char func_name[48];
+    LLVMValueRef func;
+    LLVMValueRef local_value;
+    uint32 i, j;
+
+    /* Add LLVM function */
+    snprintf(func_name, sizeof(func_name), "%s%d", prefix, func_index);
+    if (!(func = LLVMAddFunction(module, func_name, func_type))) {
+        aot_set_last_error("add LLVM function failed.");
+        return NULL;
+    }
+
+    j = 0;
+    local_value = LLVMGetParam(func, j++);
+    LLVMSetValueName(local_value, "exec_env");
+
+    /* Set parameter names */
+    for (i = 0; i < param_count; i++) {
+        local_value = LLVMGetParam(func, j++);
+        LLVMSetValueName(local_value, "");
+    }
+
+    return func;
+}
+
+/*
+ * create a basic func_ctx enough to call aot_emit_exception.
+ *
+ * that is:
+ * - exec_env
+ * - aot_inst
+ * - native_symbol (if is_indirect_mode)
+ */
+static bool
+create_basic_func_context(const AOTCompContext *comp_ctx,
+                          AOTFuncContext *func_ctx)
+{
+    LLVMValueRef aot_inst_offset = I32_TWO, aot_inst_addr;
+
+    /* Save the pameters for fast access */
+    func_ctx->exec_env = LLVMGetParam(func_ctx->func, 0);
+
+    /* Get aot inst address, the layout of exec_env is:
+       exec_env->next, exec_env->prev, exec_env->module_inst, and argv_buf */
+    if (!(aot_inst_addr = LLVMBuildInBoundsGEP2(
+              comp_ctx->builder, OPQ_PTR_TYPE, func_ctx->exec_env,
+              &aot_inst_offset, 1, "aot_inst_addr"))) {
+        aot_set_last_error("llvm build in bounds gep failed");
+        goto fail;
+    }
+
+    /* Load aot inst */
+    if (!(func_ctx->aot_inst = LLVMBuildLoad2(comp_ctx->builder, OPQ_PTR_TYPE,
+                                              aot_inst_addr, "aot_inst"))) {
+        aot_set_last_error("llvm build load failed");
+        goto fail;
+    }
+
+    if (comp_ctx->is_indirect_mode
+        && !create_native_symbol(comp_ctx, func_ctx)) {
+        goto fail;
+    }
+
+    return true;
+fail:
+    return false;
+}
+
+/*
+ * return if the "precheck" wrapper function can use tail call optimization
+ */
+bool
+aot_target_precheck_can_use_musttail(const AOTCompContext *comp_ctx)
+{
+    if (!strcmp(comp_ctx->target_arch, "xtensa")) {
+        /*
+         * xtensa windowed ABI doesn't have tail call optimization.
+         *
+         * Note: as of writing this, the xtensa version of LLVM
+         * simply ignores the musttail attribute.
+         * https://github.com/espressif/llvm-project/pull/73
+         */
+        return false;
+    }
+    if (!strcmp(comp_ctx->target_arch, "riscv32")
+        || !strcmp(comp_ctx->target_arch, "riscv64")) {
+        /*
+         * REVISIT: actually, riscv can use tail call optimization
+         * in some cases. I (yamamoto) don't know the exact conditions
+         * though.
+         */
+        return false;
+    }
+    /*
+     * x86-64/i386: true
+     *
+     * others: assume true for now
+     */
+    return true;
+}
+
+unsigned int
+aot_estimate_stack_usage_for_function_call(const AOTCompContext *comp_ctx,
+                                           const AOTFuncType *callee_func_type)
+{
+    /*
+     * Estimate how much stack is necessary to make a function call.
+     * This does not include the stack consumption of the callee function.
+     *
+     * For precise estimation, ideally this function needs to be
+     * target-specific.
+     * However, this implementation aims to be target-independent,
+     * allowing a small overstimation, which is probably ok for our purpose.
+     * (overflow detection and memory profiling)
+     * On the other hand, an underestimation should be avoided as it
+     * can cause more serious problems like silent data corruptions.
+     *
+     * Assumptions:
+     *
+     * - the first result is returned via a register.
+     *
+     * - all parameters, including exec_env and pointers to non-first
+     *   results, are passed via stack.
+     *   (this is a bit pessimistic than many of real calling conventions,
+     *   where some of parameters are passed via register.)
+     *
+     * - N-byte value needs N-byte alignment on stack.
+     *
+     * - a value smaller than a pointer is extended.
+     *   (eg. 4 byte values are extended to 8 byte on x86-64.)
+     */
+
+    const unsigned int param_count = callee_func_type->param_count;
+    const unsigned int result_count = callee_func_type->result_count;
+    unsigned int size = 0;
+    unsigned int i;
+    unsigned int nb;
+
+    if (!strcmp(comp_ctx->target_arch, "xtensa")) {
+        /*
+         * In the xtensa windowed ABI, outgoing arguments are already
+         * included in the callee's stack frame size, which equals to
+         * the operand of the ENTRY instruction and what LLVM
+         * MFI->getStackSize returns.
+         */
+        return 0;
+    }
+
+    /* exec_env */
+    size = comp_ctx->pointer_size;
+
+    /* parameters */
+    for (i = 0; i < param_count; i++) {
+        nb = wasm_value_type_cell_num(callee_func_type->types[i]) * 4;
+        if (nb < comp_ctx->pointer_size) {
+            nb = comp_ctx->pointer_size;
+        }
+        size = align_uint(size, nb) + nb;
+    }
+
+    /* pointers to results */
+    nb = comp_ctx->pointer_size;
+    for (i = 1; i < result_count; i++) {
+        size = align_uint(size, nb) + nb;
+    }
+
+    /* return address */
+    nb = comp_ctx->pointer_size;
+    size = align_uint(size, nb) + nb;
+
+    /*
+     * some extra for possible arch-dependent things like
+     * 16-byte alignment for x86_64.
+     */
+    size += 16;
+    return size;
+}
+
+/*
+ * a "precheck" function performs a few things before calling wrapped_func.
+ *
+ * - update native_stack_top_min if necessary
+ * - stack overflow check (if it does, trap)
+ */
+static LLVMValueRef
+aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
+                          uint32 func_index, uint32 orig_param_count,
+                          LLVMTypeRef func_type, LLVMValueRef wrapped_func)
+{
+    LLVMValueRef precheck_func;
+    LLVMBasicBlockRef begin = NULL;
+    LLVMBasicBlockRef check_top_block = NULL;
+    LLVMBasicBlockRef update_top_block = NULL;
+    LLVMBasicBlockRef stack_bound_check_block = NULL;
+    LLVMBasicBlockRef call_wrapped_func_block = NULL;
+    LLVMValueRef *params = NULL;
+
+    precheck_func =
+        aot_add_llvm_func1(comp_ctx, module, func_index, orig_param_count,
+                           func_type, AOT_FUNC_PREFIX);
+    if (!precheck_func) {
+        goto fail;
+    }
+    begin = LLVMAppendBasicBlockInContext(comp_ctx->context, precheck_func,
+                                          "begin");
+    check_top_block = LLVMAppendBasicBlockInContext(
+        comp_ctx->context, precheck_func, "check_top_block");
+    if (comp_ctx->enable_stack_estimation) {
+        update_top_block = LLVMAppendBasicBlockInContext(
+            comp_ctx->context, precheck_func, "update_top_block");
+        if (!update_top_block) {
+            goto fail;
+        }
+    }
+    stack_bound_check_block = LLVMAppendBasicBlockInContext(
+        comp_ctx->context, precheck_func, "stack_bound_check_block");
+    call_wrapped_func_block = LLVMAppendBasicBlockInContext(
+        comp_ctx->context, precheck_func, "call_wrapped_func");
+    if (!begin || !check_top_block || !stack_bound_check_block
+        || !call_wrapped_func_block) {
+        goto fail;
+    }
+    LLVMBuilderRef b = comp_ctx->builder;
+    LLVMPositionBuilderAtEnd(b, begin);
+
+    /* create a temporary minimum func_ctx */
+    AOTFuncContext tmp;
+    AOTFuncContext *func_ctx = &tmp;
+    memset(func_ctx, 0, sizeof(*func_ctx));
+    func_ctx->func = precheck_func;
+    func_ctx->module = module;
+    func_ctx->aot_func = comp_ctx->comp_data->funcs[func_index];
+#if WASM_ENABLE_DEBUG_AOT != 0
+    func_ctx->debug_func = NULL;
+#endif
+    if (!create_basic_func_context(comp_ctx, func_ctx))
+        goto fail;
+    if (comp_ctx->enable_stack_bound_check
+        && !create_native_stack_bound(comp_ctx, func_ctx))
+        goto fail;
+    if (comp_ctx->enable_stack_estimation
+        && !create_native_stack_top_min(comp_ctx, func_ctx)) {
+        goto fail;
+    }
+
+    unsigned int param_count = LLVMCountParams(precheck_func);
+    uint64 sz = param_count * sizeof(LLVMValueRef);
+    params = wasm_runtime_malloc(sz);
+    if (params == NULL) {
+        goto fail;
+    }
+    LLVMGetParams(precheck_func, params);
+
+    const bool is_64bit = comp_ctx->pointer_size == sizeof(uint64);
+    LLVMTypeRef uintptr_type;
+    if (is_64bit)
+        uintptr_type = I64_TYPE;
+    else
+        uintptr_type = I32_TYPE;
+
+    /*
+     * load the stack pointer
+     */
+    LLVMValueRef sp_ptr = LLVMBuildAlloca(b, I32_TYPE, "sp_ptr");
+    if (!sp_ptr) {
+        goto fail;
+    }
+    LLVMValueRef sp = LLVMBuildPtrToInt(b, sp_ptr, uintptr_type, "sp");
+    if (!sp) {
+        goto fail;
+    }
+
+    /*
+     * load the value for this wrapped function from the stack_sizes array
+     */
+    LLVMValueRef func_index_const = I32_CONST(func_index);
+    LLVMValueRef sizes =
+        LLVMBuildBitCast(b, comp_ctx->stack_sizes, INT32_PTR_TYPE, "sizes");
+    if (!sizes) {
+        goto fail;
+    }
+    LLVMValueRef sizep = LLVMBuildInBoundsGEP2(b, I32_TYPE, sizes,
+                                               &func_index_const, 1, "sizep");
+    if (!sizep) {
+        goto fail;
+    }
+    LLVMValueRef size32 = LLVMBuildLoad2(b, I32_TYPE, sizep, "size32");
+    if (!size32) {
+        goto fail;
+    }
+    LLVMValueRef size;
+    if (is_64bit) {
+        size = LLVMBuildZExt(b, size32, uintptr_type, "size");
+        if (!size) {
+            goto fail;
+        }
+    }
+    else {
+        size = size32;
+    }
+    /*
+     * calculate new sp
+     */
+    LLVMValueRef underflow =
+        LLVMBuildICmp(b, LLVMIntULT, sp, size, "underflow");
+    if (!underflow) {
+        goto fail;
+    }
+    LLVMValueRef new_sp = LLVMBuildSub(b, sp, size, "new_sp");
+    if (!new_sp) {
+        goto fail;
+    }
+    if (!LLVMBuildBr(b, check_top_block)) {
+        goto fail;
+    }
+
+    LLVMPositionBuilderAtEnd(b, check_top_block);
+    if (comp_ctx->enable_stack_estimation) {
+        /*
+         * load native_stack_top_min from the exec_env
+         */
+        LLVMValueRef top_min =
+            LLVMBuildLoad2(b, OPQ_PTR_TYPE, func_ctx->native_stack_top_min_addr,
+                           "native_stack_top_min");
+        if (!top_min) {
+            goto fail;
+        }
+        LLVMValueRef top_min_int = LLVMBuildPtrToInt(
+            b, top_min, uintptr_type, "native_stack_top_min_int");
+        if (!top_min_int) {
+            goto fail;
+        }
+
+        bh_assert(update_top_block);
+
+        /*
+         * update native_stack_top_min if
+         * new_sp = sp - size < native_stack_top_min
+         *
+         * Note: unless the stack has already overflown in this exec_env,
+         * native_stack_bound <= native_stack_top_min
+         */
+        LLVMValueRef cmp_top =
+            LLVMBuildICmp(b, LLVMIntULT, new_sp, top_min_int, "cmp_top");
+        if (!cmp_top) {
+            goto fail;
+        }
+        cmp_top = LLVMBuildOr(b, underflow, cmp_top, "cmp_top2");
+        if (!cmp_top) {
+            goto fail;
+        }
+        if (!LLVMBuildCondBr(b, cmp_top, update_top_block,
+                             call_wrapped_func_block)) {
+            aot_set_last_error("llvm build cond br failed.");
+            goto fail;
+        }
+
+        /*
+         * update native_stack_top_min
+         */
+        LLVMPositionBuilderAtEnd(b, update_top_block);
+        LLVMValueRef new_sp_ptr =
+            LLVMBuildIntToPtr(b, new_sp, INT8_PTR_TYPE, "new_sp_ptr");
+        if (!new_sp_ptr) {
+            goto fail;
+        }
+        if (!LLVMBuildStore(b, new_sp_ptr,
+                            func_ctx->native_stack_top_min_addr)) {
+            goto fail;
+        }
+        if (!LLVMBuildBr(b, stack_bound_check_block)) {
+            goto fail;
+        }
+    }
+    else {
+        if (!LLVMBuildBr(b, stack_bound_check_block)) {
+            goto fail;
+        }
+    }
+
+    LLVMPositionBuilderAtEnd(b, stack_bound_check_block);
+    if (comp_ctx->enable_stack_bound_check) {
+        /*
+         * trap if new_sp < native_stack_bound
+         */
+        LLVMValueRef bound_int = LLVMBuildPtrToInt(
+            b, func_ctx->native_stack_bound, uintptr_type, "bound_base_int");
+        if (!bound_int) {
+            goto fail;
+        }
+        LLVMValueRef cmp =
+            LLVMBuildICmp(b, LLVMIntULT, new_sp, bound_int, "cmp");
+        if (!cmp) {
+            goto fail;
+        }
+        cmp = LLVMBuildOr(b, underflow, cmp, "cmp2");
+        if (!cmp) {
+            goto fail;
+        }
+        /* todo: @llvm.expect.i1(i1 %cmp, i1 0) */
+        if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_NATIVE_STACK_OVERFLOW,
+                                true, cmp, call_wrapped_func_block))
+            goto fail;
+    }
+    else {
+        if (!LLVMBuildBr(b, call_wrapped_func_block)) {
+            goto fail;
+        }
+    }
+
+    /*
+     * call the wrapped function
+     * use a tail-call if possible
+     */
+    LLVMPositionBuilderAtEnd(b, call_wrapped_func_block);
+    const char *name = "tail_call";
+    LLVMTypeRef ret_type = LLVMGetReturnType(func_type);
+    if (ret_type == VOID_TYPE) {
+        name = "";
+    }
+    LLVMValueRef retval =
+        LLVMBuildCall2(b, func_type, wrapped_func, params, param_count, name);
+    if (!retval) {
+        goto fail;
+    }
+    wasm_runtime_free(params);
+    params = NULL;
+    if (aot_target_precheck_can_use_musttail(comp_ctx)) {
+        LLVMSetTailCallKind(retval, LLVMTailCallKindMustTail);
+    }
+    else {
+        LLVMSetTailCallKind(retval, LLVMTailCallKindTail);
+    }
+    if (ret_type == VOID_TYPE) {
+        if (!LLVMBuildRetVoid(b)) {
+            goto fail;
+        }
+    }
+    else {
+        if (!LLVMBuildRet(b, retval)) {
+            goto fail;
+        }
+    }
+
+    return precheck_func;
+fail:
+    if (params != NULL) {
+        wasm_runtime_free(params);
+    }
+    aot_set_last_error("failed to build precheck wrapper function.");
+    return NULL;
+}
+
 /**
  * Add LLVM function
  */
 static LLVMValueRef
 aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
-                  AOTFuncType *aot_func_type, uint32 func_index,
-                  LLVMTypeRef *p_func_type)
+                  const AOTFuncType *aot_func_type, uint32 func_index,
+                  LLVMTypeRef *p_func_type, LLVMValueRef *p_precheck_func)
 {
     LLVMValueRef func = NULL;
     LLVMTypeRef *param_types, ret_type, func_type;
-    LLVMValueRef local_value;
-    char func_name[48];
     uint64 size;
     uint32 i, j = 0, param_count = (uint64)aot_func_type->param_count;
 
@@ -62,6 +527,7 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
     LLVMTypeRef func_type_wrapper;
     LLVMValueRef func_wrapper;
     LLVMBasicBlockRef func_begin;
+    char func_name[48];
 #endif
 
     /* exec env as first parameter */
@@ -108,21 +574,44 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
         goto fail;
     }
 
-    /* Add LLVM function */
-    snprintf(func_name, sizeof(func_name), "%s%d", AOT_FUNC_PREFIX, func_index);
-    if (!(func = LLVMAddFunction(module, func_name, func_type))) {
-        aot_set_last_error("add LLVM function failed.");
-        goto fail;
+    bh_assert(func_index < comp_ctx->func_ctx_count);
+    bh_assert(LLVMGetReturnType(func_type) == ret_type);
+    const char *prefix = AOT_FUNC_PREFIX;
+    const bool need_precheck =
+        comp_ctx->enable_stack_bound_check || comp_ctx->enable_stack_estimation;
+    if (need_precheck) {
+        /*
+         * REVISIT: probably this breaks windows hw bound check
+         * (the RtlAddFunctionTable stuff)
+         */
+        prefix = AOT_FUNC_INTERNAL_PREFIX;
     }
+    if (!(func = aot_add_llvm_func1(comp_ctx, module, func_index,
+                                    aot_func_type->param_count, func_type,
+                                    prefix)))
+        goto fail;
 
-    j = 0;
-    local_value = LLVMGetParam(func, j++);
-    LLVMSetValueName(local_value, "exec_env");
+    if (need_precheck) {
+        if (!comp_ctx->is_jit_mode)
+            LLVMSetLinkage(func, LLVMInternalLinkage);
+        unsigned int kind =
+            LLVMGetEnumAttributeKindForName("noinline", strlen("noinline"));
+        LLVMAttributeRef attr_noinline =
+            LLVMCreateEnumAttribute(comp_ctx->context, kind, 0);
+        LLVMAddAttributeAtIndex(func, LLVMAttributeFunctionIndex,
+                                attr_noinline);
 
-    /* Set parameter names */
-    for (i = 0; i < aot_func_type->param_count; i++) {
-        local_value = LLVMGetParam(func, j++);
-        LLVMSetValueName(local_value, "");
+        LLVMValueRef precheck_func = aot_add_precheck_function(
+            comp_ctx, module, func_index, aot_func_type->param_count, func_type,
+            func);
+        if (!precheck_func)
+            goto fail;
+        LLVMAddAttributeAtIndex(precheck_func, LLVMAttributeFunctionIndex,
+                                attr_noinline);
+        *p_precheck_func = precheck_func;
+    }
+    else {
+        *p_precheck_func = func;
     }
 
     if (p_func_type)
@@ -186,8 +675,9 @@ free_block_memory(AOTBlock *block)
  * Create first AOTBlock, or function block for the function
  */
 static AOTBlock *
-aot_create_func_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                      AOTFunc *func, AOTFuncType *aot_func_type)
+aot_create_func_block(const AOTCompContext *comp_ctx,
+                      const AOTFuncContext *func_ctx, const AOTFunc *func,
+                      const AOTFuncType *aot_func_type)
 {
     AOTBlock *aot_block;
     uint32 param_count = aot_func_type->param_count,
@@ -275,7 +765,8 @@ create_argv_buf(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 }
 
 static bool
-create_native_stack_bound(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+create_native_stack_bound(const AOTCompContext *comp_ctx,
+                          AOTFuncContext *func_ctx)
 {
     LLVMValueRef stack_bound_offset = I32_FOUR, stack_bound_addr;
 
@@ -297,7 +788,8 @@ create_native_stack_bound(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 }
 
 static bool
-create_native_stack_top_min(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+create_native_stack_top_min(const AOTCompContext *comp_ctx,
+                            AOTFuncContext *func_ctx)
 {
     LLVMValueRef offset = I32_NINE;
 
@@ -312,7 +804,7 @@ create_native_stack_top_min(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 }
 
 static bool
-create_aux_stack_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+create_aux_stack_info(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
     LLVMValueRef aux_stack_bound_offset = I32_SIX, aux_stack_bound_addr;
     LLVMValueRef aux_stack_bottom_offset = I32_SEVEN, aux_stack_bottom_addr;
@@ -364,7 +856,7 @@ create_aux_stack_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 }
 
 static bool
-create_native_symbol(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+create_native_symbol(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
     LLVMValueRef native_symbol_offset = I32_EIGHT, native_symbol_addr;
 
@@ -393,8 +885,9 @@ create_native_symbol(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 }
 
 static bool
-create_local_variables(AOTCompData *comp_data, AOTCompContext *comp_ctx,
-                       AOTFuncContext *func_ctx, AOTFunc *func)
+create_local_variables(const AOTCompData *comp_data,
+                       const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                       const AOTFunc *func)
 {
     AOTFuncType *aot_func_type = comp_data->func_types[func->func_type_index];
     char local_name[32];
@@ -459,32 +952,11 @@ create_local_variables(AOTCompData *comp_data, AOTCompContext *comp_ctx,
         }
     }
 
-    if (comp_ctx->enable_stack_bound_check
-        || comp_ctx->enable_stack_estimation) {
-        if (aot_func_type->param_count + func->local_count > 0) {
-            func_ctx->last_alloca = func_ctx->locals[aot_func_type->param_count
-                                                     + func->local_count - 1];
-            if (!(func_ctx->last_alloca =
-                      LLVMBuildBitCast(comp_ctx->builder, func_ctx->last_alloca,
-                                       INT8_PTR_TYPE, "stack_ptr"))) {
-                aot_set_last_error("llvm build bit cast failed.");
-                return false;
-            }
-        }
-        else {
-            if (!(func_ctx->last_alloca = LLVMBuildAlloca(
-                      comp_ctx->builder, INT8_TYPE, "stack_ptr"))) {
-                aot_set_last_error("llvm build alloca failed.");
-                return false;
-            }
-        }
-    }
-
     return true;
 }
 
 static bool
-create_memory_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+create_memory_info(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                    LLVMTypeRef int8_ptr_type, uint32 func_index)
 {
     LLVMValueRef offset, mem_info_base;
@@ -816,7 +1288,7 @@ create_memory_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 }
 
 static bool
-create_cur_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+create_cur_exception(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
     LLVMValueRef offset;
 
@@ -832,7 +1304,8 @@ create_cur_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 }
 
 static bool
-create_func_type_indexes(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+create_func_type_indexes(const AOTCompContext *comp_ctx,
+                         AOTFuncContext *func_ctx)
 {
     LLVMValueRef offset, func_type_indexes_ptr;
     LLVMTypeRef int32_ptr_type;
@@ -870,7 +1343,7 @@ create_func_type_indexes(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 }
 
 static bool
-create_func_ptrs(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+create_func_ptrs(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
     LLVMValueRef offset;
 
@@ -908,11 +1381,95 @@ create_func_ptrs(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     return true;
 }
 
+const char *aot_stack_sizes_name = AOT_STACK_SIZES_NAME;
+const char *aot_stack_sizes_alias_name = AOT_STACK_SIZES_ALIAS_NAME;
+const char *aot_stack_sizes_section_name = AOT_STACK_SIZES_SECTION_NAME;
+
+static bool
+aot_create_stack_sizes(const AOTCompData *comp_data, AOTCompContext *comp_ctx)
+{
+    LLVMValueRef stack_sizes, *values, array, alias;
+    LLVMTypeRef stack_sizes_type;
+#if LLVM_VERSION_MAJOR <= 13
+    LLVMTypeRef alias_type;
+#endif
+    uint64 size;
+    uint32 i;
+
+    stack_sizes_type = LLVMArrayType(I32_TYPE, comp_data->func_count);
+    if (!stack_sizes_type) {
+        aot_set_last_error("failed to create stack_sizes type.");
+        return false;
+    }
+
+    stack_sizes =
+        LLVMAddGlobal(comp_ctx->module, stack_sizes_type, aot_stack_sizes_name);
+    if (!stack_sizes) {
+        aot_set_last_error("failed to create stack_sizes global.");
+        return false;
+    }
+
+    size = sizeof(LLVMValueRef) * comp_data->func_count;
+    if (size >= UINT32_MAX || !(values = wasm_runtime_malloc((uint32)size))) {
+        aot_set_last_error("allocate memory failed.");
+        return false;
+    }
+
+    for (i = 0; i < comp_data->func_count; i++) {
+        /*
+         * This value is a placeholder, which will be replaced
+         * after the corresponding functions are compiled.
+         *
+         * Don't use zeros becasue LLVM can optimize them to
+         * zeroinitializer.
+         */
+        values[i] = I32_NEG_ONE;
+    }
+
+    array = LLVMConstArray(I32_TYPE, values, comp_data->func_count);
+    wasm_runtime_free(values);
+    if (!array) {
+        aot_set_last_error("failed to create stack_sizes initializer.");
+        return false;
+    }
+    LLVMSetInitializer(stack_sizes, array);
+
+    /*
+     * create an alias so that aot_resolve_stack_sizes can find it.
+     */
+#if LLVM_VERSION_MAJOR > 13
+    alias = LLVMAddAlias2(comp_ctx->module, stack_sizes_type, 0, stack_sizes,
+                          aot_stack_sizes_alias_name);
+#else
+    alias_type = LLVMPointerType(stack_sizes_type, 0);
+    if (!alias_type) {
+        aot_set_last_error("failed to create alias type.");
+        return false;
+    }
+    alias = LLVMAddAlias(comp_ctx->module, alias_type, stack_sizes,
+                         aot_stack_sizes_alias_name);
+#endif
+    if (!alias) {
+        aot_set_last_error("failed to create stack_sizes alias.");
+        return false;
+    }
+
+    /*
+     * make the original symbol internal. we mainly use this version to
+     * avoid creating extra relocations in the precheck functions.
+     */
+    LLVMSetLinkage(stack_sizes, LLVMInternalLinkage);
+    LLVMSetSection(stack_sizes, aot_stack_sizes_section_name);
+    comp_ctx->stack_sizes_type = stack_sizes_type;
+    comp_ctx->stack_sizes = stack_sizes;
+    return true;
+}
+
 /**
  * Create function compiler context
  */
 static AOTFuncContext *
-aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
+aot_create_func_context(const AOTCompData *comp_data, AOTCompContext *comp_ctx,
                         AOTFunc *func, uint32 func_index)
 {
     AOTFuncContext *func_ctx;
@@ -921,7 +1478,6 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
     WASMFunction *wasm_func = module->functions[func_index];
     AOTBlock *aot_block;
     LLVMTypeRef int8_ptr_type;
-    LLVMValueRef aot_inst_offset = I32_TWO, aot_inst_addr;
     uint64 size;
 
     /* Allocate memory for the function context */
@@ -939,9 +1495,9 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
     func_ctx->module = comp_ctx->module;
 
     /* Add LLVM function */
-    if (!(func_ctx->func =
-              aot_add_llvm_func(comp_ctx, func_ctx->module, aot_func_type,
-                                func_index, &func_ctx->func_type))) {
+    if (!(func_ctx->func = aot_add_llvm_func(
+              comp_ctx, func_ctx->module, aot_func_type, func_index,
+              &func_ctx->func_type, &func_ctx->precheck_func))) {
         goto fail;
     }
 
@@ -987,22 +1543,7 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
     /* Add local variables */
     LLVMPositionBuilderAtEnd(comp_ctx->builder, aot_block->llvm_entry_block);
 
-    /* Save the pameters for fast access */
-    func_ctx->exec_env = LLVMGetParam(func_ctx->func, 0);
-
-    /* Get aot inst address, the layout of exec_env is:
-       exec_env->next, exec_env->prev, exec_env->module_inst, and argv_buf */
-    if (!(aot_inst_addr = LLVMBuildInBoundsGEP2(
-              comp_ctx->builder, OPQ_PTR_TYPE, func_ctx->exec_env,
-              &aot_inst_offset, 1, "aot_inst_addr"))) {
-        aot_set_last_error("llvm build in bounds gep failed");
-        goto fail;
-    }
-
-    /* Load aot inst */
-    if (!(func_ctx->aot_inst = LLVMBuildLoad2(comp_ctx->builder, OPQ_PTR_TYPE,
-                                              aot_inst_addr, "aot_inst"))) {
-        aot_set_last_error("llvm build load failed");
+    if (!create_basic_func_context(comp_ctx, func_ctx)) {
         goto fail;
     }
 
@@ -1011,25 +1552,9 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
         goto fail;
     }
 
-    /* Get native stack boundary address */
-    if (comp_ctx->enable_stack_bound_check
-        && !create_native_stack_bound(comp_ctx, func_ctx)) {
-        goto fail;
-    }
-    if (comp_ctx->enable_stack_estimation
-        && !create_native_stack_top_min(comp_ctx, func_ctx)) {
-        goto fail;
-    }
-
     /* Get auxiliary stack info */
     if (wasm_func->has_op_set_global_aux_stack
         && !create_aux_stack_info(comp_ctx, func_ctx)) {
-        goto fail;
-    }
-
-    /* Get native symbol list */
-    if (comp_ctx->is_indirect_mode
-        && !create_native_symbol(comp_ctx, func_ctx)) {
         goto fail;
     }
 
@@ -1095,11 +1620,16 @@ aot_destroy_func_contexts(AOTFuncContext **func_ctxes, uint32 count)
  * Create function compiler contexts
  */
 static AOTFuncContext **
-aot_create_func_contexts(AOTCompData *comp_data, AOTCompContext *comp_ctx)
+aot_create_func_contexts(const AOTCompData *comp_data, AOTCompContext *comp_ctx)
 {
     AOTFuncContext **func_ctxes;
     uint64 size;
     uint32 i;
+
+    if ((comp_ctx->enable_stack_bound_check
+         || comp_ctx->enable_stack_estimation)
+        && !aot_create_stack_sizes(comp_data, comp_ctx))
+        return NULL;
 
     /* Allocate memory */
     size = sizeof(AOTFuncContext *) * (uint64)comp_data->func_count;
@@ -1162,6 +1692,28 @@ aot_set_llvm_basic_types(AOTLLVMTypes *basic_types, LLVMContextRef context)
 
     basic_types->v128_type = basic_types->i64x2_vec_type;
     basic_types->v128_ptr_type = LLVMPointerType(basic_types->v128_type, 0);
+
+    basic_types->int8_ptr_type_gs =
+        LLVMPointerType(basic_types->int8_type, 256);
+    basic_types->int16_ptr_type_gs =
+        LLVMPointerType(basic_types->int16_type, 256);
+    basic_types->int32_ptr_type_gs =
+        LLVMPointerType(basic_types->int32_type, 256);
+    basic_types->int64_ptr_type_gs =
+        LLVMPointerType(basic_types->int64_type, 256);
+    basic_types->float32_ptr_type_gs =
+        LLVMPointerType(basic_types->float32_type, 256);
+    basic_types->float64_ptr_type_gs =
+        LLVMPointerType(basic_types->float64_type, 256);
+    basic_types->v128_ptr_type_gs =
+        LLVMPointerType(basic_types->v128_type, 256);
+    if (!basic_types->int8_ptr_type_gs || !basic_types->int16_ptr_type_gs
+        || !basic_types->int32_ptr_type_gs || !basic_types->int64_ptr_type_gs
+        || !basic_types->float32_ptr_type_gs
+        || !basic_types->float64_ptr_type_gs
+        || !basic_types->v128_ptr_type_gs) {
+        return false;
+    }
 
     basic_types->i1x2_vec_type = LLVMVectorType(basic_types->int1_type, 2);
 
@@ -1492,6 +2044,55 @@ fail:
     return ret;
 }
 
+static void
+jit_stack_size_callback(void *user_data, const char *name, size_t namelen,
+                        size_t stack_size)
+{
+    AOTCompContext *comp_ctx = user_data;
+    /*
+     * Note: the longest name we care is
+     * something like "aot_func_internal#4294967295".
+     */
+    char buf[64];
+    uint32 func_idx;
+    const AOTFuncContext *func_ctx;
+    bool musttail;
+    unsigned int stack_consumption_to_call_wrapped_func;
+    unsigned int call_size;
+    int ret;
+
+    bh_assert(comp_ctx != NULL);
+    bh_assert(comp_ctx->jit_stack_sizes != NULL);
+
+    if (namelen >= sizeof(buf)) {
+        LOG_DEBUG("too long name: %.*s", (int)namelen, name);
+        return;
+    }
+    /* ensure NUL termination */
+    bh_memcpy_s(buf, sizeof(buf), name, namelen);
+    buf[namelen] = 0;
+
+    ret = sscanf(buf, AOT_FUNC_INTERNAL_PREFIX "%" SCNu32, &func_idx);
+    if (ret != 1) {
+        return;
+    }
+
+    bh_assert(func_idx < comp_ctx->func_ctx_count);
+    func_ctx = comp_ctx->func_ctxes[func_idx];
+    call_size = func_ctx->stack_consumption_for_func_call;
+    musttail = aot_target_precheck_can_use_musttail(comp_ctx);
+    stack_consumption_to_call_wrapped_func =
+        musttail ? 0
+                 : aot_estimate_stack_usage_for_function_call(
+                     comp_ctx, func_ctx->aot_func->func_type);
+    LOG_VERBOSE("func %.*s stack %u + %zu + %u", (int)namelen, name,
+                stack_consumption_to_call_wrapped_func, stack_size, call_size);
+
+    /* Note: -1 == AOT_NEG_ONE from aot_create_stack_sizes */
+    bh_assert(comp_ctx->jit_stack_sizes[func_idx] == (uint32)-1);
+    comp_ctx->jit_stack_sizes[func_idx] = stack_size + call_size;
+}
+
 #if WASM_ENABLE_DYNAMIC_PGO != 0
 /*
  * func_name should be in a form likes "aot_func#NNN".
@@ -1590,6 +2191,10 @@ orc_jit_create(AOTCompContext *comp_ctx)
         goto fail;
     }
 
+    if (comp_ctx->enable_stack_bound_check || comp_ctx->enable_stack_estimation)
+        LLVMOrcLLJITBuilderSetCompileFuncitonCreatorWithStackSizesCallback(
+            builder, jit_stack_size_callback, comp_ctx);
+
     err = LLVMOrcJITTargetMachineBuilderDetectHost(&jtmb);
     if (err != LLVMErrorSuccess) {
         aot_handle_llvm_errmsg(
@@ -1664,7 +2269,7 @@ aot_compiler_destroy(void)
 }
 
 AOTCompContext *
-aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
+aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
 {
     AOTCompContext *comp_ctx, *ret = NULL;
     LLVMTargetRef target;
@@ -1808,6 +2413,12 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
     if (option->disable_llvm_lto)
         comp_ctx->disable_llvm_lto = true;
 
+    if (option->enable_llvm_pgo)
+        comp_ctx->enable_llvm_pgo = true;
+
+    if (option->use_prof_file)
+        comp_ctx->use_prof_file = option->use_prof_file;
+
     if (option->enable_stack_estimation)
         comp_ctx->enable_stack_estimation = true;
 
@@ -1819,14 +2430,6 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
 
     if (option->is_jit_mode) {
         comp_ctx->is_jit_mode = true;
-
-        /* Create TargetMachine */
-        if (!create_target_machine_detect_host(comp_ctx))
-            goto fail;
-
-        /* Create LLJIT Instance */
-        if (!orc_jit_create(comp_ctx))
-            goto fail;
 
 #ifndef OS_ENABLE_HW_BOUND_CHECK
         comp_ctx->enable_bound_check = true;
@@ -1847,6 +2450,14 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
         comp_ctx->enable_stack_bound_check = false;
 #endif
 #endif
+
+        /* Create TargetMachine */
+        if (!create_target_machine_detect_host(comp_ctx))
+            goto fail;
+
+        /* Create LLJIT Instance */
+        if (!orc_jit_create(comp_ctx))
+            goto fail;
     }
     else {
         /* Create LLVM target machine */
@@ -2169,9 +2780,23 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
                 (option->stack_bounds_checks == 1) ? true : false;
         }
 
+        if ((comp_ctx->enable_stack_bound_check
+             || comp_ctx->enable_stack_estimation)
+            && option->stack_usage_file == NULL) {
+            if (!aot_generate_tempfile_name(
+                    "wamrc-su", "su", comp_ctx->stack_usage_temp_file,
+                    sizeof(comp_ctx->stack_usage_temp_file)))
+                goto fail;
+            comp_ctx->stack_usage_file = comp_ctx->stack_usage_temp_file;
+        }
+        else {
+            comp_ctx->stack_usage_file = option->stack_usage_file;
+        }
+
         os_printf("Create AoT compiler with:\n");
         os_printf("  target:        %s\n", comp_ctx->target_arch);
         os_printf("  target cpu:    %s\n", cpu);
+        os_printf("  target triple: %s\n", triple_norm);
         os_printf("  cpu features:  %s\n", features);
         os_printf("  opt level:     %d\n", opt_level);
         os_printf("  size level:    %d\n", size_level);
@@ -2189,6 +2814,8 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
                 os_printf("  output format: native object file\n");
                 break;
         }
+
+        LLVMSetTarget(comp_ctx->module, triple_norm);
 
         if (!LLVMTargetHasTargetMachine(target)) {
             snprintf(buf, sizeof(buf),
@@ -2224,11 +2851,42 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
         if (!(comp_ctx->target_machine = LLVMCreateTargetMachineWithOpts(
                   target, triple_norm, cpu, features, opt_level,
                   LLVMRelocStatic, code_model, false,
-                  option->stack_usage_file))) {
+                  comp_ctx->stack_usage_file))) {
             aot_set_last_error("create LLVM target machine failed.");
             goto fail;
         }
     }
+
+    triple = LLVMGetTargetMachineTriple(comp_ctx->target_machine);
+    if (!triple) {
+        aot_set_last_error("get target machine triple failed.");
+        goto fail;
+    }
+    if (strstr(triple, "linux") && !strcmp(comp_ctx->target_arch, "x86_64")) {
+        if (option->segue_flags) {
+            if (option->segue_flags & (1 << 0))
+                comp_ctx->enable_segue_i32_load = true;
+            if (option->segue_flags & (1 << 1))
+                comp_ctx->enable_segue_i64_load = true;
+            if (option->segue_flags & (1 << 2))
+                comp_ctx->enable_segue_f32_load = true;
+            if (option->segue_flags & (1 << 3))
+                comp_ctx->enable_segue_f64_load = true;
+            if (option->segue_flags & (1 << 4))
+                comp_ctx->enable_segue_v128_load = true;
+            if (option->segue_flags & (1 << 8))
+                comp_ctx->enable_segue_i32_store = true;
+            if (option->segue_flags & (1 << 9))
+                comp_ctx->enable_segue_i64_store = true;
+            if (option->segue_flags & (1 << 10))
+                comp_ctx->enable_segue_f32_store = true;
+            if (option->segue_flags & (1 << 11))
+                comp_ctx->enable_segue_f64_store = true;
+            if (option->segue_flags & (1 << 12))
+                comp_ctx->enable_segue_v128_store = true;
+        }
+    }
+    LLVMDisposeMessage(triple);
 
     if (option->enable_simd && strcmp(comp_ctx->target_arch, "x86_64") != 0
         && strncmp(comp_ctx->target_arch, "aarch64", 7) != 0) {
@@ -2263,6 +2921,7 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
         aot_set_last_error("create LLVM target data layout failed.");
         goto fail;
     }
+    LLVMSetModuleDataLayout(comp_ctx->module, target_data_ref);
     comp_ctx->pointer_size = LLVMPointerSize(target_data_ref);
     LLVMDisposeTargetData(target_data_ref);
 
@@ -2335,6 +2994,10 @@ aot_destroy_comp_context(AOTCompContext *comp_ctx)
 {
     if (!comp_ctx)
         return;
+
+    if (comp_ctx->stack_usage_file == comp_ctx->stack_usage_temp_file) {
+        (void)unlink(comp_ctx->stack_usage_temp_file);
+    }
 
     if (comp_ctx->target_machine)
         LLVMDisposeTargetMachine(comp_ctx->target_machine);
@@ -2641,8 +3304,8 @@ aot_checked_addr_list_destroy(AOTFuncContext *func_ctx)
 }
 
 bool
-aot_build_zero_function_ret(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                            AOTFuncType *func_type)
+aot_build_zero_function_ret(const AOTCompContext *comp_ctx,
+                            AOTFuncContext *func_ctx, AOTFuncType *func_type)
 {
     LLVMValueRef ret = NULL;
 
@@ -2681,9 +3344,12 @@ aot_build_zero_function_ret(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         return false;
     }
 #if WASM_ENABLE_DEBUG_AOT != 0
-    LLVMMetadataRef return_location =
-        dwarf_gen_func_ret_location(comp_ctx, func_ctx);
-    LLVMInstructionSetDebugLoc(ret, return_location);
+    /* debug_func is NULL for precheck function */
+    if (func_ctx->debug_func != NULL) {
+        LLVMMetadataRef return_location =
+            dwarf_gen_func_ret_location(comp_ctx, func_ctx);
+        LLVMInstructionSetDebugLoc(ret, return_location);
+    }
 #endif
     return true;
 }

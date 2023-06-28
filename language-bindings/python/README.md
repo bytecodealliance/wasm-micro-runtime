@@ -4,6 +4,8 @@ The WAMR Python package contains a set of high-level bindings for WAMR API and W
 
 ## Installation
 
+* **Notice**: This python package need python >= `3.9`.
+
 To Install from local source tree in _development mode_ run the following command,
 
 ```bash

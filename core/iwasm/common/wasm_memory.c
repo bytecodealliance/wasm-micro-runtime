@@ -624,6 +624,11 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
 #endif
 #endif
 
+#if defined(os_writegsbase)
+    /* write base addr of linear memory to GS segment register */
+    os_writegsbase(memory_data_new);
+#endif
+
     return ret;
 }
 #else

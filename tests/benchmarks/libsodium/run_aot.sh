@@ -13,12 +13,14 @@ libsodium_CASES="aead_aes256gcm2 aead_aes256gcm aead_chacha20poly13052 aead_chac
                  scalarmult6 scalarmult7 scalarmult8 scalarmult_ed25519 scalarmult_ristretto255 \
                  scalarmult secretbox2 secretbox7 secretbox8 secretbox_easy2 secretbox_easy \
                  secretbox secretstream shorthash sign siphashx24 sodium_core sodium_utils2 \
-                 sodium_utils3 sodium_utils sodium_version stream2 stream3 stream4 stream verify1 \
-                 xchacha20"
+                 sodium_utils stream2 stream3 stream4 stream verify1 xchacha20"
+
+PLATFORM=$(uname -s | tr A-Z a-z)
 
 readonly OUT_DIR=$PWD/libsodium/zig-out/bin
 readonly REPORT=$PWD/report.txt
-readonly IWASM_CMD=$PWD/../../../product-mini/platforms/linux/build/iwasm
+readonly IWASM_CMD=$PWD/../../../product-mini/platforms/${PLATFORM}/build/iwasm
+readonly TIME=/usr/bin/time
 
 BENCH_NAME_MAX_LEN=20
 
@@ -40,7 +42,11 @@ function print_bench_name()
 # run benchmarks
 cd $OUT_DIR
 
-echo -en "\t\t\t\t\t\tnative\tiwasm-aot\n" >> $REPORT
+if [[ ${PLATFORM} == "linux" ]]; then
+    echo -en "\t\t\t\t\t\tnative\tiwasm-aot\tiwasm-aot-segue\n" >> $REPORT
+else
+    echo -en "\t\t\t\t\t\tnative\tiwasm-aot\n" >> $REPORT
+fi
 
 for t in $libsodium_CASES
 do
@@ -48,11 +54,38 @@ do
 
     echo "run $t with native..."
     echo -en "\t" >> $REPORT
-    ./${t} | awk -F '-' 'BEGIN{FIELDWIDTHS="10"}{ORS=""; print $1 / 1000000.0}' >> $REPORT
+    if [[ $t != "sodium_utils2" ]]; then
+        ./${t} | awk '{printf "%-10.2f", $0/1000000.0}' >> $REPORT
+    else
+        # sodium_utils2 doesn't print the result,
+        # use time command to get result instead
+        $TIME -f "real-%e-time" ./${t} 2>&1 | grep "real-.*-time" |
+            awk -F '-' '{printf "%-10.2f", $2}' >> $REPORT
+    fi
 
     echo "run $t with iwasm aot..."
     echo -en "\t  \t" >> $REPORT
-    $IWASM_CMD ${t}.aot | awk -F '-' 'BEGIN{FIELDWIDTHS="10"}{ORS=""; print $1 / 1000000.0}' >> $REPORT
+    if [[ $t != "sodium_utils2" ]]; then
+        $IWASM_CMD ${t}.aot | awk '{printf "%-10.2f", $0/1000000.0}' >> $REPORT
+    else
+        # sodium_utils2 doesn't print the result,
+        # use time command to get result instead
+        $TIME -f "real-%e-time" $IWASM_CMD ${t}.aot 2>&1 | grep "real-.*-time" |
+            awk -F '-' '{printf "%-10.2f", $2}' >> $REPORT
+    fi
+
+    if [[ ${PLATFORM} == "linux" ]]; then
+        echo "run $t with iwasm aot segue..."
+        echo -en "\t  \t" >> $REPORT
+        if [[ $t != "sodium_utils2" ]]; then
+            $IWASM_CMD ${t}_segue.aot | awk '{printf "%.2f", $0/1000000.0}' >> $REPORT
+        else
+            # sodium_utils2 doesn't print the result,
+            # use time command to get result instead
+            $TIME -f "real-%e-time" $IWASM_CMD ${t}_segue.aot 2>&1 | grep "real-.*-time" |
+                awk -F '-' '{printf "%.2f", $2}' >> $REPORT
+        fi
+    fi
 
     echo -en "\n" >> $REPORT
 done

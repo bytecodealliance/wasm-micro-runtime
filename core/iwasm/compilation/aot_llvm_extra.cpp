@@ -5,6 +5,8 @@
 
 #include <llvm/Passes/StandardInstrumentations.h>
 #include <llvm/Support/Error.h>
+#include <llvm/ADT/None.h>
+#include <llvm/ADT/Optional.h>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/ADT/Twine.h>
 #include <llvm/ADT/Triple.h>
@@ -48,6 +50,7 @@
 #if LLVM_VERSION_MAJOR >= 12
 #include <llvm/Analysis/AliasAnalysis.h>
 #endif
+#include <llvm/ProfileData/InstrProf.h>
 
 #include <cstring>
 #include "../aot/aot_runtime.h"
@@ -236,20 +239,36 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
     PTO.SLPVectorization = true;
     PTO.LoopUnrolling = true;
 
+#if LLVM_VERSION_MAJOR >= 16
+    Optional<PGOOptions> PGO = std::nullopt;
+#else
+    Optional<PGOOptions> PGO = llvm::None;
+#endif
+
+#if WASM_ENABLE_DYNAMIC_PGO == 0
+    if (comp_ctx->enable_llvm_pgo) {
+        /* Disable static counter allocation for value profiler,
+           it will be allocated by runtime */
+        const char *argv[] = { "", "-vp-static-alloc=false" };
+        cl::ParseCommandLineOptions(2, argv);
+        PGO = PGOOptions("", "", "", PGOOptions::IRInstr);
+    }
+    else if (comp_ctx->use_prof_file) {
+        PGO = PGOOptions(comp_ctx->use_prof_file, "", "", PGOOptions::IRUse);
+    }
+#else
+    PGO = PGOOptions();
+#endif
+
 #ifdef DEBUG_PASS
     PassInstrumentationCallbacks PIC;
-    PassBuilder PB(TM, PTO, None, &PIC);
+    PassBuilder PB(TM, PTO, PGO, &PIC);
 #else
 #if LLVM_VERSION_MAJOR == 12
-    PassBuilder PB(false, TM, PTO);
+    PassBuilder PB(false, TM, PTO, PGO);
 #else
-#if WASM_ENABLE_DYNAMIC_PGO != 0
-    Optional<PGOOptions> PGOOpt;
-    PassBuilder PB(TM, PTO, PGOOpt);
-#else
-    PassBuilder PB(TM, PTO);
-#endif /* WASM_ENABLE_DYNAMIC_PGO != 0 */
-#endif /* LLVM_VERSION_MAJOR == 12 */
+    PassBuilder PB(TM, PTO, PGO);
+#endif
 #endif
 
     /* Register all the basic analyses with the managers */
@@ -350,8 +369,20 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
         FPM.addPass(SLPVectorizerPass());
         FPM.addPass(LoadStoreVectorizerPass());
 
+        if (comp_ctx->enable_llvm_pgo || comp_ctx->use_prof_file) {
+            /* LICM pass: loop invariant code motion, attempting to remove
+               as much code from the body of a loop as possible. Experiments
+               show it is good to enable it when pgo is enabled. */
+#if LLVM_VERSION_MAJOR >= 15
+            LICMOptions licm_opt;
+            FPM.addPass(
+                createFunctionToLoopPassAdaptor(LICMPass(licm_opt), true));
+#else
+            FPM.addPass(createFunctionToLoopPassAdaptor(LICMPass(), true));
+#endif
+        }
+
         /*
-        FPM.addPass(createFunctionToLoopPassAdaptor(LICMPass()));
         FPM.addPass(createFunctionToLoopPassAdaptor(LoopRotatePass()));
         FPM.addPass(createFunctionToLoopPassAdaptor(SimpleLoopUnswitchPass()));
         */
@@ -360,9 +391,10 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
 
         if (!disable_llvm_lto) {
             /* Apply LTO for AOT mode */
-            if (comp_ctx->comp_data->func_count >= 10)
-                /* Adds the pre-link optimizations if the func count
-                   is large enough */
+            if (comp_ctx->comp_data->func_count >= 10
+                || comp_ctx->enable_llvm_pgo || comp_ctx->use_prof_file)
+                /* Add the pre-link optimizations if the func count
+                   is large enough or PGO is enabled */
                 MPM.addPass(PB.buildLTOPreLinkDefaultPipeline(OL));
             else
                 MPM.addPass(PB.buildLTODefaultPipeline(OL, NULL));
@@ -375,4 +407,35 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
     MPM.run(*M, MAM);
 
     /*TODO: dump modification */
+}
+
+char *
+aot_compress_aot_func_names(AOTCompContext *comp_ctx, uint32 *p_size)
+{
+    std::vector<std::string> NameStrs;
+    std::string Result;
+    char buf[32], *compressed_str;
+    uint32 compressed_str_len, i;
+
+    for (i = 0; i < comp_ctx->func_ctx_count; i++) {
+        snprintf(buf, sizeof(buf), "%s%d", AOT_FUNC_PREFIX, i);
+        std::string str(buf);
+        NameStrs.push_back(str);
+    }
+
+    if (collectPGOFuncNameStrings(NameStrs, true, Result)) {
+        aot_set_last_error("collect pgo func name strings failed");
+        return NULL;
+    }
+
+    compressed_str_len = Result.size();
+    if (!(compressed_str = (char *)wasm_runtime_malloc(compressed_str_len))) {
+        aot_set_last_error("allocate memory failed");
+        return NULL;
+    }
+
+    bh_memcpy_s(compressed_str, compressed_str_len, Result.c_str(),
+                compressed_str_len);
+    *p_size = compressed_str_len;
+    return compressed_str;
 }

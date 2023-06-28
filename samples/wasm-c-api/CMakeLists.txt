@@ -16,7 +16,7 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 ################  runtime settings  ################
 
 string (TOLOWER ${CMAKE_HOST_SYSTEM_NAME} WAMR_BUILD_PLATFORM)
@@ -86,15 +86,6 @@ endif()
 # build out vmlib
 set(WAMR_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/../..)
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
-
-if (NOT DEFINED SANITIZER)
-  set(SANITIZER "")
-elseif (SANITIZER STREQUAL "ubsan")
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O2 -fno-omit-frame-pointer -fsanitize=undefined -fno-sanitize-recover=all -fno-sanitize=alignment" )
-  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=undefined")
-elseif (NOT (SANITIZER STREQUAL "") )
-  message(SEND_ERROR "Unsupported sanitizer: ${SANITIZER}")
-endif()
 
 add_library(vmlib STATIC ${WAMR_RUNTIME_LIB_SOURCE})
 if (MSVC)

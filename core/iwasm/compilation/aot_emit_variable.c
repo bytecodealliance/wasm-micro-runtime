@@ -112,7 +112,7 @@ static bool
 compile_global(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                uint32 global_idx, bool is_set, bool is_aux_stack)
 {
-    AOTCompData *comp_data = comp_ctx->comp_data;
+    const AOTCompData *comp_data = comp_ctx->comp_data;
     uint32 import_global_count = comp_data->import_global_count;
     uint32 global_base_offset;
     uint32 global_offset;
