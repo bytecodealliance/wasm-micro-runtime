@@ -1,7 +1,7 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-name: compilation on android, ubuntu-20.04, ubuntu-22.04
+name: compilation on android, ubuntu-22.04
 
 on:
   # will be triggered on PR events
@@ -21,6 +21,7 @@ on:
       - "tests/wamr-test-suites/**"
       - "wamr-compiler/**"
       - "wamr-sdk/**"
+      - "test-tools/wamr-ide/**"
   # will be triggered on push events
   push:
     branches:
@@ -38,6 +39,7 @@ on:
       - "tests/wamr-test-suites/**"
       - "wamr-compiler/**"
       - "wamr-sdk/**"
+      - "test-tools/wamr-ide/**"
   # allow to be triggered manually
   workflow_dispatch:
 
@@ -65,12 +67,6 @@ env:
   WASI_TEST_OPTIONS: "-s wasi_certification -w"
 
 jobs:
-  build_llvm_libraries_on_ubuntu_2004:
-    uses: ./.github/workflows/build_llvm_libraries.yml
-    with:
-      os: "ubuntu-20.04"
-      arch: "X86"
-
   build_llvm_libraries_on_ubuntu_2204:
     uses: ./.github/workflows/build_llvm_libraries.yml
     with:
@@ -79,13 +75,11 @@ jobs:
   
   build_wamrc:
     needs:
-      [build_llvm_libraries_on_ubuntu_2004, build_llvm_libraries_on_ubuntu_2204]
+      [build_llvm_libraries_on_ubuntu_2204]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
-          - os: ubuntu-20.04
-            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2004.outputs.cache_key }}
           - os: ubuntu-22.04
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
     steps:
@@ -119,7 +113,7 @@ jobs:
 
   build_iwasm:
     needs:
-      [build_llvm_libraries_on_ubuntu_2004, build_llvm_libraries_on_ubuntu_2204]
+      [build_llvm_libraries_on_ubuntu_2204]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -151,7 +145,7 @@ jobs:
             "-DWAMR_BUILD_TAIL_CALL=1",
             "-DWAMR_DISABLE_HW_BOUND_CHECK=1",
           ]
-        os: [ubuntu-20.04, ubuntu-22.04]
+        os: [ubuntu-22.04]
         platform: [android, linux]
         exclude:
           # uncompatiable feature and platform
@@ -215,12 +209,7 @@ jobs:
             platform: android
           - make_options_run_mode: $MULTI_TIER_JIT_BUILD_OPTIONS
             platform: android
-          # only test andorid on ubuntu latest
-          - os: ubuntu-20.04
-            platform: android
         include:
-          - os: ubuntu-20.04
-            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2004.outputs.cache_key }}
           - os: ubuntu-22.04
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
     steps:
@@ -256,7 +245,6 @@ jobs:
     needs:
       [
         build_iwasm,
-        build_llvm_libraries_on_ubuntu_2004,
         build_llvm_libraries_on_ubuntu_2204,
         build_wamrc,
       ]
@@ -274,7 +262,7 @@ jobs:
             $LLVM_EAGER_JIT_BUILD_OPTIONS,
             $MULTI_TIER_JIT_BUILD_OPTIONS,
           ]
-        os: [ubuntu-20.04, ubuntu-22.04]
+        os: [ubuntu-22.04]
         wasi_sdk_release:
           [
             "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-linux.tar.gz",
@@ -284,8 +272,6 @@ jobs:
             "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-ubuntu.tar.gz",
           ]
         include:
-          - os: ubuntu-20.04
-            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2004.outputs.cache_key }}
           - os: ubuntu-22.04
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
 
@@ -338,7 +324,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-20.04, ubuntu-22.04]
+        os: [ubuntu-22.04]
         wasi_sdk_release:
           [
             "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-linux.tar.gz",
@@ -430,7 +416,6 @@ jobs:
     needs:
       [
         build_iwasm,
-        build_llvm_libraries_on_ubuntu_2004,
         build_llvm_libraries_on_ubuntu_2204,
         build_wamrc,
       ]
@@ -438,7 +423,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-20.04, ubuntu-22.04]
+        os: [ubuntu-22.04]
         running_mode:
           [
             "classic-interp",
@@ -461,9 +446,6 @@ jobs:
             "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-linux.tar.gz",
           ]
         include:
-          - os: ubuntu-20.04
-            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2004.outputs.cache_key }}
-            ubuntu_version: "20.04"
           - os: ubuntu-22.04
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
             ubuntu_version: "22.04"
@@ -565,3 +547,117 @@ jobs:
         if: env.TEST_ON_X86_32 == 'true'
         run: ./test_wamr.sh ${{ env.X86_32_TARGET_TEST_OPTIONS }} ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
         working-directory: ./tests/wamr-test-suites
+
+  test-wamr-ide:
+    needs:
+      [
+        build_iwasm
+      ]
+    runs-on: ubuntu-22.04
+    env:
+      PYTHON_VERSION: '3.10'
+      PYTHON_UBUNTU_STANDALONE_BUILD: https://github.com/indygreg/python-build-standalone/releases/download/20230507/cpython-3.10.11+20230507-x86_64-unknown-linux-gnu-install_only.tar.gz
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+
+      - name: install dependencies
+        run: |
+          rustup target add wasm32-wasi
+          sudo apt update && sudo apt-get install -y lld ninja-build
+          npm install
+        working-directory: test-tools/wamr-ide/VSCode-Extension
+
+      - name: build iwasm with source debugging feature
+        run: |
+          mkdir build
+          cd build
+          cmake .. -DWAMR_BUILD_DEBUG_INTERP=1
+          make
+        working-directory: product-mini/platforms/linux
+
+      - name: Cache LLDB
+        id: cache-lldb
+        uses: actions/cache@v3
+        env:
+          cache-name: cache-lldb-vscode
+        with:
+          path: test-tools/wamr-ide/VSCode-Extension/resource/debug/linux
+          key: ${{ env.cache-name }}-${{ hashFiles('build-scripts/lldb-wasm.patch') }}-${{ env.PYTHON_UBUNTU_STANDALONE_BUILD }}
+
+      - if: ${{ steps.cache-lldb.outputs.cache-hit != 'true' }}
+        name: get stand-alone python ubuntu
+        run: |
+          wget ${{ env.PYTHON_UBUNTU_STANDALONE_BUILD }} -O python.tar.gz
+          tar -xvf python.tar.gz
+        working-directory: core/deps
+
+      - if: ${{ steps.cache-lldb.outputs.cache-hit != 'true' }}
+        name: download llvm
+        run: |
+          wget https://github.com/llvm/llvm-project/archive/1f27fe6128769f00197925c3b8f6abb9d0e5cd2e.zip
+          unzip -q 1f27fe6128769f00197925c3b8f6abb9d0e5cd2e.zip
+          mv llvm-project-1f27fe6128769f00197925c3b8f6abb9d0e5cd2e llvm-project
+        working-directory: core/deps
+
+      - if: ${{ steps.cache-lldb.outputs.cache-hit != 'true' }}
+        name: apply wamr patch
+        run: |
+          git init
+          git config user.email "action@github.com"
+          git config user.name "github action"
+          git apply ../../../build-scripts/lldb-wasm.patch
+        working-directory: core/deps/llvm-project
+
+      - if: ${{ steps.cache-lldb.outputs.cache-hit != 'true' }}
+        name: build lldb ubuntu
+        run: |
+          echo "start to build lldb..."
+          mkdir -p wamr-lldb
+          cmake -S ./llvm -B build \
+            -G Ninja \
+            -DCMAKE_INSTALL_PREFIX=../wamr-lldb \
+            -DCMAKE_BUILD_TYPE:STRING="Release" \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            -DLLVM_ENABLE_PROJECTS="clang;lldb" \
+            -DLLVM_TARGETS_TO_BUILD:STRING="X86;WebAssembly" \
+            -DLLVM_BUILD_BENCHMARKS:BOOL=OFF \
+            -DLLVM_BUILD_DOCS:BOOL=OFF \
+            -DLLVM_BUILD_EXAMPLES:BOOL=OFF \
+            -DLLVM_BUILD_LLVM_DYLIB:BOOL=OFF \
+            -DLLVM_BUILD_TESTS:BOOL=OFF \
+            -DLLVM_INCLUDE_BENCHMARKS:BOOL=OFF \
+            -DLLVM_INCLUDE_DOCS:BOOL=OFF \
+            -DLLVM_INCLUDE_EXAMPLES:BOOL=OFF \
+            -DLLVM_INCLUDE_TESTS:BOOL=OFF \
+            -DLLVM_ENABLE_BINDINGS:BOOL=OFF \
+            -DLLVM_ENABLE_LIBXML2:BOOL=ON \
+            -DLLVM_ENABLE_LLD:BOOL=ON \
+            -DLLDB_ENABLE_PYTHON:BOOL=ON \
+            -DLLDB_EMBED_PYTHON_HOME=ON \
+            -DLLDB_PYTHON_HOME=.. \
+            -DLLDB_PYTHON_RELATIVE_PATH=lib/lldb-python \
+            -DPython3_EXECUTABLE="$(pwd)/../python/bin/python${{ env.PYTHON_VERSION }}"
+          cmake --build build --target lldb install --parallel $(nproc)
+        working-directory: core/deps/llvm-project
+
+      - if: ${{ steps.cache-lldb.outputs.cache-hit != 'true' }}
+        name: copy lldb to extension folder
+        run: |
+          mkdir -p bin
+          mkdir -p lib
+          cp ../../../../../../core/deps/llvm-project/lldb/tools/lldb-vscode/package.json ./
+          cp -r ../../../../../../core/deps/llvm-project/lldb/tools/lldb-vscode/syntaxes/ ./
+          cp ../../../../../../core/deps/llvm-project/build/bin/lldb* bin
+          cp ../../../../../../core/deps/llvm-project/build/lib/liblldb*.so lib
+          cp ../../../../../../core/deps/llvm-project/build/lib/liblldb*.so.* lib
+          cp -R ../../../../../../core/deps/llvm-project/build/lib/lldb-python lib
+          cp -R ../../../../../../core/deps/python/lib/python* lib
+          cp ../../../../../../core/deps/python/lib/libpython${{ env.PYTHON_VERSION }}.so.1.0 lib
+        working-directory: test-tools/wamr-ide/VSCode-Extension/resource/debug/linux
+
+      - name: run tests
+        timeout-minutes: 5
+        run: xvfb-run npm run test
+        working-directory: test-tools/wamr-ide/VSCode-Extension

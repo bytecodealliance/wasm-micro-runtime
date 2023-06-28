@@ -37,6 +37,9 @@ print_help()
     printf("                              by default it is disabled in all 64-bit platforms except SGX and\n");
     printf("                              in these platforms runtime does bounds checks with hardware trap,\n");
     printf("                              and by default it is enabled in all 32-bit platforms\n");
+    printf("                            CAVEAT: --bounds-checks=0 enables some optimizations\n");
+    printf("                              which make the compiled AOT module incompatible\n");
+    printf("                              with a runtime without the hardware bounds checks.\n");
     printf("  --stack-bounds-checks=1/0 Enable or disable the bounds checks for native stack:\n");
     printf("                              if the option isn't set, the status is same as `--bounds-check`,\n");
     printf("                              if the option is set:\n");

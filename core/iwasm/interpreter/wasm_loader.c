@@ -9255,10 +9255,12 @@ re_scan:
 #if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
             case WASM_OP_SIMD_PREFIX:
             {
-                opcode = read_uint8(p);
+                uint32 opcode1;
+
+                opcode1 = read_uint8(p);
                 /* follow the order of enum WASMSimdEXTOpcode in wasm_opcode.h
                  */
-                switch (opcode) {
+                switch (opcode1) {
                     /* memory instruction */
                     case SIMD_v128_load:
                     case SIMD_v128_load8x8_s:
@@ -9276,7 +9278,7 @@ re_scan:
 
                         read_leb_uint32(p, p_end, align); /* align */
                         if (!check_simd_memory_access_align(
-                                opcode, align, error_buf, error_buf_size)) {
+                                opcode1, align, error_buf, error_buf_size)) {
                             goto fail;
                         }
 
@@ -9295,7 +9297,7 @@ re_scan:
 
                         read_leb_uint32(p, p_end, align); /* align */
                         if (!check_simd_memory_access_align(
-                                opcode, align, error_buf, error_buf_size)) {
+                                opcode1, align, error_buf, error_buf_size)) {
                             goto fail;
                         }
 
@@ -9351,7 +9353,7 @@ re_scan:
                         uint8 pop_type[] = { VALUE_TYPE_I32, VALUE_TYPE_I32,
                                              VALUE_TYPE_I32, VALUE_TYPE_I64,
                                              VALUE_TYPE_F32, VALUE_TYPE_F64 };
-                        POP_AND_PUSH(pop_type[opcode - SIMD_i8x16_splat],
+                        POP_AND_PUSH(pop_type[opcode1 - SIMD_i8x16_splat],
                                      VALUE_TYPE_V128);
                         break;
                     }
@@ -9396,22 +9398,23 @@ re_scan:
 
                         CHECK_BUF(p, p_end, 1);
                         lane = read_uint8(p);
-                        if (!check_simd_access_lane(opcode, lane, error_buf,
+                        if (!check_simd_access_lane(opcode1, lane, error_buf,
                                                     error_buf_size)) {
                             goto fail;
                         }
 
-                        if (replace[opcode - SIMD_i8x16_extract_lane_s]) {
+                        if (replace[opcode1 - SIMD_i8x16_extract_lane_s]) {
                             if (!(wasm_loader_pop_frame_ref(
                                     loader_ctx,
-                                    replace[opcode - SIMD_i8x16_extract_lane_s],
+                                    replace[opcode1
+                                            - SIMD_i8x16_extract_lane_s],
                                     error_buf, error_buf_size)))
                                 goto fail;
                         }
 
                         POP_AND_PUSH(
                             VALUE_TYPE_V128,
-                            push_type[opcode - SIMD_i8x16_extract_lane_s]);
+                            push_type[opcode1 - SIMD_i8x16_extract_lane_s]);
                         break;
                     }
 
@@ -9512,7 +9515,7 @@ re_scan:
 
                         read_leb_uint32(p, p_end, align); /* align */
                         if (!check_simd_memory_access_align(
-                                opcode, align, error_buf, error_buf_size)) {
+                                opcode1, align, error_buf, error_buf_size)) {
                             goto fail;
                         }
 
@@ -9520,14 +9523,14 @@ re_scan:
 
                         CHECK_BUF(p, p_end, 1);
                         lane = read_uint8(p);
-                        if (!check_simd_access_lane(opcode, lane, error_buf,
+                        if (!check_simd_access_lane(opcode1, lane, error_buf,
                                                     error_buf_size)) {
                             goto fail;
                         }
 
                         POP_V128();
                         POP_I32();
-                        if (opcode < SIMD_v128_store8_lane) {
+                        if (opcode1 < SIMD_v128_store8_lane) {
                             PUSH_V128();
                         }
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
@@ -9543,7 +9546,7 @@ re_scan:
 
                         read_leb_uint32(p, p_end, align); /* align */
                         if (!check_simd_memory_access_align(
-                                opcode, align, error_buf, error_buf_size)) {
+                                opcode1, align, error_buf, error_buf_size)) {
                             goto fail;
                         }
 
@@ -9900,7 +9903,7 @@ re_scan:
                             snprintf(error_buf, error_buf_size,
                                      "WASM module load failed: "
                                      "invalid opcode 0xfd %02x.",
-                                     opcode);
+                                     opcode1);
                         }
                         goto fail;
                     }
@@ -9913,15 +9916,17 @@ re_scan:
 #if WASM_ENABLE_SHARED_MEMORY != 0
             case WASM_OP_ATOMIC_PREFIX:
             {
-                opcode = read_uint8(p);
+                uint32 opcode1;
+
+                opcode1 = read_uint8(p);
 #if WASM_ENABLE_FAST_INTERP != 0
-                emit_byte(loader_ctx, opcode);
+                emit_byte(loader_ctx, opcode1);
 #endif
-                if (opcode != WASM_OP_ATOMIC_FENCE) {
+                if (opcode1 != WASM_OP_ATOMIC_FENCE) {
                     CHECK_MEMORY();
                     read_leb_uint32(p, p_end, align);      /* align */
                     read_leb_uint32(p, p_end, mem_offset); /* offset */
-                    if (!check_memory_align_equal(opcode, align, error_buf,
+                    if (!check_memory_align_equal(opcode1, align, error_buf,
                                                   error_buf_size)) {
                         goto fail;
                     }
@@ -9932,7 +9937,7 @@ re_scan:
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
                 func->has_memory_operations = true;
 #endif
-                switch (opcode) {
+                switch (opcode1) {
                     case WASM_OP_ATOMIC_NOTIFY:
                         POP2_AND_PUSH(VALUE_TYPE_I32, VALUE_TYPE_I32);
                         break;
@@ -10048,7 +10053,7 @@ re_scan:
                     default:
                         set_error_buf_v(error_buf, error_buf_size,
                                         "%s %02x %02x", "unsupported opcode",
-                                        0xfe, opcode);
+                                        0xfe, opcode1);
                         goto fail;
                 }
                 break;

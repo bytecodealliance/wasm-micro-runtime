@@ -71,5 +71,10 @@ LLVMOrcLLLazyJITGetIRTransformLayer(LLVMOrcLLLazyJITRef J);
 LLVMOrcObjectTransformLayerRef
 LLVMOrcLLLazyJITGetObjTransformLayer(LLVMOrcLLLazyJITRef J);
 
+void
+LLVMOrcLLJITBuilderSetCompileFuncitonCreatorWithStackSizesCallback(
+    LLVMOrcLLLazyJITBuilderRef Builder,
+    void (*cb)(void *, const char *, size_t, size_t), void *cb_data);
+
 LLVM_C_EXTERN_C_END
 #endif

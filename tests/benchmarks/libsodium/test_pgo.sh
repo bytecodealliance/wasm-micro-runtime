@@ -19,8 +19,13 @@ PLATFORM=$(uname -s | tr A-Z a-z)
 
 readonly OUT_DIR=$PWD/libsodium/zig-out/bin
 readonly REPORT=$PWD/report.txt
-readonly IWASM_CMD=$PWD/../../../product-mini/platforms/${PLATFORM}/build/iwasm
-readonly WAMRC_CMD=$PWD/../../../wamr-compiler/build/wamrc
+if [ "$1" = "--sgx" ] && [ "$PLATFORM" = "linux" ]; then
+    readonly IWASM_CMD="$PWD/../../../product-mini/platforms/${PLATFORM}-sgx/enclave-sample/iwasm"
+    readonly WAMRC_CMD="$PWD/../../../wamr-compiler/build/wamrc -sgx"
+else
+    readonly IWASM_CMD="$PWD/../../../product-mini/platforms/${PLATFORM}/build/iwasm"
+    readonly WAMRC_CMD="$PWD/../../../wamr-compiler/build/wamrc"
+fi
 readonly TIME=/usr/bin/time
 
 BENCH_NAME_MAX_LEN=20

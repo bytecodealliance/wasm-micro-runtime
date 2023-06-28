@@ -56,11 +56,13 @@ typedef struct WASIContext *wasi_ctx_t;
 wasi_ctx_t
 wasm_runtime_get_wasi_ctx(wasm_module_inst_t module_inst);
 
+#if WASM_ENABLE_THREAD_MGR != 0
 static inline uint64_t
 min_uint64(uint64_t a, uint64_t b)
 {
     return a > b ? b : a;
 }
+#endif
 
 static inline uint32_t
 min_uint32(uint32_t a, uint32_t b)
