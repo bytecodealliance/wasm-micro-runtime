@@ -7,6 +7,7 @@
 #include "aot_llvm_extra2.h"
 #include "aot_compiler.h"
 #include "aot_emit_exception.h"
+#include "aot_emit_table.h"
 #include "../aot/aot_runtime.h"
 #include "../aot/aot_intrinsic.h"
 
@@ -230,6 +231,17 @@ aot_estimate_stack_usage_for_function_call(const AOTCompContext *comp_ctx,
     return size;
 }
 
+static uint32
+get_inst_extra_offset(AOTCompContext *comp_ctx)
+{
+    const AOTCompData *comp_data = comp_ctx->comp_data;
+    uint32 table_count = comp_data->import_table_count + comp_data->table_count;
+    uint64 offset = get_tbl_inst_offset(comp_ctx, NULL, table_count);
+    bh_assert(offset <= UINT_MAX);
+    offset = align_uint(offset, 8);
+    return offset;
+}
+
 /*
  * a "precheck" function performs a few things before calling wrapped_func.
  *
@@ -329,8 +341,9 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
      */
     LLVMValueRef stack_sizes;
     if (comp_ctx->is_indirect_mode) {
-        LLVMValueRef offset =
-            I32_CONST(offsetof(AOTModuleInstance, aot_stack_sizes));
+        uint32 offset_u32 = get_inst_extra_offset(comp_ctx);
+        offset_u32 += offsetof(AOTModuleInstanceExtra, stack_sizes);
+        LLVMValueRef offset = I32_CONST(offset_u32);
         if (!offset) {
             goto fail;
         }
