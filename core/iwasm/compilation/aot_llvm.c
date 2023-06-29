@@ -341,13 +341,17 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
      */
     LLVMValueRef stack_sizes;
     if (comp_ctx->is_indirect_mode) {
-        uint32 offset_u32 = get_inst_extra_offset(comp_ctx);
+        uint32 offset_u32;
+        LLVMValueRef offset;
+        LLVMValueRef stack_sizes_p;
+
+        offset_u32 = get_inst_extra_offset(comp_ctx);
         offset_u32 += offsetof(AOTModuleInstanceExtra, stack_sizes);
-        LLVMValueRef offset = I32_CONST(offset_u32);
+        offset = I32_CONST(offset_u32);
         if (!offset) {
             goto fail;
         }
-        LLVMValueRef stack_sizes_p =
+        stack_sizes_p =
             LLVMBuildInBoundsGEP2(b, INT8_TYPE, func_ctx->aot_inst, &offset, 1,
                                   "aot_inst_stack_sizes_p");
         if (!stack_sizes_p) {
