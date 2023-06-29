@@ -654,12 +654,13 @@ fd_number(const struct fd_object *fo)
     do {                     \
         if (fd > 2) {        \
             close(fd);       \
-            remove_fd(fd);}  \
+            remove_fd(fd);   \
+        }                    \
     } while (0)
 #else
 #define CLOSE_NON_STD_FD(fd) \
     do {                     \
-        if (fd > 2) {        \
+        if (fd > 2)          \
             close(fd);       \
     } while (0)
 #endif
