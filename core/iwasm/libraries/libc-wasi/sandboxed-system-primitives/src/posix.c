@@ -652,8 +652,9 @@ fd_number(const struct fd_object *fo)
 
 #define CLOSE_NON_STD_FD(fd) \
     do {                     \
-        if (fd > 2)          \
+        if (fd > 2) {        \
             close(fd);       \
+            remove_fd(fd);}  \
     } while (0)
 
 // Lowers the reference count on a file descriptor object. When the
@@ -1633,6 +1634,7 @@ path_get(struct fd_table *curfds, struct path_access *pa, __wasi_fd_t fd,
                 error = __WASI_ENOTCAPABLE;
                 goto fail;
             }
+            remove_fd(curfd);
             close(fds[curfd--]);
         }
         else if (curpath > 0 || *paths[curpath] != '\0'
