@@ -1843,6 +1843,13 @@ get_data_section_addr(AOTModule *module, const char *section_name,
     return NULL;
 }
 
+const void *
+aot_get_data_section_addr(AOTModule *module, const char *section_name,
+                          uint32 *p_data_size)
+{
+    return get_data_section_addr(module, section_name, p_data_size);
+}
+
 static void *
 resolve_target_sym(const char *symbol, int32 *p_index)
 {

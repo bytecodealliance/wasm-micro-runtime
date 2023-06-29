@@ -88,6 +88,7 @@ typedef struct AOTFunctionInstance {
 } AOTFunctionInstance;
 
 typedef struct AOTModuleInstanceExtra {
+    DefPointer(const uint32 *, stack_sizes);
     CApiFuncImport *c_api_func_imports;
 } AOTModuleInstanceExtra;
 
@@ -632,6 +633,10 @@ aot_dump_perf_profiling(const AOTModuleInstance *module_inst);
 
 const uint8 *
 aot_get_custom_section(const AOTModule *module, const char *name, uint32 *len);
+
+const void *
+aot_get_data_section_addr(AOTModule *module, const char *section_name,
+                          uint32 *p_data_size);
 
 #if WASM_ENABLE_STATIC_PGO != 0
 void
