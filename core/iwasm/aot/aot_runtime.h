@@ -88,7 +88,7 @@ typedef struct AOTFunctionInstance {
 } AOTFunctionInstance;
 
 typedef struct AOTModuleInstanceExtra {
-    const uint32 *stack_sizes;
+    DefPointer(const uint32 *, stack_sizes);
     CApiFuncImport *c_api_func_imports;
 } AOTModuleInstanceExtra;
 
