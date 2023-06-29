@@ -657,10 +657,11 @@ fd_number(const struct fd_object *fo)
             remove_fd(fd);}  \
     } while (0)
 #else
-do {                     \
-    if (fd > 2) {        \
-        close(fd);       \
-} while (0)
+#define CLOSE_NON_STD_FD(fd) \
+    do {                     \
+        if (fd > 2) {        \
+            close(fd);       \
+    } while (0)
 #endif
 // Lowers the reference count on a file descriptor object. When the
 // reference count reaches zero, its resources are cleaned up.

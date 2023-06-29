@@ -7,6 +7,12 @@
 #include "bh_platform.h"
 #include "wasm_export.h"
 
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+#undef MVVM_WASI
+#include "../../../../../include/wamr_export.h"
+#define MVVM_WASI 1
+#endif
+
 /* clang-format off */
 #define get_module_inst(exec_env) \
     wasm_runtime_get_module_inst(exec_env)
