@@ -649,14 +649,19 @@ fd_number(const struct fd_object *fo)
     assert(number >= 0 && "fd_number() called on virtual file descriptor");
     return number;
 }
-
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
 #define CLOSE_NON_STD_FD(fd) \
     do {                     \
         if (fd > 2) {        \
             close(fd);       \
             remove_fd(fd);}  \
     } while (0)
-
+#else
+do {                     \
+    if (fd > 2) {        \
+        close(fd);       \
+} while (0)
+#endif
 // Lowers the reference count on a file descriptor object. When the
 // reference count reaches zero, its resources are cleaned up.
 static void
@@ -1634,7 +1639,9 @@ path_get(struct fd_table *curfds, struct path_access *pa, __wasi_fd_t fd,
                 error = __WASI_ENOTCAPABLE;
                 goto fail;
             }
-            remove_fd(curfd);
+#if WASM_BUILD_CHECKPOINT_RESTORE != 0
+            remove_fd(curfd-1);
+#endif
             close(fds[curfd--]);
         }
         else if (curpath > 0 || *paths[curpath] != '\0'
