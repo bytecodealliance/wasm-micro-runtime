@@ -1083,11 +1083,6 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
 #endif /* WASM_ENABLE_DEBUG_INTERP */
 #endif /* WASM_ENABLE_THREAD_MGR */
 
-#if WASM_ENABLE_LABELS_AS_VALUES != 0
-
-#define HANDLE_OP(opcode) HANDLE_##opcode:
-#define FETCH_OPCODE_AND_DISPATCH() goto *handle_table[*frame_ip++]
-
 #define SERIALIZE_CURSTATE(file)                                                                                                         \
        do {                                                                                                                              \
            LOG_DEBUG("ip %ld ",frame_ip-cur_func->u.func->code);                                                                         \
@@ -1102,8 +1097,13 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
            LOG_DEBUG("val %d ",val);                                                                                                     \
            LOG_DEBUG("depth %d \n",depth);                                                                                               \
     } while (0)
-#define SNAPSHOT_STEP 2000
+#define SNAPSHOT_STEP 3000
 #define SNAPSHOT_DEBUG_STEP 0
+
+#if WASM_ENABLE_LABELS_AS_VALUES != 0
+
+#define HANDLE_OP(opcode) HANDLE_##opcode:
+#define FETCH_OPCODE_AND_DISPATCH() goto *handle_table[*frame_ip++]
 
 #if WASM_ENABLE_THREAD_MGR != 0 && WASM_ENABLE_DEBUG_INTERP != 0
 #define HANDLE_OP_END()                                                   \
@@ -1163,7 +1163,30 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
     os_mutex_unlock(&exec_env->wait_lock);                         \
     continue
 #else
+#if WASM_ENABLE_CHECKPOINT_RESTORE !=0
+#define HANDLE_OP_END()                                                  \
+       SYNC_ALL_TO_FRAME();                                              \
+       if (!exec_env->is_restore) {                                      \
+            if (!exec_env->is_checkpoint && counter_ < SNAPSHOT_STEP) {  \
+                counter_++;                                              \
+                continue;                                                \
+            }                                                            \
+            else {                                                       \
+                LOG_DEBUG("[%s:%d]\n", __FILE__, __LINE__);              \
+                counter_++;                                              \
+                if(counter_>SNAPSHOT_STEP+SNAPSHOT_DEBUG_STEP) {         \
+                    serialize_to_file(exec_env);                         \
+                }                                                        \
+             }                                                           \
+        }                                                                \
+        else {                                                           \
+                LOG_DEBUG("[%s:%d]\n", __FILE__, __LINE__);              \
+                counter_++;                                              \
+                continue;                                                \
+        }
+#else
 #define HANDLE_OP_END() continue
+#endif
 #endif
 
 #endif /* end of WASM_ENABLE_LABELS_AS_VALUES */
@@ -3988,9 +4011,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 (WASMBranchBlock *)frame->sp_boundary;
             frame->csp_boundary =
                 frame->csp_bottom + cur_wasm_func->max_block_num;
+#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
             if(frame->function->u.func->field_name)
                LOG_FATAL("csp_bottom %p for function %s", frame->csp_bottom,frame->function->u.func->field_name);
-            
+#endif
             /* Initialize the local variables */
             memset(frame_lp + cur_func->param_cell_num, 0,
                    (uint32)(cur_func->local_cell_num * 4));
