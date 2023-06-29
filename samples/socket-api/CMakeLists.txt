@@ -84,7 +84,7 @@ if(WIN32)
     CONFIGURE_COMMAND ${CMAKE_COMMAND} -E copy
                         ${CMAKE_CURRENT_SOURCE_DIR}/../../wamr-sdk/app/libc-builtin-sysroot/include/pthread.h
                         ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src/inc
-                      && ${CMAKE_COMMAND} -DCMAKE_MAKE_PROGRAM="C:/ProgramData/chocolatey/bin/make.exe" -GUnix\ Makefiles
+                      && ${CMAKE_COMMAND} -DCMAKE_MAKE_PROGRAM="C:/tools/msys64/usr/bin/make.exe" -GUnix\ Makefiles
                         -DWASI_SDK_PREFIX=D:/wasi-sdk
                         -DCMAKE_TOOLCHAIN_FILE=D:/wasi-sdk/share/cmake/wasi-sdk.cmake
                         -DCMAKE_SYSROOT=D:/wasi-sdk/share/wasi-sysroot
