@@ -1843,6 +1843,13 @@ get_data_section_addr(AOTModule *module, const char *section_name,
     return NULL;
 }
 
+const void *
+aot_get_data_section_addr(AOTModule *module, const char *section_name,
+                          uint32 *p_data_size)
+{
+    return get_data_section_addr(module, section_name, p_data_size);
+}
+
 static void *
 resolve_target_sym(const char *symbol, int32 *p_index)
 {
@@ -1996,6 +2003,20 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
             symbol_addr = module->func_ptrs[func_index];
 #endif
         }
+#if defined(BH_PLATFORM_WINDOWS) && defined(BUILD_TARGET_X86_32)
+        /* AOT function name starts with '_' in windows x86-32 */
+        else if (!strncmp(symbol, "_" AOT_FUNC_PREFIX,
+                          strlen("_" AOT_FUNC_PREFIX))) {
+            p = symbol + strlen("_" AOT_FUNC_PREFIX);
+            if (*p == '\0'
+                || (func_index = (uint32)atoi(p)) > module->func_count) {
+                set_error_buf_v(error_buf, error_buf_size, "invalid symbol %s",
+                                symbol);
+                goto check_symbol_fail;
+            }
+            symbol_addr = module->func_ptrs[func_index];
+        }
+#endif
         else if (!strcmp(symbol, ".text")) {
             symbol_addr = module->code;
         }
@@ -2006,6 +2027,7 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
                  || !strncmp(symbol, ".rodata.cst", strlen(".rodata.cst"))
                  /* ".rodata.strn.m" */
                  || !strncmp(symbol, ".rodata.str", strlen(".rodata.str"))
+                 || !strcmp(symbol, AOT_STACK_SIZES_SECTION_NAME)
 #if WASM_ENABLE_STATIC_PGO != 0
                  || !strncmp(symbol, "__llvm_prf_cnts", 15)
                  || !strncmp(symbol, "__llvm_prf_data", 15)

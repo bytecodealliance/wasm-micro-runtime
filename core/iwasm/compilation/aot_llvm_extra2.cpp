@@ -6,6 +6,7 @@
 #include <llvm-c/TargetMachine.h>
 #include <llvm/ADT/None.h>
 #include <llvm/ADT/Optional.h>
+#include <llvm/IR/Instructions.h>
 #if LLVM_VERSION_MAJOR >= 14
 #include <llvm/MC/TargetRegistry.h>
 #else
@@ -22,7 +23,11 @@ convert(LLVMRelocMode reloc_mode)
 {
     switch (reloc_mode) {
         case LLVMRelocDefault:
+#if LLVM_VERSION_MAJOR >= 16
+            return std::nullopt;
+#else
             return llvm::None;
+#endif
         case LLVMRelocStatic:
             return llvm::Reloc::Static;
         case LLVMRelocPIC:
@@ -37,7 +42,11 @@ convert(LLVMRelocMode reloc_mode)
             return llvm::Reloc::ROPI_RWPI;
     }
     bh_assert(0);
+#if LLVM_VERSION_MAJOR >= 16
+    return std::nullopt;
+#else
     return llvm::None;
+#endif
 }
 
 static llvm::CodeGenOpt::Level
@@ -63,10 +72,18 @@ convert(LLVMCodeModel code_model, bool *jit)
     *jit = false;
     switch (code_model) {
         case LLVMCodeModelDefault:
+#if LLVM_VERSION_MAJOR >= 16
+            return std::nullopt;
+#else
             return llvm::None;
+#endif
         case LLVMCodeModelJITDefault:
             *jit = true;
+#if LLVM_VERSION_MAJOR >= 16
+            return std::nullopt;
+#else
             return llvm::None;
+#endif
         case LLVMCodeModelTiny:
             return llvm::CodeModel::Tiny;
         case LLVMCodeModelSmall:
@@ -79,7 +96,11 @@ convert(LLVMCodeModel code_model, bool *jit)
             return llvm::CodeModel::Large;
     }
     bh_assert(0);
+#if LLVM_VERSION_MAJOR >= 16
+    return std::nullopt;
+#else
     return llvm::None;
+#endif
 }
 
 LLVMTargetMachineRef
@@ -112,3 +133,20 @@ LLVMCreateTargetMachineWithOpts(LLVMTargetRef ctarget, const char *triple,
                                                      opts, rm, cm, ol, jit);
     return reinterpret_cast<LLVMTargetMachineRef>(targetmachine);
 }
+
+/* https://reviews.llvm.org/D153107 */
+#if LLVM_VERSION_MAJOR < 17
+using namespace llvm;
+
+LLVMTailCallKind
+LLVMGetTailCallKind(LLVMValueRef Call)
+{
+    return (LLVMTailCallKind)unwrap<CallInst>(Call)->getTailCallKind();
+}
+
+void
+LLVMSetTailCallKind(LLVMValueRef Call, LLVMTailCallKind kind)
+{
+    unwrap<CallInst>(Call)->setTailCallKind((CallInst::TailCallKind)kind);
+}
+#endif
