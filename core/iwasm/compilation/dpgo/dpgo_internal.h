@@ -7,6 +7,7 @@
 #define _DPGO_INTERNAL_H_
 
 #include <llvm-c/Core.h>
+#include <llvm-c/TargetMachine.h>
 
 #include "bh_platform.h"
 #include "wasm.h"
@@ -118,6 +119,10 @@ wasm_dpgo_unlike_true_branch(LLVMContextRef context, LLVMValueRef cond_br);
 
 void
 wasm_dpgo_unlike_false_branch(LLVMContextRef context, LLVMValueRef cond_br);
+
+void
+wasm_dpgo_extra_pass_pipeline(LLVMTargetMachineRef target_machine,
+                              LLVMModuleRef module);
 
 #ifdef __cplusplus
 } /* end of extern "C" */

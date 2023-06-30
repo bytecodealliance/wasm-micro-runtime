@@ -219,14 +219,22 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
             }
         }
 #endif
-        location = LLVMDIBuilderCreateDebugLocation(
-            comp_ctx->context, frame_ip - func_ctx->aot_func->code, 1,
-            func_ctx->debug_func, NULL);
-        if (!location) {
-            LOG_ERROR("Cannot create dubug loation");
-            goto fail;
+        if (opcode == WASM_OP_BR_IF || opcode == WASM_OP_IF
+            || opcode == WASM_OP_SELECT || opcode == WASM_OP_SELECT_T) {
+            location = LLVMDIBuilderCreateDebugLocation(
+                comp_ctx->context, frame_ip - func_ctx->aot_func->code, 1,
+                func_ctx->debug_func, NULL);
+            if (!location) {
+                LOG_ERROR("Cannot create dubug loation");
+                goto fail;
+            }
+            /* from now on, builder will append !dbg into generated instructions
+             */
+            LLVMSetCurrentDebugLocation2(comp_ctx->builder, location);
         }
-        LLVMSetCurrentDebugLocation2(comp_ctx->builder, location);
+        else {
+            LLVMSetCurrentDebugLocation2(comp_ctx->builder, NULL);
+        }
 #endif
 
         switch (opcode) {

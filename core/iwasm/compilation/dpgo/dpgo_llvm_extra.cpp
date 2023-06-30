@@ -13,10 +13,17 @@
 #include <llvm/IR/MDBuilder.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Verifier.h>
+#include <llvm/Passes/PassBuilder.h>
+#include <llvm/Support/Error.h>
+#include <llvm/Support/ErrorHandling.h>
+#include <llvm/Target/TargetMachine.h>
 
 #include "./dpgo_internal.h"
+#include "bh_log.h"
 
 using namespace llvm;
+
+static ExitOnError ExitOnErr;
 
 /* return true if broken */
 bool
@@ -38,14 +45,7 @@ void
 wasm_dpgo_set_function_entry_count(LLVMValueRef function, uint32 count)
 {
     Function *F = unwrap<Function>(function);
-    if (F->hasProfileData()) {
-        uint64 current_count = F->getEntryCount().getValue().getCount();
-        if (current_count == count)
-            return;
-    }
-
     F->setEntryCount(count, Function::PCT_Real);
-    F->addFnAttr(Attribute::Hot);
 }
 
 /* append !{!"branch_weights", i32 NN, i32 MM} */
@@ -75,7 +75,7 @@ wasm_dpgo_unlike_true_branch(LLVMContextRef context, LLVMValueRef cond_br)
     bh_assert(LLVMIsABranchInst(cond_br));
     bh_assert(LLVMIsConditional(cond_br));
 
-    uint32 weights[2] = { 1, 1000 };
+    uint32 weights[2] = { 0, 1000 };
     return wasm_dpgo_set_branch_weights(context, cond_br, weights, 2);
 }
 
@@ -85,7 +85,7 @@ wasm_dpgo_unlike_false_branch(LLVMContextRef context, LLVMValueRef cond_br)
     bh_assert(LLVMIsABranchInst(cond_br));
     bh_assert(LLVMIsConditional(cond_br));
 
-    uint32 weights[2] = { 1000, 1 };
+    uint32 weights[2] = { 1000, 0 };
     return wasm_dpgo_set_branch_weights(context, cond_br, weights, 2);
 }
 
@@ -125,11 +125,13 @@ wasm_dpgo_get_offset_of_instr(WASMModule *wasm_module, LLVMValueRef instruction,
 {
     /* always have some Debug Location */
     LLVMMetadataRef dbg_location = LLVMInstructionGetDebugLoc(instruction);
-    bh_assert(dbg_location && "No Debug Location");
+    if (!dbg_location) {
+        LOG_WARNING("  There is no DILocation for the instruction");
+        return false;
+    }
+
     bh_assert(LLVMGetMetadataKind(dbg_location) == LLVMDILocationMetadataKind
               && "Not a DILocation");
-    if (!dbg_location)
-        return false;
 
     *line = LLVMDILocationGetLine(dbg_location);
     LOG_DEBUG("  DILocation. LINE: %u", *line);
@@ -241,6 +243,55 @@ wasm_dpgo_set_prof_meta(WASMModule *wasm_module, LLVMModuleRef module,
     LOG_DEBUG("  --> Add prof meta into %s",
               LLVMGetValueName2(function, &size));
 
+    wasm_dpgo_set_function_entry_count(
+        function, wasm_dpgo_get_func_entry_count(wasm_module, func_idx));
     wasm_dpgo_visit_terminator(wasm_module, module, function, func_idx);
     wasm_dpgo_visit_select(wasm_module, module, function, func_idx);
+}
+
+void
+wasm_dpgo_extra_pass_pipeline(LLVMTargetMachineRef target_machine,
+                              LLVMModuleRef module)
+{
+    TargetMachine *TM = reinterpret_cast<TargetMachine *>(target_machine);
+    PassBuilder PB(TM);
+
+    /* Create the analysis managers.*/
+    LoopAnalysisManager LAM;
+    FunctionAnalysisManager FAM;
+    CGSCCAnalysisManager CGAM;
+    ModuleAnalysisManager MAM;
+
+    /* Register all the basic analyses with the managers. */
+    PB.registerModuleAnalyses(MAM);
+    PB.registerCGSCCAnalyses(CGAM);
+    PB.registerFunctionAnalyses(FAM);
+    PB.registerLoopAnalyses(LAM);
+    PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
+
+    ModulePassManager MPM;
+    /*
+     * based on data, DPGO using
+     * `buildFunctionSimplificationPipeline()`
+     * `buildModuleSimplificationPipeline()`
+     * `buildModuleOptimizationPipeline()`
+     * `buildPerModuleDefaultPipeline()`
+     * are all worse than below simple passes
+     *
+     * - MPM.addPass(PB.buildModuleSimplificationPipeline(OL,
+     *                   ThinOrFullLTOPhase::None));
+     * - MPM.addPass(PB.buildModuleOptimizationPipeline(OL,
+     *                   ThinOrFullLTOPhase::None));
+     * - MPM.addPass(PB.buildPerModuleDefaultPipeline(OL));
+     * - MPM.addPass(createModuleToFunctionPassAdaptor(
+     *                   PB.buildFunctionSimplificationPipeline(OptimizationLevel::O3,
+     *                       ThinOrFullLTOPhase::None)));
+     */
+    const char *Passes =
+        "mem2reg,instcombine,simplifycfg,jump-threading,indvars";
+    ExitOnErr(PB.parsePassPipeline(MPM, Passes));
+
+    // Optimize the IR!
+    Module *Mod = reinterpret_cast<Module *>(module);
+    MPM.run(*Mod, MAM);
 }

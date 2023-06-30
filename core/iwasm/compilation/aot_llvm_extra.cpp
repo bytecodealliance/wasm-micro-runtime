@@ -59,6 +59,8 @@
 using namespace llvm;
 using namespace llvm::orc;
 
+/* #define DEBUG_PASS ON */
+
 LLVM_C_EXTERN_C_BEGIN
 
 bool
@@ -75,7 +77,7 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module);
 
 LLVM_C_EXTERN_C_END
 
-ExitOnError ExitOnErr;
+static ExitOnError ExitOnErr;
 
 class ExpandMemoryOpPass : public llvm::ModulePass
 {
@@ -229,15 +231,33 @@ aot_check_simd_compatibility(const char *arch_c_str, const char *cpu_c_str)
 #endif /* WASM_ENABLE_SIMD */
 }
 
+#ifndef NDEBUG
+/*
+ * Please be aware of:
+ * it will not output additional information until using
+ * a Debug building of LLVM libraries
+ */
+extern bool llvm::DebugFlag;
+void
+aot_enable_llvm_debug_output()
+{
+    llvm::DebugFlag = true;
+}
+#endif
+
 void
 aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
 {
+
     TargetMachine *TM =
         reinterpret_cast<TargetMachine *>(comp_ctx->target_machine);
     PipelineTuningOptions PTO;
     PTO.LoopVectorization = true;
     PTO.SLPVectorization = true;
     PTO.LoopUnrolling = true;
+    // For historical reasons, loop interleaving is set to mirror setting for
+    // loop unrolling.
+    PTO.LoopInterleaving = true;
 
 #if LLVM_VERSION_MAJOR >= 16
     Optional<PGOOptions> PGO = std::nullopt;
@@ -245,7 +265,6 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
     Optional<PGOOptions> PGO = llvm::None;
 #endif
 
-#if WASM_ENABLE_DYNAMIC_PGO == 0
     if (comp_ctx->enable_llvm_pgo) {
         /* Disable static counter allocation for value profiler,
            it will be allocated by runtime */
@@ -256,9 +275,6 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
     else if (comp_ctx->use_prof_file) {
         PGO = PGOOptions(comp_ctx->use_prof_file, "", "", PGOOptions::IRUse);
     }
-#else
-    PGO = PGOOptions();
-#endif
 
 #ifdef DEBUG_PASS
     PassInstrumentationCallbacks PIC;
@@ -288,7 +304,10 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
     FAM.registerPass([&] { return std::move(AA); });
 
 #ifdef DEBUG_PASS
-    StandardInstrumentations SI(true, false);
+    PrintPassOptions PrintPassOpts;
+    PrintPassOpts.Indent = true;
+    PrintPassOpts.SkipAnalyses = false;
+    StandardInstrumentations SI(true, /*VerifyEach*/ false, PrintPassOpts);
     SI.registerCallbacks(PIC, &FAM);
 #endif
 
@@ -350,16 +369,26 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
 
     ModulePassManager MPM;
     if (comp_ctx->is_jit_mode) {
-#if WASM_ENABLE_DYNAMIC_PGO != 0
-        /* FIXME: tuning default pipelines and customized pipelines */
-        // MPM.addPass(PB.buildFunctionSimplificationPipeline(
-        //     OL, ThinOrFullLTOPhase::None));
-        MPM.addPass(PB.buildPerModuleDefaultPipeline(OL));
-#else
+        /*
+         * based on data, DPGO using
+         * `buildFunctionSimplificationPipeline()`
+         * `buildModuleSimplificationPipeline()`
+         * `buildModuleOptimizationPipeline()`
+         * `buildPerModuleDefaultPipeline()`
+         * are all worse than below simple passes
+         *
+         * - MPM.addPass(PB.buildModuleSimplificationPipeline(OL,
+         *                   ThinOrFullLTOPhase::None));
+         * - MPM.addPass(PB.buildModuleOptimizationPipeline(OL,
+         *                   ThinOrFullLTOPhase::None));
+         * - MPM.addPass(PB.buildPerModuleDefaultPipeline(OL));
+         * - MPM.addPass(createModuleToFunctionPassAdaptor(
+         *                   PB.buildFunctionSimplificationPipeline(OptimizationLevel::O3,
+         *                       ThinOrFullLTOPhase::None)));
+         */
         const char *Passes =
             "mem2reg,instcombine,simplifycfg,jump-threading,indvars";
         ExitOnErr(PB.parsePassPipeline(MPM, Passes));
-#endif
     }
     else {
         FunctionPassManager FPM;

@@ -1009,6 +1009,11 @@ uint32
 wasm_runtime_get_hot_func_threshold();
 #endif
 
+#ifndef NDEBUG
+void
+aot_enable_llvm_debug_output();
+#endif
+
 #ifdef __cplusplus
 }
 #endif

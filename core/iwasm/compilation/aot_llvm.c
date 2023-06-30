@@ -1535,7 +1535,9 @@ aot_create_func_context(const AOTCompData *comp_data, AOTCompContext *comp_ctx,
         LOG_ERROR("LLVMDIBuilderCreateFunction failed");
         goto fail;
     }
-    LLVMSetSubprogram(func_ctx->func, func_ctx->debug_func);
+
+    /* in order to tell LLVM it is not a debuggable function */
+    /* LLVMSetSubprogram(func_ctx->func, func_ctx->debug_func); */
 #endif
 
     aot_block_stack_push(&func_ctx->block_stack, aot_block);
@@ -2144,10 +2146,15 @@ apply_prof_meta_and_opt(void *Ctx, LLVMModuleRef Mod)
             != NEED_OPT_WITH_PROF_META)
             continue;
 
-        bool broken_function = false;
+        /* only process definition */
+        if (LLVMIsDeclaration(cur))
+            continue;
+
         wasm_dpgo_set_prof_meta(wasm_module, Mod, cur,
                                 wasm_module->import_function_count + func_idx);
 
+        /* verify */
+        bool broken_function = false;
         broken_function = LLVMVerifyFunction(cur, LLVMPrintMessageAction);
         bh_assert(!broken_function && "Found a broken function!");
         if (broken_function)
@@ -2305,6 +2312,10 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
     uint32 opt_level, size_level, i;
     LLVMCodeModel code_model;
     LLVMTargetDataRef target_data_ref;
+
+#ifndef NDEBUG
+    /* aot_enable_llvm_debug_output(); */
+#endif
 
     /* Allocate memory */
     if (!(comp_ctx = wasm_runtime_malloc(sizeof(AOTCompContext)))) {
