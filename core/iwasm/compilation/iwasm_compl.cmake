@@ -14,7 +14,9 @@ else()
                     ${IWASM_COMPL_DIR}/*.cpp)
 endif()
 
-if (WAMR_BUILD_DYNAMIC_PGO EQUAL 1)
+if (WAMR_BUILD_FAST_JIT EQUAL 1
+      AND WAMR_BUILD_JIT EQUAL 1
+      AND WAMR_BUILD_DYNAMIC_PGO EQUAL 1)
   list(APPEND source_all
     ${IWASM_COMPL_DIR}/dpgo/dpgo_impl.c
     ${IWASM_COMPL_DIR}/dpgo/dpgo_llvm_extra.cpp
