@@ -70,7 +70,7 @@ typedef enum {
     GC_STAT_MAX
 } GC_STAT_INDEX;
 
-typedef uint32_t (*gc_finalizer_t)(void *obj, void *data);
+typedef void (*gc_finalizer_t)(void *obj, void *data);
 
 #ifndef EXTRA_INFO_NORMAL_NODE_CNT
 #define EXTRA_INFO_NORMAL_NODE_CNT 32

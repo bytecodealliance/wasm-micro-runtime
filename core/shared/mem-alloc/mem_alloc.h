@@ -17,7 +17,7 @@ extern "C" {
 
 typedef void *mem_allocator_t;
 
-typedef uint32_t (*gc_finalizer_t)(void *obj, void *data);
+typedef void (*gc_finalizer_t)(void *obj, void *data);
 
 mem_allocator_t
 mem_allocator_create(void *mem, uint32_t size);
