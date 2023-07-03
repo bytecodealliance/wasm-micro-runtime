@@ -951,7 +951,8 @@ gci_dump(gc_heap_t *heap)
 
 #if WASM_ENABLE_GC != 0
 extra_info_node_t *
-search_extra_info_node(gc_handle_t handle, gc_object_t obj, gc_size_t *p_index)
+gc_search_extra_info_node(gc_handle_t handle, gc_object_t obj,
+                          gc_size_t *p_index)
 {
     gc_heap_t *vheap = (gc_heap_t *)handle;
     gc_size_t low = 0, high = vheap->extra_info_node_cnt;
@@ -1022,7 +1023,7 @@ insert_extra_info_node(gc_heap_t *vheap, extra_info_node_t *node)
         vheap->extra_info_node_capacity = new_capacity;
     }
 
-    orig_node = search_extra_info_node(vheap, node->obj, &index);
+    orig_node = gc_search_extra_info_node(vheap, node->obj, &index);
     if (orig_node) {
         /* replace the old node */
         vheap->extra_info_nodes[index] = node;
@@ -1081,7 +1082,7 @@ gc_unset_finalizer(gc_handle_t handle, gc_object_t obj)
     extra_info_node_t *node;
 
     LOCK_HEAP(vheap);
-    node = search_extra_info_node(vheap, obj, &index);
+    node = gc_search_extra_info_node(vheap, obj, &index);
 
     if (!node) {
         UNLOCK_HEAP(vheap);
