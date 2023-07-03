@@ -373,6 +373,10 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
 
         MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
 
+        if (comp_ctx->llvm_passes) {
+            ExitOnErr(PB.parsePassPipeline(MPM, comp_ctx->llvm_passes));
+        }
+
         if (!disable_llvm_lto) {
             /* Apply LTO for AOT mode */
             if (comp_ctx->comp_data->func_count >= 10

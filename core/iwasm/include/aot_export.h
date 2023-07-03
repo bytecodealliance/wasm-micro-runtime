@@ -67,6 +67,7 @@ typedef struct AOTCompOption {
     char **custom_sections;
     uint32_t custom_sections_count;
     const char *stack_usage_file;
+    const char *llvm_passes;
 } AOTCompOption, *aot_comp_option_t;
 
 bool
