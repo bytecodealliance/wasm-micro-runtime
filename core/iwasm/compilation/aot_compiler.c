@@ -2617,64 +2617,6 @@ verify_module(AOTCompContext *comp_ctx)
     return true;
 }
 
-/* Check whether the target supports hardware atomic instructions */
-static bool
-aot_require_lower_atomic_pass(AOTCompContext *comp_ctx)
-{
-    bool ret = false;
-    if (!strncmp(comp_ctx->target_arch, "riscv", 5)) {
-        char *feature =
-            LLVMGetTargetMachineFeatureString(comp_ctx->target_machine);
-
-        if (feature) {
-            if (!strstr(feature, "+a")) {
-                ret = true;
-            }
-            LLVMDisposeMessage(feature);
-        }
-    }
-    return ret;
-}
-
-/* Check whether the target needs to expand switch to if/else */
-static bool
-aot_require_lower_switch_pass(AOTCompContext *comp_ctx)
-{
-    bool ret = false;
-
-    /* IR switch/case will cause .rodata relocation on riscv/xtensa */
-    if (!strncmp(comp_ctx->target_arch, "riscv", 5)
-        || !strncmp(comp_ctx->target_arch, "xtensa", 6)) {
-        ret = true;
-    }
-
-    return ret;
-}
-
-static bool
-apply_passes_for_indirect_mode(AOTCompContext *comp_ctx)
-{
-    LLVMPassManagerRef common_pass_mgr;
-
-    if (!(common_pass_mgr = LLVMCreatePassManager())) {
-        aot_set_last_error("create pass manager failed");
-        return false;
-    }
-
-    aot_add_expand_memory_op_pass(common_pass_mgr);
-
-    if (aot_require_lower_atomic_pass(comp_ctx))
-        LLVMAddLowerAtomicPass(common_pass_mgr);
-
-    if (aot_require_lower_switch_pass(comp_ctx))
-        LLVMAddLowerSwitchPass(common_pass_mgr);
-
-    LLVMRunPassManager(common_pass_mgr, comp_ctx->module);
-
-    LLVMDisposePassManager(common_pass_mgr);
-    return true;
-}
-
 bool
 aot_compile_wasm(AOTCompContext *comp_ctx)
 {
@@ -2714,17 +2656,6 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
            possible core dump. */
         bh_print_time("Begin to run llvm optimization passes");
         aot_apply_llvm_new_pass_manager(comp_ctx, comp_ctx->module);
-
-        /* Run specific passes for AOT indirect mode in last since general
-           optimization may create some intrinsic function calls like
-           llvm.memset, so let's remove these function calls here. */
-        if (!comp_ctx->is_jit_mode && comp_ctx->is_indirect_mode) {
-            bh_print_time("Begin to run optimization passes "
-                          "for indirect mode");
-            if (!apply_passes_for_indirect_mode(comp_ctx)) {
-                return false;
-            }
-        }
         bh_print_time("Finish llvm optimization passes");
     }
 
