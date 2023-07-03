@@ -105,7 +105,7 @@ sweep_instance_heap(gc_heap_t *heap)
                 /* Invoke registered finalizer */
                 gc_object_t cur_obj = hmu_to_obj(cur);
                 if (gct_vm_get_extra_info_flag(cur_obj)) {
-                    extra_info_node_t *node = search_extra_info_node(
+                    extra_info_node_t *node = gc_search_extra_info_node(
                         (gc_handle_t)heap, cur_obj, NULL);
                     node->finalizer(node->obj, node->data);
                     gc_unset_finalizer((gc_handle_t)heap, cur_obj);

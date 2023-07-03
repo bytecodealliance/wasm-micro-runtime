@@ -201,11 +201,12 @@ void
 gc_free_wo(void *vheap, void *ptr);
 
 extra_info_node_t *
-search_extra_info_node(gc_handle_t handle, gc_object_t obj, gc_size_t *p_index);
+gc_search_extra_info_node(gc_handle_t handle, gc_object_t obj,
+                          gc_size_t *p_index);
 
 /**
- * Set finalizer to the given object, if multiple finalizer is set to the same
- * object, previous one will be cancelled
+ * Set finalizer to the given object, if another finalizer is set to the same
+ * object, the previous one will be cancelled
  *
  * @param handle handle of the heap
  * @param obj object to set finalizer

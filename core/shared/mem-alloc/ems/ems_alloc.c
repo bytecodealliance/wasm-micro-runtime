@@ -1061,10 +1061,13 @@ gc_set_finalizer(gc_handle_t handle, gc_object_t obj, gc_finalizer_t cb,
     node->obj = obj;
     node->data = data;
 
+    LOCK_HEAP(vheap);
     if (!insert_extra_info_node(vheap, node)) {
         BH_FREE(node);
+        UNLOCK_HEAP(vheap);
         return GC_FALSE;
     }
+    UNLOCK_HEAP(vheap);
 
     gct_vm_set_extra_info_flag(obj, true);
     return GC_TRUE;
@@ -1075,9 +1078,13 @@ gc_unset_finalizer(gc_handle_t handle, gc_object_t obj)
 {
     gc_size_t index;
     gc_heap_t *vheap = (gc_heap_t *)handle;
-    extra_info_node_t *node = search_extra_info_node(vheap, obj, &index);
+    extra_info_node_t *node;
+
+    LOCK_HEAP(vheap);
+    node = search_extra_info_node(vheap, obj, &index);
 
     if (!node) {
+        UNLOCK_HEAP(vheap);
         return;
     }
 
@@ -1088,6 +1095,7 @@ gc_unset_finalizer(gc_handle_t handle, gc_object_t obj)
         vheap->extra_info_nodes + index + 1,
         (vheap->extra_info_node_cnt - index) * sizeof(extra_info_node_t *));
     vheap->extra_info_node_cnt -= 1;
+    UNLOCK_HEAP(vheap);
 
     gct_vm_set_extra_info_flag(obj, false);
 }
