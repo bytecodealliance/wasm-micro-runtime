@@ -33,6 +33,35 @@
 extern "C" {
 #endif
 
+
+#if defined(CONFIG_ARCH_XTENSA)
+#include <nuttx/xtensa_attr.h>
+#endif
+
+#if defined(CONFIG_ARCH_CHIP_ESP32S3)
+#if CONFIG_ARCH_CHIP_ESP32S3 != 0
+#define IRAM0_CACHE_ADDRESS_LOW         0x42000000
+#define IRAM0_CACHE_ADDRESS_HIGH        0x44000000
+#define BUS_CONVERT_OFFSET              (0x42000000 - 0x3C000000)
+
+__attribute__((always_inline))
+inline bool check_psram_addr(uint32_t addr_start)
+{
+    return  ((addr_start >= IRAM0_CACHE_ADDRESS_LOW) && (addr_start < IRAM0_CACHE_ADDRESS_HIGH));
+}
+
+void IRAM_ATTR esp32s3_bus_sync(void);
+#endif
+#else
+#define BUS_CONVERT_OFFSET 0
+__attribute__((always_inline))
+inline bool check_psram_addr(uint32_t addr_start)
+{
+    return 0;
+}
+
+#endif
+
 #ifndef BH_PLATFORM_NUTTX
 #define BH_PLATFORM_NUTTX
 #endif

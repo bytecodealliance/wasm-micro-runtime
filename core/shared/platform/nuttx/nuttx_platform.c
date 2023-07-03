@@ -10,6 +10,17 @@
 #include <nuttx/arch.h>
 #endif
 
+
+#if defined(CONFIG_ARCH_CHIP_ESP32S3)
+#if CONFIG_ARCH_CHIP_ESP32S3 != 0
+void IRAM_ATTR esp32s3_bus_sync(void)
+{
+    extern void cache_writeback_all(void);
+    cache_writeback_all();
+}
+#endif
+#endif
+
 int
 bh_platform_init()
 {
@@ -55,7 +66,16 @@ os_mmap(void *hint, size_t size, int prot, int flags)
 
     if ((uint64)size >= UINT32_MAX)
         return NULL;
-    return malloc((uint32)size);
+    
+    if((prot & MMAP_PROT_EXEC) != 0) {
+        void * addr = malloc((uint32)size);
+        esp32s3_bus_sync();
+        return addr + BUS_CONVERT_OFFSET
+        
+    } else
+    {
+        return malloc((uint32)size);
+    }
 }
 
 void
@@ -67,6 +87,10 @@ os_munmap(void *addr, size_t size)
         return;
     }
 #endif
+    if(check_psram_addr(addr))
+    {
+        return free(addr - BUS_CONVERT_OFFSET);
+    }
     return free(addr);
 }
 

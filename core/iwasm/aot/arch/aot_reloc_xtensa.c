@@ -206,7 +206,7 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
     switch (reloc_type) {
         case R_XTENSA_32:
         {
-            uint8 *insn_addr = target_section_addr + reloc_offset;
+            uint8 *insn_addr = target_section_addr + reloc_offset - BUS_CONVERT_OFFSET;
             int32 initial_addend;
             /* (S + A) */
             if ((intptr_t)insn_addr & 3) {
@@ -224,7 +224,7 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
 
         case R_XTENSA_SLOT0_OP:
         {
-            uint8 *insn_addr = target_section_addr + reloc_offset;
+            uint8 *insn_addr = target_section_addr + reloc_offset - BUS_CONVERT_OFFSET;
             /* Currently only l32r instruction generates R_XTENSA_SLOT0_OP
              * relocation */
             l32r_insn_t *l32r_insn = (l32r_insn_t *)insn_addr;
