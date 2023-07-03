@@ -955,8 +955,8 @@ gc_search_extra_info_node(gc_handle_t handle, gc_object_t obj,
                           gc_size_t *p_index)
 {
     gc_heap_t *vheap = (gc_heap_t *)handle;
-    gc_size_t low = 0, high = vheap->extra_info_node_cnt;
-    gc_size_t mid;
+    int32 low = 0, high = vheap->extra_info_node_cnt - 1;
+    int32 mid;
     extra_info_node_t *node;
 
     if (!vheap->extra_info_nodes)
@@ -973,7 +973,7 @@ gc_search_extra_info_node(gc_handle_t handle, gc_object_t obj,
             return node;
         }
         else if (obj < node->obj) {
-            high = mid;
+            high = mid - 1;
         }
         else {
             low = mid + 1;
@@ -1004,7 +1004,7 @@ insert_extra_info_node(gc_heap_t *vheap, extra_info_node_t *node)
     /* extend array */
     if (vheap->extra_info_node_cnt == vheap->extra_info_node_capacity) {
         extra_info_node_t **new_nodes = NULL;
-        gc_size_t new_capacity = vheap->extra_info_node_capacity * 2;
+        gc_size_t new_capacity = vheap->extra_info_node_capacity * 3 / 2;
         gc_size_t total_size = sizeof(extra_info_node_t *) * new_capacity;
 
         new_nodes = (extra_info_node_t **)BH_MALLOC(total_size);

@@ -107,6 +107,7 @@ sweep_instance_heap(gc_heap_t *heap)
                 if (gct_vm_get_extra_info_flag(cur_obj)) {
                     extra_info_node_t *node = gc_search_extra_info_node(
                         (gc_handle_t)heap, cur_obj, NULL);
+                    bh_assert(node);
                     node->finalizer(node->obj, node->data);
                     gc_unset_finalizer((gc_handle_t)heap, cur_obj);
                 }
