@@ -65,6 +65,7 @@ print_help()
     printf("  --enable-dump-call-stack  Enable stack trace feature\n");
     printf("  --enable-perf-profiling   Enable function performance profiling\n");
     printf("  --enable-memory-profiling Enable memory usage profiling\n");
+    printf("  --xip                     A shorthand of --enalbe-indirect-mode --disable-llvm-intrinsics\n");
     printf("  --enable-indirect-mode    Enalbe call function through symbol table but not direct call\n");
     printf("  --disable-llvm-intrinsics Disable the LLVM built-in intrinsics\n");
     printf("  --disable-llvm-lto        Disable the LLVM link time optimization\n");
@@ -324,6 +325,10 @@ main(int argc, char *argv[])
         }
         else if (!strcmp(argv[0], "--enable-memory-profiling")) {
             option.enable_stack_estimation = true;
+        }
+        else if (!strcmp(argv[0], "--xip")) {
+            option.is_indirect_mode = true;
+            option.disable_llvm_intrinsics = true;
         }
         else if (!strcmp(argv[0], "--enable-indirect-mode")) {
             option.is_indirect_mode = true;

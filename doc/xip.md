@@ -7,7 +7,11 @@ Some IoT devices may require to run the AOT file from flash or ROM which is read
 The XIP file is an AOT file without (or with few) relocations to patch the AOT code (or text section). Developer can use the option `--enable-indirect-mode --disable-llvm-intrinsics` for wamrc to generate the AOT file, e.g.:
 ```bash
 wamrc --enable-indirect-mode --disable-llvm-intrinsics -o <aot_file> <wasm_file>
+or
+wamrc --xip -o <aot_file> <wasm_file>
 ```
+
+Note: --xip is a short option for --enable-indirect-mode --disable-llvm-intrinsics
 
 ## Known issues
 
