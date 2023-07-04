@@ -8,6 +8,14 @@
 #define R_XTENSA_32 1        /* Direct 32 bit */
 #define R_XTENSA_SLOT0_OP 20 /* PC relative */
 
+#ifndef BUS_CONVERT_OFFSET
+#define BUS_CONVERT_OFFSET 0x0
+#endif
+
+#ifndef is_in_iram
+#define is_in_iram(addr)   0x0
+#endif
+
 /* clang-format off */
 /* for soft-float */
 void __floatsidf();
@@ -206,7 +214,11 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
     switch (reloc_type) {
         case R_XTENSA_32:
         {
-            uint8 *insn_addr = target_section_addr + reloc_offset - BUS_CONVERT_OFFSET;
+            uint8 *insn_addr = target_section_addr + reloc_offset;
+            if (is_in_iram(insn_addr))
+            {
+                insn_addr -=  BUS_CONVERT_OFFSET;
+            }
             int32 initial_addend;
             /* (S + A) */
             if ((intptr_t)insn_addr & 3) {
@@ -224,7 +236,7 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
 
         case R_XTENSA_SLOT0_OP:
         {
-            uint8 *insn_addr = target_section_addr + reloc_offset - BUS_CONVERT_OFFSET;
+            uint8 *insn_addr = target_section_addr + reloc_offset;
             /* Currently only l32r instruction generates R_XTENSA_SLOT0_OP
              * relocation */
             l32r_insn_t *l32r_insn = (l32r_insn_t *)insn_addr;
@@ -263,6 +275,12 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
                               "Try using `wamrc --size-level=0` to generate "
                               ".literal island.");
                 return false;
+            }
+
+            if (is_in_iram(insn_addr))
+            {
+                insn_addr -= BUS_CONVERT_OFFSET;
+                l32r_insn = (l32r_insn_t *)insn_addr;
             }
 
             imm16 = (int16)(relative_offset >> 2);

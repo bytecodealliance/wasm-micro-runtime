@@ -11,14 +11,17 @@
 #endif
 
 
-#if defined(CONFIG_ARCH_CHIP_ESP32S3)
-#if CONFIG_ARCH_CHIP_ESP32S3 != 0
-void IRAM_ATTR esp32s3_bus_sync(void)
+#if defined(CONFIG_ARCH_CHIP_ESP32S3) \
+    && (CONFIG_ARCH_CHIP_ESP32S3 != 0)
+static void bus_sync(void)
 {
     extern void cache_writeback_all(void);
     cache_writeback_all();
 }
-#endif
+#else
+static void bus_sync(void)
+{
+}
 #endif
 
 int
@@ -68,14 +71,15 @@ os_mmap(void *hint, size_t size, int prot, int flags)
         return NULL;
     
     if((prot & MMAP_PROT_EXEC) != 0) {
-        void * addr = malloc((uint32)size);
-        esp32s3_bus_sync();
-        return addr + BUS_CONVERT_OFFSET
-        
-    } else
-    {
-        return malloc((uint32)size);
+        void * addr = malloc((uint32)size) + BUS_CONVERT_OFFSET;
+        if(is_in_iram(addr)) {
+            return addr;
+        } else {
+            return (addr - BUS_CONVERT_OFFSET);
+        }
     }
+
+    return malloc((uint32)size);
 }
 
 void
@@ -87,11 +91,13 @@ os_munmap(void *addr, size_t size)
         return;
     }
 #endif
-    if(check_psram_addr(addr))
+    if(is_in_iram(addr))
     {
-        return free(addr - BUS_CONVERT_OFFSET);
+        free(addr - BUS_CONVERT_OFFSET);
+        return;
     }
-    return free(addr);
+
+    free(addr);
 }
 
 int
@@ -102,7 +108,9 @@ os_mprotect(void *addr, size_t size, int prot)
 
 void
 os_dcache_flush()
-{}
+{
+    bus_sync();
+}
 
 /* If AT_FDCWD is provided, maybe we have openat family */
 #if !defined(AT_FDCWD)
