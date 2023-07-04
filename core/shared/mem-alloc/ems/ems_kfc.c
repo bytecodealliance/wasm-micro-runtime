@@ -146,6 +146,12 @@ gc_destroy_with_pool(gc_handle_t handle)
     }
 #endif
 
+#if WASM_ENABLE_GC != 0
+    if (heap->extra_info_nodes != heap->extra_info_normal_nodes) {
+        BH_FREE(heap->extra_info_nodes);
+    }
+#endif
+
     os_mutex_destroy(&heap->lock);
     memset(heap->base_addr, 0, heap->current_size);
     memset(heap, 0, sizeof(gc_heap_t));
