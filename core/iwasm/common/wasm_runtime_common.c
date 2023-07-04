@@ -2482,6 +2482,54 @@ wasm_runtime_get_custom_data(WASMModuleInstanceCommon *module_inst_comm)
     return module_inst->custom_data;
 }
 
+#if WASM_CONFIGUABLE_BOUNDS_CHECKS != 0
+void
+wasm_runtime_set_bounds_checks(WASMModuleInstanceCommon *module_inst,
+                               bool enable)
+{
+    /* Alwary disable bounds checks if hw bounds checks enabled */
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    enable = false;
+#endif
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        ((WASMModuleInstanceExtra *)((WASMModuleInstance *)module_inst)->e)
+            ->disable_bounds_checks = enable ? false : true;
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        ((AOTModuleInstanceExtra *)((AOTModuleInstance *)module_inst)->e)
+            ->disable_bounds_checks = enable ? false : true;
+    }
+#endif
+}
+
+bool
+wasm_runtime_is_bounds_checks_enabled(WASMModuleInstanceCommon *module_inst)
+{
+
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        return !((WASMModuleInstanceExtra *)((WASMModuleInstance *)module_inst)
+                     ->e)
+                    ->disable_bounds_checks;
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        return !((AOTModuleInstanceExtra *)((WASMModuleInstance *)module_inst)
+                     ->e)
+                    ->disable_bounds_checks;
+    }
+#endif
+
+    return true;
+}
+#endif
+
 uint32
 wasm_runtime_module_malloc_internal(WASMModuleInstanceCommon *module_inst,
                                     WASMExecEnv *exec_env, uint32 size,

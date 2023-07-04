@@ -41,26 +41,28 @@ typedef float64 CellType_F64;
 
 #if !defined(OS_ENABLE_HW_BOUND_CHECK) \
     || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
-#define CHECK_MEMORY_OVERFLOW(bytes)                            \
-    do {                                                        \
-        uint64 offset1 = (uint64)offset + (uint64)addr;         \
-        if (offset1 + bytes <= (uint64)get_linear_mem_size())   \
-            /* If offset1 is in valid range, maddr must also    \
-               be in valid range, no need to check it again. */ \
-            maddr = memory->memory_data + offset1;              \
-        else                                                    \
-            goto out_of_bounds;                                 \
+#define CHECK_MEMORY_OVERFLOW(bytes)                             \
+    do {                                                         \
+        uint64 offset1 = (uint64)offset + (uint64)addr;          \
+        if (disable_bounds_checks                                \
+            || offset1 + bytes <= (uint64)get_linear_mem_size()) \
+            /* If offset1 is in valid range, maddr must also     \
+               be in valid range, no need to check it again. */  \
+            maddr = memory->memory_data + offset1;               \
+        else                                                     \
+            goto out_of_bounds;                                  \
     } while (0)
 
-#define CHECK_BULK_MEMORY_OVERFLOW(start, bytes, maddr)       \
-    do {                                                      \
-        uint64 offset1 = (uint32)(start);                     \
-        if (offset1 + bytes <= (uint64)get_linear_mem_size()) \
-            /* App heap space is not valid space for          \
-             bulk memory operation */                         \
-            maddr = memory->memory_data + offset1;            \
-        else                                                  \
-            goto out_of_bounds;                               \
+#define CHECK_BULK_MEMORY_OVERFLOW(start, bytes, maddr)          \
+    do {                                                         \
+        uint64 offset1 = (uint32)(start);                        \
+        if (disable_bounds_checks                                \
+            || offset1 + bytes <= (uint64)get_linear_mem_size()) \
+            /* App heap space is not valid space for             \
+             bulk memory operation */                            \
+            maddr = memory->memory_data + offset1;               \
+        else                                                     \
+            goto out_of_bounds;                                  \
     } while (0)
 #else
 #define CHECK_MEMORY_OVERFLOW(bytes)                    \
@@ -1174,6 +1176,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     uint8 local_type, *global_addr;
     uint32 cache_index, type_index, param_cell_num, cell_num;
     uint8 value_type;
+#if WASM_CONFIGUABLE_BOUNDS_CHECKS != 0
+    bool disable_bounds_checks = !wasm_runtime_is_bounds_checks_enabled(
+        (WASMModuleInstanceCommon *)module);
+#else
+    bool disable_bounds_checks = false;
+#endif
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
     uint8 *frame_ip_orig = NULL;
