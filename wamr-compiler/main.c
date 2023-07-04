@@ -70,6 +70,8 @@ print_help()
     printf("  --disable-llvm-intrinsics Disable the LLVM built-in intrinsics\n");
     printf("  --disable-llvm-lto        Disable the LLVM link time optimization\n");
     printf("  --enable-llvm-pgo         Enable LLVM PGO (Profile-Guided Optimization)\n");
+    printf("  --enable-llvm-passes=<passes>\n");
+    printf("                            Enable the specified LLVM passes, using comma to separate\n");
     printf("  --use-prof-file=<file>    Use profile file collected by LLVM PGO (Profile-Guided Optimization)\n");
     printf("  --enable-segue[=<flags>]  Enable using segment register GS as the base address of linear memory,\n");
     printf("                            only available on linux/linux-sgx x86-64, which may improve performance,\n");
@@ -341,6 +343,11 @@ main(int argc, char *argv[])
         }
         else if (!strcmp(argv[0], "--enable-llvm-pgo")) {
             option.enable_llvm_pgo = true;
+        }
+        else if (!strncmp(argv[0], "--enable-llvm-passes=", 21)) {
+            if (argv[0][21] == '\0')
+                PRINT_HELP_AND_EXIT();
+            option.llvm_passes = argv[0] + 21;
         }
         else if (!strncmp(argv[0], "--use-prof-file=", 16)) {
             if (argv[0][16] == '\0')
