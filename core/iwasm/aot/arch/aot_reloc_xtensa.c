@@ -12,8 +12,8 @@
 #define BUS_CONVERT_OFFSET 0x0
 #endif
 
-#ifndef is_in_iram
-#define is_in_iram(addr)   0x0
+#ifndef in_ibus_ext
+#define in_ibus_ext(addr)  0x0
 #endif
 
 /* clang-format off */
@@ -215,7 +215,7 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
         case R_XTENSA_32:
         {
             uint8 *insn_addr = target_section_addr + reloc_offset;
-            if (is_in_iram(insn_addr))
+            if (in_ibus_ext(insn_addr))
             {
                 insn_addr -=  BUS_CONVERT_OFFSET;
             }
@@ -277,7 +277,7 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
                 return false;
             }
 
-            if (is_in_iram(insn_addr))
+            if (in_ibus_ext(insn_addr))
             {
                 insn_addr -= BUS_CONVERT_OFFSET;
                 l32r_insn = (l32r_insn_t *)insn_addr;

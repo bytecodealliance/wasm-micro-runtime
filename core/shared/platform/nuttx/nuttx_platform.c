@@ -72,7 +72,7 @@ os_mmap(void *hint, size_t size, int prot, int flags)
     
     if((prot & MMAP_PROT_EXEC) != 0) {
         void * addr = malloc((uint32)size) + BUS_CONVERT_OFFSET;
-        if(is_in_iram(addr)) {
+        if(in_ibus_ext(addr)) {
             return addr;
         } else {
             return (addr - BUS_CONVERT_OFFSET);
@@ -91,7 +91,7 @@ os_munmap(void *addr, size_t size)
         return;
     }
 #endif
-    if(is_in_iram(addr))
+    if(in_ibus_ext(addr))
     {
         free(addr - BUS_CONVERT_OFFSET);
         return;
