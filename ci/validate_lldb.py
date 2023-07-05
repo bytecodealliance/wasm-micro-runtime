@@ -117,5 +117,8 @@ for case, cmd in test_cases.items():
 
     print(f'\t OK')
 
+    # wait 100ms to ensure the socket is closed
+    time.sleep(0.1)
+
 print('Validate lldb success')
 exit(0)

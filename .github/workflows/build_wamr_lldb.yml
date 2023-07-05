@@ -138,7 +138,7 @@ jobs:
           mkdir -p wamr-debug
           cmake -S product-mini/platforms/linux -B wamr-debug -DWAMR_BUILD_DEBUG_INTERP=1
           cmake --build wamr-debug --parallel $(nproc)
-          python3 ci/validate_lldb.py --lldb core/deps/wamr-lldb/bin/lldb/ --wamr wamr-debug/iwasm
+          python3 ci/validate_lldb.py --port 1239 --lldb core/deps/wamr-lldb/bin/lldb --wamr wamr-debug/iwasm --verbose
         working-directory: .
 
       - name: build lldb macos
