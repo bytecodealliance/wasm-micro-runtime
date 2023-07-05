@@ -20,8 +20,6 @@
 #define XMM_PLT_PREFIX "__xmm@"
 #define REAL_PLT_PREFIX "__real@"
 
-#define TEST_SIZE (2*1024*1024)
-
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
 {
@@ -3061,7 +3059,7 @@ create_sections(AOTModule *module, const uint8 *buf, uint32 size,
                         (uint64)section_size + aot_get_plt_table_size();
                     total_size = (total_size + 3) & ~((uint64)3);
                     if (total_size >= UINT32_MAX
-                        || !(aot_text = os_mmap(NULL, TEST_SIZE,
+                        || !(aot_text = os_mmap(NULL, (uint32)total_size,
                                                 map_prot, map_flags))) {
                         wasm_runtime_free(section);
                         set_error_buf(error_buf, error_buf_size,

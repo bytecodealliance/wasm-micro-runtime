@@ -84,10 +84,8 @@ os_mmap(void *hint, size_t size, int prot, int flags)
     if((prot & MMAP_PROT_EXEC) != 0) {
         void * addr = malloc((uint32)size) + MEM_DUAL_BUS_OFFSET;
         if(in_ibus_ext(addr)) {
-            printf("os_mmap: in_ibus_ext, addr=%p, size=%d\n", addr, size);
             return addr;
         } else {
-            printf("os_mmap: not in_ibus_ext, addr=%p, size=%d\n", addr, size);
             return (addr - MEM_DUAL_BUS_OFFSET);
         }
     }
@@ -106,7 +104,6 @@ os_munmap(void *addr, size_t size)
 #endif
     if(in_ibus_ext(addr))
     {
-        printf("os_munmap: in_ibus_ext, addr=%p, size=%d\n", addr, size);
         free(addr - MEM_DUAL_BUS_OFFSET);
         return;
     }
@@ -130,7 +127,12 @@ os_dcache_flush()
 void * 
 os_get_dbus_mirror(void *ibus)
 {
-    return ibus - MEM_DUAL_BUS_OFFSET;
+    if(in_ibus_ext(ibus)) {
+        return ibus - MEM_DUAL_BUS_OFFSET;
+    } else
+    {
+        return ibus;
+    }
 }
 #endif
 
