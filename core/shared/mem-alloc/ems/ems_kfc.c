@@ -134,6 +134,24 @@ gc_destroy_with_pool(gc_handle_t handle)
     gc_heap_t *heap = (gc_heap_t *)handle;
     int ret = GC_SUCCESS;
 
+#if WASM_ENABLE_GC != 0
+    gc_size_t i = 0;
+
+    if (heap->extra_info_node_cnt > 0) {
+        for (i = 0; i < heap->extra_info_node_cnt; i++) {
+#if BH_ENABLE_GC_VERIFY != 0
+            os_printf("Memory leak detected: gc object [%p] not claimed\n",
+                      heap->extra_info_nodes[i]->obj);
+#endif
+            BH_FREE(heap->extra_info_nodes[i]);
+        }
+
+        if (heap->extra_info_nodes != heap->extra_info_normal_nodes) {
+            BH_FREE(heap->extra_info_nodes);
+        }
+    }
+#endif
+
 #if BH_ENABLE_GC_VERIFY != 0
     hmu_t *cur = (hmu_t *)heap->base_addr;
     hmu_t *end = (hmu_t *)((char *)heap->base_addr + heap->current_size);
@@ -143,12 +161,6 @@ gc_destroy_with_pool(gc_handle_t handle)
         os_printf("Memory leak detected:\n");
         gci_dump(heap);
         ret = GC_ERROR;
-    }
-#endif
-
-#if WASM_ENABLE_GC != 0
-    if (heap->extra_info_nodes != heap->extra_info_normal_nodes) {
-        BH_FREE(heap->extra_info_nodes);
     }
 #endif
 
