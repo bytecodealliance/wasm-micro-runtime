@@ -20,6 +20,8 @@
 #define XMM_PLT_PREFIX "__xmm@"
 #define REAL_PLT_PREFIX "__real@"
 
+#define TEST_SIZE (2*1024*1024)
+
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
 {
@@ -3013,6 +3015,9 @@ create_sections(AOTModule *module, const uint8 *buf, uint32 size,
     uint32 section_size;
     uint64 total_size;
     uint8 *aot_text;
+#if (WASM_MEM_DUAL_BUS_MIRROR!=0)
+    uint8 *mirrored_text;
+#endif
 
     if (!resolve_execute_mode(buf, size, &is_indirect_mode, error_buf,
                               error_buf_size)) {
@@ -3056,7 +3061,7 @@ create_sections(AOTModule *module, const uint8 *buf, uint32 size,
                         (uint64)section_size + aot_get_plt_table_size();
                     total_size = (total_size + 3) & ~((uint64)3);
                     if (total_size >= UINT32_MAX
-                        || !(aot_text = os_mmap(NULL, (uint32)total_size,
+                        || !(aot_text = os_mmap(NULL, TEST_SIZE,
                                                 map_prot, map_flags))) {
                         wasm_runtime_free(section);
                         set_error_buf(error_buf, error_buf_size,
@@ -3071,8 +3076,16 @@ create_sections(AOTModule *module, const uint8 *buf, uint32 size,
                     bh_assert((uintptr_t)aot_text < INT32_MAX);
 #endif
 #endif
+
+#if (WASM_MEM_DUAL_BUS_MIRROR!=0)
+                    mirrored_text = os_get_dbus_mirror(aot_text);
+                    bh_memcpy_s(mirrored_text, (uint32)total_size,
+                                section->section_body, (uint32)section_size);
+                    os_dcache_flush();
+#else
                     bh_memcpy_s(aot_text, (uint32)total_size,
                                 section->section_body, (uint32)section_size);
+#endif
                     section->section_body = aot_text;
                     destroy_aot_text = true;
 

@@ -8,14 +8,6 @@
 #define R_XTENSA_32 1        /* Direct 32 bit */
 #define R_XTENSA_SLOT0_OP 20 /* PC relative */
 
-#ifndef BUS_CONVERT_OFFSET
-#define BUS_CONVERT_OFFSET 0x0
-#endif
-
-#ifndef in_ibus_ext
-#define in_ibus_ext(addr)  0x0
-#endif
-
 /* clang-format off */
 /* for soft-float */
 void __floatsidf();
@@ -215,10 +207,9 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
         case R_XTENSA_32:
         {
             uint8 *insn_addr = target_section_addr + reloc_offset;
-            if (in_ibus_ext(insn_addr))
-            {
-                insn_addr -=  BUS_CONVERT_OFFSET;
-            }
+#if (WASM_MEM_DUAL_BUS_MIRROR!=0)
+                insn_addr = os_get_dbus_mirror((void*)insn_addr);
+#endif
             int32 initial_addend;
             /* (S + A) */
             if ((intptr_t)insn_addr & 3) {
@@ -231,6 +222,9 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
             initial_addend = *(int32 *)insn_addr;
             *(uintptr_t *)insn_addr = (uintptr_t)symbol_addr + initial_addend
                                       + (intptr_t)reloc_addend;
+#if (WASM_MEM_DUAL_BUS_MIRROR!=0)
+            os_dcache_flush();
+#endif
             break;
         }
 
@@ -277,12 +271,10 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
                 return false;
             }
 
-            if (in_ibus_ext(insn_addr))
-            {
-                insn_addr -= BUS_CONVERT_OFFSET;
+#if (WASM_MEM_DUAL_BUS_MIRROR!=0)
+                insn_addr = os_get_dbus_mirror((void*)insn_addr);
                 l32r_insn = (l32r_insn_t *)insn_addr;
-            }
-
+#endif
             imm16 = (int16)(relative_offset >> 2);
 
             /* write back the imm16 to the l32r instruction */
@@ -304,6 +296,9 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
 #pragma GCC diagnostic pop
 #endif
 
+#if (WASM_MEM_DUAL_BUS_MIRROR!=0)
+            os_dcache_flush();
+#endif
             break;
         }
 

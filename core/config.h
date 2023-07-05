@@ -461,4 +461,8 @@
 #define WASM_CONFIGURABLE_BOUNDS_CHECKS 0
 #endif
 
+#ifndef WASM_MEM_DUAL_BUS_MIRROR
+#define WASM_MEM_DUAL_BUS_MIRROR 0
+#endif
+
 #endif /* end of _CONFIG_H_ */

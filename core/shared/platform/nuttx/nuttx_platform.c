@@ -10,15 +10,26 @@
 #include <nuttx/arch.h>
 #endif
 
-
-#if defined(CONFIG_ARCH_CHIP_ESP32S3) \
+#if defined(CONFIG_ARCH_CHIP_ESP32S3)             \
     && (CONFIG_ARCH_CHIP_ESP32S3 != 0)
+#define MEM_DUAL_BUS_OFFSET (0x42000000-0x3C000000)
+#define IRAM0_CACHE_ADDRESS_LOW   0x42000000
+#define IRAM0_CACHE_ADDRESS_HIGH  0x44000000
+
+#define in_ibus_ext(addr) (                       \
+      ((uint32)addr >= IRAM0_CACHE_ADDRESS_LOW)   \
+    &&((uint32)addr <  IRAM0_CACHE_ADDRESS_HIGH)  \
+    )
 static void bus_sync(void)
 {
     extern void cache_writeback_all(void);
     cache_writeback_all();
 }
 #else
+#define MEM_DUAL_BUS_OFFSET       (0)
+#define IRAM0_CACHE_ADDRESS_LOW   (0)
+#define IRAM0_CACHE_ADDRESS_HIGH  (0)
+#define in_ibus_ext(addr)         (0)
 static void bus_sync(void)
 {
 }
@@ -71,11 +82,13 @@ os_mmap(void *hint, size_t size, int prot, int flags)
         return NULL;
     
     if((prot & MMAP_PROT_EXEC) != 0) {
-        void * addr = malloc((uint32)size) + BUS_CONVERT_OFFSET;
+        void * addr = malloc((uint32)size) + MEM_DUAL_BUS_OFFSET;
         if(in_ibus_ext(addr)) {
+            printf("os_mmap: in_ibus_ext, addr=%p, size=%d\n", addr, size);
             return addr;
         } else {
-            return (addr - BUS_CONVERT_OFFSET);
+            printf("os_mmap: not in_ibus_ext, addr=%p, size=%d\n", addr, size);
+            return (addr - MEM_DUAL_BUS_OFFSET);
         }
     }
 
@@ -93,7 +106,8 @@ os_munmap(void *addr, size_t size)
 #endif
     if(in_ibus_ext(addr))
     {
-        free(addr - BUS_CONVERT_OFFSET);
+        printf("os_munmap: in_ibus_ext, addr=%p, size=%d\n", addr, size);
+        free(addr - MEM_DUAL_BUS_OFFSET);
         return;
     }
 
@@ -111,6 +125,14 @@ os_dcache_flush()
 {
     bus_sync();
 }
+
+#if (WASM_MEM_DUAL_BUS_MIRROR!=0)
+void * 
+os_get_dbus_mirror(void *ibus)
+{
+    return ibus - MEM_DUAL_BUS_OFFSET;
+}
+#endif
 
 /* If AT_FDCWD is provided, maybe we have openat family */
 #if !defined(AT_FDCWD)

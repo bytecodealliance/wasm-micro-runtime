@@ -33,22 +33,6 @@
 extern "C" {
 #endif
 
-#if defined(CONFIG_ARCH_CHIP_ESP32S3)             \
-    && (CONFIG_ARCH_CHIP_ESP32S3 != 0)
-
-#define BUS_CONVERT_OFFSET (0x42000000-0x3C000000)
-
-#define IRAM0_CACHE_ADDRESS_LOW   0x42000000
-#define IRAM0_CACHE_ADDRESS_HIGH  0x44000000
-#define in_ibus_ext(addr) (                       \
-      ((uint32)addr >= IRAM0_CACHE_ADDRESS_LOW)   \
-    &&((uint32)addr <  IRAM0_CACHE_ADDRESS_HIGH)  \
-    )
-#else
-#define in_ibus_ext(addr)         0x0
-#define BUS_CONVERT_OFFSET        0x0
-#endif
-
 #ifndef BH_PLATFORM_NUTTX
 #define BH_PLATFORM_NUTTX
 #endif
