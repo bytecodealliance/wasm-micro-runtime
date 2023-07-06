@@ -207,8 +207,8 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
         case R_XTENSA_32:
         {
             uint8 *insn_addr = target_section_addr + reloc_offset;
-#if (WASM_MEM_DUAL_BUS_MIRROR!=0)
-                insn_addr = os_get_dbus_mirror((void*)insn_addr);
+#if (WASM_MEM_DUAL_BUS_MIRROR != 0)
+            insn_addr = os_get_dbus_mirror((void *)insn_addr);
 #endif
             int32 initial_addend;
             /* (S + A) */
@@ -222,7 +222,7 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
             initial_addend = *(int32 *)insn_addr;
             *(uintptr_t *)insn_addr = (uintptr_t)symbol_addr + initial_addend
                                       + (intptr_t)reloc_addend;
-#if (WASM_MEM_DUAL_BUS_MIRROR!=0)
+#if (WASM_MEM_DUAL_BUS_MIRROR != 0)
             os_dcache_flush();
 #endif
             break;
@@ -271,9 +271,9 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
                 return false;
             }
 
-#if (WASM_MEM_DUAL_BUS_MIRROR!=0)
-                insn_addr = os_get_dbus_mirror((void*)insn_addr);
-                l32r_insn = (l32r_insn_t *)insn_addr;
+#if (WASM_MEM_DUAL_BUS_MIRROR != 0)
+            insn_addr = os_get_dbus_mirror((void *)insn_addr);
+            l32r_insn = (l32r_insn_t *)insn_addr;
 #endif
             imm16 = (int16)(relative_offset >> 2);
 
@@ -296,7 +296,7 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
 #pragma GCC diagnostic pop
 #endif
 
-#if (WASM_MEM_DUAL_BUS_MIRROR!=0)
+#if (WASM_MEM_DUAL_BUS_MIRROR != 0)
             os_dcache_flush();
 #endif
             break;

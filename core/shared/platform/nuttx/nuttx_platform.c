@@ -10,29 +10,28 @@
 #include <nuttx/arch.h>
 #endif
 
-#if defined(CONFIG_ARCH_CHIP_ESP32S3)             \
-    && (CONFIG_ARCH_CHIP_ESP32S3 != 0)
-#define MEM_DUAL_BUS_OFFSET (0x42000000-0x3C000000)
-#define IRAM0_CACHE_ADDRESS_LOW   0x42000000
-#define IRAM0_CACHE_ADDRESS_HIGH  0x44000000
+#if defined(CONFIG_ARCH_CHIP_ESP32S3) && (CONFIG_ARCH_CHIP_ESP32S3 != 0)
+#define MEM_DUAL_BUS_OFFSET (0x42000000 - 0x3C000000)
+#define IRAM0_CACHE_ADDRESS_LOW 0x42000000
+#define IRAM0_CACHE_ADDRESS_HIGH 0x44000000
 
-#define in_ibus_ext(addr) (                       \
-      ((uint32)addr >= IRAM0_CACHE_ADDRESS_LOW)   \
-    &&((uint32)addr <  IRAM0_CACHE_ADDRESS_HIGH)  \
-    )
-static void bus_sync(void)
+#define in_ibus_ext(addr)                      \
+    (((uint32)addr >= IRAM0_CACHE_ADDRESS_LOW) \
+     && ((uint32)addr < IRAM0_CACHE_ADDRESS_HIGH))
+static void
+bus_sync(void)
 {
     extern void cache_writeback_all(void);
     cache_writeback_all();
 }
 #else
-#define MEM_DUAL_BUS_OFFSET       (0)
-#define IRAM0_CACHE_ADDRESS_LOW   (0)
-#define IRAM0_CACHE_ADDRESS_HIGH  (0)
-#define in_ibus_ext(addr)         (0)
-static void bus_sync(void)
-{
-}
+#define MEM_DUAL_BUS_OFFSET (0)
+#define IRAM0_CACHE_ADDRESS_LOW (0)
+#define IRAM0_CACHE_ADDRESS_HIGH (0)
+#define in_ibus_ext(addr) (0)
+static void
+bus_sync(void)
+{}
 #endif
 
 int
@@ -72,7 +71,7 @@ os_dumps_proc_mem_info(char *out, unsigned int size)
 void *
 os_mmap(void *hint, size_t size, int prot, int flags)
 {
-#if (WASM_MEM_DUAL_BUS_MIRROR!=0)
+#if (WASM_MEM_DUAL_BUS_MIRROR != 0)
     void *i_addr, *d_addr;
 #endif
 
@@ -85,8 +84,8 @@ os_mmap(void *hint, size_t size, int prot, int flags)
     if ((uint64)size >= UINT32_MAX)
         return NULL;
 
-#if (WASM_MEM_DUAL_BUS_MIRROR!=0)
-    if((prot & MMAP_PROT_EXEC) != 0) {
+#if (WASM_MEM_DUAL_BUS_MIRROR != 0)
+    if ((prot & MMAP_PROT_EXEC) != 0) {
         d_addr = malloc((uint32)size);
         i_addr = d_addr + MEM_DUAL_BUS_OFFSET;
         return in_ibus_ext(i_addr) ? i_addr : d_addr;
@@ -105,8 +104,8 @@ os_munmap(void *addr, size_t size)
     }
 #endif
 
-#if (WASM_MEM_DUAL_BUS_MIRROR!=0)
-    if(in_ibus_ext(addr))
+#if (WASM_MEM_DUAL_BUS_MIRROR != 0)
+    if (in_ibus_ext(addr))
     {
         free(addr - MEM_DUAL_BUS_OFFSET);
         return;
@@ -127,13 +126,15 @@ os_dcache_flush()
     bus_sync();
 }
 
-#if (WASM_MEM_DUAL_BUS_MIRROR!=0)
-void * 
+#if (WASM_MEM_DUAL_BUS_MIRROR != 0)
+void *
 os_get_dbus_mirror(void *ibus)
 {
-    if(in_ibus_ext(ibus)) {
+    if (in_ibus_ext(ibus))
+    {
         return ibus - MEM_DUAL_BUS_OFFSET;
-    } else
+    }
+    else
     {
         return ibus;
     }

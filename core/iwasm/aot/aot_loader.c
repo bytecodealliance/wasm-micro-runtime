@@ -3013,7 +3013,7 @@ create_sections(AOTModule *module, const uint8 *buf, uint32 size,
     uint32 section_size;
     uint64 total_size;
     uint8 *aot_text;
-#if (WASM_MEM_DUAL_BUS_MIRROR!=0)
+#if (WASM_MEM_DUAL_BUS_MIRROR != 0)
     uint8 *mirrored_text;
 #endif
 
@@ -3075,7 +3075,7 @@ create_sections(AOTModule *module, const uint8 *buf, uint32 size,
 #endif
 #endif
 
-#if (WASM_MEM_DUAL_BUS_MIRROR!=0)
+#if (WASM_MEM_DUAL_BUS_MIRROR != 0)
                     mirrored_text = os_get_dbus_mirror(aot_text);
                     bh_memcpy_s(mirrored_text, (uint32)total_size,
                                 section->section_body, (uint32)section_size);

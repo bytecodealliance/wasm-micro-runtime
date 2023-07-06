@@ -129,7 +129,7 @@ os_munmap(void *addr, size_t size);
 int
 os_mprotect(void *addr, size_t size, int prot);
 
-#if (WASM_MEM_DUAL_BUS_MIRROR!=0)
+#if (WASM_MEM_DUAL_BUS_MIRROR != 0)
 void *
 os_get_dbus_mirror(void *ibus);
 #endif
