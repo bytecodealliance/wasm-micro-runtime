@@ -72,6 +72,10 @@ os_dumps_proc_mem_info(char *out, unsigned int size)
 void *
 os_mmap(void *hint, size_t size, int prot, int flags)
 {
+#if (WASM_MEM_DUAL_BUS_MIRROR!=0)
+    void *i_addr, *d_addr;
+#endif
+
 #if defined(CONFIG_ARCH_USE_TEXT_HEAP)
     if ((prot & MMAP_PROT_EXEC) != 0) {
         return up_textheap_memalign(sizeof(void *), size);
@@ -80,16 +84,14 @@ os_mmap(void *hint, size_t size, int prot, int flags)
 
     if ((uint64)size >= UINT32_MAX)
         return NULL;
-    
-    if((prot & MMAP_PROT_EXEC) != 0) {
-        void * addr = malloc((uint32)size) + MEM_DUAL_BUS_OFFSET;
-        if(in_ibus_ext(addr)) {
-            return addr;
-        } else {
-            return (addr - MEM_DUAL_BUS_OFFSET);
-        }
-    }
 
+#if (WASM_MEM_DUAL_BUS_MIRROR!=0)
+    if((prot & MMAP_PROT_EXEC) != 0) {
+        d_addr = malloc((uint32)size);
+        i_addr = d_addr + MEM_DUAL_BUS_OFFSET;
+        return in_ibus_ext(i_addr) ? i_addr : d_addr;
+    }
+#endif
     return malloc((uint32)size);
 }
 
@@ -102,12 +104,14 @@ os_munmap(void *addr, size_t size)
         return;
     }
 #endif
+
+#if (WASM_MEM_DUAL_BUS_MIRROR!=0)
     if(in_ibus_ext(addr))
     {
         free(addr - MEM_DUAL_BUS_OFFSET);
         return;
     }
-
+#endif
     free(addr);
 }
 
