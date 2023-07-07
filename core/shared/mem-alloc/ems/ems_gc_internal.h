@@ -311,6 +311,16 @@ typedef struct gc_heap_struct {
     gc_size_t gc_threshold_factor;
     gc_size_t total_gc_count;
     gc_size_t total_gc_time;
+    /* Usually there won't be too many extra info node, so we try to use a fixed
+     * array to store them, if the fixed array don't have enough space to store
+     * the nodes, a new space will be allocated from heap */
+    extra_info_node_t *extra_info_normal_nodes[EXTRA_INFO_NORMAL_NODE_CNT];
+    /* Used to store extra information such as finalizer for specified nodes, we
+     * introduce a seperate space to store these information so only nodes who
+     * really require extra information will occupy additional memory spaces. */
+    extra_info_node_t **extra_info_nodes;
+    gc_size_t extra_info_node_cnt;
+    gc_size_t extra_info_node_capacity;
 #endif
 #if GC_STAT_DATA != 0
     gc_uint64 total_size_allocated;
@@ -337,6 +347,8 @@ gc_update_threshold(gc_heap_t *heap)
 #define gct_vm_gc_finished wasm_runtime_gc_finalize
 #define gct_vm_begin_rootset_enumeration wasm_runtime_traverse_gc_rootset
 #define gct_vm_get_wasm_object_ref_list wasm_runtime_get_wasm_object_ref_list
+#define gct_vm_get_extra_info_flag wasm_runtime_get_wasm_object_extra_info_flag
+#define gct_vm_set_extra_info_flag wasm_runtime_set_wasm_object_extra_info_flag
 
 #endif /* end of WAMS_ENABLE_GC != 0 */
 

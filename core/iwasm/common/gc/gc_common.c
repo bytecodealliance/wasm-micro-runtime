@@ -835,3 +835,20 @@ wasm_runtime_get_gc_heap_handle(WASMModuleInstanceCommon *module_inst)
 #endif
     return NULL;
 }
+
+bool
+wasm_runtime_get_wasm_object_extra_info_flag(WASMObjectRef obj)
+{
+    return obj->header & WASM_OBJ_EXTRA_INFO_FLAG;
+}
+
+void
+wasm_runtime_set_wasm_object_extra_info_flag(WASMObjectRef obj, bool set)
+{
+    if (set) {
+        obj->header |= WASM_OBJ_EXTRA_INFO_FLAG;
+    }
+    else {
+        obj->header &= ~WASM_OBJ_EXTRA_INFO_FLAG;
+    }
+}

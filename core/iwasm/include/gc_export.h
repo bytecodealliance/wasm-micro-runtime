@@ -135,6 +135,8 @@ typedef struct WASMArrayObject *wasm_array_obj_t;
 typedef struct WASMFuncObject *wasm_func_obj_t;
 typedef uintptr_t wasm_i31_obj_t;
 
+typedef void (*wasm_obj_finalizer_t)(const wasm_obj_t obj, void *data);
+
 /* Defined type related operations */
 
 /**
@@ -897,6 +899,30 @@ wasm_runtime_pop_local_object_ref(wasm_exec_env_t exec_env);
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_pop_local_object_refs(wasm_exec_env_t exec_env, uint32_t n);
+
+/**
+ * Set finalizer to the given object, if another finalizer is set to the same
+ * object, the previous one will be cancelled
+ *
+ * @param exec_env the execution environment
+ * @param obj object to set finalizer
+ * @param cb finalizer function to be called before this object is freed
+ * @param data custom data to be passed to finalizer function
+ *
+ * @return true if success, false otherwise
+ */
+bool
+wasm_obj_set_gc_finalizer(wasm_exec_env_t exec_env, const wasm_obj_t obj,
+                          wasm_obj_finalizer_t cb, void *data);
+
+/**
+ * Unset finalizer to the given object
+ *
+ * @param exec_env the execution environment
+ * @param obj object to unset finalizer
+ */
+void
+wasm_obj_unset_gc_finalizer(wasm_exec_env_t exec_env, void *obj);
 
 #ifdef __cplusplus
 }
