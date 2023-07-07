@@ -87,6 +87,9 @@ os_mmap(void *hint, size_t size, int prot, int flags)
 #if (WASM_MEM_DUAL_BUS_MIRROR != 0)
     if ((prot & MMAP_PROT_EXEC) != 0) {
         d_addr = malloc((uint32)size);
+        if (d_addr == NULL) {
+            return NULL;
+        }
         i_addr = d_addr + MEM_DUAL_BUS_OFFSET;
         return in_ibus_ext(i_addr) ? i_addr : d_addr;
     }
@@ -105,8 +108,7 @@ os_munmap(void *addr, size_t size)
 #endif
 
 #if (WASM_MEM_DUAL_BUS_MIRROR != 0)
-    if (in_ibus_ext(addr))
-    {
+    if (in_ibus_ext(addr)) {
         free(addr - MEM_DUAL_BUS_OFFSET);
         return;
     }
@@ -130,12 +132,10 @@ os_dcache_flush()
 void *
 os_get_dbus_mirror(void *ibus)
 {
-    if (in_ibus_ext(ibus))
-    {
+    if (in_ibus_ext(ibus)) {
         return ibus - MEM_DUAL_BUS_OFFSET;
     }
-    else
-    {
+    else {
         return ibus;
     }
 }
