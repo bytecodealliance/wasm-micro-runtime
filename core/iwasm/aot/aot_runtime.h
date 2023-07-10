@@ -182,6 +182,12 @@ typedef struct AOTModule {
     void **func_ptrs;
     /* func type indexes of AOTed (un-imported) functions */
     uint32 *func_type_indexes;
+#if WASM_ENABLE_DUMP_CALL_STACK != 0 || WASM_ENABLE_PERF_PROFILING != 0
+    /* max local cell nums of AOTed (un-imported) functions */
+    uint32 *max_local_cell_nums;
+    /* max stack cell nums of AOTed (un-imported) functions */
+    uint32 *max_stack_cell_nums;
+#endif
 
     /* export info */
     uint32 export_count;
@@ -312,12 +318,30 @@ typedef struct AOTFuncPerfProfInfo {
 
 /* AOT auxiliary call stack */
 typedef struct AOTFrame {
+    /* The frame of the caller which is calling current function */
     struct AOTFrame *prev_frame;
-    uint32 func_index;
-#if WASM_ENABLE_PERF_PROFILING != 0
-    uint64 time_started;
+
+    /* The non-imported function index of current function */
+    uintptr_t func_index;
+
+    /* Used when performance profiling is enabled */
+    uintptr_t time_started;
+
+    /* Used when performance profiling is enabled */
     AOTFuncPerfProfInfo *func_perf_prof_info;
-#endif
+
+    /* Instruction pointer: offset to the bytecode array */
+    uintptr_t ip_offset;
+
+    /* Operand stack top pointer of the current frame */
+    uint32 *sp;
+
+    /**
+     * Frame data, the layout is:
+     *  local area: parameters and local variables
+     *  stack area: wasm operand stack
+     */
+    uint32 lp[1];
 } AOTFrame;
 
 #if WASM_ENABLE_STATIC_PGO != 0
