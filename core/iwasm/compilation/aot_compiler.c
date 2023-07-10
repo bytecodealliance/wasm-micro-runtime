@@ -217,7 +217,7 @@ store_value(AOTCompContext *comp_ctx, LLVMValueRef value, uint8 value_type,
 }
 
 bool
-gen_commit_values(AOTCompFrame *frame)
+aot_gen_commit_values(AOTCompFrame *frame)
 {
     AOTCompContext *comp_ctx = frame->comp_ctx;
     AOTFuncContext *func_ctx = frame->func_ctx;
@@ -291,7 +291,7 @@ gen_commit_values(AOTCompFrame *frame)
 }
 
 bool
-gen_commit_sp_ip(AOTCompFrame *frame, AOTValueSlot *sp, uint8 *ip)
+aot_gen_commit_sp_ip(AOTCompFrame *frame, AOTValueSlot *sp, uint8 *ip)
 {
     AOTCompContext *comp_ctx = frame->comp_ctx;
     AOTFuncContext *func_ctx = frame->func_ctx;
@@ -404,7 +404,7 @@ gen_commit_sp_ip(AOTCompFrame *frame, AOTValueSlot *sp, uint8 *ip)
 }
 
 bool
-gen_commit_ref_flags(AOTCompFrame *frame)
+aot_gen_commit_ref_flags(AOTCompFrame *frame)
 {
     /* TODO */
     return true;

@@ -489,7 +489,7 @@ aot_compile_op_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     if (comp_ctx->aot_frame) {
         if (label_type != LABEL_TYPE_BLOCK
-            && !gen_commit_values(comp_ctx->aot_frame)) {
+            && !aot_gen_commit_values(comp_ctx->aot_frame)) {
             goto fail;
         }
     }
@@ -662,7 +662,7 @@ aot_compile_op_else(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     if (aot_frame) {
         bh_assert(block->frame_sp_begin == aot_frame->sp);
-        gen_commit_values(aot_frame);
+        aot_gen_commit_values(aot_frame);
     }
 
     /* Jump to end block */
@@ -722,7 +722,7 @@ aot_compile_op_end(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     if (comp_ctx->aot_frame) {
         if (block->label_type != LABEL_TYPE_FUNCTION
-            && !gen_commit_values(comp_ctx->aot_frame)) {
+            && !aot_gen_commit_values(comp_ctx->aot_frame)) {
             return false;
         }
     }
@@ -838,11 +838,11 @@ aot_compile_op_br(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     if (comp_ctx->aot_frame) {
-        if (!gen_commit_values(comp_ctx->aot_frame))
+        if (!aot_gen_commit_values(comp_ctx->aot_frame))
             return false;
         if (block_dst->label_type == LABEL_TYPE_LOOP) {
-            if (!gen_commit_sp_ip(comp_ctx->aot_frame, comp_ctx->aot_frame->sp,
-                                  *p_frame_ip))
+            if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame,
+                                      comp_ctx->aot_frame->sp, *p_frame_ip))
                 return false;
         }
     }
@@ -912,11 +912,11 @@ aot_compile_op_br_if(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     if (comp_ctx->aot_frame) {
-        if (!gen_commit_values(comp_ctx->aot_frame))
+        if (!aot_gen_commit_values(comp_ctx->aot_frame))
             return false;
         if (block_dst->label_type == LABEL_TYPE_LOOP) {
-            if (!gen_commit_sp_ip(comp_ctx->aot_frame, comp_ctx->aot_frame->sp,
-                                  *p_frame_ip))
+            if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame,
+                                      comp_ctx->aot_frame->sp, *p_frame_ip))
                 return false;
         }
     }
@@ -1061,10 +1061,10 @@ aot_compile_op_br_table(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     char name[32];
 
     if (comp_ctx->aot_frame) {
-        if (!gen_commit_values(comp_ctx->aot_frame))
+        if (!aot_gen_commit_values(comp_ctx->aot_frame))
             return false;
-        if (!gen_commit_sp_ip(comp_ctx->aot_frame, comp_ctx->aot_frame->sp,
-                              *p_frame_ip))
+        if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, comp_ctx->aot_frame->sp,
+                                  *p_frame_ip))
             return false;
     }
 

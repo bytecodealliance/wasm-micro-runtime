@@ -21,7 +21,7 @@ aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     CHECK_LLVM_CONST(exce_id);
 
-    if (comp_ctx->aot_frame && !gen_commit_values(comp_ctx->aot_frame)) {
+    if (comp_ctx->aot_frame && !aot_gen_commit_values(comp_ctx->aot_frame)) {
         goto fail;
     }
 

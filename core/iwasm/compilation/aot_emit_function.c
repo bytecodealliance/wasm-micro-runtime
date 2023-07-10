@@ -520,7 +520,7 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     bool ret = false;
     char buf[32];
 
-    if (comp_ctx->aot_frame && !gen_commit_values(comp_ctx->aot_frame)) {
+    if (comp_ctx->aot_frame && !aot_gen_commit_values(comp_ctx->aot_frame)) {
         return false;
     }
 
@@ -1080,7 +1080,7 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     char buf[32];
     bool ret = false;
 
-    if (comp_ctx->aot_frame && !gen_commit_values(comp_ctx->aot_frame)) {
+    if (comp_ctx->aot_frame && !aot_gen_commit_values(comp_ctx->aot_frame)) {
         return false;
     }
 

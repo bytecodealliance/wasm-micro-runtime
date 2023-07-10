@@ -135,7 +135,7 @@ offset_of_local(AOTCompContext *comp_ctx, unsigned n)
  * @param frame the frame information
  */
 bool
-gen_commit_values(AOTCompFrame *frame);
+aot_gen_commit_values(AOTCompFrame *frame);
 
 /**
  * Generate instructions to commit SP and IP pointers to the frame.
@@ -143,10 +143,10 @@ gen_commit_values(AOTCompFrame *frame);
  * @param frame the frame information
  */
 bool
-gen_commit_sp_ip(AOTCompFrame *frame, AOTValueSlot *sp, uint8 *ip);
+aot_gen_commit_sp_ip(AOTCompFrame *frame, AOTValueSlot *sp, uint8 *ip);
 
 bool
-gen_commit_ref_flags(AOTCompFrame *frame);
+aot_gen_commit_ref_flags(AOTCompFrame *frame);
 
 static inline void
 push_32bit(AOTCompFrame *frame, AOTValue *aot_value)
