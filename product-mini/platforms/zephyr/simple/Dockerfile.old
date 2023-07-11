@@ -35,7 +35,7 @@ WORKDIR /root/esp
 RUN git clone https://github.com/espressif/esp-idf.git 
 WORKDIR /root/esp/esp-idf
 RUN git checkout v4.0 \
-    && pip install --no-cache-doir virtualenv==16.7.12 \
+    && pip install --no-cache-dir virtualenv==16.7.12 \
     && git submodule update --init --recursive \
     && ./install.sh esp32 esp32c3
 
