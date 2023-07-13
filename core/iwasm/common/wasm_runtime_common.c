@@ -4728,7 +4728,6 @@ typedef struct LookupExtObj_UserData {
     ExternRefMapNode node;
     bool found;
     uint32 externref_idx;
-    ExternRefMapNode *value;
 } LookupExtObj_UserData;
 
 static void
@@ -4743,22 +4742,37 @@ lookup_extobj_callback(void *key, void *value, void *user_data)
         && node->module_inst == user_data_lookup->node.module_inst) {
         user_data_lookup->found = true;
         user_data_lookup->externref_idx = externref_idx;
-        user_data_lookup->value = node;
     }
 }
 
 static void
-delete_externref(void *key, void *user)
+delete_externref(void *key, ExternRefMapNode *node)
 {
     bh_hash_map_remove(externref_map, key, NULL, NULL);
-    wasm_runtime_free(user);
+    if (node->cleanup) {
+        (*node->cleanup)(node->extern_obj);
+    }
+    wasm_runtime_free(node);
+}
+
+static void
+delete_extobj_callback(void *key, void *value, void *user_data)
+{
+    ExternRefMapNode *node = (ExternRefMapNode *)value;
+    LookupExtObj_UserData *lookup_user_data =
+        (LookupExtObj_UserData *)user_data;
+
+    if (node->extern_obj == lookup_user_data->node.extern_obj
+        && node->module_inst == lookup_user_data->node.module_inst) {
+        lookup_user_data->found = true;
+        delete_externref(key, node);
+    }
 }
 
 bool
 wasm_externref_objdel(WASMModuleInstanceCommon *module_inst, void *extern_obj)
 {
     LookupExtObj_UserData lookup_user_data = { 0 };
-    void *key;
     bool ok = false;
 
     /* in a wrapper, extern_obj could be any value */
@@ -4768,12 +4782,10 @@ wasm_externref_objdel(WASMModuleInstanceCommon *module_inst, void *extern_obj)
 
     os_mutex_lock(&externref_lock);
     /* Lookup hashmap firstly */
-    bh_hash_map_traverse(externref_map, lookup_extobj_callback,
+    bh_hash_map_traverse(externref_map, delete_extobj_callback,
                          (void *)&lookup_user_data);
     if (lookup_user_data.found) {
-        key = (void *)(uintptr_t) lookup_user_data.externref_idx;
-        delete_externref(key, lookup_user_data.value);
-        ok  = true;
+        ok = true;
     }
     os_mutex_unlock(&externref_lock);
 
@@ -4781,8 +4793,8 @@ wasm_externref_objdel(WASMModuleInstanceCommon *module_inst, void *extern_obj)
 }
 
 bool
-wasm_externref_add_cleanup(WASMModuleInstanceCommon *module_inst, void *extern_obj,
-                           void (*extern_obj_cleanup)(void *))
+wasm_externref_add_cleanup(WASMModuleInstanceCommon *module_inst,
+                           void *extern_obj, void (*extern_obj_cleanup)(void *))
 {
 
     LookupExtObj_UserData lookup_user_data = { 0 };
@@ -4798,7 +4810,9 @@ wasm_externref_add_cleanup(WASMModuleInstanceCommon *module_inst, void *extern_o
     bh_hash_map_traverse(externref_map, lookup_extobj_callback,
                          (void *)&lookup_user_data);
     if (lookup_user_data.found) {
-        lookup_user_data.value->cleanup = extern_obj_cleanup;
+        void *key = (void *)(uintptr_t)lookup_user_data.externref_idx;
+        ExternRefMapNode *node = bh_hash_map_find(externref_map, key);
+        node->cleanup = extern_obj_cleanup;
         ok = true;
     }
     os_mutex_unlock(&externref_lock);
@@ -4855,6 +4869,7 @@ wasm_externref_obj2ref(WASMModuleInstanceCommon *module_inst, void *extern_obj,
     memset(node, 0, sizeof(ExternRefMapNode));
     node->extern_obj = extern_obj;
     node->module_inst = module_inst;
+    node->cleanup = NULL;
 
     externref_idx = externref_global_id;
 
@@ -4905,7 +4920,7 @@ reclaim_extobj_callback(void *key, void *value, void *user_data)
 
     if (node->module_inst == module_inst) {
         if (!node->marked && !node->retained) {
-            delete_externref(key, value);
+            delete_externref(key, node);
         }
         else {
             node->marked = false;
@@ -5020,7 +5035,7 @@ cleanup_extobj_callback(void *key, void *value, void *user_data)
         (WASMModuleInstanceCommon *)user_data;
 
     if (node->module_inst == module_inst) {
-        delete_externref(key, value);
+        delete_externref(key, node);
     }
 }
 
