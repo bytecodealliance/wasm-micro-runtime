@@ -207,6 +207,14 @@ os_socket_inet_network(bool is_ipv4, const char *cp, bh_ip_addr_buffer_t *out)
 }
 
 int
+os_socket_connect(bh_socket_t socket, const char *addr, int port)
+{
+    errno = ENOSYS;
+
+    return BHT_ERROR;
+}
+
+int
 os_socket_addr_resolve(const char *host, const char *service,
                        uint8_t *hint_is_tcp, uint8_t *hint_is_ipv4,
                        bh_addr_info_t *addr_info, size_t addr_info_size,

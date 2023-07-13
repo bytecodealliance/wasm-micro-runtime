@@ -47,6 +47,23 @@ random_buf(void *buf, size_t len)
     }
 }
 
+#elif defined(BH_PLATFORM_WINDOWS)
+
+#include <wincrypt.h>
+
+void
+random_buf(void *buf, size_t len)
+{
+    static int crypt_initialized = 0;
+    static HCRYPTPROV provider;
+    if (!crypt_initialized) {
+        CryptAcquireContext(&provider, NULL, NULL, PROV_RSA_FULL,
+                            CRYPT_VERIFYCONTEXT);
+        crypt_initialized = 1;
+    }
+    CryptGenRandom(provider, len, buf);
+}
+
 #else
 
 static int urandom;

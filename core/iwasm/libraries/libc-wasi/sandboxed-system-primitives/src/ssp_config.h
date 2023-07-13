@@ -83,7 +83,7 @@
 #define CONFIG_HAS_PTHREAD_COND_TIMEDWAIT_RELATIVE_NP 0
 #endif
 
-#if !defined(__APPLE__) && !defined(BH_PLATFORM_LINUX_SGX)
+#if !defined(__APPLE__) && !defined(BH_PLATFORM_LINUX_SGX) && !defined(_WIN32)
 #define CONFIG_HAS_PTHREAD_CONDATTR_SETCLOCK 1
 #else
 #define CONFIG_HAS_PTHREAD_CONDATTR_SETCLOCK 0

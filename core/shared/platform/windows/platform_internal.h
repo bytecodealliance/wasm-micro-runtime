@@ -57,6 +57,11 @@ typedef void *korp_tid;
 typedef void *korp_mutex;
 typedef void *korp_sem;
 
+typedef struct {
+    SRWLOCK lock;
+    bool exclusive;
+} korp_rwlock;
+
 /**
  * Create the mutex when os_mutex_lock is called, and no need to
  * CloseHandle() for the static lock's lifetime, since
