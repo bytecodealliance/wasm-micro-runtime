@@ -66,6 +66,7 @@ void
 wasm_shared_memory_destroy()
 {
     bh_hash_map_destroy(wait_map);
+    wait_map = NULL;
     os_mutex_destroy(&shared_memory_list_lock);
 }
 

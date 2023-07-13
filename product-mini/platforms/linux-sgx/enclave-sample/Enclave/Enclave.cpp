@@ -7,6 +7,7 @@
 #include <string.h>
 #include <inttypes.h>
 #include <stdbool.h>
+#include <unordered_map>
 
 #include "Enclave_t.h"
 #include "wasm_export.h"
@@ -32,28 +33,6 @@ enclave_print(const char *message)
     return bytes_written;
 }
 }
-
-typedef enum EcallCmd {
-    CMD_INIT_RUNTIME = 0,     /* wasm_runtime_init/full_init() */
-    CMD_LOAD_MODULE,          /* wasm_runtime_load() */
-    CMD_INSTANTIATE_MODULE,   /* wasm_runtime_instantiate() */
-    CMD_LOOKUP_FUNCTION,      /* wasm_runtime_lookup_function() */
-    CMD_CREATE_EXEC_ENV,      /* wasm_runtime_create_exec_env() */
-    CMD_CALL_WASM,            /* wasm_runtime_call_wasm */
-    CMD_EXEC_APP_FUNC,        /* wasm_application_execute_func() */
-    CMD_EXEC_APP_MAIN,        /* wasm_application_execute_main() */
-    CMD_GET_EXCEPTION,        /* wasm_runtime_get_exception() */
-    CMD_DEINSTANTIATE_MODULE, /* wasm_runtime_deinstantiate() */
-    CMD_UNLOAD_MODULE,        /* wasm_runtime_unload() */
-    CMD_DESTROY_RUNTIME,      /* wasm_runtime_destroy() */
-    CMD_SET_WASI_ARGS,        /* wasm_runtime_set_wasi_args() */
-    CMD_SET_LOG_LEVEL,        /* bh_log_set_verbose_level() */
-    CMD_GET_VERSION,          /* wasm_runtime_get_version() */
-#if WASM_ENABLE_STATIC_PGO != 0
-    CMD_GET_PGO_PROF_BUF_SIZE,  /* wasm_runtime_get_pro_prof_data_size() */
-    CMD_DUMP_PGO_PROF_BUF_DATA, /* wasm_runtime_dump_pgo_prof_data_to_buf() */
-#endif
-} EcallCmd;
 
 typedef struct EnclaveModule {
     wasm_module_t module;
@@ -85,6 +64,109 @@ static korp_mutex enclave_module_list_lock = OS_THREAD_MUTEX_INITIALIZER;
 static char global_heap_buf[WASM_GLOBAL_HEAP_SIZE] = { 0 };
 #endif
 
+class PointerManager
+{
+  public:
+    bool add(void *ptr, uint16_t *idx_output)
+    {
+        bool success = false;
+        pthread_rwlock_wrlock(&mRwlock);
+        for (uint16_t i = mCurrentIdx; i < std::numeric_limits<uint16_t>::max();
+             i++) {
+            if (mMap.count(i) == 0) {
+                mMap[i] = ptr;
+                *idx_output = i;
+                success = true;
+                mCurrentIdx++;
+                break;
+            }
+        }
+        pthread_rwlock_unlock(&mRwlock);
+        return success;
+    }
+
+    void *get(uint16_t idx)
+    {
+        void *ptr = nullptr;
+        pthread_rwlock_rdlock(&mRwlock);
+        if (mMap.count(idx)) {
+            ptr = mMap[idx];
+        }
+        pthread_rwlock_unlock(&mRwlock);
+        return ptr;
+    }
+
+    bool remove(uint16_t idx)
+    {
+        bool success = false;
+        pthread_rwlock_wrlock(&mRwlock);
+        if (mMap.erase(idx) == 1) {
+            success = true;
+        }
+        mCurrentIdx = idx;
+        pthread_rwlock_unlock(&mRwlock);
+        return success;
+    }
+
+  private:
+    std::unordered_map<uint16_t, void *> mMap;
+    uint16_t mCurrentIdx = 0;
+    pthread_rwlock_t mRwlock = PTHREAD_RWLOCK_INITIALIZER;
+};
+PointerManager gEnclaveModuleMgr, gWasmModuleInstMgr;
+
+/// @brief Deep copy an array of char string
+/// @param SrcCStrArray Source array of char string
+/// @param DstCStrArray Dest. array of char string, if null, then
+/// automatically malloced
+/// @param Length Array length. If 0, cause fail
+/// @return \p DstCStrArray. If failed, return null, char string elements will
+/// be auto free-ed, if \p DstCStrArray is feed with null, it will be auto
+/// free-ed before return, but if \p DstCStrArray is input with not null, it's
+/// caller duty to free \p DstCStrArray. If success, user need to free all char
+/// string elements before free this \p DstCStrArray.
+char **
+DeepCopyCStrArray(char **SrcCStrArray, char **DstCStrArray, size_t Length)
+{
+    if ((SrcCStrArray == nullptr) or (Length == 0)) {
+        return nullptr;
+    }
+    bool DstIsNull = false;
+    if (DstCStrArray == nullptr) {
+        DstIsNull = true;
+        size_t AllocSize = Length * sizeof(char *);
+        if ((AllocSize <= Length /* Int Overflow */)
+            or (AllocSize
+                > std::numeric_limits<uint32_t>::max() /* Too large */)
+            or (!(DstCStrArray = (char **)wasm_runtime_malloc(
+                      AllocSize)) /* Malloc Fail */)) {
+            return nullptr;
+        }
+    }
+
+    for (size_t i = 0; i < Length; i++) {
+        size_t AllocSize = (strlen(SrcCStrArray[i]) + 1) * sizeof(char);
+        if ((AllocSize > std::numeric_limits<uint32_t>::max() /* Too large */)
+            or (!(DstCStrArray[i] = (char *)wasm_runtime_malloc(
+                      AllocSize)) /* Malloc Fail */)) {
+            for (size_t j = 0; j < i; j++) {
+                wasm_runtime_free(DstCStrArray[j]);
+                DstCStrArray[j] = nullptr;
+            }
+            if (DstIsNull) {
+                // DstCStrArray is allocated by myself, free it
+                wasm_runtime_free(DstCStrArray);
+                DstCStrArray = nullptr;
+            }
+            return nullptr;
+        }
+
+        strcpy(DstCStrArray[i], SrcCStrArray[i]);
+    }
+
+    return DstCStrArray;
+}
+
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
 {
@@ -92,17 +174,13 @@ set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
         snprintf(error_buf, error_buf_size, "%s", string);
 }
 
-static void
-handle_cmd_init_runtime(uint64 *args, uint32 argc)
+bool
+ecall_handle_cmd_init_runtime(uint32_t max_thread_num)
 {
-    uint32 max_thread_num;
+    bool ret = false;
     RuntimeInitArgs init_args;
 
-    bh_assert(argc == 1);
-
     os_set_print_function(enclave_print);
-
-    max_thread_num = (uint32)args[0];
 
     memset(&init_args, 0, sizeof(RuntimeInitArgs));
     init_args.max_thread_num = max_thread_num;
@@ -118,17 +196,18 @@ handle_cmd_init_runtime(uint64 *args, uint32 argc)
     /* initialize runtime environment */
     if (!wasm_runtime_full_init(&init_args)) {
         LOG_ERROR("Init runtime environment failed.\n");
-        args[0] = false;
-        return;
+        ret = false;
+        goto exit;
     }
 
-    args[0] = true;
-
+    ret = true;
     LOG_VERBOSE("Init runtime environment success.\n");
+exit:
+    return ret;
 }
 
-static void
-handle_cmd_destroy_runtime()
+void
+ecall_handle_cmd_destroy_runtime()
 {
     wasm_runtime_destroy();
 
@@ -201,18 +280,19 @@ is_xip_file(const uint8 *buf, uint32 size)
     return false;
 }
 
-static void
-handle_cmd_load_module(uint64 *args, uint32 argc)
+bool
+ecall_handle_cmd_load_module(char *wasm_file, uint32_t wasm_file_size,
+                             char *error_buf, uint32_t error_buf_size,
+                             uint16_t *enclave_module_idx)
 {
-    uint64 *args_org = args;
-    char *wasm_file = *(char **)args++;
-    uint32 wasm_file_size = *(uint32 *)args++;
-    char *error_buf = *(char **)args++;
-    uint32 error_buf_size = *(uint32 *)args++;
+    bool ret = false;
     uint64 total_size = sizeof(EnclaveModule) + (uint64)wasm_file_size;
     EnclaveModule *enclave_module;
 
-    bh_assert(argc == 4);
+    if (wasm_file == nullptr or enclave_module_idx == nullptr) {
+        ret = false;
+        goto exit;
+    }
 
     if (!is_xip_file((uint8 *)wasm_file, wasm_file_size)) {
         if (total_size >= UINT32_MAX
@@ -221,8 +301,8 @@ handle_cmd_load_module(uint64 *args, uint32 argc)
             set_error_buf(error_buf, error_buf_size,
                           "WASM module load failed: "
                           "allocate memory failed.");
-            *(void **)args_org = NULL;
-            return;
+            ret = false;
+            goto exit;
         }
         memset(enclave_module, 0, (uint32)total_size);
     }
@@ -235,8 +315,8 @@ handle_cmd_load_module(uint64 *args, uint32 argc)
                      NULL, (uint32)total_size, map_prot, map_flags))) {
             set_error_buf(error_buf, error_buf_size,
                           "WASM module load failed: mmap memory failed.");
-            *(void **)args_org = NULL;
-            return;
+            ret = false;
+            goto exit;
         }
         memset(enclave_module, 0, (uint32)total_size);
         enclave_module->is_xip_file = true;
@@ -254,11 +334,14 @@ handle_cmd_load_module(uint64 *args, uint32 argc)
             wasm_runtime_free(enclave_module);
         else
             os_munmap(enclave_module, (uint32)total_size);
-        *(void **)args_org = NULL;
-        return;
+        ret = false;
+        goto exit;
     }
 
-    *(EnclaveModule **)args_org = enclave_module;
+    if (!gEnclaveModuleMgr.add(enclave_module, enclave_module_idx)) {
+        ret = false;
+        goto exit;
+    }
 
 #if WASM_ENABLE_LIB_RATS != 0
     /* Calculate the module hash */
@@ -275,14 +358,22 @@ handle_cmd_load_module(uint64 *args, uint32 argc)
 #endif
 
     LOG_VERBOSE("Load module success.\n");
+    ret = true;
+exit:
+    return ret;
 }
 
-static void
-handle_cmd_unload_module(uint64 *args, uint32 argc)
+bool
+ecall_handle_cmd_unload_module(uint16_t enclave_module_idx)
 {
-    EnclaveModule *enclave_module = *(EnclaveModule **)args++;
+    bool ret = false;
+    EnclaveModule *enclave_module =
+        (EnclaveModule *)gEnclaveModuleMgr.get(enclave_module_idx);
 
-    bh_assert(argc == 1);
+    if (enclave_module == nullptr) {
+        ret = false;
+        goto exit;
+    }
 
 #if WASM_ENABLE_LIB_RATS != 0
     /* Remove enclave module from enclave module list */
@@ -315,7 +406,14 @@ handle_cmd_unload_module(uint64 *args, uint32 argc)
     else
         os_munmap(enclave_module, enclave_module->total_size_mapped);
 
+    if (!gEnclaveModuleMgr.remove(enclave_module_idx)) {
+        ret = false;
+        goto exit;
+    }
     LOG_VERBOSE("Unload module success.\n");
+    ret = true;
+exit:
+    return ret;
 }
 
 #if WASM_ENABLE_LIB_RATS != 0
@@ -341,73 +439,107 @@ wasm_runtime_get_module_hash(wasm_module_t module)
 }
 #endif
 
-static void
-handle_cmd_instantiate_module(uint64 *args, uint32 argc)
+bool
+ecall_handle_cmd_instantiate_module(uint16_t enclave_module_idx,
+                                    uint32_t stack_size, uint32_t heap_size,
+                                    char *error_buf, uint32_t error_buf_size,
+                                    uint16_t *wasm_module_inst_idx)
 {
-    uint64 *args_org = args;
-    EnclaveModule *enclave_module = *(EnclaveModule **)args++;
-    uint32 stack_size = *(uint32 *)args++;
-    uint32 heap_size = *(uint32 *)args++;
-    char *error_buf = *(char **)args++;
-    uint32 error_buf_size = *(uint32 *)args++;
+    bool ret = false;
+    EnclaveModule *enclave_module = nullptr;
     wasm_module_inst_t module_inst;
 
-    bh_assert(argc == 5);
+    if ((wasm_module_inst_idx == nullptr)
+        or !(enclave_module =
+                 (EnclaveModule *)gEnclaveModuleMgr.get(enclave_module_idx))) {
+        ret = false;
+        goto exit;
+    }
 
     if (!(module_inst =
               wasm_runtime_instantiate(enclave_module->module, stack_size,
                                        heap_size, error_buf, error_buf_size))) {
-        *(void **)args_org = NULL;
-        return;
+        ret = false;
+        goto exit;
     }
 
-    *(wasm_module_inst_t *)args_org = module_inst;
+    if (!gWasmModuleInstMgr.add(module_inst, wasm_module_inst_idx)) {
+        ret = false;
+        goto exit;
+    }
 
     LOG_VERBOSE("Instantiate module success.\n");
+    ret = true;
+exit:
+    return ret;
 }
 
-static void
-handle_cmd_deinstantiate_module(uint64 *args, uint32 argc)
+bool
+ecall_handle_cmd_deinstantiate_module(uint16_t wasm_module_inst_idx)
 {
-    wasm_module_inst_t module_inst = *(wasm_module_inst_t *)args++;
+    bool ret = false;
+    wasm_module_inst_t module_inst =
+        (wasm_module_inst_t)gWasmModuleInstMgr.get(wasm_module_inst_idx);
 
-    bh_assert(argc == 1);
+    if (module_inst == nullptr) {
+        ret = false;
+        goto exit;
+    }
 
     wasm_runtime_deinstantiate(module_inst);
 
+    if (!gWasmModuleInstMgr.remove(wasm_module_inst_idx)) {
+        ret = false;
+        goto exit;
+    }
     LOG_VERBOSE("Deinstantiate module success.\n");
+    ret = true;
+exit:
+    return ret;
 }
 
-static void
-handle_cmd_get_exception(uint64 *args, uint32 argc)
+bool
+ecall_handle_cmd_get_exception(uint16_t wasm_module_inst_idx, char *exception,
+                               uint32_t exception_size)
 {
-    uint64 *args_org = args;
-    wasm_module_inst_t module_inst = *(wasm_module_inst_t *)args++;
-    char *exception = *(char **)args++;
-    uint32 exception_size = *(uint32 *)args++;
+    bool ret = false;
+    wasm_module_inst_t module_inst = nullptr;
     const char *exception1;
 
-    bh_assert(argc == 3);
+    if ((exception == nullptr)
+        or (!(module_inst = (wasm_module_inst_t)gWasmModuleInstMgr.get(
+                  wasm_module_inst_idx)))) {
+        ret = false;
+        goto exit;
+    }
 
     if ((exception1 = wasm_runtime_get_exception(module_inst))) {
         snprintf(exception, exception_size, "%s", exception1);
-        args_org[0] = true;
+        ret = true;
     }
     else {
-        args_org[0] = false;
+        ret = false;
     }
+exit:
+    return ret;
 }
 
-static void
-handle_cmd_exec_app_main(uint64 *args, int32 argc)
+bool
+ecall_handle_cmd_exec_app_main(uint16_t wasm_module_inst_idx, char **u_app_argv,
+                               uint32_t app_argc)
 {
-    wasm_module_inst_t module_inst = *(wasm_module_inst_t *)args++;
-    uint32 app_argc = *(uint32 *)args++;
+    bool ret = false;
+    wasm_module_inst_t module_inst = nullptr;
     char **app_argv = NULL;
     uint64 total_size;
     int32 i;
 
-    bh_assert(argc >= 3);
+    if ((u_app_argv == nullptr) or (app_argc == 0)
+        or (!(module_inst = (wasm_module_inst_t)gWasmModuleInstMgr.get(
+                  wasm_module_inst_idx)))) {
+        ret = false;
+        goto exit;
+    }
     bh_assert(app_argc >= 1);
 
     total_size = sizeof(char *) * (app_argc > 2 ? (uint64)app_argc : 2);
@@ -415,78 +547,111 @@ handle_cmd_exec_app_main(uint64 *args, int32 argc)
     if (total_size >= UINT32_MAX
         || !(app_argv = (char **)wasm_runtime_malloc(total_size))) {
         wasm_runtime_set_exception(module_inst, "allocate memory failed.");
-        return;
+        ret = false;
+        goto exit;
     }
 
-    for (i = 0; i < app_argc; i++) {
-        app_argv[i] = (char *)(uintptr_t)args[i];
+    if (!DeepCopyCStrArray(u_app_argv, app_argv, app_argc)) {
+        wasm_runtime_free(app_argv);
+        app_argv = nullptr;
+        ret = false;
+        goto exit;
     }
 
     wasm_application_execute_main(module_inst, app_argc - 1, app_argv + 1);
 
+    for (uint32 i = 0; i < app_argc; i++) {
+        wasm_runtime_free(app_argv[i]);
+        app_argv[i] = nullptr;
+    }
     wasm_runtime_free(app_argv);
+    app_argv = nullptr;
+    ret = true;
+exit:
+    return ret;
 }
 
-static void
-handle_cmd_exec_app_func(uint64 *args, int32 argc)
+bool
+ecall_handle_cmd_exec_app_func(uint16_t wasm_module_inst_idx,
+                               const char *func_name, char **u_app_argv,
+                               uint32_t app_argc)
 {
-    wasm_module_inst_t module_inst = *(wasm_module_inst_t *)args++;
-    char *func_name = *(char **)args++;
-    uint32 app_argc = *(uint32 *)args++;
+    bool ret = false;
+    wasm_module_inst_t module_inst = nullptr;
     char **app_argv = NULL;
     uint64 total_size;
-    int32 i, func_name_len = strlen(func_name);
+    int32 i, func_name_len;
 
-    bh_assert(argc == app_argc + 3);
+    if ((func_name == nullptr) or (u_app_argv == nullptr) or (app_argc == 0)
+        or (!(module_inst = (wasm_module_inst_t)gWasmModuleInstMgr.get(
+                  wasm_module_inst_idx)))) {
+        ret = false;
+        goto exit;
+    }
+    func_name_len = strlen(func_name);
 
     total_size = sizeof(char *) * (app_argc > 2 ? (uint64)app_argc : 2);
 
     if (total_size >= UINT32_MAX
         || !(app_argv = (char **)wasm_runtime_malloc(total_size))) {
         wasm_runtime_set_exception(module_inst, "allocate memory failed.");
-        return;
+        ret = false;
+        goto exit;
     }
 
-    for (i = 0; i < app_argc; i++) {
-        app_argv[i] = (char *)(uintptr_t)args[i];
+    if (!DeepCopyCStrArray(u_app_argv, app_argv, app_argc)) {
+        wasm_runtime_free(app_argv);
+        app_argv = nullptr;
+        ret = false;
+        goto exit;
     }
 
     wasm_application_execute_func(module_inst, func_name, app_argc, app_argv);
 
+    for (int32 i = 0; i < app_argc; i++) {
+        wasm_runtime_free(app_argv[i]);
+        app_argv[i] = nullptr;
+    }
     wasm_runtime_free(app_argv);
+    app_argv = nullptr;
+    ret = true;
+exit:
+    return ret;
 }
 
-static void
-handle_cmd_set_log_level(uint64 *args, uint32 argc)
+void
+ecall_handle_cmd_set_log_level(int log_level)
 {
 #if WASM_ENABLE_LOG != 0
-    LOG_VERBOSE("Set log verbose level to %d.\n", (int)args[0]);
-    bh_log_set_verbose_level((int)args[0]);
+    LOG_VERBOSE("Set log verbose level to %d.\n", log_level);
+    bh_log_set_verbose_level(log_level);
 #endif
 }
 
 #ifndef SGX_DISABLE_WASI
-static void
-handle_cmd_set_wasi_args(uint64 *args, int32 argc)
+bool
+ecall_handle_cmd_set_wasi_args(uint16_t enclave_module_idx,
+                               const char **dir_list, uint32_t dir_list_size,
+                               const char **env_list, uint32_t env_list_size,
+                               int stdinfd, int stdoutfd, int stderrfd,
+                               char **wasi_argv, uint32_t wasi_argc,
+                               const char **addr_pool_list,
+                               uint32_t addr_pool_list_size)
 {
-    uint64 *args_org = args;
-    EnclaveModule *enclave_module = *(EnclaveModule **)args++;
-    char **dir_list = *(char ***)args++;
-    uint32 dir_list_size = *(uint32 *)args++;
-    char **env_list = *(char ***)args++;
-    uint32 env_list_size = *(uint32 *)args++;
-    int stdinfd = *(int *)args++;
-    int stdoutfd = *(int *)args++;
-    int stderrfd = *(int *)args++;
-    char **wasi_argv = *(char ***)args++;
+    bool ret = false;
+    EnclaveModule *enclave_module = nullptr;
     char *p, *p1;
-    uint32 wasi_argc = *(uint32 *)args++;
-    char **addr_pool_list = *(char ***)args++;
-    uint32 addr_pool_list_size = *(uint32 *)args++;
     uint64 total_size = 0;
     int32 i, str_len;
 
-    bh_assert(argc == 10);
+    if ((!dir_list and dir_list_size != 0) or (!env_list and env_list_size != 0)
+        or (!wasi_argv and wasi_argc != 0)
+        or (!addr_pool_list and addr_pool_list_size != 0)
+        or !(enclave_module =
+                 (EnclaveModule *)gEnclaveModuleMgr.get(enclave_module_idx))) {
+        ret = false;
+        goto exit;
+    }
 
     total_size += sizeof(char *) * (uint64)dir_list_size
                   + sizeof(char *) * (uint64)env_list_size
@@ -512,8 +677,8 @@ handle_cmd_set_wasi_args(uint64 *args, int32 argc)
     if (total_size >= UINT32_MAX
         || !(enclave_module->wasi_arg_buf = p =
                  (char *)wasm_runtime_malloc((uint32)total_size))) {
-        *args_org = false;
-        return;
+        ret = false;
+        goto exit;
     }
 
     p1 = p + sizeof(char *) * dir_list_size + sizeof(char *) * env_list_size
@@ -579,125 +744,88 @@ handle_cmd_set_wasi_args(uint64 *args, int32 argc)
         (const char **)enclave_module->wasi_addr_pool_list,
         addr_pool_list_size);
 
-    *args_org = true;
+    ret = true;
+exit:
+    return ret;
 }
 #else
-static void
-handle_cmd_set_wasi_args(uint64 *args, int32 argc)
+bool
+ecall_handle_cmd_set_wasi_args(uint16_t enclave_module_idx,
+                               const char **dir_list, uint32_t dir_list_size,
+                               const char **env_list, uint32_t env_list_size,
+                               int stdinfd, int stdoutfd, int stderrfd,
+                               char **wasi_argv, uint32_t wasi_argc,
+                               const char **addr_pool_list,
+                               uint32_t addr_pool_list_size)
 {
-    *args = true;
+    return true;
 }
 #endif /* end of SGX_DISABLE_WASI */
 
-static void
-handle_cmd_get_version(uint64 *args, uint32 argc)
+void
+ecall_handle_cmd_get_version(uint32_t *major, uint32_t *minor, uint32_t *patch)
 {
-    uint32 major, minor, patch;
-    bh_assert(argc == 3);
-
-    wasm_runtime_get_version(&major, &minor, &patch);
-    args[0] = major;
-    args[1] = minor;
-    args[2] = patch;
+    if (major and minor and patch) {
+        wasm_runtime_get_version(major, minor, patch);
+    }
 }
 
 #if WASM_ENABLE_STATIC_PGO != 0
-static void
-handle_cmd_get_pgo_prof_buf_size(uint64 *args, int32 argc)
+uint32_t
+ecall_handle_cmd_get_pgo_prof_buf_size(uint16_t wasm_module_inst_idx)
 {
-    wasm_module_inst_t module_inst = *(wasm_module_inst_t *)args;
+    wasm_module_inst_t module_inst = nullptr;
     uint32 buf_len;
 
-    bh_assert(argc == 1);
+    if ((module_inst =
+             (wasm_module_inst_t)gWasmModuleInstMgr.get(wasm_module_inst_idx))
+        == nullptr) {
+        return 0;
+    }
 
     buf_len = wasm_runtime_get_pgo_prof_data_size(module_inst);
-    args[0] = buf_len;
+    return buf_len;
 }
 
-static void
-handle_cmd_get_pro_prof_buf_data(uint64 *args, int32 argc)
+uint32_t
+ecall_handle_cmd_get_pgo_prof_buf_data(uint16_t wasm_module_inst_idx, char *buf,
+                                       uint32_t len)
 {
-    uint64 *args_org = args;
-    wasm_module_inst_t module_inst = *(wasm_module_inst_t *)args++;
-    char *buf = *(char **)args++;
-    uint32 len = *(uint32 *)args++;
+    wasm_module_inst_t module_inst = nullptr;
     uint32 bytes_dumped;
 
-    bh_assert(argc == 3);
+    if ((buf == nullptr)
+        or !(module_inst = (wasm_module_inst_t)gWasmModuleInstMgr.get(
+                 wasm_module_inst_idx))) {
+        return 0;
+    }
 
     bytes_dumped =
         wasm_runtime_dump_pgo_prof_data_to_buf(module_inst, buf, len);
-    args_org[0] = bytes_dumped;
+    return bytes_dumped;
 }
-#endif
-
-void
-ecall_handle_command(unsigned cmd, unsigned char *cmd_buf,
-                     unsigned cmd_buf_size)
+#else
+uint32_t
+ecall_handle_cmd_get_pgo_prof_buf_size(uint16_t wasm_module_inst_idx)
 {
-    uint64 *args = (uint64 *)cmd_buf;
-    uint32 argc = cmd_buf_size / sizeof(uint64);
-
-    switch (cmd) {
-        case CMD_INIT_RUNTIME:
-            handle_cmd_init_runtime(args, argc);
-            break;
-        case CMD_LOAD_MODULE:
-            handle_cmd_load_module(args, argc);
-            break;
-        case CMD_SET_WASI_ARGS:
-            handle_cmd_set_wasi_args(args, argc);
-            break;
-        case CMD_INSTANTIATE_MODULE:
-            handle_cmd_instantiate_module(args, argc);
-            break;
-        case CMD_LOOKUP_FUNCTION:
-            break;
-        case CMD_CREATE_EXEC_ENV:
-            break;
-        case CMD_CALL_WASM:
-            break;
-        case CMD_EXEC_APP_FUNC:
-            handle_cmd_exec_app_func(args, argc);
-            break;
-        case CMD_EXEC_APP_MAIN:
-            handle_cmd_exec_app_main(args, argc);
-            break;
-        case CMD_GET_EXCEPTION:
-            handle_cmd_get_exception(args, argc);
-            break;
-        case CMD_DEINSTANTIATE_MODULE:
-            handle_cmd_deinstantiate_module(args, argc);
-            break;
-        case CMD_UNLOAD_MODULE:
-            handle_cmd_unload_module(args, argc);
-            break;
-        case CMD_DESTROY_RUNTIME:
-            handle_cmd_destroy_runtime();
-            break;
-        case CMD_SET_LOG_LEVEL:
-            handle_cmd_set_log_level(args, argc);
-            break;
-        case CMD_GET_VERSION:
-            handle_cmd_get_version(args, argc);
-            break;
-#if WASM_ENABLE_STATIC_PGO != 0
-        case CMD_GET_PGO_PROF_BUF_SIZE:
-            handle_cmd_get_pgo_prof_buf_size(args, argc);
-            break;
-        case CMD_DUMP_PGO_PROF_BUF_DATA:
-            handle_cmd_get_pro_prof_buf_data(args, argc);
-            break;
-#endif
-        default:
-            LOG_ERROR("Unknown command %d\n", cmd);
-            break;
-    }
+    return 0;
 }
+
+uint32_t
+ecall_handle_cmd_get_pgo_prof_buf_data(uint16_t wasm_module_inst_idx, char *buf,
+                                       uint32_t len)
+{
+    return 0;
+}
+#endif
 
 void
 ecall_iwasm_main(uint8_t *wasm_file_buf, uint32_t wasm_file_size)
 {
+    if (wasm_file_buf == nullptr) {
+        return;
+    }
+
     wasm_module_t wasm_module = NULL;
     wasm_module_inst_t wasm_module_inst = NULL;
     RuntimeInitArgs init_args;

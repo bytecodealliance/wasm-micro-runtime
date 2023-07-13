@@ -129,6 +129,7 @@ Enclave_Include_Paths := -IEnclave -I$(WAMR_ROOT)/core/iwasm/include \
                          -I$(WAMR_ROOT)/core/shared/platform/linux-sgx \
                          -I$(SGX_SDK)/include \
                          -I$(SGX_SDK)/include/tlibc \
+                         -I$(SGX_SDK)/include/libcxx \
                          -I$(SGX_SDK)/include/stlport
 
 ifeq ($(WAMR_BUILD_LIB_RATS), 1)
@@ -208,6 +209,7 @@ ifeq ($(WAMR_BUILD_LIB_RATS), 1)
 	@echo "librats build success"
 endif
 
+App/Enclave_u.h: App/Enclave_u.c
 App/Enclave_u.c: $(SGX_EDGER8R) Enclave/Enclave.edl librats
 	@cd App && $(SGX_EDGER8R) --untrusted ../Enclave/Enclave.edl $(Enclave_Edl_Search_Path)
 	@echo "GEN  =>  $@"
@@ -216,6 +218,7 @@ App/Enclave_u.o: App/Enclave_u.c
 	@$(CC) $(App_C_Flags) -c $< -o $@
 	@echo "CC   <=  $<"
 
+App/%.o: App/Enclave_u.h
 App/%.o: App/%.cpp
 	@$(CXX) $(App_Cpp_Flags) -c $< -o $@
 	@echo "CXX  <=  $<"
@@ -230,6 +233,7 @@ $(App_Name): App/Enclave_u.o $(App_Cpp_Objects) libvmlib_untrusted.a
 
 
 ######## Enclave Objects ########
+Enclave/Enclave_t.h: Enclave/Enclave_t.c
 Enclave/Enclave_t.c: $(SGX_EDGER8R) Enclave/Enclave.edl librats
 	@cd Enclave && $(SGX_EDGER8R) --trusted ../Enclave/Enclave.edl $(Enclave_Edl_Search_Path)
 	@echo "GEN  =>  $@"
@@ -238,6 +242,7 @@ Enclave/Enclave_t.o: Enclave/Enclave_t.c
 	@$(CC) $(Enclave_C_Flags) -c $< -o $@
 	@echo "CC   <=  $<"
 
+Enclave/%.o: Enclave/Enclave_t.h
 Enclave/%.o: Enclave/%.cpp
 	@$(CXX) $(Enclave_Cpp_Flags) -c $< -o $@
 	@echo "CXX  <=  $<"
