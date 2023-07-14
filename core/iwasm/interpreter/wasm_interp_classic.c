@@ -1062,21 +1062,33 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
         os_mutex_unlock(&exec_env->wait_lock);                         \
     } while (0)
 #else
-#define CHECK_SUSPEND_FLAGS()                                             \
-    do {                                                                  \
-        os_mutex_lock(&exec_env->wait_lock);                              \
-        if (exec_env->suspend_flags.flags != 0) {                         \
-            if (exec_env->suspend_flags.flags & 0x01) {                   \
-                /* terminate current thread */                            \
-                os_mutex_unlock(&exec_env->wait_lock);                    \
-                return;                                                   \
-            }                                                             \
-            while (exec_env->suspend_flags.flags & 0x02) {                \
-                /* suspend current thread */                              \
-                os_cond_wait(&exec_env->wait_cond, &exec_env->wait_lock); \
-            }                                                             \
-        }                                                                 \
-        os_mutex_unlock(&exec_env->wait_lock);                            \
+#if WASM_SUSPEND_FLAGS_IS_ATOMIC != 0
+/* The lock is only needed when the suspend_flags is atomic; otherwise
+   the lock is already taken at the time when SUSPENSION_LOCK() is called. */
+#define SUSPENSION_LOCK() os_mutex_lock(&exec_env->wait_lock);
+#define SUSPENSION_UNLOCK() os_mutex_unlock(&exec_env->wait_lock);
+#else
+#define SUSPENSION_LOCK()
+#define SUSPENSION_UNLOCK()
+#endif
+
+#define CHECK_SUSPEND_FLAGS()                                         \
+    do {                                                              \
+        WASM_SUSPEND_FLAGS_LOCK(exec_env->wait_lock);                 \
+        if (WASM_SUSPEND_FLAGS_GET(exec_env->suspend_flags)           \
+            & WASM_SUSPEND_FLAG_TERMINATE) {                          \
+            /* terminate current thread */                            \
+            WASM_SUSPEND_FLAGS_UNLOCK(exec_env->wait_lock);           \
+            return;                                                   \
+        }                                                             \
+        while (WASM_SUSPEND_FLAGS_GET(exec_env->suspend_flags)        \
+               & WASM_SUSPEND_FLAG_SUSPEND) {                         \
+            /* suspend current thread */                              \
+            SUSPENSION_LOCK()                                         \
+            os_cond_wait(&exec_env->wait_cond, &exec_env->wait_lock); \
+            SUSPENSION_UNLOCK()                                       \
+        }                                                             \
+        WASM_SUSPEND_FLAGS_UNLOCK(exec_env->wait_lock);               \
     } while (0)
 #endif /* WASM_ENABLE_DEBUG_INTERP */
 #endif /* WASM_ENABLE_THREAD_MGR */
@@ -3783,7 +3795,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(DEBUG_OP_BREAK)
             {
                 wasm_cluster_thread_send_signal(exec_env, WAMR_SIG_TRAP);
-                exec_env->suspend_flags.flags |= 2;
+                WASM_SUSPEND_FLAGS_FETCH_OR(exec_env->suspend_flags,
+                                            WASM_SUSPEND_FLAG_SUSPEND);
                 frame_ip--;
                 SYNC_ALL_TO_FRAME();
                 CHECK_SUSPEND_FLAGS();
