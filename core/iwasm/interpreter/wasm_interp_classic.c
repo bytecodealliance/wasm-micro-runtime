@@ -1763,12 +1763,24 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_DROP)
             {
                 frame_sp--;
+
+#if WASM_ENABLE_GC != 0
+                frame_ref_tmp = FRAME_REF(frame_sp);
+                *frame_ref_tmp = 0;
+#endif
                 HANDLE_OP_END();
             }
 
             HANDLE_OP(WASM_OP_DROP_64)
             {
                 frame_sp -= 2;
+
+#if WASM_ENABLE_GC != 0
+                frame_ref_tmp = FRAME_REF(frame_sp);
+                *frame_ref_tmp = 0;
+                *(frame_ref_tmp + 1) = 0;
+#endif
+
                 HANDLE_OP_END();
             }
 
