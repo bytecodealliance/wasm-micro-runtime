@@ -1104,10 +1104,14 @@ execute_post_instantiate_functions(WASMModuleInstance *module_inst,
         goto fail;
     }
 
+#if WASM_ENABLE_LIBC_WASI != 0
     if (initialize_func
         && !wasm_call_function(exec_env, initialize_func, 0, NULL)) {
         goto fail;
     }
+#else
+    (void)initialize_func;
+#endif
 
     if (post_inst_func
         && !wasm_call_function(exec_env, post_inst_func, 0, NULL)) {
