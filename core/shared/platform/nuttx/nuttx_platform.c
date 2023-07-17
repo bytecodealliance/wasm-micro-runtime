@@ -149,7 +149,7 @@ void *
 os_get_dbus_mirror(void *ibus)
 {
     if (in_ibus_ext(ibus)) {
-        return (void *)((int8 *)ibus - MEM_DUAL_BUS_OFFSET);
+        return (void *)((uint8 *)ibus - MEM_DUAL_BUS_OFFSET);
     }
     else {
         return ibus;
