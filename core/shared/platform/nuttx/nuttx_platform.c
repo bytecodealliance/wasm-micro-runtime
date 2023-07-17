@@ -11,18 +11,34 @@
 #endif
 
 #if defined(CONFIG_ARCH_CHIP_ESP32S3) && (CONFIG_ARCH_CHIP_ESP32S3 != 0)
+/*
+ * TODO: Move these methods below the operating system level
+ */
 #define MEM_DUAL_BUS_OFFSET (0x42000000 - 0x3C000000)
 #define IRAM0_CACHE_ADDRESS_LOW 0x42000000
 #define IRAM0_CACHE_ADDRESS_HIGH 0x44000000
+#define IRAM_ATTR locate_data(".iram1")
 
 #define in_ibus_ext(addr)                      \
     (((uint32)addr >= IRAM0_CACHE_ADDRESS_LOW) \
      && ((uint32)addr < IRAM0_CACHE_ADDRESS_HIGH))
-static void
+void IRAM_ATTR
 bus_sync(void)
 {
     extern void cache_writeback_all(void);
+    extern uint32_t Cache_Disable_ICache(void);
+    extern void Cache_Enable_ICache(uint32_t autoload);
+
+    irqstate_t flags;
+    uint32_t preload;
+
+    flags = enter_critical_section();
+
     cache_writeback_all();
+    preload = Cache_Disable_ICache();
+    Cache_Enable_ICache(preload);
+
+    leave_critical_section(flags);
 }
 #else
 #define MEM_DUAL_BUS_OFFSET (0)
@@ -90,7 +106,7 @@ os_mmap(void *hint, size_t size, int prot, int flags)
         if (d_addr == NULL) {
             return NULL;
         }
-        i_addr = d_addr + MEM_DUAL_BUS_OFFSET;
+        i_addr = (void *)((uint8 *)d_addr + MEM_DUAL_BUS_OFFSET);
         return in_ibus_ext(i_addr) ? i_addr : d_addr;
     }
 #endif
@@ -109,7 +125,7 @@ os_munmap(void *addr, size_t size)
 
 #if (WASM_MEM_DUAL_BUS_MIRROR != 0)
     if (in_ibus_ext(addr)) {
-        free(addr - MEM_DUAL_BUS_OFFSET);
+        free((void *)((uint8 *)addr - MEM_DUAL_BUS_OFFSET));
         return;
     }
 #endif

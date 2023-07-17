@@ -222,9 +222,6 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
             initial_addend = *(int32 *)insn_addr;
             *(uintptr_t *)insn_addr = (uintptr_t)symbol_addr + initial_addend
                                       + (intptr_t)reloc_addend;
-#if (WASM_MEM_DUAL_BUS_MIRROR != 0)
-            os_dcache_flush();
-#endif
             break;
         }
 
@@ -294,10 +291,6 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
                 put_imm16_to_addr(imm16, &l32r_insn->b.imm16);
 #if __GNUC__ >= 9
 #pragma GCC diagnostic pop
-#endif
-
-#if (WASM_MEM_DUAL_BUS_MIRROR != 0)
-            os_dcache_flush();
 #endif
             break;
         }
