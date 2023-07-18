@@ -446,8 +446,8 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
             {
                 uint32 vec_len;
 
-                if (!comp_ctx->enable_ref_types) {
-                    goto unsupport_ref_types;
+                if (!comp_ctx->enable_ref_types && !comp_ctx->enable_gc) {
+                    goto unsupport_gc_and_ref_types;
                 }
 
                 read_leb_uint32(frame_ip, frame_ip_end, vec_len);
@@ -455,10 +455,27 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 (void)vec_len;
 
                 type_idx = *frame_ip++;
-                if (!aot_compile_op_select(comp_ctx, func_ctx,
-                                           (type_idx != VALUE_TYPE_I64)
-                                               && (type_idx != VALUE_TYPE_F64)))
-                    return false;
+#if WASM_ENABLE_GC != 0
+                if (comp_ctx->enable_gc) {
+                    if (!aot_compile_op_select(
+                            comp_ctx, func_ctx,
+                            (type_idx != VALUE_TYPE_I64)
+                                && (type_idx != VALUE_TYPE_F64)
+#if UINTPTR_MAX == UINT64_MAX
+                                && (!wasm_is_type_reftype(type_idx))
+#endif
+                                ))
+                        return false;
+                }
+                else
+#endif
+                {
+                    if (!aot_compile_op_select(
+                            comp_ctx, func_ctx,
+                            (type_idx != VALUE_TYPE_I64)
+                                && (type_idx != VALUE_TYPE_F64)))
+                        return false;
+                }
                 break;
             }
             case WASM_OP_TABLE_GET:
@@ -2589,10 +2606,12 @@ unsupport_ref_types:
     return false;
 #endif
 
-#if WASM_ENABLE_REF_TYPES != 0
-unsupport_gc:
-    aot_set_last_error("garbage collection instruction was found, "
-                       "try adding --enable-gc option");
+#if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
+unsupport_gc_and_ref_types:
+    aot_set_last_error(
+        "neither reference type instruction "
+        "nor garbage collection instruction was found, "
+        "try adding --enable-gc or removing --disable-ref-types option");
     return false;
 #endif
 
