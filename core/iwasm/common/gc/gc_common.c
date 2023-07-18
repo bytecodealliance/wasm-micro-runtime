@@ -61,7 +61,10 @@ wasm_get_defined_type_count(WASMModuleCommon *const module)
     }
 #endif
 #if WASM_ENABLE_AOT != 0
-    /* TODO */
+    if (module->module_type == Wasm_Module_AoT) {
+        AOTModule *aot_module = (AOTModule *)module;
+        type_count = aot_module->type_count;
+    }
 #endif
 
     return type_count;
@@ -81,7 +84,12 @@ wasm_get_defined_type(WASMModuleCommon *const module, uint32 index)
     }
 #endif
 #if WASM_ENABLE_AOT != 0
-    /* TODO */
+    if (module->module_type == Wasm_Module_AoT) {
+        AOTModule *aot_module = (AOTModule *)module;
+
+        bh_assert(index < aot_module->type_count);
+        type = aot_module->types[index];
+    }
 #endif
 
     return type;
@@ -298,7 +306,12 @@ wasm_defined_type_is_subtype_of(WASMType *const def_type1,
     }
 #endif
 #if WASM_ENABLE_AOT != 0
-    /* TODO */
+    if (module->module_type == Wasm_Module_AoT) {
+        AOTModule *aot_module = (AOTModule *)module;
+
+        types = aot_module->types;
+        type_count = aot_module->type_count;
+    }
 #endif
 
     bh_assert(types);
@@ -365,7 +378,10 @@ wasm_ref_type_equal(const wasm_ref_type_t *ref_type1,
     }
 #endif
 #if WASM_ENABLE_AOT != 0
-    /* TODO */
+    if (module->module_type == Wasm_Module_AoT) {
+        types = ((AOTModule *)module)->types;
+        type_count = wasm_get_defined_type_count(module);
+    }
 #endif
 
     return wasm_reftype_equal(type1, (WASMRefType *)&ref_type1_norm, type2,
@@ -405,7 +421,10 @@ wasm_ref_type_is_subtype_of(const wasm_ref_type_t *ref_type1,
     }
 #endif
 #if WASM_ENABLE_AOT != 0
-    /* TODO */
+    if (module->module_type == Wasm_Module_AoT) {
+        types = ((AOTModule *)module)->types;
+        type_count = wasm_get_defined_type_count(module);
+    }
 #endif
 
     bh_assert(types);
@@ -437,7 +456,17 @@ wasm_struct_obj_new_with_typeidx(WASMExecEnv *exec_env, uint32 type_idx)
     }
 #endif
 #if WASM_ENABLE_AOT != 0
-    /* TODO */
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        AOTModule *module =
+            (AOTModule *)((AOTModuleInstance *)module_inst)->module;
+
+        bh_assert(type_idx < module->type_count);
+        type = module->types[type_idx];
+        bh_assert(wasm_defined_type_is_struct_type(type));
+        rtt_type =
+            wasm_rtt_type_new(type, type_idx, module->rtt_types,
+                              module->type_count, &module->rtt_type_lock);
+    }
 #endif
 
     if (!rtt_type) {
@@ -478,7 +507,22 @@ wasm_struct_obj_new_with_type(WASMExecEnv *exec_env, WASMStructType *type)
     }
 #endif
 #if WASM_ENABLE_AOT != 0
-    /* TODO */
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        AOTModule *module =
+            (AOTModule *)((AOTModuleInstance *)module_inst)->module;
+
+        type_count = module->type_count;
+
+        for (i = 0; i < type_count; i++) {
+            if (module->types[i] == (AOTType *)type) {
+                break;
+            }
+        }
+        bh_assert(i < type_count);
+        rtt_type =
+            wasm_rtt_type_new((AOTType *)type, i, module->rtt_types,
+                              module->type_count, &module->rtt_type_lock);
+    }
 #endif
 
     if (!rtt_type) {
@@ -510,7 +554,13 @@ wasm_array_obj_new_with_typeidx(WASMExecEnv *exec_env, uint32 type_idx,
     }
 #endif
 #if WASM_ENABLE_AOT != 0
-    /* TODO */
+    if (module->module_type == Wasm_Module_AoT) {
+        AOTModule *aot_module = (AOTModule *)module;
+
+        rtt_type = wasm_rtt_type_new(
+            defined_type, type_idx, aot_module->rtt_types,
+            aot_module->type_count, &aot_module->rtt_type_lock);
+    }
 #endif
 
     if (!rtt_type) {
@@ -547,7 +597,19 @@ wasm_array_obj_new_with_type(WASMExecEnv *exec_env, WASMArrayType *type,
     }
 #endif
 #if WASM_ENABLE_AOT != 0
-    /* TODO */
+    if (module->module_type == Wasm_Module_AoT) {
+        AOTModule *aot_module = (AOTModule *)module;
+
+        type_count = aot_module->type_count;
+        for (i = 0; i < type_count; i++) {
+            if (aot_module->types[i] == (AOTType *)type) {
+                break;
+            }
+        }
+        bh_assert(i < aot_module->type_count);
+
+        type_idx = i;
+    }
 #endif
 
     array_obj =
@@ -575,7 +637,13 @@ wasm_func_obj_new_with_typeidx(WASMExecEnv *exec_env, uint32 type_idx,
     }
 #endif
 #if WASM_ENABLE_AOT != 0
-    /* TODO */
+    if (module->module_type == Wasm_Module_AoT) {
+        AOTModule *aot_module = (AOTModule *)module;
+
+        rtt_type = wasm_rtt_type_new(
+            defined_type, type_idx, aot_module->rtt_types,
+            aot_module->type_count, &aot_module->rtt_type_lock);
+    }
 #endif
 
     if (!rtt_type) {
@@ -612,7 +680,19 @@ wasm_func_obj_new_with_type(WASMExecEnv *exec_env, WASMFuncType *type,
     }
 #endif
 #if WASM_ENABLE_AOT != 0
-    /* TODO */
+    if (module->module_type == Wasm_Module_AoT) {
+        AOTModule *aot_module = (AOTModule *)module;
+
+        type_count = aot_module->type_count;
+        for (i = 0; i < type_count; i++) {
+            if (aot_module->types[i] == (AOTType *)type) {
+                break;
+            }
+        }
+        bh_assert(i < aot_module->type_count);
+
+        type_idx = i;
+    }
 #endif
 
     func_obj =
@@ -641,8 +721,12 @@ wasm_runtime_call_func_ref(WASMExecEnv *exec_env,
 #endif
 #if WASM_ENABLE_AOT != 0
     if (exec_env->module_inst->module_type == Wasm_Module_AoT) {
-        /* TODO */
-        return false;
+        AOTModuleInstance *module_inst =
+            (AOTModuleInstance *)exec_env->module_inst;
+
+        bh_assert(func_idx < module_inst->module->import_function_count
+                                 + module_inst->module->function_count);
+        /* TODO: Implement call func ref for aot mode */
     }
 #endif
 
@@ -687,7 +771,12 @@ wasm_obj_is_instance_of_defined_type(WASMObjectRef obj, WASMType *defined_type,
     }
 #endif
 #if WASM_ENABLE_AOT != 0
-    /* TODO */
+    if (module->module_type == Wasm_Module_AoT) {
+        AOTModule *aot_module = (AOTModule *)module;
+
+        type_count = aot_module->type_count;
+        types = (WASMType **)aot_module->types;
+    }
 #endif
 
     for (type_idx = 0; type_idx < type_count; type_idx++) {
@@ -715,7 +804,11 @@ wasm_obj_is_instance_of_type_idx(WASMObjectRef obj, uint32 type_idx,
     }
 #endif
 #if WASM_ENABLE_AOT != 0
-    /* TODO */
+    if (module->module_type == Wasm_Module_AoT) {
+        AOTModule *aot_module = (AOTModule *)module;
+
+        types = (WASMType **)aot_module->types;
+    }
 #endif
 
     bh_assert(types);
@@ -817,11 +910,9 @@ wasm_runtime_set_gc_heap_handle(WASMModuleInstanceCommon *module_inst,
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT) {
-        /* TODO */
-        /*
-        ((AOTModuleInstance *)module_inst)->e->gc_heap_handle.ptr =
-        gc_heap_handle;
-        */
+        AOTModuleInstanceExtra *e =
+            (AOTModuleInstanceExtra *)((AOTModuleInstance *)module_inst)->e;
+        e->gc_heap_handle = gc_heap_handle;
     }
 #endif
 }
@@ -835,10 +926,9 @@ wasm_runtime_get_gc_heap_handle(WASMModuleInstanceCommon *module_inst)
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT) {
-        /* TODO */
-        /*
-        return ((AOTModuleInstance *)module_inst)->e->gc_heap_handle.ptr;
-        */
+        AOTModuleInstanceExtra *e =
+            (AOTModuleInstanceExtra *)((AOTModuleInstance *)module_inst)->e;
+        return e->gc_heap_handle;
     }
 #endif
     return NULL;

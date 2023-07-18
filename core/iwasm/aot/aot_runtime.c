@@ -94,7 +94,7 @@ check_global_init_expr(const AOTModule *module, uint32 global_index,
                         global_index);
         return false;
     }
-
+#if WASM_ENABLE_GC == 0
     /**
      * Currently, constant expressions occurring as initializers of
      * globals are further constrained in that contained global.get
@@ -108,7 +108,19 @@ check_global_init_expr(const AOTModule *module, uint32 global_index,
                       "constant expression required");
         return false;
     }
-
+#else
+    if (global_index >= module->import_global_count + module->global_count) {
+        set_error_buf_v(error_buf, error_buf_size, "unknown global %u",
+                        global_index);
+        return false;
+    }
+    if (global_index < module->import_global_count
+        && module->import_globals[global_index].is_mutable) {
+        set_error_buf(error_buf, error_buf_size,
+                      "constant expression required");
+        return false;
+    }
+#endif
     return true;
 }
 
@@ -208,7 +220,7 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
     AOTTableInitData *table_seg;
     AOTTableInstance *tbl_inst = first_tbl_inst;
 
-    total_size = (uint64)sizeof(WASMTableInstance *) * module_inst->table_count;
+    total_size = (uint64)sizeof(AOTTableInstance *) * module_inst->table_count;
     if (total_size > 0
         && !(module_inst->tables =
                  runtime_malloc(total_size, error_buf, error_buf_size))) {
@@ -225,16 +237,32 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
             tbl_inst->cur_size = import_table->table_init_size;
             tbl_inst->max_size =
                 aot_get_imp_tbl_data_slots(import_table, false);
+#if WASM_ENABLE_GC != 0
+            tbl_inst->elem_type = module->tables[i].elem_type;
+            tbl_inst->elem_ref_type.elem_ref_type =
+                module->tables[i].elem_ref_type;
+#endif
         }
         else {
             AOTTable *table = module->tables + (i - module->import_table_count);
             tbl_inst->cur_size = table->table_init_size;
             tbl_inst->max_size = aot_get_tbl_data_slots(table, false);
+#if WASM_ENABLE_GC != 0
+            tbl_inst->elem_type = module->tables[i].elem_type;
+            tbl_inst->elem_ref_type.elem_ref_type =
+                module->tables[i].elem_ref_type;
+#endif
         }
 
-        /* Set all elements to -1 to mark them as uninitialized elements */
+        /* Set all elements to -1 or NULL_REF to mark them as uninitialized
+         * elements */
+#if WASM_ENABLE_GC == 0
         memset(tbl_inst->elems, 0xff,
                sizeof(table_elem_type_t) * tbl_inst->max_size);
+#else
+        memset(tbl_inst->elems, 0x00,
+               sizeof(table_elem_type_t) * tbl_inst->max_size);
+#endif
 
         module_inst->tables[i] = tbl_inst;
         tbl_inst = (AOTTableInstance *)((uint8 *)tbl_inst
@@ -247,7 +275,7 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
     for (i = 0; i < module->table_init_data_count; i++) {
         table_seg = module->table_init_data_list[i];
 
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
         if (!wasm_elem_is_active(table_seg->mode))
             continue;
 #endif
@@ -323,10 +351,12 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
          * Check function index in the current module inst for now.
          * will check the linked table inst owner in future
          */
+#if WASM_ENABLE_GC == 0
         bh_memcpy_s(
             tbl_inst->elems + base_offset,
             (tbl_inst->max_size - base_offset) * sizeof(table_elem_type_t),
             table_seg->func_indexes, length * sizeof(table_elem_type_t));
+#endif
     }
 
     return true;
@@ -1093,7 +1123,7 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
         (uint64)module->memory_count * sizeof(AOTMemoryInstance);
     uint64 total_size, table_size = 0;
     uint8 *p;
-    uint32 i, extra_info_offset;
+    uint32 i, j, extra_info_offset;
     const bool is_sub_inst = parent != NULL;
 
     /* Check heap size */
@@ -1210,6 +1240,133 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
     }
 #endif
 
+#if WASM_ENABLE_GC != 0
+    if (!is_sub_inst) {
+        uint32 gc_heap_size = wasm_runtime_get_gc_heap_size_default();
+        AOTModuleInstanceExtra *extra =
+            (AOTModuleInstanceExtra *)module_inst->e;
+
+        if (gc_heap_size < GC_HEAP_SIZE_MIN)
+            gc_heap_size = GC_HEAP_SIZE_MIN;
+        if (gc_heap_size > GC_HEAP_SIZE_MAX)
+            gc_heap_size = GC_HEAP_SIZE_MAX;
+
+        extra->gc_heap_pool =
+            runtime_malloc(gc_heap_size, error_buf, error_buf_size);
+        if (!extra->gc_heap_pool)
+            goto fail;
+
+        extra->gc_heap_handle =
+            mem_allocator_create(extra->gc_heap_pool, gc_heap_size);
+        if (!extra->gc_heap_handle)
+            goto fail;
+    }
+#endif
+
+#if WASM_ENABLE_GC != 0
+    /* Initialize the table data with table init data */
+    for (i = 0;
+         module_inst->table_count > 0 && i < module->table_init_data_count;
+         i++) {
+
+        AOTTableInitData *table_init_data = module->table_init_data_list[i];
+        AOTTableInstance *table;
+        table_elem_type_t *table_data;
+        uint8 tbl_elem_type;
+        uint32 tbl_init_size, tbl_max_size;
+        WASMRefType *tbl_elem_ref_type;
+
+        bh_assert(table_init_data);
+
+        table = module_inst->tables[table_init_data->table_index];
+
+        bh_assert(table);
+
+        table_data = table->elems;
+
+        wasm_runtime_get_table_inst_elem_type(
+            (WASMModuleInstanceCommon *)module_inst, i, &tbl_elem_type,
+            &tbl_elem_ref_type, &tbl_init_size, &tbl_max_size);
+
+        if (!wasm_elem_is_declarative(table_init_data->mode)
+            && !wasm_reftype_is_subtype_of(
+                table_init_data->elem_type, table_init_data->elem_ref_type,
+                table->elem_type, table->elem_ref_type.elem_ref_type,
+                module->types, module->type_count)) {
+            set_error_buf(error_buf, error_buf_size,
+                          "elements segment does not fit");
+            goto fail;
+        }
+
+        (void)tbl_init_size;
+        (void)tbl_max_size;
+
+        table_data = table->elems;
+
+        bh_assert(table_data);
+
+        if (!wasm_elem_is_active(table_init_data->mode)) {
+            continue;
+        }
+
+        bh_assert(table_init_data->offset.init_expr_type
+                      == INIT_EXPR_TYPE_I32_CONST
+                  || table_init_data->offset.init_expr_type
+                         == INIT_EXPR_TYPE_GET_GLOBAL
+                  || table_init_data->offset.init_expr_type
+                         == INIT_EXPR_TYPE_FUNCREF_CONST
+                  || table_init_data->offset.init_expr_type
+                         == INIT_EXPR_TYPE_REFNULL_CONST);
+
+        /* init vec(funcidx) or vec(expr) */
+        if (table_init_data->offset.init_expr_type
+            == INIT_EXPR_TYPE_GET_GLOBAL) {
+            if (!check_global_init_expr(module,
+                                        table_init_data->offset.u.global_index,
+                                        error_buf, error_buf_size)) {
+                goto fail;
+            }
+        }
+
+        /* check offset since length might negative */
+        if ((uint32)table_init_data->offset.u.i32 > table->cur_size) {
+            LOG_DEBUG("base_offset(%d) > table->cur_size(%d)",
+                      table_init_data->offset.u.i32, table->cur_size);
+            set_error_buf(error_buf, error_buf_size,
+                          "out of bounds table access");
+            goto fail;
+        }
+
+        if ((uint32)table_init_data->offset.u.i32
+                + table_init_data->func_index_count
+            > table->cur_size) {
+            LOG_DEBUG("base_offset(%d) + length(%d) > table->cur_size(%d)",
+                      table_init_data->offset.u.i32,
+                      table_init_data->func_index_count, table->cur_size);
+            set_error_buf(error_buf, error_buf_size,
+                          "out of bounds table access");
+            goto fail;
+        }
+
+        for (j = 0; j < module->table_init_data_list[i]->func_index_count;
+             j++) {
+            WASMFuncObjectRef func_obj;
+            uint32 func_idx = table_init_data->func_indexes[j];
+            if (func_idx != UINT32_MAX) {
+                if (!(func_obj =
+                          aot_create_func_obj(module_inst, func_idx, false,
+                                              error_buf, error_buf_size))) {
+                    goto fail;
+                }
+                *(table_data + table_init_data->offset.u.i32 + j) = func_obj;
+            }
+            else {
+                *(table_data + table_init_data->offset.u.i32 + j) = NULL_REF;
+            }
+        }
+    }
+#endif
+
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
     if (!(module_inst->frames =
               runtime_malloc(sizeof(Vector), error_buf, error_buf_size))) {
@@ -1278,6 +1435,17 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
     if (((AOTModuleInstanceExtra *)module_inst->e)->common.c_api_func_imports)
         wasm_runtime_free(((AOTModuleInstanceExtra *)module_inst->e)
                               ->common.c_api_func_imports);
+
+#if WASM_ENABLE_GC != 0
+    if (!is_sub_inst) {
+        AOTModuleInstanceExtra *extra =
+            (AOTModuleInstanceExtra *)module_inst->e;
+        if (extra->gc_heap_handle)
+            mem_allocator_destroy(extra->gc_heap_handle);
+        if (extra->gc_heap_pool)
+            wasm_runtime_free(extra->gc_heap_pool);
+    }
+#endif
 
     if (!is_sub_inst) {
 #if WASM_ENABLE_LIBC_WASI != 0
@@ -3412,8 +3580,9 @@ aot_create_func_obj(AOTModuleInstance *module_inst, uint32 func_idx,
         return NULL;
     }
 
-    if (!(func_obj = wasm_func_obj_new_internal(module_inst->e->gc_heap_handle,
-                                                rtt_type, func_idx))) {
+    if (!(func_obj = wasm_func_obj_new_internal(
+              ((AOTModuleInstanceExtra *)module_inst->e)->gc_heap_handle,
+              rtt_type, func_idx))) {
         set_error_buf(error_buf, error_buf_size, "create func object failed");
         return NULL;
     }

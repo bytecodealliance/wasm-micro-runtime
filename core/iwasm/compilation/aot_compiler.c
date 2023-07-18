@@ -1063,9 +1063,9 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 }
 #endif
 
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
                 if (WASM_OP_TABLE_INIT <= opcode && opcode <= WASM_OP_TABLE_FILL
-                    && !comp_ctx->enable_ref_types) {
+                    && (!comp_ctx->enable_ref_types && !comp_ctx->enable_gc)) {
                     goto unsupport_ref_types;
                 }
 #endif
@@ -2583,7 +2583,7 @@ unsupport_simd:
     return false;
 #endif
 
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
 unsupport_ref_types:
     aot_set_last_error("reference type instruction was found, "
                        "try removing --disable-ref-types option");

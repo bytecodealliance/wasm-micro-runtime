@@ -107,6 +107,16 @@ typedef struct AOTFunctionInstance {
 typedef struct AOTModuleInstanceExtra {
     DefPointer(const uint32 *, stack_sizes);
     WASMModuleInstanceExtraCommon common;
+#if WASM_ENABLE_GC != 0
+    /* The gc heap memory pool */
+    uint8 *gc_heap_pool;
+    /* The gc heap created */
+    void *gc_heap_handle;
+#endif
+#if WASM_CONFIGUABLE_BOUNDS_CHECKS != 0
+    /* Disable bounds checks or not */
+    bool disable_bounds_checks;
+#endif
 } AOTModuleInstanceExtra;
 
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)

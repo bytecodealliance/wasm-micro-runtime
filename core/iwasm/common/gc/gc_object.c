@@ -69,7 +69,9 @@ get_gc_heap_handle(WASMExecEnv *exec_env)
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT)
-        gc_heap_handle = NULL; /* TODO */
+        gc_heap_handle =
+            ((AOTModuleInstanceExtra *)((AOTModuleInstance *)module_inst)->e)
+                ->gc_heap_handle;
 #endif
 
     bh_assert(gc_heap_handle);
