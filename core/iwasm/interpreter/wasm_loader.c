@@ -622,7 +622,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
 
             init_expr->u.ref_index = NULL_REF;
 #else
-            WASMRefType ref_type1;
+            WASMRefType ref_type1 = { 0 };
 
             type1 = read_uint8(p);
             if (!is_byte_a_type(type1)) {
@@ -8631,8 +8631,12 @@ wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
     for (i = (int32)arity - 1; i >= 0; i--) {
         type = types[i];
 #if WASM_ENABLE_GC != 0
+        ref_type = NULL;
         is_type_multi_byte = wasm_is_type_multi_byte_type(type);
-        ref_type = is_type_multi_byte ? reftype_map->ref_type : NULL;
+        if (is_type_multi_byte) {
+            bh_assert(reftype_map);
+            ref_type = reftype_map->ref_type;
+        }
 #endif
 
         if (available_stack_cell <= 0 && cur_block->is_stack_polymorphic)
@@ -8802,7 +8806,11 @@ check_block_stack(WASMLoaderContext *loader_ctx, BranchBlock *block,
         uint8 type = return_types[i];
 #if WASM_ENABLE_GC != 0
         bool is_type_multi_byte = wasm_is_type_multi_byte_type(type);
-        ref_type = is_type_multi_byte ? return_reftype_map->ref_type : NULL;
+        ref_type = NULL;
+        if (is_type_multi_byte) {
+            bh_assert(return_reftype_map);
+            ref_type = return_reftype_map->ref_type;
+        }
 #endif
         if (!check_stack_top_values(loader_ctx, frame_ref, available_stack_cell,
 #if WASM_ENABLE_GC != 0

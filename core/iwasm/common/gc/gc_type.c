@@ -754,7 +754,7 @@ wasm_is_reftype_supers_of_none(uint8 type, const WASMRefType *ref_type,
         || wasm_is_reftype_supers_of_eq(type))
         return true;
 
-    if (type == REF_TYPE_HT_NULLABLE
+    if (type == REF_TYPE_HT_NULLABLE && ref_type != NULL
         && wasm_is_refheaptype_typeidx(&ref_type->ref_ht_common)
         && (types[ref_type->ref_ht_typeidx.type_idx]->type_flag
                 == WASM_TYPE_STRUCT
@@ -772,7 +772,7 @@ wasm_is_reftype_supers_of_nofunc(uint8 type, const WASMRefType *ref_type,
     if (type == REF_TYPE_NULLFUNCREF || type == REF_TYPE_FUNCREF)
         return true;
 
-    if (type == REF_TYPE_HT_NULLABLE
+    if (type == REF_TYPE_HT_NULLABLE && ref_type != NULL
         && wasm_is_refheaptype_typeidx(&ref_type->ref_ht_common)
         && (types[ref_type->ref_ht_typeidx.type_idx]->type_flag
             == WASM_TYPE_FUNC))
@@ -878,7 +878,7 @@ wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
     else if (type1 == REF_TYPE_HT_NULLABLE) {
         if (wasm_is_refheaptype_typeidx(&ref_type1->ref_ht_common)) {
             /* reftype1 is (ref null $t) */
-            if (type2 == REF_TYPE_HT_NULLABLE
+            if (type2 == REF_TYPE_HT_NULLABLE && ref_type2 != NULL
                 && wasm_is_refheaptype_typeidx(&ref_type2->ref_ht_common)) {
                 return type_idx_equal(ref_type1->ref_ht_typeidx.type_idx,
                                       ref_type2->ref_ht_typeidx.type_idx)
@@ -907,10 +907,12 @@ wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
         }
     }
     else if (type1 == REF_TYPE_HT_NON_NULLABLE) {
+        bh_assert(ref_type1);
         if (wasm_is_refheaptype_typeidx(&ref_type1->ref_ht_common)) {
             /* reftype1 is (ref $t) */
             if ((type2 == REF_TYPE_HT_NULLABLE
                  || type2 == REF_TYPE_HT_NON_NULLABLE)
+                && ref_type2 != NULL
                 && wasm_is_refheaptype_typeidx(&ref_type2->ref_ht_common)) {
                 return type_idx_equal(ref_type1->ref_ht_typeidx.type_idx,
                                       ref_type2->ref_ht_typeidx.type_idx)
@@ -965,6 +967,7 @@ wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
                 /* the super type is (ref null i31) or (ref i31) */
                 if (type2 == REF_TYPE_HT_NULLABLE
                     || type2 == REF_TYPE_HT_NON_NULLABLE) {
+                    bh_assert(ref_type2);
                     uint8 ref_type =
                         (uint8)(ref_type2->ref_ht_common.heap_type
                                 + REF_TYPE_FUNCREF - HEAP_TYPE_FUNC);

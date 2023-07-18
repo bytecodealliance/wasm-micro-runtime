@@ -689,7 +689,7 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
                             (WASMExternrefObjectRef)gc_obj);
                         if (wasm_obj_is_anyref_obj(obj))
                             os_printf("0x%" PRIxPTR ":ref.extern",
-                                      wasm_anyref_obj_get_value(
+                                      (uintptr_t)wasm_anyref_obj_get_value(
                                           (WASMAnyrefObjectRef)obj));
                         else
                             os_printf("ref.extern");
@@ -704,7 +704,7 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
                         os_printf("ref.eq");
                     else if (wasm_obj_is_anyref_obj(gc_obj))
                         os_printf("0x%" PRIxPTR ":ref.host",
-                                  wasm_anyref_obj_get_value(
+                                  (uintptr_t)wasm_anyref_obj_get_value(
                                       (WASMAnyrefObjectRef)gc_obj));
                     else if (wasm_obj_is_internal_obj(gc_obj))
                         os_printf("ref.any");

@@ -276,6 +276,8 @@ wasm_defined_type_equal(WASMType *const def_type1, WASMType *const def_type2,
     /* TODO */
 #endif
 
+    bh_assert(types);
+
     return wasm_type_equal(def_type1, def_type2, types, type_count);
 }
 
@@ -298,6 +300,8 @@ wasm_defined_type_is_subtype_of(WASMType *const def_type1,
 #if WASM_ENABLE_AOT != 0
     /* TODO */
 #endif
+
+    bh_assert(types);
 
     return wasm_type_is_subtype_of(def_type1, def_type2, types, type_count);
 }
@@ -403,6 +407,8 @@ wasm_ref_type_is_subtype_of(const wasm_ref_type_t *ref_type1,
 #if WASM_ENABLE_AOT != 0
     /* TODO */
 #endif
+
+    bh_assert(types);
 
     return wasm_reftype_is_subtype_of(type1, (WASMRefType *)&ref_type1_norm,
                                       type2, (WASMRefType *)&ref_type2_norm,
@@ -711,6 +717,8 @@ wasm_obj_is_instance_of_type_idx(WASMObjectRef obj, uint32 type_idx,
 #if WASM_ENABLE_AOT != 0
     /* TODO */
 #endif
+
+    bh_assert(types);
 
     return wasm_obj_is_instance_of(obj, type_idx, types, type_count);
 }
