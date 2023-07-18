@@ -43,7 +43,7 @@ typedef WASMType AOTFuncType;
 typedef WASMExport AOTExport;
 
 #if WASM_ENABLE_DEBUG_AOT != 0
-typedef void *dwar_extractor_handle_t;
+typedef void *dwarf_extractor_handle_t;
 #endif
 
 typedef enum AOTIntCond {
@@ -285,7 +285,7 @@ typedef struct AOTCompData {
 
     WASMModule *wasm_module;
 #if WASM_ENABLE_DEBUG_AOT != 0
-    dwar_extractor_handle_t extractor;
+    dwarf_extractor_handle_t extractor;
 #endif
 } AOTCompData;
 
