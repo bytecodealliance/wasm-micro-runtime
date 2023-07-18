@@ -480,7 +480,6 @@ alloc_hmu_ex(gc_heap_t *heap, gc_size_t size)
 #if GC_IN_EVERY_ALLOCATION != 0
     if (GC_SUCCESS != do_gc_heap(heap))
         return NULL;
-    return alloc_hmu(heap, size);
 #else
     if (heap->total_free_size < heap->gc_threshold) {
         if (GC_SUCCESS != do_gc_heap(heap))
