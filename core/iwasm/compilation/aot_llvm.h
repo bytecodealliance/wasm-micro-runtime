@@ -231,6 +231,8 @@ typedef struct AOTLLVMTypes {
 
     LLVMTypeRef funcref_type;
     LLVMTypeRef externref_type;
+    LLVMTypeRef object_ref_type;
+    LLVMTypeRef object_ref_ptr_type;
 } AOTLLVMTypes;
 
 typedef struct AOTLLVMConsts {

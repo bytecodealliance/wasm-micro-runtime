@@ -361,8 +361,8 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 
                 read_leb_uint32(frame_ip, frame_ip_end, type_idx);
 
-#if WASM_ENABLE_REF_TYPES != 0
-                if (comp_ctx->enable_ref_types) {
+#if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
+                if (comp_ctx->enable_ref_types || comp_ctx->enable_gc) {
                     read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);
                 }
                 else
@@ -401,8 +401,8 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 }
 
                 read_leb_uint32(frame_ip, frame_ip_end, type_idx);
-#if WASM_ENABLE_REF_TYPES != 0
-                if (comp_ctx->enable_ref_types) {
+#if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
+                if (comp_ctx->enable_ref_types || comp_ctx->enable_gc) {
                     read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);
                 }
                 else
@@ -441,7 +441,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                     return false;
                 break;
 
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
             case WASM_OP_SELECT_T:
             {
                 uint32 vec_len;
@@ -1137,7 +1137,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                         break;
                     }
 #endif /* WASM_ENABLE_BULK_MEMORY */
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
                     case WASM_OP_TABLE_INIT:
                     {
                         uint32 tbl_idx, tbl_seg_idx;
@@ -1201,7 +1201,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                             return false;
                         break;
                     }
-#endif /* WASM_ENABLE_REF_TYPES */
+#endif /* WASM_ENABLE_REF_TYPES || WASM_ENABLE_GC */
                     default:
                         aot_set_last_error("unsupported opcode");
                         return false;
@@ -2586,6 +2586,13 @@ unsupport_simd:
 unsupport_ref_types:
     aot_set_last_error("reference type instruction was found, "
                        "try removing --disable-ref-types option");
+    return false;
+#endif
+
+#if WASM_ENABLE_REF_TYPES != 0
+unsupport_gc:
+    aot_set_last_error("garbage collection instruction was found, "
+                       "try adding --enable-gc option");
     return false;
 #endif
 

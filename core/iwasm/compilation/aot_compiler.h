@@ -163,6 +163,7 @@ check_type_compatible(uint8 src_type, uint8 dst_type)
 #define POP_V128(v) POP(v, VALUE_TYPE_V128)
 #define POP_FUNCREF(v) POP(v, VALUE_TYPE_FUNCREF)
 #define POP_EXTERNREF(v) POP(v, VALUE_TYPE_EXTERNREF)
+#define POP_REF(v) POP(v, VALUE_TYPE_REF)
 
 #define POP_COND(llvm_value)                                                   \
     do {                                                                       \
@@ -240,6 +241,8 @@ check_type_compatible(uint8 src_type, uint8 dst_type)
 #define F64_PTR_TYPE comp_ctx->basic_types.float64_ptr_type
 #define FUNC_REF_TYPE comp_ctx->basic_types.funcref_type
 #define EXTERN_REF_TYPE comp_ctx->basic_types.externref_type
+#define OBJECT_REF_TYPE comp_ctx->basic_types.object_ref_type
+#define OBJECT_REF_PTR_TYPE comp_ctx->basic_types.object_ref_ptr_type
 
 #define INT8_PTR_TYPE_GS comp_ctx->basic_types.int8_ptr_type_gs
 #define INT16_PTR_TYPE_GS comp_ctx->basic_types.int16_ptr_type_gs

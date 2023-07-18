@@ -46,7 +46,7 @@ get_tbl_inst_offset(const AOTCompContext *comp_ctx,
     return offset;
 }
 
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
 
 LLVMValueRef
 aot_compile_get_tbl_inst(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
@@ -506,4 +506,4 @@ fail:
     return false;
 }
 
-#endif /*  WASM_ENABLE_REF_TYPES != 0 */
+#endif /*  WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC !=0 */

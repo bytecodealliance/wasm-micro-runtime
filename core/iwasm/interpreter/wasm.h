@@ -74,6 +74,13 @@ extern "C" {
  * nullfuncref, nullexternref and nullref
  */
 #define VALUE_TYPE_ANY 0x42
+/**
+ * Used by wamr compiler to represent object ref types,
+ * including func object ref, externref object ref,
+ * internal object ref, eq obect ref, i31 object ref,
+ * struct object ref, array obect ref
+ */
+#define VALUE_TYPE_OBJECT_REF 0x43
 
 #define DEFAULT_NUM_BYTES_PER_PAGE 65536
 #define DEFAULT_MAX_PAGES 65536
