@@ -90,6 +90,12 @@ typedef struct AOTFunctionInstance {
 typedef struct AOTModuleInstanceExtra {
     DefPointer(const uint32 *, stack_sizes);
     CApiFuncImport *c_api_func_imports;
+#if WASM_ENABLE_MULTI_MODULE != 0
+    bh_list sub_module_inst_list_head;
+    bh_list *sub_module_inst_list;
+    /* linked table instances of import table instances */
+    WASMTableInstance **table_insts_linked;
+#endif
 #if WASM_CONFIGUABLE_BOUNDS_CHECKS != 0
     /* Disable bounds checks or not */
     bool disable_bounds_checks;
