@@ -1601,6 +1601,7 @@ load_import_funcs(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
     uint32 i;
 #if WASM_ENABLE_MULTI_MODULE != 0
     AOTModule *sub_module = NULL;
+    bool func_ptr_linked ,is_native_symbol= false;
     AOTFunc *linked_func = NULL;
     WASMType *declare_func_type = NULL;
 #endif
@@ -1633,7 +1634,10 @@ load_import_funcs(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
            sub_module_name, field_name, declare_func_type,
             &import_funcs[i].signature, &import_funcs[i].attachment,
             &import_funcs[i].call_conv_raw);
-    if (!linked_func) {
+    if (linked_func) {
+        is_native_symbol = true;
+    }
+    else {
         if (!wasm_runtime_is_built_in_module(sub_module_name)) {
             sub_module = load_depended_module(module, sub_module_name,
                                               error_buf, error_buf_size);

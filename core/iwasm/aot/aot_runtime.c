@@ -1190,10 +1190,10 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
     }
     total_size += table_size;
 
-    /* The offset of AOTModuleInstanceExtra, make it 8-byte aligned */
+    /* The offset of WASMModuleInstanceExtra, make it 8-byte aligned */
     total_size = (total_size + 7LL) & ~7LL;
     extra_info_offset = (uint32)total_size;
-    total_size += sizeof(AOTModuleInstanceExtra);
+    total_size += sizeof(WASMModuleInstanceExtra);
 
     /* Allocate module instance, global data, table data and heap data */
     if (!(module_inst =
