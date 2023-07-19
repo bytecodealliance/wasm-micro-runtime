@@ -14,11 +14,12 @@
 extern "C" {
 #endif
 
-
 #if WASM_ENABLE_EXCE_HANDLING != 0
-#define _EXCEWARNING   LOG_WARNING  /* for exception handling misbehavior logging */
-#define _EXCEDEBUG     LOG_VERBOSE  /* for exception handling debugging */
-#define _EXCEVERBOSE   LOG_VERBOSE  /* more excessive tracing of tagbrowsing and stack pointers */
+#define _EXCEWARNING \
+    LOG_WARNING                /* for exception handling misbehavior logging */
+#define _EXCEDEBUG LOG_VERBOSE /* for exception handling debugging */
+#define _EXCEVERBOSE \
+    LOG_VERBOSE /* more excessive tracing of tagbrowsing and stack pointers */
 #endif
 
 /** Value Type */
@@ -224,15 +225,15 @@ typedef struct WASMFunctionImport {
 #if WASM_ENABLE_TAGS != 0
 typedef struct WASMTagImport {
     uint8 attribute; /* the type of the tag (numerical) */
-    uint32 type; /* the type of the catch function (numerical)*/
-    WASMType * tag_type;
+    uint32 type;     /* the type of the catch function (numerical)*/
+    WASMType *tag_type;
     uint32 tag_index_linked;
 #if WASM_ENABLE_MULTI_MODULE != 0
     /* imported function pointer after linked */
     /* TODO: remove if not needed */
     WASMModule *import_module;
     WASMTag *import_tag_linked;
-#endif    
+#endif
 } WASMTagImport;
 #endif
 
@@ -338,8 +339,8 @@ struct WASMFunction {
 
 #if WASM_ENABLE_TAGS != 0
 struct WASMTag {
-    uint8 attribute;    /* the attribute property of the tag (expected to be 0) */
-    uint32 type;         /* the type of the tag (expected valid inden in type table) */
+    uint8 attribute; /* the attribute property of the tag (expected to be 0) */
+    uint32 type; /* the type of the tag (expected valid inden in type table) */
 };
 #endif
 
@@ -494,11 +495,10 @@ struct WASMModule {
     WASMImport *import_functions;
     WASMImport *import_tables;
     WASMImport *import_memories;
-#if WASM_ENABLE_TAGS !=  0
+#if WASM_ENABLE_TAGS != 0
     WASMImport *import_tags;
 #endif
     WASMImport *import_globals;
-
 
     WASMType **types;
     WASMImport *imports;
@@ -506,7 +506,7 @@ struct WASMModule {
     WASMTable *tables;
     WASMMemory *memories;
 #if WASM_ENABLE_TAGS != 0
-    WASMTag  *tags;
+    WASMTag *tags;
 #endif
     WASMGlobal *globals;
     WASMExport *exports;
@@ -692,7 +692,8 @@ typedef struct WASMBranchBlock {
     uint32 *frame_sp;
     uint32 cell_num;
 #if WASM_ENABLE_EXCE_HANDLING != 0
-/* in exception handling, label_type needs to be stored to lookup exception handlers */
+    /* in exception handling, label_type needs to be stored to lookup exception
+     * handlers */
     uint8 label_type;
 #endif
 } WASMBranchBlock;
