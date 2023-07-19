@@ -925,6 +925,7 @@ wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
                 /* the super type is (ref null struct) or (ref struct) */
                 if (type2 == REF_TYPE_HT_NULLABLE
                     || type2 == REF_TYPE_HT_NON_NULLABLE) {
+                    bh_assert(ref_type2);
                     uint8 ref_type =
                         (uint8)(ref_type2->ref_ht_common.heap_type
                                 + REF_TYPE_FUNCREF - HEAP_TYPE_FUNC);
@@ -939,6 +940,7 @@ wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
                 /* the super type is (ref null array) or (ref array) */
                 if (type2 == REF_TYPE_HT_NULLABLE
                     || type2 == REF_TYPE_HT_NON_NULLABLE) {
+                    bh_assert(ref_type2);
                     uint8 ref_type =
                         (uint8)(ref_type2->ref_ht_common.heap_type
                                 + REF_TYPE_FUNCREF - HEAP_TYPE_FUNC);
@@ -953,6 +955,7 @@ wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
                 /* the super type is (ref null func) or (ref func) */
                 if (type2 == REF_TYPE_HT_NULLABLE
                     || type2 == REF_TYPE_HT_NON_NULLABLE) {
+                    bh_assert(ref_type2);
                     uint8 ref_type =
                         (uint8)(ref_type2->ref_ht_common.heap_type
                                 + REF_TYPE_FUNCREF - HEAP_TYPE_FUNC);
