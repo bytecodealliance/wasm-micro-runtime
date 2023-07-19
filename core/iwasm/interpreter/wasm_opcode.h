@@ -21,10 +21,10 @@ typedef enum WASMOpcode {
     WASM_OP_IF = 0x04,          /* if */
     WASM_OP_ELSE = 0x05,        /* else */
 #if WASM_ENABLE_EXCE_HANDLING != 0
-    WASM_OP_TRY = 0x06,         /* try */
-    WASM_OP_CATCH = 0x07,       /* catch* */
-    WASM_OP_THROW = 0x08,       /* throw of a try catch */
-    WASM_OP_RETHROW = 0x09,     /* rethrow of a try catch */
+    WASM_OP_TRY = 0x06,     /* try */
+    WASM_OP_CATCH = 0x07,   /* catch* */
+    WASM_OP_THROW = 0x08,   /* throw of a try catch */
+    WASM_OP_RETHROW = 0x09, /* rethrow of a try catch */
 #else
     WASM_OP_UNUSED_0x06 = 0x06,
     WASM_OP_UNUSED_0x07 = 0x07,
@@ -48,8 +48,8 @@ typedef enum WASMOpcode {
     WASM_OP_UNUSED_0x16 = 0x16,
     WASM_OP_UNUSED_0x17 = 0x17,
 #if WASM_ENABLE_EXCE_HANDLING != 0
-    WASM_OP_DELEGATE = 0x18,    /* delegate block of the try catch*/
-    WASM_OP_CATCH_ALL = 0x19,   /* a catch_all handler in a try block */
+    WASM_OP_DELEGATE = 0x18,  /* delegate block of the try catch*/
+    WASM_OP_CATCH_ALL = 0x19, /* a catch_all handler in a try block */
 #else
     WASM_OP_UNUSED_0x18 = 0x18,
     WASM_OP_UNUSED_0x19 = 0x19,
@@ -283,9 +283,9 @@ typedef enum WASMOpcode {
     DEBUG_OP_BREAK = 0xd7, /* debug break point */
 #endif
 #if WASM_ENABLE_EXCE_HANDLING != 0
-    EXT_OP_TRY = 0xd8,             /* try block with blocktype */
-    /* throw, rethrow, delegate, catch and catch_all
-     * do not have a blocktype, as far as i see */
+    EXT_OP_TRY = 0xd8, /* try block with blocktype */
+/* throw, rethrow, delegate, catch and catch_all
+ * do not have a blocktype, as far as i see */
 #endif
     /* Post-MVP extend op prefix */
     WASM_OP_MISC_PREFIX = 0xfc,
