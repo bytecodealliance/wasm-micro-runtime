@@ -109,7 +109,18 @@ if GetDepend(['WAMR_BUILD_CUSTOM_NAME_SECTION']):
 
 if GetDepend(['WAMR_BUILD_TAIL_CALL']):
     CPPDEFINES += ['WASM_ENABLE_TAIL_CALL=1']
-    print('[WAMR] Tail call enabledd')
+    print('[WAMR] Tail call enabled')
+
+if GetDepend(['WAMR_BUILD_EXCE_HANDLING']):
+    CPPDEFINES += ['WASM_ENABLE_EXCE_HANDLING=1']
+    CPPDEFINES += ['WASM_ENABLE_TAGS=1']
+    print('[WAMR] Exception handling enabled')
+else:
+    CPPDEFINES += ['WASM_ENABLE_EXCE_HANDLING=0']
+    CPPDEFINES += ['WASM_ENABLE_TAGS=0']
+    print('[WAMR] Exception handling disabled')
+
+
 
 LIBS = ['m']
 
