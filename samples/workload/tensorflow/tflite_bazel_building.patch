@@ -1,0 +1,791 @@
+diff --git a/WORKSPACE b/WORKSPACE
+index 1286ef9ac03..c2798a06d66 100644
+--- a/WORKSPACE
++++ b/WORKSPACE
+@@ -21,3 +21,21 @@ tf_workspace1()
+ load("@//tensorflow:workspace0.bzl", "tf_workspace0")
+ 
+ tf_workspace0()
++
++# Emscripten
++load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
++http_archive(
++    name = "emsdk",
++    sha256 = "5fa6f5eb45a4d50264610c4c9e1c155535359b63bfaad69b4e5101d16c1e7e32",
++    strip_prefix = "emsdk-a896e3d066448b3530dbcaa48869fafefd738f57/bazel",
++    url = "https://github.com/emscripten-core/emsdk/archive/a896e3d066448b3530dbcaa48869fafefd738f57.tar.gz",
++)
++
++load("@emsdk//:deps.bzl", emsdk_deps = "deps")
++emsdk_deps()
++
++load("@emsdk//:emscripten_deps.bzl", emsdk_emscripten_deps = "emscripten_deps")
++emsdk_emscripten_deps(emscripten_version = "3.1.44")
++
++load("@emsdk//:toolchains.bzl", "register_emscripten_toolchains")
++register_emscripten_toolchains()
+\ No newline at end of file
+diff --git a/tensorflow/BUILD b/tensorflow/BUILD
+index fce465ff1f2..86eaff6edc7 100644
+--- a/tensorflow/BUILD
++++ b/tensorflow/BUILD
+@@ -1005,6 +1005,15 @@ selects.config_setting_group(
+     visibility = ["//visibility:public"],
+ )
+ 
++config_setting(
++    name = "emscripten_wasmsimd",
++    values = {
++        "crosstool_top": "@emsdk//emscripten_toolchain:everything",
++        "cpu": "wasm",
++        "features": "wasm_simd",
++    },
++)
++
+ # DO NOT ADD ANY NEW EXCEPTIONS TO THIS LIST!
+ # Instead, please use public APIs or public build rules TF provides.
+ # If you need functionality that is not exposed, we will work with you to expand our public APIs.
+diff --git a/tensorflow/lite/BUILD b/tensorflow/lite/BUILD
+index c08cd7bcec5..e4a7b661e57 100644
+--- a/tensorflow/lite/BUILD
++++ b/tensorflow/lite/BUILD
+@@ -58,6 +58,15 @@ config_setting(
+     },
+ )
+ 
++config_setting(
++    name = "emscripten_wasmsimd",
++    values = {
++        "crosstool_top": "@emsdk//emscripten_toolchain:everything",
++        "cpu": "wasm",
++        "features": "wasm_simd",
++    },
++)
++
+ # Without "cpu":"k8", when building with --copt=-DTF_LITE_STATIC_MEMORY, we get
+ # the following error:
+ # Multiple matches are not allowed unless one is unambiguously more specialized.
+diff --git a/tensorflow/lite/build_def.bzl b/tensorflow/lite/build_def.bzl
+index 842879a0536..4d1ae920c85 100644
+--- a/tensorflow/lite/build_def.bzl
++++ b/tensorflow/lite/build_def.bzl
+@@ -36,6 +36,10 @@ def tflite_copts():
+             "/wd4018",  # -Wno-sign-compare
+             # copybara:comment_end
+         ],
++        clean_dep("//tensorflow:emscripten_wasmsimd"): [
++            "-sSHARED_MEMORY=0",
++            "-sUSE_PTHREADS=0",
++        ],
+         "//conditions:default": [
+             "-Wno-sign-compare",
+         ],
+diff --git a/tensorflow/lite/mmap_allocation.cc b/tensorflow/lite/mmap_allocation.cc
+index 3d1a7f03e71..3d18778eb3a 100644
+--- a/tensorflow/lite/mmap_allocation.cc
++++ b/tensorflow/lite/mmap_allocation.cc
+@@ -12,7 +12,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ ==============================================================================*/
+-
+ #include <fcntl.h>
+ #include <stddef.h>
+ #include <sys/mman.h>
+diff --git a/tensorflow/lite/tools/benchmark/BUILD b/tensorflow/lite/tools/benchmark/BUILD
+index 95ca87a9e87..3550f1a5ef2 100644
+--- a/tensorflow/lite/tools/benchmark/BUILD
++++ b/tensorflow/lite/tools/benchmark/BUILD
+@@ -1,6 +1,7 @@
+ load("//tensorflow:tensorflow.bzl", "tf_cc_binary")
+ load("//tensorflow/lite:special_rules.bzl", "tflite_portable_test_suite")
+ load("//tensorflow/lite:build_def.bzl", "tflite_copts", "tflite_copts_warnings", "tflite_linkopts")
++load("@emsdk//emscripten_toolchain:wasm_rules.bzl", "wasm_cc_binary")
+ 
+ package(
+     # copybara:uncomment default_applicable_licenses = ["//tensorflow:license"],
+@@ -37,6 +38,20 @@ cc_binary(
+             "-lm",  # some builtin ops, e.g., tanh, need -lm
+             "-Wl,--rpath=/data/local/tmp/",  # Hexagon delegate libraries should be in /data/local/tmp
+         ],
++        "//tensorflow:emscripten_wasmsimd": [
++            "-o benchmark_model.wasm",
++            "-s ASSERTIONS=1",
++            "-s ERROR_ON_UNDEFINED_SYMBOLS=0",
++            "-s ALLOW_MEMORY_GROWTH=1",
++            "-s TOTAL_MEMORY=536870912",  # 512M
++            "-s SHARED_MEMORY=0",
++            "-s USE_PTHREADS=0",
++            "-O0",
++            "-Wl,--export=__heap_base",
++            "-Wl,--export=__data_end",
++            "-Wl,--export=malloc",
++            "-Wl,--export=free",
++        ],
+         "//conditions:default": [],
+     }),
+     tags = ["builder_default_android_arm64"],
+@@ -45,6 +60,17 @@ cc_binary(
+     ],
+ )
+ 
++wasm_cc_binary(
++    name = "benchmark_model-wasm",
++    cc_target = "benchmark_model",
++    threads = "off",
++    simd = True,
++    standalone= True,
++    outputs = [
++        "benchmark_model.wasm",
++    ]
++)
++
+ cc_binary(
+     name = "benchmark_model_performance_options",
+     srcs = [
+diff --git a/tensorflow/lite/tools/model_loader.h b/tensorflow/lite/tools/model_loader.h
+index b185c5d17c1..0fd4f1a793f 100644
+--- a/tensorflow/lite/tools/model_loader.h
++++ b/tensorflow/lite/tools/model_loader.h
+@@ -75,9 +75,10 @@ class BufferModelLoader : public ModelLoader {
+   BufferModelLoader(const char* caller_owned_buffer, size_t model_size)
+       : caller_owned_buffer_(caller_owned_buffer), model_size_(model_size) {}
+ 
++  // FIX: explicitly defaulted move assignment operator is implicitly deleted
+   // Move only.
+-  BufferModelLoader(BufferModelLoader&&) = default;
+-  BufferModelLoader& operator=(BufferModelLoader&&) = default;
++  BufferModelLoader(BufferModelLoader&&) = delete;
++  BufferModelLoader& operator=(BufferModelLoader&&) = delete;
+ 
+   ~BufferModelLoader() override = default;
+ 
+@@ -131,9 +132,10 @@ class PipeModelLoader : public ModelLoader {
+   PipeModelLoader(int pipe_fd, size_t model_size)
+       : ModelLoader(), pipe_fd_(pipe_fd), model_size_(model_size) {}
+ 
++  // FIX: explicitly defaulted move assignment operator is implicitly deleted
+   // Move only.
+-  PipeModelLoader(PipeModelLoader&&) = default;
+-  PipeModelLoader& operator=(PipeModelLoader&&) = default;
++  PipeModelLoader(PipeModelLoader&&) = delete;
++  PipeModelLoader& operator=(PipeModelLoader&&) = delete;
+ 
+   ~PipeModelLoader() override { std::free(model_buffer_); }
+ 
+diff --git a/tensorflow/lite/util.cc b/tensorflow/lite/util.cc
+index 65242cbdf7c..e344cd49cd8 100644
+--- a/tensorflow/lite/util.cc
++++ b/tensorflow/lite/util.cc
+@@ -16,6 +16,8 @@ limitations under the License.
+ 
+ #include <stddef.h>
+ #include <stdint.h>
++#include <sys/mman.h>
++#include <sys/stat.h>
+ 
+ #include <algorithm>
+ #include <complex>
+@@ -30,6 +32,13 @@ limitations under the License.
+ #include "tensorflow/lite/core/macros.h"
+ #include "tensorflow/lite/schema/schema_generated.h"
+ 
++#ifdef __EMSCRIPTEN__
++#include <emscripten/heap.h>
++#include <fcntl.h>
++#include <sysexits.h>
++#include <wasi/api.h>
++#endif
++
+ namespace tflite {
+ namespace {
+ 
+@@ -231,3 +240,571 @@ TfLiteStatus BytesRequired(TfLiteType type, const int* dims, size_t dims_size,
+   return kTfLiteOk;
+ }
+ }  // namespace tflite
++
++#ifdef __EMSCRIPTEN__
++
++#ifndef NSEC_PER_SEC
++#define NSEC_PER_SEC (1000 * 1000 * 1000)
++#endif
++
++extern "C" __attribute__((import_module("env"), import_name("getentropy"))) int
++import_getentropy(void* buffer, size_t length);
++
++extern "C" int getentropy(void* buffer, size_t length) {
++  return import_getentropy(buffer, length);
++}
++
++/* ======================================== */
++
++/* from libc-top-half/musl/src/internal/lock.h */
++#if defined(__wasilibc_unmodified_upstream) || defined(_REENTRANT)
++hidden void __lock(volatile int*);
++hidden void __unlock(volatile int*);
++#define LOCK(x) __lock(x)
++#define UNLOCK(x) __unlock(x)
++#else
++// No locking needed.
++#define LOCK(x) ((void)0)
++#define UNLOCK(x) ((void)0)
++#endif
++
++/* from libc-top-half/musl/arch/x86_64/bits/limits.h */
++#define PAGESIZE 4096
++
++/* from libc-bottom-half/headers/public/wasi/libc-find-relpath.h */
++int __wasilibc_find_relpath_alloc(const char* path, const char** abs,
++                                  char** relative, size_t* relative_len,
++                                  int can_realloc) __attribute__((__weak__));
++
++/* from libc-bottom-half/sources/preopens.c */
++/// A name and file descriptor pair.
++typedef struct preopen {
++  /// The path prefix associated with the file descriptor.
++  const char* prefix;
++
++  /// The file descriptor.
++  __wasi_fd_t fd;
++} preopen;
++
++/// A simple growable array of `preopen`.
++static preopen* preopens;
++static size_t num_preopens;
++static size_t preopen_capacity;
++
++/// Access to the the above preopen must be protected in the presence of
++/// threads.
++#ifdef _REENTRANT
++static volatile int lock[1];
++#endif
++
++#ifdef NDEBUG
++#define assert_invariants()  // assertions disabled
++#else
++static void assert_invariants(void) {
++  assert(num_preopens <= preopen_capacity);
++  assert(preopen_capacity == 0 || preopens != NULL);
++  assert(preopen_capacity == 0 ||
++         preopen_capacity * sizeof(preopen) > preopen_capacity);
++
++  for (size_t i = 0; i < num_preopens; ++i) {
++    const preopen* pre = &preopens[i];
++    assert(pre->prefix != NULL);
++    assert(pre->fd != (__wasi_fd_t)-1);
++#ifdef __wasm__
++    assert((uintptr_t)pre->prefix <
++           (__uint128_t)__builtin_wasm_memory_size(0) * PAGESIZE);
++#endif
++  }
++}
++#endif
++
++/// Allocate space for more preopens. Returns 0 on success and -1 on failure.
++static int resize(void) {
++  LOCK(lock);
++  size_t start_capacity = 4;
++  size_t old_capacity = preopen_capacity;
++  size_t new_capacity = old_capacity == 0 ? start_capacity : old_capacity * 2;
++
++  preopen* old_preopens = preopens;
++  preopen* new_preopens = (preopen*)calloc(sizeof(preopen), new_capacity);
++  if (new_preopens == NULL) {
++    UNLOCK(lock);
++    return -1;
++  }
++
++  memcpy(new_preopens, old_preopens, num_preopens * sizeof(preopen));
++  preopens = new_preopens;
++  preopen_capacity = new_capacity;
++  free(old_preopens);
++
++  assert_invariants();
++  UNLOCK(lock);
++  return 0;
++}
++
++// Normalize an absolute path. Removes leading `/` and leading `./`, so the
++// first character is the start of a directory name. This works because our
++// process always starts with a working directory of `/`. Additionally translate
++// `.` to the empty string.
++static const char* strip_prefixes(const char* path) {
++  while (1) {
++    if (path[0] == '/') {
++      path++;
++    } else if (path[0] == '.' && path[1] == '/') {
++      path += 2;
++    } else if (path[0] == '.' && path[1] == 0) {
++      path++;
++    } else {
++      break;
++    }
++  }
++
++  return path;
++}
++
++static int internal_register_preopened_fd(__wasi_fd_t fd,
++                                          const char* relprefix) {
++  LOCK(lock);
++
++  // Check preconditions.
++  assert_invariants();
++  assert(fd != AT_FDCWD);
++  assert(fd != -1);
++  assert(relprefix != NULL);
++
++  if (num_preopens == preopen_capacity && resize() != 0) {
++    UNLOCK(lock);
++    return -1;
++  }
++
++  printf("add %s into preopen[]\n", relprefix);
++
++  char* prefix = strdup(strip_prefixes(relprefix));
++  if (prefix == NULL) {
++    UNLOCK(lock);
++    return -1;
++  }
++  preopens[num_preopens++] = (preopen){
++      prefix,
++      fd,
++  };
++
++  assert_invariants();
++  UNLOCK(lock);
++  return 0;
++}
++
++__attribute__((constructor(51))) static void __wasilibc_populate_preopens(
++    void) {
++  // Skip stdin, stdout, and stderr, and count up until we reach an invalid
++  // file descriptor.
++  for (__wasi_fd_t fd = 3; fd != 0; ++fd) {
++    __wasi_prestat_t prestat;
++    __wasi_errno_t ret = __wasi_fd_prestat_get(fd, &prestat);
++    if (ret == __WASI_ERRNO_BADF) break;
++    if (ret != __WASI_ERRNO_SUCCESS) goto oserr;
++    /* different definition between wasi and emscripten-wasi */
++    switch (prestat.pr_type) {
++      case __WASI_PREOPENTYPE_DIR: {
++        char* prefix = (char*)malloc(prestat.u.dir.pr_name_len + 1);
++        if (prefix == NULL) goto software;
++
++        // TODO: Remove the cast on `path` once the witx is updated with
++        // char8 support.
++        ret = __wasi_fd_prestat_dir_name(fd, (uint8_t*)prefix,
++                                         prestat.u.dir.pr_name_len);
++        if (ret != __WASI_ERRNO_SUCCESS) goto oserr;
++        prefix[prestat.u.dir.pr_name_len] = '\0';
++
++        if (internal_register_preopened_fd(fd, prefix) != 0) goto software;
++        free(prefix);
++
++        break;
++      }
++      default:
++        break;
++    }
++  }
++
++  return;
++oserr:
++  _Exit(EX_OSERR);
++software:
++  _Exit(EX_SOFTWARE);
++}
++
++/// Are the `prefix_len` bytes pointed to by `prefix` a prefix of `path`?
++static bool prefix_matches(const char* prefix, size_t prefix_len,
++                           const char* path) {
++  // Allow an empty string as a prefix of any relative path.
++  if (path[0] != '/' && prefix_len == 0) return true;
++
++  // Check whether any bytes of the prefix differ.
++  if (memcmp(path, prefix, prefix_len) != 0) return false;
++
++  // Ignore trailing slashes in directory names.
++  size_t i = prefix_len;
++  while (i > 0 && prefix[i - 1] == '/') {
++    --i;
++  }
++
++  // Match only complete path components.
++  char last = path[i];
++  return last == '/' || last == '\0';
++}
++
++int __wasilibc_find_abspath(const char* path, const char** abs_prefix,
++                            const char** relative_path) {
++  // Strip leading `/` characters, the prefixes we're mataching won't have
++  // them.
++  while (*path == '/') path++;
++  // Search through the preopens table. Iterate in reverse so that more
++  // recently added preopens take precedence over less recently addded ones.
++  size_t match_len = 0;
++  int fd = -1;
++  LOCK(lock);
++  for (size_t i = num_preopens; i > 0; --i) {
++    const preopen* pre = &preopens[i - 1];
++    const char* prefix = pre->prefix;
++    size_t len = strlen(prefix);
++
++    // If we haven't had a match yet, or the candidate path is longer than
++    // our current best match's path, and the candidate path is a prefix of
++    // the requested path, take that as the new best path.
++    if ((fd == -1 || len > match_len) && prefix_matches(prefix, len, path)) {
++      fd = pre->fd;
++      match_len = len;
++      *abs_prefix = prefix;
++    }
++  }
++  UNLOCK(lock);
++
++  if (fd == -1) {
++    printf("failed to get dirfd of %s\n", path);
++    errno = ENOENT;
++    return -1;
++  }
++
++  // The relative path is the substring after the portion that was matched.
++  const char* computed = path + match_len;
++
++  // Omit leading slashes in the relative path.
++  while (*computed == '/') ++computed;
++
++  // *at syscalls don't accept empty relative paths, so use "." instead.
++  if (*computed == '\0') computed = ".";
++
++  *relative_path = computed;
++  return fd;
++}
++
++int __wasilibc_find_relpath(const char* path, const char** abs_prefix,
++                            char** relative_path, size_t relative_path_len) {
++  // If `chdir` is linked, whose object file defines this symbol, then we
++  // call that. Otherwise if the program can't `chdir` then `path` is
++  // absolute (or relative to the root dir), so we delegate to `find_abspath`
++  if (__wasilibc_find_relpath_alloc)
++    return __wasilibc_find_relpath_alloc(path, abs_prefix, relative_path,
++                                         &relative_path_len, 0);
++  return __wasilibc_find_abspath(path, abs_prefix, (const char**)relative_path);
++}
++
++/* from libc-bottom-half/cloudlibc/src/libc/fcntl/openat.c */
++int __wasilibc_nocwd_openat_nomode(int fd, const char* path, int oflag) {
++  /* different definition between wasi and emscripten-wasi */
++  int accessMode = (oflag & O_ACCMODE);
++  if (accessMode != O_WRONLY && accessMode != O_RDONLY &&
++      accessMode != O_RDWR) {
++    errno = -EINVAL;
++    return -1;
++  }
++
++  __wasi_rights_t max =
++      ~(__WASI_RIGHTS_FD_DATASYNC | __WASI_RIGHTS_FD_READ |
++        __WASI_RIGHTS_FD_WRITE | __WASI_RIGHTS_FD_ALLOCATE |
++        __WASI_RIGHTS_FD_READDIR | __WASI_RIGHTS_FD_FILESTAT_SET_SIZE);
++  if (accessMode == O_RDONLY) {
++    max |= __WASI_RIGHTS_FD_READ | __WASI_RIGHTS_FD_READDIR;
++  } else if (accessMode == O_WRONLY) {
++    max |= __WASI_RIGHTS_FD_DATASYNC | __WASI_RIGHTS_FD_WRITE |
++           __WASI_RIGHTS_FD_ALLOCATE | __WASI_RIGHTS_FD_FILESTAT_SET_SIZE;
++  } else {
++    max |= __WASI_RIGHTS_FD_READ | __WASI_RIGHTS_FD_READDIR;
++    max |= __WASI_RIGHTS_FD_DATASYNC | __WASI_RIGHTS_FD_WRITE |
++           __WASI_RIGHTS_FD_ALLOCATE | __WASI_RIGHTS_FD_FILESTAT_SET_SIZE;
++  }
++
++  // Ensure that we can actually obtain the minimal rights needed.
++  __wasi_fdstat_t fsb_cur;
++  __wasi_errno_t error = __wasi_fd_fdstat_get(fd, &fsb_cur);
++  if (error != 0) {
++    errno = error;
++    return -1;
++  }
++
++  // Path lookup properties.
++  __wasi_lookupflags_t lookup_flags = 0;
++  if ((oflag & O_NOFOLLOW) == 0)
++    lookup_flags |= __WASI_LOOKUPFLAGS_SYMLINK_FOLLOW;
++
++  // Open file with appropriate rights.
++  __wasi_fdflags_t fs_flags = oflag & 0xfff;
++  __wasi_rights_t fs_rights_base = max & fsb_cur.fs_rights_inheriting;
++  __wasi_rights_t fs_rights_inheriting = fsb_cur.fs_rights_inheriting;
++  __wasi_fd_t newfd;
++  error = __wasi_path_open(fd, lookup_flags, path, strlen(path),
++                           (oflag >> 12) & 0xfff, fs_rights_base,
++                           fs_rights_inheriting, fs_flags, &newfd);
++  if (error != 0) {
++    errno = error;
++    return -1;
++  }
++  return newfd;
++}
++
++/* from libc-bottom-half/sources/posix.c */
++static int find_relpath2(const char* path, char** relative,
++                         size_t* relative_len) {
++  const char* abs;
++  if (__wasilibc_find_relpath_alloc)
++    return __wasilibc_find_relpath_alloc(path, &abs, relative, relative_len, 1);
++  return __wasilibc_find_relpath(path, &abs, relative, *relative_len);
++}
++
++static int find_relpath(const char* path, char** relative) {
++  static __thread char* relative_buf = NULL;
++  static __thread size_t relative_buf_len = 0;
++  int fd = find_relpath2(path, &relative_buf, &relative_buf_len);
++  // find_relpath2 can update relative_buf, so assign it after the call
++  *relative = relative_buf;
++  return fd;
++}
++
++int __wasilibc_open_nomode(const char* path, int oflag) {
++  char* relative_path;
++  int dirfd = find_relpath(path, &relative_path);
++
++  // If we can't find a preopen for it, fail as if we can't find the path.
++  if (dirfd == -1) {
++    printf("failed finding preopen dirfd\n");
++    errno = ENOENT;
++    return -1;
++  }
++
++  return __wasilibc_nocwd_openat_nomode(dirfd, relative_path, oflag);
++}
++
++/* ======================================== */
++extern "C" int __syscall_openat(int dirfd, intptr_t path, int flags, ...) {
++  if (num_preopens == 0) __wasilibc_populate_preopens();
++
++  if (num_preopens == 0) {
++    printf("preopen[] is empty, might want to add something firstly\n");
++    errno = EPERM;
++    return -1;
++  }
++
++  assert(dirfd = AT_FDCWD);
++
++  /* unmask O_LARGEFILE */
++  flags = flags & ~O_LARGEFILE;
++
++  return __wasilibc_open_nomode((const char*)path, flags);
++}
++
++/* ======================================== */
++/* from ./libc-bottom-half/cloudlibc/src/common/time.h */
++static inline struct timespec timestamp_to_timespec(
++    __wasi_timestamp_t timestamp) {
++  // Decompose timestamp into seconds and nanoseconds.
++  return (struct timespec){
++      .tv_sec = static_cast<long>(timestamp) / NSEC_PER_SEC,
++      .tv_nsec = static_cast<long>(timestamp) % NSEC_PER_SEC};
++}
++
++/* from ./libc-bottom-half/cloudlibc/src/libc/sys/stat/stat_impl.h */
++static inline void to_public_stat(const __wasi_filestat_t* in,
++                                  struct stat* out) {
++  // // Ensure that we don't truncate any values.
++  // static_assert(sizeof(in->dev) == sizeof(out->st_dev), "Size mismatch");
++  // static_assert(sizeof(in->ino) == sizeof(out->st_ino), "Size mismatch");
++  // /*
++  //  * The non-standard __st_filetype field appears to only be used for shared
++  //  * memory, which we don't currently support.
++  //  */
++  // /* nlink_t is 64-bit on wasm32, following the x32 ABI. */
++  // static_assert(sizeof(in->nlink) <= sizeof(out->st_nlink), "Size
++  // shortfall"); static_assert(sizeof(in->size) == sizeof(out->st_size), "Size
++  // mismatch");
++
++  *out = (struct stat){
++      .st_dev = (dev_t)in->dev,
++      .st_nlink = (nlink_t)in->nlink,
++      .st_size = (off_t)in->size,
++      .st_atim = timestamp_to_timespec(in->atim),
++      .st_mtim = timestamp_to_timespec(in->mtim),
++      .st_ctim = timestamp_to_timespec(in->ctim),
++      .st_ino = (ino_t)in->ino,
++  };
++
++  // Convert file type to legacy types encoded in st_mode.
++  switch (in->filetype) {
++    case __WASI_FILETYPE_BLOCK_DEVICE:
++      out->st_mode |= S_IFBLK;
++      break;
++    case __WASI_FILETYPE_CHARACTER_DEVICE:
++      out->st_mode |= S_IFCHR;
++      break;
++    case __WASI_FILETYPE_DIRECTORY:
++      out->st_mode |= S_IFDIR;
++      break;
++    case __WASI_FILETYPE_REGULAR_FILE:
++      out->st_mode |= S_IFREG;
++      break;
++    case __WASI_FILETYPE_SOCKET_DGRAM:
++    case __WASI_FILETYPE_SOCKET_STREAM:
++      out->st_mode |= S_IFSOCK;
++      break;
++    case __WASI_FILETYPE_SYMBOLIC_LINK:
++      out->st_mode |= S_IFLNK;
++      break;
++  }
++}
++
++extern "C" int __syscall_fstat64(int fd, intptr_t buf) {
++  __wasi_filestat_t internal_stat;
++  __wasi_errno_t error = __wasi_fd_filestat_get(fd, &internal_stat);
++  if (error != 0) {
++    errno = error;
++    return -1;
++  }
++
++  to_public_stat(&internal_stat, (struct stat*)buf);
++
++  return 0;
++}
++
++extern "C" int __syscall_stat64(int fd, intptr_t buf) {
++  printf("not support syscall_stat64, fd=%d\n", fd);
++  return -EIO;
++}
++
++/* ======================================== */
++/* from libc-bottom-half/mman/mman.c */
++
++struct map {
++  int prot;
++  int flags;
++  off_t offset;
++  size_t length;
++};
++
++extern "C" int _mmap_js(size_t length, int prot, int flags, int fd,
++                        off_t offset, int* allocated, void** addr) {
++  // Check for unsupported flags.
++  if ((flags & (MAP_PRIVATE | MAP_SHARED)) == 0 || (flags & MAP_FIXED) != 0 ||
++#ifdef MAP_SHARED_VALIDATE
++      (flags & MAP_SHARED_VALIDATE) == MAP_SHARED_VALIDATE ||
++#endif
++#ifdef MAP_NORESERVE
++      (flags & MAP_NORESERVE) != 0 ||
++#endif
++#ifdef MAP_GROWSDOWN
++      (flags & MAP_GROWSDOWN) != 0 ||
++#endif
++#ifdef MAP_HUGETLB
++      (flags & MAP_HUGETLB) != 0 ||
++#endif
++#ifdef MAP_FIXED_NOREPLACE
++      (flags & MAP_FIXED_NOREPLACE) != 0 ||
++#endif
++      0) {
++    printf("[Error] wrong flags\n");
++    errno = EINVAL;
++    return -EINVAL;
++  }
++
++  // Check for unsupported protection requests.
++  if (prot == PROT_NONE ||
++#ifdef PROT_EXEC
++      (prot & PROT_EXEC) != 0 ||
++#endif
++      0) {
++    printf("[Error] wrong prot\n");
++    errno = EINVAL;
++    return -EINVAL;
++  }
++
++  //  To be consistent with POSIX.
++  if (length == 0) {
++    printf("[Error] length is 0\n");
++    errno = EINVAL;
++    return -EINVAL;
++  }
++
++  // Check for integer overflow.
++  size_t buf_len = 0;
++  if (__builtin_add_overflow(length, sizeof(struct map), &buf_len)) {
++    errno = ENOMEM;
++    return -ENOMEM;
++  }
++
++  // Allocate the memory.
++  struct map* map = (struct map*)malloc(buf_len);
++  if (!map) {
++    errno = ENOMEM;
++    return -ENOMEM;
++  }
++
++  memset(map, 0, buf_len);
++
++  // Initialize the header.
++  map->prot = prot;
++  map->flags = flags;
++  map->offset = offset;
++  map->length = length;
++
++  // Initialize the main memory buffer, either with the contents of a file,
++  // or with zeros.
++  *addr = (void*)(map + 1);
++  if ((flags & MAP_ANON) == 0) {
++    char* body = (char*)(*addr);
++    while (length > 0) {
++      const ssize_t nread = pread(fd, body, length, offset);
++
++      if (nread < 0) {
++        if (errno == EINTR) continue;
++        printf("[Error] pread() EIO\n");
++        return -EIO;
++      }
++      if (nread == 0) break;
++      length -= (size_t)nread;
++      offset += (size_t)nread;
++      body += (size_t)nread;
++    }
++  } else {
++    memset(addr, 0, length);
++  }
++
++  *allocated = true;
++  return 0;
++}
++
++extern "C" int _munmap_js(intptr_t addr, size_t length, int prot, int flags,
++                          int fd, off_t offset) {
++  struct map* map = (struct map*)addr - 1;
++
++  // We don't support partial munmapping.
++  if (map->length != length) {
++    errno = EINVAL;
++    return -EINVAL;
++  }
++
++  // Release the memory.
++  free(map);
++
++  // Success!
++  return 0;
++}
++
++#endif /* __EMSCRIPTEN__ */
+\ No newline at end of file
+diff --git a/third_party/absl/workspace.bzl b/third_party/absl/workspace.bzl
+index 07f49cebb78..ed3d86a0049 100644
+--- a/third_party/absl/workspace.bzl
++++ b/third_party/absl/workspace.bzl
+@@ -44,7 +44,10 @@ def repo():
+         system_link_files = SYS_LINKS,
+         # This patch pulls in a fix for designated initializers that MSVC
+         # complains about. It shouldn't be necessary at the next LTS release.
+-        patch_file = ["//third_party/absl:absl_designated_initializers.patch"],
++        patch_file = [
++            "//third_party/absl:absl_designated_initializers.patch",
++            "//third_party/absl:absl_em_asm_int.patch",
++        ],
+         strip_prefix = "abseil-cpp-{commit}".format(commit = ABSL_COMMIT),
+         urls = tf_mirror_urls("https://github.com/abseil/abseil-cpp/archive/{commit}.tar.gz".format(commit = ABSL_COMMIT)),
+     )
