@@ -558,6 +558,243 @@ str2uint32(const char *buf, uint32 *p_res);
 static bool
 str2uint64(const char *buf, uint64 *p_res);
 
+#if WASM_ENABLE_MULTI_MODULE != 0 
+static AOTExport *
+aot_loader_find_export(const AOTModule *module, const char *module_name,
+                        const char *field_name, uint8 export_kind,
+                        char *error_buf, uint32 error_buf_size)
+{
+    AOTExport *export;
+    uint32 i;
+
+    for (i = 0, export = module->exports; i < module->export_count;
+         ++i, ++export) {
+        /**
+         * need to consider a scenario that different kinds of exports
+         * may have the same name, like
+         * (table (export "m1" "exported") 10 funcref)
+         * (memory (export "m1" "exported") 10)
+         **/
+        if (export->kind == export_kind && !strcmp(field_name, export->name)) {
+            break;
+        }
+    }
+
+    if (i == module->export_count) {
+        LOG_DEBUG("can not find an export %d named %s in the module %s",
+                  export_kind, field_name, module_name);
+        set_error_buf(error_buf, error_buf_size,
+                      "unknown import or incompatible import type");
+        return NULL;
+    }
+
+    (void)module_name;
+
+    /* since there is a validation in load_export_section(), it is for sure
+     * export->index is valid*/
+    return export;
+}
+
+static void *
+aot_loader_resolve_function(const char *module_name, const char *function_name,
+                             const AOTFuncType *expected_function_type,
+                             char *error_buf, uint32 error_buf_size)
+{
+    WASMModuleCommon *module_reg;
+    void *function = NULL;
+    AOTExport *export = NULL;
+    AOTModule *module = NULL;
+    AOTFuncType *target_function_type = NULL;
+
+    module_reg = wasm_runtime_find_module_registered(module_name);
+    if (!module_reg || module_reg->module_type != Wasm_Module_AoT) {
+        LOG_DEBUG("can not find a module named %s for function %s", module_name,
+                  function_name);
+        set_error_buf(error_buf, error_buf_size, "unknown import");
+        return NULL;
+    }
+
+    module = (AOTModule *)module_reg;
+    export =
+        aot_loader_find_export(module, module_name, function_name,
+                                EXPORT_KIND_FUNC, error_buf, error_buf_size);
+    if (!export) {
+        return NULL;
+    }
+    LOG_DEBUG("export->index:%d\n", export->index);
+    LOG_DEBUG("module_name:%s\n", module_name);
+    LOG_DEBUG("function_name:%s\n", function_name);
+    LOG_DEBUG("module->import_func_count:%d\n", module->import_func_count);
+
+    /* resolve function type and function */
+    if (export->index < module->import_func_count) {
+        target_function_type =
+            module->import_funcs[export->index].func_type;
+        function =
+            module->import_funcs[export->index].func_ptr_linked;
+    }
+    else {
+
+        target_function_type =
+            module->func_types[module->func_type_indexes
+                                   [export->index - module->import_func_count]];
+      /*  target_function_type =
+            ((AOTFunc *)(module->func_ptrs[export->index - module->import_func_count]))->func_type;*/
+        function =
+            (module->func_ptrs[export->index - module->import_func_count]);
+    }
+
+    /* check function type */
+    if (!wasm_type_equal(expected_function_type, target_function_type)) {
+        LOG_DEBUG("%s.%s failed the type check", module_name, function_name);
+        set_error_buf(error_buf, error_buf_size, "incompatible import type");
+        return NULL;
+    }
+
+    return function;
+}
+
+static AOTModule *
+search_sub_module(const AOTModule *parent_module, const char *sub_module_name)
+{
+    WASMRegisteredModule *node =
+        bh_list_first_elem(parent_module->import_module_list);
+    while (node && strcmp(sub_module_name, node->module_name)) {
+        node = bh_list_elem_next(node);
+    }
+    return node ? (AOTModule *)node->module : NULL;
+}
+
+static bool
+register_sub_module(const AOTModule *parent_module, const char *sub_module_name,
+                    AOTModule *sub_module)
+{
+    /* register sub_module into its parent sub module list */
+    WASMRegisteredModule *node = NULL;
+    bh_list_status ret;
+
+    if (search_sub_module(parent_module, sub_module_name)) {
+        LOG_DEBUG("%s has been registered in its parent", sub_module_name);
+        return true;
+    }
+
+    node = loader_malloc(sizeof(WASMRegisteredModule), NULL, 0);
+    if (!node) {
+        return false;
+    }
+
+    node->module_name = sub_module_name;
+    node->module = (WASMModuleCommon *)sub_module;
+    ret = bh_list_insert(parent_module->import_module_list, node);
+    bh_assert(BH_LIST_SUCCESS == ret);
+    (void)ret;
+    return true;
+}
+
+static AOTModule *
+load_depended_module(const AOTModule *parent_module,
+                     const char *sub_module_name, char *error_buf,
+                     uint32 error_buf_size)
+{
+    AOTModule *sub_module = NULL;
+    bool ret = false;
+    uint8 *buffer = NULL;
+    uint32 buffer_size = 0;
+    const module_reader reader = wasm_runtime_get_module_reader();
+    const module_destroyer destroyer = wasm_runtime_get_module_destroyer();
+
+    /* check the registered module list of the parent */
+    sub_module = search_sub_module(parent_module, sub_module_name);
+    if (sub_module) {
+        LOG_DEBUG("%s has been loaded before", sub_module_name);
+        return sub_module;
+    }
+
+    /* check the global registered module list */
+    sub_module =
+        (AOTModule *)wasm_runtime_find_module_registered(sub_module_name);
+    if (sub_module) {
+        LOG_DEBUG("%s has been loaded", sub_module_name);
+        goto register_sub_module;
+    }
+    LOG_VERBOSE("loading %s", sub_module_name);
+    if (!reader) {
+        set_error_buf_v(error_buf, error_buf_size,
+                        "no sub module reader to load %s", sub_module_name);
+        return NULL;
+    }
+    /* start to maintain a loading module list */
+    ret = wasm_runtime_is_loading_module(sub_module_name);
+    if (ret) {
+        set_error_buf_v(error_buf, error_buf_size,
+                        "found circular dependency on %s", sub_module_name);
+        return NULL;
+    }
+    ret = wasm_runtime_add_loading_module(sub_module_name, error_buf,
+                                          error_buf_size);
+    if (!ret) {
+        LOG_DEBUG("can not add %s into loading module list\n", sub_module_name);
+        return NULL;
+    }
+
+    ret = reader(sub_module_name, &buffer, &buffer_size);
+    if (!ret) {
+        LOG_DEBUG("read the file of %s failed", sub_module_name);
+        set_error_buf_v(error_buf, error_buf_size, "unknown import",
+                        sub_module_name);
+        goto delete_loading_module;
+    }
+    sub_module = aot_load_from_aot_file(buffer, buffer_size,error_buf,
+                                   error_buf_size);
+    if (!sub_module) {
+        LOG_DEBUG("error: can not load the sub_module %s", sub_module_name);
+        /* others will be destroyed in runtime_destroy() */
+        goto destroy_file_buffer;
+    }
+    wasm_runtime_delete_loading_module(sub_module_name);
+    /* register on a global list */
+    ret = wasm_runtime_register_module_internal(
+        sub_module_name, (WASMModuleCommon *)sub_module, buffer, buffer_size,
+        error_buf, error_buf_size);
+    if (!ret) {
+        LOG_DEBUG("error: can not register module %s globally\n",
+                  sub_module_name);
+        /* others will be unloaded in runtime_destroy() */
+        goto unload_module;
+    }
+
+    /* register into its parent list */
+register_sub_module:
+    ret = register_sub_module(parent_module, sub_module_name, sub_module);
+    if (!ret) {
+        set_error_buf_v(error_buf, error_buf_size,
+                        "failed to register sub module %s", sub_module_name);
+        /* since it is in the global module list, no need to
+         * unload the module. the runtime_destroy() will do it
+         */
+        return NULL;
+    }
+
+    return sub_module;
+
+unload_module:
+    wasm_loader_unload(sub_module);
+
+destroy_file_buffer:
+    if (destroyer) {
+        destroyer(buffer, buffer_size);
+    }
+    else {
+        LOG_WARNING("need to release the reading buffer of %s manually",
+                    sub_module_name);
+    }
+
+delete_loading_module:
+    wasm_runtime_delete_loading_module(sub_module_name);
+    return NULL;
+}
+#endif /* end of WASM_ENABLE_MULTI_MODULE */
+
 static bool
 load_native_symbol_section(const uint8 *buf, const uint8 *buf_end,
                            AOTModule *module, bool is_load_from_file_buf,
@@ -1357,11 +1594,17 @@ load_import_funcs(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                   bool is_load_from_file_buf, char *error_buf,
                   uint32 error_buf_size)
 {
-    const char *module_name, *field_name;
+    const char *sub_module_name, *field_name;
     const uint8 *buf = *p_buf;
     AOTImportFunc *import_funcs;
     uint64 size;
     uint32 i;
+#if WASM_ENABLE_MULTI_MODULE != 0
+    AOTModule *sub_module = NULL;
+    bool func_ptr_linked ,is_native_symbol= false;
+    AOTFunc *linked_func = NULL;
+    WASMType *declare_func_type = NULL;
+#endif
 
     /* Allocate memory */
     size = sizeof(AOTImportFunc) * (uint64)module->import_func_count;
@@ -1377,17 +1620,51 @@ load_import_funcs(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             set_error_buf(error_buf, error_buf_size, "unknown type");
             return false;
         }
+    
+  
+#if WASM_ENABLE_MULTI_MODULE != 0
+       declare_func_type =
+            module->func_types[import_funcs[i].func_type_index];
+        read_string(buf, buf_end, sub_module_name);
+        read_string(buf, buf_end, field_name);
+
+       import_funcs[i].module_name =sub_module_name  ;
+       import_funcs[i].func_name =  field_name;
+       linked_func = wasm_native_resolve_symbol(
+           sub_module_name, field_name, declare_func_type,
+            &import_funcs[i].signature, &import_funcs[i].attachment,
+            &import_funcs[i].call_conv_raw);
+    if (linked_func) {
+        is_native_symbol = true;
+    }
+    else {
+        if (!wasm_runtime_is_built_in_module(sub_module_name)) {
+            sub_module = load_depended_module(module, sub_module_name,
+                                              error_buf, error_buf_size);
+            if (!sub_module) {
+                return false;
+            }
+        }
+        linked_func = aot_loader_resolve_function(sub_module_name, field_name,
+                                                  declare_func_type,
+                                                 error_buf,error_buf_size); 
+        // import_funcs[i].import_func_linked = linked_func;
+    }
+    import_funcs[i].func_ptr_linked = linked_func;
+    import_funcs[i].func_type = declare_func_type;
+
+#else
         import_funcs[i].func_type =
             module->func_types[import_funcs[i].func_type_index];
         read_string(buf, buf_end, import_funcs[i].module_name);
         read_string(buf, buf_end, import_funcs[i].func_name);
-
-        module_name = import_funcs[i].module_name;
+        sub_module_name = import_funcs[i].module_name;
         field_name = import_funcs[i].func_name;
         import_funcs[i].func_ptr_linked = wasm_native_resolve_symbol(
-            module_name, field_name, import_funcs[i].func_type,
+            sub_module_name, field_name, import_funcs[i].func_type,
             &import_funcs[i].signature, &import_funcs[i].attachment,
             &import_funcs[i].call_conv_raw);
+#endif
 
 #if WASM_ENABLE_LIBC_WASI != 0
         if (!strcmp(import_funcs[i].module_name, "wasi_unstable")
@@ -2916,12 +3193,18 @@ create_module(char *error_buf, uint32 error_buf_size)
 {
     AOTModule *module =
         loader_malloc(sizeof(AOTModule), error_buf, error_buf_size);
-
+#if WASM_ENABLE_MULTI_MODULE != 0
+    bh_list_status ret;
+#endif
     if (!module) {
         return NULL;
     }
-
     module->module_type = Wasm_Module_AoT;
+#if WASM_ENABLE_MULTI_MODULE != 0
+    module->import_module_list = &module->import_module_list_head;
+    ret = bh_list_init(module->import_module_list);
+    bh_assert(ret == BH_LIST_SUCCESS);
+#endif
 
     return module;
 }
@@ -3234,6 +3517,19 @@ aot_unload(AOTModule *module)
 
     if (module->const_str_set)
         bh_hash_map_destroy(module->const_str_set);
+#if WASM_ENABLE_MULTI_MODULE != 0
+    /* just release the sub module list */
+    if (module->import_module_list) {
+        WASMRegisteredModule *node =
+            bh_list_first_elem(module->import_module_list);
+        while (node) {
+            WASMRegisteredModule *next = bh_list_elem_next(node);
+            bh_list_remove(module->import_module_list, node);
+            wasm_runtime_free(node);
+            node = next;
+        }
+    }
+#endif
 
     if (module->code && !module->is_indirect_mode) {
         /* The layout is: literal size + literal + code (with plt table) */
