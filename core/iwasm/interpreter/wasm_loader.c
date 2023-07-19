@@ -1389,12 +1389,69 @@ fail:
 #if WASM_ENABLE_TAGS != 0
 static bool
 load_tag_import(const uint8 **p_buf, const uint8 *buf_end,
-                     const WASMModule *parent_module,
+                     const WASMModule *parent_module, /* this module ! */
                      const char *sub_module_name, const char *tag_name,
-                     WASMTagImport *tag, char *error_buf,
+                     WASMTagImport *tag, /* structure to fill */
+                     char *error_buf,
                      uint32 error_buf_size)
 {
-    uint8 tag_attribute;
+    _EXCEDEBUG("load_tag_import: %s.%s\n", sub_module_name, tag_name);
+    _EXCEDEBUG("load_tag_import: parent_module has %d tags total and %d import\n", parent_module->tag_count, parent_module->import_tag_count);
+    _EXCEDEBUG("load_tag_import: parent_module has %d types total\n", parent_module->type_count);
+
+    WASMExport *export = 0;
+    WASMModule * sub_module = NULL;
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+    if (!wasm_runtime_is_built_in_module(sub_module_name)) {
+        sub_module = load_depended_module(parent_module, sub_module_name,
+                                          error_buf, error_buf_size);
+        if (!sub_module) {
+            return false;
+        }
+    }
+
+        //linked_memory = wasm_loader_resolve_memory
+#endif
+
+    WASMModuleCommon * module_reg = wasm_runtime_find_module_registered(sub_module_name);
+    if (!module_reg) {
+        set_error_buf(error_buf, error_buf_size, "load_tag_import: registered module not found" );
+        goto fail;
+    }
+    sub_module = (WASMModule *)module_reg;
+    _EXCEDEBUG("load_tag_import: sub_module has %d tags total and %d imported tags\n", sub_module->tag_count, sub_module->import_tag_count);
+    _EXCEDEBUG("load_tag_import: sub_module has %d exports total\n", sub_module->export_count);
+    _EXCEDEBUG("load_tag_import: sub_module has %d types total\n", sub_module->type_count);
+
+    export = sub_module->exports;
+    for (uint32 i = 0; i < sub_module->export_count; i++, export ++) {
+        _EXCEDEBUG("load_tag_import: export[%d] has name %s and kind %d\n", i, export->name, export->kind);
+
+        if (export->kind == EXPORT_KIND_TAG && strcmp(export->name, tag_name) == 0) {
+            _EXCEDEBUG("load_tag_import: found the export tag index = %d !\n", export->index);
+
+            WASMTag * imp_tag = (WASMTag *) &sub_module->tags[export->index];
+            _EXCEDEBUG("load_tag_import: found the export tag, attribute is %d, type is %d !\n", imp_tag->attribute, imp_tag->type);
+
+            WASMType* imp_tag_type = (WASMType *)sub_module->types[imp_tag->type];
+            _EXCEDEBUG("load_tag_import: found the export tag type, param count %d, result count %d\n", imp_tag_type->param_count, imp_tag_type->result_count);
+
+            /* fill import tag*/
+            tag->tag_index_linked = export->index;
+            tag->import_module = (WASMModule *)module_reg;
+            tag->import_tag_linked = &sub_module->tags[export->index];
+            tag->tag_type = (WASMType *)sub_module->types[imp_tag->type];
+            
+            _EXCEDEBUG("load_tag_import: sub_module %p, tag_index_linked %d\n", sub_module, tag->tag_index_linked);
+
+        }
+
+
+    }
+
+
+    uint8 tag_attribute; 
     uint32 tag_type;
     const uint8 *p = *p_buf, *p_end = buf_end;
 
@@ -1413,7 +1470,7 @@ load_tag_import(const uint8 **p_buf, const uint8 *buf_end,
     if (tag_type >= parent_module->type_count) {
         set_error_buf(error_buf, error_buf_size, "unknown tag type");
         goto  fail;
-    }
+    }      
 
     /* check, that the type of the referred tag returns void */
     WASMType* func_type = (WASMType *)parent_module->types[tag_type];
@@ -1726,6 +1783,7 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
 
 #if WASM_ENABLE_TAGS != 0
                 case IMPORT_KIND_TAG: /* import tags */
+                    /* it only counts the number of tags to import */
                     module->import_tag_count++;
                     u8 = read_uint8(p);
                     read_leb_uint32(p, p_end, type_index);
@@ -1754,6 +1812,8 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             import_memories = module->import_memories =
                 module->imports + module->import_function_count
                 + module->import_table_count;
+
+#if WASM_ENABLE_TAGS != 0
         if(module->import_tag_count)
             import_tags = module->import_tags =
                 module->imports + module->import_function_count
@@ -1762,6 +1822,12 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             import_globals = module->import_globals =
                 module->imports + module->import_function_count
                 + module->import_table_count + module->import_memory_count + module->import_tag_count;
+#else
+        if (module->import_global_count)
+            import_globals = module->import_globals =
+                module->imports + module->import_function_count
+                + module->import_table_count + module->import_memory_count;
+#endif                
 
         p = p_old;
 
@@ -7243,9 +7309,20 @@ check_block_stack(WASMLoaderContext *loader_ctx, BranchBlock *block,
 
     /* Check stack cell num equals return cell num */
     if (available_stack_cell != return_cell_num) {
+#if WASM_ENABLE_EXCE_HANDLING != 0
+        // testspec: this error message format is expected by try_catch.wast
+        snprintf(error_buf, error_buf_size, "type mismatch: %s requires [%s]%s[%s]",
+                        block->label_type == LABEL_TYPE_TRY ||                         
+                        (block->label_type == LABEL_TYPE_CATCH && return_cell_num > 0) ? "instruction" : "block",
+                        return_cell_num > 0 ? type2str(return_types[0]) : "",
+                        " but stack has ",
+                        available_stack_cell > 0 ? type2str(*(loader_ctx->frame_ref - 1)) : "");
+        goto fail;
+#else         
         set_error_buf(error_buf, error_buf_size,
                       "type mismatch: stack size does not match block type");
         goto fail;
+#endif
     }
 
     /* Check stack values match return types */
@@ -7818,9 +7895,9 @@ re_scan:
                         __FUNCTION__,
                         frame_csp_tmp->label_type
                     );
-                    set_error_buf(error_buf, error_buf_size,
-                                "type mismatch: delegate target must "
-                                "be of structured control block type.");
+                    // set_error_buf(error_buf, error_buf_size, "type mismatch: delegate target must be of structured control block type.");
+                    // testspec: this error message expected by try_delegate.wast
+                    snprintf(error_buf, error_buf_size, "unknown label");
                     goto fail;
                 }
 
