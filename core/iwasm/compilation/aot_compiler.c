@@ -508,8 +508,8 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
             {
                 uint32 type;
 
-                if (!comp_ctx->enable_ref_types) {
-                    goto unsupport_ref_types;
+                if (!comp_ctx->enable_ref_types && !comp_ctx->enable_gc) {
+                    goto unsupport_gc_and_ref_types;
                 }
 
                 read_leb_uint32(frame_ip, frame_ip_end, type);
@@ -522,8 +522,8 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
             }
             case WASM_OP_REF_IS_NULL:
             {
-                if (!comp_ctx->enable_ref_types) {
-                    goto unsupport_ref_types;
+                if (!comp_ctx->enable_ref_types && !comp_ctx->enable_gc) {
+                    goto unsupport_gc_and_ref_types;
                 }
 
                 if (!aot_compile_op_ref_is_null(comp_ctx, func_ctx))

@@ -1639,7 +1639,15 @@ fail:
 bool
 aot_compile_op_ref_null(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
-    PUSH_I32(REF_NULL);
+#if WASM_ENABLE_GC != 0
+    if (comp_ctx->enable_gc) {
+        PUSH_REF(REF_NULL);
+    }
+    else
+#endif
+    {
+        PUSH_I32(REF_NULL);
+    }
 
     return true;
 fail:
@@ -1651,7 +1659,15 @@ aot_compile_op_ref_is_null(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
     LLVMValueRef lhs, res;
 
-    POP_I32(lhs);
+#if WASM_ENABLE_GC != 0
+    if (comp_ctx->enable_gc) {
+        POP_REF(lhs);
+    }
+    else
+#endif
+    {
+        POP_I32(lhs);
+    }
 
     if (!(res = LLVMBuildICmp(comp_ctx->builder, LLVMIntEQ, lhs, REF_NULL,
                               "cmp_w_null"))) {
