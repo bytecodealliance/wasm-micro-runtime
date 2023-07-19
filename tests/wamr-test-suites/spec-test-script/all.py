@@ -113,6 +113,8 @@ def ignore_the_case(
 def preflight_check(aot_flag, eh_flag):
     if eh_flag:
         SPEC_TEST_DIR="exception-handling/test/core";
+    else: #resetting it to default
+        SPEC_TEST_DIR="spec/test/core";    
 
     if not pathlib.Path(SPEC_TEST_DIR).resolve().exists():
         print(f"Can not find {SPEC_TEST_DIR}")
@@ -281,7 +283,9 @@ def test_suite(
 ):
     if eh_flag:
         SPEC_TEST_DIR="exception-handling/test/core";
-
+    else: #resetting it to default
+        SPEC_TEST_DIR="spec/test/core";
+    
     suite_path = pathlib.Path(SPEC_TEST_DIR).resolve()
     if not suite_path.exists():
         print(f"can not find spec test cases at {suite_path}")
