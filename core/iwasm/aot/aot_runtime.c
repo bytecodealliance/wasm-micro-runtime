@@ -119,7 +119,7 @@ sub_module_instantiate(AOTModule *module, AOTModuleInstance *module_inst,
                        uint32 stack_size, uint32 heap_size, char *error_buf,
                        uint32 error_buf_size)
 {
-    bh_list *sub_module_inst_list = module_inst->e->sub_module_inst_list;
+    bh_list *sub_module_inst_list = ((AOTModuleInstanceExtra *)module_inst->e)->sub_module_inst_list;
     WASMRegisteredModule *sub_module_list_node =
         bh_list_first_elem(module->import_module_list);
 
@@ -170,7 +170,7 @@ sub_module_instantiate(AOTModule *module, AOTModuleInstance *module_inst,
 static void
 sub_module_deinstantiate(WASMModuleInstance *module_inst)
 {
-    bh_list *list = module_inst->e->sub_module_inst_list;
+    bh_list *list = ((AOTModuleInstanceExtra *)module_inst->e)->sub_module_inst_list;
     WASMSubModInstNode *node = bh_list_first_elem(list);
     while (node) {
         WASMSubModInstNode *next_node = bh_list_elem_next(node);
@@ -1190,10 +1190,10 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
     }
     total_size += table_size;
 
-    /* The offset of WASMModuleInstanceExtra, make it 8-byte aligned */
+    /* The offset of AOTModuleInstanceExtra, make it 8-byte aligned */
     total_size = (total_size + 7LL) & ~7LL;
     extra_info_offset = (uint32)total_size;
-    total_size += sizeof(WASMModuleInstanceExtra);
+    total_size += sizeof(AOTModuleInstanceExtra);
 
     /* Allocate module instance, global data, table data and heap data */
     if (!(module_inst =
@@ -1204,11 +1204,11 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
     module_inst->module_type = Wasm_Module_AoT;
     module_inst->module = (void *)module;
     module_inst->e =
-        (WASMModuleInstanceExtra *)((uint8 *)module_inst + extra_info_offset);
+        (AOTModuleInstanceExtra *)((uint8 *)module_inst + extra_info_offset);
 
 #if WASM_ENABLE_MULTI_MODULE != 0
-    module_inst->e->sub_module_inst_list =
-        &module_inst->e->sub_module_inst_list_head;
+    ((AOTModuleInstanceExtra *)module_inst->e)->sub_module_inst_list =
+        &((AOTModuleInstanceExtra *)module_inst->e)->sub_module_inst_list_head;
     ret = sub_module_instantiate(module, module_inst, stack_size, heap_size,
                                  error_buf, error_buf_size);
     if (!ret) {
@@ -2044,7 +2044,7 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
     else if (!import_func->call_conv_raw) {
         signature = import_func->signature;
 #if WASM_ENABLE_MULTI_MODULE != 0
-        bh_list *sub_module_list_node = module_inst->e->sub_module_inst_list;
+        bh_list *sub_module_list_node = ((AOTModuleInstanceExtra *)module_inst->e)->sub_module_inst_list;
         sub_module_list_node = bh_list_first_elem(sub_module_list_node);
         while (sub_module_list_node) {
             char *sub_inst_name =
