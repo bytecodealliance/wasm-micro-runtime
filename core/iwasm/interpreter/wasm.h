@@ -225,6 +225,14 @@ typedef struct WASMFunctionImport {
 typedef struct WASMTagImport {
     uint8 attribute; /* the type of the tag (numerical) */
     uint32 type; /* the type of the catch function (numerical)*/
+    WASMType * tag_type;
+    uint32 tag_index_linked;
+#if WASM_ENABLE_MULTI_MODULE != 0
+    /* imported function pointer after linked */
+    /* TODO: remove if not needed */
+    WASMModule *import_module;
+    WASMTag *import_tag_linked;
+#endif    
 } WASMTagImport;
 #endif
 
