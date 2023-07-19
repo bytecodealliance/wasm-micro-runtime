@@ -163,7 +163,7 @@ check_type_compatible(uint8 src_type, uint8 dst_type)
 #define POP_V128(v) POP(v, VALUE_TYPE_V128)
 #define POP_FUNCREF(v) POP(v, VALUE_TYPE_FUNCREF)
 #define POP_EXTERNREF(v) POP(v, VALUE_TYPE_EXTERNREF)
-#define POP_REF(v) POP(v, VALUE_TYPE_REF)
+#define POP_REF(v) POP(v, VALUE_TYPE_OBJECT_REF)
 
 #define POP_COND(llvm_value)                                                   \
     do {                                                                       \
@@ -218,6 +218,7 @@ check_type_compatible(uint8 src_type, uint8 dst_type)
 #define PUSH_COND(v) PUSH(v, VALUE_TYPE_I1)
 #define PUSH_FUNCREF(v) PUSH(v, VALUE_TYPE_FUNCREF)
 #define PUSH_EXTERNREF(v) PUSH(v, VALUE_TYPE_EXTERNREF)
+#define PUSH_REF(v) PUSH(v, VALUE_TYPE_OBJECT_REF)
 
 #define TO_LLVM_TYPE(wasm_type) \
     wasm_type_to_llvm_type(&comp_ctx->basic_types, wasm_type)

@@ -482,8 +482,8 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
             {
                 uint32 tbl_idx;
 
-                if (!comp_ctx->enable_ref_types) {
-                    goto unsupport_ref_types;
+                if (!comp_ctx->enable_ref_types && !comp_ctx->enable_gc) {
+                    goto unsupport_gc_and_ref_types;
                 }
 
                 read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);
@@ -495,8 +495,8 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
             {
                 uint32 tbl_idx;
 
-                if (!comp_ctx->enable_ref_types) {
-                    goto unsupport_ref_types;
+                if (!comp_ctx->enable_ref_types && !comp_ctx->enable_gc) {
+                    goto unsupport_gc_and_ref_types;
                 }
 
                 read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);

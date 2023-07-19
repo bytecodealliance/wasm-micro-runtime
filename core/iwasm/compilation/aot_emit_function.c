@@ -1197,7 +1197,7 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         /* Check if func object is NULL */
         if (!(cmp_func_obj =
                   LLVMBuildICmp(comp_ctx->builder, LLVMIntEQ, table_elem,
-                                REF_NULL, "cmp_func_idx"))) {
+                                REF_NULL, "cmp_func_obj"))) {
             aot_set_last_error("llvm build icmp failed.");
             goto fail;
         }
