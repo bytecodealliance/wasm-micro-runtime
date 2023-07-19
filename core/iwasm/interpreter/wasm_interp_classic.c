@@ -404,6 +404,18 @@ read_leb(const uint8 *buf, uint32 *p_offset, uint32 maxbits, bool sign)
         frame_sp -= n; \
     } while (0)
 
+#if WASM_ENABLE_EXCE_HANDLING != 0
+/* unwind the CSP to a given label and optionally modify the labeltype  */
+#define UNWIND_CSP(N, T)                                                \
+    do {                                                                \
+        /* unwind to function frame  */                                 \
+        frame_csp -= N;                                                 \
+        /* drop handlers and values pushd in try block */               \
+        frame_sp = (frame_csp-1)->frame_sp;                             \
+        (frame_csp-1)->label_type = T ? T : (frame_csp-1)->label_type;  \
+    } while (0)
+#endif
+
 #define SYNC_ALL_TO_FRAME()     \
     do {                        \
         frame->sp = frame_sp;   \
@@ -1192,9 +1204,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #endif
     uint8 value_type;
 
-    _EXCEDEBUG("IN %s\n", __FUNCTION__);
-
-
 #if WASM_ENABLE_DEBUG_INTERP != 0
     uint8 *frame_ip_orig = NULL;
     WASMDebugInstance *debug_instance = wasm_exec_env_get_instance(exec_env);
@@ -1300,6 +1309,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_THROW)
             {
                 read_leb_int32(frame_ip, frame_ip_end, exception_tag_index);
+
 /* landig pad for the rethrow ? */
 find_a_catch_handler: __attribute__((unused))
                 do {} while(0);
@@ -1310,30 +1320,31 @@ find_a_catch_handler: __attribute__((unused))
                 uint32 relative_depth = 0;
                 do {
                     POP_CSP_CHECK_OVERFLOW(relative_depth-1);
-                    WASMBranchBlock * tgtframe = frame_csp - relative_depth - 1;
-
-                    _EXCEVERBOSE("WASM_OP_THROW: frame[-%d] is %p, label_type is %d, frame->frame_sp %p\n",
-                        relative_depth+1, tgtframe, tgtframe->label_type, tgtframe->frame_sp);
+                    WASMBranchBlock * tgtframe = frame_csp - relative_depth - 1; 
 
                     switch (tgtframe->label_type) {
                         case LABEL_TYPE_BLOCK:
                         case LABEL_TYPE_IF:
                         case LABEL_TYPE_LOOP:
-                            _EXCEVERBOSE("skip block, if or loop frame\n");
-                            /* skip */
+                        case LABEL_TYPE_CATCH:
+                        case LABEL_TYPE_CATCH_ALL:
+                            /* 
+                             * skip that blocks in search 
+                             * BLOCK, IF and LOOP do not contain handlers and cannot catch exceptions
+                             * blocks marked as CATCH or CATCH_ALL did already caugth an exception and can only 
+                             * be a target for RETHROW, but cannot catch an exception again
+                             */
                             break;
                         case LABEL_TYPE_TRY:
-                            _EXCEVERBOSE("found try frame\n");
                             {
                                 uint32 handler_number = 0;
                                 uint8 ** handlers = (uint8**) tgtframe->frame_sp;
                                 uint8 * handler = NULL;
-                                while ( (handler = handlers[handler_number]) != NULL )
+                                while ( (handler = handlers[handler_number]) != 0 )
                                 {
-                                    uint8   lookup_opcode = *handler;
+                                    uint8   handler_opcode = * handler;
                                     uint8 * target_addr = handler + 1; /* first instruction or leb-immediate behind the handler opcode */
-                                    _EXCEVERBOSE("handler address: %p, opcode 0x%x\n", handler, lookup_opcode);
-                                    switch (lookup_opcode) {
+                                    switch (handler_opcode) {
                                         case WASM_OP_CATCH:
                                             {
                                                 int32 lookup_index = 0;
@@ -1343,9 +1354,14 @@ find_a_catch_handler: __attribute__((unused))
                                                 _EXCEVERBOSE("WASM_OP_THROW: found CATCH with tag_index %d\n", lookup_index);
 
                                                 if (exception_tag_index == lookup_index) {
-                                                    _EXCEDEBUG("**** WASM_OP_THROW: found CATCHING HANDLER in FRAME[-%d] at HANDLER %d ****\n",
-                                                        relative_depth+1, handler_number);
+                                                    _EXCEDEBUG("**** WASM_OP_THROW: found CATCHING HANDLER ****");
+                                                    /* set ip */
+                                                    frame_ip = target_addr;
+                                                    /* save frame_sp (points to exception values) */
+                                                    uint32 * frame_sp_old = frame_sp;
 
+                                                    UNWIND_CSP(relative_depth, LABEL_TYPE_CATCH);
+#if 0
                                                     /* unwind */
                                                     frame_csp -= relative_depth;
                                                     /* set ip */
@@ -1359,8 +1375,8 @@ find_a_catch_handler: __attribute__((unused))
                                                      * longer seen as a try frame, because the handlers are not longer there
                                                      */
                                                     (frame_csp-1)->label_type = LABEL_TYPE_CATCH;
+#endif
 
-                                                    _EXCEVERBOSE("old_sp is %p, set frame_sp to %p\n", frame_sp_old, frame_sp);
                                                     /* transfer exception values */
                                                     uint8 tag_type_index = module->module->tags[exception_tag_index].type;
                                                     uint32 cell_num_to_copy = wasm_types[tag_type_index]->param_cell_num;
@@ -1377,7 +1393,6 @@ find_a_catch_handler: __attribute__((unused))
                                                                 cell_num_to_copy);
                                                     }
                                                     frame_sp += cell_num_to_copy;
-                                                    _EXCEVERBOSE("frame_sp now %p\n", frame_sp);
 
                                                     /* advance to handler */
                                                     HANDLE_OP_END();
@@ -1393,16 +1408,17 @@ find_a_catch_handler: __attribute__((unused))
                                                 _EXCEDEBUG("**** WASM_OP_THROW: found DELEGATE HANDLER in FRAME[-%d] at HANDLER %d DEPTH %d ****\n",
                                                     relative_depth+1, handler_number,lookup_depth);
 
-                                                /* the tag index is already in the exception_tag_index */
+                                                /* save frame_sp (points to exception values) */
+                                                uint32 * frame_sp_old = frame_sp;
 
-                                                /* unwind to try frame
-                                                 * the relative depth may be 0 if the delegate is on a try, but maybe larger
-                                                 * if there are additional blocks in the try block or
+                                                UNWIND_CSP(relative_depth, LABEL_TYPE_CATCH);
+#if 0
+                                                /* unwind to try frame 
+                                                 * the relative depth may be 0 if the delegate is on a try, but maybe larger 
+                                                 * if there are additional blocks in the try block or 
                                                  * if THAT DELEGATE here is found by another delegate or a rethrow */
                                                 frame_csp -= relative_depth;
 
-                                                /* save frame_sp (points to exception values) */
-                                                uint32 * frame_sp_old = frame_sp;
                                                 /* drop handlers and values pushd in try block */
                                                 frame_sp = (frame_csp-1)->frame_sp;
 
@@ -1410,6 +1426,7 @@ find_a_catch_handler: __attribute__((unused))
                                                     * longer seen as a try frame, because the handlers are not longer there
                                                     */
                                                 (frame_csp-1)->label_type = LABEL_TYPE_CATCH;
+#endif
 
                                                 /* leave the block (the delegate is technically not inside the frame) */
                                                 frame_csp--;
@@ -1417,7 +1434,6 @@ find_a_catch_handler: __attribute__((unused))
                                                 /* unwind to delegated frame */
                                                 frame_csp -= lookup_depth;
 
-                                                _EXCEVERBOSE("old_sp is %p, set frame_sp to %p\n", frame_sp_old, frame_sp);
                                                 /* transfer exception values */
                                                 uint8 tag_type_index = module->module->tags[exception_tag_index].type;
                                                 uint32 cell_num_to_copy = wasm_types[tag_type_index]->param_cell_num;
@@ -1427,7 +1443,6 @@ find_a_catch_handler: __attribute__((unused))
                                                             cell_num_to_copy);
                                                 }
                                                 frame_sp += cell_num_to_copy;
-                                                _EXCEVERBOSE("DELEGATE: frame_sp now %p, beaming up to find a handler\n", frame_sp);
 
                                                 /* tag_index is already stored in exception_tag_index */
                                                 goto find_a_catch_handler;
@@ -1435,15 +1450,16 @@ find_a_catch_handler: __attribute__((unused))
                                             break;
                                         case WASM_OP_CATCH_ALL:
                                             /* no immediate */
-                                            _EXCEDEBUG("**** WASM_OP_THROW: found CATCH_ALL HANDLER in FRAME[-%d] at HANDLER %d ****\n",
-                                                        relative_depth+1, handler_number);
-
-                                            /* unwind */
-                                            frame_csp -= relative_depth;
-                                            /* set ip */
-                                            frame_ip = target_addr;
+                                            _EXCEDEBUG("**** WASM_OP_THROW: found CATCH_ALL HANDLER ****");
                                             /* save frame_sp (points to exception values) */
                                             uint32 * frame_sp_old = frame_sp;
+                                            /* set ip */
+                                            frame_ip = target_addr;
+                
+                                            UNWIND_CSP(relative_depth, LABEL_TYPE_CATCH_ALL);
+#if 0
+                                            /* unwind */
+                                            frame_csp -= relative_depth;
                                             /* drop handlers and values pushd in try block */
                                             frame_sp = (frame_csp-1)->frame_sp;
 
@@ -1451,20 +1467,21 @@ find_a_catch_handler: __attribute__((unused))
                                              * longer seen as a try frame, because the handlers are not longer there
                                              */
                                             (frame_csp-1)->label_type = LABEL_TYPE_CATCH_ALL;
+#endif
 
-                                            _EXCEVERBOSE("old_sp is %p, set frame_sp to %p\n", frame_sp_old, frame_sp);
-                                            /* transfer exception values */
-                                            uint8 tag_type_index = module->module->tags[exception_tag_index].type;
-                                            uint32 cell_num_to_copy = wasm_types[tag_type_index]->param_cell_num;
                                             /* push exception_tag_index and exception values for rethrow */
                                             PUSH_I32(exception_tag_index);
-                                            if (cell_num_to_copy > 0) {
-                                                word_copy(frame_sp, frame_sp_old - cell_num_to_copy,
-                                                        cell_num_to_copy);
+                                            if (exception_tag_index != (int32_t) 0xFFFFFFFF) {
+                                                /* transfer exception values */
+                                                uint8 tag_type_index = module->module->tags[exception_tag_index].type;
+                                                uint32 cell_num_to_copy = wasm_types[tag_type_index]->param_cell_num;
+                                                if (cell_num_to_copy > 0) {
+                                                    word_copy(frame_sp, frame_sp_old - cell_num_to_copy,
+                                                            cell_num_to_copy);
+                                                }
+                                                frame_sp += cell_num_to_copy;
                                             }
-                                            frame_sp += cell_num_to_copy;
                                             /* catch_all has no exception values */
-                                            _EXCEVERBOSE("frame_sp now %p\n", frame_sp);
 
                                             /* advance to handler */
                                             HANDLE_OP_END();
@@ -1481,23 +1498,25 @@ find_a_catch_handler: __attribute__((unused))
                             }
                             break;
 
-                        case LABEL_TYPE_CATCH:
-                            _EXCEVERBOSE("skip catch frame\n");
-                            break;
-                        case LABEL_TYPE_CATCH_ALL:
-                            _EXCEVERBOSE("skip catch_all frame\n");
-                            break;
-
                         case LABEL_TYPE_FUNCTION:
                             _EXCEDEBUG("**** WASM_OP_THROW: found LABEL_TYPE_FUNCTION, delegate this exception to the caller ****\n");
-
-                            /* unwind to function frame  */
-                            frame_csp -= relative_depth;
-
                             /* save frame_sp (points to exception values) */
                             uint32 * frame_sp_old = frame_sp;
+
+                            UNWIND_CSP(relative_depth, LABEL_TYPE_FUNCTION);
+#if 0
+                            /* unwind to function frame  */
+                            frame_csp -= relative_depth;
                             /* drop handlers and values pushd in try block */
                             frame_sp = (frame_csp-1)->frame_sp;
+#endif
+
+                            _EXCEDEBUG("**** WASM_OP_THROW: exception_tag_index %d module->tag_count %d ****\n", exception_tag_index, module->module->tag_count);
+                            if (exception_tag_index >= (int32_t) module->module->tag_count ) {
+                                _EXCEDEBUG("**** WASM_OP_THROW: invalid tag index ****\n");
+                                wasm_set_exception(module, "invalid tag index");
+                                goto got_exception;
+                            }
 
                             /* transfer exception values */
                             uint8 tag_type_index = module->module->tags[exception_tag_index].type;
@@ -1512,13 +1531,21 @@ find_a_catch_handler: __attribute__((unused))
                                         cell_num_to_copy);
                             }
                             prev_frame->sp += cell_num_to_copy;
+                            *((int32 *)(prev_frame->sp)) = exception_tag_index;
+                            (int32 *)(prev_frame->sp++);
+
+                            _EXCEDEBUG("**** WASM_OP_THROW: found LABEL_TYPE_FUNCTION, prevframe sp now %p ****\n", prev_frame->sp);
 
                             /* mark frame as raised exception */
-                            frame->exception_raised = true;
-                            frame->tag_index = exception_tag_index;
+                            wasm_set_exception(module, "uncaught wasm exception");
 
                             /* end of function, treat as WASM_OP_RETURN */
                             goto return_func;
+
+                        default:
+                            wasm_set_exception(module, "unexpected or invalid label in THROW or RETHROW when searching a catch handler");
+                            goto got_exception;
+
                     }
 
                     relative_depth ++;
@@ -1536,8 +1563,7 @@ find_a_catch_handler: __attribute__((unused))
                 read_leb_uint32(frame_ip, frame_ip_end, type_index);
                 param_cell_num = wasm_types[type_index]->param_cell_num;
                 cell_num = wasm_types[type_index]->ret_cell_num;
-                _EXCEVERBOSE("hit a ext_try, type_index is 0x%x (%d)\n", type_index, type_index);
-                goto handle_op_try;
+                goto handle_op_try;            
             }
 
             HANDLE_OP(WASM_OP_TRY)
@@ -1545,10 +1571,8 @@ find_a_catch_handler: __attribute__((unused))
                 value_type = *frame_ip++;
                 param_cell_num = 0;
                 cell_num = wasm_value_type_cell_num(value_type);
-                _EXCEVERBOSE("hit a op_try, value_type is 0x%x (%d)\n", value_type, value_type);
 
             handle_op_try:
-                _EXCEVERBOSE("try: block in = %d, block_out = %d\n", param_cell_num, cell_num);
 
                 cache_index = ((uintptr_t)frame_ip) & (uintptr_t)(BLOCK_ADDR_CACHE_SIZE - 1);
                 cache_items = exec_env->block_addr_cache[cache_index];
@@ -1561,44 +1585,10 @@ find_a_catch_handler: __attribute__((unused))
 
                 /* start at the first opcode following the try and its blocktype */
                 uint8 * lookup_cursor = frame_ip;
-                uint8 * lookup_catchhandler = 0;
-                uint8 lookup_opcode = WASM_OP_NOP;
-                uint32 lookup_index = 0;
-                uint32 lookup_depth = 0;
-                do {
-                    /* lookup the END for this TRY */
-                    if (!wasm_loader_find_block_addr(
-                        exec_env, (BlockAddr *)exec_env->block_addr_cache,
-                        lookup_cursor, (uint8 *)-1, LABEL_TYPE_TRY,
-                        &else_addr, &end_addr))
-                    {
-                        /* something went wrong */
-                        wasm_set_exception(module, "find block address failed");
-                        goto got_exception;
-                    }
-                    lookup_opcode = *end_addr;
-                    switch (lookup_opcode) {
-                        case WASM_OP_CATCH:
-                        case WASM_OP_DELEGATE:
-                            lookup_cursor = end_addr+2;
-                            break;
-                        case WASM_OP_CATCH_ALL:
-                            lookup_cursor = end_addr+1;
-                            break;
-                        case WASM_OP_END:
-                            break;
-                        default:
-                            /* something went wrong */
-                            wasm_set_exception(module, "find block address returned an unexpected opcode");
-                            goto got_exception;
-                    }
-                } while (lookup_opcode != WASM_OP_END && lookup_opcode != WASM_OP_DELEGATE); // *end_addr == WASM_OP_CATCH || *end_addr == WASM_OP_CATCH_ALL);
+                uint8 handler_opcode = WASM_OP_UNREACHABLE;
 
-                /* create the try label */
-                PUSH_CSP(LABEL_TYPE_TRY, param_cell_num, cell_num, end_addr);
-
-                _EXCEVERBOSE("WASM_OP_TRY: push csp: frame is %p frame_sp %p frame->frame_sp %p\n", frame_csp-1, frame_sp, (frame_csp-1)->frame_sp);
-
+                /* target_addr filled in when END or DELEGATE is found */
+                PUSH_CSP(LABEL_TYPE_TRY, param_cell_num, cell_num, 0); 
 
                 /* reset to begin of block */
                 lookup_cursor = frame_ip;
@@ -1607,54 +1597,58 @@ find_a_catch_handler: __attribute__((unused))
                     if (!wasm_loader_find_block_addr(
                         exec_env, (BlockAddr *)exec_env->block_addr_cache,
                         lookup_cursor, (uint8 *)-1, LABEL_TYPE_TRY,
-                        &else_addr, &lookup_catchhandler))
+                        &else_addr, &end_addr)) 
                     {
                         /* something went wrong */
                         wasm_set_exception(module, "find block address failed");
                         goto got_exception;
                     }
-                    lookup_opcode = *lookup_catchhandler;
 
-                    switch (lookup_opcode) {
+                    /* place cursor for continuation past opcode */
+                    lookup_cursor = end_addr+1;
+
+                    /* end_addr points to CATCH, CATCH_ALL, DELEGATE or END */
+                    handler_opcode = *end_addr;
+                    switch (handler_opcode) {
                         case WASM_OP_CATCH:
-                            lookup_cursor = lookup_catchhandler+1;
-                            read_leb_int32(lookup_cursor, 0, lookup_index);
-                            _EXCEVERBOSE("try: WASM_OP_CATCH lookup_catchhandler %p, lookup_index %d, frame_sp %p\n", lookup_catchhandler, lookup_index, frame_sp);
-                            PUSH_I64(lookup_catchhandler);
+                            skip_leb(lookup_cursor); /* skip tag_index */
+                            _EXCEVERBOSE("try: WASM_OP_CATCH catchhandler %p", end_addr);
+                            PUSH_I64(end_addr);
                             break;
                         case WASM_OP_CATCH_ALL:
-                            lookup_cursor = lookup_catchhandler+1;
-                            _EXCEVERBOSE("try: WASM_OP_CATCH_ALL lookup_catchhandler %p, frame_sp %p\n", lookup_catchhandler, frame_sp);
-                            PUSH_I64(lookup_catchhandler);
+                            _EXCEVERBOSE("try: WASM_OP_CATCH_ALL catchhandler %p", end_addr);
+                            PUSH_I64(end_addr);
                             break;
                         case WASM_OP_DELEGATE:
-                            lookup_cursor = lookup_catchhandler+1;
-                            read_leb_int32(lookup_cursor, 0, lookup_depth);
-                            _EXCEVERBOSE("try: WASM_OP_DELEGATE lookup_catchhandler %p, lookup_depth %d, frame_sp %p\n", lookup_catchhandler, lookup_depth, frame_sp);
-                            PUSH_I64(lookup_catchhandler);
+                            skip_leb(lookup_cursor); /* skip depth */
+                            _EXCEVERBOSE("try: WASM_OP_DELEGATE catchhandler %p", end_addr);
+                            PUSH_I64(end_addr); 
+                            /* patch target_addr */
+                            (frame_csp-1)->target_addr = lookup_cursor;
                             break;
                         case WASM_OP_END:
-                            _EXCEVERBOSE("try: WASM_OP_END lookup_catchhandler %p, lookup_depth %d, frame_sp %p\n", lookup_catchhandler, lookup_depth, frame_sp);
+                            _EXCEVERBOSE("try: WASM_OP_END");
                             PUSH_I64(0);
+                            /* patch target_addr */
+                            (frame_csp-1)->target_addr = end_addr;
                             break;
                         default:
                             /* something went wrong */
                             wasm_set_exception(module, "find block address returned an unexpected opcode");
                             goto got_exception;
                     }
-
-
-                    /* continue to search .... */
-
                     /* ... search until the returned address is the END of the TRY block */
-                } while (lookup_opcode != WASM_OP_END && lookup_opcode != WASM_OP_DELEGATE); // *end_addr == WASM_OP_CATCH || *end_addr == WASM_OP_CATCH_ALL);
-
+                } while (handler_opcode != WASM_OP_END && handler_opcode != WASM_OP_DELEGATE);
+                /* handler setup on stack complete */
 
                 HANDLE_OP_END();
             }
             HANDLE_OP(WASM_OP_CATCH)
             {
-                _EXCEVERBOSE("hit a catch clause, leave the frame\n");
+                _EXCEVERBOSE("hit a catch clause, leave the frame, target_addr %p\n", (frame_csp - 1)->target_addr);
+                
+                /* skip the tag_index */
+                skip_leb(frame_ip);
                 /* leave the frame */
                 POP_CSP_N(0);
                 HANDLE_OP_END();
@@ -1668,11 +1662,14 @@ find_a_catch_handler: __attribute__((unused))
             }
             HANDLE_OP(WASM_OP_DELEGATE)
             {
-                wasm_set_exception(module, "exception handling implementtion pending");
-                /* that "exception" is the trap */
-                goto got_exception;
+                _EXCEVERBOSE("hit a delegate clause, leave the frame, target_addr %p\n", (frame_csp - 1)->target_addr);
+                /* skip the delegate depth */
+                skip_leb(frame_ip);
+                /* leave the frame like WASM_OP_END */
+                POP_CSP();
+                HANDLE_OP_END();
             }
-#else
+#else    
             HANDLE_OP(WASM_OP_UNUSED_0x06)
             HANDLE_OP(WASM_OP_UNUSED_0x07)
             HANDLE_OP(WASM_OP_UNUSED_0x08)
@@ -1681,7 +1678,7 @@ find_a_catch_handler: __attribute__((unused))
             HANDLE_OP(WASM_OP_UNUSED_0x19)
             {
                 wasm_set_exception(module, "exception handling opcode not implemented");
-                /* that "esception" is the trap */
+                /* that "exception" is the trap */
                 goto got_exception;
             }
 
@@ -4337,6 +4334,45 @@ find_a_catch_handler: __attribute__((unused))
             if (cur_func->import_func_inst) {
                 wasm_interp_call_func_import(module, exec_env, cur_func,
                                              prev_frame);
+#if WASM_ENABLE_EXCE_HANDLING != 0                                             
+                const char * uncaught_exception = wasm_get_exception(module);
+                if (uncaught_exception && strcmp(uncaught_exception, "Exception: uncaught wasm exception") == 0) {
+                    /* fix framesp */
+                    UPDATE_ALL_FROM_FRAME();
+
+                    uint32_t import_exception = 0xFFFFFFFF; /* initialize imported exception index to be invalid */
+                    /* pull external exception */
+                    uint32_t ext_exception = POP_I32();
+                    
+                    WASMModule * im_mod = cur_func->u.func_import->import_module;
+
+                    /* external function came back with an exception or trap */
+                    _EXCEDEBUG("exception after wasm_interp_call_func_import, exception_tag_index = %x, module->import_tag_count %d\n", 
+                        ext_exception, // (int32) *( (int32*) (frame->sp - 1)), //exception_tag_index,
+                        module->module->import_tag_count);
+                    
+                    /* lookup exception in import tags */
+                    for (uint32_t import_tag_index = 0; import_tag_index < module->module->import_tag_count; import_tag_index++) {
+                        WASMTagImport * im_tag = &(module->module->import_tags[import_tag_index].u.tag);
+
+                        _EXCEDEBUG("check import_tag_index %d: module %p tag_index %d\n", import_tag_index, im_mod, im_tag->tag_index_linked);
+
+                        /* compare the module and the external index with the imort tag data */
+                        if ((im_mod == im_tag->import_module) &&  (ext_exception == im_tag->tag_index_linked)) {
+                            /* set the import_exception to the import tag */
+                            _EXCEDEBUG("CATCHED EXCEPTION %p.%d is import tag %d\n", im_tag->import_module, im_tag->tag_index_linked, import_tag_index);
+                            import_exception = import_tag_index;
+                            break;
+                        }
+                    }
+                    /* 
+                     * push the internal exception index to stack, 
+                     * or 0xffffffff in case, the external exception 
+                     * is not in the import list
+                     */
+                    PUSH_I32(import_exception);
+                }
+#endif                
             }
             else
 #endif
@@ -4357,8 +4393,35 @@ find_a_catch_handler: __attribute__((unused))
             if (memory)
                 linear_mem_size = memory->memory_data_size;
 #endif
-            if (wasm_copy_exception(module, NULL))
+            if (wasm_copy_exception(module, NULL)) {
+#if WASM_ENABLE_EXCE_HANDLING != 0
+                /* the caller raised an exception */
+                const char * uncaught_exception = wasm_get_exception(module);
+                _EXCEDEBUG("**** return_func: back from call with %s ****\n", uncaught_exception);   
+
+                // libc_builtin signaled a "exception thrown by stdc++" trap
+                if (uncaught_exception && strcmp(uncaught_exception, "Exception: exception thrown by stdc++") == 0) {
+                    _EXCEDEBUG("**** return_func: find_a_catch_handler for stdc++ ****\n");   
+                    wasm_set_exception(module, NULL);
+
+                    // setup internal c++ rethrow    
+                    exception_tag_index = 0;
+                    goto find_a_catch_handler;
+
+                }
+                // when throw hits the end of a function it signalles with a "uncaught wasm exception" trap
+                if (uncaught_exception && strcmp(uncaught_exception, "Exception: uncaught wasm exception") == 0) {
+                    _EXCEDEBUG("**** return_func: find_a_catch_handler uncaught exception frame_sp %p***\n", frame_sp);
+
+                    wasm_set_exception(module, NULL);
+                    exception_tag_index = POP_I32();
+
+                    /* rethrow the exception into that frame */
+                    goto find_a_catch_handler;            
+                }
+#endif
                 goto got_exception;
+            }
         }
         else {
             WASMFunction *cur_wasm_func = cur_func->u.func;
@@ -4378,7 +4441,6 @@ find_a_catch_handler: __attribute__((unused))
                            + cur_wasm_func->max_block_num
                                  * (uint32)sizeof(WASMBranchBlock) / 4;
 
-            _EXCEDEBUG("%s: stack allocation:  eh_size: %d, all_cell: %d\n", __FUNCTION__, eh_size, all_cell_num);
             /* param_cell_num, local_cell_num, max_stack_cell_num and
                max_block_num are all no larger than UINT16_MAX (checked
                in loader), all_cell_num must be smaller than 1MB */
@@ -4427,29 +4489,23 @@ find_a_catch_handler: __attribute__((unused))
         FREE_FRAME(exec_env, frame);
         wasm_exec_env_set_cur_frame(exec_env, prev_frame);
 
-#if WASM_ENABLE_EXCE_HANDLING != 0
-        /* the caller raised an exception */
-        if (frame->exception_raised) {
-            _EXCEDEBUG("**** return_func: reset raise flag ****\n");
-            frame->exception_raised = 0;
-            if (!prev_frame->ip) {
-                /* issue a trap */
-                wasm_set_exception(module, "uncaught wasm exception");
-                goto got_exception;
-            }
-            /* rethrow thw exception into that frame */
-            _EXCEDEBUG("**** return_func: detected a thrown exception %d ****\n", frame->tag_index);
-            exception_tag_index = frame->tag_index;
-            RECOVER_CONTEXT(prev_frame);
-            goto find_a_catch_handler;
-        }
-#endif
-
-        if (!prev_frame->ip)
+        if (!prev_frame->ip) {
             /* Called from native. */
             return;
+        }
+
 
         RECOVER_CONTEXT(prev_frame);
+#if WASM_ENABLE_EXCE_HANDLING != 0
+        if (wasm_get_exception(module)) {
+            _EXCEDEBUG("label return_func with exception %s frame %p\n", wasm_get_exception(module), frame);
+
+            wasm_set_exception(module, NULL);
+            exception_tag_index = POP_I32();
+            _EXCEDEBUG("**** return_func: detected a thrown mark %x index %d ****\n", exception_tag_index, exception_tag_index & 0xffff );   
+            goto find_a_catch_handler;           
+        }
+#endif
         HANDLE_OP_END();
     }
 
