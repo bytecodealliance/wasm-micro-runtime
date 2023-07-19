@@ -111,11 +111,10 @@ def ignore_the_case(
 
 
 def preflight_check(aot_flag, eh_flag):
+    global SPEC_TEST_DIR
     if eh_flag:
-        SPEC_TEST_DIR="exception-handling/test/core";
-    else: #resetting it to default
-        SPEC_TEST_DIR="spec/test/core";    
-
+        SPEC_TEST_DIR="exception-handling/test/core"
+    
     if not pathlib.Path(SPEC_TEST_DIR).resolve().exists():
         print(f"Can not find {SPEC_TEST_DIR}")
         return False
@@ -281,10 +280,9 @@ def test_suite(
     qemu_firmware='',
     log='',
 ):
+    global SPEC_TEST_DIR
     if eh_flag:
-        SPEC_TEST_DIR="exception-handling/test/core";
-    else: #resetting it to default
-        SPEC_TEST_DIR="spec/test/core";
+        SPEC_TEST_DIR="exception-handling/test/core"
     
     suite_path = pathlib.Path(SPEC_TEST_DIR).resolve()
     if not suite_path.exists():
