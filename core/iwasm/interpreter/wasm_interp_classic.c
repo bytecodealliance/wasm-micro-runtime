@@ -4334,10 +4334,7 @@ find_a_catch_handler: __attribute__((unused))
             if (cur_func->import_func_inst) {
                 wasm_interp_call_func_import(module, exec_env, cur_func,
                                              prev_frame);
-                _EXCEDEBUG("back from call_func_from_entry: wasm_interp_call_func_import frame %p frame->sp %p\n", frame, frame->sp);
-                _EXCEDEBUG("back from call_func_from_entry: imported module %p\n", cur_func->u.func_import->import_module);
-                _EXCEDEBUG("back from call_func_from_entry: imported module has %d tags\n", cur_func->u.func_import->import_module->tag_count);
-
+#if WASM_ENABLE_EXCE_HANDLING != 0                                             
                 const char * uncaught_exception = wasm_get_exception(module);
                 if (uncaught_exception && strcmp(uncaught_exception, "Exception: uncaught wasm exception") == 0) {
                     /* fix framesp */
@@ -4375,6 +4372,7 @@ find_a_catch_handler: __attribute__((unused))
                      */
                     PUSH_I32(import_exception);
                 }
+#endif                
             }
             else
 #endif
