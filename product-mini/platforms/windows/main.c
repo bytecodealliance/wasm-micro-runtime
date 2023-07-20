@@ -243,7 +243,12 @@ main(int argc, char *argv[])
     const char *func_name = NULL;
     uint8 *wasm_file_buf = NULL;
     uint32 wasm_file_size;
-    uint32 stack_size = 64 * 1024, heap_size = 16 * 1024;
+    uint32 stack_size = 64 * 1024;
+#if WASM_ENABLE_LIBC_WASI != 0
+    uint32 heap_size = 0;
+#else
+    uint32 heap_size = 16 * 1024;
+#endif
 #if WASM_ENABLE_JIT != 0
     uint32 llvm_jit_size_level = 3;
     uint32 llvm_jit_opt_level = 3;

@@ -2308,6 +2308,9 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
     if (option->llvm_passes)
         comp_ctx->llvm_passes = option->llvm_passes;
 
+    if (option->builtin_intrinsics)
+        comp_ctx->builtin_intrinsics = option->builtin_intrinsics;
+
     comp_ctx->opt_level = option->opt_level;
     comp_ctx->size_level = option->size_level;
 

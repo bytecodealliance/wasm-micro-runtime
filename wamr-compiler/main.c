@@ -162,6 +162,12 @@ print_help()
     printf("  --xip                     A shorthand of --enalbe-indirect-mode --disable-llvm-intrinsics\n");
     printf("  --enable-indirect-mode    Enalbe call function through symbol table but not direct call\n");
     printf("  --disable-llvm-intrinsics Disable the LLVM built-in intrinsics\n");
+    printf("  --enable-builtin-intrinsics=<flags>\n");
+    printf("                            Enable the specified built-in intrinsics, it will override the default\n");
+    printf("                              settings. It only takes effect when --disable-llvm-intrinsics is set.\n");
+    printf("                            Available flags: all, i32.common, i64.common, f32.common, f64.common,\n");
+    printf("                              i32.clz, i32.ctz, etc, refer to doc/xip.md for full list\n");
+    printf("                            Use comma to separate, please refer to doc/xip.md for full list.\n");
     printf("  --disable-llvm-lto        Disable the LLVM link time optimization\n");
     printf("  --enable-llvm-pgo         Enable LLVM PGO (Profile-Guided Optimization)\n");
     printf("  --enable-llvm-passes=<passes>\n");
@@ -442,6 +448,11 @@ main(int argc, char *argv[])
         }
         else if (!strcmp(argv[0], "--disable-llvm-intrinsics")) {
             option.disable_llvm_intrinsics = true;
+        }
+        else if (!strncmp(argv[0], "--enable-builtin-intrinsics=", 28)) {
+            if (argv[0][28] == '\0')
+                PRINT_HELP_AND_EXIT();
+            option.builtin_intrinsics = argv[0] + 28;
         }
         else if (!strcmp(argv[0], "--disable-llvm-lto")) {
             option.disable_llvm_lto = true;
