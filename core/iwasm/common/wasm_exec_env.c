@@ -181,6 +181,7 @@ wasm_exec_env_create(struct WASMModuleInstanceCommon *module_inst,
 #endif
 #else
 #if WASM_ENABLE_GC != 0
+    bh_assert(gc_heap_handle);
     mem_allocator_enable_gc_reclaim(gc_heap_handle, exec_env);
 #endif
 #endif /* end of WASM_ENABLE_THREAD_MGR */
