@@ -1197,7 +1197,7 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         /* Check if func object is NULL */
         if (!(cmp_func_obj =
                   LLVMBuildICmp(comp_ctx->builder, LLVMIntEQ, table_elem,
-                                REF_NULL, "cmp_func_obj"))) {
+                                OBJ_REF_NULL, "cmp_func_obj"))) {
             aot_set_last_error("llvm build icmp failed.");
             goto fail;
         }
@@ -1641,7 +1641,7 @@ aot_compile_op_ref_null(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
 #if WASM_ENABLE_GC != 0
     if (comp_ctx->enable_gc) {
-        PUSH_REF(REF_NULL);
+        PUSH_REF(OBJ_REF_NULL);
     }
     else
 #endif
@@ -1662,17 +1662,23 @@ aot_compile_op_ref_is_null(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 #if WASM_ENABLE_GC != 0
     if (comp_ctx->enable_gc) {
         POP_REF(lhs);
+
+        if (!(res = LLVMBuildICmp(comp_ctx->builder, LLVMIntEQ, lhs,
+                                  OBJ_REF_NULL, "cmp_w_null"))) {
+            HANDLE_FAILURE("LLVMBuildICmp");
+            goto fail;
+        }
     }
     else
 #endif
     {
         POP_I32(lhs);
-    }
 
-    if (!(res = LLVMBuildICmp(comp_ctx->builder, LLVMIntEQ, lhs, REF_NULL,
-                              "cmp_w_null"))) {
-        HANDLE_FAILURE("LLVMBuildICmp");
-        goto fail;
+        if (!(res = LLVMBuildICmp(comp_ctx->builder, LLVMIntEQ, lhs, REF_NULL,
+                                  "cmp_w_null"))) {
+            HANDLE_FAILURE("LLVMBuildICmp");
+            goto fail;
+        }
     }
 
     if (!(res = LLVMBuildZExt(comp_ctx->builder, res, I32_TYPE, "r_i"))) {

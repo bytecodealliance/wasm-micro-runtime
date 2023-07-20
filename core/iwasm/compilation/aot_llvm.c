@@ -1692,15 +1692,15 @@ aot_set_llvm_basic_types(AOTLLVMTypes *basic_types, LLVMContextRef context,
     if (pointer_size == 4) {
         basic_types->intptr_type = basic_types->int32_type;
         basic_types->intptr_ptr_type = basic_types->int32_ptr_type;
-        basic_types->object_ref_type = basic_types->int32_type;
-        basic_types->object_ref_ptr_type = basic_types->int32_ptr_type;
     }
     else {
         basic_types->intptr_type = basic_types->int64_type;
         basic_types->intptr_ptr_type = basic_types->int64_ptr_type;
-        basic_types->object_ref_type = basic_types->int64_type;
-        basic_types->object_ref_ptr_type = basic_types->int64_ptr_type;
     }
+
+    basic_types->object_ref_type = LLVMPointerType(basic_types->void_type, 0);
+    basic_types->object_ref_ptr_type =
+        LLVMPointerType(basic_types->object_ref_type, 0);
 
     return (basic_types->int8_ptr_type && basic_types->int8_pptr_type
             && basic_types->int16_ptr_type && basic_types->int32_ptr_type
@@ -1801,6 +1801,8 @@ aot_create_llvm_consts(AOTLLVMConsts *consts, AOTCompContext *comp_ctx)
     CREATE_VEC_ZERO_MASK(4)
     CREATE_VEC_ZERO_MASK(2)
 #undef CREATE_VEC_ZERO_MASK
+
+    consts->obj_ref_null = LLVMConstNull(comp_ctx->basic_types.object_ref_type);
 
     return true;
 }
