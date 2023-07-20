@@ -207,6 +207,10 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
         case R_XTENSA_32:
         {
             uint8 *insn_addr = target_section_addr + reloc_offset;
+#if (WASM_MEM_DUAL_BUS_MIRROR != 0)
+            insn_addr = os_get_dbus_mirror((void *)insn_addr);
+            bh_assert(insn_addr != NULL);
+#endif
             int32 initial_addend;
             /* (S + A) */
             if ((intptr_t)insn_addr & 3) {
@@ -265,6 +269,11 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
                 return false;
             }
 
+#if (WASM_MEM_DUAL_BUS_MIRROR != 0)
+            insn_addr = os_get_dbus_mirror((void *)insn_addr);
+            bh_assert(insn_addr != NULL);
+            l32r_insn = (l32r_insn_t *)insn_addr;
+#endif
             imm16 = (int16)(relative_offset >> 2);
 
             /* write back the imm16 to the l32r instruction */
@@ -285,7 +294,6 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
 #if __GNUC__ >= 9
 #pragma GCC diagnostic pop
 #endif
-
             break;
         }
 
