@@ -10,7 +10,7 @@
 #include <nuttx/arch.h>
 #endif
 
-#if defined(CONFIG_ARCH_CHIP_ESP32S3) && (CONFIG_ARCH_CHIP_ESP32S3 != 0)
+#if defined(CONFIG_ARCH_CHIP_ESP32S3)
 /*
  * TODO: Move these methods below the operating system level
  */
