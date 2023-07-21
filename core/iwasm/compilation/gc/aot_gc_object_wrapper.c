@@ -76,6 +76,7 @@ aot_call_wasm_create_func_obj(AOTCompContext *comp_ctx,
     }
 
     LLVMPositionBuilderAtEnd(comp_ctx->builder, init_gc_obj_succ);
+    *p_gc_obj = gc_obj;
 
     return true;
 fail:
