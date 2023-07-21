@@ -384,7 +384,7 @@
 #define APP_THREAD_STACK_SIZE_DEFAULT (64 * 1024)
 #define APP_THREAD_STACK_SIZE_MIN (48 * 1024)
 #else
-#define APP_THREAD_STACK_SIZE_DEFAULT (32 * 1024)
+#define APP_THREAD_STACK_SIZE_DEFAULT (64 * 1024)
 #define APP_THREAD_STACK_SIZE_MIN (24 * 1024)
 #endif
 #endif /* end of !(defined(APP_THREAD_STACK_SIZE_DEFAULT) \
@@ -458,6 +458,22 @@
    to GS segment register before calling wasm/aot function. */
 #ifndef WASM_DISABLE_WRITE_GS_BASE
 #define WASM_DISABLE_WRITE_GS_BASE 0
+#endif
+
+/* Configurable bounds checks */
+#ifndef WASM_CONFIGURABLE_BOUNDS_CHECKS
+#define WASM_CONFIGURABLE_BOUNDS_CHECKS 0
+#endif
+
+/* Some chip cannot support external ram with rwx attr at the same time,
+   it has to map it into 2 spaces of idbus and dbus, code in dbus can be
+   read/written and read/executed in ibus. so there are 2 steps to execute
+   the code, first, copy&do relocaiton in dbus space, and second execute
+   it in ibus space, since in the 2 spaces the contents are the same,
+   so we call it bus mirror.
+ */
+#ifndef WASM_MEM_DUAL_BUS_MIRROR
+#define WASM_MEM_DUAL_BUS_MIRROR 0
 #endif
 
 #endif /* end of _CONFIG_H_ */

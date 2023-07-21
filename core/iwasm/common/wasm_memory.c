@@ -5,6 +5,7 @@
 
 #include "wasm_runtime_common.h"
 #include "../interpreter/wasm_runtime.h"
+#include "../aot/aot_runtime.h"
 #include "bh_platform.h"
 #include "mem_alloc.h"
 
@@ -86,6 +87,16 @@ wasm_memory_init_with_allocator(void *_malloc_func, void *_realloc_func,
     return false;
 }
 #endif
+
+static inline bool
+is_bounds_checks_enabled(WASMModuleInstanceCommon *module_inst)
+{
+#if WASM_CONFIGUABLE_BOUNDS_CHECKS != 0
+    return wasm_runtime_is_bounds_checks_enabled(module_inst);
+#else
+    return true;
+#endif
+}
 
 bool
 wasm_runtime_memory_init(mem_alloc_type_t mem_alloc_type,
@@ -269,6 +280,10 @@ wasm_runtime_validate_app_addr(WASMModuleInstanceCommon *module_inst_comm,
     bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
               || module_inst_comm->module_type == Wasm_Module_AoT);
 
+    if (!is_bounds_checks_enabled(module_inst_comm)) {
+        return true;
+    }
+
     memory_inst = wasm_get_default_memory(module_inst);
     if (!memory_inst) {
         goto fail;
@@ -299,6 +314,10 @@ wasm_runtime_validate_app_str_addr(WASMModuleInstanceCommon *module_inst_comm,
     bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
               || module_inst_comm->module_type == Wasm_Module_AoT);
 
+    if (!is_bounds_checks_enabled(module_inst_comm)) {
+        return true;
+    }
+
     if (!wasm_runtime_get_app_addr_range(module_inst_comm, app_str_offset, NULL,
                                          &app_end_offset))
         goto fail;
@@ -327,6 +346,10 @@ wasm_runtime_validate_native_addr(WASMModuleInstanceCommon *module_inst_comm,
     bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
               || module_inst_comm->module_type == Wasm_Module_AoT);
 
+    if (!is_bounds_checks_enabled(module_inst_comm)) {
+        return true;
+    }
+
     memory_inst = wasm_get_default_memory(module_inst);
     if (!memory_inst) {
         goto fail;
@@ -354,9 +377,12 @@ wasm_runtime_addr_app_to_native(WASMModuleInstanceCommon *module_inst_comm,
     WASMModuleInstance *module_inst = (WASMModuleInstance *)module_inst_comm;
     WASMMemoryInstance *memory_inst;
     uint8 *addr;
+    bool bounds_checks;
 
     bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
               || module_inst_comm->module_type == Wasm_Module_AoT);
+
+    bounds_checks = is_bounds_checks_enabled(module_inst_comm);
 
     memory_inst = wasm_get_default_memory(module_inst);
     if (!memory_inst) {
@@ -365,8 +391,17 @@ wasm_runtime_addr_app_to_native(WASMModuleInstanceCommon *module_inst_comm,
 
     addr = memory_inst->memory_data + app_offset;
 
-    if (memory_inst->memory_data <= addr && addr < memory_inst->memory_data_end)
+    if (bounds_checks) {
+        if (memory_inst->memory_data <= addr
+            && addr < memory_inst->memory_data_end) {
+
+            return addr;
+        }
+    }
+    /* If bounds checks is disabled, return the address directly */
+    else if (app_offset != 0) {
         return addr;
+    }
 
     return NULL;
 }
@@ -378,17 +413,27 @@ wasm_runtime_addr_native_to_app(WASMModuleInstanceCommon *module_inst_comm,
     WASMModuleInstance *module_inst = (WASMModuleInstance *)module_inst_comm;
     WASMMemoryInstance *memory_inst;
     uint8 *addr = (uint8 *)native_ptr;
+    bool bounds_checks;
 
     bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
               || module_inst_comm->module_type == Wasm_Module_AoT);
+
+    bounds_checks = is_bounds_checks_enabled(module_inst_comm);
 
     memory_inst = wasm_get_default_memory(module_inst);
     if (!memory_inst) {
         return 0;
     }
 
-    if (memory_inst->memory_data <= addr && addr < memory_inst->memory_data_end)
+    if (bounds_checks) {
+        if (memory_inst->memory_data <= addr
+            && addr < memory_inst->memory_data_end)
+            return (uint32)(addr - memory_inst->memory_data);
+    }
+    /* If bounds checks is disabled, return the offset directly */
+    else if (addr != NULL) {
         return (uint32)(addr - memory_inst->memory_data);
+    }
 
     return 0;
 }
@@ -460,12 +505,22 @@ wasm_check_app_addr_and_convert(WASMModuleInstance *module_inst, bool is_str,
 {
     WASMMemoryInstance *memory_inst = wasm_get_default_memory(module_inst);
     uint8 *native_addr;
+    bool bounds_checks;
 
     if (!memory_inst) {
         goto fail;
     }
 
     native_addr = memory_inst->memory_data + app_buf_addr;
+
+    bounds_checks = is_bounds_checks_enabled((wasm_module_inst_t)module_inst);
+
+    if (!bounds_checks) {
+        if (app_buf_addr == 0) {
+            native_addr = NULL;
+        }
+        goto success;
+    }
 
     /* No need to check the app_offset and buf_size if memory access
        boundary check with hardware trap is enabled */
@@ -492,6 +547,7 @@ wasm_check_app_addr_and_convert(WASMModuleInstance *module_inst, bool is_str,
     }
 #endif
 
+success:
     *p_native_addr = (void *)native_addr;
     return true;
 fail:

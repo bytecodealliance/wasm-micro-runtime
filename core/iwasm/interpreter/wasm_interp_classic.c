@@ -41,26 +41,28 @@ typedef float64 CellType_F64;
 
 #if !defined(OS_ENABLE_HW_BOUND_CHECK) \
     || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
-#define CHECK_MEMORY_OVERFLOW(bytes)                            \
-    do {                                                        \
-        uint64 offset1 = (uint64)offset + (uint64)addr;         \
-        if (offset1 + bytes <= (uint64)get_linear_mem_size())   \
-            /* If offset1 is in valid range, maddr must also    \
-               be in valid range, no need to check it again. */ \
-            maddr = memory->memory_data + offset1;              \
-        else                                                    \
-            goto out_of_bounds;                                 \
+#define CHECK_MEMORY_OVERFLOW(bytes)                             \
+    do {                                                         \
+        uint64 offset1 = (uint64)offset + (uint64)addr;          \
+        if (disable_bounds_checks                                \
+            || offset1 + bytes <= (uint64)get_linear_mem_size()) \
+            /* If offset1 is in valid range, maddr must also     \
+               be in valid range, no need to check it again. */  \
+            maddr = memory->memory_data + offset1;               \
+        else                                                     \
+            goto out_of_bounds;                                  \
     } while (0)
 
-#define CHECK_BULK_MEMORY_OVERFLOW(start, bytes, maddr)       \
-    do {                                                      \
-        uint64 offset1 = (uint32)(start);                     \
-        if (offset1 + bytes <= (uint64)get_linear_mem_size()) \
-            /* App heap space is not valid space for          \
-             bulk memory operation */                         \
-            maddr = memory->memory_data + offset1;            \
-        else                                                  \
-            goto out_of_bounds;                               \
+#define CHECK_BULK_MEMORY_OVERFLOW(start, bytes, maddr)          \
+    do {                                                         \
+        uint64 offset1 = (uint32)(start);                        \
+        if (disable_bounds_checks                                \
+            || offset1 + bytes <= (uint64)get_linear_mem_size()) \
+            /* App heap space is not valid space for             \
+             bulk memory operation */                            \
+            maddr = memory->memory_data + offset1;               \
+        else                                                     \
+            goto out_of_bounds;                                  \
     } while (0)
 #else
 #define CHECK_MEMORY_OVERFLOW(bytes)                    \
@@ -1087,21 +1089,33 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
         os_mutex_unlock(&exec_env->wait_lock);                         \
     } while (0)
 #else
-#define CHECK_SUSPEND_FLAGS()                                             \
-    do {                                                                  \
-        os_mutex_lock(&exec_env->wait_lock);                              \
-        if (exec_env->suspend_flags.flags != 0) {                         \
-            if (exec_env->suspend_flags.flags & 0x01) {                   \
-                /* terminate current thread */                            \
-                os_mutex_unlock(&exec_env->wait_lock);                    \
-                return;                                                   \
-            }                                                             \
-            while (exec_env->suspend_flags.flags & 0x02) {                \
-                /* suspend current thread */                              \
-                os_cond_wait(&exec_env->wait_cond, &exec_env->wait_lock); \
-            }                                                             \
-        }                                                                 \
-        os_mutex_unlock(&exec_env->wait_lock);                            \
+#if WASM_SUSPEND_FLAGS_IS_ATOMIC != 0
+/* The lock is only needed when the suspend_flags is atomic; otherwise
+   the lock is already taken at the time when SUSPENSION_LOCK() is called. */
+#define SUSPENSION_LOCK() os_mutex_lock(&exec_env->wait_lock);
+#define SUSPENSION_UNLOCK() os_mutex_unlock(&exec_env->wait_lock);
+#else
+#define SUSPENSION_LOCK()
+#define SUSPENSION_UNLOCK()
+#endif
+
+#define CHECK_SUSPEND_FLAGS()                                         \
+    do {                                                              \
+        WASM_SUSPEND_FLAGS_LOCK(exec_env->wait_lock);                 \
+        if (WASM_SUSPEND_FLAGS_GET(exec_env->suspend_flags)           \
+            & WASM_SUSPEND_FLAG_TERMINATE) {                          \
+            /* terminate current thread */                            \
+            WASM_SUSPEND_FLAGS_UNLOCK(exec_env->wait_lock);           \
+            return;                                                   \
+        }                                                             \
+        while (WASM_SUSPEND_FLAGS_GET(exec_env->suspend_flags)        \
+               & WASM_SUSPEND_FLAG_SUSPEND) {                         \
+            /* suspend current thread */                              \
+            SUSPENSION_LOCK()                                         \
+            os_cond_wait(&exec_env->wait_cond, &exec_env->wait_lock); \
+            SUSPENSION_UNLOCK()                                       \
+        }                                                             \
+        WASM_SUSPEND_FLAGS_UNLOCK(exec_env->wait_lock);               \
     } while (0)
 #endif /* WASM_ENABLE_DEBUG_INTERP */
 #endif /* WASM_ENABLE_THREAD_MGR */
@@ -1204,6 +1218,15 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     int32_t exception_tag_index;
 #endif
     uint8 value_type;
+#if !defined(OS_ENABLE_HW_BOUND_CHECK) \
+    || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
+#if WASM_CONFIGUABLE_BOUNDS_CHECKS != 0
+    bool disable_bounds_checks = !wasm_runtime_is_bounds_checks_enabled(
+        (WASMModuleInstanceCommon *)module);
+#else
+    bool disable_bounds_checks = false;
+#endif
+#endif
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
     uint8 *frame_ip_orig = NULL;
@@ -4359,7 +4382,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(DEBUG_OP_BREAK)
             {
                 wasm_cluster_thread_send_signal(exec_env, WAMR_SIG_TRAP);
-                exec_env->suspend_flags.flags |= 2;
+                WASM_SUSPEND_FLAGS_FETCH_OR(exec_env->suspend_flags,
+                                            WASM_SUSPEND_FLAG_SUSPEND);
                 frame_ip--;
                 SYNC_ALL_TO_FRAME();
                 CHECK_SUSPEND_FLAGS();

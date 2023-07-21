@@ -606,7 +606,8 @@ thread_manager_start_routine(void *arg)
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     os_mutex_lock(&exec_env->wait_lock);
-    if (exec_env->suspend_flags.flags & 0x08)
+    if (WASM_SUSPEND_FLAGS_GET(exec_env->suspend_flags)
+        & WASM_SUSPEND_FLAG_EXIT)
         ret = exec_env->thread_ret_value;
     os_mutex_unlock(&exec_env->wait_lock);
 #endif
@@ -993,7 +994,9 @@ wasm_cluster_exit_thread(WASMExecEnv *exec_env, void *retval)
     if (exec_env->jmpbuf_stack_top) {
         /* Store the return value in exec_env */
         exec_env->thread_ret_value = retval;
-        exec_env->suspend_flags.flags |= 0x08;
+
+        WASM_SUSPEND_FLAGS_FETCH_OR(exec_env->suspend_flags,
+                                    WASM_SUSPEND_FLAG_EXIT);
 
 #ifndef BH_PLATFORM_WINDOWS
         /* Pop all jmpbuf_node except the last one */
@@ -1055,7 +1058,8 @@ set_thread_cancel_flags(WASMExecEnv *exec_env)
 #if WASM_ENABLE_DEBUG_INTERP != 0
     wasm_cluster_thread_send_signal(exec_env, WAMR_SIG_TERM);
 #endif
-    exec_env->suspend_flags.flags |= 0x01;
+    WASM_SUSPEND_FLAGS_FETCH_OR(exec_env->suspend_flags,
+                                WASM_SUSPEND_FLAG_TERMINATE);
 
     os_mutex_unlock(&exec_env->wait_lock);
 }
@@ -1178,7 +1182,8 @@ void
 wasm_cluster_suspend_thread(WASMExecEnv *exec_env)
 {
     /* Set the suspend flag */
-    exec_env->suspend_flags.flags |= 0x02;
+    WASM_SUSPEND_FLAGS_FETCH_OR(exec_env->suspend_flags,
+                                WASM_SUSPEND_FLAG_SUSPEND);
 }
 
 static void
@@ -1214,7 +1219,8 @@ wasm_cluster_suspend_all_except_self(WASMCluster *cluster,
 void
 wasm_cluster_resume_thread(WASMExecEnv *exec_env)
 {
-    exec_env->suspend_flags.flags &= ~0x02;
+    WASM_SUSPEND_FLAGS_FETCH_AND(exec_env->suspend_flags,
+                                 ~WASM_SUSPEND_FLAG_SUSPEND);
     os_cond_signal(&exec_env->wait_cond);
 }
 
@@ -1343,8 +1349,10 @@ bool
 wasm_cluster_is_thread_terminated(WASMExecEnv *exec_env)
 {
     os_mutex_lock(&exec_env->wait_lock);
-    bool is_thread_terminated =
-        (exec_env->suspend_flags.flags & 0x01) ? true : false;
+    bool is_thread_terminated = (WASM_SUSPEND_FLAGS_GET(exec_env->suspend_flags)
+                                 & WASM_SUSPEND_FLAG_TERMINATE)
+                                    ? true
+                                    : false;
     os_mutex_unlock(&exec_env->wait_lock);
 
     return is_thread_terminated;

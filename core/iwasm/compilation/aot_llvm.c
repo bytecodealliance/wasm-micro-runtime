@@ -623,6 +623,15 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
                                     prefix)))
         goto fail;
 
+    if (comp_ctx->is_indirect_mode) {
+        /* avoid LUT relocations ("switch-table") */
+        LLVMAttributeRef attr_no_jump_tables = LLVMCreateStringAttribute(
+            comp_ctx->context, "no-jump-tables", strlen("no-jump-tables"),
+            "true", strlen("true"));
+        LLVMAddAttributeAtIndex(func, LLVMAttributeFunctionIndex,
+                                attr_no_jump_tables);
+    }
+
     if (need_precheck) {
         if (!comp_ctx->is_jit_mode)
             LLVMSetLinkage(func, LLVMInternalLinkage);
@@ -2295,6 +2304,12 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
 
     if (option->enable_stack_estimation)
         comp_ctx->enable_stack_estimation = true;
+
+    if (option->llvm_passes)
+        comp_ctx->llvm_passes = option->llvm_passes;
+
+    if (option->builtin_intrinsics)
+        comp_ctx->builtin_intrinsics = option->builtin_intrinsics;
 
     comp_ctx->opt_level = option->opt_level;
     comp_ctx->size_level = option->size_level;

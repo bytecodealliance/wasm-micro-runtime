@@ -7389,6 +7389,7 @@ static bool
 copy_params_to_dynamic_space(WASMLoaderContext *loader_ctx, bool is_if_block,
                              char *error_buf, uint32 error_buf_size)
 {
+    bool ret = false;
     int16 *frame_offset = NULL;
     uint8 *cells = NULL, cell;
     int16 *src_offsets = NULL;
@@ -7459,13 +7460,13 @@ copy_params_to_dynamic_space(WASMLoaderContext *loader_ctx, bool is_if_block,
     if (is_if_block)
         PUSH_OFFSET_TYPE(VALUE_TYPE_I32);
 
+    ret = true;
+
+fail:
     /* Free the emit data */
     wasm_runtime_free(emit_data);
 
-    return true;
-
-fail:
-    return false;
+    return ret;
 }
 #endif
 

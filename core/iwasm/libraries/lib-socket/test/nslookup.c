@@ -5,6 +5,8 @@
 
 #include <assert.h>
 #include <string.h>
+#include <stdio.h>
+#include <pthread.h>
 #ifdef __wasi__
 #include <wasi/api.h>
 #include <sys/socket.h>
@@ -39,11 +41,27 @@ test_nslookup(int af)
     freeaddrinfo(res);
 }
 
+void *
+test_nslookup_mt(void *params)
+{
+    int *af = (int *)params;
+    test_nslookup(*af);
+}
+
 int
 main()
 {
-    test_nslookup(AF_INET);  /* for ipv4 */
-    test_nslookup(AF_INET6); /* for ipv6 */
+    int afs[] = { AF_INET, AF_INET6 };
+
+    for (int i = 0; i < sizeof(afs) / sizeof(afs[0]); i++) {
+        pthread_t th;
+
+        printf("Testing %d in main thread...\n", afs[i]);
+        test_nslookup(afs[i]);
+        printf("Testing %d in a new thread...\n", afs[i]);
+        pthread_create(&th, NULL, test_nslookup_mt, &afs[i]);
+        pthread_join(th, NULL);
+    }
 
     return 0;
 }
