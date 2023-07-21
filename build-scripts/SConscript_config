@@ -110,7 +110,7 @@ if GetDepend(['WAMR_BUILD_CUSTOM_NAME_SECTION']):
 if GetDepend(['WAMR_BUILD_TAIL_CALL']):
     CPPDEFINES += ['WASM_ENABLE_TAIL_CALL=1']
     print('[WAMR] Tail call enabledd')
-
+    
 LIBS = ['m']
 
 group = DefineGroup('wamr', src, depend = ['PKG_USING_WAMR'], CPPPATH = CPPPATH, CPPDEFINES = CPPDEFINES, LIBS = LIBS)
