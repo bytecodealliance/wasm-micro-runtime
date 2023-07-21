@@ -531,7 +531,8 @@ pthread_start_routine(void *arg)
     else {
         info_node->u.ret = (void *)(uintptr_t)argv[0];
 #ifdef OS_ENABLE_HW_BOUND_CHECK
-        if (exec_env->suspend_flags.flags & 0x08)
+        if (WASM_SUSPEND_FLAGS_GET(exec_env->suspend_flags)
+            & WASM_SUSPEND_FLAG_EXIT)
             /* argv[0] isn't set after longjmp(1) to
                invoke_native_with_hw_bound_check */
             info_node->u.ret = exec_env->thread_ret_value;
