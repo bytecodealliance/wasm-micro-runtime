@@ -8,6 +8,9 @@
 #include "aot_emit_control.h"
 #include "aot_emit_table.h"
 #include "../aot/aot_runtime.h"
+#if WASM_ENABLE_GC != 0
+#include "gc/aot_gc_object_wrapper.h"
+#endif
 
 #define ADD_BASIC_BLOCK(block, name)                                          \
     do {                                                                      \
@@ -1698,13 +1701,25 @@ aot_compile_op_ref_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                         uint32 func_idx)
 {
     LLVMValueRef ref_idx;
-
     if (!(ref_idx = I32_CONST(func_idx))) {
         HANDLE_FAILURE("LLVMConstInt");
         goto fail;
     }
+#if WASM_ENABLE_GC != 0
+    LLVMValueRef gc_obj;
+    if (comp_ctx->enable_gc) {
+        if (!aot_call_wasm_create_func_obj(comp_ctx, func_ctx, ref_idx,
+                                           &gc_obj)) {
+            goto fail;
+        }
 
-    PUSH_I32(ref_idx);
+        PUSH_REF(gc_obj);
+    }
+    else
+#endif
+    {
+        PUSH_I32(ref_idx);
+    }
 
     return true;
 fail:

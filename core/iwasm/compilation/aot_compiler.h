@@ -283,6 +283,7 @@ check_type_compatible(uint8 src_type, uint8 dst_type)
 #define I64_64 LLVM_CONST(i64_64)
 #define REF_NULL I32_NEG_ONE
 #define OBJ_REF_NULL LLVM_CONST(obj_ref_null)
+#define I8_PTR_NULL LLVM_CONST(i8_ptr_null)
 
 #define V128_TYPE comp_ctx->basic_types.v128_type
 #define V128_PTR_TYPE comp_ctx->basic_types.v128_ptr_type

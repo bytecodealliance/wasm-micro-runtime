@@ -1803,6 +1803,7 @@ aot_create_llvm_consts(AOTLLVMConsts *consts, AOTCompContext *comp_ctx)
 #undef CREATE_VEC_ZERO_MASK
 
     consts->obj_ref_null = LLVMConstNull(comp_ctx->basic_types.object_ref_type);
+    consts->i8_ptr_null = LLVMConstNull(comp_ctx->basic_types.int8_ptr_type);
 
     return true;
 }

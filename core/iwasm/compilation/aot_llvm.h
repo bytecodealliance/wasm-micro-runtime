@@ -283,6 +283,7 @@ typedef struct AOTLLVMConsts {
     LLVMValueRef i32x4_zero;
     LLVMValueRef i32x2_zero;
     LLVMValueRef obj_ref_null;
+    LLVMValueRef i8_ptr_null;
 } AOTLLVMConsts;
 
 /**
