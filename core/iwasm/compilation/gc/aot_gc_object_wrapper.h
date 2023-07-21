@@ -9,14 +9,10 @@
 extern "C" {
 #endif
 
-#if WASM_ENABLE_GC != 0
-
 bool
 aot_call_wasm_create_func_obj(AOTCompContext *comp_ctx,
                               AOTFuncContext *func_ctx, LLVMValueRef func_idx,
                               LLVMValueRef *p_gc_obj);
-
-#endif
 
 #ifdef __cplusplus
 } /* end of extern "C" */
