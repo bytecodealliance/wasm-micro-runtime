@@ -2484,7 +2484,7 @@ aot_get_module_inst_mem_consumption(const AOTModuleInstance *module_inst,
 #endif /* end of (WASM_ENABLE_MEMORY_PROFILING != 0) \
                  || (WASM_ENABLE_MEMORY_TRACING != 0) */
 
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
 void
 aot_drop_table_seg(AOTModuleInstance *module_inst, uint32 tbl_seg_idx)
 {
@@ -2534,6 +2534,64 @@ aot_table_init(AOTModuleInstance *module_inst, uint32 tbl_idx,
                 tbl_seg->func_indexes + src_offset,
                 length * sizeof(table_elem_type_t));
 }
+
+#if WASM_ENABLE_GC != 0
+void
+aot_gc_table_init(AOTModuleInstance *module_inst, uint32 tbl_idx,
+                  uint32 tbl_seg_idx, uint32 length, uint32 src_offset,
+                  uint32 dst_offset)
+{
+    AOTTableInstance *tbl_inst;
+    AOTTableInitData *tbl_seg;
+    const AOTModule *module = (AOTModule *)module_inst->module;
+    void **table_elems;
+    uintptr_t *func_indexes;
+    void *func_obj;
+
+    tbl_inst = module_inst->tables[tbl_idx];
+    bh_assert(tbl_inst);
+
+    tbl_seg = module->table_init_data_list[tbl_seg_idx];
+    bh_assert(tbl_seg);
+
+    if (!length) {
+        return;
+    }
+
+    if (length + src_offset > tbl_seg->func_index_count
+        || dst_offset + length > tbl_inst->cur_size) {
+        aot_set_exception_with_id(module_inst, EXCE_OUT_OF_BOUNDS_TABLE_ACCESS);
+        return;
+    }
+
+    if (tbl_seg->is_dropped) {
+        aot_set_exception_with_id(module_inst, EXCE_OUT_OF_BOUNDS_TABLE_ACCESS);
+        return;
+    }
+
+    if (!wasm_elem_is_passive(tbl_seg->mode)) {
+        aot_set_exception_with_id(module_inst, EXCE_OUT_OF_BOUNDS_TABLE_ACCESS);
+        return;
+    }
+
+    table_elems = tbl_inst->elems + dst_offset;
+    func_indexes = tbl_seg->func_indexes + src_offset;
+
+    for (uint32 i = 0; i < length; i++) {
+        /* UINT32_MAX indicates that it is a null ref */
+        if (func_indexes[i] != UINT32_MAX) {
+            if (!(func_obj = wasm_create_func_obj(module_inst, func_indexes[i],
+                                                  true, NULL, 0))) {
+                aot_set_exception_with_id(module_inst, EXCE_NULL_OBJ_REF);
+            }
+            table_elems[i] = func_obj;
+        }
+        else {
+            table_elems[i] = NULL_REF;
+        }
+    }
+}
+#endif /*  WASM_ENABLE_GC != 0 */
 
 void
 aot_table_copy(AOTModuleInstance *module_inst, uint32 src_tbl_idx,
@@ -2620,7 +2678,7 @@ aot_table_grow(AOTModuleInstance *module_inst, uint32 tbl_idx,
     tbl_inst->cur_size = entry_count;
     return orig_tbl_sz;
 }
-#endif /* WASM_ENABLE_REF_TYPES != 0 */
+#endif /* WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0 */
 
 #if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
 #if WASM_ENABLE_CUSTOM_NAME_SECTION != 0

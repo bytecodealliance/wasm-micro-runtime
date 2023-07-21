@@ -603,7 +603,7 @@ void
 aot_get_module_inst_mem_consumption(const AOTModuleInstance *module_inst,
                                     WASMModuleInstMemConsumption *mem_conspn);
 
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
 void
 aot_drop_table_seg(AOTModuleInstance *module_inst, uint32 tbl_seg_idx);
 
@@ -611,6 +611,13 @@ void
 aot_table_init(AOTModuleInstance *module_inst, uint32 tbl_idx,
                uint32 tbl_seg_idx, uint32 length, uint32 src_offset,
                uint32 dst_offset);
+
+#if WASM_ENABLE_GC != 0
+void
+aot_gc_table_init(AOTModuleInstance *module_inst, uint32 tbl_idx,
+                  uint32 tbl_seg_idx, uint32 length, uint32 src_offset,
+                  uint32 dst_offset);
+#endif
 
 void
 aot_table_copy(AOTModuleInstance *module_inst, uint32 src_tbl_idx,

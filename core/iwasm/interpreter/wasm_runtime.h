@@ -68,6 +68,7 @@ typedef enum WASMExceptionID {
     EXCE_FAILED_TO_COMPILE_FAST_JIT_FUNC,
     EXCE_ALREADY_THROWN,
     EXCE_NUM,
+    EXCE_NULL_OBJ_REF,
 } WASMExceptionID;
 
 typedef union {

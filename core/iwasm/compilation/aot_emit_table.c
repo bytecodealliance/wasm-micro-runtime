@@ -6,6 +6,9 @@
 #include "aot_emit_table.h"
 #include "aot_emit_exception.h"
 #include "../aot/aot_runtime.h"
+#if WASM_ENABLE_GC != 0
+#include "gc/aot_gc_object_wrapper.h"
+#endif
 
 uint64
 get_tbl_inst_offset(const AOTCompContext *comp_ctx,
@@ -339,10 +342,18 @@ aot_compile_op_table_init(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     param_types[5] = I32_TYPE;
     ret_type = VOID_TYPE;
 
-    if (comp_ctx->is_jit_mode)
-        GET_AOT_FUNCTION(llvm_jit_table_init, 6);
+#if WASM_ENABLE_GC != 0
+    if (comp_ctx->enable_gc) {
+        GET_AOT_FUNCTION(aot_gc_table_init, 6);
+    }
     else
-        GET_AOT_FUNCTION(aot_table_init, 6);
+#endif
+    {
+        if (comp_ctx->is_jit_mode)
+            GET_AOT_FUNCTION(llvm_jit_table_init, 6);
+        else
+            GET_AOT_FUNCTION(aot_table_init, 6);
+    }
 
     param_values[0] = func_ctx->aot_inst;
 
@@ -474,7 +485,15 @@ aot_compile_op_table_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     param_types[0] = INT8_PTR_TYPE;
     param_types[1] = I32_TYPE;
     param_types[2] = I32_TYPE;
-    param_types[3] = I32_TYPE;
+#if WASM_ENABLE_GC != 0
+    if (comp_ctx->enable_gc) {
+        param_types[3] = OBJECT_REF_TYPE;
+    }
+    else
+#endif
+    {
+        param_types[3] = I32_TYPE;
+    }
     ret_type = I32_TYPE;
 
     if (comp_ctx->is_jit_mode)
@@ -492,7 +511,15 @@ aot_compile_op_table_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* n */
     POP_I32(param_values[2]);
     /* v */
-    POP_I32(param_values[3]);
+#if WASM_ENABLE_GC != 0
+    if (comp_ctx->enable_gc) {
+        POP_REF(param_values[3]);
+    }
+    else
+#endif
+    {
+        POP_I32(param_values[3]);
+    }
 
     if (!(ret = LLVMBuildCall2(comp_ctx->builder, func_type, func, param_values,
                                4, "table_grow"))) {
@@ -517,7 +544,15 @@ aot_compile_op_table_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     param_types[0] = INT8_PTR_TYPE;
     param_types[1] = I32_TYPE;
     param_types[2] = I32_TYPE;
-    param_types[3] = I32_TYPE;
+#if WASM_ENABLE_GC != 0
+    if (comp_ctx->enable_gc) {
+        param_types[3] = OBJECT_REF_TYPE;
+    }
+    else
+#endif
+    {
+        param_types[3] = I32_TYPE;
+    }
     param_types[4] = I32_TYPE;
     ret_type = VOID_TYPE;
 
@@ -536,7 +571,15 @@ aot_compile_op_table_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* n */
     POP_I32(param_values[2]);
     /* v */
-    POP_I32(param_values[3]);
+#if WASM_ENABLE_GC != 0
+    if (comp_ctx->enable_gc) {
+        POP_REF(param_values[3]);
+    }
+    else
+#endif
+    {
+        POP_I32(param_values[3]);
+    }
     /* i */
     POP_I32(param_values[4]);
 
