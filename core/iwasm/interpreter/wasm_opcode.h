@@ -20,12 +20,17 @@ typedef enum WASMOpcode {
     WASM_OP_LOOP = 0x03,        /* loop */
     WASM_OP_IF = 0x04,          /* if */
     WASM_OP_ELSE = 0x05,        /* else */
-
+#if WASM_ENABLE_EXCE_HANDLING != 0
     WASM_OP_TRY = 0x06,     /* try */
-    WASM_OP_CATCH = 0x07,   /* catch */
-    WASM_OP_THROW = 0x08,   /* throw */
-    WASM_OP_RETHROW = 0x09, /* rethrow */
-
+    WASM_OP_CATCH = 0x07,   /* catch* */
+    WASM_OP_THROW = 0x08,   /* throw of a try catch */
+    WASM_OP_RETHROW = 0x09, /* rethrow of a try catch */
+#else
+    WASM_OP_UNUSED_0x06 = 0x06,
+    WASM_OP_UNUSED_0x07 = 0x07,
+    WASM_OP_UNUSED_0x08 = 0x08,
+    WASM_OP_UNUSED_0x09 = 0x09,
+#endif
     WASM_OP_UNUSED_0x0a = 0x0a,
 
     WASM_OP_END = 0x0b,                  /* end */
@@ -42,9 +47,13 @@ typedef enum WASMOpcode {
     WASM_OP_UNUSED_0x15 = 0x15,
     WASM_OP_UNUSED_0x16 = 0x16,
     WASM_OP_UNUSED_0x17 = 0x17,
-
-    WASM_OP_DELEGATE = 0x18,  /* delegate */
-    WASM_OP_CATCH_ALL = 0x19, /* catch_all */
+#if WASM_ENABLE_EXCE_HANDLING != 0
+    WASM_OP_DELEGATE = 0x18,  /* delegate block of the try catch*/
+    WASM_OP_CATCH_ALL = 0x19, /* a catch_all handler in a try block */
+#else
+    WASM_OP_UNUSED_0x18 = 0x18,
+    WASM_OP_UNUSED_0x19 = 0x19,
+#endif
 
     /* parametric instructions */
     WASM_OP_DROP = 0x1a,     /* drop */
@@ -273,7 +282,11 @@ typedef enum WASMOpcode {
 #if WASM_ENABLE_DEBUG_INTERP != 0
     DEBUG_OP_BREAK = 0xd7, /* debug break point */
 #endif
-
+#if WASM_ENABLE_EXCE_HANDLING != 0
+    EXT_OP_TRY = 0xd8, /* try block with blocktype */
+/* throw, rethrow, delegate, catch and catch_all
+ * do not have a blocktype, as far as i see */
+#endif
     /* Post-MVP extend op prefix */
     WASM_OP_MISC_PREFIX = 0xfc,
     WASM_OP_SIMD_PREFIX = 0xfd,
@@ -690,6 +703,7 @@ typedef enum WASMAtomicEXTOpcode {
  */
 #define WASM_INSTRUCTION_NUM 256
 
+#if WASM_ENABLE_EXCE_HANDLING != 0
 #define DEFINE_GOTO_TABLE(type, _name)                          \
     static type _name[WASM_INSTRUCTION_NUM] = {                 \
         HANDLE_OPCODE(WASM_OP_UNREACHABLE),          /* 0x00 */ \
@@ -907,10 +921,235 @@ typedef enum WASMAtomicEXTOpcode {
         HANDLE_OPCODE(EXT_OP_LOOP),                  /* 0xd4 */ \
         HANDLE_OPCODE(EXT_OP_IF),                    /* 0xd5 */ \
         HANDLE_OPCODE(EXT_OP_BR_TABLE_CACHE),        /* 0xd6 */ \
+        HANDLE_OPCODE(EXT_OP_TRY),                   /* 0xd8 */ \
         SET_GOTO_TABLE_ELEM(WASM_OP_MISC_PREFIX),    /* 0xfc */ \
         SET_GOTO_TABLE_ELEM(WASM_OP_ATOMIC_PREFIX),  /* 0xfe */ \
         DEF_DEBUG_BREAK_HANDLE()                                \
     };
+
+#else
+#define DEFINE_GOTO_TABLE(type, _name)                          \
+    static type _name[WASM_INSTRUCTION_NUM] = {                 \
+        HANDLE_OPCODE(WASM_OP_UNREACHABLE),          /* 0x00 */ \
+        HANDLE_OPCODE(WASM_OP_NOP),                  /* 0x01 */ \
+        HANDLE_OPCODE(WASM_OP_BLOCK),                /* 0x02 */ \
+        HANDLE_OPCODE(WASM_OP_LOOP),                 /* 0x03 */ \
+        HANDLE_OPCODE(WASM_OP_IF),                   /* 0x04 */ \
+        HANDLE_OPCODE(WASM_OP_ELSE),                 /* 0x05 */ \
+        HANDLE_OPCODE(WASM_OP_UNUSED_0x06),          /* 0x06 */ \
+        HANDLE_OPCODE(WASM_OP_UNUSED_0x07),          /* 0x07 */ \
+        HANDLE_OPCODE(WASM_OP_UNUSED_0x08),          /* 0x08 */ \
+        HANDLE_OPCODE(WASM_OP_UNUSED_0x09),          /* 0x09 */ \
+        HANDLE_OPCODE(WASM_OP_UNUSED_0x0a),          /* 0x0a */ \
+        HANDLE_OPCODE(WASM_OP_END),                  /* 0x0b */ \
+        HANDLE_OPCODE(WASM_OP_BR),                   /* 0x0c */ \
+        HANDLE_OPCODE(WASM_OP_BR_IF),                /* 0x0d */ \
+        HANDLE_OPCODE(WASM_OP_BR_TABLE),             /* 0x0e */ \
+        HANDLE_OPCODE(WASM_OP_RETURN),               /* 0x0f */ \
+        HANDLE_OPCODE(WASM_OP_CALL),                 /* 0x10 */ \
+        HANDLE_OPCODE(WASM_OP_CALL_INDIRECT),        /* 0x11 */ \
+        HANDLE_OPCODE(WASM_OP_RETURN_CALL),          /* 0x12 */ \
+        HANDLE_OPCODE(WASM_OP_RETURN_CALL_INDIRECT), /* 0x13 */ \
+        HANDLE_OPCODE(WASM_OP_UNUSED_0x14),          /* 0x14 */ \
+        HANDLE_OPCODE(WASM_OP_UNUSED_0x15),          /* 0x15 */ \
+        HANDLE_OPCODE(WASM_OP_UNUSED_0x16),          /* 0x16 */ \
+        HANDLE_OPCODE(WASM_OP_UNUSED_0x17),          /* 0x17 */ \
+        HANDLE_OPCODE(WASM_OP_UNUSED_0x18),          /* 0x18 */ \
+        HANDLE_OPCODE(WASM_OP_UNUSED_0x19),          /* 0x19 */ \
+        HANDLE_OPCODE(WASM_OP_DROP),                 /* 0x1a */ \
+        HANDLE_OPCODE(WASM_OP_SELECT),               /* 0x1b */ \
+        HANDLE_OPCODE(WASM_OP_SELECT_T),             /* 0x1c */ \
+        HANDLE_OPCODE(WASM_OP_GET_GLOBAL_64),        /* 0x1d */ \
+        HANDLE_OPCODE(WASM_OP_SET_GLOBAL_64),        /* 0x1e */ \
+        HANDLE_OPCODE(WASM_OP_SET_GLOBAL_AUX_STACK), /* 0x1f */ \
+        HANDLE_OPCODE(WASM_OP_GET_LOCAL),            /* 0x20 */ \
+        HANDLE_OPCODE(WASM_OP_SET_LOCAL),            /* 0x21 */ \
+        HANDLE_OPCODE(WASM_OP_TEE_LOCAL),            /* 0x22 */ \
+        HANDLE_OPCODE(WASM_OP_GET_GLOBAL),           /* 0x23 */ \
+        HANDLE_OPCODE(WASM_OP_SET_GLOBAL),           /* 0x24 */ \
+        HANDLE_OPCODE(WASM_OP_TABLE_GET),            /* 0x25 */ \
+        HANDLE_OPCODE(WASM_OP_TABLE_SET),            /* 0x26 */ \
+        HANDLE_OPCODE(WASM_OP_UNUSED_0x27),          /* 0x27 */ \
+        HANDLE_OPCODE(WASM_OP_I32_LOAD),             /* 0x28 */ \
+        HANDLE_OPCODE(WASM_OP_I64_LOAD),             /* 0x29 */ \
+        HANDLE_OPCODE(WASM_OP_F32_LOAD),             /* 0x2a */ \
+        HANDLE_OPCODE(WASM_OP_F64_LOAD),             /* 0x2b */ \
+        HANDLE_OPCODE(WASM_OP_I32_LOAD8_S),          /* 0x2c */ \
+        HANDLE_OPCODE(WASM_OP_I32_LOAD8_U),          /* 0x2d */ \
+        HANDLE_OPCODE(WASM_OP_I32_LOAD16_S),         /* 0x2e */ \
+        HANDLE_OPCODE(WASM_OP_I32_LOAD16_U),         /* 0x2f */ \
+        HANDLE_OPCODE(WASM_OP_I64_LOAD8_S),          /* 0x30 */ \
+        HANDLE_OPCODE(WASM_OP_I64_LOAD8_U),          /* 0x31 */ \
+        HANDLE_OPCODE(WASM_OP_I64_LOAD16_S),         /* 0x32 */ \
+        HANDLE_OPCODE(WASM_OP_I64_LOAD16_U),         /* 0x33 */ \
+        HANDLE_OPCODE(WASM_OP_I64_LOAD32_S),         /* 0x34 */ \
+        HANDLE_OPCODE(WASM_OP_I64_LOAD32_U),         /* 0x35 */ \
+        HANDLE_OPCODE(WASM_OP_I32_STORE),            /* 0x36 */ \
+        HANDLE_OPCODE(WASM_OP_I64_STORE),            /* 0x37 */ \
+        HANDLE_OPCODE(WASM_OP_F32_STORE),            /* 0x38 */ \
+        HANDLE_OPCODE(WASM_OP_F64_STORE),            /* 0x39 */ \
+        HANDLE_OPCODE(WASM_OP_I32_STORE8),           /* 0x3a */ \
+        HANDLE_OPCODE(WASM_OP_I32_STORE16),          /* 0x3b */ \
+        HANDLE_OPCODE(WASM_OP_I64_STORE8),           /* 0x3c */ \
+        HANDLE_OPCODE(WASM_OP_I64_STORE16),          /* 0x3d */ \
+        HANDLE_OPCODE(WASM_OP_I64_STORE32),          /* 0x3e */ \
+        HANDLE_OPCODE(WASM_OP_MEMORY_SIZE),          /* 0x3f */ \
+        HANDLE_OPCODE(WASM_OP_MEMORY_GROW),          /* 0x40 */ \
+        HANDLE_OPCODE(WASM_OP_I32_CONST),            /* 0x41 */ \
+        HANDLE_OPCODE(WASM_OP_I64_CONST),            /* 0x42 */ \
+        HANDLE_OPCODE(WASM_OP_F32_CONST),            /* 0x43 */ \
+        HANDLE_OPCODE(WASM_OP_F64_CONST),            /* 0x44 */ \
+        HANDLE_OPCODE(WASM_OP_I32_EQZ),              /* 0x45 */ \
+        HANDLE_OPCODE(WASM_OP_I32_EQ),               /* 0x46 */ \
+        HANDLE_OPCODE(WASM_OP_I32_NE),               /* 0x47 */ \
+        HANDLE_OPCODE(WASM_OP_I32_LT_S),             /* 0x48 */ \
+        HANDLE_OPCODE(WASM_OP_I32_LT_U),             /* 0x49 */ \
+        HANDLE_OPCODE(WASM_OP_I32_GT_S),             /* 0x4a */ \
+        HANDLE_OPCODE(WASM_OP_I32_GT_U),             /* 0x4b */ \
+        HANDLE_OPCODE(WASM_OP_I32_LE_S),             /* 0x4c */ \
+        HANDLE_OPCODE(WASM_OP_I32_LE_U),             /* 0x4d */ \
+        HANDLE_OPCODE(WASM_OP_I32_GE_S),             /* 0x4e */ \
+        HANDLE_OPCODE(WASM_OP_I32_GE_U),             /* 0x4f */ \
+        HANDLE_OPCODE(WASM_OP_I64_EQZ),              /* 0x50 */ \
+        HANDLE_OPCODE(WASM_OP_I64_EQ),               /* 0x51 */ \
+        HANDLE_OPCODE(WASM_OP_I64_NE),               /* 0x52 */ \
+        HANDLE_OPCODE(WASM_OP_I64_LT_S),             /* 0x53 */ \
+        HANDLE_OPCODE(WASM_OP_I64_LT_U),             /* 0x54 */ \
+        HANDLE_OPCODE(WASM_OP_I64_GT_S),             /* 0x55 */ \
+        HANDLE_OPCODE(WASM_OP_I64_GT_U),             /* 0x56 */ \
+        HANDLE_OPCODE(WASM_OP_I64_LE_S),             /* 0x57 */ \
+        HANDLE_OPCODE(WASM_OP_I64_LE_U),             /* 0x58 */ \
+        HANDLE_OPCODE(WASM_OP_I64_GE_S),             /* 0x59 */ \
+        HANDLE_OPCODE(WASM_OP_I64_GE_U),             /* 0x5a */ \
+        HANDLE_OPCODE(WASM_OP_F32_EQ),               /* 0x5b */ \
+        HANDLE_OPCODE(WASM_OP_F32_NE),               /* 0x5c */ \
+        HANDLE_OPCODE(WASM_OP_F32_LT),               /* 0x5d */ \
+        HANDLE_OPCODE(WASM_OP_F32_GT),               /* 0x5e */ \
+        HANDLE_OPCODE(WASM_OP_F32_LE),               /* 0x5f */ \
+        HANDLE_OPCODE(WASM_OP_F32_GE),               /* 0x60 */ \
+        HANDLE_OPCODE(WASM_OP_F64_EQ),               /* 0x61 */ \
+        HANDLE_OPCODE(WASM_OP_F64_NE),               /* 0x62 */ \
+        HANDLE_OPCODE(WASM_OP_F64_LT),               /* 0x63 */ \
+        HANDLE_OPCODE(WASM_OP_F64_GT),               /* 0x64 */ \
+        HANDLE_OPCODE(WASM_OP_F64_LE),               /* 0x65 */ \
+        HANDLE_OPCODE(WASM_OP_F64_GE),               /* 0x66 */ \
+        HANDLE_OPCODE(WASM_OP_I32_CLZ),              /* 0x67 */ \
+        HANDLE_OPCODE(WASM_OP_I32_CTZ),              /* 0x68 */ \
+        HANDLE_OPCODE(WASM_OP_I32_POPCNT),           /* 0x69 */ \
+        HANDLE_OPCODE(WASM_OP_I32_ADD),              /* 0x6a */ \
+        HANDLE_OPCODE(WASM_OP_I32_SUB),              /* 0x6b */ \
+        HANDLE_OPCODE(WASM_OP_I32_MUL),              /* 0x6c */ \
+        HANDLE_OPCODE(WASM_OP_I32_DIV_S),            /* 0x6d */ \
+        HANDLE_OPCODE(WASM_OP_I32_DIV_U),            /* 0x6e */ \
+        HANDLE_OPCODE(WASM_OP_I32_REM_S),            /* 0x6f */ \
+        HANDLE_OPCODE(WASM_OP_I32_REM_U),            /* 0x70 */ \
+        HANDLE_OPCODE(WASM_OP_I32_AND),              /* 0x71 */ \
+        HANDLE_OPCODE(WASM_OP_I32_OR),               /* 0x72 */ \
+        HANDLE_OPCODE(WASM_OP_I32_XOR),              /* 0x73 */ \
+        HANDLE_OPCODE(WASM_OP_I32_SHL),              /* 0x74 */ \
+        HANDLE_OPCODE(WASM_OP_I32_SHR_S),            /* 0x75 */ \
+        HANDLE_OPCODE(WASM_OP_I32_SHR_U),            /* 0x76 */ \
+        HANDLE_OPCODE(WASM_OP_I32_ROTL),             /* 0x77 */ \
+        HANDLE_OPCODE(WASM_OP_I32_ROTR),             /* 0x78 */ \
+        HANDLE_OPCODE(WASM_OP_I64_CLZ),              /* 0x79 */ \
+        HANDLE_OPCODE(WASM_OP_I64_CTZ),              /* 0x7a */ \
+        HANDLE_OPCODE(WASM_OP_I64_POPCNT),           /* 0x7b */ \
+        HANDLE_OPCODE(WASM_OP_I64_ADD),              /* 0x7c */ \
+        HANDLE_OPCODE(WASM_OP_I64_SUB),              /* 0x7d */ \
+        HANDLE_OPCODE(WASM_OP_I64_MUL),              /* 0x7e */ \
+        HANDLE_OPCODE(WASM_OP_I64_DIV_S),            /* 0x7f */ \
+        HANDLE_OPCODE(WASM_OP_I64_DIV_U),            /* 0x80 */ \
+        HANDLE_OPCODE(WASM_OP_I64_REM_S),            /* 0x81 */ \
+        HANDLE_OPCODE(WASM_OP_I64_REM_U),            /* 0x82 */ \
+        HANDLE_OPCODE(WASM_OP_I64_AND),              /* 0x83 */ \
+        HANDLE_OPCODE(WASM_OP_I64_OR),               /* 0x84 */ \
+        HANDLE_OPCODE(WASM_OP_I64_XOR),              /* 0x85 */ \
+        HANDLE_OPCODE(WASM_OP_I64_SHL),              /* 0x86 */ \
+        HANDLE_OPCODE(WASM_OP_I64_SHR_S),            /* 0x87 */ \
+        HANDLE_OPCODE(WASM_OP_I64_SHR_U),            /* 0x88 */ \
+        HANDLE_OPCODE(WASM_OP_I64_ROTL),             /* 0x89 */ \
+        HANDLE_OPCODE(WASM_OP_I64_ROTR),             /* 0x8a */ \
+        HANDLE_OPCODE(WASM_OP_F32_ABS),              /* 0x8b */ \
+        HANDLE_OPCODE(WASM_OP_F32_NEG),              /* 0x8c */ \
+        HANDLE_OPCODE(WASM_OP_F32_CEIL),             /* 0x8d */ \
+        HANDLE_OPCODE(WASM_OP_F32_FLOOR),            /* 0x8e */ \
+        HANDLE_OPCODE(WASM_OP_F32_TRUNC),            /* 0x8f */ \
+        HANDLE_OPCODE(WASM_OP_F32_NEAREST),          /* 0x90 */ \
+        HANDLE_OPCODE(WASM_OP_F32_SQRT),             /* 0x91 */ \
+        HANDLE_OPCODE(WASM_OP_F32_ADD),              /* 0x92 */ \
+        HANDLE_OPCODE(WASM_OP_F32_SUB),              /* 0x93 */ \
+        HANDLE_OPCODE(WASM_OP_F32_MUL),              /* 0x94 */ \
+        HANDLE_OPCODE(WASM_OP_F32_DIV),              /* 0x95 */ \
+        HANDLE_OPCODE(WASM_OP_F32_MIN),              /* 0x96 */ \
+        HANDLE_OPCODE(WASM_OP_F32_MAX),              /* 0x97 */ \
+        HANDLE_OPCODE(WASM_OP_F32_COPYSIGN),         /* 0x98 */ \
+        HANDLE_OPCODE(WASM_OP_F64_ABS),              /* 0x99 */ \
+        HANDLE_OPCODE(WASM_OP_F64_NEG),              /* 0x9a */ \
+        HANDLE_OPCODE(WASM_OP_F64_CEIL),             /* 0x9b */ \
+        HANDLE_OPCODE(WASM_OP_F64_FLOOR),            /* 0x9c */ \
+        HANDLE_OPCODE(WASM_OP_F64_TRUNC),            /* 0x9d */ \
+        HANDLE_OPCODE(WASM_OP_F64_NEAREST),          /* 0x9e */ \
+        HANDLE_OPCODE(WASM_OP_F64_SQRT),             /* 0x9f */ \
+        HANDLE_OPCODE(WASM_OP_F64_ADD),              /* 0xa0 */ \
+        HANDLE_OPCODE(WASM_OP_F64_SUB),              /* 0xa1 */ \
+        HANDLE_OPCODE(WASM_OP_F64_MUL),              /* 0xa2 */ \
+        HANDLE_OPCODE(WASM_OP_F64_DIV),              /* 0xa3 */ \
+        HANDLE_OPCODE(WASM_OP_F64_MIN),              /* 0xa4 */ \
+        HANDLE_OPCODE(WASM_OP_F64_MAX),              /* 0xa5 */ \
+        HANDLE_OPCODE(WASM_OP_F64_COPYSIGN),         /* 0xa6 */ \
+        HANDLE_OPCODE(WASM_OP_I32_WRAP_I64),         /* 0xa7 */ \
+        HANDLE_OPCODE(WASM_OP_I32_TRUNC_S_F32),      /* 0xa8 */ \
+        HANDLE_OPCODE(WASM_OP_I32_TRUNC_U_F32),      /* 0xa9 */ \
+        HANDLE_OPCODE(WASM_OP_I32_TRUNC_S_F64),      /* 0xaa */ \
+        HANDLE_OPCODE(WASM_OP_I32_TRUNC_U_F64),      /* 0xab */ \
+        HANDLE_OPCODE(WASM_OP_I64_EXTEND_S_I32),     /* 0xac */ \
+        HANDLE_OPCODE(WASM_OP_I64_EXTEND_U_I32),     /* 0xad */ \
+        HANDLE_OPCODE(WASM_OP_I64_TRUNC_S_F32),      /* 0xae */ \
+        HANDLE_OPCODE(WASM_OP_I64_TRUNC_U_F32),      /* 0xaf */ \
+        HANDLE_OPCODE(WASM_OP_I64_TRUNC_S_F64),      /* 0xb0 */ \
+        HANDLE_OPCODE(WASM_OP_I64_TRUNC_U_F64),      /* 0xb1 */ \
+        HANDLE_OPCODE(WASM_OP_F32_CONVERT_S_I32),    /* 0xb2 */ \
+        HANDLE_OPCODE(WASM_OP_F32_CONVERT_U_I32),    /* 0xb3 */ \
+        HANDLE_OPCODE(WASM_OP_F32_CONVERT_S_I64),    /* 0xb4 */ \
+        HANDLE_OPCODE(WASM_OP_F32_CONVERT_U_I64),    /* 0xb5 */ \
+        HANDLE_OPCODE(WASM_OP_F32_DEMOTE_F64),       /* 0xb6 */ \
+        HANDLE_OPCODE(WASM_OP_F64_CONVERT_S_I32),    /* 0xb7 */ \
+        HANDLE_OPCODE(WASM_OP_F64_CONVERT_U_I32),    /* 0xb8 */ \
+        HANDLE_OPCODE(WASM_OP_F64_CONVERT_S_I64),    /* 0xb9 */ \
+        HANDLE_OPCODE(WASM_OP_F64_CONVERT_U_I64),    /* 0xba */ \
+        HANDLE_OPCODE(WASM_OP_F64_PROMOTE_F32),      /* 0xbb */ \
+        HANDLE_OPCODE(WASM_OP_I32_REINTERPRET_F32),  /* 0xbc */ \
+        HANDLE_OPCODE(WASM_OP_I64_REINTERPRET_F64),  /* 0xbd */ \
+        HANDLE_OPCODE(WASM_OP_F32_REINTERPRET_I32),  /* 0xbe */ \
+        HANDLE_OPCODE(WASM_OP_F64_REINTERPRET_I64),  /* 0xbf */ \
+        HANDLE_OPCODE(WASM_OP_I32_EXTEND8_S),        /* 0xc0 */ \
+        HANDLE_OPCODE(WASM_OP_I32_EXTEND16_S),       /* 0xc1 */ \
+        HANDLE_OPCODE(WASM_OP_I64_EXTEND8_S),        /* 0xc2 */ \
+        HANDLE_OPCODE(WASM_OP_I64_EXTEND16_S),       /* 0xc3 */ \
+        HANDLE_OPCODE(WASM_OP_I64_EXTEND32_S),       /* 0xc4 */ \
+        HANDLE_OPCODE(WASM_OP_DROP_64),              /* 0xc5 */ \
+        HANDLE_OPCODE(WASM_OP_SELECT_64),            /* 0xc6 */ \
+        HANDLE_OPCODE(EXT_OP_GET_LOCAL_FAST),        /* 0xc7 */ \
+        HANDLE_OPCODE(EXT_OP_SET_LOCAL_FAST_I64),    /* 0xc8 */ \
+        HANDLE_OPCODE(EXT_OP_SET_LOCAL_FAST),        /* 0xc9 */ \
+        HANDLE_OPCODE(EXT_OP_TEE_LOCAL_FAST),        /* 0xca */ \
+        HANDLE_OPCODE(EXT_OP_TEE_LOCAL_FAST_I64),    /* 0xcb */ \
+        HANDLE_OPCODE(EXT_OP_COPY_STACK_TOP),        /* 0xcc */ \
+        HANDLE_OPCODE(EXT_OP_COPY_STACK_TOP_I64),    /* 0xcd */ \
+        HANDLE_OPCODE(EXT_OP_COPY_STACK_VALUES),     /* 0xce */ \
+        HANDLE_OPCODE(WASM_OP_IMPDEP),               /* 0xcf */ \
+        HANDLE_OPCODE(WASM_OP_REF_NULL),             /* 0xd0 */ \
+        HANDLE_OPCODE(WASM_OP_REF_IS_NULL),          /* 0xd1 */ \
+        HANDLE_OPCODE(WASM_OP_REF_FUNC),             /* 0xd2 */ \
+        HANDLE_OPCODE(EXT_OP_BLOCK),                 /* 0xd3 */ \
+        HANDLE_OPCODE(EXT_OP_LOOP),                  /* 0xd4 */ \
+        HANDLE_OPCODE(EXT_OP_IF),                    /* 0xd5 */ \
+        HANDLE_OPCODE(EXT_OP_BR_TABLE_CACHE),        /* 0xd6 */ \
+        SET_GOTO_TABLE_ELEM(WASM_OP_MISC_PREFIX),    /* 0xfc */ \
+        SET_GOTO_TABLE_ELEM(WASM_OP_ATOMIC_PREFIX),  /* 0xfe */ \
+        DEF_DEBUG_BREAK_HANDLE()                                \
+    };
+#endif
 
 #ifdef __cplusplus
 }
