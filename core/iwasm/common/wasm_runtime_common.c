@@ -2895,7 +2895,11 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
 
     wasm_fd = 3;
     for (i = 0; i < dir_count; i++, wasm_fd++) {
+#ifdef BH_PLATFORM_WINDOWS
+        path = _fullpath(resolved_path, dir_list[i], PATH_MAX);
+#else
         path = realpath(dir_list[i], resolved_path);
+#endif
         if (!path) {
             if (error_buf)
                 snprintf(error_buf, error_buf_size,
