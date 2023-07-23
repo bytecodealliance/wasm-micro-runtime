@@ -1787,7 +1787,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_UNUSED_0x18)
             HANDLE_OP(WASM_OP_UNUSED_0x19)
             {
-                wasm_set_exception(module, "exception handling opcode not implemented");
+                wasm_set_exception(module,
+                                   "exception handling opcode not implemented");
                 /* that "exception" is the trap */
                 goto got_exception;
             }
