@@ -1780,18 +1780,17 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 HANDLE_OP_END();
             }
 #else
-    HANDLE_OP(WASM_OP_UNUSED_0x06)
-    HANDLE_OP(WASM_OP_UNUSED_0x07)
-    HANDLE_OP(WASM_OP_UNUSED_0x08)
-    HANDLE_OP(WASM_OP_UNUSED_0x09)
-    HANDLE_OP(WASM_OP_UNUSED_0x18)
-    HANDLE_OP(WASM_OP_UNUSED_0x19)
-    {
-        wasm_set_exception(module, "exception handling opcode not implemented");
-        /* that "exception" is the trap */
-        goto got_exception;
-    }
-
+            HANDLE_OP(WASM_OP_UNUSED_0x06)
+            HANDLE_OP(WASM_OP_UNUSED_0x07)
+            HANDLE_OP(WASM_OP_UNUSED_0x08)
+            HANDLE_OP(WASM_OP_UNUSED_0x09)
+            HANDLE_OP(WASM_OP_UNUSED_0x18)
+            HANDLE_OP(WASM_OP_UNUSED_0x19)
+            {
+                wasm_set_exception(module, "exception handling opcode not implemented");
+                /* that "exception" is the trap */
+                goto got_exception;
+            }
 #endif
             HANDLE_OP(EXT_OP_BLOCK)
             {
