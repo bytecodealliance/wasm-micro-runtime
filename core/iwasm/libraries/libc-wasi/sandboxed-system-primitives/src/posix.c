@@ -21,6 +21,18 @@
 #include "rights.h"
 #include "str.h"
 
+/* Some platforms (e.g. Windows) already define `min()` macro.
+ We're undefing it here to make sure the `min` call does exactly
+ what we want it to do. */
+#ifdef min
+#undef min
+#endif
+static inline size_t
+min(size_t a, size_t b)
+{
+    return a > b ? b : a;
+}
+
 #if 0 /* TODO: -std=gnu99 causes compile error, comment them first */
 // struct iovec must have the same layout as __wasi_iovec_t.
 static_assert(offsetof(struct iovec, iov_base) ==
@@ -86,7 +98,9 @@ convert_errno(int error)
         X(EDEADLK),
         X(EDESTADDRREQ),
         X(EDOM),
+#ifdef EDQUOT
         X(EDQUOT),
+#endif
         X(EEXIST),
         X(EFAULT),
         X(EFBIG),
@@ -103,7 +117,9 @@ convert_errno(int error)
         X(EMFILE),
         X(EMLINK),
         X(EMSGSIZE),
+#ifdef EMULTIHOP
         X(EMULTIHOP),
+#endif
         X(ENAMETOOLONG),
         X(ENETDOWN),
         X(ENETRESET),
@@ -142,7 +158,9 @@ convert_errno(int error)
         X(EROFS),
         X(ESPIPE),
         X(ESRCH),
+#ifdef ESTALE
         X(ESTALE),
+#endif
         X(ETIMEDOUT),
         X(ETXTBSY),
         X(EXDEV),
@@ -3591,8 +3609,13 @@ wasmtime_ssp_sock_shutdown(
 __wasi_errno_t
 wasmtime_ssp_sched_yield(void)
 {
+#ifdef BH_PLATFORM_WINDOWS
+    if (!SwitchToThread())
+        return __WASI_EAGAIN;
+#else
     if (sched_yield() < 0)
         return convert_errno(errno);
+#endif
     return 0;
 }
 
@@ -3754,12 +3777,6 @@ addr_pool_insert(struct addr_pool *addr_pool, const char *addr, uint8 mask)
     }
     cur->next = next;
     return true;
-}
-
-static inline size_t
-min(size_t a, size_t b)
-{
-    return a > b ? b : a;
 }
 
 static void
