@@ -10,8 +10,8 @@ ARG DEBIAN_FRONTEND=noninteractive
 ENV TZ=Asian/Shanghai
 
 # hadolint ignore=DL3008
-RUN apt-get update
-RUN apt upgrade -y \
+RUN apt-get update \
+  && apt-get upgrade -y \
   && apt-get install -y apt-transport-https apt-utils build-essential \
   ca-certificates ccache cmake curl g++-multilib git gnupg \
   libgcc-12-dev lib32gcc-12-dev lsb-release \
@@ -93,15 +93,18 @@ WORKDIR /tmp
 #  && ./llvm.sh ${LLVM_VER} all
 
 # Workaround due to https://github.com/llvm/llvm-project/issues/62475
+# hadolint ignore=DL3008
 RUN set -ex \
     && echo "deb http://apt.llvm.org/bookworm/ llvm-toolchain-bookworm-${LLVM_VER} main" > /etc/apt/sources.list.d/apt.llvm.org.list \
     && wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc \
-    && apt update \
+    && apt-get update \
     && apt-get install -y \
     clang-${LLVM_VER} lldb-${LLVM_VER} lld-${LLVM_VER} clangd-${LLVM_VER} clang-tidy-${LLVM_VER} clang-format-${LLVM_VER} clang-tools-${LLVM_VER} \
     llvm-${LLVM_VER}-dev lld-${LLVM_VER} lldb-${LLVM_VER} llvm-${LLVM_VER}-tools libomp-${LLVM_VER}-dev libc++-${LLVM_VER}-dev libc++abi-${LLVM_VER}-dev \
     libclang-common-${LLVM_VER}-dev libclang-${LLVM_VER}-dev libclang-cpp${LLVM_VER}-dev libunwind-${LLVM_VER}-dev \
-    libclang-rt-${LLVM_VER}-dev libpolly-${LLVM_VER}-dev
+    libclang-rt-${LLVM_VER}-dev libpolly-${LLVM_VER}-dev --no-install-recommends \
+    && apt-get clean -y \
+    && rm -rf /var/lib/apt/lists/*
 
 #
 # [Optional]
