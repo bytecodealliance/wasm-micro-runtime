@@ -2954,9 +2954,6 @@ void wasmtime_ssp_proc_exit(
 __wasi_errno_t
 wasmtime_ssp_proc_raise(__wasi_signal_t sig)
 {
-#ifdef BH_PLATFORM_WINDOWS
-    return __WASI_ENOSYS;
-#else
     static const int signals[] = {
 #define X(v) [__WASI_##v] = v
 #if defined(SIGABRT)
@@ -3057,7 +3054,6 @@ wasmtime_ssp_proc_raise(__wasi_signal_t sig)
     if (raise(signals[sig]) < 0)
         return convert_errno(errno);
     return 0;
-#endif
 }
 
 __wasi_errno_t
