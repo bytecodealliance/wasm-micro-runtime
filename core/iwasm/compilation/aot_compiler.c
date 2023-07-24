@@ -2696,7 +2696,7 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
         if (comp_ctx->stack_sizes != NULL) {
             LLVMOrcJITTargetAddress addr;
             if ((err = LLVMOrcLLLazyJITLookup(comp_ctx->orc_jit, &addr,
-                                              aot_stack_sizes_name))) {
+                                              aot_stack_sizes_alias_name))) {
                 aot_handle_llvm_errmsg("failed to look up stack_sizes", err);
                 return false;
             }
