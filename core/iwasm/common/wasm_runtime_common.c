@@ -2907,8 +2907,15 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
                          dir_list[i], errno);
             goto fail;
         }
-
+#ifdef BH_PLATFORM_WINDOWS
+        if (error_buf)
+            snprintf(
+                error_buf, error_buf_size,
+                "pre-opening directory is not supported on windows platforms");
+        goto fail;
+#else
         raw_fd = open(path, O_RDONLY | O_DIRECTORY, 0);
+#endif
         if (raw_fd == -1) {
             if (error_buf)
                 snprintf(error_buf, error_buf_size,
