@@ -2766,7 +2766,7 @@ wasm_set_aux_stack(WASMExecEnv *exec_env, uint32 start_offset, uint32 size)
         return true;
     }
 
-    return false;
+    return true;
 }
 
 bool
