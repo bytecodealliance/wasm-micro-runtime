@@ -110,7 +110,8 @@ wasm_init_table(WASMModuleInstance *inst, uint32 tbl_idx, uint32 elem_idx,
     bh_memcpy_s((uint8 *)tbl + offsetof(WASMTableInstance, elems)
                     + dst_offset * sizeof(uint32),
                 (uint32)((tbl_sz - dst_offset) * sizeof(uint32)),
-                elem->func_indexes + src_offset, (uint32)(len * sizeof(uint32)));
+                elem->func_indexes + src_offset,
+                (uint32)(len * sizeof(uint32)));
 
     return 0;
 out_of_bounds:
