@@ -2084,8 +2084,9 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
             sub_module_list_node = bh_list_elem_next(sub_module_list_node);
         }
         if (exec_env == NULL) {
-            LOG_ERROR("Find exec_env failed");
-            return -1;
+            wasm_runtime_set_exception(module_inst,
+                                    "create singleton exec_env failed");
+            return fail;
         }
 #endif
         ret =

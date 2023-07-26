@@ -103,27 +103,7 @@ unregister_and_unload_native_libs(uint32 native_lib_count,
 }
 #endif
 
-static bool
-module_reader_cb(const char *module_name, uint8 **p_buffer, uint32 *p_size)
-{
-    char *wasm_file_path = build_module_path(module_name);
-    if (!wasm_file_path) {
-        return false;
-    }
-    printf("- bh_read_file_to_buffer %s\n", wasm_file_path);
-    *p_buffer = (uint8_t *)bh_read_file_to_buffer(wasm_file_path, p_size);
-    BH_FREE(wasm_file_path);
-    return *p_buffer != NULL;
-}
-
 #if WASM_ENABLE_MULTI_MODULE != 0
-static char *
-handle_module_path(const char *module_path)
-{
-    /* next character after '=' */
-    return (strchr(module_path, '=')) + 1;
-}
-
 static char *module_search_path = ".";
 static bool
 module_reader_callback(const char *module_name, uint8 **p_buffer,
@@ -710,7 +690,6 @@ fail4:
 fail3:
     /* Unload WASM module */
     wasm_runtime_unload(wasm_module);
-    module_destroyer_cb(wasm_file_name, wasm_file_size);
 
 fail2:
     /* free the file buffer */
