@@ -28,25 +28,25 @@
 
 using namespace lldb;
 
-typedef struct dwar_extractor {
+typedef struct dwarf_extractor {
     SBDebugger debugger;
     SBTarget target;
     SBModule module;
 
-} dwar_extractor;
+} dwarf_extractor;
 
-#define TO_HANDLE(extractor) (dwar_extractor_handle_t)(extractor)
+#define TO_HANDLE(extractor) (dwarf_extractor_handle_t)(extractor)
 
-#define TO_EXTACTOR(handle) (dwar_extractor *)(handle)
+#define TO_EXTACTOR(handle) (dwarf_extractor *)(handle)
 
 static bool is_debugger_initialized;
 
-dwar_extractor_handle_t
+dwarf_extractor_handle_t
 create_dwarf_extractor(AOTCompData *comp_data, char *file_name)
 {
     char *arch = NULL;
     char *platform = NULL;
-    dwar_extractor *extractor = NULL;
+    dwarf_extractor *extractor = NULL;
 
     //__attribute__((constructor)) may be better?
     if (!is_debugger_initialized) {
@@ -61,7 +61,7 @@ create_dwarf_extractor(AOTCompData *comp_data, char *file_name)
     SBError error;
     SBFileSpec exe_file_spec(file_name, true);
 
-    if (!(extractor = new dwar_extractor())) {
+    if (!(extractor = new dwarf_extractor())) {
         LOG_ERROR("Create Dwarf Extractor error: failed to allocate memory");
         goto fail3;
     }
@@ -101,9 +101,9 @@ fail3:
 }
 
 void
-destroy_dwarf_extractor(dwar_extractor_handle_t handle)
+destroy_dwarf_extractor(dwarf_extractor_handle_t handle)
 {
-    dwar_extractor *extractor = TO_EXTACTOR(handle);
+    dwarf_extractor *extractor = TO_EXTACTOR(handle);
     if (!extractor)
         return;
     extractor->debugger.DeleteTarget(extractor->target);
@@ -116,7 +116,7 @@ destroy_dwarf_extractor(dwar_extractor_handle_t handle)
 LLVMMetadataRef
 dwarf_gen_file_info(const AOTCompContext *comp_ctx)
 {
-    dwar_extractor *extractor;
+    dwarf_extractor *extractor;
     int units_number;
     LLVMMetadataRef file_info = NULL;
     const char *file_name;
@@ -193,7 +193,7 @@ dwarf_gen_mock_vm_info(AOTCompContext *comp_ctx)
 LLVMMetadataRef
 dwarf_gen_comp_unit_info(const AOTCompContext *comp_ctx)
 {
-    dwar_extractor *extractor;
+    dwarf_extractor *extractor;
     int units_number;
     LLVMMetadataRef comp_unit = NULL;
 
@@ -292,7 +292,7 @@ lldb_function_to_function_dbi(const AOTCompContext *comp_ctx,
     SBTypeList function_args = function.GetType().GetFunctionArgumentTypes();
     SBType return_type = function.GetType().GetFunctionReturnType();
     const size_t num_function_args = function_args.GetSize();
-    dwar_extractor *extractor;
+    dwarf_extractor *extractor;
 
     if (!(extractor = TO_EXTACTOR(comp_ctx->comp_data->extractor)))
         return NULL;
@@ -393,7 +393,7 @@ dwarf_gen_func_info(const AOTCompContext *comp_ctx,
                     const AOTFuncContext *func_ctx)
 {
     LLVMMetadataRef func_info = NULL;
-    dwar_extractor *extractor;
+    dwarf_extractor *extractor;
     uint64_t vm_offset;
     AOTFunc *func = func_ctx->aot_func;
 
@@ -423,7 +423,7 @@ dwarf_get_func_name(const AOTCompContext *comp_ctx,
                     const AOTFuncContext *func_ctx, char *name, int len)
 {
     LLVMMetadataRef func_info = NULL;
-    dwar_extractor *extractor;
+    dwarf_extractor *extractor;
     uint64_t vm_offset;
     AOTFunc *func = func_ctx->aot_func;
 
@@ -454,7 +454,7 @@ dwarf_gen_location(const AOTCompContext *comp_ctx,
                    const AOTFuncContext *func_ctx, uint64_t vm_offset)
 {
     LLVMMetadataRef location_info = NULL;
-    dwar_extractor *extractor;
+    dwarf_extractor *extractor;
     AOTFunc *func = func_ctx->aot_func;
 
     if (!(extractor = TO_EXTACTOR(comp_ctx->comp_data->extractor)))
@@ -493,7 +493,7 @@ dwarf_gen_func_ret_location(const AOTCompContext *comp_ctx,
                             const AOTFuncContext *func_ctx)
 {
     LLVMMetadataRef func_info = NULL;
-    dwar_extractor *extractor;
+    dwarf_extractor *extractor;
     uint64_t vm_offset;
     AOTFunc *func = func_ctx->aot_func;
     LLVMMetadataRef location_info = NULL;

@@ -35,7 +35,8 @@ typedef float64 CellType_F64;
 #define CHECK_MEMORY_OVERFLOW(bytes)                             \
     do {                                                         \
         uint64 offset1 = (uint64)offset + (uint64)addr;          \
-        if (offset1 + bytes <= (uint64)get_linear_mem_size())    \
+        if (disable_bounds_checks                                \
+            || offset1 + bytes <= (uint64)get_linear_mem_size()) \
             /* If offset1 is in valid range, maddr must also     \
                 be in valid range, no need to check it again. */ \
             maddr = memory->memory_data + offset1;               \
@@ -43,15 +44,15 @@ typedef float64 CellType_F64;
             goto out_of_bounds;                                  \
     } while (0)
 
-#define CHECK_BULK_MEMORY_OVERFLOW(start, bytes, maddr) \
-    do {                                                \
-        uint64 offset1 = (uint32)(start);               \
-        if (offset1 + bytes <= get_linear_mem_size())   \
-            /* App heap space is not valid space for    \
-               bulk memory operation */                 \
-            maddr = memory->memory_data + offset1;      \
-        else                                            \
-            goto out_of_bounds;                         \
+#define CHECK_BULK_MEMORY_OVERFLOW(start, bytes, maddr)                        \
+    do {                                                                       \
+        uint64 offset1 = (uint32)(start);                                      \
+        if (disable_bounds_checks || offset1 + bytes <= get_linear_mem_size()) \
+            /* App heap space is not valid space for                           \
+               bulk memory operation */                                        \
+            maddr = memory->memory_data + offset1;                             \
+        else                                                                   \
+            goto out_of_bounds;                                                \
     } while (0)
 #else
 #define CHECK_MEMORY_OVERFLOW(bytes)                    \
@@ -1064,18 +1065,17 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
 #endif
 
 #if WASM_ENABLE_THREAD_MGR != 0
-#define CHECK_SUSPEND_FLAGS()                           \
-    do {                                                \
-        os_mutex_lock(&exec_env->wait_lock);            \
-        if (exec_env->suspend_flags.flags != 0) {       \
-            if (exec_env->suspend_flags.flags & 0x01) { \
-                /* terminate current thread */          \
-                os_mutex_unlock(&exec_env->wait_lock);  \
-                return;                                 \
-            }                                           \
-            /* TODO: support suspend and breakpoint */  \
-        }                                               \
-        os_mutex_unlock(&exec_env->wait_lock);          \
+#define CHECK_SUSPEND_FLAGS()                               \
+    do {                                                    \
+        WASM_SUSPEND_FLAGS_LOCK(exec_env->wait_lock);       \
+        if (WASM_SUSPEND_FLAGS_GET(exec_env->suspend_flags) \
+            & WASM_SUSPEND_FLAG_TERMINATE) {                \
+            /* terminate current thread */                  \
+            WASM_SUSPEND_FLAGS_UNLOCK(exec_env->wait_lock); \
+            return;                                         \
+        }                                                   \
+        /* TODO: support suspend and breakpoint */          \
+        WASM_SUSPEND_FLAGS_UNLOCK(exec_env->wait_lock);     \
     } while (0)
 #endif
 
@@ -1199,6 +1199,15 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     uint8 *maddr = NULL;
     uint32 local_idx, local_offset, global_idx;
     uint8 opcode, local_type, *global_addr;
+#if !defined(OS_ENABLE_HW_BOUND_CHECK) \
+    || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
+#if WASM_CONFIGUABLE_BOUNDS_CHECKS != 0
+    bool disable_bounds_checks = !wasm_runtime_is_bounds_checks_enabled(
+        (WASMModuleInstanceCommon *)module);
+#else
+    bool disable_bounds_checks = false;
+#endif
+#endif
 
 #if WASM_ENABLE_LABELS_AS_VALUES != 0
 #define HANDLE_OPCODE(op) &&HANDLE_##op
