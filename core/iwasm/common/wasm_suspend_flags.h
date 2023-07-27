@@ -6,7 +6,7 @@
 #ifndef _WASM_SUSPEND_FLAGS_H
 #define _WASM_SUSPEND_FLAGS_H
 
-#include "bh_platform.h"
+#include "bh_atomic.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -22,42 +22,16 @@ extern "C" {
 #define WASM_SUSPEND_FLAG_EXIT 0x8
 
 typedef union WASMSuspendFlags {
-    uint32 flags;
+    bh_atomic_32_t flags;
     uintptr_t __padding__;
 } WASMSuspendFlags;
 
-#if defined(__GNUC_PREREQ)
-#if __GNUC_PREREQ(4, 7)
-#define CLANG_GCC_HAS_ATOMIC_BUILTIN
-#endif
-#elif defined(__clang__)
-#if __clang_major__ > 3 || (__clang_major__ == 3 && __clang_minor__ >= 0)
-#define CLANG_GCC_HAS_ATOMIC_BUILTIN
-#endif
-#endif
-
-#if defined(CLANG_GCC_HAS_ATOMIC_BUILTIN)
-#define WASM_SUSPEND_FLAGS_IS_ATOMIC 1
-#define WASM_SUSPEND_FLAGS_GET(s_flags) \
-    __atomic_load_n(&s_flags.flags, __ATOMIC_SEQ_CST)
+#define WASM_SUSPEND_FLAGS_IS_ATOMIC BH_ATOMIC_32_IS_ATOMIC
+#define WASM_SUSPEND_FLAGS_GET(s_flags) BH_ATOMIC_32_LOAD(s_flags.flags)
 #define WASM_SUSPEND_FLAGS_FETCH_OR(s_flags, val) \
-    __atomic_fetch_or(&s_flags.flags, val, __ATOMIC_SEQ_CST)
+    BH_ATOMIC_32_FETCH_OR(s_flags.flags, val)
 #define WASM_SUSPEND_FLAGS_FETCH_AND(s_flags, val) \
-    __atomic_fetch_and(&s_flags.flags, val, __ATOMIC_SEQ_CST)
-#else /* else of defined(CLANG_GCC_HAS_ATOMIC_BUILTIN) */
-#define WASM_SUSPEND_FLAGS_GET(s_flags) (s_flags.flags)
-#define WASM_SUSPEND_FLAGS_FETCH_OR(s_flags, val) (s_flags.flags |= val)
-#define WASM_SUSPEND_FLAGS_FETCH_AND(s_flags, val) (s_flags.flags &= val)
-
-/* The flag can be defined by the user if the platform
-   supports atomic access to uint32 aligned memory. */
-#ifdef WASM_UINT32_IS_ATOMIC
-#define WASM_SUSPEND_FLAGS_IS_ATOMIC 1
-#else /* else of WASM_UINT32_IS_ATOMIC */
-#define WASM_SUSPEND_FLAGS_IS_ATOMIC 0
-#endif /* WASM_UINT32_IS_ATOMIC */
-
-#endif
+    BH_ATOMIC_32_FETCH_AND(s_flags.flags, val)
 
 #if WASM_SUSPEND_FLAGS_IS_ATOMIC != 0
 #define WASM_SUSPEND_FLAGS_LOCK(lock) (void)0
