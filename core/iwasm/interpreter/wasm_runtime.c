@@ -3301,10 +3301,8 @@ llvm_jit_table_init(WASMModuleInstance *module_inst, uint32 tbl_idx,
     bh_assert(tbl_inst);
     bh_assert(tbl_seg);
 
-    if (src_offset + length < src_offset /* integer overflow */
-        || src_offset + length > tbl_seg->function_count
-        || dst_offset + length < dst_offset /* integer overflow */
-        || dst_offset + length > tbl_inst->cur_size) {
+    if (offset_len_out_of_bounds(src_offset, length, tbl_seg->function_count)
+        || offset_len_out_of_bounds(dst_offset, length, tbl_inst->cur_size)) {
         jit_set_exception_with_id(module_inst, EXCE_OUT_OF_BOUNDS_TABLE_ACCESS);
         return;
     }
@@ -3351,10 +3349,9 @@ llvm_jit_table_copy(WASMModuleInstance *module_inst, uint32 src_tbl_idx,
     bh_assert(src_tbl_inst);
     bh_assert(dst_tbl_inst);
 
-    if (dst_offset + length < dst_offset /* integer overflow */
-        || dst_offset + length > dst_tbl_inst->cur_size
-        || src_offset + length < src_offset /* integer overflow */
-        || src_offset + length > src_tbl_inst->cur_size) {
+    if (offset_len_out_of_bounds(dst_offset, length, dst_tbl_inst->cur_size)
+        || offset_len_out_of_bounds(src_offset, length,
+                                    src_tbl_inst->cur_size)) {
         jit_set_exception_with_id(module_inst, EXCE_OUT_OF_BOUNDS_TABLE_ACCESS);
         return;
     }
@@ -3386,8 +3383,7 @@ llvm_jit_table_fill(WASMModuleInstance *module_inst, uint32 tbl_idx,
     tbl_inst = wasm_get_table_inst(module_inst, tbl_idx);
     bh_assert(tbl_inst);
 
-    if (data_offset + length < data_offset /* integer overflow */
-        || data_offset + length > tbl_inst->cur_size) {
+    if (offset_len_out_of_bounds(data_offset, length, tbl_inst->cur_size)) {
         jit_set_exception_with_id(module_inst, EXCE_OUT_OF_BOUNDS_TABLE_ACCESS);
         return;
     }

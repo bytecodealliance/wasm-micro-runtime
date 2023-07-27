@@ -2489,10 +2489,8 @@ aot_table_init(AOTModuleInstance *module_inst, uint32 tbl_idx,
     tbl_seg = module->table_init_data_list[tbl_seg_idx];
     bh_assert(tbl_seg);
 
-    if (src_offset + length < src_offset /* integer overflow */
-        || src_offset + length > tbl_seg->func_index_count
-        || dst_offset + length < dst_offset /* integer overflow */
-        || dst_offset + length > tbl_inst->cur_size) {
+    if (offset_len_out_of_bounds(src_offset, length, tbl_seg->func_index_count)
+        || offset_len_out_of_bounds(dst_offset, length, tbl_inst->cur_size)) {
         aot_set_exception_with_id(module_inst, EXCE_OUT_OF_BOUNDS_TABLE_ACCESS);
         return;
     }
@@ -2530,10 +2528,9 @@ aot_table_copy(AOTModuleInstance *module_inst, uint32 src_tbl_idx,
     dst_tbl_inst = module_inst->tables[dst_tbl_idx];
     bh_assert(dst_tbl_inst);
 
-    if (dst_offset + length < dst_offset /* integer overflow */
-        || dst_offset + length > dst_tbl_inst->cur_size
-        || src_offset + length < src_offset /* integer overflow */
-        || src_offset + length > src_tbl_inst->cur_size) {
+    if (offset_len_out_of_bounds(dst_offset, length, dst_tbl_inst->cur_size)
+        || offset_len_out_of_bounds(src_offset, length,
+                                    src_tbl_inst->cur_size)) {
         aot_set_exception_with_id(module_inst, EXCE_OUT_OF_BOUNDS_TABLE_ACCESS);
         return;
     }
@@ -2558,8 +2555,7 @@ aot_table_fill(AOTModuleInstance *module_inst, uint32 tbl_idx, uint32 length,
     tbl_inst = module_inst->tables[tbl_idx];
     bh_assert(tbl_inst);
 
-    if (data_offset + length < data_offset /* integer overflow */
-        || data_offset + length > tbl_inst->cur_size) {
+    if (offset_len_out_of_bounds(data_offset, length, tbl_inst->cur_size)) {
         aot_set_exception_with_id(module_inst, EXCE_OUT_OF_BOUNDS_TABLE_ACCESS);
         return;
     }

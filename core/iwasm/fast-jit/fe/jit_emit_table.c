@@ -95,16 +95,14 @@ wasm_init_table(WASMModuleInstance *inst, uint32 tbl_idx, uint32 elem_idx,
     WASMTableSeg *elem;
     uint32 elem_len;
 
-    tbl = inst->tables[tbl_idx];
-    tbl_sz = tbl->cur_size;
-    if (dst_offset + len < dst_offset /* integer overflow */
-        || dst_offset + len > tbl_sz)
-        goto out_of_bounds;
-
     elem = inst->module->table_segments + elem_idx;
     elem_len = elem->function_count;
-    if (src_offset + len < src_offset /* integer overflow */
-        || src_offset + len > elem_len)
+    if (offset_len_out_of_bounds(src_offset, len, elem_len))
+        goto out_of_bounds;
+
+    tbl = inst->tables[tbl_idx];
+    tbl_sz = tbl->cur_size;
+    if (offset_len_out_of_bounds(dst_offset, len, tbl_sz))
         goto out_of_bounds;
 
     bh_memcpy_s((uint8 *)tbl + offsetof(WASMTableInstance, elems)
@@ -160,16 +158,14 @@ wasm_copy_table(WASMModuleInstance *inst, uint32 src_tbl_idx,
     WASMTableInstance *src_tbl, *dst_tbl;
     uint32 src_tbl_sz, dst_tbl_sz;
 
-    src_tbl = inst->tables[src_tbl_idx];
-    src_tbl_sz = src_tbl->cur_size;
-    if (src_offset + len < src_offset /* integer overflow */
-        || src_offset + len > src_tbl_sz)
-        goto out_of_bounds;
-
     dst_tbl = inst->tables[dst_tbl_idx];
     dst_tbl_sz = dst_tbl->cur_size;
-    if (dst_offset + len < dst_offset /* integer overflow */
-        || dst_offset + len > dst_tbl_sz)
+    if (offset_len_out_of_bounds(dst_offset, len, dst_tbl_sz))
+        goto out_of_bounds;
+
+    src_tbl = inst->tables[src_tbl_idx];
+    src_tbl_sz = src_tbl->cur_size;
+    if (offset_len_out_of_bounds(src_offset, len, src_tbl_sz))
         goto out_of_bounds;
 
     bh_memmove_s((uint8 *)dst_tbl + offsetof(WASMTableInstance, elems)
@@ -277,8 +273,7 @@ wasm_fill_table(WASMModuleInstance *inst, uint32 tbl_idx, uint32 dst_offset,
     tbl = inst->tables[tbl_idx];
     tbl_sz = tbl->cur_size;
 
-    if (dst_offset + len < dst_offset /* integer overflow */
-        || dst_offset + len > tbl_sz)
+    if (offset_len_out_of_bounds(dst_offset, len, tbl_sz))
         goto out_of_bounds;
 
     for (; len != 0; dst_offset++, len--) {
