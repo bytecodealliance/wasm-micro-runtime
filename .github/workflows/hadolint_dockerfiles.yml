@@ -36,7 +36,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # on default, hadolint will fail on warnigns and errors
+      # on default, hadolint will fail on warnings and errors
       - name: Run hadolint on dockerfiles
         run: |
           docker pull hadolint/hadolint:latest-debian
