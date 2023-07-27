@@ -36,7 +36,7 @@ aot_call_wasm_create_func_obj(AOTCompContext *comp_ctx,
     param_types[2] = INT8_TYPE;
     param_types[3] = INT8_PTR_TYPE;
     param_types[4] = I32_TYPE;
-    ret_type = INT8_TYPE;
+    ret_type = OBJECT_REF_TYPE;
 
     /* TODO: do we need modify gc APIs to support AOTModule? */
     GET_AOT_FUNCTION(wasm_create_func_obj, 5);
