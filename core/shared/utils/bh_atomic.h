@@ -29,7 +29,7 @@ extern "C" {
  * Note about BH_ATOMIC_32_IS_ATOMIC
  *
  * If BH_ATOMIC_32_IS_ATOMIC == 0, BH_ATOMIC_xxx operations defined below
- * are not really atomic and requires an external lock.
+ * are not really atomic and require an external lock.
  *
  * Expected usage is:
  *
