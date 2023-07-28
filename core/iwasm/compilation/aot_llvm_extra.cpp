@@ -27,7 +27,7 @@
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/IntrinsicInst.h>
-#include <llvm/IR/PassManager.h>
+#include <llvm/IR/LegacyPassManager.h>
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/ErrorHandling.h>
 #include <llvm/Target/CodeGenCWrappers.h>
@@ -73,14 +73,33 @@ LLVM_C_EXTERN_C_END
 
 ExitOnError ExitOnErr;
 
-class ExpandMemoryOpPass : public PassInfoMixin<ExpandMemoryOpPass>
+class ExpandMemoryOpPass : public llvm::ModulePass
 {
   public:
-    PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+    static char ID;
+
+    ExpandMemoryOpPass()
+      : ModulePass(ID)
+    {}
+
+    bool runOnModule(Module &M) override;
+
+    bool expandMemIntrinsicUses(Function &F);
+    StringRef getPassName() const override
+    {
+        return "Expand memory operation intrinsics";
+    }
+
+    void getAnalysisUsage(AnalysisUsage &AU) const override
+    {
+        AU.addRequired<TargetTransformInfoWrapperPass>();
+    }
 };
 
-PreservedAnalyses
-ExpandMemoryOpPass::run(Function &F, FunctionAnalysisManager &AM)
+char ExpandMemoryOpPass::ID = 0;
+
+bool
+ExpandMemoryOpPass::expandMemIntrinsicUses(Function &F)
 {
     Intrinsic::ID ID = F.getIntrinsicID();
     bool Changed = false;
@@ -95,26 +114,27 @@ ExpandMemoryOpPass::run(Function &F, FunctionAnalysisManager &AM)
                 auto *Memcpy = cast<MemCpyInst>(Inst);
                 Function *ParentFunc = Memcpy->getParent()->getParent();
                 const TargetTransformInfo &TTI =
-                    AM.getResult<TargetIRAnalysis>(*ParentFunc);
+                    getAnalysis<TargetTransformInfoWrapperPass>().getTTI(
+                        *ParentFunc);
                 expandMemCpyAsLoop(Memcpy, TTI);
-                Memcpy->eraseFromParent();
                 Changed = true;
+                Memcpy->eraseFromParent();
                 break;
             }
             case Intrinsic::memmove:
             {
                 auto *Memmove = cast<MemMoveInst>(Inst);
                 expandMemMoveAsLoop(Memmove);
-                Memmove->eraseFromParent();
                 Changed = true;
+                Memmove->eraseFromParent();
                 break;
             }
             case Intrinsic::memset:
             {
                 auto *Memset = cast<MemSetInst>(Inst);
                 expandMemSetAsLoop(Memset);
-                Memset->eraseFromParent();
                 Changed = true;
+                Memset->eraseFromParent();
                 break;
             }
             default:
@@ -122,10 +142,46 @@ ExpandMemoryOpPass::run(Function &F, FunctionAnalysisManager &AM)
         }
     }
 
-    PreservedAnalyses PA;
-    PA.preserveSet<CFGAnalyses>();
+    return Changed;
+}
 
-    return PA;
+bool
+ExpandMemoryOpPass::runOnModule(Module &M)
+{
+    bool Changed = false;
+
+    for (Function &F : M) {
+        if (!F.isDeclaration())
+            continue;
+
+        switch (F.getIntrinsicID()) {
+            case Intrinsic::memcpy:
+            case Intrinsic::memmove:
+            case Intrinsic::memset:
+                if (expandMemIntrinsicUses(F))
+                    Changed = true;
+                break;
+
+            default:
+                break;
+        }
+    }
+
+    return Changed;
+}
+
+void
+aot_add_expand_memory_op_pass(LLVMPassManagerRef pass)
+{
+    reinterpret_cast<legacy::PassManager *>(pass)->add(
+        new ExpandMemoryOpPass());
+}
+
+void
+aot_add_simple_loop_unswitch_pass(LLVMPassManagerRef pass)
+{
+    reinterpret_cast<legacy::PassManager *>(pass)->add(
+        createSimpleLoopUnswitchLegacyPass());
 }
 
 bool
@@ -296,13 +352,6 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
         FPM.addPass(LoopVectorizePass());
         FPM.addPass(SLPVectorizerPass());
         FPM.addPass(LoadStoreVectorizerPass());
-
-        /* Run specific passes for AOT indirect mode in last since general
-           optimization may create some intrinsic function calls like
-           llvm.memset, so let's remove these function calls here. */
-        if (comp_ctx->is_indirect_mode) {
-            FPM.addPass(ExpandMemoryOpPass());
-        }
 
         if (comp_ctx->enable_llvm_pgo || comp_ctx->use_prof_file) {
             /* LICM pass: loop invariant code motion, attempting to remove
