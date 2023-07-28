@@ -59,7 +59,6 @@ typedef struct WASMInterpFrame {
      *  jit spill cache: only available for fast jit
      */
     uint32 lp[1];
-    uint32 *lp_bak;
 #endif
 } WASMInterpFrame;
 
