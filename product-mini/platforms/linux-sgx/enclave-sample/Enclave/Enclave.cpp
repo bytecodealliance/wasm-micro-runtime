@@ -582,7 +582,7 @@ ecall_handle_cmd_exec_app_func(uint16_t wasm_module_inst_idx,
     uint64 total_size;
     int32 i, func_name_len;
 
-    if ((func_name == nullptr) or (u_app_argv == nullptr) or (app_argc == 0)
+    if ((func_name == nullptr) or ((u_app_argv == nullptr) xor (app_argc == 0))
         or (!(module_inst = (wasm_module_inst_t)gWasmModuleInstMgr.get(
                   wasm_module_inst_idx)))) {
         ret = false;
@@ -599,7 +599,8 @@ ecall_handle_cmd_exec_app_func(uint16_t wasm_module_inst_idx,
         goto exit;
     }
 
-    if (!DeepCopyCStrArray(u_app_argv, app_argv, app_argc)) {
+    /* if app_argc is 0, no need deep copy */
+    if (app_argc != 0 and !DeepCopyCStrArray(u_app_argv, app_argv, app_argc)) {
         wasm_runtime_free(app_argv);
         app_argv = nullptr;
         ret = false;
@@ -608,12 +609,15 @@ ecall_handle_cmd_exec_app_func(uint16_t wasm_module_inst_idx,
 
     wasm_application_execute_func(module_inst, func_name, app_argc, app_argv);
 
+    /* if app_argc is 0, no deep copy need to free */
     for (int32 i = 0; i < app_argc; i++) {
         wasm_runtime_free(app_argv[i]);
         app_argv[i] = nullptr;
     }
-    wasm_runtime_free(app_argv);
-    app_argv = nullptr;
+    if (app_argv) {
+        wasm_runtime_free(app_argv);
+        app_argv = nullptr;
+    }
     ret = true;
 exit:
     return ret;
