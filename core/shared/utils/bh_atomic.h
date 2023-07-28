@@ -12,6 +12,38 @@
 extern "C" {
 #endif
 
+/*
+ * Why don't we use C11 stdatomics here?
+ *
+ * Unlike C11 stdatomics,
+ *
+ * - bh_atomic_xxx_t is guaranteed to have the same size as the base type.
+ *   Thus more friendly to our AOT conventions.
+ *
+ * - It's available for C++.
+ *   Although C++23 will have C-compatible stdatomics.h, it isn't widely
+ *   available yet.
+ */
+
+/*
+ * Note about BH_ATOMIC_32_IS_ATOMIC
+ *
+ * If BH_ATOMIC_32_IS_ATOMIC == 0, BH_ATOMIC_xxx operations defined below
+ * are not really atomic and require an external lock.
+ *
+ * Expected usage is:
+ *
+ *     bh_atomic_32_t var = 0;
+ *     uint32 old;
+ * #if BH_ATOMIC_32_IS_ATOMIC == 0
+ *     lock(&some_lock);
+ * #endif
+ *     old = BH_ATOMIC_32_FETCH_AND(var, 1);
+ * #if BH_ATOMIC_32_IS_ATOMIC == 0
+ *     unlock(&some_lock);
+ * #endif
+ */
+
 typedef uint32 bh_atomic_32_t;
 
 #if defined(__GNUC_PREREQ)
