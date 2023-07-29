@@ -31,7 +31,7 @@ The WAMR fast interpreter is a clean room development. We would acknowledge the 
 | wasmtime | unspecified | v0.26.0 | https://github.com/bytecodealliance/wasmtime | |
 | zephyr | unspecified | v2.5.0 | https://www.zephyrproject.org/ | https://www.cvedetails.com/vendor/19255/Zephyrproject.html |
 | WebAssembly debugging patch for LLDB | unspecified | unspecified | https://reviews.llvm.org/D78801 | |
-| libuv | v1.42.0 | v1.44.1 | https://github.com/libuv/libuv | https://www.cvedetails.com/vendor/15402/Libuv-Project.html |
+| libuv | v1.46.0 | v1.46.0 | https://github.com/libuv/libuv | https://www.cvedetails.com/vendor/15402/Libuv-Project.html |
 | uvwasi | unspecified | v0.0.12 | https://github.com/nodejs/uvwasi | |
 | asmjit | unspecified | unspecified | https://github.com/asmjit/asmjit | |
 | zydis | unspecified | e14a07895136182a5b53e181eec3b1c6e0b434de | https://github.com/zyantific/zydis | |
