@@ -300,9 +300,9 @@ check_reloc_offset(uint32 target_section_size, uint64 reloc_offset,
 }
 
 bool
-apply_relocation(AOTModule *module, uint8 *target_section_addr,
+apply_relocation(AOTModule *module, const uint8 *target_section_addr,
                  uint32 target_section_size, uint64 reloc_offset,
-                 int64 reloc_addend, uint32 reloc_type, void *symbol_addr,
+                 int64 reloc_addend, uint32 reloc_type, const void *symbol_addr,
                  int32 symbol_index, char *error_buf, uint32 error_buf_size)
 {
     int32 val, imm_hi, imm_lo, insn;

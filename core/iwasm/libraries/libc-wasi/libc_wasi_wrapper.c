@@ -424,7 +424,7 @@ wasi_fd_pwrite(wasm_exec_env_t exec_env, wasi_fd_t fd,
     total_size = sizeof(iovec_app_t) * (uint64)iovs_len;
     if (!validate_native_addr(nwritten_app, (uint32)sizeof(uint32))
         || total_size >= UINT32_MAX
-        || !validate_native_addr((void *)iovec_app, (uint32)total_size))
+        || !validate_native_addr((const void *)iovec_app, (uint32)total_size))
         return (wasi_errno_t)-1;
 
     total_size = sizeof(wasi_ciovec_t) * (uint64)iovs_len;
@@ -477,7 +477,7 @@ wasi_fd_read(wasm_exec_env_t exec_env, wasi_fd_t fd,
     total_size = sizeof(iovec_app_t) * (uint64)iovs_len;
     if (!validate_native_addr(nread_app, (uint32)sizeof(uint32))
         || total_size >= UINT32_MAX
-        || !validate_native_addr((void *)iovec_app, (uint32)total_size))
+        || !validate_native_addr((const void *)iovec_app, (uint32)total_size))
         return (wasi_errno_t)-1;
 
     total_size = sizeof(wasi_iovec_t) * (uint64)iovs_len;
@@ -644,7 +644,7 @@ wasi_fd_write(wasm_exec_env_t exec_env, wasi_fd_t fd,
     total_size = sizeof(iovec_app_t) * (uint64)iovs_len;
     if (!validate_native_addr(nwritten_app, (uint32)sizeof(uint32))
         || total_size >= UINT32_MAX
-        || !validate_native_addr((void *)iovec_app, (uint32)total_size))
+        || !validate_native_addr((const void *)iovec_app, (uint32)total_size))
         return (wasi_errno_t)-1;
 
     total_size = sizeof(wasi_ciovec_t) * (uint64)iovs_len;
@@ -1073,7 +1073,7 @@ wasi_poll_oneoff(wasm_exec_env_t exec_env, const wasi_subscription_t *in,
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
-    if (!validate_native_addr((void *)in, sizeof(wasi_subscription_t))
+    if (!validate_native_addr((const void *)in, sizeof(wasi_subscription_t))
         || !validate_native_addr(out, sizeof(wasi_event_t))
         || !validate_native_addr(nevents_app, sizeof(uint32)))
         return (wasi_errno_t)-1;
@@ -1953,7 +1953,7 @@ allocate_iovec_app_buffer(wasm_module_inst_t module_inst,
 
     total_size = sizeof(iovec_app_t) * (uint64)data_len;
     if (total_size >= UINT32_MAX
-        || !validate_native_addr((void *)data, (uint32)total_size))
+        || !validate_native_addr((const void *)data, (uint32)total_size))
         return __WASI_EINVAL;
 
     for (total_size = 0, i = 0; i < data_len; i++, data++) {

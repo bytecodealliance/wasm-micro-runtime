@@ -2975,7 +2975,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     {
                         uint32 addr, segment;
                         uint64 bytes, offset, seg_len;
-                        uint8 *data;
+                        const uint8 *data;
 
                         segment = read_uint32(frame_ip);
 

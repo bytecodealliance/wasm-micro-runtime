@@ -174,16 +174,16 @@ uint32
 get_plt_table_size();
 
 void
-init_plt_table(uint8 *plt);
+init_plt_table(const uint8 *plt);
 
 void
 get_current_target(char *target_buf, uint32 target_buf_size);
 
 bool
 apply_relocation(AOTModule *module,
-                 uint8 *target_section_addr, uint32 target_section_size,
+                 const uint8 *target_section_addr, uint32 target_section_size,
                  uint64 reloc_offset, int64 reloc_addend,
-                 uint32 reloc_type, void *symbol_addr, int32 symbol_index,
+                 uint32 reloc_type, const void *symbol_addr, int32 symbol_index,
                  char *error_buf, uint32 error_buf_size);
 /* clang-format off */
 

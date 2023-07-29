@@ -179,8 +179,8 @@ typedef struct WASMMemoryImport {
 } WASMMemoryImport;
 
 typedef struct WASMFunctionImport {
-    char *module_name;
-    char *field_name;
+    const char *module_name;
+    const char *field_name;
     /* function type */
     WASMType *func_type;
     /* native function pointer after linked */
@@ -253,10 +253,10 @@ struct WASMFunction {
     uint32 max_stack_cell_num;
     uint32 max_block_num;
     uint32 code_size;
-    uint8 *code;
+    const uint8 *code;
 #if WASM_ENABLE_FAST_INTERP != 0
     uint32 code_compiled_size;
-    uint8 *code_compiled;
+    const uint8 *code_compiled;
     uint8 *consts;
     uint32 const_cell_num;
 #endif
@@ -326,7 +326,7 @@ typedef struct WASMDataSeg {
 #if WASM_ENABLE_BULK_MEMORY != 0
     bool is_passive;
 #endif
-    uint8 *data;
+    const uint8 *data;
 } WASMDataSeg;
 
 typedef struct BlockAddr {
@@ -667,7 +667,7 @@ inline static uint32
 wasm_string_hash(const char *str)
 {
     unsigned h = (unsigned)strlen(str);
-    const uint8 *p = (uint8 *)str;
+    const uint8 *p = (const uint8 *)str;
     const uint8 *end = p + h;
 
     while (p != end)

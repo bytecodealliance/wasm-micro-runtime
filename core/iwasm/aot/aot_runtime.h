@@ -197,11 +197,11 @@ typedef struct AOTModule {
     uint32 retain_func_index;
 
     /* AOTed code */
-    void *code;
+    const void *code;
     uint32 code_size;
 
     /* literal for AOTed code */
-    uint8 *literal;
+    const uint8 *literal;
     uint32 literal_size;
 
 #if defined(BH_PLATFORM_WINDOWS)

@@ -517,7 +517,7 @@ memcmp_wrapper(wasm_exec_env_t exec_env, const void *s1, const void *s2,
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
 
     /* s2 has been checked by runtime */
-    if (!validate_native_addr((void *)s1, size))
+    if (!validate_native_addr((const void *)s1, size))
         return 0;
 
     return memcmp(s1, s2, size);
@@ -596,7 +596,7 @@ strncmp_wrapper(wasm_exec_env_t exec_env, const char *s1, const char *s2,
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
 
     /* s2 has been checked by runtime */
-    if (!validate_native_addr((void *)s1, size))
+    if (!validate_native_addr((const void *)s1, size))
         return 0;
 
     return strncmp(s1, s2, size);
@@ -746,7 +746,7 @@ memchr_wrapper(wasm_exec_env_t exec_env, const void *s, int32 c, uint32 n)
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     void *res;
 
-    if (!validate_native_addr((void *)s, n))
+    if (!validate_native_addr((const void *)s, n))
         return 0;
 
     res = memchr(s, c, n);

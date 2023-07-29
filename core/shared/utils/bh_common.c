@@ -6,10 +6,10 @@
 #include "bh_common.h"
 
 static char *
-align_ptr(char *src, unsigned int b)
+align_ptr(const char *src, unsigned int b)
 {
-    uintptr_t v = (uintptr_t)src;
-    uintptr_t m = b - 1;
+    const uintptr_t v = (const uintptr_t)src;
+    const uintptr_t m = b - 1;
     return (char *)((v + m) & ~m);
 }
 
@@ -20,7 +20,7 @@ int
 b_memcpy_wa(void *s1, unsigned int s1max, const void *s2, unsigned int n)
 {
     char *dest = (char *)s1;
-    char *src = (char *)s2;
+    const char *src = (const char *)s2;
 
     char *pa = align_ptr(src, 4);
     char *pb = align_ptr((src + n), 4);
@@ -29,7 +29,7 @@ b_memcpy_wa(void *s1, unsigned int s1max, const void *s2, unsigned int n)
     const char *p_byte_read;
 
     unsigned int *p;
-    char *ps;
+    const char *ps;
 
     if (pa > src) {
         pa -= 4;
@@ -76,7 +76,7 @@ int
 b_memcpy_s(void *s1, unsigned int s1max, const void *s2, unsigned int n)
 {
     char *dest = (char *)s1;
-    char *src = (char *)s2;
+    const char *src = (const char *)s2;
     if (n == 0) {
         return 0;
     }
@@ -96,7 +96,7 @@ int
 b_memmove_s(void *s1, unsigned int s1max, const void *s2, unsigned int n)
 {
     char *dest = (char *)s1;
-    char *src = (char *)s2;
+    const char *src = (const char *)s2;
     if (n == 0) {
         return 0;
     }

@@ -26,7 +26,7 @@
    pointer and increase the pointer to the position just after the
    value being read.  */
 #define TEMPLATE_READ_VALUE(Type, p) \
-    (p += sizeof(Type), *(Type *)(p - sizeof(Type)))
+    (p += sizeof(Type), *(const Type *)(p - sizeof(Type)))
 
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
@@ -96,7 +96,7 @@ check_buf1(const uint8 *buf, const uint8 *buf_end, uint32 length,
 #define skip_leb_int32(p, p_end) skip_leb(p)
 
 static bool
-read_leb(uint8 **p_buf, const uint8 *buf_end, uint32 maxbits, bool sign,
+read_leb(const uint8 **p_buf, const uint8 *buf_end, uint32 maxbits, bool sign,
          uint64 *p_result, char *error_buf, uint32 error_buf_size)
 {
     const uint8 *buf = *p_buf;
@@ -178,7 +178,7 @@ fail:
 #define read_leb_int64(p, p_end, res)                                   \
     do {                                                                \
         uint64 res64;                                                   \
-        if (!read_leb((uint8 **)&p, p_end, 64, true, &res64, error_buf, \
+        if (!read_leb((const uint8 **)&p, p_end, 64, true, &res64, error_buf, \
                       error_buf_size))                                  \
             goto fail;                                                  \
         res = (int64)res64;                                             \
@@ -187,7 +187,7 @@ fail:
 #define read_leb_uint32(p, p_end, res)                                   \
     do {                                                                 \
         uint64 res64;                                                    \
-        if (!read_leb((uint8 **)&p, p_end, 32, false, &res64, error_buf, \
+        if (!read_leb((const uint8 **)&p, p_end, 32, false, &res64, error_buf, \
                       error_buf_size))                                   \
             goto fail;                                                   \
         res = (uint32)res64;                                             \
@@ -196,7 +196,7 @@ fail:
 #define read_leb_int32(p, p_end, res)                                   \
     do {                                                                \
         uint64 res64;                                                   \
-        if (!read_leb((uint8 **)&p, p_end, 32, true, &res64, error_buf, \
+        if (!read_leb((const uint8 **)&p, p_end, 32, true, &res64, error_buf, \
                       error_buf_size))                                  \
             goto fail;                                                  \
         res = (int32)res64;                                             \
@@ -1116,8 +1116,8 @@ load_function_import(const uint8 **p_buf, const uint8 *buf_end,
     }
 #endif
 
-    function->module_name = (char *)sub_module_name;
-    function->field_name = (char *)function_name;
+    function->module_name = sub_module_name;
+    function->field_name = function_name;
     function->func_type = declare_func_type;
     /* func_ptr_linked is for native registered symbol */
     function->func_ptr_linked = is_native_symbol ? linked_func : NULL;
@@ -1938,7 +1938,7 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
              * memcpy(code_body_cp, p_code, code_size);
              * func->code = code_body_cp;
              */
-            func->code = (uint8 *)p_code;
+            func->code = p_code;
 
             /* Load each local type */
             p_code = p_code_save;
@@ -2641,7 +2641,7 @@ load_data_segment_section(const uint8 *buf, const uint8 *buf_end,
 
             dataseg->data_length = data_seg_len;
             CHECK_BUF(p, p_end, data_seg_len);
-            dataseg->data = (uint8 *)p;
+            dataseg->data = p;
             p += data_seg_len;
         }
     }
@@ -4004,7 +4004,7 @@ create_sections(const uint8 *buf, uint32 size, WASMSection **p_section_list,
             }
 
             section->section_type = section_type;
-            section->section_body = (uint8 *)p;
+            section->section_body = p;
             section->section_body_size = section_size;
 
             if (!section_list_end)
@@ -4458,7 +4458,7 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                             uint8 **p_end_addr)
 {
     const uint8 *p = start_addr, *p_end = code_end_addr;
-    uint8 *else_addr = NULL;
+    const uint8 *else_addr = NULL;
     char error_buf[128];
     uint32 block_nested_depth = 1, count, i, j, t;
     uint32 error_buf_size = sizeof(error_buf);
@@ -4518,11 +4518,11 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
 
             case WASM_OP_ELSE:
                 if (label_type == LABEL_TYPE_IF && block_nested_depth == 1)
-                    else_addr = (uint8 *)(p - 1);
+                    else_addr = (const uint8 *)(p - 1);
                 if (block_nested_depth - 1
                     < sizeof(block_stack) / sizeof(BlockAddr))
                     block_stack[block_nested_depth - 1].else_addr =
-                        (uint8 *)(p - 1);
+                        (const uint8 *)(p - 1);
                 break;
 
             case WASM_OP_END:
@@ -5063,20 +5063,20 @@ fail:
 typedef struct BranchBlockPatch {
     struct BranchBlockPatch *next;
     uint8 patch_type;
-    uint8 *code_compiled;
+    const uint8 *code_compiled;
 } BranchBlockPatch;
 #endif
 
 typedef struct BranchBlock {
     uint8 label_type;
     BlockType block_type;
-    uint8 *start_addr;
-    uint8 *else_addr;
-    uint8 *end_addr;
+    const uint8 *start_addr;
+    const uint8 *else_addr;
+    const uint8 *end_addr;
     uint32 stack_cell_num;
 #if WASM_ENABLE_FAST_INTERP != 0
     uint16 dynamic_offset;
-    uint8 *code_compiled;
+    const uint8 *code_compiled;
     BranchBlockPatch *patch_list;
     /* This is used to save params frame_offset of of if block */
     int16 *param_frame_offsets;
@@ -5493,7 +5493,7 @@ wasm_loader_push_pop_frame_ref(WASMLoaderContext *ctx, uint8 pop_cnt,
 
 static bool
 wasm_loader_push_frame_csp(WASMLoaderContext *ctx, uint8 label_type,
-                           BlockType block_type, uint8 *start_addr,
+                           BlockType block_type, const uint8 *start_addr,
                            char *error_buf, uint32 error_buf_size)
 {
     CHECK_CSP_PUSH();
@@ -6909,10 +6909,11 @@ fail:
 }
 
 static BranchBlock *
-check_branch_block(WASMLoaderContext *loader_ctx, uint8 **p_buf, uint8 *buf_end,
-                   char *error_buf, uint32 error_buf_size)
+check_branch_block(WASMLoaderContext *loader_ctx, const uint8 **p_buf, 
+                   const uint8 *buf_end, char *error_buf, 
+                   uint32 error_buf_size)
 {
-    uint8 *p = *p_buf, *p_end = buf_end;
+    const uint8 *p = *p_buf, *p_end = buf_end;
     BranchBlock *frame_csp_tmp;
     uint32 depth;
 
@@ -7200,7 +7201,8 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
                              uint32 cur_func_idx, char *error_buf,
                              uint32 error_buf_size)
 {
-    uint8 *p = func->code, *p_end = func->code + func->code_size, *p_org;
+    const uint8 *p = func->code, *p_end = func->code + func->code_size;
+    uint8_t *p_org;
     uint32 param_count, local_count, global_count;
     uint8 *param_types, *local_types, local_type, global_type;
     BlockType func_block_type;
@@ -9063,7 +9065,7 @@ re_scan:
                     case WASM_OP_MEMORY_COPY:
                     {
                         /* both src and dst memory index should be 0 */
-                        if (*(int16 *)p != 0x0000)
+                        if (*(const int16 *)p != 0x0000)
                             goto fail_zero_byte_expected;
                         p += 2;
 

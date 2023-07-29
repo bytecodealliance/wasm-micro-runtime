@@ -360,7 +360,7 @@ typedef struct WASMSubModInstNode {
  *
  * @return the code block of the function
  */
-static inline uint8 *
+static inline const uint8 *
 wasm_get_func_code(WASMFunctionInstance *func)
 {
 #if WASM_ENABLE_FAST_INTERP == 0
@@ -377,7 +377,7 @@ wasm_get_func_code(WASMFunctionInstance *func)
  *
  * @return the code block end of the function
  */
-static inline uint8 *
+static inline const uint8 *
 wasm_get_func_code_end(WASMFunctionInstance *func)
 {
 #if WASM_ENABLE_FAST_INTERP == 0

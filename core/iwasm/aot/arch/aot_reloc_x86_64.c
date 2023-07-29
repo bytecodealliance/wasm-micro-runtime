@@ -76,13 +76,13 @@ get_plt_table_size()
 }
 
 void
-init_plt_table(uint8 *plt)
+init_plt_table(const uint8 *plt)
 {
     uint32 i, num = sizeof(target_sym_map) / sizeof(SymbolMap);
     uint8 *p;
 
     for (i = 0; i < num; i++) {
-        p = plt;
+        p = (uint8 *)plt;
         /* mov symbol_addr, rax */
         *p++ = 0x48;
         *p++ = 0xB8;
@@ -122,9 +122,9 @@ check_reloc_offset(uint32 target_section_size, uint64 reloc_offset,
 }
 
 bool
-apply_relocation(AOTModule *module, uint8 *target_section_addr,
+apply_relocation(AOTModule *module, const uint8 *target_section_addr,
                  uint32 target_section_size, uint64 reloc_offset,
-                 int64 reloc_addend, uint32 reloc_type, void *symbol_addr,
+                 int64 reloc_addend, uint32 reloc_type, const void *symbol_addr,
                  int32 symbol_index, char *error_buf, uint32 error_buf_size)
 {
     switch (reloc_type) {
@@ -137,9 +137,9 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
             intptr_t value;
 
             CHECK_RELOC_OFFSET(sizeof(void *));
-            value = *(intptr_t *)(target_section_addr + (uint32)reloc_offset);
+            value = *(const intptr_t *)(target_section_addr + (uint32)reloc_offset);
             *(uintptr_t *)(target_section_addr + reloc_offset) =
-                (uintptr_t)symbol_addr + reloc_addend + value; /* S + A */
+                (const uintptr_t)symbol_addr + reloc_addend + value; /* S + A */
             break;
         }
 #if defined(BH_PLATFORM_WINDOWS)
@@ -149,8 +149,8 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
             uintptr_t target_addr;
 
             CHECK_RELOC_OFFSET(sizeof(void *));
-            value = *(int32 *)(target_section_addr + (uint32)reloc_offset);
-            target_addr = (uintptr_t)symbol_addr + reloc_addend + value;
+            value = *(const int32 *)(target_section_addr + (uint32)reloc_offset);
+            target_addr = (const uintptr_t)symbol_addr + reloc_addend + value;
             if ((int32)target_addr != target_addr) {
                 set_error_buf(error_buf, error_buf_size,
                               "AOT module load failed: "
@@ -228,13 +228,13 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
         case IMAGE_REL_AMD64_REL32:
 #endif
         {
-            uint8 *plt;
+            const uint8 *plt;
             intptr_t target_addr = 0;
 
             CHECK_RELOC_OFFSET(sizeof(int32));
 
             if (symbol_index >= 0) {
-                plt = (uint8 *)module->code + module->code_size
+                plt = (const uint8 *)module->code + module->code_size
                       - get_plt_table_size()
                       + get_plt_item_size() * symbol_index;
                 target_addr = (intptr_t) /* L + A - P */

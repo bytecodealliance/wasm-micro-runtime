@@ -77,7 +77,7 @@ typedef struct wasm_section_t {
     /* section type */
     int section_type;
     /* section body, not include type and size */
-    uint8_t *section_body;
+    const uint8_t *section_body;
     /* section body size */
     uint32_t section_body_size;
 } wasm_section_t, aot_section_t, *wasm_section_list_t, *aot_section_list_t;
@@ -1033,7 +1033,7 @@ wasm_runtime_validate_app_str_addr(wasm_module_inst_t module_inst,
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_validate_native_addr(wasm_module_inst_t module_inst,
-                                  void *native_ptr, uint32_t size);
+                                  const void *native_ptr, uint32_t size);
 
 /**
  * Convert app address(relative address) to native address(absolute address)

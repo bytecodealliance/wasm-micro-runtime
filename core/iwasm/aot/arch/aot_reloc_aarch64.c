@@ -88,7 +88,7 @@ get_plt_item_size()
 }
 
 void
-init_plt_table(uint8 *plt)
+init_plt_table(const uint8 *plt)
 {
     uint32 i, num = sizeof(target_sym_map) / sizeof(SymbolMap);
     for (i = 0; i < num; i++) {
@@ -136,16 +136,16 @@ check_reloc_offset(uint32 target_section_size, uint64 reloc_offset,
 }
 
 bool
-apply_relocation(AOTModule *module, uint8 *target_section_addr,
+apply_relocation(AOTModule *module, const uint8 *target_section_addr,
                  uint32 target_section_size, uint64 reloc_offset,
-                 int64 reloc_addend, uint32 reloc_type, void *symbol_addr,
+                 int64 reloc_addend, uint32 reloc_type, const void *symbol_addr,
                  int32 symbol_index, char *error_buf, uint32 error_buf_size)
 {
     switch (reloc_type) {
         case R_AARCH64_CALL26:
         case R_AARCH64_JUMP26:
         {
-            void *S, *P = (void *)(target_section_addr + reloc_offset);
+            const void *S, *P = (void *)(target_section_addr + reloc_offset);
             int64 X, A, initial_addend;
             int32 insn, imm26;
 
@@ -179,7 +179,7 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
                  * beyond of the +-128MB space. Apply relocation with
                  * the PLT which branch to the target symbol address.
                  */
-                S = plt = (uint8 *)module->code + module->code_size
+                S = plt = (const uint8 *)module->code + module->code_size
                           - get_plt_table_size()
                           + get_plt_item_size() * symbol_index;
             }

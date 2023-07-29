@@ -89,7 +89,7 @@ wasm_memory_init_with_allocator(void *_malloc_func, void *_realloc_func,
 #endif
 
 static inline bool
-is_bounds_checks_enabled(WASMModuleInstanceCommon *module_inst)
+is_bounds_checks_enabled(const WASMModuleInstanceCommon *module_inst)
 {
 #if WASM_CONFIGUABLE_BOUNDS_CHECKS != 0
     return wasm_runtime_is_bounds_checks_enabled(module_inst);
@@ -337,11 +337,11 @@ fail:
 
 bool
 wasm_runtime_validate_native_addr(WASMModuleInstanceCommon *module_inst_comm,
-                                  void *native_ptr, uint32 size)
+                                  const void *native_ptr, uint32 size)
 {
     WASMModuleInstance *module_inst = (WASMModuleInstance *)module_inst_comm;
-    WASMMemoryInstance *memory_inst;
-    uint8 *addr = (uint8 *)native_ptr;
+    WASMMemoryInstance *memory_inst = NULL;
+    const uint8 *addr = (const uint8 *)native_ptr;
 
     bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
               || module_inst_comm->module_type == Wasm_Module_AoT);

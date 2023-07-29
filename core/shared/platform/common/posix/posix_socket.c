@@ -50,7 +50,7 @@ sockaddr_to_bh_sockaddr(const struct sockaddr *sockaddr,
     switch (sockaddr->sa_family) {
         case AF_INET:
         {
-            struct sockaddr_in *addr = (struct sockaddr_in *)sockaddr;
+            const struct sockaddr_in *addr = (const struct sockaddr_in *)sockaddr;
 
             bh_sockaddr->port = ntohs(addr->sin_port);
             bh_sockaddr->addr_bufer.ipv4 = ntohl(addr->sin_addr.s_addr);
@@ -60,7 +60,7 @@ sockaddr_to_bh_sockaddr(const struct sockaddr *sockaddr,
 #ifdef IPPROTO_IPV6
         case AF_INET6:
         {
-            struct sockaddr_in6 *addr = (struct sockaddr_in6 *)sockaddr;
+            const struct sockaddr_in6 *addr = (const struct sockaddr_in6 *)sockaddr;
             size_t i;
 
             bh_sockaddr->port = ntohs(addr->sin6_port);
