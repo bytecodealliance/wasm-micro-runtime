@@ -11,7 +11,9 @@ readonly TARGET=$2
 readonly WORK_DIR=$PWD
 readonly PLATFORM=$(uname -s | tr A-Z a-z)
 readonly WAMR_DIR="${WORK_DIR}/../../../.."
-readonly IWASM_CMD="${WORK_DIR}/../../../../product-mini/platforms/${PLATFORM}/build/iwasm"
+readonly IWASM_CMD="${WORK_DIR}/../../../../product-mini/platforms/${PLATFORM}/build/iwasm \
+    --allow-resolve=google-public-dns-a.google.com \
+    --addr-pool=::1/128,127.0.0.1/32"
 readonly WAMRC_CMD="${WORK_DIR}/../../../../wamr-compiler/build/wamrc"
 readonly C_TESTS="tests/c/testsuite/"
 readonly ASSEMBLYSCRIPT_TESTS="tests/assemblyscript/testsuite/"
@@ -35,12 +37,12 @@ run_aot_tests () {
 
         echo "Running $test_aot"
         expected=0
-        if [ -f ${test_json} ]; then 
+        if [ -f ${test_json} ]; then
             expected=$(jq .exit_code ${test_json})
         fi
-        
+
         ${IWASM_CMD} $test_aot
-        
+
         ret=${PIPESTATUS[0]}
 
         echo "expected=$expected, actual=$ret"
@@ -48,7 +50,7 @@ run_aot_tests () {
             exit_code=1
         fi
     done
-} 
+}
 
 if [[ $MODE != "aot" ]];then
     python3 -m venv wasi-env && source wasi-env/bin/activate
@@ -60,7 +62,7 @@ if [[ $MODE != "aot" ]];then
                     ${ASSEMBLYSCRIPT_TESTS} \
                     ${THREAD_PROPOSAL_TESTS} \
                     ${THREAD_INTERNAL_TESTS} \
-                    ${LIB_SOCKET_TESTS} \
+                    ${LIB_SOCKET_TESTS}
     exit_code=${PIPESTATUS[0]}
     deactivate
 else
