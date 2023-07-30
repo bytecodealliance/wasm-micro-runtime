@@ -65,8 +65,24 @@ typedef uint32 bh_atomic_32_t;
     __atomic_fetch_and(&(v), (val), __ATOMIC_SEQ_CST)
 #else /* else of defined(CLANG_GCC_HAS_ATOMIC_BUILTIN) */
 #define BH_ATOMIC_32_LOAD(v) (v)
-#define BH_ATOMIC_32_FETCH_OR(v, val) ((v) |= (val))
-#define BH_ATOMIC_32_FETCH_AND(v, val) ((v) &= (val))
+#define BH_ATOMIC_32_FETCH_OR(v, val) nonatomic_32_fetch_or(&(v), val)
+#define BH_ATOMIC_32_FETCH_AND(v, val) nonatomic_32_fetch_and(&(v), val)
+
+static inline uint32
+nonatomic_32_fetch_or(bh_atomic_32_t *p, uint32 val)
+{
+    uint32 old = *p;
+    *p |= val;
+    return old;
+}
+
+static inline uint32
+nonatomic_32_fetch_and(bh_atomic_32_t *p, uint32 val)
+{
+    uint32 old = *p;
+    *p &= val;
+    return old;
+}
 
 /* The flag can be defined by the user if the platform
    supports atomic access to uint32 aligned memory. */
