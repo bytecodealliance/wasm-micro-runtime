@@ -63,10 +63,16 @@ typedef uint32 bh_atomic_32_t;
     __atomic_fetch_or(&(v), (val), __ATOMIC_SEQ_CST)
 #define BH_ATOMIC_32_FETCH_AND(v, val) \
     __atomic_fetch_and(&(v), (val), __ATOMIC_SEQ_CST)
+#define BH_ATOMIC_32_FETCH_ADD(v, val) \
+    __atomic_fetch_add(&(v), (val), __ATOMIC_SEQ_CST)
+#define BH_ATOMIC_32_FETCH_SUB(v, val) \
+    __atomic_fetch_sub(&(v), (val), __ATOMIC_SEQ_CST)
 #else /* else of defined(CLANG_GCC_HAS_ATOMIC_BUILTIN) */
 #define BH_ATOMIC_32_LOAD(v) (v)
 #define BH_ATOMIC_32_FETCH_OR(v, val) nonatomic_32_fetch_or(&(v), val)
 #define BH_ATOMIC_32_FETCH_AND(v, val) nonatomic_32_fetch_and(&(v), val)
+#define BH_ATOMIC_32_FETCH_ADD(v, val) nonatomic_32_fetch_add(&(v), val)
+#define BH_ATOMIC_32_FETCH_SUB(v, val) nonatomic_32_fetch_sub(&(v), val)
 
 static inline uint32
 nonatomic_32_fetch_or(bh_atomic_32_t *p, uint32 val)
@@ -81,6 +87,22 @@ nonatomic_32_fetch_and(bh_atomic_32_t *p, uint32 val)
 {
     uint32 old = *p;
     *p &= val;
+    return old;
+}
+
+static inline uint32
+nonatomic_32_fetch_add(bh_atomic_32_t *p, uint32 val)
+{
+    uint32 old = *p;
+    *p += val;
+    return old;
+}
+
+static inline uint32
+nonatomic_32_fetch_sub(bh_atomic_32_t *p, uint32 val)
+{
+    uint32 old = *p;
+    *p -= val;
     return old;
 }
 
