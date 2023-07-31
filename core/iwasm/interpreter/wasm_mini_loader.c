@@ -6235,7 +6235,8 @@ re_scan:
                 uint8 vec_len, ref_type;
 
                 read_leb_uint32(p, p_end, vec_len);
-                if (!vec_len) {
+                if (vec_len != 1) {
+                    /* typed select must have exactly one result */
                     set_error_buf(error_buf, error_buf_size,
                                   "invalid result arity");
                     goto fail;
