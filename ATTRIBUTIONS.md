@@ -22,7 +22,7 @@ The WAMR fast interpreter is a clean room development. We would acknowledge the 
 
 |  third party components | version number | latest release | vendor pages | CVE details |
 | --- | --- | --- | --- | --- |
-| cjson | 1.7.10 | 1.7.14 | https://github.com/DaveGamble/cJSON | https://www.cvedetails.com/vendor/19164/Cjson-Project.html |
+| cjson | 1.7.16 | 1.7.16 | https://github.com/DaveGamble/cJSON | https://www.cvedetails.com/vendor/19164/Cjson-Project.html |
 | contiki-ng (er-coap) | unspecified | 3.0 | https://github.com/contiki-os/contiki | https://www.cvedetails.com/vendor/16528/Contiki-os.html |
 | freebsd libm | unspecified | 13.0 | https://www.freebsd.org/ | https://www.cvedetails.com/vendor/6/Freebsd.html |
 | LVGL | 6.0.1 | 7.11.0 | https://lvgl.io/ | |
