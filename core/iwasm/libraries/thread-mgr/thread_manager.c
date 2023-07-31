@@ -509,7 +509,7 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
 #endif
 
     if (!(new_module_inst = wasm_runtime_instantiate_internal(
-              module, true, exec_env, stack_size, 0, NULL, 0))) {
+              module, module_inst, exec_env, stack_size, 0, NULL, 0))) {
         goto fail1;
     }
 
@@ -1254,10 +1254,8 @@ set_exception_visitor(void *node, void *user_data)
 
         /* Only spread non "wasi proc exit" exception */
 #if WASM_ENABLE_SHARED_MEMORY != 0
-        WASMSharedMemNode *shared_mem_node = wasm_module_get_shared_memory(
-            (WASMModuleCommon *)curr_wasm_inst->module);
-        if (shared_mem_node)
-            os_mutex_lock(&shared_mem_node->shared_mem_lock);
+        if (curr_wasm_inst->memory_count > 0)
+            shared_memory_lock(curr_wasm_inst->memories[0]);
 #endif
         if (!strstr(wasm_inst->cur_exception, "wasi proc exit")) {
             bh_memcpy_s(curr_wasm_inst->cur_exception,
@@ -1266,8 +1264,8 @@ set_exception_visitor(void *node, void *user_data)
                         sizeof(wasm_inst->cur_exception));
         }
 #if WASM_ENABLE_SHARED_MEMORY != 0
-        if (shared_mem_node)
-            os_mutex_unlock(&shared_mem_node->shared_mem_lock);
+        if (curr_wasm_inst->memory_count > 0)
+            shared_memory_unlock(curr_wasm_inst->memories[0]);
 #endif
 
         /* Terminate the thread so it can exit from dead loops */
@@ -1286,15 +1284,13 @@ clear_exception_visitor(void *node, void *user_data)
             (WASMModuleInstance *)get_module_inst(curr_exec_env);
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
-        WASMSharedMemNode *shared_mem_node = wasm_module_get_shared_memory(
-            (WASMModuleCommon *)curr_wasm_inst->module);
-        if (shared_mem_node)
-            os_mutex_lock(&shared_mem_node->shared_mem_lock);
+        if (curr_wasm_inst->memory_count > 0)
+            shared_memory_lock(curr_wasm_inst->memories[0]);
 #endif
         curr_wasm_inst->cur_exception[0] = '\0';
 #if WASM_ENABLE_SHARED_MEMORY != 0
-        if (shared_mem_node)
-            os_mutex_unlock(&shared_mem_node->shared_mem_lock);
+        if (curr_wasm_inst->memory_count > 0)
+            shared_memory_unlock(curr_wasm_inst->memories[0]);
 #endif
     }
 }

@@ -608,7 +608,7 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
     }
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
-    if (memory->is_shared) {
+    if (shared_memory_is_shared(memory)) {
         memory->num_bytes_per_page = num_bytes_per_page;
         memory->cur_page_count = total_page_count;
         memory->max_page_count = max_page_count;
@@ -769,15 +769,13 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
     bool ret = false;
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
-    WASMSharedMemNode *node =
-        wasm_module_get_shared_memory((WASMModuleCommon *)module->module);
-    if (node)
-        os_mutex_lock(&node->shared_mem_lock);
+    if (module->memory_count > 0)
+        shared_memory_lock(module->memories[0]);
 #endif
     ret = wasm_enlarge_memory_internal(module, inc_page_count);
 #if WASM_ENABLE_SHARED_MEMORY != 0
-    if (node)
-        os_mutex_unlock(&node->shared_mem_lock);
+    if (module->memory_count > 0)
+        shared_memory_unlock(module->memories[0]);
 #endif
 
     return ret;
