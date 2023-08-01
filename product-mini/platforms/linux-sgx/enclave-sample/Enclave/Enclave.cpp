@@ -102,8 +102,10 @@ class PointerManager
         pthread_rwlock_wrlock(&mRwlock);
         if (mMap.erase(idx) == 1) {
             success = true;
+            if (idx < mCurrentIdx) {
+                mCurrentIdx = idx;
+            }
         }
-        mCurrentIdx = idx;
         pthread_rwlock_unlock(&mRwlock);
         return success;
     }
@@ -339,6 +341,11 @@ ecall_handle_cmd_load_module(char *wasm_file, uint32_t wasm_file_size,
     }
 
     if (!gEnclaveModuleMgr.add(enclave_module, enclave_module_idx)) {
+        wasm_runtime_unload(enclave_module->module);
+        if (!enclave_module->is_xip_file)
+            wasm_runtime_free(enclave_module);
+        else
+            os_munmap(enclave_module, (uint32)total_size);
         ret = false;
         goto exit;
     }
@@ -465,6 +472,7 @@ ecall_handle_cmd_instantiate_module(uint16_t enclave_module_idx,
 
     if (!gWasmModuleInstMgr.add(module_inst, wasm_module_inst_idx)) {
         ret = false;
+        wasm_runtime_deinstantiate(module_inst);
         goto exit;
     }
 
