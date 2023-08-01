@@ -77,7 +77,7 @@ class PointerManager
                 mMap[i] = ptr;
                 *idx_output = i;
                 success = true;
-                mCurrentIdx++;
+                mCurrentIdx = i + 1;
                 break;
             }
         }
