@@ -361,6 +361,7 @@ CSRCS += nuttx_platform.c \
          posix_blocking_op.c \
          posix_thread.c \
          posix_time.c \
+         posix_clock.c \
          posix_sleep.c \
          mem_alloc.c \
          ems_kfc.c \
@@ -371,6 +372,7 @@ CSRCS += nuttx_platform.c \
          bh_hashmap.c \
          bh_list.c \
          bh_log.c \
+         bh_time.c \
          bh_queue.c \
          bh_vector.c \
          bh_read_file.c \

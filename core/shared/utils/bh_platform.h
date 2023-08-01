@@ -17,6 +17,7 @@
 #include "bh_queue.h"
 #include "bh_vector.h"
 #include "runtime_timer.h"
+#include "bh_time.h"
 
 /**
  * WA_MALLOC/WA_FREE need to be redefined for both
