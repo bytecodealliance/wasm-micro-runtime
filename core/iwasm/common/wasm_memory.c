@@ -782,39 +782,3 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
 
     return ret;
 }
-
-#if !defined(OS_ENABLE_HW_BOUND_CHECK)              \
-    || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 \
-    || WASM_ENABLE_BULK_MEMORY != 0
-uint32
-wasm_get_num_bytes_per_page(WASMMemoryInstance *memory, void *node)
-{
-    uint32 num_bytes_per_page;
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    if (node)
-        os_mutex_lock(&((WASMSharedMemNode *)node)->shared_mem_lock);
-#endif
-    num_bytes_per_page = memory->num_bytes_per_page;
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    if (node)
-        os_mutex_unlock(&((WASMSharedMemNode *)node)->shared_mem_lock);
-#endif
-    return num_bytes_per_page;
-}
-
-uint32
-wasm_get_linear_memory_size(WASMMemoryInstance *memory, void *node)
-{
-    uint32 linear_mem_size;
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    if (node)
-        os_mutex_lock(&((WASMSharedMemNode *)node)->shared_mem_lock);
-#endif
-    linear_mem_size = memory->num_bytes_per_page * memory->cur_page_count;
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    if (node)
-        os_mutex_unlock(&((WASMSharedMemNode *)node)->shared_mem_lock);
-#endif
-    return linear_mem_size;
-}
-#endif

@@ -3078,7 +3078,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     case WASM_OP_TABLE_INIT:
                     {
                         uint32 tbl_idx, elem_idx;
-                        uint64 n, s, d;
+                        uint32 n, s, d;
                         WASMTableInstance *tbl_inst;
 
                         elem_idx = read_uint32(frame_ip);
@@ -3093,16 +3093,19 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         s = (uint32)POP_I32();
                         d = (uint32)POP_I32();
 
-                        if (!n) {
-                            break;
-                        }
-
-                        if (n + s > module->module->table_segments[elem_idx]
-                                        .function_count
-                            || d + n > tbl_inst->cur_size) {
+                        if (offset_len_out_of_bounds(
+                                s, n,
+                                module->module->table_segments[elem_idx]
+                                    .function_count)
+                            || offset_len_out_of_bounds(d, n,
+                                                        tbl_inst->cur_size)) {
                             wasm_set_exception(module,
                                                "out of bounds table access");
                             goto got_exception;
+                        }
+
+                        if (!n) {
+                            break;
                         }
 
                         if (module->module->table_segments[elem_idx]
@@ -3143,7 +3146,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     case WASM_OP_TABLE_COPY:
                     {
                         uint32 src_tbl_idx, dst_tbl_idx;
-                        uint64 n, s, d;
+                        uint32 n, s, d;
                         WASMTableInstance *src_tbl_inst, *dst_tbl_inst;
 
                         dst_tbl_idx = read_uint32(frame_ip);
@@ -3160,8 +3163,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         s = (uint32)POP_I32();
                         d = (uint32)POP_I32();
 
-                        if (d + n > dst_tbl_inst->cur_size
-                            || s + n > src_tbl_inst->cur_size) {
+                        if (offset_len_out_of_bounds(d, n,
+                                                     dst_tbl_inst->cur_size)
+                            || offset_len_out_of_bounds(
+                                s, n, src_tbl_inst->cur_size)) {
                             wasm_set_exception(module,
                                                "out of bounds table access");
                             goto got_exception;
@@ -3232,7 +3237,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         fill_val = POP_I32();
                         i = POP_I32();
 
-                        if (i + n > tbl_inst->cur_size) {
+                        if (offset_len_out_of_bounds(i, n,
+                                                     tbl_inst->cur_size)) {
                             wasm_set_exception(module,
                                                "out of bounds table access");
                             goto got_exception;
