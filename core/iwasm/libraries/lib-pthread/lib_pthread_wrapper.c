@@ -795,7 +795,7 @@ pthread_exit_wrapper(wasm_exec_env_t exec_env, int32 retval_offset)
     wasm_runtime_free(args);
 
     /* Don't destroy exec_env->module_inst in this functuntion since
-       it will be destroy in wasm_cluster_exit_thread */
+       it will be destroyed in wasm_cluster_exit_thread */
     wasm_cluster_exit_thread(exec_env, (void *)(uintptr_t)retval_offset);
 }
 
