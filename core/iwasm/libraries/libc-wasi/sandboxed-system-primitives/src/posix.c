@@ -94,22 +94,9 @@ ns_lookup_list_search(char **list, const char *host)
     return false;
 }
 
-// Converts a POSIX timespec to a CloudABI timestamp.
-static __wasi_timestamp_t
-convert_timespec(const struct timespec *ts)
-{
-    if (ts->tv_sec < 0)
-        return 0;
-    if ((__wasi_timestamp_t)ts->tv_sec >= UINT64_MAX / 1000000000)
-        return UINT64_MAX;
-    return (__wasi_timestamp_t)ts->tv_sec * 1000000000
-           + (__wasi_timestamp_t)ts->tv_nsec;
-}
-
-// Converts a CloudABI clock identifier to a POSIX clock identifier.
 #ifndef BH_PLATFORM_WINDOWS
 static bool
-convert_clockid(__wasi_clockid_t in, clockid_t *out)
+wasi_clockid_to_clockid(__wasi_clockid_t in, clockid_t *out)
 {
     switch (in) {
         case __WASI_CLOCK_MONOTONIC:
@@ -210,22 +197,37 @@ wasi_addr_ip_to_bh_ip_addr_buffer(__wasi_addr_ip_t *addr,
     }
 }
 
+static bool
+wasi_clockid_to_bh_clockid(__wasi_clockid_t in, bh_clock_id_t *out)
+{
+    switch (in) {
+        case __WASI_CLOCK_MONOTONIC:
+            *out = BH_CLOCK_ID_MONOTONIC;
+            return true;
+        case __WASI_CLOCK_PROCESS_CPUTIME_ID:
+            *out = BH_CLOCK_ID_PROCESS_CPUTIME_ID;
+            return true;
+        case __WASI_CLOCK_REALTIME:
+            *out = BH_CLOCK_ID_REALTIME;
+            return true;
+        case __WASI_CLOCK_THREAD_CPUTIME_ID:
+            *out = BH_CLOCK_ID_THREAD_CPUTIME_ID;
+            return true;
+        default:
+            return false;
+    }
+}
+
 __wasi_errno_t
 wasmtime_ssp_clock_res_get(__wasi_clockid_t clock_id,
                            __wasi_timestamp_t *resolution)
 {
-#ifdef BH_PLATFORM_WINDOWS
-    return __WASI_ENOSYS;
-#else
-    clockid_t nclock_id;
-    if (!convert_clockid(clock_id, &nclock_id))
+    bh_clock_id_t bh_clockid;
+    if (!wasi_clockid_to_bh_clockid(clock_id, &bh_clockid))
         return __WASI_EINVAL;
-    struct timespec ts;
-    if (clock_getres(nclock_id, &ts) < 0)
+    if (os_clock_res_get(clock_id, resolution) != BHT_OK)
         return convert_errno(errno);
-    *resolution = convert_timespec(&ts);
-    return 0;
-#endif
+    return __WASI_ESUCCESS;
 }
 
 __wasi_errno_t
@@ -233,18 +235,12 @@ wasmtime_ssp_clock_time_get(__wasi_clockid_t clock_id,
                             __wasi_timestamp_t precision,
                             __wasi_timestamp_t *time)
 {
-#ifdef BH_PLATFORM_WINDOWS
-    return __WASI_ENOSYS;
-#else
-    clockid_t nclock_id;
-    if (!convert_clockid(clock_id, &nclock_id))
+    bh_clock_id_t bh_clockid;
+    if (!wasi_clockid_to_bh_clockid(clock_id, &bh_clockid))
         return __WASI_EINVAL;
-    struct timespec ts;
-    if (clock_gettime(nclock_id, &ts) < 0)
+    if (os_clock_time_get(clock_id, precision, time) != BHT_OK)
         return convert_errno(errno);
-    *time = convert_timespec(&ts);
-    return 0;
-#endif
+    return __WASI_ESUCCESS;
 }
 
 struct fd_prestat {
@@ -2081,7 +2077,7 @@ wasmtime_ssp_poll_oneoff(wasm_exec_env_t exec_env, struct fd_table *curfds,
         };
 #if CONFIG_HAS_CLOCK_NANOSLEEP
         clockid_t clock_id;
-        if (convert_clockid(in[0].u.u.clock.clock_id, &clock_id)) {
+        if (wasi_clockid_to_clockid(in[0].u.u.clock.clock_id, &clock_id)) {
             struct timespec ts;
             convert_timestamp(in[0].u.u.clock.timeout, &ts);
             int ret = clock_nanosleep(
