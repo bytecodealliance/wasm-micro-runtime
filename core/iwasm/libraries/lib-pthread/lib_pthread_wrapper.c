@@ -691,6 +691,14 @@ pthread_join_wrapper(wasm_exec_env_t exec_env, uint32 thread,
         bh_assert(node->joinable);
         join_ret = 0;
         ret = node->u.ret;
+
+        /* The target thread changes the node's status before calling
+           wasm_cluster_exit_thread to exit, so here its resources may
+           haven't been destroyed yet, we wait enough time to ensure that
+           they are actually destroyed to avoid unexpected behavior. */
+        os_mutex_lock(&exec_env->wait_lock);
+        os_cond_reltimedwait(&exec_env->wait_cond, &exec_env->wait_lock, 1000);
+        os_mutex_unlock(&exec_env->wait_lock);
     }
 
     if (retval_offset != 0)
@@ -758,7 +766,6 @@ __pthread_self_wrapper(wasm_exec_env_t exec_env)
 static void
 pthread_exit_wrapper(wasm_exec_env_t exec_env, int32 retval_offset)
 {
-    wasm_module_inst_t module_inst = get_module_inst(exec_env);
     ThreadRoutineArgs *args = get_thread_arg(exec_env);
     /* Currently exit main thread is not allowed */
     if (!args)
@@ -776,9 +783,6 @@ pthread_exit_wrapper(wasm_exec_env_t exec_env, int32 retval_offset)
     /* destroy pthread key values */
     call_key_destructor(exec_env);
 
-    /* routine exit, destroy instance */
-    wasm_runtime_deinstantiate_internal(module_inst, true);
-
     if (!args->info_node->joinable) {
         delete_thread_info_node(args->info_node);
     }
@@ -790,6 +794,8 @@ pthread_exit_wrapper(wasm_exec_env_t exec_env, int32 retval_offset)
 
     wasm_runtime_free(args);
 
+    /* Don't destroy exec_env->module_inst in this functuntion since
+       it will be destroyed in wasm_cluster_exit_thread */
     wasm_cluster_exit_thread(exec_env, (void *)(uintptr_t)retval_offset);
 }
 
