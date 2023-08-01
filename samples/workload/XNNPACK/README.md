@@ -9,26 +9,7 @@ please refer to [installation instructions](../README.md).
 
 ## Build XNNPACK
 
-```bash
-cd <wamr-dir>/samples/workload/XNNPACK
-mkdir build
-cd build
-cmake ..
-```
-The wasm files are generated under folder samples/workload/XNNPACK/xnnpack/bazel-bin.
-
-## Run benchmarks
-
-Firstly please build iwasm with simd, libc-emcc and lib-pthread support:
-
-``` bash
-$ cd <wamr-dir>/product-mini/platforms/linux/
-$ mkdir build && cd build
-$ cmake .. -DWAMR_BUILD_LIBC_EMCC=1 -DWAMR_BUILD_LIB_PTHREAD=1
-$ make
-```
-
-And please build wamrc:
+please build wamrc:
 
 ``` bash
 cd <wamr-dir>/wamr-compiler
@@ -38,11 +19,31 @@ cmake ..
 make
 ```
 
-Then compile wasm file to aot file and run:
+And then build xnnpack standalone wasm files
+
+```bash
+$ cd <wamr-dir>/samples/workload/XNNPACK
+$ cmake -S . -B build
+$ cmake --build build
+```
+
+Generated .wasm(and .aot) files are under *samples/workload/XNNPACK/build*.
+
+## Run benchmarks
+
+Firstly please build iwasm with simd, libc-emcc and lib-pthread supporting:
+
+``` bash
+$ cd <wamr-dir>/product-mini/platforms/linux/
+$ mkdir build && cd build
+$ cmake .. -DWAMR_BUILD_LIBC_EMCC=1 -DWAMR_BUILD_LIB_PTHREAD=1
+$ make
+```
+
+Then run:
 
 ``` shell
-$ cd <wamr-dir>/samples/workload/XNNPACK/xnnpack/bazel-bin
-$ wamrc -o average_pooling_bench.aot average_pooling_bench.wasm  (or other wasm files)
-$ iwasm average_pooling_bench.aot
+$ cd <wamr-dir>/samples/workload/XNNPACK/build
+$ iwasm averag_pooling_bench.aot # (or other aot files)
 ```
 
