@@ -9,10 +9,13 @@ set -eo pipefail
 CC=${CC:=/opt/wasi-sdk/bin/clang}
 WAMR_DIR=../../../../..
 
+# Stress tests names
+thread_start_file_exclusions=("spawn_stress_test.wasm" "linear_memory_size_update.wasm")
+
 for test_c in *.c; do
     test_wasm="$(basename $test_c .c).wasm"
 
-    if [ $test_wasm = "linear_memory_size_update.wasm" ]; then
+    if [[ " ${thread_start_file_exclusions[@]} " =~ " ${test_wasm} " ]] ; then
         thread_start_file=""
     else
         thread_start_file=$WAMR_DIR/samples/wasi-threads/wasm-apps/wasi_thread_start.S
