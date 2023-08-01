@@ -2059,7 +2059,7 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
         if (exec_env == NULL) {
             wasm_runtime_set_exception(module_inst,
                                     "create singleton exec_env failed");
-            return fail;
+            goto fail;
         }
 #endif
         ret =
