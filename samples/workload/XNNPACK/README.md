@@ -44,6 +44,6 @@ Then run:
 
 ``` shell
 $ cd <wamr-dir>/samples/workload/XNNPACK/build
-$ iwasm averag_pooling_bench.aot # (or other aot files)
+$ iwasm average_pooling_bench.aot # (or other aot files)
 ```
 
