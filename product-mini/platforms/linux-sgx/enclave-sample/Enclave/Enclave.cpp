@@ -92,6 +92,8 @@ set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
         snprintf(error_buf, error_buf_size, "%s", string);
 }
 
+static bool runtime_inited = false;
+
 static void
 handle_cmd_init_runtime(uint64 *args, uint32 argc)
 {
@@ -99,6 +101,12 @@ handle_cmd_init_runtime(uint64 *args, uint32 argc)
     RuntimeInitArgs init_args;
 
     bh_assert(argc == 1);
+
+    /* avoid duplicated init */
+    if (runtime_inited) {
+        args[0] = false;
+        return;
+    }
 
     os_set_print_function(enclave_print);
 
@@ -122,6 +130,7 @@ handle_cmd_init_runtime(uint64 *args, uint32 argc)
         return;
     }
 
+    runtime_inited = true;
     args[0] = true;
 
     LOG_VERBOSE("Init runtime environment success.\n");
@@ -130,7 +139,11 @@ handle_cmd_init_runtime(uint64 *args, uint32 argc)
 static void
 handle_cmd_destroy_runtime()
 {
+    if (!runtime_inited)
+        return;
+
     wasm_runtime_destroy();
+    runtime_inited = false;
 
     LOG_VERBOSE("Destroy runtime success.\n");
 }
@@ -214,6 +227,11 @@ handle_cmd_load_module(uint64 *args, uint32 argc)
 
     bh_assert(argc == 4);
 
+    if (!runtime_inited) {
+        *(void **)args_org = NULL;
+        return;
+    }
+
     if (!is_xip_file((uint8 *)wasm_file, wasm_file_size)) {
         if (total_size >= UINT32_MAX
             || !(enclave_module = (EnclaveModule *)wasm_runtime_malloc(
@@ -283,6 +301,10 @@ handle_cmd_unload_module(uint64 *args, uint32 argc)
     EnclaveModule *enclave_module = *(EnclaveModule **)args++;
 
     bh_assert(argc == 1);
+
+    if (!runtime_inited) {
+        return;
+    }
 
 #if WASM_ENABLE_LIB_RATS != 0
     /* Remove enclave module from enclave module list */
@@ -354,6 +376,11 @@ handle_cmd_instantiate_module(uint64 *args, uint32 argc)
 
     bh_assert(argc == 5);
 
+    if (!runtime_inited) {
+        *(void **)args_org = NULL;
+        return;
+    }
+
     if (!(module_inst =
               wasm_runtime_instantiate(enclave_module->module, stack_size,
                                        heap_size, error_buf, error_buf_size))) {
@@ -373,6 +400,10 @@ handle_cmd_deinstantiate_module(uint64 *args, uint32 argc)
 
     bh_assert(argc == 1);
 
+    if (!runtime_inited) {
+        return;
+    }
+
     wasm_runtime_deinstantiate(module_inst);
 
     LOG_VERBOSE("Deinstantiate module success.\n");
@@ -388,6 +419,11 @@ handle_cmd_get_exception(uint64 *args, uint32 argc)
     const char *exception1;
 
     bh_assert(argc == 3);
+
+    if (!runtime_inited) {
+        args_org[0] = false;
+        return;
+    }
 
     if ((exception1 = wasm_runtime_get_exception(module_inst))) {
         snprintf(exception, exception_size, "%s", exception1);
@@ -409,6 +445,10 @@ handle_cmd_exec_app_main(uint64 *args, int32 argc)
 
     bh_assert(argc >= 3);
     bh_assert(app_argc >= 1);
+
+    if (!runtime_inited) {
+        return;
+    }
 
     total_size = sizeof(char *) * (app_argc > 2 ? (uint64)app_argc : 2);
 
@@ -438,6 +478,10 @@ handle_cmd_exec_app_func(uint64 *args, int32 argc)
     int32 i, func_name_len = strlen(func_name);
 
     bh_assert(argc == app_argc + 3);
+
+    if (!runtime_inited) {
+        return;
+    }
 
     total_size = sizeof(char *) * (app_argc > 2 ? (uint64)app_argc : 2);
 
@@ -487,6 +531,11 @@ handle_cmd_set_wasi_args(uint64 *args, int32 argc)
     int32 i, str_len;
 
     bh_assert(argc == 10);
+
+    if (!runtime_inited) {
+        *args_org = false;
+        return;
+    }
 
     total_size += sizeof(char *) * (uint64)dir_list_size
                   + sizeof(char *) * (uint64)env_list_size
@@ -610,6 +659,11 @@ handle_cmd_get_pgo_prof_buf_size(uint64 *args, int32 argc)
 
     bh_assert(argc == 1);
 
+    if (!runtime_inited) {
+        args[0] = 0;
+        return;
+    }
+
     buf_len = wasm_runtime_get_pgo_prof_data_size(module_inst);
     args[0] = buf_len;
 }
@@ -624,6 +678,11 @@ handle_cmd_get_pro_prof_buf_data(uint64 *args, int32 argc)
     uint32 bytes_dumped;
 
     bh_assert(argc == 3);
+
+    if (!runtime_inited) {
+        args_org[0] = 0;
+        return;
+    }
 
     bytes_dumped =
         wasm_runtime_dump_pgo_prof_data_to_buf(module_inst, buf, len);
@@ -703,6 +762,11 @@ ecall_iwasm_main(uint8_t *wasm_file_buf, uint32_t wasm_file_size)
     RuntimeInitArgs init_args;
     char error_buf[128];
     const char *exception;
+
+    /* avoid duplicated init */
+    if (runtime_inited) {
+        return;
+    }
 
     os_set_print_function(enclave_print);
 
