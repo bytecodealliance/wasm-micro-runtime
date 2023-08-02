@@ -2216,16 +2216,6 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
     sub_module_deinstantiate(module_inst);
 #endif
 
-#if WASM_ENABLE_LIBC_WASI != 0
-    /* Destroy wasi resource before freeing app heap, since some fields of
-       wasi contex are allocated from app heap, and if app heap is freed,
-       these fields will be set to NULL, we cannot free their internal data
-       which may allocated from global heap. */
-    /* Only destroy wasi ctx in the main module instance */
-    if (!is_sub_inst)
-        wasm_runtime_destroy_wasi((WASMModuleInstanceCommon *)module_inst);
-#endif
-
     if (module_inst->memory_count > 0)
         memories_deinstantiate(module_inst, module_inst->memories,
                                module_inst->memory_count);
@@ -2258,10 +2248,14 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
     if (module_inst->e->c_api_func_imports)
         wasm_runtime_free(module_inst->e->c_api_func_imports);
 
+    if (!is_sub_inst) {
+#if WASM_ENABLE_LIBC_WASI != 0
+        wasm_runtime_destroy_wasi((WASMModuleInstanceCommon *)module_inst);
+#endif
 #if WASM_ENABLE_WASI_NN != 0
-    if (!is_sub_inst)
         wasi_nn_destroy(module_inst);
 #endif
+    }
 
     wasm_runtime_free(module_inst);
 }

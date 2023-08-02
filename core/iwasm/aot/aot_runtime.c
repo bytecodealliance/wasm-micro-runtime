@@ -1264,16 +1264,6 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
         wasm_exec_env_destroy((WASMExecEnv *)module_inst->exec_env_singleton);
     }
 
-#if WASM_ENABLE_LIBC_WASI != 0
-    /* Destroy wasi resource before freeing app heap, since some fields of
-       wasi contex are allocated from app heap, and if app heap is freed,
-       these fields will be set to NULL, we cannot free their internal data
-       which may allocated from global heap. */
-    /* Only destroy wasi ctx in the main module instance */
-    if (!is_sub_inst)
-        wasm_runtime_destroy_wasi((WASMModuleInstanceCommon *)module_inst);
-#endif
-
 #if WASM_ENABLE_PERF_PROFILING != 0
     if (module_inst->func_perf_profilings)
         wasm_runtime_free(module_inst->func_perf_profilings);
@@ -1306,10 +1296,14 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
         wasm_runtime_free(
             ((AOTModuleInstanceExtra *)module_inst->e)->c_api_func_imports);
 
+    if (!is_sub_inst) {
+#if WASM_ENABLE_LIBC_WASI != 0
+        wasm_runtime_destroy_wasi((WASMModuleInstanceCommon *)module_inst);
+#endif
 #if WASM_ENABLE_WASI_NN != 0
-    if (!is_sub_inst)
         wasi_nn_destroy(module_inst);
 #endif
+    }
 
     wasm_runtime_free(module_inst);
 }
