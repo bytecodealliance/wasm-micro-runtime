@@ -43,6 +43,11 @@ void __floatdidf();
 void __divsf3();
 void __fixdfdi();
 void __floatundidf();
+void __fixsfdi();
+void __fixunssfdi();
+void __fixunsdfdi();
+void __floatdisf();
+void __floatundisf();
 
 
 static SymbolMap target_sym_map[] = {
@@ -85,6 +90,11 @@ static SymbolMap target_sym_map[] = {
     REG_SYM(__divsf3),
     REG_SYM(__fixdfdi),
     REG_SYM(__floatundidf),
+    REG_SYM(__fixsfdi),
+    REG_SYM(__fixunssfdi),
+    REG_SYM(__fixunsdfdi),
+    REG_SYM(__floatdisf),
+    REG_SYM(__floatundisf),
 };
 /* clang-format on */
 
