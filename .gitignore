@@ -21,8 +21,6 @@ wamr-sdk/out/
 wamr-sdk/runtime/build_runtime_sdk/
 test-tools/host-tool/bin/
 product-mini/app-samples/hello-world/test.wasm
-product-mini/platforms/linux-sgx/enclave-sample/App/
-product-mini/platforms/linux-sgx/enclave-sample/Enclave/
 product-mini/platforms/linux-sgx/enclave-sample/iwasm
 
 build_out
@@ -40,3 +38,11 @@ samples/workload/include/**
 !samples/workload/include/.gitkeep
 
 # core/iwasm/libraries/wasi-threads
+
+*_u.c
+*_u.h
+*_t.c
+*_t.h
+*.o
+product-mini/app-samples/hello-world/iwasm
+product-mini/app-samples/hello-world/test_wasm.h

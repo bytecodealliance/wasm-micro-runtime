@@ -281,34 +281,12 @@ split_string(char *str, int *count)
     return res;
 }
 
-typedef enum EcallCmd {
-    CMD_INIT_RUNTIME = 0,     /* wasm_runtime_init/full_init() */
-    CMD_LOAD_MODULE,          /* wasm_runtime_load() */
-    CMD_INSTANTIATE_MODULE,   /* wasm_runtime_instantiate() */
-    CMD_LOOKUP_FUNCTION,      /* wasm_runtime_lookup_function() */
-    CMD_CREATE_EXEC_ENV,      /* wasm_runtime_create_exec_env() */
-    CMD_CALL_WASM,            /* wasm_runtime_call_wasm */
-    CMD_EXEC_APP_FUNC,        /* wasm_application_execute_func() */
-    CMD_EXEC_APP_MAIN,        /* wasm_application_execute_main() */
-    CMD_GET_EXCEPTION,        /* wasm_runtime_get_exception() */
-    CMD_DEINSTANTIATE_MODULE, /* wasm_runtime_deinstantiate() */
-    CMD_UNLOAD_MODULE,        /* wasm_runtime_unload() */
-    CMD_DESTROY_RUNTIME,      /* wasm_runtime_destroy() */
-    CMD_SET_WASI_ARGS,        /* wasm_runtime_set_wasi_args() */
-    CMD_SET_LOG_LEVEL,        /* bh_log_set_verbose_level() */
-    CMD_GET_VERSION,          /* wasm_runtime_get_version() */
-#if WASM_ENABLE_STATIC_PGO != 0
-    CMD_GET_PGO_PROF_BUF_SIZE,  /* wasm_runtime_get_pro_prof_data_size() */
-    CMD_DUMP_PGO_PROF_BUF_DATA, /* wasm_runtime_dump_pgo_prof_data_to_buf() */
-#endif
-} EcallCmd;
-
 static void
-app_instance_func(void *wasm_module_inst, const char *func_name, int app_argc,
-                  char **app_argv);
+app_instance_func(uint16_t wasm_module_inst, const char *func_name,
+                  int app_argc, char **app_argv);
 
 static void *
-app_instance_repl(void *module_inst, int app_argc, char **app_argv)
+app_instance_repl(uint16_t module_inst_idx, int app_argc, char **app_argv)
 {
     char *cmd = NULL;
     size_t len = 0;
@@ -332,7 +310,7 @@ app_instance_repl(void *module_inst, int app_argc, char **app_argv)
             break;
         }
         if (app_argc != 0) {
-            app_instance_func(module_inst, app_argv[0], app_argc - 1,
+            app_instance_func(module_inst_idx, app_argv[0], app_argc - 1,
                               app_argv + 1);
         }
         free(app_argv);
@@ -361,15 +339,11 @@ validate_env_str(char *env)
 static bool
 set_log_verbose_level(int log_verbose_level)
 {
-    uint64_t ecall_args[1];
-
     /* Set log verbose level */
     if (log_verbose_level != 2) {
-        ecall_args[0] = log_verbose_level;
         if (SGX_SUCCESS
-            != ecall_handle_command(g_eid, CMD_SET_LOG_LEVEL,
-                                    (uint8_t *)ecall_args, sizeof(uint64_t))) {
-            printf("Call ecall_handle_command() failed.\n");
+            != ecall_handle_cmd_set_log_level(g_eid, log_verbose_level)) {
+            printf("Call ecall_handle_cmd_set_log_level() failed.\n");
             return false;
         }
     }
@@ -379,16 +353,14 @@ set_log_verbose_level(int log_verbose_level)
 static bool
 init_runtime(uint32_t max_thread_num)
 {
-    uint64_t ecall_args[1];
+    bool ecall_ret = false;
 
-    ecall_args[0] = max_thread_num;
     if (SGX_SUCCESS
-        != ecall_handle_command(g_eid, CMD_INIT_RUNTIME, (uint8_t *)ecall_args,
-                                sizeof(ecall_args))) {
-        printf("Call ecall_handle_command() failed.\n");
+        != ecall_handle_cmd_init_runtime(g_eid, &ecall_ret, max_thread_num)) {
+        printf("Call ecall_handle_cmd_init_runtime() failed.\n");
         return false;
     }
-    if (!(bool)ecall_args[0]) {
+    if (!ecall_ret) {
         printf("Init runtime environment failed.\n");
         return false;
     }
@@ -398,230 +370,168 @@ init_runtime(uint32_t max_thread_num)
 static void
 destroy_runtime()
 {
-    if (SGX_SUCCESS
-        != ecall_handle_command(g_eid, CMD_DESTROY_RUNTIME, NULL, 0)) {
-        printf("Call ecall_handle_command() failed.\n");
-    }
-}
-
-static void *
-load_module(uint8_t *wasm_file_buf, uint32_t wasm_file_size, char *error_buf,
-            uint32_t error_buf_size)
-{
-    uint64_t ecall_args[4];
-
-    ecall_args[0] = (uint64_t)(uintptr_t)wasm_file_buf;
-    ecall_args[1] = wasm_file_size;
-    ecall_args[2] = (uint64_t)(uintptr_t)error_buf;
-    ecall_args[3] = error_buf_size;
-    if (SGX_SUCCESS
-        != ecall_handle_command(g_eid, CMD_LOAD_MODULE, (uint8_t *)ecall_args,
-                                sizeof(uint64_t) * 4)) {
-        printf("Call ecall_handle_command() failed.\n");
-        return NULL;
-    }
-
-    return (void *)(uintptr_t)ecall_args[0];
-}
-
-static void
-unload_module(void *wasm_module)
-{
-    uint64_t ecall_args[1];
-
-    ecall_args[0] = (uint64_t)(uintptr_t)wasm_module;
-    if (SGX_SUCCESS
-        != ecall_handle_command(g_eid, CMD_UNLOAD_MODULE, (uint8_t *)ecall_args,
-                                sizeof(uint64_t))) {
-        printf("Call ecall_handle_command() failed.\n");
-    }
-}
-
-static void *
-instantiate_module(void *wasm_module, uint32_t stack_size, uint32_t heap_size,
-                   char *error_buf, uint32_t error_buf_size)
-{
-    uint64_t ecall_args[5];
-
-    ecall_args[0] = (uint64_t)(uintptr_t)wasm_module;
-    ecall_args[1] = stack_size;
-    ecall_args[2] = heap_size;
-    ecall_args[3] = (uint64_t)(uintptr_t)error_buf;
-    ecall_args[4] = error_buf_size;
-    if (SGX_SUCCESS
-        != ecall_handle_command(g_eid, CMD_INSTANTIATE_MODULE,
-                                (uint8_t *)ecall_args, sizeof(uint64_t) * 5)) {
-        printf("Call ecall_handle_command() failed.\n");
-        return NULL;
-    }
-
-    return (void *)(uintptr_t)ecall_args[0];
-}
-
-static void
-deinstantiate_module(void *wasm_module_inst)
-{
-    uint64_t ecall_args[1];
-
-    ecall_args[0] = (uint64_t)(uintptr_t)wasm_module_inst;
-    if (SGX_SUCCESS
-        != ecall_handle_command(g_eid, CMD_DEINSTANTIATE_MODULE,
-                                (uint8_t *)ecall_args, sizeof(uint64_t))) {
-        printf("Call ecall_handle_command() failed.\n");
+    if (SGX_SUCCESS != ecall_handle_cmd_destroy_runtime(g_eid)) {
+        printf("Call ecall_handle_cmd_destroy_runtime() failed.\n");
     }
 }
 
 static bool
-get_exception(void *wasm_module_inst, char *exception, uint32_t exception_size)
+load_module(uint8_t *wasm_file_buf, uint32_t wasm_file_size, char *error_buf,
+            uint32_t error_buf_size, uint16_t *enclave_module_idx)
 {
-    uint64_t ecall_args[3];
+    bool ecall_ret = false;
 
-    ecall_args[0] = (uint64_t)(uintptr_t)wasm_module_inst;
-    ecall_args[1] = (uint64_t)(uintptr_t)exception;
-    ecall_args[2] = exception_size;
-    if (SGX_SUCCESS
-        != ecall_handle_command(g_eid, CMD_GET_EXCEPTION, (uint8_t *)ecall_args,
-                                sizeof(uint64_t) * 3)) {
-        printf("Call ecall_handle_command() failed.\n");
+    if ((SGX_SUCCESS
+         != ecall_handle_cmd_load_module(
+             g_eid, &ecall_ret, (char *)wasm_file_buf, wasm_file_size,
+             error_buf, error_buf_size, enclave_module_idx))
+        or (ecall_ret == false)) {
+        printf("Call ecall_handle_cmd_load_module() failed.\n");
+        return false;
     }
 
-    return (bool)ecall_args[0];
+    return true;
 }
 
 static void
-app_instance_main(void *wasm_module_inst, int app_argc, char **app_argv)
+unload_module(uint16_t wasm_module_idx)
+{
+    bool ecall_ret = false;
+
+    if ((SGX_SUCCESS
+         != ecall_handle_cmd_unload_module(g_eid, &ecall_ret, wasm_module_idx))
+        or (ecall_ret == false)) {
+        printf("Call ecall_handle_cmd_unload_module() failed.\n");
+    }
+}
+
+static bool
+instantiate_module(uint16_t wasm_module_idx, uint32_t stack_size,
+                   uint32_t heap_size, char *error_buf, uint32_t error_buf_size,
+                   uint16_t *wasm_module_inst_idx)
+{
+    bool ecall_ret = false;
+
+    if ((SGX_SUCCESS
+         != ecall_handle_cmd_instantiate_module(
+             g_eid, &ecall_ret, wasm_module_idx, stack_size, heap_size,
+             error_buf, error_buf_size, wasm_module_inst_idx))
+        or (ecall_ret == false)) {
+        printf("Call ecall_handle_cmd_instantiate_module() failed.\n");
+        return false;
+    }
+
+    return true;
+}
+
+static void
+deinstantiate_module(uint16_t wasm_module_inst_idx)
+{
+    bool ecall_ret = false;
+
+    if ((SGX_SUCCESS
+         != ecall_handle_cmd_deinstantiate_module(g_eid, &ecall_ret,
+                                                  wasm_module_inst_idx))
+        or (ecall_ret == false)) {
+        printf("Call ecall_handle_cmd_deinstantiate_module() failed.\n");
+    }
+}
+
+static bool
+get_exception(uint16_t wasm_module_inst_idx, char *exception,
+              uint32_t exception_size)
+{
+    bool ecall_ret = false;
+
+    if (SGX_SUCCESS
+        != ecall_handle_cmd_get_exception(g_eid, &ecall_ret,
+                                          wasm_module_inst_idx, exception,
+                                          exception_size)) {
+        printf("Call ecall_handle_cmd_get_exception() failed.\n");
+        return false;
+    }
+
+    return ecall_ret;
+}
+
+static void
+app_instance_main(uint16_t wasm_module_inst_idx, int app_argc, char **app_argv)
 {
     char exception[128];
-    uint64_t ecall_args_buf[16], *ecall_args = ecall_args_buf;
-    int i, size;
+    bool ecall_ret = false;
 
-    if (app_argc + 2 > sizeof(ecall_args_buf) / sizeof(uint64_t)) {
-        if (!(ecall_args =
-                  (uint64_t *)malloc(sizeof(uint64_t) * (app_argc + 2)))) {
-            printf("Allocate memory failed.\n");
-            return;
-        }
+    if ((SGX_SUCCESS
+         != ecall_handle_cmd_exec_app_main(
+             g_eid, &ecall_ret, wasm_module_inst_idx, app_argv, app_argc))
+        or (ecall_ret == false)) {
+        printf("Call ecall_handle_cmd_exec_app_main() failed.\n");
     }
 
-    ecall_args[0] = (uintptr_t)wasm_module_inst;
-    ecall_args[1] = app_argc;
-    for (i = 0; i < app_argc; i++) {
-        ecall_args[i + 2] = (uintptr_t)app_argv[i];
-    }
-
-    size = (uint32_t)sizeof(uint64_t) * (app_argc + 2);
-    if (SGX_SUCCESS
-        != ecall_handle_command(g_eid, CMD_EXEC_APP_MAIN, (uint8_t *)ecall_args,
-                                size)) {
-        printf("Call ecall_handle_command() failed.\n");
-    }
-
-    if (get_exception(wasm_module_inst, exception, sizeof(exception))) {
+    if (get_exception(wasm_module_inst_idx, exception, sizeof(exception))) {
         printf("%s\n", exception);
-    }
-
-    if (ecall_args != ecall_args_buf) {
-        free(ecall_args);
     }
 }
 
 static void
-app_instance_func(void *wasm_module_inst, const char *func_name, int app_argc,
-                  char **app_argv)
+app_instance_func(uint16_t wasm_module_inst_idx, const char *func_name,
+                  int app_argc, char **app_argv)
 {
-    uint64_t ecall_args_buf[16], *ecall_args = ecall_args_buf;
-    int i, size;
+    bool ecall_ret = false;
 
-    if (app_argc + 3 > sizeof(ecall_args_buf) / sizeof(uint64_t)) {
-        if (!(ecall_args =
-                  (uint64_t *)malloc(sizeof(uint64_t) * (app_argc + 3)))) {
-            printf("Allocate memory failed.\n");
-            return;
-        }
-    }
-
-    ecall_args[0] = (uintptr_t)wasm_module_inst;
-    ecall_args[1] = (uintptr_t)func_name;
-    ecall_args[2] = (uintptr_t)app_argc;
-    for (i = 0; i < app_argc; i++) {
-        ecall_args[i + 3] = (uintptr_t)app_argv[i];
-    }
-
-    size = (uint32_t)sizeof(uint64_t) * (app_argc + 3);
-    if (SGX_SUCCESS
-        != ecall_handle_command(g_eid, CMD_EXEC_APP_FUNC, (uint8_t *)ecall_args,
-                                size)) {
-        printf("Call ecall_handle_command() failed.\n");
-    }
-
-    if (ecall_args != ecall_args_buf) {
-        free(ecall_args);
+    if ((SGX_SUCCESS
+         != ecall_handle_cmd_exec_app_func(g_eid, &ecall_ret,
+                                           wasm_module_inst_idx, func_name,
+                                           app_argv, app_argc))
+        or (ecall_ret == false)) {
+        printf("Call ecall_handle_cmd_exec_app_func() failed.\n");
     }
 }
 
 static bool
-set_wasi_args(void *wasm_module, const char **dir_list, uint32_t dir_list_size,
-              const char **env_list, uint32_t env_list_size, int stdinfd,
-              int stdoutfd, int stderrfd, char **argv, uint32_t argc,
-              const char **addr_pool, uint32_t addr_pool_size)
+set_wasi_args(uint16_t wasm_module_idx, const char **dir_list,
+              uint32_t dir_list_size, const char **env_list,
+              uint32_t env_list_size, int stdinfd, int stdoutfd, int stderrfd,
+              char **argv, uint32_t argc, const char **addr_pool,
+              uint32_t addr_pool_size)
 {
-    uint64_t ecall_args[12];
-
-    ecall_args[0] = (uint64_t)(uintptr_t)wasm_module;
-    ecall_args[1] = (uint64_t)(uintptr_t)dir_list;
-    ecall_args[2] = dir_list_size;
-    ecall_args[3] = (uint64_t)(uintptr_t)env_list;
-    ecall_args[4] = env_list_size;
-    ecall_args[5] = stdinfd;
-    ecall_args[6] = stdoutfd;
-    ecall_args[7] = stderrfd;
-    ecall_args[8] = (uint64_t)(uintptr_t)argv;
-    ecall_args[9] = argc;
-    ecall_args[10] = (uint64_t)(uintptr_t)addr_pool;
-    ecall_args[11] = addr_pool_size;
+    bool ecall_ret = false;
     if (SGX_SUCCESS
-        != ecall_handle_command(g_eid, CMD_SET_WASI_ARGS, (uint8_t *)ecall_args,
-                                sizeof(uint64_t) * 12)) {
-        printf("Call ecall_handle_command() failed.\n");
+        != ecall_handle_cmd_set_wasi_args(
+            g_eid, &ecall_ret, wasm_module_idx, dir_list, dir_list_size,
+            env_list, env_list_size, stdinfd, stdoutfd, stderrfd, argv, argc,
+            addr_pool, addr_pool_size)) {
+        printf("Call ecall_handle_cmd_set_wasi_args() failed.\n");
     }
 
-    return (bool)ecall_args[0];
+    return ecall_ret;
 }
 
 static void
 get_version(uint64_t *major, uint64_t *minor, uint64_t *patch)
 {
-    uint64_t ecall_args[3] = { 0 };
-
     if (SGX_SUCCESS
-        != ecall_handle_command(g_eid, CMD_GET_VERSION, (uint8_t *)ecall_args,
-                                sizeof(ecall_args))) {
-        printf("Call ecall_handle_command() failed.\n");
+        != ecall_handle_cmd_get_version(g_eid, (uint32_t *)major,
+                                        (uint32_t *)minor, (uint32_t *)patch)) {
+        printf("Call ecall_handle_cmd_get_version() failed.\n");
         return;
     }
-
-    *major = ecall_args[0];
-    *minor = ecall_args[1];
-    *patch = ecall_args[2];
 }
 
 #if WASM_ENABLE_STATIC_PGO != 0
 static void
-dump_pgo_prof_data(void *module_inst, const char *path)
+dump_pgo_prof_data(uint16_t module_inst_idx, const char *path)
 {
     char *buf;
     uint32_t len;
     FILE *file;
 
-    uint64_t ecall_args[1];
-    ecall_args[0] = (uint64_t)(uintptr_t)module_inst;
     if (SGX_SUCCESS
-        != ecall_handle_command(g_eid, CMD_GET_PGO_PROF_BUF_SIZE,
-                                (uint8_t *)ecall_args, sizeof(ecall_args))) {
-        printf("Call ecall_handle_command() failed.\n");
+        != ecall_handle_cmd_get_pgo_prof_buf_size(g_eid, &len,
+                                                  module_inst_idx)) {
+        printf("Call ecall_handle_cmd_get_pgo_prof_buf_size() failed.\n");
         return;
     }
-    if (!(len = ecall_args[0])) {
+    if (!len) {
         printf("failed to get LLVM PGO profile data size\n");
         return;
     }
@@ -631,19 +541,14 @@ dump_pgo_prof_data(void *module_inst, const char *path)
         return;
     }
 
-    uint64_t ecall_args_2[3];
-    ecall_args_2[0] = (uint64_t)(uintptr_t)module_inst;
-    ecall_args_2[1] = (uint64_t)(uintptr_t)buf;
-    ecall_args_2[2] = len;
     if (SGX_SUCCESS
-        != ecall_handle_command(g_eid, CMD_DUMP_PGO_PROF_BUF_DATA,
-                                (uint8_t *)ecall_args_2,
-                                sizeof(ecall_args_2))) {
-        printf("Call ecall_handle_command() failed.\n");
+        != ecall_handle_cmd_get_pgo_prof_buf_data(g_eid, &len, module_inst_idx,
+                                                  buf, len)) {
+        printf("Call ecall_handle_cmd_get_pgo_prof_buf_data() failed.\n");
         free(buf);
         return;
     }
-    if (!(len = ecall_args_2[0])) {
+    if (!len) {
         printf("failed to dump LLVM PGO profile data\n");
         free(buf);
         return;
@@ -672,8 +577,8 @@ main(int argc, char *argv[])
     uint8_t *wasm_file_buf = NULL;
     uint32_t wasm_file_size;
     uint32_t stack_size = 64 * 1024, heap_size = 16 * 1024;
-    void *wasm_module = NULL;
-    void *wasm_module_inst = NULL;
+    uint16_t wasm_module_idx = 0;
+    uint16_t wasm_module_inst_idx = 0;
     char error_buf[128] = { 0 };
     int log_verbose_level = 2;
     bool is_repl_mode = false;
@@ -825,14 +730,14 @@ main(int argc, char *argv[])
     }
 
     /* Load module */
-    if (!(wasm_module = load_module(wasm_file_buf, wasm_file_size, error_buf,
-                                    sizeof(error_buf)))) {
+    if (!load_module(wasm_file_buf, wasm_file_size, error_buf,
+                     sizeof(error_buf), &wasm_module_idx)) {
         printf("%s\n", error_buf);
         goto fail2;
     }
 
     /* Set wasi arguments */
-    if (!set_wasi_args(wasm_module, dir_list, dir_list_size, env_list,
+    if (!set_wasi_args(wasm_module_idx, dir_list, dir_list_size, env_list,
                        env_list_size, 0, 1, 2, argv, argc, addr_pool,
                        addr_pool_size)) {
         printf("%s\n", "set wasi arguments failed.\n");
@@ -840,19 +745,18 @@ main(int argc, char *argv[])
     }
 
     /* Instantiate module */
-    if (!(wasm_module_inst =
-              instantiate_module(wasm_module, stack_size, heap_size, error_buf,
-                                 sizeof(error_buf)))) {
+    if (!instantiate_module(wasm_module_idx, stack_size, heap_size, error_buf,
+                            sizeof(error_buf), &wasm_module_inst_idx)) {
         printf("%s\n", error_buf);
         goto fail3;
     }
 
     if (is_repl_mode)
-        app_instance_repl(wasm_module_inst, argc, argv);
+        app_instance_repl(wasm_module_inst_idx, argc, argv);
     else if (func_name)
-        app_instance_func(wasm_module_inst, func_name, argc - 1, argv + 1);
+        app_instance_func(wasm_module_inst_idx, func_name, argc - 1, argv + 1);
     else
-        app_instance_main(wasm_module_inst, argc, argv);
+        app_instance_main(wasm_module_inst_idx, argc, argv);
 
 #if WASM_ENABLE_STATIC_PGO != 0
     if (gen_prof_file)
@@ -862,11 +766,11 @@ main(int argc, char *argv[])
     ret = 0;
 
     /* Deinstantiate module */
-    deinstantiate_module(wasm_module_inst);
+    deinstantiate_module(wasm_module_inst_idx);
 
 fail3:
     /* Unload module */
-    unload_module(wasm_module);
+    unload_module(wasm_module_idx);
 
 fail2:
     /* Free the file buffer */
@@ -911,7 +815,7 @@ wamr_pal_create_process(struct wamr_pal_create_process_args *args)
     uint32_t addr_pool_size = 0;
     uint32_t max_thread_num = 4;
     char *wasm_files[16];
-    void *wasm_module_inst[16];
+    uint16_t wasm_module_inst_idx[16];
     int stdinfd = -1;
     int stdoutfd = -1;
     int stderrfd = -1;
@@ -960,7 +864,7 @@ wamr_pal_create_process(struct wamr_pal_create_process_args *args)
     for (i = 0; i < len; ++i) {
         uint8_t *wasm_file_buf = NULL;
         uint32_t wasm_file_size;
-        void *wasm_module = NULL;
+        uint16_t wasm_module_idx;
         char error_buf[128] = { 0 };
 
         /* Load WASM byte buffer from WASM bin file */
@@ -972,8 +876,8 @@ wamr_pal_create_process(struct wamr_pal_create_process_args *args)
         }
 
         /* Load module */
-        if (!(wasm_module = load_module(wasm_file_buf, wasm_file_size,
-                                        error_buf, sizeof(error_buf)))) {
+        if (!load_module(wasm_file_buf, wasm_file_size, error_buf,
+                         sizeof(error_buf), &wasm_module_idx)) {
             printf("%s\n", error_buf);
             free(wasm_file_buf);
             destroy_runtime();
@@ -981,32 +885,32 @@ wamr_pal_create_process(struct wamr_pal_create_process_args *args)
         }
 
         /* Set wasi arguments */
-        if (!set_wasi_args(wasm_module, dir_list, dir_list_size, env_list,
+        if (!set_wasi_args(wasm_module_idx, dir_list, dir_list_size, env_list,
                            env_list_size, stdinfd, stdoutfd, stderrfd, argv,
                            argc, addr_pool, addr_pool_size)) {
             printf("%s\n", "set wasi arguments failed.\n");
-            unload_module(wasm_module);
+            unload_module(wasm_module_idx);
             free(wasm_file_buf);
             destroy_runtime();
             return -1;
         }
 
         /* Instantiate module */
-        if (!(wasm_module_inst[i] =
-                  instantiate_module(wasm_module, stack_size, heap_size,
-                                     error_buf, sizeof(error_buf)))) {
+        if (!instantiate_module(wasm_module_idx, stack_size, heap_size,
+                                error_buf, sizeof(error_buf),
+                                &(wasm_module_inst_idx[i]))) {
             printf("%s\n", error_buf);
-            unload_module(wasm_module);
+            unload_module(wasm_module_idx);
             free(wasm_file_buf);
             destroy_runtime();
             return -1;
         }
 
-        app_instance_main(wasm_module_inst[i], argc, argv);
+        app_instance_main(wasm_module_inst_idx[i], argc, argv);
 
         /* Deinstantiate module */
-        deinstantiate_module(wasm_module_inst[i]);
-        unload_module(wasm_module);
+        deinstantiate_module(wasm_module_inst_idx[i]);
+        unload_module(wasm_module_idx);
         free(wasm_file_buf);
     }
 
