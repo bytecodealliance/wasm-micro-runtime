@@ -341,8 +341,6 @@ memories_deinstantiate(AOTModuleInstance *module_inst)
 #if WASM_ENABLE_SHARED_MEMORY != 0
             if (shared_memory_is_shared(memory_inst)) {
                 uint32 ref_count = shared_memory_dec_reference(memory_inst);
-                bh_assert(ref_count >= 0);
-
                 /* if the reference count is not zero,
                     don't free the memory */
                 if (ref_count > 0)
@@ -398,13 +396,10 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
     /* Shared memory */
     if (is_shared_memory && parent != NULL) {
         AOTMemoryInstance *shared_memory_instance;
-        uint32 ref_count;
         bh_assert(memory_idx == 0);
         bh_assert(parent->memory_count > memory_idx);
         shared_memory_instance = parent->memories[memory_idx];
-        ref_count = shared_memory_inc_reference(shared_memory_instance);
-        bh_assert(ref_count > 0);
-        (void)ref_count;
+        shared_memory_inc_reference(shared_memory_instance);
         return shared_memory_instance;
     }
 #endif

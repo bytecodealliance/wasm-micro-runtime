@@ -124,8 +124,6 @@ memories_deinstantiate(WASMModuleInstance *module_inst,
 #if WASM_ENABLE_SHARED_MEMORY != 0
                 if (shared_memory_is_shared(memories[i])) {
                     uint32 ref_count = shared_memory_dec_reference(memories[i]);
-                    bh_assert(ref_count >= 0);
-
                     /* if the reference count is not zero,
                         don't free the memory */
                     if (ref_count > 0)
@@ -181,12 +179,9 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
 
     /* shared memory */
     if (is_shared_memory && parent != NULL) {
-        uint32 ref_count;
         bh_assert(parent->memory_count > memory_idx);
         memory = parent->memories[memory_idx];
-        ref_count = shared_memory_inc_reference(memory);
-        bh_assert(ref_count > 1);
-        (void)ref_count;
+        shared_memory_inc_reference(memory);
         return memory;
     }
 #endif /* end of WASM_ENABLE_SHARED_MEMORY */

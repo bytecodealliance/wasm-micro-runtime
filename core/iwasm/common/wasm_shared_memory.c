@@ -86,6 +86,8 @@ shared_memory_inc_reference(WASMMemoryInstance *memory)
 #if BH_ATOMIC_32_IS_ATOMIC == 0
     os_mutex_unlock(&_shared_memory_lock);
 #endif
+    bh_assert(old >= 1);
+    bh_assert(old < UINT32_MAX);
     return old + 1;
 }
 
@@ -101,6 +103,7 @@ shared_memory_dec_reference(WASMMemoryInstance *memory)
 #if BH_ATOMIC_32_IS_ATOMIC == 0
     os_mutex_unlock(&_shared_memory_lock);
 #endif
+    bh_assert(old > 0);
     return old - 1;
 }
 
