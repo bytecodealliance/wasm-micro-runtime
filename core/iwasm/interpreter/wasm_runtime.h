@@ -80,7 +80,7 @@ struct WASMMemoryInstance {
     /* Module type */
     uint32 module_type;
     /* Shared memory flag */
-    bh_atomic_32_t ref_count; /* 0: non-shared, >0: reference count */
+    bh_atomic_32_t ref_count; /* 0: non-shared, > 0: reference count */
 
     /* Number bytes per page */
     uint32 num_bytes_per_page;
