@@ -270,7 +270,11 @@ them.
 
 #### Make your WASM application manage threads
 
-  You can use `pthread` APIs like `pthread_create` in your WASM application, see [pthread library](./pthread_library.md) for more details. In this case, WAMR manages `exec_env` for the spawned threads.
+  You can make your WASM application spawn threads by itself,
+  typically using `pthread` APIs like `pthread_create`.
+  See [pthread library](./pthread_library.md) and
+  [pthread implementations](./pthread_impls.md) for more details.
+  In this case, WAMR manages `exec_env` for the spawned threads.
 
 #### Make your embedder manage threads
 
@@ -300,13 +304,13 @@ them.
 
 * The corresponding threading feature should be enabled while building the runtime
 
-  - pthread (legacy)
+  - WAMR lib-pthread (legacy)
 
     ```bash
     cmake .. -DWAMR_BUILD_LIB_PTHREAD=1
     ```
 
-  - pthread (wasi-threads)
+  - wasi-threads
 
     ```bash
     cmake .. -DWAMR_BUILD_LIB_WASI_THREADS=1
