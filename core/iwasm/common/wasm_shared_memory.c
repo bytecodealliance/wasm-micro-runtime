@@ -78,7 +78,7 @@ uint32
 shared_memory_inc_reference(WASMMemoryInstance *memory)
 {
     bh_assert(shared_memory_is_shared(memory));
-    uint32_t old;
+    uint32 old;
 #if BH_ATOMIC_32_IS_ATOMIC == 0
     os_mutex_lock(&_shared_memory_lock);
 #endif
@@ -95,7 +95,7 @@ uint32
 shared_memory_dec_reference(WASMMemoryInstance *memory)
 {
     bh_assert(shared_memory_is_shared(memory));
-    uint32_t old;
+    uint32 old;
 #if BH_ATOMIC_32_IS_ATOMIC == 0
     os_mutex_lock(&_shared_memory_lock);
 #endif
@@ -110,7 +110,7 @@ shared_memory_dec_reference(WASMMemoryInstance *memory)
 bool
 shared_memory_is_shared(WASMMemoryInstance *memory)
 {
-    uint32_t old;
+    uint32 old;
 #if BH_ATOMIC_32_IS_ATOMIC == 0
     os_mutex_lock(&_shared_memory_lock);
 #endif
