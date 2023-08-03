@@ -6,7 +6,7 @@ This document explains `wasm_runtime_spawn_exec_env` and
 
   * spawn exec_env
 
-    `spawn exec_env` API creates a new `exec_env` based on the original `exec_env`. You use can use it in other threads. It's up to the embedder how to manage host threads to run the new `exec_env`.
+    `spawn exec_env` API creates a new `exec_env` based on the original `exec_env`. You can use it in other threads. It's up to the embedder how to manage host threads to run the new `exec_env`.
 
     ```C
     new_exec_env = wasm_runtime_spawn_exec_env(exec_env);
