@@ -339,11 +339,8 @@ memories_deinstantiate(AOTModuleInstance *module_inst)
         memory_inst = module_inst->memories[i];
         if (memory_inst) {
 #if WASM_ENABLE_SHARED_MEMORY != 0
-            if (memory_inst->is_shared) {
-                int32 ref_count = shared_memory_dec_reference(
-                    (WASMModuleCommon *)module_inst->module);
-                bh_assert(ref_count >= 0);
-
+            if (shared_memory_is_shared(memory_inst)) {
+                uint32 ref_count = shared_memory_dec_reference(memory_inst);
                 /* if the reference count is not zero,
                     don't free the memory */
                 if (ref_count > 0)
@@ -373,9 +370,10 @@ memories_deinstantiate(AOTModuleInstance *module_inst)
 }
 
 static AOTMemoryInstance *
-memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
-                   AOTMemoryInstance *memory_inst, AOTMemory *memory,
-                   uint32 heap_size, char *error_buf, uint32 error_buf_size)
+memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
+                   AOTModule *module, AOTMemoryInstance *memory_inst,
+                   AOTMemory *memory, uint32 memory_idx, uint32 heap_size,
+                   char *error_buf, uint32 error_buf_size)
 {
     void *heap_handle;
     uint32 num_bytes_per_page = memory->num_bytes_per_page;
@@ -396,23 +394,13 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
     bool is_shared_memory = memory->memory_flags & 0x02 ? true : false;
 
     /* Shared memory */
-    if (is_shared_memory) {
+    if (is_shared_memory && parent != NULL) {
         AOTMemoryInstance *shared_memory_instance;
-        WASMSharedMemNode *node =
-            wasm_module_get_shared_memory((WASMModuleCommon *)module);
-        /* If the memory of this module has been instantiated,
-            return the memory instance directly */
-        if (node) {
-            uint32 ref_count;
-            ref_count = shared_memory_inc_reference((WASMModuleCommon *)module);
-            bh_assert(ref_count > 0);
-            shared_memory_instance =
-                (AOTMemoryInstance *)shared_memory_get_memory_inst(node);
-            bh_assert(shared_memory_instance);
-
-            (void)ref_count;
-            return shared_memory_instance;
-        }
+        bh_assert(memory_idx == 0);
+        bh_assert(parent->memory_count > memory_idx);
+        shared_memory_instance = parent->memories[memory_idx];
+        shared_memory_inc_reference(shared_memory_instance);
+        return shared_memory_instance;
     }
 #endif
 
@@ -609,23 +597,12 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (is_shared_memory) {
-        memory_inst->is_shared = true;
-        if (!shared_memory_set_memory_inst(
-                (WASMModuleCommon *)module,
-                (WASMMemoryInstanceCommon *)memory_inst)) {
-            set_error_buf(error_buf, error_buf_size, "allocate memory failed");
-            goto fail3;
-        }
+        memory_inst->ref_count = 1;
     }
 #endif
 
     return memory_inst;
 
-#if WASM_ENABLE_SHARED_MEMORY != 0
-fail3:
-    if (heap_size > 0)
-        mem_allocator_destroy(memory_inst->heap_handle);
-#endif
 fail2:
     if (heap_size > 0)
         wasm_runtime_free(memory_inst->heap_handle);
@@ -654,8 +631,9 @@ aot_get_default_memory(AOTModuleInstance *module_inst)
 }
 
 static bool
-memories_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
-                     uint32 heap_size, char *error_buf, uint32 error_buf_size)
+memories_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
+                     AOTModule *module, uint32 heap_size, char *error_buf,
+                     uint32 error_buf_size)
 {
     uint32 global_index, global_data_offset, base_offset, length;
     uint32 i, memory_count = module->memory_count;
@@ -672,8 +650,8 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 
     memories = module_inst->global_table_data.memory_instances;
     for (i = 0; i < memory_count; i++, memories++) {
-        memory_inst = memory_instantiate(module_inst, module, memories,
-                                         &module->memories[i], heap_size,
+        memory_inst = memory_instantiate(module_inst, parent, module, memories,
+                                         &module->memories[i], i, heap_size,
                                          error_buf, error_buf_size);
         if (!memory_inst) {
             return false;
@@ -1100,9 +1078,9 @@ check_linked_symbol(AOTModule *module, char *error_buf, uint32 error_buf_size)
 }
 
 AOTModuleInstance *
-aot_instantiate(AOTModule *module, bool is_sub_inst, WASMExecEnv *exec_env_main,
-                uint32 stack_size, uint32 heap_size, char *error_buf,
-                uint32 error_buf_size)
+aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
+                WASMExecEnv *exec_env_main, uint32 stack_size, uint32 heap_size,
+                char *error_buf, uint32 error_buf_size)
 {
     AOTModuleInstance *module_inst;
     const uint32 module_inst_struct_size =
@@ -1112,6 +1090,7 @@ aot_instantiate(AOTModule *module, bool is_sub_inst, WASMExecEnv *exec_env_main,
     uint64 total_size, table_size = 0;
     uint8 *p;
     uint32 i, extra_info_offset;
+    const bool is_sub_inst = parent != NULL;
 
     /* Check heap size */
     heap_size = align_uint(heap_size, 8);
@@ -1171,7 +1150,7 @@ aot_instantiate(AOTModule *module, bool is_sub_inst, WASMExecEnv *exec_env_main,
         goto fail;
 
     /* Initialize memory space */
-    if (!memories_instantiate(module_inst, module, heap_size, error_buf,
+    if (!memories_instantiate(module_inst, parent, module, heap_size, error_buf,
                               error_buf_size))
         goto fail;
 
