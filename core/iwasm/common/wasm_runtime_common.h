@@ -498,7 +498,8 @@ wasm_runtime_unload(WASMModuleCommon *module);
 
 /* Internal API */
 WASMModuleInstanceCommon *
-wasm_runtime_instantiate_internal(WASMModuleCommon *module, bool is_sub_inst,
+wasm_runtime_instantiate_internal(WASMModuleCommon *module,
+                                  WASMModuleInstanceCommon *parent,
                                   WASMExecEnv *exec_env_main, uint32 stack_size,
                                   uint32 heap_size, char *error_buf,
                                   uint32 error_buf_size);

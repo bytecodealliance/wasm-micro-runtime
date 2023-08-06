@@ -1,0 +1,5 @@
+{
+    "lib-wasi-threads tests": {
+        "spawn_stress_test": "Stress tests are incompatible with the other part and executed differently"
+    }
+}

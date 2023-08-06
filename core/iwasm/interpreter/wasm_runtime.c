@@ -122,11 +122,8 @@ memories_deinstantiate(WASMModuleInstance *module_inst,
                 }
 #endif
 #if WASM_ENABLE_SHARED_MEMORY != 0
-                if (memories[i]->is_shared) {
-                    int32 ref_count = shared_memory_dec_reference(
-                        (WASMModuleCommon *)module_inst->module);
-                    bh_assert(ref_count >= 0);
-
+                if (shared_memory_is_shared(memories[i])) {
+                    uint32 ref_count = shared_memory_dec_reference(memories[i]);
                     /* if the reference count is not zero,
                         don't free the memory */
                     if (ref_count > 0)
@@ -159,7 +156,8 @@ memories_deinstantiate(WASMModuleInstance *module_inst,
 }
 
 static WASMMemoryInstance *
-memory_instantiate(WASMModuleInstance *module_inst, WASMMemoryInstance *memory,
+memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
+                   WASMMemoryInstance *memory, uint32 memory_idx,
                    uint32 num_bytes_per_page, uint32 init_page_count,
                    uint32 max_page_count, uint32 heap_size, uint32 flags,
                    char *error_buf, uint32 error_buf_size)
@@ -180,22 +178,11 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMMemoryInstance *memory,
     bool is_shared_memory = flags & 0x02 ? true : false;
 
     /* shared memory */
-    if (is_shared_memory) {
-        WASMSharedMemNode *node = wasm_module_get_shared_memory(
-            (WASMModuleCommon *)module_inst->module);
-        /* If the memory of this module has been instantiated,
-            return the memory instance directly */
-        if (node) {
-            uint32 ref_count;
-            ref_count = shared_memory_inc_reference(
-                (WASMModuleCommon *)module_inst->module);
-            bh_assert(ref_count > 0);
-            memory = (WASMMemoryInstance *)shared_memory_get_memory_inst(node);
-            bh_assert(memory);
-
-            (void)ref_count;
-            return memory;
-        }
+    if (is_shared_memory && parent != NULL) {
+        bh_assert(parent->memory_count > memory_idx);
+        memory = parent->memories[memory_idx];
+        shared_memory_inc_reference(memory);
+        return memory;
     }
 #endif /* end of WASM_ENABLE_SHARED_MEMORY */
 
@@ -388,24 +375,13 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMMemoryInstance *memory,
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (is_shared_memory) {
-        memory->is_shared = true;
-        if (!shared_memory_set_memory_inst(
-                (WASMModuleCommon *)module_inst->module,
-                (WASMMemoryInstanceCommon *)memory)) {
-            set_error_buf(error_buf, error_buf_size, "allocate memory failed");
-            goto fail4;
-        }
+        memory->ref_count = 1;
     }
 #endif
 
     LOG_VERBOSE("Memory instantiate success.");
     return memory;
 
-#if WASM_ENABLE_SHARED_MEMORY != 0
-fail4:
-    if (heap_size > 0)
-        mem_allocator_destroy(memory->heap_handle);
-#endif
 fail3:
     if (heap_size > 0)
         wasm_runtime_free(memory->heap_handle);
@@ -428,7 +404,8 @@ fail1:
  */
 static WASMMemoryInstance **
 memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
-                     uint32 heap_size, char *error_buf, uint32 error_buf_size)
+                     WASMModuleInstance *parent, uint32 heap_size,
+                     char *error_buf, uint32 error_buf_size)
 {
     WASMImport *import;
     uint32 mem_index = 0, i,
@@ -474,26 +451,29 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         else
 #endif
         {
-            if (!(memories[mem_index++] = memory_instantiate(
-                      module_inst, memory, num_bytes_per_page, init_page_count,
-                      max_page_count, actual_heap_size, flags, error_buf,
-                      error_buf_size))) {
+            if (!(memories[mem_index] = memory_instantiate(
+                      module_inst, parent, memory, mem_index,
+                      num_bytes_per_page, init_page_count, max_page_count,
+                      actual_heap_size, flags, error_buf, error_buf_size))) {
                 memories_deinstantiate(module_inst, memories, memory_count);
                 return NULL;
             }
+            mem_index++;
         }
     }
 
     /* instantiate memories from memory section */
     for (i = 0; i < module->memory_count; i++, memory++) {
-        if (!(memories[mem_index++] = memory_instantiate(
-                  module_inst, memory, module->memories[i].num_bytes_per_page,
+        if (!(memories[mem_index] = memory_instantiate(
+                  module_inst, parent, memory, mem_index,
+                  module->memories[i].num_bytes_per_page,
                   module->memories[i].init_page_count,
                   module->memories[i].max_page_count, heap_size,
                   module->memories[i].flags, error_buf, error_buf_size))) {
             memories_deinstantiate(module_inst, memories, memory_count);
             return NULL;
         }
+        mem_index++;
     }
 
     bh_assert(mem_index == memory_count);
@@ -1104,10 +1084,14 @@ execute_post_instantiate_functions(WASMModuleInstance *module_inst,
         goto fail;
     }
 
+#if WASM_ENABLE_LIBC_WASI != 0
     if (initialize_func
         && !wasm_call_function(exec_env, initialize_func, 0, NULL)) {
         goto fail;
     }
+#else
+    (void)initialize_func;
+#endif
 
     if (post_inst_func
         && !wasm_call_function(exec_env, post_inst_func, 0, NULL)) {
@@ -1297,7 +1281,7 @@ sub_module_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
         WASMModuleInstance *sub_module_inst = NULL;
 
         sub_module_inst =
-            wasm_instantiate(sub_module, false, NULL, stack_size, heap_size,
+            wasm_instantiate(sub_module, NULL, NULL, stack_size, heap_size,
                              error_buf, error_buf_size);
         if (!sub_module_inst) {
             LOG_DEBUG("instantiate %s failed",
@@ -1642,7 +1626,7 @@ wasm_set_running_mode(WASMModuleInstance *module_inst, RunningMode running_mode)
  * Instantiate module
  */
 WASMModuleInstance *
-wasm_instantiate(WASMModule *module, bool is_sub_inst,
+wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                  WASMExecEnv *exec_env_main, uint32 stack_size,
                  uint32 heap_size, char *error_buf, uint32 error_buf_size)
 {
@@ -1659,6 +1643,7 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst,
 #if WASM_ENABLE_MULTI_MODULE != 0
     bool ret = false;
 #endif
+    const bool is_sub_inst = parent != NULL;
 
     if (!module)
         return NULL;
@@ -1777,8 +1762,9 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst,
 
     /* Instantiate memories/tables/functions */
     if ((module_inst->memory_count > 0
-         && !(module_inst->memories = memories_instantiate(
-                  module, module_inst, heap_size, error_buf, error_buf_size)))
+         && !(module_inst->memories =
+                  memories_instantiate(module, module_inst, parent, heap_size,
+                                       error_buf, error_buf_size)))
         || (module_inst->table_count > 0
             && !(module_inst->tables =
                      tables_instantiate(module, module_inst, first_table,
@@ -2212,16 +2198,6 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
     sub_module_deinstantiate(module_inst);
 #endif
 
-#if WASM_ENABLE_LIBC_WASI != 0
-    /* Destroy wasi resource before freeing app heap, since some fields of
-       wasi contex are allocated from app heap, and if app heap is freed,
-       these fields will be set to NULL, we cannot free their internal data
-       which may allocated from global heap. */
-    /* Only destroy wasi ctx in the main module instance */
-    if (!is_sub_inst)
-        wasm_runtime_destroy_wasi((WASMModuleInstanceCommon *)module_inst);
-#endif
-
     if (module_inst->memory_count > 0)
         memories_deinstantiate(module_inst, module_inst->memories,
                                module_inst->memory_count);
@@ -2254,10 +2230,14 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
     if (module_inst->e->c_api_func_imports)
         wasm_runtime_free(module_inst->e->c_api_func_imports);
 
+    if (!is_sub_inst) {
+#if WASM_ENABLE_LIBC_WASI != 0
+        wasm_runtime_destroy_wasi((WASMModuleInstanceCommon *)module_inst);
+#endif
 #if WASM_ENABLE_WASI_NN != 0
-    if (!is_sub_inst)
         wasi_nn_destroy(module_inst);
 #endif
+    }
 
     wasm_runtime_free(module_inst);
 }
@@ -3297,13 +3277,13 @@ llvm_jit_table_init(WASMModuleInstance *module_inst, uint32 tbl_idx,
     bh_assert(tbl_inst);
     bh_assert(tbl_seg);
 
-    if (!length) {
+    if (offset_len_out_of_bounds(src_offset, length, tbl_seg->function_count)
+        || offset_len_out_of_bounds(dst_offset, length, tbl_inst->cur_size)) {
+        jit_set_exception_with_id(module_inst, EXCE_OUT_OF_BOUNDS_TABLE_ACCESS);
         return;
     }
 
-    if (length + src_offset > tbl_seg->function_count
-        || dst_offset + length > tbl_inst->cur_size) {
-        jit_set_exception_with_id(module_inst, EXCE_OUT_OF_BOUNDS_TABLE_ACCESS);
+    if (!length) {
         return;
     }
 
@@ -3345,8 +3325,9 @@ llvm_jit_table_copy(WASMModuleInstance *module_inst, uint32 src_tbl_idx,
     bh_assert(src_tbl_inst);
     bh_assert(dst_tbl_inst);
 
-    if ((uint64)dst_offset + length > dst_tbl_inst->cur_size
-        || (uint64)src_offset + length > src_tbl_inst->cur_size) {
+    if (offset_len_out_of_bounds(dst_offset, length, dst_tbl_inst->cur_size)
+        || offset_len_out_of_bounds(src_offset, length,
+                                    src_tbl_inst->cur_size)) {
         jit_set_exception_with_id(module_inst, EXCE_OUT_OF_BOUNDS_TABLE_ACCESS);
         return;
     }
@@ -3378,7 +3359,7 @@ llvm_jit_table_fill(WASMModuleInstance *module_inst, uint32 tbl_idx,
     tbl_inst = wasm_get_table_inst(module_inst, tbl_idx);
     bh_assert(tbl_inst);
 
-    if (data_offset + length > tbl_inst->cur_size) {
+    if (offset_len_out_of_bounds(data_offset, length, tbl_inst->cur_size)) {
         jit_set_exception_with_id(module_inst, EXCE_OUT_OF_BOUNDS_TABLE_ACCESS);
         return;
     }
