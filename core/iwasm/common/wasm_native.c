@@ -394,6 +394,28 @@ wasm_native_unregister_natives(const char *module_name,
     return false;
 }
 
+void *
+wasm_native_module_instance_context_key_create(
+    void (*dtor)(wasm_module_inst_t inst, void *ctx))
+{
+}
+
+void
+wasm_native_module_instance_context_key_destroy(void *key)
+{
+}
+
+void
+wasm_native_module_instance_set_context(wasm_module_inst_t, void *key,
+                                        void *ctx)
+{
+}
+
+void
+wasm_native_module_instance_get_context(wasm_module_inst_t, void *key)
+{
+}
+
 bool
 wasm_native_init()
 {

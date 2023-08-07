@@ -68,6 +68,24 @@ bool
 wasm_native_unregister_natives(const char *module_name,
                                NativeSymbol *native_symbols);
 
+void *
+wasm_native_module_instance_context_key_create(
+    void (*dtor)(wasm_module_inst_t inst, void *ctx));
+
+/*
+ * it's caller's resposibility to ensure destorying all module instances
+ * before calling wasm_native_module_instance_context_key_destroy.
+ * otherwise, it's an undefined behavior.
+ */
+void
+wasm_native_module_instance_context_key_destroy(void *key);
+
+void
+wasm_native_module_instance_set_context(wasm_module_inst_t, void *key,
+                                        void *ctx);
+void *
+wasm_native_module_instance_get_context(wasm_module_inst_t, void *key);
+
 bool
 wasm_native_init();
 
