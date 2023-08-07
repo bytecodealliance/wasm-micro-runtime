@@ -438,6 +438,7 @@ wasm_native_module_instance_context_key_create(
             return context_idx_to_key(i);
         }
     }
+    LOG_ERROR("failed to allocate instance context key");
     return NULL;
 }
 
