@@ -394,26 +394,87 @@ wasm_native_unregister_natives(const char *module_name,
     return false;
 }
 
+static uint32
+context_key_to_idx(void *key)
+{
+	bh_assert(key != NULL);
+	uint32 idx = (uint32)key;
+	bh_assert(idx > 0);
+	bh_assert(idx <= WASM_MAX_INSTANCE_CONTEXTS);
+    return idx - 1
+}
+
+static void *
+context_idx_to_key(uint32 idx)
+{
+	bh_assert(idx < WASM_MAX_INSTANCE_CONTEXTS);
+	return (void *)(idx + 1);
+}
+
+static g_context_dtors[WASM_MAX_INSTANCE_CONTEXTS];
+
+static void
+dtor_noop(wasm_module_inst_t inst, void *ctx)
+{
+}
+
 void *
 wasm_native_module_instance_context_key_create(
     void (*dtor)(wasm_module_inst_t inst, void *ctx))
 {
+	uint32 i;
+    for (i = 0; i < WASM_MAX_INSTANCE_CONTEXTS; i++) {
+        if (g_context_dtors[i] == NULL) {
+            if (dtor == NULL) {
+                dtor = dtor_noop;
+            }
+            g_context_dtors = dtor;
+            return context_idx_to_key(i);
+        }
+    }
+    return NULL;
 }
 
 void
 wasm_native_module_instance_context_key_destroy(void *key)
 {
+	uint32 idx = context_key_to_idx(key);
+    bh_assert(g_context_dtors[idx] != NULL);
+    g_context_dtors[idx] = NULL;
+}
+
+static WASMModuleInstanceExtraCommon *
+wasm_module_inst_extra_common(wasm_module_inst_t inst)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (inst->module_type == Wasm_Module_Bytecode) {
+        return &((WASMModuleInstance *)inst)->e.common;
+    }
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (inst->module_type == Wasm_Module_AoT) {
+        return &((AOTModuleInstance *)inst)->e.common;
+    }
+#endif
+	bh_assert(false);
+    return NULL;
 }
 
 void
-wasm_native_module_instance_set_context(wasm_module_inst_t, void *key,
+wasm_native_module_instance_set_context(wasm_module_inst_t inst, void *key,
                                         void *ctx)
 {
+	uint32 idx = context_key_to_idx(key);
+	WASMModuleInstanceExtraCommon *common = wasm_module_inst_extra_common(inst);
+    common->contexts[idx] = ctx;
 }
 
-void
-wasm_native_module_instance_get_context(wasm_module_inst_t, void *key)
+void *
+wasm_native_module_instance_get_context(wasm_module_inst_t inst, void *key)
 {
+	uint32 idx = context_key_to_idx(key);
+	WASMModuleInstanceExtraCommon *common = wasm_module_inst_extra_common(inst);
+    return common->contexts[idx];
 }
 
 bool
