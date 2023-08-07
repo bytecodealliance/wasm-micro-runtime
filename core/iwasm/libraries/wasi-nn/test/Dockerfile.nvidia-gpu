@@ -44,7 +44,6 @@ RUN mkdir -p /etc/OpenCL/vendors && \
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
-COPY --from=base /home/wamr/product-mini/platforms/linux/build/libvmlib.so /libvmlib.so
 COPY --from=base /home/wamr/product-mini/platforms/linux/build/iwasm /iwasm
 
 ENTRYPOINT [ "/iwasm" ]
