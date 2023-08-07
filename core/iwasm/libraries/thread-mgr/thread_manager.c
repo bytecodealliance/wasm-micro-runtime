@@ -746,8 +746,8 @@ wasm_cluster_dup_c_api_imports(WASMModuleInstanceCommon *module_inst_dst,
 
 #if WASM_ENABLE_INTERP != 0
     if (module_inst_src->module_type == Wasm_Module_Bytecode) {
-        new_c_api_func_imports =
-            &(((WASMModuleInstance *)module_inst_dst)->e->common.c_api_func_imports);
+        new_c_api_func_imports = &(((WASMModuleInstance *)module_inst_dst)
+                                       ->e->common.c_api_func_imports);
         c_api_func_imports = ((const WASMModuleInstance *)module_inst_src)
                                  ->e->common.c_api_func_imports;
         import_func_count =
