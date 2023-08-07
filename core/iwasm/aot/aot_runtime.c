@@ -42,6 +42,11 @@ bh_static_assert(offsetof(AOTModuleInstance, cur_exception)
 bh_static_assert(offsetof(AOTModuleInstance, global_table_data)
                  == 13 * sizeof(uint64) + 128 + 11 * sizeof(uint64));
 
+bh_static_assert(sizeof(AOTMemoryInstance) == 104);
+bh_static_assert(offsetof(AOTTableInstance, elems) == 24);
+
+bh_static_assert(offsetof(AOTModuleInstanceExtra, stack_sizes) == 0);
+
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
 {
@@ -337,11 +342,8 @@ memories_deinstantiate(AOTModuleInstance *module_inst)
         memory_inst = module_inst->memories[i];
         if (memory_inst) {
 #if WASM_ENABLE_SHARED_MEMORY != 0
-            if (memory_inst->is_shared) {
-                int32 ref_count = shared_memory_dec_reference(
-                    (WASMModuleCommon *)module_inst->module);
-                bh_assert(ref_count >= 0);
-
+            if (shared_memory_is_shared(memory_inst)) {
+                uint32 ref_count = shared_memory_dec_reference(memory_inst);
                 /* if the reference count is not zero,
                     don't free the memory */
                 if (ref_count > 0)
@@ -371,9 +373,10 @@ memories_deinstantiate(AOTModuleInstance *module_inst)
 }
 
 static AOTMemoryInstance *
-memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
-                   AOTMemoryInstance *memory_inst, AOTMemory *memory,
-                   uint32 heap_size, char *error_buf, uint32 error_buf_size)
+memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
+                   AOTModule *module, AOTMemoryInstance *memory_inst,
+                   AOTMemory *memory, uint32 memory_idx, uint32 heap_size,
+                   char *error_buf, uint32 error_buf_size)
 {
     void *heap_handle;
     uint32 num_bytes_per_page = memory->num_bytes_per_page;
@@ -394,23 +397,13 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
     bool is_shared_memory = memory->memory_flags & 0x02 ? true : false;
 
     /* Shared memory */
-    if (is_shared_memory) {
+    if (is_shared_memory && parent != NULL) {
         AOTMemoryInstance *shared_memory_instance;
-        WASMSharedMemNode *node =
-            wasm_module_get_shared_memory((WASMModuleCommon *)module);
-        /* If the memory of this module has been instantiated,
-            return the memory instance directly */
-        if (node) {
-            uint32 ref_count;
-            ref_count = shared_memory_inc_reference((WASMModuleCommon *)module);
-            bh_assert(ref_count > 0);
-            shared_memory_instance =
-                (AOTMemoryInstance *)shared_memory_get_memory_inst(node);
-            bh_assert(shared_memory_instance);
-
-            (void)ref_count;
-            return shared_memory_instance;
-        }
+        bh_assert(memory_idx == 0);
+        bh_assert(parent->memory_count > memory_idx);
+        shared_memory_instance = parent->memories[memory_idx];
+        shared_memory_inc_reference(shared_memory_instance);
+        return shared_memory_instance;
     }
 #endif
 
@@ -607,23 +600,12 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (is_shared_memory) {
-        memory_inst->is_shared = true;
-        if (!shared_memory_set_memory_inst(
-                (WASMModuleCommon *)module,
-                (WASMMemoryInstanceCommon *)memory_inst)) {
-            set_error_buf(error_buf, error_buf_size, "allocate memory failed");
-            goto fail3;
-        }
+        memory_inst->ref_count = 1;
     }
 #endif
 
     return memory_inst;
 
-#if WASM_ENABLE_SHARED_MEMORY != 0
-fail3:
-    if (heap_size > 0)
-        mem_allocator_destroy(memory_inst->heap_handle);
-#endif
 fail2:
     if (heap_size > 0)
         wasm_runtime_free(memory_inst->heap_handle);
@@ -652,8 +634,9 @@ aot_get_default_memory(AOTModuleInstance *module_inst)
 }
 
 static bool
-memories_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
-                     uint32 heap_size, char *error_buf, uint32 error_buf_size)
+memories_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
+                     AOTModule *module, uint32 heap_size, char *error_buf,
+                     uint32 error_buf_size)
 {
     uint32 global_index, global_data_offset, base_offset, length;
     uint32 i, memory_count = module->memory_count;
@@ -670,8 +653,8 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 
     memories = module_inst->global_table_data.memory_instances;
     for (i = 0; i < memory_count; i++, memories++) {
-        memory_inst = memory_instantiate(module_inst, module, memories,
-                                         &module->memories[i], heap_size,
+        memory_inst = memory_instantiate(module_inst, parent, module, memories,
+                                         &module->memories[i], i, heap_size,
                                          error_buf, error_buf_size);
         if (!memory_inst) {
             return false;
@@ -1099,9 +1082,9 @@ check_linked_symbol(AOTModule *module, char *error_buf, uint32 error_buf_size)
 }
 
 AOTModuleInstance *
-aot_instantiate(AOTModule *module, bool is_sub_inst, WASMExecEnv *exec_env_main,
-                uint32 stack_size, uint32 heap_size, char *error_buf,
-                uint32 error_buf_size)
+aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
+                WASMExecEnv *exec_env_main, uint32 stack_size, uint32 heap_size,
+                char *error_buf, uint32 error_buf_size)
 {
     AOTModuleInstance *module_inst;
     const uint32 module_inst_struct_size =
@@ -1111,6 +1094,7 @@ aot_instantiate(AOTModule *module, bool is_sub_inst, WASMExecEnv *exec_env_main,
     uint64 total_size, table_size = 0;
     uint8 *p;
     uint32 i, extra_info_offset;
+    const bool is_sub_inst = parent != NULL;
 
     /* Check heap size */
     heap_size = align_uint(heap_size, 8);
@@ -1170,7 +1154,7 @@ aot_instantiate(AOTModule *module, bool is_sub_inst, WASMExecEnv *exec_env_main,
         goto fail;
 
     /* Initialize memory space */
-    if (!memories_instantiate(module_inst, module, heap_size, error_buf,
+    if (!memories_instantiate(module_inst, parent, module, heap_size, error_buf,
                               error_buf_size))
         goto fail;
 
@@ -1205,17 +1189,6 @@ aot_instantiate(AOTModule *module, bool is_sub_inst, WASMExecEnv *exec_env_main,
     }
 #endif
 
-#if WASM_ENABLE_WASI_NN != 0
-    if (!is_sub_inst) {
-        if (!(((AOTModuleInstanceExtra *)module_inst->e)->wasi_nn_ctx =
-                  wasi_nn_initialize())) {
-            set_error_buf(error_buf, error_buf_size,
-                          "wasi nn initialization failed");
-            goto fail;
-        }
-    }
-#endif
-
     /* Initialize the thread related data */
     if (stack_size == 0)
         stack_size = DEFAULT_WASM_STACK_SIZE;
@@ -1224,6 +1197,9 @@ aot_instantiate(AOTModule *module, bool is_sub_inst, WASMExecEnv *exec_env_main,
         stack_size = 48 * 1024;
 #endif
     module_inst->default_wasm_stack_size = stack_size;
+
+    ((AOTModuleInstanceExtra *)module_inst->e)->stack_sizes =
+        aot_get_data_section_addr(module, AOT_STACK_SIZES_SECTION_NAME, NULL);
 
 #if WASM_ENABLE_PERF_PROFILING != 0
     total_size = (uint64)sizeof(AOTFuncPerfProfInfo)
@@ -1271,16 +1247,6 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
         wasm_exec_env_destroy((WASMExecEnv *)module_inst->exec_env_singleton);
     }
 
-#if WASM_ENABLE_LIBC_WASI != 0
-    /* Destroy wasi resource before freeing app heap, since some fields of
-       wasi contex are allocated from app heap, and if app heap is freed,
-       these fields will be set to NULL, we cannot free their internal data
-       which may allocated from global heap. */
-    /* Only destroy wasi ctx in the main module instance */
-    if (!is_sub_inst)
-        wasm_runtime_destroy_wasi((WASMModuleInstanceCommon *)module_inst);
-#endif
-
 #if WASM_ENABLE_PERF_PROFILING != 0
     if (module_inst->func_perf_profilings)
         wasm_runtime_free(module_inst->func_perf_profilings);
@@ -1313,14 +1279,14 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
         wasm_runtime_free(
             ((AOTModuleInstanceExtra *)module_inst->e)->c_api_func_imports);
 
-#if WASM_ENABLE_WASI_NN != 0
     if (!is_sub_inst) {
-        WASINNContext *wasi_nn_ctx =
-            ((AOTModuleInstanceExtra *)module_inst->e)->wasi_nn_ctx;
-        if (wasi_nn_ctx)
-            wasi_nn_destroy(wasi_nn_ctx);
-    }
+#if WASM_ENABLE_LIBC_WASI != 0
+        wasm_runtime_destroy_wasi((WASMModuleInstanceCommon *)module_inst);
 #endif
+#if WASM_ENABLE_WASI_NN != 0
+        wasi_nn_destroy(module_inst);
+#endif
+    }
 
     wasm_runtime_free(module_inst);
 }
@@ -2508,13 +2474,13 @@ aot_table_init(AOTModuleInstance *module_inst, uint32 tbl_idx,
     tbl_seg = module->table_init_data_list[tbl_seg_idx];
     bh_assert(tbl_seg);
 
-    if (!length) {
+    if (offset_len_out_of_bounds(src_offset, length, tbl_seg->func_index_count)
+        || offset_len_out_of_bounds(dst_offset, length, tbl_inst->cur_size)) {
+        aot_set_exception_with_id(module_inst, EXCE_OUT_OF_BOUNDS_TABLE_ACCESS);
         return;
     }
 
-    if (length + src_offset > tbl_seg->func_index_count
-        || dst_offset + length > tbl_inst->cur_size) {
-        aot_set_exception_with_id(module_inst, EXCE_OUT_OF_BOUNDS_TABLE_ACCESS);
+    if (!length) {
         return;
     }
 
@@ -2548,8 +2514,9 @@ aot_table_copy(AOTModuleInstance *module_inst, uint32 src_tbl_idx,
     dst_tbl_inst = module_inst->tables[dst_tbl_idx];
     bh_assert(dst_tbl_inst);
 
-    if ((uint64)dst_offset + length > dst_tbl_inst->cur_size
-        || (uint64)src_offset + length > src_tbl_inst->cur_size) {
+    if (offset_len_out_of_bounds(dst_offset, length, dst_tbl_inst->cur_size)
+        || offset_len_out_of_bounds(src_offset, length,
+                                    src_tbl_inst->cur_size)) {
         aot_set_exception_with_id(module_inst, EXCE_OUT_OF_BOUNDS_TABLE_ACCESS);
         return;
     }
@@ -2575,7 +2542,7 @@ aot_table_fill(AOTModuleInstance *module_inst, uint32 tbl_idx, uint32 length,
     tbl_inst = module_inst->tables[tbl_idx];
     bh_assert(tbl_inst);
 
-    if (data_offset + length > tbl_inst->cur_size) {
+    if (offset_len_out_of_bounds(data_offset, length, tbl_inst->cur_size)) {
         aot_set_exception_with_id(module_inst, EXCE_OUT_OF_BOUNDS_TABLE_ACCESS);
         return;
     }

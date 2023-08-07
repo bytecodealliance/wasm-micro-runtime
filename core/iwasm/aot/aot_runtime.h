@@ -105,9 +105,11 @@ typedef struct AOTFunctionInstance {
 } AOTFunctionInstance;
 
 typedef struct AOTModuleInstanceExtra {
+    DefPointer(const uint32 *, stack_sizes);
     CApiFuncImport *c_api_func_imports;
-#if WASM_ENABLE_WASI_NN != 0
-    WASINNContext *wasi_nn_ctx;
+#if WASM_CONFIGUABLE_BOUNDS_CHECKS != 0
+    /* Disable bounds checks or not */
+    bool disable_bounds_checks;
 #endif
 } AOTModuleInstanceExtra;
 
@@ -423,7 +425,7 @@ aot_unload(AOTModule *module);
  * Instantiate a AOT module.
  *
  * @param module the AOT module to instantiate
- * @param is_sub_inst the flag of sub instance
+ * @param parent the parent module instance
  * @param heap_size the default heap size of the module instance, a heap will
  *        be created besides the app memory space. Both wasm app and native
  *        function can allocate memory from the heap. If heap_size is 0, the
@@ -434,9 +436,9 @@ aot_unload(AOTModule *module);
  * @return return the instantiated AOT module instance, NULL if failed
  */
 AOTModuleInstance *
-aot_instantiate(AOTModule *module, bool is_sub_inst, WASMExecEnv *exec_env_main,
-                uint32 stack_size, uint32 heap_size, char *error_buf,
-                uint32 error_buf_size);
+aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
+                WASMExecEnv *exec_env_main, uint32 stack_size, uint32 heap_size,
+                char *error_buf, uint32 error_buf_size);
 
 /**
  * Deinstantiate a AOT module instance, destroy the resources.
@@ -654,6 +656,10 @@ aot_dump_perf_profiling(const AOTModuleInstance *module_inst);
 
 const uint8 *
 aot_get_custom_section(const AOTModule *module, const char *name, uint32 *len);
+
+const void *
+aot_get_data_section_addr(AOTModule *module, const char *section_name,
+                          uint32 *p_data_size);
 
 #if WASM_ENABLE_STATIC_PGO != 0
 void

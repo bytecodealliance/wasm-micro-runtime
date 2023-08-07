@@ -7,6 +7,7 @@
 #define _WASM_EXEC_ENV_H
 
 #include "bh_assert.h"
+#include "wasm_suspend_flags.h"
 #if WASM_ENABLE_INTERP != 0
 #include "../interpreter/wasm.h"
 #endif
@@ -57,15 +58,8 @@ typedef struct WASMExecEnv {
        exception. */
     uint8 *native_stack_boundary;
 
-    /* Used to terminate or suspend current thread
-        bit 0: need to terminate
-        bit 1: need to suspend
-        bit 2: need to go into breakpoint
-        bit 3: return from pthread_exit */
-    union {
-        uint32 flags;
-        uintptr_t __padding__;
-    } suspend_flags;
+    /* Used to terminate or suspend current thread */
+    WASMSuspendFlags suspend_flags;
 
     /* Auxiliary stack boundary */
     union {

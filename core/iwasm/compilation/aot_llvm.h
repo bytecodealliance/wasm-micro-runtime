@@ -422,6 +422,8 @@ typedef struct AOTCompContext {
 
     const char *stack_usage_file;
     char stack_usage_temp_file[64];
+    const char *llvm_passes;
+    const char *builtin_intrinsics;
 } AOTCompContext;
 
 enum {
@@ -461,6 +463,8 @@ typedef struct AOTCompOption {
     char **custom_sections;
     uint32 custom_sections_count;
     const char *stack_usage_file;
+    const char *llvm_passes;
+    const char *builtin_intrinsics;
 } AOTCompOption, *aot_comp_option_t;
 
 bool

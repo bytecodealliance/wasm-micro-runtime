@@ -7,6 +7,7 @@
 #define _WASM_RUNTIME_H
 
 #include "wasm.h"
+#include "bh_atomic.h"
 #include "bh_hashmap.h"
 #include "../common/wasm_runtime_common.h"
 #include "../common/wasm_exec_env.h"
@@ -79,7 +80,7 @@ struct WASMMemoryInstance {
     /* Module type */
     uint32 module_type;
     /* Shared memory flag */
-    bool is_shared;
+    bh_atomic_32_t ref_count; /* 0: non-shared, > 0: reference count */
 
     /* Number bytes per page */
     uint32 num_bytes_per_page;
@@ -269,9 +270,9 @@ typedef struct WASMModuleInstanceExtra {
         && WASM_ENABLE_LAZY_JIT != 0)
     WASMModuleInstance *next;
 #endif
-
-#if WASM_ENABLE_WASI_NN != 0
-    WASINNContext *wasi_nn_ctx;
+#if WASM_CONFIGUABLE_BOUNDS_CHECKS != 0
+    /* Disable bounds checks or not */
+    bool disable_bounds_checks;
 #endif
 } WASMModuleInstanceExtra;
 
@@ -428,7 +429,7 @@ void
 wasm_unload(WASMModule *module);
 
 WASMModuleInstance *
-wasm_instantiate(WASMModule *module, bool is_sub_inst,
+wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                  WASMExecEnv *exec_env_main, uint32 stack_size,
                  uint32 heap_size, char *error_buf, uint32 error_buf_size);
 

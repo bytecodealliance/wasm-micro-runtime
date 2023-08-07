@@ -430,6 +430,9 @@ addrinfo_hints_to_wasi_hints(const struct addrinfo *hints,
             case AF_INET6:
                 wasi_hints->family = INET6;
                 break;
+            case AF_UNSPEC:
+                wasi_hints->family = INET_UNSPEC;
+                break;
             default:
                 return __WASI_ERRNO_AFNOSUPPORT;
         }
@@ -440,6 +443,8 @@ addrinfo_hints_to_wasi_hints(const struct addrinfo *hints,
             case SOCK_DGRAM:
                 wasi_hints->type = SOCKET_DGRAM;
                 break;
+            case 0:
+                wasi_hints->type = SOCKET_ANY;
             default:
                 return __WASI_ERRNO_NOTSUP;
         }

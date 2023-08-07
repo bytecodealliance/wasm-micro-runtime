@@ -1215,7 +1215,8 @@ wasm_runtime_unload(WASMModuleCommon *module)
 }
 
 WASMModuleInstanceCommon *
-wasm_runtime_instantiate_internal(WASMModuleCommon *module, bool is_sub_inst,
+wasm_runtime_instantiate_internal(WASMModuleCommon *module,
+                                  WASMModuleInstanceCommon *parent,
                                   WASMExecEnv *exec_env_main, uint32 stack_size,
                                   uint32 heap_size, char *error_buf,
                                   uint32 error_buf_size)
@@ -1223,14 +1224,14 @@ wasm_runtime_instantiate_internal(WASMModuleCommon *module, bool is_sub_inst,
 #if WASM_ENABLE_INTERP != 0
     if (module->module_type == Wasm_Module_Bytecode)
         return (WASMModuleInstanceCommon *)wasm_instantiate(
-            (WASMModule *)module, is_sub_inst, exec_env_main, stack_size,
-            heap_size, error_buf, error_buf_size);
+            (WASMModule *)module, (WASMModuleInstance *)parent, exec_env_main,
+            stack_size, heap_size, error_buf, error_buf_size);
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module->module_type == Wasm_Module_AoT)
         return (WASMModuleInstanceCommon *)aot_instantiate(
-            (AOTModule *)module, is_sub_inst, exec_env_main, stack_size,
-            heap_size, error_buf, error_buf_size);
+            (AOTModule *)module, (AOTModuleInstance *)parent, exec_env_main,
+            stack_size, heap_size, error_buf, error_buf_size);
 #endif
     set_error_buf(error_buf, error_buf_size,
                   "Instantiate module failed, invalid module type");
@@ -1243,7 +1244,7 @@ wasm_runtime_instantiate(WASMModuleCommon *module, uint32 stack_size,
                          uint32 error_buf_size)
 {
     return wasm_runtime_instantiate_internal(
-        module, false, NULL, stack_size, heap_size, error_buf, error_buf_size);
+        module, NULL, NULL, stack_size, heap_size, error_buf, error_buf_size);
 }
 
 void
@@ -2330,10 +2331,8 @@ wasm_set_exception(WASMModuleInstance *module_inst, const char *exception)
     WASMExecEnv *exec_env = NULL;
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
-    WASMSharedMemNode *node =
-        wasm_module_get_shared_memory((WASMModuleCommon *)module_inst->module);
-    if (node)
-        os_mutex_lock(&node->shared_mem_lock);
+    if (module_inst->memory_count > 0)
+        shared_memory_lock(module_inst->memories[0]);
 #endif
     if (exception) {
         snprintf(module_inst->cur_exception, sizeof(module_inst->cur_exception),
@@ -2343,8 +2342,8 @@ wasm_set_exception(WASMModuleInstance *module_inst, const char *exception)
         module_inst->cur_exception[0] = '\0';
     }
 #if WASM_ENABLE_SHARED_MEMORY != 0
-    if (node)
-        os_mutex_unlock(&node->shared_mem_lock);
+    if (module_inst->memory_count > 0)
+        shared_memory_unlock(module_inst->memories[0]);
 #endif
 
 #if WASM_ENABLE_THREAD_MGR != 0
@@ -2406,10 +2405,8 @@ wasm_copy_exception(WASMModuleInstance *module_inst, char *exception_buf)
     bool has_exception = false;
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
-    WASMSharedMemNode *node =
-        wasm_module_get_shared_memory((WASMModuleCommon *)module_inst->module);
-    if (node)
-        os_mutex_lock(&node->shared_mem_lock);
+    if (module_inst->memory_count > 0)
+        shared_memory_lock(module_inst->memories[0]);
 #endif
     if (module_inst->cur_exception[0] != '\0') {
         /* NULL is passed if the caller is not interested in getting the
@@ -2423,8 +2420,8 @@ wasm_copy_exception(WASMModuleInstance *module_inst, char *exception_buf)
         has_exception = true;
     }
 #if WASM_ENABLE_SHARED_MEMORY != 0
-    if (node)
-        os_mutex_unlock(&node->shared_mem_lock);
+    if (module_inst->memory_count > 0)
+        shared_memory_unlock(module_inst->memories[0]);
 #endif
 
     return has_exception;
@@ -2501,6 +2498,54 @@ wasm_runtime_get_custom_data(WASMModuleInstanceCommon *module_inst_comm)
               || module_inst_comm->module_type == Wasm_Module_AoT);
     return module_inst->custom_data;
 }
+
+#if WASM_CONFIGUABLE_BOUNDS_CHECKS != 0
+void
+wasm_runtime_set_bounds_checks(WASMModuleInstanceCommon *module_inst,
+                               bool enable)
+{
+    /* Alwary disable bounds checks if hw bounds checks enabled */
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    enable = false;
+#endif
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        ((WASMModuleInstanceExtra *)((WASMModuleInstance *)module_inst)->e)
+            ->disable_bounds_checks = enable ? false : true;
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        ((AOTModuleInstanceExtra *)((AOTModuleInstance *)module_inst)->e)
+            ->disable_bounds_checks = enable ? false : true;
+    }
+#endif
+}
+
+bool
+wasm_runtime_is_bounds_checks_enabled(WASMModuleInstanceCommon *module_inst)
+{
+
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        return !((WASMModuleInstanceExtra *)((WASMModuleInstance *)module_inst)
+                     ->e)
+                    ->disable_bounds_checks;
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        return !((AOTModuleInstanceExtra *)((WASMModuleInstance *)module_inst)
+                     ->e)
+                    ->disable_bounds_checks;
+    }
+#endif
+
+    return true;
+}
+#endif
 
 uint32
 wasm_runtime_module_malloc_internal(WASMModuleInstanceCommon *module_inst,

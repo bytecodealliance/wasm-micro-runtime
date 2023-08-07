@@ -3096,6 +3096,13 @@ is_relocation_section(AOTObjectData *obj_data, LLVMSectionIteratorRef sec_itr)
 }
 
 static bool
+is_readonly_section(const char *name)
+{
+    return !strcmp(name, ".rel.text") || !strcmp(name, ".rela.text")
+           || !strcmp(name, ".rela.literal") || !strcmp(name, ".text");
+}
+
+static bool
 get_relocation_groups_count(AOTObjectData *obj_data, uint32 *p_count)
 {
     uint32 count = 0;
@@ -3190,6 +3197,19 @@ aot_resolve_object_relocation_groups(AOTObjectData *obj_data)
                      || !strcmp(relocation_group->section_name,
                                 ".rel.text.hot.")) {
                 relocation_group->section_name = ".rel.text";
+            }
+
+            /*
+             * Relocations in read-only sections are problematic,
+             * especially for XIP on platforms which don't have
+             * copy-on-write mappings.
+             */
+            if (obj_data->comp_ctx->is_indirect_mode
+                && is_readonly_section(relocation_group->section_name)) {
+                LOG_WARNING("%" PRIu32
+                            " text relocations in %s section for indirect mode",
+                            relocation_group->relocation_count,
+                            relocation_group->section_name);
             }
 
             relocation_group++;

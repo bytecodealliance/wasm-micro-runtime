@@ -22,6 +22,12 @@ on:
         description: a semantic version number
         type: string
         required: true
+      wasi_sdk_url:
+        description: download WASI_SDK from this URL
+        type: string
+        required: false
+        default: "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-linux.tar.gz"
+      
 
 jobs:
   try_reuse:
@@ -43,6 +49,15 @@ jobs:
       PYTHON_MACOS_STANDALONE_BUILD: https://github.com/indygreg/python-build-standalone/releases/download/20230507/cpython-3.10.11+20230507-x86_64-apple-darwin-install_only.tar.gz
     steps:
       - uses: actions/checkout@v3
+      
+      - name: download and install wasi-sdk
+        run: |
+          cd /opt
+          basename=$(basename ${{ inputs.wasi_sdk_url }})
+          sudo wget --progress=dot:giga ${{ inputs.wasi_sdk_url }}
+          sudo tar -xzf ${basename}
+          sudo rm ${basename}
+          sudo mv wasi-sdk-* wasi-sdk
 
       - name: Cache build
         id: lldb_build_cache
@@ -140,6 +155,16 @@ jobs:
             -DPython3_EXECUTABLE="$(pwd)/../python/bin/python${{ env.PYTHON_VERSION }}"
           cmake --build build --target lldb install --parallel $(nproc)
         working-directory: core/deps/llvm-project
+
+      - name: validate lldb ubuntu
+        if: steps.lldb_build_cache.outputs.cache-hit != 'true' && contains(inputs.runner, 'ubuntu')
+        run: |
+          echo "start to validate lldb..."
+          mkdir -p wamr-debug
+          cmake -S product-mini/platforms/linux -B wamr-debug -DWAMR_BUILD_DEBUG_INTERP=1
+          cmake --build wamr-debug --parallel $(nproc)
+          python3 ci/validate_lldb.py --port 1239 --lldb core/deps/wamr-lldb/bin/lldb --wamr wamr-debug/iwasm --verbose
+        working-directory: .
 
       - name: build lldb macos
         if: steps.lldb_build_cache.outputs.cache-hit != 'true' && contains(inputs.runner, 'macos')

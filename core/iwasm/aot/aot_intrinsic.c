@@ -649,6 +649,42 @@ add_f64_common_intrinsics(AOTCompContext *comp_ctx)
 }
 
 static void
+add_f32xi32_intrinsics(AOTCompContext *comp_ctx)
+{
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_TO_I32);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_TO_U32);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I32_TO_F32);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_U32_TO_F32);
+}
+
+static void
+add_f64xi32_intrinsics(AOTCompContext *comp_ctx)
+{
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F64_TO_I32);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F64_TO_U32);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I32_TO_F64);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_U32_TO_F64);
+}
+
+static void
+add_f32xi64_intrinsics(AOTCompContext *comp_ctx)
+{
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_TO_I64);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_TO_U64);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I64_TO_F32);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_U64_TO_F32);
+}
+
+static void
+add_f64xi64_intrinsics(AOTCompContext *comp_ctx)
+{
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F64_TO_I64);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F64_TO_U64);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I64_TO_F64);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_U64_TO_F64);
+}
+
+static void
 add_common_float_integer_convertion(AOTCompContext *comp_ctx)
 {
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I32_TO_F32);
@@ -705,7 +741,100 @@ aot_intrinsic_check_capability(const AOTCompContext *comp_ctx,
 void
 aot_intrinsic_fill_capability_flags(AOTCompContext *comp_ctx)
 {
+    uint32 i;
+
     memset(comp_ctx->flags, 0, sizeof(comp_ctx->flags));
+
+    /* Intrinsics from command line have highest priority */
+
+    if (comp_ctx->builtin_intrinsics) {
+
+        /* Handle 'all' group */
+        if (strstr(comp_ctx->builtin_intrinsics, "all")) {
+            for (i = 0; i < g_intrinsic_count; i++) {
+                add_intrinsic_capability(comp_ctx, g_intrinsic_mapping[i].flag);
+            }
+            return;
+        }
+
+        /* Handle 'i32.common' group */
+        if (strstr(comp_ctx->builtin_intrinsics, "i32.common")) {
+            add_i32_common_intrinsics(comp_ctx);
+        }
+
+        /* Handle 'i64.common' group */
+        if (strstr(comp_ctx->builtin_intrinsics, "i64.common")) {
+            add_i64_common_intrinsics(comp_ctx);
+        }
+
+        /* Handle 'fp.common' group */
+        if (strstr(comp_ctx->builtin_intrinsics, "fp.common")) {
+            add_f32_common_intrinsics(comp_ctx);
+            add_f64_common_intrinsics(comp_ctx);
+        }
+
+        /* Handle 'f32.common' group */
+        if (strstr(comp_ctx->builtin_intrinsics, "f32.common")) {
+            add_f32_common_intrinsics(comp_ctx);
+        }
+
+        /* Handle 'f64.common' group */
+        if (strstr(comp_ctx->builtin_intrinsics, "f64.common")) {
+            add_f64_common_intrinsics(comp_ctx);
+        }
+
+        /* Handle 'f32xi32' group */
+        if (strstr(comp_ctx->builtin_intrinsics, "f32xi32")) {
+            add_f32xi32_intrinsics(comp_ctx);
+        }
+
+        /* Handle 'f64xi32' group */
+        if (strstr(comp_ctx->builtin_intrinsics, "f64xi32")) {
+            add_f64xi32_intrinsics(comp_ctx);
+        }
+
+        /* Handle 'f32xi64' group */
+        if (strstr(comp_ctx->builtin_intrinsics, "f32xi64")) {
+            add_f32xi64_intrinsics(comp_ctx);
+        }
+
+        /* Handle 'f64xi64' group */
+        if (strstr(comp_ctx->builtin_intrinsics, "f64xi64")) {
+            add_f64xi64_intrinsics(comp_ctx);
+        }
+
+        /* Handle 'fpxint' group */
+        if (strstr(comp_ctx->builtin_intrinsics, "fpxint")) {
+            add_f32xi32_intrinsics(comp_ctx);
+            add_f64xi32_intrinsics(comp_ctx);
+            add_f32xi64_intrinsics(comp_ctx);
+            add_f64xi64_intrinsics(comp_ctx);
+        }
+
+        /* Handle 'constop' group */
+        if (strstr(comp_ctx->builtin_intrinsics, "constop")) {
+            add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I32_CONST);
+            add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I64_CONST);
+            add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_CONST);
+            add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F64_CONST);
+        }
+
+        /* Handle 'fp.common' group */
+        if (strstr(comp_ctx->builtin_intrinsics, "fp.common")) {
+            add_f32_common_intrinsics(comp_ctx);
+            add_f64_common_intrinsics(comp_ctx);
+        }
+
+        /* Handle other single items */
+        for (i = 0; i < g_intrinsic_count; i++) {
+            if (strstr(comp_ctx->builtin_intrinsics,
+                       g_intrinsic_mapping[i].llvm_intrinsic)) {
+                add_intrinsic_capability(comp_ctx, g_intrinsic_mapping[i].flag);
+            }
+        }
+
+        return;
+    }
 
     if (!comp_ctx->target_cpu)
         return;

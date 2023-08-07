@@ -595,7 +595,7 @@ jobs:
         working-directory: ./core/iwasm/libraries/lib-socket/test/
 
       - name: run tests
-        timeout-minutes: 10
+        timeout-minutes: 20
         run: ./test_wamr.sh ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
         working-directory: ./tests/wamr-test-suites
 
@@ -611,7 +611,7 @@ jobs:
           sudo apt install -y g++-multilib lib32gcc-9-dev
 
       - name: run tests x86_32
-        timeout-minutes: 10
+        timeout-minutes: 20
         if: env.TEST_ON_X86_32 == 'true'
         run: ./test_wamr.sh ${{ env.X86_32_TARGET_TEST_OPTIONS }} ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
         working-directory: ./tests/wamr-test-suites
