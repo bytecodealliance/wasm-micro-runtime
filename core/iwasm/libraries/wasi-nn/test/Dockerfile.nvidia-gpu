@@ -24,7 +24,7 @@ RUN apt-get install -y wget ca-certificates --no-install-recommends \
 
 RUN cmake \
     -DWAMR_BUILD_WASI_NN=1 \
-    -DWASI_NN_ENABLE_GPU=1 \
+    -DWAMR_BUILD_WASI_NN_ENABLE_GPU=1 \
     ..
 
 RUN make -j "$(grep -c ^processor /proc/cpuinfo)"
