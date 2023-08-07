@@ -4858,7 +4858,7 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
     if (instance->inst_comm_rt->module_type == Wasm_Module_Bytecode) {
         WASMModuleInstanceExtra *e =
             ((WASMModuleInstance *)instance->inst_comm_rt)->e;
-        p_func_imports = &(e->c_api_func_imports);
+        p_func_imports = &(e->common.c_api_func_imports);
         import_func_count = MODULE_INTERP(module)->import_function_count;
     }
 #endif
@@ -4868,7 +4868,7 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
             (AOTModuleInstanceExtra *)((AOTModuleInstance *)
                                            instance->inst_comm_rt)
                 ->e;
-        p_func_imports = &(e->c_api_func_imports);
+        p_func_imports = &(e->common.c_api_func_imports);
         import_func_count = MODULE_AOT(module)->import_func_count;
     }
 #endif
