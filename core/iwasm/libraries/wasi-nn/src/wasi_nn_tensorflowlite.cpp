@@ -130,8 +130,8 @@ tensorflowlite_load(void *tflite_ctx, graph_builder_array *builder,
         return invalid_argument;
     }
 
-    if (target != cpu && target != gpu) {
-        NN_ERR_PRINTF("Only CPU and GPU target is supported.");
+    if (target != cpu && target != gpu && target != tpu) {
+        NN_ERR_PRINTF("Only CPU, GPU and TPU target is supported.");
         return invalid_argument;
     }
 
@@ -216,7 +216,15 @@ tensorflowlite_init_execution_context(void *tflite_ctx, graph g,
                 NN_ERR_PRINTF("Error when enabling GPU delegate.");
                 use_default = true;
             }
-#elif defined(WASI_NN_ENABLE_EXTERNAL_DELEGATE)
+#else
+            NN_WARN_PRINTF("GPU not enabled.");
+            use_default = true;
+#endif
+            break;
+        }
+        case tpu:
+        {
+#if defined(WASI_NN_ENABLE_EXTERNAL_DELEGATE)
             NN_WARN_PRINTF("external delegation enabled.");
             TfLiteExternalDelegateOptions options =
                 TfLiteExternalDelegateOptionsDefault(WASI_NN_EXT_DELEGATE_PATH);
@@ -233,7 +241,7 @@ tensorflowlite_init_execution_context(void *tflite_ctx, graph g,
                 use_default = true;
             }
 #else
-            NN_WARN_PRINTF("GPU not enabled.");
+            NN_WARN_PRINTF("External delegate not enabled.");
             use_default = true;
 #endif
             break;
