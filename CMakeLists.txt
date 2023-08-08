@@ -109,8 +109,7 @@ set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Set the strip command based on the system (GNU or Clang)
 if (CMAKE_STRIP)
-    set(CMAKE_C_STRIP_FLAGS "${CMAKE_STRIP}")
-    set(CMAKE_CXX_STRIP_FLAGS "${CMAKE_STRIP}")
+    set (CMAKE_STRIP_FLAGS "--strip-all")
 endif ()
 
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
@@ -148,11 +147,11 @@ endif ()
 install (TARGETS iwasm_static ARCHIVE DESTINATION lib)
 
 # If it's a Release build, strip the static library
-if (CMAKE_BUILD_TYPE STREQUAL "Release")
+if (CMAKE_STRIP AND CMAKE_BUILD_TYPE STREQUAL "Release")
   # Strip static library
-  message(STATUS "Stripping static library after build!")
-  add_custom_command(TARGET iwasm_static POST_BUILD
-      COMMAND ${CMAKE_STRIP} ${CMAKE_C_STRIP_FLAGS} $<TARGET_FILE:iwasm_static>
+  message (STATUS "Stripping static library after build!")
+  add_custom_command (TARGET iwasm_static POST_BUILD
+      COMMAND ${CMAKE_STRIP} ${CMAKE_STRIP_FLAGS} $<TARGET_FILE:iwasm_static>
   )
 endif ()
 
@@ -179,10 +178,10 @@ install (FILES
     DESTINATION include)
 
 # If it's a Release build, strip the shared library
-if (CMAKE_BUILD_TYPE STREQUAL "Release")
+if (CMAKE_STRIP AND CMAKE_BUILD_TYPE STREQUAL "Release")
   # Strip shared library
-  message(STATUS "Stripping shared library after build!")
-  add_custom_command(TARGET iwasm_shared POST_BUILD
-      COMMAND ${CMAKE_STRIP} ${CMAKE_C_STRIP_FLAGS} $<TARGET_FILE:iwasm_shared>
+  message (STATUS "Stripping shared library after build!")
+  add_custom_command (TARGET iwasm_shared POST_BUILD
+      COMMAND ${CMAKE_STRIP} ${CMAKE_STRIP_FLAGS} $<TARGET_FILE:iwasm_shared>
   )
 endif ()
