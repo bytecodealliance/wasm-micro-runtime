@@ -1282,6 +1282,8 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
 #if WASM_ENABLE_WASI_NN != 0
         wasi_nn_destroy(module_inst);
 #endif
+        wasm_native_module_instance_call_context_dtors(
+            (WASMModuleInstanceCommon *)module_inst);
     }
 
     wasm_runtime_free(module_inst);
