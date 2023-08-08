@@ -1463,6 +1463,10 @@ wasm_runtime_set_enlarge_mem_error_callback(
  *   wasm_runtime_module_instance_set_context
  *   wasm_runtime_module_instance_get_context
  *
+ * This set of APIs is intended to be used by an embedder which provides
+ * extra sets of native functions, which need per module instance state
+ * and are maintained outside of the WAMR tree.
+ *
  * It's modelled after the pthread specific API.
  *
  * Note: dynamic key create/destroy while instances are live is not
