@@ -939,6 +939,23 @@ WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_unregister_natives(const char *module_name,
                                 NativeSymbol *native_symbols);
 
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN void *
+wasm_runtime_module_instance_context_key_create(
+    void (*dtor)(wasm_module_inst_t inst, void *ctx));
+
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_module_instance_context_key_destroy(void *key);
+
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_module_instance_set_context(wasm_module_inst_t inst, void *key,
+                                         void *ctx);
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN void *
+wasm_runtime_module_instance_get_context(wasm_module_inst_t inst, void *key);
+
 bool
 wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                            const WASMType *func_type, const char *signature,

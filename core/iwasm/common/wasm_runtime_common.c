@@ -5660,3 +5660,29 @@ wasm_runtime_is_import_global_linked(const char *module_name,
     return false;
 #endif
 }
+
+void *
+wasm_runtime_module_instance_context_key_create(
+    void (*dtor)(wasm_module_inst_t inst, void *ctx))
+{
+    return wasm_native_module_instance_context_key_create(dtor);
+}
+
+void
+wasm_runtime_module_instance_context_key_destroy(void *key)
+{
+    wasm_native_module_instance_context_key_destroy(key);
+}
+
+void
+wasm_runtime_module_instance_set_context(wasm_module_inst_t inst, void *key,
+                                         void *ctx)
+{
+    wasm_native_module_instance_set_context(inst, key, ctx);
+}
+
+void *
+wasm_runtime_module_instance_get_context(wasm_module_inst_t inst, void *key)
+{
+    return wasm_native_module_instance_get_context(inst, key);
+}
