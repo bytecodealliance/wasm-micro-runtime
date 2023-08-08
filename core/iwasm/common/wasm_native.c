@@ -464,7 +464,8 @@ wasm_module_inst_extra_common(wasm_module_inst_t inst)
 #endif
 #if WASM_ENABLE_AOT != 0
     if (inst->module_type == Wasm_Module_AoT) {
-        return &((AOTModuleInstance *)inst)->e->common;
+        return &((AOTModuleInstanceExtra *)((AOTModuleInstance *)inst)->e)
+                    ->common;
     }
 #endif
     bh_assert(false);
