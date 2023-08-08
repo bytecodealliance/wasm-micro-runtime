@@ -302,12 +302,8 @@ struct WASMModuleInstance {
        it denotes `AOTModule *` */
     DefPointer(WASMModule *, module);
 
-#if WASM_ENABLE_LIBC_WASI
-    /* WASI context */
-    DefPointer(WASIContext *, wasi_ctx);
-#else
-    DefPointer(void *, wasi_ctx);
-#endif
+    DefPointer(void *, used_to_be_wasi_ctx); /* unused */
+
     DefPointer(WASMExecEnv *, exec_env_singleton);
     /* Array of function pointers to import functions,
        not available in AOTModuleInstance */
