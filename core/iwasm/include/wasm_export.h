@@ -1456,6 +1456,42 @@ WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_enlarge_mem_error_callback(
     const enlarge_memory_error_callback_t callback);
 
+/*
+ * module instance context APIs
+ *   wasm_runtime_module_instance_context_key_create
+ *   wasm_runtime_module_instance_context_key_destroy
+ *   wasm_runtime_module_instance_set_context
+ *   wasm_runtime_module_instance_get_context
+ *
+ * It's modelled after the pthread specific API.
+ *
+ * Note: dynamic key create/destroy while instances are live is not
+ * implemented as of writing this.
+ * it's caller's resposibility to ensure destorying all module instances
+ * before calling wasm_runtime_module_instance_context_key_create or
+ * wasm_runtime_module_instance_context_key_destroy.
+ * otherwise, it's an undefined behavior.
+ *
+ * Note about threads:
+ * - When spawning a thread, the contexts (the pointers given to
+ *   wasm_runtime_module_instance_set_context) are copied from the parent
+ *   instance.
+ * - The destructor is called only on the main instance.
+ */
+
+WASM_RUNTIME_API_EXTERN void *
+wasm_runtime_module_instance_context_key_create(
+    void (*dtor)(wasm_module_inst_t inst, void *ctx));
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_module_instance_context_key_destroy(void *key);
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_module_instance_set_context(wasm_module_inst_t inst, void *key,
+                                         void *ctx);
+WASM_RUNTIME_API_EXTERN void *
+wasm_runtime_module_instance_get_context(wasm_module_inst_t inst, void *key);
+
 /* clang-format on */
 
 #ifdef __cplusplus
