@@ -28,9 +28,9 @@
 
 static NativeSymbolsList g_native_symbols_list = NULL;
 
-#ifdef WASM_ENABLE_LIBC_WASI
+#if WASM_ENABLE_LIBC_WASI != 0
 static void *g_wasi_context_key;
-#endif /* end of WASM_ENABLE_LIBC_WASI */
+#endif /* WASM_ENABLE_LIBC_WASI */
 
 uint32
 get_libc_builtin_export_apis(NativeSymbol **p_libc_builtin_apis);
