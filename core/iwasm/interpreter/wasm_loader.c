@@ -11709,10 +11709,10 @@ re_scan:
                                     &wasm_ref_type,
                                     wasm_reftype_struct_size(&wasm_ref_type));
 
-                        if (!wasm_reftype_is_subtype_of(
-                                src_ref_type.ref_type, &src_ref_type,
-                                dst_ref_type.ref_type, &dst_ref_type,
-                                module->types, module->type_count)) {
+                        if (!wasm_type_is_subtype_of(
+                                module->types[src_type_idx],
+                                module->types[type_idx], module->types,
+                                module->type_count)) {
                             set_error_buf(error_buf, error_buf_size,
                                           "type mismatch");
                             goto fail;
