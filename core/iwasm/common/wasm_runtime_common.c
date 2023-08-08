@@ -2491,14 +2491,14 @@ wasm_runtime_set_bounds_checks(WASMModuleInstanceCommon *module_inst,
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode) {
         ((WASMModuleInstanceExtra *)((WASMModuleInstance *)module_inst)->e)
-            ->disable_bounds_checks = enable ? false : true;
+            ->common.disable_bounds_checks = enable ? false : true;
     }
 #endif
 
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT) {
         ((AOTModuleInstanceExtra *)((AOTModuleInstance *)module_inst)->e)
-            ->disable_bounds_checks = enable ? false : true;
+            ->common.disable_bounds_checks = enable ? false : true;
     }
 #endif
 }
@@ -2511,7 +2511,7 @@ wasm_runtime_is_bounds_checks_enabled(WASMModuleInstanceCommon *module_inst)
     if (module_inst->module_type == Wasm_Module_Bytecode) {
         return !((WASMModuleInstanceExtra *)((WASMModuleInstance *)module_inst)
                      ->e)
-                    ->disable_bounds_checks;
+                    ->common.disable_bounds_checks;
     }
 #endif
 
@@ -2519,7 +2519,7 @@ wasm_runtime_is_bounds_checks_enabled(WASMModuleInstanceCommon *module_inst)
     if (module_inst->module_type == Wasm_Module_AoT) {
         return !((AOTModuleInstanceExtra *)((WASMModuleInstance *)module_inst)
                      ->e)
-                    ->disable_bounds_checks;
+                    ->common.disable_bounds_checks;
     }
 #endif
 

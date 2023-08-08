@@ -2227,8 +2227,8 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
     }
 #endif
 
-    if (module_inst->e->c_api_func_imports)
-        wasm_runtime_free(module_inst->e->c_api_func_imports);
+    if (module_inst->e->common.c_api_func_imports)
+        wasm_runtime_free(module_inst->e->common.c_api_func_imports);
 
     if (!is_sub_inst) {
 #if WASM_ENABLE_LIBC_WASI != 0
@@ -3141,8 +3141,9 @@ llvm_jit_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
 
     import_func = &module->import_functions[func_idx].u.function;
     if (import_func->call_conv_wasm_c_api) {
-        if (module_inst->e->c_api_func_imports) {
-            c_api_func_import = module_inst->e->c_api_func_imports + func_idx;
+        if (module_inst->e->common.c_api_func_imports) {
+            c_api_func_import =
+                module_inst->e->common.c_api_func_imports + func_idx;
             func_ptr = c_api_func_import->func_ptr_linked;
         }
         else {

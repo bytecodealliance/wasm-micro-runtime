@@ -89,11 +89,7 @@ typedef struct AOTFunctionInstance {
 
 typedef struct AOTModuleInstanceExtra {
     DefPointer(const uint32 *, stack_sizes);
-    CApiFuncImport *c_api_func_imports;
-#if WASM_CONFIGUABLE_BOUNDS_CHECKS != 0
-    /* Disable bounds checks or not */
-    bool disable_bounds_checks;
-#endif
+    WASMModuleInstanceExtraCommon common;
 } AOTModuleInstanceExtra;
 
 #if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
