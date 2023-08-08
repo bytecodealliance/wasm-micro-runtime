@@ -1,3 +1,3 @@
 #!/bin/bash
 
-out/basic -f out/wasm-apps/testapp.wasm
+out/inst-context -f out/wasm-apps/testapp.wasm

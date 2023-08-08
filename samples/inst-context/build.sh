@@ -17,18 +17,18 @@ mkdir ${OUT_DIR}
 mkdir ${OUT_DIR}/wasm-apps
 
 
-echo "#####################build basic project"
+echo "#####################build inst-context project"
 cd ${CURR_DIR}
 mkdir -p cmake_build
 cd cmake_build
 cmake ..
 make -j ${nproc}
 if [ $? != 0 ];then
-    echo "BUILD_FAIL basic exit as $?\n"
+    echo "BUILD_FAIL inst-context exit as $?\n"
     exit 2
 fi
 
-cp -a basic ${OUT_DIR}
+cp -a inst-context ${OUT_DIR}
 
 echo -e "\n"
 

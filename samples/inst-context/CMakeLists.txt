@@ -6,9 +6,9 @@ cmake_minimum_required (VERSION 3.14)
 include(CheckPIESupported)
 
 if (NOT WAMR_BUILD_PLATFORM STREQUAL "windows")
-  project (basic)
+  project (inst-context)
 else()
-  project (basic C ASM)
+  project (inst-context C ASM)
   enable_language (ASM_MASM)
 endif()
 
@@ -44,7 +44,7 @@ if (NOT DEFINED WAMR_BUILD_TARGET)
 endif ()
 
 if (NOT CMAKE_BUILD_TYPE)
-  set (CMAKE_BUILD_TYPE Release)
+  set (CMAKE_BUILD_TYPE Debug)
 endif ()
 
 set (WAMR_BUILD_INTERP 1)
@@ -79,13 +79,13 @@ add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
 include_directories(${CMAKE_CURRENT_LIST_DIR}/src)
 include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 
-add_executable (basic src/main.c src/native_impl.c ${UNCOMMON_SHARED_SOURCE})
+add_executable (inst-context src/main.c src/native_impl.c ${UNCOMMON_SHARED_SOURCE})
 
 check_pie_supported()
-set_target_properties (basic PROPERTIES POSITION_INDEPENDENT_CODE ON)
+set_target_properties (inst-context PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 if (APPLE)
-  target_link_libraries (basic vmlib -lm -ldl -lpthread)
+  target_link_libraries (inst-context vmlib -lm -ldl -lpthread)
 else ()
-  target_link_libraries (basic vmlib -lm -ldl -lpthread -lrt)
+  target_link_libraries (inst-context vmlib -lm -ldl -lpthread -lrt)
 endif ()
