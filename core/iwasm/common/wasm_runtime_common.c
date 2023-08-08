@@ -3311,27 +3311,6 @@ wasm_runtime_get_wasi_exit_code(WASMModuleInstanceCommon *module_inst)
 #endif
     return wasi_ctx->exit_code;
 }
-
-WASIContext *
-wasm_runtime_get_wasi_ctx(WASMModuleInstanceCommon *module_inst_comm)
-{
-    WASMModuleInstance *module_inst = (WASMModuleInstance *)module_inst_comm;
-
-    bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
-              || module_inst_comm->module_type == Wasm_Module_AoT);
-    return module_inst->wasi_ctx;
-}
-
-void
-wasm_runtime_set_wasi_ctx(WASMModuleInstanceCommon *module_inst_comm,
-                          WASIContext *wasi_ctx)
-{
-    WASMModuleInstance *module_inst = (WASMModuleInstance *)module_inst_comm;
-
-    bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
-              || module_inst_comm->module_type == Wasm_Module_AoT);
-    module_inst->wasi_ctx = wasi_ctx;
-}
 #endif /* end of WASM_ENABLE_LIBC_WASI */
 
 WASMModuleCommon *

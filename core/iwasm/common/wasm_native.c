@@ -28,6 +28,10 @@
 
 static NativeSymbolsList g_native_symbols_list = NULL;
 
+#ifdef WASM_ENABLE_LIBC_WASI
+static void *g_wasi_context_key;
+#endif /* end of WASM_ENABLE_LIBC_WASI */
+
 uint32
 get_libc_builtin_export_apis(NativeSymbol **p_libc_builtin_apis);
 
@@ -511,6 +515,32 @@ wasm_native_module_instance_inherit_contexts(wasm_module_inst_t child,
                 sizeof(*parent_common->contexts) * WASM_MAX_INSTANCE_CONTEXTS);
 }
 
+#if WASM_ENABLE_LIBC_WASI != 0
+WASIContext *
+wasm_runtime_get_wasi_ctx(WASMModuleInstanceCommon *module_inst_comm)
+{
+    return wasm_native_module_instance_get_context(module_inst_comm,
+                                                   g_wasi_context_key);
+}
+
+void
+wasm_runtime_set_wasi_ctx(WASMModuleInstanceCommon *module_inst_comm,
+                          WASIContext *wasi_ctx)
+{
+    return wasm_native_module_instance_set_context(
+        module_inst_comm, g_wasi_context_key, wasi_ctx);
+}
+
+static void
+wasi_context_dtor(WASMModuleInstanceCommon *inst, void *ctx)
+{
+    if (ctx == NULL) {
+        return;
+    }
+    wasm_runtime_destroy_wasi(inst);
+}
+#endif /* end of WASM_ENABLE_LIBC_WASI */
+
 bool
 wasm_native_init()
 {
@@ -537,6 +567,11 @@ wasm_native_init()
 #endif /* WASM_ENABLE_SPEC_TEST */
 
 #if WASM_ENABLE_LIBC_WASI != 0
+    g_wasi_context_key =
+        wasm_native_module_instance_context_key_create(wasi_context_dtor);
+    if (g_wasi_context_key == NULL) {
+        goto fail;
+    }
     n_native_symbols = get_libc_wasi_export_apis(&native_symbols);
     if (!wasm_native_register_natives("wasi_unstable", native_symbols,
                                       n_native_symbols))
@@ -624,6 +659,12 @@ wasm_native_destroy()
 {
     NativeSymbolsNode *node, *node_next;
 
+#if WASM_ENABLE_LIBC_WASI != 0
+    if (g_wasi_context_key != NULL) {
+        wasm_native_module_instance_context_key_destroy(g_wasi_context_key);
+        g_wasi_context_key = NULL;
+    }
+#endif
 #if WASM_ENABLE_LIB_PTHREAD != 0
     lib_pthread_destroy();
 #endif

@@ -480,9 +480,6 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasm_module_t module;
     wasm_module_inst_t new_module_inst;
-#if WASM_ENABLE_LIBC_WASI != 0
-    WASIContext *wasi_ctx;
-#endif
     WASMExecEnv *new_exec_env;
     uint32 aux_stack_start, aux_stack_size;
     uint32 stack_size = 8192;
@@ -520,10 +517,6 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
     wasm_runtime_set_custom_data_internal(
         new_module_inst, wasm_runtime_get_custom_data(module_inst));
 
-#if WASM_ENABLE_LIBC_WASI != 0
-    wasi_ctx = wasm_runtime_get_wasi_ctx(module_inst);
-    wasm_runtime_set_wasi_ctx(new_module_inst, wasi_ctx);
-#endif
     wasm_native_module_instance_inherit_contexts(new_module_inst, module_inst);
 
     new_exec_env = wasm_exec_env_create_internal(new_module_inst,

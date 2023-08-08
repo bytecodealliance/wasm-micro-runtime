@@ -1276,9 +1276,6 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
                               ->common.c_api_func_imports);
 
     if (!is_sub_inst) {
-#if WASM_ENABLE_LIBC_WASI != 0
-        wasm_runtime_destroy_wasi((WASMModuleInstanceCommon *)module_inst);
-#endif
 #if WASM_ENABLE_WASI_NN != 0
         wasi_nn_destroy(module_inst);
 #endif
