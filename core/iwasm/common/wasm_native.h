@@ -68,15 +68,29 @@ bool
 wasm_native_unregister_natives(const char *module_name,
                                NativeSymbol *native_symbols);
 
+/*
+ * module instance context APIs
+ *
+ * It's modelled after the pthread specific API.
+ *
+ * Note: dynamic key create/destroy while instances are live is not
+ * implemented.
+ * it's caller's resposibility to ensure destorying all module instances
+ * before calling wasm_native_module_instance_context_key_create or
+ * wasm_native_module_instance_context_key_destroy.
+ * otherwise, it's an undefined behavior.
+ *
+ * Note about threads:
+ * - When spawning a thread, the contexts (the pointers given to
+ *   wasm_native_module_instance_set_context) are copied from the parent
+ *   instance.
+ * - The destructor is called only on the main instance.
+ */
+
 void *
 wasm_native_module_instance_context_key_create(
     void (*dtor)(wasm_module_inst_t inst, void *ctx));
 
-/*
- * it's caller's resposibility to ensure destorying all module instances
- * before calling wasm_native_module_instance_context_key_destroy.
- * otherwise, it's an undefined behavior.
- */
 void
 wasm_native_module_instance_context_key_destroy(void *key);
 
@@ -85,6 +99,13 @@ wasm_native_module_instance_set_context(wasm_module_inst_t inst, void *key,
                                         void *ctx);
 void *
 wasm_native_module_instance_get_context(wasm_module_inst_t inst, void *key);
+
+void
+wasm_native_module_instance_call_context_dtors(wasm_module_inst_t inst);
+
+void
+wasm_native_module_instance_inherit_contexts(wasm_module_inst_t child,
+                                             wasm_module_inst_t parent);
 
 bool
 wasm_native_init();

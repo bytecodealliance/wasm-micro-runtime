@@ -484,6 +484,33 @@ wasm_native_module_instance_get_context(wasm_module_inst_t inst, void *key)
     return common->contexts[idx];
 }
 
+void
+wasm_native_module_instance_call_context_dtors(wasm_module_inst_t inst)
+{
+    WASMModuleInstanceExtraCommon *common = wasm_module_inst_extra_common(inst);
+    uint32 i;
+    for (i = 0; i < WASM_MAX_INSTANCE_CONTEXTS; i++) {
+        dtor_t dtor = g_context_dtors[i];
+        if (dtor != NULL) {
+            dtor(inst, common->contexts[i]);
+        }
+    }
+}
+
+void
+wasm_native_module_instance_inherit_contexts(wasm_module_inst_t child,
+                                             wasm_module_inst_t parent)
+{
+    WASMModuleInstanceExtraCommon *parent_common =
+        wasm_module_inst_extra_common(parent);
+    WASMModuleInstanceExtraCommon *child_common =
+        wasm_module_inst_extra_common(child);
+    bh_memcpy_s(child_common->contexts,
+                sizeof(*child_common->contexts) * WASM_MAX_INSTANCE_CONTEXTS,
+                parent_common->contexts,
+                sizeof(*parent_common->contexts) * WASM_MAX_INSTANCE_CONTEXTS);
+}
+
 bool
 wasm_native_init()
 {
