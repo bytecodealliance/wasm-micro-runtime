@@ -3982,9 +3982,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 if (addr1 >= 0) {
                     if (*FRAME_REF(addr1)) {
                         CLEAR_FRAME_REF(addr1);
-                        CLEAR_FRAME_REF(addr1 + 1);
                         SET_FRAME_REF(addr2);
-                        SET_FRAME_REF(addr2 + 1);
                     }
                 }
 #endif
