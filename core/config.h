@@ -480,4 +480,9 @@
 #define WASM_MEM_DUAL_BUS_MIRROR 0
 #endif
 
+/* The max number of module instance contexts. */
+#ifndef WASM_MAX_INSTANCE_CONTEXTS
+#define WASM_MAX_INSTANCE_CONTEXTS 8
+#endif
+
 #endif /* end of _CONFIG_H_ */

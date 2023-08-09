@@ -210,8 +210,6 @@ typedef struct CApiFuncImport {
     void *env_arg;
 } CApiFuncImport;
 
-#define WASM_MAX_INSTANCE_CONTEXTS 8
-
 /* The common part of WASMModuleInstanceExtra and AOTModuleInstanceExtra */
 typedef struct WASMModuleInstanceExtraCommon {
     void *contexts[WASM_MAX_INSTANCE_CONTEXTS];
