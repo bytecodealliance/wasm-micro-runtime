@@ -1473,10 +1473,26 @@ wasm_runtime_set_enlarge_mem_error_callback(
  * wasm_runtime_module_instance_set_context_spread is similar to
  * wasm_runtime_module_instance_set_context, except that
  * wasm_runtime_module_instance_set_context_spread applies the change
- * to all threads in the cluster. It's a caller's resposibility to
- * perform necessary serialization. Eg. in case two or more threads
- * in the cluster can call wasm_runtime_module_instance_set_context_spread
- * on the same key simultaneously.
+ * to all threads in the cluster.
+ * It's an undefined behavior if multiple threads in a cluster call
+ * wasm_runtime_module_instance_set_context_spread on the same key
+ * simultaneously. It's a caller's resposibility to perform necessary
+ * serialization if necessary. For example:
+ *
+ * if (wasm_runtime_module_instance_get_context(inst, key) == NULL) {
+ *     newctx = alloc_and_init(...);
+ *     lock(some_lock);
+ *     if (wasm_runtime_module_instance_get_context(inst, key) == NULL) {
+ *         // this thread won the race
+ *         wasm_runtime_module_instance_set_context_spread(inst, key, newctx);
+ *         newctx = NULL;
+ *     }
+ *     unlock(some_lock);
+ *     if (newctx != NULL) {
+ *         // this thread lost the race, free it
+ *         cleanup_and_free(newctx);
+ *     }
+ * }
  *
  * Note: dynamic key create/destroy while instances are live is not
  * implemented as of writing this.
