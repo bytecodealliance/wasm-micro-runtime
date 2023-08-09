@@ -5488,11 +5488,10 @@ wasm_loader_unload(WASMModule *module)
 #endif
 #endif
 #if WASM_ENABLE_GC != 0
-                /* TODO
-                if (module->functions[i]->local_ref_type_maps)
+                if (module->functions[i]->local_ref_type_maps) {
                     wasm_runtime_free(
                         module->functions[i]->local_ref_type_maps);
-                */
+                }
 #endif
                 wasm_runtime_free(module->functions[i]);
             }

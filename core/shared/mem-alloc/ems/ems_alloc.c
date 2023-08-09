@@ -961,7 +961,7 @@ gc_search_extra_info_node(gc_handle_t handle, gc_object_t obj,
     if (!vheap->extra_info_nodes)
         return NULL;
 
-    while (low < high) {
+    while (low <= high) {
         mid = (low + high) / 2;
         node = vheap->extra_info_nodes[mid];
 

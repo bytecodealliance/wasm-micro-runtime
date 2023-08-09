@@ -139,10 +139,14 @@ gc_destroy_with_pool(gc_handle_t handle)
 
     if (heap->extra_info_node_cnt > 0) {
         for (i = 0; i < heap->extra_info_node_cnt; i++) {
+            extra_info_node_t *node = heap->extra_info_nodes[i];
 #if BH_ENABLE_GC_VERIFY != 0
             os_printf("Memory leak detected: gc object [%p] not claimed\n",
-                      heap->extra_info_nodes[i]->obj);
+                      node->obj);
 #endif
+            if (heap->is_reclaim_enabled) {
+                node->finalizer(node->obj, node->data);
+            }
             BH_FREE(heap->extra_info_nodes[i]);
         }
 
