@@ -51,7 +51,13 @@ ENABLE_GC_HEAP_VERIFY=0
 #unit test case arrary
 TEST_CASE_ARR=()
 SGX_OPT=""
-PLATFORM=$(uname -s | tr A-Z a-z)
+if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" ]]; then
+    PLATFORM=windows
+    PYTHON_EXE=python
+else
+    PLATFORM=$(uname -s | tr A-Z a-z)
+    PYTHON_EXE=python3
+fi
 PARALLELISM=0
 ENABLE_QEMU=0
 QEMU_FIRMWARE=""
@@ -385,15 +391,18 @@ function spec_test()
                 darwin)
                     WABT_PLATFORM=macos
                     ;;
+                windows)
+                    WABT_PLATFORM=windows
+                    ;;
                 *)
                     echo "wabt platform for ${PLATFORM} in unknown"
                     exit 1
                     ;;
             esac
             if [ ! -f /tmp/wabt-1.0.31-${WABT_PLATFORM}.tar.gz ]; then
-                wget \
+                curl -L \
                     https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-${WABT_PLATFORM}.tar.gz \
-                    -P /tmp
+                    -o /tmp/wabt-1.0.31-${WABT_PLATFORM}.tar.gz
             fi
 
             cd /tmp \
@@ -471,12 +480,16 @@ function spec_test()
         ARGS_FOR_SPEC_TEST+="--qemu-firmware ${QEMU_FIRMWARE} "
     fi
 
+    if [[ ${PLATFORM} == "windows" ]]; then
+        ARGS_FOR_SPEC_TEST+="--no-pty "
+    fi
+
     # set log directory
     ARGS_FOR_SPEC_TEST+="--log ${REPORT_DIR}"
 
     cd ${WORK_DIR}
-    echo "python3 ./all.py ${ARGS_FOR_SPEC_TEST} | tee -a ${REPORT_DIR}/spec_test_report.txt"
-    python3 ./all.py ${ARGS_FOR_SPEC_TEST} | tee -a ${REPORT_DIR}/spec_test_report.txt
+    echo "${PYTHON_EXE} ./all.py ${ARGS_FOR_SPEC_TEST} | tee -a ${REPORT_DIR}/spec_test_report.txt"
+    ${PYTHON_EXE} ./all.py ${ARGS_FOR_SPEC_TEST} | tee -a ${REPORT_DIR}/spec_test_report.txt
     if [[ ${PIPESTATUS[0]} -ne 0 ]];then
         echo -e "\nspec tests FAILED" | tee -a ${REPORT_DIR}/spec_test_report.txt
         exit 1
@@ -645,7 +658,7 @@ function build_iwasm_with_cfg()
         && if [ -d build ]; then rm -rf build/*; else mkdir build; fi \
         && cd build \
         && cmake $* .. \
-        && make -j 4
+        && cmake --build . -j 4 --config RelWithDebInfo
     fi
 
     if [ "$?" != 0 ];then

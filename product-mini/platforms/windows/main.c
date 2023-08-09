@@ -142,7 +142,8 @@ app_instance_repl(wasm_module_inst_t module_inst)
     char *cmd;
     size_t n;
 
-    while ((printf("webassembly> "), cmd = fgets(buffer, sizeof(buffer), stdin))
+    while ((printf("webassembly> "), fflush(stdout),
+            cmd = fgets(buffer, sizeof(buffer), stdin))
            != NULL) {
         bh_assert(cmd);
         n = strlen(cmd);

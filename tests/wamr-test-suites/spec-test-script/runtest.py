@@ -5,22 +5,21 @@ from __future__ import print_function
 import argparse
 import array
 import atexit
-import fcntl
 import math
 import os
-# Pseudo-TTY and terminal manipulation
-import pty
 import re
 import shutil
 import struct
 import subprocess
 import sys
 import tempfile
-import termios
 import time
+import threading
 import traceback
 from select import select
+from queue import Queue
 from subprocess import PIPE, STDOUT, Popen
+from typing import BinaryIO, Optional, Tuple
 
 if sys.version_info[0] == 2:
     IS_PY_3 = False
@@ -52,6 +51,10 @@ def log(data, end='\n'):
     print(data, end=end)
     sys.stdout.flush()
 
+def create_tmp_file(suffix: str) -> str:
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp_file:
+        return tmp_file.name
+
 # TODO: do we need to support '\n' too
 import platform
 
@@ -61,6 +64,34 @@ if platform.system().find("CYGWIN_NT") >= 0:
 else:
     sep = "\r\n"
 rundir = None
+
+
+class AsyncStreamReader:
+    def __init__(self, stream: BinaryIO) -> None:
+        self._queue = Queue()
+        self._reader_thread = threading.Thread(
+            daemon=True,
+            target=AsyncStreamReader._stdout_reader,
+            args=(self._queue, stream))
+        self._reader_thread.start()
+
+    def read(self) -> Optional[bytes]:
+        return self._queue.get()
+
+    def cleanup(self) -> None:
+        self._reader_thread.join()
+
+    @staticmethod
+    def _stdout_reader(queue: Queue, stdout: BinaryIO) -> None:
+        while True:
+            try:
+                queue.put(stdout.read(1))
+            except ValueError as e:
+                if stdout.closed:
+                    queue.put(None)
+                    break
+                raise e
+
 
 class Runner():
     def __init__(self, args, no_pty=False):
@@ -77,11 +108,14 @@ class Runner():
         if no_pty:
             self.process = Popen(args, bufsize=0,
                            stdin=PIPE, stdout=PIPE, stderr=STDOUT,
-                           preexec_fn=os.setsid,
                            env=env)
             self.stdin = self.process.stdin
             self.stdout = self.process.stdout
         else:
+            import fcntl
+            # Pseudo-TTY and terminal manipulation
+            import pty
+            import termios
             # Use tty to setup an interactive environment
             master, slave = pty.openpty()
 
@@ -101,35 +135,53 @@ class Runner():
             self.stdin = os.fdopen(master, 'r+b', 0)
             self.stdout = self.stdin
 
+        if platform.system().lower() == "windows":
+            self._stream_reader = AsyncStreamReader(self.stdout)
+        else:
+            self._stream_reader = None
+
         self.buf = ""
+
+    def _read_stdout_byte(self) -> Tuple[bool, Optional[bytes]]:
+        if self._stream_reader:
+            return True, self._stream_reader.read()
+        else:
+            # select doesn't work on file descriptors on Windows.
+            # however, this method is much faster than using
+            # queue, so we keep it for non-windows platforms.
+            [outs,_,_] = select([self.stdout], [], [], 1)
+            if self.stdout in outs:
+                return True, self.stdout.read(1)
+            else:
+                return False, None
 
     def read_to_prompt(self, prompts, timeout):
         wait_until = time.time() + timeout
         while time.time() < wait_until:
-            [outs,_,_] = select([self.stdout], [], [], 1)
-            if self.stdout in outs:
-                read_byte = self.stdout.read(1)
-                if not read_byte:
-                    # EOF on macOS ends up here.
-                    break
-                read_byte = read_byte.decode('utf-8') if IS_PY_3 else read_byte
+            has_value, read_byte = self._read_stdout_byte()
+            if not has_value:
+                continue
+            if not read_byte:
+                # EOF on macOS ends up here.
+                break
+            read_byte = read_byte.decode('utf-8') if IS_PY_3 else read_byte
 
-                debug(read_byte)
-                if self.no_pty:
-                    self.buf += read_byte.replace('\n', '\r\n')
-                else:
-                    self.buf += read_byte
-                self.buf = self.buf.replace('\r\r', '\r')
+            debug(read_byte)
+            if self.no_pty:
+                self.buf += read_byte.replace('\n', '\r\n')
+            else:
+                self.buf += read_byte
+            self.buf = self.buf.replace('\r\r', '\r')
 
-                # filter the prompts
-                for prompt in prompts:
-                    pattern = re.compile(prompt)
-                    match = pattern.search(self.buf)
-                    if match:
-                        end = match.end()
-                        buf = self.buf[0:end-len(prompt)]
-                        self.buf = self.buf[end:]
-                        return buf
+            # filter the prompts
+            for prompt in prompts:
+                pattern = re.compile(prompt)
+                match = pattern.search(self.buf)
+                if match:
+                    end = match.end()
+                    buf = self.buf[0:end-len(prompt)]
+                    self.buf = self.buf[end:]
+                    return buf
         return None
 
     def writeline(self, str):
@@ -140,6 +192,8 @@ class Runner():
         self.stdin.write(str_to_write)
 
     def cleanup(self):
+        atexit.unregister(self.cleanup)
+
         if self.process:
             try:
                 self.writeline("__exit__")
@@ -157,6 +211,8 @@ class Runner():
             self.stdout = None
             if not IS_PY_3:
                 sys.exc_clear()
+            if self._stream_reader:
+                self._stream_reader.cleanup()
 
 def assert_prompt(runner, prompts, timeout, is_need_execute_result):
     # Wait for the initial prompt
@@ -402,9 +458,9 @@ def cast_v128_to_i64x2(numbers, type, lane_type):
     unpacked = struct.unpack("Q Q", packed)
     return unpacked, "[{} {}]:{}:v128".format(unpacked[0], unpacked[1], lane_type)
 
-
 def parse_simple_const_w_type(number, type):
     number = number.replace('_', '')
+    number = re.sub(r"nan\((ind|snan)\)", "nan", number)
     if type in ["i32", "i64"]:
         number = int(number, 16) if '0x' in number else int(number)
         return number, "0x{:x}:{}".format(number, type) \
@@ -948,7 +1004,8 @@ def skip_test(form, skip_list):
 
 def compile_wast_to_wasm(form, wast_tempfile, wasm_tempfile, opts):
     log("Writing WAST module to '%s'" % wast_tempfile)
-    open(wast_tempfile, 'w').write(form)
+    with open(wast_tempfile, 'w') as file:
+        file.write(form)
     log("Compiling WASM to '%s'" % wasm_tempfile)
 
     # default arguments
@@ -1070,13 +1127,10 @@ def run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r):
 def create_tmpfiles(wast_name):
     tempfiles = []
 
-    (t1fd, wast_tempfile) = tempfile.mkstemp(suffix=".wast")
-    (t2fd, wasm_tempfile) = tempfile.mkstemp(suffix=".wasm")
-    tempfiles.append(wast_tempfile)
-    tempfiles.append(wasm_tempfile)
+    tempfiles.append(create_tmp_file(".wast"))
+    tempfiles.append(create_tmp_file(".wasm"))
     if test_aot:
-        (t3fd, aot_tempfile) = tempfile.mkstemp(suffix=".aot")
-        tempfiles.append(aot_tempfile)
+        tempfiles.append(create_tmp_file(".aot"))
 
     # add these temp file to temporal repo, will be deleted when finishing the test
     temp_file_repo.extend(tempfiles)
@@ -1145,10 +1199,10 @@ if __name__ == "__main__":
     else:
         SKIP_TESTS = C_SKIP_TESTS
 
-    (t1fd, wast_tempfile) = tempfile.mkstemp(suffix=".wast")
-    (t2fd, wasm_tempfile) = tempfile.mkstemp(suffix=".wasm")
+    wast_tempfile = create_tmp_file(".wast")
+    wasm_tempfile = create_tmp_file(".wasm")
     if test_aot:
-        (t3fd, aot_tempfile) = tempfile.mkstemp(suffix=".aot")
+        aot_tempfile = create_tmp_file(".aot")
 
     ret_code = 0
     try:
@@ -1179,17 +1233,16 @@ if __name__ == "__main__":
                     # workaround: spec test changes error message to "malformed" while iwasm still use "invalid"
                     error_msg = m.group(2).replace("malformed", "invalid")
                     log("Testing(malformed)")
-                    f = open(wasm_tempfile, 'wb')
-                    s = m.group(1)
-                    while s:
-                        res = re.match("[^\"]*\"([^\"]*)\"(.*)", s, re.DOTALL)
-                        if IS_PY_3:
-                            context = res.group(1).replace("\\", "\\x").encode("latin1").decode("unicode-escape").encode("latin1")
-                            f.write(context)
-                        else:
-                            f.write(res.group(1).replace("\\", "\\x").decode("string-escape"))
-                        s = res.group(2)
-                    f.close()
+                    with open(wasm_tempfile, 'wb') as f:
+                        s = m.group(1)
+                        while s:
+                            res = re.match("[^\"]*\"([^\"]*)\"(.*)", s, re.DOTALL)
+                            if IS_PY_3:
+                                context = res.group(1).replace("\\", "\\x").encode("latin1").decode("unicode-escape").encode("latin1")
+                                f.write(context)
+                            else:
+                                f.write(res.group(1).replace("\\", "\\x").decode("string-escape"))
+                            s = res.group(2)
 
                     # compile wasm to aot
                     if test_aot:

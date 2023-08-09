@@ -308,8 +308,9 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
     }
 
 #ifdef BH_PLATFORM_WINDOWS
-    if (!os_mem_commit(mapped_mem, memory_data_size,
-                       MMAP_PROT_READ | MMAP_PROT_WRITE)) {
+    if (memory_data_size > 0
+        && !os_mem_commit(mapped_mem, memory_data_size,
+                          MMAP_PROT_READ | MMAP_PROT_WRITE)) {
         set_error_buf(error_buf, error_buf_size, "commit memory failed");
         os_munmap(mapped_mem, map_size);
         goto fail1;
