@@ -5681,6 +5681,13 @@ wasm_runtime_module_instance_set_context(wasm_module_inst_t inst, void *key,
     wasm_native_module_instance_set_context(inst, key, ctx);
 }
 
+void
+wasm_runtime_module_instance_set_context_spread(wasm_module_inst_t inst,
+                                                void *key, void *ctx)
+{
+    wasm_native_module_instance_set_context_spread(inst, key, ctx);
+}
+
 void *
 wasm_runtime_module_instance_get_context(wasm_module_inst_t inst, void *key)
 {

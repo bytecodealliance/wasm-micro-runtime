@@ -78,6 +78,9 @@ wasm_native_module_instance_context_key_destroy(void *key);
 void
 wasm_native_module_instance_set_context(wasm_module_inst_t inst, void *key,
                                         void *ctx);
+void
+wasm_native_module_instance_set_context_spread(wasm_module_inst_t inst,
+                                               void *key, void *ctx);
 void *
 wasm_native_module_instance_get_context(wasm_module_inst_t inst, void *key);
 

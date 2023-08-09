@@ -1318,6 +1318,46 @@ wasm_cluster_spread_custom_data(WASMModuleInstanceCommon *module_inst,
     }
 }
 
+struct inst_set_context_data {
+    void *key;
+    void *ctx;
+};
+
+static void
+set_context_visitor(void *node, void *user_data)
+{
+    WASMExecEnv *curr_exec_env = (WASMExecEnv *)node;
+    WASMModuleInstanceCommon *module_inst = get_module_inst(curr_exec_env);
+    const struct inst_set_context_data *data = user_data;
+
+    wasm_runtime_module_instance_set_context(module_inst, data->key, data->ctx);
+}
+
+void
+wasm_cluster_module_instance_set_context(WASMModuleInstanceCommon *module_inst,
+                                         void *key, void *ctx)
+{
+    WASMExecEnv *exec_env = wasm_clusters_search_exec_env(module_inst);
+
+    if (exec_env == NULL) {
+        /* Maybe threads have not been started yet. */
+        wasm_runtime_module_instance_set_context(module_inst, key, ctx);
+    }
+    else {
+        WASMCluster *cluster;
+        struct inst_set_context_data data;
+        data.key = key;
+        data.ctx = ctx;
+
+        cluster = wasm_exec_env_get_cluster(exec_env);
+        bh_assert(cluster);
+
+        os_mutex_lock(&cluster->lock);
+        traverse_list(&cluster->exec_env_list, set_context_visitor, &data);
+        os_mutex_unlock(&cluster->lock);
+    }
+}
+
 bool
 wasm_cluster_is_thread_terminated(WASMExecEnv *exec_env)
 {

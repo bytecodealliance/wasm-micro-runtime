@@ -953,6 +953,10 @@ WASM_RUNTIME_API_EXTERN void
 wasm_runtime_module_instance_set_context(wasm_module_inst_t inst, void *key,
                                          void *ctx);
 /* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_module_instance_set_context_spread(wasm_module_inst_t inst,
+                                                void *key, void *ctx);
+/* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN void *
 wasm_runtime_module_instance_get_context(wasm_module_inst_t inst, void *key);
 

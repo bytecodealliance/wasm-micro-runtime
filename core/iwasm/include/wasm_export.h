@@ -1461,6 +1461,7 @@ wasm_runtime_set_enlarge_mem_error_callback(
  *   wasm_runtime_module_instance_context_key_create
  *   wasm_runtime_module_instance_context_key_destroy
  *   wasm_runtime_module_instance_set_context
+ *   wasm_runtime_module_instance_set_context_spread
  *   wasm_runtime_module_instance_get_context
  *
  * This set of APIs is intended to be used by an embedder which provides
@@ -1468,6 +1469,14 @@ wasm_runtime_set_enlarge_mem_error_callback(
  * and are maintained outside of the WAMR tree.
  *
  * It's modelled after the pthread specific API.
+ *
+ * wasm_runtime_module_instance_set_context_spread is similar to
+ * wasm_runtime_module_instance_set_context, except that
+ * wasm_runtime_module_instance_set_context_spread applies the change
+ * to all threads in the cluster. It's a caller's resposibility to
+ * perform necessary serialization. Eg. in case two or more threads
+ * in the cluster can call wasm_runtime_module_instance_set_context_spread
+ * on the same key simultaneously.
  *
  * Note: dynamic key create/destroy while instances are live is not
  * implemented as of writing this.
@@ -1492,6 +1501,9 @@ wasm_runtime_module_instance_context_key_destroy(void *key);
 
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_module_instance_set_context(wasm_module_inst_t inst, void *key,
+                                         void *ctx);
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_module_instance_set_context_spread(wasm_module_inst_t inst, void *key,
                                          void *ctx);
 WASM_RUNTIME_API_EXTERN void *
 wasm_runtime_module_instance_get_context(wasm_module_inst_t inst, void *key);

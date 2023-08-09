@@ -12,6 +12,9 @@
 #if WASM_ENABLE_AOT != 0
 #include "../aot/aot_runtime.h"
 #endif
+#if WASM_ENABLE_THREAD_MGR != 0
+#include "../libraries/thread-mgr/thread_manager.h"
+#endif
 
 #if !defined(BH_PLATFORM_ZEPHYR) && !defined(BH_PLATFORM_ALIOS_THINGS) \
     && !defined(BH_PLATFORM_OPENRTOS) && !defined(BH_PLATFORM_ESP_IDF)
@@ -479,6 +482,17 @@ wasm_native_module_instance_set_context(wasm_module_inst_t inst, void *key,
     uint32 idx = context_key_to_idx(key);
     WASMModuleInstanceExtraCommon *common = wasm_module_inst_extra_common(inst);
     common->contexts[idx] = ctx;
+}
+
+void
+wasm_native_module_instance_set_context_spread(wasm_module_inst_t inst,
+                                               void *key, void *ctx)
+{
+#if WASM_ENABLE_THREAD_MGR != 0
+    wasm_cluster_module_instance_set_context(inst, key, ctx);
+#else
+    wasm_native_module_instance_set_context(inst, key, ctx);
+#endif
 }
 
 void *
