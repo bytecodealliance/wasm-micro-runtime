@@ -126,7 +126,7 @@ print_help()
     printf("                            Use --cpu-features=+help to list all the features supported\n");
     printf("  --opt-level=n             Set the optimization level (0 to 3, default is 3)\n");
     printf("  --size-level=n            Set the code size level (0 to 3, default is 3)\n");
-    printf("  -sgx                      Generate code for SGX platform (Intel Software Guard Extention)\n");
+    printf("  -sgx                      Generate code for SGX platform (Intel Software Guard Extensions)\n");
     printf("  --bounds-checks=1/0       Enable or disable the bounds checks for memory access:\n");
     printf("                              by default it is disabled in all 64-bit platforms except SGX and\n");
     printf("                              in these platforms runtime does bounds checks with hardware trap,\n");
@@ -159,8 +159,8 @@ print_help()
     printf("  --enable-dump-call-stack  Enable stack trace feature\n");
     printf("  --enable-perf-profiling   Enable function performance profiling\n");
     printf("  --enable-memory-profiling Enable memory usage profiling\n");
-    printf("  --xip                     A shorthand of --enalbe-indirect-mode --disable-llvm-intrinsics\n");
-    printf("  --enable-indirect-mode    Enalbe call function through symbol table but not direct call\n");
+    printf("  --xip                     A shorthand of --enable-indirect-mode --disable-llvm-intrinsics\n");
+    printf("  --enable-indirect-mode    Enable call function through symbol table but not direct call\n");
     printf("  --disable-llvm-intrinsics Disable the LLVM built-in intrinsics\n");
     printf("  --enable-builtin-intrinsics=<flags>\n");
     printf("                            Enable the specified built-in intrinsics, it will override the default\n");
