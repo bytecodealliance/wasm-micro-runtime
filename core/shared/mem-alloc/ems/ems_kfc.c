@@ -144,9 +144,9 @@ gc_destroy_with_pool(gc_handle_t handle)
             os_printf("Memory leak detected: gc object [%p] not claimed\n",
                       node->obj);
 #endif
-            if (heap->is_reclaim_enabled) {
-                node->finalizer(node->obj, node->data);
-            }
+            bh_assert(heap->is_reclaim_enabled);
+            node->finalizer(node->obj, node->data);
+
             BH_FREE(heap->extra_info_nodes[i]);
         }
 
