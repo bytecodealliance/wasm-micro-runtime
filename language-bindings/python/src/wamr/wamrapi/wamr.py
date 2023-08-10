@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 from ctypes import Array
+from ctypes import addressof
 from ctypes import c_char
 from ctypes import c_uint
 from ctypes import c_uint8
@@ -159,12 +160,15 @@ class Instance:
             raise Exception("Error while creating module instance")
         return module_inst
 
+id_to_exec_env_mapping = {}
 
 class ExecEnv:
-    def __init__(self, module_inst: Instance, stack_size: int = 65536):
+    def __init__(self, module_inst: Instance | None = None, stack_size: int = 65536):
         self.module_inst = module_inst
         self.exec_env = self._create_exec_env(module_inst, stack_size)
         self.own_c = True      
+
+        id_to_exec_env_mapping[str(addressof(self.exec_env.contents))] = self
 
     def __del__(self):
         if self.own_c:
@@ -191,3 +195,15 @@ class ExecEnv:
     def call_indirect(self, element_index: int, argc: int, argv: "POINTER[c_uint]"):
         if not wasm_runtime_call_indirect(self.exec_env, element_index, argc, argv):
             raise Exception("Error while calling function")
+
+    @staticmethod
+    def wrap(env: int) -> "ExecEnv":
+        if str(env) in id_to_exec_env_mapping:
+            return id_to_exec_env_mapping[str(env)]
+        else:
+            exec_env = ExecEnv()
+            exec_env.exec_env = cast(env, wasm_exec_env_t)
+            exec_env.module_inst = wasm_runtime_get_module_inst(exec_env.exec_env)
+            exec_env.own_c = False
+            id_to_exec_env_mapping[str(env)] = exec_env
+            return exec_env
