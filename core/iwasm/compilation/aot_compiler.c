@@ -364,7 +364,8 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 if (false
 #if WASM_ENABLE_GC != 0
                     || comp_ctx->enable_gc
-#elif WASM_ENABLE_REF_TYPES != 0
+#endif
+#if WASM_ENABLE_REF_TYPES != 0
                     || comp_ctx->enable_ref_types
 #endif
                 ) {
@@ -404,16 +405,13 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 }
 
                 read_leb_uint32(frame_ip, frame_ip_end, type_idx);
-                if (false
-#if WASM_ENABLE_GC != 0
-                    || comp_ctx->enable_gc
-#elif WASM_ENABLE_REF_TYPES != 0
-                    || comp_ctx->enable_ref_types
-#endif
-                ) {
+#if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
+                if (comp_ctx->enable_ref_types || comp_ctx->enable_gc) {
                     read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);
                 }
-                else {
+                else
+#endif
+                {
                     frame_ip++;
                     tbl_idx = 0;
                 }

@@ -67,7 +67,7 @@ typedef enum WASMExceptionID {
     EXCE_OPERAND_STACK_OVERFLOW,
     EXCE_FAILED_TO_COMPILE_FAST_JIT_FUNC,
     EXCE_ALREADY_THROWN,
-    EXCE_NULL_OBJ_REF,
+    EXCE_NULL_GC_REF,
     EXCE_NUM,
 } WASMExceptionID;
 
@@ -575,7 +575,6 @@ wasm_create_func_obj(WASMModuleInstance *module_inst, uint32 func_idx,
 
 bool
 wasm_traverse_gc_rootset(WASMExecEnv *exec_env, void *heap);
-
 
 #endif
 

@@ -1184,9 +1184,9 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             goto fail;
         }
 
-        if (!(table_elem = LLVMBuildInBoundsGEP2(comp_ctx->builder,
-                                                 GC_REF_TYPE, table_elem,
-                                                 &elem_idx, 1, "table_elem"))) {
+        if (!(table_elem = LLVMBuildInBoundsGEP2(comp_ctx->builder, GC_REF_TYPE,
+                                                 table_elem, &elem_idx, 1,
+                                                 "table_elem"))) {
             HANDLE_FAILURE("LLVMBuildNUWAdd");
             goto fail;
         }
@@ -1709,7 +1709,7 @@ aot_compile_op_ref_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMValueRef gc_obj;
     if (comp_ctx->enable_gc) {
         if (!aot_call_aot_create_func_obj(comp_ctx, func_ctx, ref_idx,
-                                           &gc_obj)) {
+                                          &gc_obj)) {
             goto fail;
         }
 
