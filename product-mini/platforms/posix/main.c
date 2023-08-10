@@ -284,6 +284,8 @@ validate_env_str(char *env)
 #if BH_HAS_DLFCN
 typedef uint32 (*get_native_lib_func)(char **p_module_name,
                                       NativeSymbol **p_native_symbols);
+typedef int (*init_native_lib_func)(void);
+typedef void (*deinit_native_lib_func)(void);
 
 static uint32
 load_and_register_native_libs(const char **native_lib_list,
@@ -302,6 +304,18 @@ load_and_register_native_libs(const char **native_lib_list,
             LOG_WARNING("warning: failed to load native library %s",
                         native_lib_list[i]);
             continue;
+        }
+
+        init_native_lib_func init_native_lib = dlsym(handle, "init_native_lib");
+        if (init_native_lib) {
+            int ret = init_native_lib();
+            if (ret != 0) {
+                LOG_WARNING("warning: `init_native_lib` function from native "
+                            "lib %s failed with %d",
+                            native_lib_list[i], ret);
+                dlclose(handle);
+                continue;
+            }
         }
 
         /* lookup get_native_lib func */
@@ -366,6 +380,12 @@ unregister_and_unload_native_libs(uint32 native_lib_count,
         if (!wasm_runtime_unregister_natives(module_name, native_symbols)) {
             LOG_WARNING("warning: failed to unregister native lib %p", handle);
             continue;
+        }
+
+        deinit_native_lib_func deinit_native_lib =
+            dlsym(handle, "deinit_native_lib");
+        if (deinit_native_lib) {
+            deinit_native_lib();
         }
 
         dlclose(handle);
