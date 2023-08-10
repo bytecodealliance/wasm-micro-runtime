@@ -298,7 +298,7 @@ struct native_lib {
 struct native_lib *
 load_native_lib(const char *name)
 {
-    struct native_lib *lib = malloc(sizeof(*lib));
+    struct native_lib *lib = wasm_runtime_malloc(sizeof(*lib));
     if (lib == NULL) {
         LOG_WARNING("warning: failed to load native library %s because of "
                     "allocation failure",
@@ -399,7 +399,7 @@ unregister_and_unload_native_libs(uint32 native_lib_count,
         }
 
         dlclose(lib->handle);
-        free(lib);
+        wasm_runtime_free(lib);
     }
 }
 #endif /* BH_HAS_DLFCN */
