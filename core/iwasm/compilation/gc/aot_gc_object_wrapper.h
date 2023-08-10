@@ -10,9 +10,8 @@ extern "C" {
 #endif
 
 bool
-aot_call_wasm_create_func_obj(AOTCompContext *comp_ctx,
-                              AOTFuncContext *func_ctx, LLVMValueRef func_idx,
-                              LLVMValueRef *p_gc_obj);
+aot_call_aot_create_func_obj(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                             LLVMValueRef func_idx, LLVMValueRef *p_gc_obj);
 
 #ifdef __cplusplus
 } /* end of extern "C" */

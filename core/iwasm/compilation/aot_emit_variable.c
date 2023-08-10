@@ -29,19 +29,8 @@ get_local_type(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                      : aot_func->local_types[local_idx - param_count];
 
 #if WASM_ENABLE_GC != 0
-    if (comp_ctx->enable_gc) {
-        switch (local_type) {
-            case VALUE_TYPE_I32:
-            case VALUE_TYPE_I64:
-            case VALUE_TYPE_F32:
-            case VALUE_TYPE_F64:
-            case VALUE_TYPE_V128:
-            case VALUE_TYPE_I1:
-                break;
-            default:
-                local_type = VALUE_TYPE_OBJECT_REF;
-        }
-    }
+    if (comp_ctx->enable_gc && wasm_is_type_reftype(local_type))
+        local_type = VALUE_TYPE_GC_REF;
 #endif
 
     return local_type;

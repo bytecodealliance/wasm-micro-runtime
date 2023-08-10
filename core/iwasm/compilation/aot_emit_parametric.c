@@ -62,7 +62,7 @@ pop_value_from_wasm_stack(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         if (!is_32
             && !(type == VALUE_TYPE_I64 || type == VALUE_TYPE_F64
 #if UINTPTR_MAX == UINT64_MAX
-                 || type == VALUE_TYPE_OBJECT_REF
+                 || type == VALUE_TYPE_GC_REF
 #endif
                  )) {
             aot_set_last_error("invalid WASM stack data type.");

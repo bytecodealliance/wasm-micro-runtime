@@ -21,40 +21,34 @@
     } while (0)
 
 bool
-aot_call_wasm_create_func_obj(AOTCompContext *comp_ctx,
-                              AOTFuncContext *func_ctx, LLVMValueRef func_idx,
-                              LLVMValueRef *p_gc_obj)
+aot_call_aot_create_func_obj(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                             LLVMValueRef func_idx, LLVMValueRef *p_gc_obj)
 {
-    LLVMValueRef gc_obj, cmp_gc_obj, param_values[5], func, value;
-    LLVMTypeRef param_types[5], ret_type, func_type, func_ptr_type;
+    LLVMValueRef gc_obj, cmp_gc_obj, param_values[2], func, value;
+    LLVMTypeRef param_types[2], ret_type, func_type, func_ptr_type;
     AOTFuncType *aot_func_type = func_ctx->aot_func->func_type;
     LLVMBasicBlockRef block_curr = LLVMGetInsertBlock(comp_ctx->builder);
     LLVMBasicBlockRef init_gc_obj_fail, init_gc_obj_succ;
 
     param_types[0] = INT8_PTR_TYPE;
     param_types[1] = I32_TYPE;
-    param_types[2] = INT8_TYPE;
-    param_types[3] = INT8_PTR_TYPE;
-    param_types[4] = I32_TYPE;
-    ret_type = OBJECT_REF_TYPE;
+    ret_type = GC_REF_TYPE;
 
-    /* TODO: do we need modify gc APIs to support AOTModule? */
-    GET_AOT_FUNCTION(wasm_create_func_obj, 5);
+    if (comp_ctx->is_jit_mode)
+        GET_AOT_FUNCTION(llvm_jit_create_func_obj, 2);
+    else
+        GET_AOT_FUNCTION(aot_create_func_obj, 2);
 
     /* Call function wasm_create_func_obj() */
     param_values[0] = func_ctx->aot_inst;
     param_values[1] = func_idx;
-    param_values[2] = I8_CONST(1);
-    param_values[3] = I8_PTR_NULL;
-    param_values[4] = I32_ZERO;
     if (!(gc_obj = LLVMBuildCall2(comp_ctx->builder, func_type, func,
-                                  param_values, 5, "call"))) {
+                                  param_values, 2, "call"))) {
         aot_set_last_error("llvm build call failed.");
         return false;
     }
 
-    BUILD_ICMP(LLVMIntNE, gc_obj, OBJ_REF_NULL, cmp_gc_obj,
-               "result whether gc_obj is null");
+    BUILD_ICMP(LLVMIntNE, gc_obj, GC_REF_NULL, cmp_gc_obj, "cmp_gc_ref");
 
     ADD_BASIC_BLOCK(init_gc_obj_fail, "init_gc_obj_fail");
     ADD_BASIC_BLOCK(init_gc_obj_succ, "init_gc_obj_success");

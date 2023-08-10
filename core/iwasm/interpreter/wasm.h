@@ -80,7 +80,7 @@ extern "C" {
  * internal object ref, eq obect ref, i31 object ref,
  * struct object ref, array obect ref
  */
-#define VALUE_TYPE_OBJECT_REF 0x43
+#define VALUE_TYPE_GC_REF 0x43
 
 #define DEFAULT_NUM_BYTES_PER_PAGE 65536
 #define DEFAULT_MAX_PAGES 65536

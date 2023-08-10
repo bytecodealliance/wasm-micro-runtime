@@ -282,6 +282,12 @@ typedef struct AOTModule {
     WASIArguments wasi_args;
     bool import_wasi_api;
 #endif
+#if WASM_ENABLE_GC != 0
+    /* Ref types hash set */
+    HashMap *ref_type_set;
+    struct WASMRttType **rtt_types;
+    korp_mutex rtt_type_lock;
+#endif
 #if WASM_ENABLE_DEBUG_AOT != 0
     void *elf_hdr;
     uint32 elf_size;
@@ -689,6 +695,12 @@ aot_exchange_uint32(uint8 *p_data);
 void
 aot_exchange_uint64(uint8 *p_data);
 #endif /* end of WASM_ENABLE_STATIC_PGO != 0 */
+
+#if WASM_ENABLE_GC != 0
+void *
+aot_create_func_obj(AOTModuleInstance *module_inst, uint32 func_idx);
+
+#endif /* end of WASM_ENABLE_GC != 0 */
 
 #ifdef __cplusplus
 } /* end of extern "C" */

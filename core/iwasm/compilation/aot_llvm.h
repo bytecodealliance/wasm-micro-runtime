@@ -231,8 +231,8 @@ typedef struct AOTLLVMTypes {
 
     LLVMTypeRef funcref_type;
     LLVMTypeRef externref_type;
-    LLVMTypeRef object_ref_type;
-    LLVMTypeRef object_ref_ptr_type;
+    LLVMTypeRef gc_ref_type;
+    LLVMTypeRef gc_ref_ptr_type;
 } AOTLLVMTypes;
 
 typedef struct AOTLLVMConsts {
@@ -282,7 +282,7 @@ typedef struct AOTLLVMConsts {
     LLVMValueRef i32x8_zero;
     LLVMValueRef i32x4_zero;
     LLVMValueRef i32x2_zero;
-    LLVMValueRef obj_ref_null;
+    LLVMValueRef gc_ref_null;
     LLVMValueRef i8_ptr_null;
 } AOTLLVMConsts;
 

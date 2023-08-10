@@ -3809,6 +3809,53 @@ llvm_jit_free_frame(WASMExecEnv *exec_env)
 #endif /* end of WASM_ENABLE_DUMP_CALL_STACK != 0 \
           || WASM_ENABLE_PERF_PROFILING != 0 */
 
+#if WASM_ENABLE_GC != 0
+void *
+llvm_jit_create_func_obj(WASMModuleInstance *module_inst, uint32 func_idx)
+{
+    WASMModule *module = module_inst->module;
+    WASMRttTypeRef rtt_type;
+    WASMFuncObjectRef func_obj;
+    WASMFunctionInstance *func_inst;
+    WASMFuncType *func_type;
+    uint32 type_idx;
+
+#if WASM_ENABLE_JIT != 0
+    if (Wasm_Module_AoT == module_inst->module_type) {
+        return aot_create_func_obj(module_inst, func_idx);
+    }
+#endif
+
+    if (func_idx >= module_inst->e->function_count) {
+        char buf[108];
+        snprintf(buf, sizeof(buf), "unknown function %d", func_idx);
+        wasm_set_exception(module_inst, buf);
+        return NULL;
+    }
+
+    func_inst = &module_inst->e->functions[func_idx];
+    func_type = func_inst->is_import_func ? func_inst->u.func_import->func_type
+                                          : func_inst->u.func->func_type;
+    type_idx = func_inst->is_import_func ? func_inst->u.func_import->type_idx
+                                         : func_inst->u.func->type_idx;
+
+    if (!(rtt_type = wasm_rtt_type_new((WASMType *)func_type, type_idx,
+                                       module->rtt_types, module->type_count,
+                                       &module->rtt_type_lock))) {
+        wasm_set_exception(module_inst, "create rtt object failed");
+        return NULL;
+    }
+
+    if (!(func_obj = wasm_func_obj_new_internal(module_inst->e->gc_heap_handle,
+                                                rtt_type, func_idx))) {
+        wasm_set_exception(module_inst, "create func object failed");
+        return NULL;
+    }
+
+    return func_obj;
+}
+#endif /* end of WASM_ENABLE_GC != 0*/
+
 #endif /* end of WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0 */
 
 #if WASM_ENABLE_LIBC_WASI != 0 && WASM_ENABLE_MULTI_MODULE != 0

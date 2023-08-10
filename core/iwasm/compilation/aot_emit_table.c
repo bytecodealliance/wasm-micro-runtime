@@ -205,9 +205,9 @@ aot_compile_op_table_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* Load function object reference or function index */
 #if WASM_ENABLE_GC != 0
     if (comp_ctx->enable_gc) {
-        if (!(table_elem = LLVMBuildInBoundsGEP2(comp_ctx->builder,
-                                                 OBJECT_REF_TYPE, table_elem,
-                                                 &elem_idx, 1, "table_elem"))) {
+        if (!(table_elem = LLVMBuildInBoundsGEP2(comp_ctx->builder, GC_REF_TYPE,
+                                                 table_elem, &elem_idx, 1,
+                                                 "table_elem"))) {
             HANDLE_FAILURE("LLVMBuildNUWAdd");
             goto fail;
         }
@@ -284,15 +284,15 @@ aot_compile_op_table_set(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     if (comp_ctx->enable_gc) {
         if (!(table_elem =
                   LLVMBuildBitCast(comp_ctx->builder, table_elem,
-                                   OBJECT_REF_PTR_TYPE, "table_elem_ptr"))) {
+                                   GC_REF_PTR_TYPE, "table_elem_ptr"))) {
             HANDLE_FAILURE("LLVMBuildBitCast");
             goto fail;
         }
 
         /* Load function object reference */
-        if (!(table_elem = LLVMBuildInBoundsGEP2(comp_ctx->builder,
-                                                 OBJECT_REF_TYPE, table_elem,
-                                                 &elem_idx, 1, "table_elem"))) {
+        if (!(table_elem = LLVMBuildInBoundsGEP2(comp_ctx->builder, GC_REF_TYPE,
+                                                 table_elem, &elem_idx, 1,
+                                                 "table_elem"))) {
             HANDLE_FAILURE("LLVMBuildInBoundsGEP");
             goto fail;
         }
@@ -487,7 +487,7 @@ aot_compile_op_table_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     param_types[2] = I32_TYPE;
 #if WASM_ENABLE_GC != 0
     if (comp_ctx->enable_gc) {
-        param_types[3] = OBJECT_REF_TYPE;
+        param_types[3] = GC_REF_TYPE;
     }
     else
 #endif
@@ -546,7 +546,7 @@ aot_compile_op_table_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     param_types[2] = I32_TYPE;
 #if WASM_ENABLE_GC != 0
     if (comp_ctx->enable_gc) {
-        param_types[3] = OBJECT_REF_TYPE;
+        param_types[3] = GC_REF_TYPE;
     }
     else
 #endif
