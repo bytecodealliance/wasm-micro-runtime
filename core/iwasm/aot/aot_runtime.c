@@ -168,14 +168,14 @@ sub_module_instantiate(AOTModule *module, AOTModuleInstance *module_inst,
 }
 
 static void
-sub_module_deinstantiate(WASMModuleInstance *module_inst)
+sub_module_deinstantiate(AOTModuleInstance *module_inst)
 {
     bh_list *list = ((AOTModuleInstanceExtra *)module_inst->e)->sub_module_inst_list;
     AOTSubModInstNode *node = bh_list_first_elem(list);
     while (node) {
         AOTSubModInstNode *next_node = bh_list_elem_next(node);
         bh_list_remove(list, node);
-        wasm_deinstantiate(node->module_inst, false);
+        aot_deinstantiate(node->module_inst, false);
         wasm_runtime_free(node);
         node = next_node;
     }
