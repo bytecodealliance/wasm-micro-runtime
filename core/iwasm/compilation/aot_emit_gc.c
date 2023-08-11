@@ -1,5 +1,7 @@
 #include "aot_emit_gc.h"
 
+#if WASM_ENABLE_GC != 0
+
 #define BUILD_ICMP(op, left, right, res, name)                                \
     do {                                                                      \
         if (!(res =                                                           \
@@ -74,3 +76,5 @@ aot_call_aot_create_func_obj(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 fail:
     return false;
 }
+
+#endif
