@@ -41,6 +41,7 @@ from wamr.wamrapi.iwasm import wasm_runtime_addr_app_to_native
 from wamr.wamrapi.iwasm import wasm_runtime_addr_native_to_app
 from wamr.wamrapi.iwasm import wasm_runtime_set_wasi_args
 
+
 class Engine:
     def __init__(self):
         self._native_symbols = dict()
@@ -51,7 +52,12 @@ class Engine:
         print("deleting Engine")
         wasm_runtime_destroy()
 
-    def _get_init_args(self, heap_size: int = 1024 * 1024 * 2, ip_addr: str = "127.0.0.1", instance_port: int = 1234) -> RuntimeInitArgs:
+    def _get_init_args(
+        self,
+        heap_size: int = 1024 * 1024 * 2,
+        ip_addr: str = "127.0.0.1",
+        instance_port: int = 1234,
+    ) -> RuntimeInitArgs:
         init_args = RuntimeInitArgs()
         init_args.mem_alloc_type = Alloc_With_Pool
         init_args.mem_alloc_option.pool.heap_buf = cast(
@@ -60,10 +66,12 @@ class Engine:
         init_args.mem_alloc_option.pool.heap_size = heap_size
         # Debug port setting
         init_args.ip_addr = bytes(ip_addr, "utf-8")
-        init_args.instance_port = instance_port        
+        init_args.instance_port = instance_port
         return init_args
 
-    def register_natives(self, module_name: str, native_symbols: List[NativeSymbol]) -> None:
+    def register_natives(
+        self, module_name: str, native_symbols: List[NativeSymbol]
+    ) -> None:
         module_name = String.from_param(module_name)
         # WAMR does not copy the symbols. We must store them.
         for native in native_symbols:
@@ -73,11 +81,12 @@ class Engine:
             module_name,
             cast(
                 (NativeSymbol * len(native_symbols))(*native_symbols),
-                POINTER(NativeSymbol)
+                POINTER(NativeSymbol),
             ),
-            len(native_symbols)
+            len(native_symbols),
         ):
             raise Exception("Error while registering symbols")
+
 
 class Module:
     __create_key = object()
@@ -110,7 +119,13 @@ class Module:
 
 
 class Instance:
-    def __init__(self, module: Module, stack_size: int = 65536, heap_size: int = 16384, dir_list: List[str] | None = None):
+    def __init__(
+        self,
+        module: Module,
+        stack_size: int = 65536,
+        heap_size: int = 16384,
+        dir_list: List[str] | None = None,
+    ):
         self.module = module
         if dir_list:
             self._set_wasi_args(module, dir_list)
@@ -124,14 +139,15 @@ class Instance:
         LP_c_char = POINTER(c_char)
         LP_LP_c_char = POINTER(LP_c_char)
 
-        p = (LP_c_char*len(dir_list))()
-        for i, dir in enumerate(dir_list):  
+        p = (LP_c_char * len(dir_list))()
+        for i, dir in enumerate(dir_list):
             enc_dir = dir.encode("utf-8")
             p[i] = create_string_buffer(enc_dir)
 
         na = cast(p, LP_LP_c_char)
-        wasm_runtime_set_wasi_args(module.module, na, len(dir_list), None, 0, None,
-                                       0, None, 0)
+        wasm_runtime_set_wasi_args(
+            module.module, na, len(dir_list), None, 0, None, 0, None, 0
+        )
 
     def malloc(self, nbytes: int, native_handler) -> c_uint:
         return wasm_runtime_module_malloc(self.module_inst, nbytes, native_handler)
@@ -144,14 +160,16 @@ class Instance:
         if not func:
             raise Exception("Error while looking-up function")
         return func
-    
+
     def native_addr_to_app_addr(self, native_addr) -> c_void_p:
         return wasm_runtime_addr_native_to_app(self.module_inst, native_addr)
 
     def app_addr_to_native_addr(self, app_addr) -> c_void_p:
         return wasm_runtime_addr_app_to_native(self.module_inst, app_addr)
 
-    def _create_module_inst(self, module: Module, stack_size: int, heap_size: int) -> wasm_module_inst_t:
+    def _create_module_inst(
+        self, module: Module, stack_size: int, heap_size: int
+    ) -> wasm_module_inst_t:
         error_buf = create_string_buffer(128)
         module_inst = wasm_runtime_instantiate(
             module.module, stack_size, heap_size, error_buf, len(error_buf)
@@ -160,13 +178,15 @@ class Instance:
             raise Exception("Error while creating module instance")
         return module_inst
 
+
 id_to_exec_env_mapping = {}
+
 
 class ExecEnv:
     def __init__(self, module_inst: Instance | None = None, stack_size: int = 65536):
         self.module_inst = module_inst
         self.exec_env = self._create_exec_env(module_inst, stack_size)
-        self.own_c = True      
+        self.own_c = True
 
         id_to_exec_env_mapping[str(addressof(self.exec_env.contents))] = self
 
@@ -182,11 +202,13 @@ class ExecEnv:
     def get_module_inst(self) -> Instance:
         self.module_inst.module_inst = wasm_runtime_get_module_inst(self.exec_env)
         return self.module_inst
-        
+
     def start_debugging(self) -> int:
         return wasm_runtime_start_debug_instance(self.exec_env)
 
-    def _create_exec_env(self, module_inst: Instance, stack_size: int) -> wasm_exec_env_t:
+    def _create_exec_env(
+        self, module_inst: Instance, stack_size: int
+    ) -> wasm_exec_env_t:
         exec_env = wasm_runtime_create_exec_env(module_inst.module_inst, stack_size)
         if not exec_env:
             raise Exception("Error while creating execution environment")
