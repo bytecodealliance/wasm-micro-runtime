@@ -498,15 +498,23 @@ aot_compile_op_table_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 #if WASM_ENABLE_GC != 0
     if (comp_ctx->enable_gc) {
         POP_REF(param_values[3]);
-        LLVMBuildBitCast(comp_ctx->builder, param_values[3], INT8_PTR_TYPE,
-                         "table_elem_i8p");
+        if (!(param_values[3] =
+                  LLVMBuildBitCast(comp_ctx->builder, param_values[3],
+                                   INT8_PTR_TYPE, "table_elem_i8p"))) {
+            HANDLE_FAILURE("LLVMBuildBitCast");
+            goto fail;
+        }
     }
     else
 #endif
     {
         POP_I32(param_values[3]);
-        LLVMBuildIntToPtr(comp_ctx->builder, param_values[3], INT8_PTR_TYPE,
-                          "table_elem_i8p");
+        if (!(param_values[3] =
+                  LLVMBuildIntToPtr(comp_ctx->builder, param_values[3],
+                                    INT8_PTR_TYPE, "table_elem_i8p"))) {
+            HANDLE_FAILURE("LLVMBuildIntToPtr");
+            goto fail;
+        }
     }
 
     if (!(ret = LLVMBuildCall2(comp_ctx->builder, func_type, func, param_values,
@@ -554,15 +562,23 @@ aot_compile_op_table_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 #if WASM_ENABLE_GC != 0
     if (comp_ctx->enable_gc) {
         POP_REF(param_values[3]);
-        LLVMBuildBitCast(comp_ctx->builder, param_values[3], INT8_PTR_TYPE,
-                         "table_elem_i8p");
+        if (!(param_values[3] =
+                  LLVMBuildBitCast(comp_ctx->builder, param_values[3],
+                                   INT8_PTR_TYPE, "table_elem_i8p"))) {
+            HANDLE_FAILURE("LLVMBuildBitCast");
+            goto fail;
+        }
     }
     else
 #endif
     {
         POP_I32(param_values[3]);
-        LLVMBuildIntToPtr(comp_ctx->builder, param_values[3], INT8_PTR_TYPE,
-                          "table_elem_i8p");
+        if (!(param_values[3] =
+                  LLVMBuildIntToPtr(comp_ctx->builder, param_values[3],
+                                    INT8_PTR_TYPE, "table_elem_i8p"))) {
+            HANDLE_FAILURE("LLVMBuildIntToPtr");
+            goto fail;
+        }
     }
     /* i */
     POP_I32(param_values[4]);
