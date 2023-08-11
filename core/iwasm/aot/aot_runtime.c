@@ -124,7 +124,7 @@ sub_module_instantiate(AOTModule *module, AOTModuleInstance *module_inst,
         bh_list_first_elem(module->import_module_list);
 
     while (sub_module_list_node) {
-        WASMSubModInstNode *sub_module_inst_list_node = NULL;
+        AOTSubModInstNode *sub_module_inst_list_node = NULL;
         AOTModule *sub_module = (AOTModule *)sub_module_list_node->module;
         WASMModuleInstance *sub_module_inst = NULL;
 
@@ -136,11 +136,11 @@ sub_module_instantiate(AOTModule *module, AOTModuleInstance *module_inst,
                       sub_module_list_node->module_name);
             goto failed;
         }
-        sub_module_inst_list_node = runtime_malloc(sizeof(WASMSubModInstNode),
+        sub_module_inst_list_node = runtime_malloc(sizeof(AOTSubModInstNode),
                                                    error_buf, error_buf_size);
         if (!sub_module_inst_list_node) {
-            LOG_DEBUG("Malloc WASMSubModInstNode failed, SZ:%d",
-                      sizeof(WASMSubModInstNode));
+            LOG_DEBUG("Malloc AOTSubModInstNode failed, SZ:%d",
+                      sizeof(AOTSubModInstNode));
             goto failed;
         }
         sub_module_inst_list_node->module_inst = sub_module_inst;
@@ -171,9 +171,9 @@ static void
 sub_module_deinstantiate(WASMModuleInstance *module_inst)
 {
     bh_list *list = ((AOTModuleInstanceExtra *)module_inst->e)->sub_module_inst_list;
-    WASMSubModInstNode *node = bh_list_first_elem(list);
+    AOTSubModInstNode *node = bh_list_first_elem(list);
     while (node) {
-        WASMSubModInstNode *next_node = bh_list_elem_next(node);
+        AOTSubModInstNode *next_node = bh_list_elem_next(node);
         bh_list_remove(list, node);
         wasm_deinstantiate(node->module_inst, false);
         wasm_runtime_free(node);
@@ -1224,8 +1224,7 @@ aot_instantiate(AOTModule *module, bool is_sub_inst, WASMExecEnv *exec_env_main,
 
     module_inst->module_type = Wasm_Module_AoT;
     module_inst->module = (void *)module;
-    module_inst->e =
-        (AOTModuleInstanceExtra *)((uint8 *)module_inst + extra_info_offset);
+    module_inst->e =(AOTModuleInstanceExtra *)((uint8 *)module_inst + extra_info_offset);
 
 #if WASM_ENABLE_MULTI_MODULE != 0
     ((AOTModuleInstanceExtra *)module_inst->e)->sub_module_inst_list =
@@ -1369,6 +1368,9 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
     }
 #endif
 
+#if WASM_ENABLE_MULTI_MODULE != 0
+    sub_module_deinstantiate(module_inst);
+#endif
     if (module_inst->tables)
         wasm_runtime_free(module_inst->tables);
 
@@ -1387,6 +1389,7 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
     if (((AOTModuleInstanceExtra *)module_inst->e)->c_api_func_imports)
         wasm_runtime_free(
             ((AOTModuleInstanceExtra *)module_inst->e)->c_api_func_imports);
+
 
 #if WASM_ENABLE_WASI_NN != 0
     if (!is_sub_inst)
@@ -2075,17 +2078,16 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
         sub_module_list_node = bh_list_first_elem(sub_module_list_node);
         while (sub_module_list_node) {
             char *sub_inst_name =
-                ((WASMSubModInstNode *)sub_module_list_node)->module_name;
+                ((AOTSubModInstNode *)sub_module_list_node)->module_name;
             if (strcmp(sub_inst_name, import_func->module_name) == 0) {
                 exec_env = 
-                    wasm_runtime_get_exec_env_singleton(((WASMSubModInstNode *)sub_module_list_node)->module_inst);
+                    wasm_runtime_get_exec_env_singleton((WASMModuleInstanceCommon *)((AOTSubModInstNode *)sub_module_list_node)->module_inst);
                 break;
             }
             sub_module_list_node = bh_list_elem_next(sub_module_list_node);
         }
         if (exec_env == NULL) {
-            wasm_runtime_set_exception(module_inst,
-                                    "create singleton exec_env failed");
+            wasm_runtime_set_exception( (WASMModuleInstanceCommon *)module_inst, "create singleton exec_env failed");
             goto fail;
         }
 #endif
