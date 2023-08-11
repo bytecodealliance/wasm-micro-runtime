@@ -558,11 +558,11 @@ str2uint32(const char *buf, uint32 *p_res);
 static bool
 str2uint64(const char *buf, uint64 *p_res);
 
-#if WASM_ENABLE_MULTI_MODULE != 0 
+#if WASM_ENABLE_MULTI_MODULE != 0
 static AOTExport *
 aot_loader_find_export(const AOTModule *module, const char *module_name,
-                        const char *field_name, uint8 export_kind,
-                        char *error_buf, uint32 error_buf_size)
+                       const char *field_name, uint8 export_kind,
+                       char *error_buf, uint32 error_buf_size)
 {
     AOTExport *export;
     uint32 i;
@@ -597,8 +597,8 @@ aot_loader_find_export(const AOTModule *module, const char *module_name,
 
 static void *
 aot_loader_resolve_function(const char *module_name, const char *function_name,
-                             const AOTFuncType *expected_function_type,
-                             char *error_buf, uint32 error_buf_size)
+                            const AOTFuncType *expected_function_type,
+                            char *error_buf, uint32 error_buf_size)
 {
     WASMModuleCommon *module_reg;
     void *function = NULL;
@@ -617,7 +617,7 @@ aot_loader_resolve_function(const char *module_name, const char *function_name,
     module = (AOTModule *)module_reg;
     export =
         aot_loader_find_export(module, module_name, function_name,
-                                EXPORT_KIND_FUNC, error_buf, error_buf_size);
+                               EXPORT_KIND_FUNC, error_buf, error_buf_size);
     if (!export) {
         return NULL;
     }
@@ -628,18 +628,17 @@ aot_loader_resolve_function(const char *module_name, const char *function_name,
 
     /* resolve function type and function */
     if (export->index < module->import_func_count) {
-        target_function_type =
-            module->import_funcs[export->index].func_type;
-        function =
-            module->import_funcs[export->index].func_ptr_linked;
+        target_function_type = module->import_funcs[export->index].func_type;
+        function = module->import_funcs[export->index].func_ptr_linked;
     }
     else {
 
         target_function_type =
             module->func_types[module->func_type_indexes
                                    [export->index - module->import_func_count]];
-      /*  target_function_type =
-            ((AOTFunc *)(module->func_ptrs[export->index - module->import_func_count]))->func_type;*/
+        /*  target_function_type =
+              ((AOTFunc *)(module->func_ptrs[export->index -
+           module->import_func_count]))->func_type;*/
         function =
             (module->func_ptrs[export->index - module->import_func_count]);
     }
@@ -744,8 +743,8 @@ load_depended_module(const AOTModule *parent_module,
                         sub_module_name);
         goto delete_loading_module;
     }
-    sub_module = aot_load_from_aot_file(buffer, buffer_size,error_buf,
-                                   error_buf_size);
+    sub_module =
+        aot_load_from_aot_file(buffer, buffer_size, error_buf, error_buf_size);
     if (!sub_module) {
         LOG_DEBUG("error: can not load the sub_module %s", sub_module_name);
         /* others will be destroyed in runtime_destroy() */
@@ -1619,34 +1618,32 @@ load_import_funcs(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             set_error_buf(error_buf, error_buf_size, "unknown type");
             return false;
         }
-    
-  
+
 #if WASM_ENABLE_MULTI_MODULE != 0
-       declare_func_type =
-            module->func_types[import_funcs[i].func_type_index];
+        declare_func_type = module->func_types[import_funcs[i].func_type_index];
         read_string(buf, buf_end, sub_module_name);
         read_string(buf, buf_end, field_name);
 
-       import_funcs[i].module_name =sub_module_name  ;
-       import_funcs[i].func_name =  field_name;
-       linked_func = wasm_native_resolve_symbol(
-           sub_module_name, field_name, declare_func_type,
+        import_funcs[i].module_name = sub_module_name;
+        import_funcs[i].func_name = field_name;
+        linked_func = wasm_native_resolve_symbol(
+            sub_module_name, field_name, declare_func_type,
             &import_funcs[i].signature, &import_funcs[i].attachment,
             &import_funcs[i].call_conv_raw);
-    if (!linked_func) {
-        if (!wasm_runtime_is_built_in_module(sub_module_name)) {
-            sub_module = load_depended_module(module, sub_module_name,
-                                              error_buf, error_buf_size);
-            if (!sub_module) {
-                return false;
+        if (!linked_func) {
+            if (!wasm_runtime_is_built_in_module(sub_module_name)) {
+                sub_module = load_depended_module(module, sub_module_name,
+                                                  error_buf, error_buf_size);
+                if (!sub_module) {
+                    return false;
+                }
             }
+            linked_func = aot_loader_resolve_function(
+                sub_module_name, field_name, declare_func_type, error_buf,
+                error_buf_size);
         }
-        linked_func = aot_loader_resolve_function(sub_module_name, field_name,
-                                                  declare_func_type,
-                                                 error_buf,error_buf_size); 
-    }
-    import_funcs[i].func_ptr_linked = linked_func;
-    import_funcs[i].func_type = declare_func_type;
+        import_funcs[i].func_ptr_linked = linked_func;
+        import_funcs[i].func_type = declare_func_type;
 
 #else
         import_funcs[i].func_type =

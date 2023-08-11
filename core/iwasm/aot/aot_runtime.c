@@ -112,14 +112,14 @@ check_global_init_expr(const AOTModule *module, uint32 global_index,
     return true;
 }
 
-
 #if WASM_ENABLE_MULTI_MODULE != 0
 static bool
 sub_module_instantiate(AOTModule *module, AOTModuleInstance *module_inst,
                        uint32 stack_size, uint32 heap_size, char *error_buf,
                        uint32 error_buf_size)
 {
-    bh_list *sub_module_inst_list = ((AOTModuleInstanceExtra *)module_inst->e)->sub_module_inst_list;
+    bh_list *sub_module_inst_list =
+        ((AOTModuleInstanceExtra *)module_inst->e)->sub_module_inst_list;
     WASMRegisteredModule *sub_module_list_node =
         bh_list_first_elem(module->import_module_list);
 
@@ -128,9 +128,8 @@ sub_module_instantiate(AOTModule *module, AOTModuleInstance *module_inst,
         AOTModule *sub_module = (AOTModule *)sub_module_list_node->module;
         WASMModuleInstance *sub_module_inst = NULL;
 
-        sub_module_inst =
-            aot_instantiate(sub_module, false, NULL, stack_size, heap_size,
-                             error_buf, error_buf_size);
+        sub_module_inst = aot_instantiate(sub_module, false, NULL, stack_size,
+                                          heap_size, error_buf, error_buf_size);
         if (!sub_module_inst) {
             LOG_DEBUG("instantiate %s failed",
                       sub_module_list_node->module_name);
@@ -144,7 +143,8 @@ sub_module_instantiate(AOTModule *module, AOTModuleInstance *module_inst,
             goto failed;
         }
         sub_module_inst_list_node->module_inst = sub_module_inst;
-        sub_module_inst_list_node->module_name = sub_module_list_node->module_name;
+        sub_module_inst_list_node->module_name =
+            sub_module_list_node->module_name;
         bh_list_status ret =
             bh_list_insert(sub_module_inst_list, sub_module_inst_list_node);
         bh_assert(BH_LIST_SUCCESS == ret);
@@ -170,7 +170,8 @@ sub_module_instantiate(AOTModule *module, AOTModuleInstance *module_inst,
 static void
 sub_module_deinstantiate(AOTModuleInstance *module_inst)
 {
-    bh_list *list = ((AOTModuleInstanceExtra *)module_inst->e)->sub_module_inst_list;
+    bh_list *list =
+        ((AOTModuleInstanceExtra *)module_inst->e)->sub_module_inst_list;
     AOTSubModInstNode *node = bh_list_first_elem(list);
     while (node) {
         AOTSubModInstNode *next_node = bh_list_elem_next(node);
@@ -832,16 +833,16 @@ init_func_ptrs(AOTModuleInstance *module_inst, AOTModule *module,
               runtime_malloc(total_size, error_buf, error_buf_size))) {
         return false;
     }
-    
+
     /* Set import function pointers */
     func_ptrs = (void **)module_inst->func_ptrs;
     for (i = 0; i < module->import_func_count; i++, func_ptrs++) {
         *func_ptrs = (void *)module->import_funcs[i].func_ptr_linked;
         if (!*func_ptrs) {
-           const char *module_name = module->import_funcs[i].module_name;
-           const char *field_name = module->import_funcs[i].func_name;
-           LOG_WARNING("warning: failed to link import function (%s, %s)",
-                       module_name, field_name);
+            const char *module_name = module->import_funcs[i].module_name;
+            const char *field_name = module->import_funcs[i].func_name;
+            LOG_WARNING("warning: failed to link import function (%s, %s)",
+                        module_name, field_name);
         }
     }
 
@@ -1203,7 +1204,8 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
 
     module_inst->module_type = Wasm_Module_AoT;
     module_inst->module = (void *)module;
-    module_inst->e =(AOTModuleInstanceExtra *)((uint8 *)module_inst + extra_info_offset);
+    module_inst->e =
+        (AOTModuleInstanceExtra *)((uint8 *)module_inst + extra_info_offset);
 
 #if WASM_ENABLE_MULTI_MODULE != 0
     ((AOTModuleInstanceExtra *)module_inst->e)->sub_module_inst_list =
@@ -2046,20 +2048,24 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
     else if (!import_func->call_conv_raw) {
         signature = import_func->signature;
 #if WASM_ENABLE_MULTI_MODULE != 0
-        bh_list *sub_module_list_node = ((AOTModuleInstanceExtra *)module_inst->e)->sub_module_inst_list;
+        bh_list *sub_module_list_node =
+            ((AOTModuleInstanceExtra *)module_inst->e)->sub_module_inst_list;
         sub_module_list_node = bh_list_first_elem(sub_module_list_node);
         while (sub_module_list_node) {
             char *sub_inst_name =
                 ((AOTSubModInstNode *)sub_module_list_node)->module_name;
             if (strcmp(sub_inst_name, import_func->module_name) == 0) {
-                exec_env = 
-                    wasm_runtime_get_exec_env_singleton((WASMModuleInstanceCommon *)((AOTSubModInstNode *)sub_module_list_node)->module_inst);
+                exec_env = wasm_runtime_get_exec_env_singleton(
+                    (WASMModuleInstanceCommon *)((AOTSubModInstNode *)
+                                                     sub_module_list_node)
+                        ->module_inst);
                 break;
             }
             sub_module_list_node = bh_list_elem_next(sub_module_list_node);
         }
         if (exec_env == NULL) {
-            wasm_runtime_set_exception( (WASMModuleInstanceCommon *)module_inst, "create singleton exec_env failed");
+            wasm_runtime_set_exception((WASMModuleInstanceCommon *)module_inst,
+                                       "create singleton exec_env failed");
             goto fail;
         }
 #endif

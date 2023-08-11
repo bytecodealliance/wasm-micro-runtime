@@ -608,7 +608,7 @@ main(int argc, char *argv[])
     bh_print_time("Begin to load wasm file");
 #if WASM_ENABLE_MULTI_MODULE != 0
     wasm_runtime_set_module_reader(module_reader_callback, moudle_destroyer);
-#endif   
+#endif
     if (!(wasm_file =
               (uint8 *)bh_read_file_to_buffer(wasm_file_name, &wasm_file_size)))
         goto fail1;

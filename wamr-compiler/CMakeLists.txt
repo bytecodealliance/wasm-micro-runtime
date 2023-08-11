@@ -1,5 +1,5 @@
-# Copyright (C) 2019 Intel Corporation. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#Copyright(C) 2019 Intel Corporation.All rights reserved.
+#SPDX - License - Identifier : Apache - 2.0 WITH LLVM - exception
 
 cmake_minimum_required (VERSION 3.14)
 
@@ -27,7 +27,7 @@ if (NOT DEFINED WAMR_BUILD_PLATFORM)
   set (WAMR_BUILD_PLATFORM "linux")
 endif()
 
-# Reset default linker flags
+#Reset default linker flags
 set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
 set (CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
 
@@ -56,14 +56,14 @@ if (DEFINED WAMR_BUILD_AOT_FUNC_PREFIX)
   add_definitions(-DAOT_FUNC_PREFIX="${WAMR_BUILD_AOT_FUNC_PREFIX}")
 endif ()
 
-# Set WAMR_BUILD_TARGET, currently values supported:
-# "X86_64", "AMD_64", "X86_32", "ARM_32", "MIPS_32", "XTENSA_32"
+#Set WAMR_BUILD_TARGET, currently values supported:
+#"X86_64", "AMD_64", "X86_32", "ARM_32", "MIPS_32", "XTENSA_32"
 if (NOT WAMR_BUILD_TARGET)
   if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-    # Build as X86_64 by default in 64-bit platform
+#Build as X86_64 by default in 64 - bit platform
     set (WAMR_BUILD_TARGET "X86_64")
   else ()
-    # Build as X86_32 by default in 32-bit platform
+#Build as X86_32 by default in 32 - bit platform
     set (WAMR_BUILD_TARGET "X86_32")
   endif ()
   if (WAMR_BUILD_PLATFORM STREQUAL "windows")
@@ -79,7 +79,7 @@ endif ()
 
 string(TOUPPER ${WAMR_BUILD_TARGET} WAMR_BUILD_TARGET)
 
-# Add definitions for the build target
+#Add definitions for the build target
 if (WAMR_BUILD_TARGET STREQUAL "X86_64")
   add_definitions(-DBUILD_TARGET_X86_64)
 elseif (WAMR_BUILD_TARGET STREQUAL "AMD_64")
@@ -110,7 +110,7 @@ if (CMAKE_SIZEOF_VOID_P EQUAL 8)
     if (WAMR_BUILD_TARGET STREQUAL "X86_64" OR WAMR_BUILD_TARGET STREQUAL "AMD_64"
         OR WAMR_BUILD_TARGET MATCHES "AARCH64.*" OR WAMR_BUILD_TARGET MATCHES "RISCV64.*")
     if (NOT WAMR_BUILD_PLATFORM STREQUAL "windows")
-      # Add -fPIC flag if build as 64-bit
+#Add - fPIC flag if build as 64 - bit
       set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
       set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
       set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "${CMAKE_SHARED_LIBRARY_LINK_C_FLAGS} -fPIC")
@@ -135,7 +135,7 @@ if (WAMR_BUILD_DEBUG_AOT EQUAL 1)
   add_definitions(-DWASM_ENABLE_DEBUG_AOT=1)
 endif()
 
-# Enable LLVM
+#Enable LLVM
 if (NOT WAMR_BUILD_WITH_CUSTOM_LLVM)
   set (LLVM_SRC_ROOT "${PROJECT_SOURCE_DIR}/../core/deps/llvm")
   if (WAMR_BUILD_PLATFORM STREQUAL "windows")
@@ -186,7 +186,7 @@ if (NOT MSVC)
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security \
                                        -ffunction-sections -fdata-sections \
                                        -Wno-unused-parameter -Wno-pedantic")
-  # Remove the extra spaces for better make log
+#Remove the extra spaces for better make log
   string (REGEX REPLACE "  *" " " CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
 endif()
 
@@ -219,11 +219,11 @@ include (${IWASM_DIR}/interpreter/iwasm_interp.cmake)
 include (${IWASM_DIR}/aot/iwasm_aot.cmake)
 include (${IWASM_DIR}/compilation/iwasm_compl.cmake)
 
-# set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wconversion -Wsign-conversion")
+#set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wconversion -Wsign-conversion")
 if (WAMR_BUILD_TARGET MATCHES "X86_.*" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
   if (NOT (CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*Clang" OR MSVC))
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mindirect-branch-register")
-    # UNDEFINED BEHAVIOR, refer to https://en.cppreference.com/w/cpp/language/ub
+#UNDEFINED BEHAVIOR, refer to https: // en.cppreference.com/w/cpp/language/ub
     if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WAMR_BUILD_JIT EQUAL 1)
       set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=undefined \
                                           -fno-sanitize=bounds,bounds-strict,alignment \
@@ -231,7 +231,7 @@ if (WAMR_BUILD_TARGET MATCHES "X86_.*" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
       set(lib_ubsan -fsanitize=undefined)
     endif()
   else ()
-    # UNDEFINED BEHAVIOR, refer to https://en.cppreference.com/w/cpp/language/ub
+#UNDEFINED BEHAVIOR, refer to https: // en.cppreference.com/w/cpp/language/ub
     if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WAMR_BUILD_JIT EQUAL 1)
       set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=undefined \
                                           -fno-sanitize=bounds,alignment \
@@ -245,8 +245,9 @@ if (NOT MSVC)
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fstack-protector-strong --param ssp-buffer-size=4")
 endif()
 
-# We disable these flags by default to stay the same with wasm runtime
-# set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mindirect-branch=thunk -mfunction-return=thunk")
+#We disable these flags by default to stay the same with wasm runtime
+#set(CMAKE_C_FLAGS \
+     "${CMAKE_C_FLAGS} -mindirect-branch=thunk -mfunction-return=thunk")
 
 if (NOT MSVC)
   add_definitions(-D_FORTIFY_SOURCE=2)
@@ -257,7 +258,7 @@ if (WIN32)
   add_definitions(-D_WINSOCK_DEPRECATED_NO_WARNINGS)
 endif()
 
-# message ("-- CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")
+#message("-- CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")
 
 add_library (vmlib
              ${PLATFORM_SHARED_SOURCE}

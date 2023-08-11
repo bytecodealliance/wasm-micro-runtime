@@ -290,7 +290,6 @@ typedef struct AOTModule {
 #endif
 } AOTModule;
 
-
 #define AOTMemoryInstance WASMMemoryInstance
 #define AOTTableInstance WASMTableInstance
 #define AOTModuleInstance WASMModuleInstance
