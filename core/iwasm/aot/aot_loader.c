@@ -778,7 +778,7 @@ register_sub_module:
     return sub_module;
 
 unload_module:
-    wasm_loader_unload(sub_module);
+    aot_unload(sub_module);
 
 destroy_file_buffer:
     if (destroyer) {
@@ -1594,7 +1594,7 @@ load_import_funcs(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                   bool is_load_from_file_buf, char *error_buf,
                   uint32 error_buf_size)
 {
-    const char *sub_module_name, *field_name;
+    char *sub_module_name, *field_name;
     const uint8 *buf = *p_buf;
     AOTImportFunc *import_funcs;
     uint64 size;
@@ -3188,9 +3188,7 @@ create_module(char *error_buf, uint32 error_buf_size)
 {
     AOTModule *module =
         loader_malloc(sizeof(AOTModule), error_buf, error_buf_size);
-#if WASM_ENABLE_MULTI_MODULE != 0
     bh_list_status ret;
-#endif
     if (!module) {
         return NULL;
     }
@@ -3200,7 +3198,7 @@ create_module(char *error_buf, uint32 error_buf_size)
     ret = bh_list_init(module->import_module_list);
     bh_assert(ret == BH_LIST_SUCCESS);
 #endif
-
+    (void)ret;
     return module;
 }
 
