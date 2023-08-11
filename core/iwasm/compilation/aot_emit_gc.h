@@ -1,9 +1,9 @@
-#ifndef _AOT_GC_OBJECT_WRAPPER_H_
-#define _AOT_GC_OBJECT_WRAPPER_H_
+#ifndef _AOT_EMIT_GC_H_
+#define _AOT_EMIT_GC_H_
 
-#include "../aot_compiler.h"
+#include "aot_compiler.h"
 #include "stdbool.h"
-#include "../aot/aot_runtime.h"
+#include "aot_runtime.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -17,4 +17,4 @@ aot_call_aot_create_func_obj(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 } /* end of extern "C" */
 #endif
 
-#endif /* end of _AOT_GC_OBJECT_WRAPPER_H_ */
+#endif /* end of _AOT_EMIT_GC_H_ */

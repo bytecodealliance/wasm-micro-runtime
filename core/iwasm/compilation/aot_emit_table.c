@@ -7,7 +7,7 @@
 #include "aot_emit_exception.h"
 #include "../aot/aot_runtime.h"
 #if WASM_ENABLE_GC != 0
-#include "gc/aot_gc_object_wrapper.h"
+#include "aot_emit_gc.h"
 #endif
 
 uint64
@@ -342,18 +342,10 @@ aot_compile_op_table_init(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     param_types[5] = I32_TYPE;
     ret_type = VOID_TYPE;
 
-#if WASM_ENABLE_GC != 0
-    if (comp_ctx->enable_gc) {
-        GET_AOT_FUNCTION(aot_gc_table_init, 6);
-    }
+    if (comp_ctx->is_jit_mode)
+        GET_AOT_FUNCTION(llvm_jit_table_init, 6);
     else
-#endif
-    {
-        if (comp_ctx->is_jit_mode)
-            GET_AOT_FUNCTION(llvm_jit_table_init, 6);
-        else
-            GET_AOT_FUNCTION(aot_table_init, 6);
-    }
+        GET_AOT_FUNCTION(aot_table_init, 6);
 
     param_values[0] = func_ctx->aot_inst;
 
@@ -485,15 +477,7 @@ aot_compile_op_table_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     param_types[0] = INT8_PTR_TYPE;
     param_types[1] = I32_TYPE;
     param_types[2] = I32_TYPE;
-#if WASM_ENABLE_GC != 0
-    if (comp_ctx->enable_gc) {
-        param_types[3] = GC_REF_TYPE;
-    }
-    else
-#endif
-    {
-        param_types[3] = I32_TYPE;
-    }
+    param_types[3] = INT8_PTR_TYPE;
     ret_type = I32_TYPE;
 
     if (comp_ctx->is_jit_mode)
@@ -514,11 +498,15 @@ aot_compile_op_table_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 #if WASM_ENABLE_GC != 0
     if (comp_ctx->enable_gc) {
         POP_REF(param_values[3]);
+        LLVMBuildBitCast(comp_ctx->builder, param_values[3], INT8_PTR_TYPE,
+                         "table_elem_i8p");
     }
     else
 #endif
     {
         POP_I32(param_values[3]);
+        LLVMBuildIntToPtr(comp_ctx->builder, param_values[3], INT8_PTR_TYPE,
+                          "table_elem_i8p");
     }
 
     if (!(ret = LLVMBuildCall2(comp_ctx->builder, func_type, func, param_values,
@@ -544,15 +532,7 @@ aot_compile_op_table_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     param_types[0] = INT8_PTR_TYPE;
     param_types[1] = I32_TYPE;
     param_types[2] = I32_TYPE;
-#if WASM_ENABLE_GC != 0
-    if (comp_ctx->enable_gc) {
-        param_types[3] = GC_REF_TYPE;
-    }
-    else
-#endif
-    {
-        param_types[3] = I32_TYPE;
-    }
+    param_types[3] = INT8_PTR_TYPE;
     param_types[4] = I32_TYPE;
     ret_type = VOID_TYPE;
 
@@ -574,11 +554,15 @@ aot_compile_op_table_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 #if WASM_ENABLE_GC != 0
     if (comp_ctx->enable_gc) {
         POP_REF(param_values[3]);
+        LLVMBuildBitCast(comp_ctx->builder, param_values[3], INT8_PTR_TYPE,
+                         "table_elem_i8p");
     }
     else
 #endif
     {
         POP_I32(param_values[3]);
+        LLVMBuildIntToPtr(comp_ctx->builder, param_values[3], INT8_PTR_TYPE,
+                          "table_elem_i8p");
     }
     /* i */
     POP_I32(param_values[4]);

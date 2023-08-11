@@ -2501,52 +2501,11 @@ aot_table_init(AOTModuleInstance *module_inst, uint32 tbl_idx,
     AOTTableInstance *tbl_inst;
     AOTTableInitData *tbl_seg;
     const AOTModule *module = (AOTModule *)module_inst->module;
-
-    tbl_inst = module_inst->tables[tbl_idx];
-    bh_assert(tbl_inst);
-
-    tbl_seg = module->table_init_data_list[tbl_seg_idx];
-    bh_assert(tbl_seg);
-
-    if (!length) {
-        return;
-    }
-
-    if (length + src_offset > tbl_seg->func_index_count
-        || dst_offset + length > tbl_inst->cur_size) {
-        aot_set_exception_with_id(module_inst, EXCE_OUT_OF_BOUNDS_TABLE_ACCESS);
-        return;
-    }
-
-    if (tbl_seg->is_dropped) {
-        aot_set_exception_with_id(module_inst, EXCE_OUT_OF_BOUNDS_TABLE_ACCESS);
-        return;
-    }
-
-    if (!wasm_elem_is_passive(tbl_seg->mode)) {
-        aot_set_exception_with_id(module_inst, EXCE_OUT_OF_BOUNDS_TABLE_ACCESS);
-        return;
-    }
-
-    bh_memcpy_s((uint8 *)tbl_inst + offsetof(AOTTableInstance, elems)
-                    + dst_offset * sizeof(table_elem_type_t),
-                (tbl_inst->cur_size - dst_offset) * sizeof(table_elem_type_t),
-                tbl_seg->func_indexes + src_offset,
-                length * sizeof(table_elem_type_t));
-}
-
 #if WASM_ENABLE_GC != 0
-void
-aot_gc_table_init(AOTModuleInstance *module_inst, uint32 tbl_idx,
-                  uint32 tbl_seg_idx, uint32 length, uint32 src_offset,
-                  uint32 dst_offset)
-{
-    AOTTableInstance *tbl_inst;
-    AOTTableInitData *tbl_seg;
-    const AOTModule *module = (AOTModule *)module_inst->module;
     void **table_elems;
     uintptr_t *func_indexes;
     void *func_obj;
+#endif
 
     tbl_inst = module_inst->tables[tbl_idx];
     bh_assert(tbl_inst);
@@ -2574,6 +2533,7 @@ aot_gc_table_init(AOTModuleInstance *module_inst, uint32 tbl_idx,
         return;
     }
 
+#if WASM_ENABLE_GC != 0
     table_elems = tbl_inst->elems + dst_offset;
     func_indexes = tbl_seg->func_indexes + src_offset;
 
@@ -2590,8 +2550,14 @@ aot_gc_table_init(AOTModuleInstance *module_inst, uint32 tbl_idx,
             table_elems[i] = NULL_REF;
         }
     }
+#else
+    bh_memcpy_s((uint8 *)tbl_inst + offsetof(AOTTableInstance, elems)
+                    + dst_offset * sizeof(table_elem_type_t),
+                (tbl_inst->cur_size - dst_offset) * sizeof(table_elem_type_t),
+                tbl_seg->func_indexes + src_offset,
+                length * sizeof(table_elem_type_t));
+#endif
 }
-#endif /*  WASM_ENABLE_GC != 0 */
 
 void
 aot_table_copy(AOTModuleInstance *module_inst, uint32 src_tbl_idx,

@@ -459,27 +459,17 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 (void)vec_len;
 
                 type_idx = *frame_ip++;
-#if WASM_ENABLE_GC != 0
-                if (comp_ctx->enable_gc) {
-                    if (!aot_compile_op_select(
-                            comp_ctx, func_ctx,
-                            (type_idx != VALUE_TYPE_I64)
-                                && (type_idx != VALUE_TYPE_F64)
-#if UINTPTR_MAX == UINT64_MAX
-                                && (!wasm_is_type_reftype(type_idx))
+                if (!aot_compile_op_select(
+                        comp_ctx, func_ctx,
+                        (type_idx != VALUE_TYPE_I64)
+                            && (type_idx != VALUE_TYPE_F64)
+#if WASM_ENABLE_GC != 0 && UINTPTR_MAX == UINT64_MAX
+                            && !(comp_ctx->enable_gc
+                                 && wasm_is_type_reftype(type_idx))
 #endif
-                                ))
-                        return false;
-                }
-                else
-#endif
-                {
-                    if (!aot_compile_op_select(
-                            comp_ctx, func_ctx,
-                            (type_idx != VALUE_TYPE_I64)
-                                && (type_idx != VALUE_TYPE_F64)))
-                        return false;
-                }
+                            ))
+                    return false;
+
                 break;
             }
             case WASM_OP_TABLE_GET:

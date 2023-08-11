@@ -9,7 +9,7 @@
 #include "aot_emit_table.h"
 #include "../aot/aot_runtime.h"
 #if WASM_ENABLE_GC != 0
-#include "gc/aot_gc_object_wrapper.h"
+#include "aot_emit_gc.h"
 #endif
 
 #define ADD_BASIC_BLOCK(block, name)                                          \
