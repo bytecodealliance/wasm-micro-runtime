@@ -202,7 +202,7 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
         if (num_bytes_per_page < heap_size) {
             set_error_buf(error_buf, error_buf_size,
                           "failed to insert app heap into linear memory, "
-                          "try using `--heap_size=0` option");
+                          "try using `--heap-size=0` option");
             return NULL;
         }
     }
@@ -261,7 +261,7 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
         if (init_page_count > DEFAULT_MAX_PAGES) {
             set_error_buf(error_buf, error_buf_size,
                           "failed to insert app heap into linear memory, "
-                          "try using `--heap_size=0` option");
+                          "try using `--heap-size=0` option");
             return NULL;
         }
         else if (init_page_count == DEFAULT_MAX_PAGES) {
