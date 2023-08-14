@@ -41,6 +41,8 @@ from wamr.wamrapi.iwasm import wasm_runtime_addr_app_to_native
 from wamr.wamrapi.iwasm import wasm_runtime_addr_native_to_app
 from wamr.wamrapi.iwasm import wasm_runtime_set_wasi_args
 
+ID_TO_EXEC_ENV_MAPPING = {}
+
 
 class Engine:
     def __init__(self):
@@ -125,11 +127,16 @@ class Instance:
         stack_size: int = 65536,
         heap_size: int = 16384,
         dir_list: List[str] | None = None,
+        preinitialized_module_inst: wasm_module_inst_t | None = None,
     ):
+        # Store module ensures GC does not remove it
         self.module = module
+        if preinitialized_module_inst is None:
+            self.module_inst = self._create_module_inst(module, stack_size, heap_size)
+        else:
+            self.module_inst = preinitialized_module_inst
         if dir_list:
             self._set_wasi_args(module, dir_list)
-        self.module_inst = self._create_module_inst(module, stack_size, heap_size)
 
     def __del__(self):
         print("deleting Instance")
@@ -149,6 +156,17 @@ class Instance:
             module.module, na, len(dir_list), None, 0, None, 0, None, 0
         )
 
+    def _create_module_inst(
+        self, module: Module, stack_size: int, heap_size: int
+    ) -> wasm_module_inst_t:
+        error_buf = create_string_buffer(128)
+        module_inst = wasm_runtime_instantiate(
+            module.module, stack_size, heap_size, error_buf, len(error_buf)
+        )
+        if not module_inst:
+            raise Exception("Error while creating module instance")
+        return module_inst
+
     def malloc(self, nbytes: int, native_handler) -> c_uint:
         return wasm_runtime_module_malloc(self.module_inst, nbytes, native_handler)
 
@@ -167,44 +185,19 @@ class Instance:
     def app_addr_to_native_addr(self, app_addr) -> c_void_p:
         return wasm_runtime_addr_app_to_native(self.module_inst, app_addr)
 
-    def _create_module_inst(
-        self, module: Module, stack_size: int, heap_size: int
-    ) -> wasm_module_inst_t:
-        error_buf = create_string_buffer(128)
-        module_inst = wasm_runtime_instantiate(
-            module.module, stack_size, heap_size, error_buf, len(error_buf)
-        )
-        if not module_inst:
-            raise Exception("Error while creating module instance")
-        return module_inst
-
-
-id_to_exec_env_mapping = {}
-
 
 class ExecEnv:
-    def __init__(self, module_inst: Instance | None = None, stack_size: int = 65536):
+    def __init__(self, module_inst: Instance, stack_size: int = 65536):
         self.module_inst = module_inst
         self.exec_env = self._create_exec_env(module_inst, stack_size)
         self.own_c = True
 
-        id_to_exec_env_mapping[str(addressof(self.exec_env.contents))] = self
+        ID_TO_EXEC_ENV_MAPPING[str(addressof(self.exec_env.contents))] = self
 
     def __del__(self):
         if self.own_c:
             print("deleting ExecEnv")
             wasm_runtime_destroy_exec_env(self.exec_env)
-
-    def call(self, func: wasm_function_inst_t, argc: int, argv: "POINTER[c_uint]"):
-        if not wasm_runtime_call_wasm(self.exec_env, func, argc, argv):
-            raise Exception("Error while calling function")
-
-    def get_module_inst(self) -> Instance:
-        self.module_inst.module_inst = wasm_runtime_get_module_inst(self.exec_env)
-        return self.module_inst
-
-    def start_debugging(self) -> int:
-        return wasm_runtime_start_debug_instance(self.exec_env)
 
     def _create_exec_env(
         self, module_inst: Instance, stack_size: int
@@ -214,18 +207,40 @@ class ExecEnv:
             raise Exception("Error while creating execution environment")
         return exec_env
 
+    def call(self, func: wasm_function_inst_t, argc: int, argv: "POINTER[c_uint]"):
+        if not wasm_runtime_call_wasm(self.exec_env, func, argc, argv):
+            raise Exception("Error while calling function")
+
+    def get_module_inst(self) -> Instance:
+        return self.module_inst
+
+    def start_debugging(self) -> int:
+        return wasm_runtime_start_debug_instance(self.exec_env)
+
     def call_indirect(self, element_index: int, argc: int, argv: "POINTER[c_uint]"):
         if not wasm_runtime_call_indirect(self.exec_env, element_index, argc, argv):
             raise Exception("Error while calling function")
 
     @staticmethod
     def wrap(env: int) -> "ExecEnv":
-        if str(env) in id_to_exec_env_mapping:
-            return id_to_exec_env_mapping[str(env)]
-        else:
-            exec_env = ExecEnv()
-            exec_env.exec_env = cast(env, wasm_exec_env_t)
-            exec_env.module_inst = wasm_runtime_get_module_inst(exec_env.exec_env)
-            exec_env.own_c = False
-            id_to_exec_env_mapping[str(env)] = exec_env
-            return exec_env
+        if str(env) in ID_TO_EXEC_ENV_MAPPING:
+            return ID_TO_EXEC_ENV_MAPPING[str(env)]
+        return InternalExecEnv(env)
+
+
+class InternalExecEnv(ExecEnv):
+    """
+    Generate Python ExecEnv-like object from a `wasm_exec_env_t` index.
+    """
+
+    def __init__(self, env: int):
+        self.env = env
+        self.exec_env = cast(env, wasm_exec_env_t)
+        self.module_inst = Instance(
+            module=object(),
+            preinitialized_module_inst=wasm_runtime_get_module_inst(self.exec_env),
+        )
+        ID_TO_EXEC_ENV_MAPPING[str(env)] = self
+
+    def __del__(self):
+        del ID_TO_EXEC_ENV_MAPPING[str(self.env)]
