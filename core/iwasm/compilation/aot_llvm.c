@@ -627,8 +627,8 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
     if (comp_ctx->is_indirect_mode) {
         /* avoid LUT relocations ("switch-table") */
         LLVMAttributeRef attr_no_jump_tables = LLVMCreateStringAttribute(
-            comp_ctx->context, "no-jump-tables", (uint32)strlen("no-jump-tables"),
-            "true", (uint32)strlen("true"));
+            comp_ctx->context, "no-jump-tables",
+            (uint32)strlen("no-jump-tables"), "true", (uint32)strlen("true"));
         LLVMAddAttributeAtIndex(func, LLVMAttributeFunctionIndex,
                                 attr_no_jump_tables);
     }
