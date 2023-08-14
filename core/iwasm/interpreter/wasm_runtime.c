@@ -1839,7 +1839,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
     for (i = 0; i < module->data_seg_count; i++) {
         WASMMemoryInstance *memory = NULL;
         uint8 *memory_data = NULL;
-        uint32 memory_size = 0;
+        uint64 memory_size = 0;
         WASMDataSeg *data_seg = module->data_segments[i];
 
 #if WASM_ENABLE_BULK_MEMORY != 0
@@ -1852,7 +1852,8 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
         bh_assert(memory);
 
         memory_data = memory->memory_data;
-        memory_size = memory->num_bytes_per_page * memory->cur_page_count;
+        memory_size =
+            (uint64)memory->num_bytes_per_page * memory->cur_page_count;
         bh_assert(memory_data || memory_size == 0);
 
         bh_assert(data_seg->base_offset.init_expr_type
