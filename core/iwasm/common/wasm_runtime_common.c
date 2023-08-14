@@ -4793,7 +4793,7 @@ wasm_externref_objdel(WASMModuleInstanceCommon *module_inst, void *extern_obj)
 }
 
 bool
-wasm_externref_add_cleanup(WASMModuleInstanceCommon *module_inst,
+wasm_externref_set_cleanup(WASMModuleInstanceCommon *module_inst,
                            void *extern_obj, void (*extern_obj_cleanup)(void *))
 {
 

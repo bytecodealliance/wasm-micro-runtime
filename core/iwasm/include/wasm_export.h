@@ -1305,17 +1305,17 @@ WASM_RUNTIME_API_EXTERN bool
 wasm_externref_objdel(wasm_module_inst_t module_inst, void *extern_obj);
 
 /**
- * Add cleanup callback to release external object.
+ * Set cleanup callback to release external object.
  *
  * @param module_inst the WASM module instance that the extern object
  *        belongs to
- * @param extern_obj the external object to which to add the cleanup callback `extern_obj_cleanup`
+ * @param extern_obj the external object to which to set the `extern_obj_cleanup` cleanup callback.
  * @param extern_obj_cleanup a callback to release `extern_obj`
  *
  * @return true if success, false otherwise
  */
 WASM_RUNTIME_API_EXTERN bool
-wasm_externref_add_cleanup(wasm_module_inst_t module_inst, void *extern_obj,
+wasm_externref_set_cleanup(wasm_module_inst_t module_inst, void *extern_obj,
                            void (*extern_obj_cleanup)(void *));
 
 /**
