@@ -1899,7 +1899,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 
         /* check offset + length(could be zero) */
         length = data_seg->data_length;
-        if (base_offset + length > memory_size) {
+        if ((uint64)base_offset + length > memory_size) {
             LOG_DEBUG("base_offset(%d) + length(%d) > memory_size(%d)",
                       base_offset, length, memory_size);
 #if WASM_ENABLE_REF_TYPES != 0
