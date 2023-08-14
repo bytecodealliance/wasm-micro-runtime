@@ -1013,7 +1013,7 @@ insert_extra_info_node(gc_heap_t *vheap, extra_info_node_t *node)
         }
 
         bh_memcpy_s(new_nodes, total_size, vheap->extra_info_nodes,
-                    sizeof(extra_info_node_t) * vheap->extra_info_node_cnt);
+                    sizeof(extra_info_node_t *) * vheap->extra_info_node_cnt);
         if (vheap->extra_info_nodes != vheap->extra_info_normal_nodes) {
             BH_FREE(vheap->extra_info_nodes);
         }
@@ -1093,7 +1093,7 @@ gc_unset_finalizer(gc_handle_t handle, gc_object_t obj)
         vheap->extra_info_nodes + index,
         (vheap->extra_info_node_capacity - index) * sizeof(extra_info_node_t *),
         vheap->extra_info_nodes + index + 1,
-        (vheap->extra_info_node_cnt - index) * sizeof(extra_info_node_t *));
+        (vheap->extra_info_node_cnt - index - 1) * sizeof(extra_info_node_t *));
     vheap->extra_info_node_cnt -= 1;
     UNLOCK_HEAP(vheap);
 
