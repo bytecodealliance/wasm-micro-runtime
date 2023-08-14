@@ -144,6 +144,14 @@
 #define WASM_ENABLE_WASI_NN 0
 #endif
 
+#ifndef WASM_ENABLE_WASI_NN_GPU
+#define WASM_ENABLE_WASI_NN_GPU 0
+#endif
+
+#ifndef WASM_ENABLE_WASI_NN_EXTERNAL_DELEGATE
+#define WASM_ENABLE_WASI_NN_EXTERNAL_DELEGATE 0
+#endif
+
 /* Default disable libc emcc */
 #ifndef WASM_ENABLE_LIBC_EMCC
 #define WASM_ENABLE_LIBC_EMCC 0
