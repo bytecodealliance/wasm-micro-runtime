@@ -510,9 +510,10 @@ jobs:
 
       - name: set env variable(if x86_32 test needed)
         if: >
-          (matrix.test_option == '$DEFAULT_TEST_OPTIONS' || matrix.test_option == '$THREADS_TEST_OPTIONS'
-           || matrix.test_option == '$WASI_TEST_OPTIONS')
-          && matrix.running_mode != 'fast-jit' && matrix.running_mode != 'jit' && matrix.running_mode != 'multi-tier-jit'
+          ((matrix.test_option == '$DEFAULT_TEST_OPTIONS' || matrix.test_option == '$THREADS_TEST_OPTIONS'
+            || matrix.test_option == '$WASI_TEST_OPTIONS')
+           && matrix.running_mode != 'fast-jit' && matrix.running_mode != 'jit' && matrix.running_mode != 'multi-tier-jit')
+           || (matrix.test_option == '$GC_TEST_OPTIONS')
         run: echo "TEST_ON_X86_32=true" >> $GITHUB_ENV
 
       #only download llvm libraries in jit and aot mode
@@ -574,8 +575,16 @@ jobs:
 
       - name: run tests x86_32
         timeout-minutes: 20
-        if: env.TEST_ON_X86_32 == 'true'
+        if: env.TEST_ON_X86_32 == 'true' && matrix.test_option != '$GC_TEST_OPTIONS'
         run: ./test_wamr.sh ${{ env.X86_32_TARGET_TEST_OPTIONS }} ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
+        working-directory: ./tests/wamr-test-suites
+
+      - name: run gc tests x86_32
+        timeout-minutes: 20
+        if: env.TEST_ON_X86_32 == 'true' && matrix.test_option == '$GC_TEST_OPTIONS'
+        run: |
+          eval $(opam env)
+          ./test_wamr.sh ${{ env.X86_32_TARGET_TEST_OPTIONS }} ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
         working-directory: ./tests/wamr-test-suites
 
   test-wamr-ide:
