@@ -354,7 +354,7 @@ fail:
         if (lib->handle != NULL) {
             dlclose(lib->handle);
         }
-        free(lib);
+        wasm_runtime_free(lib);
     }
     return NULL;
 }
