@@ -190,14 +190,16 @@ class ExecEnv:
     def __init__(self, module_inst: Instance, stack_size: int = 65536):
         self.module_inst = module_inst
         self.exec_env = self._create_exec_env(module_inst, stack_size)
+        self.env = addressof(self.exec_env.contents)
         self.own_c = True
 
-        ID_TO_EXEC_ENV_MAPPING[str(addressof(self.exec_env.contents))] = self
+        ID_TO_EXEC_ENV_MAPPING[str(self.env)] = self
 
     def __del__(self):
         if self.own_c:
             print("deleting ExecEnv")
             wasm_runtime_destroy_exec_env(self.exec_env)
+            del ID_TO_EXEC_ENV_MAPPING[str(self.env)]
 
     def _create_exec_env(
         self, module_inst: Instance, stack_size: int
