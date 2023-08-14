@@ -500,8 +500,10 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
             }
 #endif
 #endif /* WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0 */
-            default:
+            default: {
 #if WASM_ENABLE_GC != 0
+                bool is_extern_ref = false;
+
                 if (wasm_is_type_reftype(type->types[i])) {
                     if (strncasecmp(argv[i], "null", 4) == 0) {
                         PUT_REF_TO_ADDR(argv1 + p, NULL_REF);
@@ -509,6 +511,21 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
                         break;
                     }
                     else if (type->types[i] == VALUE_TYPE_EXTERNREF) {
+                        is_extern_ref = true;
+                    }
+
+                    if (wasm_is_type_multi_byte_type(
+                            type->types[type->param_count + i])) {
+                        WASMRefType *ref_type = ref_type_map->ref_type;
+                        if (wasm_is_refheaptype_common(&ref_type->ref_ht_common)
+                            && ref_type->ref_ht_common.heap_type ==
+                                   HEAP_TYPE_EXTERN) {
+                            is_extern_ref = true;
+                        }
+                        ref_type_map++;
+                    }
+
+                    if (is_extern_ref) {
                         WASMExternrefObjectRef gc_obj;
                         void *extern_obj =
                             (void *)(uintptr_t)strtoull(argv[i], &endptr, 0);
@@ -530,15 +547,12 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
                         p += REF_CELL_NUM;
                     }
 
-                    if (wasm_is_type_multi_byte_type(
-                            type->types[type->param_count + i]))
-                        ref_type_map++;
-
                     break;
                 }
 #endif /* end of WASM_ENABLE_GC != 0 */
                 bh_assert(0);
                 break;
+            }
         }
         if (endptr && *endptr != '\0' && *endptr != '_') {
             snprintf(buf, sizeof(buf), "invalid input argument %" PRId32 ": %s",

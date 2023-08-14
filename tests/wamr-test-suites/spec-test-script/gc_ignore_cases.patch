@@ -320,23 +320,7 @@ index 6a8ba1d0..e3059235 100644
  (assert_return (invoke $Ms "get memory[0]") (i32.const 104))  ;; 'h'
  (assert_return (invoke $Ms "get table[0]") (i32.const 0xdead))
 +;)
-diff --git a/test/core/local_get.wast b/test/core/local_get.wast
-index b56aeec3..ab1b8936 100644
---- a/test/core/local_get.wast
-+++ b/test/core/local_get.wast
-@@ -245,9 +245,9 @@
-   )
- )
- 
--(assert_return (invoke "get-after-set" (ref.extern 1)) (ref.extern 1))
--(assert_return (invoke "get-after-tee" (ref.extern 2)) (ref.extern 2))
--(assert_return (invoke "get-in-block-after-set" (ref.extern 3)) (ref.extern 3))
-+;; (assert_return (invoke "get-after-set" (ref.extern 1)) (ref.extern 1))
-+;; (assert_return (invoke "get-after-tee" (ref.extern 2)) (ref.extern 2))
-+;; (assert_return (invoke "get-in-block-after-set" (ref.extern 3)) (ref.extern 3))
- 
- (assert_invalid
-   (module (func $uninit (local $x (ref extern)) (drop (local.get $x))))
+
 diff --git a/test/core/ref.wast b/test/core/ref.wast
 index aef1b392..b86db373 100644
 --- a/test/core/ref.wast
