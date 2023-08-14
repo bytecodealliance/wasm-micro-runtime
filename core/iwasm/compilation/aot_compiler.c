@@ -2735,6 +2735,33 @@ aot_generate_tempfile_name(const char *prefix, const char *extension,
     snprintf(buffer + name_len, len - name_len, ".%s", extension);
     return buffer;
 }
+#else
+
+errno_t
+_mktemp_s(char *nameTemplate, size_t sizeInChars);
+
+char *
+aot_generate_tempfile_name(const char *prefix, const char *extension,
+                           char *buffer, uint32 len)
+{
+    int name_len;
+
+    name_len = snprintf(buffer, len, "%s-XXXXXX", prefix);
+
+    if (_mktemp_s(buffer, name_len + 1) != 0) {
+        return NULL;
+    }
+
+    /* Check if buffer length is enough */
+    /* name_len + '.' + extension + '\0' */
+    if (name_len + 1 + strlen(extension) + 1 > len) {
+        aot_set_last_error("temp file name too long.");
+        return NULL;
+    }
+
+    snprintf(buffer + name_len, len - name_len, ".%s", extension);
+    return buffer;
+}
 #endif /* end of !(defined(_WIN32) || defined(_WIN32_)) */
 
 bool
