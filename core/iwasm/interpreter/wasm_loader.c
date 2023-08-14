@@ -6355,6 +6355,10 @@ typedef struct BranchBlock {
     uint32 stack_cell_num;
 #if WASM_ENABLE_GC != 0
     uint32 reftype_map_num;
+    /* Indicate which local is used inside current block, used to validate
+     * local.get with non-nullable ref types */
+    uint8 *local_use_mask;
+    uint32 local_use_mask_size;
 #endif
 #if WASM_ENABLE_FAST_INTERP != 0
     uint16 dynamic_offset;
@@ -6543,6 +6547,107 @@ free_all_label_patch_lists(BranchBlock *frame_csp, uint32 csp_num)
 
 #endif /* end of WASM_ENABLE_FAST_INTERP */
 
+#if WASM_ENABLE_GC != 0
+static bool
+wasm_loader_init_local_use_masks(WASMLoaderContext *ctx, uint32 local_count,
+                                 char *error_buf, uint32 error_buf_size)
+{
+    BranchBlock *current_csp = ctx->frame_csp - 1;
+    uint32 local_mask_size;
+
+    if (local_count == 0) {
+        current_csp->local_use_mask_size = 0;
+        return true;
+    }
+
+    if (current_csp->local_use_mask) {
+        memset(current_csp->local_use_mask, 0,
+               current_csp->local_use_mask_size);
+        return true;
+    }
+
+    local_mask_size = (local_count + 7) / sizeof(uint8);
+    if (!(current_csp->local_use_mask =
+              loader_malloc(local_mask_size, error_buf, error_buf_size))) {
+        return false;
+    }
+    current_csp->local_use_mask_size = local_mask_size;
+
+    if (current_csp->label_type != LABEL_TYPE_FUNCTION) {
+        /* For non-function blocks, inherit the use status from parent block */
+        BranchBlock *parent_csp = current_csp - 1;
+
+        bh_assert(parent_csp >= ctx->frame_csp_bottom);
+        bh_assert(parent_csp->local_use_mask);
+
+        bh_memcpy_s(current_csp->local_use_mask, local_mask_size,
+                    parent_csp->local_use_mask, local_mask_size);
+    }
+
+    return true;
+}
+
+static void
+wasm_loader_destroy_curr_local_use_masks(WASMLoaderContext *ctx)
+{
+    BranchBlock *current_csp = ctx->frame_csp - 1;
+
+    bh_assert(current_csp->local_use_mask
+              || current_csp->local_use_mask_size == 0);
+
+    if (current_csp->local_use_mask) {
+        wasm_runtime_free(current_csp->local_use_mask);
+    }
+
+    current_csp->local_use_mask = NULL;
+    current_csp->local_use_mask_size = 0;
+}
+
+static void
+wasm_loader_clean_all_local_use_masks(WASMLoaderContext *ctx)
+{
+    BranchBlock *tmp_csp = ctx->frame_csp_bottom;
+    uint32 i;
+
+    for (i = 0; i < ctx->csp_num; i++) {
+        if (tmp_csp->local_use_mask) {
+            wasm_runtime_free(tmp_csp->local_use_mask);
+            tmp_csp->local_use_mask = NULL;
+            tmp_csp->local_use_mask_size = 0;
+        }
+        tmp_csp++;
+    }
+}
+
+static void
+wasm_loader_mask_local(WASMLoaderContext *ctx, uint32 index)
+{
+    BranchBlock *current_csp = ctx->frame_csp - 1;
+    uint32 byte_offset = index / sizeof(uint8);
+    uint32 bit_offset = index % sizeof(uint8);
+
+    bh_assert(byte_offset < current_csp->local_use_mask_size);
+    bh_assert(current_csp->local_use_mask);
+
+    current_csp->local_use_mask[byte_offset] |= (1 << bit_offset);
+}
+
+static bool
+wasm_loader_get_local_status(WASMLoaderContext *ctx, uint32 index)
+{
+    BranchBlock *current_csp = ctx->frame_csp - 1;
+    uint32 byte_offset = index / sizeof(uint8);
+    uint32 bit_offset = index % sizeof(uint8);
+
+    bh_assert(byte_offset < current_csp->local_use_mask_size);
+    bh_assert(current_csp->local_use_mask);
+
+    return (current_csp->local_use_mask[byte_offset] & (1 << bit_offset))
+               ? true
+               : false;
+}
+#endif /* end of WASM_ENABLE_GC != 0 */
+
 static void
 wasm_loader_ctx_destroy(WASMLoaderContext *ctx)
 {
@@ -6556,6 +6661,9 @@ wasm_loader_ctx_destroy(WASMLoaderContext *ctx)
         if (ctx->frame_csp_bottom) {
 #if WASM_ENABLE_FAST_INTERP != 0
             free_all_label_patch_lists(ctx->frame_csp_bottom, ctx->csp_num);
+#endif
+#if WASM_ENABLE_GC != 0
+            wasm_loader_clean_all_local_use_masks(ctx);
 #endif
             wasm_runtime_free(ctx->frame_csp_bottom);
         }
@@ -8284,6 +8392,7 @@ fail:
             goto fail;                                               \
     } while (0)
 
+#if WASM_ENABLE_GC == 0
 #define PUSH_CSP(label_type, block_type, _start_addr)                       \
     do {                                                                    \
         if (!wasm_loader_push_frame_csp(loader_ctx, label_type, block_type, \
@@ -8297,6 +8406,26 @@ fail:
         if (!wasm_loader_pop_frame_csp(loader_ctx, error_buf, error_buf_size)) \
             goto fail;                                                         \
     } while (0)
+#else
+#define PUSH_CSP(label_type, block_type, _start_addr)                       \
+    do {                                                                    \
+        if (!wasm_loader_push_frame_csp(loader_ctx, label_type, block_type, \
+                                        _start_addr, error_buf,             \
+                                        error_buf_size))                    \
+            goto fail;                                                      \
+        if (!wasm_loader_init_local_use_masks(loader_ctx, local_count,      \
+                                              error_buf, error_buf_size)) { \
+            goto fail;                                                      \
+        }                                                                   \
+    } while (0)
+
+#define POP_CSP()                                                              \
+    do {                                                                       \
+        wasm_loader_destroy_curr_local_use_masks(loader_ctx);                  \
+        if (!wasm_loader_pop_frame_csp(loader_ctx, error_buf, error_buf_size)) \
+            goto fail;                                                         \
+    } while (0)
+#endif /* end of WASM_ENABLE_GC == 0 */
 
 #if WASM_ENABLE_GC == 0
 #define GET_LOCAL_REFTYPE() (void)0
@@ -10537,10 +10666,12 @@ re_scan:
 #if WASM_ENABLE_GC != 0
                 /* Cannot get a non-nullable and unset local */
                 if (local_idx >= param_count
-                    && wasm_is_reftype_htref_non_nullable(local_type)) {
+                    && wasm_is_reftype_htref_non_nullable(local_type)
+                    && !wasm_loader_get_local_status(loader_ctx,
+                                                     local_idx - param_count)) {
                     set_error_buf(error_buf, error_buf_size,
                                   "uninitialized local");
-                    return false;
+                    goto fail;
                 }
 #endif
 
@@ -10643,6 +10774,12 @@ re_scan:
                 }
 #endif
 #endif /* end of WASM_ENABLE_FAST_INTERP != 0 */
+
+#if WASM_ENABLE_GC != 0
+                if (local_idx >= param_count) {
+                    wasm_loader_mask_local(loader_ctx, local_idx - param_count);
+                }
+#endif
                 break;
             }
 
@@ -10711,6 +10848,12 @@ re_scan:
                 }
 #endif
 #endif /* end of WASM_ENABLE_FAST_INTERP != 0 */
+
+#if WASM_ENABLE_GC != 0
+                if (local_idx >= param_count) {
+                    wasm_loader_mask_local(loader_ctx, local_idx - param_count);
+                }
+#endif
                 break;
             }
 
@@ -11543,8 +11686,17 @@ re_scan:
 
                             if (opcode1 == WASM_OP_ARRAY_NEW_CANON_FIXED) {
                                 uint32 N = u32;
-                                for (i = 0; i < N; i++)
+                                for (i = 0; i < N; i++) {
+                                    if (wasm_is_type_multi_byte_type(
+                                            elem_type)) {
+                                        bh_memcpy_s(
+                                            &wasm_ref_type, sizeof(WASMRefType),
+                                            array_type->elem_ref_type,
+                                            wasm_reftype_struct_size(
+                                                array_type->elem_ref_type));
+                                    }
                                     POP_REF(elem_type);
+                                }
                             }
                             else
                                 POP_REF(elem_type);
