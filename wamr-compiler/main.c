@@ -298,9 +298,9 @@ resolve_segue_flags(char *str_flags)
     return segue_flags;
 }
 
-/* When print help infos for target/cpu/target-abi/cpu-features, load this dummy
+/* When print help info for target/cpu/target-abi/cpu-features, load this dummy
  * wasm file content rather than from an input file, the dummy wasm file content
- * is: (module) */
+ * is: magic header + version number */
 static unsigned char dummy_wasm_file[8] = { 0x00, 0x61, 0x73, 0x6D,
                                             0x01, 0x00, 0x00, 0x00 };
 
