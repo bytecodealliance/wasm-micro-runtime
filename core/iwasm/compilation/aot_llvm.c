@@ -2745,7 +2745,8 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
             goto fail;
         }
 
-        /* If only to create target machine for querying information, early stop */
+        /* If only to create target machine for querying information, early stop
+         */
         if ((arch && !strcmp(arch, "help")) || (abi && !strcmp(abi, "help"))
             || (cpu && !strcmp(cpu, "help"))
             || (features && !strcmp(features, "+help"))) {
