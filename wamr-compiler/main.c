@@ -536,13 +536,7 @@ main(int argc, char *argv[])
             PRINT_HELP_AND_EXIT();
     }
 
-    /* Normal usage, generate output file */
     if (!use_dummy_wasm && (argc == 0 || !out_file_name))
-        PRINT_HELP_AND_EXIT();
-
-    /* When use wamrc to print architecture related help info, use dummy_wasm
-     * and don't generate anything */
-    if (use_dummy_wasm && out_file_name)
         PRINT_HELP_AND_EXIT();
 
     if (!size_level_set) {
