@@ -2636,33 +2636,35 @@ load_from_sections(WASMModule *module, WASMSection *sections,
             }
         }
 
+        /*
+         * Note: DEFAULT_MAX_PAGES * DEFAULT_NUM_BYTES_PER_PAGE
+         * doesn't fit a uint32.
+         */
         if (module->import_memory_count) {
             memory_import = &module->import_memories[0].u.memory;
-            if (memory_import->init_page_count < DEFAULT_MAX_PAGES)
+            if (memory_import->init_page_count < DEFAULT_MAX_PAGES) {
                 memory_import->num_bytes_per_page *=
                     memory_import->init_page_count;
-            else
-                memory_import->num_bytes_per_page = UINT32_MAX;
 
-            if (memory_import->init_page_count > 0)
-                memory_import->init_page_count = memory_import->max_page_count =
-                    1;
-            else
-                memory_import->init_page_count = memory_import->max_page_count =
-                    0;
+                if (memory_import->init_page_count > 0)
+                    memory_import->init_page_count =
+                        memory_import->max_page_count = 1;
+                else
+                    memory_import->init_page_count =
+                        memory_import->max_page_count = 0;
+            }
         }
 
         if (module->memory_count) {
             memory = &module->memories[0];
-            if (memory->init_page_count < DEFAULT_MAX_PAGES)
+            if (memory->init_page_count < DEFAULT_MAX_PAGES) {
                 memory->num_bytes_per_page *= memory->init_page_count;
-            else
-                memory->num_bytes_per_page = UINT32_MAX;
 
-            if (memory->init_page_count > 0)
-                memory->init_page_count = memory->max_page_count = 1;
-            else
-                memory->init_page_count = memory->max_page_count = 0;
+                if (memory->init_page_count > 0)
+                    memory->init_page_count = memory->max_page_count = 1;
+                else
+                    memory->init_page_count = memory->max_page_count = 0;
+            }
         }
     }
 
