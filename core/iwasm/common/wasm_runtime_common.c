@@ -199,7 +199,58 @@ runtime_signal_handler(void *sig_addr)
         }
     }
 }
-#else
+#else /* else of BH_PLATFORM_WINDOWS */
+
+#include <Zydis/Zydis.h>
+
+static uint32
+decode_insn(uint8 *insn)
+{
+    uint8 *data = (uint8 *)insn;
+    uint32 length = 32; /* reserve enough size */
+
+    /* Initialize decoder context */
+    ZydisDecoder decoder;
+    ZydisDecoderInit(&decoder, ZYDIS_MACHINE_MODE_LONG_64,
+                     ZYDIS_STACK_WIDTH_64);
+
+    /* Initialize formatter */
+    ZydisFormatter formatter;
+    ZydisFormatterInit(&formatter, ZYDIS_FORMATTER_STYLE_INTEL);
+
+    /* Loop over the instructions in our buffer */
+    ZyanU64 runtime_address = (ZyanU64)(uintptr_t)data;
+    ZyanUSize offset = 0;
+    ZydisDecodedInstruction instruction;
+    ZydisDecodedOperand operands[ZYDIS_MAX_OPERAND_COUNT_VISIBLE];
+    char buffer[256];
+
+    if (ZYAN_SUCCESS(ZydisDecoderDecodeFull(
+        &decoder, data + offset, length - offset, &instruction, operands,
+        ZYDIS_MAX_OPERAND_COUNT_VISIBLE, ZYDIS_DFLAG_VISIBLE_OPERANDS_ONLY))) {
+
+
+        /* Format & print the binary instruction structure to
+           human readable format */
+        ZydisFormatterFormatInstruction(&formatter, &instruction, operands,
+                                        instruction.operand_count_visible,
+                                        buffer, sizeof(buffer),
+                                        runtime_address);
+
+        /* Print current instruction */
+        /*
+        os_printf("%012" PRIX64 "  ", runtime_address);
+        puts(buffer);
+        */
+
+        return instruction.length;
+    }
+
+    /* Decode failed */
+	    printf("##2\n");
+    return 0;
+}
+
 static LONG
 runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
 {
@@ -243,8 +294,11 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
                     /* Skip current instruction and continue to run for
                        AOT mode. TODO: implement unwind support for AOT
                        code in Windows platform */
-                    exce_info->ContextRecord->Rip++;
-                    return EXCEPTION_CONTINUE_EXECUTION;
+                    uint32 insn_size = decode_insn((uint8 *)exce_info->ContextRecord->Rip);
+                    if (insn_size > 0) {
+                        exce_info->ContextRecord->Rip += insn_size;
+                        return EXCEPTION_CONTINUE_EXECUTION;
+                    }
                 }
             }
             else if (exec_env_tls->exce_check_guard_page <= (uint8 *)sig_addr
@@ -255,8 +309,11 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
                     return EXCEPTION_CONTINUE_SEARCH;
                 }
                 else {
-                    exce_info->ContextRecord->Rip++;
-                    return EXCEPTION_CONTINUE_EXECUTION;
+                    uint32 insn_size = decode_insn((uint8 *)exce_info->ContextRecord->Rip);
+                    if (insn_size > 0) {
+                        exce_info->ContextRecord->Rip += insn_size;
+                        return EXCEPTION_CONTINUE_EXECUTION;
+                    }
                 }
             }
         }
@@ -271,7 +328,11 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
                 return EXCEPTION_CONTINUE_SEARCH;
             }
             else {
-                return EXCEPTION_CONTINUE_EXECUTION;
+                uint32 insn_size = decode_insn((uint8 *)exce_info->ContextRecord->Rip);
+                if (insn_size > 0) {
+                    exce_info->ContextRecord->Rip += insn_size;
+                    return EXCEPTION_CONTINUE_EXECUTION;
+                }
             }
         }
 #endif
