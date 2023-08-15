@@ -3742,7 +3742,29 @@ llvm_jit_create_func_obj(WASMModuleInstance *module_inst, uint32 func_idx,
     return wasm_create_func_obj(module_inst, func_idx, throw_exce, error_buf,
                                 error_buf_size);
 }
-#endif /* end of WASM_ENABLE_GC != 0 */
+
+bool
+llvm_jit_obj_is_instance_of(WASMModuleInstance *module_inst,
+                            WASMObjectRef gc_obj, uint32 type_index)
+{
+    WASMModule *module = module_inst->module;
+    WASMType **types = module->types;
+    uint32 type_count = module->type_count;
+
+    return wasm_obj_is_instance_of(gc_obj, type_index, types, type_count);
+}
+
+WASMRttTypeRef
+llvm_jit_rtt_type_new(WASMModuleInstance *module_inst, uint32 type_index)
+{
+    WASMModule *module = module_inst->module;
+    WASMType *type = module->types[type_index];
+
+    return wasm_rtt_type_new(type, type_index, module->rtt_types,
+                             module->type_count, &module->rtt_type_lock);
+}
+
+#endif /* end of WASM_ENABLE_GC != 0  */
 
 #endif /* end of WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0 */
 

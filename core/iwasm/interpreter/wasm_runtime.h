@@ -694,6 +694,12 @@ llvm_jit_table_grow(WASMModuleInstance *module_inst, uint32 tbl_idx,
                     uint32 inc_entries, uintptr_t init_val);
 #endif
 
+#if WASM_ENABLE_GC != 0
+
+
+
+#endif
+
 #if WASM_ENABLE_DUMP_CALL_STACK != 0 || WASM_ENABLE_PERF_PROFILING != 0
 bool
 llvm_jit_alloc_frame(WASMExecEnv *exec_env, uint32 func_index);
@@ -707,6 +713,13 @@ void *
 llvm_jit_create_func_obj(WASMModuleInstance *module_inst, uint32 func_idx,
                          bool throw_exce, char *error_buf,
                          uint32 error_buf_size);
+
+bool
+llvm_jit_obj_is_instance_of(WASMModuleInstance *module_inst,
+                            WASMObjectRef gc_obj, uint32 type_index);
+
+WASMRttTypeRef
+llvm_jit_rtt_type_new(WASMModuleInstance *module_inst, uint32 type_index);
 #endif
 #endif /* end of WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0 */
 

@@ -801,26 +801,17 @@ fail:
     return false;
 }
 
-bool
-aot_compile_op_br_if(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                     uint32 br_depth, uint8 **p_frame_ip)
+static bool
+aot_compile_conditional_br(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                           uint32 br_depth, uint8 **p_frame_ip,
+                           LLVMValueRef value_cmp)
 {
     AOTBlock *block_dst;
-    LLVMValueRef value_cmp, value, *values = NULL;
+    LLVMValueRef value, *values = NULL;
     LLVMBasicBlockRef llvm_else_block, next_llvm_end_block;
     char name[32];
     uint32 i, param_index, result_index;
     uint64 size;
-
-#if WASM_ENABLE_THREAD_MGR != 0
-    /* Insert suspend check point */
-    if (comp_ctx->enable_thread_mgr) {
-        if (!check_suspend_flags(comp_ctx, func_ctx))
-            return false;
-    }
-#endif
-
-    POP_COND(value_cmp);
 
     if (LLVMIsUndef(value_cmp)
 #if LLVM_VERSION_NUMBER >= 12
@@ -932,6 +923,28 @@ aot_compile_op_br_if(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 fail:
     if (values)
         wasm_runtime_free(values);
+    return false;
+}
+
+bool
+aot_compile_op_br_if(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                     uint32 br_depth, uint8 **p_frame_ip)
+{
+    LLVMValueRef value_cmp;
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (comp_ctx->enable_thread_mgr) {
+        if (!check_suspend_flags(comp_ctx, func_ctx))
+            return false;
+    }
+#endif
+
+    POP_COND(value_cmp);
+
+    return aot_compile_conditional_br(comp_ctx, func_ctx, br_depth, p_frame_ip,
+                                      value_cmp);
+fail:
     return false;
 }
 
@@ -1160,8 +1173,7 @@ bool
 aot_compile_op_br_on_null(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                           uint32 br_depth, uint8 **p_frame_ip)
 {
-    LLVMValueRef gc_obj, cmp;
-    LLVMBasicBlockRef gc_obj_null, gc_obj_non_null;
+    LLVMValueRef gc_obj, value_cmp;
 
 #if WASM_ENABLE_THREAD_MGR != 0
     /* Insert suspend check point */
@@ -1173,24 +1185,10 @@ aot_compile_op_br_on_null(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     GET_REF_FROM_STACK(gc_obj);
 
-    CREATE_BLOCK(gc_obj_null, "gc_block_null");
-    MOVE_BLOCK_AFTER_CURR(gc_obj_null);
+    BUILD_ICMP(LLVMIntEQ, gc_obj, GC_REF_NULL, value_cmp, "cmp gc obj");
 
-    CREATE_BLOCK(gc_obj_non_null, "gc_block_non_null");
-    MOVE_BLOCK_AFTER_CURR(gc_obj_non_null);
-
-    BUILD_ICMP(LLVMIntEQ, gc_obj, GC_REF_NULL, cmp, "cmp gc obj");
-    BUILD_COND_BR(cmp, gc_obj_null, gc_obj_non_null);
-
-    /* Move builder to gc_obj_null block */
-    SET_BUILDER_POS(gc_obj_null);
-    if (!aot_compile_op_br(comp_ctx, func_ctx, br_depth, p_frame_ip))
-        goto fail;
-
-    /* Move builder to gc_obj_non_null block */
-    SET_BUILDER_POS(gc_obj_non_null);
-
-    return true;
+    return aot_compile_conditional_br(comp_ctx, func_ctx, br_depth, p_frame_ip,
+                                      value_cmp);
 fail:
     return false;
 }
@@ -1200,8 +1198,7 @@ aot_compile_op_br_on_non_null(AOTCompContext *comp_ctx,
                               AOTFuncContext *func_ctx, uint32 br_depth,
                               uint8 **p_frame_ip)
 {
-    LLVMValueRef gc_obj, cmp;
-    LLVMBasicBlockRef gc_obj_null, gc_obj_non_null;
+    LLVMValueRef gc_obj, value_cmp;
 
 #if WASM_ENABLE_THREAD_MGR != 0
     /* Insert suspend check point */
@@ -1213,24 +1210,10 @@ aot_compile_op_br_on_non_null(AOTCompContext *comp_ctx,
 
     GET_REF_FROM_STACK(gc_obj);
 
-    CREATE_BLOCK(gc_obj_non_null, "gc_block_non_null");
-    MOVE_BLOCK_AFTER_CURR(gc_obj_non_null);
+    BUILD_ICMP(LLVMIntNE, gc_obj, GC_REF_NULL, value_cmp, "cmp gc obj");
 
-    CREATE_BLOCK(gc_obj_null, "gc_block_null");
-    MOVE_BLOCK_AFTER_CURR(gc_obj_null);
-
-    BUILD_ICMP(LLVMIntNE, gc_obj, GC_REF_NULL, cmp, "cmp gc obj");
-    BUILD_COND_BR(cmp, gc_obj_non_null, gc_obj_null);
-
-    /* Move builder to gc_obj_non_null block */
-    SET_BUILDER_POS(gc_obj_non_null);
-    if (!aot_compile_op_br(comp_ctx, func_ctx, br_depth, p_frame_ip))
-        goto fail;
-
-    /* Move builder to gc_obj_null block */
-    SET_BUILDER_POS(gc_obj_null);
-
-    return true;
+    return aot_compile_conditional_br(comp_ctx, func_ctx, br_depth, p_frame_ip,
+                                      value_cmp);
 fail:
     return false;
 }
@@ -1296,13 +1279,12 @@ aot_compile_op_br_on_cast(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     if (!br_on_fail) {
         /* WASM_OP_BR_ON_CAST || WASM_OP_BR_ON_CAST_NULLABLE*/
         BUILD_ICMP(LLVMIntNE, castable, I8_ZERO, cmp, "castable");
-        BUILD_COND_BR(cmp, nested_if, end_block);
     }
-    else if (br_on_fail) {
+    else {
         /* WASM_OP_BR_ON_CAST_FAIL || WASM_OP_BR_ON_CAST_FAIL_NULLABLE  */
         BUILD_ICMP(LLVMIntEQ, castable, I8_ZERO, cmp, "castable");
-        BUILD_COND_BR(cmp, nested_if, end_block);
     }
+    BUILD_COND_BR(cmp, nested_if, end_block);
 
     /* Move builder to nested if block */
     SET_BUILDER_POS(nested_if);

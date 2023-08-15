@@ -149,7 +149,10 @@ aot_call_aot_obj_is_instance_of(AOTCompContext *comp_ctx,
     param_types[2] = I32_TYPE;
     ret_type = INT8_TYPE;
 
-    GET_AOT_FUNCTION(aot_obj_is_instance_of, 3);
+    if (comp_ctx->is_jit_mode)
+        GET_AOT_FUNCTION(llvm_jit_obj_is_instance_of, 3);
+    else
+        GET_AOT_FUNCTION(aot_obj_is_instance_of, 3);
 
     /* Call function wasm_obj_is_type_of() */
     param_values[0] = func_ctx->aot_inst;
@@ -200,66 +203,6 @@ fail:
 }
 
 bool
-aot_call_wasm_externref_obj_to_internal_obj(AOTCompContext *comp_ctx,
-                                            AOTFuncContext *func_ctx,
-                                            LLVMValueRef externref_obj,
-                                            LLVMValueRef *gc_obj)
-{
-    LLVMValueRef param_values[1], func, value, res;
-    LLVMTypeRef param_types[1], ret_type, func_type, func_ptr_type;
-
-    param_types[0] = GC_REF_TYPE;
-    ret_type = GC_REF_TYPE;
-
-    GET_AOT_FUNCTION(wasm_externref_obj_to_internal_obj, 1);
-
-    /* Call function wasm_externref_obj_to_internal_obj */
-    param_values[0] = externref_obj;
-    if (!(res = LLVMBuildCall2(comp_ctx->builder, func_type, func, param_values,
-                               1, "call"))) {
-        aot_set_last_error("llvm build call failed.");
-        goto fail;
-    }
-
-    *gc_obj = res;
-
-    return true;
-fail:
-    return false;
-}
-
-bool
-aot_call_wasm_internal_obj_to_external_obj(AOTCompContext *comp_ctx,
-                                           AOTFuncContext *func_ctx,
-                                           LLVMValueRef gc_obj,
-                                           LLVMValueRef *externref_obj)
-{
-    LLVMValueRef param_values[2], func, value, res;
-    LLVMTypeRef param_types[2], ret_type, func_type, func_ptr_type;
-
-    param_types[0] = INT8_PTR_TYPE;
-    param_types[1] = GC_REF_TYPE;
-    ret_type = GC_REF_TYPE;
-
-    GET_AOT_FUNCTION(wasm_externref_obj_to_internal_obj, 2);
-
-    /* Call function wasm_externref_obj_to_internal_obj() */
-    param_values[0] = func_ctx->exec_env;
-    param_values[1] = gc_obj;
-    if (!(res = LLVMBuildCall2(comp_ctx->builder, func_type, func, param_values,
-                               2, "call"))) {
-        aot_set_last_error("llvm build call failed.");
-        goto fail;
-    }
-
-    *externref_obj = res;
-
-    return true;
-fail:
-    return false;
-}
-
-bool
 aot_call_aot_rtt_type_new(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                           LLVMValueRef type_index, LLVMValueRef *rtt_type)
 {
@@ -270,7 +213,10 @@ aot_call_aot_rtt_type_new(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     param_types[1] = I32_TYPE;
     ret_type = GC_REF_TYPE;
 
-    GET_AOT_FUNCTION(aot_rtt_type_new, 2);
+    if (comp_ctx->is_jit_mode)
+        GET_AOT_FUNCTION(llvm_jit_rtt_type_new, 2);
+    else
+        GET_AOT_FUNCTION(aot_rtt_type_new, 2);
 
     /* Call function wasm_struct_obj_new() */
     param_values[0] = func_ctx->aot_inst;
@@ -282,289 +228,6 @@ aot_call_aot_rtt_type_new(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     *rtt_type = res;
-    return true;
-fail:
-    return false;
-}
-
-bool
-aot_call_wasm_struct_obj_new(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                             LLVMValueRef rtt_type, LLVMValueRef *struct_obj)
-{
-    LLVMValueRef param_values[2], func, value, res;
-    LLVMTypeRef param_types[2], ret_type, func_type, func_ptr_type;
-
-    param_types[0] = INT8_PTR_TYPE;
-    param_types[1] = INT8_PTR_TYPE;
-    ret_type = GC_REF_TYPE;
-
-    GET_AOT_FUNCTION(wasm_struct_obj_new, 2);
-
-    /* Call function wasm_struct_obj_new() */
-    param_values[0] = func_ctx->exec_env;
-    param_values[1] = rtt_type;
-    if (!(res = LLVMBuildCall2(comp_ctx->builder, func_type, func, param_values,
-                               2, "call"))) {
-        aot_set_last_error("llvm build call failed.");
-        goto fail;
-    }
-
-    *struct_obj = res;
-    return true;
-fail:
-    return false;
-}
-
-bool
-aot_call_wasm_struct_obj_set_field(AOTCompContext *comp_ctx,
-                                   AOTFuncContext *func_ctx,
-                                   LLVMValueRef struct_obj,
-                                   LLVMValueRef field_idx,
-                                   LLVMValueRef field_value)
-{
-    LLVMValueRef param_values[3], func, value, field_value_ptr;
-    LLVMTypeRef param_types[3], ret_type, func_type, func_ptr_type;
-
-    if (!(field_value_ptr = LLVMBuildAlloca(
-              comp_ctx->builder, LLVMTypeOf(field_value), "field_value_ptr"))) {
-        aot_set_last_error("llvm build alloca failed.");
-        goto fail;
-    }
-    if (!LLVMBuildStore(comp_ctx->builder, field_value, field_value_ptr)) {
-        aot_set_last_error("llvm build store failed.");
-        goto fail;
-    }
-    if (!(field_value_ptr =
-              LLVMBuildBitCast(comp_ctx->builder, field_value_ptr,
-                               INT8_PTR_TYPE, "field_value_ptr"))) {
-        aot_set_last_error("llvm build bitcast failed.");
-        goto fail;
-    }
-
-    param_types[0] = INT8_PTR_TYPE;
-    param_types[1] = I32_TYPE;
-    param_types[2] = INT8_PTR_TYPE;
-    ret_type = VOID_TYPE;
-
-    GET_AOT_FUNCTION(wasm_struct_obj_set_field, 3);
-
-    /* Call function wasm_struct_obj_set_field() */
-    param_values[0] = struct_obj;
-    param_values[1] = field_idx;
-    param_values[2] = field_value_ptr;
-    if (!LLVMBuildCall2(comp_ctx->builder, func_type, func, param_values, 3,
-                        "call")) {
-        aot_set_last_error("llvm build call failed.");
-        goto fail;
-    }
-
-    return true;
-fail:
-    return false;
-}
-
-bool
-aot_call_wasm_struct_obj_get_field(AOTCompContext *comp_ctx,
-                                   AOTFuncContext *func_ctx,
-                                   LLVMValueRef struct_obj,
-                                   LLVMValueRef field_idx,
-                                   LLVMValueRef sign_extend,
-                                   LLVMValueRef field_value_ptr)
-{
-    LLVMValueRef param_values[4], func, value;
-    LLVMTypeRef param_types[4], ret_type, func_type, func_ptr_type;
-
-    param_types[0] = INT8_PTR_TYPE;
-    param_types[1] = I32_TYPE;
-    param_types[2] = INT8_TYPE;
-    param_types[3] = INT8_PTR_TYPE;
-    ret_type = VOID_TYPE;
-
-    GET_AOT_FUNCTION(wasm_struct_obj_get_field, 4);
-
-    /* Call function wasm_struct_obj_get_field() */
-    param_values[0] = struct_obj;
-    param_values[1] = field_idx;
-    param_values[2] = sign_extend;
-    param_values[3] = field_value_ptr;
-    if (!LLVMBuildCall2(comp_ctx->builder, func_type, func, param_values, 4,
-                        "call")) {
-        aot_set_last_error("llvm build call failed.");
-        goto fail;
-    }
-
-    return true;
-fail:
-    return false;
-}
-
-bool
-aot_call_wasm_array_obj_new(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                            LLVMValueRef rtt_type, LLVMValueRef array_len,
-                            LLVMValueRef array_elem, LLVMValueRef *array_obj)
-{
-    LLVMValueRef param_values[4], func, value, res, array_elem_ptr;
-    LLVMTypeRef param_types[4], ret_type, func_type, func_ptr_type;
-
-    if (!(array_elem_ptr = LLVMBuildAlloca(
-              comp_ctx->builder, LLVMTypeOf(array_elem), "array_elem_ptr"))) {
-        aot_set_last_error("llvm build alloca failed.");
-        goto fail;
-    }
-    if (!LLVMBuildStore(comp_ctx->builder, array_elem, array_elem_ptr)) {
-        aot_set_last_error("llvm build store failed.");
-        goto fail;
-    }
-    if (!(array_elem_ptr = LLVMBuildBitCast(comp_ctx->builder, array_elem_ptr,
-                                            INT8_PTR_TYPE, "array_elem_ptr"))) {
-        aot_set_last_error("llvm build bitcast failed.");
-        goto fail;
-    }
-
-    param_types[0] = INT8_PTR_TYPE;
-    param_types[1] = INT8_PTR_TYPE;
-    param_types[2] = I32_TYPE;
-    param_types[3] = INT8_PTR_TYPE;
-    ret_type = GC_REF_TYPE;
-
-    GET_AOT_FUNCTION(wasm_array_obj_new, 4);
-
-    /* Call function wasm_array_obj_new() */
-    param_values[0] = func_ctx->exec_env;
-    param_values[1] = rtt_type;
-    param_values[2] = array_len;
-    param_values[3] = array_elem_ptr;
-    if (!(res = LLVMBuildCall2(comp_ctx->builder, func_type, func, param_values,
-                               4, "call"))) {
-        aot_set_last_error("llvm build call failed.");
-        goto fail;
-    }
-
-    *array_obj = res;
-    return true;
-fail:
-    return false;
-}
-
-bool
-aot_call_wasm_array_set_elem(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                             LLVMValueRef array_obj, LLVMValueRef elem_idx,
-                             LLVMValueRef array_elem)
-{
-    LLVMValueRef param_values[3], func, value, array_elem_ptr;
-    LLVMTypeRef param_types[3], ret_type, func_type, func_ptr_type;
-
-    if (!(array_elem_ptr = LLVMBuildAlloca(
-              comp_ctx->builder, LLVMTypeOf(array_elem), "array_elem_ptr"))) {
-        aot_set_last_error("llvm build alloca failed.");
-        goto fail;
-    }
-    if (!LLVMBuildStore(comp_ctx->builder, array_elem, array_elem_ptr)) {
-        aot_set_last_error("llvm build store failed.");
-        goto fail;
-    }
-    if (!(array_elem_ptr = LLVMBuildBitCast(comp_ctx->builder, array_elem_ptr,
-                                            INT8_PTR_TYPE, "array_elem_ptr"))) {
-        aot_set_last_error("llvm build bitcast failed.");
-        goto fail;
-    }
-
-    param_types[0] = INT8_PTR_TYPE;
-    param_types[1] = I32_TYPE;
-    param_types[2] = INT8_PTR_TYPE;
-    ret_type = VOID_TYPE;
-
-    GET_AOT_FUNCTION(wasm_array_obj_set_elem, 3);
-
-    /* Call function wasm_array_obj_set_elem() */
-    param_values[0] = array_obj;
-    param_values[1] = elem_idx;
-    param_values[2] = array_elem_ptr;
-    if (!LLVMBuildCall2(comp_ctx->builder, func_type, func, param_values, 3,
-                        "call")) {
-        aot_set_last_error("llvm build call failed.");
-        goto fail;
-    }
-
-    return true;
-fail:
-    return false;
-}
-
-bool
-aot_call_aot_array_init_with_data(
-    AOTCompContext *comp_ctx, AOTFuncContext *func_ctx, LLVMValueRef seg_index,
-    LLVMValueRef data_seg_offset, LLVMValueRef array_obj,
-    LLVMValueRef elem_size, LLVMValueRef array_len)
-{
-    LLVMValueRef param_values[6], func, value, res, cmp;
-    LLVMTypeRef param_types[6], ret_type, func_type, func_ptr_type;
-    LLVMBasicBlockRef init_success;
-
-    ADD_BASIC_BLOCK(init_success, "init success");
-    MOVE_BLOCK_AFTER_CURR(init_success);
-
-    param_types[0] = INT8_PTR_TYPE;
-    param_types[1] = I32_TYPE;
-    param_types[2] = I32_TYPE;
-    param_types[3] = INT8_PTR_TYPE;
-    param_types[4] = I32_TYPE;
-    param_types[5] = I32_TYPE;
-    ret_type = INT8_TYPE;
-
-    GET_AOT_FUNCTION(aot_array_init_with_data, 6);
-
-    /* Call function aot_array_init_with_data() */
-    param_values[0] = func_ctx->aot_inst;
-    param_values[1] = seg_index;
-    param_values[2] = data_seg_offset;
-    param_values[3] = array_obj;
-    param_values[4] = elem_size;
-    param_values[5] = array_len;
-    if (!(res = LLVMBuildCall2(comp_ctx->builder, func_type, func, param_values,
-                               6, "call"))) {
-        aot_set_last_error("llvm build call failed.");
-        goto fail;
-    }
-
-    BUILD_ICMP(LLVMIntEQ, res, I8_ZERO, cmp, "array_init_ret");
-    if (!aot_emit_exception(comp_ctx, func_ctx,
-                            EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS, true, cmp,
-                            init_success))
-        goto fail;
-
-    return true;
-fail:
-    return false;
-}
-
-bool
-aot_call_wasm_array_get_elem(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                             LLVMValueRef array_obj, LLVMValueRef elem_idx,
-                             LLVMValueRef sign, LLVMValueRef array_elem_ptr)
-{
-    LLVMValueRef param_values[4], func, value;
-    LLVMTypeRef param_types[4], ret_type, func_type, func_ptr_type;
-
-    param_types[0] = INT8_PTR_TYPE;
-    param_types[1] = I32_TYPE;
-    param_types[2] = INT8_TYPE;
-    param_types[3] = INT8_PTR_TYPE;
-    ret_type = VOID_TYPE;
-
-    GET_AOT_FUNCTION(wasm_array_obj_get_elem, 4);
-
-    /* Call function wasm_array_obj_get_elem() */
-    param_values[0] = array_obj;
-    param_values[1] = elem_idx;
-    param_values[2] = sign;
-    param_values[3] = array_elem_ptr;
-    if (!LLVMBuildCall2(comp_ctx->builder, func_type, func, param_values, 3,
-                        "call")) {
-        aot_set_last_error("llvm build call failed.");
-        goto fail;
-    }
-
     return true;
 fail:
     return false;
@@ -761,6 +424,35 @@ fail:
     return false;
 }
 
+static bool
+aot_call_wasm_externref_obj_to_internal_obj(AOTCompContext *comp_ctx,
+                                            AOTFuncContext *func_ctx,
+                                            LLVMValueRef externref_obj,
+                                            LLVMValueRef *gc_obj)
+{
+    LLVMValueRef param_values[1], func, value, res;
+    LLVMTypeRef param_types[1], ret_type, func_type, func_ptr_type;
+
+    param_types[0] = GC_REF_TYPE;
+    ret_type = GC_REF_TYPE;
+
+    GET_AOT_FUNCTION(wasm_externref_obj_to_internal_obj, 1);
+
+    /* Call function wasm_externref_obj_to_internal_obj */
+    param_values[0] = externref_obj;
+    if (!(res = LLVMBuildCall2(comp_ctx->builder, func_type, func, param_values,
+                               1, "call"))) {
+        aot_set_last_error("llvm build call failed.");
+        goto fail;
+    }
+
+    *gc_obj = res;
+
+    return true;
+fail:
+    return false;
+}
+
 bool
 aot_compile_op_extern_internalize(AOTCompContext *comp_ctx,
                                   AOTFuncContext *func_ctx)
@@ -801,6 +493,37 @@ aot_compile_op_extern_internalize(AOTCompContext *comp_ctx,
 
     /* Move builder to end block */
     SET_BUILDER_POS(end_block);
+
+    return true;
+fail:
+    return false;
+}
+
+static bool
+aot_call_wasm_internal_obj_to_external_obj(AOTCompContext *comp_ctx,
+                                           AOTFuncContext *func_ctx,
+                                           LLVMValueRef gc_obj,
+                                           LLVMValueRef *externref_obj)
+{
+    LLVMValueRef param_values[1], func, value, res;
+    LLVMTypeRef param_types[1], ret_type, func_type, func_ptr_type;
+
+    param_types[-1] = INT8_PTR_TYPE;
+    param_types[0] = GC_REF_TYPE;
+    ret_type = GC_REF_TYPE;
+
+    GET_AOT_FUNCTION(wasm_externref_obj_to_internal_obj, 1);
+
+    /* Call function wasm_externref_obj_to_internal_obj() */
+    param_values[-1] = func_ctx->exec_env;
+    param_values[0] = gc_obj;
+    if (!(res = LLVMBuildCall2(comp_ctx->builder, func_type, func, param_values,
+                               1, "call"))) {
+        aot_set_last_error("llvm build call failed.");
+        goto fail;
+    }
+
+    *externref_obj = res;
 
     return true;
 fail:
@@ -853,6 +576,117 @@ aot_compile_op_extern_externalize(AOTCompContext *comp_ctx,
 
     /* Move builder to end block */
     SET_BUILDER_POS(end_block);
+
+    return true;
+fail:
+    return false;
+}
+
+static bool
+aot_call_wasm_struct_obj_new(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                             LLVMValueRef rtt_type, LLVMValueRef *struct_obj)
+{
+    LLVMValueRef param_values[2], func, value, res;
+    LLVMTypeRef param_types[2], ret_type, func_type, func_ptr_type;
+
+    param_types[0] = INT8_PTR_TYPE;
+    param_types[1] = INT8_PTR_TYPE;
+    ret_type = GC_REF_TYPE;
+
+    GET_AOT_FUNCTION(wasm_struct_obj_new, 2);
+
+    /* Call function wasm_struct_obj_new() */
+    param_values[0] = func_ctx->exec_env;
+    param_values[1] = rtt_type;
+    if (!(res = LLVMBuildCall2(comp_ctx->builder, func_type, func, param_values,
+                               2, "call"))) {
+        aot_set_last_error("llvm build call failed.");
+        goto fail;
+    }
+
+    *struct_obj = res;
+    return true;
+fail:
+    return false;
+}
+
+static bool
+aot_call_wasm_struct_obj_set_field(AOTCompContext *comp_ctx,
+                                   AOTFuncContext *func_ctx,
+                                   LLVMValueRef struct_obj,
+                                   LLVMValueRef field_idx,
+                                   LLVMValueRef field_value)
+{
+    LLVMValueRef param_values[3], func, value, field_value_ptr;
+    LLVMTypeRef param_types[3], ret_type, func_type, func_ptr_type;
+
+    if (!(field_value_ptr = LLVMBuildAlloca(
+              comp_ctx->builder, LLVMTypeOf(field_value), "field_value_ptr"))) {
+        aot_set_last_error("llvm build alloca failed.");
+        goto fail;
+    }
+    if (!LLVMBuildStore(comp_ctx->builder, field_value, field_value_ptr)) {
+        aot_set_last_error("llvm build store failed.");
+        goto fail;
+    }
+    if (!(field_value_ptr =
+              LLVMBuildBitCast(comp_ctx->builder, field_value_ptr,
+                               INT8_PTR_TYPE, "field_value_ptr"))) {
+        aot_set_last_error("llvm build bitcast failed.");
+        goto fail;
+    }
+
+    param_types[0] = INT8_PTR_TYPE;
+    param_types[1] = I32_TYPE;
+    param_types[2] = INT8_PTR_TYPE;
+    ret_type = VOID_TYPE;
+
+    GET_AOT_FUNCTION(wasm_struct_obj_set_field, 3);
+
+    /* Call function wasm_struct_obj_set_field() */
+    param_values[0] = struct_obj;
+    param_values[1] = field_idx;
+    param_values[2] = field_value_ptr;
+    if (!LLVMBuildCall2(comp_ctx->builder, func_type, func, param_values, 3,
+                        "call")) {
+        aot_set_last_error("llvm build call failed.");
+        goto fail;
+    }
+
+    return true;
+fail:
+    return false;
+}
+
+static bool
+aot_call_wasm_struct_obj_get_field(AOTCompContext *comp_ctx,
+                                   AOTFuncContext *func_ctx,
+                                   LLVMValueRef struct_obj,
+                                   LLVMValueRef field_idx,
+                                   LLVMValueRef sign_extend,
+                                   LLVMValueRef field_value_ptr)
+{
+    LLVMValueRef param_values[4], func, value;
+    LLVMTypeRef param_types[4], ret_type, func_type, func_ptr_type;
+
+    param_types[0] = INT8_PTR_TYPE;
+    param_types[1] = I32_TYPE;
+    param_types[2] = INT8_TYPE;
+    param_types[3] = INT8_PTR_TYPE;
+    ret_type = VOID_TYPE;
+
+    GET_AOT_FUNCTION(wasm_struct_obj_get_field, 4);
+
+    /* Call function wasm_struct_obj_get_field() */
+    param_values[0] = struct_obj;
+    param_values[1] = field_idx;
+    param_values[2] = sign_extend;
+    param_values[3] = field_value_ptr;
+    if (!LLVMBuildCall2(comp_ctx->builder, func_type, func, param_values, 4,
+                        "call")) {
+        aot_set_last_error("llvm build call failed.");
+        goto fail;
+    }
 
     return true;
 fail:
@@ -1067,6 +901,178 @@ aot_compile_op_struct_set(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     if (!aot_call_wasm_struct_obj_set_field(comp_ctx, func_ctx, struct_obj,
                                             I32_CONST(field_idx), field_value))
         goto fail;
+
+    return true;
+fail:
+    return false;
+}
+
+static bool
+aot_call_wasm_array_obj_new(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                            LLVMValueRef rtt_type, LLVMValueRef array_len,
+                            LLVMValueRef array_elem, LLVMValueRef *array_obj)
+{
+    LLVMValueRef param_values[4], func, value, res, array_elem_ptr;
+    LLVMTypeRef param_types[4], ret_type, func_type, func_ptr_type;
+
+    if (!(array_elem_ptr = LLVMBuildAlloca(
+              comp_ctx->builder, LLVMTypeOf(array_elem), "array_elem_ptr"))) {
+        aot_set_last_error("llvm build alloca failed.");
+        goto fail;
+    }
+    if (!LLVMBuildStore(comp_ctx->builder, array_elem, array_elem_ptr)) {
+        aot_set_last_error("llvm build store failed.");
+        goto fail;
+    }
+    if (!(array_elem_ptr = LLVMBuildBitCast(comp_ctx->builder, array_elem_ptr,
+                                            INT8_PTR_TYPE, "array_elem_ptr"))) {
+        aot_set_last_error("llvm build bitcast failed.");
+        goto fail;
+    }
+
+    param_types[0] = INT8_PTR_TYPE;
+    param_types[1] = INT8_PTR_TYPE;
+    param_types[2] = I32_TYPE;
+    param_types[3] = INT8_PTR_TYPE;
+    ret_type = GC_REF_TYPE;
+
+    GET_AOT_FUNCTION(wasm_array_obj_new, 4);
+
+    /* Call function wasm_array_obj_new() */
+    param_values[0] = func_ctx->exec_env;
+    param_values[1] = rtt_type;
+    param_values[2] = array_len;
+    param_values[3] = array_elem_ptr;
+    if (!(res = LLVMBuildCall2(comp_ctx->builder, func_type, func, param_values,
+                               4, "call"))) {
+        aot_set_last_error("llvm build call failed.");
+        goto fail;
+    }
+
+    *array_obj = res;
+    return true;
+fail:
+    return false;
+}
+
+static bool
+aot_call_wasm_array_set_elem(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                             LLVMValueRef array_obj, LLVMValueRef elem_idx,
+                             LLVMValueRef array_elem)
+{
+    LLVMValueRef param_values[3], func, value, array_elem_ptr;
+    LLVMTypeRef param_types[3], ret_type, func_type, func_ptr_type;
+
+    if (!(array_elem_ptr = LLVMBuildAlloca(
+              comp_ctx->builder, LLVMTypeOf(array_elem), "array_elem_ptr"))) {
+        aot_set_last_error("llvm build alloca failed.");
+        goto fail;
+    }
+    if (!LLVMBuildStore(comp_ctx->builder, array_elem, array_elem_ptr)) {
+        aot_set_last_error("llvm build store failed.");
+        goto fail;
+    }
+    if (!(array_elem_ptr = LLVMBuildBitCast(comp_ctx->builder, array_elem_ptr,
+                                            INT8_PTR_TYPE, "array_elem_ptr"))) {
+        aot_set_last_error("llvm build bitcast failed.");
+        goto fail;
+    }
+
+    param_types[0] = INT8_PTR_TYPE;
+    param_types[1] = I32_TYPE;
+    param_types[2] = INT8_PTR_TYPE;
+    ret_type = VOID_TYPE;
+
+    GET_AOT_FUNCTION(wasm_array_obj_set_elem, 3);
+
+    /* Call function wasm_array_obj_set_elem() */
+    param_values[0] = array_obj;
+    param_values[1] = elem_idx;
+    param_values[2] = array_elem_ptr;
+    if (!LLVMBuildCall2(comp_ctx->builder, func_type, func, param_values, 3,
+                        "call")) {
+        aot_set_last_error("llvm build call failed.");
+        goto fail;
+    }
+
+    return true;
+fail:
+    return false;
+}
+
+static bool
+aot_call_aot_array_init_with_data(
+    AOTCompContext *comp_ctx, AOTFuncContext *func_ctx, LLVMValueRef seg_index,
+    LLVMValueRef data_seg_offset, LLVMValueRef array_obj,
+    LLVMValueRef elem_size, LLVMValueRef array_len)
+{
+    LLVMValueRef param_values[6], func, value, res, cmp;
+    LLVMTypeRef param_types[6], ret_type, func_type, func_ptr_type;
+    LLVMBasicBlockRef init_success;
+
+    ADD_BASIC_BLOCK(init_success, "init success");
+    MOVE_BLOCK_AFTER_CURR(init_success);
+
+    param_types[0] = INT8_PTR_TYPE;
+    param_types[1] = I32_TYPE;
+    param_types[2] = I32_TYPE;
+    param_types[3] = INT8_PTR_TYPE;
+    param_types[4] = I32_TYPE;
+    param_types[5] = I32_TYPE;
+    ret_type = INT8_TYPE;
+
+    GET_AOT_FUNCTION(aot_array_init_with_data, 6);
+
+    /* Call function aot_array_init_with_data() */
+    param_values[0] = func_ctx->aot_inst;
+    param_values[1] = seg_index;
+    param_values[2] = data_seg_offset;
+    param_values[3] = array_obj;
+    param_values[4] = elem_size;
+    param_values[5] = array_len;
+    if (!(res = LLVMBuildCall2(comp_ctx->builder, func_type, func, param_values,
+                               6, "call"))) {
+        aot_set_last_error("llvm build call failed.");
+        goto fail;
+    }
+
+    BUILD_ICMP(LLVMIntEQ, res, I8_ZERO, cmp, "array_init_ret");
+    if (!aot_emit_exception(comp_ctx, func_ctx,
+                            EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS, true, cmp,
+                            init_success))
+        goto fail;
+
+    return true;
+fail:
+    return false;
+}
+
+static bool
+aot_call_wasm_array_get_elem(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                             LLVMValueRef array_obj, LLVMValueRef elem_idx,
+                             LLVMValueRef sign, LLVMValueRef array_elem_ptr)
+{
+    LLVMValueRef param_values[4], func, value;
+    LLVMTypeRef param_types[4], ret_type, func_type, func_ptr_type;
+
+    param_types[0] = INT8_PTR_TYPE;
+    param_types[1] = I32_TYPE;
+    param_types[2] = INT8_TYPE;
+    param_types[3] = INT8_PTR_TYPE;
+    ret_type = VOID_TYPE;
+
+    GET_AOT_FUNCTION(wasm_array_obj_get_elem, 4);
+
+    /* Call function wasm_array_obj_get_elem() */
+    param_values[0] = array_obj;
+    param_values[1] = elem_idx;
+    param_values[2] = sign;
+    param_values[3] = array_elem_ptr;
+    if (!LLVMBuildCall2(comp_ctx->builder, func_type, func, param_values, 3,
+                        "call")) {
+        aot_set_last_error("llvm build call failed.");
+        goto fail;
+    }
 
     return true;
 fail:
@@ -1432,7 +1438,7 @@ fail:
     return false;
 }
 
-// #if WASM_ENABLE_GC_BINARYEN != 0
+#if WASM_ENABLE_GC_BINARYEN != 0
 bool
 aot_compile_op_array_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                           uint32 type_index, uint32 src_type_index)
@@ -1516,7 +1522,7 @@ aot_compile_op_array_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 fail:
     return false;
 }
-// #endif
+#endif /* end of WASM_ENABLE_GC_BINARYEN != 0 */
 
 bool
 aot_compile_op_array_len(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)

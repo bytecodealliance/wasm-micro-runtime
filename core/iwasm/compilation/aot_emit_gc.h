@@ -30,6 +30,10 @@ aot_call_wasm_obj_is_type_of(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                              LLVMValueRef *castable);
 
 bool
+aot_call_aot_rtt_type_new(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                          LLVMValueRef type_index, LLVMValueRef *rtt_type);
+
+bool
 aot_compile_op_ref_as_non_null(AOTCompContext *comp_ctx,
                                AOTFuncContext *func_ctx);
 
