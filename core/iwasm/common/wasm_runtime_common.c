@@ -226,9 +226,9 @@ decode_insn(uint8 *insn)
     char buffer[256];
 
     if (ZYAN_SUCCESS(ZydisDecoderDecodeFull(
-        &decoder, data + offset, length - offset, &instruction, operands,
-        ZYDIS_MAX_OPERAND_COUNT_VISIBLE, ZYDIS_DFLAG_VISIBLE_OPERANDS_ONLY))) {
-
+            &decoder, data + offset, length - offset, &instruction, operands,
+            ZYDIS_MAX_OPERAND_COUNT_VISIBLE,
+            ZYDIS_DFLAG_VISIBLE_OPERANDS_ONLY))) {
 
         /* Format & print the binary instruction structure to
            human readable format */
@@ -247,7 +247,6 @@ decode_insn(uint8 *insn)
     }
 
     /* Decode failed */
-	    printf("##2\n");
     return 0;
 }
 
@@ -294,7 +293,8 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
                     /* Skip current instruction and continue to run for
                        AOT mode. TODO: implement unwind support for AOT
                        code in Windows platform */
-                    uint32 insn_size = decode_insn((uint8 *)exce_info->ContextRecord->Rip);
+                    uint32 insn_size =
+                        decode_insn((uint8 *)exce_info->ContextRecord->Rip);
                     if (insn_size > 0) {
                         exce_info->ContextRecord->Rip += insn_size;
                         return EXCEPTION_CONTINUE_EXECUTION;
@@ -309,7 +309,8 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
                     return EXCEPTION_CONTINUE_SEARCH;
                 }
                 else {
-                    uint32 insn_size = decode_insn((uint8 *)exce_info->ContextRecord->Rip);
+                    uint32 insn_size =
+                        decode_insn((uint8 *)exce_info->ContextRecord->Rip);
                     if (insn_size > 0) {
                         exce_info->ContextRecord->Rip += insn_size;
                         return EXCEPTION_CONTINUE_EXECUTION;
@@ -328,7 +329,8 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
                 return EXCEPTION_CONTINUE_SEARCH;
             }
             else {
-                uint32 insn_size = decode_insn((uint8 *)exce_info->ContextRecord->Rip);
+                uint32 insn_size =
+                    decode_insn((uint8 *)exce_info->ContextRecord->Rip);
                 if (insn_size > 0) {
                     exce_info->ContextRecord->Rip += insn_size;
                     return EXCEPTION_CONTINUE_EXECUTION;
