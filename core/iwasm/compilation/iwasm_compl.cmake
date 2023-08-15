@@ -12,7 +12,6 @@ else()
                     ${IWASM_COMPL_DIR}/simd/*.cpp
                     ${IWASM_COMPL_DIR}/*.c
                     ${IWASM_COMPL_DIR}/*.cpp)
-
 endif()
 
 set (IWASM_COMPL_SOURCE ${source_all})
