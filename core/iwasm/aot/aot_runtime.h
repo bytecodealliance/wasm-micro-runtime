@@ -618,13 +618,6 @@ aot_table_init(AOTModuleInstance *module_inst, uint32 tbl_idx,
                uint32 tbl_seg_idx, uint32 length, uint32 src_offset,
                uint32 dst_offset);
 
-#if WASM_ENABLE_GC != 0
-void
-aot_gc_table_init(AOTModuleInstance *module_inst, uint32 tbl_idx,
-                  uint32 tbl_seg_idx, uint32 length, uint32 src_offset,
-                  uint32 dst_offset);
-#endif
-
 void
 aot_table_copy(AOTModuleInstance *module_inst, uint32 src_tbl_idx,
                uint32 dst_tbl_idx, uint32 length, uint32 src_offset,
