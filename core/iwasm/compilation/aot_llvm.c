@@ -2746,11 +2746,10 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
         }
 
         /* If only create target machine for querying information, early stop */
-        if ((arch != NULL && !strcmp(arch, "help"))
-            || (abi != NULL && !strcmp(abi, "help"))
-            || (cpu != NULL && !strcmp(cpu, "help"))
-            || (features != NULL && !strcmp(features, "+help"))) {
-            aot_set_last_error(
+        if ((arch && !strcmp(arch, "help")) || (abi && !strcmp(abi, "help"))
+            || (cpu && !strcmp(cpu, "help"))
+            || (features && !strcmp(features, "+help"))) {
+            LOG_DEBUG(
                 "create LLVM target machine only for printing help infos.");
             goto fail;
         }

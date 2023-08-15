@@ -193,11 +193,8 @@ print_help()
     printf("Examples: wamrc -o test.aot test.wasm\n");
     printf("          wamrc --target=i386 -o test.aot test.wasm\n");
     printf("          wamrc --target=i386 --format=object -o test.o test.wasm\n");
-    printf("Usage for print architecture-related help infos: wamrc [--target/--cpu/--target-abi]=help\n");
-    printf("                                                 wamrc [--cpu-features]=+help\n");
-    printf("Examples: wamrc --target-abi=help\n");
+    printf("          wamrc --target-abi=help\n");
     printf("          wamrc --target=x86_64 --cpu=help\n");
-    printf("          wamrc --target=x86_64 --cpu=alderlake --cpu-features=+help\n");
 }
 /* clang-format on */
 
