@@ -22,10 +22,7 @@ bash language-bindings/python/utils/create_lib.sh
 
 This will build and copy libiwasm into the package.
 
-## Examples
+## Samples
 
-There is a [simple example](./samples/main.py) to show how to use bindings.
-
-```
-python samples/main.py
-```
+- **[basic](./samples/basic)**: Demonstrating how to use basic python bindings.
+- **[native-symbol](./samples/native-symbol)**: Desmostrate how to call WASM from Python and how to export Python functions into WASM.
