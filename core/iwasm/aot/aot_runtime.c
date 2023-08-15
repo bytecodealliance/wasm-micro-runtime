@@ -3421,4 +3421,53 @@ aot_create_func_obj(AOTModuleInstance *module_inst, uint32 func_idx,
     return func_obj;
 }
 
+WASMRttTypeRef
+aot_rtt_type_new(AOTModuleInstance *module_inst, uint32 type_index)
+{
+    AOTModule *aot_module = (AOTModule *)module_inst->module;
+    WASMType *type = aot_module->types[type_index];
+
+    return wasm_rtt_type_new(type, type_index, aot_module->rtt_types,
+                             aot_module->type_count,
+                             &aot_module->rtt_type_lock);
+}
+
+bool
+aot_obj_is_instance_of(AOTModuleInstance *module_inst, WASMObjectRef gc_obj,
+                       uint32 type_index)
+{
+    AOTModule *aot_module = (AOTModule *)module_inst->module;
+    WASMType **types = aot_module->types;
+    uint32 type_count = aot_module->type_count;
+
+    return wasm_obj_is_instance_of(gc_obj, type_index, types, type_count);
+}
+
+bool
+aot_array_init_with_data(AOTModuleInstance *module_inst, uint32 seg_index,
+                         uint32 data_seg_offset, WASMArrayObjectRef array_obj,
+                         uint32 elem_size, uint32 array_len)
+{
+    AOTModule *aot_module;
+    uint8 *data = NULL;
+    uint8 *array_elem_base;
+    uint64 seg_len = 0;
+    uint64 total_size = (int64)elem_size * array_len;
+
+    aot_module = (AOTModule *)module_inst->module;
+    seg_len = aot_module->mem_init_data_list[seg_index]->byte_count;
+    data = aot_module->mem_init_data_list[seg_index]->bytes;
+
+    if (data_seg_offset >= seg_len || total_size > seg_len - data_seg_offset) {
+        aot_set_exception(module_inst, "out of bounds memory access");
+        return false;
+    }
+
+    array_elem_base = (uint8 *)wasm_array_obj_first_elem_addr(array_obj);
+    bh_memcpy_s(array_elem_base, (uint32)total_size, data + data_seg_offset,
+                (uint32)total_size);
+
+    return true;
+}
+
 #endif /* end of WASM_ENABLE_GC != 0 */

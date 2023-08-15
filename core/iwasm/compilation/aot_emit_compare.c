@@ -230,3 +230,28 @@ aot_compile_op_f64_compare(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 fail:
     return false;
 }
+
+bool
+aot_compile_op_ref_eq(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+{
+    LLVMValueRef gc_obj1, gc_obj2, res;
+
+    POP_REF(gc_obj1);
+    POP_REF(gc_obj2);
+
+    /* pointers are compared using LLVMBuildICmp */
+
+    res = LLVMBuildICmp(comp_ctx->builder, LLVMIntEQ, gc_obj1, gc_obj2,
+                        "obj_ref_eq_cmp");
+
+    if (!res) {
+        aot_set_last_error("llvm build compare failed.");
+        return false;
+    }
+
+    PUSH_COND(res);
+
+    return true;
+fail:
+    return false;
+}

@@ -5,6 +5,7 @@
 
 #include "aot_emit_control.h"
 #include "aot_emit_exception.h"
+#include "aot_emit_gc.h"
 #include "../aot/aot_runtime.h"
 #include "../interpreter/wasm_loader.h"
 
@@ -1153,3 +1154,167 @@ aot_handle_next_reachable_block(AOTCompContext *comp_ctx,
 {
     return handle_next_reachable_block(comp_ctx, func_ctx, p_frame_ip);
 }
+
+#if WASM_ENABLE_GC != 0
+bool
+aot_compile_op_br_on_null(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                          uint32 br_depth, uint8 **p_frame_ip)
+{
+    LLVMValueRef gc_obj, cmp;
+    LLVMBasicBlockRef gc_obj_null, gc_obj_non_null;
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (comp_ctx->enable_thread_mgr) {
+        if (!check_suspend_flags(comp_ctx, func_ctx))
+            return false;
+    }
+#endif
+
+    GET_REF_FROM_STACK(gc_obj);
+
+    CREATE_BLOCK(gc_obj_null, "gc_block_null");
+    MOVE_BLOCK_AFTER_CURR(gc_obj_null);
+
+    CREATE_BLOCK(gc_obj_non_null, "gc_block_non_null");
+    MOVE_BLOCK_AFTER_CURR(gc_obj_non_null);
+
+    BUILD_ICMP(LLVMIntEQ, gc_obj, GC_REF_NULL, cmp, "cmp gc obj");
+    BUILD_COND_BR(cmp, gc_obj_null, gc_obj_non_null);
+
+    /* Move builder to gc_obj_null block */
+    SET_BUILDER_POS(gc_obj_null);
+    if (!aot_compile_op_br(comp_ctx, func_ctx, br_depth, p_frame_ip))
+        goto fail;
+
+    /* Move builder to gc_obj_non_null block */
+    SET_BUILDER_POS(gc_obj_non_null);
+
+    return true;
+fail:
+    return false;
+}
+
+bool
+aot_compile_op_br_on_non_null(AOTCompContext *comp_ctx,
+                              AOTFuncContext *func_ctx, uint32 br_depth,
+                              uint8 **p_frame_ip)
+{
+    LLVMValueRef gc_obj, cmp;
+    LLVMBasicBlockRef gc_obj_null, gc_obj_non_null;
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (comp_ctx->enable_thread_mgr) {
+        if (!check_suspend_flags(comp_ctx, func_ctx))
+            return false;
+    }
+#endif
+
+    GET_REF_FROM_STACK(gc_obj);
+
+    CREATE_BLOCK(gc_obj_non_null, "gc_block_non_null");
+    MOVE_BLOCK_AFTER_CURR(gc_obj_non_null);
+
+    CREATE_BLOCK(gc_obj_null, "gc_block_null");
+    MOVE_BLOCK_AFTER_CURR(gc_obj_null);
+
+    BUILD_ICMP(LLVMIntNE, gc_obj, GC_REF_NULL, cmp, "cmp gc obj");
+    BUILD_COND_BR(cmp, gc_obj_non_null, gc_obj_null);
+
+    /* Move builder to gc_obj_non_null block */
+    SET_BUILDER_POS(gc_obj_non_null);
+    if (!aot_compile_op_br(comp_ctx, func_ctx, br_depth, p_frame_ip))
+        goto fail;
+
+    /* Move builder to gc_obj_null block */
+    SET_BUILDER_POS(gc_obj_null);
+
+    return true;
+fail:
+    return false;
+}
+
+bool
+aot_compile_op_br_on_cast(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                          int32 heap_type, bool nullable, bool br_on_fail,
+                          uint32 br_depth, uint8 **p_frame_ip)
+{
+    LLVMValueRef gc_obj, cmp, castable;
+    LLVMBasicBlockRef gc_obj_null, gc_obj_non_null, end_block, nested_if;
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (comp_ctx->enable_thread_mgr) {
+        if (!check_suspend_flags(comp_ctx, func_ctx))
+            return false;
+    }
+#endif
+
+    GET_REF_FROM_STACK(gc_obj);
+
+    /* Create if block */
+    CREATE_BLOCK(gc_obj_null, "gc_obj_null");
+    MOVE_BLOCK_AFTER_CURR(gc_obj_null);
+
+    /* Create else block */
+    CREATE_BLOCK(gc_obj_non_null, "gc_obj_non_null");
+    MOVE_BLOCK_AFTER_CURR(gc_obj_non_null);
+    /* Create nested if block */
+    CREATE_BLOCK(nested_if, "nested if");
+    MOVE_BLOCK_AFTER(nested_if, gc_obj_non_null);
+
+    /* Create end block */
+    CREATE_BLOCK(end_block, "end_block");
+    MOVE_BLOCK_AFTER_CURR(end_block);
+
+    BUILD_ICMP(LLVMIntNE, gc_obj, GC_REF_NULL, cmp, "cmp gc obj");
+    BUILD_COND_BR(cmp, gc_obj_null, gc_obj_non_null);
+
+    /* Move builder to gc_obj NULL block */
+    SET_BUILDER_POS(gc_obj_null);
+    if ((!br_on_fail && nullable) || (br_on_fail && !nullable)) {
+        /* WASM_OP_BR_ON_CAST_NULLABLE or WASM_OP_BR_ON_CAST_FAIL */
+        if (!aot_compile_op_br(comp_ctx, func_ctx, br_depth, p_frame_ip))
+            goto fail;
+    }
+
+    /* Move builder to gc_obj non NULL block */
+    SET_BUILDER_POS(gc_obj_non_null);
+
+    if (heap_type >= 0) {
+        if (!aot_call_aot_obj_is_instance_of(comp_ctx, func_ctx, gc_obj,
+                                             I32_CONST(heap_type), &castable))
+            goto fail;
+    }
+    else {
+        if (!aot_call_wasm_obj_is_type_of(comp_ctx, func_ctx, gc_obj,
+                                          I32_CONST(heap_type), &castable))
+            goto fail;
+    }
+
+    if (!br_on_fail) {
+        /* WASM_OP_BR_ON_CAST || WASM_OP_BR_ON_CAST_NULLABLE*/
+        BUILD_ICMP(LLVMIntNE, castable, I8_ZERO, cmp, "castable");
+        BUILD_COND_BR(cmp, nested_if, end_block);
+    }
+    else if (br_on_fail) {
+        /* WASM_OP_BR_ON_CAST_FAIL || WASM_OP_BR_ON_CAST_FAIL_NULLABLE  */
+        BUILD_ICMP(LLVMIntEQ, castable, I8_ZERO, cmp, "castable");
+        BUILD_COND_BR(cmp, nested_if, end_block);
+    }
+
+    /* Move builder to nested if block */
+    SET_BUILDER_POS(nested_if);
+    if (!aot_compile_op_br(comp_ctx, func_ctx, br_depth, p_frame_ip))
+        goto fail;
+
+    /* Move builder to end_block */
+    SET_BUILDER_POS(end_block);
+
+    return true;
+fail:
+    return false;
+}
+
+#endif /* End of WASM_ENABLE_GC != 0 */
