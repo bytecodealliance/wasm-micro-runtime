@@ -193,6 +193,8 @@ print_help()
     printf("Examples: wamrc -o test.aot test.wasm\n");
     printf("          wamrc --target=i386 -o test.aot test.wasm\n");
     printf("          wamrc --target=i386 --format=object -o test.o test.wasm\n");
+    printf("          wamrc --target-abi=help\n");
+    printf("          wamrc --target=x86_64 --cpu=help\n");
 }
 /* clang-format on */
 
@@ -296,6 +298,12 @@ resolve_segue_flags(char *str_flags)
     return segue_flags;
 }
 
+/* When print help info for target/cpu/target-abi/cpu-features, load this dummy
+ * wasm file content rather than from an input file, the dummy wasm file content
+ * is: magic header + version number */
+static unsigned char dummy_wasm_file[8] = { 0x00, 0x61, 0x73, 0x6D,
+                                            0x01, 0x00, 0x00, 0x00 };
+
 int
 main(int argc, char *argv[])
 {
@@ -309,7 +317,7 @@ main(int argc, char *argv[])
     AOTCompOption option = { 0 };
     char error_buf[128];
     int log_verbose_level = 2;
-    bool sgx_mode = false, size_level_set = false;
+    bool sgx_mode = false, size_level_set = false, use_dummy_wasm = false;
     int exit_status = EXIT_FAILURE;
 #if BH_HAS_DLFCN
     const char *native_lib_list[8] = { NULL };
@@ -342,21 +350,33 @@ main(int argc, char *argv[])
             if (argv[0][9] == '\0')
                 PRINT_HELP_AND_EXIT();
             option.target_arch = argv[0] + 9;
+            if (!strcmp(option.target_arch, "help")) {
+                use_dummy_wasm = true;
+            }
         }
         else if (!strncmp(argv[0], "--target-abi=", 13)) {
             if (argv[0][13] == '\0')
                 PRINT_HELP_AND_EXIT();
             option.target_abi = argv[0] + 13;
+            if (!strcmp(option.target_abi, "help")) {
+                use_dummy_wasm = true;
+            }
         }
         else if (!strncmp(argv[0], "--cpu=", 6)) {
             if (argv[0][6] == '\0')
                 PRINT_HELP_AND_EXIT();
             option.target_cpu = argv[0] + 6;
+            if (!strcmp(option.target_cpu, "help")) {
+                use_dummy_wasm = true;
+            }
         }
         else if (!strncmp(argv[0], "--cpu-features=", 15)) {
             if (argv[0][15] == '\0')
                 PRINT_HELP_AND_EXIT();
             option.cpu_features = argv[0] + 15;
+            if (!strcmp(option.cpu_features, "+help")) {
+                use_dummy_wasm = true;
+            }
         }
         else if (!strncmp(argv[0], "--opt-level=", 12)) {
             if (argv[0][12] == '\0')
@@ -516,7 +536,7 @@ main(int argc, char *argv[])
             PRINT_HELP_AND_EXIT();
     }
 
-    if (argc == 0 || !out_file_name)
+    if (!use_dummy_wasm && (argc == 0 || !out_file_name))
         PRINT_HELP_AND_EXIT();
 
     if (!size_level_set) {
@@ -544,11 +564,13 @@ main(int argc, char *argv[])
         option.is_sgx_platform = true;
     }
 
-    wasm_file_name = argv[0];
+    if (!use_dummy_wasm) {
+        wasm_file_name = argv[0];
 
-    if (!strcmp(wasm_file_name, out_file_name)) {
-        printf("Error: input file and output file are the same");
-        return -1;
+        if (!strcmp(wasm_file_name, out_file_name)) {
+            printf("Error: input file and output file are the same");
+            return -1;
+        }
     }
 
     memset(&init_args, 0, sizeof(RuntimeInitArgs));
@@ -574,10 +596,17 @@ main(int argc, char *argv[])
 
     bh_print_time("Begin to load wasm file");
 
-    /* load WASM byte buffer from WASM bin file */
-    if (!(wasm_file =
-              (uint8 *)bh_read_file_to_buffer(wasm_file_name, &wasm_file_size)))
-        goto fail1;
+    if (use_dummy_wasm) {
+        /* load WASM byte buffer from dummy buffer */
+        wasm_file_size = sizeof(dummy_wasm_file);
+        wasm_file = dummy_wasm_file;
+    }
+    else {
+        /* load WASM byte buffer from WASM bin file */
+        if (!(wasm_file = (uint8 *)bh_read_file_to_buffer(wasm_file_name,
+                                                          &wasm_file_size)))
+            goto fail1;
+    }
 
     if (get_package_type(wasm_file, wasm_file_size) != Wasm_Module_Bytecode) {
         printf("Invalid file type: expected wasm file but got other\n");
@@ -659,7 +688,9 @@ fail3:
 
 fail2:
     /* free the file buffer */
-    wasm_runtime_free(wasm_file);
+    if (!use_dummy_wasm) {
+        wasm_runtime_free(wasm_file);
+    }
 
 fail1:
 #if BH_HAS_DLFCN
