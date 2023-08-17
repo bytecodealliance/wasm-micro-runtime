@@ -8064,7 +8064,9 @@ re_scan:
             case WASM_OP_SELECT_T:
             {
                 uint8 vec_len, ref_type;
+#if WASM_ENABLE_FAST_INTERP != 0
                 uint8 *p_code_compiled_orig = loader_ctx->p_code_compiled;
+#endif
 
                 read_leb_uint32(p, p_end, vec_len);
                 if (vec_len != 1) {
