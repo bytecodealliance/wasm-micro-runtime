@@ -1913,8 +1913,9 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
         }
 
         if (memory_data) {
-            bh_memcpy_s(memory_data + base_offset, memory_size - base_offset,
-                        data_seg->data, length);
+            bh_memcpy_s(memory_data + base_offset,
+                        (uint32)memory_size - base_offset, data_seg->data,
+                        length);
         }
     }
 
