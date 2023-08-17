@@ -34,7 +34,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Stress tests names
-thread_start_file_exclusions=("spawn_stress_test.wasm" "linear_memory_size_update.wasm")
+thread_start_file_exclusions=("spawn_stress_test.wasm" "linear_memory_size_update.wasm" "stress_test_threads_creation.wasm")
 
 for test_c in *.c; do
     test_wasm="$(basename $test_c .c).wasm"
@@ -56,6 +56,7 @@ for test_c in *.c; do
     echo "Compiling $test_c to $test_wasm"
     $CC \
         -target wasm32-wasi-threads \
+        -O2 \
         -pthread -ftls-model=local-exec \
         -z stack-size=32768 \
         -Wl,--export=__heap_base \
