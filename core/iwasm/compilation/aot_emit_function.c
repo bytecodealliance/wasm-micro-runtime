@@ -19,6 +19,17 @@
     } while (0)
 
 static bool
+is_win_platform(AOTCompContext *comp_ctx)
+{
+    char *triple = LLVMGetTargetMachineTriple(comp_ctx->target_machine);
+
+    bh_assert(trip);
+    if (strstr(triple, "win32") || strstr(triple, "win"))
+        return true;
+    return false;
+}
+
+static bool
 create_func_return_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
     LLVMBasicBlockRef block_curr = LLVMGetInsertBlock(comp_ctx->builder);
@@ -458,7 +469,7 @@ check_app_addr_and_convert(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     /* Check whether exception was thrown when executing the function */
-    if (comp_ctx->enable_bound_check
+    if ((comp_ctx->enable_bound_check || is_win_platform(comp_ctx))
         && !check_call_return(comp_ctx, func_ctx, res)) {
         return false;
     }
@@ -696,7 +707,7 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 goto fail;
             /* Check whether there was exception thrown when executing
                the function */
-            if (comp_ctx->enable_bound_check
+            if ((comp_ctx->enable_bound_check || is_win_platform(comp_ctx))
                 && !check_call_return(comp_ctx, func_ctx, res))
                 goto fail;
         }
@@ -849,7 +860,8 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
         /* Check whether there was exception thrown when executing
            the function */
-        if (!tail_call && comp_ctx->enable_bound_check
+        if (!tail_call
+            && (comp_ctx->enable_bound_check || is_win_platform(comp_ctx))
             && !check_exception_thrown(comp_ctx, func_ctx))
             goto fail;
     }
@@ -1431,7 +1443,7 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
 
     /* Check whether exception was thrown when executing the function */
-    if (comp_ctx->enable_bound_check
+    if ((comp_ctx->enable_bound_check || is_win_platform(comp_ctx))
         && !check_call_return(comp_ctx, func_ctx, res))
         goto fail;
 
@@ -1483,7 +1495,7 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     /* Check whether exception was thrown when executing the function */
-    if (comp_ctx->enable_bound_check
+    if ((comp_ctx->enable_bound_check || is_win_platform(comp_ctx))
         && !check_exception_thrown(comp_ctx, func_ctx))
         goto fail;
 
