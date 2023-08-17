@@ -39,6 +39,12 @@ on:
   # allow to be triggered manually
   workflow_dispatch:
 
+env:
+  # For Spec Test
+  DEFAULT_TEST_OPTIONS: "-s spec -b"
+  MULTI_MODULES_TEST_OPTIONS: "-s spec -b -M"
+  THREADS_TEST_OPTIONS: "-s spec -b -p"
+
 # Cancel any in-flight jobs for the same PR/branch so there's only one active
 # at a time
 concurrency:
@@ -77,3 +83,30 @@ jobs:
           mkdir build && cd build
           cmake .. ${{ matrix.build_options }}
           cmake --build . --config Release --parallel 4
+
+  test:
+    runs-on: windows-latest
+    needs: [build]
+    strategy:
+      fail-fast: false
+      matrix:
+        running_mode:
+          [
+            "classic-interp",
+            "fast-interp",
+          ]
+        test_option:
+          [
+            $DEFAULT_TEST_OPTIONS,
+            $MULTI_MODULES_TEST_OPTIONS,
+            $THREADS_TEST_OPTIONS,
+          ]
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+
+      - name: run tests
+        shell: bash
+        timeout-minutes: 20
+        run: ./test_wamr.sh ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
+        working-directory: ./tests/wamr-test-suites
