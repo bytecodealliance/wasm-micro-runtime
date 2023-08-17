@@ -2605,9 +2605,16 @@ aot_resolve_stack_sizes(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
 
     while (!LLVMObjectFileIsSymbolIteratorAtEnd(obj_data->binary, sym_itr)) {
         if ((name = LLVMGetSymbolName(sym_itr))
-            && !strcmp(name, aot_stack_sizes_alias_name)) {
+            && (!strcmp(name, aot_stack_sizes_alias_name)
+                /* symbol of COFF32 starts with "_" */
+                || (obj_data->target_info.bin_type == AOT_COFF32_BIN_TYPE
+                    && !strncmp(name, "_", 1)
+                    && !strcmp(name + 1, aot_stack_sizes_alias_name)))) {
             uint64 sz = LLVMGetSymbolSize(sym_itr);
-            if (sz != sizeof(uint32) * obj_data->func_count) {
+            if (sz != sizeof(uint32) * obj_data->func_count
+                /* sz of COFF64/COFF32 is 0, ignore the check */
+                && obj_data->target_info.bin_type != AOT_COFF64_BIN_TYPE
+                && obj_data->target_info.bin_type != AOT_COFF32_BIN_TYPE) {
                 aot_set_last_error("stack_sizes had unexpected size.");
                 goto fail;
             }
@@ -2641,10 +2648,6 @@ aot_resolve_stack_sizes(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
                     aot_set_last_error("unexpected data in stack_sizes.");
                     goto fail;
                 }
-            }
-            if (addr > UINT32_MAX) {
-                aot_set_last_error("too large stack_sizes offset.");
-                goto fail;
             }
             /*
              * Record section/offset and construct a copy of stack_sizes.

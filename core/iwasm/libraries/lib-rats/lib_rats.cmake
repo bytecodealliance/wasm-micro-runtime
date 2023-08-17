@@ -23,6 +23,7 @@ include(FetchContent)
 set(RATS_BUILD_MODE "sgx"
     CACHE INTERNAL "Select build mode for librats(host|occlum|sgx｜wasm)")
 set(RATS_INSTALL_PATH  "${CMAKE_BINARY_DIR}/librats" CACHE INTERNAL "")
+set(BUILD_SAMPLES OFF)
 
 FetchContent_Declare(
     librats
@@ -34,7 +35,16 @@ if (NOT librats_POPULATED)
     message("-- Fetching librats ..")
     FetchContent_Populate(librats)
     include_directories("${librats_SOURCE_DIR}/include")
+    
+    # Prevent the propagation of the CMAKE_C_FLAGS of WAMR into librats
+    set(SAVED_CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
+    set(CMAKE_C_FLAGS "")
+
+    # Import the building scripts of librats
     add_subdirectory(${librats_SOURCE_DIR} ${librats_BINARY_DIR} EXCLUDE_FROM_ALL)
+
+    # Restore the CMAKE_C_FLAGS of WAMR
+    set(CMAKE_C_FLAGS ${SAVED_CMAKE_C_FLAGS})
 
 endif()
 

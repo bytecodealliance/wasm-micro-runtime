@@ -146,6 +146,13 @@ aot_target_precheck_can_use_musttail(const AOTCompContext *comp_ctx)
          */
         return false;
     }
+    if (!strcmp(comp_ctx->target_arch, "mips")) {
+        /*
+         * cf.
+         * https://github.com/bytecodealliance/wasm-micro-runtime/issues/2412
+         */
+        return false;
+    }
     /*
      * x86-64/i386: true
      *
@@ -2743,6 +2750,16 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
                   LLVMRelocStatic, code_model, false,
                   comp_ctx->stack_usage_file))) {
             aot_set_last_error("create LLVM target machine failed.");
+            goto fail;
+        }
+
+        /* If only to create target machine for querying information, early stop
+         */
+        if ((arch && !strcmp(arch, "help")) || (abi && !strcmp(abi, "help"))
+            || (cpu && !strcmp(cpu, "help"))
+            || (features && !strcmp(features, "+help"))) {
+            LOG_DEBUG(
+                "create LLVM target machine only for printing help info.");
             goto fail;
         }
     }

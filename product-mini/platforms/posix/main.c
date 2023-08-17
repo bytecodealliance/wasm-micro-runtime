@@ -330,7 +330,7 @@ load_native_lib(const char *name)
         if (ret != 0) {
             LOG_WARNING("warning: `init_native_lib` function from native "
                         "lib %s failed with %d",
-                        name);
+                        name, ret);
             goto fail;
         }
     }
