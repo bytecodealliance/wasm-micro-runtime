@@ -201,6 +201,7 @@ runtime_signal_handler(void *sig_addr)
 }
 #else /* else of BH_PLATFORM_WINDOWS */
 
+#if WASM_ENABLE_AOT != 0
 #include <Zydis/Zydis.h>
 
 static uint32
@@ -249,6 +250,7 @@ decode_insn(uint8 *insn)
     /* Decode failed */
     return 0;
 }
+#endif /* end of WASM_ENABLE_AOT != 0 */
 
 static LONG
 runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
@@ -289,6 +291,7 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
                        wasm_runtime.c */
                     return EXCEPTION_CONTINUE_SEARCH;
                 }
+#if WASM_ENABLE_AOT != 0
                 else {
                     /* Skip current instruction and continue to run for
                        AOT mode. TODO: implement unwind support for AOT
@@ -300,6 +303,7 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
                         return EXCEPTION_CONTINUE_EXECUTION;
                     }
                 }
+#endif
             }
             else if (exec_env_tls->exce_check_guard_page <= (uint8 *)sig_addr
                      && (uint8 *)sig_addr
@@ -308,6 +312,7 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
                 if (module_inst->module_type == Wasm_Module_Bytecode) {
                     return EXCEPTION_CONTINUE_SEARCH;
                 }
+#if WASM_ENABLE_AOT != 0
                 else {
                     uint32 insn_size =
                         decode_insn((uint8 *)exce_info->ContextRecord->Rip);
@@ -316,6 +321,7 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
                         return EXCEPTION_CONTINUE_EXECUTION;
                     }
                 }
+#endif
             }
         }
 #if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
@@ -328,6 +334,7 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
             if (module_inst->module_type == Wasm_Module_Bytecode) {
                 return EXCEPTION_CONTINUE_SEARCH;
             }
+#if WASM_ENABLE_AOT != 0
             else {
                 uint32 insn_size =
                     decode_insn((uint8 *)exce_info->ContextRecord->Rip);
@@ -336,6 +343,7 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
                     return EXCEPTION_CONTINUE_EXECUTION;
                 }
             }
+#endif
         }
 #endif
     }
