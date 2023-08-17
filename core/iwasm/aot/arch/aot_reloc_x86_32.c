@@ -164,6 +164,9 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
                 (uint32)((uintptr_t)symbol_addr + (intptr_t)reloc_addend
                          - (uintptr_t)(target_section_addr
                                        + (uint32)reloc_offset)
+#if defined(BH_PLATFORM_WINDOWS)
+                         - sizeof(int32)
+#endif
                          + value); /* S + A - P */
             break;
         }
