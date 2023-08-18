@@ -124,7 +124,34 @@ runtime_malloc(uint64 size, WASMModuleInstanceCommon *module_inst,
     memset(mem, 0, (uint32)size);
     return mem;
 }
-
+#if WASM_ENABLE_MULTI_MODULE != 0
+/*
+    Todo:
+    Let loader_malloc to be a general API both for AOT and WASM.
+*/
+#define loader_malloc(size, error_buf, error_buf_size) \
+    runtime_malloc(size, NULL, error_buf, error_buf_size)
+static void
+set_error_buf_v(const WASMModuleCommon *module, char *error_buf,
+                uint32 error_buf_size, const char *format, ...)
+{
+    va_list args;
+    char buf[128];
+    if (error_buf != NULL) {
+        va_start(args, format);
+        vsnprintf(buf, sizeof(buf), format, args);
+        va_end(args);
+        if (module->module_type == Wasm_Module_AoT) {
+            snprintf(error_buf, error_buf_size, "AOT module load failed: %s",
+                     buf);
+        }
+        else if (module->module_type == Wasm_Module_Bytecode) {
+            snprintf(error_buf, error_buf_size, "WASM module load failed: %s",
+                     buf);
+        }
+    }
+}
+#endif
 #if WASM_ENABLE_FAST_JIT != 0
 static JitCompOptions jit_options = { 0 };
 #endif
@@ -712,6 +739,34 @@ get_package_type(const uint8 *buf, uint32 size)
     return Package_Type_Unknown;
 }
 
+#if WASM_ENABLE_LIBC_WASI != 0 || WASM_ENABLE_MULTI_MODULE != 0
+#define find_export(module, module_name, field_name, export_kind, error_buf, \
+                    error_buf_size)                                          \
+                                                                             \
+    do {                                                                     \
+        WASMExport *export;                                                  \
+        uint32 i;                                                            \
+                                                                             \
+        for (i = 0, export = module->exports; i < module->export_count;      \
+             ++i, ++export) {                                                \
+                                                                             \
+            if (export->kind == export_kind                                  \
+                && !strcmp(field_name, export->name)) {                      \
+                result = (WASMExport *)export;                               \
+                goto exit;                                                   \
+            }                                                                \
+        }                                                                    \
+                                                                             \
+        if (i == module->export_count) {                                     \
+            LOG_DEBUG("can not find an export %d named %s in the module %s", \
+                      export_kind, field_name, module_name);                 \
+            set_error_buf(error_buf, error_buf_size,                         \
+                          "unknown import or incompatible import type");     \
+            goto exit;                                                       \
+        }                                                                    \
+    } while (0)
+#endif /* end of WASM_ENABLE_MULTI_MODULE */
+
 #if WASM_ENABLE_AOT != 0
 static uint8 *
 align_ptr(const uint8 *p, uint32 b)
@@ -1185,7 +1240,11 @@ wasm_runtime_load(uint8 *buf, uint32 size, char *error_buf,
     if (get_package_type(buf, size) == Wasm_Module_Bytecode) {
 #if WASM_ENABLE_INTERP != 0
         module_common =
-            (WASMModuleCommon *)wasm_load(buf, size, error_buf, error_buf_size);
+            (WASMModuleCommon *)wasm_load(buf, size,
+#if WASM_ENABLE_MULTI_MODULE != 0
+                                          true,
+#endif
+                                          error_buf, error_buf_size);
         return register_module_with_null_name(module_common, error_buf,
                                               error_buf_size);
 #endif
@@ -5697,3 +5756,280 @@ wasm_runtime_is_import_global_linked(const char *module_name,
     return false;
 #endif
 }
+
+#if WASM_ENABLE_LIBC_WASI != 0 || WASM_ENABLE_MULTI_MODULE != 0
+WASMExport *
+loader_find_export(const WASMModuleCommon *module, const char *module_name,
+                   const char *field_name, uint8 export_kind, char *error_buf,
+                   uint32 error_buf_size)
+{
+    WASMExport *result = NULL;
+    if (module->module_type == Wasm_Module_AoT) {
+        find_export(((AOTModule *)module), module_name, field_name, export_kind,
+                    error_buf, error_buf_size);
+    }
+    else if (module->module_type == Wasm_Module_Bytecode) {
+        find_export(((WASMModule *)module), module_name, field_name,
+                    export_kind, error_buf, error_buf_size);
+    }
+exit:
+    return result;
+}
+#endif
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+WASMModuleCommon *
+search_sub_module(const WASMModuleCommon *parent_module,
+                  const char *sub_module_name)
+{
+    WASMRegisteredModule *node = NULL;
+    if (parent_module->module_type == Wasm_Module_AoT) {
+        node = bh_list_first_elem(
+            ((AOTModule *)parent_module)->import_module_list);
+    }
+    else if (parent_module->module_type == Wasm_Module_Bytecode) {
+        node = bh_list_first_elem(
+            ((WASMModule *)parent_module)->import_module_list);
+    }
+
+    while (node && strcmp(sub_module_name, node->module_name)) {
+        node = bh_list_elem_next(node);
+    }
+    return node ? node->module : NULL;
+}
+
+bool
+register_sub_module(const WASMModuleCommon *parent_module,
+                    const char *sub_module_name, WASMModuleCommon *sub_module)
+{
+    /* register sub_module into its parent sub module list */
+    WASMRegisteredModule *node = NULL;
+    bh_list_status ret;
+
+    if (search_sub_module(parent_module, sub_module_name)) {
+        LOG_DEBUG("%s has been registered in its parent", sub_module_name);
+        return true;
+    }
+
+    node = loader_malloc(sizeof(WASMRegisteredModule), NULL, 0);
+    if (!node) {
+        return false;
+    }
+
+    node->module_name = sub_module_name;
+    node->module = sub_module;
+    if (parent_module->module_type == Wasm_Module_AoT) {
+        ret = bh_list_insert(((AOTModule *)parent_module)->import_module_list,
+                             node);
+    }
+    else if (parent_module->module_type == Wasm_Module_Bytecode) {
+        ret = bh_list_insert(((WASMModule *)parent_module)->import_module_list,
+                             node);
+    }
+    bh_assert(BH_LIST_SUCCESS == ret);
+    (void)ret;
+    return true;
+}
+
+WASMModuleCommon *
+load_depended_module(const WASMModuleCommon *parent_module,
+                     const char *sub_module_name, char *error_buf,
+                     uint32 error_buf_size)
+{
+    WASMModuleCommon *sub_module = NULL;
+    bool ret = false;
+    uint8 *buffer = NULL;
+    uint32 buffer_size = 0;
+    const module_reader reader = wasm_runtime_get_module_reader();
+    const module_destroyer destroyer = wasm_runtime_get_module_destroyer();
+
+    /* check the registered module list of the parent */
+    sub_module = search_sub_module(parent_module, sub_module_name);
+    if (sub_module) {
+        LOG_DEBUG("%s has been loaded before", sub_module_name);
+        return sub_module;
+    }
+
+    /* check the global registered module list */
+    sub_module = wasm_runtime_find_module_registered(sub_module_name);
+    if (sub_module) {
+        LOG_DEBUG("%s has been loaded", sub_module_name);
+        goto register_sub_module;
+    }
+    LOG_VERBOSE("loading %s", sub_module_name);
+    if (!reader) {
+        set_error_buf_v(parent_module, error_buf, error_buf_size,
+                        "no sub module reader to load %s", sub_module_name);
+        return NULL;
+    }
+    /* start to maintain a loading module list */
+    ret = wasm_runtime_is_loading_module(sub_module_name);
+    if (ret) {
+        set_error_buf_v(parent_module, error_buf, error_buf_size,
+                        "found circular dependency on %s", sub_module_name);
+        return NULL;
+    }
+    ret = wasm_runtime_add_loading_module(sub_module_name, error_buf,
+                                          error_buf_size);
+    if (!ret) {
+        LOG_DEBUG("can not add %s into loading module list\n", sub_module_name);
+        return NULL;
+    }
+
+    ret = reader(sub_module_name, &buffer, &buffer_size);
+    if (!ret) {
+        LOG_DEBUG("read the file of %s failed", sub_module_name);
+        set_error_buf_v(parent_module, error_buf, error_buf_size,
+                        "unknown import", sub_module_name);
+        goto delete_loading_module;
+    }
+    if (parent_module->module_type == Wasm_Module_AoT) {
+        sub_module = (WASMModuleCommon *)aot_load_from_aot_file(
+            buffer, buffer_size, error_buf, error_buf_size);
+    }
+    else if (parent_module->module_type == Wasm_Module_Bytecode) {
+        sub_module = (WASMModuleCommon *)wasm_load(buffer, buffer_size, false,
+                                                   error_buf, error_buf_size);
+    }
+
+    if (!sub_module) {
+        LOG_DEBUG("error: can not load the sub_module %s", sub_module_name);
+        /* others will be destroyed in runtime_destroy() */
+        goto destroy_file_buffer;
+    }
+    wasm_runtime_delete_loading_module(sub_module_name);
+    /* register on a global list */
+    ret = wasm_runtime_register_module_internal(
+        sub_module_name, (WASMModuleCommon *)sub_module, buffer, buffer_size,
+        error_buf, error_buf_size);
+    if (!ret) {
+        LOG_DEBUG("error: can not register module %s globally\n",
+                  sub_module_name);
+        /* others will be unloaded in runtime_destroy() */
+        goto unload_module;
+    }
+
+    /* register into its parent list */
+register_sub_module:
+    ret = register_sub_module(parent_module, sub_module_name, sub_module);
+    if (!ret) {
+        set_error_buf_v(parent_module, error_buf, error_buf_size,
+                        "failed to register sub module %s", sub_module_name);
+        /* since it is in the global module list, no need to
+         * unload the module. the runtime_destroy() will do it
+         */
+        return NULL;
+    }
+
+    return sub_module;
+
+unload_module:
+    wasm_runtime_unload(sub_module);
+
+destroy_file_buffer:
+    if (destroyer) {
+        destroyer(buffer, buffer_size);
+    }
+    else {
+        LOG_WARNING("need to release the reading buffer of %s manually",
+                    sub_module_name);
+    }
+
+delete_loading_module:
+    wasm_runtime_delete_loading_module(sub_module_name);
+    return NULL;
+}
+
+bool
+sub_module_instantiate(WASMModuleCommon *module,
+                       WASMModuleInstanceCommon *module_inst, uint32 stack_size,
+                       uint32 heap_size, char *error_buf, uint32 error_buf_size)
+{
+    bh_list *sub_module_inst_list = NULL;
+    WASMRegisteredModule *sub_module_list_node = NULL;
+
+    if (module->module_type == Wasm_Module_AoT) {
+        sub_module_inst_list =
+            ((AOTModuleInstanceExtra *)((AOTModuleInstance *)module_inst)->e)
+                ->sub_module_inst_list;
+        sub_module_list_node =
+            bh_list_first_elem(((AOTModule *)module)->import_module_list);
+    }
+    else if (module->module_type == Wasm_Module_Bytecode) {
+        sub_module_inst_list =
+            ((WASMModuleInstanceExtra *)((WASMModuleInstance *)module_inst)->e)
+                ->sub_module_inst_list;
+        sub_module_list_node =
+            bh_list_first_elem(((WASMModule *)module)->import_module_list);
+    }
+    while (sub_module_list_node) {
+        WASMSubModInstNode *sub_module_inst_list_node = NULL;
+        WASMModuleCommon *sub_module = sub_module_list_node->module;
+        WASMModuleInstanceCommon *sub_module_inst = NULL;
+
+        sub_module_inst = wasm_runtime_instantiate_internal(
+            sub_module, NULL, NULL, stack_size, heap_size, error_buf,
+            error_buf_size);
+        if (!sub_module_inst) {
+            LOG_DEBUG("instantiate %s failed",
+                      sub_module_list_node->module_name);
+            goto failed;
+        }
+        sub_module_inst_list_node = loader_malloc(sizeof(WASMSubModInstNode),
+                                                  error_buf, error_buf_size);
+        if (!sub_module_inst_list_node) {
+            LOG_DEBUG("Malloc WASMSubModInstNode failed, SZ:%d",
+                      sizeof(WASMSubModInstNode));
+            goto failed;
+        }
+        sub_module_inst_list_node->module_inst =
+            (WASMModuleInstance *)sub_module_inst;
+        sub_module_inst_list_node->module_name =
+            sub_module_list_node->module_name;
+        bh_list_status ret =
+            bh_list_insert(sub_module_inst_list, sub_module_inst_list_node);
+        bh_assert(BH_LIST_SUCCESS == ret);
+        (void)ret;
+
+        sub_module_list_node = bh_list_elem_next(sub_module_list_node);
+
+        continue;
+    failed:
+        if (sub_module_inst_list_node) {
+            bh_list_remove(sub_module_inst_list, sub_module_inst_list_node);
+            wasm_runtime_free(sub_module_inst_list_node);
+        }
+
+        if (sub_module_inst)
+            wasm_runtime_deinstantiate_internal(sub_module_inst, false);
+        return false;
+    }
+
+    return true;
+}
+
+void
+sub_module_deinstantiate(WASMModuleInstanceCommon *module_inst)
+{
+    bh_list *list = NULL;
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        list = ((AOTModuleInstanceExtra *)((AOTModuleInstance *)module_inst)->e)
+                   ->sub_module_inst_list;
+    }
+    else if (module_inst->module_type == Wasm_Module_Bytecode) {
+        list =
+            ((WASMModuleInstanceExtra *)((WASMModuleInstance *)module_inst)->e)
+                ->sub_module_inst_list;
+    }
+    WASMSubModInstNode *node = bh_list_first_elem(list);
+
+    while (node) {
+        WASMSubModInstNode *next_node = bh_list_elem_next(node);
+        bh_list_remove(list, node);
+        wasm_runtime_deinstantiate_internal(
+            (WASMModuleInstanceCommon *)node->module_inst, false);
+        wasm_runtime_free(node);
+        node = next_node;
+    }
+}
+#endif

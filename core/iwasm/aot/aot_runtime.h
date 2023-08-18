@@ -90,6 +90,10 @@ typedef struct AOTFunctionInstance {
 typedef struct AOTModuleInstanceExtra {
     DefPointer(const uint32 *, stack_sizes);
     WASMModuleInstanceExtraCommon common;
+#if WASM_ENABLE_MULTI_MODULE != 0
+    bh_list sub_module_inst_list_head;
+    bh_list *sub_module_inst_list;
+#endif
 } AOTModuleInstanceExtra;
 
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
@@ -229,6 +233,12 @@ typedef struct AOTModule {
     WASIArguments wasi_args;
     bool import_wasi_api;
 #endif
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+    /* TODO: add mutex for mutli-thread? */
+    bh_list import_module_list_head;
+    bh_list *import_module_list;
+#endif
 #if WASM_ENABLE_DEBUG_AOT != 0
     void *elf_hdr;
     uint32 elf_size;
@@ -246,6 +256,13 @@ typedef struct AOTModule {
 #define AOTMemoryInstance WASMMemoryInstance
 #define AOTTableInstance WASMTableInstance
 #define AOTModuleInstance WASMModuleInstance
+
+typedef struct AOTSubModInstNode {
+    bh_list_link l;
+    /* point to a string pool */
+    const char *module_name;
+    AOTModuleInstance *module_inst;
+} AOTSubModInstNode;
 
 /* Target info, read from ELF header of object file */
 typedef struct AOTTargetInfo {
