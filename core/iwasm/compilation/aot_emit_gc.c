@@ -24,7 +24,7 @@
         }                                                                \
     } while (0)
 
-#define BUILD_ICMP(op, left, right, res, name)                                \
+#define ADD_BASIC_BLOCK(block, name)                                          \
     do {                                                                      \
         if (!(block = LLVMAppendBasicBlockInContext(comp_ctx->context,        \
                                                     func_ctx->func, name))) { \
@@ -242,13 +242,12 @@ aot_compile_op_ref_as_non_null(AOTCompContext *comp_ctx,
 
     GET_REF_FROM_STACK(gc_obj);
 
-    /* Check if func object is NULL */
-    BUILD_ICMP(LLVMIntEQ, gc_obj, GC_REF_NULL, cmp_gc_obj, "cmp_func_obj");
+    BUILD_ISNULL(gc_obj, cmp_gc_obj, "cmp_gc_obj");
 
-    /* Throw exception if func object is NULL */
-    ADD_BASIC_BLOCK(check_gc_obj_succ, "check_func_obj_succ");
+    ADD_BASIC_BLOCK(check_gc_obj_succ, "check_gc_obj_succ");
     MOVE_BLOCK_AFTER_CURR(check_gc_obj_succ);
 
+    /* Check if func object is NULL, throw exception if it is NULL */
     if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_NULL_GC_REF, true,
                             cmp_gc_obj, check_gc_obj_succ))
         goto fail;
@@ -300,7 +299,7 @@ aot_compile_op_i31_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     MOVE_BLOCK_AFTER_CURR(check_i31_obj_succ);
 
     /* Check if i31 object is NULL, throw exception if it is */
-    BUILD_ICMP(LLVMIntEQ, i31_obj, GC_REF_NULL, cmp_i31_obj, "cmp_func_obj");
+    BUILD_ISNULL(i31_obj, cmp_i31_obj, "cmp_func_obj");
     if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_NULL_GC_REF, true,
                             cmp_i31_obj, check_i31_obj_succ))
         goto fail;
@@ -362,7 +361,7 @@ aot_compile_op_ref_test(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     MOVE_BLOCK_AFTER_CURR(end_block);
 
     /* Check if gc object is NULL */
-    BUILD_ICMP(LLVMIntEQ, gc_obj, GC_REF_NULL, cmp, "cmp_func_obj");
+    BUILD_ISNULL(gc_obj, cmp, "cmp_func_obj");
     BUILD_COND_BR(cmp, gc_obj_null, gc_obj_non_null);
 
     /* Move builder to gc_obj NULL block */
@@ -475,7 +474,7 @@ aot_compile_op_extern_internalize(AOTCompContext *comp_ctx,
     MOVE_BLOCK_AFTER_CURR(end_block);
 
     /* Check if externref object is NULL */
-    BUILD_ICMP(LLVMIntEQ, externref_obj, GC_REF_NULL, cmp, "cmp_externref_obj");
+    BUILD_ISNULL(externref_obj, cmp, "cmp_externref_obj");
     BUILD_COND_BR(cmp, obj_null, obj_non_null);
 
     /* Move builder to obj NULL block */
@@ -554,7 +553,7 @@ aot_compile_op_extern_externalize(AOTCompContext *comp_ctx,
     MOVE_BLOCK_AFTER_CURR(end_block);
 
     /* Check if gc object is NULL */
-    BUILD_ICMP(LLVMIntEQ, gc_obj, GC_REF_NULL, cmp, "cmp_gc_obj");
+    BUILD_ISNULL(gc_obj, cmp, "cmp_gc_obj");
     BUILD_COND_BR(cmp, obj_null, obj_non_null);
 
     /* Move builder to obj NULL block */
@@ -567,7 +566,7 @@ aot_compile_op_extern_externalize(AOTCompContext *comp_ctx,
     if (!aot_call_wasm_internal_obj_to_external_obj(comp_ctx, func_ctx, gc_obj,
                                                     &externref_obj))
         goto fail;
-    BUILD_ICMP(LLVMIntEQ, externref_obj, GC_REF_NULL, cmp, "cmp_externref_obj");
+    BUILD_ISNULL(externref_obj, cmp, "cmp_externref_obj");
     if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_NULL_GC_REF, true, cmp,
                             externalize_succ))
         goto fail;
@@ -746,7 +745,7 @@ aot_compile_op_struct_new(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     ADD_BASIC_BLOCK(check_rtt_type_succ, "check rtt type succ");
     MOVE_BLOCK_AFTER_CURR(check_rtt_type_succ);
 
-    BUILD_ICMP(LLVMIntEQ, rtt_type, GC_REF_NULL, cmp, "cmp_rtt_type");
+    BUILD_ISNULL(rtt_type, cmp, "cmp_rtt_type");
     if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_NULL_GC_REF, true, cmp,
                             check_rtt_type_succ))
         goto fail;
@@ -759,7 +758,7 @@ aot_compile_op_struct_new(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     ADD_BASIC_BLOCK(check_struct_obj_succ, "check struct obj succ");
     MOVE_BLOCK_AFTER(check_struct_obj_succ, check_rtt_type_succ);
 
-    BUILD_ICMP(LLVMIntEQ, struct_obj, GC_REF_NULL, cmp, "cmp_struct_obj");
+    BUILD_ISNULL(struct_obj, cmp, "cmp_struct_obj");
     if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_NULL_GC_REF, true, cmp,
                             check_struct_obj_succ))
         goto fail;
@@ -815,7 +814,7 @@ aot_compile_op_struct_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     ADD_BASIC_BLOCK(check_struct_obj_succ, "check struct obj succ");
     MOVE_BLOCK_AFTER_CURR(check_struct_obj_succ);
 
-    BUILD_ICMP(LLVMIntEQ, struct_obj, GC_REF_NULL, cmp, "cmp_struct_obj");
+    BUILD_ISNULL(struct_obj, cmp, "cmp_struct_obj");
     if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_NULL_GC_REF, true, cmp,
                             check_struct_obj_succ))
         goto fail;
@@ -893,7 +892,7 @@ aot_compile_op_struct_set(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     ADD_BASIC_BLOCK(check_struct_obj_succ, "check struct obj succ");
     MOVE_BLOCK_AFTER_CURR(check_struct_obj_succ);
 
-    BUILD_ICMP(LLVMIntEQ, struct_obj, GC_REF_NULL, cmp, "cmp_struct_obj");
+    BUILD_ISNULL(struct_obj, cmp, "cmp_struct_obj");
     if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_NULL_GC_REF, true, cmp,
                             check_struct_obj_succ))
         goto fail;
@@ -1100,7 +1099,7 @@ aot_compile_op_array_new(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     ADD_BASIC_BLOCK(check_rtt_type_succ, "check rtt type succ");
     MOVE_BLOCK_AFTER_CURR(check_rtt_type_succ);
 
-    BUILD_ICMP(LLVMIntEQ, rtt_type, GC_REF_NULL, cmp, "cmp_rtt_type");
+    BUILD_ISNULL(rtt_type, cmp, "cmp_rtt_type");
     if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_NULL_GC_REF, true, cmp,
                             check_rtt_type_succ))
         goto fail;
@@ -1134,7 +1133,7 @@ aot_compile_op_array_new(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     ADD_BASIC_BLOCK(check_array_obj_succ, "check array obj succ");
     MOVE_BLOCK_AFTER(check_array_obj_succ, check_rtt_type_succ);
 
-    BUILD_ICMP(LLVMIntEQ, array_obj, GC_REF_NULL, cmp, "cmp_array_obj");
+    BUILD_ISNULL(array_obj, cmp, "cmp_array_obj");
     if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_NULL_GC_REF, true, cmp,
                             check_array_obj_succ))
         goto fail;
@@ -1190,7 +1189,7 @@ aot_compile_op_array_new_data(AOTCompContext *comp_ctx,
     ADD_BASIC_BLOCK(check_rtt_type_succ, "check rtt type succ");
     MOVE_BLOCK_AFTER_CURR(check_rtt_type_succ);
 
-    BUILD_ICMP(LLVMIntEQ, rtt_type, GC_REF_NULL, cmp, "cmp_rtt_type");
+    BUILD_ISNULL(rtt_type, cmp, "cmp_rtt_type");
     if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_NULL_GC_REF, true, cmp,
                             check_rtt_type_succ))
         goto fail;
@@ -1229,7 +1228,7 @@ aot_compile_op_array_new_data(AOTCompContext *comp_ctx,
     ADD_BASIC_BLOCK(check_array_obj_succ, "check array obj succ");
     MOVE_BLOCK_AFTER(check_array_obj_succ, check_rtt_type_succ);
 
-    BUILD_ICMP(LLVMIntEQ, array_obj, GC_REF_NULL, cmp, "cmp_array_obj");
+    BUILD_ISNULL(array_obj, cmp, "cmp_array_obj");
     if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_NULL_GC_REF, true, cmp,
                             check_array_obj_succ))
         goto fail;
@@ -1323,7 +1322,7 @@ aot_compile_op_array_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     ADD_BASIC_BLOCK(check_array_obj_succ, "check array obj succ");
     MOVE_BLOCK_AFTER_CURR(check_array_obj_succ);
 
-    BUILD_ICMP(LLVMIntEQ, array_obj, GC_REF_NULL, cmp, "cmp_array_obj");
+    BUILD_ISNULL(array_obj, cmp, "cmp_array_obj");
     if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_NULL_GC_REF, true, cmp,
                             check_array_obj_succ))
         goto fail;
@@ -1410,7 +1409,7 @@ aot_compile_op_array_set(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     ADD_BASIC_BLOCK(check_array_obj_succ, "check array obj succ");
     MOVE_BLOCK_AFTER_CURR(check_array_obj_succ);
 
-    BUILD_ICMP(LLVMIntEQ, array_obj, GC_REF_NULL, cmp, "cmp_array_obj");
+    BUILD_ISNULL(array_obj, cmp, "cmp_array_obj");
     if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_NULL_GC_REF, true, cmp,
                             check_array_obj_succ))
         goto fail;
@@ -1457,8 +1456,8 @@ aot_compile_op_array_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     ADD_BASIC_BLOCK(check_objs_succ, "check array objs succ");
     MOVE_BLOCK_AFTER_CURR(check_objs_succ);
 
-    BUILD_ICMP(LLVMIntEQ, src_obj, GC_REF_NULL, cmp[0], "cmp_src_obj");
-    BUILD_ICMP(LLVMIntEQ, dst_obj, GC_REF_NULL, cmp[1], "cmp_dst_obj");
+    BUILD_ISNULL(src_obj, cmp[0], "cmp_src_obj");
+    BUILD_ISNULL(dst_obj, cmp[1], "cmp_dst_obj");
 
     /* src_obj is null or dst_obj is null, throw exception */
     if (!(cmp[0] = LLVMBuildOr(comp_ctx->builder, cmp[0], cmp[1], ""))) {
@@ -1535,7 +1534,7 @@ aot_compile_op_array_len(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     ADD_BASIC_BLOCK(check_array_obj_succ, "check array obj succ");
     MOVE_BLOCK_AFTER_CURR(check_array_obj_succ);
 
-    BUILD_ICMP(LLVMIntEQ, array_obj, GC_REF_NULL, cmp, "cmp_array_obj");
+    BUILD_ISNULL(array_obj, cmp, "cmp_array_obj");
     if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_NULL_GC_REF, true, cmp,
                             check_array_obj_succ))
         goto fail;
