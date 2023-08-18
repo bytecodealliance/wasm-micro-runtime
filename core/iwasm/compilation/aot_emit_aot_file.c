@@ -1825,7 +1825,7 @@ aot_emit_text_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
                                     == 4 /* IMAGE_REL_AMD64_REL32 */)
                             || (obj_data->target_info.bin_type
                                     == 4 /* AOT_COFF32_BIN_TYPE */
-                                && obj_data->target_info.bin_type
+                                && relocation->relocation_type
                                        == 20 /* IMAGE_REL_I386_REL32 */))) {
                         uint32 func_idx =
                             atoi(relocation->symbol_name
