@@ -1850,8 +1850,8 @@ aot_emit_text_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
                                          * (relocation_count - 1 - j));
                             bh_memmove_s(relocation, move_size, relocation + 1,
                                          move_size);
-                            relocation_group->relocation_count--;
                         }
+                        relocation_group->relocation_count--;
                     }
                     else {
                         relocation++;
