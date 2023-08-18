@@ -3421,17 +3421,6 @@ aot_create_func_obj(AOTModuleInstance *module_inst, uint32 func_idx,
     return func_obj;
 }
 
-WASMRttTypeRef
-aot_rtt_type_new(AOTModuleInstance *module_inst, uint32 type_index)
-{
-    AOTModule *aot_module = (AOTModule *)module_inst->module;
-    WASMType *type = aot_module->types[type_index];
-
-    return wasm_rtt_type_new(type, type_index, aot_module->rtt_types,
-                             aot_module->type_count,
-                             &aot_module->rtt_type_lock);
-}
-
 bool
 aot_obj_is_instance_of(AOTModuleInstance *module_inst, WASMObjectRef gc_obj,
                        uint32 type_index)
@@ -3440,7 +3429,21 @@ aot_obj_is_instance_of(AOTModuleInstance *module_inst, WASMObjectRef gc_obj,
     WASMType **types = aot_module->types;
     uint32 type_count = aot_module->type_count;
 
-    return wasm_obj_is_instance_of(gc_obj, type_index, types, type_count);
+    return wasm_obj_is_instance_of(gc_obj, type_index, aot_module->types,
+                                   type_count);
+}
+
+WASMRttTypeRef
+aot_rtt_type_new(AOTModuleInstance *module_inst, uint32 type_index)
+{
+    AOTModule *aot_module = (AOTModule *)module_inst->module;
+    WASMType *defined_type = aot_module->types[type_index];
+    WASMRttType **rtt_types = aot_module->rtt_types;
+    uint32 rtt_type_count = aot_module->type_count;
+    korp_mutex *rtt_type_lock= &aot_module->rtt_type_lock;
+
+    return wasm_rtt_type_new(defined_type, type_index, rtt_types,
+                             rtt_type_count, rtt_type_lock);
 }
 
 bool

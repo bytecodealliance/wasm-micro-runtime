@@ -69,6 +69,7 @@ typedef enum WASMExceptionID {
     EXCE_FAILED_TO_COMPILE_FAST_JIT_FUNC,
     EXCE_ALREADY_THROWN,
     EXCE_NULL_GC_REF,
+    EXCE_ARRAY_OOB,
     EXCE_TYPE_NONCASTABLE,
     EXCE_NUM,
 } WASMExceptionID;
@@ -692,12 +693,6 @@ llvm_jit_table_fill(WASMModuleInstance *module_inst, uint32 tbl_idx,
 uint32
 llvm_jit_table_grow(WASMModuleInstance *module_inst, uint32 tbl_idx,
                     uint32 inc_entries, uintptr_t init_val);
-#endif
-
-#if WASM_ENABLE_GC != 0
-
-
-
 #endif
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0 || WASM_ENABLE_PERF_PROFILING != 0

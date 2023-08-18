@@ -1779,9 +1779,9 @@ aot_compile_op_call_ref(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     POP_REF(func_obj);
 
     /* Check if func object is NULL */
-    if (!(cmp_func_obj = LLVMBuildICmp(comp_ctx->builder, LLVMIntEQ, func_obj,
-                                       GC_REF_NULL, "cmp_func_obj"))) {
-        aot_set_last_error("llvm build icmp failed.");
+    if (!(cmp_func_obj =
+              LLVMBuildIsNull(comp_ctx->builder, func_obj, "cmp_func_obj"))) {
+        aot_set_last_error("llvm build isnull failed.");
         goto fail;
     }
 
@@ -1799,8 +1799,11 @@ aot_compile_op_call_ref(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                              cmp_func_obj, check_func_obj_succ)))
         goto fail;
 
-    /* get the func idx bound of the function object */
-    if (!(offset = I32_CONST(offsetof(WASMFuncObject, func_idx_bound)))) {
+    /* Get the func idx bound of the WASMFuncObject, the offset may be
+     * different in 32-bit runtime and 64-bit runtime since WASMObjectHeader
+     * is uintptr_t. Use comp_ctx->pointer_size as the
+     * offsetof(WASMFuncObject, func_idx_bound) */
+    if (!(offset = I32_CONST(comp_ctx->pointer_size))) {
         HANDLE_FAILURE("LLVMConstInt");
         goto fail;
     }
@@ -1962,6 +1965,7 @@ aot_compile_op_call_ref(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             goto fail;
     }
 #endif
+
     /* Add basic blocks */
     block_call_import = LLVMAppendBasicBlockInContext(
         comp_ctx->context, func_ctx->func, "call_import");
@@ -2024,6 +2028,8 @@ aot_compile_op_call_ref(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     param_cell_num = func_type->param_cell_num;
 
+    /* Similar to opcode call_indirect, but for opcode ref.func needs to call
+     * aot_invoke_native_func instead */
     if (!call_aot_invoke_native_func(comp_ctx, func_ctx, func_idx, func_type,
                                      param_types + 1, param_values + 1,
                                      func_param_count, param_cell_num, ret_type,
@@ -2035,10 +2041,11 @@ aot_compile_op_call_ref(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         && !check_call_return(comp_ctx, func_ctx, res))
         goto fail;
 
-    /* Get function return values */
-    if (func_result_count > 0) {
-        block_curr = LLVMGetInsertBlock(comp_ctx->builder);
+    block_curr = LLVMGetInsertBlock(comp_ctx->builder);
 
+    /* Get function return values, for aot_invoke_native_func, the extra ret
+     * values are put into param's array */
+    if (func_result_count > 0) {
         /* Push the first result to stack */
         LLVMAddIncoming(result_phis[0], &value_ret, &block_curr, 1);
 
@@ -2162,4 +2169,4 @@ fail:
     return ret;
 }
 
-#endif
+#endif /* end of WASM_ENABLE_GC != 0 */

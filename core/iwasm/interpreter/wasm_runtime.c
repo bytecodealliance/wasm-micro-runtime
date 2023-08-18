@@ -3758,10 +3758,13 @@ WASMRttTypeRef
 llvm_jit_rtt_type_new(WASMModuleInstance *module_inst, uint32 type_index)
 {
     WASMModule *module = module_inst->module;
-    WASMType *type = module->types[type_index];
+    WASMType *defined_type = module->types[type_index];
+    WASMRttType **rtt_types = module->rtt_types;
+    uint32 rtt_type_count = module->type_count;
+    korp_mutex *rtt_type_lock = &module->rtt_type_lock;
 
-    return wasm_rtt_type_new(type, type_index, module->rtt_types,
-                             module->type_count, &module->rtt_type_lock);
+    return wasm_rtt_type_new(defined_type, type_index, rtt_types,
+                             rtt_type_count, &module->rtt_type_lock);
 }
 
 #endif /* end of WASM_ENABLE_GC != 0  */

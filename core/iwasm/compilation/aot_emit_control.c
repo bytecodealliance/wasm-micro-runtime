@@ -129,6 +129,26 @@ format_block_name(char *name, uint32 name_size, uint32 block_index,
         LLVMAddIncoming(block->param_phis[idx], &value, &_block_curr, 1); \
     } while (0)
 
+#if WASM_ENABLE_GC != 0
+
+#define BUILD_ISNULL(ptr, res, name)                                  \
+    do {                                                              \
+        if (!(res = LLVMBuildIsNull(comp_ctx->builder, ptr, name))) { \
+            aot_set_last_error("llvm build isnull failed.");          \
+            goto fail;                                                \
+        }                                                             \
+    } while (0)
+
+#define BUILD_ISNOTNULL(ptr, res, name)                                  \
+    do {                                                                 \
+        if (!(res = LLVMBuildIsNotNull(comp_ctx->builder, ptr, name))) { \
+            aot_set_last_error("llvm build isnotnull failed.");          \
+            goto fail;                                                   \
+        }                                                                \
+    } while (0)
+
+#endif
+
 static LLVMBasicBlockRef
 find_next_llvm_end_block(AOTBlock *block)
 {
@@ -1185,7 +1205,7 @@ aot_compile_op_br_on_null(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     GET_REF_FROM_STACK(gc_obj);
 
-    BUILD_ICMP(LLVMIntEQ, gc_obj, GC_REF_NULL, value_cmp, "cmp gc obj");
+    BUILD_ISNULL(gc_obj, value_cmp, "cmp gc obj");
 
     return aot_compile_conditional_br(comp_ctx, func_ctx, br_depth, p_frame_ip,
                                       value_cmp);
@@ -1210,7 +1230,7 @@ aot_compile_op_br_on_non_null(AOTCompContext *comp_ctx,
 
     GET_REF_FROM_STACK(gc_obj);
 
-    BUILD_ICMP(LLVMIntNE, gc_obj, GC_REF_NULL, value_cmp, "cmp gc obj");
+    BUILD_ISNOTNULL(gc_obj, value_cmp, "cmp gc obj");
 
     return aot_compile_conditional_br(comp_ctx, func_ctx, br_depth, p_frame_ip,
                                       value_cmp);
