@@ -199,7 +199,90 @@ runtime_signal_handler(void *sig_addr)
         }
     }
 }
-#else
+#else /* else of BH_PLATFORM_WINDOWS */
+
+#if WASM_ENABLE_AOT != 0
+#include <Zydis/Zydis.h>
+
+static uint32
+decode_insn(uint8 *insn)
+{
+    uint8 *data = (uint8 *)insn;
+    uint32 length = 32; /* reserve enough size */
+
+    /* Initialize decoder context */
+    ZydisDecoder decoder;
+    ZydisDecoderInit(&decoder, ZYDIS_MACHINE_MODE_LONG_64,
+                     ZYDIS_STACK_WIDTH_64);
+
+    /* Initialize formatter */
+    ZydisFormatter formatter;
+    ZydisFormatterInit(&formatter, ZYDIS_FORMATTER_STYLE_INTEL);
+
+    /* Loop over the instructions in our buffer */
+    ZyanU64 runtime_address = (ZyanU64)(uintptr_t)data;
+    ZyanUSize offset = 0;
+    ZydisDecodedInstruction instruction;
+    ZydisDecodedOperand operands[ZYDIS_MAX_OPERAND_COUNT_VISIBLE];
+    char buffer[256];
+
+    if (ZYAN_SUCCESS(ZydisDecoderDecodeFull(
+            &decoder, data + offset, length - offset, &instruction, operands,
+            ZYDIS_MAX_OPERAND_COUNT_VISIBLE,
+            ZYDIS_DFLAG_VISIBLE_OPERANDS_ONLY))) {
+
+        /* Format & print the binary instruction structure to
+           human readable format */
+        ZydisFormatterFormatInstruction(&formatter, &instruction, operands,
+                                        instruction.operand_count_visible,
+                                        buffer, sizeof(buffer),
+                                        runtime_address);
+
+        /* Print current instruction */
+        /*
+        os_printf("%012" PRIX64 "  ", runtime_address);
+        puts(buffer);
+        */
+
+        return instruction.length;
+    }
+
+    /* Decode failed */
+    return 0;
+}
+#endif /* end of WASM_ENABLE_AOT != 0 */
+
+static LONG
+next_action(WASMModuleInstance *module_inst, EXCEPTION_POINTERS *exce_info)
+{
+#if WASM_ENABLE_AOT != 0
+    uint32 insn_size;
+#endif
+
+    if (module_inst->module_type == Wasm_Module_Bytecode
+        && module_inst->e->running_mode == Mode_Interp) {
+        /* Continue to search next exception handler for
+           interpreter mode as it can be caught by
+           `__try { .. } __except { .. }` sentences in
+           wasm_runtime.c */
+        return EXCEPTION_CONTINUE_SEARCH;
+    }
+
+#if WASM_ENABLE_AOT != 0
+    /* Skip current instruction and continue to run for AOT/JIT mode.
+       TODO: implement unwind support for AOT/JIT code in Windows platform */
+    insn_size = decode_insn((uint8 *)exce_info->ContextRecord->Rip);
+    if (insn_size > 0) {
+        exce_info->ContextRecord->Rip += insn_size;
+        return EXCEPTION_CONTINUE_EXECUTION;
+    }
+#endif
+
+    /* return different value from EXCEPTION_CONTINUE_SEARCH (= 0)
+       and EXCEPTION_CONTINUE_EXECUTION (= -1) */
+    return -2;
+}
+
 static LONG
 runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
 {
@@ -211,6 +294,7 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
     uint8 *mapped_mem_start_addr = NULL;
     uint8 *mapped_mem_end_addr = NULL;
     uint32 page_size = os_getpagesize();
+    LONG ret;
 
     if (exec_env_tls && exec_env_tls->handle == os_self_thread()
         && (jmpbuf_node = exec_env_tls->jmpbuf_stack_top)) {
@@ -232,32 +316,19 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
                    the wasm func returns, the caller will check whether the
                    exception is thrown and return to runtime. */
                 wasm_set_exception(module_inst, "out of bounds memory access");
-                if (module_inst->module_type == Wasm_Module_Bytecode) {
-                    /* Continue to search next exception handler for
-                       interpreter mode as it can be caught by
-                       `__try { .. } __except { .. }` sentences in
-                       wasm_runtime.c */
-                    return EXCEPTION_CONTINUE_SEARCH;
-                }
-                else {
-                    /* Skip current instruction and continue to run for
-                       AOT mode. TODO: implement unwind support for AOT
-                       code in Windows platform */
-                    exce_info->ContextRecord->Rip++;
-                    return EXCEPTION_CONTINUE_EXECUTION;
-                }
+                ret = next_action(module_inst, exce_info);
+                if (ret == EXCEPTION_CONTINUE_SEARCH
+                    || ret == EXCEPTION_CONTINUE_EXECUTION)
+                    return ret;
             }
             else if (exec_env_tls->exce_check_guard_page <= (uint8 *)sig_addr
                      && (uint8 *)sig_addr
                             < exec_env_tls->exce_check_guard_page + page_size) {
                 bh_assert(wasm_copy_exception(module_inst, NULL));
-                if (module_inst->module_type == Wasm_Module_Bytecode) {
-                    return EXCEPTION_CONTINUE_SEARCH;
-                }
-                else {
-                    exce_info->ContextRecord->Rip++;
-                    return EXCEPTION_CONTINUE_EXECUTION;
-                }
+                ret = next_action(module_inst, exce_info);
+                if (ret == EXCEPTION_CONTINUE_SEARCH
+                    || ret == EXCEPTION_CONTINUE_EXECUTION)
+                    return ret;
             }
         }
 #if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
@@ -267,12 +338,10 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
                whether the exception is thrown and return to runtime, and
                the damaged stack will be recovered by _resetstkoflw(). */
             wasm_set_exception(module_inst, "native stack overflow");
-            if (module_inst->module_type == Wasm_Module_Bytecode) {
-                return EXCEPTION_CONTINUE_SEARCH;
-            }
-            else {
-                return EXCEPTION_CONTINUE_EXECUTION;
-            }
+            ret = next_action(module_inst, exce_info);
+            if (ret == EXCEPTION_CONTINUE_SEARCH
+                || ret == EXCEPTION_CONTINUE_EXECUTION)
+                return ret;
         }
 #endif
     }
