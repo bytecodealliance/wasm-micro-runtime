@@ -242,7 +242,7 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
                      - (uintptr_t)(target_section_addr + reloc_offset));
             }
             else {
-                target_addr = (intptr_t) /* L + A - P */
+                target_addr = (intptr_t) /* S + A - P */
                     ((uintptr_t)symbol_addr + reloc_addend
                      - (uintptr_t)(target_section_addr + reloc_offset));
             }

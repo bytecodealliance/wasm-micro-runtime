@@ -93,7 +93,10 @@ check_utf8_str(const uint8 *str, uint32 len)
 /* Internal function in object file */
 typedef struct AOTObjectFunc {
     char *func_name;
+    /* text offset of aot_func#n */
     uint64 text_offset;
+    /* text offset of aot_func_internal#n */
+    uint64 text_offset_of_aot_func_internal;
 } AOTObjectFunc;
 
 /* Symbol table list node */
@@ -637,13 +640,33 @@ get_relocation_size(AOTRelocation *relocation, bool is_32bin)
 }
 
 static uint32
-get_relocations_size(AOTRelocation *relocations, uint32 relocation_count,
+get_relocations_size(AOTObjectData *obj_data,
+                     AOTRelocationGroup *relocation_group,
+                     AOTRelocation *relocations, uint32 relocation_count,
                      bool is_32bin)
 {
     AOTRelocation *relocation = relocations;
     uint32 size = 0, i;
 
     for (i = 0; i < relocation_count; i++, relocation++) {
+        /* ignore the relocations to aot_func_internal#n in text section
+           for windows platform since they will be applied in
+           aot_emit_text_section */
+        if (!strcmp(relocation_group->section_name, ".text")
+            && !strncmp(relocation->symbol_name, AOT_FUNC_INTERNAL_PREFIX,
+                        strlen(AOT_FUNC_INTERNAL_PREFIX))
+            && ((!strncmp(obj_data->comp_ctx->target_arch, "x86_64", 6)
+                 /* Windows AOT_COFF64_BIN_TYPE */
+                 && obj_data->target_info.bin_type == 6
+                 /* IMAGE_REL_AMD64_REL32 in windows x86_64 */
+                 && relocation->relocation_type == 4)
+                || (!strncmp(obj_data->comp_ctx->target_arch, "i386", 4)
+                    /* Windows AOT_COFF32_BIN_TYPE */
+                    && obj_data->target_info.bin_type == 4
+                    /* IMAGE_REL_I386_REL32 in windows x86_32 */
+                    && relocation->relocation_type == 20))) {
+            continue;
+        }
         size = align_uint(size, 4);
         size += get_relocation_size(relocation, is_32bin);
     }
@@ -651,19 +674,22 @@ get_relocations_size(AOTRelocation *relocations, uint32 relocation_count,
 }
 
 static uint32
-get_relocation_group_size(AOTRelocationGroup *relocation_group, bool is_32bin)
+get_relocation_group_size(AOTObjectData *obj_data,
+                          AOTRelocationGroup *relocation_group, bool is_32bin)
 {
     uint32 size = 0;
     /* section name index + relocation count + relocations */
     size += (uint32)sizeof(uint32);
     size += (uint32)sizeof(uint32);
-    size += get_relocations_size(relocation_group->relocations,
+    size += get_relocations_size(obj_data, relocation_group,
+                                 relocation_group->relocations,
                                  relocation_group->relocation_count, is_32bin);
     return size;
 }
 
 static uint32
-get_relocation_groups_size(AOTRelocationGroup *relocation_groups,
+get_relocation_groups_size(AOTObjectData *obj_data,
+                           AOTRelocationGroup *relocation_groups,
                            uint32 relocation_group_count, bool is_32bin)
 {
     AOTRelocationGroup *relocation_group = relocation_groups;
@@ -671,7 +697,7 @@ get_relocation_groups_size(AOTRelocationGroup *relocation_groups,
 
     for (i = 0; i < relocation_group_count; i++, relocation_group++) {
         size = align_uint(size, 4);
-        size += get_relocation_group_size(relocation_group, is_32bin);
+        size += get_relocation_group_size(obj_data, relocation_group, is_32bin);
     }
     return size;
 }
@@ -864,7 +890,7 @@ get_relocation_section_size(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
 
     /* relocation group count + symbol_table + relocation groups */
     return (uint32)sizeof(uint32) + symbol_table_size
-           + get_relocation_groups_size(relocation_groups,
+           + get_relocation_groups_size(obj_data, relocation_groups,
                                         relocation_group_count,
                                         is_32bit_binary(obj_data));
 }
@@ -1734,6 +1760,10 @@ aot_emit_text_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     uint32 section_size = get_text_section_size(obj_data);
     uint32 offset = *p_offset;
     uint8 placeholder = 0;
+    AOTRelocationGroup *relocation_group;
+    AOTRelocation *relocation;
+    uint32 i, j, relocation_count;
+    uint8 *text;
 
     *p_offset = offset = align_uint(offset, 4);
 
@@ -1746,6 +1776,8 @@ aot_emit_text_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
         while (offset & 3)
             EMIT_BUF(&placeholder, 1);
     }
+
+    text = buf + offset;
 
     if (obj_data->text_size > 0) {
         EMIT_BUF(obj_data->text, obj_data->text_size);
@@ -1766,6 +1798,67 @@ aot_emit_text_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     if (offset - *p_offset != section_size + sizeof(uint32) * 2) {
         aot_set_last_error("emit text section failed.");
         return false;
+    }
+
+    /* apply relocations to aot_func_internal#n in text section for
+       windows platform */
+    if ((!strncmp(obj_data->comp_ctx->target_arch, "x86_64", 6)
+         /* Windows AOT_COFF64_BIN_TYPE */
+         && obj_data->target_info.bin_type == 6)
+        || (!strncmp(obj_data->comp_ctx->target_arch, "i386", 4)
+            /* Windows AOT_COFF32_BIN_TYPE */
+            && obj_data->target_info.bin_type == 4)) {
+        relocation_group = obj_data->relocation_groups;
+        for (i = 0; i < obj_data->relocation_group_count;
+             i++, relocation_group++) {
+            /* relocation in text section */
+            if (!strcmp(relocation_group->section_name, ".text")) {
+                relocation = relocation_group->relocations;
+                relocation_count = relocation_group->relocation_count;
+                for (j = 0; j < relocation_count; j++) {
+                    /* relocation to aot_func_internal#n */
+                    if (str_starts_with(relocation->symbol_name,
+                                        AOT_FUNC_INTERNAL_PREFIX)
+                        && ((obj_data->target_info.bin_type
+                                 == 6 /* AOT_COFF64_BIN_TYPE */
+                             && relocation->relocation_type
+                                    == 4 /* IMAGE_REL_AMD64_REL32 */)
+                            || (obj_data->target_info.bin_type
+                                    == 4 /* AOT_COFF32_BIN_TYPE */
+                                && obj_data->target_info.bin_type
+                                       == 20 /* IMAGE_REL_I386_REL32 */))) {
+                        uint32 func_idx =
+                            atoi(relocation->symbol_name
+                                 + strlen(AOT_FUNC_INTERNAL_PREFIX));
+                        uint64 text_offset, reloc_offset, reloc_addend;
+
+                        bh_assert(func_idx < obj_data->func_count);
+
+                        text_offset = obj_data->funcs[func_idx]
+                                          .text_offset_of_aot_func_internal;
+                        reloc_offset = relocation->relocation_offset;
+                        reloc_addend = relocation->relocation_addend;
+                        /* S + A - P */
+                        *(uint32 *)(text + reloc_offset) =
+                            (uint32)(text_offset + reloc_addend - reloc_offset
+                                     - 4);
+
+                        /* remove current relocation as it has been applied */
+                        if (j < relocation_count - 1) {
+                            uint32 move_size =
+                                (uint32)(sizeof(AOTRelocation)
+                                         * (relocation_count - 1 - j));
+                            bh_memmove_s(relocation, move_size, relocation + 1,
+                                         move_size);
+                        }
+                        relocation_group->relocation_count--;
+                    }
+                    else {
+                        relocation++;
+                    }
+                }
+            }
+        }
     }
 
     *p_offset = offset;
@@ -2773,6 +2866,7 @@ aot_resolve_functions(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
     while (!LLVMObjectFileIsSymbolIteratorAtEnd(obj_data->binary, sym_itr)) {
         if ((name = (char *)LLVMGetSymbolName(sym_itr))
             && str_starts_with(name, prefix)) {
+            /* symbol aot_func#n */
             func_index = (uint32)atoi(name + strlen(prefix));
             if (func_index < obj_data->func_count) {
                 LLVMSectionIteratorRef contain_section;
@@ -2804,6 +2898,44 @@ aot_resolve_functions(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
                 }
                 else {
                     func->text_offset = LLVMGetSymbolAddress(sym_itr);
+                }
+            }
+        }
+        else if ((name = (char *)LLVMGetSymbolName(sym_itr))
+                 && str_starts_with(name, AOT_FUNC_INTERNAL_PREFIX)) {
+            /* symbol aot_func_internal#n */
+            func_index = (uint32)atoi(name + strlen(AOT_FUNC_INTERNAL_PREFIX));
+            if (func_index < obj_data->func_count) {
+                LLVMSectionIteratorRef contain_section;
+                char *contain_section_name;
+
+                func = obj_data->funcs + func_index;
+
+                if (!(contain_section = LLVMObjectFileCopySectionIterator(
+                          obj_data->binary))) {
+                    aot_set_last_error("llvm get section iterator failed.");
+                    LLVMDisposeSymbolIterator(sym_itr);
+                    return false;
+                }
+                LLVMMoveToContainingSection(contain_section, sym_itr);
+                contain_section_name =
+                    (char *)LLVMGetSectionName(contain_section);
+                LLVMDisposeSectionIterator(contain_section);
+
+                if (!strcmp(contain_section_name, ".text.unlikely.")) {
+                    func->text_offset_of_aot_func_internal =
+                        align_uint(obj_data->text_size, 4)
+                        + LLVMGetSymbolAddress(sym_itr);
+                }
+                else if (!strcmp(contain_section_name, ".text.hot.")) {
+                    func->text_offset_of_aot_func_internal =
+                        align_uint(obj_data->text_size, 4)
+                        + align_uint(obj_data->text_unlikely_size, 4)
+                        + LLVMGetSymbolAddress(sym_itr);
+                }
+                else {
+                    func->text_offset_of_aot_func_internal =
+                        LLVMGetSymbolAddress(sym_itr);
                 }
             }
         }
