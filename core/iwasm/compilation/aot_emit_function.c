@@ -1198,10 +1198,9 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
 
         /* Check if func object is NULL */
-        if (!(cmp_func_obj =
-                  LLVMBuildICmp(comp_ctx->builder, LLVMIntEQ, table_elem,
-                                GC_REF_NULL, "cmp_func_obj"))) {
-            aot_set_last_error("llvm build icmp failed.");
+        if (!(cmp_func_obj = LLVMBuildIsNull(comp_ctx->builder, table_elem,
+                                             "cmp_func_obj"))) {
+            aot_set_last_error("llvm build isnull failed.");
             goto fail;
         }
 
@@ -1219,8 +1218,12 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                                  true, cmp_func_obj, check_func_obj_succ)))
             goto fail;
 
-        /* get the func idx bound of the function object */
-        if (!(offset = I32_CONST(offsetof(WASMFuncObject, func_idx_bound)))) {
+        /* Get the func idx bound of the WASMFuncObject, the offset may be
+         * different in 32-bit runtime and 64-bit runtime since WASMObjectHeader
+         * is uintptr_t. Use comp_ctx->pointer_size as the
+         * offsetof(WASMFuncObject, func_idx_bound)
+         */
+        if (!(offset = I32_CONST(comp_ctx->pointer_size))) {
             HANDLE_FAILURE("LLVMConstInt");
             goto fail;
         }
@@ -1666,9 +1669,8 @@ aot_compile_op_ref_is_null(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     if (comp_ctx->enable_gc) {
         POP_REF(lhs);
 
-        if (!(res = LLVMBuildICmp(comp_ctx->builder, LLVMIntEQ, lhs,
-                                  GC_REF_NULL, "cmp_w_null"))) {
-            HANDLE_FAILURE("LLVMBuildICmp");
+        if (!(res = LLVMBuildIsNull(comp_ctx->builder, lhs, "lhs is null"))) {
+            HANDLE_FAILURE("LLVMBuildIsNull");
             goto fail;
         }
     }

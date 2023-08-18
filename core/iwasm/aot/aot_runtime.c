@@ -2502,9 +2502,10 @@ aot_table_init(AOTModuleInstance *module_inst, uint32 tbl_idx,
     AOTTableInitData *tbl_seg;
     const AOTModule *module = (AOTModule *)module_inst->module;
 #if WASM_ENABLE_GC != 0
-    void **table_elems;
+    table_elem_type_t **table_elems;
     uintptr_t *func_indexes;
     void *func_obj;
+    uint32 i;
 #endif
 
     tbl_inst = module_inst->tables[tbl_idx];
@@ -2534,15 +2535,16 @@ aot_table_init(AOTModuleInstance *module_inst, uint32 tbl_idx,
     }
 
 #if WASM_ENABLE_GC != 0
-    table_elems = tbl_inst->elems + dst_offset;
+    table_elems = (table_elem_type_t **)(tbl_inst->elems + dst_offset);
     func_indexes = tbl_seg->func_indexes + src_offset;
 
-    for (uint32 i = 0; i < length; i++) {
+    for (i = 0; i < length; i++) {
         /* UINT32_MAX indicates that it is a null ref */
         if (func_indexes[i] != UINT32_MAX) {
-            if (!(func_obj = wasm_create_func_obj(module_inst, func_indexes[i],
-                                                  true, NULL, 0))) {
+            if (!(func_obj = aot_create_func_obj(module_inst, func_indexes[i],
+                                                 true, NULL, 0))) {
                 aot_set_exception_with_id(module_inst, EXCE_NULL_GC_REF);
+                return;
             }
             table_elems[i] = func_obj;
         }
@@ -3413,7 +3415,8 @@ aot_dump_pgo_prof_data_to_buf(AOTModuleInstance *module_inst, char *buf,
 #if WASM_ENABLE_GC != 0
 
 void *
-aot_create_func_obj(AOTModuleInstance *module_inst, uint32 func_idx)
+aot_create_func_obj(AOTModuleInstance *module_inst, uint32 func_idx,
+                    bool throw_exce, char *error_buf, uint32 error_buf_size)
 {
     AOTModule *module = (AOTModule *)module_inst->module;
     WASMRttTypeRef rtt_type;
@@ -3422,10 +3425,14 @@ aot_create_func_obj(AOTModuleInstance *module_inst, uint32 func_idx)
     WASMFuncType *func_type;
     uint32 type_idx;
 
+    if (throw_exce) {
+        error_buf = module_inst->cur_exception;
+        error_buf_size = sizeof(module_inst->cur_exception);
+    }
+
     if (func_idx >= module_inst->e->function_count) {
-        char buf[108];
-        snprintf(buf, sizeof(buf), "unknown function %d", func_idx);
-        aot_set_exception(module_inst, buf);
+        set_error_buf_v(error_buf, error_buf_size, "unknown function %d",
+                        func_idx);
         return NULL;
     }
 
@@ -3438,13 +3445,13 @@ aot_create_func_obj(AOTModuleInstance *module_inst, uint32 func_idx)
     if (!(rtt_type = wasm_rtt_type_new((WASMType *)func_type, type_idx,
                                        module->rtt_types, module->type_count,
                                        &module->rtt_type_lock))) {
-        aot_set_exception(module_inst, "create rtt object failed");
+        set_error_buf(error_buf, error_buf_size, "create rtt object failed");
         return NULL;
     }
 
     if (!(func_obj = wasm_func_obj_new_internal(module_inst->e->gc_heap_handle,
                                                 rtt_type, func_idx))) {
-        aot_set_exception(module_inst, "create func object failed");
+        set_error_buf(error_buf, error_buf_size, "create func object failed");
         return NULL;
     }
 

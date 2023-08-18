@@ -691,7 +691,8 @@ aot_exchange_uint64(uint8 *p_data);
 
 #if WASM_ENABLE_GC != 0
 void *
-aot_create_func_obj(AOTModuleInstance *module_inst, uint32 func_idx);
+aot_create_func_obj(AOTModuleInstance *module_inst, uint32 func_idx,
+                    bool throw_exce, char *error_buf, uint32 error_buf_size);
 
 #endif /* end of WASM_ENABLE_GC != 0 */
 

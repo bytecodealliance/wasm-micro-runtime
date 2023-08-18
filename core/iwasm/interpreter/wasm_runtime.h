@@ -696,7 +696,9 @@ llvm_jit_free_frame(WASMExecEnv *exec_env);
 
 #if WASM_ENABLE_GC != 0
 void *
-llvm_jit_create_func_obj(WASMModuleInstance *module_inst, uint32 func_idx);
+llvm_jit_create_func_obj(WASMModuleInstance *module_inst, uint32 func_idx,
+                         bool throw_exce, char *error_buf,
+                         uint32 error_buf_size);
 #endif
 #endif /* end of WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0 */
 
