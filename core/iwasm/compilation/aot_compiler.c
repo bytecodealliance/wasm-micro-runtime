@@ -2607,8 +2607,7 @@ unsupport_ref_types:
 #if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
 unsupport_gc_and_ref_types:
     aot_set_last_error(
-        "neither reference type instruction "
-        "nor garbage collection instruction was found, "
+        "reference type or garbage collection instruction was found, "
         "try adding --enable-gc or removing --disable-ref-types option");
     return false;
 #endif
