@@ -519,11 +519,15 @@ pthread_start_routine(void *arg)
     wasm_exec_env_set_thread_info(exec_env);
     argv[0] = routine_args->arg;
 
-    if (!wasm_runtime_call_indirect(exec_env, routine_args->elem_index, 1,
-                                    argv)) {
-        /* Exception has already been spread during throwing */
+    if (parent_exec_env->is_restore) {
+        restart_execution(routine_args->elem_index);
     }
-
+    else {
+        if (!wasm_runtime_call_indirect(exec_env, routine_args->elem_index, 1,
+                                        argv)) {
+            /* Exception has already been spread during throwing */
+        }
+    }
     /* destroy pthread key values */
     call_key_destructor(exec_env);
 
@@ -550,7 +554,7 @@ pthread_start_routine(void *arg)
     return (void *)(uintptr_t)argv[0];
 }
 
-static int
++int
 pthread_create_wrapper(wasm_exec_env_t exec_env,
                        uint32 *thread,    /* thread_handle */
                        const void *attr,  /* not supported */

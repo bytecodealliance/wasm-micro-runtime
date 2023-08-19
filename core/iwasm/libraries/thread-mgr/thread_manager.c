@@ -667,8 +667,15 @@ wasm_cluster_create_thread(WASMExecEnv *exec_env,
         goto fail1;
     }
 
-    new_exec_env =
-        wasm_exec_env_create_internal(module_inst, exec_env->wasm_stack_size);
+    if (exec_env->is_restore) {
+        // Don't generate a new env on restore
+        new_exec_env = exec_env;
+    }
+    else {
+        new_exec_env = wasm_exec_env_create_internal(module_inst,
+                                                     exec_env->wasm_stack_size);
+    }
+
     if (!new_exec_env)
         goto fail1;
 
@@ -679,10 +686,13 @@ wasm_cluster_create_thread(WASMExecEnv *exec_env,
             goto fail2;
         }
 
-        /* Set aux stack for current thread */
-        if (!wasm_exec_env_set_aux_stack(new_exec_env, aux_stack_start,
-                                         aux_stack_size)) {
-            goto fail3;
+        // only need to transfer if not restoring
+        if (!exec_env->is_restore) {
+            /* Set aux stack for current thread */
+            if (!wasm_exec_env_set_aux_stack(new_exec_env, aux_stack_start,
+                                             aux_stack_size)) {
+                goto fail3;
+            }
         }
     }
     else {
