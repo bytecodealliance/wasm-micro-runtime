@@ -554,7 +554,7 @@ pthread_start_routine(void *arg)
     return (void *)(uintptr_t)argv[0];
 }
 
-+int
+int
 pthread_create_wrapper(wasm_exec_env_t exec_env,
                        uint32 *thread,    /* thread_handle */
                        const void *attr,  /* not supported */
