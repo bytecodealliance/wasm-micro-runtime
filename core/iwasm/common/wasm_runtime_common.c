@@ -5769,12 +5769,13 @@ loader_find_export(const WASMModuleCommon *module, const char *module_name,
         find_export(((AOTModule *)module), module_name, field_name, export_kind,
                     error_buf, error_buf_size);
     }
-    else
 #endif
-        if (module->module_type == Wasm_Module_Bytecode) {
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode) {
         find_export(((WASMModule *)module), module_name, field_name,
                     export_kind, error_buf, error_buf_size);
     }
+#endif
 exit:
     return result;
 }
@@ -5791,13 +5792,13 @@ search_sub_module(const WASMModuleCommon *parent_module,
         node = bh_list_first_elem(
             ((AOTModule *)parent_module)->import_module_list);
     }
-    else
 #endif
-        if (parent_module->module_type == Wasm_Module_Bytecode) {
+#if WASM_ENABLE_INTERP != 0
+    if (parent_module->module_type == Wasm_Module_Bytecode) {
         node = bh_list_first_elem(
             ((WASMModule *)parent_module)->import_module_list);
     }
-
+#endif
     while (node && strcmp(sub_module_name, node->module_name)) {
         node = bh_list_elem_next(node);
     }
@@ -5829,12 +5830,13 @@ register_sub_module(const WASMModuleCommon *parent_module,
         ret = bh_list_insert(((AOTModule *)parent_module)->import_module_list,
                              node);
     }
-    else
 #endif
-        if (parent_module->module_type == Wasm_Module_Bytecode) {
+#if WASM_ENABLE_INTERP != 0
+    if (parent_module->module_type == Wasm_Module_Bytecode) {
         ret = bh_list_insert(((WASMModule *)parent_module)->import_module_list,
                              node);
     }
+#endif
     bh_assert(BH_LIST_SUCCESS == ret);
     (void)ret;
     return true;
@@ -5897,13 +5899,13 @@ load_depended_module(const WASMModuleCommon *parent_module,
         sub_module = (WASMModuleCommon *)aot_load_from_aot_file(
             buffer, buffer_size, error_buf, error_buf_size);
     }
-    else
 #endif
-        if (parent_module->module_type == Wasm_Module_Bytecode) {
+#if WASM_ENABLE_INTERP != 0
+    if (parent_module->module_type == Wasm_Module_Bytecode) {
         sub_module = (WASMModuleCommon *)wasm_load(buffer, buffer_size, false,
                                                    error_buf, error_buf_size);
     }
-
+#endif
     if (!sub_module) {
         LOG_DEBUG("error: can not load the sub_module %s", sub_module_name);
         /* others will be destroyed in runtime_destroy() */
@@ -5967,15 +5969,16 @@ sub_module_instantiate(WASMModuleCommon *module,
         sub_module_list_node =
             bh_list_first_elem(((AOTModule *)module)->import_module_list);
     }
-    else
 #endif
-        if (module->module_type == Wasm_Module_Bytecode) {
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode) {
         sub_module_inst_list =
             ((WASMModuleInstanceExtra *)((WASMModuleInstance *)module_inst)->e)
                 ->sub_module_inst_list;
         sub_module_list_node =
             bh_list_first_elem(((WASMModule *)module)->import_module_list);
     }
+#endif
     while (sub_module_list_node) {
         WASMSubModInstNode *sub_module_inst_list_node = NULL;
         WASMModuleCommon *sub_module = sub_module_list_node->module;
@@ -6031,13 +6034,14 @@ sub_module_deinstantiate(WASMModuleInstanceCommon *module_inst)
         list = ((AOTModuleInstanceExtra *)((AOTModuleInstance *)module_inst)->e)
                    ->sub_module_inst_list;
     }
-    else
 #endif
-        if (module_inst->module_type == Wasm_Module_Bytecode) {
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
         list =
             ((WASMModuleInstanceExtra *)((WASMModuleInstance *)module_inst)->e)
                 ->sub_module_inst_list;
     }
+#endif
     WASMSubModInstNode *node = bh_list_first_elem(list);
 
     while (node) {
