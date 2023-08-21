@@ -1372,7 +1372,7 @@ aot_compile_op_ref_test(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMValueRef gc_obj, cmp, castable;
     LLVMBasicBlockRef gc_obj_null, gc_obj_non_null, end_block;
 
-    POP_REF(gc_obj);
+    GET_REF_FROM_STACK(gc_obj);
 
     /* Create if block */
     ADD_BASIC_BLOCK(gc_obj_null, "gc_obj_null");
@@ -1400,11 +1400,12 @@ aot_compile_op_ref_test(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             PUSH_I32(I32_ZERO);
     }
     else {
-        /* For WASM_OP_REF_CAST and WASM_OP_REF_CAST_NULLABLE*/
+        /* For WASM_OP_REF_CAST, exception */
         if (!nullable
             && !aot_emit_exception(comp_ctx, func_ctx, EXCE_TYPE_NONCASTABLE,
                                    false, NULL, NULL))
             goto fail;
+        /* For WASM_OP_REF_CAST_NULLABLE, do nothing */
     }
 
     BUILD_BR(end_block);
@@ -1434,7 +1435,7 @@ aot_compile_op_ref_test(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         BUILD_BR(end_block);
     }
     else {
-        /* For WASM_OP_REF_CAST and WASM_OP_REF_CAST_NULLABLE*/
+        /* For WASM_OP_REF_CAST and WASM_OP_REF_CAST_NULLABLE */
         BUILD_ICMP(LLVMIntEQ, castable, I32_ZERO, cmp, "cmp_castable");
         if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_TYPE_NONCASTABLE, true,
                                 cmp, end_block))
@@ -1530,20 +1531,20 @@ aot_call_wasm_internal_obj_to_external_obj(AOTCompContext *comp_ctx,
                                            LLVMValueRef gc_obj,
                                            LLVMValueRef *externref_obj)
 {
-    LLVMValueRef param_values[1], func, value, res;
-    LLVMTypeRef param_types[1], ret_type, func_type, func_ptr_type;
+    LLVMValueRef param_values[2], func, value, res;
+    LLVMTypeRef param_types[2], ret_type, func_type, func_ptr_type;
 
-    param_types[-1] = INT8_PTR_TYPE;
-    param_types[0] = GC_REF_TYPE;
+    param_types[0] = INT8_PTR_TYPE;
+    param_types[1] = GC_REF_TYPE;
     ret_type = GC_REF_TYPE;
 
-    GET_AOT_FUNCTION(wasm_externref_obj_to_internal_obj, 1);
+    GET_AOT_FUNCTION(wasm_internal_obj_to_externref_obj, 1);
 
-    /* Call function wasm_externref_obj_to_internal_obj() */
-    param_values[-1] = func_ctx->exec_env;
-    param_values[0] = gc_obj;
+    /* Call function wasm_internal_obj_to_externref_obj() */
+    param_values[0] = func_ctx->exec_env;
+    param_values[1] = gc_obj;
     if (!(res = LLVMBuildCall2(comp_ctx->builder, func_type, func, param_values,
-                               1, "call"))) {
+                               2, "call"))) {
         aot_set_last_error("llvm build call failed.");
         goto fail;
     }

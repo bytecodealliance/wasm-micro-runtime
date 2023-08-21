@@ -3426,7 +3426,7 @@ aot_obj_is_instance_of(AOTModuleInstance *module_inst, WASMObjectRef gc_obj,
                        uint32 type_index)
 {
     AOTModule *aot_module = (AOTModule *)module_inst->module;
-    WASMType **types = aot_module->types;
+    AOTType **types = aot_module->types;
     uint32 type_count = aot_module->type_count;
 
     return wasm_obj_is_instance_of(gc_obj, type_index, aot_module->types,
@@ -3437,10 +3437,10 @@ WASMRttTypeRef
 aot_rtt_type_new(AOTModuleInstance *module_inst, uint32 type_index)
 {
     AOTModule *aot_module = (AOTModule *)module_inst->module;
-    WASMType *defined_type = aot_module->types[type_index];
+    AOTType *defined_type = aot_module->types[type_index];
     WASMRttType **rtt_types = aot_module->rtt_types;
     uint32 rtt_type_count = aot_module->type_count;
-    korp_mutex *rtt_type_lock= &aot_module->rtt_type_lock;
+    korp_mutex *rtt_type_lock = &aot_module->rtt_type_lock;
 
     return wasm_rtt_type_new(defined_type, type_index, rtt_types,
                              rtt_type_count, rtt_type_lock);
@@ -3458,8 +3458,8 @@ aot_array_init_with_data(AOTModuleInstance *module_inst, uint32 seg_index,
     uint64 total_size = (int64)elem_size * array_len;
 
     aot_module = (AOTModule *)module_inst->module;
-    seg_len = aot_module->mem_init_data_list[seg_index]->byte_count;
-    data = aot_module->mem_init_data_list[seg_index]->bytes;
+    seg_len = aot_module->array_init_data_list[seg_index]->byte_count;
+    data = aot_module->array_init_data_list[seg_index]->bytes;
 
     if (data_seg_offset >= seg_len || total_size > seg_len - data_seg_offset) {
         aot_set_exception(module_inst, "out of bounds memory access");
