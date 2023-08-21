@@ -712,9 +712,6 @@ llvm_jit_create_func_obj(WASMModuleInstance *module_inst, uint32 func_idx,
 bool
 llvm_jit_obj_is_instance_of(WASMModuleInstance *module_inst,
                             WASMObjectRef gc_obj, uint32 type_index);
-
-WASMRttTypeRef
-llvm_jit_rtt_type_new(WASMModuleInstance *module_inst, uint32 type_index);
 #endif
 #endif /* end of WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0 */
 

@@ -112,20 +112,6 @@ typedef struct AOTMemInitData {
     uint8 bytes[1];
 } AOTMemInitData;
 
-/* TODO: reuse mem init data or this new data structure? */
-
-/**
- * A segment of array init data
- */
-typedef struct AOTArrayInitData {
-    /* Start address of init data */
-    AOTInitExpr offset;
-    /* Byte count */
-    uint32 byte_count;
-    /* Byte array */
-    uint8 bytes[1];
-} AOTArrayInitData;
-
 /**
  * Import table
  */
