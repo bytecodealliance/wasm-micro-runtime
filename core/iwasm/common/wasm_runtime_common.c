@@ -5892,11 +5892,14 @@ load_depended_module(const WASMModuleCommon *parent_module,
                         "unknown import", sub_module_name);
         goto delete_loading_module;
     }
+#if WASM_ENABLE_AOT != 0
     if (parent_module->module_type == Wasm_Module_AoT) {
         sub_module = (WASMModuleCommon *)aot_load_from_aot_file(
             buffer, buffer_size, error_buf, error_buf_size);
     }
-    else if (parent_module->module_type == Wasm_Module_Bytecode) {
+    else
+#endif
+        if (parent_module->module_type == Wasm_Module_Bytecode) {
         sub_module = (WASMModuleCommon *)wasm_load(buffer, buffer_size, false,
                                                    error_buf, error_buf_size);
     }
@@ -6023,11 +6026,14 @@ void
 sub_module_deinstantiate(WASMModuleInstanceCommon *module_inst)
 {
     bh_list *list = NULL;
+#if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT) {
         list = ((AOTModuleInstanceExtra *)((AOTModuleInstance *)module_inst)->e)
                    ->sub_module_inst_list;
     }
-    else if (module_inst->module_type == Wasm_Module_Bytecode) {
+    else
+#endif
+        if (module_inst->module_type == Wasm_Module_Bytecode) {
         list =
             ((WASMModuleInstanceExtra *)((WASMModuleInstance *)module_inst)->e)
                 ->sub_module_inst_list;
