@@ -603,8 +603,6 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 read_leb_uint32(frame_ip, frame_ip_end, opcode1);
                 opcode = (uint8)opcode1;
 
-                /* follow the order of enum WASMGCEXTOpcode in
-                   wasm_opcode.h */
                 switch (opcode) {
                     case WASM_OP_STRUCT_NEW_CANON:
                     case WASM_OP_STRUCT_NEW_CANON_DEFAULT:
