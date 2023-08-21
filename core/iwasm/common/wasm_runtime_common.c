@@ -5764,11 +5764,14 @@ loader_find_export(const WASMModuleCommon *module, const char *module_name,
                    uint32 error_buf_size)
 {
     WASMExport *result = NULL;
+#if WASM_ENABLE_AOT != 0
     if (module->module_type == Wasm_Module_AoT) {
         find_export(((AOTModule *)module), module_name, field_name, export_kind,
                     error_buf, error_buf_size);
     }
-    else if (module->module_type == Wasm_Module_Bytecode) {
+    else
+#endif
+        if (module->module_type == Wasm_Module_Bytecode) {
         find_export(((WASMModule *)module), module_name, field_name,
                     export_kind, error_buf, error_buf_size);
     }
@@ -5783,11 +5786,14 @@ search_sub_module(const WASMModuleCommon *parent_module,
                   const char *sub_module_name)
 {
     WASMRegisteredModule *node = NULL;
+#if WASM_ENABLE_AOT != 0
     if (parent_module->module_type == Wasm_Module_AoT) {
         node = bh_list_first_elem(
             ((AOTModule *)parent_module)->import_module_list);
     }
-    else if (parent_module->module_type == Wasm_Module_Bytecode) {
+    else
+#endif
+        if (parent_module->module_type == Wasm_Module_Bytecode) {
         node = bh_list_first_elem(
             ((WASMModule *)parent_module)->import_module_list);
     }
@@ -5818,11 +5824,14 @@ register_sub_module(const WASMModuleCommon *parent_module,
 
     node->module_name = sub_module_name;
     node->module = sub_module;
+#if WASM_ENABLE_AOT != 0
     if (parent_module->module_type == Wasm_Module_AoT) {
         ret = bh_list_insert(((AOTModule *)parent_module)->import_module_list,
                              node);
     }
-    else if (parent_module->module_type == Wasm_Module_Bytecode) {
+    else
+#endif
+        if (parent_module->module_type == Wasm_Module_Bytecode) {
         ret = bh_list_insert(((WASMModule *)parent_module)->import_module_list,
                              node);
     }
@@ -5947,7 +5956,7 @@ sub_module_instantiate(WASMModuleCommon *module,
 {
     bh_list *sub_module_inst_list = NULL;
     WASMRegisteredModule *sub_module_list_node = NULL;
-
+#if WASM_ENABLE_AOT != 0
     if (module->module_type == Wasm_Module_AoT) {
         sub_module_inst_list =
             ((AOTModuleInstanceExtra *)((AOTModuleInstance *)module_inst)->e)
@@ -5955,7 +5964,9 @@ sub_module_instantiate(WASMModuleCommon *module,
         sub_module_list_node =
             bh_list_first_elem(((AOTModule *)module)->import_module_list);
     }
-    else if (module->module_type == Wasm_Module_Bytecode) {
+    else
+#endif
+        if (module->module_type == Wasm_Module_Bytecode) {
         sub_module_inst_list =
             ((WASMModuleInstanceExtra *)((WASMModuleInstance *)module_inst)->e)
                 ->sub_module_inst_list;
