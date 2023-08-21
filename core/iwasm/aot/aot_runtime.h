@@ -336,10 +336,15 @@ typedef struct AOTFrame {
     /* Operand stack top pointer of the current frame */
     uint32 *sp;
 
+    /* Frame ref flags (GC only) */
+    uint8 *frame_ref;
+
     /**
      * Frame data, the layout is:
      *  local area: parameters and local variables
      *  stack area: wasm operand stack
+     *  frame ref flags (GC only):
+     *      whether each cell in local and stack area is a GC obj
      */
     uint32 lp[1];
 } AOTFrame;

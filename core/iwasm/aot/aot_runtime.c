@@ -50,7 +50,8 @@ bh_static_assert(offsetof(AOTModuleInstanceExtra, stack_sizes) == 0);
 
 bh_static_assert(offsetof(AOTFrame, ip_offset) == sizeof(uintptr_t) * 4);
 bh_static_assert(offsetof(AOTFrame, sp) == sizeof(uintptr_t) * 5);
-bh_static_assert(offsetof(AOTFrame, lp) == sizeof(uintptr_t) * 6);
+bh_static_assert(offsetof(AOTFrame, frame_ref) == sizeof(uintptr_t) * 6);
+bh_static_assert(offsetof(AOTFrame, lp) == sizeof(uintptr_t) * 7);
 
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
@@ -2692,8 +2693,12 @@ aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
     }
 
     all_cell_num = max_local_cell_num + max_stack_cell_num;
+#if WASM_ENABLE_GC == 0
+    frame_size = (uint32)offsetof(AOTFrame, lp) + all_cell_num * 4;
+#else
     frame_size =
         (uint32)offsetof(AOTFrame, lp) + align_uint(all_cell_num * 5, 4);
+#endif
     frame = wasm_exec_env_alloc_wasm_frame(exec_env, frame_size);
 
     if (!frame) {
@@ -2707,6 +2712,9 @@ aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
     frame->func_perf_prof_info = func_perf_prof;
 #endif
     frame->sp = frame->lp + max_local_cell_num;
+#if WASM_ENABLE_GC != 0
+    frame->frame_ref = frame->sp + max_stack_cell_num;
+#endif
 
     frame->prev_frame = (AOTFrame *)exec_env->cur_frame;
     exec_env->cur_frame = (struct WASMInterpFrame *)frame;

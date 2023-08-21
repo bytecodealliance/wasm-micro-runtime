@@ -403,13 +403,6 @@ aot_gen_commit_sp_ip(AOTCompFrame *frame, AOTValueSlot *sp, uint8 *ip)
     return true;
 }
 
-bool
-aot_gen_commit_ref_flags(AOTCompFrame *frame)
-{
-    /* TODO */
-    return true;
-}
-
 static bool
 init_comp_frame(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 uint32 func_idx)
