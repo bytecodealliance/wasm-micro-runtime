@@ -157,8 +157,6 @@ typedef struct AOTModule {
     uint32 mem_init_data_count;
     AOTMemInitData **mem_init_data_list;
 
-    /* TODO: for array init data */
-
     /* native symbol */
     void **native_symbol_list;
 

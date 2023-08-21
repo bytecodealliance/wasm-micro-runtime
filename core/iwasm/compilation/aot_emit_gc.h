@@ -7,7 +7,6 @@
 #define _AOT_EMIT_GC_H_
 
 #include "aot_compiler.h"
-#include "stdbool.h"
 #include "aot_runtime.h"
 
 #ifdef __cplusplus

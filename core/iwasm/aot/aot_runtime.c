@@ -2502,7 +2502,7 @@ aot_table_init(AOTModuleInstance *module_inst, uint32 tbl_idx,
     AOTTableInitData *tbl_seg;
     const AOTModule *module = (AOTModule *)module_inst->module;
 #if WASM_ENABLE_GC != 0
-    table_elem_type_t **table_elems;
+    table_elem_type_t *table_elems;
     uintptr_t *func_indexes;
     void *func_obj;
     uint32 i;
@@ -2535,7 +2535,7 @@ aot_table_init(AOTModuleInstance *module_inst, uint32 tbl_idx,
     }
 
 #if WASM_ENABLE_GC != 0
-    table_elems = (table_elem_type_t **)(tbl_inst->elems + dst_offset);
+    table_elems = tbl_inst->elems + dst_offset;
     func_indexes = tbl_seg->func_indexes + src_offset;
 
     for (i = 0; i < length; i++) {
@@ -3421,8 +3421,8 @@ aot_create_func_obj(AOTModuleInstance *module_inst, uint32 func_idx,
     AOTModule *module = (AOTModule *)module_inst->module;
     WASMRttTypeRef rtt_type;
     WASMFuncObjectRef func_obj;
-    WASMFunctionInstance *func_inst;
-    WASMFuncType *func_type;
+    AOTFunctionInstance *func_inst;
+    AOTFuncType *func_type;
     uint32 type_idx;
 
     if (throw_exce) {
@@ -3430,19 +3430,19 @@ aot_create_func_obj(AOTModuleInstance *module_inst, uint32 func_idx,
         error_buf_size = sizeof(module_inst->cur_exception);
     }
 
-    if (func_idx >= module_inst->e->function_count) {
+    if (func_idx >= module->import_func_count + module->func_count) {
         set_error_buf_v(error_buf, error_buf_size, "unknown function %d",
                         func_idx);
         return NULL;
     }
 
-    func_inst = &module_inst->e->functions[func_idx];
+    /* TODO: need obtain function instance, maybe we need to create function
+     * instances for all func? */
     func_type = func_inst->is_import_func ? func_inst->u.func_import->func_type
-                                          : func_inst->u.func->func_type;
-    type_idx = func_inst->is_import_func ? func_inst->u.func_import->type_idx
-                                         : func_inst->u.func->type_idx;
+                                          : func_inst->u.func.func_type;
+    type_idx = module->func_type_indexes[func_idx];
 
-    if (!(rtt_type = wasm_rtt_type_new((WASMType *)func_type, type_idx,
+    if (!(rtt_type = wasm_rtt_type_new((AOTType *)func_type, type_idx,
                                        module->rtt_types, module->type_count,
                                        &module->rtt_type_lock))) {
         set_error_buf(error_buf, error_buf_size, "create rtt object failed");
