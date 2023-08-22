@@ -1060,10 +1060,7 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     AOTFuncType *func_type;
     LLVMValueRef tbl_idx_value, elem_idx, table_elem, func_idx;
     LLVMValueRef ftype_idx_ptr, ftype_idx, ftype_idx_const;
-#if WASM_ENABLE_GC != 0
-    LLVMValueRef cmp_func_obj;
-#endif
-    LLVMValueRef cmp_elem_idx, cmp_func_idx, cmp_ftype_idx;
+    LLVMValueRef cmp_func_obj, cmp_elem_idx, cmp_func_idx, cmp_ftype_idx;
     LLVMValueRef func, func_ptr, table_size_const;
     LLVMValueRef ext_ret_offset, ext_ret_ptr, ext_ret, res;
     LLVMValueRef *param_values = NULL, *value_rets = NULL;
@@ -1071,10 +1068,8 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMTypeRef *param_types = NULL, ret_type;
     LLVMTypeRef llvm_func_type, llvm_func_ptr_type;
     LLVMTypeRef ext_ret_ptr_type;
-    LLVMBasicBlockRef check_elem_idx_succ, check_ftype_idx_succ;
-#if WASM_ENABLE_GC != 0
-    LLVMBasicBlockRef check_func_obj_succ;
-#endif
+    LLVMBasicBlockRef check_func_obj_succ, check_elem_idx_succ,
+        check_ftype_idx_succ;
     LLVMBasicBlockRef check_func_idx_succ, block_return, block_curr;
     LLVMBasicBlockRef block_call_import, block_call_non_import;
     LLVMValueRef offset;
@@ -1174,7 +1169,6 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     /* Load function index */
-#if WASM_ENABLE_GC != 0
     if (comp_ctx->enable_gc) {
         /* table elem is func_obj when gc is enabled */
         if (!(table_elem =
@@ -1248,9 +1242,7 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             goto fail;
         }
     }
-    else
-#endif /* end of WASM_ENABLE_GC */
-    {
+    else {
         if (!(table_elem =
                   LLVMBuildBitCast(comp_ctx->builder, table_elem,
                                    INTPTR_PTR_TYPE, "table_elem_ptr"))) {
@@ -1645,15 +1637,10 @@ fail:
 bool
 aot_compile_op_ref_null(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
-#if WASM_ENABLE_GC != 0
-    if (comp_ctx->enable_gc) {
+    if (comp_ctx->enable_gc)
         PUSH_REF(GC_REF_NULL);
-    }
     else
-#endif
-    {
         PUSH_I32(REF_NULL);
-    }
 
     return true;
 fail:
@@ -1663,9 +1650,8 @@ fail:
 bool
 aot_compile_op_ref_is_null(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
-    LLVMValueRef lhs, res;
+    LLVMValueRef lhs = NULL, res;
 
-#if WASM_ENABLE_GC != 0
     if (comp_ctx->enable_gc) {
         POP_REF(lhs);
 
@@ -1674,9 +1660,7 @@ aot_compile_op_ref_is_null(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
             goto fail;
         }
     }
-    else
-#endif
-    {
+    else {
         POP_I32(lhs);
 
         if (!(res = LLVMBuildICmp(comp_ctx->builder, LLVMIntEQ, lhs, REF_NULL,

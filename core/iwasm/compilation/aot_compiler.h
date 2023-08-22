@@ -163,8 +163,15 @@ check_type_compatible(uint8 src_type, uint8 dst_type)
 #define POP_V128(v) POP(v, VALUE_TYPE_V128)
 #define POP_FUNCREF(v) POP(v, VALUE_TYPE_FUNCREF)
 #define POP_EXTERNREF(v) POP(v, VALUE_TYPE_EXTERNREF)
+#if WASM_ENABLE_GC != 0
 #define POP_REF(v) POP(v, VALUE_TYPE_GC_REF)
-
+#else
+#define POP_REF(v)                                                        \
+    do {                                                                  \
+        LOG_DEBUG("enable_gc=true when CMake flag are not set properly"); \
+        assert(0);                                                        \
+    } while (0)
+#endif
 #define POP_COND(llvm_value)                                                   \
     do {                                                                       \
         AOTValue *aot_value;                                                   \
@@ -218,7 +225,15 @@ check_type_compatible(uint8 src_type, uint8 dst_type)
 #define PUSH_COND(v) PUSH(v, VALUE_TYPE_I1)
 #define PUSH_FUNCREF(v) PUSH(v, VALUE_TYPE_FUNCREF)
 #define PUSH_EXTERNREF(v) PUSH(v, VALUE_TYPE_EXTERNREF)
+#if WASM_ENABLE_GC != 0
 #define PUSH_REF(v) PUSH(v, VALUE_TYPE_GC_REF)
+#else
+#define PUSH_REF(v)                                                       \
+    do {                                                                  \
+        LOG_DEBUG("enable_gc=true when CMake flag are not set properly"); \
+        assert(0);                                                        \
+    } while (0)
+#endif
 
 #define TO_LLVM_TYPE(wasm_type) \
     wasm_type_to_llvm_type(&comp_ctx->basic_types, wasm_type)

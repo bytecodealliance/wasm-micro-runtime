@@ -203,7 +203,6 @@ aot_compile_op_table_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     /* Load function object reference or function index */
-#if WASM_ENABLE_GC != 0
     if (comp_ctx->enable_gc) {
         if (!(table_elem = LLVMBuildInBoundsGEP2(comp_ctx->builder, GC_REF_TYPE,
                                                  table_elem, &elem_idx, 1,
@@ -214,9 +213,7 @@ aot_compile_op_table_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
         PUSH_REF(table_elem);
     }
-    else
-#endif
-    {
+    else {
         if (!(table_elem = LLVMBuildInBoundsGEP2(comp_ctx->builder, INTPTR_TYPE,
                                                  table_elem, &elem_idx, 1,
                                                  "table_elem"))) {
@@ -250,15 +247,10 @@ aot_compile_op_table_set(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 {
     LLVMValueRef val, elem_idx, offset, table_elem;
 
-#if WASM_ENABLE_GC != 0
-    if (comp_ctx->enable_gc) {
+    if (comp_ctx->enable_gc)
         POP_REF(val);
-    }
     else
-#endif
-    {
         POP_I32(val);
-    }
 
     POP_I32(elem_idx);
 
@@ -280,7 +272,6 @@ aot_compile_op_table_set(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
-#if WASM_ENABLE_GC != 0
     if (comp_ctx->enable_gc) {
         if (!(table_elem =
                   LLVMBuildBitCast(comp_ctx->builder, table_elem,
@@ -297,9 +288,7 @@ aot_compile_op_table_set(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             goto fail;
         }
     }
-    else
-#endif
-    {
+    else {
         if (!(table_elem =
                   LLVMBuildBitCast(comp_ctx->builder, table_elem,
                                    INTPTR_PTR_TYPE, "table_elem_i32p"))) {
@@ -495,7 +484,7 @@ aot_compile_op_table_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* n */
     POP_I32(param_values[2]);
     /* v */
-#if WASM_ENABLE_GC != 0
+
     if (comp_ctx->enable_gc) {
         POP_REF(param_values[3]);
         if (!(param_values[3] =
@@ -505,9 +494,7 @@ aot_compile_op_table_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             goto fail;
         }
     }
-    else
-#endif
-    {
+    else {
         POP_I32(param_values[3]);
         if (!(param_values[3] =
                   LLVMBuildIntToPtr(comp_ctx->builder, param_values[3],
@@ -559,7 +546,7 @@ aot_compile_op_table_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* n */
     POP_I32(param_values[2]);
     /* v */
-#if WASM_ENABLE_GC != 0
+
     if (comp_ctx->enable_gc) {
         POP_REF(param_values[3]);
         if (!(param_values[3] =
@@ -569,9 +556,7 @@ aot_compile_op_table_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             goto fail;
         }
     }
-    else
-#endif
-    {
+    else {
         POP_I32(param_values[3]);
         if (!(param_values[3] =
                   LLVMBuildIntToPtr(comp_ctx->builder, param_values[3],
