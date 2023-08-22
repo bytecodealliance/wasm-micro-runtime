@@ -23,7 +23,7 @@ is_win_platform(AOTCompContext *comp_ctx)
 {
     char *triple = LLVMGetTargetMachineTriple(comp_ctx->target_machine);
 
-    bh_assert(trip);
+    bh_assert(triple);
     if (strstr(triple, "win32") || strstr(triple, "win"))
         return true;
     return false;
