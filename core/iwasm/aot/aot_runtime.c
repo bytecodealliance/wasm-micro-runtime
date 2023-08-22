@@ -3421,7 +3421,6 @@ aot_create_func_obj(AOTModuleInstance *module_inst, uint32 func_idx,
     AOTModule *module = (AOTModule *)module_inst->module;
     WASMRttTypeRef rtt_type;
     WASMFuncObjectRef func_obj;
-    AOTFunctionInstance *func_inst;
     AOTFuncType *func_type;
     uint32 type_idx;
 
@@ -3436,11 +3435,8 @@ aot_create_func_obj(AOTModuleInstance *module_inst, uint32 func_idx,
         return NULL;
     }
 
-    /* TODO: need obtain function instance, maybe we need to create function
-     * instances for all func? */
-    func_type = func_inst->is_import_func ? func_inst->u.func_import->func_type
-                                          : func_inst->u.func.func_type;
-    type_idx = module->func_type_indexes[func_idx];
+    type_idx = module_inst->func_type_indexes[func_idx];
+    func_type = (AOTFuncType *)module->types[type_idx];
 
     if (!(rtt_type = wasm_rtt_type_new((AOTType *)func_type, type_idx,
                                        module->rtt_types, module->type_count,
