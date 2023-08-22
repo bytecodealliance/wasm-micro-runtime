@@ -131,12 +131,12 @@ class Instance:
     ):
         # Store module ensures GC does not remove it
         self.module = module
+        if dir_list:
+            self._set_wasi_args(module, dir_list)
         if preinitialized_module_inst is None:
             self.module_inst = self._create_module_inst(module, stack_size, heap_size)
         else:
             self.module_inst = preinitialized_module_inst
-        if dir_list:
-            self._set_wasi_args(module, dir_list)
 
     def __del__(self):
         print("deleting Instance")
