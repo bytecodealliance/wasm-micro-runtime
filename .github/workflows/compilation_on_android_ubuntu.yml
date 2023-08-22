@@ -20,6 +20,7 @@ on:
       - "!samples/workload/**"
       - "tests/wamr-test-suites/**"
       - "wamr-compiler/**"
+      - "test-tools/wamr-ide/**"
   # will be triggered on push events
   push:
     branches:
@@ -36,6 +37,7 @@ on:
       - "!samples/workload/**"
       - "tests/wamr-test-suites/**"
       - "wamr-compiler/**"
+      - "test-tools/wamr-ide/**"
   # allow to be triggered manually
   workflow_dispatch:
 
