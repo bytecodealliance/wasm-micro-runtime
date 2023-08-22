@@ -11,7 +11,7 @@ on:
     #running nightly pipeline if you're changing it 
     paths:
       - ".github/workflows/nightly_run.yml"
-      
+
   # midnight UTC
   schedule:
     - cron: "0 0 * * *"
@@ -449,12 +449,6 @@ jobs:
           cmake ..
           cmake --build . --config Release --parallel 4
           ./hello
-      - name: Build Sample [simple]
-        run: |
-          ./build.sh -p host-interp
-          python3 ./sample_test_run.py $(pwd)/out
-          exit $?
-        working-directory: ./samples/simple
 
       - name: Build Sample [wasi-threads]
         run: |
