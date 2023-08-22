@@ -27,7 +27,7 @@ on:
         type: string
         required: false
         default: "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-linux.tar.gz"
-      
+
 
 jobs:
   try_reuse:
@@ -49,7 +49,7 @@ jobs:
       PYTHON_MACOS_STANDALONE_BUILD: https://github.com/indygreg/python-build-standalone/releases/download/20230507/cpython-3.10.11+20230507-x86_64-apple-darwin-install_only.tar.gz
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: download and install wasi-sdk
         run: |
           cd /opt
@@ -84,8 +84,8 @@ jobs:
         if: steps.lldb_build_cache.outputs.cache-hit != 'true' && contains(inputs.runner, 'macos')
         run: |
           brew remove swig
-          brew install swig@3 cmake ninja libedit
-          brew link --overwrite swig@3
+          brew install swig@4.1 cmake ninja libedit
+          brew link --overwrite swig@4.1
           sudo rm -rf /Library/Developer/CommandLineTools
 
       - name: install utils ubuntu
@@ -205,7 +205,7 @@ jobs:
           mkdir -p wamr-lldb/lib
           cp build/bin/lldb* wamr-lldb/bin
           cp lldb/tools/lldb-vscode/package.json wamr-lldb
-          cp -r lldb/tools/lldb-vscode/syntaxes/ wamr-lldb 
+          cp -r lldb/tools/lldb-vscode/syntaxes/ wamr-lldb
         working-directory: core/deps/llvm-project
 
       - name: pack ubuntu specific libraries
@@ -226,7 +226,7 @@ jobs:
           cp -R ../python/lib/python* wamr-lldb/lib
           cp ../python/lib/libpython*.dylib wamr-lldb/lib
           install_name_tool -change /install/lib/libpython${{ env.PYTHON_VERSION }}.dylib @rpath/libpython${{ env.PYTHON_VERSION }}.dylib wamr-lldb/lib/liblldb.*.dylib
-        # Patch path of python library -> https://github.com/indygreg/python-build-standalone/blob/85923ca3911784e6978b85d56e06e9ae75cb2dc4/docs/quirks.rst?plain=1#L412-L446  
+        # Patch path of python library -> https://github.com/indygreg/python-build-standalone/blob/85923ca3911784e6978b85d56e06e9ae75cb2dc4/docs/quirks.rst?plain=1#L412-L446
         working-directory: core/deps/llvm-project
 
       - name: compress the binary
