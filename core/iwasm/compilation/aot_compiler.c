@@ -361,8 +361,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 
                 read_leb_uint32(frame_ip, frame_ip_end, type_idx);
 
-                if (false || comp_ctx->enable_gc
-                    || comp_ctx->enable_ref_types) {
+                if (comp_ctx->enable_gc || comp_ctx->enable_ref_types) {
                     read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);
                 }
                 else {
@@ -399,8 +398,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 }
 
                 read_leb_uint32(frame_ip, frame_ip_end, type_idx);
-                if (false || comp_ctx->enable_gc
-                    || comp_ctx->enable_ref_types) {
+                if (comp_ctx->enable_gc || comp_ctx->enable_ref_types) {
                     read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);
                 }
                 else {

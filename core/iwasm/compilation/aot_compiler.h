@@ -166,10 +166,10 @@ check_type_compatible(uint8 src_type, uint8 dst_type)
 #if WASM_ENABLE_GC != 0
 #define POP_REF(v) POP(v, VALUE_TYPE_GC_REF)
 #else
-#define POP_REF(v)                                                        \
-    do {                                                                  \
-        LOG_DEBUG("enable_gc=true when CMake flag are not set properly"); \
-        assert(0);                                                        \
+#define POP_REF(v)                                                          \
+    do {                                                                    \
+        bh_assert(                                                          \
+            !"should not POP_REF when WASM_ENABLE_GC macro isn't enabled"); \
     } while (0)
 #endif
 #define POP_COND(llvm_value)                                                   \
@@ -228,10 +228,10 @@ check_type_compatible(uint8 src_type, uint8 dst_type)
 #if WASM_ENABLE_GC != 0
 #define PUSH_REF(v) PUSH(v, VALUE_TYPE_GC_REF)
 #else
-#define PUSH_REF(v)                                                       \
-    do {                                                                  \
-        LOG_DEBUG("enable_gc=true when CMake flag are not set properly"); \
-        assert(0);                                                        \
+#define PUSH_REF(v)                                                          \
+    do {                                                                     \
+        bh_assert(                                                           \
+            !"should not PUSH_REF when WASM_ENABLE_GC macro isn't enabled"); \
     } while (0)
 #endif
 
