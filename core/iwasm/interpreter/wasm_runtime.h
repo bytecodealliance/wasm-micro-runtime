@@ -68,6 +68,7 @@ typedef enum WASMExceptionID {
     EXCE_OPERAND_STACK_OVERFLOW,
     EXCE_FAILED_TO_COMPILE_FAST_JIT_FUNC,
     EXCE_ALREADY_THROWN,
+    EXCE_NULL_GC_REF,
     EXCE_NUM,
 } WASMExceptionID;
 
@@ -575,6 +576,7 @@ wasm_create_func_obj(WASMModuleInstance *module_inst, uint32 func_idx,
 
 bool
 wasm_traverse_gc_rootset(WASMExecEnv *exec_env, void *heap);
+
 #endif
 
 static inline WASMTableInstance *
@@ -691,6 +693,13 @@ llvm_jit_alloc_frame(WASMExecEnv *exec_env, uint32 func_index);
 
 void
 llvm_jit_free_frame(WASMExecEnv *exec_env);
+#endif
+
+#if WASM_ENABLE_GC != 0
+void *
+llvm_jit_create_func_obj(WASMModuleInstance *module_inst, uint32 func_idx,
+                         bool throw_exce, char *error_buf,
+                         uint32 error_buf_size);
 #endif
 #endif /* end of WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0 */
 

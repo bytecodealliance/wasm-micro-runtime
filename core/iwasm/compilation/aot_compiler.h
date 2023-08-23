@@ -163,7 +163,15 @@ check_type_compatible(uint8 src_type, uint8 dst_type)
 #define POP_V128(v) POP(v, VALUE_TYPE_V128)
 #define POP_FUNCREF(v) POP(v, VALUE_TYPE_FUNCREF)
 #define POP_EXTERNREF(v) POP(v, VALUE_TYPE_EXTERNREF)
-
+#if WASM_ENABLE_GC != 0
+#define POP_REF(v) POP(v, VALUE_TYPE_GC_REF)
+#else
+#define POP_REF(v)                                                          \
+    do {                                                                    \
+        bh_assert(                                                          \
+            !"should not POP_REF when WASM_ENABLE_GC macro isn't enabled"); \
+    } while (0)
+#endif
 #define POP_COND(llvm_value)                                                   \
     do {                                                                       \
         AOTValue *aot_value;                                                   \
@@ -217,6 +225,15 @@ check_type_compatible(uint8 src_type, uint8 dst_type)
 #define PUSH_COND(v) PUSH(v, VALUE_TYPE_I1)
 #define PUSH_FUNCREF(v) PUSH(v, VALUE_TYPE_FUNCREF)
 #define PUSH_EXTERNREF(v) PUSH(v, VALUE_TYPE_EXTERNREF)
+#if WASM_ENABLE_GC != 0
+#define PUSH_REF(v) PUSH(v, VALUE_TYPE_GC_REF)
+#else
+#define PUSH_REF(v)                                                          \
+    do {                                                                     \
+        bh_assert(                                                           \
+            !"should not PUSH_REF when WASM_ENABLE_GC macro isn't enabled"); \
+    } while (0)
+#endif
 
 #define TO_LLVM_TYPE(wasm_type) \
     wasm_type_to_llvm_type(&comp_ctx->basic_types, wasm_type)
@@ -240,6 +257,8 @@ check_type_compatible(uint8 src_type, uint8 dst_type)
 #define F64_PTR_TYPE comp_ctx->basic_types.float64_ptr_type
 #define FUNC_REF_TYPE comp_ctx->basic_types.funcref_type
 #define EXTERN_REF_TYPE comp_ctx->basic_types.externref_type
+#define GC_REF_TYPE comp_ctx->basic_types.gc_ref_type
+#define GC_REF_PTR_TYPE comp_ctx->basic_types.gc_ref_ptr_type
 
 #define INT8_PTR_TYPE_GS comp_ctx->basic_types.int8_ptr_type_gs
 #define INT16_PTR_TYPE_GS comp_ctx->basic_types.int16_ptr_type_gs
@@ -278,6 +297,8 @@ check_type_compatible(uint8 src_type, uint8 dst_type)
 #define I64_63 LLVM_CONST(i64_63)
 #define I64_64 LLVM_CONST(i64_64)
 #define REF_NULL I32_NEG_ONE
+#define GC_REF_NULL LLVM_CONST(gc_ref_null)
+#define I8_PTR_NULL LLVM_CONST(i8_ptr_null)
 
 #define V128_TYPE comp_ctx->basic_types.v128_type
 #define V128_PTR_TYPE comp_ctx->basic_types.v128_ptr_type

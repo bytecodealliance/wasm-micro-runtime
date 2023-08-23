@@ -3777,6 +3777,19 @@ llvm_jit_free_frame(WASMExecEnv *exec_env)
 #endif /* end of WASM_ENABLE_DUMP_CALL_STACK != 0 \
           || WASM_ENABLE_PERF_PROFILING != 0 */
 
+#if WASM_ENABLE_GC != 0
+void *
+llvm_jit_create_func_obj(WASMModuleInstance *module_inst, uint32 func_idx,
+                         bool throw_exce, char *error_buf,
+                         uint32 error_buf_size)
+{
+    bh_assert(module_inst->module_type == Wasm_Module_Bytecode);
+
+    return wasm_create_func_obj(module_inst, func_idx, throw_exce, error_buf,
+                                error_buf_size);
+}
+#endif /* end of WASM_ENABLE_GC != 0 */
+
 #endif /* end of WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0 */
 
 #if WASM_ENABLE_LIBC_WASI != 0 && WASM_ENABLE_MULTI_MODULE != 0

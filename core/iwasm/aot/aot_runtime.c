@@ -2450,7 +2450,7 @@ aot_get_module_inst_mem_consumption(const AOTModuleInstance *module_inst,
 #endif /* end of (WASM_ENABLE_MEMORY_PROFILING != 0) \
                  || (WASM_ENABLE_MEMORY_TRACING != 0) */
 
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
 void
 aot_drop_table_seg(AOTModuleInstance *module_inst, uint32 tbl_seg_idx)
 {
@@ -2467,6 +2467,12 @@ aot_table_init(AOTModuleInstance *module_inst, uint32 tbl_idx,
     AOTTableInstance *tbl_inst;
     AOTTableInitData *tbl_seg;
     const AOTModule *module = (AOTModule *)module_inst->module;
+#if WASM_ENABLE_GC != 0
+    table_elem_type_t *table_elems;
+    uintptr_t *func_indexes;
+    void *func_obj;
+    uint32 i;
+#endif
 
     tbl_inst = module_inst->tables[tbl_idx];
     bh_assert(tbl_inst);
@@ -2494,11 +2500,31 @@ aot_table_init(AOTModuleInstance *module_inst, uint32 tbl_idx,
         return;
     }
 
+#if WASM_ENABLE_GC != 0
+    table_elems = tbl_inst->elems + dst_offset;
+    func_indexes = tbl_seg->func_indexes + src_offset;
+
+    for (i = 0; i < length; i++) {
+        /* UINT32_MAX indicates that it is a null ref */
+        if (func_indexes[i] != UINT32_MAX) {
+            if (!(func_obj = aot_create_func_obj(module_inst, func_indexes[i],
+                                                 true, NULL, 0))) {
+                aot_set_exception_with_id(module_inst, EXCE_NULL_GC_REF);
+                return;
+            }
+            table_elems[i] = func_obj;
+        }
+        else {
+            table_elems[i] = NULL_REF;
+        }
+    }
+#else
     bh_memcpy_s((uint8 *)tbl_inst + offsetof(AOTTableInstance, elems)
                     + dst_offset * sizeof(table_elem_type_t),
                 (tbl_inst->cur_size - dst_offset) * sizeof(table_elem_type_t),
                 tbl_seg->func_indexes + src_offset,
                 length * sizeof(table_elem_type_t));
+#endif
 }
 
 void
@@ -2587,7 +2613,7 @@ aot_table_grow(AOTModuleInstance *module_inst, uint32 tbl_idx,
     tbl_inst->cur_size = entry_count;
     return orig_tbl_sz;
 }
-#endif /* WASM_ENABLE_REF_TYPES != 0 */
+#endif /* WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0 */
 
 #if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
 #if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
@@ -3352,3 +3378,47 @@ aot_dump_pgo_prof_data_to_buf(AOTModuleInstance *module_inst, char *buf,
     return total_size;
 }
 #endif /* end of WASM_ENABLE_STATIC_PGO != 0 */
+
+#if WASM_ENABLE_GC != 0
+
+void *
+aot_create_func_obj(AOTModuleInstance *module_inst, uint32 func_idx,
+                    bool throw_exce, char *error_buf, uint32 error_buf_size)
+{
+    AOTModule *module = (AOTModule *)module_inst->module;
+    WASMRttTypeRef rtt_type;
+    WASMFuncObjectRef func_obj;
+    AOTFuncType *func_type;
+    uint32 type_idx;
+
+    if (throw_exce) {
+        error_buf = module_inst->cur_exception;
+        error_buf_size = sizeof(module_inst->cur_exception);
+    }
+
+    if (func_idx >= module->import_func_count + module->func_count) {
+        set_error_buf_v(error_buf, error_buf_size, "unknown function %d",
+                        func_idx);
+        return NULL;
+    }
+
+    type_idx = module_inst->func_type_indexes[func_idx];
+    func_type = (AOTFuncType *)module->types[type_idx];
+
+    if (!(rtt_type = wasm_rtt_type_new((AOTType *)func_type, type_idx,
+                                       module->rtt_types, module->type_count,
+                                       &module->rtt_type_lock))) {
+        set_error_buf(error_buf, error_buf_size, "create rtt object failed");
+        return NULL;
+    }
+
+    if (!(func_obj = wasm_func_obj_new_internal(module_inst->e->gc_heap_handle,
+                                                rtt_type, func_idx))) {
+        set_error_buf(error_buf, error_buf_size, "create func object failed");
+        return NULL;
+    }
+
+    return func_obj;
+}
+
+#endif /* end of WASM_ENABLE_GC != 0 */

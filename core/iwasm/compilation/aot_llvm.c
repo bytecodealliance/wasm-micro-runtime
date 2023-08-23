@@ -42,6 +42,8 @@ wasm_type_to_llvm_type(const AOTLLVMTypes *llvm_types, uint8 wasm_type)
             return llvm_types->i64x2_vec_type;
         case VALUE_TYPE_VOID:
             return llvm_types->void_type;
+        case VALUE_TYPE_GC_REF:
+            return llvm_types->gc_ref_type;
         default:
             break;
     }
@@ -1744,6 +1746,9 @@ aot_set_llvm_basic_types(AOTLLVMTypes *basic_types, LLVMContextRef context,
         basic_types->intptr_ptr_type = basic_types->int64_ptr_type;
     }
 
+    basic_types->gc_ref_type = LLVMPointerType(basic_types->void_type, 0);
+    basic_types->gc_ref_ptr_type = LLVMPointerType(basic_types->gc_ref_type, 0);
+
     return (basic_types->int8_ptr_type && basic_types->int8_pptr_type
             && basic_types->int16_ptr_type && basic_types->int32_ptr_type
             && basic_types->int64_ptr_type && basic_types->intptr_type
@@ -1753,7 +1758,8 @@ aot_set_llvm_basic_types(AOTLLVMTypes *basic_types, LLVMContextRef context,
             && basic_types->i64x2_vec_type && basic_types->f32x4_vec_type
             && basic_types->f64x2_vec_type && basic_types->i1x2_vec_type
             && basic_types->meta_data_type && basic_types->funcref_type
-            && basic_types->externref_type)
+            && basic_types->externref_type && basic_types->gc_ref_type
+            && basic_types->gc_ref_ptr_type)
                ? true
                : false;
 }
@@ -1842,6 +1848,13 @@ aot_create_llvm_consts(AOTLLVMConsts *consts, AOTCompContext *comp_ctx)
     CREATE_VEC_ZERO_MASK(4)
     CREATE_VEC_ZERO_MASK(2)
 #undef CREATE_VEC_ZERO_MASK
+
+    if (!(consts->gc_ref_null =
+              LLVMConstNull(comp_ctx->basic_types.gc_ref_type)))
+        return false;
+    if (!(consts->i8_ptr_null =
+              LLVMConstNull(comp_ctx->basic_types.int8_ptr_type)))
+        return false;
 
     return true;
 }
