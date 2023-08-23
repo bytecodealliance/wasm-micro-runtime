@@ -28,14 +28,13 @@ on:
         required: false
         default: "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0-linux.tar.gz"
 
-
 jobs:
   try_reuse:
     uses: ./.github/workflows/reuse_latest_release_binaries.yml
     with:
       binary_name_stem: "wamr-lldb-${{ inputs.ver_num }}-${{ inputs.arch }}-${{ inputs.runner }}"
       last_commit: "ea63ba4bd010c2285623ad4acc0262a4d63bcfea"
-      the_path: "./build-scripts/lldb-wasm.patch"
+      the_path: "./build-scripts/lldb_wasm.patch"
       upload_url: ${{ inputs.upload_url }}
 
   build:
@@ -107,7 +106,7 @@ jobs:
           git init
           git config user.email "action@github.com"
           git config user.name "github action"
-          git apply ../../../build-scripts/lldb-wasm.patch
+          git apply ../../../build-scripts/lldb_wasm.patch
         working-directory: core/deps/llvm-project
 
       - name: get stand-alone python ubuntu
@@ -163,6 +162,7 @@ jobs:
           mkdir -p wamr-debug
           cmake -S product-mini/platforms/linux -B wamr-debug -DWAMR_BUILD_DEBUG_INTERP=1
           cmake --build wamr-debug --parallel $(nproc)
+          export LD_LIBRARY_PATH=$(pwd)/core/deps/python/lib:${LD_LIBRARY_PATH}
           python3 ci/validate_lldb.py --port 1239 --lldb core/deps/wamr-lldb/bin/lldb --wamr wamr-debug/iwasm --verbose
         working-directory: .
 
