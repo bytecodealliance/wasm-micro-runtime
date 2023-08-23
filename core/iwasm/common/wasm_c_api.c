@@ -2303,11 +2303,10 @@ wasm_module_validate(wasm_store_t *store, const wasm_byte_vec_t *binary)
     }
 
     /* make a copy of binary */
-    wasm_byte_vec_new_uninitialized(&local_binary, binary->size);
+    wasm_byte_vec_copy(&local_binary, binary);
+
     if (binary->size && !local_binary.data)
         return false;
-
-    wasm_byte_vec_copy(&local_binary, binary);
 
     module_rt = wasm_runtime_load((uint8 *)local_binary.data,
                                   (uint32)local_binary.size, error_buf, 128);
