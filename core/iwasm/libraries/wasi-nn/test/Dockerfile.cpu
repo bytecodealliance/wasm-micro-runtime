@@ -30,7 +30,6 @@ RUN make -j "$(grep -c ^processor /proc/cpuinfo)"
 
 FROM ubuntu:22.04
 
-COPY --from=base /home/wamr/product-mini/platforms/linux/build/libvmlib.so /libvmlib.so
 COPY --from=base /home/wamr/product-mini/platforms/linux/build/iwasm /iwasm
 
 ENTRYPOINT [ "/iwasm" ]

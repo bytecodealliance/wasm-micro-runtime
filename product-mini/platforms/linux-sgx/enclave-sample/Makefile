@@ -143,10 +143,10 @@ else
 endif
 
 ifeq ($(WAMR_BUILD_LIB_RATS), 1)
-	Rats_Lib_Link_Dirs := -L$(LIB_RATS_INSTALL_DIR) -L$(LIB_RATS_INSTALL_DIR)/attesters -L$(LIB_RATS_INSTALL_DIR)/verifiers -L$(SGX_SSL)/lib64
+	Rats_Lib_Link_Dirs := -L$(LIB_RATS_INSTALL_DIR) -L$(LIB_RATS_INSTALL_DIR)/attesters -L$(LIB_RATS_INSTALL_DIR)/verifiers -L$(SGX_SSL)/lib64 -L$(VMLIB_BUILD_DIR)/external/libcbor/src/libcbor/lib -L$(LIB_RATS_INSTALL_DIR)/crypto_wrappers
 	Rats_Lib_W_Link_libs := -lattester_nullattester -lattester_sgx_ecdsa -lattester_sgx_la \
-						-lverifier_nullverifier -lverifier_sgx_ecdsa -lverifier_sgx_la -lverifier_sgx_ecdsa_qve \
-						-lrats_lib -lsgx_tsgxssl
+						-lverifier_nullverifier -lverifier_sgx_la -lverifier_sgx_ecdsa_qve -lcbor \
+						-lrats_lib -lsgx_tsgxssl -lcrypto_wrapper_nullcrypto -lcrypto_wrapper_openssl
 	Rats_Lib_NW_Link_libs := -lsgx_dcap_tvl -lsgx_tsgxssl_crypto
 endif
 

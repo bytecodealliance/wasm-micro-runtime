@@ -9,8 +9,32 @@ set -eo pipefail
 CC=${CC:=/opt/wasi-sdk/bin/clang}
 WAMR_DIR=../../../../..
 
+show_usage() {
+    echo "Usage: $0 [--sysroot PATH_TO_SYSROOT]"
+    echo "--sysroot PATH_TO_SYSROOT specify to build with custom sysroot for wasi-libc"
+}
+
+while [[ $# -gt 0 ]]; do
+    key="$1"
+    case $key in
+        --sysroot)
+            sysroot_path="$2"
+            shift
+            shift
+            ;;
+        --help)
+            show_usage
+            exit
+            ;;
+        *)
+            echo "Unknown option: $1"
+            exit 1
+            ;;
+    esac
+done
+
 # Stress tests names
-thread_start_file_exclusions=("spawn_stress_test.wasm" "linear_memory_size_update.wasm")
+thread_start_file_exclusions=("spawn_stress_test.wasm" "linear_memory_size_update.wasm" "stress_test_threads_creation.wasm")
 
 for test_c in *.c; do
     test_wasm="$(basename $test_c .c).wasm"
@@ -21,9 +45,18 @@ for test_c in *.c; do
         thread_start_file=$WAMR_DIR/samples/wasi-threads/wasm-apps/wasi_thread_start.S
     fi
 
+    if [[ -n "$sysroot_path" ]]; then 
+        if [ ! -d "$sysroot_path" ]; then 
+            echo "Directory $sysroot_path  doesn't exist. Aborting"
+            exit 1
+        fi
+        sysroot_command="--sysroot $sysroot_path"
+    fi
+    
     echo "Compiling $test_c to $test_wasm"
     $CC \
         -target wasm32-wasi-threads \
+        -O2 \
         -pthread -ftls-model=local-exec \
         -z stack-size=32768 \
         -Wl,--export=__heap_base \
@@ -33,6 +66,7 @@ for test_c in *.c; do
         -Wl,--export=malloc \
         -Wl,--export=free \
         -I $WAMR_DIR/samples/wasi-threads/wasm-apps \
+        $sysroot_command \
         $thread_start_file \
         $test_c -o $test_wasm
 done

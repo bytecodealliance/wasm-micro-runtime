@@ -10254,6 +10254,9 @@ re_scan:
 #if WASM_ENABLE_GC != 0
                 WASMRefType *ref_type = NULL;
 #endif
+#if WASM_ENABLE_FAST_INTERP != 0
+                uint8 *p_code_compiled_tmp = loader_ctx->p_code_compiled;
+#endif
 
                 read_leb_uint32(p, p_end, vec_len);
                 if (vec_len != 1) {
@@ -10305,8 +10308,6 @@ re_scan:
 #if WASM_ENABLE_FAST_INTERP != 0
                 if (loader_ctx->p_code_compiled) {
                     uint8 opcode_tmp = WASM_OP_SELECT;
-                    uint8 *p_code_compiled_tmp =
-                        loader_ctx->p_code_compiled - 2;
 
                     if (type == VALUE_TYPE_V128) {
 #if (WASM_ENABLE_SIMD == 0) \

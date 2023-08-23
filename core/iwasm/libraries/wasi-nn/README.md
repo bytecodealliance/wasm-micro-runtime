@@ -25,6 +25,7 @@ Build the runtime image for your execution target type.
 * `cpu`
 * `nvidia-gpu`
 * `vx-delegate`
+* `tpu`
 
 ```
 EXECUTION_TYPE=cpu
@@ -64,6 +65,8 @@ docker run \
 ```
 
 * (NVIDIA) GPU
+    * Requirements:
+        * [NVIDIA docker](https://github.com/NVIDIA/nvidia-docker).
 
 ```
 docker run \
@@ -76,25 +79,36 @@ docker run \
     /assets/test_tensorflow.wasm
 ```
 
-* vx-delegate for NPU (x86 simulater)
+* vx-delegate for NPU (x86 simulator)
 
 ```
 docker run \
-    -v $PWD/core/iwasm/libraries/wasi-nn/test:/assets wasi-nn-vx-delegate \
-    --dir=/assets \
+    -v $PWD/core/iwasm/libraries/wasi-nn/test:/assets \
+    wasi-nn-vx-delegate \
+    --dir=/ \
     --env="TARGET=gpu" \
-    /assets/test_tensorflow.wasm
+    /assets/test_tensorflow_quantized.wasm
 ```
 
+* (Coral) TPU
+    * Requirements:
+        * [Coral USB](https://coral.ai/products/accelerator/).
 
-
-Requirements:
-* [NVIDIA docker](https://github.com/NVIDIA/nvidia-docker).
+```
+docker run \
+    --privileged \
+    --device=/dev/bus/usb:/dev/bus/usb \
+    -v $PWD/core/iwasm/libraries/wasi-nn/test:/assets \
+    wasi-nn-tpu \
+    --dir=/ \
+    --env="TARGET=tpu" \
+    /assets/test_tensorflow_quantized.wasm
+```
 
 ## What is missing
 
 Supported:
 
 * Graph encoding: `tensorflowlite`.
-* Execution target: `cpu` and `gpu`.
+* Execution target: `cpu`, `gpu` and `tpu`.
 * Tensor type: `fp32`.

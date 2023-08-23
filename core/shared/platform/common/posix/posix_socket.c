@@ -275,7 +275,7 @@ os_socket_recv_from(bh_socket_t socket, void *buf, unsigned int len, int flags,
             return -1;
         }
     }
-    else {
+    else if (src_addr) {
         memset(src_addr, 0, sizeof(*src_addr));
     }
 
