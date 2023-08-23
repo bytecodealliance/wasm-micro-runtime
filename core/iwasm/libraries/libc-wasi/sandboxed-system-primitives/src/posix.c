@@ -20,6 +20,7 @@
 #include "refcount.h"
 #include "rights.h"
 #include "str.h"
+#include "ntdll.h"
 
 /* Some platforms (e.g. Windows) already define `min()` macro.
  We're undefing it here to make sure the `min` call does exactly
@@ -73,6 +74,40 @@ static __thread struct fd_prestats *prestats;
 static __thread struct argv_environ_values *argv_environ;
 static __thread struct addr_pool *addr_pool;
 #endif
+
+#define NANOSECONDS_PER_SECOND 1000000000
+
+static uint64
+calculate_monotonic_clock_frequency()
+{
+    LARGE_INTEGER frequency;
+    QueryPerformanceFrequency(&frequency);
+    return (uint64)frequency.QuadPart;
+}
+
+static __wasi_timestamp_t
+from_file_time_to_wasi_timestamp(FILETIME Filetime)
+{
+    __wasi_timestamp_t *attempt;
+
+    static const uint64 NTToUnixEpoch = 134774 * 86400 * NANOSECONDS_PER_SECOND;
+
+    ULARGE_INTEGER Temp = { .LowPart = Filetime.dwLowDateTime,
+                            .HighPart = Filetime.dwHighDateTime };
+
+    auto Duration = Temp.QuadPart - NTToUnixEpoch;
+    // static_casting doesn't work
+
+    return Duration;
+}
+
+uint64
+current_value_of_performance_counter()
+{
+    LARGE_INTEGER Counter;
+    QueryPerformanceCounter(&Counter);
+    return Counter.QuadPart;
+}
 
 // Converts a POSIX error code to a CloudABI error code.
 static __wasi_errno_t
@@ -322,40 +357,150 @@ wasi_addr_ip_to_bh_ip_addr_buffer(__wasi_addr_ip_t *addr,
 __wasi_errno_t
 wasmtime_ssp_clock_res_get(__wasi_clockid_t clock_id,
                            __wasi_timestamp_t *resolution)
-{
+
 #ifdef BH_PLATFORM_WINDOWS
-    return __WASI_ENOSYS;
+    {
+
+        switch (clock_id) {
+            case __WASI_CLOCK_MONOTONIC:
+            {
+                const uint64_t Result =
+                    (uint64_t)(((uint64_t)1000000000)
+                               / calculate_monotonic_clock_frequency());
+                *resolution = (uint64_t)Result;
+                __wasi_errno_t error = 0;
+                return error;
+            }
+            case __WASI_CLOCK_REALTIME:
+            case __WASI_CLOCK_PROCESS_CPUTIME_ID:
+            case __WASI_CLOCK_THREAD_CPUTIME_ID:
+            {
+                PULONG MaximumTime;
+                PULONG MinimumTime;
+                PULONG CurrentTime;
+                NTSTATUS
+                NTAPI Res;
+                if (Res = NtQueryTimerResolution(&MaximumTime, &MinimumTime,
+                                                 &CurrentTime))
+                    ;
+                NT_SUCCESS(Res);
+                {
+                    return -1;
+                }
+            }
+        }
+    }
 #else
-    clockid_t nclock_id;
-    if (!convert_clockid(clock_id, &nclock_id))
-        return __WASI_EINVAL;
-    struct timespec ts;
-    if (clock_getres(nclock_id, &ts) < 0)
-        return convert_errno(errno);
-    *resolution = convert_timespec(&ts);
+    {
+        __wasi_clockid_t nclock_id;
+        if (!convert_clockid(clock_id, &nclock_id))
+            return __WASI_EINVAL;
+        struct timespec ts;
+        if (clock_getres(nclock_id, &ts) < 0)
+            return convert_errno(errno);
+        *resolution = convert_timespec(&ts);
+        // start from nanoseconds
+    }
+
     return 0;
 #endif
-}
 
 __wasi_errno_t
 wasmtime_ssp_clock_time_get(__wasi_clockid_t clock_id,
                             __wasi_timestamp_t precision,
                             __wasi_timestamp_t *time)
-{
-#ifdef BH_PLATFORM_WINDOWS
-    return __WASI_ENOSYS;
-#else
-    clockid_t nclock_id;
-    if (!convert_clockid(clock_id, &nclock_id))
-        return __WASI_EINVAL;
-    struct timespec ts;
-    if (clock_gettime(nclock_id, &ts) < 0)
-        return convert_errno(errno);
-    *time = convert_timespec(&ts);
-    return 0;
-#endif
-}
 
+#ifdef BH_PLATFORM_WINDOWS 
+{
+
+    switch (clock_id) {
+
+            case __WASI_CLOCK_REALTIME:
+            {
+                FILETIME SysNow;
+#if NTDDI_VERSION >= NTDDI_WIN8
+                GetSystemTimePreciseAsFileTime(&SysNow);
+#else
+                GetSystemTimeAsFileTime(&SysNow);
+#endif
+                time = from_file_time_to_wasi_timestamp(SysNow);
+                return 0;
+            }
+
+            case __WASI_CLOCK_MONOTONIC:
+            {
+                uint64_t Nanoseconds;
+                const auto Counter = current_value_of_performance_counter();
+                if (likely(NANOSECONDS_PER_SECOND
+                               % calculate_monotonic_clock_frequency()
+                           == 0)) {
+                    Nanoseconds = Counter
+                                  * (NANOSECONDS_PER_SECOND
+                                     / calculate_monotonic_clock_frequency());
+                }
+                else {
+                    const auto Seconds =
+                        Counter / calculate_monotonic_clock_frequency();
+                    const auto Fractions =
+                        Counter % calculate_monotonic_clock_frequency();
+                    Nanoseconds = Seconds * NANOSECONDS_PER_SECOND
+                                  + (Fractions * NANOSECONDS_PER_SECOND)
+                                        / calculate_monotonic_clock_frequency();
+                }
+                time = Nanoseconds;
+
+                return -1;
+            }
+            case __WASI_CLOCK_PROCESS_CPUTIME_ID:
+            {
+                FILETIME CreationTime;
+                FILETIME ExitTime;
+                FILETIME KernalTime;
+                FILETIME UserTime;
+
+                if (!GetProcessTimes(GetCurrentProcess(),
+                                              &CreationTime, &ExitTime,
+                                              &KernalTime, &UserTime)) {
+                    return -1; // temp fix
+                }
+                time = from_file_time_to_wasi_timestamp(KernalTime)
+                       + from_file_time_to_wasi_timestamp(UserTime);
+
+                return -1;
+            }
+
+            case __WASI_CLOCK_THREAD_CPUTIME_ID:
+            {
+                FILETIME CreationTime;
+                FILETIME ExitTime;
+                FILETIME KernalTime;
+                FILETIME UserTime;
+
+                if (!GetProcessTimes(GetCurrentProcess(),
+                                              &CreationTime, &ExitTime,
+                                              &KernalTime, &UserTime)) {
+                    return -1; // temp fix
+                }
+
+                time = from_file_time_to_wasi_timestamp(KernalTime)
+                       + from_file_time_to_wasi_timestamp(UserTime);
+                return -1;
+            }
+        }
+    }
+
+
+#else
+    {
+        clockid_t nclock_id;
+        if (!convert_clockid(clock_id, &nclock_id))
+            return __WASI_EINVAL;
+        struct timespec ts;
+        if (clock_gettime(nclock_id, &ts) < 0)
+            return convert_errno(errno);
+        *time = convert_timespec(&ts);
+    }
+#endif
 struct fd_prestat {
     const char *dir;
 };
