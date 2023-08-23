@@ -3102,9 +3102,12 @@ wasi_ssp_sock_addr_resolve(
     }
 
     int ret = os_socket_addr_resolve(
-        host, service, hints->hints_enabled ? &hints_is_tcp : NULL,
-        hints->hints_enabled ? &hints_is_ipv4 : NULL, wamr_addr_info,
-        addr_info_size, &_max_info_size);
+        host, service,
+        hints->hints_enabled && hints->type != SOCKET_ANY ? &hints_is_tcp
+                                                          : NULL,
+        hints->hints_enabled && hints->family != INET_UNSPEC ? &hints_is_ipv4
+                                                             : NULL,
+        wamr_addr_info, addr_info_size, &_max_info_size);
 
     if (ret != BHT_OK) {
         wasm_runtime_free(wamr_addr_info);

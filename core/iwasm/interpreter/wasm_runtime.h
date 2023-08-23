@@ -7,6 +7,7 @@
 #define _WASM_RUNTIME_H
 
 #include "wasm.h"
+#include "bh_atomic.h"
 #include "bh_hashmap.h"
 #include "../common/wasm_runtime_common.h"
 #include "../common/wasm_exec_env.h"
@@ -79,7 +80,7 @@ struct WASMMemoryInstance {
     /* Module type */
     uint32 module_type;
     /* Shared memory flag */
-    bool is_shared;
+    bh_atomic_32_t ref_count; /* 0: non-shared, > 0: reference count */
 
     /* Number bytes per page */
     uint32 num_bytes_per_page;
@@ -209,8 +210,19 @@ typedef struct CApiFuncImport {
     void *env_arg;
 } CApiFuncImport;
 
+/* The common part of WASMModuleInstanceExtra and AOTModuleInstanceExtra */
+typedef struct WASMModuleInstanceExtraCommon {
+    CApiFuncImport *c_api_func_imports;
+#if WASM_CONFIGUABLE_BOUNDS_CHECKS != 0
+    /* Disable bounds checks or not */
+    bool disable_bounds_checks;
+#endif
+} WASMModuleInstanceExtraCommon;
+
 /* Extra info of WASM module instance for interpreter/jit mode */
 typedef struct WASMModuleInstanceExtra {
+    WASMModuleInstanceExtraCommon common;
+
     WASMGlobalInstance *globals;
     WASMFunctionInstance *functions;
 
@@ -222,7 +234,6 @@ typedef struct WASMModuleInstanceExtra {
     WASMFunctionInstance *free_function;
     WASMFunctionInstance *retain_function;
 
-    CApiFuncImport *c_api_func_imports;
     RunningMode running_mode;
 
 #if WASM_ENABLE_MULTI_MODULE != 0
@@ -396,7 +407,7 @@ void
 wasm_unload(WASMModule *module);
 
 WASMModuleInstance *
-wasm_instantiate(WASMModule *module, bool is_sub_inst,
+wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                  WASMExecEnv *exec_env_main, uint32 stack_size,
                  uint32 heap_size, char *error_buf, uint32 error_buf_size);
 

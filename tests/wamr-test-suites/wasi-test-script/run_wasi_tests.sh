@@ -11,20 +11,33 @@ readonly TARGET=$2
 readonly WORK_DIR=$PWD
 readonly PLATFORM=$(uname -s | tr A-Z a-z)
 readonly WAMR_DIR="${WORK_DIR}/../../../.."
-readonly IWASM_CMD="${WORK_DIR}/../../../../product-mini/platforms/${PLATFORM}/build/iwasm"
+readonly IWASM_CMD="${WORK_DIR}/../../../../product-mini/platforms/${PLATFORM}/build/iwasm \
+    --allow-resolve=google-public-dns-a.google.com \
+    --addr-pool=::1/128,127.0.0.1/32"
+
+readonly IWASM_CMD_STRESS="${IWASM_CMD} --max-threads=8"
 readonly WAMRC_CMD="${WORK_DIR}/../../../../wamr-compiler/build/wamrc"
 readonly C_TESTS="tests/c/testsuite/"
 readonly ASSEMBLYSCRIPT_TESTS="tests/assemblyscript/testsuite/"
 readonly THREAD_PROPOSAL_TESTS="tests/proposals/wasi-threads/"
 readonly THREAD_INTERNAL_TESTS="${WAMR_DIR}/core/iwasm/libraries/lib-wasi-threads/test/"
 readonly LIB_SOCKET_TESTS="${WAMR_DIR}/core/iwasm/libraries/lib-socket/test/"
+readonly STRESS_TESTS=("spawn_stress_test.wasm" "stress_test_threads_creation.wasm")
 
 run_aot_tests () {
     local tests=("$@")
+    local iwasm="${IWASM_CMD}"
     for test_wasm in ${tests[@]}; do
+        local extra_stress_flags=""
+        for stress_test in "${STRESS_TESTS[@]}"; do
+            if [ "$test_wasm" == "$stress_test" ]; then
+                iwasm="${IWASM_CMD_STRESS}"
+            fi  
+        done
+
         test_aot="${test_wasm%.wasm}.aot"
         test_json="${test_wasm%.wasm}.json"
-
+ 
         if [ -f ${test_wasm} ]; then
             expected=$(jq .exit_code ${test_json})
         fi
@@ -35,12 +48,11 @@ run_aot_tests () {
 
         echo "Running $test_aot"
         expected=0
-        if [ -f ${test_json} ]; then 
+        if [ -f ${test_json} ]; then
             expected=$(jq .exit_code ${test_json})
         fi
-        
-        ${IWASM_CMD} $test_aot
-        
+
+        ${IWASM_CMD} $extra_stress_flags $test_aot
         ret=${PIPESTATUS[0]}
 
         echo "expected=$expected, actual=$ret"
@@ -48,20 +60,39 @@ run_aot_tests () {
             exit_code=1
         fi
     done
-} 
+}
 
 if [[ $MODE != "aot" ]];then
     python3 -m venv wasi-env && source wasi-env/bin/activate
     python3 -m pip install -r test-runner/requirements.txt
+
+    # Stress tests require max-threads=8 so they're executed separately
+    for stress_test in "${STRESS_TESTS[@]}"; do
+        if [[ -e "${THREAD_INTERNAL_TESTS}${stress_test}" ]]; then
+            echo "${stress_test}" is a stress test
+            ${IWASM_CMD_STRESS} ${THREAD_INTERNAL_TESTS}${stress_test}
+            ret=${PIPESTATUS[0]}
+            if [ "${ret}" -ne 0 ]; then
+                echo "Stress test ${stress_test} FAILED with code " ${ret}
+                exit_code=${ret}
+            fi
+        fi
+    done
+
     TEST_RUNTIME_EXE="${IWASM_CMD}" python3 test-runner/wasi_test_runner.py \
-                -r adapters/wasm-micro-runtime.py \
-                -t \
-                    ${C_TESTS} \
-                    ${ASSEMBLYSCRIPT_TESTS} \
-                    ${THREAD_PROPOSAL_TESTS} \
-                    ${THREAD_INTERNAL_TESTS} \
-                    ${LIB_SOCKET_TESTS} \
-    exit_code=${PIPESTATUS[0]}
+            -r adapters/wasm-micro-runtime.py \
+            -t \
+                ${C_TESTS} \
+                ${ASSEMBLYSCRIPT_TESTS} \
+                ${THREAD_PROPOSAL_TESTS} \
+                ${THREAD_INTERNAL_TESTS} \
+                ${LIB_SOCKET_TESTS} \
+            --exclude-filter "${THREAD_INTERNAL_TESTS}skip.json"
+
+    ret=${PIPESTATUS[0]}
+    if [ "${ret}" -ne 0 ]; then
+        exit_code=${ret}
+    fi
     deactivate
 else
     target_option=""
