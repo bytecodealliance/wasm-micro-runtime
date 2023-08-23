@@ -1,20 +1,23 @@
 // Copyright (C) 2019 Intel Corporation.  All rights reserved.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 // For format details, see https://aka.ms/vscode-remote/devcontainer.json or this file's README at:
-// https://github.com/microsoft/vscode-dev-containers/tree/v0.195.0/containers/cpp
+// https://github.com/microsoft/vscode-dev-containers/tree/v0.245.2/containers/cpp
 {
   "name": "WAMR-Dev",
   "build": {
     "dockerfile": "Dockerfile",
-    // Update 'VARIANT' to pick an Debian / Ubuntu OS version: debian-11, debian-10, debian-9, ubuntu-21.04, ubuntu-20.04, ubuntu-18.04
-    // Use Debian 11, Debian 9, Ubuntu 18.04 or Ubuntu 21.04 on local arm64/Apple Silicon
+    // Update 'VARIANT' to pick an Debian / Ubuntu OS version: debian-12, debian-11, debian-10, debian-9, ubuntu-21.04, ubuntu-20.04, ubuntu-18.04
+    // Use Debian 12, Debian 11, Debian 9, Ubuntu 18.04 or Ubuntu 21.04 on local arm64/Apple Silicon
     "args": {
-      "BINARYEN_VER": "111",
-      "EMSDK_VER": "3.0.0",
-      "LLVM_VER": "15",
-      "VARIANT": "ubuntu-20.04",
-      "WASI_SDK_VER": "19",
-      "WABT_VER": "1.0.31"
+      "BINARYEN_VER": "114",
+      "BAZELISK_VER": "1.17.0",
+      "CMAKE_VER": "3.27.0",
+      "EMSDK_VER": "3.1.43",
+      "GH_CLI_VER": "2.32.0",
+      "LLVM_VER": "16",
+      "VARIANT": "debian-12",
+      "WASI_SDK_VER": "20",
+      "WABT_VER": "1.0.33"
     }
   },
   "runArgs": [
@@ -34,7 +37,7 @@
         "llvm-vs-code-extensions.vscode-clangd",
         "ms-python.python",
         "ms-python.vscode-pylance",
-        "ms-vscode.cmake-tools",
+        "ms-vscode.cmake-tools"
       ]
     }
   },

@@ -5,6 +5,8 @@
 #include <unistd.h>
 #include <string.h>
 #include <assert.h>
+#include <errno.h>
+#include <time.h>
 #ifdef __wasi__
 #include <wasi/api.h>
 #include <sys/socket.h>
@@ -12,105 +14,123 @@
 #endif
 #include <arpa/inet.h>
 #include <pthread.h>
+#include <stdio.h>
+
 #define SERVER_MSG "Message from server."
 #define PORT 8989
-pthread_mutex_t mut;
-pthread_cond_t cond;
+
+pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+
 int server_init_complete = 0;
-char buffer[sizeof(SERVER_MSG) + 1];
 
-struct socket_info {
-    union {
-        struct sockaddr_in addr_ipv4;
-        struct sockaddr_in6 addr_ipv6;
-    } addr;
+typedef struct {
+    struct sockaddr_storage addr;
+    socklen_t addr_len;
     int sock;
-};
-
-struct thread_args {
-    int family;
     int protocol;
-};
+} socket_info_t;
 
-struct socket_info
-init_socket_addr(int family, int protocol)
+void
+wait_for_server(int wait_time_seconds)
 {
-    int sock = socket(family, protocol, 0);
-    assert(sock != -1);
+    int res = 0;
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    ts.tv_sec += wait_time_seconds;
 
-    struct socket_info info;
-    if (family == AF_INET) {
-        struct sockaddr_in addr;
-        memset(&addr, 0, sizeof(addr));
-        addr.sin_family = AF_INET;
-        addr.sin_port = htons(PORT);
-        addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-        info.addr.addr_ipv4 = addr;
+    pthread_mutex_lock(&mut);
+    while (server_init_complete == 0) {
+        res = pthread_cond_timedwait(&cond, &mut, &ts);
+        if (res == ETIMEDOUT)
+            break;
     }
-    else if (family == AF_INET6) {
-        struct sockaddr_in6 addr;
-        memset(&addr, 0, sizeof(addr));
-        addr.sin6_family = AF_INET6;
-        addr.sin6_port = htons(PORT);
-        addr.sin6_addr = in6addr_loopback;
-        info.addr.addr_ipv6 = addr;
-    }
-    info.sock = sock;
-    return info;
+    pthread_mutex_unlock(&mut);
+
+    assert(res == 0);
 }
 
 void
-assert_thread_args(struct thread_args *args)
+notify_server_started()
 {
-    assert(args->family == AF_INET || args->family == AF_INET6);
-    assert(args->protocol == SOCK_STREAM || args->protocol == SOCK_DGRAM);
+    pthread_mutex_lock(&mut);
+    server_init_complete = 1;
+    pthread_cond_signal(&cond);
+    pthread_mutex_unlock(&mut);
+}
+
+socket_info_t
+init_socket_addr(int family, int protocol)
+{
+    socket_info_t info;
+
+    info.sock = socket(family, protocol, 0);
+    assert(info.sock != -1);
+    info.protocol = protocol;
+
+    memset(&info.addr, 0, sizeof(info.addr));
+
+    if (family == AF_INET) {
+        struct sockaddr_in *addr = (struct sockaddr_in *)&info.addr;
+        addr->sin_family = AF_INET;
+        addr->sin_port = htons(PORT);
+        addr->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+        info.addr_len = sizeof(struct sockaddr_in);
+    }
+    else if (family == AF_INET6) {
+        struct sockaddr_in6 *addr = (struct sockaddr_in6 *)&info.addr;
+        addr->sin6_family = AF_INET6;
+        addr->sin6_port = htons(PORT);
+        addr->sin6_addr = in6addr_loopback;
+        info.addr_len = sizeof(struct sockaddr_in6);
+    }
+
+    return info;
 }
 
 void *
 server(void *arg)
 {
-    server_init_complete = 0;
-    struct thread_args *args = (struct thread_args *)arg;
-    assert_thread_args(args);
-
-    struct socket_info init_server_sock =
-        init_socket_addr(args->family, args->protocol);
-
-    int server_sock = init_server_sock.sock;
-    socklen_t addr_size;
+    char buffer[sizeof(SERVER_MSG) + 1] = { 0 };
     struct sockaddr_storage client_addr;
-    strcpy(buffer, SERVER_MSG);
+    socket_info_t *info = (socket_info_t *)arg;
+    struct sockaddr *server_addr = (struct sockaddr *)&info->addr;
+    int server_sock = info->sock;
 
-    struct sockaddr *server_addr = (struct sockaddr *)&init_server_sock.addr;
-    int ret = bind(server_sock, server_addr,
-                   args->family == AF_INET ? sizeof(struct sockaddr_in)
-                                           : sizeof(struct sockaddr_in6));
-    assert(ret == 0);
+    int optval = 1;
+    assert(setsockopt(server_sock, SOL_SOCKET, SO_REUSEADDR, &optval,
+                      sizeof(optval))
+           == 0);
 
-    (args->protocol == SOCK_STREAM) && listen(server_sock, 1);
-    pthread_mutex_lock(&mut);
-    server_init_complete = 1;
-    pthread_mutex_unlock(&mut);
-    pthread_cond_signal(&cond);
+    assert(bind(server_sock, server_addr, info->addr_len) == 0);
 
-    addr_size = sizeof(client_addr);
-    if (args->protocol == SOCK_STREAM) {
+    if (info->protocol == SOCK_STREAM)
+        listen(server_sock, 1);
+    notify_server_started();
+
+    socklen_t addr_size = info->addr_len;
+    if (info->protocol == SOCK_STREAM) {
         int client_sock =
             accept(server_sock, (struct sockaddr *)&client_addr, &addr_size);
         assert(client_sock >= 0);
-        sendto(client_sock, buffer, strlen(buffer), 0,
-               (struct sockaddr *)&client_addr, addr_size);
-
-        assert(close(client_sock) == 0);
+        assert(recv(client_sock, buffer, sizeof(buffer), 0) > 0);
+        strcpy(buffer, SERVER_MSG);
+        assert(send(client_sock, buffer, sizeof(buffer), 0) > 0);
+        assert(recv(client_sock, buffer, sizeof(buffer), 0) > 0);
     }
     else {
-        recvfrom(server_sock, buffer, sizeof(buffer), 0,
-                 (struct sockaddr *)&client_addr, &addr_size);
-        sendto(server_sock, buffer, strlen(buffer), 0,
-               (struct sockaddr *)&client_addr, addr_size);
-
-        assert(close(server_sock) == 0);
+        assert(recvfrom(server_sock, buffer, sizeof(buffer), 0,
+                        (struct sockaddr *)&client_addr, &addr_size)
+               > 0);
+        strcpy(buffer, SERVER_MSG);
+        assert(sendto(server_sock, buffer, strlen(buffer), 0,
+                      (struct sockaddr *)&client_addr, addr_size)
+               > 0);
+        assert(recvfrom(server_sock, buffer, sizeof(buffer), 0,
+                        (struct sockaddr *)&client_addr, &addr_size)
+               > 0);
     }
+    assert(close(server_sock) == 0);
 
     return NULL;
 }
@@ -118,46 +138,23 @@ server(void *arg)
 void *
 client(void *arg)
 {
-    struct thread_args *args = (struct thread_args *)arg;
-    assert_thread_args(args);
+    char buffer[sizeof(SERVER_MSG) + 1];
+    socket_info_t *info = (socket_info_t *)arg;
+    int sock = info->sock;
+    struct sockaddr *addr = (struct sockaddr *)&info->addr;
 
-    pthread_mutex_lock(&mut);
+    wait_for_server(1);
 
-    while (server_init_complete == 0) {
-        pthread_cond_wait(&cond, &mut);
+    if (info->protocol == SOCK_STREAM) {
+        assert(connect(sock, addr, info->addr_len) != -1);
     }
 
-    struct socket_info init_client_sock =
-        init_socket_addr(args->family, args->protocol);
-    int sock = init_client_sock.sock;
-    pthread_mutex_unlock(&mut);
-
-    if (args->family == AF_INET) {
-        struct sockaddr_in addr = init_client_sock.addr.addr_ipv4;
-        if (args->protocol == SOCK_STREAM) {
-            assert(connect(sock, (struct sockaddr *)&addr, sizeof(addr)) != -1);
-        }
-        else {
-            assert(sendto(sock, buffer, strlen(buffer), 0,
-                          (struct sockaddr *)&addr, sizeof(addr))
-                   != -1);
-        }
-    }
-    else {
-        struct sockaddr_in6 addr = init_client_sock.addr.addr_ipv6;
-        if (args->protocol == SOCK_STREAM) {
-            assert(connect(sock, (struct sockaddr *)&addr, sizeof(addr)) != -1);
-        }
-        else {
-            assert(sendto(sock, buffer, strlen(buffer), 0,
-                          (struct sockaddr *)&addr, sizeof(addr))
-                   != -1);
-        }
-    }
-
-    recv(sock, buffer, sizeof(buffer), 0);
-    assert(strcmp(buffer, SERVER_MSG) == 0);
+    assert(sendto(sock, "open", strlen("open"), 0, addr, info->addr_len) > 0);
+    assert(recv(sock, buffer, sizeof(buffer), 0) > 0);
+    assert(strncmp(buffer, SERVER_MSG, strlen(SERVER_MSG)) == 0);
+    assert(sendto(sock, "close", sizeof("close"), 0, addr, info->addr_len) > 0);
     assert(close(sock) == 0);
+
     return NULL;
 }
 
@@ -165,17 +162,19 @@ void
 test_protocol(int family, int protocol)
 {
     pthread_t server_thread, client_thread;
-    assert(pthread_cond_init(&cond, NULL) == 0);
-    assert(pthread_mutex_init(&mut, NULL) == 0);
+    socket_info_t server_info = init_socket_addr(family, protocol);
+    socket_info_t client_info = init_socket_addr(family, protocol);
 
-    struct thread_args args = { family, protocol };
-    assert(pthread_create(&server_thread, NULL, server, (void *)&args) == 0);
-    assert(pthread_create(&client_thread, NULL, client, (void *)&args) == 0);
+    printf("Testing address family: %d protocol: %d\n", family, protocol);
+
+    server_init_complete = 0;
+
+    assert(pthread_create(&server_thread, NULL, server, (void *)&server_info)
+           == 0);
+    assert(pthread_create(&client_thread, NULL, client, (void *)&client_info)
+           == 0);
     assert(pthread_join(server_thread, NULL) == 0);
     assert(pthread_join(client_thread, NULL) == 0);
-
-    assert(pthread_mutex_destroy(&mut) == 0);
-    assert(pthread_cond_destroy(&cond) == 0);
 }
 
 int

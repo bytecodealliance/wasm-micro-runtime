@@ -2696,7 +2696,7 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
         if (comp_ctx->stack_sizes != NULL) {
             LLVMOrcJITTargetAddress addr;
             if ((err = LLVMOrcLLLazyJITLookup(comp_ctx->orc_jit, &addr,
-                                              aot_stack_sizes_name))) {
+                                              aot_stack_sizes_alias_name))) {
                 aot_handle_llvm_errmsg("failed to look up stack_sizes", err);
                 return false;
             }
@@ -2724,6 +2724,33 @@ aot_generate_tempfile_name(const char *prefix, const char *extension,
     /* close and remove temp file */
     close(fd);
     unlink(buffer);
+
+    /* Check if buffer length is enough */
+    /* name_len + '.' + extension + '\0' */
+    if (name_len + 1 + strlen(extension) + 1 > len) {
+        aot_set_last_error("temp file name too long.");
+        return NULL;
+    }
+
+    snprintf(buffer + name_len, len - name_len, ".%s", extension);
+    return buffer;
+}
+#else
+
+errno_t
+_mktemp_s(char *nameTemplate, size_t sizeInChars);
+
+char *
+aot_generate_tempfile_name(const char *prefix, const char *extension,
+                           char *buffer, uint32 len)
+{
+    int name_len;
+
+    name_len = snprintf(buffer, len, "%s-XXXXXX", prefix);
+
+    if (_mktemp_s(buffer, name_len + 1) != 0) {
+        return NULL;
+    }
 
     /* Check if buffer length is enough */
     /* name_len + '.' + extension + '\0' */
