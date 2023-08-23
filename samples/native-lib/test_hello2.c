@@ -57,3 +57,16 @@ get_native_lib(char **p_module_name, NativeSymbol **p_native_symbols)
     *p_native_symbols = native_symbols;
     return sizeof(native_symbols) / sizeof(NativeSymbol);
 }
+
+int
+init_native_lib()
+{
+    printf("%s in test_hello2.c called\n", __func__);
+    return 0;
+}
+
+void
+deinit_native_lib()
+{
+    printf("%s in test_hello2.c called\n", __func__);
+}

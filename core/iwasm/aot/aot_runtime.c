@@ -420,7 +420,7 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
         if (num_bytes_per_page < heap_size) {
             set_error_buf(error_buf, error_buf_size,
                           "failed to insert app heap into linear memory, "
-                          "try using `--heap_size=0` option");
+                          "try using `--heap-size=0` option");
             return NULL;
         }
     }
@@ -478,7 +478,7 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
         if (init_page_count > DEFAULT_MAX_PAGES) {
             set_error_buf(error_buf, error_buf_size,
                           "failed to insert app heap into linear memory, "
-                          "try using `--heap_size=0` option");
+                          "try using `--heap-size=0` option");
             return NULL;
         }
         else if (init_page_count == DEFAULT_MAX_PAGES) {
@@ -1271,9 +1271,9 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
     if (module_inst->func_type_indexes)
         wasm_runtime_free(module_inst->func_type_indexes);
 
-    if (((AOTModuleInstanceExtra *)module_inst->e)->c_api_func_imports)
-        wasm_runtime_free(
-            ((AOTModuleInstanceExtra *)module_inst->e)->c_api_func_imports);
+    if (((AOTModuleInstanceExtra *)module_inst->e)->common.c_api_func_imports)
+        wasm_runtime_free(((AOTModuleInstanceExtra *)module_inst->e)
+                              ->common.c_api_func_imports);
 
     if (!is_sub_inst) {
 #if WASM_ENABLE_LIBC_WASI != 0
@@ -1925,8 +1925,8 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
     AOTModuleInstanceExtra *module_inst_extra =
         (AOTModuleInstanceExtra *)module_inst->e;
     CApiFuncImport *c_api_func_import =
-        module_inst_extra->c_api_func_imports
-            ? module_inst_extra->c_api_func_imports + func_idx
+        module_inst_extra->common.c_api_func_imports
+            ? module_inst_extra->common.c_api_func_imports + func_idx
             : NULL;
     uint32 *func_type_indexes = module_inst->func_type_indexes;
     uint32 func_type_idx = func_type_indexes[func_idx];

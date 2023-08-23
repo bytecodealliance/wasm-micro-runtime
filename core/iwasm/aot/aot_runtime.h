@@ -89,36 +89,8 @@ typedef struct AOTFunctionInstance {
 
 typedef struct AOTModuleInstanceExtra {
     DefPointer(const uint32 *, stack_sizes);
-    CApiFuncImport *c_api_func_imports;
-#if WASM_CONFIGUABLE_BOUNDS_CHECKS != 0
-    /* Disable bounds checks or not */
-    bool disable_bounds_checks;
-#endif
+    WASMModuleInstanceExtraCommon common;
 } AOTModuleInstanceExtra;
-
-#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
-/* clang-format off */
-typedef struct AOTUnwindInfo {
-    uint8 Version       : 3;
-    uint8 Flags         : 5;
-    uint8 SizeOfProlog;
-    uint8 CountOfCodes;
-    uint8 FrameRegister : 4;
-    uint8 FrameOffset   : 4;
-    struct {
-        struct {
-            uint8 CodeOffset;
-            uint8 UnwindOp : 4;
-            uint8 OpInfo   : 4;
-        };
-        uint16 FrameOffset;
-    } UnwindCode[1];
-} AOTUnwindInfo;
-/* clang-format on */
-
-/* size of mov instruction and jmp instruction */
-#define PLT_ITEM_SIZE 12
-#endif
 
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
 typedef struct GOTItem {
@@ -213,14 +185,6 @@ typedef struct AOTModule {
     uint32 xmm_plt_count;
     uint32 real_plt_count;
     uint32 float_plt_count;
-#endif
-
-#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
-    /* dynamic function table to be added by RtlAddFunctionTable(),
-       used to unwind the call stack and register exception handler
-       for AOT functions */
-    RUNTIME_FUNCTION *rtl_func_table;
-    bool rtl_func_table_registered;
 #endif
 
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)

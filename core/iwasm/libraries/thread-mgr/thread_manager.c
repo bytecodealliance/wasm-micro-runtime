@@ -746,10 +746,10 @@ wasm_cluster_dup_c_api_imports(WASMModuleInstanceCommon *module_inst_dst,
 
 #if WASM_ENABLE_INTERP != 0
     if (module_inst_src->module_type == Wasm_Module_Bytecode) {
-        new_c_api_func_imports =
-            &(((WASMModuleInstance *)module_inst_dst)->e->c_api_func_imports);
+        new_c_api_func_imports = &(((WASMModuleInstance *)module_inst_dst)
+                                       ->e->common.c_api_func_imports);
         c_api_func_imports = ((const WASMModuleInstance *)module_inst_src)
-                                 ->e->c_api_func_imports;
+                                 ->e->common.c_api_func_imports;
         import_func_count =
             ((WASMModule *)(((const WASMModuleInstance *)module_inst_src)
                                 ->module))
@@ -760,10 +760,10 @@ wasm_cluster_dup_c_api_imports(WASMModuleInstanceCommon *module_inst_dst,
     if (module_inst_src->module_type == Wasm_Module_AoT) {
         AOTModuleInstanceExtra *e =
             (AOTModuleInstanceExtra *)((AOTModuleInstance *)module_inst_dst)->e;
-        new_c_api_func_imports = &(e->c_api_func_imports);
+        new_c_api_func_imports = &(e->common.c_api_func_imports);
 
         e = (AOTModuleInstanceExtra *)((AOTModuleInstance *)module_inst_src)->e;
-        c_api_func_imports = e->c_api_func_imports;
+        c_api_func_imports = e->common.c_api_func_imports;
 
         import_func_count =
             ((AOTModule *)(((AOTModuleInstance *)module_inst_src)->module))

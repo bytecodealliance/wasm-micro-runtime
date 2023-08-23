@@ -146,6 +146,13 @@ aot_target_precheck_can_use_musttail(const AOTCompContext *comp_ctx)
          */
         return false;
     }
+    if (!strcmp(comp_ctx->target_arch, "mips")) {
+        /*
+         * cf.
+         * https://github.com/bytecodealliance/wasm-micro-runtime/issues/2412
+         */
+        return false;
+    }
     /*
      * x86-64/i386: true
      *
@@ -237,9 +244,10 @@ get_inst_extra_offset(AOTCompContext *comp_ctx)
     const AOTCompData *comp_data = comp_ctx->comp_data;
     uint32 table_count = comp_data->import_table_count + comp_data->table_count;
     uint64 offset = get_tbl_inst_offset(comp_ctx, NULL, table_count);
-    bh_assert(offset <= UINT_MAX);
-    offset = align_uint(offset, 8);
-    return offset;
+    uint32 offset_32 = (uint32)offset;
+    bh_assert(offset <= UINT32_MAX);
+    offset_32 = align_uint((uint32)offset_32, 8);
+    return offset_32;
 }
 
 /*
@@ -309,8 +317,8 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
         goto fail;
     }
 
-    unsigned int param_count = LLVMCountParams(precheck_func);
-    uint64 sz = param_count * sizeof(LLVMValueRef);
+    uint32 param_count = LLVMCountParams(precheck_func);
+    uint32 sz = param_count * (uint32)sizeof(LLVMValueRef);
     params = wasm_runtime_malloc(sz);
     if (params == NULL) {
         goto fail;
@@ -626,8 +634,8 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
     if (comp_ctx->is_indirect_mode) {
         /* avoid LUT relocations ("switch-table") */
         LLVMAttributeRef attr_no_jump_tables = LLVMCreateStringAttribute(
-            comp_ctx->context, "no-jump-tables", strlen("no-jump-tables"),
-            "true", strlen("true"));
+            comp_ctx->context, "no-jump-tables",
+            (uint32)strlen("no-jump-tables"), "true", (uint32)strlen("true"));
         LLVMAddAttributeAtIndex(func, LLVMAttributeFunctionIndex,
                                 attr_no_jump_tables);
     }
@@ -2081,7 +2089,7 @@ jit_stack_size_callback(void *user_data, const char *name, size_t namelen,
         return;
     }
     /* ensure NUL termination */
-    bh_memcpy_s(buf, sizeof(buf), name, namelen);
+    bh_memcpy_s(buf, (uint32)sizeof(buf), name, (uint32)namelen);
     buf[namelen] = 0;
 
     ret = sscanf(buf, AOT_FUNC_INTERNAL_PREFIX "%" SCNu32, &func_idx);
@@ -2102,7 +2110,7 @@ jit_stack_size_callback(void *user_data, const char *name, size_t namelen,
 
     /* Note: -1 == AOT_NEG_ONE from aot_create_stack_sizes */
     bh_assert(comp_ctx->jit_stack_sizes[func_idx] == (uint32)-1);
-    comp_ctx->jit_stack_sizes[func_idx] = stack_size + call_size;
+    comp_ctx->jit_stack_sizes[func_idx] = (uint32)stack_size + call_size;
 }
 
 static bool
@@ -2742,6 +2750,16 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
                   LLVMRelocStatic, code_model, false,
                   comp_ctx->stack_usage_file))) {
             aot_set_last_error("create LLVM target machine failed.");
+            goto fail;
+        }
+
+        /* If only to create target machine for querying information, early stop
+         */
+        if ((arch && !strcmp(arch, "help")) || (abi && !strcmp(abi, "help"))
+            || (cpu && !strcmp(cpu, "help"))
+            || (features && !strcmp(features, "+help"))) {
+            LOG_DEBUG(
+                "create LLVM target machine only for printing help info.");
             goto fail;
         }
     }

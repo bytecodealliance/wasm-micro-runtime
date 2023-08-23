@@ -483,6 +483,16 @@ jobs:
           sudo tar -xzf wasi-sdk-*.tar.gz
           sudo mv wasi-sdk-20.0 wasi-sdk
 
+      # It is a temporary solution until new wasi-sdk that includes bug fixes is released 
+      - name: build wasi-libc from source
+        if: matrix.test_option == '$WASI_TEST_OPTIONS'
+        run: |
+          git clone https://github.com/WebAssembly/wasi-libc
+          cd wasi-libc
+          make -j AR=/opt/wasi-sdk/bin/llvm-ar NM=/opt/wasi-sdk/bin/llvm-nm CC=/opt/wasi-sdk/bin/clang THREAD_MODEL=posix
+          echo "SYSROOT_PATH=$PWD/sysroot" >> $GITHUB_ENV
+
+
       - name: set env variable(if llvm are used)
         if: matrix.running_mode == 'aot' || matrix.running_mode == 'jit' || matrix.running_mode == 'multi-tier-jit'
         run: echo "USE_LLVM=true" >> $GITHUB_ENV
@@ -518,7 +528,7 @@ jobs:
 
       - name: Build WASI thread tests
         if: matrix.test_option == '$WASI_TEST_OPTIONS'
-        run: bash build.sh
+        run: bash build.sh --sysroot "$SYSROOT_PATH"
         working-directory: ./core/iwasm/libraries/lib-wasi-threads/test/
 
       - name: build socket api tests
@@ -527,7 +537,7 @@ jobs:
         working-directory: ./core/iwasm/libraries/lib-socket/test/
 
       - name: run tests
-        timeout-minutes: 20
+        timeout-minutes: 30
         run: ./test_wamr.sh ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
         working-directory: ./tests/wamr-test-suites
 
@@ -543,7 +553,7 @@ jobs:
           sudo apt install -y g++-multilib lib32gcc-9-dev
 
       - name: run tests x86_32
-        timeout-minutes: 20
+        timeout-minutes: 30
         if: env.TEST_ON_X86_32 == 'true'
         run: ./test_wamr.sh ${{ env.X86_32_TARGET_TEST_OPTIONS }} ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
         working-directory: ./tests/wamr-test-suites
@@ -584,7 +594,7 @@ jobs:
           cache-name: cache-lldb-vscode
         with:
           path: test-tools/wamr-ide/VSCode-Extension/resource/debug/linux
-          key: ${{ env.cache-name }}-${{ hashFiles('build-scripts/lldb-wasm.patch') }}-${{ env.PYTHON_UBUNTU_STANDALONE_BUILD }}
+          key: ${{ env.cache-name }}-${{ hashFiles('build-scripts/lldb_wasm.patch') }}-${{ env.PYTHON_UBUNTU_STANDALONE_BUILD }}
 
       - if: ${{ steps.cache-lldb.outputs.cache-hit != 'true' }}
         name: get stand-alone python ubuntu
@@ -607,7 +617,7 @@ jobs:
           git init
           git config user.email "action@github.com"
           git config user.name "github action"
-          git apply ../../../build-scripts/lldb-wasm.patch
+          git apply ../../../build-scripts/lldb_wasm.patch
         working-directory: core/deps/llvm-project
 
       - if: ${{ steps.cache-lldb.outputs.cache-hit != 'true' }}

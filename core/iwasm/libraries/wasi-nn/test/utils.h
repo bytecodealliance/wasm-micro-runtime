@@ -11,7 +11,7 @@
 #include "wasi_nn.h"
 
 #define MAX_MODEL_SIZE 85000000
-#define MAX_OUTPUT_TENSOR_SIZE 200
+#define MAX_OUTPUT_TENSOR_SIZE 1000000
 #define INPUT_TENSOR_DIMS 4
 #define EPSILON 1e-8
 

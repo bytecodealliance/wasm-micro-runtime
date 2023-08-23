@@ -94,7 +94,12 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 - **WAMR_BUILD_WASI_NN**=1/0, default to disable if not set
 
 #### **Enable lib wasi-nn GPU mode**
-- **WASI_NN_ENABLE_GPU**=1/0, default to disable if not set
+- **WAMR_BUILD_WASI_NN_ENABLE_GPU**=1/0, default to disable if not set
+
+#### **Enable lib wasi-nn external delegate mode**
+- **WAMR_BUILD_WASI_NN_ENABLE_EXTERNAL_DELEGATE**=1/0, default to disable if not set
+
+- **WAMR_BUILD_WASI_NN_EXTERNAL_DELEGATE_PATH**=Path to the external delegate shared library (e.g. `libedgetpu.so.1.0` for Coral USB)
 
 #### **Disable boundary check with hardware trap**
 - **WAMR_DISABLE_HW_BOUND_CHECK**=1/0, default to enable if not set and supported by platform

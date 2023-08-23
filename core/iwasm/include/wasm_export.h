@@ -186,6 +186,7 @@ enum wasm_valkind_enum {
 
 #ifndef WASM_VAL_T_DEFINED
 #define WASM_VAL_T_DEFINED
+struct wasm_ref_t;
 
 typedef struct wasm_val_t {
     wasm_valkind_t kind;
@@ -197,6 +198,7 @@ typedef struct wasm_val_t {
         double f64;
         /* represent a foreign object, aka externref in .wat */
         uintptr_t foreign;
+        struct wasm_ref_t *ref;
     } of;
 } wasm_val_t;
 #endif
@@ -1289,6 +1291,32 @@ wasm_runtime_join_thread(wasm_thread_t tid, void **retval);
 WASM_RUNTIME_API_EXTERN bool
 wasm_externref_obj2ref(wasm_module_inst_t module_inst,
                        void *extern_obj, uint32_t *p_externref_idx);
+
+/**
+ * Delete external object registered by `wasm_externref_obj2ref`.
+ *
+ * @param module_inst the WASM module instance that the extern object
+ *        belongs to
+ * @param extern_obj the external object to be deleted
+ *
+ * @return true if success, false otherwise
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_externref_objdel(wasm_module_inst_t module_inst, void *extern_obj);
+
+/**
+ * Set cleanup callback to release external object.
+ *
+ * @param module_inst the WASM module instance that the extern object
+ *        belongs to
+ * @param extern_obj the external object to which to set the `extern_obj_cleanup` cleanup callback.
+ * @param extern_obj_cleanup a callback to release `extern_obj`
+ *
+ * @return true if success, false otherwise
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_externref_set_cleanup(wasm_module_inst_t module_inst, void *extern_obj,
+                           void (*extern_obj_cleanup)(void *));
 
 /**
  * Retrieve the external object from an internal externref index
