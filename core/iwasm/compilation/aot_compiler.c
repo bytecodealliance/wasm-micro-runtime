@@ -599,12 +599,103 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                     goto unsupport_gc;
                 }
 
-                uint32 opcode1;
+                uint32 opcode1, field_idx, data_seg_idx, array_len;
 
                 read_leb_uint32(frame_ip, frame_ip_end, opcode1);
                 opcode = (uint8)opcode1;
 
                 switch (opcode) {
+                    case WASM_OP_STRUCT_NEW_CANON:
+                    case WASM_OP_STRUCT_NEW_CANON_DEFAULT:
+                        read_leb_uint32(frame_ip, frame_ip_end, type_index);
+                        if (!aot_compile_op_struct_new(
+                                comp_ctx, func_ctx, type_index,
+                                opcode == WASM_OP_STRUCT_NEW_CANON_DEFAULT))
+                            return false;
+                        break;
+
+                    case WASM_OP_STRUCT_GET:
+                    case WASM_OP_STRUCT_GET_S:
+                    case WASM_OP_STRUCT_GET_U:
+                        read_leb_uint32(frame_ip, frame_ip_end, type_index);
+                        read_leb_uint32(frame_ip, frame_ip_end, field_idx);
+                        if (!aot_compile_op_struct_get(
+                                comp_ctx, func_ctx, type_index, field_idx,
+                                opcode == WASM_OP_STRUCT_GET_S))
+                            return false;
+                        break;
+
+                    case WASM_OP_STRUCT_SET:
+                        read_leb_uint32(frame_ip, frame_ip_end, type_index);
+                        read_leb_uint32(frame_ip, frame_ip_end, field_idx);
+                        if (!aot_compile_op_struct_set(comp_ctx, func_ctx,
+                                                       type_index, field_idx))
+                            return false;
+                        break;
+
+                    case WASM_OP_ARRAY_NEW_CANON:
+                    case WASM_OP_ARRAY_NEW_CANON_DEFAULT:
+                    case WASM_OP_ARRAY_NEW_CANON_FIXED:
+                        read_leb_uint32(frame_ip, frame_ip_end, type_index);
+                        if (opcode == WASM_OP_ARRAY_NEW_CANON_FIXED)
+                            read_leb_uint32(frame_ip, frame_ip_end, array_len);
+                        if (!aot_compile_op_array_new(
+                                comp_ctx, func_ctx, type_index,
+                                opcode == WASM_OP_ARRAY_NEW_CANON_DEFAULT,
+                                opcode == WASM_OP_ARRAY_NEW_CANON_FIXED,
+                                array_len))
+                            return false;
+                        break;
+
+                    case WASM_OP_ARRAY_NEW_CANON_DATA:
+                        read_leb_uint32(frame_ip, frame_ip_end, type_index);
+                        read_leb_uint32(frame_ip, frame_ip_end, data_seg_idx);
+                        if (!aot_compile_op_array_new_data(
+                                comp_ctx, func_ctx, type_index, data_seg_idx))
+                            return false;
+                        break;
+
+                    case WASM_OP_ARRAY_NEW_CANON_ELEM:
+                        /* TODO */
+                        aot_set_last_error("unsupported opcode");
+                        return false;
+
+                    case WASM_OP_ARRAY_GET:
+                    case WASM_OP_ARRAY_GET_S:
+                    case WASM_OP_ARRAY_GET_U:
+                        read_leb_uint32(frame_ip, frame_ip_end, type_index);
+                        if (!aot_compile_op_array_get(
+                                comp_ctx, func_ctx, type_index,
+                                opcode == WASM_OP_ARRAY_GET_S))
+                            return false;
+                        break;
+
+                    case WASM_OP_ARRAY_SET:
+                        read_leb_uint32(frame_ip, frame_ip_end, type_index);
+                        if (!aot_compile_op_array_set(comp_ctx, func_ctx,
+                                                      type_index))
+                            return false;
+                        break;
+
+#if WASM_ENABLE_GC_BINARYEN != 0
+                    case WASM_OP_ARRAY_COPY:
+                    {
+                        uint32 src_type_index;
+
+                        read_leb_uint32(frame_ip, frame_ip_end, type_index);
+                        read_leb_uint32(frame_ip, frame_ip_end, src_type_index);
+                        if (!aot_compile_op_array_copy(
+                                comp_ctx, func_ctx, type_index, src_type_index))
+                            return false;
+                        break;
+                    }
+#endif
+
+                    case WASM_OP_ARRAY_LEN:
+                        if (!aot_compile_op_array_len(comp_ctx, func_ctx))
+                            return false;
+                        break;
+
                     case WASM_OP_I31_NEW:
                         if (!aot_compile_op_i31_new(comp_ctx, func_ctx))
                             return false;

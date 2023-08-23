@@ -262,6 +262,10 @@ typedef struct AOTModule {
     HashMap *ref_type_set;
     struct WASMRttType **rtt_types;
     korp_mutex rtt_type_lock;
+
+    /* array init data info */
+    uint32 array_init_data_count;
+    AOTArrayInitData **array_init_data_list;
 #endif
 
 #if WASM_ENABLE_DEBUG_AOT != 0
@@ -681,6 +685,14 @@ aot_create_func_obj(AOTModuleInstance *module_inst, uint32 func_idx,
 bool
 aot_obj_is_instance_of(AOTModuleInstance *module_inst, WASMObjectRef gc_obj,
                        uint32 type_index);
+
+WASMRttTypeRef
+aot_rtt_type_new(AOTModuleInstance *module_inst, uint32 type_index);
+
+bool
+aot_array_init_with_data(AOTModuleInstance *module_inst, uint32 seg_index,
+                         uint32 data_seg_offset, WASMArrayObjectRef array_obj,
+                         uint32 elem_size, uint32 array_len);
 
 #endif /* end of WASM_ENABLE_GC != 0 */
 
