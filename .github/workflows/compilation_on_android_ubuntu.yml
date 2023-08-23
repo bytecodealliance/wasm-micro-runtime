@@ -594,7 +594,7 @@ jobs:
           cache-name: cache-lldb-vscode
         with:
           path: test-tools/wamr-ide/VSCode-Extension/resource/debug/linux
-          key: ${{ env.cache-name }}-${{ hashFiles('build-scripts/lldb-wasm.patch') }}-${{ env.PYTHON_UBUNTU_STANDALONE_BUILD }}
+          key: ${{ env.cache-name }}-${{ hashFiles('build-scripts/lldb_wasm.patch') }}-${{ env.PYTHON_UBUNTU_STANDALONE_BUILD }}
 
       - if: ${{ steps.cache-lldb.outputs.cache-hit != 'true' }}
         name: get stand-alone python ubuntu
@@ -617,7 +617,7 @@ jobs:
           git init
           git config user.email "action@github.com"
           git config user.name "github action"
-          git apply ../../../build-scripts/lldb-wasm.patch
+          git apply ../../../build-scripts/lldb_wasm.patch
         working-directory: core/deps/llvm-project
 
       - if: ${{ steps.cache-lldb.outputs.cache-hit != 'true' }}

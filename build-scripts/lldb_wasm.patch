@@ -1,5 +1,44 @@
+diff --git a/lldb/bindings/CMakeLists.txt b/lldb/bindings/CMakeLists.txt
+index 9759b069fdc4..25b427f8bcf2 100644
+--- a/lldb/bindings/CMakeLists.txt
++++ b/lldb/bindings/CMakeLists.txt
+@@ -26,8 +26,6 @@ set(SWIG_COMMON_FLAGS
+   -features autodoc
+   -I${LLDB_SOURCE_DIR}/include
+   -I${CMAKE_CURRENT_SOURCE_DIR}
+-  -D__STDC_LIMIT_MACROS
+-  -D__STDC_CONSTANT_MACROS
+   ${DARWIN_EXTRAS}
+ )
+ 
+diff --git a/lldb/bindings/interfaces.swig b/lldb/bindings/interfaces.swig
+index c9a6d0f06056..021c7683d170 100644
+--- a/lldb/bindings/interfaces.swig
++++ b/lldb/bindings/interfaces.swig
+@@ -1,8 +1,5 @@
+ /* Various liblldb typedefs that SWIG needs to know about.  */
+ #define __extension__ /* Undefine GCC keyword to make Swig happy when processing glibc's stdint.h. */
+-/* The ISO C99 standard specifies that in C++ implementations limit macros such
+-   as INT32_MAX should only be defined if __STDC_LIMIT_MACROS is. */
+-#define __STDC_LIMIT_MACROS
+ %include "stdint.i"
+ 
+ %include "lldb/lldb-defines.h"
+diff --git a/lldb/bindings/python/python-typemaps.swig b/lldb/bindings/python/python-typemaps.swig
+index b1ace4ff3b1e..5f8f4aa678c4 100644
+--- a/lldb/bindings/python/python-typemaps.swig
++++ b/lldb/bindings/python/python-typemaps.swig
+@@ -439,7 +439,7 @@ bool SetNumberFromPyObject<double>(double &number, PyObject *obj) {
+ 
+ %typemap(out) lldb::FileSP {
+   $result = nullptr;
+-  lldb::FileSP &sp = $1;
++  const lldb::FileSP &sp = $1;
+   if (sp) {
+     PythonFile pyfile = unwrapOrSetPythonException(PythonFile::FromFile(*sp));
+     if (!pyfile.IsValid())
 diff --git a/lldb/include/lldb/Breakpoint/Breakpoint.h b/lldb/include/lldb/Breakpoint/Breakpoint.h
-index f2e2a0d22..426d1129b 100644
+index f2e2a0d22784..426d1129bd10 100644
 --- a/lldb/include/lldb/Breakpoint/Breakpoint.h
 +++ b/lldb/include/lldb/Breakpoint/Breakpoint.h
 @@ -9,6 +9,7 @@
@@ -11,7 +50,7 @@ index f2e2a0d22..426d1129b 100644
  #include <string>
  #include <unordered_set>
 diff --git a/lldb/include/lldb/Core/Module.h b/lldb/include/lldb/Core/Module.h
-index dd7100c46..97d70daad 100644
+index dd7100c4616c..97d70daadbdc 100644
 --- a/lldb/include/lldb/Core/Module.h
 +++ b/lldb/include/lldb/Core/Module.h
 @@ -41,6 +41,7 @@
@@ -41,7 +80,7 @@ index dd7100c46..97d70daad 100644
    ///
    /// Tries to resolve \a vm_addr as a file address (if \a
 diff --git a/lldb/include/lldb/Core/PluginManager.h b/lldb/include/lldb/Core/PluginManager.h
-index be91929c6..8d876fc1f 100644
+index be91929c62e1..8d876fc1fa2f 100644
 --- a/lldb/include/lldb/Core/PluginManager.h
 +++ b/lldb/include/lldb/Core/PluginManager.h
 @@ -508,6 +508,17 @@ public:
@@ -64,7 +103,7 @@ index be91929c6..8d876fc1f 100644
  } // namespace lldb_private
 diff --git a/lldb/include/lldb/Expression/DWARFEvaluator.h b/lldb/include/lldb/Expression/DWARFEvaluator.h
 new file mode 100644
-index 000000000..6811cbeae
+index 000000000000..6811cbeae3d3
 --- /dev/null
 +++ b/lldb/include/lldb/Expression/DWARFEvaluator.h
 @@ -0,0 +1,110 @@
@@ -180,7 +219,7 @@ index 000000000..6811cbeae
 +#endif // LLDB_EXPRESSION_DWARFEVALUATOR_H
 diff --git a/lldb/include/lldb/Expression/DWARFEvaluatorFactory.h b/lldb/include/lldb/Expression/DWARFEvaluatorFactory.h
 new file mode 100644
-index 000000000..f3b496c58
+index 000000000000..f3b496c580e4
 --- /dev/null
 +++ b/lldb/include/lldb/Expression/DWARFEvaluatorFactory.h
 @@ -0,0 +1,56 @@
@@ -241,7 +280,7 @@ index 000000000..f3b496c58
 +
 +#endif // LLDB_EXPRESSION_DWARFEVALUATORFACTORY_H
 diff --git a/lldb/include/lldb/Expression/DWARFExpression.h b/lldb/include/lldb/Expression/DWARFExpression.h
-index 1490ac2d6..35c741d4e 100644
+index 1490ac2d614a..35c741d4e6ba 100644
 --- a/lldb/include/lldb/Expression/DWARFExpression.h
 +++ b/lldb/include/lldb/Expression/DWARFExpression.h
 @@ -120,6 +120,10 @@ public:
@@ -275,7 +314,7 @@ index 1490ac2d6..35c741d4e 100644
    GetLocationExpression(lldb::addr_t load_function_start,
                          lldb::addr_t addr) const;
 diff --git a/lldb/include/lldb/Target/Process.h b/lldb/include/lldb/Target/Process.h
-index aaa2470d2..c15f2db52 100644
+index aaa2470d2931..c15f2db52fbc 100644
 --- a/lldb/include/lldb/Target/Process.h
 +++ b/lldb/include/lldb/Target/Process.h
 @@ -1434,7 +1434,7 @@ public:
@@ -288,7 +327,7 @@ index aaa2470d2..c15f2db52 100644
    /// Read of memory from a process.
    ///
 diff --git a/lldb/include/lldb/Target/ProcessTrace.h b/lldb/include/lldb/Target/ProcessTrace.h
-index 7b9d6b13d..9525fc975 100644
+index 7b9d6b13dd6f..9525fc9750fd 100644
 --- a/lldb/include/lldb/Target/ProcessTrace.h
 +++ b/lldb/include/lldb/Target/ProcessTrace.h
 @@ -59,7 +59,7 @@ public:
@@ -301,7 +340,7 @@ index 7b9d6b13d..9525fc975 100644
    size_t DoReadMemory(lldb::addr_t addr, void *buf, size_t size,
                        Status &error) override;
 diff --git a/lldb/include/lldb/lldb-forward.h b/lldb/include/lldb/lldb-forward.h
-index ad5298151..5a3c0b27a 100644
+index ad5298151e4a..5a3c0b27a738 100644
 --- a/lldb/include/lldb/lldb-forward.h
 +++ b/lldb/include/lldb/lldb-forward.h
 @@ -74,6 +74,7 @@ class Disassembler;
@@ -313,7 +352,7 @@ index ad5298151..5a3c0b27a 100644
  class EmulateInstruction;
  class Environment;
 diff --git a/lldb/include/lldb/lldb-private-interfaces.h b/lldb/include/lldb/lldb-private-interfaces.h
-index 2ed083ec8..f4d500d19 100644
+index 2ed083ec8ae9..f4d500d198e8 100644
 --- a/lldb/include/lldb/lldb-private-interfaces.h
 +++ b/lldb/include/lldb/lldb-private-interfaces.h
 @@ -113,6 +113,8 @@ typedef lldb::REPLSP (*REPLCreateInstance)(Status &error,
@@ -326,7 +365,7 @@ index 2ed083ec8..f4d500d19 100644
  /// \{
  typedef llvm::Expected<lldb::TraceSP> (*TraceCreateInstanceForSessionFile)(
 diff --git a/lldb/source/Core/Module.cpp b/lldb/source/Core/Module.cpp
-index 19c97be15..1647f93ec 100644
+index 19c97be15066..1647f93ec4f3 100644
 --- a/lldb/source/Core/Module.cpp
 +++ b/lldb/source/Core/Module.cpp
 @@ -16,6 +16,7 @@
@@ -348,7 +387,7 @@ index 19c97be15..1647f93ec 100644
 +  return m_dwarf_evaluator_factory.get();
 +}
 diff --git a/lldb/source/Core/PluginManager.cpp b/lldb/source/Core/PluginManager.cpp
-index fcaa868b0..59a404d4a 100644
+index fcaa868b083e..59a404d4a7e1 100644
 --- a/lldb/source/Core/PluginManager.cpp
 +++ b/lldb/source/Core/PluginManager.cpp
 @@ -1597,3 +1597,32 @@ bool PluginManager::CreateSettingForStructuredDataPlugin(
@@ -385,7 +424,7 @@ index fcaa868b0..59a404d4a 100644
 +  return GetDWARFEvaluatorFactoryInstances().GetCallbackAtIndex(idx);
 +}
 diff --git a/lldb/source/Core/Value.cpp b/lldb/source/Core/Value.cpp
-index fb57c0fed..f92d6a54d 100644
+index fb57c0fedf04..f92d6a54de94 100644
 --- a/lldb/source/Core/Value.cpp
 +++ b/lldb/source/Core/Value.cpp
 @@ -538,7 +538,7 @@ Status Value::GetValueAsData(ExecutionContext *exe_ctx, DataExtractor &data,
@@ -398,7 +437,7 @@ index fb57c0fed..f92d6a54d 100644
              error.SetErrorStringWithFormat(
                  "read memory from 0x%" PRIx64 " failed (%u of %u bytes read)",
 diff --git a/lldb/source/Core/ValueObject.cpp b/lldb/source/Core/ValueObject.cpp
-index 9c1ba99da..b15b214b2 100644
+index 9c1ba99da1d0..b15b214b2a2f 100644
 --- a/lldb/source/Core/ValueObject.cpp
 +++ b/lldb/source/Core/ValueObject.cpp
 @@ -735,7 +735,7 @@ size_t ValueObject::GetPointeeData(DataExtractor &data, uint32_t item_idx,
@@ -411,7 +450,7 @@ index 9c1ba99da..b15b214b2 100644
            data.SetData(data_sp);
            return bytes_read;
 diff --git a/lldb/source/Expression/CMakeLists.txt b/lldb/source/Expression/CMakeLists.txt
-index bf94361dd..4e76d547a 100644
+index bf94361dd6c1..4e76d547aeaf 100644
 --- a/lldb/source/Expression/CMakeLists.txt
 +++ b/lldb/source/Expression/CMakeLists.txt
 @@ -1,5 +1,7 @@
@@ -424,7 +463,7 @@ index bf94361dd..4e76d547a 100644
    ExpressionVariable.cpp
 diff --git a/lldb/source/Expression/DWARFEvaluator.cpp b/lldb/source/Expression/DWARFEvaluator.cpp
 new file mode 100644
-index 000000000..06107e136
+index 000000000000..06107e136197
 --- /dev/null
 +++ b/lldb/source/Expression/DWARFEvaluator.cpp
 @@ -0,0 +1,1952 @@
@@ -2382,7 +2421,7 @@ index 000000000..06107e136
 +}
 diff --git a/lldb/source/Expression/DWARFEvaluatorFactory.cpp b/lldb/source/Expression/DWARFEvaluatorFactory.cpp
 new file mode 100644
-index 000000000..c06126412
+index 000000000000..c0612641204a
 --- /dev/null
 +++ b/lldb/source/Expression/DWARFEvaluatorFactory.cpp
 @@ -0,0 +1,57 @@
@@ -2444,7 +2483,7 @@ index 000000000..c06126412
 +                                          object_address_ptr);
 +}
 diff --git a/lldb/source/Expression/DWARFExpression.cpp b/lldb/source/Expression/DWARFExpression.cpp
-index a10546c1d..4d13e4642 100644
+index a10546c1deae..4d13e4642af3 100644
 --- a/lldb/source/Expression/DWARFExpression.cpp
 +++ b/lldb/source/Expression/DWARFExpression.cpp
 @@ -15,6 +15,8 @@
@@ -4261,7 +4300,7 @@ index a10546c1d..4d13e4642 100644
  
  static DataExtractor ToDataExtractor(const llvm::DWARFLocationExpression &loc,
 diff --git a/lldb/source/Interpreter/CommandInterpreter.cpp b/lldb/source/Interpreter/CommandInterpreter.cpp
-index 00e9ccb76..2137a1ac8 100644
+index 00e9ccb762c3..2137a1ac8324 100644
 --- a/lldb/source/Interpreter/CommandInterpreter.cpp
 +++ b/lldb/source/Interpreter/CommandInterpreter.cpp
 @@ -759,6 +759,24 @@ void CommandInterpreter::LoadCommandDictionary() {
@@ -4290,7 +4329,7 @@ index 00e9ccb76..2137a1ac8 100644
        new CommandObjectRegexCommand(
            *this, "kdp-remote",
 diff --git a/lldb/source/Plugins/CMakeLists.txt b/lldb/source/Plugins/CMakeLists.txt
-index 9181a4e47..2be6ec365 100644
+index 9181a4e47675..2be6ec3657c0 100644
 --- a/lldb/source/Plugins/CMakeLists.txt
 +++ b/lldb/source/Plugins/CMakeLists.txt
 @@ -2,6 +2,7 @@ add_subdirectory(ABI)
@@ -4320,14 +4359,14 @@ index 9181a4e47..2be6ec365 100644
    endif()
 diff --git a/lldb/source/Plugins/DWARFEvaluator/CMakeLists.txt b/lldb/source/Plugins/DWARFEvaluator/CMakeLists.txt
 new file mode 100644
-index 000000000..73fad41e1
+index 000000000000..73fad41e1a72
 --- /dev/null
 +++ b/lldb/source/Plugins/DWARFEvaluator/CMakeLists.txt
 @@ -0,0 +1 @@
 +add_subdirectory(wasm)
 diff --git a/lldb/source/Plugins/DWARFEvaluator/wasm/CMakeLists.txt b/lldb/source/Plugins/DWARFEvaluator/wasm/CMakeLists.txt
 new file mode 100644
-index 000000000..e50b1bef7
+index 000000000000..e50b1bef7e69
 --- /dev/null
 +++ b/lldb/source/Plugins/DWARFEvaluator/wasm/CMakeLists.txt
 @@ -0,0 +1,10 @@
@@ -4343,7 +4382,7 @@ index 000000000..e50b1bef7
 +  )
 diff --git a/lldb/source/Plugins/DWARFEvaluator/wasm/WasmDWARFEvaluator.cpp b/lldb/source/Plugins/DWARFEvaluator/wasm/WasmDWARFEvaluator.cpp
 new file mode 100644
-index 000000000..fdda1991d
+index 000000000000..fdda1991d19f
 --- /dev/null
 +++ b/lldb/source/Plugins/DWARFEvaluator/wasm/WasmDWARFEvaluator.cpp
 @@ -0,0 +1,126 @@
@@ -4475,7 +4514,7 @@ index 000000000..fdda1991d
 +}
 diff --git a/lldb/source/Plugins/DWARFEvaluator/wasm/WasmDWARFEvaluator.h b/lldb/source/Plugins/DWARFEvaluator/wasm/WasmDWARFEvaluator.h
 new file mode 100644
-index 000000000..a01159064
+index 000000000000..a01159064a39
 --- /dev/null
 +++ b/lldb/source/Plugins/DWARFEvaluator/wasm/WasmDWARFEvaluator.h
 @@ -0,0 +1,47 @@
@@ -4528,7 +4567,7 @@ index 000000000..a01159064
 +#endif // LLDB_SOURCE_PLUGINS_DWARFEVALUATOR_WASM_WASMDWARFEVALUATOR_H
 diff --git a/lldb/source/Plugins/DWARFEvaluator/wasm/WasmDWARFEvaluatorFactory.cpp b/lldb/source/Plugins/DWARFEvaluator/wasm/WasmDWARFEvaluatorFactory.cpp
 new file mode 100644
-index 000000000..d43e96a34
+index 000000000000..d43e96a34d37
 --- /dev/null
 +++ b/lldb/source/Plugins/DWARFEvaluator/wasm/WasmDWARFEvaluatorFactory.cpp
 @@ -0,0 +1,64 @@
@@ -4598,7 +4637,7 @@ index 000000000..d43e96a34
 +}
 diff --git a/lldb/source/Plugins/DWARFEvaluator/wasm/WasmDWARFEvaluatorFactory.h b/lldb/source/Plugins/DWARFEvaluator/wasm/WasmDWARFEvaluatorFactory.h
 new file mode 100644
-index 000000000..8a946592a
+index 000000000000..8a946592a09a
 --- /dev/null
 +++ b/lldb/source/Plugins/DWARFEvaluator/wasm/WasmDWARFEvaluatorFactory.h
 @@ -0,0 +1,55 @@
@@ -4658,7 +4697,7 @@ index 000000000..8a946592a
 +
 +#endif // LLDB_SOURCE_PLUGINS_DWARFEVALUATOR_WASM_WASMDWARFEVALUATORFACTORY_H
 diff --git a/lldb/source/Plugins/DynamicLoader/wasm-DYLD/DynamicLoaderWasmDYLD.cpp b/lldb/source/Plugins/DynamicLoader/wasm-DYLD/DynamicLoaderWasmDYLD.cpp
-index ae7e011ea..24ea75d19 100644
+index ae7e011eaa52..24ea75d1971c 100644
 --- a/lldb/source/Plugins/DynamicLoader/wasm-DYLD/DynamicLoaderWasmDYLD.cpp
 +++ b/lldb/source/Plugins/DynamicLoader/wasm-DYLD/DynamicLoaderWasmDYLD.cpp
 @@ -62,6 +62,15 @@ void DynamicLoaderWasmDYLD::DidAttach() {
@@ -4678,7 +4717,7 @@ index ae7e011ea..24ea75d19 100644
  
  ThreadPlanSP DynamicLoaderWasmDYLD::GetStepThroughTrampolinePlan(Thread &thread,
 diff --git a/lldb/source/Plugins/ObjectFile/wasm/ObjectFileWasm.cpp b/lldb/source/Plugins/ObjectFile/wasm/ObjectFileWasm.cpp
-index 5272da9ab..abc5523bf 100644
+index 5272da9ab33a..abc5523bfd70 100644
 --- a/lldb/source/Plugins/ObjectFile/wasm/ObjectFileWasm.cpp
 +++ b/lldb/source/Plugins/ObjectFile/wasm/ObjectFileWasm.cpp
 @@ -23,6 +23,7 @@
@@ -4718,7 +4757,7 @@ index 5272da9ab..abc5523bf 100644
      }
    }
 diff --git a/lldb/source/Plugins/Platform/CMakeLists.txt b/lldb/source/Plugins/Platform/CMakeLists.txt
-index 5f284e517..6084cbc93 100644
+index 5f284e517dca..6084cbc9378d 100644
 --- a/lldb/source/Plugins/Platform/CMakeLists.txt
 +++ b/lldb/source/Plugins/Platform/CMakeLists.txt
 @@ -15,3 +15,4 @@
@@ -4728,7 +4767,7 @@ index 5f284e517..6084cbc93 100644
 +add_subdirectory(wasm-remote)
 diff --git a/lldb/source/Plugins/Platform/wasm-remote/CMakeLists.txt b/lldb/source/Plugins/Platform/wasm-remote/CMakeLists.txt
 new file mode 100644
-index 000000000..4a65765a5
+index 000000000000..4a65765a5659
 --- /dev/null
 +++ b/lldb/source/Plugins/Platform/wasm-remote/CMakeLists.txt
 @@ -0,0 +1,10 @@
@@ -4744,7 +4783,7 @@ index 000000000..4a65765a5
 +  )
 diff --git a/lldb/source/Plugins/Platform/wasm-remote/PlatformRemoteWasmServer.cpp b/lldb/source/Plugins/Platform/wasm-remote/PlatformRemoteWasmServer.cpp
 new file mode 100644
-index 000000000..f26d11f00
+index 000000000000..f26d11f00e5c
 --- /dev/null
 +++ b/lldb/source/Plugins/Platform/wasm-remote/PlatformRemoteWasmServer.cpp
 @@ -0,0 +1,139 @@
@@ -4890,7 +4929,7 @@ index 000000000..f26d11f00
 \ No newline at end of file
 diff --git a/lldb/source/Plugins/Platform/wasm-remote/PlatformRemoteWasmServer.h b/lldb/source/Plugins/Platform/wasm-remote/PlatformRemoteWasmServer.h
 new file mode 100644
-index 000000000..f306a79d3
+index 000000000000..f306a79d3f4f
 --- /dev/null
 +++ b/lldb/source/Plugins/Platform/wasm-remote/PlatformRemoteWasmServer.h
 @@ -0,0 +1,37 @@
@@ -4933,7 +4972,7 @@ index 000000000..f306a79d3
 +#endif
 \ No newline at end of file
 diff --git a/lldb/source/Plugins/Plugins.def.in b/lldb/source/Plugins/Plugins.def.in
-index bf54598fb..b0bd7b996 100644
+index bf54598fb2f3..b0bd7b9965fe 100644
 --- a/lldb/source/Plugins/Plugins.def.in
 +++ b/lldb/source/Plugins/Plugins.def.in
 @@ -31,6 +31,7 @@
@@ -4945,7 +4984,7 @@ index bf54598fb..b0bd7b996 100644
  
  #undef LLDB_PLUGIN
 diff --git a/lldb/source/Plugins/Process/CMakeLists.txt b/lldb/source/Plugins/Process/CMakeLists.txt
-index bea5bac9e..7a0855e02 100644
+index bea5bac9eb21..7a0855e02ca2 100644
 --- a/lldb/source/Plugins/Process/CMakeLists.txt
 +++ b/lldb/source/Plugins/Process/CMakeLists.txt
 @@ -18,3 +18,4 @@ add_subdirectory(Utility)
@@ -4954,7 +4993,7 @@ index bea5bac9e..7a0855e02 100644
  add_subdirectory(minidump)
 +add_subdirectory(wasm)
 diff --git a/lldb/source/Plugins/Process/elf-core/ProcessElfCore.cpp b/lldb/source/Plugins/Process/elf-core/ProcessElfCore.cpp
-index 12bc7390c..707ab85e5 100644
+index 12bc7390c729..707ab85e5615 100644
 --- a/lldb/source/Plugins/Process/elf-core/ProcessElfCore.cpp
 +++ b/lldb/source/Plugins/Process/elf-core/ProcessElfCore.cpp
 @@ -285,7 +285,7 @@ bool ProcessElfCore::IsAlive() { return true; }
@@ -4967,7 +5006,7 @@ index 12bc7390c..707ab85e5 100644
    // in core files we have it all cached our our core file anyway.
    return DoReadMemory(addr, buf, size, error);
 diff --git a/lldb/source/Plugins/Process/elf-core/ProcessElfCore.h b/lldb/source/Plugins/Process/elf-core/ProcessElfCore.h
-index d8e3cc9ae..f0bf9c4d3 100644
+index d8e3cc9ae3e1..f0bf9c4d3b00 100644
 --- a/lldb/source/Plugins/Process/elf-core/ProcessElfCore.h
 +++ b/lldb/source/Plugins/Process/elf-core/ProcessElfCore.h
 @@ -84,7 +84,8 @@ public:
@@ -4981,7 +5020,7 @@ index d8e3cc9ae..f0bf9c4d3 100644
    size_t DoReadMemory(lldb::addr_t addr, void *buf, size_t size,
                        lldb_private::Status &error) override;
 diff --git a/lldb/source/Plugins/Process/gdb-remote/ProcessGDBRemote.cpp b/lldb/source/Plugins/Process/gdb-remote/ProcessGDBRemote.cpp
-index 6914b3734..bb8a05604 100644
+index 6914b37348ea..bb8a056049f3 100644
 --- a/lldb/source/Plugins/Process/gdb-remote/ProcessGDBRemote.cpp
 +++ b/lldb/source/Plugins/Process/gdb-remote/ProcessGDBRemote.cpp
 @@ -334,6 +334,11 @@ ConstString ProcessGDBRemote::GetPluginName() { return GetPluginNameStatic(); }
@@ -5015,7 +5054,7 @@ index 6914b3734..bb8a05604 100644
        }
      }
 diff --git a/lldb/source/Plugins/Process/gdb-remote/ProcessGDBRemote.h b/lldb/source/Plugins/Process/gdb-remote/ProcessGDBRemote.h
-index fe04cdddd..e4a14c645 100644
+index fe04cdddd0f5..e4a14c64579a 100644
 --- a/lldb/source/Plugins/Process/gdb-remote/ProcessGDBRemote.h
 +++ b/lldb/source/Plugins/Process/gdb-remote/ProcessGDBRemote.h
 @@ -237,6 +237,8 @@ protected:
@@ -5028,7 +5067,7 @@ index fe04cdddd..e4a14c645 100644
    enum {
      eBroadcastBitAsyncContinue = (1 << 0),
 diff --git a/lldb/source/Plugins/Process/mach-core/ProcessMachCore.cpp b/lldb/source/Plugins/Process/mach-core/ProcessMachCore.cpp
-index 84548edb5..0ae6f7e4a 100644
+index 84548edb5caa..0ae6f7e4a177 100644
 --- a/lldb/source/Plugins/Process/mach-core/ProcessMachCore.cpp
 +++ b/lldb/source/Plugins/Process/mach-core/ProcessMachCore.cpp
 @@ -596,7 +596,7 @@ bool ProcessMachCore::WarnBeforeDetach() const { return false; }
@@ -5041,7 +5080,7 @@ index 84548edb5..0ae6f7e4a 100644
    // in core files we have it all cached our our core file anyway.
    return DoReadMemory(addr, buf, size, error);
 diff --git a/lldb/source/Plugins/Process/mach-core/ProcessMachCore.h b/lldb/source/Plugins/Process/mach-core/ProcessMachCore.h
-index db77e96f1..1c930896c 100644
+index db77e96f1072..1c930896c743 100644
 --- a/lldb/source/Plugins/Process/mach-core/ProcessMachCore.h
 +++ b/lldb/source/Plugins/Process/mach-core/ProcessMachCore.h
 @@ -65,7 +65,8 @@ public:
@@ -5055,7 +5094,7 @@ index db77e96f1..1c930896c 100644
    size_t DoReadMemory(lldb::addr_t addr, void *buf, size_t size,
                        lldb_private::Status &error) override;
 diff --git a/lldb/source/Plugins/Process/minidump/ProcessMinidump.cpp b/lldb/source/Plugins/Process/minidump/ProcessMinidump.cpp
-index 385557422..d8bb21581 100644
+index 385557422758..d8bb21581086 100644
 --- a/lldb/source/Plugins/Process/minidump/ProcessMinidump.cpp
 +++ b/lldb/source/Plugins/Process/minidump/ProcessMinidump.cpp
 @@ -374,7 +374,7 @@ bool ProcessMinidump::IsAlive() { return true; }
@@ -5068,7 +5107,7 @@ index 385557422..d8bb21581 100644
    // we have it all cached in our dump file anyway.
    return DoReadMemory(addr, buf, size, error);
 diff --git a/lldb/source/Plugins/Process/minidump/ProcessMinidump.h b/lldb/source/Plugins/Process/minidump/ProcessMinidump.h
-index 27b0da004..e94ecab43 100644
+index 27b0da0047a5..e94ecab430c1 100644
 --- a/lldb/source/Plugins/Process/minidump/ProcessMinidump.h
 +++ b/lldb/source/Plugins/Process/minidump/ProcessMinidump.h
 @@ -69,8 +69,8 @@ public:
@@ -5084,7 +5123,7 @@ index 27b0da004..e94ecab43 100644
                        Status &error) override;
 diff --git a/lldb/source/Plugins/Process/wasm/CMakeLists.txt b/lldb/source/Plugins/Process/wasm/CMakeLists.txt
 new file mode 100644
-index 000000000..61efb933f
+index 000000000000..61efb933fa62
 --- /dev/null
 +++ b/lldb/source/Plugins/Process/wasm/CMakeLists.txt
 @@ -0,0 +1,12 @@
@@ -5102,7 +5141,7 @@ index 000000000..61efb933f
 +  )
 diff --git a/lldb/source/Plugins/Process/wasm/ProcessWasm.cpp b/lldb/source/Plugins/Process/wasm/ProcessWasm.cpp
 new file mode 100644
-index 000000000..9c0fc7b7f
+index 000000000000..9c0fc7b7f270
 --- /dev/null
 +++ b/lldb/source/Plugins/Process/wasm/ProcessWasm.cpp
 @@ -0,0 +1,261 @@
@@ -5369,7 +5408,7 @@ index 000000000..9c0fc7b7f
 +}
 diff --git a/lldb/source/Plugins/Process/wasm/ProcessWasm.h b/lldb/source/Plugins/Process/wasm/ProcessWasm.h
 new file mode 100644
-index 000000000..d3aece7a6
+index 000000000000..d3aece7a6554
 --- /dev/null
 +++ b/lldb/source/Plugins/Process/wasm/ProcessWasm.h
 @@ -0,0 +1,128 @@
@@ -5503,7 +5542,7 @@ index 000000000..d3aece7a6
 +#endif // LLDB_SOURCE_PLUGINS_PROCESS_WASM_PROCESSWASM_H
 diff --git a/lldb/source/Plugins/Process/wasm/ThreadWasm.cpp b/lldb/source/Plugins/Process/wasm/ThreadWasm.cpp
 new file mode 100644
-index 000000000..fa02073e7
+index 000000000000..fa02073e7a52
 --- /dev/null
 +++ b/lldb/source/Plugins/Process/wasm/ThreadWasm.cpp
 @@ -0,0 +1,35 @@
@@ -5544,7 +5583,7 @@ index 000000000..fa02073e7
 +}
 diff --git a/lldb/source/Plugins/Process/wasm/ThreadWasm.h b/lldb/source/Plugins/Process/wasm/ThreadWasm.h
 new file mode 100644
-index 000000000..0a33c07de
+index 000000000000..0a33c07de994
 --- /dev/null
 +++ b/lldb/source/Plugins/Process/wasm/ThreadWasm.h
 @@ -0,0 +1,41 @@
@@ -5591,7 +5630,7 @@ index 000000000..0a33c07de
 +#endif // LLDB_SOURCE_PLUGINS_PROCESS_WASM_THREADWASM_H
 diff --git a/lldb/source/Plugins/Process/wasm/UnwindWasm.cpp b/lldb/source/Plugins/Process/wasm/UnwindWasm.cpp
 new file mode 100644
-index 000000000..1a195cb93
+index 000000000000..1a195cb9361a
 --- /dev/null
 +++ b/lldb/source/Plugins/Process/wasm/UnwindWasm.cpp
 @@ -0,0 +1,74 @@
@@ -5672,7 +5711,7 @@ index 000000000..1a195cb93
 \ No newline at end of file
 diff --git a/lldb/source/Plugins/Process/wasm/UnwindWasm.h b/lldb/source/Plugins/Process/wasm/UnwindWasm.h
 new file mode 100644
-index 000000000..9bd1dac9a
+index 000000000000..9bd1dac9a98a
 --- /dev/null
 +++ b/lldb/source/Plugins/Process/wasm/UnwindWasm.h
 @@ -0,0 +1,55 @@
@@ -5732,7 +5771,7 @@ index 000000000..9bd1dac9a
 +
 +#endif // lldb_UnwindWasm_h_
 diff --git a/lldb/source/Plugins/SymbolFile/DWARF/SymbolFileDWARF.cpp b/lldb/source/Plugins/SymbolFile/DWARF/SymbolFileDWARF.cpp
-index ccaf31317..c3ef5aebd 100644
+index ccaf31317d75..c3ef5aebd46d 100644
 --- a/lldb/source/Plugins/SymbolFile/DWARF/SymbolFileDWARF.cpp
 +++ b/lldb/source/Plugins/SymbolFile/DWARF/SymbolFileDWARF.cpp
 @@ -3212,8 +3212,13 @@ VariableSP SymbolFileDWARF::ParseVariableDIE(const SymbolContext &sc,
@@ -5751,7 +5790,7 @@ index ccaf31317..c3ef5aebd 100644
      // DWARF doesn't specify if a DW_TAG_variable is a local, global
      // or static variable, so we have to do a little digging:
 diff --git a/lldb/source/Target/PathMappingList.cpp b/lldb/source/Target/PathMappingList.cpp
-index b660c310e..cd76421ce 100644
+index b660c310ef31..cd76421cec18 100644
 --- a/lldb/source/Target/PathMappingList.cpp
 +++ b/lldb/source/Target/PathMappingList.cpp
 @@ -218,7 +218,12 @@ bool PathMappingList::ReverseRemapPath(const FileSpec &file, FileSpec &fixed) co
@@ -5769,7 +5808,7 @@ index b660c310e..cd76421ce 100644
  
    return {};
 diff --git a/lldb/source/Target/Platform.cpp b/lldb/source/Target/Platform.cpp
-index a77ecddfb..e257f9350 100644
+index a77ecddfbab6..e257f93508f6 100644
 --- a/lldb/source/Target/Platform.cpp
 +++ b/lldb/source/Target/Platform.cpp
 @@ -1970,6 +1970,12 @@ size_t Platform::GetSoftwareBreakpointTrapOpcode(Target &target,
@@ -5786,7 +5825,7 @@ index a77ecddfb..e257f9350 100644
      return 0;
    }
 diff --git a/lldb/source/Target/Process.cpp b/lldb/source/Target/Process.cpp
-index 8ecc66b59..f14898791 100644
+index 8ecc66b592ea..f148987915de 100644
 --- a/lldb/source/Target/Process.cpp
 +++ b/lldb/source/Target/Process.cpp
 @@ -1892,7 +1892,8 @@ Status Process::DisableSoftwareBreakpoint(BreakpointSite *bp_site) {
@@ -5800,7 +5839,7 @@ index 8ecc66b59..f14898791 100644
    if (!GetDisableMemoryCache()) {
  #if defined(VERIFY_MEMORY_READS)
 diff --git a/lldb/source/Target/ProcessTrace.cpp b/lldb/source/Target/ProcessTrace.cpp
-index c878a2ac4..ad5945b0a 100644
+index c878a2ac4eb9..ad5945b0ad1f 100644
 --- a/lldb/source/Target/ProcessTrace.cpp
 +++ b/lldb/source/Target/ProcessTrace.cpp
 @@ -88,7 +88,7 @@ void ProcessTrace::RefreshStateAfterStop() {}
@@ -5813,7 +5852,7 @@ index c878a2ac4..ad5945b0a 100644
    // we have it all cached in the trace files.
    return DoReadMemory(addr, buf, size, error);
 diff --git a/lldb/source/Target/ThreadPlanStepRange.cpp b/lldb/source/Target/ThreadPlanStepRange.cpp
-index 896e647bb..f76307016 100644
+index 896e647bbb52..f76307016102 100644
 --- a/lldb/source/Target/ThreadPlanStepRange.cpp
 +++ b/lldb/source/Target/ThreadPlanStepRange.cpp
 @@ -334,7 +334,10 @@ bool ThreadPlanStepRange::SetNextBranchBreakpoint() {
@@ -5829,7 +5868,7 @@ index 896e647bb..f76307016 100644
              instructions->GetInstructionAtIndex(last_index);
          size_t last_inst_size = last_inst->GetOpcode().GetByteSize();
 diff --git a/lldb/source/Target/UnixSignals.cpp b/lldb/source/Target/UnixSignals.cpp
-index 4ec2e25c7..24c88fe9a 100644
+index 4ec2e25c7e3b..24c88fe9ae4f 100644
 --- a/lldb/source/Target/UnixSignals.cpp
 +++ b/lldb/source/Target/UnixSignals.cpp
 @@ -46,6 +46,8 @@ lldb::UnixSignalsSP UnixSignals::Create(const ArchSpec &arch) {
@@ -5842,7 +5881,7 @@ index 4ec2e25c7..24c88fe9a 100644
      return std::make_shared<UnixSignals>();
    }
 diff --git a/llvm/include/llvm/ExecutionEngine/Orc/OrcRPCExecutorProcessControl.h b/llvm/include/llvm/ExecutionEngine/Orc/OrcRPCExecutorProcessControl.h
-index 4310ba9ce..297b33879 100644
+index 4310ba9ce9e0..297b3387999d 100644
 --- a/llvm/include/llvm/ExecutionEngine/Orc/OrcRPCExecutorProcessControl.h
 +++ b/llvm/include/llvm/ExecutionEngine/Orc/OrcRPCExecutorProcessControl.h
 @@ -13,6 +13,7 @@
@@ -5854,7 +5893,7 @@ index 4310ba9ce..297b33879 100644
  #include "llvm/ExecutionEngine/Orc/Shared/RPCUtils.h"
  #include "llvm/ExecutionEngine/Orc/Shared/RawByteChannel.h"
 diff --git a/llvm/include/llvm/Support/MathExtras.h b/llvm/include/llvm/Support/MathExtras.h
-index 753b1998c..27370c62d 100644
+index 753b1998c40c..27370c62dd6e 100644
 --- a/llvm/include/llvm/Support/MathExtras.h
 +++ b/llvm/include/llvm/Support/MathExtras.h
 @@ -16,6 +16,7 @@
