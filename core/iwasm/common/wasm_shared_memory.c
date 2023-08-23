@@ -9,9 +9,16 @@
 #include "../libraries/thread-mgr/thread_manager.h"
 #endif
 
-static bh_list shared_memory_list_head;
-static bh_list *const shared_memory_list = &shared_memory_list_head;
-static korp_mutex shared_memory_list_lock;
+/*
+ * Note: this lock can be per memory.
+ *
+ * For now, just use a global because:
+ * - it's a bit cumbersome to extend WASMMemoryInstance w/o breaking
+ *   the AOT ABI.
+ * - If you care performance, it's better to make the interpreters
+ *   use atomic ops.
+ */
+static korp_mutex _shared_memory_lock;
 
 /* clang-format off */
 enum {
@@ -48,17 +55,15 @@ destroy_wait_info(void *wait_info);
 bool
 wasm_shared_memory_init()
 {
-    if (os_mutex_init(&shared_memory_list_lock) != 0)
+    if (os_mutex_init(&_shared_memory_lock) != 0)
         return false;
-
     /* wait map not exists, create new map */
     if (!(wait_map = bh_hash_map_create(32, true, (HashFunc)wait_address_hash,
                                         (KeyEqualFunc)wait_address_equal, NULL,
                                         destroy_wait_info))) {
-        os_mutex_destroy(&shared_memory_list_lock);
+        os_mutex_destroy(&_shared_memory_lock);
         return false;
     }
-
     return true;
 }
 
@@ -66,110 +71,79 @@ void
 wasm_shared_memory_destroy()
 {
     bh_hash_map_destroy(wait_map);
-    os_mutex_destroy(&shared_memory_list_lock);
+    os_mutex_destroy(&_shared_memory_lock);
 }
 
-static WASMSharedMemNode *
-search_module(WASMModuleCommon *module)
+uint32
+shared_memory_inc_reference(WASMMemoryInstance *memory)
 {
-    WASMSharedMemNode *node;
-
-    os_mutex_lock(&shared_memory_list_lock);
-    node = bh_list_first_elem(shared_memory_list);
-
-    while (node) {
-        if (module == node->module) {
-            os_mutex_unlock(&shared_memory_list_lock);
-            return node;
-        }
-        node = bh_list_elem_next(node);
-    }
-
-    os_mutex_unlock(&shared_memory_list_lock);
-    return NULL;
+    bh_assert(shared_memory_is_shared(memory));
+    uint32 old;
+#if BH_ATOMIC_32_IS_ATOMIC == 0
+    os_mutex_lock(&_shared_memory_lock);
+#endif
+    old = BH_ATOMIC_32_FETCH_ADD(memory->ref_count, 1);
+#if BH_ATOMIC_32_IS_ATOMIC == 0
+    os_mutex_unlock(&_shared_memory_lock);
+#endif
+    bh_assert(old >= 1);
+    bh_assert(old < UINT32_MAX);
+    return old + 1;
 }
 
-WASMSharedMemNode *
-wasm_module_get_shared_memory(WASMModuleCommon *module)
+uint32
+shared_memory_dec_reference(WASMMemoryInstance *memory)
 {
-    return search_module(module);
+    bh_assert(shared_memory_is_shared(memory));
+    uint32 old;
+#if BH_ATOMIC_32_IS_ATOMIC == 0
+    os_mutex_lock(&_shared_memory_lock);
+#endif
+    old = BH_ATOMIC_32_FETCH_SUB(memory->ref_count, 1);
+#if BH_ATOMIC_32_IS_ATOMIC == 0
+    os_mutex_unlock(&_shared_memory_lock);
+#endif
+    bh_assert(old > 0);
+    return old - 1;
 }
 
-int32
-shared_memory_inc_reference(WASMModuleCommon *module)
+bool
+shared_memory_is_shared(WASMMemoryInstance *memory)
 {
-    WASMSharedMemNode *node = search_module(module);
-    uint32 ref_count = -1;
-    if (node) {
-        os_mutex_lock(&node->lock);
-        ref_count = ++node->ref_count;
-        os_mutex_unlock(&node->lock);
-    }
-    return ref_count;
+    uint32 old;
+#if BH_ATOMIC_32_IS_ATOMIC == 0
+    os_mutex_lock(&_shared_memory_lock);
+#endif
+    old = BH_ATOMIC_32_LOAD(memory->ref_count);
+#if BH_ATOMIC_32_IS_ATOMIC == 0
+    os_mutex_unlock(&_shared_memory_lock);
+#endif
+    return old > 0;
 }
 
-int32
-shared_memory_dec_reference(WASMModuleCommon *module)
+static korp_mutex *
+shared_memory_get_lock_pointer(WASMMemoryInstance *memory)
 {
-    WASMSharedMemNode *node = search_module(module);
-    uint32 ref_count = 0;
-    if (node) {
-        os_mutex_lock(&node->lock);
-        ref_count = --node->ref_count;
-        os_mutex_unlock(&node->lock);
-        if (ref_count == 0) {
-            os_mutex_lock(&shared_memory_list_lock);
-            bh_list_remove(shared_memory_list, node);
-            os_mutex_unlock(&shared_memory_list_lock);
-
-            os_mutex_destroy(&node->shared_mem_lock);
-            os_mutex_destroy(&node->lock);
-            wasm_runtime_free(node);
-        }
-        return ref_count;
-    }
-
-    return -1;
+    bh_assert(memory != NULL);
+    return &_shared_memory_lock;
 }
 
-WASMMemoryInstanceCommon *
-shared_memory_get_memory_inst(WASMSharedMemNode *node)
+void
+shared_memory_lock(WASMMemoryInstance *memory)
 {
-    return node->memory_inst;
+    /*
+     * Note: exception logic is currently abusing this lock.
+     * cf. https://github.com/bytecodealliance/wasm-micro-runtime/issues/2407
+     */
+    bh_assert(memory != NULL);
+    os_mutex_lock(&_shared_memory_lock);
 }
 
-WASMSharedMemNode *
-shared_memory_set_memory_inst(WASMModuleCommon *module,
-                              WASMMemoryInstanceCommon *memory)
+void
+shared_memory_unlock(WASMMemoryInstance *memory)
 {
-    WASMSharedMemNode *node;
-    bh_list_status ret;
-
-    if (!(node = wasm_runtime_malloc(sizeof(WASMSharedMemNode))))
-        return NULL;
-
-    node->module = module;
-    node->memory_inst = memory;
-    node->ref_count = 1;
-
-    if (os_mutex_init(&node->shared_mem_lock) != 0) {
-        wasm_runtime_free(node);
-        return NULL;
-    }
-
-    if (os_mutex_init(&node->lock) != 0) {
-        os_mutex_destroy(&node->shared_mem_lock);
-        wasm_runtime_free(node);
-        return NULL;
-    }
-
-    os_mutex_lock(&shared_memory_list_lock);
-    ret = bh_list_insert(shared_memory_list, node);
-    bh_assert(ret == BH_LIST_SUCCESS);
-    os_mutex_unlock(&shared_memory_list_lock);
-
-    (void)ret;
-    return node;
+    bh_assert(memory != NULL);
+    os_mutex_unlock(&_shared_memory_lock);
 }
 
 /* Atomics wait && notify APIs */
@@ -307,7 +281,7 @@ wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
     WASMModuleInstance *module_inst = (WASMModuleInstance *)module;
     AtomicWaitInfo *wait_info;
     AtomicWaitNode *wait_node;
-    WASMSharedMemNode *node;
+    korp_mutex *lock;
 #if WASM_ENABLE_THREAD_MGR != 0
     WASMExecEnv *exec_env;
 #endif
@@ -322,7 +296,7 @@ wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
     }
 
     /* Currently we have only one memory instance */
-    if (!module_inst->memories[0]->is_shared) {
+    if (!shared_memory_is_shared(module_inst->memories[0])) {
         wasm_runtime_set_exception(module, "expected shared memory");
         return -1;
     }
@@ -340,30 +314,29 @@ wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
     bh_assert(exec_env);
 #endif
 
-    node = search_module((WASMModuleCommon *)module_inst->module);
-    bh_assert(node);
+    lock = shared_memory_get_lock_pointer(module_inst->memories[0]);
 
     /* Lock the shared_mem_lock for the whole atomic wait process,
        and use it to os_cond_reltimedwait */
-    os_mutex_lock(&node->shared_mem_lock);
+    os_mutex_lock(lock);
 
     no_wait = (!wait64 && *(uint32 *)address != (uint32)expect)
               || (wait64 && *(uint64 *)address != expect);
 
     if (no_wait) {
-        os_mutex_unlock(&node->shared_mem_lock);
+        os_mutex_unlock(lock);
         return 1;
     }
 
     if (!(wait_node = wasm_runtime_malloc(sizeof(AtomicWaitNode)))) {
-        os_mutex_unlock(&node->shared_mem_lock);
+        os_mutex_unlock(lock);
         wasm_runtime_set_exception(module, "failed to create wait node");
         return -1;
     }
     memset(wait_node, 0, sizeof(AtomicWaitNode));
 
     if (0 != os_cond_init(&wait_node->wait_cond)) {
-        os_mutex_unlock(&node->shared_mem_lock);
+        os_mutex_unlock(lock);
         wasm_runtime_free(wait_node);
         wasm_runtime_set_exception(module, "failed to init wait cond");
         return -1;
@@ -375,7 +348,7 @@ wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
     wait_info = acquire_wait_info(address, wait_node);
 
     if (!wait_info) {
-        os_mutex_unlock(&node->shared_mem_lock);
+        os_mutex_unlock(lock);
         os_cond_destroy(&wait_node->wait_cond);
         wasm_runtime_free(wait_node);
         wasm_runtime_set_exception(module, "failed to acquire wait_info");
@@ -390,7 +363,7 @@ wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
         if (timeout < 0) {
             /* wait forever until it is notified or terminatied
                here we keep waiting and checking every second */
-            os_cond_reltimedwait(&wait_node->wait_cond, &node->shared_mem_lock,
+            os_cond_reltimedwait(&wait_node->wait_cond, lock,
                                  (uint64)timeout_1sec);
             if (wait_node->status == S_NOTIFIED /* notified by atomic.notify */
 #if WASM_ENABLE_THREAD_MGR != 0
@@ -404,8 +377,7 @@ wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
         else {
             timeout_wait =
                 timeout_left < timeout_1sec ? timeout_left : timeout_1sec;
-            os_cond_reltimedwait(&wait_node->wait_cond, &node->shared_mem_lock,
-                                 timeout_wait);
+            os_cond_reltimedwait(&wait_node->wait_cond, lock, timeout_wait);
             if (wait_node->status == S_NOTIFIED /* notified by atomic.notify */
                 || timeout_left <= timeout_wait /* time out */
 #if WASM_ENABLE_THREAD_MGR != 0
@@ -433,7 +405,7 @@ wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
     /* Release wait info if no wait nodes are attached */
     map_try_release_wait_info(wait_map, wait_info, address);
 
-    os_mutex_unlock(&node->shared_mem_lock);
+    os_mutex_unlock(lock);
 
     return is_timeout ? 2 : 0;
 }
@@ -445,7 +417,7 @@ wasm_runtime_atomic_notify(WASMModuleInstanceCommon *module, void *address,
     WASMModuleInstance *module_inst = (WASMModuleInstance *)module;
     uint32 notify_result;
     AtomicWaitInfo *wait_info;
-    WASMSharedMemNode *node;
+    korp_mutex *lock;
     bool out_of_bounds;
 
     bh_assert(module->module_type == Wasm_Module_Bytecode
@@ -461,31 +433,30 @@ wasm_runtime_atomic_notify(WASMModuleInstanceCommon *module, void *address,
     }
 
     /* Currently we have only one memory instance */
-    if (!module_inst->memories[0]->is_shared) {
+    if (!shared_memory_is_shared(module_inst->memories[0])) {
         /* Always return 0 for ushared linear memory since there is
            no way to create a waiter on it */
         return 0;
     }
 
-    node = search_module((WASMModuleCommon *)module_inst->module);
-    bh_assert(node);
+    lock = shared_memory_get_lock_pointer(module_inst->memories[0]);
 
     /* Lock the shared_mem_lock for the whole atomic notify process,
        and use it to os_cond_signal */
-    os_mutex_lock(&node->shared_mem_lock);
+    os_mutex_lock(lock);
 
     wait_info = acquire_wait_info(address, NULL);
 
     /* Nobody wait on this address */
     if (!wait_info) {
-        os_mutex_unlock(&node->shared_mem_lock);
+        os_mutex_unlock(lock);
         return 0;
     }
 
     /* Notify each wait node in the wait list */
     notify_result = notify_wait_list(wait_info->wait_list, count);
 
-    os_mutex_unlock(&node->shared_mem_lock);
+    os_mutex_unlock(lock);
 
     return notify_result;
 }

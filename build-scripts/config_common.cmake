@@ -359,16 +359,16 @@ endif ()
 if (WAMR_BUILD_WASI_NN EQUAL 1)
   message ("     WASI-NN enabled")
   add_definitions (-DWASM_ENABLE_WASI_NN=1)
-  if (WASI_NN_ENABLE_GPU EQUAL 1)
+  if (WAMR_BUILD_WASI_NN_ENABLE_GPU EQUAL 1)
       message ("     WASI-NN: GPU enabled")
-      add_definitions (-DWASI_NN_ENABLE_GPU=1)
+      add_definitions (-DWASM_ENABLE_WASI_NN_GPU=1)
   endif ()
-  if (WAMR_BUILD_WASI_NN_ENABLE_EXT EQUAL 1)
+  if (WAMR_BUILD_WASI_NN_ENABLE_EXTERNAL_DELEGATE EQUAL 1)
       message ("     WASI-NN: External Delegation enabled")
-      add_definitions (-DWASI_NN_ENABLE_EXTERNAL_DELEGATE=1)
+      add_definitions (-DWASM_ENABLE_WASI_NN_EXTERNAL_DELEGATE=1)
   endif ()
-  if (DEFINED WASI_NN_EXT_DELEGATE_PATH)
-      add_definitions (-DWASI_NN_EXT_DELEGATE_PATH="${WASI_NN_EXT_DELEGATE_PATH}")
+  if (DEFINED WAMR_BUILD_WASI_NN_EXTERNAL_DELEGATE_PATH)
+      add_definitions (-DWASM_WASI_NN_EXTERNAL_DELEGATE_PATH="${WAMR_BUILD_WASI_NN_EXTERNAL_DELEGATE_PATH}")
   endif ()
 endif ()
 if (WAMR_BUILD_ALLOC_WITH_USER_DATA EQUAL 1)
@@ -395,6 +395,30 @@ endif ()
 if (WAMR_DISABLE_WRITE_GS_BASE EQUAL 1)
   add_definitions (-DWASM_DISABLE_WRITE_GS_BASE=1)
   message ("     Write linear memory base addr to x86 GS register disabled")
+elseif (WAMR_BUILD_TARGET STREQUAL "X86_64"
+        AND WAMR_BUILD_PLATFORM STREQUAL "linux")
+  set (TEST_WRGSBASE_SOURCE "${CMAKE_BINARY_DIR}/test_wrgsbase.c")
+  file (WRITE "${TEST_WRGSBASE_SOURCE}" "
+  #include <stdio.h>
+  #include <stdint.h>
+  int main() {
+      uint64_t value;
+      asm volatile (\"wrgsbase %0\" : : \"r\"(value));
+      printf(\"WRGSBASE instruction is available.\\n\");
+      return 0;
+  }")
+  # Try to compile and run the test program
+  try_run (TEST_WRGSBASE_RESULT
+    TEST_WRGSBASE_COMPILED
+    ${CMAKE_BINARY_DIR}/test_wrgsbase
+    SOURCES ${TEST_WRGSBASE_SOURCE}
+    CMAKE_FLAGS -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+  )
+  #message("${TEST_WRGSBASE_COMPILED}, ${TEST_WRGSBASE_RESULT}")
+  if (NOT TEST_WRGSBASE_RESULT EQUAL 0)
+    add_definitions (-DWASM_DISABLE_WRITE_GS_BASE=1)
+    message ("     Write linear memory base addr to x86 GS register disabled")
+  endif ()
 endif ()
 if (WAMR_CONFIGUABLE_BOUNDS_CHECKS EQUAL 1)
   add_definitions (-DWASM_CONFIGURABLE_BOUNDS_CHECKS=1)

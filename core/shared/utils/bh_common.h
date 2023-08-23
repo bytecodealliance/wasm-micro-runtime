@@ -12,25 +12,25 @@
 extern "C" {
 #endif
 
-#define bh_memcpy_s(dest, dlen, src, slen)                            \
-    do {                                                              \
-        int _ret = slen == 0 ? 0 : b_memcpy_s(dest, dlen, src, slen); \
-        (void)_ret;                                                   \
-        bh_assert(_ret == 0);                                         \
+#define bh_memcpy_s(dest, dlen, src, slen)            \
+    do {                                              \
+        int _ret = b_memcpy_s(dest, dlen, src, slen); \
+        (void)_ret;                                   \
+        bh_assert(_ret == 0);                         \
     } while (0)
 
-#define bh_memcpy_wa(dest, dlen, src, slen)                            \
-    do {                                                               \
-        int _ret = slen == 0 ? 0 : b_memcpy_wa(dest, dlen, src, slen); \
-        (void)_ret;                                                    \
-        bh_assert(_ret == 0);                                          \
+#define bh_memcpy_wa(dest, dlen, src, slen)            \
+    do {                                               \
+        int _ret = b_memcpy_wa(dest, dlen, src, slen); \
+        (void)_ret;                                    \
+        bh_assert(_ret == 0);                          \
     } while (0)
 
-#define bh_memmove_s(dest, dlen, src, slen)                            \
-    do {                                                               \
-        int _ret = slen == 0 ? 0 : b_memmove_s(dest, dlen, src, slen); \
-        (void)_ret;                                                    \
-        bh_assert(_ret == 0);                                          \
+#define bh_memmove_s(dest, dlen, src, slen)            \
+    do {                                               \
+        int _ret = b_memmove_s(dest, dlen, src, slen); \
+        (void)_ret;                                    \
+        bh_assert(_ret == 0);                          \
     } while (0)
 
 #define bh_strcat_s(dest, dlen, src)            \

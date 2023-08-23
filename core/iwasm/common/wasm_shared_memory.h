@@ -7,31 +7,12 @@
 #define _WASM_SHARED_MEMORY_H
 
 #include "bh_common.h"
-#if WASM_ENABLE_INTERP != 0
-#include "wasm_runtime.h"
-#endif
-#if WASM_ENABLE_AOT != 0
-#include "aot_runtime.h"
-#endif
+#include "../interpreter/wasm_runtime.h"
+#include "wasm_runtime_common.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-typedef struct WASMSharedMemNode {
-    bh_list_link l;
-    /* Lock */
-    korp_mutex lock;
-    /* The module reference */
-    WASMModuleCommon *module;
-    /* The memory information */
-    WASMMemoryInstanceCommon *memory_inst;
-    /* Lock used for atomic operations */
-    korp_mutex shared_mem_lock;
-
-    /* reference count */
-    uint32 ref_count;
-} WASMSharedMemNode;
 
 bool
 wasm_shared_memory_init();
@@ -39,21 +20,20 @@ wasm_shared_memory_init();
 void
 wasm_shared_memory_destroy();
 
-WASMSharedMemNode *
-wasm_module_get_shared_memory(WASMModuleCommon *module);
+uint32
+shared_memory_inc_reference(WASMMemoryInstance *memory);
 
-int32
-shared_memory_inc_reference(WASMModuleCommon *module);
+uint32
+shared_memory_dec_reference(WASMMemoryInstance *memory);
 
-int32
-shared_memory_dec_reference(WASMModuleCommon *module);
+bool
+shared_memory_is_shared(WASMMemoryInstance *memory);
 
-WASMMemoryInstanceCommon *
-shared_memory_get_memory_inst(WASMSharedMemNode *node);
+void
+shared_memory_lock(WASMMemoryInstance *memory);
 
-WASMSharedMemNode *
-shared_memory_set_memory_inst(WASMModuleCommon *module,
-                              WASMMemoryInstanceCommon *memory);
+void
+shared_memory_unlock(WASMMemoryInstance *memory);
 
 uint32
 wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,

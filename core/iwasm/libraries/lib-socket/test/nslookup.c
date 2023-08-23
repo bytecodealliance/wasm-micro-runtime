@@ -46,6 +46,7 @@ test_nslookup_mt(void *params)
 {
     int *af = (int *)params;
     test_nslookup(*af);
+    return NULL;
 }
 
 int

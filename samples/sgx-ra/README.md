@@ -7,52 +7,52 @@ This sample demonstrates how to execute Remote Attestation on SGX with [librats]
 
 SGX-RA requires to have installed:
  - the WASI-SDK, located in `/opt/wasi-sdk`
- - CMake >= 3.11, which is not provided on Ubuntu 18.04 (use [Kitware APT Repository](https://apt.kitware.com/))
 
 ### Intel SGX dependencies
 
 Before starting, we need to download and install [SGX SDK](https://download.01.org/intel-sgx/latest/linux-latest/distro) and [SGX DCAP Library](https://download.01.org/intel-sgx/latest/dcap-latest) referring to this [guide](https://download.01.org/intel-sgx/sgx-dcap/1.8/linux/docs/Intel_SGX_DCAP_Linux_SW_Installation_Guide.pdf).
 
-The following commands are an example of the SGX environment installation on Ubuntu 18.04.
+The following commands are an example of the SGX environment installation on Ubuntu 20.04.
 ``` shell
 # Set your platform, you can get the platforms list on
 # https://download.01.org/intel-sgx/latest/linux-latest/distro
 $ cd $HOME
-$ SGX_PLATFORM=ubuntu18.04-server
-$ SGX_SDK_VERSION=2.17.100.3
+$ OS_PLATFORM=ubuntu20.04
+$ SGX_PLATFORM=$OS_PLATFORM-server
+$ SGX_RELEASE_VERSION=1.17
 $ SGX_DRIVER_VERSION=1.41
+$ SGX_SDK_VERSION=2.20.100.4
 
 # install the dependencies
 $ sudo apt-get update
-$ sudo apt-get install -y dkms
+$ sudo apt-get install -y build-essential ocaml automake autoconf libtool wget python3 libssl-dev dkms zip cmake
+$ sudo update-alternatives --install /usr/bin/python python /usr/bin/python3 1
 
 # install SGX Driver
-$ wget https://download.01.org/intel-sgx/latest/linux-latest/distro/$SGX_PLATFORM/sgx_linux_x64_driver_$SGX_DRIVER_VERSION.bin
+$ wget https://download.01.org/intel-sgx/sgx-dcap/$SGX_RELEASE_VERSION/linux/distro/$SGX_PLATFORM/sgx_linux_x64_driver_$SGX_DRIVER_VERSION.bin
 $ chmod +x sgx_linux_x64_driver_$SGX_DRIVER_VERSION.bin
 $ sudo ./sgx_linux_x64_driver_$SGX_DRIVER_VERSION.bin
 
 # install SGX SDK
-$ wget https://download.01.org/intel-sgx/latest/linux-latest/distro/$SGX_PLATFORM/sgx_linux_x64_sdk_$SGX_SDK_VERSION.bin
+$ wget https://download.01.org/intel-sgx/sgx-dcap/$SGX_RELEASE_VERSION/linux/distro/$SGX_PLATFORM/sgx_linux_x64_sdk_$SGX_SDK_VERSION.bin
 $ chmod +x sgx_linux_x64_sdk_$SGX_SDK_VERSION.bin
-$ sudo ./sgx_linux_x64_sdk_$SGX_SDK_VERSION.bin
+$ sudo ./sgx_linux_x64_sdk_$SGX_SDK_VERSION.bin --prefix /opt/intel
 
 # install SGX DCAP Library
-$ echo 'deb [arch=amd64] https://download.01.org/intel-sgx/sgx_repo/ubuntu bionic main' | sudo tee /etc/apt/sources.list.d/intel-sgx.list > /dev/null
-$ wget -O - https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key | sudo apt-key add -
+$ echo 'deb [arch=amd64] https://download.01.org/intel-sgx/sgx_repo/ubuntu focal main' | sudo tee /etc/apt/sources.list.d/intel-sgx.list
+$ wget -O - https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key | sudo apt-key add
 $ sudo apt-get update
-$ sudo apt-get install -y libsgx-uae-service libsgx-dcap-default-qpl-dev libsgx-dcap-ql-dev libsgx-dcap-quote-verify-dev
+$ sudo apt-get install -y libsgx-epid libsgx-quote-ex libsgx-dcap-ql libsgx-enclave-common-dev libsgx-dcap-ql-dev libsgx-dcap-default-qpl-dev libsgx-dcap-quote-verify-dev
 
 # install SGX SSL Library
 $ git clone https://github.com/intel/linux-sgx.git
 $ cd linux-sgx && make preparation
-$ sudo cp external/toolset/{current_distr}/* /usr/local/bin
+$ sudo cp external/toolset/$OS_PLATFORM/* /usr/local/bin
 $ # Verify that the paths are correctly set
 $ which ar as ld objcopy objdump ranlib
 $ cd ../
 $ git clone https://github.com/intel/intel-sgx-ssl.git
-$ wget https://www.openssl.org/source/openssl-1.1.1q.tar.gz
-$ cp openssl-1.1.1q.tar.gz intel-sgx-ssl/openssl_source
-$ rm -f openssl-1.1.1q.tar.gz
+$ wget https://www.openssl.org/source/openssl-1.1.1v.tar.gz -O intel-sgx-ssl/openssl_source/openssl-1.1.1v.tar.gz
 $ cd intel-sgx-ssl/Linux
 $ source /opt/intel/sgxsdk/environment
 $ make all
@@ -70,7 +70,7 @@ sudo usermod -a -G sgx_prv <username>
 
 Intel DCAP connects to Intel PCS to download the attestation collateral for SGX-enabled machines.
 Intel provides a [quick install guide](https://www.intel.com/content/www/us/en/developer/articles/guide/intel-software-guard-extensions-data-center-attestation-primitives-quick-install-guide.html) to set up a simplified environment.
-This section summarizes the commands to issue for setting up a working environment on Ubuntu 18.04.
+This section summarizes the commands to issue for setting up a working environment on Ubuntu 20.04.
 
 ### Subscribe to Intel PCS Web services
 
@@ -86,11 +86,9 @@ Intel provides an implementation of the cache mechanism.
 The following commands set up Intel PCCS.
 ```shell
 # install Node.js
-$ curl -o setup.sh -sL https://deb.nodesource.com/setup_14.x
-$ chmod a+x setup.sh
-$ sudo ./setup.sh
+$ curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo apt-get install -y nodejs
 # install PCCS software
-$ sudo apt-get install -y cracklib-runtime sqlite3 python build-essential
+$ sudo apt-get install -y cracklib-runtime
 $ sudo apt-get install -y sgx-dcap-pccs
 ```
 
@@ -160,9 +158,10 @@ Adapt the configuration file of `PCKIDRetrievalTool` located in `/opt/intel/sgx-
 Save your changes and run the provisioning tool.
 
 ```shell
-$ PCKIDRetrievalTool
-Intel(R) Software Guard Extensions PCK Cert ID Retrieval Tool Version 1.14.100.3
+$ sudo PCKIDRetrievalTool
+Intel(R) Software Guard Extensions PCK Cert ID Retrieval Tool Version 1.17.100.4
 
+Registration status has been set to completed status.
 the data has been sent to cache server successfully and pckid_retrieval.csv has been generated successfully!
 ```
 
