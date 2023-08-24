@@ -3703,7 +3703,7 @@ llvm_jit_rtt_type_new(WASMModuleInstance *module_inst, uint32 type_index)
     korp_mutex *rtt_type_lock = &module->rtt_type_lock;
 
     return wasm_rtt_type_new(defined_type, type_index, rtt_types,
-                             rtt_type_count, &module->rtt_type_lock);
+                             rtt_type_count, rtt_type_lock);
 }
 
 #endif /* end of WASM_ENABLE_GC != 0  */

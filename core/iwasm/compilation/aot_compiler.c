@@ -639,6 +639,8 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                         read_leb_uint32(frame_ip, frame_ip_end, type_index);
                         if (opcode == WASM_OP_ARRAY_NEW_CANON_FIXED)
                             read_leb_uint32(frame_ip, frame_ip_end, array_len);
+                        else
+                            array_len = 0;
                         if (!aot_compile_op_array_new(
                                 comp_ctx, func_ctx, type_index,
                                 opcode == WASM_OP_ARRAY_NEW_CANON_DEFAULT,

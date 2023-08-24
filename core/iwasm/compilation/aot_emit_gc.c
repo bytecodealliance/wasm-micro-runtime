@@ -859,8 +859,8 @@ aot_compile_op_array_new_data(AOTCompContext *comp_ctx,
                               AOTFuncContext *func_ctx, uint32 type_index,
                               uint32 data_seg_index)
 {
-    LLVMValueRef array_length, data_seg_offset, rtt_type, elem_size, array_elem,
-        array_obj, cmp;
+    LLVMValueRef array_length, data_seg_offset, rtt_type,
+        elem_size = NULL, array_elem, array_obj, cmp;
     LLVMBasicBlockRef check_rtt_type_succ, check_array_obj_succ;
     /* Use for distinguish what type of element in array */
     WASMArrayType *compile_time_array_type =
