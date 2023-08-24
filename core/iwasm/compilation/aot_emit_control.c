@@ -1278,7 +1278,6 @@ aot_compile_op_br_on_cast(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     /* Move builder to gc_obj non NULL block */
     SET_BUILDER_POS(gc_obj_non_null);
-
     if (heap_type >= 0) {
         if (!aot_call_aot_obj_is_instance_of(comp_ctx, func_ctx, gc_obj,
                                              I32_CONST(heap_type), &castable))

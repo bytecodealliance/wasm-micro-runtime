@@ -241,7 +241,7 @@ aot_compile_op_ref_eq(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 
     /* LLVM pointer values pointers are compared using LLVMBuildICmp */
     res = LLVMBuildICmp(comp_ctx->builder, LLVMIntEQ, gc_obj1, gc_obj2,
-                        "cmp_gcref_eq");
+                        "cmp_gc_obj_eq");
 
     if (!res) {
         aot_set_last_error("llvm build compare failed.");
