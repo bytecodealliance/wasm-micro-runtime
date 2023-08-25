@@ -24,7 +24,7 @@
 #include "../../../../../include/wamr_export.h"
 #endif
 
-int counter_ = 0;
+uint64_t counter_ = 0;
 typedef int32 CellType_I32;
 typedef int64 CellType_I64;
 typedef float32 CellType_F32;
@@ -1097,7 +1097,7 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
            LOG_DEBUG("val %d ",val);                                                                                                     \
            LOG_DEBUG("depth %d \n",depth);                                                                                               \
     } while (0)
-#define SNAPSHOT_STEP 3000
+#define SNAPSHOT_STEP 300000
 #define SNAPSHOT_DEBUG_STEP 0
 
 #if WASM_ENABLE_LABELS_AS_VALUES != 0
@@ -4041,6 +4041,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             return;
 
         LOG_FATAL("return_func: %s %p", prev_frame->function->u.func->field_name,prev_frame);
+        if (!strcmp(prev_frame->function->u.func->field_name, "fwrite")) {
+            counter_ = INT_MAX;
+        }
 
         RECOVER_CONTEXT(prev_frame);
         HANDLE_OP_END();

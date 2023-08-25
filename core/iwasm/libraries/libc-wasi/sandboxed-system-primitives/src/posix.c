@@ -1778,9 +1778,6 @@ success:
     pa->fd = fds[curfd];
     pa->follow = false;
     pa->fd_object = fo;
-#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
-    insert_fd(pa->fd, path, 0);
-#endif
     return 0;
 
 fail:
