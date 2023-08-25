@@ -16,7 +16,6 @@ core/shared/mem-alloc/tlsf
 core/iwasm/libraries/lib-wasi-threads/test/*.wasm
 core/iwasm/libraries/lib-socket/test/*.wasm
 
-test-tools/host-tool/bin/
 product-mini/app-samples/hello-world/test.wasm
 product-mini/platforms/linux-sgx/enclave-sample/App/
 product-mini/platforms/linux-sgx/enclave-sample/Enclave/

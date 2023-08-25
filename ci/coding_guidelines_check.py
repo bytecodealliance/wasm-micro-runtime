@@ -21,7 +21,6 @@ EXCLUDE_PATHS = [
     "**/.git/*",
     "**/.github/*",
     "**/.vscode/*",
-    "**/assembly-script/*",
     "**/build/*",
     "**/build-scripts/*",
     "**/ci/*",

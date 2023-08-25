@@ -252,7 +252,6 @@ WAMR provides some features which can be easily configured by passing options to
 ## Zephyr
 Please refer to this [README](./platforms/zephyr/simple/README.md) under the Zephyr sample directory for details.
 
-
 Note:
 WAMR provides some features which can be easily configured by passing options to cmake, please see [WAMR vmcore cmake building configurations](../doc/build_wamr.md#wamr-vmcore-cmake-building-configurations) for details. Currently in Zephyr, interpreter, AOT and builtin libc are enabled by default.
 
