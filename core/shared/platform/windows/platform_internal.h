@@ -49,8 +49,6 @@ extern "C" {
 /* Default thread priority */
 #define BH_THREAD_DEFAULT_PRIORITY 0
 
-typedef SSIZE_T ssize_t;
-
 typedef void *korp_thread;
 typedef void *korp_tid;
 typedef void *korp_mutex;

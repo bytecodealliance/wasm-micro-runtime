@@ -1584,9 +1584,6 @@ path_get(struct fd_table *curfds, struct path_access *pa, __wasi_fd_t fd,
     pa->path = pa->path_start = path;
     pa->follow = (flags & __WASI_LOOKUP_SYMLINK_FOLLOW) != 0;
     pa->fd_object = fo;
-#if WASM_BUILD_CHECKPOINT_RESTORE != 0 
-    insert_fd(pa->fd, path, 0);
-#endif
     return 0;
 #else
     // The implementation provides no mechanism to constrain lookups to a

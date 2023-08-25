@@ -11,7 +11,9 @@
 #if WASM_ENABLE_THREAD_MGR != 0
 #include "../../../thread-mgr/thread_manager.h"
 #endif
-
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+#include "../../../../../include/wamr_export.h"
+#endif
 void
 wasm_runtime_set_exception(wasm_module_inst_t module, const char *exception);
 
@@ -462,7 +464,9 @@ wasi_fd_read(wasm_exec_env_t exec_env, wasi_fd_t fd,
     size_t nread;
     uint32 i;
     wasi_errno_t err;
-
+#if WASM_ENABLE_CHECKPOINT_RESTORE!=0
+    insert_fd(fd, "", 0, iovs_len);
+#endif
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
@@ -523,7 +527,9 @@ wasi_fd_seek(wasm_exec_env_t exec_env, wasi_fd_t fd, wasi_filedelta_t offset,
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
-
+#if WASM_ENABLE_CHECKPOINT_RESTORE!=0
+    insert_fd(fd, "", 0, offset);
+#endif
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
@@ -631,6 +637,9 @@ wasi_fd_write(wasm_exec_env_t exec_env, wasi_fd_t fd,
     size_t nwritten;
     uint32 i;
     wasi_errno_t err;
+#if WASM_ENABLE_CHECKPOINT_RESTORE!=0
+    insert_fd(fd, "", 0, iovs_len);
+#endif
 
     if (!wasi_ctx)
         return (wasi_errno_t)-1;

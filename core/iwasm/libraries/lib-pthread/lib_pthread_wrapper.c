@@ -17,9 +17,6 @@
 #if WASM_ENABLE_AOT != 0
 #include "aot_runtime.h"
 #endif
-#ifdef BH_PLATFORM_WINDOWS
-#include "uv.h"
-#endif
 
 #define WAMR_PTHREAD_KEYS_MAX 32
 
@@ -519,14 +516,9 @@ pthread_start_routine(void *arg)
     wasm_exec_env_set_thread_info(exec_env);
     argv[0] = routine_args->arg;
 
-    if (parent_exec_env->is_restore) {
-        restart_execution(routine_args->elem_index);
-    }
-    else {
-        if (!wasm_runtime_call_indirect(exec_env, routine_args->elem_index, 1,
-                                        argv)) {
-            /* Exception has already been spread during throwing */
-        }
+    if (!wasm_runtime_call_indirect(exec_env, routine_args->elem_index, 1,
+                                    argv)) {
+        /* Exception has already been spread during throwing */
     }
     /* destroy pthread key values */
     call_key_destructor(exec_env);

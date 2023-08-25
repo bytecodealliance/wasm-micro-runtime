@@ -2335,7 +2335,7 @@ call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
     uint32 guard_page_count = STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT;
     WASMRuntimeFrame *prev_frame = wasm_exec_env_get_cur_frame(exec_env);
     uint8 *prev_top = exec_env->wasm_stack.s.top;
-#ifdef BH_PLATFORM_WINDOWS
+#if defined(__MSVC__)
     int result;
     bool has_exception;
     char exception[EXCEPTION_BUF_LEN];
@@ -2366,24 +2366,24 @@ call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
 
     wasm_runtime_set_exec_env_tls(exec_env);
     if (os_setjmp(jmpbuf_node.jmpbuf) == 0) {
-#if !defined(BH_PLATFORM_WINDOWS) || defined(__MINGW64__) || defined(__MINGW32__)
+#if defined(__MSVC__)
+    __try {
         wasm_interp_call_wasm(module_inst, exec_env, function, argc, argv);
+    } __except (wasm_copy_exception(module_inst, NULL)
+                    ? EXCEPTION_EXECUTE_HANDLER
+                    : EXCEPTION_CONTINUE_SEARCH) {
+        /* exception was thrown in wasm_exception_handler */
+        ret = false;
+    }
+    has_exception = wasm_copy_exception(module_inst, exception);
+    if (has_exception && strstr(exception, "native stack overflow")) {
+        /* After a stack overflow, the stack was left
+           in a damaged state, let the CRT repair it */
+        result = _resetstkoflw();
+        bh_assert(result != 0);
+    }
 #else
-        __try {
-            wasm_interp_call_wasm(module_inst, exec_env, function, argc, argv);
-        } __except (wasm_copy_exception(module_inst, NULL)
-                        ? EXCEPTION_EXECUTE_HANDLER
-                        : EXCEPTION_CONTINUE_SEARCH) {
-            /* exception was thrown in wasm_exception_handler */
-            ret = false;
-        }
-        has_exception = wasm_copy_exception(module_inst, exception);
-        if (has_exception && strstr(exception, "native stack overflow")) {
-            /* After a stack overflow, the stack was left
-               in a damaged state, let the CRT repair it */
-            result = _resetstkoflw();
-            bh_assert(result != 0);
-        }
+    wasm_interp_call_wasm(module_inst, exec_env, function, argc, argv);
 #endif
     }
     else {

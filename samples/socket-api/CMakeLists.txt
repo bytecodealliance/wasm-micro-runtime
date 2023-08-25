@@ -209,19 +209,3 @@ if (NOT (CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*
   set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections -LC:/tools/msys64/usr/lib")
 endif ()
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security")
-
-# build vmlib static lib
-set(WAMR_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/../..)
-include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
-add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
-
-# build iwasm
-include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
-set (RUNTIME_SOURCE_ALL
-    ${CMAKE_CURRENT_LIST_DIR}/../../product-mini/platforms/linux/main.c
-    ${UNCOMMON_SHARED_SOURCE}
-)
-add_executable (iwasm ${RUNTIME_SOURCE_ALL})
-check_pie_supported()
-set_target_properties (iwasm PROPERTIES POSITION_INDEPENDENT_CODE ON)
-target_link_libraries(iwasm vmlib -lpthread -lm -ldl)

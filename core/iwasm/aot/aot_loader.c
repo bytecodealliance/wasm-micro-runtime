@@ -1672,13 +1672,6 @@ load_function_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
         /* bits[0] of thumb function address must be 1 */
         module->func_ptrs[i] = (void *)((uintptr_t)module->func_ptrs[i] | 1);
 #endif
-#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
-        rtl_func_table[i].BeginAddress = (DWORD)text_offset;
-        if (i > 0) {
-            rtl_func_table[i - 1].EndAddress = rtl_func_table[i].BeginAddress;
-        }
-        rtl_func_table[i].UnwindInfoAddress = (DWORD)unwind_info_offset;
-#endif
     }
 
 #if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
