@@ -10,7 +10,7 @@ cmake .. -DCMAKE_TOOLCHAIN_FILE=$TOOL_CHAIN_FILE  \
          -DWAMR_BUILD_TARGET=ARM
 ```
 
-Refer to toolchain sample file [`samples/simple/profiles/arm-interp/toolchain.cmake`](../samples/simple/profiles/arm-interp/toolchain.cmake) for how to build mini product for ARM target architecture.
+Refer to toolchain sample file [`wamr-app-framework/samples/simple/profiles/arm-interp/toolchain.cmake`](https://github.com/bytecodealliance/wamr-app-framework/blob/main/samples/simple/profiles/arm-interp/toolchain.cmake) for how to build mini product for ARM target architecture.
 
 If you compile for ESP-IDF, make sure to set the right toolchain file for the chip you're using (e.g. `$IDF_PATH/tools/cmake/toolchain-esp32c3.cmake`).
 Note that all ESP-IDF toolchain files live under `$IDF_PATH/tools/cmake/`.
@@ -250,7 +250,6 @@ Note:
 WAMR provides some features which can be easily configured by passing options to cmake, please see [WAMR vmcore cmake building configurations](../doc/build_wamr.md#wamr-vmcore-cmake-building-configurations) for details. Currently in VxWorks, interpreter and builtin libc are enabled by default.
 
 ## Zephyr
-
 Please refer to this [README](./platforms/zephyr/simple/README.md) under the Zephyr sample directory for details.
 
 Note:

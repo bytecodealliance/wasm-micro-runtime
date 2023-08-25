@@ -34,8 +34,7 @@ lcov -q -r ${SRC_TEMP_COV_FILE} -o ${SRC_TEMP_COV_FILE} \
      -rc lcov_branch_coverage=1 \
      "*/usr/*" "*/_deps/*" "*/deps/*" "*/tests/unit/*" \
      "*/llvm/include/*" "*/include/llvm/*" "*/samples/*" \
-     "*/app-framework/*" "*/app-mgr/*" "*/test-tools/*" \
-     "*/tests/standalone/*" "*/tests/*"
+    "*/test-tools/*" "*/tests/standalone/*" "*/tests/*"
 
 if [[ -s ${SRC_TEMP_COV_FILE} ]]; then
     if [[ -s ${DST_COV_FILE} ]]; then
