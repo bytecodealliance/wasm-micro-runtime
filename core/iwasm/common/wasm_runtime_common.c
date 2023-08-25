@@ -2090,12 +2090,16 @@ parse_args_to_uint32_array(WASMFuncType *type, wasm_val_t *args,
                 out_argv[p++] = u.parts[1];
                 break;
             }
-#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0
             case WASM_FUNCREF:
             {
                 out_argv[p++] = args[i].of.i32;
                 break;
             }
+#else
+            case WASM_FUNCREF:
+#endif
             case WASM_ANYREF:
             {
 #if UINTPTR_MAX == UINT32_MAX
@@ -2167,7 +2171,8 @@ parse_uint32_array_to_results(WASMFuncType *type, uint32 *argv,
                 out_results[i].of.f64 = u.val;
                 break;
             }
-#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0
             case VALUE_TYPE_FUNCREF:
             {
                 out_results[i].kind = WASM_I32;
@@ -2175,6 +2180,20 @@ parse_uint32_array_to_results(WASMFuncType *type, uint32 *argv,
                 break;
             }
             case VALUE_TYPE_EXTERNREF:
+#else
+            case REF_TYPE_FUNCREF:
+            case REF_TYPE_EXTERNREF:
+            case REF_TYPE_ANYREF:
+            case REF_TYPE_EQREF:
+            case REF_TYPE_HT_NULLABLE:
+            case REF_TYPE_HT_NON_NULLABLE:
+            case REF_TYPE_I31REF:
+            case REF_TYPE_NULLFUNCREF:
+            case REF_TYPE_NULLEXTERNREF:
+            case REF_TYPE_STRUCTREF:
+            case REF_TYPE_ARRAYREF:
+            case REF_TYPE_NULLREF:
+#endif /* end of WASM_ENABLE_GC == 0 */
             {
 #if UINTPTR_MAX == UINT32_MAX
                 out_results[i].kind = WASM_ANYREF;
@@ -2191,7 +2210,7 @@ parse_uint32_array_to_results(WASMFuncType *type, uint32 *argv,
 #endif
                 break;
             }
-#endif
+#endif /* end of WASM_ENABLE_REF_TYPES != 0 */
             default:
                 bh_assert(0);
                 break;
