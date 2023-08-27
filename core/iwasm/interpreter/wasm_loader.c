@@ -1432,8 +1432,9 @@ load_tag_import(const uint8 **p_buf, const uint8 *buf_end,
     _EXCEDEBUG("load_tag_import: sub_module has %d types total\n",
                sub_module->type_count);
 
+    uint32 i;
     export = sub_module->exports;
-    for (uint32 i = 0; i < sub_module->export_count; i++, export ++) {
+    for (i = 0; i < sub_module->export_count; i++, export ++) {
         _EXCEDEBUG("load_tag_import: export[%d] has name %s and kind %d\n", i,
                    export->name, export->kind);
 
@@ -1796,6 +1797,7 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                 case IMPORT_KIND_TAG: /* import tags */
                     /* it only counts the number of tags to import */
                     module->import_tag_count++;
+                    CHECK_BUF(p, p_end, 1);
                     u8 = read_uint8(p);
                     read_leb_uint32(p, p_end, type_index);
                     break;
@@ -2882,7 +2884,8 @@ load_tag_section(const uint8 *buf, const uint8 *buf_end, const uint8 *buf_code,
             return false;
         }
         /* load each tag, imported tags precede the tags */
-        for (uint32 tag_index = module->import_tag_count;
+        uint32 tag_index;
+        for (tag_index = module->import_tag_count;
              tag_index < module->tag_count; tag_index++) {
 
             /* get the one byte attribute */
@@ -7832,8 +7835,7 @@ re_scan:
 
                 BranchBlock *cur_block = loader_ctx->frame_csp - 1;
 
-                uint8 label_type __attribute__((unused)) =
-                    cur_block->label_type;
+                uint8 label_type = cur_block->label_type;
                 uint32 tag_index = 0;
                 read_leb_int32(p, p_end, tag_index);
 
@@ -7870,7 +7872,9 @@ re_scan:
                              module->types[tag_type_index]);
 
                 /* throw is stack polymorphic */
+                (void)label_type;
                 RESET_STACK();
+
                 break;
             }
             case WASM_OP_RETHROW:
@@ -7900,14 +7904,14 @@ re_scan:
                 }
 
                 BranchBlock *cur_block = loader_ctx->frame_csp - 1;
-                uint8 label_type __attribute__((unused)) =
-                    cur_block->label_type;
+                uint8 label_type = cur_block->label_type;
 
                 _EXCEVERBOSE("ReE: %s WASM_OP_RETHROW, current label is %d, "
                              "target label %d\n",
                              __FUNCTION__, label_type,
                              frame_csp_tmp->label_type);
 
+                void(label_type);
                 /* rethrow is stack polymorphic */
                 RESET_STACK();
                 break;
@@ -7933,14 +7937,14 @@ re_scan:
                 }
 
                 BranchBlock *cur_block = loader_ctx->frame_csp - 1;
-                uint8 label_type __attribute__((unused)) =
-                    cur_block->label_type;
+                uint8 label_type = cur_block->label_type;
                 _EXCEVERBOSE("ReE: %s WASM_OP_DELEGATE, current label is %d, "
                              "target label %d\n",
                              __FUNCTION__, label_type, frame_csp_tmp->label_type
 
                 );
 
+                (void)label_type;
                 /* DELEGATE ends the block */
                 POP_CSP();
                 break;
