@@ -531,10 +531,14 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     bool ret = false;
     char buf[32];
 
+    if (comp_ctx->aot_frame && !aot_gen_commit_values(comp_ctx->aot_frame)) {
+        return false;
+    }
+
 #if WASM_ENABLE_THREAD_MGR != 0
     /* Insert suspend check point */
     if (comp_ctx->enable_thread_mgr) {
-        if (!check_suspend_flags(comp_ctx, func_ctx))
+        if (!check_suspend_flags(comp_ctx, func_ctx, true))
             return false;
     }
 #endif
@@ -892,7 +896,7 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 #if WASM_ENABLE_THREAD_MGR != 0
     /* Insert suspend check point */
     if (comp_ctx->enable_thread_mgr) {
-        if (!check_suspend_flags(comp_ctx, func_ctx))
+        if (!check_suspend_flags(comp_ctx, func_ctx, false))
             goto fail;
     }
 #endif
@@ -1087,6 +1091,10 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     uint64 total_size;
     char buf[32];
     bool ret = false;
+
+    if (comp_ctx->aot_frame && !aot_gen_commit_values(comp_ctx->aot_frame)) {
+        return false;
+    }
 
     /* Check function type index */
     if (type_idx >= comp_ctx->comp_data->func_type_count) {
@@ -1344,7 +1352,7 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 #if WASM_ENABLE_THREAD_MGR != 0
     /* Insert suspend check point */
     if (comp_ctx->enable_thread_mgr) {
-        if (!check_suspend_flags(comp_ctx, func_ctx))
+        if (!check_suspend_flags(comp_ctx, func_ctx, true))
             goto fail;
     }
 #endif
@@ -1541,7 +1549,7 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 #if WASM_ENABLE_THREAD_MGR != 0
     /* Insert suspend check point */
     if (comp_ctx->enable_thread_mgr) {
-        if (!check_suspend_flags(comp_ctx, func_ctx))
+        if (!check_suspend_flags(comp_ctx, func_ctx, false))
             goto fail;
     }
 #endif

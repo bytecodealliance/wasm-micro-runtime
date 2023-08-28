@@ -21,8 +21,8 @@ pop_value_from_wasm_stack(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         return false;
     }
 
-    aot_value =
-        aot_value_stack_pop(&func_ctx->block_stack.block_list_end->value_stack);
+    aot_value = aot_value_stack_pop(
+        comp_ctx, &func_ctx->block_stack.block_list_end->value_stack);
     type = aot_value->type;
 
     if (aot_value->type == VALUE_TYPE_I1) {

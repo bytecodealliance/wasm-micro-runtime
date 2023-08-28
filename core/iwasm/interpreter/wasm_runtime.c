@@ -3380,13 +3380,34 @@ bool
 llvm_jit_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
 {
     WASMModuleInstance *module_inst;
+    WASMModule *module;
     WASMInterpFrame *frame;
-    uint32 size;
+    uint32 size, max_local_cell_num, max_stack_cell_num;
 
     bh_assert(exec_env->module_inst->module_type == Wasm_Module_Bytecode);
 
     module_inst = (WASMModuleInstance *)exec_env->module_inst;
-    size = wasm_interp_interp_frame_size(0);
+    module = module_inst->module;
+
+    if (func_index >= func_index - module->import_function_count) {
+        WASMFunction *func =
+            module->functions[func_index - module->import_function_count];
+
+        max_local_cell_num = func->param_cell_num + func->local_cell_num;
+        max_stack_cell_num = func->max_stack_cell_num;
+    }
+    else {
+        WASMFunctionImport *func =
+            &((module->import_functions + func_index)->u.function);
+
+        max_local_cell_num = func->func_type->param_cell_num > 2
+                                 ? func->func_type->param_cell_num
+                                 : 2;
+        max_stack_cell_num = 0;
+    }
+
+    size =
+        wasm_interp_interp_frame_size(max_local_cell_num + max_stack_cell_num);
 
     frame = wasm_exec_env_alloc_wasm_frame(exec_env, size);
     if (!frame) {
@@ -3396,7 +3417,7 @@ llvm_jit_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
 
     frame->function = module_inst->e->functions + func_index;
     frame->ip = NULL;
-    frame->sp = frame->lp;
+    frame->sp = frame->lp + max_local_cell_num;
 #if WASM_ENABLE_PERF_PROFILING != 0
     frame->time_started = os_time_get_boot_microsecond();
 #endif

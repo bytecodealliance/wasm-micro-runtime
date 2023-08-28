@@ -20,6 +20,7 @@
  * AoT compilation code: aot_create_func_context, check_suspend_flags.
  */
 
+bh_static_assert(offsetof(WASMExecEnv, cur_frame) == 1 * sizeof(uintptr_t));
 bh_static_assert(offsetof(WASMExecEnv, module_inst) == 2 * sizeof(uintptr_t));
 bh_static_assert(offsetof(WASMExecEnv, argv_buf) == 3 * sizeof(uintptr_t));
 bh_static_assert(offsetof(WASMExecEnv, native_stack_boundary)
@@ -46,6 +47,11 @@ bh_static_assert(sizeof(AOTMemoryInstance) == 104);
 bh_static_assert(offsetof(AOTTableInstance, elems) == 8);
 
 bh_static_assert(offsetof(AOTModuleInstanceExtra, stack_sizes) == 0);
+
+bh_static_assert(offsetof(AOTFrame, ip_offset) == sizeof(uintptr_t) * 4);
+bh_static_assert(offsetof(AOTFrame, sp) == sizeof(uintptr_t) * 5);
+bh_static_assert(offsetof(AOTFrame, frame_ref) == sizeof(uintptr_t) * 6);
+bh_static_assert(offsetof(AOTFrame, lp) == sizeof(uintptr_t) * 7);
 
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
@@ -2638,23 +2644,50 @@ get_func_name_from_index(const AOTModuleInstance *module_inst,
 bool
 aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
 {
-    AOTFrame *frame =
-        wasm_exec_env_alloc_wasm_frame(exec_env, sizeof(AOTFrame));
-#if WASM_ENABLE_PERF_PROFILING != 0
     AOTModuleInstance *module_inst = (AOTModuleInstance *)exec_env->module_inst;
+    AOTModule *module = (AOTModule *)module_inst->module;
+#if WASM_ENABLE_PERF_PROFILING != 0
     AOTFuncPerfProfInfo *func_perf_prof =
         module_inst->func_perf_profilings + func_index;
 #endif
+    AOTFrame *frame;
+    uint32 max_local_cell_num, max_stack_cell_num, all_cell_num;
+    uint32 aot_func_idx, frame_size;
+
+    if (func_index >= module->import_func_count) {
+        aot_func_idx = func_index - module->import_func_count;
+        max_local_cell_num = module->max_local_cell_nums[aot_func_idx];
+        max_stack_cell_num = module->max_stack_cell_nums[aot_func_idx];
+    }
+    else {
+        AOTFuncType *func_type = module->import_funcs[func_index].func_type;
+        max_local_cell_num =
+            func_type->param_cell_num > 2 ? func_type->param_cell_num : 2;
+        max_stack_cell_num = 0;
+    }
+
+    all_cell_num = max_local_cell_num + max_stack_cell_num;
+#if WASM_ENABLE_GC == 0
+    frame_size = (uint32)offsetof(AOTFrame, lp) + all_cell_num * 4;
+#else
+    frame_size =
+        (uint32)offsetof(AOTFrame, lp) + align_uint(all_cell_num * 5, 4);
+#endif
+    frame = wasm_exec_env_alloc_wasm_frame(exec_env, frame_size);
 
     if (!frame) {
         aot_set_exception((AOTModuleInstance *)exec_env->module_inst,
-                          "auxiliary call stack overflow");
+                          "wasm operand stack overflow");
         return false;
     }
 
 #if WASM_ENABLE_PERF_PROFILING != 0
-    frame->time_started = os_time_get_boot_microsecond();
+    frame->time_started = (uintptr_t)os_time_get_boot_microsecond();
     frame->func_perf_prof_info = func_perf_prof;
+#endif
+    frame->sp = frame->lp + max_local_cell_num;
+#if WASM_ENABLE_GC != 0
+    frame->frame_ref = frame->sp + max_stack_cell_num;
 #endif
 
     frame->prev_frame = (AOTFrame *)exec_env->cur_frame;
@@ -2672,7 +2705,7 @@ aot_free_frame(WASMExecEnv *exec_env)
 
 #if WASM_ENABLE_PERF_PROFILING != 0
     cur_frame->func_perf_prof_info->total_exec_time +=
-        os_time_get_boot_microsecond() - cur_frame->time_started;
+        (uintptr_t)os_time_get_boot_microsecond() - cur_frame->time_started;
     cur_frame->func_perf_prof_info->total_exec_cnt++;
 #endif
 
