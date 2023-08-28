@@ -65,9 +65,11 @@ wasm_runtime_interrupt_blocking_op(wasm_exec_env_t env)
     LOCK(env);
     SET(env, TERMINATE);
     while (ISSET(env, BLOCKING)) {
+        UNLOCK(env);
         os_wakeup_blocking_op(env->handle);
 
         /* relax a bit */
         os_usleep(50 * 1000);
+        LOCK(env);
     }
 }
