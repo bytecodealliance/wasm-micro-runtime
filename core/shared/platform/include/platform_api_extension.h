@@ -323,6 +323,14 @@ os_sem_getvalue(korp_sem *sem, int *sval);
 int
 os_sem_unlink(const char *name);
 
+/* */
+void
+os_begin_blocking_op();
+void
+os_end_blocking_op();
+int
+os_wakeup_blocking_op(korp_tid tid);
+
 /****************************************************
  *                     Section 2                    *
  *                   Socket support                 *
