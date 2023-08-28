@@ -112,6 +112,8 @@ sweep_instance_heap(gc_heap_t *heap)
                     gc_unset_finalizer((gc_handle_t)heap, cur_obj);
                 }
             }
+
+            heap->total_free_size += size;
         }
         else {
             /* current block is still live */
