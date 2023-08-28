@@ -668,6 +668,16 @@ void
 wasm_propagate_wasi_args(WASMModule *module);
 #endif
 
+#if WASM_ENABLE_THREAD_MGR != 0
+void
+exception_lock(WASMModuleInstance *module_inst);
+void
+exception_unlock(WASMModuleInstance *module_inst);
+#else
+#define exception_lock(module_inst) (void)(module_inst)
+#define exception_unlock(module_inst) (void)(module_inst)
+#endif
+
 #ifdef __cplusplus
 }
 #endif
