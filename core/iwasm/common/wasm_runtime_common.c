@@ -5999,8 +5999,8 @@ wasm_runtime_sub_module_instantiate(WASMModuleCommon *module,
                       sub_module_list_node->module_name);
             return false;
         }
-        sub_module_inst_list_node =
-            loader_malloc(sizeof(WASMSubModInstNode), error_buf, error_buf_size);
+        sub_module_inst_list_node = loader_malloc(sizeof(WASMSubModInstNode),
+                                                  error_buf, error_buf_size);
         if (!sub_module_inst_list_node) {
             LOG_DEBUG("Malloc WASMSubModInstNode failed, SZ:%d",
                       sizeof(WASMSubModInstNode));
