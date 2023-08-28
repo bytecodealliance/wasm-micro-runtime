@@ -1148,6 +1148,7 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
         goto fail;
     }
 #endif
+
     /* Initialize global info */
     p = (uint8 *)module_inst + module_inst_struct_size
         + module_inst_mem_inst_size;
@@ -1273,6 +1274,7 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
 #if WASM_ENABLE_MULTI_MODULE != 0
     sub_module_deinstantiate((WASMModuleInstanceCommon *)module_inst);
 #endif
+
     if (module_inst->tables)
         wasm_runtime_free(module_inst->tables);
 

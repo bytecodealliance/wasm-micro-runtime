@@ -124,6 +124,7 @@ runtime_malloc(uint64 size, WASMModuleInstanceCommon *module_inst,
     memset(mem, 0, (uint32)size);
     return mem;
 }
+
 #if WASM_ENABLE_MULTI_MODULE != 0
 /*
     Todo:
@@ -5851,9 +5852,7 @@ load_depended_module(const WASMModuleCommon *parent_module,
     bool ret = false;
     uint8 *buffer = NULL;
     uint32 buffer_size = 0;
-    const module_reader reader = wasm_runtime_get_module_reader();
-    const module_destroyer destroyer = wasm_runtime_get_module_destroyer();
-
+    
     /* check the registered module list of the parent */
     sub_module = search_sub_module(parent_module, sub_module_name);
     if (sub_module) {
@@ -5997,7 +5996,7 @@ sub_module_instantiate(WASMModuleCommon *module,
         if (!sub_module_inst_list_node) {
             LOG_DEBUG("Malloc WASMSubModInstNode failed, SZ:%d",
                       sizeof(WASMSubModInstNode));
-            goto failed;
+            return false;
         }
         sub_module_inst_list_node->module_inst =
             (WASMModuleInstance *)sub_module_inst;
@@ -6053,4 +6052,4 @@ sub_module_deinstantiate(WASMModuleInstanceCommon *module_inst)
         node = next_node;
     }
 }
-#endif
+#endif /* end of WASM_ENABLE_MULTI_MODULE */
