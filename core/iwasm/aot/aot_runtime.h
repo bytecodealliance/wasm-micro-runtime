@@ -256,7 +256,10 @@ typedef struct AOTModule {
 #define AOTMemoryInstance WASMMemoryInstance
 #define AOTTableInstance WASMTableInstance
 #define AOTModuleInstance WASMModuleInstance
+
+#if WASM_ENABLE_MULTI_MODULE != 0
 #define AOTSubModInstNode WASMSubModInstNode
+#endif
 
 /* Target info, read from ELF header of object file */
 typedef struct AOTTargetInfo {
