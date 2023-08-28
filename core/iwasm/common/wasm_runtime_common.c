@@ -2377,8 +2377,6 @@ wasm_runtime_get_exec_env_singleton(WASMModuleInstanceCommon *module_inst_comm)
 void
 wasm_set_exception(WASMModuleInstance *module_inst, const char *exception)
 {
-    WASMExecEnv *exec_env = NULL;
-
     exception_lock(module_inst);
     if (exception) {
         snprintf(module_inst->cur_exception, sizeof(module_inst->cur_exception),
@@ -2390,13 +2388,11 @@ wasm_set_exception(WASMModuleInstance *module_inst, const char *exception)
     exception_unlock(module_inst);
 
 #if WASM_ENABLE_THREAD_MGR != 0
-    exec_env =
+    WASMExecEnv *exec_env =
         wasm_clusters_search_exec_env((WASMModuleInstanceCommon *)module_inst);
     if (exec_env) {
-        wasm_cluster_spread_exception(exec_env, exception ? false : true);
+        wasm_cluster_spread_exception(exec_env, exception);
     }
-#else
-    (void)exec_env;
 #endif
 }
 

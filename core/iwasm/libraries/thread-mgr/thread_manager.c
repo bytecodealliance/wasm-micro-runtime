@@ -1243,60 +1243,52 @@ wasm_cluster_resume_all(WASMCluster *cluster)
     os_mutex_unlock(&cluster->lock);
 }
 
+struct spread_exception_data {
+    WASMExecEnv *skip;
+    const char *exception;
+};
+
 static void
 set_exception_visitor(void *node, void *user_data)
 {
-    WASMExecEnv *curr_exec_env = (WASMExecEnv *)node;
-    WASMExecEnv *exec_env = (WASMExecEnv *)user_data;
-    WASMModuleInstanceCommon *module_inst = get_module_inst(exec_env);
-    WASMModuleInstance *wasm_inst = (WASMModuleInstance *)module_inst;
+    const struct spread_exception_data *data = user_data;
+    WASMExecEnv *exec_env = (WASMExecEnv *)node;
 
-    if (curr_exec_env != exec_env) {
-        WASMModuleInstance *curr_wasm_inst =
-            (WASMModuleInstance *)get_module_inst(curr_exec_env);
+    if (exec_env != data->skip) {
+        WASMModuleInstance *wasm_inst =
+            (WASMModuleInstance *)get_module_inst(exec_env);
 
-        /* Only spread non "wasi proc exit" exception */
-        exception_lock(curr_wasm_inst);
-        if (!strstr(wasm_inst->cur_exception, "wasi proc exit")) {
-            bh_memcpy_s(curr_wasm_inst->cur_exception,
-                        sizeof(curr_wasm_inst->cur_exception),
-                        wasm_inst->cur_exception,
-                        sizeof(wasm_inst->cur_exception));
+        exception_lock(wasm_inst);
+        if (data->exception != NULL) {
+            snprintf(wasm_inst->cur_exception, sizeof(wasm_inst->cur_exception),
+                     "Exception: %s", data->exception);
         }
-        exception_unlock(curr_wasm_inst);
+        else {
+            wasm_inst->cur_exception[0] = '\0';
+        }
+        exception_unlock(wasm_inst);
 
         /* Terminate the thread so it can exit from dead loops */
-        set_thread_cancel_flags(curr_exec_env);
-    }
-}
-
-static void
-clear_exception_visitor(void *node, void *user_data)
-{
-    WASMExecEnv *exec_env = (WASMExecEnv *)user_data;
-    WASMExecEnv *curr_exec_env = (WASMExecEnv *)node;
-
-    if (curr_exec_env != exec_env) {
-        WASMModuleInstance *curr_wasm_inst =
-            (WASMModuleInstance *)get_module_inst(curr_exec_env);
-
-        exception_lock(curr_wasm_inst);
-        curr_wasm_inst->cur_exception[0] = '\0';
-        exception_unlock(curr_wasm_inst);
+        if (data->exception != NULL) {
+            set_thread_cancel_flags(exec_env);
+        }
     }
 }
 
 void
-wasm_cluster_spread_exception(WASMExecEnv *exec_env, bool clear)
+wasm_cluster_spread_exception(WASMExecEnv *exec_env, const char *exception)
 {
+    const bool has_exception = exception != NULL;
     WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
     bh_assert(cluster);
 
+    struct spread_exception_data data;
+    data.skip = exec_env;
+    data.exception = exception;
+
     os_mutex_lock(&cluster->lock);
-    cluster->has_exception = !clear;
-    traverse_list(&cluster->exec_env_list,
-                  clear ? clear_exception_visitor : set_exception_visitor,
-                  exec_env);
+    cluster->has_exception = has_exception;
+    traverse_list(&cluster->exec_env_list, set_exception_visitor, &data);
     os_mutex_unlock(&cluster->lock);
 }
 
