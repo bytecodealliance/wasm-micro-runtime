@@ -5987,7 +5987,7 @@ wasm_runtime_sub_module_instantiate(WASMModuleCommon *module,
 
     bh_assert(sub_module_list_node);
     while (sub_module_list_node) {
-        AOTSubModInstNode *sub_module_inst_list_node = NULL;
+        WASMSubModInstNode *sub_module_inst_list_node = NULL;
         WASMModuleCommon *sub_module = sub_module_list_node->module;
         WASMModuleInstanceCommon *sub_module_inst = NULL;
 
@@ -6000,10 +6000,10 @@ wasm_runtime_sub_module_instantiate(WASMModuleCommon *module,
             return false;
         }
         sub_module_inst_list_node =
-            loader_malloc(sizeof(AOTSubModInstNode), error_buf, error_buf_size);
+            loader_malloc(sizeof(WASMSubModInstNode), error_buf, error_buf_size);
         if (!sub_module_inst_list_node) {
-            LOG_DEBUG("Malloc AOTSubModInstNode failed, SZ:%d",
-                      sizeof(AOTSubModInstNode));
+            LOG_DEBUG("Malloc WASMSubModInstNode failed, SZ:%d",
+                      sizeof(WASMSubModInstNode));
             if (sub_module_inst)
                 wasm_runtime_deinstantiate_internal(sub_module_inst, false);
             return false;
@@ -6041,9 +6041,9 @@ wasm_runtime_sub_module_deinstantiate(WASMModuleInstanceCommon *module_inst)
     }
 #endif
 
-    AOTSubModInstNode *node = bh_list_first_elem(list);
+    WASMSubModInstNode *node = bh_list_first_elem(list);
     while (node) {
-        AOTSubModInstNode *next_node = bh_list_elem_next(node);
+        WASMSubModInstNode *next_node = bh_list_elem_next(node);
         bh_list_remove(list, node);
         wasm_runtime_deinstantiate_internal(
             (WASMModuleInstanceCommon *)node->module_inst, false);
