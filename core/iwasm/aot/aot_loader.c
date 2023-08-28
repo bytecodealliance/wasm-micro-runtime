@@ -1446,7 +1446,7 @@ load_import_funcs(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             &import_funcs[i].call_conv_raw);
         if (!linked_func) {
             if (!wasm_runtime_is_built_in_module(module_name)) {
-                sub_module = (AOTModule *)load_depended_module(
+                sub_module = (AOTModule *)wasm_runtime_load_depended_module(
                     (WASMModuleCommon *)module, module_name, error_buf,
                     error_buf_size);
                 if (!sub_module) {
@@ -2955,7 +2955,7 @@ create_module(char *error_buf, uint32 error_buf_size)
 {
     AOTModule *module =
         loader_malloc(sizeof(AOTModule), error_buf, error_buf_size);
-        
+
     bh_list_status ret;
     if (!module) {
         return NULL;

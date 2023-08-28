@@ -256,13 +256,7 @@ typedef struct AOTModule {
 #define AOTMemoryInstance WASMMemoryInstance
 #define AOTTableInstance WASMTableInstance
 #define AOTModuleInstance WASMModuleInstance
-
-typedef struct AOTSubModInstNode {
-    bh_list_link l;
-    /* point to a string pool */
-    const char *module_name;
-    AOTModuleInstance *module_inst;
-} AOTSubModInstNode;
+#define AOTSubModInstNode WASMSubModInstNode
 
 /* Target info, read from ELF header of object file */
 typedef struct AOTTargetInfo {

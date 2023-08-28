@@ -127,9 +127,10 @@ runtime_malloc(uint64 size, WASMModuleInstanceCommon *module_inst,
 
 #if WASM_ENABLE_MULTI_MODULE != 0
 /*
-    Todo:
-    Let loader_malloc to be a general API both for AOT and WASM.
+    TODO:
+    Let loader_malloc be a general API both for AOT and WASM.
 */
+
 #define loader_malloc(size, error_buf, error_buf_size) \
     runtime_malloc(size, NULL, error_buf, error_buf_size)
 static void
@@ -153,6 +154,7 @@ set_error_buf_v(const WASMModuleCommon *module, char *error_buf,
     }
 }
 #endif
+
 #if WASM_ENABLE_FAST_JIT != 0
 static JitCompOptions jit_options = { 0 };
 #endif
@@ -5784,8 +5786,8 @@ exit:
 
 #if WASM_ENABLE_MULTI_MODULE != 0
 WASMModuleCommon *
-search_sub_module(const WASMModuleCommon *parent_module,
-                  const char *sub_module_name)
+wasm_runtime_search_sub_module(const WASMModuleCommon *parent_module,
+                               const char *sub_module_name)
 {
     WASMRegisteredModule *node = NULL;
 #if WASM_ENABLE_AOT != 0
@@ -5807,14 +5809,15 @@ search_sub_module(const WASMModuleCommon *parent_module,
 }
 
 bool
-register_sub_module(const WASMModuleCommon *parent_module,
-                    const char *sub_module_name, WASMModuleCommon *sub_module)
+wasm_runtime_register_sub_module(const WASMModuleCommon *parent_module,
+                                 const char *sub_module_name,
+                                 WASMModuleCommon *sub_module)
 {
     /* register sub_module into its parent sub module list */
     WASMRegisteredModule *node = NULL;
     bh_list_status ret;
 
-    if (search_sub_module(parent_module, sub_module_name)) {
+    if (wasm_runtime_search_sub_module(parent_module, sub_module_name)) {
         LOG_DEBUG("%s has been registered in its parent", sub_module_name);
         return true;
     }
@@ -5844,17 +5847,17 @@ register_sub_module(const WASMModuleCommon *parent_module,
 }
 
 WASMModuleCommon *
-load_depended_module(const WASMModuleCommon *parent_module,
-                     const char *sub_module_name, char *error_buf,
-                     uint32 error_buf_size)
+wasm_runtime_load_depended_module(const WASMModuleCommon *parent_module,
+                                  const char *sub_module_name, char *error_buf,
+                                  uint32 error_buf_size)
 {
     WASMModuleCommon *sub_module = NULL;
     bool ret = false;
     uint8 *buffer = NULL;
     uint32 buffer_size = 0;
-    
+
     /* check the registered module list of the parent */
-    sub_module = search_sub_module(parent_module, sub_module_name);
+    sub_module = wasm_runtime_search_sub_module(parent_module, sub_module_name);
     if (sub_module) {
         LOG_DEBUG("%s has been loaded before", sub_module_name);
         return sub_module;
@@ -5864,7 +5867,7 @@ load_depended_module(const WASMModuleCommon *parent_module,
     sub_module = wasm_runtime_find_module_registered(sub_module_name);
     if (sub_module) {
         LOG_DEBUG("%s has been loaded", sub_module_name);
-        goto register_sub_module;
+        goto wasm_runtime_register_sub_module;
     }
     LOG_VERBOSE("loading %s", sub_module_name);
     if (!reader) {
@@ -5923,8 +5926,9 @@ load_depended_module(const WASMModuleCommon *parent_module,
     }
 
     /* register into its parent list */
-register_sub_module:
-    ret = register_sub_module(parent_module, sub_module_name, sub_module);
+wasm_runtime_register_sub_module:
+    ret = wasm_runtime_register_sub_module(parent_module, sub_module_name,
+                                           sub_module);
     if (!ret) {
         set_error_buf_v(parent_module, error_buf, error_buf_size,
                         "failed to register sub module %s", sub_module_name);
@@ -5954,12 +5958,14 @@ delete_loading_module:
 }
 
 bool
-sub_module_instantiate(WASMModuleCommon *module,
-                       WASMModuleInstanceCommon *module_inst, uint32 stack_size,
-                       uint32 heap_size, char *error_buf, uint32 error_buf_size)
+wasm_runtime_sub_module_instantiate(WASMModuleCommon *module,
+                                    WASMModuleInstanceCommon *module_inst,
+                                    uint32 stack_size, uint32 heap_size,
+                                    char *error_buf, uint32 error_buf_size)
 {
     bh_list *sub_module_inst_list = NULL;
     WASMRegisteredModule *sub_module_list_node = NULL;
+
 #if WASM_ENABLE_AOT != 0
     if (module->module_type == Wasm_Module_AoT) {
         sub_module_inst_list =
@@ -5978,8 +5984,10 @@ sub_module_instantiate(WASMModuleCommon *module,
             bh_list_first_elem(((WASMModule *)module)->import_module_list);
     }
 #endif
+
+    bh_assert(sub_module_list_node);
     while (sub_module_list_node) {
-        WASMSubModInstNode *sub_module_inst_list_node = NULL;
+        AOTSubModInstNode *sub_module_inst_list_node = NULL;
         WASMModuleCommon *sub_module = sub_module_list_node->module;
         WASMModuleInstanceCommon *sub_module_inst = NULL;
 
@@ -5989,13 +5997,15 @@ sub_module_instantiate(WASMModuleCommon *module,
         if (!sub_module_inst) {
             LOG_DEBUG("instantiate %s failed",
                       sub_module_list_node->module_name);
-            goto failed;
+            return false;
         }
-        sub_module_inst_list_node = loader_malloc(sizeof(WASMSubModInstNode),
-                                                  error_buf, error_buf_size);
+        sub_module_inst_list_node =
+            loader_malloc(sizeof(AOTSubModInstNode), error_buf, error_buf_size);
         if (!sub_module_inst_list_node) {
-            LOG_DEBUG("Malloc WASMSubModInstNode failed, SZ:%d",
-                      sizeof(WASMSubModInstNode));
+            LOG_DEBUG("Malloc AOTSubModInstNode failed, SZ:%d",
+                      sizeof(AOTSubModInstNode));
+            if (sub_module_inst)
+                wasm_runtime_deinstantiate_internal(sub_module_inst, false);
             return false;
         }
         sub_module_inst_list_node->module_inst =
@@ -6006,26 +6016,15 @@ sub_module_instantiate(WASMModuleCommon *module,
             bh_list_insert(sub_module_inst_list, sub_module_inst_list_node);
         bh_assert(BH_LIST_SUCCESS == ret);
         (void)ret;
-
         sub_module_list_node = bh_list_elem_next(sub_module_list_node);
-
         continue;
-    failed:
-        if (sub_module_inst_list_node) {
-            bh_list_remove(sub_module_inst_list, sub_module_inst_list_node);
-            wasm_runtime_free(sub_module_inst_list_node);
-        }
-
-        if (sub_module_inst)
-            wasm_runtime_deinstantiate_internal(sub_module_inst, false);
-        return false;
     }
 
     return true;
 }
 
 void
-sub_module_deinstantiate(WASMModuleInstanceCommon *module_inst)
+wasm_runtime_sub_module_deinstantiate(WASMModuleInstanceCommon *module_inst)
 {
     bh_list *list = NULL;
 #if WASM_ENABLE_AOT != 0
@@ -6041,10 +6040,10 @@ sub_module_deinstantiate(WASMModuleInstanceCommon *module_inst)
                 ->sub_module_inst_list;
     }
 #endif
-    WASMSubModInstNode *node = bh_list_first_elem(list);
 
+    AOTSubModInstNode *node = bh_list_first_elem(list);
     while (node) {
-        WASMSubModInstNode *next_node = bh_list_elem_next(node);
+        AOTSubModInstNode *next_node = bh_list_elem_next(node);
         bh_list_remove(list, node);
         wasm_runtime_deinstantiate_internal(
             (WASMModuleInstanceCommon *)node->module_inst, false);
