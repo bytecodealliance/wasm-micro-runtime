@@ -8,6 +8,8 @@
 #include "wasm_export.h"
 #include "wasm_runtime_common.h"
 
+
+
 #if WASM_ENABLE_THREAD_MGR != 0
 #include "../../../thread-mgr/thread_manager.h"
 #endif
@@ -1203,6 +1205,35 @@ wasi_sock_addr_resolve(wasm_exec_env_t exec_env, const char *host,
 static wasi_errno_t
 wasi_sock_bind(wasm_exec_env_t exec_env, wasi_fd_t fd, wasi_addr_t *addr)
 {
+    // store add+port : ip4/ip6
+    struct SocketAddrPool address;
+    //check addr kind and build SocketAddrPool struct
+    if(addr->kind == 0) {
+        //ipv4
+        address.is_4 = true;
+        address.ip4[0] = addr->addr.ip4.addr.n0;
+        address.ip4[1] = addr->addr.ip4.addr.n1;
+        address.ip4[2] = addr->addr.ip4.addr.n2;
+        address.ip4[3] = addr->addr.ip4.addr.n3;
+
+        address.port = addr->addr.ip4.port;
+    } else {
+        //ipv6
+        address.ip6[0] = addr->addr.ip6.addr.n0;
+        address.ip6[1] = addr->addr.ip6.addr.n1;
+        address.ip6[2] = addr->addr.ip6.addr.n2;
+        address.ip6[3] = addr->addr.ip6.addr.n3;
+        address.ip6[4] = addr->addr.ip6.addr.h0;
+        address.ip6[5] = addr->addr.ip6.addr.h1;
+        address.ip6[6] = addr->addr.ip6.addr.h2;
+        address.ip6[7] = addr->addr.ip6.addr.h3;
+
+        address.port = addr->addr.ip6.port;
+    }
+
+    //update socketfd addr
+    update_socket_fd_address(fd, &address);
+
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
@@ -1606,6 +1637,13 @@ wasi_sock_open(wasm_exec_env_t exec_env, wasi_fd_t poolfd,
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
+
+    #if WASM_ENABLE_CHECKPOINT_RESTORE!=0
+    // note: pass default protocol 0 - IP
+    if(sockfd) 
+        insert_socket(*sockfd, af, socktype, 0);
+    
+    #endif
 
     if (!wasi_ctx)
         return __WASI_EACCES;
