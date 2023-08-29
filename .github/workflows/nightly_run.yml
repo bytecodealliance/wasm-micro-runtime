@@ -599,6 +599,11 @@ jobs:
         run: bash build.sh --sysroot "$SYSROOT_PATH"
         working-directory: ./core/iwasm/libraries/lib-wasi-threads/test/
 
+      - name: Build WASI thread stress tests
+        if: matrix.test_option == '$WASI_TEST_OPTIONS'
+        run: bash build.sh --sysroot "$SYSROOT_PATH"
+        working-directory: ./core/iwasm/libraries/lib-wasi-threads/stress-test/
+
       - name: build socket api tests
         if: matrix.test_option == '$WASI_TEST_OPTIONS'
         run: bash build.sh
