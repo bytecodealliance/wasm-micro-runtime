@@ -7911,7 +7911,7 @@ re_scan:
                              __FUNCTION__, label_type,
                              frame_csp_tmp->label_type);
 
-                void(label_type);
+                (void)label_type;
                 /* rethrow is stack polymorphic */
                 RESET_STACK();
                 break;
