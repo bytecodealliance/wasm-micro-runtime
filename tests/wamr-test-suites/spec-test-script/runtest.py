@@ -1010,6 +1010,9 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r, output = '
     if opts.multi_thread:
         cmd.append("--enable-multi-thread")
 
+    if opts.gc:
+        cmd.append("--enable-gc")
+
     if output == 'object':
         cmd.append("--format=object")
     elif output == 'ir':
