@@ -428,7 +428,7 @@ os_thread_get_stack_boundary()
  *   the stack guard pages are set and signal alternate stack are set.
  */
 static os_thread_local_attribute bool thread_signal_inited = false;
-static bool g_proc_signal_inited = false;
+static bool g_proc_signal_inited = false; /* process-wide initialization */
 
 #if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
 /* The signal alternate stack base addr */
