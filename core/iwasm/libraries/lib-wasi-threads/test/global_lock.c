@@ -61,7 +61,7 @@ main(int argc, char **argv)
     for (int i = 0; i < NUM_THREADS; i++) {
         assert(start_args_init(&data[i].base));
         thread_ids[i] = __wasi_thread_spawn(&data[i]);
-        assert(thread_ids[i] > 0 && "Thread creation failed");
+        ASSERT_VALID_TID(thread_ids[i]);
     }
 
     printf("Wait for threads to finish\n");
