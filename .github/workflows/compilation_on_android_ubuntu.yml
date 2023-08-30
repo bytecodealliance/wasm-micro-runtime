@@ -72,7 +72,7 @@ jobs:
     with:
       os: "ubuntu-22.04"
       arch: "X86"
-  
+
   build_wamrc:
     needs:
       [build_llvm_libraries_on_ubuntu_2204]
@@ -240,6 +240,14 @@ jobs:
           cmake .. ${{ matrix.make_options_run_mode }} ${{ matrix.make_options_feature }}
           cmake --build . --config Release --parallel 4
         working-directory: product-mini/platforms/${{ matrix.platform }}
+
+      - name: Build and run unit tests
+        run: |
+          mkdir build-unittests && cd build-unittests
+          cmake .. ${{ matrix.make_options_run_mode }} ${{ matrix.make_options_feature }}
+          cmake --build . --config Release --parallel 4
+          ctest
+        working-directory: tests/unit
 
   build_samples_wasm_c_api:
     needs:
@@ -483,7 +491,7 @@ jobs:
           sudo tar -xzf wasi-sdk-*.tar.gz
           sudo mv wasi-sdk-20.0 wasi-sdk
 
-      # It is a temporary solution until new wasi-sdk that includes bug fixes is released 
+      # It is a temporary solution until new wasi-sdk that includes bug fixes is released
       - name: build wasi-libc from source
         if: matrix.test_option == '$WASI_TEST_OPTIONS'
         run: |
