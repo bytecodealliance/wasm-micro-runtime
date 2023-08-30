@@ -33,20 +33,11 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Stress tests names
-thread_start_file_exclusions=("linear_memory_size_update.wasm")
-
 rm -rf *.wasm
 rm -rf *.aot
 
 for test_c in *.c; do
     test_wasm="$(basename $test_c .c).wasm"
-
-    if [[ " ${thread_start_file_exclusions[@]} " =~ " ${test_wasm} " ]] ; then
-        thread_start_file=""
-    else
-        thread_start_file=$WAMR_DIR/samples/wasi-threads/wasm-apps/wasi_thread_start.S
-    fi
 
     if [[ -n "$sysroot_path" ]]; then 
         if [ ! -d "$sysroot_path" ]; then 
@@ -60,7 +51,8 @@ for test_c in *.c; do
     $CC \
         -target wasm32-wasi-threads \
         -O2 \
-        -pthread -ftls-model=local-exec \
+        -Wall \
+        -pthread \
         -z stack-size=32768 \
         -Wl,--export=__heap_base \
         -Wl,--export=__data_end \
@@ -68,8 +60,6 @@ for test_c in *.c; do
         -Wl,--export=wasi_thread_start \
         -Wl,--export=malloc \
         -Wl,--export=free \
-        -I $WAMR_DIR/samples/wasi-threads/wasm-apps \
         $sysroot_command \
-        $thread_start_file \
         $test_c -o $test_wasm
 done

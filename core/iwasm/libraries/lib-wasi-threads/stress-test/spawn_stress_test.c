@@ -19,7 +19,7 @@
 enum CONSTANTS {
     NUM_ITER = 100000,
     NUM_RETRY = 8,
-    MAX_NUM_THREADS = 8,
+    MAX_NUM_THREADS = 12,
     RETRY_SLEEP_TIME_US = 2000,
 };
 
