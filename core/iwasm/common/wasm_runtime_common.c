@@ -457,9 +457,16 @@ wasm_runtime_env_init()
     }
 #endif
 
+    if (os_blocking_op_init() != BHT_OK) {
+        goto fail11;
+    }
+    os_end_blocking_op();
+
     return true;
 
+fail11:
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
+    aot_compiler_destroy();
 fail10:
 #if WASM_ENABLE_FAST_JIT != 0
     jit_compiler_destroy();
@@ -1421,6 +1428,7 @@ wasm_runtime_thread_env_inited(void)
         return false;
 #endif
 #endif
+    os_end_blocking_op();
     return true;
 }
 

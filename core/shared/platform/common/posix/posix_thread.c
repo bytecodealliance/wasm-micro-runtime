@@ -17,9 +17,6 @@ typedef struct {
 #endif
 } thread_wrapper_arg;
 
-static int
-os_blocking_op_init();
-
 #ifdef OS_ENABLE_HW_BOUND_CHECK
 /* The signal handler passed to os_thread_signal_init() */
 static os_thread_local_attribute os_signal_handler signal_handler;
@@ -428,7 +425,6 @@ os_thread_get_stack_boundary()
  *   the stack guard pages are set and signal alternate stack are set.
  */
 static os_thread_local_attribute bool thread_signal_inited = false;
-static bool g_proc_signal_inited = false; /* process-wide initialization */
 
 #if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
 /* The signal alternate stack base addr */
@@ -586,13 +582,6 @@ os_thread_signal_init(os_signal_handler handler)
     if (thread_signal_inited)
         return 0;
 
-    if (!g_proc_signal_inited) {
-        if (os_blocking_op_init() != BHT_OK) {
-            return -1;
-        }
-        g_proc_signal_inited = true;
-    }
-
 #if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
     if (!init_stack_guard_pages()) {
         os_printf("Failed to init stack guard pages\n");
@@ -638,7 +627,6 @@ os_thread_signal_init(os_signal_handler handler)
 #endif
     signal_handler = handler;
     thread_signal_inited = true;
-    os_end_blocking_op();
     return 0;
 
 fail3:
@@ -707,48 +695,3 @@ os_sigreturn()
 #endif
 }
 #endif /* end of OS_ENABLE_HW_BOUND_CHECK */
-
-int g_blocking_op_signo;
-sigset_t g_blocking_op_sigmask;
-
-static void
-blocking_op_sighandler(int signo)
-{
-    /* nothing */
-}
-
-static int
-os_blocking_op_init()
-{
-    g_blocking_op_signo = SIGUSR1; /* XXX make this configurable */
-    sigemptyset(&g_blocking_op_sigmask);
-    sigaddset(&g_blocking_op_sigmask, g_blocking_op_signo);
-
-    struct sigaction sa;
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = 0;
-    sa.sa_handler = blocking_op_sighandler;
-    return sigaction(g_blocking_op_signo, &sa, NULL) ? BHT_ERROR : BHT_OK;
-}
-
-void
-os_begin_blocking_op()
-{
-    sigprocmask(SIG_UNBLOCK, &g_blocking_op_sigmask, NULL);
-}
-
-void
-os_end_blocking_op()
-{
-    sigprocmask(SIG_BLOCK, &g_blocking_op_sigmask, NULL);
-}
-
-int
-os_wakeup_blocking_op(korp_tid tid)
-{
-    int ret = pthread_kill(tid, g_blocking_op_signo);
-    if (ret != 0) {
-        return BHT_ERROR;
-    }
-    return BHT_OK;
-}

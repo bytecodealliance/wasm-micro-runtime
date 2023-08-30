@@ -324,6 +324,8 @@ int
 os_sem_unlink(const char *name);
 
 /* */
+int
+os_blocking_op_init();
 void
 os_begin_blocking_op();
 void
