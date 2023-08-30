@@ -354,8 +354,10 @@ CFLAGS += -I$(IWASM_ROOT)/interpreter
 endif
 
 CSRCS += nuttx_platform.c \
+         posix_blocking_op.c \
          posix_thread.c \
          posix_time.c \
+         posix_sleep.c \
          mem_alloc.c \
          ems_kfc.c \
          ems_alloc.c \
@@ -370,6 +372,7 @@ CSRCS += nuttx_platform.c \
          bh_read_file.c \
          runtime_timer.c \
          wasm_application.c \
+         wasm_blocking_op.c \
          wasm_runtime_common.c \
          wasm_native.c \
          wasm_exec_env.c \
