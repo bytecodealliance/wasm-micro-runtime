@@ -496,7 +496,8 @@ wasi_fd_read(wasm_exec_env_t exec_env, wasi_fd_t fd,
         iovec->buf_len = iovec_app->buf_len;
     }
 
-    err = wasmtime_ssp_fd_read(curfds, fd, iovec_begin, iovs_len, &nread);
+    err = wasmtime_ssp_fd_read(exec_env, curfds, fd, iovec_begin, iovs_len,
+                               &nread);
     if (err)
         goto fail;
 

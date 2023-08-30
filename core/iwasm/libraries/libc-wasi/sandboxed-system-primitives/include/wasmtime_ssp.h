@@ -22,6 +22,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "wasm_export.h"
+
 /* clang-format off */
 
 #ifdef __cplusplus
@@ -675,6 +677,7 @@ __wasi_errno_t wasmtime_ssp_fd_pwrite(
 ) WASMTIME_SSP_SYSCALL_NAME(fd_pwrite) __attribute__((__warn_unused_result__));
 
 __wasi_errno_t wasmtime_ssp_fd_read(
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
     __wasi_fd_t fd,
     const __wasi_iovec_t *iovs,

@@ -1036,8 +1036,9 @@ wasmtime_ssp_fd_pwrite(struct fd_table *curfds, __wasi_fd_t fd,
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_read(struct fd_table *curfds, __wasi_fd_t fd,
-                     const __wasi_iovec_t *iov, size_t iovcnt, size_t *nread)
+wasmtime_ssp_fd_read(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                     __wasi_fd_t fd, const __wasi_iovec_t *iov, size_t iovcnt,
+                     size_t *nread)
 {
     struct fd_object *fo;
     __wasi_errno_t error =
@@ -1045,7 +1046,12 @@ wasmtime_ssp_fd_read(struct fd_table *curfds, __wasi_fd_t fd,
     if (error != 0)
         return error;
 
+    if (!wasm_runtime_begin_blocking_op(exec_env)) {
+        fd_object_release(fo);
+        return __WASI_EINTR;
+    }
     ssize_t len = readv(fd_number(fo), (const struct iovec *)iov, (int)iovcnt);
+    wasm_runtime_end_blocking_op(exec_env);
     fd_object_release(fo);
     if (len < 0)
         return convert_errno(errno);
