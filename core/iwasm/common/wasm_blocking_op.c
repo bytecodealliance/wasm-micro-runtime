@@ -3,15 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#include "wasm_exec_env.h"
+#include "wasm_runtime_common.h"
 
 #include "bh_platform.h"
 #include "bh_common.h"
 #include "bh_assert.h"
 
 #if WASM_ENABLE_THREAD_MGR != 0
-
-typedef WASMExecEnv *wasm_exec_env_t;
 
 #define LOCK(env) WASM_SUSPEND_FLAGS_LOCK((env)->wait_lock)
 #define UNLOCK(env) WASM_SUSPEND_FLAGS_UNLOCK((env)->wait_lock)
