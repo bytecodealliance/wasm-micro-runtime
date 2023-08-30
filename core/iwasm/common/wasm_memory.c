@@ -8,6 +8,7 @@
 #include "../aot/aot_runtime.h"
 #include "bh_platform.h"
 #include "mem_alloc.h"
+#include "wasm_memory.h"
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
 #include "../common/wasm_shared_memory.h"
@@ -23,6 +24,8 @@ typedef enum Memory_Mode {
 static Memory_Mode memory_mode = MEMORY_MODE_UNKNOWN;
 
 static mem_allocator_t pool_allocator = NULL;
+
+static memory_grow_error_callback memory_grow_error_cb;
 
 #if WASM_MEM_ALLOC_WITH_USER_DATA != 0
 static void *allocator_user_data = NULL;
@@ -763,6 +766,12 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
 }
 #endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
+void
+set_memory_grow_error_callback(const memory_grow_error_callback callback)
+{
+    memory_grow_error_cb = callback;
+}
+
 bool
 wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
 {
@@ -777,6 +786,9 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
     if (module->memory_count > 0)
         shared_memory_unlock(module->memories[0]);
 #endif
+
+    if (!ret && memory_grow_error_cb)
+        memory_grow_error_cb(inc_page_count);
 
     return ret;
 }

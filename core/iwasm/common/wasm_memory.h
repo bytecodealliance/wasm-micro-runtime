@@ -24,6 +24,9 @@ wasm_runtime_memory_destroy();
 unsigned
 wasm_runtime_memory_pool_size();
 
+void
+set_memory_grow_error_callback(const memory_grow_error_callback callback);
+
 #ifdef __cplusplus
 }
 #endif

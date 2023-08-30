@@ -1439,6 +1439,14 @@ WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_is_import_global_linked(const char *module_name,
                                      const char *global_name);
 
+typedef void (*memory_grow_error_callback)(uint32_t inc_page_count);
+
+/**
+ * Setup callback invoked when memory.grow fails
+ */
+WASM_RUNTIME_API_EXTERN void
+set_memory_grow_error_callback(const memory_grow_error_callback callback);
+
 /* clang-format on */
 
 #ifdef __cplusplus
