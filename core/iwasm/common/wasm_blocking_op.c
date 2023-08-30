@@ -9,6 +9,8 @@
 #include "bh_common.h"
 #include "bh_assert.h"
 
+#if WASM_ENABLE_THREAD_MGR != 0
+
 typedef WASMExecEnv *wasm_exec_env_t;
 
 #define LOCK(env) WASM_SUSPEND_FLAGS_LOCK((env)->wait_lock)
@@ -73,3 +75,5 @@ wasm_runtime_interrupt_blocking_op(wasm_exec_env_t env)
         LOCK(env);
     }
 }
+
+#endif /* WASM_ENABLE_THREAD_MGR != 0 */
