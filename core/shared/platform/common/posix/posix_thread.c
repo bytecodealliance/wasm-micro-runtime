@@ -586,7 +586,7 @@ os_thread_signal_init(os_signal_handler handler)
     if (thread_signal_inited)
         return 0;
 
-    if (g_proc_signal_inited) {
+    if (!g_proc_signal_inited) {
         if (os_blocking_op_init() != BHT_OK) {
             return -1;
         }
