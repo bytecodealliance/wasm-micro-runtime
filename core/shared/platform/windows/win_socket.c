@@ -6,6 +6,8 @@
 #include "platform_api_vmcore.h"
 #include "platform_api_extension.h"
 
+#include <ws2tcpip.h>
+
 /* link with Ws2_32.lib */
 #pragma comment(lib, "ws2_32.lib")
 
