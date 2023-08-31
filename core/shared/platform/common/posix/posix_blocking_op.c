@@ -5,6 +5,8 @@
 
 #include "platform_api_extension.h"
 
+#ifdef OS_ENABLE_WAKEUP_BLOCKING_OP
+
 static bool g_blocking_op_inited = false;
 static int g_blocking_op_signo;
 static sigset_t g_blocking_op_sigmask;
@@ -58,3 +60,5 @@ os_wakeup_blocking_op(korp_tid tid)
     }
     return BHT_OK;
 }
+
+#endif /* OS_ENABLE_WAKEUP_BLOCKING_OP */

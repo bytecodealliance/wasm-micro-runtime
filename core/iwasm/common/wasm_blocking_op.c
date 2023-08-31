@@ -9,7 +9,7 @@
 #include "bh_common.h"
 #include "bh_assert.h"
 
-#if WASM_ENABLE_THREAD_MGR != 0
+#if WASM_ENABLE_THREAD_MGR != 0 && defined(OS_ENABLE_WAKEUP_BLOCKING_OP)
 
 #define LOCK(env) WASM_SUSPEND_FLAGS_LOCK((env)->wait_lock)
 #define UNLOCK(env) WASM_SUSPEND_FLAGS_UNLOCK((env)->wait_lock)
@@ -74,7 +74,7 @@ wasm_runtime_interrupt_blocking_op(wasm_exec_env_t env)
     }
 }
 
-#else /* WASM_ENABLE_THREAD_MGR */
+#else /* WASM_ENABLE_THREAD_MGR && OS_ENABLE_WAKEUP_BLOCKING_OP */
 
 bool
 wasm_runtime_begin_blocking_op(wasm_exec_env_t env)
@@ -86,4 +86,4 @@ void
 wasm_runtime_end_blocking_op(wasm_exec_env_t env)
 {}
 
-#endif /* WASM_ENABLE_THREAD_MGR */
+#endif /* WASM_ENABLE_THREAD_MGR && OS_ENABLE_WAKEUP_BLOCKING_OP */

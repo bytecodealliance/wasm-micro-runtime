@@ -115,6 +115,8 @@ os_sigreturn();
 #endif /* end of BUILD_TARGET_X86_64/AMD_64/AARCH64/RISCV64 */
 #endif /* end of WASM_DISABLE_HW_BOUND_CHECK */
 
+#define OS_ENABLE_WAKEUP_BLOCKING_OP
+
 #ifdef __cplusplus
 }
 #endif

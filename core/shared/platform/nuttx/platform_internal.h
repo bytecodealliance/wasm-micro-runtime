@@ -123,6 +123,8 @@ utimensat(int fd, const char *path, const struct timespec ts[2], int flag);
 DIR *
 fdopendir(int fd);
 
+#define OS_ENABLE_WAKEUP_BLOCKING_OP
+
 #ifdef __cplusplus
 }
 #endif
