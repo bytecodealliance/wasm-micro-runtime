@@ -2377,12 +2377,7 @@ wasm_runtime_get_exec_env_singleton(WASMModuleInstanceCommon *module_inst_comm)
 void
 wasm_set_exception(WASMModuleInstance *module_inst, const char *exception)
 {
-    WASMExecEnv *exec_env = NULL;
-
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    if (module_inst->memory_count > 0)
-        shared_memory_lock(module_inst->memories[0]);
-#endif
+    exception_lock(module_inst);
     if (exception) {
         snprintf(module_inst->cur_exception, sizeof(module_inst->cur_exception),
                  "Exception: %s", exception);
@@ -2390,19 +2385,14 @@ wasm_set_exception(WASMModuleInstance *module_inst, const char *exception)
     else {
         module_inst->cur_exception[0] = '\0';
     }
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    if (module_inst->memory_count > 0)
-        shared_memory_unlock(module_inst->memories[0]);
-#endif
+    exception_unlock(module_inst);
 
 #if WASM_ENABLE_THREAD_MGR != 0
-    exec_env =
+    WASMExecEnv *exec_env =
         wasm_clusters_search_exec_env((WASMModuleInstanceCommon *)module_inst);
     if (exec_env) {
-        wasm_cluster_spread_exception(exec_env, exception ? false : true);
+        wasm_cluster_spread_exception(exec_env, exception);
     }
-#else
-    (void)exec_env;
 #endif
 }
 
@@ -2453,10 +2443,7 @@ wasm_copy_exception(WASMModuleInstance *module_inst, char *exception_buf)
 {
     bool has_exception = false;
 
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    if (module_inst->memory_count > 0)
-        shared_memory_lock(module_inst->memories[0]);
-#endif
+    exception_lock(module_inst);
     if (module_inst->cur_exception[0] != '\0') {
         /* NULL is passed if the caller is not interested in getting the
          * exception content, but only in knowing if an exception has been
@@ -2468,10 +2455,7 @@ wasm_copy_exception(WASMModuleInstance *module_inst, char *exception_buf)
                         sizeof(module_inst->cur_exception));
         has_exception = true;
     }
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    if (module_inst->memory_count > 0)
-        shared_memory_unlock(module_inst->memories[0]);
-#endif
+    exception_unlock(module_inst);
 
     return has_exception;
 }

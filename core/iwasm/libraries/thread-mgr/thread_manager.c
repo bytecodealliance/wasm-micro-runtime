@@ -16,10 +16,6 @@
 #include "debug_engine.h"
 #endif
 
-#if WASM_ENABLE_SHARED_MEMORY != 0
-#include "wasm_shared_memory.h"
-#endif
-
 typedef struct {
     bh_list_link l;
     void (*destroy_cb)(WASMCluster *);
@@ -31,6 +27,8 @@ static bh_list *const destroy_callback_list = &destroy_callback_list_head;
 static bh_list cluster_list_head;
 static bh_list *const cluster_list = &cluster_list_head;
 static korp_mutex cluster_list_lock;
+
+static korp_mutex _exception_lock;
 
 typedef void (*list_visitor)(void *, void *);
 
@@ -52,6 +50,10 @@ thread_manager_init()
         return false;
     if (os_mutex_init(&cluster_list_lock) != 0)
         return false;
+    if (os_mutex_init(&_exception_lock) != 0) {
+        os_mutex_destroy(&cluster_list_lock);
+        return false;
+    }
     return true;
 }
 
@@ -66,6 +68,7 @@ thread_manager_destroy()
         cluster = next;
     }
     wasm_cluster_cancel_all_callbacks();
+    os_mutex_destroy(&_exception_lock);
     os_mutex_destroy(&cluster_list_lock);
 }
 
@@ -1240,72 +1243,56 @@ wasm_cluster_resume_all(WASMCluster *cluster)
     os_mutex_unlock(&cluster->lock);
 }
 
+struct spread_exception_data {
+    WASMExecEnv *skip;
+    const char *exception;
+};
+
 static void
 set_exception_visitor(void *node, void *user_data)
 {
-    WASMExecEnv *curr_exec_env = (WASMExecEnv *)node;
-    WASMExecEnv *exec_env = (WASMExecEnv *)user_data;
-    WASMModuleInstanceCommon *module_inst = get_module_inst(exec_env);
-    WASMModuleInstance *wasm_inst = (WASMModuleInstance *)module_inst;
+    const struct spread_exception_data *data = user_data;
+    WASMExecEnv *exec_env = (WASMExecEnv *)node;
 
-    if (curr_exec_env != exec_env) {
-        WASMModuleInstance *curr_wasm_inst =
-            (WASMModuleInstance *)get_module_inst(curr_exec_env);
+    if (exec_env != data->skip) {
+        WASMModuleInstance *wasm_inst =
+            (WASMModuleInstance *)get_module_inst(exec_env);
 
-        /* Only spread non "wasi proc exit" exception */
-#if WASM_ENABLE_SHARED_MEMORY != 0
-        if (curr_wasm_inst->memory_count > 0)
-            shared_memory_lock(curr_wasm_inst->memories[0]);
-#endif
-        if (!strstr(wasm_inst->cur_exception, "wasi proc exit")) {
-            bh_memcpy_s(curr_wasm_inst->cur_exception,
-                        sizeof(curr_wasm_inst->cur_exception),
-                        wasm_inst->cur_exception,
-                        sizeof(wasm_inst->cur_exception));
+        exception_lock(wasm_inst);
+        if (data->exception != NULL) {
+            /* Only spread non "wasi proc exit" exception */
+            if (strcmp(data->exception, "wasi proc exit")) {
+                snprintf(wasm_inst->cur_exception,
+                         sizeof(wasm_inst->cur_exception), "Exception: %s",
+                         data->exception);
+            }
         }
-#if WASM_ENABLE_SHARED_MEMORY != 0
-        if (curr_wasm_inst->memory_count > 0)
-            shared_memory_unlock(curr_wasm_inst->memories[0]);
-#endif
+        else {
+            wasm_inst->cur_exception[0] = '\0';
+        }
+        exception_unlock(wasm_inst);
 
         /* Terminate the thread so it can exit from dead loops */
-        set_thread_cancel_flags(curr_exec_env);
-    }
-}
-
-static void
-clear_exception_visitor(void *node, void *user_data)
-{
-    WASMExecEnv *exec_env = (WASMExecEnv *)user_data;
-    WASMExecEnv *curr_exec_env = (WASMExecEnv *)node;
-
-    if (curr_exec_env != exec_env) {
-        WASMModuleInstance *curr_wasm_inst =
-            (WASMModuleInstance *)get_module_inst(curr_exec_env);
-
-#if WASM_ENABLE_SHARED_MEMORY != 0
-        if (curr_wasm_inst->memory_count > 0)
-            shared_memory_lock(curr_wasm_inst->memories[0]);
-#endif
-        curr_wasm_inst->cur_exception[0] = '\0';
-#if WASM_ENABLE_SHARED_MEMORY != 0
-        if (curr_wasm_inst->memory_count > 0)
-            shared_memory_unlock(curr_wasm_inst->memories[0]);
-#endif
+        if (data->exception != NULL) {
+            set_thread_cancel_flags(exec_env);
+        }
     }
 }
 
 void
-wasm_cluster_spread_exception(WASMExecEnv *exec_env, bool clear)
+wasm_cluster_spread_exception(WASMExecEnv *exec_env, const char *exception)
 {
+    const bool has_exception = exception != NULL;
     WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
     bh_assert(cluster);
 
+    struct spread_exception_data data;
+    data.skip = exec_env;
+    data.exception = exception;
+
     os_mutex_lock(&cluster->lock);
-    cluster->has_exception = !clear;
-    traverse_list(&cluster->exec_env_list,
-                  clear ? clear_exception_visitor : set_exception_visitor,
-                  exec_env);
+    cluster->has_exception = has_exception;
+    traverse_list(&cluster->exec_env_list, set_exception_visitor, &data);
     os_mutex_unlock(&cluster->lock);
 }
 
@@ -1352,4 +1339,22 @@ wasm_cluster_is_thread_terminated(WASMExecEnv *exec_env)
     os_mutex_unlock(&exec_env->wait_lock);
 
     return is_thread_terminated;
+}
+
+void
+exception_lock(WASMModuleInstance *module_inst)
+{
+    /*
+     * Note: this lock could be per module instance if desirable.
+     * We can revisit on AOT version bump.
+     * It probably doesn't matter though because the exception handling
+     * logic should not be executed too frequently anyway.
+     */
+    os_mutex_lock(&_exception_lock);
+}
+
+void
+exception_unlock(WASMModuleInstance *module_inst)
+{
+    os_mutex_unlock(&_exception_lock);
 }
