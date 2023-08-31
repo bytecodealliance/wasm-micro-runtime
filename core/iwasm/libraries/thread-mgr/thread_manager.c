@@ -1260,12 +1260,8 @@ set_exception_visitor(void *node, void *user_data)
 
         exception_lock(wasm_inst);
         if (data->exception != NULL) {
-            /* Only spread non "wasi proc exit" exception */
-            if (strcmp(data->exception, "wasi proc exit")) {
-                snprintf(wasm_inst->cur_exception,
-                         sizeof(wasm_inst->cur_exception), "Exception: %s",
-                         data->exception);
-            }
+            snprintf(wasm_inst->cur_exception, sizeof(wasm_inst->cur_exception),
+                     "Exception: %s", data->exception);
         }
         else {
             wasm_inst->cur_exception[0] = '\0';
