@@ -40,6 +40,9 @@ os_thread_wrapper(void *arg)
     if (os_thread_signal_init(handler) != 0)
         return NULL;
 #endif
+#ifdef OS_ENABLE_WAKEUP_BLOCKING_OP
+    os_end_blocking_op();
+#endif
     start_func(thread_arg);
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     os_thread_signal_destroy();
