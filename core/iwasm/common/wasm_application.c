@@ -107,7 +107,22 @@ execute_main(WASMModuleInstanceCommon *module_inst, int32 argc, char *argv[])
        the actual main function. Directly calling main function
        may cause exception thrown. */
     if ((func = wasm_runtime_lookup_wasi_start_function(module_inst))) {
-        return wasm_runtime_call_wasm(exec_env, func, 0, NULL);
+        const char *wasi_proc_exit_exception = "wasi proc exit";
+
+        ret = wasm_runtime_call_wasm(exec_env, func, 0, NULL);
+        /* a successful return from _start is same as proc_exit(0). */
+        if (ret) {
+            wasm_runtime_set_exception(module_inst, wasi_proc_exit_exception);
+            /* exit_code is zero-initialized */
+            ret = false;
+        }
+        /* report wasm proc exit as a success */
+        WASMModuleInstance *inst = (WASMModuleInstance *)module_inst;
+        if (!ret && strstr(inst->cur_exception, wasi_proc_exit_exception)) {
+            inst->cur_exception[0] = 0;
+            ret = true;
+        }
+        return ret;
     }
 #endif /* end of WASM_ENABLE_LIBC_WASI */
 
