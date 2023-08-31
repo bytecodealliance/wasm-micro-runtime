@@ -1060,7 +1060,9 @@ set_thread_cancel_flags(WASMExecEnv *exec_env)
 
     os_mutex_unlock(&exec_env->wait_lock);
 
+#ifdef OS_ENABLE_WAKEUP_BLOCKING_OP
     wasm_runtime_interrupt_blocking_op(exec_env);
+#endif
 }
 
 static void
