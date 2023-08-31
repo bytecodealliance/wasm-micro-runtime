@@ -1405,6 +1405,10 @@ wasm_runtime_init_thread_env(void)
     }
 #endif
 
+#if WASM_ENABLE_THREAD_MGR != 0 && defined(OS_ENABLE_WAKEUP_BLOCKING_OP)
+    os_end_blocking_op();
+#endif
+
     return true;
 }
 
@@ -1434,7 +1438,6 @@ wasm_runtime_thread_env_inited(void)
         return false;
 #endif
 #endif
-    os_end_blocking_op();
     return true;
 }
 
