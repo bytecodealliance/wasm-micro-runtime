@@ -264,37 +264,6 @@ typedef uint8_t __wasi_sdflags_t;
 typedef uint16_t __wasi_siflags_t;
 
 typedef uint8_t __wasi_signal_t;
-// 0 is reserved; POSIX has special semantics for kill(pid, 0).
-#define __WASI_SIGHUP    (1)
-#define __WASI_SIGINT    (2)
-#define __WASI_SIGQUIT   (3)
-#define __WASI_SIGILL    (4)
-#define __WASI_SIGTRAP   (5)
-#define __WASI_SIGABRT   (6)
-#define __WASI_SIGBUS    (7)
-#define __WASI_SIGFPE    (8)
-#define __WASI_SIGKILL   (9)
-#define __WASI_SIGUSR1   (10)
-#define __WASI_SIGSEGV   (11)
-#define __WASI_SIGUSR2   (12)
-#define __WASI_SIGPIPE   (13)
-#define __WASI_SIGALRM   (14)
-#define __WASI_SIGTERM   (15)
-#define __WASI_SIGCHLD   (16)
-#define __WASI_SIGCONT   (17)
-#define __WASI_SIGSTOP   (18)
-#define __WASI_SIGTSTP   (19)
-#define __WASI_SIGTTIN   (20)
-#define __WASI_SIGTTOU   (21)
-#define __WASI_SIGURG    (22)
-#define __WASI_SIGXCPU   (23)
-#define __WASI_SIGXFSZ   (24)
-#define __WASI_SIGVTALRM (25)
-#define __WASI_SIGPROF   (26)
-#define __WASI_SIGWINCH  (27)
-#define __WASI_SIGPOLL   (28)
-#define __WASI_SIGPWR    (29)
-#define __WASI_SIGSYS    (30)
 
 typedef uint16_t __wasi_subclockflags_t;
 #define __WASI_SUBSCRIPTION_CLOCK_ABSTIME (0x0001)
@@ -985,20 +954,6 @@ __wasi_errno_t wasmtime_ssp_poll_oneoff(
     size_t nsubscriptions,
     size_t *nevents
 ) WASMTIME_SSP_SYSCALL_NAME(poll_oneoff) __attribute__((__warn_unused_result__));
-
-#if 0
-/**
- * We throw exception in libc-wasi wrapper function wasi_proc_exit()
- * but not call this function.
- */
-_Noreturn void wasmtime_ssp_proc_exit(
-    __wasi_exitcode_t rval
-) WASMTIME_SSP_SYSCALL_NAME(proc_exit);
-#endif
-
-__wasi_errno_t wasmtime_ssp_proc_raise(
-    __wasi_signal_t sig
-) WASMTIME_SSP_SYSCALL_NAME(proc_raise) __attribute__((__warn_unused_result__));
 
 __wasi_errno_t wasmtime_ssp_random_get(
     void *buf,
