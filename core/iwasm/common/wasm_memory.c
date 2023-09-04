@@ -700,11 +700,24 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
 #endif
 
 return_func:
-    if (!ret && enlarge_memory_error_cb)
+    if (!ret && enlarge_memory_error_cb) {
+        WASMExecEnv *exec_env = NULL;
+
+#if WASM_ENABLE_INTERP != 0
+        if (module->module_type == Wasm_Module_Bytecode)
+            exec_env =
+                ((WASMModuleInstanceExtra *)module->e)->common.cur_exec_env;
+#endif
+#if WASM_ENABLE_AOT != 0
+        if (module->module_type == Wasm_Module_AoT)
+            exec_env =
+                ((AOTModuleInstanceExtra *)module->e)->common.cur_exec_env;
+#endif
+
         enlarge_memory_error_cb(inc_page_count, total_size_old, 0,
-                                failure_reason, (wasm_module_inst_t)module,
-                                wasm_runtime_get_exec_env_singleton(
-                                    (WASMModuleInstanceCommon *)module));
+                                failure_reason,
+                                (WASMModuleInstanceCommon *)module, exec_env);
+    }
 
     return ret;
 }
@@ -793,11 +806,24 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
 #endif
 
 return_func:
-    if (!ret && enlarge_memory_error_cb)
+    if (!ret && enlarge_memory_error_cb) {
+        WASMExecEnv *exec_env = NULL;
+
+#if WASM_ENABLE_INTERP != 0
+        if (module->module_type == Wasm_Module_Bytecode)
+            exec_env =
+                ((WASMModuleInstanceExtra *)module->e)->common.cur_exec_env;
+#endif
+#if WASM_ENABLE_AOT != 0
+        if (module->module_type == Wasm_Module_AoT)
+            exec_env =
+                ((AOTModuleInstanceExtra *)module->e)->common.cur_exec_env;
+#endif
+
         enlarge_memory_error_cb(inc_page_count, total_size_old, 0,
-                                failure_reason, (wasm_module_inst_t)module,
-                                wasm_runtime_get_exec_env_singleton(
-                                    (WASMModuleInstanceCommon *)module));
+                                failure_reason,
+                                (WASMModuleInstanceCommon *)module, exec_env);
+    }
 
     return ret;
 }

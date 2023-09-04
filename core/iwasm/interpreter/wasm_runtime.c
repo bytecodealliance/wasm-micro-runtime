@@ -2400,6 +2400,9 @@ wasm_call_function(WASMExecEnv *exec_env, WASMFunctionInstance *function,
     /* set thread handle and stack boundary */
     wasm_exec_env_set_thread_info(exec_env);
 
+    /* set exec env so it can be later retrieved from instance */
+    module_inst->e->common.cur_exec_env = exec_env;
+
     interp_call_wasm(module_inst, exec_env, function, argc, argv);
     return !wasm_copy_exception(module_inst, NULL);
 }
