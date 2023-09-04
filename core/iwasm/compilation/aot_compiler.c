@@ -536,7 +536,8 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 }
 
                 read_leb_uint32(frame_ip, frame_ip_end, type_idx);
-                if (!aot_compile_op_call_ref(comp_ctx, func_ctx, type_idx))
+                if (!aot_compile_op_call_ref(comp_ctx, func_ctx, type_idx,
+                                             false))
                     return false;
                 break;
 
@@ -546,7 +547,8 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 }
 
                 read_leb_uint32(frame_ip, frame_ip_end, type_idx);
-                if (!aot_compile_op_call_ref(comp_ctx, func_ctx, type_idx))
+                if (!aot_compile_op_call_ref(comp_ctx, func_ctx, type_idx,
+                                             true))
                     return false;
                 if (!aot_compile_op_return(comp_ctx, func_ctx, &frame_ip))
                     return false;

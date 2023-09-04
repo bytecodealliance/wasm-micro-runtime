@@ -129,7 +129,6 @@ check_type_compatible(uint8 src_type, uint8 dst_type)
             func_ctx->block_stack.block_list_end->value_stack.value_list_end; \
         if (aot_value->type != VALUE_TYPE_GC_REF) {                           \
             aot_set_last_error("WASM stack data type is not reference");      \
-            wasm_runtime_free(aot_value);                                     \
             goto fail;                                                        \
         }                                                                     \
         llvm_value = aot_value->value;                                        \

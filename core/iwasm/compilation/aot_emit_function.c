@@ -1728,12 +1728,11 @@ fail:
 
 bool
 aot_compile_op_call_ref(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                        uint32 type_idx)
+                        uint32 type_idx, bool tail_call)
 {
     AOTFuncType *func_type;
     LLVMValueRef func_obj, func_idx;
-    LLVMValueRef ftype_idx_ptr, ftype_idx, ftype_idx_const;
-    LLVMValueRef cmp_func_obj, cmp_func_idx, cmp_ftype_idx;
+    LLVMValueRef cmp_func_obj, cmp_func_idx;
     LLVMValueRef func, func_ptr;
     LLVMValueRef ext_ret_offset, ext_ret_ptr, ext_ret, res;
     LLVMValueRef *param_values = NULL;
@@ -1741,8 +1740,7 @@ aot_compile_op_call_ref(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMTypeRef *param_types = NULL, ret_type;
     LLVMTypeRef llvm_func_type, llvm_func_ptr_type;
     LLVMTypeRef ext_ret_ptr_type;
-    LLVMBasicBlockRef check_func_obj_succ, check_ftype_idx_succ, block_return,
-        block_curr;
+    LLVMBasicBlockRef check_func_obj_succ, block_return, block_curr;
     LLVMBasicBlockRef block_call_import, block_call_non_import;
     LLVMValueRef offset;
     uint32 total_param_count, func_param_count, func_result_count;
@@ -1753,22 +1751,7 @@ aot_compile_op_call_ref(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     bool ret = false;
 
     /* Check function type index */
-    if (type_idx >= comp_ctx->comp_data->type_count) {
-        aot_set_last_error("function type index out of range");
-        return false;
-    }
-
-    /* Find the equivalent function type whose type index is the smallest:
-       the callee function's type index is also converted to the smallest
-       one in wasm loader, so we can just check whether the two type indexes
-       are equal (the type index of call_ref opcode and callee func),
-       we don't need to check whether the whole function types are equal,
-       including param types and result types. */
-    type_idx =
-        wasm_get_smallest_type_idx((WASMTypePtr *)comp_ctx->comp_data->types,
-                                   comp_ctx->comp_data->type_count, type_idx);
-    ftype_idx_const = I32_CONST(type_idx);
-    CHECK_LLVM_CONST(ftype_idx_const);
+    bh_assert(type_idx >= comp_ctx->comp_data->type_count);
 
     func_type = (AOTFuncType *)comp_ctx->comp_data->types[type_idx];
     aot_estimate_and_record_stack_usage_for_function_call(comp_ctx, func_ctx,
@@ -1826,42 +1809,6 @@ aot_compile_op_call_ref(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         HANDLE_FAILURE("LLVMBuildLoad");
         goto fail;
     }
-
-    /* Load function type index */
-    if (!(ftype_idx_ptr = LLVMBuildInBoundsGEP2(
-              comp_ctx->builder, I32_TYPE, func_ctx->func_type_indexes,
-              &func_idx, 1, "ftype_idx_ptr"))) {
-        aot_set_last_error("llvm build inbounds gep failed.");
-        goto fail;
-    }
-
-    if (!(ftype_idx = LLVMBuildLoad2(comp_ctx->builder, I32_TYPE, ftype_idx_ptr,
-                                     "ftype_idx"))) {
-        aot_set_last_error("llvm build load failed.");
-        goto fail;
-    }
-
-    /* Check if function type index not equal */
-    if (!(cmp_ftype_idx = LLVMBuildICmp(comp_ctx->builder, LLVMIntNE, ftype_idx,
-                                        ftype_idx_const, "cmp_ftype_idx"))) {
-        aot_set_last_error("llvm build icmp failed.");
-        goto fail;
-    }
-
-    /* Throw exception if ftype_idx != ftype_idx_const */
-    if (!(check_ftype_idx_succ = LLVMAppendBasicBlockInContext(
-              comp_ctx->context, func_ctx->func, "check_ftype_idx_succ"))) {
-        aot_set_last_error("llvm add basic block failed.");
-        goto fail;
-    }
-
-    LLVMMoveBasicBlockAfter(check_ftype_idx_succ,
-                            LLVMGetInsertBlock(comp_ctx->builder));
-
-    if (!(aot_emit_exception(comp_ctx, func_ctx,
-                             EXCE_INVALID_FUNCTION_TYPE_INDEX, true,
-                             cmp_ftype_idx, check_ftype_idx_succ)))
-        goto fail;
 
     /* Initialize parameter types of the LLVM function */
     total_param_count = 1 + func_param_count;
@@ -2105,8 +2052,16 @@ aot_compile_op_call_ref(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
+    /* Set calling convention for the call with the func's calling
+       convention */
+    LLVMSetInstructionCallConv(value_ret, LLVMGetFunctionCallConv(func));
+
+    if (tail_call)
+        LLVMSetTailCall(value_ret, true);
+
     /* Check whether exception was thrown when executing the function */
-    if (comp_ctx->enable_bound_check
+    if (!tail_call
+        && (comp_ctx->enable_bound_check || is_win_platform(comp_ctx))
         && !check_exception_thrown(comp_ctx, func_ctx))
         goto fail;
 
