@@ -425,15 +425,16 @@ context_idx_to_key(uint32 idx)
     return (void *)(uintptr_t)(idx + 1);
 }
 
-typedef void (*dtor_t)(wasm_module_inst_t, void *);
+typedef void (*dtor_t)(WASMModuleInstanceCommon *, void *);
 static dtor_t g_context_dtors[WASM_MAX_INSTANCE_CONTEXTS];
 
 static void
-dtor_noop(wasm_module_inst_t inst, void *ctx)
+dtor_noop(WASMModuleInstanceCommon *inst, void *ctx)
 {}
 
 void *
-wasm_native_create_context_key(void (*dtor)(wasm_module_inst_t inst, void *ctx))
+wasm_native_create_context_key(void (*dtor)(WASMModuleInstanceCommon *inst,
+                                            void *ctx))
 {
     uint32 i;
     for (i = 0; i < WASM_MAX_INSTANCE_CONTEXTS; i++) {
@@ -458,7 +459,7 @@ wasm_native_destroy_context_key(void *key)
 }
 
 static WASMModuleInstanceExtraCommon *
-wasm_module_inst_extra_common(wasm_module_inst_t inst)
+wasm_module_inst_extra_common(WASMModuleInstanceCommon *inst)
 {
 #if WASM_ENABLE_INTERP != 0
     if (inst->module_type == Wasm_Module_Bytecode) {
@@ -476,7 +477,7 @@ wasm_module_inst_extra_common(wasm_module_inst_t inst)
 }
 
 void
-wasm_native_set_context(wasm_module_inst_t inst, void *key, void *ctx)
+wasm_native_set_context(WASMModuleInstanceCommon *inst, void *key, void *ctx)
 {
     uint32 idx = context_key_to_idx(key);
     WASMModuleInstanceExtraCommon *common = wasm_module_inst_extra_common(inst);
@@ -484,7 +485,8 @@ wasm_native_set_context(wasm_module_inst_t inst, void *key, void *ctx)
 }
 
 void
-wasm_native_set_context_spread(wasm_module_inst_t inst, void *key, void *ctx)
+wasm_native_set_context_spread(WASMModuleInstanceCommon *inst, void *key,
+                               void *ctx)
 {
 #if WASM_ENABLE_THREAD_MGR != 0
     wasm_cluster_set_context(inst, key, ctx);
@@ -494,7 +496,7 @@ wasm_native_set_context_spread(wasm_module_inst_t inst, void *key, void *ctx)
 }
 
 void *
-wasm_native_get_context(wasm_module_inst_t inst, void *key)
+wasm_native_get_context(WASMModuleInstanceCommon *inst, void *key)
 {
     uint32 idx = context_key_to_idx(key);
     WASMModuleInstanceExtraCommon *common = wasm_module_inst_extra_common(inst);
@@ -502,7 +504,7 @@ wasm_native_get_context(wasm_module_inst_t inst, void *key)
 }
 
 void
-wasm_native_call_context_dtors(wasm_module_inst_t inst)
+wasm_native_call_context_dtors(WASMModuleInstanceCommon *inst)
 {
     WASMModuleInstanceExtraCommon *common = wasm_module_inst_extra_common(inst);
     uint32 i;
@@ -515,8 +517,8 @@ wasm_native_call_context_dtors(wasm_module_inst_t inst)
 }
 
 void
-wasm_native_inherit_contexts(wasm_module_inst_t child,
-                             wasm_module_inst_t parent)
+wasm_native_inherit_contexts(WASMModuleInstanceCommon *child,
+                             WASMModuleInstanceCommon *parent)
 {
     WASMModuleInstanceExtraCommon *parent_common =
         wasm_module_inst_extra_common(parent);
