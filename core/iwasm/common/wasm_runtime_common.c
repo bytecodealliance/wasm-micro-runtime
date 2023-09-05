@@ -5661,6 +5661,7 @@ wasm_runtime_is_import_global_linked(const char *module_name,
 #endif
 }
 
+#if WASM_ENABLE_MODULE_INST_CONTEXT != 0
 void *
 wasm_runtime_create_context_key(void (*dtor)(wasm_module_inst_t inst,
                                              void *ctx))
@@ -5691,3 +5692,4 @@ wasm_runtime_get_context(wasm_module_inst_t inst, void *key)
 {
     return wasm_native_get_context(inst, key);
 }
+#endif /* WASM_ENABLE_MODULE_INST_CONTEXT != 0 */

@@ -407,6 +407,7 @@ wasm_native_unregister_natives(const char *module_name,
     return false;
 }
 
+#if WASM_ENABLE_MODULE_INST_CONTEXT != 0
 static uint32
 context_key_to_idx(void *key)
 {
@@ -526,6 +527,7 @@ wasm_native_inherit_contexts(wasm_module_inst_t child,
                 parent_common->contexts,
                 sizeof(*parent_common->contexts) * WASM_MAX_INSTANCE_CONTEXTS);
 }
+#endif /* WASM_ENABLE_MODULE_INST_CONTEXT != 0 */
 
 #if WASM_ENABLE_LIBC_WASI != 0
 WASIContext *

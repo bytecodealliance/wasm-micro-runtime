@@ -68,6 +68,7 @@ bool
 wasm_native_unregister_natives(const char *module_name,
                                NativeSymbol *native_symbols);
 
+#if WASM_ENABLE_MODULE_INST_CONTEXT != 0
 void *
 wasm_native_create_context_key(void (*dtor)(wasm_module_inst_t inst,
                                             void *ctx));
@@ -88,6 +89,10 @@ wasm_native_call_context_dtors(wasm_module_inst_t inst);
 void
 wasm_native_inherit_contexts(wasm_module_inst_t child,
                              wasm_module_inst_t parent);
+#else /* WASM_ENABLE_MODULE_INST_CONTEXT */
+#define wasm_native_call_context_dtors(inst) (void)(inst)
+#define wasm_native_inherit_contexts(child, parent) (void)(parent)
+#endif /* WASM_ENABLE_MODULE_INST_CONTEXT */
 
 bool
 wasm_native_init();
