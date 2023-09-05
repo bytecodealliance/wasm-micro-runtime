@@ -152,8 +152,8 @@ wasm_cluster_spread_custom_data(WASMModuleInstanceCommon *module_inst,
                                 void *custom_data);
 
 void
-wasm_cluster_set_context(WASMModuleInstanceCommon *module_inst,
-                                         void *key, void *ctx);
+wasm_cluster_set_context(WASMModuleInstanceCommon *module_inst, void *key,
+                         void *ctx);
 
 bool
 wasm_cluster_is_thread_terminated(WASMExecEnv *exec_env);

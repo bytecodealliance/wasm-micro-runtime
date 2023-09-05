@@ -585,7 +585,7 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
     wasm_runtime_set_custom_data_internal(
         new_module_inst, wasm_runtime_get_custom_data(module_inst));
 
-    wasm_native_module_instance_inherit_contexts(new_module_inst, module_inst);
+    wasm_native_inherit_contexts(new_module_inst, module_inst);
 
     if (!(wasm_cluster_dup_c_api_imports(new_module_inst, module_inst)))
         goto fail;

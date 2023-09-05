@@ -5662,8 +5662,8 @@ wasm_runtime_is_import_global_linked(const char *module_name,
 }
 
 void *
-wasm_runtime_create_context_key(
-    void (*dtor)(wasm_module_inst_t inst, void *ctx))
+wasm_runtime_create_context_key(void (*dtor)(wasm_module_inst_t inst,
+                                             void *ctx))
 {
     return wasm_native_create_context_key(dtor);
 }
@@ -5675,15 +5675,13 @@ wasm_runtime_destroy_context_key(void *key)
 }
 
 void
-wasm_runtime_set_context(wasm_module_inst_t inst, void *key,
-                                         void *ctx)
+wasm_runtime_set_context(wasm_module_inst_t inst, void *key, void *ctx)
 {
     wasm_native_set_context(inst, key, ctx);
 }
 
 void
-wasm_runtime_set_context_spread(wasm_module_inst_t inst,
-                                                void *key, void *ctx)
+wasm_runtime_set_context_spread(wasm_module_inst_t inst, void *key, void *ctx)
 {
     wasm_native_set_context_spread(inst, key, ctx);
 }

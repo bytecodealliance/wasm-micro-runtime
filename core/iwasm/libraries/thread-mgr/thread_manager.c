@@ -517,7 +517,7 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
     wasm_runtime_set_custom_data_internal(
         new_module_inst, wasm_runtime_get_custom_data(module_inst));
 
-    wasm_native_module_instance_inherit_contexts(new_module_inst, module_inst);
+    wasm_native_inherit_contexts(new_module_inst, module_inst);
 
     new_exec_env = wasm_exec_env_create_internal(new_module_inst,
                                                  exec_env->wasm_stack_size);
@@ -1334,8 +1334,8 @@ set_context_visitor(void *node, void *user_data)
 }
 
 void
-wasm_cluster_set_context(WASMModuleInstanceCommon *module_inst,
-                                         void *key, void *ctx)
+wasm_cluster_set_context(WASMModuleInstanceCommon *module_inst, void *key,
+                         void *ctx)
 {
     WASMExecEnv *exec_env = wasm_clusters_search_exec_env(module_inst);
 

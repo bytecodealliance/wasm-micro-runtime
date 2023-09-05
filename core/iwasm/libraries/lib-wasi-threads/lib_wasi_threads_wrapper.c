@@ -96,7 +96,7 @@ thread_spawn_wrapper(wasm_exec_env_t exec_env, uint32 start_arg)
     if (!(wasm_cluster_dup_c_api_imports(new_module_inst, module_inst)))
         goto thread_preparation_fail;
 
-    wasm_native_module_instance_inherit_contexts(new_module_inst, module_inst);
+    wasm_native_inherit_contexts(new_module_inst, module_inst);
 
     start_func = wasm_runtime_lookup_function(new_module_inst,
                                               THREAD_START_FUNCTION, NULL);
