@@ -1318,6 +1318,7 @@ wasm_cluster_spread_custom_data(WASMModuleInstanceCommon *module_inst,
     }
 }
 
+#if WASM_ENABLE_MODULE_INST_CONTEXT != 0
 struct inst_set_context_data {
     void *key;
     void *ctx;
@@ -1357,6 +1358,7 @@ wasm_cluster_set_context(WASMModuleInstanceCommon *module_inst, void *key,
         os_mutex_unlock(&cluster->lock);
     }
 }
+#endif /* WASM_ENABLE_MODULE_INST_CONTEXT != 0 */
 
 bool
 wasm_cluster_is_thread_terminated(WASMExecEnv *exec_env)
