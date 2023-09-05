@@ -1439,6 +1439,23 @@ WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_is_import_global_linked(const char *module_name,
                                      const char *global_name);
 
+typedef enum {
+    INTERNAL_ERROR,
+    MAX_SIZE_REACHED,
+} enlarge_memory_error_reason_t;
+
+typedef void (*enlarge_memory_error_callback_t)(
+    uint32_t inc_page_count, uint64_t current_memory_size,
+    uint32_t memory_index, enlarge_memory_error_reason_t failure_reason,
+    wasm_module_inst_t instance, wasm_exec_env_t exec_env);
+
+/**
+ * Setup callback invoked when memory.grow fails
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_set_enlarge_mem_error_callback(
+    const enlarge_memory_error_callback_t callback);
+
 /* clang-format on */
 
 #ifdef __cplusplus

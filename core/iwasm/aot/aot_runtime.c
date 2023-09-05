@@ -1443,6 +1443,9 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
     /* set thread handle and stack boundary */
     wasm_exec_env_set_thread_info(exec_env);
 
+    /* set exec env so it can be later retrieved from instance */
+    ((AOTModuleInstanceExtra *)module_inst->e)->common.cur_exec_env = exec_env;
+
     if (ext_ret_count > 0) {
         uint32 cell_num = 0, i;
         uint8 *ext_ret_types = func_type->types + func_type->param_count + 1;
