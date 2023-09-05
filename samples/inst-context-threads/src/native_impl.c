@@ -24,8 +24,7 @@ get_context(wasm_exec_env_t exec_env)
 {
     wasm_module_inst_t inst = wasm_runtime_get_module_inst(exec_env);
     printf("%s called on module inst %p\n", __func__, inst);
-    struct my_context *ctx =
-        wasm_runtime_get_context(inst, my_context_key);
+    struct my_context *ctx = wasm_runtime_get_context(inst, my_context_key);
     if (ctx == NULL) {
         return -1;
     }

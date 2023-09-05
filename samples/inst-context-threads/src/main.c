@@ -95,8 +95,7 @@ main(int argc, char *argv_main[])
         return -1;
     }
 
-    my_context_key =
-        wasm_runtime_create_context_key(my_context_dtor);
+    my_context_key = wasm_runtime_create_context_key(my_context_dtor);
     if (!my_context_key) {
         printf("wasm_runtime_create_context_key failed.\n");
         return -1;
