@@ -11,6 +11,6 @@ add_native(wasm_exec_env_t exec_env, int32_t n)
 {
     wasm_module_inst_t inst = wasm_runtime_get_module_inst(exec_env);
     struct my_context *ctx =
-        wasm_runtime_module_instance_get_context(inst, my_context_key);
+        wasm_runtime_get_context(inst, my_context_key);
     return n + ctx->x;
 }

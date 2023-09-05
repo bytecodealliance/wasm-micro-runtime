@@ -91,9 +91,9 @@ main(int argc, char *argv_main[])
     }
 
     my_context_key =
-        wasm_runtime_module_instance_context_key_create(my_context_dtor);
+        wasm_runtime_create_context_key(my_context_dtor);
     if (!my_context_key) {
-        printf("wasm_runtime_module_instance_context_key_create failed.\n");
+        printf("wasm_runtime_create_context_key failed.\n");
         return -1;
     }
 
@@ -120,7 +120,7 @@ main(int argc, char *argv_main[])
     }
 
     my_context.x = 100;
-    wasm_runtime_module_instance_set_context(module_inst, my_context_key,
+    wasm_runtime_set_context(module_inst, my_context_key,
                                              &my_context);
 
     exec_env = wasm_runtime_create_exec_env(module_inst, stack_size);
@@ -162,7 +162,7 @@ fail:
     if (buffer)
         BH_FREE(buffer);
     if (my_context_key)
-        wasm_runtime_module_instance_context_key_destroy(my_context_key);
+        wasm_runtime_destroy_context_key(my_context_key);
     wasm_runtime_destroy();
     return 0;
 }

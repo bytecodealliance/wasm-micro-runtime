@@ -152,7 +152,7 @@ wasm_cluster_spread_custom_data(WASMModuleInstanceCommon *module_inst,
                                 void *custom_data);
 
 void
-wasm_cluster_module_instance_set_context(WASMModuleInstanceCommon *module_inst,
+wasm_cluster_set_context(WASMModuleInstanceCommon *module_inst,
                                          void *key, void *ctx);
 
 bool

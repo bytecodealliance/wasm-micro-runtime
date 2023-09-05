@@ -69,20 +69,20 @@ wasm_native_unregister_natives(const char *module_name,
                                NativeSymbol *native_symbols);
 
 void *
-wasm_native_module_instance_context_key_create(
+wasm_native_create_context_key(
     void (*dtor)(wasm_module_inst_t inst, void *ctx));
 
 void
-wasm_native_module_instance_context_key_destroy(void *key);
+wasm_native_destroy_context_key(void *key);
 
 void
-wasm_native_module_instance_set_context(wasm_module_inst_t inst, void *key,
+wasm_native_set_context(wasm_module_inst_t inst, void *key,
                                         void *ctx);
 void
-wasm_native_module_instance_set_context_spread(wasm_module_inst_t inst,
+wasm_native_set_context_spread(wasm_module_inst_t inst,
                                                void *key, void *ctx);
 void *
-wasm_native_module_instance_get_context(wasm_module_inst_t inst, void *key);
+wasm_native_get_context(wasm_module_inst_t inst, void *key);
 
 void
 wasm_native_module_instance_call_context_dtors(wasm_module_inst_t inst);

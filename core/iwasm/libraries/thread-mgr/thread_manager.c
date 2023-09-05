@@ -1330,18 +1330,18 @@ set_context_visitor(void *node, void *user_data)
     WASMModuleInstanceCommon *module_inst = get_module_inst(curr_exec_env);
     const struct inst_set_context_data *data = user_data;
 
-    wasm_runtime_module_instance_set_context(module_inst, data->key, data->ctx);
+    wasm_runtime_set_context(module_inst, data->key, data->ctx);
 }
 
 void
-wasm_cluster_module_instance_set_context(WASMModuleInstanceCommon *module_inst,
+wasm_cluster_set_context(WASMModuleInstanceCommon *module_inst,
                                          void *key, void *ctx)
 {
     WASMExecEnv *exec_env = wasm_clusters_search_exec_env(module_inst);
 
     if (exec_env == NULL) {
         /* Maybe threads have not been started yet. */
-        wasm_runtime_module_instance_set_context(module_inst, key, ctx);
+        wasm_runtime_set_context(module_inst, key, ctx);
     }
     else {
         WASMCluster *cluster;

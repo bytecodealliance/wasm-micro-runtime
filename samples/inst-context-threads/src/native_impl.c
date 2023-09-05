@@ -16,7 +16,7 @@ set_context(wasm_exec_env_t exec_env, int32_t n)
     printf("%s called on module inst %p\n", __func__, inst);
     struct my_context *ctx = &my_context;
     ctx->x = n;
-    wasm_runtime_module_instance_set_context_spread(inst, my_context_key, ctx);
+    wasm_runtime_set_context_spread(inst, my_context_key, ctx);
 }
 
 int32_t
@@ -25,7 +25,7 @@ get_context(wasm_exec_env_t exec_env)
     wasm_module_inst_t inst = wasm_runtime_get_module_inst(exec_env);
     printf("%s called on module inst %p\n", __func__, inst);
     struct my_context *ctx =
-        wasm_runtime_module_instance_get_context(inst, my_context_key);
+        wasm_runtime_get_context(inst, my_context_key);
     if (ctx == NULL) {
         return -1;
     }
