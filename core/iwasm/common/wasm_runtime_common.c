@@ -5883,18 +5883,18 @@ wasm_runtime_load_depended_module(const WASMModuleCommon *parent_module,
                         "unknown import", sub_module_name);
         goto delete_loading_module;
     }
-#if WASM_ENABLE_AOT != 0
-    if (parent_module->module_type == Wasm_Module_AoT) {
-        sub_module = (WASMModuleCommon *)aot_load_from_aot_file(
-            buffer, buffer_size, error_buf, error_buf_size);
-    }
-#endif
+    if (get_package_type(buffer, buffer_size) == Wasm_Module_Bytecode) {
 #if WASM_ENABLE_INTERP != 0
-    if (parent_module->module_type == Wasm_Module_Bytecode) {
         sub_module = (WASMModuleCommon *)wasm_load(buffer, buffer_size, false,
                                                    error_buf, error_buf_size);
-    }
 #endif
+    }
+    else if (get_package_type(buffer, buffer_size) == Wasm_Module_AoT) {
+#if WASM_ENABLE_AOT != 0
+        sub_module = (WASMModuleCommon *)aot_load_from_aot_file(
+            buffer, buffer_size, error_buf, error_buf_size);
+#endif
+    }
     if (!sub_module) {
         LOG_DEBUG("error: can not load the sub_module %s", sub_module_name);
         /* others will be destroyed in runtime_destroy() */
