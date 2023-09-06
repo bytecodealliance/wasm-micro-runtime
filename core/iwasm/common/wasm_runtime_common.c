@@ -6004,7 +6004,6 @@ wasm_runtime_sub_module_instantiate(WASMModuleCommon *module,
         bh_assert(BH_LIST_SUCCESS == ret);
         (void)ret;
         sub_module_list_node = bh_list_elem_next(sub_module_list_node);
-        continue;
     }
 
     return true;
