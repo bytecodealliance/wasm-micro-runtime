@@ -87,7 +87,7 @@ blocking_op_pwritev(wasm_exec_env_t exec_env, int fd, const struct iovec *iov,
     wasm_runtime_end_blocking_op(exec_env);
     return ret;
 }
-#else  /* CONFIG_HAS_PREADV */
+#else  /* CONFIG_HAS_PWRITEV */
 ssize_t
 blocking_op_pwrite(wasm_exec_env_t exec_env, int fd, const void *p, size_t nb,
                    off_t offset)
@@ -100,7 +100,7 @@ blocking_op_pwrite(wasm_exec_env_t exec_env, int fd, const void *p, size_t nb,
     wasm_runtime_end_blocking_op(exec_env);
     return ret;
 }
-#endif /* CONFIG_HAS_PREADV */
+#endif /* CONFIG_HAS_PWRITEV */
 
 int
 blocking_op_socket_accept(wasm_exec_env_t exec_env, bh_socket_t server_sock,
