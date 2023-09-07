@@ -2722,7 +2722,7 @@ wasi_ssp_sock_accept(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_f
         goto fail;
     }
 
-    ret = os_socket_accept(fd_number(fo), &new_sock, NULL, NULL);
+    ret = blocking_op_socket_accept(exec_env, fd_number(fo), &new_sock, NULL, NULL);
     fd_object_release(exec_env, fo);
     if (BHT_OK != ret) {
         error = convert_errno(errno);
@@ -2933,7 +2933,7 @@ wasi_ssp_sock_connect(wasm_exec_env_t exec_env, struct fd_table *curfds, struct 
     if (error != __WASI_ESUCCESS)
         return error;
 
-    ret = os_socket_connect(fd_number(fo), buf,
+    ret = blocking_op_socket_connect(exec_env, fd_number(fo), buf,
                             addr->kind == IPv4 ? addr->addr.ip4.port
                                                : addr->addr.ip6.port);
     fd_object_release(exec_env, fo);

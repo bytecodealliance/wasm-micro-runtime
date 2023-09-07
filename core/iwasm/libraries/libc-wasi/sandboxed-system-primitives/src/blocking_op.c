@@ -101,3 +101,27 @@ blocking_op_pwrite(wasm_exec_env_t exec_env, int fd, const void *p, size_t nb,
     return ret;
 }
 #endif /* CONFIG_HAS_PREADV */
+
+int
+blocking_op_socket_accept(wasm_exec_env_t exec_env, bh_socket_t server_sock, bh_socket_t *sockp, void *addr, unsigned int *addrlenp)
+{
+    if (!wasm_runtime_begin_blocking_op(exec_env)) {
+        errno = EINTR;
+        return -1;
+    }
+    int ret = os_socket_accept(server_sock, sockp, addr, addrlenp);
+    wasm_runtime_end_blocking_op(exec_env);
+    return ret;
+}
+
+int
+blocking_op_socket_connect(wasm_exec_env_t exec_env, bh_socket_t sock, const char *addr, int port)
+{
+    if (!wasm_runtime_begin_blocking_op(exec_env)) {
+        errno = EINTR;
+        return -1;
+    }
+    int ret = os_socket_connect(sock, addr, port);
+    wasm_runtime_end_blocking_op(exec_env);
+    return ret;
+}
