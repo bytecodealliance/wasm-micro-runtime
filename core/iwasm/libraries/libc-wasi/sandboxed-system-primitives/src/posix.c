@@ -3262,7 +3262,8 @@ wasmtime_ssp_sock_recv_from(wasm_exec_env_t exec_env, struct fd_table *curfds,
         return error;
     }
 
-    ret = os_socket_recv_from(fd_number(fo), buf, buf_len, 0, &sockaddr);
+    ret = blocking_op_socket_recv_from(exec_env, fd_number(fo), buf, buf_len, 0,
+                                       &sockaddr);
     fd_object_release(exec_env, fo);
     if (-1 == ret) {
         return convert_errno(errno);
@@ -3326,7 +3327,8 @@ wasmtime_ssp_sock_send_to(wasm_exec_env_t exec_env, struct fd_table *curfds,
 
     wasi_addr_to_bh_sockaddr(dest_addr, &sockaddr);
 
-    ret = os_socket_send_to(fd_number(fo), buf, buf_len, 0, &sockaddr);
+    ret = blocking_op_socket_send_to(exec_env, fd_number(fo), buf, buf_len, 0,
+                                     &sockaddr);
     fd_object_release(exec_env, fo);
     if (-1 == ret) {
         return convert_errno(errno);

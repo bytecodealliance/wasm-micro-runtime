@@ -128,3 +128,31 @@ blocking_op_socket_connect(wasm_exec_env_t exec_env, bh_socket_t sock,
     wasm_runtime_end_blocking_op(exec_env);
     return ret;
 }
+
+int
+blocking_op_socket_recv_from(wasm_exec_env_t exec_env, bh_socket_t sock,
+                             void *buf, unsigned int len, int flags,
+                             bh_sockaddr_t *src_addr)
+{
+    if (!wasm_runtime_begin_blocking_op(exec_env)) {
+        errno = EINTR;
+        return -1;
+    }
+    int ret = os_socket_recv_from(sock, buf, len, flags, src_addr);
+    wasm_runtime_end_blocking_op(exec_env);
+    return ret;
+}
+
+int
+blocking_op_socket_send_to(wasm_exec_env_t exec_env, bh_socket_t sock,
+                           const void *buf, unsigned int len, int flags,
+                           const bh_sockaddr_t *dest_addr)
+{
+    if (!wasm_runtime_begin_blocking_op(exec_env)) {
+        errno = EINTR;
+        return -1;
+    }
+    int ret = os_socket_send_to(sock, buf, len, flags, dest_addr);
+    wasm_runtime_end_blocking_op(exec_env);
+    return ret;
+}

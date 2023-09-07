@@ -33,3 +33,11 @@ blocking_op_socket_accept(wasm_exec_env_t exec_env, bh_socket_t server_sock,
 int
 blocking_op_socket_connect(wasm_exec_env_t exec_env, bh_socket_t sock,
                            const char *addr, int port);
+int
+blocking_op_socket_recv_from(wasm_exec_env_t exec_env, bh_socket_t sock,
+                             void *buf, unsigned int len, int flags,
+                             bh_sockaddr_t *src_addr);
+int
+blocking_op_socket_send_to(wasm_exec_env_t exec_env, bh_socket_t sock,
+                           const void *buf, unsigned int len, int flags,
+                           const bh_sockaddr_t *dest_addr);
