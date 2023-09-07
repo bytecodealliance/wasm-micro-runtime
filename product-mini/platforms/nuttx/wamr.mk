@@ -246,6 +246,7 @@ ifeq ($(CONFIG_INTERPRETERS_WAMR_LIBC_WASI),y)
 CFLAGS += -DWASM_ENABLE_LIBC_WASI=1
 CFLAGS += -I$(IWASM_ROOT)/libraries/libc-wasi/sandboxed-system-primitives/src
 CFLAGS += -I$(IWASM_ROOT)/libraries/libc-wasi/sandboxed-system-primitives/include
+CSRCS += blocking_op.c
 CSRCS += posix_socket.c
 CSRCS += libc_wasi_wrapper.c
 VPATH += $(IWASM_ROOT)/libraries/libc-wasi
