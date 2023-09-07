@@ -41,11 +41,13 @@ wasm_runtime_begin_blocking_op(wasm_exec_env_t env)
 void
 wasm_runtime_end_blocking_op(wasm_exec_env_t env)
 {
+    int saved_errno = errno;
     LOCK(env);
     bh_assert(ISSET(env, BLOCKING));
     CLR(env, BLOCKING);
     UNLOCK(env);
     os_end_blocking_op();
+    errno = saved_errno;
 }
 
 void
