@@ -221,22 +221,22 @@ wasi_addr_to_bh_sockaddr(const __wasi_addr_t *wasi_addr,
                          bh_sockaddr_t *sockaddr)
 {
     if (wasi_addr->kind == IPv4) {
-        sockaddr->addr_bufer.ipv4 = (wasi_addr->addr.ip4.addr.n0 << 24)
-                                    | (wasi_addr->addr.ip4.addr.n1 << 16)
-                                    | (wasi_addr->addr.ip4.addr.n2 << 8)
-                                    | wasi_addr->addr.ip4.addr.n3;
+        sockaddr->addr_buffer.ipv4 = (wasi_addr->addr.ip4.addr.n0 << 24)
+                                     | (wasi_addr->addr.ip4.addr.n1 << 16)
+                                     | (wasi_addr->addr.ip4.addr.n2 << 8)
+                                     | wasi_addr->addr.ip4.addr.n3;
         sockaddr->is_ipv4 = true;
         sockaddr->port = wasi_addr->addr.ip4.port;
     }
     else {
-        sockaddr->addr_bufer.ipv6[0] = wasi_addr->addr.ip6.addr.n0;
-        sockaddr->addr_bufer.ipv6[1] = wasi_addr->addr.ip6.addr.n1;
-        sockaddr->addr_bufer.ipv6[2] = wasi_addr->addr.ip6.addr.n2;
-        sockaddr->addr_bufer.ipv6[3] = wasi_addr->addr.ip6.addr.n3;
-        sockaddr->addr_bufer.ipv6[4] = wasi_addr->addr.ip6.addr.h0;
-        sockaddr->addr_bufer.ipv6[5] = wasi_addr->addr.ip6.addr.h1;
-        sockaddr->addr_bufer.ipv6[6] = wasi_addr->addr.ip6.addr.h2;
-        sockaddr->addr_bufer.ipv6[7] = wasi_addr->addr.ip6.addr.h3;
+        sockaddr->addr_buffer.ipv6[0] = wasi_addr->addr.ip6.addr.n0;
+        sockaddr->addr_buffer.ipv6[1] = wasi_addr->addr.ip6.addr.n1;
+        sockaddr->addr_buffer.ipv6[2] = wasi_addr->addr.ip6.addr.n2;
+        sockaddr->addr_buffer.ipv6[3] = wasi_addr->addr.ip6.addr.n3;
+        sockaddr->addr_buffer.ipv6[4] = wasi_addr->addr.ip6.addr.h0;
+        sockaddr->addr_buffer.ipv6[5] = wasi_addr->addr.ip6.addr.h1;
+        sockaddr->addr_buffer.ipv6[6] = wasi_addr->addr.ip6.addr.h2;
+        sockaddr->addr_buffer.ipv6[7] = wasi_addr->addr.ip6.addr.h3;
         sockaddr->is_ipv4 = false;
         sockaddr->port = wasi_addr->addr.ip6.port;
     }
@@ -251,24 +251,24 @@ bh_sockaddr_to_wasi_addr(const bh_sockaddr_t *sockaddr,
         wasi_addr->kind = IPv4;
         wasi_addr->addr.ip4.port = sockaddr->port;
         wasi_addr->addr.ip4.addr.n0 =
-            (sockaddr->addr_bufer.ipv4 & 0xFF000000) >> 24;
+            (sockaddr->addr_buffer.ipv4 & 0xFF000000) >> 24;
         wasi_addr->addr.ip4.addr.n1 =
-            (sockaddr->addr_bufer.ipv4 & 0x00FF0000) >> 16;
+            (sockaddr->addr_buffer.ipv4 & 0x00FF0000) >> 16;
         wasi_addr->addr.ip4.addr.n2 =
-            (sockaddr->addr_bufer.ipv4 & 0x0000FF00) >> 8;
-        wasi_addr->addr.ip4.addr.n3 = (sockaddr->addr_bufer.ipv4 & 0x000000FF);
+            (sockaddr->addr_buffer.ipv4 & 0x0000FF00) >> 8;
+        wasi_addr->addr.ip4.addr.n3 = (sockaddr->addr_buffer.ipv4 & 0x000000FF);
     }
     else {
         wasi_addr->kind = IPv6;
         wasi_addr->addr.ip6.port = sockaddr->port;
-        wasi_addr->addr.ip6.addr.n0 = sockaddr->addr_bufer.ipv6[0];
-        wasi_addr->addr.ip6.addr.n1 = sockaddr->addr_bufer.ipv6[1];
-        wasi_addr->addr.ip6.addr.n2 = sockaddr->addr_bufer.ipv6[2];
-        wasi_addr->addr.ip6.addr.n3 = sockaddr->addr_bufer.ipv6[3];
-        wasi_addr->addr.ip6.addr.h0 = sockaddr->addr_bufer.ipv6[4];
-        wasi_addr->addr.ip6.addr.h1 = sockaddr->addr_bufer.ipv6[5];
-        wasi_addr->addr.ip6.addr.h2 = sockaddr->addr_bufer.ipv6[6];
-        wasi_addr->addr.ip6.addr.h3 = sockaddr->addr_bufer.ipv6[7];
+        wasi_addr->addr.ip6.addr.n0 = sockaddr->addr_buffer.ipv6[0];
+        wasi_addr->addr.ip6.addr.n1 = sockaddr->addr_buffer.ipv6[1];
+        wasi_addr->addr.ip6.addr.n2 = sockaddr->addr_buffer.ipv6[2];
+        wasi_addr->addr.ip6.addr.n3 = sockaddr->addr_buffer.ipv6[3];
+        wasi_addr->addr.ip6.addr.h0 = sockaddr->addr_buffer.ipv6[4];
+        wasi_addr->addr.ip6.addr.h1 = sockaddr->addr_buffer.ipv6[5];
+        wasi_addr->addr.ip6.addr.h2 = sockaddr->addr_buffer.ipv6[6];
+        wasi_addr->addr.ip6.addr.h3 = sockaddr->addr_buffer.ipv6[7];
     }
 }
 
