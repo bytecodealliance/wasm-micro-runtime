@@ -642,6 +642,7 @@ static void
 fd_object_release(struct fd_object *fo) UNLOCKS(fo->refcount)
 {
     if (refcount_release(&fo->refcount)) {
+        int saved_errno = errno;
         switch (fo->type) {
             case __WASI_FILETYPE_DIRECTORY:
                 // For directories we may keep track of a DIR object. Calling
@@ -659,6 +660,7 @@ fd_object_release(struct fd_object *fo) UNLOCKS(fo->refcount)
                 break;
         }
         wasm_runtime_free(fo);
+        errno = saved_errno;
     }
 }
 
