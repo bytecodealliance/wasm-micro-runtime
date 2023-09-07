@@ -480,9 +480,6 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasm_module_t module;
     wasm_module_inst_t new_module_inst;
-#if WASM_ENABLE_LIBC_WASI != 0
-    WASIContext *wasi_ctx;
-#endif
     WASMExecEnv *new_exec_env;
     uint32 aux_stack_start, aux_stack_size;
     uint32 stack_size = 8192;
@@ -520,10 +517,7 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
     wasm_runtime_set_custom_data_internal(
         new_module_inst, wasm_runtime_get_custom_data(module_inst));
 
-#if WASM_ENABLE_LIBC_WASI != 0
-    wasi_ctx = wasm_runtime_get_wasi_ctx(module_inst);
-    wasm_runtime_set_wasi_ctx(new_module_inst, wasi_ctx);
-#endif
+    wasm_native_inherit_contexts(new_module_inst, module_inst);
 
     new_exec_env = wasm_exec_env_create_internal(new_module_inst,
                                                  exec_env->wasm_stack_size);
@@ -1323,6 +1317,48 @@ wasm_cluster_spread_custom_data(WASMModuleInstanceCommon *module_inst,
         os_mutex_unlock(&cluster->lock);
     }
 }
+
+#if WASM_ENABLE_MODULE_INST_CONTEXT != 0
+struct inst_set_context_data {
+    void *key;
+    void *ctx;
+};
+
+static void
+set_context_visitor(void *node, void *user_data)
+{
+    WASMExecEnv *curr_exec_env = (WASMExecEnv *)node;
+    WASMModuleInstanceCommon *module_inst = get_module_inst(curr_exec_env);
+    const struct inst_set_context_data *data = user_data;
+
+    wasm_runtime_set_context(module_inst, data->key, data->ctx);
+}
+
+void
+wasm_cluster_set_context(WASMModuleInstanceCommon *module_inst, void *key,
+                         void *ctx)
+{
+    WASMExecEnv *exec_env = wasm_clusters_search_exec_env(module_inst);
+
+    if (exec_env == NULL) {
+        /* Maybe threads have not been started yet. */
+        wasm_runtime_set_context(module_inst, key, ctx);
+    }
+    else {
+        WASMCluster *cluster;
+        struct inst_set_context_data data;
+        data.key = key;
+        data.ctx = ctx;
+
+        cluster = wasm_exec_env_get_cluster(exec_env);
+        bh_assert(cluster);
+
+        os_mutex_lock(&cluster->lock);
+        traverse_list(&cluster->exec_env_list, set_context_visitor, &data);
+        os_mutex_unlock(&cluster->lock);
+    }
+}
+#endif /* WASM_ENABLE_MODULE_INST_CONTEXT != 0 */
 
 bool
 wasm_cluster_is_thread_terminated(WASMExecEnv *exec_env)

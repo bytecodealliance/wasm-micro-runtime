@@ -253,8 +253,16 @@ CSRCS += posix.c
 CSRCS += random.c
 CSRCS += str.c
 VPATH += $(IWASM_ROOT)/libraries/libc-wasi/sandboxed-system-primitives/src
+# todo: use Kconfig select instead
+CONFIG_INTERPRETERS_WAMR_MODULE_INSTANCE_CONTEXT = y
 else
 CFLAGS += -DWASM_ENABLE_LIBC_WASI=0
+endif
+
+ifeq ($(CONFIG_INTERPRETERS_WAMR_MODULE_INSTANCE_CONTEXT),y)
+CFLAGS += -DWASM_ENABLE_MODULE_INST_CONTEXT=1
+else
+CFLAGS += -DWASM_ENABLE_MODULE_INST_CONTEXT=0
 endif
 
 ifeq ($(CONFIG_INTERPRETERS_WAMR_MULTI_MODULE),y)

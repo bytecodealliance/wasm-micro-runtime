@@ -3311,27 +3311,6 @@ wasm_runtime_get_wasi_exit_code(WASMModuleInstanceCommon *module_inst)
 #endif
     return wasi_ctx->exit_code;
 }
-
-WASIContext *
-wasm_runtime_get_wasi_ctx(WASMModuleInstanceCommon *module_inst_comm)
-{
-    WASMModuleInstance *module_inst = (WASMModuleInstance *)module_inst_comm;
-
-    bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
-              || module_inst_comm->module_type == Wasm_Module_AoT);
-    return module_inst->wasi_ctx;
-}
-
-void
-wasm_runtime_set_wasi_ctx(WASMModuleInstanceCommon *module_inst_comm,
-                          WASIContext *wasi_ctx)
-{
-    WASMModuleInstance *module_inst = (WASMModuleInstance *)module_inst_comm;
-
-    bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
-              || module_inst_comm->module_type == Wasm_Module_AoT);
-    module_inst->wasi_ctx = wasi_ctx;
-}
 #endif /* end of WASM_ENABLE_LIBC_WASI */
 
 WASMModuleCommon *
@@ -5681,3 +5660,37 @@ wasm_runtime_is_import_global_linked(const char *module_name,
     return false;
 #endif
 }
+
+#if WASM_ENABLE_MODULE_INST_CONTEXT != 0
+void *
+wasm_runtime_create_context_key(void (*dtor)(WASMModuleInstanceCommon *inst,
+                                             void *ctx))
+{
+    return wasm_native_create_context_key(dtor);
+}
+
+void
+wasm_runtime_destroy_context_key(void *key)
+{
+    wasm_native_destroy_context_key(key);
+}
+
+void
+wasm_runtime_set_context(WASMModuleInstanceCommon *inst, void *key, void *ctx)
+{
+    wasm_native_set_context(inst, key, ctx);
+}
+
+void
+wasm_runtime_set_context_spread(WASMModuleInstanceCommon *inst, void *key,
+                                void *ctx)
+{
+    wasm_native_set_context_spread(inst, key, ctx);
+}
+
+void *
+wasm_runtime_get_context(WASMModuleInstanceCommon *inst, void *key)
+{
+    return wasm_native_get_context(inst, key);
+}
+#endif /* WASM_ENABLE_MODULE_INST_CONTEXT != 0 */
