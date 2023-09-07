@@ -5883,6 +5883,10 @@ wasm_runtime_load_depended_module(const WASMModuleCommon *parent_module,
                         "unknown import", sub_module_name);
         goto delete_loading_module;
     }
+    if (get_package_type(buffer, buffer_size) != parent_module->module_type) {
+        LOG_DEBUG("moudle %s type error", sub_module_name);
+        goto delete_loading_module;
+    }
     if (get_package_type(buffer, buffer_size) == Wasm_Module_Bytecode) {
 #if WASM_ENABLE_INTERP != 0
         sub_module = (WASMModuleCommon *)wasm_load(buffer, buffer_size, false,
