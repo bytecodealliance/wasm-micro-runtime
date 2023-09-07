@@ -659,6 +659,7 @@ __wasi_errno_t wasmtime_ssp_fd_datasync(
 ) WASMTIME_SSP_SYSCALL_NAME(fd_datasync) __attribute__((__warn_unused_result__));
 
 __wasi_errno_t wasmtime_ssp_fd_pread(
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
     __wasi_fd_t fd,
     const __wasi_iovec_t *iovs,

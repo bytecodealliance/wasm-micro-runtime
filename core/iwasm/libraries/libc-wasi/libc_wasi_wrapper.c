@@ -389,8 +389,8 @@ wasi_fd_pread(wasm_exec_env_t exec_env, wasi_fd_t fd, iovec_app_t *iovec_app,
         iovec->buf_len = iovec_app->buf_len;
     }
 
-    err = wasmtime_ssp_fd_pread(curfds, fd, iovec_begin, iovs_len, offset,
-                                &nread);
+    err = wasmtime_ssp_fd_pread(exec_env, curfds, fd, iovec_begin, iovs_len,
+                                offset, &nread);
     if (err)
         goto fail;
 

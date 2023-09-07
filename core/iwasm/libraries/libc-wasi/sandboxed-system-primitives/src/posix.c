@@ -13,6 +13,7 @@
 
 #include "ssp_config.h"
 #include "bh_platform.h"
+#include "blocking_op.h"
 #include "wasmtime_ssp.h"
 #include "locking.h"
 #include "posix.h"
@@ -914,8 +915,8 @@ wasmtime_ssp_fd_datasync(struct fd_table *curfds, __wasi_fd_t fd)
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_pread(struct fd_table *curfds, __wasi_fd_t fd,
-                      const __wasi_iovec_t *iov, size_t iovcnt,
+wasmtime_ssp_fd_pread(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                      __wasi_fd_t fd, const __wasi_iovec_t *iov, size_t iovcnt,
                       __wasi_filesize_t offset, size_t *nread)
 {
     if (iovcnt == 0)
@@ -928,8 +929,9 @@ wasmtime_ssp_fd_pread(struct fd_table *curfds, __wasi_fd_t fd,
         return error;
 
 #if CONFIG_HAS_PREADV
-    ssize_t len = preadv(fd_number(fo), (const struct iovec *)iov, (int)iovcnt,
-                         (off_t)offset);
+    ssize_t len =
+        blocking_op_preadv(env, fd_number(fo), (const struct iovec *)iov,
+                           (int)iovcnt, (off_t)offset);
     fd_object_release(fo);
     if (len < 0)
         return convert_errno(errno);
@@ -937,7 +939,8 @@ wasmtime_ssp_fd_pread(struct fd_table *curfds, __wasi_fd_t fd,
     return 0;
 #else
     if (iovcnt == 1) {
-        ssize_t len = pread(fd_number(fo), iov->buf, iov->buf_len, offset);
+        ssize_t len = blocking_op_pread(exec_env, fd_number(fo), iov->buf,
+                                        iov->buf_len, offset);
         fd_object_release(fo);
         if (len < 0)
             return convert_errno(errno);
@@ -956,7 +959,8 @@ wasmtime_ssp_fd_pread(struct fd_table *curfds, __wasi_fd_t fd,
         }
 
         // Perform a single read operation.
-        ssize_t len = pread(fd_number(fo), buf, totalsize, offset);
+        ssize_t len =
+            blocking_op_pread(exec_env, fd_number(fo), buf, totalsize, offset);
         fd_object_release(fo);
         if (len < 0) {
             wasm_runtime_free(buf);
@@ -1046,12 +1050,8 @@ wasmtime_ssp_fd_read(wasm_exec_env_t exec_env, struct fd_table *curfds,
     if (error != 0)
         return error;
 
-    if (!wasm_runtime_begin_blocking_op(exec_env)) {
-        fd_object_release(fo);
-        return __WASI_EINTR;
-    }
-    ssize_t len = readv(fd_number(fo), (const struct iovec *)iov, (int)iovcnt);
-    wasm_runtime_end_blocking_op(exec_env);
+    ssize_t len = blocking_op_readv(exec_env, fd_number(fo),
+                                    (const struct iovec *)iov, (int)iovcnt);
     fd_object_release(fo);
     if (len < 0)
         return convert_errno(errno);
