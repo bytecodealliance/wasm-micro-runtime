@@ -1549,8 +1549,9 @@ wasm_runtime_get_context(wasm_module_inst_t inst, void *key);
 /*
  * wasm_runtime_begin_blocking_op/wasm_runtime_end_blocking_op
  *
- * wrap an operation which possibly blocks for long to prepare
- * for async termination.
+ * These APIs are intended to be used by the implementations of
+ * host functions. It wraps an operation which possibly blocks for long
+ * to prepare for async termination.
  *
  * eg.
  *
