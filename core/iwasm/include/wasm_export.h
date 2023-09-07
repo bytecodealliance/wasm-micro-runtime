@@ -1546,6 +1546,24 @@ wasm_runtime_set_context_spread(wasm_module_inst_t inst, void *key,
 WASM_RUNTIME_API_EXTERN void *
 wasm_runtime_get_context(wasm_module_inst_t inst, void *key);
 
+/*
+ * wasm_runtime_begin_blocking_op/wasm_runtime_end_blocking_op
+ *
+ * wrap an operation which possibly blocks for long to prepare
+ * for async termination.
+ *
+ * eg.
+ *
+ *   if (!wasm_runtime_begin_blocking_op) {
+ *       return EINTR;
+ *   }
+ *   ret = possibly_blocking_op();
+ *   wasm_runtime_end_blocking_op(env);
+ *   return ret;
+ *
+ * If the underlying platform has a support, (OS_ENABLE_WAKEUP_BLOCKING_OP)
+ * it's used to unblock the thread for async termination.
+ */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_begin_blocking_op(wasm_exec_env_t exec_env);
 
