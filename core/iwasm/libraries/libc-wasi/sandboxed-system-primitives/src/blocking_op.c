@@ -63,7 +63,7 @@ blocking_op_pread(wasm_exec_env_t exec_env, int fd, void *p, size_t nb,
 
 ssize_t
 blocking_op_writev(wasm_exec_env_t exec_env, int fd, const struct iovec *iov,
-                  int iovcnt)
+                   int iovcnt)
 {
     if (!wasm_runtime_begin_blocking_op(exec_env)) {
         errno = EINTR;
@@ -77,7 +77,7 @@ blocking_op_writev(wasm_exec_env_t exec_env, int fd, const struct iovec *iov,
 #if CONFIG_HAS_PWRITEV
 ssize_t
 blocking_op_pwritev(wasm_exec_env_t exec_env, int fd, const struct iovec *iov,
-                   int iovcnt, off_t offset)
+                    int iovcnt, off_t offset)
 {
     if (!wasm_runtime_begin_blocking_op(exec_env)) {
         errno = EINTR;
@@ -90,7 +90,7 @@ blocking_op_pwritev(wasm_exec_env_t exec_env, int fd, const struct iovec *iov,
 #else  /* CONFIG_HAS_PREADV */
 ssize_t
 blocking_op_pwrite(wasm_exec_env_t exec_env, int fd, const void *p, size_t nb,
-                  off_t offset)
+                   off_t offset)
 {
     if (!wasm_runtime_begin_blocking_op(exec_env)) {
         errno = EINTR;
@@ -103,7 +103,9 @@ blocking_op_pwrite(wasm_exec_env_t exec_env, int fd, const void *p, size_t nb,
 #endif /* CONFIG_HAS_PREADV */
 
 int
-blocking_op_socket_accept(wasm_exec_env_t exec_env, bh_socket_t server_sock, bh_socket_t *sockp, void *addr, unsigned int *addrlenp)
+blocking_op_socket_accept(wasm_exec_env_t exec_env, bh_socket_t server_sock,
+                          bh_socket_t *sockp, void *addr,
+                          unsigned int *addrlenp)
 {
     if (!wasm_runtime_begin_blocking_op(exec_env)) {
         errno = EINTR;
@@ -115,7 +117,8 @@ blocking_op_socket_accept(wasm_exec_env_t exec_env, bh_socket_t server_sock, bh_
 }
 
 int
-blocking_op_socket_connect(wasm_exec_env_t exec_env, bh_socket_t sock, const char *addr, int port)
+blocking_op_socket_connect(wasm_exec_env_t exec_env, bh_socket_t sock,
+                           const char *addr, int port)
 {
     if (!wasm_runtime_begin_blocking_op(exec_env)) {
         errno = EINTR;

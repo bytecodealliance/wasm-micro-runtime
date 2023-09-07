@@ -633,21 +633,23 @@ fd_number(const struct fd_object *fo)
 
 // The env == NULL case is for
 // fd_table_destroy, path_get, path_put, fd_table_insert_existing
-#define CLOSE_NON_STD_FD(env, fd) \
-    do {                     \
-        if (fd > 2) {         \
-            if (env == NULL) { \
-            close(fd);       \
-            } else { \
-            blocking_op_close(env, fd);       \
-            } \
-        } \
+#define CLOSE_NON_STD_FD(env, fd)           \
+    do {                                    \
+        if (fd > 2) {                       \
+            if (env == NULL) {              \
+                close(fd);                  \
+            }                               \
+            else {                          \
+                blocking_op_close(env, fd); \
+            }                               \
+        }                                   \
     } while (0)
 
 // Lowers the reference count on a file descriptor object. When the
 // reference count reaches zero, its resources are cleaned up.
 static void
-fd_object_release(wasm_exec_env_t env, struct fd_object *fo) UNLOCKS(fo->refcount)
+fd_object_release(wasm_exec_env_t env, struct fd_object *fo)
+    UNLOCKS(fo->refcount)
 {
     if (refcount_release(&fo->refcount)) {
         int saved_errno = errno;
@@ -737,10 +739,10 @@ fd_table_unused(struct fd_table *ft) REQUIRES_SHARED(ft->lock)
 // Inserts a file descriptor object into an unused slot of the file
 // descriptor table.
 static __wasi_errno_t
-fd_table_insert(wasm_exec_env_t exec_env, struct fd_table *ft, struct fd_object *fo,
-                __wasi_rights_t rights_base, __wasi_rights_t rights_inheriting,
-                __wasi_fd_t *out) REQUIRES_UNLOCKED(ft->lock)
-    UNLOCKS(fo->refcount)
+fd_table_insert(wasm_exec_env_t exec_env, struct fd_table *ft,
+                struct fd_object *fo, __wasi_rights_t rights_base,
+                __wasi_rights_t rights_inheriting, __wasi_fd_t *out)
+    REQUIRES_UNLOCKED(ft->lock) UNLOCKS(fo->refcount)
 {
     // Grow the file descriptor table if needed.
     rwlock_wrlock(&ft->lock);
@@ -758,8 +760,8 @@ fd_table_insert(wasm_exec_env_t exec_env, struct fd_table *ft, struct fd_object 
 
 // Inserts a numerical file descriptor into the file descriptor table.
 static __wasi_errno_t
-fd_table_insert_fd(wasm_exec_env_t exec_env, struct fd_table *ft, int in, __wasi_filetype_t type,
-                   __wasi_rights_t rights_base,
+fd_table_insert_fd(wasm_exec_env_t exec_env, struct fd_table *ft, int in,
+                   __wasi_filetype_t type, __wasi_rights_t rights_base,
                    __wasi_rights_t rights_inheriting, __wasi_fd_t *out)
     REQUIRES_UNLOCKED(ft->lock)
 {
@@ -779,7 +781,8 @@ fd_table_insert_fd(wasm_exec_env_t exec_env, struct fd_table *ft, int in, __wasi
         }
         fo->directory.handle = NULL;
     }
-    return fd_table_insert(exec_env, ft, fo, rights_base, rights_inheriting, out);
+    return fd_table_insert(exec_env, ft, fo, rights_base, rights_inheriting,
+                           out);
 }
 
 __wasi_errno_t
@@ -829,8 +832,8 @@ wasmtime_ssp_fd_prestat_dir_name(struct fd_prestats *prestats, __wasi_fd_t fd,
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_close(wasm_exec_env_t exec_env, struct fd_table *curfds, struct fd_prestats *prestats,
-                      __wasi_fd_t fd)
+wasmtime_ssp_fd_close(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                      struct fd_prestats *prestats, __wasi_fd_t fd)
 {
     // Don't allow closing a pre-opened resource.
     // TODO: Eventually, we do want to permit this, once libpreopen in
@@ -902,7 +905,8 @@ fd_object_get(struct fd_table *curfds, struct fd_object **fo, __wasi_fd_t fd,
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_datasync(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t fd)
+wasmtime_ssp_fd_datasync(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                         __wasi_fd_t fd)
 {
     struct fd_object *fo;
     __wasi_errno_t error =
@@ -996,9 +1000,10 @@ wasmtime_ssp_fd_pread(wasm_exec_env_t exec_env, struct fd_table *curfds,
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_pwrite(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t fd,
-                       const __wasi_ciovec_t *iov, size_t iovcnt,
-                       __wasi_filesize_t offset, size_t *nwritten)
+wasmtime_ssp_fd_pwrite(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                       __wasi_fd_t fd, const __wasi_ciovec_t *iov,
+                       size_t iovcnt, __wasi_filesize_t offset,
+                       size_t *nwritten)
 {
     if (iovcnt == 0)
         return __WASI_EINVAL;
@@ -1011,11 +1016,13 @@ wasmtime_ssp_fd_pwrite(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi
 
     ssize_t len;
 #if CONFIG_HAS_PWRITEV
-    len = blocking_op_pwritev(exec_env, fd_number(fo), (const struct iovec *)iov, (int)iovcnt,
-                  (off_t)offset);
+    len =
+        blocking_op_pwritev(exec_env, fd_number(fo), (const struct iovec *)iov,
+                            (int)iovcnt, (off_t)offset);
 #else
     if (iovcnt == 1) {
-        len = blocking_op_pwrite(exec_env, fd_number(fo), iov->buf, iov->buf_len, offset);
+        len = blocking_op_pwrite(exec_env, fd_number(fo), iov->buf,
+                                 iov->buf_len, offset);
     }
     else {
         // Allocate a single buffer to fit all data.
@@ -1035,7 +1042,8 @@ wasmtime_ssp_fd_pwrite(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi
         }
 
         // Perform a single write operation.
-        len = blocking_op_pwrite(exec_env, fd_number(fo), buf, totalsize, offset);
+        len =
+            blocking_op_pwrite(exec_env, fd_number(fo), buf, totalsize, offset);
         wasm_runtime_free(buf);
     }
 #endif
@@ -1067,8 +1075,9 @@ wasmtime_ssp_fd_read(wasm_exec_env_t exec_env, struct fd_table *curfds,
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_renumber(wasm_exec_env_t exec_env, struct fd_table *curfds, struct fd_prestats *prestats,
-                         __wasi_fd_t from, __wasi_fd_t to)
+wasmtime_ssp_fd_renumber(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                         struct fd_prestats *prestats, __wasi_fd_t from,
+                         __wasi_fd_t to)
 {
     // Don't allow renumbering over a pre-opened resource.
     // TODO: Eventually, we do want to permit this, once libpreopen in
@@ -1118,9 +1127,9 @@ wasmtime_ssp_fd_renumber(wasm_exec_env_t exec_env, struct fd_table *curfds, stru
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_seek(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t fd,
-                     __wasi_filedelta_t offset, __wasi_whence_t whence,
-                     __wasi_filesize_t *newoffset)
+wasmtime_ssp_fd_seek(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                     __wasi_fd_t fd, __wasi_filedelta_t offset,
+                     __wasi_whence_t whence, __wasi_filesize_t *newoffset)
 {
     int nwhence;
     switch (whence) {
@@ -1156,8 +1165,8 @@ wasmtime_ssp_fd_seek(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_f
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_tell(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t fd,
-                     __wasi_filesize_t *newoffset)
+wasmtime_ssp_fd_tell(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                     __wasi_fd_t fd, __wasi_filesize_t *newoffset)
 {
     struct fd_object *fo;
     __wasi_errno_t error =
@@ -1174,8 +1183,8 @@ wasmtime_ssp_fd_tell(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_f
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_fdstat_get(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t fd,
-                           __wasi_fdstat_t *buf)
+wasmtime_ssp_fd_fdstat_get(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                           __wasi_fd_t fd, __wasi_fdstat_t *buf)
 {
     struct fd_table *ft = curfds;
     rwlock_rdlock(&ft->lock);
@@ -1223,7 +1232,8 @@ wasmtime_ssp_fd_fdstat_get(wasm_exec_env_t exec_env, struct fd_table *curfds, __
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_fdstat_set_flags(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t fd,
+wasmtime_ssp_fd_fdstat_set_flags(wasm_exec_env_t exec_env,
+                                 struct fd_table *curfds, __wasi_fd_t fd,
                                  __wasi_fdflags_t fs_flags)
 {
     int noflags = 0;
@@ -1260,7 +1270,8 @@ wasmtime_ssp_fd_fdstat_set_flags(wasm_exec_env_t exec_env, struct fd_table *curf
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_fdstat_set_rights(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t fd,
+wasmtime_ssp_fd_fdstat_set_rights(wasm_exec_env_t exec_env,
+                                  struct fd_table *curfds, __wasi_fd_t fd,
                                   __wasi_rights_t fs_rights_base,
                                   __wasi_rights_t fs_rights_inheriting)
 {
@@ -1282,7 +1293,8 @@ wasmtime_ssp_fd_fdstat_set_rights(wasm_exec_env_t exec_env, struct fd_table *cur
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_sync(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t fd)
+wasmtime_ssp_fd_sync(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                     __wasi_fd_t fd)
 {
     struct fd_object *fo;
     __wasi_errno_t error =
@@ -1298,8 +1310,8 @@ wasmtime_ssp_fd_sync(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_f
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_write(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t fd,
-                      const __wasi_ciovec_t *iov, size_t iovcnt,
+wasmtime_ssp_fd_write(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                      __wasi_fd_t fd, const __wasi_ciovec_t *iov, size_t iovcnt,
                       size_t *nwritten)
 {
     struct fd_object *fo;
@@ -1339,9 +1351,9 @@ wasmtime_ssp_fd_write(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_advise(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t fd,
-                       __wasi_filesize_t offset, __wasi_filesize_t len,
-                       __wasi_advice_t advice)
+wasmtime_ssp_fd_advise(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                       __wasi_fd_t fd, __wasi_filesize_t offset,
+                       __wasi_filesize_t len, __wasi_advice_t advice)
 {
 #ifdef POSIX_FADV_NORMAL
     int nadvice;
@@ -1405,8 +1417,9 @@ wasmtime_ssp_fd_advise(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_allocate(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t fd,
-                         __wasi_filesize_t offset, __wasi_filesize_t len)
+wasmtime_ssp_fd_allocate(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                         __wasi_fd_t fd, __wasi_filesize_t offset,
+                         __wasi_filesize_t len)
 {
     struct fd_object *fo;
     __wasi_errno_t error =
@@ -1743,7 +1756,8 @@ path_put(struct path_access *pa) UNLOCKS(pa->fd_object->refcount)
 }
 
 __wasi_errno_t
-wasmtime_ssp_path_create_directory(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t fd,
+wasmtime_ssp_path_create_directory(wasm_exec_env_t exec_env,
+                                   struct fd_table *curfds, __wasi_fd_t fd,
                                    const char *path, size_t pathlen)
 {
     struct path_access pa;
@@ -1788,11 +1802,11 @@ validate_path(const char *path, struct fd_prestats *pt)
 }
 
 __wasi_errno_t
-wasmtime_ssp_path_link(wasm_exec_env_t exec_env, struct fd_table *curfds, struct fd_prestats *prestats,
-                       __wasi_fd_t old_fd, __wasi_lookupflags_t old_flags,
-                       const char *old_path, size_t old_path_len,
-                       __wasi_fd_t new_fd, const char *new_path,
-                       size_t new_path_len)
+wasmtime_ssp_path_link(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                       struct fd_prestats *prestats, __wasi_fd_t old_fd,
+                       __wasi_lookupflags_t old_flags, const char *old_path,
+                       size_t old_path_len, __wasi_fd_t new_fd,
+                       const char *new_path, size_t new_path_len)
 {
     struct path_access old_pa;
     __wasi_errno_t error =
@@ -1845,9 +1859,9 @@ wasmtime_ssp_path_link(wasm_exec_env_t exec_env, struct fd_table *curfds, struct
 }
 
 __wasi_errno_t
-wasmtime_ssp_path_open(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t dirfd,
-                       __wasi_lookupflags_t dirflags, const char *path,
-                       size_t pathlen, __wasi_oflags_t oflags,
+wasmtime_ssp_path_open(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                       __wasi_fd_t dirfd, __wasi_lookupflags_t dirflags,
+                       const char *path, size_t pathlen, __wasi_oflags_t oflags,
                        __wasi_rights_t fs_rights_base,
                        __wasi_rights_t fs_rights_inheriting,
                        __wasi_fdflags_t fs_flags, __wasi_fd_t *fd)
@@ -1978,7 +1992,8 @@ wasmtime_ssp_path_open(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi
             rights_base |= (__wasi_rights_t)RIGHTS_REGULAR_FILE_BASE;
     }
 
-    return fd_table_insert_fd(exec_env, curfds, nfd, type, rights_base & max_base,
+    return fd_table_insert_fd(exec_env, curfds, nfd, type,
+                              rights_base & max_base,
                               rights_inheriting & max_inheriting, fd);
 }
 
@@ -1997,9 +2012,9 @@ fd_readdir_put(void *buf, size_t bufsize, size_t *bufused, const void *elem,
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_readdir(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t fd, void *buf,
-                        size_t nbyte, __wasi_dircookie_t cookie,
-                        size_t *bufused)
+wasmtime_ssp_fd_readdir(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                        __wasi_fd_t fd, void *buf, size_t nbyte,
+                        __wasi_dircookie_t cookie, size_t *bufused)
 {
     struct fd_object *fo;
     __wasi_errno_t error =
@@ -2093,9 +2108,9 @@ wasmtime_ssp_fd_readdir(wasm_exec_env_t exec_env, struct fd_table *curfds, __was
 }
 
 __wasi_errno_t
-wasmtime_ssp_path_readlink(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t fd,
-                           const char *path, size_t pathlen, char *buf,
-                           size_t bufsize, size_t *bufused)
+wasmtime_ssp_path_readlink(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                           __wasi_fd_t fd, const char *path, size_t pathlen,
+                           char *buf, size_t bufsize, size_t *bufused)
 {
     struct path_access pa;
     __wasi_errno_t error = path_get_nofollow(
@@ -2116,10 +2131,10 @@ wasmtime_ssp_path_readlink(wasm_exec_env_t exec_env, struct fd_table *curfds, __
 }
 
 __wasi_errno_t
-wasmtime_ssp_path_rename(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t old_fd,
-                         const char *old_path, size_t old_path_len,
-                         __wasi_fd_t new_fd, const char *new_path,
-                         size_t new_path_len)
+wasmtime_ssp_path_rename(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                         __wasi_fd_t old_fd, const char *old_path,
+                         size_t old_path_len, __wasi_fd_t new_fd,
+                         const char *new_path, size_t new_path_len)
 {
     struct path_access old_pa;
     __wasi_errno_t error =
@@ -2161,8 +2176,8 @@ convert_stat(const struct stat *in, __wasi_filestat_t *out)
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_filestat_get(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t fd,
-                             __wasi_filestat_t *buf)
+wasmtime_ssp_fd_filestat_get(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                             __wasi_fd_t fd, __wasi_filestat_t *buf)
 {
     struct fd_object *fo;
     __wasi_errno_t error =
@@ -2231,7 +2246,8 @@ convert_utimens_arguments(__wasi_timestamp_t st_atim,
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_filestat_set_size(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t fd,
+wasmtime_ssp_fd_filestat_set_size(wasm_exec_env_t exec_env,
+                                  struct fd_table *curfds, __wasi_fd_t fd,
                                   __wasi_filesize_t st_size)
 {
     struct fd_object *fo;
@@ -2248,7 +2264,8 @@ wasmtime_ssp_fd_filestat_set_size(wasm_exec_env_t exec_env, struct fd_table *cur
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_filestat_set_times(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t fd,
+wasmtime_ssp_fd_filestat_set_times(wasm_exec_env_t exec_env,
+                                   struct fd_table *curfds, __wasi_fd_t fd,
                                    __wasi_timestamp_t st_atim,
                                    __wasi_timestamp_t st_mtim,
                                    __wasi_fstflags_t fstflags)
@@ -2276,7 +2293,8 @@ wasmtime_ssp_fd_filestat_set_times(wasm_exec_env_t exec_env, struct fd_table *cu
 }
 
 __wasi_errno_t
-wasmtime_ssp_path_filestat_get(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t fd,
+wasmtime_ssp_path_filestat_get(wasm_exec_env_t exec_env,
+                               struct fd_table *curfds, __wasi_fd_t fd,
                                __wasi_lookupflags_t flags, const char *path,
                                size_t pathlen, __wasi_filestat_t *buf)
 {
@@ -2313,7 +2331,8 @@ wasmtime_ssp_path_filestat_get(wasm_exec_env_t exec_env, struct fd_table *curfds
 }
 
 __wasi_errno_t
-wasmtime_ssp_path_filestat_set_times(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t fd,
+wasmtime_ssp_path_filestat_set_times(wasm_exec_env_t exec_env,
+                                     struct fd_table *curfds, __wasi_fd_t fd,
                                      __wasi_lookupflags_t flags,
                                      const char *path, size_t pathlen,
                                      __wasi_timestamp_t st_atim,
@@ -2351,10 +2370,10 @@ wasmtime_ssp_path_filestat_set_times(wasm_exec_env_t exec_env, struct fd_table *
 }
 
 __wasi_errno_t
-wasmtime_ssp_path_symlink(wasm_exec_env_t exec_env, struct fd_table *curfds, struct fd_prestats *prestats,
-                          const char *old_path, size_t old_path_len,
-                          __wasi_fd_t fd, const char *new_path,
-                          size_t new_path_len)
+wasmtime_ssp_path_symlink(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                          struct fd_prestats *prestats, const char *old_path,
+                          size_t old_path_len, __wasi_fd_t fd,
+                          const char *new_path, size_t new_path_len)
 {
     char *target = str_nullterminate(old_path, old_path_len);
     if (target == NULL)
@@ -2386,8 +2405,8 @@ wasmtime_ssp_path_symlink(wasm_exec_env_t exec_env, struct fd_table *curfds, str
 }
 
 __wasi_errno_t
-wasmtime_ssp_path_unlink_file(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t fd,
-                              const char *path, size_t pathlen)
+wasmtime_ssp_path_unlink_file(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                              __wasi_fd_t fd, const char *path, size_t pathlen)
 {
     struct path_access pa;
     __wasi_errno_t error = path_get_nofollow(
@@ -2420,7 +2439,8 @@ wasmtime_ssp_path_unlink_file(wasm_exec_env_t exec_env, struct fd_table *curfds,
 }
 
 __wasi_errno_t
-wasmtime_ssp_path_remove_directory(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t fd,
+wasmtime_ssp_path_remove_directory(wasm_exec_env_t exec_env,
+                                   struct fd_table *curfds, __wasi_fd_t fd,
                                    const char *path, size_t pathlen)
 {
     struct path_access pa;
@@ -2708,8 +2728,9 @@ wasmtime_ssp_random_get(void *buf, size_t nbyte)
 }
 
 __wasi_errno_t
-wasi_ssp_sock_accept(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t fd,
-                     __wasi_fdflags_t flags, __wasi_fd_t *fd_new)
+wasi_ssp_sock_accept(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                     __wasi_fd_t fd, __wasi_fdflags_t flags,
+                     __wasi_fd_t *fd_new)
 {
     __wasi_filetype_t wasi_type;
     __wasi_rights_t max_base, max_inheriting;
@@ -2722,7 +2743,8 @@ wasi_ssp_sock_accept(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_f
         goto fail;
     }
 
-    ret = blocking_op_socket_accept(exec_env, fd_number(fo), &new_sock, NULL, NULL);
+    ret = blocking_op_socket_accept(exec_env, fd_number(fo), &new_sock, NULL,
+                                    NULL);
     fd_object_release(exec_env, fo);
     if (BHT_OK != ret) {
         error = convert_errno(errno);
@@ -2753,8 +2775,8 @@ fail:
 }
 
 __wasi_errno_t
-wasi_ssp_sock_addr_local(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t fd,
-                         __wasi_addr_t *addr)
+wasi_ssp_sock_addr_local(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                         __wasi_fd_t fd, __wasi_addr_t *addr)
 {
     struct fd_object *fo;
     bh_sockaddr_t bh_addr;
@@ -2777,8 +2799,8 @@ wasi_ssp_sock_addr_local(wasm_exec_env_t exec_env, struct fd_table *curfds, __wa
 }
 
 __wasi_errno_t
-wasi_ssp_sock_addr_remote(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t fd,
-                          __wasi_addr_t *addr)
+wasi_ssp_sock_addr_remote(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                          __wasi_fd_t fd, __wasi_addr_t *addr)
 {
     struct fd_object *fo;
     bh_sockaddr_t bh_addr;
@@ -2830,8 +2852,9 @@ wasi_addr_to_string(const __wasi_addr_t *addr, char *buf, size_t buflen)
 }
 
 __wasi_errno_t
-wasi_ssp_sock_bind(wasm_exec_env_t exec_env, struct fd_table *curfds, struct addr_pool *addr_pool,
-                   __wasi_fd_t fd, __wasi_addr_t *addr)
+wasi_ssp_sock_bind(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                   struct addr_pool *addr_pool, __wasi_fd_t fd,
+                   __wasi_addr_t *addr)
 {
     char buf[48] = { 0 };
     struct fd_object *fo;
@@ -2861,9 +2884,9 @@ wasi_ssp_sock_bind(wasm_exec_env_t exec_env, struct fd_table *curfds, struct add
 }
 
 __wasi_errno_t
-wasi_ssp_sock_addr_resolve(wasm_exec_env_t exec_env, struct fd_table *curfds, char **ns_lookup_list,
-                           const char *host, const char *service,
-                           __wasi_addr_info_hints_t *hints,
+wasi_ssp_sock_addr_resolve(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                           char **ns_lookup_list, const char *host,
+                           const char *service, __wasi_addr_info_hints_t *hints,
                            __wasi_addr_info_t *addr_info,
                            __wasi_size_t addr_info_size,
                            __wasi_size_t *max_info_size)
@@ -2913,8 +2936,9 @@ wasi_ssp_sock_addr_resolve(wasm_exec_env_t exec_env, struct fd_table *curfds, ch
 }
 
 __wasi_errno_t
-wasi_ssp_sock_connect(wasm_exec_env_t exec_env, struct fd_table *curfds, struct addr_pool *addr_pool,
-                      __wasi_fd_t fd, __wasi_addr_t *addr)
+wasi_ssp_sock_connect(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                      struct addr_pool *addr_pool, __wasi_fd_t fd,
+                      __wasi_addr_t *addr)
 {
     char buf[48] = { 0 };
     struct fd_object *fo;
@@ -2934,8 +2958,8 @@ wasi_ssp_sock_connect(wasm_exec_env_t exec_env, struct fd_table *curfds, struct 
         return error;
 
     ret = blocking_op_socket_connect(exec_env, fd_number(fo), buf,
-                            addr->kind == IPv4 ? addr->addr.ip4.port
-                                               : addr->addr.ip6.port);
+                                     addr->kind == IPv4 ? addr->addr.ip4.port
+                                                        : addr->addr.ip6.port);
     fd_object_release(exec_env, fo);
     if (BHT_OK != ret) {
         return convert_errno(errno);
@@ -2945,7 +2969,8 @@ wasi_ssp_sock_connect(wasm_exec_env_t exec_env, struct fd_table *curfds, struct 
 }
 
 __wasi_errno_t
-wasi_ssp_sock_get_recv_buf_size(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t fd,
+wasi_ssp_sock_get_recv_buf_size(wasm_exec_env_t exec_env,
+                                struct fd_table *curfds, __wasi_fd_t fd,
                                 __wasi_size_t *size)
 {
     struct fd_object *fo;
@@ -2969,8 +2994,8 @@ wasi_ssp_sock_get_recv_buf_size(wasm_exec_env_t exec_env, struct fd_table *curfd
 }
 
 __wasi_errno_t
-wasi_ssp_sock_get_reuse_addr(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t fd,
-                             uint8_t *reuse)
+wasi_ssp_sock_get_reuse_addr(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                             __wasi_fd_t fd, uint8_t *reuse)
 {
 
     struct fd_object *fo;
@@ -2994,8 +3019,8 @@ wasi_ssp_sock_get_reuse_addr(wasm_exec_env_t exec_env, struct fd_table *curfds, 
 }
 
 __wasi_errno_t
-wasi_ssp_sock_get_reuse_port(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t fd,
-                             uint8_t *reuse)
+wasi_ssp_sock_get_reuse_port(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                             __wasi_fd_t fd, uint8_t *reuse)
 {
     struct fd_object *fo;
     int ret;
@@ -3025,7 +3050,8 @@ wasi_ssp_sock_get_reuse_port(wasm_exec_env_t exec_env, struct fd_table *curfds, 
 }
 
 __wasi_errno_t
-wasi_ssp_sock_get_send_buf_size(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t fd,
+wasi_ssp_sock_get_send_buf_size(wasm_exec_env_t exec_env,
+                                struct fd_table *curfds, __wasi_fd_t fd,
                                 __wasi_size_t *size)
 {
     struct fd_object *fo;
@@ -3049,8 +3075,8 @@ wasi_ssp_sock_get_send_buf_size(wasm_exec_env_t exec_env, struct fd_table *curfd
 }
 
 __wasi_errno_t
-wasi_ssp_sock_listen(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t fd,
-                     __wasi_size_t backlog)
+wasi_ssp_sock_listen(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                     __wasi_fd_t fd, __wasi_size_t backlog)
 {
     struct fd_object *fo;
     int ret;
@@ -3069,9 +3095,9 @@ wasi_ssp_sock_listen(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_f
 }
 
 __wasi_errno_t
-wasi_ssp_sock_open(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t poolfd,
-                   __wasi_address_family_t af, __wasi_sock_type_t socktype,
-                   __wasi_fd_t *sockfd)
+wasi_ssp_sock_open(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                   __wasi_fd_t poolfd, __wasi_address_family_t af,
+                   __wasi_sock_type_t socktype, __wasi_fd_t *sockfd)
 {
     bh_socket_t sock;
     bool is_tcp = SOCKET_DGRAM == socktype ? false : true;
@@ -3113,7 +3139,8 @@ wasi_ssp_sock_open(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_
 }
 
 __wasi_errno_t
-wasi_ssp_sock_set_recv_buf_size(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t fd,
+wasi_ssp_sock_set_recv_buf_size(wasm_exec_env_t exec_env,
+                                struct fd_table *curfds, __wasi_fd_t fd,
                                 __wasi_size_t size)
 {
     struct fd_object *fo;
@@ -3135,8 +3162,8 @@ wasi_ssp_sock_set_recv_buf_size(wasm_exec_env_t exec_env, struct fd_table *curfd
 }
 
 __wasi_errno_t
-wasi_ssp_sock_set_reuse_addr(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t fd,
-                             uint8_t reuse)
+wasi_ssp_sock_set_reuse_addr(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                             __wasi_fd_t fd, uint8_t reuse)
 {
     struct fd_object *fo;
     int ret;
@@ -3157,8 +3184,8 @@ wasi_ssp_sock_set_reuse_addr(wasm_exec_env_t exec_env, struct fd_table *curfds, 
 }
 
 __wasi_errno_t
-wasi_ssp_sock_set_reuse_port(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t fd,
-                             uint8_t reuse)
+wasi_ssp_sock_set_reuse_port(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                             __wasi_fd_t fd, uint8_t reuse)
 {
     struct fd_object *fo;
     int ret;
@@ -3185,7 +3212,8 @@ wasi_ssp_sock_set_reuse_port(wasm_exec_env_t exec_env, struct fd_table *curfds, 
 }
 
 __wasi_errno_t
-wasi_ssp_sock_set_send_buf_size(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t fd,
+wasi_ssp_sock_set_send_buf_size(wasm_exec_env_t exec_env,
+                                struct fd_table *curfds, __wasi_fd_t fd,
                                 __wasi_size_t size)
 {
     struct fd_object *fo;
@@ -3208,18 +3236,19 @@ wasi_ssp_sock_set_send_buf_size(wasm_exec_env_t exec_env, struct fd_table *curfd
 }
 
 __wasi_errno_t
-wasmtime_ssp_sock_recv(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t sock, void *buf,
-                       size_t buf_len, size_t *recv_len)
+wasmtime_ssp_sock_recv(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                       __wasi_fd_t sock, void *buf, size_t buf_len,
+                       size_t *recv_len)
 {
     __wasi_addr_t src_addr;
 
-    return wasmtime_ssp_sock_recv_from(exec_env, curfds, sock, buf, buf_len, 0, &src_addr,
-                                       recv_len);
+    return wasmtime_ssp_sock_recv_from(exec_env, curfds, sock, buf, buf_len, 0,
+                                       &src_addr, recv_len);
 }
 
 __wasi_errno_t
-wasmtime_ssp_sock_recv_from(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t sock,
-                            void *buf, size_t buf_len,
+wasmtime_ssp_sock_recv_from(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                            __wasi_fd_t sock, void *buf, size_t buf_len,
                             __wasi_riflags_t ri_flags, __wasi_addr_t *src_addr,
                             size_t *recv_len)
 {
@@ -3246,8 +3275,9 @@ wasmtime_ssp_sock_recv_from(wasm_exec_env_t exec_env, struct fd_table *curfds, _
 }
 
 __wasi_errno_t
-wasmtime_ssp_sock_send(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t sock,
-                       const void *buf, size_t buf_len, size_t *sent_len)
+wasmtime_ssp_sock_send(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                       __wasi_fd_t sock, const void *buf, size_t buf_len,
+                       size_t *sent_len)
 {
     struct fd_object *fo;
     __wasi_errno_t error;
@@ -3269,8 +3299,9 @@ wasmtime_ssp_sock_send(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi
 }
 
 __wasi_errno_t
-wasmtime_ssp_sock_send_to(wasm_exec_env_t exec_env, struct fd_table *curfds, struct addr_pool *addr_pool,
-                          __wasi_fd_t sock, const void *buf, size_t buf_len,
+wasmtime_ssp_sock_send_to(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                          struct addr_pool *addr_pool, __wasi_fd_t sock,
+                          const void *buf, size_t buf_len,
                           __wasi_siflags_t si_flags,
                           const __wasi_addr_t *dest_addr, size_t *sent_len)
 {
@@ -3306,7 +3337,8 @@ wasmtime_ssp_sock_send_to(wasm_exec_env_t exec_env, struct fd_table *curfds, str
 }
 
 __wasi_errno_t
-wasmtime_ssp_sock_shutdown(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t sock)
+wasmtime_ssp_sock_shutdown(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                           __wasi_fd_t sock)
 {
     struct fd_object *fo;
     __wasi_errno_t error;
@@ -3615,7 +3647,7 @@ addr_pool_destroy(struct addr_pool *addr_pool)
         if (error != 0)                                                \
             return error;                                              \
         ret = os_socket_##FUNC_NAME(fd_number(fo), option);            \
-        fd_object_release(exec_env, fo);                                         \
+        fd_object_release(exec_env, fo);                               \
         if (BHT_OK != ret)                                             \
             return convert_errno(errno);                               \
         return __WASI_ESUCCESS;                                        \
@@ -3658,8 +3690,8 @@ WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(get_ipv6_only, bool *)
 #undef WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION
 
 __wasi_errno_t
-wasmtime_ssp_sock_set_linger(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t sock,
-                             bool is_enabled, int linger_s)
+wasmtime_ssp_sock_set_linger(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                             __wasi_fd_t sock, bool is_enabled, int linger_s)
 {
     struct fd_object *fo;
     __wasi_errno_t error;
@@ -3676,8 +3708,8 @@ wasmtime_ssp_sock_set_linger(wasm_exec_env_t exec_env, struct fd_table *curfds, 
 }
 
 __wasi_errno_t
-wasmtime_ssp_sock_get_linger(wasm_exec_env_t exec_env, struct fd_table *curfds, __wasi_fd_t sock,
-                             bool *is_enabled, int *linger_s)
+wasmtime_ssp_sock_get_linger(wasm_exec_env_t exec_env, struct fd_table *curfds,
+                             __wasi_fd_t sock, bool *is_enabled, int *linger_s)
 {
     struct fd_object *fo;
     __wasi_errno_t error;
@@ -3695,7 +3727,8 @@ wasmtime_ssp_sock_get_linger(wasm_exec_env_t exec_env, struct fd_table *curfds, 
 }
 
 __wasi_errno_t
-wasmtime_ssp_sock_set_ip_add_membership(wasm_exec_env_t exec_env, struct fd_table *curfds,
+wasmtime_ssp_sock_set_ip_add_membership(wasm_exec_env_t exec_env,
+                                        struct fd_table *curfds,
                                         __wasi_fd_t sock,
                                         __wasi_addr_ip_t *imr_multiaddr,
                                         uint32_t imr_interface)
@@ -3720,7 +3753,8 @@ wasmtime_ssp_sock_set_ip_add_membership(wasm_exec_env_t exec_env, struct fd_tabl
 }
 
 __wasi_errno_t
-wasmtime_ssp_sock_set_ip_drop_membership(wasm_exec_env_t exec_env, struct fd_table *curfds,
+wasmtime_ssp_sock_set_ip_drop_membership(wasm_exec_env_t exec_env,
+                                         struct fd_table *curfds,
                                          __wasi_fd_t sock,
                                          __wasi_addr_ip_t *imr_multiaddr,
                                          uint32_t imr_interface)
@@ -3745,7 +3779,8 @@ wasmtime_ssp_sock_set_ip_drop_membership(wasm_exec_env_t exec_env, struct fd_tab
 }
 
 __wasi_errno_t
-wasmtime_ssp_sock_set_ip_multicast_loop(wasm_exec_env_t exec_env, struct fd_table *curfds,
+wasmtime_ssp_sock_set_ip_multicast_loop(wasm_exec_env_t exec_env,
+                                        struct fd_table *curfds,
                                         __wasi_fd_t sock, bool ipv6,
                                         bool is_enabled)
 {
@@ -3764,7 +3799,8 @@ wasmtime_ssp_sock_set_ip_multicast_loop(wasm_exec_env_t exec_env, struct fd_tabl
 }
 
 __wasi_errno_t
-wasmtime_ssp_sock_get_ip_multicast_loop(wasm_exec_env_t exec_env, struct fd_table *curfds,
+wasmtime_ssp_sock_get_ip_multicast_loop(wasm_exec_env_t exec_env,
+                                        struct fd_table *curfds,
                                         __wasi_fd_t sock, bool ipv6,
                                         bool *is_enabled)
 {
