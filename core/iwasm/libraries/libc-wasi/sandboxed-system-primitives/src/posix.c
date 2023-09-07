@@ -2907,8 +2907,8 @@ wasi_ssp_sock_addr_resolve(wasm_exec_env_t exec_env, struct fd_table *curfds,
         return __WASI_EACCES;
     }
 
-    int ret = os_socket_addr_resolve(
-        host, service,
+    int ret = blocking_op_socket_addr_resolve(
+        exec_env, host, service,
         hints->hints_enabled && hints->type != SOCKET_ANY ? &hints_is_tcp
                                                           : NULL,
         hints->hints_enabled && hints->family != INET_UNSPEC ? &hints_is_ipv4

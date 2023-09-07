@@ -41,3 +41,9 @@ int
 blocking_op_socket_send_to(wasm_exec_env_t exec_env, bh_socket_t sock,
                            const void *buf, unsigned int len, int flags,
                            const bh_sockaddr_t *dest_addr);
+int
+blocking_op_socket_addr_resolve(wasm_exec_env_t exec_env, const char *host,
+                                const char *service, uint8_t *hint_is_tcp,
+                                uint8_t *hint_is_ipv4,
+                                bh_addr_info_t *addr_info,
+                                size_t addr_info_size, size_t *max_info_size);

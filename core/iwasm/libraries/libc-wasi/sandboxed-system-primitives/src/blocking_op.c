@@ -156,3 +156,20 @@ blocking_op_socket_send_to(wasm_exec_env_t exec_env, bh_socket_t sock,
     wasm_runtime_end_blocking_op(exec_env);
     return ret;
 }
+
+int
+blocking_op_socket_addr_resolve(wasm_exec_env_t exec_env, const char *host,
+                                const char *service, uint8_t *hint_is_tcp,
+                                uint8_t *hint_is_ipv4,
+                                bh_addr_info_t *addr_info,
+                                size_t addr_info_size, size_t *max_info_size)
+{
+    if (!wasm_runtime_begin_blocking_op(exec_env)) {
+        errno = EINTR;
+        return -1;
+    }
+    int ret = os_socket_addr_resolve(host, service, hint_is_tcp, hint_is_ipv4,
+                                     addr_info, addr_info_size, max_info_size);
+    wasm_runtime_end_blocking_op(exec_env);
+    return ret;
+}
