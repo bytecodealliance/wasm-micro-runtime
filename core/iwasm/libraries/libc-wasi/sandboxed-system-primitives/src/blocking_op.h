@@ -3,11 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#include <sys/types.h>
-#include <sys/uio.h>
-
-#include <unistd.h>
-
 #include "bh_platform.h"
 #include "wasm_export.h"
 
