@@ -895,6 +895,14 @@ WASM_RUNTIME_API_EXTERN void
 wasm_runtime_clear_exception(wasm_module_inst_t module_inst);
 
 /**
+ * Terminate the WASM module instance.
+ *
+ * @param module_inst the WASM module instance
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_terminate(wasm_module_inst_t module_inst);
+
+/**
  * Set custom data to WASM module instance.
  * Note:
  *  If WAMR_BUILD_LIB_PTHREAD is enabled, this API
