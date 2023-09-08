@@ -1595,6 +1595,9 @@ path_get(struct fd_table *curfds, struct path_access *pa, __wasi_fd_t fd,
             // components. In other words, a pathname component that must be a
             // directory. First attempt to obtain a directory file descriptor
             // for it.
+            //
+            // Note: we don't bother to use blocking_op_openat here
+            // because openat with O_DIRECTORY should not block.
             int newdir =
 #ifdef O_SEARCH
                 openat(fds[curfd], file, O_SEARCH | O_DIRECTORY | O_NOFOLLOW);
@@ -1935,7 +1938,7 @@ wasmtime_ssp_path_open(wasm_exec_env_t exec_env, struct fd_table *curfds,
     if (!pa.follow)
         noflags |= O_NOFOLLOW;
 
-    int nfd = openat(pa.fd, pa.path, noflags, 0666);
+    int nfd = blocking_op_openat(exec_env, pa.fd, pa.path, noflags, 0666);
     if (nfd < 0) {
         int openat_errno = errno;
         // Linux returns ENXIO instead of EOPNOTSUPP when opening a socket.

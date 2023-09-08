@@ -173,3 +173,16 @@ blocking_op_socket_addr_resolve(wasm_exec_env_t exec_env, const char *host,
     wasm_runtime_end_blocking_op(exec_env);
     return ret;
 }
+
+int
+blocking_op_openat(wasm_exec_env_t exec_env, int fd, const char *path,
+                   int oflags, mode_t mode)
+{
+    if (!wasm_runtime_begin_blocking_op(exec_env)) {
+        errno = EINTR;
+        return -1;
+    }
+    int ret = openat(fd, path, oflags, mode);
+    wasm_runtime_end_blocking_op(exec_env);
+    return ret;
+}
