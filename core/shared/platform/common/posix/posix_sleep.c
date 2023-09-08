@@ -14,7 +14,7 @@ os_usleep(uint32 usec)
     int ret;
 
     ts.tv_sec = usec / 1000000;
-    ts.tv_nsec = (usec % 1000000) * 1000;
+    ts.tv_nsec = (uint64)(usec % 1000000) * 1000;
     ret = nanosleep(&ts, NULL);
     return ret == 0 ? 0 : -1;
 }
