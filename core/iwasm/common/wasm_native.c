@@ -6,6 +6,15 @@
 #include "wasm_native.h"
 #include "wasm_runtime_common.h"
 #include "bh_log.h"
+#if WASM_ENABLE_INTERP != 0
+#include "../interpreter/wasm_runtime.h"
+#endif
+#if WASM_ENABLE_AOT != 0
+#include "../aot/aot_runtime.h"
+#endif
+#if WASM_ENABLE_THREAD_MGR != 0
+#include "../libraries/thread-mgr/thread_manager.h"
+#endif
 
 #if !defined(BH_PLATFORM_ZEPHYR) && !defined(BH_PLATFORM_ALIOS_THINGS) \
     && !defined(BH_PLATFORM_OPENRTOS) && !defined(BH_PLATFORM_ESP_IDF)
@@ -21,6 +30,10 @@
 #endif
 
 static NativeSymbolsList g_native_symbols_list = NULL;
+
+#if WASM_ENABLE_LIBC_WASI != 0
+static void *g_wasi_context_key;
+#endif /* WASM_ENABLE_LIBC_WASI */
 
 uint32
 get_libc_builtin_export_apis(NativeSymbol **p_libc_builtin_apis);
@@ -394,6 +407,155 @@ wasm_native_unregister_natives(const char *module_name,
     return false;
 }
 
+#if WASM_ENABLE_MODULE_INST_CONTEXT != 0
+static uint32
+context_key_to_idx(void *key)
+{
+    bh_assert(key != NULL);
+    uint32 idx = (uint32)(uintptr_t)key;
+    bh_assert(idx > 0);
+    bh_assert(idx <= WASM_MAX_INSTANCE_CONTEXTS);
+    return idx - 1;
+}
+
+static void *
+context_idx_to_key(uint32 idx)
+{
+    bh_assert(idx < WASM_MAX_INSTANCE_CONTEXTS);
+    return (void *)(uintptr_t)(idx + 1);
+}
+
+typedef void (*dtor_t)(WASMModuleInstanceCommon *, void *);
+static dtor_t g_context_dtors[WASM_MAX_INSTANCE_CONTEXTS];
+
+static void
+dtor_noop(WASMModuleInstanceCommon *inst, void *ctx)
+{}
+
+void *
+wasm_native_create_context_key(void (*dtor)(WASMModuleInstanceCommon *inst,
+                                            void *ctx))
+{
+    uint32 i;
+    for (i = 0; i < WASM_MAX_INSTANCE_CONTEXTS; i++) {
+        if (g_context_dtors[i] == NULL) {
+            if (dtor == NULL) {
+                dtor = dtor_noop;
+            }
+            g_context_dtors[i] = dtor;
+            return context_idx_to_key(i);
+        }
+    }
+    LOG_ERROR("failed to allocate instance context key");
+    return NULL;
+}
+
+void
+wasm_native_destroy_context_key(void *key)
+{
+    uint32 idx = context_key_to_idx(key);
+    bh_assert(g_context_dtors[idx] != NULL);
+    g_context_dtors[idx] = NULL;
+}
+
+static WASMModuleInstanceExtraCommon *
+wasm_module_inst_extra_common(WASMModuleInstanceCommon *inst)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (inst->module_type == Wasm_Module_Bytecode) {
+        return &((WASMModuleInstance *)inst)->e->common;
+    }
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (inst->module_type == Wasm_Module_AoT) {
+        return &((AOTModuleInstanceExtra *)((AOTModuleInstance *)inst)->e)
+                    ->common;
+    }
+#endif
+    bh_assert(false);
+    return NULL;
+}
+
+void
+wasm_native_set_context(WASMModuleInstanceCommon *inst, void *key, void *ctx)
+{
+    uint32 idx = context_key_to_idx(key);
+    WASMModuleInstanceExtraCommon *common = wasm_module_inst_extra_common(inst);
+    common->contexts[idx] = ctx;
+}
+
+void
+wasm_native_set_context_spread(WASMModuleInstanceCommon *inst, void *key,
+                               void *ctx)
+{
+#if WASM_ENABLE_THREAD_MGR != 0
+    wasm_cluster_set_context(inst, key, ctx);
+#else
+    wasm_native_set_context(inst, key, ctx);
+#endif
+}
+
+void *
+wasm_native_get_context(WASMModuleInstanceCommon *inst, void *key)
+{
+    uint32 idx = context_key_to_idx(key);
+    WASMModuleInstanceExtraCommon *common = wasm_module_inst_extra_common(inst);
+    return common->contexts[idx];
+}
+
+void
+wasm_native_call_context_dtors(WASMModuleInstanceCommon *inst)
+{
+    WASMModuleInstanceExtraCommon *common = wasm_module_inst_extra_common(inst);
+    uint32 i;
+    for (i = 0; i < WASM_MAX_INSTANCE_CONTEXTS; i++) {
+        dtor_t dtor = g_context_dtors[i];
+        if (dtor != NULL) {
+            dtor(inst, common->contexts[i]);
+        }
+    }
+}
+
+void
+wasm_native_inherit_contexts(WASMModuleInstanceCommon *child,
+                             WASMModuleInstanceCommon *parent)
+{
+    WASMModuleInstanceExtraCommon *parent_common =
+        wasm_module_inst_extra_common(parent);
+    WASMModuleInstanceExtraCommon *child_common =
+        wasm_module_inst_extra_common(child);
+    bh_memcpy_s(child_common->contexts,
+                sizeof(*child_common->contexts) * WASM_MAX_INSTANCE_CONTEXTS,
+                parent_common->contexts,
+                sizeof(*parent_common->contexts) * WASM_MAX_INSTANCE_CONTEXTS);
+}
+#endif /* WASM_ENABLE_MODULE_INST_CONTEXT != 0 */
+
+#if WASM_ENABLE_LIBC_WASI != 0
+WASIContext *
+wasm_runtime_get_wasi_ctx(WASMModuleInstanceCommon *module_inst_comm)
+{
+    return wasm_native_get_context(module_inst_comm, g_wasi_context_key);
+}
+
+void
+wasm_runtime_set_wasi_ctx(WASMModuleInstanceCommon *module_inst_comm,
+                          WASIContext *wasi_ctx)
+{
+    return wasm_native_set_context(module_inst_comm, g_wasi_context_key,
+                                   wasi_ctx);
+}
+
+static void
+wasi_context_dtor(WASMModuleInstanceCommon *inst, void *ctx)
+{
+    if (ctx == NULL) {
+        return;
+    }
+    wasm_runtime_destroy_wasi(inst);
+}
+#endif /* end of WASM_ENABLE_LIBC_WASI */
+
 bool
 wasm_native_init()
 {
@@ -420,6 +582,10 @@ wasm_native_init()
 #endif /* WASM_ENABLE_SPEC_TEST */
 
 #if WASM_ENABLE_LIBC_WASI != 0
+    g_wasi_context_key = wasm_native_create_context_key(wasi_context_dtor);
+    if (g_wasi_context_key == NULL) {
+        goto fail;
+    }
     n_native_symbols = get_libc_wasi_export_apis(&native_symbols);
     if (!wasm_native_register_natives("wasi_unstable", native_symbols,
                                       n_native_symbols))
@@ -507,6 +673,12 @@ wasm_native_destroy()
 {
     NativeSymbolsNode *node, *node_next;
 
+#if WASM_ENABLE_LIBC_WASI != 0
+    if (g_wasi_context_key != NULL) {
+        wasm_native_destroy_context_key(g_wasi_context_key);
+        g_wasi_context_key = NULL;
+    }
+#endif
 #if WASM_ENABLE_LIB_PTHREAD != 0
     lib_pthread_destroy();
 #endif

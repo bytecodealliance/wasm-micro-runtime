@@ -2233,12 +2233,10 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
         wasm_runtime_free(module_inst->e->common.c_api_func_imports);
 
     if (!is_sub_inst) {
-#if WASM_ENABLE_LIBC_WASI != 0
-        wasm_runtime_destroy_wasi((WASMModuleInstanceCommon *)module_inst);
-#endif
 #if WASM_ENABLE_WASI_NN != 0
         wasi_nn_destroy(module_inst);
 #endif
+        wasm_native_call_context_dtors((WASMModuleInstanceCommon *)module_inst);
     }
 
     wasm_runtime_free(module_inst);
@@ -2399,6 +2397,9 @@ wasm_call_function(WASMExecEnv *exec_env, WASMFunctionInstance *function,
 
     /* set thread handle and stack boundary */
     wasm_exec_env_set_thread_info(exec_env);
+
+    /* set exec env so it can be later retrieved from instance */
+    module_inst->e->common.cur_exec_env = exec_env;
 
     interp_call_wasm(module_inst, exec_env, function, argc, argv);
     return !wasm_copy_exception(module_inst, NULL);

@@ -1282,12 +1282,10 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
                               ->common.c_api_func_imports);
 
     if (!is_sub_inst) {
-#if WASM_ENABLE_LIBC_WASI != 0
-        wasm_runtime_destroy_wasi((WASMModuleInstanceCommon *)module_inst);
-#endif
 #if WASM_ENABLE_WASI_NN != 0
         wasi_nn_destroy(module_inst);
 #endif
+        wasm_native_call_context_dtors((WASMModuleInstanceCommon *)module_inst);
     }
 
     wasm_runtime_free(module_inst);
@@ -1448,6 +1446,9 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
 
     /* set thread handle and stack boundary */
     wasm_exec_env_set_thread_info(exec_env);
+
+    /* set exec env so it can be later retrieved from instance */
+    ((AOTModuleInstanceExtra *)module_inst->e)->common.cur_exec_env = exec_env;
 
     if (ext_ret_count > 0) {
         uint32 cell_num = 0, i;

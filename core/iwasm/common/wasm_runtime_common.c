@@ -1938,33 +1938,6 @@ wasm_runtime_finalize_call_function(WASMExecEnv *exec_env,
 }
 #endif
 
-static bool
-clear_wasi_proc_exit_exception(WASMModuleInstanceCommon *module_inst_comm)
-{
-#if WASM_ENABLE_LIBC_WASI != 0
-    bool has_exception;
-    char exception[EXCEPTION_BUF_LEN];
-    WASMModuleInstance *module_inst = (WASMModuleInstance *)module_inst_comm;
-
-    bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
-              || module_inst_comm->module_type == Wasm_Module_AoT);
-
-    has_exception = wasm_copy_exception(module_inst, exception);
-    if (has_exception && !strcmp(exception, "Exception: wasi proc exit")) {
-        /* The "wasi proc exit" exception is thrown by native lib to
-           let wasm app exit, which is a normal behavior, we clear
-           the exception here. And just clear the exception of current
-           thread, don't call `wasm_set_exception(module_inst, NULL)`
-           which will clear the exception of all threads. */
-        module_inst->cur_exception[0] = '\0';
-        return true;
-    }
-    return false;
-#else
-    return false;
-#endif
-}
-
 bool
 wasm_runtime_call_wasm(WASMExecEnv *exec_env,
                        WASMFunctionInstanceCommon *function, uint32 argc,
@@ -2005,15 +1978,10 @@ wasm_runtime_call_wasm(WASMExecEnv *exec_env,
                                 param_argc, new_argv);
 #endif
     if (!ret) {
-        if (clear_wasi_proc_exit_exception(exec_env->module_inst)) {
-            ret = true;
+        if (new_argv != argv) {
+            wasm_runtime_free(new_argv);
         }
-        else {
-            if (new_argv != argv) {
-                wasm_runtime_free(new_argv);
-            }
-            return false;
-        }
+        return false;
     }
 
 #if WASM_ENABLE_REF_TYPES != 0
@@ -3311,27 +3279,6 @@ wasm_runtime_get_wasi_exit_code(WASMModuleInstanceCommon *module_inst)
 #endif
     return wasi_ctx->exit_code;
 }
-
-WASIContext *
-wasm_runtime_get_wasi_ctx(WASMModuleInstanceCommon *module_inst_comm)
-{
-    WASMModuleInstance *module_inst = (WASMModuleInstance *)module_inst_comm;
-
-    bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
-              || module_inst_comm->module_type == Wasm_Module_AoT);
-    return module_inst->wasi_ctx;
-}
-
-void
-wasm_runtime_set_wasi_ctx(WASMModuleInstanceCommon *module_inst_comm,
-                          WASIContext *wasi_ctx)
-{
-    WASMModuleInstance *module_inst = (WASMModuleInstance *)module_inst_comm;
-
-    bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
-              || module_inst_comm->module_type == Wasm_Module_AoT);
-    module_inst->wasi_ctx = wasi_ctx;
-}
 #endif /* end of WASM_ENABLE_LIBC_WASI */
 
 WASMModuleCommon *
@@ -4594,10 +4541,6 @@ wasm_runtime_call_indirect(WASMExecEnv *exec_env, uint32 element_index,
         ret = aot_call_indirect(exec_env, 0, element_index, argc, argv);
 #endif
 
-    if (!ret && clear_wasi_proc_exit_exception(exec_env->module_inst)) {
-        ret = true;
-    }
-
     return ret;
 }
 
@@ -5681,3 +5624,37 @@ wasm_runtime_is_import_global_linked(const char *module_name,
     return false;
 #endif
 }
+
+#if WASM_ENABLE_MODULE_INST_CONTEXT != 0
+void *
+wasm_runtime_create_context_key(void (*dtor)(WASMModuleInstanceCommon *inst,
+                                             void *ctx))
+{
+    return wasm_native_create_context_key(dtor);
+}
+
+void
+wasm_runtime_destroy_context_key(void *key)
+{
+    wasm_native_destroy_context_key(key);
+}
+
+void
+wasm_runtime_set_context(WASMModuleInstanceCommon *inst, void *key, void *ctx)
+{
+    wasm_native_set_context(inst, key, ctx);
+}
+
+void
+wasm_runtime_set_context_spread(WASMModuleInstanceCommon *inst, void *key,
+                                void *ctx)
+{
+    wasm_native_set_context_spread(inst, key, ctx);
+}
+
+void *
+wasm_runtime_get_context(WASMModuleInstanceCommon *inst, void *key)
+{
+    return wasm_native_get_context(inst, key);
+}
+#endif /* WASM_ENABLE_MODULE_INST_CONTEXT != 0 */

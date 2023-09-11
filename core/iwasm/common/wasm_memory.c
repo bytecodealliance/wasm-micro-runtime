@@ -8,6 +8,7 @@
 #include "../aot/aot_runtime.h"
 #include "bh_platform.h"
 #include "mem_alloc.h"
+#include "wasm_memory.h"
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
 #include "../common/wasm_shared_memory.h"
@@ -23,6 +24,8 @@ typedef enum Memory_Mode {
 static Memory_Mode memory_mode = MEMORY_MODE_UNKNOWN;
 
 static mem_allocator_t pool_allocator = NULL;
+
+static enlarge_memory_error_callback_t enlarge_memory_error_cb;
 
 #if WASM_MEM_ALLOC_WITH_USER_DATA != 0
 static void *allocator_user_data = NULL;
@@ -570,13 +573,16 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
 {
     WASMMemoryInstance *memory = wasm_get_default_memory(module);
     uint8 *memory_data_old, *memory_data_new, *heap_data_old;
-    uint32 num_bytes_per_page, heap_size, total_size_old;
+    uint32 num_bytes_per_page, heap_size, total_size_old = 0;
     uint32 cur_page_count, max_page_count, total_page_count;
     uint64 total_size_new;
     bool ret = true;
+    enlarge_memory_error_reason_t failure_reason = INTERNAL_ERROR;
 
-    if (!memory)
-        return false;
+    if (!memory) {
+        ret = false;
+        goto return_func;
+    }
 
     heap_data_old = memory->heap_data;
     heap_size = (uint32)(memory->heap_data_end - memory->heap_data);
@@ -594,9 +600,15 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
         /* No need to enlarge memory */
         return true;
 
-    if (total_page_count < cur_page_count /* integer overflow */
-        || total_page_count > max_page_count) {
-        return false;
+    if (total_page_count < cur_page_count) { /* integer overflow */
+        ret = false;
+        goto return_func;
+    }
+
+    if (total_page_count > max_page_count) {
+        failure_reason = MAX_SIZE_REACHED;
+        ret = false;
+        goto return_func;
     }
 
     bh_assert(total_size_new <= 4 * (uint64)BH_GB);
@@ -622,14 +634,16 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
     if (heap_size > 0) {
         if (mem_allocator_is_heap_corrupted(memory->heap_handle)) {
             wasm_runtime_show_app_heap_corrupted_prompt();
-            return false;
+            ret = false;
+            goto return_func;
         }
     }
 
     if (!(memory_data_new =
               wasm_runtime_realloc(memory_data_old, (uint32)total_size_new))) {
         if (!(memory_data_new = wasm_runtime_malloc((uint32)total_size_new))) {
-            return false;
+            ret = false;
+            goto return_func;
         }
         if (memory_data_old) {
             bh_memcpy_s(memory_data_new, (uint32)total_size_new,
@@ -685,6 +699,26 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
     os_writegsbase(memory_data_new);
 #endif
 
+return_func:
+    if (!ret && enlarge_memory_error_cb) {
+        WASMExecEnv *exec_env = NULL;
+
+#if WASM_ENABLE_INTERP != 0
+        if (module->module_type == Wasm_Module_Bytecode)
+            exec_env =
+                ((WASMModuleInstanceExtra *)module->e)->common.cur_exec_env;
+#endif
+#if WASM_ENABLE_AOT != 0
+        if (module->module_type == Wasm_Module_AoT)
+            exec_env =
+                ((AOTModuleInstanceExtra *)module->e)->common.cur_exec_env;
+#endif
+
+        enlarge_memory_error_cb(inc_page_count, total_size_old, 0,
+                                failure_reason,
+                                (WASMModuleInstanceCommon *)module, exec_env);
+    }
+
     return ret;
 }
 #else
@@ -692,12 +726,16 @@ bool
 wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
 {
     WASMMemoryInstance *memory = wasm_get_default_memory(module);
-    uint32 num_bytes_per_page, total_size_old;
+    uint32 num_bytes_per_page, total_size_old = 0;
     uint32 cur_page_count, max_page_count, total_page_count;
     uint64 total_size_new;
+    bool ret = true;
+    enlarge_memory_error_reason_t failure_reason = INTERNAL_ERROR;
 
-    if (!memory)
-        return false;
+    if (!memory) {
+        ret = false;
+        goto return_func;
+    }
 
     num_bytes_per_page = memory->num_bytes_per_page;
     cur_page_count = memory->cur_page_count;
@@ -710,9 +748,15 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
         /* No need to enlarge memory */
         return true;
 
-    if (total_page_count < cur_page_count /* integer overflow */
-        || total_page_count > max_page_count) {
-        return false;
+    if (total_page_count < cur_page_count) { /* integer overflow */
+        ret = false;
+        goto return_func;
+    }
+
+    if (total_page_count > max_page_count) {
+        failure_reason = MAX_SIZE_REACHED;
+        ret = false;
+        goto return_func;
     }
 
     bh_assert(total_size_new <= 4 * (uint64)BH_GB);
@@ -727,7 +771,8 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
     if (!os_mem_commit(memory->memory_data_end,
                        (uint32)total_size_new - total_size_old,
                        MMAP_PROT_READ | MMAP_PROT_WRITE)) {
-        return false;
+        ret = false;
+        goto return_func;
     }
 #endif
 
@@ -739,7 +784,8 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
         os_mem_decommit(memory->memory_data_end,
                         (uint32)total_size_new - total_size_old);
 #endif
-        return false;
+        ret = false;
+        goto return_func;
     }
 
     /* The increased pages are filled with zero by the OS when os_mmap,
@@ -759,9 +805,36 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
     memory->mem_bound_check_16bytes.u64 = total_size_new - 16;
 #endif
 
-    return true;
+return_func:
+    if (!ret && enlarge_memory_error_cb) {
+        WASMExecEnv *exec_env = NULL;
+
+#if WASM_ENABLE_INTERP != 0
+        if (module->module_type == Wasm_Module_Bytecode)
+            exec_env =
+                ((WASMModuleInstanceExtra *)module->e)->common.cur_exec_env;
+#endif
+#if WASM_ENABLE_AOT != 0
+        if (module->module_type == Wasm_Module_AoT)
+            exec_env =
+                ((AOTModuleInstanceExtra *)module->e)->common.cur_exec_env;
+#endif
+
+        enlarge_memory_error_cb(inc_page_count, total_size_old, 0,
+                                failure_reason,
+                                (WASMModuleInstanceCommon *)module, exec_env);
+    }
+
+    return ret;
 }
 #endif /* end of OS_ENABLE_HW_BOUND_CHECK */
+
+void
+wasm_runtime_set_enlarge_mem_error_callback(
+    const enlarge_memory_error_callback_t callback)
+{
+    enlarge_memory_error_cb = callback;
+}
 
 bool
 wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)

@@ -91,8 +91,10 @@ endif ()
 
 if (WAMR_BUILD_LIBC_UVWASI EQUAL 1)
     include (${IWASM_DIR}/libraries/libc-uvwasi/libc_uvwasi.cmake)
+    set (WAMR_BUILD_MODULE_INST_CONTEXT 1)
 elseif (WAMR_BUILD_LIBC_WASI EQUAL 1)
     include (${IWASM_DIR}/libraries/libc-wasi/libc_wasi.cmake)
+    set (WAMR_BUILD_MODULE_INST_CONTEXT 1)
 endif ()
 
 if (WAMR_BUILD_LIB_PTHREAD_SEMAPHORE EQUAL 1)
