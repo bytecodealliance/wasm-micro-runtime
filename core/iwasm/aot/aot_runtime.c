@@ -1412,6 +1412,18 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
 #define invoke_native_internal wasm_runtime_invoke_native
 #endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
+#ifdef AOT_STACK_FRAME_DEBUG
+typedef void (*stack_frame_callback_t)(struct WASMExecEnv *exec_env);
+static stack_frame_callback_t aot_stack_frame_callback;
+
+/* set the callback, only for debug purpose */
+void
+aot_set_stack_frame_callback(stack_frame_callback_t callback)
+{
+    aot_stack_frame_callback = callback;
+}
+#endif
+
 bool
 aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
                   unsigned argc, uint32 argv[])
@@ -1485,7 +1497,7 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
             cell_num += wasm_value_type_cell_num(ext_ret_types[i]);
         }
 
-#if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
+#if WASM_ENABLE_AOT_STACK_FRAME != 0
         if (!aot_alloc_frame(exec_env, function->func_index)) {
             if (argv1 != argv1_buf)
                 wasm_runtime_free(argv1);
@@ -1496,15 +1508,20 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
         ret = invoke_native_internal(exec_env, function->u.func.func_ptr,
                                      func_type, NULL, NULL, argv1, argc, argv);
 
-#if WASM_ENABLE_DUMP_CALL_STACK != 0
         if (!ret) {
+#ifdef AOT_STACK_FRAME_DEBUG
+            if (aot_stack_frame_callback) {
+                aot_stack_frame_callback(exec_env);
+            }
+#endif
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
             if (aot_create_call_stack(exec_env)) {
                 aot_dump_call_stack(exec_env, true, NULL, 0);
             }
-        }
 #endif
+        }
 
-#if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
+#if WASM_ENABLE_AOT_STACK_FRAME != 0
         aot_free_frame(exec_env);
 #endif
         if (!ret) {
@@ -1546,7 +1563,7 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
         return true;
     }
     else {
-#if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
+#if WASM_ENABLE_AOT_STACK_FRAME != 0
         if (!aot_alloc_frame(exec_env, function->func_index)) {
             return false;
         }
@@ -1555,15 +1572,20 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
         ret = invoke_native_internal(exec_env, function->u.func.func_ptr,
                                      func_type, NULL, NULL, argv, argc, argv);
 
-#if WASM_ENABLE_DUMP_CALL_STACK != 0
         if (aot_copy_exception(module_inst, NULL)) {
+#ifdef AOT_STACK_FRAME_DEBUG
+            if (aot_stack_frame_callback) {
+                aot_stack_frame_callback(exec_env);
+            }
+#endif
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
             if (aot_create_call_stack(exec_env)) {
                 aot_dump_call_stack(exec_env, true, NULL, 0);
             }
-        }
 #endif
+        }
 
-#if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
+#if WASM_ENABLE_AOT_STACK_FRAME != 0
         aot_free_frame(exec_env);
 #endif
 
@@ -2582,7 +2604,8 @@ aot_table_grow(AOTModuleInstance *module_inst, uint32 tbl_idx,
 }
 #endif /* WASM_ENABLE_REF_TYPES != 0 */
 
-#if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
+#if WASM_ENABLE_AOT_STACK_FRAME != 0
+#if WASM_ENABLE_DUMP_CALL_STACK != 0 || WASM_ENABLE_PERF_PROFILING != 0
 #if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
 static const char *
 lookup_func_name(const char **func_names, uint32 *func_indexes,
@@ -2641,6 +2664,7 @@ get_func_name_from_index(const AOTModuleInstance *module_inst,
 
     return func_name;
 }
+#endif /* end of WASM_ENABLE_DUMP_CALL_STACK != 0 || WASM_ENABLE_PERF_PROFILING != 0 */
 
 bool
 aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
@@ -2713,8 +2737,7 @@ aot_free_frame(WASMExecEnv *exec_env)
     wasm_exec_env_free_wasm_frame(exec_env, cur_frame);
     exec_env->cur_frame = (struct WASMInterpFrame *)prev_frame;
 }
-#endif /* end of (WASM_ENABLE_DUMP_CALL_STACK != 0) \
-                 || (WASM_ENABLE_PERF_PROFILING != 0) */
+#endif /* end of WASM_ENABLE_AOT_STACK_FRAME != 0 */
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
 bool
@@ -2826,7 +2849,7 @@ aot_dump_call_stack(WASMExecEnv *exec_env, bool print, char *buf, uint32 len)
 
     return total_len + 1;
 }
-#endif /* end of WASM_ENABLE_DUMP_CALL_STACK */
+#endif /* end of WASM_ENABLE_DUMP_CALL_STACK != 0 */
 
 #if WASM_ENABLE_PERF_PROFILING != 0
 void
@@ -2854,7 +2877,7 @@ aot_dump_perf_profiling(const AOTModuleInstance *module_inst)
                       perf_prof->total_exec_cnt);
     }
 }
-#endif /* end of WASM_ENABLE_PERF_PROFILING */
+#endif /* end of WASM_ENABLE_PERF_PROFILING != 0 */
 
 #if WASM_ENABLE_STATIC_PGO != 0
 

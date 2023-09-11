@@ -49,7 +49,7 @@ typedef struct {
 #define REG_REF_TYPES_SYM()
 #endif
 
-#if (WASM_ENABLE_PERF_PROFILING != 0) || (WASM_ENABLE_DUMP_CALL_STACK != 0)
+#if WASM_ENABLE_AOT_STACK_FRAME != 0
 #define REG_AOT_TRACE_SYM()               \
     REG_SYM(aot_alloc_frame),             \
     REG_SYM(aot_free_frame),
