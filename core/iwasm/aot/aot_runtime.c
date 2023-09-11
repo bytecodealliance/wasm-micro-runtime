@@ -2664,7 +2664,8 @@ get_func_name_from_index(const AOTModuleInstance *module_inst,
 
     return func_name;
 }
-#endif /* end of WASM_ENABLE_DUMP_CALL_STACK != 0 || WASM_ENABLE_PERF_PROFILING != 0 */
+#endif /* end of WASM_ENABLE_DUMP_CALL_STACK != 0 || \
+          WASM_ENABLE_PERF_PROFILING != 0 */
 
 bool
 aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
