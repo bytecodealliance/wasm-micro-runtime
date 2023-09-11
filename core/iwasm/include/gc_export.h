@@ -133,6 +133,7 @@ typedef struct WASMAnyrefObject *wasm_anyref_obj_t;
 typedef struct WASMStructObject *wasm_struct_obj_t;
 typedef struct WASMArrayObject *wasm_array_obj_t;
 typedef struct WASMFuncObject *wasm_func_obj_t;
+typedef struct WASMStringrefObject *wasm_stringref_obj_t;
 typedef uintptr_t wasm_i31_obj_t;
 
 typedef void (*wasm_obj_finalizer_t)(const wasm_obj_t obj, void *data);

@@ -102,6 +102,37 @@ typedef struct WASMFuncObject {
     uint32 func_idx_bound;
 } WASMFuncObject, *WASMFuncObjectRef;
 
+/* Representation of WASM stringref objects */
+typedef struct WASMStringrefObject {
+    WASMObjectHeader header;
+    void *pointer;
+} WASMStringrefObject, *WASMStringrefObjectRef;
+
+/* Representation of WASM stringref representation objects */
+typedef struct WASMStringrefRepresentationObject {
+    WASMObjectHeader header;
+    void *pointer;
+    uint32 length;
+    uint32 flag;
+} WASMStringrefRepresentationObject, *WASMStringrefRepresentationObjectRef;
+
+typedef struct BreadCrumb {
+    uint32 index;
+    uint32 encoding_flag;
+} BreadCrumb;
+
+typedef struct WASMStringviewObject {
+    WASMObjectHeader header;
+    void *pointer;
+    BreadCrumb *breadcrumb;
+} WASMStringviewObject, *WASMStringviewObjectRef;
+
+typedef struct WASMStringviewIterObject {
+    WASMObjectHeader header;
+    void *pointer;
+    int pos;
+} WASMStringviewIterObject, *WASMStringviewIterObjectRef;
+
 struct WASMExecEnv;
 
 inline static WASMObjectHeader
@@ -211,6 +242,13 @@ wasm_externref_obj_new(struct WASMExecEnv *exec_env, const void *host_obj);
 
 WASMAnyrefObjectRef
 wasm_anyref_obj_new(struct WASMExecEnv *exec_env, const void *host_obj);
+
+WASMStringrefRepresentationObjectRef
+wasm_stringref_repr_obj_new(struct WASMExecEnv *exec_env, const void *pointer,
+                            uint32 length, uint32 flag);
+
+WASMStringrefObjectRef
+wasm_stringref_obj_new(struct WASMExecEnv *exec_env, const void *pointer);
 
 /* Implementation of opcode extern.internalize */
 WASMObjectRef

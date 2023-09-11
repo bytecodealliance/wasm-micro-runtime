@@ -408,6 +408,51 @@ wasm_anyref_obj_new(WASMExecEnv *exec_env, const void *host_obj)
     return anyref_obj;
 }
 
+WASMStringrefObjectRef
+wasm_stringref_obj_new(WASMExecEnv *exec_env, const void *pointer)
+{
+    void *heap_handle = get_gc_heap_handle(exec_env);
+    WASMStringrefObjectRef stringref_obj;
+    WASMLocalObjectRef local_ref;
+
+    if (!(stringref_obj =
+              gc_obj_malloc(heap_handle, sizeof(WASMStringrefObject)))) {
+        return NULL;
+    }
+
+    wasm_runtime_push_local_object_ref(exec_env, &local_ref);
+    local_ref.val = (WASMObjectRef)stringref_obj;
+
+    stringref_obj->header = WASM_OBJ_ANYREF_OBJ_FLAG;
+    stringref_obj->pointer = pointer;
+
+    return stringref_obj;
+}
+
+WASMStringrefRepresentationObjectRef
+wasm_stringref_repr_obj_new(WASMExecEnv *exec_env, const void *pointer,
+                            uint32 length, uint32 flag)
+{
+    void *heap_handle = get_gc_heap_handle(exec_env);
+    WASMStringrefRepresentationObjectRef stringref_repr_obj;
+    WASMLocalObjectRef local_ref;
+
+    if (!(stringref_repr_obj = gc_obj_malloc(
+              heap_handle, sizeof(WASMStringrefRepresentationObject)))) {
+        return NULL;
+    }
+
+    wasm_runtime_push_local_object_ref(exec_env, &local_ref);
+    local_ref.val = (WASMObjectRef)stringref_repr_obj;
+
+    stringref_repr_obj->header = WASM_OBJ_ANYREF_OBJ_FLAG;
+    stringref_repr_obj->pointer = pointer;
+    stringref_repr_obj->length = length;
+    stringref_repr_obj->flag = flag;
+
+    return stringref_repr_obj;
+}
+
 WASMObjectRef
 wasm_externref_obj_to_internal_obj(WASMExternrefObjectRef externref_obj)
 {

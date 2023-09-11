@@ -1385,6 +1385,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     WASMFuncObjectRef func_obj;
     WASMI31ObjectRef i31_obj;
     WASMExternrefObjectRef externref_obj;
+    WASMStringrefRepresentationObjectRef stringref_repr_obj;
+    WASMStringrefObjectRef stringref_obj;
 #endif
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
@@ -2661,6 +2663,24 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             }
                             PUSH_REF(externref_obj);
                         }
+                        HANDLE_OP_END();
+                    }
+
+                    case WASM_OP_STRING_CONST:
+                    {
+                        WASMModule *wasm_module = module->module;
+                        uint32 contents;
+                        WASMStringVec *string_vec;
+
+                        read_leb_uint32(frame_ip, frame_ip_end, contents);
+                        string_vec = wasm_module->stringrefs->string_vec;
+
+                        stringref_repr_obj = wasm_stringref_repr_obj_new(
+                            exec_env, (*(string_vec + contents)).string_byte,
+                            (*(string_vec + contents)).length, WTF8);
+                        stringref_obj = wasm_stringref_obj_new(
+                            exec_env, stringref_repr_obj);
+                        PUSH_REF(stringref_obj);
                         HANDLE_OP_END();
                     }
 

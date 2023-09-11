@@ -44,6 +44,10 @@ extern "C" {
 #define REF_TYPE_STRUCTREF 0x67
 #define REF_TYPE_ARRAYREF 0x66
 #define REF_TYPE_NULLREF 0x65
+#define REF_TYPE_STRINGREF 0x64
+#define REF_TYPE_STRINGVIEWWTF8 0x63
+#define REF_TYPE_STRINGVIEWWTF16 0x62
+#define REF_TYPE_STRINGVIEWITER 0x61
 
 /* Heap Types */
 #define HEAP_TYPE_FUNC (-0x10)
@@ -56,6 +60,10 @@ extern "C" {
 #define HEAP_TYPE_STRUCT (-0x19)
 #define HEAP_TYPE_ARRAY (-0x1A)
 #define HEAP_TYPE_NONE (-0x1B)
+#define HEAP_TYPE_STRINGREF (-0x1C)
+#define HEAP_TYPE_STRINGVIEWWTF8 (-0x1D)
+#define HEAP_TYPE_STRINGVIEWWTF16 (-0x1E)
+#define HEAP_TYPE_STRINGVIEWITER (-0x1F)
 
 /* Defined Types */
 #define DEFINED_TYPE_FUNC 0x60
@@ -71,7 +79,7 @@ extern "C" {
  * Used by loader to represent any type of i32/i64/f32/f64/v128
  * and ref types, including funcref, externref, anyref, eqref,
  * (ref null $ht), (ref $ht), i31ref, structref, arrayref,
- * nullfuncref, nullexternref and nullref
+ * nullfuncref, nullexternref, nullref and stringref
  */
 #define VALUE_TYPE_ANY 0x42
 /**
@@ -134,6 +142,8 @@ typedef void *table_elem_type_t;
 #if WASM_ENABLE_BULK_MEMORY != 0
 #define SECTION_TYPE_DATACOUNT 12
 #endif
+/* TODO: add definition to control if use stringref */
+#define SECTION_TYPE_STRINGREF 14
 
 #define SUB_SECTION_TYPE_MODULE 0
 #define SUB_SECTION_TYPE_FUNC 1
@@ -157,6 +167,12 @@ typedef void *table_elem_type_t;
 #define WASM_TYPE_FUNC 0
 #define WASM_TYPE_STRUCT 1
 #define WASM_TYPE_ARRAY 2
+
+typedef enum encoding_flag {
+    UTF8,
+    WTF8,
+    WTF16,
+} encoding_flag;
 
 typedef struct WASMModule WASMModule;
 typedef struct WASMFunction WASMFunction;
@@ -592,6 +608,15 @@ typedef struct BlockAddr {
     uint8 *end_addr;
 } BlockAddr;
 
+typedef struct WASMStringVec {
+    uint8 *string_byte;
+    uint32 length;
+} WASMStringVec;
+
+typedef struct WASMStringref {
+    WASMStringVec *string_vec;
+} WASMStringref;
+
 #if WASM_ENABLE_LIBC_WASI != 0
 typedef struct WASIArguments {
     const char **dir_list;
@@ -704,6 +729,7 @@ struct WASMModule {
     WASMTableSeg *table_segments;
     WASMDataSeg **data_segments;
     uint32 start_function;
+    WASMStringref *stringrefs;
 
     /* total global variable size */
     uint32 global_data_size;
@@ -972,7 +998,7 @@ wasm_value_type_size_ex(uint8 value_type, bool gc_enabled)
     else if (value_type == VALUE_TYPE_V128)
         return sizeof(int64) * 2;
 #endif
-    else if (value_type >= (uint8)REF_TYPE_NULLREF /* 0x65 */
+    else if (value_type >= (uint8)REF_TYPE_STRINGVIEWITER /* 0x61 */
              && value_type <= (uint8)REF_TYPE_FUNCREF /* 0x70 */ && gc_enabled)
         return sizeof(uintptr_t);
     else if (value_type == VALUE_TYPE_FUNCREF

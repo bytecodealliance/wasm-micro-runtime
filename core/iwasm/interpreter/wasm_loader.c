@@ -3865,6 +3865,67 @@ fail:
     return false;
 }
 
+static bool
+load_stringref_section(const uint8 *buf, const uint8 *buf_end,
+                       WASMModule *module, char *error_buf,
+                       uint32 error_buf_size)
+{
+    const uint8 *p = buf, *p_end = buf_end;
+    uint32 deferred_count, immediate_count, string_length, i, j;
+    uint8 *string_byte;
+    uint64 total_size;
+    WASMStringref *stringref;
+    WASMStringVec *string_vec;
+
+    read_leb_uint32(p, p_end, deferred_count);
+    read_leb_uint32(p, p_end, immediate_count);
+
+    if (immediate_count > 0) {
+        total_size = sizeof(WASMStringref) * (uint64)immediate_count;
+        if (!(module->stringrefs =
+                  loader_malloc(total_size, error_buf, error_buf_size))) {
+            return false;
+        }
+
+        stringref = module->stringrefs;
+
+        for (i = 0; i < immediate_count; i++) {
+            read_leb_uint32(p, p_end, string_length);
+
+            if (string_length > 0) {
+                if (!(stringref->string_vec = loader_malloc(
+                          sizeof(WASMStringVec), error_buf, error_buf_size))) {
+                    return false;
+                }
+                string_vec = stringref->string_vec;
+
+                string_vec->length = string_length;
+
+                total_size = sizeof(uint8) * (uint64)string_length;
+                if (!(string_vec->string_byte = loader_malloc(
+                          total_size, error_buf, error_buf_size))) {
+                    return false;
+                }
+                string_byte = string_vec->string_byte;
+
+                for (j = 0; j < string_length; j++) {
+                    *(string_byte + j) = read_uint8(p);
+                }
+            }
+        }
+    }
+
+    if (p != p_end) {
+        set_error_buf(error_buf, error_buf_size, "section size mismatch");
+        return false;
+    }
+
+    LOG_VERBOSE("Load stringref section success.\n");
+    return true;
+fail:
+    return false;
+}
+
 #if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
 static bool
 handle_name_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
@@ -4632,6 +4693,11 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                     return false;
                 break;
 #endif
+            case SECTION_TYPE_STRINGREF:
+                if (!load_stringref_section(buf, buf_end, module, error_buf,
+                                            error_buf_size))
+                    return false;
+                break;
             default:
                 set_error_buf(error_buf, error_buf_size, "invalid section id");
                 return false;
@@ -5089,6 +5155,7 @@ static uint8 section_ids[] = {
     SECTION_TYPE_FUNC,
     SECTION_TYPE_TABLE,
     SECTION_TYPE_MEMORY,
+    SECTION_TYPE_STRINGREF,
     SECTION_TYPE_GLOBAL,
     SECTION_TYPE_EXPORT,
     SECTION_TYPE_START,
@@ -12164,6 +12231,13 @@ re_scan:
                                 HEAP_TYPE_EXTERN);
                         }
                         PUSH_REF(type);
+                        break;
+                    }
+
+                    case WASM_OP_STRING_CONST:
+                    {
+                        read_leb_uint32(p, p_end, type_idx);
+                        PUSH_REF(REF_TYPE_STRINGREF);
                         break;
                     }
 

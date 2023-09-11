@@ -875,6 +875,9 @@ wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
     else if (type1 == REF_TYPE_NULLEXTERNREF) {
         return wasm_is_reftype_supers_of_noextern(type2);
     }
+    else if (type1 == REF_TYPE_STRINGREF) {
+        return type2 == REF_TYPE_STRINGREF ? true : false;
+    }
     else if (type1 == REF_TYPE_HT_NULLABLE) {
         if (wasm_is_refheaptype_typeidx(&ref_type1->ref_ht_common)) {
             /* reftype1 is (ref null $t) */

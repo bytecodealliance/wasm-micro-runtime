@@ -120,7 +120,8 @@ wasm_type_is_subtype_of(const WASMType *type1, const WASMType *type2,
 inline static bool
 wasm_is_type_reftype(uint8 type)
 {
-    return (type >= (uint8)REF_TYPE_NULLREF && type <= (uint8)REF_TYPE_FUNCREF)
+    return (type >= (uint8)REF_TYPE_STRINGVIEWITER
+            && type <= (uint8)REF_TYPE_FUNCREF)
                ? true
                : false;
 }
