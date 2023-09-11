@@ -98,7 +98,9 @@ print_help()
     printf("  --max-threads=n          Set maximum thread number per cluster, default is 4\n");
 #endif
 #if WASM_ENABLE_THREAD_MGR != 0
-    printf("  --timeout=ms             Set the timeout in ms.\n");
+    printf("  --timeout=ms             Set the maximum execution time in ms.\n");
+    printf("                           If it expires, the runtime aborts the execution\n");
+    printf("                           with a trap.\n");
 #endif
 #if WASM_ENABLE_DEBUG_INTERP != 0
     printf("  -g=ip:port               Set the debug sever address, default is debug disabled\n");
