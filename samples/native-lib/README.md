@@ -62,6 +62,7 @@ cd build
 The output is:
 
 ```bash
+init_native_lib in test_hello2.c called
 Hello World!
 10 + 20 = 30
 sqrt(10, 20) = 500
@@ -72,5 +73,6 @@ Message from test_hello: Hello, main. This is test_hello_wrapper!
 test_hello2("main", 0x0, 0) = 85
 malloc(86) = 0x24e8
 test_hello2("main", 0x24e8, 86) = 85
-Message from test_hello2: Hello, main. This is test_hello2_wrapper! Your wasm_module_inst_t is 0x7fd443704990.
+Message from test_hello2: Hello, main. This is test_hello2_wrapper! Your wasm_module_inst_t is 0x7fe0e6804280.
+deinit_native_lib in test_hello2.c called
 ```

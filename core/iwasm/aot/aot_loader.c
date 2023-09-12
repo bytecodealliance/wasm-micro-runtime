@@ -1644,27 +1644,6 @@ load_function_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
     const uint8 *p = buf, *p_end = buf_end;
     uint32 i;
     uint64 size, text_offset;
-#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
-    RUNTIME_FUNCTION *rtl_func_table;
-    AOTUnwindInfo *unwind_info;
-    uint32 unwind_info_offset = module->code_size - sizeof(AOTUnwindInfo);
-    uint32 unwind_code_offset = unwind_info_offset - PLT_ITEM_SIZE;
-#endif
-
-#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
-    unwind_info = (AOTUnwindInfo *)((uint8 *)module->code + module->code_size
-                                    - sizeof(AOTUnwindInfo));
-    unwind_info->Version = 1;
-    unwind_info->Flags = UNW_FLAG_NHANDLER;
-    *(uint32 *)&unwind_info->UnwindCode[0] = unwind_code_offset;
-
-    size = sizeof(RUNTIME_FUNCTION) * (uint64)module->func_count;
-    if (size > 0
-        && !(rtl_func_table = module->rtl_func_table =
-                 loader_malloc(size, error_buf, error_buf_size))) {
-        return false;
-    }
-#endif
 
     size = sizeof(void *) * (uint64)module->func_count;
     if (size > 0
@@ -1692,31 +1671,7 @@ load_function_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
         /* bits[0] of thumb function address must be 1 */
         module->func_ptrs[i] = (void *)((uintptr_t)module->func_ptrs[i] | 1);
 #endif
-#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
-        rtl_func_table[i].BeginAddress = (DWORD)text_offset;
-        if (i > 0) {
-            rtl_func_table[i - 1].EndAddress = rtl_func_table[i].BeginAddress;
-        }
-        rtl_func_table[i].UnwindInfoAddress = (DWORD)unwind_info_offset;
-#endif
     }
-
-#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
-    if (module->func_count > 0) {
-        uint32 plt_table_size =
-            module->is_indirect_mode ? 0 : get_plt_table_size();
-        rtl_func_table[module->func_count - 1].EndAddress =
-            (DWORD)(module->code_size - plt_table_size);
-
-        if (!RtlAddFunctionTable(rtl_func_table, module->func_count,
-                                 (DWORD64)(uintptr_t)module->code)) {
-            set_error_buf(error_buf, error_buf_size,
-                          "add dynamic function table failed");
-            return false;
-        }
-        module->rtl_func_table_registered = true;
-    }
-#endif
 
     /* Set start function when function pointers are resolved */
     if (module->start_func_index != (uint32)-1) {
@@ -1841,6 +1796,13 @@ get_data_section_addr(AOTModule *module, const char *section_name,
     }
 
     return NULL;
+}
+
+const void *
+aot_get_data_section_addr(AOTModule *module, const char *section_name,
+                          uint32 *p_data_size)
+{
+    return get_data_section_addr(module, section_name, p_data_size);
 }
 
 static void *
@@ -2020,6 +1982,7 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
                  || !strncmp(symbol, ".rodata.cst", strlen(".rodata.cst"))
                  /* ".rodata.strn.m" */
                  || !strncmp(symbol, ".rodata.str", strlen(".rodata.str"))
+                 || !strcmp(symbol, AOT_STACK_SIZES_SECTION_NAME)
 #if WASM_ENABLE_STATIC_PGO != 0
                  || !strncmp(symbol, "__llvm_prf_cnts", 15)
                  || !strncmp(symbol, "__llvm_prf_data", 15)
@@ -3005,6 +2968,9 @@ create_sections(AOTModule *module, const uint8 *buf, uint32 size,
     uint32 section_size;
     uint64 total_size;
     uint8 *aot_text;
+#if (WASM_MEM_DUAL_BUS_MIRROR != 0)
+    uint8 *mirrored_text;
+#endif
 
     if (!resolve_execute_mode(buf, size, &is_indirect_mode, error_buf,
                               error_buf_size)) {
@@ -3063,8 +3029,17 @@ create_sections(AOTModule *module, const uint8 *buf, uint32 size,
                     bh_assert((uintptr_t)aot_text < INT32_MAX);
 #endif
 #endif
+
+#if (WASM_MEM_DUAL_BUS_MIRROR != 0)
+                    mirrored_text = os_get_dbus_mirror(aot_text);
+                    bh_assert(mirrored_text != NULL);
+                    bh_memcpy_s(mirrored_text, (uint32)total_size,
+                                section->section_body, (uint32)section_size);
+                    os_dcache_flush();
+#else
                     bh_memcpy_s(aot_text, (uint32)total_size,
                                 section->section_body, (uint32)section_size);
+#endif
                     section->section_body = aot_text;
                     destroy_aot_text = true;
 
@@ -3238,14 +3213,6 @@ aot_unload(AOTModule *module)
 #if defined(BH_PLATFORM_WINDOWS)
     if (module->extra_plt_data) {
         os_munmap(module->extra_plt_data, module->extra_plt_data_size);
-    }
-#endif
-
-#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
-    if (module->rtl_func_table) {
-        if (module->rtl_func_table_registered)
-            RtlDeleteFunctionTable(module->rtl_func_table);
-        wasm_runtime_free(module->rtl_func_table);
     }
 #endif
 

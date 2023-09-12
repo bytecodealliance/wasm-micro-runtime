@@ -258,68 +258,69 @@ We can't pass structure data or class objects through the pointer since the memo
 
 ## Execute wasm functions in multiple threads
 
-The `exec_env` is not thread safety, it will cause unexpected behavior if the same `exec_env` is used in multiple threads. However, we've provided two ways to execute wasm functions concurrently:
+It isn't safe to use an `exec_env` object in multiple threads concurrently.
+To run a multi-threaded application, you basically need a separate `exec_env`
+for each threads.
 
-- You can use `pthread` APIs in your wasm application, see [pthread library](./pthread_library.md) for more details.
+### Approaches to manage `exec_env` objects and threads
 
-- The `spawn exec_env` and `spawn thread` APIs are available, you can use these APIs to manage the threads in native:
+WAMR supports two approaches to manage `exec_env` and threads as described
+below.  While they are not exclusive, you usually only need to use one of
+them.
 
-  *spawn exec_env:*
+#### Make your WASM application manage threads
 
-  `spawn exec_env` API spawns a `new_exec_env` base on the original `exec_env`, use can use it in other threads:
+  You can make your WASM application spawn threads by itself,
+  typically using `pthread` APIs like `pthread_create`.
+  See [pthread library](./pthread_library.md) and
+  [pthread implementations](./pthread_impls.md) for more details.
+  In this case, WAMR manages `exec_env` for the spawned threads.
+
+#### Make your embedder manage threads
+
+  The `spawn exec_env` and `spawn thread` APIs are available for the embedder.
+  You can use these APIs to manage the threads.
+  See [Thread related embedder API](./embed_wamr_spawn_api.md) for details.
+
+### Other notes about threads
+
+* You can manage the maximum number of threads
 
   ```C
-  new_exec_env = wasm_runtime_spawn_exec_env(exec_env);
-
-    /* Then you can use new_exec_env in your new thread */
-    module_inst = wasm_runtime_get_module_inst(new_exec_env);
-    func_inst = wasm_runtime_lookup_function(module_inst, ...);
-    wasm_runtime_call_wasm(new_exec_env, func_inst, ...);
-
-  /* you need to use this API to manually destroy the spawned exec_env */
-  wasm_runtime_destroy_spawned_exec_env(new_exec_env);
+  init_args.max_thread_num = THREAD_NUM;
+  /* If this init argument is not set, the default maximum thread number is 4 */
   ```
 
-  *spawn thread:*
+* To share memory among threads, you need to build your WASM application with shared memory
 
-  You can also use `spawn thread` API to avoid manually manage the spawned exec_env:
-
-  ```C
-  wasm_thread_t wasm_tid;
-  void *wamr_thread_cb(wasm_exec_env_t exec_env, void *arg)
-  {
-    module_inst = wasm_runtime_get_module_inst(exec_env);
-    func_inst = wasm_runtime_lookup_function(module_inst, ...);
-    wasm_runtime_call_wasm(exec_env, func_inst, ...);
-  }
-  wasm_runtime_spawn_thread(exec_env, &wasm_tid, wamr_thread_cb, NULL);
-  /* Use wasm_runtime_join_thread to join the spawned thread */
-  wasm_runtime_join_thread(wasm_tid, NULL);
-  ```
-
-**Note1: You can manage the maximum number of threads can be created:**
-
-```C
-init_args.max_thread_num = THREAD_NUM;
-/* If this init argument is not set, the default maximum thread number is 4 */
-```
-
-**Note2: The wasm application should be built with `--shared-memory` and `-pthread` enabled:**
-
-```bash
-  /opt/wasi-sdk/bin/clang -o test.wasm test.c -nostdlib -pthread    \
-    -Wl,--shared-memory,--max-memory=131072                         \
-    -Wl,--no-entry,--export=__heap_base,--export=__data_end         \
-    -Wl,--export=__wasm_call_ctors,--export=${your_func_name}
-```
-
-  **Note3: The pthread library feature should be enabled while building the runtime:**
+  For example, it can be done with `--shared-memory` and `-pthread`.
 
   ```bash
-  cmake .. -DWAMR_BUILD_LIB_PTHREAD=1
+    /opt/wasi-sdk/bin/clang -o test.wasm test.c -nostdlib -pthread    \
+      -Wl,--shared-memory,--max-memory=131072                         \
+      -Wl,--no-entry,--export=__heap_base,--export=__data_end         \
+      -Wl,--export=__wasm_call_ctors,--export=${your_func_name}
   ```
 
-[Here](../samples/spawn-thread) is a sample to show how to use these APIs.
+* The corresponding threading feature should be enabled while building the runtime
+
+  - WAMR lib-pthread (legacy)
+
+    ```bash
+    cmake .. -DWAMR_BUILD_LIB_PTHREAD=1
+    ```
+
+  - wasi-threads
+
+    ```bash
+    cmake .. -DWAMR_BUILD_LIB_WASI_THREADS=1
+    ```
+
+  - `wasm_runtime_spawn_exec_env` and `wasm_runtime_spawn_thread`
+
+    ```bash
+    cmake .. -DWAMR_BUILD_THREAD_MGR=1 -DWAMR_BUILD_SHARED_MEMORY=1
+    ```
 
 ## The deinitialization procedure
 

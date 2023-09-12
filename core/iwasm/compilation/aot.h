@@ -28,12 +28,22 @@ extern "C" {
 #endif
 extern const char *aot_stack_sizes_name;
 
+#ifndef AOT_STACK_SIZES_ALIAS_NAME
+#define AOT_STACK_SIZES_ALIAS_NAME "aot_stack_sizes_alias"
+#endif
+extern const char *aot_stack_sizes_alias_name;
+
+#ifndef AOT_STACK_SIZES_SECTION_NAME
+#define AOT_STACK_SIZES_SECTION_NAME ".aot_stack_sizes"
+#endif
+extern const char *aot_stack_sizes_section_name;
+
 typedef InitializerExpression AOTInitExpr;
 typedef WASMType AOTFuncType;
 typedef WASMExport AOTExport;
 
 #if WASM_ENABLE_DEBUG_AOT != 0
-typedef void *dwar_extractor_handle_t;
+typedef void *dwarf_extractor_handle_t;
 #endif
 
 typedef enum AOTIntCond {
@@ -275,7 +285,7 @@ typedef struct AOTCompData {
 
     WASMModule *wasm_module;
 #if WASM_ENABLE_DEBUG_AOT != 0
-    dwar_extractor_handle_t extractor;
+    dwarf_extractor_handle_t extractor;
 #endif
 } AOTCompData;
 

@@ -199,7 +199,90 @@ runtime_signal_handler(void *sig_addr)
         }
     }
 }
-#else
+#else /* else of BH_PLATFORM_WINDOWS */
+
+#if WASM_ENABLE_AOT != 0
+#include <Zydis/Zydis.h>
+
+static uint32
+decode_insn(uint8 *insn)
+{
+    uint8 *data = (uint8 *)insn;
+    uint32 length = 32; /* reserve enough size */
+
+    /* Initialize decoder context */
+    ZydisDecoder decoder;
+    ZydisDecoderInit(&decoder, ZYDIS_MACHINE_MODE_LONG_64,
+                     ZYDIS_STACK_WIDTH_64);
+
+    /* Initialize formatter */
+    ZydisFormatter formatter;
+    ZydisFormatterInit(&formatter, ZYDIS_FORMATTER_STYLE_INTEL);
+
+    /* Loop over the instructions in our buffer */
+    ZyanU64 runtime_address = (ZyanU64)(uintptr_t)data;
+    ZyanUSize offset = 0;
+    ZydisDecodedInstruction instruction;
+    ZydisDecodedOperand operands[ZYDIS_MAX_OPERAND_COUNT_VISIBLE];
+    char buffer[256];
+
+    if (ZYAN_SUCCESS(ZydisDecoderDecodeFull(
+            &decoder, data + offset, length - offset, &instruction, operands,
+            ZYDIS_MAX_OPERAND_COUNT_VISIBLE,
+            ZYDIS_DFLAG_VISIBLE_OPERANDS_ONLY))) {
+
+        /* Format & print the binary instruction structure to
+           human readable format */
+        ZydisFormatterFormatInstruction(&formatter, &instruction, operands,
+                                        instruction.operand_count_visible,
+                                        buffer, sizeof(buffer),
+                                        runtime_address);
+
+        /* Print current instruction */
+        /*
+        os_printf("%012" PRIX64 "  ", runtime_address);
+        puts(buffer);
+        */
+
+        return instruction.length;
+    }
+
+    /* Decode failed */
+    return 0;
+}
+#endif /* end of WASM_ENABLE_AOT != 0 */
+
+static LONG
+next_action(WASMModuleInstance *module_inst, EXCEPTION_POINTERS *exce_info)
+{
+#if WASM_ENABLE_AOT != 0
+    uint32 insn_size;
+#endif
+
+    if (module_inst->module_type == Wasm_Module_Bytecode
+        && module_inst->e->running_mode == Mode_Interp) {
+        /* Continue to search next exception handler for
+           interpreter mode as it can be caught by
+           `__try { .. } __except { .. }` sentences in
+           wasm_runtime.c */
+        return EXCEPTION_CONTINUE_SEARCH;
+    }
+
+#if WASM_ENABLE_AOT != 0
+    /* Skip current instruction and continue to run for AOT/JIT mode.
+       TODO: implement unwind support for AOT/JIT code in Windows platform */
+    insn_size = decode_insn((uint8 *)exce_info->ContextRecord->Rip);
+    if (insn_size > 0) {
+        exce_info->ContextRecord->Rip += insn_size;
+        return EXCEPTION_CONTINUE_EXECUTION;
+    }
+#endif
+
+    /* return different value from EXCEPTION_CONTINUE_SEARCH (= 0)
+       and EXCEPTION_CONTINUE_EXECUTION (= -1) */
+    return -2;
+}
+
 static LONG
 runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
 {
@@ -211,6 +294,7 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
     uint8 *mapped_mem_start_addr = NULL;
     uint8 *mapped_mem_end_addr = NULL;
     uint32 page_size = os_getpagesize();
+    LONG ret;
 
     if (exec_env_tls && exec_env_tls->handle == os_self_thread()
         && (jmpbuf_node = exec_env_tls->jmpbuf_stack_top)) {
@@ -232,32 +316,19 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
                    the wasm func returns, the caller will check whether the
                    exception is thrown and return to runtime. */
                 wasm_set_exception(module_inst, "out of bounds memory access");
-                if (module_inst->module_type == Wasm_Module_Bytecode) {
-                    /* Continue to search next exception handler for
-                       interpreter mode as it can be caught by
-                       `__try { .. } __except { .. }` sentences in
-                       wasm_runtime.c */
-                    return EXCEPTION_CONTINUE_SEARCH;
-                }
-                else {
-                    /* Skip current instruction and continue to run for
-                       AOT mode. TODO: implement unwind support for AOT
-                       code in Windows platform */
-                    exce_info->ContextRecord->Rip++;
-                    return EXCEPTION_CONTINUE_EXECUTION;
-                }
+                ret = next_action(module_inst, exce_info);
+                if (ret == EXCEPTION_CONTINUE_SEARCH
+                    || ret == EXCEPTION_CONTINUE_EXECUTION)
+                    return ret;
             }
             else if (exec_env_tls->exce_check_guard_page <= (uint8 *)sig_addr
                      && (uint8 *)sig_addr
                             < exec_env_tls->exce_check_guard_page + page_size) {
                 bh_assert(wasm_copy_exception(module_inst, NULL));
-                if (module_inst->module_type == Wasm_Module_Bytecode) {
-                    return EXCEPTION_CONTINUE_SEARCH;
-                }
-                else {
-                    exce_info->ContextRecord->Rip++;
-                    return EXCEPTION_CONTINUE_EXECUTION;
-                }
+                ret = next_action(module_inst, exce_info);
+                if (ret == EXCEPTION_CONTINUE_SEARCH
+                    || ret == EXCEPTION_CONTINUE_EXECUTION)
+                    return ret;
             }
         }
 #if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
@@ -267,12 +338,10 @@ runtime_exception_handler(EXCEPTION_POINTERS *exce_info)
                whether the exception is thrown and return to runtime, and
                the damaged stack will be recovered by _resetstkoflw(). */
             wasm_set_exception(module_inst, "native stack overflow");
-            if (module_inst->module_type == Wasm_Module_Bytecode) {
-                return EXCEPTION_CONTINUE_SEARCH;
-            }
-            else {
-                return EXCEPTION_CONTINUE_EXECUTION;
-            }
+            ret = next_action(module_inst, exce_info);
+            if (ret == EXCEPTION_CONTINUE_SEARCH
+                || ret == EXCEPTION_CONTINUE_EXECUTION)
+                return ret;
         }
 #endif
     }
@@ -1196,7 +1265,8 @@ wasm_runtime_unload(WASMModuleCommon *module)
 }
 
 WASMModuleInstanceCommon *
-wasm_runtime_instantiate_internal(WASMModuleCommon *module, bool is_sub_inst,
+wasm_runtime_instantiate_internal(WASMModuleCommon *module,
+                                  WASMModuleInstanceCommon *parent,
                                   WASMExecEnv *exec_env_main, uint32 stack_size,
                                   uint32 heap_size, char *error_buf,
                                   uint32 error_buf_size)
@@ -1204,14 +1274,14 @@ wasm_runtime_instantiate_internal(WASMModuleCommon *module, bool is_sub_inst,
 #if WASM_ENABLE_INTERP != 0
     if (module->module_type == Wasm_Module_Bytecode)
         return (WASMModuleInstanceCommon *)wasm_instantiate(
-            (WASMModule *)module, is_sub_inst, exec_env_main, stack_size,
-            heap_size, error_buf, error_buf_size);
+            (WASMModule *)module, (WASMModuleInstance *)parent, exec_env_main,
+            stack_size, heap_size, error_buf, error_buf_size);
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module->module_type == Wasm_Module_AoT)
         return (WASMModuleInstanceCommon *)aot_instantiate(
-            (AOTModule *)module, is_sub_inst, exec_env_main, stack_size,
-            heap_size, error_buf, error_buf_size);
+            (AOTModule *)module, (AOTModuleInstance *)parent, exec_env_main,
+            stack_size, heap_size, error_buf, error_buf_size);
 #endif
     set_error_buf(error_buf, error_buf_size,
                   "Instantiate module failed, invalid module type");
@@ -1224,7 +1294,7 @@ wasm_runtime_instantiate(WASMModuleCommon *module, uint32 stack_size,
                          uint32 error_buf_size)
 {
     return wasm_runtime_instantiate_internal(
-        module, false, NULL, stack_size, heap_size, error_buf, error_buf_size);
+        module, NULL, NULL, stack_size, heap_size, error_buf, error_buf_size);
 }
 
 void
@@ -1868,33 +1938,6 @@ wasm_runtime_finalize_call_function(WASMExecEnv *exec_env,
 }
 #endif
 
-static bool
-clear_wasi_proc_exit_exception(WASMModuleInstanceCommon *module_inst_comm)
-{
-#if WASM_ENABLE_LIBC_WASI != 0
-    bool has_exception;
-    char exception[EXCEPTION_BUF_LEN];
-    WASMModuleInstance *module_inst = (WASMModuleInstance *)module_inst_comm;
-
-    bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
-              || module_inst_comm->module_type == Wasm_Module_AoT);
-
-    has_exception = wasm_copy_exception(module_inst, exception);
-    if (has_exception && !strcmp(exception, "Exception: wasi proc exit")) {
-        /* The "wasi proc exit" exception is thrown by native lib to
-           let wasm app exit, which is a normal behavior, we clear
-           the exception here. And just clear the exception of current
-           thread, don't call `wasm_set_exception(module_inst, NULL)`
-           which will clear the exception of all threads. */
-        module_inst->cur_exception[0] = '\0';
-        return true;
-    }
-    return false;
-#else
-    return false;
-#endif
-}
-
 bool
 wasm_runtime_call_wasm(WASMExecEnv *exec_env,
                        WASMFunctionInstanceCommon *function, uint32 argc,
@@ -1935,15 +1978,10 @@ wasm_runtime_call_wasm(WASMExecEnv *exec_env,
                                 param_argc, new_argv);
 #endif
     if (!ret) {
-        if (clear_wasi_proc_exit_exception(exec_env->module_inst)) {
-            ret = true;
+        if (new_argv != argv) {
+            wasm_runtime_free(new_argv);
         }
-        else {
-            if (new_argv != argv) {
-                wasm_runtime_free(new_argv);
-            }
-            return false;
-        }
+        return false;
     }
 
 #if WASM_ENABLE_REF_TYPES != 0
@@ -2307,14 +2345,7 @@ wasm_runtime_get_exec_env_singleton(WASMModuleInstanceCommon *module_inst_comm)
 void
 wasm_set_exception(WASMModuleInstance *module_inst, const char *exception)
 {
-    WASMExecEnv *exec_env = NULL;
-
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    WASMSharedMemNode *node =
-        wasm_module_get_shared_memory((WASMModuleCommon *)module_inst->module);
-    if (node)
-        os_mutex_lock(&node->shared_mem_lock);
-#endif
+    exception_lock(module_inst);
     if (exception) {
         snprintf(module_inst->cur_exception, sizeof(module_inst->cur_exception),
                  "Exception: %s", exception);
@@ -2322,19 +2353,14 @@ wasm_set_exception(WASMModuleInstance *module_inst, const char *exception)
     else {
         module_inst->cur_exception[0] = '\0';
     }
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    if (node)
-        os_mutex_unlock(&node->shared_mem_lock);
-#endif
+    exception_unlock(module_inst);
 
 #if WASM_ENABLE_THREAD_MGR != 0
-    exec_env =
+    WASMExecEnv *exec_env =
         wasm_clusters_search_exec_env((WASMModuleInstanceCommon *)module_inst);
     if (exec_env) {
-        wasm_cluster_spread_exception(exec_env, exception ? false : true);
+        wasm_cluster_spread_exception(exec_env, exception);
     }
-#else
-    (void)exec_env;
 #endif
 }
 
@@ -2385,12 +2411,7 @@ wasm_copy_exception(WASMModuleInstance *module_inst, char *exception_buf)
 {
     bool has_exception = false;
 
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    WASMSharedMemNode *node =
-        wasm_module_get_shared_memory((WASMModuleCommon *)module_inst->module);
-    if (node)
-        os_mutex_lock(&node->shared_mem_lock);
-#endif
+    exception_lock(module_inst);
     if (module_inst->cur_exception[0] != '\0') {
         /* NULL is passed if the caller is not interested in getting the
          * exception content, but only in knowing if an exception has been
@@ -2402,10 +2423,7 @@ wasm_copy_exception(WASMModuleInstance *module_inst, char *exception_buf)
                         sizeof(module_inst->cur_exception));
         has_exception = true;
     }
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    if (node)
-        os_mutex_unlock(&node->shared_mem_lock);
-#endif
+    exception_unlock(module_inst);
 
     return has_exception;
 }
@@ -2481,6 +2499,54 @@ wasm_runtime_get_custom_data(WASMModuleInstanceCommon *module_inst_comm)
               || module_inst_comm->module_type == Wasm_Module_AoT);
     return module_inst->custom_data;
 }
+
+#if WASM_CONFIGUABLE_BOUNDS_CHECKS != 0
+void
+wasm_runtime_set_bounds_checks(WASMModuleInstanceCommon *module_inst,
+                               bool enable)
+{
+    /* Alwary disable bounds checks if hw bounds checks enabled */
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    enable = false;
+#endif
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        ((WASMModuleInstanceExtra *)((WASMModuleInstance *)module_inst)->e)
+            ->common.disable_bounds_checks = enable ? false : true;
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        ((AOTModuleInstanceExtra *)((AOTModuleInstance *)module_inst)->e)
+            ->common.disable_bounds_checks = enable ? false : true;
+    }
+#endif
+}
+
+bool
+wasm_runtime_is_bounds_checks_enabled(WASMModuleInstanceCommon *module_inst)
+{
+
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        return !((WASMModuleInstanceExtra *)((WASMModuleInstance *)module_inst)
+                     ->e)
+                    ->common.disable_bounds_checks;
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        return !((AOTModuleInstanceExtra *)((WASMModuleInstance *)module_inst)
+                     ->e)
+                    ->common.disable_bounds_checks;
+    }
+#endif
+
+    return true;
+}
+#endif
 
 uint32
 wasm_runtime_module_malloc_internal(WASMModuleInstanceCommon *module_inst,
@@ -3212,27 +3278,6 @@ wasm_runtime_get_wasi_exit_code(WASMModuleInstanceCommon *module_inst)
     }
 #endif
     return wasi_ctx->exit_code;
-}
-
-WASIContext *
-wasm_runtime_get_wasi_ctx(WASMModuleInstanceCommon *module_inst_comm)
-{
-    WASMModuleInstance *module_inst = (WASMModuleInstance *)module_inst_comm;
-
-    bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
-              || module_inst_comm->module_type == Wasm_Module_AoT);
-    return module_inst->wasi_ctx;
-}
-
-void
-wasm_runtime_set_wasi_ctx(WASMModuleInstanceCommon *module_inst_comm,
-                          WASIContext *wasi_ctx)
-{
-    WASMModuleInstance *module_inst = (WASMModuleInstance *)module_inst_comm;
-
-    bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
-              || module_inst_comm->module_type == Wasm_Module_AoT);
-    module_inst->wasi_ctx = wasi_ctx;
 }
 #endif /* end of WASM_ENABLE_LIBC_WASI */
 
@@ -4496,10 +4541,6 @@ wasm_runtime_call_indirect(WASMExecEnv *exec_env, uint32 element_index,
         ret = aot_call_indirect(exec_env, 0, element_index, argc, argv);
 #endif
 
-    if (!ret && clear_wasi_proc_exit_exception(exec_env->module_inst)) {
-        ret = true;
-    }
-
     return ret;
 }
 
@@ -4636,6 +4677,8 @@ typedef struct ExternRefMapNode {
     bool retained;
     /* Whether it is marked by runtime */
     bool marked;
+    /* cleanup function called when the externref is freed */
+    void (*cleanup)(void *);
 } ExternRefMapNode;
 
 static uint32
@@ -4698,6 +4741,81 @@ lookup_extobj_callback(void *key, void *value, void *user_data)
     }
 }
 
+static void
+delete_externref(void *key, ExternRefMapNode *node)
+{
+    bh_hash_map_remove(externref_map, key, NULL, NULL);
+    if (node->cleanup) {
+        (*node->cleanup)(node->extern_obj);
+    }
+    wasm_runtime_free(node);
+}
+
+static void
+delete_extobj_callback(void *key, void *value, void *user_data)
+{
+    ExternRefMapNode *node = (ExternRefMapNode *)value;
+    LookupExtObj_UserData *lookup_user_data =
+        (LookupExtObj_UserData *)user_data;
+
+    if (node->extern_obj == lookup_user_data->node.extern_obj
+        && node->module_inst == lookup_user_data->node.module_inst) {
+        lookup_user_data->found = true;
+        delete_externref(key, node);
+    }
+}
+
+bool
+wasm_externref_objdel(WASMModuleInstanceCommon *module_inst, void *extern_obj)
+{
+    LookupExtObj_UserData lookup_user_data = { 0 };
+    bool ok = false;
+
+    /* in a wrapper, extern_obj could be any value */
+    lookup_user_data.node.extern_obj = extern_obj;
+    lookup_user_data.node.module_inst = module_inst;
+    lookup_user_data.found = false;
+
+    os_mutex_lock(&externref_lock);
+    /* Lookup hashmap firstly */
+    bh_hash_map_traverse(externref_map, delete_extobj_callback,
+                         (void *)&lookup_user_data);
+    if (lookup_user_data.found) {
+        ok = true;
+    }
+    os_mutex_unlock(&externref_lock);
+
+    return ok;
+}
+
+bool
+wasm_externref_set_cleanup(WASMModuleInstanceCommon *module_inst,
+                           void *extern_obj, void (*extern_obj_cleanup)(void *))
+{
+
+    LookupExtObj_UserData lookup_user_data = { 0 };
+    bool ok = false;
+
+    /* in a wrapper, extern_obj could be any value */
+    lookup_user_data.node.extern_obj = extern_obj;
+    lookup_user_data.node.module_inst = module_inst;
+    lookup_user_data.found = false;
+
+    os_mutex_lock(&externref_lock);
+    /* Lookup hashmap firstly */
+    bh_hash_map_traverse(externref_map, lookup_extobj_callback,
+                         (void *)&lookup_user_data);
+    if (lookup_user_data.found) {
+        void *key = (void *)(uintptr_t)lookup_user_data.externref_idx;
+        ExternRefMapNode *node = bh_hash_map_find(externref_map, key);
+        node->cleanup = extern_obj_cleanup;
+        ok = true;
+    }
+    os_mutex_unlock(&externref_lock);
+
+    return ok;
+}
+
 bool
 wasm_externref_obj2ref(WASMModuleInstanceCommon *module_inst, void *extern_obj,
                        uint32 *p_externref_idx)
@@ -4747,6 +4865,7 @@ wasm_externref_obj2ref(WASMModuleInstanceCommon *module_inst, void *extern_obj,
     memset(node, 0, sizeof(ExternRefMapNode));
     node->extern_obj = extern_obj;
     node->module_inst = module_inst;
+    node->cleanup = NULL;
 
     externref_idx = externref_global_id;
 
@@ -4797,8 +4916,7 @@ reclaim_extobj_callback(void *key, void *value, void *user_data)
 
     if (node->module_inst == module_inst) {
         if (!node->marked && !node->retained) {
-            bh_hash_map_remove(externref_map, key, NULL, NULL);
-            wasm_runtime_free(value);
+            delete_externref(key, node);
         }
         else {
             node->marked = false;
@@ -4913,8 +5031,7 @@ cleanup_extobj_callback(void *key, void *value, void *user_data)
         (WASMModuleInstanceCommon *)user_data;
 
     if (node->module_inst == module_inst) {
-        bh_hash_map_remove(externref_map, key, NULL, NULL);
-        wasm_runtime_free(value);
+        delete_externref(key, node);
     }
 }
 
@@ -5507,3 +5624,37 @@ wasm_runtime_is_import_global_linked(const char *module_name,
     return false;
 #endif
 }
+
+#if WASM_ENABLE_MODULE_INST_CONTEXT != 0
+void *
+wasm_runtime_create_context_key(void (*dtor)(WASMModuleInstanceCommon *inst,
+                                             void *ctx))
+{
+    return wasm_native_create_context_key(dtor);
+}
+
+void
+wasm_runtime_destroy_context_key(void *key)
+{
+    wasm_native_destroy_context_key(key);
+}
+
+void
+wasm_runtime_set_context(WASMModuleInstanceCommon *inst, void *key, void *ctx)
+{
+    wasm_native_set_context(inst, key, ctx);
+}
+
+void
+wasm_runtime_set_context_spread(WASMModuleInstanceCommon *inst, void *key,
+                                void *ctx)
+{
+    wasm_native_set_context_spread(inst, key, ctx);
+}
+
+void *
+wasm_runtime_get_context(WASMModuleInstanceCommon *inst, void *key)
+{
+    return wasm_native_get_context(inst, key);
+}
+#endif /* WASM_ENABLE_MODULE_INST_CONTEXT != 0 */

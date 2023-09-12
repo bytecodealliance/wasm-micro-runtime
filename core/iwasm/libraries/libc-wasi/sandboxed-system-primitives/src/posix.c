@@ -55,13 +55,6 @@ static_assert(sizeof(struct iovec) == sizeof(__wasi_ciovec_t),
               "Size mismatch");
 #endif
 
-#if defined(WASMTIME_SSP_STATIC_CURFDS)
-static __thread struct fd_table *curfds;
-static __thread struct fd_prestats *prestats;
-static __thread struct argv_environ_values *argv_environ;
-static __thread struct addr_pool *addr_pool;
-#endif
-
 // Converts a POSIX error code to a CloudABI error code.
 static __wasi_errno_t
 convert_errno(int error)
@@ -228,22 +221,22 @@ wasi_addr_to_bh_sockaddr(const __wasi_addr_t *wasi_addr,
                          bh_sockaddr_t *sockaddr)
 {
     if (wasi_addr->kind == IPv4) {
-        sockaddr->addr_bufer.ipv4 = (wasi_addr->addr.ip4.addr.n0 << 24)
-                                    | (wasi_addr->addr.ip4.addr.n1 << 16)
-                                    | (wasi_addr->addr.ip4.addr.n2 << 8)
-                                    | wasi_addr->addr.ip4.addr.n3;
+        sockaddr->addr_buffer.ipv4 = (wasi_addr->addr.ip4.addr.n0 << 24)
+                                     | (wasi_addr->addr.ip4.addr.n1 << 16)
+                                     | (wasi_addr->addr.ip4.addr.n2 << 8)
+                                     | wasi_addr->addr.ip4.addr.n3;
         sockaddr->is_ipv4 = true;
         sockaddr->port = wasi_addr->addr.ip4.port;
     }
     else {
-        sockaddr->addr_bufer.ipv6[0] = wasi_addr->addr.ip6.addr.n0;
-        sockaddr->addr_bufer.ipv6[1] = wasi_addr->addr.ip6.addr.n1;
-        sockaddr->addr_bufer.ipv6[2] = wasi_addr->addr.ip6.addr.n2;
-        sockaddr->addr_bufer.ipv6[3] = wasi_addr->addr.ip6.addr.n3;
-        sockaddr->addr_bufer.ipv6[4] = wasi_addr->addr.ip6.addr.h0;
-        sockaddr->addr_bufer.ipv6[5] = wasi_addr->addr.ip6.addr.h1;
-        sockaddr->addr_bufer.ipv6[6] = wasi_addr->addr.ip6.addr.h2;
-        sockaddr->addr_bufer.ipv6[7] = wasi_addr->addr.ip6.addr.h3;
+        sockaddr->addr_buffer.ipv6[0] = wasi_addr->addr.ip6.addr.n0;
+        sockaddr->addr_buffer.ipv6[1] = wasi_addr->addr.ip6.addr.n1;
+        sockaddr->addr_buffer.ipv6[2] = wasi_addr->addr.ip6.addr.n2;
+        sockaddr->addr_buffer.ipv6[3] = wasi_addr->addr.ip6.addr.n3;
+        sockaddr->addr_buffer.ipv6[4] = wasi_addr->addr.ip6.addr.h0;
+        sockaddr->addr_buffer.ipv6[5] = wasi_addr->addr.ip6.addr.h1;
+        sockaddr->addr_buffer.ipv6[6] = wasi_addr->addr.ip6.addr.h2;
+        sockaddr->addr_buffer.ipv6[7] = wasi_addr->addr.ip6.addr.h3;
         sockaddr->is_ipv4 = false;
         sockaddr->port = wasi_addr->addr.ip6.port;
     }
@@ -258,24 +251,24 @@ bh_sockaddr_to_wasi_addr(const bh_sockaddr_t *sockaddr,
         wasi_addr->kind = IPv4;
         wasi_addr->addr.ip4.port = sockaddr->port;
         wasi_addr->addr.ip4.addr.n0 =
-            (sockaddr->addr_bufer.ipv4 & 0xFF000000) >> 24;
+            (sockaddr->addr_buffer.ipv4 & 0xFF000000) >> 24;
         wasi_addr->addr.ip4.addr.n1 =
-            (sockaddr->addr_bufer.ipv4 & 0x00FF0000) >> 16;
+            (sockaddr->addr_buffer.ipv4 & 0x00FF0000) >> 16;
         wasi_addr->addr.ip4.addr.n2 =
-            (sockaddr->addr_bufer.ipv4 & 0x0000FF00) >> 8;
-        wasi_addr->addr.ip4.addr.n3 = (sockaddr->addr_bufer.ipv4 & 0x000000FF);
+            (sockaddr->addr_buffer.ipv4 & 0x0000FF00) >> 8;
+        wasi_addr->addr.ip4.addr.n3 = (sockaddr->addr_buffer.ipv4 & 0x000000FF);
     }
     else {
         wasi_addr->kind = IPv6;
         wasi_addr->addr.ip6.port = sockaddr->port;
-        wasi_addr->addr.ip6.addr.n0 = sockaddr->addr_bufer.ipv6[0];
-        wasi_addr->addr.ip6.addr.n1 = sockaddr->addr_bufer.ipv6[1];
-        wasi_addr->addr.ip6.addr.n2 = sockaddr->addr_bufer.ipv6[2];
-        wasi_addr->addr.ip6.addr.n3 = sockaddr->addr_bufer.ipv6[3];
-        wasi_addr->addr.ip6.addr.h0 = sockaddr->addr_bufer.ipv6[4];
-        wasi_addr->addr.ip6.addr.h1 = sockaddr->addr_bufer.ipv6[5];
-        wasi_addr->addr.ip6.addr.h2 = sockaddr->addr_bufer.ipv6[6];
-        wasi_addr->addr.ip6.addr.h3 = sockaddr->addr_bufer.ipv6[7];
+        wasi_addr->addr.ip6.addr.n0 = sockaddr->addr_buffer.ipv6[0];
+        wasi_addr->addr.ip6.addr.n1 = sockaddr->addr_buffer.ipv6[1];
+        wasi_addr->addr.ip6.addr.n2 = sockaddr->addr_buffer.ipv6[2];
+        wasi_addr->addr.ip6.addr.n3 = sockaddr->addr_buffer.ipv6[3];
+        wasi_addr->addr.ip6.addr.h0 = sockaddr->addr_buffer.ipv6[4];
+        wasi_addr->addr.ip6.addr.h1 = sockaddr->addr_buffer.ipv6[5];
+        wasi_addr->addr.ip6.addr.h2 = sockaddr->addr_buffer.ipv6[6];
+        wasi_addr->addr.ip6.addr.h3 = sockaddr->addr_buffer.ipv6[7];
     }
 }
 
@@ -340,9 +333,6 @@ fd_prestats_init(struct fd_prestats *pt)
     pt->prestats = NULL;
     pt->size = 0;
     pt->used = 0;
-#if defined(WASMTIME_SSP_STATIC_CURFDS)
-    prestats = pt;
-#endif
     return true;
 }
 
@@ -446,9 +436,6 @@ fd_table_init(struct fd_table *ft)
     ft->entries = NULL;
     ft->size = 0;
     ft->used = 0;
-#if defined(WASMTIME_SSP_STATIC_CURFDS)
-    curfds = ft;
-#endif
     return true;
 }
 
@@ -655,6 +642,7 @@ static void
 fd_object_release(struct fd_object *fo) UNLOCKS(fo->refcount)
 {
     if (refcount_release(&fo->refcount)) {
+        int saved_errno = errno;
         switch (fo->type) {
             case __WASI_FILETYPE_DIRECTORY:
                 // For directories we may keep track of a DIR object. Calling
@@ -672,6 +660,7 @@ fd_object_release(struct fd_object *fo) UNLOCKS(fo->refcount)
                 break;
         }
         wasm_runtime_free(fo);
+        errno = saved_errno;
     }
 }
 
@@ -786,11 +775,8 @@ fd_table_insert_fd(struct fd_table *ft, int in, __wasi_filetype_t type,
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_prestat_get(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_prestats *prestats,
-#endif
-    __wasi_fd_t fd, __wasi_prestat_t *buf)
+wasmtime_ssp_fd_prestat_get(struct fd_prestats *prestats, __wasi_fd_t fd,
+                            __wasi_prestat_t *buf)
 {
     rwlock_rdlock(&prestats->lock);
     struct fd_prestat *prestat;
@@ -812,11 +798,8 @@ wasmtime_ssp_fd_prestat_get(
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_prestat_dir_name(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_prestats *prestats,
-#endif
-    __wasi_fd_t fd, char *path, size_t path_len)
+wasmtime_ssp_fd_prestat_dir_name(struct fd_prestats *prestats, __wasi_fd_t fd,
+                                 char *path, size_t path_len)
 {
     rwlock_rdlock(&prestats->lock);
     struct fd_prestat *prestat;
@@ -838,11 +821,8 @@ wasmtime_ssp_fd_prestat_dir_name(
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_close(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds, struct fd_prestats *prestats,
-#endif
-    __wasi_fd_t fd)
+wasmtime_ssp_fd_close(struct fd_table *curfds, struct fd_prestats *prestats,
+                      __wasi_fd_t fd)
 {
     // Don't allow closing a pre-opened resource.
     // TODO: Eventually, we do want to permit this, once libpreopen in
@@ -914,11 +894,7 @@ fd_object_get(struct fd_table *curfds, struct fd_object **fo, __wasi_fd_t fd,
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_datasync(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t fd)
+wasmtime_ssp_fd_datasync(struct fd_table *curfds, __wasi_fd_t fd)
 {
     struct fd_object *fo;
     __wasi_errno_t error =
@@ -938,12 +914,9 @@ wasmtime_ssp_fd_datasync(
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_pread(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t fd, const __wasi_iovec_t *iov, size_t iovcnt,
-    __wasi_filesize_t offset, size_t *nread)
+wasmtime_ssp_fd_pread(struct fd_table *curfds, __wasi_fd_t fd,
+                      const __wasi_iovec_t *iov, size_t iovcnt,
+                      __wasi_filesize_t offset, size_t *nread)
 {
     if (iovcnt == 0)
         return __WASI_EINVAL;
@@ -1012,12 +985,9 @@ wasmtime_ssp_fd_pread(
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_pwrite(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t fd, const __wasi_ciovec_t *iov, size_t iovcnt,
-    __wasi_filesize_t offset, size_t *nwritten)
+wasmtime_ssp_fd_pwrite(struct fd_table *curfds, __wasi_fd_t fd,
+                       const __wasi_ciovec_t *iov, size_t iovcnt,
+                       __wasi_filesize_t offset, size_t *nwritten)
 {
     if (iovcnt == 0)
         return __WASI_EINVAL;
@@ -1066,11 +1036,8 @@ wasmtime_ssp_fd_pwrite(
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_read(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t fd, const __wasi_iovec_t *iov, size_t iovcnt, size_t *nread)
+wasmtime_ssp_fd_read(struct fd_table *curfds, __wasi_fd_t fd,
+                     const __wasi_iovec_t *iov, size_t iovcnt, size_t *nread)
 {
     struct fd_object *fo;
     __wasi_errno_t error =
@@ -1087,11 +1054,8 @@ wasmtime_ssp_fd_read(
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_renumber(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds, struct fd_prestats *prestats,
-#endif
-    __wasi_fd_t from, __wasi_fd_t to)
+wasmtime_ssp_fd_renumber(struct fd_table *curfds, struct fd_prestats *prestats,
+                         __wasi_fd_t from, __wasi_fd_t to)
 {
     // Don't allow renumbering over a pre-opened resource.
     // TODO: Eventually, we do want to permit this, once libpreopen in
@@ -1141,12 +1105,9 @@ wasmtime_ssp_fd_renumber(
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_seek(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t fd, __wasi_filedelta_t offset, __wasi_whence_t whence,
-    __wasi_filesize_t *newoffset)
+wasmtime_ssp_fd_seek(struct fd_table *curfds, __wasi_fd_t fd,
+                     __wasi_filedelta_t offset, __wasi_whence_t whence,
+                     __wasi_filesize_t *newoffset)
 {
     int nwhence;
     switch (whence) {
@@ -1182,11 +1143,8 @@ wasmtime_ssp_fd_seek(
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_tell(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t fd, __wasi_filesize_t *newoffset)
+wasmtime_ssp_fd_tell(struct fd_table *curfds, __wasi_fd_t fd,
+                     __wasi_filesize_t *newoffset)
 {
     struct fd_object *fo;
     __wasi_errno_t error =
@@ -1203,11 +1161,8 @@ wasmtime_ssp_fd_tell(
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_fdstat_get(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t fd, __wasi_fdstat_t *buf)
+wasmtime_ssp_fd_fdstat_get(struct fd_table *curfds, __wasi_fd_t fd,
+                           __wasi_fdstat_t *buf)
 {
     struct fd_table *ft = curfds;
     rwlock_rdlock(&ft->lock);
@@ -1255,11 +1210,8 @@ wasmtime_ssp_fd_fdstat_get(
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_fdstat_set_flags(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t fd, __wasi_fdflags_t fs_flags)
+wasmtime_ssp_fd_fdstat_set_flags(struct fd_table *curfds, __wasi_fd_t fd,
+                                 __wasi_fdflags_t fs_flags)
 {
     int noflags = 0;
     if ((fs_flags & __WASI_FDFLAG_APPEND) != 0)
@@ -1295,12 +1247,9 @@ wasmtime_ssp_fd_fdstat_set_flags(
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_fdstat_set_rights(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t fd, __wasi_rights_t fs_rights_base,
-    __wasi_rights_t fs_rights_inheriting)
+wasmtime_ssp_fd_fdstat_set_rights(struct fd_table *curfds, __wasi_fd_t fd,
+                                  __wasi_rights_t fs_rights_base,
+                                  __wasi_rights_t fs_rights_inheriting)
 {
     struct fd_table *ft = curfds;
     rwlock_wrlock(&ft->lock);
@@ -1320,11 +1269,7 @@ wasmtime_ssp_fd_fdstat_set_rights(
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_sync(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t fd)
+wasmtime_ssp_fd_sync(struct fd_table *curfds, __wasi_fd_t fd)
 {
     struct fd_object *fo;
     __wasi_errno_t error =
@@ -1340,11 +1285,9 @@ wasmtime_ssp_fd_sync(
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_write(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t fd, const __wasi_ciovec_t *iov, size_t iovcnt, size_t *nwritten)
+wasmtime_ssp_fd_write(struct fd_table *curfds, __wasi_fd_t fd,
+                      const __wasi_ciovec_t *iov, size_t iovcnt,
+                      size_t *nwritten)
 {
     struct fd_object *fo;
     __wasi_errno_t error =
@@ -1383,12 +1326,9 @@ wasmtime_ssp_fd_write(
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_advise(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t fd, __wasi_filesize_t offset, __wasi_filesize_t len,
-    __wasi_advice_t advice)
+wasmtime_ssp_fd_advise(struct fd_table *curfds, __wasi_fd_t fd,
+                       __wasi_filesize_t offset, __wasi_filesize_t len,
+                       __wasi_advice_t advice)
 {
 #ifdef POSIX_FADV_NORMAL
     int nadvice;
@@ -1452,11 +1392,8 @@ wasmtime_ssp_fd_advise(
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_allocate(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t fd, __wasi_filesize_t offset, __wasi_filesize_t len)
+wasmtime_ssp_fd_allocate(struct fd_table *curfds, __wasi_fd_t fd,
+                         __wasi_filesize_t offset, __wasi_filesize_t len)
 {
     struct fd_object *fo;
     __wasi_errno_t error =
@@ -1793,11 +1730,8 @@ path_put(struct path_access *pa) UNLOCKS(pa->fd_object->refcount)
 }
 
 __wasi_errno_t
-wasmtime_ssp_path_create_directory(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t fd, const char *path, size_t pathlen)
+wasmtime_ssp_path_create_directory(struct fd_table *curfds, __wasi_fd_t fd,
+                                   const char *path, size_t pathlen)
 {
     struct path_access pa;
     __wasi_errno_t error =
@@ -1841,13 +1775,11 @@ validate_path(const char *path, struct fd_prestats *pt)
 }
 
 __wasi_errno_t
-wasmtime_ssp_path_link(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds, struct fd_prestats *prestats,
-#endif
-    __wasi_fd_t old_fd, __wasi_lookupflags_t old_flags, const char *old_path,
-    size_t old_path_len, __wasi_fd_t new_fd, const char *new_path,
-    size_t new_path_len)
+wasmtime_ssp_path_link(struct fd_table *curfds, struct fd_prestats *prestats,
+                       __wasi_fd_t old_fd, __wasi_lookupflags_t old_flags,
+                       const char *old_path, size_t old_path_len,
+                       __wasi_fd_t new_fd, const char *new_path,
+                       size_t new_path_len)
 {
     struct path_access old_pa;
     __wasi_errno_t error =
@@ -1900,14 +1832,12 @@ wasmtime_ssp_path_link(
 }
 
 __wasi_errno_t
-wasmtime_ssp_path_open(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t dirfd, __wasi_lookupflags_t dirflags, const char *path,
-    size_t pathlen, __wasi_oflags_t oflags, __wasi_rights_t fs_rights_base,
-    __wasi_rights_t fs_rights_inheriting, __wasi_fdflags_t fs_flags,
-    __wasi_fd_t *fd)
+wasmtime_ssp_path_open(struct fd_table *curfds, __wasi_fd_t dirfd,
+                       __wasi_lookupflags_t dirflags, const char *path,
+                       size_t pathlen, __wasi_oflags_t oflags,
+                       __wasi_rights_t fs_rights_base,
+                       __wasi_rights_t fs_rights_inheriting,
+                       __wasi_fdflags_t fs_flags, __wasi_fd_t *fd)
 {
     // Rights that should be installed on the new file descriptor.
     __wasi_rights_t rights_base = fs_rights_base;
@@ -2054,12 +1984,9 @@ fd_readdir_put(void *buf, size_t bufsize, size_t *bufused, const void *elem,
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_readdir(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t fd, void *buf, size_t nbyte, __wasi_dircookie_t cookie,
-    size_t *bufused)
+wasmtime_ssp_fd_readdir(struct fd_table *curfds, __wasi_fd_t fd, void *buf,
+                        size_t nbyte, __wasi_dircookie_t cookie,
+                        size_t *bufused)
 {
     struct fd_object *fo;
     __wasi_errno_t error =
@@ -2153,12 +2080,9 @@ wasmtime_ssp_fd_readdir(
 }
 
 __wasi_errno_t
-wasmtime_ssp_path_readlink(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t fd, const char *path, size_t pathlen, char *buf, size_t bufsize,
-    size_t *bufused)
+wasmtime_ssp_path_readlink(struct fd_table *curfds, __wasi_fd_t fd,
+                           const char *path, size_t pathlen, char *buf,
+                           size_t bufsize, size_t *bufused)
 {
     struct path_access pa;
     __wasi_errno_t error = path_get_nofollow(
@@ -2179,12 +2103,10 @@ wasmtime_ssp_path_readlink(
 }
 
 __wasi_errno_t
-wasmtime_ssp_path_rename(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t old_fd, const char *old_path, size_t old_path_len,
-    __wasi_fd_t new_fd, const char *new_path, size_t new_path_len)
+wasmtime_ssp_path_rename(struct fd_table *curfds, __wasi_fd_t old_fd,
+                         const char *old_path, size_t old_path_len,
+                         __wasi_fd_t new_fd, const char *new_path,
+                         size_t new_path_len)
 {
     struct path_access old_pa;
     __wasi_errno_t error =
@@ -2226,11 +2148,8 @@ convert_stat(const struct stat *in, __wasi_filestat_t *out)
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_filestat_get(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t fd, __wasi_filestat_t *buf)
+wasmtime_ssp_fd_filestat_get(struct fd_table *curfds, __wasi_fd_t fd,
+                             __wasi_filestat_t *buf)
 {
     struct fd_object *fo;
     __wasi_errno_t error =
@@ -2299,11 +2218,8 @@ convert_utimens_arguments(__wasi_timestamp_t st_atim,
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_filestat_set_size(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t fd, __wasi_filesize_t st_size)
+wasmtime_ssp_fd_filestat_set_size(struct fd_table *curfds, __wasi_fd_t fd,
+                                  __wasi_filesize_t st_size)
 {
     struct fd_object *fo;
     __wasi_errno_t error =
@@ -2319,12 +2235,10 @@ wasmtime_ssp_fd_filestat_set_size(
 }
 
 __wasi_errno_t
-wasmtime_ssp_fd_filestat_set_times(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t fd, __wasi_timestamp_t st_atim, __wasi_timestamp_t st_mtim,
-    __wasi_fstflags_t fstflags)
+wasmtime_ssp_fd_filestat_set_times(struct fd_table *curfds, __wasi_fd_t fd,
+                                   __wasi_timestamp_t st_atim,
+                                   __wasi_timestamp_t st_mtim,
+                                   __wasi_fstflags_t fstflags)
 {
     if ((fstflags
          & ~(__WASI_FILESTAT_SET_ATIM | __WASI_FILESTAT_SET_ATIM_NOW
@@ -2349,12 +2263,9 @@ wasmtime_ssp_fd_filestat_set_times(
 }
 
 __wasi_errno_t
-wasmtime_ssp_path_filestat_get(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t fd, __wasi_lookupflags_t flags, const char *path,
-    size_t pathlen, __wasi_filestat_t *buf)
+wasmtime_ssp_path_filestat_get(struct fd_table *curfds, __wasi_fd_t fd,
+                               __wasi_lookupflags_t flags, const char *path,
+                               size_t pathlen, __wasi_filestat_t *buf)
 {
     struct path_access pa;
     __wasi_errno_t error = path_get(curfds, &pa, fd, flags, path, pathlen,
@@ -2389,13 +2300,12 @@ wasmtime_ssp_path_filestat_get(
 }
 
 __wasi_errno_t
-wasmtime_ssp_path_filestat_set_times(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t fd, __wasi_lookupflags_t flags, const char *path,
-    size_t pathlen, __wasi_timestamp_t st_atim, __wasi_timestamp_t st_mtim,
-    __wasi_fstflags_t fstflags)
+wasmtime_ssp_path_filestat_set_times(struct fd_table *curfds, __wasi_fd_t fd,
+                                     __wasi_lookupflags_t flags,
+                                     const char *path, size_t pathlen,
+                                     __wasi_timestamp_t st_atim,
+                                     __wasi_timestamp_t st_mtim,
+                                     __wasi_fstflags_t fstflags)
 {
     if (((fstflags
           & ~(__WASI_FILESTAT_SET_ATIM | __WASI_FILESTAT_SET_ATIM_NOW
@@ -2428,12 +2338,10 @@ wasmtime_ssp_path_filestat_set_times(
 }
 
 __wasi_errno_t
-wasmtime_ssp_path_symlink(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds, struct fd_prestats *prestats,
-#endif
-    const char *old_path, size_t old_path_len, __wasi_fd_t fd,
-    const char *new_path, size_t new_path_len)
+wasmtime_ssp_path_symlink(struct fd_table *curfds, struct fd_prestats *prestats,
+                          const char *old_path, size_t old_path_len,
+                          __wasi_fd_t fd, const char *new_path,
+                          size_t new_path_len)
 {
     char *target = str_nullterminate(old_path, old_path_len);
     if (target == NULL)
@@ -2465,11 +2373,8 @@ wasmtime_ssp_path_symlink(
 }
 
 __wasi_errno_t
-wasmtime_ssp_path_unlink_file(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t fd, const char *path, size_t pathlen)
+wasmtime_ssp_path_unlink_file(struct fd_table *curfds, __wasi_fd_t fd,
+                              const char *path, size_t pathlen)
 {
     struct path_access pa;
     __wasi_errno_t error = path_get_nofollow(
@@ -2502,11 +2407,8 @@ wasmtime_ssp_path_unlink_file(
 }
 
 __wasi_errno_t
-wasmtime_ssp_path_remove_directory(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t fd, const char *path, size_t pathlen)
+wasmtime_ssp_path_remove_directory(struct fd_table *curfds, __wasi_fd_t fd,
+                                   const char *path, size_t pathlen)
 {
     struct path_access pa;
     __wasi_errno_t error =
@@ -2531,12 +2433,10 @@ wasmtime_ssp_path_remove_directory(
 }
 
 __wasi_errno_t
-wasmtime_ssp_poll_oneoff(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    const __wasi_subscription_t *in, __wasi_event_t *out, size_t nsubscriptions,
-    size_t *nevents) NO_LOCK_ANALYSIS
+wasmtime_ssp_poll_oneoff(struct fd_table *curfds,
+                         const __wasi_subscription_t *in, __wasi_event_t *out,
+                         size_t nsubscriptions,
+                         size_t *nevents) NO_LOCK_ANALYSIS
 {
     // Sleeping.
     if (nsubscriptions == 1 && in[0].u.type == __WASI_EVENTTYPE_CLOCK) {
@@ -2787,123 +2687,6 @@ wasmtime_ssp_poll_oneoff(
     return error;
 }
 
-#if 0
-/**
- * We throw exception in libc-wasi wrapper function wasi_proc_exit()
- * but not call this function.
- */
-void wasmtime_ssp_proc_exit(
-    __wasi_exitcode_t rval
-) {
-  _Exit((int32)rval);
-}
-#endif
-
-__wasi_errno_t
-wasmtime_ssp_proc_raise(__wasi_signal_t sig)
-{
-    static const int signals[] = {
-#define X(v) [__WASI_##v] = v
-#if defined(SIGABRT)
-        X(SIGABRT),
-#endif
-#if defined(SIGALRM)
-        X(SIGALRM),
-#endif
-#if defined(SIGBUS)
-        X(SIGBUS),
-#endif
-#if defined(SIGCHLD)
-        X(SIGCHLD),
-#endif
-#if defined(SIGCONT)
-        X(SIGCONT),
-#endif
-#if defined(SIGFPE)
-        X(SIGFPE),
-#endif
-#if defined(SIGHUP)
-        X(SIGHUP),
-#endif
-#if defined(SIGILL)
-        X(SIGILL),
-#endif
-#if defined(SIGINT)
-        X(SIGINT),
-#endif
-#if defined(SIGKILL)
-        X(SIGKILL),
-#endif
-#if defined(SIGPIPE)
-        X(SIGPIPE),
-#endif
-#if defined(SIGQUIT)
-        X(SIGQUIT),
-#endif
-#if defined(SIGSYS)
-        X(SIGSEGV),
-#endif
-#if defined(SIGSTOP)
-        X(SIGSTOP),
-#endif
-#if defined(SIGSYS)
-        X(SIGSYS),
-#endif
-#if defined(SIGTERM)
-        X(SIGTERM),
-#endif
-#if defined(SIGTRAP)
-        X(SIGTRAP),
-#endif
-#if defined(SIGTSTP)
-        X(SIGTSTP),
-#endif
-#if defined(SIGTTIN)
-        X(SIGTTIN),
-#endif
-#if defined(SIGTTOU)
-        X(SIGTTOU),
-#endif
-#if defined(SIGURG)
-        X(SIGURG),
-#endif
-#if defined(SIGUSR1)
-        X(SIGUSR1),
-#endif
-#if defined(SIGUSR2)
-        X(SIGUSR2),
-#endif
-#if defined(SIGVTALRM)
-        X(SIGVTALRM),
-#endif
-#if defined(SIGXCPU)
-        X(SIGXCPU),
-#endif
-#if defined(SIGXFSZ)
-        X(SIGXFSZ),
-#endif
-#undef X
-    };
-    if (sig >= sizeof(signals) / sizeof(signals[0]) || signals[sig] == 0)
-        return __WASI_EINVAL;
-
-#if CONFIG_TLS_USE_GSBASE
-    // TLS on OS X depends on installing a SIGSEGV handler. Reset SIGSEGV
-    // to the default action before raising.
-    if (sig == __WASI_SIGSEGV) {
-        struct sigaction sa = {
-            .sa_handler = SIG_DFL,
-        };
-        sigemptyset(&sa.sa_mask);
-        sigaction(SIGSEGV, &sa, NULL);
-    }
-#endif
-
-    if (raise(signals[sig]) < 0)
-        return convert_errno(errno);
-    return 0;
-}
-
 __wasi_errno_t
 wasmtime_ssp_random_get(void *buf, size_t nbyte)
 {
@@ -2912,11 +2695,8 @@ wasmtime_ssp_random_get(void *buf, size_t nbyte)
 }
 
 __wasi_errno_t
-wasi_ssp_sock_accept(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t fd, __wasi_fdflags_t flags, __wasi_fd_t *fd_new)
+wasi_ssp_sock_accept(struct fd_table *curfds, __wasi_fd_t fd,
+                     __wasi_fdflags_t flags, __wasi_fd_t *fd_new)
 {
     __wasi_filetype_t wasi_type;
     __wasi_rights_t max_base, max_inheriting;
@@ -2960,11 +2740,8 @@ fail:
 }
 
 __wasi_errno_t
-wasi_ssp_sock_addr_local(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t fd, __wasi_addr_t *addr)
+wasi_ssp_sock_addr_local(struct fd_table *curfds, __wasi_fd_t fd,
+                         __wasi_addr_t *addr)
 {
     struct fd_object *fo;
     bh_sockaddr_t bh_addr;
@@ -2987,11 +2764,8 @@ wasi_ssp_sock_addr_local(
 }
 
 __wasi_errno_t
-wasi_ssp_sock_addr_remote(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t fd, __wasi_addr_t *addr)
+wasi_ssp_sock_addr_remote(struct fd_table *curfds, __wasi_fd_t fd,
+                          __wasi_addr_t *addr)
 {
     struct fd_object *fo;
     bh_sockaddr_t bh_addr;
@@ -3043,11 +2817,8 @@ wasi_addr_to_string(const __wasi_addr_t *addr, char *buf, size_t buflen)
 }
 
 __wasi_errno_t
-wasi_ssp_sock_bind(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds, struct addr_pool *addr_pool,
-#endif
-    __wasi_fd_t fd, __wasi_addr_t *addr)
+wasi_ssp_sock_bind(struct fd_table *curfds, struct addr_pool *addr_pool,
+                   __wasi_fd_t fd, __wasi_addr_t *addr)
 {
     char buf[48] = { 0 };
     struct fd_object *fo;
@@ -3077,13 +2848,12 @@ wasi_ssp_sock_bind(
 }
 
 __wasi_errno_t
-wasi_ssp_sock_addr_resolve(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds, char **ns_lookup_list,
-#endif
-    const char *host, const char *service, __wasi_addr_info_hints_t *hints,
-    __wasi_addr_info_t *addr_info, __wasi_size_t addr_info_size,
-    __wasi_size_t *max_info_size)
+wasi_ssp_sock_addr_resolve(struct fd_table *curfds, char **ns_lookup_list,
+                           const char *host, const char *service,
+                           __wasi_addr_info_hints_t *hints,
+                           __wasi_addr_info_t *addr_info,
+                           __wasi_size_t addr_info_size,
+                           __wasi_size_t *max_info_size)
 {
     bh_addr_info_t *wamr_addr_info =
         wasm_runtime_malloc(addr_info_size * sizeof(bh_addr_info_t));
@@ -3102,9 +2872,12 @@ wasi_ssp_sock_addr_resolve(
     }
 
     int ret = os_socket_addr_resolve(
-        host, service, hints->hints_enabled ? &hints_is_tcp : NULL,
-        hints->hints_enabled ? &hints_is_ipv4 : NULL, wamr_addr_info,
-        addr_info_size, &_max_info_size);
+        host, service,
+        hints->hints_enabled && hints->type != SOCKET_ANY ? &hints_is_tcp
+                                                          : NULL,
+        hints->hints_enabled && hints->family != INET_UNSPEC ? &hints_is_ipv4
+                                                             : NULL,
+        wamr_addr_info, addr_info_size, &_max_info_size);
 
     if (ret != BHT_OK) {
         wasm_runtime_free(wamr_addr_info);
@@ -3127,11 +2900,8 @@ wasi_ssp_sock_addr_resolve(
 }
 
 __wasi_errno_t
-wasi_ssp_sock_connect(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds, struct addr_pool *addr_pool,
-#endif
-    __wasi_fd_t fd, __wasi_addr_t *addr)
+wasi_ssp_sock_connect(struct fd_table *curfds, struct addr_pool *addr_pool,
+                      __wasi_fd_t fd, __wasi_addr_t *addr)
 {
     char buf[48] = { 0 };
     struct fd_object *fo;
@@ -3162,11 +2932,8 @@ wasi_ssp_sock_connect(
 }
 
 __wasi_errno_t
-wasi_ssp_sock_get_recv_buf_size(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t fd, __wasi_size_t *size)
+wasi_ssp_sock_get_recv_buf_size(struct fd_table *curfds, __wasi_fd_t fd,
+                                __wasi_size_t *size)
 {
     struct fd_object *fo;
     int ret;
@@ -3189,11 +2956,8 @@ wasi_ssp_sock_get_recv_buf_size(
 }
 
 __wasi_errno_t
-wasi_ssp_sock_get_reuse_addr(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t fd, uint8_t *reuse)
+wasi_ssp_sock_get_reuse_addr(struct fd_table *curfds, __wasi_fd_t fd,
+                             uint8_t *reuse)
 {
 
     struct fd_object *fo;
@@ -3217,11 +2981,8 @@ wasi_ssp_sock_get_reuse_addr(
 }
 
 __wasi_errno_t
-wasi_ssp_sock_get_reuse_port(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t fd, uint8_t *reuse)
+wasi_ssp_sock_get_reuse_port(struct fd_table *curfds, __wasi_fd_t fd,
+                             uint8_t *reuse)
 {
     struct fd_object *fo;
     int ret;
@@ -3251,11 +3012,8 @@ wasi_ssp_sock_get_reuse_port(
 }
 
 __wasi_errno_t
-wasi_ssp_sock_get_send_buf_size(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t fd, __wasi_size_t *size)
+wasi_ssp_sock_get_send_buf_size(struct fd_table *curfds, __wasi_fd_t fd,
+                                __wasi_size_t *size)
 {
     struct fd_object *fo;
     int ret;
@@ -3278,11 +3036,8 @@ wasi_ssp_sock_get_send_buf_size(
 }
 
 __wasi_errno_t
-wasi_ssp_sock_listen(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t fd, __wasi_size_t backlog)
+wasi_ssp_sock_listen(struct fd_table *curfds, __wasi_fd_t fd,
+                     __wasi_size_t backlog)
 {
     struct fd_object *fo;
     int ret;
@@ -3301,12 +3056,9 @@ wasi_ssp_sock_listen(
 }
 
 __wasi_errno_t
-wasi_ssp_sock_open(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t poolfd, __wasi_address_family_t af, __wasi_sock_type_t socktype,
-    __wasi_fd_t *sockfd)
+wasi_ssp_sock_open(struct fd_table *curfds, __wasi_fd_t poolfd,
+                   __wasi_address_family_t af, __wasi_sock_type_t socktype,
+                   __wasi_fd_t *sockfd)
 {
     bh_socket_t sock;
     bool is_tcp = SOCKET_DGRAM == socktype ? false : true;
@@ -3348,11 +3100,8 @@ wasi_ssp_sock_open(
 }
 
 __wasi_errno_t
-wasi_ssp_sock_set_recv_buf_size(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t fd, __wasi_size_t size)
+wasi_ssp_sock_set_recv_buf_size(struct fd_table *curfds, __wasi_fd_t fd,
+                                __wasi_size_t size)
 {
     struct fd_object *fo;
     int ret;
@@ -3373,11 +3122,8 @@ wasi_ssp_sock_set_recv_buf_size(
 }
 
 __wasi_errno_t
-wasi_ssp_sock_set_reuse_addr(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t fd, uint8_t reuse)
+wasi_ssp_sock_set_reuse_addr(struct fd_table *curfds, __wasi_fd_t fd,
+                             uint8_t reuse)
 {
     struct fd_object *fo;
     int ret;
@@ -3398,11 +3144,8 @@ wasi_ssp_sock_set_reuse_addr(
 }
 
 __wasi_errno_t
-wasi_ssp_sock_set_reuse_port(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t fd, uint8_t reuse)
+wasi_ssp_sock_set_reuse_port(struct fd_table *curfds, __wasi_fd_t fd,
+                             uint8_t reuse)
 {
     struct fd_object *fo;
     int ret;
@@ -3429,11 +3172,8 @@ wasi_ssp_sock_set_reuse_port(
 }
 
 __wasi_errno_t
-wasi_ssp_sock_set_send_buf_size(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t fd, __wasi_size_t size)
+wasi_ssp_sock_set_send_buf_size(struct fd_table *curfds, __wasi_fd_t fd,
+                                __wasi_size_t size)
 {
     struct fd_object *fo;
     int ret;
@@ -3455,11 +3195,8 @@ wasi_ssp_sock_set_send_buf_size(
 }
 
 __wasi_errno_t
-wasmtime_ssp_sock_recv(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t sock, void *buf, size_t buf_len, size_t *recv_len)
+wasmtime_ssp_sock_recv(struct fd_table *curfds, __wasi_fd_t sock, void *buf,
+                       size_t buf_len, size_t *recv_len)
 {
     __wasi_addr_t src_addr;
 
@@ -3468,12 +3205,10 @@ wasmtime_ssp_sock_recv(
 }
 
 __wasi_errno_t
-wasmtime_ssp_sock_recv_from(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t sock, void *buf, size_t buf_len, __wasi_riflags_t ri_flags,
-    __wasi_addr_t *src_addr, size_t *recv_len)
+wasmtime_ssp_sock_recv_from(struct fd_table *curfds, __wasi_fd_t sock,
+                            void *buf, size_t buf_len,
+                            __wasi_riflags_t ri_flags, __wasi_addr_t *src_addr,
+                            size_t *recv_len)
 {
     struct fd_object *fo;
     __wasi_errno_t error;
@@ -3498,11 +3233,8 @@ wasmtime_ssp_sock_recv_from(
 }
 
 __wasi_errno_t
-wasmtime_ssp_sock_send(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t sock, const void *buf, size_t buf_len, size_t *sent_len)
+wasmtime_ssp_sock_send(struct fd_table *curfds, __wasi_fd_t sock,
+                       const void *buf, size_t buf_len, size_t *sent_len)
 {
     struct fd_object *fo;
     __wasi_errno_t error;
@@ -3524,12 +3256,10 @@ wasmtime_ssp_sock_send(
 }
 
 __wasi_errno_t
-wasmtime_ssp_sock_send_to(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds, struct addr_pool *addr_pool,
-#endif
-    __wasi_fd_t sock, const void *buf, size_t buf_len,
-    __wasi_siflags_t si_flags, const __wasi_addr_t *dest_addr, size_t *sent_len)
+wasmtime_ssp_sock_send_to(struct fd_table *curfds, struct addr_pool *addr_pool,
+                          __wasi_fd_t sock, const void *buf, size_t buf_len,
+                          __wasi_siflags_t si_flags,
+                          const __wasi_addr_t *dest_addr, size_t *sent_len)
 {
     char addr_buf[48] = { 0 };
     struct fd_object *fo;
@@ -3563,11 +3293,7 @@ wasmtime_ssp_sock_send_to(
 }
 
 __wasi_errno_t
-wasmtime_ssp_sock_shutdown(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t sock)
+wasmtime_ssp_sock_shutdown(struct fd_table *curfds, __wasi_fd_t sock)
 {
     struct fd_object *fo;
     __wasi_errno_t error;
@@ -3594,11 +3320,8 @@ wasmtime_ssp_sched_yield(void)
 }
 
 __wasi_errno_t
-wasmtime_ssp_args_get(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct argv_environ_values *argv_environ,
-#endif
-    char **argv, char *argv_buf)
+wasmtime_ssp_args_get(struct argv_environ_values *argv_environ, char **argv,
+                      char *argv_buf)
 {
     for (size_t i = 0; i < argv_environ->argc; ++i) {
         argv[i] =
@@ -3611,11 +3334,8 @@ wasmtime_ssp_args_get(
 }
 
 __wasi_errno_t
-wasmtime_ssp_args_sizes_get(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct argv_environ_values *argv_environ,
-#endif
-    size_t *argc, size_t *argv_buf_size)
+wasmtime_ssp_args_sizes_get(struct argv_environ_values *argv_environ,
+                            size_t *argc, size_t *argv_buf_size)
 {
     *argc = argv_environ->argc;
     *argv_buf_size = argv_environ->argv_buf_size;
@@ -3623,11 +3343,8 @@ wasmtime_ssp_args_sizes_get(
 }
 
 __wasi_errno_t
-wasmtime_ssp_environ_get(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct argv_environ_values *argv_environ,
-#endif
-    char **environ, char *environ_buf)
+wasmtime_ssp_environ_get(struct argv_environ_values *argv_environ,
+                         char **environ, char *environ_buf)
 {
     for (size_t i = 0; i < argv_environ->environ_count; ++i) {
         environ[i] =
@@ -3642,11 +3359,8 @@ wasmtime_ssp_environ_get(
 }
 
 __wasi_errno_t
-wasmtime_ssp_environ_sizes_get(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct argv_environ_values *argv_environ,
-#endif
-    size_t *environ_count, size_t *environ_buf_size)
+wasmtime_ssp_environ_sizes_get(struct argv_environ_values *argv_environ,
+                               size_t *environ_count, size_t *environ_buf_size)
 {
     *environ_count = argv_environ->environ_count;
     *environ_buf_size = argv_environ->environ_buf_size;
@@ -3871,11 +3585,7 @@ addr_pool_destroy(struct addr_pool *addr_pool)
     }
 }
 
-#ifndef WASMTIME_SSP_STATIC_CURFDS
 #define WASMTIME_SSP_PASSTHROUGH_FD_TABLE struct fd_table *curfds,
-#else
-#define WASMTIME_SSP_PASSTHROUGH_FD_TABLE
-#endif
 
 // Defines a function that passes through the socket option to the OS
 // implementation
@@ -3934,11 +3644,8 @@ WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION(get_ipv6_only, bool *)
 #undef WASMTIME_SSP_PASSTHROUGH_SOCKET_OPTION
 
 __wasi_errno_t
-wasmtime_ssp_sock_set_linger(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t sock, bool is_enabled, int linger_s)
+wasmtime_ssp_sock_set_linger(struct fd_table *curfds, __wasi_fd_t sock,
+                             bool is_enabled, int linger_s)
 {
     struct fd_object *fo;
     __wasi_errno_t error;
@@ -3955,11 +3662,8 @@ wasmtime_ssp_sock_set_linger(
 }
 
 __wasi_errno_t
-wasmtime_ssp_sock_get_linger(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t sock, bool *is_enabled, int *linger_s)
+wasmtime_ssp_sock_get_linger(struct fd_table *curfds, __wasi_fd_t sock,
+                             bool *is_enabled, int *linger_s)
 {
     struct fd_object *fo;
     __wasi_errno_t error;
@@ -3977,11 +3681,10 @@ wasmtime_ssp_sock_get_linger(
 }
 
 __wasi_errno_t
-wasmtime_ssp_sock_set_ip_add_membership(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t sock, __wasi_addr_ip_t *imr_multiaddr, uint32_t imr_interface)
+wasmtime_ssp_sock_set_ip_add_membership(struct fd_table *curfds,
+                                        __wasi_fd_t sock,
+                                        __wasi_addr_ip_t *imr_multiaddr,
+                                        uint32_t imr_interface)
 {
     struct fd_object *fo;
     __wasi_errno_t error;
@@ -4003,11 +3706,10 @@ wasmtime_ssp_sock_set_ip_add_membership(
 }
 
 __wasi_errno_t
-wasmtime_ssp_sock_set_ip_drop_membership(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t sock, __wasi_addr_ip_t *imr_multiaddr, uint32_t imr_interface)
+wasmtime_ssp_sock_set_ip_drop_membership(struct fd_table *curfds,
+                                         __wasi_fd_t sock,
+                                         __wasi_addr_ip_t *imr_multiaddr,
+                                         uint32_t imr_interface)
 {
     struct fd_object *fo;
     __wasi_errno_t error;
@@ -4029,11 +3731,9 @@ wasmtime_ssp_sock_set_ip_drop_membership(
 }
 
 __wasi_errno_t
-wasmtime_ssp_sock_set_ip_multicast_loop(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t sock, bool ipv6, bool is_enabled)
+wasmtime_ssp_sock_set_ip_multicast_loop(struct fd_table *curfds,
+                                        __wasi_fd_t sock, bool ipv6,
+                                        bool is_enabled)
 {
     struct fd_object *fo;
     __wasi_errno_t error;
@@ -4050,11 +3750,9 @@ wasmtime_ssp_sock_set_ip_multicast_loop(
 }
 
 __wasi_errno_t
-wasmtime_ssp_sock_get_ip_multicast_loop(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
-    struct fd_table *curfds,
-#endif
-    __wasi_fd_t sock, bool ipv6, bool *is_enabled)
+wasmtime_ssp_sock_get_ip_multicast_loop(struct fd_table *curfds,
+                                        __wasi_fd_t sock, bool ipv6,
+                                        bool *is_enabled)
 {
     struct fd_object *fo;
     __wasi_errno_t error;
