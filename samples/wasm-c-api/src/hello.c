@@ -65,6 +65,12 @@ int main(int argc, const char* argv[]) {
   }
   fclose(file);
 
+  if (!wasm_module_validate(store, &binary)) {
+    printf("> Error validate module!\n");
+    wasm_byte_vec_delete(&binary);
+    return 1;
+  }
+
   // Compile.
   printf("Compiling module...\n");
   own wasm_module_t* module = wasm_module_new(store, &binary);

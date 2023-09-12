@@ -101,12 +101,6 @@
 #define st_mtim st_mtimespec
 #endif
 
-#ifdef __APPLE__
-#define CONFIG_TLS_USE_GSBASE 1
-#else
-#define CONFIG_TLS_USE_GSBASE 0
-#endif
-
 #if !defined(BH_PLATFORM_LINUX_SGX)
 /* Clang's __GNUC_PREREQ macro has a different meaning than GCC one,
 so we have to handle this case specially */

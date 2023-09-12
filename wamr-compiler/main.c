@@ -9,6 +9,100 @@
 #include "wasm_export.h"
 #include "aot_export.h"
 
+#if BH_HAS_DLFCN
+#include <dlfcn.h>
+
+typedef uint32 (*get_native_lib_func)(char **p_module_name,
+                                      NativeSymbol **p_native_symbols);
+
+static uint32
+load_and_register_native_libs(const char **native_lib_list,
+                              uint32 native_lib_count,
+                              void **native_handle_list)
+{
+    uint32 i, native_handle_count = 0, n_native_symbols;
+    NativeSymbol *native_symbols;
+    char *module_name;
+    void *handle;
+
+    for (i = 0; i < native_lib_count; i++) {
+        /* open the native library */
+        if (!(handle = dlopen(native_lib_list[i], RTLD_NOW | RTLD_GLOBAL))
+            && !(handle = dlopen(native_lib_list[i], RTLD_LAZY))) {
+            LOG_WARNING("warning: failed to load native library %s",
+                        native_lib_list[i]);
+            continue;
+        }
+
+        /* lookup get_native_lib func */
+        get_native_lib_func get_native_lib = dlsym(handle, "get_native_lib");
+        if (!get_native_lib) {
+            LOG_WARNING("warning: failed to lookup `get_native_lib` function "
+                        "from native lib %s",
+                        native_lib_list[i]);
+            dlclose(handle);
+            continue;
+        }
+
+        n_native_symbols = get_native_lib(&module_name, &native_symbols);
+
+        /* register native symbols */
+        if (!(n_native_symbols > 0 && module_name && native_symbols
+              && wasm_runtime_register_natives(module_name, native_symbols,
+                                               n_native_symbols))) {
+            LOG_WARNING("warning: failed to register native lib %s",
+                        native_lib_list[i]);
+            dlclose(handle);
+            continue;
+        }
+
+        native_handle_list[native_handle_count++] = handle;
+    }
+
+    return native_handle_count;
+}
+
+static void
+unregister_and_unload_native_libs(uint32 native_lib_count,
+                                  void **native_handle_list)
+{
+    uint32 i, n_native_symbols;
+    NativeSymbol *native_symbols;
+    char *module_name;
+    void *handle;
+
+    for (i = 0; i < native_lib_count; i++) {
+        handle = native_handle_list[i];
+
+        /* lookup get_native_lib func */
+        get_native_lib_func get_native_lib = dlsym(handle, "get_native_lib");
+        if (!get_native_lib) {
+            LOG_WARNING("warning: failed to lookup `get_native_lib` function "
+                        "from native lib %p",
+                        handle);
+            continue;
+        }
+
+        n_native_symbols = get_native_lib(&module_name, &native_symbols);
+        if (n_native_symbols == 0 || module_name == NULL
+            || native_symbols == NULL) {
+            LOG_WARNING("warning: get_native_lib returned different values for "
+                        "native lib %p",
+                        handle);
+            continue;
+        }
+
+        /* unregister native symbols */
+        if (!wasm_runtime_unregister_natives(module_name, native_symbols)) {
+            LOG_WARNING("warning: failed to unregister native lib %p", handle);
+            continue;
+        }
+
+        dlclose(handle);
+    }
+}
+#endif
+
 /* clang-format off */
 static void
 print_help()
@@ -32,7 +126,7 @@ print_help()
     printf("                            Use --cpu-features=+help to list all the features supported\n");
     printf("  --opt-level=n             Set the optimization level (0 to 3, default is 3)\n");
     printf("  --size-level=n            Set the code size level (0 to 3, default is 3)\n");
-    printf("  -sgx                      Generate code for SGX platform (Intel Software Guard Extention)\n");
+    printf("  -sgx                      Generate code for SGX platform (Intel Software Guard Extensions)\n");
     printf("  --bounds-checks=1/0       Enable or disable the bounds checks for memory access:\n");
     printf("                              by default it is disabled in all 64-bit platforms except SGX and\n");
     printf("                              in these platforms runtime does bounds checks with hardware trap,\n");
@@ -65,10 +159,19 @@ print_help()
     printf("  --enable-dump-call-stack  Enable stack trace feature\n");
     printf("  --enable-perf-profiling   Enable function performance profiling\n");
     printf("  --enable-memory-profiling Enable memory usage profiling\n");
-    printf("  --enable-indirect-mode    Enalbe call function through symbol table but not direct call\n");
+    printf("  --xip                     A shorthand of --enable-indirect-mode --disable-llvm-intrinsics\n");
+    printf("  --enable-indirect-mode    Enable call function through symbol table but not direct call\n");
     printf("  --disable-llvm-intrinsics Disable the LLVM built-in intrinsics\n");
+    printf("  --enable-builtin-intrinsics=<flags>\n");
+    printf("                            Enable the specified built-in intrinsics, it will override the default\n");
+    printf("                              settings. It only takes effect when --disable-llvm-intrinsics is set.\n");
+    printf("                            Available flags: all, i32.common, i64.common, f32.common, f64.common,\n");
+    printf("                              i32.clz, i32.ctz, etc, refer to doc/xip.md for full list\n");
+    printf("                            Use comma to separate, please refer to doc/xip.md for full list.\n");
     printf("  --disable-llvm-lto        Disable the LLVM link time optimization\n");
     printf("  --enable-llvm-pgo         Enable LLVM PGO (Profile-Guided Optimization)\n");
+    printf("  --enable-llvm-passes=<passes>\n");
+    printf("                            Enable the specified LLVM passes, using comma to separate\n");
     printf("  --use-prof-file=<file>    Use profile file collected by LLVM PGO (Profile-Guided Optimization)\n");
     printf("  --enable-segue[=<flags>]  Enable using segment register GS as the base address of linear memory,\n");
     printf("                            only available on linux/linux-sgx x86-64, which may improve performance,\n");
@@ -80,11 +183,18 @@ print_help()
     printf("                            Emit the specified custom sections to AoT file, using comma to separate\n");
     printf("                            multiple names, e.g.\n");
     printf("                                --emit-custom-sections=section1,section2,sectionN\n");
+#if BH_HAS_DLFCN
+    printf("  --native-lib=<lib>       Register native libraries to the WASM module, which\n");
+    printf("                           are shared object (.so) files, for example:\n");
+    printf("                             --native-lib=test1.so --native-lib=test2.so\n");
+#endif
     printf("  -v=n                      Set log verbose level (0 to 5, default is 2), larger with more log\n");
     printf("  --version                 Show version information\n");
     printf("Examples: wamrc -o test.aot test.wasm\n");
     printf("          wamrc --target=i386 -o test.aot test.wasm\n");
     printf("          wamrc --target=i386 --format=object -o test.o test.wasm\n");
+    printf("          wamrc --target-abi=help\n");
+    printf("          wamrc --target=x86_64 --cpu=help\n");
 }
 /* clang-format on */
 
@@ -188,6 +298,12 @@ resolve_segue_flags(char *str_flags)
     return segue_flags;
 }
 
+/* When print help info for target/cpu/target-abi/cpu-features, load this dummy
+ * wasm file content rather than from an input file, the dummy wasm file content
+ * is: magic header + version number */
+static unsigned char dummy_wasm_file[8] = { 0x00, 0x61, 0x73, 0x6D,
+                                            0x01, 0x00, 0x00, 0x00 };
+
 int
 main(int argc, char *argv[])
 {
@@ -201,8 +317,14 @@ main(int argc, char *argv[])
     AOTCompOption option = { 0 };
     char error_buf[128];
     int log_verbose_level = 2;
-    bool sgx_mode = false, size_level_set = false;
+    bool sgx_mode = false, size_level_set = false, use_dummy_wasm = false;
     int exit_status = EXIT_FAILURE;
+#if BH_HAS_DLFCN
+    const char *native_lib_list[8] = { NULL };
+    uint32 native_lib_count = 0;
+    void *native_handle_list[8] = { NULL };
+    uint32 native_handle_count = 0;
+#endif
 
     option.opt_level = 3;
     option.size_level = 3;
@@ -228,21 +350,33 @@ main(int argc, char *argv[])
             if (argv[0][9] == '\0')
                 PRINT_HELP_AND_EXIT();
             option.target_arch = argv[0] + 9;
+            if (!strcmp(option.target_arch, "help")) {
+                use_dummy_wasm = true;
+            }
         }
         else if (!strncmp(argv[0], "--target-abi=", 13)) {
             if (argv[0][13] == '\0')
                 PRINT_HELP_AND_EXIT();
             option.target_abi = argv[0] + 13;
+            if (!strcmp(option.target_abi, "help")) {
+                use_dummy_wasm = true;
+            }
         }
         else if (!strncmp(argv[0], "--cpu=", 6)) {
             if (argv[0][6] == '\0')
                 PRINT_HELP_AND_EXIT();
             option.target_cpu = argv[0] + 6;
+            if (!strcmp(option.target_cpu, "help")) {
+                use_dummy_wasm = true;
+            }
         }
         else if (!strncmp(argv[0], "--cpu-features=", 15)) {
             if (argv[0][15] == '\0')
                 PRINT_HELP_AND_EXIT();
             option.cpu_features = argv[0] + 15;
+            if (!strcmp(option.cpu_features, "+help")) {
+                use_dummy_wasm = true;
+            }
         }
         else if (!strncmp(argv[0], "--opt-level=", 12)) {
             if (argv[0][12] == '\0')
@@ -325,17 +459,31 @@ main(int argc, char *argv[])
         else if (!strcmp(argv[0], "--enable-memory-profiling")) {
             option.enable_stack_estimation = true;
         }
+        else if (!strcmp(argv[0], "--xip")) {
+            option.is_indirect_mode = true;
+            option.disable_llvm_intrinsics = true;
+        }
         else if (!strcmp(argv[0], "--enable-indirect-mode")) {
             option.is_indirect_mode = true;
         }
         else if (!strcmp(argv[0], "--disable-llvm-intrinsics")) {
             option.disable_llvm_intrinsics = true;
         }
+        else if (!strncmp(argv[0], "--enable-builtin-intrinsics=", 28)) {
+            if (argv[0][28] == '\0')
+                PRINT_HELP_AND_EXIT();
+            option.builtin_intrinsics = argv[0] + 28;
+        }
         else if (!strcmp(argv[0], "--disable-llvm-lto")) {
             option.disable_llvm_lto = true;
         }
         else if (!strcmp(argv[0], "--enable-llvm-pgo")) {
             option.enable_llvm_pgo = true;
+        }
+        else if (!strncmp(argv[0], "--enable-llvm-passes=", 21)) {
+            if (argv[0][21] == '\0')
+                PRINT_HELP_AND_EXIT();
+            option.llvm_passes = argv[0] + 21;
         }
         else if (!strncmp(argv[0], "--use-prof-file=", 16)) {
             if (argv[0][16] == '\0')
@@ -366,6 +514,18 @@ main(int argc, char *argv[])
 
             option.custom_sections_count = len;
         }
+#if BH_HAS_DLFCN
+        else if (!strncmp(argv[0], "--native-lib=", 13)) {
+            if (argv[0][13] == '\0')
+                PRINT_HELP_AND_EXIT();
+            if (native_lib_count >= sizeof(native_lib_list) / sizeof(char *)) {
+                printf("Only allow max native lib number %d\n",
+                       (int)(sizeof(native_lib_list) / sizeof(char *)));
+                goto fail0;
+            }
+            native_lib_list[native_lib_count++] = argv[0] + 13;
+        }
+#endif
         else if (!strncmp(argv[0], "--version", 9)) {
             uint32 major, minor, patch;
             wasm_runtime_get_version(&major, &minor, &patch);
@@ -376,7 +536,7 @@ main(int argc, char *argv[])
             PRINT_HELP_AND_EXIT();
     }
 
-    if (argc == 0 || !out_file_name)
+    if (!use_dummy_wasm && (argc == 0 || !out_file_name))
         PRINT_HELP_AND_EXIT();
 
     if (!size_level_set) {
@@ -404,11 +564,13 @@ main(int argc, char *argv[])
         option.is_sgx_platform = true;
     }
 
-    wasm_file_name = argv[0];
+    if (!use_dummy_wasm) {
+        wasm_file_name = argv[0];
 
-    if (!strcmp(wasm_file_name, out_file_name)) {
-        printf("Error: input file and output file are the same");
-        return -1;
+        if (!strcmp(wasm_file_name, out_file_name)) {
+            printf("Error: input file and output file are the same");
+            return -1;
+        }
     }
 
     memset(&init_args, 0, sizeof(RuntimeInitArgs));
@@ -426,12 +588,25 @@ main(int argc, char *argv[])
 
     bh_log_set_verbose_level(log_verbose_level);
 
+#if BH_HAS_DLFCN
+    bh_print_time("Begin to load native libs");
+    native_handle_count = load_and_register_native_libs(
+        native_lib_list, native_lib_count, native_handle_list);
+#endif
+
     bh_print_time("Begin to load wasm file");
 
-    /* load WASM byte buffer from WASM bin file */
-    if (!(wasm_file =
-              (uint8 *)bh_read_file_to_buffer(wasm_file_name, &wasm_file_size)))
-        goto fail1;
+    if (use_dummy_wasm) {
+        /* load WASM byte buffer from dummy buffer */
+        wasm_file_size = sizeof(dummy_wasm_file);
+        wasm_file = dummy_wasm_file;
+    }
+    else {
+        /* load WASM byte buffer from WASM bin file */
+        if (!(wasm_file = (uint8 *)bh_read_file_to_buffer(wasm_file_name,
+                                                          &wasm_file_size)))
+            goto fail1;
+    }
 
     if (get_package_type(wasm_file, wasm_file_size) != Wasm_Module_Bytecode) {
         printf("Invalid file type: expected wasm file but got other\n");
@@ -513,9 +688,14 @@ fail3:
 
 fail2:
     /* free the file buffer */
-    wasm_runtime_free(wasm_file);
+    if (!use_dummy_wasm) {
+        wasm_runtime_free(wasm_file);
+    }
 
 fail1:
+#if BH_HAS_DLFCN
+    unregister_and_unload_native_libs(native_handle_count, native_handle_list);
+#endif
     /* Destroy runtime environment */
     wasm_runtime_destroy();
 

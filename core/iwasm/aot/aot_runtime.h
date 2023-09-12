@@ -88,35 +88,9 @@ typedef struct AOTFunctionInstance {
 } AOTFunctionInstance;
 
 typedef struct AOTModuleInstanceExtra {
-    CApiFuncImport *c_api_func_imports;
-#if WASM_ENABLE_WASI_NN != 0
-    WASINNContext *wasi_nn_ctx;
-#endif
+    DefPointer(const uint32 *, stack_sizes);
+    WASMModuleInstanceExtraCommon common;
 } AOTModuleInstanceExtra;
-
-#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
-/* clang-format off */
-typedef struct AOTUnwindInfo {
-    uint8 Version       : 3;
-    uint8 Flags         : 5;
-    uint8 SizeOfProlog;
-    uint8 CountOfCodes;
-    uint8 FrameRegister : 4;
-    uint8 FrameOffset   : 4;
-    struct {
-        struct {
-            uint8 CodeOffset;
-            uint8 UnwindOp : 4;
-            uint8 OpInfo   : 4;
-        };
-        uint16 FrameOffset;
-    } UnwindCode[1];
-} AOTUnwindInfo;
-/* clang-format on */
-
-/* size of mov instruction and jmp instruction */
-#define PLT_ITEM_SIZE 12
-#endif
 
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
 typedef struct GOTItem {
@@ -211,14 +185,6 @@ typedef struct AOTModule {
     uint32 xmm_plt_count;
     uint32 real_plt_count;
     uint32 float_plt_count;
-#endif
-
-#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
-    /* dynamic function table to be added by RtlAddFunctionTable(),
-       used to unwind the call stack and register exception handler
-       for AOT functions */
-    RUNTIME_FUNCTION *rtl_func_table;
-    bool rtl_func_table_registered;
 #endif
 
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
@@ -404,7 +370,7 @@ aot_unload(AOTModule *module);
  * Instantiate a AOT module.
  *
  * @param module the AOT module to instantiate
- * @param is_sub_inst the flag of sub instance
+ * @param parent the parent module instance
  * @param heap_size the default heap size of the module instance, a heap will
  *        be created besides the app memory space. Both wasm app and native
  *        function can allocate memory from the heap. If heap_size is 0, the
@@ -415,9 +381,9 @@ aot_unload(AOTModule *module);
  * @return return the instantiated AOT module instance, NULL if failed
  */
 AOTModuleInstance *
-aot_instantiate(AOTModule *module, bool is_sub_inst, WASMExecEnv *exec_env_main,
-                uint32 stack_size, uint32 heap_size, char *error_buf,
-                uint32 error_buf_size);
+aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
+                WASMExecEnv *exec_env_main, uint32 stack_size, uint32 heap_size,
+                char *error_buf, uint32 error_buf_size);
 
 /**
  * Deinstantiate a AOT module instance, destroy the resources.
@@ -635,6 +601,10 @@ aot_dump_perf_profiling(const AOTModuleInstance *module_inst);
 
 const uint8 *
 aot_get_custom_section(const AOTModule *module, const char *name, uint32 *len);
+
+const void *
+aot_get_data_section_addr(AOTModule *module, const char *section_name,
+                          uint32 *p_data_size);
 
 #if WASM_ENABLE_STATIC_PGO != 0
 void

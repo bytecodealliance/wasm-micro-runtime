@@ -7,6 +7,7 @@
 #include "aot_llvm_extra2.h"
 #include "aot_compiler.h"
 #include "aot_emit_exception.h"
+#include "aot_emit_table.h"
 #include "../aot/aot_runtime.h"
 #include "../aot/aot_intrinsic.h"
 
@@ -145,6 +146,13 @@ aot_target_precheck_can_use_musttail(const AOTCompContext *comp_ctx)
          */
         return false;
     }
+    if (!strcmp(comp_ctx->target_arch, "mips")) {
+        /*
+         * cf.
+         * https://github.com/bytecodealliance/wasm-micro-runtime/issues/2412
+         */
+        return false;
+    }
     /*
      * x86-64/i386: true
      *
@@ -230,6 +238,18 @@ aot_estimate_stack_usage_for_function_call(const AOTCompContext *comp_ctx,
     return size;
 }
 
+static uint32
+get_inst_extra_offset(AOTCompContext *comp_ctx)
+{
+    const AOTCompData *comp_data = comp_ctx->comp_data;
+    uint32 table_count = comp_data->import_table_count + comp_data->table_count;
+    uint64 offset = get_tbl_inst_offset(comp_ctx, NULL, table_count);
+    uint32 offset_32 = (uint32)offset;
+    bh_assert(offset <= UINT32_MAX);
+    offset_32 = align_uint((uint32)offset_32, 8);
+    return offset_32;
+}
+
 /*
  * a "precheck" function performs a few things before calling wrapped_func.
  *
@@ -297,8 +317,8 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
         goto fail;
     }
 
-    unsigned int param_count = LLVMCountParams(precheck_func);
-    uint64 sz = param_count * sizeof(LLVMValueRef);
+    uint32 param_count = LLVMCountParams(precheck_func);
+    uint32 sz = param_count * (uint32)sizeof(LLVMValueRef);
     params = wasm_runtime_malloc(sz);
     if (params == NULL) {
         goto fail;
@@ -327,9 +347,36 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
     /*
      * load the value for this wrapped function from the stack_sizes array
      */
+    LLVMValueRef stack_sizes;
+    if (comp_ctx->is_indirect_mode) {
+        uint32 offset_u32;
+        LLVMValueRef offset;
+        LLVMValueRef stack_sizes_p;
+
+        offset_u32 = get_inst_extra_offset(comp_ctx);
+        offset_u32 += offsetof(AOTModuleInstanceExtra, stack_sizes);
+        offset = I32_CONST(offset_u32);
+        if (!offset) {
+            goto fail;
+        }
+        stack_sizes_p =
+            LLVMBuildInBoundsGEP2(b, INT8_TYPE, func_ctx->aot_inst, &offset, 1,
+                                  "aot_inst_stack_sizes_p");
+        if (!stack_sizes_p) {
+            goto fail;
+        }
+        stack_sizes =
+            LLVMBuildLoad2(b, INT32_PTR_TYPE, stack_sizes_p, "stack_sizes");
+        if (!stack_sizes) {
+            goto fail;
+        }
+    }
+    else {
+        stack_sizes = comp_ctx->stack_sizes;
+    }
     LLVMValueRef func_index_const = I32_CONST(func_index);
     LLVMValueRef sizes =
-        LLVMBuildBitCast(b, comp_ctx->stack_sizes, INT32_PTR_TYPE, "sizes");
+        LLVMBuildBitCast(b, stack_sizes, INT32_PTR_TYPE, "sizes");
     if (!sizes) {
         goto fail;
     }
@@ -583,6 +630,15 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
                                     aot_func_type->param_count, func_type,
                                     prefix)))
         goto fail;
+
+    if (comp_ctx->is_indirect_mode) {
+        /* avoid LUT relocations ("switch-table") */
+        LLVMAttributeRef attr_no_jump_tables = LLVMCreateStringAttribute(
+            comp_ctx->context, "no-jump-tables",
+            (uint32)strlen("no-jump-tables"), "true", (uint32)strlen("true"));
+        LLVMAddAttributeAtIndex(func, LLVMAttributeFunctionIndex,
+                                attr_no_jump_tables);
+    }
 
     if (need_precheck) {
         if (!comp_ctx->is_jit_mode)
@@ -1373,11 +1429,12 @@ create_func_ptrs(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 }
 
 const char *aot_stack_sizes_name = AOT_STACK_SIZES_NAME;
+const char *aot_stack_sizes_alias_name = AOT_STACK_SIZES_ALIAS_NAME;
+const char *aot_stack_sizes_section_name = AOT_STACK_SIZES_SECTION_NAME;
 
 static bool
 aot_create_stack_sizes(const AOTCompData *comp_data, AOTCompContext *comp_ctx)
 {
-    const char *stack_sizes_name = "stack_sizes";
     LLVMValueRef stack_sizes, *values, array, alias;
     LLVMTypeRef stack_sizes_type;
 #if LLVM_VERSION_MAJOR <= 13
@@ -1393,7 +1450,7 @@ aot_create_stack_sizes(const AOTCompData *comp_data, AOTCompContext *comp_ctx)
     }
 
     stack_sizes =
-        LLVMAddGlobal(comp_ctx->module, stack_sizes_type, stack_sizes_name);
+        LLVMAddGlobal(comp_ctx->module, stack_sizes_type, aot_stack_sizes_name);
     if (!stack_sizes) {
         aot_set_last_error("failed to create stack_sizes global.");
         return false;
@@ -1429,7 +1486,7 @@ aot_create_stack_sizes(const AOTCompData *comp_data, AOTCompContext *comp_ctx)
      */
 #if LLVM_VERSION_MAJOR > 13
     alias = LLVMAddAlias2(comp_ctx->module, stack_sizes_type, 0, stack_sizes,
-                          aot_stack_sizes_name);
+                          aot_stack_sizes_alias_name);
 #else
     alias_type = LLVMPointerType(stack_sizes_type, 0);
     if (!alias_type) {
@@ -1437,7 +1494,7 @@ aot_create_stack_sizes(const AOTCompData *comp_data, AOTCompContext *comp_ctx)
         return false;
     }
     alias = LLVMAddAlias(comp_ctx->module, alias_type, stack_sizes,
-                         aot_stack_sizes_name);
+                         aot_stack_sizes_alias_name);
 #endif
     if (!alias) {
         aot_set_last_error("failed to create stack_sizes alias.");
@@ -1449,6 +1506,7 @@ aot_create_stack_sizes(const AOTCompData *comp_data, AOTCompContext *comp_ctx)
      * avoid creating extra relocations in the precheck functions.
      */
     LLVMSetLinkage(stack_sizes, LLVMInternalLinkage);
+    LLVMSetSection(stack_sizes, aot_stack_sizes_section_name);
     comp_ctx->stack_sizes_type = stack_sizes_type;
     comp_ctx->stack_sizes = stack_sizes;
     return true;
@@ -2031,7 +2089,7 @@ jit_stack_size_callback(void *user_data, const char *name, size_t namelen,
         return;
     }
     /* ensure NUL termination */
-    bh_memcpy_s(buf, sizeof(buf), name, namelen);
+    bh_memcpy_s(buf, (uint32)sizeof(buf), name, (uint32)namelen);
     buf[namelen] = 0;
 
     ret = sscanf(buf, AOT_FUNC_INTERNAL_PREFIX "%" SCNu32, &func_idx);
@@ -2052,7 +2110,7 @@ jit_stack_size_callback(void *user_data, const char *name, size_t namelen,
 
     /* Note: -1 == AOT_NEG_ONE from aot_create_stack_sizes */
     bh_assert(comp_ctx->jit_stack_sizes[func_idx] == (uint32)-1);
-    comp_ctx->jit_stack_sizes[func_idx] = stack_size + call_size;
+    comp_ctx->jit_stack_sizes[func_idx] = (uint32)stack_size + call_size;
 }
 
 static bool
@@ -2254,6 +2312,12 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
 
     if (option->enable_stack_estimation)
         comp_ctx->enable_stack_estimation = true;
+
+    if (option->llvm_passes)
+        comp_ctx->llvm_passes = option->llvm_passes;
+
+    if (option->builtin_intrinsics)
+        comp_ctx->builtin_intrinsics = option->builtin_intrinsics;
 
     comp_ctx->opt_level = option->opt_level;
     comp_ctx->size_level = option->size_level;
@@ -2686,6 +2750,16 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
                   LLVMRelocStatic, code_model, false,
                   comp_ctx->stack_usage_file))) {
             aot_set_last_error("create LLVM target machine failed.");
+            goto fail;
+        }
+
+        /* If only to create target machine for querying information, early stop
+         */
+        if ((arch && !strcmp(arch, "help")) || (abi && !strcmp(abi, "help"))
+            || (cpu && !strcmp(cpu, "help"))
+            || (features && !strcmp(features, "+help"))) {
+            LOG_DEBUG(
+                "create LLVM target machine only for printing help info.");
             goto fail;
         }
     }

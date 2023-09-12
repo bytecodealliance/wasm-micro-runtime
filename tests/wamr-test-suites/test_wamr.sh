@@ -824,7 +824,7 @@ function trigger()
                 collect_coverage llvm-jit
 
                 echo "work in orc jit lazy compilation mode"
-                BUILD_FLAGS="$ORC_EAGER_JIT_COMPILE_FLAGS $EXTRA_COMPILE_FLAGS"
+                BUILD_FLAGS="$ORC_LAZY_JIT_COMPILE_FLAGS $EXTRA_COMPILE_FLAGS"
                 build_iwasm_with_cfg $BUILD_FLAGS
                 for suite in "${TEST_CASE_ARR[@]}"; do
                     $suite"_test" jit

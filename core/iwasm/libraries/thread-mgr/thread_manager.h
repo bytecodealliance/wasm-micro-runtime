@@ -61,11 +61,13 @@ struct WASMCluster {
 
     /* Size of every stack segment */
     uint32 stack_size;
+
     /* When has_exception == true, this cluster should refuse any spawn thread
      * requests, this flag can be cleared by calling
      * wasm_runtime_clear_exception on instances of any threads of this cluster
      */
     bool has_exception;
+
     /* When processing is true, this cluster should refuse any spawn thread
      * requests. This is a short-lived state, must be cleared immediately once
      * the processing finished.
@@ -133,7 +135,8 @@ void
 wasm_cluster_suspend_thread(WASMExecEnv *exec_env, WASMExecEnv *self);
 
 void
-wasm_cluster_suspend_all_except_self(WASMCluster *cluster, WASMExecEnv *self);
+wasm_cluster_suspend_all_except_self(WASMCluster *cluster,
+                                     WASMExecEnv *exec_env);
 
 void
 wasm_cluster_suspend_all(WASMCluster *cluster);
@@ -168,7 +171,7 @@ WASMExecEnv *
 wasm_clusters_search_exec_env(WASMModuleInstanceCommon *module_inst);
 
 void
-wasm_cluster_spread_exception(WASMExecEnv *exec_env, bool clear);
+wasm_cluster_spread_exception(WASMExecEnv *exec_env, const char *exception);
 
 WASMExecEnv *
 wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env);
@@ -179,6 +182,10 @@ wasm_cluster_destroy_spawned_exec_env(WASMExecEnv *exec_env);
 void
 wasm_cluster_spread_custom_data(WASMModuleInstanceCommon *module_inst,
                                 void *custom_data);
+
+void
+wasm_cluster_set_context(WASMModuleInstanceCommon *module_inst, void *key,
+                         void *ctx);
 
 bool
 wasm_cluster_is_thread_terminated(WASMExecEnv *exec_env);

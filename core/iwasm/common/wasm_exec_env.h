@@ -7,6 +7,7 @@
 #define _WASM_EXEC_ENV_H
 
 #include "bh_assert.h"
+#include "wasm_suspend_flags.h"
 #if WASM_ENABLE_INTERP != 0
 #include "../interpreter/wasm.h"
 #endif
@@ -45,10 +46,6 @@ typedef struct WASMThreadStatus {
     uint64 running_state : 16;
 } WASMThreadStatus;
 
-#define THREAD_TERMINATE_FLAG 1
-#define THREAD_SUSPEND_FLAG 2
-#define THREAD_RET_VALUE_FLAG 8
-
 /* Execution environment */
 typedef struct WASMExecEnv {
     /* Next thread's exec env of a WASM module instance. */
@@ -74,15 +71,8 @@ typedef struct WASMExecEnv {
        exception. */
     uint8 *native_stack_boundary;
 
-    /* Used to terminate or suspend current thread
-        bit 0: need to terminate
-        bit 1: need to suspend
-        bit 2: need to go into breakpoint
-        bit 3: return from pthread_exit */
-    union {
-        uint32 flags;
-        uintptr_t __padding__;
-    } suspend_flags;
+    /* Used to terminate or suspend current thread */
+    WASMSuspendFlags suspend_flags;
 
     /* Auxiliary stack boundary */
     union {
@@ -142,10 +132,10 @@ typedef struct WASMExecEnv {
     /* the count of threads which are suspending current thread */
     uint32 suspend_count;
 
+    WASMThreadStatus current_status;
+
     /* whether current thread is detached */
     bool thread_is_detached;
-
-    WASMThreadStatus current_status;
 #endif
 
     /* attachment for native function */

@@ -40,6 +40,7 @@ void __aeabi_ldivmod();
 void __aeabi_memcpy();
 void __aeabi_memmove();
 void __aeabi_memset();
+void __aeabi_memclr();
 void __aeabi_uidiv();
 void __aeabi_uidivmod();
 void __aeabi_ul2d();
@@ -126,6 +127,7 @@ static SymbolMap target_sym_map[] = {
     REG_SYM(__aeabi_memcpy),
     REG_SYM(__aeabi_memmove),
     REG_SYM(__aeabi_memset),
+    REG_SYM(__aeabi_memclr),
     REG_SYM(__aeabi_uidiv),
     REG_SYM(__aeabi_uidivmod),
     REG_SYM(__aeabi_ul2d),

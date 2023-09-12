@@ -498,7 +498,8 @@ wasm_runtime_unload(WASMModuleCommon *module);
 
 /* Internal API */
 WASMModuleInstanceCommon *
-wasm_runtime_instantiate_internal(WASMModuleCommon *module, bool is_sub_inst,
+wasm_runtime_instantiate_internal(WASMModuleCommon *module,
+                                  WASMModuleInstanceCommon *parent,
                                   WASMExecEnv *exec_env_main, uint32 stack_size,
                                   uint32 heap_size, char *error_buf,
                                   uint32 error_buf_size);
@@ -592,6 +593,21 @@ wasm_runtime_set_user_data(WASMExecEnv *exec_env, void *user_data);
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN void *
 wasm_runtime_get_user_data(WASMExecEnv *exec_env);
+
+/* Get the exec_env currently used by the module instance */
+WASMExecEnv *
+wasm_runtime_get_cur_exec_env(const WASMModuleInstanceCommon *module_inst);
+
+#if WASM_CONFIGUABLE_BOUNDS_CHECKS != 0
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_set_bounds_checks(WASMModuleInstanceCommon *module_inst,
+                               bool enable);
+
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_is_bounds_checks_enabled(WASMModuleInstanceCommon *module_inst);
+#endif
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
 /* Access exception check guard page to trigger the signal handler */
@@ -932,6 +948,26 @@ wasm_runtime_register_natives_raw(const char *module_name,
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_unregister_natives(const char *module_name,
                                 NativeSymbol *native_symbols);
+
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN void *
+wasm_runtime_create_context_key(void (*dtor)(WASMModuleInstanceCommon *inst,
+                                             void *ctx));
+
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_destroy_context_key(void *key);
+
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_set_context(WASMModuleInstanceCommon *inst, void *key, void *ctx);
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_set_context_spread(WASMModuleInstanceCommon *inst, void *key,
+                                void *ctx);
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN void *
+wasm_runtime_get_context(WASMModuleInstanceCommon *inst, void *key);
 
 bool
 wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,

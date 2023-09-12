@@ -18,7 +18,7 @@ typedef unsigned int LLDBLangType;
 
 struct AOTCompData;
 typedef struct AOTCompData *aot_comp_data_t;
-typedef void *dwar_extractor_handle_t;
+typedef void *dwarf_extractor_handle_t;
 
 struct AOTCompContext;
 typedef struct AOTCompContext AOTCompContext;
@@ -26,7 +26,7 @@ typedef struct AOTCompContext AOTCompContext;
 struct AOTFuncContext;
 
 typedef struct AOTFuncContext AOTFuncContext;
-dwar_extractor_handle_t
+dwarf_extractor_handle_t
 create_dwarf_extractor(aot_comp_data_t comp_data, char *file_name);
 
 LLVMMetadataRef

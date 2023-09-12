@@ -24,15 +24,9 @@ wasm_runtime_memory_destroy();
 unsigned
 wasm_runtime_memory_pool_size();
 
-#if !defined(OS_ENABLE_HW_BOUND_CHECK)              \
-    || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0 \
-    || WASM_ENABLE_BULK_MEMORY != 0
-uint32
-wasm_get_num_bytes_per_page(WASMMemoryInstance *memory, void *node);
-
-uint32
-wasm_get_linear_memory_size(WASMMemoryInstance *memory, void *node);
-#endif
+void
+wasm_runtime_set_enlarge_mem_error_callback(
+    const enlarge_memory_error_callback_t callback);
 
 #ifdef __cplusplus
 }

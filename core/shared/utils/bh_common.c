@@ -31,6 +31,10 @@ b_memcpy_wa(void *s1, unsigned int s1max, const void *s2, unsigned int n)
     unsigned int *p;
     char *ps;
 
+    if (n == 0) {
+        return 0;
+    }
+
     if (pa > src) {
         pa -= 4;
     }

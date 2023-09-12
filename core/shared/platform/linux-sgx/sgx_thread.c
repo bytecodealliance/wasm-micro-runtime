@@ -106,8 +106,7 @@ os_mutex_trylock(korp_mutex *mutex)
 #ifndef SGX_DISABLE_PTHREAD
     return pthread_mutex_lock(mutex);
 #else
-    /* unsupported */
-    return BHT_ERROR;
+    return 0;
 #endif
 }
 

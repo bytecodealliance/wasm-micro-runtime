@@ -186,6 +186,7 @@ enum wasm_valkind_enum {
 
 #ifndef WASM_VAL_T_DEFINED
 #define WASM_VAL_T_DEFINED
+struct wasm_ref_t;
 
 typedef struct wasm_val_t {
     wasm_valkind_t kind;
@@ -197,6 +198,7 @@ typedef struct wasm_val_t {
         double f64;
         /* represent a foreign object, aka externref in .wat */
         uintptr_t foreign;
+        struct wasm_ref_t *ref;
     } of;
 } wasm_val_t;
 #endif
@@ -915,6 +917,25 @@ WASM_RUNTIME_API_EXTERN void *
 wasm_runtime_get_custom_data(wasm_module_inst_t module_inst);
 
 /**
+ * Set the memory bounds checks flag of a WASM module instance.
+ * 
+ * @param module_inst the WASM module instance
+ * @param enable the flag to enable/disable the memory bounds checks
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_set_bounds_checks(wasm_module_inst_t module_inst,
+                               bool enable);
+/**
+ * Check if the memory bounds checks flag is enabled for a WASM module instance.
+ * 
+ * @param module_inst the WASM module instance
+ *
+ * @return true if the memory bounds checks flag is enabled, false otherwise
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_is_bounds_checks_enabled(
+    wasm_module_inst_t module_inst);
+/**
  * Allocate memory from the heap of WASM module instance
  *
  * Note: wasm_runtime_module_malloc can call heap functions inside
@@ -1272,6 +1293,32 @@ wasm_externref_obj2ref(wasm_module_inst_t module_inst,
                        void *extern_obj, uint32_t *p_externref_idx);
 
 /**
+ * Delete external object registered by `wasm_externref_obj2ref`.
+ *
+ * @param module_inst the WASM module instance that the extern object
+ *        belongs to
+ * @param extern_obj the external object to be deleted
+ *
+ * @return true if success, false otherwise
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_externref_objdel(wasm_module_inst_t module_inst, void *extern_obj);
+
+/**
+ * Set cleanup callback to release external object.
+ *
+ * @param module_inst the WASM module instance that the extern object
+ *        belongs to
+ * @param extern_obj the external object to which to set the `extern_obj_cleanup` cleanup callback.
+ * @param extern_obj_cleanup a callback to release `extern_obj`
+ *
+ * @return true if success, false otherwise
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_externref_set_cleanup(wasm_module_inst_t module_inst, void *extern_obj,
+                           void (*extern_obj_cleanup)(void *));
+
+/**
  * Retrieve the external object from an internal externref index
  *
  * @param externref_idx the externref index to retrieve
@@ -1391,6 +1438,91 @@ wasm_runtime_is_import_func_linked(const char *module_name,
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_is_import_global_linked(const char *module_name,
                                      const char *global_name);
+
+typedef enum {
+    INTERNAL_ERROR,
+    MAX_SIZE_REACHED,
+} enlarge_memory_error_reason_t;
+
+typedef void (*enlarge_memory_error_callback_t)(
+    uint32_t inc_page_count, uint64_t current_memory_size,
+    uint32_t memory_index, enlarge_memory_error_reason_t failure_reason,
+    wasm_module_inst_t instance, wasm_exec_env_t exec_env);
+
+/**
+ * Setup callback invoked when memory.grow fails
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_set_enlarge_mem_error_callback(
+    const enlarge_memory_error_callback_t callback);
+
+/*
+ * module instance context APIs
+ *   wasm_runtime_create_context_key
+ *   wasm_runtime_destroy_context_key
+ *   wasm_runtime_set_context
+ *   wasm_runtime_set_context_spread
+ *   wasm_runtime_get_context
+ *
+ * This set of APIs is intended to be used by an embedder which provides
+ * extra sets of native functions, which need per module instance state
+ * and are maintained outside of the WAMR tree.
+ *
+ * It's modelled after the pthread specific API.
+ *
+ * wasm_runtime_set_context_spread is similar to
+ * wasm_runtime_set_context, except that
+ * wasm_runtime_set_context_spread applies the change
+ * to all threads in the cluster.
+ * It's an undefined behavior if multiple threads in a cluster call
+ * wasm_runtime_set_context_spread on the same key
+ * simultaneously. It's a caller's resposibility to perform necessary
+ * serialization if necessary. For example:
+ *
+ * if (wasm_runtime_get_context(inst, key) == NULL) {
+ *     newctx = alloc_and_init(...);
+ *     lock(some_lock);
+ *     if (wasm_runtime_get_context(inst, key) == NULL) {
+ *         // this thread won the race
+ *         wasm_runtime_set_context_spread(inst, key, newctx);
+ *         newctx = NULL;
+ *     }
+ *     unlock(some_lock);
+ *     if (newctx != NULL) {
+ *         // this thread lost the race, free it
+ *         cleanup_and_free(newctx);
+ *     }
+ * }
+ *
+ * Note: dynamic key create/destroy while instances are live is not
+ * implemented as of writing this.
+ * it's caller's resposibility to ensure destorying all module instances
+ * before calling wasm_runtime_create_context_key or
+ * wasm_runtime_destroy_context_key.
+ * otherwise, it's an undefined behavior.
+ *
+ * Note about threads:
+ * - When spawning a thread, the contexts (the pointers given to
+ *   wasm_runtime_set_context) are copied from the parent
+ *   instance.
+ * - The destructor is called only on the main instance.
+ */
+
+WASM_RUNTIME_API_EXTERN void *
+wasm_runtime_create_context_key(
+    void (*dtor)(wasm_module_inst_t inst, void *ctx));
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_destroy_context_key(void *key);
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_set_context(wasm_module_inst_t inst, void *key,
+                                         void *ctx);
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_set_context_spread(wasm_module_inst_t inst, void *key,
+                                         void *ctx);
+WASM_RUNTIME_API_EXTERN void *
+wasm_runtime_get_context(wasm_module_inst_t inst, void *key);
 
 /* clang-format on */
 

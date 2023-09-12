@@ -94,10 +94,10 @@ int
 os_mutex_destroy(korp_mutex *mutex);
 
 int
-os_mutex_trylock(korp_mutex *mutex);
+os_mutex_lock(korp_mutex *mutex);
 
 int
-os_mutex_lock(korp_mutex *mutex);
+os_mutex_trylock(korp_mutex *mutex);
 
 int
 os_mutex_unlock(korp_mutex *mutex);
@@ -131,6 +131,11 @@ void
 os_munmap(void *addr, size_t size);
 int
 os_mprotect(void *addr, size_t size, int prot);
+
+#if (WASM_MEM_DUAL_BUS_MIRROR != 0)
+void *
+os_get_dbus_mirror(void *ibus);
+#endif
 
 /**
  * Flush cpu data cache, in some CPUs, after applying relocation to the
