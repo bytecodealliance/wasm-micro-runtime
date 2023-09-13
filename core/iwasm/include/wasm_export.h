@@ -1468,14 +1468,15 @@ typedef enum {
 typedef void (*enlarge_memory_error_callback_t)(
     uint32_t inc_page_count, uint64_t current_memory_size,
     uint32_t memory_index, enlarge_memory_error_reason_t failure_reason,
-    wasm_module_inst_t instance, wasm_exec_env_t exec_env);
+    wasm_module_inst_t instance, wasm_exec_env_t exec_env,
+    void* user_data);
 
 /**
  * Setup callback invoked when memory.grow fails
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_enlarge_mem_error_callback(
-    const enlarge_memory_error_callback_t callback);
+    const enlarge_memory_error_callback_t callback, void *user_data);
 
 /*
  * module instance context APIs
