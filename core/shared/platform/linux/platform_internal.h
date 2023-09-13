@@ -116,6 +116,8 @@ os_sigreturn();
 #endif /* end of WASM_DISABLE_HW_BOUND_CHECK */
 
 #define OS_ENABLE_WAKEUP_BLOCKING_OP
+void
+os_set_signal_number_for_blocking_op(int signo);
 
 #ifdef __cplusplus
 }

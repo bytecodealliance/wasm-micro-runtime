@@ -8,13 +8,19 @@
 #ifdef OS_ENABLE_WAKEUP_BLOCKING_OP
 
 static bool g_blocking_op_inited = false;
-static int g_blocking_op_signo;
+static int g_blocking_op_signo = SIGUSR1;
 static sigset_t g_blocking_op_sigmask;
 
 static void
 blocking_op_sighandler(int signo)
 {
     /* nothing */
+}
+
+void
+os_set_signal_number_for_blocking_op(int signo)
+{
+    g_blocking_op_signo = signo;
 }
 
 int
@@ -24,7 +30,6 @@ os_blocking_op_init()
         return BHT_OK;
     }
 
-    g_blocking_op_signo = SIGUSR1; /* XXX make this configurable */
     sigemptyset(&g_blocking_op_sigmask);
     sigaddset(&g_blocking_op_sigmask, g_blocking_op_signo);
 
