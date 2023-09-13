@@ -675,6 +675,10 @@ wasm_runtime_get_exception(WASMModuleInstanceCommon *module);
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_clear_exception(WASMModuleInstanceCommon *module_inst);
 
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_terminate(WASMModuleInstanceCommon *module);
+
 /* Internal API */
 void
 wasm_runtime_set_custom_data_internal(WASMModuleInstanceCommon *module_inst,

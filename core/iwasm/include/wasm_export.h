@@ -895,6 +895,27 @@ WASM_RUNTIME_API_EXTERN void
 wasm_runtime_clear_exception(wasm_module_inst_t module_inst);
 
 /**
+ * Terminate the WASM module instance.
+ *
+ * This function causes the module instance fail as if it raised a trap.
+ *
+ * This is intended to be used in situations like:
+ *
+ *  - A thread is executing the WASM module instance
+ *    (eg. it's in the middle of `wasm_application_execute_main`)
+ *
+ *  - Another thread has a copy of `wasm_module_inst_t` of
+ *    the module instance and wants to terminate it asynchronously.
+ *
+ * This function is provided only when WAMR is built with threading enabled.
+ * (`WASM_ENABLE_THREAD_MGR=1`)
+ *
+ * @param module_inst the WASM module instance
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_terminate(wasm_module_inst_t module_inst);
+
+/**
  * Set custom data to WASM module instance.
  * Note:
  *  If WAMR_BUILD_LIB_PTHREAD is enabled, this API

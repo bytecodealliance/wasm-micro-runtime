@@ -97,6 +97,11 @@ print_help()
 #if WASM_ENABLE_LIB_PTHREAD != 0 || WASM_ENABLE_LIB_WASI_THREADS != 0
     printf("  --max-threads=n          Set maximum thread number per cluster, default is 4\n");
 #endif
+#if WASM_ENABLE_THREAD_MGR != 0
+    printf("  --timeout=ms             Set the maximum execution time in ms.\n");
+    printf("                           If it expires, the runtime aborts the execution\n");
+    printf("                           with a trap.\n");
+#endif
 #if WASM_ENABLE_DEBUG_INTERP != 0
     printf("  -g=ip:port               Set the debug sever address, default is debug disabled\n");
     printf("                             if port is 0, then a random port will be used\n");
@@ -488,6 +493,37 @@ dump_pgo_prof_data(wasm_module_inst_t module_inst, const char *path)
 }
 #endif
 
+#if WASM_ENABLE_THREAD_MGR != 0
+struct timeout_arg {
+    uint32 timeout_ms;
+    wasm_module_inst_t inst;
+    _Atomic bool cancel;
+};
+
+void *
+timeout_thread(void *vp)
+{
+    const struct timeout_arg *arg = vp;
+    uint32 left = arg->timeout_ms;
+    while (!arg->cancel) {
+        uint32 ms;
+        if (left >= 100) {
+            ms = 100;
+        }
+        else {
+            ms = left;
+        }
+        os_usleep((uint64)ms * 1000);
+        left -= ms;
+        if (left == 0) {
+            wasm_runtime_terminate(arg->inst);
+            break;
+        }
+    }
+    return NULL;
+}
+#endif
+
 int
 main(int argc, char *argv[])
 {
@@ -545,6 +581,9 @@ main(int argc, char *argv[])
 #endif
 #if WASM_ENABLE_STATIC_PGO != 0
     const char *gen_prof_file = NULL;
+#endif
+#if WASM_ENABLE_THREAD_MGR != 0
+    int timeout_ms = -1;
 #endif
 
     /* Process options. */
@@ -742,6 +781,13 @@ main(int argc, char *argv[])
             wasm_runtime_set_max_thread_num(atoi(argv[0] + 14));
         }
 #endif
+#if WASM_ENABLE_THREAD_MGR != 0
+        else if (!strncmp(argv[0], "--timeout=", 10)) {
+            if (argv[0][10] == '\0')
+                return print_help();
+            timeout_ms = atoi(argv[0] + 10);
+        }
+#endif
 #if WASM_ENABLE_DEBUG_INTERP != 0
         else if (!strncmp(argv[0], "-g=", 3)) {
             char *port_str = strchr(argv[0] + 3, ':');
@@ -902,6 +948,22 @@ main(int argc, char *argv[])
     }
 #endif
 
+#if WASM_ENABLE_THREAD_MGR != 0
+    struct timeout_arg timeout_arg;
+    korp_tid timeout_tid;
+    if (timeout_ms >= 0) {
+        timeout_arg.timeout_ms = timeout_ms;
+        timeout_arg.inst = wasm_module_inst;
+        timeout_arg.cancel = false;
+        ret = os_thread_create(&timeout_tid, timeout_thread, &timeout_arg,
+                               APP_THREAD_STACK_SIZE_DEFAULT);
+        if (ret != 0) {
+            printf("Failed to start timeout\n");
+            goto fail5;
+        }
+    }
+#endif
+
     ret = 0;
     if (is_repl_mode) {
         app_instance_repl(wasm_module_inst);
@@ -932,6 +994,16 @@ main(int argc, char *argv[])
         dump_pgo_prof_data(wasm_module_inst, gen_prof_file);
 #endif
 
+#if WASM_ENABLE_THREAD_MGR != 0
+    if (timeout_ms >= 0) {
+        timeout_arg.cancel = true;
+        os_thread_join(timeout_tid, NULL);
+    }
+#endif
+
+#if WASM_ENABLE_THREAD_MGR != 0
+fail5:
+#endif
 #if WASM_ENABLE_DEBUG_INTERP != 0
 fail4:
 #endif
