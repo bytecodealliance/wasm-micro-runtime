@@ -6002,4 +6002,3 @@ wasm_runtime_get_context(WASMModuleInstanceCommon *inst, void *key)
     return wasm_native_get_context(inst, key);
 }
 #endif /* WASM_ENABLE_MODULE_INST_CONTEXT != 0 */
-
