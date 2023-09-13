@@ -23,7 +23,7 @@ include(FetchContent)
 set(RATS_BUILD_MODE "sgx"
     CACHE INTERNAL "Select build mode for librats(host|occlum|sgx｜wasm)")
 set(RATS_INSTALL_PATH  "${CMAKE_BINARY_DIR}/librats" CACHE INTERNAL "")
-set(BUILD_SAMPLES OFF)
+set(BUILD_SAMPLES OFF CACHE BOOL "Disable de compilation of the librats samples" FORCE)
 
 FetchContent_Declare(
     librats

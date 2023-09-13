@@ -554,12 +554,8 @@ main(int argc, char *argv[])
 
 #if WASM_ENABLE_LIBC_WASI != 0
     if (ret == 0) {
-        /* wait for threads to finish and propagate wasi exit code. */
+        /* propagate wasi exit code. */
         ret = wasm_runtime_get_wasi_exit_code(wasm_module_inst);
-        if (wasm_runtime_get_exception(wasm_module_inst)) {
-            /* got an exception in spawned thread */
-            ret = 1;
-        }
     }
 #endif
 

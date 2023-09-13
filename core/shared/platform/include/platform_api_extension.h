@@ -342,7 +342,7 @@ typedef union {
 } bh_ip_addr_buffer_t;
 
 typedef struct {
-    bh_ip_addr_buffer_t addr_bufer;
+    bh_ip_addr_buffer_t addr_buffer;
     uint16 port;
     bool is_ipv4;
 } bh_sockaddr_t;

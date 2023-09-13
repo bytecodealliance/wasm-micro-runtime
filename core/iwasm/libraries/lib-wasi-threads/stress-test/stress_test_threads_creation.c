@@ -12,7 +12,7 @@
 enum CONSTANTS {
     NUM_ITER = 200000,
     NUM_RETRY = 8,
-    MAX_NUM_THREADS = 8,
+    MAX_NUM_THREADS = 12,
     RETRY_SLEEP_TIME_US = 4000,
     SECOND = 1000 * 1000 * 1000
 };
@@ -72,7 +72,9 @@ main(int argc, char **argv)
     }
 
     while ((__atomic_load_n(&threads_in_use, __ATOMIC_SEQ_CST) != 0)) {
-        __builtin_wasm_memory_atomic_wait32(&threads_in_use, 0, SECOND);
+        // Casting to int* to supress compiler warning
+        __builtin_wasm_memory_atomic_wait32((int *)(&threads_in_use), 0,
+                                            SECOND);
     }
 
     assert(__atomic_load_n(&threads_in_use, __ATOMIC_SEQ_CST) == 0);
