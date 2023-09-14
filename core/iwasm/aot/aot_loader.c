@@ -1130,8 +1130,11 @@ load_table_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
 #if WASM_ENABLE_GC != 0
         if (wasm_is_reftype_htref_nullable(reftype.ref_type)
             || wasm_is_reftype_htref_non_nullable(reftype.ref_type)) {
-            data_list[i]->elem_ref_type = reftype_set_insert(
-                module->ref_type_set, &reftype, error_buf, error_buf_size);
+            if (!(data_list[i]->elem_ref_type =
+                      reftype_set_insert(module->ref_type_set, &reftype,
+                                         error_buf, error_buf_size))) {
+                goto fail;
+            }
         }
 #endif
         data_list[i]->offset.init_expr_type = (uint8)init_expr_type;
@@ -1184,17 +1187,25 @@ destroy_types(AOTType **types, uint32 count)
     uint32 i;
     for (i = 0; i < count; i++) {
 
+        if (types[i]) {
 #if WASM_ENABLE_GC != 0
-        if (types[i]->type_flag == WASM_TYPE_FUNC) {
-            AOTFuncType *func_type = (AOTFuncType *)types[i];
-            if (func_type->ref_type_map_count) {
-                wasm_runtime_free(func_type->ref_type_maps);
+            if (types[i]->type_flag == WASM_TYPE_FUNC) {
+                AOTFuncType *func_type = (AOTFuncType *)types[i];
+                if (func_type->ref_type_maps != NULL) {
+                    bh_assert(func_type->ref_type_map_count > 0);
+                    wasm_runtime_free(func_type->ref_type_maps);
+                }
             }
-        }
+            else if (types[i]->type_flag == WASM_TYPE_STRUCT) {
+                AOTStructType *struct_type = (AOTStructType *)types[i];
+                if (struct_type->ref_type_maps != NULL) {
+                    bh_assert(func_type->ref_type_map_count > 0);
+                    wasm_runtime_free(struct_type->ref_type_maps);
+                }
+            }
 #endif
-
-        if (types[i])
             wasm_runtime_free(types[i]);
+        }
     }
     wasm_runtime_free(types);
 }
@@ -1245,7 +1256,7 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                               error_buf, error_buf_size);
 
             if (!func_type) {
-                goto fail2;
+                goto fail;
             }
 
             types[i] = (AOTType *)func_type;
@@ -1268,7 +1279,7 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             if (param_cell_num > UINT16_MAX || ret_cell_num > UINT16_MAX) {
                 set_error_buf(error_buf, error_buf_size,
                               "param count or result count too large");
-                return false;
+                goto fail;
             }
 
             func_type->param_cell_num = param_cell_num;
@@ -1281,9 +1292,11 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             bh_assert(func_type->ref_type_map_count
                       <= func_type->param_count + func_type->result_count);
 
-            func_type->ref_type_maps = loader_malloc(
-                sizeof(WASMRefTypeMap) * func_type->ref_type_map_count,
-                error_buf, error_buf_size);
+            if (!(func_type->ref_type_maps = loader_malloc(
+                      sizeof(WASMRefTypeMap) * func_type->ref_type_map_count,
+                      error_buf, error_buf_size))) {
+                goto fail;
+            }
 
             for (j = 0; j < func_type->ref_type_map_count; j++) {
                 read_uint8(buf, buf_end,
@@ -1306,7 +1319,7 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                                   + field_count * sizeof(WASMStructFieldType),
                               error_buf, error_buf_size);
             if (!struct_type) {
-                goto fail2;
+                goto fail;
             }
 
             types[i] = (AOTType *)struct_type;
@@ -1328,9 +1341,11 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 
             bh_assert(struct_type->ref_type_map_count <= field_count);
 
-            struct_type->ref_type_maps = loader_malloc(
-                sizeof(WASMRefTypeMap) * struct_type->ref_type_map_count,
-                error_buf, error_buf_size);
+            if (!(struct_type->ref_type_maps = loader_malloc(
+                      sizeof(WASMRefTypeMap) * struct_type->ref_type_map_count,
+                      error_buf, error_buf_size))) {
+                goto fail;
+            }
 
             for (j = 0; j < struct_type->ref_type_map_count; j++) {
                 read_uint16(buf, buf_end, struct_type->ref_type_maps[j].index);
@@ -1352,7 +1367,7 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                 loader_malloc(sizeof(AOTArrayType), error_buf, error_buf_size);
 
             if (!array_type) {
-                goto fail2;
+                goto fail;
             }
 
             types[i] = (AOTType *)array_type;
@@ -1361,25 +1376,29 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             read_uint16(buf, buf_end, array_type->elem_flags);
             read_uint8(buf, buf_end, array_type->elem_type);
         }
+        else {
+            set_error_buf_v(error_buf, error_buf_size,
+                            "invalid type flag: %" PRIu32, type_flag);
+            goto fail;
+        }
     }
 
     if (module->type_count) {
         if (!(module->rtt_types = loader_malloc((uint64)sizeof(WASMRttType *)
                                                     * module->type_count,
                                                 error_buf, error_buf_size))) {
-            return false;
+            goto fail;
         }
     }
 
     *p_buf = buf;
     return true;
 
-fail2:
+fail:
     /* Destroy all types */
     destroy_types(types, module->type_count);
     wasm_runtime_free(types);
     module->types = NULL;
-fail:
     return false;
 }
 #else

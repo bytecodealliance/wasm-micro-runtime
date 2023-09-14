@@ -113,10 +113,6 @@ typedef struct AOTModuleInstanceExtra {
     /* The gc heap created */
     void *gc_heap_handle;
 #endif
-#if WASM_CONFIGUABLE_BOUNDS_CHECKS != 0
-    /* Disable bounds checks or not */
-    bool disable_bounds_checks;
-#endif
 } AOTModuleInstanceExtra;
 
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)

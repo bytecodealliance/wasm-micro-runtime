@@ -94,6 +94,7 @@ check_global_init_expr(const AOTModule *module, uint32 global_index,
                         global_index);
         return false;
     }
+
 #if WASM_ENABLE_GC == 0
     /**
      * Currently, constant expressions occurring as initializers of
@@ -121,6 +122,7 @@ check_global_init_expr(const AOTModule *module, uint32 global_index,
         return false;
     }
 #endif
+
     return true;
 }
 

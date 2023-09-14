@@ -378,6 +378,7 @@ get_table_info_size(AOTCompContext *comp_ctx, AOTCompData *comp_data)
                                            comp_data->table_init_data_list,
                                            comp_data->table_init_data_count);
 }
+
 #if WASM_ENABLE_GC != 0
 static uint32
 get_func_type_size(AOTCompContext *comp_ctx, AOTFuncType *func_type)
@@ -415,10 +416,11 @@ get_func_type_info_size(AOTCompContext *comp_ctx, AOTCompData *comp_data)
 {
     /* Initial size with size of type count */
     uint32 size = 4;
+    uint32 i;
 
 #if WASM_ENABLE_GC != 0
     if (comp_ctx->enable_gc) {
-        for (uint32 i = 0; i < comp_data->type_count; i++) {
+        for (i = 0; i < comp_data->type_count; i++) {
             size = align_uint(size, 4);
             if (comp_data->types[i]->type_flag == WASM_TYPE_FUNC)
                 size += get_func_type_size(comp_ctx,
@@ -428,7 +430,7 @@ get_func_type_info_size(AOTCompContext *comp_ctx, AOTCompData *comp_data)
     else
 #endif
     {
-        for (uint32 i = 0; i < comp_data->type_count; i++) {
+        for (i = 0; i < comp_data->type_count; i++) {
             size = align_uint(size, 4);
             size += get_func_type_size(comp_ctx,
                                        (AOTFuncType *)comp_data->types[i]);
