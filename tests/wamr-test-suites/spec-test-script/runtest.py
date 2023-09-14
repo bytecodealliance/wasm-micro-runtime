@@ -1293,15 +1293,19 @@ if __name__ == "__main__":
             elif re.match("^\(register\\b.*", form):
                 # get module's new name from the register cmd
                 name_new =re.split('\"',re.search('\".*\"',form).group(0))[1]
-                if name_new:
-                    new_module = os.path.join(tempfile.gettempdir(), name_new + ".wasm")
-                    shutil.copyfile(temp_module_table.get(name_new, wasm_tempfile), new_module)
-
-                    # add new_module copied from the old into temp_file_repo[]
-                    temp_file_repo.append(new_module)
-                else:
+                if not name_new:
                     # there is no name defined in register cmd
                     raise Exception("can not find module name from the register")
+
+                new_module = os.path.join(tempfile.gettempdir(), name_new + ".wasm")
+                shutil.copyfile(wasm_tempfile, new_module)
+                # add new_module copied from the old into temp_file_repo[]
+                temp_file_repo.append(new_module)
+
+                if test_aot:
+                    new_aot = os.path.join(tempfile.gettempdir(), name_new + ".aot")
+                    shutil.copyfile(aot_tempfile, new_aot)
+                    temp_file_repo.append(new_aot)
             else:
                 raise Exception("unrecognized form '%s...'" % form[0:40])
     except Exception as e:

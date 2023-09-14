@@ -306,7 +306,8 @@ function sightglass_test()
 # TODO: with iwasm only
 function spec_test()
 {
-    echo "Now start spec tests"
+    local RUNNING_MODE=$1
+    echo "Now start spec tests in ${RUNNING_MODE} mode"
     touch ${REPORT_DIR}/spec_test_report.txt
 
     cd ${WORK_DIR}
@@ -328,7 +329,14 @@ function spec_test()
     git checkout -B main
     # [spec] Update note on module initialization trapping (#1493)
     git reset --hard 044d0d2e77bdcbe891f7e0b9dd2ac01d56435f0b
-    git apply ../../spec-test-script/ignore_cases.patch
+
+    # aot multi-module is different with non-aot multi-module
+    if [[ ${ENABLE_MULTI_MODULE} == 1 &&  "${RUNNING_MODE}" == "aot" ]]; then
+      git apply ../../spec-test-script/ignore_cases_aot.patch
+    else
+      git apply ../../spec-test-script/ignore_cases.patch
+    fi
+
     if [[ ${ENABLE_SIMD} == 1 ]]; then
         git apply ../../spec-test-script/simd_ignore_cases.patch
     fi
@@ -421,9 +429,9 @@ function spec_test()
 
     local ARGS_FOR_SPEC_TEST=""
 
-    # multi-module only enable in interp mode
+    # multi-module only enable in interp, llvm-jit and aot mode
     if [[ 1 == ${ENABLE_MULTI_MODULE} ]]; then
-        if [[ $1 == 'classic-interp' || $1 == 'fast-interp' ]]; then
+        if [[ $1 != 'fast-jit' && $1 != 'multi-tier-jit' ]]; then
             ARGS_FOR_SPEC_TEST+="-M "
         fi
     fi
