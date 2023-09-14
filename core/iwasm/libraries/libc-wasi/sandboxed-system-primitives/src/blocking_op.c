@@ -164,6 +164,14 @@ blocking_op_socket_addr_resolve(wasm_exec_env_t exec_env, const char *host,
                                 bh_addr_info_t *addr_info,
                                 size_t addr_info_size, size_t *max_info_size)
 {
+    /*
+     * Note: Unlike others, os_socket_addr_resolve() is not a simple system
+     * call. It's likely backed by a complex libc function, getaddrinfo().
+     * Depending on the implementation of getaddrinfo(), it might or
+     * might not be possible to make it return with os_wakeup_blocking_op().
+     * Unfortunately, macOS getaddrinfo() doesn't seem return on
+     * interrupted system calls.
+     */
     if (!wasm_runtime_begin_blocking_op(exec_env)) {
         errno = EINTR;
         return -1;
