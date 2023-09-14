@@ -47,13 +47,13 @@ os_blocking_op_init()
 void
 os_begin_blocking_op()
 {
-    sigprocmask(SIG_UNBLOCK, &g_blocking_op_sigmask, NULL);
+    pthread_sigmask(SIG_UNBLOCK, &g_blocking_op_sigmask, NULL);
 }
 
 void
 os_end_blocking_op()
 {
-    sigprocmask(SIG_BLOCK, &g_blocking_op_sigmask, NULL);
+    pthread_sigmask(SIG_BLOCK, &g_blocking_op_sigmask, NULL);
 }
 
 int
