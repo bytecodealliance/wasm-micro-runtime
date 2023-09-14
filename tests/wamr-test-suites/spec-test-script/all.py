@@ -37,6 +37,7 @@ WAST2WASM_CMD = "./wabt/out/gcc/Release/wat2wasm"
 SPEC_INTERPRETER_CMD = "spec/interpreter/wasm"
 WAMRC_CMD = "../../../wamr-compiler/build/wamrc"
 
+
 class TargetAction(argparse.Action):
     TARGET_MAP = {
         "ARMV7_VFP": "armv7",
@@ -65,7 +66,7 @@ def ignore_the_case(
     simd_flag=False,
     gc_flag=False,
     xip_flag=False,
-    qemu_flag=False
+    qemu_flag=False,
 ):
     if case_name in ["comments", "inline-module", "names"]:
         return True
@@ -79,7 +80,7 @@ def ignore_the_case(
 
     if gc_flag:
         if case_name in ["type-canon", "type-equivalence", "type-rec"]:
-            return True;
+            return True
 
     if sgx_flag:
         if case_name in ["conversions", "f32_bitwise", "f64_bitwise"]:
@@ -94,9 +95,20 @@ def ignore_the_case(
             return True
 
     if qemu_flag:
-        if case_name in ["f32_bitwise", "f64_bitwise", "loop", "f64", "f64_cmp",
-                         "conversions", "f32", "f32_cmp", "float_exprs",
-                         "float_misc", "select", "memory_grow"]:
+        if case_name in [
+            "f32_bitwise",
+            "f64_bitwise",
+            "loop",
+            "f64",
+            "f64_cmp",
+            "conversions",
+            "f32",
+            "f32_cmp",
+            "float_exprs",
+            "float_misc",
+            "select",
+            "memory_grow",
+        ]:
             return True
 
     return False
@@ -131,26 +143,9 @@ def test_case(
     verbose_flag=True,
     gc_flag=False,
     qemu_flag=False,
-    qemu_firmware='',
-    log='',
+    qemu_firmware="",
+    log="",
 ):
-    case_path = pathlib.Path(case_path).resolve()
-    case_name = case_path.stem
-
-    if ignore_the_case(
-        case_name,
-        target,
-        aot_flag,
-        sgx_flag,
-        multi_module_flag,
-        multi_thread_flag,
-        simd_flag,
-        gc_flag,
-        xip_flag,
-        qemu_flag
-    ):
-        return True
-
     CMD = ["python3", "runtest.py"]
     CMD.append("--wast2wasm")
     CMD.append(WAST2WASM_CMD if not gc_flag else SPEC_INTERPRETER_CMD)
@@ -196,9 +191,12 @@ def test_case(
     if gc_flag:
         CMD.append("--gc")
 
-    if log != '':
+    if log != "":
         CMD.append("--log-dir")
         CMD.append(log)
+
+    case_path = pathlib.Path(case_path).resolve()
+    case_name = case_path.stem
 
     CMD.append(case_path)
     print(f"============> run {case_name} ", end="")
@@ -259,8 +257,8 @@ def test_suite(
     gc_flag=False,
     parl_flag=False,
     qemu_flag=False,
-    qemu_firmware='',
-    log='',
+    qemu_firmware="",
+    log="",
 ):
     suite_path = pathlib.Path(SPEC_TEST_DIR).resolve()
     if not suite_path.exists():
@@ -275,6 +273,26 @@ def test_suite(
     if gc_flag:
         gc_case_list = sorted(suite_path.glob("gc/*.wast"))
         case_list.extend(gc_case_list)
+
+    # ignore based on command line options
+    filtered_case_list = []
+    for case_path in case_list:
+        case_name = case_path.stem
+        if not ignore_the_case(
+            case_name,
+            target,
+            aot_flag,
+            sgx_flag,
+            multi_module_flag,
+            multi_thread_flag,
+            simd_flag,
+            gc_flag,
+            xip_flag,
+            qemu_flag,
+        ):
+            filtered_case_list.append(case_path)
+    print(f"---> {len(case_list)} --filter--> {len(filtered_case_list)}")
+    case_list = filtered_case_list
 
     case_count = len(case_list)
     failed_case = 0
@@ -435,7 +453,7 @@ def main():
     )
     parser.add_argument(
         "--log",
-        default='',
+        default="",
         dest="log",
         help="Log directory",
     )
@@ -512,7 +530,7 @@ def main():
                     options.gc_flag,
                     options.qemu_flag,
                     options.qemu_firmware,
-                    options.log
+                    options.log,
                 )
             else:
                 ret = True
