@@ -497,7 +497,10 @@ dump_pgo_prof_data(wasm_module_inst_t module_inst, const char *path)
 struct timeout_arg {
     uint32 timeout_ms;
     wasm_module_inst_t inst;
-    _Atomic bool cancel;
+#if defined(BH_HAS_STD_ATOMIC)
+    _Atomic
+#endif
+        bool cancel;
 };
 
 void *
