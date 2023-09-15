@@ -159,7 +159,8 @@ aot_gen_commit_values(AOTCompFrame *frame);
  * @param frame the frame information
  */
 bool
-aot_gen_commit_sp_ip(AOTCompFrame *frame, AOTValueSlot *sp, uint8 *ip);
+aot_gen_commit_sp_ip(AOTCompFrame *frame, const AOTValueSlot *sp,
+                     const uint8 *ip);
 
 static inline void
 push_32bit(AOTCompFrame *frame, AOTValue *aot_value)

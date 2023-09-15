@@ -154,7 +154,7 @@ typedef struct AOTModule {
     void **func_ptrs;
     /* func type indexes of AOTed (un-imported) functions */
     uint32 *func_type_indexes;
-#if WASM_ENABLE_DUMP_CALL_STACK != 0 || WASM_ENABLE_PERF_PROFILING != 0
+#if WASM_ENABLE_AOT_STACK_FRAME != 0
     /* max local cell nums of AOTed (un-imported) functions */
     uint32 *max_local_cell_nums;
     /* max stack cell nums of AOTed (un-imported) functions */

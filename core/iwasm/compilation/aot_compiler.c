@@ -291,7 +291,8 @@ aot_gen_commit_values(AOTCompFrame *frame)
 }
 
 bool
-aot_gen_commit_sp_ip(AOTCompFrame *frame, AOTValueSlot *sp, uint8 *ip)
+aot_gen_commit_sp_ip(AOTCompFrame *frame, const AOTValueSlot *sp,
+                     const uint8 *ip)
 {
     AOTCompContext *comp_ctx = frame->comp_ctx;
     AOTFuncContext *func_ctx = frame->func_ctx;
@@ -732,13 +733,19 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 break;
 
             case WASM_OP_CALL:
+            {
+                uint8 *frame_ip_org = frame_ip;
+
                 read_leb_uint32(frame_ip, frame_ip_end, func_idx);
-                if (!aot_compile_op_call(comp_ctx, func_ctx, func_idx, false))
+                if (!aot_compile_op_call(comp_ctx, func_ctx, func_idx, false,
+                                         frame_ip_org))
                     return false;
                 break;
+            }
 
             case WASM_OP_CALL_INDIRECT:
             {
+                uint8 *frame_ip_org = frame_ip;
                 uint32 tbl_idx;
 
                 read_leb_uint32(frame_ip, frame_ip_end, type_idx);
@@ -755,26 +762,32 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 }
 
                 if (!aot_compile_op_call_indirect(comp_ctx, func_ctx, type_idx,
-                                                  tbl_idx))
+                                                  tbl_idx, frame_ip_org))
                     return false;
                 break;
             }
 
 #if WASM_ENABLE_TAIL_CALL != 0
             case WASM_OP_RETURN_CALL:
+            {
+                uint8 *frame_ip_org = frame_ip;
+
                 if (!comp_ctx->enable_tail_call) {
                     aot_set_last_error("unsupported opcode");
                     return false;
                 }
                 read_leb_uint32(frame_ip, frame_ip_end, func_idx);
-                if (!aot_compile_op_call(comp_ctx, func_ctx, func_idx, true))
+                if (!aot_compile_op_call(comp_ctx, func_ctx, func_idx, true,
+                                         frame_ip_org))
                     return false;
                 if (!aot_compile_op_return(comp_ctx, func_ctx, &frame_ip))
                     return false;
                 break;
+            }
 
             case WASM_OP_RETURN_CALL_INDIRECT:
             {
+                uint8 *frame_ip_org = frame_ip;
                 uint32 tbl_idx;
 
                 if (!comp_ctx->enable_tail_call) {
@@ -795,7 +808,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 }
 
                 if (!aot_compile_op_call_indirect(comp_ctx, func_ctx, type_idx,
-                                                  tbl_idx))
+                                                  tbl_idx, frame_ip_org))
                     return false;
                 if (!aot_compile_op_return(comp_ctx, func_ctx, &frame_ip))
                     return false;

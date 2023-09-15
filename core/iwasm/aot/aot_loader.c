@@ -1705,7 +1705,7 @@ load_function_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
     size = sizeof(uint32) * (uint64)module->func_count;
 
     if (size > 0) {
-#if WASM_ENABLE_DUMP_CALL_STACK != 0 || WASM_ENABLE_PERF_PROFILING != 0
+#if WASM_ENABLE_AOT_STACK_FRAME != 0
         if (!(module->max_local_cell_nums =
                   loader_malloc(size, error_buf, error_buf_size))) {
             return false;
@@ -3224,7 +3224,7 @@ aot_unload(AOTModule *module)
     if (module->func_type_indexes)
         wasm_runtime_free(module->func_type_indexes);
 
-#if WASM_ENABLE_DUMP_CALL_STACK != 0 || WASM_ENABLE_PERF_PROFILING != 0
+#if WASM_ENABLE_AOT_STACK_FRAME != 0
     if (module->max_local_cell_nums)
         wasm_runtime_free(module->max_local_cell_nums);
     if (module->max_stack_cell_nums)
