@@ -167,10 +167,15 @@ blocking_op_socket_addr_resolve(wasm_exec_env_t exec_env, const char *host,
     /*
      * Note: Unlike others, os_socket_addr_resolve() is not a simple system
      * call. It's likely backed by a complex libc function, getaddrinfo().
-     * Depending on the implementation of getaddrinfo(), it might or
-     * might not be possible to make it return with os_wakeup_blocking_op().
-     * Unfortunately, macOS getaddrinfo() doesn't seem return on
-     * interrupted system calls.
+     * Depending on the implementation of getaddrinfo() and underlying
+     * DNS resolver, it might or might not be possible to make it return
+     * with os_wakeup_blocking_op().
+     *
+     * Unfortunately, many of ISC/bind based resolvers just keep going on
+     * interrupted system calls. It includes macOS and glibc.
+     *
+     * On the other hand, NuttX as of writing this returns EAI_AGAIN
+     * on EINTR.
      */
     if (!wasm_runtime_begin_blocking_op(exec_env)) {
         errno = EINTR;
