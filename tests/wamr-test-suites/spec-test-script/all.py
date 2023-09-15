@@ -50,6 +50,7 @@ class TargetAction(argparse.Action):
         "THUMBV7_VFP": "thumbv7",
         "X86_32": "i386",
         "X86_64": "x86_64",
+        "AARCH64": "arm64"
     }
 
     def __call__(self, parser, namespace, values, option_string=None):
