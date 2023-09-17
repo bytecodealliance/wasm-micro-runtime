@@ -509,8 +509,8 @@ mask_signals(int how)
     pthread_sigmask(how, &set, NULL);
 }
 
-static os_thread_local_attribute struct sigaction prev_sig_act_SIGSEGV;
-static os_thread_local_attribute struct sigaction prev_sig_act_SIGBUS;
+static struct sigaction prev_sig_act_SIGSEGV;
+static struct sigaction prev_sig_act_SIGBUS;
 
 /* ASAN is not designed to work with custom stack unwind or other low-level \
  things. > Ignore a function that does some low-level magic. (e.g. walking \
@@ -540,10 +540,15 @@ signal_callback(int sig_num, siginfo_t *sig_info, void *sig_ucontext)
     if (prev_sig_act && (prev_sig_act->sa_flags & SA_SIGINFO)) {
         prev_sig_act->sa_sigaction(sig_num, sig_info, sig_ucontext);
     }
-    else if (prev_sig_act
-             && ((void *)prev_sig_act->sa_sigaction == SIG_DFL
-                 || (void *)prev_sig_act->sa_sigaction == SIG_IGN)) {
+    else if (prev_sig_act && (void *)prev_sig_act->sa_handler == SIG_DFL) {
+        /* Default action */
         sigaction(sig_num, prev_sig_act, NULL);
+    }
+    else if (prev_sig_act && (void *)prev_sig_act->sa_handler == SIG_IGN) {
+        /* Ignore this signal */
+    }
+    else if (prev_sig_act && prev_sig_act->sa_handler) {
+        prev_sig_act->sa_handler(sig_num);
     }
     /* Output signal info and then crash if signal is unhandled */
     else {

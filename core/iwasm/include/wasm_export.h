@@ -895,6 +895,27 @@ WASM_RUNTIME_API_EXTERN void
 wasm_runtime_clear_exception(wasm_module_inst_t module_inst);
 
 /**
+ * Terminate the WASM module instance.
+ *
+ * This function causes the module instance fail as if it raised a trap.
+ *
+ * This is intended to be used in situations like:
+ *
+ *  - A thread is executing the WASM module instance
+ *    (eg. it's in the middle of `wasm_application_execute_main`)
+ *
+ *  - Another thread has a copy of `wasm_module_inst_t` of
+ *    the module instance and wants to terminate it asynchronously.
+ *
+ * This function is provided only when WAMR is built with threading enabled.
+ * (`WASM_ENABLE_THREAD_MGR=1`)
+ *
+ * @param module_inst the WASM module instance
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_terminate(wasm_module_inst_t module_inst);
+
+/**
  * Set custom data to WASM module instance.
  * Note:
  *  If WAMR_BUILD_LIB_PTHREAD is enabled, this API
@@ -1447,14 +1468,15 @@ typedef enum {
 typedef void (*enlarge_memory_error_callback_t)(
     uint32_t inc_page_count, uint64_t current_memory_size,
     uint32_t memory_index, enlarge_memory_error_reason_t failure_reason,
-    wasm_module_inst_t instance, wasm_exec_env_t exec_env);
+    wasm_module_inst_t instance, wasm_exec_env_t exec_env,
+    void* user_data);
 
 /**
  * Setup callback invoked when memory.grow fails
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_enlarge_mem_error_callback(
-    const enlarge_memory_error_callback_t callback);
+    const enlarge_memory_error_callback_t callback, void *user_data);
 
 /*
  * module instance context APIs
