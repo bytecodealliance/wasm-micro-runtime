@@ -15,7 +15,7 @@ function help()
     echo "test_wamr.sh [options]"
     echo "-c clean previous test results, not start test"
     echo "-s {suite_name} test only one suite (spec|wasi_certification)"
-    echo "-m set compile target of iwasm(x86_64|x86_32|armv7_vfp|thumbv7_vfp|riscv64_lp64d|riscv64_lp64)"
+    echo "-m set compile target of iwasm(x86_64|x86_32|armv7_vfp|thumbv7_vfp|riscv64_lp64d|riscv64_lp64|aarch64)"
     echo "-t set compile type of iwasm(classic-interp|fast-interp|jit|aot|fast-jit|multi-tier-jit)"
     echo "-M enable multi module feature"
     echo "-p enable multi thread feature"
