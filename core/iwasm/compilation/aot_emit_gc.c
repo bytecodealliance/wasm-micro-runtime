@@ -154,7 +154,8 @@ aot_call_aot_obj_is_instance_of(AOTCompContext *comp_ctx,
     else
         GET_AOT_FUNCTION(aot_obj_is_instance_of, 3);
 
-    /* Call function wasm_obj_is_type_of() */
+    /* Call function aot_obj_is_instance_of() or llvm_jit_obj_is_instance_of()
+     */
     param_values[0] = func_ctx->aot_inst;
     param_values[1] = gc_obj;
     param_values[2] = heap_type;
@@ -234,8 +235,7 @@ aot_compile_op_i31_new(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 
     POP_I32(i31_val);
 
-    /* Equivalent to wasm_i31_obj_new: but use I32 to represent i31_obj directly
-       (WASMI31ObjectRef)((i31_value << 1) | 1) */
+    /* Equivalent to wasm_i31_obj_new: ((i31_value << 1) | 1) */
     if (!(i31_obj = LLVMBuildShl(comp_ctx->builder, i31_val, I32_ONE,
                                  "i31_value << 1"))) {
         aot_set_last_error("llvm build shl failed.");
@@ -246,6 +246,16 @@ aot_compile_op_i31_new(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
                                 "((i31_value << 1) | 1)"))) {
         aot_set_last_error("llvm build or failed.");
         goto fail;
+    }
+
+    /* if uintptr_t is 64 bits, extend i32 to i64, equivalent to:
+     * (WASMI31ObjectRef)((i31_value << 1) | 1)  */
+    if (comp_ctx->pointer_size == 8) {
+        if (!(i31_obj = LLVMBuildZExt(comp_ctx->builder, i31_obj, I64_TYPE,
+                                      "extend i32 to uintptr_t"))) {
+            aot_set_last_error("llvm build zext failed.");
+            goto fail;
+        }
     }
 
     PUSH_REF(i31_obj);
@@ -269,13 +279,22 @@ aot_compile_op_i31_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     MOVE_BLOCK_AFTER_CURR(check_i31_obj_succ);
 
     /* Check if i31 object is NULL, throw exception if it is */
-    BUILD_ICMP(LLVMIntEQ, i31_obj, I32_ZERO, cmp_i31_obj, "cmp_i31_obj");
+    BUILD_ISNULL(i31_obj, cmp_i31_obj, "cmp_i31_obj");
     if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_NULL_GC_REF, true,
                             cmp_i31_obj, check_i31_obj_succ))
         goto fail;
 
+    /* if uintptr_t is 64 bits, trunc i64 to i32 */
+    if (comp_ctx->pointer_size == 8) {
+        if (!(i31_val = LLVMBuildTrunc(comp_ctx->builder, i31_obj, I32_TYPE,
+                                       "trunc uintptr_t to i32"))) {
+            aot_set_last_error("llvm build or failed.");
+            goto fail;
+        }
+    }
+
     /* i31_obj >> 1 */
-    if (!(i31_val = LLVMBuildLShr(comp_ctx->builder, i31_obj, I32_ONE,
+    if (!(i31_val = LLVMBuildLShr(comp_ctx->builder, i31_val, I32_ONE,
                                   "i31_value"))) {
         aot_set_last_error("llvm build lshr failed.");
         goto fail;

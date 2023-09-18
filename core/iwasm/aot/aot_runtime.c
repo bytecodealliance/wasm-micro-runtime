@@ -3429,8 +3429,7 @@ aot_obj_is_instance_of(AOTModuleInstance *module_inst, WASMObjectRef gc_obj,
     AOTType **types = aot_module->types;
     uint32 type_count = aot_module->type_count;
 
-    return wasm_obj_is_instance_of(gc_obj, type_index, aot_module->types,
-                                   type_count);
+    return wasm_obj_is_instance_of(gc_obj, type_index, types, type_count);
 }
 
 #endif /* end of WASM_ENABLE_GC != 0 */
