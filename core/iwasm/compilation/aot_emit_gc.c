@@ -288,7 +288,7 @@ aot_compile_op_i31_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     if (comp_ctx->pointer_size == 8) {
         if (!(i31_val = LLVMBuildTrunc(comp_ctx->builder, i31_obj, I32_TYPE,
                                        "trunc uintptr_t to i32"))) {
-            aot_set_last_error("llvm build or failed.");
+            aot_set_last_error("llvm build trunc failed.");
             goto fail;
         }
     }
