@@ -239,6 +239,13 @@ typedef struct WASMModuleInstanceExtraCommon {
     /* Disable bounds checks or not */
     bool disable_bounds_checks;
 #endif
+
+#if WASM_ENABLE_GC != 0
+    /* The gc heap memory pool */
+    uint8 *gc_heap_pool;
+    /* The gc heap created */
+    void *gc_heap_handle;
+#endif
 } WASMModuleInstanceExtraCommon;
 
 /* Extra info of WASM module instance for interpreter/jit mode */
@@ -263,13 +270,6 @@ typedef struct WASMModuleInstanceExtra {
     bh_list *sub_module_inst_list;
     /* linked table instances of import table instances */
     WASMTableInstance **table_insts_linked;
-#endif
-
-#if WASM_ENABLE_GC != 0
-    /* The gc heap memory pool */
-    uint8 *gc_heap_pool;
-    /* The gc heap created */
-    void *gc_heap_handle;
 #endif
 
 #if WASM_ENABLE_MEMORY_PROFILING != 0

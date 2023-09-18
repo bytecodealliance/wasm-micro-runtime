@@ -1253,14 +1253,14 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
         if (gc_heap_size > GC_HEAP_SIZE_MAX)
             gc_heap_size = GC_HEAP_SIZE_MAX;
 
-        extra->gc_heap_pool =
+        extra->common.gc_heap_pool =
             runtime_malloc(gc_heap_size, error_buf, error_buf_size);
-        if (!extra->gc_heap_pool)
+        if (!extra->common.gc_heap_pool)
             goto fail;
 
-        extra->gc_heap_handle =
-            mem_allocator_create(extra->gc_heap_pool, gc_heap_size);
-        if (!extra->gc_heap_handle)
+        extra->common.gc_heap_handle =
+            mem_allocator_create(extra->common.gc_heap_pool, gc_heap_size);
+        if (!extra->common.gc_heap_handle)
             goto fail;
     }
 #endif
@@ -1442,10 +1442,10 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
     if (!is_sub_inst) {
         AOTModuleInstanceExtra *extra =
             (AOTModuleInstanceExtra *)module_inst->e;
-        if (extra->gc_heap_handle)
-            mem_allocator_destroy(extra->gc_heap_handle);
-        if (extra->gc_heap_pool)
-            wasm_runtime_free(extra->gc_heap_pool);
+        if (extra->common.gc_heap_handle)
+            mem_allocator_destroy(extra->common.gc_heap_handle);
+        if (extra->common.gc_heap_pool)
+            wasm_runtime_free(extra->common.gc_heap_pool);
     }
 #endif
 
@@ -3583,7 +3583,7 @@ aot_create_func_obj(AOTModuleInstance *module_inst, uint32 func_idx,
     }
 
     if (!(func_obj = wasm_func_obj_new_internal(
-              ((AOTModuleInstanceExtra *)module_inst->e)->gc_heap_handle,
+              ((AOTModuleInstanceExtra *)module_inst->e)->common.gc_heap_handle,
               rtt_type, func_idx))) {
         set_error_buf(error_buf, error_buf_size, "create func object failed");
         return NULL;

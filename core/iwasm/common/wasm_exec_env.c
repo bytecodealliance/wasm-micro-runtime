@@ -151,7 +151,8 @@ wasm_exec_env_create(struct WASMModuleInstanceCommon *module_inst,
         exec_env->aux_stack_boundary.boundary =
             module->aux_stack_bottom - module->aux_stack_size;
 #if WASM_ENABLE_GC != 0
-        gc_heap_handle = ((WASMModuleInstance *)module_inst)->e->gc_heap_handle;
+        gc_heap_handle =
+            ((WASMModuleInstance *)module_inst)->e->common.gc_heap_pool;
 #endif
     }
 #endif
@@ -166,7 +167,7 @@ wasm_exec_env_create(struct WASMModuleInstanceCommon *module_inst,
 #if WASM_ENABLE_GC != 0
         gc_heap_handle =
             ((AOTModuleInstanceExtra *)((AOTModuleInstance *)module_inst)->e)
-                ->gc_heap_handle;
+                ->common.gc_heap_handle;
 #endif
     }
 #endif

@@ -906,13 +906,14 @@ wasm_runtime_set_gc_heap_handle(WASMModuleInstanceCommon *module_inst,
 {
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode)
-        ((WASMModuleInstance *)module_inst)->e->gc_heap_handle = gc_heap_handle;
+        ((WASMModuleInstance *)module_inst)->e->common.gc_heap_handle =
+            gc_heap_handle;
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT) {
         AOTModuleInstanceExtra *e =
             (AOTModuleInstanceExtra *)((AOTModuleInstance *)module_inst)->e;
-        e->gc_heap_handle = gc_heap_handle;
+        e->common.gc_heap_handle = gc_heap_handle;
     }
 #endif
 }
@@ -922,13 +923,13 @@ wasm_runtime_get_gc_heap_handle(WASMModuleInstanceCommon *module_inst)
 {
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode)
-        return ((WASMModuleInstance *)module_inst)->e->gc_heap_handle;
+        return ((WASMModuleInstance *)module_inst)->e->common.gc_heap_handle;
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT) {
         AOTModuleInstanceExtra *e =
             (AOTModuleInstanceExtra *)((AOTModuleInstance *)module_inst)->e;
-        return e->gc_heap_handle;
+        return e->common.gc_heap_handle;
     }
 #endif
     return NULL;
