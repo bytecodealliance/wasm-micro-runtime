@@ -16,8 +16,7 @@ extern "C" {
 
 #if WASM_ENABLE_EXCE_HANDLING != 0
 #define _EXCEWARNING \
-    LOG_WARNING                /* for exception handling misbehavior logging */
-#define _EXCEDEBUG LOG_VERBOSE /* for exception handling debugging */
+    LOG_WARNING /* for exception handling misbehavior logging */
 #define _EXCEVERBOSE \
     LOG_VERBOSE /* more excessive tracing of tagbrowsing and stack pointers */
 #endif
