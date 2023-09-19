@@ -1555,12 +1555,15 @@ wasm_runtime_get_context(wasm_module_inst_t inst, void *key);
  *
  * eg.
  *
- *   if (!wasm_runtime_begin_blocking_op) {
+ *   if (!wasm_runtime_begin_blocking_op(exec_env)) {
  *       return EINTR;
  *   }
  *   ret = possibly_blocking_op();
- *   wasm_runtime_end_blocking_op(env);
+ *   wasm_runtime_end_blocking_op(exec_env);
  *   return ret;
+ *
+ * If threading support (WASM_ENABLE_THREAD_MGR) is not enabled,
+ * these functions are no-op.
  *
  * If the underlying platform support (OS_ENABLE_WAKEUP_BLOCKING_OP) is
  * not available, these functions are no-op. In that case, the runtime
