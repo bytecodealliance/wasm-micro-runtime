@@ -39,7 +39,7 @@ typedef struct WASMInterpFrame {
      * result values on the stack
      */
     bool exception_raised;
-    uint32_t tag_index;
+    uint32 tag_index;
 #endif
 
 #if WASM_ENABLE_FAST_INTERP != 0

@@ -1427,9 +1427,11 @@ load_tag_import(const uint8 **p_buf, const uint8 *buf_end,
                 (WASMType *)sub_module->types[imp_tag->type];
             /* fill import tag*/
             tag->tag_index_linked = export->index;
+            tag->tag_type = (WASMType *)sub_module->types[imp_tag->type];
+#if WASM_ENABLE_MULTI_MODULE != 0
             tag->import_module = (WASMModule *)module_reg;
             tag->import_tag_linked = &sub_module->tags[export->index];
-            tag->tag_type = (WASMType *)sub_module->types[imp_tag->type];
+#endif
         }
     }
 

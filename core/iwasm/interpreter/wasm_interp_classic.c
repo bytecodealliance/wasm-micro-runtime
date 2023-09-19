@@ -356,7 +356,6 @@ read_leb(const uint8 *buf, uint32 *p_offset, uint32 maxbits, bool sign)
         frame_csp++;                                                    \
     } while (0)
 
-
 #define POP_I32() (--frame_sp, *(int32 *)frame_sp)
 
 #define POP_F32() (--frame_sp, *(float32 *)frame_sp)
@@ -1280,10 +1279,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
             /* landig pad for the rethrow ? */
             find_a_catch_handler:
-                __attribute__((unused)) do {}
-                while (0)
-                    ;
-
+            {
                 /* browse through frame stack */
                 uint32 relative_depth = 0;
                 do {
@@ -1513,6 +1509,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     relative_depth++;
 
                 } while (1);
+            }
 
                 /* something went wrong. normally, we should always find the
                  * func label. if not, stop the interpreter */
@@ -4228,6 +4225,15 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         HANDLE_OP(WASM_OP_REF_IS_NULL)
         HANDLE_OP(WASM_OP_REF_FUNC)
 #endif
+#if WASM_ENABLE_EXCE_HANDLING == 0
+        HANDLE_OP(WASM_OP_TRY)
+        HANDLE_OP(WASM_OP_CATCH)
+        HANDLE_OP(WASM_OP_THROW)
+        HANDLE_OP(WASM_OP_RETHROW)
+        HANDLE_OP(WASM_OP_DELEGATE)
+        HANDLE_OP(WASM_OP_CATCH_ALL)
+        HANDLE_OP(EXT_OP_TRY)
+#endif
         HANDLE_OP(WASM_OP_UNUSED_0x14)
         HANDLE_OP(WASM_OP_UNUSED_0x15)
         HANDLE_OP(WASM_OP_UNUSED_0x16)
@@ -4287,7 +4293,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 bool has_exception =
                     wasm_copy_exception(module, uncaught_exception);
                 if (has_exception
-                    && strcmp(uncaught_exception, "uncaught wasm exception")
+                    && strstr(uncaught_exception, "uncaught wasm exception")
                            == 0) {
                     /* fix framesp */
                     UPDATE_ALL_FROM_FRAME();
@@ -4356,7 +4362,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                 /* libc_builtin signaled a "exception thrown by stdc++" trap */
                 if (has_exception
-                    && strcmp(uncaught_exception, "exception thrown by stdc++")
+                    && strstr(uncaught_exception, "exception thrown by stdc++")
                            == 0) {
                     wasm_set_exception(module, NULL);
 
@@ -4368,7 +4374,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 /* when throw hits the end of a function it signalles with a
                  * "uncaught wasm exception" trap */
                 if (has_exception
-                    && strcmp(uncaught_exception, "uncaught wasm exception")
+                    && strstr(uncaught_exception, "uncaught wasm exception")
                            == 0) {
                     wasm_set_exception(module, NULL);
                     exception_tag_index = POP_I32();
