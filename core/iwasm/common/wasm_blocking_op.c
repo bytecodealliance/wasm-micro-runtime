@@ -74,6 +74,7 @@ wasm_runtime_interrupt_blocking_op(wasm_exec_env_t env)
         os_usleep(50 * 1000);
         LOCK(env);
     }
+    UNLOCK(env);
 }
 
 #else /* WASM_ENABLE_THREAD_MGR && OS_ENABLE_WAKEUP_BLOCKING_OP */
