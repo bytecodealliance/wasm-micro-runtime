@@ -5,6 +5,9 @@
 
 #include "aot_emit_control.h"
 #include "aot_emit_exception.h"
+#if WASM_ENABLE_GC != 0
+#include "aot_emit_gc.h"
+#endif
 #include "../aot/aot_runtime.h"
 #include "../interpreter/wasm_loader.h"
 
@@ -800,26 +803,17 @@ fail:
     return false;
 }
 
-bool
-aot_compile_op_br_if(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                     uint32 br_depth, uint8 **p_frame_ip)
+static bool
+aot_compile_conditional_br(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                           uint32 br_depth, uint8 **p_frame_ip,
+                           LLVMValueRef value_cmp)
 {
     AOTBlock *block_dst;
-    LLVMValueRef value_cmp, value, *values = NULL;
+    LLVMValueRef value, *values = NULL;
     LLVMBasicBlockRef llvm_else_block, next_llvm_end_block;
     char name[32];
     uint32 i, param_index, result_index;
     uint64 size;
-
-#if WASM_ENABLE_THREAD_MGR != 0
-    /* Insert suspend check point */
-    if (comp_ctx->enable_thread_mgr) {
-        if (!check_suspend_flags(comp_ctx, func_ctx))
-            return false;
-    }
-#endif
-
-    POP_COND(value_cmp);
 
     if (LLVMIsUndef(value_cmp)
 #if LLVM_VERSION_NUMBER >= 12
@@ -931,6 +925,28 @@ aot_compile_op_br_if(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 fail:
     if (values)
         wasm_runtime_free(values);
+    return false;
+}
+
+bool
+aot_compile_op_br_if(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                     uint32 br_depth, uint8 **p_frame_ip)
+{
+    LLVMValueRef value_cmp;
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (comp_ctx->enable_thread_mgr) {
+        if (!check_suspend_flags(comp_ctx, func_ctx))
+            return false;
+    }
+#endif
+
+    POP_COND(value_cmp);
+
+    return aot_compile_conditional_br(comp_ctx, func_ctx, br_depth, p_frame_ip,
+                                      value_cmp);
+fail:
     return false;
 }
 
@@ -1153,3 +1169,157 @@ aot_handle_next_reachable_block(AOTCompContext *comp_ctx,
 {
     return handle_next_reachable_block(comp_ctx, func_ctx, p_frame_ip);
 }
+
+#if WASM_ENABLE_GC != 0
+bool
+aot_compile_op_br_on_null(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                          uint32 br_depth, uint8 **p_frame_ip)
+{
+    LLVMValueRef gc_obj, value_cmp;
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (comp_ctx->enable_thread_mgr) {
+        if (!check_suspend_flags(comp_ctx, func_ctx))
+            return false;
+    }
+#endif
+
+    GET_REF_FROM_STACK(gc_obj);
+
+    if (!(value_cmp =
+              LLVMBuildIsNull(comp_ctx->builder, gc_obj, "cmp gc obj"))) {
+        aot_set_last_error("llvm build isnull failed.");
+        goto fail;
+    }
+
+    return aot_compile_conditional_br(comp_ctx, func_ctx, br_depth, p_frame_ip,
+                                      value_cmp);
+fail:
+    return false;
+}
+
+bool
+aot_compile_op_br_on_non_null(AOTCompContext *comp_ctx,
+                              AOTFuncContext *func_ctx, uint32 br_depth,
+                              uint8 **p_frame_ip)
+{
+    LLVMValueRef gc_obj, value_cmp;
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (comp_ctx->enable_thread_mgr) {
+        if (!check_suspend_flags(comp_ctx, func_ctx))
+            return false;
+    }
+#endif
+
+    GET_REF_FROM_STACK(gc_obj);
+
+    if (!(value_cmp =
+              LLVMBuildIsNotNull(comp_ctx->builder, gc_obj, "cmp gc obj"))) {
+        aot_set_last_error("llvm build isnotnull failed.");
+        goto fail;
+    }
+
+    return aot_compile_conditional_br(comp_ctx, func_ctx, br_depth, p_frame_ip,
+                                      value_cmp);
+fail:
+    return false;
+}
+
+bool
+aot_compile_op_br_on_cast(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                          int32 heap_type, bool nullable, bool br_on_fail,
+                          uint32 br_depth, uint8 **p_frame_ip)
+{
+    LLVMValueRef gc_obj, cmp, castable, is_branching_phi, phi_values[2];
+    LLVMBasicBlockRef gc_obj_null, gc_obj_non_null, conditional_branching,
+        phi_blocks[2];
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (comp_ctx->enable_thread_mgr) {
+        if (!check_suspend_flags(comp_ctx, func_ctx))
+            return false;
+    }
+#endif
+
+    GET_REF_FROM_STACK(gc_obj);
+
+    /* Create if block */
+    CREATE_BLOCK(gc_obj_null, "gc_obj_null");
+    MOVE_BLOCK_AFTER_CURR(gc_obj_null);
+
+    /* Create else block */
+    CREATE_BLOCK(gc_obj_non_null, "gc_obj_non_null");
+    MOVE_BLOCK_AFTER_CURR(gc_obj_non_null);
+
+    /* Create branch_on block */
+    CREATE_BLOCK(conditional_branching, "conditional branching");
+    MOVE_BLOCK_AFTER_CURR(conditional_branching);
+
+    if (!(cmp = LLVMBuildIsNull(comp_ctx->builder, gc_obj, "cmp gc obj"))) {
+        aot_set_last_error("llvm build isnull failed.");
+        goto fail;
+    }
+    BUILD_COND_BR(cmp, gc_obj_null, gc_obj_non_null);
+
+    /* Move builder to gc_obj NULL block */
+    SET_BUILDER_POS(gc_obj_null);
+    if ((!br_on_fail && nullable) || (br_on_fail && !nullable)) {
+        /* WASM_OP_BR_ON_CAST_NULLABLE or WASM_OP_BR_ON_CAST_FAIL, branching */
+        phi_values[0] = I8_CONST(1);
+    }
+    else {
+        phi_values[1] = I8_ZERO;
+    }
+    BUILD_BR(conditional_branching);
+
+    /* Move builder to gc_obj non NULL block */
+    SET_BUILDER_POS(gc_obj_non_null);
+    if (heap_type >= 0) {
+        if (!aot_call_aot_obj_is_instance_of(comp_ctx, func_ctx, gc_obj,
+                                             I32_CONST(heap_type), &castable))
+            goto fail;
+    }
+    else {
+        if (!aot_call_wasm_obj_is_type_of(comp_ctx, func_ctx, gc_obj,
+                                          I32_CONST(heap_type), &castable))
+            goto fail;
+    }
+
+    if (!br_on_fail) {
+        /* WASM_OP_BR_ON_CAST || WASM_OP_BR_ON_CAST_NULLABLE */
+        BUILD_ICMP(LLVMIntNE, castable, I8_ZERO, phi_values[1], "castable");
+    }
+    else {
+        /* WASM_OP_BR_ON_CAST_FAIL || WASM_OP_BR_ON_CAST_FAIL_NULLABLE */
+        BUILD_ICMP(LLVMIntEQ, castable, I8_ZERO, phi_values[1], "castable");
+    }
+    BUILD_BR(conditional_branching);
+
+    /* Move builder to branch_on block */
+    SET_BUILDER_POS(conditional_branching);
+    /* create phi for branching condition, since it can come from both if and
+     * else block */
+    if (!(is_branching_phi =
+              LLVMBuildPhi(comp_ctx->builder, INT8_TYPE, "is_branching_phi"))) {
+        aot_set_last_error("llvm build phi failed.");
+        goto fail;
+    }
+
+    phi_blocks[0] = gc_obj_null;
+    phi_blocks[1] = gc_obj_non_null;
+    LLVMAddIncoming(is_branching_phi, phi_values, phi_blocks, 2);
+
+    if (!aot_compile_conditional_br(comp_ctx, func_ctx, br_depth, p_frame_ip,
+                                    is_branching_phi))
+        goto fail;
+
+    return true;
+fail:
+    return false;
+}
+
+#endif /* End of WASM_ENABLE_GC != 0 */

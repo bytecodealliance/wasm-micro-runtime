@@ -662,6 +662,10 @@ void *
 aot_create_func_obj(AOTModuleInstance *module_inst, uint32 func_idx,
                     bool throw_exce, char *error_buf, uint32 error_buf_size);
 
+bool
+aot_obj_is_instance_of(AOTModuleInstance *module_inst, WASMObjectRef gc_obj,
+                       uint32 type_index);
+
 #endif /* end of WASM_ENABLE_GC != 0 */
 
 #ifdef __cplusplus

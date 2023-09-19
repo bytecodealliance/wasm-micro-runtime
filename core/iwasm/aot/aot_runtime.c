@@ -3592,4 +3592,15 @@ aot_create_func_obj(AOTModuleInstance *module_inst, uint32 func_idx,
     return func_obj;
 }
 
+bool
+aot_obj_is_instance_of(AOTModuleInstance *module_inst, WASMObjectRef gc_obj,
+                       uint32 type_index)
+{
+    AOTModule *aot_module = (AOTModule *)module_inst->module;
+    AOTType **types = aot_module->types;
+    uint32 type_count = aot_module->type_count;
+
+    return wasm_obj_is_instance_of(gc_obj, type_index, types, type_count);
+}
+
 #endif /* end of WASM_ENABLE_GC != 0 */

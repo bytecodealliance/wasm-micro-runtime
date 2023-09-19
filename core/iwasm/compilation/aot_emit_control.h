@@ -55,6 +55,22 @@ bool
 check_suspend_flags(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
 #endif
 
+#if WASM_ENABLE_GC != 0
+bool
+aot_compile_op_br_on_null(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                          uint32 br_depth, uint8 **p_frame_ip);
+
+bool
+aot_compile_op_br_on_non_null(AOTCompContext *comp_ctx,
+                              AOTFuncContext *func_ctx, uint32 br_depth,
+                              uint8 **p_frame_ip);
+
+bool
+aot_compile_op_br_on_cast(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                          int32 heap_type, bool nullable, bool br_on_fail,
+                          uint32 br_depth, uint8 **p_frame_ip);
+#endif
+
 #ifdef __cplusplus
 } /* end of extern "C" */
 #endif

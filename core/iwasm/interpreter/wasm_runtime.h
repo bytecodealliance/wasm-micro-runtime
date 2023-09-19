@@ -69,6 +69,7 @@ typedef enum WASMExceptionID {
     EXCE_FAILED_TO_COMPILE_FAST_JIT_FUNC,
     EXCE_ALREADY_THROWN,
     EXCE_NULL_GC_REF,
+    EXCE_TYPE_NONCASTABLE,
     EXCE_NUM,
 } WASMExceptionID;
 
@@ -706,6 +707,10 @@ void *
 llvm_jit_create_func_obj(WASMModuleInstance *module_inst, uint32 func_idx,
                          bool throw_exce, char *error_buf,
                          uint32 error_buf_size);
+
+bool
+llvm_jit_obj_is_instance_of(WASMModuleInstance *module_inst,
+                            WASMObjectRef gc_obj, uint32 type_index);
 #endif
 #endif /* end of WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0 */
 

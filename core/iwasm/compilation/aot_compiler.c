@@ -15,6 +15,7 @@
 #include "aot_emit_function.h"
 #include "aot_emit_parametric.h"
 #include "aot_emit_table.h"
+#include "aot_emit_gc.h"
 #include "simd/simd_access_lanes.h"
 #include "simd/simd_bitmask_extracts.h"
 #include "simd/simd_bit_shifts.h"
@@ -525,7 +526,159 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                     return false;
                 break;
             }
-#endif
+#endif /* end of WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0 */
+
+#if WASM_ENABLE_GC != 0
+
+            case WASM_OP_CALL_REF:
+                if (!comp_ctx->enable_gc) {
+                    goto unsupport_gc;
+                }
+
+                read_leb_uint32(frame_ip, frame_ip_end, type_idx);
+                if (!aot_compile_op_call_ref(comp_ctx, func_ctx, type_idx,
+                                             false))
+                    return false;
+                break;
+
+            case WASM_OP_RETURN_CALL_REF:
+                if (!comp_ctx->enable_gc) {
+                    goto unsupport_gc;
+                }
+
+                read_leb_uint32(frame_ip, frame_ip_end, type_idx);
+                if (!aot_compile_op_call_ref(comp_ctx, func_ctx, type_idx,
+                                             true))
+                    return false;
+                if (!aot_compile_op_return(comp_ctx, func_ctx, &frame_ip))
+                    return false;
+                break;
+
+            case WASM_OP_REF_EQ:
+                if (!comp_ctx->enable_gc) {
+                    goto unsupport_gc;
+                }
+
+                if (!aot_compile_op_ref_eq(comp_ctx, func_ctx))
+                    return false;
+                break;
+
+            case WASM_OP_REF_AS_NON_NULL:
+                if (!comp_ctx->enable_gc) {
+                    goto unsupport_gc;
+                }
+
+                if (!aot_compile_op_ref_as_non_null(comp_ctx, func_ctx))
+                    return false;
+                break;
+
+            case WASM_OP_BR_ON_NULL:
+                if (!comp_ctx->enable_gc) {
+                    goto unsupport_gc;
+                }
+
+                read_leb_uint32(frame_ip, frame_ip_end, br_depth);
+                if (!aot_compile_op_br_on_null(comp_ctx, func_ctx, br_depth,
+                                               &frame_ip))
+                    return false;
+                break;
+
+            case WASM_OP_BR_ON_NON_NULL:
+                if (!comp_ctx->enable_gc) {
+                    goto unsupport_gc;
+                }
+
+                read_leb_uint32(frame_ip, frame_ip_end, br_depth);
+                if (!aot_compile_op_br_on_non_null(comp_ctx, func_ctx, br_depth,
+                                                   &frame_ip))
+                    return false;
+                break;
+
+            case WASM_OP_GC_PREFIX:
+            {
+                if (!comp_ctx->enable_gc) {
+                    goto unsupport_gc;
+                }
+
+                uint32 opcode1;
+
+                read_leb_uint32(frame_ip, frame_ip_end, opcode1);
+                opcode = (uint8)opcode1;
+
+                switch (opcode) {
+                    case WASM_OP_I31_NEW:
+                        if (!aot_compile_op_i31_new(comp_ctx, func_ctx))
+                            return false;
+                        break;
+
+                    case WASM_OP_I31_GET_S:
+                    case WASM_OP_I31_GET_U:
+                        if (!aot_compile_op_i31_get(
+                                comp_ctx, func_ctx,
+                                opcode == WASM_OP_I31_GET_S ? true : false))
+                            return false;
+                        break;
+
+                    case WASM_OP_REF_TEST:
+                    case WASM_OP_REF_TEST_NULLABLE:
+                    case WASM_OP_REF_CAST:
+                    case WASM_OP_REF_CAST_NULLABLE:
+                    {
+                        int32 heap_type;
+
+                        read_leb_int32(frame_ip, frame_ip_end, heap_type);
+                        if (!aot_compile_op_ref_test(
+                                comp_ctx, func_ctx, heap_type,
+                                opcode == WASM_OP_REF_TEST_NULLABLE
+                                    || opcode == WASM_OP_REF_CAST_NULLABLE,
+                                opcode == WASM_OP_REF_CAST
+                                    || opcode == WASM_OP_REF_CAST_NULLABLE))
+                            return false;
+                        break;
+                    }
+
+                    case WASM_OP_BR_ON_CAST:
+                    case WASM_OP_BR_ON_CAST_FAIL:
+                    case WASM_OP_BR_ON_CAST_NULLABLE:
+                    case WASM_OP_BR_ON_CAST_FAIL_NULLABLE:
+                    {
+                        int32 heap_type;
+
+                        read_leb_uint32(frame_ip, frame_ip_end, br_depth);
+                        read_leb_int32(frame_ip, frame_ip_end, heap_type);
+
+                        if (!aot_compile_op_br_on_cast(
+                                comp_ctx, func_ctx, heap_type,
+                                opcode == WASM_OP_BR_ON_CAST_NULLABLE
+                                    || opcode
+                                           == WASM_OP_BR_ON_CAST_FAIL_NULLABLE,
+                                opcode == WASM_OP_BR_ON_CAST_FAIL
+                                    || opcode
+                                           == WASM_OP_BR_ON_CAST_FAIL_NULLABLE,
+                                br_depth, &frame_ip))
+                            return false;
+                        break;
+                    }
+
+                    case WASM_OP_EXTERN_INTERNALIZE:
+                        if (!aot_compile_op_extern_internalize(comp_ctx,
+                                                               func_ctx))
+                            return false;
+                        break;
+
+                    case WASM_OP_EXTERN_EXTERNALIZE:
+                        if (!aot_compile_op_extern_externalize(comp_ctx,
+                                                               func_ctx))
+                            return false;
+                        break;
+
+                    default:
+                        aot_set_last_error("unsupported opcode");
+                        return false;
+                }
+            }
+
+#endif /* end of WASM_ENABLE_GC != 0 */
 
             case WASM_OP_GET_LOCAL:
                 read_leb_uint32(frame_ip, frame_ip_end, local_idx);
@@ -2587,6 +2740,13 @@ unsupport_simd:
 unsupport_ref_types:
     aot_set_last_error("reference type instruction was found, "
                        "try removing --disable-ref-types option");
+    return false;
+#endif
+
+#if WASM_ENABLE_GC != 0
+unsupport_gc:
+    aot_set_last_error("garbage collection instruction was found, "
+                       "try adding --enable-gc");
     return false;
 #endif
 
