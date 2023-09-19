@@ -1580,7 +1580,7 @@ wasm_runtime_get_context(wasm_module_inst_t inst, void *key);
  *
  * For example, on POSIX-like platforms, a signal (by default SIGUSR1) is
  * used. The signal delivery configurations (eg. signal handler, signal mask,
- * etc) for the signal is set up by the runtime. You can change the signal
+ * etc) for the signal are set up by the runtime. You can change the signal
  * to use for this purpose by calling os_set_signal_number_for_blocking_op
  * before the runtime initialization.
  */
