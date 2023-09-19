@@ -3449,7 +3449,8 @@ llvm_jit_table_grow(WASMModuleInstance *module_inst, uint32 tbl_idx,
 }
 #endif /* end of WASM_ENABLE_REF_TYPES != 0 */
 
-#if WASM_ENABLE_DUMP_CALL_STACK != 0 || WASM_ENABLE_PERF_PROFILING != 0
+#if WASM_ENABLE_DUMP_CALL_STACK != 0 || WASM_ENABLE_PERF_PROFILING != 0 \
+    || WASM_ENABLE_JIT_STACK_FRAME != 0
 bool
 llvm_jit_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
 {
@@ -3523,7 +3524,8 @@ llvm_jit_free_frame(WASMExecEnv *exec_env)
     wasm_exec_env_set_cur_frame(exec_env, prev_frame);
 }
 #endif /* end of WASM_ENABLE_DUMP_CALL_STACK != 0 \
-          || WASM_ENABLE_PERF_PROFILING != 0 */
+          || WASM_ENABLE_PERF_PROFILING != 0      \
+          || WASM_ENABLE_JIT_STACK_FRAME != 0 */
 
 #endif /* end of WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0 */
 

@@ -662,7 +662,9 @@ aot_compile_op_else(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     if (aot_frame) {
         bh_assert(block->frame_sp_begin == aot_frame->sp);
-        aot_gen_commit_values(aot_frame);
+        if (!aot_gen_commit_values(aot_frame)) {
+            goto fail;
+        }
     }
 
     /* Jump to end block */
