@@ -70,6 +70,7 @@ typedef enum WASMExceptionID {
     EXCE_ALREADY_THROWN,
     EXCE_NULL_GC_REF,
     EXCE_TYPE_NONCASTABLE,
+    EXCE_ARRAY_OOB,
     EXCE_NUM,
 } WASMExceptionID;
 
