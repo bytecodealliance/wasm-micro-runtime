@@ -1538,8 +1538,8 @@ wasm_create_func_obj(WASMModuleInstance *module_inst, uint32 func_idx,
         return NULL;
     }
 
-    if (!(func_obj = wasm_func_obj_new_internal(module_inst->e->gc_heap_handle,
-                                                rtt_type, func_idx))) {
+    if (!(func_obj = wasm_func_obj_new_internal(
+              module_inst->e->common.gc_heap_handle, rtt_type, func_idx))) {
         set_error_buf(error_buf, error_buf_size, "create func object failed");
         return NULL;
     }
@@ -1906,14 +1906,14 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
         if (gc_heap_size > GC_HEAP_SIZE_MAX)
             gc_heap_size = GC_HEAP_SIZE_MAX;
 
-        module_inst->e->gc_heap_pool =
+        module_inst->e->common.gc_heap_pool =
             runtime_malloc(gc_heap_size, error_buf, error_buf_size);
-        if (!module_inst->e->gc_heap_pool)
+        if (!module_inst->e->common.gc_heap_pool)
             goto fail;
 
-        module_inst->e->gc_heap_handle =
-            mem_allocator_create(module_inst->e->gc_heap_pool, gc_heap_size);
-        if (!module_inst->e->gc_heap_handle)
+        module_inst->e->common.gc_heap_handle = mem_allocator_create(
+            module_inst->e->common.gc_heap_pool, gc_heap_size);
+        if (!module_inst->e->common.gc_heap_handle)
             goto fail;
     }
 #endif
@@ -2504,10 +2504,10 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
 
 #if WASM_ENABLE_GC != 0
     if (!is_sub_inst) {
-        if (module_inst->e->gc_heap_handle)
-            mem_allocator_destroy(module_inst->e->gc_heap_handle);
-        if (module_inst->e->gc_heap_pool)
-            wasm_runtime_free(module_inst->e->gc_heap_pool);
+        if (module_inst->e->common.gc_heap_handle)
+            mem_allocator_destroy(module_inst->e->common.gc_heap_handle);
+        if (module_inst->e->common.gc_heap_pool)
+            wasm_runtime_free(module_inst->e->common.gc_heap_pool);
     }
 #endif
 

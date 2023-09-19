@@ -16,6 +16,10 @@ if (NOT DEFINED WAMR_BUILD_TARGET)
   if (CMAKE_SIZEOF_VOID_P EQUAL 8)
     # Build as X86_64 by default in 64-bit platform
     set (WAMR_BUILD_TARGET "X86_64")
+    if (NOT DEFINED WAMR_BUILD_SIMD)
+      # Enable SIMD by default in 64-bit platform
+      set (WAMR_BUILD_SIMD 1)
+    endif ()
   elseif (CMAKE_SIZEOF_VOID_P EQUAL 4)
     # Build as X86_32 by default in 32-bit platform
     set (WAMR_BUILD_TARGET "X86_32")

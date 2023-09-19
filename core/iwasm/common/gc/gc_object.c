@@ -65,11 +65,14 @@ get_gc_heap_handle(WASMExecEnv *exec_env)
 
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode)
-        gc_heap_handle = ((WASMModuleInstance *)module_inst)->e->gc_heap_handle;
+        gc_heap_handle =
+            ((WASMModuleInstance *)module_inst)->e->common.gc_heap_handle;
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT)
-        gc_heap_handle = NULL; /* TODO */
+        gc_heap_handle =
+            ((AOTModuleInstanceExtra *)((AOTModuleInstance *)module_inst)->e)
+                ->common.gc_heap_handle;
 #endif
 
     bh_assert(gc_heap_handle);

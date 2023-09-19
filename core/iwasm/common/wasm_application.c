@@ -564,7 +564,7 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
     }
 
     wasm_runtime_set_exception(module_inst, NULL);
-#if !(WASM_ENABLE_REF_TYPES != 0 && WASM_ENABLE_GC == 0)
+#if WASM_ENABLE_REF_TYPES == 0 && WASM_ENABLE_GC == 0
     bh_assert(p == (int32)argc1);
 #endif
 

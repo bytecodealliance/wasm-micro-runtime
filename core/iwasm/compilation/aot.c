@@ -136,6 +136,9 @@ aot_create_table_init_data_list(const WASMModule *module)
                     sizeof(AOTInitExpr));
         data_list[i]->func_index_count =
             module->table_segments[i].function_count;
+#if WASM_ENABLE_GC != 0
+        data_list[i]->elem_ref_type = module->table_segments[i].elem_ref_type;
+#endif
         bh_memcpy_s(
             data_list[i]->func_indexes,
             sizeof(uintptr_t) * module->table_segments[i].function_count,
@@ -460,6 +463,10 @@ aot_create_comp_data(WASMModule *module, bool gc_enabled)
                     module->import_tables[i].u.table.init_size;
                 comp_data->tables[i].table_max_size =
                     module->import_tables[i].u.table.max_size;
+#if WASM_ENABLE_GC != 0
+                comp_data->tables[i].elem_ref_type =
+                    module->import_tables[i].u.table.elem_ref_type;
+#endif
                 comp_data->tables[i].possible_grow =
                     module->import_tables[i].u.table.possible_grow;
             }
