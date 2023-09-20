@@ -345,15 +345,15 @@ read_leb(const uint8 *buf, uint32 *p_offset, uint32 maxbits, bool sign)
 #define SET_LABEL_TYPE(_label_type) (void)0
 #endif
 
-#define PUSH_CSP(_label_type, param_cell_num, cell_num, _target_addr)   \
-    do {                                                                \
-        bh_assert(frame_csp < frame->csp_boundary);                     \
-        SET_LABEL_TYPE(_label_type);                                    \
-        frame_csp->cell_num = cell_num;                                 \
-        frame_csp->begin_addr = frame_ip;                               \
-        frame_csp->target_addr = _target_addr;                          \
-        frame_csp->frame_sp = frame_sp - param_cell_num;                \
-        frame_csp++;                                                    \
+#define PUSH_CSP(_label_type, param_cell_num, cell_num, _target_addr) \
+    do {                                                              \
+        bh_assert(frame_csp < frame->csp_boundary);                   \
+        SET_LABEL_TYPE(_label_type);                                  \
+        frame_csp->cell_num = cell_num;                               \
+        frame_csp->begin_addr = frame_ip;                             \
+        frame_csp->target_addr = _target_addr;                        \
+        frame_csp->frame_sp = frame_sp - param_cell_num;              \
+        frame_csp++;                                                  \
     } while (0)
 
 #define POP_I32() (--frame_sp, *(int32 *)frame_sp)
@@ -1248,7 +1248,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                           || tgtframe->label_type == LABEL_TYPE_CATCH_ALL);
 
                 /* tgtframe points to the frame containing a thrown
-                    * exception */
+                 * exception */
 
                 uint32 *tgtframe_sp = tgtframe->frame_sp;
 
@@ -4293,22 +4293,21 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 bool has_exception =
                     wasm_copy_exception(module, uncaught_exception);
                 if (has_exception
-                    && strstr(uncaught_exception, "uncaught wasm exception")
-                           == 0) {
+                    && strstr(uncaught_exception, "uncaught wasm exception")) {
                     /* fix framesp */
                     UPDATE_ALL_FROM_FRAME();
 
-                    uint32_t import_exception =
+                    uint32 import_exception =
                         0xFFFFFFFF; /* initialize imported exception index to be
                                        invalid */
                     /* pull external exception */
-                    uint32_t ext_exception = POP_I32();
+                    uint32 ext_exception = POP_I32();
 
                     WASMModule *im_mod = cur_func->u.func_import->import_module;
 
                     /* external function came back with an exception or trap */
                     /* lookup exception in import tags */
-                    uint32_t import_tag_index;
+                    uint32 import_tag_index;
                     for (import_tag_index = 0;
                          import_tag_index < module->module->import_tag_count;
                          import_tag_index++) {
@@ -4362,8 +4361,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                 /* libc_builtin signaled a "exception thrown by stdc++" trap */
                 if (has_exception
-                    && strstr(uncaught_exception, "exception thrown by stdc++")
-                           == 0) {
+                    && strstr(uncaught_exception,
+                              "exception thrown by stdc++")) {
                     wasm_set_exception(module, NULL);
 
                     /* setup internal c++ rethrow */
@@ -4374,8 +4373,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 /* when throw hits the end of a function it signalles with a
                  * "uncaught wasm exception" trap */
                 if (has_exception
-                    && strstr(uncaught_exception, "uncaught wasm exception")
-                           == 0) {
+                    && strstr(uncaught_exception, "uncaught wasm exception")) {
                     wasm_set_exception(module, NULL);
                     exception_tag_index = POP_I32();
 

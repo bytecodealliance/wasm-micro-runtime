@@ -2833,15 +2833,13 @@ load_tag_section(const uint8 *buf, const uint8 *buf_end, const uint8 *buf_code,
     const uint8 *p = buf, *p_end = buf_end;
     size_t total_size = 0;
     /* number of tags defined in the section */
-    uint32 section_tag_count = 0; 
+    uint32 section_tag_count = 0;
     uint8 tag_attribute;
     uint32 tag_type;
 
     /* get tag count */
     read_leb_uint32(p, p_end, section_tag_count);
-    module->tag_count =
-        module->import_tag_count
-        + section_tag_count; 
+    module->tag_count = module->import_tag_count + section_tag_count;
 
     if (section_tag_count) {
         total_size = sizeof(WASMTag) * module->tag_count;
