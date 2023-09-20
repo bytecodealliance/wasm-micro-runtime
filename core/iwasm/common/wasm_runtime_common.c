@@ -457,8 +457,21 @@ wasm_runtime_env_init()
     }
 #endif
 
+#if WASM_ENABLE_THREAD_MGR != 0 && defined(OS_ENABLE_WAKEUP_BLOCKING_OP)
+    if (os_blocking_op_init() != BHT_OK) {
+        goto fail11;
+    }
+    os_end_blocking_op();
+#endif
+
     return true;
 
+#if WASM_ENABLE_THREAD_MGR != 0 && defined(OS_ENABLE_WAKEUP_BLOCKING_OP)
+fail11:
+#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
+    aot_compiler_destroy();
+#endif
+#endif
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
 fail10:
 #if WASM_ENABLE_FAST_JIT != 0
@@ -1390,6 +1403,10 @@ wasm_runtime_init_thread_env(void)
 #endif
         return false;
     }
+#endif
+
+#if WASM_ENABLE_THREAD_MGR != 0 && defined(OS_ENABLE_WAKEUP_BLOCKING_OP)
+    os_end_blocking_op();
 #endif
 
     return true;

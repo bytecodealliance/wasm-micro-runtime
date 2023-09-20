@@ -1546,6 +1546,50 @@ wasm_runtime_set_context_spread(wasm_module_inst_t inst, void *key,
 WASM_RUNTIME_API_EXTERN void *
 wasm_runtime_get_context(wasm_module_inst_t inst, void *key);
 
+/*
+ * wasm_runtime_begin_blocking_op/wasm_runtime_end_blocking_op
+ *
+ * These APIs are intended to be used by the implementations of
+ * host functions. It wraps an operation which possibly blocks for long
+ * to prepare for async termination.
+ *
+ * eg.
+ *
+ *   if (!wasm_runtime_begin_blocking_op(exec_env)) {
+ *       return EINTR;
+ *   }
+ *   ret = possibly_blocking_op();
+ *   wasm_runtime_end_blocking_op(exec_env);
+ *   return ret;
+ *
+ * If threading support (WASM_ENABLE_THREAD_MGR) is not enabled,
+ * these functions are no-op.
+ *
+ * If the underlying platform support (OS_ENABLE_WAKEUP_BLOCKING_OP) is
+ * not available, these functions are no-op. In that case, the runtime
+ * might not terminate a blocking thread in a timely manner.
+ *
+ * If the underlying platform support is available, it's used to wake up
+ * the thread for async termination. The expectation here is that a
+ * `os_wakeup_blocking_op` call makes the blocking operation
+ * (`possibly_blocking_op` in the above example) return in a timely manner.
+ *
+ * The actual wake up mechanism used by `os_wakeup_blocking_op` is
+ * platform-dependent. It might impose some platform-dependent restrictions
+ * on the implementation of the blocking opearation.
+ *
+ * For example, on POSIX-like platforms, a signal (by default SIGUSR1) is
+ * used. The signal delivery configurations (eg. signal handler, signal mask,
+ * etc) for the signal are set up by the runtime. You can change the signal
+ * to use for this purpose by calling os_set_signal_number_for_blocking_op
+ * before the runtime initialization.
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_begin_blocking_op(wasm_exec_env_t exec_env);
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_end_blocking_op(wasm_exec_env_t exec_env);
+
 /* clang-format on */
 
 #ifdef __cplusplus
