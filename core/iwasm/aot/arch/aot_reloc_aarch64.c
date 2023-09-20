@@ -53,7 +53,11 @@ get_target_symbol_map(uint32 *sym_num)
     return target_sym_map;
 }
 
+#if !__MACH__
 #define BUILD_TARGET_AARCH64_DEFAULT "aarch64v8"
+#else
+#define BUILD_TARGET_AARCH64_DEFAULT "arm64"
+#endif
 void
 get_current_target(char *target_buf, uint32 target_buf_size)
 {
