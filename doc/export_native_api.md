@@ -261,4 +261,32 @@ wasm_response_send(wasm_exec_env_t exec_env, char *buffer, int size)
 ```
 
 
+## Native API implementation notes
 
+### Async thread termination
+
+When threading support is enabled, a thread can be requested to terminate
+itself either explicitly by the `wasm_runtime_terminate` API or implicitly
+by cluster-wide activities like WASI `proc_exit`.
+If a call to your native function can take long or even forever,
+you should make it to respond to termination requests in a timely manner.
+There are a few implementation approaches for that:
+
+* Design your API so that it always returns in a timely manner.
+  This is the most simple approach when possible.
+
+* Make your native function check the cluster state by calling
+  `wasm_cluster_is_thread_terminated` from time to time.
+  If `wasm_cluster_is_thread_terminated` returns true, make your
+  native function return.
+  Note: as of writing this, `wasm_cluster_is_thread_terminated` is not
+  exported as a runtime API.
+
+* If your native function is a simple wrapper of blocking system call,
+  you can probably use the `wasm_runtime_begin_blocking_op` and
+  `wasm_runtime_end_blocking_op` runtime API.
+  See the comment in `wamr_export.h` for details.
+
+* If your native function is very complex, it might be simpler to put the
+  guts of it into a separate worker process so that it can be cleaned up
+  by simply killing it.
