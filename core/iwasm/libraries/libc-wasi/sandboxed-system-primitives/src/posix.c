@@ -819,12 +819,14 @@ wasmtime_ssp_fd_prestat_dir_name(struct fd_prestats *prestats, __wasi_fd_t fd,
         rwlock_unlock(&prestats->lock);
         return error;
     }
-    if (path_len != strlen(prestat->dir)) {
+
+    const size_t prestat_dir_len = strlen(prestat->dir);
+    if (path_len < prestat_dir_len) {
         rwlock_unlock(&prestats->lock);
-        return EINVAL;
+        return __WASI_EINVAL;
     }
 
-    bh_memcpy_s(path, (uint32)path_len, prestat->dir, (uint32)path_len);
+    bh_memcpy_s(path, (uint32)path_len, prestat->dir, (uint32)prestat_dir_len);
 
     rwlock_unlock(&prestats->lock);
 
