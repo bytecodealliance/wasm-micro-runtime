@@ -288,45 +288,64 @@ fail:
 }
 
 static bool
-aot_call_wasm_struct_obj_set_field(AOTCompContext *comp_ctx,
-                                   AOTFuncContext *func_ctx,
-                                   LLVMValueRef struct_obj,
-                                   LLVMValueRef field_idx,
-                                   LLVMValueRef field_value)
+aot_struct_obj_set_field(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                         LLVMValueRef struct_obj, LLVMValueRef field_offset,
+                         LLVMValueRef field_value, uint8 field_size)
 {
-    LLVMValueRef param_values[3], func, value, field_value_ptr;
-    LLVMTypeRef param_types[3], ret_type, func_type, func_ptr_type;
+    LLVMValueRef field_data_ptr;
+    LLVMTypeRef field_data_ptr_type;
 
-    if (!(field_value_ptr = LLVMBuildAlloca(
-              comp_ctx->builder, LLVMTypeOf(field_value), "field_value_ptr"))) {
-        aot_set_last_error("llvm build alloca failed.");
+    /* Based on field_size, trunc field_value if necessary */
+    if (field_size == 1) {
+        if (!(field_value = LLVMBuildTrunc(comp_ctx->builder, field_value,
+                                           INT8_TYPE, "field_value_i8"))) {
+            aot_set_last_error("llvm build trunc failed.");
+            goto fail;
+        }
+    }
+    else if (field_size == 2) {
+        if (!(field_value = LLVMBuildTrunc(comp_ctx->builder, field_value,
+                                           INT16_TYPE, "field_value_i16"))) {
+            aot_set_last_error("llvm build trunc failed.");
+            goto fail;
+        }
+    }
+    else if (field_size != 4 && field_size != 8) {
+        bh_assert(0);
+    }
+
+    /* Build field data ptr and store the value */
+    if (!(field_data_ptr = LLVMBuildInBoundsGEP2(
+              comp_ctx->builder, INT8_PTR_TYPE, struct_obj, &field_offset, 1,
+              "field_data_i8p"))) {
+        aot_set_last_error("llvm build gep failed.");
         goto fail;
     }
-    if (!LLVMBuildStore(comp_ctx->builder, field_value, field_value_ptr)) {
-        aot_set_last_error("llvm build store failed.");
-        goto fail;
+
+    /* Ensure correct alignment for some platforms when field_size == 8 */
+#if !defined(BUILD_TARGET_X86_64) && !defined(BUILD_TARGET_AMD_64) \
+    && !defined(BUILD_TARGET_X86_32)
+    if (field_size == 8) {
+        if (!(field_data_ptr =
+                  LLVMBuildBitCast(comp_ctx->builder, field_data_ptr,
+                                   INT32_PTR_TYPE, "field_value_ptr_align"))) {
+            aot_set_last_error("llvm build bitcast failed.");
+            goto fail;
+        }
     }
-    if (!(field_value_ptr =
-              LLVMBuildBitCast(comp_ctx->builder, field_value_ptr,
-                               INT8_PTR_TYPE, "field_value_ptr"))) {
+#endif
+
+    /* Cast to the field data type ptr */
+    field_data_ptr_type = LLVMPointerType(LLVMTypeOf(field_value), 0);
+    if (!(field_data_ptr =
+              LLVMBuildBitCast(comp_ctx->builder, field_data_ptr,
+                               field_data_ptr_type, "field_value_ptr"))) {
         aot_set_last_error("llvm build bitcast failed.");
         goto fail;
     }
 
-    param_types[0] = INT8_PTR_TYPE;
-    param_types[1] = I32_TYPE;
-    param_types[2] = INT8_PTR_TYPE;
-    ret_type = VOID_TYPE;
-
-    GET_AOT_FUNCTION(wasm_struct_obj_set_field, 3);
-
-    /* Call function wasm_struct_obj_set_field() */
-    param_values[0] = struct_obj;
-    param_values[1] = field_idx;
-    param_values[2] = field_value_ptr;
-    if (!LLVMBuildCall2(comp_ctx->builder, func_type, func, param_values, 3,
-                        "call")) {
-        aot_set_last_error("llvm build call failed.");
+    if (!LLVMBuildStore(comp_ctx->builder, field_value, field_data_ptr)) {
+        aot_set_last_error("llvm build store failed.");
         goto fail;
     }
 
@@ -336,33 +355,81 @@ fail:
 }
 
 static bool
-aot_call_wasm_struct_obj_get_field(AOTCompContext *comp_ctx,
-                                   AOTFuncContext *func_ctx,
-                                   LLVMValueRef struct_obj,
-                                   LLVMValueRef field_idx,
-                                   LLVMValueRef sign_extend,
-                                   LLVMValueRef field_value_ptr)
+aot_struct_obj_get_field(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                         LLVMValueRef struct_obj, LLVMValueRef field_offset,
+                         LLVMValueRef *field_value, uint8 field_size,
+                         bool sign_extend)
 {
-    LLVMValueRef param_values[4], func, value;
-    LLVMTypeRef param_types[4], ret_type, func_type, func_ptr_type;
+    bool extend = false;
+    LLVMValueRef field_data_ptr;
+    LLVMTypeRef field_data_type;
 
-    param_types[0] = INT8_PTR_TYPE;
-    param_types[1] = I32_TYPE;
-    param_types[2] = INT8_TYPE;
-    param_types[3] = INT8_PTR_TYPE;
-    ret_type = VOID_TYPE;
-
-    GET_AOT_FUNCTION(wasm_struct_obj_get_field, 4);
-
-    /* Call function wasm_struct_obj_get_field() */
-    param_values[0] = struct_obj;
-    param_values[1] = field_idx;
-    param_values[2] = sign_extend;
-    param_values[3] = field_value_ptr;
-    if (!LLVMBuildCall2(comp_ctx->builder, func_type, func, param_values, 4,
-                        "call")) {
-        aot_set_last_error("llvm build call failed.");
+    if (!(field_data_ptr = LLVMBuildInBoundsGEP2(
+              comp_ctx->builder, INT8_PTR_TYPE, struct_obj, &field_offset, 1,
+              "field_data_i8p"))) {
+        aot_set_last_error("llvm build gep failed.");
         goto fail;
+    }
+
+    if (field_size == 1) {
+        field_data_type = INT8_TYPE;
+        extend = true;
+    }
+    else if (field_size == 2) {
+        field_data_type = INT16_TYPE;
+        extend = true;
+    }
+    else if (field_size == 4) {
+        field_data_type = I32_TYPE;
+    }
+    else if (field_size == 8) {
+        field_data_type = I64_TYPE;
+    }
+    else {
+        bh_assert(0);
+    }
+
+    /* Ensure correct alignment for some platforms when field_size == 8 */
+#if !defined(BUILD_TARGET_X86_64) && !defined(BUILD_TARGET_AMD_64) \
+    && !defined(BUILD_TARGET_X86_32)
+    if (field_size == 8) {
+        if (!(field_data_ptr =
+                  LLVMBuildBitCast(comp_ctx->builder, field_data_ptr,
+                                   INT32_PTR_TYPE, "field_value_ptr_align"))) {
+            aot_set_last_error("llvm build bitcast failed.");
+            goto fail;
+        }
+    }
+#endif
+
+    if (!(field_data_ptr = LLVMBuildBitCast(comp_ctx->builder, field_data_ptr,
+                                            LLVMPointerType(field_data_type, 0),
+                                            "field_value_ptr"))) {
+        aot_set_last_error("llvm build bitcast failed.");
+        goto fail;
+    }
+
+    if (!(*field_value = LLVMBuildLoad2(comp_ctx->builder, field_data_type,
+                                        field_data_ptr, "field_value"))) {
+        aot_set_last_error("llvm build load failed.");
+        goto fail;
+    }
+
+    if (extend) {
+        if (sign_extend) {
+            if (!(*field_value = LLVMBuildSExt(comp_ctx->builder, *field_value,
+                                               I32_TYPE, "field_value_sext"))) {
+                aot_set_last_error("llvm build signed ext failed.");
+                goto fail;
+            }
+        }
+        else {
+            if (!(*field_value = LLVMBuildZExt(comp_ctx->builder, *field_value,
+                                               I32_TYPE, "field_value_zext"))) {
+                aot_set_last_error("llvm build unsigned ext failed.");
+                goto fail;
+            }
+        }
     }
 
     return true;
@@ -375,16 +442,20 @@ struct_new_canon_init_fields(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                              uint32 type_index, LLVMValueRef struct_obj)
 {
     LLVMValueRef field_value;
-    /* Use for distinguish what type of AOTValue POP */
+    /* Used in compile time, to distinguish what type of AOTValue POP,
+     * field_data offset, size  */
     WASMStructType *compile_time_struct_type =
         (WASMStructType *)comp_ctx->comp_data->types[type_index];
     WASMStructFieldType *fields = compile_time_struct_type->fields;
     int32 field_count = (int32)compile_time_struct_type->field_count;
     int32 field_idx;
-    uint8 field_type;
+    uint8 field_type, field_size, field_offset;
 
     for (field_idx = field_count - 1; field_idx >= 0; field_idx--) {
         field_type = fields[field_idx].field_type;
+        field_size = fields[field_idx].field_size;
+        field_offset = fields[field_idx].field_offset;
+
         if (wasm_is_type_reftype(field_type)) {
             POP_REF(field_value);
         }
@@ -397,9 +468,9 @@ struct_new_canon_init_fields(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             POP_I64(field_value);
         }
 
-        if (!aot_call_wasm_struct_obj_set_field(comp_ctx, func_ctx, struct_obj,
-                                                I32_CONST(field_idx),
-                                                field_value))
+        if (!aot_struct_obj_set_field(comp_ctx, func_ctx, struct_obj,
+                                      I32_CONST(field_offset), field_value,
+                                      field_size))
             goto fail;
     }
 
@@ -462,29 +533,22 @@ aot_compile_op_struct_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMTypeRef field_value_type;
     LLVMValueRef struct_obj, cmp, field_value_ptr, field_value;
     LLVMBasicBlockRef check_struct_obj_succ;
-    /* Use for distinguish what type of AOTValue PUSH */
+
+    /* Used in compile time, to distinguish what type of AOTValue PUSH,
+     * field_data offset, size  */
     WASMStructType *compile_time_struct_type =
         (WASMStructType *)comp_ctx->comp_data->types[type_index];
-    WASMStructFieldType *fields = compile_time_struct_type->fields;
-    uint32 field_count = compile_time_struct_type->field_count;
-    uint8 field_type;
+    WASMStructFieldType *field;
+    uint8 field_type, field_size, field_offset;
 
-    if (field_idx >= field_count) {
+    field = compile_time_struct_type->fields + field_idx;
+    field_type = field->field_type;
+    field_size = field->field_size;
+    field_offset = field->field_offset;
+
+    if (field_idx >= compile_time_struct_type->field_count) {
         aot_set_last_error("struct field index out of bounds");
         goto fail;
-    }
-
-    /* Get LLVM type based on field_type */
-    field_type = fields[field_idx].field_type;
-    if (wasm_is_type_reftype(field_type)) {
-        field_value_type = GC_REF_PTR_TYPE;
-    }
-    else if (field_type == VALUE_TYPE_I32 || field_type == VALUE_TYPE_F32
-             || field_type == PACKED_TYPE_I8 || field_type == PACKED_TYPE_I16) {
-        field_value_type = I32_TYPE;
-    }
-    else {
-        field_value_type = I64_TYPE;
     }
 
     POP_REF(struct_obj);
@@ -497,34 +561,10 @@ aot_compile_op_struct_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                             check_struct_obj_succ))
         goto fail;
 
-    if (!(field_value_ptr = LLVMBuildAlloca(comp_ctx->builder, field_value_type,
-                                            "field_value_ptr"))) {
-        aot_set_last_error("llvm build alloca failed.");
+    if (!aot_struct_obj_get_field(comp_ctx, func_ctx, struct_obj,
+                                  I32_CONST(field_offset), &field_value,
+                                  field_size, sign))
         goto fail;
-    }
-    if (!(field_value_ptr =
-              LLVMBuildBitCast(comp_ctx->builder, field_value_ptr,
-                               INT8_PTR_TYPE, "field_value_i8p"))) {
-        aot_set_last_error("llvm build bitcast failed.");
-        goto fail;
-    }
-
-    if (!aot_call_wasm_struct_obj_get_field(comp_ctx, func_ctx, struct_obj,
-                                            I32_CONST(field_idx),
-                                            I8_CONST(sign), field_value_ptr))
-        goto fail;
-
-    if (!(field_value_ptr =
-              LLVMBuildBitCast(comp_ctx->builder, field_value_ptr,
-                               field_value_type, "field_value_ptr"))) {
-        aot_set_last_error("llvm build bitcast failed.");
-        goto fail;
-    }
-    if (!(field_value = LLVMBuildLoad2(comp_ctx->builder, field_value_type,
-                                       field_value_ptr, ""))) {
-        aot_set_last_error("llvm build load failed.");
-        goto fail;
-    }
 
     if (wasm_is_type_reftype(field_type)) {
         PUSH_REF(field_value);
@@ -548,14 +588,19 @@ aot_compile_op_struct_set(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 {
     LLVMValueRef struct_obj, cmp, field_value;
     LLVMBasicBlockRef check_struct_obj_succ;
-    /* Use for distinguish what type of AOTValue POP */
+    /* Used in compile time, to distinguish what type of AOTValue POP,
+     * field_data offset, size  */
     WASMStructType *compile_time_struct_type =
         (WASMStructType *)comp_ctx->comp_data->types[type_index];
-    WASMStructFieldType *fields = compile_time_struct_type->fields;
-    uint32 field_count = compile_time_struct_type->field_count;
-    uint8 field_type = fields[field_idx].field_type;
+    WASMStructFieldType *field;
+    uint8 field_type, field_size, field_offset;
 
-    if (field_idx >= field_count) {
+    field = compile_time_struct_type->fields + field_idx;
+    field_type = field->field_type;
+    field_size = field->field_size;
+    field_offset = field->field_offset;
+
+    if (field_idx >= compile_time_struct_type->field_count) {
         aot_set_last_error("struct field index out of bounds");
         goto fail;
     }
@@ -581,8 +626,9 @@ aot_compile_op_struct_set(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                             check_struct_obj_succ))
         goto fail;
 
-    if (!aot_call_wasm_struct_obj_set_field(comp_ctx, func_ctx, struct_obj,
-                                            I32_CONST(field_idx), field_value))
+    if (!aot_struct_obj_set_field(comp_ctx, func_ctx, struct_obj,
+                                  I32_CONST(field_offset), field_value,
+                                  field_size))
         goto fail;
 
     return true;
