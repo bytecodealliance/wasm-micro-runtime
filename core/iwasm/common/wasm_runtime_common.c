@@ -1220,26 +1220,29 @@ wasm_runtime_load(uint8 *buf, uint32 size, char *error_buf,
                                           true,
 #endif
                                           error_buf, error_buf_size);
-        return register_module_with_null_name(module_common, error_buf,
-                                              error_buf_size);
 #endif
     }
     else if (get_package_type(buf, size) == Wasm_Module_AoT) {
 #if WASM_ENABLE_AOT != 0
         module_common = (WASMModuleCommon *)aot_load_from_aot_file(
             buf, size, error_buf, error_buf_size);
-        return register_module_with_null_name(module_common, error_buf,
-                                              error_buf_size);
 #endif
     }
-
-    if (size < 4)
-        set_error_buf(error_buf, error_buf_size,
-                      "WASM module load failed: unexpected end");
-    else
-        set_error_buf(error_buf, error_buf_size,
-                      "WASM module load failed: magic header not detected");
-    return NULL;
+    else {
+        if (size < 4)
+            set_error_buf(error_buf, error_buf_size,
+                          "WASM module load failed: unexpected end");
+        else
+            set_error_buf(error_buf, error_buf_size,
+                          "WASM module load failed: magic header not detected");
+        return NULL;
+    }
+    if (!module_common) {
+        LOG_DEBUG("WASM module load failed");
+        return NULL;
+    }
+    return register_module_with_null_name(module_common, error_buf,
+                                          error_buf_size);
 }
 
 WASMModuleCommon *
@@ -1252,6 +1255,10 @@ wasm_runtime_load_from_sections(WASMSection *section_list, bool is_aot,
 #if WASM_ENABLE_INTERP != 0
         module_common = (WASMModuleCommon *)wasm_load_from_sections(
             section_list, error_buf, error_buf_size);
+        if (!module_common) {
+            LOG_DEBUG("WASM module load failed from sections");
+            return NULL;
+        }
         return register_module_with_null_name(module_common, error_buf,
                                               error_buf_size);
 #endif
@@ -1260,6 +1267,10 @@ wasm_runtime_load_from_sections(WASMSection *section_list, bool is_aot,
 #if WASM_ENABLE_AOT != 0
         module_common = (WASMModuleCommon *)aot_load_from_sections(
             section_list, error_buf, error_buf_size);
+        if (!module_common) {
+            LOG_DEBUG("WASM module load failed from sections");
+            return NULL;
+        }
         return register_module_with_null_name(module_common, error_buf,
                                               error_buf_size);
 #endif
@@ -5803,7 +5814,8 @@ wasm_runtime_load_depended_module(const WASMModuleCommon *parent_module,
         return NULL;
     }
 
-    ret = reader(sub_module_name, &buffer, &buffer_size);
+    ret = reader(parent_module->module_type, sub_module_name, &buffer,
+                 &buffer_size);
     if (!ret) {
         LOG_DEBUG("read the file of %s failed", sub_module_name);
         set_error_buf_v(parent_module, error_buf, error_buf_size,
@@ -5902,13 +5914,10 @@ wasm_runtime_sub_module_instantiate(WASMModuleCommon *module,
             bh_list_first_elem(((WASMModule *)module)->import_module_list);
     }
 #endif
-
-    bh_assert(sub_module_list_node);
     while (sub_module_list_node) {
         WASMSubModInstNode *sub_module_inst_list_node = NULL;
         WASMModuleCommon *sub_module = sub_module_list_node->module;
         WASMModuleInstanceCommon *sub_module_inst = NULL;
-
         sub_module_inst = wasm_runtime_instantiate_internal(
             sub_module, NULL, NULL, stack_size, heap_size, error_buf,
             error_buf_size);
