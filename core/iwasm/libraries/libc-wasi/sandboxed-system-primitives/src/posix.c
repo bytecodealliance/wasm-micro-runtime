@@ -1981,20 +1981,6 @@ wasmtime_ssp_path_open(wasm_exec_env_t exec_env, struct fd_table *curfds,
         return error;
     }
 
-    {
-        struct stat sb;
-
-        if (fstat(nfd, &sb) < 0) {
-            close(nfd);
-            return convert_errno(errno);
-        }
-
-        if (S_ISDIR(sb.st_mode))
-            rights_base |= (__wasi_rights_t)RIGHTS_DIRECTORY_BASE;
-        else if (S_ISREG(sb.st_mode))
-            rights_base |= (__wasi_rights_t)RIGHTS_REGULAR_FILE_BASE;
-    }
-
     return fd_table_insert_fd(exec_env, curfds, nfd, type,
                               rights_base & max_base,
                               rights_inheriting & max_inheriting, fd);
