@@ -130,6 +130,10 @@ fdopendir(int fd);
 void
 os_set_signal_number_for_blocking_op(int signo);
 
+typedef int os_file_handle;
+typedef DIR *os_dir_stream;
+typedef int os_raw_file_handle;
+
 #ifdef __cplusplus
 }
 #endif

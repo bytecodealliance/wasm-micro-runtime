@@ -10,5 +10,9 @@ include_directories(${PLATFORM_SHARED_DIR}/../include)
 
 file (GLOB_RECURSE source_all ${PLATFORM_SHARED_DIR}/*.c)
 
+if (WAMR_BUILD_LIBC_WASI EQUAL 1)
+  list(APPEND source_all ${PLATFORM_SHARED_DIR}/../common/posix/posix_file.c)
+endif ()
+
 set (PLATFORM_SHARED_SOURCE ${source_all} ${PLATFORM_COMMON_MATH_SOURCE})
 

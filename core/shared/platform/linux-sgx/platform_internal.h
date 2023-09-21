@@ -69,6 +69,10 @@ strcpy(char *dest, const char *src);
 #define os_memory_order_seq_cst __ATOMIC_SEQ_CST
 #define os_atomic_thread_fence __atomic_thread_fence
 
+typedef int os_file_handle;
+typedef DIR *os_dir_stream;
+typedef int os_raw_file_handle;
+
 #ifdef __cplusplus
 }
 #endif

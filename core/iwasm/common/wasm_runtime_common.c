@@ -2778,7 +2778,7 @@ wasm_runtime_set_wasi_args_ex(WASMModuleCommon *module, const char *dir_list[],
                               uint32 dir_count, const char *map_dir_list[],
                               uint32 map_dir_count, const char *env_list[],
                               uint32 env_count, char *argv[], int argc,
-                              int stdinfd, int stdoutfd, int stderrfd)
+                              int64 stdinfd, int64 stdoutfd, int64 stderrfd)
 {
     WASIArguments *wasi_args = get_wasi_args_from_module(module);
 
@@ -2792,9 +2792,9 @@ wasm_runtime_set_wasi_args_ex(WASMModuleCommon *module, const char *dir_list[],
     wasi_args->env_count = env_count;
     wasi_args->argv = argv;
     wasi_args->argc = (uint32)argc;
-    wasi_args->stdio[0] = stdinfd;
-    wasi_args->stdio[1] = stdoutfd;
-    wasi_args->stdio[2] = stderrfd;
+    wasi_args->stdio[0] = (os_raw_file_handle)stdinfd;
+    wasi_args->stdio[1] = (os_raw_file_handle)stdoutfd;
+    wasi_args->stdio[2] = (os_raw_file_handle)stderrfd;
 
 #if WASM_ENABLE_MULTI_MODULE != 0
 #if WASM_ENABLE_INTERP != 0
@@ -2889,8 +2889,9 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
                        const char *env[], uint32 env_count,
                        const char *addr_pool[], uint32 addr_pool_size,
                        const char *ns_lookup_pool[], uint32 ns_lookup_pool_size,
-                       char *argv[], uint32 argc, int stdinfd, int stdoutfd,
-                       int stderrfd, char *error_buf, uint32 error_buf_size)
+                       char *argv[], uint32 argc, os_raw_file_handle stdinfd,
+                       os_raw_file_handle stdoutfd, os_raw_file_handle stderrfd,
+                       char *error_buf, uint32 error_buf_size)
 {
     WASIContext *wasi_ctx;
     char *argv_buf = NULL;
@@ -2908,7 +2909,7 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
     bool argv_environ_inited = false;
     bool addr_pool_inited = false;
     __wasi_fd_t wasm_fd = 3;
-    int32 raw_fd;
+    os_file_handle file_handle;
     char *path, resolved_path[PATH_MAX];
     uint32 i;
 
@@ -2978,15 +2979,19 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
     }
     addr_pool_inited = true;
 
-    /* Prepopulate curfds with stdin, stdout, and stderr file descriptors.
-     *
-     * If -1 is given, use STDIN_FILENO (0), STDOUT_FILENO (1),
-     * STDERR_FILENO (2) respectively.
-     */
-    if (!fd_table_insert_existing(curfds, 0, (stdinfd != -1) ? stdinfd : 0)
-        || !fd_table_insert_existing(curfds, 1, (stdoutfd != -1) ? stdoutfd : 1)
-        || !fd_table_insert_existing(curfds, 2,
-                                     (stderrfd != -1) ? stderrfd : 2)) {
+    os_file_handle stdin_file_handle = os_convert_stdin_handle(stdinfd);
+    os_file_handle stdout_file_handle = os_convert_stdout_handle(stdoutfd);
+    os_file_handle stderr_file_handle = os_convert_stderr_handle(stderrfd);
+
+    if (!os_is_handle_valid(&stdin_file_handle)
+        || !os_is_handle_valid(&stdout_file_handle)
+        || !os_is_handle_valid(&stderr_file_handle))
+        goto fail;
+
+    /* Prepopulate curfds with stdin, stdout, and stderr file descriptors. */
+    if (!fd_table_insert_existing(curfds, 0, stdin_file_handle, true)
+        || !fd_table_insert_existing(curfds, 1, stdout_file_handle, true)
+        || !fd_table_insert_existing(curfds, 2, stderr_file_handle, true)) {
         set_error_buf(error_buf, error_buf_size,
                       "Init wasi environment failed: init fd table failed");
         goto fail;
@@ -2994,11 +2999,7 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
 
     wasm_fd = 3;
     for (i = 0; i < dir_count; i++, wasm_fd++) {
-#ifdef BH_PLATFORM_WINDOWS
-        path = _fullpath(resolved_path, dir_list[i], PATH_MAX);
-#else
-        path = realpath(dir_list[i], resolved_path);
-#endif
+        path = os_realpath(dir_list[i], resolved_path);
         if (!path) {
             if (error_buf)
                 snprintf(error_buf, error_buf_size,
@@ -3006,25 +3007,34 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
                          dir_list[i], errno);
             goto fail;
         }
-#ifdef BH_PLATFORM_WINDOWS
-        if (error_buf)
-            snprintf(
-                error_buf, error_buf_size,
-                "pre-opening directory is not supported on windows platforms");
-        goto fail;
-#else
-        raw_fd = open(path, O_RDONLY | O_DIRECTORY, 0);
-#endif
-        if (raw_fd == -1) {
+
+        __wasi_errno_t error = os_open_preopendir(path, &file_handle);
+
+        if (error != __WASI_ESUCCESS) {
             if (error_buf)
                 snprintf(error_buf, error_buf_size,
                          "error while pre-opening directory %s: %d\n",
-                         dir_list[i], errno);
+                         dir_list[i], error);
             goto fail;
         }
 
-        fd_table_insert_existing(curfds, wasm_fd, raw_fd);
-        fd_prestats_insert(prestats, dir_list[i], wasm_fd);
+        if (!fd_table_insert_existing(curfds, wasm_fd, file_handle, false)) {
+            if (error_buf)
+                snprintf(error_buf, error_buf_size,
+                         "error inserting preopen fd %u (directory %s) into fd "
+                         "table",
+                         (unsigned int)wasm_fd, dir_list[i]);
+            goto fail;
+        }
+
+        if (!fd_prestats_insert(prestats, dir_list[i], wasm_fd)) {
+            if (error_buf)
+                snprintf(error_buf, error_buf_size,
+                         "error inserting preopen fd %u (directory %s) into "
+                         "prestats table",
+                         (unsigned int)wasm_fd, dir_list[i]);
+            goto fail;
+        }
     }
 
     /* addr_pool(textual) -> apool */
@@ -3152,8 +3162,9 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
                        const char *env[], uint32 env_count,
                        const char *addr_pool[], uint32 addr_pool_size,
                        const char *ns_lookup_pool[], uint32 ns_lookup_pool_size,
-                       char *argv[], uint32 argc, int stdinfd, int stdoutfd,
-                       int stderrfd, char *error_buf, uint32 error_buf_size)
+                       char *argv[], uint32 argc, os_raw_file_handle stdinfd,
+                       os_raw_file_handle stdoutfd, os_raw_file_handle stderrfd,
+                       char *error_buf, uint32 error_buf_size)
 {
     WASIContext *ctx;
     uvwasi_t *uvwasi;

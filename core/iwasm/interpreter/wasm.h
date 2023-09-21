@@ -350,7 +350,7 @@ typedef struct WASIArguments {
     uint32 ns_lookup_count;
     char **argv;
     uint32 argc;
-    int stdio[3];
+    os_raw_file_handle stdio[3];
 } WASIArguments;
 #endif
 

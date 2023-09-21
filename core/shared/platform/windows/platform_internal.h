@@ -137,6 +137,14 @@ bh_atomic_thread_fence(int mem_order);
 
 #define os_atomic_thread_fence bh_atomic_thread_fence
 
+typedef HANDLE os_file_handle;
+typedef void *os_dir_stream;
+#if WASM_ENABLE_UVWASI != 1
+typedef HANDLE os_raw_file_handle;
+#else
+typedef uint32_t os_raw_file_handle;
+#endif
+
 #ifdef __cplusplus
 }
 #endif

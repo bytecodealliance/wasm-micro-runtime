@@ -60,7 +60,8 @@ struct addr_pool {
 bool
 fd_table_init(struct fd_table *);
 bool
-fd_table_insert_existing(struct fd_table *, __wasi_fd_t, int);
+fd_table_insert_existing(struct fd_table *, __wasi_fd_t, os_file_handle,
+                         bool is_stdio);
 bool
 fd_prestats_init(struct fd_prestats *);
 bool

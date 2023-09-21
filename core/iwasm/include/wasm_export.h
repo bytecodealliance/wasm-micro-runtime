@@ -431,26 +431,31 @@ wasm_runtime_get_module_hash(wasm_module_t module);
  * @param env_count     The number of elements in env.
  * @param argv          The list of command line arguments.
  * @param argc          The number of elements in argv.
- * @param stdinfd       The host file descriptor to back WASI STDIN_FILENO.
- *                      If -1 is specified, STDIN_FILENO is used.
- * @param stdoutfd      The host file descriptor to back WASI STDOUT_FILENO.
- *                      If -1 is specified, STDOUT_FILENO is used.
- * @param stderrfd      The host file descriptor to back WASI STDERR_FILENO.
- *                      If -1 is specified, STDERR_FILENO is used.
+ * @param stdin_handle  The raw host handle to back WASI STDIN_FILENO.
+ *                      If an invalid handle is specified (e.g. -1 on POSIX,
+ *                      INVALID_HANDLE_VALUE on Windows), the platform default
+ *                      for STDIN is used.
+ * @param stdoutfd      The raw host handle to back WASI STDOUT_FILENO.
+ *                      If an invalid handle is specified (e.g. -1 on POSIX,
+ *                      INVALID_HANDLE_VALUE on Windows), the platform default
+ *                      for STDOUT is used.
+ * @param stderrfd      The raw host handle to back WASI STDERR_FILENO.
+ *                      If an invalid handle is specified (e.g. -1 on POSIX,
+ *                      INVALID_HANDLE_VALUE on Windows), the platform default
+ *                      for STDERR is used.
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_wasi_args_ex(wasm_module_t module,
                            const char *dir_list[], uint32_t dir_count,
                            const char *map_dir_list[], uint32_t map_dir_count,
                            const char *env[], uint32_t env_count,
-                           char *argv[], int argc,
-                           int stdinfd, int stdoutfd, int stderrfd);
+                           char *argv[], int argc, int64_t stdinfd,
+                           int64_t stdoutfd, int64_t stderrfd);
 
 /**
  * Set WASI parameters.
  *
- * Same as wasm_runtime_set_wasi_args_ex with stdinfd = -1, stdoutfd = -1,
- * stderrfd = -1.
+ * Same as wasm_runtime_set_wasi_args_ex but with default stdio handles
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_wasi_args(wasm_module_t module,

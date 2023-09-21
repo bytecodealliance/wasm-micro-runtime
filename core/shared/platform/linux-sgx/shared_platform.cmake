@@ -20,15 +20,17 @@ if (NOT BUILD_UNTRUST_PART EQUAL 1)
                        ${SGX_SDK_DIR}/include/libcxx)
 endif ()
 
-if (NOT WAMR_BUILD_LIBC_WASI EQUAL 1)
-  add_definitions(-DSGX_DISABLE_WASI)
-endif ()
-
 if (NOT WAMR_BUILD_THREAD_MGR EQUAL 1)
   add_definitions(-DSGX_DISABLE_PTHREAD)
 endif ()
 
 file (GLOB source_all ${PLATFORM_SHARED_DIR}/*.c)
+
+if (NOT WAMR_BUILD_LIBC_WASI EQUAL 1)
+  add_definitions(-DSGX_DISABLE_WASI)
+else()
+  list(APPEND source_all ${PLATFORM_SHARED_DIR}/../common/posix/posix_file.c)
+endif()
 
 file (GLOB source_all_untrusted ${PLATFORM_SHARED_DIR}/untrusted/*.c)
 

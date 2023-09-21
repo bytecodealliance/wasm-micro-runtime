@@ -6,26 +6,24 @@
 #include "bh_platform.h"
 #include "wasm_export.h"
 
-int
-blocking_op_close(wasm_exec_env_t exec_env, int fd);
-ssize_t
-blocking_op_readv(wasm_exec_env_t exec_env, int fd, const struct iovec *iov,
-                  int iovcnt);
-ssize_t
-blocking_op_preadv(wasm_exec_env_t exec_env, int fd, const struct iovec *iov,
-                   int iovcnt, off_t offset);
-ssize_t
-blocking_op_pread(wasm_exec_env_t exec_env, int fd, void *p, size_t nb,
-                  off_t offset);
-ssize_t
-blocking_op_writev(wasm_exec_env_t exec_env, int fd, const struct iovec *iov,
-                   int iovcnt);
-ssize_t
-blocking_op_pwritev(wasm_exec_env_t exec_env, int fd, const struct iovec *iov,
-                    int iovcnt, off_t offset);
-ssize_t
-blocking_op_pwrite(wasm_exec_env_t exec_env, int fd, const void *p, size_t nb,
-                   off_t offset);
+__wasi_errno_t
+blocking_op_close(wasm_exec_env_t exec_env, os_file_handle handle,
+                  bool is_stdio);
+__wasi_errno_t
+blocking_op_readv(wasm_exec_env_t exec_env, os_file_handle handle,
+                  const struct __wasi_iovec_t *iov, int iovcnt, size_t *nread);
+__wasi_errno_t
+blocking_op_preadv(wasm_exec_env_t exec_env, os_file_handle handle,
+                   const struct __wasi_iovec_t *iov, int iovcnt,
+                   __wasi_filesize_t offset, size_t *nread);
+__wasi_errno_t
+blocking_op_writev(wasm_exec_env_t exec_env, os_file_handle handle,
+                   const struct __wasi_ciovec_t *iov, int iovcnt,
+                   size_t *nwritten);
+__wasi_errno_t
+blocking_op_pwritev(wasm_exec_env_t exec_env, os_file_handle handle,
+                    const struct __wasi_ciovec_t *iov, int iovcnt,
+                    __wasi_filesize_t offset, size_t *nwritten);
 int
 blocking_op_socket_accept(wasm_exec_env_t exec_env, bh_socket_t server_sock,
                           bh_socket_t *sockp, void *addr,
@@ -48,10 +46,8 @@ blocking_op_socket_addr_resolve(wasm_exec_env_t exec_env, const char *host,
                                 bh_addr_info_t *addr_info,
                                 size_t addr_info_size, size_t *max_info_size);
 
-#ifdef BH_PLATFORM_WINDOWS
-/* TODO to be (re)moved as part of WASI on windows work */
-typedef unsigned mode_t;
-#endif
-int
-blocking_op_openat(wasm_exec_env_t exec_env, int fd, const char *path,
-                   int oflags, mode_t mode);
+__wasi_errno_t
+blocking_op_openat(wasm_exec_env_t exec_env, os_file_handle handle,
+                   const char *path, __wasi_oflags_t oflags,
+                   __wasi_fdflags_t fd_flags, __wasi_lookupflags_t lookup_flags,
+                   wasi_libc_file_access_mode access_mode, os_file_handle *out);

@@ -13,6 +13,10 @@ include_directories(${PLATFORM_SHARED_DIR}/../include)
 file (GLOB_RECURSE source_all ${PLATFORM_SHARED_DIR}/*.c
 			      ${PLATFORM_SHARED_DIR}/*.cpp)
 
+if (NOT WAMR_BUILD_LIBC_WASI EQUAL 1)
+    list(REMOVE_ITEM source_all ${PLATFORM_SHARED_DIR}/win_file.c)
+endif()
+
 set (PLATFORM_SHARED_SOURCE ${source_all})
 
 file (GLOB header ${PLATFORM_SHARED_DIR}/../include/*.h)
