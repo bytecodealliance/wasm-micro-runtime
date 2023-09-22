@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 #
 
+THIS_DIR=$(cd $(dirname $0) && pwd -P)
+
 readonly MODE=$1
 readonly TARGET=$2
 
@@ -63,7 +65,8 @@ if [[ $MODE != "aot" ]];then
     python3 -m venv wasi-env && source wasi-env/bin/activate
     python3 -m pip install -r test-runner/requirements.txt
 
-    TEST_RUNTIME_EXE="${IWASM_CMD}" python3 test-runner/wasi_test_runner.py \
+    export TEST_RUNTIME_EXE="${IWASM_CMD}"
+    python3 ${THIS_DIR}/pipe.py | python3 test-runner/wasi_test_runner.py \
             -r adapters/wasm-micro-runtime.py \
             -t \
                 ${C_TESTS} \
