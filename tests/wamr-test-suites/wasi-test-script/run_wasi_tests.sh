@@ -51,8 +51,8 @@ run_aot_tests () {
             expected=$(jq .exit_code ${test_json})
         fi
 
-        ${iwasm} $test_aot
-        ret=${PIPESTATUS[0]}
+        python3 ${THIS_DIR}/pipe.py | ${iwasm} $test_aot
+        ret=${PIPESTATUS[1]}
 
         echo "expected=$expected, actual=$ret"
         if [[ $expected != "" ]] && [[ $expected != $ret ]];then
