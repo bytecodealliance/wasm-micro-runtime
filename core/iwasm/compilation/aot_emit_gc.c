@@ -288,30 +288,42 @@ fail:
 }
 
 static bool
-aot_struct_obj_set_field(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                         LLVMValueRef struct_obj, LLVMValueRef field_offset,
-                         LLVMValueRef field_value, uint8 field_size)
+aot_struct_obj_set_field(AOTCompContext *comp_ctx, LLVMValueRef struct_obj,
+                         LLVMValueRef field_offset, LLVMValueRef field_value,
+                         uint8 field_size)
 {
+    bool trunc = false;
     LLVMValueRef field_data_ptr;
-    LLVMTypeRef field_data_ptr_type;
+    LLVMTypeRef field_data_type = NULL;
+
+    switch (field_size) {
+        case 1:
+            field_data_type = INT8_TYPE;
+            trunc = true;
+            break;
+        case 2:
+            field_data_type = INT16_TYPE;
+            trunc = true;
+            break;
+        case 4:
+            field_data_type = I32_TYPE;
+            break;
+        case 8:
+            field_data_type = I64_TYPE;
+            break;
+        default:
+            bh_assert(0);
+            break;
+    }
 
     /* Based on field_size, trunc field_value if necessary */
-    if (field_size == 1) {
-        if (!(field_value = LLVMBuildTrunc(comp_ctx->builder, field_value,
-                                           INT8_TYPE, "field_value_i8"))) {
+    if (trunc) {
+        if (!(field_value =
+                  LLVMBuildTrunc(comp_ctx->builder, field_value,
+                                 field_data_type, "field_value_trunc"))) {
             aot_set_last_error("llvm build trunc failed.");
             goto fail;
         }
-    }
-    else if (field_size == 2) {
-        if (!(field_value = LLVMBuildTrunc(comp_ctx->builder, field_value,
-                                           INT16_TYPE, "field_value_i16"))) {
-            aot_set_last_error("llvm build trunc failed.");
-            goto fail;
-        }
-    }
-    else if (field_size != 4 && field_size != 8) {
-        bh_assert(0);
     }
 
     /* Build field data ptr and store the value */
@@ -336,10 +348,9 @@ aot_struct_obj_set_field(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 #endif
 
     /* Cast to the field data type ptr */
-    field_data_ptr_type = LLVMPointerType(LLVMTypeOf(field_value), 0);
-    if (!(field_data_ptr =
-              LLVMBuildBitCast(comp_ctx->builder, field_data_ptr,
-                               field_data_ptr_type, "field_value_ptr"))) {
+    if (!(field_data_ptr = LLVMBuildBitCast(comp_ctx->builder, field_data_ptr,
+                                            LLVMPointerType(field_data_type, 0),
+                                            "field_value_ptr"))) {
         aot_set_last_error("llvm build bitcast failed.");
         goto fail;
     }
@@ -355,14 +366,13 @@ fail:
 }
 
 static bool
-aot_struct_obj_get_field(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                         LLVMValueRef struct_obj, LLVMValueRef field_offset,
-                         LLVMValueRef *field_value, uint8 field_size,
-                         bool sign_extend)
+aot_struct_obj_get_field(AOTCompContext *comp_ctx, LLVMValueRef struct_obj,
+                         LLVMValueRef field_offset, LLVMValueRef *field_value,
+                         uint8 field_size, bool sign_extend)
 {
     bool extend = false;
     LLVMValueRef field_data_ptr;
-    LLVMTypeRef field_data_type;
+    LLVMTypeRef field_data_type = NULL;
 
     if (!(field_data_ptr = LLVMBuildInBoundsGEP2(
               comp_ctx->builder, INT8_PTR_TYPE, struct_obj, &field_offset, 1,
@@ -371,25 +381,27 @@ aot_struct_obj_get_field(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
-    if (field_size == 1) {
-        field_data_type = INT8_TYPE;
-        extend = true;
-    }
-    else if (field_size == 2) {
-        field_data_type = INT16_TYPE;
-        extend = true;
-    }
-    else if (field_size == 4) {
-        field_data_type = I32_TYPE;
-    }
-    else if (field_size == 8) {
-        field_data_type = I64_TYPE;
-    }
-    else {
-        bh_assert(0);
+    switch (field_size) {
+        case 1:
+            field_data_type = INT8_TYPE;
+            extend = true;
+            break;
+        case 2:
+            field_data_type = INT16_TYPE;
+            extend = true;
+            break;
+        case 4:
+            field_data_type = I32_TYPE;
+            break;
+        case 8:
+            field_data_type = I64_TYPE;
+            break;
+        default:
+            bh_assert(0);
+            break;
     }
 
-    /* Ensure correct alignment for some platforms when field_size == 8 */
+        /* Ensure correct alignment for some platforms when field_size == 8 */
 #if !defined(BUILD_TARGET_X86_64) && !defined(BUILD_TARGET_AMD_64) \
     && !defined(BUILD_TARGET_X86_32)
     if (field_size == 8) {
@@ -468,7 +480,7 @@ struct_new_canon_init_fields(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             POP_I64(field_value);
         }
 
-        if (!aot_struct_obj_set_field(comp_ctx, func_ctx, struct_obj,
+        if (!aot_struct_obj_set_field(comp_ctx, struct_obj,
                                       I32_CONST(field_offset), field_value,
                                       field_size))
             goto fail;
@@ -530,8 +542,7 @@ bool
 aot_compile_op_struct_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                           uint32 type_index, uint32 field_idx, bool sign)
 {
-    LLVMTypeRef field_value_type;
-    LLVMValueRef struct_obj, cmp, field_value_ptr, field_value;
+    LLVMValueRef struct_obj, cmp, field_value;
     LLVMBasicBlockRef check_struct_obj_succ;
 
     /* Used in compile time, to distinguish what type of AOTValue PUSH,
@@ -561,9 +572,8 @@ aot_compile_op_struct_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                             check_struct_obj_succ))
         goto fail;
 
-    if (!aot_struct_obj_get_field(comp_ctx, func_ctx, struct_obj,
-                                  I32_CONST(field_offset), &field_value,
-                                  field_size, sign))
+    if (!aot_struct_obj_get_field(comp_ctx, struct_obj, I32_CONST(field_offset),
+                                  &field_value, field_size, sign))
         goto fail;
 
     if (wasm_is_type_reftype(field_type)) {
@@ -626,9 +636,8 @@ aot_compile_op_struct_set(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                             check_struct_obj_succ))
         goto fail;
 
-    if (!aot_struct_obj_set_field(comp_ctx, func_ctx, struct_obj,
-                                  I32_CONST(field_offset), field_value,
-                                  field_size))
+    if (!aot_struct_obj_set_field(comp_ctx, struct_obj, I32_CONST(field_offset),
+                                  field_value, field_size))
         goto fail;
 
     return true;
@@ -684,43 +693,146 @@ fail:
     return false;
 }
 
-static bool
-aot_call_wasm_array_set_elem(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                             LLVMValueRef array_obj, LLVMValueRef elem_idx,
-                             LLVMValueRef array_elem)
+static uint32
+aot_array_obj_elem_size_log(AOTCompContext *comp_ctx, uint8 array_elem_type)
 {
-    LLVMValueRef param_values[3], func, value, array_elem_ptr;
-    LLVMTypeRef param_types[3], ret_type, func_type, func_ptr_type;
+    uint32 elem_size_log = 0;
 
-    if (!(array_elem_ptr = LLVMBuildAlloca(
-              comp_ctx->builder, LLVMTypeOf(array_elem), "array_elem_ptr"))) {
-        aot_set_last_error("llvm build alloca failed.");
+    if (wasm_is_type_reftype(array_elem_type)) {
+        elem_size_log = comp_ctx->pointer_size == sizeof(uint32) ? 2 : 3;
+    }
+    else if (array_elem_type == PACKED_TYPE_I8) {
+        elem_size_log = 0;
+    }
+    else if (array_elem_type == PACKED_TYPE_I16) {
+        elem_size_log = 1;
+    }
+    else if (array_elem_type == VALUE_TYPE_I32
+             || array_elem_type == VALUE_TYPE_F32) {
+        elem_size_log = 2;
+    }
+    else if (array_elem_type == VALUE_TYPE_I64
+             || array_elem_type == VALUE_TYPE_F64) {
+        elem_size_log = 3;
+    }
+    else {
+        bh_assert(0);
+    }
+
+    return elem_size_log;
+}
+
+/* array_obj->elem_data + (elem_idx << elem_size_log) */
+static bool
+aot_array_obj_elem_addr(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                        LLVMValueRef array_obj, LLVMValueRef elem_idx,
+                        LLVMValueRef *elem_data, uint8 array_elem_type)
+{
+    uint32 elem_size_log = 0;
+    LLVMValueRef start_offset, elem_offset;
+
+    elem_size_log = aot_array_obj_elem_size_log(comp_ctx, array_elem_type);
+
+    /* Get the elem data start offset of the WASMArrayObject, the offset may be
+     * different in 32-bit runtime and 64-bit runtime since WASMObjectHeader
+     * is uintptr_t. Use comp_ctx->pointer_size + 4(uint32 for length) as the
+     * offsetof(WASMArrayObject, length)*/
+    if (!(start_offset = I32_CONST(comp_ctx->pointer_size + sizeof(uint32)))) {
+        aot_set_last_error("llvm build const failed.");
         goto fail;
     }
-    if (!LLVMBuildStore(comp_ctx->builder, array_elem, array_elem_ptr)) {
-        aot_set_last_error("llvm build store failed.");
+
+    if (!(elem_offset =
+              LLVMBuildShl(comp_ctx->builder, elem_idx,
+                           I32_CONST(elem_size_log), "elem_offset"))) {
+        aot_set_last_error("llvm build shl failed.");
         goto fail;
     }
-    if (!(array_elem_ptr = LLVMBuildBitCast(comp_ctx->builder, array_elem_ptr,
-                                            INT8_PTR_TYPE, "array_elem_ptr"))) {
+
+    if (!(elem_offset = LLVMBuildAdd(comp_ctx->builder, start_offset,
+                                     elem_offset, "total_offset"))) {
+        aot_set_last_error("llvm build add failed.");
+        goto fail;
+    }
+
+    if (!(*elem_data = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,
+                                             array_obj, &elem_offset, 1,
+                                             "array_obj_elem_data_i8p"))) {
+        aot_set_last_error("llvm build gep failed.");
+        goto fail;
+    }
+
+    return true;
+fail:
+    return false;
+}
+
+static bool
+aot_array_obj_set_elem(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                       LLVMValueRef array_obj, LLVMValueRef elem_idx,
+                       LLVMValueRef array_elem, uint8 array_elem_type)
+{
+    bool trunc = false;
+    uint32 elem_size;
+    LLVMValueRef elem_data_ptr;
+    LLVMTypeRef elem_data_type = NULL;
+
+    if (!aot_array_obj_elem_addr(comp_ctx, func_ctx, array_obj, elem_idx,
+                                 &elem_data_ptr, array_elem_type))
+        goto fail;
+
+    elem_size = 1 << aot_array_obj_elem_size_log(comp_ctx, array_elem_type);
+
+    switch (elem_size) {
+        case 1:
+            elem_data_type = INT8_TYPE;
+            trunc = true;
+            break;
+        case 2:
+            elem_data_type = INT16_TYPE;
+            trunc = true;
+            break;
+        case 4:
+            elem_data_type = I32_TYPE;
+            break;
+        case 8:
+            elem_data_type = I64_TYPE;
+            break;
+        default:
+            bh_assert(0);
+            break;
+    }
+
+    /* Based on elem_size, trunc array_elem if necessary */
+    if (trunc) {
+        if (!(array_elem =
+                  LLVMBuildTrunc(comp_ctx->builder, array_elem, elem_data_type,
+                                 "array_elem_trunc"))) {
+            aot_set_last_error("llvm build trunc failed.");
+            goto fail;
+        }
+    }
+
+    /* Ensure correct alignment for some platforms when field_size == 8 */
+    if (elem_size == 8) {
+        if (!(elem_data_ptr =
+                  LLVMBuildBitCast(comp_ctx->builder, elem_data_ptr,
+                                   INT32_PTR_TYPE, "elem_data_ptr_align"))) {
+            aot_set_last_error("llvm build bitcast failed.");
+            goto fail;
+        }
+    }
+
+    /* Cast to the field data type ptr */
+    if (!(elem_data_ptr = LLVMBuildBitCast(comp_ctx->builder, elem_data_ptr,
+                                           LLVMPointerType(elem_data_type, 0),
+                                           "elem_data_ptr"))) {
         aot_set_last_error("llvm build bitcast failed.");
         goto fail;
     }
 
-    param_types[0] = INT8_PTR_TYPE;
-    param_types[1] = I32_TYPE;
-    param_types[2] = INT8_PTR_TYPE;
-    ret_type = VOID_TYPE;
-
-    GET_AOT_FUNCTION(wasm_array_obj_set_elem, 3);
-
-    /* Call function wasm_array_obj_set_elem() */
-    param_values[0] = array_obj;
-    param_values[1] = elem_idx;
-    param_values[2] = array_elem_ptr;
-    if (!LLVMBuildCall2(comp_ctx->builder, func_type, func, param_values, 3,
-                        "call")) {
-        aot_set_last_error("llvm build call failed.");
+    if (!LLVMBuildStore(comp_ctx->builder, array_elem, elem_data_ptr)) {
+        aot_set_last_error("llvm build store failed.");
         goto fail;
     }
 
@@ -778,27 +890,125 @@ fail:
 static bool
 aot_call_wasm_array_get_elem(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                              LLVMValueRef array_obj, LLVMValueRef elem_idx,
-                             LLVMValueRef sign, LLVMValueRef array_elem_ptr)
+                             LLVMValueRef *array_elem, uint8 array_elem_type,
+                             bool sign)
 {
-    LLVMValueRef param_values[4], func, value;
-    LLVMTypeRef param_types[4], ret_type, func_type, func_ptr_type;
+    bool extend = false;
+    uint32 elem_size;
+    LLVMValueRef elem_data_ptr;
+    LLVMTypeRef elem_data_type = NULL;
 
-    param_types[0] = INT8_PTR_TYPE;
-    param_types[1] = I32_TYPE;
-    param_types[2] = INT8_TYPE;
-    param_types[3] = INT8_PTR_TYPE;
-    ret_type = VOID_TYPE;
+    if (!aot_array_obj_elem_addr(comp_ctx, func_ctx, array_obj, elem_idx,
+                                 &elem_data_ptr, array_elem_type))
+        goto fail;
 
-    GET_AOT_FUNCTION(wasm_array_obj_get_elem, 4);
+    elem_size = 1 << aot_array_obj_elem_size_log(comp_ctx, array_elem_type);
 
-    /* Call function wasm_array_obj_get_elem() */
-    param_values[0] = array_obj;
-    param_values[1] = elem_idx;
-    param_values[2] = sign;
-    param_values[3] = array_elem_ptr;
-    if (!LLVMBuildCall2(comp_ctx->builder, func_type, func, param_values, 3,
-                        "call")) {
-        aot_set_last_error("llvm build call failed.");
+    switch (elem_size) {
+        case 1:
+            elem_data_type = INT8_TYPE;
+            extend = true;
+            break;
+        case 2:
+            elem_data_type = INT16_TYPE;
+            extend = true;
+            break;
+        case 4:
+            elem_data_type = I32_TYPE;
+            break;
+        case 8:
+            elem_data_type = I64_TYPE;
+            break;
+        default:
+            bh_assert(0);
+            break;
+    }
+
+    /* Ensure correct alignment for some platforms when field_size == 8 */
+    if (elem_size == 8) {
+        if (!(elem_data_ptr =
+                  LLVMBuildBitCast(comp_ctx->builder, elem_data_ptr,
+                                   INT32_PTR_TYPE, "elem_data_ptr_align"))) {
+            aot_set_last_error("llvm build bitcast failed.");
+            goto fail;
+        }
+    }
+
+    if (!(elem_data_ptr = LLVMBuildBitCast(comp_ctx->builder, elem_data_ptr,
+                                           LLVMPointerType(elem_data_type, 0),
+                                           "elem_data_ptr"))) {
+        aot_set_last_error("llvm build bitcast failed.");
+        goto fail;
+    }
+
+    if (!(*array_elem = LLVMBuildLoad2(comp_ctx->builder, elem_data_type,
+                                       elem_data_ptr, "array_elem"))) {
+        aot_set_last_error("llvm build load failed.");
+        goto fail;
+    }
+
+    if (extend) {
+        if (sign) {
+            if (!(*array_elem = LLVMBuildSExt(comp_ctx->builder, *array_elem,
+                                              I32_TYPE, "array_elem_sext"))) {
+                aot_set_last_error("llvm build signed ext failed.");
+                goto fail;
+            }
+        }
+        else {
+            if (!(*array_elem = LLVMBuildZExt(comp_ctx->builder, *array_elem,
+                                              I32_TYPE, "array_elem_zext"))) {
+                aot_set_last_error("llvm build unsigned ext failed.");
+                goto fail;
+            }
+        }
+    }
+
+    return true;
+fail:
+    return false;
+}
+
+/* array_obj->length >> WASM_ARRAY_LENGTH_SHIFT */
+static bool
+aot_array_obj_length(AOTCompContext *comp_ctx, LLVMValueRef array_obj,
+                     LLVMValueRef *array_len)
+{
+    LLVMValueRef offset;
+
+    /* Get the length of the WASMArrayObject, the offset may be
+     * different in 32-bit runtime and 64-bit runtime since WASMObjectHeader
+     * is uintptr_t. Use comp_ctx->pointer_size as the
+     * offsetof(WASMArrayObject, length)*/
+    if (!(offset = I32_CONST(comp_ctx->pointer_size))) {
+        aot_set_last_error("llvm build const failed.");
+        goto fail;
+    }
+
+    if (!(*array_len =
+              LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, array_obj,
+                                    &offset, 1, "array_obj_length_i8p"))) {
+        aot_set_last_error("llvm build gep failed.");
+        goto fail;
+    }
+
+    if (!(*array_len =
+              LLVMBuildBitCast(comp_ctx->builder, *array_len, INT32_PTR_TYPE,
+                               "array_obj_length_i32ptr"))) {
+        aot_set_last_error("llvm build bitcast failed.");
+        goto fail;
+    }
+
+    if (!(*array_len = LLVMBuildLoad2(comp_ctx->builder, I32_TYPE, *array_len,
+                                      "array_obj_length"))) {
+        aot_set_last_error("llvm build load failed.");
+        goto fail;
+    }
+
+    if (!(*array_len = LLVMBuildLShr(comp_ctx->builder, *array_len,
+                                     I32_CONST(WASM_ARRAY_LENGTH_SHIFT),
+                                     "array_obj_length_shr"))) {
+        aot_set_last_error("llvm build lshr failed.");
         goto fail;
     }
 
@@ -812,13 +1022,13 @@ aot_compile_op_array_new(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                          uint32 type_index, bool init_with_default,
                          bool fixed_size, uint32 array_len)
 {
-    LLVMValueRef array_length, rtt_type, array_elem, array_obj, cmp;
+    LLVMValueRef array_length, rtt_type, array_elem, array_obj, cmp, elem_idx;
     LLVMBasicBlockRef check_rtt_type_succ, check_array_obj_succ;
     /* Use for distinguish what type of AOTValue POP */
     WASMArrayType *compile_time_array_type =
         (WASMArrayType *)comp_ctx->comp_data->types[type_index];
     uint8 array_elem_type = compile_time_array_type->elem_type;
-    uint32 elem_idx;
+    uint32 i;
 
     /* Generate call aot_rtt_type_new and check for exception */
     if (!aot_call_aot_rtt_type_new(comp_ctx, func_ctx, I32_CONST(type_index),
@@ -873,7 +1083,7 @@ aot_compile_op_array_new(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
 
     if (fixed_size) {
-        for (elem_idx = 0; elem_idx < array_len; elem_idx++) {
+        for (i = 0; i < array_len; i++) {
             if (wasm_is_type_reftype(array_elem_type)) {
                 POP_REF(array_elem);
             }
@@ -887,8 +1097,15 @@ aot_compile_op_array_new(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 POP_I64(array_elem);
             }
 
-            if (!aot_call_wasm_array_set_elem(comp_ctx, func_ctx, array_obj,
-                                              I32_CONST(elem_idx), array_elem))
+            /* array_len - 1 - i */
+            if (!(elem_idx = LLVMBuildSub(comp_ctx->builder, array_length,
+                                          I32_CONST(i + 1), "elem_idx"))) {
+                aot_set_last_error("llvm build sub failed.");
+                goto fail;
+            }
+
+            if (!aot_array_obj_set_elem(comp_ctx, func_ctx, array_obj, elem_idx,
+                                        array_elem, array_elem_type))
                 goto fail;
         }
     }
@@ -978,80 +1195,16 @@ fail:
     return false;
 }
 
-/* array_obj->length >> WASM_ARRAY_LENGTH_SHIFT */
-static bool
-aot_get_array_obj_length(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                         LLVMValueRef array_obj, LLVMValueRef *array_len)
-{
-    LLVMValueRef offset;
-
-    /* Get the length of the WASMArrayObject, the offset may be
-     * different in 32-bit runtime and 64-bit runtime since WASMObjectHeader
-     * is uintptr_t. Use comp_ctx->pointer_size as the
-     * offsetof(WASMArrayObject, length)*/
-    if (!(offset = I32_CONST(comp_ctx->pointer_size))) {
-        aot_set_last_error("llvm build const failed.");
-        goto fail;
-    }
-
-    if (!(*array_len =
-              LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, array_obj,
-                                    &offset, 1, "array_obj_length_i8p"))) {
-        aot_set_last_error("llvm build gep failed.");
-        goto fail;
-    }
-
-    if (!(*array_len =
-              LLVMBuildBitCast(comp_ctx->builder, *array_len, INT32_PTR_TYPE,
-                               "array_obj_length_i32ptr"))) {
-        aot_set_last_error("llvm build bitcast failed.");
-        goto fail;
-    }
-
-    if (!(*array_len = LLVMBuildLoad2(comp_ctx->builder, I32_TYPE, *array_len,
-                                      "array_obj_length"))) {
-        aot_set_last_error("llvm build load failed.");
-        goto fail;
-    }
-
-    if (!(*array_len = LLVMBuildLShr(comp_ctx->builder, *array_len,
-                                     I32_CONST(WASM_ARRAY_LENGTH_SHIFT),
-                                     "array_obj_length_shr"))) {
-        aot_set_last_error("llvm build lshr failed.");
-        goto fail;
-    }
-
-    return true;
-fail:
-    return false;
-}
-
 bool
 aot_compile_op_array_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                          uint32 type_index, bool sign)
 {
-    LLVMValueRef elem_idx, array_obj, cmp, array_len, array_elem_ptr,
-        array_elem;
-    LLVMTypeRef elem_type;
+    LLVMValueRef elem_idx, array_obj, cmp, array_len, array_elem;
     LLVMBasicBlockRef check_array_obj_succ, check_boundary_succ;
     /* Use for distinguish what type of AOTValue PUSH */
     WASMArrayType *compile_time_array_type =
         (WASMArrayType *)comp_ctx->comp_data->types[type_index];
     uint8 array_elem_type = compile_time_array_type->elem_type;
-
-    /* Get LLVM type based on array_elem_type */
-    if (wasm_is_type_reftype(array_elem_type)) {
-        elem_type = INT8_PTR_TYPE;
-    }
-    else if (array_elem_type == VALUE_TYPE_I32
-             || array_elem_type == VALUE_TYPE_F32
-             || array_elem_type == PACKED_TYPE_I8
-             || array_elem_type == PACKED_TYPE_I16) {
-        elem_type = I32_TYPE;
-    }
-    else {
-        elem_type = I64_TYPE;
-    }
 
     POP_I32(elem_idx);
     POP_REF(array_obj);
@@ -1064,7 +1217,7 @@ aot_compile_op_array_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                             check_array_obj_succ))
         goto fail;
 
-    if (!aot_get_array_obj_length(comp_ctx, func_ctx, array_obj, &array_len))
+    if (!aot_array_obj_length(comp_ctx, array_obj, &array_len))
         goto fail;
 
     ADD_BASIC_BLOCK(check_boundary_succ, "check boundary succ");
@@ -1075,26 +1228,9 @@ aot_compile_op_array_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                             check_boundary_succ))
         goto fail;
 
-    if (!(array_elem_ptr = LLVMBuildAlloca(comp_ctx->builder, elem_type,
-                                           "array_elem_ptr"))) {
-        aot_set_last_error("llvm build alloca failed.");
-        goto fail;
-    }
-    if (!(array_elem_ptr = LLVMBuildBitCast(comp_ctx->builder, array_elem_ptr,
-                                            INT8_PTR_TYPE, "array_elem_ptr"))) {
-        aot_set_last_error("llvm build bitcast failed.");
-        goto fail;
-    }
-
     if (!aot_call_wasm_array_get_elem(comp_ctx, func_ctx, array_obj, elem_idx,
-                                      I8_CONST(sign), array_elem_ptr))
+                                      &array_elem, array_elem_type, sign))
         goto fail;
-
-    if (!(array_elem = LLVMBuildLoad2(comp_ctx->builder, elem_type,
-                                      array_elem_ptr, ""))) {
-        aot_set_last_error("llvm build load failed.");
-        goto fail;
-    }
 
     if (wasm_is_type_reftype(array_elem_type)) {
         PUSH_REF(array_elem);
@@ -1150,7 +1286,7 @@ aot_compile_op_array_set(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                             check_array_obj_succ))
         goto fail;
 
-    if (!aot_get_array_obj_length(comp_ctx, func_ctx, array_obj, &array_len))
+    if (!aot_array_obj_length(comp_ctx, array_obj, &array_len))
         goto fail;
 
     ADD_BASIC_BLOCK(check_boundary_succ, "check boundary succ");
@@ -1161,8 +1297,8 @@ aot_compile_op_array_set(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                             check_boundary_succ))
         goto fail;
 
-    if (!aot_call_wasm_array_set_elem(comp_ctx, func_ctx, array_elem, elem_idx,
-                                      array_elem)) {
+    if (!aot_array_obj_set_elem(comp_ctx, func_ctx, array_elem, elem_idx,
+                                array_elem, array_elem_type)) {
         aot_set_last_error("llvm build alloca failed.");
         goto fail;
     }
@@ -1320,7 +1456,7 @@ aot_compile_op_array_len(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
                             check_array_obj_succ))
         goto fail;
 
-    if (!aot_get_array_obj_length(comp_ctx, func_ctx, array_obj, &array_len))
+    if (!aot_array_obj_length(comp_ctx, array_obj, &array_len))
         goto fail;
 
     PUSH_I32(array_len);
@@ -1352,7 +1488,7 @@ aot_compile_op_i31_new(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 
     /* if uintptr_t is 64 bits, extend i32 to i64, equivalent to:
      * (WASMI31ObjectRef)((i31_value << 1) | 1)  */
-    if (comp_ctx->pointer_size == 8) {
+    if (comp_ctx->pointer_size == sizeof(uint64)) {
         if (!(i31_obj = LLVMBuildZExt(comp_ctx->builder, i31_obj, I64_TYPE,
                                       "extend i32 to uintptr_t"))) {
             aot_set_last_error("llvm build zext failed.");
@@ -1387,8 +1523,8 @@ aot_compile_op_i31_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
 
     /* if uintptr_t is 64 bits, trunc i64 to i32 */
-    if (comp_ctx->pointer_size == 8) {
-        if (!(i31_val = LLVMBuildTrunc(comp_ctx->builder, i31_obj, I32_TYPE,
+    if (comp_ctx->pointer_size == sizeof(uint64)) {
+        if (!(i31_obj = LLVMBuildTrunc(comp_ctx->builder, i31_obj, I32_TYPE,
                                        "trunc uintptr_t to i32"))) {
             aot_set_last_error("llvm build trunc failed.");
             goto fail;
@@ -1399,7 +1535,7 @@ aot_compile_op_i31_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     /* i31_val = i31_val >> 1 */
-    if (!(i31_val = LLVMBuildLShr(comp_ctx->builder, i31_val, I32_ONE,
+    if (!(i31_val = LLVMBuildLShr(comp_ctx->builder, i31_obj, I32_ONE,
                                   "i31_value"))) {
         aot_set_last_error("llvm build lshr failed.");
         goto fail;
