@@ -75,7 +75,7 @@ if [[ $MODE != "aot" ]];then
                 ${THREAD_INTERNAL_TESTS} \
                 ${LIB_SOCKET_TESTS} \
 
-    ret=${PIPESTATUS[0]}
+    ret=${PIPESTATUS[1]}
 
     TEST_RUNTIME_EXE="${IWASM_CMD_STRESS}" python3 test-runner/wasi_test_runner.py \
             -r adapters/wasm-micro-runtime.py \
