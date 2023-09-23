@@ -51,8 +51,8 @@ run_aot_tests () {
             expected=$(jq .exit_code ${test_json})
         fi
 
-        ${iwasm} $test_aot
-        ret=${PIPESTATUS[0]}
+        python3 ${THIS_DIR}/pipe.py | ${iwasm} $test_aot
+        ret=${PIPESTATUS[1]}
 
         echo "expected=$expected, actual=$ret"
         if [[ $expected != "" ]] && [[ $expected != $ret ]];then
@@ -75,7 +75,7 @@ if [[ $MODE != "aot" ]];then
                 ${THREAD_INTERNAL_TESTS} \
                 ${LIB_SOCKET_TESTS} \
 
-    ret=${PIPESTATUS[0]}
+    ret=${PIPESTATUS[1]}
 
     TEST_RUNTIME_EXE="${IWASM_CMD_STRESS}" python3 test-runner/wasi_test_runner.py \
             -r adapters/wasm-micro-runtime.py \
