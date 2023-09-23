@@ -125,7 +125,7 @@ ExpandMemoryOpPass::run(Function &F, FunctionAnalysisManager &AM)
         }
         else if (MemMoveInst *Memmove = dyn_cast<MemMoveInst>(MemCall)) {
 #if LLVM_VERSION_MAJOR >= 17
-            Function *ParentFunc = Memcpy->getParent()->getParent();
+            Function *ParentFunc = Memmove->getParent()->getParent();
             const TargetTransformInfo &TTI =
                 AM.getResult<TargetIRAnalysis>(*ParentFunc);
             expandMemMoveAsLoop(Memmove, TTI);
