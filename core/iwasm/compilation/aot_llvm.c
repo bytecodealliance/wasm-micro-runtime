@@ -526,12 +526,18 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
     }
     wasm_runtime_free(params);
     params = NULL;
+
+#if LLVM_VERSION_MAJOR < 17
     if (aot_target_precheck_can_use_musttail(comp_ctx)) {
         LLVMSetTailCallKind(retval, LLVMTailCallKindMustTail);
     }
     else {
         LLVMSetTailCallKind(retval, LLVMTailCallKindTail);
     }
+#else
+    LLVMSetTailCall(retval, true);
+#endif
+
     if (ret_type == VOID_TYPE) {
         if (!LLVMBuildRetVoid(b)) {
             goto fail;
@@ -2172,8 +2178,10 @@ bool
 aot_compiler_init(void)
 {
     /* Initialize LLVM environment */
-
+#if LLVM_VERSION_MAJOR < 17
     LLVMInitializeCore(LLVMGetGlobalPassRegistry());
+#endif
+
 #if WASM_ENABLE_WAMR_COMPILER != 0
     /* Init environment of all targets for AOT compiler */
     LLVMInitializeAllTargetInfos();
