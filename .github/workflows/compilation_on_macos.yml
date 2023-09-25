@@ -245,7 +245,7 @@ jobs:
         working-directory: samples/wasm-c-api
 
   build_samples_others:
-    needs: [build_iwasm]
+    needs: [build_iwasm, build_wamrc]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
