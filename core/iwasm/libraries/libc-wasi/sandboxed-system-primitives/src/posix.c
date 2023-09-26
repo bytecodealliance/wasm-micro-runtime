@@ -339,7 +339,7 @@ fd_prestats_init(struct fd_prestats *pt)
 
 // Grows the preopened resource table to a required lower bound and a
 // minimum number of free preopened resource table entries.
-static bool
+static __wasi_errno_t
 fd_prestats_grow(struct fd_prestats *pt, size_t min, size_t incr)
     REQUIRES_EXCLUSIVE(pt->lock)
 {
@@ -353,7 +353,7 @@ fd_prestats_grow(struct fd_prestats *pt, size_t min, size_t incr)
         struct fd_prestat *prestats =
             wasm_runtime_malloc((uint32)(sizeof(*prestats) * size));
         if (prestats == NULL)
-            return false;
+            return __WASI_ENOMEM;
 
         if (pt->prestats && pt->size > 0) {
             bh_memcpy_s(prestats, (uint32)(sizeof(*prestats) * size),
@@ -369,27 +369,39 @@ fd_prestats_grow(struct fd_prestats *pt, size_t min, size_t incr)
         pt->prestats = prestats;
         pt->size = size;
     }
-    return true;
+    return __WASI_ESUCCESS;
+}
+
+static __wasi_errno_t
+fd_prestats_insert_locked(struct fd_prestats *pt, const char *dir,
+                          __wasi_fd_t fd)
+{
+    // Grow the preopened resource table if needed.
+    __wasi_errno_t error = fd_prestats_grow(pt, fd, 1);
+
+    if (error != __WASI_ESUCCESS) {
+        return error;
+    }
+
+    pt->prestats[fd].dir = bh_strdup(dir);
+
+    if (pt->prestats[fd].dir == NULL)
+        return __WASI_ENOMEM;
+
+    return __WASI_ESUCCESS;
 }
 
 // Inserts a preopened resource record into the preopened resource table.
 bool
 fd_prestats_insert(struct fd_prestats *pt, const char *dir, __wasi_fd_t fd)
 {
-    // Grow the preopened resource table if needed.
     rwlock_wrlock(&pt->lock);
-    if (!fd_prestats_grow(pt, fd, 1)) {
-        rwlock_unlock(&pt->lock);
-        return false;
-    }
 
-    pt->prestats[fd].dir = bh_strdup(dir);
+    __wasi_errno_t error = fd_prestats_insert_locked(pt, dir, fd);
+
     rwlock_unlock(&pt->lock);
 
-    if (pt->prestats[fd].dir == NULL)
-        return false;
-
-    return true;
+    return error == __WASI_ESUCCESS;
 }
 
 // Looks up a preopened resource table entry by number.
@@ -406,6 +418,24 @@ fd_prestats_get_entry(struct fd_prestats *pt, __wasi_fd_t fd,
 
     *ret = prestat;
     return 0;
+}
+
+// Remove a preopened resource record from the preopened resource table by
+// number
+static __wasi_errno_t
+fd_prestats_remove_entry(struct fd_prestats *pt, __wasi_fd_t fd)
+{
+    // Test for file descriptor existence.
+    if (fd >= pt->size)
+        return __WASI_EBADF;
+    struct fd_prestat *prestat = &pt->prestats[fd];
+
+    if (prestat->dir != NULL) {
+        wasm_runtime_free((void *)prestat->dir);
+        prestat->dir = NULL;
+    }
+
+    return __WASI_ESUCCESS;
 }
 
 struct fd_object {
@@ -837,25 +867,15 @@ __wasi_errno_t
 wasmtime_ssp_fd_close(wasm_exec_env_t exec_env, struct fd_table *curfds,
                       struct fd_prestats *prestats, __wasi_fd_t fd)
 {
-    // Don't allow closing a pre-opened resource.
-    // TODO: Eventually, we do want to permit this, once libpreopen in
-    // userspace is capable of removing entries from its tables as well.
-    {
-        rwlock_rdlock(&prestats->lock);
-        struct fd_prestat *prestat;
-        __wasi_errno_t error = fd_prestats_get_entry(prestats, fd, &prestat);
-        rwlock_unlock(&prestats->lock);
-        if (error == 0) {
-            return __WASI_ENOTSUP;
-        }
-    }
-
     // Validate the file descriptor.
     struct fd_table *ft = curfds;
     rwlock_wrlock(&ft->lock);
+    rwlock_wrlock(&prestats->lock);
+
     struct fd_entry *fe;
     __wasi_errno_t error = fd_table_get_entry(ft, fd, 0, 0, &fe);
     if (error != 0) {
+        rwlock_unlock(&prestats->lock);
         rwlock_unlock(&ft->lock);
         return error;
     }
@@ -863,9 +883,20 @@ wasmtime_ssp_fd_close(wasm_exec_env_t exec_env, struct fd_table *curfds,
     // Remove it from the file descriptor table.
     struct fd_object *fo;
     fd_table_detach(ft, fd, &fo);
+
+    // Remove it from the preopened resource table if it exists
+    error = fd_prestats_remove_entry(prestats, fd);
+
+    rwlock_unlock(&prestats->lock);
     rwlock_unlock(&ft->lock);
     fd_object_release(exec_env, fo);
-    return 0;
+
+    // Ignore the error if there is no preopen associated with this fd
+    if (error == __WASI_EBADF) {
+        return __WASI_ESUCCESS;
+    }
+
+    return error;
 }
 
 // Look up a file descriptor object in a locked file descriptor table
@@ -1081,33 +1112,21 @@ wasmtime_ssp_fd_renumber(wasm_exec_env_t exec_env, struct fd_table *curfds,
                          struct fd_prestats *prestats, __wasi_fd_t from,
                          __wasi_fd_t to)
 {
-    // Don't allow renumbering over a pre-opened resource.
-    // TODO: Eventually, we do want to permit this, once libpreopen in
-    // userspace is capable of removing entries from its tables as well.
-    {
-        rwlock_rdlock(&prestats->lock);
-        struct fd_prestat *prestat;
-        __wasi_errno_t error = fd_prestats_get_entry(prestats, to, &prestat);
-        if (error != 0) {
-            error = fd_prestats_get_entry(prestats, from, &prestat);
-        }
-        rwlock_unlock(&prestats->lock);
-        if (error == 0) {
-            return __WASI_ENOTSUP;
-        }
-    }
-
     struct fd_table *ft = curfds;
     rwlock_wrlock(&ft->lock);
+    rwlock_wrlock(&prestats->lock);
+
     struct fd_entry *fe_from;
     __wasi_errno_t error = fd_table_get_entry(ft, from, 0, 0, &fe_from);
     if (error != 0) {
+        rwlock_unlock(&prestats->lock);
         rwlock_unlock(&ft->lock);
         return error;
     }
     struct fd_entry *fe_to;
     error = fd_table_get_entry(ft, to, 0, 0, &fe_to);
     if (error != 0) {
+        rwlock_unlock(&prestats->lock);
         rwlock_unlock(&ft->lock);
         return error;
     }
@@ -1124,8 +1143,53 @@ wasmtime_ssp_fd_renumber(wasm_exec_env_t exec_env, struct fd_table *curfds,
     fd_object_release(exec_env, fo);
     --ft->used;
 
+    // Handle renumbering of any preopened resources
+    struct fd_prestat *prestat_from;
+    __wasi_errno_t prestat_from_error =
+        fd_prestats_get_entry(prestats, from, &prestat_from);
+
+    struct fd_prestat *prestat_to;
+    __wasi_errno_t prestat_to_error =
+        fd_prestats_get_entry(prestats, to, &prestat_to);
+
+    // Renumbering over two preopened resources.
+    if (prestat_from_error == __WASI_ESUCCESS
+        && prestat_to_error == __WASI_ESUCCESS) {
+        (void)fd_prestats_remove_entry(prestats, to);
+
+        error = fd_prestats_insert_locked(prestats, prestat_from->dir, to);
+
+        if (error == __WASI_ESUCCESS) {
+            (void)fd_prestats_remove_entry(prestats, from);
+        }
+        else {
+            (void)fd_prestats_remove_entry(prestats, to);
+        }
+    }
+    // Renumbering from a non-preopened fd to a preopened fd. In this case, we
+    // can't a keep the destination fd entry in the preopened table so remove
+    // it entirely.
+    else if (prestat_from_error != __WASI_ESUCCESS
+             && prestat_to_error == __WASI_ESUCCESS) {
+        (void)fd_prestats_remove_entry(prestats, to);
+    }
+    // Renumbering from a preopened fd to a non-preopened fd
+    else if (prestat_from_error == __WASI_ESUCCESS
+             && prestat_to_error != __WASI_ESUCCESS) {
+        error = fd_prestats_insert_locked(prestats, prestat_from->dir, to);
+
+        if (error == __WASI_ESUCCESS) {
+            (void)fd_prestats_remove_entry(prestats, from);
+        }
+        else {
+            (void)fd_prestats_remove_entry(prestats, to);
+        }
+    }
+
+    rwlock_unlock(&prestats->lock);
     rwlock_unlock(&ft->lock);
-    return 0;
+
+    return error;
 }
 
 __wasi_errno_t
