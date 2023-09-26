@@ -30,7 +30,7 @@ sockaddr_to_bh_sockaddr(const struct sockaddr *sockaddr, socklen_t socklen,
             assert(socklen >= sizeof(struct sockaddr_in));
 
             bh_sockaddr->port = ntohs(addr->sin_port);
-            bh_sockaddr->addr_bufer.ipv4 = ntohl(addr->sin_addr.s_addr);
+            bh_sockaddr->addr_buffer.ipv4 = ntohl(addr->sin_addr.s_addr);
             bh_sockaddr->is_ipv4 = true;
             return BHT_OK;
         }

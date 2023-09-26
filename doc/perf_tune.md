@@ -72,3 +72,18 @@ wasm_runtime_dump_pgo_prof_data_to_buf(wasm_module_inst_t module_inst, char *buf
 6. Run the optimized aot_file: `iwasm <aot_file>`.
 
 Developer can refer to the `test_pgo.sh` files under each benchmark folder for more details, e.g. [test_pgo.sh](../tests/benchmarks/coremark/test_pgo.sh) of CoreMark benchmark.
+
+## 6. Disable the memory boundary check
+
+Please notice that this method is not a general solution since it may lead to security issues. And only boost the performance for some platforms in AOT mode and don't support hardware trap for memory boundary check.
+
+1. Build WAMR with `-DWAMR_CONFIGUABLE_BOUNDS_CHECKS=1` option.
+
+2. Compile AOT module by wamrc with `--bounds-check=0` option.
+
+3. Run the AOT module by iwasm with `--disable-bounds-checks` option.
+
+> Note: The size of AOT file will be much smaller than the default, and some tricks are possible such as let the wasm application access the memory of host os directly.
+Please notice that if this option is enabled, the wasm spec test will fail since it requires the memory boundary check. For example, the runtime will crash when accessing the memory out of the boundary in some cases instead of throwing an exception as the spec requires.
+
+You should only use this method for well tested wasm applications and make sure the memory access is safe.

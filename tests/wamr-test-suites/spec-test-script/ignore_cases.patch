@@ -343,26 +343,6 @@ index adb5cb7..590f626 100644
    (func $g (param $x i32) (result i32)
      (i32.add (local.get $x) (i32.const 1))
    )
-diff --git a/test/core/select.wast b/test/core/select.wast
-index 046e6fe..b677023 100644
---- a/test/core/select.wast
-+++ b/test/core/select.wast
-@@ -324,6 +324,7 @@
-   (module (func $arity-0 (select (result) (nop) (nop) (i32.const 1))))
-   "invalid result arity"
- )
-+(;
- (assert_invalid
-   (module (func $arity-2 (result i32 i32)
-     (select (result i32 i32)
-@@ -334,6 +335,7 @@
-   ))
-   "invalid result arity"
- )
-+;)
- 
- 
- (assert_invalid
 diff --git a/test/core/table_copy.wast b/test/core/table_copy.wast
 index 380e84e..f37e745 100644
 --- a/test/core/table_copy.wast

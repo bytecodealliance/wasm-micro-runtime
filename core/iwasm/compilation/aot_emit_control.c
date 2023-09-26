@@ -234,13 +234,15 @@ handle_next_reachable_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         else {
             /* Store extra return values to function parameters */
             if (i != 0) {
+                LLVMValueRef res;
                 uint32 param_index = func_type->param_count + i;
-                if (!LLVMBuildStore(
-                        comp_ctx->builder, block->result_phis[i],
-                        LLVMGetParam(func_ctx->func, param_index))) {
+                if (!(res = LLVMBuildStore(
+                          comp_ctx->builder, block->result_phis[i],
+                          LLVMGetParam(func_ctx->func, param_index)))) {
                     aot_set_last_error("llvm build store failed.");
                     goto fail;
                 }
+                LLVMSetAlignment(res, 1);
             }
         }
     }
@@ -1102,14 +1104,17 @@ aot_compile_op_return(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     if (block_func->result_count) {
         /* Store extra result values to function parameters */
         for (i = 0; i < block_func->result_count - 1; i++) {
+            LLVMValueRef res;
             result_index = block_func->result_count - 1 - i;
             POP(value, block_func->result_types[result_index]);
             param_index = func_type->param_count + result_index;
-            if (!LLVMBuildStore(comp_ctx->builder, value,
-                                LLVMGetParam(func_ctx->func, param_index))) {
+            if (!(res = LLVMBuildStore(
+                      comp_ctx->builder, value,
+                      LLVMGetParam(func_ctx->func, param_index)))) {
                 aot_set_last_error("llvm build store failed.");
                 goto fail;
             }
+            LLVMSetAlignment(res, 1);
         }
         /* Return the first result value */
         POP(value, block_func->result_types[0]);
