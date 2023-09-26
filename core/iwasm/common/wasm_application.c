@@ -107,7 +107,34 @@ execute_main(WASMModuleInstanceCommon *module_inst, int32 argc, char *argv[])
        the actual main function. Directly calling main function
        may cause exception thrown. */
     if ((func = wasm_runtime_lookup_wasi_start_function(module_inst))) {
-        return wasm_runtime_call_wasm(exec_env, func, 0, NULL);
+        const char *wasi_proc_exit_exception = "wasi proc exit";
+
+        ret = wasm_runtime_call_wasm(exec_env, func, 0, NULL);
+#if WASM_ENABLE_THREAD_MGR != 0
+        if (ret) {
+            /* On a successful return from the `_start` function,
+               we terminate other threads by mimicing wasi:proc_exit(0).
+
+               Note:
+               - A return from the `main` function is an equivalent of
+                 exit(). (C standard)
+               - When exit code is 0, wasi-libc's `_start` function just
+                 returns w/o calling `proc_exit`.
+               - A process termination should terminate threads in
+                 the process. */
+
+            wasm_runtime_set_exception(module_inst, wasi_proc_exit_exception);
+            /* exit_code is zero-initialized */
+            ret = false;
+        }
+#endif
+        /* report wasm proc exit as a success */
+        WASMModuleInstance *inst = (WASMModuleInstance *)module_inst;
+        if (!ret && strstr(inst->cur_exception, wasi_proc_exit_exception)) {
+            inst->cur_exception[0] = 0;
+            ret = true;
+        }
+        return ret;
     }
 #endif /* end of WASM_ENABLE_LIBC_WASI */
 

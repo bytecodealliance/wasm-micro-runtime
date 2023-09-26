@@ -21,7 +21,8 @@ tid_allocator_init(TidAllocator *tid_allocator)
         return false;
 
     for (int64 i = tid_allocator->pos - 1; i >= 0; i--)
-        tid_allocator->ids[i] = TID_MIN + (tid_allocator->pos - 1 - i);
+        tid_allocator->ids[i] =
+            (uint32)(TID_MIN + (tid_allocator->pos - 1 - i));
 
     return true;
 }
@@ -54,7 +55,8 @@ tid_allocator_get_tid(TidAllocator *tid_allocator)
             LOG_ERROR("Overflow detected during realloc");
             return -1;
         }
-        int32 *tmp = wasm_runtime_realloc(tid_allocator->ids, realloc_size);
+        int32 *tmp =
+            wasm_runtime_realloc(tid_allocator->ids, (uint32)realloc_size);
         if (tmp == NULL) {
             LOG_ERROR("Thread ID allocator realloc failed");
             return -1;
@@ -64,7 +66,8 @@ tid_allocator_get_tid(TidAllocator *tid_allocator)
         tid_allocator->pos = new_size - old_size;
         tid_allocator->ids = tmp;
         for (int64 i = tid_allocator->pos - 1; i >= 0; i--)
-            tid_allocator->ids[i] = TID_MIN + (tid_allocator->size - 1 - i);
+            tid_allocator->ids[i] =
+                (uint32)(TID_MIN + (tid_allocator->size - 1 - i));
     }
 
     // Pop available thread identifier from the stack

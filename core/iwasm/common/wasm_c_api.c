@@ -2290,8 +2290,10 @@ quit:
 bool
 wasm_module_validate(wasm_store_t *store, const wasm_byte_vec_t *binary)
 {
+    wasm_byte_vec_t local_binary = { 0 };
     struct WASMModuleCommon *module_rt;
     char error_buf[128] = { 0 };
+    bool ret;
 
     bh_assert(singleton_engine);
 
@@ -2300,15 +2302,25 @@ wasm_module_validate(wasm_store_t *store, const wasm_byte_vec_t *binary)
         return false;
     }
 
-    if ((module_rt = wasm_runtime_load((uint8 *)binary->data,
-                                       (uint32)binary->size, error_buf, 128))) {
+    /* make a copy of binary */
+    wasm_byte_vec_copy(&local_binary, binary);
+
+    if (binary->size && !local_binary.data)
+        return false;
+
+    module_rt = wasm_runtime_load((uint8 *)local_binary.data,
+                                  (uint32)local_binary.size, error_buf, 128);
+    wasm_byte_vec_delete(&local_binary);
+    if (module_rt) {
         wasm_runtime_unload(module_rt);
-        return true;
+        ret = true;
     }
     else {
+        ret = false;
         LOG_VERBOSE(error_buf);
-        return false;
     }
+
+    return ret;
 }
 
 static void
@@ -4858,7 +4870,7 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
     if (instance->inst_comm_rt->module_type == Wasm_Module_Bytecode) {
         WASMModuleInstanceExtra *e =
             ((WASMModuleInstance *)instance->inst_comm_rt)->e;
-        p_func_imports = &(e->c_api_func_imports);
+        p_func_imports = &(e->common.c_api_func_imports);
         import_func_count = MODULE_INTERP(module)->import_function_count;
     }
 #endif
@@ -4868,7 +4880,7 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
             (AOTModuleInstanceExtra *)((AOTModuleInstance *)
                                            instance->inst_comm_rt)
                 ->e;
-        p_func_imports = &(e->c_api_func_imports);
+        p_func_imports = &(e->common.c_api_func_imports);
         import_func_count = MODULE_AOT(module)->import_func_count;
     }
 #endif

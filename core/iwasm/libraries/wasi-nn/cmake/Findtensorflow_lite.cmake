@@ -18,10 +18,14 @@ if(NOT EXISTS ${TENSORFLOW_LITE})
 
   set(TENSORFLOW_SOURCE_DIR "${WAMR_ROOT_DIR}/core/deps/tensorflow-src")
 
-  if(WASI_NN_ENABLE_GPU EQUAL 1)
+  if(WAMR_BUILD_WASI_NN_ENABLE_GPU EQUAL 1)
     # Tensorflow specific:
     # * https://www.tensorflow.org/lite/guide/build_cmake#available_options_to_build_tensorflow_lite
     set (TFLITE_ENABLE_GPU ON)
+  endif()
+
+  if (CMAKE_SIZEOF_VOID_P EQUAL 4)
+    set (TFLITE_ENABLE_XNNPACK OFF)
   endif()
 
   add_subdirectory(

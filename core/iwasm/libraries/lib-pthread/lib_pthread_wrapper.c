@@ -559,9 +559,6 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
     uint32 thread_handle;
     uint32 stack_size = 8192;
     int32 ret = -1;
-#if WASM_ENABLE_LIBC_WASI != 0
-    WASIContext *wasi_ctx;
-#endif
 
     bh_assert(module);
     bh_assert(module_inst);
@@ -581,18 +578,14 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
 #endif
 
     if (!(new_module_inst = wasm_runtime_instantiate_internal(
-              module, true, exec_env, stack_size, 0, NULL, 0)))
+              module, module_inst, exec_env, stack_size, 0, NULL, 0)))
         return -1;
 
     /* Set custom_data to new module instance */
     wasm_runtime_set_custom_data_internal(
         new_module_inst, wasm_runtime_get_custom_data(module_inst));
 
-#if WASM_ENABLE_LIBC_WASI != 0
-    wasi_ctx = get_wasi_ctx(module_inst);
-    if (wasi_ctx)
-        wasm_runtime_set_wasi_ctx(new_module_inst, wasi_ctx);
-#endif
+    wasm_native_inherit_contexts(new_module_inst, module_inst);
 
     if (!(wasm_cluster_dup_c_api_imports(new_module_inst, module_inst)))
         goto fail;
