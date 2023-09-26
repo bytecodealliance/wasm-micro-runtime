@@ -35,9 +35,6 @@ blocking_op_readv(wasm_exec_env_t exec_env, int fd, const struct iovec *iov,
 
 #if CONFIG_HAS_PREADV
 ssize_t
-preadv(int fd, const struct iovec *iov, int iovcnt, off_t offset);
-
-ssize_t
 blocking_op_preadv(wasm_exec_env_t exec_env, int fd, const struct iovec *iov,
                    int iovcnt, off_t offset)
 {
@@ -78,9 +75,6 @@ blocking_op_writev(wasm_exec_env_t exec_env, int fd, const struct iovec *iov,
 }
 
 #if CONFIG_HAS_PWRITEV
-ssize_t
-pwritev(int fd, const struct iovec *iov, int iovcnt, off_t offset);
-
 ssize_t
 blocking_op_pwritev(wasm_exec_env_t exec_env, int fd, const struct iovec *iov,
                     int iovcnt, off_t offset)
