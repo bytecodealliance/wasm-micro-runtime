@@ -545,7 +545,8 @@ signal_callback(int sig_num, siginfo_t *sig_info, void *sig_ucontext)
     }
     else if (prev_sig_act
              && prev_sig_act->sa_handler
-             /* Ignore SIG_DFL and SIG_IGN */
+             /* Filter out SIG_DFL and SIG_IGN here, they will
+                run into the else branch below */
              && (void *)prev_sig_act->sa_handler != SIG_DFL
              && (void *)prev_sig_act->sa_handler != SIG_IGN) {
         prev_sig_act->sa_handler(sig_num);
