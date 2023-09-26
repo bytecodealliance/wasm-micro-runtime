@@ -54,13 +54,13 @@
     } while (0)
 
 #if LLVM_VERSION_NUMBER >= 12
-#define IS_CONST_ZERO(val)                                          \
-    (!LLVMIsUndef(val) && !LLVMIsPoison(val) && LLVMIsConstant(val) \
-     && ((is_i32 && (int32)LLVMConstIntGetZExtValue(val) == 0)      \
+#define IS_CONST_ZERO(val)                                     \
+    (LLVMIsEfficientConstInt(val)                              \
+     && ((is_i32 && (int32)LLVMConstIntGetZExtValue(val) == 0) \
          || (!is_i32 && (int64)LLVMConstIntGetSExtValue(val) == 0)))
 #else
 #define IS_CONST_ZERO(val)                                     \
-    (!LLVMIsUndef(val) && LLVMIsConstant(val)                  \
+    (LLVMIsEfficientConstInt(val)                              \
      && ((is_i32 && (int32)LLVMConstIntGetZExtValue(val) == 0) \
          || (!is_i32 && (int64)LLVMConstIntGetSExtValue(val) == 0)))
 #endif
@@ -473,7 +473,7 @@ compile_int_div(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         return aot_handle_next_reachable_block(comp_ctx, func_ctx, p_frame_ip);
     }
 
-    if (LLVMIsConstant(right)) {
+    if (LLVMIsEfficientConstInt(right)) {
         int64 right_val = (int64)LLVMConstIntGetSExtValue(right);
         switch (right_val) {
             case 0:
