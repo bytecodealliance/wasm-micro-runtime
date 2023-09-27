@@ -1489,7 +1489,7 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
 #endif
 
     /* func pointer was looked up previously */
-    bh_assert(func_ptr ! = NULL);
+    bh_assert(func_ptr != NULL);
     /* set thread handle and stack boundary */
     wasm_exec_env_set_thread_info(exec_env);
 
