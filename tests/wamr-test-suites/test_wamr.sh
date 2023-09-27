@@ -36,6 +36,7 @@ function help()
 
 OPT_PARSED=""
 WABT_BINARY_RELEASE="NO"
+WABT_RELEASE_VER="1.0.33"
 #default type
 TYPE=("classic-interp" "fast-interp" "jit" "aot" "fast-jit" "multi-tier-jit")
 #default target
@@ -313,6 +314,12 @@ function setup_wabt()
 {
     if [ ${WABT_BINARY_RELEASE} == "YES" ]; then
         echo "download a binary release and install"
+
+        if [ -f ${WORK_DIR}/wabt/Makefile ]; then
+            echo "remove ${WORK_DIR}/wabt firstly..."
+            rm -rf ${WORK_DIR}/wabt
+        fi
+
         local WAT2WASM=${WORK_DIR}/wabt/out/gcc/Release/wat2wasm
         if [ ! -f ${WAT2WASM} ]; then
             case ${PLATFORM} in
@@ -329,16 +336,16 @@ function setup_wabt()
                     exit 1
                     ;;
             esac
-            if [ ! -f /tmp/wabt-1.0.31-${WABT_PLATFORM}.tar.gz ]; then
+            if [ ! -f /tmp/wabt-${WABT_RELEASE_VER}-${WABT_PLATFORM}.tar.gz ]; then
                 wget \
-                    https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-${WABT_PLATFORM}.tar.gz \
+                    https://github.com/WebAssembly/wabt/releases/download/${WABT_RELEASE_VER}/wabt-${WABT_RELEASE_VER}-${WABT_PLATFORM}.tar.gz \
                     -P /tmp
             fi
 
             cd /tmp \
-            && tar zxf wabt-1.0.31-${WABT_PLATFORM}.tar.gz \
+            && tar zxf wabt-${WABT_RELEASE_VER}-${WABT_PLATFORM}.tar.gz \
             && mkdir -p ${WORK_DIR}/wabt/out/gcc/Release/ \
-            && install wabt-1.0.31/bin/wa* ${WORK_DIR}/wabt/out/gcc/Release/ \
+            && install wabt-${WABT_RELEASE_VER}/bin/wa* ${WORK_DIR}/wabt/out/gcc/Release/ \
             && cd -
         fi
     else
@@ -354,6 +361,8 @@ function setup_wabt()
         cd ..
         make -C wabt gcc-release -j 4
     fi
+
+    echo "using WABT $(${WORK_DIR}/wabt/out/gcc/Release/wat2wasm --version) ..."
 }
 
 # TODO: with iwasm only

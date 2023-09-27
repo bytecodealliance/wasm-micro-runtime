@@ -321,6 +321,13 @@ jobs:
           sudo apt update
           sudo apt install -y libsgx-launch libsgx-urts
 
+      - name: install g++-11
+        run: |
+          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+          sudo apt update
+          sudo apt search --names-only "^g\+\+-1"
+          sudo apt install -y g++-11
+
       - name: run spec tests
         run: |
           source /opt/intel/sgxsdk/environment
