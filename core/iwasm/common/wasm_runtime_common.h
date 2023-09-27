@@ -675,6 +675,10 @@ wasm_runtime_get_exception(WASMModuleInstanceCommon *module);
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_clear_exception(WASMModuleInstanceCommon *module_inst);
 
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_terminate(WASMModuleInstanceCommon *module);
+
 /* Internal API */
 void
 wasm_runtime_set_custom_data_internal(WASMModuleInstanceCommon *module_inst,
@@ -1067,6 +1071,15 @@ wasm_runtime_is_import_func_linked(const char *module_name,
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_is_import_global_linked(const char *module_name,
                                      const char *global_name);
+
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_begin_blocking_op(WASMExecEnv *exec_env);
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_end_blocking_op(WASMExecEnv *exec_env);
+
+void
+wasm_runtime_interrupt_blocking_op(WASMExecEnv *exec_env);
 
 #ifdef __cplusplus
 }

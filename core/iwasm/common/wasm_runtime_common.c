@@ -487,8 +487,21 @@ wasm_runtime_env_init()
     }
 #endif
 
+#if WASM_ENABLE_THREAD_MGR != 0 && defined(OS_ENABLE_WAKEUP_BLOCKING_OP)
+    if (os_blocking_op_init() != BHT_OK) {
+        goto fail11;
+    }
+    os_end_blocking_op();
+#endif
+
     return true;
 
+#if WASM_ENABLE_THREAD_MGR != 0 && defined(OS_ENABLE_WAKEUP_BLOCKING_OP)
+fail11:
+#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
+    aot_compiler_destroy();
+#endif
+#endif
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
 fail10:
 #if WASM_ENABLE_FAST_JIT != 0
@@ -1435,6 +1448,10 @@ wasm_runtime_init_thread_env(void)
 #endif
         return false;
     }
+#endif
+
+#if WASM_ENABLE_THREAD_MGR != 0 && defined(OS_ENABLE_WAKEUP_BLOCKING_OP)
+    os_end_blocking_op();
 #endif
 
     return true;
@@ -2387,8 +2404,8 @@ wasm_runtime_get_exec_env_singleton(WASMModuleInstanceCommon *module_inst_comm)
     return module_inst->exec_env_singleton;
 }
 
-void
-wasm_set_exception(WASMModuleInstance *module_inst, const char *exception)
+static void
+wasm_set_exception_local(WASMModuleInstance *module_inst, const char *exception)
 {
     exception_lock(module_inst);
     if (exception) {
@@ -2399,13 +2416,22 @@ wasm_set_exception(WASMModuleInstance *module_inst, const char *exception)
         module_inst->cur_exception[0] = '\0';
     }
     exception_unlock(module_inst);
+}
 
+void
+wasm_set_exception(WASMModuleInstance *module_inst, const char *exception)
+{
 #if WASM_ENABLE_THREAD_MGR != 0
     WASMExecEnv *exec_env =
         wasm_clusters_search_exec_env((WASMModuleInstanceCommon *)module_inst);
     if (exec_env) {
-        wasm_cluster_spread_exception(exec_env, exception);
+        wasm_cluster_set_exception(exec_env, exception);
     }
+    else {
+        wasm_set_exception_local(module_inst, exception);
+    }
+#else
+    wasm_set_exception_local(module_inst, exception);
 #endif
 }
 
@@ -2512,6 +2538,18 @@ wasm_runtime_clear_exception(WASMModuleInstanceCommon *module_inst_comm)
               || module_inst_comm->module_type == Wasm_Module_AoT);
     wasm_runtime_set_exception(module_inst_comm, NULL);
 }
+
+#if WASM_ENABLE_THREAD_MGR != 0
+void
+wasm_runtime_terminate(WASMModuleInstanceCommon *module_inst_comm)
+{
+    WASMModuleInstance *module_inst = (WASMModuleInstance *)module_inst_comm;
+
+    bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
+              || module_inst_comm->module_type == Wasm_Module_AoT);
+    wasm_set_exception(module_inst, "terminated by user");
+}
+#endif
 
 void
 wasm_runtime_set_custom_data_internal(

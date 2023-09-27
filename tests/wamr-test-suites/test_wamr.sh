@@ -55,7 +55,8 @@ PLATFORM=$(uname -s | tr A-Z a-z)
 PARALLELISM=0
 ENABLE_QEMU=0
 QEMU_FIRMWARE=""
-WASI_TESTSUITE_COMMIT="aca78d919355ae00af141e6741a439039615b257"
+# prod/testsuite-all branch
+WASI_TESTSUITE_COMMIT="cf64229727f71043d5849e73934e249e12cb9e06"
 
 while getopts ":s:cabgvt:m:MCpSXxwPGQF:" opt
 do
