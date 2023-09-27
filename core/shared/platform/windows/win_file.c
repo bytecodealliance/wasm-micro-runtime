@@ -213,19 +213,18 @@ has_symlink_attribute(DWORD attributes)
     return (attributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
 }
 
-static bool
-is_symlink(const wchar_t *path)
-{
-    DWORD attributes = GetFileAttributesW(path);
-
-    return has_symlink_attribute(attributes);
-}
-
 static void
 init_dir_stream(os_dir_stream dir_stream, os_file_handle handle)
 {
     dir_stream->cursor = 0;
     dir_stream->handle = handle;
+    dir_stream->cookie = 0;
+}
+
+static void
+reset_dir_stream(os_dir_stream dir_stream)
+{
+    dir_stream->cursor = 0;
     dir_stream->cookie = 0;
 }
 
@@ -562,7 +561,32 @@ os_fstatat(os_file_handle handle, const char *path,
 {
     CHECK_VALID_FILE_HANDLE(handle);
 
-    return __WASI_ENOSYS;
+    wchar_t absolute_path[PATH_MAX];
+
+    __wasi_errno_t error = get_absolute_filepath(handle->raw.handle, path,
+                                                 absolute_path, PATH_MAX);
+
+    if (error != __WASI_ESUCCESS)
+        return error;
+
+    windows_handle resolved_handle = {
+        .type = windows_handle_type_file,
+        .fdflags = 0,
+        .raw = { .handle = create_handle(
+                     absolute_path, is_directory(absolute_path),
+                     ((lookup_flags & __WASI_LOOKUP_SYMLINK_FOLLOW) != 0),
+                     true) },
+        .access_mode = windows_access_mode_read
+    };
+
+    if (resolved_handle.raw.handle == INVALID_HANDLE_VALUE)
+        return convert_windows_error_code(GetLastError());
+
+    error = get_file_information(&resolved_handle, buf);
+
+    CloseHandle(resolved_handle.raw.handle);
+
+    return error;
 }
 
 __wasi_errno_t
@@ -579,7 +603,33 @@ os_file_set_fdflags(os_file_handle handle, __wasi_fdflags_t flags)
 {
     CHECK_VALID_HANDLE(handle);
 
-    return __WASI_ENOSYS;
+    if (handle->type == windows_handle_type_socket
+        && (((handle->fdflags ^ flags) & __WASI_FDFLAG_NONBLOCK) != 0)) {
+        u_long non_block = flags & __WASI_FDFLAG_NONBLOCK;
+
+        int ret = ioctlsocket(handle->raw.socket, (long)FIONBIO, &non_block);
+
+        if (ret != 0)
+            return convert_winsock_error_code(WSAGetLastError());
+
+        if (non_block)
+            handle->fdflags |= __WASI_FDFLAG_NONBLOCK;
+        else
+            handle->fdflags &= ~__WASI_FDFLAG_NONBLOCK;
+        return __WASI_ESUCCESS;
+    }
+
+    // It's not supported setting FILE_FLAG_WRITE_THROUGH or
+    // FILE_FLAG_NO_BUFFERING via SetFileAttributes so __WASI_FDFLAG_APPEND is
+    // the only flags we can do anything with.
+    if (((handle->fdflags ^ flags) & __WASI_FDFLAG_APPEND) != 0) {
+        if ((flags & __WASI_FDFLAG_APPEND) != 0)
+            handle->fdflags |= __WASI_FDFLAG_APPEND;
+        else
+            handle->fdflags &= ~__WASI_FDFLAG_APPEND;
+    }
+
+    return __WASI_ESUCCESS;
 }
 
 __wasi_errno_t
@@ -599,12 +649,21 @@ os_file_get_access_mode(os_file_handle handle,
     return __WASI_ESUCCESS;
 }
 
+static __wasi_errno_t
+flush_file_buffers_on_handle(HANDLE handle)
+{
+    bool success = FlushFileBuffers(handle);
+
+    return success ? __WASI_ESUCCESS
+                   : convert_windows_error_code(GetLastError());
+}
+
 __wasi_errno_t
 os_fdatasync(os_file_handle handle)
 {
     CHECK_VALID_FILE_HANDLE(handle);
 
-    return __WASI_ENOSYS;
+    return flush_file_buffers_on_handle(handle->raw.handle);
 }
 
 __wasi_errno_t
@@ -612,7 +671,7 @@ os_fsync(os_file_handle handle)
 {
     CHECK_VALID_FILE_HANDLE(handle);
 
-    return __WASI_ENOSYS;
+    return flush_file_buffers_on_handle(handle->raw.handle);
 }
 
 __wasi_errno_t
@@ -680,16 +739,6 @@ os_openat(os_file_handle handle, const char *path, __wasi_oflags_t oflags,
     __wasi_errno_t error = __WASI_ESUCCESS;
 
     DWORD access_flags = 0;
-    if ((fs_flags & __WASI_FDFLAG_APPEND) != 0) {
-        if ((attributes & (FILE_FLAG_NO_BUFFERING)) != 0) {
-            // FILE_APPEND_DATA and FILE_FLAG_NO_BUFFERING are mutually
-            // exclusive - CreateFile2 returns 87 (invalid parameter) when they
-            // are combined.
-            error = __WASI_ENOTSUP;
-            goto fail;
-        }
-        access_flags |= FILE_APPEND_DATA;
-    }
 
     switch (access_mode) {
         case WASI_LIBC_ACCESS_MODE_READ_ONLY:
@@ -743,14 +792,30 @@ os_openat(os_file_handle handle, const char *path, __wasi_oflags_t oflags,
     if ((lookup_flags & __WASI_LOOKUP_SYMLINK_FOLLOW) == 0)
         attributes |= FILE_FLAG_OPEN_REPARSE_POINT;
 
-    // Check that we're not trying to open an existing file as a directory.
-    // Windows doesn't seem to throw an error in this case so add an
-    // explicit check.
-    if ((attributes & FILE_ATTRIBUTE_DIRECTORY) != 0
-        && creation_disposition == OPEN_EXISTING
-        && !is_directory(absolute_path)) {
-        error = __WASI_ENOTDIR;
-        goto fail;
+    // Windows doesn't seem to throw an error for the following cases where the
+    // file/directory already exists so add explicit checks.
+    if (creation_disposition == OPEN_EXISTING) {
+        DWORD file_attributes = GetFileAttributesW(absolute_path);
+
+        if (file_attributes != INVALID_FILE_ATTRIBUTES) {
+            bool is_dir = file_attributes & FILE_ATTRIBUTE_DIRECTORY;
+            bool is_symlink = file_attributes & FILE_ATTRIBUTE_REPARSE_POINT;
+            // Check that we're not trying to open an existing file/symlink as a
+            // directory.
+            if ((attributes & FILE_ATTRIBUTE_DIRECTORY) != 0
+                && (!is_dir || is_symlink)) {
+                error = __WASI_ENOTDIR;
+                goto fail;
+            }
+
+            // Check that we're not trying to open an existing symlink with
+            // O_NOFOLLOW.
+            if ((file_attributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0
+                && (lookup_flags & __WASI_LOOKUP_SYMLINK_FOLLOW) == 0) {
+                error = __WASI_ELOOP;
+                goto fail;
+            }
+        }
     }
 
     CREATEFILE2_EXTENDED_PARAMETERS create_params;
@@ -1035,7 +1100,31 @@ os_fallocate(os_file_handle handle, __wasi_filesize_t offset,
 {
     CHECK_VALID_FILE_HANDLE(handle);
 
-    return __WASI_ENOSYS;
+    LARGE_INTEGER current_file_size;
+    int ret = GetFileSizeEx(handle->raw.handle, &current_file_size);
+
+    if (ret == 0)
+        return convert_windows_error_code(GetLastError());
+
+    if (offset > INT64_MAX || length > INT64_MAX || offset + length > INT64_MAX)
+        return __WASI_EINVAL;
+
+    // The best we can do here is to increase the size of the file if it's less
+    // than the offset + length.
+    const LONGLONG requested_size = (LONGLONG)(offset + length);
+
+    FILE_END_OF_FILE_INFO end_of_file_info;
+    end_of_file_info.EndOfFile.QuadPart = requested_size;
+
+    if (requested_size <= current_file_size.QuadPart)
+        return __WASI_ESUCCESS;
+
+    bool success =
+        SetFileInformationByHandle(handle->raw.handle, FileEndOfFileInfo,
+                                   &end_of_file_info, sizeof(end_of_file_info));
+
+    return success ? __WASI_ESUCCESS
+                   : convert_windows_error_code(GetLastError());
 }
 
 __wasi_errno_t
@@ -1043,7 +1132,42 @@ os_ftruncate(os_file_handle handle, __wasi_filesize_t size)
 {
     CHECK_VALID_FILE_HANDLE(handle);
 
-    return __WASI_ENOSYS;
+    FILE_END_OF_FILE_INFO end_of_file_info;
+    end_of_file_info.EndOfFile.QuadPart = (LONGLONG)size;
+
+    bool success =
+        SetFileInformationByHandle(handle->raw.handle, FileEndOfFileInfo,
+                                   &end_of_file_info, sizeof(end_of_file_info));
+
+    return success ? __WASI_ESUCCESS
+                   : convert_windows_error_code(GetLastError());
+}
+
+static __wasi_errno_t
+set_file_times(HANDLE handle, __wasi_timestamp_t access_time,
+               __wasi_timestamp_t modification_time, __wasi_fstflags_t fstflags)
+{
+    FILETIME atim = { 0, 0 };
+    FILETIME mtim = { 0, 0 };
+
+    if ((fstflags & __WASI_FILESTAT_SET_ATIM) != 0) {
+        atim = convert_wasi_timestamp_to_filetime(access_time);
+    }
+    else if ((fstflags & __WASI_FILESTAT_SET_ATIM_NOW) != 0) {
+        GetSystemTimePreciseAsFileTime(&atim);
+    }
+
+    if ((fstflags & __WASI_FILESTAT_SET_MTIM) != 0) {
+        mtim = convert_wasi_timestamp_to_filetime(modification_time);
+    }
+    else if ((fstflags & __WASI_FILESTAT_SET_MTIM_NOW) != 0) {
+        GetSystemTimePreciseAsFileTime(&mtim);
+    }
+
+    bool success = SetFileTime(handle, NULL, &atim, &mtim);
+
+    return success ? __WASI_ESUCCESS
+                   : convert_windows_error_code(GetLastError());
 }
 
 __wasi_errno_t
@@ -1052,7 +1176,8 @@ os_futimens(os_file_handle handle, __wasi_timestamp_t access_time,
 {
     CHECK_VALID_FILE_HANDLE(handle);
 
-    return __WASI_ENOSYS;
+    return set_file_times(handle->raw.handle, access_time, modification_time,
+                          fstflags);
 }
 
 __wasi_errno_t
@@ -1063,7 +1188,26 @@ os_utimensat(os_file_handle handle, const char *path,
 {
     CHECK_VALID_FILE_HANDLE(handle);
 
-    return __WASI_ENOSYS;
+    wchar_t absolute_path[PATH_MAX];
+    __wasi_errno_t error = get_absolute_filepath(handle->raw.handle, path,
+                                                 absolute_path, PATH_MAX);
+
+    if (error != __WASI_ESUCCESS)
+        return error;
+
+    HANDLE resolved_handle = create_handle(
+        absolute_path, is_directory(absolute_path),
+        (lookup_flags & __WASI_LOOKUP_SYMLINK_FOLLOW) != 0, false);
+
+    if (resolved_handle == INVALID_HANDLE_VALUE)
+        return convert_windows_error_code(GetLastError());
+
+    error = set_file_times(resolved_handle, access_time, modification_time,
+                           fstflags);
+
+    CloseHandle(resolved_handle);
+
+    return error;
 }
 
 __wasi_errno_t
@@ -1213,7 +1357,7 @@ os_readlinkat(os_file_handle handle, const char *path, char *buf,
     }
 #else
     error = __WASI_ENOTSUP;
-#endif
+#endif /* end of WINAPI_PARTITION_DESKTOP == 0 */
 fail:
     CloseHandle(link_handle);
     return error;
@@ -1224,18 +1368,96 @@ os_linkat(os_file_handle from_handle, const char *from_path,
           os_file_handle to_handle, const char *to_path,
           __wasi_lookupflags_t lookup_flags)
 {
+#if WINAPI_PARTITION_DESKTOP == 0
+    return __WASI_ENOSYS;
+#else
     CHECK_VALID_FILE_HANDLE(from_handle);
     CHECK_VALID_FILE_HANDLE(to_handle);
 
-    return __WASI_ENOSYS;
+    wchar_t absolute_from_path[PATH_MAX];
+    __wasi_errno_t error = get_absolute_filepath(
+        from_handle->raw.handle, from_path, absolute_from_path, PATH_MAX);
+
+    if (error != __WASI_ESUCCESS)
+        return error;
+
+    wchar_t absolute_to_path[PATH_MAX];
+    error = get_absolute_filepath(to_handle->raw.handle, to_path,
+                                  absolute_to_path, PATH_MAX);
+
+    if (error != __WASI_ESUCCESS)
+        return error;
+
+    size_t to_path_len = strlen(to_path);
+
+    // Windows doesn't throw an error in the case that the new path has a
+    // trailing slash but the target to link to is a file.
+    if (to_path[to_path_len - 1] == '/'
+        || to_path[to_path_len - 1] == '\\'
+               && !is_directory(absolute_from_path)) {
+        return __WASI_ENOENT;
+    }
+
+    int ret = CreateHardLinkW(absolute_to_path, absolute_from_path, NULL);
+
+    if (ret == 0)
+        error = convert_windows_error_code(GetLastError());
+
+    return error;
+#endif /* end of WINAPI_PARTITION_DESKTOP == 0 */
 }
 
 __wasi_errno_t
 os_symlinkat(const char *old_path, os_file_handle handle, const char *new_path)
 {
+#if WINAPI_PARTITION_DESKTOP == 0
+    return __WASI_ENOSYS;
+#else
     CHECK_VALID_FILE_HANDLE(handle);
 
-    return __WASI_ENOSYS;
+    wchar_t absolute_new_path[PATH_MAX];
+    __wasi_errno_t error = get_absolute_filepath(handle->raw.handle, new_path,
+                                                 absolute_new_path, PATH_MAX);
+
+    if (error != __WASI_ESUCCESS)
+        return error;
+
+    DWORD target_type = SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE;
+
+    wchar_t old_wpath[PATH_MAX];
+    size_t old_path_len = 0;
+
+    error = convert_to_wchar(old_path, old_wpath, PATH_MAX);
+
+    if (error != __WASI_ESUCCESS)
+        goto fail;
+
+    wchar_t absolute_old_path[PATH_MAX];
+    error = get_absolute_filepath(handle->raw.handle, old_path,
+                                  absolute_old_path, PATH_MAX);
+
+    if (error != __WASI_ESUCCESS)
+        goto fail;
+
+    if (is_directory(absolute_old_path))
+        target_type |= SYMBOLIC_LINK_FLAG_DIRECTORY;
+
+    bool success =
+        CreateSymbolicLinkW(absolute_new_path, old_wpath, target_type);
+
+    if (!success) {
+        DWORD win_error = GetLastError();
+
+        // Return a more useful error code if a file/directory already exists at
+        // the symlink location.
+        if (win_error == ERROR_ACCESS_DENIED || win_error == ERROR_INVALID_NAME)
+            error = __WASI_ENOENT;
+        else
+            error = convert_windows_error_code(GetLastError());
+    }
+fail:
+    return error;
+#endif /* end of WINAPI_PARTITION_DESKTOP == 0 */
 }
 
 __wasi_errno_t
@@ -1265,54 +1487,26 @@ os_renameat(os_file_handle old_handle, const char *old_path,
     CHECK_VALID_FILE_HANDLE(old_handle);
     CHECK_VALID_FILE_HANDLE(new_handle);
 
-    return __WASI_ENOSYS;
-}
-
-__wasi_errno_t
-os_unlinkat(os_file_handle handle, const char *path, bool is_dir)
-{
-    CHECK_VALID_FILE_HANDLE(handle);
-
-    wchar_t absolute_path[PATH_MAX];
-    __wasi_errno_t error = get_absolute_filepath(handle->raw.handle, path,
-                                                 absolute_path, PATH_MAX);
+    wchar_t old_absolute_path[PATH_MAX];
+    __wasi_errno_t error = get_absolute_filepath(
+        old_handle->raw.handle, old_path, old_absolute_path, PATH_MAX);
 
     if (error != __WASI_ESUCCESS)
         return error;
 
-    DWORD attributes = GetFileAttributesW(absolute_path);
+    wchar_t new_absolute_path[PATH_MAX];
+    error = get_absolute_filepath(new_handle->raw.handle, new_path,
+                                  new_absolute_path, PATH_MAX);
 
-    if (has_symlink_attribute(attributes)) {
-        // Override is_dir for symlinks. A symlink to a directory counts
-        // as a directory itself in Windows.
-        is_dir = has_directory_attribute(attributes);
-    }
+    if (error != __WASI_ESUCCESS)
+        return error;
 
-    int ret =
-        is_dir ? RemoveDirectoryW(absolute_path) : DeleteFileW(absolute_path);
-
+    int ret = MoveFileExW(old_absolute_path, new_absolute_path,
+                          MOVEFILE_REPLACE_EXISTING);
     if (ret == 0)
         error = convert_windows_error_code(GetLastError());
 
     return error;
-}
-
-__wasi_errno_t
-os_lseek(os_file_handle handle, __wasi_filedelta_t offset,
-         __wasi_whence_t whence, __wasi_filesize_t *new_offset)
-{
-    CHECK_VALID_FILE_HANDLE(handle);
-
-    return __WASI_ENOSYS;
-}
-
-__wasi_errno_t
-os_fadvise(os_file_handle handle, __wasi_filesize_t offset,
-           __wasi_filesize_t length, __wasi_advice_t advice)
-{
-    CHECK_VALID_FILE_HANDLE(handle);
-
-    return __WASI_ENOSYS;
 }
 
 __wasi_errno_t
@@ -1365,9 +1559,114 @@ os_convert_stderr_handle(os_raw_file_handle raw_stderr)
 }
 
 __wasi_errno_t
+os_unlinkat(os_file_handle handle, const char *path, bool is_dir)
+{
+    CHECK_VALID_FILE_HANDLE(handle);
+
+    wchar_t absolute_path[PATH_MAX];
+    __wasi_errno_t error = get_absolute_filepath(handle->raw.handle, path,
+                                                 absolute_path, PATH_MAX);
+
+    DWORD attributes = GetFileAttributesW(absolute_path);
+
+    if (attributes != INVALID_FILE_ATTRIBUTES
+        && (attributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0) {
+        // Override is_dir for symlinks. A symlink to a directory counts as a
+        // directory itself in Windows.
+        is_dir = (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+    }
+
+    if (error != __WASI_ESUCCESS)
+        return error;
+
+    int ret =
+        is_dir ? RemoveDirectoryW(absolute_path) : DeleteFileW(absolute_path);
+
+    if (ret == 0)
+        error = convert_windows_error_code(GetLastError());
+
+    return error;
+}
+
+__wasi_errno_t
+os_lseek(os_file_handle handle, __wasi_filedelta_t offset,
+         __wasi_whence_t whence, __wasi_filesize_t *new_offset)
+{
+    CHECK_VALID_FILE_HANDLE(handle);
+    DWORD sys_whence = 0;
+
+    switch (whence) {
+        case __WASI_WHENCE_SET:
+            sys_whence = FILE_BEGIN;
+            break;
+        case __WASI_WHENCE_END:
+            sys_whence = FILE_END;
+            break;
+        case __WASI_WHENCE_CUR:
+            sys_whence = FILE_CURRENT;
+            break;
+        default:
+            return __WASI_EINVAL;
+    }
+
+    LARGE_INTEGER distance_to_move = { .QuadPart = offset };
+    LARGE_INTEGER updated_offset = { .QuadPart = 0 };
+
+    int ret = SetFilePointerEx(handle->raw.handle, distance_to_move,
+                               &updated_offset, sys_whence);
+
+    if (ret == 0)
+        return convert_windows_error_code(GetLastError());
+
+    *new_offset = (__wasi_filesize_t)updated_offset.QuadPart;
+    return __WASI_ESUCCESS;
+}
+
+__wasi_errno_t
+os_fadvise(os_file_handle handle, __wasi_filesize_t offset,
+           __wasi_filesize_t length, __wasi_advice_t advice)
+{
+    CHECK_VALID_FILE_HANDLE(handle);
+    // Advisory information can be safely ignored if not supported
+    switch (advice) {
+        case __WASI_ADVICE_DONTNEED:
+        case __WASI_ADVICE_NOREUSE:
+        case __WASI_ADVICE_NORMAL:
+        case __WASI_ADVICE_RANDOM:
+        case __WASI_ADVICE_SEQUENTIAL:
+        case __WASI_ADVICE_WILLNEED:
+            return __WASI_ESUCCESS;
+        default:
+            return __WASI_EINVAL;
+    }
+}
+
+__wasi_errno_t
 os_fdopendir(os_file_handle handle, os_dir_stream *dir_stream)
 {
-    return __WASI_ENOSYS;
+    CHECK_VALID_FILE_HANDLE(handle);
+
+    // Check the handle is a directory handle first
+    DWORD windows_filetype = GetFileType(handle->raw.handle);
+
+    __wasi_filetype_t filetype = __WASI_FILETYPE_UNKNOWN;
+    __wasi_errno_t error =
+        convert_windows_filetype(handle, windows_filetype, &filetype);
+
+    if (error != __WASI_ESUCCESS)
+        return error;
+
+    if (filetype != __WASI_FILETYPE_DIRECTORY)
+        return __WASI_ENOTDIR;
+
+    *dir_stream = BH_MALLOC(sizeof(windows_dir_stream));
+
+    if (*dir_stream == NULL)
+        return __WASI_ENOMEM;
+
+    init_dir_stream(*dir_stream, handle);
+
+    return error;
 }
 
 __wasi_errno_t
@@ -1375,7 +1674,9 @@ os_rewinddir(os_dir_stream dir_stream)
 {
     CHECK_VALID_WIN_DIR_STREAM(dir_stream);
 
-    return __WASI_ENOSYS;
+    reset_dir_stream(dir_stream);
+
+    return __WASI_ESUCCESS;
 }
 
 __wasi_errno_t
@@ -1383,7 +1684,25 @@ os_seekdir(os_dir_stream dir_stream, __wasi_dircookie_t position)
 {
     CHECK_VALID_WIN_DIR_STREAM(dir_stream);
 
-    return __WASI_ENOSYS;
+    if (dir_stream->cookie == position)
+        return __WASI_ESUCCESS;
+
+    if (dir_stream->cookie > position) {
+        reset_dir_stream(dir_stream);
+    }
+
+    while (dir_stream->cookie < position) {
+        __wasi_errno_t error = read_next_dir_entry(dir_stream, NULL);
+
+        if (error != __WASI_ESUCCESS)
+            return error;
+
+        // We've reached the end of the directory.
+        if (dir_stream->cookie == 0) {
+            break;
+        }
+    }
+    return __WASI_ESUCCESS;
 }
 
 __wasi_errno_t
@@ -1392,7 +1711,23 @@ os_readdir(os_dir_stream dir_stream, __wasi_dirent_t *entry,
 {
     CHECK_VALID_WIN_DIR_STREAM(dir_stream);
 
-    return __WASI_ENOSYS;
+    FILE_ID_BOTH_DIR_INFO *file_id_both_dir_info = NULL;
+
+    __wasi_errno_t error =
+        read_next_dir_entry(dir_stream, &file_id_both_dir_info);
+
+    if (error != __WASI_ESUCCESS || file_id_both_dir_info == NULL)
+        return error;
+
+    entry->d_ino = (__wasi_inode_t)file_id_both_dir_info->FileId.QuadPart;
+    entry->d_namlen = (__wasi_dirnamlen_t)(file_id_both_dir_info->FileNameLength
+                                           / (sizeof(wchar_t) / sizeof(char)));
+    entry->d_next = (__wasi_dircookie_t)dir_stream->cookie;
+    entry->d_type = get_disk_filetype(file_id_both_dir_info->FileAttributes);
+
+    *d_name = dir_stream->current_entry_name;
+
+    return __WASI_ESUCCESS;
 }
 
 __wasi_errno_t
@@ -1400,7 +1735,19 @@ os_closedir(os_dir_stream dir_stream)
 {
     CHECK_VALID_WIN_DIR_STREAM(dir_stream);
 
-    return __WASI_ENOSYS;
+    bool success = CloseHandle(dir_stream->handle->raw.handle);
+
+    if (!success) {
+        DWORD win_error = GetLastError();
+
+        if (win_error = ERROR_INVALID_HANDLE)
+            BH_FREE(dir_stream);
+        return convert_windows_error_code(win_error);
+    }
+
+    BH_FREE(dir_stream);
+
+    return __WASI_ESUCCESS;
 }
 
 os_dir_stream
