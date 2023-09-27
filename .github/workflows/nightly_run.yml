@@ -398,10 +398,9 @@ jobs:
           [
             "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-ubuntu.tar.gz",
           ]
-          include:
+        include:
           - os: ubuntu-20.04
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2004.outputs.cache_key }}
-  
     steps:
       - name: checkout
         uses: actions/checkout@v3
@@ -418,6 +417,7 @@ jobs:
           sudo wget ${{ matrix.wabt_release }}
           sudo tar -xzf wabt-1.0.31-*.tar.gz
           sudo mv wabt-1.0.31 wabt
+
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
         uses: actions/cache@v3
@@ -436,6 +436,7 @@ jobs:
           cmake -D WAMR_BUILD_SANITIZER="${{matrix.sanitizer}}" ..
           cmake --build . --config Release --parallel 4
         working-directory: wamr-compiler
+
       - name: Build Sample [basic]
         run: |
           cd samples/basic
