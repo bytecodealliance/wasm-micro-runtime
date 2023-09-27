@@ -1425,7 +1425,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_RETHROW)
             HANDLE_OP(WASM_OP_DELEGATE)
             HANDLE_OP(WASM_OP_CATCH_ALL)
-            HANDLE_OP(EXT_OP_TRY)              
+            HANDLE_OP(EXT_OP_TRY)
             {
                 wasm_set_exception(module, "unsupported opcode");
                 goto got_exception;
