@@ -1966,20 +1966,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 goto call_func_from_interp;
             }
 
-#if WASM_ENABLE_EXCE_HANDLING != 0
-            // HANDLE_OP(WASM_OP_TRY)
-            // HANDLE_OP(WASM_OP_CATCH)
-            // HANDLE_OP(WASM_OP_THROW)
-            // HANDLE_OP(WASM_OP_RETHROW)
-            // HANDLE_OP(WASM_OP_DELEGATE)
-            // HANDLE_OP(WASM_OP_CATCH_ALL)
-            // {
-            //     /* TODO */
-            //     wasm_set_exception(module, "unsupported opcode");
-            //     goto got_exception;
-            // }
-#endif
-
             /* parametric instructions */
             HANDLE_OP(WASM_OP_DROP)
             {
