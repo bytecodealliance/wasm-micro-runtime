@@ -718,6 +718,11 @@ llvm_jit_obj_is_instance_of(WASMModuleInstance *module_inst,
 
 WASMRttTypeRef
 llvm_jit_rtt_type_new(WASMModuleInstance *module_inst, uint32 type_index);
+
+bool
+llvm_array_init_with_data(WASMModuleInstance *module_inst, uint32 seg_index,
+                          uint32 data_seg_offset, WASMArrayObjectRef array_obj,
+                          uint32 elem_size, uint32 array_len);
 #endif
 #endif /* end of WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0 */
 

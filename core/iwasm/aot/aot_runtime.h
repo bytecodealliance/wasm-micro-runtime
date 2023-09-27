@@ -262,10 +262,6 @@ typedef struct AOTModule {
     HashMap *ref_type_set;
     struct WASMRttType **rtt_types;
     korp_mutex rtt_type_lock;
-
-    /* array init data info */
-    uint32 array_init_data_count;
-    AOTArrayInitData **array_init_data_list;
 #endif
 
 #if WASM_ENABLE_DEBUG_AOT != 0

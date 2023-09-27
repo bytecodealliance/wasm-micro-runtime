@@ -334,19 +334,6 @@ aot_struct_obj_set_field(AOTCompContext *comp_ctx, LLVMValueRef struct_obj,
         goto fail;
     }
 
-    /* Ensure correct alignment for some platforms when field_size == 8 */
-#if !defined(BUILD_TARGET_X86_64) && !defined(BUILD_TARGET_AMD_64) \
-    && !defined(BUILD_TARGET_X86_32)
-    if (field_size == 8) {
-        if (!(field_data_ptr =
-                  LLVMBuildBitCast(comp_ctx->builder, field_data_ptr,
-                                   INT32_PTR_TYPE, "field_value_ptr_align"))) {
-            aot_set_last_error("llvm build bitcast failed.");
-            goto fail;
-        }
-    }
-#endif
-
     /* Cast to the field data type ptr */
     if (!(field_data_ptr = LLVMBuildBitCast(comp_ctx->builder, field_data_ptr,
                                             LLVMPointerType(field_data_type, 0),
@@ -400,19 +387,6 @@ aot_struct_obj_get_field(AOTCompContext *comp_ctx, LLVMValueRef struct_obj,
             bh_assert(0);
             break;
     }
-
-        /* Ensure correct alignment for some platforms when field_size == 8 */
-#if !defined(BUILD_TARGET_X86_64) && !defined(BUILD_TARGET_AMD_64) \
-    && !defined(BUILD_TARGET_X86_32)
-    if (field_size == 8) {
-        if (!(field_data_ptr =
-                  LLVMBuildBitCast(comp_ctx->builder, field_data_ptr,
-                                   INT32_PTR_TYPE, "field_value_ptr_align"))) {
-            aot_set_last_error("llvm build bitcast failed.");
-            goto fail;
-        }
-    }
-#endif
 
     if (!(field_data_ptr = LLVMBuildBitCast(comp_ctx->builder, field_data_ptr,
                                             LLVMPointerType(field_data_type, 0),
@@ -862,7 +836,10 @@ aot_call_aot_array_init_with_data(
     param_types[5] = I32_TYPE;
     ret_type = INT8_TYPE;
 
-    GET_AOT_FUNCTION(aot_array_init_with_data, 6);
+    if (comp_ctx->is_jit_mode)
+        GET_AOT_FUNCTION(llvm_array_init_with_data, 6);
+    else
+        GET_AOT_FUNCTION(aot_array_init_with_data, 6);
 
     /* Call function aot_array_init_with_data() */
     param_values[0] = func_ctx->aot_inst;

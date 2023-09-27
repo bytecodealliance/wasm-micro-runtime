@@ -3706,6 +3706,31 @@ llvm_jit_rtt_type_new(WASMModuleInstance *module_inst, uint32 type_index)
                              rtt_type_count, rtt_type_lock);
 }
 
+bool
+llvm_array_init_with_data(WASMModuleInstance *module_inst, uint32 seg_index,
+                          uint32 data_seg_offset, WASMArrayObjectRef array_obj,
+                          uint32 elem_size, uint32 array_len)
+{
+    WASMModule *wasm_module = module_inst->module;
+    WASMDataSeg *data_seg;
+    uint8 *array_elem_base;
+    uint64 total_size;
+
+    data_seg = wasm_module->data_segments[seg_index];
+    total_size = (int64)elem_size * array_len;
+
+    if (data_seg_offset >= data_seg->data_length
+        || total_size > data_seg->data_length - data_seg_offset) {
+        wasm_set_exception(module_inst, "out of bounds memory access");
+        return false;
+    }
+
+    array_elem_base = (uint8 *)wasm_array_obj_first_elem_addr(array_obj);
+    bh_memcpy_s(array_elem_base, (uint32)total_size,
+                data_seg->data + data_seg_offset, (uint32)total_size);
+
+    return true;
+}
 #endif /* end of WASM_ENABLE_GC != 0  */
 
 #endif /* end of WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0 */
