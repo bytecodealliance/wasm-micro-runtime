@@ -68,6 +68,7 @@ def ignore_the_case(
     gc_flag=False,
     xip_flag=False,
     qemu_flag=False,
+    eh_flag=False,
 ):
     # print(f"case_name {case_name}\n")
     if eh_flag and case_name in [ "tag", "try_catch", "rethrow", "try_delegate" ]:
@@ -311,6 +312,7 @@ def test_suite(
             gc_flag,
             xip_flag,
             qemu_flag,
+            eh_flag,
         ):
             filtered_case_list.append(case_path)
     print(f"---> {len(case_list)} --filter--> {len(filtered_case_list)}")

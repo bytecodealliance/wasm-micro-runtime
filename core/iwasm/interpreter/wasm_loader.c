@@ -4690,13 +4690,6 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
     i = ((uintptr_t)start_addr) & (uintptr_t)(BLOCK_ADDR_CACHE_SIZE - 1);
     block = block_addr_cache + BLOCK_ADDR_CONFLICT_SIZE * i;
 
-#if WASM_ENABLE_EXCE_HANDLING != 0
-    /* do not use the cache */
-    if (label_type == LABEL_TYPE_TRY) {
-        _EXCEVERBOSE("wasm_loader_find_block_addr looking up the next "
-                     "important opcode a try frame\n");
-    }
-#else
     for (j = 0; j < BLOCK_ADDR_CONFLICT_SIZE; j++) {
         if (block[j].start_addr == start_addr) {
             /* Cache hit */
@@ -4705,7 +4698,6 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
             return true;
         }
     }
-#endif
 
     /* Cache unhit */
     block_stack[0].start_addr = start_addr;
@@ -4899,17 +4891,6 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                 CHECK_BUF(p, p_end, 1);
                 u8 = read_uint8(p); /* 0x00 */
                 break;
-
-#if WASM_ENABLE_EXCE_HANDLING != 0
-            case WASM_OP_TRY:
-            case WASM_OP_CATCH:
-            case WASM_OP_THROW:
-            case WASM_OP_RETHROW:
-            case WASM_OP_DELEGATE:
-            case WASM_OP_CATCH_ALL:
-                /* TODO */
-                return false;
-#endif
 
             case WASM_OP_DROP:
             case WASM_OP_SELECT:
@@ -8402,19 +8383,6 @@ re_scan:
 #endif
                 break;
             }
-
-#if WASM_ENABLE_EXCE_HANDLING != 0
-            case WASM_OP_TRY:
-            case WASM_OP_CATCH:
-            case WASM_OP_THROW:
-            case WASM_OP_RETHROW:
-            case WASM_OP_DELEGATE:
-            case WASM_OP_CATCH_ALL:
-                /* TODO */
-                set_error_buf_v(error_buf, error_buf_size, "%s %02x",
-                                "unsupported opcode", opcode);
-                goto fail;
-#endif
 
             case WASM_OP_DROP:
             {
