@@ -8,8 +8,10 @@
 #include "llvm-c/OrcEE.h"
 #include "llvm-c/TargetMachine.h"
 
+#if LLVM_VERSION_MAJOR < 17
 #include "llvm/ADT/None.h"
 #include "llvm/ADT/Optional.h"
+#endif
 #include "llvm/ExecutionEngine/Orc/JITTargetMachineBuilder.h"
 #include "llvm/ExecutionEngine/Orc/LLJIT.h"
 #include "llvm/ExecutionEngine/Orc/ObjectTransformLayer.h"
@@ -20,6 +22,13 @@
 
 #include "aot_orc_extra.h"
 #include "aot.h"
+
+#if LLVM_VERSION_MAJOR >= 17
+namespace llvm {
+template<typename T>
+using Optional = std::optional<T>;
+}
+#endif
 
 using namespace llvm;
 using namespace llvm::orc;

@@ -69,9 +69,6 @@ get_plt_table_size()
 {
     uint32 size =
         get_plt_item_size() * (sizeof(target_sym_map) / sizeof(SymbolMap));
-#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
-    size += get_plt_item_size() + sizeof(AOTUnwindInfo);
-#endif
     return size;
 }
 
@@ -93,18 +90,6 @@ init_plt_table(uint8 *plt)
         *p++ = 0xE0;
         plt += get_plt_item_size();
     }
-
-#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
-    p = plt;
-    /* mov exception_handler, rax */
-    *p++ = 0x48;
-    *p++ = 0xB8;
-    *(uint64 *)p = 0; /*(uint64)(uintptr_t)aot_exception_handler;*/
-    p += sizeof(uint64);
-    /* jmp rax */
-    *p++ = 0xFF;
-    *p++ = 0xE0;
-#endif
 }
 
 static bool
@@ -242,7 +227,7 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
                      - (uintptr_t)(target_section_addr + reloc_offset));
             }
             else {
-                target_addr = (intptr_t) /* L + A - P */
+                target_addr = (intptr_t) /* S + A - P */
                     ((uintptr_t)symbol_addr + reloc_addend
                      - (uintptr_t)(target_section_addr + reloc_offset));
             }
