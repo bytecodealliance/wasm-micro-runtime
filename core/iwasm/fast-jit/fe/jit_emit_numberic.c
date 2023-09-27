@@ -299,7 +299,8 @@ fail:
 /* macros for integer binary operations (ibinop) */
 
 #if defined(__GNUC__)
-#define NO_SANITIZER_INTEGER __attribute__((no_sanitize("integer")))
+#define NO_SANITIZER_INTEGER \
+    __attribute__((no_sanitize("signed-integer-overflow")))
 #else
 #define NO_SANITIZER_INTEGER
 #endif
