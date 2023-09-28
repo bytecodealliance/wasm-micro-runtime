@@ -218,7 +218,7 @@ push_v128(AOTCompFrame *frame, AOTValue *aot_value)
 static inline void
 push_ref(AOTCompFrame *frame, AOTValue *aot_value)
 {
-    bh_assert(frame->comp_ctx->enable_ref_types);
+    bh_assert(frame->comp_ctx->enable_ref_types || frame->comp_ctx->enable_gc);
     push_32bit(frame, aot_value);
 }
 
@@ -278,7 +278,14 @@ pop_ref(AOTCompFrame *frame)
 {
     bh_assert(frame->sp - frame->lp >= 1);
     bh_assert((frame->sp - 1)->type == VALUE_TYPE_FUNCREF
-              || (frame->sp - 1)->type == VALUE_TYPE_EXTERNREF);
+              || (frame->sp - 1)->type == VALUE_TYPE_EXTERNREF
+              || (frame->sp - 1)->type == VALUE_TYPE_STRUCTREF
+              || (frame->sp - 1)->type == VALUE_TYPE_ARRAYREF
+              || (frame->sp - 1)->type == VALUE_TYPE_I31REF
+              || (frame->sp - 1)->type == VALUE_TYPE_EQREF
+              || (frame->sp - 1)->type == VALUE_TYPE_ANYREF
+              || (frame->sp - 1)->type == VALUE_TYPE_HT_NULLABLE_REF
+              || (frame->sp - 1)->type == VALUE_TYPE_GC_REF);
     frame->sp -= 1;
     memset(frame->sp, 0, sizeof(*frame->sp) * 1);
 }
@@ -343,7 +350,7 @@ set_local_v128(AOTCompFrame *frame, int n, LLVMValueRef value)
 static inline void
 set_local_ref(AOTCompFrame *frame, int n, LLVMValueRef value, uint8 ref_type)
 {
-    bh_assert(frame->comp_ctx->enable_ref_types);
+    bh_assert(frame->comp_ctx->enable_ref_types || frame->comp_ctx->enable_gc);
     frame->lp[n].value = value;
     frame->lp[n].type = ref_type;
     frame->lp[n].dirty = 1;

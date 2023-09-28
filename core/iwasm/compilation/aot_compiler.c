@@ -237,6 +237,15 @@ aot_gen_commit_values(AOTCompFrame *frame)
             case VALUE_TYPE_I32:
             case VALUE_TYPE_FUNCREF:
             case VALUE_TYPE_EXTERNREF:
+#if WASM_ENABLE_GC != 0
+            case VALUE_TYPE_STRUCTREF:
+            case VALUE_TYPE_ARRAYREF:
+            case VALUE_TYPE_I31REF:
+            case VALUE_TYPE_EQREF:
+            case VALUE_TYPE_ANYREF:
+            case VALUE_TYPE_HT_NULLABLE_REF:
+            case VALUE_TYPE_GC_REF:
+#endif
                 if (!store_value(comp_ctx, p->value, VALUE_TYPE_I32,
                                  func_ctx->cur_frame,
                                  offset_of_local(comp_ctx, n)))
@@ -491,6 +500,15 @@ init_comp_frame(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 break;
             case VALUE_TYPE_FUNCREF:
             case VALUE_TYPE_EXTERNREF:
+#if WASM_ENABLE_GC != 0
+            case VALUE_TYPE_STRUCTREF:
+            case VALUE_TYPE_ARRAYREF:
+            case VALUE_TYPE_I31REF:
+            case VALUE_TYPE_EQREF:
+            case VALUE_TYPE_ANYREF:
+            case VALUE_TYPE_HT_NULLABLE_REF:
+            case VALUE_TYPE_GC_REF:
+#endif
                 set_local_ref(comp_ctx->aot_frame, n, local_value, local_type);
                 n++;
                 break;
@@ -528,6 +546,15 @@ init_comp_frame(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 break;
             case VALUE_TYPE_FUNCREF:
             case VALUE_TYPE_EXTERNREF:
+#if WASM_ENABLE_GC != 0
+            case VALUE_TYPE_STRUCTREF:
+            case VALUE_TYPE_ARRAYREF:
+            case VALUE_TYPE_I31REF:
+            case VALUE_TYPE_EQREF:
+            case VALUE_TYPE_ANYREF:
+            case VALUE_TYPE_HT_NULLABLE_REF:
+            case VALUE_TYPE_GC_REF:
+#endif
                 set_local_ref(comp_ctx->aot_frame, n, I32_ZERO, local_type);
                 n++;
                 break;
