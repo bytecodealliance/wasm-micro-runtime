@@ -4,6 +4,7 @@
  */
 
 #include "aot_emit_control.h"
+#include "aot_compiler.h"
 #include "aot_emit_exception.h"
 #include "../aot/aot_runtime.h"
 #include "../interpreter/wasm_loader.h"
@@ -469,7 +470,7 @@ aot_compile_op_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                                                    p_frame_ip);
         }
 
-        if (!LLVMIsConstant(value)) {
+        if (!LLVMIsEfficientConstInt(value)) {
             /* Compare value is not constant, create condition br IR */
             /* Create entry block */
             format_block_name(name, sizeof(name), block->block_index,
@@ -835,7 +836,7 @@ aot_compile_op_br_if(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         return aot_handle_next_reachable_block(comp_ctx, func_ctx, p_frame_ip);
     }
 
-    if (!LLVMIsConstant(value_cmp)) {
+    if (!LLVMIsEfficientConstInt(value_cmp)) {
         /* Compare value is not constant, create condition br IR */
         if (!(block_dst = get_target_block(func_ctx, br_depth))) {
             return false;
@@ -972,7 +973,7 @@ aot_compile_op_br_table(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         return aot_handle_next_reachable_block(comp_ctx, func_ctx, p_frame_ip);
     }
 
-    if (!LLVMIsConstant(value_cmp)) {
+    if (!LLVMIsEfficientConstInt(value_cmp)) {
         /* Compare value is not constant, create switch IR */
         for (i = 0; i <= br_count; i++) {
             target_block = get_target_block(func_ctx, br_depths[i]);
