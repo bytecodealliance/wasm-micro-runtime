@@ -204,20 +204,29 @@ handle_module_path(const char *module_path)
 
 static char *module_search_path = ".";
 static bool
-module_reader_callback(const char *module_name, uint8 **p_buffer,
-                       uint32 *p_size)
+module_reader_callback(package_type_t module_type, const char *module_name,
+                       uint8 **p_buffer, uint32 *p_size)
 {
-    const char *format = "%s/%s.wasm";
-    uint32 sz = (uint32)(strlen(module_search_path) + strlen("/")
-                         + strlen(module_name) + strlen(".wasm") + 1);
+    char *file_format;
+#if WASM_ENABLE_INTERP != 0
+    if (module_type == Wasm_Module_Bytecode)
+        file_format = ".wasm";
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (module_type == Wasm_Module_AoT)
+        file_format = ".aot";
+
+#endif
+    const char *format = "%s/%s%s";
+    int sz = strlen(module_search_path) + strlen("/") + strlen(module_name)
+             + strlen(file_format) + 1;
     char *wasm_file_name = BH_MALLOC(sz);
     if (!wasm_file_name) {
         return false;
     }
-
-    snprintf(wasm_file_name, sz, format, module_search_path, module_name);
-
-    *p_buffer = (uint8 *)bh_read_file_to_buffer(wasm_file_name, p_size);
+    snprintf(wasm_file_name, sz, format, module_search_path, module_name,
+             file_format);
+    *p_buffer = (uint8_t *)bh_read_file_to_buffer(wasm_file_name, p_size);
 
     wasm_runtime_free(wasm_file_name);
     return *p_buffer != NULL;

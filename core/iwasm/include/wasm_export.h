@@ -311,7 +311,7 @@ wasm_runtime_is_xip_file(const uint8_t *buf, uint32_t size);
 /**
  * Callback to load a module file into a buffer in multi-module feature
  */
-typedef bool (*module_reader)(const char *module_name,
+typedef bool (*module_reader)(package_type_t module_type,const char *module_name,
                               uint8_t **p_buffer, uint32_t *p_size);
 
 /**

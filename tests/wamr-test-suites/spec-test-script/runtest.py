@@ -1299,6 +1299,16 @@ if __name__ == "__main__":
 
                     # add new_module copied from the old into temp_file_repo[]
                     temp_file_repo.append(new_module)
+
+                    if test_aot:
+                        new_module_aot = os.path.join(tempfile.gettempdir(), name_new + ".aot")
+                        r = compile_wasm_to_aot(new_module, new_module_aot, True, opts, r)
+                        try:
+                            assert_prompt(r, ['Compile success'], opts.start_timeout, True)
+                        except:
+                            raise Exception("compile wasm to aot failed")
+                        # add aot module into temp_file_repo[]
+                        temp_file_repo.append(new_module_aot)
                 else:
                     # there is no name defined in register cmd
                     raise Exception("can not find module name from the register")
@@ -1341,3 +1351,4 @@ if __name__ == "__main__":
             log("Leaving tempfiles: %s" % ([wast_tempfile, wasm_tempfile]))
 
         sys.exit(ret_code)
+        

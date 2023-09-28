@@ -51,11 +51,15 @@ set_error_buf_v(char *error_buf, uint32 error_buf_size, const char *format, ...)
 }
 
 WASMModule *
-wasm_load(uint8 *buf, uint32 size, char *error_buf, uint32 error_buf_size)
+wasm_load(uint8 *buf, uint32 size,
+#if WASM_ENABLE_MULTI_MODULE != 0
+          bool main_module,
+#endif
+          char *error_buf, uint32 error_buf_size)
 {
     return wasm_loader_load(buf, size,
 #if WASM_ENABLE_MULTI_MODULE != 0
-                            true,
+                            main_module,
 #endif
                             error_buf, error_buf_size);
 }
@@ -1265,78 +1269,6 @@ execute_free_function(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
     return ret;
 }
 
-#if WASM_ENABLE_MULTI_MODULE != 0
-static bool
-sub_module_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
-                       uint32 stack_size, uint32 heap_size, char *error_buf,
-                       uint32 error_buf_size)
-{
-    bh_list *sub_module_inst_list = module_inst->e->sub_module_inst_list;
-    WASMRegisteredModule *sub_module_list_node =
-        bh_list_first_elem(module->import_module_list);
-
-    while (sub_module_list_node) {
-        WASMSubModInstNode *sub_module_inst_list_node = NULL;
-        WASMModule *sub_module = (WASMModule *)sub_module_list_node->module;
-        WASMModuleInstance *sub_module_inst = NULL;
-
-        sub_module_inst =
-            wasm_instantiate(sub_module, NULL, NULL, stack_size, heap_size,
-                             error_buf, error_buf_size);
-        if (!sub_module_inst) {
-            LOG_DEBUG("instantiate %s failed",
-                      sub_module_list_node->module_name);
-            goto failed;
-        }
-
-        sub_module_inst_list_node = runtime_malloc(sizeof(WASMSubModInstNode),
-                                                   error_buf, error_buf_size);
-        if (!sub_module_inst_list_node) {
-            LOG_DEBUG("Malloc WASMSubModInstNode failed, SZ:%d",
-                      sizeof(WASMSubModInstNode));
-            goto failed;
-        }
-
-        sub_module_inst_list_node->module_inst = sub_module_inst;
-        sub_module_inst_list_node->module_name =
-            sub_module_list_node->module_name;
-        bh_list_status ret =
-            bh_list_insert(sub_module_inst_list, sub_module_inst_list_node);
-        bh_assert(BH_LIST_SUCCESS == ret);
-        (void)ret;
-
-        sub_module_list_node = bh_list_elem_next(sub_module_list_node);
-
-        continue;
-    failed:
-        if (sub_module_inst_list_node) {
-            bh_list_remove(sub_module_inst_list, sub_module_inst_list_node);
-            wasm_runtime_free(sub_module_inst_list_node);
-        }
-
-        if (sub_module_inst)
-            wasm_deinstantiate(sub_module_inst, false);
-        return false;
-    }
-
-    return true;
-}
-
-static void
-sub_module_deinstantiate(WASMModuleInstance *module_inst)
-{
-    bh_list *list = module_inst->e->sub_module_inst_list;
-    WASMSubModInstNode *node = bh_list_first_elem(list);
-    while (node) {
-        WASMSubModInstNode *next_node = bh_list_elem_next(node);
-        bh_list_remove(list, node);
-        wasm_deinstantiate(node->module_inst, false);
-        wasm_runtime_free(node);
-        node = next_node;
-    }
-}
-#endif
-
 static bool
 check_linked_symbol(WASMModuleInstance *module_inst, char *error_buf,
                     uint32 error_buf_size)
@@ -1713,8 +1645,9 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 #if WASM_ENABLE_MULTI_MODULE != 0
     module_inst->e->sub_module_inst_list =
         &module_inst->e->sub_module_inst_list_head;
-    ret = sub_module_instantiate(module, module_inst, stack_size, heap_size,
-                                 error_buf, error_buf_size);
+    ret = wasm_runtime_sub_module_instantiate(
+        (WASMModuleCommon *)module, (WASMModuleInstanceCommon *)module_inst,
+        stack_size, heap_size, error_buf, error_buf_size);
     if (!ret) {
         LOG_DEBUG("build a sub module list failed");
         goto fail;
@@ -2197,7 +2130,8 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
 #endif
 
 #if WASM_ENABLE_MULTI_MODULE != 0
-    sub_module_deinstantiate(module_inst);
+    wasm_runtime_sub_module_deinstantiate(
+        (WASMModuleInstanceCommon *)module_inst);
 #endif
 
     if (module_inst->memory_count > 0)

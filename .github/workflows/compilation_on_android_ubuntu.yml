@@ -328,7 +328,12 @@ jobs:
         working-directory: samples/wasm-c-api
 
   build_samples_others:
-    needs: [build_iwasm]
+    needs:
+      [
+        build_iwasm,
+        build_llvm_libraries_on_ubuntu_2204,
+        build_wamrc,
+      ]    
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -341,6 +346,9 @@ jobs:
           [
             "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-ubuntu.tar.gz",
           ]
+        include:
+          - os: ubuntu-22.04
+            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
     steps:
       - name: checkout
         uses: actions/checkout@v3
@@ -358,7 +366,23 @@ jobs:
           sudo wget ${{ matrix.wabt_release }}
           sudo tar -xzf wabt-1.0.31-*.tar.gz
           sudo mv wabt-1.0.31 wabt
-
+      - name: Get LLVM libraries
+        id: retrieve_llvm_libs
+        uses: actions/cache@v3
+        with:
+          path: |
+            ./core/deps/llvm/build/bin
+            ./core/deps/llvm/build/include
+            ./core/deps/llvm/build/lib
+            ./core/deps/llvm/build/libexec
+            ./core/deps/llvm/build/share
+          key: ${{ matrix.llvm_cache_key }}
+      - name: Build wamrc
+        run: |
+          mkdir build && cd build
+          cmake ..
+          cmake --build . --config Release --parallel 4
+        working-directory: wamr-compiler
       - name: Build Sample [basic]
         run: |
           cd samples/basic
@@ -385,9 +409,10 @@ jobs:
         run: |
           cd samples/multi-module
           mkdir build && cd build
-          cmake ..
+          cmake .. -DWAMR_BUILD_AOT=1
           cmake --build . --config Release --parallel 4
-          ./multi_module
+          ./multi_module mC.wasm
+          ./multi_module mC.aot
 
       - name: Build Sample [spawn-thread]
         run: |
