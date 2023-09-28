@@ -1162,7 +1162,7 @@ wasm_runtime_enter_safe_state()
 }
 
 void
-jeff_runtime_exit_safe_state()
+wasm_runtime_exit_safe_state()
 {
     wasm_cluster_change_curr_thread_to_running();
 }

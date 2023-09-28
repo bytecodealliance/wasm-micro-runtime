@@ -818,7 +818,7 @@ WASM_RUNTIME_API_EXTERN void
 wasm_runtime_enter_safe_state();
 
 WASM_RUNTIME_API_EXTERN void
-jeff_runtime_exit_safe_state();
+wasm_runtime_exit_safe_state();
 #endif
 
 #if WASM_ENABLE_LIBC_WASI != 0
