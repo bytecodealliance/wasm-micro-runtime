@@ -20,12 +20,10 @@ typedef enum WASMOpcode {
     WASM_OP_LOOP = 0x03,        /* loop */
     WASM_OP_IF = 0x04,          /* if */
     WASM_OP_ELSE = 0x05,        /* else */
-
-    WASM_OP_TRY = 0x06,     /* try */
-    WASM_OP_CATCH = 0x07,   /* catch */
-    WASM_OP_THROW = 0x08,   /* throw */
-    WASM_OP_RETHROW = 0x09, /* rethrow */
-
+    WASM_OP_TRY = 0x06,         /* try */
+    WASM_OP_CATCH = 0x07,       /* catch* */
+    WASM_OP_THROW = 0x08,       /* throw of a try catch */
+    WASM_OP_RETHROW = 0x09,     /* rethrow of a try catch */
     WASM_OP_UNUSED_0x0a = 0x0a,
 
     WASM_OP_END = 0x0b,                  /* end */
@@ -43,8 +41,8 @@ typedef enum WASMOpcode {
     WASM_OP_UNUSED_0x16 = 0x16,
     WASM_OP_UNUSED_0x17 = 0x17,
 
-    WASM_OP_DELEGATE = 0x18,  /* delegate */
-    WASM_OP_CATCH_ALL = 0x19, /* catch_all */
+    WASM_OP_DELEGATE = 0x18,  /* delegate block of the try catch*/
+    WASM_OP_CATCH_ALL = 0x19, /* a catch_all handler in a try block */
 
     /* parametric instructions */
     WASM_OP_DROP = 0x1a,     /* drop */
@@ -270,8 +268,10 @@ typedef enum WASMOpcode {
     EXT_OP_IF = 0xd5,             /* if with blocktype */
     EXT_OP_BR_TABLE_CACHE = 0xd6, /* br_table from cache */
 
+    EXT_OP_TRY = 0xd7, /* try block with blocktype */
+
 #if WASM_ENABLE_DEBUG_INTERP != 0
-    DEBUG_OP_BREAK = 0xd7, /* debug break point */
+    DEBUG_OP_BREAK = 0xd8, /* debug break point */
 #endif
 
     /* Post-MVP extend op prefix */
@@ -907,6 +907,7 @@ typedef enum WASMAtomicEXTOpcode {
         HANDLE_OPCODE(EXT_OP_LOOP),                  /* 0xd4 */ \
         HANDLE_OPCODE(EXT_OP_IF),                    /* 0xd5 */ \
         HANDLE_OPCODE(EXT_OP_BR_TABLE_CACHE),        /* 0xd6 */ \
+        HANDLE_OPCODE(EXT_OP_TRY),                   /* 0xd7 */ \
         SET_GOTO_TABLE_ELEM(WASM_OP_MISC_PREFIX),    /* 0xfc */ \
         SET_GOTO_TABLE_ELEM(WASM_OP_ATOMIC_PREFIX),  /* 0xfe */ \
         DEF_DEBUG_BREAK_HANDLE()                                \

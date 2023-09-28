@@ -22,6 +22,8 @@ function help()
     echo "-S enable SIMD feature"
     echo "-G enable GC feature"
     echo "-X enable XIP feature"
+    # added to support WASM_ENABLE_EXCE_HANDLING
+    echo "-e enable exception handling"
     echo "-x test SGX"
     echo "-w enable WASI threads"
     echo "-b use the wabt binary release package instead of compiling from the source code"
@@ -46,6 +48,7 @@ COLLECT_CODE_COVERAGE=0
 ENABLE_SIMD=0
 ENABLE_GC=0
 ENABLE_XIP=0
+ENABLE_EH=0
 ENABLE_DEBUG_VERSION=0
 ENABLE_GC_HEAP_VERIFY=0
 #unit test case arrary
@@ -58,7 +61,7 @@ QEMU_FIRMWARE=""
 # prod/testsuite-all branch
 WASI_TESTSUITE_COMMIT="cf64229727f71043d5849e73934e249e12cb9e06"
 
-while getopts ":s:cabgvt:m:MCpSXxwPGQF:" opt
+while getopts ":s:cabgvt:m:MCpSXexwPGQF:" opt
 do
     OPT_PARSED="TRUE"
     case $opt in
@@ -132,6 +135,10 @@ do
         X)
         echo "enable XIP feature"
         ENABLE_XIP=1
+        ;;
+        e)
+        echo "enable exception handling feature"
+        ENABLE_EH=1
         ;;
         x)
         echo "test SGX"
@@ -487,6 +494,88 @@ function spec_test()
     echo -e "\nFinish spec tests" | tee -a ${REPORT_DIR}/spec_test_report.txt
 }
 
+function exception_test()
+{
+    echo "Now start exception tests"
+    touch ${REPORT_DIR}/exception_test_report.txt
+
+    cd ${WORK_DIR}
+    if [ ! -d "exception-handling" ];then
+        echo "exception-handling not exist, clone it from github"
+        git clone -b master --single-branch https://github.com/WebAssembly/exception-handling
+    fi
+
+    pushd exception-handling
+
+    # restore and clean everything
+    git reset --hard HEAD
+
+    popd
+    echo $(pwd)
+
+    if [ ${WABT_BINARY_RELEASE} == "YES" ]; then
+        echo "download a binary release and install"
+        local WAT2WASM=${WORK_DIR}/wabt/out/gcc/Release/wat2wasm
+        if [ ! -f ${WAT2WASM} ]; then
+            case ${PLATFORM} in
+                linux)
+                    WABT_PLATFORM=ubuntu
+                    ;;
+                darwin)
+                    WABT_PLATFORM=macos
+                    ;;
+                *)
+                    echo "wabt platform for ${PLATFORM} in unknown"
+                    exit 1
+                    ;;
+            esac
+            if [ ! -f /tmp/wabt-1.0.31-${WABT_PLATFORM}.tar.gz ]; then
+                wget \
+                    https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-${WABT_PLATFORM}.tar.gz \
+                    -P /tmp
+            fi
+
+            cd /tmp \
+            && tar zxf wabt-1.0.31-${WABT_PLATFORM}.tar.gz \
+            && mkdir -p ${WORK_DIR}/wabt/out/gcc/Release/ \
+            && install wabt-1.0.31/bin/wa* ${WORK_DIR}/wabt/out/gcc/Release/ \
+            && cd -
+        fi
+    else
+        echo "download source code and compile and install"
+        if [ ! -d "wabt" ];then
+            echo "wabt not exist, clone it from github"
+            git clone --recursive https://github.com/WebAssembly/wabt
+        fi
+        echo "upate wabt"
+        cd wabt
+        git pull
+        git reset --hard origin/main
+        cd ..
+        make -C wabt gcc-release -j 4
+    fi
+
+    ln -sf ${WORK_DIR}/../spec-test-script/all.py .
+    ln -sf ${WORK_DIR}/../spec-test-script/runtest.py .
+
+    local ARGS_FOR_SPEC_TEST="-e --no_clean_up "
+
+    # set log directory
+    ARGS_FOR_SPEC_TEST+="--log ${REPORT_DIR}"
+
+    cd ${WORK_DIR}
+    echo "python3 ./all.py ${ARGS_FOR_SPEC_TEST} | tee -a ${REPORT_DIR}/exception_test_report.txt"
+    python3 ./all.py ${ARGS_FOR_SPEC_TEST} | tee -a ${REPORT_DIR}/exception_test_report.txt
+    if [[ ${PIPESTATUS[0]} -ne 0 ]];then
+        echo -e "\nspec tests FAILED" | tee -a ${REPORT_DIR}/exception_test_report.txt
+        exit 1
+    fi
+    cd -
+
+    echo -e "\nFinish exception tests" | tee -a ${REPORT_DIR}/exception_test_report.txt
+}
+
+
 function wasi_test()
 {
     echo "Now start wasi tests"
@@ -755,6 +844,11 @@ function trigger()
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_LIB_WASI_THREADS=1"
     fi
 
+    if [[ ${ENABLE_EH} == 1 ]]; then
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_EXCE_HANDLING=1"
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_TAIL_CALL=1"
+	EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_MULTI_MODULE=1"
+    fi
     echo "SANITIZER IS" $WAMR_BUILD_SANITIZER
 
     if [[ "$WAMR_BUILD_SANITIZER" == "ubsan" ]]; then

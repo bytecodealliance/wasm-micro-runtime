@@ -1425,8 +1425,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_RETHROW)
             HANDLE_OP(WASM_OP_DELEGATE)
             HANDLE_OP(WASM_OP_CATCH_ALL)
+            HANDLE_OP(EXT_OP_TRY)
             {
-                /* TODO */
                 wasm_set_exception(module, "unsupported opcode");
                 goto got_exception;
             }
@@ -3684,12 +3684,14 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         HANDLE_OP(WASM_OP_REF_FUNC)
 #endif
 #if WASM_ENABLE_EXCE_HANDLING == 0
+        /* if exception handling is disabled, these opcodes issue a trap */
         HANDLE_OP(WASM_OP_TRY)
         HANDLE_OP(WASM_OP_CATCH)
         HANDLE_OP(WASM_OP_THROW)
         HANDLE_OP(WASM_OP_RETHROW)
         HANDLE_OP(WASM_OP_DELEGATE)
         HANDLE_OP(WASM_OP_CATCH_ALL)
+        HANDLE_OP(EXT_OP_TRY)
 #endif
         /* SELECT_T is converted to SELECT or SELECT_64 */
         HANDLE_OP(WASM_OP_SELECT_T)

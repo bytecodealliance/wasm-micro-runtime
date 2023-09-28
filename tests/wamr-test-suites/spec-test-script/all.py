@@ -68,7 +68,15 @@ def ignore_the_case(
     gc_flag=False,
     xip_flag=False,
     qemu_flag=False,
+    eh_flag=False,
 ):
+    # print(f"case_name {case_name}\n")
+    if eh_flag and case_name in [ "tag", "try_catch", "rethrow", "try_delegate" ]:
+        return False
+    else:
+        return True
+
+
     if case_name in ["comments", "inline-module", "names"]:
         return True
 
@@ -115,7 +123,11 @@ def ignore_the_case(
     return False
 
 
-def preflight_check(aot_flag):
+def preflight_check(aot_flag, eh_flag):
+    global SPEC_TEST_DIR
+    if eh_flag:
+        SPEC_TEST_DIR="exception-handling/test/core"
+    
     if not pathlib.Path(SPEC_TEST_DIR).resolve().exists():
         print(f"Can not find {SPEC_TEST_DIR}")
         return False
@@ -140,6 +152,7 @@ def test_case(
     multi_thread_flag=False,
     simd_flag=False,
     xip_flag=False,
+    eh_flag=False,
     clean_up_flag=True,
     verbose_flag=True,
     gc_flag=False,
@@ -147,6 +160,7 @@ def test_case(
     qemu_firmware="",
     log="",
 ):
+
     CMD = ["python3", "runtest.py"]
     CMD.append("--wast2wasm")
     CMD.append(WAST2WASM_CMD if not gc_flag else SPEC_INTERPRETER_CMD)
@@ -180,6 +194,9 @@ def test_case(
 
     if xip_flag:
         CMD.append("--xip")
+
+    if eh_flag:
+        CMD.append("--eh")
 
     if qemu_flag:
         CMD.append("--qemu")
@@ -253,6 +270,7 @@ def test_suite(
     multi_thread_flag=False,
     simd_flag=False,
     xip_flag=False,
+    eh_flag=False,
     clean_up_flag=True,
     verbose_flag=True,
     gc_flag=False,
@@ -261,6 +279,10 @@ def test_suite(
     qemu_firmware="",
     log="",
 ):
+    global SPEC_TEST_DIR
+    if eh_flag:
+        SPEC_TEST_DIR="exception-handling/test/core"
+    
     suite_path = pathlib.Path(SPEC_TEST_DIR).resolve()
     if not suite_path.exists():
         print(f"can not find spec test cases at {suite_path}")
@@ -290,6 +312,7 @@ def test_suite(
             gc_flag,
             xip_flag,
             qemu_flag,
+            eh_flag,
         ):
             filtered_case_list.append(case_path)
     print(f"---> {len(case_list)} --filter--> {len(filtered_case_list)}")
@@ -315,6 +338,7 @@ def test_suite(
                         multi_thread_flag,
                         simd_flag,
                         xip_flag,
+                        eh_flag,
                         clean_up_flag,
                         verbose_flag,
                         gc_flag,
@@ -352,6 +376,7 @@ def test_suite(
                     multi_thread_flag,
                     simd_flag,
                     xip_flag,
+                    eh_flag,
                     clean_up_flag,
                     verbose_flag,
                     gc_flag,
@@ -410,6 +435,14 @@ def main():
         default=False,
         dest="xip_flag",
         help="Running with the XIP feature",
+    )
+    # added to support WASM_ENABLE_EXCE_HANDLING
+    parser.add_argument(
+        "-e",
+        action="store_true",
+        default=False,
+        dest="eh_flag",
+        help="Running with the exception-handling feature",
     )
     parser.add_argument(
         "-t",
@@ -483,7 +516,8 @@ def main():
     options = parser.parse_args()
     print(options)
 
-    if not preflight_check(options.aot_flag):
+
+    if not preflight_check(options.aot_flag, options.eh_flag):
         return False
 
     if not options.cases:
@@ -502,6 +536,7 @@ def main():
             options.multi_thread_flag,
             options.simd_flag,
             options.xip_flag,
+            options.eh_flag,
             options.clean_up_flag,
             options.verbose_flag,
             options.gc_flag,
@@ -526,6 +561,7 @@ def main():
                     options.multi_thread_flag,
                     options.simd_flag,
                     options.xip_flag,
+                    options.eh_flag,
                     options.clean_up_flag,
                     options.verbose_flag,
                     options.gc_flag,
