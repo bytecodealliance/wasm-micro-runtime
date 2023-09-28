@@ -729,6 +729,13 @@ fd_table_insert_existing(struct fd_table *ft, __wasi_fd_t in, int out)
 #endif
     }
 
+    if (in == 0)
+        /* Strip off write bit for stdin */
+        rights_base &= ~(__wasi_rights_t)__WASI_RIGHT_FD_WRITE;
+    else if (in == 1 || in == 2)
+        /* Strip off read bit for stdout and stderr */
+        rights_base &= ~(__wasi_rights_t)__WASI_RIGHT_FD_READ;
+
     error = fd_object_new(type, &fo);
     if (error != 0)
         return false;
