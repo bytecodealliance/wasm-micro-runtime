@@ -2807,6 +2807,7 @@ aot_create_call_stack(struct WASMExecEnv *exec_env)
         total_len +=                                                      \
             wasm_runtime_dump_line_buf_impl(line_buf, print, &buf, &len); \
         if ((!print) && buf && (len == 0)) {                              \
+            exception_unlock(module_inst);                                \
             return total_len;                                             \
         }                                                                 \
     } while (0)
@@ -2829,6 +2830,7 @@ aot_dump_call_stack(WASMExecEnv *exec_env, bool print, char *buf, uint32 len)
         return 0;
     }
 
+    exception_lock(module_inst);
     snprintf(line_buf, sizeof(line_buf), "\n");
     PRINT_OR_DUMP();
 
@@ -2837,6 +2839,7 @@ aot_dump_call_stack(WASMExecEnv *exec_env, bool print, char *buf, uint32 len)
         uint32 line_length, i;
 
         if (!bh_vector_get(module_inst->frames, n, &frame)) {
+            exception_unlock(module_inst);
             return 0;
         }
 
@@ -2867,6 +2870,7 @@ aot_dump_call_stack(WASMExecEnv *exec_env, bool print, char *buf, uint32 len)
     }
     snprintf(line_buf, sizeof(line_buf), "\n");
     PRINT_OR_DUMP();
+    exception_unlock(module_inst);
 
     return total_len + 1;
 }

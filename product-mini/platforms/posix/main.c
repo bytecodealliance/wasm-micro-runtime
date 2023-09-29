@@ -120,8 +120,7 @@ app_instance_main(wasm_module_inst_t module_inst)
     const char *exception;
 
     wasm_application_execute_main(module_inst, app_argc, app_argv);
-    if ((exception = wasm_runtime_get_exception(module_inst)))
-        printf("%s\n", exception);
+    exception = wasm_runtime_get_exception(module_inst);
     return exception;
 }
 
@@ -977,17 +976,20 @@ main(int argc, char *argv[])
 #endif
 
     ret = 0;
+    const char *exception = NULL;
     if (is_repl_mode) {
         app_instance_repl(wasm_module_inst);
     }
     else if (func_name) {
-        if (app_instance_func(wasm_module_inst, func_name)) {
+        exception = app_instance_func(wasm_module_inst, func_name);
+        if (exception) {
             /* got an exception */
             ret = 1;
         }
     }
     else {
-        if (app_instance_main(wasm_module_inst)) {
+        exception = app_instance_main(wasm_module_inst);
+        if (exception) {
             /* got an exception */
             ret = 1;
         }
@@ -999,6 +1001,9 @@ main(int argc, char *argv[])
         ret = wasm_runtime_get_wasi_exit_code(wasm_module_inst);
     }
 #endif
+
+    if (exception)
+        printf("%s\n", exception);
 
 #if WASM_ENABLE_STATIC_PGO != 0 && WASM_ENABLE_AOT != 0
     if (get_package_type(wasm_file_buf, wasm_file_size) == Wasm_Module_AoT

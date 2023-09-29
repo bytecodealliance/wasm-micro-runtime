@@ -4209,7 +4209,6 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
     unsigned frame_size = wasm_interp_interp_frame_size(all_cell_num);
     unsigned i;
     bool copy_argv_from_frame = true;
-    char exception[EXCEPTION_BUF_LEN];
 
     if (argc < function->param_cell_num) {
         char buf[128];
@@ -4342,8 +4341,6 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
             wasm_interp_dump_call_stack(exec_env, true, NULL, 0);
         }
 #endif
-        wasm_copy_exception(module_inst, exception);
-        LOG_DEBUG("meet an exception %s", exception);
     }
 
     wasm_exec_env_set_cur_frame(exec_env, prev_frame);
