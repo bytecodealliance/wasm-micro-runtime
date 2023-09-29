@@ -197,3 +197,6 @@ set (source_all
 )
 
 set (WAMR_RUNTIME_LIB_SOURCE ${source_all})
+
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-unused-parameter -Werror")
+message ("-- CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")

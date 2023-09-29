@@ -219,7 +219,7 @@ int
 os_socket_accept(bh_socket_t server_sock, bh_socket_t *sock, void *addr,
                  unsigned int *addrlen)
 {
-    *sock = accept(server_sock, addr, addrlen);
+    *sock = accept(server_sock, addr, (socklen_t *)addrlen);
 
     if (*sock < 0) {
         return BHT_ERROR;

@@ -256,6 +256,7 @@ if (WIN32)
   add_definitions(-D_WINSOCK_DEPRECATED_NO_WARNINGS)
 endif()
 
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")
 # message ("-- CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")
 
 add_library (vmlib

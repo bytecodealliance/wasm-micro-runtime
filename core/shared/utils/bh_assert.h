@@ -19,7 +19,7 @@ bh_assert_internal(int64 v, const char *file_name, int line_number,
 #define bh_assert(expr) \
     bh_assert_internal((int64)(uintptr_t)(expr), __FILE__, __LINE__, #expr)
 #else
-#define bh_assert(expr) (void)0
+#define bh_assert(expr) ((void)(expr))
 #endif /* end of BH_DEBUG */
 
 #if !defined(__has_extension)
