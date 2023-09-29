@@ -1882,7 +1882,9 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
     module_inst->table_count = module->import_table_count + module->table_count;
     module_inst->e->function_count =
         module->import_function_count + module->function_count;
+#if WASM_ENABLE_TAGS != 0
     module_inst->tag_count = module->import_tag_count + module->tag_count;
+#endif
 
     /* export */
     module_inst->export_func_count = get_export_count(module, EXPORT_KIND_FUNC);
