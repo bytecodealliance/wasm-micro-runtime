@@ -2703,6 +2703,7 @@ aot_resolve_stack_sizes(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
                 || (obj_data->target_info.bin_type == AOT_COFF32_BIN_TYPE
                     && !strncmp(name, "_", 1)
                     && !strcmp(name + 1, aot_stack_sizes_alias_name)))) {
+#if 0 /* cf. https://github.com/llvm/llvm-project/issues/67765 */
             uint64 sz = LLVMGetSymbolSize(sym_itr);
             if (sz != sizeof(uint32) * obj_data->func_count
                 /* sz of COFF64/COFF32 is 0, ignore the check */
@@ -2711,6 +2712,7 @@ aot_resolve_stack_sizes(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
                 aot_set_last_error("stack_sizes had unexpected size.");
                 goto fail;
             }
+#endif
             uint64 addr = LLVMGetSymbolAddress(sym_itr);
             if (!(sec_itr =
                       LLVMObjectFileCopySectionIterator(obj_data->binary))) {
