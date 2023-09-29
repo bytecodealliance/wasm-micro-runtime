@@ -370,9 +370,10 @@ struct WASMModuleInstance {
     /* WASM/AOT module extra info, for AOTModuleInstance,
        it denotes `AOTModuleInstanceExtra *` */
     DefPointer(WASMModuleInstanceExtra *, e);
+#if WASM_ENABLE_TAGS != 0
     /* Array of tag pointers */
     DefPointer(void **, import_tag_ptrs);
-
+#endif
     /* Default WASM operand stack size */
     uint32 default_wasm_stack_size;
     uint32 reserved[3];
