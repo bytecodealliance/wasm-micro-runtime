@@ -31,7 +31,7 @@ function help()
     echo "-Q enable qemu"
     echo "-F set the firmware path used by qemu"
     echo "-C enable code coverage collect"
-    echo "-j test cosmopolitan"
+    echo "-j set the platform to test"
 }
 
 OPT_PARSED=""
@@ -59,7 +59,7 @@ QEMU_FIRMWARE=""
 # prod/testsuite-all branch
 WASI_TESTSUITE_COMMIT="cf64229727f71043d5849e73934e249e12cb9e06"
 
-while getopts ":s:cabgvt:m:MCpSXxwPGQFj:" opt
+while getopts ":s:cabgvt:m:MCpSXxwPGQF:j:" opt
 do
     OPT_PARSED="TRUE"
     case $opt in
@@ -162,8 +162,8 @@ do
         QEMU_FIRMWARE=${OPTARG}
         ;;
         j)
-        echo "test cosmopolitan"
-        PLATFORM="cosmopolitan"
+        echo "test platform" ${OPTARG}
+        PLATFORM=${OPTARG}
         ;;
         ?)
         help
