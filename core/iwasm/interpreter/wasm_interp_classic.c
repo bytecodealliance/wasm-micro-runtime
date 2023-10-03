@@ -1418,6 +1418,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 while (node_cache) {
                     node_next = bh_list_elem_next(node_cache);
                     if (node_cache->br_table_op_addr == frame_ip - 1) {
+                        if (lidx > node_cache->br_count)
+                            lidx = node_cache->br_count;
                         depth = node_cache->br_depths[lidx];
                         goto label_pop_csp_n;
                     }
