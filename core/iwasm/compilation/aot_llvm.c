@@ -10,6 +10,7 @@
 #include "aot_emit_table.h"
 #include "../aot/aot_runtime.h"
 #include "../aot/aot_intrinsic.h"
+#include "bh_log.h"
 
 #if WASM_ENABLE_DEBUG_AOT != 0
 #include "debug/dwarf_extractor.h"
@@ -3140,6 +3141,26 @@ aot_value_stack_pop(AOTValueStack *stack)
         stack->value_list_end = stack->value_list_end->prev;
         stack->value_list_end->next = NULL;
         value->prev = NULL;
+    }
+
+    return value;
+}
+
+AOTValue *
+aot_value_stack_peek(AOTValueStack *stack, int32 depth)
+{
+    AOTValue *value = stack->value_list_end;
+
+    bh_assert(stack->value_list_end);
+
+    while (value && depth > 0) {
+        value = value->prev;
+        depth--;
+    }
+
+    if (depth > 0) {
+        LOG_ERROR("Value stack doesn't have expected depth");
+        return NULL;
     }
 
     return value;

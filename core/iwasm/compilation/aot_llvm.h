@@ -233,6 +233,7 @@ typedef struct AOTLLVMTypes {
 
     LLVMTypeRef funcref_type;
     LLVMTypeRef externref_type;
+
 } AOTLLVMTypes;
 
 typedef struct AOTLLVMConsts {
@@ -502,6 +503,9 @@ aot_value_stack_push(AOTValueStack *stack, AOTValue *value);
 
 AOTValue *
 aot_value_stack_pop(AOTValueStack *stack);
+
+AOTValue *
+aot_value_stack_peek(AOTValueStack *stack, int32 depth);
 
 void
 aot_value_stack_destroy(AOTValueStack *stack);

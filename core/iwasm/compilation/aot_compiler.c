@@ -36,6 +36,8 @@
 #include "debug/dwarf_extractor.h"
 #endif
 
+#include "../aot/aot_trace_exec.h"
+
 #define CHECK_BUF(buf, buf_end, length)                             \
     do {                                                            \
         if (buf + length > buf_end) {                               \
@@ -1369,6 +1371,11 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 }
 
                 opcode = *frame_ip++;
+
+                aot_trace_exec_build_call_helper(comp_ctx, func_ctx, func_index,
+                                                 WASM_OP_SIMD_PREFIX, opcode,
+                                                 frame_ip);
+
                 /* follow the order of enum WASMSimdEXTOpcode in
                    wasm_opcode.h */
                 switch (opcode) {
@@ -2443,8 +2450,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                         break;
                     }
 
-                        /* f64x2 Op */
-
+                    /* f64x2 Op */
                     case SIMD_f64x2_abs:
                     {
                         if (!aot_compile_simd_f64x2_abs(comp_ctx, func_ctx))

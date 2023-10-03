@@ -493,3 +493,8 @@ else ()
   # Disable quick aot/jit entries for interp and fast-jit
   add_definitions (-DWASM_ENABLE_QUICK_AOT_ENTRY=0)
 endif ()
+
+if (WAMR_TRACE_MODE EQUAL 1)
+  add_definitions (-DWASM_TRACE_MODE=1)
+  message("      Include trace mode")
+endif ()
