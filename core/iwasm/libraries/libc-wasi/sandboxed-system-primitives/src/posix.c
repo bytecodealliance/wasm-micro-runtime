@@ -152,8 +152,6 @@ convert_errno(int error)
             break;
     }
 #undef X
-    if (code == 0)
-        return __WASI_ENOSYS;
     return code;
 }
 

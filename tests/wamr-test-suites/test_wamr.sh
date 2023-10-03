@@ -162,7 +162,7 @@ do
         QEMU_FIRMWARE=${OPTARG}
         ;;
         j)
-        echo "test platform" ${OPTARG}
+        echo "test platform " ${OPTARG}
         PLATFORM=${OPTARG}
         ;;
         ?)
