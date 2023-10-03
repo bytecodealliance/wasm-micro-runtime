@@ -1282,18 +1282,20 @@ wasmtime_ssp_fd_fdstat_get(wasm_exec_env_t exec_env, struct fd_table *curfds,
 
     if ((ret & O_APPEND) != 0)
         buf->fs_flags |= __WASI_FDFLAG_APPEND;
-#ifdef O_DSYNC
+#ifdef CONFIG_HAS_O_DSYNC
     if ((ret & O_DSYNC) != 0)
         buf->fs_flags |= __WASI_FDFLAG_DSYNC;
 #endif
     if ((ret & O_NONBLOCK) != 0)
         buf->fs_flags |= __WASI_FDFLAG_NONBLOCK;
-#ifdef O_RSYNC
+#ifdef CONFIG_HAS_O_RSYNC
     if ((ret & O_RSYNC) != 0)
         buf->fs_flags |= __WASI_FDFLAG_RSYNC;
 #endif
+#ifdef CONFIG_HAS_O_SYNC
     if ((ret & O_SYNC) != 0)
         buf->fs_flags |= __WASI_FDFLAG_SYNC;
+#endif
     return 0;
 }
 
@@ -1306,21 +1308,25 @@ wasmtime_ssp_fd_fdstat_set_flags(wasm_exec_env_t exec_env,
     if ((fs_flags & __WASI_FDFLAG_APPEND) != 0)
         noflags |= O_APPEND;
     if ((fs_flags & __WASI_FDFLAG_DSYNC) != 0)
-#ifdef O_DSYNC
+#ifdef CONFIG_HAS_O_DSYNC
         noflags |= O_DSYNC;
 #else
-        noflags |= O_SYNC;
+        return __WASI_ENOTSUP;
 #endif
     if ((fs_flags & __WASI_FDFLAG_NONBLOCK) != 0)
         noflags |= O_NONBLOCK;
     if ((fs_flags & __WASI_FDFLAG_RSYNC) != 0)
-#ifdef O_RSYNC
+#ifdef CONFIG_HAS_O_RSYNC
         noflags |= O_RSYNC;
 #else
-        noflags |= O_SYNC;
+        return __WASI_ENOTSUP;
 #endif
     if ((fs_flags & __WASI_FDFLAG_SYNC) != 0)
+#ifdef CONFIG_HAS_O_SYNC
         noflags |= O_SYNC;
+#else
+        return __WASI_ENOTSUP;
+#endif
 
     struct fd_object *fo;
     __wasi_errno_t error =
@@ -1971,26 +1977,30 @@ wasmtime_ssp_path_open(wasm_exec_env_t exec_env, struct fd_table *curfds,
     if ((fs_flags & __WASI_FDFLAG_APPEND) != 0)
         noflags |= O_APPEND;
     if ((fs_flags & __WASI_FDFLAG_DSYNC) != 0) {
-#ifdef O_DSYNC
+#ifdef CONFIG_HAS_O_DSYNC
         noflags |= O_DSYNC;
-#else
-        noflags |= O_SYNC;
-#endif
         needed_inheriting |= __WASI_RIGHT_FD_DATASYNC;
+#else
+        return __WASI_ENOTSUP;
+#endif
     }
     if ((fs_flags & __WASI_FDFLAG_NONBLOCK) != 0)
         noflags |= O_NONBLOCK;
     if ((fs_flags & __WASI_FDFLAG_RSYNC) != 0) {
-#ifdef O_RSYNC
+#ifdef CONFIG_HAS_O_RSYNC
         noflags |= O_RSYNC;
-#else
-        noflags |= O_SYNC;
-#endif
         needed_inheriting |= __WASI_RIGHT_FD_SYNC;
+#else
+        return __WASI_ENOTSUP;
+#endif
     }
     if ((fs_flags & __WASI_FDFLAG_SYNC) != 0) {
+#ifdef CONFIG_HAS_O_SYNC
         noflags |= O_SYNC;
         needed_inheriting |= __WASI_RIGHT_FD_SYNC;
+#else
+        return __WASI_ENOTSUP;
+#endif
     }
     if (write && (noflags & (O_APPEND | O_TRUNC)) == 0)
         needed_inheriting |= __WASI_RIGHT_FD_SEEK;

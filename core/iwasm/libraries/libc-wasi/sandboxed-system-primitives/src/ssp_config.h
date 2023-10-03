@@ -14,8 +14,8 @@
 #ifndef SSP_CONFIG_H
 #define SSP_CONFIG_H
 
+#include "bh_platform.h"
 #include "gnuc.h"
-#include <stdlib.h>
 
 #if defined(__FreeBSD__) || defined(__APPLE__) \
     || (defined(ANDROID) && __ANDROID_API__ < 28)
@@ -99,6 +99,20 @@
 #define st_atim st_atimespec
 #define st_ctim st_ctimespec
 #define st_mtim st_mtimespec
+#endif
+
+#if defined(O_DSYNC)
+#define CONFIG_HAS_O_DSYNC
+#endif
+
+// POSIX requires O_RSYNC to be defined, but Linux explicitly doesn't support
+// it.
+#if defined(O_RSYNC) && !defined(__linux__)
+#define CONFIG_HAS_O_RSYNC
+#endif
+
+#if defined(O_SYNC)
+#define CONFIG_HAS_O_SYNC
 #endif
 
 #if !defined(BH_PLATFORM_LINUX_SGX)
