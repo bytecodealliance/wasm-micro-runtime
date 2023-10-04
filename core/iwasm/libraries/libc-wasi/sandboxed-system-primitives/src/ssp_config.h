@@ -65,7 +65,7 @@
 #endif
 #endif
 
-#if !defined(__APPLE__) && !defined(ESP_PLATFORM)
+#if !defined(__APPLE__) && !defined(ESP_PLATFORM) && !defined(__COSMOPOLITAN__)
 #define CONFIG_HAS_POSIX_FALLOCATE 1
 #else
 #define CONFIG_HAS_POSIX_FALLOCATE 0
@@ -83,7 +83,8 @@
 #define CONFIG_HAS_PTHREAD_COND_TIMEDWAIT_RELATIVE_NP 0
 #endif
 
-#if !defined(__APPLE__) && !defined(BH_PLATFORM_LINUX_SGX)
+#if !defined(__APPLE__) && !defined(BH_PLATFORM_LINUX_SGX) \
+    && !defined(__COSMOPOLITAN__)
 #define CONFIG_HAS_PTHREAD_CONDATTR_SETCLOCK 1
 #else
 #define CONFIG_HAS_PTHREAD_CONDATTR_SETCLOCK 0

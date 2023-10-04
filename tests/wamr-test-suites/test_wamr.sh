@@ -31,6 +31,7 @@ function help()
     echo "-Q enable qemu"
     echo "-F set the firmware path used by qemu"
     echo "-C enable code coverage collect"
+    echo "-j set the platform to test"
 }
 
 OPT_PARSED=""
@@ -58,7 +59,7 @@ QEMU_FIRMWARE=""
 # prod/testsuite-all branch
 WASI_TESTSUITE_COMMIT="cf64229727f71043d5849e73934e249e12cb9e06"
 
-while getopts ":s:cabgvt:m:MCpSXxwPGQF:" opt
+while getopts ":s:cabgvt:m:MCpSXxwPGQF:j:" opt
 do
     OPT_PARSED="TRUE"
     case $opt in
@@ -159,6 +160,10 @@ do
         F)
         echo "QEMU firmware" ${OPTARG}
         QEMU_FIRMWARE=${OPTARG}
+        ;;
+        j)
+        echo "test platform " ${OPTARG}
+        PLATFORM=${OPTARG}
         ;;
         ?)
         help
@@ -383,6 +388,8 @@ function spec_test()
         local WAT2WASM=${WORK_DIR}/wabt/out/gcc/Release/wat2wasm
         if [ ! -f ${WAT2WASM} ]; then
             case ${PLATFORM} in
+                cosmopolitan)
+                    ;&
                 linux)
                     WABT_PLATFORM=ubuntu
                     ;;
@@ -655,6 +662,20 @@ function build_iwasm_with_cfg()
     if [ "$?" != 0 ];then
         echo -e "build iwasm failed"
         exit 1
+    fi
+
+    if [[ ${PLATFORM} == "cosmopolitan" ]]; then
+        # convert from APE to ELF so it can be ran easier
+        # HACK: link to linux so tests work when platform is detected by uname
+        cp iwasm.com iwasm \
+        && ./iwasm --assimilate \
+        && rm -rf ../../linux/build \
+        && mkdir ../../linux/build \
+        && ln -s ../../cosmopolitan/build/iwasm ../../linux/build/iwasm
+        if [ "$?" != 0 ];then
+            echo -e "build iwasm failed (cosmopolitan)"
+            exit 1
+        fi
     fi
 }
 

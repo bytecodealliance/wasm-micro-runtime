@@ -60,98 +60,99 @@ static_assert(sizeof(struct iovec) == sizeof(__wasi_ciovec_t),
 static __wasi_errno_t
 convert_errno(int error)
 {
-    static const __wasi_errno_t errors[] = {
-#define X(v) [v] = __WASI_##v
-        X(E2BIG),
-        X(EACCES),
-        X(EADDRINUSE),
-        X(EADDRNOTAVAIL),
-        X(EAFNOSUPPORT),
-        X(EAGAIN),
-        X(EALREADY),
-        X(EBADF),
-        X(EBADMSG),
-        X(EBUSY),
-        X(ECANCELED),
-        X(ECHILD),
-        X(ECONNABORTED),
-        X(ECONNREFUSED),
-        X(ECONNRESET),
-        X(EDEADLK),
-        X(EDESTADDRREQ),
-        X(EDOM),
-        X(EDQUOT),
-        X(EEXIST),
-        X(EFAULT),
-        X(EFBIG),
-        X(EHOSTUNREACH),
-        X(EIDRM),
-        X(EILSEQ),
-        X(EINPROGRESS),
-        X(EINTR),
-        X(EINVAL),
-        X(EIO),
-        X(EISCONN),
-        X(EISDIR),
-        X(ELOOP),
-        X(EMFILE),
-        X(EMLINK),
-        X(EMSGSIZE),
-        X(EMULTIHOP),
-        X(ENAMETOOLONG),
-        X(ENETDOWN),
-        X(ENETRESET),
-        X(ENETUNREACH),
-        X(ENFILE),
-        X(ENOBUFS),
-        X(ENODEV),
-        X(ENOENT),
-        X(ENOEXEC),
-        X(ENOLCK),
-        X(ENOLINK),
-        X(ENOMEM),
-        X(ENOMSG),
-        X(ENOPROTOOPT),
-        X(ENOSPC),
-        X(ENOSYS),
+    __wasi_errno_t code = __WASI_ENOSYS;
+#define X(v)               \
+    case v:                \
+        code = __WASI_##v; \
+        break;
+    switch (error) {
+        X(E2BIG)
+        X(EACCES)
+        X(EADDRINUSE)
+        X(EADDRNOTAVAIL)
+        X(EAFNOSUPPORT)
+        X(EAGAIN)
+        X(EALREADY)
+        X(EBADF)
+        X(EBADMSG)
+        X(EBUSY)
+        X(ECANCELED)
+        X(ECHILD)
+        X(ECONNABORTED)
+        X(ECONNREFUSED)
+        X(ECONNRESET)
+        X(EDEADLK)
+        X(EDESTADDRREQ)
+        X(EDOM)
+        X(EDQUOT)
+        X(EEXIST)
+        X(EFAULT)
+        X(EFBIG)
+        X(EHOSTUNREACH)
+        X(EIDRM)
+        X(EILSEQ)
+        X(EINPROGRESS)
+        X(EINTR)
+        X(EINVAL)
+        X(EIO)
+        X(EISCONN)
+        X(EISDIR)
+        X(ELOOP)
+        X(EMFILE)
+        X(EMLINK)
+        X(EMSGSIZE)
+        X(EMULTIHOP)
+        X(ENAMETOOLONG)
+        X(ENETDOWN)
+        X(ENETRESET)
+        X(ENETUNREACH)
+        X(ENFILE)
+        X(ENOBUFS)
+        X(ENODEV)
+        X(ENOENT)
+        X(ENOEXEC)
+        X(ENOLCK)
+        X(ENOLINK)
+        X(ENOMEM)
+        X(ENOMSG)
+        X(ENOPROTOOPT)
+        X(ENOSPC)
+        X(ENOSYS)
 #ifdef ENOTCAPABLE
-        X(ENOTCAPABLE),
+        X(ENOTCAPABLE)
 #endif
-        X(ENOTCONN),
-        X(ENOTDIR),
-        X(ENOTEMPTY),
-        X(ENOTRECOVERABLE),
-        X(ENOTSOCK),
-        X(ENOTSUP),
-        X(ENOTTY),
-        X(ENXIO),
-        X(EOVERFLOW),
-        X(EOWNERDEAD),
-        X(EPERM),
-        X(EPIPE),
-        X(EPROTO),
-        X(EPROTONOSUPPORT),
-        X(EPROTOTYPE),
-        X(ERANGE),
-        X(EROFS),
-        X(ESPIPE),
-        X(ESRCH),
-        X(ESTALE),
-        X(ETIMEDOUT),
-        X(ETXTBSY),
-        X(EXDEV),
+        X(ENOTCONN)
+        X(ENOTDIR)
+        X(ENOTEMPTY)
+        X(ENOTRECOVERABLE)
+        X(ENOTSOCK)
+        X(ENOTSUP)
+        X(ENOTTY)
+        X(ENXIO)
+        X(EOVERFLOW)
+        X(EOWNERDEAD)
+        X(EPERM)
+        X(EPIPE)
+        X(EPROTO)
+        X(EPROTONOSUPPORT)
+        X(EPROTOTYPE)
+        X(ERANGE)
+        X(EROFS)
+        X(ESPIPE)
+        X(ESRCH)
+        X(ESTALE)
+        X(ETIMEDOUT)
+        X(ETXTBSY)
+        X(EXDEV)
+        default:
+            if (error == EOPNOTSUPP)
+                code = __WASI_ENOTSUP;
+            else if (code == EWOULDBLOCK)
+                code = __WASI_EAGAIN;
+            break;
+    }
 #undef X
-#if EOPNOTSUPP != ENOTSUP
-        [EOPNOTSUPP] = __WASI_ENOTSUP,
-#endif
-#if EWOULDBLOCK != EAGAIN
-        [EWOULDBLOCK] = __WASI_EAGAIN,
-#endif
-    };
-    if (error < 0 || (size_t)error >= sizeof(errors) / sizeof(errors[0])
-        || errors[error] == 0)
-        return __WASI_ENOSYS;
-    return errors[error];
+    return code;
 }
 
 static bool
