@@ -8,9 +8,11 @@ on:
     types:
       - opened
       - synchronize
-    #running nightly pipeline if you're changing it 
+    # running nightly pipeline if you're changing it 
+    # stress tests are run only in nightly at the moment, so running them in they are changed
     paths:
       - ".github/workflows/nightly_run.yml"
+      - "core/iwasm/libraries/lib-wasi-threads/stress-test/**"
       
   # midnight UTC
   schedule:
