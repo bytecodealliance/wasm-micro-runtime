@@ -73,3 +73,7 @@ os_getpagesize()
 void
 os_dcache_flush(void)
 {}
+
+void
+os_icache_flush(void *start, size_t len)
+{}

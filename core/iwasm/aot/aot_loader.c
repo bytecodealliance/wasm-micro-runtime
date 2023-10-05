@@ -3232,10 +3232,13 @@ aot_load_from_aot_file(const uint8 *buf, uint32 size, char *error_buf,
     if (!module)
         return NULL;
 
+    os_thread_jit_write_protect_np(false); /* Make memory writable */
     if (!load(buf, size, module, error_buf, error_buf_size)) {
         aot_unload(module);
         return NULL;
     }
+    os_thread_jit_write_protect_np(true); /* Make memory executable */
+    os_icache_flush(module->code, module->code_size);
 
     LOG_VERBOSE("Load module success.\n");
     return module;
