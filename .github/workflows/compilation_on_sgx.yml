@@ -101,9 +101,6 @@ jobs:
         platform: [linux-sgx]
         exclude:
           # uncompatiable mode and feature
-          # MULTI_MODULE only on INTERP mode
-          - make_options_run_mode: $AOT_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
           # MINI_LOADER only on INTERP mode
           - make_options_run_mode: $AOT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"

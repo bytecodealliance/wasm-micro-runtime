@@ -126,13 +126,11 @@ runtime_malloc(uint64 size, WASMModuleInstanceCommon *module_inst,
 }
 
 #if WASM_ENABLE_MULTI_MODULE != 0
-/*
-    TODO:
-    Let loader_malloc be a general API both for AOT and WASM.
-*/
+/* TODO: Let loader_malloc be a general API both for AOT and WASM. */
 
 #define loader_malloc(size, error_buf, error_buf_size) \
     runtime_malloc(size, NULL, error_buf, error_buf_size)
+
 static void
 set_error_buf_v(const WASMModuleCommon *module, char *error_buf,
                 uint32 error_buf_size, const char *format, ...)
