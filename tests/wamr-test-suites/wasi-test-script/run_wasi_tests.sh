@@ -20,6 +20,7 @@ readonly IWASM_CMD="${WORK_DIR}/../../../../product-mini/platforms/${PLATFORM}/b
 readonly IWASM_CMD_STRESS="${IWASM_CMD} --max-threads=12"
 readonly WAMRC_CMD="${WORK_DIR}/../../../../wamr-compiler/build/wamrc"
 readonly C_TESTS="tests/c/testsuite/"
+readonly RUST_TESTS="tests/rust/testsuite/"
 readonly ASSEMBLYSCRIPT_TESTS="tests/assemblyscript/testsuite/"
 readonly THREAD_PROPOSAL_TESTS="tests/proposals/wasi-threads/"
 readonly THREAD_INTERNAL_TESTS="${WAMR_DIR}/core/iwasm/libraries/lib-wasi-threads/test/"
@@ -70,6 +71,7 @@ if [[ $MODE != "aot" ]];then
             -r adapters/wasm-micro-runtime.py \
             -t \
                 ${C_TESTS} \
+                ${RUST_TESTS} \
                 ${ASSEMBLYSCRIPT_TESTS} \
                 ${THREAD_PROPOSAL_TESTS} \
                 ${THREAD_INTERNAL_TESTS} \
