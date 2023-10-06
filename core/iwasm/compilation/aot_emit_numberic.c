@@ -171,6 +171,15 @@
         right = shift_count_mask;                                      \
     } while (0)
 
+static bool
+is_shift_count_mask_needed(AOTCompContext *comp_ctx, LLVMValueRef left,
+                           LLVMValueRef right)
+{
+    return (strcmp(comp_ctx->target_arch, "x86_64") != 0
+            && strcmp(comp_ctx->target_arch, "i386") != 0)
+           || (LLVMIsEfficientConstInt(left) && LLVMIsEfficientConstInt(right));
+}
+
 /* Call llvm constrained floating-point intrinsic */
 static LLVMValueRef
 call_llvm_float_experimental_constrained_intrinsic(AOTCompContext *comp_ctx,
@@ -728,8 +737,7 @@ compile_int_shl(AOTCompContext *comp_ctx, LLVMValueRef left, LLVMValueRef right,
 {
     LLVMValueRef res;
 
-    if (strcmp(comp_ctx->target_arch, "x86_64") != 0
-        && strcmp(comp_ctx->target_arch, "i386") != 0)
+    if (is_shift_count_mask_needed(comp_ctx, left, right))
         SHIFT_COUNT_MASK;
 
     /* Build shl */
@@ -744,8 +752,7 @@ compile_int_shr_s(AOTCompContext *comp_ctx, LLVMValueRef left,
 {
     LLVMValueRef res;
 
-    if (strcmp(comp_ctx->target_arch, "x86_64") != 0
-        && strcmp(comp_ctx->target_arch, "i386") != 0)
+    if (is_shift_count_mask_needed(comp_ctx, left, right))
         SHIFT_COUNT_MASK;
 
     /* Build shl */
@@ -760,8 +767,7 @@ compile_int_shr_u(AOTCompContext *comp_ctx, LLVMValueRef left,
 {
     LLVMValueRef res;
 
-    if (strcmp(comp_ctx->target_arch, "x86_64") != 0
-        && strcmp(comp_ctx->target_arch, "i386") != 0)
+    if (is_shift_count_mask_needed(comp_ctx, left, right))
         SHIFT_COUNT_MASK;
 
     /* Build shl */
