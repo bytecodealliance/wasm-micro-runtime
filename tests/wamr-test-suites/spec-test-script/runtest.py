@@ -400,7 +400,7 @@ def cast_v128_to_i64x2(numbers, type, lane_type):
 
     assert(packed)
     unpacked = struct.unpack("Q Q", packed)
-    return unpacked, "[{} {}]:{}:v128".format(unpacked[0], unpacked[1], lane_type)
+    return unpacked, f"[{unpacked[0]:#x} {unpacked[1]:#x}]:{lane_type}:v128"
 
 
 def parse_simple_const_w_type(number, type):
@@ -412,13 +412,7 @@ def parse_simple_const_w_type(number, type):
                    else "-0x{:x}:{}".format(0 - number, type)
     elif type in ["f32", "f64"]:
         if "nan:" in number:
-            # TODO: how to handle this correctly
-            if "nan:canonical" in number:
-                return float.fromhex("0x200000"), "nan:{}".format(type)
-            elif "nan:arithmetic" in number:
-                return float.fromhex("-0x200000"), "nan:{}".format(type)
-            else:
-                return float('nan'), "nan:{}".format(type)
+            return float('nan'), "nan:{}".format(type)
         else:
             number = float.fromhex(number) if '0x' in number else float(number)
             return number, "{:.7g}:{}".format(number, type)
@@ -542,9 +536,6 @@ def vector_value_comparison(out, expected):
     if out_type != expected_type:
         return False
 
-    if out_val == expected_val:
-        return True
-
     out_val = out_val.split(" ")
     expected_val = expected_val.split(" ")
 
@@ -568,12 +559,14 @@ def vector_value_comparison(out, expected):
 
         out_is_nan = [math.isnan(o) for o in out_unpacked]
         expected_is_nan = [math.isnan(e) for e in expected_unpacked]
-        if out_is_nan and expected_is_nan:
-            return True;
+        if any(out_is_nan):
+            nan_comparision = [o == e for o, e in zip(out_is_nan, expected_is_nan)]
+            if all(nan_comparision):
+                print(f"Pass NaN comparision")
+                return True
 
-        # print("compare {} and {}".format(out_unpacked, expected_unpacked))
+        # print(f"compare {out_unpacked} and {expected_unpacked}")
         result = [o == e for o, e in zip(out_unpacked, expected_unpacked)]
-
         if not all(result):
             result = [
                 "{:.7g}".format(o) == "{:.7g}".format(e)
@@ -778,7 +771,7 @@ def test_assert_return(r, opts, form):
                     numbers, _ = cast_v128_to_i64x2(splitted[2:], 'v128', splitted[1])
 
                     assert(len(numbers) == 2), "has to reform arguments into i64x2"
-                    args.append("{}\{}".format(numbers[0], numbers[1]))
+                    args.append(f"{numbers[0]:#x}\{numbers[1]:#x}")
                 elif "ref.null" == splitted[0]:
                     args.append("null")
                 elif "ref.extern" == splitted[0]:
@@ -1129,7 +1122,7 @@ def test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile,
 
 if __name__ == "__main__":
     opts = parser.parse_args(sys.argv[1:])
-    print('Input param :',opts)
+    # print('Input param :',opts)
 
     if opts.aot: test_aot = True
     # default x86_64
@@ -1152,7 +1145,7 @@ if __name__ == "__main__":
 
     ret_code = 0
     try:
-        log("################################################")
+        log("\n################################################")
         log("### Testing %s" % opts.test_file.name)
         log("################################################")
         forms = read_forms(opts.test_file.read())
