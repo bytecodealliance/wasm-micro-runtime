@@ -422,7 +422,7 @@ static bool
 module_reader_callback(package_type_t module_type, const char *module_name,
                        uint8 **p_buffer, uint32 *p_size)
 {
-    char *file_format;
+    char *file_format = NULL;
 #if WASM_ENABLE_INTERP != 0
     if (module_type == Wasm_Module_Bytecode)
         file_format = ".wasm";
@@ -430,8 +430,8 @@ module_reader_callback(package_type_t module_type, const char *module_name,
 #if WASM_ENABLE_AOT != 0
     if (module_type == Wasm_Module_AoT)
         file_format = ".aot";
-
 #endif
+    bh_assert(file_format);
     const char *format = "%s/%s%s";
     int sz = strlen(module_search_path) + strlen("/") + strlen(module_name)
              + strlen(file_format) + 1;

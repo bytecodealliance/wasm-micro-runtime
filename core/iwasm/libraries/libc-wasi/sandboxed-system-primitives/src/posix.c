@@ -711,7 +711,7 @@ bool
 fd_table_insert_existing(struct fd_table *ft, __wasi_fd_t in, int out)
 {
     __wasi_filetype_t type;
-    __wasi_rights_t rights_base, rights_inheriting;
+    __wasi_rights_t rights_base = 0, rights_inheriting = 0;
     struct fd_object *fo;
     __wasi_errno_t error;
 
