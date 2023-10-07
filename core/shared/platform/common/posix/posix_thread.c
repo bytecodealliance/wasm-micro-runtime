@@ -418,6 +418,14 @@ os_thread_get_stack_boundary()
     return addr;
 }
 
+void
+os_thread_jit_write_protect_np(bool enabled)
+{
+#if (defined(__APPLE__) || defined(__MACH__)) && defined(__arm64__)
+    pthread_jit_write_protect_np(enabled);
+#endif
+}
+
 #ifdef OS_ENABLE_HW_BOUND_CHECK
 
 #define SIG_ALT_STACK_SIZE (32 * 1024)
