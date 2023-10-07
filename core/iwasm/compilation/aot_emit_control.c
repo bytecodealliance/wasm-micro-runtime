@@ -335,6 +335,7 @@ push_aot_block_to_stack_and_pass_params(AOTCompContext *comp_ctx,
          * after branch instruction, should position the builder before the last
          * branch instruction */
         br_inst = LLVMGetLastInstruction(block_curr);
+        bh_assert(LLVMGetInstructionOpcode(br_inst) == LLVMBr);
         LLVMPositionBuilderBefore(comp_ctx->builder, br_inst);
 
         /* Pop param values from current block's
