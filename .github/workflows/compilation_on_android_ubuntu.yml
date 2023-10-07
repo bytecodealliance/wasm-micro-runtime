@@ -65,6 +65,7 @@ env:
   THREADS_TEST_OPTIONS: "-s spec -b -p -P"
   X86_32_TARGET_TEST_OPTIONS: "-m x86_32 -P"
   WASI_TEST_OPTIONS: "-s wasi_certification -w"
+  WAMR_COMPILER_TEST_OPTIONS: "-s wamr_compiler -b -P"
 
 jobs:
   build_llvm_libraries_on_ubuntu_2204:
@@ -333,7 +334,7 @@ jobs:
         build_iwasm,
         build_llvm_libraries_on_ubuntu_2204,
         build_wamrc,
-      ]    
+      ]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -482,6 +483,10 @@ jobs:
           - os: ubuntu-22.04
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
             ubuntu_version: "22.04"
+          - os: ubuntu-22.04
+            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
+            running_mode: aot
+            test_option: $WAMR_COMPILER_TEST_OPTIONS
         exclude:
           # uncompatiable modes and features
           # classic-interp and fast-interp don't support simd

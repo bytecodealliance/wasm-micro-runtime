@@ -14,7 +14,7 @@ function help()
 {
     echo "test_wamr.sh [options]"
     echo "-c clean previous test results, not start test"
-    echo "-s {suite_name} test only one suite (spec|wasi_certification)"
+    echo "-s {suite_name} test only one suite (spec|wasi_certification|wamr_compiler)"
     echo "-m set compile target of iwasm(x86_64|x86_32|armv7_vfp|thumbv7_vfp|riscv64_lp64d|riscv64_lp64|aarch64)"
     echo "-t set compile type of iwasm(classic-interp|fast-interp|jit|aot|fast-jit|multi-tier-jit)"
     echo "-M enable multi module feature"
@@ -309,6 +309,53 @@ function sightglass_test()
     echo "Finish sightglass benchmark tests"
 }
 
+function setup_wabt()
+{
+    if [ ${WABT_BINARY_RELEASE} == "YES" ]; then
+        echo "download a binary release and install"
+        local WAT2WASM=${WORK_DIR}/wabt/out/gcc/Release/wat2wasm
+        if [ ! -f ${WAT2WASM} ]; then
+            case ${PLATFORM} in
+                cosmopolitan)
+                    ;&
+                linux)
+                    WABT_PLATFORM=ubuntu
+                    ;;
+                darwin)
+                    WABT_PLATFORM=macos
+                    ;;
+                *)
+                    echo "wabt platform for ${PLATFORM} in unknown"
+                    exit 1
+                    ;;
+            esac
+            if [ ! -f /tmp/wabt-1.0.31-${WABT_PLATFORM}.tar.gz ]; then
+                wget \
+                    https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-${WABT_PLATFORM}.tar.gz \
+                    -P /tmp
+            fi
+
+            cd /tmp \
+            && tar zxf wabt-1.0.31-${WABT_PLATFORM}.tar.gz \
+            && mkdir -p ${WORK_DIR}/wabt/out/gcc/Release/ \
+            && install wabt-1.0.31/bin/wa* ${WORK_DIR}/wabt/out/gcc/Release/ \
+            && cd -
+        fi
+    else
+        echo "download source code and compile and install"
+        if [ ! -d "wabt" ];then
+            echo "wabt not exist, clone it from github"
+            git clone --recursive https://github.com/WebAssembly/wabt
+        fi
+        echo "upate wabt"
+        cd wabt
+        git pull
+        git reset --hard origin/main
+        cd ..
+        make -C wabt gcc-release -j 4
+    fi
+}
+
 # TODO: with iwasm only
 function spec_test()
 {
@@ -383,49 +430,7 @@ function spec_test()
     popd
     echo $(pwd)
 
-    if [ ${WABT_BINARY_RELEASE} == "YES" ]; then
-        echo "download a binary release and install"
-        local WAT2WASM=${WORK_DIR}/wabt/out/gcc/Release/wat2wasm
-        if [ ! -f ${WAT2WASM} ]; then
-            case ${PLATFORM} in
-                cosmopolitan)
-                    ;&
-                linux)
-                    WABT_PLATFORM=ubuntu
-                    ;;
-                darwin)
-                    WABT_PLATFORM=macos
-                    ;;
-                *)
-                    echo "wabt platform for ${PLATFORM} in unknown"
-                    exit 1
-                    ;;
-            esac
-            if [ ! -f /tmp/wabt-1.0.31-${WABT_PLATFORM}.tar.gz ]; then
-                wget \
-                    https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-${WABT_PLATFORM}.tar.gz \
-                    -P /tmp
-            fi
-
-            cd /tmp \
-            && tar zxf wabt-1.0.31-${WABT_PLATFORM}.tar.gz \
-            && mkdir -p ${WORK_DIR}/wabt/out/gcc/Release/ \
-            && install wabt-1.0.31/bin/wa* ${WORK_DIR}/wabt/out/gcc/Release/ \
-            && cd -
-        fi
-    else
-        echo "download source code and compile and install"
-        if [ ! -d "wabt" ];then
-            echo "wabt not exist, clone it from github"
-            git clone --recursive https://github.com/WebAssembly/wabt
-        fi
-        echo "upate wabt"
-        cd wabt
-        git pull
-        git reset --hard origin/main
-        cd ..
-        make -C wabt gcc-release -j 4
-    fi
+    setup_wabt
 
     ln -sf ${WORK_DIR}/../spec-test-script/all.py .
     ln -sf ${WORK_DIR}/../spec-test-script/runtest.py .
@@ -511,6 +516,28 @@ function wasi_test()
                             --interpreter ${IWASM_CMD} \
                             | tee ${REPORT_DIR}/wasi_test_report.txt
     echo "Finish wasi tests"
+}
+
+function wamr_compiler_test()
+{
+    if [[ $1 != "aot" ]]; then
+        echo "WAMR compiler tests only support AOT mode"
+        exit 1
+    fi
+
+    echo  "Now start WAMR compiler tests"
+    setup_wabt
+    cd ${WORK_DIR}/../wamr-compiler-test-script
+    ./run_wamr_compiler_tests.sh ${WORK_DIR}/wabt/out/gcc/Release/wat2wasm $WAMRC_CMD $IWASM_CMD \
+        | tee -a ${REPORT_DIR}/wamr_compiler_test_report.txt
+
+    ret=${PIPESTATUS[0]}
+
+    if [[ ${ret} -ne 0 ]];then
+        echo -e "\nWAMR compiler tests FAILED" | tee -a ${REPORT_DIR}/wamr_compiler_test_report.txt
+        exit 1
+    fi
+    echo -e "\nFinish WAMR compiler tests" | tee -a ${REPORT_DIR}/wamr_compiler_test_report.txt
 }
 
 function wasi_certification_test()
