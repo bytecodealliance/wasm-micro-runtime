@@ -281,7 +281,7 @@ push_aot_block_to_stack_and_pass_params(AOTCompContext *comp_ctx,
                                         AOTBlock *block)
 {
     uint32 i, param_index;
-    LLVMValueRef value;
+    LLVMValueRef value, br_inst;
     uint64 size;
     char name[32];
     LLVMBasicBlockRef block_curr = CURR_BLOCK();
@@ -329,7 +329,13 @@ push_aot_block_to_stack_and_pass_params(AOTCompContext *comp_ctx,
                 }
             }
         }
-        SET_BUILDER_POS(block_curr);
+
+        /* At this point, already built the branch instruction to jump to the
+         * new BB, to avoid generating zext instruction from POP that would come
+         * after branch instruction, should position the builder before the last
+         * branch instruction */
+        br_inst = LLVMGetLastInstruction(block_curr);
+        LLVMPositionBuilderBefore(comp_ctx->builder, br_inst);
 
         /* Pop param values from current block's
          * value stack and add to param phis.
