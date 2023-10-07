@@ -330,10 +330,10 @@ push_aot_block_to_stack_and_pass_params(AOTCompContext *comp_ctx,
             }
         }
 
-        /* At this point, already built the branch instruction to jump to the
-         * new BB, to avoid generating zext instruction from POP that would come
-         * after branch instruction, should position the builder before the last
-         * branch instruction */
+        /* At this point, the branch instruction was already built to jump to
+         * the new BB, to avoid generating zext instruction from the popped
+         * operand that would come after branch instruction, we should position
+         * the builder before the last branch instruction */
         br_inst = LLVMGetLastInstruction(block_curr);
         bh_assert(LLVMGetInstructionOpcode(br_inst) == LLVMBr);
         LLVMPositionBuilderBefore(comp_ctx->builder, br_inst);
