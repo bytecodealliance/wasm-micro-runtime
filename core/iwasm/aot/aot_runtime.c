@@ -1125,7 +1125,7 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
         (uint64)module->memory_count * sizeof(AOTMemoryInstance);
     uint64 total_size, table_size = 0;
     uint8 *p;
-    uint32 i, j, extra_info_offset;
+    uint32 i, extra_info_offset;
     const bool is_sub_inst = parent != NULL;
 
     /* Check heap size */
@@ -1275,7 +1275,7 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
         AOTTableInstance *table;
         table_elem_type_t *table_data;
         uint8 tbl_elem_type;
-        uint32 tbl_init_size, tbl_max_size;
+        uint32 tbl_init_size, tbl_max_size, j;
         WASMRefType *tbl_elem_ref_type;
 
         bh_assert(table_init_data);

@@ -529,7 +529,6 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 #endif /* end of WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0 */
 
 #if WASM_ENABLE_GC != 0
-
             case WASM_OP_CALL_REF:
                 if (!comp_ctx->enable_gc) {
                     goto unsupport_gc;
@@ -676,6 +675,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                         aot_set_last_error("unsupported opcode");
                         return false;
                 }
+                break;
             }
 
 #endif /* end of WASM_ENABLE_GC != 0 */

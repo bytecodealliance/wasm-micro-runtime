@@ -1199,7 +1199,7 @@ destroy_types(AOTType **types, uint32 count)
             else if (types[i]->type_flag == WASM_TYPE_STRUCT) {
                 AOTStructType *struct_type = (AOTStructType *)types[i];
                 if (struct_type->ref_type_maps != NULL) {
-                    bh_assert(func_type->ref_type_map_count > 0);
+                    bh_assert(struct_type->ref_type_map_count > 0);
                     wasm_runtime_free(struct_type->ref_type_maps);
                 }
             }

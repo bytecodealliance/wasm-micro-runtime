@@ -723,6 +723,7 @@ wasm_runtime_call_func_ref(WASMExecEnv *exec_env,
     if (exec_env->module_inst->module_type == Wasm_Module_AoT) {
         AOTModuleInstance *module_inst =
             (AOTModuleInstance *)exec_env->module_inst;
+        (void)module_inst;
 
         bh_assert(func_idx < module_inst->module->import_function_count
                                  + module_inst->module->function_count);

@@ -292,8 +292,11 @@ aot_compile_op_i31_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             goto fail;
         }
     }
+    else {
+        i31_val = i31_obj;
+    }
 
-    /* i31_obj >> 1 */
+    /* i31_val = i31_val >> 1 */
     if (!(i31_val = LLVMBuildLShr(comp_ctx->builder, i31_val, I32_ONE,
                                   "i31_value"))) {
         aot_set_last_error("llvm build lshr failed.");
@@ -301,7 +304,7 @@ aot_compile_op_i31_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     if (sign) {
-        /* i31_val = i31_val & 0x40000000? i31_val |= 0x80000000 : i31_val */
+        /* i31_val = i31_val & 0x40000000 ? i31_val |= 0x80000000 : i31_val */
         if (!(bit_30 = LLVMBuildAnd(comp_ctx->builder, i31_val,
                                     I32_CONST(0x40000000), "bit30"))) {
             aot_set_last_error("llvm build and failed.");
