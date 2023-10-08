@@ -1,4 +1,5 @@
-The "inst-context" sample project
-=================================
+The "inst-context-threads" sample project
+=========================================
 
-This sample demonstrates module instance context API.
+This sample demonstrates some interactions between
+module instance context API and wasi-threads.

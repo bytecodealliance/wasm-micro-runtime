@@ -53,7 +53,12 @@ get_target_symbol_map(uint32 *sym_num)
     return target_sym_map;
 }
 
+#if (defined(__APPLE__) || defined(__MACH__)) && defined(__arm64__)
+#define BUILD_TARGET_AARCH64_DEFAULT "arm64"
+#else
 #define BUILD_TARGET_AARCH64_DEFAULT "aarch64v8"
+#endif
+
 void
 get_current_target(char *target_buf, uint32 target_buf_size)
 {

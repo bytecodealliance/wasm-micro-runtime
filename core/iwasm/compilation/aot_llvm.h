@@ -15,15 +15,18 @@
 #include "llvm-c/ExecutionEngine.h"
 #include "llvm-c/Analysis.h"
 #include "llvm-c/BitWriter.h"
+#if LLVM_VERSION_MAJOR < 17
 #include "llvm-c/Transforms/Utils.h"
 #include "llvm-c/Transforms/Scalar.h"
 #include "llvm-c/Transforms/Vectorize.h"
 #include "llvm-c/Transforms/PassManagerBuilder.h"
+#include "llvm-c/Initialization.h"
+#endif
 
 #include "llvm-c/Orc.h"
 #include "llvm-c/Error.h"
 #include "llvm-c/Support.h"
-#include "llvm-c/Initialization.h"
+
 #include "llvm-c/TargetMachine.h"
 #include "llvm-c/LLJIT.h"
 #if WASM_ENABLE_DEBUG_AOT != 0

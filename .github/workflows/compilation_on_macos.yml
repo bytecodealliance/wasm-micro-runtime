@@ -133,12 +133,10 @@ jobs:
         exclude:
           # uncompatiable feature and platform
           # uncompatiable mode and feature
-          # MULTI_MODULE only on INTERP mode
+          # MULTI_MODULE only on INTERP mode and AOT mode
           - make_options_run_mode: $LLVM_LAZY_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
           - make_options_run_mode: $LLVM_EAGER_JIT_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
-          - make_options_run_mode: $AOT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
           # SIMD only on JIT/AOT mode
           - make_options_run_mode: $CLASSIC_INTERP_BUILD_OPTIONS
@@ -245,7 +243,7 @@ jobs:
         working-directory: samples/wasm-c-api
 
   build_samples_others:
-    needs: [build_iwasm]
+    needs: [build_iwasm, build_wamrc]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -304,7 +302,7 @@ jobs:
           mkdir build && cd build
           cmake ..
           cmake --build . --config Release --parallel 4
-          ./multi_module
+          ./multi_module mC.wasm
 
       - name: Build Sample [spawn-thread]
         run: |
