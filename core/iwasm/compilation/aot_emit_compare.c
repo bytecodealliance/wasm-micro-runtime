@@ -234,7 +234,7 @@ fail:
 bool
 aot_compile_op_ref_eq(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
-    LLVMValueRef gc_obj1, gc_obj2, res;
+    LLVMValueRef gc_obj1 = NULL, gc_obj2 = NULL, res;
 
     POP_REF(gc_obj1);
     POP_REF(gc_obj2);
