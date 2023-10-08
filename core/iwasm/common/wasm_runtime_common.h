@@ -788,6 +788,9 @@ wasm_runtime_register_module_internal(const char *module_name,
 void
 wasm_runtime_unregister_module(const WASMModuleCommon *module);
 
+WASMModuleCommon *
+wasm_runtime_find_module_registered(const char *module_name);
+
 bool
 wasm_runtime_add_loading_module(const char *module_name, char *error_buf,
                                 uint32 error_buf_size);
@@ -800,6 +803,35 @@ wasm_runtime_is_loading_module(const char *module_name);
 
 void
 wasm_runtime_destroy_loading_module_list();
+
+WASMModuleCommon *
+wasm_runtime_search_sub_module(const WASMModuleCommon *parent_module,
+                               const char *sub_module_name);
+
+bool
+wasm_runtime_register_sub_module(const WASMModuleCommon *parent_module,
+                                 const char *sub_module_name,
+                                 WASMModuleCommon *sub_module);
+
+WASMModuleCommon *
+wasm_runtime_load_depended_module(const WASMModuleCommon *parent_module,
+                                  const char *sub_module_name, char *error_buf,
+                                  uint32 error_buf_size);
+
+bool
+wasm_runtime_sub_module_instantiate(WASMModuleCommon *module,
+                                    WASMModuleInstanceCommon *module_inst,
+                                    uint32 stack_size, uint32 heap_size,
+                                    char *error_buf, uint32 error_buf_size);
+void
+wasm_runtime_sub_module_deinstantiate(WASMModuleInstanceCommon *module_inst);
+#endif
+
+#if WASM_ENABLE_LIBC_WASI != 0 || WASM_ENABLE_MULTI_MODULE != 0
+WASMExport *
+loader_find_export(const WASMModuleCommon *module, const char *module_name,
+                   const char *field_name, uint8 export_kind, char *error_buf,
+                   uint32 error_buf_size);
 #endif /* WASM_ENALBE_MULTI_MODULE */
 
 bool
