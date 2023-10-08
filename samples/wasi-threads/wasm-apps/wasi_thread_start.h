@@ -7,6 +7,10 @@
 
 #define STACK_SIZE 32 * 1024 // same as the main stack
 
+/* See https://github.com/WebAssembly/wasi-threads#design-choice-thread-ids */
+#define ASSERT_VALID_TID(TID) \
+    assert(TID >= 1 && TID <= 0x1FFFFFFF && "Invalid thread ID")
+
 typedef struct {
     void *stack;
 } start_args_t;
