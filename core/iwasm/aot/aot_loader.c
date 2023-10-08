@@ -2955,18 +2955,21 @@ create_module(char *error_buf, uint32 error_buf_size)
 {
     AOTModule *module =
         loader_malloc(sizeof(AOTModule), error_buf, error_buf_size);
-
     bh_list_status ret;
+
     if (!module) {
         return NULL;
     }
+
     module->module_type = Wasm_Module_AoT;
+
 #if WASM_ENABLE_MULTI_MODULE != 0
     module->import_module_list = &module->import_module_list_head;
     ret = bh_list_init(module->import_module_list);
     bh_assert(ret == BH_LIST_SUCCESS);
 #endif
     (void)ret;
+
     return module;
 }
 
