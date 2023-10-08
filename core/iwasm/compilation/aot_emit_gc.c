@@ -1501,7 +1501,7 @@ aot_compile_op_i31_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     /* if uintptr_t is 64 bits, trunc i64 to i32 */
     if (comp_ctx->pointer_size == sizeof(uint64)) {
-        if (!(i31_obj = LLVMBuildTrunc(comp_ctx->builder, i31_obj, I32_TYPE,
+        if (!(i31_val = LLVMBuildTrunc(comp_ctx->builder, i31_obj, I32_TYPE,
                                        "trunc uintptr_t to i32"))) {
             aot_set_last_error("llvm build trunc failed.");
             goto fail;
@@ -1512,7 +1512,7 @@ aot_compile_op_i31_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     /* i31_val = i31_val >> 1 */
-    if (!(i31_val = LLVMBuildLShr(comp_ctx->builder, i31_obj, I32_ONE,
+    if (!(i31_val = LLVMBuildLShr(comp_ctx->builder, i31_val, I32_ONE,
                                   "i31_value"))) {
         aot_set_last_error("llvm build lshr failed.");
         goto fail;
