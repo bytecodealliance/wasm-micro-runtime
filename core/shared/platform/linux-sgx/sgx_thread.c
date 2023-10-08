@@ -275,3 +275,7 @@ os_rwlock_destroy(korp_rwlock *lock)
 
     return BHT_OK;
 }
+
+void
+os_thread_jit_write_protect_np(bool enabled)
+{}

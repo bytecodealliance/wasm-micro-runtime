@@ -22,6 +22,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "wasm_export.h"
+
 /* clang-format off */
 
 #ifdef __cplusplus
@@ -274,37 +276,6 @@ typedef uint8_t __wasi_sdflags_t;
 typedef uint16_t __wasi_siflags_t;
 
 typedef uint8_t __wasi_signal_t;
-// 0 is reserved; POSIX has special semantics for kill(pid, 0).
-#define __WASI_SIGHUP    (1)
-#define __WASI_SIGINT    (2)
-#define __WASI_SIGQUIT   (3)
-#define __WASI_SIGILL    (4)
-#define __WASI_SIGTRAP   (5)
-#define __WASI_SIGABRT   (6)
-#define __WASI_SIGBUS    (7)
-#define __WASI_SIGFPE    (8)
-#define __WASI_SIGKILL   (9)
-#define __WASI_SIGUSR1   (10)
-#define __WASI_SIGSEGV   (11)
-#define __WASI_SIGUSR2   (12)
-#define __WASI_SIGPIPE   (13)
-#define __WASI_SIGALRM   (14)
-#define __WASI_SIGTERM   (15)
-#define __WASI_SIGCHLD   (16)
-#define __WASI_SIGCONT   (17)
-#define __WASI_SIGSTOP   (18)
-#define __WASI_SIGTSTP   (19)
-#define __WASI_SIGTTIN   (20)
-#define __WASI_SIGTTOU   (21)
-#define __WASI_SIGURG    (22)
-#define __WASI_SIGXCPU   (23)
-#define __WASI_SIGXFSZ   (24)
-#define __WASI_SIGVTALRM (25)
-#define __WASI_SIGPROF   (26)
-#define __WASI_SIGWINCH  (27)
-#define __WASI_SIGPOLL   (28)
-#define __WASI_SIGPWR    (29)
-#define __WASI_SIGSYS    (30)
 
 typedef uint16_t __wasi_subclockflags_t;
 #define __WASI_SUBSCRIPTION_CLOCK_ABSTIME (0x0001)
@@ -639,17 +610,13 @@ typedef struct __wasi_addr_info_hints_t {
 #endif
 
 __wasi_errno_t wasmtime_ssp_args_get(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
     struct argv_environ_values *arg_environ,
-#endif
     char **argv,
     char *argv_buf
 ) WASMTIME_SSP_SYSCALL_NAME(args_get) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_args_sizes_get(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
     struct argv_environ_values *arg_environ,
-#endif
     size_t *argc,
     size_t *argv_buf_size
 ) WASMTIME_SSP_SYSCALL_NAME(args_sizes_get) WARN_UNUSED;
@@ -666,57 +633,46 @@ __wasi_errno_t wasmtime_ssp_clock_time_get(
 ) WASMTIME_SSP_SYSCALL_NAME(clock_time_get) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_environ_get(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
     struct argv_environ_values *arg_environ,
-#endif
     char **environ,
     char *environ_buf
 ) WASMTIME_SSP_SYSCALL_NAME(environ_get) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_environ_sizes_get(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
     struct argv_environ_values *arg_environ,
-#endif
     size_t *environ_count,
     size_t *environ_buf_size
 ) WASMTIME_SSP_SYSCALL_NAME(environ_sizes_get) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_fd_prestat_get(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
     struct fd_prestats *prestats,
-#endif
     __wasi_fd_t fd,
     __wasi_prestat_t *buf
 ) WASMTIME_SSP_SYSCALL_NAME(fd_prestat_get) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_fd_prestat_dir_name(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
     struct fd_prestats *prestats,
-#endif
     __wasi_fd_t fd,
     char *path,
     size_t path_len
 ) WASMTIME_SSP_SYSCALL_NAME(fd_prestat_dir_name) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_fd_close(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
     struct fd_prestats *prestats,
-#endif
     __wasi_fd_t fd
 ) WASMTIME_SSP_SYSCALL_NAME(fd_close) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_fd_datasync(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t fd
 ) WASMTIME_SSP_SYSCALL_NAME(fd_datasync) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_fd_pread(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t fd,
     const __wasi_iovec_t *iovs,
     size_t iovs_len,
@@ -725,9 +681,8 @@ __wasi_errno_t wasmtime_ssp_fd_pread(
 ) WASMTIME_SSP_SYSCALL_NAME(fd_pread) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_fd_pwrite(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t fd,
     const __wasi_ciovec_t *iovs,
     size_t iovs_len,
@@ -736,9 +691,8 @@ __wasi_errno_t wasmtime_ssp_fd_pwrite(
 ) WASMTIME_SSP_SYSCALL_NAME(fd_pwrite) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_fd_read(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t fd,
     const __wasi_iovec_t *iovs,
     size_t iovs_len,
@@ -746,18 +700,16 @@ __wasi_errno_t wasmtime_ssp_fd_read(
 ) WASMTIME_SSP_SYSCALL_NAME(fd_read) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_fd_renumber(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
     struct fd_prestats *prestats,
-#endif
     __wasi_fd_t from,
     __wasi_fd_t to
 ) WASMTIME_SSP_SYSCALL_NAME(fd_renumber) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_fd_seek(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t fd,
     __wasi_filedelta_t offset,
     __wasi_whence_t whence,
@@ -765,49 +717,43 @@ __wasi_errno_t wasmtime_ssp_fd_seek(
 ) WASMTIME_SSP_SYSCALL_NAME(fd_seek) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_fd_tell(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t fd,
     __wasi_filesize_t *newoffset
 ) WASMTIME_SSP_SYSCALL_NAME(fd_tell) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_fd_fdstat_get(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t fd,
     __wasi_fdstat_t *buf
 ) WASMTIME_SSP_SYSCALL_NAME(fd_fdstat_get) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_fd_fdstat_set_flags(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t fd,
     __wasi_fdflags_t flags
 ) WASMTIME_SSP_SYSCALL_NAME(fd_fdstat_set_flags) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_fd_fdstat_set_rights(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t fd,
     __wasi_rights_t fs_rights_base,
     __wasi_rights_t fs_rights_inheriting
 ) WASMTIME_SSP_SYSCALL_NAME(fd_fdstat_set_rights) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_fd_sync(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t fd
 ) WASMTIME_SSP_SYSCALL_NAME(fd_sync) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_fd_write(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t fd,
     const __wasi_ciovec_t *iovs,
     size_t iovs_len,
@@ -815,9 +761,8 @@ __wasi_errno_t wasmtime_ssp_fd_write(
 ) WASMTIME_SSP_SYSCALL_NAME(fd_write) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_fd_advise(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t fd,
     __wasi_filesize_t offset,
     __wasi_filesize_t len,
@@ -825,28 +770,25 @@ __wasi_errno_t wasmtime_ssp_fd_advise(
 ) WASMTIME_SSP_SYSCALL_NAME(fd_advise) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_fd_allocate(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t fd,
     __wasi_filesize_t offset,
     __wasi_filesize_t len
 ) WASMTIME_SSP_SYSCALL_NAME(fd_allocate) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_path_create_directory(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t fd,
     const char *path,
     size_t path_len
 ) WASMTIME_SSP_SYSCALL_NAME(path_create_directory) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_path_link(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
     struct fd_prestats *prestats,
-#endif
     __wasi_fd_t old_fd,
     __wasi_lookupflags_t old_flags,
     const char *old_path,
@@ -857,9 +799,8 @@ __wasi_errno_t wasmtime_ssp_path_link(
 ) WASMTIME_SSP_SYSCALL_NAME(path_link) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_path_open(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t dirfd,
     __wasi_lookupflags_t dirflags,
     const char *path,
@@ -872,9 +813,8 @@ __wasi_errno_t wasmtime_ssp_path_open(
 ) WASMTIME_SSP_SYSCALL_NAME(path_open) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_fd_readdir(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t fd,
     void *buf,
     size_t buf_len,
@@ -883,9 +823,8 @@ __wasi_errno_t wasmtime_ssp_fd_readdir(
 ) WASMTIME_SSP_SYSCALL_NAME(fd_readdir) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_path_readlink(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t fd,
     const char *path,
     size_t path_len,
@@ -895,9 +834,8 @@ __wasi_errno_t wasmtime_ssp_path_readlink(
 ) WASMTIME_SSP_SYSCALL_NAME(path_readlink) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_path_rename(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t old_fd,
     const char *old_path,
     size_t old_path_len,
@@ -907,17 +845,15 @@ __wasi_errno_t wasmtime_ssp_path_rename(
 ) WASMTIME_SSP_SYSCALL_NAME(path_rename) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_fd_filestat_get(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t fd,
     __wasi_filestat_t *buf
 ) WASMTIME_SSP_SYSCALL_NAME(fd_filestat_get) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_fd_filestat_set_times(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t fd,
     __wasi_timestamp_t st_atim,
     __wasi_timestamp_t st_mtim,
@@ -925,17 +861,15 @@ __wasi_errno_t wasmtime_ssp_fd_filestat_set_times(
 ) WASMTIME_SSP_SYSCALL_NAME(fd_filestat_set_times) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_fd_filestat_set_size(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t fd,
     __wasi_filesize_t st_size
 ) WASMTIME_SSP_SYSCALL_NAME(fd_filestat_set_size) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_path_filestat_get(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t fd,
     __wasi_lookupflags_t flags,
     const char *path,
@@ -944,9 +878,8 @@ __wasi_errno_t wasmtime_ssp_path_filestat_get(
 ) WASMTIME_SSP_SYSCALL_NAME(path_filestat_get) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_path_filestat_set_times(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t fd,
     __wasi_lookupflags_t flags,
     const char *path,
@@ -957,10 +890,9 @@ __wasi_errno_t wasmtime_ssp_path_filestat_set_times(
 ) WASMTIME_SSP_SYSCALL_NAME(path_filestat_set_times) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_path_symlink(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
     struct fd_prestats *prestats,
-#endif
     const char *old_path,
     size_t old_path_len,
     __wasi_fd_t fd,
@@ -969,46 +901,29 @@ __wasi_errno_t wasmtime_ssp_path_symlink(
 ) WASMTIME_SSP_SYSCALL_NAME(path_symlink) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_path_unlink_file(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t fd,
     const char *path,
     size_t path_len
 ) WASMTIME_SSP_SYSCALL_NAME(path_unlink_file) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_path_remove_directory(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t fd,
     const char *path,
     size_t path_len
 ) WASMTIME_SSP_SYSCALL_NAME(path_remove_directory) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_poll_oneoff(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     const __wasi_subscription_t *in,
     __wasi_event_t *out,
     size_t nsubscriptions,
     size_t *nevents
 ) WASMTIME_SSP_SYSCALL_NAME(poll_oneoff) WARN_UNUSED;
-
-#if 0
-/**
- * We throw exception in libc-wasi wrapper function wasi_proc_exit()
- * but not call this function.
- */
-_Noreturn void wasmtime_ssp_proc_exit(
-    __wasi_exitcode_t rval
-) WASMTIME_SSP_SYSCALL_NAME(proc_exit);
-#endif
-
-__wasi_errno_t wasmtime_ssp_proc_raise(
-    __wasi_signal_t sig
-) WASMTIME_SSP_SYSCALL_NAME(proc_raise) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_random_get(
     void *buf,
@@ -1017,50 +932,44 @@ __wasi_errno_t wasmtime_ssp_random_get(
 
 __wasi_errno_t
 wasi_ssp_sock_accept(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t fd, __wasi_fdflags_t flags, __wasi_fd_t *fd_new
 ) WARN_UNUSED;
 
 __wasi_errno_t
 wasi_ssp_sock_addr_local(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t fd, __wasi_addr_t *addr
 ) WARN_UNUSED;
 
 __wasi_errno_t
 wasi_ssp_sock_addr_remote(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t fd, __wasi_addr_t *addr
 ) WARN_UNUSED;
 
 __wasi_errno_t
 wasi_ssp_sock_open(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t poolfd, __wasi_address_family_t af, __wasi_sock_type_t socktype,
     __wasi_fd_t *sockfd
 ) WARN_UNUSED;
 
 __wasi_errno_t
 wasi_ssp_sock_bind(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds, struct addr_pool *addr_pool,
-#endif
     __wasi_fd_t fd, __wasi_addr_t *addr
 ) WARN_UNUSED;
 
 __wasi_errno_t
 wasi_ssp_sock_addr_resolve(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds, char **ns_lookup_list,
-#endif
     const char *host, const char* service,
     __wasi_addr_info_hints_t *hints, __wasi_addr_info_t *addr_info,
     __wasi_size_t addr_info_size, __wasi_size_t *max_info_size
@@ -1068,88 +977,77 @@ wasi_ssp_sock_addr_resolve(
 
 __wasi_errno_t
 wasi_ssp_sock_connect(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds, struct addr_pool *addr_pool,
-#endif
     __wasi_fd_t fd, __wasi_addr_t *addr
 ) WARN_UNUSED;
 
 __wasi_errno_t
 wasi_ssp_sock_get_recv_buf_size(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t fd, __wasi_size_t *size
 ) WARN_UNUSED;
 
 __wasi_errno_t
 wasi_ssp_sock_get_reuse_addr(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t fd, uint8_t *reuse
 ) WARN_UNUSED;
 
 __wasi_errno_t
 wasi_ssp_sock_get_reuse_port(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t fd, uint8_t *reuse
 ) WARN_UNUSED;
 
 __wasi_errno_t
 wasi_ssp_sock_get_send_buf_size(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t fd, __wasi_size_t *size
 ) WARN_UNUSED;
 
 __wasi_errno_t
 wasi_ssp_sock_set_recv_buf_size(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t fd, __wasi_size_t size
 ) WARN_UNUSED;
 
 __wasi_errno_t
 wasi_ssp_sock_set_reuse_addr(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t fd, uint8_t reuse
 ) WARN_UNUSED;
 
 __wasi_errno_t
 wasi_ssp_sock_set_reuse_port(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t fd, uint8_t reuse
 ) WARN_UNUSED;
 
 __wasi_errno_t
 wasi_ssp_sock_set_send_buf_size(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t fd, __wasi_size_t size
 ) WARN_UNUSED;
 
 __wasi_errno_t
 wasi_ssp_sock_listen(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t fd, __wasi_size_t backlog
 ) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_recv(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     void *buf,
     size_t buf_len,
@@ -1157,9 +1055,8 @@ __wasi_errno_t wasmtime_ssp_sock_recv(
 ) WASMTIME_SSP_SYSCALL_NAME(sock_recv) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_recv_from(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     void *buf,
     size_t buf_len,
@@ -1169,9 +1066,8 @@ __wasi_errno_t wasmtime_ssp_sock_recv_from(
 ) WASMTIME_SSP_SYSCALL_NAME(sock_recv_from) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_send(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     const void *buf,
     size_t buf_len,
@@ -1179,9 +1075,8 @@ __wasi_errno_t wasmtime_ssp_sock_send(
 ) WASMTIME_SSP_SYSCALL_NAME(sock_send) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_send_to(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds, struct addr_pool *addr_pool,
-#endif
     __wasi_fd_t sock,
     const void *buf,
     size_t buf_len,
@@ -1191,317 +1086,278 @@ __wasi_errno_t wasmtime_ssp_sock_send_to(
 ) WASMTIME_SSP_SYSCALL_NAME(sock_send_to) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_shutdown(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock
 ) WASMTIME_SSP_SYSCALL_NAME(sock_shutdown) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_set_recv_timeout(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     uint64_t timeout_us
 ) WASMTIME_SSP_SYSCALL_NAME(sock_set_recv_timeout) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_get_recv_timeout(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     uint64_t *timeout_us
 ) WASMTIME_SSP_SYSCALL_NAME(sock_get_recv_timeout) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_set_send_timeout(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     uint64_t timeout_us
 ) WASMTIME_SSP_SYSCALL_NAME(sock_set_send_timeout) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_get_send_timeout(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     uint64_t *timeout_us
 ) WASMTIME_SSP_SYSCALL_NAME(sock_get_send_timeout) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_set_send_buf_size(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     size_t bufsiz
 ) WASMTIME_SSP_SYSCALL_NAME(sock_set_send_buf_size) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_get_send_buf_size(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     size_t *bufsiz
 ) WASMTIME_SSP_SYSCALL_NAME(sock_get_send_buf_size) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_set_recv_buf_size(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     size_t bufsiz
 ) WASMTIME_SSP_SYSCALL_NAME(sock_set_recv_buf_size) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_get_recv_buf_size(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     size_t *bufsiz
 ) WASMTIME_SSP_SYSCALL_NAME(sock_get_recv_buf_size) WARN_UNUSED;
 
 
 __wasi_errno_t wasmtime_ssp_sock_set_keep_alive(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     bool is_enabled
 ) WASMTIME_SSP_SYSCALL_NAME(sock_set_keep_alive) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_get_keep_alive(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     bool *is_enabled
 ) WASMTIME_SSP_SYSCALL_NAME(sock_get_keep_alive) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_set_reuse_addr(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     bool is_enabled
 ) WASMTIME_SSP_SYSCALL_NAME(sock_set_reuse_addr) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_get_reuse_addr(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     bool *is_enabled
 ) WASMTIME_SSP_SYSCALL_NAME(sock_get_reuse_addr) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_set_reuse_port(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     bool is_enabled
 ) WASMTIME_SSP_SYSCALL_NAME(sock_set_reuse_port) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_get_reuse_port(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     bool *is_enabled
 ) WASMTIME_SSP_SYSCALL_NAME(sock_get_reuse_port) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_set_linger(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     bool is_enabled,
     int linger_s
 ) WASMTIME_SSP_SYSCALL_NAME(sock_set_linger) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_get_linger(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock, bool *is_enabled, int *linger_s
 ) WASMTIME_SSP_SYSCALL_NAME(sock_get_linger) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_set_broadcast(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     bool is_enabled
 ) WASMTIME_SSP_SYSCALL_NAME(sock_set_broadcast) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_get_broadcast(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     bool *is_enabled
 ) WASMTIME_SSP_SYSCALL_NAME(sock_get_broadcast) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_set_tcp_no_delay(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     bool is_enabled
 ) WASMTIME_SSP_SYSCALL_NAME(sock_set_tcp_no_delay) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_get_tcp_no_delay(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     bool *is_enabled
 ) WASMTIME_SSP_SYSCALL_NAME(sock_get_tcp_no_delay) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_set_tcp_quick_ack(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     bool is_enabled
 ) WASMTIME_SSP_SYSCALL_NAME(sock_set_tcp_quick_ack) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_get_tcp_quick_ack(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     bool *is_enabled
 ) WASMTIME_SSP_SYSCALL_NAME(sock_get_tcp_quick_ack) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_set_tcp_keep_idle(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     uint32_t time_s
 ) WASMTIME_SSP_SYSCALL_NAME(sock_set_tcp_keep_idle) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_get_tcp_keep_idle(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     uint32_t *time_s
 ) WASMTIME_SSP_SYSCALL_NAME(sock_get_tcp_keep_idle) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_set_tcp_keep_intvl(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     uint32_t time_s
 ) WASMTIME_SSP_SYSCALL_NAME(sock_set_tcp_keep_intvl) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_get_tcp_keep_intvl(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     uint32_t *time_s
 ) WASMTIME_SSP_SYSCALL_NAME(sock_get_tcp_keep_intvl) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_set_tcp_fastopen_connect(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     bool is_enabled
 ) WASMTIME_SSP_SYSCALL_NAME(sock_set_tcp_fastopen_connect) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_get_tcp_fastopen_connect(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     bool *is_enabled
 ) WASMTIME_SSP_SYSCALL_NAME(sock_get_tcp_fastopen_connect) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_set_ip_multicast_loop(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     bool ipv6,
     bool is_enabled
 ) WASMTIME_SSP_SYSCALL_NAME(sock_set_ip_multicast_loop) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_get_ip_multicast_loop(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     bool ipv6,
     bool *is_enabled
 ) WASMTIME_SSP_SYSCALL_NAME(sock_get_ip_multicast_loop) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_set_ip_add_membership(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     __wasi_addr_ip_t *imr_multiaddr,
     uint32_t imr_interface
 ) WASMTIME_SSP_SYSCALL_NAME(sock_set_ip_add_membership) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_set_ip_drop_membership(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     __wasi_addr_ip_t *imr_multiaddr,
     uint32_t imr_interface
 ) WASMTIME_SSP_SYSCALL_NAME(sock_set_ip_drop_membership) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_set_ip_ttl(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     uint8_t ttl_s
 ) WASMTIME_SSP_SYSCALL_NAME(sock_set_ip_ttl) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_get_ip_ttl(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     uint8_t *ttl_s
 ) WASMTIME_SSP_SYSCALL_NAME(sock_get_ip_ttl) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_set_ip_multicast_ttl(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     uint8_t ttl_s
 ) WASMTIME_SSP_SYSCALL_NAME(sock_set_ip_multicast_ttl) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_get_ip_multicast_ttl(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     uint8_t *ttl_s
 ) WASMTIME_SSP_SYSCALL_NAME(sock_get_ip_multicast_ttl) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_set_ipv6_only(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     bool is_enabled
 ) WASMTIME_SSP_SYSCALL_NAME(sock_set_ipv6_only) WARN_UNUSED;
 
 __wasi_errno_t wasmtime_ssp_sock_get_ipv6_only(
-#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    wasm_exec_env_t exec_env,
     struct fd_table *curfds,
-#endif
     __wasi_fd_t sock,
     bool *is_enabled
 ) WASMTIME_SSP_SYSCALL_NAME(sock_get_ipv6_only) WARN_UNUSED;

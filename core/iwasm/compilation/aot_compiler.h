@@ -363,6 +363,19 @@ check_type_compatible(uint8 src_type, uint8 dst_type)
         }                                                                   \
     } while (0)
 
+/* if val is a constant integer and its value is not undef or poison */
+static inline bool
+LLVMIsEfficientConstInt(LLVMValueRef val)
+{
+    return LLVMIsConstant(val)
+           && LLVMGetValueKind(val) == LLVMConstantIntValueKind
+           && !LLVMIsUndef(val)
+#if LLVM_VERSION_NUMBER >= 12
+           && !LLVMIsPoison(addr)
+#endif
+        ;
+}
+
 bool
 aot_compile_wasm(AOTCompContext *comp_ctx);
 

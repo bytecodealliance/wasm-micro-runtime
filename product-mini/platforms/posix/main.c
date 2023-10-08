@@ -87,6 +87,11 @@ print_help()
 #if WASM_ENABLE_LIB_PTHREAD != 0 || WASM_ENABLE_LIB_WASI_THREADS != 0
     printf("  --max-threads=n          Set maximum thread number per cluster, default is 4\n");
 #endif
+#if WASM_ENABLE_THREAD_MGR != 0
+    printf("  --timeout=ms             Set the maximum execution time in ms.\n");
+    printf("                           If it expires, the runtime aborts the execution\n");
+    printf("                           with a trap.\n");
+#endif
 #if WASM_ENABLE_DEBUG_INTERP != 0
     printf("  -g=ip:port               Set the debug sever address, default is debug disabled\n");
     printf("                             if port is 0, then a random port will be used\n");
@@ -105,8 +110,7 @@ app_instance_main(wasm_module_inst_t module_inst)
     const char *exception;
 
     wasm_application_execute_main(module_inst, app_argc, app_argv);
-    if ((exception = wasm_runtime_get_exception(module_inst)))
-        printf("%s\n", exception);
+    exception = wasm_runtime_get_exception(module_inst);
     return exception;
 }
 
@@ -386,19 +390,28 @@ handle_module_path(const char *module_path)
 static char *module_search_path = ".";
 
 static bool
-module_reader_callback(const char *module_name, uint8 **p_buffer,
-                       uint32 *p_size)
+module_reader_callback(package_type_t module_type, const char *module_name,
+                       uint8 **p_buffer, uint32 *p_size)
 {
-    const char *format = "%s/%s.wasm";
+    char *file_format = NULL;
+#if WASM_ENABLE_INTERP != 0
+    if (module_type == Wasm_Module_Bytecode)
+        file_format = ".wasm";
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (module_type == Wasm_Module_AoT)
+        file_format = ".aot";
+#endif
+    bh_assert(file_format);
+    const char *format = "%s/%s%s";
     int sz = strlen(module_search_path) + strlen("/") + strlen(module_name)
-             + strlen(".wasm") + 1;
+             + strlen(file_format) + 1;
     char *wasm_file_name = BH_MALLOC(sz);
     if (!wasm_file_name) {
         return false;
     }
-
-    snprintf(wasm_file_name, sz, format, module_search_path, module_name);
-
+    snprintf(wasm_file_name, sz, format, module_search_path, module_name,
+             file_format);
     *p_buffer = (uint8_t *)bh_read_file_to_buffer(wasm_file_name, p_size);
 
     wasm_runtime_free(wasm_file_name);
@@ -459,6 +472,40 @@ dump_pgo_prof_data(wasm_module_inst_t module_inst, const char *path)
 }
 #endif
 
+#if WASM_ENABLE_THREAD_MGR != 0
+struct timeout_arg {
+    uint32 timeout_ms;
+    wasm_module_inst_t inst;
+#if defined(BH_HAS_STD_ATOMIC)
+    _Atomic
+#endif
+        bool cancel;
+};
+
+void *
+timeout_thread(void *vp)
+{
+    const struct timeout_arg *arg = vp;
+    uint32 left = arg->timeout_ms;
+    while (!arg->cancel) {
+        uint32 ms;
+        if (left >= 100) {
+            ms = 100;
+        }
+        else {
+            ms = left;
+        }
+        os_usleep((uint64)ms * 1000);
+        left -= ms;
+        if (left == 0) {
+            wasm_runtime_terminate(arg->inst);
+            break;
+        }
+    }
+    return NULL;
+}
+#endif
+
 int
 main(int argc, char *argv[])
 {
@@ -509,6 +556,9 @@ main(int argc, char *argv[])
 #endif
 #if WASM_ENABLE_STATIC_PGO != 0
     const char *gen_prof_file = NULL;
+#endif
+#if WASM_ENABLE_THREAD_MGR != 0
+    int timeout_ms = -1;
 #endif
 
 #if WASM_ENABLE_LIBC_WASI != 0
@@ -644,6 +694,13 @@ main(int argc, char *argv[])
             if (argv[0][14] == '\0')
                 return print_help();
             wasm_runtime_set_max_thread_num(atoi(argv[0] + 14));
+        }
+#endif
+#if WASM_ENABLE_THREAD_MGR != 0
+        else if (!strncmp(argv[0], "--timeout=", 10)) {
+            if (argv[0][10] == '\0')
+                return print_help();
+            timeout_ms = atoi(argv[0] + 10);
         }
 #endif
 #if WASM_ENABLE_DEBUG_INTERP != 0
@@ -815,18 +872,37 @@ main(int argc, char *argv[])
     }
 #endif
 
+#if WASM_ENABLE_THREAD_MGR != 0
+    struct timeout_arg timeout_arg;
+    korp_tid timeout_tid;
+    if (timeout_ms >= 0) {
+        timeout_arg.timeout_ms = timeout_ms;
+        timeout_arg.inst = wasm_module_inst;
+        timeout_arg.cancel = false;
+        ret = os_thread_create(&timeout_tid, timeout_thread, &timeout_arg,
+                               APP_THREAD_STACK_SIZE_DEFAULT);
+        if (ret != 0) {
+            printf("Failed to start timeout\n");
+            goto fail5;
+        }
+    }
+#endif
+
     ret = 0;
+    const char *exception = NULL;
     if (is_repl_mode) {
         app_instance_repl(wasm_module_inst);
     }
     else if (func_name) {
-        if (app_instance_func(wasm_module_inst, func_name)) {
+        exception = app_instance_func(wasm_module_inst, func_name);
+        if (exception) {
             /* got an exception */
             ret = 1;
         }
     }
     else {
-        if (app_instance_main(wasm_module_inst)) {
+        exception = app_instance_main(wasm_module_inst);
+        if (exception) {
             /* got an exception */
             ret = 1;
         }
@@ -834,14 +910,13 @@ main(int argc, char *argv[])
 
 #if WASM_ENABLE_LIBC_WASI != 0
     if (ret == 0) {
-        /* wait for threads to finish and propagate wasi exit code. */
+        /* propagate wasi exit code. */
         ret = wasm_runtime_get_wasi_exit_code(wasm_module_inst);
-        if (wasm_runtime_get_exception(wasm_module_inst)) {
-            /* got an exception in spawned thread */
-            ret = 1;
-        }
     }
 #endif
+
+    if (exception)
+        printf("%s\n", exception);
 
 #if WASM_ENABLE_STATIC_PGO != 0 && WASM_ENABLE_AOT != 0
     if (get_package_type(wasm_file_buf, wasm_file_size) == Wasm_Module_AoT
@@ -849,6 +924,16 @@ main(int argc, char *argv[])
         dump_pgo_prof_data(wasm_module_inst, gen_prof_file);
 #endif
 
+#if WASM_ENABLE_THREAD_MGR != 0
+    if (timeout_ms >= 0) {
+        timeout_arg.cancel = true;
+        os_thread_join(timeout_tid, NULL);
+    }
+#endif
+
+#if WASM_ENABLE_THREAD_MGR != 0
+fail5:
+#endif
 #if WASM_ENABLE_DEBUG_INTERP != 0
 fail4:
 #endif

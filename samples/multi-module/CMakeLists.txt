@@ -43,8 +43,12 @@ if (NOT CMAKE_BUILD_TYPE)
 endif ()
 
 set(WAMR_BUILD_INTERP 1)
-set(WAMR_BUILD_AOT 0)
-set(WAMR_BUILD_JIT 0)
+if (NOT DEFINED WAMR_BUILD_AOT)
+  set(WAMR_BUILD_AOT 0)
+endif ()
+if (NOT DEFINED WAMR_BUILD_JIT)
+  set(WAMR_BUILD_JIT 0)
+endif ()
 set(WAMR_BUILD_LIBC_BUILTIN 1)
 set(WAMR_BUILD_LIBC_WASI 1)
 set(WAMR_BUILD_MULTI_MODULE 1)
@@ -143,6 +147,43 @@ ExternalProject_Add(WASM_MODULE
                        ./mD.wasm ${CMAKE_BINARY_DIR}
                        ./mE.wasm ${CMAKE_BINARY_DIR}
 )
+
+################ WASM MODULES TO AOT
+if (WAMR_BUILD_AOT EQUAL 1)
+  set(WAMR_COMPILER_DIR ${CMAKE_CURRENT_LIST_DIR}/../../wamr-compiler/build)
+  message(CHECK_START "Detecting WAMR_COMPILER at ${WAMR_COMPILER_DIR}")
+  find_file(WAMR_COMPILER
+    wamrc
+    PATHS "${CMAKE_CURRENT_LIST_DIR}/../../wamr-compiler/build"
+    NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH
+  )
+  if(WAMR_COMPILER)
+    message(CHECK_PASS "found")
+  else()
+    message(CHECK_FAIL "not found")
+  endif()
+  if((NOT EXISTS ${WAMR_COMPILER}) )
+    message(FATAL_ERROR "Please build wamrc under the path=${WAMR_ROOT_DIR}/wamr-compiler/ ")
+  else()
+    message(STATUS "WAMR_COMPILER is ${WAMR_COMPILER}")
+  endif()
+
+  add_custom_target(
+    wasm_to_aot
+    ALL
+    DEPENDS
+    WASM_MODULE ${WAMR_COMPILER}
+    COMMAND
+    ${WAMR_COMPILER} -o mA.aot ./mA.wasm
+    COMMAND
+    ${WAMR_COMPILER} -o mB.aot ./mB.wasm
+    COMMAND
+    ${WAMR_COMPILER} -o mC.aot ./mC.wasm
+    WORKING_DIRECTORY
+    ${CMAKE_BINARY_DIR}
+  )
+endif()
 
 ################ NATIVE
 include_directories(${CMAKE_CURRENT_LIST_DIR}/src)

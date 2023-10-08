@@ -139,7 +139,7 @@ WASMExecEnv *
 wasm_clusters_search_exec_env(WASMModuleInstanceCommon *module_inst);
 
 void
-wasm_cluster_spread_exception(WASMExecEnv *exec_env, bool clear);
+wasm_cluster_set_exception(WASMExecEnv *exec_env, const char *exception);
 
 WASMExecEnv *
 wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env);
@@ -150,6 +150,10 @@ wasm_cluster_destroy_spawned_exec_env(WASMExecEnv *exec_env);
 void
 wasm_cluster_spread_custom_data(WASMModuleInstanceCommon *module_inst,
                                 void *custom_data);
+
+void
+wasm_cluster_set_context(WASMModuleInstanceCommon *module_inst, void *key,
+                         void *ctx);
 
 bool
 wasm_cluster_is_thread_terminated(WASMExecEnv *exec_env);

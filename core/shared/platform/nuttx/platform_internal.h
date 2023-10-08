@@ -124,6 +124,12 @@ utimensat(int fd, const char *path, const struct timespec ts[2], int flag);
 DIR *
 fdopendir(int fd);
 
+#if WASM_DISABLE_WAKEUP_BLOCKING_OP == 0
+#define OS_ENABLE_WAKEUP_BLOCKING_OP
+#endif
+void
+os_set_signal_number_for_blocking_op(int signo);
+
 #ifdef __cplusplus
 }
 #endif

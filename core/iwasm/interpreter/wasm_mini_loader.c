@@ -3937,6 +3937,7 @@ wasm_loader_pop_frame_ref(WASMLoaderContext *ctx, uint8 type, char *error_buf,
     return true;
 }
 
+#if WASM_ENABLE_FAST_INTERP == 0
 static bool
 wasm_loader_push_pop_frame_ref(WASMLoaderContext *ctx, uint8 pop_cnt,
                                uint8 type_push, uint8 type_pop, char *error_buf,
@@ -3951,6 +3952,7 @@ wasm_loader_push_pop_frame_ref(WASMLoaderContext *ctx, uint8 pop_cnt,
         return false;
     return true;
 }
+#endif
 
 static bool
 wasm_loader_push_frame_csp(WASMLoaderContext *ctx, uint8 label_type,
@@ -4609,25 +4611,6 @@ wasm_loader_pop_frame_offset(WASMLoaderContext *ctx, uint8 type,
 }
 
 static bool
-wasm_loader_push_pop_frame_offset(WASMLoaderContext *ctx, uint8 pop_cnt,
-                                  uint8 type_push, uint8 type_pop,
-                                  bool disable_emit, int16 operand_offset,
-                                  char *error_buf, uint32 error_buf_size)
-{
-    for (int i = 0; i < pop_cnt; i++) {
-        if (!wasm_loader_pop_frame_offset(ctx, type_pop, error_buf,
-                                          error_buf_size))
-            return false;
-    }
-    if (!wasm_loader_push_frame_offset(ctx, type_push, disable_emit,
-                                       operand_offset, error_buf,
-                                       error_buf_size))
-        return false;
-
-    return true;
-}
-
-static bool
 wasm_loader_push_frame_ref_offset(WASMLoaderContext *ctx, uint8 type,
                                   bool disable_emit, int16 operand_offset,
                                   char *error_buf, uint32 error_buf_size)
@@ -4660,12 +4643,24 @@ wasm_loader_push_pop_frame_ref_offset(WASMLoaderContext *ctx, uint8 pop_cnt,
                                       bool disable_emit, int16 operand_offset,
                                       char *error_buf, uint32 error_buf_size)
 {
-    if (!wasm_loader_push_pop_frame_offset(ctx, pop_cnt, type_push, type_pop,
-                                           disable_emit, operand_offset,
-                                           error_buf, error_buf_size))
+    uint8 i;
+
+    for (i = 0; i < pop_cnt; i++) {
+        if (!wasm_loader_pop_frame_offset(ctx, type_pop, error_buf,
+                                          error_buf_size))
+            return false;
+
+        if (!wasm_loader_pop_frame_ref(ctx, type_pop, error_buf,
+                                       error_buf_size))
+            return false;
+    }
+
+    if (!wasm_loader_push_frame_offset(ctx, type_push, disable_emit,
+                                       operand_offset, error_buf,
+                                       error_buf_size))
         return false;
-    if (!wasm_loader_push_pop_frame_ref(ctx, pop_cnt, type_push, type_pop,
-                                        error_buf, error_buf_size))
+
+    if (!wasm_loader_push_frame_ref(ctx, type_push, error_buf, error_buf_size))
         return false;
 
     return true;

@@ -373,6 +373,34 @@ os_sem_getvalue(korp_sem *sem, int *sval);
 int
 os_sem_unlink(const char *name);
 
+/**
+ * Initialize process-global state for os_wakeup_blocking_op.
+ */
+int
+os_blocking_op_init();
+
+/**
+ * Start accepting os_wakeup_blocking_op requests for the calling thread.
+ */
+void
+os_begin_blocking_op();
+
+/**
+ * Stop accepting os_wakeup_blocking_op requests for the calling thread.
+ */
+void
+os_end_blocking_op();
+
+/**
+ * Wake up the specified thread.
+ *
+ * For example, on posix-like platforms, this can be implemented by
+ * sending a signal (w/o SA_RESTART) which interrupts a blocking
+ * system call.
+ */
+int
+os_wakeup_blocking_op(korp_tid tid);
+
 /****************************************************
  *                     Section 2                    *
  *                   Socket support                 *
@@ -392,7 +420,7 @@ typedef union {
 } bh_ip_addr_buffer_t;
 
 typedef struct {
-    bh_ip_addr_buffer_t addr_bufer;
+    bh_ip_addr_buffer_t addr_buffer;
     uint16 port;
     bool is_ipv4;
 } bh_sockaddr_t;
