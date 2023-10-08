@@ -217,10 +217,9 @@ aot_compile_simd_f64x2_nearest(AOTCompContext *comp_ctx,
 
 static bool
 simd_float_cmp(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-               FloatArithmetic arith_op, LLVMTypeRef vector_type)
+               FloatArithmetic op, LLVMTypeRef vector_type)
 {
-    LLVMValueRef lhs, rhs, result;
-    LLVMRealPredicate op = FLOAT_MIN == arith_op ? LLVMRealULT : LLVMRealUGT;
+    LLVMValueRef lhs, rhs, cmp, selected;
 
     if (!(rhs =
               simd_pop_v128_and_bitcast(comp_ctx, func_ctx, vector_type, "rhs"))
@@ -229,80 +228,240 @@ simd_float_cmp(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         return false;
     }
 
-    if (!(result = LLVMBuildFCmp(comp_ctx->builder, op, lhs, rhs, "cmp"))) {
+    if (!(cmp = LLVMBuildFCmp(comp_ctx->builder,
+                              op == FLOAT_MIN ? LLVMRealOLT : LLVMRealOGT, rhs,
+                              lhs, "cmp"))) {
         HANDLE_FAILURE("LLVMBuildFCmp");
         return false;
     }
 
-    if (!(result =
-              LLVMBuildSelect(comp_ctx->builder, result, lhs, rhs, "select"))) {
+    if (!(selected =
+              LLVMBuildSelect(comp_ctx->builder, cmp, rhs, lhs, "selected"))) {
         HANDLE_FAILURE("LLVMBuildSelect");
         return false;
     }
 
-    return simd_bitcast_and_push_v128(comp_ctx, func_ctx, result, "result");
+    return simd_bitcast_and_push_v128(comp_ctx, func_ctx, selected, "result");
 }
 
-/*TODO: sugggest non-IA platforms check with "llvm.minimum.*" and
- * "llvm.maximum.*" firstly */
+static bool
+simd_float_min(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+               LLVMTypeRef vector_type)
+{
+    LLVMValueRef lhs, rhs, lhs_nan, rhs_nan, olt_ret, ogt_ret, or_ret, ret1,
+        ret2, ret3, ret4;
+
+    if (!(rhs =
+              simd_pop_v128_and_bitcast(comp_ctx, func_ctx, vector_type, "rhs"))
+        || !(lhs = simd_pop_v128_and_bitcast(comp_ctx, func_ctx, vector_type,
+                                             "lhs"))) {
+        return false;
+    }
+
+    if (!(lhs_nan = LLVMBuildFCmp(comp_ctx->builder, LLVMRealUNO, lhs, lhs,
+                                  "lhs_nan"))) {
+        HANDLE_FAILURE("LLVMBuildFCmp + LLVMRealUNO");
+        return false;
+    }
+
+    if (!(rhs_nan = LLVMBuildFCmp(comp_ctx->builder, LLVMRealUNO, rhs, rhs,
+                                  "rhs_nan"))) {
+        HANDLE_FAILURE("LLVMBuildFCmp + LLVMRealUNO");
+        return false;
+    }
+
+    if (!(olt_ret = LLVMBuildFCmp(comp_ctx->builder, LLVMRealOLT, lhs, rhs,
+                                  "olt_ret"))) {
+        HANDLE_FAILURE("LLVMBuildFCmp + LLVMRealOLT");
+        return false;
+    }
+
+    if (!(ogt_ret = LLVMBuildFCmp(comp_ctx->builder, LLVMRealOGT, lhs, rhs,
+                                  "ogt_ret"))) {
+        HANDLE_FAILURE("LLVMBuildFCmp + LLVMRealOGT");
+        return false;
+    }
+
+    /* lhs or rhs */
+    {
+        LLVMValueRef integer_l, integer_r, integer_or;
+
+        if (!(integer_l = LLVMBuildBitCast(comp_ctx->builder, lhs,
+                                           V128_i64x2_TYPE, "lhs_to_int"))) {
+            HANDLE_FAILURE("LLVMBuildBitCas");
+            return false;
+        }
+
+        if (!(integer_r = LLVMBuildBitCast(comp_ctx->builder, rhs,
+                                           V128_i64x2_TYPE, "rhs_to_int"))) {
+            HANDLE_FAILURE("LLVMBuildBitCas");
+            return false;
+        }
+
+        if (!(integer_or =
+                  LLVMBuildOr(comp_ctx->builder, integer_l, integer_r, "or"))) {
+            HANDLE_FAILURE("LLVMBuildOr");
+            return false;
+        }
+
+        if (!(or_ret = LLVMBuildBitCast(comp_ctx->builder, integer_or,
+                                        vector_type, "holder"))) {
+            HANDLE_FAILURE("LLVMBuildBitCast");
+            return false;
+        }
+    }
+
+    if (!(ret1 = LLVMBuildSelect(comp_ctx->builder, olt_ret, lhs, or_ret,
+                                 "sel_olt"))) {
+        HANDLE_FAILURE("LLVMBuildSelect");
+        return false;
+    }
+
+    if (!(ret2 = LLVMBuildSelect(comp_ctx->builder, ogt_ret, rhs, ret1,
+                                 "sel_ogt"))) {
+        HANDLE_FAILURE("LLVMBuildSelect");
+        return false;
+    }
+
+    if (!(ret3 = LLVMBuildSelect(comp_ctx->builder, lhs_nan, lhs, ret2,
+                                 "sel_lhs_nan"))) {
+        HANDLE_FAILURE("LLVMBuildSelect");
+        return false;
+    }
+
+    if (!(ret4 = LLVMBuildSelect(comp_ctx->builder, rhs_nan, rhs, ret3,
+                                 "sel_rhs_nan"))) {
+        HANDLE_FAILURE("LLVMBuildSelect");
+        return false;
+    }
+
+    return simd_bitcast_and_push_v128(comp_ctx, func_ctx, ret4, "result");
+}
+
+static bool
+simd_float_max(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+               LLVMTypeRef vector_type)
+{
+    LLVMValueRef lhs, rhs, lhs_nan, rhs_nan, olt_ret, ogt_ret, and_ret, ret1,
+        ret2, ret3, ret4;
+
+    if (!(rhs =
+              simd_pop_v128_and_bitcast(comp_ctx, func_ctx, vector_type, "rhs"))
+        || !(lhs = simd_pop_v128_and_bitcast(comp_ctx, func_ctx, vector_type,
+                                             "lhs"))) {
+        return false;
+    }
+
+    if (!(lhs_nan = LLVMBuildFCmp(comp_ctx->builder, LLVMRealUNO, lhs, lhs,
+                                  "lhs_nan"))) {
+        HANDLE_FAILURE("LLVMBuildFCmp + LLVMRealUNO");
+        return false;
+    }
+
+    if (!(rhs_nan = LLVMBuildFCmp(comp_ctx->builder, LLVMRealUNO, rhs, rhs,
+                                  "rhs_nan"))) {
+        HANDLE_FAILURE("LLVMBuildFCmp + LLVMRealUNO");
+        return false;
+    }
+
+    if (!(olt_ret = LLVMBuildFCmp(comp_ctx->builder, LLVMRealOLT, lhs, rhs,
+                                  "olt_ret"))) {
+        HANDLE_FAILURE("LLVMBuildFCmp + LLVMRealOLT");
+        return false;
+    }
+
+    if (!(ogt_ret = LLVMBuildFCmp(comp_ctx->builder, LLVMRealOGT, lhs, rhs,
+                                  "ogt_ret"))) {
+        HANDLE_FAILURE("LLVMBuildFCmp + LLVMRealOGT");
+        return false;
+    }
+
+    /* lhs and rhs */
+    {
+        LLVMValueRef integer_l, integer_r, integer_and;
+
+        if (!(integer_l = LLVMBuildBitCast(comp_ctx->builder, lhs,
+                                           V128_i64x2_TYPE, "lhs_to_int"))) {
+            HANDLE_FAILURE("LLVMBuildBitCas");
+            return false;
+        }
+
+        if (!(integer_r = LLVMBuildBitCast(comp_ctx->builder, rhs,
+                                           V128_i64x2_TYPE, "rhs_to_int"))) {
+            HANDLE_FAILURE("LLVMBuildBitCas");
+            return false;
+        }
+
+        if (!(integer_and = LLVMBuildAnd(comp_ctx->builder, integer_l,
+                                         integer_r, "and"))) {
+            HANDLE_FAILURE("LLVMBuildOr");
+            return false;
+        }
+
+        if (!(and_ret = LLVMBuildBitCast(comp_ctx->builder, integer_and,
+                                         vector_type, "holder"))) {
+            HANDLE_FAILURE("LLVMBuildBitCast");
+            return false;
+        }
+    }
+
+    if (!(ret1 = LLVMBuildSelect(comp_ctx->builder, ogt_ret, lhs, and_ret,
+                                 "sel_ogt"))) {
+        HANDLE_FAILURE("LLVMBuildSelect");
+        return false;
+    }
+
+    if (!(ret2 = LLVMBuildSelect(comp_ctx->builder, olt_ret, rhs, ret1,
+                                 "sel_olt"))) {
+        HANDLE_FAILURE("LLVMBuildSelect");
+        return false;
+    }
+
+    if (!(ret3 = LLVMBuildSelect(comp_ctx->builder, lhs_nan, lhs, ret2,
+                                 "sel_lhs_nan"))) {
+        HANDLE_FAILURE("LLVMBuildSelect");
+        return false;
+    }
+
+    if (!(ret4 = LLVMBuildSelect(comp_ctx->builder, rhs_nan, rhs, ret3,
+                                 "sel_rhs_nan"))) {
+        HANDLE_FAILURE("LLVMBuildSelect");
+        return false;
+    }
+
+    return simd_bitcast_and_push_v128(comp_ctx, func_ctx, ret4, "result");
+}
+
 bool
 aot_compile_simd_f32x4_min_max(AOTCompContext *comp_ctx,
                                AOTFuncContext *func_ctx, bool run_min)
 {
-    return simd_float_cmp(comp_ctx, func_ctx, run_min ? FLOAT_MIN : FLOAT_MAX,
-                          V128_f32x4_TYPE);
+    return run_min ? simd_float_min(comp_ctx, func_ctx, V128_f32x4_TYPE)
+                   : simd_float_max(comp_ctx, func_ctx, V128_f32x4_TYPE);
 }
 
 bool
 aot_compile_simd_f64x2_min_max(AOTCompContext *comp_ctx,
                                AOTFuncContext *func_ctx, bool run_min)
 {
-    return simd_float_cmp(comp_ctx, func_ctx, run_min ? FLOAT_MIN : FLOAT_MAX,
-                          V128_f64x2_TYPE);
-}
-
-static bool
-simd_float_pmin_max(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                    LLVMTypeRef vector_type, const char *intrinsic)
-{
-    LLVMValueRef lhs, rhs, result;
-    LLVMTypeRef param_types[2];
-
-    param_types[0] = vector_type;
-    param_types[1] = vector_type;
-
-    if (!(rhs =
-              simd_pop_v128_and_bitcast(comp_ctx, func_ctx, vector_type, "rhs"))
-        || !(lhs = simd_pop_v128_and_bitcast(comp_ctx, func_ctx, vector_type,
-                                             "lhs"))) {
-        return false;
-    }
-
-    if (!(result =
-              aot_call_llvm_intrinsic(comp_ctx, func_ctx, intrinsic,
-                                      vector_type, param_types, 2, lhs, rhs))) {
-        return false;
-    }
-
-    return simd_bitcast_and_push_v128(comp_ctx, func_ctx, result, "result");
+    return run_min ? simd_float_min(comp_ctx, func_ctx, V128_f64x2_TYPE)
+                   : simd_float_max(comp_ctx, func_ctx, V128_f64x2_TYPE);
 }
 
 bool
 aot_compile_simd_f32x4_pmin_pmax(AOTCompContext *comp_ctx,
                                  AOTFuncContext *func_ctx, bool run_min)
 {
-    return simd_float_pmin_max(comp_ctx, func_ctx, V128_f32x4_TYPE,
-                               run_min ? "llvm.minnum.v4f32"
-                                       : "llvm.maxnum.v4f32");
+    return simd_float_cmp(comp_ctx, func_ctx, run_min ? FLOAT_MIN : FLOAT_MAX,
+                          V128_f32x4_TYPE);
 }
 
 bool
 aot_compile_simd_f64x2_pmin_pmax(AOTCompContext *comp_ctx,
                                  AOTFuncContext *func_ctx, bool run_min)
 {
-    return simd_float_pmin_max(comp_ctx, func_ctx, V128_f64x2_TYPE,
-                               run_min ? "llvm.minnum.v2f64"
-                                       : "llvm.maxnum.v2f64");
+    return simd_float_cmp(comp_ctx, func_ctx, run_min ? FLOAT_MIN : FLOAT_MAX,
+                          V128_f64x2_TYPE);
 }
 
 bool

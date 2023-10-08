@@ -163,6 +163,7 @@ void
 wasi_nn_destroy(wasm_module_inst_t instance)
 {
     WASINNContext *wasi_nn_ctx = wasm_runtime_get_wasi_nn_ctx(instance);
+    bh_hash_map_remove(hashmap, (void *)instance, NULL, NULL);
     wasi_nn_ctx_destroy(wasi_nn_ctx);
 }
 
