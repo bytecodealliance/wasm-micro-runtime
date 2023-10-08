@@ -343,18 +343,23 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
             ExitOnErr(PB.parsePassPipeline(MPM, comp_ctx->llvm_passes));
         }
 
-        if (!disable_llvm_lto) {
-            /* Apply LTO for AOT mode */
-            if (comp_ctx->comp_data->func_count >= 10
-                || comp_ctx->enable_llvm_pgo || comp_ctx->use_prof_file)
-                /* Add the pre-link optimizations if the func count
-                   is large enough or PGO is enabled */
-                MPM.addPass(PB.buildLTOPreLinkDefaultPipeline(OL));
-            else
-                MPM.addPass(PB.buildLTODefaultPipeline(OL, NULL));
+        if (OptimizationLevel::O0 == OL) {
+            MPM.addPass(PB.buildO0DefaultPipeline(OL));
         }
         else {
-            MPM.addPass(PB.buildPerModuleDefaultPipeline(OL));
+            if (!disable_llvm_lto) {
+                /* Apply LTO for AOT mode */
+                if (comp_ctx->comp_data->func_count >= 10
+                    || comp_ctx->enable_llvm_pgo || comp_ctx->use_prof_file)
+                    /* Add the pre-link optimizations if the func count
+                       is large enough or PGO is enabled */
+                    MPM.addPass(PB.buildLTOPreLinkDefaultPipeline(OL));
+                else
+                    MPM.addPass(PB.buildLTODefaultPipeline(OL, NULL));
+            }
+            else {
+                MPM.addPass(PB.buildPerModuleDefaultPipeline(OL));
+            }
         }
 
         /* Run specific passes for AOT indirect mode in last since general
