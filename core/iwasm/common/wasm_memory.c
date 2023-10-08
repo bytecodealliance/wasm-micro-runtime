@@ -26,6 +26,7 @@ static Memory_Mode memory_mode = MEMORY_MODE_UNKNOWN;
 static mem_allocator_t pool_allocator = NULL;
 
 static enlarge_memory_error_callback_t enlarge_memory_error_cb;
+static void *enlarge_memory_error_user_data;
 
 #if WASM_MEM_ALLOC_WITH_USER_DATA != 0
 static void *allocator_user_data = NULL;
@@ -716,7 +717,8 @@ return_func:
 
         enlarge_memory_error_cb(inc_page_count, total_size_old, 0,
                                 failure_reason,
-                                (WASMModuleInstanceCommon *)module, exec_env);
+                                (WASMModuleInstanceCommon *)module, exec_env,
+                                enlarge_memory_error_user_data);
     }
 
     return ret;
@@ -822,7 +824,8 @@ return_func:
 
         enlarge_memory_error_cb(inc_page_count, total_size_old, 0,
                                 failure_reason,
-                                (WASMModuleInstanceCommon *)module, exec_env);
+                                (WASMModuleInstanceCommon *)module, exec_env,
+                                enlarge_memory_error_user_data);
     }
 
     return ret;
@@ -831,9 +834,10 @@ return_func:
 
 void
 wasm_runtime_set_enlarge_mem_error_callback(
-    const enlarge_memory_error_callback_t callback)
+    const enlarge_memory_error_callback_t callback, void *user_data)
 {
     enlarge_memory_error_cb = callback;
+    enlarge_memory_error_user_data = user_data;
 }
 
 bool

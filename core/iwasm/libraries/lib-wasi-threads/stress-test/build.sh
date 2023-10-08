@@ -60,6 +60,7 @@ for test_c in *.c; do
         -Wl,--export=wasi_thread_start \
         -Wl,--export=malloc \
         -Wl,--export=free \
+        -Wl,--export=test \
         $sysroot_command \
         $test_c -o $test_wasm
 done

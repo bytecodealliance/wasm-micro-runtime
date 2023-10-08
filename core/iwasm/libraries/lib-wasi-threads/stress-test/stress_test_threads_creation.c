@@ -9,14 +9,6 @@
 #include <stdio.h>
 #include <unistd.h>
 
-enum CONSTANTS {
-    NUM_ITER = 200000,
-    NUM_RETRY = 8,
-    MAX_NUM_THREADS = 12,
-    RETRY_SLEEP_TIME_US = 4000,
-    SECOND = 1000 * 1000 * 1000
-};
-
 int threads_executed = 0;
 unsigned int threads_creation_tried = 0;
 unsigned int threads_in_use = 0;
@@ -31,11 +23,11 @@ thread_func(void *arg)
 }
 
 void
-spawn_thread(pthread_t *thread)
+spawn_thread(pthread_t *thread, int retry_time, int iter_num)
 {
     int status_code = -1;
-    int timeout_us = RETRY_SLEEP_TIME_US;
-    for (int tries = 0; status_code != 0 && tries < NUM_RETRY; ++tries) {
+    int timeout_us = retry_time;
+    for (int tries = 0; status_code != 0 && tries < iter_num; ++tries) {
         status_code = pthread_create(thread, NULL, &thread_func, NULL);
         __atomic_fetch_add(&threads_creation_tried, 1, __ATOMIC_RELAXED);
 
@@ -49,32 +41,33 @@ spawn_thread(pthread_t *thread)
     assert(status_code == 0 && "Thread creation should succeed");
 }
 
-int
-main(int argc, char **argv)
+void
+test(int iter_num, int max_threads_num, int retry_num, int retry_time_us)
 {
     double percentage = 0.1;
+    int second_us = 1000 * 1000 * 1000; // 1 second in us
 
-    for (int iter = 0; iter < NUM_ITER; ++iter) {
-        if (iter > NUM_ITER * percentage) {
+    for (int iter = 0; iter < iter_num; ++iter) {
+        if (iter > iter_num * percentage) {
             fprintf(stderr, "Spawning stress test is %d%% finished\n",
                     (unsigned int)(percentage * 100));
             percentage += 0.1;
         }
         while (__atomic_load_n(&threads_in_use, __ATOMIC_SEQ_CST)
-               == MAX_NUM_THREADS) {
+               == max_threads_num) {
             usleep(100);
         }
 
         __atomic_fetch_add(&threads_in_use, 1, __ATOMIC_SEQ_CST);
         pthread_t tmp;
-        spawn_thread(&tmp);
+        spawn_thread(&tmp, retry_time_us, iter_num);
         pthread_detach(tmp);
     }
 
     while ((__atomic_load_n(&threads_in_use, __ATOMIC_SEQ_CST) != 0)) {
         // Casting to int* to supress compiler warning
         __builtin_wasm_memory_atomic_wait32((int *)(&threads_in_use), 0,
-                                            SECOND);
+                                            second_us);
     }
 
     assert(__atomic_load_n(&threads_in_use, __ATOMIC_SEQ_CST) == 0);
@@ -91,5 +84,18 @@ main(int argc, char **argv)
             "with retry ratio %f\n",
             threads_creation_tried,
             (1. * threads_creation_tried) / threads_executed);
+}
+
+enum DEFAULT_PARAMETERS {
+    ITER_NUM = 50000,
+    RETRY_NUM = 8,
+    MAX_NUM_THREADS = 12,
+    RETRY_SLEEP_TIME_US = 4000,
+};
+
+int
+main(int argc, char **argv)
+{
+    test(ITER_NUM, MAX_NUM_THREADS, RETRY_NUM, RETRY_SLEEP_TIME_US);
     return 0;
 }

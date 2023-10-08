@@ -7,8 +7,8 @@
 #include <errno.h>
 #include "mutex_common.h"
 
-int
-main()
+void
+test()
 {
     pthread_mutex_t mutex;
     pthread_mutex_init(&mutex, NULL);
@@ -17,4 +17,11 @@ main()
 
     fprintf(stderr, "Normal mutex test is completed\n");
     pthread_mutex_destroy(&mutex);
+}
+
+int
+main()
+{
+    test();
+    return 0;
 }

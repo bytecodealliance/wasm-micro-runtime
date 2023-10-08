@@ -10,7 +10,6 @@
 #include <dfs.h>
 #include <dfs_file.h>
 #include <dfs_fs.h>
-#include <dfs_posix.h>
 
 #ifdef WAMR_ENABLE_RTT_EXPORT
 
@@ -183,8 +182,6 @@ rt_uint8_t *
 my_read_file_to_buffer(char *filename, rt_uint32_t *size)
 {
     struct stat f_stat;
-    dfs_file_stat(filename, &f_stat);
-    struct dfs_fd fd;
 
     rt_uint8_t *buff = rt_malloc(f_stat.st_size);
     *size = 0;
@@ -193,16 +190,16 @@ my_read_file_to_buffer(char *filename, rt_uint32_t *size)
         return RT_NULL;
     }
 
-    int ret = dfs_file_open(&fd, filename, O_RDONLY);
-    if (ret) {
+    int fd = open(filename, O_RDONLY);
+    if (fd < 0) {
         rt_free(buff);
-        rt_set_errno(ret);
+        rt_set_errno(fd);
         return RT_NULL;
     }
 
-    *size = dfs_file_read(&fd, buff, f_stat.st_size);
+    *size = read(fd, buff, f_stat.st_size);
 
-    dfs_file_close(&fd);
+    close(fd);
 
     if (*size != f_stat.st_size) {
         rt_free(buff);

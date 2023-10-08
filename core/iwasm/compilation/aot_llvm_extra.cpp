@@ -5,11 +5,13 @@
 
 #include <llvm/Passes/StandardInstrumentations.h>
 #include <llvm/Support/Error.h>
+#if LLVM_VERSION_MAJOR < 17
 #include <llvm/ADT/None.h>
 #include <llvm/ADT/Optional.h>
+#include <llvm/ADT/Triple.h>
+#endif
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/ADT/Twine.h>
-#include <llvm/ADT/Triple.h>
 #include <llvm/Analysis/TargetTransformInfo.h>
 #include <llvm/CodeGen/TargetPassConfig.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
@@ -18,7 +20,9 @@
 #include <llvm/Target/TargetMachine.h>
 #include <llvm-c/Core.h>
 #include <llvm-c/ExecutionEngine.h>
+#if LLVM_VERSION_MAJOR < 17
 #include <llvm-c/Initialization.h>
+#endif
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include <llvm/ExecutionEngine/JITEventListener.h>
 #include <llvm/ExecutionEngine/RTDyldMemoryManager.h>
@@ -30,6 +34,9 @@
 #include <llvm/IR/PassManager.h>
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/ErrorHandling.h>
+#if LLVM_VERSION_MAJOR >= 17
+#include <llvm/Support/PGOOptions.h>
+#endif
 #include <llvm/Target/CodeGenCWrappers.h>
 #include <llvm/Target/TargetMachine.h>
 #include <llvm/Target/TargetOptions.h>
@@ -54,6 +61,13 @@
 
 using namespace llvm;
 using namespace llvm::orc;
+
+#if LLVM_VERSION_MAJOR >= 17
+namespace llvm {
+template<typename T>
+using Optional = std::optional<T>;
+}
+#endif
 
 LLVM_C_EXTERN_C_BEGIN
 
@@ -110,7 +124,14 @@ ExpandMemoryOpPass::run(Function &F, FunctionAnalysisManager &AM)
             Memcpy->eraseFromParent();
         }
         else if (MemMoveInst *Memmove = dyn_cast<MemMoveInst>(MemCall)) {
+#if LLVM_VERSION_MAJOR >= 17
+            Function *ParentFunc = Memmove->getParent()->getParent();
+            const TargetTransformInfo &TTI =
+                AM.getResult<TargetIRAnalysis>(*ParentFunc);
+            expandMemMoveAsLoop(Memmove, TTI);
+#else
             expandMemMoveAsLoop(Memmove);
+#endif
             Memmove->eraseFromParent();
         }
         else if (MemSetInst *Memset = dyn_cast<MemSetInst>(MemCall)) {
@@ -181,6 +202,9 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
 #else
     Optional<PGOOptions> PGO = llvm::None;
 #endif
+
+// TODO
+#if LLVM_VERSION_MAJOR < 17
     if (comp_ctx->enable_llvm_pgo) {
         /* Disable static counter allocation for value profiler,
            it will be allocated by runtime */
@@ -191,6 +215,7 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
     else if (comp_ctx->use_prof_file) {
         PGO = PGOOptions(comp_ctx->use_prof_file, "", "", PGOOptions::IRUse);
     }
+#endif
 
 #ifdef DEBUG_PASS
     PassInstrumentationCallbacks PIC;
