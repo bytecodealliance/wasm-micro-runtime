@@ -5223,7 +5223,6 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
     /* This frame won't be used by JITed code, so only allocate interp
        frame here.  */
     unsigned frame_size;
-    char exception[EXCEPTION_BUF_LEN];
 
 #if WASM_ENABLE_GC != 0
     all_cell_num += (all_cell_num + 3) / 4;
@@ -5319,8 +5318,6 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
             wasm_interp_dump_call_stack(exec_env, true, NULL, 0);
         }
 #endif
-        wasm_copy_exception(module_inst, exception);
-        LOG_DEBUG("meet an exception %s", exception);
     }
 
     wasm_exec_env_set_cur_frame(exec_env, prev_frame);
