@@ -20,6 +20,8 @@ extern "C" {
 #define WASM_SUSPEND_FLAG_BREAKPOINT 0x4
 /* Return from pthread_exit */
 #define WASM_SUSPEND_FLAG_EXIT 0x8
+/* The thread might be blocking */
+#define WASM_SUSPEND_FLAG_BLOCKING 0x10
 
 typedef union WASMSuspendFlags {
     bh_atomic_32_t flags;

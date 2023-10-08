@@ -14,8 +14,8 @@ function help()
 {
     echo "test_wamr.sh [options]"
     echo "-c clean previous test results, not start test"
-    echo "-s {suite_name} test only one suite (spec|wasi_certification)"
-    echo "-m set compile target of iwasm(x86_64|x86_32|armv7_vfp|thumbv7_vfp|riscv64_lp64d|riscv64_lp64)"
+    echo "-s {suite_name} test only one suite (spec|wasi_certification|wamr_compiler)"
+    echo "-m set compile target of iwasm(x86_64|x86_32|armv7_vfp|thumbv7_vfp|riscv64_lp64d|riscv64_lp64|aarch64)"
     echo "-t set compile type of iwasm(classic-interp|fast-interp|jit|aot|fast-jit|multi-tier-jit)"
     echo "-M enable multi module feature"
     echo "-p enable multi thread feature"
@@ -31,6 +31,7 @@ function help()
     echo "-Q enable qemu"
     echo "-F set the firmware path used by qemu"
     echo "-C enable code coverage collect"
+    echo "-j set the platform to test"
 }
 
 OPT_PARSED=""
@@ -61,9 +62,10 @@ fi
 PARALLELISM=0
 ENABLE_QEMU=0
 QEMU_FIRMWARE=""
-WASI_TESTSUITE_COMMIT="aca78d919355ae00af141e6741a439039615b257"
+# prod/testsuite-all branch
+WASI_TESTSUITE_COMMIT="ee807fc551978490bf1c277059aabfa1e589a6c2"
 
-while getopts ":s:cabgvt:m:MCpSXxwPGQF:" opt
+while getopts ":s:cabgvt:m:MCpSXxwPGQF:j:" opt
 do
     OPT_PARSED="TRUE"
     case $opt in
@@ -164,6 +166,10 @@ do
         F)
         echo "QEMU firmware" ${OPTARG}
         QEMU_FIRMWARE=${OPTARG}
+        ;;
+        j)
+        echo "test platform " ${OPTARG}
+        PLATFORM=${OPTARG}
         ;;
         ?)
         help
@@ -309,6 +315,56 @@ function sightglass_test()
     echo "Finish sightglass benchmark tests"
 }
 
+function setup_wabt()
+{
+    if [ ${WABT_BINARY_RELEASE} == "YES" ]; then
+        echo "download a binary release and install"
+        local WAT2WASM=${WORK_DIR}/wabt/out/gcc/Release/wat2wasm
+        if [ ! -f ${WAT2WASM} ]; then
+            case ${PLATFORM} in
+                cosmopolitan)
+                    ;&
+                linux)
+                    WABT_PLATFORM=ubuntu
+                    ;;
+                darwin)
+                    WABT_PLATFORM=macos
+                    ;;
+                windows)
+                    WABT_PLATFORM=windows
+                    ;;
+                *)
+                    echo "wabt platform for ${PLATFORM} in unknown"
+                    exit 1
+                    ;;
+            esac
+            if [ ! -f /tmp/wabt-1.0.31-${WABT_PLATFORM}.tar.gz ]; then
+                curl -L \
+                    https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-${WABT_PLATFORM}.tar.gz \
+                    -o /tmp/wabt-1.0.31-${WABT_PLATFORM}.tar.gz
+            fi
+
+            cd /tmp \
+            && tar zxf wabt-1.0.31-${WABT_PLATFORM}.tar.gz \
+            && mkdir -p ${WORK_DIR}/wabt/out/gcc/Release/ \
+            && install wabt-1.0.31/bin/wa* ${WORK_DIR}/wabt/out/gcc/Release/ \
+            && cd -
+        fi
+    else
+        echo "download source code and compile and install"
+        if [ ! -d "wabt" ];then
+            echo "wabt not exist, clone it from github"
+            git clone --recursive https://github.com/WebAssembly/wabt
+        fi
+        echo "upate wabt"
+        cd wabt
+        git pull
+        git reset --hard origin/main
+        cd ..
+        make -C wabt gcc-release -j 4
+    fi
+}
+
 # TODO: with iwasm only
 function spec_test()
 {
@@ -337,6 +393,9 @@ function spec_test()
     git apply ../../spec-test-script/ignore_cases.patch
     if [[ ${ENABLE_SIMD} == 1 ]]; then
         git apply ../../spec-test-script/simd_ignore_cases.patch
+    fi
+    if [[ ${ENABLE_MULTI_MODULE} == 1 && $1 == 'aot'  ]]; then
+        git apply ../../spec-test-script/muti_module_aot_ignore_cases.patch
     fi
 
     # udpate thread cases
@@ -380,50 +439,7 @@ function spec_test()
     popd
     echo $(pwd)
 
-    if [ ${WABT_BINARY_RELEASE} == "YES" ]; then
-        echo "download a binary release and install"
-        local WAT2WASM=${WORK_DIR}/wabt/out/gcc/Release/wat2wasm
-        if [ ! -f ${WAT2WASM} ]; then
-            case ${PLATFORM} in
-                linux)
-                    WABT_PLATFORM=ubuntu
-                    ;;
-                darwin)
-                    WABT_PLATFORM=macos
-                    ;;
-                windows)
-                    WABT_PLATFORM=windows
-                    ;;
-                *)
-                    echo "wabt platform for ${PLATFORM} in unknown"
-                    exit 1
-                    ;;
-            esac
-            if [ ! -f /tmp/wabt-1.0.31-${WABT_PLATFORM}.tar.gz ]; then
-                curl -L \
-                    https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-${WABT_PLATFORM}.tar.gz \
-                    -o /tmp/wabt-1.0.31-${WABT_PLATFORM}.tar.gz
-            fi
-
-            cd /tmp \
-            && tar zxf wabt-1.0.31-${WABT_PLATFORM}.tar.gz \
-            && mkdir -p ${WORK_DIR}/wabt/out/gcc/Release/ \
-            && install wabt-1.0.31/bin/wa* ${WORK_DIR}/wabt/out/gcc/Release/ \
-            && cd -
-        fi
-    else
-        echo "download source code and compile and install"
-        if [ ! -d "wabt" ];then
-            echo "wabt not exist, clone it from github"
-            git clone --recursive https://github.com/WebAssembly/wabt
-        fi
-        echo "upate wabt"
-        cd wabt
-        git pull
-        git reset --hard origin/main
-        cd ..
-        make -C wabt gcc-release -j 4
-    fi
+    setup_wabt
 
     ln -sf ${WORK_DIR}/../spec-test-script/all.py .
     ln -sf ${WORK_DIR}/../spec-test-script/runtest.py .
@@ -432,7 +448,7 @@ function spec_test()
 
     # multi-module only enable in interp mode
     if [[ 1 == ${ENABLE_MULTI_MODULE} ]]; then
-        if [[ $1 == 'classic-interp' || $1 == 'fast-interp' ]]; then
+        if [[ $1 == 'classic-interp' || $1 == 'fast-interp' || $1 == 'aot' ]]; then
             ARGS_FOR_SPEC_TEST+="-M "
         fi
     fi
@@ -515,13 +531,35 @@ function wasi_test()
     echo "Finish wasi tests"
 }
 
+function wamr_compiler_test()
+{
+    if [[ $1 != "aot" ]]; then
+        echo "WAMR compiler tests only support AOT mode"
+        exit 1
+    fi
+
+    echo  "Now start WAMR compiler tests"
+    setup_wabt
+    cd ${WORK_DIR}/../wamr-compiler-test-script
+    ./run_wamr_compiler_tests.sh ${WORK_DIR}/wabt/out/gcc/Release/wat2wasm $WAMRC_CMD $IWASM_CMD \
+        | tee -a ${REPORT_DIR}/wamr_compiler_test_report.txt
+
+    ret=${PIPESTATUS[0]}
+
+    if [[ ${ret} -ne 0 ]];then
+        echo -e "\nWAMR compiler tests FAILED" | tee -a ${REPORT_DIR}/wamr_compiler_test_report.txt
+        exit 1
+    fi
+    echo -e "\nFinish WAMR compiler tests" | tee -a ${REPORT_DIR}/wamr_compiler_test_report.txt
+}
+
 function wasi_certification_test()
 {
     echo  "Now start wasi certification tests"
 
     cd ${WORK_DIR}
     if [ ! -d "wasi-testsuite" ]; then
-        echo "wasi not exist, clone it from github"
+        echo "wasi-testsuite not exist, clone it from github"
         git clone -b prod/testsuite-all \
             --single-branch https://github.com/WebAssembly/wasi-testsuite.git
     fi
@@ -664,6 +702,20 @@ function build_iwasm_with_cfg()
     if [ "$?" != 0 ];then
         echo -e "build iwasm failed"
         exit 1
+    fi
+
+    if [[ ${PLATFORM} == "cosmopolitan" ]]; then
+        # convert from APE to ELF so it can be ran easier
+        # HACK: link to linux so tests work when platform is detected by uname
+        cp iwasm.com iwasm \
+        && ./iwasm --assimilate \
+        && rm -rf ../../linux/build \
+        && mkdir ../../linux/build \
+        && ln -s ../../cosmopolitan/build/iwasm ../../linux/build/iwasm
+        if [ "$?" != 0 ];then
+            echo -e "build iwasm failed (cosmopolitan)"
+            exit 1
+        fi
     fi
 }
 

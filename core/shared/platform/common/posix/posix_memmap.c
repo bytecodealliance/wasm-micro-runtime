@@ -5,6 +5,10 @@
 
 #include "platform_api_vmcore.h"
 
+#if (defined(__APPLE__) || defined(__MACH__)) && defined(__arm64__)
+#include <libkern/OSCacheControl.h>
+#endif
+
 #ifndef BH_ENABLE_TRACE_MMAP
 #define BH_ENABLE_TRACE_MMAP 0
 #endif
@@ -36,7 +40,11 @@ void *
 os_mmap(void *hint, size_t size, int prot, int flags)
 {
     int map_prot = PROT_NONE;
+#if (defined(__APPLE__) || defined(__MACH__)) && defined(__arm64__)
+    int map_flags = MAP_ANONYMOUS | MAP_PRIVATE | MAP_JIT;
+#else
     int map_flags = MAP_ANONYMOUS | MAP_PRIVATE;
+#endif
     uint64 request_size, page_size;
     uint8 *addr = MAP_FAILED;
     uint32 i;
@@ -251,3 +259,11 @@ os_mprotect(void *addr, size_t size, int prot)
 void
 os_dcache_flush(void)
 {}
+
+void
+os_icache_flush(void *start, size_t len)
+{
+#if (defined(__APPLE__) || defined(__MACH__)) && defined(__arm64__)
+    sys_icache_invalidate(start, len);
+#endif
+}

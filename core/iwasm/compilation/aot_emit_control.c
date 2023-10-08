@@ -4,6 +4,7 @@
  */
 
 #include "aot_emit_control.h"
+#include "aot_compiler.h"
 #include "aot_emit_exception.h"
 #include "../aot/aot_runtime.h"
 #include "../interpreter/wasm_loader.h"
@@ -234,13 +235,15 @@ handle_next_reachable_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         else {
             /* Store extra return values to function parameters */
             if (i != 0) {
+                LLVMValueRef res;
                 uint32 param_index = func_type->param_count + i;
-                if (!LLVMBuildStore(
-                        comp_ctx->builder, block->result_phis[i],
-                        LLVMGetParam(func_ctx->func, param_index))) {
+                if (!(res = LLVMBuildStore(
+                          comp_ctx->builder, block->result_phis[i],
+                          LLVMGetParam(func_ctx->func, param_index)))) {
                     aot_set_last_error("llvm build store failed.");
                     goto fail;
                 }
+                LLVMSetAlignment(res, 1);
             }
         }
     }
@@ -278,7 +281,7 @@ push_aot_block_to_stack_and_pass_params(AOTCompContext *comp_ctx,
                                         AOTBlock *block)
 {
     uint32 i, param_index;
-    LLVMValueRef value;
+    LLVMValueRef value, br_inst;
     uint64 size;
     char name[32];
     LLVMBasicBlockRef block_curr = CURR_BLOCK();
@@ -326,7 +329,14 @@ push_aot_block_to_stack_and_pass_params(AOTCompContext *comp_ctx,
                 }
             }
         }
-        SET_BUILDER_POS(block_curr);
+
+        /* At this point, the branch instruction was already built to jump to
+         * the new BB, to avoid generating zext instruction from the popped
+         * operand that would come after branch instruction, we should position
+         * the builder before the last branch instruction */
+        br_inst = LLVMGetLastInstruction(block_curr);
+        bh_assert(LLVMGetInstructionOpcode(br_inst) == LLVMBr);
+        LLVMPositionBuilderBefore(comp_ctx->builder, br_inst);
 
         /* Pop param values from current block's
          * value stack and add to param phis.
@@ -467,7 +477,7 @@ aot_compile_op_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                                                    p_frame_ip);
         }
 
-        if (!LLVMIsConstant(value)) {
+        if (!LLVMIsEfficientConstInt(value)) {
             /* Compare value is not constant, create condition br IR */
             /* Create entry block */
             format_block_name(name, sizeof(name), block->block_index,
@@ -833,7 +843,7 @@ aot_compile_op_br_if(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         return aot_handle_next_reachable_block(comp_ctx, func_ctx, p_frame_ip);
     }
 
-    if (!LLVMIsConstant(value_cmp)) {
+    if (!LLVMIsEfficientConstInt(value_cmp)) {
         /* Compare value is not constant, create condition br IR */
         if (!(block_dst = get_target_block(func_ctx, br_depth))) {
             return false;
@@ -970,7 +980,7 @@ aot_compile_op_br_table(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         return aot_handle_next_reachable_block(comp_ctx, func_ctx, p_frame_ip);
     }
 
-    if (!LLVMIsConstant(value_cmp)) {
+    if (!LLVMIsEfficientConstInt(value_cmp)) {
         /* Compare value is not constant, create switch IR */
         for (i = 0; i <= br_count; i++) {
             target_block = get_target_block(func_ctx, br_depths[i]);
@@ -1102,14 +1112,17 @@ aot_compile_op_return(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     if (block_func->result_count) {
         /* Store extra result values to function parameters */
         for (i = 0; i < block_func->result_count - 1; i++) {
+            LLVMValueRef res;
             result_index = block_func->result_count - 1 - i;
             POP(value, block_func->result_types[result_index]);
             param_index = func_type->param_count + result_index;
-            if (!LLVMBuildStore(comp_ctx->builder, value,
-                                LLVMGetParam(func_ctx->func, param_index))) {
+            if (!(res = LLVMBuildStore(
+                      comp_ctx->builder, value,
+                      LLVMGetParam(func_ctx->func, param_index)))) {
                 aot_set_last_error("llvm build store failed.");
                 goto fail;
             }
+            LLVMSetAlignment(res, 1);
         }
         /* Return the first result value */
         POP(value, block_func->result_types[0]);

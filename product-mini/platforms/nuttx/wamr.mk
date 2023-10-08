@@ -246,6 +246,7 @@ ifeq ($(CONFIG_INTERPRETERS_WAMR_LIBC_WASI),y)
 CFLAGS += -DWASM_ENABLE_LIBC_WASI=1
 CFLAGS += -I$(IWASM_ROOT)/libraries/libc-wasi/sandboxed-system-primitives/src
 CFLAGS += -I$(IWASM_ROOT)/libraries/libc-wasi/sandboxed-system-primitives/include
+CSRCS += blocking_op.c
 CSRCS += posix_socket.c
 CSRCS += libc_wasi_wrapper.c
 VPATH += $(IWASM_ROOT)/libraries/libc-wasi
@@ -253,8 +254,16 @@ CSRCS += posix.c
 CSRCS += random.c
 CSRCS += str.c
 VPATH += $(IWASM_ROOT)/libraries/libc-wasi/sandboxed-system-primitives/src
+# todo: use Kconfig select instead
+CONFIG_INTERPRETERS_WAMR_MODULE_INSTANCE_CONTEXT = y
 else
 CFLAGS += -DWASM_ENABLE_LIBC_WASI=0
+endif
+
+ifeq ($(CONFIG_INTERPRETERS_WAMR_MODULE_INSTANCE_CONTEXT),y)
+CFLAGS += -DWASM_ENABLE_MODULE_INST_CONTEXT=1
+else
+CFLAGS += -DWASM_ENABLE_MODULE_INST_CONTEXT=0
 endif
 
 ifeq ($(CONFIG_INTERPRETERS_WAMR_MULTI_MODULE),y)
@@ -301,6 +310,9 @@ CFLAGS += -DWASM_DISABLE_HW_BOUND_CHECK=0
 CFLAGS += -DWASM_DISABLE_STACK_HW_BOUND_CHECK=0
 endif
 
+# REVISIT: is this worth to have a Kconfig?
+CFLAGS += -DWASM_DISABLE_WAKEUP_BLOCKING_OP=0
+
 ifeq ($(CONFIG_INTERPRETERS_WAMR_CUSTOM_NAME_SECTIONS),y)
 CFLAGS += -DWASM_ENABLE_CUSTOM_NAME_SECTION=1
 else
@@ -346,8 +358,10 @@ CFLAGS += -I$(IWASM_ROOT)/interpreter
 endif
 
 CSRCS += nuttx_platform.c \
+         posix_blocking_op.c \
          posix_thread.c \
          posix_time.c \
+         posix_sleep.c \
          mem_alloc.c \
          ems_kfc.c \
          ems_alloc.c \
@@ -362,6 +376,7 @@ CSRCS += nuttx_platform.c \
          bh_read_file.c \
          runtime_timer.c \
          wasm_application.c \
+         wasm_blocking_op.c \
          wasm_runtime_common.c \
          wasm_native.c \
          wasm_exec_env.c \

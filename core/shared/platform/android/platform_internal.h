@@ -140,15 +140,11 @@ seekdir(DIR *__dir, long __location);
 
 #endif
 
-#if __ANDROID_API__ < 24
-
 ssize_t
 preadv(int __fd, const struct iovec *__iov, int __count, off_t __offset);
 
 ssize_t
 pwritev(int __fd, const struct iovec *__iov, int __count, off_t __offset);
-
-#endif
 
 #ifdef __cplusplus
 }
