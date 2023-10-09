@@ -4,6 +4,7 @@
  */
 
 #include "libc_wasi_wrapper.h"
+#include "bh_log.h"
 #include "bh_platform.h"
 #include "wasm_export.h"
 #include "wasm_runtime_common.h"
@@ -492,6 +493,7 @@ wasi_fd_read(wasm_exec_env_t exec_env, wasi_fd_t fd,
         iovec->buf_len = iovec_app->buf_len;
     }
 
+            
     err = wasmtime_ssp_fd_read(curfds, fd, iovec_begin, iovs_len, &nread);
     if (err)
         goto fail;
@@ -517,6 +519,7 @@ wasi_fd_renumber(wasm_exec_env_t exec_env, wasi_fd_t from, wasi_fd_t to)
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
+    LOG_FATAL("wasi_fd_renumber %d %d\n", from, to);
     return wasmtime_ssp_fd_renumber(curfds, prestats, from, to);
 }
 
@@ -649,7 +652,8 @@ wasi_fd_write(wasm_exec_env_t exec_env, wasi_fd_t fd,
         || total_size >= UINT32_MAX
         || !validate_native_addr((void *)iovec_app, (uint32)total_size))
         return (wasi_errno_t)-1;
-
+// for STrace
+    LOG_STRACE("wasi_fd_sync exec_env=%d, fd=%d, iovec_app=%d, iovs_len=%d", exec_env, fd, iovec_app, iovs_len);
     total_size = sizeof(wasi_ciovec_t) * (uint64)iovs_len;
     if (total_size >= UINT32_MAX
         || !(ciovec_begin = wasm_runtime_malloc((uint32)total_size)))

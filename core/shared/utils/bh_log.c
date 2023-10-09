@@ -4,6 +4,7 @@
  */
 
 #include "bh_log.h"
+#include <stdio.h>
 
 /**
  * The verbose level of the log system.  Only those verbose logs whose
@@ -15,6 +16,34 @@ void
 bh_log_set_verbose_level(uint32 level)
 {
     log_verbose_level = level;
+}
+
+FILE* log_strace = NULL;
+
+void init_log_strace() {
+    log_strace = fopen("strace.txt", "w");
+    if(log_strace == NULL) {
+        printf("open strace.txt failed\n");
+    }
+}
+
+void bh_log_strace(LogLevel level, const char *file, int line, const char *format, ...) {
+    if(log_strace == NULL) {
+        init_log_strace();
+    }
+    va_list ap;
+    va_start(ap, format);
+   
+    vfprintf(log_strace, format, ap);
+    va_end(ap);
+    fflush(log_strace);
+}
+
+void close_log_strace() {
+    if(log_strace != NULL) {
+        fclose(log_strace);
+        log_strace = NULL;
+    }
 }
 
 void

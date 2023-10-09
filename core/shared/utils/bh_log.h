@@ -38,6 +38,8 @@ typedef enum {
 void
 bh_log_set_verbose_level(uint32 level);
 
+void bh_log_strace(LogLevel level, const char *file, int line, const char *format, ...);
+
 void
 bh_log(LogLevel log_level, const char *file, int line, const char *fmt, ...);
 
@@ -66,9 +68,12 @@ bh_log(LogLevel log_level, const char *file, int line, const char *fmt, ...);
 #if BH_DEBUG != 0
 #define LOG_DEBUG(...) \
     bh_log(BH_LOG_LEVEL_DEBUG, __FILE__, __LINE__, __VA_ARGS__)
+
 #else
 #define LOG_DEBUG(...) (void)0
 #endif
+
+#define LOG_STRACE(...)  bh_log_strace(BH_LOG_LEVEL_DEBUG, __FILE__, __LINE__, __VA_ARGS__)
 
 void
 bh_print_time(const char *prompt);
