@@ -1718,6 +1718,9 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
         uint32 *argv_ret = argv;
         uint32 ext_ret_cell = wasm_get_cell_num(ext_ret_types, ext_ret_count);
         uint64 size;
+#if WASM_ENABLE_AOT_STACK_FRAME != 0
+        struct WASMInterpFrame *prev_frame = exec_env->cur_frame;
+#endif
 
         /* Allocate memory all arguments */
         size =
@@ -1771,7 +1774,11 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
         }
 
 #if WASM_ENABLE_AOT_STACK_FRAME != 0
-        aot_free_frame(exec_env);
+        /* Free all frames allocated, note that some frames
+           may be allocated in AOT code and havent' been
+           freed if exception occured */
+        while (exec_env->cur_frame != prev_frame)
+            aot_free_frame(exec_env);
 #endif
         if (!ret) {
             if (argv1 != argv1_buf)
@@ -1813,6 +1820,8 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
     }
     else {
 #if WASM_ENABLE_AOT_STACK_FRAME != 0
+        struct WASMInterpFrame *prev_frame = exec_env->cur_frame;
+
         if (!aot_alloc_frame(exec_env, function->func_index)) {
             return false;
         }
@@ -1835,7 +1844,11 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
         }
 
 #if WASM_ENABLE_AOT_STACK_FRAME != 0
-        aot_free_frame(exec_env);
+        /* Free all frames allocated, note that some frames
+           may be allocated in AOT code and havent' been
+           freed if exception occured */
+        while (exec_env->cur_frame != prev_frame)
+            aot_free_frame(exec_env);
 #endif
 
         return ret && !aot_copy_exception(module_inst, NULL) ? true : false;
