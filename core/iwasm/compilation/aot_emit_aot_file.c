@@ -384,14 +384,15 @@ static uint32
 get_func_type_size(AOTCompContext *comp_ctx, AOTFuncType *func_type)
 {
     /* type flag + is_sub_final + parent_type_idx + param count + result count
-     * + types + ref_type_map_count */
+     * + ref_type_map_count + types + context of ref_type_map */
     if (comp_ctx->enable_gc) {
         return sizeof(func_type->base_type.type_flag) + sizeof(uint16)
                + sizeof(func_type->base_type.parent_type_idx)
                + sizeof(func_type->param_count)
-               + sizeof(func_type->result_count) + func_type->param_count
+               + sizeof(func_type->result_count)
+               + sizeof(func_type->ref_type_map_count) + func_type->param_count
                + func_type->result_count
-               + sizeof(func_type->ref_type_map_count);
+               + sizeof(func_type->ref_type_map_count) * 8;
     }
     else {
         /* type flag + is_sub_final + parent_type_idx + param count + result
@@ -1625,7 +1626,6 @@ aot_emit_type_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     if (comp_ctx->enable_gc) {
         int32 idx;
         AOTType **types = comp_data->types;
-        WASMRefTypeMap *ref_type_map;
 
         for (i = 0; i < comp_data->type_count; i++) {
             offset = align_uint(offset, 4);
@@ -1647,26 +1647,9 @@ aot_emit_type_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
                     continue;
                 }
 
-                ref_type_map = func_type->ref_type_maps;
-                for (int j = 0;
-                     j < func_type->param_count + func_type->result_count;
-                     j++) {
-                    WASMRefType *ref_type = ref_type_map->ref_type;
-
-                    bh_assert(j == ref_type_map->index);
-                    bh_assert(ref_type->ref_type == REF_TYPE_HT_NULLABLE
-                              || ref_type->ref_type
-                                     == REF_TYPE_HT_NON_NULLABLE);
-
-                    /* Note: WASMRefType is a union type */
-                    EMIT_U8(ref_type->ref_ht_common.ref_type);
-                    EMIT_U8(ref_type->ref_ht_common.nullable);
-                    EMIT_U32(ref_type->ref_ht_common.heap_type);
-
-                    ref_type_map++;
-                }
-                bh_assert(ref_type_map - func_type->ref_type_maps
-                          == func_type->ref_type_map_count);
+                aot_emit_reftype_map(buf, buf_end, &offset,
+                                     func_type->ref_type_map_count,
+                                     func_type->ref_type_maps);
             }
             /* Emit WASM_TYPE_STRUCT */
             else if (types[i]->type_flag == WASM_TYPE_STRUCT) {
