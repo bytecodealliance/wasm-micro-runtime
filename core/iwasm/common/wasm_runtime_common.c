@@ -3016,6 +3016,40 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
         fd_prestats_insert(prestats, dir_list[i], wasm_fd);
     }
 
+    for (i = 0; i < map_dir_count; i++, wasm_fd++) {
+        char mapping_copy[(PATH_MAX * 2) + 3];
+        strncpy(mapping_copy, map_dir_list[i], strlen(map_dir_list[i]));
+        mapping_copy[(PATH_MAX * 2) + 2] = '\0';
+
+        const char* map_mapped = strtok(mapping_copy, "::");
+        const char* map_host = strtok(NULL, "::");
+
+        if (!map_mapped && !map_host) {
+            continue;
+        }
+
+        path = realpath(map_host, resolved_path);
+        if (!path) {
+            if (error_buf)
+                snprintf(error_buf, error_buf_size,
+                         "error while pre-opening directory %s: %d\n",
+                         map_host, errno);
+            goto fail;
+        }
+
+        raw_fd = open(path, O_RDONLY | O_DIRECTORY, 0);
+        if (raw_fd == -1) {
+            if (error_buf)
+                snprintf(error_buf, error_buf_size,
+                         "error while pre-opening directory %s: %d\n",
+                         map_host, errno);
+            goto fail;
+        }
+
+        fd_table_insert_existing(curfds, wasm_fd, raw_fd);
+        fd_prestats_insert(prestats, map_mapped, wasm_fd);
+    }
+
     /* addr_pool(textual) -> apool */
     for (i = 0; i < addr_pool_size; i++) {
         char *cp, *address, *mask;
