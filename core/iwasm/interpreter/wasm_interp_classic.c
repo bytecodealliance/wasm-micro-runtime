@@ -381,6 +381,12 @@ init_frame_refs(uint8 *frame_ref, uint32 cell_num, WASMFunctionInstance *func)
     }
 }
 
+uint8 *
+wasm_interp_get_frame_ref(WASMInterpFrame *frame)
+{
+    return get_frame_ref(frame);
+}
+
 /* Return the corresponding ref slot of the given address of local
    variable or stack pointer. */
 
@@ -5243,7 +5249,8 @@ llvm_jit_call_func_bytecode(WASMModuleInstance *module_inst,
     uint32 func_idx = (uint32)(function - module_inst->e->functions);
     bool ret;
 
-#if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
+#if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0) \
+    || (WASM_ENABLE_JIT_STACK_FRAME != 0)
     if (!llvm_jit_alloc_frame(exec_env, function - module_inst->e->functions)) {
         /* wasm operand stack overflow has been thrown,
            no need to throw again */
@@ -5269,7 +5276,8 @@ llvm_jit_call_func_bytecode(WASMModuleInstance *module_inst,
             if (size > UINT32_MAX
                 || !(argv1 = wasm_runtime_malloc((uint32)size))) {
                 wasm_set_exception(module_inst, "allocate memory failed");
-                return false;
+                ret = false;
+                goto fail;
             }
         }
 
@@ -5293,7 +5301,7 @@ llvm_jit_call_func_bytecode(WASMModuleInstance *module_inst,
         if (!ret) {
             if (argv1 != argv1_buf)
                 wasm_runtime_free(argv1);
-            return ret;
+            goto fail;
         }
 
         /* Get extra result values */
@@ -5327,15 +5335,26 @@ llvm_jit_call_func_bytecode(WASMModuleInstance *module_inst,
 
         if (argv1 != argv1_buf)
             wasm_runtime_free(argv1);
-        return true;
+
+        ret = true;
     }
     else {
         ret = wasm_runtime_invoke_native(
             exec_env, module_inst->func_ptrs[func_idx], func_type, NULL, NULL,
             argv, argc, argv);
 
-        return ret && !wasm_copy_exception(module_inst, NULL) ? true : false;
+        if (ret)
+            ret = !wasm_copy_exception(module_inst, NULL);
     }
+
+fail:
+
+#if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0) \
+    || (WASM_ENABLE_JIT_STACK_FRAME != 0)
+    llvm_jit_free_frame(exec_env);
+#endif
+
+    return ret;
 }
 #endif /* end of WASM_ENABLE_JIT != 0 */
 

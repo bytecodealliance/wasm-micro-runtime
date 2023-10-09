@@ -20,6 +20,7 @@
  * AoT compilation code: aot_create_func_context, check_suspend_flags.
  */
 
+bh_static_assert(offsetof(WASMExecEnv, cur_frame) == 1 * sizeof(uintptr_t));
 bh_static_assert(offsetof(WASMExecEnv, module_inst) == 2 * sizeof(uintptr_t));
 bh_static_assert(offsetof(WASMExecEnv, argv_buf) == 3 * sizeof(uintptr_t));
 bh_static_assert(offsetof(WASMExecEnv, native_stack_boundary)
@@ -46,6 +47,11 @@ bh_static_assert(sizeof(AOTMemoryInstance) == 104);
 bh_static_assert(offsetof(AOTTableInstance, elems) == 24);
 
 bh_static_assert(offsetof(AOTModuleInstanceExtra, stack_sizes) == 0);
+
+bh_static_assert(offsetof(AOTFrame, ip_offset) == sizeof(uintptr_t) * 4);
+bh_static_assert(offsetof(AOTFrame, sp) == sizeof(uintptr_t) * 5);
+bh_static_assert(offsetof(AOTFrame, frame_ref) == sizeof(uintptr_t) * 6);
+bh_static_assert(offsetof(AOTFrame, lp) == sizeof(uintptr_t) * 7);
 
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
@@ -1409,6 +1415,29 @@ fail:
     return NULL;
 }
 
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
+static void
+destroy_c_api_frames(Vector *frames)
+{
+    WASMCApiFrame frame = { 0 };
+    uint32 i, total_frames, ret;
+
+    total_frames = (uint32)bh_vector_size(frames);
+
+    for (i = 0; i < total_frames; i++) {
+        ret = bh_vector_get(frames, i, &frame);
+        bh_assert(ret);
+
+        if (frame.lp)
+            wasm_runtime_free(frame.lp);
+    }
+
+    ret = bh_vector_destroy(frames);
+    bh_assert(ret);
+    (void)ret;
+}
+#endif
+
 void
 aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
 {
@@ -1428,7 +1457,7 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
     if (module_inst->frames) {
-        bh_vector_destroy(module_inst->frames);
+        destroy_c_api_frames(module_inst->frames);
         wasm_runtime_free(module_inst->frames);
         module_inst->frames = NULL;
     }
@@ -1600,6 +1629,18 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
 #define invoke_native_internal wasm_runtime_invoke_native
 #endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
+#ifdef AOT_STACK_FRAME_DEBUG
+typedef void (*stack_frame_callback_t)(struct WASMExecEnv *exec_env);
+static stack_frame_callback_t aot_stack_frame_callback;
+
+/* set the callback, only for debug purpose */
+void
+aot_set_stack_frame_callback(stack_frame_callback_t callback)
+{
+    aot_stack_frame_callback = callback;
+}
+#endif
+
 bool
 aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
                   unsigned argc, uint32 argv[])
@@ -1705,7 +1746,7 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
             cell_num += wasm_value_type_cell_num(ext_ret_types[i]);
         }
 
-#if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
+#if WASM_ENABLE_AOT_STACK_FRAME != 0
         if (!aot_alloc_frame(exec_env, function->func_index)) {
             if (argv1 != argv1_buf)
                 wasm_runtime_free(argv1);
@@ -1716,15 +1757,20 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
         ret = invoke_native_internal(exec_env, function->u.func.func_ptr,
                                      func_type, NULL, NULL, argv1, argc, argv);
 
-#if WASM_ENABLE_DUMP_CALL_STACK != 0
         if (!ret) {
+#ifdef AOT_STACK_FRAME_DEBUG
+            if (aot_stack_frame_callback) {
+                aot_stack_frame_callback(exec_env);
+            }
+#endif
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
             if (aot_create_call_stack(exec_env)) {
                 aot_dump_call_stack(exec_env, true, NULL, 0);
             }
-        }
 #endif
+        }
 
-#if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
+#if WASM_ENABLE_AOT_STACK_FRAME != 0
         aot_free_frame(exec_env);
 #endif
         if (!ret) {
@@ -1766,7 +1812,7 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
         return true;
     }
     else {
-#if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
+#if WASM_ENABLE_AOT_STACK_FRAME != 0
         if (!aot_alloc_frame(exec_env, function->func_index)) {
             return false;
         }
@@ -1775,15 +1821,20 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
         ret = invoke_native_internal(exec_env, func_ptr, func_type, NULL, NULL,
                                      argv, argc, argv);
 
-#if WASM_ENABLE_DUMP_CALL_STACK != 0
         if (aot_copy_exception(module_inst, NULL)) {
+#ifdef AOT_STACK_FRAME_DEBUG
+            if (aot_stack_frame_callback) {
+                aot_stack_frame_callback(exec_env);
+            }
+#endif
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
             if (aot_create_call_stack(exec_env)) {
                 aot_dump_call_stack(exec_env, true, NULL, 0);
             }
-        }
 #endif
+        }
 
-#if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
+#if WASM_ENABLE_AOT_STACK_FRAME != 0
         aot_free_frame(exec_env);
 #endif
 
@@ -2863,7 +2914,8 @@ aot_table_grow(AOTModuleInstance *module_inst, uint32 tbl_idx,
 }
 #endif /* WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0 */
 
-#if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
+#if WASM_ENABLE_AOT_STACK_FRAME != 0
+#if WASM_ENABLE_DUMP_CALL_STACK != 0 || WASM_ENABLE_PERF_PROFILING != 0
 #if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
 static const char *
 lookup_func_name(const char **func_names, uint32 *func_indexes,
@@ -2922,27 +2974,56 @@ get_func_name_from_index(const AOTModuleInstance *module_inst,
 
     return func_name;
 }
+#endif /* end of WASM_ENABLE_DUMP_CALL_STACK != 0 || \
+          WASM_ENABLE_PERF_PROFILING != 0 */
 
 bool
 aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
 {
-    AOTFrame *frame =
-        wasm_exec_env_alloc_wasm_frame(exec_env, sizeof(AOTFrame));
-#if WASM_ENABLE_PERF_PROFILING != 0
     AOTModuleInstance *module_inst = (AOTModuleInstance *)exec_env->module_inst;
+    AOTModule *module = (AOTModule *)module_inst->module;
+#if WASM_ENABLE_PERF_PROFILING != 0
     AOTFuncPerfProfInfo *func_perf_prof =
         module_inst->func_perf_profilings + func_index;
 #endif
+    AOTFrame *frame;
+    uint32 max_local_cell_num, max_stack_cell_num, all_cell_num;
+    uint32 aot_func_idx, frame_size;
+
+    if (func_index >= module->import_func_count) {
+        aot_func_idx = func_index - module->import_func_count;
+        max_local_cell_num = module->max_local_cell_nums[aot_func_idx];
+        max_stack_cell_num = module->max_stack_cell_nums[aot_func_idx];
+    }
+    else {
+        AOTFuncType *func_type = module->import_funcs[func_index].func_type;
+        max_local_cell_num =
+            func_type->param_cell_num > 2 ? func_type->param_cell_num : 2;
+        max_stack_cell_num = 0;
+    }
+
+    all_cell_num = max_local_cell_num + max_stack_cell_num;
+#if WASM_ENABLE_GC == 0
+    frame_size = (uint32)offsetof(AOTFrame, lp) + all_cell_num * 4;
+#else
+    frame_size =
+        (uint32)offsetof(AOTFrame, lp) + align_uint(all_cell_num * 5, 4);
+#endif
+    frame = wasm_exec_env_alloc_wasm_frame(exec_env, frame_size);
 
     if (!frame) {
         aot_set_exception((AOTModuleInstance *)exec_env->module_inst,
-                          "auxiliary call stack overflow");
+                          "wasm operand stack overflow");
         return false;
     }
 
 #if WASM_ENABLE_PERF_PROFILING != 0
-    frame->time_started = os_time_get_boot_microsecond();
+    frame->time_started = (uintptr_t)os_time_get_boot_microsecond();
     frame->func_perf_prof_info = func_perf_prof;
+#endif
+    frame->sp = frame->lp + max_local_cell_num;
+#if WASM_ENABLE_GC != 0
+    frame->frame_ref = (uint8 *)(frame->sp + max_stack_cell_num);
 #endif
 
     frame->prev_frame = (AOTFrame *)exec_env->cur_frame;
@@ -2960,15 +3041,14 @@ aot_free_frame(WASMExecEnv *exec_env)
 
 #if WASM_ENABLE_PERF_PROFILING != 0
     cur_frame->func_perf_prof_info->total_exec_time +=
-        os_time_get_boot_microsecond() - cur_frame->time_started;
+        (uintptr_t)os_time_get_boot_microsecond() - cur_frame->time_started;
     cur_frame->func_perf_prof_info->total_exec_cnt++;
 #endif
 
     wasm_exec_env_free_wasm_frame(exec_env, cur_frame);
     exec_env->cur_frame = (struct WASMInterpFrame *)prev_frame;
 }
-#endif /* end of (WASM_ENABLE_DUMP_CALL_STACK != 0) \
-                 || (WASM_ENABLE_PERF_PROFILING != 0) */
+#endif /* end of WASM_ENABLE_AOT_STACK_FRAME != 0 */
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
 bool
@@ -2977,6 +3057,7 @@ aot_create_call_stack(struct WASMExecEnv *exec_env)
     AOTFrame *cur_frame = (AOTFrame *)exec_env->cur_frame,
              *first_frame = cur_frame;
     AOTModuleInstance *module_inst = (AOTModuleInstance *)exec_env->module_inst;
+    AOTModule *module = (AOTModule *)module_inst->module;
     uint32 n = 0;
 
     while (cur_frame) {
@@ -2985,24 +3066,63 @@ aot_create_call_stack(struct WASMExecEnv *exec_env)
     }
 
     /* release previous stack frames and create new ones */
-    if (!bh_vector_destroy(module_inst->frames)
-        || !bh_vector_init(module_inst->frames, n, sizeof(WASMCApiFrame),
-                           false)) {
+    destroy_c_api_frames(module_inst->frames);
+    if (!bh_vector_init(module_inst->frames, n, sizeof(WASMCApiFrame), false)) {
         return false;
     }
 
     cur_frame = first_frame;
     while (cur_frame) {
         WASMCApiFrame frame = { 0 };
+        uint32 max_local_cell_num, max_stack_cell_num;
+        uint32 all_cell_num, lp_size;
+
         frame.instance = module_inst;
         frame.module_offset = 0;
         frame.func_index = cur_frame->func_index;
-        frame.func_offset = 0;
+        frame.func_offset = cur_frame->ip_offset;
         frame.func_name_wp =
             get_func_name_from_index(module_inst, cur_frame->func_index);
 
+        if (cur_frame->func_index >= module->import_func_count) {
+            uint32 aot_func_idx =
+                cur_frame->func_index - module->import_func_count;
+            max_local_cell_num = module->max_local_cell_nums[aot_func_idx];
+            max_stack_cell_num = module->max_stack_cell_nums[aot_func_idx];
+        }
+        else {
+            AOTFuncType *func_type =
+                module->import_funcs[cur_frame->func_index].func_type;
+            max_local_cell_num =
+                func_type->param_cell_num > 2 ? func_type->param_cell_num : 2;
+            max_stack_cell_num = 0;
+        }
+
+        all_cell_num = max_local_cell_num + max_stack_cell_num;
+#if WASM_ENABLE_GC == 0
+        lp_size = all_cell_num * 4;
+#else
+        lp_size = align_uint(all_cell_num * 5, 4);
+#endif
+        if (lp_size > 0) {
+            if (!(frame.lp = wasm_runtime_malloc(lp_size))) {
+                destroy_c_api_frames(module_inst->frames);
+                return false;
+            }
+            bh_memcpy_s(frame.lp, lp_size, cur_frame->lp, lp_size);
+
+            /* Only save frame sp when fast-interpr isn't enabled */
+            frame.sp = frame.lp + (cur_frame->sp - cur_frame->lp);
+#if WASM_ENABLE_GC != 0
+            frame.frame_ref = (uint8 *)frame.lp
+                              + (cur_frame->frame_ref - (uint8 *)cur_frame->lp);
+#endif
+        }
+
         if (!bh_vector_append(module_inst->frames, &frame)) {
-            bh_vector_destroy(module_inst->frames);
+            if (frame.lp)
+                wasm_runtime_free(frame.lp);
+            destroy_c_api_frames(module_inst->frames);
             return false;
         }
 
@@ -3084,7 +3204,7 @@ aot_dump_call_stack(WASMExecEnv *exec_env, bool print, char *buf, uint32 len)
 
     return total_len + 1;
 }
-#endif /* end of WASM_ENABLE_DUMP_CALL_STACK */
+#endif /* end of WASM_ENABLE_DUMP_CALL_STACK != 0 */
 
 #if WASM_ENABLE_PERF_PROFILING != 0
 void
@@ -3112,7 +3232,7 @@ aot_dump_perf_profiling(const AOTModuleInstance *module_inst)
                       perf_prof->total_exec_cnt);
     }
 }
-#endif /* end of WASM_ENABLE_PERF_PROFILING */
+#endif /* end of WASM_ENABLE_PERF_PROFILING != 0 */
 
 #if WASM_ENABLE_STATIC_PGO != 0
 

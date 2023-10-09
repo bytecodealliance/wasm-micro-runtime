@@ -158,12 +158,38 @@ get_target_block(AOTFuncContext *func_ctx, uint32 br_depth)
     return block;
 }
 
+static void
+clear_frame_locals(AOTCompFrame *aot_frame)
+{
+    uint32 i;
+
+    for (i = 0; i < aot_frame->max_local_cell_num; i++) {
+        aot_frame->lp[i].dirty = 0;
+        aot_frame->lp[i].value = NULL;
+    }
+}
+
+static void
+restore_frame_sp(AOTBlock *block, AOTCompFrame *aot_frame)
+{
+    uint32 stack_cell_num;
+
+    bh_assert(aot_frame->sp >= block->frame_sp_begin);
+
+    stack_cell_num = aot_frame->sp - block->frame_sp_begin;
+    if (stack_cell_num > 0) {
+        memset(block->frame_sp_begin, 0, sizeof(AOTValueSlot) * stack_cell_num);
+    }
+    aot_frame->sp = block->frame_sp_begin;
+}
+
 static bool
 handle_next_reachable_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                             uint8 **p_frame_ip)
 {
     AOTBlock *block = func_ctx->block_stack.block_list_end;
     AOTBlock *block_prev;
+    AOTCompFrame *aot_frame = comp_ctx->aot_frame;
     uint8 *frame_ip = NULL;
     uint32 i;
     AOTFuncType *func_type;
@@ -180,10 +206,22 @@ handle_next_reachable_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         comp_ctx, func_ctx,
         (*p_frame_ip - 1) - comp_ctx->comp_data->wasm_module->buf_code);
 #endif
+
+    if (aot_frame) {
+        /* Clear frame local variables since they have been committed */
+        clear_frame_locals(aot_frame);
+    }
+
     if (block->label_type == LABEL_TYPE_IF && block->llvm_else_block
         && *p_frame_ip <= block->wasm_code_else) {
         /* Clear value stack and start to translate else branch */
-        aot_value_stack_destroy(&block->value_stack);
+        aot_value_stack_destroy(comp_ctx, &block->value_stack);
+
+        if (aot_frame) {
+            /* Restore the frame sp */
+            restore_frame_sp(block, aot_frame);
+        }
+
         /* Recover parameters of else branch */
         for (i = 0; i < block->param_count; i++)
             PUSH(block->else_param_phis[i], block->param_types[i]);
@@ -196,11 +234,16 @@ handle_next_reachable_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         block_prev = block->prev;
         block = aot_block_stack_pop(&func_ctx->block_stack);
 
+        if (aot_frame) {
+            /* Restore the frame sp */
+            restore_frame_sp(block, aot_frame);
+        }
+
         if (block->label_type == LABEL_TYPE_IF) {
             if (block->llvm_else_block && !block->skip_wasm_code_else
                 && *p_frame_ip <= block->wasm_code_else) {
                 /* Clear value stack and start to translate else branch */
-                aot_value_stack_destroy(&block->value_stack);
+                aot_value_stack_destroy(comp_ctx, &block->value_stack);
                 SET_BUILDER_POS(block->llvm_else_block);
                 *p_frame_ip = block->wasm_code_else + 1;
                 /* Push back the block */
@@ -215,7 +258,7 @@ handle_next_reachable_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
 
         frame_ip = block->wasm_code_end;
-        aot_block_destroy(block);
+        aot_block_destroy(comp_ctx, block);
         block = block_prev;
     }
 
@@ -229,6 +272,12 @@ handle_next_reachable_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     /* Pop block, push its return value, and destroy the block */
     block = aot_block_stack_pop(&func_ctx->block_stack);
+
+    if (aot_frame) {
+        /* Restore the frame sp */
+        restore_frame_sp(block, aot_frame);
+    }
+
     func_type = func_ctx->aot_func->func_type;
     for (i = 0; i < block->result_count; i++) {
         bh_assert(block->result_phis[i]);
@@ -272,7 +321,7 @@ handle_next_reachable_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 #endif
         }
     }
-    aot_block_destroy(block);
+    aot_block_destroy(comp_ctx, block);
     return true;
 fail:
     return false;
@@ -366,6 +415,9 @@ push_aot_block_to_stack_and_pass_params(AOTCompContext *comp_ctx,
 
     /* Push the new block to block stack */
     aot_block_stack_push(&func_ctx->block_stack, block);
+    if (comp_ctx->aot_frame) {
+        block->frame_sp_begin = comp_ctx->aot_frame->sp;
+    }
 
     /* Push param phis to the new block */
     for (i = 0; i < block->param_count; i++) {
@@ -448,6 +500,13 @@ aot_compile_op_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     block->block_index = func_ctx->block_stack.block_index[label_type];
     func_ctx->block_stack.block_index[label_type]++;
 
+    if (comp_ctx->aot_frame) {
+        if (label_type != LABEL_TYPE_BLOCK
+            && !aot_gen_commit_values(comp_ctx->aot_frame)) {
+            goto fail;
+        }
+    }
+
     if (label_type == LABEL_TYPE_BLOCK || label_type == LABEL_TYPE_LOOP) {
         /* Create block */
         format_block_name(name, sizeof(name), block->block_index, label_type,
@@ -475,7 +534,7 @@ aot_compile_op_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                                      false, NULL, NULL))) {
                 goto fail;
             }
-            aot_block_destroy(block);
+            aot_block_destroy(comp_ctx, block);
             return aot_handle_next_reachable_block(comp_ctx, func_ctx,
                                                    p_frame_ip);
         }
@@ -555,7 +614,7 @@ aot_compile_op_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 }
                 else {
                     /* skip the block */
-                    aot_block_destroy(block);
+                    aot_block_destroy(comp_ctx, block);
                     *p_frame_ip = end_addr + 1;
                 }
             }
@@ -568,7 +627,7 @@ aot_compile_op_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     return true;
 fail:
-    aot_block_destroy(block);
+    aot_block_destroy(comp_ctx, block);
     return false;
 }
 
@@ -578,6 +637,7 @@ aot_compile_op_else(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 {
     AOTBlock *block = func_ctx->block_stack.block_list_end;
     LLVMValueRef value;
+    AOTCompFrame *aot_frame = comp_ctx->aot_frame;
     char name[32];
     uint32 i, result_index;
 
@@ -613,14 +673,29 @@ aot_compile_op_else(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         ADD_TO_RESULT_PHIS(block, value, result_index);
     }
 
+    if (aot_frame) {
+        bh_assert(block->frame_sp_begin == aot_frame->sp);
+        if (!aot_gen_commit_values(aot_frame)) {
+            goto fail;
+        }
+    }
+
     /* Jump to end block */
     BUILD_BR(block->llvm_end_block);
 
     if (!block->skip_wasm_code_else && block->llvm_else_block) {
         /* Clear value stack, recover param values
-         * and start to translate else branch.
-         */
-        aot_value_stack_destroy(&block->value_stack);
+           and start to translate else branch. */
+        aot_value_stack_destroy(comp_ctx, &block->value_stack);
+
+        if (comp_ctx->aot_frame) {
+            comp_ctx->aot_frame->sp = block->frame_sp_begin;
+            for (i = 0; i < comp_ctx->aot_frame->max_local_cell_num; i++) {
+                comp_ctx->aot_frame->lp[i].dirty = 0;
+                comp_ctx->aot_frame->lp[i].value = NULL;
+            }
+        }
+
         for (i = 0; i < block->param_count; i++)
             PUSH(block->else_param_phis[i], block->param_types[i]);
         SET_BUILDER_POS(block->llvm_else_block);
@@ -660,6 +735,13 @@ aot_compile_op_end(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             MOVE_BLOCK_BEFORE(block->llvm_end_block, next_llvm_end_block);
     }
 
+    if (comp_ctx->aot_frame) {
+        if (block->label_type != LABEL_TYPE_FUNCTION
+            && !aot_gen_commit_values(comp_ctx->aot_frame)) {
+            return false;
+        }
+    }
+
     /* Handle block result values */
     CREATE_RESULT_VALUE_PHIS(block);
     for (i = 0; i < block->result_count; i++) {
@@ -668,6 +750,10 @@ aot_compile_op_end(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         POP(value, block->result_types[result_index]);
         bh_assert(value);
         ADD_TO_RESULT_PHIS(block, value, result_index);
+    }
+
+    if (comp_ctx->aot_frame) {
+        restore_frame_sp(block, comp_ctx->aot_frame);
     }
 
     /* Jump to the end block */
@@ -681,7 +767,8 @@ fail:
 
 #if WASM_ENABLE_THREAD_MGR != 0
 bool
-check_suspend_flags(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+check_suspend_flags(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                    bool check_terminate_and_suspend)
 {
     LLVMValueRef terminate_addr, terminate_flags, flag, offset, res;
     LLVMBasicBlockRef terminate_block, non_terminate_block;
@@ -761,17 +848,28 @@ aot_compile_op_br(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     char name[32];
     uint32 i, param_index, result_index;
 
-#if WASM_ENABLE_THREAD_MGR != 0
-    /* Insert suspend check point */
-    if (comp_ctx->enable_thread_mgr) {
-        if (!check_suspend_flags(comp_ctx, func_ctx))
-            return false;
-    }
-#endif
-
     if (!(block_dst = get_target_block(func_ctx, br_depth))) {
         return false;
     }
+
+    if (comp_ctx->aot_frame) {
+        if (!aot_gen_commit_values(comp_ctx->aot_frame))
+            return false;
+        if (block_dst->label_type == LABEL_TYPE_LOOP) {
+            if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame,
+                                      comp_ctx->aot_frame->sp, *p_frame_ip))
+                return false;
+        }
+    }
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Terminate or suspend current thread only when this is a backward jump */
+    if (comp_ctx->enable_thread_mgr
+        && block_dst->label_type == LABEL_TYPE_LOOP) {
+        if (!check_suspend_flags(comp_ctx, func_ctx, true))
+            return false;
+    }
+#endif
 
     if (block_dst->label_type == LABEL_TYPE_LOOP) {
         /* Dest block is Loop block */
@@ -825,6 +923,30 @@ aot_compile_conditional_br(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     uint32 i, param_index, result_index;
     uint64 size;
 
+    if (!(block_dst = get_target_block(func_ctx, br_depth))) {
+        return false;
+    }
+
+    if (comp_ctx->aot_frame) {
+        if (!aot_gen_commit_values(comp_ctx->aot_frame))
+            return false;
+        if (block_dst->label_type == LABEL_TYPE_LOOP) {
+            if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame,
+                                      comp_ctx->aot_frame->sp, *p_frame_ip))
+                return false;
+        }
+    }
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Terminate or suspend current thread only when this is
+       a backward jump */
+    if (comp_ctx->enable_thread_mgr
+        && block_dst->label_type == LABEL_TYPE_LOOP) {
+        if (!check_suspend_flags(comp_ctx, func_ctx, true))
+            return false;
+    }
+#endif
+
     if (LLVMIsUndef(value_cmp)
 #if LLVM_VERSION_NUMBER >= 12
         || LLVMIsPoison(value_cmp)
@@ -839,9 +961,6 @@ aot_compile_conditional_br(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     if (!LLVMIsEfficientConstInt(value_cmp)) {
         /* Compare value is not constant, create condition br IR */
-        if (!(block_dst = get_target_block(func_ctx, br_depth))) {
-            return false;
-        }
 
         /* Create llvm else block */
         CREATE_BLOCK(llvm_else_block, "br_if_else");
@@ -944,14 +1063,6 @@ aot_compile_op_br_if(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 {
     LLVMValueRef value_cmp;
 
-#if WASM_ENABLE_THREAD_MGR != 0
-    /* Insert suspend check point */
-    if (comp_ctx->enable_thread_mgr) {
-        if (!check_suspend_flags(comp_ctx, func_ctx))
-            return false;
-    }
-#endif
-
     POP_COND(value_cmp);
 
     return aot_compile_conditional_br(comp_ctx, func_ctx, br_depth, p_frame_ip,
@@ -974,14 +1085,6 @@ aot_compile_op_br_table(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     uint64 size;
     char name[32];
 
-#if WASM_ENABLE_THREAD_MGR != 0
-    /* Insert suspend check point */
-    if (comp_ctx->enable_thread_mgr) {
-        if (!check_suspend_flags(comp_ctx, func_ctx))
-            return false;
-    }
-#endif
-
     POP_I32(value_cmp);
 
     if (LLVMIsUndef(value_cmp)
@@ -997,6 +1100,31 @@ aot_compile_op_br_table(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     if (!LLVMIsEfficientConstInt(value_cmp)) {
+        if (comp_ctx->aot_frame) {
+            if (!aot_gen_commit_values(comp_ctx->aot_frame))
+                return false;
+            if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame,
+                                      comp_ctx->aot_frame->sp, *p_frame_ip))
+                return false;
+        }
+
+#if WASM_ENABLE_THREAD_MGR != 0
+        if (comp_ctx->enable_thread_mgr) {
+            for (i = 0; i <= br_count; i++) {
+                target_block = get_target_block(func_ctx, br_depths[i]);
+                if (!target_block)
+                    return false;
+                /* Terminate or suspend current thread only when this is a
+                   backward jump */
+                if (target_block->label_type == LABEL_TYPE_LOOP) {
+                    if (!check_suspend_flags(comp_ctx, func_ctx, true))
+                        return false;
+                    break;
+                }
+            }
+        }
+#endif
+
         /* Compare value is not constant, create switch IR */
         for (i = 0; i <= br_count; i++) {
             target_block = get_target_block(func_ctx, br_depths[i]);
@@ -1125,6 +1253,7 @@ aot_compile_op_return(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         comp_ctx, func_ctx,
         (*p_frame_ip - 1) - comp_ctx->comp_data->wasm_module->buf_code);
 #endif
+
     if (block_func->result_count) {
         /* Store extra result values to function parameters */
         for (i = 0; i < block_func->result_count - 1; i++) {
@@ -1190,14 +1319,6 @@ aot_compile_op_br_on_null(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 {
     LLVMValueRef gc_obj, value_cmp;
 
-#if WASM_ENABLE_THREAD_MGR != 0
-    /* Insert suspend check point */
-    if (comp_ctx->enable_thread_mgr) {
-        if (!check_suspend_flags(comp_ctx, func_ctx))
-            return false;
-    }
-#endif
-
     GET_REF_FROM_STACK(gc_obj);
 
     if (!(value_cmp =
@@ -1218,14 +1339,6 @@ aot_compile_op_br_on_non_null(AOTCompContext *comp_ctx,
                               uint8 **p_frame_ip)
 {
     LLVMValueRef gc_obj, value_cmp;
-
-#if WASM_ENABLE_THREAD_MGR != 0
-    /* Insert suspend check point */
-    if (comp_ctx->enable_thread_mgr) {
-        if (!check_suspend_flags(comp_ctx, func_ctx))
-            return false;
-    }
-#endif
 
     GET_REF_FROM_STACK(gc_obj);
 
@@ -1249,14 +1362,6 @@ aot_compile_op_br_on_cast(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMValueRef gc_obj, cmp, castable, is_branching_phi, phi_values[2];
     LLVMBasicBlockRef gc_obj_null, gc_obj_non_null, conditional_branching,
         phi_blocks[2];
-
-#if WASM_ENABLE_THREAD_MGR != 0
-    /* Insert suspend check point */
-    if (comp_ctx->enable_thread_mgr) {
-        if (!check_suspend_flags(comp_ctx, func_ctx))
-            return false;
-    }
-#endif
 
     GET_REF_FROM_STACK(gc_obj);
 

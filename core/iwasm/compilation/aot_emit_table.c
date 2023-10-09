@@ -245,7 +245,7 @@ bool
 aot_compile_op_table_set(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                          uint32 tbl_idx)
 {
-    LLVMValueRef val, elem_idx, offset, table_elem;
+    LLVMValueRef val = NULL, elem_idx, offset, table_elem;
 
     if (comp_ctx->enable_gc)
         POP_REF(val);

@@ -1501,7 +1501,7 @@ aot_compile_op_atomic_wait(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 #if WASM_ENABLE_THREAD_MGR != 0
     /* Insert suspend check point */
     if (comp_ctx->enable_thread_mgr) {
-        if (!check_suspend_flags(comp_ctx, func_ctx))
+        if (!check_suspend_flags(comp_ctx, func_ctx, false))
             return false;
     }
 #endif

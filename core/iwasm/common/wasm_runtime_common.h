@@ -456,6 +456,10 @@ typedef struct wasm_frame_t {
     uint32 func_index;
     uint32 func_offset;
     const char *func_name_wp;
+
+    uint32 *sp;
+    uint8 *frame_ref;
+    uint32 *lp;
 } WASMCApiFrame;
 
 #ifdef WASM_ENABLE_JIT

@@ -2092,6 +2092,34 @@ load_function_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
         }
     }
 
+    size = sizeof(uint32) * (uint64)module->func_count;
+
+    if (size > 0) {
+#if WASM_ENABLE_AOT_STACK_FRAME != 0
+        if (!(module->max_local_cell_nums =
+                  loader_malloc(size, error_buf, error_buf_size))) {
+            return false;
+        }
+
+        for (i = 0; i < module->func_count; i++) {
+            read_uint32(p, p_end, module->max_local_cell_nums[i]);
+        }
+
+        if (!(module->max_stack_cell_nums =
+                  loader_malloc(size, error_buf, error_buf_size))) {
+            return false;
+        }
+
+        for (i = 0; i < module->func_count; i++) {
+            read_uint32(p, p_end, module->max_stack_cell_nums[i]);
+        }
+#else
+        /* Ignore max_local_cell_num and max_stack_cell_num of each function */
+        CHECK_BUF(p, p_end, ((uint32)size * 2));
+        p += (uint32)size * 2;
+#endif
+    }
+
     if (p != buf_end) {
         set_error_buf(error_buf, error_buf_size,
                       "invalid function section size");
@@ -3617,6 +3645,13 @@ aot_unload(AOTModule *module)
 
     if (module->func_type_indexes)
         wasm_runtime_free(module->func_type_indexes);
+
+#if WASM_ENABLE_AOT_STACK_FRAME != 0
+    if (module->max_local_cell_nums)
+        wasm_runtime_free(module->max_local_cell_nums);
+    if (module->max_stack_cell_nums)
+        wasm_runtime_free(module->max_stack_cell_nums);
+#endif
 
     if (module->func_ptrs)
         wasm_runtime_free(module->func_ptrs);

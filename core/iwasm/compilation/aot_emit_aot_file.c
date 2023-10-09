@@ -618,14 +618,21 @@ get_text_section_size(AOTObjectData *obj_data)
 static uint32
 get_func_section_size(AOTCompData *comp_data, AOTObjectData *obj_data)
 {
-    /* text offsets + function type indexs */
     uint32 size = 0;
 
+    /* text offsets */
     if (is_32bit_binary(obj_data))
         size = (uint32)sizeof(uint32) * comp_data->func_count;
     else
         size = (uint32)sizeof(uint64) * comp_data->func_count;
 
+    /* function type indexes */
+    size += (uint32)sizeof(uint32) * comp_data->func_count;
+
+    /* max_local_cell_nums */
+    size += (uint32)sizeof(uint32) * comp_data->func_count;
+
+    /* max_stack_cell_nums */
     size += (uint32)sizeof(uint32) * comp_data->func_count;
     return size;
 }
@@ -2062,6 +2069,15 @@ aot_emit_func_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
 
     for (i = 0; i < comp_data->func_count; i++)
         EMIT_U32(funcs[i]->func_type_index);
+
+    for (i = 0; i < comp_data->func_count; i++) {
+        uint32 max_local_cell_num =
+            funcs[i]->param_cell_num + funcs[i]->local_cell_num;
+        EMIT_U32(max_local_cell_num);
+    }
+
+    for (i = 0; i < comp_data->func_count; i++)
+        EMIT_U32(funcs[i]->max_stack_cell_num);
 
     if (offset - *p_offset != section_size + sizeof(uint32) * 2) {
         aot_set_last_error("emit function section failed.");

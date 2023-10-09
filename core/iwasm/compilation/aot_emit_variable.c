@@ -73,10 +73,46 @@ aot_compile_op_set_local(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                          uint32 local_idx)
 {
     LLVMValueRef value;
+    uint8 local_type;
+    uint32 n;
 
     CHECK_LOCAL(local_idx);
 
-    POP(value, get_local_type(comp_ctx, func_ctx, local_idx));
+    local_type = get_local_type(comp_ctx, func_ctx, local_idx);
+
+    POP(value, local_type);
+
+    if (comp_ctx->aot_frame) {
+        /* Get the slot index */
+        n = comp_ctx->aot_frame->cur_wasm_func->local_offsets[local_idx];
+        bh_assert(comp_ctx->aot_frame->lp[n].type == local_type);
+
+        switch (local_type) {
+            case VALUE_TYPE_I32:
+                set_local_i32(comp_ctx->aot_frame, n, value);
+                break;
+            case VALUE_TYPE_I64:
+                set_local_i64(comp_ctx->aot_frame, n, value);
+                break;
+            case VALUE_TYPE_F32:
+                set_local_f32(comp_ctx->aot_frame, n, value);
+                break;
+            case VALUE_TYPE_F64:
+                set_local_f64(comp_ctx->aot_frame, n, value);
+                break;
+            case VALUE_TYPE_V128:
+                set_local_v128(comp_ctx->aot_frame, n, value);
+                break;
+            case VALUE_TYPE_FUNCREF:
+            case VALUE_TYPE_EXTERNREF:
+                set_local_ref(comp_ctx->aot_frame, n, value, local_type);
+                break;
+            /* TODO: handle GC ref types */
+            default:
+                bh_assert(0);
+                break;
+        }
+    }
 
     if (!LLVMBuildStore(comp_ctx->builder, value,
                         func_ctx->locals[local_idx])) {

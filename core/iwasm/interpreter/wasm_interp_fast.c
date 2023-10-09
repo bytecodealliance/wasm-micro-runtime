@@ -344,6 +344,12 @@ init_frame_refs(uint8 *frame_ref, uint32 cell_num, WASMFunctionInstance *func)
     }
 }
 
+uint8 *
+wasm_interp_get_frame_ref(WASMInterpFrame *frame)
+{
+    return frame->frame_ref;
+}
+
 /* Return the corresponding ref slot of the given slot of local
    variable or stack pointer. */
 

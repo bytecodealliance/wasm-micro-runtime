@@ -360,6 +360,7 @@ aot_create_funcs(const WASMModule *module)
         funcs[i]->local_types = func->local_types;
         funcs[i]->param_cell_num = func->param_cell_num;
         funcs[i]->local_cell_num = func->local_cell_num;
+        funcs[i]->max_stack_cell_num = func->max_stack_cell_num;
         funcs[i]->code = func->code;
         funcs[i]->code_size = func->code_size;
     }

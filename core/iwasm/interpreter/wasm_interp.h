@@ -95,6 +95,9 @@ wasm_interp_call_wasm(struct WASMModuleInstance *module_inst,
 #if WASM_ENABLE_GC != 0
 bool
 wasm_interp_traverse_gc_rootset(struct WASMExecEnv *exec_env, void *heap);
+
+uint8 *
+wasm_interp_get_frame_ref(WASMInterpFrame *frame);
 #endif
 
 #ifdef __cplusplus

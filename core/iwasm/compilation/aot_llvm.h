@@ -63,6 +63,8 @@ extern "C" {
 #undef DUMP_MODULE
 #endif
 
+struct AOTValueSlot;
+
 /**
  * Value in the WASM operation stack, each stack element
  * is an LLVM value
@@ -84,6 +86,54 @@ typedef struct AOTValueStack {
     AOTValue *value_list_head;
     AOTValue *value_list_end;
 } AOTValueStack;
+
+/* Record information of a value slot of local variable or stack
+   during translation */
+typedef struct AOTValueSlot {
+    /* The LLVM value of this slot */
+    LLVMValueRef value;
+
+    /* The value type of this slot */
+    uint8 type;
+
+    /* The dirty bit of the value slot. It's set if the value in
+       register is newer than the value in memory. */
+    uint32 dirty : 1;
+
+    /* Whether the new value in register is a reference, which is valid
+       only when the dirty bit is set. */
+    uint32 ref : 1;
+
+    /* Committed reference flag:
+         0: unknown, 1: not-reference, 2: reference */
+    uint32 committed_ref : 2;
+} AOTValueSlot;
+
+/* Frame information for translation */
+typedef struct AOTCompFrame {
+    /* The current wasm module */
+    WASMModule *cur_wasm_module;
+    /* The current wasm function */
+    WASMFunction *cur_wasm_func;
+    /* The current wasm function index */
+    uint32 cur_wasm_func_idx;
+    /* The current compilation context */
+    struct AOTCompContext *comp_ctx;
+    /* The current function context */
+    struct AOTFuncContext *func_ctx;
+
+    /* Max local slot number */
+    uint32 max_local_cell_num;
+
+    /* Max operand stack slot number */
+    uint32 max_stack_cell_num;
+
+    /* Stack top pointer */
+    AOTValueSlot *sp;
+
+    /* Local variables + stack operands */
+    AOTValueSlot lp[1];
+} AOTCompFrame;
 
 typedef struct AOTBlock {
     struct AOTBlock *next;
@@ -123,6 +173,9 @@ typedef struct AOTBlock {
     uint32 result_count;
     uint8 *result_types;
     LLVMValueRef *result_phis;
+
+    /* The begin frame stack pointer of this block */
+    AOTValueSlot *frame_sp_begin;
 } AOTBlock;
 
 /**
@@ -174,6 +227,8 @@ typedef struct AOTFuncContext {
     AOTMemInfo *mem_info;
 
     LLVMValueRef cur_exception;
+
+    LLVMValueRef cur_frame;
 
     bool mem_space_unchanged;
     AOTCheckedAddrList checked_addr_list;
@@ -407,7 +462,6 @@ typedef struct AOTCompContext {
     AOTLLVMConsts llvm_consts;
 
     /* Function contexts */
-    /* TODO: */
     AOTFuncContext **func_ctxes;
     uint32 func_ctx_count;
     char **custom_sections_wp;
@@ -431,6 +485,9 @@ typedef struct AOTCompContext {
     char stack_usage_temp_file[64];
     const char *llvm_passes;
     const char *builtin_intrinsics;
+
+    /* Current frame information for translation */
+    AOTCompFrame *aot_frame;
 } AOTCompContext;
 
 enum {
@@ -499,13 +556,14 @@ void
 aot_destroy_elf_file(uint8 *elf_file);
 
 void
-aot_value_stack_push(AOTValueStack *stack, AOTValue *value);
+aot_value_stack_push(const AOTCompContext *comp_ctx, AOTValueStack *stack,
+                     AOTValue *value);
 
 AOTValue *
-aot_value_stack_pop(AOTValueStack *stack);
+aot_value_stack_pop(const AOTCompContext *comp_ctx, AOTValueStack *stack);
 
 void
-aot_value_stack_destroy(AOTValueStack *stack);
+aot_value_stack_destroy(AOTCompContext *comp_ctx, AOTValueStack *stack);
 
 void
 aot_block_stack_push(AOTBlockStack *stack, AOTBlock *block);
@@ -514,10 +572,10 @@ AOTBlock *
 aot_block_stack_pop(AOTBlockStack *stack);
 
 void
-aot_block_stack_destroy(AOTBlockStack *stack);
+aot_block_stack_destroy(AOTCompContext *comp_ctx, AOTBlockStack *stack);
 
 void
-aot_block_destroy(AOTBlock *block);
+aot_block_destroy(AOTCompContext *comp_ctx, AOTBlock *block);
 
 LLVMTypeRef
 wasm_type_to_llvm_type(const AOTLLVMTypes *llvm_types, uint8 wasm_type);

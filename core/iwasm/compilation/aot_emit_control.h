@@ -52,7 +52,8 @@ aot_handle_next_reachable_block(AOTCompContext *comp_ctx,
 
 #if WASM_ENABLE_THREAD_MGR != 0
 bool
-check_suspend_flags(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
+check_suspend_flags(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                    bool check_terminate_and_suspend);
 #endif
 
 #if WASM_ENABLE_GC != 0
