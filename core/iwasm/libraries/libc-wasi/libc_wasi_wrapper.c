@@ -290,6 +290,7 @@ wasi_fd_prestat_get(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_prestat_t prestat;
     wasi_errno_t err;
 
+    LOG_STRACE("wasi_fd_prestat_get exec_env=%d, fd=%d \n", exec_env, fd);
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
@@ -313,6 +314,8 @@ wasi_fd_prestat_dir_name(wasm_exec_env_t exec_env, wasi_fd_t fd, char *path,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_prestats *prestats = wasi_ctx_get_prestats(module_inst, wasi_ctx);
 
+    LOG_STRACE("wasi_fd_prestat_dir_name exec_env=%d, fd=%d, path=%s, path_len=%d \n", exec_env, fd, path, path_len);
+
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
@@ -327,6 +330,8 @@ wasi_fd_close(wasm_exec_env_t exec_env, wasi_fd_t fd)
     struct fd_table *curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
     struct fd_prestats *prestats = wasi_ctx_get_prestats(module_inst, wasi_ctx);
 
+    LOG_STRACE("wasi_fd_close exec_env=%d, fd=%d \n", exec_env, fd);
+
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
@@ -339,6 +344,8 @@ wasi_fd_datasync(wasm_exec_env_t exec_env, wasi_fd_t fd)
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
+
+    LOG_STRACE("wasi_fd_datasync exec_env=%d, fd=%d \n", exec_env, fd);
 
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
@@ -393,6 +400,7 @@ wasi_fd_pread(wasm_exec_env_t exec_env, wasi_fd_t fd, iovec_app_t *iovec_app,
 
     /* success */
     err = 0;
+    LOG_STRACE("wasi_fd_pread exec_env=%d, fd=%d \n", exec_env, fd);
 
 fail:
     wasm_runtime_free(iovec_begin);
@@ -447,6 +455,7 @@ wasi_fd_pwrite(wasm_exec_env_t exec_env, wasi_fd_t fd,
 
     /* success */
     err = 0;
+    LOG_STRACE("wasi_fd_pwrite exec_env=%d, fd=%d, iovec_app=%d, iovs_len=%d, offset=%d, nwritten_app=%d \n", exec_env, fd, iovec_app, iovs_len, offset, nwritten_app);
 
 fail:
     wasm_runtime_free(ciovec_begin);
@@ -502,6 +511,8 @@ wasi_fd_read(wasm_exec_env_t exec_env, wasi_fd_t fd,
 
     /* success */
     err = 0;
+    LOG_STRACE("wasi_fd_read exec_env=%d, fd=%d, iovec_app=%d, iovs_len=%d, nread_app=%d \n", exec_env, fd, iovec_app, iovs_len, nread_app);
+
 
 fail:
     wasm_runtime_free(iovec_begin);
@@ -519,7 +530,7 @@ wasi_fd_renumber(wasm_exec_env_t exec_env, wasi_fd_t from, wasi_fd_t to)
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
-    LOG_FATAL("wasi_fd_renumber %d %d\n", from, to);
+    LOG_FATAL("wasi_fd_renumber from= %d from=%d\n", from, to);
     return wasmtime_ssp_fd_renumber(curfds, prestats, from, to);
 }
 
@@ -533,6 +544,9 @@ wasi_fd_seek(wasm_exec_env_t exec_env, wasi_fd_t fd, wasi_filedelta_t offset,
 #if WASM_ENABLE_CHECKPOINT_RESTORE!=0
     insert_fd(fd, "", 0, offset);
 #endif
+ 
+    LOG_STRACE("wasi_fd_seek exec_env=%d, fd=%d, offset=%d, whence=%d, newoffset=%d \n", exec_env, fd, offset, whence, newoffset);
+
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
@@ -548,6 +562,8 @@ wasi_fd_tell(wasm_exec_env_t exec_env, wasi_fd_t fd, wasi_filesize_t *newoffset)
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
+
+    LOG_STRACE("wasi_fd_tell exec_env=%d, fd=%d, newoffset=%d \n", exec_env, fd, newoffset);
 
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
@@ -568,6 +584,7 @@ wasi_fd_fdstat_get(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_fdstat_t fdstat;
     wasi_errno_t err;
 
+    LOG_STRACE("wasi_fd_fdstat_get exec_env=%d, fd=%d \n", exec_env, fd);
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
@@ -592,6 +609,7 @@ wasi_fd_fdstat_set_flags(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
 
+    LOG_STRACE("wasi_fd_fdstat_set_flags exec_env=%d, fd=%d, flags=%d \n", exec_env, fd, flags);
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
@@ -607,6 +625,7 @@ wasi_fd_fdstat_set_rights(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
 
+    LOG_STRACE("wasi_fd_fdstat_set_rights exec_env=%d, fd=%d, fs_rights_base=%d, fs_rights_inheriting=%d \n", exec_env, fd, fs_rights_base, fs_rights_inheriting);
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
@@ -621,6 +640,7 @@ wasi_fd_sync(wasm_exec_env_t exec_env, wasi_fd_t fd)
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
 
+    LOG_STRACE("wasi_fd_sync exec_env=%d, fd=%d \n", exec_env, fd);
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
@@ -644,6 +664,7 @@ wasi_fd_write(wasm_exec_env_t exec_env, wasi_fd_t fd,
     insert_fd(fd, "", 0, iovs_len);
 #endif
 
+
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
     if(!nwritten_app) return 0;
@@ -653,7 +674,7 @@ wasi_fd_write(wasm_exec_env_t exec_env, wasi_fd_t fd,
         || !validate_native_addr((void *)iovec_app, (uint32)total_size))
         return (wasi_errno_t)-1;
 // for STrace
-    LOG_STRACE("wasi_fd_sync exec_env=%d, fd=%d, iovec_app=%d, iovs_len=%d", exec_env, fd, iovec_app, iovs_len);
+    LOG_STRACE("wasi_fd_sync exec_env=%d, fd=%d, iovec_app=%d, iovs_len=%d \n", exec_env, fd, iovec_app, iovs_len);
     total_size = sizeof(wasi_ciovec_t) * (uint64)iovs_len;
     if (total_size >= UINT32_MAX
         || !(ciovec_begin = wasm_runtime_malloc((uint32)total_size)))
@@ -720,6 +741,7 @@ wasi_path_create_directory(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
 
+    LOG_STRACE("wasi_path_create_directory exec_env=%d, fd=%d, path=%s, path_len=%d \n", exec_env, fd, path, path_len);
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
@@ -737,6 +759,7 @@ wasi_path_link(wasm_exec_env_t exec_env, wasi_fd_t old_fd,
     struct fd_table *curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
     struct fd_prestats *prestats = wasi_ctx_get_prestats(module_inst, wasi_ctx);
 
+    LOG_STRACE("wasi_path_link exec_env=%d, old_fd=%d, old_flags=%d, old_path=%s, old_path_len=%d, new_fd=%d, new_path=%s, new_path_len=%d \n", exec_env, old_fd, old_flags, old_path, old_path_len, new_fd, new_path, new_path_len);
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
@@ -757,6 +780,7 @@ wasi_path_open(wasm_exec_env_t exec_env, wasi_fd_t dirfd,
     wasi_fd_t fd = (wasi_fd_t)-1; /* set fd_app -1 if path open failed */
     wasi_errno_t err;
 
+    LOG_STRACE("wasi_path_open exec_env=%d, dirfd=%d, dirflags=%d, path=%s, path_len=%d, oflags=%d, fs_rights_base=%d, fs_rights_inheriting=%d, fs_flags=%d, fd_app=%d \n", exec_env, dirfd, dirflags, path, path_len, oflags, fs_rights_base, fs_rights_inheriting, fs_flags, fd_app);
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
@@ -781,6 +805,7 @@ wasi_fd_readdir(wasm_exec_env_t exec_env, wasi_fd_t fd, void *buf,
     size_t bufused;
     wasi_errno_t err;
 
+    LOG_STRACE("wasi_fd_readdir exec_env=%d, fd=%d, buf=%d, buf_len=%d, cookie=%d, bufused_app=%d \n", exec_env, fd, buf, buf_len, cookie, bufused_app);
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
@@ -806,6 +831,7 @@ wasi_path_readlink(wasm_exec_env_t exec_env, wasi_fd_t fd, const char *path,
     size_t bufused;
     wasi_errno_t err;
 
+    LOG_STRACE("wasi_path_readlink exec_env=%d, fd=%d, path=%s, path_len=%d, buf=%d, buf_len=%d, bufused_app=%d \n", exec_env, fd, path, path_len, buf, buf_len, bufused_app);
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
@@ -830,6 +856,7 @@ wasi_path_rename(wasm_exec_env_t exec_env, wasi_fd_t old_fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
 
+    LOG_STRACE("wasi_path_rename exec_env=%d, old_fd=%d, old_path=%s, old_path_len=%d, new_fd=%d, new_path=%s, new_path_len=%d \n", exec_env, old_fd, old_path, old_path_len, new_fd, new_path, new_path_len);
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
@@ -845,6 +872,7 @@ wasi_fd_filestat_get(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
 
+    LOG_STRACE("wasi_fd_filestat_get exec_env=%d, fd=%d, filestat=%d \n", exec_env, fd, filestat);
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
@@ -863,6 +891,7 @@ wasi_fd_filestat_set_times(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
 
+    LOG_STRACE("wasi_fd_filestat_set_times exec_env=%d, fd=%d, st_atim=%d, st_mtim=%d, fstflags=%d \n", exec_env, fd, st_atim, st_mtim, fstflags);
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
@@ -878,6 +907,7 @@ wasi_fd_filestat_set_size(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
 
+    LOG_STRACE("wasi_fd_filestat_set_size exec_env=%d, fd=%d, st_size=%d \n", exec_env, fd, st_size);
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
@@ -913,6 +943,7 @@ wasi_path_filestat_set_times(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
 
+    LOG_STRACE("exec_env=%d, fd=%d, flags=%d, path=%s, path_len=%d, st_atim=%d, st_mtim=%d, fstflags=%d \n", exec_env, fd, flags, path, path_len, st_atim, st_mtim, fstflags);
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
@@ -930,6 +961,7 @@ wasi_path_symlink(wasm_exec_env_t exec_env, const char *old_path,
     struct fd_table *curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
     struct fd_prestats *prestats = wasi_ctx_get_prestats(module_inst, wasi_ctx);
 
+    LOG_STRACE("wasi_path_symlink exec_env=%d, old_path=%s, old_path_len=%d, fd=%d, new_path=%s, new_path_len=%d \n", exec_env, old_path, old_path_len, fd, new_path, new_path_len);
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
@@ -945,6 +977,7 @@ wasi_path_unlink_file(wasm_exec_env_t exec_env, wasi_fd_t fd, const char *path,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
 
+    LOG_STRACE("wasi_path_unlink_file exec_env=%d, fd=%d, path=%s, path_len=%d \n", exec_env, fd, path, path_len);
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
@@ -959,6 +992,7 @@ wasi_path_remove_directory(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
 
+    LOG_STRACE("wasi_path_remove_directory exec_env=%d, fd=%d, path=%s, path_len=%d \n", exec_env, fd, path, path_len);
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
@@ -1077,6 +1111,7 @@ wasi_poll_oneoff(wasm_exec_env_t exec_env, const wasi_subscription_t *in,
     size_t nevents = 0;
     wasi_errno_t err;
 
+    LOG_STRACE("wasi_poll_oneoff exec_env=%d, in=%d, out=%d, nsubscriptions=%d, nevents_app=%d \n", exec_env, in, out, nsubscriptions, nevents_app);
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
@@ -1135,6 +1170,7 @@ wasi_sock_accept(wasm_exec_env_t exec_env, wasi_fd_t fd, wasi_fdflags_t flags,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_accept exec_env=%d, fd=%d, flags=%d, fd_new=%d \n", exec_env, fd, flags, fd_new);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1151,6 +1187,7 @@ wasi_sock_addr_local(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_addr_local exec_env=%d, fd=%d, addr=%d \n", exec_env, fd, addr);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1170,6 +1207,7 @@ wasi_sock_addr_remote(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_addr_remote exec_env=%d, fd=%d, addr=%d \n", exec_env, fd, addr);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1193,6 +1231,7 @@ wasi_sock_addr_resolve(wasm_exec_env_t exec_env, const char *host,
     struct fd_table *curfds = NULL;
     char **ns_lookup_list = NULL;
 
+    LOG_STRACE("wasi_sock_addr_resolve exec_env=%d, host=%s, service=%s, hints=%d, addr_info=%d, addr_info_size=%d, max_info_size=%d \n", exec_env, host, service, hints, addr_info, addr_info_size, max_info_size);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1212,6 +1251,7 @@ wasi_sock_bind(wasm_exec_env_t exec_env, wasi_fd_t fd, wasi_addr_t *addr)
     struct fd_table *curfds = NULL;
     struct addr_pool *addr_pool = NULL;
 
+    LOG_STRACE("wasi_sock_bind exec_env=%d, fd=%d, addr=%d \n", exec_env, fd, addr);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1235,6 +1275,7 @@ wasi_sock_connect(wasm_exec_env_t exec_env, wasi_fd_t fd, wasi_addr_t *addr)
     struct fd_table *curfds = NULL;
     struct addr_pool *addr_pool = NULL;
 
+    LOG_STRACE("wasi_sock_connect exec_env=%d, fd=%d, addr=%d \n", exec_env, fd, addr);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1252,6 +1293,7 @@ wasi_sock_get_broadcast(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_get_broadcast exec_env=%d, fd=%d, is_enabled=%d \n", exec_env, fd, is_enabled);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1271,6 +1313,7 @@ wasi_sock_get_keep_alive(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_get_keep_alive exec_env=%d, fd=%d, is_enabled=%d \n", exec_env, fd, is_enabled);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1290,6 +1333,7 @@ wasi_sock_get_linger(wasm_exec_env_t exec_env, wasi_fd_t fd, bool *is_enabled,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_get_linger exec_env=%d, fd=%d, is_enabled=%d, linger_s=%d \n", exec_env, fd, is_enabled, linger_s);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1310,6 +1354,7 @@ wasi_sock_get_recv_buf_size(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_get_recv_buf_size exec_env=%d, fd=%d, size=%d \n", exec_env, fd, size);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1329,6 +1374,7 @@ wasi_sock_get_recv_timeout(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_get_recv_timeout exec_env=%d, fd=%d, timeout_us=%d \n", exec_env, fd, timeout_us);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1348,6 +1394,7 @@ wasi_sock_get_reuse_addr(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_get_reuse_addr exec_env=%d, fd=%d, is_enabled=%d \n", exec_env, fd, is_enabled);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1367,6 +1414,7 @@ wasi_sock_get_reuse_port(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_get_reuse_port exec_env=%d, fd=%d, is_enabled=%d \n", exec_env, fd, is_enabled);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1386,6 +1434,7 @@ wasi_sock_get_send_buf_size(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_get_send_buf_size exec_env=%d, fd=%d, size=%d \n", exec_env, fd, size);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1405,6 +1454,7 @@ wasi_sock_get_send_timeout(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_get_send_timeout exec_env=%d, fd=%d, timeout_us=%d \n", exec_env, fd, timeout_us);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1424,6 +1474,7 @@ wasi_sock_get_tcp_fastopen_connect(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_get_tcp_fastopen_connect exec_env=%d, fd=%d, is_enabled=%d \n", exec_env, fd, is_enabled);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1443,6 +1494,7 @@ wasi_sock_get_tcp_no_delay(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_get_tcp_no_delay exec_env=%d, fd=%d, is_enabled=%d \n", exec_env, fd, is_enabled);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1462,6 +1514,7 @@ wasi_sock_get_tcp_quick_ack(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_get_tcp_quick_ack exec_env=%d, fd=%d, is_enabled=%d \n", exec_env, fd, is_enabled);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1481,6 +1534,7 @@ wasi_sock_get_tcp_keep_idle(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_get_tcp_keep_idle exec_env=%d, fd=%d, time_s=%d \n", exec_env, fd, time_s);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1500,6 +1554,7 @@ wasi_sock_get_tcp_keep_intvl(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_get_tcp_keep_intvl exec_env=%d, fd=%d, time_s=%d \n", exec_env, fd, time_s);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1519,6 +1574,7 @@ wasi_sock_get_ip_multicast_loop(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_get_ip_multicast_loop exec_env=%d, fd=%d, ipv6=%d, is_enabled=%d \n", exec_env, fd, ipv6, is_enabled);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1538,6 +1594,7 @@ wasi_sock_get_ip_ttl(wasm_exec_env_t exec_env, wasi_fd_t fd, uint8_t *ttl_s)
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_get_ip_ttl exec_env=%d, fd=%d, ttl_s=%d \n", exec_env, fd, ttl_s);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1557,6 +1614,7 @@ wasi_sock_get_ip_multicast_ttl(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_get_ip_multicast_ttl exec_env=%d, fd=%d, ttl_s=%d \n", exec_env, fd, ttl_s);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1576,6 +1634,7 @@ wasi_sock_get_ipv6_only(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_get_ipv6_only exec_env=%d, fd=%d, is_enabled=%d \n", exec_env, fd, is_enabled);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1594,6 +1653,7 @@ wasi_sock_listen(wasm_exec_env_t exec_env, wasi_fd_t fd, uint32 backlog)
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_listen exec_env=%d, fd=%d, backlog=%d \n", exec_env, fd, backlog);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1611,6 +1671,7 @@ wasi_sock_open(wasm_exec_env_t exec_env, wasi_fd_t poolfd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_open exec_env=%d, poolfd=%d, af=%d, socktype=%d, sockfd=%d \n", exec_env, poolfd, af, socktype, sockfd);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1626,6 +1687,7 @@ wasi_sock_set_broadcast(wasm_exec_env_t exec_env, wasi_fd_t fd, bool is_enabled)
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_set_broadcast exec_env=%d, fd=%d, is_enabled=%d \n", exec_env, fd, is_enabled);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1642,6 +1704,7 @@ wasi_sock_set_keep_alive(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_set_keep_alive exec_env=%d, fd=%d, is_enabled=%d \n", exec_env, fd, is_enabled);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1658,6 +1721,7 @@ wasi_sock_set_linger(wasm_exec_env_t exec_env, wasi_fd_t fd, bool is_enabled,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_set_linger exec_env=%d, fd=%d, is_enabled=%d, linger_s=%d \n", exec_env, fd, is_enabled, linger_s);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1673,6 +1737,7 @@ wasi_sock_set_recv_buf_size(wasm_exec_env_t exec_env, wasi_fd_t fd, size_t size)
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_set_recv_buf_size exec_env=%d, fd=%d, size=%d \n", exec_env, fd, size);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1689,6 +1754,7 @@ wasi_sock_set_recv_timeout(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_set_recv_timeout exec_env=%d, fd=%d, timeout_us=%d \n", exec_env, fd, timeout_us);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1705,6 +1771,7 @@ wasi_sock_set_reuse_addr(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_set_reuse_addr exec_env=%d, fd=%d, is_enabled=%d \n", exec_env, fd, is_enabled);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1721,6 +1788,7 @@ wasi_sock_set_reuse_port(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_set_reuse_port exec_env=%d, fd=%d, is_enabled=%d \n", exec_env, fd, is_enabled);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1736,6 +1804,7 @@ wasi_sock_set_send_buf_size(wasm_exec_env_t exec_env, wasi_fd_t fd, size_t size)
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_set_send_buf_size exec_env=%d, fd=%d, size=%d \n", exec_env, fd, size);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1752,6 +1821,7 @@ wasi_sock_set_send_timeout(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_set_send_timeout exec_env=%d, fd=%d, timeout_us=%d \n", exec_env, fd, timeout_us);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1768,6 +1838,7 @@ wasi_sock_set_tcp_fastopen_connect(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_set_tcp_fastopen_connect exec_env=%d, fd=%d, is_enabled=%d \n", exec_env, fd, is_enabled);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1784,6 +1855,7 @@ wasi_sock_set_tcp_no_delay(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_set_tcp_no_delay exec_env=%d, fd=%d, is_enabled=%d \n", exec_env, fd, is_enabled);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1800,6 +1872,7 @@ wasi_sock_set_tcp_quick_ack(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_set_tcp_quick_ack exec_env=%d, fd=%d, is_enabled=%d \n", exec_env, fd, is_enabled);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1816,6 +1889,7 @@ wasi_sock_set_tcp_keep_idle(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_set_tcp_keep_idle exec_env=%d, fd=%d, time_s=%d \n", exec_env, fd, time_s);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1832,6 +1906,7 @@ wasi_sock_set_tcp_keep_intvl(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_set_tcp_keep_intvl exec_env=%d, fd=%d, time_s=%d \n", exec_env, fd, time_s);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1848,6 +1923,7 @@ wasi_sock_set_ip_multicast_loop(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_set_ip_multicast_loop exec_env=%d, fd=%d, ipv6=%d, is_enabled=%d \n", exec_env, fd, ipv6, is_enabled);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1866,6 +1942,7 @@ wasi_sock_set_ip_add_membership(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_set_ip_add_membership exec_env=%d, fd=%d, imr_multiaddr=%d, imr_interface=%d \n", exec_env, fd, imr_multiaddr, imr_interface);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1887,6 +1964,7 @@ wasi_sock_set_ip_drop_membership(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_set_ip_drop_membership exec_env=%d, fd=%d, imr_multiaddr=%d, imr_interface=%d \n", exec_env, fd, imr_multiaddr, imr_interface);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1906,6 +1984,7 @@ wasi_sock_set_ip_ttl(wasm_exec_env_t exec_env, wasi_fd_t fd, uint8_t ttl_s)
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE("wasi_sock_set_ip_ttl exec_env=%d, fd=%d, ttl_s=%d \n", exec_env, fd, ttl_s);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1922,6 +2001,9 @@ wasi_sock_set_ip_multicast_ttl(wasm_exec_env_t exec_env, wasi_fd_t fd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE(
+        "wasi_sock_set_ip_multicast_ttl exec_env=%d, fd=%d, ttl_s=%d \n",
+        exec_env, fd, ttl_s);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -1937,6 +2019,9 @@ wasi_sock_set_ipv6_only(wasm_exec_env_t exec_env, wasi_fd_t fd, bool is_enabled)
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+    LOG_STRACE(
+        "wasi_sock_set_ipv6_only exec_env=%d, fd=%d, is_enabled=%d \n",
+        exec_env, fd, is_enabled);
     if (!wasi_ctx)
         return __WASI_EACCES;
 
@@ -2044,6 +2129,7 @@ wasi_sock_recv_from(wasm_exec_env_t exec_env, wasi_fd_t sock,
     wasi_errno_t err;
     size_t recv_bytes = 0;
 
+    LOG_STRACE("wasi_sock_recv_from exec_env=%d, sock=%d, ri_data=%d, ri_data_len=%d, ri_flags=%d, src_addr=%d, ro_data_len=%d \n", exec_env, sock, ri_data, ri_data_len, ri_flags, src_addr, ro_data_len);
     if (!wasi_ctx) {
         return __WASI_EINVAL;
     }
@@ -2086,6 +2172,7 @@ wasi_sock_recv(wasm_exec_env_t exec_env, wasi_fd_t sock, iovec_app_t *ri_data,
     __wasi_addr_t src_addr;
     wasi_errno_t error;
 
+    LOG_STRACE("wasi_sock_recv exec_env=%d, sock=%d, ri_data=%d, ri_data_len=%d, ri_flags=%d, ro_data_len=%d, ro_flags=%d \n", exec_env, sock, ri_data, ri_data_len, ri_flags, ro_data_len, ro_flags);
     if (!validate_native_addr(ro_flags, (uint32)sizeof(wasi_roflags_t)))
         return __WASI_EINVAL;
 
@@ -2147,6 +2234,7 @@ wasi_sock_send(wasm_exec_env_t exec_env, wasi_fd_t sock,
     wasi_errno_t err;
     size_t send_bytes = 0;
 
+    LOG_STRACE("wasi_sock_send exec_env=%d, sock=%d, si_data=%d, si_data_len=%d, si_flags=%d, so_data_len=%d \n", exec_env, sock, si_data, si_data_len, si_flags, so_data_len);
     if (!wasi_ctx) {
         return __WASI_EINVAL;
     }
@@ -2187,6 +2275,7 @@ wasi_sock_send_to(wasm_exec_env_t exec_env, wasi_fd_t sock,
     size_t send_bytes = 0;
     struct addr_pool *addr_pool = wasi_ctx_get_addr_pool(module_inst, wasi_ctx);
 
+    LOG_STRACE("wasi_sock_send_to exec_env=%d, sock=%d, si_data=%d, si_data_len=%d, si_flags=%d, dest_addr=%d, so_data_len=%d \n", exec_env, sock, si_data, si_data_len, si_flags, dest_addr, so_data_len);
     if (!wasi_ctx) {
         return __WASI_EINVAL;
     }
@@ -2216,6 +2305,7 @@ wasi_sock_shutdown(wasm_exec_env_t exec_env, wasi_fd_t sock, wasi_sdflags_t how)
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
 
+    LOG_STRACE("wasi_sock_shutdown exec_env=%d, sock=%d, how=%d \n", exec_env, sock, how);
     if (!wasi_ctx)
         return __WASI_EINVAL;
 

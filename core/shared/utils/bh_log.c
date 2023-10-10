@@ -21,7 +21,8 @@ bh_log_set_verbose_level(uint32 level)
 FILE* log_strace = NULL;
 
 void init_log_strace() {
-    log_strace = fopen("strace.txt", "w");
+    log_strace = fopen("strace.txt", "a+");
+    fprintf(log_strace, "------- start (please clean previosly log manually)-------\n");
     if(log_strace == NULL) {
         printf("open strace.txt failed\n");
     }
@@ -41,6 +42,7 @@ void bh_log_strace(LogLevel level, const char *file, int line, const char *forma
 
 void close_log_strace() {
     if(log_strace != NULL) {
+        fprintf(log_strace, "\n");
         fclose(log_strace);
         log_strace = NULL;
     }
