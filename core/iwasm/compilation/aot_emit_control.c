@@ -1319,7 +1319,7 @@ aot_compile_op_br_on_null(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 {
     LLVMValueRef gc_obj, value_cmp;
 
-    GET_REF_FROM_STACK(gc_obj);
+    GET_GC_REF_FROM_STACK(gc_obj);
 
     if (!(value_cmp =
               LLVMBuildIsNull(comp_ctx->builder, gc_obj, "cmp gc obj"))) {
@@ -1340,7 +1340,7 @@ aot_compile_op_br_on_non_null(AOTCompContext *comp_ctx,
 {
     LLVMValueRef gc_obj, value_cmp;
 
-    GET_REF_FROM_STACK(gc_obj);
+    GET_GC_REF_FROM_STACK(gc_obj);
 
     if (!(value_cmp =
               LLVMBuildIsNotNull(comp_ctx->builder, gc_obj, "cmp gc obj"))) {
@@ -1363,7 +1363,7 @@ aot_compile_op_br_on_cast(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMBasicBlockRef gc_obj_null, gc_obj_non_null, conditional_branching,
         phi_blocks[2];
 
-    GET_REF_FROM_STACK(gc_obj);
+    GET_GC_REF_FROM_STACK(gc_obj);
 
     /* Create if block */
     CREATE_BLOCK(gc_obj_null, "gc_obj_null");

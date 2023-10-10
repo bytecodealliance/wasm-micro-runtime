@@ -1669,7 +1669,7 @@ bool
 aot_compile_op_ref_null(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
     if (comp_ctx->enable_gc)
-        PUSH_REF(GC_REF_NULL);
+        PUSH_GC_REF(GC_REF_NULL);
     else
         PUSH_I32(REF_NULL);
 
@@ -1684,7 +1684,7 @@ aot_compile_op_ref_is_null(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     LLVMValueRef lhs = NULL, res;
 
     if (comp_ctx->enable_gc) {
-        POP_REF(lhs);
+        POP_GC_REF(lhs);
 
         if (!(res = LLVMBuildIsNull(comp_ctx->builder, lhs, "lhs is null"))) {
             HANDLE_FAILURE("LLVMBuildIsNull");
@@ -1730,7 +1730,7 @@ aot_compile_op_ref_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             goto fail;
         }
 
-        PUSH_REF(gc_obj);
+        PUSH_GC_REF(gc_obj);
     }
     else
 #endif
@@ -1778,7 +1778,7 @@ aot_compile_op_call_ref(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     func_result_count = func_type->result_count;
     param_cell_num = func_type->param_cell_num;
 
-    POP_REF(func_obj);
+    POP_GC_REF(func_obj);
 
     /* Check if func object is NULL */
     if (!(cmp_func_obj =

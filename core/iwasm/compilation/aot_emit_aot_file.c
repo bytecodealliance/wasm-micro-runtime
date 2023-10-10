@@ -386,13 +386,26 @@ get_func_type_size(AOTCompContext *comp_ctx, AOTFuncType *func_type)
     /* type flag + is_sub_final + parent_type_idx + param count + result count
      * + ref_type_map_count + types + context of ref_type_map */
     if (comp_ctx->enable_gc) {
-        return sizeof(func_type->base_type.type_flag) + sizeof(uint16)
-               + sizeof(func_type->base_type.parent_type_idx)
-               + sizeof(func_type->param_count)
-               + sizeof(func_type->result_count)
-               + sizeof(func_type->ref_type_map_count) + func_type->param_count
-               + func_type->result_count
-               + sizeof(func_type->ref_type_map_count) * 8;
+        uint32 size = 0;
+
+        /* type flag */
+        size += sizeof(func_type->base_type.type_flag);
+        /* is_sub_final */
+        size += sizeof(uint16);
+        /* parent_type_idx */
+        size += sizeof(func_type->base_type.parent_type_idx);
+        /* param count */
+        size += sizeof(func_type->param_count);
+        /* result count */
+        size += sizeof(func_type->result_count);
+        /* ref_type_map_count */
+        size += sizeof(func_type->ref_type_map_count);
+        /* param and result types */
+        size += func_type->param_count + func_type->result_count;
+        /* ref_type_map */
+        size += func_type->ref_type_map_count * 8;
+
+        return size;
     }
     else {
         /* type flag + is_sub_final + parent_type_idx + param count + result
@@ -401,6 +414,50 @@ get_func_type_size(AOTCompContext *comp_ctx, AOTFuncType *func_type)
                + func_type->result_count;
     }
 }
+
+static uint32
+get_struct_type_size(AOTCompContext *comp_ctx, AOTStructType *struct_type)
+{
+    uint32 size = 0;
+    /* type flag + is_sub_final + parent_type_idx + field count + fields */
+
+    /* type flag */
+    size += sizeof(struct_type->base_type.type_flag);
+    /* is_sub_final */
+    size += sizeof(uint16);
+    /* parent_type_idx */
+    size += sizeof(struct_type->base_type.parent_type_idx);
+    /* field count */
+    size += sizeof(struct_type->field_count);
+    /* field types */
+    size += struct_type->field_count * 3;
+    /* ref_type_map_count */
+    size += sizeof(struct_type->ref_type_map_count);
+    /* ref_type_map */
+    size += struct_type->ref_type_map_count * 8;
+    return size;
+}
+
+static uint32
+get_array_type_size(AOTCompContext *comp_ctx, AOTArrayType *array_type)
+{
+    uint32 size = 0;
+    /* type flag + is_sub_final + parent_type_idx + element type + length */
+
+    /* type flag */
+    size += sizeof(array_type->base_type.type_flag);
+    /* is_sub_final */
+    size += sizeof(uint16);
+    /* parent_type_idx */
+    size += sizeof(array_type->base_type.parent_type_idx);
+    /* elem flags */
+    size += sizeof(array_type->elem_flags);
+    /* elem type */
+    size += sizeof(array_type->elem_type);
+
+    return size;
+}
+
 #else
 static uint32
 get_func_type_size(AOTCompContext *comp_ctx, AOTFuncType *func_type)
@@ -426,6 +483,14 @@ get_func_type_info_size(AOTCompContext *comp_ctx, AOTCompData *comp_data)
             if (comp_data->types[i]->type_flag == WASM_TYPE_FUNC)
                 size += get_func_type_size(comp_ctx,
                                            (AOTFuncType *)comp_data->types[i]);
+            else if (comp_data->types[i]->type_flag == WASM_TYPE_STRUCT)
+                size += get_struct_type_size(
+                    comp_ctx, (AOTStructType *)comp_data->types[i]);
+            else if (comp_data->types[i]->type_flag == WASM_TYPE_ARRAY)
+                size += get_array_type_size(
+                    comp_ctx, (AOTArrayType *)comp_data->types[i]);
+            else
+                bh_assert(0);
         }
     }
     else

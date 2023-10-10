@@ -241,7 +241,7 @@ aot_compile_op_ref_as_non_null(AOTCompContext *comp_ctx,
     LLVMValueRef gc_obj, cmp_gc_obj;
     LLVMBasicBlockRef check_gc_obj_succ;
 
-    GET_REF_FROM_STACK(gc_obj);
+    GET_GC_REF_FROM_STACK(gc_obj);
 
     /* Check if gc object is NULL */
     BUILD_ISNULL(gc_obj, cmp_gc_obj, "cmp_gc_obj");
@@ -443,7 +443,7 @@ struct_new_canon_init_fields(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         field_offset = fields[field_idx].field_offset;
 
         if (wasm_is_type_reftype(field_type)) {
-            POP_REF(field_value);
+            POP_GC_REF(field_value);
         }
         else if (field_type == VALUE_TYPE_I32 || field_type == VALUE_TYPE_F32
                  || field_type == PACKED_TYPE_I8
@@ -505,7 +505,7 @@ aot_compile_op_struct_new(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
-    PUSH_REF(struct_obj);
+    PUSH_GC_REF(struct_obj);
 
     return true;
 fail:
@@ -536,7 +536,7 @@ aot_compile_op_struct_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
-    POP_REF(struct_obj);
+    POP_GC_REF(struct_obj);
 
     ADD_BASIC_BLOCK(check_struct_obj_succ, "check struct obj succ");
     MOVE_BLOCK_AFTER_CURR(check_struct_obj_succ);
@@ -551,7 +551,7 @@ aot_compile_op_struct_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
 
     if (wasm_is_type_reftype(field_type)) {
-        PUSH_REF(field_value);
+        PUSH_GC_REF(field_value);
     }
     else if (field_type == VALUE_TYPE_I32 || field_type == VALUE_TYPE_F32
              || field_type == PACKED_TYPE_I8 || field_type == PACKED_TYPE_I16) {
@@ -590,7 +590,7 @@ aot_compile_op_struct_set(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     if (wasm_is_type_reftype(field_type)) {
-        POP_REF(field_value);
+        POP_GC_REF(field_value);
     }
     else if (field_type == VALUE_TYPE_I32 || field_type == VALUE_TYPE_F32
              || field_type == PACKED_TYPE_I8 || field_type == PACKED_TYPE_I16) {
@@ -600,7 +600,7 @@ aot_compile_op_struct_set(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         POP_I64(field_value);
     }
 
-    POP_REF(struct_obj);
+    POP_GC_REF(struct_obj);
 
     ADD_BASIC_BLOCK(check_struct_obj_succ, "check struct obj succ");
     MOVE_BLOCK_AFTER_CURR(check_struct_obj_succ);
@@ -1028,7 +1028,7 @@ aot_compile_op_array_new(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* For WASM_OP_ARRAY_NEW_CANON */
     if (!fixed_size && !init_with_default) {
         if (wasm_is_type_reftype(array_elem_type)) {
-            POP_REF(array_elem);
+            POP_GC_REF(array_elem);
         }
         else if (array_elem_type == VALUE_TYPE_I32
                  || array_elem_type == VALUE_TYPE_F32
@@ -1062,7 +1062,7 @@ aot_compile_op_array_new(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     if (fixed_size) {
         for (i = 0; i < array_len; i++) {
             if (wasm_is_type_reftype(array_elem_type)) {
-                POP_REF(array_elem);
+                POP_GC_REF(array_elem);
             }
             else if (array_elem_type == VALUE_TYPE_I32
                      || array_elem_type == VALUE_TYPE_F32
@@ -1087,7 +1087,7 @@ aot_compile_op_array_new(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
     }
 
-    PUSH_REF(array_obj);
+    PUSH_GC_REF(array_obj);
 
     return true;
 fail:
@@ -1165,7 +1165,7 @@ aot_compile_op_array_new_data(AOTCompContext *comp_ctx,
             array_obj, elem_size, array_length))
         goto fail;
 
-    PUSH_REF(array_obj);
+    PUSH_GC_REF(array_obj);
 
     return true;
 fail:
@@ -1184,7 +1184,7 @@ aot_compile_op_array_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     uint8 array_elem_type = compile_time_array_type->elem_type;
 
     POP_I32(elem_idx);
-    POP_REF(array_obj);
+    POP_GC_REF(array_obj);
 
     ADD_BASIC_BLOCK(check_array_obj_succ, "check array obj succ");
     MOVE_BLOCK_AFTER_CURR(check_array_obj_succ);
@@ -1210,7 +1210,7 @@ aot_compile_op_array_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
 
     if (wasm_is_type_reftype(array_elem_type)) {
-        PUSH_REF(array_elem);
+        PUSH_GC_REF(array_elem);
     }
     else if (array_elem_type == VALUE_TYPE_I32
              || array_elem_type == VALUE_TYPE_F32
@@ -1240,7 +1240,7 @@ aot_compile_op_array_set(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     /* Get LLVM type based on array_elem_type */
     if (wasm_is_type_reftype(array_elem_type)) {
-        POP_REF(array_elem);
+        POP_GC_REF(array_elem);
     }
     else if (array_elem_type == VALUE_TYPE_I32
              || array_elem_type == VALUE_TYPE_F32
@@ -1253,7 +1253,7 @@ aot_compile_op_array_set(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     POP_I32(elem_idx);
-    POP_REF(array_obj);
+    POP_GC_REF(array_obj);
 
     ADD_BASIC_BLOCK(check_array_obj_succ, "check array obj succ");
     MOVE_BLOCK_AFTER_CURR(check_array_obj_succ);
@@ -1336,9 +1336,9 @@ aot_compile_op_array_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     POP_I32(len);
     POP_I32(src_offset);
-    POP_REF(src_obj);
+    POP_GC_REF(src_obj);
     POP_I32(dst_offset);
-    POP_REF(dst_obj);
+    POP_GC_REF(dst_obj);
 
     ADD_BASIC_BLOCK(check_objs_succ, "check array objs succ");
     MOVE_BLOCK_AFTER_CURR(check_objs_succ);
@@ -1423,7 +1423,7 @@ aot_compile_op_array_len(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     LLVMValueRef array_obj, cmp, array_len;
     LLVMBasicBlockRef check_array_obj_succ;
 
-    POP_REF(array_obj);
+    POP_GC_REF(array_obj);
 
     ADD_BASIC_BLOCK(check_array_obj_succ, "check array obj succ");
     MOVE_BLOCK_AFTER_CURR(check_array_obj_succ);
@@ -1473,7 +1473,7 @@ aot_compile_op_i31_new(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
         }
     }
 
-    PUSH_REF(i31_obj);
+    PUSH_GC_REF(i31_obj);
 
     return true;
 fail:
@@ -1488,7 +1488,7 @@ aot_compile_op_i31_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         i31_sign_val;
     LLVMBasicBlockRef check_i31_obj_succ;
 
-    POP_REF(i31_obj);
+    POP_GC_REF(i31_obj);
 
     ADD_BASIC_BLOCK(check_i31_obj_succ, "check_i31_obj_succ");
     MOVE_BLOCK_AFTER_CURR(check_i31_obj_succ);
@@ -1553,7 +1553,7 @@ aot_compile_op_ref_test(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMValueRef gc_obj, cmp, castable;
     LLVMBasicBlockRef gc_obj_null, gc_obj_non_null, end_block;
 
-    GET_REF_FROM_STACK(gc_obj);
+    GET_GC_REF_FROM_STACK(gc_obj);
 
     /* Create if block */
     ADD_BASIC_BLOCK(gc_obj_null, "gc_obj_null");
@@ -1667,7 +1667,7 @@ aot_compile_op_extern_internalize(AOTCompContext *comp_ctx,
     LLVMValueRef externref_obj, gc_obj, cmp;
     LLVMBasicBlockRef obj_null, obj_non_null, end_block;
 
-    POP_REF(externref_obj);
+    POP_GC_REF(externref_obj);
 
     /* Create if block */
     ADD_BASIC_BLOCK(obj_null, "obj_null");
@@ -1687,7 +1687,7 @@ aot_compile_op_extern_internalize(AOTCompContext *comp_ctx,
 
     /* Move builder to obj NULL block */
     SET_BUILDER_POS(obj_null);
-    PUSH_REF(GC_REF_NULL);
+    PUSH_GC_REF(GC_REF_NULL);
     BUILD_BR(end_block);
 
     /* Move builder to obj not NULL block */
@@ -1695,7 +1695,7 @@ aot_compile_op_extern_internalize(AOTCompContext *comp_ctx,
     if (!aot_call_wasm_externref_obj_to_internal_obj(comp_ctx, func_ctx,
                                                      externref_obj, &gc_obj))
         goto fail;
-    PUSH_REF(gc_obj);
+    PUSH_GC_REF(gc_obj);
     BUILD_BR(end_block);
 
     /* Move builder to end block */
@@ -1744,7 +1744,7 @@ aot_compile_op_extern_externalize(AOTCompContext *comp_ctx,
     LLVMValueRef gc_obj, externref_obj, cmp;
     LLVMBasicBlockRef obj_null, obj_non_null, end_block, externalize_succ;
 
-    POP_REF(gc_obj);
+    POP_GC_REF(gc_obj);
 
     /* Create if block */
     ADD_BASIC_BLOCK(obj_null, "obj_null");
@@ -1766,7 +1766,7 @@ aot_compile_op_extern_externalize(AOTCompContext *comp_ctx,
 
     /* Move builder to obj NULL block */
     SET_BUILDER_POS(obj_null);
-    PUSH_REF(GC_REF_NULL);
+    PUSH_GC_REF(GC_REF_NULL);
     BUILD_BR(end_block);
 
     /* Move builder to obj not NULL block */
@@ -1778,7 +1778,7 @@ aot_compile_op_extern_externalize(AOTCompContext *comp_ctx,
     if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_NULL_GC_REF, true, cmp,
                             externalize_succ))
         goto fail;
-    PUSH_REF(externref_obj);
+    PUSH_GC_REF(externref_obj);
     BUILD_BR(end_block);
 
     /* Move builder to end block */

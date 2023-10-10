@@ -291,12 +291,6 @@ typedef struct AOTLLVMTypes {
     LLVMTypeRef externref_type;
     LLVMTypeRef gc_ref_type;
     LLVMTypeRef gc_ref_ptr_type;
-    LLVMTypeRef structref_type;
-    LLVMTypeRef arrayref_type;
-    LLVMTypeRef i31ref_type;
-    LLVMTypeRef eqref_type;
-    LLVMTypeRef anyref_type;
-    LLVMTypeRef ht_nullable_ref_type;
 } AOTLLVMTypes;
 
 typedef struct AOTLLVMConsts {

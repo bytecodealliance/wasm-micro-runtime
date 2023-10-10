@@ -43,20 +43,14 @@ wasm_type_to_llvm_type(const AOTLLVMTypes *llvm_types, uint8 wasm_type)
         case VALUE_TYPE_VOID:
             return llvm_types->void_type;
 #if WASM_ENABLE_GC != 0
+        case VALUE_TYPE_STRUCTREF:
+        case VALUE_TYPE_ARRAYREF:
+        case VALUE_TYPE_I31REF:
+        case VALUE_TYPE_EQREF:
+        case VALUE_TYPE_ANYREF:
+        case VALUE_TYPE_HT_NULLABLE_REF:
         case VALUE_TYPE_GC_REF:
             return llvm_types->gc_ref_type;
-        case VALUE_TYPE_STRUCTREF:
-            return llvm_types->structref_type;
-        case VALUE_TYPE_ARRAYREF:
-            return llvm_types->arrayref_type;
-        case VALUE_TYPE_I31REF:
-            return llvm_types->i31ref_type;
-        case VALUE_TYPE_EQREF:
-            return llvm_types->eqref_type;
-        case VALUE_TYPE_ANYREF:
-            return llvm_types->anyref_type;
-        case VALUE_TYPE_HT_NULLABLE_REF:
-            return llvm_types->ht_nullable_ref_type;
 #endif
         default:
             break;
@@ -1030,6 +1024,11 @@ create_local_variables(const AOTCompData *comp_data,
                 break;
             case VALUE_TYPE_FUNCREF:
             case VALUE_TYPE_EXTERNREF:
+                if (!comp_ctx->enable_gc)
+                    local_value = REF_NULL;
+                else
+                    local_value = GC_REF_NULL;
+                break;
 #if WASM_ENABLE_GC != 0
             case VALUE_TYPE_STRUCTREF:
             case VALUE_TYPE_ARRAYREF:
@@ -1037,10 +1036,9 @@ create_local_variables(const AOTCompData *comp_data,
             case VALUE_TYPE_EQREF:
             case VALUE_TYPE_ANYREF:
             case VALUE_TYPE_HT_NULLABLE_REF:
-            case VALUE_TYPE_GC_REF:
-#endif
-                local_value = REF_NULL;
+                local_value = GC_REF_NULL;
                 break;
+#endif
             default:
                 bh_assert(0);
                 break;
@@ -1801,12 +1799,6 @@ aot_set_llvm_basic_types(AOTLLVMTypes *basic_types, LLVMContextRef context,
 
     basic_types->funcref_type = LLVMInt32TypeInContext(context);
     basic_types->externref_type = LLVMInt32TypeInContext(context);
-    basic_types->structref_type = LLVMInt32TypeInContext(context);
-    basic_types->arrayref_type = LLVMInt32TypeInContext(context);
-    basic_types->i31ref_type = LLVMInt32TypeInContext(context);
-    basic_types->eqref_type = LLVMInt32TypeInContext(context);
-    basic_types->anyref_type = LLVMInt32TypeInContext(context);
-    basic_types->ht_nullable_ref_type = LLVMInt32TypeInContext(context);
 
     if (pointer_size == 4) {
         basic_types->intptr_type = basic_types->int32_type;
@@ -1829,9 +1821,6 @@ aot_set_llvm_basic_types(AOTLLVMTypes *basic_types, LLVMContextRef context,
             && basic_types->i64x2_vec_type && basic_types->f32x4_vec_type
             && basic_types->f64x2_vec_type && basic_types->i1x2_vec_type
             && basic_types->meta_data_type && basic_types->funcref_type
-            && basic_types->structref_type && basic_types->arrayref_type
-            && basic_types->i31ref_type && basic_types->eqref_type
-            && basic_types->anyref_type && basic_types->ht_nullable_ref_type
             && basic_types->externref_type && basic_types->gc_ref_type
             && basic_types->gc_ref_ptr_type)
                ? true
@@ -3153,17 +3142,14 @@ aot_value_stack_push(const AOTCompContext *comp_ctx, AOTValueStack *stack,
                 break;
             case VALUE_TYPE_FUNCREF:
             case VALUE_TYPE_EXTERNREF:
-#if WASM_ENABLE_GC != 0
-            case VALUE_TYPE_STRUCTREF:
-            case VALUE_TYPE_ARRAYREF:
-            case VALUE_TYPE_I31REF:
-            case VALUE_TYPE_EQREF:
-            case VALUE_TYPE_ANYREF:
-            case VALUE_TYPE_HT_NULLABLE_REF:
-            case VALUE_TYPE_GC_REF:
-#endif
                 push_ref(comp_ctx->aot_frame, value);
                 break;
+#if WASM_ENABLE_GC != 0
+            case VALUE_TYPE_GC_REF:
+                bh_assert(comp_ctx->enable_gc);
+                push_gc_ref(comp_ctx->aot_frame, value);
+                break;
+#endif
             default:
                 bh_assert(0);
                 break;
@@ -3210,17 +3196,14 @@ aot_value_stack_pop(const AOTCompContext *comp_ctx, AOTValueStack *stack)
                 break;
             case VALUE_TYPE_FUNCREF:
             case VALUE_TYPE_EXTERNREF:
-#if WASM_ENABLE_GC != 0
-            case VALUE_TYPE_STRUCTREF:
-            case VALUE_TYPE_ARRAYREF:
-            case VALUE_TYPE_I31REF:
-            case VALUE_TYPE_EQREF:
-            case VALUE_TYPE_ANYREF:
-            case VALUE_TYPE_HT_NULLABLE_REF:
-            case VALUE_TYPE_GC_REF:
-#endif
                 pop_ref(comp_ctx->aot_frame);
                 break;
+#if WASM_ENABLE_GC != 0
+            case VALUE_TYPE_GC_REF:
+                bh_assert(comp_ctx->enable_gc);
+                pop_gc_ref(comp_ctx->aot_frame);
+                break;
+#endif
             default:
                 bh_assert(0);
                 break;
