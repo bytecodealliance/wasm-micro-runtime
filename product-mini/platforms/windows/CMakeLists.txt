@@ -4,7 +4,6 @@
 cmake_minimum_required (VERSION 2.9)
 
 project (iwasm C ASM CXX)
-enable_language(ASM_MASM)
 # set (CMAKE_VERBOSE_MAKEFILE 1)
 
 set (WAMR_BUILD_PLATFORM "windows")
