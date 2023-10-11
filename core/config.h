@@ -519,4 +519,8 @@
 #define WASM_MAX_INSTANCE_CONTEXTS 8
 #endif
 
+#ifndef WASM_TABLE_MAX_SIZE
+#define WASM_TABLE_MAX_SIZE 1024
+#endif
+
 #endif /* end of _CONFIG_H_ */
