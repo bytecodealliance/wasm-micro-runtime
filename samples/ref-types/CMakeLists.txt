@@ -9,7 +9,6 @@ if (NOT WAMR_BUILD_PLATFORM STREQUAL "windows")
   project(ref-types)
 else()
   project (ref-types C ASM)
-  enable_language (ASM_MASM)
 endif()
 
 ################  runtime settings  ################
