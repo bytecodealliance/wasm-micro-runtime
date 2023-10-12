@@ -5105,6 +5105,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                    (uint32)(cur_func->local_cell_num * 4));
 
 #if WASM_ENABLE_GC != 0
+            /* frame->ip is used during GC root set enumeration, so we must
+             * initialized this field here */
+            frame->ip = frame_ip;
             frame_ref = frame->frame_ref =
                 (uint8 *)(frame->lp + (uint32)cell_num_of_local_stack);
             init_frame_refs(frame_ref, (uint32)cell_num_of_local_stack,
