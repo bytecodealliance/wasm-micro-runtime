@@ -6,10 +6,15 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
-#include <pthread.h>
 #include <stdbool.h>
 #include <unistd.h>
 #include <limits.h>
+
+#if USE_CUSTOM_SYNC_PRIMITIVES != 0
+#include "sync_primitives.h"
+#else
+#include <pthread.h>
+#endif
 
 #include "wasi_thread_start.h"
 

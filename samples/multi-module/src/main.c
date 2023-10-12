@@ -1,59 +1,63 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
 #include "bh_read_file.h"
 #include "platform_common.h"
 #include "wasm_export.h"
 
-static char *
-build_module_path(const char *module_name)
+#if WASM_ENABLE_MULTI_MODULE != 0
+static char *module_search_path = ".";
+static bool
+module_reader_callback(package_type_t module_type, const char *module_name,
+                       uint8 **p_buffer, uint32 *p_size)
 {
-    const char *module_search_path = ".";
-    const char *format = "%s/%s.wasm";
+    char *file_format;
+#if WASM_ENABLE_INTERP != 0
+    if (module_type == Wasm_Module_Bytecode)
+        file_format = ".wasm";
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (module_type == Wasm_Module_AoT)
+        file_format = ".aot";
+
+#endif
+    const char *format = "%s/%s%s";
     int sz = strlen(module_search_path) + strlen("/") + strlen(module_name)
-             + strlen(".wasm") + 1;
+             + strlen(file_format) + 1;
     char *wasm_file_name = BH_MALLOC(sz);
     if (!wasm_file_name) {
-        return NULL;
-    }
-
-    snprintf(wasm_file_name, sz, format, module_search_path, module_name);
-    return wasm_file_name;
-}
-
-static bool
-module_reader_cb(const char *module_name, uint8 **p_buffer, uint32 *p_size)
-{
-    char *wasm_file_path = build_module_path(module_name);
-    if (!wasm_file_path) {
         return false;
     }
+    snprintf(wasm_file_name, sz, format, module_search_path, module_name,
+             file_format);
+    *p_buffer = (uint8_t *)bh_read_file_to_buffer(wasm_file_name, p_size);
 
-    printf("- bh_read_file_to_buffer %s\n", wasm_file_path);
-    *p_buffer = (uint8_t *)bh_read_file_to_buffer(wasm_file_path, p_size);
-    BH_FREE(wasm_file_path);
+    wasm_runtime_free(wasm_file_name);
     return *p_buffer != NULL;
 }
 
 static void
-module_destroyer_cb(uint8 *buffer, uint32 size)
+moudle_destroyer(uint8 *buffer, uint32 size)
 {
-    printf("- release the read file buffer\n");
     if (!buffer) {
         return;
     }
 
-    BH_FREE(buffer);
+    wasm_runtime_free(buffer);
     buffer = NULL;
 }
+#endif /* WASM_ENABLE_MULTI_MODULE */
 
 /* 10M */
 static char sandbox_memory_space[10 * 1024 * 1024] = { 0 };
 int
-main()
+main(int argc, char *argv[])
 {
     bool ret = false;
+    if (argc != 2) {
+        return -1;
+    }
+    char *wasm_file = argv[1];
     /* 16K */
     const uint32 stack_size = 16 * 1024;
     const uint32 heap_size = 16 * 1024;
@@ -84,16 +88,16 @@ main()
 #if WASM_ENABLE_MULTI_MODULE != 0
     printf("- wasm_runtime_set_module_reader\n");
     /* set module reader and destroyer */
-    wasm_runtime_set_module_reader(module_reader_cb, module_destroyer_cb);
+    wasm_runtime_set_module_reader(module_reader_callback, moudle_destroyer);
 #endif
 
     /* load WASM byte buffer from WASM bin file */
-    if (!module_reader_cb("mC", &file_buf, &file_buf_size)) {
+    if (!(file_buf =
+              (uint8 *)bh_read_file_to_buffer(wasm_file, &file_buf_size)))
         goto RELEASE_RUNTIME;
-    }
-
     /* load mC and let WAMR load mA and mB */
     printf("- wasm_runtime_load\n");
+
     if (!(module = wasm_runtime_load(file_buf, file_buf_size, error_buf,
                                      sizeof(error_buf)))) {
         printf("%s\n", error_buf);
@@ -158,7 +162,7 @@ UNLOAD_MODULE:
     printf("- wasm_runtime_unload\n");
     wasm_runtime_unload(module);
 RELEASE_BINARY:
-    module_destroyer_cb(file_buf, file_buf_size);
+    moudle_destroyer(file_buf, file_buf_size);
 RELEASE_RUNTIME:
     printf("- wasm_runtime_destroy\n");
     wasm_runtime_destroy();

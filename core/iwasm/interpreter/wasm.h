@@ -602,6 +602,9 @@ struct WASMModule {
        since no need to enable llvm jit compilation for Mode_Interp and
        Mode_Fast_JIT, so as to improve performance for them */
     bool enable_llvm_jit_compilation;
+    /* The count of groups which finish compiling the fast jit
+       functions in that group */
+    uint32 fast_jit_ready_groups;
 #endif
 };
 
@@ -624,7 +627,6 @@ typedef struct WASMBranchBlock {
     uint32 cell_num;
 } WASMBranchBlock;
 
-/* Execution environment, e.g. stack info */
 /**
  * Align an unsigned value on a alignment boundary.
  *
@@ -638,6 +640,24 @@ align_uint(unsigned v, unsigned b)
 {
     unsigned m = b - 1;
     return (v + m) & ~m;
+}
+
+/**
+ * Check whether a piece of data is out of range
+ *
+ * @param offset the offset that the data starts
+ * @param len the length of the data
+ * @param max_size the maximum size of the data range
+ *
+ * @return true if out of range, false otherwise
+ */
+inline static bool
+offset_len_out_of_bounds(uint32 offset, uint32 len, uint32 max_size)
+{
+    if (offset + len < offset /* integer overflow */
+        || offset + len > max_size)
+        return true;
+    return false;
 }
 
 /**

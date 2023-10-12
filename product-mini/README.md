@@ -18,14 +18,17 @@ Note that all ESP-IDF toolchain files live under `$IDF_PATH/tools/cmake/`.
 ## Linux
 
 First of all please install the dependent packages.
-Run command below in Ubuntu-18.04:
-
+Run command below in Ubuntu-22.04:
 ``` Bash
-sudo apt install build-essential cmake g++-multilib libgcc-8-dev lib32gcc-8-dev
+sudo apt install build-essential cmake g++-multilib libgcc-11-dev lib32gcc-11-dev ccache
 ```
-Or in Ubuntu-16.04:
+Or in Ubuntu-20.04
 ``` Bash
-sudo apt install build-essential cmake g++-multilib libgcc-5-dev lib32gcc-5-dev
+sudo apt install build-essential cmake g++-multilib libgcc-9-dev lib32gcc-9-dev ccache
+```
+Or in Ubuntu-18.04:
+``` Bash
+sudo apt install build-essential cmake g++-multilib libgcc-8-dev lib32gcc-8-dev ccache
 ```
 Or in Fedora:
 ``` Bash
@@ -248,24 +251,7 @@ WAMR provides some features which can be easily configured by passing options to
 
 ## Zephyr
 
-You need to prepare Zephyr first as described here https://docs.zephyrproject.org/latest/getting_started/index.html#get-zephyr-and-install-python-dependencies.
-
-After that you need to point the `ZEPHYR_BASE` variable to e.g. `~/zephyrproject/zephyr`. Also, it is important that you have `west` available for subsequent actions.
-
-``` Bash
-cd <wamr_root_dir>/product-mini/platforms/zephyr/simple
-# Execute the ./build_and_run.sh script with board name as parameter. Here take x86 as example:
-./build_and_run.sh x86
-```
-
-If you want to use the Espressif toolchain (esp32 or esp32c3), you can most conveniently install it with `west`:
-
-``` Bash
-cd $ZEPHYR_BASE
-west espressif install
-```
-
-After that set `ESPRESSIF_TOOLCHAIN_PATH` according to the output, for example `~/.espressif/tools/zephyr`.
+Please refer to this [README](./platforms/zephyr/simple/README.md) under the Zephyr sample directory for details.
 
 Note:
 WAMR provides some features which can be easily configured by passing options to cmake, please see [WAMR vmcore cmake building configurations](../doc/build_wamr.md#wamr-vmcore-cmake-building-configurations) for details. Currently in Zephyr, interpreter, AOT and builtin libc are enabled by default.
@@ -457,3 +443,23 @@ make
    aos make
    ```
    download the binary to developerkit board, check the output from serial port
+
+## Cosmopolitan Libc
+Currently, only x86_64 architecture with interpreter modes is supported.
+
+Clone the Cosmopolitan Libc. Setup `cosmocc` as described in [Getting Started](https://github.com/jart/cosmopolitan/#getting-started) being sure to get it into `PATH`.
+
+Build iwasm
+``` Bash
+export CC=cosmocc
+export CXX=cosmoc++
+rm -rf build
+mkdir build
+cmake -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_INTERP=1 -B build
+cmake --build build -j
+```
+
+Run like
+``` Bash
+./build/iwasm.com <wasm file>
+```

@@ -558,6 +558,56 @@ str2uint32(const char *buf, uint32 *p_res);
 static bool
 str2uint64(const char *buf, uint64 *p_res);
 
+#if WASM_ENABLE_MULTI_MODULE != 0
+static void *
+aot_loader_resolve_function(const char *module_name, const char *function_name,
+                            const AOTFuncType *expected_function_type,
+                            char *error_buf, uint32 error_buf_size)
+{
+    WASMModuleCommon *module_reg;
+    void *function = NULL;
+    AOTExport *export = NULL;
+    AOTModule *module = NULL;
+    AOTFuncType *target_function_type = NULL;
+
+    module_reg = wasm_runtime_find_module_registered(module_name);
+    if (!module_reg || module_reg->module_type != Wasm_Module_AoT) {
+        LOG_DEBUG("can not find a module named %s for function %s", module_name,
+                  function_name);
+        set_error_buf(error_buf, error_buf_size, "unknown import");
+        return NULL;
+    }
+
+    module = (AOTModule *)module_reg;
+    export = loader_find_export(module_reg, module_name, function_name,
+                                EXPORT_KIND_FUNC, error_buf, error_buf_size);
+    if (!export) {
+        return NULL;
+    }
+
+    /* resolve function type and function */
+    if (export->index < module->import_func_count) {
+        target_function_type = module->import_funcs[export->index].func_type;
+        function = module->import_funcs[export->index].func_ptr_linked;
+    }
+    else {
+        target_function_type =
+            module->func_types[module->func_type_indexes
+                                   [export->index - module->import_func_count]];
+        function =
+            (module->func_ptrs[export->index - module->import_func_count]);
+    }
+    /* check function type */
+    if (!wasm_type_equal(expected_function_type, target_function_type)) {
+        LOG_DEBUG("%s.%s failed the type check", module_name, function_name);
+        set_error_buf(error_buf, error_buf_size, "incompatible import type");
+        return NULL;
+    }
+    return function;
+}
+
+#endif /* end of WASM_ENABLE_MULTI_MODULE */
+
 static bool
 load_native_symbol_section(const uint8 *buf, const uint8 *buf_end,
                            AOTModule *module, bool is_load_from_file_buf,
@@ -1357,11 +1407,16 @@ load_import_funcs(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                   bool is_load_from_file_buf, char *error_buf,
                   uint32 error_buf_size)
 {
-    const char *module_name, *field_name;
+    char *module_name, *field_name;
     const uint8 *buf = *p_buf;
     AOTImportFunc *import_funcs;
     uint64 size;
     uint32 i;
+#if WASM_ENABLE_MULTI_MODULE != 0
+    AOTModule *sub_module = NULL;
+    AOTFunc *linked_func = NULL;
+    WASMType *declare_func_type = NULL;
+#endif
 
     /* Allocate memory */
     size = sizeof(AOTImportFunc) * (uint64)module->import_func_count;
@@ -1377,17 +1432,46 @@ load_import_funcs(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             set_error_buf(error_buf, error_buf_size, "unknown type");
             return false;
         }
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+        declare_func_type = module->func_types[import_funcs[i].func_type_index];
+        read_string(buf, buf_end, module_name);
+        read_string(buf, buf_end, field_name);
+
+        import_funcs[i].module_name = module_name;
+        import_funcs[i].func_name = field_name;
+        linked_func = wasm_native_resolve_symbol(
+            module_name, field_name, declare_func_type,
+            &import_funcs[i].signature, &import_funcs[i].attachment,
+            &import_funcs[i].call_conv_raw);
+        if (!linked_func) {
+            if (!wasm_runtime_is_built_in_module(module_name)) {
+                sub_module = (AOTModule *)wasm_runtime_load_depended_module(
+                    (WASMModuleCommon *)module, module_name, error_buf,
+                    error_buf_size);
+                if (!sub_module) {
+                    return false;
+                }
+            }
+            linked_func = aot_loader_resolve_function(
+                module_name, field_name, declare_func_type, error_buf,
+                error_buf_size);
+        }
+        import_funcs[i].func_ptr_linked = linked_func;
+        import_funcs[i].func_type = declare_func_type;
+
+#else
         import_funcs[i].func_type =
             module->func_types[import_funcs[i].func_type_index];
         read_string(buf, buf_end, import_funcs[i].module_name);
         read_string(buf, buf_end, import_funcs[i].func_name);
-
         module_name = import_funcs[i].module_name;
         field_name = import_funcs[i].func_name;
         import_funcs[i].func_ptr_linked = wasm_native_resolve_symbol(
             module_name, field_name, import_funcs[i].func_type,
             &import_funcs[i].signature, &import_funcs[i].attachment,
             &import_funcs[i].call_conv_raw);
+#endif
 
 #if WASM_ENABLE_LIBC_WASI != 0
         if (!strcmp(import_funcs[i].module_name, "wasi_unstable")
@@ -1430,8 +1514,28 @@ destroy_object_data_sections(AOTObjectDataSection *data_sections,
     uint32 i;
     AOTObjectDataSection *data_section = data_sections;
     for (i = 0; i < data_section_count; i++, data_section++)
-        if (data_section->data)
+        if (data_section->data) {
+#if WASM_ENABLE_STATIC_PGO != 0
+            if (!strncmp(data_section->name, "__llvm_prf_data", 15)) {
+                LLVMProfileData *data = (LLVMProfileData *)data_section->data;
+                if (data->values) {
+                    uint32 num_value_sites =
+                        data->num_value_sites[0] + data->num_value_sites[1];
+                    uint32 j;
+                    for (j = 0; j < num_value_sites; j++) {
+                        ValueProfNode *node = data->values[j], *node_next;
+                        while (node) {
+                            node_next = node->next;
+                            wasm_runtime_free(node);
+                            node = node_next;
+                        }
+                    }
+                    wasm_runtime_free(data->values);
+                }
+            }
+#endif
             os_munmap(data_section->data, data_section->size);
+        }
     wasm_runtime_free(data_sections);
 }
 
@@ -1624,27 +1728,6 @@ load_function_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
     const uint8 *p = buf, *p_end = buf_end;
     uint32 i;
     uint64 size, text_offset;
-#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
-    RUNTIME_FUNCTION *rtl_func_table;
-    AOTUnwindInfo *unwind_info;
-    uint32 unwind_info_offset = module->code_size - sizeof(AOTUnwindInfo);
-    uint32 unwind_code_offset = unwind_info_offset - PLT_ITEM_SIZE;
-#endif
-
-#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
-    unwind_info = (AOTUnwindInfo *)((uint8 *)module->code + module->code_size
-                                    - sizeof(AOTUnwindInfo));
-    unwind_info->Version = 1;
-    unwind_info->Flags = UNW_FLAG_NHANDLER;
-    *(uint32 *)&unwind_info->UnwindCode[0] = unwind_code_offset;
-
-    size = sizeof(RUNTIME_FUNCTION) * (uint64)module->func_count;
-    if (size > 0
-        && !(rtl_func_table = module->rtl_func_table =
-                 loader_malloc(size, error_buf, error_buf_size))) {
-        return false;
-    }
-#endif
 
     size = sizeof(void *) * (uint64)module->func_count;
     if (size > 0
@@ -1672,31 +1755,7 @@ load_function_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
         /* bits[0] of thumb function address must be 1 */
         module->func_ptrs[i] = (void *)((uintptr_t)module->func_ptrs[i] | 1);
 #endif
-#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
-        rtl_func_table[i].BeginAddress = (DWORD)text_offset;
-        if (i > 0) {
-            rtl_func_table[i - 1].EndAddress = rtl_func_table[i].BeginAddress;
-        }
-        rtl_func_table[i].UnwindInfoAddress = (DWORD)unwind_info_offset;
-#endif
     }
-
-#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
-    if (module->func_count > 0) {
-        uint32 plt_table_size =
-            module->is_indirect_mode ? 0 : get_plt_table_size();
-        rtl_func_table[module->func_count - 1].EndAddress =
-            (DWORD)(module->code_size - plt_table_size);
-
-        if (!RtlAddFunctionTable(rtl_func_table, module->func_count,
-                                 (DWORD64)(uintptr_t)module->code)) {
-            set_error_buf(error_buf, error_buf_size,
-                          "add dynamic function table failed");
-            return false;
-        }
-        module->rtl_func_table_registered = true;
-    }
-#endif
 
     /* Set start function when function pointers are resolved */
     if (module->start_func_index != (uint32)-1) {
@@ -1823,6 +1882,13 @@ get_data_section_addr(AOTModule *module, const char *section_name,
     return NULL;
 }
 
+const void *
+aot_get_data_section_addr(AOTModule *module, const char *section_name,
+                          uint32 *p_data_size)
+{
+    return get_data_section_addr(module, section_name, p_data_size);
+}
+
 static void *
 resolve_target_sym(const char *symbol, int32 *p_index)
 {
@@ -1900,6 +1966,8 @@ str2uint64(const char *buf, uint64 *p_res)
     return true;
 }
 
+#define R_X86_64_GOTPCREL 9 /* 32 bit signed PC relative offset to GOT */
+
 static bool
 do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
                    char *error_buf, uint32 error_buf_size)
@@ -1937,6 +2005,14 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
         bh_memcpy_s(symbol, symbol_len, relocation->symbol_name, symbol_len);
         symbol[symbol_len] = '\0';
 
+#if WASM_ENABLE_STATIC_PGO != 0
+        if (!strcmp(symbol, "__llvm_profile_runtime")
+            || !strcmp(symbol, "__llvm_profile_register_function")
+            || !strcmp(symbol, "__llvm_profile_register_names_function")) {
+            continue;
+        }
+#endif
+
         if (!strncmp(symbol, AOT_FUNC_PREFIX, strlen(AOT_FUNC_PREFIX))) {
             p = symbol + strlen(AOT_FUNC_PREFIX);
             if (*p == '\0'
@@ -1945,8 +2021,41 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
                                 "invalid import symbol %s", symbol);
                 goto check_symbol_fail;
             }
+#if (defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)) \
+    && !defined(BH_PLATFORM_WINDOWS)
+            if (relocation->relocation_type == R_X86_64_GOTPCREL) {
+                GOTItem *got_item = module->got_item_list;
+                uint32 got_item_idx = 0;
+
+                while (got_item) {
+                    if (got_item->func_idx == func_index)
+                        break;
+                    got_item_idx++;
+                    got_item = got_item->next;
+                }
+                /* Calculate `GOT + G` */
+                symbol_addr = module->got_func_ptrs + got_item_idx;
+            }
+            else
+                symbol_addr = module->func_ptrs[func_index];
+#else
+            symbol_addr = module->func_ptrs[func_index];
+#endif
+        }
+#if defined(BH_PLATFORM_WINDOWS) && defined(BUILD_TARGET_X86_32)
+        /* AOT function name starts with '_' in windows x86-32 */
+        else if (!strncmp(symbol, "_" AOT_FUNC_PREFIX,
+                          strlen("_" AOT_FUNC_PREFIX))) {
+            p = symbol + strlen("_" AOT_FUNC_PREFIX);
+            if (*p == '\0'
+                || (func_index = (uint32)atoi(p)) > module->func_count) {
+                set_error_buf_v(error_buf, error_buf_size, "invalid symbol %s",
+                                symbol);
+                goto check_symbol_fail;
+            }
             symbol_addr = module->func_ptrs[func_index];
         }
+#endif
         else if (!strcmp(symbol, ".text")) {
             symbol_addr = module->code;
         }
@@ -1956,7 +2065,14 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
                  /* ".rodata.cst4/8/16/.." */
                  || !strncmp(symbol, ".rodata.cst", strlen(".rodata.cst"))
                  /* ".rodata.strn.m" */
-                 || !strncmp(symbol, ".rodata.str", strlen(".rodata.str"))) {
+                 || !strncmp(symbol, ".rodata.str", strlen(".rodata.str"))
+                 || !strcmp(symbol, AOT_STACK_SIZES_SECTION_NAME)
+#if WASM_ENABLE_STATIC_PGO != 0
+                 || !strncmp(symbol, "__llvm_prf_cnts", 15)
+                 || !strncmp(symbol, "__llvm_prf_data", 15)
+                 || !strncmp(symbol, "__llvm_prf_names", 16)
+#endif
+        ) {
             symbol_addr = get_data_section_addr(module, symbol, NULL);
             if (!symbol_addr) {
                 set_error_buf_v(error_buf, error_buf_size,
@@ -2088,6 +2204,14 @@ do_data_relocation(AOTModule *module, AOTRelocationGroup *group,
     else if (!strcmp(group->section_name, ".rdata")) {
         data_section_name = group->section_name;
     }
+#if WASM_ENABLE_STATIC_PGO != 0
+    else if (!strncmp(group->section_name, ".rel__llvm_prf_data", 19)) {
+        data_section_name = group->section_name + strlen(".rel");
+    }
+    else if (!strncmp(group->section_name, ".rela__llvm_prf_data", 20)) {
+        data_section_name = group->section_name + strlen(".rela");
+    }
+#endif
     else {
         set_error_buf(error_buf, error_buf_size,
                       "invalid data relocation section name");
@@ -2107,6 +2231,49 @@ do_data_relocation(AOTModule *module, AOTRelocationGroup *group,
         if (!strcmp(symbol, ".text")) {
             symbol_addr = module->code;
         }
+#if WASM_ENABLE_STATIC_PGO != 0
+        else if (!strncmp(symbol, AOT_FUNC_PREFIX, strlen(AOT_FUNC_PREFIX))) {
+            char *p = symbol + strlen(AOT_FUNC_PREFIX);
+            uint32 func_index;
+            if (*p == '\0'
+                || (func_index = (uint32)atoi(p)) > module->func_count) {
+                set_error_buf_v(error_buf, error_buf_size,
+                                "invalid relocation symbol %s", symbol);
+                return false;
+            }
+            symbol_addr = module->func_ptrs[func_index];
+        }
+        else if (!strcmp(symbol, "__llvm_prf_cnts")) {
+            uint32 j;
+            for (j = 0; j < module->data_section_count; j++) {
+                if (!strncmp(module->data_sections[j].name, symbol, 15)) {
+                    bh_assert(relocation->relocation_addend + sizeof(uint64)
+                              <= module->data_sections[j].size);
+                    symbol_addr = module->data_sections[j].data;
+                    break;
+                }
+            }
+            if (j == module->data_section_count) {
+                set_error_buf_v(error_buf, error_buf_size,
+                                "invalid relocation symbol %s", symbol);
+                return false;
+            }
+        }
+        else if (!strncmp(symbol, "__llvm_prf_cnts", 15)) {
+            uint32 j;
+            for (j = 0; j < module->data_section_count; j++) {
+                if (!strcmp(module->data_sections[j].name, symbol)) {
+                    symbol_addr = module->data_sections[j].data;
+                    break;
+                }
+            }
+            if (j == module->data_section_count) {
+                set_error_buf_v(error_buf, error_buf_size,
+                                "invalid relocation symbol %s", symbol);
+                return false;
+            }
+        }
+#endif /* end of WASM_ENABLE_STATIC_PGO != 0 */
         else {
             set_error_buf_v(error_buf, error_buf_size,
                             "invalid relocation symbol %s", symbol);
@@ -2154,7 +2321,7 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
 {
     AOTRelocationGroup *groups = NULL, *group;
     uint32 symbol_count = 0;
-    uint32 group_count = 0, i, j;
+    uint32 group_count = 0, i, j, got_item_count = 0;
     uint64 size;
     uint32 *symbol_offsets, total_string_len;
     uint8 *symbol_buf, *symbol_buf_end;
@@ -2216,6 +2383,8 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
 
         for (j = 0; j < relocation_count; j++) {
             AOTRelocation relocation = { 0 };
+            char group_name_buf[128] = { 0 };
+            char symbol_name_buf[128] = { 0 };
             uint32 symbol_index, offset32;
             int32 addend32;
             uint16 symbol_name_len;
@@ -2244,10 +2413,10 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
             symbol_name_len = *(uint16 *)symbol_name;
             symbol_name += sizeof(uint16);
 
-            char group_name_buf[128] = { 0 };
-            char symbol_name_buf[128] = { 0 };
-            memcpy(group_name_buf, group_name, group_name_len);
-            memcpy(symbol_name_buf, symbol_name, symbol_name_len);
+            bh_memcpy_s(group_name_buf, (uint32)sizeof(group_name_buf),
+                        group_name, group_name_len);
+            bh_memcpy_s(symbol_name_buf, (uint32)sizeof(symbol_name_buf),
+                        symbol_name, symbol_name_len);
 
             if ((group_name_len == strlen(".text")
                  || (module->is_indirect_mode
@@ -2308,6 +2477,139 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
         module->extra_plt_data_size = (uint32)size;
     }
 #endif /* end of defined(BH_PLATFORM_WINDOWS) */
+
+#if (defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)) \
+    && !defined(BH_PLATFORM_WINDOWS)
+    buf = symbol_buf_end;
+    read_uint32(buf, buf_end, group_count);
+
+    /* Resolve the relocations of type R_X86_64_GOTPCREL */
+    for (i = 0; i < group_count; i++) {
+        uint32 name_index, relocation_count;
+        uint16 group_name_len;
+        uint8 *group_name;
+
+        /* section name address is 4 bytes aligned. */
+        buf = (uint8 *)align_ptr(buf, sizeof(uint32));
+        read_uint32(buf, buf_end, name_index);
+
+        if (name_index >= symbol_count) {
+            set_error_buf(error_buf, error_buf_size,
+                          "symbol index out of range");
+            goto fail;
+        }
+
+        group_name = symbol_buf + symbol_offsets[name_index];
+        group_name_len = *(uint16 *)group_name;
+        group_name += sizeof(uint16);
+
+        read_uint32(buf, buf_end, relocation_count);
+
+        for (j = 0; j < relocation_count; j++) {
+            AOTRelocation relocation = { 0 };
+            char group_name_buf[128] = { 0 };
+            char symbol_name_buf[128] = { 0 };
+            uint32 symbol_index;
+            uint16 symbol_name_len;
+            uint8 *symbol_name;
+
+            /* relocation offset and addend */
+            buf += sizeof(void *) * 2;
+
+            read_uint32(buf, buf_end, relocation.relocation_type);
+            read_uint32(buf, buf_end, symbol_index);
+
+            if (symbol_index >= symbol_count) {
+                set_error_buf(error_buf, error_buf_size,
+                              "symbol index out of range");
+                goto fail;
+            }
+
+            symbol_name = symbol_buf + symbol_offsets[symbol_index];
+            symbol_name_len = *(uint16 *)symbol_name;
+            symbol_name += sizeof(uint16);
+
+            bh_memcpy_s(group_name_buf, (uint32)sizeof(group_name_buf),
+                        group_name, group_name_len);
+            bh_memcpy_s(symbol_name_buf, (uint32)sizeof(symbol_name_buf),
+                        symbol_name, symbol_name_len);
+
+            if (relocation.relocation_type == R_X86_64_GOTPCREL
+                && !strncmp(symbol_name_buf, AOT_FUNC_PREFIX,
+                            strlen(AOT_FUNC_PREFIX))) {
+                uint32 func_idx =
+                    atoi(symbol_name_buf + strlen(AOT_FUNC_PREFIX));
+                GOTItem *got_item = module->got_item_list;
+
+                if (func_idx >= module->func_count) {
+                    set_error_buf(error_buf, error_buf_size,
+                                  "func index out of range");
+                    goto fail;
+                }
+
+                while (got_item) {
+                    if (got_item->func_idx == func_idx)
+                        break;
+                    got_item = got_item->next;
+                }
+
+                if (!got_item) {
+                    /* Create the got item and append to the list */
+                    got_item = wasm_runtime_malloc(sizeof(GOTItem));
+                    if (!got_item) {
+                        set_error_buf(error_buf, error_buf_size,
+                                      "allocate memory failed");
+                        goto fail;
+                    }
+
+                    got_item->func_idx = func_idx;
+                    got_item->next = NULL;
+                    if (!module->got_item_list) {
+                        module->got_item_list = module->got_item_list_end =
+                            got_item;
+                    }
+                    else {
+                        module->got_item_list_end->next = got_item;
+                        module->got_item_list_end = got_item;
+                    }
+
+                    got_item_count++;
+                }
+            }
+        }
+    }
+
+    if (got_item_count) {
+        GOTItem *got_item = module->got_item_list;
+        uint32 got_item_idx = 0;
+
+        map_prot = MMAP_PROT_READ | MMAP_PROT_WRITE;
+        /* aot code and data in x86_64 must be in range 0 to 2G due to
+           relocation for R_X86_64_32/32S/PC32 */
+        map_flags = MMAP_MAP_32BIT;
+
+        /* Create the GOT for func_ptrs, note that it is different from
+           the .got section of a dynamic object file */
+        size = (uint64)sizeof(void *) * got_item_count;
+        if (size > UINT32_MAX
+            || !(module->got_func_ptrs =
+                     os_mmap(NULL, (uint32)size, map_prot, map_flags))) {
+            set_error_buf(error_buf, error_buf_size, "mmap memory failed");
+            goto fail;
+        }
+
+        while (got_item) {
+            module->got_func_ptrs[got_item_idx++] =
+                module->func_ptrs[got_item->func_idx];
+            got_item = got_item->next;
+        }
+
+        module->got_item_count = got_item_count;
+    }
+#else
+    (void)got_item_count;
+#endif /* (defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)) && \
+          !defined(BH_PLATFORM_WINDOWS) */
 
     buf = symbol_buf_end;
     read_uint32(buf, buf_end, group_count);
@@ -2653,12 +2955,20 @@ create_module(char *error_buf, uint32 error_buf_size)
 {
     AOTModule *module =
         loader_malloc(sizeof(AOTModule), error_buf, error_buf_size);
+    bh_list_status ret;
 
     if (!module) {
         return NULL;
     }
 
     module->module_type = Wasm_Module_AoT;
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+    module->import_module_list = &module->import_module_list_head;
+    ret = bh_list_init(module->import_module_list);
+    bh_assert(ret == BH_LIST_SUCCESS);
+#endif
+    (void)ret;
 
     return module;
 }
@@ -2750,6 +3060,9 @@ create_sections(AOTModule *module, const uint8 *buf, uint32 size,
     uint32 section_size;
     uint64 total_size;
     uint8 *aot_text;
+#if (WASM_MEM_DUAL_BUS_MIRROR != 0)
+    uint8 *mirrored_text;
+#endif
 
     if (!resolve_execute_mode(buf, size, &is_indirect_mode, error_buf,
                               error_buf_size)) {
@@ -2808,8 +3121,17 @@ create_sections(AOTModule *module, const uint8 *buf, uint32 size,
                     bh_assert((uintptr_t)aot_text < INT32_MAX);
 #endif
 #endif
+
+#if (WASM_MEM_DUAL_BUS_MIRROR != 0)
+                    mirrored_text = os_get_dbus_mirror(aot_text);
+                    bh_assert(mirrored_text != NULL);
+                    bh_memcpy_s(mirrored_text, (uint32)total_size,
+                                section->section_body, (uint32)section_size);
+                    os_dcache_flush();
+#else
                     bh_memcpy_s(aot_text, (uint32)total_size,
                                 section->section_body, (uint32)section_size);
+#endif
                     section->section_body = aot_text;
                     destroy_aot_text = true;
 
@@ -2889,6 +3211,16 @@ load(const uint8 *buf, uint32 size, AOTModule *module, char *error_buf,
            module->code and will be destroyed in aot_unload() */
         destroy_sections(section_list, false);
     }
+
+#if 0
+    {
+        uint32 i;
+        for (i = 0; i < module->func_count; i++) {
+            os_printf("AOT func %u, addr: %p\n", i, module->func_ptrs[i]);
+        }
+    }
+#endif
+
     return ret;
 fail:
     return false;
@@ -2903,10 +3235,13 @@ aot_load_from_aot_file(const uint8 *buf, uint32 size, char *error_buf,
     if (!module)
         return NULL;
 
+    os_thread_jit_write_protect_np(false); /* Make memory writable */
     if (!load(buf, size, module, error_buf, error_buf_size)) {
         aot_unload(module);
         return NULL;
     }
+    os_thread_jit_write_protect_np(true); /* Make memory executable */
+    os_icache_flush(module->code, module->code_size);
 
     LOG_VERBOSE("Load module success.\n");
     return module;
@@ -2961,6 +3296,19 @@ aot_unload(AOTModule *module)
 
     if (module->const_str_set)
         bh_hash_map_destroy(module->const_str_set);
+#if WASM_ENABLE_MULTI_MODULE != 0
+    /* just release the sub module list */
+    if (module->import_module_list) {
+        WASMRegisteredModule *node =
+            bh_list_first_elem(module->import_module_list);
+        while (node) {
+            WASMRegisteredModule *next = bh_list_elem_next(node);
+            bh_list_remove(module->import_module_list, node);
+            wasm_runtime_free(node);
+            node = next;
+        }
+    }
+#endif
 
     if (module->code && !module->is_indirect_mode) {
         /* The layout is: literal size + literal + code (with plt table) */
@@ -2976,17 +3324,27 @@ aot_unload(AOTModule *module)
     }
 #endif
 
-#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
-    if (module->rtl_func_table) {
-        if (module->rtl_func_table_registered)
-            RtlDeleteFunctionTable(module->rtl_func_table);
-        wasm_runtime_free(module->rtl_func_table);
+#if (defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)) \
+    && !defined(BH_PLATFORM_WINDOWS)
+    {
+        GOTItem *got_item = module->got_item_list, *got_item_next;
+
+        if (module->got_func_ptrs) {
+            os_munmap(module->got_func_ptrs,
+                      sizeof(void *) * module->got_item_count);
+        }
+        while (got_item) {
+            got_item_next = got_item->next;
+            wasm_runtime_free(got_item);
+            got_item = got_item_next;
+        }
     }
 #endif
 
     if (module->data_sections)
         destroy_object_data_sections(module->data_sections,
                                      module->data_section_count);
+
 #if WASM_ENABLE_DEBUG_AOT != 0
     jit_code_entry_destroy(module->elf_hdr);
 #endif
@@ -3033,3 +3391,23 @@ aot_get_custom_section(const AOTModule *module, const char *name, uint32 *len)
     return NULL;
 }
 #endif /* end of WASM_ENABLE_LOAD_CUSTOM_SECTION */
+
+#if WASM_ENABLE_STATIC_PGO != 0
+void
+aot_exchange_uint16(uint8 *p_data)
+{
+    return exchange_uint16(p_data);
+}
+
+void
+aot_exchange_uint32(uint8 *p_data)
+{
+    return exchange_uint32(p_data);
+}
+
+void
+aot_exchange_uint64(uint8 *p_data)
+{
+    return exchange_uint64(p_data);
+}
+#endif

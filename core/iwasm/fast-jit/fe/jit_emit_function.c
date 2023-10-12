@@ -5,6 +5,7 @@
 
 #include "jit_emit_function.h"
 #include "jit_emit_exception.h"
+#include "jit_emit_control.h"
 #include "../jit_frontend.h"
 #include "../jit_codegen.h"
 #include "../../interpreter/wasm_runtime.h"
@@ -232,6 +233,12 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
     bool is_pointer_arg;
     bool return_value = false;
 
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (!jit_check_suspend_flags(cc))
+        goto fail;
+#endif
+
     if (func_idx < wasm_module->import_function_count) {
         /* The function to call is an import function */
         func_import = &wasm_module->import_functions[func_idx].u.function;
@@ -274,6 +281,12 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
             if (!post_return(cc, func_type, 0, true)) {
                 goto fail;
             }
+
+#if WASM_ENABLE_THREAD_MGR != 0
+            /* Insert suspend check point */
+            if (!jit_check_suspend_flags(cc))
+                goto fail;
+#endif
 
             return true;
         }
@@ -416,6 +429,12 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
         }
     }
 
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (!jit_check_suspend_flags(cc))
+        goto fail;
+#endif
+
     /* Clear part of memory regs and table regs as their values
        may be changed in the function call */
     if (cc->cur_wasm_module->possible_memory_grow)
@@ -539,6 +558,12 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
              NEW_CONST(I32, offsetof(WASMExecEnv, jit_cache)));
     GEN_INSN(STI32, func_idx, cc->exec_env_reg,
              NEW_CONST(I32, offsetof(WASMExecEnv, jit_cache) + 4));
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (!jit_check_suspend_flags(cc))
+        goto fail;
+#endif
 
     block_import = jit_cc_new_basic_block(cc, 0);
     block_nonimport = jit_cc_new_basic_block(cc, 0);
@@ -741,6 +766,12 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
     if (!post_return(cc, func_type, 0, true)) {
         goto fail;
     }
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (!jit_check_suspend_flags(cc))
+        goto fail;
+#endif
 
     /* Clear part of memory regs and table regs as their values
        may be changed in the function call */

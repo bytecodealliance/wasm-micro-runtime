@@ -1843,7 +1843,7 @@ init_llvm_jit_functions_stage1(WASMModule *module, char *error_buf,
     if (module->function_count == 0)
         return true;
 
-#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_LLVM_JIT != 0
+#if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_LAZY_JIT != 0
     if (os_mutex_init(&module->tierup_wait_lock) != 0) {
         set_error_buf(error_buf, error_buf_size, "init jit tierup lock failed");
         return false;
@@ -1876,6 +1876,7 @@ init_llvm_jit_functions_stage1(WASMModule *module, char *error_buf,
     option.is_jit_mode = true;
     option.opt_level = llvm_jit_options.opt_level;
     option.size_level = llvm_jit_options.size_level;
+    option.segue_flags = llvm_jit_options.segue_flags;
 
 #if WASM_ENABLE_BULK_MEMORY != 0
     option.enable_bulk_memory = true;
@@ -2025,6 +2026,11 @@ orcjit_thread_callback(void *arg)
             return NULL;
         }
     }
+#if WASM_ENABLE_JIT != 0 && WASM_ENABLE_LAZY_JIT != 0
+    os_mutex_lock(&module->tierup_wait_lock);
+    module->fast_jit_ready_groups++;
+    os_mutex_unlock(&module->tierup_wait_lock);
+#endif
 #endif
 
 #if WASM_ENABLE_FAST_JIT != 0 && WASM_ENABLE_JIT != 0 \
@@ -2052,9 +2058,11 @@ orcjit_thread_callback(void *arg)
         }
     }
 
-    /* Wait until init_llvm_jit_functions_stage2 finishes */
+    /* Wait until init_llvm_jit_functions_stage2 finishes and all
+       fast jit functions are compiled */
     os_mutex_lock(&module->tierup_wait_lock);
-    while (!(module->llvm_jit_inited && module->enable_llvm_jit_compilation)) {
+    while (!(module->llvm_jit_inited && module->enable_llvm_jit_compilation
+             && module->fast_jit_ready_groups >= group_stride)) {
         os_cond_reltimedwait(&module->tierup_wait_cond,
                              &module->tierup_wait_lock, 10000);
         if (module->orcjit_stop_compiling) {
@@ -3929,6 +3937,7 @@ wasm_loader_pop_frame_ref(WASMLoaderContext *ctx, uint8 type, char *error_buf,
     return true;
 }
 
+#if WASM_ENABLE_FAST_INTERP == 0
 static bool
 wasm_loader_push_pop_frame_ref(WASMLoaderContext *ctx, uint8 pop_cnt,
                                uint8 type_push, uint8 type_pop, char *error_buf,
@@ -3943,6 +3952,7 @@ wasm_loader_push_pop_frame_ref(WASMLoaderContext *ctx, uint8 pop_cnt,
         return false;
     return true;
 }
+#endif
 
 static bool
 wasm_loader_push_frame_csp(WASMLoaderContext *ctx, uint8 label_type,
@@ -4601,25 +4611,6 @@ wasm_loader_pop_frame_offset(WASMLoaderContext *ctx, uint8 type,
 }
 
 static bool
-wasm_loader_push_pop_frame_offset(WASMLoaderContext *ctx, uint8 pop_cnt,
-                                  uint8 type_push, uint8 type_pop,
-                                  bool disable_emit, int16 operand_offset,
-                                  char *error_buf, uint32 error_buf_size)
-{
-    for (int i = 0; i < pop_cnt; i++) {
-        if (!wasm_loader_pop_frame_offset(ctx, type_pop, error_buf,
-                                          error_buf_size))
-            return false;
-    }
-    if (!wasm_loader_push_frame_offset(ctx, type_push, disable_emit,
-                                       operand_offset, error_buf,
-                                       error_buf_size))
-        return false;
-
-    return true;
-}
-
-static bool
 wasm_loader_push_frame_ref_offset(WASMLoaderContext *ctx, uint8 type,
                                   bool disable_emit, int16 operand_offset,
                                   char *error_buf, uint32 error_buf_size)
@@ -4652,12 +4643,24 @@ wasm_loader_push_pop_frame_ref_offset(WASMLoaderContext *ctx, uint8 pop_cnt,
                                       bool disable_emit, int16 operand_offset,
                                       char *error_buf, uint32 error_buf_size)
 {
-    if (!wasm_loader_push_pop_frame_offset(ctx, pop_cnt, type_push, type_pop,
-                                           disable_emit, operand_offset,
-                                           error_buf, error_buf_size))
+    uint8 i;
+
+    for (i = 0; i < pop_cnt; i++) {
+        if (!wasm_loader_pop_frame_offset(ctx, type_pop, error_buf,
+                                          error_buf_size))
+            return false;
+
+        if (!wasm_loader_pop_frame_ref(ctx, type_pop, error_buf,
+                                       error_buf_size))
+            return false;
+    }
+
+    if (!wasm_loader_push_frame_offset(ctx, type_push, disable_emit,
+                                       operand_offset, error_buf,
+                                       error_buf_size))
         return false;
-    if (!wasm_loader_push_pop_frame_ref(ctx, pop_cnt, type_push, type_pop,
-                                        error_buf, error_buf_size))
+
+    if (!wasm_loader_push_frame_ref(ctx, type_push, error_buf, error_buf_size))
         return false;
 
     return true;
@@ -6225,9 +6228,13 @@ re_scan:
             case WASM_OP_SELECT_T:
             {
                 uint8 vec_len, ref_type;
+#if WASM_ENABLE_FAST_INTERP != 0
+                uint8 *p_code_compiled_tmp = loader_ctx->p_code_compiled;
+#endif
 
                 read_leb_uint32(p, p_end, vec_len);
-                if (!vec_len) {
+                if (vec_len != 1) {
+                    /* typed select must have exactly one result */
                     set_error_buf(error_buf, error_buf_size,
                                   "invalid result arity");
                     goto fail;
@@ -6246,8 +6253,6 @@ re_scan:
 #if WASM_ENABLE_FAST_INTERP != 0
                 if (loader_ctx->p_code_compiled) {
                     uint8 opcode_tmp = WASM_OP_SELECT;
-                    uint8 *p_code_compiled_tmp =
-                        loader_ctx->p_code_compiled - 2;
 
                     if (ref_type == VALUE_TYPE_F64
                         || ref_type == VALUE_TYPE_I64)
@@ -6377,12 +6382,13 @@ re_scan:
                     goto fail;
                 }
 
-                if (func_idx == cur_func_idx + module->import_function_count) {
+                /* Refer to a forward-declared function */
+                if (func_idx >= cur_func_idx + module->import_function_count) {
                     WASMTableSeg *table_seg = module->table_segments;
                     bool func_declared = false;
                     uint32 j;
 
-                    /* Check whether current function is declared */
+                    /* Check whether the function is declared in table segs */
                     for (i = 0; i < module->table_seg_count; i++, table_seg++) {
                         if (table_seg->elem_type == VALUE_TYPE_FUNCREF
                             && wasm_elem_is_declarative(table_seg->mode)) {
@@ -6395,10 +6401,17 @@ re_scan:
                         }
                     }
                     if (!func_declared) {
-                        set_error_buf(error_buf, error_buf_size,
-                                      "undeclared function reference");
-                        goto fail;
+                        /* Check whether the function is exported */
+                        for (i = 0; i < module->export_count; i++) {
+                            if (module->exports[i].kind == EXPORT_KIND_FUNC
+                                && module->exports[i].index == func_idx) {
+                                func_declared = true;
+                                break;
+                            }
+                        }
                     }
+                    bh_assert(func_declared);
+                    (void)func_declared;
                 }
 
 #if WASM_ENABLE_FAST_INTERP != 0

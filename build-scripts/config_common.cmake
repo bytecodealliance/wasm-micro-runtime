@@ -127,6 +127,28 @@ else ()
   unset (LLVM_AVAILABLE_LIBS)
 endif ()
 
+# Sanitizers
+
+set(WAMR_BUILD_SANITIZER $ENV{WAMR_BUILD_SANITIZER})
+
+if (NOT DEFINED WAMR_BUILD_SANITIZER)
+  set(WAMR_BUILD_SANITIZER "")
+elseif (WAMR_BUILD_SANITIZER STREQUAL "ubsan")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O0 -fno-omit-frame-pointer -fsanitize=undefined -fno-sanitize-recover=all -fno-sanitize=alignment" )
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=undefined")
+elseif (WAMR_BUILD_SANITIZER STREQUAL "asan")
+  if (NOT WAMR_BUILD_JIT EQUAL 1)
+    set (ASAN_OPTIONS "verbosity=2 debug=true ")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O0 -fno-omit-frame-pointer -fsanitize=address -fno-sanitize-recover=all" )
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
+  endif()
+elseif (WAMR_BUILD_SANITIZER STREQUAL "tsan") 
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O0 -fno-omit-frame-pointer -fsanitize=thread -fno-sanitize-recover=all" )
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=thread")
+elseif (NOT (WAMR_BUILD_SANITIZER STREQUAL "") )
+  message(SEND_ERROR "Unsupported sanitizer: ${WAMR_BUILD_SANITIZER}")
+endif()
+
 ########################################
 
 message ("-- Build Configurations:")
@@ -251,6 +273,13 @@ else ()
     add_definitions (-DWASM_DISABLE_STACK_HW_BOUND_CHECK=0)
   endif ()
 endif ()
+if (WAMR_DISABLE_WAKEUP_BLOCKING_OP EQUAL 1)
+  add_definitions (-DWASM_DISABLE_WAKEUP_BLOCKING_OP=1)
+  message ("     Wakeup of blocking operations disabled")
+else ()
+  add_definitions (-DWASM_DISABLE_WAKEUP_BLOCKING_OP=0)
+  message ("     Wakeup of blocking operations enabled")
+endif ()
 if (WAMR_BUILD_SIMD EQUAL 1)
   if (NOT WAMR_BUILD_TARGET MATCHES "RISCV64.*")
     add_definitions (-DWASM_ENABLE_SIMD=1)
@@ -337,9 +366,16 @@ endif ()
 if (WAMR_BUILD_WASI_NN EQUAL 1)
   message ("     WASI-NN enabled")
   add_definitions (-DWASM_ENABLE_WASI_NN=1)
-  if (WASI_NN_ENABLE_GPU EQUAL 1)
+  if (WAMR_BUILD_WASI_NN_ENABLE_GPU EQUAL 1)
       message ("     WASI-NN: GPU enabled")
-      add_definitions (-DWASI_NN_ENABLE_GPU=1)
+      add_definitions (-DWASM_ENABLE_WASI_NN_GPU=1)
+  endif ()
+  if (WAMR_BUILD_WASI_NN_ENABLE_EXTERNAL_DELEGATE EQUAL 1)
+      message ("     WASI-NN: External Delegation enabled")
+      add_definitions (-DWASM_ENABLE_WASI_NN_EXTERNAL_DELEGATE=1)
+  endif ()
+  if (DEFINED WAMR_BUILD_WASI_NN_EXTERNAL_DELEGATE_PATH)
+      add_definitions (-DWASM_WASI_NN_EXTERNAL_DELEGATE_PATH="${WAMR_BUILD_WASI_NN_EXTERNAL_DELEGATE_PATH}")
   endif ()
 endif ()
 if (WAMR_BUILD_ALLOC_WITH_USER_DATA EQUAL 1)
@@ -348,6 +384,10 @@ endif()
 if (WAMR_BUILD_WASM_CACHE EQUAL 1)
   add_definitions (-DWASM_ENABLE_WASM_CACHE=1)
   message ("     Wasm files cache enabled")
+endif ()
+if (WAMR_BUILD_MODULE_INST_CONTEXT EQUAL 1)
+  add_definitions (-DWASM_ENABLE_MODULE_INST_CONTEXT=1)
+  message ("     Module instance context enabled")
 endif ()
 if (WAMR_BUILD_GC_HEAP_VERIFY EQUAL 1)
   add_definitions (-DWASM_ENABLE_GC_VERIFY=1)
@@ -358,4 +398,40 @@ if ("$ENV{COLLECT_CODE_COVERAGE}" STREQUAL "1" OR COLLECT_CODE_COVERAGE EQUAL 1)
   set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage")
   add_definitions (-DCOLLECT_CODE_COVERAGE)
   message ("     Collect code coverage enabled")
+endif ()
+if (WAMR_BUILD_STATIC_PGO EQUAL 1)
+  add_definitions (-DWASM_ENABLE_STATIC_PGO=1)
+  message ("     AOT static PGO enabled")
+endif ()
+if (WAMR_DISABLE_WRITE_GS_BASE EQUAL 1)
+  add_definitions (-DWASM_DISABLE_WRITE_GS_BASE=1)
+  message ("     Write linear memory base addr to x86 GS register disabled")
+elseif (WAMR_BUILD_TARGET STREQUAL "X86_64"
+        AND WAMR_BUILD_PLATFORM STREQUAL "linux")
+  set (TEST_WRGSBASE_SOURCE "${CMAKE_BINARY_DIR}/test_wrgsbase.c")
+  file (WRITE "${TEST_WRGSBASE_SOURCE}" "
+  #include <stdio.h>
+  #include <stdint.h>
+  int main() {
+      uint64_t value;
+      asm volatile (\"wrgsbase %0\" : : \"r\"(value));
+      printf(\"WRGSBASE instruction is available.\\n\");
+      return 0;
+  }")
+  # Try to compile and run the test program
+  try_run (TEST_WRGSBASE_RESULT
+    TEST_WRGSBASE_COMPILED
+    ${CMAKE_BINARY_DIR}/test_wrgsbase
+    SOURCES ${TEST_WRGSBASE_SOURCE}
+    CMAKE_FLAGS -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+  )
+  #message("${TEST_WRGSBASE_COMPILED}, ${TEST_WRGSBASE_RESULT}")
+  if (NOT TEST_WRGSBASE_RESULT EQUAL 0)
+    add_definitions (-DWASM_DISABLE_WRITE_GS_BASE=1)
+    message ("     Write linear memory base addr to x86 GS register disabled")
+  endif ()
+endif ()
+if (WAMR_CONFIGUABLE_BOUNDS_CHECKS EQUAL 1)
+  add_definitions (-DWASM_CONFIGURABLE_BOUNDS_CHECKS=1)
+  message ("     Configurable bounds checks enabled")
 endif ()

@@ -10,7 +10,11 @@
 /**
  * Operand kinds of instructions.
  */
-enum { JIT_OPND_KIND_Reg, JIT_OPND_KIND_VReg, JIT_OPND_KIND_LookupSwitch };
+enum {
+    JIT_OPND_KIND_Reg,
+    JIT_OPND_KIND_VReg,
+    JIT_OPND_KIND_LookupSwitch,
+};
 
 /**
  * Operand kind of each instruction.
@@ -44,6 +48,18 @@ static const uint8 insn_opnd_first_use[] = {
 #define JIT_INSN_NEW_VReg(OPND_NUM)                     \
     jit_calloc(offsetof(JitInsn, _opnd._opnd_VReg._reg) \
                + sizeof(JitReg) * (OPND_NUM))
+
+JitInsn *
+_jit_insn_new_Reg_0(JitOpcode opc)
+{
+    JitInsn *insn = JIT_INSN_NEW_Reg(0);
+
+    if (insn) {
+        insn->opcode = opc;
+    }
+
+    return insn;
+}
 
 JitInsn *
 _jit_insn_new_Reg_1(JitOpcode opc, JitReg r0)

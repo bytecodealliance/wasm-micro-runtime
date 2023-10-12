@@ -11,7 +11,6 @@ for file in "${files[@]}"
 do
     echo $file
     $CC \
-        $WASI_SYSROOT_OPTION \
         --target=wasm32-wasi-threads \
         -I../inc \
         ../src/wasi/wasi_socket_ext.c -pthread -ftls-model=local-exec \

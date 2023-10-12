@@ -167,6 +167,8 @@ typedef struct RuntimeInitArgs {
     /* LLVM JIT opt and size level */
     uint32_t llvm_jit_opt_level;
     uint32_t llvm_jit_size_level;
+    /* Segue optimization flags for LLVM JIT */
+    uint32_t segue_flags;
 } RuntimeInitArgs;
 
 #ifndef WASM_VALKIND_T_DEFINED
@@ -184,6 +186,7 @@ enum wasm_valkind_enum {
 
 #ifndef WASM_VAL_T_DEFINED
 #define WASM_VAL_T_DEFINED
+struct wasm_ref_t;
 
 typedef struct wasm_val_t {
     wasm_valkind_t kind;
@@ -195,6 +198,7 @@ typedef struct wasm_val_t {
         double f64;
         /* represent a foreign object, aka externref in .wat */
         uintptr_t foreign;
+        struct wasm_ref_t *ref;
     } of;
 } wasm_val_t;
 #endif
@@ -307,7 +311,7 @@ wasm_runtime_is_xip_file(const uint8_t *buf, uint32_t size);
 /**
  * Callback to load a module file into a buffer in multi-module feature
  */
-typedef bool (*module_reader)(const char *module_name,
+typedef bool (*module_reader)(package_type_t module_type,const char *module_name,
                               uint8_t **p_buffer, uint32_t *p_size);
 
 /**
@@ -891,6 +895,27 @@ WASM_RUNTIME_API_EXTERN void
 wasm_runtime_clear_exception(wasm_module_inst_t module_inst);
 
 /**
+ * Terminate the WASM module instance.
+ *
+ * This function causes the module instance fail as if it raised a trap.
+ *
+ * This is intended to be used in situations like:
+ *
+ *  - A thread is executing the WASM module instance
+ *    (eg. it's in the middle of `wasm_application_execute_main`)
+ *
+ *  - Another thread has a copy of `wasm_module_inst_t` of
+ *    the module instance and wants to terminate it asynchronously.
+ *
+ * This function is provided only when WAMR is built with threading enabled.
+ * (`WASM_ENABLE_THREAD_MGR=1`)
+ *
+ * @param module_inst the WASM module instance
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_terminate(wasm_module_inst_t module_inst);
+
+/**
  * Set custom data to WASM module instance.
  * Note:
  *  If WAMR_BUILD_LIB_PTHREAD is enabled, this API
@@ -912,6 +937,25 @@ wasm_runtime_set_custom_data(wasm_module_inst_t module_inst,
 WASM_RUNTIME_API_EXTERN void *
 wasm_runtime_get_custom_data(wasm_module_inst_t module_inst);
 
+/**
+ * Set the memory bounds checks flag of a WASM module instance.
+ * 
+ * @param module_inst the WASM module instance
+ * @param enable the flag to enable/disable the memory bounds checks
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_set_bounds_checks(wasm_module_inst_t module_inst,
+                               bool enable);
+/**
+ * Check if the memory bounds checks flag is enabled for a WASM module instance.
+ * 
+ * @param module_inst the WASM module instance
+ *
+ * @return true if the memory bounds checks flag is enabled, false otherwise
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_is_bounds_checks_enabled(
+    wasm_module_inst_t module_inst);
 /**
  * Allocate memory from the heap of WASM module instance
  *
@@ -1270,6 +1314,32 @@ wasm_externref_obj2ref(wasm_module_inst_t module_inst,
                        void *extern_obj, uint32_t *p_externref_idx);
 
 /**
+ * Delete external object registered by `wasm_externref_obj2ref`.
+ *
+ * @param module_inst the WASM module instance that the extern object
+ *        belongs to
+ * @param extern_obj the external object to be deleted
+ *
+ * @return true if success, false otherwise
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_externref_objdel(wasm_module_inst_t module_inst, void *extern_obj);
+
+/**
+ * Set cleanup callback to release external object.
+ *
+ * @param module_inst the WASM module instance that the extern object
+ *        belongs to
+ * @param extern_obj the external object to which to set the `extern_obj_cleanup` cleanup callback.
+ * @param extern_obj_cleanup a callback to release `extern_obj`
+ *
+ * @return true if success, false otherwise
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_externref_set_cleanup(wasm_module_inst_t module_inst, void *extern_obj,
+                           void (*extern_obj_cleanup)(void *));
+
+/**
  * Retrieve the external object from an internal externref index
  *
  * @param externref_idx the externref index to retrieve
@@ -1330,6 +1400,30 @@ wasm_runtime_dump_call_stack_to_buf(wasm_exec_env_t exec_env, char *buf,
                                     uint32_t len);
 
 /**
+ * Get the size required to store the LLVM PGO profile data
+ *
+ * @param module_inst the WASM module instance
+ *
+ * @return size required to store the contents, 0 means error
+ */
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_runtime_get_pgo_prof_data_size(wasm_module_inst_t module_inst);
+
+/**
+ * Dump the LLVM PGO profile data to buffer
+ *
+ * @param module_inst the WASM module instance
+ * @param buf buffer to store the dumped content
+ * @param len length of the buffer
+ *
+ * @return bytes dumped to the buffer, 0 means error and data in buf
+ *         may be invalid
+ */
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_runtime_dump_pgo_prof_data_to_buf(wasm_module_inst_t module_inst,
+                                       char *buf, uint32_t len);
+
+/**
  * Get a custom section by name
  *
  * @param module_comm the module to find
@@ -1351,20 +1445,151 @@ WASM_RUNTIME_API_EXTERN void
 wasm_runtime_get_version(uint32_t *major, uint32_t *minor, uint32_t *patch);
 
 /**
- * Check whether an import func `(import <module_name> <func_name> (func ...))` is linked or not
- * with runtime registered natvie functions
+ * Check whether an import func `(import <module_name> <func_name> (func ...))`
+ * is linked or not with runtime registered natvie functions
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_is_import_func_linked(const char *module_name,
                                    const char *func_name);
 
 /**
- * Check whether an import global `(import <module_name> <global_name> (global ...))` is linked or not
- * with runtime registered natvie globals
+ * Check whether an import global `(import <module_name> <global_name> (global ...))`
+ * is linked or not with runtime registered natvie globals
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_is_import_global_linked(const char *module_name,
                                      const char *global_name);
+
+typedef enum {
+    INTERNAL_ERROR,
+    MAX_SIZE_REACHED,
+} enlarge_memory_error_reason_t;
+
+typedef void (*enlarge_memory_error_callback_t)(
+    uint32_t inc_page_count, uint64_t current_memory_size,
+    uint32_t memory_index, enlarge_memory_error_reason_t failure_reason,
+    wasm_module_inst_t instance, wasm_exec_env_t exec_env,
+    void* user_data);
+
+/**
+ * Setup callback invoked when memory.grow fails
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_set_enlarge_mem_error_callback(
+    const enlarge_memory_error_callback_t callback, void *user_data);
+
+/*
+ * module instance context APIs
+ *   wasm_runtime_create_context_key
+ *   wasm_runtime_destroy_context_key
+ *   wasm_runtime_set_context
+ *   wasm_runtime_set_context_spread
+ *   wasm_runtime_get_context
+ *
+ * This set of APIs is intended to be used by an embedder which provides
+ * extra sets of native functions, which need per module instance state
+ * and are maintained outside of the WAMR tree.
+ *
+ * It's modelled after the pthread specific API.
+ *
+ * wasm_runtime_set_context_spread is similar to
+ * wasm_runtime_set_context, except that
+ * wasm_runtime_set_context_spread applies the change
+ * to all threads in the cluster.
+ * It's an undefined behavior if multiple threads in a cluster call
+ * wasm_runtime_set_context_spread on the same key
+ * simultaneously. It's a caller's resposibility to perform necessary
+ * serialization if necessary. For example:
+ *
+ * if (wasm_runtime_get_context(inst, key) == NULL) {
+ *     newctx = alloc_and_init(...);
+ *     lock(some_lock);
+ *     if (wasm_runtime_get_context(inst, key) == NULL) {
+ *         // this thread won the race
+ *         wasm_runtime_set_context_spread(inst, key, newctx);
+ *         newctx = NULL;
+ *     }
+ *     unlock(some_lock);
+ *     if (newctx != NULL) {
+ *         // this thread lost the race, free it
+ *         cleanup_and_free(newctx);
+ *     }
+ * }
+ *
+ * Note: dynamic key create/destroy while instances are live is not
+ * implemented as of writing this.
+ * it's caller's resposibility to ensure destorying all module instances
+ * before calling wasm_runtime_create_context_key or
+ * wasm_runtime_destroy_context_key.
+ * otherwise, it's an undefined behavior.
+ *
+ * Note about threads:
+ * - When spawning a thread, the contexts (the pointers given to
+ *   wasm_runtime_set_context) are copied from the parent
+ *   instance.
+ * - The destructor is called only on the main instance.
+ */
+
+WASM_RUNTIME_API_EXTERN void *
+wasm_runtime_create_context_key(
+    void (*dtor)(wasm_module_inst_t inst, void *ctx));
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_destroy_context_key(void *key);
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_set_context(wasm_module_inst_t inst, void *key,
+                                         void *ctx);
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_set_context_spread(wasm_module_inst_t inst, void *key,
+                                         void *ctx);
+WASM_RUNTIME_API_EXTERN void *
+wasm_runtime_get_context(wasm_module_inst_t inst, void *key);
+
+/*
+ * wasm_runtime_begin_blocking_op/wasm_runtime_end_blocking_op
+ *
+ * These APIs are intended to be used by the implementations of
+ * host functions. It wraps an operation which possibly blocks for long
+ * to prepare for async termination.
+ *
+ * eg.
+ *
+ *   if (!wasm_runtime_begin_blocking_op(exec_env)) {
+ *       return EINTR;
+ *   }
+ *   ret = possibly_blocking_op();
+ *   wasm_runtime_end_blocking_op(exec_env);
+ *   return ret;
+ *
+ * If threading support (WASM_ENABLE_THREAD_MGR) is not enabled,
+ * these functions are no-op.
+ *
+ * If the underlying platform support (OS_ENABLE_WAKEUP_BLOCKING_OP) is
+ * not available, these functions are no-op. In that case, the runtime
+ * might not terminate a blocking thread in a timely manner.
+ *
+ * If the underlying platform support is available, it's used to wake up
+ * the thread for async termination. The expectation here is that a
+ * `os_wakeup_blocking_op` call makes the blocking operation
+ * (`possibly_blocking_op` in the above example) return in a timely manner.
+ *
+ * The actual wake up mechanism used by `os_wakeup_blocking_op` is
+ * platform-dependent. It might impose some platform-dependent restrictions
+ * on the implementation of the blocking opearation.
+ *
+ * For example, on POSIX-like platforms, a signal (by default SIGUSR1) is
+ * used. The signal delivery configurations (eg. signal handler, signal mask,
+ * etc) for the signal are set up by the runtime. You can change the signal
+ * to use for this purpose by calling os_set_signal_number_for_blocking_op
+ * before the runtime initialization.
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_begin_blocking_op(wasm_exec_env_t exec_env);
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_end_blocking_op(wasm_exec_env_t exec_env);
+
 /* clang-format on */
 
 #ifdef __cplusplus

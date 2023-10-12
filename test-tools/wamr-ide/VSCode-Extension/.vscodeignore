@@ -9,3 +9,11 @@ out/test/**
 **/.eslintrc.json
 **/*.map
 **/*.ts
+
+src
+
+resource/test
+resource/debug/**
+!resource/debug/darwin/.placeholder
+!resource/debug/linux/.placeholder
+!resource/debug/windows/.placeholder

@@ -6,7 +6,7 @@
 #include "bh_assert.h"
 
 void
-bh_assert_internal(int v, const char *file_name, int line_number,
+bh_assert_internal(int64 v, const char *file_name, int line_number,
                    const char *expr_string)
 {
     if (v)

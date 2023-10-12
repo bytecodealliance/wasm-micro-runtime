@@ -11,8 +11,6 @@ $ cmake ..
 $ make
 ...
 $ ./iwasm wasm-apps/no_pthread.wasm
-...
-$ ./iwasm wasm-apps/exception_propagation.wasm
 ```
 
 ## Run samples in AOT mode

@@ -44,4 +44,3 @@ function (compile_sample SOURCE_FILE)
 endfunction ()
 
 compile_sample(no_pthread.c wasi_thread_start.S)
-compile_sample(thread_termination.c wasi_thread_start.S)

@@ -15,6 +15,7 @@ WAMR_BUILD_SGX_IPFS = 0
 WAMR_BUILD_LIB_RATS = 0
 WAMR_BUILD_GLOBAL_HEAP_POOL = 0
 WAMR_BUILD_GLOBAL_HEAP_SIZE = 10485760
+WAMR_BUILD_STATIC_PGO = 0
 
 VMLIB_BUILD_DIR ?= $(CURDIR)/../build
 LIB_RATS_SRC ?= $(VMLIB_BUILD_DIR)/_deps/librats-build
@@ -65,7 +66,7 @@ ifeq ($(WAMR_BUILD_LIB_RATS), 1)
 	App_Include_Paths += -I$(LIB_RATS_INCLUDE_DIR)
 endif
 
-App_C_Flags := $(SGX_COMMON_CFLAGS) -fPIC -Wno-attributes $(App_Include_Paths)
+App_C_Flags := $(SGX_COMMON_CFLAGS) -fPIC -Wno-attributes $(App_Include_Paths) -DWASM_ENABLE_STATIC_PGO=$(WAMR_BUILD_STATIC_PGO)
 
 # Three configuration modes - Debug, prerelease, release
 #   Debug - Macro DEBUG enabled.
@@ -134,7 +135,7 @@ ifeq ($(WAMR_BUILD_LIB_RATS), 1)
 	Enclave_Include_Paths += -I$(LIB_RATS_INCLUDE_DIR) -I$(SGX_SSL)/include
 endif
 
-Enclave_C_Flags := $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -fstack-protector $(Enclave_Include_Paths) -DWASM_GLOBAL_HEAP_SIZE=$(WAMR_BUILD_GLOBAL_HEAP_SIZE) -DWASM_ENABLE_GLOBAL_HEAP_POOL=$(WAMR_BUILD_GLOBAL_HEAP_POOL) -DWASM_ENABLE_LIB_RATS=$(WAMR_BUILD_LIB_RATS)
+Enclave_C_Flags := $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -fstack-protector $(Enclave_Include_Paths) -DWASM_GLOBAL_HEAP_SIZE=$(WAMR_BUILD_GLOBAL_HEAP_SIZE) -DWASM_ENABLE_GLOBAL_HEAP_POOL=$(WAMR_BUILD_GLOBAL_HEAP_POOL) -DWASM_ENABLE_LIB_RATS=$(WAMR_BUILD_LIB_RATS) -DWASM_ENABLE_STATIC_PGO=$(WAMR_BUILD_STATIC_PGO)
 ifeq ($(SPEC_TEST), 1)
 	Enclave_C_Flags += -DWASM_ENABLE_SPEC_TEST=1
 else
@@ -142,10 +143,10 @@ else
 endif
 
 ifeq ($(WAMR_BUILD_LIB_RATS), 1)
-	Rats_Lib_Link_Dirs := -L$(LIB_RATS_INSTALL_DIR) -L$(LIB_RATS_INSTALL_DIR)/attesters -L$(LIB_RATS_INSTALL_DIR)/verifiers -L$(SGX_SSL)/lib64
+	Rats_Lib_Link_Dirs := -L$(LIB_RATS_INSTALL_DIR) -L$(LIB_RATS_INSTALL_DIR)/attesters -L$(LIB_RATS_INSTALL_DIR)/verifiers -L$(SGX_SSL)/lib64 -L$(VMLIB_BUILD_DIR)/external/libcbor/src/libcbor/lib -L$(LIB_RATS_INSTALL_DIR)/crypto_wrappers
 	Rats_Lib_W_Link_libs := -lattester_nullattester -lattester_sgx_ecdsa -lattester_sgx_la \
-						-lverifier_nullverifier -lverifier_sgx_ecdsa -lverifier_sgx_la -lverifier_sgx_ecdsa_qve \
-						-lrats_lib -lsgx_tsgxssl
+						-lverifier_nullverifier -lverifier_sgx_la -lverifier_sgx_ecdsa_qve -lcbor \
+						-lrats_lib -lsgx_tsgxssl -lcrypto_wrapper_nullcrypto -lcrypto_wrapper_openssl
 	Rats_Lib_NW_Link_libs := -lsgx_dcap_tvl -lsgx_tsgxssl_crypto
 endif
 

@@ -116,6 +116,11 @@ os_thread_exit(void *retval);
    https://gcc.gnu.org/bugzilla/show_bug.cgi?id=58016 */
 #if __GNUC_PREREQ(4, 9)
 #define BH_HAS_STD_ATOMIC
+#elif __GNUC_PREREQ(4, 7)
+#define os_memory_order_acquire __ATOMIC_ACQUIRE
+#define os_memory_order_release __ATOMIC_RELEASE
+#define os_memory_order_seq_cst __ATOMIC_SEQ_CST
+#define os_atomic_thread_fence __atomic_thread_fence
 #endif /* end of __GNUC_PREREQ(4, 9) */
 #endif /* end of defined(__GNUC_PREREQ) */
 
@@ -125,6 +130,7 @@ os_thread_exit(void *retval);
 #define os_memory_order_release memory_order_release
 #define os_memory_order_seq_cst memory_order_seq_cst
 #define os_atomic_thread_fence atomic_thread_fence
+#define os_atomic_cmpxchg atomic_compare_exchange_strong
 #endif
 
 #endif /* end of os_atomic_thread_fence */
@@ -317,6 +323,34 @@ os_sem_getvalue(korp_sem *sem, int *sval);
 int
 os_sem_unlink(const char *name);
 
+/**
+ * Initialize process-global state for os_wakeup_blocking_op.
+ */
+int
+os_blocking_op_init();
+
+/**
+ * Start accepting os_wakeup_blocking_op requests for the calling thread.
+ */
+void
+os_begin_blocking_op();
+
+/**
+ * Stop accepting os_wakeup_blocking_op requests for the calling thread.
+ */
+void
+os_end_blocking_op();
+
+/**
+ * Wake up the specified thread.
+ *
+ * For example, on posix-like platforms, this can be implemented by
+ * sending a signal (w/o SA_RESTART) which interrupts a blocking
+ * system call.
+ */
+int
+os_wakeup_blocking_op(korp_tid tid);
+
 /****************************************************
  *                     Section 2                    *
  *                   Socket support                 *
@@ -336,7 +370,7 @@ typedef union {
 } bh_ip_addr_buffer_t;
 
 typedef struct {
-    bh_ip_addr_buffer_t addr_bufer;
+    bh_ip_addr_buffer_t addr_buffer;
     uint16 port;
     bool is_ipv4;
 } bh_sockaddr_t;

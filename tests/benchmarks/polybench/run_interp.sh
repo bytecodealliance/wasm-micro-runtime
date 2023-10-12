@@ -37,7 +37,7 @@ echo "Start to run cases, the result is written to report.txt"
 
 #run benchmarks
 cd $OUT_DIR
-echo -en "\t\t\t\t\t  native\tiwasm-aot\n" >> $REPORT
+echo -en "\t\t\t\t\t  native\tiwasm-interp\n" >> $REPORT
 
 for t in $POLYBENCH_CASES
 do

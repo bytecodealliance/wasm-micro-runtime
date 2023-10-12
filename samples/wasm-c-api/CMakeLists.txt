@@ -16,7 +16,7 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 ################  runtime settings  ################
 
 string (TOLOWER ${CMAKE_HOST_SYSTEM_NAME} WAMR_BUILD_PLATFORM)
@@ -24,7 +24,7 @@ if (APPLE)
   add_definitions(-DBH_PLATFORM_DARWIN)
 endif ()
 
-# Resetdefault linker flags
+# Reset default linker flags
 set(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
 set(CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
 

@@ -121,6 +121,14 @@ typedef struct {
     REG_SYM(aot_intrinsic_i32_rem_s),     \
     REG_SYM(aot_intrinsic_i32_rem_u),     \
 
+#if WASM_ENABLE_STATIC_PGO != 0
+#define REG_LLVM_PGO_SYM()               \
+    { "__llvm_profile_instrument_target", llvm_profile_instrument_target }, \
+    { "__llvm_profile_instrument_memop", llvm_profile_instrument_memop },
+#else
+#define REG_LLVM_PGO_SYM()
+#endif
+
 #define REG_COMMON_SYMBOLS                \
     REG_SYM(aot_set_exception_with_id),   \
     REG_SYM(aot_invoke_native),           \
@@ -150,6 +158,7 @@ typedef struct {
     REG_REF_TYPES_SYM()                   \
     REG_AOT_TRACE_SYM()                   \
     REG_INTRINSIC_SYM()                   \
+    REG_LLVM_PGO_SYM()                    \
 
 #define CHECK_RELOC_OFFSET(data_size) do {              \
     if (!check_reloc_offset(target_section_size,        \
