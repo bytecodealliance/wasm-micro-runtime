@@ -85,7 +85,11 @@ aot_compile_op_i31_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
 bool
 aot_compile_op_ref_test(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                        int32 heap_type, bool nullable, bool cast);
+                        int32 heap_type, bool nullable);
+
+bool
+aot_compile_op_ref_cast(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                        int32 heap_type, bool nullable);
 
 bool
 aot_compile_op_extern_internalize(AOTCompContext *comp_ctx,

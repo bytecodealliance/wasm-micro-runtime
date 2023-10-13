@@ -236,8 +236,8 @@ aot_compile_op_ref_eq(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
     LLVMValueRef gc_obj1 = NULL, gc_obj2 = NULL, res;
 
-    POP_REF(gc_obj1);
-    POP_REF(gc_obj2);
+    POP_GC_REF(gc_obj1);
+    POP_GC_REF(gc_obj2);
 
     /* LLVM pointer values pointers are compared using LLVMBuildICmp */
     res = LLVMBuildICmp(comp_ctx->builder, LLVMIntEQ, gc_obj1, gc_obj2,

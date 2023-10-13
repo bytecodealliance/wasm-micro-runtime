@@ -211,7 +211,7 @@ aot_compile_op_table_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             goto fail;
         }
 
-        PUSH_REF(table_elem);
+        PUSH_GC_REF(table_elem);
     }
     else {
         if (!(table_elem = LLVMBuildInBoundsGEP2(comp_ctx->builder, INTPTR_TYPE,
@@ -248,7 +248,7 @@ aot_compile_op_table_set(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMValueRef val = NULL, elem_idx, offset, table_elem;
 
     if (comp_ctx->enable_gc)
-        POP_REF(val);
+        POP_GC_REF(val);
     else
         POP_I32(val);
 
@@ -486,7 +486,7 @@ aot_compile_op_table_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* v */
 
     if (comp_ctx->enable_gc) {
-        POP_REF(param_values[3]);
+        POP_GC_REF(param_values[3]);
         if (!(param_values[3] =
                   LLVMBuildBitCast(comp_ctx->builder, param_values[3],
                                    INT8_PTR_TYPE, "table_elem_i8p"))) {
@@ -548,7 +548,7 @@ aot_compile_op_table_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* v */
 
     if (comp_ctx->enable_gc) {
-        POP_REF(param_values[3]);
+        POP_GC_REF(param_values[3]);
         if (!(param_values[3] =
                   LLVMBuildBitCast(comp_ctx->builder, param_values[3],
                                    INT8_PTR_TYPE, "table_elem_i8p"))) {

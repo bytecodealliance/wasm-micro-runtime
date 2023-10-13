@@ -578,7 +578,8 @@ void
 aot_block_destroy(AOTCompContext *comp_ctx, AOTBlock *block);
 
 LLVMTypeRef
-wasm_type_to_llvm_type(const AOTLLVMTypes *llvm_types, uint8 wasm_type);
+wasm_type_to_llvm_type(const AOTCompContext *comp_ctx,
+                       const AOTLLVMTypes *llvm_types, uint8 wasm_type);
 
 bool
 aot_checked_addr_list_add(AOTFuncContext *func_ctx, uint32 local_idx,

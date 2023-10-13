@@ -48,10 +48,9 @@ add_definitions(-DWASM_ENABLE_LOAD_CUSTOM_SECTION=1)
 add_definitions(-DWASM_ENABLE_LIB_WASI_THREADS=1)
 add_definitions(-DWASM_ENABLE_MODULE_INST_CONTEXT=1)
 
+add_definitions(-DWASM_ENABLE_GC=1)
 if (WAMR_BUILD_GC_BINARYEN EQUAL 1)
-  add_definitions (-DWASM_ENABLE_GC_BINARYEN=1)
-else ()
-  add_definitions (-DWASM_ENABLE_GC=1)
+  add_definitions(-DWASM_ENABLE_GC_BINARYEN=1)
 endif ()
 
 if (WAMR_BUILD_LLVM_LEGACY_PM EQUAL 1)
