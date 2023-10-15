@@ -203,6 +203,7 @@ store_value(AOTCompContext *comp_ctx, LLVMValueRef value, uint8 value_type,
         case REF_TYPE_EQREF:
         case REF_TYPE_ANYREF:
         case REF_TYPE_HT_NULLABLE:
+        case REF_TYPE_HT_NON_NULLABLE:
         case VALUE_TYPE_GC_REF:
             value_ptr_type = GC_REF_PTR_TYPE;
             break;
@@ -320,6 +321,7 @@ aot_gen_commit_values(AOTCompFrame *frame)
             case REF_TYPE_EQREF:
             case REF_TYPE_ANYREF:
             case REF_TYPE_HT_NULLABLE:
+            case REF_TYPE_HT_NON_NULLABLE:
             case VALUE_TYPE_GC_REF:
                 if (comp_ctx->pointer_size == sizeof(uint64))
                     (++p)->dirty = 0;
@@ -563,6 +565,7 @@ init_comp_frame(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             case REF_TYPE_EQREF:
             case REF_TYPE_ANYREF:
             case REF_TYPE_HT_NULLABLE:
+            case REF_TYPE_HT_NON_NULLABLE:
                 bh_assert(comp_ctx->enable_gc);
                 set_local_gc_ref(comp_ctx->aot_frame, n, local_value,
                                  VALUE_TYPE_GC_REF);
@@ -627,6 +630,7 @@ init_comp_frame(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             case REF_TYPE_EQREF:
             case REF_TYPE_ANYREF:
             case REF_TYPE_HT_NULLABLE:
+            case REF_TYPE_HT_NON_NULLABLE:
                 bh_assert(comp_ctx->enable_gc);
                 set_local_gc_ref(comp_ctx->aot_frame, n, GC_REF_NULL,
                                  VALUE_TYPE_GC_REF);
@@ -707,7 +711,14 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                     || value_type == VALUE_TYPE_V128
                     || value_type == VALUE_TYPE_VOID
                     || value_type == VALUE_TYPE_FUNCREF
-                    || value_type == VALUE_TYPE_EXTERNREF) {
+                    || value_type == VALUE_TYPE_EXTERNREF
+                    || value_type == REF_TYPE_STRUCTREF
+                    || value_type == REF_TYPE_ARRAYREF
+                    || value_type == REF_TYPE_I31REF
+                    || value_type == REF_TYPE_EQREF
+                    || value_type == REF_TYPE_ANYREF
+                    || value_type == REF_TYPE_HT_NULLABLE
+                    || value_type == REF_TYPE_HT_NON_NULLABLE) {
                     param_count = 0;
                     param_types = NULL;
                     if (value_type == VALUE_TYPE_VOID) {

@@ -55,6 +55,7 @@ wasm_type_to_llvm_type(const AOTCompContext *comp_ctx,
         case REF_TYPE_EQREF:
         case REF_TYPE_ANYREF:
         case REF_TYPE_HT_NULLABLE:
+        case REF_TYPE_HT_NON_NULLABLE:
         case VALUE_TYPE_GC_REF:
             bh_assert(comp_ctx->enable_gc);
             return llvm_types->gc_ref_type;
@@ -590,7 +591,8 @@ check_wasm_type(AOTCompContext *comp_ctx, uint8 type)
     }
     else if (type == REF_TYPE_STRUCTREF || type == REF_TYPE_ARRAYREF
              || type == REF_TYPE_I31REF || type == REF_TYPE_EQREF
-             || type == REF_TYPE_ANYREF || type == REF_TYPE_HT_NULLABLE) {
+             || type == REF_TYPE_ANYREF || type == REF_TYPE_HT_NULLABLE
+             || type == REF_TYPE_HT_NON_NULLABLE) {
         if (!comp_ctx->enable_gc) {
             aot_set_last_error("GC reference type was found, "
                                "try adding --enable-gc option.");
@@ -1097,6 +1099,7 @@ create_local_variables(const AOTCompData *comp_data,
             case REF_TYPE_EQREF:
             case REF_TYPE_ANYREF:
             case REF_TYPE_HT_NULLABLE:
+            case REF_TYPE_HT_NON_NULLABLE:
                 local_value = GC_REF_NULL;
                 break;
 #endif
