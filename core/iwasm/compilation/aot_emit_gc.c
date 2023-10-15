@@ -1613,7 +1613,7 @@ aot_compile_op_ref_test(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMAddIncoming(ref_test_phi, &castable, &block_obj_non_null, 1);
 
     SET_BUILDER_POS(block_end);
-    PUSH_I32(ref_test_phi);
+    PUSH_COND(ref_test_phi);
 
     return true;
 fail:
