@@ -1452,25 +1452,31 @@ aot_compile_op_i31_new(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 
     /* Equivalent to wasm_i31_obj_new: ((i31_value << 1) | 1) */
     if (!(i31_obj = LLVMBuildShl(comp_ctx->builder, i31_val, I32_ONE,
-                                 "i31_value << 1"))) {
+                                 "i31_val_shl"))) {
         aot_set_last_error("llvm build shl failed.");
         goto fail;
     }
 
-    if (!(i31_obj = LLVMBuildOr(comp_ctx->builder, i31_obj, I32_ONE,
-                                "((i31_value << 1) | 1)"))) {
+    if (!(i31_obj =
+              LLVMBuildOr(comp_ctx->builder, i31_obj, I32_ONE, "i31_val_or"))) {
         aot_set_last_error("llvm build or failed.");
         goto fail;
     }
 
     /* if uintptr_t is 64 bits, extend i32 to i64, equivalent to:
-     * (WASMI31ObjectRef)((i31_value << 1) | 1)  */
+       (WASMI31ObjectRef)((i31_value << 1) | 1)  */
     if (comp_ctx->pointer_size == sizeof(uint64)) {
         if (!(i31_obj = LLVMBuildZExt(comp_ctx->builder, i31_obj, I64_TYPE,
-                                      "extend i32 to uintptr_t"))) {
+                                      "i31_val_zext"))) {
             aot_set_last_error("llvm build zext failed.");
             goto fail;
         }
+    }
+
+    if (!(i31_obj = LLVMBuildIntToPtr(comp_ctx->builder, i31_obj, GC_REF_TYPE,
+                                      "i31_obj"))) {
+        aot_set_last_error("llvm build bit cast failed.");
+        goto fail;
     }
 
     PUSH_GC_REF(i31_obj);
@@ -1551,23 +1557,24 @@ aot_compile_op_ref_test(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                         int32 heap_type, bool nullable)
 {
     LLVMValueRef gc_obj, ref_test_phi, cmp, castable;
-    LLVMBasicBlockRef block_curr, block_non_null_obj, block_end;
+    LLVMBasicBlockRef block_curr, block_obj_non_null, block_end;
 
     POP_GC_REF(gc_obj);
 
     block_curr = CURR_BLOCK();
 
-    /* Create non null block */
-    ADD_BASIC_BLOCK(block_non_null_obj, "non_null_obj");
-    MOVE_BLOCK_AFTER_CURR(block_non_null_obj);
+    /* Create non-null object block */
+    ADD_BASIC_BLOCK(block_obj_non_null, "non_null_obj");
+    MOVE_BLOCK_AFTER_CURR(block_obj_non_null);
 
     /* Create end block */
     ADD_BASIC_BLOCK(block_end, "ref_test_end");
-    MOVE_BLOCK_AFTER(block_end, block_non_null_obj);
+    MOVE_BLOCK_AFTER(block_end, block_obj_non_null);
 
+    /* Create ref test result phi */
     SET_BUILDER_POS(block_end);
     if (!(ref_test_phi =
-              LLVMBuildPhi(comp_ctx->builder, INT1_TYPE, "test_res"))) {
+              LLVMBuildPhi(comp_ctx->builder, INT1_TYPE, "ref_test_res"))) {
         aot_set_last_error("llvm build phi failed");
         return false;
     }
@@ -1575,15 +1582,15 @@ aot_compile_op_ref_test(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* Check if gc object is NULL */
     SET_BUILDER_POS(block_curr);
     BUILD_ISNULL(gc_obj, cmp, "cmp_gc_obj");
-    BUILD_COND_BR(cmp, block_end, block_non_null_obj);
+    BUILD_COND_BR(cmp, block_end, block_obj_non_null);
 
     if (nullable)
         LLVMAddIncoming(ref_test_phi, &I1_ZERO, &block_curr, 1);
     else
         LLVMAddIncoming(ref_test_phi, &I1_ONE, &block_curr, 1);
 
-    /* Move builder to gc_obj NULL block */
-    SET_BUILDER_POS(block_non_null_obj);
+    /* Move builder to non-null object block */
+    SET_BUILDER_POS(block_obj_non_null);
 
     if (heap_type >= 0) {
         if (!aot_call_aot_obj_is_instance_of(comp_ctx, func_ctx, gc_obj,
@@ -1603,7 +1610,7 @@ aot_compile_op_ref_test(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     BUILD_BR(block_end);
-    LLVMAddIncoming(ref_test_phi, &castable, &block_non_null_obj, 1);
+    LLVMAddIncoming(ref_test_phi, &castable, &block_obj_non_null, 1);
 
     SET_BUILDER_POS(block_end);
     PUSH_I32(ref_test_phi);
@@ -1618,30 +1625,30 @@ aot_compile_op_ref_cast(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                         int32 heap_type, bool nullable)
 {
     LLVMValueRef gc_obj, cmp, castable;
-    LLVMBasicBlockRef block_non_null_obj, block_end;
+    LLVMBasicBlockRef block_obj_non_null, block_end;
 
     GET_GC_REF_FROM_STACK(gc_obj);
 
     /* Create non null block */
-    ADD_BASIC_BLOCK(block_non_null_obj, "non_null_obj");
-    MOVE_BLOCK_AFTER_CURR(block_non_null_obj);
+    ADD_BASIC_BLOCK(block_obj_non_null, "non_null_obj");
+    MOVE_BLOCK_AFTER_CURR(block_obj_non_null);
 
     /* Create end block */
     ADD_BASIC_BLOCK(block_end, "ref_cast_end");
-    MOVE_BLOCK_AFTER(block_end, block_non_null_obj);
+    MOVE_BLOCK_AFTER(block_end, block_obj_non_null);
 
     BUILD_ISNULL(gc_obj, cmp, "obj_is_null");
     if (nullable) {
-        BUILD_COND_BR(cmp, block_end, block_non_null_obj);
+        BUILD_COND_BR(cmp, block_end, block_obj_non_null);
     }
     else {
         if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_TYPE_NONCASTABLE, true,
-                                cmp, block_non_null_obj)) {
+                                cmp, block_obj_non_null)) {
             return false;
         }
     }
 
-    SET_BUILDER_POS(block_non_null_obj);
+    SET_BUILDER_POS(block_obj_non_null);
 
     if (heap_type >= 0) {
         if (!aot_call_aot_obj_is_instance_of(comp_ctx, func_ctx, gc_obj,
@@ -1705,42 +1712,47 @@ bool
 aot_compile_op_extern_internalize(AOTCompContext *comp_ctx,
                                   AOTFuncContext *func_ctx)
 {
-    LLVMValueRef externref_obj, gc_obj, cmp;
-    LLVMBasicBlockRef obj_null, obj_non_null, end_block;
+    LLVMValueRef externref_obj, gc_obj, cmp, internal_obj_phi;
+    LLVMBasicBlockRef block_curr, block_obj_non_null, block_end;
 
     POP_GC_REF(externref_obj);
 
-    /* Create if block */
-    ADD_BASIC_BLOCK(obj_null, "obj_null");
-    MOVE_BLOCK_AFTER_CURR(obj_null);
+    block_curr = CURR_BLOCK();
 
-    /* Create else block */
-    ADD_BASIC_BLOCK(obj_non_null, "obj_non_null");
-    MOVE_BLOCK_AFTER_CURR(obj_non_null);
+    /* Create non-null object block */
+    ADD_BASIC_BLOCK(block_obj_non_null, "non_null_obj");
+    MOVE_BLOCK_AFTER_CURR(block_obj_non_null);
 
     /* Create end block */
-    ADD_BASIC_BLOCK(end_block, "end_block");
-    MOVE_BLOCK_AFTER_CURR(end_block);
+    ADD_BASIC_BLOCK(block_end, "internalize_end");
+    MOVE_BLOCK_AFTER(block_end, block_obj_non_null);
+
+    /* Create internalized object phi */
+    SET_BUILDER_POS(block_end);
+    if (!(internal_obj_phi =
+              LLVMBuildPhi(comp_ctx->builder, GC_REF_TYPE, "internal_obj"))) {
+        aot_set_last_error("llvm build phi failed");
+        return false;
+    }
 
     /* Check if externref object is NULL */
+    SET_BUILDER_POS(block_curr);
     BUILD_ISNULL(externref_obj, cmp, "cmp_externref_obj");
-    BUILD_COND_BR(cmp, obj_null, obj_non_null);
+    BUILD_COND_BR(cmp, block_end, block_obj_non_null);
+    LLVMAddIncoming(internal_obj_phi, &GC_REF_NULL, &block_curr, 1);
 
-    /* Move builder to obj NULL block */
-    SET_BUILDER_POS(obj_null);
-    PUSH_GC_REF(GC_REF_NULL);
-    BUILD_BR(end_block);
-
-    /* Move builder to obj not NULL block */
-    SET_BUILDER_POS(obj_non_null);
+    /* Move builder to non-null object block */
+    SET_BUILDER_POS(block_obj_non_null);
     if (!aot_call_wasm_externref_obj_to_internal_obj(comp_ctx, func_ctx,
-                                                     externref_obj, &gc_obj))
-        goto fail;
-    PUSH_GC_REF(gc_obj);
-    BUILD_BR(end_block);
+                                                     externref_obj, &gc_obj)) {
+        return false;
+    }
+    BUILD_BR(block_end);
+    LLVMAddIncoming(internal_obj_phi, &gc_obj, &block_obj_non_null, 1);
 
     /* Move builder to end block */
-    SET_BUILDER_POS(end_block);
+    SET_BUILDER_POS(block_end);
+    PUSH_GC_REF(internal_obj_phi);
 
     return true;
 fail:
@@ -1760,7 +1772,7 @@ aot_call_wasm_internal_obj_to_external_obj(AOTCompContext *comp_ctx,
     param_types[1] = GC_REF_TYPE;
     ret_type = GC_REF_TYPE;
 
-    GET_AOT_FUNCTION(wasm_internal_obj_to_externref_obj, 1);
+    GET_AOT_FUNCTION(wasm_internal_obj_to_externref_obj, 2);
 
     /* Call function wasm_internal_obj_to_externref_obj() */
     param_values[0] = func_ctx->exec_env;
@@ -1782,48 +1794,55 @@ bool
 aot_compile_op_extern_externalize(AOTCompContext *comp_ctx,
                                   AOTFuncContext *func_ctx)
 {
-    LLVMValueRef gc_obj, externref_obj, cmp;
-    LLVMBasicBlockRef obj_null, obj_non_null, end_block, externalize_succ;
+    LLVMValueRef gc_obj, cmp, external_obj_phi, externref_obj;
+    LLVMBasicBlockRef block_curr, block_obj_non_null, block_end;
 
     POP_GC_REF(gc_obj);
 
-    /* Create if block */
-    ADD_BASIC_BLOCK(obj_null, "obj_null");
-    MOVE_BLOCK_AFTER_CURR(obj_null);
+    block_curr = CURR_BLOCK();
 
-    /* Create else block */
-    ADD_BASIC_BLOCK(obj_non_null, "obj_non_null");
-    MOVE_BLOCK_AFTER_CURR(obj_non_null);
-    ADD_BASIC_BLOCK(externalize_succ, "externalized_succ");
-    MOVE_BLOCK_AFTER(externalize_succ, obj_non_null);
+    /* Create non-null object block */
+    ADD_BASIC_BLOCK(block_obj_non_null, "non_null_obj");
+    MOVE_BLOCK_AFTER_CURR(block_obj_non_null);
 
     /* Create end block */
-    ADD_BASIC_BLOCK(end_block, "end_block");
-    MOVE_BLOCK_AFTER_CURR(end_block);
+    ADD_BASIC_BLOCK(block_end, "externalize_end");
+    MOVE_BLOCK_AFTER(block_end, block_obj_non_null);
+
+    /* Create externalized object phi */
+    SET_BUILDER_POS(block_end);
+    if (!(external_obj_phi =
+              LLVMBuildPhi(comp_ctx->builder, GC_REF_TYPE, "external_obj"))) {
+        aot_set_last_error("llvm build phi failed");
+        return false;
+    }
 
     /* Check if gc object is NULL */
+    SET_BUILDER_POS(block_curr);
     BUILD_ISNULL(gc_obj, cmp, "cmp_gc_obj");
-    BUILD_COND_BR(cmp, obj_null, obj_non_null);
+    BUILD_COND_BR(cmp, block_end, block_obj_non_null);
+    LLVMAddIncoming(external_obj_phi, &GC_REF_NULL, &block_curr, 1);
 
-    /* Move builder to obj NULL block */
-    SET_BUILDER_POS(obj_null);
-    PUSH_GC_REF(GC_REF_NULL);
-    BUILD_BR(end_block);
+    /* Move builder to non-null object block */
+    SET_BUILDER_POS(block_obj_non_null);
 
-    /* Move builder to obj not NULL block */
-    SET_BUILDER_POS(obj_non_null);
     if (!aot_call_wasm_internal_obj_to_external_obj(comp_ctx, func_ctx, gc_obj,
-                                                    &externref_obj))
-        goto fail;
+                                                    &externref_obj)) {
+        return false;
+    }
+
+    /* Check whether failed to externalize */
     BUILD_ISNULL(externref_obj, cmp, "cmp_externref_obj");
-    if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_NULL_GC_REF, true, cmp,
-                            externalize_succ))
-        goto fail;
-    PUSH_GC_REF(externref_obj);
-    BUILD_BR(end_block);
+    if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_FAILED_TO_CREATE_GC_OBJ,
+                            true, cmp, block_end)) {
+        return false;
+    }
+
+    LLVMAddIncoming(external_obj_phi, &externref_obj, &block_obj_non_null, 1);
 
     /* Move builder to end block */
-    SET_BUILDER_POS(end_block);
+    SET_BUILDER_POS(block_end);
+    PUSH_GC_REF(external_obj_phi);
 
     return true;
 fail:

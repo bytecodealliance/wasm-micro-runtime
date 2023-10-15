@@ -2492,6 +2492,10 @@ static const char *exception_msgs[] = {
     "out of bounds table access",     /* EXCE_OUT_OF_BOUNDS_TABLE_ACCESS */
     "wasm operand stack overflow",    /* EXCE_OPERAND_STACK_OVERFLOW */
     "failed to compile fast jit function", /* EXCE_FAILED_TO_COMPILE_FAST_JIT_FUNC */
+    "null GC object",                 /* EXCE_NULL_GC_REF */
+    "failed to cast GC object",       /* EXCE_TYPE_NONCASTABLE */
+    "GC array index out of bounds",   /* EXCE_ARRAY_OOB */
+    "failed to create GC object",     /* EXCE_FAILED_TO_CREATE_GC_OBJ */
     "",                               /* EXCE_ALREADY_THROWN */
 };
 /* clang-format on */

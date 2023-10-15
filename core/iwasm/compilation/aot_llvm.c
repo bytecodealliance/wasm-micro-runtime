@@ -607,7 +607,8 @@ check_wasm_type(AOTCompContext *comp_ctx, uint8 type)
         }
         return true;
     }
-    else {
+    else if (type != VALUE_TYPE_I32 && type != VALUE_TYPE_I64
+             && type != VALUE_TYPE_F32 && type != VALUE_TYPE_F64) {
         bh_assert(0);
     }
 

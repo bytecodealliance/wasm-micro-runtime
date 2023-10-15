@@ -109,7 +109,7 @@ read_leb(const uint8 *buf, const uint8 *buf_end, uint32 *p_offset,
     } while (0)
 
 /**
- * Since Wamrc uses a full feature Wasm loader,
+ * Since wamrc uses a full feature Wasm loader,
  * add a post-validator here to run checks according
  * to options, like enable_tail_call, enable_ref_types,
  * and so on.
@@ -117,7 +117,7 @@ read_leb(const uint8 *buf, const uint8 *buf_end, uint32 *p_offset,
 static bool
 aot_validate_wasm(AOTCompContext *comp_ctx)
 {
-    if (!comp_ctx->enable_ref_types) {
+    if (!comp_ctx->enable_ref_types && !comp_ctx->enable_gc) {
         /* Doesn't support multiple tables unless enabling reference type */
         if (comp_ctx->comp_data->import_table_count
                 + comp_ctx->comp_data->table_count
