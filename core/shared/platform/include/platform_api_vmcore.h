@@ -74,6 +74,9 @@ os_clock_res_get(bh_clock_id_t clock_id, uint64 *resolution);
 int
 os_clock_time_get(bh_clock_id_t clock_id, uint64 precision, uint64 *time);
 
+int
+os_clock_sleep(bh_clock_id_t bh_clock_id, const struct timespec *timestamp, bool is_absolute_time);
+
 /**
  * Get current thread id.
  * Implementation optional: Used by runtime for logging only.

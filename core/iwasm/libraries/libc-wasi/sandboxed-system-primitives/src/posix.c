@@ -172,10 +172,6 @@ convert_errno(int error)
 #undef X
     return code;
 }
-#ifndef BH_PLATFORM_WINDOWS
-bool
-convert_clockid(__wasi_clockid_t in, clockid_t *out);
-#endif
 
 static bool
 ns_lookup_list_search(char **list, const char *host)
@@ -2657,87 +2653,22 @@ wasmtime_ssp_poll_oneoff(wasm_exec_env_t exec_env, struct fd_table *curfds,
                          size_t nsubscriptions,
                          size_t *nevents) NO_LOCK_ANALYSIS
 {
-#ifdef BH_PLATFORM_WINDOWS
-    return __WASI_ENOSYS;
-#else
     // Sleeping.
     if (nsubscriptions == 1 && in[0].u.type == __WASI_EVENTTYPE_CLOCK) {
         out[0] = (__wasi_event_t){
             .userdata = in[0].userdata,
             .type = in[0].u.type,
         };
-#if CONFIG_HAS_CLOCK_NANOSLEEP
-        clockid_t clock_id;
-        if (convert_clockid(in[0].u.u.clock.clock_id, &clock_id)) {
-            struct timespec ts;
-            convert_timestamp(in[0].u.u.clock.timeout, &ts);
-            int ret = clock_nanosleep(
-                clock_id,
-                (in[0].u.u.clock.flags & __WASI_SUBSCRIPTION_CLOCK_ABSTIME) != 0
-                    ? TIMER_ABSTIME
-                    : 0,
-                &ts, NULL);
-            if (ret != 0)
-                out[0].error = convert_errno(ret);
-        }
-        else {
-            out[0].error = __WASI_ENOTSUP;
-        }
-#else
-        switch (in[0].u.u.clock.clock_id) {
-            case __WASI_CLOCK_MONOTONIC:
-                if ((in[0].u.u.clock.flags & __WASI_SUBSCRIPTION_CLOCK_ABSTIME)
-                    != 0) {
-                    // TODO(ed): Implement.
-                    fputs("Unimplemented absolute sleep on monotonic clock\n",
-                          stderr);
-                    out[0].error = __WASI_ENOSYS;
-                }
-                else {
-                    // Perform relative sleeps on the monotonic clock also using
-                    // nanosleep(). This is incorrect, but good enough for now.
-                    struct timespec ts;
-                    convert_timestamp(in[0].u.u.clock.timeout, &ts);
-                    nanosleep(&ts, NULL);
-                }
-                break;
-            case __WASI_CLOCK_REALTIME:
-                if ((in[0].u.u.clock.flags & __WASI_SUBSCRIPTION_CLOCK_ABSTIME)
-                    != 0) {
-                    // Sleeping to an absolute point in time can only be done
-                    // by waiting on a condition variable.
-                    struct mutex mutex;
-                    struct cond cond;
+        bh_clock_id_t bh_clockid;
+        struct timespec ts;
+        if (!convert_wasi_clock_id_to_bh_clock_id(in[0].u.u.clock.clock_id, &bh_clockid))
+            return __WASI_EINVAL;
+        convert_timestamp(in[0].u.u.clock.timeout, &ts);
+        if (os_clock_sleep(bh_clockid, &ts, (in[0].u.u.clock.flags & __WASI_SUBSCRIPTION_CLOCK_ABSTIME) != 0) != BHT_OK)
+            out[0].error = convert_errno(errno);
 
-                    if (!mutex_init(&mutex))
-                        return -1;
-                    if (!cond_init_realtime(&cond)) {
-                        mutex_destroy(&mutex);
-                        return -1;
-                    }
-                    mutex_lock(&mutex);
-                    cond_timedwait(&cond, &mutex, in[0].u.u.clock.timeout,
-                                   true);
-                    mutex_unlock(&mutex);
-                    mutex_destroy(&mutex);
-                    cond_destroy(&cond);
-                }
-                else {
-                    // Relative sleeps can be done using nanosleep().
-                    struct timespec ts;
-                    convert_timestamp(in[0].u.u.clock.timeout, &ts);
-                    nanosleep(&ts, NULL);
-                }
-                break;
-            default:
-                out[0].error = __WASI_ENOTSUP;
-                break;
-        }
-#endif
         *nevents = 1;
-        if (out[0].error != 0)
-            return convert_errno(out[0].error);
-        return 0;
+        return out[0].error;
     }
 
     // Last option: call into poll(). This can only be done in case all
@@ -2908,7 +2839,6 @@ wasmtime_ssp_poll_oneoff(wasm_exec_env_t exec_env, struct fd_table *curfds,
     wasm_runtime_free(fos);
     wasm_runtime_free(pfds);
     return error;
-#endif
 }
 
 __wasi_errno_t
