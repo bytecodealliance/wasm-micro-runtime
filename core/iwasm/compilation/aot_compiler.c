@@ -109,7 +109,7 @@ read_leb(const uint8 *buf, const uint8 *buf_end, uint32 *p_offset,
     } while (0)
 
 /**
- * Since Wamrc uses a full feature Wasm loader,
+ * Since wamrc uses a full feature Wasm loader,
  * add a post-validator here to run checks according
  * to options, like enable_tail_call, enable_ref_types,
  * and so on.
@@ -117,7 +117,7 @@ read_leb(const uint8 *buf, const uint8 *buf_end, uint32 *p_offset,
 static bool
 aot_validate_wasm(AOTCompContext *comp_ctx)
 {
-    if (!comp_ctx->enable_ref_types) {
+    if (!comp_ctx->enable_ref_types && !comp_ctx->enable_gc) {
         /* Doesn't support multiple tables unless enabling reference type */
         if (comp_ctx->comp_data->import_table_count
                 + comp_ctx->comp_data->table_count
@@ -196,6 +196,18 @@ store_value(AOTCompContext *comp_ctx, LLVMValueRef value, uint8 value_type,
         case VALUE_TYPE_V128:
             value_ptr_type = V128_PTR_TYPE;
             break;
+#if WASM_ENABLE_GC != 0
+        case REF_TYPE_STRUCTREF:
+        case REF_TYPE_ARRAYREF:
+        case REF_TYPE_I31REF:
+        case REF_TYPE_EQREF:
+        case REF_TYPE_ANYREF:
+        case REF_TYPE_HT_NULLABLE:
+        case REF_TYPE_HT_NON_NULLABLE:
+        case VALUE_TYPE_GC_REF:
+            value_ptr_type = GC_REF_PTR_TYPE;
+            break;
+#endif
         default:
             bh_assert(0);
             break;
@@ -235,8 +247,6 @@ aot_gen_commit_values(AOTCompFrame *frame)
 
         switch (p->type) {
             case VALUE_TYPE_I32:
-            case VALUE_TYPE_FUNCREF:
-            case VALUE_TYPE_EXTERNREF:
                 if (!store_value(comp_ctx, p->value, VALUE_TYPE_I32,
                                  func_ctx->cur_frame,
                                  offset_of_local(comp_ctx, n)))
@@ -282,6 +292,45 @@ aot_gen_commit_values(AOTCompFrame *frame)
                                  offset_of_local(comp_ctx, n)))
                     return false;
                 break;
+            case VALUE_TYPE_FUNCREF:
+            case VALUE_TYPE_EXTERNREF:
+                if (comp_ctx->enable_ref_types) {
+                    if (!store_value(comp_ctx, p->value, VALUE_TYPE_I32,
+                                     func_ctx->cur_frame,
+                                     offset_of_local(comp_ctx, n)))
+                        return false;
+                }
+#if WASM_ENABLE_GC != 0
+                else if (comp_ctx->enable_gc) {
+                    if (comp_ctx->pointer_size == sizeof(uint64))
+                        (++p)->dirty = 0;
+                    if (!store_value(comp_ctx, p->value, VALUE_TYPE_GC_REF,
+                                     func_ctx->cur_frame,
+                                     offset_of_local(comp_ctx, n)))
+                        return false;
+                }
+#endif
+                else {
+                    bh_assert(0);
+                }
+                break;
+#if WASM_ENABLE_GC != 0
+            case REF_TYPE_STRUCTREF:
+            case REF_TYPE_ARRAYREF:
+            case REF_TYPE_I31REF:
+            case REF_TYPE_EQREF:
+            case REF_TYPE_ANYREF:
+            case REF_TYPE_HT_NULLABLE:
+            case REF_TYPE_HT_NON_NULLABLE:
+            case VALUE_TYPE_GC_REF:
+                if (comp_ctx->pointer_size == sizeof(uint64))
+                    (++p)->dirty = 0;
+                if (!store_value(comp_ctx, p->value, VALUE_TYPE_GC_REF,
+                                 func_ctx->cur_frame,
+                                 offset_of_local(comp_ctx, n)))
+                    return false;
+                break;
+#endif
             default:
                 bh_assert(0);
                 break;
@@ -491,9 +540,38 @@ init_comp_frame(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 break;
             case VALUE_TYPE_FUNCREF:
             case VALUE_TYPE_EXTERNREF:
-                set_local_ref(comp_ctx->aot_frame, n, local_value, local_type);
-                n++;
+            {
+                if (comp_ctx->enable_ref_types) {
+                    set_local_ref(comp_ctx->aot_frame, n, local_value,
+                                  local_type);
+                    n++;
+                }
+#if WASM_ENABLE_GC != 0
+                else if (comp_ctx->enable_gc) {
+                    set_local_gc_ref(comp_ctx->aot_frame, n, local_value,
+                                     VALUE_TYPE_GC_REF);
+                    n += comp_ctx->pointer_size / sizeof(uint32);
+                }
+#endif
+                else {
+                    bh_assert(0);
+                }
                 break;
+            }
+#if WASM_ENABLE_GC != 0
+            case REF_TYPE_STRUCTREF:
+            case REF_TYPE_ARRAYREF:
+            case REF_TYPE_I31REF:
+            case REF_TYPE_EQREF:
+            case REF_TYPE_ANYREF:
+            case REF_TYPE_HT_NULLABLE:
+            case REF_TYPE_HT_NON_NULLABLE:
+                bh_assert(comp_ctx->enable_gc);
+                set_local_gc_ref(comp_ctx->aot_frame, n, local_value,
+                                 VALUE_TYPE_GC_REF);
+                n += comp_ctx->pointer_size / sizeof(uint32);
+                break;
+#endif
             default:
                 bh_assert(0);
                 break;
@@ -528,9 +606,37 @@ init_comp_frame(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 break;
             case VALUE_TYPE_FUNCREF:
             case VALUE_TYPE_EXTERNREF:
-                set_local_ref(comp_ctx->aot_frame, n, I32_ZERO, local_type);
-                n++;
+            {
+                if (comp_ctx->enable_ref_types) {
+                    set_local_ref(comp_ctx->aot_frame, n, I32_ZERO, local_type);
+                    n++;
+                }
+#if WASM_ENABLE_GC != 0
+                else if (comp_ctx->enable_gc) {
+                    set_local_gc_ref(comp_ctx->aot_frame, n, GC_REF_NULL,
+                                     VALUE_TYPE_GC_REF);
+                    n += comp_ctx->pointer_size / sizeof(uint32);
+                }
+#endif
+                else {
+                    bh_assert(0);
+                }
                 break;
+            }
+#if WASM_ENABLE_GC != 0
+            case REF_TYPE_STRUCTREF:
+            case REF_TYPE_ARRAYREF:
+            case REF_TYPE_I31REF:
+            case REF_TYPE_EQREF:
+            case REF_TYPE_ANYREF:
+            case REF_TYPE_HT_NULLABLE:
+            case REF_TYPE_HT_NON_NULLABLE:
+                bh_assert(comp_ctx->enable_gc);
+                set_local_gc_ref(comp_ctx->aot_frame, n, GC_REF_NULL,
+                                 VALUE_TYPE_GC_REF);
+                n += comp_ctx->pointer_size / sizeof(uint32);
+                break;
+#endif
             default:
                 bh_assert(0);
                 break;
@@ -605,7 +711,14 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                     || value_type == VALUE_TYPE_V128
                     || value_type == VALUE_TYPE_VOID
                     || value_type == VALUE_TYPE_FUNCREF
-                    || value_type == VALUE_TYPE_EXTERNREF) {
+                    || value_type == VALUE_TYPE_EXTERNREF
+                    || value_type == REF_TYPE_STRUCTREF
+                    || value_type == REF_TYPE_ARRAYREF
+                    || value_type == REF_TYPE_I31REF
+                    || value_type == REF_TYPE_EQREF
+                    || value_type == REF_TYPE_ANYREF
+                    || value_type == REF_TYPE_HT_NULLABLE
+                    || value_type == REF_TYPE_HT_NON_NULLABLE) {
                     param_count = 0;
                     param_types = NULL;
                     if (value_type == VALUE_TYPE_VOID) {
@@ -851,8 +964,9 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                         comp_ctx, func_ctx,
                         (type_idx != VALUE_TYPE_I64)
                             && (type_idx != VALUE_TYPE_F64)
-#if WASM_ENABLE_GC != 0 && UINTPTR_MAX == UINT64_MAX
+#if WASM_ENABLE_GC != 0
                             && !(comp_ctx->enable_gc
+                                 && comp_ctx->pointer_size == sizeof(uint64)
                                  && wasm_is_type_reftype(type_idx))
 #endif
                             ))
@@ -1118,18 +1232,28 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 
                     case WASM_OP_REF_TEST:
                     case WASM_OP_REF_TEST_NULLABLE:
-                    case WASM_OP_REF_CAST:
-                    case WASM_OP_REF_CAST_NULLABLE:
                     {
                         int32 heap_type;
 
                         read_leb_int32(frame_ip, frame_ip_end, heap_type);
                         if (!aot_compile_op_ref_test(
                                 comp_ctx, func_ctx, heap_type,
-                                opcode == WASM_OP_REF_TEST_NULLABLE
-                                    || opcode == WASM_OP_REF_CAST_NULLABLE,
-                                opcode == WASM_OP_REF_CAST
-                                    || opcode == WASM_OP_REF_CAST_NULLABLE))
+                                opcode == WASM_OP_REF_TEST_NULLABLE ? true
+                                                                    : false))
+                            return false;
+                        break;
+                    }
+
+                    case WASM_OP_REF_CAST:
+                    case WASM_OP_REF_CAST_NULLABLE:
+                    {
+                        int32 heap_type;
+
+                        read_leb_int32(frame_ip, frame_ip_end, heap_type);
+                        if (!aot_compile_op_ref_cast(
+                                comp_ctx, func_ctx, heap_type,
+                                opcode == WASM_OP_REF_CAST_NULLABLE ? true
+                                                                    : false))
                             return false;
                         break;
                     }
@@ -3237,22 +3361,23 @@ unsupport_simd:
 #if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
 unsupport_ref_types:
     aot_set_last_error("reference type instruction was found, "
-                       "try removing --disable-ref-types option");
+                       "try removing --disable-ref-types option "
+                       "or adding --enable-gc option");
     return false;
 #endif
 
 #if WASM_ENABLE_GC != 0
 unsupport_gc:
-    aot_set_last_error("garbage collection instruction was found, "
-                       "try adding --enable-gc");
+    aot_set_last_error("GC instruction was found, "
+                       "try adding --enable-gc option");
     return false;
 #endif
 
 #if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
 unsupport_gc_and_ref_types:
     aot_set_last_error(
-        "reference type or garbage collection instruction was found, "
-        "try adding --enable-gc or removing --disable-ref-types option");
+        "reference type or gc instruction was found, try removing "
+        "--disable-ref-types option or adding --enable-gc option");
     return false;
 #endif
 
