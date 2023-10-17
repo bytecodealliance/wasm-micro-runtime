@@ -1097,7 +1097,7 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
            LOG_DEBUG("val %d ",val);                                                                                                     \
            LOG_DEBUG("depth %d \n",depth);                                                                                               \
     } while (0)
-#define SNAPSHOT_STEP 50000
+#define SNAPSHOT_STEP 500000000
 #define SNAPSHOT_DEBUG_STEP 0
 
 #if WASM_ENABLE_LABELS_AS_VALUES != 0

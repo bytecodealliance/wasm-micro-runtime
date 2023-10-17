@@ -1671,6 +1671,10 @@ wasi_sock_open(wasm_exec_env_t exec_env, wasi_fd_t poolfd,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = NULL;
 
+#if WASM_ENABLE_CHECKPOINT_RESTORE!=0
+   insert_sock_open_data(poolfd, af, socktype, sockfd);
+#endif
+
     LOG_STRACE("wasi_sock_open exec_env=%d, poolfd=%d, af=%d, socktype=%d, sockfd=%d \n", exec_env, poolfd, af, socktype, sockfd);
     if (!wasi_ctx)
         return __WASI_EACCES;
@@ -2129,6 +2133,10 @@ wasi_sock_recv_from(wasm_exec_env_t exec_env, wasi_fd_t sock,
     wasi_errno_t err;
     size_t recv_bytes = 0;
 
+#if WASM_ENABLE_CHECKPOINT_RESTORE!=0
+   insert_sock_recv_from_data(sock, ri_data, ri_data_len, ri_flags, src_addr, ro_data_len);
+#endif
+
     LOG_STRACE("wasi_sock_recv_from exec_env=%d, sock=%d, ri_data=%d, ri_data_len=%d, ri_flags=%d, src_addr=%d, ro_data_len=%d \n", exec_env, sock, ri_data, ri_data_len, ri_flags, src_addr, ro_data_len);
     if (!wasi_ctx) {
         return __WASI_EINVAL;
@@ -2274,6 +2282,10 @@ wasi_sock_send_to(wasm_exec_env_t exec_env, wasi_fd_t sock,
     wasi_errno_t err;
     size_t send_bytes = 0;
     struct addr_pool *addr_pool = wasi_ctx_get_addr_pool(module_inst, wasi_ctx);
+
+#if WASM_ENABLE_CHECKPOINT_RESTORE!=0
+   insert_sock_send_to_data(sock, si_data, si_data_len, si_flags, dest_addr, so_data_len);
+#endif
 
     LOG_STRACE("wasi_sock_send_to exec_env=%d, sock=%d, si_data=%d, si_data_len=%d, si_flags=%d, dest_addr=%d, so_data_len=%d \n", exec_env, sock, si_data, si_data_len, si_flags, dest_addr, so_data_len);
     if (!wasi_ctx) {
