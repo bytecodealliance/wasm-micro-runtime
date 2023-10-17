@@ -12,6 +12,9 @@
 #if WASM_ENABLE_AOT != 0
 #include "../aot/aot_runtime.h"
 #endif
+#if WASM_ENABLE_STRINGREF != 0
+#include "string_object.h"
+#endif
 
 WASMRttTypeRef
 wasm_rtt_type_new(WASMType *defined_type, uint32 defined_type_idx,
@@ -653,6 +656,14 @@ wasm_obj_is_type_of(WASMObjectRef obj, int32 heap_type)
             return wasm_obj_is_struct_obj(obj);
         case HEAP_TYPE_ARRAY:
             return wasm_obj_is_array_obj(obj);
+#if WASM_ENABLE_STRINGREF != 0
+        case HEAP_TYPE_STRINGREF:
+            return wasm_obj_is_stringref_obj(obj);
+        case HEAP_TYPE_STRINGVIEWWTF8:
+            return wasm_obj_is_stringview_wtf8_obj(obj);
+        case HEAP_TYPE_STRINGVIEWWTF16:
+            return wasm_obj_is_stringview_wtf16_obj(obj);
+#endif
         case HEAP_TYPE_NONE:
         case HEAP_TYPE_NOFUNC:
         case HEAP_TYPE_NOEXTERN:
@@ -698,6 +709,36 @@ wasm_object_get_ref_list(WASMObjectRef obj, bool *p_is_compact_mode,
         *p_ref_list = NULL;
         return true;
     }
+#if WASM_ENABLE_STRINGREF != 0
+    else if (rtt_type->type_flag == WASM_TYPE_STRINGREF) {
+        /* stringref object */
+        *p_is_compact_mode = false;
+        *p_ref_num = 0;
+        *p_ref_list = NULL;
+        return true;
+    }
+    else if (rtt_type->type_flag == WASM_TYPE_STRINGVIEWWTF8) {
+        /* stringview_wtf8 object */
+        *p_is_compact_mode = false;
+        *p_ref_num = 0;
+        *p_ref_list = NULL;
+        return true;
+    }
+    else if (rtt_type->type_flag == WASM_TYPE_STRINGVIEWWTF16) {
+        /* stringview_wtf16 object */
+        *p_is_compact_mode = false;
+        *p_ref_num = 0;
+        *p_ref_list = NULL;
+        return true;
+    }
+    else if (rtt_type->type_flag == WASM_TYPE_STRINGVIEWITER) {
+        /* stringview_iter object */
+        *p_is_compact_mode = false;
+        *p_ref_num = 0;
+        *p_ref_list = NULL;
+        return true;
+    }
+#endif /* end of WASM_ENABLE_STRINGREF != 0 */
     else if (rtt_type->defined_type->type_flag == WASM_TYPE_FUNC) {
         /* function object */
         *p_is_compact_mode = false;
@@ -750,3 +791,296 @@ wasm_obj_unset_gc_finalizer(wasm_exec_env_t exec_env, void *obj)
     void *heap_handle = get_gc_heap_handle(exec_env);
     mem_allocator_unset_gc_finalizer(heap_handle, obj);
 }
+
+#if WASM_ENABLE_STRINGREF != 0
+WASMRttTypeRef
+wasm_stringref_rtt_type_new(uint16 type_flag, WASMRttType **rtt_types,
+                            korp_mutex *rtt_type_lock)
+{
+    WASMRttType *rtt_type;
+    uint32 index;
+
+    bh_assert(type_flag >= WASM_TYPE_STRINGREF
+              && type_flag <= WASM_TYPE_STRINGVIEWITER);
+
+    index = type_flag - WASM_TYPE_STRINGREF;
+
+    os_mutex_lock(rtt_type_lock);
+
+    if (rtt_types[index]) {
+        os_mutex_unlock(rtt_type_lock);
+        return rtt_types[index];
+    }
+
+    if ((rtt_type = wasm_runtime_malloc(sizeof(WASMRttType)))) {
+        memset(rtt_type, 0, sizeof(WASMRttType));
+        rtt_type->type_flag = type_flag;
+
+        rtt_types[index] = rtt_type;
+    }
+
+    os_mutex_unlock(rtt_type_lock);
+    return rtt_type;
+}
+
+WASMStringrefObjectRef
+wasm_stringref_obj_new(WASMExecEnv *exec_env, const void *str_obj)
+{
+    void *heap_handle = get_gc_heap_handle(exec_env);
+    WASMStringrefObjectRef stringref_obj;
+    WASMModuleInstanceCommon *module_inst =
+        wasm_runtime_get_module_inst(exec_env);
+    WASMRttTypeRef rtt_type = NULL;
+
+    if (!(stringref_obj =
+              gc_obj_malloc(heap_handle, sizeof(WASMStringrefObject)))) {
+        return NULL;
+    }
+
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        WASMModule *module = ((WASMModuleInstance *)module_inst)->module;
+        rtt_type = wasm_stringref_rtt_type_new(WASM_TYPE_STRINGREF,
+                                               module->stringref_rtts,
+                                               &module->rtt_type_lock);
+    }
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        AOTModule *module =
+            (AOTModule *)((AOTModuleInstance *)module_inst)->module;
+        /* TODO: add stringref_rtts in AOTModule */
+        rtt_type = wasm_stringref_rtt_type_new(
+            WASM_TYPE_STRINGREF, module->rtt_types, &module->rtt_type_lock);
+    }
+#endif
+
+    if (!rtt_type) {
+        return NULL;
+    }
+
+    stringref_obj->header = (WASMObjectHeader)rtt_type;
+    stringref_obj->str_obj = str_obj;
+
+    wasm_obj_set_gc_finalizer(
+        exec_env, (wasm_obj_t)stringref_obj,
+        (wasm_obj_finalizer_t)wasm_stringref_obj_finalizer, NULL);
+
+    return stringref_obj;
+}
+
+WASMStringviewWTF8ObjectRef
+wasm_stringview_wtf8_obj_new(WASMExecEnv *exec_env, const void *str_obj)
+{
+    void *heap_handle = get_gc_heap_handle(exec_env);
+    WASMStringviewWTF8ObjectRef stringview_wtf8_obj;
+    WASMModuleInstanceCommon *module_inst =
+        wasm_runtime_get_module_inst(exec_env);
+    WASMRttTypeRef rtt_type = NULL;
+
+    if (!(stringview_wtf8_obj =
+              gc_obj_malloc(heap_handle, sizeof(WASMStringviewWTF8Object)))) {
+        return NULL;
+    }
+
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        WASMModule *module = ((WASMModuleInstance *)module_inst)->module;
+        rtt_type = wasm_stringref_rtt_type_new(WASM_TYPE_STRINGVIEWWTF8,
+                                               module->stringref_rtts,
+                                               &module->rtt_type_lock);
+    }
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        AOTModule *module =
+            (AOTModule *)((AOTModuleInstance *)module_inst)->module;
+        /* TODO: add stringref_rtts in AOTModule */
+        rtt_type = wasm_stringref_rtt_type_new(WASM_TYPE_STRINGVIEWWTF8,
+                                               module->rtt_types,
+                                               &module->rtt_type_lock);
+    }
+#endif
+
+    if (!rtt_type) {
+        return NULL;
+    }
+
+    stringview_wtf8_obj->header = (WASMObjectHeader)rtt_type;
+    stringview_wtf8_obj->str_obj = str_obj;
+
+    wasm_obj_set_gc_finalizer(
+        exec_env, (wasm_obj_t)stringview_wtf8_obj,
+        (wasm_obj_finalizer_t)wasm_stringview_wtf8_obj_finalizer, NULL);
+
+    return stringview_wtf8_obj;
+}
+
+WASMStringviewWTF16ObjectRef
+wasm_stringview_wtf16_obj_new(WASMExecEnv *exec_env, const void *str_obj)
+{
+    void *heap_handle = get_gc_heap_handle(exec_env);
+    WASMStringviewWTF16ObjectRef stringview_wtf16_obj;
+    WASMModuleInstanceCommon *module_inst =
+        wasm_runtime_get_module_inst(exec_env);
+    WASMRttTypeRef rtt_type = NULL;
+
+    if (!(stringview_wtf16_obj =
+              gc_obj_malloc(heap_handle, sizeof(WASMStringviewWTF16Object)))) {
+        return NULL;
+    }
+
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        WASMModule *module = ((WASMModuleInstance *)module_inst)->module;
+        rtt_type = wasm_stringref_rtt_type_new(WASM_TYPE_STRINGVIEWWTF16,
+                                               module->stringref_rtts,
+                                               &module->rtt_type_lock);
+    }
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        AOTModule *module =
+            (AOTModule *)((AOTModuleInstance *)module_inst)->module;
+        /* TODO: add stringref_rtts in AOTModule */
+        rtt_type = wasm_stringref_rtt_type_new(WASM_TYPE_STRINGVIEWWTF16,
+                                               module->rtt_types,
+                                               &module->rtt_type_lock);
+    }
+#endif
+
+    if (!rtt_type) {
+        return NULL;
+    }
+
+    stringview_wtf16_obj->header = (WASMObjectHeader)rtt_type;
+    stringview_wtf16_obj->str_obj = str_obj;
+
+    wasm_obj_set_gc_finalizer(
+        exec_env, (wasm_obj_t)stringview_wtf16_obj,
+        (wasm_obj_finalizer_t)wasm_stringview_wtf16_obj_finalizer, NULL);
+
+    return stringview_wtf16_obj;
+}
+
+WASMStringviewIterObjectRef
+wasm_stringview_iter_obj_new(WASMExecEnv *exec_env, const void *str_obj,
+                             int32 pos)
+{
+    void *heap_handle = get_gc_heap_handle(exec_env);
+    WASMStringviewIterObjectRef stringview_iter_obj;
+    WASMModuleInstanceCommon *module_inst =
+        wasm_runtime_get_module_inst(exec_env);
+    WASMRttTypeRef rtt_type = NULL;
+
+    if (!(stringview_iter_obj =
+              gc_obj_malloc(heap_handle, sizeof(WASMStringviewIterObject)))) {
+        return NULL;
+    }
+
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        WASMModule *module = ((WASMModuleInstance *)module_inst)->module;
+        rtt_type = wasm_stringref_rtt_type_new(WASM_TYPE_STRINGVIEWITER,
+                                               module->stringref_rtts,
+                                               &module->rtt_type_lock);
+    }
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        AOTModule *module =
+            (AOTModule *)((AOTModuleInstance *)module_inst)->module;
+        /* TODO: add stringref_rtts in AOTModule */
+        rtt_type = wasm_stringref_rtt_type_new(WASM_TYPE_STRINGVIEWITER,
+                                               module->rtt_types,
+                                               &module->rtt_type_lock);
+    }
+#endif
+
+    if (!rtt_type) {
+        return NULL;
+    }
+
+    stringview_iter_obj->header = (WASMObjectHeader)rtt_type;
+    stringview_iter_obj->str_obj = str_obj;
+    stringview_iter_obj->pos = pos;
+
+    wasm_obj_set_gc_finalizer(
+        exec_env, (wasm_obj_t)stringview_iter_obj,
+        (wasm_obj_finalizer_t)wasm_stringview_iter_obj_finalizer, NULL);
+
+    return stringview_iter_obj;
+}
+
+const void *
+wasm_stringref_obj_get_value(WASMStringrefObjectRef stringref_obj)
+{
+    return stringref_obj->str_obj;
+}
+
+const void *
+wasm_stringview_wtf8_obj_get_value(
+    WASMStringviewWTF8ObjectRef stringview_wtf8_obj)
+{
+    return stringview_wtf8_obj->str_obj;
+}
+
+const void *
+wasm_stringview_wtf16_obj_get_value(
+    WASMStringviewWTF16ObjectRef stringview_wtf16_obj)
+{
+    return stringview_wtf16_obj->str_obj;
+}
+
+const void *
+wasm_stringview_iter_obj_get_value(
+    WASMStringviewIterObjectRef stringview_iter_obj)
+{
+    return stringview_iter_obj->str_obj;
+}
+
+int32
+wasm_stringview_iter_obj_get_pos(
+    WASMStringviewIterObjectRef stringview_iter_obj)
+{
+    return stringview_iter_obj->pos;
+}
+
+void
+wasm_stringview_iter_obj_update_pos(
+    WASMStringviewIterObjectRef stringview_iter_obj, int32 pos)
+{
+    stringview_iter_obj->pos = pos;
+}
+
+#define WASM_OBJ_IS_STRINGREF_IMPL(flag)                \
+    WASMRttTypeRef rtt_type;                            \
+                                                        \
+    bh_assert(obj);                                     \
+                                                        \
+    if (wasm_obj_is_i31_externref_or_anyref_obj(obj))   \
+        return false;                                   \
+                                                        \
+    rtt_type = (WASMRttTypeRef)wasm_object_header(obj); \
+    return rtt_type->type_flag == flag ? true : false
+
+bool
+wasm_obj_is_stringref_obj(WASMObjectRef obj)
+{
+    WASM_OBJ_IS_STRINGREF_IMPL(WASM_TYPE_STRINGREF);
+}
+
+bool
+wasm_obj_is_stringview_wtf8_obj(WASMObjectRef obj)
+{
+    WASM_OBJ_IS_STRINGREF_IMPL(WASM_TYPE_STRINGVIEWWTF8);
+}
+
+bool
+wasm_obj_is_stringview_wtf16_obj(WASMObjectRef obj)
+{
+    WASM_OBJ_IS_STRINGREF_IMPL(WASM_TYPE_STRINGVIEWWTF16);
+}
+#undef WASM_OBJ_IS_STRINGREF_IMPL
+
+#endif /* end of WASM_ENABLE_STRINGREF != 0 */

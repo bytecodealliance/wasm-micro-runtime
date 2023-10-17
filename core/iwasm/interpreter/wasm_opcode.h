@@ -337,6 +337,56 @@ typedef enum WASMGCEXTOpcode {
 
     WASM_OP_EXTERN_INTERNALIZE = 0x70, /* extern.internalize */
     WASM_OP_EXTERN_EXTERNALIZE = 0x71, /* extern.externalize */
+
+    WASM_OP_STRING_NEW_UTF8 = 0x80,          /* string.new_utf8 */
+    WASM_OP_STRING_NEW_WTF16 = 0x81,         /* string.new_wtf16 */
+    WASM_OP_STRING_CONST = 0x82,             /* string.const */
+    WASM_OP_STRING_MEASURE_UTF8 = 0x83,      /* string.measure_utf8 */
+    WASM_OP_STRING_MEASURE_WTF8 = 0x84,      /* string.measure_wtf8 */
+    WASM_OP_STRING_MEASURE_WTF16 = 0x85,     /* string.measure_wtf16 */
+    WASM_OP_STRING_ENCODE_UTF8 = 0x86,       /* string.encode_utf8 */
+    WASM_OP_STRING_ENCODE_WTF16 = 0x87,      /* string.encode_wtf16 */
+    WASM_OP_STRING_CONCAT = 0x88,            /* string.concat */
+    WASM_OP_STRING_EQ = 0x89,                /* string.eq */
+    WASM_OP_STRING_IS_USV_SEQUENCE = 0x8a,   /* string.is_usv_sequence */
+    WASM_OP_STRING_NEW_LOSSY_UTF8 = 0x8b,    /* string.new_lossy_utf8 */
+    WASM_OP_STRING_NEW_WTF8 = 0x8c,          /* string.new_wtf8 */
+    WASM_OP_STRING_ENCODE_LOSSY_UTF8 = 0x8d, /* string.encode_lossy_utf8 */
+    WASM_OP_STRING_ENCODE_WTF8 = 0x8e,       /* string.encode_wtf8 */
+
+    WASM_OP_STRING_AS_WTF8 = 0x90,          /* string.as_wtf8 */
+    WASM_OP_STRINGVIEW_WTF8_ADVANCE = 0x91, /* stringview_wtf8.advance */
+    WASM_OP_STRINGVIEW_WTF8_ENCODE_UTF8 =
+        0x92,                             /* stringview_wtf8.encode_utf8 */
+    WASM_OP_STRINGVIEW_WTF8_SLICE = 0x93, /* stringview_wtf8.slice */
+    WASM_OP_STRINGVIEW_WTF8_ENCODE_LOSSY_UTF8 =
+        0x94, /* stringview_wtf8.encode_lossy_utf8 */
+    WASM_OP_STRINGVIEW_WTF8_ENCODE_WTF8 =
+        0x95, /* stringview_wtf8.encode_wtf8 */
+
+    WASM_OP_STRING_AS_WTF16 = 0x98,         /* string.as_wtf16 */
+    WASM_OP_STRINGVIEW_WTF16_LENGTH = 0x99, /* stringview_wtf16.length */
+    WASM_OP_STRINGVIEW_WTF16_GET_CODEUNIT =
+        0x9a,                               /* stringview_wtf16.get_codeunit */
+    WASM_OP_STRINGVIEW_WTF16_ENCODE = 0x9b, /* stringview_wtf16.encode */
+    WASM_OP_STRINGVIEW_WTF16_SLICE = 0x9c,  /* stringview_wtf16.slice */
+
+    WASM_OP_STRING_AS_ITER = 0xa0,          /* string.as_iter */
+    WASM_OP_STRINGVIEW_ITER_NEXT = 0xa1,    /* stringview_iter.next */
+    WASM_OP_STRINGVIEW_ITER_ADVANCE = 0xa2, /* stringview_iter.advance */
+    WASM_OP_STRINGVIEW_ITER_REWIND = 0xa3,  /* stringview_iter.rewind */
+    WASM_OP_STRINGVIEW_ITER_SLICE = 0xa4,   /* stringview_iter.slice */
+
+    WASM_OP_STRING_NEW_UTF8_ARRAY = 0xb0,     /* string.new_utf8_array */
+    WASM_OP_STRING_NEW_WTF16_ARRAY = 0xb1,    /* string.new_wtf16_array */
+    WASM_OP_STRING_ENCODE_UTF8_ARRAY = 0xb2,  /* string.encode_utf8_array */
+    WASM_OP_STRING_ENCODE_WTF16_ARRAY = 0xb3, /* string.encode_wtf16_array */
+    WASM_OP_STRING_NEW_LOSSY_UTF8_ARRAY =
+        0xb4,                             /* string.new_lossy_utf8_array */
+    WASM_OP_STRING_NEW_WTF8_ARRAY = 0xb5, /* string.new_wtf8_array */
+    WASM_OP_STRING_ENCODE_LOSSY_UTF8_ARRAY =
+        0xb6, /* string.encode_lossy_utf8_array */
+    WASM_OP_STRING_ENCODE_WTF8_ARRAY = 0xb7, /* string.encode_wtf8_array */
 } WASMGCEXTOpcode;
 
 typedef enum WASMMiscEXTOpcode {

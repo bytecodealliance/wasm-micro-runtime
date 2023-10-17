@@ -120,7 +120,13 @@ wasm_type_is_subtype_of(const WASMType *type1, const WASMType *type2,
 inline static bool
 wasm_is_type_reftype(uint8 type)
 {
-    return (type >= (uint8)REF_TYPE_NULLREF && type <= (uint8)REF_TYPE_FUNCREF)
+    return (
+#if WASM_ENABLE_STRINGREF != 0
+               type >= (uint8)REF_TYPE_STRINGVIEWITER
+#else
+               type >= (uint8)REF_TYPE_NULLREF
+#endif
+               && type <= (uint8)REF_TYPE_FUNCREF)
                ? true
                : false;
 }
@@ -244,8 +250,14 @@ wasm_is_refheaptype_common(const RefHeapType_Common *ref_heap_type)
 {
     return ((ref_heap_type->heap_type >= (int32)HEAP_TYPE_EQ
              && ref_heap_type->heap_type <= (int32)HEAP_TYPE_FUNC)
+#if WASM_ENABLE_STRINGREF != 0
+            || (ref_heap_type->heap_type >= (int32)HEAP_TYPE_STRINGVIEWITER
+                && ref_heap_type->heap_type <= (int32)HEAP_TYPE_I31)
+#else
             || (ref_heap_type->heap_type >= (int32)HEAP_TYPE_NONE
-                && ref_heap_type->heap_type <= (int32)HEAP_TYPE_I31))
+                && ref_heap_type->heap_type <= (int32)HEAP_TYPE_I31)
+#endif
+                )
                ? true
                : false;
 }
@@ -284,6 +296,17 @@ wasm_is_refheaptype_array(const RefHeapType_Common *ref_heap_type)
 {
     return ref_heap_type->heap_type == (int32)HEAP_TYPE_ARRAY ? true : false;
 }
+
+#if WASM_ENABLE_STRINGREF != 0
+inline static bool
+wasm_is_refheaptype_stringrefs(const RefHeapType_Common *ref_heap_type)
+{
+    return ref_heap_type->heap_type <= (int32)HEAP_TYPE_STRINGREF
+                   && ref_heap_type->heap_type >= HEAP_TYPE_STRINGVIEWITER
+               ? true
+               : false;
+}
+#endif
 
 /* Whether two ref heap types are equal */
 bool

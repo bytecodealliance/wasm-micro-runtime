@@ -159,6 +159,10 @@ if (WAMR_BUILD_WASM_CACHE EQUAL 1)
     include (${WAMR_ROOT_DIR}/build-scripts/involve_boringssl.cmake)
 endif ()
 
+if (WAMR_BUILD_STRINGREF EQUAL 1)
+    include (${WAMR_ROOT_DIR}/core/iwasm/common/stringref/stringref.cmake)
+endif ()
+
 ####################### Common sources #######################
 if (NOT MSVC)
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -ffunction-sections -fdata-sections \
@@ -196,6 +200,7 @@ set (source_all
     ${IWASM_COMPL_SOURCE}
     ${IWASM_FAST_JIT_SOURCE}
     ${IWASM_GC_SOURCE}
+    ${IWASM_STRINGREF_SOURCE}
     ${WASM_APP_LIB_SOURCE_ALL}
     ${NATIVE_INTERFACE_SOURCE}
     ${APP_MGR_SOURCE}

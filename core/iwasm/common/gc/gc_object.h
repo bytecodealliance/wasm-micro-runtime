@@ -102,6 +102,28 @@ typedef struct WASMFuncObject {
     uint32 func_idx_bound;
 } WASMFuncObject, *WASMFuncObjectRef;
 
+/* Representation of WASM stringref objects */
+typedef struct WASMStringrefObject {
+    WASMObjectHeader header;
+    const void *str_obj;
+} WASMStringrefObject, *WASMStringrefObjectRef;
+
+typedef struct WASMStringviewWTF8Object {
+    WASMObjectHeader header;
+    const void *str_obj;
+} WASMStringviewWTF8Object, *WASMStringviewWTF8ObjectRef;
+
+typedef struct WASMStringviewWTF16Object {
+    WASMObjectHeader header;
+    const void *str_obj;
+} WASMStringviewWTF16Object, *WASMStringviewWTF16ObjectRef;
+
+typedef struct WASMStringviewIterObject {
+    WASMObjectHeader header;
+    const void *str_obj;
+    int32 pos;
+} WASMStringviewIterObject, *WASMStringviewIterObjectRef;
+
 struct WASMExecEnv;
 
 inline static WASMObjectHeader
@@ -283,6 +305,54 @@ bool
 wasm_object_get_ref_list(WASMObjectRef obj, bool *p_is_compact_mode,
                          uint32 *p_ref_num, uint16 **p_ref_list,
                          uint32 *p_ref_start_offset);
+
+#if WASM_ENABLE_STRINGREF != 0
+WASMStringrefObjectRef
+wasm_stringref_obj_new(struct WASMExecEnv *exec_env, const void *str_obj);
+
+WASMStringviewWTF8ObjectRef
+wasm_stringview_wtf8_obj_new(struct WASMExecEnv *exec_env, const void *str_obj);
+
+WASMStringviewWTF16ObjectRef
+wasm_stringview_wtf16_obj_new(struct WASMExecEnv *exec_env,
+                              const void *str_obj);
+
+WASMStringviewIterObjectRef
+wasm_stringview_iter_obj_new(struct WASMExecEnv *exec_env, const void *str_obj,
+                             int32 pos);
+
+const void *
+wasm_stringref_obj_get_value(WASMStringrefObjectRef stringref_obj);
+
+const void *
+wasm_stringview_wtf8_obj_get_value(
+    WASMStringviewWTF8ObjectRef stringview_wtf8_obj);
+
+const void *
+wasm_stringview_wtf16_obj_get_value(
+    WASMStringviewWTF16ObjectRef stringview_wtf16_obj);
+
+const void *
+wasm_stringview_iter_obj_get_value(
+    WASMStringviewIterObjectRef stringview_iter_obj);
+
+int32
+wasm_stringview_iter_obj_get_pos(
+    WASMStringviewIterObjectRef stringview_iter_obj);
+
+void
+wasm_stringview_iter_obj_update_pos(
+    WASMStringviewIterObjectRef stringview_iter_obj, int32 pos);
+
+bool
+wasm_obj_is_stringref_obj(WASMObjectRef obj);
+
+bool
+wasm_obj_is_stringview_wtf8_obj(WASMObjectRef obj);
+
+bool
+wasm_obj_is_stringview_wtf16_obj(WASMObjectRef obj);
+#endif
 
 #ifdef __cplusplus
 } /* end of extern "C" */

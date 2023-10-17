@@ -25,6 +25,10 @@ extern "C" {
 #define VALUE_TYPE_V128 0x7B
 #define VALUE_TYPE_FUNCREF 0x70
 #define VALUE_TYPE_EXTERNREF 0x6F
+#define VALUE_TYPE_STRINGREF 0x64
+#define VALUE_TYPE_STRINGVIEWWTF8 0x63
+#define VALUE_TYPE_STRINGVIEWWTF16 0x62
+#define VALUE_TYPE_STRINGVIEWITER 0x61
 #define VALUE_TYPE_VOID 0x40
 
 /* Packed Types */
@@ -44,6 +48,10 @@ extern "C" {
 #define REF_TYPE_STRUCTREF 0x67
 #define REF_TYPE_ARRAYREF 0x66
 #define REF_TYPE_NULLREF 0x65
+#define REF_TYPE_STRINGREF VALUE_TYPE_STRINGREF
+#define REF_TYPE_STRINGVIEWWTF8 VALUE_TYPE_STRINGVIEWWTF8
+#define REF_TYPE_STRINGVIEWWTF16 VALUE_TYPE_STRINGVIEWWTF16
+#define REF_TYPE_STRINGVIEWITER VALUE_TYPE_STRINGVIEWITER
 
 /* Heap Types */
 #define HEAP_TYPE_FUNC (-0x10)
@@ -56,6 +64,10 @@ extern "C" {
 #define HEAP_TYPE_STRUCT (-0x19)
 #define HEAP_TYPE_ARRAY (-0x1A)
 #define HEAP_TYPE_NONE (-0x1B)
+#define HEAP_TYPE_STRINGREF (-0x1C)
+#define HEAP_TYPE_STRINGVIEWWTF8 (-0x1D)
+#define HEAP_TYPE_STRINGVIEWWTF16 (-0x1E)
+#define HEAP_TYPE_STRINGVIEWITER (-0x1F)
 
 /* Defined Types */
 #define DEFINED_TYPE_FUNC 0x60
@@ -71,7 +83,7 @@ extern "C" {
  * Used by loader to represent any type of i32/i64/f32/f64/v128
  * and ref types, including funcref, externref, anyref, eqref,
  * (ref null $ht), (ref $ht), i31ref, structref, arrayref,
- * nullfuncref, nullexternref and nullref
+ * nullfuncref, nullexternref, nullref and stringref
  */
 #define VALUE_TYPE_ANY 0x42
 /**
@@ -132,6 +144,11 @@ typedef void *table_elem_type_t;
 #if WASM_ENABLE_BULK_MEMORY != 0
 #define SECTION_TYPE_DATACOUNT 12
 #endif
+#if WASM_ENABLE_GC != 0
+#if WASM_ENABLE_STRINGREF != 0
+#define SECTION_TYPE_STRINGREF 14
+#endif
+#endif
 
 #define SUB_SECTION_TYPE_MODULE 0
 #define SUB_SECTION_TYPE_FUNC 1
@@ -155,6 +172,13 @@ typedef void *table_elem_type_t;
 #define WASM_TYPE_FUNC 0
 #define WASM_TYPE_STRUCT 1
 #define WASM_TYPE_ARRAY 2
+
+#if WASM_ENABLE_STRINGREF != 0
+#define WASM_TYPE_STRINGREF 3
+#define WASM_TYPE_STRINGVIEWWTF8 4
+#define WASM_TYPE_STRINGVIEWWTF16 5
+#define WASM_TYPE_STRINGVIEWITER 6
+#endif
 
 typedef struct WASMModule WASMModule;
 typedef struct WASMFunction WASMFunction;
@@ -353,6 +377,36 @@ typedef struct WASMArrayType {
        described with one byte */
     WASMRefType *elem_ref_type;
 } WASMArrayType;
+
+#if WASM_ENABLE_STRINGREF != 0
+/* stringref representation, we define it as a void * pointer here, the
+ * stringref implementation can use any structure */
+/*
+    WasmGC heap
+    +-----------------------+
+    |                       |
+    |   stringref           |
+    |   +----------+        |             external string representation
+    |   | host_ptr |--------o------+----->+------------+
+    |   +----------+        |      |      |            |
+    |                       |      |      +------------+
+    |   stringview_wtf8/16  |      |
+    |   +----------+        |      |
+    |   | host_ptr |--------o------+
+    |   +----------+        |      |
+    |                       |      |
+    |   stringview_iter     |      |
+    |   +----------+        |      |
+    |   | host_ptr |--------o------+
+    |   +----------+        |
+    |   |   pos    |        |
+    |   +----------+        |
+    |                       |
+    +-----------------------+
+*/
+typedef void *WASMString;
+
+#endif /* end of WASM_ENABLE_STRINGREF != 0 */
 #endif /* end of WASM_ENABLE_GC != 0 */
 
 typedef struct WASMTable {
@@ -681,6 +735,12 @@ struct WASMModule {
     /* data count read from datacount section */
     uint32 data_seg_count1;
 #endif
+#if WASM_ENABLE_GC != 0
+#if WASM_ENABLE_STRINGREF != 0
+    uint32 stringref_count;
+    char **string_consts;
+#endif
+#endif
 
     uint32 import_function_count;
     uint32 import_table_count;
@@ -760,6 +820,15 @@ struct WASMModule {
     HashMap *ref_type_set;
     struct WASMRttType **rtt_types;
     korp_mutex rtt_type_lock;
+#if WASM_ENABLE_STRINGREF != 0
+    /* special rtts for stringref types
+        - stringref
+        - stringview_wtf8
+        - stringview_wtf16
+        - stringview_iter
+     */
+    struct WASMRttType *stringref_rtts[4];
+#endif
 #endif
 
 #if WASM_ENABLE_DEBUG_INTERP != 0 || WASM_ENABLE_DEBUG_AOT != 0
@@ -970,7 +1039,7 @@ wasm_value_type_size_ex(uint8 value_type, bool gc_enabled)
     else if (value_type == VALUE_TYPE_V128)
         return sizeof(int64) * 2;
 #endif
-    else if (value_type >= (uint8)REF_TYPE_NULLREF /* 0x65 */
+    else if (value_type >= (uint8)REF_TYPE_STRINGVIEWITER /* 0x61 */
              && value_type <= (uint8)REF_TYPE_FUNCREF /* 0x70 */ && gc_enabled)
         return sizeof(uintptr_t);
     else if (value_type == VALUE_TYPE_FUNCREF
