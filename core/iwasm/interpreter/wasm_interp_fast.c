@@ -3312,7 +3312,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         }
 
                         bytes_written = wasm_string_encode(
-                            str_obj, 0, array_len, arr_start_addr, flag);
+                            str_obj, 0, array_len, arr_start_addr, NULL, flag);
                         if (bytes_written < 0) {
                             if (bytes_written == Isolated_Surrogate) {
                                 wasm_set_exception(
