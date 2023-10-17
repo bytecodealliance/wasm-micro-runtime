@@ -697,7 +697,6 @@ wasm_loader_find_export(const WASMModule *module, const char *module_name,
     WASMExport *export =
         loader_find_export((WASMModuleCommon *)module, module_name, field_name,
                            export_kind, error_buf, error_buf_size);
-    ;
     return export;
 }
 #endif
