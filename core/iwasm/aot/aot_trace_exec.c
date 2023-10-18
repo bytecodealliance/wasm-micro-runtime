@@ -8,6 +8,7 @@
 #include "platform_common.h"
 #include "wasm_runtime_common.h"
 #include <stdarg.h>
+#include <stdint.h>
 #if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
 #include "../compilation/aot_compiler.h"
 #include "../interpreter/wasm_opcode.h"
@@ -410,9 +411,10 @@ aot_trace_exec_build_helper_func_args(AOTCompContext *comp_ctx,
 {
     /* func_idx */
     args[0] = LLVMConstInt(I32_TYPE, func_idx, false);
-    /* offset */
-    /*TODO: to calculate ip */
-    args[1] = LLVMConstInt(I64_TYPE, 1234, false);
+    /* offset = ip - len(two opcodes)*/
+    args[1] = LLVMConstInt(
+        I64_TYPE, (uintptr_t)ip - (uintptr_t)func_ctx->aot_func->code - 2,
+        false);
     /* opcode_name */
     args[2] =
         LLVMBuildGlobalStringPtr(comp_ctx->builder, opcode_name, "opcode_name");
