@@ -15,7 +15,7 @@
 #include "bh_platform.h"
 #include "blocking_op.h"
 #include "wasmtime_ssp.h"
-#include "wasi_errno.h"
+#include "libc_errno.h"
 #include "locking.h"
 #include "posix.h"
 #include "random.h"

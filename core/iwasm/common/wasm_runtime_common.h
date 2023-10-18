@@ -14,7 +14,6 @@
 #include "../interpreter/wasm.h"
 #if WASM_ENABLE_LIBC_WASI != 0
 #if WASM_ENABLE_UVWASI == 0
-#include "wasmtime_ssp.h"
 #include "posix.h"
 #else
 #include "uvwasi.h"

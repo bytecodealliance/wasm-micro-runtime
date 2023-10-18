@@ -6,10 +6,9 @@
 #ifndef WASI_ERRNO_H
 #define WASI_ERRNO_H
 
-#include "errno.h"
-#include "wasmtime_ssp.h"
+#include "platform_wasi.h"
 
-// Converts a POSIX error code to a WASI error code.
+// Converts an errno error code to a WASI error code.
 __wasi_errno_t
 convert_errno(int error);
 

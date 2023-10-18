@@ -7,7 +7,6 @@
 #define _LIBC_WASI_SGX_PFS_H
 
 #include "bh_hashmap.h"
-#include "wasmtime_ssp.h"
 
 #ifdef __cplusplus
 extern "C" {

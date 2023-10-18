@@ -4,7 +4,7 @@
  */
 
 #include "platform_api_extension.h"
-#include "wasi_errno.h"
+#include "libc_errno.h"
 #include <unistd.h>
 
 #if !defined(__APPLE__) && !defined(ESP_PLATFORM)
