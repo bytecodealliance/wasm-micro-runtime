@@ -7755,20 +7755,7 @@ re_scan:
                         module->tags[tag_index - module->import_tag_count]
                             ->tag_type;
                 }
-#if 0
-                /* the index of the type stored in the tag declaration */
-                uint8 tag_type_index = module->tags[tag_index]->type;
 
-                /* check validity of tag_type_index */
-                if (tag_type_index >= module->type_count) {
-                    set_error_buf(error_buf, error_buf_size,
-                                  "unknown tag type index");
-                    goto fail;
-                }
-
-                /* check, that the type of the referred tag returns void */
-                WASMType *func_type = module->types[tag_type_index];
-#endif
                 if (func_type->result_count != 0) {
                     set_error_buf(error_buf, error_buf_size,
                                   "tag type signature does not return void");
@@ -7786,9 +7773,6 @@ re_scan:
 
                 BlockType new_block_type;
                 new_block_type.is_value_type = false;
-#if 0
-                new_block_type.u.type = module->types[tag_type_index];
-#endif
                 new_block_type.u.type = func_type;
 
                 /*
