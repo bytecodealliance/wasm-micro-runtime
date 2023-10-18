@@ -3754,7 +3754,7 @@ load_stringref_section(const uint8 *buf, const uint8 *buf_end,
 
     if (p != p_end) {
         set_error_buf(error_buf, error_buf_size, "section size mismatch");
-        return false;
+        goto fail;
     }
 
     LOG_VERBOSE("Load stringref section success.\n");
@@ -6052,6 +6052,7 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                     case WASM_OP_EXTERN_EXTERNALIZE:
                         break;
 
+#if WASM_ENABLE_STRINGREF != 0
                     case WASM_OP_STRING_NEW_UTF8:
                     case WASM_OP_STRING_NEW_WTF16:
                     case WASM_OP_STRING_NEW_LOSSY_UTF8:
@@ -6105,7 +6106,7 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                     case WASM_OP_STRING_ENCODE_LOSSY_UTF8_ARRAY:
                     case WASM_OP_STRING_ENCODE_WTF8_ARRAY:
                         break;
-
+#endif /* end of WASM_ENABLE_STRINGREF != 0 */
                     default:
                         return false;
                 }
@@ -12408,7 +12409,7 @@ re_scan:
                         PUSH_I32();
                         break;
                     }
-#endif
+#endif /* end of WASM_ENABLE_STRINGREF != 0 */
                     default:
                         set_error_buf_v(error_buf, error_buf_size,
                                         "%s %02x %02x", "unsupported opcode",
