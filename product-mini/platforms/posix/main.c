@@ -75,7 +75,7 @@ print_help()
     printf("  --dir=<dir>              Grant wasi access to the given host directories\n");
     printf("                           to the program, for example:\n");
     printf("                             --dir=<dir1> --dir=<dir2>\n");
-    printf("  --map-dir=<dir>          Grant wasi access to the given host directories\n");
+    printf("  --map-dir=<guest::host>  Grant wasi access to the given host directories\n");
     printf("                           to the program at a specific guest path, for example:\n");
     printf("                             --map-dir=<guest-path1::host-path1> --map-dir=<guest-path2::host-path2>\n");
     printf("  --addr-pool=<addrs>      Grant wasi access to the given network addresses in\n");
