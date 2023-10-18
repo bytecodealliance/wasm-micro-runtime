@@ -8,8 +8,6 @@
 
 #include "gc_object.h"
 
-struct WASMExecEnv;
-
 typedef enum EncodingFlag {
     UTF8,
     WTF8,
