@@ -540,6 +540,8 @@ aot_trace_exec_build_call_helper(AOTCompContext *comp_ctx,
         opcode_kind = simd_info[ext_opcode].kind;
     }
 
+    /* not imported func index -> all func index */
+    func_idx += comp_ctx->comp_data->wasm_module->import_function_count;
     LLVMValueRef args[4] = { 0 };
     uint32 args_num = 0;
     bool ret = aot_trace_exec_build_helper_func_args(
