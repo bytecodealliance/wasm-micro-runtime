@@ -3033,8 +3033,7 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
         if (max_len > 256) {
             if (!(mapping_copy = wasm_runtime_malloc(max_len))) {
                 snprintf(error_buf, error_buf_size,
-                         "error while pre-opening mapped directory %s: %d\n",
-                         map_host, errno);
+                         "error while allocating for directory mapping\n");
                 goto fail;
             }
         }
@@ -3049,9 +3048,8 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
         if (!map_mapped || !map_host) {
             if (error_buf)
                 snprintf(error_buf, error_buf_size,
-                         "error while pre-opening mapped directory %s: "
-                         "invalid map\n",
-                         map_host);
+                         "error while pre-opening mapped directory: "
+                         "invalid map\n");
             goto fail;
         }
 
