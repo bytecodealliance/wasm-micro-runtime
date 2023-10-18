@@ -589,10 +589,7 @@ check_wasm_type(AOTCompContext *comp_ctx, uint8 type)
         else
             return true;
     }
-    else if (type == REF_TYPE_STRUCTREF || type == REF_TYPE_ARRAYREF
-             || type == REF_TYPE_I31REF || type == REF_TYPE_EQREF
-             || type == REF_TYPE_ANYREF || type == REF_TYPE_HT_NULLABLE
-             || type == REF_TYPE_HT_NON_NULLABLE) {
+    else if (aot_is_type_gc_reftype(type)) {
         if (!comp_ctx->enable_gc) {
             aot_set_last_error("GC reference type was found, "
                                "try adding --enable-gc option.");
@@ -3456,8 +3453,27 @@ aot_build_zero_function_ret(const AOTCompContext *comp_ctx,
                 break;
             case VALUE_TYPE_FUNCREF:
             case VALUE_TYPE_EXTERNREF:
-                ret = LLVMBuildRet(comp_ctx->builder, REF_NULL);
+                if (comp_ctx->enable_ref_types)
+                    ret = LLVMBuildRet(comp_ctx->builder, REF_NULL);
+#if WASM_ENABLE_GC != 0
+                else if (comp_ctx->enable_gc)
+                    ret = LLVMBuildRet(comp_ctx->builder, GC_REF_NULL);
+#endif
+                else
+                    bh_assert(0);
                 break;
+#if WASM_ENABLE_GC != 0
+            case REF_TYPE_STRUCTREF:
+            case REF_TYPE_ARRAYREF:
+            case REF_TYPE_I31REF:
+            case REF_TYPE_EQREF:
+            case REF_TYPE_ANYREF:
+            case REF_TYPE_HT_NULLABLE:
+            case REF_TYPE_HT_NON_NULLABLE:
+                bh_assert(comp_ctx->enable_gc);
+                ret = LLVMBuildRet(comp_ctx->builder, GC_REF_NULL);
+                break;
+#endif
             default:
                 bh_assert(0);
         }

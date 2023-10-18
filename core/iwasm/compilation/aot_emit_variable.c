@@ -28,10 +28,8 @@ get_local_type(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                      ? aot_func->func_type->types[local_idx]
                      : aot_func->local_types[local_idx - param_count];
 
-#if WASM_ENABLE_GC != 0
-    if (comp_ctx->enable_gc && wasm_is_type_reftype(local_type))
+    if (comp_ctx->enable_gc && aot_is_type_gc_reftype(local_type))
         local_type = VALUE_TYPE_GC_REF;
-#endif
 
     return local_type;
 }
@@ -107,7 +105,11 @@ aot_compile_op_set_local(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             case VALUE_TYPE_EXTERNREF:
                 set_local_ref(comp_ctx->aot_frame, n, value, local_type);
                 break;
-            /* TODO: handle GC ref types */
+#if WASM_ENABLE_GC != 0
+            case VALUE_TYPE_GC_REF:
+                set_local_gc_ref(comp_ctx->aot_frame, n, value, local_type);
+                break;
+#endif
             default:
                 bh_assert(0);
                 break;
@@ -184,6 +186,9 @@ compile_global(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         global_type = comp_data->globals[global_idx - import_global_count].type;
     }
 
+    if (comp_ctx->enable_gc && aot_is_type_gc_reftype(global_type))
+        global_type = VALUE_TYPE_GC_REF;
+
     offset = I32_CONST(global_offset);
     if (!(global_ptr = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,
                                              func_ctx->aot_inst, &offset, 1,
@@ -196,20 +201,25 @@ compile_global(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         case VALUE_TYPE_I32:
         case VALUE_TYPE_EXTERNREF:
         case VALUE_TYPE_FUNCREF:
-            ptr_type = comp_ctx->basic_types.int32_ptr_type;
+            ptr_type = INT32_PTR_TYPE;
             break;
         case VALUE_TYPE_I64:
-            ptr_type = comp_ctx->basic_types.int64_ptr_type;
+            ptr_type = INT64_PTR_TYPE;
             break;
         case VALUE_TYPE_F32:
-            ptr_type = comp_ctx->basic_types.float32_ptr_type;
+            ptr_type = F32_PTR_TYPE;
             break;
         case VALUE_TYPE_F64:
-            ptr_type = comp_ctx->basic_types.float64_ptr_type;
+            ptr_type = F64_PTR_TYPE;
             break;
         case VALUE_TYPE_V128:
-            ptr_type = comp_ctx->basic_types.v128_ptr_type;
+            ptr_type = V128_PTR_TYPE;
             break;
+#if WASM_ENABLE_GC != 0
+        case VALUE_TYPE_GC_REF:
+            ptr_type = GC_REF_PTR_TYPE;
+            break;
+#endif
         default:
             bh_assert("unknown type");
             break;
