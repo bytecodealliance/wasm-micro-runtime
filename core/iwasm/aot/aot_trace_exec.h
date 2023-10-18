@@ -53,10 +53,11 @@ struct trace_exec_value {
     } of;
 };
 
-enum trace_exec_instruction_kind {
+enum trace_exec_opcode_kind {
     IMM_0_OP_0,
     IMM_0_OP_v128,
     IMM_0_OP_v128_v128,
+    IMM_i32_OP_0,
     IMM_v128_OP_0,
     IMM_i8_OP_v128_i32,
     IMM_memarg_OP_i32, // XX.load
@@ -66,7 +67,7 @@ enum trace_exec_instruction_kind {
 struct trace_exec_instruction {
     uint8 opcode;
     uint8 ext_opcode;
-    enum trace_exec_instruction_kind kind;
+    enum trace_exec_opcode_kind kind;
     struct trace_exec_value *imms;
     struct trace_exec_value *opds;
 };

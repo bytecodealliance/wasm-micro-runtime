@@ -315,6 +315,13 @@ check_type_compatible(uint8 src_type, uint8 dst_type)
         }                                                    \
     } while (0)
 
+/* require:
+     LLVMTypeRef func_type, ret_type, param_types[]
+     LLVMValueRef func, value
+     unsigned argc
+     char *name
+     label fail
+*/
 #define GET_AOT_FUNCTION(name, argc)                                        \
     do {                                                                    \
         if (!(func_type =                                                   \

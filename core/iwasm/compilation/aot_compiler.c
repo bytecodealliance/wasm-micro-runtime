@@ -201,6 +201,11 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
         LLVMSetCurrentDebugLocation2(comp_ctx->builder, location);
 #endif
 
+        if (opcode < WASM_OP_MISC_PREFIX) {
+            aot_trace_exec_build_call_helper(comp_ctx, func_ctx, func_index,
+                                             opcode, 0x0, frame_ip);
+        }
+
         switch (opcode) {
             case WASM_OP_UNREACHABLE:
                 if (!aot_compile_op_unreachable(comp_ctx, func_ctx, &frame_ip))

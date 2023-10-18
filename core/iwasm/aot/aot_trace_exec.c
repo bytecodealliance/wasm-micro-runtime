@@ -90,7 +90,7 @@ read_leb(const uint8 *buf, uint32 *p_offset, uint32 maxbits, bool sign,
 /* ============================== compilation ============================== */
 struct trace_exec_op_info {
     const char *opcode_name;
-    enum trace_exec_instruction_kind kind;
+    enum trace_exec_opcode_kind kind;
 };
 
 static const struct trace_exec_op_info simd_info[0xff + 1] = {
@@ -102,6 +102,10 @@ static const struct trace_exec_op_info simd_info[0xff + 1] = {
     [SIMD_f32x4_abs] = { "f32x4.abs", IMM_0_OP_v128 },
     [SIMD_f32x4_min] = { "f32x4.min", IMM_0_OP_v128_v128 },
     [SIMD_f32x4_max] = { "f32x4.max", IMM_0_OP_v128_v128 },
+};
+
+static const struct trace_exec_op_info opcode_info[0xff + 1] = {
+    [WASM_OP_CALL] = { "call", IMM_i32_OP_0 },
 };
 
 /*
@@ -406,7 +410,7 @@ aot_trace_exec_build_helper_func_args(AOTCompContext *comp_ctx,
                                       AOTFuncContext *func_ctx, uint32 func_idx,
                                       uint8 *ip, uint8 opcode, uint8 ext_opcode,
                                       const char *opcode_name,
-                                      enum trace_exec_instruction_kind kind,
+                                      enum trace_exec_opcode_kind kind,
                                       LLVMValueRef *args, uint32 *args_num)
 {
     /* func_idx */
@@ -466,6 +470,11 @@ aot_trace_exec_build_helper_func_args(AOTCompContext *comp_ctx,
                                                   instr_opds_ptr);
             break;
         }
+        case IMM_i32_OP_0:
+        {
+            aot_trace_exec_assemble_imm_i32(comp_ctx, ip, instr_imms_ptr);
+            break;
+        }
         case IMM_v128_OP_0:
         {
             aot_trace_exec_assemble_imm_v128(comp_ctx, ip, instr_imms_ptr);
@@ -508,28 +517,34 @@ aot_trace_exec_build_call_helper(AOTCompContext *comp_ctx,
                                  AOTFuncContext *func_ctx, uint32 func_idx,
                                  uint8 opcode, uint8 ext_opcode, uint8 *ip)
 {
-    // func_type
-    LLVMTypeRef func_type = aot_trace_exec_get_helper_func_type(comp_ctx);
-
     // func
+    LLVMTypeRef func_type;
     LLVMValueRef func;
-    const char *name = "aot_trace_exec_helper";
-    func = LLVMGetNamedFunction(comp_ctx->module, name);
-    if (!func) {
-        func = LLVMAddFunction(comp_ctx->module, name, func_type);
-        if (!func) {
-            aot_set_last_error_v("llvm add %s failed.", name);
-            return false;
-        }
-    }
+    LLVMTypeRef ptr_type = LLVMPointerTypeInContext(comp_ctx->context, 0);
+    LLVMTypeRef param_types[4] = { I32_TYPE, I64_TYPE, ptr_type, ptr_type };
+    LLVMTypeRef ret_type = VOID_TYPE;
+    LLVMTypeRef func_ptr_type;
+    LLVMValueRef value;
+
+    GET_AOT_FUNCTION(aot_trace_exec_helper, ARR_SIZE(param_types));
 
     // build args
+    const char *opcode_name;
+    enum trace_exec_opcode_kind opcode_kind;
+    if (opcode != WASM_OP_SIMD_PREFIX) {
+        opcode_name = opcode_info[opcode].opcode_name;
+        opcode_kind = opcode_info[opcode].kind;
+    }
+    else {
+        opcode_name = simd_info[ext_opcode].opcode_name;
+        opcode_kind = simd_info[ext_opcode].kind;
+    }
+
     LLVMValueRef args[4] = { 0 };
     uint32 args_num = 0;
     bool ret = aot_trace_exec_build_helper_func_args(
-        comp_ctx, func_ctx, func_idx, ip, opcode, ext_opcode,
-        simd_info[ext_opcode].opcode_name, simd_info[ext_opcode].kind, args,
-        &args_num);
+        comp_ctx, func_ctx, func_idx, ip, opcode, ext_opcode, opcode_name,
+        opcode_kind, args, &args_num);
     if (!ret) {
         return false;
     }
@@ -546,6 +561,8 @@ aot_trace_exec_build_call_helper(AOTCompContext *comp_ctx,
     }
 
     return true;
+fail:
+    return false;
 }
 
 #endif /* WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0 */
@@ -601,7 +618,7 @@ pprint_epilogue()
 }
 
 static void
-pprint_imms(enum trace_exec_instruction_kind kind,
+pprint_imms(enum trace_exec_opcode_kind kind,
             struct trace_exec_value *imms)
 {
     switch (kind) {
@@ -613,6 +630,11 @@ pprint_imms(enum trace_exec_instruction_kind kind,
         case IMM_i8_OP_v128_i32:
         {
             os_printf("[lane %u], ", imms[0].of.i8);
+            break;
+        }
+        case IMM_i32_OP_0:
+        {
+            pprint_i32(imms[0].of.i32);
             break;
         }
         case IMM_v128_OP_0:
@@ -668,11 +690,12 @@ pprint_opd(struct trace_exec_value *opd)
 }
 
 static void
-pprint_opds(enum trace_exec_instruction_kind kind,
+pprint_opds(enum trace_exec_opcode_kind kind,
             struct trace_exec_value *opds)
 {
     switch (kind) {
         /* no operands */
+        case IMM_i32_OP_0:
         case IMM_v128_OP_0:
         {
             break;
