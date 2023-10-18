@@ -936,8 +936,8 @@ main(int argc, char *argv[])
 
 #if WASM_ENABLE_LIBC_WASI != 0
     wasm_runtime_set_wasi_args(wasm_module, dir_list, dir_list_size,
-                               map_dir_list, map_dir_list_size,
-                               env_list, env_list_size, argv, argc);
+                               map_dir_list, map_dir_list_size, env_list,
+                               env_list_size, argv, argc);
 
     wasm_runtime_set_wasi_addr_pool(wasm_module, addr_pool, addr_pool_size);
     wasm_runtime_set_wasi_ns_lookup_pool(wasm_module, ns_lookup_pool,
