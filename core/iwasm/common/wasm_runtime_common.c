@@ -3012,17 +3012,39 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
             goto fail;
         }
 
-        fd_table_insert_existing(curfds, wasm_fd, raw_fd);
-        fd_prestats_insert(prestats, dir_list[i], wasm_fd);
+        if (!fd_table_insert_existing(curfds, wasm_fd, raw_fd)
+            || !fd_prestats_insert(prestats, dir_list[i], wasm_fd)) {
+            if (error_buf)
+                snprintf(
+                    error_buf, error_buf_size,
+                    "error while pre-opening directory %s: insertion failed\n",
+                    dir_list[i]);
+            goto fail;
+        }
     }
 
     for (i = 0; i < map_dir_count; i++, wasm_fd++) {
-        char mapping_copy[(PATH_MAX * 2) + 3];
-        strncpy(mapping_copy, map_dir_list[i], strlen(map_dir_list[i]));
-        mapping_copy[(PATH_MAX * 2) + 2] = '\0';
+        char mapping_copy_buf[256];
+        char *mapping_copy = mapping_copy_buf;
+        const char *map_mapped, *map_host;
+        const unsigned long max_len = strlen(map_dir_list[i]) * 2 + 3;
 
-        const char* map_mapped = strtok(mapping_copy, "::");
-        const char* map_host = strtok(NULL, "::");
+        // Allocation limit for runtime environments with reduced stack size
+        if (max_len > 256) {
+            if (!(mapping_copy = wasm_runtime_malloc(max_len))) {
+                snprintf(error_buf, error_buf_size,
+                         "error while pre-opening mapped directory %s: %d\n",
+                         map_host, errno);
+                goto fail;
+            }
+        }
+
+        strncpy(mapping_copy, map_dir_list[i], strlen(map_dir_list[i]));
+        map_mapped = strtok(mapping_copy, "::");
+        map_host = strtok(NULL, "::");
+
+        if (mapping_copy != mapping_copy_buf)
+            wasm_runtime_free(mapping_copy);
 
         if (!map_mapped && !map_host) {
             continue;
@@ -3032,7 +3054,7 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
         if (!path) {
             if (error_buf)
                 snprintf(error_buf, error_buf_size,
-                         "error while pre-opening directory %s: %d\n",
+                         "error while pre-opening mapped directory %s: %d\n",
                          map_host, errno);
             goto fail;
         }
@@ -3041,13 +3063,20 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
         if (raw_fd == -1) {
             if (error_buf)
                 snprintf(error_buf, error_buf_size,
-                         "error while pre-opening directory %s: %d\n",
+                         "error while pre-opening mapped directory %s: %d\n",
                          map_host, errno);
             goto fail;
         }
 
-        fd_table_insert_existing(curfds, wasm_fd, raw_fd);
-        fd_prestats_insert(prestats, map_mapped, wasm_fd);
+        if (!fd_table_insert_existing(curfds, wasm_fd, raw_fd)
+            || !fd_prestats_insert(prestats, map_mapped, wasm_fd)) {
+            if (error_buf)
+                snprintf(error_buf, error_buf_size,
+                         "error while pre-opening mapped directory %s: "
+                         "insertion failed\n",
+                         dir_list[i]);
+            goto fail;
+        }
     }
 
     /* addr_pool(textual) -> apool */
