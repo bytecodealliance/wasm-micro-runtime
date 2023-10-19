@@ -129,6 +129,22 @@ typedef struct {
 #define REG_LLVM_PGO_SYM()
 #endif
 
+#if WASM_ENABLE_GC != 0
+#define REG_GC_SYM()                       \
+    REG_SYM(aot_array_init_with_data),     \
+    REG_SYM(aot_create_func_obj),          \
+    REG_SYM(aot_obj_is_instance_of),       \
+    REG_SYM(aot_rtt_type_new),             \
+    REG_SYM(wasm_array_obj_copy),          \
+    REG_SYM(wasm_array_obj_new),           \
+    REG_SYM(wasm_externref_obj_to_internal_obj), \
+    REG_SYM(wasm_internal_obj_to_externref_obj), \
+    REG_SYM(wasm_obj_is_type_of),          \
+    REG_SYM(wasm_struct_obj_new),
+#else
+#define REG_GC_SYM()
+#endif
+
 #define REG_COMMON_SYMBOLS                \
     REG_SYM(aot_set_exception_with_id),   \
     REG_SYM(aot_invoke_native),           \
@@ -159,6 +175,7 @@ typedef struct {
     REG_AOT_TRACE_SYM()                   \
     REG_INTRINSIC_SYM()                   \
     REG_LLVM_PGO_SYM()                    \
+    REG_GC_SYM()                          \
 
 #define CHECK_RELOC_OFFSET(data_size) do {              \
     if (!check_reloc_offset(target_section_size,        \
