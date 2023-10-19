@@ -7,6 +7,7 @@
 #include "bh_platform.h"
 #include "wasm_export.h"
 #include "wasm_runtime_common.h"
+#include "wasmtime_ssp.h"
 
 #if WASM_ENABLE_THREAD_MGR != 0
 #include "../../../thread-mgr/thread_manager.h"

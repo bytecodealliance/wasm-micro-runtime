@@ -14,7 +14,6 @@
 #include "../interpreter/wasm.h"
 #if WASM_ENABLE_LIBC_WASI != 0
 #if WASM_ENABLE_UVWASI == 0
-#include "wasmtime_ssp.h"
 #include "posix.h"
 #else
 #include "uvwasi.h"
@@ -853,7 +852,7 @@ wasm_runtime_set_wasi_args_ex(WASMModuleCommon *module, const char *dir_list[],
                               uint32 dir_count, const char *map_dir_list[],
                               uint32 map_dir_count, const char *env_list[],
                               uint32 env_count, char *argv[], int argc,
-                              int stdinfd, int stdoutfd, int stderrfd);
+                              int64 stdinfd, int64 stdoutfd, int64 stderrfd);
 
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN void
@@ -881,8 +880,9 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
                        const char *env[], uint32 env_count,
                        const char *addr_pool[], uint32 addr_pool_size,
                        const char *ns_lookup_pool[], uint32 ns_lookup_pool_size,
-                       char *argv[], uint32 argc, int stdinfd, int stdoutfd,
-                       int stderrfd, char *error_buf, uint32 error_buf_size);
+                       char *argv[], uint32 argc, os_raw_file_handle stdinfd,
+                       os_raw_file_handle stdoutfd, os_raw_file_handle stderrfd,
+                       char *error_buf, uint32 error_buf_size);
 
 void
 wasm_runtime_destroy_wasi(WASMModuleInstanceCommon *module_inst);

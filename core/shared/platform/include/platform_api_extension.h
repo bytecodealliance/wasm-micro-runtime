@@ -7,6 +7,7 @@
 #define PLATFORM_API_EXTENSION_H
 
 #include "platform_common.h"
+#include "platform_wasi.h"
 /**
  * The related data structures should be defined
  * in platform_internal.h

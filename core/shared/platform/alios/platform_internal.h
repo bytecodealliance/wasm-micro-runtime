@@ -64,4 +64,8 @@ int signbit(double x);
 int isnan(double x);
 /* clang-format on */
 
+typedef int os_file_handle;
+typedef DIR *os_dir_stream;
+typedef int os_raw_file_handle;
+
 #endif /* end of _BH_PLATFORM_H */

@@ -47,38 +47,6 @@
 #define CONFIG_HAS_CLOCK_NANOSLEEP 0
 #endif
 
-#if !defined(__APPLE__) && !defined(__FreeBSD__) && !defined(ESP_PLATFORM) \
-    && !defined(_WIN32)
-#define CONFIG_HAS_FDATASYNC 1
-#else
-#define CONFIG_HAS_FDATASYNC 0
-#endif
-
-/*
- * For NuttX, CONFIG_HAS_ISATTY is provided by its platform header.
- * (platform_internal.h)
- */
-#ifndef __NuttX__
-#ifndef __CloudABI__
-#define CONFIG_HAS_ISATTY 1
-#else
-#define CONFIG_HAS_ISATTY 0
-#endif
-#endif
-
-#if !defined(__APPLE__) && !defined(ESP_PLATFORM) && !defined(_WIN32) \
-    && !defined(__COSMOPOLITAN__)
-#define CONFIG_HAS_POSIX_FALLOCATE 1
-#else
-#define CONFIG_HAS_POSIX_FALLOCATE 0
-#endif
-
-#if !defined(__APPLE__) && !defined(ESP_PLATFORM) && !defined(_WIN32)
-#define CONFIG_HAS_PREADV 1
-#else
-#define CONFIG_HAS_PREADV 0
-#endif
-
 #if defined(__APPLE__) || defined(__CloudABI__)
 #define CONFIG_HAS_PTHREAD_COND_TIMEDWAIT_RELATIVE_NP 1
 #else
@@ -90,32 +58,6 @@
 #define CONFIG_HAS_PTHREAD_CONDATTR_SETCLOCK 1
 #else
 #define CONFIG_HAS_PTHREAD_CONDATTR_SETCLOCK 0
-#endif
-
-#if !defined(__APPLE__) && !defined(ESP_PLATFORM) && !defined(_WIN32)
-#define CONFIG_HAS_PWRITEV 1
-#else
-#define CONFIG_HAS_PWRITEV 0
-#endif
-
-#ifdef __APPLE__
-#define st_atim st_atimespec
-#define st_ctim st_ctimespec
-#define st_mtim st_mtimespec
-#endif
-
-#if defined(O_DSYNC)
-#define CONFIG_HAS_O_DSYNC
-#endif
-
-// POSIX requires O_RSYNC to be defined, but Linux explicitly doesn't support
-// it.
-#if defined(O_RSYNC) && !defined(__linux__)
-#define CONFIG_HAS_O_RSYNC
-#endif
-
-#if defined(O_SYNC)
-#define CONFIG_HAS_O_SYNC
 #endif
 
 #if !defined(BH_PLATFORM_LINUX_SGX)
@@ -144,11 +86,5 @@ https://gcc.gnu.org/bugzilla/show_bug.cgi?id=58016 */
 #else  /* else of !defined(BH_PLATFORM_LINUX_SGX) */
 #define CONFIG_HAS_STD_ATOMIC 0
 #endif /* end of !defined(BH_PLATFORM_LINUX_SGX) */
-
-#if !defined(__NuttX__)
-#define CONFIG_HAS_D_INO 1
-#else
-#define CONFIG_HAS_D_INO 0
-#endif
 
 #endif

@@ -6,7 +6,6 @@
 #ifndef _LIBC_WASI_WRAPPER_H
 #define _LIBC_WASI_WRAPPER_H
 
-#include "wasmtime_ssp.h"
 #include "posix.h"
 
 #ifdef __cplusplus

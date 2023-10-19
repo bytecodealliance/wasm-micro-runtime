@@ -146,6 +146,10 @@ preadv(int __fd, const struct iovec *__iov, int __count, off_t __offset);
 ssize_t
 pwritev(int __fd, const struct iovec *__iov, int __count, off_t __offset);
 
+typedef int os_file_handle;
+typedef DIR *os_dir_stream;
+typedef int os_raw_file_handle;
+
 #ifdef __cplusplus
 }
 #endif
