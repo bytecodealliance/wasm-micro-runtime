@@ -166,7 +166,7 @@ store_value(AOTCompContext *comp_ctx, LLVMValueRef value, uint8 value_type,
             LLVMValueRef cur_frame, uint32 offset)
 {
     LLVMValueRef value_offset, value_addr, value_ptr = NULL, res;
-    LLVMTypeRef value_ptr_type;
+    LLVMTypeRef value_ptr_type = NULL;
 
     if (!(value_offset = I32_CONST(offset))) {
         aot_set_last_error("llvm build const failed");
@@ -710,15 +710,17 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                     || value_type == VALUE_TYPE_F64
                     || value_type == VALUE_TYPE_V128
                     || value_type == VALUE_TYPE_VOID
-                    || value_type == VALUE_TYPE_FUNCREF
-                    || value_type == VALUE_TYPE_EXTERNREF
-                    || value_type == REF_TYPE_STRUCTREF
-                    || value_type == REF_TYPE_ARRAYREF
-                    || value_type == REF_TYPE_I31REF
-                    || value_type == REF_TYPE_EQREF
-                    || value_type == REF_TYPE_ANYREF
-                    || value_type == REF_TYPE_HT_NULLABLE
-                    || value_type == REF_TYPE_HT_NON_NULLABLE) {
+                    || (comp_ctx->enable_ref_types
+                        && (value_type == VALUE_TYPE_FUNCREF
+                            || value_type == VALUE_TYPE_EXTERNREF))
+                    || (comp_ctx->enable_gc /* single byte type */
+                        && (value_type == REF_TYPE_FUNCREF
+                            || value_type == REF_TYPE_EXTERNREF
+                            || value_type == REF_TYPE_STRUCTREF
+                            || value_type == REF_TYPE_ARRAYREF
+                            || value_type == REF_TYPE_I31REF
+                            || value_type == REF_TYPE_EQREF
+                            || value_type == REF_TYPE_ANYREF))) {
                     param_count = 0;
                     param_types = NULL;
                     if (value_type == VALUE_TYPE_VOID) {

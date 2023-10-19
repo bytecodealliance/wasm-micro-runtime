@@ -287,36 +287,71 @@ fail:
     return false;
 }
 
+static void
+get_struct_field_data_types(const AOTCompContext *comp_ctx, uint8 field_type,
+                            LLVMTypeRef *p_field_data_type,
+                            LLVMTypeRef *p_field_data_ptr_type,
+                            bool *p_trunc_or_extend)
+{
+    LLVMTypeRef field_data_type = NULL, field_data_ptr_type = NULL;
+    bool trunc_or_extend = false;
+
+    if (wasm_is_type_reftype(field_type)) {
+        field_data_type = GC_REF_TYPE;
+        field_data_ptr_type = GC_REF_PTR_TYPE;
+    }
+    else {
+        switch (field_type) {
+            case VALUE_TYPE_I32:
+                field_data_type = I32_TYPE;
+                field_data_ptr_type = INT32_PTR_TYPE;
+                break;
+            case VALUE_TYPE_I64:
+                field_data_type = I64_TYPE;
+                field_data_ptr_type = INT64_PTR_TYPE;
+                break;
+            case VALUE_TYPE_F32:
+                field_data_type = F32_TYPE;
+                field_data_ptr_type = F32_PTR_TYPE;
+                break;
+            case VALUE_TYPE_F64:
+                field_data_type = F64_TYPE;
+                field_data_ptr_type = F64_PTR_TYPE;
+                break;
+            case PACKED_TYPE_I8:
+                field_data_type = INT8_TYPE;
+                field_data_ptr_type = INT8_PTR_TYPE;
+                trunc_or_extend = true;
+                break;
+            case PACKED_TYPE_I16:
+                field_data_type = INT16_TYPE;
+                field_data_ptr_type = INT16_PTR_TYPE;
+                trunc_or_extend = true;
+                break;
+            default:
+                bh_assert(0);
+                break;
+        }
+    }
+
+    *p_field_data_type = field_data_type;
+    *p_field_data_ptr_type = field_data_ptr_type;
+    *p_trunc_or_extend = trunc_or_extend;
+}
+
 static bool
 aot_struct_obj_set_field(AOTCompContext *comp_ctx, LLVMValueRef struct_obj,
                          LLVMValueRef field_offset, LLVMValueRef field_value,
-                         uint8 field_size)
+                         uint8 field_type)
 {
     bool trunc = false;
     LLVMValueRef field_data_ptr;
-    LLVMTypeRef field_data_type = NULL;
+    LLVMTypeRef field_data_type = NULL, field_data_ptr_type = NULL;
 
-    switch (field_size) {
-        case 1:
-            field_data_type = INT8_TYPE;
-            trunc = true;
-            break;
-        case 2:
-            field_data_type = INT16_TYPE;
-            trunc = true;
-            break;
-        case 4:
-            field_data_type = I32_TYPE;
-            break;
-        case 8:
-            field_data_type = I64_TYPE;
-            break;
-        default:
-            bh_assert(0);
-            break;
-    }
+    get_struct_field_data_types(comp_ctx, field_type, &field_data_type,
+                                &field_data_ptr_type, &trunc);
 
-    /* Based on field_size, trunc field_value if necessary */
+    /* Truncate field_value if necessary */
     if (trunc) {
         if (!(field_value =
                   LLVMBuildTrunc(comp_ctx->builder, field_value,
@@ -335,9 +370,9 @@ aot_struct_obj_set_field(AOTCompContext *comp_ctx, LLVMValueRef struct_obj,
     }
 
     /* Cast to the field data type ptr */
-    if (!(field_data_ptr = LLVMBuildBitCast(comp_ctx->builder, field_data_ptr,
-                                            LLVMPointerType(field_data_type, 0),
-                                            "field_value_ptr"))) {
+    if (!(field_data_ptr =
+              LLVMBuildBitCast(comp_ctx->builder, field_data_ptr,
+                               field_data_ptr_type, "field_value_ptr"))) {
         aot_set_last_error("llvm build bitcast failed.");
         goto fail;
     }
@@ -354,12 +389,15 @@ fail:
 
 static bool
 aot_struct_obj_get_field(AOTCompContext *comp_ctx, LLVMValueRef struct_obj,
-                         LLVMValueRef field_offset, LLVMValueRef *field_value,
-                         uint8 field_size, bool sign_extend)
+                         LLVMValueRef field_offset, LLVMValueRef *p_field_value,
+                         uint8 field_type, bool sign_extend)
 {
     bool extend = false;
-    LLVMValueRef field_data_ptr;
-    LLVMTypeRef field_data_type = NULL;
+    LLVMValueRef field_value, field_data_ptr;
+    LLVMTypeRef field_data_type = NULL, field_data_ptr_type = NULL;
+
+    get_struct_field_data_types(comp_ctx, field_type, &field_data_type,
+                                &field_data_ptr_type, &extend);
 
     if (!(field_data_ptr = LLVMBuildInBoundsGEP2(
               comp_ctx->builder, INT8_PTR_TYPE, struct_obj, &field_offset, 1,
@@ -368,56 +406,37 @@ aot_struct_obj_get_field(AOTCompContext *comp_ctx, LLVMValueRef struct_obj,
         goto fail;
     }
 
-    switch (field_size) {
-        case 1:
-            field_data_type = INT8_TYPE;
-            extend = true;
-            break;
-        case 2:
-            field_data_type = INT16_TYPE;
-            extend = true;
-            break;
-        case 4:
-            field_data_type = I32_TYPE;
-            break;
-        case 8:
-            field_data_type = I64_TYPE;
-            break;
-        default:
-            bh_assert(0);
-            break;
-    }
-
-    if (!(field_data_ptr = LLVMBuildBitCast(comp_ctx->builder, field_data_ptr,
-                                            LLVMPointerType(field_data_type, 0),
-                                            "field_value_ptr"))) {
+    if (!(field_data_ptr =
+              LLVMBuildBitCast(comp_ctx->builder, field_data_ptr,
+                               field_data_ptr_type, "field_value_ptr"))) {
         aot_set_last_error("llvm build bitcast failed.");
         goto fail;
     }
 
-    if (!(*field_value = LLVMBuildLoad2(comp_ctx->builder, field_data_type,
-                                        field_data_ptr, "field_value"))) {
+    if (!(field_value = LLVMBuildLoad2(comp_ctx->builder, field_data_type,
+                                       field_data_ptr, "field_value"))) {
         aot_set_last_error("llvm build load failed.");
         goto fail;
     }
 
     if (extend) {
         if (sign_extend) {
-            if (!(*field_value = LLVMBuildSExt(comp_ctx->builder, *field_value,
-                                               I32_TYPE, "field_value_sext"))) {
+            if (!(field_value = LLVMBuildSExt(comp_ctx->builder, field_value,
+                                              I32_TYPE, "field_value_sext"))) {
                 aot_set_last_error("llvm build signed ext failed.");
                 goto fail;
             }
         }
         else {
-            if (!(*field_value = LLVMBuildZExt(comp_ctx->builder, *field_value,
-                                               I32_TYPE, "field_value_zext"))) {
+            if (!(field_value = LLVMBuildZExt(comp_ctx->builder, field_value,
+                                              I32_TYPE, "field_value_zext"))) {
                 aot_set_last_error("llvm build unsigned ext failed.");
                 goto fail;
             }
         }
     }
 
+    *p_field_value = field_value;
     return true;
 fail:
     return false;
@@ -435,28 +454,35 @@ struct_new_canon_init_fields(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     WASMStructFieldType *fields = compile_time_struct_type->fields;
     int32 field_count = (int32)compile_time_struct_type->field_count;
     int32 field_idx;
-    uint8 field_type, field_size, field_offset;
+    uint8 field_type, field_offset;
 
     for (field_idx = field_count - 1; field_idx >= 0; field_idx--) {
         field_type = fields[field_idx].field_type;
-        field_size = fields[field_idx].field_size;
         field_offset = fields[field_idx].field_offset;
 
         if (wasm_is_type_reftype(field_type)) {
             POP_GC_REF(field_value);
         }
-        else if (field_type == VALUE_TYPE_I32 || field_type == VALUE_TYPE_F32
-                 || field_type == PACKED_TYPE_I8
+        else if (field_type == VALUE_TYPE_I32 || field_type == PACKED_TYPE_I8
                  || field_type == PACKED_TYPE_I16) {
             POP_I32(field_value);
         }
-        else {
+        else if (field_type == VALUE_TYPE_I64) {
             POP_I64(field_value);
+        }
+        else if (field_type == VALUE_TYPE_F32) {
+            POP_F32(field_value);
+        }
+        else if (field_type == VALUE_TYPE_F64) {
+            POP_F64(field_value);
+        }
+        else {
+            bh_assert(0);
         }
 
         if (!aot_struct_obj_set_field(comp_ctx, struct_obj,
                                       I32_CONST(field_offset), field_value,
-                                      field_size))
+                                      field_type))
             goto fail;
     }
 
@@ -498,6 +524,8 @@ aot_compile_op_struct_new(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                             check_struct_obj_succ))
         goto fail;
 
+    SET_BUILDER_POS(check_struct_obj_succ);
+
     /* For WASM_OP_STRUCT_NEW_CANON, init filed with poped value */
     if (!init_with_default
         && !struct_new_canon_init_fields(comp_ctx, func_ctx, type_index,
@@ -524,11 +552,10 @@ aot_compile_op_struct_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     WASMStructType *compile_time_struct_type =
         (WASMStructType *)comp_ctx->comp_data->types[type_index];
     WASMStructFieldType *field;
-    uint8 field_type, field_size, field_offset;
+    uint8 field_type, field_offset;
 
     field = compile_time_struct_type->fields + field_idx;
     field_type = field->field_type;
-    field_size = field->field_size;
     field_offset = field->field_offset;
 
     if (field_idx >= compile_time_struct_type->field_count) {
@@ -547,18 +574,27 @@ aot_compile_op_struct_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
 
     if (!aot_struct_obj_get_field(comp_ctx, struct_obj, I32_CONST(field_offset),
-                                  &field_value, field_size, sign))
+                                  &field_value, field_type, sign))
         goto fail;
 
     if (wasm_is_type_reftype(field_type)) {
         PUSH_GC_REF(field_value);
     }
-    else if (field_type == VALUE_TYPE_I32 || field_type == VALUE_TYPE_F32
-             || field_type == PACKED_TYPE_I8 || field_type == PACKED_TYPE_I16) {
+    else if (field_type == VALUE_TYPE_I32 || field_type == PACKED_TYPE_I8
+             || field_type == PACKED_TYPE_I16) {
         PUSH_I32(field_value);
     }
-    else {
+    else if (field_type == VALUE_TYPE_I64) {
         PUSH_I64(field_value);
+    }
+    else if (field_type == VALUE_TYPE_F32) {
+        PUSH_F32(field_value);
+    }
+    else if (field_type == VALUE_TYPE_F64) {
+        PUSH_F64(field_value);
+    }
+    else {
+        bh_assert(0);
     }
 
     return true;
@@ -577,11 +613,10 @@ aot_compile_op_struct_set(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     WASMStructType *compile_time_struct_type =
         (WASMStructType *)comp_ctx->comp_data->types[type_index];
     WASMStructFieldType *field;
-    uint8 field_type, field_size, field_offset;
+    uint8 field_type, field_offset;
 
     field = compile_time_struct_type->fields + field_idx;
     field_type = field->field_type;
-    field_size = field->field_size;
     field_offset = field->field_offset;
 
     if (field_idx >= compile_time_struct_type->field_count) {
@@ -592,12 +627,21 @@ aot_compile_op_struct_set(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     if (wasm_is_type_reftype(field_type)) {
         POP_GC_REF(field_value);
     }
-    else if (field_type == VALUE_TYPE_I32 || field_type == VALUE_TYPE_F32
-             || field_type == PACKED_TYPE_I8 || field_type == PACKED_TYPE_I16) {
+    else if (field_type == VALUE_TYPE_I32 || field_type == PACKED_TYPE_I8
+             || field_type == PACKED_TYPE_I16) {
         POP_I32(field_value);
     }
-    else {
+    else if (field_type == VALUE_TYPE_I64) {
         POP_I64(field_value);
+    }
+    else if (field_type == VALUE_TYPE_F32) {
+        POP_F32(field_value);
+    }
+    else if (field_type == VALUE_TYPE_F64) {
+        POP_F64(field_value);
+    }
+    else {
+        bh_assert(0);
     }
 
     POP_GC_REF(struct_obj);
@@ -611,7 +655,7 @@ aot_compile_op_struct_set(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
 
     if (!aot_struct_obj_set_field(comp_ctx, struct_obj, I32_CONST(field_offset),
-                                  field_value, field_size))
+                                  field_value, field_type))
         goto fail;
 
     return true;
@@ -1031,13 +1075,21 @@ aot_compile_op_array_new(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             POP_GC_REF(array_elem);
         }
         else if (array_elem_type == VALUE_TYPE_I32
-                 || array_elem_type == VALUE_TYPE_F32
                  || array_elem_type == PACKED_TYPE_I8
                  || array_elem_type == PACKED_TYPE_I16) {
             POP_I32(array_elem);
         }
-        else {
+        else if (array_elem_type == VALUE_TYPE_I64) {
             POP_I64(array_elem);
+        }
+        else if (array_elem_type == VALUE_TYPE_F32) {
+            POP_F32(array_elem);
+        }
+        else if (array_elem_type == VALUE_TYPE_F64) {
+            POP_F64(array_elem);
+        }
+        else {
+            bh_assert(0);
         }
     }
     else {
@@ -1065,13 +1117,21 @@ aot_compile_op_array_new(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 POP_GC_REF(array_elem);
             }
             else if (array_elem_type == VALUE_TYPE_I32
-                     || array_elem_type == VALUE_TYPE_F32
                      || array_elem_type == PACKED_TYPE_I8
                      || array_elem_type == PACKED_TYPE_I16) {
                 POP_I32(array_elem);
             }
-            else {
+            else if (array_elem_type == VALUE_TYPE_I64) {
                 POP_I64(array_elem);
+            }
+            else if (array_elem_type == VALUE_TYPE_F32) {
+                POP_F32(array_elem);
+            }
+            else if (array_elem_type == VALUE_TYPE_F64) {
+                POP_F64(array_elem);
+            }
+            else {
+                bh_assert(0);
             }
 
             /* array_len - 1 - i */
@@ -1213,13 +1273,21 @@ aot_compile_op_array_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         PUSH_GC_REF(array_elem);
     }
     else if (array_elem_type == VALUE_TYPE_I32
-             || array_elem_type == VALUE_TYPE_F32
              || array_elem_type == PACKED_TYPE_I8
              || array_elem_type == PACKED_TYPE_I16) {
         PUSH_I32(array_elem);
     }
-    else {
+    else if (array_elem_type == VALUE_TYPE_I64) {
         PUSH_I64(array_elem);
+    }
+    else if (array_elem_type == VALUE_TYPE_F32) {
+        PUSH_F32(array_elem);
+    }
+    else if (array_elem_type == VALUE_TYPE_F64) {
+        PUSH_F64(array_elem);
+    }
+    else {
+        bh_assert(0);
     }
 
     return true;
@@ -1243,13 +1311,21 @@ aot_compile_op_array_set(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         POP_GC_REF(array_elem);
     }
     else if (array_elem_type == VALUE_TYPE_I32
-             || array_elem_type == VALUE_TYPE_F32
              || array_elem_type == PACKED_TYPE_I8
              || array_elem_type == PACKED_TYPE_I16) {
         POP_I32(array_elem);
     }
-    else {
+    else if (array_elem_type == VALUE_TYPE_I64) {
         POP_I64(array_elem);
+    }
+    else if (array_elem_type == VALUE_TYPE_F32) {
+        POP_F32(array_elem);
+    }
+    else if (array_elem_type == VALUE_TYPE_F64) {
+        POP_F64(array_elem);
+    }
+    else {
+        bh_assert(0);
     }
 
     POP_I32(elem_idx);

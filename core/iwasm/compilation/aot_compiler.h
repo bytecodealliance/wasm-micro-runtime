@@ -79,8 +79,23 @@ typedef enum FloatArithmetic {
     FLOAT_MAX,
 } FloatArithmetic;
 
+/**
+ * Check whether a value type is a GC reference type,
+ * don't use wasm_is_type_reftype since it requires
+ * GC feature and may result in compilation error when
+ * GC feature isn't compiled
+ */
 static inline bool
-check_type_compatible(uint8 src_type, uint8 dst_type)
+aot_is_type_gc_reftype(uint8 type)
+{
+    return (type >= (uint8)REF_TYPE_ARRAYREF && type <= (uint8)REF_TYPE_FUNCREF)
+               ? true
+               : false;
+}
+
+static inline bool
+check_type_compatible(const AOTCompContext *comp_ctx, uint8 src_type,
+                      uint8 dst_type)
 {
     if (src_type == dst_type) {
         return true;
@@ -93,14 +108,16 @@ check_type_compatible(uint8 src_type, uint8 dst_type)
 
     /* i32 <==> func.ref, i32 <==> extern.ref */
     if (src_type == VALUE_TYPE_I32
-        && (dst_type == VALUE_TYPE_EXTERNREF
-            || dst_type == VALUE_TYPE_FUNCREF)) {
+        && (comp_ctx->enable_ref_types
+            && (dst_type == VALUE_TYPE_EXTERNREF
+                || dst_type == VALUE_TYPE_FUNCREF))) {
         return true;
     }
 
     if (dst_type == VALUE_TYPE_I32
-        && (src_type == VALUE_TYPE_FUNCREF
-            || src_type == VALUE_TYPE_EXTERNREF)) {
+        && (comp_ctx->enable_ref_types
+            && (src_type == VALUE_TYPE_FUNCREF
+                || src_type == VALUE_TYPE_EXTERNREF))) {
         return true;
     }
 
@@ -426,34 +443,41 @@ set_local_gc_ref(AOTCompFrame *frame, int n, LLVMValueRef value, uint8 ref_type)
 #define POP(llvm_value, value_type)                                          \
     do {                                                                     \
         AOTValue *aot_value;                                                 \
+        uint8 val_type_to_pop = value_type;                                  \
         CHECK_STACK();                                                       \
         aot_value = aot_value_stack_pop(                                     \
             comp_ctx, &func_ctx->block_stack.block_list_end->value_stack);   \
-        if (!check_type_compatible(aot_value->type, value_type)) {           \
+        if (comp_ctx->enable_gc && aot_is_type_gc_reftype(value_type))       \
+            val_type_to_pop = VALUE_TYPE_GC_REF;                             \
+        if (!check_type_compatible(comp_ctx, aot_value->type,                \
+                                   val_type_to_pop)) {                       \
             aot_set_last_error("invalid WASM stack data type.");             \
             wasm_runtime_free(aot_value);                                    \
             goto fail;                                                       \
         }                                                                    \
-        if (aot_value->type == value_type)                                   \
+        if (aot_value->type == val_type_to_pop)                              \
             llvm_value = aot_value->value;                                   \
         else {                                                               \
             if (aot_value->type == VALUE_TYPE_I1) {                          \
                 if (!(llvm_value =                                           \
                           LLVMBuildZExt(comp_ctx->builder, aot_value->value, \
                                         I32_TYPE, "i1toi32"))) {             \
-                    aot_set_last_error("invalid WASM stack "                 \
-                                       "data type.");                        \
+                    aot_set_last_error("invalid WASM stack data type.");     \
                     wasm_runtime_free(aot_value);                            \
                     goto fail;                                               \
                 }                                                            \
             }                                                                \
             else {                                                           \
-                bh_assert(aot_value->type == VALUE_TYPE_I32                  \
-                          || aot_value->type == VALUE_TYPE_FUNCREF           \
-                          || aot_value->type == VALUE_TYPE_EXTERNREF);       \
-                bh_assert(value_type == VALUE_TYPE_I32                       \
-                          || value_type == VALUE_TYPE_FUNCREF                \
-                          || value_type == VALUE_TYPE_EXTERNREF);            \
+                bh_assert(                                                   \
+                    aot_value->type == VALUE_TYPE_I32                        \
+                    || (comp_ctx->enable_ref_types                           \
+                        && (aot_value->type == VALUE_TYPE_FUNCREF            \
+                            || aot_value->type == VALUE_TYPE_EXTERNREF)));   \
+                bh_assert(                                                   \
+                    val_type_to_pop == VALUE_TYPE_I32                        \
+                    || (comp_ctx->enable_ref_types                           \
+                        && (val_type_to_pop == VALUE_TYPE_FUNCREF            \
+                            || val_type_to_pop == VALUE_TYPE_EXTERNREF)));   \
                 llvm_value = aot_value->value;                               \
             }                                                                \
         }                                                                    \
