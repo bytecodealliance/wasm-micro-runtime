@@ -44,7 +44,7 @@ struct trace_exec_value {
     uint32 padding2;
     uint32 padding3;
     union {
-        int8  i8;
+        int8 i8;
         int32 i32;
         int64 i64;
         float32 f32;
@@ -55,12 +55,17 @@ struct trace_exec_value {
 
 enum trace_exec_opcode_kind {
     IMM_0_OP_0,
+    IMM_0_OP_i32,
+    IMM_0_OP_f32,
+    IMM_0_OP_f64,
     IMM_0_OP_v128,
+    IMM_0_OP_i32_i32,
     IMM_0_OP_v128_v128,
     IMM_i32_OP_0,
     IMM_v128_OP_0,
+    IMM_i32_OP_i32,
     IMM_i8_OP_v128_i32,
-    IMM_memarg_OP_i32, // XX.load
+    IMM_memarg_OP_i32,      // XX.load
     IMM_memarg_OP_i32_v128, // XX.store
 };
 
