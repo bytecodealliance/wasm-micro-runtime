@@ -995,7 +995,7 @@ resolve_func_type(const uint8 **p_buf, const uint8 *buf_end, WASMModule *module,
     }
 
     LOG_VERBOSE("type %u: func, param count: %d, result count: %d, "
-                "ref type map count: %d\n",
+                "ref type map count: %d",
                 type_idx, param_count, result_count, ref_type_map_count);
 
     /* Parse second time to resolve param types, result types and
@@ -1130,7 +1130,7 @@ resolve_struct_type(const uint8 **p_buf, const uint8 *buf_end,
         }
     }
 
-    LOG_VERBOSE("type %u: struct, field count: %d, ref type map count: %d\n",
+    LOG_VERBOSE("type %u: struct, field count: %d, ref type map count: %d",
                 type_idx, field_count, ref_type_map_count);
 
     /* Parse second time to resolve field types and ref type map info */
@@ -1189,6 +1189,9 @@ resolve_struct_type(const uint8 **p_buf, const uint8 *buf_end,
         if (wasm_is_type_reftype(ref_type.ref_type))
             *reference_table++ = offset;
         offset += type->fields[i].field_size;
+
+        LOG_VERBOSE("                field: %d, flags: %d, type: %d", i,
+                    type->fields[i].field_flags, type->fields[i].field_type);
     }
     type->total_size = offset;
 
@@ -1231,7 +1234,7 @@ resolve_array_type(const uint8 **p_buf, const uint8 *buf_end,
         return false;
     }
 
-    LOG_VERBOSE("type %u: array\n", type_idx);
+    LOG_VERBOSE("type %u: array", type_idx);
 
     if (!(type = loader_malloc(sizeof(WASMArrayType), error_buf,
                                error_buf_size))) {

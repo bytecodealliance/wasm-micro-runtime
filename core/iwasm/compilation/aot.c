@@ -225,53 +225,6 @@ aot_create_globals(const WASMModule *module, uint32 global_data_start_offset,
     return globals;
 }
 
-static void
-aot_destroy_types(AOTType **types, uint32 count)
-{
-    uint32 i;
-    for (i = 0; i < count; i++)
-        if (types[i])
-            wasm_runtime_free(types[i]);
-    wasm_runtime_free(types);
-}
-
-static AOTType **
-aot_create_types(const WASMModule *module)
-{
-    AOTFuncType **func_types;
-    uint64 size;
-    uint32 i;
-
-    /* Allocate memory */
-    size = sizeof(AOTFuncType *) * (uint64)module->type_count;
-    if (size >= UINT32_MAX
-        || !(func_types = wasm_runtime_malloc((uint32)size))) {
-        aot_set_last_error("allocate memory failed.");
-        return NULL;
-    }
-
-    memset(func_types, 0, size);
-
-    /* Create each function type */
-    for (i = 0; i < module->type_count; i++) {
-        AOTFuncType *func_type = (AOTFuncType *)module->types[i];
-        size = offsetof(AOTFuncType, types) + (uint64)func_type->param_count
-               + (uint64)func_type->result_count;
-        if (size >= UINT32_MAX
-            || !(func_types[i] = wasm_runtime_malloc((uint32)size))) {
-            aot_set_last_error("allocate memory failed.");
-            goto fail;
-        }
-        memcpy(func_types[i], func_type, size);
-    }
-
-    return (AOTType **)func_types;
-
-fail:
-    aot_destroy_types((AOTType **)func_types, module->type_count);
-    return NULL;
-}
-
 static AOTImportFunc *
 aot_create_import_funcs(const WASMModule *module)
 {
@@ -509,10 +462,9 @@ aot_create_comp_data(WASMModule *module, bool gc_enabled)
 
     comp_data->global_data_size = import_global_data_size + global_data_size;
 
-    /* Create function types */
+    /* Create types, they are checked by wasm loader */
     comp_data->type_count = module->type_count;
-    if (comp_data->type_count && !(comp_data->types = aot_create_types(module)))
-        goto fail;
+    comp_data->types = module->types;
 
     /* Create import functions */
     comp_data->import_func_count = module->import_function_count;
@@ -586,9 +538,6 @@ aot_destroy_comp_data(AOTCompData *comp_data)
 
     if (comp_data->globals)
         wasm_runtime_free(comp_data->globals);
-
-    if (comp_data->types)
-        aot_destroy_types(comp_data->types, comp_data->type_count);
 
     if (comp_data->import_funcs)
         wasm_runtime_free(comp_data->import_funcs);

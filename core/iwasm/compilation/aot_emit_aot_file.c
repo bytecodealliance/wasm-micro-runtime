@@ -402,6 +402,8 @@ get_func_type_size(AOTCompContext *comp_ctx, AOTFuncType *func_type)
         size += sizeof(func_type->ref_type_map_count);
         /* param and result types */
         size += func_type->param_count + func_type->result_count;
+        /* align size */
+        size = align_uint(size, 4);
         /* ref_type_map */
         size += func_type->ref_type_map_count * 8;
 
@@ -430,7 +432,7 @@ get_struct_type_size(AOTCompContext *comp_ctx, AOTStructType *struct_type)
     /* field count */
     size += sizeof(struct_type->field_count);
     /* field types */
-    size += struct_type->field_count * 3;
+    size += struct_type->field_count * 2;
     /* ref_type_map_count */
     size += sizeof(struct_type->ref_type_map_count);
     /* ref_type_map */
@@ -470,7 +472,7 @@ get_func_type_size(AOTCompContext *comp_ctx, AOTFuncType *func_type)
 #endif
 
 static uint32
-get_func_type_info_size(AOTCompContext *comp_ctx, AOTCompData *comp_data)
+get_type_info_size(AOTCompContext *comp_ctx, AOTCompData *comp_data)
 {
     /* Initial size with size of type count */
     uint32 size = 4;
@@ -650,7 +652,7 @@ get_init_data_section_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
     size += get_table_info_size(comp_ctx, comp_data);
 
     size = align_uint(size, 4);
-    size += get_func_type_info_size(comp_ctx, comp_data);
+    size += get_type_info_size(comp_ctx, comp_data);
 
     size = align_uint(size, 4);
     size += get_import_global_info_size(comp_ctx, comp_data);
@@ -1707,10 +1709,7 @@ aot_emit_type_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
                 EMIT_BUF(func_type->types,
                          func_type->param_count + func_type->result_count);
 
-                /* If no ref type used, then continue */
-                if (func_type->ref_type_map_count == 0) {
-                    continue;
-                }
+                offset = align_uint(offset, 4);
 
                 aot_emit_reftype_map(buf, buf_end, &offset,
                                      func_type->ref_type_map_count,
@@ -1720,11 +1719,12 @@ aot_emit_type_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
             else if (types[i]->type_flag == WASM_TYPE_STRUCT) {
                 AOTStructType *struct_type = (AOTStructType *)types[i];
                 EMIT_U16(struct_type->field_count);
+                EMIT_U16(struct_type->ref_type_map_count);
+
                 for (idx = 0; idx < struct_type->field_count; idx++) {
-                    EMIT_U16(struct_type->fields[idx].field_flags);
+                    EMIT_U8(struct_type->fields[idx].field_flags);
                     EMIT_U8(struct_type->fields[idx].field_type);
                 }
-                EMIT_U16(struct_type->ref_type_map_count);
                 aot_emit_reftype_map(buf, buf_end, &offset,
                                      struct_type->ref_type_map_count,
                                      struct_type->ref_type_maps);
@@ -1741,8 +1741,7 @@ aot_emit_type_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
             }
         }
 
-        if (offset - *p_offset
-            != get_func_type_info_size(comp_ctx, comp_data)) {
+        if (offset - *p_offset != get_type_info_size(comp_ctx, comp_data)) {
             aot_set_last_error("emit function type info failed.");
             return false;
         }
@@ -1768,8 +1767,7 @@ aot_emit_type_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
                      func_types[i]->param_count + func_types[i]->result_count);
         }
 
-        if (offset - *p_offset
-            != get_func_type_info_size(comp_ctx, comp_data)) {
+        if (offset - *p_offset != get_type_info_size(comp_ctx, comp_data)) {
             aot_set_last_error("emit function type info failed.");
             return false;
         }
