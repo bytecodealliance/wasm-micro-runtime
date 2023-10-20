@@ -2311,5 +2311,3 @@ jit_frontend_get_jitted_return_addr_offset()
 {
     return (uint32)offsetof(WASMInterpFrame, jitted_return_addr);
 }
-
-#endif
