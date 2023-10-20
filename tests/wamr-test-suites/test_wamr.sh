@@ -386,7 +386,7 @@ function spec_test()
         git apply ../../spec-test-script/simd_ignore_cases.patch
     fi
     if [[ ${ENABLE_MULTI_MODULE} == 1 && $1 == 'aot'  ]]; then
-        git apply ../../spec-test-script/muti_module_aot_ignore_cases.patch
+        git apply ../../spec-test-script/multi_module_aot_ignore_cases.patch
     fi
 
     # udpate thread cases
