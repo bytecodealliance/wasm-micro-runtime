@@ -2750,7 +2750,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         SYNC_ALL_TO_FRAME();
                         stringref_obj =
                             wasm_stringref_obj_new(exec_env, str_obj);
-                        if (!str_obj) {
+                        if (!stringref_obj) {
                             wasm_set_exception(module,
                                                "create stringref failed");
                             goto got_exception;

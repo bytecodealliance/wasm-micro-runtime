@@ -11923,7 +11923,7 @@ re_scan:
                             bool nullable =
                                 (opcode1 == WASM_OP_REF_CAST_NULLABLE) ? true
                                                                        : false;
-                            if (heap_type >= 0) {
+                            if (heap_type >= 0 || !nullable) {
                                 wasm_set_refheaptype_typeidx(
                                     &wasm_ref_type.ref_ht_typeidx, nullable,
                                     heap_type);
