@@ -3029,7 +3029,7 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
         char *map_mapped = NULL, *map_host = NULL;
         const unsigned long max_len = strlen(map_dir_list[i]) * 2 + 3;
 
-        // Allocation limit for runtime environments with reduced stack size
+        /* Allocation limit for runtime environments with reduced stack size */
         if (max_len > 256) {
             if (!(mapping_copy = wasm_runtime_malloc(max_len))) {
                 snprintf(error_buf, error_buf_size,
@@ -3038,12 +3038,9 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
             }
         }
 
-        strncpy(mapping_copy, map_dir_list[i], strlen(map_dir_list[i]));
+        strncpy(mapping_copy, map_dir_list[i], strlen(map_dir_list[i]) + 1);
         map_mapped = strtok(mapping_copy, "::");
         map_host = strtok(NULL, "::");
-
-        if (mapping_copy != mapping_copy_buf)
-            wasm_runtime_free(mapping_copy);
 
         if (!map_mapped || !map_host) {
             if (error_buf)
@@ -3059,6 +3056,8 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
                 snprintf(error_buf, error_buf_size,
                          "error while pre-opening mapped directory %s: %d\n",
                          map_host, errno);
+            if (mapping_copy != mapping_copy_buf)
+                wasm_runtime_free(mapping_copy);
             goto fail;
         }
 
@@ -3068,6 +3067,8 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
                 snprintf(error_buf, error_buf_size,
                          "error while pre-opening mapped directory %s: %d\n",
                          map_host, errno);
+            if (mapping_copy != mapping_copy_buf)
+                wasm_runtime_free(mapping_copy);
             goto fail;
         }
 
@@ -3078,8 +3079,13 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
                          "error while pre-opening mapped directory %s: "
                          "insertion failed\n",
                          dir_list[i]);
+            if (mapping_copy != mapping_copy_buf)
+                wasm_runtime_free(mapping_copy);
             goto fail;
         }
+
+        if (mapping_copy != mapping_copy_buf)
+            wasm_runtime_free(mapping_copy);
     }
 
     /* addr_pool(textual) -> apool */
