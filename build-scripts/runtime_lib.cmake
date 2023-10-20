@@ -78,6 +78,10 @@ if (WAMR_BUILD_AOT EQUAL 1)
     include (${IWASM_DIR}/aot/iwasm_aot.cmake)
 endif ()
 
+if (WAMR_BUILD_STRINGREF EQUAL 1)
+    set (WAMR_BUILD_GC 1)
+endif ()
+
 if (WAMR_BUILD_GC_BINARYEN EQUAL 1)
     set (WAMR_BUILD_GC 1)
 endif ()
@@ -157,10 +161,6 @@ endif ()
 
 if (WAMR_BUILD_WASM_CACHE EQUAL 1)
     include (${WAMR_ROOT_DIR}/build-scripts/involve_boringssl.cmake)
-endif ()
-
-if (WAMR_BUILD_STRINGREF EQUAL 1)
-    include (${WAMR_ROOT_DIR}/core/iwasm/common/stringref/stringref.cmake)
 endif ()
 
 ####################### Common sources #######################

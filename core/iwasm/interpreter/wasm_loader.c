@@ -3711,13 +3711,12 @@ fail:
 #if WASM_ENABLE_STRINGREF != 0
 static bool
 load_stringref_section(const uint8 *buf, const uint8 *buf_end,
-                       WASMModule *module, char *error_buf,
-                       uint32 error_buf_size)
+                       WASMModule *module, bool is_load_from_file_buf,
+                       char *error_buf, uint32 error_buf_size)
 {
     const uint8 *p = buf, *p_end = buf_end;
-    int32 deferred_count, immediate_count, string_length, i, j;
+    int32 deferred_count, immediate_count, string_length, i;
     uint64 total_size;
-    uint8 *str_content;
 
     read_leb_uint32(p, p_end, deferred_count);
     read_leb_uint32(p, p_end, immediate_count);
@@ -3738,17 +3737,13 @@ load_stringref_section(const uint8 *buf, const uint8 *buf_end,
         for (i = 0; i < immediate_count; i++) {
             read_leb_uint32(p, p_end, string_length);
 
-            if (!(module->string_consts[i] = loader_malloc(
-                      string_length + 1, error_buf, error_buf_size))) {
+            CHECK_BUF(p, p_end, string_length);
+            if (!(module->string_consts[i] = const_str_list_insert(
+                      p, string_length, module, is_load_from_file_buf,
+                      error_buf, error_buf_size))) {
                 goto fail;
             }
-            str_content = (uint8 *)module->string_consts[i];
-
-            if (string_length > 0) {
-                for (j = 0; j < string_length; j++) {
-                    *(str_content + j) = read_uint8(p);
-                }
-            }
+            p += string_length;
         }
     }
 
@@ -4537,7 +4532,8 @@ load_from_sections(WASMModule *module, WASMSection *sections,
 #if WASM_ENABLE_GC != 0
 #if WASM_ENABLE_STRINGREF != 0
             case SECTION_TYPE_STRINGREF:
-                if (!load_stringref_section(buf, buf_end, module, error_buf,
+                if (!load_stringref_section(buf, buf_end, module,
+                                            is_load_from_file_buf, error_buf,
                                             error_buf_size))
                     return false;
                 break;
@@ -5455,12 +5451,6 @@ wasm_loader_unload(WASMModule *module)
 #if WASM_ENABLE_GC != 0
 #if WASM_ENABLE_STRINGREF != 0
     if (module->string_consts) {
-        for (i = 0; i < module->stringref_count; i++) {
-            char *contents = module->string_consts[i];
-            if (contents) {
-                wasm_runtime_free(contents);
-            }
-        }
         wasm_runtime_free(module->string_consts);
     }
 #endif
