@@ -523,8 +523,7 @@ function exception_test()
     pushd exception-handling
 
     # restore and clean everything
-    git reset --hard 51c721661b671bb7dc4b3a3acb9e079b49778d36
-    git apply ../../spec-test-script/exception_handling.patch
+    git reset --hard HEAD
 
     popd
     echo $(pwd)
@@ -906,7 +905,7 @@ function trigger()
     if [[ ${ENABLE_EH} == 1 ]]; then
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_EXCE_HANDLING=1"
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_TAIL_CALL=1"
-	    EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_MULTI_MODULE=1"
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_MULTI_MODULE=1"
     fi
     echo "SANITIZER IS" $WAMR_BUILD_SANITIZER
 
