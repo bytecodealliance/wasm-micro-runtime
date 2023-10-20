@@ -7142,25 +7142,9 @@ check_block_stack(WASMLoaderContext *loader_ctx, BranchBlock *block,
 
     /* Check stack cell num equals return cell num */
     if (available_stack_cell != return_cell_num) {
-#if WASM_ENABLE_EXCE_HANDLING != 0
-        /* testspec: this error message format is expected by try_catch.wast */
-        snprintf(
-            error_buf, error_buf_size, "type mismatch: %s requires [%s]%s[%s]",
-            block->label_type == LABEL_TYPE_TRY
-                    || (block->label_type == LABEL_TYPE_CATCH
-                        && return_cell_num > 0)
-                ? "instruction"
-                : "block",
-            return_cell_num > 0 ? type2str(return_types[0]) : "",
-            " but stack has ",
-            available_stack_cell > 0 ? type2str(*(loader_ctx->frame_ref - 1))
-                                     : "");
-        goto fail;
-#else
         set_error_buf(error_buf, error_buf_size,
                       "type mismatch: stack size does not match block type");
         goto fail;
-#endif
     }
 
     /* Check stack values match return types */
@@ -7642,8 +7626,8 @@ re_scan:
                 /* check validity of tag_index against module->tag_count */
                 /* check tag index is within the tag index space */
                 if (tag_index >= module->import_tag_count + module->tag_count) {
-                    set_error_buf(error_buf, error_buf_size,
-                                  "unknown tag index");
+                    snprintf(error_buf, error_buf_size, 
+                        "unknown tag %d", tag_index);
                     goto fail;
                 }
 
@@ -7673,6 +7657,29 @@ re_scan:
                     set_error_buf(error_buf, error_buf_size,
                                   "tag type signature does not return void");
                     goto fail;
+                }
+
+                /* Check stack cell num equals tag param num */
+                int32 available_stack_cell = 
+                    (int32)(loader_ctx->stack_cell_num - cur_block->stack_cell_num);
+                if (available_stack_cell < func_type->param_count) {
+                    set_error_buf(error_buf, error_buf_size,
+                                "type mismatch: stack size does not match tag type");
+                    goto fail;
+                }
+
+                /* Check stack values match return types by comparing tag param types with stack cells */
+                uint8 *frame_ref = loader_ctx->frame_ref;
+                for (int tti = (int32)func_type->param_count - 1; tti >= 0; tti--) {
+                    if (!check_stack_top_values(frame_ref, available_stack_cell,
+                            func_type->types[tti], error_buf, error_buf_size)) 
+                    {
+                        set_error_buf(error_buf, error_buf_size,
+                                    "type mismatch: stack size does not match tag type");
+                        goto fail;
+                    }
+                    frame_ref -= wasm_value_type_cell_num(func_type->types[tti]);
+                    available_stack_cell -= wasm_value_type_cell_num(func_type->types[tti]);
                 }
 
                 /* throw is stack polymorphic */
