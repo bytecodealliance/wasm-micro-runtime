@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 #
 
+THIS_DIR=$(cd $(dirname $0) && pwd -P)
+
 readonly MODE=$1
 readonly TARGET=$2
 
@@ -18,6 +20,7 @@ readonly IWASM_CMD="${WORK_DIR}/../../../../product-mini/platforms/${PLATFORM}/b
 readonly IWASM_CMD_STRESS="${IWASM_CMD} --max-threads=12"
 readonly WAMRC_CMD="${WORK_DIR}/../../../../wamr-compiler/build/wamrc"
 readonly C_TESTS="tests/c/testsuite/"
+readonly RUST_TESTS="tests/rust/testsuite/"
 readonly ASSEMBLYSCRIPT_TESTS="tests/assemblyscript/testsuite/"
 readonly THREAD_PROPOSAL_TESTS="tests/proposals/wasi-threads/"
 readonly THREAD_INTERNAL_TESTS="${WAMR_DIR}/core/iwasm/libraries/lib-wasi-threads/test/"
@@ -49,8 +52,8 @@ run_aot_tests () {
             expected=$(jq .exit_code ${test_json})
         fi
 
-        ${iwasm} $test_aot
-        ret=${PIPESTATUS[0]}
+        python3 ${THIS_DIR}/pipe.py | ${iwasm} $test_aot
+        ret=${PIPESTATUS[1]}
 
         echo "expected=$expected, actual=$ret"
         if [[ $expected != "" ]] && [[ $expected != $ret ]];then
@@ -63,16 +66,18 @@ if [[ $MODE != "aot" ]];then
     python3 -m venv wasi-env && source wasi-env/bin/activate
     python3 -m pip install -r test-runner/requirements.txt
 
-    TEST_RUNTIME_EXE="${IWASM_CMD}" python3 test-runner/wasi_test_runner.py \
+    export TEST_RUNTIME_EXE="${IWASM_CMD}"
+    python3 ${THIS_DIR}/pipe.py | python3 test-runner/wasi_test_runner.py \
             -r adapters/wasm-micro-runtime.py \
             -t \
                 ${C_TESTS} \
+                ${RUST_TESTS} \
                 ${ASSEMBLYSCRIPT_TESTS} \
                 ${THREAD_PROPOSAL_TESTS} \
                 ${THREAD_INTERNAL_TESTS} \
                 ${LIB_SOCKET_TESTS} \
 
-    ret=${PIPESTATUS[0]}
+    ret=${PIPESTATUS[1]}
 
     TEST_RUNTIME_EXE="${IWASM_CMD_STRESS}" python3 test-runner/wasi_test_runner.py \
             -r adapters/wasm-micro-runtime.py \

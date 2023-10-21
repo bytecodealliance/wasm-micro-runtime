@@ -31,8 +31,8 @@ same_thread_multiple_rec_mutex_lock(void *mutex)
     return NULL;
 }
 
-int
-main()
+void
+test()
 {
     pthread_mutex_t mutex;
 
@@ -62,4 +62,11 @@ main()
 
     fprintf(stderr, "Recursive mutex test is completed\n");
     pthread_mutex_destroy(&mutex);
+}
+
+int
+main()
+{
+    test();
+    return 0;
 }

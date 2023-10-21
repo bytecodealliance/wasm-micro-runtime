@@ -311,7 +311,7 @@ wasm_runtime_is_xip_file(const uint8_t *buf, uint32_t size);
 /**
  * Callback to load a module file into a buffer in multi-module feature
  */
-typedef bool (*module_reader)(const char *module_name,
+typedef bool (*module_reader)(package_type_t module_type,const char *module_name,
                               uint8_t **p_buffer, uint32_t *p_size);
 
 /**
@@ -895,6 +895,27 @@ WASM_RUNTIME_API_EXTERN void
 wasm_runtime_clear_exception(wasm_module_inst_t module_inst);
 
 /**
+ * Terminate the WASM module instance.
+ *
+ * This function causes the module instance fail as if it raised a trap.
+ *
+ * This is intended to be used in situations like:
+ *
+ *  - A thread is executing the WASM module instance
+ *    (eg. it's in the middle of `wasm_application_execute_main`)
+ *
+ *  - Another thread has a copy of `wasm_module_inst_t` of
+ *    the module instance and wants to terminate it asynchronously.
+ *
+ * This function is provided only when WAMR is built with threading enabled.
+ * (`WASM_ENABLE_THREAD_MGR=1`)
+ *
+ * @param module_inst the WASM module instance
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_terminate(wasm_module_inst_t module_inst);
+
+/**
  * Set custom data to WASM module instance.
  * Note:
  *  If WAMR_BUILD_LIB_PTHREAD is enabled, this API
@@ -1447,14 +1468,15 @@ typedef enum {
 typedef void (*enlarge_memory_error_callback_t)(
     uint32_t inc_page_count, uint64_t current_memory_size,
     uint32_t memory_index, enlarge_memory_error_reason_t failure_reason,
-    wasm_module_inst_t instance, wasm_exec_env_t exec_env);
+    wasm_module_inst_t instance, wasm_exec_env_t exec_env,
+    void* user_data);
 
 /**
  * Setup callback invoked when memory.grow fails
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_enlarge_mem_error_callback(
-    const enlarge_memory_error_callback_t callback);
+    const enlarge_memory_error_callback_t callback, void *user_data);
 
 /*
  * module instance context APIs
@@ -1523,6 +1545,50 @@ wasm_runtime_set_context_spread(wasm_module_inst_t inst, void *key,
                                          void *ctx);
 WASM_RUNTIME_API_EXTERN void *
 wasm_runtime_get_context(wasm_module_inst_t inst, void *key);
+
+/*
+ * wasm_runtime_begin_blocking_op/wasm_runtime_end_blocking_op
+ *
+ * These APIs are intended to be used by the implementations of
+ * host functions. It wraps an operation which possibly blocks for long
+ * to prepare for async termination.
+ *
+ * eg.
+ *
+ *   if (!wasm_runtime_begin_blocking_op(exec_env)) {
+ *       return EINTR;
+ *   }
+ *   ret = possibly_blocking_op();
+ *   wasm_runtime_end_blocking_op(exec_env);
+ *   return ret;
+ *
+ * If threading support (WASM_ENABLE_THREAD_MGR) is not enabled,
+ * these functions are no-op.
+ *
+ * If the underlying platform support (OS_ENABLE_WAKEUP_BLOCKING_OP) is
+ * not available, these functions are no-op. In that case, the runtime
+ * might not terminate a blocking thread in a timely manner.
+ *
+ * If the underlying platform support is available, it's used to wake up
+ * the thread for async termination. The expectation here is that a
+ * `os_wakeup_blocking_op` call makes the blocking operation
+ * (`possibly_blocking_op` in the above example) return in a timely manner.
+ *
+ * The actual wake up mechanism used by `os_wakeup_blocking_op` is
+ * platform-dependent. It might impose some platform-dependent restrictions
+ * on the implementation of the blocking opearation.
+ *
+ * For example, on POSIX-like platforms, a signal (by default SIGUSR1) is
+ * used. The signal delivery configurations (eg. signal handler, signal mask,
+ * etc) for the signal are set up by the runtime. You can change the signal
+ * to use for this purpose by calling os_set_signal_number_for_blocking_op
+ * before the runtime initialization.
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_begin_blocking_op(wasm_exec_env_t exec_env);
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_end_blocking_op(wasm_exec_env_t exec_env);
 
 /* clang-format on */
 
