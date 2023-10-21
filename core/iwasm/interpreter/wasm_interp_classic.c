@@ -905,8 +905,9 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
     if (!func_import->call_conv_wasm_c_api) {
         native_func_pointer = module_inst->import_func_ptrs[cur_func_index];
     }
-    else if (module_inst->e->c_api_func_imports) {
-        c_api_func_import = module_inst->e->c_api_func_imports + cur_func_index;
+    else if (module_inst->e->common.c_api_func_imports) {
+        c_api_func_import =
+            module_inst->e->common.c_api_func_imports + cur_func_index;
         native_func_pointer = c_api_func_import->func_ptr_linked;
     }
 
@@ -1417,6 +1418,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 while (node_cache) {
                     node_next = bh_list_elem_next(node_cache);
                     if (node_cache->br_table_op_addr == frame_ip - 1) {
+                        if (lidx > node_cache->br_count)
+                            lidx = node_cache->br_count;
                         depth = node_cache->br_depths[lidx];
                         goto label_pop_csp_n;
                     }
@@ -4208,7 +4211,6 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
     unsigned frame_size = wasm_interp_interp_frame_size(all_cell_num);
     unsigned i;
     bool copy_argv_from_frame = true;
-    char exception[EXCEPTION_BUF_LEN];
 
     if (argc < function->param_cell_num) {
         char buf[128];
@@ -4341,8 +4343,6 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
             wasm_interp_dump_call_stack(exec_env, true, NULL, 0);
         }
 #endif
-        wasm_copy_exception(module_inst, exception);
-        LOG_DEBUG("meet an exception %s", exception);
     }
 
     wasm_exec_env_set_cur_frame(exec_env, prev_frame);

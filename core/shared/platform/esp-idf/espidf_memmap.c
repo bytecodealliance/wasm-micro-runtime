@@ -100,6 +100,10 @@ void
 #endif
 }
 
+void
+os_icache_flush(void *start, size_t len)
+{}
+
 #if (WASM_MEM_DUAL_BUS_MIRROR != 0)
 void *
 os_get_dbus_mirror(void *ibus)

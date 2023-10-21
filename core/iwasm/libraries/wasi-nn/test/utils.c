@@ -132,8 +132,8 @@ run_inference(execution_target target, float *input, uint32_t *input_size,
         *output_size = MAX_OUTPUT_TENSOR_SIZE - *output_size;
         if (wasm_get_output(ctx, i, &out_tensor[offset], output_size)
             != success) {
-            NN_ERR_PRINTF("Error when getting output.");
-            exit(1);
+            NN_ERR_PRINTF("Error when getting index %d.", i);
+            break;
         }
 
         offset += *output_size;

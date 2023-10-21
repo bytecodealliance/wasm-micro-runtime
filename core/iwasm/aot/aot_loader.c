@@ -558,6 +558,56 @@ str2uint32(const char *buf, uint32 *p_res);
 static bool
 str2uint64(const char *buf, uint64 *p_res);
 
+#if WASM_ENABLE_MULTI_MODULE != 0
+static void *
+aot_loader_resolve_function(const char *module_name, const char *function_name,
+                            const AOTFuncType *expected_function_type,
+                            char *error_buf, uint32 error_buf_size)
+{
+    WASMModuleCommon *module_reg;
+    void *function = NULL;
+    AOTExport *export = NULL;
+    AOTModule *module = NULL;
+    AOTFuncType *target_function_type = NULL;
+
+    module_reg = wasm_runtime_find_module_registered(module_name);
+    if (!module_reg || module_reg->module_type != Wasm_Module_AoT) {
+        LOG_DEBUG("can not find a module named %s for function %s", module_name,
+                  function_name);
+        set_error_buf(error_buf, error_buf_size, "unknown import");
+        return NULL;
+    }
+
+    module = (AOTModule *)module_reg;
+    export = loader_find_export(module_reg, module_name, function_name,
+                                EXPORT_KIND_FUNC, error_buf, error_buf_size);
+    if (!export) {
+        return NULL;
+    }
+
+    /* resolve function type and function */
+    if (export->index < module->import_func_count) {
+        target_function_type = module->import_funcs[export->index].func_type;
+        function = module->import_funcs[export->index].func_ptr_linked;
+    }
+    else {
+        target_function_type =
+            module->func_types[module->func_type_indexes
+                                   [export->index - module->import_func_count]];
+        function =
+            (module->func_ptrs[export->index - module->import_func_count]);
+    }
+    /* check function type */
+    if (!wasm_type_equal(expected_function_type, target_function_type)) {
+        LOG_DEBUG("%s.%s failed the type check", module_name, function_name);
+        set_error_buf(error_buf, error_buf_size, "incompatible import type");
+        return NULL;
+    }
+    return function;
+}
+
+#endif /* end of WASM_ENABLE_MULTI_MODULE */
+
 static bool
 load_native_symbol_section(const uint8 *buf, const uint8 *buf_end,
                            AOTModule *module, bool is_load_from_file_buf,
@@ -1357,11 +1407,16 @@ load_import_funcs(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                   bool is_load_from_file_buf, char *error_buf,
                   uint32 error_buf_size)
 {
-    const char *module_name, *field_name;
+    char *module_name, *field_name;
     const uint8 *buf = *p_buf;
     AOTImportFunc *import_funcs;
     uint64 size;
     uint32 i;
+#if WASM_ENABLE_MULTI_MODULE != 0
+    AOTModule *sub_module = NULL;
+    AOTFunc *linked_func = NULL;
+    WASMType *declare_func_type = NULL;
+#endif
 
     /* Allocate memory */
     size = sizeof(AOTImportFunc) * (uint64)module->import_func_count;
@@ -1377,17 +1432,46 @@ load_import_funcs(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             set_error_buf(error_buf, error_buf_size, "unknown type");
             return false;
         }
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+        declare_func_type = module->func_types[import_funcs[i].func_type_index];
+        read_string(buf, buf_end, module_name);
+        read_string(buf, buf_end, field_name);
+
+        import_funcs[i].module_name = module_name;
+        import_funcs[i].func_name = field_name;
+        linked_func = wasm_native_resolve_symbol(
+            module_name, field_name, declare_func_type,
+            &import_funcs[i].signature, &import_funcs[i].attachment,
+            &import_funcs[i].call_conv_raw);
+        if (!linked_func) {
+            if (!wasm_runtime_is_built_in_module(module_name)) {
+                sub_module = (AOTModule *)wasm_runtime_load_depended_module(
+                    (WASMModuleCommon *)module, module_name, error_buf,
+                    error_buf_size);
+                if (!sub_module) {
+                    return false;
+                }
+            }
+            linked_func = aot_loader_resolve_function(
+                module_name, field_name, declare_func_type, error_buf,
+                error_buf_size);
+        }
+        import_funcs[i].func_ptr_linked = linked_func;
+        import_funcs[i].func_type = declare_func_type;
+
+#else
         import_funcs[i].func_type =
             module->func_types[import_funcs[i].func_type_index];
         read_string(buf, buf_end, import_funcs[i].module_name);
         read_string(buf, buf_end, import_funcs[i].func_name);
-
         module_name = import_funcs[i].module_name;
         field_name = import_funcs[i].func_name;
         import_funcs[i].func_ptr_linked = wasm_native_resolve_symbol(
             module_name, field_name, import_funcs[i].func_type,
             &import_funcs[i].signature, &import_funcs[i].attachment,
             &import_funcs[i].call_conv_raw);
+#endif
 
 #if WASM_ENABLE_LIBC_WASI != 0
         if (!strcmp(import_funcs[i].module_name, "wasi_unstable")
@@ -1644,27 +1728,6 @@ load_function_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
     const uint8 *p = buf, *p_end = buf_end;
     uint32 i;
     uint64 size, text_offset;
-#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
-    RUNTIME_FUNCTION *rtl_func_table;
-    AOTUnwindInfo *unwind_info;
-    uint32 unwind_info_offset = module->code_size - sizeof(AOTUnwindInfo);
-    uint32 unwind_code_offset = unwind_info_offset - PLT_ITEM_SIZE;
-#endif
-
-#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
-    unwind_info = (AOTUnwindInfo *)((uint8 *)module->code + module->code_size
-                                    - sizeof(AOTUnwindInfo));
-    unwind_info->Version = 1;
-    unwind_info->Flags = UNW_FLAG_NHANDLER;
-    *(uint32 *)&unwind_info->UnwindCode[0] = unwind_code_offset;
-
-    size = sizeof(RUNTIME_FUNCTION) * (uint64)module->func_count;
-    if (size > 0
-        && !(rtl_func_table = module->rtl_func_table =
-                 loader_malloc(size, error_buf, error_buf_size))) {
-        return false;
-    }
-#endif
 
     size = sizeof(void *) * (uint64)module->func_count;
     if (size > 0
@@ -1692,31 +1755,7 @@ load_function_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
         /* bits[0] of thumb function address must be 1 */
         module->func_ptrs[i] = (void *)((uintptr_t)module->func_ptrs[i] | 1);
 #endif
-#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
-        rtl_func_table[i].BeginAddress = (DWORD)text_offset;
-        if (i > 0) {
-            rtl_func_table[i - 1].EndAddress = rtl_func_table[i].BeginAddress;
-        }
-        rtl_func_table[i].UnwindInfoAddress = (DWORD)unwind_info_offset;
-#endif
     }
-
-#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
-    if (module->func_count > 0) {
-        uint32 plt_table_size =
-            module->is_indirect_mode ? 0 : get_plt_table_size();
-        rtl_func_table[module->func_count - 1].EndAddress =
-            (DWORD)(module->code_size - plt_table_size);
-
-        if (!RtlAddFunctionTable(rtl_func_table, module->func_count,
-                                 (DWORD64)(uintptr_t)module->code)) {
-            set_error_buf(error_buf, error_buf_size,
-                          "add dynamic function table failed");
-            return false;
-        }
-        module->rtl_func_table_registered = true;
-    }
-#endif
 
     /* Set start function when function pointers are resolved */
     if (module->start_func_index != (uint32)-1) {
@@ -2916,12 +2955,20 @@ create_module(char *error_buf, uint32 error_buf_size)
 {
     AOTModule *module =
         loader_malloc(sizeof(AOTModule), error_buf, error_buf_size);
+    bh_list_status ret;
 
     if (!module) {
         return NULL;
     }
 
     module->module_type = Wasm_Module_AoT;
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+    module->import_module_list = &module->import_module_list_head;
+    ret = bh_list_init(module->import_module_list);
+    bh_assert(ret == BH_LIST_SUCCESS);
+#endif
+    (void)ret;
 
     return module;
 }
@@ -3188,10 +3235,13 @@ aot_load_from_aot_file(const uint8 *buf, uint32 size, char *error_buf,
     if (!module)
         return NULL;
 
+    os_thread_jit_write_protect_np(false); /* Make memory writable */
     if (!load(buf, size, module, error_buf, error_buf_size)) {
         aot_unload(module);
         return NULL;
     }
+    os_thread_jit_write_protect_np(true); /* Make memory executable */
+    os_icache_flush(module->code, module->code_size);
 
     LOG_VERBOSE("Load module success.\n");
     return module;
@@ -3246,6 +3296,19 @@ aot_unload(AOTModule *module)
 
     if (module->const_str_set)
         bh_hash_map_destroy(module->const_str_set);
+#if WASM_ENABLE_MULTI_MODULE != 0
+    /* just release the sub module list */
+    if (module->import_module_list) {
+        WASMRegisteredModule *node =
+            bh_list_first_elem(module->import_module_list);
+        while (node) {
+            WASMRegisteredModule *next = bh_list_elem_next(node);
+            bh_list_remove(module->import_module_list, node);
+            wasm_runtime_free(node);
+            node = next;
+        }
+    }
+#endif
 
     if (module->code && !module->is_indirect_mode) {
         /* The layout is: literal size + literal + code (with plt table) */
@@ -3258,14 +3321,6 @@ aot_unload(AOTModule *module)
 #if defined(BH_PLATFORM_WINDOWS)
     if (module->extra_plt_data) {
         os_munmap(module->extra_plt_data, module->extra_plt_data_size);
-    }
-#endif
-
-#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
-    if (module->rtl_func_table) {
-        if (module->rtl_func_table_registered)
-            RtlDeleteFunctionTable(module->rtl_func_table);
-        wasm_runtime_free(module->rtl_func_table);
     }
 #endif
 

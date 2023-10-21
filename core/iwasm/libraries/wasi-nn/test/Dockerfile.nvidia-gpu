@@ -24,7 +24,7 @@ RUN apt-get install -y wget ca-certificates --no-install-recommends \
 
 RUN cmake \
     -DWAMR_BUILD_WASI_NN=1 \
-    -DWASI_NN_ENABLE_GPU=1 \
+    -DWAMR_BUILD_WASI_NN_ENABLE_GPU=1 \
     ..
 
 RUN make -j "$(grep -c ^processor /proc/cpuinfo)"
@@ -44,7 +44,6 @@ RUN mkdir -p /etc/OpenCL/vendors && \
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
-COPY --from=base /home/wamr/product-mini/platforms/linux/build/libvmlib.so /libvmlib.so
 COPY --from=base /home/wamr/product-mini/platforms/linux/build/iwasm /iwasm
 
 ENTRYPOINT [ "/iwasm" ]

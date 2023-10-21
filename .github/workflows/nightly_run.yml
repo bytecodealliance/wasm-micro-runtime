@@ -8,9 +8,11 @@ on:
     types:
       - opened
       - synchronize
-    #running nightly pipeline if you're changing it 
+    # running nightly pipeline if you're changing it 
+    # stress tests are run only in nightly at the moment, so running them in they are changed
     paths:
       - ".github/workflows/nightly_run.yml"
+      - "core/iwasm/libraries/lib-wasi-threads/stress-test/**"
 
   # midnight UTC
   schedule:
@@ -125,9 +127,7 @@ jobs:
         exclude:
           # uncompatiable feature and platform
           # uncompatiable mode and feature
-          # MULTI_MODULE only on INTERP mode
-          - make_options_run_mode: $AOT_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
+          # MULTI_MODULE only on INTERP mode and AOT mode
           - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
           - make_options_run_mode: $LLVM_LAZY_JIT_BUILD_OPTIONS
@@ -250,7 +250,7 @@ jobs:
         exclude:
           # uncompatiable feature and platform
           # uncompatiable mode and feature
-          # MULTI_MODULE only on INTERP mode
+          # MULTI_MODULE only on INTERP mode and AOT mode
           - make_options_run_mode: $FAST_JIT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
           # SIMD only on JIT/AOT mode
@@ -380,7 +380,12 @@ jobs:
         working-directory: samples/wasm-c-api
 
   build_samples_others:
-    needs: [build_iwasm]
+    needs:
+      [
+        build_iwasm,
+        build_llvm_libraries_on_ubuntu_2004,
+        build_wamrc,
+      ]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -393,6 +398,9 @@ jobs:
           [
             "https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-ubuntu.tar.gz",
           ]
+        include:
+          - os: ubuntu-20.04
+            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2004.outputs.cache_key }}
     steps:
       - name: checkout
         uses: actions/checkout@v3
@@ -409,6 +417,26 @@ jobs:
           sudo wget ${{ matrix.wabt_release }}
           sudo tar -xzf wabt-1.0.31-*.tar.gz
           sudo mv wabt-1.0.31 wabt
+
+      - name: Get LLVM libraries
+        id: retrieve_llvm_libs
+        uses: actions/cache@v3
+        with:
+          path: |
+            ./core/deps/llvm/build/bin
+            ./core/deps/llvm/build/include
+            ./core/deps/llvm/build/lib
+            ./core/deps/llvm/build/libexec
+            ./core/deps/llvm/build/share
+          key: ${{ matrix.llvm_cache_key }}
+
+      - name: Build wamrc
+        run: |
+          mkdir build && cd build
+          cmake -D WAMR_BUILD_SANITIZER="${{matrix.sanitizer}}" ..
+          cmake --build . --config Release --parallel 4
+        working-directory: wamr-compiler
+
       - name: Build Sample [basic]
         run: |
           cd samples/basic
@@ -432,9 +460,10 @@ jobs:
         run: |
           cd samples/multi-module
           mkdir build && cd build
-          cmake ..
+          cmake .. -DWAMR_BUILD_AOT=1
           cmake --build . --config Release --parallel 4
-          ./multi_module
+          ./multi_module mC.wasm
+          ./multi_module mC.aot
       - name: Build Sample [spawn-thread]
         run: |
           cd samples/spawn-thread
@@ -516,9 +545,7 @@ jobs:
             test_option: $SIMD_TEST_OPTIONS
           - running_mode: "fast-interp"
             test_option: $SIMD_TEST_OPTIONS
-          # aot and jit don't support multi module
-          - running_mode: "aot"
-            test_option: $MULTI_MODULES_TEST_OPTIONS
+          # llvm jit doesn't support multi module
           - running_mode: "jit"
             test_option: $MULTI_MODULES_TEST_OPTIONS
           # fast-jit doesn't support multi module, simd
@@ -542,6 +569,16 @@ jobs:
           sudo wget ${{ matrix.wasi_sdk_release }}
           sudo tar -xzf wasi-sdk-*.tar.gz
           sudo mv wasi-sdk-20.0 wasi-sdk
+
+      # It is a temporary solution until new wasi-sdk that includes bug fixes is released 
+      - name: build wasi-libc from source
+        if: matrix.test_option == '$WASI_TEST_OPTIONS'
+        run: |
+          git clone https://github.com/WebAssembly/wasi-libc
+          cd wasi-libc
+          make -j AR=/opt/wasi-sdk/bin/llvm-ar NM=/opt/wasi-sdk/bin/llvm-nm CC=/opt/wasi-sdk/bin/clang THREAD_MODEL=posix
+          echo "SYSROOT_PATH=$PWD/sysroot" >> $GITHUB_ENV
+
       - name: set env variable(if llvm are used)
         if: matrix.running_mode == 'aot' || matrix.running_mode == 'jit' || matrix.running_mode == 'multi-tier-jit'
         run: echo "USE_LLVM=true" >> $GITHUB_ENV
@@ -580,8 +617,13 @@ jobs:
 
       - name: Build WASI thread tests
         if: matrix.test_option == '$WASI_TEST_OPTIONS'
-        run: bash build.sh
+        run: bash build.sh --sysroot "$SYSROOT_PATH"
         working-directory: ./core/iwasm/libraries/lib-wasi-threads/test/
+
+      - name: Build WASI thread stress tests
+        if: matrix.test_option == '$WASI_TEST_OPTIONS'
+        run: bash build.sh --sysroot "$SYSROOT_PATH"
+        working-directory: ./core/iwasm/libraries/lib-wasi-threads/stress-test/
 
       - name: build socket api tests
         if: matrix.test_option == '$WASI_TEST_OPTIONS'
@@ -589,7 +631,7 @@ jobs:
         working-directory: ./core/iwasm/libraries/lib-socket/test/
 
       - name: run tests
-        timeout-minutes: 20
+        timeout-minutes: 40
         run: ./test_wamr.sh ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
         working-directory: ./tests/wamr-test-suites
 
@@ -605,7 +647,7 @@ jobs:
           sudo apt install -y g++-multilib lib32gcc-9-dev
 
       - name: run tests x86_32
-        timeout-minutes: 20
+        timeout-minutes: 40
         if: env.TEST_ON_X86_32 == 'true'
         run: ./test_wamr.sh ${{ env.X86_32_TARGET_TEST_OPTIONS }} ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
         working-directory: ./tests/wamr-test-suites
