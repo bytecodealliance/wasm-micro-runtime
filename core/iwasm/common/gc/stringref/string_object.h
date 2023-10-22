@@ -8,6 +8,11 @@
 
 #include "wasm.h"
 
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum EncodingFlag {
     UTF8,
     WTF8,
@@ -109,5 +114,9 @@ wasm_string_rewind(WASMString str_obj, uint32 pos, uint32 count,
 
 void
 wasm_string_dump(WASMString str_obj);
+
+#ifdef __cplusplus
+} /* end of extern "C" */
+#endif
 
 #endif /* end of _STRING_OBJECT_H_ */
