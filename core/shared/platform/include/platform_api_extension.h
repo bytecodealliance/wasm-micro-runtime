@@ -37,6 +37,26 @@ extern "C" {
  */
 
 /**
+ * Get a resolution of the clock
+ *
+ * @param clock_id clock identifier
+ * @param resolution output variable to store the clock resolution
+ * @return BHT_OK if success; otherwise, BHT_ERROR
+ */
+int
+os_clock_res_get(bh_clock_id_t clock_id, uint64 *resolution);
+
+/**
+ * Get a current time of the clock
+ *
+ * @param clock_id clock identifier
+ * @param time output variable to store the clock time
+ * @return BHT_OK if success; otherwise, BHT_ERROR
+ */
+int
+os_clock_time_get(bh_clock_id_t clock_id, uint64 precision, uint64 *time);
+
+/**
  * Creates a thread
  *
  * @param p_tid  [OUTPUT] the pointer of tid

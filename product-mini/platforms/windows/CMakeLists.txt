@@ -153,3 +153,9 @@ target_link_libraries (libiwasm ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS})
 if (MINGW)
   target_link_libraries (libiwasm ws2_32)
 endif ()
+
+if (WIN32)
+  target_link_libraries(libiwasm ntdll)
+
+  target_link_libraries(iwasm ntdll)  
+endif()
