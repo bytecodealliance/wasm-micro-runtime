@@ -6,7 +6,7 @@
 #ifndef _STRING_OBJECT_H_
 #define _STRING_OBJECT_H_
 
-#include "gc_object.h"
+#include "wasm.h"
 
 typedef enum EncodingFlag {
     UTF8,
@@ -29,19 +29,7 @@ typedef enum ErrorCode {
 
 /******************* gc finalizer *****************/
 void
-wasm_stringref_obj_finalizer(WASMStringrefObjectRef stringref_obj, void *data);
-
-void
-wasm_stringview_wtf8_obj_finalizer(
-    WASMStringviewWTF8ObjectRef stringview_wtf8_obj, void *data);
-
-void
-wasm_stringview_wtf16_obj_finalizer(
-    WASMStringviewWTF16ObjectRef stringview_wtf16_obj, void *data);
-
-void
-wasm_stringview_iter_obj_finalizer(
-    WASMStringviewIterObjectRef stringview_iter_obj, void *data);
+wasm_string_destroy(WASMString str_obj);
 
 /******************* opcode functions *****************/
 

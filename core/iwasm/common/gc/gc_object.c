@@ -805,6 +805,37 @@ wasm_stringref_rtt_type_new(uint16 type_flag, WASMRttType **rtt_types,
     return rtt_type;
 }
 
+static void
+wasm_stringref_obj_finalizer(WASMStringrefObjectRef stringref_obj, void *data)
+{
+    wasm_string_destroy(
+        (WASMString)wasm_stringref_obj_get_value(stringref_obj));
+}
+
+static void
+wasm_stringview_wtf8_obj_finalizer(WASMStringviewWTF8ObjectRef stringref_obj,
+                                   void *data)
+{
+    wasm_string_destroy(
+        (WASMString)wasm_stringview_wtf8_obj_get_value(stringref_obj));
+}
+
+static void
+wasm_stringview_wtf16_obj_finalizer(WASMStringviewWTF16ObjectRef stringref_obj,
+                                    void *data)
+{
+    wasm_string_destroy(
+        (WASMString)wasm_stringview_wtf16_obj_get_value(stringref_obj));
+}
+
+static void
+wasm_stringview_iter_obj_finalizer(WASMStringviewIterObjectRef stringref_obj,
+                                   void *data)
+{
+    wasm_string_destroy(
+        (WASMString)wasm_stringview_iter_obj_get_value(stringref_obj));
+}
+
 static WASMObjectRef
 stringref_obj_new(WASMExecEnv *exec_env, uint32 type, const void *str_obj,
                   int32 pos)
