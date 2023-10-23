@@ -1421,15 +1421,16 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                 for (j = 0; j < struct_type->ref_type_map_count; j++) {
                     read_uint16(buf, buf_end,
                                 struct_type->ref_type_maps[j].index);
-                    read_uint8(buf, buf_end,
-                               struct_type->ref_type_maps[j]
-                                   .ref_type->ref_ht_common.ref_type);
-                    read_uint8(buf, buf_end,
-                               struct_type->ref_type_maps[j]
-                                   .ref_type->ref_ht_common.nullable);
-                    read_uint32(buf, buf_end,
-                                struct_type->ref_type_maps[j]
-                                    .ref_type->ref_ht_common.heap_type);
+                    read_uint8(buf, buf_end, ref_type.ref_ht_common.ref_type);
+                    read_uint8(buf, buf_end, ref_type.ref_ht_common.nullable);
+                    read_uint32(buf, buf_end, ref_type.ref_ht_common.heap_type);
+                    if (!(struct_type->ref_type_maps[j].ref_type =
+                              wasm_reftype_set_insert(module->ref_type_set,
+                                                      &ref_type))) {
+                        set_error_buf(error_buf, error_buf_size,
+                                      "insert ref type to hash set failed");
+                        goto fail;
+                    }
                 }
             }
         }
