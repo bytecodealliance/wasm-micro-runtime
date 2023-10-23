@@ -94,7 +94,7 @@ ns_lookup_list_search(char **list, const char *host)
     return false;
 }
 
-#ifndef BH_PLATFORM_WINDOWS
+#if !defined(BH_PLATFORM_WINDOWS) && CONFIG_HAS_CLOCK_NANOSLEEP
 static bool
 wasi_clockid_to_clockid(__wasi_clockid_t in, clockid_t *out)
 {
@@ -195,52 +195,6 @@ wasi_addr_ip_to_bh_ip_addr_buffer(__wasi_addr_ip_t *addr,
         out->ipv6[6] = htons(addr->addr.ip6.h2);
         out->ipv6[7] = htons(addr->addr.ip6.h3);
     }
-}
-
-static bool
-wasi_clockid_to_bh_clockid(__wasi_clockid_t in, bh_clock_id_t *out)
-{
-    switch (in) {
-        case __WASI_CLOCK_MONOTONIC:
-            *out = BH_CLOCK_ID_MONOTONIC;
-            return true;
-        case __WASI_CLOCK_PROCESS_CPUTIME_ID:
-            *out = BH_CLOCK_ID_PROCESS_CPUTIME_ID;
-            return true;
-        case __WASI_CLOCK_REALTIME:
-            *out = BH_CLOCK_ID_REALTIME;
-            return true;
-        case __WASI_CLOCK_THREAD_CPUTIME_ID:
-            *out = BH_CLOCK_ID_THREAD_CPUTIME_ID;
-            return true;
-        default:
-            return false;
-    }
-}
-
-__wasi_errno_t
-wasmtime_ssp_clock_res_get(__wasi_clockid_t clock_id,
-                           __wasi_timestamp_t *resolution)
-{
-    bh_clock_id_t bh_clockid;
-    if (!wasi_clockid_to_bh_clockid(clock_id, &bh_clockid))
-        return __WASI_EINVAL;
-    if (os_clock_res_get(clock_id, resolution) != BHT_OK)
-        return convert_errno(errno);
-    return __WASI_ESUCCESS;
-}
-
-__wasi_errno_t
-wasmtime_ssp_clock_time_get(__wasi_clockid_t clock_id,
-                            __wasi_timestamp_t precision,
-                            __wasi_timestamp_t *time)
-{
-    bh_clock_id_t bh_clockid;
-    if (!wasi_clockid_to_bh_clockid(clock_id, &bh_clockid))
-        return __WASI_EINVAL;
-    if (os_clock_time_get(clock_id, precision, time) != BHT_OK)
-        return convert_errno(errno);
-    return __WASI_ESUCCESS;
 }
 
 struct fd_prestat {

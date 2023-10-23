@@ -1093,6 +1093,33 @@ os_is_handle_valid(os_file_handle *handle);
 char *
 os_realpath(const char *path, char *resolved_path);
 
+/****************************************************
+ *                                                  *
+ *                Clock functions                   *
+ *                                                  *
+ ****************************************************/
+
+/**
+ * Get the resolution of the specified clock.
+ *
+ * @param clock_id clock identifier
+ * @param resolution output variable to store the clock resolution
+ */
+__wasi_errno_t
+os_clock_res_get(__wasi_clockid_t clock_id, __wasi_timestamp_t *resolution);
+
+/**
+ * Get the current time of the specified clock.
+ *
+ * @param clock_id clock identifier
+ * @param precision the maximum lag that the returned time value may have,
+ * compared to its actual value.
+ * @param time output variable to store the clock time
+ */
+__wasi_errno_t
+os_clock_time_get(__wasi_clockid_t clock_id, __wasi_timestamp_t precision,
+                  __wasi_timestamp_t *time);
+
 #ifdef __cplusplus
 }
 #endif
