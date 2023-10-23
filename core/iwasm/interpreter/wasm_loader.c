@@ -5399,12 +5399,12 @@ fail:
         LOG_OP("\nemit_op [%02x]\t", opcode);                                  \
     } while (0)
 #else
-#define emit_label(opcode)                                       \
-    do {                                                         \
-        uint32 offset = (uint32)(uintptr_t)handle_table[opcode]; \
-        /* emit uint32 label address in 32-bit target */         \
-        wasm_loader_emit_uint32(loader_ctx, offset);             \
-        LOG_OP("\nemit_op [%02x]\t", opcode);                    \
+#define emit_label(opcode)                                           \
+    do {                                                             \
+        uint32 label_addr = (uint32)(uintptr_t)handle_table[opcode]; \
+        /* emit uint32 label address in 32-bit target */             \
+        wasm_loader_emit_uint32(loader_ctx, label_addr);             \
+        LOG_OP("\nemit_op [%02x]\t", opcode);                        \
     } while (0)
 #endif
 #define skip_label()                                           \
