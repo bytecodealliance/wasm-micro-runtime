@@ -19,14 +19,25 @@ wasm_ref_type_normalize(wasm_ref_type_t *ref_type)
     int32 heap_type = ref_type->heap_type;
 
     if (!((value_type >= VALUE_TYPE_I16 && value_type <= VALUE_TYPE_I32)
-          || (value_type >= VALUE_TYPE_NULLREF
+          || (
+#if WASM_ENABLE_STRINGREF != 0
+              value_type >= VALUE_TYPE_STRINGVIEWITER
+#else
+              value_type >= VALUE_TYPE_NULLREF
+#endif
               && value_type <= VALUE_TYPE_FUNCREF))) {
         return false;
     }
     if (value_type == VALUE_TYPE_HT_NULLABLE_REF
         || value_type == VALUE_TYPE_HT_NON_NULLABLE_REF) {
         if (heap_type < 0
-            && (heap_type < HEAP_TYPE_NONE || heap_type > HEAP_TYPE_FUNC)) {
+#if WASM_ENABLE_STRINGREF != 0
+            && (heap_type < HEAP_TYPE_STRINGVIEWITER
+                || heap_type > HEAP_TYPE_FUNC)
+#else
+            && (heap_type < HEAP_TYPE_NONE || heap_type > HEAP_TYPE_FUNC)
+#endif
+        ) {
             return false;
         }
     }
@@ -35,9 +46,20 @@ wasm_ref_type_normalize(wasm_ref_type_t *ref_type)
         ref_type->nullable = false;
     }
     else {
-        if (heap_type >= HEAP_TYPE_NONE && heap_type <= HEAP_TYPE_FUNC) {
+        if (
+#if WASM_ENABLE_STRINGREF != 0
+            heap_type >= HEAP_TYPE_STRINGVIEWITER && heap_type <= HEAP_TYPE_FUNC
+#else
+            heap_type >= HEAP_TYPE_NONE && heap_type <= HEAP_TYPE_FUNC
+#endif
+        ) {
             ref_type->value_type =
+#if WASM_ENABLE_STRINGREF != 0
+                (uint8)(REF_TYPE_STRINGVIEWITER + heap_type
+                        - HEAP_TYPE_STRINGVIEWITER);
+#else
                 (uint8)(REF_TYPE_NULLREF + heap_type - HEAP_TYPE_NONE);
+#endif
             ref_type->nullable = false;
             ref_type->heap_type = 0;
         }

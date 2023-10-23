@@ -616,7 +616,12 @@ wasm_reftype_size(uint8 type)
         return 4;
     else if (type == VALUE_TYPE_I64 || type == VALUE_TYPE_F64)
         return 8;
+#if WASM_ENABLE_STRINGREF != 0
+    else if (type >= (uint8)REF_TYPE_STRINGVIEWITER
+             && type <= (uint8)REF_TYPE_FUNCREF)
+#else
     else if (type >= (uint8)REF_TYPE_NULLREF && type <= (uint8)REF_TYPE_FUNCREF)
+#endif
         return sizeof(uintptr_t);
     else if (type == PACKED_TYPE_I8)
         return 1;
@@ -745,13 +750,26 @@ wasm_is_reftype_supers_of_extern(uint8 type)
     return (type == REF_TYPE_EXTERNREF) ? true : false;
 }
 
+#if WASM_ENABLE_STRINGREF != 0
+inline static bool
+wasm_is_reftype_supers_of_string(uint8 type)
+{
+    return (type == REF_TYPE_STRINGREF || type == REF_TYPE_ANYREF) ? true
+                                                                   : false;
+}
+#endif
+
 inline static bool
 wasm_is_reftype_supers_of_none(uint8 type, const WASMRefType *ref_type,
                                const WASMTypePtr *types, uint32 type_count)
 {
     if (type == REF_TYPE_NULLREF || type == REF_TYPE_I31REF
         || type == REF_TYPE_STRUCTREF || type == REF_TYPE_ARRAYREF
-        || wasm_is_reftype_supers_of_eq(type))
+        || wasm_is_reftype_supers_of_eq(type)
+#if WASM_ENABLE_STRINGREF != 0
+        || type == REF_TYPE_STRINGREF
+#endif
+    )
         return true;
 
     if (type == REF_TYPE_HT_NULLABLE && ref_type != NULL
@@ -875,6 +893,20 @@ wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
     else if (type1 == REF_TYPE_NULLEXTERNREF) {
         return wasm_is_reftype_supers_of_noextern(type2);
     }
+#if WASM_ENABLE_STRINGREF != 0
+    else if (type1 == REF_TYPE_STRINGREF) {
+        return wasm_is_reftype_supers_of_string(type2);
+    }
+    else if (type1 == REF_TYPE_STRINGVIEWWTF8) {
+        return type2 == REF_TYPE_STRINGVIEWWTF8 ? true : false;
+    }
+    else if (type1 == REF_TYPE_STRINGVIEWWTF16) {
+        return type2 == REF_TYPE_STRINGVIEWWTF16 ? true : false;
+    }
+    else if (type1 == REF_TYPE_STRINGVIEWITER) {
+        return type2 == REF_TYPE_STRINGVIEWITER ? true : false;
+    }
+#endif
     else if (type1 == REF_TYPE_HT_NULLABLE) {
         if (wasm_is_refheaptype_typeidx(&ref_type1->ref_ht_common)) {
             /* reftype1 is (ref null $t) */
@@ -895,6 +927,23 @@ wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
             else if (types[ref_type1->ref_ht_typeidx.type_idx]->type_flag
                      == WASM_TYPE_FUNC)
                 return wasm_is_reftype_supers_of_func(type2);
+#if WASM_ENABLE_STRINGREF != 0
+            else if (types[ref_type1->ref_ht_typeidx.type_idx]->type_flag
+                     == WASM_TYPE_STRINGREF)
+                return wasm_is_reftype_supers_of_string(type2);
+            else if (types[ref_type1->ref_ht_typeidx.type_idx]->type_flag
+                     == WASM_TYPE_STRINGVIEWWTF8) {
+                return type2 == REF_TYPE_STRINGVIEWWTF8 ? true : false;
+            }
+            else if (types[ref_type1->ref_ht_typeidx.type_idx]->type_flag
+                     == WASM_TYPE_STRINGVIEWWTF16) {
+                return type2 == REF_TYPE_STRINGVIEWWTF16 ? true : false;
+            }
+            else if (types[ref_type1->ref_ht_typeidx.type_idx]->type_flag
+                     == WASM_TYPE_STRINGVIEWITER) {
+                return type2 == REF_TYPE_STRINGVIEWITER ? true : false;
+            }
+#endif
             else
                 return false;
         }
@@ -1019,6 +1068,20 @@ wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
                     /* (ref func) <: [funcref] */
                     return wasm_is_reftype_supers_of_func(type2);
                 }
+#if WASM_ENABLE_STRINGREF != 0
+                else if (heap_type == HEAP_TYPE_STRINGREF) {
+                    return wasm_is_reftype_supers_of_string(type2);
+                }
+                else if (heap_type == HEAP_TYPE_STRINGVIEWWTF8) {
+                    return type2 == REF_TYPE_STRINGVIEWWTF8 ? true : false;
+                }
+                else if (heap_type == HEAP_TYPE_STRINGVIEWWTF16) {
+                    return type2 == REF_TYPE_STRINGVIEWWTF16 ? true : false;
+                }
+                else if (heap_type == HEAP_TYPE_STRINGVIEWITER) {
+                    return type2 == REF_TYPE_STRINGVIEWITER ? true : false;
+                }
+#endif
                 else if (heap_type == HEAP_TYPE_NONE) {
                     /* (ref none) */
                     /* TODO */

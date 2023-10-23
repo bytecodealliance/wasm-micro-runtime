@@ -15,6 +15,9 @@
 #endif
 #if WASM_ENABLE_GC != 0
 #include "gc/gc_object.h"
+#if WASM_ENABLE_STRINGREF != 0
+#include "string_object.h"
+#endif
 #endif
 
 static void
@@ -718,6 +721,18 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
                     }
                     else if (wasm_obj_is_func_obj(gc_obj))
                         os_printf("ref.func");
+#if WASM_ENABLE_STRINGREF != 0
+                    else if (wasm_obj_is_stringref_obj(gc_obj)
+                             || wasm_obj_is_stringview_wtf8_obj(gc_obj)) {
+                        wasm_string_dump(
+                            (WASMString)wasm_stringref_obj_get_value(gc_obj));
+                    }
+                    else if (wasm_obj_is_stringview_wtf16_obj(gc_obj)) {
+                        wasm_string_dump(
+                            (WASMString)wasm_stringview_wtf16_obj_get_value(
+                                gc_obj));
+                    }
+#endif
                     else if (wasm_obj_is_externref_obj(gc_obj)) {
                         WASMObjectRef obj = wasm_externref_obj_to_internal_obj(
                             (WASMExternrefObjectRef)gc_obj);

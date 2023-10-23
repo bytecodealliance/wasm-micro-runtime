@@ -11,7 +11,22 @@ endif ()
 
 include_directories (${IWASM_GC_DIR})
 
-file (GLOB_RECURSE source_all ${IWASM_GC_DIR}/*.c)
+file (GLOB source_all ${IWASM_GC_DIR}/*.c)
 
 set (IWASM_GC_SOURCE ${source_all})
 
+if (WAMR_BUILD_STRINGREF EQUAL 1)
+  set (IWASM_STRINGREF_DIR ${CMAKE_CURRENT_LIST_DIR}/stringref)
+
+  add_definitions (-DWASM_ENABLE_STRINGREF=1)
+
+  include_directories (${IWASM_STRINGREF_DIR})
+
+  if (NOT DEFINED WAMR_STRINGREF_IMPL_SOURCE)
+    message(FATAL_ERROR "stringref feature enabled, but WAMR_STRINGREF_IMPL_SOURCE not set" )
+  else ()
+    set (IWASM_STRINGREF_SOURCE ${WAMR_STRINGREF_IMPL_SOURCE})
+  endif ()
+
+  set (IWASM_GC_SOURCE ${IWASM_GC_SOURCE} ${IWASM_STRINGREF_SOURCE})
+endif ()

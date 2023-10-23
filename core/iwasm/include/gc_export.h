@@ -34,6 +34,10 @@ typedef enum wasm_value_type_enum {
     VALUE_TYPE_STRUCTREF = 0x67,
     VALUE_TYPE_ARRAYREF = 0x66,
     VALUE_TYPE_NULLREF = 0x65,
+    VALUE_TYPE_STRINGREF = 0X64,
+    VALUE_TYPE_STRINGVIEWWTF8 = 0x63,
+    VALUE_TYPE_STRINGVIEWWTF16 = 0x62,
+    VALUE_TYPE_STRINGVIEWITER = 0x61
 } wasm_value_type_enum;
 
 typedef int32_t wasm_heap_type_t;
@@ -133,6 +137,7 @@ typedef struct WASMAnyrefObject *wasm_anyref_obj_t;
 typedef struct WASMStructObject *wasm_struct_obj_t;
 typedef struct WASMArrayObject *wasm_array_obj_t;
 typedef struct WASMFuncObject *wasm_func_obj_t;
+typedef struct WASMStringrefObject *wasm_stringref_obj_t;
 typedef uintptr_t wasm_i31_obj_t;
 
 typedef void (*wasm_obj_finalizer_t)(const wasm_obj_t obj, void *data);
