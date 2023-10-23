@@ -155,6 +155,17 @@ os_mutex_lock(korp_mutex *mutex)
 }
 
 int
+os_mutex_trylock(korp_mutex *mutex)
+{
+    int ret;
+
+    assert(mutex);
+    ret = pthread_mutex_trylock(mutex);
+
+    return ret == 0 ? BHT_OK : BHT_ERROR;
+}
+
+int
 os_mutex_unlock(korp_mutex *mutex)
 {
     int ret;

@@ -1195,6 +1195,18 @@ wasm_runtime_set_max_thread_num(uint32 num)
 {
     wasm_cluster_set_max_thread_num(num);
 }
+
+void
+wasm_runtime_enter_safe_state()
+{
+    wasm_cluster_change_curr_thread_to_safe();
+}
+
+void
+wasm_runtime_exit_safe_state()
+{
+    wasm_cluster_change_curr_thread_to_running();
+}
 #endif /* end of WASM_ENABLE_THREAD_MGR */
 
 static WASMModuleCommon *
@@ -1705,6 +1717,29 @@ void *
 wasm_runtime_get_user_data(WASMExecEnv *exec_env)
 {
     return exec_env->user_data;
+}
+
+WASMExecEnv *
+wasm_runtime_get_cur_exec_env(const WASMModuleInstanceCommon *module_inst_comm)
+{
+    WASMModuleInstance *module_inst = (WASMModuleInstance *)module_inst_comm;
+    WASMExecEnv *cur_exec_env = NULL;
+
+    bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
+              || module_inst_comm->module_type == Wasm_Module_AoT);
+
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode)
+        cur_exec_env =
+            ((WASMModuleInstanceExtra *)module_inst->e)->common.cur_exec_env;
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT)
+        cur_exec_env =
+            ((AOTModuleInstanceExtra *)module_inst->e)->common.cur_exec_env;
+#endif
+
+    return cur_exec_env;
 }
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK

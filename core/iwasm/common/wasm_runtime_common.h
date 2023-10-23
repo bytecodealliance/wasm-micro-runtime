@@ -594,6 +594,10 @@ wasm_runtime_set_user_data(WASMExecEnv *exec_env, void *user_data);
 WASM_RUNTIME_API_EXTERN void *
 wasm_runtime_get_user_data(WASMExecEnv *exec_env);
 
+/* Get the exec_env currently used by the module instance */
+WASMExecEnv *
+wasm_runtime_get_cur_exec_env(const WASMModuleInstanceCommon *module_inst);
+
 #if WASM_CONFIGUABLE_BOUNDS_CHECKS != 0
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN void
@@ -845,6 +849,12 @@ wasm_exec_env_get_aux_stack(WASMExecEnv *exec_env, uint32 *start_offset,
 bool
 wasm_exec_env_set_aux_stack(WASMExecEnv *exec_env, uint32 start_offset,
                             uint32 size);
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_enter_safe_state();
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_exit_safe_state();
 #endif
 
 #if WASM_ENABLE_LIBC_WASI != 0

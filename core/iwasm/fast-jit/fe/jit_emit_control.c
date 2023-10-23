@@ -925,6 +925,7 @@ jit_check_suspend_flags(JitCompContext *cc)
 
     offset = jit_cc_new_const_I32(cc, offsetof(WASMExecEnv, suspend_flags));
     GEN_INSN(LDI32, suspend_flags, exec_env, offset);
+    /* WASM_SUSPEND_FLAG_TERMINATE is 1 */
     GEN_INSN(AND, terminate_flag, suspend_flags, NEW_CONST(I32, 1));
 
     GEN_INSN(CMP, cc->cmp_reg, terminate_flag, NEW_CONST(I32, 0));

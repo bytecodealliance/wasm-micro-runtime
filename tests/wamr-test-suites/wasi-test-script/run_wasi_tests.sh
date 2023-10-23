@@ -37,7 +37,7 @@ run_aot_tests () {
 
         test_aot="${test_wasm%.wasm}.aot"
         test_json="${test_wasm%.wasm}.json"
- 
+
         if [ -f ${test_wasm} ]; then
             expected=$(jq .exit_code ${test_json})
         fi
@@ -87,9 +87,9 @@ if [[ $MODE != "aot" ]];then
     if [ "${ret}" -eq 0 ]; then
         ret=${PIPESTATUS[0]}
     fi
-    
+
     exit_code=${ret}
-    
+
     deactivate
 else
     target_option=""

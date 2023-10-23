@@ -101,6 +101,16 @@ os_mutex_lock(korp_mutex *mutex)
 }
 
 int
+os_mutex_trylock(korp_mutex *mutex)
+{
+#ifndef SGX_DISABLE_PTHREAD
+    return pthread_mutex_lock(mutex);
+#else
+    return 0;
+#endif
+}
+
+int
 os_mutex_unlock(korp_mutex *mutex)
 {
 #ifndef SGX_DISABLE_PTHREAD

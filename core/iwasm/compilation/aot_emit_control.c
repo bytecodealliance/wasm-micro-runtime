@@ -718,6 +718,7 @@ check_suspend_flags(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
         will always be loaded from memory rather than register */
     LLVMSetVolatile(terminate_flags, true);
 
+    /* WASM_SUSPEND_FLAG_TERMINATE is 1 */
     if (!(flag = LLVMBuildAnd(comp_ctx->builder, terminate_flags, I32_ONE,
                               "termination_flag"))) {
         aot_set_last_error("llvm build AND failed");

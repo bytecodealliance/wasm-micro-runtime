@@ -13,6 +13,9 @@
 #if WASM_ENABLE_SHARED_MEMORY != 0
 #include "../common/wasm_shared_memory.h"
 #endif
+#if WASM_ENABLE_THREAD_MGR != 0
+#include "../libraries/thread-mgr/thread_manager.h"
+#endif
 
 typedef int32 CellType_I32;
 typedef int64 CellType_I64;
@@ -1066,17 +1069,28 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
 #endif
 
 #if WASM_ENABLE_THREAD_MGR != 0
-#define CHECK_SUSPEND_FLAGS()                               \
-    do {                                                    \
-        WASM_SUSPEND_FLAGS_LOCK(exec_env->wait_lock);       \
-        if (WASM_SUSPEND_FLAGS_GET(exec_env->suspend_flags) \
-            & WASM_SUSPEND_FLAG_TERMINATE) {                \
-            /* terminate current thread */                  \
-            WASM_SUSPEND_FLAGS_UNLOCK(exec_env->wait_lock); \
-            return;                                         \
-        }                                                   \
-        /* TODO: support suspend and breakpoint */          \
-        WASM_SUSPEND_FLAGS_UNLOCK(exec_env->wait_lock);     \
+#define CHECK_SUSPEND_FLAGS()                                                \
+    do {                                                                     \
+        uint32 suspend_flags, suspend_count;                                 \
+        WASM_SUSPEND_FLAGS_LOCK(exec_env->cluster->thread_state_lock);       \
+        suspend_flags = WASM_SUSPEND_FLAGS_GET(exec_env->suspend_flags);     \
+        if (suspend_flags != 0) {                                            \
+            suspend_count = exec_env->suspend_count;                         \
+            WASM_SUSPEND_FLAGS_UNLOCK(exec_env->cluster->thread_state_lock); \
+            if (suspend_flags & WASM_SUSPEND_FLAG_TERMINATE) {               \
+                /* terminate current thread */                               \
+                return;                                                      \
+            }                                                                \
+            if (suspend_count > 0) {                                         \
+                SYNC_ALL_TO_FRAME();                                         \
+                wasm_thread_change_to_running(exec_env);                     \
+                if (wasm_copy_exception(module, NULL))                       \
+                    goto got_exception;                                      \
+            }                                                                \
+        }                                                                    \
+        else {                                                               \
+            WASM_SUSPEND_FLAGS_UNLOCK(exec_env->cluster->thread_state_lock); \
+        }                                                                    \
     } while (0)
 #endif
 

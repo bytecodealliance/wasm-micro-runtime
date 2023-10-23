@@ -76,6 +76,12 @@ os_mutex_lock(korp_mutex *mutex)
 }
 
 int
+os_mutex_trylock(korp_mutex *mutex)
+{
+    return pthread_mutex_trylock(mutex);
+}
+
+int
 os_mutex_unlock(korp_mutex *mutex)
 {
     return pthread_mutex_unlock(mutex);

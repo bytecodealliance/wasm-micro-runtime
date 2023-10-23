@@ -23,8 +23,32 @@ typedef struct WASMDebugInstance WASMDebugInstance;
 struct WASMCluster {
     struct WASMCluster *next;
 
+    /* The lock for exec_env_list, has_exception and processing */
     korp_mutex lock;
+
     bh_list exec_env_list;
+
+    /* The lock for thread_safe_cond, thread_resume_cond and the below
+       fields of exec_env:
+         suspend_flags, suspend_count, current_status, thread_ret_value */
+    korp_mutex thread_state_lock;
+
+    /* Condition variable for notifying threads that are waiting for
+       threads to go to a safe state. All threads waiting for this
+       condition share this one condition varialbe, so when waken up,
+       they must check whether the waited threads are really in a safe
+       state. It's protected by thread_state_lock since it involves
+       operations of thread states. */
+    korp_cond thread_safe_cond;
+
+    /* Condition variable for notifying threads that are waiting for
+       resumption that their suspend counts have changed and they may be
+       able to resume (i.e. change to RUNNING state). All suspended
+       threads share this one condition variable, so when waken up, they
+       must recheck their suspend counts to check whether they are
+       really able to resume. It's protected by thread_state_lock since
+       it involves operations of suspend counts.  */
+    korp_cond thread_resume_cond;
 
 #if WASM_ENABLE_HEAP_AUX_STACK_ALLOCATION == 0
     /* The aux stack of a module with shared memory will be
@@ -34,13 +58,16 @@ struct WASMCluster {
     /* Record which segments are occupied */
     bool *stack_segment_occupied;
 #endif
+
     /* Size of every stack segment */
     uint32 stack_size;
+
     /* When has_exception == true, this cluster should refuse any spawn thread
      * requests, this flag can be cleared by calling
      * wasm_runtime_clear_exception on instances of any threads of this cluster
      */
     bool has_exception;
+
     /* When processing is true, this cluster should refuse any spawn thread
      * requests. This is a short-lived state, must be cleared immediately once
      * the processing finished.
@@ -48,6 +75,7 @@ struct WASMCluster {
      * with lock, see wams_cluster_wait_for_all and wasm_cluster_terminate_all
      */
     bool processing;
+
 #if WASM_ENABLE_DEBUG_INTERP != 0
     WASMDebugInstance *debug_inst;
 #endif
@@ -85,7 +113,8 @@ wasm_cluster_create_thread(WASMExecEnv *exec_env,
                            void *(*thread_routine)(void *), void *arg);
 
 int32
-wasm_cluster_join_thread(WASMExecEnv *exec_env, void **ret_val);
+wasm_cluster_join_thread(WASMExecEnv *exec_env, WASMExecEnv *self,
+                         void **ret_val);
 
 int32
 wasm_cluster_detach_thread(WASMExecEnv *exec_env);
@@ -103,17 +132,20 @@ void
 wasm_cluster_cancel_all_callbacks();
 
 void
-wasm_cluster_suspend_all(WASMCluster *cluster);
+wasm_cluster_suspend_thread(WASMExecEnv *exec_env, WASMExecEnv *self);
 
 void
 wasm_cluster_suspend_all_except_self(WASMCluster *cluster,
                                      WASMExecEnv *exec_env);
 
 void
-wasm_cluster_suspend_thread(WASMExecEnv *exec_env);
+wasm_cluster_suspend_all(WASMCluster *cluster);
 
 void
 wasm_cluster_resume_thread(WASMExecEnv *exec_env);
+
+void
+wasm_cluster_resume_all_except_self(WASMCluster *cluster, WASMExecEnv *self);
 
 void
 wasm_cluster_resume_all(WASMCluster *cluster);
@@ -132,7 +164,7 @@ void
 wasm_cluster_wait_for_all_except_self(WASMCluster *cluster,
                                       WASMExecEnv *exec_env);
 
-bool
+void
 wasm_cluster_del_exec_env(WASMCluster *cluster, WASMExecEnv *exec_env);
 
 WASMExecEnv *
@@ -158,33 +190,26 @@ wasm_cluster_set_context(WASMModuleInstanceCommon *module_inst, void *key,
 bool
 wasm_cluster_is_thread_terminated(WASMExecEnv *exec_env);
 
+ThreadRunningState
+wasm_thread_change_to_running(WASMExecEnv *self);
+
+void
+wasm_cluster_change_curr_thread_to_running();
+
+void
+wasm_cluster_change_curr_thread_to_safe();
+
 #if WASM_ENABLE_DEBUG_INTERP != 0
+
 #define WAMR_SIG_TRAP (5)
 #define WAMR_SIG_STOP (19)
 #define WAMR_SIG_TERM (15)
 #define WAMR_SIG_SINGSTEP (0x1ff)
 
-#define STATUS_RUNNING (0)
-#define STATUS_STOP (1)
-#define STATUS_EXIT (2)
-#define STATUS_STEP (3)
-
 #define IS_WAMR_TERM_SIG(signo) ((signo) == WAMR_SIG_TERM)
 
 #define IS_WAMR_STOP_SIG(signo) \
     ((signo) == WAMR_SIG_STOP || (signo) == WAMR_SIG_TRAP)
-
-struct WASMCurrentEnvStatus {
-    uint64 signal_flag : 32;
-    uint64 step_count : 16;
-    uint64 running_status : 16;
-};
-
-WASMCurrentEnvStatus *
-wasm_cluster_create_exenv_status();
-
-void
-wasm_cluster_destroy_exenv_status(WASMCurrentEnvStatus *status);
 
 void
 wasm_cluster_send_signal_all(WASMCluster *cluster, uint32 signo);
