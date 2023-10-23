@@ -1275,6 +1275,7 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
     uint16 param_count, result_count, ref_type_map_count;
     bool is_sub_final;
     uint32 parent_type_idx;
+    WASMRefType ref_type;
 
     /* Allocate memory */
     size = sizeof(AOTFuncType *) * (uint64)module->type_count;
@@ -1338,10 +1339,17 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             func_type->param_cell_num = param_cell_num;
             func_type->ret_cell_num = ret_cell_num;
 
+            LOG_VERBOSE("type %u: func, param count: %d, result count: %d, "
+                        "ref type map count: %d",
+                        i, param_count, result_count, ref_type_map_count);
+
             /* If ref_type_map is not empty, read ref_type_map */
             if (ref_type_map_count > 0) {
                 bh_assert(func_type->ref_type_map_count
                           <= func_type->param_count + func_type->result_count);
+
+                /* align to 4 since param_count + result_count may be odd */
+                buf = align_ptr(buf, 4);
 
                 if (!(func_type->ref_type_maps =
                           loader_malloc(sizeof(WASMRefTypeMap)
@@ -1353,15 +1361,16 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                 for (j = 0; j < func_type->ref_type_map_count; j++) {
                     read_uint16(buf, buf_end,
                                 func_type->ref_type_maps[j].index);
-                    read_uint8(buf, buf_end,
-                               func_type->ref_type_maps[j]
-                                   .ref_type->ref_ht_common.ref_type);
-                    read_uint8(buf, buf_end,
-                               func_type->ref_type_maps[j]
-                                   .ref_type->ref_ht_common.nullable);
-                    read_uint32(buf, buf_end,
-                                func_type->ref_type_maps[j]
-                                    .ref_type->ref_ht_common.heap_type);
+                    read_uint8(buf, buf_end, ref_type.ref_ht_common.ref_type);
+                    read_uint8(buf, buf_end, ref_type.ref_ht_common.nullable);
+                    read_uint32(buf, buf_end, ref_type.ref_ht_common.heap_type);
+                    if (!(func_type->ref_type_maps[j].ref_type =
+                              wasm_reftype_set_insert(module->ref_type_set,
+                                                      &ref_type))) {
+                        set_error_buf(error_buf, error_buf_size,
+                                      "insert ref type to hash set failed");
+                        goto fail;
+                    }
                 }
             }
         }
@@ -1369,6 +1378,7 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             AOTStructType *struct_type;
             uint16 field_count;
             read_uint16(buf, buf_end, field_count);
+            read_uint16(buf, buf_end, ref_type_map_count);
             struct_type =
                 loader_malloc(sizeof(AOTStructType)
                                   + field_count * sizeof(WASMStructFieldType),
@@ -1381,17 +1391,23 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 
             struct_type->base_type.type_flag = type_flag;
             struct_type->field_count = field_count;
+            struct_type->ref_type_map_count = ref_type_map_count;
+
+            LOG_VERBOSE(
+                "type %u: struct, field count: %d, ref type map count: %d", i,
+                field_count, ref_type_map_count);
 
             /* Read types of fields */
             for (j = 0; j < field_count; j++) {
-                read_uint16(buf, buf_end, struct_type->fields[j].field_flags);
+                read_uint8(buf, buf_end, struct_type->fields[j].field_flags);
                 read_uint8(buf, buf_end, struct_type->fields[j].field_type);
+                LOG_VERBOSE("                field: %d, flags: %d, type: %d", j,
+                            struct_type->fields[i].field_flags,
+                            struct_type->fields[i].field_type);
             }
-            /* Read ref_type_map_count */
-            read_uint16(buf, buf_end, struct_type->ref_type_map_count);
 
             /* If ref_type_map is not empty, read ref_type_map */
-            if (struct_type->ref_type_map_count > 0) {
+            if (ref_type_map_count > 0) {
 
                 bh_assert(struct_type->ref_type_map_count <= field_count);
 
@@ -1432,6 +1448,8 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             array_type->base_type.type_flag = type_flag;
             read_uint16(buf, buf_end, array_type->elem_flags);
             read_uint8(buf, buf_end, array_type->elem_type);
+
+            LOG_VERBOSE("type %u: array", i);
         }
         else {
             set_error_buf_v(error_buf, error_buf_size,
