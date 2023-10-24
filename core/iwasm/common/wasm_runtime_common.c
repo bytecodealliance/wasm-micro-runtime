@@ -4339,10 +4339,12 @@ static V128FuncPtr invokeNative_V128 = (V128FuncPtr)(uintptr_t)invokeNative;
           || defined(BUILD_TARGET_RISCV64_LP64) */
 #endif /* end of defined(_WIN32) || defined(_WIN32_) */
 
-/* ASAN is not designed to work with custom stack unwind or other low-level \
- things. > Ignore a function that does some low-level magic. (e.g. walking \
- through the thread's stack bypassing the frame boundaries) */
-#if defined(__GNUC__)
+/*
+ * ASAN is not designed to work with custom stack unwind or other low-level
+ * things. Ignore a function that does some low-level magic. (e.g. walking
+ * through the thread's stack bypassing the frame boundaries)
+ */
+#if defined(__GNUC__) || defined(__clang__)
 __attribute__((no_sanitize_address))
 #endif
 bool
