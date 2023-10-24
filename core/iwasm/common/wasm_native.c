@@ -542,8 +542,7 @@ void
 wasm_runtime_set_wasi_ctx(WASMModuleInstanceCommon *module_inst_comm,
                           WASIContext *wasi_ctx)
 {
-    return wasm_native_set_context(module_inst_comm, g_wasi_context_key,
-                                   wasi_ctx);
+    wasm_native_set_context(module_inst_comm, g_wasi_context_key, wasi_ctx);
 }
 
 static void
