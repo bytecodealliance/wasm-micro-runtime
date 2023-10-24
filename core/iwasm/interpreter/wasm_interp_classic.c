@@ -2147,11 +2147,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             wasm_set_exception(module, "null structure object");
                             goto got_exception;
                         }
-                        if (field_idx >= struct_type->field_count) {
-                            wasm_set_exception(
-                                module, "struct field index out of bounds");
-                            goto got_exception;
-                        }
 
                         wasm_struct_obj_get_field(
                             struct_obj, field_idx,
@@ -2206,11 +2201,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         struct_obj = POP_REF();
                         if (!struct_obj) {
                             wasm_set_exception(module, "null structure object");
-                            goto got_exception;
-                        }
-                        if (field_idx >= struct_type->field_count) {
-                            wasm_set_exception(
-                                module, "struct field index out of bounds");
                             goto got_exception;
                         }
 
