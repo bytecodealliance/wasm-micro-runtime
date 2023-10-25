@@ -882,7 +882,11 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     if (func_type->result_count > 0) {
         /* Push the first result to stack */
-        PUSH(value_ret, func_type->types[func_type->param_count]);
+        if (comp_ctx->enable_gc
+            && aot_is_type_gc_reftype(func_type->types[func_type->param_count]))
+            PUSH_GC_REF(value_ret);
+        else
+            PUSH(value_ret, func_type->types[func_type->param_count]);
         /* Load extra result from its address and push to stack */
         for (i = 0; i < ext_ret_count; i++) {
             snprintf(buf, sizeof(buf), "func%d_ext_ret%d", func_idx, i);
@@ -892,7 +896,10 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 aot_set_last_error("llvm build load failed.");
                 goto fail;
             }
-            PUSH(ext_ret, ext_ret_types[i]);
+            if (comp_ctx->enable_gc && aot_is_type_gc_reftype(ext_ret_types[i]))
+                PUSH_GC_REF(ext_ret);
+            else
+                PUSH(ext_ret, ext_ret_types[i]);
         }
     }
 
@@ -1635,7 +1642,12 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMPositionBuilderAtEnd(comp_ctx->builder, block_return);
 
     for (i = 0; i < func_result_count; i++) {
-        PUSH(result_phis[i], func_type->types[func_param_count + i]);
+        if (comp_ctx->enable_gc
+            && aot_is_type_gc_reftype(
+                func_type->types[func_type->param_count + i]))
+            PUSH_GC_REF(result_phis[i]);
+        else
+            PUSH(result_phis[i], func_type->types[func_param_count + i]);
     }
 
 #if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
@@ -1799,7 +1811,7 @@ aot_compile_op_call_ref(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMMoveBasicBlockAfter(check_func_obj_succ,
                             LLVMGetInsertBlock(comp_ctx->builder));
 
-    if (!(aot_emit_exception(comp_ctx, func_ctx, EXCE_NULL_GC_REF, true,
+    if (!(aot_emit_exception(comp_ctx, func_ctx, EXCE_NULL_FUNC_OBJ, true,
                              cmp_func_obj, check_func_obj_succ)))
         goto fail;
 
@@ -2122,7 +2134,12 @@ aot_compile_op_call_ref(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMPositionBuilderAtEnd(comp_ctx->builder, block_return);
 
     for (i = 0; i < func_result_count; i++) {
-        PUSH(result_phis[i], func_type->types[func_param_count + i]);
+        if (comp_ctx->enable_gc
+            && aot_is_type_gc_reftype(
+                func_type->types[func_type->param_count + i]))
+            PUSH_GC_REF(result_phis[i]);
+        else
+            PUSH(result_phis[i], func_type->types[func_param_count + i]);
     }
 
 #if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)

@@ -2147,11 +2147,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             wasm_set_exception(module, "null structure object");
                             goto got_exception;
                         }
-                        if (field_idx >= struct_type->field_count) {
-                            wasm_set_exception(
-                                module, "struct field index out of bounds");
-                            goto got_exception;
-                        }
 
                         wasm_struct_obj_get_field(
                             struct_obj, field_idx,
@@ -2206,11 +2201,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         struct_obj = POP_REF();
                         if (!struct_obj) {
                             wasm_set_exception(module, "null structure object");
-                            goto got_exception;
-                        }
-                        if (field_idx >= struct_type->field_count) {
-                            wasm_set_exception(
-                                module, "struct field index out of bounds");
                             goto got_exception;
                         }
 
@@ -2540,9 +2530,11 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             wasm_set_exception(module, "null i31 reference");
                             goto got_exception;
                         }
-                        i31_val = wasm_i31_obj_get_value(
-                            i31_obj,
-                            opcode == WASM_OP_I31_GET_S ? true : false);
+                        i31_val = (uint32)(((uintptr_t)i31_obj) >> 1);
+                        if (opcode == WASM_OP_I31_GET_S
+                            && (i31_val & 0x40000000) /* bit 30 is 1 */)
+                            /* set bit 31 to 1 */
+                            i31_val |= 0x80000000;
                         PUSH_I32(i31_val);
                         HANDLE_OP_END();
                     }

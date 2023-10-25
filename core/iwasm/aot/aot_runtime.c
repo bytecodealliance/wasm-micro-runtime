@@ -2821,7 +2821,7 @@ aot_table_init(AOTModuleInstance *module_inst, uint32 tbl_idx,
         if (func_indexes[i] != UINT32_MAX) {
             if (!(func_obj = aot_create_func_obj(module_inst, func_indexes[i],
                                                  true, NULL, 0))) {
-                aot_set_exception_with_id(module_inst, EXCE_NULL_GC_REF);
+                aot_set_exception_with_id(module_inst, EXCE_NULL_FUNC_OBJ);
                 return;
             }
             table_elems[i] = func_obj;

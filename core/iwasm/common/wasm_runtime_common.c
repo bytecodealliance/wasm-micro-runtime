@@ -2492,10 +2492,18 @@ static const char *exception_msgs[] = {
     "out of bounds table access",     /* EXCE_OUT_OF_BOUNDS_TABLE_ACCESS */
     "wasm operand stack overflow",    /* EXCE_OPERAND_STACK_OVERFLOW */
     "failed to compile fast jit function", /* EXCE_FAILED_TO_COMPILE_FAST_JIT_FUNC */
-    "null GC object",                 /* EXCE_NULL_GC_REF */
-    "failed to cast GC object",       /* EXCE_TYPE_NONCASTABLE */
-    "GC array index out of bounds",   /* EXCE_ARRAY_OOB */
-    "failed to create GC object",     /* EXCE_FAILED_TO_CREATE_GC_OBJ */
+    /* GC related exceptions */
+    "null function object",           /* EXCE_NULL_FUNC_OBJ */
+    "null structure object",          /* EXCE_NULL_STRUCT_OBJ */
+    "null array object",              /* EXCE_NULL_ARRAY_OBJ */
+    "null i31 reference",             /* EXCE_NULL_I31_OBJ */
+    "null reference",                 /* EXCE_NULL_REFERENCE */
+    "create rtt type failed",         /* EXCE_FAILED_TO_CREATE_RTT_TYPE */
+    "create struct object failed",    /* EXCE_FAILED_TO_CREATE_STRUCT_OBJ */
+    "create array object failed",     /* EXCE_FAILED_TO_CREATE_ARRAY_OBJ */
+    "create externref object failed", /* EXCE_FAILED_TO_CREATE_EXTERNREF_OBJ */
+    "cast failure",                   /* EXCE_CAST_FAILURE */
+    "array index out of bounds",      /* EXCE_ARRAY_IDX_OOB */
     "",                               /* EXCE_ALREADY_THROWN */
 };
 /* clang-format on */
