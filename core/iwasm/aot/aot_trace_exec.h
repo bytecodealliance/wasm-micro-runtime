@@ -64,7 +64,10 @@ enum trace_exec_opcode_kind {
     IMM_i32_OP_0,
     IMM_v128_OP_0,
     IMM_i32_OP_i32,
+    IMM_i8_OP_v128,
     IMM_i8_OP_v128_i32,
+    IMM_i32_i32_OP_i32,
+    IMM_ty_tbl_OP_i32,      // call_indirect
     IMM_memarg_OP_i32,      // XX.load
     IMM_memarg_OP_i32_v128, // XX.store
 };
