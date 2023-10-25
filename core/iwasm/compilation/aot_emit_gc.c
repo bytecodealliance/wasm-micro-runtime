@@ -1544,30 +1544,21 @@ aot_compile_op_i31_new(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 
     POP_I32(i31_val);
 
-    /* Equivalent to wasm_i31_obj_new: ((i31_value << 1) | 1) */
-    if (!(i31_obj = LLVMBuildShl(comp_ctx->builder, i31_val, I32_ONE,
+    /* i31_val <<= 1 */
+    if (!(i31_val = LLVMBuildShl(comp_ctx->builder, i31_val, I32_ONE,
                                  "i31_val_shl"))) {
         aot_set_last_error("llvm build shl failed.");
         goto fail;
     }
 
-    if (!(i31_obj =
-              LLVMBuildOr(comp_ctx->builder, i31_obj, I32_ONE, "i31_val_or"))) {
+    /* i31_val |= 1 */
+    if (!(i31_val =
+              LLVMBuildOr(comp_ctx->builder, i31_val, I32_ONE, "i31_val_or"))) {
         aot_set_last_error("llvm build or failed.");
         goto fail;
     }
 
-    /* if uintptr_t is 64 bits, extend i32 to i64, equivalent to:
-       (WASMI31ObjectRef)((i31_value << 1) | 1)  */
-    if (comp_ctx->pointer_size == sizeof(uint64)) {
-        if (!(i31_obj = LLVMBuildZExt(comp_ctx->builder, i31_obj, I64_TYPE,
-                                      "i31_val_zext"))) {
-            aot_set_last_error("llvm build zext failed.");
-            goto fail;
-        }
-    }
-
-    if (!(i31_obj = LLVMBuildIntToPtr(comp_ctx->builder, i31_obj, GC_REF_TYPE,
+    if (!(i31_obj = LLVMBuildIntToPtr(comp_ctx->builder, i31_val, GC_REF_TYPE,
                                       "i31_obj"))) {
         aot_set_last_error("llvm build bit cast failed.");
         goto fail;
@@ -1584,8 +1575,7 @@ bool
 aot_compile_op_i31_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                        bool sign)
 {
-    LLVMValueRef i31_obj, i31_val, cmp_i31_obj, bit_30, bit_30_is_set,
-        i31_sign_val;
+    LLVMValueRef i31_obj, i31_val, cmp_i31_obj;
     LLVMBasicBlockRef check_i31_obj_succ;
 
     POP_GC_REF(i31_obj);
@@ -1596,45 +1586,27 @@ aot_compile_op_i31_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* Check if i31 object is NULL, throw exception if it is */
     BUILD_ISNULL(i31_obj, cmp_i31_obj, "cmp_i31_obj");
     if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_NULL_I31_OBJ, true,
-                            cmp_i31_obj, check_i31_obj_succ))
+                            cmp_i31_obj, check_i31_obj_succ)) {
         goto fail;
+    }
 
-    /* if uintptr_t is 64 bits, trunc i64 to i32 */
-    if (comp_ctx->pointer_size == sizeof(uint64)) {
-        if (!(i31_val = LLVMBuildTrunc(comp_ctx->builder, i31_obj, I32_TYPE,
-                                       "trunc uintptr_t to i32"))) {
-            aot_set_last_error("llvm build trunc failed.");
+    if (!(i31_val = LLVMBuildPtrToInt(comp_ctx->builder, i31_obj, I32_TYPE,
+                                      "i31_val"))) {
+        aot_set_last_error("llvm build ptr to init failed.");
+        goto fail;
+    }
+
+    if (!sign) {
+        if (!(i31_val = LLVMBuildLShr(comp_ctx->builder, i31_val, I32_ONE,
+                                      "i31_value"))) {
+            aot_set_last_error("llvm build lshr failed.");
             goto fail;
         }
     }
     else {
-        i31_val = i31_obj;
-    }
-
-    /* i31_val = i31_val >> 1 */
-    if (!(i31_val = LLVMBuildLShr(comp_ctx->builder, i31_val, I32_ONE,
-                                  "i31_value"))) {
-        aot_set_last_error("llvm build lshr failed.");
-        goto fail;
-    }
-
-    if (sign) {
-        /* i31_val = i31_val & 0x40000000 ? i31_val |= 0x80000000 : i31_val */
-        if (!(bit_30 = LLVMBuildAnd(comp_ctx->builder, i31_val,
-                                    I32_CONST(0x40000000), "bit30"))) {
-            aot_set_last_error("llvm build and failed.");
-            goto fail;
-        }
-        BUILD_ICMP(LLVMIntNE, bit_30, I32_ZERO, bit_30_is_set, "bit30_is_set");
-        if (!(i31_sign_val = LLVMBuildOr(comp_ctx->builder, i31_val,
-                                         I32_CONST(0x80000000), "or"))) {
-            aot_set_last_error("llvm build or failed.");
-            goto fail;
-        }
-        if (!(i31_val =
-                  LLVMBuildSelect(comp_ctx->builder, bit_30_is_set,
-                                  i31_sign_val, i31_val, "final_value"))) {
-            aot_set_last_error("llvm build select failed.");
+        if (!(i31_val = LLVMBuildAShr(comp_ctx->builder, i31_val, I32_ONE,
+                                      "i31_value"))) {
+            aot_set_last_error("llvm build ashr failed.");
             goto fail;
         }
     }
