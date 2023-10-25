@@ -116,6 +116,7 @@ static const struct trace_exec_op_info opcode_info[0xff + 1] = {
     [WASM_OP_I32_EQZ] = { "i32.eqz", IMM_0_OP_i32 },
     [WASM_OP_I32_AND] = { "i32.and", IMM_0_OP_i32_i32 },
     [WASM_OP_I32_OR] = { "i32.or", IMM_0_OP_i32_i32 },
+    [WASM_OP_I32_ROTL] = { "i32.rotl", IMM_0_OP_i32_i32 },
     [WASM_OP_I32_TRUNC_S_F32] = { "i32.trunc_f32_s", IMM_0_OP_f32 },
     [WASM_OP_I32_TRUNC_U_F32] = { "i32.trunc_f32_u", IMM_0_OP_f32 },
     [WASM_OP_I32_TRUNC_S_F64] = { "i32.trunc_f64_s", IMM_0_OP_f64 },
