@@ -188,33 +188,88 @@ jit_compile_check_value_range(JitCompContext *cc, JitReg value, JitReg min_fp,
 {
     JitReg nan_ret = jit_cc_new_reg_I32(cc);
     JitRegKind kind = jit_reg_kind(value);
+    float value_f32_const = 0, min_fp_f32_const = 0, max_fp_f32_const = 0;
+    double value_f64_const = 0, min_fp_f64_const = 0, max_fp_f64_const = 0;
     bool emit_ret = false;
 
     bh_assert(JIT_REG_KIND_F32 == kind || JIT_REG_KIND_F64 == kind);
 
-    /* If value is NaN, throw exception */
-    if (JIT_REG_KIND_F32 == kind)
-        emit_ret = jit_emit_callnative(cc, local_isnanf, nan_ret, &value, 1);
-    else
-        emit_ret = jit_emit_callnative(cc, local_isnan, nan_ret, &value, 1);
-    if (!emit_ret)
-        goto fail;
+    /* Get const values */
+    if (JIT_REG_KIND_F32 == kind) {
+        if (jit_reg_is_const(value))
+            value_f32_const = jit_cc_get_const_F32(cc, value);
+        min_fp_f32_const = jit_cc_get_const_F32(cc, min_fp);
+        max_fp_f32_const = jit_cc_get_const_F32(cc, max_fp);
+    }
+    else {
+        if (jit_reg_is_const(value))
+            value_f64_const = jit_cc_get_const_F64(cc, value);
+        min_fp_f64_const = jit_cc_get_const_F64(cc, min_fp);
+        max_fp_f64_const = jit_cc_get_const_F64(cc, max_fp);
+    }
 
-    GEN_INSN(CMP, cc->cmp_reg, nan_ret, NEW_CONST(I32, 1));
-    if (!jit_emit_exception(cc, EXCE_INVALID_CONVERSION_TO_INTEGER, JIT_OP_BEQ,
-                            cc->cmp_reg, NULL))
-        goto fail;
+    if (!(JIT_REG_KIND_F32 == kind && jit_reg_is_const(value)
+          && !isnan(value_f32_const)) /* value is a non-nan f32 const */
+        && !(JIT_REG_KIND_F64 == kind && jit_reg_is_const(value)
+             && !isnan(value_f64_const)) /* value is a non-nan f64 const */) {
+        /* If value is NaN, throw exception */
+        if (JIT_REG_KIND_F32 == kind)
+            emit_ret =
+                jit_emit_callnative(cc, local_isnanf, nan_ret, &value, 1);
+        else
+            emit_ret = jit_emit_callnative(cc, local_isnan, nan_ret, &value, 1);
+        if (!emit_ret)
+            goto fail;
 
-    /* If value is out of integer range, throw exception */
-    GEN_INSN(CMP, cc->cmp_reg, min_fp, value);
-    if (!jit_emit_exception(cc, EXCE_INTEGER_OVERFLOW, JIT_OP_BGES, cc->cmp_reg,
-                            NULL))
-        goto fail;
+        GEN_INSN(CMP, cc->cmp_reg, nan_ret, NEW_CONST(I32, 1));
+        if (!jit_emit_exception(cc, EXCE_INVALID_CONVERSION_TO_INTEGER,
+                                JIT_OP_BEQ, cc->cmp_reg, NULL))
+            goto fail;
+    }
 
-    GEN_INSN(CMP, cc->cmp_reg, value, max_fp);
-    if (!jit_emit_exception(cc, EXCE_INTEGER_OVERFLOW, JIT_OP_BGES, cc->cmp_reg,
-                            NULL))
-        goto fail;
+    if ((JIT_REG_KIND_F32 == kind && jit_reg_is_const(value)
+         && value_f32_const <= min_fp_f32_const)
+        || (JIT_REG_KIND_F64 == kind && jit_reg_is_const(value)
+            && value_f64_const <= min_fp_f64_const)) {
+        /* value is an f32 or f64 const and is out of range */
+        if (!jit_emit_exception(cc, EXCE_INTEGER_OVERFLOW, JIT_OP_JMP, 0, NULL))
+            goto fail;
+    }
+    else if ((JIT_REG_KIND_F32 == kind && jit_reg_is_const(value)
+              && value_f32_const > min_fp_f32_const)
+             || (JIT_REG_KIND_F64 == kind && jit_reg_is_const(value)
+                 && value_f64_const > min_fp_f64_const)) {
+        /* value is an f32 or f64 const and is in range, do nothing */
+    }
+    else {
+        /* value is not a const, throw exception if it is out of range */
+        GEN_INSN(CMP, cc->cmp_reg, min_fp, value);
+        if (!jit_emit_exception(cc, EXCE_INTEGER_OVERFLOW, JIT_OP_BGES,
+                                cc->cmp_reg, NULL))
+            goto fail;
+    }
+
+    if ((JIT_REG_KIND_F32 == kind && jit_reg_is_const(value)
+         && value_f32_const >= max_fp_f32_const)
+        || (JIT_REG_KIND_F64 == kind && jit_reg_is_const(value)
+            && value_f64_const >= max_fp_f64_const)) {
+        /* value is an f32 or f64 const and is out of range */
+        if (!jit_emit_exception(cc, EXCE_INTEGER_OVERFLOW, JIT_OP_JMP, 0, NULL))
+            goto fail;
+    }
+    else if ((JIT_REG_KIND_F32 == kind && jit_reg_is_const(value)
+              && value_f32_const < max_fp_f32_const)
+             || (JIT_REG_KIND_F64 == kind && jit_reg_is_const(value)
+                 && value_f64_const < max_fp_f64_const)) {
+        /* value is an f32 or f64 const and is in range */
+    }
+    else {
+        /* value is not a const, throw exception if it is out of range */
+        GEN_INSN(CMP, cc->cmp_reg, value, max_fp);
+        if (!jit_emit_exception(cc, EXCE_INTEGER_OVERFLOW, JIT_OP_BGES,
+                                cc->cmp_reg, NULL))
+            goto fail;
+    }
 
     return true;
 fail:
