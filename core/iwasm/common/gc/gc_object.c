@@ -459,6 +459,16 @@ wasm_i31_obj_new(uint32 i31_value)
     return (WASMI31ObjectRef)((i31_value << 1) | 1);
 }
 
+uint32
+wasm_i31_obj_get_value(WASMI31ObjectRef i31_obj, bool sign_extend)
+{
+    uint32 i31_value = (uint32)(((uintptr_t)i31_obj) >> 1);
+    if (sign_extend && (i31_value & 0x40000000)) /* bit 30 is 1 */
+        /* set bit 31 to 1 */
+        i31_value |= 0x80000000;
+    return i31_value;
+}
+
 bool
 wasm_obj_is_i31_obj(WASMObjectRef obj)
 {
