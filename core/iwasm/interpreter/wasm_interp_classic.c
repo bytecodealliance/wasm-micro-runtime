@@ -2530,11 +2530,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             wasm_set_exception(module, "null i31 reference");
                             goto got_exception;
                         }
-                        i31_val = (uint32)(uintptr_t)i31_obj;
-                        if (opcode == WASM_OP_I31_GET_U)
-                            i31_val = i31_val >> 1;
-                        else
-                            i31_val = (uint32)((int32)i31_val >> 1);
+                        i31_val = wasm_i31_obj_get_value(
+                            i31_obj,
+                            opcode == WASM_OP_I31_GET_S ? true : false);
                         PUSH_I32(i31_val);
                         HANDLE_OP_END();
                     }
