@@ -76,7 +76,7 @@ typedef union {
 } MemBound;
 
 struct SocketAddrPool {
-    uint ip4[4];
+    uint32 ip4[4];
     uint16 ip6[8];
     bool is_4;
     uint16 port;

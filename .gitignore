@@ -9,6 +9,7 @@
 *.a
 *.so
 .DS_Store
+foo
 
 core/deps/**
 core/shared/mem-alloc/tlsf
