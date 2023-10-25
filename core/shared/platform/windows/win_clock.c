@@ -3,79 +3,84 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#include "platform_api_vmcore.h"
+#include "platform_api_extension.h"
 #include <winternl.h>
 #include "win_util.h"
 
 #define NANOSECONDS_PER_SECOND 1000000000ULL
 #define NANOSECONDS_PER_TICK 100
 
-static int
+static __wasi_errno_t
 calculate_monotonic_clock_frequency(uint64 *out_frequency)
 {
     LARGE_INTEGER frequency;
-    if (!QueryPerformanceFrequency(&frequency)) {
-        return BHT_ERROR;
-    }
-    else {
-        *out_frequency = (uint64)frequency.QuadPart;
-        return BHT_OK;
-    }
+    if (!QueryPerformanceFrequency(&frequency))
+        return convert_windows_error_code(GetLastError());
+
+    *out_frequency = (uint64)frequency.QuadPart;
+    return __WASI_ESUCCESS;
 }
 
-static int
+static __wasi_errno_t
 get_performance_counter_value(uint64 *out_counter)
 {
     LARGE_INTEGER counter;
-    if (!QueryPerformanceCounter(&counter)) {
-        return BHT_ERROR;
-    }
-    else {
-        *out_counter = counter.QuadPart;
-        return BHT_OK;
-    }
+    if (!QueryPerformanceCounter(&counter))
+        return convert_windows_error_code(GetLastError());
+
+    *out_counter = counter.QuadPart;
+    return __WASI_ESUCCESS;
 }
 
-int
-os_clock_res_get(bh_clock_id_t clock_id, uint64 *resolution)
+__wasi_errno_t
+os_clock_res_get(__wasi_clockid_t clock_id, __wasi_timestamp_t *resolution)
 {
+    __wasi_errno_t error = __WASI_ESUCCESS;
+
     switch (clock_id) {
-        case BH_CLOCK_ID_MONOTONIC:
+        case __WASI_CLOCK_MONOTONIC:
         {
             uint64 frequency;
-            if (calculate_monotonic_clock_frequency(&frequency) == BHT_ERROR) {
-                return BHT_ERROR;
-            }
+            error = calculate_monotonic_clock_frequency(&frequency);
+
+            if (error != __WASI_ESUCCESS)
+                return error;
+
             const uint64 result = (uint64)NANOSECONDS_PER_SECOND / frequency;
             *resolution = result;
-            return BHT_OK;
+            return error;
         }
-        case BH_CLOCK_ID_REALTIME:
-        case BH_CLOCK_ID_PROCESS_CPUTIME_ID:
-        case BH_CLOCK_ID_THREAD_CPUTIME_ID:
+        case __WASI_CLOCK_REALTIME:
+        case __WASI_CLOCK_PROCESS_CPUTIME_ID:
+        case __WASI_CLOCK_THREAD_CPUTIME_ID:
         {
+#if WINAPI_PARTITION_DESKTOP
             ULONG maximum_time;
             ULONG minimum_time;
             ULONG current_time;
             NTSTATUS
             status = NtQueryTimerResolution(&maximum_time, &minimum_time,
                                             &current_time);
-
             uint64 result = (uint64)current_time * NANOSECONDS_PER_TICK;
             *resolution = result / (uint64)NANOSECONDS_PER_SECOND;
-            return BHT_OK;
+            return error;
+#else
+            return __WASI_ENOTSUP;
+#endif
         }
         default:
-            errno = EINVAL;
-            return BHT_ERROR;
+            return __WASI_EINVAL;
     }
 }
 
-int
-os_clock_time_get(bh_clock_id_t clock_id, uint64 precision, uint64 *time)
+__wasi_errno_t
+os_clock_time_get(__wasi_clockid_t clock_id, __wasi_timestamp_t precision,
+                  __wasi_timestamp_t *time)
 {
+    __wasi_errno_t error = __WASI_ESUCCESS;
+
     switch (clock_id) {
-        case BH_CLOCK_ID_REALTIME:
+        case __WASI_CLOCK_REALTIME:
         {
             FILETIME sys_now;
 #if NTDDI_VERSION >= NTDDI_WIN8
@@ -86,16 +91,20 @@ os_clock_time_get(bh_clock_id_t clock_id, uint64 precision, uint64 *time)
             *time = convert_filetime_to_wasi_timestamp(&sys_now);
             return BHT_OK;
         }
-        case BH_CLOCK_ID_MONOTONIC:
+        case __WASI_CLOCK_MONOTONIC:
         {
             uint64 frequency;
-            if (calculate_monotonic_clock_frequency(&frequency) == BHT_ERROR) {
-                return BHT_ERROR;
-            }
+            error = calculate_monotonic_clock_frequency(&frequency);
+
+            if (error != __WASI_ESUCCESS)
+                return error;
+
             uint64 counter;
-            if (get_performance_counter_value(&counter) == BHT_ERROR) {
-                return BHT_ERROR;
-            }
+            error = get_performance_counter_value(&counter);
+
+            if (error != __WASI_ESUCCESS)
+                return error;
+
             if (NANOSECONDS_PER_SECOND % frequency == 0) {
                 *time = counter * NANOSECONDS_PER_SECOND / frequency;
             }
@@ -105,43 +114,30 @@ os_clock_time_get(bh_clock_id_t clock_id, uint64 precision, uint64 *time)
                 *time = seconds * NANOSECONDS_PER_SECOND
                         + (fractions * NANOSECONDS_PER_SECOND) / frequency;
             }
-            return BHT_OK;
+            return error;
         }
-        case BH_CLOCK_ID_PROCESS_CPUTIME_ID:
+        case __WASI_CLOCK_PROCESS_CPUTIME_ID:
+        case __WASI_CLOCK_THREAD_CPUTIME_ID:
         {
             FILETIME creation_time;
             FILETIME exit_time;
             FILETIME kernel_time;
             FILETIME user_time;
 
-            if (!GetProcessTimes(GetCurrentProcess(), &creation_time,
-                                 &exit_time, &kernel_time, &user_time)) {
-                return BHT_ERROR;
-            }
-            *time = convert_filetime_to_wasi_timestamp(&kernel_time)
-                    + convert_filetime_to_wasi_timestamp(&user_time);
+            HANDLE handle = (clock_id == __WASI_CLOCK_PROCESS_CPUTIME_ID)
+                                ? GetCurrentProcess()
+                                : GetCurrentThread();
 
-            return BHT_OK;
-        }
-        case BH_CLOCK_ID_THREAD_CPUTIME_ID:
-        {
-            FILETIME creation_time;
-            FILETIME exit_time;
-            FILETIME kernel_time;
-            FILETIME user_time;
-
-            if (!GetProcessTimes(GetCurrentThread(), &creation_time, &exit_time,
-                                 &kernel_time, &user_time)) {
-                return BHT_ERROR;
-            }
+            if (!GetProcessTimes(handle, &creation_time, &exit_time,
+                                 &kernel_time, &user_time))
+                return convert_windows_error_code(GetLastError());
 
             *time = convert_filetime_to_wasi_timestamp(&kernel_time)
                     + convert_filetime_to_wasi_timestamp(&user_time);
 
-            return BHT_OK;
+            return error;
         }
         default:
-            errno = EINVAL;
-            return BHT_ERROR;
+            return __WASI_EINVAL;
     }
 }

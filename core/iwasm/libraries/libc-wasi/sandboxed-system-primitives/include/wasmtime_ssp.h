@@ -42,17 +42,6 @@ wasmtime_ssp_args_sizes_get(struct argv_environ_values *arg_environ,
     WASMTIME_SSP_SYSCALL_NAME(args_sizes_get) WARN_UNUSED;
 
 __wasi_errno_t
-wasmtime_ssp_clock_res_get(__wasi_clockid_t clock_id,
-                           __wasi_timestamp_t *resolution)
-    WASMTIME_SSP_SYSCALL_NAME(clock_res_get) WARN_UNUSED;
-
-__wasi_errno_t
-wasmtime_ssp_clock_time_get(__wasi_clockid_t clock_id,
-                            __wasi_timestamp_t precision,
-                            __wasi_timestamp_t *time)
-    WASMTIME_SSP_SYSCALL_NAME(clock_time_get) WARN_UNUSED;
-
-__wasi_errno_t
 wasmtime_ssp_environ_get(struct argv_environ_values *arg_environ,
                          char **environs, char *environ_buf)
     WASMTIME_SSP_SYSCALL_NAME(environ_get) WARN_UNUSED;

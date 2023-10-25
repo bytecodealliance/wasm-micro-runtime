@@ -250,6 +250,7 @@ CFLAGS += -I${SHARED_ROOT}/platform/common/libc-util
 CSRCS += blocking_op.c
 CSRCS += posix_socket.c
 CSRCS += posix_file.c
+CSRCS += posix_clock.c
 CSRCS += libc_errno.c
 CSRCS += libc_wasi_wrapper.c
 VPATH += $(IWASM_ROOT)/libraries/libc-wasi
@@ -364,7 +365,6 @@ CSRCS += nuttx_platform.c \
          posix_blocking_op.c \
          posix_thread.c \
          posix_time.c \
-         posix_clock.c \
          posix_sleep.c \
          mem_alloc.c \
          ems_kfc.c \
