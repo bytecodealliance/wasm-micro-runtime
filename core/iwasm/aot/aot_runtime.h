@@ -41,6 +41,10 @@ typedef struct AOTObjectDataSection {
     char *name;
     uint8 *data;
     uint32 size;
+#if WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_JIT != 0
+    bool is_name_allocated;
+    bool is_data_allocated;
+#endif
 } AOTObjectDataSection;
 
 /* Relocation info */
@@ -51,6 +55,9 @@ typedef struct AOTRelocation {
     char *symbol_name;
     /* index in the symbol offset field */
     uint32 symbol_index;
+#if WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_JIT != 0
+    bool is_symbol_name_allocated;
+#endif
 } AOTRelocation;
 
 /* Relocation Group */
@@ -60,6 +67,9 @@ typedef struct AOTRelocationGroup {
     uint32 name_index;
     uint32 relocation_count;
     AOTRelocation *relocations;
+#if WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_JIT != 0
+    bool is_section_name_allocated;
+#endif
 } AOTRelocationGroup;
 
 /* AOT function instance */
@@ -78,34 +88,19 @@ typedef struct AOTFunctionInstance {
 } AOTFunctionInstance;
 
 typedef struct AOTModuleInstanceExtra {
-    CApiFuncImport *c_api_func_imports;
-#if WASM_ENABLE_WASI_NN != 0
-    WASINNContext *wasi_nn_ctx;
+    DefPointer(const uint32 *, stack_sizes);
+    WASMModuleInstanceExtraCommon common;
+#if WASM_ENABLE_MULTI_MODULE != 0
+    bh_list sub_module_inst_list_head;
+    bh_list *sub_module_inst_list;
 #endif
 } AOTModuleInstanceExtra;
 
-#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
-/* clang-format off */
-typedef struct AOTUnwindInfo {
-    uint8 Version       : 3;
-    uint8 Flags         : 5;
-    uint8 SizeOfProlog;
-    uint8 CountOfCodes;
-    uint8 FrameRegister : 4;
-    uint8 FrameOffset   : 4;
-    struct {
-        struct {
-            uint8 CodeOffset;
-            uint8 UnwindOp : 4;
-            uint8 OpInfo   : 4;
-        };
-        uint16 FrameOffset;
-    } UnwindCode[1];
-} AOTUnwindInfo;
-/* clang-format on */
-
-/* size of mov instruction and jmp instruction */
-#define PLT_ITEM_SIZE 12
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+typedef struct GOTItem {
+    uint32 func_idx;
+    struct GOTItem *next;
+} GOTItem, *GOTItemList;
 #endif
 
 typedef struct AOTModule {
@@ -196,12 +191,11 @@ typedef struct AOTModule {
     uint32 float_plt_count;
 #endif
 
-#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
-    /* dynamic function table to be added by RtlAddFunctionTable(),
-       used to unwind the call stack and register exception handler
-       for AOT functions */
-    RUNTIME_FUNCTION *rtl_func_table;
-    bool rtl_func_table_registered;
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+    uint32 got_item_count;
+    GOTItemList got_item_list;
+    GOTItemList got_item_list_end;
+    void **got_func_ptrs;
 #endif
 
     /* data sections in AOT object file, including .data, .rodata
@@ -239,6 +233,12 @@ typedef struct AOTModule {
     WASIArguments wasi_args;
     bool import_wasi_api;
 #endif
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+    /* TODO: add mutex for mutli-thread? */
+    bh_list import_module_list_head;
+    bh_list *import_module_list;
+#endif
 #if WASM_ENABLE_DEBUG_AOT != 0
     void *elf_hdr;
     uint32 elf_size;
@@ -256,6 +256,10 @@ typedef struct AOTModule {
 #define AOTMemoryInstance WASMMemoryInstance
 #define AOTTableInstance WASMTableInstance
 #define AOTModuleInstance WASMModuleInstance
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+#define AOTSubModInstNode WASMSubModInstNode
+#endif
 
 /* Target info, read from ELF header of object file */
 typedef struct AOTTargetInfo {
@@ -293,6 +297,54 @@ typedef struct AOTFrame {
     AOTFuncPerfProfInfo *func_perf_prof_info;
 #endif
 } AOTFrame;
+
+#if WASM_ENABLE_STATIC_PGO != 0
+typedef struct LLVMProfileRawHeader {
+    uint64 magic;
+    uint64 version;
+    uint64 binary_ids_size;
+    uint64 num_prof_data;
+    uint64 padding_bytes_before_counters;
+    uint64 num_prof_counters;
+    uint64 padding_bytes_after_counters;
+    uint64 names_size;
+    uint64 counters_delta;
+    uint64 names_delta;
+    uint64 value_kind_last;
+} LLVMProfileRawHeader;
+
+typedef struct ValueProfNode {
+    uint64 value;
+    uint64 count;
+    struct ValueProfNode *next;
+} ValueProfNode;
+
+/* The profiling data of data sections created by aot compiler and
+   used when profiling, the width of pointer can be 8 bytes (64-bit)
+   or 4 bytes (32-bit) */
+typedef struct LLVMProfileData {
+    uint64 func_md5;
+    uint64 func_hash;
+    uint64 offset_counters;
+    uintptr_t func_ptr;
+    ValueProfNode **values;
+    uint32 num_counters;
+    uint16 num_value_sites[2];
+} LLVMProfileData;
+
+/* The profiling data for writting to the output file, the width of
+   pointer is 8 bytes suppose we always use wamrc and llvm-profdata
+   with 64-bit mode */
+typedef struct LLVMProfileData_64 {
+    uint64 func_md5;
+    uint64 func_hash;
+    uint64 offset_counters;
+    uint64 func_ptr;
+    uint64 values;
+    uint32 num_counters;
+    uint16 num_value_sites[2];
+} LLVMProfileData_64;
+#endif /* end of WASM_ENABLE_STATIC_PGO != 0 */
 
 /**
  * Load a AOT module from aot file buffer
@@ -332,7 +384,7 @@ aot_unload(AOTModule *module);
  * Instantiate a AOT module.
  *
  * @param module the AOT module to instantiate
- * @param is_sub_inst the flag of sub instance
+ * @param parent the parent module instance
  * @param heap_size the default heap size of the module instance, a heap will
  *        be created besides the app memory space. Both wasm app and native
  *        function can allocate memory from the heap. If heap_size is 0, the
@@ -343,9 +395,9 @@ aot_unload(AOTModule *module);
  * @return return the instantiated AOT module instance, NULL if failed
  */
 AOTModuleInstance *
-aot_instantiate(AOTModule *module, bool is_sub_inst, WASMExecEnv *exec_env_main,
-                uint32 stack_size, uint32 heap_size, char *error_buf,
-                uint32 error_buf_size);
+aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
+                WASMExecEnv *exec_env_main, uint32 stack_size, uint32 heap_size,
+                char *error_buf, uint32 error_buf_size);
 
 /**
  * Deinstantiate a AOT module instance, destroy the resources.
@@ -563,6 +615,36 @@ aot_dump_perf_profiling(const AOTModuleInstance *module_inst);
 
 const uint8 *
 aot_get_custom_section(const AOTModule *module, const char *name, uint32 *len);
+
+const void *
+aot_get_data_section_addr(AOTModule *module, const char *section_name,
+                          uint32 *p_data_size);
+
+#if WASM_ENABLE_STATIC_PGO != 0
+void
+llvm_profile_instrument_target(uint64 target_value, void *data,
+                               uint32 counter_idx);
+
+void
+llvm_profile_instrument_memop(uint64 target_value, void *data,
+                              uint32 counter_idx);
+
+uint32
+aot_get_pgo_prof_data_size(AOTModuleInstance *module_inst);
+
+uint32
+aot_dump_pgo_prof_data_to_buf(AOTModuleInstance *module_inst, char *buf,
+                              uint32 len);
+
+void
+aot_exchange_uint16(uint8 *p_data);
+
+void
+aot_exchange_uint32(uint8 *p_data);
+
+void
+aot_exchange_uint64(uint8 *p_data);
+#endif /* end of WASM_ENABLE_STATIC_PGO != 0 */
 
 #ifdef __cplusplus
 } /* end of extern "C" */

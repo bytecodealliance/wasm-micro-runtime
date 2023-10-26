@@ -26,8 +26,8 @@ void
 aot_destroy_comp_data(aot_comp_data_t comp_data);
 
 #if WASM_ENABLE_DEBUG_AOT != 0
-typedef void *dwar_extractor_handle_t;
-dwar_extractor_handle_t
+typedef void *dwarf_extractor_handle_t;
+dwarf_extractor_handle_t
 create_dwarf_extractor(aot_comp_data_t comp_data, char *file_name);
 #endif
 
@@ -55,14 +55,20 @@ typedef struct AOTCompOption {
     bool enable_aux_stack_frame;
     bool disable_llvm_intrinsics;
     bool disable_llvm_lto;
+    bool enable_llvm_pgo;
     bool enable_stack_estimation;
+    char *use_prof_file;
     uint32_t opt_level;
     uint32_t size_level;
     uint32_t output_format;
     uint32_t bounds_checks;
     uint32_t stack_bounds_checks;
+    uint32_t segue_flags;
     char **custom_sections;
     uint32_t custom_sections_count;
+    const char *stack_usage_file;
+    const char *llvm_passes;
+    const char *builtin_intrinsics;
 } AOTCompOption, *aot_comp_option_t;
 
 bool

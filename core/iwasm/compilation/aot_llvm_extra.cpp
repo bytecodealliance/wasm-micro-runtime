@@ -5,9 +5,13 @@
 
 #include <llvm/Passes/StandardInstrumentations.h>
 #include <llvm/Support/Error.h>
+#if LLVM_VERSION_MAJOR < 17
+#include <llvm/ADT/None.h>
+#include <llvm/ADT/Optional.h>
+#include <llvm/ADT/Triple.h>
+#endif
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/ADT/Twine.h>
-#include <llvm/ADT/Triple.h>
 #include <llvm/Analysis/TargetTransformInfo.h>
 #include <llvm/CodeGen/TargetPassConfig.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
@@ -16,7 +20,9 @@
 #include <llvm/Target/TargetMachine.h>
 #include <llvm-c/Core.h>
 #include <llvm-c/ExecutionEngine.h>
+#if LLVM_VERSION_MAJOR < 17
 #include <llvm-c/Initialization.h>
+#endif
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include <llvm/ExecutionEngine/JITEventListener.h>
 #include <llvm/ExecutionEngine/RTDyldMemoryManager.h>
@@ -25,9 +31,12 @@
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/IntrinsicInst.h>
-#include <llvm/IR/LegacyPassManager.h>
+#include <llvm/IR/PassManager.h>
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/ErrorHandling.h>
+#if LLVM_VERSION_MAJOR >= 17
+#include <llvm/Support/PGOOptions.h>
+#endif
 #include <llvm/Target/CodeGenCWrappers.h>
 #include <llvm/Target/TargetMachine.h>
 #include <llvm/Target/TargetOptions.h>
@@ -44,6 +53,7 @@
 #if LLVM_VERSION_MAJOR >= 12
 #include <llvm/Analysis/AliasAnalysis.h>
 #endif
+#include <llvm/ProfileData/InstrProf.h>
 
 #include <cstring>
 #include "../aot/aot_runtime.h"
@@ -51,6 +61,13 @@
 
 using namespace llvm;
 using namespace llvm::orc;
+
+#if LLVM_VERSION_MAJOR >= 17
+namespace llvm {
+template<typename T>
+using Optional = std::optional<T>;
+}
+#endif
 
 LLVM_C_EXTERN_C_BEGIN
 
@@ -70,115 +87,63 @@ LLVM_C_EXTERN_C_END
 
 ExitOnError ExitOnErr;
 
-class ExpandMemoryOpPass : public llvm::ModulePass
+class ExpandMemoryOpPass : public PassInfoMixin<ExpandMemoryOpPass>
 {
   public:
-    static char ID;
-
-    ExpandMemoryOpPass()
-      : ModulePass(ID)
-    {}
-
-    bool runOnModule(Module &M) override;
-
-    bool expandMemIntrinsicUses(Function &F);
-    StringRef getPassName() const override
-    {
-        return "Expand memory operation intrinsics";
-    }
-
-    void getAnalysisUsage(AnalysisUsage &AU) const override
-    {
-        AU.addRequired<TargetTransformInfoWrapperPass>();
-    }
+    PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 };
 
-char ExpandMemoryOpPass::ID = 0;
-
-bool
-ExpandMemoryOpPass::expandMemIntrinsicUses(Function &F)
+PreservedAnalyses
+ExpandMemoryOpPass::run(Function &F, FunctionAnalysisManager &AM)
 {
-    Intrinsic::ID ID = F.getIntrinsicID();
-    bool Changed = false;
+    SmallVector<MemIntrinsic *, 16> MemCalls;
 
-    for (auto I = F.user_begin(), E = F.user_end(); I != E;) {
-        Instruction *Inst = cast<Instruction>(*I);
-        ++I;
+    /* Iterate over all instructions in the function, looking for memcpy,
+     * memmove, and memset.  When we find one, expand it into a loop. */
 
-        switch (ID) {
-            case Intrinsic::memcpy:
-            {
-                auto *Memcpy = cast<MemCpyInst>(Inst);
-                Function *ParentFunc = Memcpy->getParent()->getParent();
-                const TargetTransformInfo &TTI =
-                    getAnalysis<TargetTransformInfoWrapperPass>().getTTI(
-                        *ParentFunc);
-                expandMemCpyAsLoop(Memcpy, TTI);
-                Changed = true;
-                Memcpy->eraseFromParent();
-                break;
+    for (auto &BB : F) {
+        for (auto &Inst : BB) {
+            if (auto *Memcpy = dyn_cast_or_null<MemCpyInst>(&Inst)) {
+                MemCalls.push_back(Memcpy);
             }
-            case Intrinsic::memmove:
-            {
-                auto *Memmove = cast<MemMoveInst>(Inst);
-                expandMemMoveAsLoop(Memmove);
-                Changed = true;
-                Memmove->eraseFromParent();
-                break;
+            else if (auto *Memmove = dyn_cast_or_null<MemMoveInst>(&Inst)) {
+                MemCalls.push_back(Memmove);
             }
-            case Intrinsic::memset:
-            {
-                auto *Memset = cast<MemSetInst>(Inst);
-                expandMemSetAsLoop(Memset);
-                Changed = true;
-                Memset->eraseFromParent();
-                break;
+            else if (auto *Memset = dyn_cast_or_null<MemSetInst>(&Inst)) {
+                MemCalls.push_back(Memset);
             }
-            default:
-                break;
         }
     }
 
-    return Changed;
-}
-
-bool
-ExpandMemoryOpPass::runOnModule(Module &M)
-{
-    bool Changed = false;
-
-    for (Function &F : M) {
-        if (!F.isDeclaration())
-            continue;
-
-        switch (F.getIntrinsicID()) {
-            case Intrinsic::memcpy:
-            case Intrinsic::memmove:
-            case Intrinsic::memset:
-                if (expandMemIntrinsicUses(F))
-                    Changed = true;
-                break;
-
-            default:
-                break;
+    for (MemIntrinsic *MemCall : MemCalls) {
+        if (MemCpyInst *Memcpy = dyn_cast<MemCpyInst>(MemCall)) {
+            Function *ParentFunc = Memcpy->getParent()->getParent();
+            const TargetTransformInfo &TTI =
+                AM.getResult<TargetIRAnalysis>(*ParentFunc);
+            expandMemCpyAsLoop(Memcpy, TTI);
+            Memcpy->eraseFromParent();
+        }
+        else if (MemMoveInst *Memmove = dyn_cast<MemMoveInst>(MemCall)) {
+#if LLVM_VERSION_MAJOR >= 17
+            Function *ParentFunc = Memmove->getParent()->getParent();
+            const TargetTransformInfo &TTI =
+                AM.getResult<TargetIRAnalysis>(*ParentFunc);
+            expandMemMoveAsLoop(Memmove, TTI);
+#else
+            expandMemMoveAsLoop(Memmove);
+#endif
+            Memmove->eraseFromParent();
+        }
+        else if (MemSetInst *Memset = dyn_cast<MemSetInst>(MemCall)) {
+            expandMemSetAsLoop(Memset);
+            Memset->eraseFromParent();
         }
     }
 
-    return Changed;
-}
+    PreservedAnalyses PA;
+    PA.preserveSet<CFGAnalyses>();
 
-void
-aot_add_expand_memory_op_pass(LLVMPassManagerRef pass)
-{
-    reinterpret_cast<legacy::PassManager *>(pass)->add(
-        new ExpandMemoryOpPass());
-}
-
-void
-aot_add_simple_loop_unswitch_pass(LLVMPassManagerRef pass)
-{
-    reinterpret_cast<legacy::PassManager *>(pass)->add(
-        createSimpleLoopUnswitchLegacyPass());
+    return PA;
 }
 
 bool
@@ -232,14 +197,34 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
     PTO.SLPVectorization = true;
     PTO.LoopUnrolling = true;
 
+#if LLVM_VERSION_MAJOR >= 16
+    Optional<PGOOptions> PGO = std::nullopt;
+#else
+    Optional<PGOOptions> PGO = llvm::None;
+#endif
+
+// TODO
+#if LLVM_VERSION_MAJOR < 17
+    if (comp_ctx->enable_llvm_pgo) {
+        /* Disable static counter allocation for value profiler,
+           it will be allocated by runtime */
+        const char *argv[] = { "", "-vp-static-alloc=false" };
+        cl::ParseCommandLineOptions(2, argv);
+        PGO = PGOOptions("", "", "", PGOOptions::IRInstr);
+    }
+    else if (comp_ctx->use_prof_file) {
+        PGO = PGOOptions(comp_ctx->use_prof_file, "", "", PGOOptions::IRUse);
+    }
+#endif
+
 #ifdef DEBUG_PASS
     PassInstrumentationCallbacks PIC;
-    PassBuilder PB(TM, PTO, None, &PIC);
+    PassBuilder PB(TM, PTO, PGO, &PIC);
 #else
 #if LLVM_VERSION_MAJOR == 12
-    PassBuilder PB(false, TM, PTO);
+    PassBuilder PB(false, TM, PTO, PGO);
 #else
-    PassBuilder PB(TM, PTO);
+    PassBuilder PB(TM, PTO, PGO);
 #endif
 #endif
 
@@ -334,27 +319,89 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx, LLVMModuleRef module)
         FPM.addPass(SLPVectorizerPass());
         FPM.addPass(LoadStoreVectorizerPass());
 
+        if (comp_ctx->enable_llvm_pgo || comp_ctx->use_prof_file) {
+            /* LICM pass: loop invariant code motion, attempting to remove
+               as much code from the body of a loop as possible. Experiments
+               show it is good to enable it when pgo is enabled. */
+#if LLVM_VERSION_MAJOR >= 15
+            LICMOptions licm_opt;
+            FPM.addPass(
+                createFunctionToLoopPassAdaptor(LICMPass(licm_opt), true));
+#else
+            FPM.addPass(createFunctionToLoopPassAdaptor(LICMPass(), true));
+#endif
+        }
+
         /*
-        FPM.addPass(createFunctionToLoopPassAdaptor(LICMPass()));
         FPM.addPass(createFunctionToLoopPassAdaptor(LoopRotatePass()));
         FPM.addPass(createFunctionToLoopPassAdaptor(SimpleLoopUnswitchPass()));
         */
 
         MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
 
-        if (!disable_llvm_lto) {
-            /* Apply LTO for AOT mode */
-            if (comp_ctx->comp_data->func_count >= 10)
-                /* Adds the pre-link optimizations if the func count
-                   is large enough */
-                MPM.addPass(PB.buildLTOPreLinkDefaultPipeline(OL));
-            else
-                MPM.addPass(PB.buildLTODefaultPipeline(OL, NULL));
+        if (comp_ctx->llvm_passes) {
+            ExitOnErr(PB.parsePassPipeline(MPM, comp_ctx->llvm_passes));
+        }
+
+        if (OptimizationLevel::O0 == OL) {
+            MPM.addPass(PB.buildO0DefaultPipeline(OL));
         }
         else {
-            MPM.addPass(PB.buildPerModuleDefaultPipeline(OL));
+            if (!disable_llvm_lto) {
+                /* Apply LTO for AOT mode */
+                if (comp_ctx->comp_data->func_count >= 10
+                    || comp_ctx->enable_llvm_pgo || comp_ctx->use_prof_file)
+                    /* Add the pre-link optimizations if the func count
+                       is large enough or PGO is enabled */
+                    MPM.addPass(PB.buildLTOPreLinkDefaultPipeline(OL));
+                else
+                    MPM.addPass(PB.buildLTODefaultPipeline(OL, NULL));
+            }
+            else {
+                MPM.addPass(PB.buildPerModuleDefaultPipeline(OL));
+            }
+        }
+
+        /* Run specific passes for AOT indirect mode in last since general
+            optimization may create some intrinsic function calls like
+            llvm.memset, so let's remove these function calls here. */
+        if (comp_ctx->is_indirect_mode) {
+            FunctionPassManager FPM1;
+            FPM1.addPass(ExpandMemoryOpPass());
+            MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM1)));
         }
     }
 
     MPM.run(*M, MAM);
+}
+
+char *
+aot_compress_aot_func_names(AOTCompContext *comp_ctx, uint32 *p_size)
+{
+    std::vector<std::string> NameStrs;
+    std::string Result;
+    char buf[32], *compressed_str;
+    uint32 compressed_str_len, i;
+
+    for (i = 0; i < comp_ctx->func_ctx_count; i++) {
+        snprintf(buf, sizeof(buf), "%s%d", AOT_FUNC_PREFIX, i);
+        std::string str(buf);
+        NameStrs.push_back(str);
+    }
+
+    if (collectPGOFuncNameStrings(NameStrs, true, Result)) {
+        aot_set_last_error("collect pgo func name strings failed");
+        return NULL;
+    }
+
+    compressed_str_len = Result.size();
+    if (!(compressed_str = (char *)wasm_runtime_malloc(compressed_str_len))) {
+        aot_set_last_error("allocate memory failed");
+        return NULL;
+    }
+
+    bh_memcpy_s(compressed_str, compressed_str_len, Result.c_str(),
+                compressed_str_len);
+    *p_size = compressed_str_len;
+    return compressed_str;
 }

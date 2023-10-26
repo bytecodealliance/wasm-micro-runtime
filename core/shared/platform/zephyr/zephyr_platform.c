@@ -215,6 +215,10 @@ os_dcache_flush()
 }
 
 void
+os_icache_flush(void *start, size_t len)
+{}
+
+void
 set_exec_mem_alloc_func(exec_mem_alloc_func_t alloc_func,
                         exec_mem_free_func_t free_func)
 {

@@ -63,6 +63,22 @@ typedef sem_t korp_sem;
 
 #define bh_socket_t int
 
+#if WASM_DISABLE_WRITE_GS_BASE == 0
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+#define os_writegsbase(base_addr)                                 \
+    do {                                                          \
+        uint64 __gs_value = (uint64)(uintptr_t)base_addr;         \
+        asm volatile("wrgsbase %0" ::"r"(__gs_value) : "memory"); \
+    } while (0)
+#if 0
+/* _writegsbase_u64 also works, but need to add -mfsgsbase flag for gcc */
+#include <immintrin.h>
+#define os_writegsbase(base_addr) \
+    _writegsbase_u64(((uint64)(uintptr_t)base_addr))
+#endif
+#endif
+#endif
+
 #if WASM_DISABLE_HW_BOUND_CHECK == 0
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)            \
     || defined(BUILD_TARGET_AARCH64) || defined(BUILD_TARGET_RISCV64_LP64D) \
@@ -98,6 +114,12 @@ void
 os_sigreturn();
 #endif /* end of BUILD_TARGET_X86_64/AMD_64/AARCH64/RISCV64 */
 #endif /* end of WASM_DISABLE_HW_BOUND_CHECK */
+
+#if WASM_DISABLE_WAKEUP_BLOCKING_OP == 0
+#define OS_ENABLE_WAKEUP_BLOCKING_OP
+#endif
+void
+os_set_signal_number_for_blocking_op(int signo);
 
 #ifdef __cplusplus
 }

@@ -10,7 +10,7 @@ on:
       - opened
       - synchronize
     paths:
-      - ".github/**"
+      - ".github/workflows/compilation_on_windows.yml"
       - "build-scripts/**"
       - "core/**"
       - "!core/deps/**"
@@ -26,7 +26,7 @@ on:
       - main
       - "dev/**"
     paths:
-      - ".github/**"
+      - ".github/workflows/compilation_on_windows.yml"
       - "build-scripts/**"
       - "core/**"
       - "!core/deps/**"

@@ -298,7 +298,15 @@ fail:
 
 /* macros for integer binary operations (ibinop) */
 
+#if defined(__GNUC__)
+#define NO_SANITIZER_INTEGER \
+    __attribute__((no_sanitize("signed-integer-overflow")))
+#else
+#define NO_SANITIZER_INTEGER
+#endif
+
 #define __DEF_BI_INT_CONST_OPS(bits, opname, op)                               \
+    NO_SANITIZER_INTEGER                                                       \
     static int##bits do_i##bits##_const_##opname(int##bits lhs, int##bits rhs) \
     {                                                                          \
         return lhs op rhs;                                                     \

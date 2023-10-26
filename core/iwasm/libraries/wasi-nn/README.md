@@ -24,6 +24,8 @@ Build the runtime image for your execution target type.
 `EXECUTION_TYPE` can be:
 * `cpu`
 * `nvidia-gpu`
+* `vx-delegate`
+* `tpu`
 
 ```
 EXECUTION_TYPE=cpu
@@ -54,30 +56,59 @@ Tests: passed!
 
 ```
 docker run \
-    -v $PWD/core/iwasm/libraries/wasi-nn/test:/assets wasi-nn-cpu \
-    --dir=/assets \
+    -v $PWD/core/iwasm/libraries/wasi-nn/test:/assets \
+    -v $PWD/core/iwasm/libraries/wasi-nn/test/models:/models \
+    wasi-nn-cpu \
+    --dir=/ \
     --env="TARGET=cpu" \
     /assets/test_tensorflow.wasm
 ```
 
 * (NVIDIA) GPU
+    * Requirements:
+        * [NVIDIA docker](https://github.com/NVIDIA/nvidia-docker).
 
 ```
 docker run \
     --runtime=nvidia \
-    -v $PWD/core/iwasm/libraries/wasi-nn/test:/assets wasi-nn-nvidia-gpu \
-    --dir=/assets \
+    -v $PWD/core/iwasm/libraries/wasi-nn/test:/assets \
+    -v $PWD/core/iwasm/libraries/wasi-nn/test/models:/models \
+    wasi-nn-nvidia-gpu \
+    --dir=/ \
     --env="TARGET=gpu" \
     /assets/test_tensorflow.wasm
 ```
 
-Requirements:
-* [NVIDIA docker](https://github.com/NVIDIA/nvidia-docker).
+* vx-delegate for NPU (x86 simulator)
+
+```
+docker run \
+    -v $PWD/core/iwasm/libraries/wasi-nn/test:/assets \
+    wasi-nn-vx-delegate \
+    --dir=/ \
+    --env="TARGET=gpu" \
+    /assets/test_tensorflow_quantized.wasm
+```
+
+* (Coral) TPU
+    * Requirements:
+        * [Coral USB](https://coral.ai/products/accelerator/).
+
+```
+docker run \
+    --privileged \
+    --device=/dev/bus/usb:/dev/bus/usb \
+    -v $PWD/core/iwasm/libraries/wasi-nn/test:/assets \
+    wasi-nn-tpu \
+    --dir=/ \
+    --env="TARGET=tpu" \
+    /assets/test_tensorflow_quantized.wasm
+```
 
 ## What is missing
 
 Supported:
 
 * Graph encoding: `tensorflowlite`.
-* Execution target: `cpu` and `gpu`.
+* Execution target: `cpu`, `gpu` and `tpu`.
 * Tensor type: `fp32`.

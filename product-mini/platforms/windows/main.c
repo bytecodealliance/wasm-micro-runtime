@@ -77,8 +77,7 @@ app_instance_main(wasm_module_inst_t module_inst)
     const char *exception;
 
     wasm_application_execute_main(module_inst, app_argc, app_argv);
-    if ((exception = wasm_runtime_get_exception(module_inst)))
-        printf("%s\n", exception);
+    exception = wasm_runtime_get_exception(module_inst);
     return exception;
 }
 
@@ -204,20 +203,29 @@ handle_module_path(const char *module_path)
 
 static char *module_search_path = ".";
 static bool
-module_reader_callback(const char *module_name, uint8 **p_buffer,
-                       uint32 *p_size)
+module_reader_callback(package_type_t module_type, const char *module_name,
+                       uint8 **p_buffer, uint32 *p_size)
 {
-    const char *format = "%s/%s.wasm";
-    uint32 sz = (uint32)(strlen(module_search_path) + strlen("/")
-                         + strlen(module_name) + strlen(".wasm") + 1);
+    char *file_format = NULL;
+#if WASM_ENABLE_INTERP != 0
+    if (module_type == Wasm_Module_Bytecode)
+        file_format = ".wasm";
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (module_type == Wasm_Module_AoT)
+        file_format = ".aot";
+#endif
+    bh_assert(file_format);
+    const char *format = "%s/%s%s";
+    int sz = strlen(module_search_path) + strlen("/") + strlen(module_name)
+             + strlen(file_format) + 1;
     char *wasm_file_name = BH_MALLOC(sz);
     if (!wasm_file_name) {
         return false;
     }
-
-    snprintf(wasm_file_name, sz, format, module_search_path, module_name);
-
-    *p_buffer = (uint8 *)bh_read_file_to_buffer(wasm_file_name, p_size);
+    snprintf(wasm_file_name, sz, format, module_search_path, module_name,
+             file_format);
+    *p_buffer = (uint8_t *)bh_read_file_to_buffer(wasm_file_name, p_size);
 
     wasm_runtime_free(wasm_file_name);
     return *p_buffer != NULL;
@@ -243,7 +251,12 @@ main(int argc, char *argv[])
     const char *func_name = NULL;
     uint8 *wasm_file_buf = NULL;
     uint32 wasm_file_size;
-    uint32 stack_size = 64 * 1024, heap_size = 16 * 1024;
+    uint32 stack_size = 64 * 1024;
+#if WASM_ENABLE_LIBC_WASI != 0
+    uint32 heap_size = 0;
+#else
+    uint32 heap_size = 16 * 1024;
+#endif
 #if WASM_ENABLE_JIT != 0
     uint32 llvm_jit_size_level = 3;
     uint32 llvm_jit_opt_level = 3;
@@ -531,17 +544,20 @@ main(int argc, char *argv[])
 #endif
 
     ret = 0;
+    const char *exception = NULL;
     if (is_repl_mode) {
         app_instance_repl(wasm_module_inst);
     }
     else if (func_name) {
-        if (app_instance_func(wasm_module_inst, func_name)) {
+        exception = app_instance_func(wasm_module_inst, func_name);
+        if (exception) {
             /* got an exception */
             ret = 1;
         }
     }
     else {
-        if (app_instance_main(wasm_module_inst)) {
+        exception = app_instance_main(wasm_module_inst);
+        if (exception) {
             /* got an exception */
             ret = 1;
         }
@@ -553,6 +569,9 @@ main(int argc, char *argv[])
         ret = wasm_runtime_get_wasi_exit_code(wasm_module_inst);
     }
 #endif
+
+    if (exception)
+        printf("%s\n", exception);
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
 fail4:
