@@ -313,7 +313,7 @@ wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
     if ((uint8 *)address < module_inst->memories[0]->memory_data
         || (uint8 *)address + (wait64 ? 8 : 4)
                > module_inst->memories[0]->memory_data_end) {
-        SHARED_MEMORY_LOCK(module_inst->memories[0]);
+        SHARED_MEMORY_UNLOCK(module_inst->memories[0]);
         wasm_runtime_set_exception(module, "out of bounds memory access");
         return -1;
     }
