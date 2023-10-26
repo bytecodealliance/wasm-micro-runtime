@@ -1785,7 +1785,13 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
         /* Currently we have only one memory instance */
-        is_shared_memory = module->memories[0].flags & 0x02 ? true : false;
+        if (module->import_memory_count > 0) {
+            is_shared_memory =
+                module->import_memories[0].u.memory.flags ? true : false;
+        }
+        else {
+            is_shared_memory = module->memories[0].flags & 0x2 ? true : false;
+        }
         if (is_shared_memory && parent != NULL) {
             /* Ignore setting memory init data if the memory has been
              * initialized */
