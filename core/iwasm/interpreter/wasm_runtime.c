@@ -1774,10 +1774,23 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
         uint8 *memory_data = NULL;
         uint64 memory_size = 0;
         WASMDataSeg *data_seg = module->data_segments[i];
+#if WASM_ENABLE_SHARED_MEMORY != 0
+        bool is_shared_memory;
+#endif
 
 #if WASM_ENABLE_BULK_MEMORY != 0
         if (data_seg->is_passive)
             continue;
+#endif
+
+#if WASM_ENABLE_SHARED_MEMORY != 0
+        /* Currently we have only one memory instance */
+        is_shared_memory = module->memories[0].flags & 0x02 ? true : false;
+        if (is_shared_memory && parent != NULL) {
+            /* Ignore setting memory init data if the memory has been
+             * initialized */
+            continue;
+        }
 #endif
 
         /* has check it in loader */

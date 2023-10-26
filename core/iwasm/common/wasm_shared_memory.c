@@ -146,6 +146,14 @@ shared_memory_unlock(WASMMemoryInstance *memory)
     os_mutex_unlock(&_shared_memory_lock);
 }
 
+#if WASM_ENABLE_SHARED_MEMORY != 0
+#define SHARED_MEMORY_LOCK(memory) shared_memory_lock(memory)
+#define SHARED_MEMORY_UNLOCK(memory) shared_memory_unlock(memory)
+#else
+#define SHARED_MEMORY_LOCK(memory) (void)0
+#define SHARED_MEMORY_UNLOCK(memory) (void)0
+#endif
+
 /* Atomics wait && notify APIs */
 static uint32
 wait_address_hash(const void *address)
@@ -301,12 +309,15 @@ wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
         return -1;
     }
 
+    SHARED_MEMORY_LOCK(module_inst->memories[0]);
     if ((uint8 *)address < module_inst->memories[0]->memory_data
         || (uint8 *)address + (wait64 ? 8 : 4)
                > module_inst->memories[0]->memory_data_end) {
+        SHARED_MEMORY_LOCK(module_inst->memories[0]);
         wasm_runtime_set_exception(module, "out of bounds memory access");
         return -1;
     }
+    SHARED_MEMORY_UNLOCK(module_inst->memories[0]);
 
 #if WASM_ENABLE_THREAD_MGR != 0
     exec_env =
@@ -423,9 +434,11 @@ wasm_runtime_atomic_notify(WASMModuleInstanceCommon *module, void *address,
     bh_assert(module->module_type == Wasm_Module_Bytecode
               || module->module_type == Wasm_Module_AoT);
 
+    SHARED_MEMORY_LOCK(module_inst->memories[0]);
     out_of_bounds =
         ((uint8 *)address < module_inst->memories[0]->memory_data
          || (uint8 *)address + 4 > module_inst->memories[0]->memory_data_end);
+    SHARED_MEMORY_UNLOCK(module_inst->memories[0]);
 
     if (out_of_bounds) {
         wasm_runtime_set_exception(module, "out of bounds memory access");

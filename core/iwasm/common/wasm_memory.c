@@ -274,6 +274,14 @@ wasm_runtime_get_mem_alloc_info(mem_alloc_info_t *mem_alloc_info)
     return false;
 }
 
+#if WASM_ENABLE_SHARED_MEMORY != 0
+#define SHARED_MEMORY_LOCK(memory) shared_memory_lock(memory)
+#define SHARED_MEMORY_UNLOCK(memory) shared_memory_unlock(memory)
+#else
+#define SHARED_MEMORY_LOCK(memory) (void)0
+#define SHARED_MEMORY_UNLOCK(memory) (void)0
+#endif
+
 bool
 wasm_runtime_validate_app_addr(WASMModuleInstanceCommon *module_inst_comm,
                                uint32 app_offset, uint32 size)
@@ -298,9 +306,14 @@ wasm_runtime_validate_app_addr(WASMModuleInstanceCommon *module_inst_comm,
         goto fail;
     }
 
+    SHARED_MEMORY_LOCK(memory_inst);
+
     if (app_offset + size <= memory_inst->memory_data_size) {
+        SHARED_MEMORY_UNLOCK(memory_inst);
         return true;
     }
+
+    SHARED_MEMORY_UNLOCK(memory_inst);
 
 fail:
     wasm_set_exception(module_inst, "out of bounds memory access");
@@ -364,10 +377,15 @@ wasm_runtime_validate_native_addr(WASMModuleInstanceCommon *module_inst_comm,
         goto fail;
     }
 
+    SHARED_MEMORY_LOCK(memory_inst);
+
     if (memory_inst->memory_data <= addr
         && addr + size <= memory_inst->memory_data_end) {
+        SHARED_MEMORY_UNLOCK(memory_inst);
         return true;
     }
+
+    SHARED_MEMORY_UNLOCK(memory_inst);
 
 fail:
     wasm_set_exception(module_inst, "out of bounds memory access");
@@ -393,20 +411,24 @@ wasm_runtime_addr_app_to_native(WASMModuleInstanceCommon *module_inst_comm,
         return NULL;
     }
 
+    SHARED_MEMORY_LOCK(memory_inst);
+
     addr = memory_inst->memory_data + app_offset;
 
     if (bounds_checks) {
         if (memory_inst->memory_data <= addr
             && addr < memory_inst->memory_data_end) {
-
+            SHARED_MEMORY_UNLOCK(memory_inst);
             return addr;
         }
     }
     /* If bounds checks is disabled, return the address directly */
     else if (app_offset != 0) {
+        SHARED_MEMORY_UNLOCK(memory_inst);
         return addr;
     }
 
+    SHARED_MEMORY_UNLOCK(memory_inst);
     return NULL;
 }
 
@@ -418,6 +440,7 @@ wasm_runtime_addr_native_to_app(WASMModuleInstanceCommon *module_inst_comm,
     WASMMemoryInstance *memory_inst;
     uint8 *addr = (uint8 *)native_ptr;
     bool bounds_checks;
+    uint32 ret;
 
     bh_assert(module_inst_comm->module_type == Wasm_Module_Bytecode
               || module_inst_comm->module_type == Wasm_Module_AoT);
@@ -429,16 +452,24 @@ wasm_runtime_addr_native_to_app(WASMModuleInstanceCommon *module_inst_comm,
         return 0;
     }
 
+    SHARED_MEMORY_LOCK(memory_inst);
+
     if (bounds_checks) {
         if (memory_inst->memory_data <= addr
-            && addr < memory_inst->memory_data_end)
-            return (uint32)(addr - memory_inst->memory_data);
+            && addr < memory_inst->memory_data_end) {
+            ret = (uint32)(addr - memory_inst->memory_data);
+            SHARED_MEMORY_UNLOCK(memory_inst);
+            return ret;
+        }
     }
     /* If bounds checks is disabled, return the offset directly */
     else if (addr != NULL) {
-        return (uint32)(addr - memory_inst->memory_data);
+        ret = (uint32)(addr - memory_inst->memory_data);
+        SHARED_MEMORY_UNLOCK(memory_inst);
+        return ret;
     }
 
+    SHARED_MEMORY_UNLOCK(memory_inst);
     return 0;
 }
 
@@ -459,6 +490,8 @@ wasm_runtime_get_app_addr_range(WASMModuleInstanceCommon *module_inst_comm,
         return false;
     }
 
+    SHARED_MEMORY_LOCK(memory_inst);
+
     memory_data_size = memory_inst->memory_data_size;
 
     if (app_offset < memory_data_size) {
@@ -466,9 +499,11 @@ wasm_runtime_get_app_addr_range(WASMModuleInstanceCommon *module_inst_comm,
             *p_app_start_offset = 0;
         if (p_app_end_offset)
             *p_app_end_offset = memory_data_size;
+        SHARED_MEMORY_UNLOCK(memory_inst);
         return true;
     }
 
+    SHARED_MEMORY_UNLOCK(memory_inst);
     return false;
 }
 
@@ -490,15 +525,19 @@ wasm_runtime_get_native_addr_range(WASMModuleInstanceCommon *module_inst_comm,
         return false;
     }
 
+    SHARED_MEMORY_LOCK(memory_inst);
+
     if (memory_inst->memory_data <= addr
         && addr < memory_inst->memory_data_end) {
         if (p_native_start_addr)
             *p_native_start_addr = memory_inst->memory_data;
         if (p_native_end_addr)
             *p_native_end_addr = memory_inst->memory_data_end;
+        SHARED_MEMORY_UNLOCK(memory_inst);
         return true;
     }
 
+    SHARED_MEMORY_UNLOCK(memory_inst);
     return false;
 }
 
@@ -512,8 +551,11 @@ wasm_check_app_addr_and_convert(WASMModuleInstance *module_inst, bool is_str,
     bool bounds_checks;
 
     if (!memory_inst) {
-        goto fail;
+        wasm_set_exception(module_inst, "out of bounds memory access");
+        return false;
     }
+
+    SHARED_MEMORY_LOCK(memory_inst);
 
     native_addr = memory_inst->memory_data + app_buf_addr;
 
@@ -551,12 +593,18 @@ wasm_check_app_addr_and_convert(WASMModuleInstance *module_inst, bool is_str,
     }
 #endif
 
+    SHARED_MEMORY_UNLOCK(memory_inst);
+
 success:
     *p_native_addr = (void *)native_addr;
     return true;
+
+#ifndef OS_ENABLE_HW_BOUND_CHECK
 fail:
+    SHARED_MEMORY_UNLOCK(memory_inst);
     wasm_set_exception(module_inst, "out of bounds memory access");
     return false;
+#endif
 }
 
 WASMMemoryInstance *

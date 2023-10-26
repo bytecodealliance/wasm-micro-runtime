@@ -640,6 +640,9 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
     AOTMemoryInstance *memories, *memory_inst;
     AOTMemInitData *data_seg;
     uint64 total_size;
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    bool is_shared_memory;
+#endif
 
     module_inst->memory_count = memory_count;
     total_size = sizeof(AOTMemoryInstance *) * (uint64)memory_count;
@@ -666,6 +669,15 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
         /* Ignore setting memory init data if no memory inst is created */
         return true;
     }
+
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    /* Currently we have only one memory instance */
+    is_shared_memory = module->memories[0].memory_flags & 0x02 ? true : false;
+    if (is_shared_memory && parent != NULL) {
+        /* Ignore setting memory init data if the memory has been initialized */
+        return true;
+    }
+#endif
 
     for (i = 0; i < module->mem_init_data_count; i++) {
         data_seg = module->mem_init_data_list[i];
