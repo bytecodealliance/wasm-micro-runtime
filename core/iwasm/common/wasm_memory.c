@@ -608,6 +608,26 @@ wasm_get_default_memory(WASMModuleInstance *module_inst)
         return NULL;
 }
 
+static void
+update_mem_bound_check_bytes(WASMMemoryInstance *memory, uint64 total_size_new)
+{
+#if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0 || WASM_ENABLE_AOT != 0
+#if UINTPTR_MAX == UINT64_MAX
+    memory->mem_bound_check_1byte.u64 = total_size_new - 1;
+    memory->mem_bound_check_2bytes.u64 = total_size_new - 2;
+    memory->mem_bound_check_4bytes.u64 = total_size_new - 4;
+    memory->mem_bound_check_8bytes.u64 = total_size_new - 8;
+    memory->mem_bound_check_16bytes.u64 = total_size_new - 16;
+#else
+    memory->mem_bound_check_1byte.u32[0] = (uint32)total_size_new - 1;
+    memory->mem_bound_check_2bytes.u32[0] = (uint32)total_size_new - 2;
+    memory->mem_bound_check_4bytes.u32[0] = (uint32)total_size_new - 4;
+    memory->mem_bound_check_8bytes.u32[0] = (uint32)total_size_new - 8;
+    memory->mem_bound_check_16bytes.u32[0] = (uint32)total_size_new - 16;
+#endif
+#endif
+}
+
 #ifndef OS_ENABLE_HW_BOUND_CHECK
 bool
 wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
@@ -667,6 +687,8 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
         memory->max_page_count = max_page_count;
         memory->memory_data_size = (uint32)total_size_new;
         memory->memory_data_end = memory->memory_data + (uint32)total_size_new;
+
+        update_mem_bound_check_bytes(memory, total_size_new);
         return true;
     }
 #endif
@@ -718,21 +740,7 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
     memory->memory_data = memory_data_new;
     memory->memory_data_end = memory_data_new + (uint32)total_size_new;
 
-#if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0 || WASM_ENABLE_AOT != 0
-#if UINTPTR_MAX == UINT64_MAX
-    memory->mem_bound_check_1byte.u64 = total_size_new - 1;
-    memory->mem_bound_check_2bytes.u64 = total_size_new - 2;
-    memory->mem_bound_check_4bytes.u64 = total_size_new - 4;
-    memory->mem_bound_check_8bytes.u64 = total_size_new - 8;
-    memory->mem_bound_check_16bytes.u64 = total_size_new - 16;
-#else
-    memory->mem_bound_check_1byte.u32[0] = (uint32)total_size_new - 1;
-    memory->mem_bound_check_2bytes.u32[0] = (uint32)total_size_new - 2;
-    memory->mem_bound_check_4bytes.u32[0] = (uint32)total_size_new - 4;
-    memory->mem_bound_check_8bytes.u32[0] = (uint32)total_size_new - 8;
-    memory->mem_bound_check_16bytes.u32[0] = (uint32)total_size_new - 16;
-#endif
-#endif
+    update_mem_bound_check_bytes(memory, total_size_new);
 
 #if defined(os_writegsbase)
     /* write base addr of linear memory to GS segment register */
@@ -838,13 +846,7 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
     memory->memory_data_size = (uint32)total_size_new;
     memory->memory_data_end = memory->memory_data + (uint32)total_size_new;
 
-#if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0 || WASM_ENABLE_AOT != 0
-    memory->mem_bound_check_1byte.u64 = total_size_new - 1;
-    memory->mem_bound_check_2bytes.u64 = total_size_new - 2;
-    memory->mem_bound_check_4bytes.u64 = total_size_new - 4;
-    memory->mem_bound_check_8bytes.u64 = total_size_new - 8;
-    memory->mem_bound_check_16bytes.u64 = total_size_new - 16;
-#endif
+    update_mem_bound_check_bytes(memory, total_size_new);
 
 return_func:
     if (!ret && enlarge_memory_error_cb) {
