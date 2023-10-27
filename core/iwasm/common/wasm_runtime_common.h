@@ -298,6 +298,14 @@ LOAD_I16(void *addr)
 
 #endif /* WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS != 0 */
 
+#if WASM_ENABLE_SHARED_MEMORY != 0
+#define SHARED_MEMORY_LOCK(memory) shared_memory_lock(memory)
+#define SHARED_MEMORY_UNLOCK(memory) shared_memory_unlock(memory)
+#else
+#define SHARED_MEMORY_LOCK(memory) (void)0
+#define SHARED_MEMORY_UNLOCK(memory) (void)0
+#endif
+
 typedef struct WASMModuleCommon {
     /* Module type, for module loaded from WASM bytecode binary,
        this field is Wasm_Module_Bytecode, and this structure should

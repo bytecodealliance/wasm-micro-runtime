@@ -274,14 +274,6 @@ wasm_runtime_get_mem_alloc_info(mem_alloc_info_t *mem_alloc_info)
     return false;
 }
 
-#if WASM_ENABLE_SHARED_MEMORY != 0
-#define SHARED_MEMORY_LOCK(memory) shared_memory_lock(memory)
-#define SHARED_MEMORY_UNLOCK(memory) shared_memory_unlock(memory)
-#else
-#define SHARED_MEMORY_LOCK(memory) (void)0
-#define SHARED_MEMORY_UNLOCK(memory) (void)0
-#endif
-
 bool
 wasm_runtime_validate_app_addr(WASMModuleInstanceCommon *module_inst_comm,
                                uint32 app_offset, uint32 size)
@@ -673,9 +665,8 @@ wasm_enlarge_memory_internal(WASMModuleInstance *module, uint32 inc_page_count)
         memory->num_bytes_per_page = num_bytes_per_page;
         memory->cur_page_count = total_page_count;
         memory->max_page_count = max_page_count;
-        /* No need to update memory->memory_data_size as it is
-           initialized with the maximum memory data size for
-           shared memory */
+        memory->memory_data_size = (uint32)total_size_new;
+        memory->memory_data_end = memory->memory_data + (uint32)total_size_new;
         return true;
     }
 #endif
