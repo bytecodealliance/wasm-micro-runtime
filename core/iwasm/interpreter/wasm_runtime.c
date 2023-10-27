@@ -283,27 +283,31 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
 
     memory_data_size = (uint64)num_bytes_per_page * init_page_count;
     max_memory_data_size = (uint64)num_bytes_per_page * max_page_count;
-    bh_assert(memory_data_size <= 4 * (uint64)BH_GB);
+    bh_assert(memory_data_size <= UINT32_MAX);
     bh_assert(max_memory_data_size <= 4 * (uint64)BH_GB);
     (void)max_memory_data_size;
 
     bh_assert(memory != NULL);
 #ifndef OS_ENABLE_HW_BOUND_CHECK
-#if WASM_ENABLE_SHARED_MEMORY == 0
-    /* Allocate initial memory size when memory is non-shared */
-    if (memory_data_size > 0
-        && !(memory->memory_data =
-                 runtime_malloc(memory_data_size, error_buf, error_buf_size))) {
-        goto fail1;
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    if (is_shared_memory) {
+        /* Allocate maximum memory size when memory is shared */
+        if (max_memory_data_size > 0
+            && !(memory->memory_data = runtime_malloc(
+                     max_memory_data_size, error_buf, error_buf_size))) {
+            goto fail1;
+        }
     }
-#else
-    /* Allocate maximum memory size when memory is non-shared */
-    if (max_memory_data_size > 0
-        && !(memory->memory_data = runtime_malloc(max_memory_data_size,
-                                                  error_buf, error_buf_size))) {
-        goto fail1;
-    }
+    else
 #endif
+    {
+        /* Allocate initial memory size when memory is not shared */
+        if (memory_data_size > 0
+            && !(memory->memory_data = runtime_malloc(
+                     memory_data_size, error_buf, error_buf_size))) {
+            goto fail1;
+        }
+    }
 #else /* else of OS_ENABLE_HW_BOUND_CHECK */
     memory_data_size = (memory_data_size + page_size - 1) & ~(page_size - 1);
 
