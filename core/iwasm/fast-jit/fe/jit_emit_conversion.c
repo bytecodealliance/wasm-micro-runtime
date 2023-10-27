@@ -192,6 +192,55 @@ jit_compile_check_value_range(JitCompContext *cc, JitReg value, JitReg min_fp,
 
     bh_assert(JIT_REG_KIND_F32 == kind || JIT_REG_KIND_F64 == kind);
 
+    if (JIT_REG_KIND_F32 == kind && jit_reg_is_const(value)) {
+        /* value is an f32 const */
+        float value_f32_const = jit_cc_get_const_F32(cc, value);
+        float min_fp_f32_const = jit_cc_get_const_F32(cc, min_fp);
+        float max_fp_f32_const = jit_cc_get_const_F32(cc, max_fp);
+
+        if (isnan(value_f32_const)) {
+            /* throw exception if value is nan */
+            if (!jit_emit_exception(cc, EXCE_INVALID_CONVERSION_TO_INTEGER,
+                                    JIT_OP_JMP, 0, NULL))
+                goto fail;
+        }
+
+        if (value_f32_const <= min_fp_f32_const
+            || value_f32_const >= max_fp_f32_const) {
+            /* throw exception if value is out of range */
+            if (!jit_emit_exception(cc, EXCE_INTEGER_OVERFLOW, JIT_OP_JMP, 0,
+                                    NULL))
+                goto fail;
+        }
+
+        /* value is in range, do nothing */
+        return true;
+    }
+    else if (JIT_REG_KIND_F64 == kind && jit_reg_is_const(value)) {
+        /* value is an f64 const */
+        double value_f64_const = jit_cc_get_const_F64(cc, value);
+        double min_fp_f64_const = jit_cc_get_const_F64(cc, min_fp);
+        double max_fp_f64_const = jit_cc_get_const_F64(cc, max_fp);
+
+        if (isnan(value_f64_const)) {
+            /* throw exception if value is nan */
+            if (!jit_emit_exception(cc, EXCE_INVALID_CONVERSION_TO_INTEGER,
+                                    JIT_OP_JMP, 0, NULL))
+                goto fail;
+        }
+
+        if (value_f64_const <= min_fp_f64_const
+            || value_f64_const >= max_fp_f64_const) {
+            /* throw exception if value is out of range */
+            if (!jit_emit_exception(cc, EXCE_INTEGER_OVERFLOW, JIT_OP_JMP, 0,
+                                    NULL))
+                goto fail;
+        }
+
+        /* value is in range, do nothing */
+        return true;
+    }
+
     /* If value is NaN, throw exception */
     if (JIT_REG_KIND_F32 == kind)
         emit_ret = jit_emit_callnative(cc, local_isnanf, nan_ret, &value, 1);
