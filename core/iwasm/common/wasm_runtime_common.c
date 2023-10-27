@@ -3047,6 +3047,8 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
                 snprintf(error_buf, error_buf_size,
                          "error while pre-opening mapped directory: "
                          "invalid map\n");
+            if (mapping_copy != mapping_copy_buf)
+                wasm_runtime_free(mapping_copy);
             goto fail;
         }
 
