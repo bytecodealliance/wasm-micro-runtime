@@ -669,7 +669,7 @@ fd_number(const struct fd_object *fo)
     return number;
 }
 #if WASM_ENABLE_CHECKPOINT_RESTORE != 0
-#define CLOSE_NON_STD_FD(fd)                \
+#define CLOSE_NON_STD_FD(env, fd)           \
     do {                                    \
         if (fd > 2) {                       \
             if (env == NULL) {              \

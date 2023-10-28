@@ -2320,7 +2320,7 @@ call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
         if (wasm_interp_create_call_stack(exec_env)) {
             wasm_interp_dump_call_stack(exec_env, true, NULL, 0);
         }
-#endif
+#endif 
         /* Restore operand frames */
         wasm_exec_env_set_cur_frame(exec_env, prev_frame);
         exec_env->wasm_stack.s.top = prev_top;
