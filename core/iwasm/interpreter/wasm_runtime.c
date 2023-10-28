@@ -2419,10 +2419,7 @@ wasm_module_malloc_internal(WASMModuleInstance *module_inst,
         return 0;
     }
 
-    if (memory->heap_handle) {
-        addr = mem_allocator_malloc(memory->heap_handle, size);
-    }
-    else if (module_inst->e->malloc_function && module_inst->e->free_function) {
+    if (module_inst->e->malloc_function && module_inst->e->free_function) {
         if (!execute_malloc_function(
                 module_inst, exec_env, module_inst->e->malloc_function,
                 module_inst->e->retain_function, size, &offset)) {
