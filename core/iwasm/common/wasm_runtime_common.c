@@ -3038,7 +3038,8 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
             }
         }
 
-        strncpy(mapping_copy, map_dir_list[i], strlen(map_dir_list[i]) + 1);
+        bh_memcpy_s(mapping_copy, max_len, map_dir_list[i],
+                    (uint32)(strlen(map_dir_list[i]) + 1));
         map_mapped = strtok(mapping_copy, "::");
         map_host = strtok(NULL, "::");
 

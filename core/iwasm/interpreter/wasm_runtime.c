@@ -10,6 +10,7 @@
 #include "bh_log.h"
 #include "mem_alloc.h"
 #include "../common/wasm_runtime_common.h"
+#include "../common/wasm_memory.h"
 #if WASM_ENABLE_SHARED_MEMORY != 0
 #include "../common/wasm_shared_memory.h"
 #endif
@@ -370,23 +371,9 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
         }
     }
 
-#if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0
     if (memory_data_size > 0) {
-#if UINTPTR_MAX == UINT64_MAX
-        memory->mem_bound_check_1byte.u64 = memory_data_size - 1;
-        memory->mem_bound_check_2bytes.u64 = memory_data_size - 2;
-        memory->mem_bound_check_4bytes.u64 = memory_data_size - 4;
-        memory->mem_bound_check_8bytes.u64 = memory_data_size - 8;
-        memory->mem_bound_check_16bytes.u64 = memory_data_size - 16;
-#else
-        memory->mem_bound_check_1byte.u32[0] = (uint32)memory_data_size - 1;
-        memory->mem_bound_check_2bytes.u32[0] = (uint32)memory_data_size - 2;
-        memory->mem_bound_check_4bytes.u32[0] = (uint32)memory_data_size - 4;
-        memory->mem_bound_check_8bytes.u32[0] = (uint32)memory_data_size - 8;
-        memory->mem_bound_check_16bytes.u32[0] = (uint32)memory_data_size - 16;
-#endif
+        wasm_runtime_set_mem_bound_check_bytes(memory, memory_data_size);
     }
-#endif
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (is_shared_memory) {
@@ -1785,31 +1772,15 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
         uint8 *memory_data = NULL;
         uint64 memory_size = 0;
         WASMDataSeg *data_seg = module->data_segments[i];
-#if WASM_ENABLE_SHARED_MEMORY != 0
-        bool is_shared_memory;
-#endif
 
 #if WASM_ENABLE_BULK_MEMORY != 0
         if (data_seg->is_passive)
             continue;
 #endif
-
-#if WASM_ENABLE_SHARED_MEMORY != 0
-        /* Currently we have only one memory instance */
-        if (module->import_memory_count > 0) {
-            is_shared_memory = (module->import_memories[0].u.memory.flags & 0x2)
-                                   ? true
-                                   : false;
-        }
-        else {
-            is_shared_memory = (module->memories[0].flags & 0x2) ? true : false;
-        }
-        if (is_shared_memory && parent != NULL) {
+        if (is_sub_inst)
             /* Ignore setting memory init data if the memory has been
-             * initialized */
+               initialized */
             continue;
-        }
-#endif
 
         /* has check it in loader */
         memory = module_inst->memories[data_seg->memory_index];
@@ -2503,15 +2474,20 @@ void
 wasm_module_free_internal(WASMModuleInstance *module_inst,
                           WASMExecEnv *exec_env, uint32 ptr)
 {
+    WASMMemoryInstance *memory = wasm_get_default_memory(module_inst);
+
+    if (!memory) {
+        return;
+    }
+
     if (ptr) {
-        WASMMemoryInstance *memory = wasm_get_default_memory(module_inst);
-        uint8 *addr;
+        uint8 *addr = memory->memory_data + ptr;
+        uint8 *memory_data_end;
 
-        if (!memory) {
-            return;
-        }
-
-        addr = memory->memory_data + ptr;
+        /* memory->memory_data_end may be changed in memory grow */
+        SHARED_MEMORY_LOCK(memory);
+        memory_data_end = memory->memory_data_end;
+        SHARED_MEMORY_UNLOCK(memory);
 
         if (memory->heap_handle && memory->heap_data <= addr
             && addr < memory->heap_data_end) {
@@ -2519,7 +2495,7 @@ wasm_module_free_internal(WASMModuleInstance *module_inst,
         }
         else if (module_inst->e->malloc_function
                  && module_inst->e->free_function && memory->memory_data <= addr
-                 && addr < memory->memory_data_end) {
+                 && addr < memory_data_end) {
             execute_free_function(module_inst, exec_env,
                                   module_inst->e->free_function, ptr);
         }

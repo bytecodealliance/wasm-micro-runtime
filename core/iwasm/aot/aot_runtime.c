@@ -7,6 +7,7 @@
 #include "bh_log.h"
 #include "mem_alloc.h"
 #include "../common/wasm_runtime_common.h"
+#include "../common/wasm_memory.h"
 #include "../interpreter/wasm_runtime.h"
 #if WASM_ENABLE_SHARED_MEMORY != 0
 #include "../common/wasm_shared_memory.h"
@@ -592,24 +593,7 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
     }
 
     if (memory_data_size > 0) {
-#if UINTPTR_MAX == UINT64_MAX
-        memory_inst->mem_bound_check_1byte.u64 = memory_data_size - 1;
-        memory_inst->mem_bound_check_2bytes.u64 = memory_data_size - 2;
-        memory_inst->mem_bound_check_4bytes.u64 = memory_data_size - 4;
-        memory_inst->mem_bound_check_8bytes.u64 = memory_data_size - 8;
-        memory_inst->mem_bound_check_16bytes.u64 = memory_data_size - 16;
-#else
-        memory_inst->mem_bound_check_1byte.u32[0] =
-            (uint32)memory_data_size - 1;
-        memory_inst->mem_bound_check_2bytes.u32[0] =
-            (uint32)memory_data_size - 2;
-        memory_inst->mem_bound_check_4bytes.u32[0] =
-            (uint32)memory_data_size - 4;
-        memory_inst->mem_bound_check_8bytes.u32[0] =
-            (uint32)memory_data_size - 8;
-        memory_inst->mem_bound_check_16bytes.u32[0] =
-            (uint32)memory_data_size - 16;
-#endif
+        wasm_runtime_set_mem_bound_check_bytes(memory_inst, memory_data_size);
     }
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
@@ -657,9 +641,6 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
     AOTMemoryInstance *memories, *memory_inst;
     AOTMemInitData *data_seg;
     uint64 total_size;
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    bool is_shared_memory;
-#endif
 
     module_inst->memory_count = memory_count;
     total_size = sizeof(AOTMemoryInstance *) * (uint64)memory_count;
@@ -687,21 +668,16 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
         return true;
     }
 
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    /* Currently we have only one memory instance */
-    is_shared_memory = module->memories[0].memory_flags & 0x02 ? true : false;
-    if (is_shared_memory && parent != NULL) {
-        /* Ignore setting memory init data if the memory has been initialized */
-        return true;
-    }
-#endif
-
     for (i = 0; i < module->mem_init_data_count; i++) {
         data_seg = module->mem_init_data_list[i];
 #if WASM_ENABLE_BULK_MEMORY != 0
         if (data_seg->is_passive)
             continue;
 #endif
+        if (parent != NULL)
+            /* Ignore setting memory init data if the memory has been
+               initialized */
+            continue;
 
         bh_assert(data_seg->offset.init_expr_type == INIT_EXPR_TYPE_I32_CONST
                   || data_seg->offset.init_expr_type
@@ -1926,6 +1902,13 @@ aot_module_free_internal(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
 
     if (ptr) {
         uint8 *addr = memory_inst->memory_data + ptr;
+        uint8 *memory_data_end;
+
+        /* memory->memory_data_end may be changed in memory grow */
+        SHARED_MEMORY_LOCK(memory_inst);
+        memory_data_end = memory_inst->memory_data_end;
+        SHARED_MEMORY_UNLOCK(memory_inst);
+
         if (memory_inst->heap_handle && memory_inst->heap_data < addr
             && addr < memory_inst->heap_data_end) {
             mem_allocator_free(memory_inst->heap_handle, addr);
@@ -1933,7 +1916,7 @@ aot_module_free_internal(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
         else if (module->malloc_func_index != (uint32)-1
                  && module->free_func_index != (uint32)-1
                  && memory_inst->memory_data <= addr
-                 && addr < memory_inst->memory_data_end) {
+                 && addr < memory_data_end) {
             AOTFunctionInstance *free_func;
             char *free_func_name;
 
