@@ -3012,8 +3012,82 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
             goto fail;
         }
 
-        fd_table_insert_existing(curfds, wasm_fd, raw_fd);
-        fd_prestats_insert(prestats, dir_list[i], wasm_fd);
+        if (!fd_table_insert_existing(curfds, wasm_fd, raw_fd)
+            || !fd_prestats_insert(prestats, dir_list[i], wasm_fd)) {
+            if (error_buf)
+                snprintf(
+                    error_buf, error_buf_size,
+                    "error while pre-opening directory %s: insertion failed\n",
+                    dir_list[i]);
+            goto fail;
+        }
+    }
+
+    for (i = 0; i < map_dir_count; i++, wasm_fd++) {
+        char mapping_copy_buf[256];
+        char *mapping_copy = mapping_copy_buf;
+        char *map_mapped = NULL, *map_host = NULL;
+        const unsigned long max_len = strlen(map_dir_list[i]) * 2 + 3;
+
+        /* Allocation limit for runtime environments with reduced stack size */
+        if (max_len > 256) {
+            if (!(mapping_copy = wasm_runtime_malloc(max_len))) {
+                snprintf(error_buf, error_buf_size,
+                         "error while allocating for directory mapping\n");
+                goto fail;
+            }
+        }
+
+        strncpy(mapping_copy, map_dir_list[i], strlen(map_dir_list[i]) + 1);
+        map_mapped = strtok(mapping_copy, "::");
+        map_host = strtok(NULL, "::");
+
+        if (!map_mapped || !map_host) {
+            if (error_buf)
+                snprintf(error_buf, error_buf_size,
+                         "error while pre-opening mapped directory: "
+                         "invalid map\n");
+            if (mapping_copy != mapping_copy_buf)
+                wasm_runtime_free(mapping_copy);
+            goto fail;
+        }
+
+        path = realpath(map_host, resolved_path);
+        if (!path) {
+            if (error_buf)
+                snprintf(error_buf, error_buf_size,
+                         "error while pre-opening mapped directory %s: %d\n",
+                         map_host, errno);
+            if (mapping_copy != mapping_copy_buf)
+                wasm_runtime_free(mapping_copy);
+            goto fail;
+        }
+
+        raw_fd = open(path, O_RDONLY | O_DIRECTORY, 0);
+        if (raw_fd == -1) {
+            if (error_buf)
+                snprintf(error_buf, error_buf_size,
+                         "error while pre-opening mapped directory %s: %d\n",
+                         map_host, errno);
+            if (mapping_copy != mapping_copy_buf)
+                wasm_runtime_free(mapping_copy);
+            goto fail;
+        }
+
+        if (!fd_table_insert_existing(curfds, wasm_fd, raw_fd)
+            || !fd_prestats_insert(prestats, map_mapped, wasm_fd)) {
+            if (error_buf)
+                snprintf(error_buf, error_buf_size,
+                         "error while pre-opening mapped directory %s: "
+                         "insertion failed\n",
+                         dir_list[i]);
+            if (mapping_copy != mapping_copy_buf)
+                wasm_runtime_free(mapping_copy);
+            goto fail;
+        }
+
+        if (mapping_copy != mapping_copy_buf)
+            wasm_runtime_free(mapping_copy);
     }
 
     /* addr_pool(textual) -> apool */
