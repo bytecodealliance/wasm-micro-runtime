@@ -1375,7 +1375,15 @@ load_memory(const uint8 **p_buf, const uint8 *buf_end, WASMMemory *memory,
         return false;
     }
     if (memory->flags > 1) {
-        set_error_buf(error_buf, error_buf_size, "integer too large");
+        if (memory->flags & 2) {
+            set_error_buf(error_buf, error_buf_size,
+                          "shared memory flag was found, "
+                          "please enable shared memory, lib-pthread "
+                          "or lib-wasi-threads");
+        }
+        else {
+            set_error_buf(error_buf, error_buf_size, "invalid memory flags");
+        }
         return false;
     }
 #else

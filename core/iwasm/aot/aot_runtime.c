@@ -7,6 +7,7 @@
 #include "bh_log.h"
 #include "mem_alloc.h"
 #include "../common/wasm_runtime_common.h"
+#include "../common/wasm_memory.h"
 #include "../interpreter/wasm_runtime.h"
 #if WASM_ENABLE_SHARED_MEMORY != 0
 #include "../common/wasm_shared_memory.h"
@@ -382,7 +383,7 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
     uint32 inc_page_count, aux_heap_base, global_idx;
     uint32 bytes_of_last_page, bytes_to_page_end;
     uint32 heap_offset = num_bytes_per_page * init_page_count;
-    uint64 total_size;
+    uint64 memory_data_size, max_memory_data_size;
     uint8 *p = NULL, *global_addr;
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     uint8 *mapped_mem;
@@ -496,23 +497,34 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
                 module->aux_stack_size);
     LOG_VERBOSE("  heap offset: %u, heap size: %d\n", heap_offset, heap_size);
 
-    total_size = (uint64)num_bytes_per_page * init_page_count;
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    if (is_shared_memory) {
-        /* Allocate max page for shared memory */
-        total_size = (uint64)num_bytes_per_page * max_page_count;
-    }
-#endif
-    bh_assert(total_size <= UINT32_MAX);
+    memory_data_size = (uint64)num_bytes_per_page * init_page_count;
+    max_memory_data_size = (uint64)num_bytes_per_page * max_page_count;
+    bh_assert(memory_data_size <= UINT32_MAX);
+    bh_assert(max_memory_data_size <= 4 * (uint64)BH_GB);
+    (void)max_memory_data_size;
 
 #ifndef OS_ENABLE_HW_BOUND_CHECK
-    /* Allocate memory */
-    if (total_size > 0
-        && !(p = runtime_malloc(total_size, error_buf, error_buf_size))) {
-        return NULL;
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    if (is_shared_memory) {
+        /* Allocate maximum memory size when memory is shared */
+        if (max_memory_data_size > 0
+            && !(p = runtime_malloc(max_memory_data_size, error_buf,
+                                    error_buf_size))) {
+            return NULL;
+        }
     }
-#else
-    total_size = (total_size + page_size - 1) & ~(page_size - 1);
+    else
+#endif
+    {
+        /* Allocate initial memory size when memory is not shared */
+        if (memory_data_size > 0
+            && !(p = runtime_malloc(memory_data_size, error_buf,
+                                    error_buf_size))) {
+            return NULL;
+        }
+    }
+#else /* else of OS_ENABLE_HW_BOUND_CHECK */
+    memory_data_size = (memory_data_size + page_size - 1) & ~(page_size - 1);
 
     /* Totally 8G is mapped, the opcode load/store address range is 0 to 8G:
      *   ea = i + memarg.offset
@@ -526,17 +538,18 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
     }
 
 #ifdef BH_PLATFORM_WINDOWS
-    if (!os_mem_commit(p, total_size, MMAP_PROT_READ | MMAP_PROT_WRITE)) {
+    if (!os_mem_commit(p, memory_data_size, MMAP_PROT_READ | MMAP_PROT_WRITE)) {
         set_error_buf(error_buf, error_buf_size, "commit memory failed");
         os_munmap(mapped_mem, map_size);
         return NULL;
     }
 #endif
 
-    if (os_mprotect(p, total_size, MMAP_PROT_READ | MMAP_PROT_WRITE) != 0) {
+    if (os_mprotect(p, memory_data_size, MMAP_PROT_READ | MMAP_PROT_WRITE)
+        != 0) {
         set_error_buf(error_buf, error_buf_size, "mprotect memory failed");
 #ifdef BH_PLATFORM_WINDOWS
-        os_mem_decommit(p, total_size);
+        os_mem_decommit(p, memory_data_size);
 #endif
         os_munmap(mapped_mem, map_size);
         return NULL;
@@ -545,18 +558,15 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
      * again here */
 #endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
-    if (total_size > UINT32_MAX)
-        total_size = UINT32_MAX;
-
     memory_inst->module_type = Wasm_Module_AoT;
     memory_inst->num_bytes_per_page = num_bytes_per_page;
     memory_inst->cur_page_count = init_page_count;
     memory_inst->max_page_count = max_page_count;
-    memory_inst->memory_data_size = (uint32)total_size;
+    memory_inst->memory_data_size = (uint32)memory_data_size;
 
     /* Init memory info */
     memory_inst->memory_data = p;
-    memory_inst->memory_data_end = p + (uint32)total_size;
+    memory_inst->memory_data_end = p + (uint32)memory_data_size;
 
     /* Initialize heap info */
     memory_inst->heap_data = p + heap_offset;
@@ -579,20 +589,8 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
         }
     }
 
-    if (total_size > 0) {
-#if UINTPTR_MAX == UINT64_MAX
-        memory_inst->mem_bound_check_1byte.u64 = total_size - 1;
-        memory_inst->mem_bound_check_2bytes.u64 = total_size - 2;
-        memory_inst->mem_bound_check_4bytes.u64 = total_size - 4;
-        memory_inst->mem_bound_check_8bytes.u64 = total_size - 8;
-        memory_inst->mem_bound_check_16bytes.u64 = total_size - 16;
-#else
-        memory_inst->mem_bound_check_1byte.u32[0] = (uint32)total_size - 1;
-        memory_inst->mem_bound_check_2bytes.u32[0] = (uint32)total_size - 2;
-        memory_inst->mem_bound_check_4bytes.u32[0] = (uint32)total_size - 4;
-        memory_inst->mem_bound_check_8bytes.u32[0] = (uint32)total_size - 8;
-        memory_inst->mem_bound_check_16bytes.u32[0] = (uint32)total_size - 16;
-#endif
+    if (memory_data_size > 0) {
+        wasm_runtime_set_mem_bound_check_bytes(memory_inst, memory_data_size);
     }
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
@@ -613,7 +611,7 @@ fail1:
 #else
 #ifdef BH_PLATFORM_WINDOWS
     if (memory_inst->memory_data)
-        os_mem_decommit(p, total_size);
+        os_mem_decommit(p, memory_data_size);
 #endif
     os_munmap(mapped_mem, map_size);
 #endif
@@ -673,6 +671,10 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
         if (data_seg->is_passive)
             continue;
 #endif
+        if (parent != NULL)
+            /* Ignore setting memory init data if the memory has been
+               initialized */
+            continue;
 
         bh_assert(data_seg->offset.init_expr_type == INIT_EXPR_TYPE_I32_CONST
                   || data_seg->offset.init_expr_type
@@ -1897,6 +1899,13 @@ aot_module_free_internal(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
 
     if (ptr) {
         uint8 *addr = memory_inst->memory_data + ptr;
+        uint8 *memory_data_end;
+
+        /* memory->memory_data_end may be changed in memory grow */
+        SHARED_MEMORY_LOCK(memory_inst);
+        memory_data_end = memory_inst->memory_data_end;
+        SHARED_MEMORY_UNLOCK(memory_inst);
+
         if (memory_inst->heap_handle && memory_inst->heap_data < addr
             && addr < memory_inst->heap_data_end) {
             mem_allocator_free(memory_inst->heap_handle, addr);
@@ -1904,7 +1913,7 @@ aot_module_free_internal(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
         else if (module->malloc_func_index != (uint32)-1
                  && module->free_func_index != (uint32)-1
                  && memory_inst->memory_data <= addr
-                 && addr < memory_inst->memory_data_end) {
+                 && addr < memory_data_end) {
             AOTFunctionInstance *free_func;
             char *free_func_name;
 
@@ -2298,7 +2307,9 @@ aot_memory_init(AOTModuleInstance *module_inst, uint32 seg_index, uint32 offset,
     maddr = wasm_runtime_addr_app_to_native(
         (WASMModuleInstanceCommon *)module_inst, dst);
 
+    SHARED_MEMORY_LOCK(memory_inst);
     bh_memcpy_s(maddr, memory_inst->memory_data_size - dst, data + offset, len);
+    SHARED_MEMORY_UNLOCK(memory_inst);
     return true;
 }
 
