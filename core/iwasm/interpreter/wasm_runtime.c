@@ -342,9 +342,6 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
      * again here */
 #endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
-    if (memory_data_size > UINT32_MAX)
-        memory_data_size = (uint32)memory_data_size;
-
     memory->module_type = Wasm_Module_Bytecode;
     memory->num_bytes_per_page = num_bytes_per_page;
     memory->cur_page_count = init_page_count;
