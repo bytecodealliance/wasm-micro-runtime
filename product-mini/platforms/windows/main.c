@@ -219,7 +219,7 @@ module_reader_callback(package_type_t module_type, const char *module_name,
     const char *format = "%s/%s%s";
     int sz = strlen(module_search_path) + strlen("/") + strlen(module_name)
              + strlen(file_format) + 1;
-    char *wasm_file_name = BH_MALLOC(sz);
+    char *wasm_file_name = wasm_runtime_malloc(sz);
     if (!wasm_file_name) {
         return false;
     }
