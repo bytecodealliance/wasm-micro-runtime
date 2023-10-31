@@ -215,6 +215,12 @@ wasm_cluster_set_debug_inst(WASMCluster *cluster, WASMDebugInstance *inst);
 
 #endif /* end of WASM_ENABLE_DEBUG_INTERP != 0 */
 
+void
+wasm_cluster_traverse_lock(WASMExecEnv *exec_env);
+
+void
+wasm_cluster_traverse_unlock(WASMExecEnv *exec_env);
+
 #ifdef __cplusplus
 }
 #endif
