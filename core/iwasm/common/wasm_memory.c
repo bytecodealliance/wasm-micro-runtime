@@ -547,8 +547,6 @@ wasm_check_app_addr_and_convert(WASMModuleInstance *module_inst, bool is_str,
         return false;
     }
 
-    SHARED_MEMORY_LOCK(memory_inst);
-
     native_addr = memory_inst->memory_data + app_buf_addr;
 
     bounds_checks = is_bounds_checks_enabled((wasm_module_inst_t)module_inst);
@@ -563,6 +561,8 @@ wasm_check_app_addr_and_convert(WASMModuleInstance *module_inst, bool is_str,
     /* No need to check the app_offset and buf_size if memory access
        boundary check with hardware trap is enabled */
 #ifndef OS_ENABLE_HW_BOUND_CHECK
+    SHARED_MEMORY_LOCK(memory_inst);
+
     if (app_buf_addr >= memory_inst->memory_data_size) {
         goto fail;
     }
@@ -583,9 +583,9 @@ wasm_check_app_addr_and_convert(WASMModuleInstance *module_inst, bool is_str,
         if (str == str_end)
             goto fail;
     }
-#endif
 
     SHARED_MEMORY_UNLOCK(memory_inst);
+#endif
 
 success:
     *p_native_addr = (void *)native_addr;

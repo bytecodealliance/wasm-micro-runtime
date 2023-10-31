@@ -374,6 +374,7 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (is_shared_memory) {
+        memory->is_shared_memory = true;
         memory->ref_count = 1;
     }
 #endif
