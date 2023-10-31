@@ -26,8 +26,8 @@
 
 // On Linux, prefer to use getrandom, though it isn't available in
 // GLIBC before 2.25.
-#if (defined(__linux__) || defined(ESP_PLATFORM)) \
-    && (!defined(__GLIBC__) || __GLIBC__ > 2      \
+#if (defined(__linux__) || defined(ESP_PLATFORM) || defined(__COSMOPOLITAN__)) \
+    && (!defined(__GLIBC__) || __GLIBC__ > 2                                   \
         || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 25))
 #define CONFIG_HAS_GETRANDOM 1
 #else
