@@ -790,12 +790,12 @@ compile_int_rot(AOTCompContext *comp_ctx, LLVMValueRef left, LLVMValueRef right,
     }
 
     if (is_rotl) {
-        /* left << count | left >> (BITS-count) */
+        /* (left << count) | (left >> ((BITS - count) & mask)) */
         LLVM_BUILD_OP(Shl, left, right, tmp_l, "tmp_l", NULL);
         LLVM_BUILD_OP(LShr, left, bits_minus_shift_count, tmp_r, "tmp_r", NULL);
     }
     else {
-        /* left>>count | left << (BITS-count) */
+        /* (left >> count) | (left << ((BITS - count) & mask)) */
         LLVM_BUILD_OP(LShr, left, right, tmp_l, "tmp_l", NULL);
         LLVM_BUILD_OP(Shl, left, bits_minus_shift_count, tmp_r, "tmp_r", NULL);
     }
