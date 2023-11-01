@@ -566,7 +566,7 @@ function wasi_certification_test()
     cd wasi-testsuite
     git reset --hard ${WASI_TESTSUITE_COMMIT}
 
-    bash ../../wasi-test-script/run_wasi_tests.sh $1 $TARGET \
+    bash ../../wasi-test-script/run_wasi_tests.sh $1 $TARGET $WASI_TEST_FILTER \
         | tee -a ${REPORT_DIR}/wasi_test_report.txt
     ret=${PIPESTATUS[0]}
 
@@ -834,6 +834,17 @@ function trigger()
     if [[ "$WAMR_BUILD_SANITIZER" == "tsan" ]]; then
         echo "Setting run with tsan"
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_SANITIZER=tsan"
+    fi
+
+    # Make sure we're using the builtin WASI libc implementation
+    # if we're running the wasi certification tests.
+    if [[ $TEST_CASE_ARR ]]; then
+        for test in "${TEST_CASE_ARR[@]}"; do
+            if [[ "$test" == "wasi_certification" ]]; then
+                EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_LIBC_UVWASI=0 -DWAMR_BUILD_LIBC_WASI=1"
+                break
+            fi
+        done
     fi
 
     for t in "${TYPE[@]}"; do
