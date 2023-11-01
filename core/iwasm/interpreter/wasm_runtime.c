@@ -338,8 +338,12 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
         set_error_buf(error_buf, error_buf_size, "mprotect memory failed");
         goto fail2;
     }
+
     /* Newly allocated pages are filled with zero by the OS, we don't fill it
      * again here */
+
+    if (memory_data_size > UINT32_MAX)
+        memory_data_size = UINT32_MAX;
 #endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
     memory->module_type = Wasm_Module_Bytecode;

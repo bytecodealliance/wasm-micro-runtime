@@ -554,8 +554,12 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
         os_munmap(mapped_mem, map_size);
         return NULL;
     }
+
     /* Newly allocated pages are filled with zero by the OS, we don't fill it
      * again here */
+
+    if (memory_data_size > UINT32_MAX)
+        memory_data_size = UINT32_MAX;
 #endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
     memory_inst->module_type = Wasm_Module_AoT;

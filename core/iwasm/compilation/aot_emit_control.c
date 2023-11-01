@@ -344,7 +344,8 @@ push_aot_block_to_stack_and_pass_params(AOTCompContext *comp_ctx,
         for (i = 0; i < block->param_count; i++) {
             param_index = block->param_count - 1 - i;
             POP(value, block->param_types[param_index]);
-            ADD_TO_PARAM_PHIS(block, value, param_index);
+            if (block->llvm_entry_block)
+                ADD_TO_PARAM_PHIS(block, value, param_index);
             if (block->label_type == LABEL_TYPE_IF
                 && !block->skip_wasm_code_else) {
                 if (block->llvm_else_block) {
@@ -366,7 +367,10 @@ push_aot_block_to_stack_and_pass_params(AOTCompContext *comp_ctx,
 
     /* Push param phis to the new block */
     for (i = 0; i < block->param_count; i++) {
-        PUSH(block->param_phis[i], block->param_types[i]);
+        if (block->llvm_entry_block)
+            PUSH(block->param_phis[i], block->param_types[i]);
+        else
+            PUSH(block->else_param_phis[i], block->param_types[i]);
     }
 
     return true;
