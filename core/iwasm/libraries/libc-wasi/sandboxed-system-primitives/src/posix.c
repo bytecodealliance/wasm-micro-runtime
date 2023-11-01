@@ -1288,6 +1288,11 @@ path_get(wasm_exec_env_t exec_env, struct fd_table *curfds,
     size_t expansions = 0;
     char *symlink = NULL;
     size_t symlink_len;
+#ifdef BH_PLATFORM_WINDOWS
+#define PATH_SEPARATORS "/\\"
+#else
+#define PATH_SEPARATORS "/"
+#endif
 
     for (;;) {
         // Extract the next pathname component from 'paths[curpath]', null
@@ -1295,9 +1300,10 @@ path_get(wasm_exec_env_t exec_env, struct fd_table *curfds,
         // whether the pathname component is followed by one or more
         // trailing slashes, as this requires it to be a directory.
         char *file = paths[curpath];
-        char *file_end = file + strcspn(file, "/");
-        paths[curpath] = file_end + strspn(file_end, "/");
-        bool ends_with_slashes = *file_end == '/';
+        char *file_end = file + strcspn(file, PATH_SEPARATORS);
+        paths[curpath] = file_end + strspn(file_end, PATH_SEPARATORS);
+        bool ends_with_slashes =
+            (*file_end != '\0' && strchr(PATH_SEPARATORS, *file_end));
         *file_end = '\0';
 
         // Test for empty pathname strings and absolute paths.
@@ -2880,8 +2886,7 @@ __wasi_errno_t
 wasmtime_ssp_sched_yield(void)
 {
 #ifdef BH_PLATFORM_WINDOWS
-    if (!SwitchToThread())
-        return __WASI_EAGAIN;
+    SwitchToThread();
 #else
     if (sched_yield() < 0)
         return convert_errno(errno);
