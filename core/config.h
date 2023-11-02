@@ -290,6 +290,11 @@
 #define WASM_ENABLE_SIMD 0
 #endif
 
+/* GC performance profiling */
+#ifndef WASM_ENABLE_GC_PERF_PROFILING
+#define WASM_ENABLE_GC_PERF_PROFILING 0
+#endif
+
 /* Memory profiling */
 #ifndef WASM_ENABLE_MEMORY_PROFILING
 #define WASM_ENABLE_MEMORY_PROFILING 0

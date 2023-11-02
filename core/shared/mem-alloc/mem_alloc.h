@@ -76,6 +76,11 @@ mem_allocator_set_gc_finalizer(mem_allocator_t allocator, void *obj,
 
 void
 mem_allocator_unset_gc_finalizer(mem_allocator_t allocator, void *obj);
+
+#if WASM_ENABLE_GC_PERF_PROFILING != 0
+void
+mem_allocator_dump_perf_profiling(mem_allocator_t allocator);
+#endif
 #endif /* end of WASM_ENABLE_GC != 0 */
 
 bool

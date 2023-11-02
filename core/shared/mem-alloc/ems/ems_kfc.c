@@ -492,4 +492,21 @@ gc_show_fragment(void *heap_arg)
     os_printf("\n[GC %p top sizes] %" PRIu32 " %" PRIu32 " %" PRIu32 "\n", heap,
               stats[0], stats[1], stats[2]);
 }
+
+#if WASM_ENABLE_GC_PERF_PROFILING != 0
+void
+gc_dump_perf_profiling(gc_handle_t *handle)
+{
+    gc_heap_t *gc_heap_handle = (void *)handle;
+    if (gc_heap_handle) {
+        os_printf("\nGC performance summary\n");
+        os_printf("    Total GC time (ms): %u\n",
+                  gc_heap_handle->total_gc_time);
+        os_printf("    Max GC time (ms): %u\n", gc_heap_handle->max_gc_time);
+    }
+    else {
+        os_printf("Failed to dump GC performance\n");
+    }
+}
+#endif
 #endif
