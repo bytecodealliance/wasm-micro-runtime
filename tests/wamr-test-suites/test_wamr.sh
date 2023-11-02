@@ -14,7 +14,7 @@ function help()
 {
     echo "test_wamr.sh [options]"
     echo "-c clean previous test results, not start test"
-    echo "-s {suite_name} test only one suite (spec|wasi_certification|wamr_compiler)"
+    echo "-s {suite_name} test only one suite (spec|wasi_certification|wamr_compiler|exception)"
     echo "-m set compile target of iwasm(x86_64|x86_32|armv7_vfp|thumbv7_vfp|riscv64_lp64d|riscv64_lp64|aarch64)"
     echo "-t set compile type of iwasm(classic-interp|fast-interp|jit|aot|fast-jit|multi-tier-jit)"
     echo "-M enable multi module feature"
@@ -575,6 +575,13 @@ function exception_test()
 
     local ARGS_FOR_SPEC_TEST="-e --no_clean_up "
 
+    # propagate multimodule if set
+    if [[ 1 == ${ENABLE_MULTI_MODULE} ]]; then
+        if [[ $1 == 'classic-interp' || $1 == 'fast-interp' ]]; then
+            ARGS_FOR_SPEC_TEST+="-M "
+        fi
+    fi
+
     # set log directory
     ARGS_FOR_SPEC_TEST+="--log ${REPORT_DIR}"
 
@@ -898,7 +905,7 @@ function trigger()
     if [[ ${ENABLE_EH} == 1 ]]; then
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_EXCE_HANDLING=1"
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_TAIL_CALL=1"
-	EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_MULTI_MODULE=1"
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_MULTI_MODULE=1"
     fi
     echo "SANITIZER IS" $WAMR_BUILD_SANITIZER
 

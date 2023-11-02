@@ -71,7 +71,7 @@ def ignore_the_case(
     eh_flag=False,
 ):
     # print(f"case_name {case_name}\n")
-    if eh_flag and case_name in [ "tag", "try_catch", "rethrow", "try_delegate" ]:
+    if eh_flag and case_name in [ "throw", "tag", "try_catch", "rethrow", "try_delegate" ]:
         return False
     else:
         return True

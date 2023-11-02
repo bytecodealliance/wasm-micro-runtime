@@ -1278,7 +1278,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                 /* get tag type */
                 uint8 tag_type_index =
-                    module->module->tags[exception_tag_index].type;
+                    module->module->tags[exception_tag_index]->type;
                 uint32 cell_num_to_copy =
                     wasm_types[tag_type_index]->param_cell_num;
 
@@ -1297,9 +1297,35 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             {
                 read_leb_int32(frame_ip, frame_ip_end, exception_tag_index);
 
-            /* landig pad for the rethrow ? */
+            /* landing pad for the rethrow ? */
             find_a_catch_handler:
             {
+                WASMType *tag_type = NULL;
+                uint32 cell_num_to_copy = 0;
+                if (IS_INVALID_TAGINDEX(exception_tag_index)) {
+                    /*
+                     * invalid exception index,
+                     * generated if a submodule throws an exception
+                     * that has not been imported here
+                     *
+                     * This should result in a branch to the CATCH_ALL block,
+                     * if there is one
+                     */
+                    tag_type = NULL;
+                    cell_num_to_copy = 0;
+                }
+                else {
+                    if (module->tags[exception_tag_index].is_import_tag) {
+                        tag_type = module->tags[exception_tag_index]
+                                       .u.tag_import->tag_type;
+                    }
+                    else {
+                        tag_type =
+                            module->tags[exception_tag_index].u.tag->tag_type;
+                    }
+                    cell_num_to_copy = tag_type->param_cell_num;
+                }
+
                 /* browse through frame stack */
                 uint32 relative_depth = 0;
                 do {
@@ -1315,7 +1341,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             /*
                              * skip that blocks in search
                              * BLOCK, IF and LOOP do not contain handlers and
-                             * cannot catch exceptions blocks marked as CATCH or
+                             * cannot catch exceptions.
+                             * blocks marked as CATCH or
                              * CATCH_ALL did already caugth an exception and can
                              * only be a target for RETHROW, but cannot catch an
                              * exception again
@@ -1353,34 +1380,20 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                             UNWIND_CSP(relative_depth,
                                                        LABEL_TYPE_CATCH);
 
-                                            /* transfer exception values */
-                                            uint8 tag_type_index =
-                                                module->module
-                                                    ->tags[exception_tag_index]
-                                                    .type;
-                                            uint32 cell_num_to_copy =
-                                                wasm_types[tag_type_index]
-                                                    ->param_cell_num;
                                             /* push exception_tag_index and
                                              * exception values for rethrow */
                                             PUSH_I32(exception_tag_index);
-                                            if (cell_num_to_copy > 0) {
-                                                word_copy(
-                                                    frame_sp,
-                                                    frame_sp_old
-                                                        - cell_num_to_copy,
-                                                    cell_num_to_copy);
-                                            }
+                                            word_copy(frame_sp,
+                                                      frame_sp_old
+                                                          - cell_num_to_copy,
+                                                      cell_num_to_copy);
                                             frame_sp += cell_num_to_copy;
                                             /* push exception values for catch
                                              */
-                                            if (cell_num_to_copy > 0) {
-                                                word_copy(
-                                                    frame_sp,
-                                                    frame_sp_old
-                                                        - cell_num_to_copy,
-                                                    cell_num_to_copy);
-                                            }
+                                            word_copy(frame_sp,
+                                                      frame_sp_old
+                                                          - cell_num_to_copy,
+                                                      cell_num_to_copy);
                                             frame_sp += cell_num_to_copy;
 
                                             /* advance to handler */
@@ -1409,21 +1422,11 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                         /* unwind to delegated frame */
                                         frame_csp -= lookup_depth;
 
-                                        /* transfer exception values */
-                                        uint8 tag_type_index =
-                                            module->module
-                                                ->tags[exception_tag_index]
-                                                .type;
-                                        uint32 cell_num_to_copy =
-                                            wasm_types[tag_type_index]
-                                                ->param_cell_num;
                                         /* push exception values for catch */
-                                        if (cell_num_to_copy > 0) {
-                                            word_copy(frame_sp,
-                                                      frame_sp_old
-                                                          - cell_num_to_copy,
-                                                      cell_num_to_copy);
-                                        }
+                                        word_copy(frame_sp,
+                                                  frame_sp_old
+                                                      - cell_num_to_copy,
+                                                  cell_num_to_copy);
                                         frame_sp += cell_num_to_copy;
 
                                         /* tag_index is already stored in
@@ -1445,25 +1448,11 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                         /* push exception_tag_index and
                                          * exception values for rethrow */
                                         PUSH_I32(exception_tag_index);
-                                        if (exception_tag_index
-                                            != (int32_t)0xFFFFFFFF) {
-                                            /* transfer exception values */
-                                            uint8 tag_type_index =
-                                                module->module
-                                                    ->tags[exception_tag_index]
-                                                    .type;
-                                            uint32 cell_num_to_copy =
-                                                wasm_types[tag_type_index]
-                                                    ->param_cell_num;
-                                            if (cell_num_to_copy > 0) {
-                                                word_copy(
-                                                    frame_sp,
-                                                    frame_sp_old
-                                                        - cell_num_to_copy,
-                                                    cell_num_to_copy);
-                                            }
-                                            frame_sp += cell_num_to_copy;
-                                        }
+                                        word_copy(frame_sp,
+                                                  frame_sp_old
+                                                      - cell_num_to_copy,
+                                                  cell_num_to_copy);
+                                        frame_sp += cell_num_to_copy;
                                         /* catch_all has no exception values */
 
                                         /* advance to handler */
@@ -1475,7 +1464,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                                     "unexpected handler type");
                                         goto got_exception;
                                 }
-
                                 handler_number++;
                             }
                             /* exception not catched in this frame */
@@ -1487,29 +1475,16 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             uint32 *frame_sp_old = frame_sp;
 
                             UNWIND_CSP(relative_depth, LABEL_TYPE_FUNCTION);
-                            if (exception_tag_index
-                                >= (int32_t)module->module->tag_count) {
-                                wasm_set_exception(module, "invalid tag index");
-                                goto got_exception;
-                            }
-
-                            /* transfer exception values */
-                            uint8 tag_type_index =
-                                module->module->tags[exception_tag_index].type;
-                            uint32 cell_num_to_copy =
-                                wasm_types[tag_type_index]->param_cell_num;
                             /* push exception values for catch
                              * The values are copied to the CALLER FRAME
                              * (prev_frame->sp) same behvior ad WASM_OP_RETURN
                              */
-                            if (cell_num_to_copy > 0) {
-                                word_copy(prev_frame->sp,
-                                          frame_sp_old - cell_num_to_copy,
-                                          cell_num_to_copy);
-                            }
+                            word_copy(prev_frame->sp,
+                                      frame_sp_old - cell_num_to_copy,
+                                      cell_num_to_copy);
                             prev_frame->sp += cell_num_to_copy;
                             *((int32 *)(prev_frame->sp)) = exception_tag_index;
-                            (int32 *)(prev_frame->sp++);
+                            prev_frame->sp++;
 
                             /* mark frame as raised exception */
                             wasm_set_exception(module,
@@ -4320,37 +4295,37 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     /* fix framesp */
                     UPDATE_ALL_FROM_FRAME();
 
-                    uint32 import_exception =
-                        0xFFFFFFFF; /* initialize imported exception index to be
-                                       invalid */
+                    uint32 import_exception;
+                    /* initialize imported exception index to be invalid */
+                    SET_INVALID_TAGINDEX(import_exception);
+
                     /* pull external exception */
                     uint32 ext_exception = POP_I32();
 
-                    WASMModule *im_mod = cur_func->u.func_import->import_module;
-
                     /* external function came back with an exception or trap */
                     /* lookup exception in import tags */
-                    uint32 import_tag_index;
-                    for (import_tag_index = 0;
-                         import_tag_index < module->module->import_tag_count;
-                         import_tag_index++) {
-                        WASMTagImport *im_tag =
-                            &(module->module->import_tags[import_tag_index]
-                                  .u.tag);
+                    WASMTagInstance *tag = module->tags;
+                    for (uint32 t = 0; t < module->module->import_tag_count;
+                         tag++, t++) {
 
                         /* compare the module and the external index with the
                          * imort tag data */
-                        if ((im_mod == im_tag->import_module)
-                            && (ext_exception == im_tag->tag_index_linked)) {
+                        if ((cur_func->u.func_import->import_module
+                             == tag->u.tag_import->import_module)
+                            && (ext_exception
+                                == tag->u.tag_import
+                                       ->import_tag_index_linked)) {
                             /* set the import_exception to the import tag */
-                            import_exception = import_tag_index;
+                            import_exception = t;
                             break;
                         }
                     }
                     /*
-                     * push the internal exception index to stack,
-                     * or 0xffffffff in case, the external exception
-                     * is not in the import list
+                     * excange the thrown exception (index valid in submodule)
+                     * with the imported exception index (valid in this module)
+                     * if the module did not import the exception,
+                     * that results in a "INVALID_TAGINDEX", that triggers
+                     * an CATCH_ALL block, if there is one.
                      */
                     PUSH_I32(import_exception);
                 }
