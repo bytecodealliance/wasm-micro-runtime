@@ -4041,8 +4041,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             return;
 
         LOG_FATAL("return_func: %s %p", prev_frame->function->u.func->field_name,prev_frame);
-        if (!strcmp(prev_frame->function->u.func->field_name, "socket")) {
-            // socket -> sendto -> recvfrom 
+        if (!strcmp(prev_frame->function->u.func->field_name, "recvfrom")) {
+            // socket -> sendto -> recvfrom
             counter_ = INT_MAX;
         }
 

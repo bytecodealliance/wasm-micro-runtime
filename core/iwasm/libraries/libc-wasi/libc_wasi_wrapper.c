@@ -1714,7 +1714,7 @@ wasi_sock_open(wasm_exec_env_t exec_env, wasi_fd_t poolfd,
    insert_sock_open_data(poolfd, af, socktype, *sockfd);
 #endif
 
-    LOG_STRACE("wasi_sock_open exec_env=%d, poolfd=%d, af=%d, socktype=%d, sockfd=%d \n", exec_env, poolfd, af, socktype, sockfd);
+    LOG_STRACE("wasi_sock_open exec_env=%d, poolfd=%u, af=%d, socktype=%d, sockfd=%d \n", exec_env, poolfd, af, socktype, *sockfd);
     return ret;
 }
 
