@@ -1386,17 +1386,13 @@ aot_call_wasm_obj_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                        LLVMValueRef src_obj, LLVMValueRef src_offset,
                        LLVMValueRef len)
 {
-    LLVMValueRef param_values[5], func, value, cmp;
+    LLVMValueRef param_values[5], func, value;
     LLVMTypeRef param_types[5], ret_type, func_type, func_ptr_type;
-    LLVMBasicBlockRef init_success;
 
-    ADD_BASIC_BLOCK(init_success, "init success");
-    MOVE_BLOCK_AFTER_CURR(init_success);
-
-    param_types[0] = INT8_PTR_TYPE;
+    param_types[0] = GC_REF_TYPE;
     param_types[1] = I32_TYPE;
-    param_types[2] = I32_TYPE;
-    param_types[3] = INT8_PTR_TYPE;
+    param_types[2] = GC_REF_TYPE;
+    param_types[3] = I32_TYPE;
     param_types[4] = I32_TYPE;
     ret_type = VOID_TYPE;
 
@@ -1409,7 +1405,7 @@ aot_call_wasm_obj_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     param_values[3] = src_offset;
     param_values[4] = len;
     if (!LLVMBuildCall2(comp_ctx->builder, func_type, func, param_values, 5,
-                        "call")) {
+                        "")) {
         aot_set_last_error("llvm build call failed.");
         goto fail;
     }
@@ -1446,8 +1442,8 @@ aot_compile_op_array_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
-    if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_NULL_GC_REF, true, cmp[0],
-                            check_objs_succ))
+    if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_NULL_ARRAY_OBJ, true,
+                            cmp[0], check_objs_succ))
         goto fail;
 
     /* Create if block */
@@ -1455,11 +1451,12 @@ aot_compile_op_array_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     MOVE_BLOCK_AFTER_CURR(len_gt_zero);
     /* Create inner else block */
     ADD_BASIC_BLOCK(inner_else, "inner_else");
-    MOVE_BLOCK_AFTER(inner_else, len_le_zero);
 
     /* Create else(end) block */
     ADD_BASIC_BLOCK(len_le_zero, "len_le_zero");
     MOVE_BLOCK_AFTER_CURR(len_le_zero);
+
+    MOVE_BLOCK_AFTER(inner_else, len_le_zero);
 
     BUILD_ICMP(LLVMIntSGT, len, I32_ZERO, cmp[0], "cmp_len");
     BUILD_COND_BR(cmp[0], len_gt_zero, len_le_zero);
@@ -1474,7 +1471,7 @@ aot_compile_op_array_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     BUILD_ICMP(LLVMIntUGT, boundary, I32_CONST(UINT32_MAX), cmp[0],
                "boundary_check1");
     /* dst_offset + len > wasm_array_obj_length(dst_obj) */
-    if (!aot_get_array_obj_length(comp_ctx, func_ctx, dst_obj, &array_len))
+    if (!aot_array_obj_length(comp_ctx, dst_obj, &array_len))
         goto fail;
     BUILD_ICMP(LLVMIntUGT, boundary, array_len, cmp[1], "boundary_check2");
     /* src_offset > UINT32_MAX - len */
@@ -1485,7 +1482,7 @@ aot_compile_op_array_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     BUILD_ICMP(LLVMIntUGT, boundary, I32_CONST(UINT32_MAX), cmp[2],
                "boundary_check3");
     /* src_offset + len > wasm_array_obj_length(src_obj) */
-    if (!aot_get_array_obj_length(comp_ctx, func_ctx, src_obj, &array_len))
+    if (!aot_array_obj_length(comp_ctx, src_obj, &array_len))
         goto fail;
     BUILD_ICMP(LLVMIntUGT, boundary, array_len, cmp[3], "boundary_check4");
 
@@ -1504,6 +1501,9 @@ aot_compile_op_array_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     if (!aot_call_wasm_obj_copy(comp_ctx, func_ctx, dst_obj, dst_offset,
                                 src_obj, src_offset, len))
         goto fail;
+
+    BUILD_BR(len_le_zero);
+    SET_BUILDER_POS(len_le_zero);
 
     return true;
 fail:
