@@ -891,6 +891,10 @@ main(int argc, char *argv[])
     init_args.mem_alloc_option.pool.heap_size = sizeof(global_heap_buf);
 #else
     init_args.mem_alloc_type = Alloc_With_Allocator;
+#if WASM_MEM_ALLOC_WITH_USER_DATA != 0
+    /* Set user data for the allocator is needed */
+    /* init_args.mem_alloc_option.allocator.user_data = user_data; */
+#endif
     init_args.mem_alloc_option.allocator.malloc_func = malloc_func;
     init_args.mem_alloc_option.allocator.realloc_func = realloc_func;
     init_args.mem_alloc_option.allocator.free_func = free_func;
