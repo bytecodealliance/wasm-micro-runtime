@@ -49,10 +49,17 @@ jobs:
     with:
       os: "ubuntu-20.04"
       arch: "X86"
+  build_llvm_libraries_on_ubuntu_2204:
+    uses: ./.github/workflows/build_llvm_libraries.yml
+    with:
+      os: "ubuntu-22.04"
+      arch: "X86"
   
   build_wamrc:
     needs:
-      [build_llvm_libraries_on_ubuntu_2004]
+      [
+        build_llvm_libraries_on_ubuntu_2004,
+      ]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -90,7 +97,9 @@ jobs:
 
   build_iwasm:
     needs:
-      [build_llvm_libraries_on_ubuntu_2004]
+      [
+        build_llvm_libraries_on_ubuntu_2004,
+      ]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -497,14 +506,15 @@ jobs:
       [
         build_iwasm,
         build_llvm_libraries_on_ubuntu_2004,
+        build_llvm_libraries_on_ubuntu_2204,
         build_wamrc,
       ]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-20.04]
-        sanitizer: ["", "ubsan", "asan"]
+        os: [ubuntu-20.04, ubuntu-22.04]
+        sanitizer: ["", "ubsan", "asan", "tsan"]
         running_mode:
           [
             "classic-interp",
@@ -530,11 +540,14 @@ jobs:
           - os: ubuntu-20.04
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2004.outputs.cache_key }}
             ubuntu_version: "20.04"
+          - os: ubuntu-22.04
+            llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
+            ubuntu_version: "22.04"
 
         exclude:
           # uncompatiable modes and features
           - os: ubuntu-20.04
-            sanitizer: asan
+            sanitizer: tsan
           # asan works only for aot now
           - running_mode: "classic-interp"
             sanitizer: asan
@@ -546,6 +559,14 @@ jobs:
             sanitizer: asan
           - running_mode: "multi-tier-jit"
             sanitizer: asan
+          - running_mode: "classic-interp"
+            sanitizer: tsan
+          - running_mode: "jit"
+            sanitizer: tsan
+          - running_mode: "fast-jit"
+            sanitizer: tsan
+          - running_mode: "multi-tier-jit"
+            sanitizer: tsan
           # classic-interp and fast-interp don't support simd
           - running_mode: "classic-interp"
             test_option: $SIMD_TEST_OPTIONS
@@ -595,9 +616,10 @@ jobs:
            || matrix.test_option == '$WASI_TEST_OPTIONS')
           && matrix.running_mode != 'fast-jit' && matrix.running_mode != 'jit' && matrix.running_mode != 'multi-tier-jit'
         run: echo "TEST_ON_X86_32=true" >> $GITHUB_ENV
-      
-      - name: set sanitizer
-        run: echo "WAMR_BUILD_SANITIZER=${{ matrix.sanitizer }}" >> $GITHUB_ENV
+
+      - name: set additional tsan options
+        run: echo "TSAN_OPTIONS=suppressions=$PWD/tsan_suppressions.txt" >> $GITHUB_ENV
+        working-directory: tests/wamr-test-suites
 
       #only download llvm libraries in jit and aot mode
       - name: Get LLVM libraries
@@ -638,7 +660,7 @@ jobs:
 
       - name: run tests
         timeout-minutes: 40
-        run: ./test_wamr.sh ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
+        run: ./test_wamr.sh ${{ matrix.test_option }} -t ${{ matrix.running_mode }} -T %{{matrix.sanitizer}}
         working-directory: ./tests/wamr-test-suites
 
       #only install x32 support libraries when to run x86_32 cases

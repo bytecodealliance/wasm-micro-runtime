@@ -67,7 +67,7 @@ if [[ $MODE != "aot" ]];then
     python3 -m pip install -r test-runner/requirements.txt
 
     export TEST_RUNTIME_EXE="${IWASM_CMD}"
-    python3 ${THIS_DIR}/pipe.py | python3 test-runner/wasi_test_runner.py \
+    python3 ${THIS_DIR}/pipe.py | TSAN_OPTIONS=${TSAN_OPTIONS} python3 test-runner/wasi_test_runner.py \
             -r adapters/wasm-micro-runtime.py \
             -t \
                 ${C_TESTS} \
@@ -79,7 +79,7 @@ if [[ $MODE != "aot" ]];then
 
     ret=${PIPESTATUS[1]}
 
-    TEST_RUNTIME_EXE="${IWASM_CMD_STRESS}" python3 test-runner/wasi_test_runner.py \
+    TEST_RUNTIME_EXE="${IWASM_CMD_STRESS}" TSAN_OPTIONS=${TSAN_OPTIONS}  python3 test-runner/wasi_test_runner.py \
             -r adapters/wasm-micro-runtime.py \
             -t \
                 ${THREAD_STRESS_TESTS}

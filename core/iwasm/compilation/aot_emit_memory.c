@@ -157,7 +157,10 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
         if (mem_offset + bytes <= mem_data_size) {
             /* inside memory space */
-            offset1 = I32_CONST((uint32)mem_offset);
+            if (comp_ctx->pointer_size == sizeof(uint64))
+                offset1 = I64_CONST((uint32)mem_offset);
+            else
+                offset1 = I32_CONST((uint32)mem_offset);
             CHECK_LLVM_CONST(offset1);
             if (!enable_segue) {
                 if (!(maddr = LLVMBuildInBoundsGEP2(comp_ctx->builder,

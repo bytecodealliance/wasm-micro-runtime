@@ -46,14 +46,14 @@ on_init()
     count_label = lv_label_create(NULL, NULL);
     lv_obj_align(count_label, NULL, LV_ALIGN_IN_TOP_MID, 0, 0);
 
-    btn1 = lv_btn_create(
-        NULL, NULL); /*Create a button on the currently loaded screen*/
-    lv_obj_set_event_cb(
-        btn1,
-        btn_event_cb); /*Set function to be called when the button is released*/
-    lv_obj_align(btn1, NULL, LV_ALIGN_CENTER, 0, 0); /*Align below the label*/
+    /* Create a button on the currently loaded screen */
+    btn1 = lv_btn_create(NULL, NULL);
+    /* Set function to be called when the button is released */
+    lv_obj_set_event_cb(btn1, (lv_event_cb_t)btn_event_cb);
+    /* Align below the label */
+    lv_obj_align(btn1, NULL, LV_ALIGN_CENTER, 0, 0);
 
-    /*Create a label on the button*/
+    /* Create a label on the button */
     lv_obj_t *btn_label = lv_label_create(btn1, NULL);
     lv_label_set_text(btn_label, "Click --");
 
@@ -61,7 +61,7 @@ on_init()
     lv_label_set_text(label_count1, "100");
     lv_obj_align(label_count1, NULL, LV_ALIGN_IN_BOTTOM_MID, 0, 0);
 
-    /* set up a timer */
+    /* Set up a timer */
     user_timer_t timer;
     timer = api_timer_create(10, true, false, timer1_update);
     if (timer)
