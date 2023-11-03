@@ -1381,10 +1381,10 @@ fail:
 
 #if WASM_ENABLE_GC_BINARYEN != 0
 static bool
-aot_call_wasm_obj_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                       LLVMValueRef dst_obj, LLVMValueRef dst_offset,
-                       LLVMValueRef src_obj, LLVMValueRef src_offset,
-                       LLVMValueRef len)
+aot_call_wasm_array_obj_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                             LLVMValueRef dst_obj, LLVMValueRef dst_offset,
+                             LLVMValueRef src_obj, LLVMValueRef src_offset,
+                             LLVMValueRef len)
 {
     LLVMValueRef param_values[5], func, value;
     LLVMTypeRef param_types[5], ret_type, func_type, func_ptr_type;
@@ -1449,14 +1449,14 @@ aot_compile_op_array_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* Create if block */
     ADD_BASIC_BLOCK(len_gt_zero, "len_gt_zero");
     MOVE_BLOCK_AFTER_CURR(len_gt_zero);
-    /* Create inner else block */
-    ADD_BASIC_BLOCK(inner_else, "inner_else");
 
     /* Create else(end) block */
     ADD_BASIC_BLOCK(len_le_zero, "len_le_zero");
-    MOVE_BLOCK_AFTER_CURR(len_le_zero);
+    MOVE_BLOCK_AFTER(len_le_zero, len_gt_zero);
 
-    MOVE_BLOCK_AFTER(inner_else, len_le_zero);
+    /* Create inner else block */
+    ADD_BASIC_BLOCK(inner_else, "inner_else");
+    MOVE_BLOCK_AFTER(inner_else, len_gt_zero);
 
     BUILD_ICMP(LLVMIntSGT, len, I32_ZERO, cmp[0], "cmp_len");
     BUILD_COND_BR(cmp[0], len_gt_zero, len_le_zero);
@@ -1498,8 +1498,8 @@ aot_compile_op_array_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                             cmp[0], inner_else))
         goto fail;
 
-    if (!aot_call_wasm_obj_copy(comp_ctx, func_ctx, dst_obj, dst_offset,
-                                src_obj, src_offset, len))
+    if (!aot_call_wasm_array_obj_copy(comp_ctx, func_ctx, dst_obj, dst_offset,
+                                      src_obj, src_offset, len))
         goto fail;
 
     BUILD_BR(len_le_zero);

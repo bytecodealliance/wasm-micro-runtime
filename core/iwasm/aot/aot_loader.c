@@ -1409,10 +1409,9 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                     (uint8)wasm_reftype_size(field_type);
 #if !(defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) \
       || defined(BUILD_TARGET_X86_32))
-                if (type->fields[i].field_size == 2)
+                if (field_size == 2)
                     offset = align_uint(offset, 2);
-                else if (type->fields[i].field_size
-                         >= 4) /* field size is 4 or 8 */
+                else if (field_size >= 4) /* field size is 4 or 8 */
                     offset = align_uint(offset, 4);
 #endif
                 struct_type->fields[j].field_offset = offset;
