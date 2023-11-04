@@ -5,7 +5,6 @@
 
 #include "bh_log.h"
 #include <stdio.h>
-#include <unistd.h>
 
 /**
  * The verbose level of the log system.  Only those verbose logs whose
