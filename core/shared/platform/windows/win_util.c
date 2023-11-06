@@ -58,3 +58,36 @@ convert_windows_error_code(DWORD windows_error_code)
             return __WASI_EINVAL;
     }
 }
+
+#ifdef UWP_DEFAULT_VPRINTF
+int
+uwp_print_to_debugger(const char *format, va_list ap)
+{
+    // Provide a stack buffer which should be large enough for any realistic
+    // string so we avoid making an allocation on every printf call.
+    char stack_buf[2048];
+    char *buf = stack_buf;
+    int ret = vsnprintf(stack_buf, sizeof(stack_buf), format, ap);
+
+    if (ret >= sizeof(stack_buf)) {
+        // Allocate an extra byte for the null terminator.
+        char *heap_buf = BH_MALLOC(ret + 1);
+        buf = heap_buf;
+
+        if (heap_buf == NULL) {
+            errno = ENOMEM;
+            return -1;
+        }
+
+        ret = vsnprintf(heap_buf, ret + 1, format, ap);
+    }
+
+    if (ret >= 0)
+        OutputDebugStringA(buf);
+
+    if (buf != stack_buf)
+        BH_FREE(buf);
+
+    return ret;
+}
+#endif
