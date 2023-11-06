@@ -44,6 +44,10 @@ env:
   DEFAULT_TEST_OPTIONS: "-s spec -b"
   MULTI_MODULES_TEST_OPTIONS: "-s spec -b -M"
   THREADS_TEST_OPTIONS: "-s spec -b -p"
+  WASI_TEST_OPTIONS: "-s wasi_certification -w"
+  WASI_TEST_FILTER: ${{ github.workspace }}/product-mini/platforms/windows/wasi_filtered_tests.json
+  # Used when building the WASI socket and thread tests
+  CC: ${{ github.workspace }}/wasi-sdk/bin/clang
 
 # Cancel any in-flight jobs for the same PR/branch so there's only one active
 # at a time
@@ -100,10 +104,30 @@ jobs:
             $DEFAULT_TEST_OPTIONS,
             $MULTI_MODULES_TEST_OPTIONS,
             $THREADS_TEST_OPTIONS,
+            $WASI_TEST_OPTIONS,
           ]
     steps:
       - name: checkout
         uses: actions/checkout@v3
+
+      - name: download and install wasi-sdk
+        if: matrix.test_option == '$WASI_TEST_OPTIONS'
+        run: |
+          curl "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sdk-20.0.m-mingw.tar.gz" -o wasi-sdk.tar.gz -L
+          mkdir wasi-sdk
+          tar -xzf wasi-sdk.tar.gz -C wasi-sdk --strip-components 1
+
+      - name: build socket api tests
+        shell: bash
+        if: matrix.test_option == '$WASI_TEST_OPTIONS'
+        run: ./build.sh
+        working-directory: ./core/iwasm/libraries/lib-socket/test/
+
+      - name: Build WASI thread tests
+        shell: bash
+        if: matrix.test_option == '$WASI_TEST_OPTIONS'
+        run: ./build.sh
+        working-directory: ./core/iwasm/libraries/lib-wasi-threads/test/
 
       - name: run tests
         shell: bash

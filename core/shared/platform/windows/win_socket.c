@@ -70,6 +70,7 @@ os_socket_create(bh_socket_t *sock, bool is_ipv4, bool is_tcp)
 
     (*sock)->type = windows_handle_type_socket;
     (*sock)->access_mode = windows_access_mode_read | windows_access_mode_write;
+    (*sock)->fdflags = 0;
 
     if (is_ipv4) {
         af = AF_INET;
@@ -174,6 +175,7 @@ os_socket_accept(bh_socket_t server_sock, bh_socket_t *sock, void *addr,
 
     (*sock)->type = windows_handle_type_socket;
     (*sock)->access_mode = windows_access_mode_read | windows_access_mode_write;
+    (*sock)->fdflags = 0;
     (*sock)->raw.socket =
         accept(server_sock->raw.socket, (struct sockaddr *)&addr_tmp, &len);
 

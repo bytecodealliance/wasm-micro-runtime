@@ -146,8 +146,19 @@ typedef enum windows_access_mode {
     windows_access_mode_write = 1 << 1
 } windows_access_mode;
 
+// These enum values are defined to be the same as the corresponding WASI
+// fdflags so they can be used interchangeably.
+typedef enum windows_fdflags {
+    windows_fdflags_append = 1 << 0,
+    windows_fdflags_dsync = 1 << 1,
+    windows_fdflags_nonblock = 1 << 2,
+    windows_fdflags_rsync = 1 << 3,
+    windows_fdflags_sync = 1 << 4
+} windows_fdflags;
+
 typedef struct windows_handle {
     windows_handle_type type;
+    windows_fdflags fdflags;
     windows_access_mode access_mode;
     union {
         HANDLE handle;

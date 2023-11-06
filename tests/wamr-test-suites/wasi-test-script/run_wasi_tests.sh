@@ -9,6 +9,7 @@ THIS_DIR=$(cd $(dirname $0) && pwd -P)
 
 readonly MODE=$1
 readonly TARGET=$2
+readonly TEST_FILTER=$3
 
 readonly WORK_DIR=$PWD
 
@@ -41,8 +42,21 @@ readonly THREAD_STRESS_TESTS="${WAMR_DIR}/core/iwasm/libraries/lib-wasi-threads/
 readonly LIB_SOCKET_TESTS="${WAMR_DIR}/core/iwasm/libraries/lib-socket/test/"
 
 run_aot_tests () {
-    local tests=("$@")
+    local -n tests=$1
+    local -n excluded_tests=$2
+
     for test_wasm in ${tests[@]}; do
+        # get the base file name from the filepath
+        local test_name=${test_wasm##*/}
+        test_name=${test_name%.wasm}
+
+        for excluded_test in "${excluded_tests[@]}"; do
+            if [[ $excluded_test == "\"$test_name\"" ]]; then
+                echo "Skipping test $test_name"
+                continue 2
+            fi
+        done
+
         local iwasm="${IWASM_CMD}"
         if [[ $test_wasm =~ "stress" ]]; then
             iwasm="${IWASM_CMD_STRESS}"
@@ -80,15 +94,21 @@ if [[ $MODE != "aot" ]];then
     $PYTHON_EXE -m pip install -r test-runner/requirements.txt
 
     export TEST_RUNTIME_EXE="${IWASM_CMD}"
-    $PYTHON_EXE ${THIS_DIR}/pipe.py | $PYTHON_EXE test-runner/wasi_test_runner.py \
-            -r adapters/wasm-micro-runtime.py \
-            -t \
-                ${C_TESTS} \
-                ${RUST_TESTS} \
-                ${ASSEMBLYSCRIPT_TESTS} \
-                ${THREAD_PROPOSAL_TESTS} \
-                ${THREAD_INTERNAL_TESTS} \
-                ${LIB_SOCKET_TESTS} \
+
+    TEST_OPTIONS="-r adapters/wasm-micro-runtime.py \
+        -t \
+            ${C_TESTS} \
+            ${RUST_TESTS} \
+            ${ASSEMBLYSCRIPT_TESTS} \
+            ${THREAD_PROPOSAL_TESTS} \
+            ${THREAD_INTERNAL_TESTS} \
+            ${LIB_SOCKET_TESTS}"
+
+    if [ -n "$TEST_FILTER" ]; then
+        TEST_OPTIONS="${TEST_OPTIONS} --exclude-filter ${TEST_FILTER}"
+    fi
+
+    $PYTHON_EXE ${THIS_DIR}/pipe.py | $PYTHON_EXE test-runner/wasi_test_runner.py $TEST_OPTIONS
 
     ret=${PIPESTATUS[1]}
 
@@ -114,7 +134,17 @@ else
     for testsuite in ${THREAD_STRESS_TESTS} ${THREAD_PROPOSAL_TESTS} ${THREAD_INTERNAL_TESTS}; do
         tests=$(ls ${testsuite}*.wasm)
         tests_array=($tests)
-        run_aot_tests "${tests_array[@]}"
+
+        if [ -n "$TEST_FILTER" ]; then
+            readarray -t excluded_tests_array < <(jq -c \
+                --slurpfile testsuite_manifest $testsuite/manifest.json \
+                '.[$testsuite_manifest[0].name] // {} | keys[]' \
+                $TEST_FILTER)
+        else
+            excluded_tests_array=()
+        fi
+
+        run_aot_tests tests_array excluded_tests_array
     done
 fi
 

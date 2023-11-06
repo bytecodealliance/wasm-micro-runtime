@@ -7,6 +7,10 @@
 #include "libc_errno.h"
 #include "win_util.h"
 
+#include "PathCch.h"
+
+#pragma comment(lib, "Pathcch.lib")
+
 #define CHECK_VALID_HANDLE_WITH_RETURN_VALUE(win_handle, ret)         \
     do {                                                              \
         if ((win_handle) == NULL                                      \
@@ -188,6 +192,79 @@ get_handle_filepath(HANDLE handle, wchar_t *buf, DWORD buf_size)
     return __WASI_ESUCCESS;
 }
 
+static __wasi_errno_t
+convert_hresult_error_code(HRESULT error_code)
+{
+    switch (error_code) {
+        case E_OUTOFMEMORY:
+            return __WASI_ENOMEM;
+        case E_INVALIDARG:
+        default:
+            return __WASI_EINVAL;
+    }
+}
+
+// Returns the absolute filepath from the relative path to the directory
+// associated with the provided handle.
+static __wasi_errno_t
+get_absolute_filepath(HANDLE handle, const char *relative_path,
+                      wchar_t *absolute_path, size_t buf_len)
+{
+    wchar_t handle_path[PATH_MAX];
+
+    __wasi_errno_t error = get_handle_filepath(handle, handle_path, PATH_MAX);
+
+    if (error != __WASI_ESUCCESS)
+        return error;
+
+    wchar_t relative_wpath[PATH_MAX];
+    error = convert_to_wchar(relative_path, relative_wpath, PATH_MAX);
+
+    if (error != __WASI_ESUCCESS)
+        return error;
+
+    HRESULT ret =
+        PathCchCombine(absolute_path, buf_len, handle_path, relative_wpath);
+    if (ret != S_OK)
+        error = convert_hresult_error_code(ret);
+
+    return error;
+}
+
+static bool
+has_directory_attribute(DWORD attributes)
+{
+    if (attributes == INVALID_FILE_ATTRIBUTES)
+        return false;
+
+    return (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+}
+
+static bool
+is_directory(const wchar_t *path)
+{
+    DWORD attributes = GetFileAttributesW(path);
+
+    return has_directory_attribute(attributes);
+}
+
+static bool
+has_symlink_attribute(DWORD attributes)
+{
+    if (attributes == INVALID_FILE_ATTRIBUTES)
+        return false;
+
+    return (attributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
+}
+
+static bool
+is_symlink(const wchar_t *path)
+{
+    DWORD attributes = GetFileAttributesW(path);
+
+    return has_symlink_attribute(attributes);
+}
+
 static void
 init_dir_stream(os_dir_stream dir_stream, os_file_handle handle)
 {
@@ -275,17 +352,17 @@ create_handle(wchar_t *path, bool is_dir, bool follow_symlink, bool readonly)
 
     DWORD desired_access = GENERIC_READ;
 
-    if (!readonly) {
+    if (!readonly)
         desired_access |= GENERIC_WRITE;
+    else
         create_params.dwFileAttributes |= FILE_ATTRIBUTE_READONLY;
-    }
 
     return CreateFile2(path, desired_access,
                        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
                        OPEN_EXISTING, &create_params);
 }
 
-#if WINAPI_PARTITION_DESKTOP
+#if WINAPI_PARTITION_DESKTOP == 0
 // Modifies the given path in place and replaces it with the filename component
 // (including the extension) of the path.
 static __wasi_errno_t
@@ -387,6 +464,7 @@ get_disk_file_information(HANDLE handle, __wasi_filestat_t *buf)
 
     windows_handle dir_handle = { .access_mode = windows_access_mode_read,
                                   .raw = { .handle = raw_dir_handle },
+                                  .fdflags = 0,
                                   .type = windows_handle_type_file };
     windows_dir_stream dir_stream;
     init_dir_stream(&dir_stream, &dir_handle);
@@ -484,7 +562,7 @@ get_disk_file_information(HANDLE handle, __wasi_filestat_t *buf)
     return error;
 }
 
-#endif /* end of !WINAPI_PARTITION_DESKTOP */
+#endif /* end of WINAPI_PARTITION_DESKTOP == 0 */
 
 static __wasi_errno_t
 get_file_information(os_file_handle handle, __wasi_filestat_t *buf)
@@ -536,7 +614,8 @@ os_file_get_fdflags(os_file_handle handle, __wasi_fdflags_t *flags)
 {
     CHECK_VALID_HANDLE(handle);
 
-    return __WASI_ENOSYS;
+    *flags = handle->fdflags;
+    return __WASI_ESUCCESS;
 }
 
 __wasi_errno_t
@@ -605,6 +684,7 @@ os_open_preopendir(const char *path, os_file_handle *out)
 
     (*out)->type = windows_handle_type_file;
     (*out)->raw.handle = dir_handle;
+    (*out)->fdflags = 0;
     (*out)->access_mode = windows_access_mode_read;
 
     return error;
@@ -616,8 +696,135 @@ os_openat(os_file_handle handle, const char *path, __wasi_oflags_t oflags,
           wasi_libc_file_access_mode access_mode, os_file_handle *out)
 {
     CHECK_VALID_FILE_HANDLE(handle);
+    *out = BH_MALLOC(sizeof(windows_handle));
 
-    return __WASI_ENOSYS;
+    if (*out == NULL)
+        return __WASI_ENOMEM;
+
+    (*out)->type = windows_handle_type_file;
+    (*out)->fdflags = fs_flags;
+    (*out)->raw.handle = INVALID_HANDLE_VALUE;
+
+    DWORD attributes = FILE_FLAG_BACKUP_SEMANTICS;
+
+    if ((fs_flags & (__WASI_FDFLAG_SYNC | __WASI_FDFLAG_RSYNC)) != 0)
+        attributes |= (FILE_FLAG_WRITE_THROUGH | FILE_FLAG_NO_BUFFERING);
+    if ((fs_flags & __WASI_FDFLAG_DSYNC) != 0)
+        attributes |= FILE_FLAG_WRITE_THROUGH;
+
+    if ((oflags & __WASI_O_DIRECTORY) != 0) {
+        attributes |= FILE_ATTRIBUTE_DIRECTORY;
+        oflags &= ~(__WASI_O_DIRECTORY);
+    }
+    // Use async operations on the handle if it's not a directory
+    else {
+        attributes |= FILE_FLAG_OVERLAPPED;
+    }
+
+    __wasi_errno_t error = __WASI_ESUCCESS;
+
+    DWORD access_flags = 0;
+    if ((fs_flags & __WASI_FDFLAG_APPEND) != 0) {
+        if ((attributes & (FILE_FLAG_NO_BUFFERING)) != 0) {
+            // FILE_APPEND_DATA and FILE_FLAG_NO_BUFFERING are mutually
+            // exclusive - CreateFile2 returns 87 (invalid parameter) when they
+            // are combined.
+            error = __WASI_ENOTSUP;
+            goto fail;
+        }
+        access_flags |= FILE_APPEND_DATA;
+    }
+
+    switch (access_mode) {
+        case WASI_LIBC_ACCESS_MODE_READ_ONLY:
+            access_flags |= GENERIC_READ;
+            (*out)->access_mode = windows_access_mode_read;
+            break;
+        case WASI_LIBC_ACCESS_MODE_WRITE_ONLY:
+            access_flags |= GENERIC_WRITE;
+            (*out)->access_mode = windows_access_mode_write;
+            break;
+        case WASI_LIBC_ACCESS_MODE_READ_WRITE:
+            access_flags |= GENERIC_WRITE | GENERIC_READ;
+            (*out)->access_mode =
+                windows_access_mode_read | windows_access_mode_write;
+            break;
+    }
+
+    DWORD creation_disposition = 0;
+
+    switch (oflags) {
+        case __WASI_O_CREAT | __WASI_O_EXCL:
+        case __WASI_O_CREAT | __WASI_O_EXCL | __WASI_O_TRUNC:
+            creation_disposition = CREATE_NEW;
+            break;
+        case __WASI_O_CREAT | __WASI_O_TRUNC:
+            creation_disposition = CREATE_ALWAYS;
+            break;
+        case __WASI_O_CREAT:
+            creation_disposition = OPEN_ALWAYS;
+            break;
+        case 0:
+        case __WASI_O_EXCL:
+            creation_disposition = OPEN_EXISTING;
+            break;
+        case __WASI_O_TRUNC:
+        case __WASI_O_EXCL | __WASI_O_TRUNC:
+            creation_disposition = TRUNCATE_EXISTING;
+            // CreateFile2 requires write access if we truncate the file upon
+            // opening
+            access_flags |= GENERIC_WRITE;
+            break;
+    }
+
+    wchar_t absolute_path[PATH_MAX];
+    error = get_absolute_filepath(handle->raw.handle, path, absolute_path,
+                                  PATH_MAX);
+
+    if (error != __WASI_ESUCCESS)
+        goto fail;
+
+    if ((lookup_flags & __WASI_LOOKUP_SYMLINK_FOLLOW) == 0)
+        attributes |= FILE_FLAG_OPEN_REPARSE_POINT;
+
+    // Check that we're not trying to open an existing file as a directory.
+    // Windows doesn't seem to throw an error in this case so add an
+    // explicit check.
+    if ((attributes & FILE_ATTRIBUTE_DIRECTORY) != 0
+        && creation_disposition == OPEN_EXISTING
+        && !is_directory(absolute_path)) {
+        error = __WASI_ENOTDIR;
+        goto fail;
+    }
+
+    CREATEFILE2_EXTENDED_PARAMETERS create_params;
+    create_params.dwSize = sizeof(create_params);
+    create_params.dwFileAttributes = attributes & 0xFFF;
+    create_params.dwFileFlags = attributes & 0xFFF00000;
+    create_params.dwSecurityQosFlags = 0;
+    create_params.lpSecurityAttributes = NULL;
+    create_params.hTemplateFile = NULL;
+
+    (*out)->raw.handle =
+        CreateFile2(absolute_path, access_flags,
+                    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                    creation_disposition, &create_params);
+
+    if ((*out)->raw.handle == INVALID_HANDLE_VALUE) {
+        error = convert_windows_error_code(GetLastError());
+        goto fail;
+    }
+
+    return error;
+fail:
+    if (*out != NULL) {
+        if ((*out)->raw.handle != INVALID_HANDLE_VALUE)
+            CloseHandle((*out)->raw.handle);
+
+        BH_FREE(*out);
+    }
+
+    return error;
 }
 
 __wasi_errno_t
@@ -656,13 +863,79 @@ os_close(os_file_handle handle, bool is_stdio)
     return __WASI_ESUCCESS;
 }
 
+static __wasi_errno_t
+read_data_at_offset(HANDLE handle, const struct __wasi_iovec_t *iov, int iovcnt,
+                    __wasi_filesize_t offset, size_t *nwritten)
+{
+    OVERLAPPED *read_operations =
+        BH_MALLOC((uint32_t)(sizeof(OVERLAPPED) * (uint32_t)iovcnt));
+
+    if (read_operations == NULL)
+        return __WASI_ENOMEM;
+
+    ULARGE_INTEGER query_offset = { .QuadPart = offset };
+    __wasi_errno_t error = __WASI_ESUCCESS;
+    size_t total_bytes_read = 0;
+
+    const __wasi_iovec_t *current = iov;
+    int successful_read_count = 0;
+
+    for (int i = 0; i < iovcnt; ++i, ++current) {
+        read_operations[i].Internal = 0;
+        read_operations[i].InternalHigh = 0;
+        read_operations[i].Offset = query_offset.LowPart;
+        read_operations[i].OffsetHigh = query_offset.HighPart;
+        read_operations[i].hEvent = NULL;
+
+        if (!ReadFileEx(handle, current->buf, (DWORD)current->buf_len,
+                        &read_operations[i], NULL)) {
+            DWORD win_error = GetLastError();
+            if (win_error != ERROR_IO_PENDING) {
+                error = convert_windows_error_code(win_error);
+                break;
+            }
+        }
+        ++successful_read_count;
+        query_offset.QuadPart += (DWORD)current->buf_len;
+    }
+
+    // Get the result of all the asynchronous read operations
+    for (int i = 0; i < successful_read_count; ++i) {
+        DWORD bytes_transferred = 0;
+        if (!GetOverlappedResult(handle, &read_operations[i],
+                                 &bytes_transferred, true)) {
+            DWORD win_error = GetLastError();
+
+            if (win_error != ERROR_HANDLE_EOF)
+                error = convert_windows_error_code(win_error);
+            else
+                total_bytes_read += (size_t)bytes_transferred;
+
+            CancelIo(handle);
+
+            for (int j = i + 1; j < iovcnt; ++j) {
+                GetOverlappedResult(handle, &read_operations[j],
+                                    &bytes_transferred, true);
+            }
+            break;
+        }
+
+        total_bytes_read += (size_t)bytes_transferred;
+    }
+
+    *nwritten = total_bytes_read;
+
+    BH_FREE(read_operations);
+    return error;
+}
+
 __wasi_errno_t
 os_preadv(os_file_handle handle, const struct __wasi_iovec_t *iov, int iovcnt,
           __wasi_filesize_t offset, size_t *nread)
 {
     CHECK_VALID_FILE_HANDLE(handle);
 
-    return __WASI_ENOSYS;
+    return read_data_at_offset(handle->raw.handle, iov, iovcnt, offset, nread);
 }
 
 __wasi_errno_t
@@ -671,7 +944,90 @@ os_readv(os_file_handle handle, const struct __wasi_iovec_t *iov, int iovcnt,
 {
     CHECK_VALID_HANDLE(handle);
 
-    return __WASI_ENOSYS;
+    LARGE_INTEGER current_offset = { .QuadPart = 0 };
+
+    // Seek to the current offset before reading
+    int ret = SetFilePointerEx(handle->raw.handle, current_offset,
+                               &current_offset, FILE_CURRENT);
+    if (ret == 0)
+        return convert_windows_error_code(GetLastError());
+
+    __wasi_errno_t error =
+        read_data_at_offset(handle->raw.handle, iov, iovcnt,
+                            (__wasi_filesize_t)current_offset.QuadPart, nread);
+
+    if (error != __WASI_ESUCCESS)
+        return error;
+
+    current_offset.QuadPart += (LONGLONG)(*nread);
+
+    // Update the current offset to match how many bytes we've read
+    ret =
+        SetFilePointerEx(handle->raw.handle, current_offset, NULL, FILE_BEGIN);
+
+    if (ret == 0)
+        error = convert_windows_error_code(GetLastError());
+
+    return error;
+}
+
+static __wasi_errno_t
+write_data_at_offset(HANDLE handle, const struct __wasi_ciovec_t *iov,
+                     int iovcnt, __wasi_filesize_t offset, size_t *nwritten)
+{
+    OVERLAPPED *write_operations =
+        BH_MALLOC((uint32_t)(sizeof(OVERLAPPED) * (uint32_t)iovcnt));
+
+    if (write_operations == NULL)
+        return __WASI_ENOMEM;
+
+    ULARGE_INTEGER query_offset = { .QuadPart = offset };
+    __wasi_errno_t error = __WASI_ESUCCESS;
+    size_t total_bytes_written = 0;
+
+    const __wasi_ciovec_t *current = iov;
+    int successful_write_count = 0;
+    for (int i = 0; i < iovcnt; ++i, ++current) {
+        write_operations[i].Internal = 0;
+        write_operations[i].InternalHigh = 0;
+        write_operations[i].Offset = query_offset.LowPart;
+        write_operations[i].OffsetHigh = query_offset.HighPart;
+        write_operations[i].hEvent = NULL;
+
+        if (!WriteFileEx(handle, current->buf, (DWORD)current->buf_len,
+                         &write_operations[i], NULL)) {
+            DWORD win_error = GetLastError();
+            if (win_error != ERROR_IO_PENDING) {
+                error = convert_windows_error_code(win_error);
+                break;
+            }
+        }
+        ++successful_write_count;
+        query_offset.QuadPart += (DWORD)current->buf_len;
+    }
+
+    // Get the result of all the asynchronous writes
+    for (int i = 0; i < successful_write_count; ++i) {
+        DWORD bytes_transferred = 0;
+        if (!GetOverlappedResult(handle, &write_operations[i],
+                                 &bytes_transferred, true)) {
+            error = convert_windows_error_code(GetLastError());
+            CancelIo(handle);
+
+            for (int j = i + 1; j < iovcnt; ++j) {
+                GetOverlappedResult(handle, &write_operations[j],
+                                    &bytes_transferred, true);
+            }
+            break;
+        }
+
+        total_bytes_written += (size_t)bytes_transferred;
+    }
+
+    *nwritten = total_bytes_written;
+
+    BH_FREE(write_operations);
+    return error;
 }
 
 __wasi_errno_t
@@ -680,7 +1036,8 @@ os_pwritev(os_file_handle handle, const struct __wasi_ciovec_t *iov, int iovcnt,
 {
     CHECK_VALID_FILE_HANDLE(handle);
 
-    return __WASI_ENOSYS;
+    return write_data_at_offset(handle->raw.handle, iov, iovcnt, offset,
+                                nwritten);
 }
 
 __wasi_errno_t
@@ -689,7 +1046,31 @@ os_writev(os_file_handle handle, const struct __wasi_ciovec_t *iov, int iovcnt,
 {
     CHECK_VALID_HANDLE(handle);
 
-    return __WASI_ENOSYS;
+    bool append = (handle->fdflags & windows_fdflags_append) != 0;
+    LARGE_INTEGER write_offset = { .QuadPart = 0 };
+    DWORD move_method = append ? FILE_END : FILE_CURRENT;
+
+    int ret = SetFilePointerEx(handle->raw.handle, write_offset, &write_offset,
+                               move_method);
+    if (ret == 0)
+        return convert_windows_error_code(GetLastError());
+
+    __wasi_errno_t error = write_data_at_offset(
+        handle->raw.handle, iov, iovcnt,
+        (__wasi_filesize_t)write_offset.QuadPart, nwritten);
+
+    if (error != __WASI_ESUCCESS)
+        return error;
+
+    write_offset.QuadPart += (LONGLONG)(*nwritten);
+
+    // Update the write offset to match how many bytes we've written
+    ret = SetFilePointerEx(handle->raw.handle, write_offset, NULL, FILE_BEGIN);
+
+    if (ret == 0)
+        error = convert_windows_error_code(GetLastError());
+
+    return error;
 }
 
 __wasi_errno_t
@@ -735,7 +1116,151 @@ os_readlinkat(os_file_handle handle, const char *path, char *buf,
 {
     CHECK_VALID_FILE_HANDLE(handle);
 
-    return __WASI_ENOSYS;
+    wchar_t symlink_path[PATH_MAX];
+    __wasi_errno_t error =
+        get_absolute_filepath(handle->raw.handle, path, symlink_path, PATH_MAX);
+
+    if (error != __WASI_ESUCCESS)
+        return error;
+
+    DWORD symlink_attributes = GetFileAttributesW(symlink_path);
+
+    if (!has_symlink_attribute(symlink_attributes))
+        return __WASI_EINVAL;
+
+    HANDLE link_handle = create_handle(
+        symlink_path, has_directory_attribute(symlink_attributes), false, true);
+
+    if (link_handle == INVALID_HANDLE_VALUE)
+        return convert_windows_error_code(GetLastError());
+
+#if WINAPI_PARTITION_DESKTOP != 0
+// MinGW32 already has a definition for REPARSE_DATA_BUFFER
+#if defined(_MSC_VER) || defined(__MINGW64_VERSION_MAJOR)
+    // See
+    // https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/ns-ntifs-_reparse_data_buffer
+    // for more details.
+    typedef struct _REPARSE_DATA_BUFFER {
+        ULONG ReparseTag;
+        USHORT ReparseDataLength;
+        USHORT Reserved;
+        union {
+            struct {
+                USHORT SubstituteNameOffset;
+                USHORT SubstituteNameLength;
+                USHORT PrintNameOffset;
+                USHORT PrintNameLength;
+                ULONG Flags;
+                WCHAR PathBuffer[1];
+            } SymbolicLinkReparseBuffer;
+            struct {
+                USHORT SubstituteNameOffset;
+                USHORT SubstituteNameLength;
+                USHORT PrintNameOffset;
+                USHORT PrintNameLength;
+                WCHAR PathBuffer[1];
+            } MountPointReparseBuffer;
+            struct {
+                UCHAR DataBuffer[1];
+            } GenericReparseBuffer;
+        } DUMMYUNIONNAME;
+    } REPARSE_DATA_BUFFER, *PREPARSE_DATA_BUFFER;
+#endif
+
+    char buffer[MAXIMUM_REPARSE_DATA_BUFFER_SIZE];
+
+    REPARSE_DATA_BUFFER *reparse_data = (REPARSE_DATA_BUFFER *)buffer;
+
+    if (!DeviceIoControl(link_handle, FSCTL_GET_REPARSE_POINT, NULL, 0, &buffer,
+                         sizeof(buffer), NULL, NULL)) {
+        error = convert_windows_error_code(GetLastError());
+        goto fail;
+    }
+
+    int wbufsize = 0;
+    wchar_t *wbuf = NULL;
+
+    // The following checks are taken from the libuv windows filesystem
+    // implementation,
+    // https://github.com/libuv/libuv/blob/v1.x/src/win/fs.c#L181-L244. Real
+    // symlinks can contain pretty much anything, but the only thing we really
+    // care about is undoing the implicit conversion to an NT namespaced path
+    // that CreateSymbolicLink will perform on absolute paths.
+    if (reparse_data->ReparseTag == IO_REPARSE_TAG_SYMLINK) {
+        wbuf = reparse_data->SymbolicLinkReparseBuffer.PathBuffer
+               + (reparse_data->SymbolicLinkReparseBuffer.SubstituteNameOffset
+                  / sizeof(wchar_t));
+        wbufsize = reparse_data->SymbolicLinkReparseBuffer.SubstituteNameLength
+                   / sizeof(wchar_t);
+
+        if (wbufsize >= 4 && wbuf[0] == L'\\' && wbuf[1] == L'?'
+            && wbuf[2] == L'?' && wbuf[3] == L'\\') {
+            // Starts with \??\ 
+            if (wbufsize >= 6
+                && ((wbuf[4] >= L'A' && wbuf[4] <= L'Z')
+                    || (wbuf[4] >= L'a' && wbuf[4] <= L'z'))
+                && wbuf[5] == L':' && (wbufsize == 6 || wbuf[6] == L'\\'))
+                {
+                    // \??\<drive>:\ 
+                    wbuf += 4;
+                    wbufsize -= 4;
+                }
+                else if (wbufsize >= 8 && (wbuf[4] == L'U' || wbuf[4] == L'u')
+                         && (wbuf[5] == L'N' || wbuf[5] == L'n')
+                         && (wbuf[6] == L'C' || wbuf[6] == L'c')
+                         && wbuf[7] == L'\\')
+                {
+                    // \??\UNC\<server>\<share>\ - make sure the final path looks like \\<server>\<share>\ 
+                    wbuf += 6;
+                    wbuf[0] = L'\\';
+                    wbufsize -= 6;
+                }
+        }
+    }
+    else if (reparse_data->ReparseTag == IO_REPARSE_TAG_MOUNT_POINT) {
+        // Junction
+        wbuf = reparse_data->MountPointReparseBuffer.PathBuffer
+               + (reparse_data->MountPointReparseBuffer.SubstituteNameOffset
+                  / sizeof(wchar_t));
+        wbufsize = reparse_data->MountPointReparseBuffer.SubstituteNameLength
+                   / sizeof(wchar_t);
+
+        // Only treat junctions that look like \??\<drive>:\ as a symlink.
+        if (!(wbufsize >= 6 && wbuf[0] == L'\\' && wbuf[1] == L'?'
+              && wbuf[2] == L'?' && wbuf[3] == L'\\'
+              && ((wbuf[4] >= L'A' && wbuf[4] <= L'Z')
+                  || (wbuf[4] >= L'a' && wbuf[4] <= L'z'))
+              && wbuf[5] == L':' && (wbufsize == 6 || wbuf[6] == L'\\'))) {
+            error = __WASI_EINVAL;
+            goto fail;
+        }
+
+        /* Remove leading \??\ */
+        wbuf += 4;
+        wbufsize -= 4;
+    }
+    else {
+        error = __WASI_EINVAL;
+        goto fail;
+    }
+
+    if (wbuf != NULL)
+        *nread = (size_t)WideCharToMultiByte(CP_UTF8, 0, wbuf, wbufsize, buf,
+                                             (int)bufsize, NULL, NULL);
+
+    if (*nread == 0 && wbuf != NULL) {
+        DWORD win_error = GetLastError();
+        if (win_error == ERROR_INSUFFICIENT_BUFFER)
+            *nread = bufsize;
+        else
+            error = convert_windows_error_code(win_error);
+    }
+#else
+    error = __WASI_ENOTSUP;
+#endif
+fail:
+    CloseHandle(link_handle);
+    return error;
 }
 
 __wasi_errno_t
@@ -762,7 +1287,19 @@ os_mkdirat(os_file_handle handle, const char *path)
 {
     CHECK_VALID_FILE_HANDLE(handle);
 
-    return __WASI_ENOSYS;
+    wchar_t absolute_path[PATH_MAX];
+    __wasi_errno_t error = get_absolute_filepath(handle->raw.handle, path,
+                                                 absolute_path, PATH_MAX);
+
+    if (error != __WASI_ESUCCESS)
+        return error;
+
+    bool success = CreateDirectoryW(absolute_path, NULL);
+
+    if (!success)
+        error = convert_windows_error_code(GetLastError());
+
+    return error;
 }
 
 __wasi_errno_t
@@ -780,7 +1317,28 @@ os_unlinkat(os_file_handle handle, const char *path, bool is_dir)
 {
     CHECK_VALID_FILE_HANDLE(handle);
 
-    return __WASI_ENOSYS;
+    wchar_t absolute_path[PATH_MAX];
+    __wasi_errno_t error = get_absolute_filepath(handle->raw.handle, path,
+                                                 absolute_path, PATH_MAX);
+
+    if (error != __WASI_ESUCCESS)
+        return error;
+
+    DWORD attributes = GetFileAttributesW(absolute_path);
+
+    if (has_symlink_attribute(attributes)) {
+        // Override is_dir for symlinks. A symlink to a directory counts
+        // as a directory itself in Windows.
+        is_dir = has_directory_attribute(attributes);
+    }
+
+    int ret =
+        is_dir ? RemoveDirectoryW(absolute_path) : DeleteFileW(absolute_path);
+
+    if (ret == 0)
+        error = convert_windows_error_code(GetLastError());
+
+    return error;
 }
 
 __wasi_errno_t
@@ -822,6 +1380,7 @@ create_stdio_handle(HANDLE raw_stdio_handle, DWORD stdio)
     stdio_handle->type = windows_handle_type_file;
     stdio_handle->access_mode =
         windows_access_mode_read | windows_access_mode_write;
+    stdio_handle->fdflags = 0;
 
     if (raw_stdio_handle == INVALID_HANDLE_VALUE)
         raw_stdio_handle = GetStdHandle(stdio);
