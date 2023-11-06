@@ -1052,7 +1052,7 @@ fail:
     else {
         if (module_inst_main)
             /* Restore the existing exec_env's module inst */
-            wasm_exec_env_set_module_inst(exec_env, module_inst_main);
+            wasm_exec_env_restore_module_inst(exec_env, module_inst_main);
         if (exec_env_created)
             wasm_exec_env_destroy(exec_env_created);
     }
@@ -1715,7 +1715,7 @@ execute_malloc_function(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
 
     if (module_inst_old)
         /* Restore the existing exec_env's module inst */
-        wasm_exec_env_set_module_inst(exec_env, module_inst_old);
+        wasm_exec_env_restore_module_inst(exec_env, module_inst_old);
 
     if (exec_env_created)
         wasm_exec_env_destroy(exec_env_created);
@@ -1780,7 +1780,7 @@ execute_free_function(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
 
     if (module_inst_old)
         /* Restore the existing exec_env's module inst */
-        wasm_exec_env_set_module_inst(exec_env, module_inst_old);
+        wasm_exec_env_restore_module_inst(exec_env, module_inst_old);
 
     if (exec_env_created)
         wasm_exec_env_destroy(exec_env_created);
