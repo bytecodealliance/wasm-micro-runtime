@@ -7,7 +7,7 @@
 #define PLATFORM_API_EXTENSION_H
 
 #include "platform_common.h"
-#include "platform_wasi.h"
+#include "platform_wasi_types.h"
 /**
  * The related data structures should be defined
  * in platform_internal.h
@@ -1111,6 +1111,526 @@ os_socket_get_broadcast(bh_socket_t socket, bool *is_enabled);
  */
 int
 os_dumps_proc_mem_info(char *out, unsigned int size);
+
+/****************************************************
+ *                     Section 3                    *
+ *                 Filesystem support               *
+ ****************************************************/
+
+/**
+ * NOTES:
+ * Fileystem APIs are required for WASI libc support. If you don't need to
+ * support WASI libc, there is no need to implement these APIs. With a
+ * few exceptions, each filesystem function has been named after the equivalent
+ * POSIX filesystem function with an os_ prefix.
+ *
+ * Filesystem types
+ *
+ * os_raw_file_handle: the underlying OS file handle type e.g. int on POSIX
+ * systems and HANDLE on Windows. This type exists to allow embedders to provide
+ * custom file handles for stdout/stdin/stderr.
+ *
+ * os_file_handle: the file handle type used in the WASI libc fd
+ * table. Filesystem implementations can use it as a means to store any
+ * necessary platform-specific information which may not be directly available
+ * through the raw OS file handle. Similiar to POSIX file descriptors, file
+ * handles may also refer to sockets, directories, symbolic links or character
+ * devices and any of the filesystem operations which make sense for these
+ * resource types should be supported as far as possible.
+ *
+ * os_dir_stream: a directory stream type in which fileystem implementations
+ * can store any necessary state to iterate over the entries in a directory.
+ */
+
+/**
+ * Obtain information about an open file associated with the given handle.
+ *
+ * @param handle the handle for which to obtain file information
+ * @param buf a buffer in which to store the information
+ */
+__wasi_errno_t
+os_fstat(os_file_handle handle, struct __wasi_filestat_t *buf);
+
+/**
+ * Obtain information about an open file or directory.
+ * @param handle the directory handle from which to resolve the file/directory
+ * path
+ * @param path the relative path of the file or directory for which to obtain
+ * information
+ * @param buf a buffer in which to store the information
+ * @param follow_symlink whether to follow symlinks when resolving the path
+ */
+__wasi_errno_t
+os_fstatat(os_file_handle handle, const char *path,
+           struct __wasi_filestat_t *buf, __wasi_lookupflags_t lookup_flags);
+
+/**
+ * Obtain the file status flags for the provided handle. This is similiar to the
+ * POSIX function fcntl called with the F_GETFL command.
+ *
+ * @param handle the handle for which to obtain the file status flags
+ * @param flags a pointer in which to store the output
+ */
+__wasi_errno_t
+os_file_get_fdflags(os_file_handle handle, __wasi_fdflags_t *flags);
+
+/**
+ * Set the file status flags for the provided handle. This is similiar to the
+ * POSIX function fcntl called with the F_SETFL command.
+ *
+ * @param handle the handle for which to set the file status flags
+ * @param flags the flags to set
+ */
+__wasi_errno_t
+os_file_set_fdflags(os_file_handle handle, __wasi_fdflags_t flags);
+
+/**
+ * Synchronize the data of a file to disk.
+ *
+ * @param handle
+ */
+__wasi_errno_t
+os_fdatasync(os_file_handle handle);
+
+/**
+ * Synchronize the data and metadata of a file to disk.
+ *
+ * @param handle
+ */
+__wasi_errno_t
+os_fsync(os_file_handle handle);
+
+/**
+ * Open a preopen directory. The path provided must refer to a directory and the
+ * returned handle will allow only readonly operations.
+ *
+ * @param path the path of the preopen directory to open
+ * @param out a pointer in which to store the newly opened handle
+ */
+__wasi_errno_t
+os_open_preopendir(const char *path, os_file_handle *out);
+
+typedef uint8 wasi_libc_file_access_mode;
+#define WASI_LIBC_ACCESS_MODE_READ_ONLY 0
+#define WASI_LIBC_ACCESS_MODE_WRITE_ONLY 1
+#define WASI_LIBC_ACCESS_MODE_READ_WRITE 2
+
+/**
+ * Open a file or directory at the given path.
+ *
+ * @param handle a handle to the directory in which to open the new file or
+ * directory
+ * @param path the relative path of the file or directory to open
+ * @param oflags the flags to determine how the file or directory is opened
+ * @param fd_flags the flags to set on the returned handle
+ * @param lookup_flags whether to follow symlinks when resolving the path
+ * @param access_mode whether the file is opened as read only, write only or
+ * both
+ * @param out a pointer in which to store the newly opened handle
+ */
+__wasi_errno_t
+os_openat(os_file_handle handle, const char *path, __wasi_oflags_t oflags,
+          __wasi_fdflags_t fd_flags, __wasi_lookupflags_t lookup_flags,
+          wasi_libc_file_access_mode access_mode, os_file_handle *out);
+
+/**
+ * Obtain the file access mode for the provided handle. This is similiar to the
+ * POSIX function fcntl called with the F_GETFL command combined with the
+ * O_ACCMODE mask.
+ *
+ * @param handle the handle for which to obtain the access mode
+ * @param access_mode a pointer in which to store the access mode
+ */
+__wasi_errno_t
+os_file_get_access_mode(os_file_handle handle,
+                        wasi_libc_file_access_mode *access_mode);
+
+/**
+ * Close the provided handle. If is_stdio is true, the raw file handle
+ * associated with the given file handle will not be closed.
+ *
+ * @param handle the handle to close
+ * @param is_stdio whether the provided handle refers to a stdio device
+ */
+__wasi_errno_t
+os_close(os_file_handle handle, bool is_stdio);
+
+/**
+ * Read data from the provided handle at the given offset into multiple buffers.
+ *
+ * @param handle the handle to read from
+ * @param iov the buffers to read into
+ * @param iovcnt the number of buffers to read into
+ * @param offset the offset to read from
+ * @param nread a pointer in which to store the number of bytes read
+ */
+__wasi_errno_t
+os_preadv(os_file_handle handle, const struct __wasi_iovec_t *iov, int iovcnt,
+          __wasi_filesize_t offset, size_t *nread);
+
+/**
+ * Write data from multiple buffers at the given offset to the provided handle.
+ *
+ * @param handle the handle to write to
+ * @param iov the buffers to write from
+ * @param iovcnt the number of buffers to write from
+ * @param offset the offset to write from
+ * @param nwritten a pointer in which to store the number of bytes written
+ */
+__wasi_errno_t
+os_pwritev(os_file_handle handle, const struct __wasi_ciovec_t *iov, int iovcnt,
+           __wasi_filesize_t offset, size_t *nwritten);
+
+/**
+ * Read data from the provided handle into multiple buffers.
+ *
+ * @param handle the handle to read from
+ * @param iov the buffers to read into
+ * @param iovcnt the number of buffers to read into
+ * @param nread a pointer in which to store the number of bytes read
+ */
+__wasi_errno_t
+os_readv(os_file_handle handle, const struct __wasi_iovec_t *iov, int iovcnt,
+         size_t *nread);
+
+/**
+ * Write data from multiple buffers to the provided handle.
+ *
+ * @param handle the handle to write to
+ * @param iov the buffers to write from
+ * @param iovcnt the number of buffers to write from
+ * @param nwritten a pointer in which to store the number of bytes written
+ */
+__wasi_errno_t
+os_writev(os_file_handle handle, const struct __wasi_ciovec_t *iov, int iovcnt,
+          size_t *nwritten);
+
+/**
+ * Allocate storage space for the file associated with the provided handle. This
+ * is similar to the POSIX function posix_fallocate.
+ *
+ * @param handle the handle to allocate space for
+ * @param offset the offset to allocate space at
+ * @param length the amount of space to allocate
+ */
+__wasi_errno_t
+os_fallocate(os_file_handle handle, __wasi_filesize_t offset,
+             __wasi_filesize_t length);
+
+/**
+ * Adjust the size of an open file.
+ *
+ * @param handle the associated file handle for which to adjust the size
+ * @param size the new size of the file
+ */
+__wasi_errno_t
+os_ftruncate(os_file_handle handle, __wasi_filesize_t size);
+
+/**
+ * Set file access and modification times on an open file or directory.
+ *
+ * @param handle the associated file handle for which to adjust the
+ * access/modification times
+ * @param access_time the timestamp for the new access time
+ * @param modification_time the timestamp for the new modification time
+ * @param fstflags a bitmask to indicate which timestamps to adjust
+ */
+__wasi_errno_t
+os_futimens(os_file_handle handle, __wasi_timestamp_t access_time,
+            __wasi_timestamp_t modification_time, __wasi_fstflags_t fstflags);
+
+/**
+ * Set file access and modification times on an open file or directory.
+ *
+ * @param handle the directory handle from which to resolve the path
+ * @param path the relative path of the file or directory for which to adjust
+ * the access/modification times
+ * @param access_time the timestamp for the new access time
+ * @param modification_time the timestamp for the new modification time
+ * @param fstflags a bitmask to indicate which timestamps to adjust
+ * @param lookup_flags whether to follow symlinks when resolving the path
+ */
+__wasi_errno_t
+os_utimensat(os_file_handle handle, const char *path,
+             __wasi_timestamp_t access_time,
+             __wasi_timestamp_t modification_time, __wasi_fstflags_t fstflags,
+             __wasi_lookupflags_t lookup_flags);
+
+/**
+ * Read the contents of a symbolic link relative to the provided directory
+ * handle.
+ *
+ * @param handle the directory handle
+ * @param path the relative path of the symbolic link from which to read
+ * @param buf the buffer to read the link contents into
+ * @param bufsize the size of the provided buffer
+ * @param nread a pointer in which to store the number of bytes read into the
+ * buffer
+ */
+__wasi_errno_t
+os_readlinkat(os_file_handle handle, const char *path, char *buf,
+              size_t bufsize, size_t *nread);
+
+/**
+ * Create a link from one path to another path.
+ *
+ * @param from_handle the directory handle from which to resolve the origin path
+ * @param from_path the origin path to link from
+ * @param to_handle the directory handle from which to resolve the destination
+ * path
+ * @param to_path the destination path at which to create the link
+ * @param lookup_flags whether to follow symlinks when resolving the origin path
+ */
+__wasi_errno_t
+os_linkat(os_file_handle from_handle, const char *from_path,
+          os_file_handle to_handle, const char *to_path,
+          __wasi_lookupflags_t lookup_flags);
+
+/**
+ * Create a symbolic link from one path to another path.
+ *
+ * @param old_path the symbolic link contents
+ * @param handle the directory handle from which to resolve the destination path
+ * @param new_path the destination path at which to create the symbolic link
+ */
+__wasi_errno_t
+os_symlinkat(const char *old_path, os_file_handle handle, const char *new_path);
+
+/**
+ * Create a directory relative to the provided directory handle.
+ *
+ * @param handle the directory handle
+ * @param path the relative path of the directory to create
+ */
+__wasi_errno_t
+os_mkdirat(os_file_handle handle, const char *path);
+
+/**
+ * Rename a file or directory.
+ *
+ * @param old_handle the directory handle from which to resolve the old path
+ * @param old_path the source path to rename
+ * @param new_handle the directory handle from which to resolve the destination
+ * path
+ * @param new_path the destination path to which to rename the file or directory
+ */
+__wasi_errno_t
+os_renameat(os_file_handle old_handle, const char *old_path,
+            os_file_handle new_handle, const char *new_path);
+
+/**
+ * Unlink a file or directory.
+ *
+ * @param handle the directory handle from which to resolve the path
+ * @param path the relative path of the file or directory to unlink
+ * @param is_dir whether the provided handle refers to a directory or file
+ */
+__wasi_errno_t
+os_unlinkat(os_file_handle handle, const char *path, bool is_dir);
+
+/**
+ * Move the read/write offset of an open file.
+ *
+ * @param handle the associated file handle for which to adjust the offset
+ * @param offset the number of bytes to adjust the offset by
+ * @param whence the position whence to adjust the offset
+ * @param new_offset a pointer in which to store the new offset
+ */
+__wasi_errno_t
+os_lseek(os_file_handle handle, __wasi_filedelta_t offset,
+         __wasi_whence_t whence, __wasi_filesize_t *new_offset);
+
+/**
+ * Provide file advisory information for the given handle. This is similar to
+ * the POSIX function posix_fadvise.
+ *
+ * @param handle the associated file handle for which to provide advisory
+ * information
+ * @param offset the offset within the file to which the advisory
+ * information applies
+ * @param length the length of the region for which the advisory information
+ * applies
+ * @param advice the advice to provide
+ */
+__wasi_errno_t
+os_fadvise(os_file_handle handle, __wasi_filesize_t offset,
+           __wasi_filesize_t length, __wasi_advice_t advice);
+
+/**
+ * Determine if the given handle refers to a terminal device. __WASI_ESUCCESS
+ * will be returned if the handle is associated with a terminal device,
+ * otherwise an appropriate error code will be returned.
+ *
+ * @param handle
+ */
+__wasi_errno_t
+os_isatty(os_file_handle handle);
+
+/**
+ * Converts a raw file handle to STDIN to a corresponding file handle to STDIN.
+ * If the provided raw file handle is invalid, the platform-default raw handle
+ * for STDIN will be used.
+ *
+ * @param raw_stdin a raw file handle to STDIN
+ *
+ * @return a handle to STDIN
+ */
+os_file_handle
+os_convert_stdin_handle(os_raw_file_handle raw_stdin);
+
+/**
+ * Converts a raw file handle to STDOUT to a correponding file handle to STDOUT.
+ * If the provided raw file handle is invalid, the platform-default raw handle
+ * for STDOUT will be used.
+ *
+ * @param raw_stdout a raw file handle to STDOUT
+ *
+ * @return a handle to STDOUT
+ */
+os_file_handle
+os_convert_stdout_handle(os_raw_file_handle raw_stdout);
+
+/**
+ * Converts a raw file handle to STDERR to a correponding file handle to STDERR.
+ * If the provided raw file handle is invalid, the platform-default raw handle
+ * for STDERR will be used.
+ *
+ * @param raw_stderr a raw file handle to STDERR
+ *
+ * @return a handle to STDERR
+ */
+os_file_handle
+os_convert_stderr_handle(os_raw_file_handle raw_stderr);
+
+/**
+ * Open a directory stream for the provided directory handle. The returned
+ * directory stream will be positioned at the first entry in the directory.
+ *
+ * @param handle the directory handle
+ * @param dir_stream a pointer in which to store the new directory stream
+ */
+__wasi_errno_t
+os_fdopendir(os_file_handle handle, os_dir_stream *dir_stream);
+
+/**
+ * Reset the position of a directory stream to the beginning of the directory.
+ *
+ * @param dir_stream the directory stream for which to reset the position
+ */
+__wasi_errno_t
+os_rewinddir(os_dir_stream dir_stream);
+
+/**
+ * Set the position of the given directory stream.
+ *
+ * @param dir_stream the directory stream for which to set the position
+ * @param position the position to set
+ */
+__wasi_errno_t
+os_seekdir(os_dir_stream dir_stream, __wasi_dircookie_t position);
+
+/**
+ * Read a directory entry from the given directory stream. The directory name
+ * will be NULL if the end of the directory is reached or an error is
+ * encountered.
+ *
+ * @param dir_stream the directory stream from which to read the entry
+ * @param entry a pointer in which to store the directory entry
+ * @param d_name a pointer in which to store the directory entry name
+ */
+__wasi_errno_t
+os_readdir(os_dir_stream dir_stream, __wasi_dirent_t *entry,
+           const char **d_name);
+
+/**
+ * Close the given directory stream. The handle associated with the directory
+ * stream will also be closed.
+ *
+ * @param dir_stream the directory stream to close
+ */
+__wasi_errno_t
+os_closedir(os_dir_stream dir_stream);
+
+/**
+ * Returns an invalid directory stream that is guaranteed to cause failure when
+ * called with any directory filesystem operation.
+ *
+ * @return the invalid directory stream
+ */
+os_dir_stream
+os_get_invalid_dir_stream();
+
+/**
+ * Checks whether the given directory stream is valid. An invalid directory
+ * stream is guaranteed to cause failure when called with any directory
+ * filesystem operation.
+ *
+ * @param dir_stream a pointer to a directory stream
+ */
+bool
+os_is_dir_stream_valid(os_dir_stream *dir_stream);
+
+/**
+ * Returns an invalid handle that is guaranteed to cause failure when
+ * called with any filesystem operation.
+ *
+ * @return the invalid handle
+ */
+os_file_handle
+os_get_invalid_handle();
+
+/**
+ * Checks whether the given file handle is valid. An invalid handle is
+ * guaranteed to cause failure when called with any filesystem operation.
+ *
+ * @param handle a pointer to a file handle
+ */
+bool
+os_is_handle_valid(os_file_handle *handle);
+
+/**
+ * Resolve a pathname. The generated pathname will be stored as a
+ * null-terminated string, with a maximum length of PATH_MAX bytes.
+ *
+ * @param path the path to resolve
+ * @param resolved_path the buffer to store the resolved path in
+ *
+ * @return the resolved path if success, NULL otherwise
+ */
+char *
+os_realpath(const char *path, char *resolved_path);
+
+/****************************************************
+ *                     Section 4                    *
+ *                  Clock functions                 *
+ ****************************************************/
+
+/**
+ * NOTES:
+ * Clock functions are required for WASI libc support. If you don't need to
+ * support WASI libc, there is no need to implement these APIs.
+ */
+
+/**
+ * Get the resolution of the specified clock.
+ *
+ * @param clock_id clock identifier
+ * @param resolution output variable to store the clock resolution
+ */
+__wasi_errno_t
+os_clock_res_get(__wasi_clockid_t clock_id, __wasi_timestamp_t *resolution);
+
+/**
+ * Get the current time of the specified clock.
+ *
+ * @param clock_id clock identifier
+ * @param precision the maximum lag that the returned time value may have,
+ * compared to its actual value.
+ * @param time output variable to store the clock time
+ */
+__wasi_errno_t
+os_clock_time_get(__wasi_clockid_t clock_id, __wasi_timestamp_t precision,
+                  __wasi_timestamp_t *time);
 
 #ifdef __cplusplus
 }
