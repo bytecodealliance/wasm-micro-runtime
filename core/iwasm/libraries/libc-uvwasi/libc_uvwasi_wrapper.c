@@ -75,14 +75,6 @@ typedef struct iovec_app {
     uint32 buf_len;
 } iovec_app_t;
 
-typedef struct WASIContext {
-    uvwasi_t uvwasi;
-    uint32_t exit_code;
-} WASIContext;
-
-void *
-wasm_runtime_get_wasi_ctx(wasm_module_inst_t module_inst);
-
 static uvwasi_t *
 get_wasi_ctx(wasm_module_inst_t module_inst)
 {
