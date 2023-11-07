@@ -1651,9 +1651,9 @@ aot_compile_op_ref_test(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     BUILD_COND_BR(cmp, block_end, block_obj_non_null);
 
     if (nullable)
-        LLVMAddIncoming(ref_test_phi, &I1_ZERO, &block_curr, 1);
-    else
         LLVMAddIncoming(ref_test_phi, &I1_ONE, &block_curr, 1);
+    else
+        LLVMAddIncoming(ref_test_phi, &I1_ZERO, &block_curr, 1);
 
     /* Move builder to non-null object block */
     SET_BUILDER_POS(block_obj_non_null);

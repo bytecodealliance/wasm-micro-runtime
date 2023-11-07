@@ -49,13 +49,18 @@ wasm_type_to_llvm_type(const AOTCompContext *comp_ctx,
             return llvm_types->i64x2_vec_type;
         case VALUE_TYPE_VOID:
             return llvm_types->void_type;
-        case REF_TYPE_STRUCTREF:
-        case REF_TYPE_ARRAYREF:
-        case REF_TYPE_I31REF:
-        case REF_TYPE_EQREF:
+        case REF_TYPE_NULLFUNCREF:
+        case REF_TYPE_NULLEXTERNREF:
+        case REF_TYPE_NULLREF:
+        /* case REF_TYPE_FUNCREF: */
+        /* case REF_TYPE_EXTERNREF: */
         case REF_TYPE_ANYREF:
+        case REF_TYPE_EQREF:
         case REF_TYPE_HT_NULLABLE:
         case REF_TYPE_HT_NON_NULLABLE:
+        case REF_TYPE_I31REF:
+        case REF_TYPE_STRUCTREF:
+        case REF_TYPE_ARRAYREF:
         case VALUE_TYPE_GC_REF:
             bh_assert(comp_ctx->enable_gc);
             return llvm_types->gc_ref_type;
@@ -1090,13 +1095,18 @@ create_local_variables(const AOTCompData *comp_data,
                     local_value = GC_REF_NULL;
                 break;
 #if WASM_ENABLE_GC != 0
-            case REF_TYPE_STRUCTREF:
-            case REF_TYPE_ARRAYREF:
-            case REF_TYPE_I31REF:
-            case REF_TYPE_EQREF:
+            case REF_TYPE_NULLFUNCREF:
+            case REF_TYPE_NULLEXTERNREF:
+            case REF_TYPE_NULLREF:
+            /* case REF_TYPE_FUNCREF: */
+            /* case REF_TYPE_EXTERNREF: */
             case REF_TYPE_ANYREF:
+            case REF_TYPE_EQREF:
             case REF_TYPE_HT_NULLABLE:
             case REF_TYPE_HT_NON_NULLABLE:
+            case REF_TYPE_I31REF:
+            case REF_TYPE_STRUCTREF:
+            case REF_TYPE_ARRAYREF:
                 local_value = GC_REF_NULL;
                 break;
 #endif
@@ -1862,12 +1872,12 @@ aot_set_llvm_basic_types(AOTLLVMTypes *basic_types, LLVMContextRef context,
     basic_types->externref_type = LLVMInt32TypeInContext(context);
 
     if (pointer_size == 4) {
-        basic_types->intptr_type = basic_types->int32_type;
-        basic_types->intptr_ptr_type = basic_types->int32_ptr_type;
+        basic_types->intptr_t_type = basic_types->int32_type;
+        basic_types->intptr_t_ptr_type = basic_types->int32_ptr_type;
     }
     else {
-        basic_types->intptr_type = basic_types->int64_type;
-        basic_types->intptr_ptr_type = basic_types->int64_ptr_type;
+        basic_types->intptr_t_type = basic_types->int64_type;
+        basic_types->intptr_t_ptr_type = basic_types->int64_ptr_type;
     }
 
     basic_types->gc_ref_type = LLVMPointerType(basic_types->void_type, 0);
@@ -1875,8 +1885,8 @@ aot_set_llvm_basic_types(AOTLLVMTypes *basic_types, LLVMContextRef context,
 
     return (basic_types->int8_ptr_type && basic_types->int8_pptr_type
             && basic_types->int16_ptr_type && basic_types->int32_ptr_type
-            && basic_types->int64_ptr_type && basic_types->intptr_type
-            && basic_types->intptr_ptr_type && basic_types->float32_ptr_type
+            && basic_types->int64_ptr_type && basic_types->intptr_t_type
+            && basic_types->intptr_t_ptr_type && basic_types->float32_ptr_type
             && basic_types->float64_ptr_type && basic_types->i8x16_vec_type
             && basic_types->i16x8_vec_type && basic_types->i32x4_vec_type
             && basic_types->i64x2_vec_type && basic_types->f32x4_vec_type
@@ -3463,13 +3473,18 @@ aot_build_zero_function_ret(const AOTCompContext *comp_ctx,
                     bh_assert(0);
                 break;
 #if WASM_ENABLE_GC != 0
-            case REF_TYPE_STRUCTREF:
-            case REF_TYPE_ARRAYREF:
-            case REF_TYPE_I31REF:
-            case REF_TYPE_EQREF:
+            case REF_TYPE_NULLFUNCREF:
+            case REF_TYPE_NULLEXTERNREF:
+            case REF_TYPE_NULLREF:
+            /* case REF_TYPE_FUNCREF: */
+            /* case REF_TYPE_EXTERNREF: */
             case REF_TYPE_ANYREF:
+            case REF_TYPE_EQREF:
             case REF_TYPE_HT_NULLABLE:
             case REF_TYPE_HT_NON_NULLABLE:
+            case REF_TYPE_I31REF:
+            case REF_TYPE_STRUCTREF:
+            case REF_TYPE_ARRAYREF:
                 bh_assert(comp_ctx->enable_gc);
                 ret = LLVMBuildRet(comp_ctx->builder, GC_REF_NULL);
                 break;

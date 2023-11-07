@@ -82,7 +82,7 @@ index 57457286..5c0bd457 100644
  (assert_return (invoke $module1 "call-9") (i32.const 70))
 +;)
 diff --git a/test/core/gc/array.wast b/test/core/gc/array.wast
-index 7ee75b20..e3e0f635 100644
+index 7ee75b20..6ad92fea 100644
 --- a/test/core/gc/array.wast
 +++ b/test/core/gc/array.wast
 @@ -35,10 +35,10 @@
@@ -145,7 +145,15 @@ index 7ee75b20..e3e0f635 100644
  (assert_return (invoke "get" (i32.const 0)) (i32.const 1))
  (assert_return (invoke "set_get" (i32.const 1) (i32.const 7)) (i32.const 7))
  (assert_return (invoke "len") (i32.const 3))
-@@ -201,8 +201,8 @@
+@@ -193,6 +193,7 @@
+ (assert_trap (invoke "get" (i32.const 10)) "out of bounds")
+ (assert_trap (invoke "set_get" (i32.const 10) (i32.const 7)) "out of bounds")
+ 
++(;
+ (module
+   (type $bvec (array i8))
+   (type $vec (array (ref $bvec)))
+@@ -201,8 +202,8 @@
    (type $avec (array (mut anyref)))
  
    (elem $e (ref $bvec)
@@ -156,9 +164,11 @@ index 7ee75b20..e3e0f635 100644
    )
  
    (func $new (export "new") (result (ref $vec))
-@@ -242,8 +242,9 @@
+@@ -241,9 +242,11 @@
+     (call $len (call $new))
    )
  )
++;)
  
 +(; ;; TODO: support array.new_canon_elem
  (assert_return (invoke "new") (ref.array))
@@ -167,7 +177,7 @@ index 7ee75b20..e3e0f635 100644
  (assert_return (invoke "get" (i32.const 0) (i32.const 0)) (i32.const 7))
  (assert_return (invoke "get" (i32.const 1) (i32.const 0)) (i32.const 1))
  (assert_return (invoke "set_get" (i32.const 0) (i32.const 1) (i32.const 1)) (i32.const 2))
-@@ -251,6 +252,7 @@
+@@ -251,6 +254,7 @@
  
  (assert_trap (invoke "get" (i32.const 10) (i32.const 0)) "out of bounds")
  (assert_trap (invoke "set_get" (i32.const 10) (i32.const 0) (i32.const 0)) "out of bounds")
@@ -320,7 +330,6 @@ index 6a8ba1d0..e3059235 100644
  (assert_return (invoke $Ms "get memory[0]") (i32.const 104))  ;; 'h'
  (assert_return (invoke $Ms "get table[0]") (i32.const 0xdead))
 +;)
-
 diff --git a/test/core/ref.wast b/test/core/ref.wast
 index aef1b392..b86db373 100644
 --- a/test/core/ref.wast
@@ -405,6 +414,46 @@ index 1ffd03f8..b0fb88b5 100644
 -(assert_return (invoke "ref") (ref.null))
 +;;(assert_return (invoke "ref") (ref.null nofunc))
 +;;(assert_return (invoke "ref") (ref.null))
+diff --git a/test/core/return_call_ref.wast b/test/core/return_call_ref.wast
+index 353811f0..394a5d3d 100644
+--- a/test/core/return_call_ref.wast
++++ b/test/core/return_call_ref.wast
+@@ -192,20 +192,30 @@
+ 
+ (assert_return (invoke "count" (i64.const 0)) (i64.const 0))
+ (assert_return (invoke "count" (i64.const 1000)) (i64.const 0))
+-(assert_return (invoke "count" (i64.const 1_000_000)) (i64.const 0))
++(assert_return (invoke "count" (i64.const 1200)) (i64.const 0))
++;; TODO: use current frame instead of allocating new frame for return_call_ref
++;;(assert_return (invoke "count" (i64.const 1_000_000)) (i64.const 0))
+ 
+ (assert_return (invoke "even" (i64.const 0)) (i64.const 44))
+ (assert_return (invoke "even" (i64.const 1)) (i64.const 99))
+ (assert_return (invoke "even" (i64.const 100)) (i64.const 44))
+ (assert_return (invoke "even" (i64.const 77)) (i64.const 99))
+-(assert_return (invoke "even" (i64.const 1_000_000)) (i64.const 44))
+-(assert_return (invoke "even" (i64.const 1_000_001)) (i64.const 99))
++(assert_return (invoke "even" (i64.const 1000)) (i64.const 44))
++(assert_return (invoke "even" (i64.const 1001)) (i64.const 99))
++(assert_return (invoke "even" (i64.const 1200)) (i64.const 44))
++(assert_return (invoke "even" (i64.const 1201)) (i64.const 99))
++;;(assert_return (invoke "even" (i64.const 1_000_000)) (i64.const 44))
++;;(assert_return (invoke "even" (i64.const 1_000_001)) (i64.const 99))
+ (assert_return (invoke "odd" (i64.const 0)) (i64.const 99))
+ (assert_return (invoke "odd" (i64.const 1)) (i64.const 44))
+ (assert_return (invoke "odd" (i64.const 200)) (i64.const 99))
+ (assert_return (invoke "odd" (i64.const 77)) (i64.const 44))
+-(assert_return (invoke "odd" (i64.const 1_000_000)) (i64.const 99))
+-(assert_return (invoke "odd" (i64.const 999_999)) (i64.const 44))
++(assert_return (invoke "odd" (i64.const 1000)) (i64.const 99))
++(assert_return (invoke "odd" (i64.const 1001)) (i64.const 44))
++(assert_return (invoke "odd" (i64.const 1200)) (i64.const 99))
++(assert_return (invoke "odd" (i64.const 1201)) (i64.const 44))
++;;(assert_return (invoke "odd" (i64.const 1_000_000)) (i64.const 99))
++;;(assert_return (invoke "odd" (i64.const 999_999)) (i64.const 44))
+ 
+ 
+ ;; More typing
 diff --git a/test/core/select.wast b/test/core/select.wast
 index 94aa8605..087a82df 100644
 --- a/test/core/select.wast

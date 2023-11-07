@@ -192,10 +192,25 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
                                             error_buf, error_buf_size)) {
                     return false;
                 }
+#if WASM_ENABLE_GC == 0
                 init_global_data(
                     p, global->type,
                     &module->import_globals[init_expr->u.global_index]
                          .global_data_linked);
+#else
+                if (init_expr->u.global_index < module->import_global_count) {
+                    init_global_data(
+                        p, global->type,
+                        &module->import_globals[init_expr->u.global_index]
+                             .global_data_linked);
+                }
+                else {
+                    uint32 global_idx =
+                        init_expr->u.global_index - module->import_global_count;
+                    init_global_data(p, global->type,
+                                     &module->globals[global_idx].init_expr.u);
+                }
+#endif
                 break;
             }
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
@@ -204,7 +219,67 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
                 *(uint32 *)p = NULL_REF;
                 break;
             }
+#elif WASM_ENABLE_GC != 0
+            case INIT_EXPR_TYPE_REFNULL_CONST:
+            {
+                WASMObjectRef gc_obj = NULL_REF;
+                PUT_REF_TO_ADDR(p, gc_obj);
+                break;
+            }
 #endif
+#if WASM_ENABLE_GC != 0
+            case INIT_EXPR_TYPE_FUNCREF_CONST:
+            {
+                WASMFuncObjectRef func_obj = NULL;
+                uint32 func_idx = init_expr->u.u32;
+
+                if (func_idx != UINT32_MAX) {
+                    if (!(func_obj =
+                              aot_create_func_obj(module_inst, func_idx, false,
+                                                  error_buf, error_buf_size))) {
+                        return false;
+                    }
+                }
+
+                PUT_REF_TO_ADDR(p, func_obj);
+                break;
+            }
+            case INIT_EXPR_TYPE_I31_NEW:
+            {
+                WASMI31ObjectRef i31_obj = wasm_i31_obj_new(init_expr->u.i32);
+                PUT_REF_TO_ADDR(p, i31_obj);
+                break;
+            }
+            case INIT_EXPR_TYPE_STRUCT_NEW_CANON_DEFAULT:
+            {
+                WASMRttType *rtt_type;
+                WASMStructObjectRef struct_obj;
+                WASMStructType *struct_type;
+                uint32 type_idx = init_expr->u.i32;
+
+                struct_type = (WASMStructType *)module->types[type_idx];
+
+                if (!(rtt_type = wasm_rtt_type_new(
+                          (WASMType *)struct_type, type_idx, module->rtt_types,
+                          module->type_count, &module->rtt_type_lock))) {
+                    set_error_buf(error_buf, error_buf_size,
+                                  "create rtt object failed");
+                    return false;
+                }
+
+                if (!(struct_obj = wasm_struct_obj_new_internal(
+                          ((AOTModuleInstanceExtra *)module_inst->e)
+                              ->common.gc_heap_handle,
+                          rtt_type))) {
+                    set_error_buf(error_buf, error_buf_size,
+                                  "create struct object failed");
+                    return false;
+                }
+
+                PUT_REF_TO_ADDR(p, struct_obj);
+                break;
+            }
+#endif /* end of WASM_ENABLE_GC != 0 */
             default:
             {
                 init_global_data(p, global->type, &init_expr->u);
@@ -1186,6 +1261,31 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
     module_inst->e =
         (WASMModuleInstanceExtra *)((uint8 *)module_inst + extra_info_offset);
 
+#if WASM_ENABLE_GC != 0
+    /* Initialize gc heap first since it may be used when initializing
+       globals and others */
+    if (!is_sub_inst) {
+        uint32 gc_heap_size = wasm_runtime_get_gc_heap_size_default();
+        AOTModuleInstanceExtra *extra =
+            (AOTModuleInstanceExtra *)module_inst->e;
+
+        if (gc_heap_size < GC_HEAP_SIZE_MIN)
+            gc_heap_size = GC_HEAP_SIZE_MIN;
+        if (gc_heap_size > GC_HEAP_SIZE_MAX)
+            gc_heap_size = GC_HEAP_SIZE_MAX;
+
+        extra->common.gc_heap_pool =
+            runtime_malloc(gc_heap_size, error_buf, error_buf_size);
+        if (!extra->common.gc_heap_pool)
+            goto fail;
+
+        extra->common.gc_heap_handle =
+            mem_allocator_create(extra->common.gc_heap_pool, gc_heap_size);
+        if (!extra->common.gc_heap_handle)
+            goto fail;
+    }
+#endif
+
 #if WASM_ENABLE_MULTI_MODULE != 0
     ((AOTModuleInstanceExtra *)module_inst->e)->sub_module_inst_list =
         &((AOTModuleInstanceExtra *)module_inst->e)->sub_module_inst_list_head;
@@ -1197,6 +1297,11 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
         goto fail;
     }
 #endif
+
+    /* Initialize function type indexes before initializing global info,
+       module_inst->func_type_indexes may be used in the latter */
+    if (!init_func_type_indexes(module_inst, module, error_buf, error_buf_size))
+        goto fail;
 
     /* Initialize global info */
     p = (uint8 *)module_inst + module_inst_struct_size
@@ -1220,10 +1325,6 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
 
     /* Initialize function pointers */
     if (!init_func_ptrs(module_inst, module, error_buf, error_buf_size))
-        goto fail;
-
-    /* Initialize function type indexes */
-    if (!init_func_type_indexes(module_inst, module, error_buf, error_buf_size))
         goto fail;
 
     if (!check_linked_symbol(module, error_buf, error_buf_size))
@@ -1253,8 +1354,8 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
     if (stack_size == 0)
         stack_size = DEFAULT_WASM_STACK_SIZE;
 #if WASM_ENABLE_SPEC_TEST != 0
-    if (stack_size < 48 * 1024)
-        stack_size = 48 * 1024;
+    if (stack_size < 128 * 1024)
+        stack_size = 128 * 1024;
 #endif
     module_inst->default_wasm_stack_size = stack_size;
 
@@ -1267,29 +1368,6 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
     if (!(module_inst->func_perf_profilings =
               runtime_malloc(total_size, error_buf, error_buf_size))) {
         goto fail;
-    }
-#endif
-
-#if WASM_ENABLE_GC != 0
-    if (!is_sub_inst) {
-        uint32 gc_heap_size = wasm_runtime_get_gc_heap_size_default();
-        AOTModuleInstanceExtra *extra =
-            (AOTModuleInstanceExtra *)module_inst->e;
-
-        if (gc_heap_size < GC_HEAP_SIZE_MIN)
-            gc_heap_size = GC_HEAP_SIZE_MIN;
-        if (gc_heap_size > GC_HEAP_SIZE_MAX)
-            gc_heap_size = GC_HEAP_SIZE_MAX;
-
-        extra->common.gc_heap_pool =
-            runtime_malloc(gc_heap_size, error_buf, error_buf_size);
-        if (!extra->common.gc_heap_pool)
-            goto fail;
-
-        extra->common.gc_heap_handle =
-            mem_allocator_create(extra->common.gc_heap_pool, gc_heap_size);
-        if (!extra->common.gc_heap_handle)
-            goto fail;
     }
 #endif
 
@@ -1309,10 +1387,10 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
         bh_assert(table_init_data);
 
         table = module_inst->tables[table_init_data->table_index];
-
         bh_assert(table);
 
         table_data = table->elems;
+        bh_assert(table_data);
 
         wasm_runtime_get_table_inst_elem_type(
             (WASMModuleInstanceCommon *)module_inst, i, &tbl_elem_type,
@@ -1330,10 +1408,6 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
 
         (void)tbl_init_size;
         (void)tbl_max_size;
-
-        table_data = table->elems;
-
-        bh_assert(table_data);
 
         if (!wasm_elem_is_active(table_init_data->mode)) {
             continue;

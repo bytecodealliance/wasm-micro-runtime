@@ -702,8 +702,17 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
                             types = module->types;
                             type_count = module->type_count;
                         }
-
 #endif
+#if WASM_ENABLE_AOT != 0
+                        if (module_inst->module_type == Wasm_Module_AoT) {
+                            AOTModule *module =
+                                (AOTModule *)((AOTModuleInstance *)module_inst)
+                                    ->module;
+                            types = module->types;
+                            type_count = module->type_count;
+                        }
+#endif
+                        bh_assert(type);
                         if (wasm_reftype_is_subtype_of(type1, ref_type1,
                                                        REF_TYPE_ANYREF, NULL,
                                                        types, type_count))

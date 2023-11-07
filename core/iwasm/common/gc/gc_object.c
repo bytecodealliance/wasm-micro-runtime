@@ -83,9 +83,8 @@ get_gc_heap_handle(WASMExecEnv *exec_env)
 }
 
 WASMStructObjectRef
-wasm_struct_obj_new(WASMExecEnv *exec_env, WASMRttTypeRef rtt_type)
+wasm_struct_obj_new_internal(void *heap_handle, WASMRttTypeRef rtt_type)
 {
-    void *heap_handle = get_gc_heap_handle(exec_env);
     WASMStructObjectRef struct_obj;
     WASMStructType *struct_type;
 
@@ -99,6 +98,13 @@ wasm_struct_obj_new(WASMExecEnv *exec_env, WASMRttTypeRef rtt_type)
     struct_obj->header = (WASMObjectHeader)rtt_type;
 
     return struct_obj;
+}
+
+WASMStructObjectRef
+wasm_struct_obj_new(WASMExecEnv *exec_env, WASMRttTypeRef rtt_type)
+{
+    void *heap_handle = get_gc_heap_handle(exec_env);
+    return wasm_struct_obj_new_internal(heap_handle, rtt_type);
 }
 
 void

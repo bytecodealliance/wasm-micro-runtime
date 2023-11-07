@@ -1020,7 +1020,7 @@ wasm_string_equal(const char *s1, const char *s2)
  * Return the byte size of value type.
  */
 inline static uint32
-wasm_value_type_size_ex(uint8 value_type, bool gc_enabled)
+wasm_value_type_size(uint8 value_type)
 {
     if (value_type == VALUE_TYPE_VOID)
         return 0;
@@ -1033,36 +1033,24 @@ wasm_value_type_size_ex(uint8 value_type, bool gc_enabled)
     else if (value_type == VALUE_TYPE_V128)
         return sizeof(int64) * 2;
 #endif
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
+    else if (value_type == VALUE_TYPE_FUNCREF
+             || value_type == VALUE_TYPE_EXTERNREF)
+        return sizeof(uint32);
+#elif WASM_ENABLE_GC != 0
     else if (
 #if WASM_ENABLE_STRINGREF != 0
         value_type >= (uint8)REF_TYPE_STRINGVIEWITER /* 0x61 */
 #else
         value_type >= (uint8)REF_TYPE_NULLREF /* 0x65 */
 #endif
-        && value_type <= (uint8)REF_TYPE_FUNCREF /* 0x70 */ && gc_enabled)
+        && value_type <= (uint8)REF_TYPE_FUNCREF /* 0x70 */)
         return sizeof(uintptr_t);
-    else if (value_type == VALUE_TYPE_FUNCREF
-             || value_type == VALUE_TYPE_EXTERNREF)
-        return sizeof(uint32);
+#endif
     else {
         bh_assert(0);
     }
     return 0;
-}
-
-/**
- * Return the byte size of value type.
- */
-inline static uint32
-wasm_value_type_size(uint8 value_type)
-{
-    return wasm_value_type_size_ex(value_type,
-#if WASM_ENABLE_GC != 0
-                                   true
-#else
-                                   false
-#endif
-    );
 }
 
 inline static uint16

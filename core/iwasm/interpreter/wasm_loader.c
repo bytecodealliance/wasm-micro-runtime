@@ -4079,8 +4079,10 @@ init_llvm_jit_functions_stage1(WASMModule *module, char *error_buf,
 #if WASM_ENABLE_SIMD != 0
     option.enable_simd = true;
 #endif
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
     option.enable_ref_types = true;
+#elif WASM_ENABLE_GC != 0
+    option.enable_gc = true;
 #endif
     option.enable_aux_stack_check = true;
 #if (WASM_ENABLE_PERF_PROFILING != 0) || (WASM_ENABLE_DUMP_CALL_STACK != 0) \

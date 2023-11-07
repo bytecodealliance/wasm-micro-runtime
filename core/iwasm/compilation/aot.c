@@ -153,13 +153,49 @@ fail:
     return NULL;
 }
 
+static void
+get_value_type_size(uint8 value_type, bool gc_enabled, uint32 *p_size_64bit,
+                    uint32 *p_size_32bit)
+{
+    uint32 size_64bit = 0, size_32bit = 0;
+
+    if (value_type == VALUE_TYPE_I32 || value_type == VALUE_TYPE_F32)
+        size_64bit = size_32bit = sizeof(int32);
+    else if (value_type == VALUE_TYPE_I64 || value_type == VALUE_TYPE_F64)
+        size_64bit = size_32bit = sizeof(int64);
+    else if (value_type == VALUE_TYPE_V128)
+        size_64bit = size_32bit = sizeof(int64) * 2;
+    else if (!gc_enabled
+             && (value_type == VALUE_TYPE_FUNCREF
+                 || value_type == VALUE_TYPE_EXTERNREF))
+        size_64bit = size_32bit = sizeof(int32);
+    else if (gc_enabled &&
+#if WASM_ENABLE_STRINGREF != 0
+             value_type >= (uint8)REF_TYPE_STRINGVIEWITER /* 0x61 */
+#else
+             value_type >= (uint8)REF_TYPE_NULLREF /* 0x65 */
+#endif
+             && value_type <= (uint8)REF_TYPE_FUNCREF /* 0x70 */) {
+        size_64bit = sizeof(int64);
+        size_32bit = sizeof(uint32);
+    }
+    else {
+        bh_assert(0);
+    }
+
+    *p_size_64bit = size_64bit;
+    *p_size_32bit = size_32bit;
+}
+
 static AOTImportGlobal *
-aot_create_import_globals(const WASMModule *module,
-                          uint32 *p_import_global_data_size, bool gc_enabled)
+aot_create_import_globals(const WASMModule *module, bool gc_enabled,
+                          uint32 *p_import_global_data_size_64bit,
+                          uint32 *p_import_global_data_size_32bit)
 {
     AOTImportGlobal *import_globals;
     uint64 size;
-    uint32 i, data_offset = 0;
+    uint32 i, data_offset_64bit = 0, data_offset_32bit = 0;
+    uint32 value_size_64bit, value_size_32bit;
 
     /* Allocate memory */
     size = sizeof(AOTImportGlobal) * (uint64)module->import_global_count;
@@ -180,24 +216,37 @@ aot_create_import_globals(const WASMModule *module,
         import_globals[i].is_mutable = import_global->is_mutable;
         import_globals[i].global_data_linked =
             import_global->global_data_linked;
-        import_globals[i].size =
-            wasm_value_type_size_ex(import_global->type, gc_enabled);
-        /* Calculate data offset */
-        import_globals[i].data_offset = data_offset;
-        data_offset += wasm_value_type_size_ex(import_global->type, gc_enabled);
+
+        import_globals[i].data_offset_64bit = data_offset_64bit;
+        import_globals[i].data_offset_32bit = data_offset_32bit;
+
+        get_value_type_size(import_global->type, gc_enabled, &value_size_64bit,
+                            &value_size_32bit);
+
+        import_globals[i].size_64bit = value_size_64bit;
+        import_globals[i].size_32bit = value_size_32bit;
+        data_offset_64bit += value_size_64bit;
+        data_offset_32bit += value_size_32bit;
     }
 
-    *p_import_global_data_size = data_offset;
+    *p_import_global_data_size_64bit = data_offset_64bit;
+    *p_import_global_data_size_32bit = data_offset_32bit;
     return import_globals;
 }
 
 static AOTGlobal *
-aot_create_globals(const WASMModule *module, uint32 global_data_start_offset,
-                   uint32 *p_global_data_size, bool gc_enabled)
+aot_create_globals(const WASMModule *module, bool gc_enabled,
+                   uint32 global_data_start_offset_64bit,
+                   uint32 global_data_start_offset_32bit,
+                   uint32 *p_global_data_size_64bit,
+                   uint32 *p_global_data_size_32bit)
 {
     AOTGlobal *globals;
     uint64 size;
-    uint32 i, data_offset = global_data_start_offset;
+    uint32 i;
+    uint32 data_offset_64bit = global_data_start_offset_64bit;
+    uint32 data_offset_32bit = global_data_start_offset_32bit;
+    uint32 value_size_64bit, value_size_32bit;
 
     /* Allocate memory */
     size = sizeof(AOTGlobal) * (uint64)module->global_count;
@@ -213,15 +262,25 @@ aot_create_globals(const WASMModule *module, uint32 global_data_start_offset,
         WASMGlobal *global = &module->globals[i];
         globals[i].type = global->type;
         globals[i].is_mutable = global->is_mutable;
-        globals[i].size = wasm_value_type_size_ex(global->type, gc_enabled);
         memcpy(&globals[i].init_expr, &global->init_expr,
                sizeof(global->init_expr));
-        /* Calculate data offset */
-        globals[i].data_offset = data_offset;
-        data_offset += wasm_value_type_size_ex(global->type, gc_enabled);
+
+        globals[i].data_offset_64bit = data_offset_64bit;
+        globals[i].data_offset_32bit = data_offset_32bit;
+
+        get_value_type_size(global->type, gc_enabled, &value_size_64bit,
+                            &value_size_32bit);
+
+        globals[i].size_64bit = value_size_64bit;
+        globals[i].size_32bit = value_size_32bit;
+        data_offset_64bit += value_size_64bit;
+        data_offset_32bit += value_size_32bit;
     }
 
-    *p_global_data_size = data_offset - global_data_start_offset;
+    *p_global_data_size_64bit =
+        data_offset_64bit - global_data_start_offset_64bit;
+    *p_global_data_size_32bit =
+        data_offset_32bit - global_data_start_offset_32bit;
     return globals;
 }
 
@@ -329,7 +388,8 @@ AOTCompData *
 aot_create_comp_data(WASMModule *module, bool gc_enabled)
 {
     AOTCompData *comp_data;
-    uint32 import_global_data_size = 0, global_data_size = 0, i, j;
+    uint32 import_global_data_size_64bit = 0, global_data_size_64bit = 0, i, j;
+    uint32 import_global_data_size_32bit = 0, global_data_size_32bit = 0;
     uint64 size;
 
     /* Allocate memory */
@@ -434,6 +494,10 @@ aot_create_comp_data(WASMModule *module, bool gc_enabled)
                     module->tables[j].max_size;
                 comp_data->tables[i].possible_grow =
                     module->tables[j].possible_grow;
+#if WASM_ENABLE_GC != 0
+                comp_data->tables[j].elem_ref_type =
+                    module->tables[j].elem_ref_type;
+#endif
             }
         }
     }
@@ -449,18 +513,23 @@ aot_create_comp_data(WASMModule *module, bool gc_enabled)
     comp_data->import_global_count = module->import_global_count;
     if (comp_data->import_global_count > 0
         && !(comp_data->import_globals = aot_create_import_globals(
-                 module, &import_global_data_size, gc_enabled)))
+                 module, gc_enabled, &import_global_data_size_64bit,
+                 &import_global_data_size_32bit)))
         goto fail;
 
     /* Create globals */
     comp_data->global_count = module->global_count;
     if (comp_data->global_count
-        && !(comp_data->globals =
-                 aot_create_globals(module, import_global_data_size,
-                                    &global_data_size, gc_enabled)))
+        && !(comp_data->globals = aot_create_globals(
+                 module, gc_enabled, import_global_data_size_64bit,
+                 import_global_data_size_32bit, &global_data_size_64bit,
+                 &global_data_size_32bit)))
         goto fail;
 
-    comp_data->global_data_size = import_global_data_size + global_data_size;
+    comp_data->global_data_size_64bit =
+        import_global_data_size_64bit + global_data_size_64bit;
+    comp_data->global_data_size_32bit =
+        import_global_data_size_32bit + global_data_size_32bit;
 
     /* Create types, they are checked by wasm loader */
     comp_data->type_count = module->type_count;

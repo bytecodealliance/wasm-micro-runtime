@@ -144,6 +144,9 @@ wasm_rtt_type_get_defined_type(const WASMRttTypeRef rtt_type)
 }
 
 WASMStructObjectRef
+wasm_struct_obj_new_internal(void *heap_handle, WASMRttTypeRef rtt_type);
+
+WASMStructObjectRef
 wasm_struct_obj_new(struct WASMExecEnv *exec_env, WASMRttTypeRef rtt_type);
 
 void

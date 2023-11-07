@@ -582,6 +582,8 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             aot_set_last_error("llvm build const failed.");
             return false;
         }
+        /*  TODO: use current frame instead of allocating new frame
+                  for WASM_OP_RETURN_CALL */
         if (!call_aot_alloc_frame_func(comp_ctx, func_ctx, func_idx_const))
             return false;
     }
@@ -882,11 +884,7 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     if (func_type->result_count > 0) {
         /* Push the first result to stack */
-        if (comp_ctx->enable_gc
-            && aot_is_type_gc_reftype(func_type->types[func_type->param_count]))
-            PUSH_GC_REF(value_ret);
-        else
-            PUSH(value_ret, func_type->types[func_type->param_count]);
+        PUSH(value_ret, func_type->types[func_type->param_count]);
         /* Load extra result from its address and push to stack */
         for (i = 0; i < ext_ret_count; i++) {
             snprintf(buf, sizeof(buf), "func%d_ext_ret%d", func_idx, i);
@@ -896,10 +894,7 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 aot_set_last_error("llvm build load failed.");
                 goto fail;
             }
-            if (comp_ctx->enable_gc && aot_is_type_gc_reftype(ext_ret_types[i]))
-                PUSH_GC_REF(ext_ret);
-            else
-                PUSH(ext_ret, ext_ret_types[i]);
+            PUSH(ext_ret, ext_ret_types[i]);
         }
     }
 
@@ -1089,7 +1084,8 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                              const uint8 *frame_ip)
 {
     AOTFuncType *func_type;
-    LLVMValueRef tbl_idx_value, elem_idx, table_elem, func_idx;
+    LLVMValueRef tbl_idx_value, elem_idx, func_idx;
+    LLVMValueRef table_elem_base, table_elem_addr, table_elem;
     LLVMValueRef ftype_idx_ptr, ftype_idx, ftype_idx_const;
     LLVMValueRef cmp_func_obj, cmp_elem_idx, cmp_func_idx, cmp_ftype_idx;
     LLVMValueRef func, func_ptr, table_size_const;
@@ -1201,9 +1197,9 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
-    if (!(table_elem = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,
-                                             func_ctx->aot_inst, &offset, 1,
-                                             "table_elem_i8p"))) {
+    if (!(table_elem_base = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,
+                                                  func_ctx->aot_inst, &offset,
+                                                  1, "table_elem_base_i8p"))) {
         aot_set_last_error("llvm build add failed.");
         goto fail;
     }
@@ -1211,22 +1207,22 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* Load function index */
     if (comp_ctx->enable_gc) {
         /* table elem is func_obj when gc is enabled */
-        if (!(table_elem =
-                  LLVMBuildBitCast(comp_ctx->builder, table_elem,
-                                   GC_REF_PTR_TYPE, "table_elem_ptr"))) {
+        if (!(table_elem_base =
+                  LLVMBuildBitCast(comp_ctx->builder, table_elem_base,
+                                   GC_REF_PTR_TYPE, "table_elem_base"))) {
             HANDLE_FAILURE("LLVMBuildBitCast");
             goto fail;
         }
 
-        if (!(table_elem = LLVMBuildInBoundsGEP2(comp_ctx->builder, GC_REF_TYPE,
-                                                 table_elem, &elem_idx, 1,
-                                                 "table_elem"))) {
+        if (!(table_elem_addr = LLVMBuildInBoundsGEP2(
+                  comp_ctx->builder, GC_REF_TYPE, table_elem_base, &elem_idx, 1,
+                  "table_elem_addr"))) {
             HANDLE_FAILURE("LLVMBuildNUWAdd");
             goto fail;
         }
 
         if (!(table_elem = LLVMBuildLoad2(comp_ctx->builder, GC_REF_TYPE,
-                                          table_elem, "func_idx"))) {
+                                          table_elem_addr, "table_elem"))) {
             aot_set_last_error("llvm build load failed.");
             goto fail;
         }
@@ -1283,22 +1279,22 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
     }
     else {
-        if (!(table_elem =
-                  LLVMBuildBitCast(comp_ctx->builder, table_elem,
-                                   INTPTR_PTR_TYPE, "table_elem_ptr"))) {
+        if (!(table_elem_base =
+                  LLVMBuildBitCast(comp_ctx->builder, table_elem_base,
+                                   INTPTR_T_PTR_TYPE, "table_elem_base"))) {
             HANDLE_FAILURE("LLVMBuildBitCast");
             goto fail;
         }
 
-        if (!(table_elem = LLVMBuildInBoundsGEP2(comp_ctx->builder, INTPTR_TYPE,
-                                                 table_elem, &elem_idx, 1,
-                                                 "table_elem"))) {
+        if (!(table_elem_addr = LLVMBuildInBoundsGEP2(
+                  comp_ctx->builder, INTPTR_T_TYPE, table_elem_base, &elem_idx,
+                  1, "table_elem_addr"))) {
             HANDLE_FAILURE("LLVMBuildNUWAdd");
             goto fail;
         }
 
-        if (!(func_idx = LLVMBuildLoad2(comp_ctx->builder, INTPTR_TYPE,
-                                        table_elem, "func_idx"))) {
+        if (!(func_idx = LLVMBuildLoad2(comp_ctx->builder, INTPTR_T_TYPE,
+                                        table_elem_addr, "func_idx"))) {
             aot_set_last_error("llvm build load failed.");
             goto fail;
         }
@@ -1465,6 +1461,8 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
 #if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
     if (comp_ctx->enable_aux_stack_frame) {
+        /*  TODO: use current frame instead of allocating new frame
+                  for WASM_OP_RETURN_CALL_INDIRECT */
         if (!call_aot_alloc_frame_func(comp_ctx, func_ctx, func_idx))
             goto fail;
     }
@@ -1642,12 +1640,7 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMPositionBuilderAtEnd(comp_ctx->builder, block_return);
 
     for (i = 0; i < func_result_count; i++) {
-        if (comp_ctx->enable_gc
-            && aot_is_type_gc_reftype(
-                func_type->types[func_type->param_count + i]))
-            PUSH_GC_REF(result_phis[i]);
-        else
-            PUSH(result_phis[i], func_type->types[func_param_count + i]);
+        PUSH(result_phis[i], func_type->types[func_param_count + i]);
     }
 
 #if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
@@ -1783,7 +1776,7 @@ aot_compile_op_call_ref(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     bool ret = false;
 
     /* Check function type index */
-    bh_assert(type_idx >= comp_ctx->comp_data->type_count);
+    bh_assert(type_idx < comp_ctx->comp_data->type_count);
 
     func_type = (AOTFuncType *)comp_ctx->comp_data->types[type_idx];
     aot_estimate_and_record_stack_usage_for_function_call(comp_ctx, func_ctx,
@@ -1950,6 +1943,8 @@ aot_compile_op_call_ref(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
 #if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
     if (comp_ctx->enable_aux_stack_frame) {
+        /*  TODO: use current frame instead of allocating new frame
+                  for WASM_OP_RETURN_CALL_REF */
         if (!call_aot_alloc_frame_func(comp_ctx, func_ctx, func_idx))
             goto fail;
     }
@@ -2134,12 +2129,7 @@ aot_compile_op_call_ref(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMPositionBuilderAtEnd(comp_ctx->builder, block_return);
 
     for (i = 0; i < func_result_count; i++) {
-        if (comp_ctx->enable_gc
-            && aot_is_type_gc_reftype(
-                func_type->types[func_type->param_count + i]))
-            PUSH_GC_REF(result_phis[i]);
-        else
-            PUSH(result_phis[i], func_type->types[func_param_count + i]);
+        PUSH(result_phis[i], func_type->types[func_param_count + i]);
     }
 
 #if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)

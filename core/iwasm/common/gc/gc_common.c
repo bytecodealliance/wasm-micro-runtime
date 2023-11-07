@@ -146,12 +146,22 @@ wasm_obj_get_defined_type_idx(WASMModuleCommon *const module,
                 break;
             }
         }
-
         bh_assert(type_idx < type_count);
     }
 #endif
 #if WASM_ENABLE_AOT != 0
-    /* TODO */
+    if (module->module_type == Wasm_Module_Bytecode) {
+        AOTModule *aot_module = (AOTModule *)module;
+        uint32 type_count = aot_module->type_count;
+
+        for (i = 0; i < type_count; i++) {
+            if (aot_module->types[i] == type) {
+                type_idx = i;
+                break;
+            }
+        }
+        bh_assert(type_idx < type_count);
+    }
 #endif
 
     return type_idx;

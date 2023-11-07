@@ -88,7 +88,7 @@ typedef enum FloatArithmetic {
 static inline bool
 aot_is_type_gc_reftype(uint8 type)
 {
-    return (type >= (uint8)REF_TYPE_ARRAYREF && type <= (uint8)REF_TYPE_FUNCREF)
+    return (type >= (uint8)REF_TYPE_NULLREF && type <= (uint8)REF_TYPE_FUNCREF)
                ? true
                : false;
 }
@@ -532,7 +532,10 @@ set_local_gc_ref(AOTCompFrame *frame, int n, LLVMValueRef value, uint8 ref_type)
             goto fail;                                                    \
         }                                                                 \
         memset(aot_value, 0, sizeof(AOTValue));                           \
-        aot_value->type = value_type;                                     \
+        if (comp_ctx->enable_gc && aot_is_type_gc_reftype(value_type))    \
+            aot_value->type = VALUE_TYPE_GC_REF;                          \
+        else                                                              \
+            aot_value->type = value_type;                                 \
         aot_value->value = llvm_value;                                    \
         aot_value_stack_push(                                             \
             comp_ctx, &func_ctx->block_stack.block_list_end->value_stack, \
@@ -560,13 +563,13 @@ set_local_gc_ref(AOTCompFrame *frame, int n, LLVMValueRef value, uint8 ref_type)
 #define INT1_TYPE comp_ctx->basic_types.int1_type
 #define INT8_TYPE comp_ctx->basic_types.int8_type
 #define INT16_TYPE comp_ctx->basic_types.int16_type
-#define INTPTR_TYPE comp_ctx->basic_types.intptr_type
+#define INTPTR_T_TYPE comp_ctx->basic_types.intptr_t_type
 #define MD_TYPE comp_ctx->basic_types.meta_data_type
 #define INT8_PTR_TYPE comp_ctx->basic_types.int8_ptr_type
 #define INT16_PTR_TYPE comp_ctx->basic_types.int16_ptr_type
 #define INT32_PTR_TYPE comp_ctx->basic_types.int32_ptr_type
 #define INT64_PTR_TYPE comp_ctx->basic_types.int64_ptr_type
-#define INTPTR_PTR_TYPE comp_ctx->basic_types.intptr_ptr_type
+#define INTPTR_T_PTR_TYPE comp_ctx->basic_types.intptr_t_ptr_type
 #define F32_PTR_TYPE comp_ctx->basic_types.float32_ptr_type
 #define F64_PTR_TYPE comp_ctx->basic_types.float64_ptr_type
 #define FUNC_REF_TYPE comp_ctx->basic_types.funcref_type

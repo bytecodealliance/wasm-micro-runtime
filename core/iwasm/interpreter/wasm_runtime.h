@@ -146,8 +146,6 @@ struct WASMTableInstance {
     union {
 #if WASM_ENABLE_GC != 0
         WASMRefType *elem_ref_type;
-#else
-        uintptr_t elem_ref_type;
 #endif
         uint64 __padding__;
     } elem_ref_type;
