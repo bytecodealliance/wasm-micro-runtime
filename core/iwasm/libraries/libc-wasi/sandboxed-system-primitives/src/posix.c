@@ -1108,19 +1108,17 @@ wasmtime_ssp_fd_write(wasm_exec_env_t exec_env, struct fd_table *curfds,
     error = blocking_op_writev(exec_env, fo->file_handle, iov, (int)iovcnt,
                                nwritten);
 #else
-    ssize_t len = 0;
     /* redirect stdout/stderr output to BH_VPRINTF function */
     if (fo->is_stdio) {
         int i;
-        const struct iovec *iov1 = (const struct iovec *)iov;
-
-        for (i = 0; i < (int)iovcnt; i++, iov1++) {
-            if (iov1->iov_len > 0 && iov1->iov_base) {
+        *nwritten = 0;
+        for (i = 0; i < (int)iovcnt; i++) {
+            if (iov[i].buf_len > 0 && iov[i].buf != NULL) {
                 char format[16];
 
                 /* make up format string "%.ns" */
-                snprintf(format, sizeof(format), "%%.%ds", (int)iov1->iov_len);
-                len += (ssize_t)os_printf(format, iov1->iov_base);
+                snprintf(format, sizeof(format), "%%.%ds", (int)iov[i].buf_len);
+                *nwritten += (size_t)os_printf(format, iov[i].buf);
             }
         }
     }

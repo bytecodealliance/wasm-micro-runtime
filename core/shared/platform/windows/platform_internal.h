@@ -179,6 +179,17 @@ typedef uint32_t os_raw_file_handle;
 
 #define bh_socket_t windows_handle *
 
+// UWP apps do not have stdout/stderr handles so provide a default
+// implementation of vprintf on debug builds so output from WASI libc is sent to
+// the debugger and not lost completely.
+#if !defined(BH_VPRINTF) && !defined(NDEBUG) && WINAPI_PARTITION_DESKTOP == 0
+int
+uwp_print_to_debugger(const char *format, va_list ap);
+
+#define BH_VPRINTF uwp_print_to_debugger
+#define UWP_DEFAULT_VPRINTF
+#endif
+
 #ifdef __cplusplus
 }
 #endif
