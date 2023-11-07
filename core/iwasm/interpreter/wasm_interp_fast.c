@@ -1054,16 +1054,8 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
     prev_frame->ip = ip;
     exec_env->aux_stack_boundary.boundary = aux_stack_origin_boundary;
     exec_env->aux_stack_bottom.bottom = aux_stack_origin_bottom;
-    wasm_exec_env_set_module_inst(exec_env,
-                                  (WASMModuleInstanceCommon *)module_inst);
-
-    /* transfer exception if it is thrown */
-    if (wasm_copy_exception(sub_module_inst, NULL)) {
-        bh_memcpy_s(module_inst->cur_exception,
-                    sizeof(module_inst->cur_exception),
-                    sub_module_inst->cur_exception,
-                    sizeof(sub_module_inst->cur_exception));
-    }
+    wasm_exec_env_restore_module_inst(exec_env,
+                                      (WASMModuleInstanceCommon *)module_inst);
 }
 #endif
 
