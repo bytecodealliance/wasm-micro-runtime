@@ -2189,8 +2189,20 @@ wasi_sock_recv_from(wasm_exec_env_t exec_env, wasi_fd_t sock,
         insert_sock_recv_from_data(sock, ri_data, ri_data_len, ri_flags, src_addr, ro_data_len);
     #endif
 
-    LOG_STRACE("wasi_sock_recv_from exec_env=%d, sock=%d, ri_data=%d, ri_data_len=%d, ri_flags=%d, src_addr=%d, ro_data_len=%d \n", exec_env, sock, ri_data, ri_data_len, ri_flags, src_addr, ro_data_len);
-
+    LOG_STRACE("wasi_sock_recv_from exec_env=%d, sock=%d, \n ri_data:buf-offset=%u,  ri_data:buf-len=%u, \n ri_data_len=%d, ri_flags=%u, \n dest_addr:kind=%d, ip4= %u : %u : %u: %u, ip6= %u: %u : %u : %u : %u : %u : %u: %u \n ro_data_len=%d \n", exec_env, sock, ri_data->buf_offset, ri_data->buf_len, ri_data_len, ri_flags, src_addr->kind,
+               src_addr->addr.ip4.addr.n0,
+               src_addr->addr.ip4.addr.n1,
+               src_addr->addr.ip4.addr.n2,
+               src_addr->addr.ip4.addr.n3,
+               src_addr->addr.ip6.addr.n0,
+               src_addr->addr.ip6.addr.n1,
+               src_addr->addr.ip6.addr.n2,
+               src_addr->addr.ip6.addr.n3,
+               src_addr->addr.ip6.addr.h0,
+               src_addr->addr.ip6.addr.h1,
+               src_addr->addr.ip6.addr.h2,
+               src_addr->addr.ip6.addr.h3,
+               ro_data_len);
     if (err != __WASI_ESUCCESS) {
         goto fail;
     }
@@ -2339,7 +2351,20 @@ wasi_sock_send_to(wasm_exec_env_t exec_env, wasi_fd_t sock,
     insert_sock_send_to_data(sock, si_data, si_data_len, si_flags, dest_addr, so_data_len);
     #endif
 
-    LOG_STRACE("wasi_sock_send_to exec_env=%d, sock=%d, si_data=%d, si_data_len=%d, si_flags=%d, dest_addr=%d, so_data_len=%d \n", exec_env, sock, si_data, si_data_len, si_flags, dest_addr, so_data_len);
+    LOG_STRACE("wasi_sock_send_to exec_env=%d, sock=%d, \n si_data:buf-offset=%u,  si_data:buf-len=%u, \n si_data_len=%d, si_flags=%u, \n dest_addr:kind=%d, ip4= %u : %u : %u: %u, ip6= %u: %u : %u : %u : %u : %u : %u: %u \n so_data_len=%d \n", exec_env, sock, si_data->buf_offset, si_data->buf_len, si_data_len, si_flags, dest_addr->kind,
+               dest_addr->addr.ip4.addr.n0,
+               dest_addr->addr.ip4.addr.n1,
+               dest_addr->addr.ip4.addr.n2,
+               dest_addr->addr.ip4.addr.n3,
+               dest_addr->addr.ip6.addr.n0,
+               dest_addr->addr.ip6.addr.n1,
+               dest_addr->addr.ip6.addr.n2,
+               dest_addr->addr.ip6.addr.n3,
+               dest_addr->addr.ip6.addr.h0,
+               dest_addr->addr.ip6.addr.h1,
+               dest_addr->addr.ip6.addr.h2,
+               dest_addr->addr.ip6.addr.h3,
+               so_data_len);
 
     wasm_runtime_free(buf);
 
