@@ -49,12 +49,12 @@ typedef struct wasi_prestat_app {
     wasi_preopentype_t pr_type;
     uint32 pr_name_len;
 } wasi_prestat_app_t;
-
+#if WASM_ENABLE_CHECKPOINT_RESTORE==0
 typedef struct iovec_app {
     uint32 buf_offset;
     uint32 buf_len;
 } iovec_app_t;
-
+#endif
 typedef struct WASIContext *wasi_ctx_t;
 
 wasi_ctx_t
@@ -1661,9 +1661,9 @@ wasi_sock_open(wasm_exec_env_t exec_env, wasi_fd_t poolfd,
 
     #if WASM_ENABLE_CHECKPOINT_RESTORE!=0
     // note: pass default protocol 0 - IP
-    if(sockfd) 
+    if(sockfd)
         insert_socket(*sockfd, af, socktype, 0);
-    
+
     #endif
 
     if (!wasi_ctx)
