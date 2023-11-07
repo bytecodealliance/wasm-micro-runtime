@@ -3639,7 +3639,7 @@ llvm_jit_table_init(WASMModuleInstance *module_inst, uint32 tbl_idx,
         if (func_indexes[i] != UINT32_MAX) {
             if (!(func_obj = wasm_create_func_obj(module_inst, func_indexes[i],
                                                   true, NULL, 0))) {
-                aot_set_exception_with_id(module_inst, EXCE_NULL_FUNC_OBJ);
+                wasm_set_exception(module_inst, "null function object");
                 return;
             }
             table_elems[i] = func_obj;
