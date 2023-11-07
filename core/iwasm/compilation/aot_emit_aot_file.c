@@ -326,7 +326,7 @@ get_import_table_size(const AOTCompContext *comp_ctx,
      * |                  | U8 possible_grow
      * | AOTImpotTable[N] | U8 elem_ref_type.nullable (for GC only)
      * |                  | U32 table_init_size
-     * |                  | U32 table_init_size
+     * |                  | U32 table_max_size
      * |                  | U32 elem_ref_type.heap_type (for GC only)
      * ------------------------------
      */

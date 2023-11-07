@@ -150,7 +150,7 @@ wasm_obj_get_defined_type_idx(WASMModuleCommon *const module,
     }
 #endif
 #if WASM_ENABLE_AOT != 0
-    if (module->module_type == Wasm_Module_Bytecode) {
+    if (module->module_type == Wasm_Module_AoT) {
         AOTModule *aot_module = (AOTModule *)module;
         uint32 type_count = aot_module->type_count;
 
