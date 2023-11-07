@@ -2617,64 +2617,6 @@ verify_module(AOTCompContext *comp_ctx)
     return true;
 }
 
-/* Check whether the target supports hardware atomic instructions */
-static bool
-aot_require_lower_atomic_pass(AOTCompContext *comp_ctx)
-{
-    bool ret = false;
-    if (!strncmp(comp_ctx->target_arch, "riscv", 5)) {
-        char *feature =
-            LLVMGetTargetMachineFeatureString(comp_ctx->target_machine);
-
-        if (feature) {
-            if (!strstr(feature, "+a")) {
-                ret = true;
-            }
-            LLVMDisposeMessage(feature);
-        }
-    }
-    return ret;
-}
-
-/* Check whether the target needs to expand switch to if/else */
-static bool
-aot_require_lower_switch_pass(AOTCompContext *comp_ctx)
-{
-    bool ret = false;
-
-    /* IR switch/case will cause .rodata relocation on riscv/xtensa */
-    if (!strncmp(comp_ctx->target_arch, "riscv", 5)
-        || !strncmp(comp_ctx->target_arch, "xtensa", 6)) {
-        ret = true;
-    }
-
-    return ret;
-}
-
-static bool
-apply_passes_for_indirect_mode(AOTCompContext *comp_ctx)
-{
-    LLVMPassManagerRef common_pass_mgr;
-
-    if (!(common_pass_mgr = LLVMCreatePassManager())) {
-        aot_set_last_error("create pass manager failed");
-        return false;
-    }
-
-    aot_add_expand_memory_op_pass(common_pass_mgr);
-
-    if (aot_require_lower_atomic_pass(comp_ctx))
-        LLVMAddLowerAtomicPass(common_pass_mgr);
-
-    if (aot_require_lower_switch_pass(comp_ctx))
-        LLVMAddLowerSwitchPass(common_pass_mgr);
-
-    LLVMRunPassManager(common_pass_mgr, comp_ctx->module);
-
-    LLVMDisposePassManager(common_pass_mgr);
-    return true;
-}
-
 bool
 aot_compile_wasm(AOTCompContext *comp_ctx)
 {
@@ -2714,17 +2656,6 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
            possible core dump. */
         bh_print_time("Begin to run llvm optimization passes");
         aot_apply_llvm_new_pass_manager(comp_ctx, comp_ctx->module);
-
-        /* Run specific passes for AOT indirect mode in last since general
-           optimization may create some intrinsic function calls like
-           llvm.memset, so let's remove these function calls here. */
-        if (!comp_ctx->is_jit_mode && comp_ctx->is_indirect_mode) {
-            bh_print_time("Begin to run optimization passes "
-                          "for indirect mode");
-            if (!apply_passes_for_indirect_mode(comp_ctx)) {
-                return false;
-            }
-        }
         bh_print_time("Finish llvm optimization passes");
     }
 
@@ -2761,6 +2692,16 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
             aot_handle_llvm_errmsg("failed to addIRModule", err);
             return false;
         }
+
+        if (comp_ctx->stack_sizes != NULL) {
+            LLVMOrcJITTargetAddress addr;
+            if ((err = LLVMOrcLLLazyJITLookup(comp_ctx->orc_jit, &addr,
+                                              aot_stack_sizes_alias_name))) {
+                aot_handle_llvm_errmsg("failed to look up stack_sizes", err);
+                return false;
+            }
+            comp_ctx->jit_stack_sizes = (uint32 *)addr;
+        }
     }
 
     return true;
@@ -2794,6 +2735,33 @@ aot_generate_tempfile_name(const char *prefix, const char *extension,
     snprintf(buffer + name_len, len - name_len, ".%s", extension);
     return buffer;
 }
+#else
+
+errno_t
+_mktemp_s(char *nameTemplate, size_t sizeInChars);
+
+char *
+aot_generate_tempfile_name(const char *prefix, const char *extension,
+                           char *buffer, uint32 len)
+{
+    int name_len;
+
+    name_len = snprintf(buffer, len, "%s-XXXXXX", prefix);
+
+    if (_mktemp_s(buffer, name_len + 1) != 0) {
+        return NULL;
+    }
+
+    /* Check if buffer length is enough */
+    /* name_len + '.' + extension + '\0' */
+    if (name_len + 1 + strlen(extension) + 1 > len) {
+        aot_set_last_error("temp file name too long.");
+        return NULL;
+    }
+
+    snprintf(buffer + name_len, len - name_len, ".%s", extension);
+    return buffer;
+}
 #endif /* end of !(defined(_WIN32) || defined(_WIN32_)) */
 
 bool
@@ -2815,6 +2783,55 @@ aot_emit_llvm_file(AOTCompContext *comp_ctx, const char *file_name)
     return true;
 }
 
+static bool
+aot_move_file(const char *dest, const char *src)
+{
+    FILE *dfp = fopen(dest, "w");
+    FILE *sfp = fopen(src, "r");
+    size_t rsz;
+    char buf[128];
+    bool success = false;
+
+    if (dfp == NULL || sfp == NULL) {
+        LOG_DEBUG("open error %s %s", dest, src);
+        goto fail;
+    }
+    do {
+        rsz = fread(buf, 1, sizeof(buf), sfp);
+        if (rsz > 0) {
+            size_t wsz = fwrite(buf, 1, rsz, dfp);
+            if (wsz < rsz) {
+                LOG_DEBUG("write error");
+                goto fail;
+            }
+        }
+        if (rsz < sizeof(buf)) {
+            if (ferror(sfp)) {
+                LOG_DEBUG("read error");
+                goto fail;
+            }
+        }
+    } while (rsz > 0);
+    success = true;
+fail:
+    if (dfp != NULL) {
+        if (fclose(dfp)) {
+            LOG_DEBUG("close error");
+            success = false;
+        }
+        if (!success) {
+            (void)unlink(dest);
+        }
+    }
+    if (sfp != NULL) {
+        (void)fclose(sfp);
+    }
+    if (success) {
+        (void)unlink(src);
+    }
+    return success;
+}
+
 bool
 aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name)
 {
@@ -2830,7 +2847,25 @@ aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name)
         int ret;
 
         if (comp_ctx->external_llc_compiler) {
+            const char *stack_usage_flag = "";
             char bc_file_name[64];
+            char su_file_name[65]; /* See the comment below */
+
+            if (comp_ctx->stack_usage_file != NULL) {
+                /*
+                 * Note: we know the caller uses 64 byte buffer for
+                 * file_name. It will get 1 byte longer because we
+                 * replace ".o" with ".su".
+                 */
+                size_t len = strlen(file_name);
+                bh_assert(len + 1 <= sizeof(su_file_name));
+                bh_assert(len > 3);
+                bh_assert(file_name[len - 2] == '.');
+                bh_assert(file_name[len - 1] == 'o');
+                snprintf(su_file_name, sizeof(su_file_name), "%.*s.su",
+                         (int)(len - 2), file_name);
+                stack_usage_flag = " -fstack-usage";
+            }
 
             if (!aot_generate_tempfile_name("wamrc-bc", "bc", bc_file_name,
                                             sizeof(bc_file_name))) {
@@ -2842,8 +2877,8 @@ aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name)
                 return false;
             }
 
-            snprintf(cmd, sizeof(cmd), "%s %s -o %s %s",
-                     comp_ctx->external_llc_compiler,
+            snprintf(cmd, sizeof(cmd), "%s%s %s -o %s %s",
+                     comp_ctx->external_llc_compiler, stack_usage_flag,
                      comp_ctx->llc_compiler_flags ? comp_ctx->llc_compiler_flags
                                                   : "-O3 -c",
                      file_name, bc_file_name);
@@ -2857,6 +2892,22 @@ aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name)
                 aot_set_last_error("failed to compile LLVM bitcode to obj file "
                                    "with external LLC compiler.");
                 return false;
+            }
+            if (comp_ctx->stack_usage_file != NULL) {
+                /*
+                 * move the temporary .su file to the specified location.
+                 *
+                 * Note: the former is automatimally inferred from the output
+                 * filename (file_name here) by clang.
+                 *
+                 * Note: the latter might be user-specified.
+                 * (wamrc --stack-usage=<file>)
+                 */
+                if (!aot_move_file(comp_ctx->stack_usage_file, su_file_name)) {
+                    aot_set_last_error("failed to move su file.");
+                    (void)unlink(su_file_name);
+                    return false;
+                }
             }
         }
         else if (comp_ctx->external_asm_compiler) {

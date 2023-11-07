@@ -9,6 +9,8 @@
 #define R_RISCV_64 2
 #define R_RISCV_CALL 18
 #define R_RISCV_CALL_PLT 19
+#define R_RISCV_PCREL_HI20 23
+#define R_RISCV_PCREL_LO12_I 24
 #define R_RISCV_HI20 26
 #define R_RISCV_LO12_I 27
 #define R_RISCV_LO12_S 28
@@ -76,6 +78,13 @@ static SymbolMap target_sym_map[] = {
     REG_SYM(__addsf3),
     REG_SYM(__divdf3),
     REG_SYM(__divsf3),
+    REG_SYM(__eqdf2),
+    REG_SYM(__eqsf2),
+    REG_SYM(__extendsfdf2),
+    REG_SYM(__fixunsdfdi),
+    REG_SYM(__fixunsdfsi),
+    REG_SYM(__fixunssfdi),
+    REG_SYM(__fixunssfsi),
     REG_SYM(__gedf2),
     REG_SYM(__gesf2),
     REG_SYM(__gtdf2),
@@ -87,44 +96,33 @@ static SymbolMap target_sym_map[] = {
     REG_SYM(__muldf3),
     REG_SYM(__nedf2),
     REG_SYM(__nesf2),
-    REG_SYM(__eqsf2),
-    REG_SYM(__eqdf2),
-    REG_SYM(__extendsfdf2),
-    REG_SYM(__fixunsdfdi),
-    REG_SYM(__fixunsdfsi),
-    REG_SYM(__fixunssfsi),
     REG_SYM(__subdf3),
     REG_SYM(__subsf3),
     REG_SYM(__truncdfsf2),
     REG_SYM(__unorddf2),
     REG_SYM(__unordsf2),
-#endif
-    REG_SYM(__divdi3),
-    REG_SYM(__divsi3),
 #if __riscv_xlen == 32
     REG_SYM(__fixdfdi),
     REG_SYM(__fixdfsi),
     REG_SYM(__fixsfdi),
     REG_SYM(__fixsfsi),
-#endif
-    REG_SYM(__fixunssfdi),
-#if __riscv_xlen == 32
     REG_SYM(__floatdidf),
     REG_SYM(__floatdisf),
-    REG_SYM(__floatsisf),
     REG_SYM(__floatsidf),
+    REG_SYM(__floatsisf),
     REG_SYM(__floatundidf),
     REG_SYM(__floatundisf),
-    REG_SYM(__floatunsisf),
     REG_SYM(__floatunsidf),
-#endif
-    REG_SYM(__moddi3),
-    REG_SYM(__modsi3),
-    REG_SYM(__muldi3),
-#if __riscv_xlen == 32
+    REG_SYM(__floatunsisf),
     REG_SYM(__mulsf3),
     REG_SYM(__mulsi3),
 #endif
+#endif
+    REG_SYM(__divdi3),
+    REG_SYM(__divsi3),
+    REG_SYM(__moddi3),
+    REG_SYM(__modsi3),
+    REG_SYM(__muldi3),
     REG_SYM(__udivdi3),
     REG_SYM(__udivsi3),
     REG_SYM(__umoddi3),
@@ -267,9 +265,10 @@ typedef struct RelocTypeStrMap {
     }
 
 static RelocTypeStrMap reloc_type_str_maps[] = {
-    RELOC_TYPE_MAP(R_RISCV_32),       RELOC_TYPE_MAP(R_RISCV_CALL),
-    RELOC_TYPE_MAP(R_RISCV_CALL_PLT), RELOC_TYPE_MAP(R_RISCV_HI20),
-    RELOC_TYPE_MAP(R_RISCV_LO12_I),   RELOC_TYPE_MAP(R_RISCV_LO12_S),
+    RELOC_TYPE_MAP(R_RISCV_32),           RELOC_TYPE_MAP(R_RISCV_CALL),
+    RELOC_TYPE_MAP(R_RISCV_CALL_PLT),     RELOC_TYPE_MAP(R_RISCV_PCREL_HI20),
+    RELOC_TYPE_MAP(R_RISCV_PCREL_LO12_I), RELOC_TYPE_MAP(R_RISCV_HI20),
+    RELOC_TYPE_MAP(R_RISCV_LO12_I),       RELOC_TYPE_MAP(R_RISCV_LO12_S),
 };
 
 static const char *
@@ -369,13 +368,29 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
             break;
         }
 
-        case R_RISCV_HI20:
+        case R_RISCV_HI20:       /* S + A */
+        case R_RISCV_PCREL_HI20: /* S + A - P */
         {
-            val = (int32)((intptr_t)symbol_addr + (intptr_t)reloc_addend);
+            if (reloc_type == R_RISCV_PCREL_HI20) {
+                val = (int32)((intptr_t)symbol_addr + (intptr_t)reloc_addend
+                              - (intptr_t)addr);
+            }
+            else {
+                val = (int32)((intptr_t)symbol_addr + (intptr_t)reloc_addend);
+            }
 
             CHECK_RELOC_OFFSET(sizeof(uint32));
-            if (val != ((intptr_t)symbol_addr + (intptr_t)reloc_addend)) {
-                goto fail_addr_out_of_range;
+            if (reloc_type == R_RISCV_PCREL_HI20) {
+                if (val
+                    != ((intptr_t)symbol_addr + (intptr_t)reloc_addend
+                        - (intptr_t)addr)) {
+                    goto fail_addr_out_of_range;
+                }
+            }
+            else {
+                if (val != ((intptr_t)symbol_addr + (intptr_t)reloc_addend)) {
+                    goto fail_addr_out_of_range;
+                }
             }
 
             addr = target_section_addr + reloc_offset;
@@ -386,13 +401,27 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
             break;
         }
 
-        case R_RISCV_LO12_I:
+        case R_RISCV_LO12_I:       /* S + A */
+        case R_RISCV_PCREL_LO12_I: /* S - P */
         {
-            val = (int32)((intptr_t)symbol_addr + (intptr_t)reloc_addend);
+            if (reloc_type == R_RISCV_PCREL_LO12_I) {
+                /* A = 0 */
+                val = (int32)((intptr_t)symbol_addr - (intptr_t)addr);
+            }
+            else {
+                val = (int32)((intptr_t)symbol_addr + (intptr_t)reloc_addend);
+            }
 
             CHECK_RELOC_OFFSET(sizeof(uint32));
-            if (val != (intptr_t)symbol_addr + (intptr_t)reloc_addend) {
-                goto fail_addr_out_of_range;
+            if (reloc_type == R_RISCV_PCREL_LO12_I) {
+                if (val != (intptr_t)symbol_addr - (intptr_t)addr) {
+                    goto fail_addr_out_of_range;
+                }
+            }
+            else {
+                if (val != (intptr_t)symbol_addr + (intptr_t)reloc_addend) {
+                    goto fail_addr_out_of_range;
+                }
             }
 
             addr = target_section_addr + reloc_offset;

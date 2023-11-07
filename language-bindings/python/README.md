@@ -4,6 +4,8 @@ The WAMR Python package contains a set of high-level bindings for WAMR API and W
 
 ## Installation
 
+* **Notice**: This python package need python >= `3.9`.
+
 To Install from local source tree in _development mode_ run the following command,
 
 ```bash
@@ -30,5 +32,5 @@ import wamr.wasmcapi.ffi as ffi
 
 For more information:
 
-* [WAMR API](./wamr_api)
-* [WASM-C-API](./wasm_c_api)
+* [WAMR API](./wamr-api)
+* [WASM-C-API](./wasm-c-api)

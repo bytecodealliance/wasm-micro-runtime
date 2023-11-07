@@ -42,6 +42,11 @@ bh_static_assert(offsetof(AOTModuleInstance, cur_exception)
 bh_static_assert(offsetof(AOTModuleInstance, global_table_data)
                  == 13 * sizeof(uint64) + 128 + 11 * sizeof(uint64));
 
+bh_static_assert(sizeof(AOTMemoryInstance) == 104);
+bh_static_assert(offsetof(AOTTableInstance, elems) == 8);
+
+bh_static_assert(offsetof(AOTModuleInstanceExtra, stack_sizes) == 0);
+
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
 {
@@ -334,11 +339,8 @@ memories_deinstantiate(AOTModuleInstance *module_inst)
         memory_inst = module_inst->memories[i];
         if (memory_inst) {
 #if WASM_ENABLE_SHARED_MEMORY != 0
-            if (memory_inst->is_shared) {
-                int32 ref_count = shared_memory_dec_reference(
-                    (WASMModuleCommon *)module_inst->module);
-                bh_assert(ref_count >= 0);
-
+            if (shared_memory_is_shared(memory_inst)) {
+                uint32 ref_count = shared_memory_dec_reference(memory_inst);
                 /* if the reference count is not zero,
                     don't free the memory */
                 if (ref_count > 0)
@@ -368,9 +370,10 @@ memories_deinstantiate(AOTModuleInstance *module_inst)
 }
 
 static AOTMemoryInstance *
-memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
-                   AOTMemoryInstance *memory_inst, AOTMemory *memory,
-                   uint32 heap_size, char *error_buf, uint32 error_buf_size)
+memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
+                   AOTModule *module, AOTMemoryInstance *memory_inst,
+                   AOTMemory *memory, uint32 memory_idx, uint32 heap_size,
+                   char *error_buf, uint32 error_buf_size)
 {
     void *heap_handle;
     uint32 num_bytes_per_page = memory->num_bytes_per_page;
@@ -391,23 +394,13 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
     bool is_shared_memory = memory->memory_flags & 0x02 ? true : false;
 
     /* Shared memory */
-    if (is_shared_memory) {
+    if (is_shared_memory && parent != NULL) {
         AOTMemoryInstance *shared_memory_instance;
-        WASMSharedMemNode *node =
-            wasm_module_get_shared_memory((WASMModuleCommon *)module);
-        /* If the memory of this module has been instantiated,
-            return the memory instance directly */
-        if (node) {
-            uint32 ref_count;
-            ref_count = shared_memory_inc_reference((WASMModuleCommon *)module);
-            bh_assert(ref_count > 0);
-            shared_memory_instance =
-                (AOTMemoryInstance *)shared_memory_get_memory_inst(node);
-            bh_assert(shared_memory_instance);
-
-            (void)ref_count;
-            return shared_memory_instance;
-        }
+        bh_assert(memory_idx == 0);
+        bh_assert(parent->memory_count > memory_idx);
+        shared_memory_instance = parent->memories[memory_idx];
+        shared_memory_inc_reference(shared_memory_instance);
+        return shared_memory_instance;
     }
 #endif
 
@@ -427,7 +420,7 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
         if (num_bytes_per_page < heap_size) {
             set_error_buf(error_buf, error_buf_size,
                           "failed to insert app heap into linear memory, "
-                          "try using `--heap_size=0` option");
+                          "try using `--heap-size=0` option");
             return NULL;
         }
     }
@@ -485,7 +478,7 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
         if (init_page_count > DEFAULT_MAX_PAGES) {
             set_error_buf(error_buf, error_buf_size,
                           "failed to insert app heap into linear memory, "
-                          "try using `--heap_size=0` option");
+                          "try using `--heap-size=0` option");
             return NULL;
         }
         else if (init_page_count == DEFAULT_MAX_PAGES) {
@@ -604,23 +597,12 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (is_shared_memory) {
-        memory_inst->is_shared = true;
-        if (!shared_memory_set_memory_inst(
-                (WASMModuleCommon *)module,
-                (WASMMemoryInstanceCommon *)memory_inst)) {
-            set_error_buf(error_buf, error_buf_size, "allocate memory failed");
-            goto fail3;
-        }
+        memory_inst->ref_count = 1;
     }
 #endif
 
     return memory_inst;
 
-#if WASM_ENABLE_SHARED_MEMORY != 0
-fail3:
-    if (heap_size > 0)
-        mem_allocator_destroy(memory_inst->heap_handle);
-#endif
 fail2:
     if (heap_size > 0)
         wasm_runtime_free(memory_inst->heap_handle);
@@ -649,14 +631,18 @@ aot_get_default_memory(AOTModuleInstance *module_inst)
 }
 
 static bool
-memories_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
-                     uint32 heap_size, char *error_buf, uint32 error_buf_size)
+memories_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
+                     AOTModule *module, uint32 heap_size, char *error_buf,
+                     uint32 error_buf_size)
 {
     uint32 global_index, global_data_offset, base_offset, length;
     uint32 i, memory_count = module->memory_count;
     AOTMemoryInstance *memories, *memory_inst;
     AOTMemInitData *data_seg;
     uint64 total_size;
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    bool is_shared_memory;
+#endif
 
     module_inst->memory_count = memory_count;
     total_size = sizeof(AOTMemoryInstance *) * (uint64)memory_count;
@@ -667,8 +653,8 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 
     memories = module_inst->global_table_data.memory_instances;
     for (i = 0; i < memory_count; i++, memories++) {
-        memory_inst = memory_instantiate(module_inst, module, memories,
-                                         &module->memories[i], heap_size,
+        memory_inst = memory_instantiate(module_inst, parent, module, memories,
+                                         &module->memories[i], i, heap_size,
                                          error_buf, error_buf_size);
         if (!memory_inst) {
             return false;
@@ -683,6 +669,15 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
         /* Ignore setting memory init data if no memory inst is created */
         return true;
     }
+
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    /* Currently we have only one memory instance */
+    is_shared_memory = module->memories[0].memory_flags & 0x02 ? true : false;
+    if (is_shared_memory && parent != NULL) {
+        /* Ignore setting memory init data if the memory has been initialized */
+        return true;
+    }
+#endif
 
     for (i = 0; i < module->mem_init_data_count; i++) {
         data_seg = module->mem_init_data_list[i];
@@ -1015,6 +1010,15 @@ execute_post_instantiate_functions(AOTModuleInstance *module_inst,
         }
     }
 
+#if defined(os_writegsbase)
+    {
+        AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
+        if (memory_inst)
+            /* write base addr of linear memory to GS segment register */
+            os_writegsbase(memory_inst->memory_data);
+    }
+#endif
+
     /* Execute start function for both main insance and sub instance */
     if (module->start_function) {
         AOTFunctionInstance start_func = { 0 };
@@ -1086,9 +1090,9 @@ check_linked_symbol(AOTModule *module, char *error_buf, uint32 error_buf_size)
 }
 
 AOTModuleInstance *
-aot_instantiate(AOTModule *module, bool is_sub_inst, WASMExecEnv *exec_env_main,
-                uint32 stack_size, uint32 heap_size, char *error_buf,
-                uint32 error_buf_size)
+aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
+                WASMExecEnv *exec_env_main, uint32 stack_size, uint32 heap_size,
+                char *error_buf, uint32 error_buf_size)
 {
     AOTModuleInstance *module_inst;
     const uint32 module_inst_struct_size =
@@ -1098,6 +1102,10 @@ aot_instantiate(AOTModule *module, bool is_sub_inst, WASMExecEnv *exec_env_main,
     uint64 total_size, table_size = 0;
     uint8 *p;
     uint32 i, extra_info_offset;
+    const bool is_sub_inst = parent != NULL;
+#if WASM_ENABLE_MULTI_MODULE != 0
+    bool ret = false;
+#endif
 
     /* Check heap size */
     heap_size = align_uint(heap_size, 8);
@@ -1141,6 +1149,18 @@ aot_instantiate(AOTModule *module, bool is_sub_inst, WASMExecEnv *exec_env_main,
     module_inst->e =
         (WASMModuleInstanceExtra *)((uint8 *)module_inst + extra_info_offset);
 
+#if WASM_ENABLE_MULTI_MODULE != 0
+    ((AOTModuleInstanceExtra *)module_inst->e)->sub_module_inst_list =
+        &((AOTModuleInstanceExtra *)module_inst->e)->sub_module_inst_list_head;
+    ret = wasm_runtime_sub_module_instantiate(
+        (WASMModuleCommon *)module, (WASMModuleInstanceCommon *)module_inst,
+        stack_size, heap_size, error_buf, error_buf_size);
+    if (!ret) {
+        LOG_DEBUG("build a sub module list failed");
+        goto fail;
+    }
+#endif
+
     /* Initialize global info */
     p = (uint8 *)module_inst + module_inst_struct_size
         + module_inst_mem_inst_size;
@@ -1157,7 +1177,7 @@ aot_instantiate(AOTModule *module, bool is_sub_inst, WASMExecEnv *exec_env_main,
         goto fail;
 
     /* Initialize memory space */
-    if (!memories_instantiate(module_inst, module, heap_size, error_buf,
+    if (!memories_instantiate(module_inst, parent, module, heap_size, error_buf,
                               error_buf_size))
         goto fail;
 
@@ -1192,17 +1212,6 @@ aot_instantiate(AOTModule *module, bool is_sub_inst, WASMExecEnv *exec_env_main,
     }
 #endif
 
-#if WASM_ENABLE_WASI_NN != 0
-    if (!is_sub_inst) {
-        if (!(((AOTModuleInstanceExtra *)module_inst->e)->wasi_nn_ctx =
-                  wasi_nn_initialize())) {
-            set_error_buf(error_buf, error_buf_size,
-                          "wasi nn initialization failed");
-            goto fail;
-        }
-    }
-#endif
-
     /* Initialize the thread related data */
     if (stack_size == 0)
         stack_size = DEFAULT_WASM_STACK_SIZE;
@@ -1211,6 +1220,9 @@ aot_instantiate(AOTModule *module, bool is_sub_inst, WASMExecEnv *exec_env_main,
         stack_size = 48 * 1024;
 #endif
     module_inst->default_wasm_stack_size = stack_size;
+
+    ((AOTModuleInstanceExtra *)module_inst->e)->stack_sizes =
+        aot_get_data_section_addr(module, AOT_STACK_SIZES_SECTION_NAME, NULL);
 
 #if WASM_ENABLE_PERF_PROFILING != 0
     total_size = (uint64)sizeof(AOTFuncPerfProfInfo)
@@ -1258,16 +1270,6 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
         wasm_exec_env_destroy((WASMExecEnv *)module_inst->exec_env_singleton);
     }
 
-#if WASM_ENABLE_LIBC_WASI != 0
-    /* Destroy wasi resource before freeing app heap, since some fields of
-       wasi contex are allocated from app heap, and if app heap is freed,
-       these fields will be set to NULL, we cannot free their internal data
-       which may allocated from global heap. */
-    /* Only destroy wasi ctx in the main module instance */
-    if (!is_sub_inst)
-        wasm_runtime_destroy_wasi((WASMModuleInstanceCommon *)module_inst);
-#endif
-
 #if WASM_ENABLE_PERF_PROFILING != 0
     if (module_inst->func_perf_profilings)
         wasm_runtime_free(module_inst->func_perf_profilings);
@@ -1279,6 +1281,11 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
         wasm_runtime_free(module_inst->frames);
         module_inst->frames = NULL;
     }
+#endif
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+    wasm_runtime_sub_module_deinstantiate(
+        (WASMModuleInstanceCommon *)module_inst);
 #endif
 
     if (module_inst->tables)
@@ -1296,18 +1303,16 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
     if (module_inst->func_type_indexes)
         wasm_runtime_free(module_inst->func_type_indexes);
 
-    if (((AOTModuleInstanceExtra *)module_inst->e)->c_api_func_imports)
-        wasm_runtime_free(
-            ((AOTModuleInstanceExtra *)module_inst->e)->c_api_func_imports);
+    if (((AOTModuleInstanceExtra *)module_inst->e)->common.c_api_func_imports)
+        wasm_runtime_free(((AOTModuleInstanceExtra *)module_inst->e)
+                              ->common.c_api_func_imports);
 
-#if WASM_ENABLE_WASI_NN != 0
     if (!is_sub_inst) {
-        WASINNContext *wasi_nn_ctx =
-            ((AOTModuleInstanceExtra *)module_inst->e)->wasi_nn_ctx;
-        if (wasi_nn_ctx)
-            wasi_nn_destroy(wasi_nn_ctx);
-    }
+#if WASM_ENABLE_WASI_NN != 0
+        wasi_nn_destroy(module_inst);
 #endif
+        wasm_native_call_context_dtors((WASMModuleInstanceCommon *)module_inst);
+    }
 
     wasm_runtime_free(module_inst);
 }
@@ -1438,10 +1443,43 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
                   unsigned argc, uint32 argv[])
 {
     AOTModuleInstance *module_inst = (AOTModuleInstance *)exec_env->module_inst;
-    AOTFuncType *func_type = function->u.func.func_type;
+    AOTFuncType *func_type = function->is_import_func
+                                 ? function->u.func_import->func_type
+                                 : function->u.func.func_type;
     uint32 result_count = func_type->result_count;
     uint32 ext_ret_count = result_count > 1 ? result_count - 1 : 0;
     bool ret;
+    void *func_ptr = function->is_import_func
+                         ? function->u.func_import->func_ptr_linked
+                         : function->u.func.func_ptr;
+#if WASM_ENABLE_MULTI_MODULE != 0
+    bh_list *sub_module_list_node = NULL;
+    const char *sub_inst_name = NULL;
+    const char *func_name = function->u.func_import->module_name;
+    if (function->is_import_func) {
+        sub_module_list_node =
+            ((AOTModuleInstanceExtra *)module_inst->e)->sub_module_inst_list;
+        sub_module_list_node = bh_list_first_elem(sub_module_list_node);
+        while (sub_module_list_node) {
+            sub_inst_name =
+                ((AOTSubModInstNode *)sub_module_list_node)->module_name;
+            if (strcmp(sub_inst_name, func_name) == 0) {
+                exec_env = wasm_runtime_get_exec_env_singleton(
+                    (WASMModuleInstanceCommon *)((AOTSubModInstNode *)
+                                                     sub_module_list_node)
+                        ->module_inst);
+                module_inst = (AOTModuleInstance *)exec_env->module_inst;
+                break;
+            }
+            sub_module_list_node = bh_list_elem_next(sub_module_list_node);
+        }
+        if (exec_env == NULL) {
+            wasm_runtime_set_exception((WASMModuleInstanceCommon *)module_inst,
+                                       "create singleton exec_env failed");
+            return false;
+        }
+    }
+#endif
 
     if (argc < func_type->param_cell_num) {
         char buf[108];
@@ -1453,11 +1491,22 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
     }
     argc = func_type->param_cell_num;
 
-    /* func pointer was looked up previously */
-    bh_assert(function->u.func.func_ptr != NULL);
+#if defined(os_writegsbase)
+    {
+        AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
+        if (memory_inst)
+            /* write base addr of linear memory to GS segment register */
+            os_writegsbase(memory_inst->memory_data);
+    }
+#endif
 
+    /* func pointer was looked up previously */
+    bh_assert(func_ptr != NULL);
     /* set thread handle and stack boundary */
     wasm_exec_env_set_thread_info(exec_env);
+
+    /* set exec env so it can be later retrieved from instance */
+    ((AOTModuleInstanceExtra *)module_inst->e)->common.cur_exec_env = exec_env;
 
     if (ext_ret_count > 0) {
         uint32 cell_num = 0, i;
@@ -1561,8 +1610,8 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
         }
 #endif
 
-        ret = invoke_native_internal(exec_env, function->u.func.func_ptr,
-                                     func_type, NULL, NULL, argv, argc, argv);
+        ret = invoke_native_internal(exec_env, func_ptr, func_type, NULL, NULL,
+                                     argv, argc, argv);
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
         if (aot_copy_exception(module_inst, NULL)) {
@@ -1941,8 +1990,8 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
     AOTModuleInstanceExtra *module_inst_extra =
         (AOTModuleInstanceExtra *)module_inst->e;
     CApiFuncImport *c_api_func_import =
-        module_inst_extra->c_api_func_imports
-            ? module_inst_extra->c_api_func_imports + func_idx
+        module_inst_extra->common.c_api_func_imports
+            ? module_inst_extra->common.c_api_func_imports + func_idx
             : NULL;
     uint32 *func_type_indexes = module_inst->func_type_indexes;
     uint32 func_type_idx = func_type_indexes[func_idx];
@@ -1954,7 +2003,10 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
     void *attachment;
     char buf[96];
     bool ret = false;
-
+#if WASM_ENABLE_MULTI_MODULE != 0
+    bh_list *sub_module_list_node = NULL;
+    const char *sub_inst_name = NULL;
+#endif
     bh_assert(func_idx < aot_module->import_func_count);
 
     import_func = aot_module->import_funcs + func_idx;
@@ -1978,6 +2030,28 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
     }
     else if (!import_func->call_conv_raw) {
         signature = import_func->signature;
+#if WASM_ENABLE_MULTI_MODULE != 0
+        sub_module_list_node =
+            ((AOTModuleInstanceExtra *)module_inst->e)->sub_module_inst_list;
+        sub_module_list_node = bh_list_first_elem(sub_module_list_node);
+        while (sub_module_list_node) {
+            sub_inst_name =
+                ((AOTSubModInstNode *)sub_module_list_node)->module_name;
+            if (strcmp(sub_inst_name, import_func->module_name) == 0) {
+                exec_env = wasm_runtime_get_exec_env_singleton(
+                    (WASMModuleInstanceCommon *)((AOTSubModInstNode *)
+                                                     sub_module_list_node)
+                        ->module_inst);
+                break;
+            }
+            sub_module_list_node = bh_list_elem_next(sub_module_list_node);
+        }
+        if (exec_env == NULL) {
+            wasm_runtime_set_exception((WASMModuleInstanceCommon *)module_inst,
+                                       "create singleton exec_env failed");
+            goto fail;
+        }
+#endif
         ret =
             wasm_runtime_invoke_native(exec_env, func_ptr, func_type, signature,
                                        attachment, argv, argc, argv);
@@ -2478,13 +2552,13 @@ aot_table_init(AOTModuleInstance *module_inst, uint32 tbl_idx,
     tbl_seg = module->table_init_data_list[tbl_seg_idx];
     bh_assert(tbl_seg);
 
-    if (!length) {
+    if (offset_len_out_of_bounds(src_offset, length, tbl_seg->func_index_count)
+        || offset_len_out_of_bounds(dst_offset, length, tbl_inst->cur_size)) {
+        aot_set_exception_with_id(module_inst, EXCE_OUT_OF_BOUNDS_TABLE_ACCESS);
         return;
     }
 
-    if (length + src_offset > tbl_seg->func_index_count
-        || dst_offset + length > tbl_inst->cur_size) {
-        aot_set_exception_with_id(module_inst, EXCE_OUT_OF_BOUNDS_TABLE_ACCESS);
+    if (!length) {
         return;
     }
 
@@ -2517,8 +2591,9 @@ aot_table_copy(AOTModuleInstance *module_inst, uint32 src_tbl_idx,
     dst_tbl_inst = module_inst->tables[dst_tbl_idx];
     bh_assert(dst_tbl_inst);
 
-    if ((uint64)dst_offset + length > dst_tbl_inst->cur_size
-        || (uint64)src_offset + length > src_tbl_inst->cur_size) {
+    if (offset_len_out_of_bounds(dst_offset, length, dst_tbl_inst->cur_size)
+        || offset_len_out_of_bounds(src_offset, length,
+                                    src_tbl_inst->cur_size)) {
         aot_set_exception_with_id(module_inst, EXCE_OUT_OF_BOUNDS_TABLE_ACCESS);
         return;
     }
@@ -2543,7 +2618,7 @@ aot_table_fill(AOTModuleInstance *module_inst, uint32 tbl_idx, uint32 length,
     tbl_inst = module_inst->tables[tbl_idx];
     bh_assert(tbl_inst);
 
-    if (data_offset + length > tbl_inst->cur_size) {
+    if (offset_len_out_of_bounds(data_offset, length, tbl_inst->cur_size)) {
         aot_set_exception_with_id(module_inst, EXCE_OUT_OF_BOUNDS_TABLE_ACCESS);
         return;
     }
@@ -2744,6 +2819,7 @@ aot_create_call_stack(struct WASMExecEnv *exec_env)
         total_len +=                                                      \
             wasm_runtime_dump_line_buf_impl(line_buf, print, &buf, &len); \
         if ((!print) && buf && (len == 0)) {                              \
+            exception_unlock(module_inst);                                \
             return total_len;                                             \
         }                                                                 \
     } while (0)
@@ -2766,6 +2842,7 @@ aot_dump_call_stack(WASMExecEnv *exec_env, bool print, char *buf, uint32 len)
         return 0;
     }
 
+    exception_lock(module_inst);
     snprintf(line_buf, sizeof(line_buf), "\n");
     PRINT_OR_DUMP();
 
@@ -2774,17 +2851,20 @@ aot_dump_call_stack(WASMExecEnv *exec_env, bool print, char *buf, uint32 len)
         uint32 line_length, i;
 
         if (!bh_vector_get(module_inst->frames, n, &frame)) {
+            exception_unlock(module_inst);
             return 0;
         }
 
         /* function name not exported, print number instead */
         if (frame.func_name_wp == NULL) {
-            line_length = snprintf(line_buf, sizeof(line_buf), "#%02d $f%d\n",
-                                   n, frame.func_index);
+            line_length =
+                snprintf(line_buf, sizeof(line_buf),
+                         "#%02" PRIu32 " $f%" PRIu32 "\n", n, frame.func_index);
         }
         else {
-            line_length = snprintf(line_buf, sizeof(line_buf), "#%02d %s\n", n,
-                                   frame.func_name_wp);
+            line_length =
+                snprintf(line_buf, sizeof(line_buf), "#%02" PRIu32 " %s\n", n,
+                         frame.func_name_wp);
         }
 
         if (line_length >= sizeof(line_buf)) {
@@ -2802,6 +2882,7 @@ aot_dump_call_stack(WASMExecEnv *exec_env, bool print, char *buf, uint32 len)
     }
     snprintf(line_buf, sizeof(line_buf), "\n");
     PRINT_OR_DUMP();
+    exception_unlock(module_inst);
 
     return total_len + 1;
 }
@@ -2834,3 +2915,520 @@ aot_dump_perf_profiling(const AOTModuleInstance *module_inst)
     }
 }
 #endif /* end of WASM_ENABLE_PERF_PROFILING */
+
+#if WASM_ENABLE_STATIC_PGO != 0
+
+/* indirect call target */
+#define IPVK_IndirectCallTarget 0
+/* memory intrinsic functions size */
+#define IPVK_MemOPSize 1
+#define IPVK_First IPVK_IndirectCallTarget
+#define IPVK_Last IPVK_MemOPSize
+
+#define INSTR_PROF_DEFAULT_NUM_VAL_PER_SITE 24
+#define INSTR_PROF_MAX_NUM_VAL_PER_SITE 255
+
+static int hasNonDefaultValsPerSite = 0;
+static uint32 VPMaxNumValsPerSite = INSTR_PROF_DEFAULT_NUM_VAL_PER_SITE;
+
+static bool
+cmpxchg_ptr(void **ptr, void *old_val, void *new_val)
+{
+#if defined(os_atomic_cmpxchg)
+    return os_atomic_cmpxchg(ptr, &old_val, new_val);
+#else
+    /* TODO: add lock when thread-manager is enabled */
+    void *read = *ptr;
+    if (read == old_val) {
+        *ptr = new_val;
+        return true;
+    }
+    return false;
+#endif
+}
+
+static int
+allocateValueProfileCounters(LLVMProfileData *Data)
+{
+    ValueProfNode **Mem;
+    uint64 NumVSites = 0, total_size;
+    uint32 VKI;
+
+    /* When dynamic allocation is enabled, allow tracking the max number of
+       values allowed. */
+    if (!hasNonDefaultValsPerSite)
+        VPMaxNumValsPerSite = INSTR_PROF_MAX_NUM_VAL_PER_SITE;
+
+    for (VKI = IPVK_First; VKI <= IPVK_Last; ++VKI)
+        NumVSites += Data->num_value_sites[VKI];
+
+    /* If NumVSites = 0, calloc is allowed to return a non-null pointer. */
+    bh_assert(NumVSites > 0 && "NumVSites can't be zero");
+
+    total_size = (uint64)sizeof(ValueProfNode *) * NumVSites;
+    if (total_size > UINT32_MAX
+        || !(Mem = (ValueProfNode **)wasm_runtime_malloc((uint32)total_size))) {
+        return 0;
+    }
+    memset(Mem, 0, (uint32)total_size);
+
+    if (!cmpxchg_ptr((void **)&Data->values, NULL, Mem)) {
+        wasm_runtime_free(Mem);
+        return 0;
+    }
+    return 1;
+}
+
+static ValueProfNode *
+allocateOneNode(void)
+{
+    ValueProfNode *Node;
+
+    Node = wasm_runtime_malloc((uint32)sizeof(ValueProfNode));
+    if (Node)
+        memset(Node, 0, sizeof(ValueProfNode));
+    return Node;
+}
+
+static void
+instrumentTargetValueImpl(uint64 TargetValue, void *Data, uint32 CounterIndex,
+                          uint64 CountValue)
+{
+    ValueProfNode **ValueCounters;
+    ValueProfNode *PrevVNode = NULL, *MinCountVNode = NULL, *CurVNode;
+    LLVMProfileData *PData = (LLVMProfileData *)Data;
+    uint64 MinCount = UINT64_MAX;
+    uint8 VDataCount = 0;
+    bool success = false;
+
+    if (!PData)
+        return;
+    if (!CountValue)
+        return;
+    if (!PData->values) {
+        if (!allocateValueProfileCounters(PData))
+            return;
+    }
+
+    ValueCounters = (ValueProfNode **)PData->values;
+    CurVNode = ValueCounters[CounterIndex];
+
+    while (CurVNode) {
+        if (TargetValue == CurVNode->value) {
+            CurVNode->count += CountValue;
+            return;
+        }
+        if (CurVNode->count < MinCount) {
+            MinCount = CurVNode->count;
+            MinCountVNode = CurVNode;
+        }
+        PrevVNode = CurVNode;
+        CurVNode = CurVNode->next;
+        ++VDataCount;
+    }
+
+    if (VDataCount >= VPMaxNumValsPerSite) {
+        if (MinCountVNode->count <= CountValue) {
+            CurVNode = MinCountVNode;
+            CurVNode->value = TargetValue;
+            CurVNode->count = CountValue;
+        }
+        else
+            MinCountVNode->count -= CountValue;
+
+        return;
+    }
+
+    CurVNode = allocateOneNode();
+    if (!CurVNode)
+        return;
+    CurVNode->value = TargetValue;
+    CurVNode->count += CountValue;
+
+    if (!ValueCounters[CounterIndex]) {
+        success =
+            cmpxchg_ptr((void **)&ValueCounters[CounterIndex], NULL, CurVNode);
+    }
+    else if (PrevVNode && !PrevVNode->next) {
+        success = cmpxchg_ptr((void **)&PrevVNode->next, 0, CurVNode);
+    }
+
+    if (!success) {
+        wasm_runtime_free(CurVNode);
+    }
+}
+
+void
+llvm_profile_instrument_target(uint64 target_value, void *data,
+                               uint32 counter_idx)
+{
+    instrumentTargetValueImpl(target_value, data, counter_idx, 1);
+}
+
+static inline uint32
+popcount64(uint64 u)
+{
+    uint32 ret = 0;
+    while (u) {
+        u = (u & (u - 1));
+        ret++;
+    }
+    return ret;
+}
+
+static inline uint32
+clz64(uint64 type)
+{
+    uint32 num = 0;
+    if (type == 0)
+        return 64;
+    while (!(type & 0x8000000000000000LL)) {
+        num++;
+        type <<= 1;
+    }
+    return num;
+}
+
+/* Map an (observed) memop size value to the representative value of its range.
+   For example, 5 -> 5, 22 -> 17, 99 -> 65, 256 -> 256, 1001 -> 513. */
+static uint64
+InstrProfGetRangeRepValue(uint64 Value)
+{
+    if (Value <= 8)
+        /* The first ranges are individually tracked. Use the value as is. */
+        return Value;
+    else if (Value >= 513)
+        /* The last range is mapped to its lowest value. */
+        return 513;
+    else if (popcount64(Value) == 1)
+        /* If it's a power of two, use it as is. */
+        return Value;
+    else
+        /* Otherwise, take to the previous power of two + 1. */
+        return (((uint64)1) << (64 - clz64(Value) - 1)) + 1;
+}
+
+void
+llvm_profile_instrument_memop(uint64 target_value, void *data,
+                              uint32 counter_idx)
+{
+    uint64 rep_value = InstrProfGetRangeRepValue(target_value);
+    instrumentTargetValueImpl(rep_value, data, counter_idx, 1);
+}
+
+static uint32
+get_pgo_prof_data_size(AOTModuleInstance *module_inst, uint32 *p_num_prof_data,
+                       uint32 *p_num_prof_counters, uint32 *p_padding_size,
+                       uint32 *p_prof_counters_size, uint32 *p_prof_names_size,
+                       uint32 *p_value_counters_size, uint8 **p_prof_names)
+{
+    AOTModule *module = (AOTModule *)module_inst->module;
+    LLVMProfileData *prof_data;
+    uint8 *prof_names = NULL;
+    uint32 num_prof_data = 0, num_prof_counters = 0, padding_size, i;
+    uint32 prof_counters_size = 0, prof_names_size = 0;
+    uint32 total_size, total_size_wo_value_counters;
+
+    for (i = 0; i < module->data_section_count; i++) {
+        if (!strncmp(module->data_sections[i].name, "__llvm_prf_data", 15)) {
+            bh_assert(module->data_sections[i].size == sizeof(LLVMProfileData));
+            num_prof_data++;
+            prof_data = (LLVMProfileData *)module->data_sections[i].data;
+            num_prof_counters += prof_data->num_counters;
+        }
+        else if (!strncmp(module->data_sections[i].name, "__llvm_prf_cnts",
+                          15)) {
+            prof_counters_size += module->data_sections[i].size;
+        }
+        else if (!strncmp(module->data_sections[i].name, "__llvm_prf_names",
+                          16)) {
+            prof_names_size = module->data_sections[i].size;
+            prof_names = module->data_sections[i].data;
+        }
+    }
+
+    if (prof_counters_size != num_prof_counters * sizeof(uint64))
+        return 0;
+
+    total_size = sizeof(LLVMProfileRawHeader)
+                 + num_prof_data * sizeof(LLVMProfileData_64)
+                 + prof_counters_size + prof_names_size;
+    padding_size = sizeof(uint64) - (prof_names_size % sizeof(uint64));
+    if (padding_size != sizeof(uint64))
+        total_size += padding_size;
+
+    /* Total size excluding value counters */
+    total_size_wo_value_counters = total_size;
+
+    for (i = 0; i < module->data_section_count; i++) {
+        if (!strncmp(module->data_sections[i].name, "__llvm_prf_data", 15)) {
+            uint32 j, k, num_value_sites, num_value_nodes;
+            ValueProfNode **values, *value_node;
+
+            prof_data = (LLVMProfileData *)module->data_sections[i].data;
+            values = prof_data->values;
+
+            if (prof_data->num_value_sites[0] > 0
+                || prof_data->num_value_sites[1] > 0) {
+                /* TotalSize (uint32) and NumValueKinds (uint32) */
+                total_size += 8;
+                for (j = 0; j < 2; j++) {
+                    if ((num_value_sites = prof_data->num_value_sites[j]) > 0) {
+                        /* ValueKind (uint32) and NumValueSites (uint32) */
+                        total_size += 8;
+                        /* (Value + Counter) group counts of each value site,
+                           each count is one byte */
+                        total_size += align_uint(num_value_sites, 8);
+
+                        if (values) {
+                            for (k = 0; k < num_value_sites; k++) {
+                                num_value_nodes = 0;
+                                value_node = *values;
+                                while (value_node) {
+                                    num_value_nodes++;
+                                    value_node = value_node->next;
+                                }
+                                if (num_value_nodes) {
+                                    /* (Value + Counter) groups */
+                                    total_size += num_value_nodes * 8 * 2;
+                                }
+                                values++;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (p_num_prof_data)
+        *p_num_prof_data = num_prof_data;
+    if (p_num_prof_counters)
+        *p_num_prof_counters = num_prof_counters;
+    if (p_padding_size)
+        *p_padding_size = padding_size;
+    if (p_prof_counters_size)
+        *p_prof_counters_size = prof_counters_size;
+    if (p_prof_names_size)
+        *p_prof_names_size = prof_names_size;
+    if (p_value_counters_size)
+        *p_value_counters_size = total_size - total_size_wo_value_counters;
+    if (p_prof_names)
+        *p_prof_names = prof_names;
+
+    return total_size;
+}
+
+uint32
+aot_get_pgo_prof_data_size(AOTModuleInstance *module_inst)
+{
+    return get_pgo_prof_data_size(module_inst, NULL, NULL, NULL, NULL, NULL,
+                                  NULL, NULL);
+}
+
+static union {
+    int a;
+    char b;
+} __ue = { .a = 1 };
+
+#define is_little_endian() (__ue.b == 1)
+
+uint32
+aot_dump_pgo_prof_data_to_buf(AOTModuleInstance *module_inst, char *buf,
+                              uint32 len)
+{
+    AOTModule *module = (AOTModule *)module_inst->module;
+    LLVMProfileRawHeader prof_header = { 0 };
+    LLVMProfileData *prof_data;
+    uint8 *prof_names = NULL;
+    uint32 num_prof_data = 0, num_prof_counters = 0, padding_size, i;
+    uint32 prof_counters_size = 0, prof_names_size = 0;
+    uint32 value_counters_size = 0, value_counters_size_backup = 0;
+    uint32 total_size, size;
+    int64 counters_delta, offset_counters;
+
+    total_size = get_pgo_prof_data_size(module_inst, &num_prof_data,
+                                        &num_prof_counters, &padding_size,
+                                        &prof_counters_size, &prof_names_size,
+                                        &value_counters_size, &prof_names);
+    if (len < total_size)
+        return 0;
+
+    value_counters_size_backup = value_counters_size;
+    value_counters_size = 0;
+
+    prof_header.counters_delta = counters_delta =
+        sizeof(LLVMProfileData_64) * num_prof_data;
+    offset_counters = 0;
+    for (i = 0; i < module->data_section_count; i++) {
+        if (!strncmp(module->data_sections[i].name, "__llvm_prf_data", 15)) {
+            prof_data = (LLVMProfileData *)module->data_sections[i].data;
+            prof_data->offset_counters = counters_delta + offset_counters;
+            offset_counters += prof_data->num_counters * sizeof(uint64);
+            counters_delta -= sizeof(LLVMProfileData_64);
+        }
+    }
+
+    prof_header.magic = 0xFF6C70726F667281LL;
+    /* Version 8 */
+    prof_header.version = 0x0000000000000008LL;
+    /* with VARIANT_MASK_IR_PROF (IR Instrumentation) */
+    prof_header.version |= 0x1ULL << 56;
+    /* with VARIANT_MASK_MEMPROF (Memory Profile) */
+    prof_header.version |= 0x1ULL << 62;
+    prof_header.num_prof_data = num_prof_data;
+    prof_header.num_prof_counters = num_prof_counters;
+    prof_header.names_size = prof_names_size;
+    prof_header.value_kind_last = 1;
+
+    if (!is_little_endian()) {
+        aot_exchange_uint64((uint8 *)&prof_header.magic);
+        aot_exchange_uint64((uint8 *)&prof_header.version);
+        aot_exchange_uint64((uint8 *)&prof_header.num_prof_data);
+        aot_exchange_uint64((uint8 *)&prof_header.num_prof_counters);
+        aot_exchange_uint64((uint8 *)&prof_header.names_size);
+        aot_exchange_uint64((uint8 *)&prof_header.counters_delta);
+        aot_exchange_uint64((uint8 *)&prof_header.value_kind_last);
+    }
+
+    size = sizeof(LLVMProfileRawHeader);
+    bh_memcpy_s(buf, size, &prof_header, size);
+    buf += size;
+
+    for (i = 0; i < module->data_section_count; i++) {
+        if (!strncmp(module->data_sections[i].name, "__llvm_prf_data", 15)) {
+            LLVMProfileData_64 *prof_data_64 = (LLVMProfileData_64 *)buf;
+
+            /* Convert LLVMProfileData to LLVMProfileData_64, the pointer width
+               in the output file is alawys 8 bytes */
+            prof_data = (LLVMProfileData *)module->data_sections[i].data;
+            prof_data_64->func_md5 = prof_data->func_md5;
+            prof_data_64->func_hash = prof_data->func_hash;
+            prof_data_64->offset_counters = prof_data->offset_counters;
+            prof_data_64->func_ptr = prof_data->func_ptr;
+            prof_data_64->values = (uint64)(uintptr_t)prof_data->values;
+            prof_data_64->num_counters = prof_data->num_counters;
+            prof_data_64->num_value_sites[0] = prof_data->num_value_sites[0];
+            prof_data_64->num_value_sites[1] = prof_data->num_value_sites[1];
+
+            if (!is_little_endian()) {
+                aot_exchange_uint64((uint8 *)&prof_data_64->func_hash);
+                aot_exchange_uint64((uint8 *)&prof_data_64->offset_counters);
+                aot_exchange_uint64((uint8 *)&prof_data_64->offset_counters);
+                aot_exchange_uint64((uint8 *)&prof_data_64->func_ptr);
+                aot_exchange_uint64((uint8 *)&prof_data_64->values);
+                aot_exchange_uint32((uint8 *)&prof_data_64->num_counters);
+                aot_exchange_uint16((uint8 *)&prof_data_64->num_value_sites[0]);
+                aot_exchange_uint16((uint8 *)&prof_data_64->num_value_sites[1]);
+            }
+            buf += sizeof(LLVMProfileData_64);
+        }
+    }
+
+    for (i = 0; i < module->data_section_count; i++) {
+        if (!strncmp(module->data_sections[i].name, "__llvm_prf_cnts", 15)) {
+            size = module->data_sections[i].size;
+            bh_memcpy_s(buf, size, module->data_sections[i].data, size);
+            buf += size;
+        }
+    }
+
+    if (prof_names && prof_names_size > 0) {
+        size = prof_names_size;
+        bh_memcpy_s(buf, size, prof_names, size);
+        buf += size;
+        padding_size = sizeof(uint64) - (prof_names_size % sizeof(uint64));
+        if (padding_size != sizeof(uint64)) {
+            char padding_buf[8] = { 0 };
+            bh_memcpy_s(buf, padding_size, padding_buf, padding_size);
+            buf += padding_size;
+        }
+    }
+
+    for (i = 0; i < module->data_section_count; i++) {
+        if (!strncmp(module->data_sections[i].name, "__llvm_prf_data", 15)) {
+            uint32 j, k, num_value_sites, num_value_nodes;
+            ValueProfNode **values, **values_tmp, *value_node;
+
+            prof_data = (LLVMProfileData *)module->data_sections[i].data;
+            values = values_tmp = prof_data->values;
+
+            if (prof_data->num_value_sites[0] > 0
+                || prof_data->num_value_sites[1] > 0) {
+                uint32 *buf_total_size = (uint32 *)buf;
+
+                buf += 4; /* emit TotalSize later */
+                *(uint32 *)buf = (prof_data->num_value_sites[0] > 0
+                                  && prof_data->num_value_sites[1] > 0)
+                                     ? 2
+                                     : 1;
+                if (!is_little_endian())
+                    aot_exchange_uint32((uint8 *)buf);
+                buf += 4;
+
+                for (j = 0; j < 2; j++) {
+                    if ((num_value_sites = prof_data->num_value_sites[j]) > 0) {
+                        /* ValueKind */
+                        *(uint32 *)buf = j;
+                        if (!is_little_endian())
+                            aot_exchange_uint32((uint8 *)buf);
+                        buf += 4;
+                        /* NumValueSites */
+                        *(uint32 *)buf = num_value_sites;
+                        if (!is_little_endian())
+                            aot_exchange_uint32((uint8 *)buf);
+                        buf += 4;
+
+                        for (k = 0; k < num_value_sites; k++) {
+                            num_value_nodes = 0;
+                            if (values_tmp) {
+                                value_node = *values_tmp;
+                                while (value_node) {
+                                    num_value_nodes++;
+                                    value_node = value_node->next;
+                                }
+                                values_tmp++;
+                            }
+                            bh_assert(num_value_nodes < 255);
+                            *(uint8 *)buf++ = (uint8)num_value_nodes;
+                        }
+                        if (num_value_sites % 8) {
+                            buf += 8 - (num_value_sites % 8);
+                        }
+
+                        for (k = 0; k < num_value_sites; k++) {
+                            if (values) {
+                                value_node = *values;
+                                while (value_node) {
+                                    *(uint64 *)buf = value_node->value;
+                                    if (!is_little_endian())
+                                        aot_exchange_uint64((uint8 *)buf);
+                                    buf += 8;
+                                    *(uint64 *)buf = value_node->count;
+                                    if (!is_little_endian())
+                                        aot_exchange_uint64((uint8 *)buf);
+                                    buf += 8;
+                                    value_node = value_node->next;
+                                }
+                                values++;
+                            }
+                        }
+                    }
+                }
+
+                /* TotalSize */
+                *(uint32 *)buf_total_size =
+                    (uint8 *)buf - (uint8 *)buf_total_size;
+                if (!is_little_endian())
+                    aot_exchange_uint64((uint8 *)buf_total_size);
+                value_counters_size += (uint8 *)buf - (uint8 *)buf_total_size;
+            }
+        }
+    }
+
+    bh_assert(value_counters_size == value_counters_size_backup);
+    (void)value_counters_size_backup;
+
+    return total_size;
+}
+#endif /* end of WASM_ENABLE_STATIC_PGO != 0 */

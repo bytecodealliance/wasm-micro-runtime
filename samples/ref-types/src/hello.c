@@ -142,8 +142,8 @@ set_and_cmp(wasm_exec_env_t exec_env, wasm_module_inst_t inst, int32 i,
     wasm_set_externref(exec_env, inst, i, externref);
     local_set_externref(i, externref);
 
-    wasm_get_externref(exec_env, inst, 0, &wasm_externref);
-    if (!local_chk_externref(exec_env, 0, wasm_externref)) {
+    wasm_get_externref(exec_env, inst, i, &wasm_externref);
+    if (!local_chk_externref(exec_env, i, wasm_externref)) {
         printf("#%d, In host language world Wasm Externref 0x%lx Vs. Native "
                "Externref 0x%lx FAILED\n",
                i, wasm_externref, externref);

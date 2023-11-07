@@ -16,6 +16,8 @@ libsodium_CASES="aead_aes256gcm2 aead_aes256gcm aead_chacha20poly13052 aead_chac
                  sodium_utils3 sodium_utils sodium_version stream2 stream3 stream4 stream verify1 \
                  xchacha20"
 
+PLATFORM=$(uname -s | tr A-Z a-z)
+
 readonly WAMRC_CMD=$PWD/../../../wamr-compiler/build/wamrc
 readonly OUT_DIR=$PWD/libsodium/zig-out/bin
 
@@ -34,9 +36,16 @@ zig build -Drelease-fast -Denable_benchmarks=true -Dtarget=wasm32-wasi
 for case in ${libsodium_CASES}
 do
     ${WAMRC_CMD} -o ${OUT_DIR}/${case}.aot ${OUT_DIR}/${case}.wasm
-
     if [ "$?" != 0 ]; then
         echo -e "Error while compiling ${case}.wasm to ${case}.aot"
         exit
+    fi
+
+    if [[ ${PLATFORM} == "linux" ]]; then
+        ${WAMRC_CMD} --enable-segue -o ${OUT_DIR}/${case}_segue.aot ${OUT_DIR}/${case}.wasm
+        if [ "$?" != 0 ]; then
+            echo -e "Error while compiling ${case}.wasm to ${case}_segue.aot"
+            exit
+        fi
     fi
 done

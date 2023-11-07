@@ -256,7 +256,7 @@ def main():
             "branch": "release/15.x",
         },
         "xtensa": {
-            "repo": "https://github.com/espressif/llvm-project.git", 
+            "repo": "https://github.com/espressif/llvm-project.git",
             "repo_ssh": "git@github.com:espressif/llvm-project.git",
             "branch": "xtensa_release_15.x",
         },
@@ -282,13 +282,13 @@ def main():
             commit_hash = query_llvm_version(llvm_info)
             print(commit_hash)
             return commit_hash is not None
-        
+
         repo_addr = llvm_info["repo"]
         if os.environ.get('USE_GIT_SSH') == "true":
             repo_addr = llvm_info["repo_ssh"]
         else:
             print("To use ssh for git clone, run: export USE_GIT_SSH=true")
-        
+
         llvm_dir = clone_llvm(deps_dir, repo_addr, llvm_info["branch"])
         if (
             build_llvm(

@@ -44,7 +44,7 @@ iwasm -g=127.0.0.1:1234 test.wasm
 ``` bash
 git clone --branch release/13.x --depth=1 https://github.com/llvm/llvm-project
 cd llvm-project
-git apply ${WAMR_ROOT}/build-scripts/lldb-wasm.patch
+git apply ${WAMR_ROOT}/build-scripts/lldb_wasm.patch
 mkdir build-lldb
 cmake -S ./llvm -B build-lldb \
     -G Ninja \

@@ -65,7 +65,7 @@ main(int argc, char **argv)
         assert(start_args_init(&data[i].base));
         thread_ids[i] = __wasi_thread_spawn(&data[i]);
         printf("Thread created with id=%d\n", thread_ids[i]);
-        assert(thread_ids[i] > 0 && "Thread creation failed");
+        ASSERT_VALID_TID(thread_ids[i]);
 
         for (int j = 0; j < i; j++) {
             assert(thread_ids[i] != thread_ids[j] && "Duplicated TIDs");

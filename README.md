@@ -7,7 +7,7 @@
 
 **[Guide](https://wamr.gitbook.io/)**&emsp;&emsp;**[Website](https://bytecodealliance.github.io/wamr.dev)**&emsp;&emsp;**[Chat](https://bytecodealliance.zulipchat.com/#narrow/stream/290350-wamr)**
 
-[Build WAMR](./doc/build_wamr.md) | [Build AOT Compiler](./wamr-compiler/README.md) | [Embed WAMR](./doc/embed_wamr.md) | [Export Native API](./doc/export_native_api.md) | [Build Wasm Apps](./doc/build_wasm_app.md) | [Samples](./README.md#samples)
+[Build WAMR](./doc/build_wamr.md) | [Build AOT Compiler](./wamr-compiler/README.md) | [Embed WAMR](./doc/embed_wamr.md) | [Export Native API](./doc/export_native_api.md) | [Build Wasm Apps](./doc/build_wasm_app.md) | [Samples](./samples/README.md)
 
 WebAssembly Micro Runtime (WAMR) is a lightweight standalone WebAssembly (Wasm) runtime with small footprint, high performance and highly configurable features for applications cross from embedded, IoT, edge to Trusted Execution Environment (TEE), smart contract, cloud native and so on. It includes a few parts as below:
 - [**VMcore**](./core/iwasm/): A set of runtime libraries for loading and running Wasm modules. It supports several execution modes including interpreter, Ahead-of-Time compilation(AoT) and Just-in-Time compilation (JIT). The WAMR supports two JIT tiers - Fast JIT, LLVM JIT, and dynamic tier-up from Fast JIT to LLVM JIT.
@@ -77,6 +77,7 @@ The following platforms are supported, click each link below for how to build iw
 - [Blog: Introduction to WAMR running modes](https://bytecodealliance.github.io/wamr.dev/blog/introduction-to-wamr-running-modes/)
 - [Memory usage tunning](./doc/memory_tune.md): the memory model and how to tune the memory usage
 - [Memory usage profiling](./doc/build_wamr.md#enable-memory-profiling-experiment): how to profile the memory usage
+- [Performance tunning](./doc/perf_tune.md): how to tune the performance
 - [Benchmarks](./tests/benchmarks): checkout these links for how to run the benchmarks: [PolyBench](./tests/benchmarks/polybench), [CoreMark](./tests/benchmarks/coremark), [Sightglass](./tests/benchmarks/sightglass), [JetStream2](./tests/benchmarks/jetstream)
 - [Performance and footprint data](https://github.com/bytecodealliance/wasm-micro-runtime/wiki/Performance): the performance and footprint data
 
@@ -91,8 +92,10 @@ The current TSC members:
 - [lum1n0us](https://github.com/lum1n0us) - **Liang He**， <liang.he@intel.com>
 - [no1wudi](https://github.com/no1wudi) **Qi Huang**, <huangqi3@xiaomi.com>
 - [qinxk-inter](https://github.com/qinxk-inter) - **Xiaokang Qin**， <xiaokang.qxk@antgroup.com>
+- [ttrenner ](https://github.com/ttrenner) - **Trenner, Thomas**， <trenner.thomas@siemens.com>
 - [wei-tang](https://github.com/wei-tang) - **Wei Tang**， <tangwei.tang@antgroup.com>
 - [wenyongh](https://github.com/wenyongh) - **Wenyong Huang**， <wenyong.huang@intel.com>
+- [woodsmc](https://github.com/woodsmc) - **Woods, Chris**， <chris.woods@siemens.com>
 - [xujuntwt95329](https://github.com/xujuntwt95329) - **Jun Xu**， <Jun1.Xu@intel.com>
 - [xwang98](https://github.com/xwang98) - **Xin Wang**， <xin.wang@intel.com> (chair)
 - [yamt](https://github.com/yamt) - **Takashi Yamamoto**, <yamamoto@midokura.com>
