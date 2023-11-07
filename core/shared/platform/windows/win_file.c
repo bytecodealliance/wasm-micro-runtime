@@ -1046,7 +1046,7 @@ os_writev(os_file_handle handle, const struct __wasi_ciovec_t *iov, int iovcnt,
 {
     CHECK_VALID_HANDLE(handle);
 
-    bool append = (handle->fdflags & windows_fdflags_append) != 0;
+    bool append = (handle->fdflags & __WASI_FDFLAG_APPEND) != 0;
     LARGE_INTEGER write_offset = { .QuadPart = 0 };
     DWORD move_method = append ? FILE_END : FILE_CURRENT;
 

@@ -6,7 +6,7 @@
 #ifndef WASI_ERRNO_H
 #define WASI_ERRNO_H
 
-#include "platform_wasi.h"
+#include "platform_wasi_types.h"
 
 // Converts an errno error code to a WASI error code.
 __wasi_errno_t

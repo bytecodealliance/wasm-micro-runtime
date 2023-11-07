@@ -6,7 +6,7 @@
 #ifndef _WIN_UTIL_H
 #define _WIN_UTIL_H
 
-#include "platform_wasi.h"
+#include "platform_wasi_types.h"
 #include "windows.h"
 
 __wasi_timestamp_t
