@@ -1153,9 +1153,12 @@ wasmtime_ssp_fd_renumber(wasm_exec_env_t exec_env, struct fd_table *curfds,
     }
 
     struct fd_object *fo;
+    struct fd_object *fo_from = fe_from->object;
+
+
     fd_table_detach(ft, to, &fo);
-    refcount_acquire(&fe_from->object->refcount);
-    fd_table_attach(ft, to, fe_from->object, fe_from->rights_base,
+    refcount_acquire(&fo_from->refcount);
+    fd_table_attach(ft, to, fo_from, fe_from->rights_base,
                     fe_from->rights_inheriting);
     fd_object_release(exec_env, fo);
 

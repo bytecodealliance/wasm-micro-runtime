@@ -1,0 +1,18 @@
+before snapshot
+wasi_fd_write  exec_env=58761216, fd=1, iovec_app=4014208, iovs_len=2
+wasi_fd_write  exec_env=58761216, fd=1, iovec_app=4014208, iovs_len=2
+wasi_fd_write  exec_env=58761216, fd=1, iovec_app=4014208, iovs_len=2
+wasi_fd_write  exec_env=58761216, fd=1, iovec_app=4014208, iovs_len=2
+wasi_fd_write  exec_env=58761216, fd=1, iovec_app=4014208, iovs_len
+ fopen_test(fd,filename,flags) 4 ./text2.txt 268472320 
+
+=2
+wasi_fd_write  exec_env=58761216, fd=1, iovec_app=4014208, iovs_len=2
+wasi_fd_write  exec_env=58761216, fd=1, iovec_app=4014208, iovs_len=2
+wasi_fd_write  exec_env=58761216, fd=1, iovec_app=4014208, iovs_len=2
+
+after snapshot
+wasi_fd_write  exec_env=58778624, fd=8, iovec_app=18027776, iovs_len=2
+wasi_fd_write  exec_env=41999872, fd=8, iovec_app=18027776, iovs_len=2
+wasi_fd_write  exec_env=58778624, fd=7, iovec_app=18027776, iovs_len=2
+wasi_fd_write  exec_env=58778624, fd=8, iovec_app=18027776, iovs_len=2
