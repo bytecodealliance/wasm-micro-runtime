@@ -143,8 +143,8 @@ sweep_instance_heap(gc_heap_t *heap)
     if ((heap->current_size - tot_free) > heap->highmark_size)
         heap->highmark_size = heap->current_size - tot_free;
 
-    gc_update_threshold(heap);
 #endif
+    gc_update_threshold(heap);
 }
 
 /**

@@ -18,6 +18,9 @@
 #if WASM_ENABLE_STRINGREF != 0
 #include "string_object.h"
 #endif
+#if WASM_ENABLE_GC_PERF_PROFILING != 0
+#include "../../shared/mem-alloc/mem_alloc.h"
+#endif
 #endif
 
 static void
@@ -248,6 +251,11 @@ wasm_application_execute_main(WASMModuleInstanceCommon *module_inst, int32 argc,
     if (exec_env) {
         wasm_runtime_dump_mem_consumption(exec_env);
     }
+#endif
+
+#if WASM_ENABLE_GC_PERF_PROFILING != 0
+    void *handle = wasm_runtime_get_gc_heap_handle(module_inst);
+    mem_allocator_dump_perf_profiling(handle);
 #endif
 
 #if WASM_ENABLE_PERF_PROFILING != 0
@@ -823,6 +831,11 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
     if (exec_env) {
         wasm_runtime_dump_mem_consumption(exec_env);
     }
+#endif
+
+#if WASM_ENABLE_GC_PERF_PROFILING != 0
+    void *handle = wasm_runtime_get_gc_heap_handle(module_inst);
+    mem_allocator_dump_perf_profiling(handle);
 #endif
 
 #if WASM_ENABLE_PERF_PROFILING != 0

@@ -445,12 +445,25 @@ static int
 do_gc_heap(gc_heap_t *heap)
 {
     int ret = GC_SUCCESS;
+#if WASM_ENABLE_GC_PERF_PROFILING != 0
+    uint64 start = 0, end = 0, time = 0;
 
+    start = os_time_get_boot_microsecond();
+#endif
     if (heap->is_reclaim_enabled) {
         UNLOCK_HEAP(heap);
         ret = gci_gc_heap(heap);
         LOCK_HEAP(heap);
     }
+#if WASM_ENABLE_GC_PERF_PROFILING != 0
+    end = os_time_get_boot_microsecond();
+    time = end - start;
+    heap->total_gc_time += time;
+    if (time > heap->max_gc_time) {
+        heap->max_gc_time = time;
+    }
+    heap->total_gc_count += 1;
+#endif
     return ret;
 }
 #endif

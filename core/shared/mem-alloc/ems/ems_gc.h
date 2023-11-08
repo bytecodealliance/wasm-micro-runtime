@@ -333,6 +333,11 @@ gc_show_stat(gc_handle_t handle);
 #if WASM_ENABLE_GC != 0
 void
 gc_show_fragment(gc_handle_t handle);
+
+#if WASM_ENABLE_GC_PERF_PROFILING != 0
+void
+gc_dump_perf_profiling(gc_handle_t *handle);
+#endif
 #endif
 
 #ifdef __cplusplus
