@@ -554,14 +554,11 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     aot_estimate_and_record_stack_usage_for_function_call(comp_ctx, func_ctx,
                                                           func_type);
 
-    /* Get param cell number */
-    param_cell_num = func_type->param_cell_num;
-
+    /* Commit stack operands, sp and ip */
     if (comp_ctx->aot_frame) {
         if (!aot_gen_commit_values(comp_ctx->aot_frame))
             return false;
-        if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame,
-                                  comp_ctx->aot_frame->sp - param_cell_num,
+        if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, comp_ctx->aot_frame->sp,
                                   frame_ip))
             return false;
     }
@@ -588,6 +585,9 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             return false;
     }
 #endif
+
+    /* Get param cell number */
+    param_cell_num = func_type->param_cell_num;
 
     /* Allocate memory for parameters.
      * Parameters layout:
@@ -1128,17 +1128,25 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     func_type = (AOTFuncType *)comp_ctx->comp_data->types[type_idx];
     aot_estimate_and_record_stack_usage_for_function_call(comp_ctx, func_ctx,
                                                           func_type);
-    func_param_count = func_type->param_count;
-    func_result_count = func_type->result_count;
-
+    /* Commit stack operands, sp and ip */
     if (comp_ctx->aot_frame) {
         if (!aot_gen_commit_values(comp_ctx->aot_frame))
             return false;
-        if (!aot_gen_commit_sp_ip(
-                comp_ctx->aot_frame,
-                comp_ctx->aot_frame->sp - func_type->param_cell_num, frame_ip))
+        if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, comp_ctx->aot_frame->sp,
+                                  frame_ip))
             return false;
     }
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (comp_ctx->enable_thread_mgr) {
+        if (!check_suspend_flags(comp_ctx, func_ctx, true))
+            return false;
+    }
+#endif
+
+    func_param_count = func_type->param_count;
+    func_result_count = func_type->result_count;
 
     POP_I32(elem_idx);
 
@@ -1450,14 +1458,6 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                            "maximum 64 extra cell number supported.");
         goto fail;
     }
-
-#if WASM_ENABLE_THREAD_MGR != 0
-    /* Insert suspend check point */
-    if (comp_ctx->enable_thread_mgr) {
-        if (!check_suspend_flags(comp_ctx, func_ctx, true))
-            goto fail;
-    }
-#endif
 
 #if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
     if (comp_ctx->enable_aux_stack_frame) {
@@ -1785,6 +1785,23 @@ aot_compile_op_call_ref(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     func_result_count = func_type->result_count;
     param_cell_num = func_type->param_cell_num;
 
+    /* Commit stack operands, sp and ip to aot frame */
+    if (comp_ctx->aot_frame) {
+        if (!aot_gen_commit_values(comp_ctx->aot_frame))
+            return false;
+        if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, comp_ctx->aot_frame->sp,
+                                  frame_ip))
+            return false;
+    }
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (comp_ctx->enable_thread_mgr) {
+        if (!check_suspend_flags(comp_ctx, func_ctx, true))
+            return false;
+    }
+#endif
+
     POP_GC_REF(func_obj);
 
     /* Check if func object is NULL */
@@ -1923,23 +1940,6 @@ aot_compile_op_call_ref(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                            "maximum 64 extra cell number supported.");
         goto fail;
     }
-
-    if (comp_ctx->aot_frame) {
-        if (!aot_gen_commit_values(comp_ctx->aot_frame))
-            goto fail;
-        if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame,
-                                  comp_ctx->aot_frame->sp - param_cell_num,
-                                  frame_ip))
-            goto fail;
-    }
-
-#if WASM_ENABLE_THREAD_MGR != 0
-    /* Insert suspend check point */
-    if (comp_ctx->enable_thread_mgr) {
-        if (!check_suspend_flags(comp_ctx, func_ctx, true))
-            goto fail;
-    }
-#endif
 
 #if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
     if (comp_ctx->enable_aux_stack_frame) {
