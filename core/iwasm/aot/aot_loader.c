@@ -1377,6 +1377,7 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         else if (type_flag == WASM_TYPE_STRUCT) {
             AOTStructType *struct_type;
             uint16 field_count;
+            uint32 offset;
             read_uint16(buf, buf_end, field_count);
             read_uint16(buf, buf_end, ref_type_map_count);
             struct_type =
@@ -1387,6 +1388,7 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                 goto fail;
             }
 
+            offset = (uint32)sizeof(WASMStructObject);
             types[i] = (AOTType *)struct_type;
 
             struct_type->base_type.type_flag = type_flag;
@@ -1399,12 +1401,27 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 
             /* Read types of fields */
             for (j = 0; j < field_count; j++) {
+                uint8 field_type, field_size;
                 read_uint8(buf, buf_end, struct_type->fields[j].field_flags);
-                read_uint8(buf, buf_end, struct_type->fields[j].field_type);
+                read_uint8(buf, buf_end, field_type);
+                struct_type->fields[j].field_type = field_type;
+                struct_type->fields[j].field_size = field_size =
+                    (uint8)wasm_reftype_size(field_type);
+#if !(defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) \
+      || defined(BUILD_TARGET_X86_32))
+                if (field_size == 2)
+                    offset = align_uint(offset, 2);
+                else if (field_size >= 4) /* field size is 4 or 8 */
+                    offset = align_uint(offset, 4);
+#endif
+                struct_type->fields[j].field_offset = offset;
+                offset += field_size;
                 LOG_VERBOSE("                field: %d, flags: %d, type: %d", j,
-                            struct_type->fields[i].field_flags,
-                            struct_type->fields[i].field_type);
+                            struct_type->fields[j].field_flags,
+                            struct_type->fields[j].field_type);
             }
+
+            struct_type->total_size = offset;
 
             /* If ref_type_map is not empty, read ref_type_map */
             if (ref_type_map_count > 0) {
