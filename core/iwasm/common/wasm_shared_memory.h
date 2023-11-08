@@ -14,26 +14,39 @@
 extern "C" {
 #endif
 
+extern korp_mutex g_shared_memory_lock;
+
 bool
 wasm_shared_memory_init();
 
 void
 wasm_shared_memory_destroy();
 
-uint32
+uint16
 shared_memory_inc_reference(WASMMemoryInstance *memory);
 
-uint32
+uint16
 shared_memory_dec_reference(WASMMemoryInstance *memory);
 
-bool
-shared_memory_is_shared(WASMMemoryInstance *memory);
+#define shared_memory_is_shared(memory) memory->is_shared_memory
 
-void
-shared_memory_lock(WASMMemoryInstance *memory);
+#define shared_memory_lock(memory)                                            \
+    do {                                                                      \
+        /*                                                                    \
+         * Note: exception logic is currently abusing this lock.              \
+         * cf.                                                                \
+         * https://github.com/bytecodealliance/wasm-micro-runtime/issues/2407 \
+         */                                                                   \
+        bh_assert(memory != NULL);                                            \
+        if (memory->is_shared_memory)                                         \
+            os_mutex_lock(&g_shared_memory_lock);                             \
+    } while (0)
 
-void
-shared_memory_unlock(WASMMemoryInstance *memory);
+#define shared_memory_unlock(memory)                \
+    do {                                            \
+        if (memory->is_shared_memory)               \
+            os_mutex_unlock(&g_shared_memory_lock); \
+    } while (0)
 
 uint32
 wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,

@@ -11,6 +11,8 @@
 typedef struct {
     const char *dir_list[8];
     uint32 dir_list_size;
+    const char *map_dir_list[8];
+    uint32 map_dir_list_size;
     const char *env_list[8];
     uint32 env_list_size;
     const char *addr_pool[8];
@@ -37,6 +39,12 @@ libc_wasi_print_help()
            "directories\n");
     printf("                           to the program, for example:\n");
     printf("                             --dir=<dir1> --dir=<dir2>\n");
+    printf("  --map-dir=<guest::host>  Grant wasi access to the given host "
+           "directories\n");
+    printf("                           to the program at a specific guest "
+           "path, for example:\n");
+    printf("                             --map-dir=<guest-path1::host-path1> "
+           "--map-dir=<guest-path2::host-path2>\n");
     printf("  --addr-pool=<addrs>      Grant wasi access to the given network "
            "addresses in\n");
     printf("                           CIRD notation to the program, seperated "
@@ -83,6 +91,17 @@ libc_wasi_parse(char *arg, libc_wasi_parse_context_t *ctx)
             return LIBC_WASI_PARSE_RESULT_BAD_PARAM;
         }
         ctx->dir_list[ctx->dir_list_size++] = arg + 6;
+    }
+    else if (!strncmp(arg, "--map-dir=", 10)) {
+        if (arg[10] == '\0')
+            return LIBC_WASI_PARSE_RESULT_NEED_HELP;
+        if (ctx->map_dir_list_size
+            >= sizeof(ctx->map_dir_list) / sizeof(char *)) {
+            printf("Only allow max map dir number %d\n",
+                   (int)(sizeof(ctx->map_dir_list) / sizeof(char *)));
+            return 1;
+        }
+        ctx->map_dir_list[ctx->map_dir_list_size++] = arg + 10;
     }
     else if (!strncmp(arg, "--env=", 6)) {
         char *tmp_env;
@@ -145,8 +164,8 @@ libc_wasi_init(wasm_module_t wasm_module, int argc, char **argv,
                libc_wasi_parse_context_t *ctx)
 {
     wasm_runtime_set_wasi_args(wasm_module, ctx->dir_list, ctx->dir_list_size,
-                               NULL, 0, ctx->env_list, ctx->env_list_size, argv,
-                               argc);
+                               ctx->map_dir_list, ctx->map_dir_list_size,
+                               ctx->env_list, ctx->env_list_size, argv, argc);
 
     wasm_runtime_set_wasi_addr_pool(wasm_module, ctx->addr_pool,
                                     ctx->addr_pool_size);

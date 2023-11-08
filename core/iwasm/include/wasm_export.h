@@ -423,6 +423,7 @@ wasm_runtime_get_module_hash(wasm_module_t module);
  * @param dir_list      The list of directories to preopen. (real path)
  * @param dir_count     The number of elements in dir_list.
  * @param map_dir_list  The list of directories to preopen. (mapped path)
+ *                      Format for each map entry: <guest-path>::<host-path>
  * @param map_dir_count The number of elements in map_dir_list.
  *                      If map_dir_count is smaller than dir_count,
  *                      mapped path is assumed to be same as the

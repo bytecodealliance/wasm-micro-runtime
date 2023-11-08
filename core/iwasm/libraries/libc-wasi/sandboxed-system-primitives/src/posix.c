@@ -2644,8 +2644,8 @@ wasi_ssp_sock_open(wasm_exec_env_t exec_env, struct fd_table *curfds,
     bool is_tcp = SOCKET_DGRAM == socktype ? false : true;
     bool is_ipv4 = INET6 == af ? false : true;
     int ret;
-    __wasi_filetype_t wasi_type;
-    __wasi_rights_t max_base, max_inheriting;
+    __wasi_filetype_t wasi_type = __WASI_FILETYPE_UNKNOWN;
+    __wasi_rights_t max_base = 0, max_inheriting = 0;
     __wasi_errno_t error;
 
     (void)poolfd;

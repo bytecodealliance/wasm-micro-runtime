@@ -108,11 +108,11 @@ if [[ $MODE != "aot" ]];then
         TEST_OPTIONS="${TEST_OPTIONS} --exclude-filter ${TEST_FILTER}"
     fi
 
-    $PYTHON_EXE ${THIS_DIR}/pipe.py | $PYTHON_EXE test-runner/wasi_test_runner.py $TEST_OPTIONS
+    $PYTHON_EXE ${THIS_DIR}/pipe.py | TSAN_OPTIONS=${TSAN_OPTIONS} $PYTHON_EXE test-runner/wasi_test_runner.py $TEST_OPTIONS
 
     ret=${PIPESTATUS[1]}
 
-    TEST_RUNTIME_EXE="${IWASM_CMD_STRESS}" $PYTHON_EXE test-runner/wasi_test_runner.py \
+    TEST_RUNTIME_EXE="${IWASM_CMD_STRESS}" TSAN_OPTIONS=${TSAN_OPTIONS} $PYTHON_EXE test-runner/wasi_test_runner.py \
             -r adapters/wasm-micro-runtime.py \
             -t \
                 ${THREAD_STRESS_TESTS}
@@ -120,9 +120,9 @@ if [[ $MODE != "aot" ]];then
     if [ "${ret}" -eq 0 ]; then
         ret=${PIPESTATUS[0]}
     fi
-    
+
     exit_code=${ret}
-    
+
     deactivate
 else
     target_option=""

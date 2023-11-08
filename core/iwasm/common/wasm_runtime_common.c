@@ -3037,6 +3037,74 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
         }
     }
 
+    for (i = 0; i < map_dir_count; i++, wasm_fd++) {
+        char mapping_copy_buf[256];
+        char *mapping_copy = mapping_copy_buf;
+        char *map_mapped = NULL, *map_host = NULL;
+        const unsigned long max_len = strlen(map_dir_list[i]) * 2 + 3;
+
+        /* Allocation limit for runtime environments with reduced stack size */
+        if (max_len > 256) {
+            if (!(mapping_copy = wasm_runtime_malloc(max_len))) {
+                snprintf(error_buf, error_buf_size,
+                         "error while allocating for directory mapping\n");
+                goto fail;
+            }
+        }
+
+        bh_memcpy_s(mapping_copy, max_len, map_dir_list[i],
+                    (uint32)(strlen(map_dir_list[i]) + 1));
+        map_mapped = strtok(mapping_copy, "::");
+        map_host = strtok(NULL, "::");
+
+        if (!map_mapped || !map_host) {
+            if (error_buf)
+                snprintf(error_buf, error_buf_size,
+                         "error while pre-opening mapped directory: "
+                         "invalid map\n");
+            if (mapping_copy != mapping_copy_buf)
+                wasm_runtime_free(mapping_copy);
+            goto fail;
+        }
+
+        path = os_realpath(map_host, resolved_path);
+        if (!path) {
+            if (error_buf)
+                snprintf(error_buf, error_buf_size,
+                         "error while pre-opening mapped directory %s: %d\n",
+                         map_host, errno);
+            if (mapping_copy != mapping_copy_buf)
+                wasm_runtime_free(mapping_copy);
+            goto fail;
+        }
+
+        __wasi_errno_t error = os_open_preopendir(path, &file_handle);
+        if (error != __WASI_ESUCCESS) {
+            if (error_buf)
+                snprintf(error_buf, error_buf_size,
+                         "error while pre-opening mapped directory %s: %d\n",
+                         map_host, errno);
+            if (mapping_copy != mapping_copy_buf)
+                wasm_runtime_free(mapping_copy);
+            goto fail;
+        }
+
+        if (!fd_table_insert_existing(curfds, wasm_fd, file_handle, false)
+            || !fd_prestats_insert(prestats, map_mapped, wasm_fd)) {
+            if (error_buf)
+                snprintf(error_buf, error_buf_size,
+                         "error while pre-opening mapped directory %s: "
+                         "insertion failed\n",
+                         dir_list[i]);
+            if (mapping_copy != mapping_copy_buf)
+                wasm_runtime_free(mapping_copy);
+            goto fail;
+        }
+
+        if (mapping_copy != mapping_copy_buf)
+            wasm_runtime_free(mapping_copy);
+    }
+
     /* addr_pool(textual) -> apool */
     for (i = 0; i < addr_pool_size; i++) {
         char *cp, *address, *mask;
@@ -4361,10 +4429,12 @@ static V128FuncPtr invokeNative_V128 = (V128FuncPtr)(uintptr_t)invokeNative;
           || defined(BUILD_TARGET_RISCV64_LP64) */
 #endif /* end of defined(_WIN32) || defined(_WIN32_) */
 
-/* ASAN is not designed to work with custom stack unwind or other low-level \
- things. > Ignore a function that does some low-level magic. (e.g. walking \
- through the thread's stack bypassing the frame boundaries) */
-#if defined(__GNUC__)
+/*
+ * ASAN is not designed to work with custom stack unwind or other low-level
+ * things. Ignore a function that does some low-level magic. (e.g. walking
+ * through the thread's stack bypassing the frame boundaries)
+ */
+#if defined(__GNUC__) || defined(__clang__)
 __attribute__((no_sanitize_address))
 #endif
 bool

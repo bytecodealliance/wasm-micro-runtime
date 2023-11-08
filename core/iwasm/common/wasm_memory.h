@@ -25,6 +25,10 @@ unsigned
 wasm_runtime_memory_pool_size();
 
 void
+wasm_runtime_set_mem_bound_check_bytes(WASMMemoryInstance *memory,
+                                       uint64 memory_data_size);
+
+void
 wasm_runtime_set_enlarge_mem_error_callback(
     const enlarge_memory_error_callback_t callback, void *user_data);
 
