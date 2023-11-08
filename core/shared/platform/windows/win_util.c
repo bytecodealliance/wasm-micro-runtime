@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#include "platform_common.h"
 #include "win_util.h"
 
 __wasi_timestamp_t
@@ -69,17 +70,19 @@ uwp_print_to_debugger(const char *format, va_list ap)
     char *buf = stack_buf;
     int ret = vsnprintf(stack_buf, sizeof(stack_buf), format, ap);
 
-    if (ret >= sizeof(stack_buf)) {
+    if ((size_t)ret >= sizeof(stack_buf)) {
         // Allocate an extra byte for the null terminator.
-        char *heap_buf = BH_MALLOC(ret + 1);
+        char *heap_buf = BH_MALLOC((unsigned int)(ret) + 1);
         buf = heap_buf;
 
         if (heap_buf == NULL) {
-            errno = ENOMEM;
-            return -1;
+            // Output as much as we can to the debugger if allocating a buffer
+            // fails.
+            OutputDebugStringA(stack_buf);
+            return ret;
         }
 
-        ret = vsnprintf(heap_buf, ret + 1, format, ap);
+        ret = vsnprintf(heap_buf, (size_t)ret + 1, format, ap);
     }
 
     if (ret >= 0)
