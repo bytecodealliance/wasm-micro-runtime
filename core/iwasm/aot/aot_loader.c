@@ -1442,7 +1442,7 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                 goto fail;
             }
 
-            offset = (uint32)sizeof(WASMStructObject);
+            offset = (uint32)offsetof(WASMStructObject, field_data);
             types[i] = (AOTType *)struct_type;
 
             struct_type->base_type.type_flag = type_flag;

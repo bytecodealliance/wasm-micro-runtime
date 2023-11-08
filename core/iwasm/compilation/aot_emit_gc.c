@@ -361,10 +361,16 @@ aot_struct_obj_set_field(AOTCompContext *comp_ctx, LLVMValueRef struct_obj,
         }
     }
 
+    if (!(struct_obj = LLVMBuildBitCast(comp_ctx->builder, struct_obj,
+                                        INT8_PTR_TYPE, "struct_obj_i8p"))) {
+        aot_set_last_error("llvm build bitcast failed.");
+        goto fail;
+    }
+
     /* Build field data ptr and store the value */
-    if (!(field_data_ptr = LLVMBuildInBoundsGEP2(
-              comp_ctx->builder, INT8_PTR_TYPE, struct_obj, &field_offset, 1,
-              "field_data_i8p"))) {
+    if (!(field_data_ptr =
+              LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, struct_obj,
+                                    &field_offset, 1, "field_data_i8p"))) {
         aot_set_last_error("llvm build gep failed.");
         goto fail;
     }
@@ -399,9 +405,15 @@ aot_struct_obj_get_field(AOTCompContext *comp_ctx, LLVMValueRef struct_obj,
     get_struct_field_data_types(comp_ctx, field_type, &field_data_type,
                                 &field_data_ptr_type, &extend);
 
-    if (!(field_data_ptr = LLVMBuildInBoundsGEP2(
-              comp_ctx->builder, INT8_PTR_TYPE, struct_obj, &field_offset, 1,
-              "field_data_i8p"))) {
+    if (!(struct_obj = LLVMBuildBitCast(comp_ctx->builder, struct_obj,
+                                        INT8_PTR_TYPE, "struct_obj_i8p"))) {
+        aot_set_last_error("llvm build bitcast failed.");
+        goto fail;
+    }
+
+    if (!(field_data_ptr =
+              LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, struct_obj,
+                                    &field_offset, 1, "field_data_i8p"))) {
         aot_set_last_error("llvm build gep failed.");
         goto fail;
     }
