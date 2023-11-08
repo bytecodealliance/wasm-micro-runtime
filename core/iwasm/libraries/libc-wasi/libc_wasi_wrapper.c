@@ -541,7 +541,7 @@ wasi_fd_renumber(wasm_exec_env_t exec_env, wasi_fd_t from, wasi_fd_t to)
         return (wasi_errno_t)-1;
 
     LOG_FATAL("wasi_fd_renumber from= %d from=%d\n", from, to);
-    return wasmtime_ssp_fd_renumber(curfds, prestats, from, to);
+    return wasmtime_ssp_fd_renumber(exec_env, curfds, prestats, from, to);
 }
 
 static wasi_errno_t
@@ -1735,7 +1735,7 @@ wasi_sock_open(wasm_exec_env_t exec_env, wasi_fd_t poolfd,
         return __WASI_EACCES;
 
     curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
-    ret = wasi_ssp_sock_open(curfds, poolfd, af, socktype, sockfd);
+    ret = wasi_ssp_sock_open(exec_env, curfds, poolfd, af, socktype, sockfd);
 
 #if WASM_ENABLE_CHECKPOINT_RESTORE!=0
     if(sockfd) 
@@ -2215,7 +2215,7 @@ wasi_sock_recv_from(wasm_exec_env_t exec_env, wasi_fd_t sock,
     memset(buf_begin, 0, total_size);
 
     *ro_data_len = 0;
-    err = wasmtime_ssp_sock_recv_from(curfds, sock, buf_begin, total_size,
+    err = wasmtime_ssp_sock_recv_from(exec_env, curfds, sock, buf_begin, total_size,
                                       ri_flags, src_addr, &recv_bytes);
     #if WASM_ENABLE_CHECKPOINT_RESTORE!=0
         insert_sock_recv_from_data(sock, ri_data, ri_data_len, ri_flags, src_addr, ro_data_len);
