@@ -1446,8 +1446,8 @@ aot_compile_op_array_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
-    if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_NULL_GC_REF, true, cmp[0],
-                            check_objs_succ))
+    if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_NULL_ARRAY_OBJ, true,
+                            cmp[0], check_objs_succ))
         goto fail;
 
     /* Create if block */

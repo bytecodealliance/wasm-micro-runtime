@@ -30,7 +30,7 @@ get_tbl_inst_offset(const AOTCompContext *comp_ctx,
         offset += offsetof(AOTTableInstance, elems);
         /* avoid loading from current AOTTableInstance */
         offset +=
-            comp_ctx->pointer_size
+            (uint64)comp_ctx->pointer_size
             * aot_get_imp_tbl_data_slots(imp_tbls + i, comp_ctx->is_jit_mode);
         ++i;
     }
@@ -44,7 +44,7 @@ get_tbl_inst_offset(const AOTCompContext *comp_ctx,
     while (i < tbl_idx && i < comp_ctx->comp_data->table_count) {
         offset += offsetof(AOTTableInstance, elems);
         /* avoid loading from current AOTTableInstance */
-        offset += comp_ctx->pointer_size
+        offset += (uint64)comp_ctx->pointer_size
                   * aot_get_tbl_data_slots(tbls + i, comp_ctx->is_jit_mode);
         ++i;
     }
