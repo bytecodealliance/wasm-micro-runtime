@@ -311,6 +311,7 @@ typedef struct gc_heap_struct {
     gc_size_t gc_threshold_factor;
     gc_size_t total_gc_count;
     gc_size_t total_gc_time;
+    gc_size_t max_gc_time;
     /* Usually there won't be too many extra info node, so we try to use a fixed
      * array to store them, if the fixed array don't have enough space to store
      * the nodes, a new space will be allocated from heap */

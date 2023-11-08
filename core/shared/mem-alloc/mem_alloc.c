@@ -127,6 +127,15 @@ mem_allocator_unset_gc_finalizer(mem_allocator_t allocator, void *obj)
 {
     gc_unset_finalizer((gc_handle_t)allocator, (gc_object_t)obj);
 }
+
+#if WASM_ENABLE_GC_PERF_PROFILING != 0
+void
+mem_allocator_dump_perf_profiling(mem_allocator_t allocator)
+{
+    gc_dump_perf_profiling((gc_handle_t)allocator);
+}
+#endif
+
 #endif
 
 #else /* else of DEFAULT_MEM_ALLOCATOR */
