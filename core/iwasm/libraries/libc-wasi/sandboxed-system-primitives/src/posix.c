@@ -15,12 +15,19 @@
 #include "bh_platform.h"
 #include "blocking_op.h"
 #include "wasmtime_ssp.h"
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#endif
 #include "locking.h"
 #include "posix.h"
 #include "random.h"
 #include "refcount.h"
 #include "rights.h"
 #include "str.h"
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+#include "../../../../../include/wamr_export.h"
+#endif
 
 #if 0 /* TODO: -std=gnu99 causes compile error, comment them first */
 // struct iovec must have the same layout as __wasi_iovec_t.
@@ -661,7 +668,20 @@ fd_number(const struct fd_object *fo)
     assert(number >= 0 && "fd_number() called on virtual file descriptor");
     return number;
 }
-
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+#define CLOSE_NON_STD_FD(env, fd)           \
+    do {                                    \
+        if (fd > 2) {                       \
+            if (env == NULL) {              \
+                close(fd);                  \
+            }                               \
+            else {                          \
+                blocking_op_close(env, fd); \
+            }                               \
+            remove_fd(fd);                  \
+        }                                   \
+    } while (0)
+#else
 // The env == NULL case is for
 // fd_table_destroy, path_get, path_put, fd_table_insert_existing
 #define CLOSE_NON_STD_FD(env, fd)           \
@@ -675,7 +695,7 @@ fd_number(const struct fd_object *fo)
             }                               \
         }                                   \
     } while (0)
-
+#endif
 // Lowers the reference count on a file descriptor object. When the
 // reference count reaches zero, its resources are cleaned up.
 static void
@@ -1133,9 +1153,12 @@ wasmtime_ssp_fd_renumber(wasm_exec_env_t exec_env, struct fd_table *curfds,
     }
 
     struct fd_object *fo;
+    struct fd_object *fo_from = fe_from->object;
+
+
     fd_table_detach(ft, to, &fo);
-    refcount_acquire(&fe_from->object->refcount);
-    fd_table_attach(ft, to, fe_from->object, fe_from->rights_base,
+    refcount_acquire(&fo_from->refcount);
+    fd_table_attach(ft, to, fo_from, fe_from->rights_base,
                     fe_from->rights_inheriting);
     fd_object_release(exec_env, fo);
 
@@ -1659,6 +1682,9 @@ path_get(struct fd_table *curfds, struct path_access *pa, __wasi_fd_t fd,
                 error = __WASI_ENOTCAPABLE;
                 goto fail;
             }
+#if WASM_BUILD_CHECKPOINT_RESTORE != 0
+            remove_fd(curfd - 1);
+#endif
             close(fds[curfd--]);
         }
         else if (curpath > 0 || *paths[curpath] != '\0'
@@ -3501,7 +3527,8 @@ argv_environ_init(struct argv_environ_values *argv_environ, char *argv_buf,
 
 void
 argv_environ_destroy(struct argv_environ_values *argv_environ)
-{}
+{
+}
 
 void
 fd_table_destroy(struct fd_table *ft)

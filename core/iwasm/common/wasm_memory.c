@@ -274,6 +274,14 @@ wasm_runtime_get_mem_alloc_info(mem_alloc_info_t *mem_alloc_info)
     return false;
 }
 
+#if WASM_ENABLE_SHARED_MEMORY != 0
+#define SHARED_MEMORY_LOCK(memory) shared_memory_lock(memory)
+#define SHARED_MEMORY_UNLOCK(memory) shared_memory_unlock(memory)
+#else
+#define SHARED_MEMORY_LOCK(memory) (void)0
+#define SHARED_MEMORY_UNLOCK(memory) (void)0
+#endif
+
 bool
 wasm_runtime_validate_app_addr(WASMModuleInstanceCommon *module_inst_comm,
                                uint32 app_offset, uint32 size)
@@ -547,6 +555,8 @@ wasm_check_app_addr_and_convert(WASMModuleInstance *module_inst, bool is_str,
         return false;
     }
 
+    SHARED_MEMORY_LOCK(memory_inst);
+
     native_addr = memory_inst->memory_data + app_buf_addr;
 
     bounds_checks = is_bounds_checks_enabled((wasm_module_inst_t)module_inst);
@@ -586,6 +596,8 @@ wasm_check_app_addr_and_convert(WASMModuleInstance *module_inst, bool is_str,
 
     SHARED_MEMORY_UNLOCK(memory_inst);
 #endif
+
+    SHARED_MEMORY_UNLOCK(memory_inst);
 
 success:
     *p_native_addr = (void *)native_addr;

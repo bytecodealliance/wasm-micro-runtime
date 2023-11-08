@@ -2263,6 +2263,7 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
     }
 
 #if WASM_ENABLE_DEBUG_AOT != 0
+    create_dwarf_extractor(comp_ctx->comp_data, "/home/victoryang00/Documents/asplos24/MVVM/cmake-build-debug/test/counter.wasm");
     if (!(comp_ctx->debug_builder = LLVMCreateDIBuilder(comp_ctx->module))) {
         aot_set_last_error("create LLVM Debug Infor builder failed.");
         goto fail;
@@ -2840,7 +2841,7 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
     comp_ctx->pointer_size = LLVMPointerSize(target_data_ref);
     LLVMDisposeTargetData(target_data_ref);
 
-    comp_ctx->optimize = true;
+    comp_ctx->optimize = false;
     if (option->output_format == AOT_LLVMIR_UNOPT_FILE)
         comp_ctx->optimize = false;
 

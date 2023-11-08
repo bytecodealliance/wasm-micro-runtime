@@ -10,6 +10,7 @@
 *.a
 *.so
 .DS_Store
+foo
 
 core/deps/**
 core/shared/mem-alloc/tlsf
@@ -40,3 +41,4 @@ samples/workload/include/**
 !samples/workload/include/.gitkeep
 
 # core/iwasm/libraries/wasi-threads
+samples/socket-api/*

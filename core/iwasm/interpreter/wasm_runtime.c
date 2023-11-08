@@ -1774,6 +1774,9 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
         uint8 *memory_data = NULL;
         uint64 memory_size = 0;
         WASMDataSeg *data_seg = module->data_segments[i];
+#if WASM_ENABLE_SHARED_MEMORY != 0
+        bool is_shared_memory;
+#endif
 
 #if WASM_ENABLE_BULK_MEMORY != 0
         if (data_seg->is_passive)
@@ -1783,6 +1786,23 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
             /* Ignore setting memory init data if the memory has been
                initialized */
             continue;
+
+#if WASM_ENABLE_SHARED_MEMORY != 0
+        /* Currently we have only one memory instance */
+        if (module->import_memory_count > 0) {
+            is_shared_memory = (module->import_memories[0].u.memory.flags & 0x2)
+                                   ? true
+                                   : false;
+        }
+        else {
+            is_shared_memory = (module->memories[0].flags & 0x2) ? true : false;
+        }
+        if (is_shared_memory && parent != NULL) {
+            /* Ignore setting memory init data if the memory has been
+             * initialized */
+            continue;
+        }
+#endif
 
         /* has check it in loader */
         memory = module_inst->memories[data_seg->memory_index];
@@ -2240,7 +2260,7 @@ call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
     uint32 guard_page_count = STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT;
     WASMRuntimeFrame *prev_frame = wasm_exec_env_get_cur_frame(exec_env);
     uint8 *prev_top = exec_env->wasm_stack.s.top;
-#ifdef BH_PLATFORM_WINDOWS
+#if defined(__MSVC__)
     int result;
     bool has_exception;
     char exception[EXCEPTION_BUF_LEN];
@@ -2271,24 +2291,24 @@ call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
 
     wasm_runtime_set_exec_env_tls(exec_env);
     if (os_setjmp(jmpbuf_node.jmpbuf) == 0) {
-#ifndef BH_PLATFORM_WINDOWS
+#if defined(__MSVC__)
+    __try {
         wasm_interp_call_wasm(module_inst, exec_env, function, argc, argv);
+    } __except (wasm_copy_exception(module_inst, NULL)
+                    ? EXCEPTION_EXECUTE_HANDLER
+                    : EXCEPTION_CONTINUE_SEARCH) {
+        /* exception was thrown in wasm_exception_handler */
+        ret = false;
+    }
+    has_exception = wasm_copy_exception(module_inst, exception);
+    if (has_exception && strstr(exception, "native stack overflow")) {
+        /* After a stack overflow, the stack was left
+           in a damaged state, let the CRT repair it */
+        result = _resetstkoflw();
+        bh_assert(result != 0);
+    }
 #else
-        __try {
-            wasm_interp_call_wasm(module_inst, exec_env, function, argc, argv);
-        } __except (wasm_copy_exception(module_inst, NULL)
-                        ? EXCEPTION_EXECUTE_HANDLER
-                        : EXCEPTION_CONTINUE_SEARCH) {
-            /* exception was thrown in wasm_exception_handler */
-            ret = false;
-        }
-        has_exception = wasm_copy_exception(module_inst, exception);
-        if (has_exception && strstr(exception, "native stack overflow")) {
-            /* After a stack overflow, the stack was left
-               in a damaged state, let the CRT repair it */
-            result = _resetstkoflw();
-            bh_assert(result != 0);
-        }
+    wasm_interp_call_wasm(module_inst, exec_env, function, argc, argv);
 #endif
     }
     else {
@@ -2304,7 +2324,7 @@ call_wasm_with_hw_bound_check(WASMModuleInstance *module_inst,
         if (wasm_interp_create_call_stack(exec_env)) {
             wasm_interp_dump_call_stack(exec_env, true, NULL, 0);
         }
-#endif
+#endif 
         /* Restore operand frames */
         wasm_exec_env_set_cur_frame(exec_env, prev_frame);
         exec_env->wasm_stack.s.top = prev_top;
@@ -2403,10 +2423,7 @@ wasm_module_malloc_internal(WASMModuleInstance *module_inst,
         return 0;
     }
 
-    if (memory->heap_handle) {
-        addr = mem_allocator_malloc(memory->heap_handle, size);
-    }
-    else if (module_inst->e->malloc_function && module_inst->e->free_function) {
+    if (module_inst->e->malloc_function && module_inst->e->free_function) {
         if (!execute_malloc_function(
                 module_inst, exec_env, module_inst->e->malloc_function,
                 module_inst->e->retain_function, size, &offset)) {
@@ -2679,7 +2696,7 @@ wasm_set_aux_stack(WASMExecEnv *exec_env, uint32 start_offset, uint32 size)
         return true;
     }
 
-    return false;
+    return true;
 }
 
 bool

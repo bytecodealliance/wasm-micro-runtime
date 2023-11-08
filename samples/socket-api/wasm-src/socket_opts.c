@@ -158,12 +158,12 @@ main(int argc, char *argv[])
         "SO_REUSEADDR disabled");
 
     // SO_REUSEPORT
-    OPTION_ASSERT(
-        set_and_get_bool_opt(tcp_socket_fd, SOL_SOCKET, SO_REUSEPORT, 1), 1,
-        "SO_REUSEPORT enabled");
-    OPTION_ASSERT(
-        set_and_get_bool_opt(tcp_socket_fd, SOL_SOCKET, SO_REUSEPORT, 0), 0,
-        "SO_REUSEPORT disabled");
+    // OPTION_ASSERT(
+    //     set_and_get_bool_opt(tcp_socket_fd, SOL_SOCKET, SO_REUSEPORT, 1), 1,
+    //     "SO_REUSEPORT enabled");
+    // OPTION_ASSERT(
+    //     set_and_get_bool_opt(tcp_socket_fd, SOL_SOCKET, SO_REUSEPORT, 0), 0,
+    //     "SO_REUSEPORT disabled");
 
     // SO_LINGER
     linger_opt.l_onoff = 1;

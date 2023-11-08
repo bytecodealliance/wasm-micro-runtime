@@ -7,6 +7,12 @@
 #include "bh_platform.h"
 #include "wasm_export.h"
 
+#if WASM_ENABLE_CHECKPOINT_RESTORE != 0
+#undef MVVM_WASI
+#include "../../../../../include/wamr_export.h"
+#define MVVM_WASI 1
+#endif
+
 /* clang-format off */
 #define get_module_inst(exec_env) \
     wasm_runtime_get_module_inst(exec_env)
@@ -68,14 +74,6 @@ typedef struct iovec_app {
     uint32 buf_offset;
     uint32 buf_len;
 } iovec_app_t;
-
-typedef struct WASIContext {
-    uvwasi_t uvwasi;
-    uint32_t exit_code;
-} WASIContext;
-
-void *
-wasm_runtime_get_wasi_ctx(wasm_module_inst_t module_inst);
 
 static uvwasi_t *
 get_wasi_ctx(wasm_module_inst_t module_inst)

@@ -27,7 +27,7 @@
 error
 load(graph_builder_array *builder, graph_encoding encoding,
      execution_target target, graph *g)
-    __attribute__((import_module("wasi_nn")));
+    ;
 
 /**
  * INFERENCE
@@ -46,7 +46,7 @@ typedef uint32_t graph_execution_context;
  */
 error
 init_execution_context(graph g, graph_execution_context *ctx)
-    __attribute__((import_module("wasi_nn")));
+    ;
 
 /**
  * @brief Define the inputs to use for inference.
@@ -58,7 +58,7 @@ init_execution_context(graph g, graph_execution_context *ctx)
  */
 error
 set_input(graph_execution_context ctx, uint32_t index, tensor *tensor)
-    __attribute__((import_module("wasi_nn")));
+    ;
 
 /**
  * @brief Compute the inference on the given inputs.
@@ -67,7 +67,7 @@ set_input(graph_execution_context ctx, uint32_t index, tensor *tensor)
  * @return error    Execution status.
  */
 error
-compute(graph_execution_context ctx) __attribute__((import_module("wasi_nn")));
+compute(graph_execution_context ctx) ;
 
 /**
  * @brief Extract the outputs after inference.
@@ -84,6 +84,6 @@ compute(graph_execution_context ctx) __attribute__((import_module("wasi_nn")));
 error
 get_output(graph_execution_context ctx, uint32_t index,
            tensor_data output_tensor, uint32_t *output_tensor_size)
-    __attribute__((import_module("wasi_nn")));
+    ;
 
 #endif

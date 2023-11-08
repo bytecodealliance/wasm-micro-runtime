@@ -4,6 +4,7 @@
 set (IWASM_COMMON_DIR ${CMAKE_CURRENT_LIST_DIR})
 
 include_directories (${IWASM_COMMON_DIR})
+enable_language(C ASM_MASM)
 
 add_definitions(-DBH_MALLOC=wasm_runtime_malloc)
 add_definitions(-DBH_FREE=wasm_runtime_free)

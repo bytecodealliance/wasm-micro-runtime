@@ -147,6 +147,10 @@ typedef struct WASMExecEnv {
 
     /* The WASM stack size */
     uint32 wasm_stack_size;
+    /* Whether is checkpoint */
+    bool is_checkpoint;
+    /* Whether is restore */
+    bool is_restore;
 
     /* The WASM stack of current thread */
     union {

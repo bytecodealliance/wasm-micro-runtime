@@ -75,33 +75,65 @@ message(STATUS "WASI_SYS_ROOT is ${WASI_SYS_ROOT}")
 ## Build socket applications of wasm version and native version
 ###############################################################
 include(ExternalProject)
-
-ExternalProject_Add(wasm-app
-  SOURCE_DIR        ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src
-  UPDATE_COMMAND    ""
-  PATCH_COMMAND     ""
-  CONFIGURE_COMMAND ${CMAKE_COMMAND} -E copy
-                      ${CMAKE_CURRENT_SOURCE_DIR}/../../wamr-sdk/app/libc-builtin-sysroot/include/pthread.h
-                      ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src/inc
-                    && ${CMAKE_COMMAND}
-                      -DWASI_SDK_PREFIX=${WASI_SDK_DIR}
-                      -DCMAKE_TOOLCHAIN_FILE=${WASI_TOOLCHAIN_FILE}
-                      -DCMAKE_SYSROOT=${WASI_SYS_ROOT}
-                      ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src
-  BUILD_COMMAND     ${CMAKE_COMMAND} --build .
-  INSTALL_COMMAND   ${CMAKE_COMMAND} -E copy
-                      addr_resolve.wasm ${CMAKE_BINARY_DIR}
-                      tcp_client.wasm ${CMAKE_BINARY_DIR}
-                      tcp_server.wasm ${CMAKE_BINARY_DIR}
-                      send_recv.wasm ${CMAKE_BINARY_DIR}
-                      socket_opts.wasm ${CMAKE_BINARY_DIR}
-                      udp_client.wasm ${CMAKE_BINARY_DIR}
-                      udp_server.wasm ${CMAKE_BINARY_DIR}
-                      multicast_client.wasm ${CMAKE_BINARY_DIR}
-                      multicast_server.wasm ${CMAKE_BINARY_DIR}
-                      timeout_client.wasm ${CMAKE_BINARY_DIR}
-                      timeout_server.wasm ${CMAKE_BINARY_DIR}
-)
+if(WIN32)
+  set(WAMR_BUILD_LIBC_UVWASI 1)
+  ExternalProject_Add(wasm-app
+    SOURCE_DIR        ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src
+    UPDATE_COMMAND    ""
+    PATCH_COMMAND     ""
+    CONFIGURE_COMMAND ${CMAKE_COMMAND} -E copy
+                        ${CMAKE_CURRENT_SOURCE_DIR}/../../wamr-sdk/app/libc-builtin-sysroot/include/pthread.h
+                        ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src/inc
+                      && ${CMAKE_COMMAND}
+                        -DCMAKE_C_COMPILER_WORKS=1 -DCMAKE_CXX_COMPILER_WORKS=1
+                        -GUnix\ Makefiles
+                        -DWASI_SDK_PREFIX=D:/wasi-sdk
+                        -DCMAKE_TOOLCHAIN_FILE=D:/wasi-sdk/share/cmake/wasi-sdk.cmake
+                        -DCMAKE_SYSROOT=D:/wasi-sdk/share/wasi-sysroot
+                        ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src
+    BUILD_COMMAND     ${CMAKE_COMMAND} --build .
+    INSTALL_COMMAND   ${CMAKE_COMMAND} -E copy
+                        addr_resolve.wasm ${CMAKE_BINARY_DIR}
+                        tcp_client.wasm ${CMAKE_BINARY_DIR}
+                        tcp_server.wasm ${CMAKE_BINARY_DIR}
+                        send_recv.wasm ${CMAKE_BINARY_DIR}
+                        socket_opts.wasm ${CMAKE_BINARY_DIR}
+                        udp_client.wasm ${CMAKE_BINARY_DIR}
+                        udp_server.wasm ${CMAKE_BINARY_DIR}
+                        multicast_client.wasm ${CMAKE_BINARY_DIR}
+                        multicast_server.wasm ${CMAKE_BINARY_DIR}
+                        timeout_client.wasm ${CMAKE_BINARY_DIR}
+                        timeout_server.wasm ${CMAKE_BINARY_DIR}
+  )
+else()
+  set(WAMR_BUILD_LIBC_WASI 1)
+  ExternalProject_Add(wasm-app
+          SOURCE_DIR        ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src
+          UPDATE_COMMAND    ""
+          PATCH_COMMAND     ""
+          CONFIGURE_COMMAND ${CMAKE_COMMAND} -E copy
+          ${CMAKE_CURRENT_SOURCE_DIR}/../../wamr-sdk/app/libc-builtin-sysroot/include/pthread.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src/inc
+          && ${CMAKE_COMMAND}
+          -DWASI_SDK_PREFIX=${WASI_SDK_DIR}
+          -DCMAKE_TOOLCHAIN_FILE=${WASI_TOOLCHAIN_FILE}
+          -DCMAKE_SYSROOT=${WASI_SYS_ROOT}
+          ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src
+          BUILD_COMMAND     ${CMAKE_COMMAND} --build .
+          INSTALL_COMMAND   ${CMAKE_COMMAND} -E copy
+          addr_resolve.wasm ${CMAKE_BINARY_DIR}
+          tcp_client.wasm ${CMAKE_BINARY_DIR}
+          tcp_server.wasm ${CMAKE_BINARY_DIR}
+          send_recv.wasm ${CMAKE_BINARY_DIR}
+          socket_opts.wasm ${CMAKE_BINARY_DIR}
+          udp_client.wasm ${CMAKE_BINARY_DIR}
+          udp_server.wasm ${CMAKE_BINARY_DIR}
+          multicast_client.wasm ${CMAKE_BINARY_DIR}
+          multicast_server.wasm ${CMAKE_BINARY_DIR}
+          timeout_client.wasm ${CMAKE_BINARY_DIR}
+          timeout_server.wasm ${CMAKE_BINARY_DIR}
+          )
+endif()
 
 add_executable(tcp_server ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src/tcp_server.c)
 target_link_libraries(tcp_server pthread)
@@ -169,27 +201,11 @@ set(WAMR_BUILD_FAST_INTERP 1)
 set(WAMR_BUILD_AOT 1)
 set(WAMR_BUILD_JIT 0)
 set(WAMR_BUILD_LIBC_BUILTIN 1)
-set(WAMR_BUILD_LIBC_WASI 1)
 set(WAMR_BUILD_LIB_PTHREAD 1)
+set(WAMR_BUILD_CHECKPOINT_RESTORE 0)
 
 # compiling and linking flags
 if (NOT (CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*Clang"))
-  set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections")
+  set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections -LC:/tools/msys64/usr/lib")
 endif ()
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security")
-
-# build vmlib static lib
-set(WAMR_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/../..)
-include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
-add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
-
-# build iwasm
-include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
-set (RUNTIME_SOURCE_ALL
-    ${CMAKE_CURRENT_LIST_DIR}/../../product-mini/platforms/linux/main.c
-    ${UNCOMMON_SHARED_SOURCE}
-)
-add_executable (iwasm ${RUNTIME_SOURCE_ALL})
-check_pie_supported()
-set_target_properties (iwasm PROPERTIES POSITION_INDEPENDENT_CODE ON)
-target_link_libraries(iwasm vmlib -lpthread -lm -ldl)

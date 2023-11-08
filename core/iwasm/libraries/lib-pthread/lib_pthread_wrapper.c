@@ -177,7 +177,11 @@ thread_info_destroy(void *node)
 #if WASM_ENABLE_LIB_PTHREAD_SEMAPHORE != 0
     else if (info_node->type == T_SEM) {
         if (info_node->status != SEM_DESTROYED)
+#ifdef BH_PLATFORM_WINDOWS
+            uv_sem_destroy(info_node->u.sem);
+#else
             os_sem_close(info_node->u.sem);
+#endif
     }
 #endif
     wasm_runtime_free(info_node);
@@ -516,7 +520,6 @@ pthread_start_routine(void *arg)
                                     argv)) {
         /* Exception has already been spread during throwing */
     }
-
     /* destroy pthread key values */
     call_key_destructor(exec_env);
 
@@ -544,7 +547,7 @@ pthread_start_routine(void *arg)
     return (void *)(uintptr_t)argv[0];
 }
 
-static int
+int
 pthread_create_wrapper(wasm_exec_env_t exec_env,
                        uint32 *thread,    /* thread_handle */
                        const void *attr,  /* not supported */
@@ -1132,11 +1135,13 @@ sem_open_wrapper(wasm_exec_env_t exec_env, const char *name, int32 oflags,
     if ((info_node = bh_hash_map_find(sem_info_map, (void *)name))) {
         return info_node->handle;
     }
-
+#ifdef BH_PLATFORM_WINDOWS
+    psem = CreateSemaphore(NULL, val, 0x7fffffff, name);
+#else
     if (!(psem = os_sem_open(name, oflags, mode, val))) {
         goto fail1;
     }
-
+#endif
     if (!(info_node = wasm_runtime_malloc(sizeof(ThreadInfoNode))))
         goto fail2;
 
@@ -1155,7 +1160,11 @@ sem_open_wrapper(wasm_exec_env_t exec_env, const char *name, int32 oflags,
 fail3:
     wasm_runtime_free(info_node);
 fail2:
+#ifdef BH_PLATFORM_WINDOWS
+    uv_sem_destroy(psem);
+#else
     os_sem_close(psem);
+#endif
 fail1:
     return -1;
 }
@@ -1181,7 +1190,12 @@ sem_close_wrapper(wasm_exec_env_t exec_env, uint32 sem)
     bh_hash_map_traverse(sem_info_map, sem_fetch_cb, &args);
 
     if (args.node) {
+#ifdef BH_PLATFORM_WINDOWS
+        uv_sem_destroy(args.node->u.sem);
+        ret = 0;
+#else
         ret = os_sem_close(args.node->u.sem);
+#endif
         if (ret == 0) {
             args.node->status = SEM_CLOSED;
         }
@@ -1214,7 +1228,11 @@ sem_trywait_wrapper(wasm_exec_env_t exec_env, uint32 sem)
     bh_hash_map_traverse(sem_info_map, sem_fetch_cb, &args);
 
     if (args.node) {
+#ifdef BH_PLATFORM_WINDOWS
+        return uv_sem_trywait(args.node->u.sem);
+#else
         return os_sem_trywait(args.node->u.sem);
+#endif
     }
 
     return -1;
@@ -1229,7 +1247,12 @@ sem_post_wrapper(wasm_exec_env_t exec_env, uint32 sem)
     bh_hash_map_traverse(sem_info_map, sem_fetch_cb, &args);
 
     if (args.node) {
+#ifdef BH_PLATFORM_WINDOWS
+        uv_sem_post(args.node->u.sem);
+        return 0;
+#else
         return os_sem_post(args.node->u.sem);
+#endif
     }
 
     return -1;
@@ -1249,7 +1272,28 @@ sem_getvalue_wrapper(wasm_exec_env_t exec_env, uint32 sem, int32 *sval)
         bh_hash_map_traverse(sem_info_map, sem_fetch_cb, &args);
 
         if (args.node) {
+#ifdef BH_PLATFORM_WINDOWS
+            long previous;
+
+            switch (WaitForSingleObject(args.node->u.sem, 0)) {
+                case WAIT_OBJECT_0:
+                    if (!ReleaseSemaphore(args.node->u.sem, 1, &previous)) {
+                        ret = EINVAL;
+                    }
+
+                    *sval = previous + 1;
+                    ret = 0;
+
+                case WAIT_TIMEOUT:
+                    *sval = 0;
+                    ret = 0;
+
+                default:
+                    ret = EINVAL;
+            }
+#else
             ret = os_sem_getvalue(args.node->u.sem, sval);
+#endif
         }
     }
     return ret;
@@ -1266,14 +1310,23 @@ sem_unlink_wrapper(wasm_exec_env_t exec_env, const char *name)
         return -1;
 
     if (info_node->status != SEM_CLOSED) {
+#ifdef BH_PLATFORM_WINDOWS
+        uv_sem_destroy(info_node->u.sem);
+        ret_val = 0;
+#else
         ret_val = os_sem_close(info_node->u.sem);
+#endif
         if (ret_val != 0) {
             return ret_val;
         }
     }
 
+#ifdef BH_PLATFORM_WINDOWS
+     uv_sem_post(info_node->u.sem);
+     ret_val = 0;
+#else
     ret_val = os_sem_unlink(name);
-
+#endif
     if (ret_val == 0) {
         bh_hash_map_remove(sem_info_map, (void *)name, NULL, NULL);
         info_node->status = SEM_DESTROYED;

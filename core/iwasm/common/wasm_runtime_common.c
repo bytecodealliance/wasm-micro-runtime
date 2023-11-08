@@ -2490,7 +2490,7 @@ wasm_copy_exception(WASMModuleInstance *module_inst, char *exception_buf)
             bh_memcpy_s(exception_buf, sizeof(module_inst->cur_exception),
                         module_inst->cur_exception,
                         sizeof(module_inst->cur_exception));
-        has_exception = true;
+        has_exception = false;
     }
     exception_unlock(module_inst);
 
