@@ -201,7 +201,52 @@ void
 wasm_exec_env_set_module_inst(WASMExecEnv *exec_env,
                               WASMModuleInstanceCommon *const module_inst)
 {
+#if WASM_ENABLE_THREAD_MGR != 0
+    wasm_cluster_traverse_lock(exec_env);
+#endif
     exec_env->module_inst = module_inst;
+#if WASM_ENABLE_THREAD_MGR != 0
+    wasm_cluster_traverse_unlock(exec_env);
+#endif
+}
+
+void
+wasm_exec_env_restore_module_inst(
+    WASMExecEnv *exec_env, WASMModuleInstanceCommon *const module_inst_common)
+{
+    WASMModuleInstanceCommon *old_module_inst_common = exec_env->module_inst;
+    WASMModuleInstance *old_module_inst =
+        (WASMModuleInstance *)old_module_inst_common;
+    WASMModuleInstance *module_inst = (WASMModuleInstance *)module_inst_common;
+    char cur_exception[EXCEPTION_BUF_LEN];
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    wasm_cluster_traverse_lock(exec_env);
+#endif
+    exec_env->module_inst = module_inst_common;
+    /*
+     * propagate an exception if any.
+     */
+    exception_lock(old_module_inst);
+    if (old_module_inst->cur_exception[0] != '\0') {
+        bh_memcpy_s(cur_exception, sizeof(cur_exception),
+                    old_module_inst->cur_exception,
+                    sizeof(old_module_inst->cur_exception));
+    }
+    else {
+        cur_exception[0] = '\0';
+    }
+    exception_unlock(old_module_inst);
+#if WASM_ENABLE_THREAD_MGR != 0
+    wasm_cluster_traverse_unlock(exec_env);
+#endif
+    if (cur_exception[0] != '\0') {
+        exception_lock(module_inst);
+        bh_memcpy_s(module_inst->cur_exception,
+                    sizeof(module_inst->cur_exception), cur_exception,
+                    sizeof(cur_exception));
+        exception_unlock(module_inst);
+    }
 }
 
 void
