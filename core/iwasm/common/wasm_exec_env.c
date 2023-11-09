@@ -219,6 +219,7 @@ wasm_exec_env_restore_module_inst(
         (WASMModuleInstance *)old_module_inst_common;
     WASMModuleInstance *module_inst = (WASMModuleInstance *)module_inst_common;
     char cur_exception[EXCEPTION_BUF_LEN];
+
 #if WASM_ENABLE_THREAD_MGR != 0
     wasm_cluster_traverse_lock(exec_env);
 #endif
