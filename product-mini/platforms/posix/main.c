@@ -207,8 +207,11 @@ app_instance_repl(wasm_module_inst_t module_inst)
             break;
         }
         if (app_argc != 0) {
+            const char *exception;
             wasm_application_execute_func(module_inst, app_argv[0],
                                           app_argc - 1, app_argv + 1);
+            if ((exception = wasm_runtime_get_exception(module_inst)))
+                printf("%s\n", exception);
         }
         free(app_argv);
     }
