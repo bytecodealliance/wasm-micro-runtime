@@ -248,7 +248,7 @@ fail1:
 
     end = k_uptime_get_32();
 
-    printf("elpase: %d\n", (end - start));
+    printf("elapsed: %d\n", (end - start));
 }
 
 #define MAIN_THREAD_STACK_SIZE (CONFIG_MAIN_THREAD_STACK_SIZE)
