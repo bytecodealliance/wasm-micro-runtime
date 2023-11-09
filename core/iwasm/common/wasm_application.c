@@ -312,7 +312,6 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
 #endif
     int32 i, p, module_type;
     uint64 total_size;
-    const char *exception;
     char buf[128];
 
     bh_assert(argc >= 0);
@@ -647,9 +646,7 @@ fail:
     if (argv1)
         wasm_runtime_free(argv1);
 
-    exception = wasm_runtime_get_exception(module_inst);
-    bh_assert(exception);
-    os_printf("%s\n", exception);
+    bh_assert(wasm_runtime_get_exception(module_inst));
     return false;
 }
 

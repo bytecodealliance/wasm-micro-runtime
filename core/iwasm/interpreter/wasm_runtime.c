@@ -10,6 +10,7 @@
 #include "bh_log.h"
 #include "mem_alloc.h"
 #include "../common/wasm_runtime_common.h"
+#include "../common/wasm_memory.h"
 #if WASM_ENABLE_SHARED_MEMORY != 0
 #include "../common/wasm_shared_memory.h"
 #endif
@@ -167,7 +168,7 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
                    char *error_buf, uint32 error_buf_size)
 {
     WASMModule *module = module_inst->module;
-    uint64 memory_data_size;
+    uint64 memory_data_size, max_memory_data_size;
     uint32 heap_offset = num_bytes_per_page * init_page_count;
     uint32 inc_page_count, aux_heap_base, global_idx;
     uint32 bytes_of_last_page, bytes_to_page_end;
@@ -275,6 +276,12 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
         if (max_page_count > DEFAULT_MAX_PAGES)
             max_page_count = DEFAULT_MAX_PAGES;
     }
+    else { /* heap_size == 0 */
+        if (init_page_count == DEFAULT_MAX_PAGES) {
+            num_bytes_per_page = UINT32_MAX;
+            init_page_count = max_page_count = 1;
+        }
+    }
 
     LOG_VERBOSE("Memory instantiate:");
     LOG_VERBOSE("  page bytes: %u, init pages: %u, max pages: %u",
@@ -282,22 +289,33 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
     LOG_VERBOSE("  heap offset: %u, heap size: %d\n", heap_offset, heap_size);
 
     memory_data_size = (uint64)num_bytes_per_page * init_page_count;
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    if (is_shared_memory) {
-        /* Allocate max page for shared memory */
-        memory_data_size = (uint64)num_bytes_per_page * max_page_count;
-    }
-#endif
-    bh_assert(memory_data_size <= 4 * (uint64)BH_GB);
+    max_memory_data_size = (uint64)num_bytes_per_page * max_page_count;
+    bh_assert(memory_data_size <= UINT32_MAX);
+    bh_assert(max_memory_data_size <= 4 * (uint64)BH_GB);
+    (void)max_memory_data_size;
 
     bh_assert(memory != NULL);
 #ifndef OS_ENABLE_HW_BOUND_CHECK
-    if (memory_data_size > 0
-        && !(memory->memory_data =
-                 runtime_malloc(memory_data_size, error_buf, error_buf_size))) {
-        goto fail1;
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    if (is_shared_memory) {
+        /* Allocate maximum memory size when memory is shared */
+        if (max_memory_data_size > 0
+            && !(memory->memory_data = runtime_malloc(
+                     max_memory_data_size, error_buf, error_buf_size))) {
+            goto fail1;
+        }
     }
-#else
+    else
+#endif
+    {
+        /* Allocate initial memory size when memory is not shared */
+        if (memory_data_size > 0
+            && !(memory->memory_data = runtime_malloc(
+                     memory_data_size, error_buf, error_buf_size))) {
+            goto fail1;
+        }
+    }
+#else /* else of OS_ENABLE_HW_BOUND_CHECK */
     memory_data_size = (memory_data_size + page_size - 1) & ~(page_size - 1);
 
     /* Totally 8G is mapped, the opcode load/store address range is 0 to 8G:
@@ -327,12 +345,13 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
         set_error_buf(error_buf, error_buf_size, "mprotect memory failed");
         goto fail2;
     }
+
     /* Newly allocated pages are filled with zero by the OS, we don't fill it
      * again here */
-#endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
     if (memory_data_size > UINT32_MAX)
-        memory_data_size = (uint32)memory_data_size;
+        memory_data_size = UINT32_MAX;
+#endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
     memory->module_type = Wasm_Module_Bytecode;
     memory->num_bytes_per_page = num_bytes_per_page;
@@ -360,26 +379,13 @@ memory_instantiate(WASMModuleInstance *module_inst, WASMModuleInstance *parent,
         }
     }
 
-#if WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0
     if (memory_data_size > 0) {
-#if UINTPTR_MAX == UINT64_MAX
-        memory->mem_bound_check_1byte.u64 = memory_data_size - 1;
-        memory->mem_bound_check_2bytes.u64 = memory_data_size - 2;
-        memory->mem_bound_check_4bytes.u64 = memory_data_size - 4;
-        memory->mem_bound_check_8bytes.u64 = memory_data_size - 8;
-        memory->mem_bound_check_16bytes.u64 = memory_data_size - 16;
-#else
-        memory->mem_bound_check_1byte.u32[0] = (uint32)memory_data_size - 1;
-        memory->mem_bound_check_2bytes.u32[0] = (uint32)memory_data_size - 2;
-        memory->mem_bound_check_4bytes.u32[0] = (uint32)memory_data_size - 4;
-        memory->mem_bound_check_8bytes.u32[0] = (uint32)memory_data_size - 8;
-        memory->mem_bound_check_16bytes.u32[0] = (uint32)memory_data_size - 16;
-#endif
+        wasm_runtime_set_mem_bound_check_bytes(memory, memory_data_size);
     }
-#endif
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (is_shared_memory) {
+        memory->is_shared_memory = true;
         memory->ref_count = 1;
     }
 #endif
@@ -1780,6 +1786,10 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
         if (data_seg->is_passive)
             continue;
 #endif
+        if (is_sub_inst)
+            /* Ignore setting memory init data if the memory has been
+               initialized */
+            continue;
 
         /* has check it in loader */
         memory = module_inst->memories[data_seg->memory_index];
@@ -2473,15 +2483,20 @@ void
 wasm_module_free_internal(WASMModuleInstance *module_inst,
                           WASMExecEnv *exec_env, uint32 ptr)
 {
+    WASMMemoryInstance *memory = wasm_get_default_memory(module_inst);
+
+    if (!memory) {
+        return;
+    }
+
     if (ptr) {
-        WASMMemoryInstance *memory = wasm_get_default_memory(module_inst);
-        uint8 *addr;
+        uint8 *addr = memory->memory_data + ptr;
+        uint8 *memory_data_end;
 
-        if (!memory) {
-            return;
-        }
-
-        addr = memory->memory_data + ptr;
+        /* memory->memory_data_end may be changed in memory grow */
+        SHARED_MEMORY_LOCK(memory);
+        memory_data_end = memory->memory_data_end;
+        SHARED_MEMORY_UNLOCK(memory);
 
         if (memory->heap_handle && memory->heap_data <= addr
             && addr < memory->heap_data_end) {
@@ -2489,7 +2504,7 @@ wasm_module_free_internal(WASMModuleInstance *module_inst,
         }
         else if (module_inst->e->malloc_function
                  && module_inst->e->free_function && memory->memory_data <= addr
-                 && addr < memory->memory_data_end) {
+                 && addr < memory_data_end) {
             execute_free_function(module_inst, exec_env,
                                   module_inst->e->free_function, ptr);
         }
@@ -3151,7 +3166,9 @@ llvm_jit_memory_init(WASMModuleInstance *module_inst, uint32 seg_index,
     maddr = wasm_runtime_addr_app_to_native(
         (WASMModuleInstanceCommon *)module_inst, dst);
 
+    SHARED_MEMORY_LOCK(memory_inst);
     bh_memcpy_s(maddr, memory_inst->memory_data_size - dst, data + offset, len);
+    SHARED_MEMORY_UNLOCK(memory_inst);
     return true;
 }
 

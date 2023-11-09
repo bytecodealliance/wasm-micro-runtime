@@ -79,8 +79,11 @@ typedef union {
 struct WASMMemoryInstance {
     /* Module type */
     uint32 module_type;
+
+    bool is_shared_memory;
+
     /* Shared memory flag */
-    bh_atomic_32_t ref_count; /* 0: non-shared, > 0: reference count */
+    bh_atomic_16_t ref_count; /* 0: non-shared, > 0: reference count */
 
     /* Number bytes per page */
     uint32 num_bytes_per_page;

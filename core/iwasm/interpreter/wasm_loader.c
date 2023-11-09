@@ -173,7 +173,6 @@ fail:
 
 #define read_uint8(p) TEMPLATE_READ_VALUE(uint8, p)
 #define read_uint32(p) TEMPLATE_READ_VALUE(uint32, p)
-#define read_bool(p) TEMPLATE_READ_VALUE(bool, p)
 
 #define read_leb_int64(p, p_end, res)                                   \
     do {                                                                \
@@ -490,6 +489,7 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end,
             if (type != VALUE_TYPE_V128)
                 goto fail_type_mismatch;
 
+            CHECK_BUF(p, p_end, 1);
             flag = read_uint8(p);
             (void)flag;
 
@@ -1375,7 +1375,15 @@ load_memory(const uint8 **p_buf, const uint8 *buf_end, WASMMemory *memory,
         return false;
     }
     if (memory->flags > 1) {
-        set_error_buf(error_buf, error_buf_size, "integer too large");
+        if (memory->flags & 2) {
+            set_error_buf(error_buf, error_buf_size,
+                          "shared memory flag was found, "
+                          "please enable shared memory, lib-pthread "
+                          "or lib-wasi-threads");
+        }
+        else {
+            set_error_buf(error_buf, error_buf_size, "invalid memory flags");
+        }
         return false;
     }
 #else
@@ -5389,21 +5397,27 @@ fail:
         LOG_OP("\ndelete last op\n");                           \
     } while (0)
 #else /* else of WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS */
+#if UINTPTR_MAX == UINT64_MAX
 #define emit_label(opcode)                                                     \
     do {                                                                       \
         int32 offset =                                                         \
             (int32)((uint8 *)handle_table[opcode] - (uint8 *)handle_table[0]); \
-        if (!(offset >= INT16_MIN && offset < INT16_MAX)) {                    \
-            set_error_buf(error_buf, error_buf_size,                           \
-                          "pre-compiled label offset out of range");           \
-            goto fail;                                                         \
-        }                                                                      \
-        wasm_loader_emit_int16(loader_ctx, offset);                            \
+        /* emit int32 relative offset in 64-bit target */                      \
+        wasm_loader_emit_uint32(loader_ctx, offset);                           \
         LOG_OP("\nemit_op [%02x]\t", opcode);                                  \
     } while (0)
+#else
+#define emit_label(opcode)                                           \
+    do {                                                             \
+        uint32 label_addr = (uint32)(uintptr_t)handle_table[opcode]; \
+        /* emit uint32 label address in 32-bit target */             \
+        wasm_loader_emit_uint32(loader_ctx, label_addr);             \
+        LOG_OP("\nemit_op [%02x]\t", opcode);                        \
+    } while (0)
+#endif
 #define skip_label()                                           \
     do {                                                       \
-        wasm_loader_emit_backspace(loader_ctx, sizeof(int16)); \
+        wasm_loader_emit_backspace(loader_ctx, sizeof(int32)); \
         LOG_OP("\ndelete last op\n");                          \
     } while (0)
 #endif /* end of WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS */
@@ -5733,12 +5747,6 @@ preserve_referenced_local(WASMLoaderContext *loader_ctx, uint8 opcode,
     (void)error_buf;
     (void)error_buf_size;
     return true;
-#if WASM_ENABLE_LABELS_AS_VALUES != 0
-#if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
-fail:
-    return false;
-#endif
-#endif
 }
 
 static bool
@@ -7130,6 +7138,7 @@ re_scan:
                 BlockType block_type;
 
                 p_org = p - 1;
+                CHECK_BUF(p, p_end, 1);
                 value_type = read_uint8(p);
                 if (is_byte_a_type(value_type)) {
                     /* If the first byte is one of these special values:
@@ -7793,6 +7802,9 @@ re_scan:
                 uint8 ref_type;
                 BranchBlock *cur_block = loader_ctx->frame_csp - 1;
                 int32 available_stack_cell;
+#if WASM_ENABLE_FAST_INTERP != 0
+                uint8 *p_code_compiled_tmp = loader_ctx->p_code_compiled;
+#endif
 
                 POP_I32();
 
@@ -7821,26 +7833,26 @@ re_scan:
 #if WASM_ENABLE_FAST_INTERP != 0
                             if (loader_ctx->p_code_compiled) {
                                 uint8 opcode_tmp = WASM_OP_SELECT_64;
-                                uint8 *p_code_compiled_tmp =
-                                    loader_ctx->p_code_compiled - 2;
 #if WASM_ENABLE_LABELS_AS_VALUES != 0
 #if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS != 0
                                 *(void **)(p_code_compiled_tmp
                                            - sizeof(void *)) =
                                     handle_table[opcode_tmp];
 #else
+#if UINTPTR_MAX == UINT64_MAX
+                                /* emit int32 relative offset in 64-bit target
+                                 */
                                 int32 offset =
                                     (int32)((uint8 *)handle_table[opcode_tmp]
                                             - (uint8 *)handle_table[0]);
-                                if (!(offset >= INT16_MIN
-                                      && offset < INT16_MAX)) {
-                                    set_error_buf(error_buf, error_buf_size,
-                                                  "pre-compiled label offset "
-                                                  "out of range");
-                                    goto fail;
-                                }
-                                *(int16 *)(p_code_compiled_tmp
-                                           - sizeof(int16)) = (int16)offset;
+                                *(int32 *)(p_code_compiled_tmp
+                                           - sizeof(int32)) = offset;
+#else
+                                /* emit uint32 label address in 32-bit target */
+                                *(uint32 *)(p_code_compiled_tmp
+                                            - sizeof(uint32)) =
+                                    (uint32)(uintptr_t)handle_table[opcode_tmp];
+#endif
 #endif /* end of WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS */
 #else  /* else of WASM_ENABLE_LABELS_AS_VALUES */
 #if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS != 0
@@ -7934,16 +7946,17 @@ re_scan:
                         *(void **)(p_code_compiled_tmp - sizeof(void *)) =
                             handle_table[opcode_tmp];
 #else
+#if UINTPTR_MAX == UINT64_MAX
+                        /* emit int32 relative offset in 64-bit target */
                         int32 offset = (int32)((uint8 *)handle_table[opcode_tmp]
                                                - (uint8 *)handle_table[0]);
-                        if (!(offset >= INT16_MIN && offset < INT16_MAX)) {
-                            set_error_buf(
-                                error_buf, error_buf_size,
-                                "pre-compiled label offset out of range");
-                            goto fail;
-                        }
-                        *(int16 *)(p_code_compiled_tmp - sizeof(int16)) =
-                            (int16)offset;
+                        *(int32 *)(p_code_compiled_tmp - sizeof(int32)) =
+                            offset;
+#else
+                        /* emit uint32 label address in 32-bit target */
+                        *(uint32 *)(p_code_compiled_tmp - sizeof(uint32)) =
+                            (uint32)(uintptr_t)handle_table[opcode_tmp];
+#endif
 #endif /* end of WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS */
 #else  /* else of WASM_ENABLE_LABELS_AS_VALUES */
 #if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS != 0
@@ -9087,6 +9100,7 @@ re_scan:
             {
                 uint32 opcode1;
 
+                CHECK_BUF(p, p_end, 1);
                 opcode1 = read_uint8(p);
                 /* follow the order of enum WASMSimdEXTOpcode in wasm_opcode.h
                  */
@@ -9748,6 +9762,7 @@ re_scan:
             {
                 uint32 opcode1;
 
+                CHECK_BUF(p, p_end, 1);
                 opcode1 = read_uint8(p);
 #if WASM_ENABLE_FAST_INTERP != 0
                 emit_byte(loader_ctx, opcode1);

@@ -92,8 +92,10 @@ The current TSC members:
 - [lum1n0us](https://github.com/lum1n0us) - **Liang He**， <liang.he@intel.com>
 - [no1wudi](https://github.com/no1wudi) **Qi Huang**, <huangqi3@xiaomi.com>
 - [qinxk-inter](https://github.com/qinxk-inter) - **Xiaokang Qin**， <xiaokang.qxk@antgroup.com>
+- [ttrenner ](https://github.com/ttrenner) - **Trenner, Thomas**， <trenner.thomas@siemens.com>
 - [wei-tang](https://github.com/wei-tang) - **Wei Tang**， <tangwei.tang@antgroup.com>
 - [wenyongh](https://github.com/wenyongh) - **Wenyong Huang**， <wenyong.huang@intel.com>
+- [woodsmc](https://github.com/woodsmc) - **Woods, Chris**， <chris.woods@siemens.com>
 - [xujuntwt95329](https://github.com/xujuntwt95329) - **Jun Xu**， <Jun1.Xu@intel.com>
 - [xwang98](https://github.com/xwang98) - **Xin Wang**， <xin.wang@intel.com> (chair)
 - [yamt](https://github.com/yamt) - **Takashi Yamamoto**, <yamamoto@midokura.com>

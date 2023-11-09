@@ -808,7 +808,7 @@ jit_compile_op_block(JitCompContext *cc, uint8 **p_frame_ip,
     else if (label_type == LABEL_TYPE_IF) {
         POP_I32(value);
 
-        if (!jit_reg_is_const_val(value)) {
+        if (!jit_reg_is_const(value)) {
             /* Compare value is not constant, create condition br IR */
 
             /* Create entry block */

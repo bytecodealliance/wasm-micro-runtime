@@ -30,11 +30,11 @@ simd_shift(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                             LLVM_CONST(i16x8_vec_zero),
                             LLVM_CONST(i32x4_vec_zero),
                             LLVM_CONST(i64x2_vec_zero) };
-    LLVMValueRef lane_bits[] = {
-        LLVM_CONST(i32_eight),
-        LLVMConstInt(I32_TYPE, 16, true),
-        LLVMConstInt(I32_TYPE, 32, true),
-        LLVMConstInt(I32_TYPE, 64, true),
+    LLVMValueRef lane_shift_masks[] = {
+        LLVMConstInt(I32_TYPE, 7, true),
+        LLVMConstInt(I32_TYPE, 15, true),
+        LLVMConstInt(I32_TYPE, 31, true),
+        LLVMConstInt(I32_TYPE, 63, true),
     };
 
     POP_I32(offset);
@@ -44,11 +44,11 @@ simd_shift(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         return false;
     }
 
-    /* offset mod LaneBits */
-    if (!lane_bits[itype]
-        || !(offset = LLVMBuildSRem(comp_ctx->builder, offset, lane_bits[itype],
-                                    "offset_fix"))) {
-        HANDLE_FAILURE("LLVMBuildSRem");
+    /* offset = offset & shift_mask */
+    if (!lane_shift_masks[itype]
+        || !(offset = LLVMBuildAnd(comp_ctx->builder, offset,
+                                   lane_shift_masks[itype], "offset_fix"))) {
+        HANDLE_FAILURE("LLVMBuildAnd");
         return false;
     }
 
