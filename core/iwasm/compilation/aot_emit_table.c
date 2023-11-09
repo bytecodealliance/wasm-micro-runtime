@@ -21,13 +21,16 @@ get_tbl_inst_offset(const AOTCompContext *comp_ctx,
     offset =
         offsetof(AOTModuleInstance, global_table_data.bytes)
         + (uint64)comp_ctx->comp_data->memory_count * sizeof(AOTMemoryInstance)
-        + comp_ctx->comp_data->global_data_size;
+        /* Get global data size according to target info */
+        + (comp_ctx->pointer_size == sizeof(uint64)
+               ? comp_ctx->comp_data->global_data_size_64bit
+               : comp_ctx->comp_data->global_data_size_32bit);
 
     while (i < tbl_idx && i < comp_ctx->comp_data->import_table_count) {
         offset += offsetof(AOTTableInstance, elems);
         /* avoid loading from current AOTTableInstance */
         offset +=
-            comp_ctx->pointer_size
+            (uint64)comp_ctx->pointer_size
             * aot_get_imp_tbl_data_slots(imp_tbls + i, comp_ctx->is_jit_mode);
         ++i;
     }
@@ -41,7 +44,7 @@ get_tbl_inst_offset(const AOTCompContext *comp_ctx,
     while (i < tbl_idx && i < comp_ctx->comp_data->table_count) {
         offset += offsetof(AOTTableInstance, elems);
         /* avoid loading from current AOTTableInstance */
-        offset += comp_ctx->pointer_size
+        offset += (uint64)comp_ctx->pointer_size
                   * aot_get_tbl_data_slots(tbls + i, comp_ctx->is_jit_mode);
         ++i;
     }
@@ -174,7 +177,8 @@ bool
 aot_compile_op_table_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                          uint32 tbl_idx)
 {
-    LLVMValueRef elem_idx, offset, table_elem, func_idx;
+    LLVMValueRef elem_idx, offset, func_idx;
+    LLVMValueRef table_elem_base, table_elem_addr, table_elem;
 
     POP_I32(elem_idx);
 
@@ -189,46 +193,60 @@ aot_compile_op_table_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
-    if (!(table_elem = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,
-                                             func_ctx->aot_inst, &offset, 1,
-                                             "table_elem_i8p"))) {
+    if (!(table_elem_base = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,
+                                                  func_ctx->aot_inst, &offset,
+                                                  1, "table_elem_base_i8p"))) {
         aot_set_last_error("llvm build add failed.");
-        goto fail;
-    }
-
-    if (!(table_elem = LLVMBuildBitCast(comp_ctx->builder, table_elem,
-                                        INTPTR_PTR_TYPE, "table_elem_i32p"))) {
-        HANDLE_FAILURE("LLVMBuildBitCast");
         goto fail;
     }
 
     /* Load function object reference or function index */
     if (comp_ctx->enable_gc) {
-        if (!(table_elem = LLVMBuildInBoundsGEP2(comp_ctx->builder, GC_REF_TYPE,
-                                                 table_elem, &elem_idx, 1,
-                                                 "table_elem"))) {
+        if (!(table_elem_base =
+                  LLVMBuildBitCast(comp_ctx->builder, table_elem_base,
+                                   GC_REF_PTR_TYPE, "table_elem_base"))) {
+            HANDLE_FAILURE("LLVMBuildBitCast");
+            goto fail;
+        }
+
+        if (!(table_elem_addr = LLVMBuildInBoundsGEP2(
+                  comp_ctx->builder, GC_REF_TYPE, table_elem_base, &elem_idx, 1,
+                  "table_elem_addr"))) {
             HANDLE_FAILURE("LLVMBuildNUWAdd");
+            goto fail;
+        }
+
+        if (!(table_elem = LLVMBuildLoad2(comp_ctx->builder, GC_REF_TYPE,
+                                          table_elem_addr, "table_elem"))) {
+            HANDLE_FAILURE("LLVMBuildLoad");
             goto fail;
         }
 
         PUSH_GC_REF(table_elem);
     }
     else {
-        if (!(table_elem = LLVMBuildInBoundsGEP2(comp_ctx->builder, INTPTR_TYPE,
-                                                 table_elem, &elem_idx, 1,
-                                                 "table_elem"))) {
+        if (!(table_elem_base =
+                  LLVMBuildBitCast(comp_ctx->builder, table_elem_base,
+                                   INTPTR_T_PTR_TYPE, "table_elem_base"))) {
+            HANDLE_FAILURE("LLVMBuildBitCast");
+            goto fail;
+        }
+
+        if (!(table_elem_addr = LLVMBuildInBoundsGEP2(
+                  comp_ctx->builder, INTPTR_T_TYPE, table_elem_base, &elem_idx,
+                  1, "table_elem_addr"))) {
             HANDLE_FAILURE("LLVMBuildNUWAdd");
             goto fail;
         }
 
-        if (!(func_idx = LLVMBuildLoad2(comp_ctx->builder, INTPTR_TYPE,
-                                        table_elem, "func_idx"))) {
+        if (!(table_elem = LLVMBuildLoad2(comp_ctx->builder, INTPTR_T_TYPE,
+                                          table_elem_addr, "table_elem"))) {
             HANDLE_FAILURE("LLVMBuildLoad");
             goto fail;
         }
 
-        if (!(func_idx = LLVMBuildIntCast2(comp_ctx->builder, func_idx,
-                                           I32_TYPE, true, "func_idx_i32"))) {
+        if (!(func_idx = LLVMBuildIntCast2(comp_ctx->builder, table_elem,
+                                           I32_TYPE, true, "func_idx"))) {
             HANDLE_FAILURE("LLVMBuildIntCast");
             goto fail;
         }
@@ -245,12 +263,19 @@ bool
 aot_compile_op_table_set(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                          uint32 tbl_idx)
 {
-    LLVMValueRef val = NULL, elem_idx, offset, table_elem;
+    LLVMValueRef val = NULL, elem_idx, offset, table_elem_base, table_elem_addr;
 
     if (comp_ctx->enable_gc)
         POP_GC_REF(val);
-    else
+    else {
         POP_I32(val);
+
+        if (!(val = LLVMBuildIntCast2(comp_ctx->builder, val, INTPTR_T_TYPE,
+                                      true, "val_intptr_t"))) {
+            HANDLE_FAILURE("LLVMBuildBitCast");
+            goto fail;
+        }
+    }
 
     POP_I32(elem_idx);
 
@@ -265,47 +290,45 @@ aot_compile_op_table_set(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
-    if (!(table_elem = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,
-                                             func_ctx->aot_inst, &offset, 1,
-                                             "table_elem_i8p"))) {
+    if (!(table_elem_base = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,
+                                                  func_ctx->aot_inst, &offset,
+                                                  1, "table_elem_base_i8p"))) {
         HANDLE_FAILURE("LLVMBuildInBoundsGEP");
         goto fail;
     }
 
     if (comp_ctx->enable_gc) {
-        if (!(table_elem =
-                  LLVMBuildBitCast(comp_ctx->builder, table_elem,
-                                   GC_REF_PTR_TYPE, "table_elem_ptr"))) {
+        if (!(table_elem_base =
+                  LLVMBuildBitCast(comp_ctx->builder, table_elem_base,
+                                   GC_REF_PTR_TYPE, "table_elem_base"))) {
             HANDLE_FAILURE("LLVMBuildBitCast");
             goto fail;
         }
 
-        /* Load function object reference */
-        if (!(table_elem = LLVMBuildInBoundsGEP2(comp_ctx->builder, GC_REF_TYPE,
-                                                 table_elem, &elem_idx, 1,
-                                                 "table_elem"))) {
+        if (!(table_elem_addr = LLVMBuildInBoundsGEP2(
+                  comp_ctx->builder, GC_REF_TYPE, table_elem_base, &elem_idx, 1,
+                  "table_elem_addr"))) {
             HANDLE_FAILURE("LLVMBuildInBoundsGEP");
             goto fail;
         }
     }
     else {
-        if (!(table_elem =
-                  LLVMBuildBitCast(comp_ctx->builder, table_elem,
-                                   INTPTR_PTR_TYPE, "table_elem_i32p"))) {
+        if (!(table_elem_base =
+                  LLVMBuildBitCast(comp_ctx->builder, table_elem_base,
+                                   INTPTR_T_PTR_TYPE, "table_elem_base"))) {
             HANDLE_FAILURE("LLVMBuildBitCast");
             goto fail;
         }
 
-        /* Load function index */
-        if (!(table_elem = LLVMBuildInBoundsGEP2(comp_ctx->builder, INTPTR_TYPE,
-                                                 table_elem, &elem_idx, 1,
-                                                 "table_elem"))) {
+        if (!(table_elem_addr = LLVMBuildInBoundsGEP2(
+                  comp_ctx->builder, INTPTR_T_TYPE, table_elem_base, &elem_idx,
+                  1, "table_elem_addr"))) {
             HANDLE_FAILURE("LLVMBuildInBoundsGEP");
             goto fail;
         }
     }
 
-    if (!(LLVMBuildStore(comp_ctx->builder, val, table_elem))) {
+    if (!(LLVMBuildStore(comp_ctx->builder, val, table_elem_addr))) {
         HANDLE_FAILURE("LLVMBuildStore");
         goto fail;
     }

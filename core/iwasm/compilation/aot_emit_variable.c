@@ -175,14 +175,23 @@ compile_global(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     bh_assert(global_idx < import_global_count + comp_data->global_count);
 
     if (global_idx < import_global_count) {
-        global_offset = global_base_offset
-                        + comp_data->import_globals[global_idx].data_offset;
+        global_offset =
+            global_base_offset
+            /* Get global data offset according to target info */
+            + (comp_ctx->pointer_size == sizeof(uint64)
+                   ? comp_data->import_globals[global_idx].data_offset_64bit
+                   : comp_data->import_globals[global_idx].data_offset_32bit);
         global_type = comp_data->import_globals[global_idx].type;
     }
     else {
         global_offset =
             global_base_offset
-            + comp_data->globals[global_idx - import_global_count].data_offset;
+            /* Get global data offset according to target info */
+            + (comp_ctx->pointer_size == sizeof(uint64)
+                   ? comp_data->globals[global_idx - import_global_count]
+                         .data_offset_64bit
+                   : comp_data->globals[global_idx - import_global_count]
+                         .data_offset_32bit);
         global_type = comp_data->globals[global_idx - import_global_count].type;
     }
 

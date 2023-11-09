@@ -1070,8 +1070,11 @@ load_import_table_list(const uint8 **p_buf, const uint8 *buf_end,
 {
     const uint8 *buf = *p_buf;
     AOTImportTable *import_table;
+#if WASM_ENABLE_GC != 0
+    WASMRefType ref_type;
+#endif
     uint64 size;
-    uint32 i, possible_grow;
+    uint32 i;
 
     /* Allocate memory */
     size = sizeof(AOTImportTable) * (uint64)module->import_table_count;
@@ -1082,11 +1085,30 @@ load_import_table_list(const uint8 **p_buf, const uint8 *buf_end,
 
     /* keep sync with aot_emit_table_info() aot_emit_aot_file */
     for (i = 0; i < module->import_table_count; i++, import_table++) {
-        read_uint32(buf, buf_end, import_table->elem_type);
+        read_uint8(buf, buf_end, import_table->elem_type);
+        read_uint8(buf, buf_end, import_table->table_flags);
+        read_uint8(buf, buf_end, import_table->possible_grow);
+#if WASM_ENABLE_GC != 0
+        if (wasm_is_type_multi_byte_type(import_table->elem_type)) {
+            read_uint8(buf, buf_end, ref_type.ref_ht_common.nullable);
+        }
+#endif
         read_uint32(buf, buf_end, import_table->table_init_size);
         read_uint32(buf, buf_end, import_table->table_max_size);
-        read_uint32(buf, buf_end, possible_grow);
-        import_table->possible_grow = (possible_grow & 0x1);
+#if WASM_ENABLE_GC != 0
+        if (wasm_is_type_multi_byte_type(import_table->elem_type)) {
+            read_uint32(buf, buf_end, ref_type.ref_ht_common.heap_type);
+
+            ref_type.ref_type = import_table->elem_type;
+            /* TODO: check ref_type */
+            if (!(import_table->elem_ref_type = wasm_reftype_set_insert(
+                      module->ref_type_set, &ref_type))) {
+                set_error_buf(error_buf, error_buf_size,
+                              "insert ref type to hash set failed");
+                return false;
+            }
+        }
+#endif
     }
 
     *p_buf = buf;
@@ -1101,8 +1123,11 @@ load_table_list(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 {
     const uint8 *buf = *p_buf;
     AOTTable *table;
+#if WASM_ENABLE_GC != 0
+    WASMRefType ref_type;
+#endif
     uint64 size;
-    uint32 i, possible_grow;
+    uint32 i;
 
     /* Allocate memory */
     size = sizeof(AOTTable) * (uint64)module->table_count;
@@ -1113,12 +1138,30 @@ load_table_list(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 
     /* Create each table data segment */
     for (i = 0; i < module->table_count; i++, table++) {
-        read_uint32(buf, buf_end, table->elem_type);
-        read_uint32(buf, buf_end, table->table_flags);
+        read_uint8(buf, buf_end, table->elem_type);
+        read_uint8(buf, buf_end, table->table_flags);
+        read_uint8(buf, buf_end, table->possible_grow);
+#if WASM_ENABLE_GC != 0
+        if (wasm_is_type_multi_byte_type(table->elem_type)) {
+            read_uint8(buf, buf_end, ref_type.ref_ht_common.nullable);
+        }
+#endif
         read_uint32(buf, buf_end, table->table_init_size);
         read_uint32(buf, buf_end, table->table_max_size);
-        read_uint32(buf, buf_end, possible_grow);
-        table->possible_grow = (possible_grow & 0x1);
+#if WASM_ENABLE_GC != 0
+        if (wasm_is_type_multi_byte_type(table->elem_type)) {
+            read_uint32(buf, buf_end, ref_type.ref_ht_common.heap_type);
+
+            ref_type.ref_type = table->elem_type;
+            /* TODO: check ref_type */
+            if (!(table->elem_ref_type = wasm_reftype_set_insert(
+                      module->ref_type_set, &ref_type))) {
+                set_error_buf(error_buf, error_buf_size,
+                              "insert ref type to hash set failed");
+                return false;
+            }
+        }
+#endif
     }
 
     *p_buf = buf;
@@ -1159,13 +1202,18 @@ load_table_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
         read_uint32(buf, buf_end, init_expr_type);
         read_uint64(buf, buf_end, init_expr_value);
 #if WASM_ENABLE_GC != 0
-        read_uint32(buf, buf_end, reftype.ref_ht_common.ref_type);
-        read_uint16(buf, buf_end, reftype.ref_ht_common.heap_type);
-        read_uint16(buf, buf_end, reftype.ref_ht_common.nullable);
-#else
-        /* Skip 8 byte for ref type info */
-        buf += 8;
+        if (wasm_is_type_multi_byte_type(elem_type)) {
+            /* TODO: check ref_type */
+            read_uint16(buf, buf_end, reftype.ref_ht_common.ref_type);
+            read_uint16(buf, buf_end, reftype.ref_ht_common.nullable);
+            read_uint32(buf, buf_end, reftype.ref_ht_common.heap_type);
+        }
+        else
 #endif
+        {
+            /* Skip 8 byte for ref type info */
+            buf += 8;
+        }
 
         read_uint32(buf, buf_end, func_index_count);
 
@@ -1180,8 +1228,7 @@ load_table_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
         data_list[i]->is_dropped = false;
         data_list[i]->table_index = table_index;
 #if WASM_ENABLE_GC != 0
-        if (wasm_is_reftype_htref_nullable(reftype.ref_type)
-            || wasm_is_reftype_htref_non_nullable(reftype.ref_type)) {
+        if (wasm_is_type_multi_byte_type(reftype.ref_type)) {
             if (!(data_list[i]->elem_ref_type =
                       reftype_set_insert(module->ref_type_set, &reftype,
                                          error_buf, error_buf_size))) {
@@ -1364,6 +1411,7 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                     read_uint8(buf, buf_end, ref_type.ref_ht_common.ref_type);
                     read_uint8(buf, buf_end, ref_type.ref_ht_common.nullable);
                     read_uint32(buf, buf_end, ref_type.ref_ht_common.heap_type);
+                    /* TODO: check ref_type */
                     if (!(func_type->ref_type_maps[j].ref_type =
                               wasm_reftype_set_insert(module->ref_type_set,
                                                       &ref_type))) {
@@ -1371,6 +1419,12 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                                       "insert ref type to hash set failed");
                         goto fail;
                     }
+                }
+
+                func_type->result_ref_type_maps = func_type->ref_type_maps;
+                for (j = 0; j < func_type->param_count; j++) {
+                    if (wasm_is_type_multi_byte_type(func_type->types[j]))
+                        func_type->result_ref_type_maps++;
                 }
             }
         }
@@ -1388,7 +1442,7 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                 goto fail;
             }
 
-            offset = (uint32)sizeof(WASMStructObject);
+            offset = (uint32)offsetof(WASMStructObject, field_data);
             types[i] = (AOTType *)struct_type;
 
             struct_type->base_type.type_flag = type_flag;
@@ -1441,6 +1495,7 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                     read_uint8(buf, buf_end, ref_type.ref_ht_common.ref_type);
                     read_uint8(buf, buf_end, ref_type.ref_ht_common.nullable);
                     read_uint32(buf, buf_end, ref_type.ref_ht_common.heap_type);
+                    /* TODO: check ref_type */
                     if (!(struct_type->ref_type_maps[j].ref_type =
                               wasm_reftype_set_insert(module->ref_type_set,
                                                       &ref_type))) {
@@ -1466,6 +1521,18 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             array_type->base_type.type_flag = type_flag;
             read_uint16(buf, buf_end, array_type->elem_flags);
             read_uint8(buf, buf_end, array_type->elem_type);
+            if (wasm_is_type_multi_byte_type(array_type->elem_type)) {
+                read_uint8(buf, buf_end, ref_type.ref_ht_common.nullable);
+                read_uint32(buf, buf_end, ref_type.ref_ht_common.heap_type);
+                ref_type.ref_type = array_type->elem_type;
+                /* TODO: check ref_type */
+                if (!(array_type->elem_ref_type = wasm_reftype_set_insert(
+                          module->ref_type_set, &ref_type))) {
+                    set_error_buf(error_buf, error_buf_size,
+                                  "insert ref type to hash set failed");
+                    goto fail;
+                }
+            }
 
             LOG_VERBOSE("type %u: array", i);
         }

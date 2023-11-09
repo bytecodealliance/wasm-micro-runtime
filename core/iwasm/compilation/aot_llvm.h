@@ -252,7 +252,7 @@ typedef struct AOTLLVMTypes {
     LLVMTypeRef int16_type;
     LLVMTypeRef int32_type;
     LLVMTypeRef int64_type;
-    LLVMTypeRef intptr_type;
+    LLVMTypeRef intptr_t_type;
     LLVMTypeRef float32_type;
     LLVMTypeRef float64_type;
     LLVMTypeRef void_type;
@@ -262,7 +262,7 @@ typedef struct AOTLLVMTypes {
     LLVMTypeRef int16_ptr_type;
     LLVMTypeRef int32_ptr_type;
     LLVMTypeRef int64_ptr_type;
-    LLVMTypeRef intptr_ptr_type;
+    LLVMTypeRef intptr_t_ptr_type;
     LLVMTypeRef float32_ptr_type;
     LLVMTypeRef float64_ptr_type;
 

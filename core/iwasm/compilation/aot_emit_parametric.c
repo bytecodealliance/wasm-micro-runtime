@@ -44,33 +44,32 @@ pop_value_from_wasm_stack(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     wasm_runtime_free(aot_value);
 
-    /* is_32: i32, f32, ref.func, ref.extern, v128, ref types if gc is
-     * enabled and target is 32-bit */
-    if (is_32
-        && !(
-            type == VALUE_TYPE_I32 || type == VALUE_TYPE_F32
-            || type == VALUE_TYPE_V128
-            || (comp_ctx->enable_ref_types
-                && (type == VALUE_TYPE_FUNCREF || type == VALUE_TYPE_EXTERNREF))
+    if (is_32) {
+        /* is_32: i32, f32, ref.func, ref.extern, v128,
+                  or GC ref types */
+        if (!(type == VALUE_TYPE_I32 || type == VALUE_TYPE_F32
+              || type == VALUE_TYPE_V128
+              || (comp_ctx->enable_ref_types
+                  && (type == VALUE_TYPE_FUNCREF
+                      || type == VALUE_TYPE_EXTERNREF))
 #if WASM_ENABLE_GC != 0
-            || (comp_ctx->enable_gc && comp_ctx->pointer_size == sizeof(uint32)
-                && type == VALUE_TYPE_GC_REF)
+              || (comp_ctx->enable_gc && type == VALUE_TYPE_GC_REF)
 #endif
-                )) {
-        aot_set_last_error("invalid WASM stack data type.");
-        return false;
+                  )) {
+            aot_set_last_error("invalid WASM stack data type.");
+            return false;
+        }
     }
-
-    /* !is_32: i64, f64, ref types if gc is enabled and target is 64-bit */
-    if (!is_32
-        && !(type == VALUE_TYPE_I64 || type == VALUE_TYPE_F64
-#if WASM_ENABLE_GC
-             || (comp_ctx->enable_gc && comp_ctx->pointer_size == sizeof(uint64)
-                 && type == VALUE_TYPE_GC_REF)
+    else {
+        /* !is_32: i64, f64, or GC ref types */
+        if (!(type == VALUE_TYPE_I64 || type == VALUE_TYPE_F64
+#if WASM_ENABLE_GC != 0
+              || (comp_ctx->enable_gc && type == VALUE_TYPE_GC_REF)
 #endif
-                 )) {
-        aot_set_last_error("invalid WASM stack data type.");
-        return false;
+                  )) {
+            aot_set_last_error("invalid WASM stack data type.");
+            return false;
+        }
     }
 
     return true;

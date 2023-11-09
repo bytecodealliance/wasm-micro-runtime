@@ -1840,13 +1840,7 @@ init_llvm_jit_functions_stage1(WASMModule *module, char *error_buf,
     AOTCompOption option = { 0 };
     char *aot_last_error;
     uint64 size;
-    bool gc_enabled =
-#if WASM_ENABLE_GC != 0
-        true
-#else
-        false
-#endif
-        ;
+    bool gc_enabled = false; /* GC hasn't been enabled in mini loader */
 
     if (module->function_count == 0)
         return true;
@@ -5768,28 +5762,11 @@ re_scan:
                     uint32 block_param_count = 0, block_ret_count = 0;
                     uint8 *block_param_types = NULL, *block_ret_types = NULL;
                     BlockType *cur_block_type = &cur_block->block_type;
-#if WASM_ENABLE_GC != 0
-                    uint32 block_param_reftype_map_count;
-                    uint32 block_ret_reftype_map_count;
-                    WASMRefTypeMap *block_param_reftype_maps;
-                    WASMRefTypeMap *block_ret_reftype_maps;
-#endif
 
                     block_param_count = block_type_get_param_types(
-                        cur_block_type, &block_param_types
-#if WASM_ENABLE_GC != 0
-                        ,
-                        &block_param_reftype_maps,
-                        &block_param_reftype_map_count
-#endif
-                    );
+                        cur_block_type, &block_param_types);
                     block_ret_count = block_type_get_result_types(
-                        cur_block_type, &block_ret_types
-#if WASM_ENABLE_GC != 0
-                        ,
-                        &block_ret_reftype_maps, &block_ret_reftype_map_count
-#endif
-                    );
+                        cur_block_type, &block_ret_types);
                     bh_assert(block_param_count == block_ret_count
                               && (!block_param_count
                                   || !memcmp(block_param_types, block_ret_types,

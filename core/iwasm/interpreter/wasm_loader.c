@@ -1167,7 +1167,7 @@ resolve_struct_type(const uint8 **p_buf, const uint8 *buf_end,
     type->field_count = field_count;
     type->ref_type_map_count = ref_type_map_count;
 
-    offset = (uint32)sizeof(WASMStructObject);
+    offset = (uint32)offsetof(WASMStructObject, field_data);
     for (i = 0; i < field_count; i++) {
         if (!resolve_value_type(&p, p_end, module, &need_ref_type_map,
                                 &ref_type, true, error_buf, error_buf_size)) {
@@ -4079,8 +4079,10 @@ init_llvm_jit_functions_stage1(WASMModule *module, char *error_buf,
 #if WASM_ENABLE_SIMD != 0
     option.enable_simd = true;
 #endif
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
     option.enable_ref_types = true;
+#elif WASM_ENABLE_GC != 0
+    option.enable_gc = true;
 #endif
     option.enable_aux_stack_check = true;
 #if (WASM_ENABLE_PERF_PROFILING != 0) || (WASM_ENABLE_DUMP_CALL_STACK != 0) \
