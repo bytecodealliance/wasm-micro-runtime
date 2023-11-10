@@ -148,4 +148,8 @@ void
 set_exec_mem_alloc_func(exec_mem_alloc_func_t alloc_func,
                         exec_mem_free_func_t free_func);
 
+typedef int os_file_handle;
+typedef DIR *os_dir_stream;
+typedef int os_raw_file_handle;
+
 #endif

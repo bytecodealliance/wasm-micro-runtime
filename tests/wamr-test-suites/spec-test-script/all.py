@@ -6,7 +6,7 @@
 
 import argparse
 import multiprocessing as mp
-import os
+import platform
 import pathlib
 import subprocess
 import sys
@@ -28,12 +28,26 @@ To run a single GC case:
     --aot-compiler wamrc --gc spec/test/core/xxx.wast
 """
 
-PLATFORM_NAME = os.uname().sysname.lower()
-IWASM_CMD = "../../../product-mini/platforms/" + PLATFORM_NAME + "/build/iwasm"
+def exe_file_path(base_path: str) -> str:
+    if platform.system().lower() == "windows":
+        base_path += ".exe"
+    return base_path
+
+def get_iwasm_cmd(platform: str) -> str:
+    build_path = "../../../product-mini/platforms/" + platform + "/build/"
+    exe_name = "iwasm"
+
+    if platform == "windows":
+        build_path += "RelWithDebInfo/"
+
+    return exe_file_path(build_path + exe_name)
+
+PLATFORM_NAME = platform.uname().system.lower()
+IWASM_CMD = get_iwasm_cmd(PLATFORM_NAME)
 IWASM_SGX_CMD = "../../../product-mini/platforms/linux-sgx/enclave-sample/iwasm"
 IWASM_QEMU_CMD = "iwasm"
 SPEC_TEST_DIR = "spec/test/core"
-WAST2WASM_CMD = "./wabt/out/gcc/Release/wat2wasm"
+WAST2WASM_CMD = exe_file_path("./wabt/out/gcc/Release/wat2wasm")
 SPEC_INTERPRETER_CMD = "spec/interpreter/wasm"
 WAMRC_CMD = "../../../wamr-compiler/build/wamrc"
 
@@ -146,8 +160,9 @@ def test_case(
     qemu_flag=False,
     qemu_firmware="",
     log="",
+    no_pty=False
 ):
-    CMD = ["python3", "runtest.py"]
+    CMD = [sys.executable, "runtest.py"]
     CMD.append("--wast2wasm")
     CMD.append(WAST2WASM_CMD if not gc_flag else SPEC_INTERPRETER_CMD)
     CMD.append("--interpreter")
@@ -157,6 +172,8 @@ def test_case(
         CMD.append(IWASM_QEMU_CMD)
     else:
         CMD.append(IWASM_CMD)
+    if no_pty:
+        CMD.append("--no-pty")
     CMD.append("--aot-compiler")
     CMD.append(WAMRC_CMD)
 
@@ -261,6 +278,7 @@ def test_suite(
     qemu_flag=False,
     qemu_firmware="",
     log="",
+    no_pty=False,
 ):
     suite_path = pathlib.Path(SPEC_TEST_DIR).resolve()
     if not suite_path.exists():
@@ -322,6 +340,7 @@ def test_suite(
                         qemu_flag,
                         qemu_firmware,
                         log,
+                        no_pty,
                     ],
                 )
 
@@ -359,6 +378,7 @@ def test_suite(
                     qemu_flag,
                     qemu_firmware,
                     log,
+                    no_pty,
                 )
                 successful_case += 1
             except Exception as e:
@@ -480,6 +500,8 @@ def main():
         nargs="*",
         help=f"Specify all wanted cases. If not the script will go through all cases under {SPEC_TEST_DIR}",
     )
+    parser.add_argument('--no-pty', action='store_true',
+        help="Use direct pipes instead of pseudo-tty")
 
     options = parser.parse_args()
 
@@ -509,6 +531,7 @@ def main():
             options.qemu_flag,
             options.qemu_firmware,
             options.log,
+            options.no_pty
         )
         end = time.time_ns()
         print(
@@ -532,6 +555,7 @@ def main():
                     options.qemu_flag,
                     options.qemu_firmware,
                     options.log,
+                    options.no_pty,
                 )
             else:
                 ret = True

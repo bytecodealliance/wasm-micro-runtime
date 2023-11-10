@@ -50,6 +50,7 @@ typedef pthread_t korp_thread;
 typedef pthread_t korp_tid;
 typedef pthread_mutex_t korp_mutex;
 typedef pthread_cond_t korp_cond;
+typedef pthread_rwlock_t korp_rwlock;
 typedef unsigned int korp_sem;
 
 #ifndef SGX_DISABLE_PTHREAD
@@ -67,6 +68,10 @@ strcpy(char *dest, const char *src);
 #define os_memory_order_release __ATOMIC_RELEASE
 #define os_memory_order_seq_cst __ATOMIC_SEQ_CST
 #define os_atomic_thread_fence __atomic_thread_fence
+
+typedef int os_file_handle;
+typedef DIR *os_dir_stream;
+typedef int os_raw_file_handle;
 
 #ifdef __cplusplus
 }

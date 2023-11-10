@@ -57,6 +57,7 @@ typedef pthread_t korp_tid;
 typedef pthread_mutex_t korp_mutex;
 typedef pthread_cond_t korp_cond;
 typedef pthread_t korp_thread;
+typedef pthread_rwlock_t korp_rwlock;
 typedef sem_t korp_sem;
 
 #define OS_THREAD_MUTEX_INITIALIZER PTHREAD_MUTEX_INITIALIZER
@@ -64,6 +65,10 @@ typedef sem_t korp_sem;
 #define os_thread_local_attribute __thread
 
 #define bh_socket_t int
+
+typedef int os_file_handle;
+typedef DIR *os_dir_stream;
+typedef int os_raw_file_handle;
 
 #if WASM_DISABLE_HW_BOUND_CHECK == 0
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)            \

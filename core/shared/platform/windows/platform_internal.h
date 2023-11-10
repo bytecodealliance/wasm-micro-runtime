@@ -25,10 +25,14 @@
 #include <stdint.h>
 #include <malloc.h>
 #include <process.h>
+#include <winapifamily.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <windows.h>
 #include <basetsd.h>
+#include <signal.h>
+
+#include "platform_wasi_types.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -57,6 +61,11 @@ typedef void *korp_tid;
 typedef void *korp_mutex;
 typedef void *korp_sem;
 
+typedef struct {
+    SRWLOCK lock;
+    bool exclusive;
+} korp_rwlock;
+
 /**
  * Create the mutex when os_mutex_lock is called, and no need to
  * CloseHandle() for the static lock's lifetime, since
@@ -75,8 +84,6 @@ typedef struct korp_cond {
     os_thread_wait_list thread_wait_list;
     struct os_thread_wait_node *thread_wait_list_end;
 } korp_cond;
-
-#define bh_socket_t SOCKET
 
 unsigned
 os_getpagesize();
@@ -130,6 +137,55 @@ void
 bh_atomic_thread_fence(int mem_order);
 
 #define os_atomic_thread_fence bh_atomic_thread_fence
+
+typedef enum windows_handle_type {
+    windows_handle_type_socket,
+    windows_handle_type_file
+} windows_handle_type;
+
+typedef enum windows_access_mode {
+    windows_access_mode_read = 1 << 0,
+    windows_access_mode_write = 1 << 1
+} windows_access_mode;
+
+typedef struct windows_handle {
+    windows_handle_type type;
+    __wasi_fdflags_t fdflags;
+    windows_access_mode access_mode;
+    union {
+        HANDLE handle;
+        SOCKET socket;
+    } raw;
+} windows_handle;
+
+typedef struct windows_dir_stream {
+    // Enough space for the wide filename and the info struct itself
+    char info_buf[PATH_MAX * sizeof(wchar_t) + sizeof(FILE_ID_BOTH_DIR_INFO)];
+    char current_entry_name[PATH_MAX];
+    // An offset into info_buf to read the next entry from
+    DWORD cursor;
+    int cookie;
+    windows_handle *handle;
+} windows_dir_stream;
+
+typedef windows_handle *os_file_handle;
+typedef windows_dir_stream *os_dir_stream;
+
+#if WASM_ENABLE_UVWASI != 1
+typedef HANDLE os_raw_file_handle;
+#else
+typedef uint32_t os_raw_file_handle;
+#endif
+
+#define bh_socket_t windows_handle *
+
+// UWP apps do not have stdout/stderr handles so provide a default
+// implementation of vprintf on debug builds so output from WASI libc is sent to
+// the debugger and not lost completely.
+#if !defined(BH_VPRINTF) && !defined(NDEBUG) && WINAPI_PARTITION_DESKTOP == 0
+#define BH_VPRINTF uwp_print_to_debugger
+#define UWP_DEFAULT_VPRINTF
+#endif
 
 #ifdef __cplusplus
 }
