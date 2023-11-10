@@ -459,6 +459,7 @@ get_struct_type_size(AOTCompContext *comp_ctx, AOTStructType *struct_type)
     size += struct_type->field_count * 2;
     /* ref_type_map_count */
     size += sizeof(struct_type->ref_type_map_count);
+    size = align_uint(size, 4);
     /* ref_type_map */
     size += struct_type->ref_type_map_count * 8;
     return size;
@@ -1796,6 +1797,9 @@ aot_emit_type_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
                     EMIT_U8(struct_type->fields[idx].field_flags);
                     EMIT_U8(struct_type->fields[idx].field_type);
                 }
+
+                offset = align_uint(offset, 4);
+
                 aot_emit_reftype_map(buf, buf_end, &offset,
                                      struct_type->ref_type_map_count,
                                      struct_type->ref_type_maps);

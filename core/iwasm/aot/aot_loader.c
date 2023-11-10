@@ -1476,6 +1476,7 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             }
 
             struct_type->total_size = offset;
+            buf = align_ptr(buf, 4);
 
             /* If ref_type_map is not empty, read ref_type_map */
             if (ref_type_map_count > 0) {
