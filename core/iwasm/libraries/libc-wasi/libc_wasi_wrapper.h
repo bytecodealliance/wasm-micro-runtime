@@ -18,7 +18,16 @@ typedef __wasi_advice_t wasi_advice_t;
 typedef __wasi_ciovec_t wasi_ciovec_t;
 typedef __wasi_clockid_t wasi_clockid_t;
 typedef __wasi_dircookie_t wasi_dircookie_t;
-typedef __wasi_errno_t wasi_errno_t;
+// __wasi_errno_t is typedef'd to uint16 which is correct according to the ABI
+// specification. However, in WASM, the smallest integer type is int32. If we
+// return uint16, we would rely on language SDKs to implement the correct
+// behaviour of casting to uint16 before checking the value or using it any way.
+// Failure to do so can cause tricky bugs as the upper 16 bits of the error
+// result are not guaranteed to be zero'ed by us so the result essentially
+// contains garbage from the WASM app perspective. To prevent this, we return
+// uint32 directly instead so as not to be reliant on the correct behaviour of
+// any current/future WASI SDK implemenations.
+typedef uint32_t wasi_errno_t;
 typedef __wasi_event_t wasi_event_t;
 typedef __wasi_exitcode_t wasi_exitcode_t;
 typedef __wasi_fdflags_t wasi_fdflags_t;
