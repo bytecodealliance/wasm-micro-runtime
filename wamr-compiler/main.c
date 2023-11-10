@@ -630,7 +630,8 @@ main(int argc, char *argv[])
         goto fail2;
     }
 
-    if (!(comp_data = aot_create_comp_data(wasm_module, option.enable_gc))) {
+    if (!(comp_data = aot_create_comp_data(wasm_module, option.target_arch,
+                                           option.enable_gc))) {
         printf("%s\n", aot_get_last_error());
         goto fail3;
     }

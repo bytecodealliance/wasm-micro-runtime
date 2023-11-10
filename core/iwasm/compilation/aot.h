@@ -332,7 +332,8 @@ typedef struct AOTNativeSymbol {
 } AOTNativeSymbol;
 
 AOTCompData *
-aot_create_comp_data(WASMModule *module, bool gc_enabled);
+aot_create_comp_data(WASMModule *module, const char *target_arch,
+                     bool gc_enabled);
 
 void
 aot_destroy_comp_data(AOTCompData *comp_data);

@@ -384,13 +384,75 @@ fail:
     return NULL;
 }
 
+static void
+calculate_struct_field_sizes_offsets(AOTCompData *comp_data, bool is_target_x86,
+                                     bool gc_enabled)
+{
+    uint32 i;
+
+    for (i = 0; i < comp_data->type_count; i++) {
+        if (comp_data->types[i]->type_flag == WASM_TYPE_STRUCT) {
+            WASMStructType *struct_type = (WASMStructType *)comp_data->types[i];
+            WASMStructFieldType *fields = struct_type->fields;
+            uint32 field_offset_64bit, field_offset_32bit;
+            uint32 field_size_64bit, field_size_32bit, j;
+
+            /* offsetof(WASMStructObject, field_data) in 64-bit */
+            field_offset_64bit = sizeof(uint64);
+
+            /* offsetof(WASMStructObject, field_data) in 32-bit */
+            field_offset_32bit = sizeof(uint32);
+
+            for (j = 0; j < struct_type->field_count; j++) {
+                get_value_type_size(fields[j].field_type, gc_enabled,
+                                    &field_size_64bit, &field_size_32bit);
+
+                fields[j].field_size_64bit = field_size_64bit;
+                fields[j].field_size_32bit = field_size_32bit;
+
+                if (!is_target_x86) {
+                    if (field_size_64bit == 2)
+                        field_offset_64bit = align_uint(field_offset_64bit, 2);
+                    else if (field_size_64bit >= 4)
+                        field_offset_64bit = align_uint(field_offset_64bit, 4);
+
+                    if (field_size_32bit == 2)
+                        field_offset_32bit = align_uint(field_offset_32bit, 2);
+                    else if (field_size_32bit >= 4)
+                        field_offset_32bit = align_uint(field_offset_32bit, 4);
+                }
+
+                fields[j].field_offset_64bit = field_offset_64bit;
+                fields[j].field_offset_32bit = field_offset_32bit;
+
+                field_offset_64bit += field_size_64bit;
+                field_offset_32bit += field_size_32bit;
+            }
+        }
+    }
+}
+
 AOTCompData *
-aot_create_comp_data(WASMModule *module, bool gc_enabled)
+aot_create_comp_data(WASMModule *module, const char *target_arch,
+                     bool gc_enabled)
 {
     AOTCompData *comp_data;
+    bool is_target_x86 = false;
     uint32 import_global_data_size_64bit = 0, global_data_size_64bit = 0, i, j;
     uint32 import_global_data_size_32bit = 0, global_data_size_32bit = 0;
     uint64 size;
+
+    if (!target_arch) {
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) \
+    || defined(BUILD_TARGET_X86_32)
+        is_target_x86 = true;
+#endif
+    }
+    else {
+        if (!strncmp(target_arch, "x86_64", 6)
+            || !strncmp(target_arch, "i386", 4))
+            is_target_x86 = true;
+    }
 
     /* Allocate memory */
     if (!(comp_data = wasm_runtime_malloc(sizeof(AOTCompData)))) {
@@ -534,6 +596,9 @@ aot_create_comp_data(WASMModule *module, bool gc_enabled)
     /* Create types, they are checked by wasm loader */
     comp_data->type_count = module->type_count;
     comp_data->types = module->types;
+    /* Calculate the field sizes and field offsets for 64-bit and 32-bit
+       targets since they may vary in 32-bit target and 64-bit target */
+    calculate_struct_field_sizes_offsets(comp_data, is_target_x86, gc_enabled);
 
     /* Create import functions */
     comp_data->import_func_count = module->import_function_count;

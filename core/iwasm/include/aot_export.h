@@ -20,7 +20,8 @@ struct AOTCompContext;
 typedef struct AOTCompContext *aot_comp_context_t;
 
 aot_comp_data_t
-aot_create_comp_data(void *wasm_module, bool gc_enabled);
+aot_create_comp_data(void *wasm_module, const char *target_arch,
+                     bool gc_enabled);
 
 void
 aot_destroy_comp_data(aot_comp_data_t comp_data);
