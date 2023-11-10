@@ -1915,6 +1915,7 @@ static ArchItem valid_archs[] = {
 static const char *valid_abis[] = {
     "gnu",
     "eabi",
+    "eabihf",
     "gnueabihf",
     "msvc",
     "ilp32",
