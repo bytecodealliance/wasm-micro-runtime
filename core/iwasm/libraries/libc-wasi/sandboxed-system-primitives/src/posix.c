@@ -546,6 +546,7 @@ fd_object_release(wasm_exec_env_t env, struct fd_object *fo)
                     error = os_closedir(fo->directory.handle);
                     break;
                 }
+                // Fallthrough.
             default:
                 // The env == NULL case is for
                 // fd_table_destroy, path_get, path_put,
