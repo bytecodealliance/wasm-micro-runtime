@@ -29,7 +29,7 @@ access_to_win32_flags(int prot)
 }
 
 void *
-os_mmap(void *hint, size_t size, int prot, int flags)
+os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
 {
     DWORD alloc_type = MEM_RESERVE;
     DWORD protect;

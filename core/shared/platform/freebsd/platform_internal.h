@@ -112,6 +112,14 @@ os_sigreturn();
 void
 os_set_signal_number_for_blocking_op(int signo);
 
+typedef int os_file_handle;
+
+static inline os_file_handle
+os_get_invalid_handle()
+{
+    return -1;
+}
+
 #ifdef __cplusplus
 }
 #endif

@@ -848,8 +848,8 @@ main(int argc, char *argv[])
         int map_prot = MMAP_PROT_READ | MMAP_PROT_WRITE | MMAP_PROT_EXEC;
         int map_flags = MMAP_MAP_32BIT;
 
-        if (!(wasm_file_mapped =
-                  os_mmap(NULL, (uint32)wasm_file_size, map_prot, map_flags))) {
+        if (!(wasm_file_mapped = os_mmap(NULL, (uint32)wasm_file_size, map_prot,
+                                         map_flags, os_get_invalid_handle()))) {
             printf("mmap memory failed\n");
             wasm_runtime_free(wasm_file_buf);
             goto fail1;
