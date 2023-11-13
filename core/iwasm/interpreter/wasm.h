@@ -339,6 +339,19 @@ typedef struct WASMStructFieldType {
     uint8 field_type;
     uint8 field_size;
     uint32 field_offset;
+#if WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_JIT != 0
+    /*
+     * The field size and field offset of a wasm struct may vary
+     * in 32-bit target and 64-bit target, e.g., the size of a
+     * GC reference is 4 bytes in the former and 8 bytes in the
+     * latter, the AOT compiler needs to use the correct field
+     * offset according to the target info.
+     */
+    uint8 field_size_64bit;
+    uint8 field_size_32bit;
+    uint32 field_offset_64bit;
+    uint32 field_offset_32bit;
+#endif
 } WASMStructFieldType;
 
 typedef struct WASMStructType {
