@@ -544,8 +544,14 @@ fd_object_release(wasm_exec_env_t env, struct fd_object *fo)
                 mutex_destroy(&fo->directory.lock);
                 if (os_is_dir_stream_valid(&fo->directory.handle)) {
                     error = os_closedir(fo->directory.handle);
-                    break;
                 }
+                else {
+                    error = (env == NULL)
+                                ? os_close(fo->file_handle, fo->is_stdio)
+                                : blocking_op_close(env, fo->file_handle,
+                                                    fo->is_stdio);
+                }
+                break;
             default:
                 // The env == NULL case is for
                 // fd_table_destroy, path_get, path_put,
@@ -2961,7 +2967,8 @@ argv_environ_init(struct argv_environ_values *argv_environ, char *argv_buf,
 
 void
 argv_environ_destroy(struct argv_environ_values *argv_environ)
-{}
+{
+}
 
 void
 fd_table_destroy(struct fd_table *ft)
