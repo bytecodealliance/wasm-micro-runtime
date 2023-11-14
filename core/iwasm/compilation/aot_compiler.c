@@ -226,7 +226,7 @@ static bool
 store_ref(AOTCompContext *comp_ctx, uint32 ref, LLVMValueRef cur_frame,
           uint32 offset, uint32 nbytes)
 {
-    LLVMValueRef value_ref, value_offset, value_addr, res;
+    LLVMValueRef value_ref = NULL, value_offset, value_addr, res;
 
     if (!(value_offset = I32_CONST(offset))) {
         aot_set_last_error("llvm build const failed");
