@@ -599,19 +599,6 @@ wasm_obj_is_eq_obj(WASMObjectRef obj)
 }
 
 bool
-wasm_obj_is_created_from_heap(WASMObjectRef obj)
-{
-    if (obj == NULL)
-        return false;
-
-    if (wasm_obj_is_i31_obj(obj))
-        return false;
-
-    /* struct/array/func/externref/anyref object */
-    return true;
-}
-
-bool
 wasm_obj_is_instance_of(WASMObjectRef obj, uint32 type_idx, WASMType **types,
                         uint32 type_count)
 {

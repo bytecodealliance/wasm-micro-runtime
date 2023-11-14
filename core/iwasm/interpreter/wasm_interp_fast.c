@@ -324,11 +324,9 @@ init_frame_refs(uint8 *frame_ref, uint32 cell_num, WASMFunctionInstance *func)
             frame_ref[j++] = 1;
 #endif
         }
-        else if (func->param_types[i] == VALUE_TYPE_I32
-                 || func->param_types[i] == VALUE_TYPE_F32)
-            j++;
-        else
-            j += 2;
+        else {
+            j += wasm_value_type_size(func->param_types[i]);
+        }
     }
 
     for (i = 0; i < func->local_count; i++) {
@@ -339,11 +337,9 @@ init_frame_refs(uint8 *frame_ref, uint32 cell_num, WASMFunctionInstance *func)
             frame_ref[j++] = 1;
 #endif
         }
-        else if (func->local_types[i] == VALUE_TYPE_I32
-                 || func->local_types[i] == VALUE_TYPE_F32)
-            j++;
-        else
-            j += 2;
+        else {
+            j += wasm_value_type_size(func->local_types[i]);
+        }
     }
 }
 

@@ -291,8 +291,14 @@ wasm_obj_is_null_obj(WASMObjectRef obj)
     return obj == NULL_REF ? true : false;
 }
 
-bool
-wasm_obj_is_created_from_heap(WASMObjectRef obj);
+inline static bool
+wasm_obj_is_created_from_heap(WASMObjectRef obj)
+{
+    if (obj == NULL || (((uintptr_t)obj) & 1))
+        /* null object or i31 object */
+        return false;
+    return true;
+}
 
 bool
 wasm_obj_is_instance_of(WASMObjectRef obj, uint32 type_idx, WASMType **types,

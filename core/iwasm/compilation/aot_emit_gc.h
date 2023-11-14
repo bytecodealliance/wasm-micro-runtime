@@ -39,7 +39,8 @@ aot_compile_op_ref_as_non_null(AOTCompContext *comp_ctx,
 
 bool
 aot_compile_op_struct_new(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                          uint32 type_index, bool init_with_default);
+                          uint32 type_index, bool init_with_default,
+                          const uint8 *frame_ip_struct_new);
 
 bool
 aot_compile_op_struct_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
@@ -52,12 +53,14 @@ aot_compile_op_struct_set(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 bool
 aot_compile_op_array_new(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                          uint32 type_index, bool init_with_default,
-                         bool fixed_size, uint32 array_len);
+                         bool fixed_size, uint32 array_len,
+                         const uint8 *frame_ip_array_new);
 
 bool
 aot_compile_op_array_new_data(AOTCompContext *comp_ctx,
                               AOTFuncContext *func_ctx, uint32 type_index,
-                              uint32 data_seg_index);
+                              uint32 data_seg_index,
+                              const uint8 *frame_ip_array_new_data);
 
 bool
 aot_compile_op_array_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
@@ -97,7 +100,8 @@ aot_compile_op_extern_internalize(AOTCompContext *comp_ctx,
 
 bool
 aot_compile_op_extern_externalize(AOTCompContext *comp_ctx,
-                                  AOTFuncContext *func_ctx);
+                                  AOTFuncContext *func_ctx,
+                                  const uint8 *frame_ip_extern_externalize);
 
 #endif
 

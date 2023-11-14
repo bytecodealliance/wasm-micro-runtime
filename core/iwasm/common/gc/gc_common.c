@@ -926,8 +926,7 @@ wasm_runtime_traverse_gc_rootset(WASMExecEnv *exec_env, void *heap)
 #endif
 #if WASM_ENABLE_AOT != 0
     if (exec_env->module_inst->module_type == Wasm_Module_AoT) {
-        /* TODO */
-        /*return aot_traverse_gc_rootset(exec_env, heap);*/
+        return aot_traverse_gc_rootset(exec_env, heap);
     }
 #endif
     return false;

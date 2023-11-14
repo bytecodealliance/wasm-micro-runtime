@@ -719,6 +719,8 @@ aot_array_init_with_data(AOTModuleInstance *module_inst, uint32 seg_index,
                          uint32 data_seg_offset, WASMArrayObjectRef array_obj,
                          uint32 elem_size, uint32 array_len);
 
+bool
+aot_traverse_gc_rootset(WASMExecEnv *exec_env, void *heap);
 #endif /* end of WASM_ENABLE_GC != 0 */
 
 #ifdef __cplusplus

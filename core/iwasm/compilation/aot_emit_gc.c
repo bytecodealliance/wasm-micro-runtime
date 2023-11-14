@@ -528,10 +528,18 @@ fail:
 
 bool
 aot_compile_op_struct_new(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                          uint32 type_index, bool init_with_default)
+                          uint32 type_index, bool init_with_default,
+                          const uint8 *frame_ip_struct_new)
 {
     LLVMValueRef rtt_type, struct_obj, cmp;
     LLVMBasicBlockRef check_rtt_type_succ, check_struct_obj_succ;
+
+    if (!aot_gen_commit_values(comp_ctx->aot_frame))
+        return false;
+
+    if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, comp_ctx->aot_frame->sp,
+                              frame_ip_struct_new))
+        return false;
 
     /* Generate call wasm_rtt_type_new and check for exception */
     if (!aot_call_aot_rtt_type_new(comp_ctx, func_ctx, I32_CONST(type_index),
@@ -1107,7 +1115,8 @@ fail:
 bool
 aot_compile_op_array_new(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                          uint32 type_index, bool init_with_default,
-                         bool fixed_size, uint32 array_len)
+                         bool fixed_size, uint32 array_len,
+                         const uint8 *frame_ip_array_new)
 {
     LLVMValueRef array_length, array_elem = NULL, array_obj;
     LLVMValueRef rtt_type, cmp, elem_idx;
@@ -1117,6 +1126,13 @@ aot_compile_op_array_new(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         (WASMArrayType *)comp_ctx->comp_data->types[type_index];
     uint8 array_elem_type = compile_time_array_type->elem_type;
     uint32 i;
+
+    if (!aot_gen_commit_values(comp_ctx->aot_frame))
+        return false;
+
+    if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, comp_ctx->aot_frame->sp,
+                              frame_ip_array_new))
+        return false;
 
     /* Generate call aot_rtt_type_new and check for exception */
     if (!aot_call_aot_rtt_type_new(comp_ctx, func_ctx, I32_CONST(type_index),
@@ -1224,7 +1240,8 @@ fail:
 bool
 aot_compile_op_array_new_data(AOTCompContext *comp_ctx,
                               AOTFuncContext *func_ctx, uint32 type_index,
-                              uint32 data_seg_index)
+                              uint32 data_seg_index,
+                              const uint8 *frame_ip_array_new_data)
 {
     LLVMValueRef array_length, data_seg_offset, rtt_type,
         elem_size = NULL, array_elem, array_obj, cmp;
@@ -1233,6 +1250,13 @@ aot_compile_op_array_new_data(AOTCompContext *comp_ctx,
     WASMArrayType *compile_time_array_type =
         (WASMArrayType *)comp_ctx->comp_data->types[type_index];
     uint8 array_elem_type = compile_time_array_type->elem_type;
+
+    if (!aot_gen_commit_values(comp_ctx->aot_frame))
+        return false;
+
+    if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, comp_ctx->aot_frame->sp,
+                              frame_ip_array_new_data))
+        return false;
 
     /* Generate call aot_rtt_type_new and check for exception */
     if (!aot_call_aot_rtt_type_new(comp_ctx, func_ctx, I32_CONST(type_index),
@@ -1911,10 +1935,18 @@ fail:
 
 bool
 aot_compile_op_extern_externalize(AOTCompContext *comp_ctx,
-                                  AOTFuncContext *func_ctx)
+                                  AOTFuncContext *func_ctx,
+                                  const uint8 *frame_ip_extern_externalize)
 {
     LLVMValueRef gc_obj, cmp, external_obj_phi, externref_obj;
     LLVMBasicBlockRef block_curr, block_obj_non_null, block_end;
+
+    if (!aot_gen_commit_values(comp_ctx->aot_frame))
+        return false;
+
+    if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, comp_ctx->aot_frame->sp,
+                              frame_ip_extern_externalize))
+        return false;
 
     POP_GC_REF(gc_obj);
 

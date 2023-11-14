@@ -106,7 +106,7 @@ typedef struct AOTValueSlot {
     uint32 ref : 1;
 
     /* Committed reference flag:
-         0: unknown, 1: not-reference, 2: reference */
+         0: uncommitted, 1: not-reference, 2: reference */
     uint32 committed_ref : 2;
 } AOTValueSlot;
 

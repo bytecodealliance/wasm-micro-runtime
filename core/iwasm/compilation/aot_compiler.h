@@ -245,12 +245,28 @@ push_gc_ref(AOTCompFrame *frame, AOTValue *aot_value)
 {
     bh_assert(frame->comp_ctx->enable_gc);
     bh_assert(aot_value->type == VALUE_TYPE_GC_REF);
-    if (frame->comp_ctx->pointer_size == sizeof(uint64))
+    if (frame->comp_ctx->pointer_size == sizeof(uint64)) {
         push_64bit(frame, aot_value);
-    else
+        (frame->sp - 1)->ref = (frame->sp - 2)->ref = 1;
+    }
+    else {
         push_32bit(frame, aot_value);
+        (frame->sp - 1)->ref = 1;
+    }
 }
 #endif
+
+/* Clear value slots except ref and committed_ref */
+static inline void
+clear_frame_value_slots(AOTValueSlot *slots, uint32 n)
+{
+    uint32 i;
+    for (i = 0; i < n; i++) {
+        slots[i].value = 0;
+        slots[i].type = 0;
+        slots[i].dirty = 0;
+    }
+}
 
 static inline void
 pop_i32(AOTCompFrame *frame)
@@ -259,7 +275,7 @@ pop_i32(AOTCompFrame *frame)
     bh_assert((frame->sp - 1)->type == VALUE_TYPE_I32
               || (frame->sp - 1)->type == VALUE_TYPE_I1);
     frame->sp--;
-    memset(frame->sp, 0, sizeof(*frame->sp));
+    clear_frame_value_slots(frame->sp, 1);
 }
 
 static inline void
@@ -269,7 +285,7 @@ pop_i64(AOTCompFrame *frame)
     bh_assert((frame->sp - 1)->type == VALUE_TYPE_I64
               && (frame->sp - 2)->type == VALUE_TYPE_I64);
     frame->sp -= 2;
-    memset(frame->sp, 0, sizeof(*frame->sp) * 2);
+    clear_frame_value_slots(frame->sp, 2);
 }
 
 static inline void
@@ -278,7 +294,7 @@ pop_f32(AOTCompFrame *frame)
     bh_assert(frame->sp - frame->lp >= 1);
     bh_assert((frame->sp - 1)->type == VALUE_TYPE_F32);
     frame->sp--;
-    memset(frame->sp, 0, sizeof(*frame->sp));
+    clear_frame_value_slots(frame->sp, 1);
 }
 
 static inline void
@@ -288,7 +304,7 @@ pop_f64(AOTCompFrame *frame)
     bh_assert((frame->sp - 1)->type == VALUE_TYPE_F64
               && (frame->sp - 2)->type == VALUE_TYPE_F64);
     frame->sp -= 2;
-    memset(frame->sp, 0, sizeof(*frame->sp) * 2);
+    clear_frame_value_slots(frame->sp, 2);
 }
 
 static inline void
@@ -300,7 +316,7 @@ pop_v128(AOTCompFrame *frame)
               && (frame->sp - 3)->type == VALUE_TYPE_V128
               && (frame->sp - 4)->type == VALUE_TYPE_V128);
     frame->sp -= 4;
-    memset(frame->sp, 0, sizeof(*frame->sp) * 4);
+    clear_frame_value_slots(frame->sp, 4);
 }
 
 static inline void
@@ -310,30 +326,27 @@ pop_ref(AOTCompFrame *frame)
     bh_assert((frame->sp - 1)->type == VALUE_TYPE_FUNCREF
               || (frame->sp - 1)->type == VALUE_TYPE_EXTERNREF);
     frame->sp -= 1;
-    memset(frame->sp, 0, sizeof(*frame->sp) * 1);
+    clear_frame_value_slots(frame->sp, 1);
 }
 
 #if WASM_ENABLE_GC != 0
 static inline void
 pop_gc_ref(AOTCompFrame *frame)
 {
-    uint32 i;
-    for (i = 0; i < frame->comp_ctx->pointer_size / sizeof(uint32); i++) {
+    bh_assert(frame->sp - frame->lp >= 1);
+    bh_assert((frame->sp - 1)->type == VALUE_TYPE_GC_REF);
+    frame->sp -= 1;
+    clear_frame_value_slots(frame->sp, 1);
+    frame->sp->ref = 0;
+    if (frame->comp_ctx->pointer_size == sizeof(uint64)) {
         bh_assert(frame->sp - frame->lp >= 1);
         bh_assert((frame->sp - 1)->type == VALUE_TYPE_GC_REF);
         frame->sp -= 1;
-        memset(frame->sp, 0, sizeof(*frame->sp) * 1);
+        clear_frame_value_slots(frame->sp, 1);
+        frame->sp->ref = 0;
     }
 }
 #endif
-
-static inline void
-pop(AOTCompFrame *frame, uint32 n)
-{
-    bh_assert(frame->sp - frame->lp >= n);
-    frame->sp -= n;
-    memset(frame->sp, 0, sizeof(*frame->sp) * n);
-}
 
 static inline void
 set_local_i32(AOTCompFrame *frame, int n, LLVMValueRef value)
@@ -402,10 +415,12 @@ set_local_gc_ref(AOTCompFrame *frame, int n, LLVMValueRef value, uint8 ref_type)
     frame->lp[n].value = value;
     frame->lp[n].type = ref_type;
     frame->lp[n].dirty = 1;
+    frame->lp[n].ref = 1;
     if (frame->comp_ctx->pointer_size == sizeof(uint64)) {
         frame->lp[n + 1].value = value;
         frame->lp[n + 1].type = ref_type;
         frame->lp[n + 1].dirty = 1;
+        frame->lp[n + 1].ref = 1;
     }
 }
 #endif

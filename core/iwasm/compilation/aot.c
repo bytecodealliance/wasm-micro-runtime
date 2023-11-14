@@ -176,8 +176,14 @@ get_value_type_size(uint8 value_type, bool gc_enabled, uint32 *p_size_64bit,
              value_type >= (uint8)REF_TYPE_NULLREF /* 0x65 */
 #endif
              && value_type <= (uint8)REF_TYPE_FUNCREF /* 0x70 */) {
-        size_64bit = sizeof(int64);
+        size_64bit = sizeof(uint64);
         size_32bit = sizeof(uint32);
+    }
+    else if (gc_enabled && value_type == PACKED_TYPE_I8) {
+        size_64bit = size_32bit = sizeof(int8);
+    }
+    else if (gc_enabled && value_type == PACKED_TYPE_I16) {
+        size_64bit = size_32bit = sizeof(int16);
     }
     else {
         bh_assert(0);
