@@ -8,6 +8,7 @@
 
 #include "wasm.h"
 #include "bh_atomic.h"
+#include "bh_bitmap.h"
 #include "bh_hashmap.h"
 #include "../common/wasm_runtime_common.h"
 #include "../common/wasm_exec_env.h"
@@ -223,6 +224,8 @@ typedef struct WASMModuleInstanceExtraCommon {
     /* Disable bounds checks or not */
     bool disable_bounds_checks;
 #endif
+    bh_bitmap *data_dropped;
+    bh_bitmap *elem_dropped;
 } WASMModuleInstanceExtraCommon;
 
 /* Extra info of WASM module instance for interpreter/jit mode */
