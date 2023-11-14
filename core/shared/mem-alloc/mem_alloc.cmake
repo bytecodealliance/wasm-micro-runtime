@@ -10,6 +10,10 @@ if (WAMR_BUILD_GC_VERIFY EQUAL 1)
     add_definitions (-DBH_ENABLE_GC_VERIFY=1)
 endif ()
 
+if (WAMR_BUILD_GC_CORRUPTION_CHECK EQUAL 1)
+    add_definitions (-DBH_ENABLE_GC_CORRUPTION_CHECK=1)
+endif ()
+
 file (GLOB_RECURSE source_all
       ${MEM_ALLOC_DIR}/ems/*.c
       ${MEM_ALLOC_DIR}/tlsf/*.c
