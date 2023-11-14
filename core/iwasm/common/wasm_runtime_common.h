@@ -430,6 +430,7 @@ typedef struct LLVMJITOptions {
     uint32 opt_level;
     uint32 size_level;
     uint32 segue_flags;
+    bool linux_perf_support;
 } LLVMJITOptions;
 #endif
 
