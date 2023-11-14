@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#ifndef _JIT_UTILS_H_
-#define _JIT_UTILS_H_
+#ifndef _BH_BITMAP_H
+#define _BH_BITMAP_H
 
 #include "bh_platform.h"
 
@@ -15,7 +15,7 @@ extern "C" {
 /**
  * A simple fixed size bitmap.
  */
-typedef struct JitBitmap {
+typedef struct bh_bitmap {
     /* The first valid bit index.  */
     uintptr_t begin_index;
 
@@ -24,30 +24,7 @@ typedef struct JitBitmap {
 
     /* The bitmap.  */
     uint8 map[1];
-} JitBitmap;
-
-static inline void *
-jit_malloc(unsigned int size)
-{
-    return wasm_runtime_malloc(size);
-}
-
-static inline void *
-jit_calloc(unsigned int size)
-{
-    void *ret = wasm_runtime_malloc(size);
-    if (ret) {
-        memset(ret, 0, size);
-    }
-    return ret;
-}
-
-static inline void
-jit_free(void *ptr)
-{
-    if (ptr)
-        wasm_runtime_free(ptr);
-}
+} bh_bitmap;
 
 /**
  * Create a new bitmap.
@@ -57,8 +34,8 @@ jit_free(void *ptr)
  *
  * @return the new bitmap if succeeds, NULL otherwise.
  */
-JitBitmap *
-jit_bitmap_new(uintptr_t begin_index, unsigned bitnum);
+bh_bitmap *
+bh_bitmap_new(uintptr_t begin_index, unsigned bitnum);
 
 /**
  * Delete a bitmap.
@@ -66,9 +43,10 @@ jit_bitmap_new(uintptr_t begin_index, unsigned bitnum);
  * @param bitmap the bitmap to be deleted
  */
 static inline void
-jit_bitmap_delete(JitBitmap *bitmap)
+bh_bitmap_delete(bh_bitmap *bitmap)
 {
-    jit_free(bitmap);
+    if (bitmap != NULL)
+        BH_FREE(bitmap);
 }
 
 /**
@@ -80,7 +58,7 @@ jit_bitmap_delete(JitBitmap *bitmap)
  * @return true if the index is in range, false otherwise
  */
 static inline bool
-jit_bitmap_is_in_range(JitBitmap *bitmap, unsigned n)
+bh_bitmap_is_in_range(bh_bitmap *bitmap, unsigned n)
 {
     return n >= bitmap->begin_index && n < bitmap->end_index;
 }
@@ -94,7 +72,7 @@ jit_bitmap_is_in_range(JitBitmap *bitmap, unsigned n)
  * @return value of the bit
  */
 static inline int
-jit_bitmap_get_bit(JitBitmap *bitmap, unsigned n)
+bh_bitmap_get_bit(bh_bitmap *bitmap, unsigned n)
 {
     unsigned idx = n - bitmap->begin_index;
     bh_assert(n >= bitmap->begin_index && n < bitmap->end_index);
@@ -108,7 +86,7 @@ jit_bitmap_get_bit(JitBitmap *bitmap, unsigned n)
  * @param n the n-th bit to be set
  */
 static inline void
-jit_bitmap_set_bit(JitBitmap *bitmap, unsigned n)
+bh_bitmap_set_bit(bh_bitmap *bitmap, unsigned n)
 {
     unsigned idx = n - bitmap->begin_index;
     bh_assert(n >= bitmap->begin_index && n < bitmap->end_index);
@@ -122,7 +100,7 @@ jit_bitmap_set_bit(JitBitmap *bitmap, unsigned n)
  * @param n the n-th bit to be cleared
  */
 static inline void
-jit_bitmap_clear_bit(JitBitmap *bitmap, unsigned n)
+bh_bitmap_clear_bit(bh_bitmap *bitmap, unsigned n)
 {
     unsigned idx = n - bitmap->begin_index;
     bh_assert(n >= bitmap->begin_index && n < bitmap->end_index);
