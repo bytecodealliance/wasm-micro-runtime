@@ -1195,13 +1195,13 @@ os_readlinkat(os_file_handle handle, const char *path, char *buf,
 
         if (wbufsize >= 4 && wbuf[0] == L'\\' && wbuf[1] == L'?'
             && wbuf[2] == L'?' && wbuf[3] == L'\\') {
-            // Starts with \??\ 
+            // Starts with \??\ prefix
             if (wbufsize >= 6
                 && ((wbuf[4] >= L'A' && wbuf[4] <= L'Z')
                     || (wbuf[4] >= L'a' && wbuf[4] <= L'z'))
                 && wbuf[5] == L':' && (wbufsize == 6 || wbuf[6] == L'\\'))
                 {
-                    // \??\<drive>:\ 
+                    // \??\<drive>:\ prefix
                     wbuf += 4;
                     wbufsize -= 4;
                 }

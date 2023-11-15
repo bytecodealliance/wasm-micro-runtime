@@ -49,19 +49,20 @@ random_buf(void *buf, size_t len)
 
 #elif defined(BH_PLATFORM_WINDOWS)
 
-#include <wincrypt.h>
+#include <bcrypt.h>
+#pragma comment(lib, "Bcrypt.lib")
+#include <ntstatus.h>
 
 void
 random_buf(void *buf, size_t len)
 {
-    static int crypt_initialized = 0;
-    static HCRYPTPROV provider;
-    if (!crypt_initialized) {
-        CryptAcquireContext(&provider, NULL, NULL, PROV_RSA_FULL,
-                            CRYPT_VERIFYCONTEXT);
-        crypt_initialized = 1;
+    NTSTATUS ret = BCryptGenRandom(NULL, buf, (ULONG)len,
+                         BCRYPT_USE_SYSTEM_PREFERRED_RNG);
+    if (BCryptGenRandom(NULL, buf, (ULONG)len,
+                         BCRYPT_USE_SYSTEM_PREFERRED_RNG)) {
+        os_printf("BCryptGenRandom failed");
+        abort();
     }
-    CryptGenRandom(provider, len, buf);
 }
 
 #else
