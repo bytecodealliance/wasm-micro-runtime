@@ -2572,6 +2572,8 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
             }
             else if (is_baremetal_target(arch, cpu, abi)) {
                 vendor_sys = "-unknown-none-";
+                if (!abi)
+                    abi = "gnu";
             }
             else {
                 vendor_sys = "-pc-linux-";
