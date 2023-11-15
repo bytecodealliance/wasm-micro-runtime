@@ -133,8 +133,11 @@ gc_destroy_with_pool(gc_handle_t handle)
     hmu_t *cur = (hmu_t *)heap->base_addr;
     hmu_t *end = (hmu_t *)((char *)heap->base_addr + heap->current_size);
 
-    if (!heap->is_heap_corrupted
-        && (hmu_t *)((char *)cur + hmu_get_size(cur)) != end) {
+    if (
+#if BH_ENABLE_GC_CORRUPTION_CHECK != 0
+        !heap->is_heap_corrupted &&
+#endif
+        (hmu_t *)((char *)cur + hmu_get_size(cur)) != end) {
         os_printf("Memory leak detected:\n");
         gci_dump(heap);
         ret = GC_ERROR;
@@ -186,10 +189,12 @@ gc_migrate(gc_handle_t handle, char *pool_buf_new, gc_size_t pool_buf_size)
     if (offset == 0)
         return 0;
 
+#if BH_ENABLE_GC_CORRUPTION_CHECK != 0
     if (heap->is_heap_corrupted) {
         os_printf("[GC_ERROR]Heap is corrupted, heap migrate failed.\n");
         return GC_ERROR;
     }
+#endif
 
     heap->base_addr = (uint8 *)base_addr_new;
 
@@ -211,11 +216,13 @@ gc_migrate(gc_handle_t handle, char *pool_buf_new, gc_size_t pool_buf_size)
     while (cur < end) {
         size = hmu_get_size(cur);
 
+#if BH_ENABLE_GC_CORRUPTION_CHECK != 0
         if (size <= 0 || size > (uint32)((uint8 *)end - (uint8 *)cur)) {
             os_printf("[GC_ERROR]Heap is corrupted, heap migrate failed.\n");
             heap->is_heap_corrupted = true;
             return GC_ERROR;
         }
+#endif
 
         if (hmu_get_ut(cur) == HMU_FC && !HMU_IS_FC_NORMAL(size)) {
             tree_node = (hmu_tree_node_t *)cur;
@@ -238,11 +245,15 @@ gc_migrate(gc_handle_t handle, char *pool_buf_new, gc_size_t pool_buf_size)
         cur = (hmu_t *)((char *)cur + size);
     }
 
+#if BH_ENABLE_GC_CORRUPTION_CHECK != 0
     if (cur != end) {
         os_printf("[GC_ERROR]Heap is corrupted, heap migrate failed.\n");
         heap->is_heap_corrupted = true;
         return GC_ERROR;
     }
+#else
+    bh_assert(cur == end);
+#endif
 
     return 0;
 }
@@ -250,9 +261,13 @@ gc_migrate(gc_handle_t handle, char *pool_buf_new, gc_size_t pool_buf_size)
 bool
 gc_is_heap_corrupted(gc_handle_t handle)
 {
+#if BH_ENABLE_GC_CORRUPTION_CHECK != 0
     gc_heap_t *heap = (gc_heap_t *)handle;
 
     return heap->is_heap_corrupted ? true : false;
+#else
+    return false;
+#endif
 }
 
 #if BH_ENABLE_GC_VERIFY != 0

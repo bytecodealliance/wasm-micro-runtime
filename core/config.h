@@ -315,6 +315,11 @@
 #define BH_ENABLE_GC_VERIFY 0
 #endif
 
+/* Heap corruption check, enabled by default */
+#ifndef BH_ENABLE_GC_CORRUPTION_CHECK
+#define BH_ENABLE_GC_CORRUPTION_CHECK 1
+#endif
+
 /* Enable global heap pool if heap verification is enabled */
 #if BH_ENABLE_GC_VERIFY != 0
 #define WASM_ENABLE_GLOBAL_HEAP_POOL 1
