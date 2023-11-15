@@ -315,14 +315,9 @@
 #define BH_ENABLE_GC_VERIFY 0
 #endif
 
-/* Enable heap corruption check if heap verification is enabled */
-#if BH_ENABLE_GC_VERIFY != 0
-#define BH_ENABLE_GC_CORRUPTION_CHECK 1
-#endif
-
-/* Heap corruption check */
+/* Heap corruption check, enabled by default */
 #ifndef BH_ENABLE_GC_CORRUPTION_CHECK
-#define BH_ENABLE_GC_CORRUPTION_CHECK 0
+#define BH_ENABLE_GC_CORRUPTION_CHECK 1
 #endif
 
 /* Enable global heap pool if heap verification is enabled */
