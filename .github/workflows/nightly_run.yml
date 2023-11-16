@@ -501,6 +501,12 @@ jobs:
           cmake ..
           cmake --build . --config Release --parallel 4
           ./iwasm wasm-apps/no_pthread.wasm
+
+      - name: Build Sample [shared-module]
+        run: |
+          cd samples/shared-module
+          ./build.sh
+          ./run.sh
   test:
     needs:
       [
