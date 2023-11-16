@@ -265,8 +265,18 @@ iwasm_init(void)
         iwasm_main, NULL, NULL, NULL, MAIN_THREAD_PRIORITY, 0, K_NO_WAIT);
     return tid ? true : false;
 }
+
+#if KERNEL_VERSION_NUMBER < 0x030400 /* version 3.4.0 */
 void
 main(void)
 {
     iwasm_init();
 }
+#else
+int
+main(void)
+{
+    iwasm_init();
+    return 0;
+}
+#endif
