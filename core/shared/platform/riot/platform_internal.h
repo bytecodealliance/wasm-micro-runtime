@@ -40,6 +40,12 @@ typedef kernel_pid_t korp_tid;
 typedef mutex_t korp_mutex;
 typedef unsigned int korp_sem;
 
+/* korp_rwlock is used in platform_api_extension.h,
+   we just define the type to make the compiler happy */
+typedef struct {
+    int dummy;
+} korp_rwlock;
+
 /* typedef sema_t korp_sem; */
 
 struct os_thread_wait_node;
@@ -52,8 +58,10 @@ typedef struct korp_cond {
 #define os_printf printf
 #define os_vprintf vprintf
 
+/* The below types are used in platform_api_extension.h,
+   we just define them to make the compiler happy */
 typedef int os_file_handle;
-typedef DIR *os_dir_stream;
+typedef void *os_dir_stream;
 typedef int os_raw_file_handle;
 
 #if WA_MATH
