@@ -600,7 +600,7 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
             {
 #if UINTPTR_MAX == UINT32_MAX
                 if (argv1[k] != 0 && argv1[k] != (uint32)-1)
-                    os_printf("0x%" PRIxPTR ":ref.extern", (void *)argv1[k]);
+                    os_printf("0x%" PRIxPTR ":ref.extern", (uintptr_t)argv1[k]);
                 else
                     os_printf("extern:ref.null");
                 k++;
@@ -613,7 +613,7 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
                 u.parts[1] = argv1[k + 1];
                 k += 2;
                 if (u.val && u.val != (uintptr_t)-1LL)
-                    os_printf("0x%" PRIxPTR ":ref.extern", (void *)u.val);
+                    os_printf("0x%" PRIxPTR ":ref.extern", u.val);
                 else
                     os_printf("extern:ref.null");
 #endif
