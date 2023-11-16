@@ -76,7 +76,9 @@ typedef unsigned int korp_sem;
 
 /* korp_rwlock is used in platform_api_extension.h,
    we just define the type to make the compiler happy */
-typedef struct { int dummy; } korp_rwlock;
+typedef struct {
+    int dummy;
+} korp_rwlock;
 
 struct os_thread_wait_node;
 typedef struct os_thread_wait_node *os_thread_wait_list;
