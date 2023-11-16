@@ -650,6 +650,7 @@ wasm_init_memory(WASMModuleInstance *inst, uint32 mem_idx, uint32 seg_idx,
     WASMDataSeg *data_segment;
     uint32 mem_size;
     uint8 *mem_addr, *data_addr;
+    uint32 seg_len;
 
     /* if d + n > the length of mem.data */
     mem_inst = inst->memories[mem_idx];
@@ -659,13 +660,19 @@ wasm_init_memory(WASMModuleInstance *inst, uint32 mem_idx, uint32 seg_idx,
 
     /* if s + n > the length of data.data */
     bh_assert(seg_idx < inst->module->data_seg_count);
-    data_segment = inst->module->data_segments[seg_idx];
-    if (data_segment->data_length < data_offset
-        || data_segment->data_length - data_offset < len)
+    if (bh_bitmap_get_bit(inst->e->common.data_dropped, seg_idx)) {
+        seg_len = 0;
+        data_addr = NULL;
+    }
+    else {
+        data_segment = inst->module->data_segments[seg_idx];
+        seg_len = data_segment->data_length;
+        data_addr = data_segment->data + data_offset;
+    }
+    if (seg_len < data_offset || seg_len - data_offset < len)
         goto out_of_bounds;
 
     mem_addr = mem_inst->memory_data + mem_offset;
-    data_addr = data_segment->data + data_offset;
     bh_memcpy_s(mem_addr, mem_size - mem_offset, data_addr, len);
 
     return 0;
@@ -706,21 +713,22 @@ fail:
     return false;
 }
 
+static void
+wasm_data_drop(WASMModuleInstance *inst, uint32 seg_idx)
+{
+    bh_bitmap_set_bit(inst->e->common.data_dropped, seg_idx);
+}
+
 bool
 jit_compile_op_data_drop(JitCompContext *cc, uint32 seg_idx)
 {
-    JitReg module = get_module_reg(cc->jit_frame);
-    JitReg data_segments = jit_cc_new_reg_ptr(cc);
-    JitReg data_segment = jit_cc_new_reg_ptr(cc);
+    JitReg args[2] = { 0 };
 
-    GEN_INSN(LDPTR, data_segments, module,
-             NEW_CONST(I32, offsetof(WASMModule, data_segments)));
-    GEN_INSN(LDPTR, data_segment, data_segments,
-             NEW_CONST(I32, seg_idx * sizeof(WASMDataSeg *)));
-    GEN_INSN(STI32, NEW_CONST(I32, 0), data_segment,
-             NEW_CONST(I32, offsetof(WASMDataSeg, data_length)));
+    args[0] = get_module_inst_reg(cc->jit_frame);
+    args[1] = NEW_CONST(I32, seg_idx);
 
-    return true;
+    return jit_emit_callnative(cc, wasm_data_drop, 0, args,
+                               sizeof(args) / sizeof(args[0]));
 }
 
 static int
