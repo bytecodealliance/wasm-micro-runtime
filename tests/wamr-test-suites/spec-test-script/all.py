@@ -245,7 +245,7 @@ def test_case(
 
             if p.returncode:
                 print(f"failed with a non-zero return code {p.returncode}")
-                if not verbose_flag:
+                if verbose_flag:
                     print(
                         f"\n==================== LAST LOG of {case_name} ====================\n"
                     )
