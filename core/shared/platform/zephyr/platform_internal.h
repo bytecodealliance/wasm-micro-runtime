@@ -42,21 +42,23 @@
 #include <net/net_ip.h>
 #include <net/net_core.h>
 #include <net/net_context.h>
-
-#ifdef CONFIG_ARM_MPU
-#include <arch/arm/aarch32/cortex_m/cmsis.h>
-#endif
 #else /* else of KERNEL_VERSION_NUMBER < 0x030200 */
 #include <zephyr/net/net_pkt.h>
 #include <zephyr/net/net_if.h>
 #include <zephyr/net/net_ip.h>
 #include <zephyr/net/net_core.h>
 #include <zephyr/net/net_context.h>
+#endif /* end of KERNEL_VERSION_NUMBER < 0x030200 */
 
 #ifdef CONFIG_ARM_MPU
+#if KERNEL_VERSION_NUMBER < 0x030200 /* version 3.2.0 */
+#include <arch/arm/aarch32/cortex_m/cmsis.h>
+#elif KERNEL_VERSION_NUMBER < 0x030400 /* version 3.4.0 */
 #include <zephyr/arch/arm/aarch32/cortex_m/cmsis.h>
+#else /* > 3.4.0 */
+#include <cmsis_core.h>
 #endif
-#endif /* end of KERNEL_VERSION_NUMBER < 0x030200 */
+#endif
 
 #ifndef BH_PLATFORM_ZEPHYR
 #define BH_PLATFORM_ZEPHYR
@@ -145,5 +147,15 @@ typedef void (*exec_mem_free_func_t)(void *addr);
 void
 set_exec_mem_alloc_func(exec_mem_alloc_func_t alloc_func,
                         exec_mem_free_func_t free_func);
+
+typedef int os_file_handle;
+typedef DIR *os_dir_stream;
+typedef int os_raw_file_handle;
+
+static inline os_file_handle
+os_get_invalid_handle()
+{
+    return -1;
+}
 
 #endif

@@ -489,6 +489,12 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
         if (max_page_count > DEFAULT_MAX_PAGES)
             max_page_count = DEFAULT_MAX_PAGES;
     }
+    else { /* heap_size == 0 */
+        if (init_page_count == DEFAULT_MAX_PAGES) {
+            num_bytes_per_page = UINT32_MAX;
+            init_page_count = max_page_count = 1;
+        }
+    }
 
     LOG_VERBOSE("Memory instantiate:");
     LOG_VERBOSE("  page bytes: %u, init pages: %u, max pages: %u",
@@ -531,8 +537,8 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
      * both i and memarg.offset are u32 in range 0 to 4G
      * so the range of ea is 0 to 8G
      */
-    if (!(p = mapped_mem =
-              os_mmap(NULL, map_size, MMAP_PROT_NONE, MMAP_MAP_NONE))) {
+    if (!(p = mapped_mem = os_mmap(NULL, map_size, MMAP_PROT_NONE,
+                                   MMAP_MAP_NONE, os_get_invalid_handle()))) {
         set_error_buf(error_buf, error_buf_size, "mmap memory failed");
         return NULL;
     }
@@ -554,8 +560,12 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
         os_munmap(mapped_mem, map_size);
         return NULL;
     }
+
     /* Newly allocated pages are filled with zero by the OS, we don't fill it
      * again here */
+
+    if (memory_data_size > UINT32_MAX)
+        memory_data_size = UINT32_MAX;
 #endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
     memory_inst->module_type = Wasm_Module_AoT;
@@ -972,7 +982,8 @@ execute_post_instantiate_functions(AOTModuleInstance *module_inst,
            wasm functions, and ensure that the exec_env's module inst
            is the correct one. */
         module_inst_main = exec_env_main->module_inst;
-        exec_env->module_inst = (WASMModuleInstanceCommon *)module_inst;
+        wasm_exec_env_set_module_inst(exec_env,
+                                      (WASMModuleInstanceCommon *)module_inst);
     }
     else {
         /* Try using the existing exec_env */
@@ -997,7 +1008,8 @@ execute_post_instantiate_functions(AOTModuleInstance *module_inst,
                module inst to ensure that the exec_env's module inst
                is the correct one. */
             module_inst_main = exec_env->module_inst;
-            exec_env->module_inst = (WASMModuleInstanceCommon *)module_inst;
+            wasm_exec_env_set_module_inst(
+                exec_env, (WASMModuleInstanceCommon *)module_inst);
         }
     }
 
@@ -1047,12 +1059,12 @@ execute_post_instantiate_functions(AOTModuleInstance *module_inst,
 fail:
     if (is_sub_inst) {
         /* Restore the parent exec_env's module inst */
-        exec_env_main->module_inst = module_inst_main;
+        wasm_exec_env_restore_module_inst(exec_env_main, module_inst_main);
     }
     else {
         if (module_inst_main)
             /* Restore the existing exec_env's module inst */
-            exec_env->module_inst = module_inst_main;
+            wasm_exec_env_restore_module_inst(exec_env, module_inst_main);
         if (exec_env_created)
             wasm_exec_env_destroy(exec_env_created);
     }
@@ -1703,7 +1715,8 @@ execute_malloc_function(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
                module inst to ensure that the exec_env's module inst
                is the correct one. */
             module_inst_old = exec_env->module_inst;
-            exec_env->module_inst = (WASMModuleInstanceCommon *)module_inst;
+            wasm_exec_env_set_module_inst(
+                exec_env, (WASMModuleInstanceCommon *)module_inst);
         }
     }
 
@@ -1714,7 +1727,7 @@ execute_malloc_function(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
 
     if (module_inst_old)
         /* Restore the existing exec_env's module inst */
-        exec_env->module_inst = module_inst_old;
+        wasm_exec_env_restore_module_inst(exec_env, module_inst_old);
 
     if (exec_env_created)
         wasm_exec_env_destroy(exec_env_created);
@@ -1770,7 +1783,8 @@ execute_free_function(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
                module inst to ensure that the exec_env's module inst
                is the correct one. */
             module_inst_old = exec_env->module_inst;
-            exec_env->module_inst = (WASMModuleInstanceCommon *)module_inst;
+            wasm_exec_env_set_module_inst(
+                exec_env, (WASMModuleInstanceCommon *)module_inst);
         }
     }
 
@@ -1778,7 +1792,7 @@ execute_free_function(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
 
     if (module_inst_old)
         /* Restore the existing exec_env's module inst */
-        exec_env->module_inst = module_inst_old;
+        wasm_exec_env_restore_module_inst(exec_env, module_inst_old);
 
     if (exec_env_created)
         wasm_exec_env_destroy(exec_env_created);

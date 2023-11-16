@@ -17,8 +17,8 @@ jit_code_cache_init(uint32 code_cache_size)
     int map_prot = MMAP_PROT_READ | MMAP_PROT_WRITE | MMAP_PROT_EXEC;
     int map_flags = MMAP_MAP_NONE;
 
-    if (!(code_cache_pool =
-              os_mmap(NULL, code_cache_size, map_prot, map_flags))) {
+    if (!(code_cache_pool = os_mmap(NULL, code_cache_size, map_prot, map_flags,
+                                    os_get_invalid_handle()))) {
         return false;
     }
 

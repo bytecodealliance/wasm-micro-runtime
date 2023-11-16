@@ -37,7 +37,7 @@ round_down(uintptr_t v, uintptr_t b)
 #endif
 
 void *
-os_mmap(void *hint, size_t size, int prot, int flags)
+os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
 {
     int map_prot = PROT_NONE;
 #if (defined(__APPLE__) || defined(__MACH__)) && defined(__arm64__)
@@ -114,7 +114,7 @@ os_mmap(void *hint, size_t size, int prot, int flags)
         /* try 10 times, step with 1MB each time */
         for (i = 0; i < 10 && hint_addr < (uint8 *)(uintptr_t)(2ULL * BH_GB);
              i++) {
-            addr = mmap(hint_addr, request_size, map_prot, map_flags, -1, 0);
+            addr = mmap(hint_addr, request_size, map_prot, map_flags, file, 0);
             if (addr != MAP_FAILED) {
                 if (addr > (uint8 *)(uintptr_t)(2ULL * BH_GB)) {
                     /* unmap and try again if the mapped address doesn't
@@ -136,7 +136,7 @@ os_mmap(void *hint, size_t size, int prot, int flags)
     if (addr == MAP_FAILED) {
         /* try 5 times */
         for (i = 0; i < 5; i++) {
-            addr = mmap(hint, request_size, map_prot, map_flags, -1, 0);
+            addr = mmap(hint, request_size, map_prot, map_flags, file, 0);
             if (addr != MAP_FAILED)
                 break;
         }

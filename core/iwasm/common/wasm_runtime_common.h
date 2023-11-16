@@ -12,9 +12,9 @@
 #include "wasm_native.h"
 #include "../include/wasm_export.h"
 #include "../interpreter/wasm.h"
+
 #if WASM_ENABLE_LIBC_WASI != 0
 #if WASM_ENABLE_UVWASI == 0
-#include "wasmtime_ssp.h"
 #include "posix.h"
 #else
 #include "uvwasi.h"
@@ -44,15 +44,16 @@ extern "C" {
 
 /* For STORE opcodes */
 #define STORE_I64 PUT_I64_TO_ADDR
-#define STORE_U32(addr, value)               \
-    do {                                     \
-        *(uint32 *)(addr) = (uint32)(value); \
-    } while (0)
-#define STORE_U16(addr, value)               \
-    do {                                     \
-        *(uint16 *)(addr) = (uint16)(value); \
-    } while (0)
-
+static inline void
+STORE_U32(void *addr, uint32_t value)
+{
+    *(uint32_t *)(addr) = (uint32_t)(value);
+}
+static inline void
+STORE_U16(void *addr, uint16_t value)
+{
+    *(uint16_t *)(addr) = (uint16_t)(value);
+}
 /* For LOAD opcodes */
 #define LOAD_I64(addr) (*(int64 *)(addr))
 #define LOAD_F64(addr) (*(float64 *)(addr))
@@ -147,42 +148,42 @@ GET_F64_FROM_ADDR(uint32 *addr)
         }                                           \
     } while (0)
 
-#define STORE_U32(addr, value)                    \
-    do {                                          \
-        uintptr_t addr_ = (uintptr_t)(addr);      \
-        union {                                   \
-            uint32 val;                           \
-            uint16 u16[2];                        \
-            uint8 u8[4];                          \
-        } u;                                      \
-        if ((addr_ & (uintptr_t)3) == 0)          \
-            *(uint32 *)(addr) = (uint32)(value);  \
-        else {                                    \
-            u.val = (uint32)(value);              \
-            if ((addr_ & (uintptr_t)1) == 0) {    \
-                ((uint16 *)(addr))[0] = u.u16[0]; \
-                ((uint16 *)(addr))[1] = u.u16[1]; \
-            }                                     \
-            else {                                \
-                ((uint8 *)(addr))[0] = u.u8[0];   \
-                ((uint8 *)(addr))[1] = u.u8[1];   \
-                ((uint8 *)(addr))[2] = u.u8[2];   \
-                ((uint8 *)(addr))[3] = u.u8[3];   \
-            }                                     \
-        }                                         \
-    } while (0)
-
-#define STORE_U16(addr, value)          \
-    do {                                \
-        union {                         \
-            uint16 val;                 \
-            uint8 u8[2];                \
-        } u;                            \
-        u.val = (uint16)(value);        \
-        ((uint8 *)(addr))[0] = u.u8[0]; \
-        ((uint8 *)(addr))[1] = u.u8[1]; \
-    } while (0)
-
+static inline void
+STORE_U32(void *addr, uint32_t value)
+{
+    uintptr_t addr_ = (uintptr_t)(addr);
+    union {
+        uint32_t val;
+        uint16_t u16[2];
+        uint8_t u8[4];
+    } u;
+    if ((addr_ & (uintptr_t)3) == 0)
+        *(uint32_t *)(addr) = (uint32_t)(value);
+    else {
+        u.val = (uint32_t)(value);
+        if ((addr_ & (uintptr_t)1) == 0) {
+            ((uint16_t *)(addr))[0] = u.u16[0];
+            ((uint16_t *)(addr))[1] = u.u16[1];
+        }
+        else {
+            ((uint8_t *)(addr))[0] = u.u8[0];
+            ((uint8_t *)(addr))[1] = u.u8[1];
+            ((uint8_t *)(addr))[2] = u.u8[2];
+            ((uint8_t *)(addr))[3] = u.u8[3];
+        }
+    }
+}
+static inline void
+STORE_U16(void *addr, uint16_t value)
+{
+    union {
+        uint16_t val;
+        uint8_t u8[2];
+    } u;
+    u.val = (uint16_t)(value);
+    ((uint8_t *)(addr))[0] = u.u8[0];
+    ((uint8_t *)(addr))[1] = u.u8[1];
+}
 /* For LOAD opcodes */
 static inline int64
 LOAD_I64(void *addr)
@@ -861,7 +862,7 @@ wasm_runtime_set_wasi_args_ex(WASMModuleCommon *module, const char *dir_list[],
                               uint32 dir_count, const char *map_dir_list[],
                               uint32 map_dir_count, const char *env_list[],
                               uint32 env_count, char *argv[], int argc,
-                              int stdinfd, int stdoutfd, int stderrfd);
+                              int64 stdinfd, int64 stdoutfd, int64 stderrfd);
 
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN void
@@ -889,8 +890,9 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
                        const char *env[], uint32 env_count,
                        const char *addr_pool[], uint32 addr_pool_size,
                        const char *ns_lookup_pool[], uint32 ns_lookup_pool_size,
-                       char *argv[], uint32 argc, int stdinfd, int stdoutfd,
-                       int stderrfd, char *error_buf, uint32 error_buf_size);
+                       char *argv[], uint32 argc, os_raw_file_handle stdinfd,
+                       os_raw_file_handle stdoutfd, os_raw_file_handle stderrfd,
+                       char *error_buf, uint32 error_buf_size);
 
 void
 wasm_runtime_destroy_wasi(WASMModuleInstanceCommon *module_inst);

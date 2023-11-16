@@ -45,4 +45,14 @@ typedef rt_int16_t int16_t;
 typedef rt_uint64_t uint64_t;
 typedef rt_int64_t int64_t;
 
+typedef int os_file_handle;
+typedef DIR *os_dir_stream;
+typedef int os_raw_file_handle;
+
+static inline os_file_handle
+os_get_invalid_handle()
+{
+    return -1;
+}
+
 #endif /* RTTHREAD_PLATFORM_INTERNAL_H */

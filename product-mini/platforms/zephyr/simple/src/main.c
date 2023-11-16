@@ -68,7 +68,7 @@ app_instance_main(wasm_module_inst_t module_inst)
     if (wasm_runtime_lookup_function(module_inst, "main", NULL)
         || wasm_runtime_lookup_function(module_inst, "__main_argc_argv",
                                         NULL)) {
-        LOG_VERBOSE("Calling main funciton\n");
+        LOG_VERBOSE("Calling main function\n");
         wasm_application_execute_main(module_inst, app_argc, app_argv);
     }
     else if ((func = wasm_runtime_lookup_function(module_inst, "app_main",
@@ -80,7 +80,7 @@ app_instance_main(wasm_module_inst_t module_inst)
             return NULL;
         }
 
-        LOG_VERBOSE("Calling app_main funciton\n");
+        LOG_VERBOSE("Calling app_main function\n");
         wasm_runtime_call_wasm(exec_env, func, 0, argv);
 
         if (!wasm_runtime_get_exception(module_inst)) {
@@ -248,7 +248,7 @@ fail1:
 
     end = k_uptime_get_32();
 
-    printf("elpase: %d\n", (end - start));
+    printf("elapsed: %d\n", (end - start));
 }
 
 #define MAIN_THREAD_STACK_SIZE (CONFIG_MAIN_THREAD_STACK_SIZE)

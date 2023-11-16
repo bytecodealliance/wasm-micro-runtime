@@ -52,6 +52,10 @@ typedef struct korp_cond {
 #define os_printf printf
 #define os_vprintf vprintf
 
+typedef int os_file_handle;
+typedef DIR *os_dir_stream;
+typedef int os_raw_file_handle;
+
 #if WA_MATH
 /* clang-format off */
 /* math functions which are not provided by os*/
@@ -75,5 +79,11 @@ int signbit(double x);
 int isnan(double x);
 /* clang-format on */
 #endif
+
+static inline os_file_handle
+os_get_invalid_handle()
+{
+    return -1;
+}
 
 #endif /* end of _BH_PLATFORM_H */

@@ -388,6 +388,18 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
             {
                 float32 f32 = strtof(argv[i], &endptr);
                 if (isnan(f32)) {
+#ifdef _MSC_VER
+                    /*
+                     * Spec tests require the binary representation of NaN to be
+                     * 0x7fc00000 for float and 0x7ff8000000000000 for float;
+                     * however, in MSVC compiler, strtof doesn't return this
+                     * exact value, causing some of the spec test failures. We
+                     * use the value returned by nan/nanf as it is the one
+                     * expected by spec tests.
+                     *
+                     */
+                    f32 = nanf("");
+#endif
                     if (argv[i][0] == '-') {
                         union ieee754_float u;
                         u.f = f32;
@@ -422,6 +434,9 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
                 } u;
                 u.val = strtod(argv[i], &endptr);
                 if (isnan(u.val)) {
+#ifdef _MSC_VER
+                    u.val = nan("");
+#endif
                     if (argv[i][0] == '-') {
                         union ieee754_double ud;
                         ud.d = u.val;
@@ -585,7 +600,7 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
             {
 #if UINTPTR_MAX == UINT32_MAX
                 if (argv1[k] != 0 && argv1[k] != (uint32)-1)
-                    os_printf("%p:ref.extern", (void *)argv1[k]);
+                    os_printf("0x%" PRIxPTR ":ref.extern", (void *)argv1[k]);
                 else
                     os_printf("extern:ref.null");
                 k++;
@@ -598,7 +613,7 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
                 u.parts[1] = argv1[k + 1];
                 k += 2;
                 if (u.val && u.val != (uintptr_t)-1LL)
-                    os_printf("%p:ref.extern", (void *)u.val);
+                    os_printf("0x%" PRIxPTR ":ref.extern", (void *)u.val);
                 else
                     os_printf("extern:ref.null");
 #endif
