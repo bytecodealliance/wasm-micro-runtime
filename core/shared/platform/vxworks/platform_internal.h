@@ -100,6 +100,12 @@ os_sigreturn();
 #endif /* end of BUILD_TARGET_X86_64/AMD_64/AARCH64 */
 #endif /* end of WASM_DISABLE_HW_BOUND_CHECK */
 
+static inline os_file_handle
+os_get_invalid_handle()
+{
+    return -1;
+}
+
 #ifdef __cplusplus
 }
 #endif

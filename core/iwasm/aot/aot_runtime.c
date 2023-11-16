@@ -537,8 +537,8 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
      * both i and memarg.offset are u32 in range 0 to 4G
      * so the range of ea is 0 to 8G
      */
-    if (!(p = mapped_mem =
-              os_mmap(NULL, map_size, MMAP_PROT_NONE, MMAP_MAP_NONE))) {
+    if (!(p = mapped_mem = os_mmap(NULL, map_size, MMAP_PROT_NONE,
+                                   MMAP_MAP_NONE, os_get_invalid_handle()))) {
         set_error_buf(error_buf, error_buf_size, "mmap memory failed");
         return NULL;
     }

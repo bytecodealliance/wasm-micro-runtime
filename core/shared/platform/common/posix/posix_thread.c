@@ -664,7 +664,7 @@ os_thread_signal_init(os_signal_handler handler)
 
     /* Initialize memory for signal alternate stack of current thread */
     if (!(map_addr = os_mmap(NULL, map_size, MMAP_PROT_READ | MMAP_PROT_WRITE,
-                             MMAP_MAP_NONE))) {
+                             MMAP_MAP_NONE, os_get_invalid_handle()))) {
         os_printf("Failed to mmap memory for alternate stack\n");
         goto fail1;
     }

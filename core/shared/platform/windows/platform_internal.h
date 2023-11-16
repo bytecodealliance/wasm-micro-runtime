@@ -187,6 +187,12 @@ typedef uint32_t os_raw_file_handle;
 #define UWP_DEFAULT_VPRINTF
 #endif
 
+static inline os_file_handle
+os_get_invalid_handle()
+{
+    return NULL;
+}
+
 #ifdef __cplusplus
 }
 #endif

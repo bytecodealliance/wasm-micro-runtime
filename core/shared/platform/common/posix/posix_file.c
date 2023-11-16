@@ -978,12 +978,6 @@ os_closedir(os_dir_stream dir_stream)
     return __WASI_ESUCCESS;
 }
 
-os_file_handle
-os_get_invalid_handle()
-{
-    return -1;
-}
-
 os_dir_stream
 os_get_invalid_dir_stream()
 {

@@ -80,4 +80,10 @@ int isnan(double x);
 /* clang-format on */
 #endif
 
+static inline os_file_handle
+os_get_invalid_handle()
+{
+    return -1;
+}
+
 #endif /* end of _BH_PLATFORM_H */
