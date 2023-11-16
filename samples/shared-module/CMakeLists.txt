@@ -7,6 +7,8 @@ include(CheckPIESupported)
 
 project (shared-module)
 
+set (CMAKE_CXX_STANDARD 17)
+
 ################  runtime settings  ################
 string (TOLOWER ${CMAKE_HOST_SYSTEM_NAME} WAMR_BUILD_PLATFORM)
 if (APPLE)
@@ -45,6 +47,17 @@ endif ()
 set (WAMR_BUILD_INTERP 1)
 set (WAMR_BUILD_AOT 1)
 set (WAMR_BUILD_JIT 0)
+
+# fast interpreter
+# set (WAMR_BUILD_FAST_INTERP 1)
+
+# fast-jit
+# set (WAMR_BUILD_FAST_JIT 1)
+
+# llvm jit
+# set (WAMR_BUILD_JIT 1)
+# set (LLVM_DIR /usr/local/opt/llvm@14/lib/cmake/llvm)
+
 set (WAMR_BUILD_REF_TYPES 1)
 
 if (NOT MSVC)
@@ -76,7 +89,7 @@ check_pie_supported()
 set_target_properties (shared-module PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 if (APPLE)
-  target_link_libraries (shared-module vmlib -lm -ldl -lpthread)
+  target_link_libraries (shared-module vmlib -lm -ldl -lpthread ${LLVM_AVAILABLE_LIBS})
 else ()
-  target_link_libraries (shared-module vmlib -lm -ldl -lpthread -lrt)
+  target_link_libraries (shared-module vmlib -lm -ldl -lpthread -lrt ${LLVM_AVAILABLE_LIBS})
 endif ()

@@ -50,6 +50,10 @@ fi
 
 ${WAT2WASM} -o ${OUT_DIR}/wasm-apps/${OUT_FILE} ${APP_SRC}
 
+# aot
+# wamrc -o ${OUT_DIR}/wasm-apps/${OUT_FILE}.aot ${OUT_DIR}/wasm-apps/${OUT_FILE}
+# mv ${OUT_DIR}/wasm-apps/${OUT_FILE}.aot ${OUT_DIR}/wasm-apps/${OUT_FILE}
+
 if [ -f ${OUT_DIR}/wasm-apps/${OUT_FILE} ]; then
         echo "build ${OUT_FILE} success"
 else
