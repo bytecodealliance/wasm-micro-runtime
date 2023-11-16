@@ -74,6 +74,12 @@ typedef korp_thread *korp_tid;
 typedef struct k_mutex korp_mutex;
 typedef unsigned int korp_sem;
 
+/* korp_rwlock is used in platform_api_extension.h,
+   we just define the type to make the compiler happy */
+typedef struct {
+    int dummy;
+} korp_rwlock;
+
 struct os_thread_wait_node;
 typedef struct os_thread_wait_node *os_thread_wait_list;
 typedef struct korp_cond {
@@ -148,8 +154,10 @@ void
 set_exec_mem_alloc_func(exec_mem_alloc_func_t alloc_func,
                         exec_mem_free_func_t free_func);
 
+/* The below types are used in platform_api_extension.h,
+   we just define them to make the compiler happy */
 typedef int os_file_handle;
-typedef DIR *os_dir_stream;
+typedef void *os_dir_stream;
 typedef int os_raw_file_handle;
 
 static inline os_file_handle

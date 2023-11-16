@@ -38,6 +38,12 @@ typedef struct rt_thread korp_cond;
 typedef struct rt_thread korp_thread;
 typedef unsigned int korp_sem;
 
+/* korp_rwlock is used in platform_api_extension.h,
+   we just define the type to make the compiler happy */
+typedef struct {
+    int dummy;
+} korp_rwlock;
+
 typedef rt_uint8_t uint8_t;
 typedef rt_int8_t int8_t;
 typedef rt_uint16_t uint16_t;
@@ -45,8 +51,10 @@ typedef rt_int16_t int16_t;
 typedef rt_uint64_t uint64_t;
 typedef rt_int64_t int64_t;
 
+/* The below types are used in platform_api_extension.h,
+   we just define them to make the compiler happy */
 typedef int os_file_handle;
-typedef DIR *os_dir_stream;
+typedef void *os_dir_stream;
 typedef int os_raw_file_handle;
 
 static inline os_file_handle
