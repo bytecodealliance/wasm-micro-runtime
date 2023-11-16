@@ -41,7 +41,14 @@ do
 APP_SRC="$i"
 OUT_FILE=${i%.*}.wasm
 
-wat2wasm -o ${OUT_DIR}/wasm-apps/${OUT_FILE} ${APP_SRC}
+# Note: the CI installs wabt in /opt/wabt
+if type wat2wasm; then
+    WAT2WASM=${WAT2WASM:-wat2wasm}
+elif [ -x /opt/wabt/bin/wat2wasm ]; then
+    WAT2WASM=${WAT2WASM:-/opt/wabt/bin/wat2wasm}
+fi
+
+${WAT2WASM} -o ${OUT_DIR}/wasm-apps/${OUT_FILE} ${APP_SRC}
 
 if [ -f ${OUT_DIR}/wasm-apps/${OUT_FILE} ]; then
         echo "build ${OUT_FILE} success"
