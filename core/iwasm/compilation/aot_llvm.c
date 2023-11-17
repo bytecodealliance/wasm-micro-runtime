@@ -1938,13 +1938,33 @@ static void
 print_supported_targets()
 {
     uint32 i;
+    const char *target_name;
+
     os_printf("Supported targets:\n");
-    for (i = 0; i < sizeof(valid_archs) / sizeof(ArchItem); i++) {
-        os_printf("%s ", valid_archs[i].arch);
-        if (valid_archs[i].support_eb)
-            os_printf("%seb ", valid_archs[i].arch);
+    /* over the list of all available targets */
+    for (LLVMTargetRef target = LLVMGetFirstTarget(); target != NULL;
+         target = LLVMGetNextTarget(target)) {
+        target_name = LLVMGetTargetName(target);
+        /* Skip mipsel, aarch64_be since prefix mips, aarch64 will cover them */
+        if (strcmp(target_name, "mipsel") == 0)
+            continue;
+        else if (strcmp(target_name, "aarch64_be") == 0)
+            continue;
+
+        if (strcmp(target_name, "x86-64") == 0)
+            os_printf("  x86_64\n");
+        else if (strcmp(target_name, "x86") == 0)
+            os_printf("  i386\n");
+        else {
+            for (i = 0; i < sizeof(valid_archs) / sizeof(ArchItem); i++) {
+                /* If target_name is prefix for valid_archs[i].arch */
+                if ((strncmp(target_name, valid_archs[i].arch,
+                             strlen(target_name))
+                     == 0))
+                    os_printf("  %s\n", valid_archs[i].arch);
+            }
+        }
     }
-    os_printf("\n");
 }
 
 static void
