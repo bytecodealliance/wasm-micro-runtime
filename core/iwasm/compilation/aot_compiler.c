@@ -161,6 +161,35 @@ aot_validate_wasm(AOTCompContext *comp_ctx)
         OP_ATOMIC_##OP : bin_op = LLVMAtomicRMWBinOp##OP; \
         goto build_atomic_rmw;
 
+uint32
+offset_of_local_in_outs_area(AOTCompContext *comp_ctx, unsigned n)
+{
+    AOTCompFrame *frame = comp_ctx->aot_frame;
+    uint32 max_local_cell_num = frame->max_local_cell_num;
+    uint32 max_stack_cell_num = frame->max_stack_cell_num;
+    uint32 all_cell_num = max_local_cell_num + max_stack_cell_num;
+    uint32 frame_size;
+
+    if (!comp_ctx->is_jit_mode) {
+        /* Refer to aot_alloc_frame */
+        if (!comp_ctx->enable_gc)
+            frame_size = comp_ctx->pointer_size * 7 + all_cell_num * 4;
+        else
+            frame_size =
+                comp_ctx->pointer_size * 7 + align_uint(all_cell_num * 5, 4);
+    }
+    else {
+        /* Refer to wasm_interp_interp_frame_size */
+        if (!comp_ctx->enable_gc)
+            frame_size = offsetof(WASMInterpFrame, lp) + all_cell_num * 4;
+        else
+            frame_size =
+                offsetof(WASMInterpFrame, lp) + align_uint(all_cell_num * 5, 4);
+    }
+
+    return frame_size + offset_of_local(comp_ctx, n);
+}
+
 static bool
 store_value(AOTCompContext *comp_ctx, LLVMValueRef value, uint8 value_type,
             LLVMValueRef cur_frame, uint32 offset)
@@ -220,6 +249,13 @@ store_value(AOTCompContext *comp_ctx, LLVMValueRef value, uint8 value_type,
     LLVMSetAlignment(res, 4);
 
     return true;
+}
+
+bool
+aot_frame_store_value(AOTCompContext *comp_ctx, LLVMValueRef value,
+                      uint8 value_type, LLVMValueRef cur_frame, uint32 offset)
+{
+    return store_value(comp_ctx, value, value_type, cur_frame, offset);
 }
 
 static bool
@@ -1217,7 +1253,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                     goto unsupport_gc_and_ref_types;
                 }
 
-                frame_ip_org = frame_ip;
+                frame_ip_org = frame_ip - 1;
 
                 read_leb_uint32(frame_ip, frame_ip_end, func_idx);
                 if (!aot_compile_op_ref_func(comp_ctx, func_ctx, func_idx,
@@ -1234,7 +1270,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                     goto unsupport_gc;
                 }
 
-                frame_ip_org = frame_ip;
+                frame_ip_org = frame_ip - 1;
 
                 read_leb_uint32(frame_ip, frame_ip_end, type_idx);
                 if (!aot_compile_op_call_ref(comp_ctx, func_ctx, type_idx,
@@ -1249,7 +1285,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                     goto unsupport_gc;
                 }
 
-                frame_ip_org = frame_ip;
+                frame_ip_org = frame_ip - 1;
 
                 read_leb_uint32(frame_ip, frame_ip_end, type_idx);
                 if (!aot_compile_op_call_ref(comp_ctx, func_ctx, type_idx, true,

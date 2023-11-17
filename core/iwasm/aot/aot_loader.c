@@ -3886,6 +3886,8 @@ aot_unload(AOTModule *module)
         bh_hash_map_destroy(module->ref_type_set);
     }
     os_mutex_destroy(&module->rtt_type_lock);
+    if (module->rtt_types)
+        wasm_runtime_free(module->rtt_types);
 #endif
 
     wasm_runtime_free(module);

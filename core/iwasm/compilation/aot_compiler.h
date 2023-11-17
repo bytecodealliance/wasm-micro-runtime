@@ -139,10 +139,14 @@ static inline uint32
 offset_of_local(AOTCompContext *comp_ctx, unsigned n)
 {
     if (!comp_ctx->is_jit_mode)
+        /* In AOTFrame, there are 7 pointers before field lp */
         return comp_ctx->pointer_size * 7 + sizeof(uint32) * n;
     else
         return offsetof(WASMInterpFrame, lp) + sizeof(uint32) * n;
 }
+
+uint32
+offset_of_local_in_outs_area(AOTCompContext *comp_ctx, unsigned n);
 
 /**
  * Get the offset from frame pointer to the n-th local variable's
@@ -178,6 +182,10 @@ aot_gen_commit_values(AOTCompFrame *frame);
 bool
 aot_gen_commit_sp_ip(AOTCompFrame *frame, const AOTValueSlot *sp,
                      const uint8 *ip);
+
+bool
+aot_frame_store_value(AOTCompContext *comp_ctx, LLVMValueRef value,
+                      uint8 value_type, LLVMValueRef cur_frame, uint32 offset);
 
 static inline void
 push_32bit(AOTCompFrame *frame, AOTValue *aot_value)
