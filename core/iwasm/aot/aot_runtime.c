@@ -1166,12 +1166,23 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
 #endif
 
     common = &((AOTModuleInstanceExtra *)module_inst->e)->common;
-    common->data_dropped = bh_bitmap_new(0, module->mem_init_data_count);
-    common->elem_dropped = bh_bitmap_new(0, module->table_init_data_count);
-    if (common->data_dropped == NULL || common->elem_dropped == NULL) {
-        LOG_DEBUG("failed to allocate bitmaps");
-        set_error_buf(error_buf, error_buf_size, "failed to allocate bitmaps");
-        goto fail;
+    if (module->mem_init_data_count > 0) {
+        common->data_dropped = bh_bitmap_new(0, module->mem_init_data_count);
+        if (common->data_dropped == NULL) {
+            LOG_DEBUG("failed to allocate bitmaps");
+            set_error_buf(error_buf, error_buf_size,
+                          "failed to allocate bitmaps");
+            goto fail;
+        }
+    }
+    if (module->table_init_data_count > 0) {
+        common->elem_dropped = bh_bitmap_new(0, module->table_init_data_count);
+        if (common->elem_dropped == NULL) {
+            LOG_DEBUG("failed to allocate bitmaps");
+            set_error_buf(error_buf, error_buf_size,
+                          "failed to allocate bitmaps");
+            goto fail;
+        }
     }
 
     /* Initialize global info */
