@@ -1098,7 +1098,9 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
                 char *error_buf, uint32 error_buf_size)
 {
     AOTModuleInstance *module_inst;
+#if WASM_ENABLE_BULK_MEMORY != 0 || WASM_ENABLE_REF_TYPES != 0
     WASMModuleInstanceExtraCommon *common;
+#endif
     const uint32 module_inst_struct_size =
         offsetof(AOTModuleInstance, global_table_data.bytes);
     const uint64 module_inst_mem_inst_size =
@@ -1165,7 +1167,10 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
     }
 #endif
 
+#if WASM_ENABLE_BULK_MEMORY != 0 || WASM_ENABLE_REF_TYPES != 0
     common = &((AOTModuleInstanceExtra *)module_inst->e)->common;
+#endif
+#if WASM_ENABLE_BULK_MEMORY != 0
     if (module->mem_init_data_count > 0) {
         common->data_dropped = bh_bitmap_new(0, module->mem_init_data_count);
         if (common->data_dropped == NULL) {
@@ -1175,6 +1180,8 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
             goto fail;
         }
     }
+#endif
+#if WASM_ENABLE_REF_TYPES != 0
     if (module->table_init_data_count > 0) {
         common->elem_dropped = bh_bitmap_new(0, module->table_init_data_count);
         if (common->elem_dropped == NULL) {
@@ -1184,6 +1191,7 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
             goto fail;
         }
     }
+#endif
 
     /* Initialize global info */
     p = (uint8 *)module_inst + module_inst_struct_size
@@ -1340,8 +1348,12 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
         wasm_native_call_context_dtors((WASMModuleInstanceCommon *)module_inst);
     }
 
+#if WASM_ENABLE_BULK_MEMORY != 0
     bh_bitmap_delete(common->data_dropped);
+#endif
+#if WASM_ENABLE_REF_TYPES != 0
     bh_bitmap_delete(common->elem_dropped);
+#endif
 
     wasm_runtime_free(module_inst);
 }

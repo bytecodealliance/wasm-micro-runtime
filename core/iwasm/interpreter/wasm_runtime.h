@@ -224,8 +224,12 @@ typedef struct WASMModuleInstanceExtraCommon {
     /* Disable bounds checks or not */
     bool disable_bounds_checks;
 #endif
+#if WASM_ENABLE_BULK_MEMORY != 0
     bh_bitmap *data_dropped;
+#endif
+#if WASM_ENABLE_REF_TYPES != 0
     bh_bitmap *elem_dropped;
+#endif
 } WASMModuleInstanceExtraCommon;
 
 /* Extra info of WASM module instance for interpreter/jit mode */

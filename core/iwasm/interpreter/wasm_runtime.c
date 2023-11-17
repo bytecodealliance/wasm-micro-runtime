@@ -1666,6 +1666,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
     }
 #endif
 
+#if WASM_ENABLE_BULK_MEMORY != 0
     if (module->data_seg_count > 0) {
         module_inst->e->common.data_dropped =
             bh_bitmap_new(0, module->data_seg_count);
@@ -1676,6 +1677,8 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
             goto fail;
         }
     }
+#endif
+#if WASM_ENABLE_REF_TYPES != 0
     if (module->table_seg_count > 0) {
         module_inst->e->common.elem_dropped =
             bh_bitmap_new(0, module->table_seg_count);
@@ -1686,6 +1689,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
             goto fail;
         }
     }
+#endif
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
     if (!(module_inst->frames = runtime_malloc((uint64)sizeof(Vector),
@@ -2210,8 +2214,12 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
         wasm_native_call_context_dtors((WASMModuleInstanceCommon *)module_inst);
     }
 
+#if WASM_ENABLE_BULK_MEMORY != 0
     bh_bitmap_delete(module_inst->e->common.data_dropped);
+#endif
+#if WASM_ENABLE_REF_TYPES != 0
     bh_bitmap_delete(module_inst->e->common.elem_dropped);
+#endif
 
     wasm_runtime_free(module_inst);
 }
