@@ -1320,16 +1320,18 @@ load_tag_import(const uint8 **p_buf, const uint8 *buf_end,
         if (!sub_module) {
             return false;
         }
-    }
-    /* wasm_loader_resolve_tag checks, that the imported tag
-     * and the declared tag have the same type
-     */
-    uint32 linked_tag_index = 0;
-    WASMTag *linked_tag = wasm_loader_resolve_tag(
-        sub_module_name, tag_name, declare_tag_type,
-        &linked_tag_index /* out */, error_buf, error_buf_size);
-    if (!linked_tag) {
-        return false;
+        /* wasm_loader_resolve_tag checks, that the imported tag
+         * and the declared tag have the same type
+         */
+        uint32 linked_tag_index = 0;
+        WASMTag *linked_tag = wasm_loader_resolve_tag(
+            sub_module_name, tag_name, declare_tag_type,
+            &linked_tag_index /* out */, error_buf, error_buf_size);
+        if (linked_tag) {
+            tag->import_module = sub_module;
+            tag->import_tag_linked = linked_tag;
+            tag->import_tag_index_linked = linked_tag_index;
+        }
     }
 #endif
     /* store to module tag declarations */
@@ -1339,12 +1341,6 @@ load_tag_import(const uint8 **p_buf, const uint8 *buf_end,
     tag->module_name = (char *)sub_module_name;
     tag->field_name = (char *)tag_name;
     tag->tag_type = declare_tag_type;
-    /* func_ptr_linked is for native registered symbol */
-#if WASM_ENABLE_MULTI_MODULE != 0
-    tag->import_module = sub_module;
-    tag->import_tag_linked = linked_tag;
-    tag->import_tag_index_linked = linked_tag_index;
-#endif
 
     *p_buf = p;
     (void)parent_module;
@@ -7657,17 +7653,17 @@ re_scan:
 
                 /* the tag_type is stored in either the WASMTag (section tags)
                  * or WASMTagImport (import tag) */
-                WASMType *func_type = NULL;
+                WASMType *tag_type = NULL;
                 if (tag_index < module->import_tag_count) {
-                    func_type = module->import_tags[tag_index].u.tag.tag_type;
+                    tag_type = module->import_tags[tag_index].u.tag.tag_type;
                 }
                 else {
-                    func_type =
+                    tag_type =
                         module->tags[tag_index - module->import_tag_count]
                             ->tag_type;
                 }
 
-                if (func_type->result_count != 0) {
+                if (tag_type->result_count != 0) {
                     set_error_buf(error_buf, error_buf_size,
                                   "tag type signature does not return void");
                     goto fail;
@@ -7680,26 +7676,25 @@ re_scan:
                 /* Check stack values match return types by comparing tag param
                  * types with stack cells */
                 uint8 *frame_ref = loader_ctx->frame_ref;
-                for (int tti = (int32)func_type->param_count - 1; tti >= 0;
+                for (int tti = (int32)tag_type->param_count - 1; tti >= 0;
                      tti--) {
                     if (!check_stack_top_values(frame_ref, available_stack_cell,
-                                                func_type->types[tti],
-                                                error_buf, error_buf_size)) {
+                                                tag_type->types[tti], error_buf,
+                                                error_buf_size)) {
                         snprintf(error_buf, error_buf_size,
                                  "type mismatch: instruction requires [%s] but "
                                  "stack has [%s]",
-                                 func_type->param_count > 0
-                                     ? type2str(func_type->types[tti])
+                                 tag_type->param_count > 0
+                                     ? type2str(tag_type->types[tti])
                                      : "",
                                  available_stack_cell > 0
                                      ? type2str(*(loader_ctx->frame_ref - 1))
                                      : "");
                         goto fail;
                     }
-                    frame_ref -=
-                        wasm_value_type_cell_num(func_type->types[tti]);
+                    frame_ref -= wasm_value_type_cell_num(tag_type->types[tti]);
                     available_stack_cell -=
-                        wasm_value_type_cell_num(func_type->types[tti]);
+                        wasm_value_type_cell_num(tag_type->types[tti]);
                 }
 
                 /* throw is stack polymorphic */

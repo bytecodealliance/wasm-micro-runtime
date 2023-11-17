@@ -427,6 +427,26 @@ function spec_test()
         git apply ../../spec-test-script/thread_proposal_fix_atomic_case.patch
     fi
 
+    if [ ${ENABLE_EH} == 1 ]; then
+        echo "checkout exception-handling test cases"
+        popd
+        if [ ! -d "exception-handling" ];then
+            echo "exception-handling not exist, clone it from github"
+            git clone -b master --single-branch https://github.com/WebAssembly/exception-handling 
+        fi
+        pushd exception-handling
+
+        # restore and clean everything
+        git reset --hard 51c721661b671bb7dc4b3a3acb9e079b49778d36
+        
+        if [[ ${ENABLE_MULTI_MODULE} == 0 ]]; then
+            git apply ../../spec-test-script/exception_handling_noimport.patch
+        fi
+        
+        popd
+        echo $(pwd)
+    fi
+
     # update GC cases
     if [[ ${ENABLE_GC} == 1 ]]; then
         echo "checkout spec for GC proposal"
@@ -463,6 +483,10 @@ function spec_test()
         if [[ $1 == 'classic-interp' || $1 == 'fast-interp' || $1 == 'aot' ]]; then
             ARGS_FOR_SPEC_TEST+="-M "
         fi
+    fi
+
+    if [[ 1 == ${ENABLE_EH} ]]; then
+        ARGS_FOR_SPEC_TEST+="-e "
     fi
 
     # sgx only enable in interp mode and aot mode
@@ -526,95 +550,6 @@ function spec_test()
 
     echo -e "\nFinish spec tests" | tee -a ${REPORT_DIR}/spec_test_report.txt
 }
-
-function exception_test()
-{
-    echo "Now start exception tests"
-    touch ${REPORT_DIR}/exception_test_report.txt
-
-    cd ${WORK_DIR}
-    if [ ! -d "exception-handling" ];then
-        echo "exception-handling not exist, clone it from github"
-        git clone -b master --single-branch https://github.com/WebAssembly/exception-handling
-    fi
-
-    pushd exception-handling
-
-    # restore and clean everything
-    git reset --hard HEAD
-
-    popd
-    echo $(pwd)
-
-    if [ ${WABT_BINARY_RELEASE} == "YES" ]; then
-        echo "download a binary release and install"
-        local WAT2WASM=${WORK_DIR}/wabt/out/gcc/Release/wat2wasm
-        if [ ! -f ${WAT2WASM} ]; then
-            case ${PLATFORM} in
-                linux)
-                    WABT_PLATFORM=ubuntu
-                    ;;
-                darwin)
-                    WABT_PLATFORM=macos
-                    ;;
-                *)
-                    echo "wabt platform for ${PLATFORM} in unknown"
-                    exit 1
-                    ;;
-            esac
-            if [ ! -f /tmp/wabt-1.0.31-${WABT_PLATFORM}.tar.gz ]; then
-                wget \
-                    https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-${WABT_PLATFORM}.tar.gz \
-                    -P /tmp
-            fi
-
-            cd /tmp \
-            && tar zxf wabt-1.0.31-${WABT_PLATFORM}.tar.gz \
-            && mkdir -p ${WORK_DIR}/wabt/out/gcc/Release/ \
-            && install wabt-1.0.31/bin/wa* ${WORK_DIR}/wabt/out/gcc/Release/ \
-            && cd -
-        fi
-    else
-        echo "download source code and compile and install"
-        if [ ! -d "wabt" ];then
-            echo "wabt not exist, clone it from github"
-            git clone --recursive https://github.com/WebAssembly/wabt
-        fi
-        echo "upate wabt"
-        cd wabt
-        git pull
-        git reset --hard origin/main
-        cd ..
-        make -C wabt gcc-release -j 4
-    fi
-
-    ln -sf ${WORK_DIR}/../spec-test-script/all.py .
-    ln -sf ${WORK_DIR}/../spec-test-script/runtest.py .
-
-    local ARGS_FOR_SPEC_TEST="-e --no_clean_up "
-
-    # propagate multimodule if set
-    if [[ 1 == ${ENABLE_MULTI_MODULE} ]]; then
-        if [[ $1 == 'classic-interp' || $1 == 'fast-interp' ]]; then
-            ARGS_FOR_SPEC_TEST+="-M "
-        fi
-    fi
-
-    # set log directory
-    ARGS_FOR_SPEC_TEST+="--log ${REPORT_DIR}"
-
-    cd ${WORK_DIR}
-    echo "python3 ./all.py ${ARGS_FOR_SPEC_TEST} | tee -a ${REPORT_DIR}/exception_test_report.txt"
-    python3 ./all.py ${ARGS_FOR_SPEC_TEST} | tee -a ${REPORT_DIR}/exception_test_report.txt
-    if [[ ${PIPESTATUS[0]} -ne 0 ]];then
-        echo -e "\nspec tests FAILED" | tee -a ${REPORT_DIR}/exception_test_report.txt
-        exit 1
-    fi
-    cd -
-
-    echo -e "\nFinish exception tests" | tee -a ${REPORT_DIR}/exception_test_report.txt
-}
-
 
 function wasi_test()
 {
@@ -923,7 +858,6 @@ function trigger()
     if [[ ${ENABLE_EH} == 1 ]]; then
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_EXCE_HANDLING=1"
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_TAIL_CALL=1"
-        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_MULTI_MODULE=1"
     fi
     echo "SANITIZER IS" $WAMR_BUILD_SANITIZER
 
