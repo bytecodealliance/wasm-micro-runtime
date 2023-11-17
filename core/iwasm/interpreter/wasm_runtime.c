@@ -770,7 +770,9 @@ tags_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
     import = module->import_tags;
     for (i = 0; i < module->import_tag_count; i++, import++) {
         tag->is_import_tag = true;
-
+        tag->u.tag_import = &import->u.tag;
+        tag->type = import->u.tag.type;
+        tag->attribute = import->u.tag.attribute;
 #if WASM_ENABLE_MULTI_MODULE != 0
         if (import->u.tag.import_module) {
             if (!(tag->import_module_inst = get_sub_module_inst(
@@ -785,12 +787,12 @@ tags_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
                 set_error_buf(error_buf, error_buf_size, "unknown tag");
                 goto fail;
             }
+
+            /* Copy the imported tag to current instance */
+            module_inst->import_tag_ptrs[i] =
+                tag->u.tag_import->import_tag_linked;
         }
-#endif /* WASM_ENABLE_MULTI_MODULE */
-        tag->type = import->u.tag.type;
-        tag->u.tag_import = &import->u.tag;
-        /* Copy the tag pointer to current instance */
-        module_inst->import_tag_ptrs[i] = tag->u.tag_import->import_tag_linked;
+#endif
         tag++;
     }
 
@@ -1845,7 +1847,6 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
             && !(module_inst->export_functions = export_functions_instantiate(
                      module, module_inst, module_inst->export_func_count,
                      error_buf, error_buf_size)))
-#if WASM_ENABLE_MULTI_MODULE != 0
 #if WASM_ENABLE_TAGS != 0
         || (module_inst->tag_count > 0
             && !(module_inst->tags = tags_instantiate(
@@ -1855,6 +1856,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                      module, module_inst, module_inst->export_tag_count,
                      error_buf, error_buf_size)))
 #endif
+#if WASM_ENABLE_MULTI_MODULE != 0
         || (module_inst->export_global_count > 0
             && !(module_inst->export_globals = export_globals_instantiate(
                      module, module_inst, module_inst->export_global_count,
