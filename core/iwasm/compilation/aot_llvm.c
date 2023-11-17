@@ -1850,67 +1850,66 @@ aot_create_llvm_consts(AOTLLVMConsts *consts, AOTCompContext *comp_ctx)
 typedef struct ArchItem {
     char *arch;
     bool support_eb;
-    char *LLVM_target_name;
 } ArchItem;
 
 /* clang-format off */
 static ArchItem valid_archs[] = {
-    { "x86_64", false, "x86-64" },
-    { "i386", false, "x86" },
-    { "xtensa", false, "xtensa" },
-    { "mips", true, "mips" },
-    { "mipsel", false, "mipsel" },
-    { "aarch64v8", false, "aarch64"  },
-    { "aarch64v8.1", false, "aarch64" },
-    { "aarch64v8.2", false, "aarch64" },
-    { "aarch64v8.3", false, "aarch64" },
-    { "aarch64v8.4", false, "aarch64" },
-    { "aarch64v8.5", false, "aarch64" },
-    { "aarch64_bev8", false, "aarch64_be" }, /* big endian */
-    { "aarch64_bev8.1", false, "aarch64_be"},
-    { "aarch64_bev8.2", false, "aarch64_be"},
-    { "aarch64_bev8.3", false, "aarch64_be"},
-    { "aarch64_bev8.4", false, "aarch64_be"},
-    { "aarch64_bev8.5", false, "aarch64_be"},
-    { "armv4", true, "arm" },
-    { "armv4t", true, "arm" },
-    { "armv5t", true, "arm" },
-    { "armv5te", true, "arm" },
-    { "armv5tej", true, "arm" },
-    { "armv6", true, "arm" },
-    { "armv6kz", true, "arm" },
-    { "armv6t2", true, "arm" },
-    { "armv6k", true, "arm" },
-    { "armv7", true, "arm" },
-    { "armv6m", true, "arm" },
-    { "armv6sm", true, "arm" },
-    { "armv7em", true, "arm" },
-    { "armv8a", true, "arm" },
-    { "armv8r", true, "arm" },
-    { "armv8m.base", true, "arm" },
-    { "armv8m.main", true, "arm" },
-    { "armv8.1m.main", true, "arm" },
-    { "thumbv4", true, "thumb" },
-    { "thumbv4t", true, "thumb" },
-    { "thumbv5t", true, "thumb" },
-    { "thumbv5te", true, "thumb" },
-    { "thumbv5tej", true, "thumb" },
-    { "thumbv6", true, "thumb" },
-    { "thumbv6kz", true, "thumb" },
-    { "thumbv6t2", true, "thumb" },
-    { "thumbv6k", true, "thumb" },
-    { "thumbv7", true, "thumb" },
-    { "thumbv6m", true, "thumb" },
-    { "thumbv6sm", true, "thumb" },
-    { "thumbv7em", true, "thumb" },
-    { "thumbv8a", true, "thumb" },
-    { "thumbv8r", true, "thumb" },
-    { "thumbv8m.base", true, "thumb" },
-    { "thumbv8m.main", true, "thumb" },
-    { "thumbv8.1m.main", true, "thumb" },
-    { "riscv32", true, "riscv32" },
-    { "riscv64", true, "riscv64" },
-    { "arc", true, "arc" }
+    { "x86_64", false },
+    { "i386", false },
+    { "xtensa", false },
+    { "mips", true },
+    { "mipsel", false },
+    { "aarch64v8", false },
+    { "aarch64v8.1", false },
+    { "aarch64v8.2", false },
+    { "aarch64v8.3", false },
+    { "aarch64v8.4", false },
+    { "aarch64v8.5", false },
+    { "aarch64_bev8", false }, /* big endian */
+    { "aarch64_bev8.1", false },
+    { "aarch64_bev8.2", false },
+    { "aarch64_bev8.3", false },
+    { "aarch64_bev8.4", false },
+    { "aarch64_bev8.5", false },
+    { "armv4", true },
+    { "armv4t", true },
+    { "armv5t", true },
+    { "armv5te", true },
+    { "armv5tej", true },
+    { "armv6", true },
+    { "armv6kz", true },
+    { "armv6t2", true },
+    { "armv6k", true },
+    { "armv7", true },
+    { "armv6m", true },
+    { "armv6sm", true },
+    { "armv7em", true },
+    { "armv8a", true },
+    { "armv8r", true },
+    { "armv8m.base", true },
+    { "armv8m.main", true },
+    { "armv8.1m.main", true },
+    { "thumbv4", true },
+    { "thumbv4t", true },
+    { "thumbv5t", true },
+    { "thumbv5te", true },
+    { "thumbv5tej", true },
+    { "thumbv6", true },
+    { "thumbv6kz", true },
+    { "thumbv6t2", true },
+    { "thumbv6k", true },
+    { "thumbv7", true },
+    { "thumbv6m", true },
+    { "thumbv6sm", true },
+    { "thumbv7em", true },
+    { "thumbv8a", true },
+    { "thumbv8r", true },
+    { "thumbv8m.base", true },
+    { "thumbv8m.main", true },
+    { "thumbv8.1m.main", true },
+    { "riscv32", true },
+    { "riscv64", true },
+    { "arc", true }
 };
 
 static const char *valid_abis[] = {
@@ -1932,24 +1931,33 @@ static void
 print_supported_targets()
 {
     uint32 i;
-    char *target_name;
+    const char *target_name;
 
     os_printf("Supported targets:\n");
-    // Iterate over the list of all available targets
+    /* over the list of all available targets */
     for (LLVMTargetRef target = LLVMGetFirstTarget(); target != NULL;
          target = LLVMGetNextTarget(target)) {
-
         target_name = LLVMGetTargetName(target);
+        /* Skip mipsel, aarch64_be since prefix mips, aarch64 will cover them */
+        if (strcmp(target_name, "mipsel") == 0)
+            continue;
+        else if (strcmp(target_name, "aarch64_be") == 0)
+            continue;
 
-        for (i = 0; i < sizeof(valid_archs) / sizeof(ArchItem); i++) {
-            if (valid_archs[i].LLVM_target_name == target_name) {
-                os_printf("%s ", valid_archs[i].arch);
-                if (valid_archs[i].support_eb)
-                    os_printf("%seb ", valid_archs[i].arch);
+        if (strcmp(target_name, "x86-64") == 0)
+            os_printf("  x86_64\n");
+        else if (strcmp(target_name, "x86") == 0)
+            os_printf("  i386\n");
+        else {
+            for (i = 0; i < sizeof(valid_archs) / sizeof(ArchItem); i++) {
+                /* If target_name is prefix for valid_archs[i].arch */
+                if ((strncmp(target_name, valid_archs[i].arch,
+                             strlen(target_name))
+                     == 0))
+                    os_printf("  %s\n", valid_archs[i].arch);
             }
         }
     }
-    os_printf("\n");
 }
 
 static void
