@@ -3,10 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#include <limits.h>
-#include <stddef.h>
-#include <string.h>
-
 #include "bh_bitmap.h"
 
 bh_bitmap *
