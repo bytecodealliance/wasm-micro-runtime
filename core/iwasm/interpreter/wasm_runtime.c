@@ -1666,15 +1666,25 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
     }
 #endif
 
-    module_inst->e->common.data_dropped =
-        bh_bitmap_new(0, module->data_seg_count);
-    module_inst->e->common.elem_dropped =
-        bh_bitmap_new(0, module->table_seg_count);
-    if (module_inst->e->common.data_dropped == NULL
-        || module_inst->e->common.elem_dropped == NULL) {
-        LOG_DEBUG("failed to allocate bitmaps");
-        set_error_buf(error_buf, error_buf_size, "failed to allocate bitmaps");
-        goto fail;
+    if (module->data_seg_count > 0) {
+        module_inst->e->common.data_dropped =
+            bh_bitmap_new(0, module->data_seg_count);
+        if (module_inst->e->common.data_dropped == NULL) {
+            LOG_DEBUG("failed to allocate bitmaps");
+            set_error_buf(error_buf, error_buf_size,
+                          "failed to allocate bitmaps");
+            goto fail;
+        }
+    }
+    if (module->table_seg_count > 0) {
+        module_inst->e->common.elem_dropped =
+            bh_bitmap_new(0, module->table_seg_count);
+        if (module_inst->e->common.elem_dropped == NULL) {
+            LOG_DEBUG("failed to allocate bitmaps");
+            set_error_buf(error_buf, error_buf_size,
+                          "failed to allocate bitmaps");
+            goto fail;
+        }
     }
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
