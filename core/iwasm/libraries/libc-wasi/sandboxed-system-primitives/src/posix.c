@@ -614,14 +614,21 @@ fd_table_insert_existing(struct fd_table *ft, __wasi_fd_t in,
 }
 
 // Picks an unused slot from the file descriptor table.
-static __wasi_fd_t
-fd_table_unused(struct fd_table *ft) REQUIRES_SHARED(ft->lock)
+static __wasi_errno_t
+fd_table_unused(struct fd_table *ft, __wasi_fd_t *out) REQUIRES_SHARED(ft->lock)
 {
     assert(ft->size > ft->used && "File descriptor table has no free slots");
     for (;;) {
-        __wasi_fd_t fd = (__wasi_fd_t)random_uniform(ft->size);
-        if (ft->entries[fd].object == NULL)
-            return fd;
+        uintmax_t random_fd = 0;
+        __wasi_errno_t error = random_uniform(ft->size, &random_fd);
+
+        if (error != __WASI_ESUCCESS)
+            return error;
+
+        if (ft->entries[(__wasi_fd_t)random_fd].object == NULL) {
+            *out = (__wasi_fd_t)random_fd;
+            return error;
+        }
     }
 }
 
@@ -641,10 +648,14 @@ fd_table_insert(wasm_exec_env_t exec_env, struct fd_table *ft,
         return convert_errno(errno);
     }
 
-    *out = fd_table_unused(ft);
+    __wasi_errno_t error = fd_table_unused(ft, out);
+
+    if (error != __WASI_ESUCCESS)
+        return error;
+
     fd_table_attach(ft, *out, fo, rights_base, rights_inheriting);
     rwlock_unlock(&ft->lock);
-    return 0;
+    return error;
 }
 
 // Inserts a numerical file descriptor into the file descriptor table.
@@ -2282,8 +2293,7 @@ wasmtime_ssp_poll_oneoff(wasm_exec_env_t exec_env, struct fd_table *curfds,
 __wasi_errno_t
 wasmtime_ssp_random_get(void *buf, size_t nbyte)
 {
-    random_buf(buf, nbyte);
-    return 0;
+    return random_buf(buf, nbyte);
 }
 
 __wasi_errno_t
