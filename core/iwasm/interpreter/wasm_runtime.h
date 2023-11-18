@@ -283,6 +283,14 @@ typedef struct WASMModuleInstanceExtra {
     WASMTableInstance **table_insts_linked;
 #endif
 
+#if WASM_ENABLE_TAGS != 0
+    uint32 tag_count;
+    uint32 export_tag_count;
+    WASMTagInstance *tags;
+    WASMExportTagInstance *export_tags;
+    void **import_tag_ptrs;
+#endif
+
 #if WASM_ENABLE_MEMORY_PROFILING != 0
     uint32 max_aux_stack_used;
 #endif
@@ -310,9 +318,6 @@ struct WASMModuleInstance {
     /* global and table info */
     uint32 global_data_size;
     uint32 table_count;
-#if WASM_ENABLE_TAGS != 0
-    uint32 tag_count;
-#endif
     DefPointer(uint8 *, global_data);
     /* For AOTModuleInstance, it denotes `AOTTableInstance *` */
     DefPointer(WASMTableInstance **, tables);
@@ -323,23 +328,13 @@ struct WASMModuleInstance {
     /* function type indexes */
     DefPointer(uint32 *, func_type_indexes);
 
-#if WASM_ENABLE_TAGS != 0
-    DefPointer(WASMTagInstance *, tags);
-#endif
     uint32 export_func_count;
     uint32 export_global_count;
     uint32 export_memory_count;
     uint32 export_table_count;
-#if WASM_ENABLE_TAGS != 0
-    uint32 export_tag_count;
-#endif
-
     /* For AOTModuleInstance, it denotes `AOTFunctionInstance *` */
     DefPointer(WASMExportFuncInstance *, export_functions);
     DefPointer(WASMExportGlobInstance *, export_globals);
-#if WASM_ENABLE_TAGS != 0
-    DefPointer(WASMExportTagInstance *, export_tags);
-#endif
     DefPointer(WASMExportMemInstance *, export_memories);
     DefPointer(WASMExportTabInstance *, export_tables);
 
@@ -373,10 +368,7 @@ struct WASMModuleInstance {
     /* WASM/AOT module extra info, for AOTModuleInstance,
        it denotes `AOTModuleInstanceExtra *` */
     DefPointer(WASMModuleInstanceExtra *, e);
-#if WASM_ENABLE_TAGS != 0
-    /* Array of tag pointers */
-    DefPointer(void **, import_tag_ptrs);
-#endif
+
     /* Default WASM operand stack size */
     uint32 default_wasm_stack_size;
     uint32 reserved[3];

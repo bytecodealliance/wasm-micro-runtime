@@ -1309,13 +1309,13 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     cell_num_to_copy = 0;
                 }
                 else {
-                    if (module->tags[exception_tag_index].is_import_tag) {
-                        tag_type = module->tags[exception_tag_index]
+                    if (module->e->tags[exception_tag_index].is_import_tag) {
+                        tag_type = module->e->tags[exception_tag_index]
                                        .u.tag_import->tag_type;
                     }
                     else {
                         tag_type =
-                            module->tags[exception_tag_index].u.tag->tag_type;
+                            module->e->tags[exception_tag_index].u.tag->tag_type;
                     }
                     cell_num_to_copy = tag_type->param_cell_num;
                 }
@@ -4298,7 +4298,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                     /* external function came back with an exception or trap */
                     /* lookup exception in import tags */
-                    WASMTagInstance *tag = module->tags;
+                    WASMTagInstance *tag = module->e->tags;
                     for (uint32 t = 0; t < module->module->import_tag_count;
                          tag++, t++) {
 

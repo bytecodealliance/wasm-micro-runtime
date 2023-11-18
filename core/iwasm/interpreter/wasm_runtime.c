@@ -771,7 +771,7 @@ tags_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
 
     total_size = sizeof(void *) * (uint64)module->import_tag_count;
     if (total_size > 0
-        && !(module_inst->import_tag_ptrs =
+        && !(module_inst->e->import_tag_ptrs =
                  runtime_malloc(total_size, error_buf, error_buf_size))) {
         wasm_runtime_free(tags);
         return NULL;
@@ -801,7 +801,7 @@ tags_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
             }
 
             /* Copy the imported tag to current instance */
-            module_inst->import_tag_ptrs[i] =
+            module_inst->e->import_tag_ptrs[i] =
                 tag->u.tag_import->import_tag_linked;
         }
 #endif
@@ -823,7 +823,7 @@ tags_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
 
     return tags;
 fail:
-    wasm_runtime_free(tags);
+    tags_deinstantiate(tags, module_inst->e->import_tag_ptrs);
     return NULL;
 }
 #endif
@@ -1064,7 +1064,7 @@ export_tags_instantiate(const WASMModule *module,
 
             bh_assert((uint32)(module_inst->export_tags));
 
-            export_tag->tag = &module_inst->tags[export->index];
+            export_tag->tag = &module_inst->e->tags[export->index];
             export_tag++;
         }
 
@@ -1830,7 +1830,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
     module_inst->e->function_count =
         module->import_function_count + module->function_count;
 #if WASM_ENABLE_TAGS != 0
-    module_inst->tag_count = module->import_tag_count + module->tag_count;
+    module_inst->e->tag_count = module->import_tag_count + module->tag_count;
 #endif
 
     /* export */
@@ -1841,7 +1841,8 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
     module_inst->export_memory_count =
         get_export_count(module, EXPORT_KIND_MEMORY);
 #if WASM_ENABLE_TAGS != 0
-    module_inst->export_tag_count = get_export_count(module, EXPORT_KIND_TAG);
+    module_inst->e->export_tag_count =
+        get_export_count(module, EXPORT_KIND_TAG);
 #endif
     module_inst->export_global_count =
         get_export_count(module, EXPORT_KIND_GLOBAL);
@@ -1864,12 +1865,12 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                      module, module_inst, module_inst->export_func_count,
                      error_buf, error_buf_size)))
 #if WASM_ENABLE_TAGS != 0
-        || (module_inst->tag_count > 0
-            && !(module_inst->tags = tags_instantiate(
+        || (module_inst->e->tag_count > 0
+            && !(module_inst->e->tags = tags_instantiate(
                      module, module_inst, error_buf, error_buf_size)))
-        || (module_inst->export_tag_count > 0
-            && !(module_inst->export_tags = export_tags_instantiate(
-                     module, module_inst, module_inst->export_tag_count,
+        || (module_inst->e->export_tag_count > 0
+            && !(module_inst->e->export_tags = export_tags_instantiate(
+                     module, module_inst, module_inst->e->export_tag_count,
                      error_buf, error_buf_size)))
 #endif
 #if WASM_ENABLE_MULTI_MODULE != 0
@@ -2312,13 +2313,13 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
     functions_deinstantiate(module_inst->e->functions,
                             module_inst->e->function_count);
 #if WASM_ENABLE_TAGS != 0
-    tags_deinstantiate(module_inst->tags, module_inst->import_tag_ptrs);
+    tags_deinstantiate(module_inst->e->tags, module_inst->e->import_tag_ptrs);
 #endif
 
     globals_deinstantiate(module_inst->e->globals);
     export_functions_deinstantiate(module_inst->export_functions);
 #if WASM_ENABLE_TAGS != 0
-    export_tags_deinstantiate(module_inst->export_tags);
+    export_tags_deinstantiate(module_inst->e->export_tags);
 #endif
 
 #if WASM_ENABLE_MULTI_MODULE != 0
@@ -2401,9 +2402,9 @@ wasm_lookup_tag(const WASMModuleInstance *module_inst, const char *name,
                 const char *signature)
 {
     uint32 i;
-    for (i = 0; i < module_inst->export_tag_count; i++)
-        if (!strcmp(module_inst->export_tags[i].name, name))
-            return module_inst->export_tags[i].tag;
+    for (i = 0; i < module_inst->e->export_tag_count; i++)
+        if (!strcmp(module_inst->e->export_tags[i].name, name))
+            return module_inst->e->export_tags[i].tag;
     (void)signature;
     return NULL;
 }
