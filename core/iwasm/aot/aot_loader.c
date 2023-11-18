@@ -1095,7 +1095,6 @@ load_table_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
 
         data_list[i]->mode = mode;
         data_list[i]->elem_type = elem_type;
-        data_list[i]->is_dropped = false;
         data_list[i]->table_index = table_index;
         data_list[i]->offset.init_expr_type = (uint8)init_expr_type;
         data_list[i]->offset.u.i64 = (int64)init_expr_value;

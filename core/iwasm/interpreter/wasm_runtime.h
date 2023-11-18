@@ -8,6 +8,7 @@
 
 #include "wasm.h"
 #include "bh_atomic.h"
+#include "bh_bitmap.h"
 #include "bh_hashmap.h"
 #include "../common/wasm_runtime_common.h"
 #include "../common/wasm_exec_env.h"
@@ -222,6 +223,12 @@ typedef struct WASMModuleInstanceExtraCommon {
 #if WASM_CONFIGUABLE_BOUNDS_CHECKS != 0
     /* Disable bounds checks or not */
     bool disable_bounds_checks;
+#endif
+#if WASM_ENABLE_BULK_MEMORY != 0
+    bh_bitmap *data_dropped;
+#endif
+#if WASM_ENABLE_REF_TYPES != 0
+    bh_bitmap *elem_dropped;
 #endif
 } WASMModuleInstanceExtraCommon;
 

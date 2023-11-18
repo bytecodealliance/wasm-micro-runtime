@@ -1098,6 +1098,9 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
                 char *error_buf, uint32 error_buf_size)
 {
     AOTModuleInstance *module_inst;
+#if WASM_ENABLE_BULK_MEMORY != 0 || WASM_ENABLE_REF_TYPES != 0
+    WASMModuleInstanceExtraCommon *common;
+#endif
     const uint32 module_inst_struct_size =
         offsetof(AOTModuleInstance, global_table_data.bytes);
     const uint64 module_inst_mem_inst_size =
@@ -1161,6 +1164,32 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
     if (!ret) {
         LOG_DEBUG("build a sub module list failed");
         goto fail;
+    }
+#endif
+
+#if WASM_ENABLE_BULK_MEMORY != 0 || WASM_ENABLE_REF_TYPES != 0
+    common = &((AOTModuleInstanceExtra *)module_inst->e)->common;
+#endif
+#if WASM_ENABLE_BULK_MEMORY != 0
+    if (module->mem_init_data_count > 0) {
+        common->data_dropped = bh_bitmap_new(0, module->mem_init_data_count);
+        if (common->data_dropped == NULL) {
+            LOG_DEBUG("failed to allocate bitmaps");
+            set_error_buf(error_buf, error_buf_size,
+                          "failed to allocate bitmaps");
+            goto fail;
+        }
+    }
+#endif
+#if WASM_ENABLE_REF_TYPES != 0
+    if (module->table_init_data_count > 0) {
+        common->elem_dropped = bh_bitmap_new(0, module->table_init_data_count);
+        if (common->elem_dropped == NULL) {
+            LOG_DEBUG("failed to allocate bitmaps");
+            set_error_buf(error_buf, error_buf_size,
+                          "failed to allocate bitmaps");
+            goto fail;
+        }
     }
 #endif
 
@@ -1264,6 +1293,8 @@ fail:
 void
 aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
 {
+    WASMModuleInstanceExtraCommon *common =
+        &((AOTModuleInstanceExtra *)module_inst->e)->common;
     if (module_inst->exec_env_singleton) {
         /* wasm_exec_env_destroy will call
            wasm_cluster_wait_for_all_except_self to wait for other
@@ -1306,7 +1337,7 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
     if (module_inst->func_type_indexes)
         wasm_runtime_free(module_inst->func_type_indexes);
 
-    if (((AOTModuleInstanceExtra *)module_inst->e)->common.c_api_func_imports)
+    if (common->c_api_func_imports)
         wasm_runtime_free(((AOTModuleInstanceExtra *)module_inst->e)
                               ->common.c_api_func_imports);
 
@@ -1316,6 +1347,13 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
 #endif
         wasm_native_call_context_dtors((WASMModuleInstanceCommon *)module_inst);
     }
+
+#if WASM_ENABLE_BULK_MEMORY != 0
+    bh_bitmap_delete(common->data_dropped);
+#endif
+#if WASM_ENABLE_REF_TYPES != 0
+    bh_bitmap_delete(common->elem_dropped);
+#endif
 
     wasm_runtime_free(module_inst);
 }
@@ -2302,13 +2340,21 @@ aot_memory_init(AOTModuleInstance *module_inst, uint32 seg_index, uint32 offset,
 {
     AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
     AOTModule *aot_module;
-    uint8 *data = NULL;
+    uint8 *data;
     uint8 *maddr;
-    uint64 seg_len = 0;
+    uint64 seg_len;
 
-    aot_module = (AOTModule *)module_inst->module;
-    seg_len = aot_module->mem_init_data_list[seg_index]->byte_count;
-    data = aot_module->mem_init_data_list[seg_index]->bytes;
+    if (bh_bitmap_get_bit(
+            ((AOTModuleInstanceExtra *)module_inst->e)->common.data_dropped,
+            seg_index)) {
+        seg_len = 0;
+        data = NULL;
+    }
+    else {
+        aot_module = (AOTModule *)module_inst->module;
+        seg_len = aot_module->mem_init_data_list[seg_index]->byte_count;
+        data = aot_module->mem_init_data_list[seg_index]->bytes;
+    }
 
     if (!wasm_runtime_validate_app_addr((WASMModuleInstanceCommon *)module_inst,
                                         dst, len))
@@ -2331,9 +2377,9 @@ aot_memory_init(AOTModuleInstance *module_inst, uint32 seg_index, uint32 offset,
 bool
 aot_data_drop(AOTModuleInstance *module_inst, uint32 seg_index)
 {
-    AOTModule *aot_module = (AOTModule *)module_inst->module;
-
-    aot_module->mem_init_data_list[seg_index]->byte_count = 0;
+    bh_bitmap_set_bit(
+        ((AOTModuleInstanceExtra *)module_inst->e)->common.data_dropped,
+        seg_index);
     /* Currently we can't free the dropped data segment
        as the mem_init_data_count is a continuous array */
     return true;
@@ -2546,9 +2592,9 @@ aot_get_module_inst_mem_consumption(const AOTModuleInstance *module_inst,
 void
 aot_drop_table_seg(AOTModuleInstance *module_inst, uint32 tbl_seg_idx)
 {
-    AOTModule *module = (AOTModule *)module_inst->module;
-    AOTTableInitData *tbl_seg = module->table_init_data_list[tbl_seg_idx];
-    tbl_seg->is_dropped = true;
+    bh_bitmap_set_bit(
+        ((AOTModuleInstanceExtra *)module_inst->e)->common.elem_dropped,
+        tbl_seg_idx);
 }
 
 void
@@ -2576,7 +2622,9 @@ aot_table_init(AOTModuleInstance *module_inst, uint32 tbl_idx,
         return;
     }
 
-    if (tbl_seg->is_dropped) {
+    if (bh_bitmap_get_bit(
+            ((AOTModuleInstanceExtra *)module_inst->e)->common.elem_dropped,
+            tbl_seg_idx)) {
         aot_set_exception_with_id(module_inst, EXCE_OUT_OF_BOUNDS_TABLE_ACCESS);
         return;
     }

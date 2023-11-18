@@ -371,6 +371,7 @@ CSRCS += nuttx_platform.c \
          ems_alloc.c \
          ems_hmu.c \
          bh_assert.c \
+         bh_bitmap.c \
          bh_common.c \
          bh_hashmap.c \
          bh_list.c \

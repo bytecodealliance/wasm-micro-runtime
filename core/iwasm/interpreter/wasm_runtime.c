@@ -1666,6 +1666,31 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
     }
 #endif
 
+#if WASM_ENABLE_BULK_MEMORY != 0
+    if (module->data_seg_count > 0) {
+        module_inst->e->common.data_dropped =
+            bh_bitmap_new(0, module->data_seg_count);
+        if (module_inst->e->common.data_dropped == NULL) {
+            LOG_DEBUG("failed to allocate bitmaps");
+            set_error_buf(error_buf, error_buf_size,
+                          "failed to allocate bitmaps");
+            goto fail;
+        }
+    }
+#endif
+#if WASM_ENABLE_REF_TYPES != 0
+    if (module->table_seg_count > 0) {
+        module_inst->e->common.elem_dropped =
+            bh_bitmap_new(0, module->table_seg_count);
+        if (module_inst->e->common.elem_dropped == NULL) {
+            LOG_DEBUG("failed to allocate bitmaps");
+            set_error_buf(error_buf, error_buf_size,
+                          "failed to allocate bitmaps");
+            goto fail;
+        }
+    }
+#endif
+
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
     if (!(module_inst->frames = runtime_malloc((uint64)sizeof(Vector),
                                                error_buf, error_buf_size))) {
@@ -2188,6 +2213,13 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
 #endif
         wasm_native_call_context_dtors((WASMModuleInstanceCommon *)module_inst);
     }
+
+#if WASM_ENABLE_BULK_MEMORY != 0
+    bh_bitmap_delete(module_inst->e->common.data_dropped);
+#endif
+#if WASM_ENABLE_REF_TYPES != 0
+    bh_bitmap_delete(module_inst->e->common.elem_dropped);
+#endif
 
     wasm_runtime_free(module_inst);
 }
@@ -3148,16 +3180,23 @@ llvm_jit_memory_init(WASMModuleInstance *module_inst, uint32 seg_index,
 {
     WASMMemoryInstance *memory_inst;
     WASMModule *module;
-    uint8 *data = NULL;
+    uint8 *data;
     uint8 *maddr;
-    uint64 seg_len = 0;
+    uint64 seg_len;
 
     bh_assert(module_inst->module_type == Wasm_Module_Bytecode);
 
     memory_inst = wasm_get_default_memory(module_inst);
-    module = module_inst->module;
-    seg_len = module->data_segments[seg_index]->data_length;
-    data = module->data_segments[seg_index]->data;
+
+    if (bh_bitmap_get_bit(module_inst->e->common.data_dropped, seg_index)) {
+        seg_len = 0;
+        data = NULL;
+    }
+    else {
+        module = module_inst->module;
+        seg_len = module->data_segments[seg_index]->data_length;
+        data = module->data_segments[seg_index]->data;
+    }
 
     if (!wasm_runtime_validate_app_addr((WASMModuleInstanceCommon *)module_inst,
                                         dst, len))
@@ -3182,7 +3221,7 @@ llvm_jit_data_drop(WASMModuleInstance *module_inst, uint32 seg_index)
 {
     bh_assert(module_inst->module_type == Wasm_Module_Bytecode);
 
-    module_inst->module->data_segments[seg_index]->data_length = 0;
+    bh_bitmap_set_bit(module_inst->e->common.data_dropped, seg_index);
     /* Currently we can't free the dropped data segment
        as they are stored in wasm bytecode */
     return true;
@@ -3193,12 +3232,8 @@ llvm_jit_data_drop(WASMModuleInstance *module_inst, uint32 seg_index)
 void
 llvm_jit_drop_table_seg(WASMModuleInstance *module_inst, uint32 tbl_seg_idx)
 {
-    WASMTableSeg *tbl_segs;
-
     bh_assert(module_inst->module_type == Wasm_Module_Bytecode);
-
-    tbl_segs = module_inst->module->table_segments;
-    tbl_segs[tbl_seg_idx].is_dropped = true;
+    bh_bitmap_set_bit(module_inst->e->common.elem_dropped, tbl_seg_idx);
 }
 
 void
@@ -3227,7 +3262,7 @@ llvm_jit_table_init(WASMModuleInstance *module_inst, uint32 tbl_idx,
         return;
     }
 
-    if (tbl_seg->is_dropped) {
+    if (bh_bitmap_get_bit(module_inst->e->common.elem_dropped, tbl_seg_idx)) {
         jit_set_exception_with_id(module_inst, EXCE_OUT_OF_BOUNDS_TABLE_ACCESS);
         return;
     }
