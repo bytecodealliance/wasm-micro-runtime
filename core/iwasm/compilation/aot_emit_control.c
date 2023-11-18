@@ -221,6 +221,16 @@ handle_next_reachable_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         return true;
     }
 
+    if (block->label_type == LABEL_TYPE_IF && block->llvm_else_block
+        && !block->skip_wasm_code_else
+        && *p_frame_ip <= block->wasm_code_else) {
+        /* Clear value stack and start to translate else branch */
+        aot_value_stack_destroy(&block->value_stack);
+        SET_BUILDER_POS(block->llvm_else_block);
+        *p_frame_ip = block->wasm_code_else + 1;
+        return true;
+    }
+
     *p_frame_ip = block->wasm_code_end + 1;
     SET_BUILDER_POS(block->llvm_end_block);
 
