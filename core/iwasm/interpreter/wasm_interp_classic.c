@@ -1314,8 +1314,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                        .u.tag_import->tag_type;
                     }
                     else {
-                        tag_type =
-                            module->e->tags[exception_tag_index].u.tag->tag_type;
+                        tag_type = module->e->tags[exception_tag_index]
+                                       .u.tag->tag_type;
                     }
                     cell_num_to_copy = tag_type->param_cell_num;
                 }
