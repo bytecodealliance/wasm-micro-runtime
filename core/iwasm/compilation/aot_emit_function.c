@@ -521,7 +521,7 @@ commit_params_to_frame_of_import_func(AOTCompContext *comp_ctx,
 {
     uint32 i, n;
 
-    for (i = 0, n = 0; i < func_type->param_count; i++) {
+    for (i = 0, n = 0; i < func_type->param_count; i++, n++) {
         switch (func_type->types[i]) {
             case VALUE_TYPE_I32:
                 if (!aot_frame_store_value(
