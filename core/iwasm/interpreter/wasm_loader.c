@@ -7026,7 +7026,7 @@ wasm_loader_get_custom_section(WASMModule *module, const char *name,
         section = section->next;
     }
 
-    return false;
+    return NULL;
 }
 #endif
 
