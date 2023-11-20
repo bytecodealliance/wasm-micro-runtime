@@ -573,9 +573,9 @@ os_socket_close(bh_socket_t socket);
  *
  * @param socket the socket to be shutdown
  *
- * @return always return 0
+ * @return returns corresponding error code
  */
-int
+__wasi_errno_t
 os_socket_shutdown(bh_socket_t socket);
 
 /**

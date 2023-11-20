@@ -5,6 +5,8 @@
 
 #include "platform_api_vmcore.h"
 #include "platform_api_extension.h"
+#include "platform_wasi_types.h"
+#include "win_util.h"
 
 /* link with Ws2_32.lib */
 #pragma comment(lib, "ws2_32.lib")
@@ -238,13 +240,15 @@ os_socket_close(bh_socket_t socket)
     return BHT_OK;
 }
 
-int
+__wasi_errno_t
 os_socket_shutdown(bh_socket_t socket)
 {
     CHECK_VALID_SOCKET_HANDLE(socket);
 
-    shutdown(socket->raw.socket, SD_BOTH);
-    return BHT_OK;
+    if (shutdown(socket->raw.socket, SD_BOTH) != 0) {
+        return convert_winsock_error_code(WSAGetLastError());
+    }
+    return __WASI_ESUCCESS;
 }
 
 int
