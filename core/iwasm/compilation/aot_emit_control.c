@@ -202,6 +202,9 @@ handle_next_reachable_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 *p_frame_ip = block->wasm_code_else + 1;
                 /* Push back the block */
                 aot_block_stack_push(&func_ctx->block_stack, block);
+                /* Recover parameters of else branch */
+                for (i = 0; i < block->param_count; i++)
+                    PUSH(block->else_param_phis[i], block->param_types[i]);
                 return true;
             }
             else if (block->llvm_end_block) {
@@ -226,6 +229,9 @@ handle_next_reachable_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         && *p_frame_ip <= block->wasm_code_else) {
         /* Clear value stack and start to translate else branch */
         aot_value_stack_destroy(&block->value_stack);
+        /* Recover parameters of else branch */
+        for (i = 0; i < block->param_count; i++)
+            PUSH(block->else_param_phis[i], block->param_types[i]);
         SET_BUILDER_POS(block->llvm_else_block);
         *p_frame_ip = block->wasm_code_else + 1;
         return true;
