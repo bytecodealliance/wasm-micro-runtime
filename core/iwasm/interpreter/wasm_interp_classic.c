@@ -368,7 +368,7 @@ init_frame_refs(uint8 *frame_ref, uint32 cell_num, WASMFunctionInstance *func)
 #endif
         }
         else {
-            j += wasm_value_type_size(func->param_types[i]);
+            j += wasm_value_type_cell_num(func->param_types[i]);
         }
     }
 
@@ -381,7 +381,7 @@ init_frame_refs(uint8 *frame_ref, uint32 cell_num, WASMFunctionInstance *func)
 #endif
         }
         else {
-            j += wasm_value_type_size(func->local_types[i]);
+            j += wasm_value_type_cell_num(func->local_types[i]);
         }
     }
 }

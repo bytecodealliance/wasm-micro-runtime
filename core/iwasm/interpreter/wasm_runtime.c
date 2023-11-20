@@ -3809,7 +3809,7 @@ llvm_jit_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
         WASMFuncType *func_type = func->func_type;
         /* native function doesn't have operand stack and label stack */
         uint8 *frame_ref = (uint8 *)frame->sp;
-        uint32 i, j, value_type_size;
+        uint32 i, j, k, value_type_cell_num;
 
         for (i = 0, j = 0; i < func_type->param_count; i++) {
             if (wasm_is_type_reftype(func_type->types[i])
@@ -3820,9 +3820,10 @@ llvm_jit_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
 #endif
             }
             else {
-                value_type_size = wasm_value_type_size(func_type->types[i]);
-                for (j = 0; j < value_type_size; j++)
-                    frame_ref[j] = 0;
+                value_type_cell_num =
+                    wasm_value_type_cell_num(func_type->types[i]);
+                for (k = 0; k < value_type_cell_num; k++)
+                    frame_ref[j++] = 0;
             }
         }
     }

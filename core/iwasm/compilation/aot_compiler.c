@@ -343,32 +343,45 @@ aot_gen_commit_values(AOTCompFrame *frame)
         n = p - frame->lp;
 
         /* Commit reference flag */
-        if (comp_ctx->enable_gc && p->ref != p->committed_ref - 1) {
+        if (comp_ctx->enable_gc) {
             switch (p->type) {
                 case VALUE_TYPE_I32:
                 case VALUE_TYPE_F32:
                 case VALUE_TYPE_I1:
-                    if (!store_ref(comp_ctx, p->ref, func_ctx->cur_frame,
-                                   offset_of_ref(comp_ctx, n), 1))
-                        return false;
-                    p->committed_ref = p->ref + 1;
+                    if (p->ref != p->committed_ref - 1) {
+                        if (!store_ref(comp_ctx, p->ref, func_ctx->cur_frame,
+                                       offset_of_ref(comp_ctx, n), 1))
+                            return false;
+                        p->committed_ref = p->ref + 1;
+                    }
                     break;
 
                 case VALUE_TYPE_I64:
                 case VALUE_TYPE_F64:
-                    if (!store_ref(comp_ctx, p->ref, func_ctx->cur_frame,
-                                   offset_of_ref(comp_ctx, n), 2))
-                        return false;
-                    p->committed_ref = (p + 1)->committed_ref = p->ref + 1;
+                    bh_assert(p->ref == (p + 1)->ref);
+                    if (p->ref != p->committed_ref - 1
+                        || p->ref != (p + 1)->committed_ref - 1) {
+                        if (!store_ref(comp_ctx, p->ref, func_ctx->cur_frame,
+                                       offset_of_ref(comp_ctx, n), 2))
+                            return false;
+                        p->committed_ref = (p + 1)->committed_ref = p->ref + 1;
+                    }
                     break;
 
                 case VALUE_TYPE_V128:
-                    if (!store_ref(comp_ctx, p->ref, func_ctx->cur_frame,
-                                   offset_of_ref(comp_ctx, n), 4))
-                        return false;
-                    p->committed_ref = (p + 1)->committed_ref =
-                        (p + 2)->committed_ref = (p + 3)->committed_ref =
-                            p->ref + 1;
+                    bh_assert(p->ref == (p + 1)->ref && p->ref == (p + 2)->ref
+                              && p->ref == (p + 3)->ref);
+                    if (p->ref != p->committed_ref - 1
+                        || p->ref != (p + 1)->committed_ref - 1
+                        || p->ref != (p + 2)->committed_ref - 1
+                        || p->ref != (p + 3)->committed_ref - 1) {
+                        if (!store_ref(comp_ctx, p->ref, func_ctx->cur_frame,
+                                       offset_of_ref(comp_ctx, n), 4))
+                            return false;
+                        p->committed_ref = (p + 1)->committed_ref =
+                            (p + 2)->committed_ref = (p + 3)->committed_ref =
+                                p->ref + 1;
+                    }
                     break;
 
                 case REF_TYPE_NULLFUNCREF:
@@ -385,16 +398,25 @@ aot_gen_commit_values(AOTCompFrame *frame)
                 case REF_TYPE_ARRAYREF:
                 case VALUE_TYPE_GC_REF:
                     if (comp_ctx->pointer_size == sizeof(uint64)) {
-                        if (!store_ref(comp_ctx, p->ref, func_ctx->cur_frame,
-                                       offset_of_ref(comp_ctx, n), 2))
-                            return false;
-                        p->committed_ref = (p + 1)->committed_ref = p->ref + 1;
+                        bh_assert(p->ref == (p + 1)->ref);
+                        if (p->ref != p->committed_ref - 1
+                            || p->ref != (p + 1)->committed_ref - 1) {
+                            if (!store_ref(comp_ctx, p->ref,
+                                           func_ctx->cur_frame,
+                                           offset_of_ref(comp_ctx, n), 2))
+                                return false;
+                            p->committed_ref = (p + 1)->committed_ref =
+                                p->ref + 1;
+                        }
                     }
                     else {
-                        if (!store_ref(comp_ctx, p->ref, func_ctx->cur_frame,
-                                       offset_of_ref(comp_ctx, n), 1))
-                            return false;
-                        p->committed_ref = p->ref + 1;
+                        if (p->ref != p->committed_ref - 1) {
+                            if (!store_ref(comp_ctx, p->ref,
+                                           func_ctx->cur_frame,
+                                           offset_of_ref(comp_ctx, n), 1))
+                                return false;
+                            p->committed_ref = p->ref + 1;
+                        }
                     }
                     break;
 
