@@ -1,38 +1,20 @@
-diff --git a/test/core/throw.wast b/test/core/throw.wast
-index d53b5b55..57a0dbca 100644
---- a/test/core/throw.wast
-+++ b/test/core/throw.wast
-@@ -46,6 +46,6 @@
- 
- (assert_invalid (module (func (throw 0))) "unknown tag 0")
- (assert_invalid (module (tag (param i32)) (func (throw 0)))
--                "type mismatch: instruction requires [i32] but stack has []")
-+                "type mismatch: stack size does not match tag type")
- (assert_invalid (module (tag (param i32)) (func (i64.const 5) (throw 0)))
--                "type mismatch: instruction requires [i32] but stack has [i64]")
-+                "type mismatch: stack size does not match tag type")
 diff --git a/test/core/try_catch.wast b/test/core/try_catch.wast
-index 2a0e9ff6..b7f89f15 100644
+index 2a0e9ff6..f243489d 100644
 --- a/test/core/try_catch.wast
 +++ b/test/core/try_catch.wast
-@@ -251,15 +251,15 @@
+@@ -203,7 +203,6 @@
+ 
+ (assert_return (invoke "catch-param-i32" (i32.const 5)) (i32.const 5))
+ 
+-(assert_return (invoke "catch-imported") (i32.const 2))
+ 
+ (assert_return (invoke "catchless-try" (i32.const 0)) (i32.const 0))
+ (assert_return (invoke "catchless-try" (i32.const 1)) (i32.const 1))
+@@ -231,7 +230,6 @@
+   )
  )
  
- (assert_invalid (module (func (result i32) (try (result i32) (do))))
--                "type mismatch: instruction requires [i32] but stack has []")
-+                "type mismatch: stack size does not match block type")
- (assert_invalid (module (func (result i32) (try (result i32) (do (i64.const 42)))))
--                "type mismatch: instruction requires [i32] but stack has [i64]")
-+                "type mismatch: stack size does not match block type")
- (assert_invalid (module (tag) (func (try (do) (catch 0 (i32.const 42)))))
--                "type mismatch: block requires [] but stack has [i32]")
-+                "type mismatch: stack size does not match block type")
- (assert_invalid (module
-                   (tag (param i64))
-                   (func (result i32)
-                     (try (result i32) (do (i32.const 42)) (catch 0))))
--                "type mismatch: instruction requires [i32] but stack has [i64]")
-+                "type mismatch: stack size does not match block type")
- (assert_invalid (module (func (try (do) (catch_all (i32.const 42)))))
--                "type mismatch: block requires [] but stack has [i32]")
-+                "type mismatch: stack size does not match block type")
+-(assert_return (invoke "imported-mismatch") (i32.const 3))
+ 
+ (assert_malformed
+   (module quote "(module (func (catch_all)))")

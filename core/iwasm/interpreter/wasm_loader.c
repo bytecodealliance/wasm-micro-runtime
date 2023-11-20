@@ -4463,6 +4463,16 @@ wasm_loader_unload(WASMModule *module)
     if (module->memories)
         wasm_runtime_free(module->memories);
 
+#if WASM_ENABLE_TAGS != 0
+    if (module->tags) {
+        for (i = 0; i < module->tag_count; i++) {
+            if (module->tags[i])
+                wasm_runtime_free(module->tags[i]);
+        }
+        wasm_runtime_free(module->tags);
+    }
+#endif
+
     if (module->globals)
         wasm_runtime_free(module->globals);
 

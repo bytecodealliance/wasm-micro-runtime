@@ -14,7 +14,7 @@ function help()
 {
     echo "test_wamr.sh [options]"
     echo "-c clean previous test results, not start test"
-    echo "-s {suite_name} test only one suite (spec|wasi_certification|wamr_compiler|exception)"
+    echo "-s {suite_name} test only one suite (spec|wasi_certification|wamr_compiler)"
     echo "-m set compile target of iwasm(x86_64|x86_32|armv7_vfp|thumbv7_vfp|riscv64_lp64d|riscv64_lp64|aarch64)"
     echo "-t set compile type of iwasm(classic-interp|fast-interp|jit|aot|fast-jit|multi-tier-jit)"
     echo "-M enable multi module feature"
@@ -440,7 +440,7 @@ function spec_test()
         git reset --hard 51c721661b671bb7dc4b3a3acb9e079b49778d36
         
         if [[ ${ENABLE_MULTI_MODULE} == 0 ]]; then
-            git apply ../../spec-test-script/exception_handling_noimport.patch
+            git apply ../../spec-test-script/exception_handling.patch
         fi
         
         popd
