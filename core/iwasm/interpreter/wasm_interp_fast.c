@@ -2989,8 +2989,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                         segment = read_uint32(frame_ip);
 
-                        bytes = (uint64)POP_I32();
-                        offset = (uint64)POP_I32();
+                        bytes = (uint64)(uint32)POP_I32();
+                        offset = (uint64)(uint32)POP_I32();
                         addr = POP_I32();
 
 #if WASM_ENABLE_THREAD_MGR
