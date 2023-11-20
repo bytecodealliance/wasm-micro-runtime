@@ -81,10 +81,15 @@ struct WASMMemoryInstance {
     /* Module type */
     uint32 module_type;
 
-    bool is_shared_memory;
+    /* Whether the memory is shared */
+    uint8 is_shared_memory;
 
-    /* Shared memory flag */
-    bh_atomic_16_t ref_count; /* 0: non-shared, > 0: reference count */
+    /* One byte padding */
+    uint8 __padding__;
+
+    /* Reference count of the memory instance:
+         0: non-shared memory, > 0: shared memory */
+    bh_atomic_16_t ref_count;
 
     /* Number bytes per page */
     uint32 num_bytes_per_page;

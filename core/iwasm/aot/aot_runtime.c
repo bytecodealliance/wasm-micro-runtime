@@ -605,7 +605,7 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModuleInstance *parent,
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (is_shared_memory) {
-        memory_inst->is_shared_memory = true;
+        memory_inst->is_shared_memory = 1;
         memory_inst->ref_count = 1;
     }
 #endif
