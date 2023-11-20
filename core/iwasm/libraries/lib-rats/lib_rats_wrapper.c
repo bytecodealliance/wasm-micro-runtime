@@ -96,6 +96,15 @@ librats_parse_evidence_wrapper(wasm_exec_env_t exec_env,
     return 0;
 }
 
+static void
+librats_dispose_evidence_json_wrapper(wasm_exec_env_t exec_env,
+                                      char *evidence_json)
+{
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
+
+    module_free((uintptr_t)evidence_json);
+}
+
 /* clang-format off */
 #define REG_NATIVE_FUNC(func_name, signature) \
     { #func_name, func_name##_wrapper, signature, NULL }
@@ -104,7 +113,8 @@ librats_parse_evidence_wrapper(wasm_exec_env_t exec_env,
 static NativeSymbol native_symbols_lib_rats[] = {
     REG_NATIVE_FUNC(librats_collect, "(**~)i"),
     REG_NATIVE_FUNC(librats_verify, "(*~*~)i"),
-    REG_NATIVE_FUNC(librats_parse_evidence, "(*~*~)i")
+    REG_NATIVE_FUNC(librats_parse_evidence, "(*~*~)i"),
+    REG_NATIVE_FUNC(librats_dispose_evidence_json, "(*)")
 };
 
 uint32_t
