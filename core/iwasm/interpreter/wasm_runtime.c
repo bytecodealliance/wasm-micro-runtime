@@ -2419,14 +2419,16 @@ wasm_dump_perf_profiling(const WASMModuleInstance *module_inst)
         }
 
         if (func_name)
-            os_printf("  func %s, execution time: %.3f ms, execution count: %d "
-                      "times\n",
-                      func_name,
-                      module_inst->e->functions[i].total_exec_time / 1000.0f,
-                      module_inst->e->functions[i].total_exec_cnt);
+            os_printf(
+                "  func %s, execution time: %.3f ms, execution count: %" PRIu32
+                " times\n",
+                func_name,
+                module_inst->e->functions[i].total_exec_time / 1000.0f,
+                module_inst->e->functions[i].total_exec_cnt);
         else
-            os_printf("  func %d, execution time: %.3f ms, execution count: %d "
-                      "times\n",
+            os_printf("  func %" PRIu32
+                      ", execution time: %.3f ms, execution count: %" PRIu32
+                      " times\n",
                       i, module_inst->e->functions[i].total_exec_time / 1000.0f,
                       module_inst->e->functions[i].total_exec_cnt);
     }
