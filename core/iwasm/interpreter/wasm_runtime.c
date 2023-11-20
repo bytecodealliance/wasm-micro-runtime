@@ -822,9 +822,14 @@ tags_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
     bh_assert((uint32)(tag - tags) == tag_count);
 
     return tags;
+
+#if WASM_ENABLE_MULTI_MODULE != 0
 fail:
     tags_deinstantiate(tags, module_inst->e->import_tag_ptrs);
+    /* clean up */
+    module_inst->e->import_tag_ptrs = NULL;
     return NULL;
+#endif
 }
 #endif
 
