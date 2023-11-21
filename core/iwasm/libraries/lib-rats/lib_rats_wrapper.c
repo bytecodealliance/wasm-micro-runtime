@@ -17,7 +17,7 @@
 #include "lib_rats_common.h"
 
 static int
-librats_collect_wrapper(wasm_exec_env_t exec_env, char **evidence_json,
+librats_collect_wrapper(wasm_exec_env_t exec_env, uint32_t *evidence_json,
                         const char *buffer, uint32_t buffer_size)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
@@ -47,7 +47,7 @@ librats_collect_wrapper(wasm_exec_env_t exec_env, char **evidence_json,
         return (int)RATS_ATTESTER_ERR_NO_MEM;
     }
     bh_memcpy_s(str_ret, json_size, json, json_size);
-    *((int *)evidence_json) = str_ret_offset;
+    *evidence_json = str_ret_offset;
     free(json);
 
     return 0;
@@ -98,11 +98,11 @@ librats_parse_evidence_wrapper(wasm_exec_env_t exec_env,
 
 static void
 librats_dispose_evidence_json_wrapper(wasm_exec_env_t exec_env,
-                                      char *evidence_json)
+                                      uint32_t evidence_json)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
 
-    module_free((uintptr_t)evidence_json);
+    module_free(evidence_json);
 }
 
 /* clang-format off */
@@ -114,7 +114,7 @@ static NativeSymbol native_symbols_lib_rats[] = {
     REG_NATIVE_FUNC(librats_collect, "(**~)i"),
     REG_NATIVE_FUNC(librats_verify, "(*~*~)i"),
     REG_NATIVE_FUNC(librats_parse_evidence, "(*~*~)i"),
-    REG_NATIVE_FUNC(librats_dispose_evidence_json, "(*)")
+    REG_NATIVE_FUNC(librats_dispose_evidence_json, "(i)")
 };
 
 uint32_t
