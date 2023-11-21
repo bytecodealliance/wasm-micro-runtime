@@ -2581,7 +2581,7 @@ wasm_runtime_get_custom_data(WASMModuleInstanceCommon *module_inst_comm)
     return module_inst->custom_data;
 }
 
-#if WASM_CONFIGUABLE_BOUNDS_CHECKS != 0
+#if WASM_CONFIGURABLE_BOUNDS_CHECKS != 0
 void
 wasm_runtime_set_bounds_checks(WASMModuleInstanceCommon *module_inst,
                                bool enable)

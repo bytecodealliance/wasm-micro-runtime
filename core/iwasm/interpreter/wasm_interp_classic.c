@@ -1181,7 +1181,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     uint8 value_type;
 #if !defined(OS_ENABLE_HW_BOUND_CHECK) \
     || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
-#if WASM_CONFIGUABLE_BOUNDS_CHECKS != 0
+#if WASM_CONFIGURABLE_BOUNDS_CHECKS != 0
     bool disable_bounds_checks = !wasm_runtime_is_bounds_checks_enabled(
         (WASMModuleInstanceCommon *)module);
 #else

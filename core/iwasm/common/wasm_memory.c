@@ -95,7 +95,7 @@ wasm_memory_init_with_allocator(void *_malloc_func, void *_realloc_func,
 static inline bool
 is_bounds_checks_enabled(WASMModuleInstanceCommon *module_inst)
 {
-#if WASM_CONFIGUABLE_BOUNDS_CHECKS != 0
+#if WASM_CONFIGURABLE_BOUNDS_CHECKS != 0
     return wasm_runtime_is_bounds_checks_enabled(module_inst);
 #else
     return true;

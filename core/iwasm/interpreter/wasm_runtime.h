@@ -220,7 +220,7 @@ typedef struct WASMModuleInstanceExtraCommon {
     CApiFuncImport *c_api_func_imports;
     /* pointer to the exec env currently used */
     WASMExecEnv *cur_exec_env;
-#if WASM_CONFIGUABLE_BOUNDS_CHECKS != 0
+#if WASM_CONFIGURABLE_BOUNDS_CHECKS != 0
     /* Disable bounds checks or not */
     bool disable_bounds_checks;
 #endif
