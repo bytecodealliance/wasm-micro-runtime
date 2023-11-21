@@ -50,6 +50,7 @@ SPEC_TEST_DIR = "spec/test/core"
 WAST2WASM_CMD = exe_file_path("./wabt/out/gcc/Release/wat2wasm")
 SPEC_INTERPRETER_CMD = "spec/interpreter/wasm"
 WAMRC_CMD = "../../../wamr-compiler/build/wamrc"
+EXCE_HANDLING_DIR = "exception-handling/test/core"
 
 
 class TargetAction(argparse.Action):
@@ -84,12 +85,6 @@ def ignore_the_case(
     eh_flag=False,
     qemu_flag=False,
 ):
-    # print(f"case_name {case_name}\n")
-    if eh_flag:
-        if case_name in [ "tag", "try_catch", "rethrow", "try_delegate" ]:
-            return False
-        else:
-            return True
 
     if case_name in ["comments", "inline-module", "names"]:
         return True
@@ -138,10 +133,6 @@ def ignore_the_case(
 
 
 def preflight_check(aot_flag, eh_flag):
-    global SPEC_TEST_DIR
-    if eh_flag:
-        SPEC_TEST_DIR="exception-handling/test/core"
-    
     if not pathlib.Path(SPEC_TEST_DIR).resolve().exists():
         print(f"Can not find {SPEC_TEST_DIR}")
         return False
@@ -152,6 +143,10 @@ def preflight_check(aot_flag, eh_flag):
 
     if aot_flag and not pathlib.Path(WAMRC_CMD).resolve().exists():
         print(f"Can not find {WAMRC_CMD}")
+        return False
+
+    if eh_flag and not pathlib.Path(EXCE_HANDLING_DIR).resolve().exists():
+        print(f"Can not find {EXCE_HANDLING_DIR}")
         return False
 
     return True
@@ -297,10 +292,6 @@ def test_suite(
     log="",
     no_pty=False,
 ):
-    global SPEC_TEST_DIR
-    if eh_flag:
-        SPEC_TEST_DIR="exception-handling/test/core"
-    
     suite_path = pathlib.Path(SPEC_TEST_DIR).resolve()
     if not suite_path.exists():
         print(f"can not find spec test cases at {suite_path}")
@@ -314,6 +305,15 @@ def test_suite(
     if gc_flag:
         gc_case_list = sorted(suite_path.glob("gc/*.wast"))
         case_list.extend(gc_case_list)
+
+    if eh_flag:
+        eh_path = pathlib.Path(EXCE_HANDLING_DIR).resolve()
+        if not eh_path.exists():
+            print(f"can not find spec test cases at {eh_path}")
+            return False
+        eh_case_list = sorted(eh_path.glob("*.wast"))
+        eh_case_list_include = [test for test in eh_case_list if test.stem in ["throw", "tag", "try_catch", "rethrow", "try_delegate"]]
+        case_list.extend(eh_case_list_include)
 
     # ignore based on command line options
     filtered_case_list = []
