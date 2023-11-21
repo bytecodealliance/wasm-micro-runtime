@@ -15,6 +15,7 @@
 #include "wasi_nn_private.h"
 #include "wasi_nn_app_native.h"
 #include "wasi_nn_tensorflowlite.hpp"
+#include "wasi_nn_tensorflowlite_micro.hpp"
 #include "logger.h"
 
 #include "bh_platform.h"
@@ -32,6 +33,8 @@ typedef error (*SET_INPUT)(void *, graph_execution_context, uint32_t, tensor *);
 typedef error (*COMPUTE)(void *, graph_execution_context);
 typedef error (*GET_OUTPUT)(void *, graph_execution_context, uint32_t,
                             tensor_data, uint32_t *);
+typedef void (*INIT)(void **tflite_ctx);
+typedef void (*DESTROY)(void *);
 
 typedef struct {
     LOAD load;
@@ -39,6 +42,8 @@ typedef struct {
     SET_INPUT set_input;
     COMPUTE compute;
     GET_OUTPUT get_output;
+    INIT init;
+    DESTROY destroy;
 } api_function;
 
 /* Global variables */
@@ -48,9 +53,18 @@ static api_function lookup[] = {
     { NULL, NULL, NULL, NULL, NULL },
     { NULL, NULL, NULL, NULL, NULL },
     { NULL, NULL, NULL, NULL, NULL },
+#ifdef CONFIG_ARCH_XTENSA
+    { NULL, NULL, NULL, NULL, NULL },
+#else
     { tensorflowlite_load, tensorflowlite_init_execution_context,
       tensorflowlite_set_input, tensorflowlite_compute,
-      tensorflowlite_get_output }
+      tensorflowlite_get_output, tensorflowlite_initialize,
+      tensorflowlite_destroy },
+#endif
+    { tensorflowlite_micro_load, tensorflowlite_micro_init_execution_context,
+      tensorflowlite_micro_set_input, tensorflowlite_micro_compute,
+      tensorflowlite_micro_get_output, tensorflowlite_micro_initialize,
+      tensorflowlite_micro_destroy }
 };
 
 static HashMap *hashmap;
@@ -105,7 +119,14 @@ wasi_nn_initialize_context()
         return NULL;
     }
     wasi_nn_ctx->is_model_loaded = false;
-    tensorflowlite_initialize(&wasi_nn_ctx->tflite_ctx);
+    // CONFIG_INTERPRETERS_WAMR_WASI_NN or CONFIG_ARCH_CHIP_ESP32S3, or else other?
+#ifdef CONFIG_ARCH_XTENSA
+    wasi_nn_ctx->current_encoding = tensorflowlite_micro;
+#else
+    wasi_nn_ctx->current_encoding = tensorflowlite;
+#endif
+
+    lookup[wasi_nn_ctx->current_encoding].init(&wasi_nn_ctx->tflite_ctx);
     return wasi_nn_ctx;
 }
 
@@ -155,7 +176,7 @@ wasi_nn_ctx_destroy(WASINNContext *wasi_nn_ctx)
     NN_DBG_PRINTF("Freeing wasi-nn");
     NN_DBG_PRINTF("-> is_model_loaded: %d", wasi_nn_ctx->is_model_loaded);
     NN_DBG_PRINTF("-> current_encoding: %d", wasi_nn_ctx->current_encoding);
-    tensorflowlite_destroy(wasi_nn_ctx->tflite_ctx);
+    lookup[wasi_nn_ctx->current_encoding].destroy(wasi_nn_ctx->tflite_ctx);
     wasm_runtime_free(wasi_nn_ctx);
 }
 
@@ -343,6 +364,18 @@ wasi_nn_get_output(wasm_exec_env_t exec_env, graph_execution_context ctx,
     return res;
 }
 
+void
+wasi_nn_destroy_execution_context(wasm_exec_env_t exec_env)
+{
+    NN_DBG_PRINTF("Running wasi_nn_destroy_execution_context...");
+
+    wasm_module_inst_t instance = wasm_runtime_get_module_inst(exec_env);
+    bh_assert(instance);
+
+    WASINNContext *wasi_nn_ctx = wasm_runtime_get_wasi_nn_ctx(instance);
+    wasi_nn_ctx_destroy(wasi_nn_ctx);
+}
+
 /* Register WASI-NN in WAMR */
 
 /* clang-format off */
@@ -356,6 +389,7 @@ static NativeSymbol native_symbols_wasi_nn[] = {
     REG_NATIVE_FUNC(set_input, "(ii*)i"),
     REG_NATIVE_FUNC(compute, "(i)i"),
     REG_NATIVE_FUNC(get_output, "(ii**)i"),
+    REG_NATIVE_FUNC(destroy_execution_context, ""),
 };
 
 uint32_t

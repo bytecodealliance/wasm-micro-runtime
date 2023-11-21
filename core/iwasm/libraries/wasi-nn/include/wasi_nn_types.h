@@ -100,7 +100,8 @@ typedef enum {
     onnx,
     tensorflow,
     pytorch,
-    tensorflowlite
+    tensorflowlite,
+    tensorflowlite_micro
 } graph_encoding;
 
 // Define where the graph should be executed.

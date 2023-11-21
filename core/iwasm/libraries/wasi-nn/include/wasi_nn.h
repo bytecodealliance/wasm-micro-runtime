@@ -86,4 +86,12 @@ get_output(graph_execution_context ctx, uint32_t index,
            tensor_data output_tensor, uint32_t *output_tensor_size)
     __attribute__((import_module("wasi_nn")));
 
+/**
+ * @brief Destroy wasi-nn context structure.
+ * @return
+ */
+void
+destroy_execution_context()
+    __attribute__((import_module("wasi_nn")));
+
 #endif

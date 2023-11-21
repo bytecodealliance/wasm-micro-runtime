@@ -236,6 +236,109 @@ else
 CFLAGS += -DWASM_ENABLE_LIBC_BUILTIN=0
 endif
 
+ifeq ($(CONFIG_INTERPRETERS_WAMR_WASI_NN),y)
+CFLAGS += -DWASM_ENABLE_WASI_NN=1
+CFLAGS += -I$(IWASM_ROOT)/libraries/wasi-nn/src
+CFLAGS += -I$(IWASM_ROOT)/libraries/wasi-nn/include
+CFLAGS += -I$(IWASM_ROOT)/libraries/wasi-nn/src/utils
+CSRCS += $(IWASM_ROOT)/libraries/wasi-nn/src/wasi_nn.c
+CSRCS += $(IWASM_ROOT)/libraries/wasi-nn/src/utils/wasi_nn_app_native.c
+
+CXXEXT = .cpp
+CXXSRCS += $(IWASM_ROOT)/libraries/wasi-nn/src/wasi_nn_tensorflowlite_micro.cpp
+CXXFLAGS += -DWASM_ENABLE_WASI_NN=1
+CXXFLAGS += -DTFLITE_WITH_STABLE_ABI=0
+CXXFLAGS += -DTFLITE_USE_OPAQUE_DELEGATE=0
+CXXFLAGS += -DTFLITE_SINGLE_ROUNDING=0
+CXXFLAGS += -DUSE_IDF=0
+CXXFLAGS += -I$(IWASM_ROOT)/libraries/wasi-nn/src
+CXXFLAGS += -I$(IWASM_ROOT)/libraries/wasi-nn/include
+CXXFLAGS += -I$(IWASM_ROOT)/libraries/wasi-nn/src/utils
+CXXFLAGS += -I${CORE_ROOT} \
+          -I${IWASM_ROOT}/include \
+          -I${IWASM_ROOT}/interpreter \
+          -I${IWASM_ROOT}/common \
+          -I${IWASM_ROOT}/libraries/thread-mgr \
+          -I${IWASM_ROOT}/libraries/lib-pthread \
+          -I${SHARED_ROOT}/include \
+          -I${SHARED_ROOT}/platform/include \
+          -I${SHARED_ROOT}/utils \
+          -I${SHARED_ROOT}/utils/uncommon \
+          -I${SHARED_ROOT}/mem-alloc \
+          -I${SHARED_ROOT}/platform/nuttx
+  
+CXXFLAGS += -Wno-error=attributes
+CXXFLAGS += -Wno-maybe-uninitialized
+CXXFLAGS += -Wno-missing-field-initializers
+CXXFLAGS += -Wno-error=sign-compare
+CXXFLAGS += -Wno-error=double-promotion
+CXXFLAGS += -Wno-type-limits
+
+CXXFLAGS += -Wno-error=stringop-overread
+
+CXXFLAGS += -DTF_LITE_STATIC_MEMORY
+CXXFLAGS += -DTF_LITE_DISABLE_X86_NEON
+CXXFLAGS += -O3
+CXXFLAGS += -Wstrict-aliasing
+CXXFLAGS += -Wno-unused-parameter
+CXXFLAGS += -Wall
+CXXFLAGS += -Wextra
+CXXFLAGS += -Wvla
+CXXFLAGS += -Wsign-compare
+CXXFLAGS += -Wdouble-promotion
+CXXFLAGS += -Wswitch
+CXXFLAGS += -Wunused-function
+CXXFLAGS += -Wmissing-field-initializers
+CXXFLAGS += -ffunction-sections
+CXXFLAGS += -fdata-sections
+CXXFLAGS += -Wshadow
+CXXFLAGS += -Wunused-variable
+CXXFLAGS += -fno-unwind-tables
+CXXFLAGS += -fmessage-length=0
+
+CXXFLAGS += -fmessage-length=0
+CXXFLAGS += -Wno-nonnull
+CXXFLAGS += -fno-rtti
+CXXFLAGS += -fno-exceptions
+CXXFLAGS += -fno-threadsafe-statics
+# CXXFLAGS += -Werror
+CXXFLAGS += -Wno-return-type
+CXXFLAGS += -Wno-strict-aliasing
+# CXXFLAGS += -std=gnu++14
+
+CXXFLAGS += -lm
+
+# Use these options for flatbuffers using uClibc++
+CXXFLAGS   += -DFLATBUFFERS_CPP98_STL -fno-threadsafe-statics
+
+CXXFLAGS += -DXTENSA
+
+CFLAGS += -DNN_LOG_LEVEL=CONFIG_INTERPRETERS_WAMR_WASI_NN_LOG_LEVEL
+CXXFLAGS += -DNN_LOG_LEVEL=CONFIG_INTERPRETERS_WAMR_WASI_NN_LOG_LEVEL
+
+TFLITE_PATH = $(APPDIR)/mlearning/tflite_micro_esp/tflite_micro_esp/tflite-micro-esp-examples/components/esp-tflite-micro
+NN_PATH = $(APPDIR)/mlearning/tflite_micro_esp/esp_nn/esp-nn
+
+CXXFLAGS   += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" "$(TFLITE_PATH)"}
+CXXFLAGS   += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" "$(TFLITE_PATH)/third_party/flatbuffers/include"}
+CXXFLAGS   += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" "$(TFLITE_PATH)/third_party/gemmlowp"}
+CXXFLAGS   += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" "$(TFLITE_PATH)/third_party/ruy"}
+CXXFLAGS   += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" "$(TFLITE_PATH)/third_party/kissfft"}
+CXXFLAGS   += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" "$(TFLITE_PATH)/signal/micro/kernels"}
+CXXFLAGS   += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" "$(TFLITE_PATH)/signal/src"}
+CXXFLAGS   += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" "$(TFLITE_PATH)/signal/src/kiss_fft_wrappers"}
+
+# CFLAGS   += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" "$(NN_PATH)/include"}
+# CFLAGS   += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" "$(NN_PATH)/src/common"}
+# CFLAGS   += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" "$(NN_PATH)/src/softmax"}
+CXXFLAGS   += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" "$(NN_PATH)/include"}
+CXXFLAGS   += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" "$(NN_PATH)/src/common"}
+CXXFLAGS   += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" "$(NN_PATH)/src/softmax"}
+
+else
+CFLAGS += -DWASM_ENABLE_WASI_NN=0
+endif
+
 ifeq ($(CONFIG_INTERPRETERS_WAMR_CONFIGUABLE_BOUNDS_CHECKS),y)
 CFLAGS += -DWASM_CONFIGUABLE_BOUNDS_CHECKS=1
 else
