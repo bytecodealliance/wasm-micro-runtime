@@ -208,9 +208,9 @@ typedef union {
 } l32r_insn_t;
 
 bool
-apply_relocation(AOTModule *module, uint8 *target_section_addr,
+apply_relocation(AOTModule *module, const uint8 *target_section_addr,
                  uint32 target_section_size, uint64 reloc_offset,
-                 int64 reloc_addend, uint32 reloc_type, void *symbol_addr,
+                 int64 reloc_addend, uint32 reloc_type, const void *symbol_addr,
                  int32 symbol_index, char *error_buf, uint32 error_buf_size)
 {
     switch (reloc_type) {

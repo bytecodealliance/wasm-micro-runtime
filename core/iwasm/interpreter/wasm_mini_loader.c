@@ -3577,7 +3577,7 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
 typedef struct BranchBlockPatch {
     struct BranchBlockPatch *next;
     uint8 patch_type;
-    uint8 *code_compiled;
+    const uint8 *code_compiled;
 } BranchBlockPatch;
 #endif
 
@@ -3590,7 +3590,7 @@ typedef struct BranchBlock {
     uint32 stack_cell_num;
 #if WASM_ENABLE_FAST_INTERP != 0
     uint16 dynamic_offset;
-    uint8 *code_compiled;
+    const uint8 *code_compiled;
     BranchBlockPatch *patch_list;
     /* This is used to save params frame_offset of of if block */
     int16 *param_frame_offsets;

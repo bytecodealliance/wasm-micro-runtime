@@ -746,7 +746,7 @@ wasm_runtime_validate_app_str_addr(WASMModuleInstanceCommon *module_inst,
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_validate_native_addr(WASMModuleInstanceCommon *module_inst,
-                                  void *native_ptr, uint32 size);
+                                  const void *native_ptr, uint32 size);
 
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN void *
@@ -917,7 +917,8 @@ wasm_runtime_set_wasi_ns_lookup_pool(wasm_module_t module,
 #if WASM_ENABLE_REF_TYPES != 0
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN bool
-wasm_externref_obj2ref(WASMModuleInstanceCommon *module_inst, void *extern_obj,
+wasm_externref_obj2ref(WASMModuleInstanceCommon *module_inst,
+                       const void *extern_obj,
                        uint32 *p_externref_idx);
 
 /* See wasm_export.h for description */
