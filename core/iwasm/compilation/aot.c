@@ -512,13 +512,12 @@ aot_create_comp_data(WASMModule *module, const char *target_arch,
 #endif
 
     if (!target_arch) {
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)            \
-    || defined(BUILD_TARGET_AARCH64) || defined(BUILD_TARGET_RISCV64_LP64D) \
-    || defined(BUILD_TARGET_RISCV64_LP64)
+#if UINTPTR_MAX == UINT64_MAX
         is_64bit_target = true;
 #endif
     }
     else {
+        /* All 64bit targets contains "64" string in their target name */
         if (strstr(target_arch, "64") != NULL) {
             is_64bit_target = true;
         }

@@ -699,7 +699,6 @@ init_comp_frame(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     memset(aot_frame, 0, (uint32)total_size);
 
     aot_frame->cur_wasm_module = wasm_module;
-    aot_frame->cur_wasm_func = wasm_module->functions[func_idx];
     aot_frame->cur_wasm_func_idx =
         func_idx + wasm_module->import_function_count;
     aot_frame->comp_ctx = comp_ctx;
