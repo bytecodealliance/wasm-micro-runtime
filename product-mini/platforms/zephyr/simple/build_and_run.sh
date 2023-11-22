@@ -5,7 +5,6 @@
 
 X86_TARGET="x86"
 STM32_TARGET="stm32"
-ESP32_TARGET="esp32"
 ESP32C3_TARGET="esp32c3"
 PARTICLE_ARGON_TARGET="particle_argon"
 QEMU_CORTEX_A53="qemu_cortex_a53"
@@ -17,11 +16,10 @@ QEMU_ARC_TARGET="qemu_arc"
 usage ()
 {
         echo "USAGE:"
-        echo "$0 $X86_TARGET|$STM32_TARGET|$ESP32_TARGET|$ESP32C3_TARGET|$PARTICLE_ARGON_TARGET|$QEMU_CORTEX_A53|$QEMU_XTENSA_TARGET|$QEMU_RISCV64_TARGET|$QEMU_RISCV32_TARGET|$QEMU_ARC_TARGET"
+        echo "$0 $X86_TARGET|$STM32_TARGET|$ESP32C3_TARGET|$PARTICLE_ARGON_TARGET|$QEMU_CORTEX_A53|$QEMU_XTENSA_TARGET|$QEMU_RISCV64_TARGET|$QEMU_RISCV32_TARGET|$QEMU_ARC_TARGET"
         echo "Example:"
         echo "        $0 $X86_TARGET"
         echo "        $0 $STM32_TARGET"
-        echo "        $0 $ESP32_TARGET"
         echo "        $0 $ESP32C3_TARGET"
         echo "        $0 $PARTICLE_ARGON_TARGET"
         echo "        $0 $QEMU_CORTEX_A53"
@@ -49,13 +47,6 @@ case $TARGET in
                 west build -b nucleo_f767zi \
                            . -p always -- \
                            -DWAMR_BUILD_TARGET=THUMBV7
-                west flash
-                ;;
-        $ESP32_TARGET)
-                west build -b esp32 \
-                           . -p always -- \
-                           -DWAMR_BUILD_TARGET=XTENSA                           
-                # west flash will discover the device
                 west flash
                 ;;
         $ESP32C3_TARGET)
