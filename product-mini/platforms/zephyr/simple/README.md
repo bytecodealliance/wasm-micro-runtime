@@ -70,7 +70,25 @@ WAMR AOT execution may not be supported on all architectures. It and other
 options can be disabled by modifying the [CMakeLists.txt](./CMakeLists.txt)
 file, or by passing additional arguments at build (e.g. `-DWAMR_BUILD_AOT=0`).
 
-## Flashing Image
+### Example Targets
+
+[ESP32-C3](https://docs.zephyrproject.org/latest/boards/riscv/esp32c3_devkitm/doc/index.html)
+is a 32-bit RISC-V target that does not currently support AOT.
+
+```shell
+west build . -b esp32c3_devkitm -p always -- -DWAMR_BUILD_TARGET=RISCV32_ILP32 -DWAMR_BUILD_AOT=0
+```
+
+[ARM Cortex-A53 QEMU
+(ARM)](https://docs.zephyrproject.org/latest/boards/arm64/qemu_cortex_a53/doc/index.html)
+is a 64-bit ARM target for emulating the Cortex-A53 platform.
+
+```shell
+west build . -b qemu_cortex_a53 -p always -- -DWAMR_BUILD_TARGET=AARCH64 
+```
+
+
+## Flashing or Running Image
 
 The board can be flashed with the built image with the following command.
 
@@ -80,3 +98,11 @@ west flash
 
 `west` will automatically identify the board if it is connected to the host
 machine.
+
+When using emulated targets, such as those that utilize QEMU, there is no
+physical device to flash, but `west` can be used to run the image under
+emulation.
+
+```shell
+west build -t run
+```
