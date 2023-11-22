@@ -106,7 +106,7 @@ main(int argc, char **argv)
 
 err:
     if (evidence_json) {
-        free(evidence_json);
+        librats_dispose_evidence_json(evidence_json);
     }
 
     if (evidence) {
