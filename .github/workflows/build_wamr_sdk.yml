@@ -44,6 +44,9 @@ jobs:
       - name: download wamr-app-framework
         run: |
           git clone ${{ inputs.wamr_app_framework_url }}
+          cd wamr-app-framework
+          git submodule init
+          git submodule update 
         working-directory: wamr-sdk
 
       - name: download and install wasi-sdk
