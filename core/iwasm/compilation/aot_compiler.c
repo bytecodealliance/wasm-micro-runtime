@@ -557,8 +557,8 @@ aot_gen_commit_sp_ip(AOTCompFrame *frame, const AOTValueSlot *sp,
     bool is_64bit = (comp_ctx->pointer_size == sizeof(uint64)) ? true : false;
 
     if (!comp_ctx->is_jit_mode) {
-        offset_ip = (uint32)sizeof(uintptr_t) * 4;
-        offset_sp = (uint32)sizeof(uintptr_t) * 5;
+        offset_ip = frame->comp_ctx->pointer_size * 4;
+        offset_sp = frame->comp_ctx->pointer_size * 5;
     }
     else {
         offset_ip = offsetof(WASMInterpFrame, ip);
@@ -794,7 +794,7 @@ init_comp_frame(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* Set all locals dirty since they were set to llvm value but
        haven't been committed to the AOT/JIT stack frame */
     for (i = 0; i < aot_func->local_count; i++) {
-        local_type = aot_func->local_types[i];
+        local_type = aot_func->local_types_wp[i];
 
         switch (local_type) {
             case VALUE_TYPE_I32:

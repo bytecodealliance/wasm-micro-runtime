@@ -244,12 +244,15 @@ typedef struct AOTFunc {
     AOTFuncType *func_type;
     uint32 func_type_index;
     uint32 local_count;
-    uint8 *local_types;
+    uint8 *local_types_wp;
     uint16 param_cell_num;
     uint16 local_cell_num;
     uint32 max_stack_cell_num;
     uint32 code_size;
     uint8 *code;
+    /* offset of each local, including function parameters
+       and local variables */
+    uint16 *local_offsets;
 } AOTFunc;
 
 typedef struct AOTCompData {

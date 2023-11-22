@@ -246,7 +246,8 @@ call_aot_invoke_native_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
         LLVMSetAlignment(res, 1);
 
-        cell_num += wasm_value_type_cell_num(aot_func_type->types[i]);
+        cell_num += wasm_value_type_cell_num_internal(aot_func_type->types[i],
+                                                      comp_ctx->pointer_size);
     }
 
     func_param_values[0] = func_ctx->exec_env;
@@ -745,7 +746,8 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 goto fail;
             }
             param_values[param_count + 1 + i] = ext_ret_ptr;
-            cell_num += wasm_value_type_cell_num(ext_ret_types[i]);
+            cell_num += wasm_value_type_cell_num_internal(
+                ext_ret_types[i], comp_ctx->pointer_size);
         }
     }
 
@@ -1127,7 +1129,8 @@ call_aot_call_indirect_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
         LLVMSetAlignment(res, 1);
 
-        cell_num += wasm_value_type_cell_num(aot_func_type->types[i]);
+        cell_num += wasm_value_type_cell_num_internal(aot_func_type->types[i],
+                                                      comp_ctx->pointer_size);
     }
 
     func_param_values[0] = func_ctx->exec_env;
@@ -1174,7 +1177,8 @@ call_aot_call_indirect_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             aot_set_last_error("llvm build load failed.");
             return false;
         }
-        cell_num += wasm_value_type_cell_num(wasm_ret_types[i]);
+        cell_num += wasm_value_type_cell_num_internal(wasm_ret_types[i],
+                                                      comp_ctx->pointer_size);
     }
 
     *p_res = res;
@@ -1553,8 +1557,8 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
 
         param_values[func_param_count + i] = ext_ret_ptr;
-        ext_cell_num +=
-            wasm_value_type_cell_num(func_type->types[func_param_count + i]);
+        ext_cell_num += wasm_value_type_cell_num_internal(
+            func_type->types[func_param_count + i], comp_ctx->pointer_size);
     }
 
     if (ext_cell_num > 64) {
@@ -2054,8 +2058,8 @@ aot_compile_op_call_ref(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
 
         param_values[func_param_count + i] = ext_ret_ptr;
-        ext_cell_num +=
-            wasm_value_type_cell_num(func_type->types[func_param_count + i]);
+        ext_cell_num += wasm_value_type_cell_num_internal(
+            func_type->types[func_param_count + i], comp_ctx->pointer_size);
     }
 
     if (ext_cell_num > 64) {

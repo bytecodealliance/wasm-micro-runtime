@@ -26,7 +26,7 @@ get_local_type(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     local_type = local_idx < param_count
                      ? aot_func->func_type->types[local_idx]
-                     : aot_func->local_types[local_idx - param_count];
+                     : aot_func->local_types_wp[local_idx - param_count];
 
     if (comp_ctx->enable_gc && aot_is_type_gc_reftype(local_type))
         local_type = VALUE_TYPE_GC_REF;
@@ -83,7 +83,7 @@ aot_compile_op_set_or_tee_local(AOTCompContext *comp_ctx,
 
     if (comp_ctx->aot_frame) {
         /* Get the slot index */
-        n = comp_ctx->aot_frame->cur_wasm_func->local_offsets[local_idx];
+        n = func_ctx->aot_func->local_offsets[local_idx];
         bh_assert(comp_ctx->aot_frame->lp[n].type == local_type);
 
         switch (local_type) {
