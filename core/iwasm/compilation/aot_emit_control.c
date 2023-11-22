@@ -166,18 +166,25 @@ clear_frame_locals(AOTCompFrame *aot_frame)
     for (i = 0; i < aot_frame->max_local_cell_num; i++) {
         aot_frame->lp[i].dirty = 0;
         aot_frame->lp[i].value = NULL;
+        if (aot_frame->comp_ctx->enable_gc)
+            /* Mark the ref flag as committed */
+            aot_frame->lp[i].committed_ref = aot_frame->lp[i].ref + 1;
     }
 }
 
 static void
 restore_frame_sp(AOTBlock *block, AOTCompFrame *aot_frame)
 {
-    uint32 stack_cell_num;
+    uint32 all_cell_num, stack_cell_num;
 
     bh_assert(aot_frame->sp >= block->frame_sp_begin);
 
-    stack_cell_num = aot_frame->sp - block->frame_sp_begin;
+    all_cell_num =
+        aot_frame->max_local_cell_num + aot_frame->max_stack_cell_num;
+    stack_cell_num = aot_frame->lp + all_cell_num - block->frame_sp_begin;
+
     if (stack_cell_num > 0) {
+        /* Clear the stack operands and mark the ref flags as uncommitted */
         memset(block->frame_sp_begin, 0, sizeof(AOTValueSlot) * stack_cell_num);
     }
     aot_frame->sp = block->frame_sp_begin;
@@ -234,20 +241,24 @@ handle_next_reachable_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         block_prev = block->prev;
         block = aot_block_stack_pop(&func_ctx->block_stack);
 
-        if (aot_frame) {
-            /* Restore the frame sp */
-            restore_frame_sp(block, aot_frame);
-        }
-
         if (block->label_type == LABEL_TYPE_IF) {
             if (block->llvm_else_block && !block->skip_wasm_code_else
                 && *p_frame_ip <= block->wasm_code_else) {
                 /* Clear value stack and start to translate else branch */
                 aot_value_stack_destroy(comp_ctx, &block->value_stack);
+
+                if (aot_frame) {
+                    /* Restore the frame sp */
+                    restore_frame_sp(block, aot_frame);
+                }
+
                 SET_BUILDER_POS(block->llvm_else_block);
                 *p_frame_ip = block->wasm_code_else + 1;
                 /* Push back the block */
                 aot_block_stack_push(&func_ctx->block_stack, block);
+                /* Recover parameters of else branch */
+                for (i = 0; i < block->param_count; i++)
+                    PUSH(block->else_param_phis[i], block->param_types[i]);
                 return true;
             }
             else if (block->llvm_end_block) {
@@ -264,6 +275,25 @@ handle_next_reachable_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     if (!block) {
         *p_frame_ip = frame_ip + 1;
+        return true;
+    }
+
+    if (block->label_type == LABEL_TYPE_IF && block->llvm_else_block
+        && !block->skip_wasm_code_else
+        && *p_frame_ip <= block->wasm_code_else) {
+        /* Clear value stack and start to translate else branch */
+        aot_value_stack_destroy(comp_ctx, &block->value_stack);
+
+        if (aot_frame) {
+            /* Restore the frame sp */
+            restore_frame_sp(block, aot_frame);
+        }
+
+        /* Recover parameters of else branch */
+        for (i = 0; i < block->param_count; i++)
+            PUSH(block->else_param_phis[i], block->param_types[i]);
+        SET_BUILDER_POS(block->llvm_else_block);
+        *p_frame_ip = block->wasm_code_else + 1;
         return true;
     }
 
@@ -701,11 +731,8 @@ aot_compile_op_else(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         aot_value_stack_destroy(comp_ctx, &block->value_stack);
 
         if (comp_ctx->aot_frame) {
-            comp_ctx->aot_frame->sp = block->frame_sp_begin;
-            for (i = 0; i < comp_ctx->aot_frame->max_local_cell_num; i++) {
-                comp_ctx->aot_frame->lp[i].dirty = 0;
-                comp_ctx->aot_frame->lp[i].value = NULL;
-            }
+            clear_frame_locals(aot_frame);
+            restore_frame_sp(block, aot_frame);
         }
 
         for (i = 0; i < block->param_count; i++)
@@ -765,7 +792,7 @@ aot_compile_op_end(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     if (comp_ctx->aot_frame) {
-        restore_frame_sp(block, comp_ctx->aot_frame);
+        bh_assert(comp_ctx->aot_frame->sp == block->frame_sp_begin);
     }
 
     /* Jump to the end block */

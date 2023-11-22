@@ -3150,6 +3150,11 @@ aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
                     frame_ref[j++] = 0;
             }
         }
+
+        if (func_type->param_count == 0) {
+            /* We reserve at least two cells for native frame */
+            frame_ref[0] = frame_ref[1] = 0;
+        }
     }
 #endif
 
