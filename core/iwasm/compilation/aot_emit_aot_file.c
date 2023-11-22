@@ -1484,6 +1484,7 @@ fail:
     return 0;
 }
 
+#if WASM_ENABLE_STRINGREF != 0
 static uint32
 get_string_literal_section_size(AOTCompContext *comp_ctx,
                                 AOTCompData *comp_data)
@@ -1505,6 +1506,7 @@ get_string_literal_section_size(AOTCompContext *comp_ctx,
 
     return size;
 }
+#endif /* end of WASM_ENABLE_STRINGREF != 0 */
 
 static uint32
 get_custom_sections_size(AOTCompContext *comp_ctx, AOTCompData *comp_data)
@@ -2444,6 +2446,7 @@ aot_emit_name_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     return true;
 }
 
+#if WASM_ENABLE_STRINGREF != 0
 static bool
 aot_emit_string_literal_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
                                 AOTCompData *comp_data,
@@ -2485,6 +2488,7 @@ aot_emit_string_literal_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
 
     return true;
 }
+#endif /* end of WASM_ENABLE_STRINGREF != 0 */
 
 static bool
 aot_emit_custom_sections(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
