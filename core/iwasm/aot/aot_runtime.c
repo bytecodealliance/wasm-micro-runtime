@@ -3125,8 +3125,37 @@ aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
     frame->func_perf_prof_info = func_perf_prof;
 #endif
     frame->sp = frame->lp + max_local_cell_num;
+
 #if WASM_ENABLE_GC != 0
     frame->frame_ref = (uint8 *)(frame->sp + max_stack_cell_num);
+
+    /* Initialize frame ref flags for import function */
+    if (func_index < module->import_func_count) {
+        AOTFuncType *func_type = module->import_funcs[func_index].func_type;
+        uint8 *frame_ref = frame->frame_ref;
+        uint32 i, j, k, value_type_cell_num;
+
+        for (i = 0, j = 0; i < func_type->param_count; i++) {
+            if (wasm_is_type_reftype(func_type->types[i])
+                && !wasm_is_reftype_i31ref(func_type->types[i])) {
+                frame_ref[j++] = 1;
+#if UINTPTR_MAX == UINT64_MAX
+                frame_ref[j++] = 1;
+#endif
+            }
+            else {
+                value_type_cell_num =
+                    wasm_value_type_cell_num(func_type->types[i]);
+                for (k = 0; k < value_type_cell_num; k++)
+                    frame_ref[j++] = 0;
+            }
+        }
+
+        if (func_type->param_count == 0) {
+            /* We reserve at least two cells for native frame */
+            frame_ref[0] = frame_ref[1] = 0;
+        }
+    }
 #endif
 
     frame->prev_frame = (AOTFrame *)exec_env->cur_frame;
@@ -3855,7 +3884,6 @@ aot_dump_pgo_prof_data_to_buf(AOTModuleInstance *module_inst, char *buf,
 #endif /* end of WASM_ENABLE_STATIC_PGO != 0 */
 
 #if WASM_ENABLE_GC != 0
-
 void *
 aot_create_func_obj(AOTModuleInstance *module_inst, uint32 func_idx,
                     bool throw_exce, char *error_buf, uint32 error_buf_size)
@@ -3948,4 +3976,130 @@ aot_array_init_with_data(AOTModuleInstance *module_inst, uint32 seg_index,
     return true;
 }
 
+static bool
+aot_global_traverse_gc_rootset(AOTModuleInstance *module_inst, void *heap)
+{
+    AOTModule *module = (AOTModule *)module_inst->module;
+    uint8 *global_data = module_inst->global_data;
+    AOTImportGlobal *import_global = module->import_globals;
+    AOTGlobal *global = module->globals;
+    WASMObjectRef gc_obj;
+    uint32 i;
+
+    for (i = 0; i < module->import_global_count; i++, import_global++) {
+        if (wasm_is_type_reftype(import_global->type)) {
+            gc_obj = GET_REF_FROM_ADDR((uint32 *)global_data);
+            if (wasm_obj_is_created_from_heap(gc_obj)) {
+                if (0 != mem_allocator_add_root((mem_allocator_t)heap, gc_obj))
+                    return false;
+            }
+        }
+        global_data += import_global->size;
+    }
+
+    for (i = 0; i < module->global_count; i++, global++) {
+        if (wasm_is_type_reftype(global->type)) {
+            gc_obj = GET_REF_FROM_ADDR((uint32 *)global_data);
+            if (wasm_obj_is_created_from_heap(gc_obj)) {
+                if (0 != mem_allocator_add_root((mem_allocator_t)heap, gc_obj))
+                    return false;
+            }
+        }
+        global_data += global->size;
+    }
+
+    return true;
+}
+
+static bool
+aot_table_traverse_gc_rootset(WASMModuleInstance *module_inst, void *heap)
+{
+    AOTTableInstance **tables = (AOTTableInstance **)module_inst->tables;
+    AOTTableInstance *table;
+    uint32 table_count = module_inst->table_count, i, j;
+    WASMObjectRef gc_obj, *table_elems;
+
+    for (i = 0; i < table_count; i++) {
+        table = tables[i];
+        table_elems = (WASMObjectRef *)table->elems;
+        for (j = 0; j < table->cur_size; j++) {
+            gc_obj = table_elems[j];
+            if (wasm_obj_is_created_from_heap(gc_obj)) {
+                if (0 != mem_allocator_add_root((mem_allocator_t)heap, gc_obj))
+                    return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+static bool
+local_object_refs_traverse_gc_rootset(WASMExecEnv *exec_env, void *heap)
+{
+    WASMLocalObjectRef *r;
+    WASMObjectRef gc_obj;
+
+    for (r = exec_env->cur_local_object_ref; r; r = r->prev) {
+        gc_obj = r->val;
+        if (wasm_obj_is_created_from_heap(gc_obj)) {
+            if (0 != mem_allocator_add_root((mem_allocator_t)heap, gc_obj))
+                return false;
+        }
+    }
+    return true;
+}
+
+static bool
+aot_frame_traverse_gc_rootset(WASMExecEnv *exec_env, void *heap)
+{
+    AOTFrame *frame;
+    WASMObjectRef gc_obj;
+    int i;
+
+    frame = (AOTFrame *)wasm_exec_env_get_cur_frame(exec_env);
+    for (; frame; frame = frame->prev_frame) {
+        uint8 *frame_ref = frame->frame_ref;
+        for (i = 0; i < frame->sp - frame->lp; i++) {
+            if (frame_ref[i]) {
+                gc_obj = GET_REF_FROM_ADDR(frame->lp + i);
+                if (wasm_obj_is_created_from_heap(gc_obj)) {
+                    if (mem_allocator_add_root((mem_allocator_t)heap, gc_obj)) {
+                        return false;
+                    }
+                }
+#if UINTPTR_MAX == UINT64_MAX
+                bh_assert(frame_ref[i + 1]);
+                i++;
+#endif
+            }
+        }
+    }
+    return true;
+}
+
+bool
+aot_traverse_gc_rootset(WASMExecEnv *exec_env, void *heap)
+{
+    AOTModuleInstance *module_inst = (AOTModuleInstance *)exec_env->module_inst;
+    bool ret;
+
+    ret = aot_global_traverse_gc_rootset(module_inst, heap);
+    if (!ret)
+        return ret;
+
+    ret = aot_table_traverse_gc_rootset(module_inst, heap);
+    if (!ret)
+        return ret;
+
+    ret = local_object_refs_traverse_gc_rootset(exec_env, heap);
+    if (!ret)
+        return ret;
+
+    ret = aot_frame_traverse_gc_rootset(exec_env, heap);
+    if (!ret)
+        return ret;
+
+    return true;
+}
 #endif /* end of WASM_ENABLE_GC != 0 */

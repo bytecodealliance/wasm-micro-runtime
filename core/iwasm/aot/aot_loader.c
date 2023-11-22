@@ -1228,7 +1228,7 @@ load_table_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
         data_list[i]->is_dropped = false;
         data_list[i]->table_index = table_index;
 #if WASM_ENABLE_GC != 0
-        if (wasm_is_type_multi_byte_type(reftype.ref_type)) {
+        if (wasm_is_type_multi_byte_type(elem_type)) {
             if (!(data_list[i]->elem_ref_type =
                       reftype_set_insert(module->ref_type_set, &reftype,
                                          error_buf, error_buf_size))) {
@@ -1430,14 +1430,33 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         }
         else if (type_flag == WASM_TYPE_STRUCT) {
             AOTStructType *struct_type;
-            uint16 field_count;
+            const uint8 *buf_org;
+            uint16 *reference_table;
+            uint16 field_count, ref_field_count = 0;
             uint32 offset;
+
             read_uint16(buf, buf_end, field_count);
             read_uint16(buf, buf_end, ref_type_map_count);
-            struct_type =
-                loader_malloc(sizeof(AOTStructType)
-                                  + field_count * sizeof(WASMStructFieldType),
-                              error_buf, error_buf_size);
+
+            buf_org = buf;
+
+            /* Traverse first time to get ref_field_count */
+            for (j = 0; j < field_count; j++) {
+                uint8 field_flags, field_type;
+
+                read_uint8(buf, buf_end, field_flags);
+                read_uint8(buf, buf_end, field_type);
+                if (wasm_is_type_reftype(field_type))
+                    ref_field_count++;
+
+                (void)field_flags;
+            }
+
+            struct_type = loader_malloc(
+                sizeof(AOTStructType)
+                    + sizeof(WASMStructFieldType) * (uint64)field_count
+                    + sizeof(uint16) * (uint64)(ref_field_count + 1),
+                error_buf, error_buf_size);
             if (!struct_type) {
                 goto fail;
             }
@@ -1449,13 +1468,22 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             struct_type->field_count = field_count;
             struct_type->ref_type_map_count = ref_type_map_count;
 
+            struct_type->reference_table = reference_table =
+                (uint16 *)((uint8 *)struct_type
+                           + offsetof(AOTStructType, fields)
+                           + sizeof(WASMStructFieldType) * field_count);
+            *reference_table++ = ref_field_count;
+
             LOG_VERBOSE(
                 "type %u: struct, field count: %d, ref type map count: %d", i,
                 field_count, ref_type_map_count);
 
-            /* Read types of fields */
+            buf = buf_org;
+
+            /* Traverse again to read each field */
             for (j = 0; j < field_count; j++) {
                 uint8 field_type, field_size;
+
                 read_uint8(buf, buf_end, struct_type->fields[j].field_flags);
                 read_uint8(buf, buf_end, field_type);
                 struct_type->fields[j].field_type = field_type;
@@ -1469,6 +1497,8 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                     offset = align_uint(offset, 4);
 #endif
                 struct_type->fields[j].field_offset = offset;
+                if (wasm_is_type_reftype(field_type))
+                    *reference_table++ = offset;
                 offset += field_size;
                 LOG_VERBOSE("                field: %d, flags: %d, type: %d", j,
                             struct_type->fields[j].field_flags,
@@ -3856,6 +3886,14 @@ aot_unload(AOTModule *module)
         bh_hash_map_destroy(module->ref_type_set);
     }
     os_mutex_destroy(&module->rtt_type_lock);
+    if (module->rtt_types) {
+        uint32 i;
+        for (i = 0; i < module->type_count; i++) {
+            if (module->rtt_types[i])
+                wasm_runtime_free(module->rtt_types[i]);
+        }
+        wasm_runtime_free(module->rtt_types);
+    }
 #endif
 
     wasm_runtime_free(module);

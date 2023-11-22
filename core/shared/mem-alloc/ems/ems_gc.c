@@ -2,7 +2,8 @@
  * Copyright (C) 2022 Tencent Corporation.  All rights reserved.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
-#include "ems/ems_gc.h"
+
+#include "ems_gc.h"
 #include "ems_gc_internal.h"
 
 #define GB (1 << 30UL)
@@ -218,7 +219,7 @@ gc_add_root(void *heap_p, gc_object_t obj)
     }
 
     if (hmu_get_ut(hmu) != HMU_WO) {
-        LOG_ERROR("Given objecti s not wo");
+        LOG_ERROR("Given object is not wo");
         return GC_ERROR;
     }
 
@@ -378,8 +379,8 @@ reclaim_instance_heap(gc_heap_t *heap)
                     offset = ref_start_offset + j * sizeof(void *);
                     bh_assert(offset + sizeof(void *) < size);
                     ref = *(gc_object_t *)(((gc_uint8 *)obj) + offset);
-                    if (ref == NULL_REF)
-                        continue; /* NULL REF */
+                    if (ref == NULL_REF || ((uintptr_t)ref & 1))
+                        continue; /* null object or i31 object */
                     if (add_wo_to_expand(heap, ref) == GC_ERROR) {
                         LOG_ERROR("add_wo_to_expand failed");
                         break;
@@ -394,8 +395,8 @@ reclaim_instance_heap(gc_heap_t *heap)
                     bh_assert(offset + sizeof(void *) < size);
 
                     ref = *(gc_object_t *)(((gc_uint8 *)obj) + offset);
-                    if (ref == NULL_REF)
-                        continue; /* NULL REF */
+                    if (ref == NULL_REF || ((uintptr_t)ref & 1))
+                        continue; /* null object or i31 object */
                     if (add_wo_to_expand(heap, ref) == GC_ERROR) {
                         LOG_ERROR("mark process failed");
                         break;

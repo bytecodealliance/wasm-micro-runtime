@@ -79,7 +79,12 @@ wasm_interp_interp_frame_size(unsigned all_cell_num)
     unsigned frame_size;
 
 #if WASM_ENABLE_FAST_INTERP == 0
+#if WASM_ENABLE_GC == 0
     frame_size = (uint32)offsetof(WASMInterpFrame, lp) + all_cell_num * 4;
+#else
+    frame_size =
+        (uint32)offsetof(WASMInterpFrame, lp) + align_uint(all_cell_num * 5, 4);
+#endif
 #else
     frame_size = (uint32)offsetof(WASMInterpFrame, operand) + all_cell_num * 4;
 #endif

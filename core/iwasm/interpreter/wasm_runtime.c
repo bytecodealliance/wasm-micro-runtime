@@ -3800,6 +3800,35 @@ llvm_jit_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
     frame->time_started = os_time_get_boot_microsecond();
 #endif
     frame->prev_frame = wasm_exec_env_get_cur_frame(exec_env);
+
+#if WASM_ENABLE_GC != 0
+    /* Initialize frame ref flags for import function */
+    if (func_index < module->import_function_count) {
+        WASMFunctionImport *func =
+            &((module->import_functions + func_index)->u.function);
+        WASMFuncType *func_type = func->func_type;
+        /* native function doesn't have operand stack and label stack */
+        uint8 *frame_ref = (uint8 *)frame->sp;
+        uint32 i, j, k, value_type_cell_num;
+
+        for (i = 0, j = 0; i < func_type->param_count; i++) {
+            if (wasm_is_type_reftype(func_type->types[i])
+                && !wasm_is_reftype_i31ref(func_type->types[i])) {
+                frame_ref[j++] = 1;
+#if UINTPTR_MAX == UINT64_MAX
+                frame_ref[j++] = 1;
+#endif
+            }
+            else {
+                value_type_cell_num =
+                    wasm_value_type_cell_num(func_type->types[i]);
+                for (k = 0; k < value_type_cell_num; k++)
+                    frame_ref[j++] = 0;
+            }
+        }
+    }
+#endif
+
     wasm_exec_env_set_cur_frame(exec_env, frame);
 
     return true;

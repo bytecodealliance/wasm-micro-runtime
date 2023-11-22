@@ -199,34 +199,6 @@ gc_alloc_wo(void *heap, gc_size_t size);
 
 void
 gc_free_wo(void *vheap, void *ptr);
-
-extra_info_node_t *
-gc_search_extra_info_node(gc_handle_t handle, gc_object_t obj,
-                          gc_size_t *p_index);
-
-/**
- * Set finalizer to the given object, if another finalizer is set to the same
- * object, the previous one will be cancelled
- *
- * @param handle handle of the heap
- * @param obj object to set finalizer
- * @param cb finalizer function to be called before this object is freed
- * @param data custom data to be passed to finalizer function
- *
- * @return true if success, false otherwise
- */
-bool
-gc_set_finalizer(gc_handle_t handle, gc_object_t obj, gc_finalizer_t cb,
-                 void *data);
-
-/**
- * Unset finalizer to the given object
- *
- * @param handle handle of the heap
- * @param obj object to unset finalizer
- */
-void
-gc_unset_finalizer(gc_handle_t handle, gc_object_t obj);
 #endif
 
 #else /* else of BH_ENABLE_GC_VERIFY */
@@ -284,6 +256,34 @@ gc_add_root(void *heap, gc_object_t obj);
 
 int
 gci_gc_heap(void *heap);
+
+extra_info_node_t *
+gc_search_extra_info_node(gc_handle_t handle, gc_object_t obj,
+                          gc_size_t *p_index);
+
+/**
+ * Set finalizer to the given object, if another finalizer is set to the same
+ * object, the previous one will be cancelled
+ *
+ * @param handle handle of the heap
+ * @param obj object to set finalizer
+ * @param cb finalizer function to be called before this object is freed
+ * @param data custom data to be passed to finalizer function
+ *
+ * @return true if success, false otherwise
+ */
+bool
+gc_set_finalizer(gc_handle_t handle, gc_object_t obj, gc_finalizer_t cb,
+                 void *data);
+
+/**
+ * Unset finalizer to the given object
+ *
+ * @param handle handle of the heap
+ * @param obj object to unset finalizer
+ */
+void
+gc_unset_finalizer(gc_handle_t handle, gc_object_t obj);
 
 #if WASM_ENABLE_THREAD_MGR == 0
 bool

@@ -161,6 +161,35 @@ aot_validate_wasm(AOTCompContext *comp_ctx)
         OP_ATOMIC_##OP : bin_op = LLVMAtomicRMWBinOp##OP; \
         goto build_atomic_rmw;
 
+uint32
+offset_of_local_in_outs_area(AOTCompContext *comp_ctx, unsigned n)
+{
+    AOTCompFrame *frame = comp_ctx->aot_frame;
+    uint32 max_local_cell_num = frame->max_local_cell_num;
+    uint32 max_stack_cell_num = frame->max_stack_cell_num;
+    uint32 all_cell_num = max_local_cell_num + max_stack_cell_num;
+    uint32 frame_size;
+
+    if (!comp_ctx->is_jit_mode) {
+        /* Refer to aot_alloc_frame */
+        if (!comp_ctx->enable_gc)
+            frame_size = comp_ctx->pointer_size * 7 + all_cell_num * 4;
+        else
+            frame_size =
+                comp_ctx->pointer_size * 7 + align_uint(all_cell_num * 5, 4);
+    }
+    else {
+        /* Refer to wasm_interp_interp_frame_size */
+        if (!comp_ctx->enable_gc)
+            frame_size = offsetof(WASMInterpFrame, lp) + all_cell_num * 4;
+        else
+            frame_size =
+                offsetof(WASMInterpFrame, lp) + align_uint(all_cell_num * 5, 4);
+    }
+
+    return frame_size + offset_of_local(comp_ctx, n);
+}
+
 static bool
 store_value(AOTCompContext *comp_ctx, LLVMValueRef value, uint8 value_type,
             LLVMValueRef cur_frame, uint32 offset)
@@ -217,6 +246,81 @@ store_value(AOTCompContext *comp_ctx, LLVMValueRef value, uint8 value_type,
         return false;
     }
 
+    LLVMSetAlignment(res, 4);
+
+    return true;
+}
+
+bool
+aot_frame_store_value(AOTCompContext *comp_ctx, LLVMValueRef value,
+                      uint8 value_type, LLVMValueRef cur_frame, uint32 offset)
+{
+    return store_value(comp_ctx, value, value_type, cur_frame, offset);
+}
+
+static bool
+store_ref(AOTCompContext *comp_ctx, uint32 ref, LLVMValueRef cur_frame,
+          uint32 offset, uint32 nbytes)
+{
+    LLVMValueRef value_ref = NULL, value_offset, value_addr, res;
+
+    if (!(value_offset = I32_CONST(offset))) {
+        aot_set_last_error("llvm build const failed");
+        return false;
+    }
+
+    if (!(value_addr =
+              LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE, cur_frame,
+                                    &value_offset, 1, "value_addr"))) {
+        aot_set_last_error("llvm build in bounds gep failed");
+        return false;
+    }
+
+    switch (nbytes) {
+        case 1:
+            if (!(value_ref = I8_CONST((uint8)ref))) {
+                aot_set_last_error("llvm build const failed");
+            }
+            break;
+        case 2:
+            ref = (ref << 8) | ref;
+
+            if (!(value_ref = LLVMConstInt(INT16_TYPE, (uint16)ref, false))) {
+                aot_set_last_error("llvm build const failed");
+                return false;
+            }
+
+            if (!(value_addr =
+                      LLVMBuildBitCast(comp_ctx->builder, value_addr,
+                                       INT16_PTR_TYPE, "value_addr"))) {
+                aot_set_last_error("llvm build bit cast failed");
+                return false;
+            }
+            break;
+        case 4:
+            ref = (ref << 24) | (ref << 16) | (ref << 8) | ref;
+
+            if (!(value_ref = I32_CONST(ref))) {
+                aot_set_last_error("llvm build const failed");
+                return false;
+            }
+
+            if (!(value_addr =
+                      LLVMBuildBitCast(comp_ctx->builder, value_addr,
+                                       INT32_PTR_TYPE, "value_addr"))) {
+                aot_set_last_error("llvm build bit cast failed");
+                return false;
+            }
+            break;
+        default:
+            bh_assert(0);
+            break;
+    }
+
+    if (!(res = LLVMBuildStore(comp_ctx->builder, value_ref, value_addr))) {
+        aot_set_last_error("llvm build store failed");
+        return false;
+    }
     LLVMSetAlignment(res, 1);
 
     return true;
@@ -227,7 +331,7 @@ aot_gen_commit_values(AOTCompFrame *frame)
 {
     AOTCompContext *comp_ctx = frame->comp_ctx;
     AOTFuncContext *func_ctx = frame->func_ctx;
-    AOTValueSlot *p;
+    AOTValueSlot *p, *end;
     LLVMValueRef value;
     uint32 n;
 
@@ -237,6 +341,90 @@ aot_gen_commit_values(AOTCompFrame *frame)
 
         p->dirty = 0;
         n = p - frame->lp;
+
+        /* Commit reference flag */
+        if (comp_ctx->enable_gc) {
+            switch (p->type) {
+                case VALUE_TYPE_I32:
+                case VALUE_TYPE_F32:
+                case VALUE_TYPE_I1:
+                    if (p->ref != p->committed_ref - 1) {
+                        if (!store_ref(comp_ctx, p->ref, func_ctx->cur_frame,
+                                       offset_of_ref(comp_ctx, n), 1))
+                            return false;
+                        p->committed_ref = p->ref + 1;
+                    }
+                    break;
+
+                case VALUE_TYPE_I64:
+                case VALUE_TYPE_F64:
+                    bh_assert(p->ref == (p + 1)->ref);
+                    if (p->ref != p->committed_ref - 1
+                        || p->ref != (p + 1)->committed_ref - 1) {
+                        if (!store_ref(comp_ctx, p->ref, func_ctx->cur_frame,
+                                       offset_of_ref(comp_ctx, n), 2))
+                            return false;
+                        p->committed_ref = (p + 1)->committed_ref = p->ref + 1;
+                    }
+                    break;
+
+                case VALUE_TYPE_V128:
+                    bh_assert(p->ref == (p + 1)->ref && p->ref == (p + 2)->ref
+                              && p->ref == (p + 3)->ref);
+                    if (p->ref != p->committed_ref - 1
+                        || p->ref != (p + 1)->committed_ref - 1
+                        || p->ref != (p + 2)->committed_ref - 1
+                        || p->ref != (p + 3)->committed_ref - 1) {
+                        if (!store_ref(comp_ctx, p->ref, func_ctx->cur_frame,
+                                       offset_of_ref(comp_ctx, n), 4))
+                            return false;
+                        p->committed_ref = (p + 1)->committed_ref =
+                            (p + 2)->committed_ref = (p + 3)->committed_ref =
+                                p->ref + 1;
+                    }
+                    break;
+
+                case REF_TYPE_NULLFUNCREF:
+                case REF_TYPE_NULLEXTERNREF:
+                case REF_TYPE_NULLREF:
+                case REF_TYPE_FUNCREF:
+                case REF_TYPE_EXTERNREF:
+                case REF_TYPE_ANYREF:
+                case REF_TYPE_EQREF:
+                case REF_TYPE_HT_NULLABLE:
+                case REF_TYPE_HT_NON_NULLABLE:
+                case REF_TYPE_I31REF:
+                case REF_TYPE_STRUCTREF:
+                case REF_TYPE_ARRAYREF:
+                case VALUE_TYPE_GC_REF:
+                    if (comp_ctx->pointer_size == sizeof(uint64)) {
+                        bh_assert(p->ref == (p + 1)->ref);
+                        if (p->ref != p->committed_ref - 1
+                            || p->ref != (p + 1)->committed_ref - 1) {
+                            if (!store_ref(comp_ctx, p->ref,
+                                           func_ctx->cur_frame,
+                                           offset_of_ref(comp_ctx, n), 2))
+                                return false;
+                            p->committed_ref = (p + 1)->committed_ref =
+                                p->ref + 1;
+                        }
+                    }
+                    else {
+                        if (p->ref != p->committed_ref - 1) {
+                            if (!store_ref(comp_ctx, p->ref,
+                                           func_ctx->cur_frame,
+                                           offset_of_ref(comp_ctx, n), 1))
+                                return false;
+                            p->committed_ref = p->ref + 1;
+                        }
+                    }
+                    break;
+
+                default:
+                    bh_assert(0);
+                    break;
+            }
+        }
 
         switch (p->type) {
             case VALUE_TYPE_I32:
@@ -332,6 +520,24 @@ aot_gen_commit_values(AOTCompFrame *frame)
             default:
                 bh_assert(0);
                 break;
+        }
+    }
+
+    if (comp_ctx->enable_gc) {
+        end = frame->lp + frame->max_local_cell_num + frame->max_stack_cell_num;
+
+        /* Clear reference flags for unused stack slots.  */
+        for (p = frame->sp; p < end; p++) {
+            bh_assert(!p->ref);
+            n = p - frame->lp;
+
+            /* Commit reference flag.  */
+            if (p->ref != p->committed_ref - 1) {
+                if (!store_ref(comp_ctx, p->ref, func_ctx->cur_frame,
+                               offset_of_ref(comp_ctx, n), 1))
+                    return false;
+                p->committed_ref = 1 + p->ref;
+            }
         }
     }
 
@@ -581,6 +787,10 @@ init_comp_frame(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
     }
 
+    /* TODO: re-calculate param_cell_num according to the build target
+             after creating comp_ctx */
+    /* bh_assert(n == aot_func->param_cell_num); */
+
     /* Set all locals dirty since they were set to llvm value but
        haven't been committed to the AOT/JIT stack frame */
     for (i = 0; i < aot_func->local_count; i++) {
@@ -651,6 +861,14 @@ init_comp_frame(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
     }
 
+    /* TODO: re-calculate local_cell_num according to the build target
+             after creating comp_ctx */
+    /* bh_assert(n == aot_func->param_cell_num + aot_func->local_cell_num); */
+
+    /* No need to initialize aot_frame all cells' committed_ref flags
+       and all stack cells' ref flags since they have been initialized
+       as 0 (uncommited and not-reference) by the memset above */
+
     return true;
 }
 
@@ -660,7 +878,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
     AOTFuncContext *func_ctx = comp_ctx->func_ctxes[func_index];
     uint8 *frame_ip = func_ctx->aot_func->code, opcode, *p_f32, *p_f64;
     uint8 *frame_ip_end = frame_ip + func_ctx->aot_func->code_size;
-    uint8 *param_types = NULL;
+    uint8 *param_types = NULL, *frame_ip_org;
     uint8 *result_types = NULL;
     uint8 value_type;
     uint16 param_count;
@@ -785,19 +1003,31 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 break;
 
             case WASM_OP_BR:
+            {
+                frame_ip_org = frame_ip - 1;
+
                 read_leb_uint32(frame_ip, frame_ip_end, br_depth);
-                if (!aot_compile_op_br(comp_ctx, func_ctx, br_depth, &frame_ip))
+                if (!aot_compile_op_br(comp_ctx, func_ctx, br_depth,
+                                       frame_ip_org, &frame_ip))
                     return false;
                 break;
+            }
 
             case WASM_OP_BR_IF:
+            {
+                frame_ip_org = frame_ip - 1;
+
                 read_leb_uint32(frame_ip, frame_ip_end, br_depth);
                 if (!aot_compile_op_br_if(comp_ctx, func_ctx, br_depth,
-                                          &frame_ip))
+                                          frame_ip_org, &frame_ip))
                     return false;
                 break;
+            }
 
             case WASM_OP_BR_TABLE:
+            {
+                frame_ip_org = frame_ip - 1;
+
                 read_leb_uint32(frame_ip, frame_ip_end, br_count);
                 if (!(br_depths = wasm_runtime_malloc((uint32)sizeof(uint32)
                                                       * (br_count + 1)))) {
@@ -813,13 +1043,15 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 #endif
 
                 if (!aot_compile_op_br_table(comp_ctx, func_ctx, br_depths,
-                                             br_count, &frame_ip)) {
+                                             br_count, frame_ip_org,
+                                             &frame_ip)) {
                     wasm_runtime_free(br_depths);
                     return false;
                 }
 
                 wasm_runtime_free(br_depths);
                 break;
+            }
 
 #if WASM_ENABLE_FAST_INTERP == 0
             case EXT_OP_BR_TABLE_CACHE:
@@ -827,17 +1059,18 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 BrTableCache *node = bh_list_first_elem(
                     comp_ctx->comp_data->wasm_module->br_table_cache_list);
                 BrTableCache *node_next;
-                uint8 *p_opcode = frame_ip - 1;
+
+                frame_ip_org = frame_ip - 1;
 
                 read_leb_uint32(frame_ip, frame_ip_end, br_count);
 
                 while (node) {
                     node_next = bh_list_elem_next(node);
-                    if (node->br_table_op_addr == p_opcode) {
+                    if (node->br_table_op_addr == frame_ip_org) {
                         br_depths = node->br_depths;
                         if (!aot_compile_op_br_table(comp_ctx, func_ctx,
                                                      br_depths, br_count,
-                                                     &frame_ip)) {
+                                                     frame_ip_org, &frame_ip)) {
                             return false;
                         }
                         break;
@@ -857,7 +1090,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 
             case WASM_OP_CALL:
             {
-                uint8 *frame_ip_org = frame_ip;
+                frame_ip_org = frame_ip - 1;
 
                 read_leb_uint32(frame_ip, frame_ip_end, func_idx);
                 if (!aot_compile_op_call(comp_ctx, func_ctx, func_idx, false,
@@ -868,8 +1101,9 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 
             case WASM_OP_CALL_INDIRECT:
             {
-                uint8 *frame_ip_org = frame_ip;
                 uint32 tbl_idx;
+
+                frame_ip_org = frame_ip - 1;
 
                 read_leb_uint32(frame_ip, frame_ip_end, type_idx);
 
@@ -890,12 +1124,13 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 #if WASM_ENABLE_TAIL_CALL != 0
             case WASM_OP_RETURN_CALL:
             {
-                uint8 *frame_ip_org = frame_ip;
-
                 if (!comp_ctx->enable_tail_call) {
                     aot_set_last_error("unsupported opcode");
                     return false;
                 }
+
+                frame_ip_org = frame_ip - 1;
+
                 read_leb_uint32(frame_ip, frame_ip_end, func_idx);
                 if (!aot_compile_op_call(comp_ctx, func_ctx, func_idx, true,
                                          frame_ip_org))
@@ -907,13 +1142,14 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 
             case WASM_OP_RETURN_CALL_INDIRECT:
             {
-                uint8 *frame_ip_org = frame_ip;
                 uint32 tbl_idx;
 
                 if (!comp_ctx->enable_tail_call) {
                     aot_set_last_error("unsupported opcode");
                     return false;
                 }
+
+                frame_ip_org = frame_ip - 1;
 
                 read_leb_uint32(frame_ip, frame_ip_end, type_idx);
                 if (comp_ctx->enable_gc || comp_ctx->enable_ref_types) {
@@ -1039,8 +1275,11 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                     goto unsupport_gc_and_ref_types;
                 }
 
+                frame_ip_org = frame_ip - 1;
+
                 read_leb_uint32(frame_ip, frame_ip_end, func_idx);
-                if (!aot_compile_op_ref_func(comp_ctx, func_ctx, func_idx))
+                if (!aot_compile_op_ref_func(comp_ctx, func_ctx, func_idx,
+                                             frame_ip_org))
                     return false;
                 break;
             }
@@ -1049,11 +1288,11 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 #if WASM_ENABLE_GC != 0
             case WASM_OP_CALL_REF:
             {
-                uint8 *frame_ip_org = frame_ip;
-
                 if (!comp_ctx->enable_gc) {
                     goto unsupport_gc;
                 }
+
+                frame_ip_org = frame_ip - 1;
 
                 read_leb_uint32(frame_ip, frame_ip_end, type_idx);
                 if (!aot_compile_op_call_ref(comp_ctx, func_ctx, type_idx,
@@ -1064,11 +1303,11 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 
             case WASM_OP_RETURN_CALL_REF:
             {
-                uint8 *frame_ip_org = frame_ip;
-
                 if (!comp_ctx->enable_gc) {
                     goto unsupport_gc;
                 }
+
+                frame_ip_org = frame_ip - 1;
 
                 read_leb_uint32(frame_ip, frame_ip_end, type_idx);
                 if (!aot_compile_op_call_ref(comp_ctx, func_ctx, type_idx, true,
@@ -1098,34 +1337,44 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 break;
 
             case WASM_OP_BR_ON_NULL:
-                if (!comp_ctx->enable_gc) {
-                    goto unsupport_gc;
-                }
-
-                read_leb_uint32(frame_ip, frame_ip_end, br_depth);
-                if (!aot_compile_op_br_on_null(comp_ctx, func_ctx, br_depth,
-                                               &frame_ip))
-                    return false;
-                break;
-
-            case WASM_OP_BR_ON_NON_NULL:
-                if (!comp_ctx->enable_gc) {
-                    goto unsupport_gc;
-                }
-
-                read_leb_uint32(frame_ip, frame_ip_end, br_depth);
-                if (!aot_compile_op_br_on_non_null(comp_ctx, func_ctx, br_depth,
-                                                   &frame_ip))
-                    return false;
-                break;
-
-            case WASM_OP_GC_PREFIX:
             {
                 if (!comp_ctx->enable_gc) {
                     goto unsupport_gc;
                 }
 
+                frame_ip_org = frame_ip - 1;
+
+                read_leb_uint32(frame_ip, frame_ip_end, br_depth);
+                if (!aot_compile_op_br_on_null(comp_ctx, func_ctx, br_depth,
+                                               frame_ip_org, &frame_ip))
+                    return false;
+                break;
+            }
+
+            case WASM_OP_BR_ON_NON_NULL:
+            {
+                if (!comp_ctx->enable_gc) {
+                    goto unsupport_gc;
+                }
+
+                frame_ip_org = frame_ip - 1;
+
+                read_leb_uint32(frame_ip, frame_ip_end, br_depth);
+                if (!aot_compile_op_br_on_non_null(comp_ctx, func_ctx, br_depth,
+                                                   frame_ip_org, &frame_ip))
+                    return false;
+                break;
+            }
+
+            case WASM_OP_GC_PREFIX:
+            {
                 uint32 opcode1, field_idx, data_seg_idx, array_len;
+
+                if (!comp_ctx->enable_gc) {
+                    goto unsupport_gc;
+                }
+
+                frame_ip_org = frame_ip - 1;
 
                 read_leb_uint32(frame_ip, frame_ip_end, opcode1);
                 opcode = (uint8)opcode1;
@@ -1136,7 +1385,8 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                         read_leb_uint32(frame_ip, frame_ip_end, type_index);
                         if (!aot_compile_op_struct_new(
                                 comp_ctx, func_ctx, type_index,
-                                opcode == WASM_OP_STRUCT_NEW_CANON_DEFAULT))
+                                opcode == WASM_OP_STRUCT_NEW_CANON_DEFAULT,
+                                frame_ip_org))
                             return false;
                         break;
 
@@ -1171,7 +1421,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                                 comp_ctx, func_ctx, type_index,
                                 opcode == WASM_OP_ARRAY_NEW_CANON_DEFAULT,
                                 opcode == WASM_OP_ARRAY_NEW_CANON_FIXED,
-                                array_len))
+                                array_len, frame_ip_org))
                             return false;
                         break;
 
@@ -1179,7 +1429,8 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                         read_leb_uint32(frame_ip, frame_ip_end, type_index);
                         read_leb_uint32(frame_ip, frame_ip_end, data_seg_idx);
                         if (!aot_compile_op_array_new_data(
-                                comp_ctx, func_ctx, type_index, data_seg_idx))
+                                comp_ctx, func_ctx, type_index, data_seg_idx,
+                                frame_ip_org))
                             return false;
                         break;
 
@@ -1283,7 +1534,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                                 opcode == WASM_OP_BR_ON_CAST_FAIL
                                     || opcode
                                            == WASM_OP_BR_ON_CAST_FAIL_NULLABLE,
-                                br_depth, &frame_ip))
+                                br_depth, frame_ip_org, &frame_ip))
                             return false;
                         break;
                     }
@@ -1295,8 +1546,8 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                         break;
 
                     case WASM_OP_EXTERN_EXTERNALIZE:
-                        if (!aot_compile_op_extern_externalize(comp_ctx,
-                                                               func_ctx))
+                        if (!aot_compile_op_extern_externalize(
+                                comp_ctx, func_ctx, frame_ip_org))
                             return false;
                         break;
 

@@ -66,9 +66,10 @@ fail:
     return false;
 }
 
-bool
-aot_compile_op_set_local(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                         uint32 local_idx)
+static bool
+aot_compile_op_set_or_tee_local(AOTCompContext *comp_ctx,
+                                AOTFuncContext *func_ctx, uint32 local_idx,
+                                bool is_tee_local)
 {
     LLVMValueRef value;
     uint8 local_type;
@@ -122,6 +123,10 @@ aot_compile_op_set_local(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         return false;
     }
 
+    if (is_tee_local) {
+        PUSH(value, local_type);
+    }
+
     aot_checked_addr_list_del(func_ctx, local_idx);
     return true;
 
@@ -130,30 +135,18 @@ fail:
 }
 
 bool
+aot_compile_op_set_local(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                         uint32 local_idx)
+{
+    return aot_compile_op_set_or_tee_local(comp_ctx, func_ctx, local_idx,
+                                           false);
+}
+
+bool
 aot_compile_op_tee_local(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                          uint32 local_idx)
 {
-    LLVMValueRef value;
-    uint8 type;
-
-    CHECK_LOCAL(local_idx);
-
-    type = get_local_type(comp_ctx, func_ctx, local_idx);
-
-    POP(value, type);
-
-    if (!LLVMBuildStore(comp_ctx->builder, value,
-                        func_ctx->locals[local_idx])) {
-        aot_set_last_error("llvm build store fail");
-        return false;
-    }
-
-    PUSH(value, type);
-    aot_checked_addr_list_del(func_ctx, local_idx);
-    return true;
-
-fail:
-    return false;
+    return aot_compile_op_set_or_tee_local(comp_ctx, func_ctx, local_idx, true);
 }
 
 static bool

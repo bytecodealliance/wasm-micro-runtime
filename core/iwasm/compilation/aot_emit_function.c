@@ -513,9 +513,105 @@ aot_estimate_and_record_stack_usage_for_function_call(
     }
 }
 
+static bool
+commit_params_to_frame_of_import_func(AOTCompContext *comp_ctx,
+                                      AOTFuncContext *func_ctx,
+                                      AOTFuncType *func_type,
+                                      const LLVMValueRef *param_values)
+{
+    uint32 i, n;
+
+    for (i = 0, n = 0; i < func_type->param_count; i++, n++) {
+        switch (func_type->types[i]) {
+            case VALUE_TYPE_I32:
+                if (!aot_frame_store_value(
+                        comp_ctx, param_values[i], VALUE_TYPE_I32,
+                        func_ctx->cur_frame,
+                        offset_of_local_in_outs_area(comp_ctx, n)))
+                    return false;
+                break;
+            case VALUE_TYPE_I64:
+                if (!aot_frame_store_value(
+                        comp_ctx, param_values[i], VALUE_TYPE_I64,
+                        func_ctx->cur_frame,
+                        offset_of_local_in_outs_area(comp_ctx, n)))
+                    return false;
+                n++;
+                break;
+            case VALUE_TYPE_F32:
+                if (!aot_frame_store_value(
+                        comp_ctx, param_values[i], VALUE_TYPE_F32,
+                        func_ctx->cur_frame,
+                        offset_of_local_in_outs_area(comp_ctx, n)))
+                    return false;
+                break;
+            case VALUE_TYPE_F64:
+                if (!aot_frame_store_value(
+                        comp_ctx, param_values[i], VALUE_TYPE_F64,
+                        func_ctx->cur_frame,
+                        offset_of_local_in_outs_area(comp_ctx, n)))
+                    return false;
+                n++;
+                break;
+            case VALUE_TYPE_FUNCREF:
+            case VALUE_TYPE_EXTERNREF:
+                if (comp_ctx->enable_ref_types) {
+                    if (!aot_frame_store_value(
+                            comp_ctx, param_values[i], VALUE_TYPE_I32,
+                            func_ctx->cur_frame,
+                            offset_of_local_in_outs_area(comp_ctx, n)))
+                        return false;
+                }
+#if WASM_ENABLE_GC != 0
+                else if (comp_ctx->enable_gc) {
+                    if (!aot_frame_store_value(
+                            comp_ctx, param_values[i], VALUE_TYPE_GC_REF,
+                            func_ctx->cur_frame,
+                            offset_of_local_in_outs_area(comp_ctx, n)))
+                        return false;
+                    if (comp_ctx->pointer_size == sizeof(uint64))
+                        n++;
+                }
+#endif
+                else {
+                    bh_assert(0);
+                }
+                break;
+#if WASM_ENABLE_GC != 0
+            case REF_TYPE_NULLFUNCREF:
+            case REF_TYPE_NULLEXTERNREF:
+            case REF_TYPE_NULLREF:
+            /* case REF_TYPE_FUNCREF: */
+            /* case REF_TYPE_EXTERNREF: */
+            case REF_TYPE_ANYREF:
+            case REF_TYPE_EQREF:
+            case REF_TYPE_HT_NULLABLE:
+            case REF_TYPE_HT_NON_NULLABLE:
+            case REF_TYPE_I31REF:
+            case REF_TYPE_STRUCTREF:
+            case REF_TYPE_ARRAYREF:
+            case VALUE_TYPE_GC_REF:
+                if (!aot_frame_store_value(
+                        comp_ctx, param_values[i], VALUE_TYPE_GC_REF,
+                        func_ctx->cur_frame,
+                        offset_of_local_in_outs_area(comp_ctx, n)))
+                    return false;
+                if (comp_ctx->pointer_size == sizeof(uint64))
+                    n++;
+                break;
+#endif
+            default:
+                bh_assert(0);
+                break;
+        }
+    }
+
+    return true;
+}
+
 bool
 aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                    uint32 func_idx, bool tail_call, const uint8 *frame_ip)
+                    uint32 func_idx, bool tail_call, const uint8 *frame_ip_call)
 {
     uint32 import_func_count = comp_ctx->comp_data->import_func_count;
     AOTImportFunc *import_funcs = comp_ctx->comp_data->import_funcs;
@@ -558,8 +654,9 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     if (comp_ctx->aot_frame) {
         if (!aot_gen_commit_values(comp_ctx->aot_frame))
             return false;
+
         if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, comp_ctx->aot_frame->sp,
-                                  frame_ip))
+                                  frame_ip_call))
             return false;
     }
 
@@ -653,6 +750,12 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     if (func_idx < import_func_count) {
+        if (comp_ctx->enable_aux_stack_frame
+            && !commit_params_to_frame_of_import_func(
+                comp_ctx, func_ctx, func_type, param_values + 1)) {
+            goto fail;
+        }
+
         if (!(import_func_idx = I32_CONST(func_idx))) {
             aot_set_last_error("llvm build inbounds gep failed.");
             goto fail;
@@ -1081,7 +1184,7 @@ call_aot_call_indirect_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 bool
 aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                              uint32 type_idx, uint32 tbl_idx,
-                             const uint8 *frame_ip)
+                             const uint8 *frame_ip_call_indirect)
 {
     AOTFuncType *func_type;
     LLVMValueRef tbl_idx_value, elem_idx, func_idx;
@@ -1132,8 +1235,9 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     if (comp_ctx->aot_frame) {
         if (!aot_gen_commit_values(comp_ctx->aot_frame))
             return false;
+
         if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, comp_ctx->aot_frame->sp,
-                                  frame_ip))
+                                  frame_ip_call_indirect))
             return false;
     }
 
@@ -1528,6 +1632,12 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* Translate call import block */
     LLVMPositionBuilderAtEnd(comp_ctx->builder, block_call_import);
 
+    if (comp_ctx->enable_aux_stack_frame
+        && !commit_params_to_frame_of_import_func(comp_ctx, func_ctx, func_type,
+                                                  param_values + 1)) {
+        goto fail;
+    }
+
     /* Allocate memory for result values */
     if (func_result_count > 0) {
         total_size = sizeof(LLVMValueRef) * (uint64)func_result_count;
@@ -1722,16 +1832,27 @@ fail:
 
 bool
 aot_compile_op_ref_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                        uint32 func_idx)
+                        uint32 func_idx, const uint8 *frame_ip_ref_func)
 {
     LLVMValueRef ref_idx;
+#if WASM_ENABLE_GC != 0
+    LLVMValueRef gc_obj;
+#endif
+
     if (!(ref_idx = I32_CONST(func_idx))) {
         HANDLE_FAILURE("LLVMConstInt");
         goto fail;
     }
+
 #if WASM_ENABLE_GC != 0
-    LLVMValueRef gc_obj;
     if (comp_ctx->enable_gc) {
+        if (!aot_gen_commit_values(comp_ctx->aot_frame))
+            return false;
+
+        if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, comp_ctx->aot_frame->sp,
+                                  frame_ip_ref_func))
+            return false;
+
         if (!aot_call_aot_create_func_obj(comp_ctx, func_ctx, ref_idx,
                                           &gc_obj)) {
             goto fail;
@@ -1753,7 +1874,8 @@ fail:
 #if WASM_ENABLE_GC != 0
 bool
 aot_compile_op_call_ref(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                        uint32 type_idx, bool tail_call, const uint8 *frame_ip)
+                        uint32 type_idx, bool tail_call,
+                        const uint8 *frame_ip_call_ref)
 {
     AOTFuncType *func_type;
     LLVMValueRef func_obj, func_idx;
@@ -1789,8 +1911,9 @@ aot_compile_op_call_ref(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     if (comp_ctx->aot_frame) {
         if (!aot_gen_commit_values(comp_ctx->aot_frame))
             return false;
+
         if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame, comp_ctx->aot_frame->sp,
-                                  frame_ip))
+                                  frame_ip_call_ref))
             return false;
     }
 
@@ -2009,6 +2132,12 @@ aot_compile_op_call_ref(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     /* Translate call import block */
     LLVMPositionBuilderAtEnd(comp_ctx->builder, block_call_import);
+
+    if (comp_ctx->enable_aux_stack_frame
+        && !commit_params_to_frame_of_import_func(comp_ctx, func_ctx, func_type,
+                                                  param_values + 1)) {
+        goto fail;
+    }
 
     /* Similar to opcode call_indirect, but for opcode ref.func needs to call
      * aot_invoke_native_func instead */

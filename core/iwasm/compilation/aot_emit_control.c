@@ -166,18 +166,25 @@ clear_frame_locals(AOTCompFrame *aot_frame)
     for (i = 0; i < aot_frame->max_local_cell_num; i++) {
         aot_frame->lp[i].dirty = 0;
         aot_frame->lp[i].value = NULL;
+        if (aot_frame->comp_ctx->enable_gc)
+            /* Mark the ref flag as committed */
+            aot_frame->lp[i].committed_ref = aot_frame->lp[i].ref + 1;
     }
 }
 
 static void
 restore_frame_sp(AOTBlock *block, AOTCompFrame *aot_frame)
 {
-    uint32 stack_cell_num;
+    uint32 all_cell_num, stack_cell_num;
 
     bh_assert(aot_frame->sp >= block->frame_sp_begin);
 
-    stack_cell_num = aot_frame->sp - block->frame_sp_begin;
+    all_cell_num =
+        aot_frame->max_local_cell_num + aot_frame->max_stack_cell_num;
+    stack_cell_num = aot_frame->lp + all_cell_num - block->frame_sp_begin;
+
     if (stack_cell_num > 0) {
+        /* Clear the stack operands and mark the ref flags as uncommitted */
         memset(block->frame_sp_begin, 0, sizeof(AOTValueSlot) * stack_cell_num);
     }
     aot_frame->sp = block->frame_sp_begin;
@@ -234,20 +241,24 @@ handle_next_reachable_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         block_prev = block->prev;
         block = aot_block_stack_pop(&func_ctx->block_stack);
 
-        if (aot_frame) {
-            /* Restore the frame sp */
-            restore_frame_sp(block, aot_frame);
-        }
-
         if (block->label_type == LABEL_TYPE_IF) {
             if (block->llvm_else_block && !block->skip_wasm_code_else
                 && *p_frame_ip <= block->wasm_code_else) {
                 /* Clear value stack and start to translate else branch */
                 aot_value_stack_destroy(comp_ctx, &block->value_stack);
+
+                if (aot_frame) {
+                    /* Restore the frame sp */
+                    restore_frame_sp(block, aot_frame);
+                }
+
                 SET_BUILDER_POS(block->llvm_else_block);
                 *p_frame_ip = block->wasm_code_else + 1;
                 /* Push back the block */
                 aot_block_stack_push(&func_ctx->block_stack, block);
+                /* Recover parameters of else branch */
+                for (i = 0; i < block->param_count; i++)
+                    PUSH(block->else_param_phis[i], block->param_types[i]);
                 return true;
             }
             else if (block->llvm_end_block) {
@@ -264,6 +275,25 @@ handle_next_reachable_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     if (!block) {
         *p_frame_ip = frame_ip + 1;
+        return true;
+    }
+
+    if (block->label_type == LABEL_TYPE_IF && block->llvm_else_block
+        && !block->skip_wasm_code_else
+        && *p_frame_ip <= block->wasm_code_else) {
+        /* Clear value stack and start to translate else branch */
+        aot_value_stack_destroy(comp_ctx, &block->value_stack);
+
+        if (aot_frame) {
+            /* Restore the frame sp */
+            restore_frame_sp(block, aot_frame);
+        }
+
+        /* Recover parameters of else branch */
+        for (i = 0; i < block->param_count; i++)
+            PUSH(block->else_param_phis[i], block->param_types[i]);
+        SET_BUILDER_POS(block->llvm_else_block);
+        *p_frame_ip = block->wasm_code_else + 1;
         return true;
     }
 
@@ -701,11 +731,8 @@ aot_compile_op_else(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         aot_value_stack_destroy(comp_ctx, &block->value_stack);
 
         if (comp_ctx->aot_frame) {
-            comp_ctx->aot_frame->sp = block->frame_sp_begin;
-            for (i = 0; i < comp_ctx->aot_frame->max_local_cell_num; i++) {
-                comp_ctx->aot_frame->lp[i].dirty = 0;
-                comp_ctx->aot_frame->lp[i].value = NULL;
-            }
+            clear_frame_locals(aot_frame);
+            restore_frame_sp(block, aot_frame);
         }
 
         for (i = 0; i < block->param_count; i++)
@@ -765,7 +792,7 @@ aot_compile_op_end(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     if (comp_ctx->aot_frame) {
-        restore_frame_sp(block, comp_ctx->aot_frame);
+        bh_assert(comp_ctx->aot_frame->sp == block->frame_sp_begin);
     }
 
     /* Jump to the end block */
@@ -852,7 +879,7 @@ fail:
 
 bool
 aot_compile_op_br(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                  uint32 br_depth, uint8 **p_frame_ip)
+                  uint32 br_depth, const uint8 *frame_ip_br, uint8 **p_frame_ip)
 {
     AOTBlock *block_dst;
     LLVMValueRef value_ret, value_param;
@@ -867,9 +894,10 @@ aot_compile_op_br(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     if (comp_ctx->aot_frame) {
         if (!aot_gen_commit_values(comp_ctx->aot_frame))
             return false;
+
         if (block_dst->label_type == LABEL_TYPE_LOOP) {
             if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame,
-                                      comp_ctx->aot_frame->sp, *p_frame_ip))
+                                      comp_ctx->aot_frame->sp, frame_ip_br))
                 return false;
         }
     }
@@ -925,8 +953,8 @@ fail:
 
 static bool
 aot_compile_conditional_br(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                           uint32 br_depth, uint8 **p_frame_ip,
-                           LLVMValueRef value_cmp)
+                           uint32 br_depth, LLVMValueRef value_cmp,
+                           const uint8 *frame_ip_br_if, uint8 **p_frame_ip)
 {
     AOTBlock *block_dst;
     LLVMValueRef value, *values = NULL;
@@ -942,9 +970,10 @@ aot_compile_conditional_br(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     if (comp_ctx->aot_frame) {
         if (!aot_gen_commit_values(comp_ctx->aot_frame))
             return false;
+
         if (block_dst->label_type == LABEL_TYPE_LOOP) {
             if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame,
-                                      comp_ctx->aot_frame->sp, *p_frame_ip))
+                                      comp_ctx->aot_frame->sp, frame_ip_br_if))
                 return false;
         }
     }
@@ -1055,7 +1084,8 @@ aot_compile_conditional_br(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     else {
         if ((int32)LLVMConstIntGetZExtValue(value_cmp) != 0) {
             /* Compare value is not 0, condition is true, same as op_br */
-            return aot_compile_op_br(comp_ctx, func_ctx, br_depth, p_frame_ip);
+            return aot_compile_op_br(comp_ctx, func_ctx, br_depth,
+                                     frame_ip_br_if, p_frame_ip);
         }
         else {
             /* Compare value is not 0, condition is false, skip br_if */
@@ -1071,21 +1101,23 @@ fail:
 
 bool
 aot_compile_op_br_if(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                     uint32 br_depth, uint8 **p_frame_ip)
+                     uint32 br_depth, const uint8 *frame_ip_br_if,
+                     uint8 **p_frame_ip)
 {
     LLVMValueRef value_cmp;
 
     POP_COND(value_cmp);
 
-    return aot_compile_conditional_br(comp_ctx, func_ctx, br_depth, p_frame_ip,
-                                      value_cmp);
+    return aot_compile_conditional_br(comp_ctx, func_ctx, br_depth, value_cmp,
+                                      frame_ip_br_if, p_frame_ip);
 fail:
     return false;
 }
 
 bool
 aot_compile_op_br_table(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                        uint32 *br_depths, uint32 br_count, uint8 **p_frame_ip)
+                        uint32 *br_depths, uint32 br_count,
+                        const uint8 *frame_ip_br_table, uint8 **p_frame_ip)
 {
     uint32 i, j;
     LLVMValueRef value_switch, value_cmp, value_case, value, *values = NULL;
@@ -1115,8 +1147,10 @@ aot_compile_op_br_table(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         if (comp_ctx->aot_frame) {
             if (!aot_gen_commit_values(comp_ctx->aot_frame))
                 return false;
+
             if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame,
-                                      comp_ctx->aot_frame->sp, *p_frame_ip))
+                                      comp_ctx->aot_frame->sp,
+                                      frame_ip_br_table))
                 return false;
         }
 
@@ -1236,7 +1270,8 @@ aot_compile_op_br_table(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         if (depth_idx < br_count) {
             br_depth = br_depths[depth_idx];
         }
-        return aot_compile_op_br(comp_ctx, func_ctx, br_depth, p_frame_ip);
+        return aot_compile_op_br(comp_ctx, func_ctx, br_depth,
+                                 frame_ip_br_table, p_frame_ip);
     }
 fail:
     if (values)
@@ -1328,7 +1363,7 @@ aot_handle_next_reachable_block(AOTCompContext *comp_ctx,
 static bool
 commit_gc_and_check_suspend_flags(AOTCompContext *comp_ctx,
                                   AOTFuncContext *func_ctx, uint32 br_depth,
-                                  uint8 **p_frame_ip)
+                                  const uint8 *frame_ip_br_on)
 {
     AOTBlock *block_dst;
 
@@ -1339,9 +1374,10 @@ commit_gc_and_check_suspend_flags(AOTCompContext *comp_ctx,
     if (comp_ctx->aot_frame) {
         if (!aot_gen_commit_values(comp_ctx->aot_frame))
             return false;
+
         if (block_dst->label_type == LABEL_TYPE_LOOP) {
             if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame,
-                                      comp_ctx->aot_frame->sp, *p_frame_ip))
+                                      comp_ctx->aot_frame->sp, frame_ip_br_on))
                 return false;
         }
     }
@@ -1459,12 +1495,13 @@ fail:
 
 bool
 aot_compile_op_br_on_null(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                          uint32 br_depth, uint8 **p_frame_ip)
+                          uint32 br_depth, const uint8 *frame_ip_br_on_null,
+                          uint8 **p_frame_ip)
 {
     LLVMValueRef gc_obj, value_cmp;
 
     if (!commit_gc_and_check_suspend_flags(comp_ctx, func_ctx, br_depth,
-                                           p_frame_ip)) {
+                                           frame_ip_br_on_null)) {
         return false;
     }
 
@@ -1489,12 +1526,13 @@ fail:
 bool
 aot_compile_op_br_on_non_null(AOTCompContext *comp_ctx,
                               AOTFuncContext *func_ctx, uint32 br_depth,
+                              const uint8 *frame_ip_br_on_non_null,
                               uint8 **p_frame_ip)
 {
     LLVMValueRef gc_obj, value_cmp;
 
     if (!commit_gc_and_check_suspend_flags(comp_ctx, func_ctx, br_depth,
-                                           p_frame_ip)) {
+                                           frame_ip_br_on_non_null)) {
         return false;
     }
 
@@ -1519,13 +1557,14 @@ fail:
 bool
 aot_compile_op_br_on_cast(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                           int32 heap_type, bool nullable, bool br_on_fail,
-                          uint32 br_depth, uint8 **p_frame_ip)
+                          uint32 br_depth, const uint8 *frame_ip_br_on_cast,
+                          uint8 **p_frame_ip)
 {
     LLVMValueRef gc_obj, is_null, castable, not_castable, br_if_phi;
     LLVMBasicBlockRef block_curr, block_non_null, block_br_if;
 
     if (!commit_gc_and_check_suspend_flags(comp_ctx, func_ctx, br_depth,
-                                           p_frame_ip)) {
+                                           frame_ip_br_on_cast)) {
         return false;
     }
 

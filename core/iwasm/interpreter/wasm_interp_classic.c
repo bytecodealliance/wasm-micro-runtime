@@ -341,8 +341,14 @@ get_frame_ref(WASMInterpFrame *frame)
         return (uint8 *)(frame->lp + all_cell_num);
     }
     else {
+#if WASM_ENABLE_JIT == 0
         /* it's a wasm bytecode function frame */
         return (uint8 *)frame->csp_boundary;
+#else
+        return (uint8 *)(frame->lp + cur_func->param_cell_num
+                         + cur_func->local_cell_num
+                         + cur_func->u.func->max_stack_cell_num);
+#endif
     }
 }
 
@@ -361,11 +367,9 @@ init_frame_refs(uint8 *frame_ref, uint32 cell_num, WASMFunctionInstance *func)
             frame_ref[j++] = 1;
 #endif
         }
-        else if (func->param_types[i] == VALUE_TYPE_I32
-                 || func->param_types[i] == VALUE_TYPE_F32)
-            j++;
-        else
-            j += 2;
+        else {
+            j += wasm_value_type_cell_num(func->param_types[i]);
+        }
     }
 
     for (i = 0; i < func->local_count; i++) {
@@ -376,11 +380,9 @@ init_frame_refs(uint8 *frame_ref, uint32 cell_num, WASMFunctionInstance *func)
             frame_ref[j++] = 1;
 #endif
         }
-        else if (func->local_types[i] == VALUE_TYPE_I32
-                 || func->local_types[i] == VALUE_TYPE_F32)
-            j++;
-        else
-            j += 2;
+        else {
+            j += wasm_value_type_cell_num(func->local_types[i]);
+        }
     }
 }
 
