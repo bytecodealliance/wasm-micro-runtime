@@ -52,7 +52,8 @@ case $TARGET in
         $ESP32C3_TARGET)
                 west build -b esp32c3_devkitm \
                            . -p always -- \
-                           -DWAMR_BUILD_TARGET=RISCV32_ILP32
+                           -DWAMR_BUILD_TARGET=RISCV32_ILP32 \
+                           -DWAMR_BUILD_AOT=0
                 # west flash will discover the device
                 west flash
                 ;;
