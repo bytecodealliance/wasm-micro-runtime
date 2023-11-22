@@ -371,6 +371,7 @@ aot_create_funcs(const WASMModule *module, uint32 pointer_size)
             aot_set_last_error("allocate memory failed.");
             goto fail;
         }
+        memset(aot_func, 0, sizeof(AOTFunc));
 
         func_type = aot_func->func_type = func->func_type;
 
