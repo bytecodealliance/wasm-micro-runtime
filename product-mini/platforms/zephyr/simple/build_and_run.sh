@@ -52,11 +52,6 @@ case $TARGET in
                 west flash
                 ;;
         $ESP32_TARGET)
-                export ZEPHYR_TOOLCHAIN_VARIANT="espressif"
-                if [[ -z "${ESPRESSIF_TOOLCHAIN_PATH}" ]]; then
-                        echo "Set ESPRESSIF_TOOLCHAIN_PATH to your espressif toolchain"
-                        exit 1
-                fi
                 west build -b esp32 \
                            . -p always -- \
                            -DWAMR_BUILD_TARGET=XTENSA                           
@@ -64,11 +59,6 @@ case $TARGET in
                 west flash
                 ;;
         $ESP32C3_TARGET)
-                export ZEPHYR_TOOLCHAIN_VARIANT="espressif"
-                if [[ -z "${ESPRESSIF_TOOLCHAIN_PATH}" ]]; then
-                        echo "Set ESPRESSIF_TOOLCHAIN_PATH to your espressif toolchain"
-                        exit 1
-                fi
                 west build -b esp32c3_devkitm \
                            . -p always -- \
                            -DWAMR_BUILD_TARGET=RISCV32_ILP32
