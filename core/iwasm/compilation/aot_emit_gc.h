@@ -63,6 +63,15 @@ aot_compile_op_array_new_data(AOTCompContext *comp_ctx,
                               const uint8 *frame_ip_array_new_data);
 
 bool
+aot_array_obj_length(AOTCompContext *comp_ctx, LLVMValueRef array_obj,
+                     LLVMValueRef *p_array_len);
+
+bool
+aot_array_obj_elem_addr(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                        LLVMValueRef array_obj, LLVMValueRef elem_idx,
+                        LLVMValueRef *p_elem_data, uint8 array_elem_type);
+
+bool
 aot_compile_op_array_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                          uint32 type_index, bool sign);
 

@@ -39,7 +39,7 @@ wasm_string_destroy(WASMString str_obj);
 
 /* string.const */
 WASMString
-wasm_string_new_const(const char *str);
+wasm_string_new_const(const char *content, uint32 length);
 
 /* string.new_xx8/new_wtf16 */
 /* string.new_xx8_array */

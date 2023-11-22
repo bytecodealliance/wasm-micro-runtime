@@ -592,6 +592,12 @@ commit_params_to_frame_of_import_func(AOTCompContext *comp_ctx,
             case REF_TYPE_STRUCTREF:
             case REF_TYPE_ARRAYREF:
             case VALUE_TYPE_GC_REF:
+#if WASM_ENABLE_STRINGREF != 0
+            case REF_TYPE_STRINGREF:
+            case REF_TYPE_STRINGVIEWWTF8:
+            case REF_TYPE_STRINGVIEWWTF16:
+            case REF_TYPE_STRINGVIEWITER:
+#endif
                 if (!aot_frame_store_value(
                         comp_ctx, param_values[i], VALUE_TYPE_GC_REF,
                         func_ctx->cur_frame,

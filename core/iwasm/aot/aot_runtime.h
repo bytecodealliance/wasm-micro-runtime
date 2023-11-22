@@ -52,6 +52,7 @@ typedef enum AOTCustomSectionType {
     AOT_CUSTOM_SECTION_NATIVE_SYMBOL = 1,
     AOT_CUSTOM_SECTION_ACCESS_CONTROL = 2,
     AOT_CUSTOM_SECTION_NAME = 3,
+    AOT_CUSTOM_SECTION_STRING_LITERAL = 4,
 } AOTCustomSectionType;
 
 typedef struct AOTObjectDataSection {
@@ -268,6 +269,18 @@ typedef struct AOTModule {
     HashMap *ref_type_set;
     struct WASMRttType **rtt_types;
     korp_mutex rtt_type_lock;
+#if WASM_ENABLE_STRINGREF != 0
+    /* special rtts for stringref types
+        - stringref
+        - stringview_wtf8
+        - stringview_wtf16
+        - stringview_iter
+     */
+    struct WASMRttType *stringref_rtts[4];
+    uint32 string_literal_count;
+    uint32 *string_literal_lengths;
+    const uint8 **string_literal_ptrs;
+#endif
 #endif
 
 #if WASM_ENABLE_DEBUG_AOT != 0

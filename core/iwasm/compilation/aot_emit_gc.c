@@ -791,7 +791,7 @@ aot_array_obj_elem_size_log(AOTCompContext *comp_ctx, uint8 array_elem_type)
 }
 
 /* array_obj->elem_data + (elem_idx << elem_size_log) */
-static bool
+bool
 aot_array_obj_elem_addr(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                         LLVMValueRef array_obj, LLVMValueRef elem_idx,
                         LLVMValueRef *p_elem_data, uint8 array_elem_type)
@@ -1064,7 +1064,7 @@ fail:
 }
 
 /* array_obj->length >> WASM_ARRAY_LENGTH_SHIFT */
-static bool
+bool
 aot_array_obj_length(AOTCompContext *comp_ctx, LLVMValueRef array_obj,
                      LLVMValueRef *p_array_len)
 {

@@ -61,6 +61,12 @@ wasm_type_to_llvm_type(const AOTCompContext *comp_ctx,
         case REF_TYPE_I31REF:
         case REF_TYPE_STRUCTREF:
         case REF_TYPE_ARRAYREF:
+#if WASM_ENABLE_STRINGREF != 0
+        case REF_TYPE_STRINGREF:
+        case REF_TYPE_STRINGVIEWWTF8:
+        case REF_TYPE_STRINGVIEWWTF16:
+        case REF_TYPE_STRINGVIEWITER:
+#endif
         case VALUE_TYPE_GC_REF:
             bh_assert(comp_ctx->enable_gc);
             return llvm_types->gc_ref_type;
@@ -1107,6 +1113,12 @@ create_local_variables(const AOTCompData *comp_data,
             case REF_TYPE_I31REF:
             case REF_TYPE_STRUCTREF:
             case REF_TYPE_ARRAYREF:
+#if WASM_ENABLE_STRINGREF != 0
+            case REF_TYPE_STRINGREF:
+            case REF_TYPE_STRINGVIEWWTF8:
+            case REF_TYPE_STRINGVIEWWTF16:
+            case REF_TYPE_STRINGVIEWITER:
+#endif
                 local_value = GC_REF_NULL;
                 break;
 #endif
@@ -3485,6 +3497,12 @@ aot_build_zero_function_ret(const AOTCompContext *comp_ctx,
             case REF_TYPE_I31REF:
             case REF_TYPE_STRUCTREF:
             case REF_TYPE_ARRAYREF:
+#if WASM_ENABLE_STRINGREF != 0
+            case REF_TYPE_STRINGREF:
+            case REF_TYPE_STRINGVIEWWTF8:
+            case REF_TYPE_STRINGVIEWWTF16:
+            case REF_TYPE_STRINGVIEWITER:
+#endif
                 bh_assert(comp_ctx->enable_gc);
                 ret = LLVMBuildRet(comp_ctx->builder, GC_REF_NULL);
                 break;

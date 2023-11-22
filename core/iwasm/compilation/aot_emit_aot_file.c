@@ -1060,6 +1060,10 @@ static uint32
 get_name_section_size(AOTCompData *comp_data);
 
 static uint32
+get_string_literal_section_size(AOTCompContext *comp_ctx,
+                                AOTCompData *comp_data);
+
+static uint32
 get_custom_sections_size(AOTCompContext *comp_ctx, AOTCompData *comp_data);
 
 static uint32
@@ -1068,6 +1072,9 @@ get_aot_file_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
 {
     uint32 size = 0;
     uint32 size_custom_section = 0;
+#if WASM_ENABLE_STRINGREF != 0
+    uint32 size_string_literal_section = 0;
+#endif
 
     /* aot file header */
     size += get_file_header_size();
@@ -1130,6 +1137,18 @@ get_aot_file_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
         size = align_uint(size, 4);
         size += size_custom_section;
     }
+
+#if WASM_ENABLE_STRINGREF != 0
+    /* string literal section */
+    size_string_literal_section =
+        get_string_literal_section_size(comp_ctx, comp_data);
+    if (size_string_literal_section > 0) {
+        size = align_uint(size, 4);
+        /* section id + section size + sub section id */
+        size += (uint32)sizeof(uint32) * 3;
+        size += size_string_literal_section;
+    }
+#endif
 
     return size;
 }
@@ -1463,6 +1482,28 @@ get_name_section_size(AOTCompData *comp_data)
     return offset;
 fail:
     return 0;
+}
+
+static uint32
+get_string_literal_section_size(AOTCompContext *comp_ctx,
+                                AOTCompData *comp_data)
+{
+    uint32 i;
+    uint32 size = 0;
+    uint32 string_count = comp_data->string_literal_count;
+
+    if (string_count == 0) {
+        return 0;
+    }
+
+    /* reserved slot + string count + string_lengths */
+    size += sizeof(uint32) * (2 + string_count);
+
+    for (i = 0; i < string_count; i++) {
+        size += comp_data->string_literal_lengths_wp[i];
+    }
+
+    return size;
 }
 
 static uint32
@@ -2396,6 +2437,48 @@ aot_emit_name_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
                     comp_data->aot_name_section_buf,
                     (uint32)comp_data->aot_name_section_size);
         offset += comp_data->aot_name_section_size;
+
+        *p_offset = offset;
+    }
+
+    return true;
+}
+
+static bool
+aot_emit_string_literal_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
+                                AOTCompData *comp_data,
+                                AOTCompContext *comp_ctx)
+{
+    uint32 string_count = comp_data->string_literal_count;
+
+    if (string_count > 0) {
+        uint32 offset = *p_offset;
+        uint32 i;
+
+        *p_offset = offset = align_uint(offset, 4);
+
+        EMIT_U32(AOT_SECTION_TYPE_CUSTOM);
+        /* sub section id + string literal section size */
+        EMIT_U32(sizeof(uint32) * 1
+                 + get_string_literal_section_size(comp_ctx, comp_data));
+        EMIT_U32(AOT_CUSTOM_SECTION_STRING_LITERAL);
+
+        /* reserved */
+        EMIT_U32(0);
+
+        /* string literal count */
+        EMIT_U32(string_count);
+
+        for (i = 0; i < string_count; i++) {
+            EMIT_U32(comp_data->string_literal_lengths_wp[i]);
+        }
+
+        for (i = 0; i < string_count; i++) {
+            uint32 string_length = comp_data->string_literal_lengths_wp[i];
+            bh_memcpy_s((uint8 *)(buf + offset), (uint32)(buf_end - buf),
+                        comp_data->string_literal_ptrs_wp[i], string_length);
+            offset += string_length;
+        }
 
         *p_offset = offset;
     }
@@ -3949,8 +4032,12 @@ aot_emit_aot_file_buf(AOTCompContext *comp_ctx, AOTCompData *comp_data,
                                         comp_data, obj_data)
         || !aot_emit_native_symbol(buf, buf_end, &offset, comp_ctx)
         || !aot_emit_name_section(buf, buf_end, &offset, comp_data, comp_ctx)
-        || !aot_emit_custom_sections(buf, buf_end, &offset, comp_data,
-                                     comp_ctx))
+        || !aot_emit_custom_sections(buf, buf_end, &offset, comp_data, comp_ctx)
+#if WASM_ENABLE_STRINGREF != 0
+        || !aot_emit_string_literal_section(buf, buf_end, &offset, comp_data,
+                                            comp_ctx)
+#endif
+    )
         goto fail2;
 
 #if 0

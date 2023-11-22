@@ -2504,6 +2504,11 @@ static const char *exception_msgs[] = {
     "create externref object failed", /* EXCE_FAILED_TO_CREATE_EXTERNREF_OBJ */
     "cast failure",                   /* EXCE_CAST_FAILURE */
     "array index out of bounds",      /* EXCE_ARRAY_IDX_OOB */
+    /* stringref related exceptions */
+    "create string object failed",    /* EXCE_FAILED_TO_CREATE_STRING */
+    "create stringref failed",        /* EXCE_FAILED_TO_CREATE_STRINGREF */
+    "create stringview failed",       /* EXCE_FAILED_TO_CREATE_STRINGVIEW */
+    "encode failed",                  /* EXCE_FAILED_TO_ENCODE_STRING */
     "",                               /* EXCE_ALREADY_THROWN */
 };
 /* clang-format on */
