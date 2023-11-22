@@ -1750,7 +1750,8 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                             return false;
                         break;
                     case WASM_OP_STRINGVIEW_ITER_NEXT:
-                        if (!aot_compile_op_stringview_iter_next(comp_ctx, func_ctx))
+                        if (!aot_compile_op_stringview_iter_next(comp_ctx,
+                                                                 func_ctx))
                             return false;
                         break;
                     case WASM_OP_STRINGVIEW_ITER_ADVANCE:
@@ -1764,8 +1765,8 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                             return false;
                         break;
                     case WASM_OP_STRINGVIEW_ITER_SLICE:
-                        if (!aot_compile_op_stringview_iter_slice(comp_ctx,
-                                                                  func_ctx, frame_ip_org))
+                        if (!aot_compile_op_stringview_iter_slice(
+                                comp_ctx, func_ctx, frame_ip_org))
                             return false;
                         break;
                     case WASM_OP_STRING_NEW_UTF8_ARRAY:

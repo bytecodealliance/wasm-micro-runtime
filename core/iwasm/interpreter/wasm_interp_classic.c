@@ -3378,9 +3378,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                         count = wasm_string_measure(str_obj, flag);
 
-                        bytes_written =
-                            wasm_string_encode(str_obj, 0, count,
-                                               arr_start_addr, NULL, flag);
+                        bytes_written = wasm_string_encode(
+                            str_obj, 0, count, arr_start_addr, NULL, flag);
 
                         if (bytes_written < 0) {
                             if (bytes_written == Isolated_Surrogate) {
