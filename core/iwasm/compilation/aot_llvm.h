@@ -114,8 +114,6 @@ typedef struct AOTValueSlot {
 typedef struct AOTCompFrame {
     /* The current wasm module */
     WASMModule *cur_wasm_module;
-    /* The current wasm function index */
-    uint32 cur_wasm_func_idx;
     /* The current compilation context */
     struct AOTCompContext *comp_ctx;
     /* The current function context */
