@@ -546,6 +546,14 @@ bool
 aot_data_drop(AOTModuleInstance *module_inst, uint32 seg_index);
 #endif
 
+#if WASM_ENABLE_SHARED_MEMORY != 0
+void
+aot_shared_mem_lock(AOTMemoryInstance *memory);
+
+void
+aot_shared_mem_unlock(AOTMemoryInstance *memory);
+#endif
+
 #if WASM_ENABLE_THREAD_MGR != 0
 bool
 aot_set_aux_stack(WASMExecEnv *exec_env, uint32 start_offset, uint32 size);
