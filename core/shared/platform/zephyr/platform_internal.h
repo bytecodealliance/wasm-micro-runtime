@@ -131,7 +131,7 @@ float strtof(const char *nptr, char **endptr);
 #endif
 
 /**
- * @brief Allocate executable memroy
+ * @brief Allocate executable memory
  *
  * @param size size of the memory to be allocated
  *
@@ -140,7 +140,7 @@ float strtof(const char *nptr, char **endptr);
 typedef void *(*exec_mem_alloc_func_t)(unsigned int size);
 
 /**
- * @brief Release executable memroy
+ * @brief Release executable memory
  *
  * @param the address of the executable memory to be released
  */
