@@ -177,7 +177,11 @@ rv_set_val(uint16 *addr, uint32 val)
     *addr = (val & 0xffff);
     *(addr + 1) = (val >> 16);
 
+#ifdef __riscv_zifencei
     __asm__ volatile("fence.i");
+#else
+    __asm__ volatile("fence");
+#endif
 }
 
 /* Add a val to given address */
