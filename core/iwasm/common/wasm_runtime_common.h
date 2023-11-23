@@ -986,6 +986,14 @@ wasm_runtime_unregister_natives(const char *module_name,
                                 NativeSymbol *native_symbols);
 
 /* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_shared_mem_lock(WASMModuleInstanceCommon *inst);
+
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_shared_mem_unlock(WASMModuleInstanceCommon *inst);
+
+/* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN void *
 wasm_runtime_create_context_key(void (*dtor)(WASMModuleInstanceCommon *inst,
                                              void *ctx));

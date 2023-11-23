@@ -960,8 +960,7 @@ wasm_runtime_set_bounds_checks(wasm_module_inst_t module_inst,
  * @return true if the memory bounds checks flag is enabled, false otherwise
  */
 WASM_RUNTIME_API_EXTERN bool
-wasm_runtime_is_bounds_checks_enabled(
-    wasm_module_inst_t module_inst);
+wasm_runtime_is_bounds_checks_enabled(wasm_module_inst_t module_inst);
 /**
  * Allocate memory from the heap of WASM module instance
  *
@@ -1483,6 +1482,20 @@ typedef void (*enlarge_memory_error_callback_t)(
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_enlarge_mem_error_callback(
     const enlarge_memory_error_callback_t callback, void *user_data);
+
+/*
+ * Lock the memory of a module instance when the memory is shared,
+ * it may be used in the native wrappers to avoid data race when
+ * accessing the shared memory
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_shared_mem_lock(wasm_module_inst_t inst);
+
+/*
+ * Unlock the memory locked by wasm_runtime_shared_mem_lock
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_shared_mem_unlock(wasm_module_inst_t inst);
 
 /*
  * module instance context APIs

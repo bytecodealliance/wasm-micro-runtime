@@ -6106,6 +6106,35 @@ wasm_runtime_sub_module_deinstantiate(WASMModuleInstanceCommon *module_inst)
     }
 }
 #endif /* end of WASM_ENABLE_MULTI_MODULE */
+
+void
+wasm_runtime_shared_mem_lock(WASMModuleInstanceCommon *inst)
+{
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    WASMModuleInstance *module_inst = (WASMModuleInstance *)inst;
+    WASMMemoryInstance *memory_inst = wasm_get_default_memory(module_inst);
+
+    if (!memory_inst)
+        return;
+
+    SHARED_MEMORY_LOCK(memory_inst);
+#endif
+}
+
+void
+wasm_runtime_shared_mem_unlock(WASMModuleInstanceCommon *inst)
+{
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    WASMModuleInstance *module_inst = (WASMModuleInstance *)inst;
+    WASMMemoryInstance *memory_inst = wasm_get_default_memory(module_inst);
+
+    if (!memory_inst)
+        return;
+
+    SHARED_MEMORY_UNLOCK(memory_inst);
+#endif
+}
+
 #if WASM_ENABLE_MODULE_INST_CONTEXT != 0
 void *
 wasm_runtime_create_context_key(void (*dtor)(WASMModuleInstanceCommon *inst,
