@@ -18,6 +18,8 @@ on:
 env:
   LLVM_CACHE_SUFFIX: "build-llvm_libraries_ex"
   WASI_SDK_PATH: "/opt/wasi-sdk"
+  WAMR_COMMON_OPTION:
+    "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_STACKSIZE=32768\\nCONFIG_INTERPRETERS_WAMR_LOG=y\\nCONFIG_INTERPRETERS_WAMR_LIBC_BUILTIN=y\\nCONFIG_INTERPRETERS_WAMR_REF_TYPES=y\\nCONFIG_INTERPRETERS_WAMR_ENABLE_SPEC_TEST=y\\nCONFIG_INTERPRETERS_WAMR_SHARED_MEMORY=y\\nCONFIG_INTERPRETERS_WAMR_BULK_MEMORY=y\\nCONFIG_EOL_IS_LF=y\\nCONFIG_ARM_SEMIHOSTING_HOSTFS=y\\nCONFIG_ARM_SEMIHOSTING_HOSTFS_CACHE_COHERENCE=y\\nCONFIG_RISCV_SEMIHOSTING_HOSTFS=y\\nCONFIG_FS_HOSTFS=y\\nCONFIG_LIBC_FLOATINGPOINT=y\\n"
 
 jobs:
   build_llvm_libraries:
@@ -27,11 +29,10 @@ jobs:
       arch: "ARM RISCV AArch64"
 
   spec_test_on_qemu:
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-22.04
     needs: [build_llvm_libraries]
     strategy:
       matrix:
-        os: [ubuntu-22.04]
         nuttx_board_config: [
           # cortex-a9
           "boards/arm/imx6/sabre-6quad/configs/nsh",
@@ -40,12 +41,24 @@ jobs:
           # riscv64imac
           # "boards/risc-v/qemu-rv/rv-virt/configs/nsh64",
         ]
-        wamr_test_option: [
-          # "-t fast-interp",
+
+        wamr_test_running_mode_option: [
           "-t aot",
-          "-t aot -X"
+          "-t aot -X",
+          "-t classic-interp",
+          "-t fast-interp",
         ]
-        llvm_cache_key: [ "${{ needs.build_llvm_libraries.outputs.cache_key }}" ]
+
+        include:
+          - wamr_test_running_mode_option: "-t aot"
+            wamr_running_mode_option: "CONFIG_INTERPRETERS_WAMR_AOT=y\\n"
+          - wamr_test_running_mode_option: "-t aot -X"
+            wamr_running_mode_option: "CONFIG_INTERPRETERS_WAMR_AOT=y\\n"
+          - wamr_test_running_mode_option: "-t classic-interp"
+            wamr_running_mode_option: "CONFIG_INTERPRETERS_WAMR_CLASSIC=y\\n"
+          - wamr_test_running_mode_option: "-t fast-interp"
+            wamr_running_mode_option: "CONFIG_INTERPRETERS_WAMR_FAST=y\\n"
+
     steps:
       - name: Install Utilities
         run: |
@@ -96,7 +109,7 @@ jobs:
             ./core/deps/llvm/build/lib
             ./core/deps/llvm/build/libexec
             ./core/deps/llvm/build/share
-          key: ${{ matrix.llvm_cache_key }}
+          key: ${{ needs.build_llvm_libraries.outputs.cache_key }}
 
       - name: Quit if cache miss
         if: steps.retrieve_llvm_libs.outputs.cache-hit != 'true'
@@ -107,10 +120,13 @@ jobs:
 
       - name: Enable WAMR for NuttX
         run: |
-          find nuttx/boards -name defconfig | xargs sed -i '$a\CONFIG_INTERPRETERS_WAMR=y\nCONFIG_INTERPRETERS_WAMR_STACKSIZE=32768\nCONFIG_INTERPRETERS_WAMR_AOT=y\nCONFIG_INTERPRETERS_WAMR_FAST=y\nCONFIG_INTERPRETERS_WAMR_LOG=y\nCONFIG_INTERPRETERS_WAMR_LIBC_BUILTIN=y\nCONFIG_INTERPRETERS_WAMR_REF_TYPES=y\nCONFIG_INTERPRETERS_WAMR_ENABLE_SPEC_TEST=y\nCONFIG_INTERPRETERS_WAMR_SHARED_MEMORY=y\nCONFIG_INTERPRETERS_WAMR_BULK_MEMORY=y\n'
-          find nuttx/boards -name defconfig | xargs sed -i '$a\CONFIG_EOL_IS_LF=y\nCONFIG_ARM_SEMIHOSTING_HOSTFS=y\nCONFIG_ARM_SEMIHOSTING_HOSTFS_CACHE_COHERENCE=y\nCONFIG_RISCV_SEMIHOSTING_HOSTFS=y\nCONFIG_FS_HOSTFS=y\nCONFIG_LIBC_FLOATINGPOINT=y\n'
+          find nuttx/boards -name defconfig | xargs sed -i '$a\${{ env.WAMR_COMMON_OPTION }}'
+      
+      - name: Enable WAMR Interpreter for NuttX
+        run: |
+          find nuttx/boards -name defconfig | xargs sed -i '$a\${{ matrix.wamr_running_mode_option }}'
 
-      - name: Enable additional features for NuttX on RI5C-V
+      - name: Enable additional features for NuttX on RISC-V
         if: startsWith(matrix.nuttx_board_config, 'boards/risc-v')
         run: |
           find nuttx/boards -name defconfig | xargs sed -i '$a\# CONFIG_ARCH_FPU is not set\n'
@@ -135,7 +151,7 @@ jobs:
           tar xvf xpack-qemu-arm.tar.gz
           export PATH=$PATH:$PWD/xpack-qemu-arm-7.1.0-1/bin
           cd apps/interpreters/wamr/wamr/tests/wamr-test-suites
-          ./test_wamr.sh -s spec ${{ matrix.wamr_test_option }} -m thumbv7_vfp -b -Q -P -F ${{ env.firmware }}
+          ./test_wamr.sh -s spec ${{ matrix.wamr_test_running_mode_option }} -m thumbv7_vfp -b -Q -P -F ${{ env.firmware }}
 
       - name: Test on RISCV32
         if: endsWith(matrix.nuttx_board_config, 'rv-virt/configs/nsh')
@@ -144,7 +160,7 @@ jobs:
           tar xvf xpack-qemu-riscv.tar.gz
           export PATH=$PATH:$PWD/xpack-qemu-riscv-7.1.0-1/bin
           cd apps/interpreters/wamr/wamr/tests/wamr-test-suites
-          ./test_wamr.sh -s spec ${{ matrix.wamr_test_option }} -m riscv32 -b -Q -P -F ${{ env.firmware }}
+          ./test_wamr.sh -s spec ${{ matrix.wamr_test_running_mode_option }} -m riscv32 -b -Q -P -F ${{ env.firmware }}
 
       - name: Test on RISCV64
         if: endsWith(matrix.nuttx_board_config, 'rv-virt/configs/nsh64')
@@ -153,4 +169,4 @@ jobs:
           tar xvf xpack-qemu-riscv.tar.gz
           export PATH=$PATH:$PWD/xpack-qemu-riscv-7.1.0-1/bin
           cd apps/interpreters/wamr/wamr/tests/wamr-test-suites
-          ./test_wamr.sh -s spec ${{ matrix.wamr_test_option }} -m riscv64 -b -Q -P -F ${{ env.firmware }}
+          ./test_wamr.sh -s spec ${{ matrix.wamr_test_running_mode_option }} -m riscv64 -b -Q -P -F ${{ env.firmware }}
