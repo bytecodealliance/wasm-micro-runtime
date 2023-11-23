@@ -1064,14 +1064,14 @@ create_local_variables(const AOTCompData *comp_data,
         LLVMValueRef local_value = NULL;
         snprintf(local_name, sizeof(local_name), "l%d",
                  aot_func_type->param_count + i);
-        local_type = TO_LLVM_TYPE(func->local_types[i]);
+        local_type = TO_LLVM_TYPE(func->local_types_wp[i]);
         func_ctx->locals[aot_func_type->param_count + i] =
             LLVMBuildAlloca(comp_ctx->builder, local_type, local_name);
         if (!func_ctx->locals[aot_func_type->param_count + i]) {
             aot_set_last_error("llvm build alloca failed.");
             return false;
         }
-        switch (func->local_types[i]) {
+        switch (func->local_types_wp[i]) {
             case VALUE_TYPE_I32:
                 local_value = I32_ZERO;
                 break;

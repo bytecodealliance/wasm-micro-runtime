@@ -334,13 +334,16 @@ aot_destroy_funcs(AOTFunc **funcs, uint32 count)
     uint32 i;
 
     for (i = 0; i < count; i++)
-        if (funcs[i])
+        if (funcs[i]) {
+            if (funcs[i]->local_offsets)
+                wasm_runtime_free(funcs[i]->local_offsets);
             wasm_runtime_free(funcs[i]);
+        }
     wasm_runtime_free(funcs);
 }
 
 static AOTFunc **
-aot_create_funcs(const WASMModule *module)
+aot_create_funcs(const WASMModule *module, uint32 pointer_size)
 {
     AOTFunc **funcs;
     uint64 size;
@@ -358,29 +361,70 @@ aot_create_funcs(const WASMModule *module)
     /* Create each function */
     for (i = 0; i < module->function_count; i++) {
         WASMFunction *func = module->functions[i];
+        AOTFuncType *func_type = NULL;
+        AOTFunc *aot_func = NULL;
+        uint64 total_size;
+        uint32 offset = 0;
+
         size = sizeof(AOTFunc);
-        if (!(funcs[i] = wasm_runtime_malloc((uint32)size))) {
+        if (!(aot_func = funcs[i] = wasm_runtime_malloc((uint32)size))) {
+            aot_set_last_error("allocate memory failed.");
+            goto fail;
+        }
+        memset(aot_func, 0, sizeof(AOTFunc));
+
+        func_type = aot_func->func_type = func->func_type;
+
+        /* Resolve function type index */
+        for (j = 0; j < module->type_count; j++) {
+            if (func_type == (WASMFuncType *)module->types[j]) {
+                aot_func->func_type_index = j;
+                break;
+            }
+        }
+
+        total_size = sizeof(uint16)
+                     * ((uint64)func_type->param_count + func->local_count);
+        if ((total_size > 0)
+            && (total_size >= UINT32_MAX
+                || !(aot_func->local_offsets =
+                         wasm_runtime_malloc((uint32)total_size)))) {
             aot_set_last_error("allocate memory failed.");
             goto fail;
         }
 
-        funcs[i]->func_type = func->func_type;
-
-        /* Resolve function type index */
-        for (j = 0; j < module->type_count; j++)
-            if (func->func_type == (WASMFuncType *)module->types[j]) {
-                funcs[i]->func_type_index = j;
-                break;
-            }
-
         /* Resolve local variable info and code info */
-        funcs[i]->local_count = func->local_count;
-        funcs[i]->local_types = func->local_types;
-        funcs[i]->param_cell_num = func->param_cell_num;
-        funcs[i]->local_cell_num = func->local_cell_num;
-        funcs[i]->max_stack_cell_num = func->max_stack_cell_num;
-        funcs[i]->code = func->code;
-        funcs[i]->code_size = func->code_size;
+        aot_func->local_count = func->local_count;
+        aot_func->local_types_wp = func->local_types;
+        aot_func->code = func->code;
+        aot_func->code_size = func->code_size;
+
+        /* Resolve local offsets */
+        for (j = 0; j < func_type->param_count; j++) {
+            aot_func->local_offsets[j] = (uint16)offset;
+            offset += wasm_value_type_cell_num_internal(func_type->types[j],
+                                                        pointer_size);
+        }
+        aot_func->param_cell_num = offset;
+
+        for (j = 0; j < func->local_count; j++) {
+            aot_func->local_offsets[func_type->param_count + j] =
+                (uint16)offset;
+            offset += wasm_value_type_cell_num_internal(func->local_types[j],
+                                                        pointer_size);
+        }
+        aot_func->local_cell_num = offset - aot_func->param_cell_num;
+
+        aot_func->max_stack_cell_num = func->max_stack_cell_num;
+        /* We use max_stack_cell_num calculated from wasm_loader, which is based
+         * on wamrc's target type.
+         *  - If the wamrc is compiled as 64bit, then the number is enough for
+         *      both 32bit and 64bit runtime target
+         *  - If the wamrc is compiled as 32bit, then we multiply this number by
+         *      two to avoid overflow on 64bit runtime target  */
+        if (sizeof(uintptr_t) == 4) {
+            aot_func->max_stack_cell_num *= 2;
+        }
     }
 
     return funcs;
@@ -448,6 +492,7 @@ aot_create_comp_data(WASMModule *module, const char *target_arch,
     uint32 import_global_data_size_64bit = 0, global_data_size_64bit = 0, i, j;
     uint32 import_global_data_size_32bit = 0, global_data_size_32bit = 0;
     uint64 size;
+    bool is_64bit_target = false;
 #if WASM_ENABLE_GC != 0
     bool is_target_x86 = false;
 #endif
@@ -465,6 +510,18 @@ aot_create_comp_data(WASMModule *module, const char *target_arch,
             is_target_x86 = true;
     }
 #endif
+
+    if (!target_arch) {
+#if UINTPTR_MAX == UINT64_MAX
+        is_64bit_target = true;
+#endif
+    }
+    else {
+        /* All 64bit targets contains "64" string in their target name */
+        if (strstr(target_arch, "64") != NULL) {
+            is_64bit_target = true;
+        }
+    }
 
     /* Allocate memory */
     if (!(comp_data = wasm_runtime_malloc(sizeof(AOTCompData)))) {
@@ -622,7 +679,9 @@ aot_create_comp_data(WASMModule *module, const char *target_arch,
 
     /* Create functions */
     comp_data->func_count = module->function_count;
-    if (comp_data->func_count && !(comp_data->funcs = aot_create_funcs(module)))
+    if (comp_data->func_count
+        && !(comp_data->funcs =
+                 aot_create_funcs(module, is_64bit_target ? 8 : 4)))
         goto fail;
 
 #if WASM_ENABLE_CUSTOM_NAME_SECTION != 0

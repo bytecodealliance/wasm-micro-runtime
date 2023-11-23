@@ -1030,10 +1030,13 @@ wasm_string_equal(const char *s1, const char *s2)
 }
 
 /**
- * Return the byte size of value type.
+ * Return the byte size of value type with specific pointer size.
+ *
+ * Note: Please use wasm_value_type_size for interpreter, only aot compiler
+ * can use this API directly to calculate type size for different target
  */
 inline static uint32
-wasm_value_type_size(uint8 value_type)
+wasm_value_type_size_internal(uint8 value_type, uint8 pointer_size)
 {
     if (value_type == VALUE_TYPE_VOID)
         return 0;
@@ -1058,12 +1061,33 @@ wasm_value_type_size(uint8 value_type)
         value_type >= (uint8)REF_TYPE_NULLREF /* 0x65 */
 #endif
         && value_type <= (uint8)REF_TYPE_FUNCREF /* 0x70 */)
-        return sizeof(uintptr_t);
+        return pointer_size;
 #endif
     else {
         bh_assert(0);
     }
     return 0;
+}
+
+/**
+ * Return the cell num of value type with specific pointer size.
+ *
+ * Note: Please use wasm_value_type_cell_num for interpreter, only aot compiler
+ * can use this API directly to calculate type cell num for different target
+ */
+inline static uint16
+wasm_value_type_cell_num_internal(uint8 value_type, uint8 pointer_size)
+{
+    return wasm_value_type_size_internal(value_type, pointer_size) / 4;
+}
+
+/**
+ * Return the byte size of value type.
+ */
+inline static uint32
+wasm_value_type_size(uint8 value_type)
+{
+    return wasm_value_type_size_internal(value_type, sizeof(uintptr_t));
 }
 
 inline static uint16
