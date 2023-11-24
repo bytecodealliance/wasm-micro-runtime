@@ -154,7 +154,7 @@ jobs:
           tar xvf xpack-qemu-arm.tar.gz
           export PATH=$PATH:$PWD/xpack-qemu-arm-7.1.0-1/bin
           cd apps/interpreters/wamr/wamr/tests/wamr-test-suites
-          ./test_wamr.sh -s spec ${{ matrix.wamr_test_running_mode_option }} -m thumbv7_vfp -b -Q -F ${{ steps.build_firmware.outputs.firmware }}
+          ./test_wamr.sh -s spec ${{ matrix.wamr_test_running_mode_option }} -m thumbv7_vfp -b -Q -P -F ${{ steps.build_firmware.outputs.firmware }}
 
       - name: Test on RISCV32
         if: endsWith(matrix.nuttx_board_config, 'rv-virt/configs/nsh')
@@ -163,7 +163,7 @@ jobs:
           tar xvf xpack-qemu-riscv.tar.gz
           export PATH=$PATH:$PWD/xpack-qemu-riscv-7.1.0-1/bin
           cd apps/interpreters/wamr/wamr/tests/wamr-test-suites
-          ./test_wamr.sh -s spec ${{ matrix.wamr_test_running_mode_option }} -m riscv32 -b -Q -F ${{ steps.build_firmware.outputs.firmware }}
+          ./test_wamr.sh -s spec ${{ matrix.wamr_test_running_mode_option }} -m riscv32 -b -Q -P -F ${{ steps.build_firmware.outputs.firmware }}
 
       - name: Test on RISCV64
         if: endsWith(matrix.nuttx_board_config, 'rv-virt/configs/nsh64')
@@ -172,4 +172,4 @@ jobs:
           tar xvf xpack-qemu-riscv.tar.gz
           export PATH=$PATH:$PWD/xpack-qemu-riscv-7.1.0-1/bin
           cd apps/interpreters/wamr/wamr/tests/wamr-test-suites
-          ./test_wamr.sh -s spec ${{ matrix.wamr_test_running_mode_option }} -m riscv64 -b -Q -F ${{ steps.build_firmware.outputs.firmware }}
+          ./test_wamr.sh -s spec ${{ matrix.wamr_test_running_mode_option }} -m riscv64 -b -Q -P -F ${{ steps.build_firmware.outputs.firmware }}

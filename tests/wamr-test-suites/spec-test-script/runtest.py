@@ -1101,6 +1101,8 @@ def run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r):
             cmd = ["qemu-system-riscv32", "-semihosting", "-M", "virt,aclint=on", "-cpu", "rv32", "-smp", "8", "-nographic", "-bios", "none", "-kernel", opts.qemu_firmware]
         elif opts.target.startswith("riscv64"):
             cmd = ["qemu-system-riscv64", "-semihosting", "-M", "virt,aclint=on", "-cpu", "rv64", "-smp", "8", "-nographic", "-bios", "none", "-kernel", opts.qemu_firmware]
+        else:
+            raise Exception("Unknwon target for QEMU: %s" % opts.target)
 
     else:
         cmd = cmd_iwasm
