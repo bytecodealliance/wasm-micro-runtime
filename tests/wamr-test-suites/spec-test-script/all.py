@@ -54,17 +54,20 @@ WAMRC_CMD = "../../../wamr-compiler/build/wamrc"
 
 class TargetAction(argparse.Action):
     TARGET_MAP = {
-        "ARMV7_VFP": "armv7",
-        "RISCV32": "riscv32_ilp32",
-        "RISCV32_ILP32": "riscv32_ilp32",
+        "ARMV7": "armv7",
+        "ARMV7_VFP": "armv7_vfp",
+        "RISCV32": "riscv32",
+        "RISCV32_ILP32F": "riscv32_ilp32f",
         "RISCV32_ILP32D": "riscv32_ilp32d",
-        "RISCV64": "riscv64_lp64",
-        "RISCV64_LP64": "riscv64_lp64",
-        "RISCV64_LP64D": "riscv64_lp64",
-        "THUMBV7_VFP": "thumbv7",
+        "RISCV64": "riscv64",
+        "RISCV64_LP64F": "riscv64_lp64f",
+        "RISCV64_LP64D": "riscv64_lp64d",
+        "THUMBV7": "thumbv7",
+        "THUMBV7_VFP": "thumbv7_vfp",
         "X86_32": "i386",
         "X86_64": "x86_64",
-        "AARCH64": "arm64"
+        "AARCH64": "aarch64",
+        "AARCH64_VFP": "aarch64_vfp",
     }
 
     def __call__(self, parser, namespace, values, option_string=None):
