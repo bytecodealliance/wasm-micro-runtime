@@ -27,7 +27,9 @@ else:
     IS_PY_3 = True
 
 test_aot = False
-# "x86_64", "i386", "aarch64", "armv7", "thumbv7", "riscv32_ilp32", "riscv32_ilp32d", "riscv32_lp64", "riscv64_lp64d"
+# Available targets:
+#   "aarch64" "aarch64_vfp" "armv7" "armv7_vfp" "thumbv7" "thumbv7_vfp"
+#   "riscv32" "riscv32_ilp32f" "riscv32_ilp32d" "riscv64" "riscv64_lp64f" "riscv64_lp64d"
 test_target = "x86_64"
 
 debug_file = None
@@ -38,6 +40,24 @@ temp_file_repo = []
 
 # to save the mapping of module files in /tmp by name
 temp_module_table = {}
+
+# AOT compilation options mapping
+aot_target_options_map = {
+    "x86_64": ["--target=x86_64", "--cpu=skylake"],
+    "i386": ["--target=i386"],
+    "aarch64": ["--target=aarch64", "--target-abi=eabi", "--cpu=cortex-a53"],
+    "aarch64_vfp": ["--target=aarch64", "--target-abi=gnueabihf", "--cpu=cortex-a53"],
+    "armv7": ["--target=armv7", "--target-abi=eabi", "--cpu=cortex-a9", "--cpu-features=-neon"],
+    "armv7_vfp": ["--target=armv7", "--target-abi=gnueabihf", "--cpu=cortex-a9"],
+    "thumbv7": ["--target=thumbv7", "--target-abi=eabi", "--cpu=cortex-a9", "--cpu-features=-neon"],
+    "thumbv7_vfp": ["--target=thumbv7", "--target-abi=gnueabihf", "--cpu=cortex-a9"],
+    "riscv32": ["--target=riscv32", "--target-abi=ilp32", "--cpu=generic-rv32", "--cpu-features=+m,+a,+c"],
+    "riscv32_ilp32f": ["--target=riscv32", "--target-abi=ilp32f", "--cpu=generic-rv32", "--cpu-features=+m,+a,+c"],
+    "riscv32_ilp32d": ["--target=riscv32", "--target-abi=ilp32d", "--cpu=generic-rv32", "--cpu-features=+m,+a,+c"],
+    "riscv64": ["--target=riscv64", "--target-abi=lp64", "--cpu=generic-rv64", "--cpu-features=+m,+a,+c"],
+    "riscv64_lp64f": ["--target=riscv64", "--target-abi=lp64f", "--cpu=generic-rv64", "--cpu-features=+m,+a,+c"],
+    "riscv64_lp64d": ["--target=riscv64", "--target-abi=lp64d", "--cpu=generic-rv64", "--cpu-features=+m,+a,+c"],
+}
 
 def debug(data):
     if debug_file:
@@ -1025,27 +1045,8 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r, output = '
     log("Compiling AOT to '%s'" % aot_tempfile)
     cmd = [opts.aot_compiler]
 
-    if test_target == "x86_64":
-        cmd.append("--target=x86_64")
-        cmd.append("--cpu=skylake")
-    elif test_target == "i386":
-        cmd.append("--target=i386")
-    elif test_target == "aarch64":
-        cmd += ["--target=aarch64", "--cpu=cortex-a57"]
-    elif test_target == "armv7":
-        cmd += ["--target=armv7", "--target-abi=gnueabihf"]
-    elif test_target == "thumbv7":
-        cmd += ["--target=thumbv7", "--target-abi=gnueabihf", "--cpu=cortex-a9", "--cpu-features=-neon"]
-    elif test_target == "riscv32_ilp32":
-        cmd += ["--target=riscv32", "--target-abi=ilp32", "--cpu=generic-rv32", "--cpu-features=+m,+a,+c"]
-    elif test_target == "riscv32_ilp32d":
-        cmd += ["--target=riscv32", "--target-abi=ilp32d", "--cpu=generic-rv32", "--cpu-features=+m,+a,+c"]
-    elif test_target == "riscv64_lp64":
-        cmd += ["--target=riscv64", "--target-abi=lp64", "--cpu=generic-rv64", "--cpu-features=+m,+a,+c"]
-    elif test_target == "riscv64_lp64d":
-        cmd += ["--target=riscv64", "--target-abi=lp64d", "--cpu=generic-rv32", "--cpu-features=+m,+a,+c"]
-    else:
-        pass
+    if test_target in aot_target_options_map:
+        cmd += aot_target_options_map[test_target]
 
     if opts.sgx:
         cmd.append("-sgx")
