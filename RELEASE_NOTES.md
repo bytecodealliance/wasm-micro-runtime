@@ -9,6 +9,8 @@
     the `map_dir_list` argument in API `wasm_runtime_init_wasi` for libc-wasi
 - Support muti-module for AOT mode (#2482)
   - Add argument `package_type_t module_type` for module_reader callback
+- Remove provision of unnecessary fd rights (#2579)
+- libc-wasi: Conditionally support SYNC flags (#2581)
 
 ### New Features
 - Support muti-module for AOT mode (#2482)
@@ -80,7 +82,6 @@
 - Return __WASI_EINVAL from fd_prestat_dir_name (#2580)
 - Support AOT compiler with LLVM 17 (#2567)
 - Add support for closing/renumbering preopen fds (#2578)
-- libc-wasi: Conditionally support SYNC flags (#2581)
 - Enable AOT usage on M1 mac (#2618)
 - core/iwasm: Support mapped file system access on non-libuv WASI (#2628)
 - Enable MASM automatically in runtime_lib.cmake (#2634)
