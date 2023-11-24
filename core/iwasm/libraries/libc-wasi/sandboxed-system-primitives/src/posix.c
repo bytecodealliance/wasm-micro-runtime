@@ -2877,18 +2877,15 @@ wasmtime_ssp_sock_shutdown(wasm_exec_env_t exec_env, struct fd_table *curfds,
 {
     struct fd_object *fo;
     __wasi_errno_t error;
-    int ret;
 
     error = fd_object_get(curfds, &fo, sock, 0, 0);
     if (error != 0)
         return error;
 
-    ret = os_socket_shutdown(fo->file_handle);
+    error = os_socket_shutdown(fo->file_handle);
     fd_object_release(exec_env, fo);
-    if (BHT_OK != ret)
-        return convert_errno(errno);
 
-    return __WASI_ESUCCESS;
+    return error;
 }
 
 __wasi_errno_t
