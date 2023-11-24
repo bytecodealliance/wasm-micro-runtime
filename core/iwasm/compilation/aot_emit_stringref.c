@@ -183,6 +183,8 @@ aot_stringref_obj_get_value(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
+    LLVMSetAlignment(str_obj, 4);
+
     return str_obj;
 
 fail:
@@ -816,6 +818,8 @@ aot_compile_op_stringview_wtf8_encode(AOTCompContext *comp_ctx,
         goto fail;
     }
 
+    LLVMSetAlignment(next_pos, 4);
+
     PUSH_I32(next_pos);
     PUSH_I32(value);
 
@@ -1137,6 +1141,7 @@ aot_compile_op_stringview_iter_next(AOTCompContext *comp_ctx,
 
     pos = LLVMBuildLoad2(comp_ctx->builder, I32_TYPE, iter_pos_addr,
                          "get_iter_pos");
+    LLVMSetAlignment(pos, 4);
 
     param_types[0] = INT8_PTR_TYPE;
     param_types[1] = I32_TYPE;
@@ -1166,7 +1171,7 @@ stringview_iter_advance_or_rewind(AOTCompContext *comp_ctx,
                                   AOTFuncContext *func_ctx, bool is_rewind)
 {
     LLVMValueRef param_values[4], func, value, stringview_iter_obj, str_obj,
-        code_points_consumed, iter_pos_addr, pos, code_points_count;
+        code_points_consumed, iter_pos_addr, pos, code_points_count, res;
     LLVMTypeRef param_types[4], ret_type, func_type, func_ptr_type;
 
     POP_I32(code_points_count);
@@ -1186,6 +1191,7 @@ stringview_iter_advance_or_rewind(AOTCompContext *comp_ctx,
                                "get_iter_pos"))) {
         goto fail;
     }
+    LLVMSetAlignment(pos, 4);
 
     if (!(code_points_consumed = LLVMBuildAlloca(comp_ctx->builder, I32_TYPE,
                                                  "code_points_consumed"))) {
@@ -1223,12 +1229,14 @@ stringview_iter_advance_or_rewind(AOTCompContext *comp_ctx,
         aot_set_last_error("llvm build load failed.");
         goto fail;
     }
+    LLVMSetAlignment(code_points_consumed, 4);
 
-    if (!LLVMBuildStore(comp_ctx->builder, code_points_consumed,
-                        iter_pos_addr)) {
+    if (!(res = LLVMBuildStore(comp_ctx->builder, code_points_consumed,
+                               iter_pos_addr))) {
         aot_set_last_error("llvm build store failed.");
         goto fail;
     }
+    LLVMSetAlignment(res, 4);
 
     PUSH_I32(code_points_consumed);
 fail:
@@ -1277,6 +1285,7 @@ aot_compile_op_stringview_iter_slice(
                                  "get_iter_pos"))) {
         goto fail;
     }
+    LLVMSetAlignment(start, 4);
 
     if (!(end = LLVMBuildAdd(comp_ctx->builder, start, code_points_count,
                              "calc_slice_end"))) {

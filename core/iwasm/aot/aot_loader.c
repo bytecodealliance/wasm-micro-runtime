@@ -896,13 +896,13 @@ load_string_literal_section(const uint8 *buf, const uint8 *buf_end,
     }
     module->string_literal_count = string_count;
 
-    size = sizeof(char *) * string_count;
+    size = (uint64)sizeof(char *) * string_count;
     if (!(module->string_literal_ptrs =
               loader_malloc(size, error_buf, error_buf_size))) {
         goto fail;
     }
 
-    size = sizeof(uint32) * string_count;
+    size = (uint64)sizeof(uint32) * string_count;
     if (!(module->string_literal_lengths =
               loader_malloc(size, error_buf, error_buf_size))) {
         goto fail;
