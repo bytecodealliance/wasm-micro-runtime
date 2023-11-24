@@ -1264,20 +1264,15 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     uint8 local_type, *global_addr;
     uint32 cache_index, type_index, param_cell_num, cell_num;
     uint8 value_type;
+#if WASM_ENABLE_CHECKPOINT_RESTORE!=0
     if (exec_env->is_restore) {
         // WASMFunction *cur_wasm_func = cur_func->u.func;
-        // file2=fopen("trace-compare1.txt","w");
         frame = exec_env->cur_frame;
         UPDATE_ALL_FROM_FRAME();
         frame_ip_end = wasm_get_func_code_end(cur_func);
         frame_lp = frame->lp;
     }
-    else {
-        //        if(SNAPSHOT_DEBUG_STEP!=0)
-        //            file1=fopen("trace-origin.txt","w");
-        //        else
-        //            file1=fopen("trace-orgin.txt","w");
-    }
+#endif
 #if !defined(OS_ENABLE_HW_BOUND_CHECK) \
     || WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
 #if WASM_CONFIGUABLE_BOUNDS_CHECKS != 0

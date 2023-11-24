@@ -526,7 +526,7 @@ wasi_fd_read(wasm_exec_env_t exec_env, wasi_fd_t fd,
 
 #if WASM_ENABLE_CHECKPOINT_RESTORE!=0
     LOG_STRACE("wasi_fd_read exec_env=%d, fd=%d, iovec_app=%d, iovs_len=%d, nread_app=%d \n", exec_env, fd, iovec_app, iovs_len, nread_app);
-    insert_fd(fd, "", 0, iovs_len, FREAD);
+    insert_fd(fd, "", 0, iovs_len, MVVM_FREAD);
 #endif
 
 fail:
@@ -565,7 +565,7 @@ wasi_fd_seek(wasm_exec_env_t exec_env, wasi_fd_t fd, wasi_filedelta_t offset,
 
 #if WASM_ENABLE_CHECKPOINT_RESTORE!=0
     LOG_STRACE("wasi_fd_seek exec_env=%d, fd=%d, offset=%d, whence=%d, newoffset=%d \n", exec_env, fd, offset, whence, newoffset);
-    insert_fd(fd, "", whence, offset, FSEEK);
+    insert_fd(fd, "", whence, offset, MVVM_FSEEK);
 #endif
 
     return wasmtime_ssp_fd_seek(exec_env, curfds, fd, offset, whence,
@@ -587,7 +587,7 @@ wasi_fd_tell(wasm_exec_env_t exec_env, wasi_fd_t fd, wasi_filesize_t *newoffset)
 
 #if WASM_ENABLE_CHECKPOINT_RESTORE!=0
     LOG_STRACE("wasi_fd_tell exec_env=%d, fd=%d, newoffset=%d \n", exec_env, fd, newoffset);
-    insert_fd(fd, "", 0, *newoffset, FTELL);
+    insert_fd(fd, "", 0, *newoffset, MVVM_FTELL);
 #endif
 
     return wasmtime_ssp_fd_tell(exec_env, curfds, fd, newoffset);
@@ -724,7 +724,7 @@ wasi_fd_write(wasm_exec_env_t exec_env, wasi_fd_t fd,
     err = 0;
 
 #if WASM_ENABLE_CHECKPOINT_RESTORE!=0
-    insert_fd(fd, "", 0, iovs_len, FWRITE);
+    insert_fd(fd, "", 0, iovs_len, MVVM_FWRITE);
     LOG_STRACE("wasi_fd_write exec_env=%d, fd=%d, iovec_app=%d, iovs_len=%d \n", exec_env, fd, nwritten, iovs_len);
 #endif
 
@@ -770,7 +770,7 @@ wasi_path_create_directory(wasm_exec_env_t exec_env, wasi_fd_t fd,
     struct fd_table *curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
 
 #if WASM_ENABLE_CHECKPOINT_RESTORE!=0
-    insert_fd(fd, path, 0, 0, FOPEN);
+    insert_fd(fd, path, 0, 0, MVVM_FOPEN);
     LOG_STRACE("wasi_path_create_directory exec_env=%d, fd=%d, path=%s, path_len=%d \n", exec_env, fd, path, path_len);
 #endif
 
@@ -831,7 +831,7 @@ wasi_path_open(wasm_exec_env_t exec_env, wasi_fd_t dirfd,
 
 #if WASM_ENABLE_CHECKPOINT_RESTORE != 0
     LOG_STRACE("wasi_path_open exec_env=%d, dirfd=%d, dirflags=%d, path=%s, path_len=%d, oflags=%d, fs_rights_base=%d, fs_rights_inheriting=%d, fs_flags=%d, fd=%d, fd_app=%d \n", exec_env, dirfd, dirflags, path, path_len, oflags, fs_rights_base, fs_rights_inheriting, fs_flags,fd, fd_app);
-    insert_fd(fd, path, fs_flags, 0, FOPEN);
+    insert_fd(fd, path, fs_flags, 0, MVVM_FOPEN);
 #endif
 
     return err;
