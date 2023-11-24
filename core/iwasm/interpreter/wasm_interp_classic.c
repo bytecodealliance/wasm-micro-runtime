@@ -22,6 +22,9 @@
 #endif
 #if WASM_ENABLE_CHECKPOINT_RESTORE != 0
 #include "../../../../../include/wamr_export.h"
+const char *func_to_stop = NULL;
+int func_to_stop_count = 0;
+int func_count_ = 0;
 #endif
 
 uint64_t counter_ = 0;
@@ -4086,13 +4089,17 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         if (!prev_frame->ip)
             /* Called from native. */
             return;
-
+#if WASM_ENABLE_CHECKPOINT_RESTORE!=0
         LOG_FATAL("return_func: %s %p",
                   prev_frame->function->u.func->field_name, prev_frame);
-        if (!strcmp(prev_frame->function->u.func->field_name, "fwrite")) {
-            counter_ = INT_MAX;
+        if (func_to_stop && !strcmp(prev_frame->function->u.func->field_name, func_to_stop) ) {
+            if (func_to_stop_count > func_count_) {
+                func_count_++;
+            }else {
+                counter_ = INT_MAX;
+            }
         }
-
+#endif
         RECOVER_CONTEXT(prev_frame);
         HANDLE_OP_END();
     }
