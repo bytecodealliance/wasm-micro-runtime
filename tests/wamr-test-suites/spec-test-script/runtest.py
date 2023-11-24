@@ -1095,11 +1095,11 @@ def run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r):
         if opts.qemu_firmware == '':
             raise Exception("QEMU firmware missing")
 
-        if opts.target == "thumbv7":
+        if opts.target.startswith("thumbv7"):
             cmd = ["qemu-system-arm", "-semihosting", "-M", "sabrelite", "-m", "1024", "-smp", "4", "-nographic", "-kernel", opts.qemu_firmware]
-        elif opts.target == "riscv32_ilp32":
+        elif opts.target.startswith("riscv32"):
             cmd = ["qemu-system-riscv32", "-semihosting", "-M", "virt,aclint=on", "-cpu", "rv32", "-smp", "8", "-nographic", "-bios", "none", "-kernel", opts.qemu_firmware]
-        elif opts.target == "riscv64_lp64":
+        elif opts.target.startswith("riscv64"):
             cmd = ["qemu-system-riscv64", "-semihosting", "-M", "virt,aclint=on", "-cpu", "rv64", "-smp", "8", "-nographic", "-bios", "none", "-kernel", opts.qemu_firmware]
 
     else:
