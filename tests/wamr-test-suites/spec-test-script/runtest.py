@@ -1045,7 +1045,7 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r, output = '
     log("Compiling AOT to '%s'" % aot_tempfile)
     cmd = [opts.aot_compiler]
 
-    if test_target in aot_target_options_map:
+    if test_target in aot_target_options_map.keys():
         cmd += aot_target_options_map[test_target]
 
     if opts.sgx:
