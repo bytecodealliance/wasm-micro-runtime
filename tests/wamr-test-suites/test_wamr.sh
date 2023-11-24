@@ -329,12 +329,12 @@ function setup_wabt()
         if [ ! -f ${WAT2WASM} ]; then
             case ${PLATFORM} in
                 cosmopolitan)
-                    ;&
+                    ;;
                 linux)
                     WABT_PLATFORM=ubuntu
                     ;;
                 darwin)
-                    WABT_PLATFORM=macos
+                    WABT_PLATFORM=macos-12
                     ;;
                 windows)
                     WABT_PLATFORM=windows
