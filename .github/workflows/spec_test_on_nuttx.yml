@@ -34,11 +34,11 @@ jobs:
     strategy:
       matrix:
         target_config: [
-          # {
-          #   config: "boards/arm/imx6/sabre-6quad/configs/nsh",
-          #   target: "thumbv7",
-          #   use_fpu: false
-          # },
+          {
+            config: "boards/arm/imx6/sabre-6quad/configs/nsh",
+            target: "thumbv7",
+            use_fpu: false
+          },
           {
             config: "boards/arm/imx6/sabre-6quad/configs/nsh",
             target: "thumbv7_vfp",
