@@ -1095,12 +1095,18 @@ def run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r):
         if opts.qemu_firmware == '':
             raise Exception("QEMU firmware missing")
 
-        if opts.target.startswith("thumbv7"):
-            cmd = ["qemu-system-arm", "-semihosting", "-M", "sabrelite", "-m", "1024", "-smp", "4", "-nographic", "-kernel", opts.qemu_firmware]
+        if opts.target.startswith("aarch64"):
+            cmd = "qemu-system-aarch64 -cpu cortex-a53 -nographic -machine virt,virtualization=on,gic-version=3 -net none -chardev stdio,id=con,mux=on -serial chardev:con -mon chardev=con,mode=readline -kernel".split()
+            cmd.append(opts.qemu_firmware)
+        elif opts.target.startswith("thumbv7"):
+            cmd = "qemu-system-arm -semihosting -M sabrelite -m 1024 -smp 4 -nographic -kernel".split()
+            cmd.append(opts.qemu_firmware)
         elif opts.target.startswith("riscv32"):
-            cmd = ["qemu-system-riscv32", "-semihosting", "-M", "virt,aclint=on", "-cpu", "rv32", "-smp", "8", "-nographic", "-bios", "none", "-kernel", opts.qemu_firmware]
+            cmd = "qemu-system-riscv32 -semihosting -M virt,aclint=on -cpu rv32 -smp 8 -nographic -bios none -kernel".split()
+            cmd.append(opts.qemu_firmware)
         elif opts.target.startswith("riscv64"):
-            cmd = ["qemu-system-riscv64", "-semihosting", "-M", "virt,aclint=on", "-cpu", "rv64", "-smp", "8", "-nographic", "-bios", "none", "-kernel", opts.qemu_firmware]
+            cmd = "qemu-system-riscv64 -semihosting -M virt,aclint=on -cpu rv64 -smp 8 -nographic -bios none -kernel".split()
+            cmd.append(opts.qemu_firmware)
         else:
             raise Exception("Unknwon target for QEMU: %s" % opts.target)
 
