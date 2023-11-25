@@ -120,13 +120,17 @@ wasm_type_is_subtype_of(const WASMType *type1, const WASMType *type2,
 inline static bool
 wasm_is_type_reftype(uint8 type)
 {
-    return (
+    return ((type >= (uint8)REF_TYPE_ARRAYREF
+             && type <= (uint8)REF_TYPE_NULLFUNCREF)
+            || (type >= (uint8)REF_TYPE_HT_NULLABLE
+                && type <= (uint8)REF_TYPE_HT_NON_NULLABLE)
 #if WASM_ENABLE_STRINGREF != 0
-               type >= (uint8)REF_TYPE_STRINGVIEWITER
-#else
-               type >= (uint8)REF_TYPE_NULLREF
+            || (type >= (uint8)REF_TYPE_STRINGVIEWWTF8
+                && type <= (uint8)REF_TYPE_STRINGREF)
+            || (type >= (uint8)REF_TYPE_STRINGVIEWITER
+                && type <= (uint8)REF_TYPE_STRINGVIEWWTF16)
 #endif
-               && type <= (uint8)REF_TYPE_FUNCREF)
+                )
                ? true
                : false;
 }
@@ -248,13 +252,10 @@ wasm_is_refheaptype_typeidx(const RefHeapType_Common *ref_heap_type)
 inline static bool
 wasm_is_refheaptype_common(const RefHeapType_Common *ref_heap_type)
 {
-    return ((ref_heap_type->heap_type >= (int32)HEAP_TYPE_EQ
-             && ref_heap_type->heap_type <= (int32)HEAP_TYPE_FUNC)
+    return ((ref_heap_type->heap_type >= (int32)HEAP_TYPE_ARRAY
+             && ref_heap_type->heap_type <= (int32)HEAP_TYPE_NONE)
 #if WASM_ENABLE_STRINGREF != 0
             || (ref_heap_type->heap_type >= (int32)HEAP_TYPE_STRINGVIEWITER
-                && ref_heap_type->heap_type <= (int32)HEAP_TYPE_I31)
-#else
-            || (ref_heap_type->heap_type >= (int32)HEAP_TYPE_NONE
                 && ref_heap_type->heap_type <= (int32)HEAP_TYPE_I31)
 #endif
                 )

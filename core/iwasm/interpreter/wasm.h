@@ -28,40 +28,40 @@ extern "C" {
 #define VALUE_TYPE_VOID 0x40
 
 /* Packed Types */
-#define PACKED_TYPE_I8 0x7A
-#define PACKED_TYPE_I16 0x79
+#define PACKED_TYPE_I8 0x78
+#define PACKED_TYPE_I16 0x77
 
 /* Reference Types */
-#define REF_TYPE_FUNCREF VALUE_TYPE_FUNCREF
-#define REF_TYPE_EXTERNREF VALUE_TYPE_EXTERNREF
+#define REF_TYPE_NULLFUNCREF 0x73
+#define REF_TYPE_NULLEXTERNREF 0x72
+#define REF_TYPE_NULLREF 0x71
+#define REF_TYPE_FUNCREF VALUE_TYPE_FUNCREF     /* 0x70 */
+#define REF_TYPE_EXTERNREF VALUE_TYPE_EXTERNREF /* 0x6F */
 #define REF_TYPE_ANYREF 0x6E
 #define REF_TYPE_EQREF 0x6D
-#define REF_TYPE_HT_NULLABLE 0x6C
-#define REF_TYPE_HT_NON_NULLABLE 0x6B
-#define REF_TYPE_I31REF 0x6A
-#define REF_TYPE_NULLFUNCREF 0x69
-#define REF_TYPE_NULLEXTERNREF 0x68
-#define REF_TYPE_STRUCTREF 0x67
-#define REF_TYPE_ARRAYREF 0x66
-#define REF_TYPE_NULLREF 0x65
-#define REF_TYPE_STRINGREF VALUE_TYPE_STRINGREF
-#define REF_TYPE_STRINGVIEWWTF8 VALUE_TYPE_STRINGVIEWWTF8
-#define REF_TYPE_STRINGVIEWWTF16 VALUE_TYPE_STRINGVIEWWTF16
-#define REF_TYPE_STRINGVIEWITER VALUE_TYPE_STRINGVIEWITER
+#define REF_TYPE_I31REF 0x6C
+#define REF_TYPE_STRUCTREF 0x6B
+#define REF_TYPE_ARRAYREF 0x6A
+#define REF_TYPE_HT_NON_NULLABLE 0x64
+#define REF_TYPE_HT_NULLABLE 0x63
+#define REF_TYPE_STRINGREF VALUE_TYPE_STRINGREF             /* 0X67 */
+#define REF_TYPE_STRINGVIEWWTF8 VALUE_TYPE_STRINGVIEWWTF8   /* 0x66 */
+#define REF_TYPE_STRINGVIEWWTF16 VALUE_TYPE_STRINGVIEWWTF16 /* 0x62 */
+#define REF_TYPE_STRINGVIEWITER VALUE_TYPE_STRINGVIEWITER   /* 0x61 */
 
 /* Heap Types */
+#define HEAP_TYPE_NOFUNC (-0x0D)
+#define HEAP_TYPE_NOEXTERN (-0x0E)
+#define HEAP_TYPE_NONE (-0x0F)
 #define HEAP_TYPE_FUNC (-0x10)
 #define HEAP_TYPE_EXTERN (-0x11)
 #define HEAP_TYPE_ANY (-0x12)
 #define HEAP_TYPE_EQ (-0x13)
-#define HEAP_TYPE_I31 (-0x16)
-#define HEAP_TYPE_NOFUNC (-0x17)
-#define HEAP_TYPE_NOEXTERN (-0x18)
-#define HEAP_TYPE_STRUCT (-0x19)
-#define HEAP_TYPE_ARRAY (-0x1A)
-#define HEAP_TYPE_NONE (-0x1B)
-#define HEAP_TYPE_STRINGREF (-0x1C)
-#define HEAP_TYPE_STRINGVIEWWTF8 (-0x1D)
+#define HEAP_TYPE_I31 (-0x14)
+#define HEAP_TYPE_STRUCT (-0x15)
+#define HEAP_TYPE_ARRAY (-0x16)
+#define HEAP_TYPE_STRINGREF (-0x19)
+#define HEAP_TYPE_STRINGVIEWWTF8 (-0x1A)
 #define HEAP_TYPE_STRINGVIEWWTF16 (-0x1E)
 #define HEAP_TYPE_STRINGVIEWITER (-0x1F)
 
@@ -70,8 +70,8 @@ extern "C" {
 #define DEFINED_TYPE_STRUCT 0x5F
 #define DEFINED_TYPE_ARRAY 0x5E
 #define DEFINED_TYPE_SUB 0x50
-#define DEFINED_TYPE_REC 0x4F
-#define DEFINED_TYPE_SUB_FINAL 0x4E
+#define DEFINED_TYPE_SUB_FINAL 0x4F
+#define DEFINED_TYPE_REC 0x4E
 
 /* Used by AOT */
 #define VALUE_TYPE_I1 0x41
@@ -1054,13 +1054,17 @@ wasm_value_type_size_internal(uint8 value_type, uint8 pointer_size)
              || value_type == VALUE_TYPE_EXTERNREF)
         return sizeof(uint32);
 #elif WASM_ENABLE_GC != 0
-    else if (
+    else if ((value_type >= (uint8)REF_TYPE_ARRAYREF               /* 0x6A */
+              && value_type <= (uint8)REF_TYPE_NULLFUNCREF)        /* 0x73 */
+             || (value_type >= (uint8)REF_TYPE_HT_NULLABLE         /* 0x63 */
+                 && value_type <= (uint8)REF_TYPE_HT_NON_NULLABLE) /* 0x64 */
 #if WASM_ENABLE_STRINGREF != 0
-        value_type >= (uint8)REF_TYPE_STRINGVIEWITER /* 0x61 */
-#else
-        value_type >= (uint8)REF_TYPE_NULLREF /* 0x65 */
+             || (value_type >= (uint8)REF_TYPE_STRINGVIEWWTF8      /* 0x66 */
+                 && value_type <= (uint8)REF_TYPE_STRINGREF)       /* 0x67 */
+             || (value_type >= (uint8)REF_TYPE_STRINGVIEWITER      /* 0x61 */
+                 && value_type <= (uint8)REF_TYPE_STRINGVIEWWTF16) /* 0x62 */
 #endif
-        && value_type <= (uint8)REF_TYPE_FUNCREF /* 0x70 */)
+    )
         return pointer_size;
 #endif
     else {

@@ -1438,11 +1438,9 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                 CHECK_BUF(p, p_end, 1);
                 flag = read_uint8(p);
             }
-#if WASM_ENABLE_GC_BINARYEN != 0
             else {
                 is_sub_final = false;
             }
-#endif
 
             if (flag == DEFINED_TYPE_FUNC) {
                 if (!resolve_func_type(&p, buf_end, module, i, error_buf,
@@ -6024,12 +6022,10 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                     case WASM_OP_ARRAY_SET:
                         skip_leb_uint32(p, p_end); /* typeidx */
                         break;
-#if WASM_ENABLE_GC_BINARYEN != 0
                     case WASM_OP_ARRAY_COPY:
                         skip_leb_uint32(p, p_end); /* typeidx1 */
                         skip_leb_uint32(p, p_end); /* typeidx2 */
                         break;
-#endif
                     case WASM_OP_ARRAY_LEN:
                         break;
                     case WASM_OP_ARRAY_NEW_CANON_FIXED:
@@ -10425,46 +10421,40 @@ re_scan:
             {
                 uint8 ref_type;
 
+#if WASM_ENABLE_GC == 0
                 CHECK_BUF(p, p_end, 1);
                 ref_type = read_uint8(p);
-#if WASM_ENABLE_GC == 0
+
                 if (ref_type != VALUE_TYPE_FUNCREF
                     && ref_type != VALUE_TYPE_EXTERNREF) {
                     set_error_buf(error_buf, error_buf_size, "type mismatch");
                     goto fail;
                 }
 #else
-                p--;
-                if (is_byte_a_type(ref_type)) {
-                    p_org = p + 1;
-                    if (!resolve_value_type((const uint8 **)&p, p_end, module,
-                                            &need_ref_type_map, &wasm_ref_type,
-                                            false, error_buf, error_buf_size)) {
+                read_leb_int32(p, p_end, heap_type);
+                if (heap_type >= 0) {
+                    if (!check_type_index(module, heap_type, error_buf,
+                                            error_buf_size)) {
                         goto fail;
                     }
+                    wasm_set_refheaptype_typeidx(
+                        &wasm_ref_type.ref_ht_typeidx, true,
+                        heap_type);
                     ref_type = wasm_ref_type.ref_type;
-#if WASM_ENABLE_FAST_INTERP == 0
-                    while (p_org < p) {
-#if WASM_ENABLE_DEBUG_INTERP != 0
-                        if (!record_fast_op(module, p_org, *p_org, error_buf,
-                                            error_buf_size)) {
-                            goto fail;
-                        }
-#endif
-                        /* Ignore extra bytes for interpreter */
-                        *p_org++ = WASM_OP_NOP;
-                    }
-#endif
                 }
                 else {
-                    read_leb_uint32(p, p_end, type_idx);
-                    if (!check_type_index(module, type_idx, error_buf,
-                                          error_buf_size)) {
+                    if (heap_type > HEAP_TYPE_NONE
+#if WASM_ENABLE_STRINGREF != 0
+                        || heap_type < HEAP_TYPE_STRINGVIEWITER
+#else
+                        || heap_type < HEAP_TYPE_ARRAY
+#endif
+                    ) {
+                        set_error_buf(error_buf, error_buf_size,
+                                        "unknown type");
                         goto fail;
                     }
-                    wasm_set_refheaptype_typeidx(&wasm_ref_type.ref_ht_typeidx,
-                                                 true, type_idx);
-                    ref_type = wasm_ref_type.ref_type;
+                    ref_type = (uint8)((int32)0x80 + heap_type);
                 }
 #endif /* end of WASM_ENABLE_GC == 0 */
 
@@ -11815,7 +11805,6 @@ re_scan:
                         break;
                     }
 
-#if WASM_ENABLE_GC_BINARYEN != 0
                     case WASM_OP_ARRAY_COPY:
                     {
                         uint32 src_type_idx;
@@ -11878,7 +11867,6 @@ re_scan:
 
                         break;
                     }
-#endif
 
                     case WASM_OP_ARRAY_LEN:
                     {
@@ -11923,11 +11911,11 @@ re_scan:
                             }
                         }
                         else {
-                            if (heap_type > HEAP_TYPE_FUNC
+                            if (heap_type > HEAP_TYPE_NONE
 #if WASM_ENABLE_STRINGREF != 0
                                 || heap_type < HEAP_TYPE_STRINGVIEWITER
 #else
-                                || heap_type < HEAP_TYPE_NONE
+                                || heap_type < HEAP_TYPE_ARRAY
 #endif
                             ) {
                                 set_error_buf(error_buf, error_buf_size,
@@ -11999,8 +11987,8 @@ re_scan:
                                 heap_type);
                         }
                         else {
-                            if (heap_type > HEAP_TYPE_FUNC
-                                || heap_type < HEAP_TYPE_NONE) {
+                            if (heap_type > HEAP_TYPE_NONE
+                                || heap_type < HEAP_TYPE_ARRAY) {
                                 set_error_buf(error_buf, error_buf_size,
                                               "unknown type");
                                 goto fail;
@@ -12095,8 +12083,8 @@ re_scan:
                                 heap_type);
                         }
                         else {
-                            if (heap_type > HEAP_TYPE_FUNC
-                                || heap_type < HEAP_TYPE_NONE) {
+                            if (heap_type > HEAP_TYPE_NONE
+                                || heap_type < HEAP_TYPE_ARRAY) {
                                 set_error_buf(error_buf, error_buf_size,
                                               "unknown type");
                                 goto fail;

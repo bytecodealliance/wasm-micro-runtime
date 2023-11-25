@@ -79,11 +79,9 @@ bool
 aot_compile_op_array_set(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                          uint32 type_index);
 
-#if WASM_ENABLE_GC_BINARYEN != 0
 bool
 aot_compile_op_array_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                           uint32 type_index, uint32 src_type_index);
-#endif
 
 bool
 aot_compile_op_array_len(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);

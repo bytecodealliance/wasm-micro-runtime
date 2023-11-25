@@ -262,9 +262,9 @@ typedef enum WASMOpcode {
     WASM_OP_REF_NULL = 0xd0,        /* ref.null */
     WASM_OP_REF_IS_NULL = 0xd1,     /* ref.is_null */
     WASM_OP_REF_FUNC = 0xd2,        /* ref.func */
-    WASM_OP_REF_AS_NON_NULL = 0xd3, /* ref.as_non_null */
-    WASM_OP_BR_ON_NULL = 0xd4,      /* br_on_null */
-    WASM_OP_REF_EQ = 0xd5,          /* ref.eq */
+    WASM_OP_REF_EQ = 0xd3,          /* ref.eq */
+    WASM_OP_REF_AS_NON_NULL = 0xd4, /* ref.as_non_null */
+    WASM_OP_BR_ON_NULL = 0xd5,      /* br_on_null */
     WASM_OP_BR_ON_NON_NULL = 0xd6,  /* br_on_non_null */
 
     EXT_OP_BLOCK = 0xd7,          /* block with blocktype */
@@ -284,60 +284,49 @@ typedef enum WASMOpcode {
 } WASMOpcode;
 
 typedef enum WASMGCEXTOpcode {
-#if WASM_ENABLE_GC_BINARYEN != 0
-    WASM_OP_STRUCT_NEW_CANON = 0x07,         /* struct.new_canon */
-    WASM_OP_STRUCT_NEW_CANON_DEFAULT = 0x08, /* struct.new_canon_default */
-#else
-    WASM_OP_STRUCT_NEW_CANON = 0x01,         /* struct.new_canon */
-    WASM_OP_STRUCT_NEW_CANON_DEFAULT = 0x02, /* struct.new_canon_default */
-#endif
-    WASM_OP_STRUCT_GET = 0x03,   /* struct.get */
-    WASM_OP_STRUCT_GET_S = 0x04, /* struct.get_s */
-    WASM_OP_STRUCT_GET_U = 0x05, /* struct.get_u */
-    WASM_OP_STRUCT_SET = 0x06,   /* struct.set */
+    WASM_OP_STRUCT_NEW_CANON = 0x00,         /* struct.new */
+    WASM_OP_STRUCT_NEW_CANON_DEFAULT = 0x01, /* struct.new_default */
+    WASM_OP_STRUCT_GET = 0x02,   /* struct.get */
+    WASM_OP_STRUCT_GET_S = 0x03, /* struct.get_s */
+    WASM_OP_STRUCT_GET_U = 0x04, /* struct.get_u */
+    WASM_OP_STRUCT_SET = 0x05,   /* struct.set */
 
-#if WASM_ENABLE_GC_BINARYEN != 0
-    WASM_OP_ARRAY_NEW_CANON = 0x1b,         /* array.new_canon */
-    WASM_OP_ARRAY_NEW_CANON_DEFAULT = 0x1c, /* array.new_canon_default */
-#else
-    WASM_OP_ARRAY_NEW_CANON = 0x11,          /* array.new_canon */
-    WASM_OP_ARRAY_NEW_CANON_DEFAULT = 0x12,  /* array.new_canon_default */
-#endif
-    WASM_OP_ARRAY_GET = 0x13,   /* array.get */
-    WASM_OP_ARRAY_GET_S = 0x14, /* array.get_s */
-    WASM_OP_ARRAY_GET_U = 0x15, /* array.get_u */
-    WASM_OP_ARRAY_SET = 0x16,   /* array.set */
+    WASM_OP_ARRAY_NEW_CANON = 0x06,          /* array.new */
+    WASM_OP_ARRAY_NEW_CANON_DEFAULT = 0x07,  /* array.new_default */
+    WASM_OP_ARRAY_NEW_CANON_FIXED = 0x08,    /* array.new_fixed */
+    WASM_OP_ARRAY_NEW_CANON_DATA = 0x09,     /* array.new_data */
+    WASM_OP_ARRAY_NEW_CANON_ELEM = 0x0A,     /* array.new_elem */
+    WASM_OP_ARRAY_GET = 0x0B,   /* array.get */
+    WASM_OP_ARRAY_GET_S = 0x0C, /* array.get_s */
+    WASM_OP_ARRAY_GET_U = 0x0D, /* array.get_u */
+    WASM_OP_ARRAY_SET = 0x0E,   /* array.set */
+    WASM_OP_ARRAY_LEN = 0x0F,                /* array.len */
+    WASM_OP_ARRAY_FILL = 0x10,              /* array.fill */    // TODO
+    WASM_OP_ARRAY_COPY = 0x11, /* array.copy */
+    WASM_OP_ARRAY_INIT_DATA = 0x12, /* array.init_data */   // TODO
+    WASM_OP_ARRAY_INIT_ELEM = 0x13, /* array.init_elem */   // TODO
 
-#if WASM_ENABLE_GC_BINARYEN != 0
-    WASM_OP_ARRAY_COPY = 0x18,            /* array.copy */
-    WASM_OP_ARRAY_LEN = 0x19,             /* array.len */
-    WASM_OP_ARRAY_NEW_CANON_FIXED = 0x1a, /* array.new_canon_fixed */
-    WASM_OP_ARRAY_NEW_CANON_DATA = 0x1d,  /* array.new_canon_data */
-    WASM_OP_ARRAY_NEW_CANON_ELEM = 0x1f,  /* array.new_canon_elem */
-#else
-    WASM_OP_ARRAY_LEN = 0x17,                /* array.len */
-    WASM_OP_ARRAY_NEW_CANON_FIXED = 0x19,    /* array.new_canon_fixed */
-    WASM_OP_ARRAY_NEW_CANON_DATA = 0x1b,     /* array.new_canon_data */
-    WASM_OP_ARRAY_NEW_CANON_ELEM = 0x1c,     /* array.new_canon_elem */
-#endif
+    WASM_OP_REF_TEST = 0x14,        /* ref.test */
+    WASM_OP_REF_TEST_NULLABLE = 0x15,        /* ref.test_nullable */
+    WASM_OP_REF_CAST = 0x16,        /* ref.cast */
+    WASM_OP_REF_CAST_NULLABLE = 0x17,        /* ref.cast_nullable */
 
-    WASM_OP_I31_NEW = 0x20,   /* i31.new */
-    WASM_OP_I31_GET_S = 0x21, /* i31.get_s */
-    WASM_OP_I31_GET_U = 0x22, /* i31.get_u */
+    WASM_OP_BR_ON_CAST = 0x18,      /* br_on_cast */
+    WASM_OP_BR_ON_CAST_FAIL = 0x19, /* br_on_cast_fail */
 
-    WASM_OP_REF_TEST = 0x40,        /* ref.test */
-    WASM_OP_REF_CAST = 0x41,        /* ref.cast */
-    WASM_OP_BR_ON_CAST = 0x42,      /* br_on_cast */
-    WASM_OP_BR_ON_CAST_FAIL = 0x43, /* br_on_cast_fail */
+    WASM_OP_EXTERN_INTERNALIZE = 0x1A, /* any.convert_extern */
+    WASM_OP_EXTERN_EXTERNALIZE = 0x1B, /* extern.covert_any */
 
-    WASM_OP_REF_TEST_NULLABLE = 0x48,        /* ref.test_nullable */
-    WASM_OP_REF_CAST_NULLABLE = 0x49,        /* ref.cast_nullable */
+    WASM_OP_I31_NEW = 0x1C,   /* ref.i31 */
+    WASM_OP_I31_GET_S = 0x1D, /* i31.get_s */
+    WASM_OP_I31_GET_U = 0x1E, /* i31.get_u */
+
     WASM_OP_BR_ON_CAST_NULLABLE = 0x4a,      /* br_on_cast_nullable */
     WASM_OP_BR_ON_CAST_FAIL_NULLABLE = 0x4b, /* br_on_cast_fail_nullable */
 
-    WASM_OP_EXTERN_INTERNALIZE = 0x70, /* extern.internalize */
-    WASM_OP_EXTERN_EXTERNALIZE = 0x71, /* extern.externalize */
 
+
+    /* stringref related opcoded */
     WASM_OP_STRING_NEW_UTF8 = 0x80,          /* string.new_utf8 */
     WASM_OP_STRING_NEW_WTF16 = 0x81,         /* string.new_wtf16 */
     WASM_OP_STRING_CONST = 0x82,             /* string.const */

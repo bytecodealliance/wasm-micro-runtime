@@ -472,11 +472,6 @@
 #define WASM_ENABLE_GC 0
 #endif
 
-/* GC binaryen compatible mode */
-#ifndef WASM_ENABLE_GC_BINARYEN
-#define WASM_ENABLE_GC_BINARYEN 0
-#endif
-
 #ifndef WASM_ENABLE_STRINGREF
 #define WASM_ENABLE_STRINGREF 0
 #endif

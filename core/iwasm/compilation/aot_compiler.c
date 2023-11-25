@@ -1477,7 +1477,6 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                             return false;
                         break;
 
-#if WASM_ENABLE_GC_BINARYEN != 0
                     case WASM_OP_ARRAY_COPY:
                     {
                         uint32 src_type_index;
@@ -1489,7 +1488,6 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                             return false;
                         break;
                     }
-#endif
 
                     case WASM_OP_ARRAY_LEN:
                         if (!aot_compile_op_array_len(comp_ctx, func_ctx))

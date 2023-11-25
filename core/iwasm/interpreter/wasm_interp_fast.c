@@ -2384,7 +2384,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                                 &array_elem);
                         HANDLE_OP_END();
                     }
-#if WASM_ENABLE_GC_BINARYEN != 0
                     case WASM_OP_ARRAY_COPY:
                     {
                         uint32 dst_offset, src_offset, len, src_type_index;
@@ -2423,7 +2422,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         (void)src_type_index;
                         HANDLE_OP_END();
                     }
-#endif
                     case WASM_OP_ARRAY_LEN:
                     {
                         uint32 array_len;

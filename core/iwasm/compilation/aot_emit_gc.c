@@ -1456,7 +1456,6 @@ fail:
     return false;
 }
 
-#if WASM_ENABLE_GC_BINARYEN != 0
 static bool
 aot_call_wasm_array_obj_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                              LLVMValueRef dst_obj, LLVMValueRef dst_offset,
@@ -1586,7 +1585,6 @@ aot_compile_op_array_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 fail:
     return false;
 }
-#endif /* end of WASM_ENABLE_GC_BINARYEN != 0 */
 
 bool
 aot_compile_op_array_len(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)

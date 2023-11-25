@@ -19,23 +19,28 @@ wasm_ref_type_normalize(wasm_ref_type_t *ref_type)
     int32 heap_type = ref_type->heap_type;
 
     if (!((value_type >= VALUE_TYPE_I16 && value_type <= VALUE_TYPE_I32)
-          || (
+          || ((value_type >= (uint8)REF_TYPE_ARRAYREF
+               && value_type <= (uint8)REF_TYPE_NULLFUNCREF)
+              || (value_type >= (uint8)REF_TYPE_HT_NULLABLE
+                  && value_type <= (uint8)REF_TYPE_HT_NON_NULLABLE)
 #if WASM_ENABLE_STRINGREF != 0
-              value_type >= VALUE_TYPE_STRINGVIEWITER
-#else
-              value_type >= VALUE_TYPE_NULLREF
+              || (value_type >= (uint8)REF_TYPE_STRINGVIEWWTF8
+                  && value_type <= (uint8)REF_TYPE_STRINGREF)
+              || (value_type >= (uint8)REF_TYPE_STRINGVIEWITER
+                  && value_type <= (uint8)REF_TYPE_STRINGVIEWWTF16)
 #endif
-              && value_type <= VALUE_TYPE_FUNCREF))) {
+                  ))) {
         return false;
     }
     if (value_type == VALUE_TYPE_HT_NULLABLE_REF
         || value_type == VALUE_TYPE_HT_NON_NULLABLE_REF) {
         if (heap_type < 0
+            && (heap_type > HEAP_TYPE_NOFUNC || heap_type < HEAP_TYPE_ARRAY)
 #if WASM_ENABLE_STRINGREF != 0
-            && (heap_type < HEAP_TYPE_STRINGVIEWITER
-                || heap_type > HEAP_TYPE_FUNC)
-#else
-            && (heap_type < HEAP_TYPE_NONE || heap_type > HEAP_TYPE_FUNC)
+            && heap_type != HEAP_TYPE_STRINGREF
+            && heap_type != HEAP_TYPE_STRINGVIEWWTF8
+            && heap_type != HEAP_TYPE_STRINGVIEWWTF16
+            && heap_type != HEAP_TYPE_STRINGVIEWITER
 #endif
         ) {
             return false;
@@ -46,11 +51,12 @@ wasm_ref_type_normalize(wasm_ref_type_t *ref_type)
         ref_type->nullable = false;
     }
     else {
-        if (
+        if ((heap_type > HEAP_TYPE_NOFUNC || heap_type < HEAP_TYPE_ARRAY)
 #if WASM_ENABLE_STRINGREF != 0
-            heap_type >= HEAP_TYPE_STRINGVIEWITER && heap_type <= HEAP_TYPE_FUNC
-#else
-            heap_type >= HEAP_TYPE_NONE && heap_type <= HEAP_TYPE_FUNC
+            && heap_type != HEAP_TYPE_STRINGREF
+            && heap_type != HEAP_TYPE_STRINGVIEWWTF8
+            && heap_type != HEAP_TYPE_STRINGVIEWWTF16
+            && heap_type != HEAP_TYPE_STRINGVIEWITER
 #endif
         ) {
             ref_type->value_type =
@@ -58,7 +64,7 @@ wasm_ref_type_normalize(wasm_ref_type_t *ref_type)
                 (uint8)(REF_TYPE_STRINGVIEWITER + heap_type
                         - HEAP_TYPE_STRINGVIEWITER);
 #else
-                (uint8)(REF_TYPE_NULLREF + heap_type - HEAP_TYPE_NONE);
+                (uint8)(REF_TYPE_ARRAYREF + heap_type - HEAP_TYPE_ARRAY);
 #endif
             ref_type->nullable = false;
             ref_type->heap_type = 0;
