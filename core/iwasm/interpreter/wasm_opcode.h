@@ -286,30 +286,33 @@ typedef enum WASMOpcode {
 typedef enum WASMGCEXTOpcode {
     WASM_OP_STRUCT_NEW_CANON = 0x00,         /* struct.new */
     WASM_OP_STRUCT_NEW_CANON_DEFAULT = 0x01, /* struct.new_default */
-    WASM_OP_STRUCT_GET = 0x02,   /* struct.get */
-    WASM_OP_STRUCT_GET_S = 0x03, /* struct.get_s */
-    WASM_OP_STRUCT_GET_U = 0x04, /* struct.get_u */
-    WASM_OP_STRUCT_SET = 0x05,   /* struct.set */
+    WASM_OP_STRUCT_GET = 0x02,               /* struct.get */
+    WASM_OP_STRUCT_GET_S = 0x03,             /* struct.get_s */
+    WASM_OP_STRUCT_GET_U = 0x04,             /* struct.get_u */
+    WASM_OP_STRUCT_SET = 0x05,               /* struct.set */
 
-    WASM_OP_ARRAY_NEW_CANON = 0x06,          /* array.new */
-    WASM_OP_ARRAY_NEW_CANON_DEFAULT = 0x07,  /* array.new_default */
-    WASM_OP_ARRAY_NEW_CANON_FIXED = 0x08,    /* array.new_fixed */
-    WASM_OP_ARRAY_NEW_CANON_DATA = 0x09,     /* array.new_data */
-    WASM_OP_ARRAY_NEW_CANON_ELEM = 0x0A,     /* array.new_elem */
-    WASM_OP_ARRAY_GET = 0x0B,   /* array.get */
-    WASM_OP_ARRAY_GET_S = 0x0C, /* array.get_s */
-    WASM_OP_ARRAY_GET_U = 0x0D, /* array.get_u */
-    WASM_OP_ARRAY_SET = 0x0E,   /* array.set */
-    WASM_OP_ARRAY_LEN = 0x0F,                /* array.len */
-    WASM_OP_ARRAY_FILL = 0x10,              /* array.fill */    // TODO
+    WASM_OP_ARRAY_NEW_CANON = 0x06,         /* array.new */
+    WASM_OP_ARRAY_NEW_CANON_DEFAULT = 0x07, /* array.new_default */
+    WASM_OP_ARRAY_NEW_CANON_FIXED = 0x08,   /* array.new_fixed */
+    WASM_OP_ARRAY_NEW_CANON_DATA = 0x09,    /* array.new_data */
+    WASM_OP_ARRAY_NEW_CANON_ELEM = 0x0A,    /* array.new_elem */
+    WASM_OP_ARRAY_GET = 0x0B,               /* array.get */
+    WASM_OP_ARRAY_GET_S = 0x0C,             /* array.get_s */
+    WASM_OP_ARRAY_GET_U = 0x0D,             /* array.get_u */
+    WASM_OP_ARRAY_SET = 0x0E,               /* array.set */
+    WASM_OP_ARRAY_LEN = 0x0F,               /* array.len */
+    WASM_OP_ARRAY_FILL = 0x10,
+    /* array.fill */           // TODO
     WASM_OP_ARRAY_COPY = 0x11, /* array.copy */
-    WASM_OP_ARRAY_INIT_DATA = 0x12, /* array.init_data */   // TODO
-    WASM_OP_ARRAY_INIT_ELEM = 0x13, /* array.init_elem */   // TODO
+    WASM_OP_ARRAY_INIT_DATA = 0x12,
+    /* array.init_data */ // TODO
+    WASM_OP_ARRAY_INIT_ELEM = 0x13,
+    /* array.init_elem */ // TODO
 
-    WASM_OP_REF_TEST = 0x14,        /* ref.test */
-    WASM_OP_REF_TEST_NULLABLE = 0x15,        /* ref.test_nullable */
-    WASM_OP_REF_CAST = 0x16,        /* ref.cast */
-    WASM_OP_REF_CAST_NULLABLE = 0x17,        /* ref.cast_nullable */
+    WASM_OP_REF_TEST = 0x14,          /* ref.test */
+    WASM_OP_REF_TEST_NULLABLE = 0x15, /* ref.test_nullable */
+    WASM_OP_REF_CAST = 0x16,          /* ref.cast */
+    WASM_OP_REF_CAST_NULLABLE = 0x17, /* ref.cast_nullable */
 
     WASM_OP_BR_ON_CAST = 0x18,      /* br_on_cast */
     WASM_OP_BR_ON_CAST_FAIL = 0x19, /* br_on_cast_fail */
@@ -323,8 +326,6 @@ typedef enum WASMGCEXTOpcode {
 
     WASM_OP_BR_ON_CAST_NULLABLE = 0x4a,      /* br_on_cast_nullable */
     WASM_OP_BR_ON_CAST_FAIL_NULLABLE = 0x4b, /* br_on_cast_fail_nullable */
-
-
 
     /* stringref related opcoded */
     WASM_OP_STRING_NEW_UTF8 = 0x80,          /* string.new_utf8 */

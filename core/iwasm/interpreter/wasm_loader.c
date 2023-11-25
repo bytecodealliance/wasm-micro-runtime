@@ -1401,7 +1401,7 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                 }
             }
         }
-#else /* else of WASM_ENABLE_GC == 0 */
+#else  /* else of WASM_ENABLE_GC == 0 */
         for (i = 0; i < type_count; i++) {
             uint32 super_type_count = 0, parent_type_idx = (uint32)-1;
             bool is_sub_final = true;
@@ -10434,12 +10434,11 @@ re_scan:
                 read_leb_int32(p, p_end, heap_type);
                 if (heap_type >= 0) {
                     if (!check_type_index(module, heap_type, error_buf,
-                                            error_buf_size)) {
+                                          error_buf_size)) {
                         goto fail;
                     }
-                    wasm_set_refheaptype_typeidx(
-                        &wasm_ref_type.ref_ht_typeidx, true,
-                        heap_type);
+                    wasm_set_refheaptype_typeidx(&wasm_ref_type.ref_ht_typeidx,
+                                                 true, heap_type);
                     ref_type = wasm_ref_type.ref_type;
                 }
                 else {
@@ -10451,7 +10450,7 @@ re_scan:
 #endif
                     ) {
                         set_error_buf(error_buf, error_buf_size,
-                                        "unknown type");
+                                      "unknown type");
                         goto fail;
                     }
                     ref_type = (uint8)((int32)0x80 + heap_type);
