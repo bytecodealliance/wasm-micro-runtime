@@ -135,6 +135,22 @@ wasm_is_type_reftype(uint8 type)
                : false;
 }
 
+/* Whether a negative value is a valid heap type */
+inline static bool
+wasm_is_valid_heap_type(int32 heap_type)
+{
+    return ((heap_type <= HEAP_TYPE_NOFUNC && heap_type >= HEAP_TYPE_ARRAY)
+#if WASM_ENABLE_STRINGREF != 0
+            || heap_type == HEAP_TYPE_STRINGREF
+            || heap_type == HEAP_TYPE_STRINGVIEWWTF8
+            || heap_type == HEAP_TYPE_STRINGVIEWWTF16
+            || heap_type == HEAP_TYPE_STRINGVIEWITER
+#endif
+            )
+               ? true
+               : false;
+}
+
 /* Whether a value type is multi-byte type, or, requires ref type map
    to retrieve extra info */
 inline static bool

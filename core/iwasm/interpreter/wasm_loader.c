@@ -1401,7 +1401,7 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                 }
             }
         }
-#else /* else of WASM_ENABLE_GC == 0 */
+#else  /* else of WASM_ENABLE_GC == 0 */
         for (i = 0; i < type_count; i++) {
             uint32 super_type_count = 0, parent_type_idx = (uint32)-1;
             bool is_sub_final = true;
@@ -10442,13 +10442,7 @@ re_scan:
                     ref_type = wasm_ref_type.ref_type;
                 }
                 else {
-                    if (heap_type > HEAP_TYPE_NONE
-#if WASM_ENABLE_STRINGREF != 0
-                        || heap_type < HEAP_TYPE_STRINGVIEWITER
-#else
-                        || heap_type < HEAP_TYPE_ARRAY
-#endif
-                    ) {
+                    if (!wasm_is_valid_heap_type(heap_type)) {
                         set_error_buf(error_buf, error_buf_size,
                                       "unknown type");
                         goto fail;
@@ -11910,13 +11904,7 @@ re_scan:
                             }
                         }
                         else {
-                            if (heap_type > HEAP_TYPE_NONE
-#if WASM_ENABLE_STRINGREF != 0
-                                || heap_type < HEAP_TYPE_STRINGVIEWITER
-#else
-                                || heap_type < HEAP_TYPE_ARRAY
-#endif
-                            ) {
+                            if (!wasm_is_valid_heap_type(heap_type)) {
                                 set_error_buf(error_buf, error_buf_size,
                                               "unknown type");
                                 goto fail;
@@ -11986,8 +11974,7 @@ re_scan:
                                 heap_type);
                         }
                         else {
-                            if (heap_type > HEAP_TYPE_NONE
-                                || heap_type < HEAP_TYPE_ARRAY) {
+                            if (!wasm_is_valid_heap_type(heap_type)) {
                                 set_error_buf(error_buf, error_buf_size,
                                               "unknown type");
                                 goto fail;
@@ -12082,8 +12069,7 @@ re_scan:
                                 heap_type);
                         }
                         else {
-                            if (heap_type > HEAP_TYPE_NONE
-                                || heap_type < HEAP_TYPE_ARRAY) {
+                            if (!wasm_is_valid_heap_type(heap_type)) {
                                 set_error_buf(error_buf, error_buf_size,
                                               "unknown type");
                                 goto fail;
