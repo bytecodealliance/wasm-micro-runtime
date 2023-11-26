@@ -2065,8 +2065,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 opcode = (uint8)opcode1;
 
                 switch (opcode) {
-                    case WASM_OP_STRUCT_NEW_CANON:
-                    case WASM_OP_STRUCT_NEW_CANON_DEFAULT:
+                    case WASM_OP_STRUCT_NEW:
+                    case WASM_OP_STRUCT_NEW_DEFAULT:
                     {
                         WASMModule *wasm_module = module->module;
                         WASMStructType *struct_type;
@@ -2095,7 +2095,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             goto got_exception;
                         }
 
-                        if (opcode == WASM_OP_STRUCT_NEW_CANON) {
+                        if (opcode == WASM_OP_STRUCT_NEW) {
                             WASMStructFieldType *fields = struct_type->fields;
                             int32 field_count = (int32)struct_type->field_count;
                             int32 field_idx;
@@ -2205,9 +2205,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         HANDLE_OP_END();
                     }
 
-                    case WASM_OP_ARRAY_NEW_CANON:
-                    case WASM_OP_ARRAY_NEW_CANON_DEFAULT:
-                    case WASM_OP_ARRAY_NEW_CANON_FIXED:
+                    case WASM_OP_ARRAY_NEW:
+                    case WASM_OP_ARRAY_NEW_DEFAULT:
+                    case WASM_OP_ARRAY_NEW_FIXED:
                     {
                         WASMModule *wasm_module = module->module;
                         WASMArrayType *array_type;
@@ -2229,12 +2229,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             goto got_exception;
                         }
 
-                        if (opcode != WASM_OP_ARRAY_NEW_CANON_FIXED)
+                        if (opcode != WASM_OP_ARRAY_NEW_FIXED)
                             array_len = POP_I32();
                         else
                             read_leb_uint32(frame_ip, frame_ip_end, array_len);
 
-                        if (opcode == WASM_OP_ARRAY_NEW_CANON) {
+                        if (opcode == WASM_OP_ARRAY_NEW) {
                             if (wasm_is_type_reftype(array_type->elem_type)) {
                                 array_elem.gc_obj = POP_REF();
                             }
@@ -2259,7 +2259,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             goto got_exception;
                         }
 
-                        if (opcode == WASM_OP_ARRAY_NEW_CANON_FIXED) {
+                        if (opcode == WASM_OP_ARRAY_NEW_FIXED) {
                             for (i = 0; i < array_len; i++) {
                                 if (wasm_is_type_reftype(
                                         array_type->elem_type)) {
@@ -2285,7 +2285,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         PUSH_REF(array_obj);
                         HANDLE_OP_END();
                     }
-                    case WASM_OP_ARRAY_NEW_CANON_DATA:
+                    case WASM_OP_ARRAY_NEW_DATA:
                     {
                         WASMModule *wasm_module = module->module;
                         WASMArrayType *array_type;
@@ -2363,7 +2363,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         PUSH_REF(array_obj);
                         HANDLE_OP_END();
                     }
-                    case WASM_OP_ARRAY_NEW_CANON_ELEM:
+                    case WASM_OP_ARRAY_NEW_ELEM:
                     {
                         /* TODO */
                         wasm_set_exception(module, "unsupported opcode");
@@ -2505,7 +2505,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         HANDLE_OP_END();
                     }
 
-                    case WASM_OP_I31_NEW:
+                    case WASM_OP_REF_I31:
                     {
                         uint32 i31_val;
 
@@ -2638,7 +2638,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         HANDLE_OP_END();
                     }
 
-                    case WASM_OP_EXTERN_INTERNALIZE:
+                    case WASM_OP_ANY_CONVERT_EXTERN:
                     {
                         externref_obj = POP_REF();
                         if (externref_obj == NULL_REF)
@@ -2650,7 +2650,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         }
                         HANDLE_OP_END();
                     }
-                    case WASM_OP_EXTERN_EXTERNALIZE:
+                    case WASM_OP_EXTERN_COVERT_ANY:
                     {
                         gc_obj = POP_REF();
                         if (gc_obj == NULL_REF)

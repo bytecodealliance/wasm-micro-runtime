@@ -529,7 +529,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                 else {
                     CHECK_BUF(p, p_end, 2);
                     if (*p == WASM_OP_GC_PREFIX
-                        && *(p + 1) == WASM_OP_I31_NEW) {
+                        && *(p + 1) == WASM_OP_REF_I31) {
                         p += 2;
                         init_expr->init_expr_type = INIT_EXPR_TYPE_I31_NEW;
                     }
@@ -702,14 +702,14 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
             opcode1 = read_uint8(p);
 
             switch (opcode1) {
-                case WASM_OP_STRUCT_NEW_CANON:
+                case WASM_OP_STRUCT_NEW:
                 {
                     set_error_buf(
                         error_buf, error_buf_size,
                         "unsuppoted constant expression of struct.new_canon");
                     return false;
                 }
-                case WASM_OP_STRUCT_NEW_CANON_DEFAULT:
+                case WASM_OP_STRUCT_NEW_DEFAULT:
                 {
                     init_expr->init_expr_type =
                         INIT_EXPR_TYPE_STRUCT_NEW_CANON_DEFAULT;
@@ -728,18 +728,18 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                     }
                     break;
                 }
-                case WASM_OP_ARRAY_NEW_CANON:
+                case WASM_OP_ARRAY_NEW:
                 {
                     set_error_buf(
                         error_buf, error_buf_size,
                         "unsuppoted constant expression of array.new_canon");
                     return false;
                 }
-                case WASM_OP_ARRAY_NEW_CANON_DEFAULT:
-                case WASM_OP_ARRAY_NEW_CANON_FIXED:
+                case WASM_OP_ARRAY_NEW_DEFAULT:
+                case WASM_OP_ARRAY_NEW_FIXED:
                 {
                     init_expr->init_expr_type =
-                        (opcode1 == WASM_OP_ARRAY_NEW_CANON_DEFAULT)
+                        (opcode1 == WASM_OP_ARRAY_NEW_DEFAULT)
                             ? INIT_EXPR_TYPE_ARRAY_NEW_CANON_DEFAULT
                             : INIT_EXPR_TYPE_ARRAY_NEW_CANON_FIXED;
                     read_leb_uint32(p, p_end, init_expr->u.type_index);
@@ -750,21 +750,21 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                         return false;
                     }
 
-                    if (opcode1 == WASM_OP_ARRAY_NEW_CANON_FIXED) {
+                    if (opcode1 == WASM_OP_ARRAY_NEW_FIXED) {
                         read_leb_uint32(p, p_end,
                                         init_expr->u.array_new_canon_fixed.N);
                     }
 
                     break;
                 }
-                case WASM_OP_EXTERN_INTERNALIZE:
+                case WASM_OP_ANY_CONVERT_EXTERN:
                 {
                     set_error_buf(
                         error_buf, error_buf_size,
                         "unsuppoted constant expression of extern.internalize");
                     return false;
                 }
-                case WASM_OP_EXTERN_EXTERNALIZE:
+                case WASM_OP_EXTERN_COVERT_ANY:
                 {
                     set_error_buf(
                         error_buf, error_buf_size,
@@ -6002,8 +6002,8 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                 read_leb_uint32(p, p_end, opcode1);
 
                 switch (opcode1) {
-                    case WASM_OP_STRUCT_NEW_CANON:
-                    case WASM_OP_STRUCT_NEW_CANON_DEFAULT:
+                    case WASM_OP_STRUCT_NEW:
+                    case WASM_OP_STRUCT_NEW_DEFAULT:
                         skip_leb_uint32(p, p_end); /* typeidx */
                         break;
                     case WASM_OP_STRUCT_GET:
@@ -6014,8 +6014,8 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                         skip_leb_uint32(p, p_end); /* fieldidx */
                         break;
 
-                    case WASM_OP_ARRAY_NEW_CANON:
-                    case WASM_OP_ARRAY_NEW_CANON_DEFAULT:
+                    case WASM_OP_ARRAY_NEW:
+                    case WASM_OP_ARRAY_NEW_DEFAULT:
                     case WASM_OP_ARRAY_GET:
                     case WASM_OP_ARRAY_GET_S:
                     case WASM_OP_ARRAY_GET_U:
@@ -6028,14 +6028,14 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                         break;
                     case WASM_OP_ARRAY_LEN:
                         break;
-                    case WASM_OP_ARRAY_NEW_CANON_FIXED:
-                    case WASM_OP_ARRAY_NEW_CANON_DATA:
-                    case WASM_OP_ARRAY_NEW_CANON_ELEM:
+                    case WASM_OP_ARRAY_NEW_FIXED:
+                    case WASM_OP_ARRAY_NEW_DATA:
+                    case WASM_OP_ARRAY_NEW_ELEM:
                         skip_leb_uint32(p, p_end); /* typeidx */
                         skip_leb_uint32(p, p_end); /* N/dataidx/elemidx */
                         break;
 
-                    case WASM_OP_I31_NEW:
+                    case WASM_OP_REF_I31:
                     case WASM_OP_I31_GET_S:
                     case WASM_OP_I31_GET_U:
                         break;
@@ -6054,8 +6054,8 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                         skip_leb_int32(p, p_end);  /* heaptype */
                         break;
 
-                    case WASM_OP_EXTERN_INTERNALIZE:
-                    case WASM_OP_EXTERN_EXTERNALIZE:
+                    case WASM_OP_ANY_CONVERT_EXTERN:
+                    case WASM_OP_EXTERN_COVERT_ANY:
                         break;
 
 #if WASM_ENABLE_STRINGREF != 0
@@ -11447,8 +11447,8 @@ re_scan:
 #endif
 
                 switch (opcode1) {
-                    case WASM_OP_STRUCT_NEW_CANON:
-                    case WASM_OP_STRUCT_NEW_CANON_DEFAULT:
+                    case WASM_OP_STRUCT_NEW:
+                    case WASM_OP_STRUCT_NEW_DEFAULT:
                     {
                         read_leb_uint32(p, p_end, type_idx);
 #if WASM_ENABLE_FAST_INTERP != 0
@@ -11465,7 +11465,7 @@ re_scan:
                             goto fail;
                         }
 
-                        if (opcode1 == WASM_OP_STRUCT_NEW_CANON) {
+                        if (opcode1 == WASM_OP_STRUCT_NEW) {
                             int32 j, k;
                             uint8 value_type;
                             uint32 ref_type_struct_size;
@@ -11619,11 +11619,11 @@ re_scan:
                         break;
                     }
 
-                    case WASM_OP_ARRAY_NEW_CANON:
-                    case WASM_OP_ARRAY_NEW_CANON_DEFAULT:
-                    case WASM_OP_ARRAY_NEW_CANON_FIXED:
-                    case WASM_OP_ARRAY_NEW_CANON_DATA:
-                    case WASM_OP_ARRAY_NEW_CANON_ELEM:
+                    case WASM_OP_ARRAY_NEW:
+                    case WASM_OP_ARRAY_NEW_DEFAULT:
+                    case WASM_OP_ARRAY_NEW_FIXED:
+                    case WASM_OP_ARRAY_NEW_DATA:
+                    case WASM_OP_ARRAY_NEW_ELEM:
                     {
                         WASMArrayType *array_type;
                         uint8 elem_type;
@@ -11633,9 +11633,9 @@ re_scan:
 #if WASM_ENABLE_FAST_INTERP != 0
                         emit_uint32(loader_ctx, type_idx);
 #endif
-                        if (opcode1 == WASM_OP_ARRAY_NEW_CANON_FIXED
-                            || opcode1 == WASM_OP_ARRAY_NEW_CANON_DATA
-                            || opcode1 == WASM_OP_ARRAY_NEW_CANON_ELEM) {
+                        if (opcode1 == WASM_OP_ARRAY_NEW_FIXED
+                            || opcode1 == WASM_OP_ARRAY_NEW_DATA
+                            || opcode1 == WASM_OP_ARRAY_NEW_ELEM) {
                             read_leb_uint32(p, p_end, u32);
 #if WASM_ENABLE_FAST_INTERP != 0
                             emit_uint32(loader_ctx, u32);
@@ -11647,7 +11647,7 @@ re_scan:
                             goto fail;
                         }
 
-                        if (opcode1 != WASM_OP_ARRAY_NEW_CANON_FIXED) {
+                        if (opcode1 != WASM_OP_ARRAY_NEW_FIXED) {
                             /* length */
                             POP_I32();
                         }
@@ -11655,8 +11655,8 @@ re_scan:
                         array_type = (WASMArrayType *)module->types[type_idx];
                         elem_type = array_type->elem_type;
 
-                        if (opcode1 == WASM_OP_ARRAY_NEW_CANON
-                            || opcode1 == WASM_OP_ARRAY_NEW_CANON_FIXED) {
+                        if (opcode1 == WASM_OP_ARRAY_NEW
+                            || opcode1 == WASM_OP_ARRAY_NEW_FIXED) {
                             if (wasm_is_type_multi_byte_type(elem_type)) {
                                 bh_memcpy_s(&wasm_ref_type, sizeof(WASMRefType),
                                             array_type->elem_ref_type,
@@ -11667,7 +11667,7 @@ re_scan:
                                 elem_type = VALUE_TYPE_I32;
                             }
 
-                            if (opcode1 == WASM_OP_ARRAY_NEW_CANON_FIXED) {
+                            if (opcode1 == WASM_OP_ARRAY_NEW_FIXED) {
                                 uint32 N = u32;
                                 for (i = 0; i < N; i++) {
                                     if (wasm_is_type_multi_byte_type(
@@ -11684,7 +11684,7 @@ re_scan:
                             else
                                 POP_REF(elem_type);
                         }
-                        else if (opcode1 == WASM_OP_ARRAY_NEW_CANON_DATA) {
+                        else if (opcode1 == WASM_OP_ARRAY_NEW_DATA) {
                             /* offset of data segment */
                             POP_I32();
 
@@ -11700,7 +11700,7 @@ re_scan:
                                 goto fail;
                             }
                         }
-                        else if (opcode1 == WASM_OP_ARRAY_NEW_CANON_ELEM) {
+                        else if (opcode1 == WASM_OP_ARRAY_NEW_ELEM) {
                             WASMTableSeg *table_seg =
                                 module->table_segments + u32;
 
@@ -11869,7 +11869,7 @@ re_scan:
                         break;
                     }
 
-                    case WASM_OP_I31_NEW:
+                    case WASM_OP_REF_I31:
                     {
                         POP_I32();
                         wasm_set_refheaptype_common(
@@ -12086,7 +12086,7 @@ re_scan:
                         break;
                     }
 
-                    case WASM_OP_EXTERN_INTERNALIZE:
+                    case WASM_OP_ANY_CONVERT_EXTERN:
                     {
                         uint8 type;
 
@@ -12115,7 +12115,7 @@ re_scan:
                         break;
                     }
 
-                    case WASM_OP_EXTERN_EXTERNALIZE:
+                    case WASM_OP_EXTERN_COVERT_ANY:
                     {
                         uint8 type;
 

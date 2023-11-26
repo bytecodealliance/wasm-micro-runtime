@@ -1401,12 +1401,12 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 opcode = (uint8)opcode1;
 
                 switch (opcode) {
-                    case WASM_OP_STRUCT_NEW_CANON:
-                    case WASM_OP_STRUCT_NEW_CANON_DEFAULT:
+                    case WASM_OP_STRUCT_NEW:
+                    case WASM_OP_STRUCT_NEW_DEFAULT:
                         read_leb_uint32(frame_ip, frame_ip_end, type_index);
                         if (!aot_compile_op_struct_new(
                                 comp_ctx, func_ctx, type_index,
-                                opcode == WASM_OP_STRUCT_NEW_CANON_DEFAULT,
+                                opcode == WASM_OP_STRUCT_NEW_DEFAULT,
                                 frame_ip_org))
                             return false;
                         break;
@@ -1430,23 +1430,23 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                             return false;
                         break;
 
-                    case WASM_OP_ARRAY_NEW_CANON:
-                    case WASM_OP_ARRAY_NEW_CANON_DEFAULT:
-                    case WASM_OP_ARRAY_NEW_CANON_FIXED:
+                    case WASM_OP_ARRAY_NEW:
+                    case WASM_OP_ARRAY_NEW_DEFAULT:
+                    case WASM_OP_ARRAY_NEW_FIXED:
                         read_leb_uint32(frame_ip, frame_ip_end, type_index);
-                        if (opcode == WASM_OP_ARRAY_NEW_CANON_FIXED)
+                        if (opcode == WASM_OP_ARRAY_NEW_FIXED)
                             read_leb_uint32(frame_ip, frame_ip_end, array_len);
                         else
                             array_len = 0;
                         if (!aot_compile_op_array_new(
                                 comp_ctx, func_ctx, type_index,
-                                opcode == WASM_OP_ARRAY_NEW_CANON_DEFAULT,
-                                opcode == WASM_OP_ARRAY_NEW_CANON_FIXED,
-                                array_len, frame_ip_org))
+                                opcode == WASM_OP_ARRAY_NEW_DEFAULT,
+                                opcode == WASM_OP_ARRAY_NEW_FIXED, array_len,
+                                frame_ip_org))
                             return false;
                         break;
 
-                    case WASM_OP_ARRAY_NEW_CANON_DATA:
+                    case WASM_OP_ARRAY_NEW_DATA:
                         read_leb_uint32(frame_ip, frame_ip_end, type_index);
                         read_leb_uint32(frame_ip, frame_ip_end, data_seg_idx);
                         if (!aot_compile_op_array_new_data(
@@ -1455,7 +1455,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                             return false;
                         break;
 
-                    case WASM_OP_ARRAY_NEW_CANON_ELEM:
+                    case WASM_OP_ARRAY_NEW_ELEM:
                         /* TODO */
                         aot_set_last_error("unsupported opcode");
                         return false;
@@ -1494,7 +1494,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                             return false;
                         break;
 
-                    case WASM_OP_I31_NEW:
+                    case WASM_OP_REF_I31:
                         if (!aot_compile_op_i31_new(comp_ctx, func_ctx))
                             return false;
                         break;
@@ -1558,13 +1558,13 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                         break;
                     }
 
-                    case WASM_OP_EXTERN_INTERNALIZE:
+                    case WASM_OP_ANY_CONVERT_EXTERN:
                         if (!aot_compile_op_extern_internalize(comp_ctx,
                                                                func_ctx))
                             return false;
                         break;
 
-                    case WASM_OP_EXTERN_EXTERNALIZE:
+                    case WASM_OP_EXTERN_COVERT_ANY:
                         if (!aot_compile_op_extern_externalize(
                                 comp_ctx, func_ctx, frame_ip_org))
                             return false;
