@@ -51,12 +51,12 @@ wasm_ref_type_normalize(wasm_ref_type_t *ref_type)
         ref_type->nullable = false;
     }
     else {
-        if ((heap_type > HEAP_TYPE_NOFUNC || heap_type < HEAP_TYPE_ARRAY)
+        if ((heap_type <= HEAP_TYPE_NOFUNC && heap_type >= HEAP_TYPE_ARRAY)
 #if WASM_ENABLE_STRINGREF != 0
-            && heap_type != HEAP_TYPE_STRINGREF
-            && heap_type != HEAP_TYPE_STRINGVIEWWTF8
-            && heap_type != HEAP_TYPE_STRINGVIEWWTF16
-            && heap_type != HEAP_TYPE_STRINGVIEWITER
+            || heap_type == HEAP_TYPE_STRINGREF
+            || heap_type == HEAP_TYPE_STRINGVIEWWTF8
+            || heap_type == HEAP_TYPE_STRINGVIEWWTF16
+            || heap_type == HEAP_TYPE_STRINGVIEWITER
 #endif
         ) {
             ref_type->value_type =

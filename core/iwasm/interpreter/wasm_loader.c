@@ -1401,7 +1401,7 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                 }
             }
         }
-#else  /* else of WASM_ENABLE_GC == 0 */
+#else /* else of WASM_ENABLE_GC == 0 */
         for (i = 0; i < type_count; i++) {
             uint32 super_type_count = 0, parent_type_idx = (uint32)-1;
             bool is_sub_final = true;
