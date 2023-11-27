@@ -31,7 +31,7 @@ wasm_exec_env_create_internal(struct WASMModuleInstanceCommon *module_inst,
                               uint32 stack_size)
 {
     uint64 total_size =
-        offsetof(WASMExecEnv, wasm_stack.s.bottom) + (uint64)stack_size;
+        offsetof(WASMExecEnv, wasm_stack_u.bottom) + (uint64)stack_size;
     WASMExecEnv *exec_env;
 
     if (total_size >= UINT32_MAX
@@ -67,9 +67,10 @@ wasm_exec_env_create_internal(struct WASMModuleInstanceCommon *module_inst,
 
     exec_env->module_inst = module_inst;
     exec_env->wasm_stack_size = stack_size;
-    exec_env->wasm_stack.s.top_boundary =
-        exec_env->wasm_stack.s.bottom + stack_size;
-    exec_env->wasm_stack.s.top = exec_env->wasm_stack.s.bottom;
+    exec_env->wasm_stack.bottom = exec_env->wasm_stack_u.bottom;
+    exec_env->wasm_stack.top_boundary =
+        exec_env->wasm_stack.bottom + stack_size;
+    exec_env->wasm_stack.top = exec_env->wasm_stack.bottom;
 
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT) {

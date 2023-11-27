@@ -173,10 +173,13 @@ offset_of_local_in_outs_area(AOTCompContext *comp_ctx, unsigned n)
     if (!comp_ctx->is_jit_mode) {
         /* Refer to aot_alloc_frame */
         if (!comp_ctx->enable_gc)
-            frame_size = comp_ctx->pointer_size * 7 + all_cell_num * 4;
+            frame_size = comp_ctx->pointer_size
+                             * (offsetof(AOTFrame, lp) / sizeof(uintptr_t))
+                         + all_cell_num * 4;
         else
-            frame_size =
-                comp_ctx->pointer_size * 7 + align_uint(all_cell_num * 5, 4);
+            frame_size = comp_ctx->pointer_size
+                             * (offsetof(AOTFrame, lp) / sizeof(uintptr_t))
+                         + align_uint(all_cell_num * 5, 4);
     }
     else {
         /* Refer to wasm_interp_interp_frame_size */

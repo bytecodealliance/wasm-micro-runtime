@@ -9,6 +9,7 @@
 #include "aot.h"
 #include "aot_llvm.h"
 #include "../interpreter/wasm_interp.h"
+#include "../aot/aot_runtime.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -140,7 +141,9 @@ offset_of_local(AOTCompContext *comp_ctx, unsigned n)
 {
     if (!comp_ctx->is_jit_mode)
         /* In AOTFrame, there are 7 pointers before field lp */
-        return comp_ctx->pointer_size * 7 + sizeof(uint32) * n;
+        return comp_ctx->pointer_size
+                   * (offsetof(AOTFrame, lp) / sizeof(uintptr_t))
+               + sizeof(uint32) * n;
     else
         return offsetof(WASMInterpFrame, lp) + sizeof(uint32) * n;
 }
@@ -630,6 +633,9 @@ set_local_gc_ref(AOTCompFrame *frame, int n, LLVMValueRef value, uint8 ref_type)
 #define I32_SEVEN LLVM_CONST(i32_seven)
 #define I32_EIGHT LLVM_CONST(i32_eight)
 #define I32_NINE LLVM_CONST(i32_nine)
+#define I32_TEN LLVM_CONST(i32_ten)
+#define I32_ELEVEN LLVM_CONST(i32_eleven)
+#define I32_TWELVE LLVM_CONST(i32_twelve)
 #define I32_NEG_ONE LLVM_CONST(i32_neg_one)
 #define I64_NEG_ONE LLVM_CONST(i64_neg_one)
 #define I32_MIN LLVM_CONST(i32_min)

@@ -557,9 +557,9 @@ static bool
 wasm_runtime_exec_env_check(WASMExecEnv *exec_env)
 {
     return exec_env && exec_env->module_inst && exec_env->wasm_stack_size > 0
-           && exec_env->wasm_stack.s.top_boundary
-                  == exec_env->wasm_stack.s.bottom + exec_env->wasm_stack_size
-           && exec_env->wasm_stack.s.top <= exec_env->wasm_stack.s.top_boundary;
+           && exec_env->wasm_stack.top_boundary
+                  == exec_env->wasm_stack.bottom + exec_env->wasm_stack_size
+           && exec_env->wasm_stack.top <= exec_env->wasm_stack.top_boundary;
 }
 
 bool
@@ -1573,11 +1573,11 @@ void
 wasm_runtime_dump_exec_env_mem_consumption(const WASMExecEnv *exec_env)
 {
     uint32 total_size =
-        offsetof(WASMExecEnv, wasm_stack.s.bottom) + exec_env->wasm_stack_size;
+        offsetof(WASMExecEnv, wasm_stack.bottom) + exec_env->wasm_stack_size;
 
     os_printf("Exec env memory consumption, total size: %u\n", total_size);
     os_printf("    exec env struct size: %u\n",
-              offsetof(WASMExecEnv, wasm_stack.s.bottom));
+              offsetof(WASMExecEnv, wasm_stack.bottom));
 #if WASM_ENABLE_INTERP != 0 && WASM_ENABLE_FAST_INTERP == 0
     os_printf("        block addr cache size: %u\n",
               sizeof(exec_env->block_addr_cache));
@@ -1638,7 +1638,7 @@ wasm_runtime_dump_mem_consumption(WASMExecEnv *exec_env)
         app_heap_peak_size = gc_get_heap_highmark_size(heap_handle);
     }
 
-    total_size = offsetof(WASMExecEnv, wasm_stack.s.bottom)
+    total_size = offsetof(WASMExecEnv, wasm_stack.bottom)
                  + exec_env->wasm_stack_size + module_mem_consps.total_size
                  + module_inst_mem_consps.total_size;
 

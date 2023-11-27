@@ -84,6 +84,15 @@ typedef struct WASMExecEnv {
      */
     uint8 *native_stack_top_min;
 
+    struct {
+        /* The top boundary of the stack. */
+        uint8 *top_boundary;
+        /* The top to of the wasm stack which is free. */
+        uint8 *top;
+        /* The bottom of the wasm stack. */
+        uint8 *bottom;
+    } wasm_stack;
+
 #if WASM_ENABLE_FAST_JIT != 0
     /**
      * Cache for
@@ -153,18 +162,9 @@ typedef struct WASMExecEnv {
     /* The WASM stack of current thread */
     union {
         uint64 __make_it_8_byte_aligned_;
-
-        struct {
-            /* The top boundary of the stack. */
-            uint8 *top_boundary;
-
-            /* Top cell index which is free. */
-            uint8 *top;
-
-            /* The WASM stack. */
-            uint8 bottom[1];
-        } s;
-    } wasm_stack;
+        /* The WASM stack. */
+        uint8 bottom[1];
+    } wasm_stack_u;
 } WASMExecEnv;
 
 #if WASM_ENABLE_MEMORY_PROFILING != 0
@@ -211,7 +211,7 @@ wasm_exec_env_is_aux_stack_managed_by_runtime(WASMExecEnv *exec_env)
 static inline void *
 wasm_exec_env_alloc_wasm_frame(WASMExecEnv *exec_env, unsigned size)
 {
-    uint8 *addr = exec_env->wasm_stack.s.top;
+    uint8 *addr = exec_env->wasm_stack.top;
 
     bh_assert(!(size & 3));
 
@@ -222,17 +222,17 @@ wasm_exec_env_alloc_wasm_frame(WASMExecEnv *exec_env, unsigned size)
        frame size, we should check again before putting the function arguments
        into the outs area. */
     if (size * 2
-        > (uint32)(uintptr_t)(exec_env->wasm_stack.s.top_boundary - addr)) {
+        > (uint32)(uintptr_t)(exec_env->wasm_stack.top_boundary - addr)) {
         /* WASM stack overflow. */
         return NULL;
     }
 
-    exec_env->wasm_stack.s.top += size;
+    exec_env->wasm_stack.top += size;
 
 #if WASM_ENABLE_MEMORY_PROFILING != 0
     {
         uint32 wasm_stack_used =
-            exec_env->wasm_stack.s.top - exec_env->wasm_stack.s.bottom;
+            exec_env->wasm_stack.top - exec_env->wasm_stack.bottom;
         if (wasm_stack_used > exec_env->max_wasm_stack_used)
             exec_env->max_wasm_stack_used = wasm_stack_used;
     }
@@ -243,8 +243,8 @@ wasm_exec_env_alloc_wasm_frame(WASMExecEnv *exec_env, unsigned size)
 static inline void
 wasm_exec_env_free_wasm_frame(WASMExecEnv *exec_env, void *prev_top)
 {
-    bh_assert((uint8 *)prev_top >= exec_env->wasm_stack.s.bottom);
-    exec_env->wasm_stack.s.top = (uint8 *)prev_top;
+    bh_assert((uint8 *)prev_top >= exec_env->wasm_stack.bottom);
+    exec_env->wasm_stack.top = (uint8 *)prev_top;
 }
 
 /**
@@ -257,7 +257,7 @@ wasm_exec_env_free_wasm_frame(WASMExecEnv *exec_env, void *prev_top)
 static inline void *
 wasm_exec_env_wasm_stack_top(WASMExecEnv *exec_env)
 {
-    return exec_env->wasm_stack.s.top;
+    return exec_env->wasm_stack.top;
 }
 
 /**

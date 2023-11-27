@@ -450,9 +450,9 @@ handle_func_return(JitCompContext *cc, JitBlock *block)
     }
 
     /* Free stack space of the current frame:
-       exec_env->wasm_stack.s.top = cur_frame */
+       exec_env->wasm_stack.top = cur_frame */
     GEN_INSN(STPTR, cc->fp_reg, cc->exec_env_reg,
-             NEW_CONST(I32, offsetof(WASMExecEnv, wasm_stack.s.top)));
+             NEW_CONST(I32, offsetof(WASMExecEnv, wasm_stack.top)));
     /* Set the prev_frame as the current frame:
        exec_env->cur_frame = prev_frame */
     GEN_INSN(STPTR, prev_frame, cc->exec_env_reg,
