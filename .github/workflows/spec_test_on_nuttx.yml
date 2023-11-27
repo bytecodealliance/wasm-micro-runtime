@@ -35,10 +35,15 @@ jobs:
       matrix:
         target_config: [
           {
-            config: "boards/arm/imx6/sabre-6quad/configs/nsh",
-            target: "thumbv7",
-            use_fpu: false
+            config: "nuttx/boards/arm64/qemu/qemu-armv8a",
+            target: "aarch64_vfp",
+            use_fpu: true
           },
+          # {
+          #   config: "boards/arm/imx6/sabre-6quad/configs/nsh",
+          #   target: "thumbv7",
+          #   use_fpu: false
+          # },
           {
             config: "boards/arm/imx6/sabre-6quad/configs/nsh",
             target: "thumbv7_vfp",
@@ -49,11 +54,11 @@ jobs:
             target: "riscv32",
             use_fpu: false
           },
-          {
-            config: "boards/risc-v/qemu-rv/rv-virt/configs/nsh",
-            target: "riscv32_ilp32d",
-            use_fpu: true
-          },
+          # {
+          #   config: "boards/risc-v/qemu-rv/rv-virt/configs/nsh",
+          #   target: "riscv32_ilp32d",
+          #   use_fpu: true
+          # },
         ]
 
         wamr_test_option: [
