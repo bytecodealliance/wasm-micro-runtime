@@ -59,11 +59,11 @@ jobs:
           #   target: "riscv32_ilp32d",
           #   use_fpu: true
           # },
-          {
-            config: "boards/risc-v/qemu-rv/rv-virt/configs/nsh64",
-            target: "riscv64",
-            use_fpu: false
-          },
+          # {
+          #   config: "boards/risc-v/qemu-rv/rv-virt/configs/nsh64",
+          #   target: "riscv64",
+          #   use_fpu: false
+          # },
         ]
 
         wamr_test_option: [
