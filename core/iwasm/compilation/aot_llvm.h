@@ -173,6 +173,9 @@ typedef struct AOTBlock {
 
     /* The begin frame stack pointer of this block */
     AOTValueSlot *frame_sp_begin;
+    /* The max frame stack pointer that br/br_if/br_table/br_on_xxx
+       opcodes ever reached when they jumped to the end this block */
+    AOTValueSlot *frame_sp_max_reached;
 } AOTBlock;
 
 /**

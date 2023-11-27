@@ -718,8 +718,9 @@ init_comp_frame(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     aot_frame->sp = aot_frame->lp + max_local_cell_num;
 
-    /* Init the frame_sp_begin of the function block */
-    block->frame_sp_begin = aot_frame->sp;
+    /* Init the frame_sp_begin and frame_sp_max_reached
+       of the function block */
+    block->frame_sp_begin = block->frame_sp_max_reached = aot_frame->sp;
 
     n = 0;
 

@@ -173,20 +173,56 @@ clear_frame_locals(AOTCompFrame *aot_frame)
 }
 
 static void
-restore_frame_sp(AOTBlock *block, AOTCompFrame *aot_frame)
+restore_frame_sp_for_op_else(AOTBlock *block, AOTCompFrame *aot_frame)
 {
-    uint32 all_cell_num, stack_cell_num;
+    uint32 all_cell_num =
+        aot_frame->max_local_cell_num + aot_frame->max_stack_cell_num;
+    AOTValueSlot *p_end = aot_frame->lp + all_cell_num, *p;
+
+    /* Reset all the value slots from current frame sp for the else
+       branch since they be the same as starting to translate the
+       if branch */
+    for (p = block->frame_sp_begin; p < p_end; p++) {
+        p->dirty = 0;
+        p->value = NULL;
+        p->type = 0;
+        if (aot_frame->comp_ctx->enable_gc) {
+            p->ref = 0;
+            p->committed_ref = 1;
+        }
+    }
 
     bh_assert(aot_frame->sp >= block->frame_sp_begin);
+    aot_frame->sp = block->frame_sp_begin;
+}
 
-    all_cell_num =
+static void
+restore_frame_sp_for_op_end(AOTBlock *block, AOTCompFrame *aot_frame)
+{
+    uint32 all_cell_num =
         aot_frame->max_local_cell_num + aot_frame->max_stack_cell_num;
-    stack_cell_num = aot_frame->lp + all_cell_num - block->frame_sp_begin;
+    AOTValueSlot *p_end = aot_frame->lp + all_cell_num, *p;
 
-    if (stack_cell_num > 0) {
-        /* Clear the stack operands and mark the ref flags as uncommitted */
-        memset(block->frame_sp_begin, 0, sizeof(AOTValueSlot) * stack_cell_num);
+    bh_assert(block->frame_sp_max_reached >= block->frame_sp_begin);
+
+    /* Reset all the value slots from current frame sp to be same as
+       starting to translate this block, except for the frame ref
+       flags: set the flags to uncommitted before the max frame sp
+       ever reached, set the flags to committed non-ref after that */
+    for (p = block->frame_sp_begin; p < p_end; p++) {
+        p->dirty = 0;
+        p->value = NULL;
+        p->type = 0;
+        if (aot_frame->comp_ctx->enable_gc) {
+            p->ref = 0;
+            if (p < block->frame_sp_max_reached)
+                p->committed_ref = 0;
+            else
+                p->committed_ref = 1;
+        }
     }
+
+    bh_assert(aot_frame->sp >= block->frame_sp_begin);
     aot_frame->sp = block->frame_sp_begin;
 }
 
@@ -226,7 +262,7 @@ handle_next_reachable_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
         if (aot_frame) {
             /* Restore the frame sp */
-            restore_frame_sp(block, aot_frame);
+            restore_frame_sp_for_op_else(block, aot_frame);
         }
 
         /* Recover parameters of else branch */
@@ -249,7 +285,7 @@ handle_next_reachable_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
                 if (aot_frame) {
                     /* Restore the frame sp */
-                    restore_frame_sp(block, aot_frame);
+                    restore_frame_sp_for_op_else(block, aot_frame);
                 }
 
                 SET_BUILDER_POS(block->llvm_else_block);
@@ -286,7 +322,7 @@ handle_next_reachable_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
         if (aot_frame) {
             /* Restore the frame sp */
-            restore_frame_sp(block, aot_frame);
+            restore_frame_sp_for_op_else(block, aot_frame);
         }
 
         /* Recover parameters of else branch */
@@ -305,7 +341,7 @@ handle_next_reachable_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     if (aot_frame) {
         /* Restore the frame sp */
-        restore_frame_sp(block, aot_frame);
+        restore_frame_sp_for_op_end(block, aot_frame);
     }
 
     func_type = func_ctx->aot_func->func_type;
@@ -448,7 +484,8 @@ push_aot_block_to_stack_and_pass_params(AOTCompContext *comp_ctx,
     /* Push the new block to block stack */
     aot_block_stack_push(&func_ctx->block_stack, block);
     if (comp_ctx->aot_frame) {
-        block->frame_sp_begin = comp_ctx->aot_frame->sp;
+        block->frame_sp_begin = block->frame_sp_max_reached =
+            comp_ctx->aot_frame->sp;
     }
 
     /* Push param phis to the new block */
@@ -732,7 +769,7 @@ aot_compile_op_else(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
         if (comp_ctx->aot_frame) {
             clear_frame_locals(aot_frame);
-            restore_frame_sp(block, aot_frame);
+            restore_frame_sp_for_op_else(block, aot_frame);
         }
 
         for (i = 0; i < block->param_count; i++)
@@ -900,6 +937,10 @@ aot_compile_op_br(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                                       comp_ctx->aot_frame->sp, frame_ip_br))
                 return false;
         }
+        else {
+            if (comp_ctx->aot_frame->sp > block_dst->frame_sp_max_reached)
+                block_dst->frame_sp_max_reached = comp_ctx->aot_frame->sp;
+        }
     }
 
 #if WASM_ENABLE_THREAD_MGR != 0
@@ -975,6 +1016,10 @@ aot_compile_conditional_br(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame,
                                       comp_ctx->aot_frame->sp, frame_ip_br_if))
                 return false;
+        }
+        else {
+            if (comp_ctx->aot_frame->sp > block_dst->frame_sp_max_reached)
+                block_dst->frame_sp_max_reached = comp_ctx->aot_frame->sp;
         }
     }
 
@@ -1152,6 +1197,18 @@ aot_compile_op_br_table(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                                       comp_ctx->aot_frame->sp,
                                       frame_ip_br_table))
                 return false;
+
+            for (i = 0; i <= br_count; i++) {
+                target_block = get_target_block(func_ctx, br_depths[i]);
+                if (!target_block)
+                    return false;
+                if (target_block->label_type != LABEL_TYPE_LOOP) {
+                    if (comp_ctx->aot_frame->sp
+                        > target_block->frame_sp_max_reached)
+                        target_block->frame_sp_max_reached =
+                            comp_ctx->aot_frame->sp;
+                }
+            }
         }
 
 #if WASM_ENABLE_THREAD_MGR != 0
@@ -1379,6 +1436,10 @@ commit_gc_and_check_suspend_flags(AOTCompContext *comp_ctx,
             if (!aot_gen_commit_sp_ip(comp_ctx->aot_frame,
                                       comp_ctx->aot_frame->sp, frame_ip_br_on))
                 return false;
+        }
+        else {
+            if (comp_ctx->aot_frame->sp > block_dst->frame_sp_max_reached)
+                block_dst->frame_sp_max_reached = comp_ctx->aot_frame->sp;
         }
     }
 
