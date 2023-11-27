@@ -34,11 +34,11 @@ jobs:
     strategy:
       matrix:
         target_config: [
-          {
-            config: "nuttx/boards/arm64/qemu/qemu-armv8a",
-            target: "aarch64_vfp",
-            use_fpu: true
-          },
+          # {
+          #   config: "boards/arm64/qemu/qemu-armv8a/configs/nsh",
+          #   target: "aarch64_vfp",
+          #   use_fpu: true
+          # },
           # {
           #   config: "boards/arm/imx6/sabre-6quad/configs/nsh",
           #   target: "thumbv7",
@@ -59,6 +59,11 @@ jobs:
           #   target: "riscv32_ilp32d",
           #   use_fpu: true
           # },
+          {
+            config: "boards/risc-v/qemu-rv/rv-virt/configs/nsh64",
+            target: "riscv64",
+            use_fpu: false
+          },
         ]
 
         wamr_test_option: [
@@ -87,7 +92,12 @@ jobs:
 
       - name: Install ARM Compilers
         if: startsWith(matrix.target_config.config, 'boards/arm')
-        run: sudo apt install -y gcc-arm-none-eabi
+        run: |
+          sudo apt install -y gcc-arm-none-eabi
+          wget --quiet https://developer.arm.com/-/media/Files/downloads/gnu/11.2-2022.02/binrel/gcc-arm-11.2-2022.02-x86_64-aarch64-none-elf.tar.xz
+          xz -d gcc-arm-11.2-2022.02-x86_64-aarch64-none-elf.tar.xz
+          tar xf gcc-arm-11.2-2022.02-x86_64-aarch64-none-elf.tar
+          echo "$PWD/gcc-arm-11.2-2022.02-x86_64-aarch64-none-elf/bin" >> $GITHUB_PATH
 
       - name: Install RISC-V Compilers
         if: startsWith(matrix.target_config.config, 'boards/risc-v')
@@ -121,6 +131,7 @@ jobs:
           path: apps/interpreters/wamr/wamr
 
       - name: Get LLVM libraries
+        if: contains(matrix.wamr_test_option.mode, 'aot')
         id: retrieve_llvm_libs
         uses: actions/cache@v3
         with:
@@ -133,10 +144,11 @@ jobs:
           key: ${{ needs.build_llvm_libraries.outputs.cache_key }}
 
       - name: Quit if cache miss
-        if: steps.retrieve_llvm_libs.outputs.cache-hit != 'true'
+        if: contains(matrix.wamr_test_option.mode, 'aot') && steps.retrieve_llvm_libs.outputs.cache-hit != 'true'
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
 
       - name: Copy LLVM
+        if: contains(matrix.wamr_test_option.mode, 'aot')
         run: cp -r core/deps/llvm apps/interpreters/wamr/wamr/core/deps/llvm
 
       - name: Enable WAMR for NuttX
@@ -153,6 +165,7 @@ jobs:
           find nuttx/boards -name defconfig | xargs sed -i '$a\# CONFIG_ARCH_FPU is not set\n'
 
       - name: Build wamrc
+        if: contains(matrix.wamr_test_option.mode, 'aot')
         working-directory: apps/interpreters/wamr/wamr/wamr-compiler
         run: |
           cmake -Bbuild .
