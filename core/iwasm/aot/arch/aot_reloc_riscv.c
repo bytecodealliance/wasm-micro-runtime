@@ -110,6 +110,7 @@ static SymbolMap target_sym_map[] = {
     REG_SYM(__floatdisf),
     REG_SYM(__floatsidf),
     REG_SYM(__floatsisf),
+    REG_SYM(__floatundidf),
     REG_SYM(__floatundisf),
     REG_SYM(__floatunsidf),
     REG_SYM(__floatunsisf),
@@ -117,7 +118,6 @@ static SymbolMap target_sym_map[] = {
     REG_SYM(__mulsi3),
 #endif
 #endif
-    REG_SYM(__floatundidf),
     REG_SYM(__divdi3),
     REG_SYM(__divsi3),
     REG_SYM(__moddi3),
