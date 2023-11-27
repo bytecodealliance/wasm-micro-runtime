@@ -58,6 +58,7 @@ print_help()
 #if WASM_ENABLE_JIT != 0
     printf("  --llvm-jit-size-level=n  Set LLVM JIT size level, default is 3\n");
     printf("  --llvm-jit-opt-level=n   Set LLVM JIT optimization level, default is 3\n");
+    printf("  --perf-profile           Enable linux perf support. For now, it only works in llvm-jit.\n");
 #if defined(os_writegsbase)
     printf("  --enable-segue[=<flags>] Enable using segment register GS as the base address of\n");
     printf("                           linear memory, which may improve performance, flags can be:\n");
@@ -560,6 +561,7 @@ main(int argc, char *argv[])
     uint32 llvm_jit_size_level = 3;
     uint32 llvm_jit_opt_level = 3;
     uint32 segue_flags = 0;
+    bool enable_linux_perf_support = false;
 #endif
     wasm_module_t wasm_module = NULL;
     wasm_module_inst_t wasm_module_inst = NULL;
@@ -700,6 +702,9 @@ main(int argc, char *argv[])
             if (segue_flags == (uint32)-1)
                 return print_help();
         }
+        else if (!strncmp(argv[0], "--perf-profile", 14)) {
+            enable_linux_perf_support = true;
+        }
 #endif /* end of WASM_ENABLE_JIT != 0 */
 #if BH_HAS_DLFCN
         else if (!strncmp(argv[0], "--native-lib=", 13)) {
@@ -814,6 +819,7 @@ main(int argc, char *argv[])
     init_args.llvm_jit_size_level = llvm_jit_size_level;
     init_args.llvm_jit_opt_level = llvm_jit_opt_level;
     init_args.segue_flags = segue_flags;
+    init_args.linux_perf_support = enable_linux_perf_support;
 #endif
 
 #if WASM_ENABLE_DEBUG_INTERP != 0

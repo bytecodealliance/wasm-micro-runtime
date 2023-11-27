@@ -158,7 +158,7 @@ static JitCompOptions jit_options = { 0 };
 #endif
 
 #if WASM_ENABLE_JIT != 0
-static LLVMJITOptions llvm_jit_options = { 3, 3, 0 };
+static LLVMJITOptions llvm_jit_options = { 3, 3, 0, false };
 #endif
 
 static RunningMode runtime_running_mode = Mode_Default;
@@ -662,9 +662,14 @@ wasm_runtime_full_init(RuntimeInitArgs *init_args)
 #endif
 
 #if WASM_ENABLE_JIT != 0
+    LOG_DEBUG("Start LLVM_JIT, opt_sz=%u, opt_lvl=%u, segue=%s, linux_perf=%s",
+              init_args->llvm_jit_size_level, init_args->llvm_jit_opt_level,
+              init_args->segue_flags ? "Yes" : "No",
+              init_args->linux_perf_support ? "Yes" : "No");
     llvm_jit_options.size_level = init_args->llvm_jit_size_level;
     llvm_jit_options.opt_level = init_args->llvm_jit_opt_level;
     llvm_jit_options.segue_flags = init_args->segue_flags;
+    llvm_jit_options.linux_perf_support = init_args->linux_perf_support;
 #endif
 
     if (!wasm_runtime_env_init()) {

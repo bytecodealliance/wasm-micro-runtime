@@ -169,6 +169,15 @@ typedef struct RuntimeInitArgs {
     uint32_t llvm_jit_size_level;
     /* Segue optimization flags for LLVM JIT */
     uint32_t segue_flags;
+    /**
+     * If enabled
+     * - llvm-jit will output a jitdump file for `perf inject`
+     * - aot. TBD
+     * - fast-jit. TBD
+     * - multi-tier-jit. TBD
+     * - interpreter. TBD
+     */
+    bool linux_perf_support;
 } RuntimeInitArgs;
 
 #ifndef WASM_VALKIND_T_DEFINED
@@ -945,7 +954,7 @@ wasm_runtime_get_custom_data(wasm_module_inst_t module_inst);
 
 /**
  * Set the memory bounds checks flag of a WASM module instance.
- * 
+ *
  * @param module_inst the WASM module instance
  * @param enable the flag to enable/disable the memory bounds checks
  */
@@ -954,9 +963,8 @@ wasm_runtime_set_bounds_checks(wasm_module_inst_t module_inst,
                                bool enable);
 /**
  * Check if the memory bounds checks flag is enabled for a WASM module instance.
- * 
- * @param module_inst the WASM module instance
  *
+ * @param module_inst the WASM module instance
  * @return true if the memory bounds checks flag is enabled, false otherwise
  */
 WASM_RUNTIME_API_EXTERN bool
