@@ -742,30 +742,21 @@ wasm_copy_memory(WASMModuleInstance *inst, uint32 src_mem_idx,
 
     src_mem = inst->memories[src_mem_idx];
     dst_mem = inst->memories[dst_mem_idx];
-
-    SHARED_MEMORY_LOCK(src_mem);
-
     src_mem_size = src_mem->cur_page_count * src_mem->num_bytes_per_page;
     dst_mem_size = dst_mem->cur_page_count * dst_mem->num_bytes_per_page;
 
     /* if s + n > the length of mem.data */
-    if (src_mem_size < src_offset || src_mem_size - src_offset < len) {
-        SHARED_MEMORY_UNLOCK(src_mem);
+    if (src_mem_size < src_offset || src_mem_size - src_offset < len)
         goto out_of_bounds;
-    }
 
     /* if d + n > the length of mem.data */
-    if (dst_mem_size < dst_offset || dst_mem_size - dst_offset < len) {
-        SHARED_MEMORY_UNLOCK(src_mem);
+    if (dst_mem_size < dst_offset || dst_mem_size - dst_offset < len)
         goto out_of_bounds;
-    }
 
     src_addr = src_mem->memory_data + src_offset;
     dst_addr = dst_mem->memory_data + dst_offset;
     /* allowing the destination and source to overlap */
     bh_memmove_s(dst_addr, dst_mem_size - dst_offset, src_addr, len);
-
-    SHARED_MEMORY_UNLOCK(src_mem);
 
     return 0;
 out_of_bounds:
@@ -815,20 +806,13 @@ wasm_fill_memory(WASMModuleInstance *inst, uint32 mem_idx, uint32 len,
     uint8 *dst_addr;
 
     mem_inst = inst->memories[mem_idx];
-
-    SHARED_MEMORY_LOCK(mem_inst);
-
     mem_size = mem_inst->cur_page_count * mem_inst->num_bytes_per_page;
 
-    if (mem_size < dst || mem_size - dst < len) {
-        SHARED_MEMORY_UNLOCK(mem_inst);
+    if (mem_size < dst || mem_size - dst < len)
         goto out_of_bounds;
-    }
 
     dst_addr = mem_inst->memory_data + dst;
     memset(dst_addr, val, len);
-
-    SHARED_MEMORY_UNLOCK(mem_inst);
 
     return 0;
 out_of_bounds:

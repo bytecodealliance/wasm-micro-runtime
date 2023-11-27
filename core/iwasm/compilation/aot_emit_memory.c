@@ -1073,164 +1073,11 @@ fail:
     return false;
 }
 
-#if WASM_ENABLE_SHARED_MEMORY != 0
-static void
-jit_shared_mem_lock(WASMMemoryInstance *memory)
-{
-    shared_memory_lock(memory);
-}
-
-static void
-jit_shared_mem_unlock(WASMMemoryInstance *memory)
-{
-    shared_memory_unlock(memory);
-}
-#endif
-
-static void *
-jit_memmove(void *dest, const void *src, size_t n)
-{
-    return memmove(dest, src, n);
-}
-
-static void *
-jit_memset(void *s, int c, size_t n)
-{
-    return memset(s, c, n);
-}
-
-#if WASM_ENABLE_SHARED_MEMORY != 0
-static LLVMValueRef
-get_shared_mem_inst(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
-{
-    LLVMValueRef memories_addr, memories_ptr, memories;
-    LLVMValueRef shared_mem_ptr, shared_mem_inst, offset;
-    LLVMTypeRef int8_ptr_type;
-
-    if (!(int8_ptr_type = LLVMPointerType(INT8_PTR_TYPE, 0))) {
-        aot_set_last_error("llvm add pointer type failed.");
-        return NULL;
-    }
-
-    offset = I32_CONST(offsetof(AOTModuleInstance, memories));
-    if (!offset) {
-        aot_set_last_error("create llvm const failed.");
-        return NULL;
-    }
-
-    /* Get aot_inst->memories */
-    if (!(memories_addr = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,
-                                                func_ctx->aot_inst, &offset, 1,
-                                                "memories_addr"))) {
-        aot_set_last_error("llvm build in bounds gep failed");
-        return NULL;
-    }
-    if (!(memories_ptr = LLVMBuildBitCast(comp_ctx->builder, memories_addr,
-                                          int8_ptr_type, "memories_ptr"))) {
-        aot_set_last_error("llvm build bit cast failed");
-        return NULL;
-    }
-    if (!(memories = LLVMBuildLoad2(comp_ctx->builder, OPQ_PTR_TYPE,
-                                    memories_ptr, "memories"))) {
-        aot_set_last_error("llvm build load failed");
-        return NULL;
-    }
-    /* Get aot_inst->memories[0] */
-    if (!(shared_mem_ptr = LLVMBuildBitCast(comp_ctx->builder, memories,
-                                            int8_ptr_type, "shared_mem_ptr"))) {
-        aot_set_last_error("llvm build bit cast failed");
-        return false;
-    }
-    if (!(shared_mem_inst =
-              LLVMBuildLoad2(comp_ctx->builder, OPQ_PTR_TYPE, shared_mem_ptr,
-                             "shared_mem_inst"))) {
-        aot_set_last_error("llvm build load failed");
-        return false;
-    }
-
-    return shared_mem_inst;
-}
-
-static bool
-call_shared_mem_lock_unlock(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                            LLVMValueRef shared_mem_inst,
-                            bool call_shared_mem_lock)
-{
-    LLVMTypeRef param_types[1], ret_type, func_type, func_ptr_type;
-    LLVMValueRef func, params[1], res;
-    char *func_name =
-        call_shared_mem_lock ? "aot_shared_mem_lock" : "aot_shared_mem_unlock";
-    uintptr_t jit_func = call_shared_mem_lock
-                             ? (uintptr_t)jit_shared_mem_lock
-                             : (uintptr_t)jit_shared_mem_unlock;
-
-    param_types[0] = INT8_PTR_TYPE;
-    ret_type = VOID_TYPE;
-
-    if (!(func_type = LLVMFunctionType(ret_type, param_types, 1, false))) {
-        aot_set_last_error("create LLVM function type failed.");
-        return false;
-    }
-
-    if (!(func_ptr_type = LLVMPointerType(func_type, 0))) {
-        aot_set_last_error("create LLVM function pointer type failed.");
-        return false;
-    }
-
-    if (comp_ctx->is_jit_mode) {
-        /* JIT mode, call the function directly */
-        if (!(func = I64_CONST((uint64)jit_func))
-            || !(func = LLVMConstIntToPtr(func, func_ptr_type))) {
-            aot_set_last_error("create LLVM value failed.");
-            return false;
-        }
-    }
-    else if (comp_ctx->is_indirect_mode) {
-        int32 func_index;
-
-        func_index = aot_get_native_symbol_index(comp_ctx, func_name);
-        if (func_index < 0) {
-            return false;
-        }
-        if (!(func = aot_get_func_from_table(comp_ctx, func_ctx->native_symbol,
-                                             func_ptr_type, func_index))) {
-            return false;
-        }
-    }
-    else {
-        if (!(func = LLVMGetNamedFunction(func_ctx->module, func_name))
-            && !(func =
-                     LLVMAddFunction(func_ctx->module, func_name, func_type))) {
-            aot_set_last_error("add LLVM function failed.");
-            return false;
-        }
-    }
-
-    params[0] = shared_mem_inst;
-    if (!(res = LLVMBuildCall2(comp_ctx->builder, func_type, func, params, 1,
-                               ""))) {
-        aot_set_last_error("llvm build memmove failed.");
-        return false;
-    }
-
-    return true;
-}
-#endif
-
 bool
 aot_compile_op_memory_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
     LLVMValueRef src, dst, src_addr, dst_addr, len, res;
     bool call_aot_memmove = false;
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    bool is_shared_memory =
-        comp_ctx->comp_data->memories[0].memory_flags & 0x02;
-    LLVMValueRef shared_mem_inst;
-
-    if (!(shared_mem_inst = get_shared_mem_inst(comp_ctx, func_ctx))) {
-        return false;
-    }
-#endif
 
     POP_I32(len);
     POP_I32(src);
@@ -1241,14 +1088,6 @@ aot_compile_op_memory_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 
     if (!(dst_addr = check_bulk_memory_overflow(comp_ctx, func_ctx, dst, len)))
         return false;
-
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    if (is_shared_memory
-        && !call_shared_mem_lock_unlock(comp_ctx, func_ctx, shared_mem_inst,
-                                        true)) {
-        return false;
-    }
-#endif
 
     call_aot_memmove = comp_ctx->is_indirect_mode || comp_ctx->is_jit_mode;
     if (call_aot_memmove) {
@@ -1271,7 +1110,7 @@ aot_compile_op_memory_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
         }
 
         if (comp_ctx->is_jit_mode) {
-            if (!(func = I64_CONST((uint64)(uintptr_t)jit_memmove))
+            if (!(func = I64_CONST((uint64)(uintptr_t)aot_memmove))
                 || !(func = LLVMConstIntToPtr(func, func_ptr_type))) {
                 aot_set_last_error("create LLVM value failed.");
                 return false;
@@ -1307,17 +1146,15 @@ aot_compile_op_memory_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
         }
     }
 
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    if (is_shared_memory
-        && !call_shared_mem_lock_unlock(comp_ctx, func_ctx, shared_mem_inst,
-                                        false)) {
-        return false;
-    }
-#endif
-
     return true;
 fail:
     return false;
+}
+
+static void *
+jit_memset(void *s, int c, size_t n)
+{
+    return memset(s, c, n);
 }
 
 bool
@@ -1326,15 +1163,6 @@ aot_compile_op_memory_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     LLVMValueRef val, dst, dst_addr, len, res;
     LLVMTypeRef param_types[3], ret_type, func_type, func_ptr_type;
     LLVMValueRef func, params[3];
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    bool is_shared_memory =
-        comp_ctx->comp_data->memories[0].memory_flags & 0x02;
-    LLVMValueRef shared_mem_inst;
-
-    if (!(shared_mem_inst = get_shared_mem_inst(comp_ctx, func_ctx))) {
-        return false;
-    }
-#endif
 
     POP_I32(len);
     POP_I32(val);
@@ -1385,14 +1213,6 @@ aot_compile_op_memory_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
         }
     }
 
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    if (is_shared_memory
-        && !call_shared_mem_lock_unlock(comp_ctx, func_ctx, shared_mem_inst,
-                                        true)) {
-        return false;
-    }
-#endif
-
     params[0] = dst_addr;
     params[1] = val;
     params[2] = len;
@@ -1401,14 +1221,6 @@ aot_compile_op_memory_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
         aot_set_last_error("llvm build memset failed.");
         return false;
     }
-
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    if (is_shared_memory
-        && !call_shared_mem_lock_unlock(comp_ctx, func_ctx, shared_mem_inst,
-                                        false)) {
-        return false;
-    }
-#endif
 
     return true;
 fail:

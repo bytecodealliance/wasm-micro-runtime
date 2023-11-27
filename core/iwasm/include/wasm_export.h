@@ -1484,9 +1484,7 @@ wasm_runtime_set_enlarge_mem_error_callback(
     const enlarge_memory_error_callback_t callback, void *user_data);
 
 /*
- * Lock the memory of a module instance when the memory is shared,
- * it may be used in the native wrappers to avoid data race when
- * accessing the shared memory
+ * Lock the memory of a module instance when the memory is shared
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_shared_mem_lock(wasm_module_inst_t inst);

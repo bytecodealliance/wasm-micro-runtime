@@ -33,9 +33,7 @@ typedef struct {
 #include "wasm_shared_memory.h"
 #define REG_ATOMIC_WAIT_SYM()             \
     REG_SYM(wasm_runtime_atomic_wait),    \
-    REG_SYM(wasm_runtime_atomic_notify),  \
-    REG_SYM(aot_shared_mem_lock),         \
-    REG_SYM(aot_shared_mem_unlock),
+    REG_SYM(wasm_runtime_atomic_notify),
 #else
 #define REG_ATOMIC_WAIT_SYM()
 #endif
