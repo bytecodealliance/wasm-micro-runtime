@@ -3739,21 +3739,24 @@ load_stringref_section(const uint8 *buf, const uint8 *buf_end,
 
     if (immediate_count > 0) {
         total_size = sizeof(char *) * (uint64)immediate_count;
-        if (!(module->string_consts =
+        if (!(module->string_literal_ptrs =
                   loader_malloc(total_size, error_buf, error_buf_size))) {
             goto fail;
         }
-        module->stringref_count = immediate_count;
+        module->string_literal_count = immediate_count;
+
+        total_size = sizeof(uint32) * (uint64)immediate_count;
+        if (!(module->string_literal_lengths =
+                  loader_malloc(total_size, error_buf, error_buf_size))) {
+            goto fail;
+        }
 
         for (i = 0; i < immediate_count; i++) {
             read_leb_uint32(p, p_end, string_length);
 
             CHECK_BUF(p, p_end, string_length);
-            if (!(module->string_consts[i] = const_str_list_insert(
-                      p, string_length, module, is_load_from_file_buf,
-                      error_buf, error_buf_size))) {
-                goto fail;
-            }
+            module->string_literal_ptrs[i] = p;
+            module->string_literal_lengths[i] = string_length;
             p += string_length;
         }
     }
@@ -5461,8 +5464,11 @@ wasm_loader_unload(WASMModule *module)
 
 #if WASM_ENABLE_GC != 0
 #if WASM_ENABLE_STRINGREF != 0
-    if (module->string_consts) {
-        wasm_runtime_free(module->string_consts);
+    if (module->string_literal_ptrs) {
+        wasm_runtime_free(module->string_literal_ptrs);
+    }
+    if (module->string_literal_lengths) {
+        wasm_runtime_free(module->string_literal_lengths);
     }
 #endif
 #endif
@@ -12175,6 +12181,10 @@ re_scan:
                     {
                         uint32 memidx;
 
+#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
+                        func->has_memory_operations = true;
+#endif
+
                         read_leb_uint32(p, p_end, memidx);
 #if WASM_ENABLE_FAST_INTERP != 0
                         emit_uint32(loader_ctx, (uint32)memidx);
@@ -12211,6 +12221,10 @@ re_scan:
                     case WASM_OP_STRING_ENCODE_WTF8:
                     {
                         uint32 memidx;
+
+#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
+                        func->has_memory_operations = true;
+#endif
 
                         read_leb_uint32(p, p_end, memidx);
 #if WASM_ENABLE_FAST_INTERP != 0
@@ -12262,6 +12276,10 @@ re_scan:
                     {
                         uint32 memidx;
 
+#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
+                        func->has_memory_operations = true;
+#endif
+
                         read_leb_uint32(p, p_end, memidx);
 #if WASM_ENABLE_FAST_INTERP != 0
                         emit_uint32(loader_ctx, (uint32)memidx);
@@ -12305,6 +12323,10 @@ re_scan:
                     case WASM_OP_STRINGVIEW_WTF16_ENCODE:
                     {
                         uint32 memidx;
+
+#if WASM_ENABLE_JIT != 0 || WASM_ENABLE_WAMR_COMPILER != 0
+                        func->has_memory_operations = true;
+#endif
 
                         read_leb_uint32(p, p_end, memidx);
 #if WASM_ENABLE_FAST_INTERP != 0

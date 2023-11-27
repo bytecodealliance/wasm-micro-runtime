@@ -738,28 +738,45 @@ wasm_runtime_call_func_ref(WASMExecEnv *exec_env,
                            const WASMFuncObjectRef func_obj, uint32 argc,
                            uint32 argv[])
 {
-    WASMFunctionInstance *func_inst = NULL;
+    WASMFunctionInstanceCommon *func_inst = NULL;
     uint32 func_idx = wasm_func_obj_get_func_idx_bound(func_obj);
+#if WASM_ENABLE_AOT != 0
+    AOTFunctionInstance aot_func_inst = { 0 };
+#endif
 
 #if WASM_ENABLE_INTERP != 0
     if (exec_env->module_inst->module_type == Wasm_Module_Bytecode) {
+        WASMFunctionInstance *wasm_func_inst;
         WASMModuleInstance *module_inst =
             (WASMModuleInstance *)exec_env->module_inst;
 
         bh_assert(func_idx < module_inst->module->import_function_count
                                  + module_inst->module->function_count);
-        func_inst = module_inst->e->functions + func_idx;
+        wasm_func_inst = module_inst->e->functions + func_idx;
+        func_inst = (WASMFunctionInstanceCommon *)wasm_func_inst;
     }
 #endif
 #if WASM_ENABLE_AOT != 0
     if (exec_env->module_inst->module_type == Wasm_Module_AoT) {
+        uint32 func_type_idx;
         AOTModuleInstance *module_inst =
             (AOTModuleInstance *)exec_env->module_inst;
+        AOTModule *module = (AOTModule *)module_inst->module;
         (void)module_inst;
 
-        bh_assert(func_idx < module_inst->module->import_function_count
-                                 + module_inst->module->function_count);
-        /* TODO: Implement call func ref for aot mode */
+        bh_assert(func_idx < module->import_func_count + module->func_count);
+
+        aot_func_inst.func_name = "";
+        aot_func_inst.func_index = func_idx;
+        aot_func_inst.is_import_func = false;
+        func_type_idx =
+            module->func_type_indexes[func_idx - module->import_func_count];
+        aot_func_inst.u.func.func_type =
+            (AOTFuncType *)module->types[func_type_idx];
+        aot_func_inst.u.func.func_ptr =
+            module->func_ptrs[func_idx - module->import_func_count];
+
+        func_inst = (WASMFunctionInstanceCommon *)(&aot_func_inst);
     }
 #endif
 

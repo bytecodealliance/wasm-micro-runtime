@@ -37,6 +37,11 @@
 #include "debug/dwarf_extractor.h"
 #endif
 
+#if WASM_ENABLE_STRINGREF != 0
+#include "string_object.h"
+#include "aot_emit_stringref.h"
+#endif
+
 #define CHECK_BUF(buf, buf_end, length)                             \
     do {                                                            \
         if (buf + length > buf_end) {                               \
@@ -396,6 +401,12 @@ aot_gen_commit_values(AOTCompFrame *frame)
                 case REF_TYPE_I31REF:
                 case REF_TYPE_STRUCTREF:
                 case REF_TYPE_ARRAYREF:
+#if WASM_ENABLE_STRINGREF != 0
+                case REF_TYPE_STRINGREF:
+                case REF_TYPE_STRINGVIEWWTF8:
+                case REF_TYPE_STRINGVIEWWTF16:
+                case REF_TYPE_STRINGVIEWITER:
+#endif
                 case VALUE_TYPE_GC_REF:
                     if (comp_ctx->pointer_size == sizeof(uint64)) {
                         bh_assert(p->ref == (p + 1)->ref);
@@ -772,6 +783,12 @@ init_comp_frame(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             case REF_TYPE_I31REF:
             case REF_TYPE_STRUCTREF:
             case REF_TYPE_ARRAYREF:
+#if WASM_ENABLE_STRINGREF != 0
+            case REF_TYPE_STRINGREF:
+            case REF_TYPE_STRINGVIEWWTF8:
+            case REF_TYPE_STRINGVIEWWTF16:
+            case REF_TYPE_STRINGVIEWITER:
+#endif
                 bh_assert(comp_ctx->enable_gc);
                 set_local_gc_ref(comp_ctx->aot_frame, n, local_value,
                                  VALUE_TYPE_GC_REF);
@@ -846,6 +863,12 @@ init_comp_frame(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             case REF_TYPE_I31REF:
             case REF_TYPE_STRUCTREF:
             case REF_TYPE_ARRAYREF:
+#if WASM_ENABLE_STRINGREF != 0
+            case REF_TYPE_STRINGREF:
+            case REF_TYPE_STRINGVIEWWTF8:
+            case REF_TYPE_STRINGVIEWWTF16:
+            case REF_TYPE_STRINGVIEWITER:
+#endif
                 bh_assert(comp_ctx->enable_gc);
                 set_local_gc_ref(comp_ctx->aot_frame, n, GC_REF_NULL,
                                  VALUE_TYPE_GC_REF);
@@ -1547,6 +1570,257 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                                 comp_ctx, func_ctx, frame_ip_org))
                             return false;
                         break;
+
+#if WASM_ENABLE_STRINGREF != 0
+                    case WASM_OP_STRING_NEW_UTF8:
+                    case WASM_OP_STRING_NEW_WTF16:
+                    case WASM_OP_STRING_NEW_LOSSY_UTF8:
+                    case WASM_OP_STRING_NEW_WTF8:
+                    {
+                        EncodingFlag flag = WTF8;
+
+                        read_leb_uint32(frame_ip, frame_ip_end, mem_idx);
+                        bh_assert(mem_idx == 0);
+
+                        if (opcode == WASM_OP_STRING_NEW_WTF16) {
+                            flag = WTF16;
+                        }
+                        else if (opcode == WASM_OP_STRING_NEW_UTF8) {
+                            flag = UTF8;
+                        }
+                        else if (opcode == WASM_OP_STRING_NEW_LOSSY_UTF8) {
+                            flag = LOSSY_UTF8;
+                        }
+                        else if (opcode == WASM_OP_STRING_NEW_WTF8) {
+                            flag = WTF8;
+                        }
+
+                        if (!aot_compile_op_string_new(comp_ctx, func_ctx, flag,
+                                                       frame_ip_org))
+                            return false;
+                        break;
+                    }
+                    case WASM_OP_STRING_CONST:
+                    {
+                        uint32 contents;
+                        read_leb_uint32(frame_ip, frame_ip_end, contents);
+
+                        if (!aot_compile_op_string_const(
+                                comp_ctx, func_ctx, contents, frame_ip_org))
+                            return false;
+                        break;
+                    }
+                    case WASM_OP_STRING_MEASURE_UTF8:
+                    case WASM_OP_STRING_MEASURE_WTF8:
+                    case WASM_OP_STRING_MEASURE_WTF16:
+                    {
+                        EncodingFlag flag = WTF8;
+
+                        if (opcode == WASM_OP_STRING_MEASURE_WTF16) {
+                            flag = WTF16;
+                        }
+                        else if (opcode == WASM_OP_STRING_MEASURE_UTF8) {
+                            flag = UTF8;
+                        }
+                        else if (opcode == WASM_OP_STRING_MEASURE_WTF8) {
+                            flag = LOSSY_UTF8;
+                        }
+
+                        if (!aot_compile_op_string_measure(comp_ctx, func_ctx,
+                                                           flag))
+                            return false;
+                        break;
+                    }
+                    case WASM_OP_STRING_ENCODE_UTF8:
+                    case WASM_OP_STRING_ENCODE_WTF16:
+                    case WASM_OP_STRING_ENCODE_LOSSY_UTF8:
+                    case WASM_OP_STRING_ENCODE_WTF8:
+                    {
+                        EncodingFlag flag = WTF8;
+
+                        read_leb_uint32(frame_ip, frame_ip_end, mem_idx);
+                        bh_assert(mem_idx == 0);
+
+                        if (opcode == WASM_OP_STRING_ENCODE_WTF16) {
+                            flag = WTF16;
+                        }
+                        else if (opcode == WASM_OP_STRING_ENCODE_UTF8) {
+                            flag = UTF8;
+                        }
+                        else if (opcode == WASM_OP_STRING_ENCODE_LOSSY_UTF8) {
+                            flag = LOSSY_UTF8;
+                        }
+                        else if (opcode == WASM_OP_STRING_ENCODE_WTF8) {
+                            flag = WTF8;
+                        }
+
+                        if (!aot_compile_op_string_encode(comp_ctx, func_ctx,
+                                                          mem_idx, flag))
+                            return false;
+                        break;
+                    }
+                    case WASM_OP_STRING_CONCAT:
+                        if (!aot_compile_op_string_concat(comp_ctx, func_ctx,
+                                                          frame_ip_org))
+                            return false;
+                        break;
+                    case WASM_OP_STRING_EQ:
+                        if (!aot_compile_op_string_eq(comp_ctx, func_ctx))
+                            return false;
+                        break;
+                    case WASM_OP_STRING_IS_USV_SEQUENCE:
+                        if (!aot_compile_op_string_is_usv_sequence(comp_ctx,
+                                                                   func_ctx))
+                            return false;
+                        break;
+                    case WASM_OP_STRING_AS_WTF8:
+                        if (!aot_compile_op_string_as_wtf8(comp_ctx, func_ctx,
+                                                           frame_ip_org))
+                            return false;
+                        break;
+                    case WASM_OP_STRINGVIEW_WTF8_ADVANCE:
+                        if (!aot_compile_op_stringview_wtf8_advance(comp_ctx,
+                                                                    func_ctx))
+                            return false;
+                        break;
+                    case WASM_OP_STRINGVIEW_WTF8_ENCODE_UTF8:
+                    case WASM_OP_STRINGVIEW_WTF8_ENCODE_LOSSY_UTF8:
+                    case WASM_OP_STRINGVIEW_WTF8_ENCODE_WTF8:
+                    {
+                        EncodingFlag flag = WTF8;
+
+                        read_leb_uint32(frame_ip, frame_ip_end, mem_idx);
+                        bh_assert(mem_idx == 0);
+
+                        if (opcode == WASM_OP_STRINGVIEW_WTF8_ENCODE_UTF8) {
+                            flag = UTF8;
+                        }
+                        else if (opcode
+                                 == WASM_OP_STRINGVIEW_WTF8_ENCODE_LOSSY_UTF8) {
+                            flag = LOSSY_UTF8;
+                        }
+                        else if (opcode
+                                 == WASM_OP_STRINGVIEW_WTF8_ENCODE_WTF8) {
+                            flag = WTF8;
+                        }
+
+                        if (!aot_compile_op_stringview_wtf8_encode(
+                                comp_ctx, func_ctx, mem_idx, flag))
+                            return false;
+                        break;
+                    }
+                    case WASM_OP_STRINGVIEW_WTF8_SLICE:
+                        if (!aot_compile_op_stringview_wtf8_slice(
+                                comp_ctx, func_ctx, frame_ip_org))
+                            return false;
+                        break;
+                    case WASM_OP_STRING_AS_WTF16:
+                        if (!aot_compile_op_string_as_wtf16(comp_ctx, func_ctx,
+                                                            frame_ip_org))
+                            return false;
+                        break;
+                    case WASM_OP_STRINGVIEW_WTF16_LENGTH:
+                        if (!aot_compile_op_stringview_wtf16_length(comp_ctx,
+                                                                    func_ctx))
+                            return false;
+                        break;
+                    case WASM_OP_STRINGVIEW_WTF16_GET_CODEUNIT:
+                        if (!aot_compile_op_stringview_wtf16_get_codeunit(
+                                comp_ctx, func_ctx))
+                            return false;
+                        break;
+                    case WASM_OP_STRINGVIEW_WTF16_ENCODE:
+                    {
+                        read_leb_uint32(frame_ip, frame_ip_end, mem_idx);
+                        bh_assert(mem_idx == 0);
+
+                        if (!aot_compile_op_stringview_wtf16_encode(
+                                comp_ctx, func_ctx, mem_idx))
+                            return false;
+                        break;
+                    }
+                    case WASM_OP_STRINGVIEW_WTF16_SLICE:
+                        if (!aot_compile_op_stringview_wtf16_slice(
+                                comp_ctx, func_ctx, frame_ip_org))
+                            return false;
+                        break;
+                    case WASM_OP_STRING_AS_ITER:
+                        if (!aot_compile_op_string_as_iter(comp_ctx, func_ctx,
+                                                           frame_ip_org))
+                            return false;
+                        break;
+                    case WASM_OP_STRINGVIEW_ITER_NEXT:
+                        if (!aot_compile_op_stringview_iter_next(comp_ctx,
+                                                                 func_ctx))
+                            return false;
+                        break;
+                    case WASM_OP_STRINGVIEW_ITER_ADVANCE:
+                        if (!aot_compile_op_stringview_iter_advance(comp_ctx,
+                                                                    func_ctx))
+                            return false;
+                        break;
+                    case WASM_OP_STRINGVIEW_ITER_REWIND:
+                        if (!aot_compile_op_stringview_iter_rewind(comp_ctx,
+                                                                   func_ctx))
+                            return false;
+                        break;
+                    case WASM_OP_STRINGVIEW_ITER_SLICE:
+                        if (!aot_compile_op_stringview_iter_slice(
+                                comp_ctx, func_ctx, frame_ip_org))
+                            return false;
+                        break;
+                    case WASM_OP_STRING_NEW_UTF8_ARRAY:
+                    case WASM_OP_STRING_NEW_WTF16_ARRAY:
+                    case WASM_OP_STRING_NEW_LOSSY_UTF8_ARRAY:
+                    case WASM_OP_STRING_NEW_WTF8_ARRAY:
+                    {
+                        EncodingFlag flag = WTF8;
+
+                        if (opcode == WASM_OP_STRING_NEW_WTF16) {
+                            flag = WTF16;
+                        }
+                        else if (opcode == WASM_OP_STRING_NEW_UTF8) {
+                            flag = UTF8;
+                        }
+                        else if (opcode == WASM_OP_STRING_NEW_LOSSY_UTF8) {
+                            flag = LOSSY_UTF8;
+                        }
+                        else if (opcode == WASM_OP_STRING_NEW_WTF8) {
+                            flag = WTF8;
+                        }
+
+                        if (!aot_compile_op_string_new_array(
+                                comp_ctx, func_ctx, flag, frame_ip_org))
+                            return false;
+
+                        break;
+                    }
+                    case WASM_OP_STRING_ENCODE_UTF8_ARRAY:
+                    case WASM_OP_STRING_ENCODE_WTF16_ARRAY:
+                    case WASM_OP_STRING_ENCODE_LOSSY_UTF8_ARRAY:
+                    case WASM_OP_STRING_ENCODE_WTF8_ARRAY:
+                    {
+                        EncodingFlag flag = WTF8;
+
+                        if (opcode == WASM_OP_STRING_ENCODE_WTF16) {
+                            flag = WTF16;
+                        }
+                        else if (opcode == WASM_OP_STRING_ENCODE_UTF8) {
+                            flag = UTF8;
+                        }
+                        else if (opcode == WASM_OP_STRING_ENCODE_LOSSY_UTF8) {
+                            flag = LOSSY_UTF8;
+                        }
+                        else if (opcode == WASM_OP_STRING_ENCODE_WTF8) {
+                            flag = WTF8;
+                        }
+
+                        if (!aot_compile_op_string_encode_array(comp_ctx,
+                                                                func_ctx, flag))
+                            return false;
+                        break;
+                    }
+#endif /* end of WASM_ENABLE_STRINGREF != 0 */
 
                     default:
                         aot_set_last_error("unsupported opcode");

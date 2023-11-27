@@ -322,6 +322,12 @@ typedef struct AOTCompData {
     uint32 aux_stack_bottom;
     uint32 aux_stack_size;
 
+#if WASM_ENABLE_STRINGREF != 0
+    uint32 string_literal_count;
+    uint32 *string_literal_lengths_wp;
+    const uint8 **string_literal_ptrs_wp;
+#endif
+
     WASMModule *wasm_module;
 #if WASM_ENABLE_DEBUG_AOT != 0
     dwarf_extractor_handle_t extractor;

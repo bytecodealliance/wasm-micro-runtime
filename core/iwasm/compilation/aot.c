@@ -704,6 +704,12 @@ aot_create_comp_data(WASMModule *module, const char *target_arch,
     comp_data->free_func_index = module->free_function;
     comp_data->retain_func_index = module->retain_function;
 
+#if WASM_ENABLE_STRINGREF != 0
+    comp_data->string_literal_count = module->string_literal_count;
+    comp_data->string_literal_ptrs_wp = module->string_literal_ptrs;
+    comp_data->string_literal_lengths_wp = module->string_literal_lengths;
+#endif
+
     comp_data->wasm_module = module;
 
     return comp_data;

@@ -2679,7 +2679,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         contents = (uint32)read_uint32(frame_ip);
 
                         str_obj = wasm_string_new_const(
-                            wasm_module->string_consts[contents]);
+                            (const char *)
+                                wasm_module->string_literal_ptrs[contents],
+                            wasm_module->string_literal_lengths[contents]);
                         if (!str_obj) {
                             wasm_set_exception(module,
                                                "create string object failed");
@@ -3165,7 +3167,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         str_obj = wasm_string_slice(
                             (WASMString)wasm_stringview_iter_obj_get_value(
                                 stringview_iter_obj),
-                            cur_pos, code_points_count, STRING_VIEW_ITER);
+                            cur_pos, cur_pos + code_points_count,
+                            STRING_VIEW_ITER);
                         if (!str_obj) {
                             wasm_set_exception(module,
                                                "create string object failed");
@@ -3261,7 +3264,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     case WASM_OP_STRING_ENCODE_LOSSY_UTF8_ARRAY:
                     case WASM_OP_STRING_ENCODE_WTF8_ARRAY:
                     {
-                        uint32 start, array_len;
+                        uint32 start, array_len, count;
                         int32 bytes_written;
                         EncodingFlag flag = WTF8;
                         WASMArrayType *array_type;
@@ -3314,8 +3317,11 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             }
                         }
 
+                        count = wasm_string_measure(str_obj, flag);
+
                         bytes_written = wasm_string_encode(
-                            str_obj, 0, array_len, arr_start_addr, NULL, flag);
+                            str_obj, 0, count, arr_start_addr, NULL, flag);
+
                         if (bytes_written < 0) {
                             if (bytes_written == Isolated_Surrogate) {
                                 wasm_set_exception(

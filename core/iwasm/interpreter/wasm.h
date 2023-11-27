@@ -744,8 +744,9 @@ struct WASMModule {
 #endif
 #if WASM_ENABLE_GC != 0
 #if WASM_ENABLE_STRINGREF != 0
-    uint32 stringref_count;
-    char **string_consts;
+    uint32 string_literal_count;
+    uint32 *string_literal_lengths;
+    const uint8 **string_literal_ptrs;
 #endif
 #endif
 

@@ -871,6 +871,59 @@ fail:
 #endif /* WASM_ENABLE_CUSTOM_NAME_SECTION != 0 */
 }
 
+#if WASM_ENABLE_STRINGREF != 0
+static bool
+load_string_literal_section(const uint8 *buf, const uint8 *buf_end,
+                            AOTModule *module, bool is_load_from_file_buf,
+                            char *error_buf, uint32 error_buf_size)
+{
+    const uint8 *p = buf, *p_end = buf_end;
+    uint32 reserved = 0, string_count = 0, i;
+    uint64 size;
+
+    read_uint32(p, p_end, reserved);
+    if (reserved != 0) {
+        set_error_buf(error_buf, error_buf_size,
+                      "invalid reserved slot in string literal count");
+        goto fail;
+    }
+
+    read_uint32(p, p_end, string_count);
+    if (string_count == 0) {
+        set_error_buf(error_buf, error_buf_size,
+                      "invalid string literal count");
+        goto fail;
+    }
+    module->string_literal_count = string_count;
+
+    size = (uint64)sizeof(char *) * string_count;
+    if (!(module->string_literal_ptrs =
+              loader_malloc(size, error_buf, error_buf_size))) {
+        goto fail;
+    }
+
+    size = (uint64)sizeof(uint32) * string_count;
+    if (!(module->string_literal_lengths =
+              loader_malloc(size, error_buf, error_buf_size))) {
+        goto fail;
+    }
+
+    for (i = 0; i < string_count; i++) {
+        read_uint32(p, p_end, module->string_literal_lengths[i]);
+    }
+
+    for (i = 0; i < string_count; i++) {
+        module->string_literal_ptrs[i] = p;
+        p += module->string_literal_lengths[i];
+    }
+
+    return true;
+
+fail:
+    return false;
+}
+#endif /* end of WASM_ENABLE_STRINGREF != 0 */
+
 static bool
 load_custom_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
                     bool is_load_from_file_buf, char *error_buf,
@@ -894,6 +947,14 @@ load_custom_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
                                    error_buf, error_buf_size))
                 goto fail;
             break;
+#if WASM_ENABLE_STRINGREF != 0
+        case AOT_CUSTOM_SECTION_STRING_LITERAL:
+            if (!load_string_literal_section(buf, buf_end, module,
+                                             is_load_from_file_buf, error_buf,
+                                             error_buf_size))
+                goto fail;
+            break;
+#endif
 #if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
         case AOT_CUSTOM_SECTION_RAW:
         {
@@ -3894,6 +3955,24 @@ aot_unload(AOTModule *module)
         }
         wasm_runtime_free(module->rtt_types);
     }
+#if WASM_ENABLE_STRINGREF != 0
+    {
+        uint32 i;
+        for (i = 0; i < WASM_TYPE_STRINGVIEWITER - WASM_TYPE_STRINGREF + 1;
+             i++) {
+            if (module->stringref_rtts[i])
+                wasm_runtime_free(module->stringref_rtts[i]);
+        }
+
+        if (module->string_literal_lengths) {
+            wasm_runtime_free(module->string_literal_lengths);
+        }
+
+        if (module->string_literal_ptrs) {
+            wasm_runtime_free(module->string_literal_ptrs);
+        }
+    }
+#endif
 #endif
 
     wasm_runtime_free(module);
