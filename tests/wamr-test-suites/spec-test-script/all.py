@@ -51,6 +51,7 @@ WAST2WASM_CMD = exe_file_path("./wabt/out/gcc/Release/wat2wasm")
 SPEC_INTERPRETER_CMD = "spec/interpreter/wasm"
 WAMRC_CMD = "../../../wamr-compiler/build/wamrc"
 AVAILABLE_TARGETS = [
+    "I386",
     "X86_32",
     "X86_64",
     "AARCH64",
@@ -503,6 +504,9 @@ def main():
     # Convert target to lower case for internal use, e.g. X86_64 -> x86_64
     # target is always exist, so no need to check it
     options.target = options.target.lower()
+
+    if options.target == "x86_32":
+        options.target = "i386"
 
     if not preflight_check(options.aot_flag):
         return False

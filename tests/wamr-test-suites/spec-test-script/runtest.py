@@ -43,8 +43,9 @@ temp_module_table = {}
 
 # AOT compilation options mapping
 aot_target_options_map = {
-    "x86_64": ["--target=x86_64", "--cpu=skylake"],
+    "i386": ["--target=i386"],
     "x86_32": ["--target=i386"],
+    "x86_64": ["--target=x86_64", "--cpu=skylake"],
     "aarch64": ["--target=aarch64", "--target-abi=eabi", "--cpu=cortex-a53"],
     "aarch64_vfp": ["--target=aarch64", "--target-abi=gnueabihf", "--cpu=cortex-a53"],
     "armv7": ["--target=armv7", "--target-abi=eabi", "--cpu=cortex-a9", "--cpu-features=-neon"],
