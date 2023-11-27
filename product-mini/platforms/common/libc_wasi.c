@@ -156,6 +156,9 @@ libc_wasi_parse(char *arg, libc_wasi_parse_context_t *ctx)
         }
         ctx->ns_lookup_pool[ctx->ns_lookup_pool_size++] = arg + 16;
     }
+    else {
+        return LIBC_WASI_PARSE_RESULT_NEED_HELP;
+    }
     return LIBC_WASI_PARSE_RESULT_OK;
 }
 
