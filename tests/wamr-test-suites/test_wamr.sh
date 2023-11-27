@@ -15,7 +15,9 @@ function help()
     echo "test_wamr.sh [options]"
     echo "-c clean previous test results, not start test"
     echo "-s {suite_name} test only one suite (spec|wasi_certification|wamr_compiler)"
-    echo "-m set compile target of iwasm(x86_64|x86_32|armv7_vfp|thumbv7_vfp|riscv64_lp64d|riscv64_lp64|aarch64)"
+    echo "-m set compile target of iwasm(x86_64|x86_32|armv7|armv7_vfp|thumbv7|thumbv7_vfp|"
+    echo "                               riscv32|riscv32_ilp32f|riscv32_ilp32d|riscv64|"
+    echo "                               riscv64_lp64f|riscv64_lp64d|aarch64|aarch64_vfp)"
     echo "-t set compile type of iwasm(classic-interp|fast-interp|jit|aot|fast-jit|multi-tier-jit)"
     echo "-M enable multi module feature"
     echo "-p enable multi thread feature"
@@ -65,6 +67,8 @@ ENABLE_QEMU=0
 QEMU_FIRMWARE=""
 # prod/testsuite-all branch
 WASI_TESTSUITE_COMMIT="ee807fc551978490bf1c277059aabfa1e589a6c2"
+TARGET_LIST=("AARCH64" "AARCH64_VFP" "ARMV7" "ARMV7_VFP" "THUMBV7" "THUMBV7_VFP" \
+             "RISCV32" "RISCV32_ILP32F" "RISCV32_ILP32D" "RISCV64" "RISCV64_LP64F" "RISCV64_LP64D")
 
 while getopts ":s:cabgvt:m:MCpSXxwPGQF:j:T:" opt
 do
@@ -727,9 +731,7 @@ function build_iwasm_with_cfg()
 
 function build_wamrc()
 {
-    if [[ $TARGET == "ARMV7_VFP" || $TARGET == "THUMBV7_VFP"
-          || $TARGET == "RISCV32" || $TARGET == "RISCV32_ILP32" || $TARGET == "RISCV32_ILP32D"
-          || $TARGET == "RISCV64" || $TARGET == "RISCV64_LP64D" || $TARGET == "RISCV64_LP64" ]];then
+    if [[ "${TARGET_LIST[*]}" =~ "${TARGET}" ]]; then
         echo "suppose wamrc is already built"
         return
     fi
