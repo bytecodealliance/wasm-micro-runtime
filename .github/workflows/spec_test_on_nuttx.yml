@@ -59,11 +59,11 @@ jobs:
           #   target: "riscv32_ilp32d",
           #   use_fpu: true
           # },
-          # {
-          #   config: "boards/risc-v/qemu-rv/rv-virt/configs/nsh64",
-          #   target: "riscv64",
-          #   use_fpu: false
-          # },
+          {
+            config: "boards/risc-v/qemu-rv/rv-virt/configs/nsh64",
+            target: "riscv64",
+            use_fpu: false
+          },
         ]
 
         wamr_test_option: [
@@ -160,7 +160,7 @@ jobs:
           find nuttx/boards -name defconfig | xargs sed -i '$a\${{ matrix.wamr_test_option.option }}'
 
       - name: Disable FPU for NuttX
-        if: matrix.target_config.use_fpu== false
+        if: matrix.target_config.use_fpu == false
         run: |
           find nuttx/boards -name defconfig | xargs sed -i '$a\# CONFIG_ARCH_FPU is not set\n'
 
