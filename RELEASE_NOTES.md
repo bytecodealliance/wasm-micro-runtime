@@ -9,6 +9,8 @@
     the `map_dir_list` argument in API `wasm_runtime_init_wasi` for libc-wasi
 - Support muti-module for AOT mode (#2482)
   - Add argument `package_type_t module_type` for module_reader callback
+- Generate jitdump to support linux perf for LLVM JIT (#2788)
+  - Add a field `bool linux_perf_support` in RuntimeInitArgs
 - Remove provision of unnecessary fd rights (#2579)
 - libc-wasi: Conditionally support SYNC flags (#2581)
 
@@ -17,6 +19,7 @@
 - Implement libc-wasi for Windows platform (#2740)
 - Implement module instance context APIs (#2436)
 - Implement async termination of blocking thread (#2516)
+- Generate jitdump to support linux perf for LLVM JIT (#2788)
 - Add Cosmopolitan Libc Platform (#2598)
 
 ### Bug Fixes
@@ -62,6 +65,8 @@
 - Fix configurable bounds checks typo (#2809)
 - Attestation: Free JSON from the Wasm module heap (#2803)
 - Update Zephyr support to v3.5.0 and make instructions generic to boards (#2805)
+- Return error when shutdown() fails (#2801)
+- iwasm: Print help when meeting unknown cmd options (#2824)
 
 ### Enhancements
 - Implement strict validation of thread IDs according to the specification (#2521)
@@ -140,6 +145,8 @@
 - Disable FPU in NuttX spec test (#2781)
 - Fix broken links in app-mgr README.md (#2786)
 - Fix build error of libsodium benchmark (#2792)
+- Fix wamr-test-suites script for macos (#2819)
+- Run spec test for classic/fast-interp in NuttX CI (#2817)
 
 ---
 
