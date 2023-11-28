@@ -126,20 +126,23 @@ $ perf report --input=perf.data
 ```
 
 > [!CAUTION]
-> Using release build of llvm and iwasm will produce "[unknown]" functions in the call graph. It is not only because
+> Using release builds of llvm and iwasm will produce "[unknown]" functions in the call graph. It is not only because
 > of the missing debug information, but also because of removing frame pointers. To get the complete result, please
-> use debug build of llvm and iwasm.
+> use debug builds of both llvm and iwasm.
 >
-> Wasm functions will not be affected.
+> Wasm functions names are stored in _the custom name section_. Toolchains always generate the custom name section in both debug and release builds. However, the custom name section is stripped to pursue smallest size in release build. So, if you want to get a understandable result, please search the manual of toolchain to look for a way to keep the custom name section.
+>
+> For example, with EMCC, you can add `-g2`.
+>
+> If not able to get the context of the custom name section, WAMR will use `aot_func#N` to represent the function name. `N` is from 0. `aot_func#0` represents the first *not imported wasm function*.
 
 ### 7.1 Flamegraph
 
-[Flamegraph](https://www.brendangregg.com/flamegraphs.html) is a powerful tool to visualize stack traces of profiled software so that the most frequent code-paths can be identified quickly and accurately. In order to use it, you need to record call graphs when running `perf record`
+[Flamegraph](https://www.brendangregg.com/flamegraphs.html) is a powerful tool to visualize stack traces of profiled software so that the most frequent code-paths can be identified quickly and accurately. In order to use it, you need to [capture graphs](https://github.com/brendangregg/FlameGraph#1-capture-stacks) when running `perf record`
 
 ```
 $ perf record -k mono --call-graph=fp --output=perf.data.raw -- iwasm --perf-profile foo.wasm
 ```
-
 
 merge the _jit-xxx.dump_ file into the _perf.data.raw_.
 
@@ -164,3 +167,13 @@ $ ./FlameGraph/stackcollapse-perf.pl out.perf > out.folded
 ```
 $ ./FlameGraph/flamegraph.pl out.folded > perf.foo.wasm.svg
 ```
+
+> [!TIP]
+> use `grep` to pick up folded stacks you are interested in or filter out something.
+>
+> For example, if just want to see stacks of wasm functions, you can use
+>
+> ```bash
+> # only jitted functions
+> $ grep "wasm_runtime_invoke_native" out.folded | ./FlameGraph/flamegraph.pl > perf.foo.wasm.only.svg
+> ```
