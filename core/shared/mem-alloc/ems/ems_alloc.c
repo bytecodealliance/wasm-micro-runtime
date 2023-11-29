@@ -772,10 +772,12 @@ gc_alloc_wo_internal(void *vheap, gc_size_t size, const char *file, int line)
         /* integer overflow */
         return NULL;
 
+#if BH_ENABLE_GC_CORRUPTION_CHECK != 0
     if (heap->is_heap_corrupted) {
         os_printf("[GC_ERROR]Heap is corrupted, allocate memory failed.\n");
         return NULL;
     }
+#endif
 
     LOCK_HEAP(heap);
 
