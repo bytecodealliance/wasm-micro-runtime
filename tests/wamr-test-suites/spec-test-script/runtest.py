@@ -1072,6 +1072,11 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r, output = '
     # exception isn't thrown in several cases
     cmd.append("--disable-llvm-lto")
 
+    # Bounds checks disabled by default for 64-bit targets, enable it for qemu,
+    # which may be used for 64-bit targets
+    if opts.qemu:
+        cmd.append("--bounds-checks=1")
+
     cmd += ["-o", aot_tempfile, wasm_tempfile]
 
     log("Running: %s" % " ".join(cmd))
