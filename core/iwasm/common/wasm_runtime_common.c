@@ -5873,7 +5873,7 @@ wasm_runtime_register_sub_module(const WASMModuleCommon *parent_module,
 {
     /* register sub_module into its parent sub module list */
     WASMRegisteredModule *node = NULL;
-    bh_list_status ret;
+    bh_list_status ret = BH_LIST_ERROR;
 
     if (wasm_runtime_search_sub_module(parent_module, sub_module_name)) {
         LOG_DEBUG("%s has been registered in its parent", sub_module_name);
