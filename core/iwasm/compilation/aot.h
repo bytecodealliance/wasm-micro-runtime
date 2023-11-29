@@ -157,7 +157,6 @@ typedef struct AOTTableInitData {
 #if WASM_ENABLE_GC != 0
     WASMRefType *elem_ref_type;
 #endif
-    bool is_dropped;
     /* optional, only for active */
     uint32 table_index;
     /* Start address of init data */

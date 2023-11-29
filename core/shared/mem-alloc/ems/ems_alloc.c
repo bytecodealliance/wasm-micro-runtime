@@ -45,19 +45,23 @@ hmu_is_in_heap(void *hmu, gc_uint8 *heap_base_addr, gc_uint8 *heap_end_addr)
 static bool
 remove_tree_node(gc_heap_t *heap, hmu_tree_node_t *p)
 {
-    hmu_tree_node_t *q = NULL, **slot = NULL, *parent;
-    hmu_tree_node_t *root = heap->kfc_tree_root;
+    hmu_tree_node_t *q = NULL, **slot = NULL;
+#if BH_ENABLE_GC_CORRUPTION_CHECK != 0
+    hmu_tree_node_t *root = heap->kfc_tree_root, *parent;
     gc_uint8 *base_addr = heap->base_addr;
     gc_uint8 *end_addr = base_addr + heap->current_size;
+#endif
 
     bh_assert(p);
 
+#if BH_ENABLE_GC_CORRUPTION_CHECK != 0
     parent = p->parent;
     if (!parent || p == root /* p can not be the ROOT node */
         || !hmu_is_in_heap(p, base_addr, end_addr)
         || (parent != root && !hmu_is_in_heap(parent, base_addr, end_addr))) {
         goto fail;
     }
+#endif
 
     /* get the slot which holds pointer to node p */
     if (p == p->parent->right) {
@@ -88,9 +92,11 @@ remove_tree_node(gc_heap_t *heap, hmu_tree_node_t *p)
         /* move right child up*/
         *slot = p->right;
         if (p->right) {
+#if BH_ENABLE_GC_CORRUPTION_CHECK != 0
             if (!hmu_is_in_heap(p->right, base_addr, end_addr)) {
                 goto fail;
             }
+#endif
             p->right->parent = p->parent;
         }
 
@@ -101,9 +107,11 @@ remove_tree_node(gc_heap_t *heap, hmu_tree_node_t *p)
     if (!p->right) {
         /* move left child up*/
         *slot = p->left;
+#if BH_ENABLE_GC_CORRUPTION_CHECK != 0
         if (!hmu_is_in_heap(p->left, base_addr, end_addr)) {
             goto fail;
         }
+#endif
         /* p->left can never be NULL unless it is corrupted. */
         p->left->parent = p->parent;
 
@@ -113,14 +121,18 @@ remove_tree_node(gc_heap_t *heap, hmu_tree_node_t *p)
 
     /* both left & right exist, find p's predecessor at first*/
     q = p->left;
+#if BH_ENABLE_GC_CORRUPTION_CHECK != 0
     if (!hmu_is_in_heap(q, base_addr, end_addr)) {
         goto fail;
     }
+#endif
     while (q->right) {
         q = q->right;
+#if BH_ENABLE_GC_CORRUPTION_CHECK != 0
         if (!hmu_is_in_heap(q, base_addr, end_addr)) {
             goto fail;
         }
+#endif
     }
 
     /* remove from the tree*/
@@ -132,15 +144,19 @@ remove_tree_node(gc_heap_t *heap, hmu_tree_node_t *p)
     q->left = p->left;
     q->right = p->right;
     if (q->left) {
+#if BH_ENABLE_GC_CORRUPTION_CHECK != 0
         if (!hmu_is_in_heap(q->left, base_addr, end_addr)) {
             goto fail;
         }
+#endif
         q->left->parent = q;
     }
     if (q->right) {
+#if BH_ENABLE_GC_CORRUPTION_CHECK != 0
         if (!hmu_is_in_heap(q->right, base_addr, end_addr)) {
             goto fail;
         }
+#endif
         q->right->parent = q;
     }
 
@@ -148,27 +164,35 @@ remove_tree_node(gc_heap_t *heap, hmu_tree_node_t *p)
 
     return true;
 fail:
+#if BH_ENABLE_GC_CORRUPTION_CHECK != 0
     heap->is_heap_corrupted = true;
+#endif
     return false;
 }
 
 static bool
 unlink_hmu(gc_heap_t *heap, hmu_t *hmu)
 {
+#if BH_ENABLE_GC_CORRUPTION_CHECK != 0
     gc_uint8 *base_addr, *end_addr;
+#endif
     gc_size_t size;
 
     bh_assert(gci_is_heap_valid(heap));
     bh_assert(hmu && (gc_uint8 *)hmu >= heap->base_addr
               && (gc_uint8 *)hmu < heap->base_addr + heap->current_size);
 
+#if BH_ENABLE_GC_CORRUPTION_CHECK != 0
     if (hmu_get_ut(hmu) != HMU_FC) {
         heap->is_heap_corrupted = true;
         return false;
     }
+#endif
 
+#if BH_ENABLE_GC_CORRUPTION_CHECK != 0
     base_addr = heap->base_addr;
     end_addr = base_addr + heap->current_size;
+#endif
     size = hmu_get_size(hmu);
 
     if (HMU_IS_FC_NORMAL(size)) {
@@ -177,10 +201,12 @@ unlink_hmu(gc_heap_t *heap, hmu_t *hmu)
         hmu_normal_node_t *node = heap->kfc_normal_list[node_idx].next;
 
         while (node) {
+#if BH_ENABLE_GC_CORRUPTION_CHECK != 0
             if (!hmu_is_in_heap(node, base_addr, end_addr)) {
                 heap->is_heap_corrupted = true;
                 return false;
             }
+#endif
             node_next = get_hmu_normal_node_next(node);
             if ((hmu_t *)node == hmu) {
                 if (!node_prev) /* list head */
@@ -226,7 +252,9 @@ hmu_set_free_size(hmu_t *hmu)
 bool
 gci_add_fc(gc_heap_t *heap, hmu_t *hmu, gc_size_t size)
 {
+#if BH_ENABLE_GC_CORRUPTION_CHECK != 0
     gc_uint8 *base_addr, *end_addr;
+#endif
     hmu_normal_node_t *np = NULL;
     hmu_tree_node_t *root = NULL, *tp = NULL, *node = NULL;
     uint32 node_idx;
@@ -240,8 +268,10 @@ gci_add_fc(gc_heap_t *heap, hmu_t *hmu, gc_size_t size)
                      <= heap->base_addr + heap->current_size);
     bh_assert(!(size & 7));
 
+#if BH_ENABLE_GC_CORRUPTION_CHECK != 0
     base_addr = heap->base_addr;
     end_addr = base_addr + heap->current_size;
+#endif
 
     hmu_set_ut(hmu, HMU_FC);
     hmu_set_size(hmu, size);
@@ -249,10 +279,12 @@ gci_add_fc(gc_heap_t *heap, hmu_t *hmu, gc_size_t size)
 
     if (HMU_IS_FC_NORMAL(size)) {
         np = (hmu_normal_node_t *)hmu;
+#if BH_ENABLE_GC_CORRUPTION_CHECK != 0
         if (!hmu_is_in_heap(np, base_addr, end_addr)) {
             heap->is_heap_corrupted = true;
             return false;
         }
+#endif
 
         node_idx = size >> 3;
         set_hmu_normal_node_next(np, heap->kfc_normal_list[node_idx].next);
@@ -286,10 +318,12 @@ gci_add_fc(gc_heap_t *heap, hmu_t *hmu, gc_size_t size)
             }
             tp = tp->left;
         }
+#if BH_ENABLE_GC_CORRUPTION_CHECK != 0
         if (!hmu_is_in_heap(tp, base_addr, end_addr)) {
             heap->is_heap_corrupted = true;
             return false;
         }
+#endif
     }
     return true;
 }
@@ -347,15 +381,19 @@ alloc_hmu(gc_heap_t *heap, gc_size_t size)
             bh_assert(node_idx >= init_node_idx);
 
             p = normal_head->next;
+#if BH_ENABLE_GC_CORRUPTION_CHECK != 0
             if (!hmu_is_in_heap(p, base_addr, end_addr)) {
                 heap->is_heap_corrupted = true;
                 return NULL;
             }
+#endif
             normal_head->next = get_hmu_normal_node_next(p);
+#if BH_ENABLE_GC_CORRUPTION_CHECK != 0
             if (((gc_int32)(uintptr_t)hmu_to_obj(p) & 7) != 0) {
                 heap->is_heap_corrupted = true;
                 return NULL;
             }
+#endif
 
             if ((gc_size_t)node_idx != (uint32)init_node_idx
                 /* with bigger size*/
@@ -391,10 +429,12 @@ alloc_hmu(gc_heap_t *heap, gc_size_t size)
     bh_assert(root);
     tp = root->right;
     while (tp) {
+#if BH_ENABLE_GC_CORRUPTION_CHECK != 0
         if (!hmu_is_in_heap(tp, base_addr, end_addr)) {
             heap->is_heap_corrupted = true;
             return NULL;
         }
+#endif
 
         if (tp->size < size) {
             tp = tp->right;
@@ -533,10 +573,12 @@ gc_alloc_vo_internal(void *vheap, gc_size_t size, const char *file, int line)
         /* integer overflow */
         return NULL;
 
+#if BH_ENABLE_GC_CORRUPTION_CHECK != 0
     if (heap->is_heap_corrupted) {
         os_printf("[GC_ERROR]Heap is corrupted, allocate memory failed.\n");
         return NULL;
     }
+#endif
 
     LOCK_HEAP(heap);
 
@@ -595,10 +637,12 @@ gc_realloc_vo_internal(void *vheap, void *ptr, gc_size_t size, const char *file,
         /* integer overflow */
         return NULL;
 
+#if BH_ENABLE_GC_CORRUPTION_CHECK != 0
     if (heap->is_heap_corrupted) {
         os_printf("[GC_ERROR]Heap is corrupted, allocate memory failed.\n");
         return NULL;
     }
+#endif
 
     if (obj_old) {
         hmu_old = obj_to_hmu(obj_old);
@@ -808,10 +852,12 @@ gc_free_vo_internal(void *vheap, gc_object_t obj, const char *file, int line)
         return GC_SUCCESS;
     }
 
+#if BH_ENABLE_GC_CORRUPTION_CHECK != 0
     if (heap->is_heap_corrupted) {
         os_printf("[GC_ERROR]Heap is corrupted, free memory failed.\n");
         return GC_ERROR;
     }
+#endif
 
     hmu = obj_to_hmu(obj);
 
@@ -934,11 +980,13 @@ gci_dump(gc_heap_t *heap)
         else if (ut == HMU_FC)
             inuse = 'F';
 
+#if BH_ENABLE_GC_CORRUPTION_CHECK != 0
         if (size == 0 || size > (uint32)((uint8 *)end - (uint8 *)cur)) {
             os_printf("[GC_ERROR]Heap is corrupted, heap dump failed.\n");
             heap->is_heap_corrupted = true;
             return;
         }
+#endif
 
         os_printf("#%d %08" PRIx32 " %" PRIx32 " %d %d"
                   " %c %" PRId32 "\n",
@@ -955,10 +1003,14 @@ gci_dump(gc_heap_t *heap)
         i++;
     }
 
+#if BH_ENABLE_GC_CORRUPTION_CHECK != 0
     if (cur != end) {
         os_printf("[GC_ERROR]Heap is corrupted, heap dump failed.\n");
         heap->is_heap_corrupted = true;
     }
+#else
+    bh_assert(cur == end);
+#endif
 }
 
 #if WASM_ENABLE_GC != 0

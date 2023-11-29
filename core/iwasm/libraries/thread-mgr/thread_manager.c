@@ -1406,3 +1406,19 @@ exception_unlock(WASMModuleInstance *module_inst)
 {
     os_mutex_unlock(&_exception_lock);
 }
+
+void
+wasm_cluster_traverse_lock(WASMExecEnv *exec_env)
+{
+    WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
+    bh_assert(cluster);
+    os_mutex_lock(&cluster->lock);
+}
+
+void
+wasm_cluster_traverse_unlock(WASMExecEnv *exec_env)
+{
+    WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
+    bh_assert(cluster);
+    os_mutex_unlock(&cluster->lock);
+}

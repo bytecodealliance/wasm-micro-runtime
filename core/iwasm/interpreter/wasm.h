@@ -627,7 +627,6 @@ typedef struct WASMTableSeg {
 #if WASM_ENABLE_GC != 0
     WASMRefType *elem_ref_type;
 #endif
-    bool is_dropped;
     /* optional, only for active */
     uint32 table_index;
     InitializerExpression base_offset;
@@ -666,7 +665,7 @@ typedef struct WASIArguments {
     uint32 ns_lookup_count;
     char **argv;
     uint32 argc;
-    int stdio[3];
+    os_raw_file_handle stdio[3];
 } WASIArguments;
 #endif
 

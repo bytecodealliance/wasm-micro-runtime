@@ -1,106 +1,108 @@
 # How to use WAMR with Zephyr
 
-## Build with Docker(recommend approach)
+[Zephyr](https://www.zephyrproject.org/) is an open source real-time operating
+system (RTOS) with a focus on security and broad hardware support. WAMR is
+compatible with Zephyr via the [Zephyr WAMR
+port](../../../../core/shared/platform/zephyr).
 
-To have a quicker start, a Docker container of the Zephyr setup can be generated. The current docker image would be considerably large(~15GB), it would take some time to build it and enough disk space to store it.
+## Setup
 
-### Build Docker images
+Using WAMR with Zephyr can be accomplished by either using the provided Docker
+image, or by installing Zephyr locally. Both approaches are described below.
+
+### Docker
+
+The provided Docker image sets up Zephyr and its dependencies for all
+architectures, meaning that you are ready to build for any [supported
+board](https://docs.zephyrproject.org/latest/boards/index.html). This comes at
+the expense of building a rather large image, which both can take a long time to
+build and uses up a large amount of storage (~15 GB).
+
+Execute the following command to build the Docker image. This may take an
+extended period of time to complete.
 
 ```shell
 docker build -t wamr-zephyr .
 ```
 
-> PS: currently, the esp32 custom linker script only works with a lower version of Zephyr, if you want to use an esp32 board, you can build the Dockerfile with a lower version of Zephyr, Zephyr SDE, ESP-IDF. The old version of Docker image can also build other targets, but probably it's a better choice to use the new Dockerfile for other boards
+Execute the following command to run the image built in the previous step. If
+you are planning to flash a device after building, make sure to specify it with
+[`--device`](https://docs.docker.com/engine/reference/run/#runtime-privilege-and-linux-capabilities).
 
 ```shell
-# If you want to build on esp32 platform
-docker build -f Dockerfile.old -t wamr-zephyr .
+docker run -it --rm --device=/dev/ttyUSB0 wamr-zephyr
 ```
 
-### Run Docker images
+### Local Environment
 
-Adopt the device or remove if not needed.
+Zephyr can also be setup locally to enable building this sample application.
+This allows you have have more control over what modules and tools are
+installed, which can drastically reduce the storage required compared to the
+Docker image.
+
+Follow the steps provided in the [Zephyr Getting Started
+guide](https://docs.zephyrproject.org/latest/develop/getting_started/index.html)
+to setup for local development.
+
+## Building for a Specific Board
+
+With an environment setup either locally or in a Docker container, you can build
+for a Zephyr suppported board using
+[`west`](https://docs.zephyrproject.org/latest/develop/west/index.html). There
+are already [configuaration files](./boards) for a few boards in this sample.
+However, if you are using a new board, you will need to add your own file for
+the board, or define configuration in the [`prj.conf](./prj.conf). After doing
+so, use the following command with your board identifier to build the sample
+application.
 
 ```shell
-docker run -ti --device=/dev/ttyUSB0 wamr-zephyr
+west build . -b <board-identifier> --pristine -- -DWAMR_BUILD_TARGET=<wamr-arch>
 ```
 
-And then inside the docker container:
+The `<board-identifier>` can be found in the Zephyr supported boards
+documentation. It must also be used as the name of the board configuration file.
+You must define the architecture for WAMR to target with `WAMR_BUILD_TARGET`.
+The list of supported architectures can be found in the main project
+[README.md](../../../../README.md#supported-architectures-and-platforms).
+
+It may be necessary to define additional symbols for some boards. For example,
+WAMR AOT execution may not be supported on all architectures. It and other
+options can be disabled by modifying the [CMakeLists.txt](./CMakeLists.txt)
+file, or by passing additional arguments at build (e.g. `-DWAMR_BUILD_AOT=0`).
+
+### Example Targets
+
+[ESP32-C3](https://docs.zephyrproject.org/latest/boards/riscv/esp32c3_devkitm/doc/index.html)
+is a 32-bit RISC-V target that does not currently support AOT.
 
 ```shell
-# copy the corresponding board conf file to current directory
-cp boards/qemu_x86_nommu.conf prj.conf
-# then build
-./build_and_run.sh x86
+west build . -b esp32c3_devkitm -p always -- -DWAMR_BUILD_TARGET=RISCV32_ILP32 -DWAMR_BUILD_AOT=0
 ```
 
-> PS: for boards esp32, need to configure some environment first
+[ARM Cortex-A53 QEMU
+(ARM)](https://docs.zephyrproject.org/latest/boards/arm64/qemu_cortex_a53/doc/index.html)
+is a 64-bit ARM target for emulating the Cortex-A53 platform.
 
 ```shell
-# configure zephyr with espressif
-export ZEPHYR_TOOLCHAIN_VARIANT="espressif"
-export ESPRESSIF_TOOLCHAIN_PATH="/root/.espressif/tools/xtensa-esp32-elf/esp-2019r2-8.2.0/xtensa-esp32-elf/"
-export ESP_IDF_PATH="/root/esp/esp-idf"
-# copy the corresponding board conf file to current directory
-cp boards/esp32.conf prj.conf
-# then build
-./build_and_run.sh esp32
+west build . -b qemu_cortex_a53 -p always -- -DWAMR_BUILD_TARGET=AARCH64 
 ```
 
-## Build on local environment
 
-### Dependencies installation
+## Flashing or Running Image
 
-Following the Zephyr and Espressif official document:
-
-1. Zephyr installation:
-
-   <https://docs.zephyrproject.org/latest/develop/getting_started/index.html>
-
-2. ESP32 installation:
-
-   <https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/linux-macos-setup.html>
-
-And setup the Zephyr for esp32:
-
-<https://wiki.amarulasolutions.com/zephyr/esp32/esp32-setup.html>
-
-Then Installing QEMU, for example, on Linux:
+The board can be flashed with the built image with the following command.
 
 ```shell
-sudo apt-get install qemu
+west flash
 ```
 
-### Run the build script
+`west` will automatically identify the board if it is connected to the host
+machine.
 
-Make sure you have the environment variable ready, you can use the command `env` to check:
-
-```shell
-env
-```
-
-```shell
-# export ZEPHYR_BASE if it's not present
-export ZEPHYR_BASE=~/zephyrproject/zephyr
-# and if you install zephyr in virtual environment rather than global
-source ~/zephyrproject/.venv/bin/activate
-```
-
-For boards esp32, need to configure some extra environment first, check the following env variable whether in the env list, if not, add them like:
-
-> Noted: The esp32 custom linker script doesn't work with the recent version of Zephyr, if you want to use it in the local environment, please install Zephyr 2.3.0 with the corresponding SDK, and ESP-IDF 4.0
+When using emulated targets, such as those that utilize QEMU, there is no
+physical device to flash, but `west` can be used to run the image under
+emulation.
 
 ```shell
-export ZEPHYR_TOOLCHAIN_VARIANT="espressif"
-export ESPRESSIF_TOOLCHAIN_PATH="~/.espressif/tools/xtensa-esp32-elf/esp-{the version you installed}/xtensa-esp32-elf/"
-export ESP_IDF_PATH="~/esp/esp-idf"
-```
-
-Then you can run the build script:
-
-```shell
-# copy the corresponding board conf file to current directory
-cp boards/qemu_x86_nommu.conf prj.conf
-# then build
-./build_and_run.sh x86
+west build -t run
 ```

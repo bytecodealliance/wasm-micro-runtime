@@ -268,7 +268,7 @@ get_table_init_data_size(AOTCompContext *comp_ctx,
                          AOTTableInitData *table_init_data)
 {
     /*
-     * mode (4 bytes), elem_type (4 bytes), do not need is_dropped field
+     * mode (4 bytes), elem_type (4 bytes)
      *
      * table_index(4 bytes) + init expr type (4 bytes) + init expr value (8
      * bytes) + sizeof(WASMRefType)
@@ -1059,9 +1059,11 @@ get_native_symbol_list_size(AOTCompContext *comp_ctx)
 static uint32
 get_name_section_size(AOTCompData *comp_data);
 
+#if WASM_ENABLE_STRINGREF != 0
 static uint32
 get_string_literal_section_size(AOTCompContext *comp_ctx,
                                 AOTCompData *comp_data);
+#endif
 
 static uint32
 get_custom_sections_size(AOTCompContext *comp_ctx, AOTCompData *comp_data);

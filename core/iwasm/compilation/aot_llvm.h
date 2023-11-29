@@ -12,6 +12,7 @@
 #include "llvm-c/Target.h"
 #include "llvm-c/Core.h"
 #include "llvm-c/Object.h"
+#include "llvm-c/OrcEE.h"
 #include "llvm-c/ExecutionEngine.h"
 #include "llvm-c/Analysis.h"
 #include "llvm-c/BitWriter.h"
@@ -435,6 +436,8 @@ typedef struct AOTCompContext {
 
     /* Whether optimize the JITed code */
     bool optimize;
+
+    bool emit_frame_pointer;
 
     /* Enable GC */
     bool enable_gc;

@@ -5,22 +5,21 @@ from __future__ import print_function
 import argparse
 import array
 import atexit
-import fcntl
 import math
 import os
-# Pseudo-TTY and terminal manipulation
-import pty
 import re
 import shutil
 import struct
 import subprocess
 import sys
 import tempfile
-import termios
 import time
+import threading
 import traceback
 from select import select
+from queue import Queue
 from subprocess import PIPE, STDOUT, Popen
+from typing import BinaryIO, Optional, Tuple
 
 if sys.version_info[0] == 2:
     IS_PY_3 = False
@@ -28,7 +27,9 @@ else:
     IS_PY_3 = True
 
 test_aot = False
-# "x86_64", "i386", "aarch64", "armv7", "thumbv7", "riscv32_ilp32", "riscv32_ilp32d", "riscv32_lp64", "riscv64_lp64d"
+# Available targets:
+#   "aarch64" "aarch64_vfp" "armv7" "armv7_vfp" "thumbv7" "thumbv7_vfp"
+#   "riscv32" "riscv32_ilp32f" "riscv32_ilp32d" "riscv64" "riscv64_lp64f" "riscv64_lp64d"
 test_target = "x86_64"
 
 debug_file = None
@@ -39,6 +40,25 @@ temp_file_repo = []
 
 # to save the mapping of module files in /tmp by name
 temp_module_table = {}
+
+# AOT compilation options mapping
+aot_target_options_map = {
+    "i386": ["--target=i386"],
+    "x86_32": ["--target=i386"],
+    "x86_64": ["--target=x86_64", "--cpu=skylake"],
+    "aarch64": ["--target=aarch64", "--target-abi=eabi", "--cpu=cortex-a53"],
+    "aarch64_vfp": ["--target=aarch64", "--target-abi=gnueabihf", "--cpu=cortex-a53"],
+    "armv7": ["--target=armv7", "--target-abi=eabi", "--cpu=cortex-a9", "--cpu-features=-neon"],
+    "armv7_vfp": ["--target=armv7", "--target-abi=gnueabihf", "--cpu=cortex-a9"],
+    "thumbv7": ["--target=thumbv7", "--target-abi=eabi", "--cpu=cortex-a9", "--cpu-features=-neon,-vfpv3"],
+    "thumbv7_vfp": ["--target=thumbv7", "--target-abi=gnueabihf", "--cpu=cortex-a9", "--cpu-features=-neon"],
+    "riscv32": ["--target=riscv32", "--target-abi=ilp32", "--cpu=generic-rv32", "--cpu-features=+m,+a,+c"],
+    "riscv32_ilp32f": ["--target=riscv32", "--target-abi=ilp32f", "--cpu=generic-rv32", "--cpu-features=+m,+a,+c,+f"],
+    "riscv32_ilp32d": ["--target=riscv32", "--target-abi=ilp32d", "--cpu=generic-rv32", "--cpu-features=+m,+a,+c,+f,+d"],
+    "riscv64": ["--target=riscv64", "--target-abi=lp64", "--cpu=generic-rv64", "--cpu-features=+m,+a,+c"],
+    "riscv64_lp64f": ["--target=riscv64", "--target-abi=lp64f", "--cpu=generic-rv64", "--cpu-features=+m,+a,+c,+f"],
+    "riscv64_lp64d": ["--target=riscv64", "--target-abi=lp64d", "--cpu=generic-rv64", "--cpu-features=+m,+a,+c,+f,+d"],
+}
 
 def debug(data):
     if debug_file:
@@ -52,6 +72,10 @@ def log(data, end='\n'):
     print(data, end=end)
     sys.stdout.flush()
 
+def create_tmp_file(suffix: str) -> str:
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp_file:
+        return tmp_file.name
+
 # TODO: do we need to support '\n' too
 import platform
 
@@ -61,6 +85,34 @@ if platform.system().find("CYGWIN_NT") >= 0:
 else:
     sep = "\r\n"
 rundir = None
+
+
+class AsyncStreamReader:
+    def __init__(self, stream: BinaryIO) -> None:
+        self._queue = Queue()
+        self._reader_thread = threading.Thread(
+            daemon=True,
+            target=AsyncStreamReader._stdout_reader,
+            args=(self._queue, stream))
+        self._reader_thread.start()
+
+    def read(self) -> Optional[bytes]:
+        return self._queue.get()
+
+    def cleanup(self) -> None:
+        self._reader_thread.join()
+
+    @staticmethod
+    def _stdout_reader(queue: Queue, stdout: BinaryIO) -> None:
+        while True:
+            try:
+                queue.put(stdout.read(1))
+            except ValueError as e:
+                if stdout.closed:
+                    queue.put(None)
+                    break
+                raise e
+
 
 class Runner():
     def __init__(self, args, no_pty=False):
@@ -77,11 +129,14 @@ class Runner():
         if no_pty:
             self.process = Popen(args, bufsize=0,
                            stdin=PIPE, stdout=PIPE, stderr=STDOUT,
-                           preexec_fn=os.setsid,
                            env=env)
             self.stdin = self.process.stdin
             self.stdout = self.process.stdout
         else:
+            import fcntl
+            # Pseudo-TTY and terminal manipulation
+            import pty
+            import termios
             # Use tty to setup an interactive environment
             master, slave = pty.openpty()
 
@@ -101,35 +156,53 @@ class Runner():
             self.stdin = os.fdopen(master, 'r+b', 0)
             self.stdout = self.stdin
 
+        if platform.system().lower() == "windows":
+            self._stream_reader = AsyncStreamReader(self.stdout)
+        else:
+            self._stream_reader = None
+
         self.buf = ""
+
+    def _read_stdout_byte(self) -> Tuple[bool, Optional[bytes]]:
+        if self._stream_reader:
+            return True, self._stream_reader.read()
+        else:
+            # select doesn't work on file descriptors on Windows.
+            # however, this method is much faster than using
+            # queue, so we keep it for non-windows platforms.
+            [outs,_,_] = select([self.stdout], [], [], 1)
+            if self.stdout in outs:
+                return True, self.stdout.read(1)
+            else:
+                return False, None
 
     def read_to_prompt(self, prompts, timeout):
         wait_until = time.time() + timeout
         while time.time() < wait_until:
-            [outs,_,_] = select([self.stdout], [], [], 1)
-            if self.stdout in outs:
-                read_byte = self.stdout.read(1)
-                if not read_byte:
-                    # EOF on macOS ends up here.
-                    break
-                read_byte = read_byte.decode('utf-8') if IS_PY_3 else read_byte
+            has_value, read_byte = self._read_stdout_byte()
+            if not has_value:
+                continue
+            if not read_byte:
+                # EOF on macOS ends up here.
+                break
+            read_byte = read_byte.decode('utf-8') if IS_PY_3 else read_byte
 
-                debug(read_byte)
-                if self.no_pty:
-                    self.buf += read_byte.replace('\n', '\r\n')
-                else:
-                    self.buf += read_byte
-                self.buf = self.buf.replace('\r\r', '\r')
+            debug(read_byte)
+            if self.no_pty:
+                self.buf += read_byte.replace('\n', '\r\n')
+            else:
+                self.buf += read_byte
+            self.buf = self.buf.replace('\r\r', '\r')
 
-                # filter the prompts
-                for prompt in prompts:
-                    pattern = re.compile(prompt)
-                    match = pattern.search(self.buf)
-                    if match:
-                        end = match.end()
-                        buf = self.buf[0:end-len(prompt)]
-                        self.buf = self.buf[end:]
-                        return buf
+            # filter the prompts
+            for prompt in prompts:
+                pattern = re.compile(prompt)
+                match = pattern.search(self.buf)
+                if match:
+                    end = match.end()
+                    buf = self.buf[0:end-len(prompt)]
+                    self.buf = self.buf[end:]
+                    return buf
         return None
 
     def writeline(self, str):
@@ -140,6 +213,8 @@ class Runner():
         self.stdin.write(str_to_write)
 
     def cleanup(self):
+        atexit.unregister(self.cleanup)
+
         if self.process:
             try:
                 self.writeline("__exit__")
@@ -157,6 +232,8 @@ class Runner():
             self.stdout = None
             if not IS_PY_3:
                 sys.exc_clear()
+            if self._stream_reader:
+                self._stream_reader.cleanup()
 
 def assert_prompt(runner, prompts, timeout, is_need_execute_result):
     # Wait for the initial prompt
@@ -402,9 +479,9 @@ def cast_v128_to_i64x2(numbers, type, lane_type):
     unpacked = struct.unpack("Q Q", packed)
     return unpacked, f"[{unpacked[0]:#x} {unpacked[1]:#x}]:{lane_type}:v128"
 
-
 def parse_simple_const_w_type(number, type):
     number = number.replace('_', '')
+    number = re.sub(r"nan\((ind|snan)\)", "nan", number)
     if type in ["i32", "i64"]:
         number = int(number, 16) if '0x' in number else int(number)
         return number, "0x{:x}:{}".format(number, type) \
@@ -941,7 +1018,8 @@ def skip_test(form, skip_list):
 
 def compile_wast_to_wasm(form, wast_tempfile, wasm_tempfile, opts):
     log("Writing WAST module to '%s'" % wast_tempfile)
-    open(wast_tempfile, 'w').write(form)
+    with open(wast_tempfile, 'w') as file:
+        file.write(form)
     log("Compiling WASM to '%s'" % wasm_tempfile)
 
     # default arguments
@@ -968,27 +1046,8 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r, output = '
     log("Compiling AOT to '%s'" % aot_tempfile)
     cmd = [opts.aot_compiler]
 
-    if test_target == "x86_64":
-        cmd.append("--target=x86_64")
-        cmd.append("--cpu=skylake")
-    elif test_target == "i386":
-        cmd.append("--target=i386")
-    elif test_target == "aarch64":
-        cmd += ["--target=aarch64", "--cpu=cortex-a57"]
-    elif test_target == "armv7":
-        cmd += ["--target=armv7", "--target-abi=gnueabihf"]
-    elif test_target == "thumbv7":
-        cmd += ["--target=thumbv7", "--target-abi=gnueabihf", "--cpu=cortex-a9", "--cpu-features=-neon"]
-    elif test_target == "riscv32_ilp32":
-        cmd += ["--target=riscv32", "--target-abi=ilp32", "--cpu=generic-rv32", "--cpu-features=+m,+a,+c"]
-    elif test_target == "riscv32_ilp32d":
-        cmd += ["--target=riscv32", "--target-abi=ilp32d", "--cpu=generic-rv32", "--cpu-features=+m,+a,+c"]
-    elif test_target == "riscv64_lp64":
-        cmd += ["--target=riscv64", "--target-abi=lp64", "--cpu=generic-rv64", "--cpu-features=+m,+a,+c"]
-    elif test_target == "riscv64_lp64d":
-        cmd += ["--target=riscv64", "--target-abi=lp64d", "--cpu=generic-rv32", "--cpu-features=+m,+a,+c"]
-    else:
-        pass
+    if test_target in aot_target_options_map:
+        cmd += aot_target_options_map[test_target]
 
     if opts.sgx:
         cmd.append("-sgx")
@@ -1040,12 +1099,20 @@ def run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r):
         if opts.qemu_firmware == '':
             raise Exception("QEMU firmware missing")
 
-        if opts.target == "thumbv7":
-            cmd = ["qemu-system-arm", "-semihosting", "-M", "sabrelite", "-m", "1024", "-smp", "4", "-nographic", "-kernel", opts.qemu_firmware]
-        elif opts.target == "riscv32_ilp32":
-            cmd = ["qemu-system-riscv32", "-semihosting", "-M", "virt,aclint=on", "-cpu", "rv32", "-smp", "8", "-nographic", "-bios", "none", "-kernel", opts.qemu_firmware]
-        elif opts.target == "riscv64_lp64":
-            cmd = ["qemu-system-riscv64", "-semihosting", "-M", "virt,aclint=on", "-cpu", "rv64", "-smp", "8", "-nographic", "-bios", "none", "-kernel", opts.qemu_firmware]
+        if opts.target.startswith("aarch64"):
+            cmd = "qemu-system-aarch64 -cpu cortex-a53 -nographic -machine virt,virtualization=on,gic-version=3 -net none -chardev stdio,id=con,mux=on -serial chardev:con -mon chardev=con,mode=readline -kernel".split()
+            cmd.append(opts.qemu_firmware)
+        elif opts.target.startswith("thumbv7"):
+            cmd = "qemu-system-arm -semihosting -M sabrelite -m 1024 -smp 4 -nographic -kernel".split()
+            cmd.append(opts.qemu_firmware)
+        elif opts.target.startswith("riscv32"):
+            cmd = "qemu-system-riscv32 -semihosting -M virt,aclint=on -cpu rv32 -smp 8 -nographic -bios none -kernel".split()
+            cmd.append(opts.qemu_firmware)
+        elif opts.target.startswith("riscv64"):
+            cmd = "qemu-system-riscv64 -semihosting -M virt,aclint=on -cpu rv64 -smp 8 -nographic -bios none -kernel".split()
+            cmd.append(opts.qemu_firmware)
+        else:
+            raise Exception("Unknwon target for QEMU: %s" % opts.target)
 
     else:
         cmd = cmd_iwasm
@@ -1066,13 +1133,10 @@ def run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r):
 def create_tmpfiles(wast_name):
     tempfiles = []
 
-    (t1fd, wast_tempfile) = tempfile.mkstemp(suffix=".wast")
-    (t2fd, wasm_tempfile) = tempfile.mkstemp(suffix=".wasm")
-    tempfiles.append(wast_tempfile)
-    tempfiles.append(wasm_tempfile)
+    tempfiles.append(create_tmp_file(".wast"))
+    tempfiles.append(create_tmp_file(".wasm"))
     if test_aot:
-        (t3fd, aot_tempfile) = tempfile.mkstemp(suffix=".aot")
-        tempfiles.append(aot_tempfile)
+        tempfiles.append(create_tmp_file(".aot"))
 
     # add these temp file to temporal repo, will be deleted when finishing the test
     temp_file_repo.extend(tempfiles)
@@ -1141,10 +1205,10 @@ if __name__ == "__main__":
     else:
         SKIP_TESTS = C_SKIP_TESTS
 
-    (t1fd, wast_tempfile) = tempfile.mkstemp(suffix=".wast")
-    (t2fd, wasm_tempfile) = tempfile.mkstemp(suffix=".wasm")
+    wast_tempfile = create_tmp_file(".wast")
+    wasm_tempfile = create_tmp_file(".wasm")
     if test_aot:
-        (t3fd, aot_tempfile) = tempfile.mkstemp(suffix=".aot")
+        aot_tempfile = create_tmp_file(".aot")
 
     ret_code = 0
     try:
@@ -1175,17 +1239,16 @@ if __name__ == "__main__":
                     # workaround: spec test changes error message to "malformed" while iwasm still use "invalid"
                     error_msg = m.group(2).replace("malformed", "invalid")
                     log("Testing(malformed)")
-                    f = open(wasm_tempfile, 'wb')
-                    s = m.group(1)
-                    while s:
-                        res = re.match("[^\"]*\"([^\"]*)\"(.*)", s, re.DOTALL)
-                        if IS_PY_3:
-                            context = res.group(1).replace("\\", "\\x").encode("latin1").decode("unicode-escape").encode("latin1")
-                            f.write(context)
-                        else:
-                            f.write(res.group(1).replace("\\", "\\x").decode("string-escape"))
-                        s = res.group(2)
-                    f.close()
+                    with open(wasm_tempfile, 'wb') as f:
+                        s = m.group(1)
+                        while s:
+                            res = re.match("[^\"]*\"([^\"]*)\"(.*)", s, re.DOTALL)
+                            if IS_PY_3:
+                                context = res.group(1).replace("\\", "\\x").encode("latin1").decode("unicode-escape").encode("latin1")
+                                f.write(context)
+                            else:
+                                f.write(res.group(1).replace("\\", "\\x").decode("string-escape"))
+                            s = res.group(2)
 
                     # compile wasm to aot
                     if test_aot:

@@ -15,7 +15,9 @@ function help()
     echo "test_wamr.sh [options]"
     echo "-c clean previous test results, not start test"
     echo "-s {suite_name} test only one suite (spec|wasi_certification|wamr_compiler)"
-    echo "-m set compile target of iwasm(x86_64|x86_32|armv7_vfp|thumbv7_vfp|riscv64_lp64d|riscv64_lp64|aarch64)"
+    echo "-m set compile target of iwasm(x86_64|x86_32|armv7|armv7_vfp|thumbv7|thumbv7_vfp|"
+    echo "                               riscv32|riscv32_ilp32f|riscv32_ilp32d|riscv64|"
+    echo "                               riscv64_lp64f|riscv64_lp64d|aarch64|aarch64_vfp)"
     echo "-t set compile type of iwasm(classic-interp|fast-interp|jit|aot|fast-jit|multi-tier-jit)"
     echo "-M enable multi module feature"
     echo "-p enable multi thread feature"
@@ -53,12 +55,20 @@ ENABLE_GC_HEAP_VERIFY=0
 #unit test case arrary
 TEST_CASE_ARR=()
 SGX_OPT=""
-PLATFORM=$(uname -s | tr A-Z a-z)
+if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" ]]; then
+    PLATFORM=windows
+    PYTHON_EXE=python
+else
+    PLATFORM=$(uname -s | tr A-Z a-z)
+    PYTHON_EXE=python3
+fi
 PARALLELISM=0
 ENABLE_QEMU=0
 QEMU_FIRMWARE=""
 # prod/testsuite-all branch
 WASI_TESTSUITE_COMMIT="ee807fc551978490bf1c277059aabfa1e589a6c2"
+TARGET_LIST=("AARCH64" "AARCH64_VFP" "ARMV7" "ARMV7_VFP" "THUMBV7" "THUMBV7_VFP" \
+             "RISCV32" "RISCV32_ILP32F" "RISCV32_ILP32D" "RISCV64" "RISCV64_LP64F" "RISCV64_LP64D")
 
 while getopts ":s:cabgvt:m:MCpSXxwPGQF:j:T:" opt
 do
@@ -323,12 +333,15 @@ function setup_wabt()
         if [ ! -f ${WAT2WASM} ]; then
             case ${PLATFORM} in
                 cosmopolitan)
-                    ;&
+                    ;;
                 linux)
                     WABT_PLATFORM=ubuntu
                     ;;
                 darwin)
-                    WABT_PLATFORM=macos
+                    WABT_PLATFORM=macos-12
+                    ;;
+                windows)
+                    WABT_PLATFORM=windows
                     ;;
                 *)
                     echo "wabt platform for ${PLATFORM} in unknown"
@@ -336,9 +349,9 @@ function setup_wabt()
                     ;;
             esac
             if [ ! -f /tmp/wabt-1.0.31-${WABT_PLATFORM}.tar.gz ]; then
-                wget \
+                curl -L \
                     https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-${WABT_PLATFORM}.tar.gz \
-                    -P /tmp
+                    -o /tmp/wabt-1.0.31-${WABT_PLATFORM}.tar.gz
             fi
 
             cd /tmp \
@@ -493,12 +506,16 @@ function spec_test()
         ARGS_FOR_SPEC_TEST+="--qemu-firmware ${QEMU_FIRMWARE} "
     fi
 
+    if [[ ${PLATFORM} == "windows" ]]; then
+        ARGS_FOR_SPEC_TEST+="--no-pty "
+    fi
+
     # set log directory
     ARGS_FOR_SPEC_TEST+="--log ${REPORT_DIR}"
 
     cd ${WORK_DIR}
-    echo "python3 ./all.py ${ARGS_FOR_SPEC_TEST} | tee -a ${REPORT_DIR}/spec_test_report.txt"
-    python3 ./all.py ${ARGS_FOR_SPEC_TEST} | tee -a ${REPORT_DIR}/spec_test_report.txt
+    echo "${PYTHON_EXE} ./all.py ${ARGS_FOR_SPEC_TEST} | tee -a ${REPORT_DIR}/spec_test_report.txt"
+    ${PYTHON_EXE} ./all.py ${ARGS_FOR_SPEC_TEST} | tee -a ${REPORT_DIR}/spec_test_report.txt
     if [[ ${PIPESTATUS[0]} -ne 0 ]];then
         echo -e "\nspec tests FAILED" | tee -a ${REPORT_DIR}/spec_test_report.txt
         exit 1
@@ -559,7 +576,7 @@ function wasi_certification_test()
     cd wasi-testsuite
     git reset --hard ${WASI_TESTSUITE_COMMIT}
 
-    TSAN_OPTIONS=${TSAN_OPTIONS} bash ../../wasi-test-script/run_wasi_tests.sh $1 $TARGET \
+    TSAN_OPTIONS=${TSAN_OPTIONS} bash ../../wasi-test-script/run_wasi_tests.sh $1 $TARGET $WASI_TEST_FILTER \
         | tee -a ${REPORT_DIR}/wasi_test_report.txt
     ret=${PIPESTATUS[0]}
 
@@ -689,7 +706,7 @@ function build_iwasm_with_cfg()
         && if [ -d build ]; then rm -rf build/*; else mkdir build; fi \
         && cd build \
         && cmake $* .. \
-        && make -j 4
+        && cmake --build . -j 4 --config RelWithDebInfo
     fi
 
     if [ "$?" != 0 ];then
@@ -714,9 +731,7 @@ function build_iwasm_with_cfg()
 
 function build_wamrc()
 {
-    if [[ $TARGET == "ARMV7_VFP" || $TARGET == "THUMBV7_VFP"
-          || $TARGET == "RISCV32" || $TARGET == "RISCV32_ILP32" || $TARGET == "RISCV32_ILP32D"
-          || $TARGET == "RISCV64" || $TARGET == "RISCV64_LP64D" || $TARGET == "RISCV64_LP64" ]];then
+    if [[ "${TARGET_LIST[*]}" =~ "${TARGET}" ]]; then
         echo "suppose wamrc is already built"
         return
     fi
@@ -827,6 +842,17 @@ function trigger()
     if [[ "$WAMR_BUILD_SANITIZER" == "tsan" ]]; then
         echo "Setting run with tsan"
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_SANITIZER=tsan"
+    fi
+
+    # Make sure we're using the builtin WASI libc implementation
+    # if we're running the wasi certification tests.
+    if [[ $TEST_CASE_ARR ]]; then
+        for test in "${TEST_CASE_ARR[@]}"; do
+            if [[ "$test" == "wasi_certification" ]]; then
+                EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_LIBC_UVWASI=0 -DWAMR_BUILD_LIBC_WASI=1"
+                break
+            fi
+        done
     fi
 
     for t in "${TYPE[@]}"; do

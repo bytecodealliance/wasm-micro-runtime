@@ -181,7 +181,6 @@ fail:
 
 #define read_uint8(p) TEMPLATE_READ_VALUE(uint8, p)
 #define read_uint32(p) TEMPLATE_READ_VALUE(uint32, p)
-#define read_bool(p) TEMPLATE_READ_VALUE(bool, p)
 
 #define read_leb_int64(p, p_end, res)                                   \
     do {                                                                \
@@ -574,6 +573,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
             if (type != VALUE_TYPE_V128)
                 goto fail_type_mismatch;
 
+            CHECK_BUF(p, p_end, 1);
             flag = read_uint8(p);
             (void)flag;
 
@@ -624,6 +624,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
 #else
             WASMRefType ref_type1 = { 0 };
 
+            CHECK_BUF(p, p_end, 1);
             type1 = read_uint8(p);
             if (!is_byte_a_type(type1)) {
                 p--;
@@ -1183,6 +1184,7 @@ resolve_struct_type(const uint8 **p_buf, const uint8 *buf_end,
             }
         }
 
+        CHECK_BUF(p, p_end, 1);
         type->fields[i].field_flags = read_uint8(p);
         type->fields[i].field_size =
             (uint8)wasm_reftype_size(ref_type.ref_type);
@@ -4067,6 +4069,7 @@ init_llvm_jit_functions_stage1(WASMModule *module, char *error_buf,
     option.opt_level = llvm_jit_options.opt_level;
     option.size_level = llvm_jit_options.size_level;
     option.segue_flags = llvm_jit_options.segue_flags;
+    option.linux_perf_support = llvm_jit_options.linux_perf_support;
 
 #if WASM_ENABLE_BULK_MEMORY != 0
     option.enable_bulk_memory = true;
@@ -9184,7 +9187,7 @@ wasm_loader_get_custom_section(WASMModule *module, const char *name,
         section = section->next;
     }
 
-    return false;
+    return NULL;
 }
 #endif
 
@@ -12741,6 +12744,7 @@ re_scan:
             {
                 uint32 opcode1;
 
+                CHECK_BUF(p, p_end, 1);
                 opcode1 = read_uint8(p);
                 /* follow the order of enum WASMSimdEXTOpcode in wasm_opcode.h
                  */
@@ -13402,6 +13406,7 @@ re_scan:
             {
                 uint32 opcode1;
 
+                CHECK_BUF(p, p_end, 1);
                 opcode1 = read_uint8(p);
 #if WASM_ENABLE_FAST_INTERP != 0
                 emit_byte(loader_ctx, opcode1);

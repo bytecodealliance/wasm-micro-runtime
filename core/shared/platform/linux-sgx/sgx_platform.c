@@ -120,12 +120,19 @@ strcpy(char *dest, const char *src)
 }
 
 void *
-os_mmap(void *hint, size_t size, int prot, int flags)
+os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
 {
     int mprot = 0;
     uint64 aligned_size, page_size;
     void *ret = NULL;
     sgx_status_t st = 0;
+
+    if (os_is_handle_valid(&file)) {
+        os_printf("os_mmap(size=%u, prot=0x%x, file=%x) failed: file is not "
+                  "supported.\n",
+                  size, prot, file);
+        return NULL;
+    }
 
     page_size = getpagesize();
     aligned_size = (size + page_size - 1) & ~(page_size - 1);

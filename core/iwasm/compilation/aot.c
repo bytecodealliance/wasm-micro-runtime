@@ -129,7 +129,6 @@ aot_create_table_init_data_list(const WASMModule *module)
         data_list[i]->mode = module->table_segments[i].mode;
         data_list[i]->elem_type = module->table_segments[i].elem_type;
         /* runtime control it */
-        data_list[i]->is_dropped = false;
         data_list[i]->table_index = module->table_segments[i].table_index;
         bh_memcpy_s(&data_list[i]->offset, sizeof(AOTInitExpr),
                     &module->table_segments[i].base_offset,
