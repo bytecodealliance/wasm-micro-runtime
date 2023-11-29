@@ -871,6 +871,59 @@ fail:
 #endif /* WASM_ENABLE_CUSTOM_NAME_SECTION != 0 */
 }
 
+#if WASM_ENABLE_STRINGREF != 0
+static bool
+load_string_literal_section(const uint8 *buf, const uint8 *buf_end,
+                            AOTModule *module, bool is_load_from_file_buf,
+                            char *error_buf, uint32 error_buf_size)
+{
+    const uint8 *p = buf, *p_end = buf_end;
+    uint32 reserved = 0, string_count = 0, i;
+    uint64 size;
+
+    read_uint32(p, p_end, reserved);
+    if (reserved != 0) {
+        set_error_buf(error_buf, error_buf_size,
+                      "invalid reserved slot in string literal count");
+        goto fail;
+    }
+
+    read_uint32(p, p_end, string_count);
+    if (string_count == 0) {
+        set_error_buf(error_buf, error_buf_size,
+                      "invalid string literal count");
+        goto fail;
+    }
+    module->string_literal_count = string_count;
+
+    size = (uint64)sizeof(char *) * string_count;
+    if (!(module->string_literal_ptrs =
+              loader_malloc(size, error_buf, error_buf_size))) {
+        goto fail;
+    }
+
+    size = (uint64)sizeof(uint32) * string_count;
+    if (!(module->string_literal_lengths =
+              loader_malloc(size, error_buf, error_buf_size))) {
+        goto fail;
+    }
+
+    for (i = 0; i < string_count; i++) {
+        read_uint32(p, p_end, module->string_literal_lengths[i]);
+    }
+
+    for (i = 0; i < string_count; i++) {
+        module->string_literal_ptrs[i] = p;
+        p += module->string_literal_lengths[i];
+    }
+
+    return true;
+
+fail:
+    return false;
+}
+#endif /* end of WASM_ENABLE_STRINGREF != 0 */
+
 static bool
 load_custom_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
                     bool is_load_from_file_buf, char *error_buf,
@@ -894,6 +947,14 @@ load_custom_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
                                    error_buf, error_buf_size))
                 goto fail;
             break;
+#if WASM_ENABLE_STRINGREF != 0
+        case AOT_CUSTOM_SECTION_STRING_LITERAL:
+            if (!load_string_literal_section(buf, buf_end, module,
+                                             is_load_from_file_buf, error_buf,
+                                             error_buf_size))
+                goto fail;
+            break;
+#endif
 #if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
         case AOT_CUSTOM_SECTION_RAW:
         {
@@ -1225,7 +1286,6 @@ load_table_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
 
         data_list[i]->mode = mode;
         data_list[i]->elem_type = elem_type;
-        data_list[i]->is_dropped = false;
         data_list[i]->table_index = table_index;
 #if WASM_ENABLE_GC != 0
         if (wasm_is_type_multi_byte_type(elem_type)) {
@@ -2037,8 +2097,9 @@ load_object_data_sections(const uint8 **p_buf, const uint8 *buf_end,
 
         /* Allocate memory for data */
         if (data_sections[i].size > 0
-            && !(data_sections[i].data = os_mmap(NULL, data_sections[i].size,
-                                                 map_prot, map_flags))) {
+            && !(data_sections[i].data =
+                     os_mmap(NULL, data_sections[i].size, map_prot, map_flags,
+                             os_get_invalid_handle()))) {
             set_error_buf(error_buf, error_buf_size, "allocate memory failed");
             return false;
         }
@@ -2961,7 +3022,8 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
 
         if (size > UINT32_MAX
             || !(module->extra_plt_data =
-                     os_mmap(NULL, (uint32)size, map_prot, map_flags))) {
+                     os_mmap(NULL, (uint32)size, map_prot, map_flags,
+                             os_get_invalid_handle()))) {
             set_error_buf(error_buf, error_buf_size, "mmap memory failed");
             goto fail;
         }
@@ -3084,7 +3146,8 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
         size = (uint64)sizeof(void *) * got_item_count;
         if (size > UINT32_MAX
             || !(module->got_func_ptrs =
-                     os_mmap(NULL, (uint32)size, map_prot, map_flags))) {
+                     os_mmap(NULL, (uint32)size, map_prot, map_flags,
+                             os_get_invalid_handle()))) {
             set_error_buf(error_buf, error_buf_size, "mmap memory failed");
             goto fail;
         }
@@ -3618,8 +3681,9 @@ create_sections(AOTModule *module, const uint8 *buf, uint32 size,
                         (uint64)section_size + aot_get_plt_table_size();
                     total_size = (total_size + 3) & ~((uint64)3);
                     if (total_size >= UINT32_MAX
-                        || !(aot_text = os_mmap(NULL, (uint32)total_size,
-                                                map_prot, map_flags))) {
+                        || !(aot_text =
+                                 os_mmap(NULL, (uint32)total_size, map_prot,
+                                         map_flags, os_get_invalid_handle()))) {
                         wasm_runtime_free(section);
                         set_error_buf(error_buf, error_buf_size,
                                       "mmap memory failed");
@@ -3894,6 +3958,24 @@ aot_unload(AOTModule *module)
         }
         wasm_runtime_free(module->rtt_types);
     }
+#if WASM_ENABLE_STRINGREF != 0
+    {
+        uint32 i;
+        for (i = 0; i < WASM_TYPE_STRINGVIEWITER - WASM_TYPE_STRINGREF + 1;
+             i++) {
+            if (module->stringref_rtts[i])
+                wasm_runtime_free(module->stringref_rtts[i]);
+        }
+
+        if (module->string_literal_lengths) {
+            wasm_runtime_free(module->string_literal_lengths);
+        }
+
+        if (module->string_literal_ptrs) {
+            wasm_runtime_free(module->string_literal_ptrs);
+        }
+    }
+#endif
 #endif
 
     wasm_runtime_free(module);

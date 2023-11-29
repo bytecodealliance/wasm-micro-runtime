@@ -56,6 +56,7 @@ typedef pthread_t korp_tid;
 typedef pthread_mutex_t korp_mutex;
 typedef pthread_cond_t korp_cond;
 typedef pthread_t korp_thread;
+typedef pthread_rwlock_t korp_rwlock;
 typedef sem_t korp_sem;
 
 #define OS_THREAD_MUTEX_INITIALIZER PTHREAD_MUTEX_INITIALIZER
@@ -144,6 +145,16 @@ preadv(int __fd, const struct iovec *__iov, int __count, off_t __offset);
 
 ssize_t
 pwritev(int __fd, const struct iovec *__iov, int __count, off_t __offset);
+
+typedef int os_file_handle;
+typedef DIR *os_dir_stream;
+typedef int os_raw_file_handle;
+
+static inline os_file_handle
+os_get_invalid_handle()
+{
+    return -1;
+}
 
 #ifdef __cplusplus
 }

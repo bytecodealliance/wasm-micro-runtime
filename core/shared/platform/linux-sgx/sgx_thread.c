@@ -214,3 +214,68 @@ os_thread_get_stack_boundary()
 void
 os_thread_jit_write_protect_np(bool enabled)
 {}
+
+int
+os_rwlock_init(korp_rwlock *lock)
+{
+#ifndef SGX_DISABLE_PTHREAD
+    assert(lock);
+
+    if (pthread_rwlock_init(lock, NULL) != BHT_OK)
+        return BHT_ERROR;
+#endif
+
+    return BHT_OK;
+}
+
+int
+os_rwlock_rdlock(korp_rwlock *lock)
+{
+#ifndef SGX_DISABLE_PTHREAD
+    assert(lock);
+
+    if (pthread_rwlock_rdlock(lock) != BHT_OK)
+        return BHT_ERROR;
+#endif
+
+    return BHT_OK;
+}
+
+int
+os_rwlock_wrlock(korp_rwlock *lock)
+{
+#ifndef SGX_DISABLE_PTHREAD
+    assert(lock);
+
+    if (pthread_rwlock_wrlock(lock) != BHT_OK)
+        return BHT_ERROR;
+#endif
+
+    return BHT_OK;
+}
+
+int
+os_rwlock_unlock(korp_rwlock *lock)
+{
+#ifndef SGX_DISABLE_PTHREAD
+    assert(lock);
+
+    if (pthread_rwlock_unlock(lock) != BHT_OK)
+        return BHT_ERROR;
+#endif
+
+    return BHT_OK;
+}
+
+int
+os_rwlock_destroy(korp_rwlock *lock)
+{
+#ifndef SGX_DISABLE_PTHREAD
+    assert(lock);
+
+    if (pthread_rwlock_destroy(lock) != BHT_OK)
+        return BHT_ERROR;
+#endif
+
+    return BHT_OK;
+}

@@ -157,7 +157,6 @@ typedef struct AOTTableInitData {
 #if WASM_ENABLE_GC != 0
     WASMRefType *elem_ref_type;
 #endif
-    bool is_dropped;
     /* optional, only for active */
     uint32 table_index;
     /* Start address of init data */
@@ -321,6 +320,12 @@ typedef struct AOTCompData {
     uint32 aux_stack_top_global_index;
     uint32 aux_stack_bottom;
     uint32 aux_stack_size;
+
+#if WASM_ENABLE_STRINGREF != 0
+    uint32 string_literal_count;
+    uint32 *string_literal_lengths_wp;
+    const uint8 **string_literal_ptrs_wp;
+#endif
 
     WASMModule *wasm_module;
 #if WASM_ENABLE_DEBUG_AOT != 0

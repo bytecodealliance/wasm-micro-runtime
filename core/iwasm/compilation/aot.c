@@ -129,7 +129,6 @@ aot_create_table_init_data_list(const WASMModule *module)
         data_list[i]->mode = module->table_segments[i].mode;
         data_list[i]->elem_type = module->table_segments[i].elem_type;
         /* runtime control it */
-        data_list[i]->is_dropped = false;
         data_list[i]->table_index = module->table_segments[i].table_index;
         bh_memcpy_s(&data_list[i]->offset, sizeof(AOTInitExpr),
                     &module->table_segments[i].base_offset,
@@ -703,6 +702,12 @@ aot_create_comp_data(WASMModule *module, const char *target_arch,
     comp_data->malloc_func_index = module->malloc_function;
     comp_data->free_func_index = module->free_function;
     comp_data->retain_func_index = module->retain_function;
+
+#if WASM_ENABLE_STRINGREF != 0
+    comp_data->string_literal_count = module->string_literal_count;
+    comp_data->string_literal_ptrs_wp = module->string_literal_ptrs;
+    comp_data->string_literal_lengths_wp = module->string_literal_lengths;
+#endif
 
     comp_data->wasm_module = module;
 

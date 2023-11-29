@@ -12,6 +12,7 @@
 #include "llvm-c/Target.h"
 #include "llvm-c/Core.h"
 #include "llvm-c/Object.h"
+#include "llvm-c/OrcEE.h"
 #include "llvm-c/ExecutionEngine.h"
 #include "llvm-c/Analysis.h"
 #include "llvm-c/BitWriter.h"
@@ -173,6 +174,9 @@ typedef struct AOTBlock {
 
     /* The begin frame stack pointer of this block */
     AOTValueSlot *frame_sp_begin;
+    /* The max frame stack pointer that br/br_if/br_table/br_on_xxx
+       opcodes ever reached when they jumped to the end this block */
+    AOTValueSlot *frame_sp_max_reached;
 } AOTBlock;
 
 /**
@@ -432,6 +436,8 @@ typedef struct AOTCompContext {
 
     /* Whether optimize the JITed code */
     bool optimize;
+
+    bool emit_frame_pointer;
 
     /* Enable GC */
     bool enable_gc;

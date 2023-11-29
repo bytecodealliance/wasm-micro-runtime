@@ -330,6 +330,61 @@ os_cond_broadcast(korp_cond *cond)
 }
 
 int
+os_rwlock_init(korp_rwlock *lock)
+{
+    assert(lock);
+
+    if (pthread_rwlock_init(lock, NULL) != BHT_OK)
+        return BHT_ERROR;
+
+    return BHT_OK;
+}
+
+int
+os_rwlock_rdlock(korp_rwlock *lock)
+{
+    assert(lock);
+
+    if (pthread_rwlock_rdlock(lock) != BHT_OK)
+        return BHT_ERROR;
+
+    return BHT_OK;
+}
+
+int
+os_rwlock_wrlock(korp_rwlock *lock)
+{
+    assert(lock);
+
+    if (pthread_rwlock_wrlock(lock) != BHT_OK)
+        return BHT_ERROR;
+
+    return BHT_OK;
+}
+
+int
+os_rwlock_unlock(korp_rwlock *lock)
+{
+    assert(lock);
+
+    if (pthread_rwlock_unlock(lock) != BHT_OK)
+        return BHT_ERROR;
+
+    return BHT_OK;
+}
+
+int
+os_rwlock_destroy(korp_rwlock *lock)
+{
+    assert(lock);
+
+    if (pthread_rwlock_destroy(lock) != BHT_OK)
+        return BHT_ERROR;
+
+    return BHT_OK;
+}
+
+int
 os_thread_join(korp_tid thread, void **value_ptr)
 {
     return pthread_join(thread, value_ptr);
@@ -609,7 +664,7 @@ os_thread_signal_init(os_signal_handler handler)
 
     /* Initialize memory for signal alternate stack of current thread */
     if (!(map_addr = os_mmap(NULL, map_size, MMAP_PROT_READ | MMAP_PROT_WRITE,
-                             MMAP_MAP_NONE))) {
+                             MMAP_MAP_NONE, os_get_invalid_handle()))) {
         os_printf("Failed to mmap memory for alternate stack\n");
         goto fail1;
     }

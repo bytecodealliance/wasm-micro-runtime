@@ -130,7 +130,7 @@ enum {
 };
 
 void *
-os_mmap(void *hint, size_t size, int prot, int flags);
+os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file);
 void
 os_munmap(void *addr, size_t size);
 int

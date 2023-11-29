@@ -850,12 +850,8 @@ stringref_obj_new(WASMExecEnv *exec_env, uint32 type, const void *str_obj,
     if (module_inst->module_type == Wasm_Module_AoT) {
         AOTModule *module =
             (AOTModule *)((AOTModuleInstance *)module_inst)->module;
-        /* TODO: implement stringref for AoT */
-        /*
-        rtt_type = aot_stringref_rtt_type_new(WASM_TYPE_STRINGREF,
-                                              module->stringref_rtts,
-                                              &module->rtt_type_lock);
-        */
+        rtt_type = wasm_stringref_rtt_type_new(type, module->stringref_rtts,
+                                               &module->rtt_type_lock);
     }
 #endif
 
