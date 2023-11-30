@@ -318,7 +318,7 @@ typedef enum WASMGCEXTOpcode {
     WASM_OP_BR_ON_CAST_FAIL = 0x19, /* br_on_cast_fail */
 
     WASM_OP_ANY_CONVERT_EXTERN = 0x1A, /* any.convert_extern */
-    WASM_OP_EXTERN_COVERT_ANY = 0x1B,  /* extern.covert_any */
+    WASM_OP_EXTERN_CONVERT_ANY = 0x1B, /* extern.covert_any */
 
     WASM_OP_REF_I31 = 0x1C,   /* ref.i31 */
     WASM_OP_I31_GET_S = 0x1D, /* i31.get_s */

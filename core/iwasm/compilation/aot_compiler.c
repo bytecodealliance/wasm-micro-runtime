@@ -1564,7 +1564,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                             return false;
                         break;
 
-                    case WASM_OP_EXTERN_COVERT_ANY:
+                    case WASM_OP_EXTERN_CONVERT_ANY:
                         if (!aot_compile_op_extern_externalize(
                                 comp_ctx, func_ctx, frame_ip_org))
                             return false;

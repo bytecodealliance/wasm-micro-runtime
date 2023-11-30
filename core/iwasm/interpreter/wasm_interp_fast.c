@@ -2595,7 +2595,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         }
                         HANDLE_OP_END();
                     }
-                    case WASM_OP_EXTERN_COVERT_ANY:
+                    case WASM_OP_EXTERN_CONVERT_ANY:
                     {
                         gc_obj = POP_REF();
                         if (gc_obj == NULL_REF)

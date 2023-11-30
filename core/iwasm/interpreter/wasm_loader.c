@@ -764,7 +764,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                         "unsuppoted constant expression of extern.internalize");
                     return false;
                 }
-                case WASM_OP_EXTERN_COVERT_ANY:
+                case WASM_OP_EXTERN_CONVERT_ANY:
                 {
                     set_error_buf(
                         error_buf, error_buf_size,
@@ -6055,7 +6055,7 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                         break;
 
                     case WASM_OP_ANY_CONVERT_EXTERN:
-                    case WASM_OP_EXTERN_COVERT_ANY:
+                    case WASM_OP_EXTERN_CONVERT_ANY:
                         break;
 
 #if WASM_ENABLE_STRINGREF != 0
@@ -12115,7 +12115,7 @@ re_scan:
                         break;
                     }
 
-                    case WASM_OP_EXTERN_COVERT_ANY:
+                    case WASM_OP_EXTERN_CONVERT_ANY:
                     {
                         uint8 type;
 
