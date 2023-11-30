@@ -1080,9 +1080,6 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r, output = '
     # RISCV64 requires -mcmodel=medany, which can be set by --size-level=1
     if test_target.startswith("riscv64"):
         cmd.append("--size-level=1")
-        # FIXME: -O3 will cause unexpected native stack overflow in:
-        #   core/iwasm/compilation/aot_llvm.c:413
-        cmd.append("--opt-level=2")
 
     cmd += ["-o", aot_tempfile, wasm_tempfile]
 

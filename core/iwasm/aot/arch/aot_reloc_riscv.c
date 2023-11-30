@@ -101,20 +101,20 @@ static SymbolMap target_sym_map[] = {
     REG_SYM(__truncdfsf2),
     REG_SYM(__unorddf2),
     REG_SYM(__unordsf2),
-#if __riscv_xlen == 32
+    REG_SYM(__mulsf3),
+    REG_SYM(__floatundidf),
     REG_SYM(__fixdfdi),
+    REG_SYM(__floatsidf),
+    REG_SYM(__floatunsidf),
+#if __riscv_xlen == 32
     REG_SYM(__fixdfsi),
     REG_SYM(__fixsfdi),
     REG_SYM(__fixsfsi),
     REG_SYM(__floatdidf),
     REG_SYM(__floatdisf),
-    REG_SYM(__floatsidf),
     REG_SYM(__floatsisf),
-    REG_SYM(__floatundidf),
     REG_SYM(__floatundisf),
-    REG_SYM(__floatunsidf),
     REG_SYM(__floatunsisf),
-    REG_SYM(__mulsf3),
     REG_SYM(__mulsi3),
 #endif
 #endif
@@ -330,18 +330,30 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
         case R_RISCV_64:
         {
             uint64 val_64 =
-                (uint64)((uintptr_t)symbol_addr + (intptr_t)reloc_addend);
+                (uint64)((intptr_t)symbol_addr + (intptr_t)reloc_addend);
+
             CHECK_RELOC_OFFSET(sizeof(uint64));
+            if (val_64
+                != (uint64)((intptr_t)symbol_addr + (intptr_t)reloc_addend)) {
+                goto fail_addr_out_of_range;
+            }
+
             bh_memcpy_s(addr, 8, &val_64, 8);
+#ifdef __riscv_zifencei
+            __asm__ volatile("fence.i");
+#else
+            __asm__ volatile("fence");
+#endif
             break;
         }
         case R_RISCV_CALL:
         case R_RISCV_CALL_PLT:
+        case R_RISCV_PCREL_HI20: /* S + A - P */
         {
-            val = (int32)(intptr_t)((uint8 *)symbol_addr - addr);
+            val = (int32)(intptr_t)((uint8 *)symbol_addr + reloc_addend - addr);
 
             CHECK_RELOC_OFFSET(sizeof(uint32));
-            if (val != (intptr_t)((uint8 *)symbol_addr - addr)) {
+            if (val != (intptr_t)((uint8 *)symbol_addr + reloc_addend - addr)) {
                 if (symbol_index >= 0) {
                     /* Call runtime function by plt code */
                     symbol_addr = (uint8 *)module->code + module->code_size
@@ -351,7 +363,7 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
                 }
             }
 
-            if (val != (intptr_t)((uint8 *)symbol_addr - addr)) {
+            if (val != (intptr_t)((uint8 *)symbol_addr + reloc_addend - addr)) {
                 goto fail_addr_out_of_range;
             }
 
@@ -372,32 +384,15 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
             break;
         }
 
-        case R_RISCV_HI20:       /* S + A */
-        case R_RISCV_PCREL_HI20: /* S + A - P */
+        case R_RISCV_HI20: /* S + A */
         {
-            if (reloc_type == R_RISCV_PCREL_HI20) {
-                val = (int32)((intptr_t)symbol_addr + (intptr_t)reloc_addend
-                              - (intptr_t)addr);
-            }
-            else {
-                val = (int32)((intptr_t)symbol_addr + (intptr_t)reloc_addend);
-            }
+            val = (int32)((intptr_t)symbol_addr + (intptr_t)reloc_addend);
 
             CHECK_RELOC_OFFSET(sizeof(uint32));
-            if (reloc_type == R_RISCV_PCREL_HI20) {
-                if (val
-                    != ((intptr_t)symbol_addr + (intptr_t)reloc_addend
-                        - (intptr_t)addr)) {
-                    goto fail_addr_out_of_range;
-                }
-            }
-            else {
-                if (val != ((intptr_t)symbol_addr + (intptr_t)reloc_addend)) {
-                    goto fail_addr_out_of_range;
-                }
+            if (val != ((intptr_t)symbol_addr + (intptr_t)reloc_addend)) {
+                goto fail_addr_out_of_range;
             }
 
-            addr = target_section_addr + reloc_offset;
             insn = rv_get_val((uint16 *)addr);
             rv_calc_imm(val, &imm_hi, &imm_lo);
             insn = (insn & 0x00000fff) | (imm_hi << 12);
@@ -405,27 +400,21 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
             break;
         }
 
-        case R_RISCV_LO12_I:       /* S + A */
         case R_RISCV_PCREL_LO12_I: /* S - P */
         {
-            if (reloc_type == R_RISCV_PCREL_LO12_I) {
-                /* A = 0 */
-                val = (int32)((intptr_t)symbol_addr - (intptr_t)addr);
-            }
-            else {
-                val = (int32)((intptr_t)symbol_addr + (intptr_t)reloc_addend);
-            }
+            /* Already handled in R_RISCV_PCREL_HI20 */
+            break;
+        }
+
+        case R_RISCV_LO12_I: /* S + A */
+        {
+
+            val = (int32)((intptr_t)symbol_addr + (intptr_t)reloc_addend);
 
             CHECK_RELOC_OFFSET(sizeof(uint32));
-            if (reloc_type == R_RISCV_PCREL_LO12_I) {
-                if (val != (intptr_t)symbol_addr - (intptr_t)addr) {
-                    goto fail_addr_out_of_range;
-                }
-            }
-            else {
-                if (val != (intptr_t)symbol_addr + (intptr_t)reloc_addend) {
-                    goto fail_addr_out_of_range;
-                }
+
+            if (val != (intptr_t)symbol_addr + (intptr_t)reloc_addend) {
+                goto fail_addr_out_of_range;
             }
 
             addr = target_section_addr + reloc_offset;
