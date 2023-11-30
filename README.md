@@ -1,5 +1,6 @@
 # WebAssembly Micro Runtime
 
+<img src="./doc/pics/wamr_icon.png" width="120" />
 
 **A [Bytecode Alliance][BA] project**
 
