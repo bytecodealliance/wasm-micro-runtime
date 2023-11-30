@@ -147,15 +147,39 @@ check_and_seek(JitCompContext *cc, JitReg addr, uint32 offset, uint32 bytes)
     if (cc->cur_wasm_module->memories != NULL
         && 0 == cc->cur_wasm_module->memories[mem_idx].init_page_count) {
         JitReg module_inst, cur_page_count;
-        uint32 cur_page_count_offset =
+        uint32 cur_page_count_offset;
+
+        module_inst = get_module_inst_reg(cc->jit_frame);
+        cur_page_count = jit_cc_new_reg_I32(cc);
+
+        /* Get current page count */
+#if WASM_ENABLE_SHARED_MEMORY != 0
+        uint32 memories_offset = (uint32)offsetof(WASMModuleInstance, memories);
+        JitReg memories_addr = jit_cc_new_reg_ptr(cc);
+        JitReg memories_mem_idx_addr = jit_cc_new_reg_ptr(cc);
+
+        cur_page_count_offset =
+            (uint32)offsetof(WASMMemoryInstance, cur_page_count);
+
+        /* module_inst->memories */
+        GEN_INSN(LDPTR, memories_addr, module_inst,
+                 NEW_CONST(I32, memories_offset));
+        /* module_inst->memories[mem_idx], mem_idx can only be 0 now */
+        GEN_INSN(LDPTR, memories_mem_idx_addr, memories_addr,
+                 NEW_CONST(I32, mem_idx));
+        /* load memories[mem_idx]->cur_page_count to cur_page_count */
+        GEN_INSN(LDI32, cur_page_count, memories_mem_idx_addr,
+                 NEW_CONST(I32, cur_page_count_offset));
+#else
+        cur_page_count_offset =
             (uint32)offsetof(WASMModuleInstance, global_table_data.bytes)
             + (uint32)offsetof(WASMMemoryInstance, cur_page_count);
 
-        /* if (cur_mem_page_count == 0) goto EXCEPTION */
-        module_inst = get_module_inst_reg(cc->jit_frame);
-        cur_page_count = jit_cc_new_reg_I32(cc);
         GEN_INSN(LDI32, cur_page_count, module_inst,
                  NEW_CONST(I32, cur_page_count_offset));
+#endif
+
+        /* if (cur_mem_page_count == 0) goto EXCEPTION */
         GEN_INSN(CMP, cc->cmp_reg, cur_page_count, NEW_CONST(I32, 0));
         if (!jit_emit_exception(cc, EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS,
                                 JIT_OP_BEQ, cc->cmp_reg, NULL)) {
@@ -581,14 +605,38 @@ bool
 jit_compile_op_memory_size(JitCompContext *cc, uint32 mem_idx)
 {
     JitReg module_inst, cur_page_count;
-    uint32 cur_page_count_offset =
-        (uint32)offsetof(WASMModuleInstance, global_table_data.bytes)
-        + (uint32)offsetof(WASMMemoryInstance, cur_page_count);
+    uint32 cur_page_count_offset;
 
     module_inst = get_module_inst_reg(cc->jit_frame);
     cur_page_count = jit_cc_new_reg_I32(cc);
+
+    /* Get current page count */
+    bh_assert(mem_idx == 0);
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    uint32 memories_offset = (uint32)offsetof(WASMModuleInstance, memories);
+    JitReg memories_addr = jit_cc_new_reg_ptr(cc);
+    JitReg memories_mem_idx_addr = jit_cc_new_reg_ptr(cc);
+
+    cur_page_count_offset =
+        (uint32)offsetof(WASMMemoryInstance, cur_page_count);
+
+    /* module_inst->memories */
+    GEN_INSN(LDPTR, memories_addr, module_inst,
+             NEW_CONST(I32, memories_offset));
+    /* module_inst->memories[mem_idx], mem_idx can only be 0 now */
+    GEN_INSN(LDPTR, memories_mem_idx_addr, memories_addr,
+             NEW_CONST(I32, mem_idx));
+    /* load memories[mem_idx]->cur_page_count to cur_page_count */
+    GEN_INSN(LDI32, cur_page_count, memories_mem_idx_addr,
+             NEW_CONST(I32, cur_page_count_offset));
+#else
+    cur_page_count_offset =
+        (uint32)offsetof(WASMModuleInstance, global_table_data.bytes)
+        + (uint32)offsetof(WASMMemoryInstance, cur_page_count);
+
     GEN_INSN(LDI32, cur_page_count, module_inst,
              NEW_CONST(I32, cur_page_count_offset));
+#endif
 
     PUSH_I32(cur_page_count);
 
@@ -602,16 +650,38 @@ jit_compile_op_memory_grow(JitCompContext *cc, uint32 mem_idx)
 {
     JitReg module_inst, grow_res, res;
     JitReg prev_page_count, inc_page_count, args[2];
-
-    /* Get current page count */
-    uint32 cur_page_count_offset =
-        (uint32)offsetof(WASMModuleInstance, global_table_data.bytes)
-        + (uint32)offsetof(WASMMemoryInstance, cur_page_count);
+    uint32 cur_page_count_offset;
 
     module_inst = get_module_inst_reg(cc->jit_frame);
     prev_page_count = jit_cc_new_reg_I32(cc);
+
+    /* Get current page count */
+    bh_assert(mem_idx == 0);
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    uint32 memories_offset = (uint32)offsetof(WASMModuleInstance, memories);
+    JitReg memories_addr = jit_cc_new_reg_ptr(cc);
+    JitReg memories_mem_idx_addr = jit_cc_new_reg_ptr(cc);
+
+    cur_page_count_offset =
+        (uint32)offsetof(WASMMemoryInstance, cur_page_count);
+
+    /* module_inst->memories */
+    GEN_INSN(LDPTR, memories_addr, module_inst,
+             NEW_CONST(I32, memories_offset));
+    /* module_inst->memories[mem_idx], mem_idx can only be 0 now */
+    GEN_INSN(LDPTR, memories_mem_idx_addr, memories_addr,
+             NEW_CONST(I32, mem_idx));
+    /* load memories[mem_idx]->cur_page_count to prev_page_count */
+    GEN_INSN(LDI32, prev_page_count, memories_mem_idx_addr,
+             NEW_CONST(I32, cur_page_count_offset));
+#else
+    cur_page_count_offset =
+        (uint32)offsetof(WASMModuleInstance, global_table_data.bytes)
+        + (uint32)offsetof(WASMMemoryInstance, cur_page_count);
+
     GEN_INSN(LDI32, prev_page_count, module_inst,
              NEW_CONST(I32, cur_page_count_offset));
+#endif
 
     /* Call wasm_enlarge_memory */
     POP_I32(inc_page_count);

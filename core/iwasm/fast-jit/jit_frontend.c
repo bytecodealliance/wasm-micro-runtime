@@ -229,7 +229,7 @@ get_memory_data_reg(JitFrame *frame, uint32 mem_idx)
 #if WASM_ENABLE_SHARED_MEMORY != 0
     uint32 memories_offset = (uint32)offsetof(WASMModuleInstance, memories);
     JitReg memories_addr = jit_cc_new_reg_ptr(cc);
-    JitReg memories_0_addr = jit_cc_new_reg_ptr(cc);
+    JitReg memories_mem_idx_addr = jit_cc_new_reg_ptr(cc);
     memory_data_offset = (uint32)offsetof(WASMMemoryInstance, memory_data);
     if (!frame->memory_regs[mem_idx].memory_data) {
         frame->memory_regs[mem_idx].memory_data =
@@ -237,11 +237,12 @@ get_memory_data_reg(JitFrame *frame, uint32 mem_idx)
         /* module_inst->memories */
         GEN_INSN(LDPTR, memories_addr, module_inst_reg,
                  NEW_CONST(I32, memories_offset));
-        /* module_inst->memories[0] */
-        GEN_INSN(LDPTR, memories_0_addr, memories_addr, NEW_CONST(I32, 0));
-        /* memories[0]->memory_data */
+        /* module_inst->memories[mem_idx], mem_idx can only be 0 now */
+        GEN_INSN(LDPTR, memories_mem_idx_addr, memories_addr,
+                 NEW_CONST(I32, mem_idx));
+        /* memories[mem_idx]->memory_data */
         GEN_INSN(LDPTR, frame->memory_regs[mem_idx].memory_data,
-                 memories_0_addr, NEW_CONST(I32, memory_data_offset));
+                 memories_mem_idx_addr, NEW_CONST(I32, memory_data_offset));
     }
 #else
     memory_data_offset =
@@ -262,18 +263,39 @@ get_memory_data_end_reg(JitFrame *frame, uint32 mem_idx)
 {
     JitCompContext *cc = frame->cc;
     JitReg module_inst_reg = get_module_inst_reg(frame);
-    uint32 memory_data_end_offset =
-        (uint32)offsetof(WASMModuleInstance, global_table_data.bytes)
-        + (uint32)offsetof(WASMMemoryInstance, memory_data_end);
+    uint32 memory_data_end_offset;
 
     bh_assert(mem_idx == 0);
-
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    uint32 memories_offset = (uint32)offsetof(WASMModuleInstance, memories);
+    JitReg memories_addr = jit_cc_new_reg_ptr(cc);
+    JitReg memories_mem_idx_addr = jit_cc_new_reg_ptr(cc);
+    memory_data_end_offset =
+        (uint32)offsetof(WASMMemoryInstance, memory_data_end);
+    if (!frame->memory_regs[mem_idx].memory_data_end) {
+        frame->memory_regs[mem_idx].memory_data_end =
+            cc->memory_regs[mem_idx].memory_data_end;
+        /* module_inst->memories */
+        GEN_INSN(LDPTR, memories_addr, module_inst_reg,
+                 NEW_CONST(I32, memories_offset));
+        /* module_inst->memories[mem_idx] */
+        GEN_INSN(LDPTR, memories_mem_idx_addr, memories_addr,
+                 NEW_CONST(I32, mem_idx));
+        /* memories[mem_idx]->memory_data_end */
+        GEN_INSN(LDPTR, frame->memory_regs[mem_idx].memory_data_end,
+                 memories_mem_idx_addr, NEW_CONST(I32, memory_data_end_offset));
+    }
+#else
+    memory_data_end_offset =
+        (uint32)offsetof(WASMModuleInstance, global_table_data.bytes)
+        + (uint32)offsetof(WASMMemoryInstance, memory_data_end);
     if (!frame->memory_regs[mem_idx].memory_data_end) {
         frame->memory_regs[mem_idx].memory_data_end =
             cc->memory_regs[mem_idx].memory_data_end;
         GEN_INSN(LDPTR, frame->memory_regs[mem_idx].memory_data_end,
                  module_inst_reg, NEW_CONST(I32, memory_data_end_offset));
     }
+#endif
     return frame->memory_regs[mem_idx].memory_data_end;
 }
 
@@ -282,11 +304,39 @@ get_mem_bound_check_1byte_reg(JitFrame *frame, uint32 mem_idx)
 {
     JitCompContext *cc = frame->cc;
     JitReg module_inst_reg = get_module_inst_reg(frame);
-    uint32 mem_bound_check_1byte_offset =
-        (uint32)offsetof(WASMModuleInstance, global_table_data.bytes)
-        + (uint32)offsetof(WASMMemoryInstance, mem_bound_check_1byte);
+    uint32 mem_bound_check_1byte_offset;
 
     bh_assert(mem_idx == 0);
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    uint32 memories_offset = (uint32)offsetof(WASMModuleInstance, memories);
+    JitReg memories_addr = jit_cc_new_reg_ptr(cc);
+    JitReg memories_mem_idx_addr = jit_cc_new_reg_ptr(cc);
+    mem_bound_check_1byte_offset =
+        (uint32)offsetof(WASMMemoryInstance, mem_bound_check_1byte);
+    if (!frame->memory_regs[mem_idx].mem_bound_check_1byte) {
+        frame->memory_regs[mem_idx].mem_bound_check_1byte =
+            cc->memory_regs[mem_idx].mem_bound_check_1byte;
+        /* module_inst->memories */
+        GEN_INSN(LDPTR, memories_addr, module_inst_reg,
+                 NEW_CONST(I32, memories_offset));
+        /* module_inst->memories[mem_idx] */
+        GEN_INSN(LDPTR, memories_mem_idx_addr, memories_addr,
+                 NEW_CONST(I32, mem_idx));
+        /* memories[mem_idx]->mem_bound_check_1byte */
+#if UINTPTR_MAX == UINT64_MAX
+        GEN_INSN(LDI64, frame->memory_regs[mem_idx].mem_bound_check_1byte,
+                 memories_mem_idx_addr,
+                 NEW_CONST(I32, mem_bound_check_1byte_offset));
+#else
+        GEN_INSN(LDI32, frame->memory_regs[mem_idx].mem_bound_check_1byte,
+                 memories_mem_idx_addr,
+                 NEW_CONST(I32, mem_bound_check_1byte_offset));
+#endif
+    }
+#else /* else of WASM_ENABLE_SHARED_MEMORY != 0 */
+    mem_bound_check_1byte_offset =
+        (uint32)offsetof(WASMModuleInstance, global_table_data.bytes)
+        + (uint32)offsetof(WASMMemoryInstance, mem_bound_check_1byte);
 
     if (!frame->memory_regs[mem_idx].mem_bound_check_1byte) {
         frame->memory_regs[mem_idx].mem_bound_check_1byte =
@@ -299,6 +349,7 @@ get_mem_bound_check_1byte_reg(JitFrame *frame, uint32 mem_idx)
                  module_inst_reg, NEW_CONST(I32, mem_bound_check_1byte_offset));
 #endif
     }
+#endif /* end of WASM_ENABLE_SHARED_MEMORY != 0 */
     return frame->memory_regs[mem_idx].mem_bound_check_1byte;
 }
 
@@ -307,11 +358,39 @@ get_mem_bound_check_2bytes_reg(JitFrame *frame, uint32 mem_idx)
 {
     JitCompContext *cc = frame->cc;
     JitReg module_inst_reg = get_module_inst_reg(frame);
-    uint32 mem_bound_check_2bytes_offset =
-        (uint32)offsetof(WASMModuleInstance, global_table_data.bytes)
-        + (uint32)offsetof(WASMMemoryInstance, mem_bound_check_2bytes);
+    uint32 mem_bound_check_2bytes_offset;
 
     bh_assert(mem_idx == 0);
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    uint32 memories_offset = (uint32)offsetof(WASMModuleInstance, memories);
+    JitReg memories_addr = jit_cc_new_reg_ptr(cc);
+    JitReg memories_mem_idx_addr = jit_cc_new_reg_ptr(cc);
+    mem_bound_check_2bytes_offset =
+        (uint32)offsetof(WASMMemoryInstance, mem_bound_check_2bytes);
+    if (!frame->memory_regs[mem_idx].mem_bound_check_2bytes) {
+        frame->memory_regs[mem_idx].mem_bound_check_2bytes =
+            cc->memory_regs[mem_idx].mem_bound_check_2bytes;
+        /* module_inst->memories */
+        GEN_INSN(LDPTR, memories_addr, module_inst_reg,
+                 NEW_CONST(I32, memories_offset));
+        /* module_inst->memories[mem_idx] */
+        GEN_INSN(LDPTR, memories_mem_idx_addr, memories_addr,
+                 NEW_CONST(I32, mem_idx));
+        /* memories[mem_idx]->mem_bound_check_2bytes */
+#if UINTPTR_MAX == UINT64_MAX
+        GEN_INSN(LDI64, frame->memory_regs[mem_idx].mem_bound_check_2bytes,
+                 memories_mem_idx_addr,
+                 NEW_CONST(I32, mem_bound_check_2bytes_offset));
+#else
+        GEN_INSN(LDI32, frame->memory_regs[mem_idx].mem_bound_check_2bytes,
+                 memories_mem_idx_addr,
+                 NEW_CONST(I32, mem_bound_check_2bytes_offset));
+#endif
+    }
+#else /* else of WASM_ENABLE_SHARED_MEMORY != 0 */
+    mem_bound_check_2bytes_offset =
+        (uint32)offsetof(WASMModuleInstance, global_table_data.bytes)
+        + (uint32)offsetof(WASMMemoryInstance, mem_bound_check_2bytes);
 
     if (!frame->memory_regs[mem_idx].mem_bound_check_2bytes) {
         frame->memory_regs[mem_idx].mem_bound_check_2bytes =
@@ -326,6 +405,7 @@ get_mem_bound_check_2bytes_reg(JitFrame *frame, uint32 mem_idx)
                  NEW_CONST(I32, mem_bound_check_2bytes_offset));
 #endif
     }
+#endif /* end of WASM_ENABLE_SHARED_MEMORY != 0 */
     return frame->memory_regs[mem_idx].mem_bound_check_2bytes;
 }
 
@@ -334,11 +414,39 @@ get_mem_bound_check_4bytes_reg(JitFrame *frame, uint32 mem_idx)
 {
     JitCompContext *cc = frame->cc;
     JitReg module_inst_reg = get_module_inst_reg(frame);
-    uint32 mem_bound_check_4bytes_offset =
-        (uint32)offsetof(WASMModuleInstance, global_table_data.bytes)
-        + (uint32)offsetof(WASMMemoryInstance, mem_bound_check_4bytes);
+    uint32 mem_bound_check_4bytes_offset;
 
     bh_assert(mem_idx == 0);
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    uint32 memories_offset = (uint32)offsetof(WASMModuleInstance, memories);
+    JitReg memories_addr = jit_cc_new_reg_ptr(cc);
+    JitReg memories_mem_idx_addr = jit_cc_new_reg_ptr(cc);
+    mem_bound_check_4bytes_offset =
+        (uint32)offsetof(WASMMemoryInstance, mem_bound_check_4bytes);
+    if (!frame->memory_regs[mem_idx].mem_bound_check_4bytes) {
+        frame->memory_regs[mem_idx].mem_bound_check_4bytes =
+            cc->memory_regs[mem_idx].mem_bound_check_4bytes;
+        /* module_inst->memories */
+        GEN_INSN(LDPTR, memories_addr, module_inst_reg,
+                 NEW_CONST(I32, memories_offset));
+        /* module_inst->memories[mem_idx] */
+        GEN_INSN(LDPTR, memories_mem_idx_addr, memories_addr,
+                 NEW_CONST(I32, mem_idx));
+        /* memories[mem_idx]->mem_bound_check_4bytes */
+#if UINTPTR_MAX == UINT64_MAX
+        GEN_INSN(LDI64, frame->memory_regs[mem_idx].mem_bound_check_4bytes,
+                 memories_mem_idx_addr,
+                 NEW_CONST(I32, mem_bound_check_4bytes_offset));
+#else
+        GEN_INSN(LDI32, frame->memory_regs[mem_idx].mem_bound_check_4bytes,
+                 memories_mem_idx_addr,
+                 NEW_CONST(I32, mem_bound_check_4bytes_offset));
+#endif
+    }
+#else /* else of WASM_ENABLE_SHARED_MEMORY != 0 */
+    mem_bound_check_4bytes_offset =
+        (uint32)offsetof(WASMModuleInstance, global_table_data.bytes)
+        + (uint32)offsetof(WASMMemoryInstance, mem_bound_check_4bytes);
 
     if (!frame->memory_regs[mem_idx].mem_bound_check_4bytes) {
         frame->memory_regs[mem_idx].mem_bound_check_4bytes =
@@ -353,6 +461,7 @@ get_mem_bound_check_4bytes_reg(JitFrame *frame, uint32 mem_idx)
                  NEW_CONST(I32, mem_bound_check_4bytes_offset));
 #endif
     }
+#endif /* end of WASM_ENABLE_SHARED_MEMORY != 0 */
     return frame->memory_regs[mem_idx].mem_bound_check_4bytes;
 }
 
@@ -361,11 +470,39 @@ get_mem_bound_check_8bytes_reg(JitFrame *frame, uint32 mem_idx)
 {
     JitCompContext *cc = frame->cc;
     JitReg module_inst_reg = get_module_inst_reg(frame);
-    uint32 mem_bound_check_8bytes_offset =
-        (uint32)offsetof(WASMModuleInstance, global_table_data.bytes)
-        + (uint32)offsetof(WASMMemoryInstance, mem_bound_check_8bytes);
+    uint32 mem_bound_check_8bytes_offset;
 
     bh_assert(mem_idx == 0);
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    uint32 memories_offset = (uint32)offsetof(WASMModuleInstance, memories);
+    JitReg memories_addr = jit_cc_new_reg_ptr(cc);
+    JitReg memories_mem_idx_addr = jit_cc_new_reg_ptr(cc);
+    mem_bound_check_8bytes_offset =
+        (uint32)offsetof(WASMMemoryInstance, mem_bound_check_8bytes);
+    if (!frame->memory_regs[mem_idx].mem_bound_check_8bytes) {
+        frame->memory_regs[mem_idx].mem_bound_check_8bytes =
+            cc->memory_regs[mem_idx].mem_bound_check_8bytes;
+        /* module_inst->memories */
+        GEN_INSN(LDPTR, memories_addr, module_inst_reg,
+                 NEW_CONST(I32, memories_offset));
+        /* module_inst->memories[mem_idx] */
+        GEN_INSN(LDPTR, memories_mem_idx_addr, memories_addr,
+                 NEW_CONST(I32, mem_idx));
+        /* memories[mem_idx]->mem_bound_check_8bytes */
+#if UINTPTR_MAX == UINT64_MAX
+        GEN_INSN(LDI64, frame->memory_regs[mem_idx].mem_bound_check_8bytes,
+                 memories_mem_idx_addr,
+                 NEW_CONST(I32, mem_bound_check_8bytes_offset));
+#else
+        GEN_INSN(LDI32, frame->memory_regs[mem_idx].mem_bound_check_8bytes,
+                 memories_mem_idx_addr,
+                 NEW_CONST(I32, mem_bound_check_8bytes_offset));
+#endif
+    }
+#else /* else of WASM_ENABLE_SHARED_MEMORY != 0 */
+    mem_bound_check_8bytes_offset =
+        (uint32)offsetof(WASMModuleInstance, global_table_data.bytes)
+        + (uint32)offsetof(WASMMemoryInstance, mem_bound_check_8bytes);
 
     if (!frame->memory_regs[mem_idx].mem_bound_check_8bytes) {
         frame->memory_regs[mem_idx].mem_bound_check_8bytes =
@@ -380,6 +517,7 @@ get_mem_bound_check_8bytes_reg(JitFrame *frame, uint32 mem_idx)
                  NEW_CONST(I32, mem_bound_check_8bytes_offset));
 #endif
     }
+#endif /* end of WASM_ENABLE_SHARED_MEMORY != 0 */
     return frame->memory_regs[mem_idx].mem_bound_check_8bytes;
 }
 
@@ -388,11 +526,39 @@ get_mem_bound_check_16bytes_reg(JitFrame *frame, uint32 mem_idx)
 {
     JitCompContext *cc = frame->cc;
     JitReg module_inst_reg = get_module_inst_reg(frame);
-    uint32 mem_bound_check_16bytes_offset =
-        (uint32)offsetof(WASMModuleInstance, global_table_data.bytes)
-        + (uint32)offsetof(WASMMemoryInstance, mem_bound_check_16bytes);
+    uint32 mem_bound_check_16bytes_offset;
 
     bh_assert(mem_idx == 0);
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    uint32 memories_offset = (uint32)offsetof(WASMModuleInstance, memories);
+    JitReg memories_addr = jit_cc_new_reg_ptr(cc);
+    JitReg memories_mem_idx_addr = jit_cc_new_reg_ptr(cc);
+    mem_bound_check_16bytes_offset =
+        (uint32)offsetof(WASMMemoryInstance, mem_bound_check_16bytes);
+    if (!frame->memory_regs[mem_idx].mem_bound_check_16bytes) {
+        frame->memory_regs[mem_idx].mem_bound_check_16bytes =
+            cc->memory_regs[mem_idx].mem_bound_check_16bytes;
+        /* module_inst->memories */
+        GEN_INSN(LDPTR, memories_addr, module_inst_reg,
+                 NEW_CONST(I32, memories_offset));
+        /* module_inst->memories[mem_idx] */
+        GEN_INSN(LDPTR, memories_mem_idx_addr, memories_addr,
+                 NEW_CONST(I32, mem_idx));
+        /* memories[mem_idx]->mem_bound_check_16bytes */
+#if UINTPTR_MAX == UINT64_MAX
+        GEN_INSN(LDI64, frame->memory_regs[mem_idx].mem_bound_check_16bytes,
+                 memories_mem_idx_addr,
+                 NEW_CONST(I32, mem_bound_check_16bytes_offset));
+#else
+        GEN_INSN(LDI32, frame->memory_regs[mem_idx].mem_bound_check_16bytes,
+                 memories_mem_idx_addr,
+                 NEW_CONST(I32, mem_bound_check_16bytes_offset));
+#endif
+    }
+#else /* else of WASM_ENABLE_SHARED_MEMORY != 0 */
+    mem_bound_check_16bytes_offset =
+        (uint32)offsetof(WASMModuleInstance, global_table_data.bytes)
+        + (uint32)offsetof(WASMMemoryInstance, mem_bound_check_16bytes);
 
     if (!frame->memory_regs[mem_idx].mem_bound_check_16bytes) {
         frame->memory_regs[mem_idx].mem_bound_check_16bytes =
@@ -407,6 +573,7 @@ get_mem_bound_check_16bytes_reg(JitFrame *frame, uint32 mem_idx)
                  NEW_CONST(I32, mem_bound_check_16bytes_offset));
 #endif
     }
+#endif /* end of WASM_ENABLE_SHARED_MEMORY != 0 */
     return frame->memory_regs[mem_idx].mem_bound_check_16bytes;
 }
 
