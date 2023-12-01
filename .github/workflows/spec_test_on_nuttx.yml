@@ -85,6 +85,11 @@ jobs:
           },
         ]
 
+        exclude:
+          # XIP is not fully supported yet on RISCV64, some relocations can not be resolved
+          - target_config: { config: "boards/risc-v/qemu-rv/rv-virt/configs/nsh64" }
+            wamr_test_option: { mode: "-t aot -X" }
+
     steps:
       - name: Install Utilities
         run: |

@@ -1072,8 +1072,10 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r, output = '
     # exception isn't thrown in several cases
     cmd.append("--disable-llvm-lto")
 
-    # Bounds checks disabled by default for 64-bit targets, enable it for qemu,
-    # which may be used for 64-bit targets
+    # Bounds checks is disabled by default for 64-bit targets, to
+    # use the hardware based bounds checks. But it is not supported
+    # in QEMU with NuttX.
+    # Enable bounds checks explicitly for all targets if running in QEMU.
     if opts.qemu:
         cmd.append("--bounds-checks=1")
 
