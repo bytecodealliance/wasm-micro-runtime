@@ -697,7 +697,7 @@ function build_iwasm_with_cfg()
         && if [ -d build ]; then rm -rf build/*; else mkdir build; fi \
         && cd build \
         && cmake $* .. \
-        && make -j 4 iwasm
+        && make -j 4
         cd ${WAMR_DIR}/product-mini/platforms/linux-sgx/enclave-sample \
         && make clean \
         && make SPEC_TEST=1
