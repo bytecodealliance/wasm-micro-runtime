@@ -706,7 +706,7 @@ function build_iwasm_with_cfg()
         && if [ -d build ]; then rm -rf build/*; else mkdir build; fi \
         && cd build \
         && cmake $* .. \
-        && cmake --build . -j 4 --config RelWithDebInfo
+        && cmake --build . -j 4 --config RelWithDebInfo --target iwasm
     fi
 
     if [ "$?" != 0 ];then
