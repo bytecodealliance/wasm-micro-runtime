@@ -226,17 +226,14 @@ is_shared_memory(WASMModule *module, uint32 mem_idx)
     WASMMemoryImport *memory_import;
     bool is_shared;
 
-    /* TODO: for now, only one memory in total is allowed, in the future should
-     * change this logic to support multiple memories */
-    if (module->memory_count != 0) {
-        memory = &module->memories[mem_idx];
-        is_shared = memory->flags & 0x02 ? true : false;
-    }
-    else if (module->import_memory_count != 0) {
+    if (mem_idx < module->import_memory_count) {
         memory_import = &(module->import_memories[mem_idx].u.memory);
         is_shared = memory_import->flags & 0x02 ? true : false;
     }
-
+    else {
+        memory = &module->memories[mem_idx - module->import_memory_count];
+        is_shared = memory->flags & 0x02 ? true : false;
+    }
     return is_shared;
 }
 #endif
