@@ -2708,7 +2708,7 @@ load_user_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
 
     read_leb_uint32(p, p_end, name_len);
 
-    if (name_len == 0 || p + name_len > p_end) {
+    if (p + name_len > p_end) {
         set_error_buf(error_buf, error_buf_size, "unexpected end");
         return false;
     }
