@@ -1,0 +1,64 @@
+
+name: compilation on zephyr
+
+on:
+  # will be triggered on PR events
+  pull_request:
+    types:
+      - opened
+      - synchronize
+    paths:
+      - ".github/workflows/compilation_on_zephyr.yml"
+      - "build-scripts/**"
+      - "core/**"
+      - "!core/deps/**"
+      - "product-mini/**"
+      - "wamr-compiler/**"
+      - "wamr-sdk/**"
+  # will be triggered on push events
+  push:
+    branches:
+      - main
+      - "dev/**"
+    paths:
+      - ".github/workflows/compilation_on_zephyr.yml"
+      - "build-scripts/**"
+      - "core/**"
+      - "!core/deps/**"
+      - "product-mini/**"
+      - "wamr-compiler/**"
+      - "wamr-sdk/**"
+  # allow to be triggered manually
+  workflow_dispatch:
+
+# Cancel any in-flight jobs for the same PR/branch so there's only one active
+# at a time
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build_product_mini_on_zephyr:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/zephyrproject-rtos/ci:latest
+      options: --user root
+    strategy:
+      matrix:
+        target: [nucleo_f767zi]  
+    steps:
+      - name: Save workspace environment
+        run: |
+          echo "GITHUB_WORKSPACE=$GITHUB_WORKSPACE" >> $GITHUB_ENV
+      - name: Checkout wasm-micro-runtime
+        uses: actions/checkout@v4
+      - name: Checkout zephyr working directory
+        uses: actions/checkout@v4
+        with:
+          repository: zephyrproject-rtos/zephyr
+          path: ./zephyr
+      - name: Build for ${{ matrix.target }}
+        run: |
+          ls -l ${{ env.GITHUB_WORKSPACE }}
+          ls -l .
+          west -z ./zephyr build -b ${{ matrix.target }} ./product-mini/platforms/zephyr/simple -p always -- -DWAMR_BUILD_TARGET=THUMBV7
