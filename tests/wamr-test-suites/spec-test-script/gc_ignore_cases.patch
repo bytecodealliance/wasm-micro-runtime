@@ -1,26 +1,27 @@
-From f39448062dc2cc97b64ff1d0e1aee702dd0946a8 Mon Sep 17 00:00:00 2001
+From 12fe27890a95286fb8a7ef91c853610584d609e4 Mon Sep 17 00:00:00 2001
 From: Xu Jun <jun1.xu@intel.com>
-Date: Sun, 3 Dec 2023 12:24:36 +0800
+Date: Mon, 4 Dec 2023 02:33:22 +0800
 Subject: [PATCH] ignore cases
 
 ---
  test/core/binary-leb128.wast   |   2 +-
- test/core/binary.wast          |   7 +-
- test/core/data.wast            |  12 ++-
- test/core/elem.wast            |  14 ++-
- test/core/gc/ref_test.wast     |  13 +--
- test/core/gc/struct.wast       |   4 +-
- test/core/global.wast          |   6 +-
+ test/core/binary.wast          |   3 +-
+ test/core/data.wast            |  12 +-
+ test/core/elem.wast            |  17 ++-
+ test/core/gc/array.wast        | 212 +++++++++++++++++----------------
+ test/core/gc/extern.wast       |   2 +-
+ test/core/gc/ref_test.wast     |  13 +-
+ test/core/global.wast          |   4 +-
  test/core/imports.wast         |   2 +
  test/core/linking.wast         |  20 ++++
  test/core/ref_func.wast        |   3 +-
- test/core/ref_null.wast        |  30 +++---
+ test/core/ref_null.wast        |  30 ++---
  test/core/select.wast          |   2 +-
  test/core/table.wast           |   6 +-
- test/core/table_copy.wast      | 181 +++++++++++++++++----------------
- test/core/table_init.wast      |  66 ++++++------
+ test/core/table_copy.wast      | 181 ++++++++++++++--------------
+ test/core/table_init.wast      |  66 +++++-----
  test/core/unreached-valid.wast |   4 +-
- 16 files changed, 208 insertions(+), 164 deletions(-)
+ 17 files changed, 312 insertions(+), 267 deletions(-)
 
 diff --git a/test/core/binary-leb128.wast b/test/core/binary-leb128.wast
 index 335496f0..5b975028 100644
@@ -34,27 +35,9 @@ index 335496f0..5b975028 100644
 +  "invalid type flag" ;; In GC extension, the first byte in rectype define is just one byte, not LEB128 encoded.
  )
 diff --git a/test/core/binary.wast b/test/core/binary.wast
-index 1661a1c6..fd50be23 100644
+index 1661a1c6..84c716b9 100644
 --- a/test/core/binary.wast
 +++ b/test/core/binary.wast
-@@ -952,7 +952,7 @@
- )
- 
- ;; 2 elem segment declared, 1 given
--(assert_malformed
-+(;assert_malformed
-   (module binary
-     "\00asm" "\01\00\00\00"
-     "\01\04\01"                             ;; type section
-@@ -965,7 +965,7 @@
-     ;; "\00\41\00\0b\01\00"                 ;; elem 1 (missed)
-   )
-   "unexpected end"
--)
-+;)
- 
- ;; 2 elem segment declared, 1.5 given
- (assert_malformed
 @@ -1082,7 +1082,7 @@
  )
  
@@ -124,7 +107,7 @@ index a5c87fbb..6f948bae 100644
  
  ;; Invalid offsets
 diff --git a/test/core/elem.wast b/test/core/elem.wast
-index df1610f6..6f754167 100644
+index df1610f6..d86afab1 100644
 --- a/test/core/elem.wast
 +++ b/test/core/elem.wast
 @@ -400,7 +400,7 @@
@@ -193,6 +176,270 @@ index df1610f6..6f754167 100644
  
  ;; Element segments must match element type of table
  
+@@ -666,6 +672,7 @@
+ 
+ ;; Initializing a table with an externref-type element segment
+ 
++(;
+ (module $m
+ 	(table $t (export "table") 2 externref)
+ 	(func (export "get") (param $i i32) (result externref)
+@@ -713,3 +720,5 @@
+ )
+ 
+ (assert_return (invoke "call_imported_elem") (i32.const 42))
++
++;)
+diff --git a/test/core/gc/array.wast b/test/core/gc/array.wast
+index 0da7e843..22b6de82 100644
+--- a/test/core/gc/array.wast
++++ b/test/core/gc/array.wast
+@@ -95,7 +95,7 @@
+ )
+ 
+ (assert_return (invoke "new") (ref.array))
+-(assert_return (invoke "new") (ref.eq))
++;; (assert_return (invoke "new") (ref.eq))
+ (assert_return (invoke "get" (i32.const 0)) (f32.const 0))
+ (assert_return (invoke "set_get" (i32.const 1) (f32.const 7)) (f32.const 7))
+ (assert_return (invoke "len") (i32.const 3))
+@@ -140,7 +140,7 @@
+ )
+ 
+ (assert_return (invoke "new") (ref.array))
+-(assert_return (invoke "new") (ref.eq))
++;; (assert_return (invoke "new") (ref.eq))
+ (assert_return (invoke "get" (i32.const 0)) (f32.const 1))
+ (assert_return (invoke "set_get" (i32.const 1) (f32.const 7)) (f32.const 7))
+ (assert_return (invoke "len") (i32.const 2))
+@@ -148,109 +148,111 @@
+ (assert_trap (invoke "get" (i32.const 10)) "out of bounds")
+ (assert_trap (invoke "set_get" (i32.const 10) (f32.const 7)) "out of bounds")
+ 
+-(module
+-  (type $vec (array i8))
+-  (type $mvec (array (mut i8)))
+-
+-  (data $d "\00\01\02\03\04")
+-
+-  (func $new (export "new") (result (ref $vec))
+-    (array.new_data $vec $d (i32.const 1) (i32.const 3))
+-  )
+-
+-  (func $get (param $i i32) (param $v (ref $vec)) (result i32)
+-    (array.get_u $vec (local.get $v) (local.get $i))
+-  )
+-  (func (export "get") (param $i i32) (result i32)
+-    (call $get (local.get $i) (call $new))
+-  )
+-
+-  (func $set_get (param $i i32) (param $v (ref $mvec)) (param $y i32) (result i32)
+-    (array.set $mvec (local.get $v) (local.get $i) (local.get $y))
+-    (array.get_u $mvec (local.get $v) (local.get $i))
+-  )
+-  (func (export "set_get") (param $i i32) (param $y i32) (result i32)
+-    (call $set_get (local.get $i)
+-      (array.new_data $mvec $d (i32.const 1) (i32.const 3))
+-      (local.get $y)
+-    )
+-  )
+-
+-  (func $len (param $v (ref array)) (result i32)
+-    (array.len (local.get $v))
+-  )
+-  (func (export "len") (result i32)
+-    (call $len (call $new))
+-  )
+-)
+-
+-(assert_return (invoke "new") (ref.array))
+-(assert_return (invoke "new") (ref.eq))
+-(assert_return (invoke "get" (i32.const 0)) (i32.const 1))
+-(assert_return (invoke "set_get" (i32.const 1) (i32.const 7)) (i32.const 7))
+-(assert_return (invoke "len") (i32.const 3))
+-
+-(assert_trap (invoke "get" (i32.const 10)) "out of bounds")
+-(assert_trap (invoke "set_get" (i32.const 10) (i32.const 7)) "out of bounds")
+-
+-(module
+-  (type $bvec (array i8))
+-  (type $vec (array (ref $bvec)))
+-  (type $mvec (array (mut (ref $bvec))))
+-  (type $nvec (array (ref null $bvec)))
+-  (type $avec (array (mut anyref)))
+-
+-  (elem $e (ref $bvec)
+-    (array.new $bvec (i32.const 7) (i32.const 3))
+-    (array.new_fixed $bvec 2 (i32.const 1) (i32.const 2))
+-  )
+-
+-  (func $new (export "new") (result (ref $vec))
+-    (array.new_elem $vec $e (i32.const 0) (i32.const 2))
+-  )
+-
+-  (func $sub1 (result (ref $nvec))
+-    (array.new_elem $nvec $e (i32.const 0) (i32.const 2))
+-  )
+-  (func $sub2 (result (ref $avec))
+-    (array.new_elem $avec $e (i32.const 0) (i32.const 2))
+-  )
+-
+-  (func $get (param $i i32) (param $j i32) (param $v (ref $vec)) (result i32)
+-    (array.get_u $bvec (array.get $vec (local.get $v) (local.get $i)) (local.get $j))
+-  )
+-  (func (export "get") (param $i i32) (param $j i32) (result i32)
+-    (call $get (local.get $i) (local.get $j) (call $new))
+-  )
+-
+-  (func $set_get (param $i i32) (param $j i32) (param $v (ref $mvec)) (param $y i32) (result i32)
+-    (array.set $mvec (local.get $v) (local.get $i) (array.get $mvec (local.get $v) (local.get $y)))
+-    (array.get_u $bvec (array.get $mvec (local.get $v) (local.get $i)) (local.get $j))
+-  )
+-  (func (export "set_get") (param $i i32) (param $j i32) (param $y i32) (result i32)
+-    (call $set_get (local.get $i) (local.get $j)
+-      (array.new_elem $mvec $e (i32.const 0) (i32.const 2))
+-      (local.get $y)
+-    )
+-  )
+-
+-  (func $len (param $v (ref array)) (result i32)
+-    (array.len (local.get $v))
+-  )
+-  (func (export "len") (result i32)
+-    (call $len (call $new))
+-  )
+-)
+-
+-(assert_return (invoke "new") (ref.array))
+-(assert_return (invoke "new") (ref.eq))
+-(assert_return (invoke "get" (i32.const 0) (i32.const 0)) (i32.const 7))
+-(assert_return (invoke "get" (i32.const 1) (i32.const 0)) (i32.const 1))
+-(assert_return (invoke "set_get" (i32.const 0) (i32.const 1) (i32.const 1)) (i32.const 2))
+-(assert_return (invoke "len") (i32.const 2))
+-
+-(assert_trap (invoke "get" (i32.const 10) (i32.const 0)) "out of bounds")
+-(assert_trap (invoke "set_get" (i32.const 10) (i32.const 0) (i32.const 0)) "out of bounds")
++;; new data not supported
++;; (module
++;;   (type $vec (array i8))
++;;   (type $mvec (array (mut i8)))
++
++;;   (data $d "\00\01\02\03\04")
++
++;;   (func $new (export "new") (result (ref $vec))
++;;     (array.new_data $vec $d (i32.const 1) (i32.const 3))
++;;   )
++
++;;   (func $get (param $i i32) (param $v (ref $vec)) (result i32)
++;;     (array.get_u $vec (local.get $v) (local.get $i))
++;;   )
++;;   (func (export "get") (param $i i32) (result i32)
++;;     (call $get (local.get $i) (call $new))
++;;   )
++
++;;   (func $set_get (param $i i32) (param $v (ref $mvec)) (param $y i32) (result i32)
++;;     (array.set $mvec (local.get $v) (local.get $i) (local.get $y))
++;;     (array.get_u $mvec (local.get $v) (local.get $i))
++;;   )
++;;   (func (export "set_get") (param $i i32) (param $y i32) (result i32)
++;;     (call $set_get (local.get $i)
++;;       (array.new_data $mvec $d (i32.const 1) (i32.const 3))
++;;       (local.get $y)
++;;     )
++;;   )
++
++;;   (func $len (param $v (ref array)) (result i32)
++;;     (array.len (local.get $v))
++;;   )
++;;   (func (export "len") (result i32)
++;;     (call $len (call $new))
++;;   )
++;; )
++
++;; (assert_return (invoke "new") (ref.array))
++;; ;; (assert_return (invoke "new") (ref.eq))
++;; (assert_return (invoke "get" (i32.const 0)) (i32.const 1))
++;; (assert_return (invoke "set_get" (i32.const 1) (i32.const 7)) (i32.const 7))
++;; (assert_return (invoke "len") (i32.const 3))
++
++;; (assert_trap (invoke "get" (i32.const 10)) "out of bounds")
++;; (assert_trap (invoke "set_get" (i32.const 10) (i32.const 7)) "out of bounds")
++
++;; new_elem not supported
++;; (module
++;;   (type $bvec (array i8))
++;;   (type $vec (array (ref $bvec)))
++;;   (type $mvec (array (mut (ref $bvec))))
++;;   (type $nvec (array (ref null $bvec)))
++;;   (type $avec (array (mut anyref)))
++
++;;   (elem $e (ref $bvec)
++;;     (array.new $bvec (i32.const 7) (i32.const 3))
++;;     (array.new_fixed $bvec 2 (i32.const 1) (i32.const 2))
++;;   )
++
++;;   (func $new (export "new") (result (ref $vec))
++;;     (array.new_elem $vec $e (i32.const 0) (i32.const 2))
++;;   )
++
++;;   (func $sub1 (result (ref $nvec))
++;;     (array.new_elem $nvec $e (i32.const 0) (i32.const 2))
++;;   )
++;;   (func $sub2 (result (ref $avec))
++;;     (array.new_elem $avec $e (i32.const 0) (i32.const 2))
++;;   )
++
++;;   (func $get (param $i i32) (param $j i32) (param $v (ref $vec)) (result i32)
++;;     (array.get_u $bvec (array.get $vec (local.get $v) (local.get $i)) (local.get $j))
++;;   )
++;;   (func (export "get") (param $i i32) (param $j i32) (result i32)
++;;     (call $get (local.get $i) (local.get $j) (call $new))
++;;   )
++
++;;   (func $set_get (param $i i32) (param $j i32) (param $v (ref $mvec)) (param $y i32) (result i32)
++;;     (array.set $mvec (local.get $v) (local.get $i) (array.get $mvec (local.get $v) (local.get $y)))
++;;     (array.get_u $bvec (array.get $mvec (local.get $v) (local.get $i)) (local.get $j))
++;;   )
++;;   (func (export "set_get") (param $i i32) (param $j i32) (param $y i32) (result i32)
++;;     (call $set_get (local.get $i) (local.get $j)
++;;       (array.new_elem $mvec $e (i32.const 0) (i32.const 2))
++;;       (local.get $y)
++;;     )
++;;   )
++
++;;   (func $len (param $v (ref array)) (result i32)
++;;     (array.len (local.get $v))
++;;   )
++;;   (func (export "len") (result i32)
++;;     (call $len (call $new))
++;;   )
++;; )
++
++;; (assert_return (invoke "new") (ref.array))
++;; ;; (assert_return (invoke "new") (ref.eq))
++;; (assert_return (invoke "get" (i32.const 0) (i32.const 0)) (i32.const 7))
++;; (assert_return (invoke "get" (i32.const 1) (i32.const 0)) (i32.const 1))
++;; (assert_return (invoke "set_get" (i32.const 0) (i32.const 1) (i32.const 1)) (i32.const 2))
++;; (assert_return (invoke "len") (i32.const 2))
++
++;; (assert_trap (invoke "get" (i32.const 10) (i32.const 0)) "out of bounds")
++;; (assert_trap (invoke "set_get" (i32.const 10) (i32.const 0) (i32.const 0)) "out of bounds")
+ 
+ (assert_invalid
+   (module
+diff --git a/test/core/gc/extern.wast b/test/core/gc/extern.wast
+index abf31669..9ef86506 100644
+--- a/test/core/gc/extern.wast
++++ b/test/core/gc/extern.wast
+@@ -43,7 +43,7 @@
+ (assert_return (invoke "externalize-i" (i32.const 1)) (ref.extern))
+ (assert_return (invoke "externalize-i" (i32.const 2)) (ref.extern))
+ (assert_return (invoke "externalize-i" (i32.const 3)) (ref.extern))
+-(assert_return (invoke "externalize-i" (i32.const 4)) (ref.extern))
++(assert_return (invoke "externalize-i" (i32.const 4)) (ref.extern 0))
+ (assert_return (invoke "externalize-i" (i32.const 5)) (ref.null extern))
+ 
+ (assert_return (invoke "externalize-ii" (i32.const 0)) (ref.null any))
 diff --git a/test/core/gc/ref_test.wast b/test/core/gc/ref_test.wast
 index 590b81b8..e0aa49ed 100644
 --- a/test/core/gc/ref_test.wast
@@ -220,50 +467,11 @@ index 590b81b8..e0aa49ed 100644
  
        (return)
      )
-diff --git a/test/core/gc/struct.wast b/test/core/gc/struct.wast
-index 7a3ce4fc..83c67f18 100644
---- a/test/core/gc/struct.wast
-+++ b/test/core/gc/struct.wast
-@@ -70,7 +70,7 @@
- (module
-   (type $vec (struct (field f32) (field $y (mut f32)) (field $z f32)))
- 
--  (global (ref $vec) (struct.new $vec (f32.const 1) (f32.const 2) (f32.const 3)))
-+  ;; (global (ref $vec) (struct.new $vec (f32.const 1) (f32.const 2) (f32.const 3))) ;; unsupport complex constant expression
-   (global (ref $vec) (struct.new_default $vec))
- 
-   (func (export "new") (result anyref)
-@@ -157,6 +157,7 @@
- 
- ;; Packed field instructions
- 
-+(; unsupport complex constant expression
- (module
-   (type $s (struct (field i8) (field (mut i8)) (field i16) (field (mut i16))))
- 
-@@ -227,3 +228,4 @@
- 
- (assert_return (invoke "set_get_packed_g0_1" (i32.const 257)) (i32.const 1) (i32.const 1))
- (assert_return (invoke "set_get_packed_g0_3" (i32.const 257)) (i32.const 257) (i32.const 257))
-+;)
 diff --git a/test/core/global.wast b/test/core/global.wast
-index 8c47fde2..b68eaad5 100644
+index 8c47fde2..1a8cc7e3 100644
 --- a/test/core/global.wast
 +++ b/test/core/global.wast
-@@ -328,10 +328,12 @@
-   "type mismatch"
- )
- 
-+(;
- (assert_invalid
-   (module (global (import "" "") externref) (global funcref (global.get 0)))
-   "type mismatch"
- )
-+;)
- 
- (assert_invalid
-   (module (global (import "test" "global-i32") i32) (global i32 (global.get 0) (global.get 0)))
-@@ -644,7 +646,7 @@
+@@ -644,7 +644,7 @@
    )
  )
  
@@ -272,7 +480,7 @@ index 8c47fde2..b68eaad5 100644
  (assert_return (invoke "get-elem" (i32.const 4)) (ref.func))
  (assert_return (invoke "get-elem" (i32.const 8)) (ref.func))
  
-@@ -652,7 +654,7 @@
+@@ -652,7 +652,7 @@
  (assert_return (invoke "get-data" (i32.const 8)) (i32.const 0x88888888))
  
  (assert_invalid

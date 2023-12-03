@@ -413,7 +413,7 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
                           "out of bounds table access");
 #else
             set_error_buf(error_buf, error_buf_size,
-                          "elements segment does not fit");
+                          "type mismatch: elements segment does not fit");
 #endif
             return false;
         }
@@ -426,7 +426,7 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
                           "out of bounds table access");
 #else
             set_error_buf(error_buf, error_buf_size,
-                          "elements segment does not fit");
+                          "type mismatch: elements segment does not fit");
 #endif
             return false;
         }
@@ -1439,7 +1439,7 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
                 table->elem_type, table->elem_ref_type.elem_ref_type,
                 module->types, module->type_count)) {
             set_error_buf(error_buf, error_buf_size,
-                          "elements segment does not fit");
+                          "type mismatch: elements segment does not fit");
             goto fail;
         }
 

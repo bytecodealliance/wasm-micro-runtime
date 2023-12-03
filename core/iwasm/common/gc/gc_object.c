@@ -180,9 +180,9 @@ wasm_struct_obj_get_field(const WASMStructObjectRef struct_obj,
     }
     else if (field_size == 2) {
         if (sign_extend)
-            value->i32 = (int32)(*(int8 *)field_data);
+            value->i32 = (int32)(*(int16 *)field_data);
         else
-            value->u32 = (uint32)(*(uint8 *)field_data);
+            value->u32 = (uint32)(*(uint16 *)field_data);
     }
     else {
         bh_assert(0);
@@ -190,10 +190,9 @@ wasm_struct_obj_get_field(const WASMStructObjectRef struct_obj,
 }
 
 WASMArrayObjectRef
-wasm_array_obj_new(WASMExecEnv *exec_env, WASMRttTypeRef rtt_type,
-                   uint32 length, WASMValue *init_value)
+wasm_array_obj_new_internal(void *heap_handle, WASMRttTypeRef rtt_type,
+                            uint32 length, WASMValue *init_value)
 {
-    void *heap_handle = get_gc_heap_handle(exec_env);
     WASMArrayObjectRef array_obj;
     WASMArrayType *array_type;
     uint64 total_size;
@@ -226,29 +225,41 @@ wasm_array_obj_new(WASMExecEnv *exec_env, WASMRttTypeRef rtt_type,
 
     array_obj->header = (WASMObjectHeader)rtt_type;
     array_obj->length = (length << 2) | elem_size_log;
-    for (i = 0; i < length; i++) {
-        if (wasm_is_type_reftype(array_type->elem_type)) {
-            uint32 *elem_addr =
-                (uint32 *)array_obj->elem_data + REF_CELL_NUM * i;
-            PUT_REF_TO_ADDR(elem_addr, init_value->gc_obj);
-        }
-        else if (array_type->elem_type == VALUE_TYPE_I32
-                 || array_type->elem_type == VALUE_TYPE_F32) {
-            ((int32 *)array_obj->elem_data)[i] = init_value->i32;
-        }
-        else if (array_type->elem_type == PACKED_TYPE_I8) {
-            ((int8 *)array_obj->elem_data)[i] = (int8)init_value->i32;
-        }
-        else if (array_type->elem_type == PACKED_TYPE_I16) {
-            ((int16 *)array_obj->elem_data)[i] = (int16)init_value->i32;
-        }
-        else {
-            uint32 *elem_addr = (uint32 *)array_obj->elem_data + 2 * i;
-            PUT_I64_TO_ADDR(elem_addr, init_value->i64);
+
+    if (init_value != NULL) {
+        for (i = 0; i < length; i++) {
+            if (wasm_is_type_reftype(array_type->elem_type)) {
+                uint32 *elem_addr =
+                    (uint32 *)array_obj->elem_data + REF_CELL_NUM * i;
+                PUT_REF_TO_ADDR(elem_addr, init_value->gc_obj);
+            }
+            else if (array_type->elem_type == VALUE_TYPE_I32
+                     || array_type->elem_type == VALUE_TYPE_F32) {
+                ((int32 *)array_obj->elem_data)[i] = init_value->i32;
+            }
+            else if (array_type->elem_type == PACKED_TYPE_I8) {
+                ((int8 *)array_obj->elem_data)[i] = (int8)init_value->i32;
+            }
+            else if (array_type->elem_type == PACKED_TYPE_I16) {
+                ((int16 *)array_obj->elem_data)[i] = (int16)init_value->i32;
+            }
+            else {
+                uint32 *elem_addr = (uint32 *)array_obj->elem_data + 2 * i;
+                PUT_I64_TO_ADDR(elem_addr, init_value->i64);
+            }
         }
     }
 
     return array_obj;
+}
+
+WASMArrayObjectRef
+wasm_array_obj_new(WASMExecEnv *exec_env, WASMRttTypeRef rtt_type,
+                   uint32 length, WASMValue *init_value)
+{
+    void *heap_handle = get_gc_heap_handle(exec_env);
+    return wasm_array_obj_new_internal(heap_handle, rtt_type, length,
+                                       init_value);
 }
 
 void

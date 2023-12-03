@@ -2316,12 +2316,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         array_obj = POP_REF();
 
                         if (!array_obj) {
-                            wasm_set_exception(module, "null array object");
+                            wasm_set_exception(module, "null array reference");
                             goto got_exception;
                         }
                         if (elem_idx >= wasm_array_obj_length(array_obj)) {
                             wasm_set_exception(module,
-                                               "array index out of bounds");
+                                               "out of bounds array access");
                             goto got_exception;
                         }
 
@@ -2371,12 +2371,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         array_obj = POP_REF();
 
                         if (!array_obj) {
-                            wasm_set_exception(module, "null array object");
+                            wasm_set_exception(module, "null array reference");
                             goto got_exception;
                         }
                         if (elem_idx >= wasm_array_obj_length(array_obj)) {
                             wasm_set_exception(module,
-                                               "array index out of bounds");
+                                               "out of bounds array access");
                             goto got_exception;
                         }
 
@@ -2389,7 +2389,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         uint32 array_len;
                         array_obj = POP_REF();
                         if (!array_obj) {
-                            wasm_set_exception(module, "null array object");
+                            wasm_set_exception(module, "null array reference");
                             goto got_exception;
                         }
                         array_len = wasm_array_obj_length(array_obj);
@@ -2411,7 +2411,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         dst_obj = POP_REF();
 
                         if (!src_obj || !dst_obj) {
-                            wasm_set_exception(module, "null array object");
+                            wasm_set_exception(module, "null array reference");
                             goto got_exception;
                         }
 
@@ -2422,8 +2422,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                 || (src_offset > UINT32_MAX - len)
                                 || (src_offset + len
                                     > wasm_array_obj_length(src_obj))) {
-                                wasm_set_exception(module,
-                                                   "array index out of bounds");
+                                wasm_set_exception(
+                                    module, "out of bounds array access");
                                 goto got_exception;
                             }
 
@@ -3204,7 +3204,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                         if (start > end || end > array_len) {
                             wasm_set_exception(module,
-                                               "array index out of bounds");
+                                               "out of bounds array access");
                             goto got_exception;
                         }
 
@@ -3280,7 +3280,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                         if (start > array_len) {
                             wasm_set_exception(module,
-                                               "array index out of bounds");
+                                               "out of bounds array access");
                             goto got_exception;
                         }
 
@@ -5039,9 +5039,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #else
                         SYNC_ALL_TO_FRAME();
                         table_elems = tbl_inst->elems + d;
-                        func_indexes = module->module->table_segments[elem_idx]
-                                           .func_indexes
-                                       + s;
+                        func_indexes =
+                            module->module->table_segments[elem_idx].init_values
+                            + s;
                         for (i = 0; i < n; i++) {
                             /* UINT32_MAX indicates that it is an null ref */
                             if (func_indexes[i] != UINT32_MAX) {

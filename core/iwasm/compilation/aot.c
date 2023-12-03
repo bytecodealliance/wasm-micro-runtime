@@ -141,7 +141,7 @@ aot_create_table_init_data_list(const WASMModule *module)
         bh_memcpy_s(
             data_list[i]->func_indexes,
             sizeof(uintptr_t) * module->table_segments[i].function_count,
-            module->table_segments[i].func_indexes,
+            module->table_segments[i].init_values,
             sizeof(uintptr_t) * module->table_segments[i].function_count);
     }
 

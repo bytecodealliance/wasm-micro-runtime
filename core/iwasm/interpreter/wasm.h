@@ -218,15 +218,9 @@ typedef struct WASMStructNewInitValues {
 
 typedef struct WASMArrayNewInitValues {
     uint8 type_idx;
-    WASMValue elem_data;
     uint32 length;
+    WASMValue elem_data[1];
 } WASMArrayNewInitValues;
-
-typedef struct WASMArrayNewFixedInitValues {
-    uint8 type_idx;
-    uint32 count;
-    WASMValue *values;
-} WASMArrayNewFixedInitValues;
 
 typedef struct InitializerExpression {
     /* type of INIT_EXPR_TYPE_XXX, which is an instruction of
@@ -651,7 +645,7 @@ typedef struct WASMTableSeg {
     uint32 table_index;
     InitializerExpression base_offset;
     uint32 function_count;
-    uintptr_t *func_indexes;
+    InitializerExpression *init_values;
 } WASMTableSeg;
 
 typedef struct WASMDataSeg {
