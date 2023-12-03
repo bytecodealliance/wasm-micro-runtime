@@ -1000,18 +1000,40 @@ create_aux_stack_info(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 static bool
 create_aux_stack_frame(const AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
-    LLVMValueRef offset = I32_ONE, cur_frame_addr;
+    LLVMValueRef wasm_stack_top_bound_ptr, offset;
 
-    if (!(cur_frame_addr = LLVMBuildInBoundsGEP2(
+    offset = I32_ONE;
+    if (!(func_ctx->cur_frame_ptr = LLVMBuildInBoundsGEP2(
               comp_ctx->builder, OPQ_PTR_TYPE, func_ctx->exec_env, &offset, 1,
-              "cur_frame_addr"))) {
+              "cur_frame_ptr"))) {
         aot_set_last_error("llvm build in bounds gep failed");
         return false;
     }
 
-    if (!(func_ctx->cur_frame = LLVMBuildLoad2(comp_ctx->builder, OPQ_PTR_TYPE,
-                                               cur_frame_addr, "cur_frame"))) {
+    if (!(func_ctx->cur_frame =
+              LLVMBuildLoad2(comp_ctx->builder, OPQ_PTR_TYPE,
+                             func_ctx->cur_frame_ptr, "cur_frame"))) {
         aot_set_last_error("llvm build load failed");
+        return false;
+    }
+
+    /* Get exec_env->wasm_stack.top_boundary and its address */
+    offset = I32_TEN;
+    if (!(wasm_stack_top_bound_ptr = LLVMBuildInBoundsGEP2(
+              comp_ctx->builder, OPQ_PTR_TYPE, func_ctx->exec_env, &offset, 1,
+              "wasm_stack_top_bound_ptr"))
+        || !(func_ctx->wasm_stack_top_bound = LLVMBuildLoad2(
+                 comp_ctx->builder, INT8_PTR_TYPE, wasm_stack_top_bound_ptr,
+                 "wasm_stack_top_bound"))) {
+        aot_set_last_error("load wasm_stack.top_boundary failed");
+        return false;
+    }
+
+    offset = I32_ELEVEN;
+    if (!(func_ctx->wasm_stack_top_ptr = LLVMBuildInBoundsGEP2(
+              comp_ctx->builder, OPQ_PTR_TYPE, func_ctx->exec_env, &offset, 1,
+              "wasm_stack_top_ptr"))) {
+        aot_set_last_error("llvm build inbounds gep failed");
         return false;
     }
 

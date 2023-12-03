@@ -170,32 +170,7 @@ uint32
 offset_of_local_in_outs_area(AOTCompContext *comp_ctx, unsigned n)
 {
     AOTCompFrame *frame = comp_ctx->aot_frame;
-    uint32 max_local_cell_num = frame->max_local_cell_num;
-    uint32 max_stack_cell_num = frame->max_stack_cell_num;
-    uint32 all_cell_num = max_local_cell_num + max_stack_cell_num;
-    uint32 frame_size;
-
-    if (!comp_ctx->is_jit_mode) {
-        /* Refer to aot_alloc_frame */
-        if (!comp_ctx->enable_gc)
-            frame_size = comp_ctx->pointer_size
-                             * (offsetof(AOTFrame, lp) / sizeof(uintptr_t))
-                         + all_cell_num * 4;
-        else
-            frame_size = comp_ctx->pointer_size
-                             * (offsetof(AOTFrame, lp) / sizeof(uintptr_t))
-                         + align_uint(all_cell_num * 5, 4);
-    }
-    else {
-        /* Refer to wasm_interp_interp_frame_size */
-        if (!comp_ctx->enable_gc)
-            frame_size = offsetof(WASMInterpFrame, lp) + all_cell_num * 4;
-        else
-            frame_size =
-                offsetof(WASMInterpFrame, lp) + align_uint(all_cell_num * 5, 4);
-    }
-
-    return frame_size + offset_of_local(comp_ctx, n);
+    return frame->cur_frame_size + offset_of_local(comp_ctx, n);
 }
 
 static bool
@@ -672,6 +647,36 @@ aot_gen_commit_sp_ip(AOTCompFrame *frame, const AOTValueSlot *sp,
     return true;
 }
 
+static uint32
+get_cur_frame_size(const AOTCompContext *comp_ctx, uint32 max_local_cell_num,
+                   uint32 max_stack_cell_num)
+{
+    uint32 all_cell_num = max_local_cell_num + max_stack_cell_num;
+    uint32 frame_size;
+
+    if (!comp_ctx->is_jit_mode) {
+        /* Refer to aot_alloc_frame */
+        if (!comp_ctx->enable_gc)
+            frame_size = comp_ctx->pointer_size
+                             * (offsetof(AOTFrame, lp) / sizeof(uintptr_t))
+                         + all_cell_num * 4;
+        else
+            frame_size = comp_ctx->pointer_size
+                             * (offsetof(AOTFrame, lp) / sizeof(uintptr_t))
+                         + align_uint(all_cell_num * 5, 4);
+    }
+    else {
+        /* Refer to wasm_interp_interp_frame_size */
+        if (!comp_ctx->enable_gc)
+            frame_size = offsetof(WASMInterpFrame, lp) + all_cell_num * 4;
+        else
+            frame_size =
+                offsetof(WASMInterpFrame, lp) + align_uint(all_cell_num * 5, 4);
+    }
+
+    return frame_size;
+}
+
 static bool
 init_comp_frame(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 uint32 func_idx)
@@ -718,6 +723,8 @@ init_comp_frame(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     aot_frame->max_local_cell_num = max_local_cell_num;
     aot_frame->max_stack_cell_num = max_stack_cell_num;
+    aot_frame->cur_frame_size =
+        get_cur_frame_size(comp_ctx, max_local_cell_num, max_stack_cell_num);
 
     aot_frame->sp = aot_frame->lp + max_local_cell_num;
 

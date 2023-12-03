@@ -359,11 +359,12 @@ static bool
 alloc_frame_for_aot_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                          uint32 func_idx)
 {
-    LLVMValueRef wasm_stack_top_bound_ptr, wasm_stack_top_bound;
-    LLVMValueRef wasm_stack_top_ptr, wasm_stack_top;
-    LLVMValueRef wasm_stack_bottom_ptr, wasm_stack_bottom;
+    LLVMValueRef wasm_stack_top_bound = func_ctx->wasm_stack_top_bound;
+    LLVMValueRef wasm_stack_top_ptr = func_ctx->wasm_stack_top_ptr,
+                 wasm_stack_top;
     LLVMValueRef wasm_stack_top_max, wasm_stack_top_new, offset, cmp;
-    LLVMValueRef cur_frame, new_frame, prev_frame_ptr, cur_frame_ptr;
+    LLVMValueRef cur_frame, new_frame, prev_frame_ptr;
+    LLVMValueRef cur_frame_ptr = func_ctx->cur_frame_ptr;
     LLVMValueRef frame_sp, frame_sp_ptr, frame_ref, frame_ref_ptr;
     LLVMValueRef func_idx_ptr, func_idx_val, func_inst_ptr, func_inst;
     LLVMTypeRef int8_ptr_type;
@@ -427,39 +428,11 @@ alloc_frame_for_aot_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         return false;
     }
 
-    /* Get exec_env->wasm_stack.top_boundary and its address */
-    offset = LLVM_CONST(i32_ten);
-    if (!(wasm_stack_top_bound_ptr = LLVMBuildInBoundsGEP2(
-              comp_ctx->builder, OPQ_PTR_TYPE, func_ctx->exec_env, &offset, 1,
-              "wasm_stack_top_bound_ptr"))
-        || !(wasm_stack_top_bound = LLVMBuildLoad2(
-                 comp_ctx->builder, INT8_PTR_TYPE, wasm_stack_top_bound_ptr,
-                 "wasm_stack_top_bound"))) {
-        aot_set_last_error("load wasm_stack.top_boundary failed");
-        return false;
-    }
-
-    /* Get exec_env->wasm_stack.top and its address */
-    offset = LLVM_CONST(i32_eleven);
-    if (!(wasm_stack_top_ptr = LLVMBuildInBoundsGEP2(
-              comp_ctx->builder, OPQ_PTR_TYPE, func_ctx->exec_env, &offset, 1,
-              "wasm_stack_top_ptr"))
-        || !(wasm_stack_top =
-                 LLVMBuildLoad2(comp_ctx->builder, INT8_PTR_TYPE,
-                                wasm_stack_top_ptr, "wasm_stack_top"))) {
+    /* Get exec_env->wasm_stack.top */
+    if (!(wasm_stack_top =
+              LLVMBuildLoad2(comp_ctx->builder, INT8_PTR_TYPE,
+                             wasm_stack_top_ptr, "wasm_stack_top"))) {
         aot_set_last_error("load wasm_stack.top failed");
-        return false;
-    }
-
-    /* Get exec_env->wasm_stack.bottom and its address */
-    offset = LLVM_CONST(i32_twelve);
-    if (!(wasm_stack_bottom_ptr = LLVMBuildInBoundsGEP2(
-              comp_ctx->builder, OPQ_PTR_TYPE, func_ctx->exec_env, &offset, 1,
-              "wasm_stack_bottom_ptr"))
-        || !(wasm_stack_bottom =
-                 LLVMBuildLoad2(comp_ctx->builder, INT8_PTR_TYPE,
-                                wasm_stack_bottom_ptr, "wasm_stack_bottom"))) {
-        aot_set_last_error("load wasm_stack.bottom failed");
         return false;
     }
 
@@ -739,13 +712,6 @@ alloc_frame_for_aot_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     /* exec_env->cur_frame = new_frame */
-    offset = I32_ONE;
-    if (!(cur_frame_ptr = LLVMBuildInBoundsGEP2(
-              comp_ctx->builder, INT8_PTR_TYPE, func_ctx->exec_env, &offset, 1,
-              "cur_frame_addr"))) {
-        aot_set_last_error("llvm get cur_frame_ptr failed");
-        return false;
-    }
     if (!LLVMBuildStore(comp_ctx->builder, new_frame, cur_frame_ptr)) {
         aot_set_last_error("llvm build store failed");
         return false;
@@ -825,8 +791,8 @@ fail:
 static bool
 free_frame_for_aot_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
-    LLVMValueRef cur_frame_ptr, cur_frame, prev_frame_ptr, prev_frame;
-    LLVMValueRef wasm_stack_top_ptr, offset;
+    LLVMValueRef cur_frame_ptr = func_ctx->cur_frame_ptr, cur_frame;
+    LLVMValueRef wasm_stack_top_ptr = func_ctx->wasm_stack_top_ptr;
     LLVMTypeRef int8_ptr_type;
 
     /* `int8 **` type */
@@ -901,14 +867,6 @@ free_frame_for_aot_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
         }
     }
 
-    /* cur_frame_ptr = &exec_env->cur_frame */
-    offset = I32_ONE;
-    if (!(cur_frame_ptr = LLVMBuildInBoundsGEP2(
-              comp_ctx->builder, INT8_PTR_TYPE, func_ctx->exec_env, &offset, 1,
-              "cur_frame_addr"))) {
-        aot_set_last_error("llvm get cur_frame_ptr failed");
-        return false;
-    }
     /* cur_frame = exec_env->cur_frame */
     if (!(cur_frame = LLVMBuildLoad2(comp_ctx->builder, INT8_PTR_TYPE,
                                      cur_frame_ptr, "cur_frame"))) {
@@ -916,27 +874,6 @@ free_frame_for_aot_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
         return false;
     }
 
-    /* prev_frame_ptr = &cur_frame->prev_frame */
-    if (!(prev_frame_ptr = LLVMBuildBitCast(comp_ctx->builder, cur_frame,
-                                            int8_ptr_type, "prev_frame_ptr"))) {
-        aot_set_last_error("llvm build bitcast failed");
-        return false;
-    }
-    /* prev_frame = cur_frame->prev_frame */
-    if (!(prev_frame = LLVMBuildLoad2(comp_ctx->builder, INT8_PTR_TYPE,
-                                      prev_frame_ptr, "prev_frame"))) {
-        aot_set_last_error("llvm build load failed");
-        return false;
-    }
-
-    /* Get &exec_env->wasm_stack.top */
-    offset = I32_ELEVEN;
-    if (!(wasm_stack_top_ptr = LLVMBuildInBoundsGEP2(
-              comp_ctx->builder, OPQ_PTR_TYPE, func_ctx->exec_env, &offset, 1,
-              "wasm_stack_top_ptr"))) {
-        aot_set_last_error("llvm build inbounds gep failed");
-        return false;
-    }
     /* exec_env->wasm_stack.top = cur_frame */
     if (!LLVMBuildStore(comp_ctx->builder, cur_frame, wasm_stack_top_ptr)) {
         aot_set_last_error("llvm build store failed");
@@ -944,7 +881,8 @@ free_frame_for_aot_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     }
 
     /* exec_env->cur_frame = prev_frame */
-    if (!LLVMBuildStore(comp_ctx->builder, prev_frame, cur_frame_ptr)) {
+    if (!LLVMBuildStore(comp_ctx->builder, func_ctx->cur_frame,
+                        cur_frame_ptr)) {
         aot_set_last_error("llvm build store failed");
         return false;
     }

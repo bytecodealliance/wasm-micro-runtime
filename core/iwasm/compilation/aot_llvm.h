@@ -126,6 +126,9 @@ typedef struct AOTCompFrame {
     /* Max operand stack slot number */
     uint32 max_stack_cell_num;
 
+    /* Size of current AOTFrame/WASMInterpFrame */
+    uint32 cur_frame_size;
+
     /* Stack top pointer */
     AOTValueSlot *sp;
 
@@ -230,6 +233,9 @@ typedef struct AOTFuncContext {
     LLVMValueRef cur_exception;
 
     LLVMValueRef cur_frame;
+    LLVMValueRef cur_frame_ptr;
+    LLVMValueRef wasm_stack_top_bound;
+    LLVMValueRef wasm_stack_top_ptr;
 
     bool mem_space_unchanged;
     AOTCheckedAddrList checked_addr_list;
