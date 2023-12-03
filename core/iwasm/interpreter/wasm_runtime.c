@@ -4,8 +4,6 @@
  */
 
 #include "wasm_runtime.h"
-#include "gc_export.h"
-#include "wasm.h"
 #include "wasm_loader.h"
 #include "wasm_interp.h"
 #include "bh_common.h"
@@ -2321,13 +2319,13 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
         /* has check it in loader */
         WASMTableInstance *table = module_inst->tables[table_seg->table_index];
         table_elem_type_t *table_data;
+        uint32 j;
 #if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
         uint8 tbl_elem_type;
         uint32 tbl_init_size, tbl_max_size;
 #endif
 #if WASM_ENABLE_GC != 0
         WASMRefType *tbl_elem_ref_type;
-        uint32 j;
 #endif
 
         bh_assert(table);

@@ -657,10 +657,10 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                 uint8 type1;
 
 #if WASM_ENABLE_GC == 0
-                cur_value->ref_index = -1;
-                cur_init_value->type =
-                    VALUE_TYPE_FUNCREF; /* ?? How to know the ref type? */
-                (void)type1;
+                CHECK_BUF(p, p_end, 1);
+                type1 = read_uint8(p);
+                cur_value->ref_index = NULL_REF;
+                cur_init_value->type = type1;
 #else
                 CHECK_BUF(p, p_end, 1);
                 type1 = read_uint8(p);
@@ -3836,6 +3836,7 @@ fail:
 }
 #endif /* end of WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0 */
 
+#if WASM_ENABLE_GC != 0
 static bool
 check_global_index_and_type(WASMModule *module, uint32 global_idx, uint8 type,
                             const WASMRefType *ref_type, char *error_buf,
@@ -3868,6 +3869,7 @@ check_global_index_and_type(WASMModule *module, uint32 global_idx, uint8 type,
 
     return true;
 }
+#endif /* end of WASM_ENABLE_GC != 0 */
 
 static bool
 load_func_index_vec(const uint8 **p_buf, const uint8 *buf_end,
@@ -4010,18 +4012,21 @@ load_table_segment_section(const uint8 *buf, const uint8 *buf_end,
                 case 0:
                 case 4:
                 {
+#if WASM_ENABLE_GC != 0
                     WASMRefType elem_ref_type = { 0 };
                     /* TODO: for mode 4, we may need to decide elem_type
                      * according to init expr result */
                     table_segment->elem_type = REF_TYPE_HT_NON_NULLABLE;
-                    table_segment->table_index = 0;
-
                     wasm_set_refheaptype_common(&elem_ref_type.ref_ht_common,
                                                 false, HEAP_TYPE_FUNC);
                     if (!(table_segment->elem_ref_type = reftype_set_insert(
                               module->ref_type_set, &elem_ref_type, error_buf,
                               error_buf_size)))
                         return false;
+#else
+                    table_segment->elem_type = VALUE_TYPE_FUNCREF;
+#endif
+                    table_segment->table_index = 0;
 
                     if (!check_table_index(module, table_segment->table_index,
                                            error_buf, error_buf_size))
@@ -4130,7 +4135,7 @@ load_table_segment_section(const uint8 *buf, const uint8 *buf_end,
                                 VALUE_TYPE_I32, NULL, error_buf,
                                 error_buf_size))
                 return false;
-            if (!load_func_index_vec(&p, p_end, module, table_segment, false,
+            if (!load_func_index_vec(&p, p_end, module, table_segment,
                                      error_buf, error_buf_size))
                 return false;
 #endif /* WASM_ENABLE_REF_TYPES != 0 */
