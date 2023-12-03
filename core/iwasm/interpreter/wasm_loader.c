@@ -6689,8 +6689,6 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                         break;
                     case WASM_OP_BR_ON_CAST:
                     case WASM_OP_BR_ON_CAST_FAIL:
-                    case WASM_OP_BR_ON_CAST_NULLABLE:
-                    case WASM_OP_BR_ON_CAST_FAIL_NULLABLE:
                         p += sizeof(uint8);        /* castflag */
                         skip_leb_uint32(p, p_end); /* labelidx */
                         skip_leb_int32(p, p_end);  /* heaptype */
@@ -12637,6 +12635,10 @@ re_scan:
 
                         CHECK_BUF(p, p_end, 1);
                         castflags = read_uint8(p);
+#if WASM_ENABLE_FAST_INTERP != 0
+                        /* Emit heap_type firstly */
+                        emit_byte(loader_ctx, castflags);
+#endif
 
                         p_org = p;
                         read_leb_uint32(p, p_end, depth);

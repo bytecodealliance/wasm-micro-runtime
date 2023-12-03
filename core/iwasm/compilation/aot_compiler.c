@@ -1537,8 +1537,6 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 
                     case WASM_OP_BR_ON_CAST:
                     case WASM_OP_BR_ON_CAST_FAIL:
-                    case WASM_OP_BR_ON_CAST_NULLABLE:
-                    case WASM_OP_BR_ON_CAST_FAIL_NULLABLE:
                     {
                         int32 heap_type;
 

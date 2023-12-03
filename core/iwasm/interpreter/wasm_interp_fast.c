@@ -2396,6 +2396,54 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         PUSH_I32(array_len);
                         HANDLE_OP_END();
                     }
+                    case WASM_OP_ARRAY_FILL:
+                    {
+                        WASMArrayType *array_type;
+                        WASMValue fill_value = { 0 };
+                        uint32 start_offset, len;
+
+                        type_idx = read_uint32(frame_ip);
+
+                        array_type =
+                            (WASMArrayType *)module->module->types[type_idx];
+
+                        len = POP_I32();
+                        if (wasm_is_type_reftype(array_type->elem_type)) {
+                            fill_value.gc_obj = POP_REF();
+                        }
+                        else if (array_type->elem_type == VALUE_TYPE_I32
+                                 || array_type->elem_type == VALUE_TYPE_F32
+                                 || array_type->elem_type == PACKED_TYPE_I8
+                                 || array_type->elem_type == PACKED_TYPE_I16) {
+                            fill_value.i32 = POP_I32();
+                        }
+                        else {
+                            fill_value.i64 = POP_I64();
+                        }
+                        start_offset = POP_I32();
+                        array_obj = POP_REF();
+
+                        if (!array_obj) {
+                            wasm_set_exception(module, "null array reference");
+                            goto got_exception;
+                        }
+
+                        if ((uint64)start_offset + len
+                            >= wasm_array_obj_length(array_obj)) {
+                            if (len > 0) {
+                                wasm_set_exception(
+                                    module, "out of bounds array access");
+                                goto got_exception;
+                            }
+                        }
+
+                        if (len > 0) {
+                            wasm_array_obj_fill(array_obj, start_offset, len,
+                                                &fill_value);
+                        }
+
+                        HANDLE_OP_END();
+                    }
                     case WASM_OP_ARRAY_COPY:
                     {
                         uint32 dst_offset, src_offset, len, src_type_index;
@@ -2523,16 +2571,16 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     }
 
                     case WASM_OP_BR_ON_CAST:
-                    case WASM_OP_BR_ON_CAST_NULLABLE:
                     case WASM_OP_BR_ON_CAST_FAIL:
-                    case WASM_OP_BR_ON_CAST_FAIL_NULLABLE:
                     {
                         int32 heap_type, heap_type_dst;
+                        uint8 castflags;
                         uint16 opnd_off_br;
 
 #if WASM_ENABLE_THREAD_MGR != 0
                         CHECK_SUSPEND_FLAGS();
 #endif
+                        castflags = *frame_ip++;
                         heap_type = (int32)read_uint32(frame_ip);
                         heap_type_dst = (int32)read_uint32(frame_ip);
 
@@ -2542,8 +2590,15 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         PUT_REF_TO_ADDR(frame_lp + opnd_off_br, gc_obj);
 
                         if (!gc_obj) {
-                            if (opcode == WASM_OP_BR_ON_CAST_NULLABLE
-                                || opcode == WASM_OP_BR_ON_CAST_FAIL) {
+                            if (
+                                /* BR_ON_CAST and dst reftype is nullable */
+                                ((opcode == WASM_OP_BR_ON_CAST)
+                                 && ((castflags == 2) || (castflags == 3)))
+                                /* BR_ON_CAST_FAIL and dst reftype is
+                                   non-nullable */
+                                || ((opcode == WASM_OP_BR_ON_CAST_FAIL)
+                                    && ((castflags == 0)
+                                        || (castflags == 1)))) {
                                 CLEAR_FRAME_REF(opnd_off);
                                 if (!wasm_is_reftype_i31ref(heap_type)) {
                                     SET_FRAME_REF(opnd_off_br);
@@ -2554,25 +2609,21 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         else {
                             bool castable = false;
 
-                            if (heap_type >= 0) {
+                            if (heap_type_dst >= 0) {
                                 WASMModule *wasm_module = module->module;
                                 castable = wasm_obj_is_instance_of(
-                                    gc_obj, (uint32)heap_type,
+                                    gc_obj, (uint32)heap_type_dst,
                                     wasm_module->types,
                                     wasm_module->type_count);
                             }
                             else {
                                 castable =
-                                    wasm_obj_is_type_of(gc_obj, heap_type);
+                                    wasm_obj_is_type_of(gc_obj, heap_type_dst);
                             }
 
-                            if ((castable
-                                 && (opcode == WASM_OP_BR_ON_CAST
-                                     || opcode == WASM_OP_BR_ON_CAST_NULLABLE))
+                            if ((castable && (opcode == WASM_OP_BR_ON_CAST))
                                 || (!castable
-                                    && (opcode == WASM_OP_BR_ON_CAST_FAIL
-                                        || opcode
-                                               == WASM_OP_BR_ON_CAST_FAIL_NULLABLE))) {
+                                    && (opcode == WASM_OP_BR_ON_CAST_FAIL))) {
                                 CLEAR_FRAME_REF(opnd_off);
                                 if (!wasm_is_reftype_i31ref(heap_type)) {
                                     SET_FRAME_REF(opnd_off_br);
@@ -4978,11 +5029,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         uint32 tbl_idx, elem_idx;
                         uint32 n, s, d;
                         WASMTableInstance *tbl_inst;
-#if WASM_ENABLE_GC != 0
                         void **table_elems;
-                        uintptr_t *func_indexes;
+                        InitializerExpression *init_values;
                         uint64 i;
-#endif
 
                         elem_idx = read_uint32(frame_ip);
                         bh_assert(elem_idx < module->module->table_seg_count);
@@ -5026,28 +5075,27 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             goto got_exception;
                         }
 
-#if WASM_ENABLE_GC == 0
-                        bh_memcpy_s((uint8 *)tbl_inst
-                                        + offsetof(WASMTableInstance, elems)
-                                        + d * sizeof(table_elem_type_t),
-                                    (uint32)((tbl_inst->cur_size - d)
-                                             * sizeof(table_elem_type_t)),
-                                    module->module->table_segments[elem_idx]
-                                            .func_indexes
-                                        + s,
-                                    (uint32)(n * sizeof(table_elem_type_t)));
-#else
-                        SYNC_ALL_TO_FRAME();
                         table_elems = tbl_inst->elems + d;
-                        func_indexes =
+                        init_values =
                             module->module->table_segments[elem_idx].init_values
                             + s;
+#if WASM_ENABLE_GC != 0
+                        SYNC_ALL_TO_FRAME();
+#endif
                         for (i = 0; i < n; i++) {
                             /* UINT32_MAX indicates that it is an null ref */
-                            if (func_indexes[i] != UINT32_MAX) {
+                            bh_assert(init_values[i].init_expr_type
+                                          == INIT_EXPR_TYPE_REFNULL_CONST
+                                      || init_values[i].init_expr_type
+                                             == INIT_EXPR_TYPE_FUNCREF_CONST);
+#if WASM_ENABLE_GC == 0
+                            table_elems[i] =
+                                (void *)(uintptr_t)init_values[i].u.ref_index;
+#else
+                            if (init_values[i].u.ref_index != UINT32_MAX) {
                                 if (!(func_obj = wasm_create_func_obj(
-                                          module, func_indexes[i], true, NULL,
-                                          0))) {
+                                          module, init_values[i].u.ref_index,
+                                          true, NULL, 0))) {
                                     goto got_exception;
                                 }
                                 table_elems[i] = func_obj;
@@ -5055,8 +5103,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             else {
                                 table_elems[i] = NULL_REF;
                             }
-                        }
 #endif
+                        }
+
                         break;
                     }
                     case WASM_OP_ELEM_DROP:

@@ -2640,8 +2640,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                     case WASM_OP_BR_ON_CAST:
                     case WASM_OP_BR_ON_CAST_FAIL:
-                    case WASM_OP_BR_ON_CAST_NULLABLE:
-                    case WASM_OP_BR_ON_CAST_FAIL_NULLABLE:
                     {
                         int32 heap_type, heap_type_dst;
                         uint8 castflags;
@@ -2681,13 +2679,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                     wasm_obj_is_type_of(gc_obj, heap_type_dst);
                             }
 
-                            if ((castable
-                                 && (opcode == WASM_OP_BR_ON_CAST
-                                     || opcode == WASM_OP_BR_ON_CAST_NULLABLE))
+                            if ((castable && (opcode == WASM_OP_BR_ON_CAST))
                                 || (!castable
-                                    && (opcode == WASM_OP_BR_ON_CAST_FAIL
-                                        || opcode
-                                               == WASM_OP_BR_ON_CAST_FAIL_NULLABLE))) {
+                                    && (opcode == WASM_OP_BR_ON_CAST_FAIL))) {
                                 goto label_pop_csp_n;
                             }
                         }
