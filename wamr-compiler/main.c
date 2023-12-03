@@ -458,8 +458,10 @@ main(int argc, char *argv[])
         }
         else if (!strcmp(argv[0], "--enable-perf-profiling")) {
             option.enable_aux_stack_frame = true;
+            option.enable_perf_profiling = true;
         }
         else if (!strcmp(argv[0], "--enable-memory-profiling")) {
+            option.enable_memory_profiling = true;
             option.enable_stack_estimation = true;
         }
         else if (!strcmp(argv[0], "--xip")) {

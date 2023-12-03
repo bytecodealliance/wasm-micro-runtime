@@ -21,6 +21,8 @@ typedef struct AOTCompOption {
     bool enable_ref_types;
     bool enable_aux_stack_check;
     bool enable_aux_stack_frame;
+    bool enable_perf_profiling;
+    bool enable_memory_profiling;
     bool disable_llvm_intrinsics;
     bool disable_llvm_lto;
     bool enable_llvm_pgo;

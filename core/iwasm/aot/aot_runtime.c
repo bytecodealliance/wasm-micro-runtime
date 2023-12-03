@@ -3248,6 +3248,36 @@ aot_free_frame(WASMExecEnv *exec_env)
     wasm_exec_env_free_wasm_frame(exec_env, cur_frame);
     exec_env->cur_frame = (struct WASMInterpFrame *)prev_frame;
 }
+
+void
+aot_frame_update_profile_info(WASMExecEnv *exec_env, bool alloc_frame)
+{
+#if WASM_ENABLE_PERF_PROFILING != 0
+    AOTFrame *cur_frame = (AOTFrame *)exec_env->cur_frame;
+    AOTModuleInstance *module_inst = (AOTModuleInstance *)exec_env->module_inst;
+    AOTFuncPerfProfInfo *func_perf_prof =
+        module_inst->func_perf_profilings + cur_frame->func_index;
+
+    if (alloc_frame) {
+        cur_frame->time_started = (uintptr_t)os_time_get_boot_microsecond();
+        cur_frame->func_perf_prof_info = func_perf_prof;
+    }
+    else {
+        cur_frame->func_perf_prof_info->total_exec_time +=
+            (uintptr_t)os_time_get_boot_microsecond() - cur_frame->time_started;
+        cur_frame->func_perf_prof_info->total_exec_cnt++;
+    }
+#endif
+
+#if WASM_ENABLE_MEMORY_PROFILING != 0
+    if (alloc_frame) {
+        uint32 wasm_stack_used =
+            exec_env->wasm_stack.top - exec_env->wasm_stack.bottom;
+        if (wasm_stack_used > exec_env->max_wasm_stack_used)
+            exec_env->max_wasm_stack_used = wasm_stack_used;
+    }
+#endif
+}
 #endif /* end of WASM_ENABLE_AOT_STACK_FRAME != 0 */
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0

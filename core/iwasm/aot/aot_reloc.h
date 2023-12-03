@@ -56,7 +56,8 @@ typedef struct {
 #if WASM_ENABLE_AOT_STACK_FRAME != 0
 #define REG_AOT_TRACE_SYM()               \
     REG_SYM(aot_alloc_frame),             \
-    REG_SYM(aot_free_frame),
+    REG_SYM(aot_free_frame),              \
+    REG_SYM(aot_frame_update_profile_info),
 #else
 #define REG_AOT_TRACE_SYM()
 #endif

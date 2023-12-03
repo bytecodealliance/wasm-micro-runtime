@@ -274,18 +274,6 @@ aot_estimate_stack_usage_for_function_call(const AOTCompContext *comp_ctx,
     return size;
 }
 
-static uint32
-get_inst_extra_offset(AOTCompContext *comp_ctx)
-{
-    const AOTCompData *comp_data = comp_ctx->comp_data;
-    uint32 table_count = comp_data->import_table_count + comp_data->table_count;
-    uint64 offset = get_tbl_inst_offset(comp_ctx, NULL, table_count);
-    uint32 offset_32 = (uint32)offset;
-    bh_assert(offset <= UINT32_MAX);
-    offset_32 = align_uint((uint32)offset_32, 8);
-    return offset_32;
-}
-
 /*
  * a "precheck" function performs a few things before calling wrapped_func.
  *
@@ -389,7 +377,7 @@ aot_add_precheck_function(AOTCompContext *comp_ctx, LLVMModuleRef module,
         LLVMValueRef offset;
         LLVMValueRef stack_sizes_p;
 
-        offset_u32 = get_inst_extra_offset(comp_ctx);
+        offset_u32 = get_module_inst_extra_offset(comp_ctx);
         offset_u32 += offsetof(AOTModuleInstanceExtra, stack_sizes);
         offset = I32_CONST(offset_u32);
         if (!offset) {
@@ -1945,6 +1933,9 @@ aot_create_llvm_consts(AOTLLVMConsts *consts, AOTCompContext *comp_ctx)
     if (!(consts->i8_zero = I8_CONST(0)))
         return false;
 
+    if (!(consts->i8_one = I8_CONST(1)))
+        return false;
+
     if (!(consts->f32_zero = F32_CONST(0)))
         return false;
 
@@ -2529,6 +2520,12 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
 
     if (option->enable_aux_stack_frame)
         comp_ctx->enable_aux_stack_frame = true;
+
+    if (option->enable_perf_profiling)
+        comp_ctx->enable_perf_profiling = true;
+
+    if (option->enable_memory_profiling)
+        comp_ctx->enable_memory_profiling = true;
 
     if (option->enable_aux_stack_check)
         comp_ctx->enable_aux_stack_check = true;

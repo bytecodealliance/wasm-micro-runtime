@@ -298,6 +298,7 @@ typedef struct AOTLLVMConsts {
     LLVMValueRef i1_zero;
     LLVMValueRef i1_one;
     LLVMValueRef i8_zero;
+    LLVMValueRef i8_one;
     LLVMValueRef i32_zero;
     LLVMValueRef i64_zero;
     LLVMValueRef f32_zero;
@@ -399,6 +400,12 @@ typedef struct AOTCompContext {
 
     /* Generate auxiliary stack frame */
     bool enable_aux_stack_frame;
+
+    /* Function performance profiling */
+    bool enable_perf_profiling;
+
+    /* Memory usage profiling */
+    bool enable_memory_profiling;
 
     /* Thread Manager */
     bool enable_thread_mgr;

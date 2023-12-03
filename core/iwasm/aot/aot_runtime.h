@@ -660,6 +660,9 @@ aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index);
 void
 aot_free_frame(WASMExecEnv *exec_env);
 
+void
+aot_frame_update_profile_info(WASMExecEnv *exec_env, bool alloc_frame);
+
 bool
 aot_create_call_stack(struct WASMExecEnv *exec_env);
 
