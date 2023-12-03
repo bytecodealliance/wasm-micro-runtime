@@ -210,6 +210,24 @@ typedef union WASMValue {
 } WASMValue;
 #endif /* end of WASM_VALUE_DEFINED */
 
+typedef struct WASMStructNewInitValues {
+    uint8 type_idx;
+    uint32 count;
+    WASMValue *fields;
+} WASMStructNewInitValues;
+
+typedef struct WASMArrayNewInitValues {
+    uint8 type_idx;
+    WASMValue elem_data;
+    uint32 length;
+} WASMArrayNewInitValues;
+
+typedef struct WASMArrayNewFixedInitValues {
+    uint8 type_idx;
+    uint32 count;
+    WASMValue *values;
+} WASMArrayNewFixedInitValues;
+
 typedef struct InitializerExpression {
     /* type of INIT_EXPR_TYPE_XXX, which is an instruction of
        constant expression */
