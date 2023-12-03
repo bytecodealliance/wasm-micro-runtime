@@ -1002,9 +1002,9 @@ typedef enum WASMAtomicEXTOpcode {
         HANDLE_OPCODE(WASM_OP_REF_NULL),             /* 0xd0 */ \
         HANDLE_OPCODE(WASM_OP_REF_IS_NULL),          /* 0xd1 */ \
         HANDLE_OPCODE(WASM_OP_REF_FUNC),             /* 0xd2 */ \
-        HANDLE_OPCODE(WASM_OP_REF_AS_NON_NULL),      /* 0xd3 */ \
-        HANDLE_OPCODE(WASM_OP_BR_ON_NULL),           /* 0xd4 */ \
-        HANDLE_OPCODE(WASM_OP_REF_EQ),               /* 0xd5 */ \
+        HANDLE_OPCODE(WASM_OP_REF_EQ),               /* 0xd3 */ \
+        HANDLE_OPCODE(WASM_OP_REF_AS_NON_NULL),      /* 0xd4 */ \
+        HANDLE_OPCODE(WASM_OP_BR_ON_NULL),           /* 0xd5 */ \
         HANDLE_OPCODE(WASM_OP_BR_ON_NON_NULL),       /* 0xd6 */ \
         HANDLE_OPCODE(EXT_OP_BLOCK),                 /* 0xd7 */ \
         HANDLE_OPCODE(EXT_OP_LOOP),                  /* 0xd8 */ \

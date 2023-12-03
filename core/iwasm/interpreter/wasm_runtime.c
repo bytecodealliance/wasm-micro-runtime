@@ -2160,6 +2160,61 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
         }
     }
 
+#if WASM_ENABLE_GC != 0
+    /* Initialize the table data with init expr */
+    for (i = 0; i < module->table_count; i++) {
+        WASMTable *table = module->tables + i;
+        WASMTableInstance *table_inst = module_inst->tables[i];
+        table_elem_type_t *table_data;
+        uint32 j;
+
+        if (table->init_expr.init_expr_type == 0) {
+            /* No table initializer */
+            continue;
+        }
+
+        table_data = table_inst->elems;
+
+        bh_assert(
+            table->init_expr.init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL
+            || table->init_expr.init_expr_type == INIT_EXPR_TYPE_FUNCREF_CONST
+            || table->init_expr.init_expr_type == INIT_EXPR_TYPE_REFNULL_CONST);
+
+        if (table->init_expr.init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL) {
+            if (!check_global_init_expr(module, table->init_expr.u.global_index,
+                                        error_buf, error_buf_size)) {
+                goto fail;
+            }
+
+            table->init_expr.u.gc_obj =
+                globals[table->init_expr.u.global_index].initial_value.gc_obj;
+        }
+        else if (table->init_expr.init_expr_type
+                 == INIT_EXPR_TYPE_FUNCREF_CONST) {
+            uint32 func_idx = table->init_expr.u.ref_index;
+            if (func_idx != UINT32_MAX) {
+                if (!(table->init_expr.u.gc_obj =
+                          wasm_create_func_obj(module_inst, func_idx, false,
+                                               error_buf, error_buf_size)))
+                    goto fail;
+            }
+            else {
+                table->init_expr.u.gc_obj = NULL_REF;
+            }
+        }
+        else if (table->init_expr.init_expr_type
+                 == INIT_EXPR_TYPE_REFNULL_CONST) {
+            table->init_expr.u.gc_obj = NULL_REF;
+        }
+
+        LOG_DEBUG("Init table [%d] elements from [%d] to [%d] as: %p", i, 0,
+                  table_inst->cur_size, (void *)table->init_expr.u.gc_obj);
+        for (j = 0; j < table_inst->cur_size; j++) {
+            *(table_data + j) = table->init_expr.u.gc_obj;
+        }
+    }
+#endif /* end of WASM_ENABLE_GC != 0 */
+
     /* Initialize the table data with table segment section */
     for (i = 0; module_inst->table_count > 0 && i < module->table_seg_count;
          i++) {

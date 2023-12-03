@@ -170,6 +170,10 @@ wasm_array_obj_get_elem(const WASMArrayObjectRef array_obj, uint32 elem_idx,
                         bool sign_extend, WASMValue *value);
 
 void
+wasm_array_obj_fill(const WASMArrayObjectRef array_obj, uint32 elem_idx,
+                    uint32 len, WASMValue *value);
+
+void
 wasm_array_obj_copy(WASMArrayObjectRef dst_obj, uint32 dst_idx,
                     WASMArrayObjectRef src_obj, uint32 src_idx, uint32 len);
 

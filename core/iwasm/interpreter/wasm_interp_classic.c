@@ -2453,6 +2453,63 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                                 &array_elem);
                         HANDLE_OP_END();
                     }
+                    case WASM_OP_ARRAY_LEN:
+                    {
+                        uint32 array_len;
+
+                        array_obj = POP_REF();
+                        if (!array_obj) {
+                            wasm_set_exception(module, "null array object");
+                            goto got_exception;
+                        }
+                        array_len = wasm_array_obj_length(array_obj);
+                        PUSH_I32(array_len);
+                        HANDLE_OP_END();
+                    }
+                    case WASM_OP_ARRAY_FILL:
+                    {
+                        WASMArrayType *array_type;
+                        WASMValue fill_value = { 0 };
+                        uint32 start_offset, len;
+                        read_leb_uint32(frame_ip, frame_ip_end, type_index);
+
+                        array_obj = POP_REF();
+                        start_offset = POP_I32();
+                        array_type =
+                            (WASMArrayType *)module->module->types[type_index];
+                        if (wasm_is_type_reftype(array_type->elem_type)) {
+                            fill_value.gc_obj = POP_REF();
+                        }
+                        else if (array_type->elem_type == VALUE_TYPE_I32
+                                 || array_type->elem_type == VALUE_TYPE_F32
+                                 || array_type->elem_type == PACKED_TYPE_I8
+                                 || array_type->elem_type == PACKED_TYPE_I16) {
+                            fill_value.i32 = POP_I32();
+                        }
+                        else {
+                            fill_value.i64 = POP_I64();
+                        }
+                        len = POP_I32();
+
+                        if (!array_obj) {
+                            wasm_set_exception(module, "null array object");
+                            goto got_exception;
+                        }
+
+                        if (len > 0) {
+                            if ((uint64)start_offset + len
+                                >= wasm_array_obj_length(array_obj)) {
+                                wasm_set_exception(module,
+                                                   "array index out of bounds");
+                                goto got_exception;
+                            }
+
+                            wasm_array_obj_fill(array_obj, start_offset, len,
+                                                &fill_value);
+                        }
+
+                        HANDLE_OP_END();
+                    }
                     case WASM_OP_ARRAY_COPY:
                     {
                         uint32 dst_offset, src_offset, len, src_type_index;
@@ -2489,19 +2546,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         }
 
                         (void)src_type_index;
-                        HANDLE_OP_END();
-                    }
-                    case WASM_OP_ARRAY_LEN:
-                    {
-                        uint32 array_len;
-
-                        array_obj = POP_REF();
-                        if (!array_obj) {
-                            wasm_set_exception(module, "null array object");
-                            goto got_exception;
-                        }
-                        array_len = wasm_array_obj_length(array_obj);
-                        PUSH_I32(array_len);
                         HANDLE_OP_END();
                     }
 
@@ -2596,33 +2640,42 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     case WASM_OP_BR_ON_CAST_NULLABLE:
                     case WASM_OP_BR_ON_CAST_FAIL_NULLABLE:
                     {
-                        int32 heap_type;
+                        int32 heap_type, heap_type_dst;
+                        uint8 castflags;
 
 #if WASM_ENABLE_THREAD_MGR != 0
                         CHECK_SUSPEND_FLAGS();
 #endif
+                        castflags = *frame_ip++;
                         read_leb_uint32(frame_ip, frame_ip_end, depth);
                         read_leb_int32(frame_ip, frame_ip_end, heap_type);
+                        read_leb_int32(frame_ip, frame_ip_end, heap_type_dst);
 
                         gc_obj = GET_REF_FROM_ADDR(frame_sp - REF_CELL_NUM);
                         if (!gc_obj) {
-                            if (opcode == WASM_OP_BR_ON_CAST_NULLABLE
-                                || opcode == WASM_OP_BR_ON_CAST_FAIL)
+                            if (
+                                /* BR_ON_CAST and dst reftype is nullable */
+                                ((opcode1 == WASM_OP_BR_ON_CAST)
+                                 && ((castflags == 2) || (castflags == 3)))
+                                /* BR_ON_CAST_FAIL and dst reftype is
+                                   non-nullable */
+                                || ((opcode1 == WASM_OP_BR_ON_CAST_FAIL)
+                                    && ((castflags == 0) || (castflags == 1))))
                                 goto label_pop_csp_n;
                         }
                         else {
                             bool castable = false;
 
-                            if (heap_type >= 0) {
+                            if (heap_type_dst >= 0) {
                                 WASMModule *wasm_module = module->module;
                                 castable = wasm_obj_is_instance_of(
-                                    gc_obj, (uint32)heap_type,
+                                    gc_obj, (uint32)heap_type_dst,
                                     wasm_module->types,
                                     wasm_module->type_count);
                             }
                             else {
                                 castable =
-                                    wasm_obj_is_type_of(gc_obj, heap_type);
+                                    wasm_obj_is_type_of(gc_obj, heap_type_dst);
                             }
 
                             if ((castable
@@ -2635,6 +2688,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                 goto label_pop_csp_n;
                             }
                         }
+
+                        (void)heap_type;
                         HANDLE_OP_END();
                     }
 

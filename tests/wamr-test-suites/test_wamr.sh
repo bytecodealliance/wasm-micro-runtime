@@ -437,7 +437,7 @@ function spec_test()
 
         git restore . && git clean -ffd .
         # Sync constant expression descriptions
-        # git reset --hard 62beb94ddd41987517781732f17f213d8b866dcc
+        git reset --hard 026ffeab0d4c5031879d63a0cbb22243dce16055
         git apply ../../spec-test-script/gc_ignore_cases.patch
 
         echo "compile the reference intepreter"
@@ -813,6 +813,7 @@ function trigger()
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_GC=1"
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_REF_TYPES=1"
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_BULK_MEMORY=1"
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_TAIL_CALL=1"
     fi
 
     if [[ ${ENABLE_DEBUG_VERSION} == 1 ]]; then

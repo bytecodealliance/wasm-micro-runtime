@@ -616,12 +616,17 @@ wasm_reftype_size(uint8 type)
         return 4;
     else if (type == VALUE_TYPE_I64 || type == VALUE_TYPE_F64)
         return 8;
+    else if ((type >= (uint8)REF_TYPE_ARRAYREF
+              && type <= (uint8)REF_TYPE_NULLFUNCREF)
+             || (type >= (uint8)REF_TYPE_HT_NULLABLE
+                 && type <= (uint8)REF_TYPE_HT_NON_NULLABLE)
 #if WASM_ENABLE_STRINGREF != 0
-    else if (type >= (uint8)REF_TYPE_STRINGVIEWITER
-             && type <= (uint8)REF_TYPE_FUNCREF)
-#else
-    else if (type >= (uint8)REF_TYPE_NULLREF && type <= (uint8)REF_TYPE_FUNCREF)
+             || (type >= (uint8)REF_TYPE_STRINGVIEWWTF8
+                 && type <= (uint8)REF_TYPE_STRINGREF)
+             || (type >= (uint8)REF_TYPE_STRINGVIEWITER
+                 && type <= (uint8)REF_TYPE_STRINGVIEWWTF16)
 #endif
+    )
         return sizeof(uintptr_t);
     else if (type == PACKED_TYPE_I8)
         return 1;

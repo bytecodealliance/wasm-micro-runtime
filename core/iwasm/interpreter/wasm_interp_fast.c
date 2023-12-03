@@ -2384,6 +2384,18 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                                 &array_elem);
                         HANDLE_OP_END();
                     }
+                    case WASM_OP_ARRAY_LEN:
+                    {
+                        uint32 array_len;
+                        array_obj = POP_REF();
+                        if (!array_obj) {
+                            wasm_set_exception(module, "null array object");
+                            goto got_exception;
+                        }
+                        array_len = wasm_array_obj_length(array_obj);
+                        PUSH_I32(array_len);
+                        HANDLE_OP_END();
+                    }
                     case WASM_OP_ARRAY_COPY:
                     {
                         uint32 dst_offset, src_offset, len, src_type_index;
@@ -2420,18 +2432,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         }
 
                         (void)src_type_index;
-                        HANDLE_OP_END();
-                    }
-                    case WASM_OP_ARRAY_LEN:
-                    {
-                        uint32 array_len;
-                        array_obj = POP_REF();
-                        if (!array_obj) {
-                            wasm_set_exception(module, "null array object");
-                            goto got_exception;
-                        }
-                        array_len = wasm_array_obj_length(array_obj);
-                        PUSH_I32(array_len);
                         HANDLE_OP_END();
                     }
 
@@ -2527,13 +2527,14 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     case WASM_OP_BR_ON_CAST_FAIL:
                     case WASM_OP_BR_ON_CAST_FAIL_NULLABLE:
                     {
-                        int32 heap_type;
+                        int32 heap_type, heap_type_dst;
                         uint16 opnd_off_br;
 
 #if WASM_ENABLE_THREAD_MGR != 0
                         CHECK_SUSPEND_FLAGS();
 #endif
                         heap_type = (int32)read_uint32(frame_ip);
+                        heap_type_dst = (int32)read_uint32(frame_ip);
 
                         opnd_off = GET_OFFSET();
                         opnd_off_br = GET_OFFSET();
@@ -2580,6 +2581,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             }
                         }
                         SKIP_BR_INFO();
+
+                        (void)heap_type_dst;
                         HANDLE_OP_END();
                     }
 

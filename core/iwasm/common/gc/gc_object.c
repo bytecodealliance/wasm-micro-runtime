@@ -300,6 +300,35 @@ wasm_array_obj_get_elem(const WASMArrayObjectRef array_obj, uint32 elem_idx,
 }
 
 void
+wasm_array_obj_fill(const WASMArrayObjectRef array_obj, uint32 elem_idx,
+                    uint32 len, WASMValue *value)
+{
+    uint32 i;
+    uint8 *elem_data = wasm_array_obj_elem_addr(array_obj, elem_idx);
+    uint32 elem_size = 1 << wasm_array_obj_elem_size_log(array_obj);
+
+    if (elem_size == 1) {
+        memset(elem_data, (int8)value->i32, len);
+        return;
+    }
+
+    for (i = 0; i < len; i++) {
+        switch (elem_size) {
+            case 2:
+                *(int16 *)elem_data = (int16)value->i32;
+                break;
+            case 4:
+                *(int32 *)elem_data = value->i32;
+                break;
+            case 8:
+                PUT_I64_TO_ADDR((uint32 *)elem_data, value->i64);
+                break;
+        }
+        elem_data += elem_size;
+    }
+}
+
+void
 wasm_array_obj_copy(WASMArrayObjectRef dst_obj, uint32 dst_idx,
                     WASMArrayObjectRef src_obj, uint32 src_idx, uint32 len)
 {

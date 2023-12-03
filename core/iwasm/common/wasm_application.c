@@ -548,6 +548,7 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
             {
 #if WASM_ENABLE_GC != 0
                 bool is_extern_ref = false;
+                bool is_anyref = false;
 
                 if (wasm_is_type_reftype(type->types[i])) {
                     if (strncasecmp(argv[i], "null", 4) == 0) {
@@ -558,15 +559,24 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
                     else if (type->types[i] == VALUE_TYPE_EXTERNREF) {
                         is_extern_ref = true;
                     }
+                    else if (type->types[i] == VALUE_TYPE_ANYREF) {
+                        is_anyref = true;
+                    }
 
                     if (wasm_is_type_multi_byte_type(
                             type->types[type->param_count + i])) {
                         WASMRefType *ref_type = ref_type_map->ref_type;
-                        if (wasm_is_refheaptype_common(&ref_type->ref_ht_common)
-                            && ref_type->ref_ht_common.heap_type
-                                   == HEAP_TYPE_EXTERN) {
-                            is_extern_ref = true;
+                        if (wasm_is_refheaptype_common(
+                                &ref_type->ref_ht_common)) {
+                            int32 heap_type = ref_type->ref_ht_common.heap_type;
+                            if (heap_type == HEAP_TYPE_EXTERN) {
+                                is_extern_ref = true;
+                            }
+                            else if (heap_type == HEAP_TYPE_ANY) {
+                                is_anyref = true;
+                            }
                         }
+
                         ref_type_map++;
                     }
 
@@ -578,6 +588,30 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
                         if (!gc_obj) {
                             wasm_runtime_set_exception(
                                 module_inst, "create extern object failed");
+                            goto fail;
+                        }
+                        if (!(local_ref =
+                                  runtime_malloc(sizeof(WASMLocalObjectRef),
+                                                 module_inst, NULL, 0))) {
+                            goto fail;
+                        }
+                        wasm_runtime_push_local_object_ref(exec_env, local_ref);
+                        local_ref->val = (WASMObjectRef)gc_obj;
+                        num_local_ref_pushed++;
+                        PUT_REF_TO_ADDR(argv1 + p, gc_obj);
+                        p += REF_CELL_NUM;
+                    }
+
+                    if (is_anyref) {
+                        /* If a parameter type is (ref null? any) and its value
+                         * is not null, then we treat the value as host ptr */
+                        WASMAnyrefObjectRef gc_obj;
+                        void *host_obj =
+                            (void *)(uintptr_t)strtoull(argv[i], &endptr, 0);
+                        gc_obj = wasm_anyref_obj_new(exec_env, host_obj);
+                        if (!gc_obj) {
+                            wasm_runtime_set_exception(
+                                module_inst, "create anyref object failed");
                             goto fail;
                         }
                         if (!(local_ref =
@@ -765,6 +799,7 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
                     }
 #endif
                     else if (wasm_obj_is_externref_obj(gc_obj)) {
+#if WASM_ENABLE_SPEC == 0
                         WASMObjectRef obj = wasm_externref_obj_to_internal_obj(
                             (WASMExternrefObjectRef)gc_obj);
                         if (wasm_obj_is_anyref_obj(obj))
@@ -772,6 +807,7 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
                                       (uintptr_t)wasm_anyref_obj_get_value(
                                           (WASMAnyrefObjectRef)obj));
                         else
+#endif
                             os_printf("ref.extern");
                     }
                     else if (wasm_obj_is_i31_obj(gc_obj))

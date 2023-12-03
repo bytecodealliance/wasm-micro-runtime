@@ -430,6 +430,8 @@ typedef struct WASMTable {
     uint32 max_size;
 #if WASM_ENABLE_GC != 0
     WASMRefType *elem_ref_type;
+    /* init expr for the whole table */
+    InitializerExpression init_expr;
 #endif
 } WASMTable;
 
