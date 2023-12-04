@@ -67,6 +67,7 @@
 - Update Zephyr support to v3.5.0 and make instructions generic to boards (#2805)
 - Return error when shutdown() fails (#2801)
 - iwasm: Print help when meeting unknown cmd options (#2824)
+- Fix fast-jit accessing shared memory's fields issue (#2841)
 
 ### Enhancements
 - Implement strict validation of thread IDs according to the specification (#2521)
@@ -119,6 +120,10 @@
 - Add support for custom sections in nuttx (#2795)
 - Change is_shared_memory type from bool to uint8 (#2800)
 - Fix typos in zephyr platform struct descriptions (#2818)
+- Access linear memory size atomically (#2834)
+- Output warning and quit if import/export name contains '\00' (#2806)
+- Use wasm_config_t to pass private configuration to wasm_engine_new (#2837)
+- core/iwasm/interpreter/wasm_loader.c: remove an extra validation (#2845)
 
 ### Others
 - Add mutex stress test (#2472)
@@ -147,6 +152,10 @@
 - Fix build error of libsodium benchmark (#2792)
 - Fix wamr-test-suites script for macos (#2819)
 - Run spec test for classic/fast-interp in NuttX CI (#2817)
+- test_wamr.sh: Don't bother to build shared library (#2844)
+- doc/build_wamr.md: Fix links to RISC-V named ABIs (#2852)
+- Fix typos of CIDR in docs and help text (#2851)
+- Enable spectest on riscv64 (#2843)
 
 ---
 
