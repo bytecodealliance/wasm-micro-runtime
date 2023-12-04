@@ -122,11 +122,10 @@ if (WAMR_BUILD_JIT EQUAL 1)
     if (CXX_SUPPORTS_REDUNDANT_MOVE_FLAG)
       set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-redundant-move")
     endif ()
-
-    # Add `-rdynamic` link flag for llvm-17, or LLVM JIT may run failed
-    # with `llvm_orc_registerEHFrameSectionWrapper` symbol not found
+    # Enable exporting symbols after llvm-17, or LLVM JIT may run failed
+    # with `llvm_orc_registerEHFrameSectionWrapper` symbol not found error
     if (${LLVM_PACKAGE_VERSION} VERSION_GREATER_EQUAL "17.0.0")
-      set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -rdynamic")
+      set (CMAKE_ENABLE_EXPORTS 1)
     endif ()
   endif ()
 else ()
