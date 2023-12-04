@@ -37,32 +37,32 @@ jobs:
           # {
           #   config: "boards/arm64/qemu/qemu-armv8a/configs/nsh",
           #   target: "aarch64_vfp",
-          #   use_fpu: true
+          #   fpu_type: "fp"
           # },
           # {
           #   config: "boards/arm/imx6/sabre-6quad/configs/nsh",
           #   target: "thumbv7",
-          #   use_fpu: false
+          #   fpu_type: "none"
           # },
           {
             config: "boards/arm/imx6/sabre-6quad/configs/nsh",
             target: "thumbv7_vfp",
-            use_fpu: true
+            fpu_type: "dp"
           },
           {
             config: "boards/risc-v/qemu-rv/rv-virt/configs/nsh",
             target: "riscv32",
-            use_fpu: false
+            fpu_type: "none"
           },
           # {
           #   config: "boards/risc-v/qemu-rv/rv-virt/configs/nsh",
           #   target: "riscv32_ilp32d",
-          #   use_fpu: true
+          #   fpu_type: "dp"
           # },
           {
             config: "boards/risc-v/qemu-rv/rv-virt/configs/nsh64",
             target: "riscv64",
-            use_fpu: false
+            fpu_type: "none"
           },
         ]
 
@@ -165,9 +165,14 @@ jobs:
           find nuttx/boards -name defconfig | xargs sed -i '$a\${{ matrix.wamr_test_option.option }}'
 
       - name: Disable FPU for NuttX
-        if: matrix.target_config.use_fpu == false
+        if: matrix.target_config.fpu_type == 'none'
         run: |
           find nuttx/boards -name defconfig | xargs sed -i '$a\# CONFIG_ARCH_FPU is not set\n'
+
+      - name: Disable DPFPU for NuttX
+        if: matrix.target_config.fpu_type == 'fp'
+        run: |
+          find nuttx/boards -name defconfig | xargs sed -i '$a\# CONFIG_ARCH_DPFPU is not set\n'
 
       - name: Build wamrc
         if: contains(matrix.wamr_test_option.mode, 'aot')
