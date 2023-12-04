@@ -1072,6 +1072,17 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r, output = '
     # exception isn't thrown in several cases
     cmd.append("--disable-llvm-lto")
 
+    # Bounds checks is disabled by default for 64-bit targets, to
+    # use the hardware based bounds checks. But it is not supported
+    # in QEMU with NuttX.
+    # Enable bounds checks explicitly for all targets if running in QEMU.
+    if opts.qemu:
+        cmd.append("--bounds-checks=1")
+
+    # RISCV64 requires -mcmodel=medany, which can be set by --size-level=1
+    if test_target.startswith("riscv64"):
+        cmd.append("--size-level=1")
+
     cmd += ["-o", aot_tempfile, wasm_tempfile]
 
     log("Running: %s" % " ".join(cmd))

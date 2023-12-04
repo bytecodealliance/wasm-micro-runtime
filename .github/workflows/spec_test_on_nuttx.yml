@@ -59,11 +59,11 @@ jobs:
           #   target: "riscv32_ilp32d",
           #   use_fpu: true
           # },
-          # {
-          #   config: "boards/risc-v/qemu-rv/rv-virt/configs/nsh64",
-          #   target: "riscv64",
-          #   use_fpu: false
-          # },
+          {
+            config: "boards/risc-v/qemu-rv/rv-virt/configs/nsh64",
+            target: "riscv64",
+            use_fpu: false
+          },
         ]
 
         wamr_test_option: [
@@ -84,6 +84,11 @@ jobs:
             option: "CONFIG_INTERPRETERS_WAMR_FAST=y\\n"
           },
         ]
+
+        exclude:
+          # XIP is not fully supported yet on RISCV64, some relocations can not be resolved
+          - target_config: { config: "boards/risc-v/qemu-rv/rv-virt/configs/nsh64" }
+            wamr_test_option: { mode: "-t aot -X" }
 
     steps:
       - name: Install Utilities
@@ -160,7 +165,7 @@ jobs:
           find nuttx/boards -name defconfig | xargs sed -i '$a\${{ matrix.wamr_test_option.option }}'
 
       - name: Disable FPU for NuttX
-        if: matrix.target_config.use_fpu== false
+        if: matrix.target_config.use_fpu == false
         run: |
           find nuttx/boards -name defconfig | xargs sed -i '$a\# CONFIG_ARCH_FPU is not set\n'
 
