@@ -3684,15 +3684,12 @@ typedef int32 (*Int32FuncPtr)(GenericFunctionPointer, uint32 *, uint32);
 typedef void (*VoidFuncPtr)(GenericFunctionPointer, uint32 *, uint32);
 
 static volatile Float64FuncPtr invokeNative_Float64 =
-    (Float64FuncPtr)(uintptr_t)invokeNative;
+    (Float64FuncPtr)invokeNative;
 static volatile Float32FuncPtr invokeNative_Float32 =
-    (Float32FuncPtr)(uintptr_t)invokeNative;
-static volatile Int64FuncPtr invokeNative_Int64 =
-    (Int64FuncPtr)(uintptr_t)invokeNative;
-static volatile Int32FuncPtr invokeNative_Int32 =
-    (Int32FuncPtr)(uintptr_t)invokeNative;
-static volatile VoidFuncPtr invokeNative_Void =
-    (VoidFuncPtr)(uintptr_t)invokeNative;
+    (Float32FuncPtr)invokeNative;
+static volatile Int64FuncPtr invokeNative_Int64 = (Int64FuncPtr)invokeNative;
+static volatile Int32FuncPtr invokeNative_Int32 = (Int32FuncPtr)invokeNative;
+static volatile VoidFuncPtr invokeNative_Void = (VoidFuncPtr)invokeNative;
 
 #if defined(BUILD_TARGET_ARM_VFP) || defined(BUILD_TARGET_THUMB_VFP)
 #define MAX_REG_INTS 4
@@ -4158,16 +4155,13 @@ typedef int64 (*Int64FuncPtr)(GenericFunctionPointer f, uint32 *, uint32);
 typedef int32 (*Int32FuncPtr)(GenericFunctionPointer f, uint32 *, uint32);
 typedef void (*VoidFuncPtr)(GenericFunctionPointer f, uint32 *, uint32);
 
-static volatile Int64FuncPtr invokeNative_Int64 =
-    (Int64FuncPtr)(uintptr_t)invokeNative;
-static volatile Int32FuncPtr invokeNative_Int32 =
-    (Int32FuncPtr)(uintptr_t)invokeNative;
+static volatile Int64FuncPtr invokeNative_Int64 = (Int64FuncPtr)invokeNative;
+static volatile Int32FuncPtr invokeNative_Int32 = (Int32FuncPtr)invokeNative;
 static volatile Float64FuncPtr invokeNative_Float64 =
-    (Float64FuncPtr)(uintptr_t)invokeNative;
+    (Float64FuncPtr)invokeNative;
 static volatile Float32FuncPtr invokeNative_Float32 =
-    (Float32FuncPtr)(uintptr_t)invokeNative;
-static volatile VoidFuncPtr invokeNative_Void =
-    (VoidFuncPtr)(uintptr_t)invokeNative;
+    (Float32FuncPtr)invokeNative;
+static volatile VoidFuncPtr invokeNative_Void = (VoidFuncPtr)invokeNative;
 
 static inline void
 word_copy(uint32 *dest, uint32 *src, unsigned num)
@@ -4404,19 +4398,16 @@ typedef int32 (*Int32FuncPtr)(GenericFunctionPointer, uint64 *, uint64);
 typedef void (*VoidFuncPtr)(GenericFunctionPointer, uint64 *, uint64);
 
 static volatile Float64FuncPtr invokeNative_Float64 =
-    (Float64FuncPtr)(uintptr_t)invokeNative;
+    (Float64FuncPtr)invokeNative;
 static volatile Float32FuncPtr invokeNative_Float32 =
-    (Float32FuncPtr)(uintptr_t)invokeNative;
-static volatile Int64FuncPtr invokeNative_Int64 =
-    (Int64FuncPtr)(uintptr_t)invokeNative;
-static volatile Int32FuncPtr invokeNative_Int32 =
-    (Int32FuncPtr)(uintptr_t)invokeNative;
-static volatile VoidFuncPtr invokeNative_Void =
-    (VoidFuncPtr)(uintptr_t)invokeNative;
+    (Float32FuncPtr)invokeNative;
+static volatile Int64FuncPtr invokeNative_Int64 = (Int64FuncPtr)invokeNative;
+static volatile Int32FuncPtr invokeNative_Int32 = (Int32FuncPtr)invokeNative;
+static volatile VoidFuncPtr invokeNative_Void = (VoidFuncPtr)invokeNative;
 
 #if WASM_ENABLE_SIMD != 0
 typedef v128 (*V128FuncPtr)(GenericFunctionPointer, uint64 *, uint64);
-static V128FuncPtr invokeNative_V128 = (V128FuncPtr)(uintptr_t)invokeNative;
+static V128FuncPtr invokeNative_V128 = (V128FuncPtr)invokeNative;
 #endif
 
 #if defined(_WIN32) || defined(_WIN32_)
