@@ -2708,13 +2708,14 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
                               meta_target_abi);
 
             if (!strcmp(abi, "lp64d") || !strcmp(abi, "ilp32d")) {
-                if (features) {
+                if (features && !strstr(features, "+d")) {
                     snprintf(features_buf, sizeof(features_buf), "%s%s",
                              features, ",+d");
                     features = features_buf;
                 }
-                else
+                else if (!features) {
                     features = "+d";
+                }
             }
         }
 
