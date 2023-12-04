@@ -58,7 +58,7 @@ enabled.
 
 _iwasm_ accepts address ranges via an option, `--addr-pool`, to implement
 the capability control. All IP address the WebAssembly application may need to `bind()` or `connect()`
-should be announced first. Every IP address should be in CIRD notation.
+should be announced first. Every IP address should be in CIDR notation.
 
 ```bash
 $ iwasm --addr-pool=1.2.3.4/15,2.3.4.6/16 socket_example.wasm
