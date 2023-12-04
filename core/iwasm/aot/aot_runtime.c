@@ -357,6 +357,9 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 
     /* fill table with element segment content */
     for (i = 0; i < module->table_init_data_count; i++) {
+#if WASM_ENABLE_GC == 0
+        uint32 j;
+#endif
         table_seg = module->table_init_data_list[i];
 
 #if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
@@ -419,7 +422,7 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
         }
 
         /* base_offset + length(could be zero) */
-        length = table_seg->func_index_count;
+        length = table_seg->value_count;
         if (base_offset + length > tbl_inst->cur_size) {
 #if WASM_ENABLE_REF_TYPES != 0
             set_error_buf(error_buf, error_buf_size,
@@ -436,10 +439,10 @@ tables_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
          * will check the linked table inst owner in future
          */
 #if WASM_ENABLE_GC == 0
-        bh_memcpy_s(
-            tbl_inst->elems + base_offset,
-            (tbl_inst->max_size - base_offset) * sizeof(table_elem_type_t),
-            table_seg->func_indexes, length * sizeof(table_elem_type_t));
+        for (j = 0; j < length; j++) {
+            tbl_inst->elems[base_offset + j] =
+                table_seg->init_values[j].u.ref_index;
+        }
 #endif
     }
 
@@ -1478,21 +1481,19 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
             goto fail;
         }
 
-        if ((uint32)table_init_data->offset.u.i32
-                + table_init_data->func_index_count
+        if ((uint32)table_init_data->offset.u.i32 + table_init_data->value_count
             > table->cur_size) {
             LOG_DEBUG("base_offset(%d) + length(%d) > table->cur_size(%d)",
                       table_init_data->offset.u.i32,
-                      table_init_data->func_index_count, table->cur_size);
+                      table_init_data->value_count, table->cur_size);
             set_error_buf(error_buf, error_buf_size,
                           "out of bounds table access");
             goto fail;
         }
 
-        for (j = 0; j < module->table_init_data_list[i]->func_index_count;
-             j++) {
+        for (j = 0; j < module->table_init_data_list[i]->value_count; j++) {
             WASMFuncObjectRef func_obj;
-            uint32 func_idx = table_init_data->func_indexes[j];
+            uint32 func_idx = table_init_data->init_values[j].u.ref_index;
             if (func_idx != UINT32_MAX) {
                 if (!(func_obj =
                           aot_create_func_obj(module_inst, func_idx, false,
@@ -2925,11 +2926,11 @@ aot_table_init(AOTModuleInstance *module_inst, uint32 tbl_idx,
     AOTTableInstance *tbl_inst;
     AOTTableInitData *tbl_seg;
     const AOTModule *module = (AOTModule *)module_inst->module;
-#if WASM_ENABLE_GC != 0
     table_elem_type_t *table_elems;
-    uintptr_t *func_indexes;
-    void *func_obj;
+    InitializerExpression *init_values;
     uint32 i;
+#if WASM_ENABLE_GC != 0
+    void *func_obj;
 #endif
 
     tbl_inst = module_inst->tables[tbl_idx];
@@ -2938,7 +2939,7 @@ aot_table_init(AOTModuleInstance *module_inst, uint32 tbl_idx,
     tbl_seg = module->table_init_data_list[tbl_seg_idx];
     bh_assert(tbl_seg);
 
-    if (offset_len_out_of_bounds(src_offset, length, tbl_seg->func_index_count)
+    if (offset_len_out_of_bounds(src_offset, length, tbl_seg->value_count)
         || offset_len_out_of_bounds(dst_offset, length, tbl_inst->cur_size)) {
         aot_set_exception_with_id(module_inst, EXCE_OUT_OF_BOUNDS_TABLE_ACCESS);
         return;
@@ -2960,14 +2961,15 @@ aot_table_init(AOTModuleInstance *module_inst, uint32 tbl_idx,
         return;
     }
 
-#if WASM_ENABLE_GC != 0
     table_elems = tbl_inst->elems + dst_offset;
-    func_indexes = tbl_seg->func_indexes + src_offset;
+    init_values = tbl_seg->init_values + src_offset;
 
     for (i = 0; i < length; i++) {
+#if WASM_ENABLE_GC != 0
         /* UINT32_MAX indicates that it is a null ref */
-        if (func_indexes[i] != UINT32_MAX) {
-            if (!(func_obj = aot_create_func_obj(module_inst, func_indexes[i],
+        if (init_values[i].u.ref_index != UINT32_MAX) {
+            if (!(func_obj = aot_create_func_obj(module_inst,
+                                                 init_values[i].u.ref_index,
                                                  true, NULL, 0))) {
                 aot_set_exception_with_id(module_inst, EXCE_NULL_FUNC_OBJ);
                 return;
@@ -2977,14 +2979,10 @@ aot_table_init(AOTModuleInstance *module_inst, uint32 tbl_idx,
         else {
             table_elems[i] = NULL_REF;
         }
-    }
 #else
-    bh_memcpy_s((uint8 *)tbl_inst + offsetof(AOTTableInstance, elems)
-                    + dst_offset * sizeof(table_elem_type_t),
-                (tbl_inst->cur_size - dst_offset) * sizeof(table_elem_type_t),
-                tbl_seg->func_indexes + src_offset,
-                length * sizeof(table_elem_type_t));
+        table_elems[i] = init_values[i].u.ref_index;
 #endif
+    }
 }
 
 void

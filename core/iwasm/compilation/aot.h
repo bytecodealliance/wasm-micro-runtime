@@ -162,9 +162,9 @@ typedef struct AOTTableInitData {
     /* Start address of init data */
     AOTInitExpr offset;
     /* Function index count */
-    uint32 func_index_count;
+    uint32 value_count;
     /* Function index array */
-    uintptr_t func_indexes[1];
+    InitializerExpression init_values[1];
 } AOTTableInitData;
 
 /**

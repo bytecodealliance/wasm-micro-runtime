@@ -2430,7 +2430,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
         }
 
         /* check offset + length(could be zero) */
-        length = table_seg->function_count;
+        length = table_seg->value_count;
         if ((uint32)table_seg->base_offset.u.i32 + length > table->cur_size) {
             LOG_DEBUG("base_offset(%d) + length(%d)> table->cur_size(%d)",
                       table_seg->base_offset.u.i32, length, table->cur_size);
@@ -2599,11 +2599,11 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 
                     break;
                 }
-
 #endif /* end of WASM_ENABLE_GC != 0 */
             }
 
-            *(table_data + table_seg->base_offset.u.i32 + j) = ref;
+            *(table_data + table_seg->base_offset.u.i32 + j) =
+                (table_elem_type_t)ref;
         }
     }
 
@@ -3928,11 +3928,11 @@ llvm_jit_table_init(WASMModuleInstance *module_inst, uint32 tbl_idx,
 {
     WASMTableInstance *tbl_inst;
     WASMTableSeg *tbl_seg;
-#if WASM_ENABLE_GC != 0
     table_elem_type_t *table_elems;
-    uintptr_t *func_indexes;
-    void *func_obj;
+    InitializerExpression *init_values;
     uint32 i;
+#if WASM_ENABLE_GC != 0
+    void *func_obj;
 #endif
 
     bh_assert(module_inst->module_type == Wasm_Module_Bytecode);
@@ -3943,7 +3943,7 @@ llvm_jit_table_init(WASMModuleInstance *module_inst, uint32 tbl_idx,
     bh_assert(tbl_inst);
     bh_assert(tbl_seg);
 
-    if (offset_len_out_of_bounds(src_offset, length, tbl_seg->function_count)
+    if (offset_len_out_of_bounds(src_offset, length, tbl_seg->value_count)
         || offset_len_out_of_bounds(dst_offset, length, tbl_inst->cur_size)) {
         jit_set_exception_with_id(module_inst, EXCE_OUT_OF_BOUNDS_TABLE_ACCESS);
         return;
@@ -3963,14 +3963,15 @@ llvm_jit_table_init(WASMModuleInstance *module_inst, uint32 tbl_idx,
         return;
     }
 
-#if WASM_ENABLE_GC != 0
     table_elems = tbl_inst->elems + dst_offset;
-    func_indexes = tbl_seg->init_values + src_offset;
+    init_values = tbl_seg->init_values + src_offset;
 
     for (i = 0; i < length; i++) {
+#if WASM_ENABLE_GC != 0
         /* UINT32_MAX indicates that it is a null ref */
-        if (func_indexes[i] != UINT32_MAX) {
-            if (!(func_obj = wasm_create_func_obj(module_inst, func_indexes[i],
+        if (init_values[i].u.ref_index != UINT32_MAX) {
+            if (!(func_obj = wasm_create_func_obj(module_inst,
+                                                  init_values[i].u.ref_index,
                                                   true, NULL, 0))) {
                 wasm_set_exception(module_inst, "null function object");
                 return;
@@ -3980,15 +3981,10 @@ llvm_jit_table_init(WASMModuleInstance *module_inst, uint32 tbl_idx,
         else {
             table_elems[i] = NULL_REF;
         }
-    }
 #else
-    bh_memcpy_s((uint8 *)tbl_inst + offsetof(WASMTableInstance, elems)
-                    + dst_offset * sizeof(table_elem_type_t),
-                (uint32)sizeof(table_elem_type_t)
-                    * (tbl_inst->cur_size - dst_offset),
-                tbl_seg->func_indexes + src_offset,
-                (uint32)(length * sizeof(table_elem_type_t)));
+        table_elems[i] = init_values[i].u.ref_index;
 #endif
+    }
 }
 
 void

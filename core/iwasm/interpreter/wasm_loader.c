@@ -656,14 +656,13 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
             {
                 uint8 type1;
 
-#if WASM_ENABLE_GC == 0
                 CHECK_BUF(p, p_end, 1);
                 type1 = read_uint8(p);
-                cur_value->ref_index = NULL_REF;
+
+#if WASM_ENABLE_GC == 0
+                cur_value->ref_index = UINT32_MAX;
                 cur_init_value->type = type1;
 #else
-                CHECK_BUF(p, p_end, 1);
-                type1 = read_uint8(p);
                 cur_value->ref_index = UINT32_MAX;
 
                 if (!is_byte_a_type(type1)) {
@@ -3881,7 +3880,7 @@ load_func_index_vec(const uint8 **p_buf, const uint8 *buf_end,
     uint64 total_size;
 
     read_leb_uint32(p, p_end, function_count);
-    table_segment->function_count = function_count;
+    table_segment->value_count = function_count;
     total_size = sizeof(InitializerExpression) * (uint64)function_count;
     if (total_size > 0
         && !(table_segment->init_values =
@@ -3920,7 +3919,7 @@ load_init_expr_vec(const uint8 **p_buf, const uint8 *buf_end,
     uint64 total_size;
 
     read_leb_uint32(p, p_end, ref_count);
-    table_segment->function_count = ref_count;
+    table_segment->value_count = ref_count;
     total_size = sizeof(InitializerExpression) * (uint64)ref_count;
     if (total_size > 0
         && !(table_segment->init_values =
@@ -11144,7 +11143,7 @@ re_scan:
                     for (i = 0; i < module->table_seg_count; i++, table_seg++) {
                         if (table_seg->elem_type == VALUE_TYPE_FUNCREF
                             && wasm_elem_is_declarative(table_seg->mode)) {
-                            for (j = 0; j < table_seg->function_count; j++) {
+                            for (j = 0; j < table_seg->value_count; j++) {
                                 if (table_seg->init_values[j].u.ref_index
                                     == func_idx) {
                                     func_declared = true;

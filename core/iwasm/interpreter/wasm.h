@@ -644,7 +644,7 @@ typedef struct WASMTableSeg {
     /* optional, only for active */
     uint32 table_index;
     InitializerExpression base_offset;
-    uint32 function_count;
+    uint32 value_count;
     InitializerExpression *init_values;
 } WASMTableSeg;
 

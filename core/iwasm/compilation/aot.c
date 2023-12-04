@@ -114,9 +114,9 @@ aot_create_table_init_data_list(const WASMModule *module)
 
     /* Create each table data segment */
     for (i = 0; i < module->table_seg_count; i++) {
-        size = offsetof(AOTTableInitData, func_indexes)
-               + sizeof(uintptr_t)
-                     * (uint64)module->table_segments[i].function_count;
+        size = offsetof(AOTTableInitData, init_values)
+               + sizeof(InitializerExpression)
+                     * (uint64)module->table_segments[i].value_count;
         if (size >= UINT32_MAX
             || !(data_list[i] = wasm_runtime_malloc((uint32)size))) {
             aot_set_last_error("allocate memory failed.");
@@ -124,8 +124,7 @@ aot_create_table_init_data_list(const WASMModule *module)
         }
 
         data_list[i]->offset = module->table_segments[i].base_offset;
-        data_list[i]->func_index_count =
-            module->table_segments[i].function_count;
+        data_list[i]->value_count = module->table_segments[i].value_count;
         data_list[i]->mode = module->table_segments[i].mode;
         data_list[i]->elem_type = module->table_segments[i].elem_type;
         /* runtime control it */
@@ -133,16 +132,16 @@ aot_create_table_init_data_list(const WASMModule *module)
         bh_memcpy_s(&data_list[i]->offset, sizeof(AOTInitExpr),
                     &module->table_segments[i].base_offset,
                     sizeof(AOTInitExpr));
-        data_list[i]->func_index_count =
-            module->table_segments[i].function_count;
+        data_list[i]->value_count = module->table_segments[i].value_count;
 #if WASM_ENABLE_GC != 0
         data_list[i]->elem_ref_type = module->table_segments[i].elem_ref_type;
 #endif
-        bh_memcpy_s(
-            data_list[i]->func_indexes,
-            sizeof(uintptr_t) * module->table_segments[i].function_count,
-            module->table_segments[i].init_values,
-            sizeof(uintptr_t) * module->table_segments[i].function_count);
+        bh_memcpy_s(data_list[i]->init_values,
+                    sizeof(InitializerExpression)
+                        * module->table_segments[i].value_count,
+                    module->table_segments[i].init_values,
+                    sizeof(InitializerExpression)
+                        * module->table_segments[i].value_count);
     }
 
     return data_list;

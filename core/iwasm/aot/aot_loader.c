@@ -1242,7 +1242,7 @@ load_table_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
     WASMRefType reftype;
 #endif
     uint64 size;
-    uint32 i;
+    uint32 i, j;
 
     /* Allocate memory */
     size = sizeof(AOTTableInitData *) * (uint64)module->table_init_data_count;
@@ -1254,7 +1254,7 @@ load_table_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
     /* Create each table data segment */
     for (i = 0; i < module->table_init_data_count; i++) {
         uint32 mode, elem_type;
-        uint32 table_index, init_expr_type, func_index_count;
+        uint32 table_index, init_expr_type, value_count;
         uint64 init_expr_value, size1;
 
         read_uint32(buf, buf_end, mode);
@@ -1276,10 +1276,10 @@ load_table_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
             buf += 8;
         }
 
-        read_uint32(buf, buf_end, func_index_count);
+        read_uint32(buf, buf_end, value_count);
 
-        size1 = sizeof(uintptr_t) * (uint64)func_index_count;
-        size = offsetof(AOTTableInitData, func_indexes) + size1;
+        size1 = sizeof(InitializerExpression) * (uint64)value_count;
+        size = offsetof(AOTTableInitData, init_values) + size1;
         if (!(data_list[i] = loader_malloc(size, error_buf, error_buf_size))) {
             return false;
         }
@@ -1298,9 +1298,12 @@ load_table_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
 #endif
         data_list[i]->offset.init_expr_type = (uint8)init_expr_type;
         data_list[i]->offset.u.i64 = (int64)init_expr_value;
-        data_list[i]->func_index_count = func_index_count;
-        read_byte_array(buf, buf_end, data_list[i]->func_indexes,
-                        (uint32)size1);
+        data_list[i]->value_count = value_count;
+        for (j = 0; j < data_list[i]->value_count; j++) {
+            data_list[i]->init_values[j].init_expr_type =
+                INIT_EXPR_TYPE_FUNCREF_CONST;
+            read_uint64(buf, buf_end, data_list[i]->init_values[j].u.ref_index);
+        }
     }
 
     *p_buf = buf;

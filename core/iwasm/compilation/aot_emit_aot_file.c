@@ -276,8 +276,7 @@ get_table_init_data_size(AOTCompContext *comp_ctx,
      */
     return (uint32)(sizeof(uint32) * 2 + sizeof(uint32) + sizeof(uint32)
                     + sizeof(uint64) + sizeof(uint32)
-                    + comp_ctx->pointer_size
-                          * table_init_data->func_index_count)
+                    + comp_ctx->pointer_size * table_init_data->value_count)
            /* Size of WasmRefType - inner padding (ref type + nullable +
               heap_type) */
            + 8;
@@ -1749,14 +1748,19 @@ aot_emit_table_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
             EMIT_U16(0);
             EMIT_U32(0);
         }
-        EMIT_U32(init_datas[i]->func_index_count);
-        for (j = 0; j < init_datas[i]->func_index_count; j++) {
-
+        EMIT_U32(init_datas[i]->value_count);
+        for (j = 0; j < init_datas[i]->value_count; j++) {
+#if WASM_ENABLE_GC == 0
+            bh_assert(init_datas[i]->init_values[j].init_expr_type
+                          == INIT_EXPR_TYPE_REFNULL_CONST
+                      || init_datas[i]->init_values[j].init_expr_type
+                             == INIT_EXPR_TYPE_FUNCREF_CONST);
+#endif /* end of WASM_ENABLE_GC == 0 */
             if (comp_ctx->pointer_size == 4) {
-                EMIT_U32(init_datas[i]->func_indexes[j]);
+                EMIT_U32(init_datas[i]->init_values[j].u.ref_index);
             }
             else {
-                EMIT_U64(init_datas[i]->func_indexes[j]);
+                EMIT_U64(init_datas[i]->init_values[j].u.ref_index);
             }
         }
     }

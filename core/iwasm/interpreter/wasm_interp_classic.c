@@ -5095,7 +5095,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         uint32 tbl_idx, elem_idx;
                         uint32 n, s, d;
                         WASMTableInstance *tbl_inst;
-                        void **table_elems;
+                        table_elem_type_t *table_elems;
                         InitializerExpression *init_values;
 
                         read_leb_uint32(frame_ip, frame_ip_end, elem_idx);
@@ -5113,7 +5113,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         if (offset_len_out_of_bounds(
                                 s, n,
                                 module->module->table_segments[elem_idx]
-                                    .function_count)
+                                    .value_count)
                             || offset_len_out_of_bounds(d, n,
                                                         tbl_inst->cur_size)) {
                             wasm_set_exception(module,
@@ -5155,7 +5155,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                              == INIT_EXPR_TYPE_FUNCREF_CONST);
 #if WASM_ENABLE_GC == 0
                             table_elems[i] =
-                                (void *)(uintptr_t)init_values[i].u.ref_index;
+                                (table_elem_type_t)init_values[i].u.ref_index;
 #else
                             if (init_values[i].u.ref_index != UINT32_MAX) {
                                 if (!(func_obj = wasm_create_func_obj(
