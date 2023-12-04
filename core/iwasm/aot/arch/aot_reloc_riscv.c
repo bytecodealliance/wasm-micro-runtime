@@ -11,6 +11,7 @@
 #define R_RISCV_CALL_PLT 19
 #define R_RISCV_PCREL_HI20 23
 #define R_RISCV_PCREL_LO12_I 24
+#define R_RISCV_PCREL_LO12_S 25
 #define R_RISCV_HI20 26
 #define R_RISCV_LO12_I 27
 #define R_RISCV_LO12_S 28
@@ -269,9 +270,10 @@ typedef struct RelocTypeStrMap {
     }
 
 static RelocTypeStrMap reloc_type_str_maps[] = {
-    RELOC_TYPE_MAP(R_RISCV_32),           RELOC_TYPE_MAP(R_RISCV_CALL),
-    RELOC_TYPE_MAP(R_RISCV_CALL_PLT),     RELOC_TYPE_MAP(R_RISCV_PCREL_HI20),
-    RELOC_TYPE_MAP(R_RISCV_PCREL_LO12_I), RELOC_TYPE_MAP(R_RISCV_HI20),
+    RELOC_TYPE_MAP(R_RISCV_32),           RELOC_TYPE_MAP(R_RISCV_64),
+    RELOC_TYPE_MAP(R_RISCV_CALL),         RELOC_TYPE_MAP(R_RISCV_CALL_PLT),
+    RELOC_TYPE_MAP(R_RISCV_PCREL_HI20),   RELOC_TYPE_MAP(R_RISCV_PCREL_LO12_I),
+    RELOC_TYPE_MAP(R_RISCV_PCREL_LO12_S), RELOC_TYPE_MAP(R_RISCV_HI20),
     RELOC_TYPE_MAP(R_RISCV_LO12_I),       RELOC_TYPE_MAP(R_RISCV_LO12_S),
 };
 
@@ -327,6 +329,8 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
             rv_set_val((uint16 *)addr, val_32);
             break;
         }
+
+#if __riscv_xlen == 64
         case R_RISCV_64:
         {
             uint64 val_64 =
@@ -346,6 +350,8 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
 #endif
             break;
         }
+#endif
+
         case R_RISCV_CALL:
         case R_RISCV_CALL_PLT:
         case R_RISCV_PCREL_HI20: /* S + A - P */
@@ -401,8 +407,31 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
         }
 
         case R_RISCV_PCREL_LO12_I: /* S - P */
+        case R_RISCV_PCREL_LO12_S: /* S - P */
         {
-            /* Already handled in R_RISCV_PCREL_HI20 */
+            /* Already handled in R_RISCV_PCREL_HI20, it should be skipped for
+             * most cases. But it is still needed for some special cases, e.g.
+             * ```
+             * label:
+             *    auipc t0, %pcrel_hi(symbol)   # R_RISCV_PCREL_HI20 (symbol)
+             *    lui t1, 1
+             *    lw t2, t0, %pcrel_lo(label)   # R_RISCV_PCREL_LO12_I (label)
+             *    add t2, t2, t1
+             *    sw t2, t0, %pcrel_lo(label)   # R_RISCV_PCREL_LO12_S (label)
+             * ```
+             * In this case, the R_RISCV_PCREL_LO12_I/S relocation should be
+             * handled after R_RISCV_PCREL_HI20 relocation.
+             *
+             * So, if the R_RISCV_PCREL_LO12_I/S relocation is not followed by
+             * R_RISCV_PCREL_HI20 relocation, it should be handled here but
+             * not implemented yet.
+             */
+
+            if ((uintptr_t)addr - (uintptr_t)symbol_addr
+                    - (uintptr_t)reloc_addend
+                != 4) {
+                goto fail_addr_out_of_range;
+            }
             break;
         }
 
