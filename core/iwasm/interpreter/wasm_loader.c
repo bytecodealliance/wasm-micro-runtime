@@ -2093,6 +2093,11 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             for (j = 0; j < rec_count; j++) {
                 WASMType *cur_type = module->types[processed_type_count + j];
 
+                if (rec_count > 1) {
+                    cur_type->rec_count = rec_count;
+                    cur_type->rec_idx = j;
+                }
+
                 if (parent_type_idxs[j] != (uint32)-1) { /* has parent */
                     WASMType *parent_type = module->types[parent_type_idxs[j]];
                     cur_type->parent_type = parent_type;

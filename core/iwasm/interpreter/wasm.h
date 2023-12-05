@@ -307,6 +307,11 @@ typedef struct WASMType {
     /* The parent type */
     struct WASMType *parent_type;
     uint32 parent_type_idx;
+
+    /* number of internal types in the current rec group, if the type is not in
+     * a recursive group, rec_count = 0 */
+    uint16 rec_count;
+    uint16 rec_idx;
 } WASMType, *WASMTypePtr;
 #endif /* end of WASM_ENABLE_GC */
 
