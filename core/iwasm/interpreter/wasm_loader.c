@@ -2010,7 +2010,7 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             }
             else {
                 if (!(parent_type_idxs =
-                        loader_malloc((uint64)rec_count * sizeof(uint32),
+                          loader_malloc((uint64)rec_count * sizeof(uint32),
                                         error_buf, error_buf_size))) {
                     goto fail;
                 }
