@@ -658,7 +658,8 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
         const char *key = "frame-pointer";
         const char *val = "all";
         LLVMAttributeRef no_omit_fp = LLVMCreateStringAttribute(
-            comp_ctx->context, key, strlen(key), val, strlen(val));
+            comp_ctx->context, key, (unsigned)strlen(key), val,
+            (unsigned)strlen(val));
         if (!no_omit_fp) {
             aot_set_last_error("create LLVM attribute (frame-pointer) failed.");
             goto fail;
