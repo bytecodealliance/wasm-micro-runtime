@@ -68,6 +68,8 @@
 - Return error when shutdown() fails (#2801)
 - iwasm: Print help when meeting unknown cmd options (#2824)
 - Fix fast-jit accessing shared memory's fields issue (#2841)
+- Fix wasm loader handle op_br_table and op_drop (#2864)
+- Fix block with type issue in fast interp (#2866)
 
 ### Enhancements
 - Implement strict validation of thread IDs according to the specification (#2521)
@@ -124,6 +126,7 @@
 - Output warning and quit if import/export name contains '\00' (#2806)
 - Use wasm_config_t to pass private configuration to wasm_engine_new (#2837)
 - core/iwasm/interpreter/wasm_loader.c: remove an extra validation (#2845)
+- Don't add "+d" to riscv cpu features if already given (#2855)
 
 ### Others
 - Add mutex stress test (#2472)
@@ -156,6 +159,7 @@
 - doc/build_wamr.md: Fix links to RISC-V named ABIs (#2852)
 - Fix typos of CIDR in docs and help text (#2851)
 - Enable spectest on riscv64 (#2843)
+- Update FPU configuration in spec_test_on_nuttx.yml (#2856)
 
 ---
 
