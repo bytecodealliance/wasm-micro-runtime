@@ -3426,7 +3426,8 @@ wasm_get_module_mem_consumption(const WASMModule *module,
         sizeof(WASMTableSeg) * module->table_seg_count;
     for (i = 0; i < module->table_seg_count; i++) {
         WASMTableSeg *table_seg = &module->table_segments[i];
-        mem_conspn->tables_size += sizeof(uint32) * table_seg->function_count;
+        mem_conspn->tables_size +=
+            sizeof(InitializerExpression *) * table_seg->value_count;
     }
 
     mem_conspn->data_segs_size = sizeof(WASMDataSeg *) * module->data_seg_count;

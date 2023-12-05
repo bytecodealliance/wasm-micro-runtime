@@ -3722,8 +3722,14 @@ load_global_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                         module->import_globals[global_idx].u.global.ref_type;
                 }
                 else {
-                    global_type = module->globals[global_idx].type;
-                    global_ref_type = module->globals[global_idx].ref_type;
+                    global_type =
+                        module
+                            ->globals[global_idx - module->import_global_count]
+                            .type;
+                    global_ref_type =
+                        module
+                            ->globals[global_idx - module->import_global_count]
+                            .ref_type;
                 }
                 if (!wasm_reftype_is_subtype_of(
                         global_type, global_ref_type, global->type,

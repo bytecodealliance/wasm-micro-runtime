@@ -2811,8 +2811,8 @@ aot_get_module_mem_consumption(const AOTModule *module,
         sizeof(AOTTableInitData *) * module->table_init_data_count;
     for (i = 0; i < module->table_init_data_count; i++) {
         AOTTableInitData *init_data = module->table_init_data_list[i];
-        size = offsetof(AOTTableInitData, func_indexes)
-               + sizeof(uint32) * init_data->func_index_count;
+        size = offsetof(AOTTableInitData, init_values)
+               + sizeof(InitializerExpression) * init_data->value_count;
         mem_conspn->table_segs_size += size;
     }
 
