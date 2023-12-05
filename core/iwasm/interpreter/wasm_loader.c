@@ -2047,9 +2047,6 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                     CHECK_BUF(p, p_end, 1);
                     flag = read_uint8(p);
                 }
-                else {
-                    is_sub_final = false;
-                }
                 parent_type_idxs[j] = parent_type_idx;
 
                 if (flag == DEFINED_TYPE_FUNC) {
