@@ -1302,7 +1302,13 @@ load_table_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
         for (j = 0; j < data_list[i]->value_count; j++) {
             data_list[i]->init_values[j].init_expr_type =
                 INIT_EXPR_TYPE_FUNCREF_CONST;
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)            \
+    || defined(BUILD_TARGET_AARCH64) || defined(BUILD_TARGET_RISCV64_LP64D) \
+    || defined(BUILD_TARGET_RISCV64_LP64)
             read_uint64(buf, buf_end, data_list[i]->init_values[j].u.ref_index);
+#else
+            read_uint32(buf, buf_end, data_list[i]->init_values[j].u.ref_index);
+#endif
         }
     }
 
