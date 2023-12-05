@@ -903,14 +903,6 @@ globals_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
                     sizeof(globals[init_expr->u.global_index].initial_value));
                 break;
             }
-#if WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0
-            case INIT_EXPR_TYPE_REFNULL_CONST:
-            {
-                /* UINT32_MAX indicates that it is an null reference */
-                global->initial_value.u32 = (uint32)UINT32_MAX;
-                break;
-            }
-#endif
 #if WASM_ENABLE_GC != 0
             case INIT_EXPR_TYPE_STRUCT_NEW_CANON:
             case INIT_EXPR_TYPE_STRUCT_NEW_CANON_DEFAULT:

@@ -846,13 +846,13 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                 type1 = read_uint8(p);
 
 #if WASM_ENABLE_GC == 0
-                cur_value.ref_index = UINT32_MAX;
+                cur_value.ref_index = NULL_REF;
                 if (!push_const_expr_stack(&const_expr_ctx, flag, type1,
                                            &cur_value, error_buf,
                                            error_buf_size))
                     goto fail;
 #else
-                cur_value.ref_index = UINT32_MAX;
+                cur_value.gc_obj = NULL_REF;
 
                 if (!is_byte_a_type(type1)) {
                     p--;
