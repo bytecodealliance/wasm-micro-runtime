@@ -472,6 +472,14 @@
 #define WASM_ENABLE_GC 0
 #endif
 
+#ifndef WASM_CONST_EXPR_STACK_SIZE
+#if WASM_ENABLE_GC != 0
+#define WASM_CONST_EXPR_STACK_SIZE 8
+#else
+#define WASM_CONST_EXPR_STACK_SIZE 4
+#endif
+#endif
+
 #ifndef WASM_ENABLE_STRINGREF
 #define WASM_ENABLE_STRINGREF 0
 #endif
