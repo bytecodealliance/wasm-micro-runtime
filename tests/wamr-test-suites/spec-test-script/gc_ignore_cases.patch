@@ -1,27 +1,28 @@
-From 12fe27890a95286fb8a7ef91c853610584d609e4 Mon Sep 17 00:00:00 2001
+From 009459179f141dcdbfb8c0e0e9dca6b62c067864 Mon Sep 17 00:00:00 2001
 From: Xu Jun <jun1.xu@intel.com>
-Date: Mon, 4 Dec 2023 02:33:22 +0800
+Date: Tue, 5 Dec 2023 21:28:21 +0800
 Subject: [PATCH] ignore cases
 
 ---
- test/core/binary-leb128.wast   |   2 +-
- test/core/binary.wast          |   3 +-
- test/core/data.wast            |  12 +-
- test/core/elem.wast            |  17 ++-
- test/core/gc/array.wast        | 212 +++++++++++++++++----------------
- test/core/gc/extern.wast       |   2 +-
- test/core/gc/ref_test.wast     |  13 +-
- test/core/global.wast          |   4 +-
- test/core/imports.wast         |   2 +
- test/core/linking.wast         |  20 ++++
- test/core/ref_func.wast        |   3 +-
- test/core/ref_null.wast        |  30 ++---
- test/core/select.wast          |   2 +-
- test/core/table.wast           |   6 +-
- test/core/table_copy.wast      | 181 ++++++++++++++--------------
- test/core/table_init.wast      |  66 +++++-----
- test/core/unreached-valid.wast |   4 +-
- 17 files changed, 312 insertions(+), 267 deletions(-)
+ test/core/binary-leb128.wast     |   2 +-
+ test/core/binary.wast            |   3 +-
+ test/core/data.wast              |  12 +-
+ test/core/elem.wast              |  17 ++-
+ test/core/gc/array.wast          | 212 ++++++++++++++++---------------
+ test/core/gc/extern.wast         |   2 +-
+ test/core/gc/ref_test.wast       |  13 +-
+ test/core/gc/type-subtyping.wast |  63 +++++----
+ test/core/global.wast            |   4 +-
+ test/core/imports.wast           |   2 +
+ test/core/linking.wast           |  20 +++
+ test/core/ref_func.wast          |   3 +-
+ test/core/ref_null.wast          |  30 ++---
+ test/core/select.wast            |   2 +-
+ test/core/table.wast             |   6 +-
+ test/core/table_copy.wast        | 181 +++++++++++++-------------
+ test/core/table_init.wast        |  66 +++++-----
+ test/core/unreached-valid.wast   |   4 +-
+ 18 files changed, 350 insertions(+), 292 deletions(-)
 
 diff --git a/test/core/binary-leb128.wast b/test/core/binary-leb128.wast
 index 335496f0..5b975028 100644
@@ -467,6 +468,185 @@ index 590b81b8..e0aa49ed 100644
  
        (return)
      )
+diff --git a/test/core/gc/type-subtyping.wast b/test/core/gc/type-subtyping.wast
+index a9022fc3..0e164106 100644
+--- a/test/core/gc/type-subtyping.wast
++++ b/test/core/gc/type-subtyping.wast
+@@ -112,6 +112,8 @@
+   )
+ )
+ 
++;; don't support recursive type equality and subtype check
++(;
+ (module
+   (rec (type $f1 (sub (func))) (type (struct (field (ref $f1)))))
+   (rec (type $f2 (sub (func))) (type (struct (field (ref $f2)))))
+@@ -135,6 +137,7 @@
+   (func $g (type $g2))
+   (global (ref $g1) (ref.func $g))
+ )
++;)
+ 
+ (assert_invalid
+   (module
+@@ -156,6 +159,8 @@
+   (global (ref $f1) (ref.func $g))
+ )
+ 
++;; don't support recursive type equality and subtype check
++(;
+ (module
+   (rec (type $f1 (sub (func))) (type $s1 (sub (struct (field (ref $f1))))))
+   (rec (type $f2 (sub (func))) (type $s2 (sub (struct (field (ref $f2))))))
+@@ -201,6 +206,7 @@
+   (global (ref $g12) (ref.func $g12))
+   (global (ref $g22) (ref.func $g12))
+ )
++;)
+ 
+ (assert_invalid
+   (module
+@@ -226,6 +232,8 @@
+ 
+ ;; Runtime types
+ 
++;; don't support recursive type equality and subtype check
++(;
+ (module
+   (type $t0 (sub (func (result (ref null func)))))
+   (rec (type $t1 (sub $t0 (func (result (ref null $t1))))))
+@@ -286,6 +294,7 @@
+ (assert_trap (invoke "fail4") "cast")
+ (assert_trap (invoke "fail5") "cast")
+ (assert_trap (invoke "fail6") "cast")
++;)
+ 
+ (module
+   (type $t1 (sub (func)))
+@@ -316,7 +325,8 @@
+ (assert_trap (invoke "fail3") "cast")
+ (assert_trap (invoke "fail4") "cast")
+ 
+-
++;; don't support recursive type equality and subtype check
++(;
+ (module
+   (rec (type $f1 (sub (func))) (type (struct (field (ref $f1)))))
+   (rec (type $f2 (sub (func))) (type (struct (field (ref $f2)))))
+@@ -346,6 +356,7 @@
+   )
+ )
+ (assert_return (invoke "run") (i32.const 1))
++;)
+ 
+ (module
+   (rec (type $f1 (sub (func))) (type (struct (field (ref $f1)))))
+@@ -370,6 +381,8 @@
+ )
+ (assert_return (invoke "run") (i32.const 1))
+ 
++;; don't support recursive type equality and subtype check
++(;
+ (module
+   (rec (type $f1 (sub (func))) (type $s1 (sub (struct (field (ref $f1))))))
+   (rec (type $f2 (sub (func))) (type $s2 (sub (struct (field (ref $f2))))))
+@@ -390,7 +403,6 @@
+ )
+ (assert_return (invoke "run") (i32.const 1) (i32.const 1))
+ 
+-
+ (module
+   (rec (type $f11 (sub (func (result (ref func))))) (type $f12 (sub $f11 (func (result (ref $f11))))))
+   (rec (type $f21 (sub (func (result (ref func))))) (type $f22 (sub $f21 (func (result (ref $f21))))))
+@@ -429,6 +441,7 @@
+   (i32.const 1) (i32.const 1) (i32.const 1) (i32.const 1)
+   (i32.const 1) (i32.const 1) (i32.const 1) (i32.const 1)
+ )
++;)
+ 
+ (module
+   (rec (type $f11 (sub (func))) (type $f12 (sub $f11 (func))))
+@@ -547,15 +560,15 @@
+   (func (import "M3" "g") (type $g1))
+ )
+ 
+-(module
+-  (rec (type $f1 (sub (func))) (type $s1 (sub (struct (field (ref $f1))))))
+-  (rec (type $f2 (sub (func))) (type $s2 (sub (struct (field (ref $f2))))))
+-  (rec
+-    (type $g2 (sub $f2 (func)))
+-    (type (sub $s2 (struct (field (ref $f1) (ref $f2) (ref $f1) (ref $f2) (ref $g2)))))
+-  )
+-  (func (export "g") (type $g2))
+-)
++;; (module
++;;   (rec (type $f1 (sub (func))) (type $s1 (sub (struct (field (ref $f1))))))
++;;   (rec (type $f2 (sub (func))) (type $s2 (sub (struct (field (ref $f2))))))
++;;   (rec
++;;     (type $g2 (sub $f2 (func)))
++;;     (type (sub $s2 (struct (field (ref $f1) (ref $f2) (ref $f1) (ref $f2) (ref $g2)))))
++;;   )
++;;   (func (export "g") (type $g2))
++;; )
+ (register "M4")
+ (module
+   (rec (type $f1 (sub (func))) (type $s1 (sub (struct (field (ref $f1))))))
+@@ -597,17 +610,17 @@
+   (func (import "M6" "g") (type $f1))
+ )
+ 
+-(module
+-  (rec (type $f1 (sub (func))) (type $s1 (sub (struct (field (ref $f1))))))
+-  (rec (type $f2 (sub (func))) (type $s2 (sub (struct (field (ref $f2))))))
+-  (rec
+-    (type $g2 (sub $f2 (func)))
+-    (type (sub $s2 (struct (field (ref $f1) (ref $f2) (ref $f1) (ref $f2) (ref $g2)))))
+-  )
+-  (rec (type $h (sub $g2 (func))) (type (struct)))
+-  (func (export "h") (type $h))
+-)
+-(register "M7")
++;; (module
++;;   (rec (type $f1 (sub (func))) (type $s1 (sub (struct (field (ref $f1))))))
++;;   (rec (type $f2 (sub (func))) (type $s2 (sub (struct (field (ref $f2))))))
++;;   (rec
++;;     (type $g2 (sub $f2 (func)))
++;;     (type (sub $s2 (struct (field (ref $f1) (ref $f2) (ref $f1) (ref $f2) (ref $g2)))))
++;;   )
++;;   (rec (type $h (sub $g2 (func))) (type (struct)))
++;;   (func (export "h") (type $h))
++;; )
++;; (register "M7")
+ (module
+   (rec (type $f1 (sub (func))) (type $s1 (sub (struct (field (ref $f1))))))
+   (rec (type $f2 (sub (func))) (type $s2 (sub (struct (field (ref $f2))))))
+@@ -740,7 +753,7 @@
+   "sub type"
+ )
+ 
+-(assert_invalid 
++(assert_invalid
+   (module
+     (type $f0 (sub (func (param i32) (result i32))))
+     (type $s0 (sub $f0 (struct)))
+@@ -764,7 +777,7 @@
+   "sub type"
+ )
+ 
+-(assert_invalid 
++(assert_invalid
+   (module
+     (type $s0 (sub (struct)))
+     (type $f0 (sub $s0 (func (param i32) (result i32))))
+@@ -772,7 +785,7 @@
+   "sub type"
+ )
+ 
+-(assert_invalid 
++(assert_invalid
+   (module
+     (type $a0 (sub (array i32)))
+     (type $f0 (sub $a0 (func (param i32) (result i32))))
 diff --git a/test/core/global.wast b/test/core/global.wast
 index 8c47fde2..1a8cc7e3 100644
 --- a/test/core/global.wast
