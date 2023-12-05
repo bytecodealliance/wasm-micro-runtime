@@ -1979,7 +1979,7 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             uint32 super_type_count = 0, parent_type_idx = (uint32)-1,
                    rec_count = 1, j;
             uint32 *parent_type_idxs = NULL;
-            bool is_sub_final = true;
+            bool is_sub_final = true, resolve_fail = false;
 
             CHECK_BUF(p, p_end, 1);
             flag = read_uint8(p);
@@ -2005,10 +2005,15 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                 p--;
             }
 
-            if (!(parent_type_idxs =
-                      loader_malloc((uint64)rec_count * sizeof(uint32),
-                                    error_buf, error_buf_size))) {
-                goto fail;
+            if (rec_count == 1) {
+                parent_type_idxs = &parent_type_idx;
+            }
+            else {
+                if (!(parent_type_idxs =
+                        loader_malloc((uint64)rec_count * sizeof(uint32),
+                                        error_buf, error_buf_size))) {
+                    goto fail;
+                }
             }
 
             for (j = 0; j < rec_count; j++) {
@@ -2023,7 +2028,8 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                     if (super_type_count > 1) {
                         set_error_buf(error_buf, error_buf_size,
                                       "super type count too large");
-                        return false;
+                        resolve_fail = true;
+                        goto rec_type_end;
                     }
 
                     if (super_type_count > 0) {
@@ -2031,13 +2037,15 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                         if (parent_type_idx >= processed_type_count + j) {
                             set_error_buf_v(error_buf, error_buf_size,
                                             "unknown type %d", parent_type_idx);
-                            return false;
+                            resolve_fail = true;
+                            goto rec_type_end;
                         }
                         if (module->types[parent_type_idx]->is_sub_final) {
                             set_error_buf(error_buf, error_buf_size,
                                           "sub type can not inherit from "
                                           "a final super type");
-                            return false;
+                            resolve_fail = true;
+                            goto rec_type_end;
                         }
                     }
 
@@ -2053,27 +2061,31 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                     if (!resolve_func_type(&p, buf_end, module,
                                            processed_type_count + j, error_buf,
                                            error_buf_size)) {
-                        return false;
+                        resolve_fail = true;
+                        goto rec_type_end;
                     }
                 }
                 else if (flag == DEFINED_TYPE_STRUCT) {
                     if (!resolve_struct_type(&p, buf_end, module,
                                              processed_type_count + j,
                                              error_buf, error_buf_size)) {
-                        return false;
+                        resolve_fail = true;
+                        goto rec_type_end;
                     }
                 }
                 else if (flag == DEFINED_TYPE_ARRAY) {
                     if (!resolve_array_type(&p, buf_end, module,
                                             processed_type_count + j, error_buf,
                                             error_buf_size)) {
-                        return false;
+                        resolve_fail = true;
+                        goto rec_type_end;
                     }
                 }
                 else {
                     set_error_buf(error_buf, error_buf_size,
                                   "invalid type flag");
-                    return false;
+                    resolve_fail = true;
+                    goto rec_type_end;
                 }
             }
 
@@ -2107,7 +2119,8 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                                                  module->type_count)) {
                         set_error_buf(error_buf, error_buf_size,
                                       "sub type does not match super type");
-                        return false;
+                        resolve_fail = true;
+                        goto rec_type_end;
                     }
                 }
             }
@@ -2120,7 +2133,12 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
 
             processed_type_count += rec_count;
 
-            wasm_runtime_free(parent_type_idxs);
+        rec_type_end:
+            if (parent_type_idxs != &parent_type_idx)
+                wasm_runtime_free(parent_type_idxs);
+
+            if (resolve_fail)
+                return false;
         }
 
         if (!(module->rtt_types = loader_malloc((uint64)sizeof(WASMRttType *)
