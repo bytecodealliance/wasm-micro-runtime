@@ -7451,6 +7451,9 @@ re_scan:
                         if (frame_csp_tmp->label_type != LABEL_TYPE_LOOP)
                             ret_count = block_type_get_result_types(
                                 &frame_csp_tmp->block_type, &ret_types);
+                        else
+                            ret_count = block_type_get_param_types(
+                                &frame_csp_tmp->block_type, &ret_types);
                     }
                     else {
                         uint8 *tmp_ret_types = NULL;
@@ -7460,6 +7463,9 @@ re_scan:
                          * type */
                         if (frame_csp_tmp->label_type != LABEL_TYPE_LOOP)
                             tmp_ret_count = block_type_get_result_types(
+                                &frame_csp_tmp->block_type, &tmp_ret_types);
+                        else
+                            tmp_ret_count = block_type_get_param_types(
                                 &frame_csp_tmp->block_type, &tmp_ret_types);
 
                         if (ret_count != tmp_ret_count
@@ -7753,7 +7759,8 @@ re_scan:
                 }
 
                 if (available_stack_cell > 0) {
-                    if (is_32bit_type(*(loader_ctx->frame_ref - 1))) {
+                    if (is_32bit_type(*(loader_ctx->frame_ref - 1))
+                        || *(loader_ctx->frame_ref - 1) == VALUE_TYPE_ANY) {
                         loader_ctx->frame_ref--;
                         loader_ctx->stack_cell_num--;
 #if WASM_ENABLE_FAST_INTERP != 0
