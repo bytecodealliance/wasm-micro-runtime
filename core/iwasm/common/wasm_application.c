@@ -601,8 +601,7 @@ execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
                         PUT_REF_TO_ADDR(argv1 + p, gc_obj);
                         p += REF_CELL_NUM;
                     }
-
-                    if (is_anyref) {
+                    else if (is_anyref) {
                         /* If a parameter type is (ref null? any) and its value
                          * is not null, then we treat the value as host ptr */
                         WASMAnyrefObjectRef gc_obj;

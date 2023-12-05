@@ -34,7 +34,7 @@ wasm_ref_type_normalize(wasm_ref_type_t *ref_type)
     }
     if (value_type == VALUE_TYPE_HT_NULLABLE_REF
         || value_type == VALUE_TYPE_HT_NON_NULLABLE_REF) {
-        if (heap_type < 0 && (!wasm_is_valid_heap_type(heap_type))) {
+        if (heap_type < 0 && !wasm_is_valid_heap_type(heap_type)) {
             return false;
         }
     }

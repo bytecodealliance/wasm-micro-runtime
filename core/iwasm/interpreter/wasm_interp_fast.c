@@ -2590,6 +2590,13 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         PUT_REF_TO_ADDR(frame_lp + opnd_off_br, gc_obj);
 
                         if (!gc_obj) {
+                            /*
+                             * castflags should be 0~3:
+                             *  0: (non-null, non-null)
+                             *  1: (null, non-null)
+                             *  2: (non-null, null)
+                             *  3: (null, null)
+                             */
                             if (
                                 /* BR_ON_CAST and dst reftype is nullable */
                                 ((opcode == WASM_OP_BR_ON_CAST)

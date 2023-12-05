@@ -2654,6 +2654,13 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                         gc_obj = GET_REF_FROM_ADDR(frame_sp - REF_CELL_NUM);
                         if (!gc_obj) {
+                            /*
+                             * castflags should be 0~3:
+                             *  0: (non-null, non-null)
+                             *  1: (null, non-null)
+                             *  2: (non-null, null)
+                             *  3: (null, null)
+                             */
                             if (
                                 /* BR_ON_CAST and dst reftype is nullable */
                                 ((opcode1 == WASM_OP_BR_ON_CAST)
