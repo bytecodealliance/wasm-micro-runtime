@@ -4023,16 +4023,14 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                     if (n_stacks & 1)
                         n_stacks++;
                     if (func_type->types[i] == VALUE_TYPE_F32) {
-                        *(float32 *)&stacks[n_stacks] = *(float32 *)argv_src++;
-                        /* NaN boxing, the upper bits of a valid NaN-boxed
-                          value must be all 1s. */
-                        stacks[n_stacks + 1] = 0xFFFFFFFF;
+                        *(float32 *)&stacks[n_stacks++] =
+                            *(float32 *)argv_src++;
                     }
                     else {
                         *(float64 *)&stacks[n_stacks] = *(float64 *)argv_src;
                         argv_src += 2;
+                        n_stacks += 2;
                     }
-                    n_stacks += 2;
                 }
                 break;
             }
