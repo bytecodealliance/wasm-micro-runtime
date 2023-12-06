@@ -1150,10 +1150,23 @@ wasmtime_ssp_fd_advise(wasm_exec_env_t exec_env, struct fd_table *curfds,
                        __wasi_filesize_t len, __wasi_advice_t advice)
 {
     struct fd_object *fo;
+    __wasi_filestat_t buf;
     __wasi_errno_t error =
         fd_object_get(curfds, &fo, fd, __WASI_RIGHT_FD_ADVISE, 0);
     if (error != 0)
         return error;
+
+    error = os_fstat(fd, &buf);
+
+    if (error != __WASI_ESUCCESS) {
+        fd_object_release(exec_env, fo);
+        return error;
+    }
+
+    if (buf.st_filetype == __WASI_FILETYPE_DIRECTORY) {
+        fd_object_release(exec_env, fo);
+        return __WASI_EBADF;
+    }
 
     error = os_fadvise(fo->file_handle, offset, len, advice);
 
