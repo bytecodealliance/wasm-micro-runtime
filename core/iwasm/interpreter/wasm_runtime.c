@@ -4,6 +4,7 @@
  */
 
 #include "wasm_runtime.h"
+#include "wasm.h"
 #include "wasm_loader.h"
 #include "wasm_interp.h"
 #include "bh_common.h"
@@ -2112,8 +2113,16 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                     break;
 #endif
                 default:
+                {
 #if WASM_ENABLE_GC != 0
+                    InitializerExpression *global_init = NULL;
                     bh_assert(wasm_is_type_reftype(global->type));
+
+                    if (i >= module->import_global_count) {
+                        global_init =
+                            &module->globals[i - module->import_global_count]
+                                 .init_expr;
+                    }
 
                     if (global->type == REF_TYPE_NULLFUNCREF
                         || global->type == REF_TYPE_NULLEXTERNREF
@@ -2123,7 +2132,13 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                         break;
                     }
 
-                    if (wasm_reftype_is_subtype_of(
+                    /* We can't create funcref obj during global instantiation
+                     * since the functions are not instantiated yet, so we need
+                     * to defer the initialization here */
+                    if (global_init
+                        && (global_init->init_expr_type
+                            == INIT_EXPR_TYPE_FUNCREF_CONST)
+                        && wasm_reftype_is_subtype_of(
                             global->type, global->ref_type, REF_TYPE_FUNCREF,
                             NULL, module_inst->module->types,
                             module_inst->module->type_count)) {
@@ -2137,6 +2152,9 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                         }
                         STORE_PTR((void **)global_data, func_obj);
                         global_data += sizeof(void *);
+                        /* Also update the inital_value since other globals may
+                         * refer to this */
+                        global->initial_value.gc_obj = (wasm_obj_t)func_obj;
                         break;
                     }
                     else {
@@ -2148,6 +2166,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 #endif
                     bh_assert(0);
                     break;
+                }
             }
         }
         bh_assert(global_data == global_data_end);
@@ -2439,7 +2458,8 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 
             /* const and get global init values should be resolved during
              * loading */
-            bh_assert((flag == INIT_EXPR_TYPE_REFNULL_CONST)
+            bh_assert((flag == INIT_EXPR_TYPE_GET_GLOBAL)
+                      || (flag == INIT_EXPR_TYPE_REFNULL_CONST)
                       || ((flag >= INIT_EXPR_TYPE_FUNCREF_CONST)
                           && (flag <= INIT_EXPR_TYPE_EXTERN_EXTERNALIZE)));
 
@@ -2470,6 +2490,18 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                     break;
                 }
 #if WASM_ENABLE_GC != 0
+                case INIT_EXPR_TYPE_GET_GLOBAL:
+                {
+                    if (!check_global_init_expr(module,
+                                                init_expr->u.global_index,
+                                                error_buf, error_buf_size)) {
+                        goto fail;
+                    }
+
+                    ref =
+                        globals[init_expr->u.global_index].initial_value.gc_obj;
+                    break;
+                }
                 case INIT_EXPR_TYPE_STRUCT_NEW_CANON:
                 case INIT_EXPR_TYPE_STRUCT_NEW_CANON_DEFAULT:
                 {

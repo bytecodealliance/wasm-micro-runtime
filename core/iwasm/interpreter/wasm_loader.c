@@ -4124,26 +4124,8 @@ load_init_expr_vec(const uint8 **p_buf, const uint8 *buf_end,
                             error_buf, error_buf_size))
             return false;
 
-#if WASM_ENABLE_GC != 0
-        while (init_expr->init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL) {
-            uint32 global_idx = init_expr->u.global_index;
-            if (!check_global_index_and_type(
-                    module, global_idx, table_segment->elem_type,
-                    table_segment->elem_ref_type, error_buf, error_buf_size))
-                return false;
-            if (global_idx < module->import_global_count) {
-                set_error_buf(error_buf, error_buf_size,
-                              "Can't init funcref from imported global");
-                return false;
-            }
-            else {
-                WASMGlobal *global =
-                    &module->globals[global_idx - module->import_global_count];
-                *init_expr = global->init_expr;
-            }
-        }
-#endif
-        bh_assert((init_expr->init_expr_type == INIT_EXPR_TYPE_REFNULL_CONST)
+        bh_assert((init_expr->init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL)
+                  || (init_expr->init_expr_type == INIT_EXPR_TYPE_REFNULL_CONST)
                   || (init_expr->init_expr_type >= INIT_EXPR_TYPE_FUNCREF_CONST
                       && init_expr->init_expr_type
                              <= INIT_EXPR_TYPE_ARRAY_NEW_CANON_FIXED));
