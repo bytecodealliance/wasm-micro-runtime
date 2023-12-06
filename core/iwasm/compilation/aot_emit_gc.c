@@ -4,6 +4,7 @@
  */
 
 #include "aot_emit_gc.h"
+#include "aot_compiler.h"
 #include "aot_emit_exception.h"
 
 #if WASM_ENABLE_GC != 0
@@ -1450,6 +1451,156 @@ aot_compile_op_array_set(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         aot_set_last_error("llvm build alloca failed.");
         goto fail;
     }
+
+    return true;
+fail:
+    return false;
+}
+
+bool
+aot_compile_op_array_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                          uint32 type_index)
+{
+    LLVMValueRef len, array_obj, fill_value = NULL, offset, array_len, cmp[2],
+                                 boundary, loop_counter;
+    LLVMBasicBlockRef check_obj_succ, len_gt_zero, len_le_zero, inner_else;
+    LLVMBasicBlockRef fill_loop_header, fill_loop_body;
+    WASMArrayType *compile_time_array_type =
+        (WASMArrayType *)comp_ctx->comp_data->types[type_index];
+    uint8 array_elem_type = compile_time_array_type->elem_type;
+    int i;
+
+    POP_I32(len);
+    /* Get LLVM type based on array_elem_type */
+    if (wasm_is_type_reftype(array_elem_type)) {
+        POP_GC_REF(fill_value);
+    }
+    else if (array_elem_type == VALUE_TYPE_I32
+             || array_elem_type == PACKED_TYPE_I8
+             || array_elem_type == PACKED_TYPE_I16) {
+        POP_I32(fill_value);
+    }
+    else if (array_elem_type == VALUE_TYPE_I64) {
+        POP_I64(fill_value);
+    }
+    else if (array_elem_type == VALUE_TYPE_F32) {
+        POP_F32(fill_value);
+    }
+    else if (array_elem_type == VALUE_TYPE_F64) {
+        POP_F64(fill_value);
+    }
+    else {
+        bh_assert(0);
+    }
+
+    POP_I32(offset);
+    POP_GC_REF(array_obj);
+
+    ADD_BASIC_BLOCK(check_obj_succ, "check array objs succ");
+    MOVE_BLOCK_AFTER_CURR(check_obj_succ);
+
+    BUILD_ISNULL(array_obj, cmp[0], "cmp_obj");
+
+    if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_NULL_ARRAY_OBJ, true,
+                            cmp[0], check_obj_succ))
+        goto fail;
+
+    /* Create if block */
+    ADD_BASIC_BLOCK(len_gt_zero, "len_gt_zero");
+    MOVE_BLOCK_AFTER_CURR(len_gt_zero);
+
+    /* Create else(end) block */
+    ADD_BASIC_BLOCK(len_le_zero, "len_le_zero");
+    MOVE_BLOCK_AFTER(len_le_zero, len_gt_zero);
+
+    /* Create fill_loop_header block */
+    ADD_BASIC_BLOCK(fill_loop_header, "fill_loop_header");
+    MOVE_BLOCK_AFTER(fill_loop_header, len_gt_zero);
+
+    /* Create fill_loop_body block */
+    ADD_BASIC_BLOCK(fill_loop_body, "fill_loop_body");
+    MOVE_BLOCK_AFTER(fill_loop_body, len_gt_zero);
+
+    /* Create inner else block */
+    ADD_BASIC_BLOCK(inner_else, "inner_else");
+    MOVE_BLOCK_AFTER(inner_else, len_gt_zero);
+
+    BUILD_ICMP(LLVMIntSGT, len, I32_ZERO, cmp[0], "cmp_len");
+    BUILD_COND_BR(cmp[0], len_gt_zero, len_le_zero);
+
+    /* Move builder to len > 0 block */
+    SET_BUILDER_POS(len_gt_zero);
+    /* dst_offset > UINT32_MAX - len */
+    if (!(boundary = LLVMBuildAdd(comp_ctx->builder, offset, len, ""))) {
+        aot_set_last_error("llvm build failed.");
+        goto fail;
+    }
+    BUILD_ICMP(LLVMIntUGT, boundary, I32_CONST(UINT32_MAX), cmp[0],
+               "boundary_check1");
+    /* dst_offset + len > wasm_array_obj_length(dst_obj) */
+    if (!aot_array_obj_length(comp_ctx, array_obj, &array_len))
+        goto fail;
+    BUILD_ICMP(LLVMIntUGT, boundary, array_len, cmp[1], "boundary_check2");
+
+    /* logical or above 4 boundary checks */
+    for (i = 1; i < 2; ++i) {
+        if (!(cmp[0] = LLVMBuildOr(comp_ctx->builder, cmp[0], cmp[i], ""))) {
+            aot_set_last_error("llvm build failed.");
+            goto fail;
+        }
+    }
+
+    if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_ARRAY_IDX_OOB, true,
+                            cmp[0], inner_else))
+        goto fail;
+
+    if (!(loop_counter = LLVMBuildAlloca(comp_ctx->builder, I32_TYPE,
+                                         "fill_loop_counter"))) {
+        aot_set_last_error("llvm build alloc failed.");
+        goto fail;
+    }
+
+    if (!is_target_x86(comp_ctx)) {
+        LLVMSetAlignment(loop_counter, 4);
+    }
+
+    if (!LLVMBuildStore(comp_ctx->builder, offset, loop_counter)) {
+        aot_set_last_error("llvm build store failed.");
+        goto fail;
+    }
+
+    BUILD_BR(fill_loop_header);
+    SET_BUILDER_POS(fill_loop_header);
+
+    if (!(loop_counter = LLVMBuildLoad2(comp_ctx->builder, I32_TYPE,
+                                        loop_counter, "fill_loop_counter"))) {
+        aot_set_last_error("llvm build load failed.");
+        goto fail;
+    }
+
+    BUILD_ICMP(LLVMIntULT, loop_counter, boundary, cmp[0], "cmp_loop_counter");
+    BUILD_COND_BR(cmp[0], fill_loop_body, len_le_zero);
+
+    SET_BUILDER_POS(fill_loop_body);
+
+    if (!aot_array_obj_set_elem(comp_ctx, func_ctx, array_obj, loop_counter,
+                                fill_value, array_elem_type))
+        goto fail;
+
+    if (!(loop_counter = LLVMBuildAdd(comp_ctx->builder, loop_counter, I32_ONE,
+                                      "fill_loop_counter"))) {
+        aot_set_last_error("llvm build add failed.");
+        goto fail;
+    }
+
+    if (!LLVMBuildStore(comp_ctx->builder, loop_counter, loop_counter)) {
+        aot_set_last_error("llvm build store failed.");
+        goto fail;
+    }
+
+    BUILD_BR(fill_loop_header);
+
+    SET_BUILDER_POS(len_le_zero);
 
     return true;
 fail:

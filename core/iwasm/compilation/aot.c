@@ -167,13 +167,18 @@ get_value_type_size(uint8 value_type, bool gc_enabled, uint32 *p_size_64bit,
              && (value_type == VALUE_TYPE_FUNCREF
                  || value_type == VALUE_TYPE_EXTERNREF))
         size_64bit = size_32bit = sizeof(int32);
-    else if (gc_enabled &&
+    else if (gc_enabled
+             && ((value_type >= (uint8)REF_TYPE_ARRAYREF
+                  && value_type <= (uint8)REF_TYPE_NULLFUNCREF)
+                 || (value_type >= (uint8)REF_TYPE_HT_NULLABLE
+                     && value_type <= (uint8)REF_TYPE_HT_NON_NULLABLE)
 #if WASM_ENABLE_STRINGREF != 0
-             value_type >= (uint8)REF_TYPE_STRINGVIEWITER /* 0x61 */
-#else
-             value_type >= (uint8)REF_TYPE_NULLREF /* 0x65 */
+                 || (value_type >= (uint8)REF_TYPE_STRINGVIEWWTF8
+                     && value_type <= (uint8)REF_TYPE_STRINGREF)
+                 || (value_type >= (uint8)REF_TYPE_STRINGVIEWITER
+                     && value_type <= (uint8)REF_TYPE_STRINGVIEWWTF16)
 #endif
-             && value_type <= (uint8)REF_TYPE_FUNCREF /* 0x70 */) {
+                     )) {
         size_64bit = sizeof(uint64);
         size_32bit = sizeof(uint32);
     }
@@ -626,6 +631,12 @@ aot_create_comp_data(WASMModule *module, const char *target_arch,
 #if WASM_ENABLE_GC != 0
                 comp_data->tables[j].elem_ref_type =
                     module->tables[j].elem_ref_type;
+                /* Note: if the init_expr contains extra data for struct/array
+                 * initialization information (init_expr.u.data), the pointer is
+                 * copied.
+                 * The pointers should still belong to wasm module, so DO NOT
+                 * free the pointers copied to comp_data */
+                comp_data->tables[j].init_expr = module->tables[j].init_expr;
 #endif
             }
         }

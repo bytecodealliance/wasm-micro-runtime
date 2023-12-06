@@ -323,9 +323,6 @@ typedef enum WASMGCEXTOpcode {
     WASM_OP_I31_GET_S = 0x1D, /* i31.get_s */
     WASM_OP_I31_GET_U = 0x1E, /* i31.get_u */
 
-    WASM_OP_BR_ON_CAST_NULLABLE = 0x4a,      /* br_on_cast_nullable */
-    WASM_OP_BR_ON_CAST_FAIL_NULLABLE = 0x4b, /* br_on_cast_fail_nullable */
-
     /* stringref related opcoded */
     WASM_OP_STRING_NEW_UTF8 = 0x80,          /* string.new_utf8 */
     WASM_OP_STRING_NEW_WTF16 = 0x81,         /* string.new_wtf16 */

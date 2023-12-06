@@ -102,6 +102,7 @@ typedef void *table_elem_type_t;
 #define REF_CELL_NUM ((uint32)sizeof(uintptr_t) / sizeof(uint32))
 #endif
 
+#define INIT_EXPR_NONE 0x00
 #define INIT_EXPR_TYPE_I32_CONST 0x41
 #define INIT_EXPR_TYPE_I64_CONST 0x42
 #define INIT_EXPR_TYPE_F32_CONST 0x43

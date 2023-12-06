@@ -88,13 +88,17 @@ typedef enum FloatArithmetic {
 static inline bool
 aot_is_type_gc_reftype(uint8 type)
 {
-    return (
+    return ((type >= (uint8)REF_TYPE_ARRAYREF
+             && type <= (uint8)REF_TYPE_NULLFUNCREF)
+            || (type >= (uint8)REF_TYPE_HT_NULLABLE
+                && type <= (uint8)REF_TYPE_HT_NON_NULLABLE)
 #if WASM_ENABLE_STRINGREF != 0
-               type >= (uint8)REF_TYPE_STRINGVIEWITER
-#else
-               type >= (uint8)REF_TYPE_NULLREF
+            || (type >= (uint8)REF_TYPE_STRINGVIEWWTF8
+                && type <= (uint8)REF_TYPE_STRINGREF)
+            || (type >= (uint8)REF_TYPE_STRINGVIEWITER
+                && type <= (uint8)REF_TYPE_STRINGVIEWWTF16)
 #endif
-               && type <= (uint8)REF_TYPE_FUNCREF)
+                )
                ? true
                : false;
 }

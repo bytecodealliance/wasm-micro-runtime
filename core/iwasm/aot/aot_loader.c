@@ -1102,6 +1102,18 @@ fail:
     return false;
 }
 
+#if WASM_ENABLE_GC != 0
+static void
+destroy_init_expr(InitializerExpression *expr)
+{
+    if (expr->init_expr_type == INIT_EXPR_TYPE_STRUCT_NEW_CANON
+        || expr->init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW_CANON
+        || expr->init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW_CANON_FIXED) {
+        wasm_runtime_free(expr->u.data);
+    }
+}
+#endif /* end of WASM_ENABLE_GC != 0 */
+
 static void
 destroy_import_tables(AOTImportTable *import_tables)
 {
@@ -1119,10 +1131,141 @@ destroy_table_init_data_list(AOTTableInitData **data_list, uint32 count)
 {
     uint32 i;
     for (i = 0; i < count; i++)
-        if (data_list[i])
+        if (data_list[i]) {
+#if WASM_ENABLE_GC != 0
+            uint32 j;
+            for (j = 0; j < data_list[i]->value_count; j++) {
+                destroy_init_expr(&data_list[i]->init_values[j]);
+            }
+#endif
             wasm_runtime_free(data_list[i]);
+        }
     wasm_runtime_free(data_list);
 }
+
+#if WASM_ENABLE_GC != 0
+static bool
+load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
+               InitializerExpression *expr, char *error_buf,
+               uint32 error_buf_size)
+{
+    const uint8 *buf = *p_buf;
+    uint32 init_expr_type = 0;
+    bool free_if_fail = false;
+
+    buf = (uint8 *)align_ptr(buf, 4);
+
+    read_uint32(buf, buf_end, init_expr_type);
+
+    switch (init_expr_type) {
+        case INIT_EXPR_NONE:
+            break;
+        case INIT_EXPR_TYPE_I32_CONST:
+        case INIT_EXPR_TYPE_F32_CONST:
+            read_uint32(buf, buf_end, expr->u.i32);
+            break;
+        case INIT_EXPR_TYPE_I64_CONST:
+        case INIT_EXPR_TYPE_F64_CONST:
+            read_uint64(buf, buf_end, expr->u.i64);
+            break;
+        case INIT_EXPR_TYPE_V128_CONST:
+            read_byte_array(buf, buf_end, &expr->u.v128, sizeof(expr->u.v128));
+            break;
+        case INIT_EXPR_TYPE_GET_GLOBAL:
+            read_uint32(buf, buf_end, expr->u.global_index);
+            break;
+        case INIT_EXPR_TYPE_REFNULL_CONST:
+            read_uint32(buf, buf_end, expr->u.type_index);
+            break;
+        case INIT_EXPR_TYPE_FUNCREF_CONST:
+            read_uint32(buf, buf_end, expr->u.ref_index);
+            break;
+        case INIT_EXPR_TYPE_I31_NEW:
+            read_uint32(buf, buf_end, expr->u.i32);
+            break;
+        case INIT_EXPR_TYPE_STRUCT_NEW_CANON:
+        {
+            uint64 size;
+            uint32 type_idx, field_count;
+            WASMStructNewInitValues *init_values = NULL;
+
+            read_uint32(buf, buf_end, type_idx);
+            read_uint32(buf, buf_end, field_count);
+
+            size = offsetof(WASMStructNewInitValues, fields)
+                   + sizeof(WASMValue) * (uint64)field_count;
+            if (!(init_values =
+                      loader_malloc(size, error_buf, error_buf_size))) {
+                return false;
+            }
+            free_if_fail = true;
+
+            if (field_count > 0) {
+                init_values->type_idx = type_idx;
+                init_values->count = field_count;
+
+                size = sizeof(WASMValue) * (uint64)field_count;
+                read_byte_array(buf, buf_end, init_values->fields, size);
+            }
+
+            expr->u.data = init_values;
+
+            break;
+        }
+        case INIT_EXPR_TYPE_STRUCT_NEW_CANON_DEFAULT:
+            read_uint32(buf, buf_end, expr->u.type_index);
+            break;
+        case INIT_EXPR_TYPE_ARRAY_NEW_CANON:
+        case INIT_EXPR_TYPE_ARRAY_NEW_CANON_DEFAULT:
+        case INIT_EXPR_TYPE_ARRAY_NEW_CANON_FIXED:
+        {
+            uint32 type_idx, length;
+            WASMArrayNewInitValues *init_values = NULL;
+
+            read_uint32(buf, buf_end, type_idx);
+            read_uint32(buf, buf_end, length);
+
+            if (init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW_CANON_DEFAULT) {
+                expr->u.array_new_canon_fixed.type_index = type_idx;
+                expr->u.array_new_canon_fixed.N = length;
+            }
+            else {
+                uint64 size = offsetof(WASMArrayNewInitValues, elem_data)
+                              + sizeof(WASMValue) * (uint64)length;
+                if (!(init_values =
+                          loader_malloc(size, error_buf, error_buf_size))) {
+                    return false;
+                }
+                free_if_fail = true;
+
+                init_values->type_idx = type_idx;
+                init_values->length = length;
+
+                if (length > 0) {
+                    size = sizeof(WASMValue) * (uint64)length;
+                    read_byte_array(buf, buf_end, init_values->elem_data, size);
+                }
+
+                expr->u.data = init_values;
+            }
+            break;
+        }
+        default:
+            set_error_buf(error_buf, error_buf_size, "invalid init expr type.");
+            return false;
+    }
+
+    expr->init_expr_type = (uint8)init_expr_type;
+
+    *p_buf = buf;
+    return true;
+fail:
+    if (free_if_fail) {
+        wasm_runtime_free(expr->u.data);
+    }
+    return false;
+}
+#endif /* end of WASM_ENABLE_GC != 0 */
 
 static bool
 load_import_table_list(const uint8 **p_buf, const uint8 *buf_end,
@@ -1222,6 +1365,9 @@ load_table_list(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                 return false;
             }
         }
+        if (!load_init_expr(&buf, buf_end, module, &table->init_expr, error_buf,
+                            error_buf_size))
+            return false;
 #endif
     }
 
@@ -1300,6 +1446,12 @@ load_table_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
         data_list[i]->offset.u.i64 = (int64)init_expr_value;
         data_list[i]->value_count = value_count;
         for (j = 0; j < data_list[i]->value_count; j++) {
+#if WASM_ENABLE_GC != 0
+            if (!load_init_expr(&buf, buf_end, module,
+                                &data_list[i]->init_values[j], error_buf,
+                                error_buf_size))
+                return false;
+#else
             data_list[i]->init_values[j].init_expr_type =
                 INIT_EXPR_TYPE_FUNCREF_CONST;
 #if UINTPTR_MAX == UINT64_MAX
@@ -1307,6 +1459,7 @@ load_table_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
 #else
             read_uint32(buf, buf_end, data_list[i]->init_values[j].u.ref_index);
 #endif
+#endif /* end of WASM_ENABLE_GC != 0 */
         }
     }
 
@@ -1386,7 +1539,7 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
     uint64 size;
     uint32 i, j;
     uint32 type_flag, param_cell_num, ret_cell_num;
-    uint16 param_count, result_count, ref_type_map_count;
+    uint16 param_count, result_count, ref_type_map_count, rec_count, rec_idx;
     bool is_sub_final;
     uint32 parent_type_idx;
     WASMRefType ref_type;
@@ -1408,6 +1561,8 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         read_uint16(buf, buf_end, type_flag);
         read_uint16(buf, buf_end, is_sub_final);
         read_uint32(buf, buf_end, parent_type_idx);
+        read_uint16(buf, buf_end, rec_count);
+        read_uint16(buf, buf_end, rec_idx);
 
         if (type_flag == WASM_TYPE_FUNC) {
             AOTFuncType *func_type;
@@ -1432,6 +1587,8 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             func_type->base_type.type_flag = type_flag;
             func_type->base_type.is_sub_final = is_sub_final;
             func_type->base_type.parent_type_idx = parent_type_idx;
+            func_type->base_type.rec_count = rec_count;
+            func_type->base_type.rec_idx = rec_idx;
             func_type->param_count = param_count;
             func_type->result_count = result_count;
 
@@ -1532,6 +1689,10 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             types[i] = (AOTType *)struct_type;
 
             struct_type->base_type.type_flag = type_flag;
+            struct_type->base_type.is_sub_final = is_sub_final;
+            struct_type->base_type.parent_type_idx = parent_type_idx;
+            struct_type->base_type.rec_count = rec_count;
+            struct_type->base_type.rec_idx = rec_idx;
             struct_type->field_count = field_count;
             struct_type->ref_type_map_count = ref_type_map_count;
 
@@ -1617,6 +1778,10 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             types[i] = (AOTType *)array_type;
 
             array_type->base_type.type_flag = type_flag;
+            array_type->base_type.is_sub_final = is_sub_final;
+            array_type->base_type.parent_type_idx = parent_type_idx;
+            array_type->base_type.rec_count = rec_count;
+            array_type->base_type.rec_idx = rec_idx;
             read_uint16(buf, buf_end, array_type->elem_flags);
             read_uint8(buf, buf_end, array_type->elem_type);
             if (wasm_is_type_multi_byte_type(array_type->elem_type)) {
@@ -1640,23 +1805,48 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             goto fail;
         }
 
-        if (parent_type_idx != (uint32)-1) { /* has parent */
-            AOTType *parent_type = module->types[parent_type_idx];
-            if (!wasm_type_is_subtype_of(module->types[i], parent_type,
-                                         module->types, i)) {
-                set_error_buf(error_buf, error_buf_size,
-                              "sub type does not match super type");
-                goto fail;
+        if ((rec_count == 0) || (rec_idx == rec_count - 1)) {
+            if (rec_count == 0) {
+                bh_assert(rec_idx == 0);
             }
 
-            module->types[i]->parent_type = parent_type;
-            module->types[i]->root_type = parent_type->root_type;
-            module->types[i]->inherit_depth = parent_type->inherit_depth + 1;
+            for (j = i - rec_idx; j <= i; j++) {
+                AOTType *cur_type = module->types[j];
+                parent_type_idx = cur_type->parent_type_idx;
+                if (parent_type_idx != (uint32)-1) { /* has parent */
+                    AOTType *parent_type = module->types[parent_type_idx];
+
+                    module->types[j]->parent_type = parent_type;
+                    module->types[j]->root_type = parent_type->root_type;
+                    module->types[j]->inherit_depth =
+                        parent_type->inherit_depth + 1;
+                }
+                else {
+                    module->types[j]->parent_type = NULL;
+                    module->types[j]->root_type = module->types[j];
+                    module->types[j]->inherit_depth = 0;
+                }
+            }
         }
-        else {
-            module->types[i]->parent_type = NULL;
-            module->types[i]->root_type = module->types[i];
-            module->types[i]->inherit_depth = 0;
+
+        if ((rec_count == 0) || (rec_idx == rec_count - 1)) {
+            if (rec_count == 0) {
+                bh_assert(rec_idx == 0);
+            }
+
+            for (j = i - rec_idx; j <= i; j++) {
+                AOTType *cur_type = module->types[j];
+                parent_type_idx = cur_type->parent_type_idx;
+                if (parent_type_idx != (uint32)-1) { /* has parent */
+                    AOTType *parent_type = module->types[parent_type_idx];
+                    if (!wasm_type_is_subtype_of(module->types[j], parent_type,
+                                                 module->types, i)) {
+                        set_error_buf(error_buf, error_buf_size,
+                                      "sub type does not match super type");
+                        goto fail;
+                    }
+                }
+            }
         }
     }
 
@@ -1876,10 +2066,18 @@ load_globals(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 
     /* Create each global */
     for (i = 0; i < module->global_count; i++) {
+#if WASM_ENABLE_GC == 0
         uint16 init_expr_type;
+#endif
 
         read_uint8(buf, buf_end, globals[i].type);
         read_uint8(buf, buf_end, globals[i].is_mutable);
+
+#if WASM_ENABLE_GC != 0
+        if (!load_init_expr(&buf, buf_end, module, &globals[i].init_expr,
+                            error_buf, error_buf_size))
+            return false;
+#else
         read_uint16(buf, buf_end, init_expr_type);
 
         if (init_expr_type != INIT_EXPR_TYPE_V128_CONST) {
@@ -1893,6 +2091,7 @@ load_globals(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         }
 
         globals[i].init_expr.init_expr_type = (uint8)init_expr_type;
+#endif /* end of WASM_ENABLE_GC != 0 */
 
         globals[i].size = wasm_value_type_size(globals[i].type);
         globals[i].data_offset = data_offset;
@@ -3849,8 +4048,15 @@ aot_unload(AOTModule *module)
     if (module->import_tables)
         destroy_import_tables(module->import_tables);
 
-    if (module->tables)
+    if (module->tables) {
+#if WASM_ENABLE_GC != 0
+        uint32 i;
+        for (i = 0; i < module->table_count; i++) {
+            destroy_init_expr(&module->tables[i].init_expr);
+        }
+#endif
         destroy_tables(module->tables);
+    }
 
     if (module->table_init_data_list)
         destroy_table_init_data_list(module->table_init_data_list,
@@ -3862,8 +4068,15 @@ aot_unload(AOTModule *module)
     if (module->import_globals)
         destroy_import_globals(module->import_globals);
 
-    if (module->globals)
+    if (module->globals) {
+#if WASM_ENABLE_GC != 0
+        uint32 i;
+        for (i = 0; i < module->global_count; i++) {
+            destroy_init_expr(&module->globals[i].init_expr);
+        }
+#endif
         destroy_globals(module->globals);
+    }
 
     if (module->import_funcs)
         destroy_import_funcs(module->import_funcs);
