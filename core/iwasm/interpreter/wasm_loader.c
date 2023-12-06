@@ -691,6 +691,16 @@ destroy_const_expr_stack(ConstExprContext *ctx)
     }
 }
 
+static void
+destroy_init_expr(InitializerExpression *expr)
+{
+    if (expr->init_expr_type == INIT_EXPR_TYPE_STRUCT_NEW_CANON
+        || expr->init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW_CANON
+        || expr->init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW_CANON_FIXED) {
+        wasm_runtime_free(expr->u.data);
+    }
+}
+
 static bool
 load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                InitializerExpression *init_expr, uint8 type, void *ref_type,
@@ -6243,8 +6253,14 @@ wasm_loader_unload(WASMModule *module)
         wasm_runtime_free(module->functions);
     }
 
-    if (module->tables)
+    if (module->tables) {
+#if WASM_ENABLE_GC != 0
+        for (i = 0; i < module->table_count; i++) {
+            destroy_init_expr(&module->tables[i].init_expr);
+        }
+#endif
         wasm_runtime_free(module->tables);
+    }
 
     if (module->memories)
         wasm_runtime_free(module->memories);
@@ -6252,13 +6268,7 @@ wasm_loader_unload(WASMModule *module)
     if (module->globals) {
 #if WASM_ENABLE_GC != 0
         for (i = 0; i < module->global_count; i++) {
-            InitializerExpression *expr = &module->globals[i].init_expr;
-            if (expr->init_expr_type == INIT_EXPR_TYPE_STRUCT_NEW_CANON
-                || expr->init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW_CANON
-                || expr->init_expr_type
-                       == INIT_EXPR_TYPE_ARRAY_NEW_CANON_FIXED) {
-                wasm_runtime_free(expr->u.data);
-            }
+            destroy_init_expr(&module->globals[i].init_expr);
         }
 #endif
         wasm_runtime_free(module->globals);
@@ -6273,15 +6283,8 @@ wasm_loader_unload(WASMModule *module)
 #if WASM_ENABLE_GC != 0
                 uint32 j;
                 for (j = 0; j < module->table_segments[i].value_count; j++) {
-                    InitializerExpression *expr =
-                        &module->table_segments[i].init_values[j];
-                    if (expr->init_expr_type == INIT_EXPR_TYPE_STRUCT_NEW_CANON
-                        || expr->init_expr_type
-                               == INIT_EXPR_TYPE_ARRAY_NEW_CANON
-                        || expr->init_expr_type
-                               == INIT_EXPR_TYPE_ARRAY_NEW_CANON_FIXED) {
-                        wasm_runtime_free(expr->u.data);
-                    }
+                    destroy_init_expr(
+                        &module->table_segments[i].init_values[j]);
                 }
 #endif
                 wasm_runtime_free(module->table_segments[i].init_values);
