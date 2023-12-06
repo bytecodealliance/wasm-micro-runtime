@@ -1206,19 +1206,15 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                     }
                     case WASM_OP_REF_I31:
                     {
-                        uint32 value;
-
                         /* POP(i32) */
                         if (!pop_const_expr_stack(
                                 &const_expr_ctx, NULL, VALUE_TYPE_I32, NULL,
                                 NULL, &cur_value, error_buf, error_buf_size)) {
                             goto fail;
                         }
-                        value = cur_value.i32;
 
                         wasm_set_refheaptype_common(&cur_ref_type.ref_ht_common,
                                                     false, HEAP_TYPE_I31);
-                        cur_value.gc_obj = (wasm_obj_t)wasm_i31_obj_new(value);
                         if (!push_const_expr_stack(
                                 &const_expr_ctx, flag, cur_ref_type.ref_type,
                                 &cur_ref_type, opcode1, &cur_value, error_buf,

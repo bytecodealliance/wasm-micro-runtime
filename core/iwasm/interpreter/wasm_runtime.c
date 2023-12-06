@@ -1014,6 +1014,12 @@ globals_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
 
                 break;
             }
+            case INIT_EXPR_TYPE_I31_NEW:
+            {
+                global->initial_value.gc_obj =
+                    (wasm_obj_t)wasm_i31_obj_new(init_expr->u.i32);
+                break;
+            }
 #endif /* end of WASM_ENABLE_GC != 0 */
             default:
                 bh_memcpy_s(&(global->initial_value), sizeof(WASMValue),
@@ -2133,16 +2139,6 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
                         global_data += sizeof(void *);
                         break;
                     }
-                    else if (wasm_reftype_is_subtype_of(
-                                 global->type, global->ref_type,
-                                 REF_TYPE_I31REF, NULL,
-                                 module_inst->module->types,
-                                 module_inst->module->type_count)) {
-                        STORE_PTR((void **)global_data,
-                                  global->initial_value.gc_obj);
-                        global_data += sizeof(void *);
-                        break;
-                    }
                     else {
                         STORE_PTR((void **)global_data,
                                   global->initial_value.gc_obj);
@@ -2589,6 +2585,11 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 
                     ref = array_obj;
 
+                    break;
+                }
+                case INIT_EXPR_TYPE_I31_NEW:
+                {
+                    ref = (wasm_obj_t)wasm_i31_obj_new(init_expr->u.i32);
                     break;
                 }
 #endif /* end of WASM_ENABLE_GC != 0 */
