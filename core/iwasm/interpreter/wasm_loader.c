@@ -4020,41 +4020,6 @@ fail:
 }
 #endif /* end of WASM_ENABLE_REF_TYPES != 0 || WASM_ENABLE_GC != 0 */
 
-#if WASM_ENABLE_GC != 0
-static bool
-check_global_index_and_type(WASMModule *module, uint32 global_idx, uint8 type,
-                            const WASMRefType *ref_type, char *error_buf,
-                            uint32 error_buf_size)
-{
-    uint8 global_type;
-    WASMRefType *global_ref_type;
-
-    if (global_idx >= module->import_global_count + module->global_count) {
-        set_error_buf(error_buf, error_buf_size, "unknown global");
-        return false;
-    }
-
-    if (global_idx < module->import_global_count) {
-        global_type = module->import_globals[global_idx].u.global.type;
-        global_ref_type = module->import_globals[global_idx].u.global.ref_type;
-    }
-    else {
-        global_type =
-            module->globals[global_idx - module->import_global_count].type;
-        global_ref_type =
-            module->globals[global_idx - module->import_global_count].ref_type;
-    }
-    if (!wasm_reftype_is_subtype_of(global_type, global_ref_type, type,
-                                    ref_type, module->types,
-                                    module->type_count)) {
-        set_error_buf(error_buf, error_buf_size, "type mismatch");
-        return false;
-    }
-
-    return true;
-}
-#endif /* end of WASM_ENABLE_GC != 0 */
-
 static bool
 load_func_index_vec(const uint8 **p_buf, const uint8 *buf_end,
                     WASMModule *module, WASMTableSeg *table_segment,
