@@ -58,7 +58,7 @@ bh_bitmap_delete(bh_bitmap *bitmap)
  * @return true if the index is in range, false otherwise
  */
 static inline bool
-bh_bitmap_is_in_range(bh_bitmap *bitmap, unsigned n)
+bh_bitmap_is_in_range(bh_bitmap *bitmap, uintptr_t n)
 {
     return n >= bitmap->begin_index && n < bitmap->end_index;
 }
@@ -72,9 +72,9 @@ bh_bitmap_is_in_range(bh_bitmap *bitmap, unsigned n)
  * @return value of the bit
  */
 static inline int
-bh_bitmap_get_bit(bh_bitmap *bitmap, unsigned n)
+bh_bitmap_get_bit(bh_bitmap *bitmap, uintptr_t n)
 {
-    unsigned idx = n - bitmap->begin_index;
+    uintptr_t idx = n - bitmap->begin_index;
     bh_assert(n >= bitmap->begin_index && n < bitmap->end_index);
     return (bitmap->map[idx / 8] >> (idx % 8)) & 1;
 }
@@ -86,9 +86,9 @@ bh_bitmap_get_bit(bh_bitmap *bitmap, unsigned n)
  * @param n the n-th bit to be set
  */
 static inline void
-bh_bitmap_set_bit(bh_bitmap *bitmap, unsigned n)
+bh_bitmap_set_bit(bh_bitmap *bitmap, uintptr_t n)
 {
-    unsigned idx = n - bitmap->begin_index;
+    uintptr_t idx = n - bitmap->begin_index;
     bh_assert(n >= bitmap->begin_index && n < bitmap->end_index);
     bitmap->map[idx / 8] |= 1 << (idx % 8);
 }
@@ -100,9 +100,9 @@ bh_bitmap_set_bit(bh_bitmap *bitmap, unsigned n)
  * @param n the n-th bit to be cleared
  */
 static inline void
-bh_bitmap_clear_bit(bh_bitmap *bitmap, unsigned n)
+bh_bitmap_clear_bit(bh_bitmap *bitmap, uintptr_t n)
 {
-    unsigned idx = n - bitmap->begin_index;
+    uintptr_t idx = n - bitmap->begin_index;
     bh_assert(n >= bitmap->begin_index && n < bitmap->end_index);
     bitmap->map[idx / 8] &= ~(1 << (idx % 8));
 }
