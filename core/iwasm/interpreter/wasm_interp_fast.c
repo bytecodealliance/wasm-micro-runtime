@@ -2428,16 +2428,14 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             goto got_exception;
                         }
 
-                        if ((uint64)start_offset + len
-                            >= wasm_array_obj_length(array_obj)) {
-                            if (len > 0) {
+                        if (len > 0) {
+                            if ((uint64)start_offset + len
+                                >= wasm_array_obj_length(array_obj)) {
                                 wasm_set_exception(
                                     module, "out of bounds array access");
                                 goto got_exception;
                             }
-                        }
 
-                        if (len > 0) {
                             wasm_array_obj_fill(array_obj, start_offset, len,
                                                 &fill_value);
                         }
