@@ -691,6 +691,7 @@ destroy_const_expr_stack(ConstExprContext *ctx)
     }
 }
 
+#if WASM_ENABLE_GC != 0
 static void
 destroy_init_expr(InitializerExpression *expr)
 {
@@ -700,6 +701,7 @@ destroy_init_expr(InitializerExpression *expr)
         wasm_runtime_free(expr->u.data);
     }
 }
+#endif /* end of WASM_ENABLE_GC != 0 */
 
 static bool
 load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
