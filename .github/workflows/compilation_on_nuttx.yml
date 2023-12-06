@@ -50,7 +50,10 @@ env:
 
 jobs:
   build_iwasm_on_nuttx:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/apache/nuttx/apache-nuttx-ci-linux@sha256:4b4cbf0b70512e61ada9cdcb76b97e90ad478b85e4d0774d05a95fa32caa8c39
+
     strategy:
       matrix:
         nuttx_board_config: [
@@ -60,12 +63,12 @@ jobs:
           "boards/arm/rp2040/raspberrypi-pico/configs/nsh",
           # cortex-m7
           "boards/arm/stm32h7/nucleo-h743zi/configs/nsh",
-          # riscv32imac
+          # riscv32imc
+          "boards/risc-v/espressif/esp32c3-generic/configs/nsh",
+          # riscv32gc
           "boards/risc-v/qemu-rv/rv-virt/configs/nsh",
-          # riscv64imac
-          "boards/risc-v/qemu-rv/rv-virt/configs/nsh64",
           # riscv64gc
-          "boards/risc-v/k210/maix-bit/configs/nsh",
+          "boards/risc-v/qemu-rv/rv-virt/configs/nsh64",
         ]
         wamr_config_option: [
           "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_AOT=y\\nCONFIG_INTERPRETERS_WAMR_FAST=y\\n",
@@ -81,29 +84,6 @@ jobs:
         ]
 
     steps:
-      - name: Install Utilities
-        run: |
-          sudo apt install -y kconfig-frontends-nox genromfs
-          pip3 install pyelftools
-          pip3 install cxxfilt
-
-      - name: Install ARM Compilers
-        if: contains(matrix.nuttx_board_config, 'arm')
-        run: sudo apt install -y gcc-arm-none-eabi
-
-      - name: Install RISC-V Compilers
-        if: contains(matrix.nuttx_board_config, 'risc-v')
-        run: |
-          curl -L https://github.com/xpack-dev-tools/riscv-none-elf-gcc-xpack/releases/download/v12.3.0-1/xpack-riscv-none-elf-gcc-12.3.0-1-linux-x64.tar.gz > riscv.tar.gz
-          tar xvf riscv.tar.gz
-          echo "$PWD/xpack-riscv-none-elf-gcc-12.3.0-1/bin" >> $GITHUB_PATH
-
-      - name: Install WASI-SDK
-        run: |
-          curl -L https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-linux.tar.gz > wasi-sdk.tar.gz
-          tar xvf wasi-sdk.tar.gz
-          sudo mv wasi-sdk-* /opt/wasi-sdk
-
       - name: Checkout NuttX
         uses: actions/checkout@v3
         with:
@@ -126,7 +106,7 @@ jobs:
 
       - name: Enable WAMR for NuttX
         run: |
-          find nuttx/boards -name defconfig | xargs sed -i '$a\CONFIG_EOL_IS_LF=y\nCONFIG_PSEUDOFS_SOFTLINKS=y\n${{ matrix.wamr_config_option }}'
+          find nuttx/boards -name defconfig | xargs sed -i '$a\CONFIG_EOL_IS_LF=y\n${{ matrix.wamr_config_option }}'
           find nuttx/boards/sim -name defconfig | xargs sed -i '$a\CONFIG_LIBM=y\n'
 
       - name: Build
