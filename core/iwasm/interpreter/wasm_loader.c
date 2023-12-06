@@ -2090,8 +2090,11 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
 
                 cur_type->parent_type_idx = parent_type_idx;
                 cur_type->is_sub_final = is_sub_final;
-                cur_type->rec_count = rec_count;
-                cur_type->rec_idx = j;
+
+                if (rec_count > 1) {
+                    cur_type->rec_count = rec_count;
+                    cur_type->rec_idx = j;
+                }
             }
 
             /* resolve subtyping relationship in current rec group */
