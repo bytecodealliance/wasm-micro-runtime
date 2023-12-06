@@ -301,13 +301,12 @@ typedef enum WASMGCEXTOpcode {
     WASM_OP_ARRAY_GET_U = 0x0D,       /* array.get_u */
     WASM_OP_ARRAY_SET = 0x0E,         /* array.set */
     WASM_OP_ARRAY_LEN = 0x0F,         /* array.len */
-    WASM_OP_ARRAY_FILL = 0x10,
-    /* array.fill */           // TODO
-    WASM_OP_ARRAY_COPY = 0x11, /* array.copy */
+    WASM_OP_ARRAY_FILL = 0x10,        /* array.fill */
+    WASM_OP_ARRAY_COPY = 0x11,        /* array.copy */
     WASM_OP_ARRAY_INIT_DATA = 0x12,
-    /* array.init_data */ // TODO
+    /* array.init_data */ /* TODO */
     WASM_OP_ARRAY_INIT_ELEM = 0x13,
-    /* array.init_elem */ // TODO
+    /* array.init_elem */ /* TODO */
 
     WASM_OP_REF_TEST = 0x14,          /* ref.test */
     WASM_OP_REF_TEST_NULLABLE = 0x15, /* ref.test_nullable */

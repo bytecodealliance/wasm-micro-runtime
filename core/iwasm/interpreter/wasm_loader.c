@@ -819,7 +819,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                 cur_value.ref_index = func_idx;
                 if (!check_function_index(module, func_idx, error_buf,
                                           error_buf_size)) {
-                    return false;
+                    goto fail;
                 }
 
 #if WASM_ENABLE_GC == 0
@@ -1036,6 +1036,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                                     field_ref_type, NULL,
                                     &struct_init_values->fields[field_idx],
                                     error_buf, error_buf_size)) {
+                                wasm_runtime_free(struct_init_values);
                                 goto fail;
                             }
                         }
@@ -1047,6 +1048,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                                 &const_expr_ctx, flag, cur_ref_type.ref_type,
                                 &cur_ref_type, opcode1, &cur_value, error_buf,
                                 error_buf_size)) {
+                            wasm_runtime_free(struct_init_values);
                             goto fail;
                         }
                         break;
@@ -1128,6 +1130,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                                         &const_expr_ctx, NULL, VALUE_TYPE_I32,
                                         NULL, NULL, &len_val, error_buf,
                                         error_buf_size)) {
+                                    wasm_runtime_free(array_init_values);
                                     goto fail;
                                 }
                                 array_init_values->length = len_val.i32;
@@ -1137,6 +1140,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                                         elem_ref_type, NULL,
                                         &array_init_values->elem_data[0],
                                         error_buf, error_buf_size)) {
+                                    wasm_runtime_free(array_init_values);
                                     goto fail;
                                 }
 
@@ -1166,6 +1170,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                                             &array_init_values
                                                  ->elem_data[i - 1],
                                             error_buf, error_buf_size)) {
+                                        wasm_runtime_free(array_init_values);
                                         goto fail;
                                     }
                                 }
@@ -1198,6 +1203,9 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                                 &const_expr_ctx, flag, cur_ref_type.ref_type,
                                 &cur_ref_type, opcode1, &cur_value, error_buf,
                                 error_buf_size)) {
+                            if (array_init_values) {
+                                wasm_runtime_free(array_init_values);
+                            }
                             goto fail;
                         }
                         break;
@@ -3581,7 +3589,7 @@ load_table_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             CHECK_BUF(buf, buf_end, 1);
             flag = read_uint8(p);
 
-            if (flag == 0x40) {
+            if (flag == TABLE_INIT_EXPR_FLAG) {
                 CHECK_BUF(buf, buf_end, 1);
                 flag = read_uint8(p);
 
@@ -12620,12 +12628,12 @@ re_scan:
                             elem_type = VALUE_TYPE_I32;
                         }
 
-                        POP_I32(); // length
+                        POP_I32(); /* length */
 #if WASM_ENABLE_FAST_INTERP != 0
                         POP_OFFSET_TYPE(elem_type);
 #endif
                         POP_TYPE(elem_type);
-                        POP_I32(); // start
+                        POP_I32(); /* start */
                         /* POP array obj, (ref null $t) */
                         wasm_set_refheaptype_typeidx(
                             &wasm_ref_type.ref_ht_typeidx, true, type_idx);

@@ -2660,10 +2660,11 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                              *  3: (null, null)
                              */
                             if (
-                                /* BR_ON_CAST and dst reftype is nullable */
+                                /* op is BR_ON_CAST and dst reftype is nullable
+                                 */
                                 ((opcode1 == WASM_OP_BR_ON_CAST)
                                  && ((castflags == 2) || (castflags == 3)))
-                                /* BR_ON_CAST_FAIL and dst reftype is
+                                /* op is BR_ON_CAST_FAIL and dst reftype is
                                    non-nullable */
                                 || ((opcode1 == WASM_OP_BR_ON_CAST_FAIL)
                                     && ((castflags == 0) || (castflags == 1))))

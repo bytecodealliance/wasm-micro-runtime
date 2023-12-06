@@ -44,7 +44,7 @@ extern "C" {
 #define REF_TYPE_ARRAYREF 0x6A
 #define REF_TYPE_HT_NON_NULLABLE 0x64
 #define REF_TYPE_HT_NULLABLE 0x63
-#define REF_TYPE_STRINGREF VALUE_TYPE_STRINGREF             /* 0X67 */
+#define REF_TYPE_STRINGREF VALUE_TYPE_STRINGREF             /* 0x67 */
 #define REF_TYPE_STRINGVIEWWTF8 VALUE_TYPE_STRINGVIEWWTF8   /* 0x66 */
 #define REF_TYPE_STRINGVIEWWTF16 VALUE_TYPE_STRINGVIEWWTF16 /* 0x62 */
 #define REF_TYPE_STRINGVIEWITER VALUE_TYPE_STRINGVIEWITER   /* 0x61 */
@@ -173,6 +173,10 @@ typedef void *table_elem_type_t;
 #define WASM_TYPE_STRINGVIEWWTF16 5
 #define WASM_TYPE_STRINGVIEWITER 6
 #endif
+
+/* In WasmGC, a table can start with [0x40 0x00] to indicate it has an
+ * initializer */
+#define TABLE_INIT_EXPR_FLAG 0x40
 
 typedef struct WASMModule WASMModule;
 typedef struct WASMFunction WASMFunction;
