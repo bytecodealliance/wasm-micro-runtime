@@ -55,8 +55,6 @@ def build_llvm(llvm_dir, platform, backends, projects, use_clang=False, extra_fl
         "-DLLVM_APPEND_VC_REV:BOOL=ON",
         "-DLLVM_BUILD_EXAMPLES:BOOL=OFF",
         "-DLLVM_BUILD_LLVM_DYLIB:BOOL=OFF",
-        "-DLLVM_BUILD_TESTS:BOOL=OFF",
-        "-DLLVM_CCACHE_BUILD:BOOL=ON",
         "-DLLVM_ENABLE_BINDINGS:BOOL=OFF",
         "-DLLVM_ENABLE_IDE:BOOL=OFF",
         "-DLLVM_ENABLE_LIBEDIT=OFF",
@@ -68,8 +66,12 @@ def build_llvm(llvm_dir, platform, backends, projects, use_clang=False, extra_fl
         "-DLLVM_INCLUDE_UTILS:BOOL=OFF",
         "-DLLVM_INCLUDE_TESTS:BOOL=OFF",
         "-DLLVM_OPTIMIZED_TABLEGEN:BOOL=ON",
-        "-DLLVM_USE_PERF:BOOL=ON",
     ]
+
+    # ccache and perf support are not available on Windows
+    if not "windows" == platform:
+        LLVM_COMPILE_OPTIONS.append("-DLLVM_CCACHE_BUILD:BOOL=ON")
+        LLVM_COMPILE_OPTIONS.append("-DLLVM_USE_PERF:BOOL=ON")
 
     # use clang/clang++/lld. but macos doesn't support lld
     if not sys.platform.startswith("darwin") and use_clang:
