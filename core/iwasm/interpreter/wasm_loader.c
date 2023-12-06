@@ -6253,16 +6253,43 @@ wasm_loader_unload(WASMModule *module)
     if (module->memories)
         wasm_runtime_free(module->memories);
 
-    if (module->globals)
+    if (module->globals) {
+#if WASM_ENABLE_GC != 0
+        for (i = 0; i < module->global_count; i++) {
+            InitializerExpression *expr = &module->globals[i].init_expr;
+            if (expr->init_expr_type == INIT_EXPR_TYPE_STRUCT_NEW_CANON
+                || expr->init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW_CANON
+                || expr->init_expr_type
+                       == INIT_EXPR_TYPE_ARRAY_NEW_CANON_FIXED) {
+                wasm_runtime_free(expr->u.data);
+            }
+        }
+#endif
         wasm_runtime_free(module->globals);
+    }
 
     if (module->exports)
         wasm_runtime_free(module->exports);
 
     if (module->table_segments) {
         for (i = 0; i < module->table_seg_count; i++) {
-            if (module->table_segments[i].init_values)
+            if (module->table_segments[i].init_values) {
+#if WASM_ENABLE_GC != 0
+                uint32 j;
+                for (j = 0; j < module->table_segments[i].value_count; j++) {
+                    InitializerExpression *expr =
+                        &module->table_segments[i].init_values[j];
+                    if (expr->init_expr_type == INIT_EXPR_TYPE_STRUCT_NEW_CANON
+                        || expr->init_expr_type
+                               == INIT_EXPR_TYPE_ARRAY_NEW_CANON
+                        || expr->init_expr_type
+                               == INIT_EXPR_TYPE_ARRAY_NEW_CANON_FIXED) {
+                        wasm_runtime_free(expr->u.data);
+                    }
+                }
+#endif
                 wasm_runtime_free(module->table_segments[i].init_values);
+            }
         }
         wasm_runtime_free(module->table_segments);
     }
