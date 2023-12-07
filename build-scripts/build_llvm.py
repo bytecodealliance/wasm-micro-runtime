@@ -68,9 +68,11 @@ def build_llvm(llvm_dir, platform, backends, projects, use_clang=False, extra_fl
         "-DLLVM_OPTIMIZED_TABLEGEN:BOOL=ON",
     ]
 
-    # ccache and perf support are not available on Windows
+    # ccache is not available on Windows
     if not "windows" == platform:
         LLVM_COMPILE_OPTIONS.append("-DLLVM_CCACHE_BUILD:BOOL=ON")
+    # perf support is available on Linux only
+    if "linux" == platform:
         LLVM_COMPILE_OPTIONS.append("-DLLVM_USE_PERF:BOOL=ON")
 
     # use clang/clang++/lld. but macos doesn't support lld
