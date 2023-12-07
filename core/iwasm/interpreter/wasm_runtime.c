@@ -1062,8 +1062,7 @@ execute_post_instantiate_functions(WASMModuleInstance *module_inst,
            wasm functions, and ensure that the exec_env's module inst
            is the correct one. */
         module_inst_main = exec_env_main->module_inst;
-        wasm_exec_env_set_module_inst(exec_env,
-                                      (WASMModuleInstanceCommon *)module_inst);
+        exec_env->module_inst = (WASMModuleInstanceCommon *)module_inst;
     }
     else {
         /* Try using the existing exec_env */
@@ -1088,8 +1087,7 @@ execute_post_instantiate_functions(WASMModuleInstance *module_inst,
                module inst to ensure that the exec_env's module inst
                is the correct one. */
             module_inst_main = exec_env->module_inst;
-            wasm_exec_env_set_module_inst(
-                exec_env, (WASMModuleInstanceCommon *)module_inst);
+            exec_env->module_inst = (WASMModuleInstanceCommon *)module_inst;
         }
     }
 
@@ -1122,12 +1120,12 @@ execute_post_instantiate_functions(WASMModuleInstance *module_inst,
 fail:
     if (is_sub_inst) {
         /* Restore the parent exec_env's module inst */
-        wasm_exec_env_restore_module_inst(exec_env_main, module_inst_main);
+        exec_env_main->module_inst = module_inst_main;
     }
     else {
         if (module_inst_main)
             /* Restore the existing exec_env's module inst */
-            wasm_exec_env_restore_module_inst(exec_env, module_inst_main);
+            exec_env->module_inst = module_inst_main;
         if (exec_env_created)
             wasm_exec_env_destroy(exec_env_created);
     }
@@ -1196,8 +1194,7 @@ execute_malloc_function(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
                module inst to ensure that the exec_env's module inst
                is the correct one. */
             module_inst_old = exec_env->module_inst;
-            wasm_exec_env_set_module_inst(
-                exec_env, (WASMModuleInstanceCommon *)module_inst);
+            exec_env->module_inst = (WASMModuleInstanceCommon *)module_inst;
         }
     }
 
@@ -1208,7 +1205,7 @@ execute_malloc_function(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
 
     if (module_inst_old)
         /* Restore the existing exec_env's module inst */
-        wasm_exec_env_restore_module_inst(exec_env, module_inst_old);
+        exec_env->module_inst = module_inst_old;
 
     if (exec_env_created)
         wasm_exec_env_destroy(exec_env_created);
@@ -1264,8 +1261,7 @@ execute_free_function(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
                module inst to ensure that the exec_env's module inst
                is the correct one. */
             module_inst_old = exec_env->module_inst;
-            wasm_exec_env_set_module_inst(
-                exec_env, (WASMModuleInstanceCommon *)module_inst);
+            exec_env->module_inst = (WASMModuleInstanceCommon *)module_inst;
         }
     }
 
@@ -1273,7 +1269,7 @@ execute_free_function(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
 
     if (module_inst_old)
         /* Restore the existing exec_env's module inst */
-        wasm_exec_env_restore_module_inst(exec_env, module_inst_old);
+        exec_env->module_inst = module_inst_old;
 
     if (exec_env_created)
         wasm_exec_env_destroy(exec_env_created);
