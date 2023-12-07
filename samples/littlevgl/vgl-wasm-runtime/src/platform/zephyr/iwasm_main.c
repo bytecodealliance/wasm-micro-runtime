@@ -18,9 +18,9 @@
 
 #if KERNEL_VERSION_NUMBER < 0x030200 /* version 3.2.0 */
 #include <zephyr.h>
-#else 
+#else
 #include <zephyr/kernel.h>
-#endif 
+#endif
 
 #include <drivers/uart.h>
 #include <device.h>
@@ -75,7 +75,8 @@ host_send(void *ctx, const char *buf, int size)
 
 void
 host_destroy()
-{}
+{
+}
 
 /* clang-format off */
 host_interface interface = {

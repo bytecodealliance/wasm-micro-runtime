@@ -10,9 +10,9 @@
 
 #if KERNEL_VERSION_NUMBER < 0x030200 /* version 3.2.0 */
 #include <zephyr.h>
-#else 
+#else
 #include <zephyr/kernel.h>
-#endif 
+#endif
 
 #define ILI9340_CMD_ENTER_SLEEP 0x10
 #define ILI9340_CMD_EXIT_SLEEP 0x11

@@ -10,11 +10,11 @@
 #if KERNEL_VERSION_NUMBER < 0x030200 /* version 3.2.0 */
 #include <zephyr.h>
 #include <kernel.h>
-#else 
+#else
 #include <zephyr/kernel.h>
-#endif 
+#endif
 
-#if 0   
+#if 0
 #include <sigverify.h>
 #endif
 typedef struct k_timer_watchdog {
