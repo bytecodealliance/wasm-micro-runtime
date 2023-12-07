@@ -70,6 +70,9 @@
 - Fix fast-jit accessing shared memory's fields issue (#2841)
 - Fix wasm loader handle op_br_table and op_drop (#2864)
 - Fix block with type issue in fast interp (#2866)
+- Fix float argument handling for riscv32 ilp32d (#2871)
+- Portably handle fd_advise on directory fd (#2875)
+- Fix sample basic intToStr was called with wrong length (#2876)
 
 ### Enhancements
 - Implement strict validation of thread IDs according to the specification (#2521)
@@ -127,6 +130,7 @@
 - Use wasm_config_t to pass private configuration to wasm_engine_new (#2837)
 - core/iwasm/interpreter/wasm_loader.c: remove an extra validation (#2845)
 - Don't add "+d" to riscv cpu features if already given (#2855)
+- Fix compilation warnings on Windows (#2868)
 
 ### Others
 - Add mutex stress test (#2472)
