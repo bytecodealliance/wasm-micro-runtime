@@ -1155,6 +1155,11 @@ wasmtime_ssp_fd_advise(wasm_exec_env_t exec_env, struct fd_table *curfds,
     if (error != 0)
         return error;
 
+    if (fo->type == __WASI_FILETYPE_DIRECTORY) {
+        fd_object_release(exec_env, fo);
+        return __WASI_EBADF;
+    }
+
     error = os_fadvise(fo->file_handle, offset, len, advice);
 
     fd_object_release(exec_env, fo);
