@@ -75,8 +75,7 @@ host_send(void *ctx, const char *buf, int size)
 
 void
 host_destroy()
-{
-}
+{}
 
 /* clang-format off */
 host_interface interface = {
