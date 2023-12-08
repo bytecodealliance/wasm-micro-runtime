@@ -69,6 +69,8 @@ jobs:
           "boards/risc-v/qemu-rv/rv-virt/configs/nsh",
           # riscv64gc
           "boards/risc-v/qemu-rv/rv-virt/configs/nsh64",
+          # arm64
+          "boards/arm64/qemu/qemu-armv8a/configs/nsh",
         ]
         wamr_config_option: [
           "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_AOT=y\\nCONFIG_INTERPRETERS_WAMR_FAST=y\\n",
