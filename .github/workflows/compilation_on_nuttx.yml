@@ -69,6 +69,10 @@ jobs:
           "boards/risc-v/qemu-rv/rv-virt/configs/nsh",
           # riscv64gc
           "boards/risc-v/qemu-rv/rv-virt/configs/nsh64",
+          # xtensa lx6
+          "boards/xtensa/esp32/esp32-devkitc/configs/nsh",
+          # xtensa lx7
+          "boards/xtensa/esp32s3/esp32s3-devkit/configs/nsh",
         ]
         wamr_config_option: [
           "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_AOT=y\\nCONFIG_INTERPRETERS_WAMR_FAST=y\\n",
