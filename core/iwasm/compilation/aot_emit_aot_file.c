@@ -297,7 +297,7 @@ get_init_expr_size(InitializerExpression *expr)
             WASMStructNewInitValues *struct_new_init_values =
                 (WASMStructNewInitValues *)expr->u.data;
 
-            // type_index + field_count + fields
+            /* type_index + field_count + fields */
             size += sizeof(uint32) + sizeof(uint32)
                     + struct_new_init_values->count * sizeof(WASMValue);
             break;

@@ -1468,7 +1468,6 @@ aot_compile_op_array_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     WASMArrayType *compile_time_array_type =
         (WASMArrayType *)comp_ctx->comp_data->types[type_index];
     uint8 array_elem_type = compile_time_array_type->elem_type;
-    int i;
 
     POP_I32(len);
     /* Get LLVM type based on array_elem_type */
@@ -1542,12 +1541,9 @@ aot_compile_op_array_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     BUILD_ICMP(LLVMIntUGT, boundary, array_len, cmp[1], "boundary_check2");
 
-    /* logical or above 4 boundary checks */
-    for (i = 1; i < 2; ++i) {
-        if (!(cmp[0] = LLVMBuildOr(comp_ctx->builder, cmp[0], cmp[i], ""))) {
-            aot_set_last_error("llvm build failed.");
-            goto fail;
-        }
+    if (!(cmp[0] = LLVMBuildOr(comp_ctx->builder, cmp[0], cmp[1], ""))) {
+        aot_set_last_error("llvm build failed.");
+        goto fail;
     }
 
     if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_ARRAY_IDX_OOB, true,
