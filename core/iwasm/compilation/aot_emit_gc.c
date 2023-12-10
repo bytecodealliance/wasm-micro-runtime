@@ -1462,7 +1462,7 @@ aot_compile_op_array_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                           uint32 type_index)
 {
     LLVMValueRef len, array_obj, fill_value = NULL, offset, array_len, cmp[2],
-                                 boundary, loop_counter;
+                                 boundary, loop_counter_addr, loop_counter_val;
     LLVMBasicBlockRef check_obj_succ, len_gt_zero, len_le_zero, inner_else;
     LLVMBasicBlockRef fill_loop_header, fill_loop_body;
     WASMArrayType *compile_time_array_type =
@@ -1508,9 +1508,9 @@ aot_compile_op_array_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     ADD_BASIC_BLOCK(len_gt_zero, "len_gt_zero");
     MOVE_BLOCK_AFTER_CURR(len_gt_zero);
 
-    /* Create else(end) block */
-    ADD_BASIC_BLOCK(len_le_zero, "len_le_zero");
-    MOVE_BLOCK_AFTER(len_le_zero, len_gt_zero);
+    /* Create inner else block */
+    ADD_BASIC_BLOCK(inner_else, "inner_else");
+    MOVE_BLOCK_AFTER(inner_else, len_gt_zero);
 
     /* Create fill_loop_header block */
     ADD_BASIC_BLOCK(fill_loop_header, "fill_loop_header");
@@ -1520,9 +1520,9 @@ aot_compile_op_array_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     ADD_BASIC_BLOCK(fill_loop_body, "fill_loop_body");
     MOVE_BLOCK_AFTER(fill_loop_body, len_gt_zero);
 
-    /* Create inner else block */
-    ADD_BASIC_BLOCK(inner_else, "inner_else");
-    MOVE_BLOCK_AFTER(inner_else, len_gt_zero);
+    /* Create else(end) block */
+    ADD_BASIC_BLOCK(len_le_zero, "len_le_zero");
+    MOVE_BLOCK_AFTER(len_le_zero, len_gt_zero);
 
     BUILD_ICMP(LLVMIntSGT, len, I32_ZERO, cmp[0], "cmp_len");
     BUILD_COND_BR(cmp[0], len_gt_zero, len_le_zero);
@@ -1550,17 +1550,17 @@ aot_compile_op_array_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                             cmp[0], inner_else))
         goto fail;
 
-    if (!(loop_counter = LLVMBuildAlloca(comp_ctx->builder, I32_TYPE,
-                                         "fill_loop_counter"))) {
+    if (!(loop_counter_addr = LLVMBuildAlloca(comp_ctx->builder, I32_TYPE,
+                                              "fill_loop_counter"))) {
         aot_set_last_error("llvm build alloc failed.");
         goto fail;
     }
 
     if (!is_target_x86(comp_ctx)) {
-        LLVMSetAlignment(loop_counter, 4);
+        LLVMSetAlignment(loop_counter_addr, 4);
     }
 
-    if (!LLVMBuildStore(comp_ctx->builder, offset, loop_counter)) {
+    if (!LLVMBuildStore(comp_ctx->builder, offset, loop_counter_addr)) {
         aot_set_last_error("llvm build store failed.");
         goto fail;
     }
@@ -1568,28 +1568,31 @@ aot_compile_op_array_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     BUILD_BR(fill_loop_header);
     SET_BUILDER_POS(fill_loop_header);
 
-    if (!(loop_counter = LLVMBuildLoad2(comp_ctx->builder, I32_TYPE,
-                                        loop_counter, "fill_loop_counter"))) {
+    if (!(loop_counter_val =
+              LLVMBuildLoad2(comp_ctx->builder, I32_TYPE, loop_counter_addr,
+                             "fill_loop_counter"))) {
         aot_set_last_error("llvm build load failed.");
         goto fail;
     }
 
-    BUILD_ICMP(LLVMIntULT, loop_counter, boundary, cmp[0], "cmp_loop_counter");
+    BUILD_ICMP(LLVMIntULT, loop_counter_val, boundary, cmp[0],
+               "cmp_loop_counter");
     BUILD_COND_BR(cmp[0], fill_loop_body, len_le_zero);
 
     SET_BUILDER_POS(fill_loop_body);
 
-    if (!aot_array_obj_set_elem(comp_ctx, func_ctx, array_obj, loop_counter,
+    if (!aot_array_obj_set_elem(comp_ctx, func_ctx, array_obj, loop_counter_val,
                                 fill_value, array_elem_type))
         goto fail;
 
-    if (!(loop_counter = LLVMBuildAdd(comp_ctx->builder, loop_counter, I32_ONE,
-                                      "fill_loop_counter"))) {
+    if (!(loop_counter_val = LLVMBuildAdd(comp_ctx->builder, loop_counter_val,
+                                          I32_ONE, "fill_loop_counter"))) {
         aot_set_last_error("llvm build add failed.");
         goto fail;
     }
 
-    if (!LLVMBuildStore(comp_ctx->builder, loop_counter, loop_counter)) {
+    if (!LLVMBuildStore(comp_ctx->builder, loop_counter_val,
+                        loop_counter_addr)) {
         aot_set_last_error("llvm build store failed.");
         goto fail;
     }
