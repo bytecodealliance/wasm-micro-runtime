@@ -265,10 +265,13 @@ get_mem_info_size(AOTCompData *comp_data)
 
 #if WASM_ENABLE_GC != 0
 static uint32
-get_init_expr_size(InitializerExpression *expr)
+get_init_expr_size(const AOTCompContext *comp_ctx, const AOTCompData *comp_data,
+                   InitializerExpression *expr)
 {
     /* init_expr_type */
     uint32 size = sizeof(uint32);
+    WASMModule *module = comp_data->wasm_module;
+
     /* + init value size */
     switch (expr->init_expr_type) {
         case INIT_EXPR_NONE:
@@ -294,12 +297,26 @@ get_init_expr_size(InitializerExpression *expr)
             break;
         case INIT_EXPR_TYPE_STRUCT_NEW_CANON:
         {
+            uint32 i;
             WASMStructNewInitValues *struct_new_init_values =
                 (WASMStructNewInitValues *)expr->u.data;
 
             /* type_index + field_count + fields */
-            size += sizeof(uint32) + sizeof(uint32)
-                    + struct_new_init_values->count * sizeof(WASMValue);
+            size += sizeof(uint32) + sizeof(uint32);
+
+            bh_assert(struct_new_init_values->type_idx < module->type_count);
+
+            for (i = 0; i < struct_new_init_values->count; i++) {
+                WASMStructType *struct_type =
+                    (WASMStructType *)
+                        module->types[struct_new_init_values->type_idx];
+                bh_assert(struct_type);
+                bh_assert(struct_type->field_count
+                          == struct_new_init_values->count);
+
+                size += wasm_value_type_size_internal(
+                    struct_type->fields[i].field_type, comp_ctx->pointer_size);
+            }
             break;
         }
         case INIT_EXPR_TYPE_STRUCT_NEW_CANON_DEFAULT:
@@ -318,10 +335,19 @@ get_init_expr_size(InitializerExpression *expr)
         {
             WASMArrayNewInitValues *array_new_init_values =
                 (WASMArrayNewInitValues *)expr->u.data;
+            WASMArrayType *array_type = NULL;
+
+            bh_assert(array_type);
+            bh_assert(array_new_init_values->type_idx < module->type_count);
+
+            array_type =
+                (WASMArrayType *)module->types[array_new_init_values->type_idx];
 
             /* type_index + len + elems */
             size += sizeof(uint32) * 2
-                    + array_new_init_values->length * sizeof(WASMValue);
+                    + array_new_init_values->length
+                          * wasm_value_type_size_internal(
+                              array_type->elem_type, comp_ctx->pointer_size);
             break;
         }
         default:
@@ -354,7 +380,8 @@ get_table_init_data_size(AOTCompContext *comp_ctx,
                + 8;
 
         for (i = 0; i < table_init_data->value_count; i++) {
-            size += get_init_expr_size(&table_init_data->init_values[i]);
+            size += get_init_expr_size(comp_ctx, comp_ctx->comp_data,
+                                       &table_init_data->init_values[i]);
         }
 
         return size;
@@ -460,7 +487,8 @@ get_table_size(const AOTCompContext *comp_ctx, const AOTCompData *comp_data)
 #if WASM_ENABLE_GC != 0
         if (comp_ctx->enable_gc && comp_data->tables[i].elem_ref_type) {
             size += sizeof(uint32);
-            size += get_init_expr_size(&comp_data->tables[i].init_expr);
+            size += get_init_expr_size(comp_ctx, comp_data,
+                                       &comp_data->tables[i].init_expr);
         }
 #endif
     }
@@ -693,7 +721,8 @@ get_global_size(AOTCompContext *comp_ctx, AOTGlobal *global)
         /* type (1 byte) + is_mutable (1 byte) + padding (2 bytes)
                 + init expr value (include init expr type) */
         return sizeof(uint8) * 2 + sizeof(uint8) * 2
-               + get_init_expr_size(&global->init_expr);
+               + get_init_expr_size(comp_ctx, comp_ctx->comp_data,
+                                    &global->init_expr);
     }
 #endif
     if (global->init_expr.init_expr_type != INIT_EXPR_TYPE_V128_CONST)
@@ -1778,6 +1807,7 @@ aot_emit_init_expr(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
                    AOTCompContext *comp_ctx, InitializerExpression *expr)
 {
     uint32 offset = *p_offset;
+    WASMModule *module = comp_ctx->comp_data->wasm_module;
 
     *p_offset = offset = align_uint(offset, 4);
 
@@ -1813,11 +1843,31 @@ aot_emit_init_expr(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
             uint32 i;
             WASMStructNewInitValues *init_values =
                 (WASMStructNewInitValues *)expr->u.data;
+            WASMStructType *struct_type = NULL;
 
             EMIT_U32(init_values->type_idx);
             EMIT_U32(init_values->count);
+
+            bh_assert(init_values->type_idx < module->type_count);
+
+            struct_type =
+                (WASMStructType *)module->types[init_values->type_idx];
+
+            bh_assert(struct_type);
+            bh_assert(struct_type->field_count == init_values->count);
+
             for (i = 0; i < init_values->count; i++) {
-                EMIT_V128(init_values->fields[i].v128);
+                uint32 field_size = wasm_value_type_size_internal(
+                    struct_type->fields[i].field_type, comp_ctx->pointer_size);
+                if (field_size <= sizeof(uint32))
+                    EMIT_U32(init_values->fields[i].u32);
+                else if (field_size <= sizeof(uint64))
+                    EMIT_U64(init_values->fields[i].u64);
+                else if (field_size == sizeof(uint64) * 2)
+                    EMIT_V128(init_values->fields[i].v128);
+                else {
+                    bh_assert(0);
+                }
             }
 
             break;
@@ -1832,14 +1882,28 @@ aot_emit_init_expr(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
             uint32 i;
             WASMArrayNewInitValues *init_values =
                 (WASMArrayNewInitValues *)expr->u.data;
+            WASMArrayType *array_type = NULL;
 
             EMIT_U32(init_values->type_idx);
             EMIT_U32(init_values->length);
 
+            bh_assert(init_values->type_idx < module->type_count);
+
+            array_type = (WASMArrayType *)module->types[init_values->type_idx];
+
+            bh_assert(array_type);
+
             if (expr->init_expr_type
                 != INIT_EXPR_TYPE_ARRAY_NEW_CANON_DEFAULT) {
+                uint32 field_size = wasm_value_type_size_internal(
+                    array_type->elem_type, comp_ctx->pointer_size);
                 for (i = 0; i < init_values->length; i++) {
-                    EMIT_V128(init_values->elem_data[i].v128);
+                    if (field_size <= sizeof(uint32))
+                        EMIT_U32(init_values->elem_data[i].u32);
+                    else if (field_size <= sizeof(uint64))
+                        EMIT_U64(init_values->elem_data[i].u64);
+                    else
+                        EMIT_V128(init_values->elem_data[i].v128);
                 }
             }
             break;

@@ -1187,6 +1187,7 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         {
             uint64 size;
             uint32 type_idx, field_count;
+            AOTStructType *struct_type = NULL;
             WASMStructNewInitValues *init_values = NULL;
 
             read_uint32(buf, buf_end, type_idx);
@@ -1201,12 +1202,37 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             free_if_fail = true;
             expr->u.data = init_values;
 
-            if (field_count > 0) {
-                init_values->type_idx = type_idx;
-                init_values->count = field_count;
+            if (type_idx > module->type_count) {
+                set_error_buf(error_buf, error_buf_size,
+                              "unknown struct type.");
+                goto fail;
+            }
 
-                size = sizeof(WASMValue) * (uint64)field_count;
-                read_byte_array(buf, buf_end, init_values->fields, size);
+            struct_type = (AOTStructType *)module->types[type_idx];
+
+            if (struct_type->field_count != field_count) {
+                set_error_buf(error_buf, error_buf_size,
+                              "invalid field count.");
+                goto fail;
+            }
+
+            if (field_count > 0) {
+                uint32 i;
+
+                for (i = 0; i < field_count; i++) {
+                    uint32 field_size =
+                        wasm_value_type_size(struct_type->fields[i].field_type);
+                    if (field_size <= sizeof(uint32))
+                        read_uint32(buf, buf_end, init_values->fields[i].u32);
+                    else if (field_size <= sizeof(uint64))
+                        read_uint64(buf, buf_end, init_values->fields[i].u64);
+                    else if (field_size == sizeof(uint64) * 2)
+                        read_byte_array(buf, buf_end, &init_values->fields[i],
+                                        field_size);
+                    else {
+                        bh_assert(0);
+                    }
+                }
             }
 
             break;
@@ -1219,16 +1245,25 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         case INIT_EXPR_TYPE_ARRAY_NEW_CANON_FIXED:
         {
             uint32 type_idx, length;
+            AOTArrayType *array_type = NULL;
             WASMArrayNewInitValues *init_values = NULL;
 
             read_uint32(buf, buf_end, type_idx);
             read_uint32(buf, buf_end, length);
+
+            if (type_idx > module->type_count) {
+                set_error_buf(error_buf, error_buf_size, "unknown array type.");
+                goto fail;
+            }
+
+            array_type = (AOTArrayType *)module->types[type_idx];
 
             if (init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW_CANON_DEFAULT) {
                 expr->u.array_new_canon_fixed.type_index = type_idx;
                 expr->u.array_new_canon_fixed.N = length;
             }
             else {
+
                 uint64 size = offsetof(WASMArrayNewInitValues, elem_data)
                               + sizeof(WASMValue) * (uint64)length;
                 if (!(init_values =
@@ -1242,8 +1277,26 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                 init_values->length = length;
 
                 if (length > 0) {
-                    size = sizeof(WASMValue) * (uint64)length;
-                    read_byte_array(buf, buf_end, init_values->elem_data, size);
+                    uint32 i;
+                    uint32 elem_size =
+                        wasm_value_type_size(array_type->elem_type);
+
+                    for (i = 0; i < length; i++) {
+
+                        if (elem_size <= sizeof(uint32))
+                            read_uint32(buf, buf_end,
+                                        init_values->elem_data[i].u32);
+                        else if (elem_size <= sizeof(uint64))
+                            read_uint64(buf, buf_end,
+                                        init_values->elem_data[i].u64);
+                        else if (elem_size == sizeof(uint64) * 2)
+                            read_byte_array(buf, buf_end,
+                                            &init_values->elem_data[i],
+                                            elem_size);
+                        else {
+                            bh_assert(0);
+                        }
+                    }
                 }
             }
             break;

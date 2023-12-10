@@ -1,13 +1,13 @@
-From ab122b50f06595215182444ef1049c15f2ea309e Mon Sep 17 00:00:00 2001
+From fada2d74d79d19d68a3400b0301b472da86c722e Mon Sep 17 00:00:00 2001
 From: Xu Jun <jun1.xu@intel.com>
-Date: Sun, 10 Dec 2023 21:54:19 +0800
+Date: Sun, 10 Dec 2023 23:33:44 +0800
 Subject: [PATCH] ignore cases
 
 ---
  test/core/binary-leb128.wast     |   2 +-
  test/core/binary.wast            |   3 +-
  test/core/data.wast              |  12 +-
- test/core/elem.wast              |  17 ++-
+ test/core/elem.wast              |  23 ++--
  test/core/gc/array.wast          |   8 +-
  test/core/gc/extern.wast         |   2 +-
  test/core/gc/ref_test.wast       |  13 ++-
@@ -24,7 +24,7 @@ Subject: [PATCH] ignore cases
  test/core/table_copy.wast        | 181 ++++++++++++++++---------------
  test/core/table_init.wast        |  66 ++++++-----
  test/core/unreached-valid.wast   |   4 +-
- 20 files changed, 260 insertions(+), 200 deletions(-)
+ 20 files changed, 263 insertions(+), 203 deletions(-)
 
 diff --git a/test/core/binary-leb128.wast b/test/core/binary-leb128.wast
 index 335496f0..5b975028 100644
@@ -110,7 +110,7 @@ index a5c87fbb..6f948bae 100644
  
  ;; Invalid offsets
 diff --git a/test/core/elem.wast b/test/core/elem.wast
-index df1610f6..71ce5cb0 100644
+index df1610f6..32c1d8b3 100644
 --- a/test/core/elem.wast
 +++ b/test/core/elem.wast
 @@ -400,7 +400,7 @@
@@ -147,9 +147,12 @@ index df1610f6..71ce5cb0 100644
 -(register "module1" $module1)
 +(; (register "module1" $module1) ;)
  
- (assert_trap (invoke $module1 "call-7") "uninitialized element")
- (assert_return (invoke $module1 "call-8") (i32.const 65))
- (assert_return (invoke $module1 "call-9") (i32.const 66))
+-(assert_trap (invoke $module1 "call-7") "uninitialized element")
+-(assert_return (invoke $module1 "call-8") (i32.const 65))
+-(assert_return (invoke $module1 "call-9") (i32.const 66))
++(assert_trap (invoke "call-7") "uninitialized element")
++(assert_return (invoke "call-8") (i32.const 65))
++(assert_return (invoke "call-9") (i32.const 66))
  
 +(;
  (module $module2
