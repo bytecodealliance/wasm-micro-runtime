@@ -7327,18 +7327,20 @@ wasm_loader_init_local_use_masks(WASMLoaderContext *ctx, uint32 local_count,
         return true;
     }
 
-    if (current_csp->local_use_mask) {
-        memset(current_csp->local_use_mask, 0,
-               current_csp->local_use_mask_size);
-        return true;
+    /* if current_csp->local_use_mask is not NULL, then it is re-init masks for
+     * else branch, we don't need to allocate memory again */
+    if (!current_csp->local_use_mask) {
+        local_mask_size = (local_count + 7) / sizeof(uint8);
+        if (!(current_csp->local_use_mask =
+                  loader_malloc(local_mask_size, error_buf, error_buf_size))) {
+            return false;
+        }
+        current_csp->local_use_mask_size = local_mask_size;
     }
-
-    local_mask_size = (local_count + 7) / sizeof(uint8);
-    if (!(current_csp->local_use_mask =
-              loader_malloc(local_mask_size, error_buf, error_buf_size))) {
-        return false;
+    else {
+        local_mask_size = current_csp->local_use_mask_size;
+        bh_assert(current_csp->label_type == LABEL_TYPE_IF);
     }
-    current_csp->local_use_mask_size = local_mask_size;
 
     if (current_csp->label_type != LABEL_TYPE_FUNCTION) {
         /* For non-function blocks, inherit the use status from parent block */
