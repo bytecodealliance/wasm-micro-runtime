@@ -436,8 +436,8 @@ function spec_test()
         pushd spec
 
         git restore . && git clean -ffd .
-        # Sync constant expression descriptions
-        git reset --hard 026ffeab0d4c5031879d63a0cbb22243dce16055
+        # Sync Unify the error message
+        git reset --hard 0caaadc65b5e1910512d8ae228502edcf9d60390
         git apply ../../spec-test-script/gc_ignore_cases.patch
 
         echo "compile the reference intepreter"

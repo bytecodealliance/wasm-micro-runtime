@@ -82,10 +82,6 @@ if (WAMR_BUILD_STRINGREF EQUAL 1)
     set (WAMR_BUILD_GC 1)
 endif ()
 
-if (WAMR_BUILD_GC_BINARYEN EQUAL 1)
-    set (WAMR_BUILD_GC 1)
-endif ()
-
 if (WAMR_BUILD_GC EQUAL 1)
     include (${IWASM_DIR}/common/gc/iwasm_gc.cmake)
     # Enable the dependent feature if GC is enabled
