@@ -1161,6 +1161,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                                     goto fail;
                                 }
 
+                                array_init_values->type_idx = type_idx;
                                 array_init_values->length = len;
 
                                 for (i = len; i > 0; i--) {
@@ -3593,6 +3594,15 @@ load_table_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                                     table->elem_type, table->elem_ref_type,
                                     error_buf, error_buf_size))
                     return false;
+                if (table->init_expr.init_expr_type
+                        >= INIT_EXPR_TYPE_STRUCT_NEW_CANON
+                    || table->init_expr.init_expr_type
+                           >= INIT_EXPR_TYPE_EXTERN_EXTERNALIZE) {
+                    set_error_buf(
+                        error_buf, error_buf_size,
+                        "unsupported initializer expression for table");
+                    return false;
+                }
             }
             else {
                 if (wasm_is_reftype_htref_non_nullable(table->elem_type)) {

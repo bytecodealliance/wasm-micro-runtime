@@ -1419,6 +1419,14 @@ load_table_list(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         if (!load_init_expr(&buf, buf_end, module, &table->init_expr, error_buf,
                             error_buf_size))
             return false;
+
+        if (table->init_expr.init_expr_type >= INIT_EXPR_TYPE_STRUCT_NEW_CANON
+            || table->init_expr.init_expr_type
+                   >= INIT_EXPR_TYPE_EXTERN_EXTERNALIZE) {
+            set_error_buf(error_buf, error_buf_size,
+                          "unsupported initializer expression for table");
+            return false;
+        }
 #endif
     }
 
