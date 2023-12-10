@@ -458,9 +458,10 @@ get_table_size(const AOTCompContext *comp_ctx, const AOTCompData *comp_data)
     for (i = 0; i < comp_data->table_count; i++) {
         size += sizeof(uint32) * 3;
 #if WASM_ENABLE_GC != 0
-        if (comp_ctx->enable_gc && comp_data->tables[i].elem_ref_type)
+        if (comp_ctx->enable_gc && comp_data->tables[i].elem_ref_type) {
             size += sizeof(uint32);
-        size += get_init_expr_size(&comp_data->tables[i].init_expr);
+            size += get_init_expr_size(&comp_data->tables[i].init_expr);
+        }
 #endif
     }
     return size;
