@@ -1833,12 +1833,10 @@ load_types(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                 parent_type_idx = cur_type->parent_type_idx;
                 if (parent_type_idx != (uint32)-1) { /* has parent */
                     AOTType *parent_type = module->types[parent_type_idx];
-                    if (!wasm_type_is_subtype_of(module->types[j], parent_type,
-                                                 module->types, i)) {
-                        set_error_buf(error_buf, error_buf_size,
-                                      "sub type does not match super type");
-                        goto fail;
-                    }
+                    /* subtyping has been checked during compilation */
+                    bh_assert(wasm_type_is_subtype_of(
+                        module->types[j], parent_type, module->types, i));
+                    (void)parent_type;
                 }
             }
         }

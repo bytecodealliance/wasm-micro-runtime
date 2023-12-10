@@ -530,7 +530,7 @@ jobs:
 
       - name: Set-up Ocamlbuild
         if: matrix.test_option == '$GC_TEST_OPTIONS'
-        run: opam install ocamlbuild
+        run: opam install ocamlbuild dune
 
       - name: download and install wasi-sdk
         if: matrix.test_option == '$WASI_TEST_OPTIONS'

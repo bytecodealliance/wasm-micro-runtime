@@ -436,7 +436,7 @@ function spec_test()
         pushd spec
 
         git restore . && git clean -ffd .
-        # Sync Unify the error message
+        # Reset to commit: "[test] Unify the error message."
         git reset --hard 0caaadc65b5e1910512d8ae228502edcf9d60390
         git apply ../../spec-test-script/gc_ignore_cases.patch
 
