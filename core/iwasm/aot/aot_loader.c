@@ -1202,7 +1202,7 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             free_if_fail = true;
             expr->u.data = init_values;
 
-            if (type_idx > module->type_count) {
+            if (type_idx >= module->type_count) {
                 set_error_buf(error_buf, error_buf_size,
                               "unknown struct type.");
                 goto fail;
@@ -1224,7 +1224,7 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                         wasm_value_type_size(struct_type->fields[i].field_type);
                     if (field_size <= sizeof(uint32))
                         read_uint32(buf, buf_end, init_values->fields[i].u32);
-                    else if (field_size <= sizeof(uint64))
+                    else if (field_size == sizeof(uint64))
                         read_uint64(buf, buf_end, init_values->fields[i].u64);
                     else if (field_size == sizeof(uint64) * 2)
                         read_byte_array(buf, buf_end, &init_values->fields[i],
@@ -1251,7 +1251,7 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             read_uint32(buf, buf_end, type_idx);
             read_uint32(buf, buf_end, length);
 
-            if (type_idx > module->type_count) {
+            if (type_idx >= module->type_count) {
                 set_error_buf(error_buf, error_buf_size, "unknown array type.");
                 goto fail;
             }
@@ -1286,7 +1286,7 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                         if (elem_size <= sizeof(uint32))
                             read_uint32(buf, buf_end,
                                         init_values->elem_data[i].u32);
-                        else if (elem_size <= sizeof(uint64))
+                        else if (elem_size == sizeof(uint64))
                             read_uint64(buf, buf_end,
                                         init_values->elem_data[i].u64);
                         else if (elem_size == sizeof(uint64) * 2)

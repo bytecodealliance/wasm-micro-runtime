@@ -485,8 +485,10 @@ get_table_size(const AOTCompContext *comp_ctx, const AOTCompData *comp_data)
     for (i = 0; i < comp_data->table_count; i++) {
         size += sizeof(uint32) * 3;
 #if WASM_ENABLE_GC != 0
-        if (comp_ctx->enable_gc && comp_data->tables[i].elem_ref_type) {
-            size += sizeof(uint32);
+        if (comp_ctx->enable_gc) {
+            if (comp_data->tables[i].elem_ref_type) {
+                size += sizeof(uint32);
+            }
             size += get_init_expr_size(comp_ctx, comp_data,
                                        &comp_data->tables[i].init_expr);
         }
@@ -1861,7 +1863,7 @@ aot_emit_init_expr(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
                     struct_type->fields[i].field_type, comp_ctx->pointer_size);
                 if (field_size <= sizeof(uint32))
                     EMIT_U32(init_values->fields[i].u32);
-                else if (field_size <= sizeof(uint64))
+                else if (field_size == sizeof(uint64))
                     EMIT_U64(init_values->fields[i].u64);
                 else if (field_size == sizeof(uint64) * 2)
                     EMIT_V128(init_values->fields[i].v128);
@@ -1900,10 +1902,13 @@ aot_emit_init_expr(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
                 for (i = 0; i < init_values->length; i++) {
                     if (field_size <= sizeof(uint32))
                         EMIT_U32(init_values->elem_data[i].u32);
-                    else if (field_size <= sizeof(uint64))
+                    else if (field_size == sizeof(uint64))
                         EMIT_U64(init_values->elem_data[i].u64);
-                    else
+                    else if (field_size == sizeof(uint64) * 2)
                         EMIT_V128(init_values->elem_data[i].v128);
+                    else {
+                        bh_assert(0);
+                    }
                 }
             }
             break;
