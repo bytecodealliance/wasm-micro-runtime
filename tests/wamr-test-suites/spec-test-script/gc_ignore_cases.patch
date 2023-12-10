@@ -1,6 +1,6 @@
-From e8416edb3e86930f34f30734cb80b1eb1b12746d Mon Sep 17 00:00:00 2001
+From ab122b50f06595215182444ef1049c15f2ea309e Mon Sep 17 00:00:00 2001
 From: Xu Jun <jun1.xu@intel.com>
-Date: Sun, 10 Dec 2023 20:27:08 +0800
+Date: Sun, 10 Dec 2023 21:54:19 +0800
 Subject: [PATCH] ignore cases
 
 ---
@@ -110,7 +110,7 @@ index a5c87fbb..6f948bae 100644
  
  ;; Invalid offsets
 diff --git a/test/core/elem.wast b/test/core/elem.wast
-index df1610f6..d86afab1 100644
+index df1610f6..71ce5cb0 100644
 --- a/test/core/elem.wast
 +++ b/test/core/elem.wast
 @@ -400,7 +400,7 @@
@@ -145,7 +145,7 @@ index df1610f6..d86afab1 100644
  )
  
 -(register "module1" $module1)
-+;; (register "module1" $module1)
++(; (register "module1" $module1) ;)
  
  (assert_trap (invoke $module1 "call-7") "uninitialized element")
  (assert_return (invoke $module1 "call-8") (i32.const 65))
