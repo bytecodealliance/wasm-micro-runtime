@@ -348,8 +348,8 @@ endif ()
 if (WAMR_BUILD_PERF_PROFILING EQUAL 1 OR
     WAMR_BUILD_DUMP_CALL_STACK EQUAL 1 OR
     WAMR_BUILD_GC EQUAL 1)
-  # Enable AOT/JIT stack frame when perf-profiling, dump-call-stack,
-  # gc or gc-binaryen is enabled
+  # Enable AOT/JIT stack frame when perf-profiling, dump-call-stack
+  # or GC is enabled
   if (WAMR_BUILD_AOT EQUAL 1)
     add_definitions (-DWASM_ENABLE_AOT_STACK_FRAME=1)
   endif ()
