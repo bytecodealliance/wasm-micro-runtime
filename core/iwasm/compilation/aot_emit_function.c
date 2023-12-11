@@ -371,7 +371,7 @@ alloc_frame_for_aot_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMBasicBlockRef check_wasm_stack_succ;
     uint32 import_func_count = comp_ctx->comp_data->import_func_count;
     uint32 param_cell_num = 0, local_cell_num = 0, i, j, k;
-    uint32 max_local_cell_num = 0, max_stack_cell_num = 0;
+    uint32 max_local_cell_num, max_stack_cell_num;
     uint32 all_cell_num, frame_size, frame_size_with_outs_area;
     uint32 aot_frame_ptr_num = offsetof(AOTFrame, lp) / sizeof(uintptr_t);
     AOTImportFunc *import_funcs = comp_ctx->comp_data->import_funcs;
@@ -384,15 +384,17 @@ alloc_frame_for_aot_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         for (i = 0; i < func_type->param_count; i++)
             param_cell_num += wasm_value_type_cell_num_internal(
                 func_type->types[i], comp_ctx->pointer_size);
+        max_local_cell_num = param_cell_num > 2 ? param_cell_num : 2;
+        max_stack_cell_num = 0;
     }
     else {
         aot_func = comp_ctx->comp_data->funcs[func_idx - import_func_count];
         param_cell_num = aot_func->param_cell_num;
         local_cell_num = aot_func->local_cell_num;
+        max_local_cell_num = param_cell_num + local_cell_num;
         max_stack_cell_num = aot_func->max_stack_cell_num;
     }
 
-    max_local_cell_num = param_cell_num + local_cell_num;
     all_cell_num = max_local_cell_num + max_stack_cell_num;
 
     /* Get size of the frame to allocate and get size with outs_area to
