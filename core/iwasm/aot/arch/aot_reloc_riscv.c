@@ -18,15 +18,45 @@
 
 #define RV_OPCODE_SW 0x23
 
+#undef NEED_SOFT_FP
+#undef NEED_SOFT_DP
+#undef NEED_SOFT_I32_MUL
+#undef NEED_SOFT_I32_DIV
+#undef NEED_SOFT_I64_MUL
+#undef NEED_SOFT_I64_DIV
+
+#ifdef __riscv_flen
+#if __riscv_flen == 32
+#define NEED_SOFT_DP
+#endif
+#else
+#define NEED_SOFT_FP
+#define NEED_SOFT_DP
+#endif
+
+#ifndef __riscv_mul
+#define NEED_SOFT_I32_MUL
+#define NEED_SOFT_I64_MUL
+#elif __riscv_xlen == 32
+#define NEED_SOFT_I64_MUL
+#endif
+
+#ifndef __riscv_div
+#define NEED_SOFT_I32_DIV
+#define NEED_SOFT_I64_DIV
+#elif __riscv_xlen == 32
+#define NEED_SOFT_I64_DIV
+#endif
+
 /* clang-format off */
 void __adddf3();
 void __addsf3();
-void __divdi3();
-void __divsi3();
 void __divdf3();
+void __divdi3();
 void __divsf3();
-void __eqsf2();
+void __divsi3();
 void __eqdf2();
+void __eqsf2();
 void __extendsfdf2();
 void __fixdfdi();
 void __fixdfsi();
@@ -38,12 +68,12 @@ void __fixunssfdi();
 void __fixunssfsi();
 void __floatdidf();
 void __floatdisf();
-void __floatsisf();
 void __floatsidf();
+void __floatsisf();
 void __floatundidf();
 void __floatundisf();
-void __floatunsisf();
 void __floatunsidf();
+void __floatunsisf();
 void __gedf2();
 void __gesf2();
 void __gtdf2();
@@ -59,6 +89,8 @@ void __muldi3();
 void __mulsf3();
 void __mulsi3();
 void __nedf2();
+void __negdf2();
+void __negsf2();
 void __nesf2();
 void __subdf3();
 void __subsf3();
@@ -74,60 +106,74 @@ void __unordsf2();
 static SymbolMap target_sym_map[] = {
     /* clang-format off */
     REG_COMMON_SYMBOLS
-#ifndef __riscv_flen
-    REG_SYM(__adddf3),
+#ifdef NEED_SOFT_FP
     REG_SYM(__addsf3),
-    REG_SYM(__divdf3),
     REG_SYM(__divsf3),
-    REG_SYM(__eqdf2),
     REG_SYM(__eqsf2),
-    REG_SYM(__extendsfdf2),
-    REG_SYM(__fixunsdfdi),
-    REG_SYM(__fixunsdfsi),
+    REG_SYM(__fixsfdi),
     REG_SYM(__fixunssfdi),
     REG_SYM(__fixunssfsi),
-    REG_SYM(__gedf2),
+    REG_SYM(__floatsidf),
     REG_SYM(__gesf2),
-    REG_SYM(__gtdf2),
     REG_SYM(__gtsf2),
-    REG_SYM(__ledf2),
     REG_SYM(__lesf2),
-    REG_SYM(__ltdf2),
-    REG_SYM(__ltsf2),
+    REG_SYM(__mulsf3),
+    REG_SYM(__negsf2),
+    REG_SYM(__nesf2),
+    REG_SYM(__subsf3),
+    REG_SYM(__unordsf2),
+#elif __riscv_xlen == 32
+    /* rv32f, support FP instruction but need soft routines
+     * to convert float and long long
+     */
+    REG_SYM(__floatundisf),
+#endif
+#ifdef NEED_SOFT_DP
+    REG_SYM(__adddf3),
+    REG_SYM(__divdf3),
+    REG_SYM(__eqdf2),
+    REG_SYM(__extendsfdf2),
+    REG_SYM(__fixdfdi),
+    REG_SYM(__fixunsdfdi),
+    REG_SYM(__fixunsdfsi),
+    REG_SYM(__floatdidf),
+    REG_SYM(__floatsidf),
+    REG_SYM(__floatundidf),
+    REG_SYM(__floatunsidf),
+    REG_SYM(__gedf2),
+    REG_SYM(__gtdf2),
+    REG_SYM(__ledf2),
     REG_SYM(__muldf3),
     REG_SYM(__nedf2),
-    REG_SYM(__nesf2),
+    REG_SYM(__negdf2),
     REG_SYM(__subdf3),
-    REG_SYM(__subsf3),
     REG_SYM(__truncdfsf2),
     REG_SYM(__unorddf2),
-    REG_SYM(__unordsf2),
-    REG_SYM(__mulsf3),
-    REG_SYM(__floatundidf),
+#elif __riscv_xlen == 32
+    /* rv32d, support DP instruction but need soft routines
+     * to convert double and long long
+     */
     REG_SYM(__fixdfdi),
-    REG_SYM(__floatsidf),
-    REG_SYM(__floatunsidf),
-#if __riscv_xlen == 32
-    REG_SYM(__fixdfsi),
-    REG_SYM(__fixsfdi),
-    REG_SYM(__fixsfsi),
-    REG_SYM(__floatdidf),
-    REG_SYM(__floatdisf),
-    REG_SYM(__floatsisf),
-    REG_SYM(__floatundisf),
-    REG_SYM(__floatunsisf),
+    REG_SYM(__floatundidf),
+#endif
+#ifdef NEED_SOFT_I32_MUL
     REG_SYM(__mulsi3),
 #endif
-#endif
-    REG_SYM(__divdi3),
+#ifdef NEED_SOFT_I32_DIV
     REG_SYM(__divsi3),
-    REG_SYM(__moddi3),
     REG_SYM(__modsi3),
-    REG_SYM(__muldi3),
-    REG_SYM(__udivdi3),
     REG_SYM(__udivsi3),
-    REG_SYM(__umoddi3),
     REG_SYM(__umodsi3),
+#endif
+#ifdef NEED_SOFT_I64_MUL
+    REG_SYM(__muldi3),
+#endif
+#ifdef NEED_SOFT_I64_DIV
+    REG_SYM(__divdi3),
+    REG_SYM(__moddi3),
+    REG_SYM(__udivdi3),
+    REG_SYM(__umoddi3),
+#endif
     /* clang-format on */
 };
 
