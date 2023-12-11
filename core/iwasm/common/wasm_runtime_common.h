@@ -54,6 +54,12 @@ STORE_U16(void *addr, uint16_t value)
 {
     *(uint16_t *)(addr) = (uint16_t)(value);
 }
+static inline void
+STORE_U8(void *addr, uint8_t value)
+{
+    *(uint8 *)addr = value;
+}
+
 /* For LOAD opcodes */
 #define LOAD_I64(addr) (*(int64 *)(addr))
 #define LOAD_F64(addr) (*(float64 *)(addr))
@@ -173,6 +179,13 @@ STORE_U32(void *addr, uint32_t value)
         }
     }
 }
+
+static inline void
+STORE_U8(void *addr, uint8_t value)
+{
+    *(uint8 *)addr = value;
+}
+
 static inline void
 STORE_U16(void *addr, uint16_t value)
 {

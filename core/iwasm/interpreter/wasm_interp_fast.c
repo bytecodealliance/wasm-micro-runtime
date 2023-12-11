@@ -1692,7 +1692,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 frame_ip += 2;
                 addr_ret = GET_OFFSET();
                 CHECK_MEMORY_OVERFLOW(1);
-                frame_lp[addr_ret] = (uint32)(*(uint8 *)maddr);
+                frame_lp[addr_ret] = (uint32)(*(uint8 *)(maddr));
                 HANDLE_OP_END();
             }
 
@@ -1817,7 +1817,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 addr = GET_OPERAND(uint32, I32, 2);
                 frame_ip += 4;
                 CHECK_MEMORY_OVERFLOW(1);
-                *(uint8 *)maddr = (uint8)sval;
+                STORE_U8(maddr, (uint8_t)sval);
                 HANDLE_OP_END();
             }
 
