@@ -3994,19 +3994,23 @@ check_wasi_abi_compatibility(const WASMModule *module,
             return false;
         }
     }
-
-    /* (func (export "_initialize") (...) */
-    initialize = wasm_loader_find_export(
-        module, "", "_initialize", EXPORT_KIND_FUNC, error_buf, error_buf_size);
-    if (initialize) {
-        WASMType *func_type =
-            module->functions[initialize->index - module->import_function_count]
-                ->func_type;
-        if (func_type->param_count || func_type->result_count) {
-            set_error_buf(
-                error_buf, error_buf_size,
-                "the signature of builtin _initialize function is wrong");
-            return false;
+    else {
+        /* (func (export "_initialize") (...) */
+        initialize =
+            wasm_loader_find_export(module, "", "_initialize", EXPORT_KIND_FUNC,
+                                    error_buf, error_buf_size);
+        if (initialize) {
+            WASMType *func_type =
+                module
+                    ->functions[initialize->index
+                                - module->import_function_count]
+                    ->func_type;
+            if (func_type->param_count || func_type->result_count) {
+                set_error_buf(
+                    error_buf, error_buf_size,
+                    "the signature of builtin _initialize function is wrong");
+                return false;
+            }
         }
     }
 
