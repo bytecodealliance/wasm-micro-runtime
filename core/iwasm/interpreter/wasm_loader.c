@@ -1169,23 +1169,31 @@ load_memory_import(const uint8 **p_buf, const uint8 *buf_end,
             (WASMModuleCommon *)parent_module, sub_module_name, error_buf,
             error_buf_size);
         if (!sub_module) {
+#if WASM_ENABLE_LIB_WASI_THREADS != 0
+            /* Avoid memory import failure when wasi-threads is enabled
+               and the memory is shared */
+            if (!(declare_max_page_count_flag & 2))
+                return false;
+#else
             return false;
+#endif /* WASM_ENABLE_LIB_WASI_THREADS */
         }
+        else {
+            linked_memory = wasm_loader_resolve_memory(
+                sub_module_name, memory_name, declare_init_page_count,
+                declare_max_page_count, error_buf, error_buf_size);
+            if (!linked_memory) {
+                return false;
+            }
 
-        linked_memory = wasm_loader_resolve_memory(
-            sub_module_name, memory_name, declare_init_page_count,
-            declare_max_page_count, error_buf, error_buf_size);
-        if (!linked_memory) {
-            return false;
+            /**
+             * reset with linked memory limit
+             */
+            memory->import_module = sub_module;
+            memory->import_memory_linked = linked_memory;
+            declare_init_page_count = linked_memory->init_page_count;
+            declare_max_page_count = linked_memory->max_page_count;
         }
-
-        /**
-         * reset with linked memory limit
-         */
-        memory->import_module = sub_module;
-        memory->import_memory_linked = linked_memory;
-        declare_init_page_count = linked_memory->init_page_count;
-        declare_max_page_count = linked_memory->max_page_count;
     }
 #endif
 
