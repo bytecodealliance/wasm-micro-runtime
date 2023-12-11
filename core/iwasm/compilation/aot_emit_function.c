@@ -536,7 +536,7 @@ alloc_frame_for_aot_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             for (i = 0, j = 0; i < func_type->param_count; i++) {
                 if (aot_is_type_gc_reftype(func_type->types[i])
                     && !wasm_is_reftype_i31ref(func_type->types[i])) {
-                    for (k = 0; i < comp_ctx->pointer_size / sizeof(uint32);
+                    for (k = 0; k < comp_ctx->pointer_size / sizeof(uint32);
                          k++) {
                         /* frame_ref[j++] = 1 */
                         offset = I32_CONST(j);
