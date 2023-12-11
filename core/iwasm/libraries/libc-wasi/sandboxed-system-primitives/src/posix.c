@@ -1891,7 +1891,13 @@ wasmtime_ssp_fd_filestat_set_times(wasm_exec_env_t exec_env,
     if ((fstflags
          & ~(__WASI_FILESTAT_SET_ATIM | __WASI_FILESTAT_SET_ATIM_NOW
              | __WASI_FILESTAT_SET_MTIM | __WASI_FILESTAT_SET_MTIM_NOW))
-        != 0)
+            != 0
+        || (fstflags
+            & (__WASI_FILESTAT_SET_ATIM | __WASI_FILESTAT_SET_ATIM_NOW))
+               == (__WASI_FILESTAT_SET_ATIM | __WASI_FILESTAT_SET_ATIM_NOW)
+        || (fstflags
+            & (__WASI_FILESTAT_SET_MTIM | __WASI_FILESTAT_SET_MTIM_NOW))
+               == (__WASI_FILESTAT_SET_MTIM | __WASI_FILESTAT_SET_MTIM_NOW))
         return __WASI_EINVAL;
 
     struct fd_object *fo;
