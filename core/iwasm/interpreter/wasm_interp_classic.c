@@ -2152,7 +2152,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #if WASM_ENABLE_THREAD_MGR == 0
                     linear_mem_size = memory->memory_data_size;
 #else
-                    linear_mem_size = get_linear_mem_size();
+                    linear_mem_size = GET_LINEAR_MEMORY_SIZE(memory);
 #endif
 #endif
                 }
